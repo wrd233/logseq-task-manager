@@ -3,13 +3,29 @@ import {
   DEFAULT_EXPERIMENT_PAGE,
   PLUGIN_ID,
   canDeleteBlock,
+  checkPageOwnership,
   formatError,
   isCapabilityLabContent,
   makeExperimentContent,
+  makeLabPageProperties,
   normalizeSettings,
+  parsePageReference,
   summarizeText,
+  validateExperimentPageName,
   type LabSettings,
+  type PageOwnershipDecision,
 } from "./domain";
+import {
+  emptyRegistry,
+  parseRegistry,
+  registerBlock,
+  registerPage,
+  registerStorageKey,
+  removeBlockAssets,
+  removeStorageKey,
+  type LabBlockAsset,
+  type LabRegistry,
+} from "./registry";
 
 type CapabilityStatus = "pending" | "pass" | "fail" | "manual" | "unsupported";
 type Entity = Record<string, any> & { id?: number; uuid?: string; content?: string; name?: string };
@@ -22,20 +38,18 @@ interface Capability {
   detail: string;
 }
 
-interface StoredRegistry {
-  createdUuids: string[];
-  updatedAt: string;
-}
-
 interface RuntimeState {
   ready: boolean;
   settings: LabSettings;
   context: Record<string, unknown>;
-  createdUuids: Set<string>;
+  registry: LabRegistry;
+  registryWriteLocked: boolean;
+  registryWarnings: string[];
   operationLog: string[];
   eventLog: string[];
   queryResults: Array<{ uuid: string; summary: string }>;
   storageResult: unknown;
+  cleanupResult: unknown;
   lastError: string | null;
   capabilities: Capability[];
 }
@@ -55,11 +69,14 @@ const state: RuntimeState = {
   ready: false,
   settings: normalizeSettings(undefined),
   context: {},
-  createdUuids: new Set(),
+  registry: emptyRegistry(new Date(0).toISOString()),
+  registryWriteLocked: false,
+  registryWarnings: [],
   operationLog: [],
   eventLog: [],
   queryResults: [],
   storageResult: "尚未运行",
+  cleanupResult: "尚未运行",
   lastError: null,
   capabilities: [
     { id: "lifecycle", name: "Lifecycle", api: "logseq.ready / beforeunload", status: "pending", detail: "Waiting for Logseq runtime." },
@@ -157,66 +174,110 @@ function render(): void {
         <div><h1>Logseq Plugin Capability Lab</h1><p>File Graph 实验边界：${escapeHtml(state.settings.experimentPageName)}</p></div>
         <button class="close" data-action="close" aria-label="Close Capability Lab">×</button>
       </header>
-      <div class="ready-banner">Ready: ${state.ready ? "yes" : "no"} · 已记录测试块: ${state.createdUuids.size} · Query 结果: ${state.queryResults.length}</div>
+      <div class="ready-banner">Ready: ${state.ready ? "yes" : "no"} · 注册页: ${state.registry.pages.length} · 注册块: ${state.registry.blocks.length} · Query 结果: ${state.queryResults.length}</div>
       ${state.lastError ? `<div class="error-banner"><strong>最近错误：</strong>${escapeHtml(state.lastError)}</div>` : ""}
+      ${state.registryWarnings.length ? `<div class="error-banner"><strong>注册表警告：</strong>${escapeHtml(state.registryWarnings.join(" | "))}</div>` : ""}
+      ${state.registryWriteLocked ? `<div class="error-banner"><strong>安全锁定：</strong>原始注册表已保留；Graph 写入、清理和 unload 回写均已禁用，需人工恢复注册表。</div>` : ""}
       <div class="actions">
         <button data-action="context">读取当前上下文</button>
         <button data-action="open-page">查找/创建/打开实验页</button>
         <button data-action="crud">运行 Block CRUD</button>
         <button data-action="query">查询实验块</button>
         <button data-action="storage">写入并读取私有存储</button>
-        <button class="danger" data-action="cleanup">清理本插件创建的块</button>
+        <button class="danger" data-action="cleanup-blocks">清理已注册实验 Block</button>
+        <button class="danger" data-action="cleanup-storage">清理 FileStorage Probe</button>
+        <button class="danger" data-action="reset">重置 Capability Lab 状态</button>
       </div>
       <p class="muted">所有写入操作都需要明确点击；删除还会校验 UUID 注册表、双重标记和所属页面。</p>
       <h2>能力矩阵（运行时视图）</h2>
       <table class="capabilities"><thead><tr><th>能力</th><th>API</th><th>状态</th><th>详情</th></tr></thead><tbody>${rows}</tbody></table>
       <h2>当前上下文</h2><pre>${escapeHtml(json(state.context))}</pre>
       <h2>FileStorage 结果</h2><pre>${escapeHtml(json(state.storageResult))}</pre>
+      <h2>最近清理结果</h2><pre>${escapeHtml(json(state.cleanupResult))}</pre>
       <h2>最近操作</h2><ol class="log">${operations}</ol>
       <h2>稳定 API 事件</h2><ol class="log">${events}</ol>
     </section>`;
 }
 
 async function persistRegistry(): Promise<void> {
-  const value: StoredRegistry = {
-    createdUuids: [...state.createdUuids],
-    updatedAt: new Date().toISOString(),
-  };
-  await logseq.FileStorage.setItem(REGISTRY_KEY, JSON.stringify(value, null, 2));
+  if (state.registryWriteLocked) {
+    throw new Error("Registry writes are locked because stored registry data is damaged or uses an unsupported schema. Original data was preserved.");
+  }
+  state.registry = { ...state.registry, updatedAt: new Date().toISOString() };
+  await logseq.FileStorage.setItem(REGISTRY_KEY, JSON.stringify(state.registry, null, 2));
 }
 
 async function loadRegistry(): Promise<void> {
   const raw = await logseq.FileStorage.getItem(REGISTRY_KEY);
-  if (typeof raw !== "string" || raw.length === 0) return;
-  const parsed = JSON.parse(raw) as Partial<StoredRegistry>;
-  if (Array.isArray(parsed.createdUuids)) {
-    state.createdUuids = new Set(parsed.createdUuids.filter((value): value is string => typeof value === "string"));
+  const parsed = parseRegistry(raw, new Date().toISOString());
+  state.registry = parsed.registry;
+  state.registryWarnings = parsed.warnings;
+  state.registryWriteLocked = parsed.degraded;
+  if (parsed.migrated) await persistRegistry();
+}
+
+function assertRegistryWritable(): void {
+  if (state.registryWriteLocked) {
+    throw new Error("Capability Lab writes and cleanup are locked to preserve a damaged or unsupported registry. Inspect/export the original FileStorage registry before manual recovery.");
   }
 }
 
-async function resolvePageName(block: Entity): Promise<string | null> {
-  const pageId = block.page?.id;
-  if (typeof pageId !== "number") return null;
-  const page = await logseq.Editor.getPage(pageId);
-  return page?.originalName ?? page?.name ?? null;
+async function resolvePageEntity(reference: unknown): Promise<{
+  page: Entity | null;
+  resolution: ReturnType<typeof parsePageReference>;
+}> {
+  const resolution = parsePageReference(reference);
+  for (const identity of resolution.identities) {
+    const page = await logseq.Editor.getPage(identity);
+    if (page) return { page: page as Entity, resolution };
+  }
+  return { page: null, resolution };
 }
 
-async function ensureExperimentPage(): Promise<Entity> {
-  const pageName = state.settings.experimentPageName;
+async function ensureExperimentPage(): Promise<{ page: Entity; ownership: PageOwnershipDecision }> {
+  const validation = validateExperimentPageName(state.settings.experimentPageName);
+  if (!validation.valid) {
+    updateCapability("page", "fail", validation.reason);
+    throw new Error(validation.reason);
+  }
+  assertRegistryWritable();
+  const pageName = validation.pageName;
   let page = await logseq.Editor.getPage(pageName);
   if (!page) {
+    const labPageId = `lab-page-${await logseq.Editor.newBlockUUID()}`;
     page = await logseq.Editor.createPage(
       pageName,
-      { "capability-lab": true, "capability-lab-owner": PLUGIN_ID },
+      makeLabPageProperties(labPageId),
       { redirect: false, createFirstBlock: false, format: "markdown" },
     );
     if (!page) throw new Error("Logseq did not return the newly created experiment page.");
+    page = await logseq.Editor.getPage(page.uuid) ?? page;
     logOperation("Created dedicated experiment page", { pageName, uuid: page.uuid });
   } else {
     logOperation("Found dedicated experiment page", { pageName, uuid: page.uuid });
   }
-  updateCapability("page", "pass", `Found or created ${pageName}; UUID ${page.uuid}.`);
-  return page;
+  const ownership = checkPageOwnership(page);
+  if (!ownership.owned || !ownership.pageUuid || !ownership.labPageId) {
+    updateCapability("page", "fail", `Refused page '${pageName}': ${ownership.reason}`);
+    throw new Error(`Refused to use existing page '${pageName}': ${ownership.reason} Choose another page under Task Copilot Lab/.`);
+  }
+  const existing = state.registry.pages.find((item) => item.pageUuid === ownership.pageUuid);
+  const sameStableId = state.registry.pages.find((item) => item.labPageId === ownership.labPageId);
+  if (existing && existing.labPageId !== ownership.labPageId) {
+    throw new Error(`Refused page '${pageName}': stable lab page ID drifted from '${existing.labPageId}' to '${ownership.labPageId}'.`);
+  }
+  if (sameStableId && sameStableId.pageUuid !== ownership.pageUuid) {
+    throw new Error(`Refused page '${pageName}': stable lab page ID '${ownership.labPageId}' is already registered to another page UUID.`);
+  }
+  state.registry = registerPage(state.registry, {
+    pageUuid: ownership.pageUuid,
+    pageNameAtCreation: existing?.pageNameAtCreation ?? pageName,
+    labPageId: ownership.labPageId,
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+  }, new Date().toISOString());
+  await persistRegistry();
+  updateCapability("page", "pass", `Owned lab page verified: ${pageName}; UUID ${ownership.pageUuid}; labPageId ${ownership.labPageId}.`);
+  return { page: page as Entity, ownership };
 }
 
 async function refreshContext(): Promise<void> {
@@ -236,7 +297,7 @@ async function refreshContext(): Promise<void> {
     editingBlock: block ? {
       id: block.id,
       uuid: block.uuid,
-      content: block.content || "当前不可用",
+      content: block.content ?? "当前不可用",
       parent: block.parent ?? "当前不可用",
       page: block.page ?? "当前不可用",
       children: block.children ?? "当前不可用",
@@ -248,9 +309,9 @@ async function refreshContext(): Promise<void> {
 
 async function openExperimentPage(): Promise<void> {
   if (!confirmWrite("This may create the dedicated experiment page if it does not exist. Continue?")) return;
-  await ensureExperimentPage();
-  logseq.App.pushState("page", { name: state.settings.experimentPageName });
-  logOperation("Opened dedicated experiment page", state.settings.experimentPageName);
+  const { ownership } = await ensureExperimentPage();
+  logseq.App.pushState("page", { name: ownership.pageName ?? state.settings.experimentPageName });
+  logOperation("Opened dedicated experiment page", { pageName: ownership.pageName, pageUuid: ownership.pageUuid });
 }
 
 function confirmWrite(message: string): boolean {
@@ -259,14 +320,18 @@ function confirmWrite(message: string): boolean {
 
 async function runCrudExperiment(): Promise<void> {
   if (!confirmWrite(`Create and update marked test blocks only on '${state.settings.experimentPageName}'?`)) return;
-  await ensureExperimentPage();
+  const { ownership } = await ensureExperimentPage();
+  if (!ownership.pageUuid) throw new Error("Owned experiment page has no UUID.");
   const runId = `run-${Date.now()}`;
+  const createdAt = new Date().toISOString();
   const initialContent = makeExperimentContent("Capability Lab parent block", runId);
-  const parent = await logseq.Editor.appendBlockInPage(state.settings.experimentPageName, initialContent, {
+  const parent = await logseq.Editor.appendBlockInPage(ownership.pageUuid, initialContent, {
     properties: { "capability-lab": true, "capability-lab-owner": PLUGIN_ID, "capability-lab-run": runId },
   });
   if (!parent?.uuid) throw new Error("Parent block creation returned no UUID.");
-  state.createdUuids.add(parent.uuid);
+  state.registry = registerBlock(state.registry, {
+    blockUuid: parent.uuid, pageUuid: ownership.pageUuid, runId, createdAt,
+  }, new Date().toISOString());
   await persistRegistry();
   logOperation("Created parent block", { uuid: parent.uuid, runId });
 
@@ -291,7 +356,9 @@ async function runCrudExperiment(): Promise<void> {
     },
   );
   if (!child?.uuid) throw new Error("Child block creation returned no UUID.");
-  state.createdUuids.add(child.uuid);
+  state.registry = registerBlock(state.registry, {
+    blockUuid: child.uuid, pageUuid: ownership.pageUuid, runId, createdAt: new Date().toISOString(),
+  }, new Date().toISOString());
   await persistRegistry();
 
   const [parentWithChildren, childByUuid] = await Promise.all([
@@ -300,9 +367,10 @@ async function runCrudExperiment(): Promise<void> {
   ]);
   if (!parentWithChildren || !childByUuid) throw new Error("Parent/child UUID reread failed.");
 
-  const parentPageName = await resolvePageName(parentWithChildren as Entity);
-  if (parentPageName !== state.settings.experimentPageName) {
-    throw new Error(`Safety boundary mismatch: created block resolved to page '${parentPageName ?? "unknown"}'.`);
+  const resolvedPage = await resolvePageEntity((parentWithChildren as Entity).page);
+  const runtimeOwnership = checkPageOwnership(resolvedPage.page);
+  if (!runtimeOwnership.owned || runtimeOwnership.pageUuid !== ownership.pageUuid) {
+    throw new Error(`Safety boundary mismatch after block creation: ${runtimeOwnership.reason}; observed ${resolvedPage.resolution.observedShape}`);
   }
 
   updateCapability("block", "pass", `Created, read, updated, and added child. Parent ${parent.uuid}; child ${child.uuid}.`);
@@ -332,6 +400,7 @@ async function runQueryExperiment(): Promise<void> {
 }
 
 async function runStorageExperiment(): Promise<void> {
+  assertRegistryWritable();
   const probe = {
     kind: "non-sensitive-capability-lab-probe",
     pluginId: PLUGIN_ID,
@@ -341,48 +410,114 @@ async function runStorageExperiment(): Promise<void> {
   await logseq.FileStorage.setItem(STORAGE_TEST_KEY, JSON.stringify(probe, null, 2));
   const raw = await logseq.FileStorage.getItem(STORAGE_TEST_KEY);
   state.storageResult = typeof raw === "string" ? JSON.parse(raw) : raw;
+  state.registry = registerStorageKey(state.registry, STORAGE_TEST_KEY, new Date().toISOString());
+  await persistRegistry();
   updateCapability("storage", "pass", `Wrote and reread ${STORAGE_TEST_KEY}. Physical location/sync behavior remains manual/undocumented.`);
   logOperation("Completed FileStorage round trip", state.storageResult);
 }
 
-async function cleanupCreatedBlocks(): Promise<void> {
-  if (!window.confirm("Delete only registered, marked Capability Lab blocks on the configured experiment page? The page itself will remain.")) return;
-  const uuids = [...state.createdUuids].reverse();
-  let removed = 0;
-  const refused: string[] = [];
+interface BlockCleanupReport {
+  deleted: string[];
+  missing: string[];
+  refused: Array<{ blockUuid: string; reason: string; observedPageShape?: string }>;
+}
 
-  for (const uuid of uuids) {
+async function cleanupRegisteredBlocks(requireConfirmation = true): Promise<BlockCleanupReport> {
+  assertRegistryWritable();
+  if (requireConfirmation && !window.confirm("Delete only registry-owned, marked Capability Lab blocks from their creation-time owned pages? Lab pages remain.")) {
+    return { deleted: [], missing: [], refused: [] };
+  }
+  const report: BlockCleanupReport = { deleted: [], missing: [], refused: [] };
+  const removable = new Set<string>();
+
+  for (const originalAsset of [...state.registry.blocks].reverse()) {
+    const uuid = originalAsset.blockUuid;
     const block = await logseq.Editor.getBlock(uuid, { includeChildren: true });
     if (!block) {
-      state.createdUuids.delete(uuid);
+      report.missing.push(uuid);
+      removable.add(uuid);
       continue;
     }
-    const pageName = await resolvePageName(block as Entity);
+    if (!isCapabilityLabContent(block.content)) {
+      report.refused.push({ blockUuid: uuid, reason: "Required capability lab block markers are missing." });
+      continue;
+    }
+    const resolvedPage = await resolvePageEntity((block as Entity).page);
+    const ownership = checkPageOwnership(resolvedPage.page);
+    const asset: LabBlockAsset = originalAsset;
+    if (!asset.pageUuid) {
+      report.refused.push({
+        blockUuid: uuid,
+        reason: "Migrated legacy asset has no creation-time page UUID. Cleanup will not write page properties or guess ownership; retain it for explicit manual recovery.",
+        observedPageShape: resolvedPage.resolution.observedShape,
+      });
+      continue;
+    }
+    const registeredPage = state.registry.pages.find((item) => item.pageUuid === asset.pageUuid);
     const decision = canDeleteBlock(
-      { uuid, content: block.content, pageName },
-      state.createdUuids,
-      state.settings.experimentPageName,
+      { uuid, content: block.content, resolvedPageUuid: ownership.pageUuid },
+      asset,
+      registeredPage,
+      ownership,
     );
     if (!decision.allowed) {
-      refused.push(`${uuid}: ${decision.reason}`);
+      report.refused.push({ blockUuid: uuid, reason: decision.reason, observedPageShape: resolvedPage.resolution.observedShape });
       continue;
     }
     await logseq.Editor.removeBlock(uuid);
     const afterDelete = await logseq.Editor.getBlock(uuid);
     if (afterDelete) {
-      refused.push(`${uuid}: UUID still resolves after removeBlock.`);
+      report.refused.push({ blockUuid: uuid, reason: "UUID still resolves after removeBlock." });
       continue;
     }
-    state.createdUuids.delete(uuid);
-    removed += 1;
+    report.deleted.push(uuid);
+    removable.add(uuid);
   }
 
+  state.registry = removeBlockAssets(state.registry, removable, new Date().toISOString());
   await persistRegistry();
-  if (refused.length) {
-    throw new Error(`Cleanup removed ${removed}; refused ${refused.length}: ${refused.join(" | ")}`);
+  state.cleanupResult = report;
+  updateCapability("block", report.refused.length ? "fail" : "pass", `Cleanup deleted ${report.deleted.length}, missing ${report.missing.length}, refused ${report.refused.length}; pages retained.`);
+  logOperation("Cleaned registered test blocks", report);
+  return report;
+}
+
+async function cleanupStorageProbe(requireConfirmation = true): Promise<{ removed: boolean; verifiedMissing: boolean }> {
+  assertRegistryWritable();
+  if (requireConfirmation && !window.confirm(`Remove only the Capability Lab probe '${STORAGE_TEST_KEY}'?`)) {
+    return { removed: false, verifiedMissing: false };
   }
-  updateCapability("block", "pass", `Cleanup removed ${removed} registered and marked block(s); experiment page was retained.`);
-  logOperation("Cleaned plugin-created test blocks", { removed });
+  await logseq.FileStorage.removeItem(STORAGE_TEST_KEY);
+  const after = await logseq.FileStorage.getItem(STORAGE_TEST_KEY);
+  const verifiedMissing = after === undefined || after === null;
+  if (!verifiedMissing) throw new Error(`FileStorage probe still exists after removeItem: ${summarizeText(JSON.stringify(after))}`);
+  state.registry = removeStorageKey(state.registry, STORAGE_TEST_KEY, new Date().toISOString());
+  state.storageResult = "Probe removed and absence verified.";
+  await persistRegistry();
+  const report = { removed: true, verifiedMissing };
+  state.cleanupResult = report;
+  logOperation("Cleaned FileStorage probe", report);
+  return report;
+}
+
+async function resetLabState(): Promise<void> {
+  assertRegistryWritable();
+  if (!window.confirm("Reset Capability Lab state: clean all safely registered blocks, remove the probe, and rebuild the registry? Owned lab pages will remain.")) return;
+  const blocks = await cleanupRegisteredBlocks(false);
+  const storage = await cleanupStorageProbe(false);
+  if (blocks.refused.length === 0) {
+    state.registry = emptyRegistry(new Date().toISOString());
+    state.registryWarnings = [];
+    if (!state.registryWriteLocked) await persistRegistry();
+  }
+  state.cleanupResult = {
+    resetCompleted: blocks.refused.length === 0,
+    pagesRetained: true,
+    blocks,
+    storage,
+    registry: blocks.refused.length === 0 ? "rebuilt empty" : "retained because some blocks were refused",
+  };
+  logOperation("Reset Capability Lab state", state.cleanupResult);
 }
 
 async function guarded(actionName: string, action: () => Promise<void>): Promise<void> {
@@ -417,7 +552,9 @@ function bindUi(): void {
       crud: () => void guarded("Block CRUD", runCrudExperiment),
       query: () => void guarded("DataScript query", runQueryExperiment),
       storage: () => void guarded("FileStorage round trip", runStorageExperiment),
-      cleanup: () => void guarded("cleanup", cleanupCreatedBlocks),
+      "cleanup-blocks": () => void guarded("block cleanup", async () => { await cleanupRegisteredBlocks(); }),
+      "cleanup-storage": () => void guarded("FileStorage cleanup", async () => { await cleanupStorageProbe(); }),
+      reset: () => void guarded("Capability Lab reset", resetLabState),
     };
     actions[action]?.();
   });
@@ -449,7 +586,10 @@ function registerEvents(): void {
   }));
   offHooks.push(logseq.onSettingsChanged((next, previous) => {
     state.settings = normalizeSettings(next as Record<string, unknown>);
-    updateCapability("settings", "pass", `Settings change event observed. Page is '${state.settings.experimentPageName}'. Reload persistence still requires manual verification.`);
+    const validation = validateExperimentPageName(state.settings.experimentPageName);
+    updateCapability("settings", validation.valid ? "pass" : "fail", validation.valid
+      ? `Settings change observed. Page '${validation.pageName}' is in the fixed namespace; reload persistence remains manual.`
+      : `Settings change observed but writes are disabled: ${validation.reason}`);
     logEvent("settings changed", { next, previous });
   }));
 }
@@ -468,6 +608,9 @@ async function main(): Promise<void> {
     }
   `);
   await loadRegistry();
+  if (state.registryWarnings.length > 0) {
+    logOperation("Registry loaded with safe degradation warnings", state.registryWarnings);
+  }
   state.ready = true;
   updateCapability("lifecycle", "pass", `Plugin initialized as ${logseq.baseInfo.id}; unload hook registered.`);
   logOperation("Capability Lab ready", { pluginId: logseq.baseInfo.id, settings: state.settings });
@@ -476,7 +619,7 @@ async function main(): Promise<void> {
 
   logseq.beforeunload(async () => {
     for (const off of offHooks.splice(0)) off();
-    await persistRegistry();
+    if (!state.registryWriteLocked) await persistRegistry();
     logseq.hideMainUI();
     console.info(`[${PLUGIN_ID}] unloaded`);
   });
@@ -484,7 +627,7 @@ async function main(): Promise<void> {
 
 const settingsSchema = [
   { key: "verboseLogging", type: "boolean" as const, default: false, title: "Verbose logging", description: "Write detailed capability lab diagnostics to the Logseq developer console." },
-  { key: "experimentPageName", type: "string" as const, default: DEFAULT_EXPERIMENT_PAGE, title: "Experiment page name", description: "The only page on which this plugin may create marked test blocks." },
+  { key: "experimentPageName", type: "string" as const, default: DEFAULT_EXPERIMENT_PAGE, title: "Experiment page name", description: "Must start with Task Copilot Lab/. Existing pages must carry this plugin's ownership properties." },
   { key: "confirmWrites", type: "boolean" as const, default: true, title: "Confirm Graph writes", description: "Ask for confirmation before page or block write experiments." },
 ];
 

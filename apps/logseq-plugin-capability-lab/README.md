@@ -2,7 +2,7 @@
 
 A deliberately small, safety-bounded plugin used to test Logseq File Graph plugin capabilities. It is not the task-management MVP.
 
-The plugin may write only to the configured experiment page (default: `Logseq Plugin Capability Lab`). Every created block carries visible ownership markers and is recorded in plugin-private storage. Cleanup requires registry membership, both markers, and an exact owning-page match.
+The plugin may write only below the fixed `Task Copilot Lab/` namespace (default: `Task Copilot Lab/Capability Lab`). Existing pages must also carry this plugin's page-owner properties. A versioned private registry records page UUIDs, block UUIDs, runs, and probe keys so historical pages remain cleanable after a setting change. Cleanup requires registry membership, both block markers, creation-time page UUID, and current page ownership.
 
 ```bash
 export PATH="/opt/homebrew/opt/node@20/bin:$PATH"

@@ -5,7 +5,10 @@
 - The repository is a conventional Logseq File Graph and was clean before the experiment branch was created.
 - Stable npm `@logseq/libs@0.0.17` type declarations contain the required toolbar, command, slash command, context, Page/Block, DataScript, settings, FileStorage, route, Graph, DB change, and unload APIs.
 - The plugin compiles and bundles without a UI framework.
-- Pure safety logic refuses deletion unless UUID registry, both ownership markers, and exact experiment-page ownership agree.
+- Pure safety logic rejects empty, Journal/business, `Project/...`, `Area/...`, and all non-`Task Copilot Lab/` page names.
+- Existing pages require page UUID plus three ownership properties; block deletion requires the versioned asset registry, both visible markers, creation-time page UUID, and current page ownership.
+- The registry parser preserves unresolved legacy UUID assets across schema-v1 round trips. Because those assets lack a trustworthy creation-time page UUID and stable lab page ID, automatic cleanup refuses and retains them without writing page properties or guessing ownership. Malformed schema-v1 structures, damaged JSON, and unknown schemas load read-only: Graph writes, cleanup, and unload writeback are locked so original evidence is not overwritten.
+- Page-reference adaptation accepts numeric IDs, strings, `{id}`, `{uuid}`, and `{name}` while preserving an observed-shape summary on failure.
 - Package metadata and generated artifact shape are automatically checkable.
 
 These facts do **not** prove that a particular Logseq Desktop build executes every API correctly.
@@ -15,7 +18,7 @@ These facts do **not** prove that a particular Logseq Desktop build executes eve
 - Page and Block CRUD, parent/child data, structured properties, and UUID reread are implemented but await real runtime transactions.
 - DataScript query is implemented against `:block/properties`, then owner-filtered in JavaScript. File Graph versions may differ in property values or pull shape.
 - Settings change events are implemented; persistence across reload is manual.
-- FileStorage round trip is implemented; its actual physical location and lifecycle are not inferred from the public type surface.
+- FileStorage round trip and separate probe removal are implemented; the reset path rebuilds only this Lab's registry. Physical location and lifecycle are not inferred from the public type surface.
 - Route, current-Graph, and DB transaction events are official SDK hooks, but delivery/duplication behavior requires runtime observation.
 - Main UI styling and toolbar placement depend on the Desktop host/theme.
 
@@ -40,7 +43,7 @@ The stable File Graph SDK package currently produces npm audit findings through 
 
 If manual tests pass, a future MVP can likely build on UUID-based anchors, explicit structured properties, normal SDK CRUD, guarded query/index refresh, and official navigation/DB events. It should keep an abstraction boundary around Graph access so File Graph serialization and any future DB Graph adapter do not leak into domain logic.
 
-Do not yet make UUID move/undo stability, FileStorage backup, settings persistence, editing-state events, or exact DataScript property shape foundational assumptions. Each needs evidence in `CAPABILITY_MATRIX.md`.
+Do not yet make runtime page-reference shapes, page-property serialization, UUID move/undo stability, FileStorage backup, settings persistence, editing-state events, or exact DataScript property shape foundational assumptions. Each needs Desktop evidence in `CAPABILITY_MATRIX.md` and `RUNTIME_TEST_LOG.md`.
 
 ## Mechanisms the next phase must not depend on
 

@@ -6,7 +6,7 @@ The stable SDK declarations expose plugin lifecycle, toolbar, command palette, s
 
 ## Build confirmed
 
-TypeScript, ESLint, pure-function tests, esbuild production output, package metadata, and artifact checks run from the outer repository. This confirms source/build integrity, not Desktop behavior.
+TypeScript, ESLint, 13 pure-function tests, esbuild production output, package metadata, artifact checks, and repository-boundary checks run from the outer repository. Tests cover current/legacy page ownership and stable-ID drift, multiple runtime page-reference shapes, deletion scope, setting changes, legacy round-trip preservation, damaged-registry degradation, multiple historical pages, and storage keys. This confirms source/build integrity, not Desktop behavior.
 
 ## Runtime confirmation pending
 

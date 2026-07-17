@@ -35,9 +35,15 @@ Captured 2026-07-17 after separating the outer development repository from the n
 5. File Graph and DB Graph have different data/property/query semantics. Nothing in this report proves DB Graph compatibility.
 6. Event timing, settings persistence, FileStorage placement, and UUID stability require actual Logseq Desktop testing.
 
+The hardened offline suite currently contains 13 tests covering the fixed page namespace, explicit empty-setting rejection, current/legacy page ownership refusal, namespace and stable page-ID drift refusal, runtime page-reference shapes, block deletion scope, setting-name-independent cleanup, legacy registry migration and round-trip preservation, malformed schema-v1 degradation, multiple historical pages, and storage-key registration.
+
 ## Repository noise policy
 
 - **Commit:** Lab source, docs, package metadata, `package-lock.json`, tests, `.nvmrc`, and intentional `.gitignore` additions.
 - **Do not commit:** `node_modules/`, `dist/`, `.parcel-cache/`, `.vite/`, `coverage/`, logs, `.DS_Store`, runtime temporary files.
-- **User decision:** intentional experiment page, Logseq configuration changes, plugin settings/private storage, and any Logseq-generated metadata. These must be reviewed after closing Logseq.
-- Existing Logseq configuration and ignore entries are preserved; the Lab does not blanket-ignore the `logseq/` directory.
+- **Runtime fixture only:** intentional experiment pages, Logseq configuration changes, plugin settings/private storage, and Logseq-generated metadata remain inside the nested Graph and are informational to the outer repository.
+- Existing inner-Graph configuration and ignore entries are preserved. The outer repository deliberately ignores the entire top-level `logseq/` directory; the inner repository does not blanket-ignore its own Graph.
+
+## Boundary verification snapshot
+
+The required topology commands were rerun on 2026-07-17. The outer top-level is `/Users/wangrundong/work/任务管理中心-logseq插件`; the nested top-level is `/Users/wangrundong/work/任务管理中心-logseq插件/logseq`. The inner branch remains `experiment/logseq-plugin-capability-lab`; `origin` remains `https://github.com/wrd233/Logseq_File.git` for both fetch and push, with the local pre-push hook blocking any push. Its informational status contained modifications to `.gitignore` and `pages/551-8.22.md`, plus untracked `pages/task-copilot-logseq-bridge.md` and `tools.zip`. None appears in outer `git status`, and none is an outer commit gate.

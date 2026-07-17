@@ -14,7 +14,8 @@ fail() {
 cd "$repo_root"
 
 git check-ignore -q logseq/pages/task-copilot-logseq-bridge.md || fail "logseq/ is not ignored"
-[ -z "$(git ls-files 'logseq/**')" ] || fail "outer index contains logseq/ paths"
+tracked_logseq=$(git ls-files --stage -- logseq 'logseq/**')
+[ -z "$tracked_logseq" ] || fail "outer index contains logseq paths or a gitlink:\n$tracked_logseq"
 
 forbidden=$(git ls-files | grep -E '(^|/)(node_modules|dist|\.parcel-cache|\.vite|coverage)(/|$)|(^|/)(\.DS_Store|[^/]*\.log)$' || true)
 [ -z "$forbidden" ] || fail "generated paths are tracked:\n$forbidden"
@@ -25,7 +26,7 @@ forbidden=$(git ls-files | grep -E '(^|/)(node_modules|dist|\.parcel-cache|\.vit
 plugin_dirs=$(find . -path './.git' -prune -o -path './logseq' -prune -o -type d -name logseq-plugin-capability-lab -print)
 [ "$plugin_dirs" = "./apps/logseq-plugin-capability-lab" ] || fail "unexpected plugin source locations: $plugin_dirs"
 
-old_path='/Users/wangrundong/work/任务管理中心-logseq插件/logseq/tools/logseq-plugin-capability-lab'
+old_path="$repo_root/logseq/tools/logseq-plugin-capability-lab"
 if rg -n --hidden --glob '!.git/**' --glob '!logseq/**' --glob '!**/node_modules/**' --glob '!**/dist/**' --glob '!scripts/check-repository-boundary.sh' "$old_path" .; then
   fail "documentation or source still references the old absolute load path"
 fi

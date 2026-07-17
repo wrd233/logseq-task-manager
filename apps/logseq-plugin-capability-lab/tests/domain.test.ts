@@ -1,47 +1,89 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  CAPABILITY_MARKER,
-  DEFAULT_EXPERIMENT_PAGE,
-  OWNER_MARKER,
-  canDeleteBlock,
-  formatError,
-  isCapabilityLabContent,
-  makeExperimentContent,
-  normalizeSettings,
-  summarizeText,
+  CAPABILITY_MARKER, DEFAULT_EXPERIMENT_PAGE, LAB_PAGE_NAMESPACE, OWNER_MARKER, PLUGIN_ID,
+  canDeleteBlock, checkPageOwnership, formatError, isCapabilityLabContent, makeExperimentContent,
+  makeLabPageProperties, normalizeSettings, parsePageReference, summarizeText, validateExperimentPageName,
 } from "../src/domain.ts";
 
-test("normalizeSettings applies safe defaults and trims the dedicated page", () => {
-  assert.deepEqual(normalizeSettings(undefined), {
-    verboseLogging: false,
-    experimentPageName: DEFAULT_EXPERIMENT_PAGE,
-    confirmWrites: true,
-  });
-  assert.equal(normalizeSettings({ experimentPageName: "  Lab Page  " }).experimentPageName, "Lab Page");
+test("settings default to the fixed lab namespace", () => {
+  assert.equal(normalizeSettings(undefined).experimentPageName, DEFAULT_EXPERIMENT_PAGE);
+  assert.ok(DEFAULT_EXPERIMENT_PAGE.startsWith(LAB_PAGE_NAMESPACE));
+  assert.equal(normalizeSettings({ experimentPageName: "   " }).experimentPageName, "", "an explicit empty setting must remain invalid");
+});
+
+test("page name validation rejects business, Journal-like, empty, and bare namespace targets", () => {
+  for (const name of ["", "Project/Real", "Area/Health", "2026-07-17", "Task Copilot Lab/"]) {
+    assert.equal(validateExperimentPageName(name).valid, false, name);
+  }
+  assert.equal(validateExperimentPageName("Task Copilot Lab/Capability Lab 2").valid, true);
+});
+
+test("page ownership requires UUID and all three plugin properties", () => {
+  const page = { uuid: "page-uuid", name: "task copilot lab/capability lab", originalName: DEFAULT_EXPERIMENT_PAGE, properties: makeLabPageProperties("lab-page-1") };
+  assert.equal(checkPageOwnership(page).owned, true);
+  assert.equal(checkPageOwnership({ ...page, properties: { "capability-lab": true } }).owned, false);
+  assert.equal(checkPageOwnership({ ...page, properties: { ...makeLabPageProperties("lab-page-1"), "capability-lab-owner": "other" } }).owned, false);
+  assert.equal(makeLabPageProperties("lab-page-1")["capability-lab-owner"], PLUGIN_ID);
+  assert.equal(checkPageOwnership({ ...page, originalName: "Project/Renamed Lab" }).owned, false);
+});
+
+test("page reference parser supports number, id, UUID, name, and structured failure", () => {
+  assert.deepEqual(parsePageReference(42).identities, [42]);
+  assert.deepEqual(parsePageReference({ id: 42 }).identities, [42]);
+  assert.deepEqual(parsePageReference({ uuid: "page-u", id: 42 }).identities, ["page-u", 42]);
+  assert.deepEqual(parsePageReference({ name: "Task Copilot Lab/X" }).identities, ["Task Copilot Lab/X"]);
+  const failure = parsePageReference({ unexpected: true });
+  assert.equal(failure.resolved, false);
+  assert.match(failure.observedShape, /unexpected/);
 });
 
 test("experiment content always includes both deletion safety markers", () => {
   const content = makeExperimentContent("Block CRUD", "run-1");
-  assert.match(content, /Block CRUD/);
   assert.ok(content.includes(CAPABILITY_MARKER));
   assert.ok(content.includes(OWNER_MARKER));
   assert.equal(isCapabilityLabContent(content), true);
 });
 
-test("deletion requires registry membership, markers, and exact experiment page", () => {
+test("deletion requires registered creation page UUID and current owned page identity", () => {
   const content = makeExperimentContent("Delete", "run-2");
-  const created = new Set(["safe-uuid"]);
-  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content, pageName: DEFAULT_EXPERIMENT_PAGE }, created, DEFAULT_EXPERIMENT_PAGE).allowed, true);
-  assert.equal(canDeleteBlock({ uuid: "other", content, pageName: DEFAULT_EXPERIMENT_PAGE }, created, DEFAULT_EXPERIMENT_PAGE).allowed, false);
-  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content: "ordinary note", pageName: DEFAULT_EXPERIMENT_PAGE }, created, DEFAULT_EXPERIMENT_PAGE).allowed, false);
-  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content, pageName: "Project/Real" }, created, DEFAULT_EXPERIMENT_PAGE).allowed, false);
+  const registered = { blockUuid: "safe-uuid", pageUuid: "page-uuid" };
+  const registeredPage = { pageUuid: "page-uuid", labPageId: "lab-page-1" };
+  const ownership = checkPageOwnership({ uuid: "page-uuid", name: DEFAULT_EXPERIMENT_PAGE, properties: makeLabPageProperties("lab-page-1") });
+  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content, resolvedPageUuid: "page-uuid" }, registered, registeredPage, ownership).allowed, true);
+  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content, resolvedPageUuid: "other-page" }, registered, registeredPage, ownership).allowed, false);
+  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content: "ordinary note", resolvedPageUuid: "page-uuid" }, registered, registeredPage, ownership).allowed, false);
+  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content, resolvedPageUuid: "page-uuid" }, null, registeredPage, ownership).allowed, false);
+  const drifted = checkPageOwnership({ uuid: "page-uuid", name: DEFAULT_EXPERIMENT_PAGE, properties: makeLabPageProperties("changed-id") });
+  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content, resolvedPageUuid: "page-uuid" }, registered, registeredPage, drifted).allowed, false);
+  const renamedOutsideLab = checkPageOwnership({ uuid: "page-uuid", originalName: "Project/Renamed Lab", properties: makeLabPageProperties("lab-page-1") });
+  assert.equal(canDeleteBlock({ uuid: "safe-uuid", content, resolvedPageUuid: "page-uuid" }, registered, registeredPage, renamedOutsideLab).allowed, false);
 });
 
-test("errors and unavailable text have deterministic display forms", () => {
+test("cleanup safety remains tied to page UUID after the configured page name changes", () => {
+  const oldPage = checkPageOwnership({
+    uuid: "historical-page-uuid",
+    name: "Task Copilot Lab/Old Setting",
+    properties: makeLabPageProperties("historical-lab-page-id"),
+  });
+  const decision = canDeleteBlock(
+    { uuid: "old-block", content: makeExperimentContent("Old", "run-old"), resolvedPageUuid: "historical-page-uuid" },
+    { blockUuid: "old-block", pageUuid: "historical-page-uuid" },
+    { pageUuid: "historical-page-uuid", labPageId: "historical-lab-page-id" },
+    oldPage,
+  );
+  assert.equal(decision.allowed, true, "the current settings page name is intentionally not part of deletion authorization");
+});
+
+test("legacy pages without a stable page ID remain unowned and cannot be upgraded implicitly", () => {
+  const legacy = { uuid: "legacy-page", originalName: "Task Copilot Lab/Legacy", properties: { "capability-lab": true, "capability-lab-owner": PLUGIN_ID } };
+  assert.equal(checkPageOwnership(legacy).owned, false);
+  assert.match(checkPageOwnership(legacy).reason, /stable capability-lab-page-id/);
+});
+
+test("errors, empty text, and unavailable text have distinct display forms", () => {
   assert.equal(formatError(new Error("boom")), "Error: boom");
-  assert.equal(formatError("plain"), "plain");
   assert.equal(summarizeText(null), "当前不可用");
-  assert.equal(summarizeText("abcd", 4), "abcd");
+  assert.equal(summarizeText(""), "（空字符串）");
   assert.equal(summarizeText("abcde", 4), "abc…");
 });

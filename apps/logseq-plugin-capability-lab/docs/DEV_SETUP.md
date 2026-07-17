@@ -4,7 +4,7 @@
 
 This package is only a Logseq Plugin Capability Lab. It must not implement Inbox, Task, MiniProject, Agent review, workflow state machines, or a production task-management UI.
 
-Graph writes are permitted only after an explicit UI action and only on the configured experiment page, initially `Logseq Plugin Capability Lab`. Cleanup checks the plugin's UUID registry, ownership markers, and owning page before calling `removeBlock`. The plugin never deletes the experiment page.
+Graph writes are permitted only after an explicit UI action and only below `Task Copilot Lab/`, initially `Task Copilot Lab/Capability Lab`. Existing pages must pass plugin ownership-property checks. Cleanup checks the versioned registry, visible block markers, creation-time page UUID, and current page ownership before calling `removeBlock`. The plugin never deletes experiment pages.
 
 ## Requirements
 
@@ -102,10 +102,11 @@ Watch mode rebuilds files; it does not hot-reload Logseq's plugin runtime.
 ## Clean experiment data
 
 1. Open the Capability Lab panel.
-2. Click **清理本插件创建的块** and confirm.
-3. Verify the operation log reports removed UUIDs and no refusal.
-4. Open the experiment page and manually inspect any remaining blocks.
-5. The page is deliberately retained. Delete it manually only after confirming it contains no wanted data.
+2. Click **清理已注册实验 Block** and confirm; verify deleted, missing, and refused lists.
+3. Click **清理 FileStorage Probe** and confirm; verify the reread reports the key missing.
+4. To clear both and rebuild the registry, use **重置 Capability Lab 状态**. A refusal prevents registry erasure so an owned block cannot become an orphan silently.
+5. Open every historical `Task Copilot Lab/...` page listed in the runtime evidence and inspect remaining blocks.
+6. Lab pages are deliberately retained. Delete one manually only after confirming it contains no wanted data.
 
 ## Uninstall
 

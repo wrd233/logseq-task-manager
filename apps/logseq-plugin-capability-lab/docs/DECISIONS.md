@@ -36,7 +36,7 @@ The existing Graph is a valuable File Graph and must not be migrated for a capab
 
 ## Safety-first write and cleanup model
 
-Writes require an explicit panel action and can target only the configured experiment page. Created UUIDs are persisted privately. Deletion requires current registry membership, both visible ownership markers, and exact page resolution. The experiment page itself is retained for manual inspection. This is an experimental safety mechanism, not a complete production authorization model.
+Writes require an explicit panel action and a validated name below `Task Copilot Lab/`. Existing pages must expose the plugin marker, exact owner ID, stable lab page ID, and page UUID. A schema-versioned private registry tracks multiple page UUIDs, block UUIDs, runs, and storage probes, so a setting change does not orphan historical assets. Deletion requires registry membership, both visible block markers, creation-time page UUID, current page ownership, and successful runtime reference resolution. Lab pages are retained for manual inspection. This is an experimental safety mechanism, not a complete production authorization model.
 
 ## Official events only
 
