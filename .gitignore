@@ -1,0 +1,15 @@
+# Local Logseq runtime Graph; intentionally a separate nested repository.
+/logseq/
+
+# Dependencies and build artifacts.
+**/node_modules/
+**/dist/
+**/.parcel-cache/
+**/.vite/
+**/coverage/
+*.log
+
+# OS and editor noise.
+.DS_Store
+._*
+__MACOSX/
