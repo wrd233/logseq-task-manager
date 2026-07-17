@@ -9,7 +9,6 @@
   "engines": {
     "node": ">=20.19 <21"
   },
-  "packageManager": "npm@10.8.2",
   "scripts": {
     "dev": "node scripts/build.mjs --watch",
     "build": "node scripts/build.mjs",

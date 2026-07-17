@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "fixtureTime": "2026-07-17T12:00:00.000Z",
+  "objects": 2,
+  "relations": 1,
+  "events": 1,
+  "anchorsMissing": 1,
+  "differences": [],
+  "temporaryRoot": "ephemeral"
+}

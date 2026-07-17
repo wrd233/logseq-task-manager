@@ -8,6 +8,7 @@
 **/.vite/
 **/coverage/
 *.log
+/tmp/
 
 # OS and editor noise.
 .DS_Store

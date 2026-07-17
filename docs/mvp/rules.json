@@ -1,0 +1,59 @@
+{
+  "specVersion": "visual-reading-v1.0",
+  "expectedRuleCount": 145,
+  "ruleIds": [
+    "AGT-AUTH-001", "AGT-TRUTH-001", "ARC-CACHE-001", "ARC-CQRS-001", "ARC-LAYER-001", "ARC-LAYER-002",
+    "AUD-EVT-001", "AUD-RBK-001", "AUD-TXT-001", "CAP-FRM-001", "CAP-IN-001", "CAP-IN-002", "CAP-TRI-001", "CAP-TRI-002",
+    "COM-ATM-001", "COM-OP-001", "COM-OP-002", "COM-PROP-001", "DISC-001", "DISC-002", "DISC-003",
+    "EXT-WS-001", "EXT-WS-002", "GOV-001", "INF-EVT-001", "INF-EVT-002", "INF-EVT-003", "INF-OWN-001", "INF-OWN-002", "INF-OWN-003", "INF-OWN-004",
+    "LIF-BASE-001", "LIF-COND-001", "LIF-COND-002", "LIF-COND-003", "LIF-PROJ-001", "LIF-PROJ-002", "LIF-PROJ-003", "LIF-SIG-001", "LIF-TASK-001", "LIF-TASK-002", "LIF-TASK-003",
+    "MAP-ANC-001", "MAP-ANC-002", "MAP-PAGE-001", "MAP-PAGE-002", "MAP-RWT-001",
+    "MIG-001", "MIG-002", "MIG-003", "MIG-004", "MIG-MERGE-001", "MIG-UP-001", "MIG-UP-002",
+    "PLG-UI-001", "PLG-UI-002", "PLG-UI-003",
+    "PRI-001", "PRI-002", "PRI-003", "PRI-004", "PRI-005", "PRI-006", "PRI-007", "PRI-008", "PRI-009", "PRI-010", "PRI-011", "PRI-012", "PRI-013", "PRI-014", "PRI-015",
+    "REL-DEP-001", "REL-DEP-002", "REL-DEP-003", "REL-DEP-004", "REL-GRAPH-001", "REL-GRAPH-002", "REL-OUT-001",
+    "REL-OWN-001", "REL-OWN-002", "REL-OWN-003", "REL-OWN-004", "REL-OWN-005", "REL-OWN-006",
+    "REL-PLC-001", "REL-PLC-002", "REL-PLC-003", "REL-PLC-004", "REL-SRC-001", "REL-SRC-002", "REL-SRC-003",
+    "REV-FAT-001", "REV-FAT-002", "REV-FAT-003", "REV-PART-001", "REV-PART-002", "REV-PART-003", "REV-PART-004", "REV-PART-005", "REV-UI-001",
+    "SEM-AREA-001", "SEM-CAP-001", "SEM-COMMON-001", "SEM-COMMON-002", "SEM-COMMON-003", "SEM-DEC-001", "SEM-MINI-001", "SEM-MINI-002", "SEM-PROJ-001", "SEM-PROJ-002", "SEM-RES-001", "SEM-TASK-001", "SEM-TASK-002",
+    "SKL-001", "SKL-002", "SYN-CON-001", "SYN-CON-002", "SYN-CON-003", "SYN-REC-001",
+    "TST-MVP-001", "TST-MVP-002", "TST-MVP-003", "TST-MVP-004", "TST-MVP-005", "TST-MVP-006", "TST-MVP-007", "TST-MVP-008", "TST-MVP-009", "TST-MVP-010",
+    "TXT-DEN-001", "TXT-STRUCT-001", "TXT-STRUCT-002", "TXT-STRUCT-003", "TXT-STRUCT-004", "TXT-STYLE-001", "TXT-STYLE-002", "TXT-STYLE-003", "TXT-STYLE-004",
+    "VIEW-BASE-001", "VIEW-BASE-002", "VIEW-CUS-001", "VIEW-CUS-002", "VIEW-RE-001", "VIEW-WAIT-001"
+  ],
+  "deferredNonGoal": [
+    "EXT-WS-001", "EXT-WS-002",
+    "INF-EVT-002",
+    "MIG-001", "MIG-002", "MIG-003", "MIG-004", "MIG-MERGE-001", "MIG-UP-001", "MIG-UP-002",
+    "REL-OUT-001", "REV-FAT-003", "SEM-DEC-001", "SEM-PROJ-002", "SEM-RES-001",
+    "SKL-001", "SKL-002", "SYN-CON-003", "VIEW-CUS-001", "VIEW-CUS-002"
+  ],
+  "runtimePending": [
+    "CAP-IN-001", "CAP-IN-002", "MAP-PAGE-001", "MAP-PAGE-002", "PLG-UI-001", "PLG-UI-002", "PLG-UI-003", "SYN-CON-002",
+    "TST-MVP-001", "TST-MVP-002", "TST-MVP-003", "TST-MVP-004", "TST-MVP-005", "TST-MVP-006", "TST-MVP-007", "TST-MVP-008", "TST-MVP-009", "TST-MVP-010"
+  ],
+  "evidenceByPrefix": {
+    "AGT": ["packages/application/src/providers.ts", "apps/task-copilot-logseq-plugin/tests/ui.test.ts"],
+    "ARC": ["scripts/check-mvp-boundaries.mjs", "packages/application/src/ports.ts"],
+    "AUD": ["packages/application/src/task-copilot.ts", "packages/application/tests/application.test.ts"],
+    "CAP": ["packages/application/src/task-copilot.ts", "apps/task-copilot-logseq-plugin/src/ui.ts"],
+    "COM": ["packages/domain/src/index.ts", "packages/application/tests/application.test.ts"],
+    "DISC": ["apps/task-copilot-logseq-plugin/src/ui.ts", "apps/task-copilot-logseq-plugin/tests/ui.test.ts"],
+    "EXT": ["docs/adr/0004-mvp-deferred-semantics.md"],
+    "GOV": ["docs/adr/0001-stable-object-identifiers.md"],
+    "INF": ["packages/application/src/ports.ts", "packages/persistence/src/index.ts"],
+    "LIF": ["packages/domain/src/index.ts", "packages/domain/tests/domain.test.ts"],
+    "MAP": ["packages/domain/src/index.ts", "packages/logseq-adapter/src/index.ts"],
+    "MIG": ["docs/adr/0004-mvp-deferred-semantics.md"],
+    "PLG": ["apps/task-copilot-logseq-plugin/src/index.ts", "apps/task-copilot-logseq-plugin/src/ui.ts"],
+    "PRI": ["docs/mvp/REQUIREMENTS_TRACEABILITY.md", "packages/application/src/task-copilot.ts"],
+    "REL": ["packages/domain/src/index.ts", "packages/domain/tests/domain.test.ts"],
+    "REV": ["packages/domain/src/index.ts", "apps/task-copilot-logseq-plugin/src/ui.ts"],
+    "SEM": ["packages/domain/src/index.ts", "packages/domain/tests/domain.test.ts"],
+    "SKL": ["docs/adr/0004-mvp-deferred-semantics.md"],
+    "SYN": ["packages/application/src/task-copilot.ts", "packages/persistence/src/index.ts", "packages/logseq-adapter/src/index.ts"],
+    "TST": ["docs/goal/MVP_ACCEPTANCE_MATRIX.md", "scripts/acceptance-rehearsal.ts"],
+    "TXT": ["apps/task-copilot-logseq-plugin/src/ui.ts", "apps/task-copilot-logseq-plugin/tests/ui.test.ts"],
+    "VIEW": ["packages/application/src/views.ts", "apps/task-copilot-logseq-plugin/src/ui.ts"]
+  }
+}

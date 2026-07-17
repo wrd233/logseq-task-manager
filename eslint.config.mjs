@@ -3,37 +3,41 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/coverage/**",
+      "logseq/**",
+      "tmp/**",
+      "**/eslint.config.mjs",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["src/**/*.ts", "tests/**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parserOptions: {
         tsconfigRootDir: import.meta.dirname,
-      },
-      globals: {
-        console: "readonly",
-        document: "readonly",
-        window: "readonly",
-        logseq: "readonly",
       },
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "off"
-    }
+      "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/no-explicit-any": "error",
+    },
   },
   {
-    files: ["scripts/**/*.mjs", "eslint.config.mjs"],
+    files: ["**/*.mjs"],
     languageOptions: {
       parserOptions: {
         tsconfigRootDir: import.meta.dirname,
       },
       globals: {
         console: "readonly",
-        process: "readonly"
-      }
-    }
-  }
+        process: "readonly",
+        Buffer: "readonly",
+        URL: "readonly",
+      },
+    },
+  },
 );

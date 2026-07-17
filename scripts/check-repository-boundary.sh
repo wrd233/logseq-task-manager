@@ -21,6 +21,7 @@ forbidden=$(git ls-files | grep -E '(^|/)(node_modules|dist|\.parcel-cache|\.vit
 [ -z "$forbidden" ] || fail "generated paths are tracked:\n$forbidden"
 
 [ -d apps/logseq-plugin-capability-lab ] || fail "authoritative plugin directory is missing"
+[ -d apps/task-copilot-logseq-plugin ] || fail "formal Task Copilot plugin directory is missing"
 [ ! -e logseq/tools/logseq-plugin-capability-lab ] || fail "old plugin path still exists inside test Graph"
 
 plugin_dirs=$(find . -path './.git' -prune -o -path './logseq' -prune -o -type d -name logseq-plugin-capability-lab -print)
@@ -34,6 +35,10 @@ fi
 [ -f apps/logseq-plugin-capability-lab/dist/index.html ] || fail "dist/index.html is missing; run the build"
 git check-ignore -q apps/logseq-plugin-capability-lab/dist/index.html || fail "dist output is not ignored"
 [ -z "$(git ls-files 'apps/logseq-plugin-capability-lab/dist/**')" ] || fail "dist output is tracked"
+
+[ -f apps/task-copilot-logseq-plugin/dist/index.html ] || fail "formal plugin dist/index.html is missing; run the build"
+git check-ignore -q apps/task-copilot-logseq-plugin/dist/index.html || fail "formal plugin dist output is not ignored"
+[ -z "$(git ls-files 'apps/task-copilot-logseq-plugin/dist/**')" ] || fail "formal plugin dist output is tracked"
 
 tracked_graph_pages=$(git ls-files | grep -E '(^|/)(pages|journals|whiteboards)/' || true)
 [ -z "$tracked_graph_pages" ] || fail "Graph runtime content is tracked:\n$tracked_graph_pages"

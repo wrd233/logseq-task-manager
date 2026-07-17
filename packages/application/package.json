@@ -1,0 +1,15 @@
+{
+  "name": "@task-copilot/application",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@task-copilot/domain": "0.1.0",
+    "@task-copilot/shared": "0.1.0"
+  }
+}
