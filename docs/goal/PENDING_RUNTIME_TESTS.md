@@ -16,10 +16,10 @@
 
 | ID | Topic | Feature affected | Prepared commit | Graph write | Status |
 |---|---|---|---|---|---|
-| RT-MVP-001 | 加载、Toolbar/Command/Slash、No Agent/Demo 设置、reload | Lifecycle / entry / no-agent | 待最终 Commit | 仅 Slash 所在临时块可能受 Logseq 自身输入影响 | PENDING |
-| RT-MVP-002 | Capture → Inbox → 手工对象；Demo 部分接受 → Commit → Undo；Waiting/Now/Re-entry | TST 001/002/004-008/010 | 待最终 Commit | 是，仅专用临时 Block | PENDING |
-| RT-MVP-003 | UUID edit/move/delete/undo、missing/rebind、正文二次编辑冲突 | TST 003/006 | 待最终 Commit | 是，仅专用临时 Block | PENDING |
-| RT-MVP-004 | FileStorage reload、备份下载、恢复校验、Pending 扫描 | TST 009 / reliability | 待最终 Commit | 不写正文；写插件私有存储和下载目录 | PENDING |
+| RT-MVP-001 | 加载、Toolbar/Command/Slash、No Agent/Demo 设置、reload | Lifecycle / entry / no-agent | 5bf05d9 | 仅 Slash 所在临时块可能受 Logseq 自身输入影响 | PENDING |
+| RT-MVP-002 | Capture → Inbox → 手工对象；Demo 部分接受 → Commit → Undo；Waiting/Now/Re-entry | TST 001/002/004-008/010 | 5bf05d9 | 是，仅专用临时 Block | PENDING |
+| RT-MVP-003 | UUID edit/move/delete/undo、missing/rebind、正文二次编辑冲突 | TST 003/006 | 5bf05d9 | 是，仅专用临时 Block | PENDING |
+| RT-MVP-004 | FileStorage reload、备份下载、恢复校验、Pending 扫描 | TST 009 / reliability | 5bf05d9 | 不写正文；写插件私有存储和下载目录 | PENDING |
 
 ## 集中执行步骤
 

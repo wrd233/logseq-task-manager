@@ -3,7 +3,7 @@
 ```yaml
 goal_state: AUTOMATION_COMPLETE
 current_slice: "Slice 8 - consolidated Desktop acceptance and Pilot"
-last_completed_commit: "pending local implementation commit"
+last_completed_commit: "5bf05d9 feat: implement task copilot personal MVP automation"
 last_successful_check: "2026-07-17 ./scripts/check.sh PASS; 38 tests; 145 rules; restore rehearsal PASS"
 implemented:
   - "Slice 0: Goal/spec baseline, 145-rule coverage, ADRs, workspace and formal plugin shell"
