@@ -3,16 +3,16 @@
 ```yaml
 goal_state: AUTOMATION_COMPLETE
 current_slice: "Slice 8 - consolidated Desktop acceptance and Pilot"
-last_completed_commit: "5bf05d9 feat: implement task copilot personal MVP automation"
-last_successful_check: "2026-07-17 ./scripts/check.sh PASS; 38 tests; 145 rules; restore rehearsal PASS"
+last_completed_commit: "a8e28d7 fix: close semantic review and recovery gaps"
+last_successful_check: "2026-07-17 ./scripts/check.sh PASS; 59 tests; 145 rules; recovery rehearsal PASS"
 implemented:
   - "Slice 0: Goal/spec baseline, 145-rule coverage, ADRs, workspace and formal plugin shell"
   - "Slice 1: object contracts, Phase/Condition/Signal, ownership matrix, dependency cycles, rule-referenced errors"
-  - "Slice 2: checksummed dual-slot JSON, filesystem atomic adapter, audit, recoverable SemanticCommit, compensation and startup recovery"
-  - "Slice 3: current-block Capture, Inbox, manual formalization and Block Anchor"
-  - "Slice 4: object drawer, Phase/Condition commands, Waiting/Blocked/Paused, signals and rebind"
-  - "Slice 5: No Agent/Demo providers, partial acceptance, operation DAG, Commit and Undo"
-  - "Slice 6: restrained Now Work and action-oriented Project Re-entry"
+  - "Slice 2: checksummed dual-slot JSON, manifest-last filesystem writes, audit, pending-first Commit/Undo, reverse compensation and startup recovery"
+  - "Slice 3: current-block Capture, Inbox, manual formalization Proposal and Graph-qualified Block Anchor"
+  - "Slice 4: object drawer, Proposal-backed edits/Phase/Condition/ownership, signals, Anchor observation and rebind"
+  - "Slice 5: No Agent/Demo providers, readable diff/impact preview, partial acceptance, deterministic risk, operation DAG, Commit and Undo"
+  - "Slice 6: restrained Now Work and Project Re-entry with project selection and unresolved questions"
   - "Slice 7: JSON/JSONL/Markdown recovery bundle, checksums, temporary Store restore, automated acceptance report"
 remaining_automatable_work: []
 runtime_checks_pending:

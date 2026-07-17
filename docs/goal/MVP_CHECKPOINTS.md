@@ -27,13 +27,15 @@
 - [x] Corruption detection
 - [x] Pending commit recovery
 - [x] Failure injection and compensation
+- [x] Pending-first inverse Undo and reverse-order recovery
+- [x] Manifest-last FileStorage activation
 
 ## Checkpoint 3 — Capture Vertical Slice
 
 - [x] Current block capture
 - [x] Inbox
-- [x] Manual task formalization
-- [x] UUID Anchor
+- [x] Manual task formalization Proposal
+- [x] Graph-qualified UUID Anchor
 - [x] Object drawer
 
 ## Checkpoint 4 — Workflow
@@ -45,11 +47,14 @@
 - [x] Paused
 - [x] Signals
 - [x] Ownership/source/rebind seams
+- [x] Proposal-backed edit/Phase/Condition/ownership
+- [x] Missing/conflict observation and audit evidence
 
 ## Checkpoint 5 — Proposal and Commit
 
 - [x] No Agent and Demo providers
 - [x] Review UI
+- [x] Readable diff, impact preview and dry-run validation
 - [x] Partial acceptance
 - [x] 128 combination property test
 - [x] Recoverable SemanticCommit
@@ -60,6 +65,7 @@
 
 - [x] Now Work
 - [x] Project Re-entry
+- [x] Project selection and unresolved questions
 - [x] No empty optional sections
 - [x] No-agent degradation
 
