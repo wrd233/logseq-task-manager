@@ -55,6 +55,7 @@ test("READY is rejected when a Task has no judgeable completion result", () => {
 
 test("WAITING, BLOCKED and PAUSED enforce their own condition evidence", () => {
   assert.throws(() => setCondition(task(), "WAITING", {}, at), /waiting_for/i);
+  assert.throws(() => setCondition(task(), "WAITING", { waitingFor: "答复", expectedResult: "确认", reviewAt: "not-a-date" }, at), /review_at/i);
   assert.throws(() => setCondition(task(), "BLOCKED", {}, at), /阻塞/);
   assert.throws(() => setCondition(task(), "PAUSED", {}, at), /暂停/);
 });

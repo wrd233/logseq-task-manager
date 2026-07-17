@@ -59,13 +59,20 @@ export interface PreparedTextMutation extends TextMutationRecord {
   opaqueBefore?: Record<string, unknown>;
 }
 
+export type AnchorObservation =
+  | { status: "active"; currentText: string; currentHash: string }
+  | { status: "missing" }
+  | { status: "conflict"; currentText: string; currentHash: string }
+  | { status: "unavailable" };
+
 export interface ContentPort {
   getCurrentBlock(): Promise<CurrentBlock | undefined>;
   prepare(operation: SemanticOperation, anchor: Anchor): Promise<PreparedTextMutation>;
   apply(mutation: PreparedTextMutation): Promise<void>;
   verify(mutation: PreparedTextMutation, expected: "before" | "after"): Promise<boolean>;
   compensate(mutation: PreparedTextMutation): Promise<void>;
-  open(externalId: string): Promise<void>;
+  open(externalId: string, graphId: string): Promise<void>;
+  observe(anchor: Anchor): Promise<AnchorObservation>;
 }
 
 export interface ProposalContext {

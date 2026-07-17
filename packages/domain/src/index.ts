@@ -123,6 +123,8 @@ export interface Anchor {
   status: AnchorStatus;
   cachedPageRef?: string;
   replacedByAnchorId?: string;
+  observedContentHash?: string;
+  observedText?: string;
 }
 
 export interface ConditionEvidence {
@@ -177,6 +179,11 @@ const transitions: Record<"TASK" | "MINI_PROJECT" | "PROJECT" | "AREA", Readonly
     RETIRED: [],
   },
 };
+
+export function allowedPhaseTransitions(object: ManagedObject): readonly Phase[] {
+  if (!workObjectTypes.has(object.objectType)) return [];
+  return transitions[object.objectType as keyof typeof transitions][object.phase] ?? [];
+}
 
 function initialPhase(type: ObjectType): Phase {
   switch (type) {
@@ -345,7 +352,7 @@ export function setCondition(
       condition = { kind };
       break;
     case "WAITING":
-      if (!evidence.waitingFor?.trim() || !evidence.expectedResult?.trim() || !evidence.reviewAt) {
+      if (!evidence.waitingFor?.trim() || !evidence.expectedResult?.trim() || !evidence.reviewAt || !Number.isFinite(Date.parse(evidence.reviewAt))) {
         throw new StructuredError({
           code: "WAITING_EVIDENCE_REQUIRED",
           message: "WAITING 必须具有 waiting_for、期待结果和 review_at。",
@@ -377,6 +384,9 @@ export function setCondition(
           message: "PAUSED 必须记录暂停原因。",
           ruleRefs: ["LIF-COND-003"],
         });
+      }
+      if (evidence.reviewAt && !Number.isFinite(Date.parse(evidence.reviewAt))) {
+        throw new StructuredError({ code: "PAUSE_REVIEW_DATE_INVALID", message: "PAUSED 的 review_at 必须是合法日期。", ruleRefs: ["LIF-COND-003"] });
       }
       condition = copyDefined({ kind, reason: evidence.reason.trim() }, { reviewAt: evidence.reviewAt });
       break;
@@ -597,7 +607,7 @@ export type OperationType =
   | "move_content"
   | "resolve_capture";
 
-export type OperationStatus = "PROPOSED" | "ACCEPTED" | "REJECTED" | "EDITED" | "BLOCKED" | "COMMITTED";
+export type OperationStatus = "PROPOSED" | "ACCEPTED" | "REJECTED" | "EDITED" | "DEFERRED" | "BLOCKED" | "COMMITTED";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
 export interface OperationTarget {
@@ -619,6 +629,17 @@ export interface SemanticOperation {
   confidence: number;
   status: OperationStatus;
   blockedReason?: string;
+  deferredUntil?: string;
+  deferReason?: string;
+}
+
+const riskOrder: Record<RiskLevel, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 };
+
+export function effectiveOperationRisk(operation: Pick<SemanticOperation, "operationType" | "payload" | "riskLevel">): RiskLevel {
+  let intrinsic: RiskLevel = "MEDIUM";
+  if (["move_content", "set_primary_ownership", "remove_relation"].includes(operation.operationType)) intrinsic = "HIGH";
+  if (operation.operationType === "set_phase" && ["COMPLETED", "CANCELLED", "ARCHIVED", "RETIRED"].includes(String(operation.payload.phase))) intrinsic = "HIGH";
+  return riskOrder[operation.riskLevel] >= riskOrder[intrinsic] ? operation.riskLevel : intrinsic;
 }
 
 export interface Proposal {
@@ -649,6 +670,7 @@ export interface Capture {
   proposalId?: string;
   resolvedObjectIds: string[];
   resolutionNote?: string;
+  deferredUntil?: string;
 }
 
 export interface DomainEvent {
@@ -669,6 +691,7 @@ export interface DomainEvent {
 
 export interface TextMutationRecord {
   anchorId: string;
+  graphId: string;
   externalId: string;
   beforeText: string;
   afterText: string;
@@ -722,6 +745,17 @@ export function reviewOperation(
   return { ...operation, status };
 }
 
+export function deferOperation(operation: SemanticOperation, deferredUntil: string, reason: string): SemanticOperation {
+  if (!Number.isFinite(Date.parse(deferredUntil)) || !reason.trim()) {
+    throw new StructuredError({
+      code: "INVALID_OPERATION_DEFERRAL",
+      message: "暂缓操作必须提供合法复查时间和原因。",
+      ruleRefs: ["REV-PART-001"],
+    });
+  }
+  return { ...operation, status: "DEFERRED", deferredUntil, deferReason: reason.trim() };
+}
+
 export interface OperationResolution {
   executable: SemanticOperation[];
   rejected: SemanticOperation[];
@@ -739,7 +773,7 @@ export function resolveOperations(operations: readonly SemanticOperation[]): Ope
     });
   }
   const rejected = operations.filter((operation) => operation.status === "REJECTED");
-  const pending = operations.filter((operation) => operation.status === "PROPOSED");
+  const pending = operations.filter((operation) => operation.status === "PROPOSED" || operation.status === "DEFERRED");
   const accepted = operations.filter((operation) => operation.status === "ACCEPTED" || operation.status === "EDITED");
   const blocked: SemanticOperation[] = [];
   const candidates = new Map<string, SemanticOperation>();

@@ -72,6 +72,12 @@ nav button.active { background: var(--surface-2); color: var(--accent); }
 .timeline li { display: grid; grid-template-columns: 180px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .timeline time { color: var(--muted); font-size: 12px; }
 code { overflow-wrap: anywhere; }
+details { margin-top: 10px; }
+details summary { cursor: pointer; color: var(--muted); }
+details del, details ins, .readable-diff del, .readable-diff ins { display: block; margin-top: 7px; padding: 9px; border-radius: 8px; white-space: pre-wrap; text-decoration: none; }
+details del, .readable-diff del { background: #ffe9e7; color: #7f2929; }
+details ins, .readable-diff ins { background: var(--accent-soft); color: var(--accent); }
+pre { max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 760px) {
   .app-shell { width: 100vw; max-height: 100vh; margin: 0; border-radius: 0; }
@@ -90,4 +96,5 @@ code { overflow-wrap: anywhere; }
   .error { background: #4a2927; color: #ffd2ce; }
   .report { background: #28314a; }
   .badges .signal { background: #51411c; }
+  details del, .readable-diff del { background: #4a2927; color: #ffd2ce; }
 }

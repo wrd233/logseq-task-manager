@@ -11,7 +11,10 @@ export type IdPrefix =
 
 export function createId(prefix: IdPrefix, now = new Date(), entropy?: string): string {
   const time = now.toISOString().replace(/\D/g, "").slice(0, 17);
-  const random = entropy ?? globalThis.crypto.randomUUID().replaceAll("-", "").slice(0, 16);
+  const random = entropy ?? globalThis.crypto.randomUUID().replaceAll("-", "");
+  if (!/^[0-9a-f]{32}$/i.test(random)) {
+    throw new Error("Stable ID entropy must be exactly 128 bits encoded as 32 hexadecimal characters.");
+  }
   return `${prefix}_${time}_${random}`;
 }
 

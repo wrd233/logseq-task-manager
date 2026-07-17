@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deferOperation,
+  effectiveOperationRisk,
   resolveOperations,
   reviewOperation,
   type SemanticOperation,
@@ -56,6 +58,14 @@ test("edited acceptance keeps both agent payload and user-confirmed payload", ()
   const reviewed = reviewOperation(source, "EDITED", { text: "用户确认版本" });
   assert.deepEqual(reviewed.agentPayload, { text: "Agent 版本" });
   assert.deepEqual(reviewed.payload, { text: "用户确认版本" });
+});
+
+test("deferral remains pending and deterministic risk cannot be downgraded by a provider", () => {
+  const deferred = deferOperation(operation("rewrite", "rewrite_content"), "2026-07-20T09:00:00+08:00", "等待上下文");
+  assert.equal(resolveOperations([deferred]).pending[0]?.status, "DEFERRED");
+  assert.equal(deferred.deferReason, "等待上下文");
+  assert.throws(() => deferOperation(operation("bad", "rewrite_content"), "bad-date", "原因"), /合法复查时间/);
+  assert.equal(effectiveOperationRisk({ ...operation("move", "move_content"), riskLevel: "LOW" }), "HIGH");
 });
 
 test("128 partial-acceptance combinations never execute rejected operations or broken dependencies", () => {

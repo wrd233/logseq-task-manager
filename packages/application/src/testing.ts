@@ -3,6 +3,7 @@ import { checksum } from "@task-copilot/shared";
 import type {
   ContentPort,
   CurrentBlock,
+  AnchorObservation,
   PreparedTextMutation,
   StateStore,
   SystemState,
@@ -39,6 +40,7 @@ export class MemoryContentPort implements ContentPort {
   private currentExternalId: string;
   private failApply = false;
   private failCompensate = false;
+  readonly compensationExternalIds: string[] = [];
 
   constructor(block: CurrentBlock) {
     this.blocks.set(block.externalId, structuredClone(block));
@@ -48,6 +50,11 @@ export class MemoryContentPort implements ContentPort {
   block(externalId: string): CurrentBlock | undefined {
     const block = this.blocks.get(externalId);
     return block ? structuredClone(block) : undefined;
+  }
+
+  setCurrentBlock(block: CurrentBlock): void {
+    this.blocks.set(block.externalId, structuredClone(block));
+    this.currentExternalId = block.externalId;
   }
 
   async getCurrentBlock(): Promise<CurrentBlock | undefined> {
@@ -64,6 +71,7 @@ export class MemoryContentPort implements ContentPort {
       return {
         operationId: operation.operationId,
         anchorId: anchor.anchorId,
+        graphId: anchor.graphId,
         externalId: anchor.externalId,
         beforeText: block.text,
         afterText,
@@ -77,6 +85,7 @@ export class MemoryContentPort implements ContentPort {
       return {
         operationId: operation.operationId,
         anchorId: anchor.anchorId,
+        graphId: anchor.graphId,
         externalId: anchor.externalId,
         beforeText: block.text,
         afterText: block.text,
@@ -95,6 +104,7 @@ export class MemoryContentPort implements ContentPort {
     }
     const block = this.blocks.get(mutation.externalId);
     if (!block) throw new Error(`Missing block ${mutation.externalId}`);
+    if (block.graphId !== mutation.graphId) throw new Error("Graph identity conflict");
     block.text = mutation.afterText;
     const afterPageRef = mutation.opaqueBefore?.afterPageRef;
     if (typeof afterPageRef === "string") block.pageRef = afterPageRef;
@@ -103,6 +113,7 @@ export class MemoryContentPort implements ContentPort {
   async verify(mutation: PreparedTextMutation, expected: "before" | "after"): Promise<boolean> {
     const block = this.blocks.get(mutation.externalId);
     if (!block) return false;
+    if (block.graphId !== mutation.graphId) return false;
     const expectedHash = expected === "before" ? mutation.beforeHash : mutation.afterHash;
     if (checksum(block.text) !== expectedHash) return false;
     const pageRef = expected === "before" ? mutation.opaqueBefore?.pageRef : mutation.opaqueBefore?.afterPageRef;
@@ -116,14 +127,32 @@ export class MemoryContentPort implements ContentPort {
     }
     const block = this.blocks.get(mutation.externalId);
     if (!block) throw new Error(`Missing block ${mutation.externalId}`);
+    if (block.graphId !== mutation.graphId) throw new Error("Graph identity conflict");
+    this.compensationExternalIds.push(mutation.externalId);
     block.text = mutation.beforeText;
     const pageRef = mutation.opaqueBefore?.pageRef;
     if (typeof pageRef === "string") block.pageRef = pageRef;
   }
 
-  async open(externalId: string): Promise<void> {
-    if (!this.blocks.has(externalId)) throw new Error(`Missing block ${externalId}`);
+  async open(externalId: string, graphId: string): Promise<void> {
+    const block = this.blocks.get(externalId);
+    if (!block) throw new Error(`Missing block ${externalId}`);
+    if (block.graphId !== graphId) throw new Error("Graph identity conflict");
     this.currentExternalId = externalId;
+  }
+
+  async observe(anchor: Anchor): Promise<AnchorObservation> {
+    const block = this.blocks.get(anchor.externalId);
+    if (!block) return { status: "missing" };
+    if (block.graphId !== anchor.graphId) return { status: "unavailable" };
+    const currentHash = checksum(block.text);
+    return currentHash === anchor.contentHash
+      ? { status: "active", currentText: block.text, currentHash }
+      : { status: "conflict", currentText: block.text, currentHash };
+  }
+
+  deleteBlock(externalId: string): void {
+    this.blocks.delete(externalId);
   }
 
   failNextApply(): void {

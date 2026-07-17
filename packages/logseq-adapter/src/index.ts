@@ -1,4 +1,4 @@
-import type { ContentPort, CurrentBlock, PreparedTextMutation } from "@task-copilot/application";
+import type { AnchorObservation, ContentPort, CurrentBlock, PreparedTextMutation } from "@task-copilot/application";
 import type { Anchor, SemanticOperation } from "@task-copilot/domain";
 import type { BlobStore } from "@task-copilot/persistence";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
@@ -122,7 +122,7 @@ export class LogseqContentPort implements ContentPort {
     if (checksum(block.content) !== anchor.contentHash) {
       throw new StructuredError({
         code: "ANCHOR_CONTENT_CONFLICT",
-        message: "正文已在 Proposal 之后变化，提交已停止。",
+        message: "正文已在 Proposal 之后变化，提交已停止。请扫描 Anchor，在审计中比较预期/当前版本，再选择重新绑定或手工合并。",
         ruleRefs: ["SYN-CON-001", "MAP-RWT-001"],
       });
     }
@@ -144,6 +144,7 @@ export class LogseqContentPort implements ContentPort {
     return {
       operationId: operation.operationId,
       anchorId: anchor.anchorId,
+      graphId: anchor.graphId,
       externalId: anchor.externalId,
       beforeText: block.content,
       afterText,
@@ -164,6 +165,7 @@ export class LogseqContentPort implements ContentPort {
   }
 
   async verify(mutation: PreparedTextMutation, expected: "before" | "after"): Promise<boolean> {
+    if (mutation.graphId !== (await this.graphId())) return false;
     const block = RuntimeShapeAdapter.block(await this.logseq.Editor.getBlock(mutation.externalId, { includeChildren: false }));
     if (!block) return false;
     return checksum(block.content) === (expected === "before" ? mutation.beforeHash : mutation.afterHash);
@@ -180,7 +182,10 @@ export class LogseqContentPort implements ContentPort {
     await this.logseq.Editor.updateBlock(mutation.externalId, mutation.beforeText);
   }
 
-  async open(externalId: string): Promise<void> {
+  async open(externalId: string, graphId: string): Promise<void> {
+    if (graphId !== (await this.graphId())) {
+      throw new StructuredError({ code: "GRAPH_IDENTITY_CONFLICT", message: "当前 Graph 与 Anchor 不一致，定位已停止。", ruleRefs: ["SYN-CON-001"] });
+    }
     const block = RuntimeShapeAdapter.block(await this.logseq.Editor.getBlock(externalId, { includeChildren: false }));
     if (!block) throw new StructuredError({ code: "ANCHOR_MISSING", message: "Block 已失联。", ruleRefs: ["MAP-PAGE-002"] });
     if (!this.logseq.Editor.scrollToBlockInPage || block.page === undefined) {
@@ -191,6 +196,16 @@ export class LogseqContentPort implements ContentPort {
       });
     }
     await this.logseq.Editor.scrollToBlockInPage(RuntimeShapeAdapter.pageRef(block.page), externalId);
+  }
+
+  async observe(anchor: Anchor): Promise<AnchorObservation> {
+    if (anchor.graphId !== (await this.graphId())) return { status: "unavailable" };
+    const block = RuntimeShapeAdapter.block(await this.logseq.Editor.getBlock(anchor.externalId, { includeChildren: false }));
+    if (!block) return { status: "missing" };
+    const currentHash = checksum(block.content);
+    return currentHash === anchor.contentHash
+      ? { status: "active", currentText: block.content, currentHash }
+      : { status: "conflict", currentText: block.content, currentHash };
   }
 }
 
@@ -239,8 +254,8 @@ export class LogseqFileStorageBlobStore implements BlobStore {
 
   async set(key: string, value: string): Promise<void> {
     this.assertKey(key);
-    await this.storage.setItem(key, value);
     if (key !== registryKey) await this.saveRegistry([...(await this.registry()), key]);
+    await this.storage.setItem(key, value);
   }
 
   async remove(key: string): Promise<void> {
