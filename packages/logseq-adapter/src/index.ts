@@ -1,7 +1,8 @@
 import type { AnchorObservation, ContentPort, CurrentBlock, PreparedTextMutation } from "@task-copilot/application";
 import type { Anchor, SemanticOperation } from "@task-copilot/domain";
 import type { BlobStore } from "@task-copilot/persistence";
-import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
+import { StructuredError, checksum, classifyStorageError, stableJson } from "@task-copilot/shared";
+export { classifyStorageError, type StorageErrorKind } from "@task-copilot/shared";
 
 export interface LogseqBlockShape {
   uuid: string;
@@ -26,6 +27,33 @@ export interface LogseqFileStorageFacade {
   getItem(key: string): Promise<unknown>;
   setItem(key: string, value: string): Promise<unknown>;
   removeItem(key: string): Promise<unknown>;
+}
+
+export function assertStorageKey(key: string): string {
+  if (!key || key.startsWith("/") || key.includes("..") || key.includes("//") || !key.startsWith("task-copilot/") || key === "task-copilot/") {
+    throw new StructuredError({
+      code: "FILE_STORAGE_PATH_INVALID",
+      message: "FileStorage key must be a non-empty relative path inside the task-copilot/ namespace and contain no empty or parent segments.",
+      ruleRefs: ["INF-OWN-001", "SYN-CON-001"],
+    });
+  }
+  return key;
+}
+
+export function physicalStorageKey(key: string): string {
+  assertStorageKey(key);
+  return key.replaceAll("/", "__slash__");
+}
+
+function storageAccessError(operation: "read" | "write" | "remove", error: unknown): StructuredError {
+  const kind = classifyStorageError(error);
+  const cause = error instanceof Error ? error.message : String(error);
+  return new StructuredError({
+    code: `FILE_STORAGE_${kind}`,
+    message: `FileStorage ${operation} failed (${kind}): ${cause}`,
+    ruleRefs: ["SYN-CON-001", "SYN-REC-001"],
+    details: { kind, operation, cause },
+  });
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -209,24 +237,27 @@ export class LogseqContentPort implements ContentPort {
   }
 }
 
-const namespace = "task-copilot/";
 const registryKey = "task-copilot/registry/keys.json";
 
 export class LogseqFileStorageBlobStore implements BlobStore {
   constructor(private readonly storage: LogseqFileStorageFacade) {}
 
   private assertKey(key: string): void {
-    if (!key.startsWith(namespace) || key.includes("..")) {
-      throw new StructuredError({
-        code: "FILE_STORAGE_NAMESPACE_VIOLATION",
-        message: "FileStorage key must remain inside the task-copilot namespace.",
-        ruleRefs: ["INF-OWN-001"],
-      });
+    assertStorageKey(key);
+  }
+
+  private async read(key: string): Promise<unknown> {
+    const physical = physicalStorageKey(key);
+    try {
+      return await this.storage.getItem(physical);
+    } catch (error) {
+      if (classifyStorageError(error) === "NOT_FOUND") return undefined;
+      throw storageAccessError("read", error);
     }
   }
 
   private async registry(): Promise<string[]> {
-    const value = await this.storage.getItem(registryKey);
+    const value = await this.read(registryKey);
     if (value === null || value === undefined) return [];
     if (typeof value !== "string") throw new Error("FileStorage registry runtime shape is not a string");
     const parsed = JSON.parse(value) as unknown;
@@ -235,12 +266,16 @@ export class LogseqFileStorageBlobStore implements BlobStore {
   }
 
   private async saveRegistry(keys: string[]): Promise<void> {
-    await this.storage.setItem(registryKey, stableJson([...new Set(keys)].sort()));
+    try {
+      await this.storage.setItem(physicalStorageKey(registryKey), stableJson([...new Set(keys)].sort()));
+    } catch (error) {
+      throw storageAccessError("write", error);
+    }
   }
 
   async get(key: string): Promise<string | undefined> {
     this.assertKey(key);
-    const value = await this.storage.getItem(key);
+    const value = await this.read(key);
     if (value === null || value === undefined) return undefined;
     if (typeof value !== "string") {
       throw new StructuredError({
@@ -255,12 +290,20 @@ export class LogseqFileStorageBlobStore implements BlobStore {
   async set(key: string, value: string): Promise<void> {
     this.assertKey(key);
     if (key !== registryKey) await this.saveRegistry([...(await this.registry()), key]);
-    await this.storage.setItem(key, value);
+    try {
+      await this.storage.setItem(physicalStorageKey(key), value);
+    } catch (error) {
+      throw storageAccessError("write", error);
+    }
   }
 
   async remove(key: string): Promise<void> {
     this.assertKey(key);
-    await this.storage.removeItem(key);
+    try {
+      await this.storage.removeItem(physicalStorageKey(key));
+    } catch (error) {
+      if (classifyStorageError(error) !== "NOT_FOUND") throw storageAccessError("remove", error);
+    }
     if (key !== registryKey) await this.saveRegistry((await this.registry()).filter((candidate) => candidate !== key));
   }
 

@@ -64,3 +64,22 @@ export class StructuredError extends Error {
     this.details = shape.details;
   }
 }
+
+export type StorageErrorKind = "NOT_FOUND" | "CORRUPTED" | "PERMISSION_DENIED" | "IO_ERROR" | "UNKNOWN";
+
+function storageErrorFields(error: unknown): string[] {
+  if (typeof error === "string") return [error];
+  if (error instanceof Error) return [error.name, error.message, ...(error.cause ? [String(error.cause)] : [])];
+  if (!error || typeof error !== "object" || Array.isArray(error)) return [String(error)];
+  const shape = error as Record<string, unknown>;
+  return ["name", "message", "code", "error", "reason"].map((key) => shape[key]).filter((value): value is string => typeof value === "string");
+}
+
+export function classifyStorageError(error: unknown): StorageErrorKind {
+  const text = storageErrorFields(error).join(" ").toLowerCase();
+  if (/file\s+not\s+existed|not[ -]?found|no such file|\benoent\b/.test(text)) return "NOT_FOUND";
+  if (/corrupt|invalid\s+json|malformed|checksum/.test(text)) return "CORRUPTED";
+  if (/permission|access denied|operation not permitted|\beacces\b|\beperm\b/.test(text)) return "PERMISSION_DENIED";
+  if (/\beio\b|i\/o|io error|should not join with empty dir/.test(text)) return "IO_ERROR";
+  return "UNKNOWN";
+}

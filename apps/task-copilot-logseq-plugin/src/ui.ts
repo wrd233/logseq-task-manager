@@ -28,6 +28,12 @@ export interface UiModel {
   message?: string;
   error?: string;
   recoveryReport?: string;
+  runtime?: {
+    pluginVersion: string;
+    runtimeStatus: string;
+    storeStatus: string;
+    currentGraph: string;
+  };
 }
 
 export function escapeHtml(value: unknown): string {
@@ -244,11 +250,11 @@ function renderAudit(model: UiModel): string {
 export function renderApp(model: UiModel): string {
   const labels: Array<[Workspace, string]> = [
     ["inbox", "Inbox"],
-    ["now", "现在工作"],
-    ["objects", "对象"],
+    ["now", "Now Work / 现在工作"],
+    ["objects", "Projects / 对象"],
     ["review", "Proposal Review"],
     ["reentry", "Project 重入"],
-    ["audit", "审计与恢复"],
+    ["audit", "Audit / Recovery / 审计与恢复"],
   ];
   const body =
     model.workspace === "inbox"
@@ -265,8 +271,9 @@ export function renderApp(model: UiModel): string {
   return `<section class="app-shell">
     <header class="topbar">
       <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
-      <div class="top-actions">${button("捕获当前块", "capture", undefined, "primary")}${button("关闭", "close", undefined, "quiet")}</div>
+      <div class="top-actions">${button("捕获当前块", "capture", undefined, "primary")}${button("Diagnostics", "runtime-diagnostics", undefined, "quiet")}${button("关闭", "close", undefined, "quiet")}</div>
     </header>
+    ${model.runtime ? `<div class="runtime-strip"><span>Plugin ${escapeHtml(model.runtime.pluginVersion)}</span><span>Runtime ${escapeHtml(model.runtime.runtimeStatus)}</span><span>Store ${escapeHtml(model.runtime.storeStatus)}</span><span>Graph ${escapeHtml(model.runtime.currentGraph)}</span></div>` : ""}
     <div class="agent-state ${model.agent.enabled ? "enabled" : "disabled"}">Agent ${model.agent.enabled ? `Demo · ${escapeHtml(model.agent.providerId)}` : "disabled · 基础事务系统可用"}</div>
     ${model.message ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${model.error ? `<div class="error"><strong>未执行：</strong>${escapeHtml(model.error)}<span>请修正后重试；系统不会静默覆盖。</span></div>` : ""}

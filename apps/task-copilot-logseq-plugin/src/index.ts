@@ -20,23 +20,44 @@ import {
   type RecoveryBundle,
 } from "@task-copilot/persistence";
 
+import {
+  MAIN_UI_ROOT_ID,
+  RuntimeDiagnostics,
+  mountWithDiagnosticFallback,
+  renderRuntimeDiagnostics,
+  type RuntimeStage,
+} from "./runtime-diagnostics.ts";
+import { BootstrapRegistration, bindRootClick, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
 import { renderApp, type UiModel, type Workspace } from "./ui.ts";
 
-const queriedAppRoot = document.querySelector<HTMLElement>("#app");
-if (!queriedAppRoot) throw new Error("Task Copilot root element #app is unavailable.");
-const appRoot: HTMLElement = queriedAppRoot;
-
-const facade = logseq as unknown as LogseqFacade;
-const blobStore = new LogseqFileStorageBlobStore(facade.FileStorage);
-const repository = new VersionedStateRepository(blobStore);
-const contentPort = new LogseqContentPort(facade);
-let taskCopilot: TaskCopilot;
+let appRoot: HTMLElement | undefined;
+let blobStore: LogseqFileStorageBlobStore;
+let repository: VersionedStateRepository;
+let contentPort: LogseqContentPort;
+let taskCopilot: TaskCopilot | undefined;
+const diagnostics = new RuntimeDiagnostics();
+const bootstrapRegistration = new BootstrapRegistration();
+const cleanupHooks: Array<() => void> = [];
+let featureReady = false;
+let uiBound = false;
 let workspace: Workspace = "inbox";
 let selectedObjectId: string | undefined;
 let selectedProjectId: string | undefined;
 let message: string | undefined;
 let latestError: string | undefined;
 let recoveryReport: string | undefined;
+
+function requireTaskCopilot(): TaskCopilot {
+  if (!taskCopilot || !featureReady) throw new Error("TASK_COPILOT_FEATURE_NOT_READY: 功能尚未就绪；请打开 Runtime Diagnostics。");
+  return taskCopilot;
+}
+
+function requireAppRoot(): HTMLElement {
+  const root = appRoot ?? document.getElementById(MAIN_UI_ROOT_ID);
+  if (!root) throw new Error(`Task Copilot root element #${MAIN_UI_ROOT_ID} is unavailable.`);
+  appRoot = root;
+  return root;
+}
 
 function currentProvider(): AgentProvider {
   const mode = (logseq.settings as { agentMode?: unknown } | undefined)?.agentMode;
@@ -52,29 +73,30 @@ function explain(error: unknown): string {
 }
 
 async function model(): Promise<UiModel> {
+  const app = requireTaskCopilot();
   const [inbox, now, objects, proposals, commits, events, auditProjection] = await Promise.all([
-    taskCopilot.listInbox(),
-    taskCopilot.queryNowWork(),
-    taskCopilot.listObjects(),
-    taskCopilot.listProposals(),
-    taskCopilot.listCommits(),
-    taskCopilot.getAuditTrail(),
-    taskCopilot.getAuditProjection(),
+    app.listInbox(),
+    app.queryNowWork(),
+    app.listObjects(),
+    app.listProposals(),
+    app.listCommits(),
+    app.getAuditTrail(),
+    app.getAuditProjection(),
   ]);
   const selectedObject = selectedObjectId ? objects.find((object) => object.objectId === selectedObjectId) : undefined;
-  const selectedObjectDetail = selectedObject ? await taskCopilot.getObjectDetail(selectedObject.objectId) : undefined;
-  const signalsByObject = Object.fromEntries(await Promise.all(objects.map(async (object) => [object.objectId, await taskCopilot.getObjectSignals(object.objectId)] as const)));
+  const selectedObjectDetail = selectedObject ? await app.getObjectDetail(selectedObject.objectId) : undefined;
+  const signalsByObject = Object.fromEntries(await Promise.all(objects.map(async (object) => [object.objectId, await app.getObjectSignals(object.objectId)] as const)));
   const proposalImpacts = Object.fromEntries(
-    await Promise.all(proposals.filter((proposal) => proposal.status === "OPEN").map(async (proposal) => [proposal.proposalId, await taskCopilot.getProposalImpact(proposal.proposalId)] as const)),
+    await Promise.all(proposals.filter((proposal) => proposal.status === "OPEN").map(async (proposal) => [proposal.proposalId, await app.getProposalImpact(proposal.proposalId)] as const)),
   );
   const reentryProjects = objects.filter((object) => object.objectType === "PROJECT");
   const project = reentryProjects.find((object) => object.objectId === selectedProjectId) ?? reentryProjects[0];
   if (project) selectedProjectId = project.objectId;
   let reentry: ProjectReentryView | undefined;
-  if (project) reentry = await taskCopilot.getProjectReentry(project.objectId);
+  if (project) reentry = await app.getProjectReentry(project.objectId);
   return {
     workspace,
-    agent: taskCopilot.agentStatus(),
+    agent: app.agentStatus(),
     inbox,
     now,
     objects,
@@ -91,11 +113,35 @@ async function model(): Promise<UiModel> {
     ...(message ? { message } : {}),
     ...(latestError ? { error: latestError } : {}),
     ...(recoveryReport ? { recoveryReport } : {}),
+    runtime: {
+      pluginVersion: diagnostics.snapshot().plugin_version,
+      runtimeStatus: diagnostics.snapshot().runtime_status,
+      storeStatus: diagnostics.snapshot().store_status,
+      currentGraph: diagnostics.snapshot().current_graph,
+    },
   };
 }
 
 async function refresh(): Promise<void> {
-  appRoot.innerHTML = renderApp(await model());
+  const root = requireAppRoot();
+  if (!featureReady) {
+    root.innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
+    return;
+  }
+  let primaryHtml: string;
+  try {
+    primaryHtml = renderApp(await model());
+  } catch (error) {
+    diagnostics.fail("APPLICATION_READY", error);
+    featureReady = false;
+    root.innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
+    return;
+  }
+  const mounted = mountWithDiagnosticFallback(root, () => primaryHtml, () => renderRuntimeDiagnostics(diagnostics.snapshot()));
+  if (mounted.fallbackUsed) {
+    diagnostics.fail("APPLICATION_READY", mounted.error);
+    featureReady = false;
+  }
 }
 
 async function run(action: () => Promise<void>, success?: string): Promise<void> {
@@ -137,6 +183,34 @@ async function handleAction(action: string, value?: string): Promise<void> {
     logseq.hideMainUI();
     return;
   }
+  if (action === "copy-diagnostics") {
+    const value = JSON.stringify(diagnostics.snapshot(), null, 2);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.append(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("Clipboard API and copy command are unavailable.");
+      }
+      message = "Runtime diagnostics 已复制。";
+    } catch (error) {
+      console.error("[Task Copilot] copy diagnostics failed", error);
+    }
+    await refresh();
+    return;
+  }
+  if (action === "runtime-diagnostics") {
+    await showRuntimeDiagnostics();
+    return;
+  }
+  const taskCopilot = requireTaskCopilot();
   if (action === "capture") {
     await run(async () => {
       await taskCopilot.captureCurrentBlock();
@@ -459,24 +533,113 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
 }
 
-appRoot.addEventListener("click", (event) => {
+function onRootClick(event: Event): void {
   const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
   if (!target) return;
   void handleAction(target.dataset.action ?? "", target.dataset.value);
-});
+}
+
+function bindUi(): void {
+  if (uiBound) return;
+  const unbind = bindRootClick(requireAppRoot(), onRootClick);
+  uiBound = true;
+  cleanupHooks.push(() => {
+    unbind();
+    uiBound = false;
+    if (appRoot) appRoot.replaceChildren();
+  });
+}
 
 async function showTaskCopilot(): Promise<void> {
   logseq.showMainUI({ autoFocus: true });
   await refresh();
 }
 
+async function showRuntimeDiagnostics(): Promise<void> {
+  logseq.showMainUI({ autoFocus: true });
+  requireAppRoot().innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
+}
+
 async function captureFromCommand(): Promise<void> {
-  await taskCopilot.captureCurrentBlock();
+  await requireTaskCopilot().captureCurrentBlock();
   workspace = "inbox";
   await showTaskCopilot();
 }
 
-async function main(): Promise<void> {
+async function openWorkspace(target: Workspace): Promise<void> {
+  if (!featureReady) {
+    await showRuntimeDiagnostics();
+    return;
+  }
+  workspace = target;
+  await showTaskCopilot();
+}
+
+async function guardedFeatureCommand(action: () => Promise<void>): Promise<void> {
+  if (!featureReady) {
+    console.warn("[Task Copilot] feature command unavailable; opening Runtime Diagnostics");
+    diagnostics.setNotice({
+      code: "FEATURE_NOT_READY",
+      message: "Task Copilot 功能尚未就绪；本次命令未执行，也未写入 Graph 或 Store。",
+      next_step: "请查看失败阶段和最近错误，然后使用 Copy diagnostics。",
+    });
+    await showRuntimeDiagnostics();
+    return;
+  }
+  try {
+    await action();
+  } catch (error) {
+    latestError = explain(error);
+    await showTaskCopilot();
+  }
+}
+
+function markReady(stage: RuntimeStage, logMessage?: string): void {
+  diagnostics.ready(stage);
+  if (logMessage) console.info(`[Task Copilot] ${logMessage}`);
+}
+
+function registerBootstrapShell(): void {
+  diagnostics.start("BOOTSTRAP_STARTED");
+  console.info("[Task Copilot] bootstrap started");
+
+  const host = logseq as unknown as BootstrapHost;
+  const callbacks: BootstrapCallbacks = {
+    open: showTaskCopilot,
+    capture: () => guardedFeatureCommand(captureFromCommand),
+    openInbox: () => guardedFeatureCommand(() => openWorkspace("inbox")),
+    openNowWork: () => guardedFeatureCommand(() => openWorkspace("now")),
+    diagnostics: showRuntimeDiagnostics,
+  };
+
+  diagnostics.start("TOOLBAR_REGISTERED");
+  bootstrapRegistration.registerToolbar(host);
+  markReady("TOOLBAR_REGISTERED", "toolbar registered");
+
+  diagnostics.start("COMMANDS_REGISTERED");
+  bootstrapRegistration.registerCommands(host, callbacks);
+  markReady("COMMANDS_REGISTERED", "commands registered");
+
+  diagnostics.start("MAIN_UI_REGISTERED");
+  bootstrapRegistration.registerMainUi(host, callbacks);
+  bindUi();
+  requireAppRoot().innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
+  markReady("MAIN_UI_REGISTERED", "main UI registered");
+  diagnostics.ready("BOOTSTRAP_STARTED");
+}
+
+async function environmentInfo(): Promise<void> {
+  const [graph, version] = await Promise.all([
+    logseq.App.getCurrentGraph().catch(() => null),
+    logseq.App.getInfo("version").catch(() => "unavailable"),
+  ]);
+  const graphShape = graph as { name?: unknown; url?: unknown } | null;
+  const graphLabel = graphShape && typeof graphShape.name === "string" ? graphShape.name : "unavailable";
+  diagnostics.setEnvironment(graphLabel || "available (identity shape unavailable)", typeof version === "string" ? version : JSON.stringify(version));
+}
+
+async function initializeFeatures(): Promise<void> {
+  diagnostics.start("SETTINGS_READY");
   logseq.useSettingsSchema([
     {
       key: "agentMode",
@@ -488,26 +651,80 @@ async function main(): Promise<void> {
       enumPicker: "radio",
     },
   ]);
+  markReady("SETTINGS_READY");
+
+  diagnostics.start("RUNTIME_ADAPTER_READY");
+  const facade = logseq as unknown as LogseqFacade;
+  contentPort = new LogseqContentPort(facade);
+  markReady("RUNTIME_ADAPTER_READY");
+
+  diagnostics.start("PERSISTENCE_READY");
+  blobStore = new LogseqFileStorageBlobStore(facade.FileStorage);
+  repository = new VersionedStateRepository(blobStore);
+  const persistence = await repository.initialize();
+  diagnostics.setStoreSchema("v1 (observed and validated)");
+  if (persistence.initializedNewStore) diagnostics.setRecoveryState("initialized_new_store");
+  markReady("PERSISTENCE_READY", "persistence ready");
+
+  diagnostics.start("MIGRATION_READY");
+  // load() validates the supported schema without rewriting damaged or newer data.
+  markReady("MIGRATION_READY");
+
+  diagnostics.start("APPLICATION_READY");
   rebuildApplication();
-  const recovery = await taskCopilot.initialize();
+  const recovery = await taskCopilot!.initialize();
+  diagnostics.setStoreStatus("READY");
+  diagnostics.setRecoveryState(`${persistence.initializedNewStore ? "initialized_new_store; " : ""}recovered ${recovery.recovered.length}; recovery required ${recovery.recoveryRequired.length}`);
   if (recovery.recovered.length || recovery.recoveryRequired.length) {
     recoveryReport = `启动扫描：已恢复 ${recovery.recovered.length}，需人工处理 ${recovery.recoveryRequired.length}。`;
   }
-  logseq.setMainUIInlineStyle({ position: "fixed", inset: "0", zIndex: 12, background: "rgb(11 24 18 / 30%)" });
-  logseq.provideModel({ showTaskCopilot, captureFromCommand });
-  logseq.App.registerUIItem("toolbar", {
-    key: "task-copilot-toolbar",
-    template: '<a class="button" data-on-click="showTaskCopilot" title="Task Copilot" aria-label="打开 Task Copilot">◉</a>',
-  });
-  logseq.App.registerCommandPalette({ key: "task-copilot-open", label: "Task Copilot：打开工作区" }, showTaskCopilot);
-  logseq.App.registerCommandPalette({ key: "task-copilot-capture", label: "Task Copilot：捕获当前块" }, captureFromCommand);
-  logseq.Editor.registerSlashCommand("Task Copilot：捕获当前块", captureFromCommand);
-  logseq.onSettingsChanged(() => {
+  markReady("APPLICATION_READY");
+
+  diagnostics.start("EVENTS_READY");
+  cleanupHooks.push(logseq.onSettingsChanged(() => {
     rebuildApplication();
     message = "Agent 模式已切换；正式领域状态与历史未受影响。";
-    void refresh();
-  });
-  console.info("[task-copilot] ready; pending recovery scan completed");
+    if (logseq.isMainUIVisible) void refresh();
+  }));
+  markReady("EVENTS_READY");
+  featureReady = true;
+  markReady("PLUGIN_READY", "plugin ready");
 }
 
-logseq.ready(main).catch((error: unknown) => console.error("[task-copilot] startup failed", error));
+async function main(): Promise<void> {
+  try {
+    registerBootstrapShell();
+  } catch (error) {
+    const failedStage = diagnostics.snapshot().stages.slice().reverse().find((stage) => stage.status === "RUNNING")?.stage ?? "BOOTSTRAP_STARTED";
+    diagnostics.fail(failedStage, error);
+    console.error(`[Task Copilot] initialization failed at ${failedStage}`, error);
+    return;
+  }
+
+  logseq.beforeunload(async () => {
+    for (const off of cleanupHooks.splice(0).reverse()) off();
+    featureReady = false;
+    taskCopilot = undefined;
+    logseq.hideMainUI();
+    console.info("[Task Copilot] unloaded");
+  });
+
+  try {
+    await environmentInfo();
+    await initializeFeatures();
+  } catch (error) {
+    const failedStage = diagnostics.snapshot().stages.find((stage) => stage.status === "RUNNING")?.stage ?? "APPLICATION_READY";
+    diagnostics.fail(failedStage, error, "READ_ONLY_SAFE_MODE");
+    diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+    diagnostics.setRecoveryState("initialization stopped; no automatic Graph write performed");
+    featureReady = false;
+    console.error(`[Task Copilot] initialization failed at ${failedStage}`, error);
+    try {
+      requireAppRoot().innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
+    } catch (renderError) {
+      console.error("[Task Copilot] diagnostic fallback render failed", renderError);
+    }
+  }
+}
+
+void logseq.ready().then(main).catch((error: unknown) => console.error("[Task Copilot] bootstrap failed before fallback UI became available", error));

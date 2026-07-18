@@ -8,6 +8,9 @@ import {
   LogseqContentPort,
   LogseqFileStorageBlobStore,
   RuntimeShapeAdapter,
+  assertStorageKey,
+  classifyStorageError,
+  physicalStorageKey,
   type LogseqFacade,
 } from "../src/index.ts";
 
@@ -152,8 +155,8 @@ test("FileStorage registry bookkeeping happens before the manifest activation wr
   });
   await blobs.set("task-copilot/state/slot-a.json", "payload");
   await blobs.set("task-copilot/state/manifest.json", "manifest");
-  assert.equal(writes.at(-1), "task-copilot/state/manifest.json");
-  assert.deepEqual(writes.slice(-2), ["task-copilot/registry/keys.json", "task-copilot/state/manifest.json"]);
+  assert.equal(writes.at(-1), physicalStorageKey("task-copilot/state/manifest.json"));
+  assert.deepEqual(writes.slice(-2), [physicalStorageKey("task-copilot/registry/keys.json"), physicalStorageKey("task-copilot/state/manifest.json")]);
 });
 
 test("a registry failure cannot occur after a new state manifest becomes visible", async () => {
@@ -162,13 +165,53 @@ test("a registry failure cannot occur after a new state manifest becomes visible
   const blobs = new LogseqFileStorageBlobStore({
     async getItem(key) { return values.get(key) ?? null; },
     async setItem(key, value) {
-      if (key === "task-copilot/registry/keys.json" && ++registryWrites === 2) throw new Error("registry unavailable");
+      if (key === physicalStorageKey("task-copilot/registry/keys.json") && ++registryWrites === 2) throw new Error("registry unavailable");
       values.set(key, value);
     },
     async removeItem(key) { values.delete(key); },
   });
   const repository = new VersionedStateRepository(blobs);
   await assert.rejects(repository.save(createEmptyState()), /registry unavailable/);
-  assert.equal(values.has("task-copilot/state/manifest.json"), false);
+  assert.equal(values.has(physicalStorageKey("task-copilot/state/manifest.json")), false);
   assert.equal((await repository.load()).revision, 0);
+});
+
+test("storage error classification handles Logseq missing-file shapes centrally", () => {
+  assert.equal(classifyStorageError(new Error("file not existed")), "NOT_FOUND");
+  assert.equal(classifyStorageError({ message: "File Not Existed: data.json", code: "ENOENT", path: "data.json" }), "NOT_FOUND");
+  assert.equal(classifyStorageError(new Error("permission denied")), "PERMISSION_DENIED");
+  assert.equal(classifyStorageError(new Error("invalid JSON")), "CORRUPTED");
+  assert.equal(classifyStorageError(new Error("BUG: should not join with empty dir")), "IO_ERROR");
+  assert.equal(classifyStorageError({ unexpected: true }), "UNKNOWN");
+});
+
+test("first-run missing FileStorage initializes a complete empty store with flat physical keys", async () => {
+  const values = new Map<string, string>();
+  const sdkKeys: string[] = [];
+  const blobs = new LogseqFileStorageBlobStore({
+    async getItem(key) { sdkKeys.push(key); if (!values.has(key)) throw new Error(`file not existed: ${key}`); return values.get(key); },
+    async setItem(key, value) { sdkKeys.push(key); values.set(key, value); },
+    async removeItem(key) { sdkKeys.push(key); values.delete(key); },
+  });
+  const initialized = await new VersionedStateRepository(blobs).initialize();
+  assert.equal(initialized.initializedNewStore, true);
+  assert.deepEqual(initialized.state.objects, []);
+  assert.deepEqual(initialized.state.events, []);
+  assert.deepEqual(initialized.state.proposals, []);
+  assert.equal(initialized.state.schemaVersion, 1);
+  assert.ok(sdkKeys.every((key) => key.length > 0 && !key.includes("/")), `SDK received nested or empty path: ${sdkKeys.join(", ")}`);
+});
+
+test("empty and invalid logical paths are rejected before the SDK is called", async () => {
+  let calls = 0;
+  const blobs = new LogseqFileStorageBlobStore({
+    async getItem() { calls += 1; return null; },
+    async setItem() { calls += 1; },
+    async removeItem() { calls += 1; },
+  });
+  for (const key of ["", "/task-copilot/state.json", "task-copilot/", "task-copilot//state.json", "task-copilot/../state.json"]) {
+    assert.throws(() => assertStorageKey(key), /relative path/i);
+    await assert.rejects(blobs.get(key), /relative path/i);
+  }
+  assert.equal(calls, 0);
 });

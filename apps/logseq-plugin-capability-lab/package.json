@@ -25,7 +25,8 @@
     "main": "dist/index.html"
   },
   "dependencies": {
-    "@logseq/libs": "0.0.17"
+    "@logseq/libs": "0.0.17",
+    "@task-copilot/shared": "0.1.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -19,7 +19,8 @@
     "check:boundaries": "node scripts/check-mvp-boundaries.mjs",
     "check:rules": "node scripts/check-rule-coverage.mjs",
     "acceptance:rehearsal": "tsx scripts/acceptance-rehearsal.ts",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:boundaries && npm run check:rules && npm run acceptance:rehearsal"
+    "check:plugins": "npm run check:package --workspaces --if-present && npm run check:bootstrap --workspaces --if-present && npm run check:dist --workspaces --if-present",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:plugins && npm run check:boundaries && npm run check:rules && npm run acceptance:rehearsal"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

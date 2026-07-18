@@ -1,6 +1,6 @@
 # Pending Runtime Tests
 
-> 当前允许结束于 `AUTOMATION_COMPLETE` 的唯一剩余证据组。总时长设计为 20-25 分钟；除明确步骤外，不写真实业务内容。
+> 第二次 Runtime Fix 后的单一集中检查点，预计 5-10 分钟。本轮只验证 CSS-safe 入口、首次空 Store、诊断和重复加载；不执行 Capture、Commit 或其他 Graph 写入。启动会创建插件私有空 Store，不写 Graph 正文。
 
 正式插件加载路径：
 
@@ -8,33 +8,23 @@
 /Users/wangrundong/work/任务管理中心-logseq插件/apps/task-copilot-logseq-plugin
 ```
 
-测试 Graph：
+| ID | Topic | Graph write | Status |
+|---|---|---|---|
+| RT-MVP-001A | Bootstrap Shell、Toolbar、五个 Command、Slash Open、Main UI/Diagnostics、reload | 无；不要执行 Capture | PENDING AFTER FIX |
+| RT-MVP-002 | Capture / Proposal / Commit / Undo / Now / Re-entry | 后续集中功能验收 | DEFERRED UNTIL 001A |
+| RT-MVP-003 | UUID / Anchor / conflict | 后续集中功能验收 | DEFERRED UNTIL 001A |
+| RT-MVP-004 | FileStorage reload / backup / recovery | 后续集中功能验收 | DEFERRED UNTIL 001A |
 
-```text
-/Users/wangrundong/work/任务管理中心-logseq插件/logseq
-```
+## 5-10 分钟检查点
 
-| ID | Topic | Feature affected | Prepared commit | Graph write | Status |
-|---|---|---|---|---|---|
-| RT-MVP-001 | 加载、Toolbar/Command/Slash、No Agent/Demo 设置、reload | Lifecycle / entry / no-agent | a8e28d7 | 仅 Slash 所在临时块可能受 Logseq 自身输入影响 | PENDING |
-| RT-MVP-002 | Capture → 手工 Proposal → Review/Commit；状态/归属 Proposal → Undo；Now/Re-entry | TST 001/002/004-008/010 | a8e28d7 | 是，仅专用临时 Block | PENDING |
-| RT-MVP-003 | Graph/UUID edit/move/delete/undo、Anchor 扫描/审计/rebind、正文冲突 | TST 003/006 | a8e28d7 | 是，仅专用临时 Block | PENDING |
-| RT-MVP-004 | FileStorage reload、备份下载、恢复校验、Pending 扫描 | TST 009 / reliability | a8e28d7 | 不写正文；写插件私有存储和下载目录 | PENDING |
+1. 暂时 Disable Capability Lab 和 `ai-task-copilot-logseq-bridge`。
+2. 从 Plugins 页面 Reload Task Copilot；若需重新 Load unpacked，选择上面的插件根目录，不能选择 `dist/`。
+3. 确认右上角出现 Tooltip 为 `Task Copilot` 的 `TC` Toolbar 入口，并点击一次。
+4. 按 `Command+Shift+P` 搜索 `Task Copilot`，确认五个命令都存在。
+5. 点击 `Task Copilot: Open`。
+6. 确认出现完整主界面，Console 无 `invalid selector`、`file not existed` 或 `should not join with empty dir`；若其他深层初始化失败，则确认出现 Runtime Diagnostics，并点击 `Copy diagnostics`。
+7. 在 Developer Console 复制所有 `[Task Copilot]` 日志；不要点击 Capture 或其他写入动作。
+8. 截图主界面或 Diagnostics。
+9. 完全退出并重新打开 Logseq，再重复步骤 3-6，确认 Toolbar 不重复、界面仍能打开。
 
-## 集中执行步骤
-
-1. 在测试 Graph 新建一条明显标记为 `Task Copilot Runtime Test YYYY-MM-DD` 的临时 Block，记录 Logseq 版本和 Block UUID。
-2. Build 已由根检查完成。用上方正式插件目录 `Load unpacked plugin`；确认只出现一个圆形 Toolbar 入口，Command Palette 可打开，reload 三次不重复。
-3. 保持 Agent `none`：捕获当前块，手工正式化 Task；确认先进入 Review，可读 before/after、理由、规则、影响范围和预校验均可见。接受并 Commit 后再以 Proposal 设置 Waiting（填写 waiting_for、expected_result、review_at），检查对象抽屉与现在工作；正文不应出现大段属性。
-4. 创建一个 Area、一个 Project，将 Task 主归属改为 Project；确认高影响归属操作要求单独确认。检查 Re-entry 可选择该 Project，并显示未决问题；对最近一次状态或归属 Commit 执行 Undo，确认正文与领域状态同步恢复。
-5. 新建第二条临时 Block，将 Agent 切为 `demo`：生成 Proposal；接受 rewrite/create/resolve，拒绝 move/ownership；Commit 后确认正文原地替换、对象 UNASSIGNED、审计有 before/after；随后 Undo。
-6. 对一个已绑定 Block 依次编辑、同页移动、删除、Undo 删除，记录 UUID 和 Graph 身份是否保持。删除时手工执行 Anchor 扫描：对象不得消失，审计应显示来源、观察时间、预期/当前内容与恢复选项；用另一临时 Block 测试“重新绑定当前块”。
-7. 在 Proposal 生成后手工修改正文，再尝试 Commit；预期预校验/提交停止并显示冲突，不覆盖用户修改。
-8. 在审计与恢复中“创建备份并导出”，reload 插件，确认对象仍在；执行“验证最近恢复包”，预期差异为 0，并记录下载文件名。
-9. 删除仅用于本检查的临时 Blocks；插件私有 Store 如需保留用于 Pilot 可不清理。若要完全清理，先保留下载恢复包，再卸载插件并手工删除 Task Copilot 插件数据。
-
-## 反馈格式
-
-复制 `docs/goal/RUNTIME_FEEDBACK_TEMPLATE.md`，至少填写：Logseq 版本、每个 RT 的 PASS/FAIL/PARTIAL、UUID 观察、FileStorage reload、下载文件名、Console 完整错误栈、清理结果。失败时不要反复点击 Commit；保留当前 Block 和 Console 证据。
-
-用户回复后恢复指令：读取该反馈、更新本文件与 Acceptance Matrix，修复、全量回归，再进入小规模 Pilot。
+回传：Logseq 版本、两次启动是否都有 Toolbar、五个命令是否齐全、截图、复制的 diagnostics（如有）和所有 `[Task Copilot]` Console 行。完成本检查不会写 Graph；清理只需重新启用另外两个插件。

@@ -89,30 +89,40 @@ function isManifest(value: unknown): value is StateManifest {
   );
 }
 
-function isState(value: unknown): value is PersistedState {
-  if (!value || typeof value !== "object") return false;
+function normalizeState(value: unknown): PersistedState | undefined {
+  if (!value || typeof value !== "object") return undefined;
   const state = value as Partial<PersistedState>;
-  return (
-    typeof state.schemaVersion === "number" &&
-    typeof state.revision === "number" &&
-    Array.isArray(state.objects) &&
-    Array.isArray(state.captures) &&
-    Array.isArray(state.relations) &&
-    Array.isArray(state.anchors) &&
-    Array.isArray(state.proposals) &&
-    Array.isArray(state.commits) &&
-    Array.isArray(state.events) &&
-    Array.isArray(state.views) &&
-    Array.isArray(state.artifacts)
-  );
+  if (typeof state.schemaVersion !== "number" || typeof state.revision !== "number") return undefined;
+  const collections = ["objects", "captures", "relations", "anchors", "proposals", "commits", "events", "views", "artifacts"] as const;
+  if (collections.some((key) => state[key] !== undefined && !Array.isArray(state[key]))) return undefined;
+  const empty = createEmptyState();
+  return structuredClone({
+    ...state,
+    objects: state.objects ?? empty.objects,
+    captures: state.captures ?? empty.captures,
+    relations: state.relations ?? empty.relations,
+    anchors: state.anchors ?? empty.anchors,
+    proposals: state.proposals ?? empty.proposals,
+    commits: state.commits ?? empty.commits,
+    events: state.events ?? empty.events,
+    views: state.views ?? empty.views,
+    artifacts: state.artifacts ?? empty.artifacts,
+  }) as PersistedState;
 }
 
 export class VersionedStateRepository {
   constructor(private readonly blobs: BlobStore) {}
 
+  async initialize(): Promise<{ state: PersistedState; initializedNewStore: boolean }> {
+    const manifestText = await this.blobs.get(manifestKey);
+    if (manifestText !== undefined) return { state: await this.load(), initializedNewStore: false };
+    const state = await this.save(createEmptyState());
+    return { state, initializedNewStore: true };
+  }
+
   async load(): Promise<PersistedState> {
     const manifestText = await this.blobs.get(manifestKey);
-    if (!manifestText) return createEmptyState();
+    if (manifestText === undefined) return createEmptyState();
     const candidate = parseJson(manifestText, "State manifest");
     if (!candidate || typeof candidate !== "object" || typeof (candidate as { schemaVersion?: unknown }).schemaVersion !== "number") {
       throw new CorruptionError("State manifest 缺少 schema_version。");
@@ -126,10 +136,13 @@ export class VersionedStateRepository {
     if (checksum(payloadText) !== candidate.payloadChecksum) {
       throw new CorruptionError("Active payload checksum 不匹配。", { payloadKey });
     }
-    const state = parseJson(payloadText, "State payload");
-    if (!isState(state)) throw new CorruptionError("State payload 结构不完整。");
-    if (state.schemaVersion !== CURRENT_SCHEMA_VERSION) throw new UnsupportedSchemaError(state.schemaVersion);
-    return structuredClone(state);
+    const candidateState = parseJson(payloadText, "State payload");
+    if (candidateState && typeof candidateState === "object" && typeof (candidateState as { schemaVersion?: unknown }).schemaVersion === "number" && (candidateState as { schemaVersion: number }).schemaVersion !== CURRENT_SCHEMA_VERSION) {
+      throw new UnsupportedSchemaError((candidateState as { schemaVersion: number }).schemaVersion);
+    }
+    const state = normalizeState(candidateState);
+    if (!state) throw new CorruptionError("State payload 结构不完整。");
+    return state;
   }
 
   async save(state: PersistedState, expectedRevision?: number): Promise<PersistedState> {

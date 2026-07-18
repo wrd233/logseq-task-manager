@@ -1,4 +1,5 @@
 import "@logseq/libs";
+import { classifyStorageError } from "@task-copilot/shared";
 import {
   DEFAULT_EXPERIMENT_PAGE,
   PLUGIN_ID,
@@ -54,8 +55,8 @@ interface RuntimeState {
   capabilities: Capability[];
 }
 
-const REGISTRY_KEY = "capability-lab/created-blocks.json";
-const STORAGE_TEST_KEY = "capability-lab/storage-probe.json";
+const REGISTRY_KEY = "capability-lab-created-blocks.json";
+const STORAGE_TEST_KEY = "capability-lab-storage-probe.json";
 const MAX_LOG_ENTRIES = 40;
 const queriedApp = document.querySelector<HTMLElement>("#app");
 const offHooks: Array<() => void> = [];
@@ -208,7 +209,13 @@ async function persistRegistry(): Promise<void> {
 }
 
 async function loadRegistry(): Promise<void> {
-  const raw = await logseq.FileStorage.getItem(REGISTRY_KEY);
+  let raw: unknown;
+  try {
+    raw = await logseq.FileStorage.getItem(REGISTRY_KEY);
+  } catch (error) {
+    if (classifyStorageError(error) !== "NOT_FOUND") throw error;
+    raw = undefined;
+  }
   const parsed = parseRegistry(raw, new Date().toISOString());
   state.registry = parsed.registry;
   state.registryWarnings = parsed.warnings;
