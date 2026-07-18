@@ -3,8 +3,8 @@
 ```yaml
 goal_state: CONSOLIDATED_RUNTIME_CHECKPOINT
 current_slice: "Runtime Fix - RT-BUG-001 journal source resolution and RT-BUG-002 observable Inbox actions"
-last_completed_commit: "cbf1436 fix: repair Logseq inbox sources and actions (review follow-up pending local commit)"
-last_successful_check: "2026-07-18 targeted review follow-up PASS; 85 total tests expected at final root check; prior root check PASS with 81 tests and 145 rules"
+last_completed_commit: "1a6df6d fix: close runtime repair review gaps"
+last_successful_check: "2026-07-18 ./scripts/check.sh PASS; 85 tests; 145 rules; all builds, boundaries and acceptance rehearsal passed"
 implemented:
   - "Slice 0: Goal/spec baseline, 145-rule coverage, ADRs, workspace and formal plugin shell"
   - "Slice 1: object contracts, Phase/Condition/Signal, ownership matrix, dependency cycles, rule-referenced errors"
