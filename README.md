@@ -43,3 +43,7 @@ Do not select `dist/`. The Capability Lab remains separately loadable only for b
 ## Why the Graph is ignored
 
 The Graph is mutable runtime data: Logseq may auto-save pages, plugin experiments create marked blocks, and other local processes may update pages. Tracking it from the outer repository would mix product source with test-fixture state. Its nested `.git` is preserved for local provenance, but neither repository may be pushed while the local pre-push guards are installed.
+
+## Runtime failure diagnostics
+
+The formal plugin has a Diagnostics view with bounded structured logs, copy/export controls and read-only Source Resolver / Inbox Action probes. Inbox failures show a `TC-...` diagnostic ID and explicitly state whether Capture and Logseq content remain safe. See `apps/task-copilot-logseq-plugin/README.md` and `docs/goal/PENDING_RUNTIME_TESTS.md`; a bare numeric source such as `19` is always a defect and must never be treated as a page display name.

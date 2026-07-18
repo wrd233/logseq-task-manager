@@ -2,9 +2,9 @@
 
 ```yaml
 goal_state: CONSOLIDATED_RUNTIME_CHECKPOINT
-current_slice: "Runtime Fix - observable formal-plugin bootstrap"
+current_slice: "Runtime Fix - RT-BUG-001 journal source resolution and RT-BUG-002 observable Inbox actions"
 last_completed_commit: "5e7e9be fix: harden Task Copilot bootstrap and first-run storage"
-last_successful_check: "2026-07-18 ./scripts/check.sh PASS; 73 tests; 145 rules; recovery rehearsal PASS; standalone formal-plugin build PASS"
+last_successful_check: "2026-07-18 ./scripts/check.sh PASS; 81 tests; 145 rules; recovery rehearsal PASS; formal-plugin package/bootstrap/dist PASS"
 implemented:
   - "Slice 0: Goal/spec baseline, 145-rule coverage, ADRs, workspace and formal plugin shell"
   - "Slice 1: object contracts, Phase/Condition/Signal, ownership matrix, dependency cycles, rule-referenced errors"
@@ -18,9 +18,15 @@ implemented:
   - "Runtime Fix checks: behavioral failure fallback, UI mount fallback, duplicate registration, reload cleanup, package/dist integrity and identifier isolation"
   - "Runtime Fix 2: CSS-safe Logseq registration/DOM keys, root-scoped CSS and host-safe outer async catch"
   - "Runtime Fix 2: centralized storage error classification, flat physical FileStorage names, first-run schema-v1 initialization and Capability Lab missing-file handling"
+  - "Runtime Fix 3: numeric/Journals Source Resolver, Block-UUID legacy repair and source_reference_repaired audit"
+  - "Runtime Fix 3: observable six-action Inbox controller, inline formalization/proposal/link/defer/dismiss UI and complete manual Task Commit"
+  - "Runtime Fix 3: bounded structured logger, correlation IDs, global rejection capture, Diagnostics JSONL and read-only probes"
 remaining_automatable_work: []
+runtime_failures_automatically_fixed:
+  - "RT-BUG-001: root cause confirmed in RuntimeShapeAdapter id-first String mapping; active Store persisted sourcePage/cachedPageRef 19; automated repair complete, Desktop regression pending"
+  - "RT-BUG-002: Store proves dismiss command arrived, while prompt-dependent actions and void Promise dispatch were not reliably observable; automated interaction/diagnostic repair complete, Desktop regression pending"
 runtime_checks_pending:
-  - RT-MVP-001A
+  - RT-MVP-001B
   - RT-MVP-002
   - RT-MVP-003
   - RT-MVP-004
@@ -36,13 +42,13 @@ acceptance_progress:
   TST-MVP-009: "AUTOMATED_PASS / DESKTOP_PENDING"
   TST-MVP-010: "AUTOMATED_PASS / DESKTOP_PENDING"
 active_risks:
-  - "The invalid-selector and first-run NOT_FOUND defects have automated fixes but require the 5-10 minute RT-MVP-001A Desktop regression"
+  - "RT-BUG-001/002 fixes require the single <=10 minute RT-MVP-001B Desktop regression; Pilot is not allowed before PASS"
   - "Logseq Desktop runtime shapes, UUID move/delete/undo and FileStorage reload are not claimed without RT evidence"
   - "move_content is intentionally refused by the Adapter until UUID move semantics are observed"
   - "@logseq/libs 0.0.17 retains upstream npm audit findings; forced breaking upgrade is not accepted without compatibility proof"
 user_actions_required:
-  - "Run the single 5-10 minute, no-Graph-write RT-MVP-001A checkpoint in PENDING_RUNTIME_TESTS.md"
-resume_instruction: "Read AGENTS.md and Goal files, ingest RT-MVP-001A logs/screenshots, update the matrix, fix any Desktop regression, rerun ./scripts/check.sh, then restore the remaining functional checkpoint. Do not claim MVP_SUCCESS."
+  - "Run the single <=10 minute RT-MVP-001B checkpoint in PENDING_RUNTIME_TESTS.md and return the exact feedback template"
+resume_instruction: "Read AGENTS.md and Goal files, ingest RT-MVP-001B result and diagnostics, fix any Desktop regression, rerun ./scripts/check.sh, and do not enter Pilot until source/actions/diagnostics pass. Do not claim MVP_SUCCESS."
 ```
 
 外层仓库分支为 `feature/task-copilot-mvp`，remote/upstream 均未配置，未 push。内层 Graph dirty 仍只作运行环境信息。

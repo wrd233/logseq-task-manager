@@ -52,6 +52,24 @@ export interface CurrentBlock {
   graphId: string;
   text: string;
   pageRef?: string;
+  pageIdentity?: SourcePageIdentity;
+}
+
+export interface SourcePageIdentity {
+  rawShape: string;
+  pageId?: number | string;
+  pageUuid?: string;
+  pageName?: string;
+  originalName?: string;
+  journalDay?: number | string;
+  displayName: string;
+  resolutionPath: string[];
+}
+
+export interface SourceResolution {
+  status: "resolved" | "missing" | "unresolved";
+  displayName: string;
+  pageIdentity?: SourcePageIdentity;
 }
 
 export interface PreparedTextMutation extends TextMutationRecord {
@@ -73,6 +91,7 @@ export interface ContentPort {
   compensate(mutation: PreparedTextMutation): Promise<void>;
   open(externalId: string, graphId: string): Promise<void>;
   observe(anchor: Anchor): Promise<AnchorObservation>;
+  resolveSource?(externalId: string, cachedPageRef?: string): Promise<SourceResolution>;
 }
 
 export interface ProposalContext {

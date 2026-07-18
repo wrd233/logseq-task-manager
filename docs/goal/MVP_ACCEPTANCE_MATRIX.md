@@ -4,16 +4,16 @@
 
 | ID | Gate | Automated evidence | Desktop evidence | Rule refs | Status | Known limitation |
 |---|---|---|---|---|---|---|
-| TST-MVP-001 | Capture | current-block Capture；raw text/source/method；No-Agent 手工 Proposal 正式化 | RT-MVP-002 | CAP-IN-001/002、SEM-CAP-001 | AUTOMATED_PASS / DESKTOP_PENDING | SDK current-block shape 待实机 |
-| TST-MVP-002 | Independent Object | Application 发放 128-bit ID；状态不写正文属性；创建快照含主 Anchor | RT-MVP-002 | PRI-009、PRI-012、SEM-COMMON-001、PLG-UI-001 | AUTOMATED_PASS / DESKTOP_PENDING | FileStorage reload 待实机 |
-| TST-MVP-003 | Anchor | Graph-qualified prepare/apply/verify/observe；missing/conflict/recovered 与 rebind 测试 | RT-MVP-003 | MAP-ANC-001/002、MAP-PAGE-002、SYN-CON-001 | AUTOMATED_PASS / DESKTOP_PENDING | UUID move/delete/undo 必须实测 |
+| TST-MVP-001 | Capture | current-block Capture；真实 page `19` resolver；旧 Capture repair；六动作 delegated click/four-state；No-Agent 手工正式化完整 Commit | RT-MVP-001B/002 | CAP-IN-001/002、SEM-CAP-001 | AUTOMATED_PASS / DESKTOP_REGRESSION_REQUIRED | RT-BUG-001/002 待 10 分钟实机复测 |
+| TST-MVP-002 | Independent Object | Application 发放 128-bit ID；手工正式化创建/审查/Commit/Capture RESOLVED；对象抽屉定位 | RT-MVP-001B/002 | PRI-009、PRI-012、SEM-COMMON-001、PLG-UI-001 | AUTOMATED_PASS / DESKTOP_REGRESSION_REQUIRED | FileStorage reload 待实机 |
+| TST-MVP-003 | Anchor | Graph-qualified UUID Anchor；page ID/UUID/name/journalDay Resolver；旧缓存审计修复；Block UUID open/missing conflict | RT-MVP-001B/003 | MAP-ANC-001/002、MAP-PAGE-002、SYN-CON-001 | AUTOMATED_PASS / DESKTOP_REGRESSION_REQUIRED | 真实聚焦与 UUID move/delete/undo 必须实测 |
 | TST-MVP-004 | Three-axis State | ACTIVE + WAITING + REVIEW_DUE；Phase/Condition 均经预校验 Proposal/Commit/Undo | RT-MVP-002 | LIF-BASE-001、LIF-COND-001、LIF-SIG-001 | AUTOMATED_PASS / DESKTOP_PENDING | UI prompt 交互待实机 |
 | TST-MVP-005 | Partial Acceptance | 可读 diff/影响预览；风险重算；高影响确认；128 组合性质测试 | RT-MVP-002 | PRI-006、COM-OP-001/002、REV-PART-001..005 | AUTOMATED_PASS / DESKTOP_PENDING | move 高影响路径故意 Feature Flag |
 | TST-MVP-006 | Audit and Undo | before/after；Undo 先持久化逆向 PENDING；反序补偿、冲突和恢复测试 | RT-MVP-002 | AUD-EVT-001、AUD-RBK-001、COM-ATM-001 | AUTOMATED_PASS / DESKTOP_PENDING | 真实 Logseq 二次编辑冲突待实机 |
 | TST-MVP-007 | Now Work | `projectNowWork` + UI tests；无完整 history | RT-MVP-002 | VIEW-BASE-001/002、TXT-DEN-001 | AUTOMATED_PASS / DESKTOP_PENDING | 视觉密度/主题待实机 |
 | TST-MVP-008 | Re-entry | Project 选择、当前状态、最近三项、未决问题、恢复动作、最多三入口 | RT-MVP-002 | VIEW-RE-001、DISC-002 | AUTOMATED_PASS / DESKTOP_PENDING | 真实项目内容待 Pilot |
 | TST-MVP-009 | Export and Restore | JSON/JSONL/Markdown/checksum；临时 filesystem Store 实际恢复 | RT-MVP-004 | SYN-REC-001、INF-OWN-004 | AUTOMATED_PASS / DESKTOP_PENDING | 下载和 FileStorage reload 待实机 |
-| TST-MVP-010 | No-Agent Degradation | NoAgentProvider + UI；正式化/编辑/状态/归属均可手工生成 Proposal 并审查提交 | RT-MVP-001/002 | AGT-AUTH-001、PRI-010 | AUTOMATED_PASS / DESKTOP_PENDING | 设置持久化待实机 |
+| TST-MVP-010 | No-Agent Degradation | NoAgentProvider + inline manual formalization/proposal；所有动作可见反馈；正式变化仍经 Application Command | RT-MVP-001B/002 | AGT-AUTH-001、PRI-010 | AUTOMATED_PASS / DESKTOP_REGRESSION_REQUIRED | 设置持久化待实机 |
 
 ## Release Gates
 
@@ -25,6 +25,7 @@
 - [x] 无已知 silent overwrite；hash/version/Graph 冲突停写
 - [x] 独立 Standards/Spec 审查结论已关闭，并由 59 项测试覆盖主要修复
 - [ ] Consolidated Desktop acceptance complete
+- [ ] RT-BUG-001/002 Desktop regression complete；完成前不得进入 Pilot
 - [ ] Pilot complete
 - [ ] MVP_SUCCESS root clean gate
 - [x] No remote / no push

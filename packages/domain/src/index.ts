@@ -664,6 +664,16 @@ export interface Capture {
   originalText: string;
   sourceAnchorId: string;
   sourcePage?: string;
+  sourcePageIdentity?: {
+    rawShape: string;
+    pageId?: number | string;
+    pageUuid?: string;
+    pageName?: string;
+    originalName?: string;
+    journalDay?: number | string;
+    displayName: string;
+    resolutionPath: string[];
+  };
   captureMethod: "CURRENT_BLOCK" | "QUICK_INPUT" | "IMPORT" | "MANUAL";
   capturedAt: string;
   updatedAt: string;
@@ -671,6 +681,8 @@ export interface Capture {
   resolvedObjectIds: string[];
   resolutionNote?: string;
   deferredUntil?: string;
+  deferReason?: string;
+  sourceConflict?: { code: string; message: string };
 }
 
 export interface DomainEvent {

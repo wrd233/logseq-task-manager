@@ -7,6 +7,7 @@ import type {
   PreparedTextMutation,
   StateStore,
   SystemState,
+  SourceResolution,
 } from "./ports.ts";
 import { createEmptyState } from "./ports.ts";
 import type { Anchor, SemanticOperation } from "@task-copilot/domain";
@@ -36,6 +37,7 @@ export class MemoryStateStore implements StateStore {
 }
 
 export class MemoryContentPort implements ContentPort {
+  resolveSource?: (externalId: string, cachedPageRef?: string) => Promise<SourceResolution>;
   private readonly blocks = new Map<string, CurrentBlock>();
   private currentExternalId: string;
   private failApply = false;

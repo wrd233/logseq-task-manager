@@ -162,8 +162,57 @@ export class TaskCopilot {
 
   async initialize(): Promise<{ recovered: string[]; recoveryRequired: string[] }> {
     const recovery = await this.recoverPendingCommits();
+    await this.repairCaptureSources();
     await this.scanAnchors();
     return recovery;
+  }
+
+  async repairCaptureSources(): Promise<{ repaired: number; conflicts: number }> {
+    if (!this.content.resolveSource) return { repaired: 0, conflicts: 0 };
+    const state = await this.store.load();
+    const next = structuredClone(state);
+    let repaired = 0;
+    let conflicts = 0;
+    for (const capture of next.captures) {
+      const anchor = next.anchors.find((candidate) => candidate.anchorId === capture.sourceAnchorId);
+      if (!anchor) continue;
+      const needsRepair = !capture.sourcePage || /^\d+$/.test(capture.sourcePage) || /^\d+$/.test(anchor.cachedPageRef ?? "");
+      if (!needsRepair) continue;
+      let result;
+      try {
+        result = await this.content.resolveSource(anchor.externalId, anchor.cachedPageRef ?? capture.sourcePage);
+      } catch (error) {
+        capture.sourcePage = "无法解析的 Logseq 页面";
+        capture.sourceConflict = { code: "SOURCE_RESOLUTION_FAILED", message: "来源解析失败，Capture 本身仍然保留；请查看 Diagnostics 后重试。" };
+        next.events.push({
+          eventId: this.makeId("event"), timestamp: this.clock().toISOString(), actor: "system", captureId: capture.captureId,
+          operationType: "source_reference_repair_failed", payload: { pageId: anchor.cachedPageRef, errorName: error instanceof Error ? error.name : "UnknownError" },
+          ruleRefs: ["MAP-ANC-001", "SYN-CON-001"], reversible: false,
+        });
+        conflicts += 1;
+        continue;
+      }
+      if (result.status === "resolved") {
+        const previous = { sourcePage: capture.sourcePage, cachedPageRef: anchor.cachedPageRef };
+        capture.sourcePage = result.displayName;
+        if (result.pageIdentity) capture.sourcePageIdentity = result.pageIdentity;
+        delete capture.sourceConflict;
+        anchor.cachedPageRef = result.displayName;
+        anchor.lastSeenAt = this.clock().toISOString();
+        next.events.push({
+          eventId: this.makeId("event"), timestamp: this.clock().toISOString(), actor: "system", captureId: capture.captureId,
+          operationType: "source_reference_repaired", payload: { previous, displayName: result.displayName, pageId: result.pageIdentity?.pageId },
+          ruleRefs: ["MAP-ANC-001", "SYN-CON-001"], reversible: true,
+        });
+        repaired += 1;
+      } else {
+        capture.sourcePage = "无法解析的 Logseq 页面";
+        capture.sourceConflict = { code: result.status === "missing" ? "SOURCE_BLOCK_MISSING" : "SOURCE_PAGE_UNRESOLVED", message: "来源块已失联或页面无法解析，Capture 本身仍然保留。" };
+        conflicts += 1;
+      }
+    }
+    if (repaired || conflicts) await this.store.save(next, state.revision);
+    return { repaired, conflicts };
   }
 
   async captureCurrentBlock(): Promise<Capture> {
@@ -191,6 +240,7 @@ export class TaskCopilot {
       originalText: block.text,
       sourceAnchorId: anchorId,
       ...(block.pageRef ? { sourcePage: block.pageRef } : {}),
+      ...(block.pageIdentity ? { sourcePageIdentity: block.pageIdentity } : {}),
       captureMethod: "CURRENT_BLOCK",
       capturedAt: now,
       updatedAt: now,
@@ -1379,7 +1429,7 @@ export class TaskCopilot {
     return saved;
   }
 
-  async deferCapture(captureId: string, deferredUntil: string): Promise<Capture> {
+  async deferCapture(captureId: string, deferredUntil: string, reason = "稍后复查"): Promise<Capture> {
     if (!Number.isFinite(Date.parse(deferredUntil))) {
       throw new StructuredError({ code: "INVALID_DEFERRED_UNTIL", message: "Capture 暂缓时间必须是合法日期。", ruleRefs: ["PRI-003"] });
     }
@@ -1388,6 +1438,7 @@ export class TaskCopilot {
     const next = structuredClone(state);
     const saved = next.captures.find((candidate) => candidate.captureId === captureId)!;
     saved.deferredUntil = deferredUntil;
+    saved.deferReason = reason.trim() || "稍后复查";
     saved.updatedAt = this.clock().toISOString();
     next.events.push({
       eventId: this.makeId("event"),
@@ -1395,7 +1446,7 @@ export class TaskCopilot {
       actor: "user",
       captureId,
       operationType: "capture_deferred",
-      payload: { deferredUntil },
+      payload: { deferredUntil, reason: saved.deferReason },
       ruleRefs: ["PRI-003"],
       reversible: true,
     });
@@ -1436,11 +1487,28 @@ export class TaskCopilot {
     const capture = findOrThrow(state.captures, (candidate) => candidate.captureId === captureId, "CAPTURE_NOT_FOUND", "找不到 Capture。");
     const anchor = findOrThrow(
       state.anchors,
-      (candidate) => candidate.anchorId === capture.sourceAnchorId && candidate.status === "active",
+      (candidate) => candidate.anchorId === capture.sourceAnchorId && candidate.status !== "missing" && candidate.status !== "replaced",
       "ANCHOR_NOT_FOUND",
-      "Capture 来源 Anchor 已失联或冲突，请在审计中处理。",
+      "来源块已失联，Capture 本身仍然保留。请在审计中查看技术详情或重新绑定。",
     );
     await this.content.open(anchor.externalId, anchor.graphId);
+    if (this.content.resolveSource) {
+      const resolution = await this.content.resolveSource(anchor.externalId, anchor.cachedPageRef);
+      if (resolution.status === "resolved") {
+        const current = await this.store.load();
+        const next = structuredClone(current);
+        const savedCapture = next.captures.find((candidate) => candidate.captureId === captureId);
+        const savedAnchor = next.anchors.find((candidate) => candidate.anchorId === anchor.anchorId);
+        if (savedCapture && savedAnchor) {
+          savedCapture.sourcePage = resolution.displayName;
+          if (resolution.pageIdentity) savedCapture.sourcePageIdentity = resolution.pageIdentity;
+          delete savedCapture.sourceConflict;
+          savedAnchor.cachedPageRef = resolution.displayName;
+          savedAnchor.lastSeenAt = this.clock().toISOString();
+          await this.store.save(next, current.revision);
+        }
+      }
+    }
   }
 
   async openObjectText(objectId: string): Promise<void> {

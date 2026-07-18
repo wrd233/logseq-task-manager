@@ -59,9 +59,18 @@ test("Inbox and Proposal Review expose the complete manual and partial-review co
     capturedAt: "2026-07-17T00:00:00.000Z", updatedAt: "2026-07-17T00:00:00.000Z", resolvedObjectIds: [],
   }];
   let html = renderApp(value);
-  for (const action of ["open-capture", "formalize", "manual-proposal", "associate-capture", "defer-capture", "dismiss-capture"]) {
+  for (const action of ["open-source", "manual-formalize", "create-manual-proposal", "link-existing-object", "defer", "no-action"]) {
     assert.match(html, new RegExp(`data-action="${action}"`));
   }
+  assert.match(html, /type="button"/);
+  value.inbox[0]!.sourcePage = "19";
+  value.inboxDialog = { captureId: "cap_1", kind: "formalize" };
+  value.inboxActionStates = { "manual-formalize:cap_1": { status: "error", correlationId: "TC-20260718-test", message: "failed" } };
+  html = renderApp(value);
+  assert.doesNotMatch(html, /来源：19/);
+  assert.match(html, /来源：未知来源/);
+  assert.match(html, /submit-formalize/);
+  assert.match(html, /诊断 ID：TC-20260718-test/);
   value.workspace = "review";
   value.proposals = [{
     proposalId: "prop_1", sourceAnchorIds: ["anc_1"], sourceObjectIds: [], summary: "手工建议", facts: ["原文"], assumptions: [], uncertainties: [],

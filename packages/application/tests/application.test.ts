@@ -74,6 +74,50 @@ test("current block capture preserves raw text and manual formalization creates 
   assert.equal((objectChange?.after as ManagedObject | undefined)?.primaryTextAnchorId, state.anchors[0]?.anchorId);
 });
 
+test("startup safely repairs a legacy numeric Capture source without changing Capture identity", async () => {
+  const { app, store, content } = harness();
+  const created = await app.captureCurrentBlock();
+  const state = await store.load();
+  state.captures[0]!.sourcePage = "19";
+  state.anchors[0]!.cachedPageRef = "19";
+  await store.save(state, state.revision);
+  content.resolveSource = async () => ({
+    status: "resolved", displayName: "2026-07-18 · Journal",
+    pageIdentity: { rawShape: "number", pageId: 19, journalDay: 20260718, displayName: "2026-07-18 · Journal", resolutionPath: ["getPage(id)", "journalDay"] },
+  });
+  const repaired = await app.repairCaptureSources();
+  const saved = await store.load();
+  assert.deepEqual(repaired, { repaired: 1, conflicts: 0 });
+  assert.equal(saved.captures[0]?.captureId, created.captureId);
+  assert.equal(saved.captures[0]?.sourcePage, "2026-07-18 · Journal");
+  assert.equal(saved.captures[0]?.sourcePageIdentity?.pageId, 19);
+  assert.equal(saved.events.at(-1)?.operationType, "source_reference_repaired");
+});
+
+test("one failed legacy source repair becomes an explicit conflict without blocking startup", async () => {
+  const { app, store, content } = harness();
+  await app.captureCurrentBlock();
+  const state = await store.load();
+  state.captures[0]!.sourcePage = "19";
+  state.anchors[0]!.cachedPageRef = "19";
+  await store.save(state, state.revision);
+  content.resolveSource = async () => { throw new Error("SDK getPage failed"); };
+  assert.deepEqual(await app.repairCaptureSources(), { repaired: 0, conflicts: 1 });
+  const saved = await store.load();
+  assert.equal(saved.captures[0]?.sourceConflict?.code, "SOURCE_RESOLUTION_FAILED");
+  assert.equal(saved.captures[0]?.captureId, state.captures[0]?.captureId);
+  assert.equal(saved.events.at(-1)?.operationType, "source_reference_repair_failed");
+});
+
+test("Open Source still locates an existing UUID when source text has changed", async () => {
+  const { app, content } = harness();
+  const capture = await app.captureCurrentBlock();
+  content.setCurrentBlock({ externalId: "block_1", graphId: "graph_1", text: "用户后来补充的正文", pageRef: "2026_07_18" });
+  assert.equal((await app.scanAnchors()).conflict, 1);
+  await app.openCaptureSource(capture.captureId);
+  assert.equal((await content.getCurrentBlock())?.externalId, "block_1");
+});
+
 test("demo proposal accepts rewrite and object creation, rejects move and ownership, commits, and safely undoes", async () => {
   const { app, store, content } = harness();
   const capture = await app.captureCurrentBlock();

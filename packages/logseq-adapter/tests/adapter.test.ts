@@ -8,6 +8,8 @@ import {
   LogseqContentPort,
   LogseqFileStorageBlobStore,
   RuntimeShapeAdapter,
+  formatJournalDay,
+  resolveLogseqPageReference,
   assertStorageKey,
   classifyStorageError,
   physicalStorageKey,
@@ -54,11 +56,43 @@ function facade(content: string): LogseqFacade & { block: { uuid: string; conten
 
 test("runtime shape adapter accepts supported page references and refuses unknown shapes", () => {
   assert.equal(RuntimeShapeAdapter.pageRef("Journal"), "Journal");
-  assert.equal(RuntimeShapeAdapter.pageRef(42), "42");
-  assert.equal(RuntimeShapeAdapter.pageRef({ id: 7 }), "7");
+  assert.throws(() => RuntimeShapeAdapter.pageRef(42), /runtime shape/i);
+  assert.throws(() => RuntimeShapeAdapter.pageRef({ id: 7 }), /runtime shape/i);
   assert.equal(RuntimeShapeAdapter.pageRef({ uuid: "page-uuid" }), "page-uuid");
   assert.equal(RuntimeShapeAdapter.pageRef({ name: "Project/Test" }), "Project/Test");
   assert.throws(() => RuntimeShapeAdapter.pageRef({ nested: true }), /runtime shape/i);
+});
+
+test("page resolver never exposes numeric IDs and resolves the real page 19 Journal shape", async () => {
+  const runtimeJournal = { id: 19, uuid: "journal-uuid", name: "2026_07_18", originalName: "2026-07-18", journalDay: 20260718 };
+  for (const raw of [19, "19", { id: 19 }, { uuid: "journal-uuid" }]) {
+    const resolved = await resolveLogseqPageReference(raw, async () => runtimeJournal);
+    assert.equal(resolved.displayName, "2026-07-18");
+    assert.notEqual(resolved.displayName, "19");
+    assert.equal(resolved.pageId, 19);
+  }
+  assert.equal((await resolveLogseqPageReference({ journalDay: "20260718" })).displayName, "2026-07-18 · Journal");
+  assert.equal((await resolveLogseqPageReference("Project/Graylog")).displayName, "Project/Graylog");
+  assert.equal((await resolveLogseqPageReference({ name: "graylog", originalName: "Graylog" })).displayName, "Graylog");
+  assert.equal((await resolveLogseqPageReference({ id: 19, uuid: "journal-uuid", name: "fallback", originalName: "2026-07-18", journalDay: "20260718" })).displayName, "2026-07-18");
+  assert.equal((await resolveLogseqPageReference({ id: 19 })).displayName, "无法解析的 Logseq 页面");
+  assert.equal((await resolveLogseqPageReference({ invalid: true })).displayName, "无法解析的 Logseq 页面");
+  assert.equal(formatJournalDay(20260230), undefined);
+});
+
+test("content port resolves and opens a moved Journal block by UUID", async () => {
+  const api = facade("runtime source");
+  api.block.page = { id: 19 };
+  let opened: [string | number, string] | undefined;
+  api.Editor.getPage = async () => ({ id: 19, uuid: "journal-uuid", journalDay: 20260718 });
+  api.Editor.scrollToBlockInPage = async (page, uuid) => { opened = [page, uuid]; };
+  const port = new LogseqContentPort(api);
+  const current = await port.getCurrentBlock();
+  assert.equal(current?.pageRef, "2026-07-18 · Journal");
+  assert.equal(current?.pageIdentity?.pageId, 19);
+  assert.equal((await port.resolveSource("block-uuid", "19")).status, "resolved");
+  await port.open("block-uuid", "Test Graph:/graph");
+  assert.deepEqual(opened, ["journal-uuid", "block-uuid"]);
 });
 
 test("content port prepares, applies, verifies and compensates Unicode long-text rewrites", async () => {

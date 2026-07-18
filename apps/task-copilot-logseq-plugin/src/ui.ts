@@ -6,6 +6,7 @@ import type {
   ProjectReentryView,
 } from "@task-copilot/application";
 import type { AttentionSignal, Capture, DomainEvent, ManagedObject, Proposal, SemanticCommit, SemanticOperation } from "@task-copilot/domain";
+import type { ObservableActionState } from "./inbox-action-controller.ts";
 
 export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "audit";
 
@@ -34,6 +35,8 @@ export interface UiModel {
     storeStatus: string;
     currentGraph: string;
   };
+  inboxActionStates?: Record<string, ObservableActionState>;
+  inboxDialog?: { captureId: string; kind: "formalize" | "proposal" | "link" | "defer" | "dismiss" };
 }
 
 export function escapeHtml(value: unknown): string {
@@ -45,8 +48,8 @@ export function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
-function button(label: string, action: string, value?: string, className = ""): string {
-  return `<button class="${className}" data-action="${action}"${value ? ` data-value="${escapeHtml(value)}"` : ""}>${escapeHtml(label)}</button>`;
+function button(label: string, action: string, value?: string, className = "", disabled = false): string {
+  return `<button type="button" class="${className}" data-action="${action}"${value ? ` data-value="${escapeHtml(value)}"` : ""}${disabled ? " disabled aria-busy=\"true\"" : ""}>${escapeHtml(label)}</button>`;
 }
 
 function empty(title: string, detail: string): string {
@@ -57,23 +60,42 @@ function renderInbox(model: UiModel): string {
   if (model.inbox.length === 0) return empty("Inbox 已清空", "选择一个 Logseq Block 后使用“捕获当前块”。");
   return `<div class="cards">${model.inbox
     .map(
-      (capture) => `<article class="card">
+      (capture) => {
+        const states = Object.entries(model.inboxActionStates ?? {}).filter(([key]) => key.endsWith(`:${capture.captureId}`)).map(([, state]) => state);
+        const loading = states.some((state) => state.status === "loading");
+        const feedback = states.slice().reverse().find((state) => state.status !== "idle");
+        const dialog = model.inboxDialog?.captureId === capture.captureId ? renderInboxDialog(model, capture) : "";
+        return `<article class="card">
         <div class="eyebrow">${escapeHtml(capture.phase)} · ${escapeHtml(new Date(capture.capturedAt).toLocaleString("zh-CN"))}</div>
         <p class="natural-text">${escapeHtml(capture.originalText)}</p>
-        ${capture.sourcePage ? `<p class="muted">来源：${escapeHtml(capture.sourcePage)}</p>` : ""}
+        <p class="muted">来源：${escapeHtml(capture.sourcePage && !/^\d+$/.test(capture.sourcePage) ? capture.sourcePage : "未知来源")}</p>
+        ${capture.sourceConflict ? `<p class="action-error">${escapeHtml(capture.sourceConflict.message)}</p>` : ""}
         <div class="actions">
-          ${button("打开来源", "open-capture", capture.captureId, "quiet")}
-          ${button("手工正式化", "formalize", capture.captureId)}
-          ${button("创建手工 Proposal", "manual-proposal", capture.captureId, "quiet")}
-          ${model.agent.enabled ? button("生成 Demo Proposal", "generate-proposal", capture.captureId) : ""}
-          ${button("关联现有对象", "associate-capture", capture.captureId, "quiet")}
-          ${button("暂缓", "defer-capture", capture.captureId, "quiet")}
-          ${button("无需行动", "dismiss-capture", capture.captureId, "quiet")}
+          ${button(loading ? "处理中…" : "打开来源", "open-source", capture.captureId, "quiet", loading)}
+          ${button("手工正式化", "manual-formalize", capture.captureId, "", loading)}
+          ${button("创建手工 Proposal", "create-manual-proposal", capture.captureId, "quiet", loading)}
+          ${model.agent.enabled ? button("生成 Demo Proposal", "generate-proposal", capture.captureId, "", loading) : ""}
+          ${button("关联现有对象", "link-existing-object", capture.captureId, "quiet", loading)}
+          ${button("暂缓", "defer", capture.captureId, "quiet", loading)}
+          ${button("无需行动", "no-action", capture.captureId, "quiet", loading)}
         </div>
-        ${capture.deferredUntil ? `<p class="muted">暂缓至：${escapeHtml(capture.deferredUntil)}</p>` : ""}
-      </article>`,
+        ${capture.deferredUntil ? `<p class="muted">暂缓至：${escapeHtml(capture.deferredUntil)}${capture.deferReason ? ` · ${escapeHtml(capture.deferReason)}` : ""}</p>` : ""}
+        ${feedback ? `<div class="action-feedback ${feedback.status}"><strong>${escapeHtml(feedback.status === "loading" ? "处理中" : feedback.status === "success" ? "已完成" : "操作失败")}</strong><span>${escapeHtml(feedback.message ?? "")}</span>${feedback.correlationId ? `<code>诊断 ID：${escapeHtml(feedback.correlationId)}</code>` : ""}${feedback.status === "error" ? "<small>Capture 保持安全，原始 Logseq 内容未修改。请复制 Diagnostics 后重试。</small>" : ""}</div>` : ""}
+        ${dialog}
+      </article>`;
+      },
     )
     .join("")}</div>`;
+}
+
+function renderInboxDialog(model: UiModel, capture: Capture): string {
+  const dialog = model.inboxDialog!;
+  const cancel = button("取消", "cancel-inbox-dialog", capture.captureId, "quiet");
+  if (dialog.kind === "formalize") return `<section class="inbox-dialog" aria-label="手工正式化"><h3>手工正式化</h3><label>对象类型<select data-field="objectType"><option>TASK</option><option>MINI_PROJECT</option><option>PROJECT</option></select></label><label>正式正文<textarea data-field="text">${escapeHtml(capture.originalText)}</textarea></label><label>完成标准<textarea data-field="completionCriteria"></textarea></label><label>下一步<textarea data-field="nextAction"></textarea></label><label>可选主归属<select data-field="ownerId"><option value="">待确认归属</option>${model.objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><div class="actions">${button("创建并解决 Capture", "submit-formalize", capture.captureId, "primary")}${cancel}</div></section>`;
+  if (dialog.kind === "proposal") return `<section class="inbox-dialog" aria-label="创建手工 Proposal"><h3>创建手工 Proposal</h3><label>建议正文<textarea data-field="suggestedText">${escapeHtml(capture.originalText)}</textarea></label><div class="actions">${button("创建并进入 Review", "submit-manual-proposal", capture.captureId, "primary")}${cancel}</div></section>`;
+  if (dialog.kind === "link") return `<section class="inbox-dialog" aria-label="关联现有对象"><h3>关联现有对象</h3><label>按标题、类型或 ID 选择<input data-field="objectSearch" list="objects-${escapeHtml(capture.captureId)}"></label><datalist id="objects-${escapeHtml(capture.captureId)}">${model.objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</datalist><div class="actions">${button("建立来源关系", "submit-link-existing", capture.captureId, "primary")}${cancel}</div></section>`;
+  if (dialog.kind === "defer") return `<section class="inbox-dialog" aria-label="暂缓 Capture"><h3>暂缓</h3><label>复查时间<input type="datetime-local" data-field="deferredUntil"></label><label>原因<input data-field="deferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-defer", capture.captureId, "primary")}${cancel}</div></section>`;
+  return `<section class="inbox-dialog" aria-label="无需行动确认"><h3>确认无需行动？</h3><p>Capture 与审计会保留，原始 Logseq Block 不会删除。</p><label>原因<input data-field="dismissReason" value="无需行动"></label><div class="actions">${button("确认并保留历史", "submit-no-action", capture.captureId, "danger")}${cancel}</div></section>`;
 }
 
 function renderNow(model: UiModel): string {

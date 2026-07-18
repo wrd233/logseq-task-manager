@@ -1,4 +1,4 @@
-import type { AnchorObservation, ContentPort, CurrentBlock, PreparedTextMutation } from "@task-copilot/application";
+import type { AnchorObservation, ContentPort, CurrentBlock, PreparedTextMutation, SourcePageIdentity, SourceResolution } from "@task-copilot/application";
 import type { Anchor, SemanticOperation } from "@task-copilot/domain";
 import type { BlobStore } from "@task-copilot/persistence";
 import { StructuredError, checksum, classifyStorageError, stableJson } from "@task-copilot/shared";
@@ -19,6 +19,7 @@ export interface LogseqFacade {
     getBlock(uuid: string, options?: Record<string, unknown>): Promise<unknown>;
     updateBlock(uuid: string, content: string): Promise<unknown>;
     scrollToBlockInPage?(page: string | number, uuid: string): Promise<unknown>;
+    getPage?(identity: string | number): Promise<unknown>;
   };
   FileStorage: LogseqFileStorageFacade;
 }
@@ -60,13 +61,78 @@ function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
+function nonEmpty(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return undefined;
+}
+
+export function formatJournalDay(value: unknown): string | undefined {
+  const digits = typeof value === "number" && Number.isInteger(value) ? String(value) : nonEmpty(value);
+  if (!digits || !/^\d{8}$/.test(digits)) return undefined;
+  const year = Number(digits.slice(0, 4));
+  const month = Number(digits.slice(4, 6));
+  const day = Number(digits.slice(6, 8));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return undefined;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
+function pageIdentity(value: unknown): Omit<SourcePageIdentity, "displayName" | "resolutionPath"> {
+  const shape = record(value);
+  const rawShape = value === null ? "null" : Array.isArray(value) ? "array" : typeof value === "object" ? `object:${Object.keys(shape ?? {}).sort().join(",")}` : typeof value;
+  if (typeof value === "number") return { rawShape, pageId: value };
+  if (typeof value === "string") return /^\d+$/.test(value) ? { rawShape, pageId: value } : { rawShape, pageName: value };
+  if (!shape) return { rawShape };
+  const id = typeof shape.id === "number" || typeof shape.id === "string" ? shape.id : undefined;
+  const journalDay = typeof shape.journalDay === "number" || typeof shape.journalDay === "string" ? shape.journalDay : undefined;
+  const pageUuid = nonEmpty(shape.uuid);
+  const pageName = nonEmpty(shape.name);
+  const originalName = nonEmpty(shape.originalName);
+  return {
+    rawShape,
+    ...(id !== undefined ? { pageId: id } : {}),
+    ...(pageUuid ? { pageUuid } : {}),
+    ...(pageName ? { pageName } : {}),
+    ...(originalName ? { originalName } : {}),
+    ...(journalDay !== undefined ? { journalDay } : {}),
+  };
+}
+
+function displayFromIdentity(identity: Omit<SourcePageIdentity, "displayName" | "resolutionPath">, path: string[]): string | undefined {
+  if (identity.originalName) { path.push("originalName"); return identity.originalName; }
+  if (identity.pageName) { path.push("name"); return identity.pageName; }
+  const journal = formatJournalDay(identity.journalDay);
+  if (journal) { path.push("journalDay"); return `${journal} · Journal`; }
+  return undefined;
+}
+
+export async function resolveLogseqPageReference(
+  value: unknown,
+  getPage?: (identity: string | number) => Promise<unknown>,
+  cachedPageRef?: string,
+): Promise<SourcePageIdentity> {
+  const path: string[] = ["inspect-runtime-shape"];
+  let identity = pageIdentity(value);
+  let displayName = displayFromIdentity(identity, path);
+  const queryIdentity = identity.pageUuid ?? identity.pageId;
+  if (!displayName && queryIdentity !== undefined && getPage) {
+    path.push(identity.pageUuid ? "getPage(uuid)" : "getPage(id)");
+    const queried = await getPage(queryIdentity);
+    const queriedIdentity = pageIdentity(queried);
+    identity = { ...identity, ...Object.fromEntries(Object.entries(queriedIdentity).filter(([, candidate]) => candidate !== undefined)) };
+    displayName = displayFromIdentity(identity, path);
+  }
+  if (!displayName && cachedPageRef && !/^\d+$/.test(cachedPageRef)) { path.push("cachedPageRef"); displayName = cachedPageRef; }
+  if (!displayName) { path.push("fallback"); displayName = "无法解析的 Logseq 页面"; }
+  return { ...identity, displayName, resolutionPath: path };
+}
+
 export const RuntimeShapeAdapter = {
   pageRef(value: unknown): string {
-    if (typeof value === "string" && value.length > 0) return value;
-    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    if (typeof value === "string" && value.length > 0 && !/^\d+$/.test(value)) return value;
     const shape = record(value);
     if (shape) {
-      for (const key of ["id", "uuid", "name"] as const) {
+      for (const key of ["originalName", "name", "uuid"] as const) {
         const candidate = shape[key];
         if ((typeof candidate === "string" && candidate.length > 0) || typeof candidate === "number") return String(candidate);
       }
@@ -116,11 +182,33 @@ export class LogseqContentPort implements ContentPort {
   async getCurrentBlock(): Promise<CurrentBlock | undefined> {
     const block = RuntimeShapeAdapter.block(await this.logseq.Editor.getCurrentBlock());
     if (!block) return undefined;
+    const resolved = block.page !== undefined
+      ? await resolveLogseqPageReference(block.page, this.logseq.Editor.getPage?.bind(this.logseq.Editor))
+      : undefined;
     return {
       externalId: block.uuid,
       graphId: await this.graphId(),
       text: block.content,
-      ...(block.page !== undefined ? { pageRef: RuntimeShapeAdapter.pageRef(block.page) } : {}),
+      ...(resolved ? { pageRef: resolved.displayName, pageIdentity: resolved } : {}),
+    };
+  }
+
+  async sourceProbe(): Promise<Record<string, unknown>> {
+    const raw = await this.logseq.Editor.getCurrentBlock();
+    const block = RuntimeShapeAdapter.block(raw);
+    if (!block) return { status: "no-current-block" };
+    const pageIdentity = block.page === undefined ? undefined : await resolveLogseqPageReference(block.page, this.logseq.Editor.getPage?.bind(this.logseq.Editor));
+    return {
+      status: "read-only",
+      blockUuid: block.uuid,
+      blockRuntimeShape: raw && typeof raw === "object" ? Object.keys(raw as Record<string, unknown>).sort() : typeof raw,
+      contentLength: block.content.length,
+      contentHash: checksum(block.content),
+      pageRawReference: block.page,
+      pageRefType: block.page === null ? "null" : Array.isArray(block.page) ? "array" : typeof block.page,
+      pageIdentity,
+      finalDisplaySource: pageIdentity?.displayName ?? "未知来源",
+      fallbackPath: pageIdentity?.resolutionPath ?? ["no-page-reference"],
     };
   }
 
@@ -223,7 +311,19 @@ export class LogseqContentPort implements ContentPort {
         ruleRefs: ["MAP-ANC-001"],
       });
     }
-    await this.logseq.Editor.scrollToBlockInPage(RuntimeShapeAdapter.pageRef(block.page), externalId);
+    const page = await resolveLogseqPageReference(block.page, this.logseq.Editor.getPage?.bind(this.logseq.Editor));
+    if (page.displayName === "无法解析的 Logseq 页面") throw new StructuredError({ code: "SOURCE_PAGE_UNRESOLVED", message: "无法解析来源页面；来源块和 Capture 均未修改。", ruleRefs: ["MAP-ANC-001"] });
+    await this.logseq.Editor.scrollToBlockInPage(page.pageUuid ?? page.pageName ?? page.displayName.replace(" · Journal", ""), externalId);
+  }
+
+  async resolveSource(externalId: string, cachedPageRef?: string): Promise<SourceResolution> {
+    const block = RuntimeShapeAdapter.block(await this.logseq.Editor.getBlock(externalId, { includeChildren: false }));
+    if (!block) return { status: "missing", displayName: "未知来源" };
+    if (block.page === undefined) return { status: "unresolved", displayName: "无法解析的 Logseq 页面" };
+    const pageIdentity = await resolveLogseqPageReference(block.page, this.logseq.Editor.getPage?.bind(this.logseq.Editor), cachedPageRef);
+    return pageIdentity.displayName === "无法解析的 Logseq 页面"
+      ? { status: "unresolved", displayName: pageIdentity.displayName, pageIdentity }
+      : { status: "resolved", displayName: pageIdentity.displayName, pageIdentity };
   }
 
   async observe(anchor: Anchor): Promise<AnchorObservation> {
