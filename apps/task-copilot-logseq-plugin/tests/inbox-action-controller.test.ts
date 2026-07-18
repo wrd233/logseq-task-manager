@@ -5,7 +5,7 @@ import { StructuredLogger } from "../src/structured-logger.ts";
 
 test("all six Inbox buttons dispatch capture IDs through a real delegated click", async () => {
   const received: string[] = [];
-  const handler = createDelegatedActionHandler(async (action, value) => { received.push(`${action}:${value}`); });
+  const handler = createDelegatedActionHandler(async (action, value) => { received.push(`${action}:${value}`); }, () => assert.fail("unexpected unhandled error"));
   for (const action of ["open-source", "manual-formalize", "create-manual-proposal", "link-existing-object", "defer", "no-action"]) {
     handler({ target: { closest: () => ({ dataset: { action, value: "cap_19" } }) } } as unknown as Event);
   }
@@ -32,4 +32,17 @@ test("action controller exposes loading/success/error, refreshes and blocks dupl
     assert.match(controller.state(action, "cap_19").correlationId ?? "", /^TC-/);
   }
   assert.ok(refreshes >= 12);
+});
+
+test("refresh failures become bounded diagnostic errors instead of stuck loading", async () => {
+  const logger = new StructuredLogger(20);
+  let calls = 0;
+  const controller = new InboxActionController(logger, async () => { calls += 1; throw new Error("render unavailable"); });
+  let commandCalls = 0;
+  assert.equal(await controller.execute("open-source", "cap_refresh", async () => { commandCalls += 1; }), false);
+  assert.equal(commandCalls, 0);
+  assert.equal(controller.state("open-source", "cap_refresh").status, "error");
+  assert.match(controller.state("open-source", "cap_refresh").correlationId ?? "", /^TC-/);
+  assert.ok(calls >= 2);
+  assert.equal(logger.snapshot().some((entry) => entry.event === "ui_refresh_failed"), true);
 });

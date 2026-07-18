@@ -47,6 +47,11 @@ export interface StateStore {
   save(state: SystemState, expectedRevision?: number): Promise<SystemState>;
 }
 
+export interface CommandContext { correlationId?: string; }
+export interface ApplicationLoggerPort {
+  emit(category: string, event: string, fields?: Record<string, unknown>, error?: unknown): void;
+}
+
 export interface CurrentBlock {
   externalId: string;
   graphId: string;

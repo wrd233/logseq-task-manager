@@ -78,6 +78,9 @@ test("page resolver never exposes numeric IDs and resolves the real page 19 Jour
   assert.equal((await resolveLogseqPageReference({ id: 19 })).displayName, "无法解析的 Logseq 页面");
   assert.equal((await resolveLogseqPageReference({ invalid: true })).displayName, "无法解析的 Logseq 页面");
   assert.equal(formatJournalDay(20260230), undefined);
+  let numericStringQuery: string | number | undefined;
+  await resolveLogseqPageReference("19", async (identity) => { numericStringQuery = identity; return runtimeJournal; });
+  assert.equal(numericStringQuery, 19);
 });
 
 test("content port resolves and opens a moved Journal block by UUID", async () => {
@@ -93,6 +96,16 @@ test("content port resolves and opens a moved Journal block by UUID", async () =
   assert.equal((await port.resolveSource("block-uuid", "19")).status, "resolved");
   await port.open("block-uuid", "Test Graph:/graph");
   assert.deepEqual(opened, ["journal-uuid", "block-uuid"]);
+});
+
+test("opening a missing Block returns a structured Anchor error and never reports success", async () => {
+  const api = facade("missing source");
+  api.Editor.getBlock = async () => null;
+  const port = new LogseqContentPort(api);
+  await assert.rejects(port.open("missing-uuid", "Test Graph:/graph"), (error: unknown) => {
+    assert.equal((error as { code?: string }).code, "ANCHOR_MISSING");
+    return true;
+  });
 });
 
 test("content port prepares, applies, verifies and compensates Unicode long-text rewrites", async () => {

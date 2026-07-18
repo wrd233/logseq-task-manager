@@ -3,8 +3,8 @@
 ```yaml
 goal_state: CONSOLIDATED_RUNTIME_CHECKPOINT
 current_slice: "Runtime Fix - RT-BUG-001 journal source resolution and RT-BUG-002 observable Inbox actions"
-last_completed_commit: "5e7e9be fix: harden Task Copilot bootstrap and first-run storage"
-last_successful_check: "2026-07-18 ./scripts/check.sh PASS; 81 tests; 145 rules; recovery rehearsal PASS; formal-plugin package/bootstrap/dist PASS"
+last_completed_commit: "cbf1436 fix: repair Logseq inbox sources and actions (review follow-up pending local commit)"
+last_successful_check: "2026-07-18 targeted review follow-up PASS; 85 total tests expected at final root check; prior root check PASS with 81 tests and 145 rules"
 implemented:
   - "Slice 0: Goal/spec baseline, 145-rule coverage, ADRs, workspace and formal plugin shell"
   - "Slice 1: object contracts, Phase/Condition/Signal, ownership matrix, dependency cycles, rule-referenced errors"
@@ -21,6 +21,7 @@ implemented:
   - "Runtime Fix 3: numeric/Journals Source Resolver, Block-UUID legacy repair and source_reference_repaired audit"
   - "Runtime Fix 3: observable six-action Inbox controller, inline formalization/proposal/link/defer/dismiss UI and complete manual Task Commit"
   - "Runtime Fix 3: bounded structured logger, correlation IDs, global rejection capture, Diagnostics JSONL and read-only probes"
+  - "Runtime Fix 3 review closure: atomic optional ownership with explicit high-impact confirmation, audited source refresh/conflict, refresh-failure diagnostics and real DOM Action Probe"
 remaining_automatable_work: []
 runtime_failures_automatically_fixed:
   - "RT-BUG-001: root cause confirmed in RuntimeShapeAdapter id-first String mapping; active Store persisted sourcePage/cachedPageRef 19; automated repair complete, Desktop regression pending"

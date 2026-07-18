@@ -81,7 +81,7 @@ function pageIdentity(value: unknown): Omit<SourcePageIdentity, "displayName" | 
   const shape = record(value);
   const rawShape = value === null ? "null" : Array.isArray(value) ? "array" : typeof value === "object" ? `object:${Object.keys(shape ?? {}).sort().join(",")}` : typeof value;
   if (typeof value === "number") return { rawShape, pageId: value };
-  if (typeof value === "string") return /^\d+$/.test(value) ? { rawShape, pageId: value } : { rawShape, pageName: value };
+  if (typeof value === "string") return /^\d+$/.test(value) ? { rawShape, pageId: Number(value) } : { rawShape, pageName: value };
   if (!shape) return { rawShape };
   const id = typeof shape.id === "number" || typeof shape.id === "string" ? shape.id : undefined;
   const journalDay = typeof shape.journalDay === "number" || typeof shape.journalDay === "string" ? shape.journalDay : undefined;

@@ -31,7 +31,7 @@ import {
 import { BootstrapRegistration, bindRootClick, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
 import { renderApp, type UiModel, type Workspace } from "./ui.ts";
 import { InboxActionController, createDelegatedActionHandler } from "./inbox-action-controller.ts";
-import { StructuredLogger } from "./structured-logger.ts";
+import { StructuredLogger, type LogCategory, type StructuredLogEntry } from "./structured-logger.ts";
 
 let appRoot: HTMLElement | undefined;
 let blobStore: LogseqFileStorageBlobStore;
@@ -53,6 +53,7 @@ let inboxDialog: UiModel["inboxDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 let inboxActionController: InboxActionController | undefined;
 let runtimeProbeResult: unknown = { status: "not-run" };
+const inboxProbeWaiters = new Map<string, () => void>();
 
 function requireTaskCopilot(): TaskCopilot {
   if (!taskCopilot || !featureReady) throw new Error("TASK_COPILOT_FEATURE_NOT_READY: 功能尚未就绪；请打开 Runtime Diagnostics。");
@@ -72,7 +73,16 @@ function currentProvider(): AgentProvider {
 }
 
 function rebuildApplication(): void {
-  taskCopilot = new TaskCopilot({ store: repository, content: contentPort, provider: currentProvider() });
+  taskCopilot = new TaskCopilot({
+    store: repository,
+    content: contentPort,
+    provider: currentProvider(),
+    logger: {
+      emit(category, event, fields = {}, error) {
+        operationalLogger.log(error ? "error" : "info", category as LogCategory, event, fields as Partial<StructuredLogEntry>, error);
+      },
+    },
+  });
 }
 
 function explain(error: unknown): string {
@@ -188,6 +198,10 @@ function dialogField(name: string): string {
   return element?.value.trim() ?? "";
 }
 
+function dialogChecked(name: string): boolean {
+  return requireAppRoot().querySelector<HTMLInputElement>(`[data-field="${name}"]`)?.checked === true;
+}
+
 function openInboxDialog(captureId: string, kind: NonNullable<UiModel["inboxDialog"]>["kind"]): Promise<void> {
   const correlationId = `dialog-${Date.now()}`;
   operationalLogger.log("info", "ui-action", "ui_action_clicked", { correlationId, actionId: kind, captureId });
@@ -236,6 +250,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "copy-diagnostics") {
     const value = JSON.stringify(await fullDiagnosticsSnapshot(), null, 2);
+    const correlationId = `TC-copy-${Date.now()}`;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(value);
@@ -252,9 +267,10 @@ async function handleAction(action: string, value?: string): Promise<void> {
       }
       message = "Runtime diagnostics 已复制。";
     } catch (error) {
-      console.error("[Task Copilot] copy diagnostics failed", error);
+      latestError = `复制诊断失败：${explain(error)}。诊断数据仍保留在内存中。诊断 ID：${correlationId}`;
+      operationalLogger.log("error", "ui-action", "copy_diagnostics_failed", { correlationId, actionId: "copy-diagnostics", result: "error" }, error);
     }
-    await refresh();
+    await showRuntimeDiagnostics();
     return;
   }
   if (action === "export-diagnostics") {
@@ -291,14 +307,33 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "inbox-action-probe") {
     const correlationId = `probe-${Date.now()}`;
     operationalLogger.log("info", "ui-action", "ui_action_clicked", { correlationId, actionId: "inbox-action-probe" });
+    const token = `${correlationId}-${Math.random().toString(16).slice(2)}`;
+    const delegated = new Promise<boolean>((resolve) => {
+      inboxProbeWaiters.set(token, () => resolve(true));
+      globalThis.setTimeout(() => { inboxProbeWaiters.delete(token); resolve(false); }, 500);
+    });
+    const probeButton = document.createElement("button");
+    probeButton.type = "button";
+    probeButton.dataset.action = "inbox-probe-ping";
+    probeButton.dataset.value = token;
+    probeButton.hidden = true;
+    requireAppRoot().append(probeButton);
+    probeButton.click();
+    const delegatedHandler = await delegated;
+    probeButton.remove();
     const count = featureReady ? (await requireTaskCopilot().listInbox()).length : 0;
-    runtimeProbeResult = { status: "read-only", probe: "Inbox Action", layers: { click: true, delegatedHandler: uiBound, applicationMessage: featureReady, query: featureReady }, inboxCount: count, writesExecuted: false };
+    runtimeProbeResult = { status: delegatedHandler && featureReady ? "read-only-pass" : "read-only-fail", probe: "Inbox Action", layers: { domClick: true, delegatedHandler, applicationQuery: featureReady }, inboxCount: count, writesExecuted: false };
     operationalLogger.log("info", "query-refresh", "query_invalidated", { correlationId, actionId: "inbox-action-probe", result: "probe-only" });
     await showRuntimeDiagnostics();
     return;
   }
   if (action === "runtime-diagnostics") {
     await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "inbox-probe-ping" && value) {
+    inboxProbeWaiters.get(value)?.();
+    inboxProbeWaiters.delete(value);
     return;
   }
   const taskCopilot = requireTaskCopilot();
@@ -313,8 +348,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (value && action === "defer") return openInboxDialog(value, "defer");
   if (value && action === "no-action") return openInboxDialog(value, "dismiss");
   if (value && action === "open-source") {
-    await actions().execute("open-source", value, async () => {
-      await taskCopilot.openCaptureSource(value);
+    await actions().execute("open-source", value, async (correlationId) => {
+      await taskCopilot.openCaptureSource(value, { correlationId });
       message = "已按 Block UUID 定位来源；Capture 身份与来源均保留。";
       globalThis.setTimeout(() => logseq.hideMainUI(), 600);
       return message;
@@ -327,31 +362,28 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const completionCriteria = dialogField("completionCriteria");
     const nextAction = dialogField("nextAction");
     const ownerId = dialogField("ownerId");
-    await actions().execute("manual-formalize", value, async () => {
+    const ownerConfirmed = dialogChecked("ownerConfirmed");
+    await actions().execute("manual-formalize", value, async (correlationId) => {
       if (!text || !completionCriteria || !nextAction) throw new Error("正式正文、完成标准和下一步不能为空。");
       const input: Parameters<TaskCopilot["createManualFormalizationProposal"]>[1] = objectType === "PROJECT"
         ? { objectType, text, purpose: text, targetOutcome: completionCriteria, scopeIn: "待确认", completionCriteria, nextAction }
         : objectType === "MINI_PROJECT"
           ? { objectType, text, targetOutcome: completionCriteria, completionCriteria, nextAction }
           : { objectType: "TASK", text, completionCriteria, nextAction };
-      const proposal = await taskCopilot.createManualFormalizationProposal(value, input);
-      await taskCopilot.reviewProposal(proposal.proposalId, Object.fromEntries(proposal.operations.map((operation) => [operation.operationId, operation.riskLevel === "HIGH" ? { status: "ACCEPTED", highImpactConfirmed: true } : "ACCEPTED"])));
-      const commit = await taskCopilot.commitProposal(proposal.proposalId);
+      if (ownerId && !ownerConfirmed) throw new Error("主归属是高影响变化，必须单独勾选确认。");
+      const context = { correlationId };
+      const proposal = await taskCopilot.createManualFormalizationProposal(value, input, ownerId || undefined, context);
+      await taskCopilot.reviewProposal(proposal.proposalId, Object.fromEntries(proposal.operations.map((operation) => [operation.operationId, operation.riskLevel === "HIGH" ? { status: "ACCEPTED", highImpactConfirmed: true } : "ACCEPTED"])), context);
+      const commit = await taskCopilot.commitProposal(proposal.proposalId, context);
       if (commit.status !== "COMPLETED") throw new Error(`SemanticCommit ${commit.status}；Capture 保持可恢复，诊断请查看 Audit。`);
       const state = await taskCopilot.exportState();
       const capture = state.captures.find((candidate) => candidate.captureId === value);
       const objectId = capture?.resolvedObjectIds[0];
       if (!objectId || capture.phase !== "RESOLVED") throw new Error("对象提交后未观察到 Capture RESOLVED；请勿重复提交并检查 Diagnostics。");
-      if (ownerId) {
-        const ownership = await taskCopilot.createManualOwnershipProposal(objectId, ownerId);
-        await taskCopilot.reviewProposal(ownership.proposalId, { [ownership.operations[0]!.operationId]: { status: "ACCEPTED", highImpactConfirmed: true } });
-        const ownerCommit = await taskCopilot.commitProposal(ownership.proposalId);
-        if (ownerCommit.status !== "COMPLETED") throw new Error(`对象已创建，但主归属提交为 ${ownerCommit.status}；请从 Audit 恢复。`);
-      }
       selectedObjectId = objectId;
       workspace = "objects";
       inboxDialog = undefined;
-      message = `已创建 ${objectType}；正文保留在原 Block，来源 Anchor 已保留，Capture 已解决。`;
+      message = `已创建 ${objectType}；正文位于原 Block（如有编辑已在同一 Commit 更新），来源 Anchor 已保留，Capture 已解决。`;
       return message;
     });
     return;
@@ -726,7 +758,15 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
 }
 
-const onRootClick = createDelegatedActionHandler(handleAction);
+const onRootClick = createDelegatedActionHandler(handleAction, (error) => {
+  const correlationId = `TC-unhandled-${Date.now()}`;
+  latestError = `界面操作失败：${explain(error)}。Capture 与原始 Logseq 内容保持安全。诊断 ID：${correlationId}`;
+  operationalLogger.log("error", "ui-action", "ui_action_unhandled", { correlationId, result: "error" }, error);
+  void refresh().catch((refreshError) => {
+    operationalLogger.log("error", "query-refresh", "ui_refresh_failed", { correlationId, result: "error" }, refreshError);
+    void showRuntimeDiagnostics();
+  });
+});
 
 function bindUi(): void {
   if (uiBound) return;

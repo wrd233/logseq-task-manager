@@ -50,6 +50,8 @@
 #task-copilot-personal-mvp-root .inbox-dialog label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
 #task-copilot-personal-mvp-root .inbox-dialog input, #task-copilot-personal-mvp-root .inbox-dialog textarea, #task-copilot-personal-mvp-root .inbox-dialog select { width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
 #task-copilot-personal-mvp-root .inbox-dialog textarea { min-height: 72px; resize: vertical; }
+#task-copilot-personal-mvp-root .inbox-dialog .confirm-line { display: flex; grid-template-columns: none; flex-direction: row; align-items: center; }
+#task-copilot-personal-mvp-root .inbox-dialog .confirm-line input { width: auto; }
 #task-copilot-personal-mvp-root .action-feedback { display: grid; gap: 4px; margin-top: 10px; padding: 9px 11px; border-radius: 9px; background: var(--surface-2); }
 #task-copilot-personal-mvp-root .action-feedback.success { background: var(--accent-soft); }
 #task-copilot-personal-mvp-root .action-feedback.error, #task-copilot-personal-mvp-root .action-error { color: var(--danger); background: #ffe9e7; }

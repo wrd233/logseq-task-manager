@@ -70,6 +70,8 @@ test("Inbox and Proposal Review expose the complete manual and partial-review co
   assert.doesNotMatch(html, /来源：19/);
   assert.match(html, /来源：未知来源/);
   assert.match(html, /submit-formalize/);
+  assert.match(html, /data-field="ownerConfirmed"/);
+  assert.match(html, /单独确认这项高影响变化/);
   assert.match(html, /诊断 ID：TC-20260718-test/);
   value.workspace = "review";
   value.proposals = [{

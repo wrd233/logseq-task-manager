@@ -5,7 +5,7 @@
 | ID | Gate | Automated evidence | Desktop evidence | Rule refs | Status | Known limitation |
 |---|---|---|---|---|---|---|
 | TST-MVP-001 | Capture | current-block Capture；真实 page `19` resolver；旧 Capture repair；六动作 delegated click/four-state；No-Agent 手工正式化完整 Commit | RT-MVP-001B/002 | CAP-IN-001/002、SEM-CAP-001 | AUTOMATED_PASS / DESKTOP_REGRESSION_REQUIRED | RT-BUG-001/002 待 10 分钟实机复测 |
-| TST-MVP-002 | Independent Object | Application 发放 128-bit ID；手工正式化创建/审查/Commit/Capture RESOLVED；对象抽屉定位 | RT-MVP-001B/002 | PRI-009、PRI-012、SEM-COMMON-001、PLG-UI-001 | AUTOMATED_PASS / DESKTOP_REGRESSION_REQUIRED | FileStorage reload 待实机 |
+| TST-MVP-002 | Independent Object | Application 发放 128-bit ID；手工正式化/可选主归属同一 Commit；高影响单独确认；Capture RESOLVED；对象抽屉定位 | RT-MVP-001B/002 | PRI-009、PRI-012、SEM-COMMON-001、PLG-UI-001 | AUTOMATED_PASS / DESKTOP_REGRESSION_REQUIRED | FileStorage reload 待实机 |
 | TST-MVP-003 | Anchor | Graph-qualified UUID Anchor；page ID/UUID/name/journalDay Resolver；旧缓存审计修复；Block UUID open/missing conflict | RT-MVP-001B/003 | MAP-ANC-001/002、MAP-PAGE-002、SYN-CON-001 | AUTOMATED_PASS / DESKTOP_REGRESSION_REQUIRED | 真实聚焦与 UUID move/delete/undo 必须实测 |
 | TST-MVP-004 | Three-axis State | ACTIVE + WAITING + REVIEW_DUE；Phase/Condition 均经预校验 Proposal/Commit/Undo | RT-MVP-002 | LIF-BASE-001、LIF-COND-001、LIF-SIG-001 | AUTOMATED_PASS / DESKTOP_PENDING | UI prompt 交互待实机 |
 | TST-MVP-005 | Partial Acceptance | 可读 diff/影响预览；风险重算；高影响确认；128 组合性质测试 | RT-MVP-002 | PRI-006、COM-OP-001/002、REV-PART-001..005 | AUTOMATED_PASS / DESKTOP_PENDING | move 高影响路径故意 Feature Flag |

@@ -28,7 +28,7 @@ import {
 } from "@task-copilot/domain";
 import { StructuredError, checksum, createId, type IdPrefix } from "@task-copilot/shared";
 
-import type { AgentProvider, ContentPort, PreparedTextMutation, StateStore, SystemState } from "./ports.ts";
+import type { AgentProvider, ApplicationLoggerPort, CommandContext, ContentPort, PreparedTextMutation, StateStore, SystemState } from "./ports.ts";
 import { projectNowWork, projectReentry, type NowWorkView, type ProjectReentryView } from "./views.ts";
 
 export interface TaskCopilotDependencies {
@@ -37,6 +37,7 @@ export interface TaskCopilotDependencies {
   provider: AgentProvider;
   clock?: () => Date;
   idFactory?: (prefix: IdPrefix) => string;
+  logger?: ApplicationLoggerPort;
 }
 
 type ReviewDecision = "ACCEPTED" | "REJECTED" | "EDITED";
@@ -143,6 +144,7 @@ export class TaskCopilot {
   private readonly provider: AgentProvider;
   private readonly clock: () => Date;
   private readonly makeId: (prefix: IdPrefix) => string;
+  private readonly logger: ApplicationLoggerPort | undefined;
 
   constructor(dependencies: TaskCopilotDependencies) {
     this.store = dependencies.store;
@@ -150,6 +152,11 @@ export class TaskCopilot {
     this.provider = dependencies.provider;
     this.clock = dependencies.clock ?? (() => new Date());
     this.makeId = dependencies.idFactory ?? ((prefix) => createId(prefix, this.clock()));
+    this.logger = dependencies.logger;
+  }
+
+  private emit(category: string, event: string, context?: CommandContext, fields: Record<string, unknown> = {}, error?: unknown): void {
+    this.logger?.emit(category, event, { ...(context?.correlationId ? { correlationId: context.correlationId } : {}), ...fields }, error);
   }
 
   agentStatus(): { enabled: boolean; providerId: string; providerVersion: string } {
@@ -208,6 +215,11 @@ export class TaskCopilot {
       } else {
         capture.sourcePage = "无法解析的 Logseq 页面";
         capture.sourceConflict = { code: result.status === "missing" ? "SOURCE_BLOCK_MISSING" : "SOURCE_PAGE_UNRESOLVED", message: "来源块已失联或页面无法解析，Capture 本身仍然保留。" };
+        next.events.push({
+          eventId: this.makeId("event"), timestamp: this.clock().toISOString(), actor: "system", captureId: capture.captureId,
+          operationType: "source_reference_repair_failed", payload: { status: result.status, pageId: anchor.cachedPageRef },
+          ruleRefs: ["MAP-ANC-001", "SYN-CON-001"], reversible: false,
+        });
         conflicts += 1;
       }
     }
@@ -391,7 +403,10 @@ export class TaskCopilot {
   async createManualFormalizationProposal(
     captureId: string,
     input: Omit<CreateManagedObjectInput, "objectId" | "sourceOrCreationEvent">,
+    primaryOwnerId?: string,
+    context?: CommandContext,
   ): Promise<Proposal> {
+    this.emit("proposal", "manual_formalization_proposal_started", context, { captureId });
     const state = await this.store.load();
     const capture = findOrThrow(state.captures, (candidate) => candidate.captureId === captureId, "CAPTURE_NOT_FOUND", "找不到 Capture。");
     const anchor = findOrThrow(state.anchors, (candidate) => candidate.anchorId === capture.sourceAnchorId, "ANCHOR_NOT_FOUND", "Capture 来源 Anchor 已失联。");
@@ -432,13 +447,26 @@ export class TaskCopilot {
       confidence: 1,
       status: "PROPOSED",
     });
+    let ownershipId: string | undefined;
+    if (primaryOwnerId) {
+      findOrThrow(state.objects, (candidate) => candidate.objectId === primaryOwnerId, "OWNER_NOT_FOUND", "找不到选择的主归属对象。");
+      ownershipId = this.makeId("op");
+      operations.push({
+        operationId: ownershipId,
+        operationType: "set_primary_ownership",
+        target: { kind: "OBJECT", id: objectId },
+        payload: { objectId, ownerObjectId: primaryOwnerId },
+        preconditions: [], dependencies: [createId], riskLevel: "HIGH",
+        ruleRefs: ["REL-OWN-001", "PRI-006"], rationale: "用户在正式化表单中单独确认可选主归属。", confidence: 1, status: "PROPOSED",
+      });
+    }
     operations.push({
       operationId: this.makeId("op"),
       operationType: "resolve_capture",
       target: { kind: "CAPTURE", id: captureId },
       payload: { captureId, objectIds: [objectId] },
       preconditions: [],
-      dependencies: [createId, ...(rewriteId ? [rewriteId] : [])],
+      dependencies: [createId, ...(rewriteId ? [rewriteId] : []), ...(ownershipId ? [ownershipId] : [])],
       riskLevel: "MEDIUM",
       ruleRefs: ["CAP-FRM-001"],
       rationale: "仅在对象和可选正文改写均成功后解决 Capture。",
@@ -457,7 +485,9 @@ export class TaskCopilot {
     savedCapture.phase = "PROPOSED";
     savedCapture.proposalId = proposal.proposalId;
     savedCapture.updatedAt = now;
+    this.emit("persistence", "domain_write_started", context, { captureId, entity: "proposal" });
     await this.store.save(next, state.revision);
+    this.emit("persistence", "domain_write_succeeded", context, { captureId, proposalId: proposal.proposalId, entity: "proposal" });
     return proposal;
   }
 
@@ -551,6 +581,7 @@ export class TaskCopilot {
   async reviewProposal(
     proposalId: string,
     decisions: Record<string, string | { status: ReviewDecision; payload?: Record<string, unknown>; highImpactConfirmed?: boolean }>,
+    context?: CommandContext,
   ): Promise<Proposal> {
     const state = await this.store.load();
     const proposal = findOrThrow(state.proposals, (candidate) => candidate.proposalId === proposalId, "PROPOSAL_NOT_FOUND", "找不到 Proposal。");
@@ -589,7 +620,9 @@ export class TaskCopilot {
       }
       return { ...reviewOperation(operation, status, typeof decision === "string" ? undefined : decision.payload), riskLevel: finalRisk };
     });
+    this.emit("persistence", "domain_write_started", context, { proposalId, entity: "proposal-review" });
     await this.store.save(next, state.revision);
+    this.emit("persistence", "domain_write_succeeded", context, { proposalId, entity: "proposal-review" });
     return reviewed;
   }
 
@@ -943,7 +976,8 @@ export class TaskCopilot {
     };
   }
 
-  async commitProposal(proposalId: string): Promise<SemanticCommit> {
+  async commitProposal(proposalId: string, context?: CommandContext): Promise<SemanticCommit> {
+    this.emit("semantic-commit", "semantic_commit_started", context, { proposalId });
     const initial = await this.store.load();
     const proposal = findOrThrow(initial.proposals, (candidate) => candidate.proposalId === proposalId, "PROPOSAL_NOT_FOUND", "找不到 Proposal。");
     if (proposal.status !== "OPEN") throw new StructuredError({ code: "PROPOSAL_CLOSED", message: "Proposal 已提交或拒绝。", ruleRefs: ["COM-PROP-001"] });
@@ -1018,7 +1052,9 @@ export class TaskCopilot {
       commit.domainChanges = changes;
       commit.afterStateChecksum = checksum({ ...next, commits: next.commits.filter((candidate) => candidate.semanticCommitId !== commitId) });
       const completed = await this.store.save(next, persistedPending.revision);
-      return completed.commits.find((candidate) => candidate.semanticCommitId === commitId)!;
+      const result = completed.commits.find((candidate) => candidate.semanticCommitId === commitId)!;
+      this.emit("semantic-commit", "semantic_commit_succeeded", context, { proposalId, commitId, result: result.status });
+      return result;
     } catch (error) {
       let compensationCompleted = true;
       let compensationMessage: string | undefined;
@@ -1044,7 +1080,9 @@ export class TaskCopilot {
       };
       if (!current.commits.some((candidate) => candidate.semanticCommitId === commitId)) current.commits.push(commit);
       const recorded = await this.store.save(current, current.revision);
-      return recorded.commits.find((candidate) => candidate.semanticCommitId === commitId)!;
+      const result = recorded.commits.find((candidate) => candidate.semanticCommitId === commitId)!;
+      this.emit("semantic-commit", "semantic_commit_failed", context, { proposalId, commitId, result: result.status }, error);
+      return result;
     }
   }
 
@@ -1224,7 +1262,11 @@ export class TaskCopilot {
 
   async listInbox(): Promise<Capture[]> {
     const state = await this.store.load();
-    return state.captures.filter((capture) => capture.phase === "NEW" || capture.phase === "PROPOSED");
+    const now = this.clock().getTime();
+    return state.captures.filter((capture) => {
+      if (capture.phase !== "NEW" && capture.phase !== "PROPOSED") return false;
+      return !capture.deferredUntil || Date.parse(capture.deferredUntil) <= now;
+    });
   }
 
   async listObjects(): Promise<ManagedObject[]> {
@@ -1481,7 +1523,8 @@ export class TaskCopilot {
     return saved;
   }
 
-  async openCaptureSource(captureId: string): Promise<void> {
+  async openCaptureSource(captureId: string, context?: CommandContext): Promise<void> {
+    this.emit("source-resolution", "source_resolution_started", context, { captureId });
     await this.scanAnchors();
     const state = await this.store.load();
     const capture = findOrThrow(state.captures, (candidate) => candidate.captureId === captureId, "CAPTURE_NOT_FOUND", "找不到 Capture。");
@@ -1492,6 +1535,7 @@ export class TaskCopilot {
       "来源块已失联，Capture 本身仍然保留。请在审计中查看技术详情或重新绑定。",
     );
     await this.content.open(anchor.externalId, anchor.graphId);
+    this.emit("logseq-adapter", "source_block_opened", context, { captureId, blockUuid: anchor.externalId });
     if (this.content.resolveSource) {
       const resolution = await this.content.resolveSource(anchor.externalId, anchor.cachedPageRef);
       if (resolution.status === "resolved") {
@@ -1500,12 +1544,19 @@ export class TaskCopilot {
         const savedCapture = next.captures.find((candidate) => candidate.captureId === captureId);
         const savedAnchor = next.anchors.find((candidate) => candidate.anchorId === anchor.anchorId);
         if (savedCapture && savedAnchor) {
+          const previous = { sourcePage: savedCapture.sourcePage, cachedPageRef: savedAnchor.cachedPageRef, lastSeenAt: savedAnchor.lastSeenAt };
           savedCapture.sourcePage = resolution.displayName;
           if (resolution.pageIdentity) savedCapture.sourcePageIdentity = resolution.pageIdentity;
           delete savedCapture.sourceConflict;
           savedAnchor.cachedPageRef = resolution.displayName;
           savedAnchor.lastSeenAt = this.clock().toISOString();
+          next.events.push({
+            eventId: this.makeId("event"), timestamp: this.clock().toISOString(), actor: "user", captureId,
+            operationType: "source_reference_observed", payload: { previous, displayName: resolution.displayName, blockUuid: savedAnchor.externalId },
+            ruleRefs: ["MAP-ANC-001", "MAP-PAGE-002"], reversible: false,
+          });
           await this.store.save(next, current.revision);
+          this.emit("source-resolution", "source_resolution_succeeded", context, { captureId, blockUuid: savedAnchor.externalId, displayName: resolution.displayName });
         }
       }
     }

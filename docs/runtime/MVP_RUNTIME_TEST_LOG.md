@@ -61,4 +61,6 @@ Automated fix evidence:
 - Structured ring-buffer logs, global rejection/error capture, copy/export/clear/debug controls, read-only Source Resolver and Inbox Action probes are present.
 - Root `./scripts/check.sh` passes with 81 tests, 145-rule coverage, plugin package/bootstrap/dist checks and recovery rehearsal.
 
+Independent Standards/Spec review found and closed follow-up gaps before the Desktop checkpoint: optional ownership now belongs to the same SemanticCommit and requires its own checkbox confirmation; source conflicts/observations append Audit events; render refresh failures leave diagnostic error state instead of stuck loading; Application Logger Port carries the UI correlation ID through proposal persistence and SemanticCommit; the Inbox Probe dispatches an actual hidden DOM button through the bound root listener before a read-only Application query; numeric strings query numeric page IDs and Block-missing navigation has structured-error coverage.
+
 Desktop proof remains `RT-MVP-001B PENDING`; Pilot remains blocked until it passes.

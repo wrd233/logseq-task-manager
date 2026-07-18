@@ -92,6 +92,8 @@ test("startup safely repairs a legacy numeric Capture source without changing Ca
   assert.equal(saved.captures[0]?.sourcePage, "2026-07-18 · Journal");
   assert.equal(saved.captures[0]?.sourcePageIdentity?.pageId, 19);
   assert.equal(saved.events.at(-1)?.operationType, "source_reference_repaired");
+  await app.openCaptureSource(created.captureId);
+  assert.equal((await store.load()).events.at(-1)?.operationType, "source_reference_observed");
 });
 
 test("one failed legacy source repair becomes an explicit conflict without blocking startup", async () => {
@@ -110,12 +112,13 @@ test("one failed legacy source repair becomes an explicit conflict without block
 });
 
 test("Open Source still locates an existing UUID when source text has changed", async () => {
-  const { app, content } = harness();
+  const { app, store, content } = harness();
   const capture = await app.captureCurrentBlock();
   content.setCurrentBlock({ externalId: "block_1", graphId: "graph_1", text: "用户后来补充的正文", pageRef: "2026_07_18" });
   assert.equal((await app.scanAnchors()).conflict, 1);
   await app.openCaptureSource(capture.captureId);
   assert.equal((await content.getCurrentBlock())?.externalId, "block_1");
+  assert.equal((await store.load()).events.at(-1)?.operationType, "anchor_conflict");
 });
 
 test("demo proposal accepts rewrite and object creation, rejects move and ownership, commits, and safely undoes", async () => {
@@ -302,6 +305,7 @@ test("Area, Project ownership, phase gates, association and deferral are availab
   content.setCurrentBlock({ externalId: "block_4", graphId: "graph_1", text: "稍后处理", pageRef: "Journal" });
   const deferred = await app.captureCurrentBlock();
   await app.deferCapture(deferred.captureId, "2026-07-20T09:00:00+08:00");
+  assert.equal((await app.listInbox()).some((candidate) => candidate.captureId === deferred.captureId), false);
   await assert.rejects(app.deferCapture(deferred.captureId, "not-a-date"), /合法日期/);
   await app.openCaptureSource(deferred.captureId);
   assert.equal((await content.getCurrentBlock())?.externalId, "block_4");
@@ -362,6 +366,45 @@ test("manual formalization and object editing keep Logseq text and Domain text i
   state = await store.load();
   assert.equal(state.objects[0]?.text, "使用真实事件验证告警链路");
   assert.equal(content.block("block_1")?.text, "使用真实事件验证告警链路");
+});
+
+test("optional primary ownership is explicitly reviewed inside the same formalization Commit", async () => {
+  const { app, store, content } = harness();
+  content.setCurrentBlock({ externalId: "area-owner", graphId: "graph_1", text: "工作责任区", pageRef: "Areas" });
+  const areaCapture = await app.captureCurrentBlock();
+  const area = await formalize(app, areaCapture.captureId, { objectType: "AREA", text: "工作责任区", purpose: "工作责任" });
+  content.setCurrentBlock({ externalId: "owned-task", graphId: "graph_1", text: "验证告警", pageRef: "Journal" });
+  const capture = await app.captureCurrentBlock();
+  const proposal = await app.createManualFormalizationProposal(capture.captureId, { objectType: "TASK", text: "验证告警", completionCriteria: "有证据", nextAction: "选事件" }, area.objectId);
+  const ownership = proposal.operations.find((operation) => operation.operationType === "set_primary_ownership")!;
+  assert.equal(ownership.riskLevel, "HIGH");
+  assert.ok(ownership.dependencies.some((id) => proposal.operations.find((operation) => operation.operationId === id)?.operationType === "create_object"));
+  const commit = await acceptAll(app, proposal);
+  assert.equal(commit.status, "COMPLETED");
+  const state = await store.load();
+  const task = state.objects.find((object) => object.objectType === "TASK")!;
+  assert.equal(state.captures.find((candidate) => candidate.captureId === capture.captureId)?.phase, "RESOLVED");
+  assert.equal(state.relations.some((relation) => relation.relationType === "primary_ownership" && relation.fromObjectId === task.objectId && relation.toObjectId === area.objectId), true);
+  assert.equal(commit.domainChanges.some((change) => change.entityType === "OBJECT"), true);
+  assert.equal(commit.domainChanges.some((change) => change.entityType === "RELATION"), true);
+});
+
+test("manual formalization carries one correlation ID through proposal, persistence and SemanticCommit logs", async () => {
+  const { store, content } = harness();
+  const logs: Array<{ category: string; event: string; fields?: Record<string, unknown> }> = [];
+  let id = 500;
+  const app = new TaskCopilot({
+    store, content, provider: new NoAgentProvider(), clock: () => new Date("2026-07-18T00:00:00Z"), idFactory: (prefix) => `${prefix}_${++id}`,
+    logger: { emit(category, event, fields) { logs.push({ category, event, ...(fields ? { fields } : {}) }); } },
+  });
+  const capture = await app.captureCurrentBlock();
+  const context = { correlationId: "TC-integration-001" };
+  const proposal = await app.createManualFormalizationProposal(capture.captureId, { objectType: "TASK", text: capture.originalText, completionCriteria: "完成", nextAction: "执行" }, undefined, context);
+  await app.reviewProposal(proposal.proposalId, Object.fromEntries(proposal.operations.map((operation) => [operation.operationId, "ACCEPTED"])), context);
+  assert.equal((await app.commitProposal(proposal.proposalId, context)).status, "COMPLETED");
+  assert.equal(logs.some((entry) => entry.event === "domain_write_succeeded"), true);
+  assert.equal(logs.some((entry) => entry.event === "semantic_commit_succeeded"), true);
+  assert.equal(logs.every((entry) => entry.fields?.correlationId === context.correlationId), true);
 });
 
 test("manual Condition, Phase and ownership changes are prevalidated Proposals with before/after and Undo", async () => {

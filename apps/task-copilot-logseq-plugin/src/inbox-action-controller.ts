@@ -20,10 +20,14 @@ export class InboxActionController {
     this.logger.log("info", "ui-action", "ui_action_clicked", { correlationId, actionId, captureId });
     this.states.set(key, { status: "loading", correlationId, message: "处理中…" });
     this.logger.log("info", "ui-action", "ui_action_dispatch_started", { correlationId, actionId, captureId });
-    await this.refresh();
+    let commandStarted = false;
+    let commandSucceeded = false;
     try {
+      await this.refresh();
+      commandStarted = true;
       this.logger.log("info", "application-command", "application_command_started", { correlationId, actionId, captureId, command: actionId });
       const message = await command(correlationId);
+      commandSucceeded = true;
       this.logger.log("info", "application-command", "application_command_succeeded", { correlationId, actionId, captureId, command: actionId, durationMs: performance.now() - started, result: "success" });
       this.states.set(key, { status: "success", correlationId, message: message ?? "操作成功" });
       this.logger.log("info", "query-refresh", "query_invalidated", { correlationId, actionId, captureId });
@@ -31,22 +35,26 @@ export class InboxActionController {
       this.logger.log("info", "ui-action", "ui_action_succeeded", { correlationId, actionId, captureId, durationMs: performance.now() - started, result: "success" });
       return true;
     } catch (error) {
-      this.logger.log("error", "application-command", "application_command_failed", { correlationId, actionId, captureId, command: actionId, durationMs: performance.now() - started, result: "error" }, error);
-      this.states.set(key, { status: "error", correlationId, message: error instanceof Error ? error.message : String(error) });
-      await this.refresh();
+      const event = commandStarted && !commandSucceeded ? "application_command_failed" : "ui_refresh_failed";
+      this.logger.log("error", commandStarted && !commandSucceeded ? "application-command" : "query-refresh", event, { correlationId, actionId, captureId, command: actionId, durationMs: performance.now() - started, result: "error" }, error);
+      const detail = error instanceof Error ? error.message : String(error);
+      this.states.set(key, { status: "error", correlationId, message: commandSucceeded ? `操作已完成，但界面刷新失败：${detail}。请勿重复提交。` : detail });
+      try {
+        await this.refresh();
+      } catch (refreshError) {
+        this.logger.log("error", "query-refresh", "ui_refresh_failed", { correlationId, actionId, captureId, result: "error" }, refreshError);
+      }
       this.logger.log("error", "ui-action", "ui_action_failed", { correlationId, actionId, captureId, durationMs: performance.now() - started, result: "error" }, error);
       return false;
     }
   }
 }
 
-export function createDelegatedActionHandler(dispatch: (action: string, value?: string) => Promise<void>): (event: Event) => void {
+export function createDelegatedActionHandler(dispatch: (action: string, value?: string) => Promise<void>, onUnhandled: (error: unknown) => void): (event: Event) => void {
   return (event: Event) => {
     const element = event.target as { closest?: (selector: string) => { dataset?: { action?: string; value?: string } } | null } | null;
     const target = element?.closest?.("[data-action]");
     if (!target?.dataset?.action) return;
-    void dispatch(target.dataset.action, target.dataset.value).catch((error) => {
-      console.error("[Task Copilot] ui_action_unhandled", error);
-    });
+    void dispatch(target.dataset.action, target.dataset.value).catch(onUnhandled);
   };
 }
