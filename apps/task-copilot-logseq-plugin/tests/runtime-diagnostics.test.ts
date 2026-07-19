@@ -73,7 +73,7 @@ test("initialization failure retains all runtime stages and renders a diagnostic
   assert.equal(snapshot.runtime_status, "DEGRADED");
   assert.equal(snapshot.latest_error?.stage, "PERSISTENCE_READY");
   const html = renderRuntimeDiagnostics(snapshot);
-  for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "Inbox", "Now Work", "Projects", "Audit / Recovery", "damaged store"]) {
+  for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "恢复上一可读 Slot", "Inbox", "Now Work", "Projects", "Audit / Recovery", "damaged store"]) {
     assert.match(html, new RegExp(label));
   }
 });

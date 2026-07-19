@@ -46,6 +46,70 @@ test("corrupted active payload is detected rather than silently accepted", async
   await assert.rejects(repository.load(), CorruptionError);
 });
 
+test("a payload that cannot be read back is never activated by the manifest", async () => {
+  const backing = new MemoryBlobStore();
+  const original = createEmptyState();
+  installRawState(backing, original);
+  const manifestBefore = backing.values.get("task-copilot/state/manifest.json");
+  assert.ok(manifestBefore);
+
+  const corruptingStore = {
+    get: (key: string) => backing.get(key),
+    remove: (key: string) => backing.remove(key),
+    keys: (prefix: string) => backing.keys(prefix),
+    set: async (key: string, value: string) => {
+      await backing.set(key, key.endsWith("slot-b.json") ? "{damaged" : value);
+    },
+  };
+  const repository = new VersionedStateRepository(corruptingStore);
+
+  await assert.rejects(repository.save(original, original.revision), CorruptionError);
+  assert.equal(backing.values.get("task-copilot/state/manifest.json"), manifestBefore);
+  assert.deepEqual(await repository.load(), original);
+});
+
+test("explicit previous-slot recovery preserves the damaged slot and activates the last readable generation", async () => {
+  const blobs = new MemoryBlobStore();
+  const repository = new VersionedStateRepository(blobs);
+  await repository.save(createEmptyState());
+  const withObject = createEmptyState();
+  withObject.objects.push(createManagedObject({ objectId: "obj_recovered", objectType: "TASK", text: "last readable state" }));
+  const lastReadable = await repository.save(withObject, 1);
+  const validSlotB = blobs.values.get("task-copilot/state/slot-b.json");
+  assert.ok(validSlotB);
+
+  const damagedSlotA = '{"commits":[{"after":undefined}]}';
+  blobs.values.set("task-copilot/state/slot-a.json", damagedSlotA);
+  blobs.values.set("task-copilot/state/manifest.json", stableJson({
+    schemaVersion: 1,
+    generation: 3,
+    activeSlot: "slot-a",
+    payloadChecksum: checksum(damagedSlotA),
+    savedAt: "2026-07-19T14:13:52.370Z",
+  }));
+
+  const recovered = await repository.recoverPreviousSlot();
+  assert.deepEqual(recovered, {
+    previousActiveSlot: "slot-a",
+    recoveredSlot: "slot-b",
+    previousGeneration: 3,
+    recoveredRevision: lastReadable.revision,
+  });
+  assert.equal(blobs.values.get("task-copilot/state/slot-a.json"), damagedSlotA);
+  assert.equal(blobs.values.get("task-copilot/state/slot-b.json"), validSlotB);
+  assert.equal((await repository.load()).objects[0]?.objectId, "obj_recovered");
+  const manifest = JSON.parse(blobs.values.get("task-copilot/state/manifest.json") ?? "") as { activeSlot: string; generation: number };
+  assert.deepEqual({ activeSlot: manifest.activeSlot, generation: manifest.generation }, { activeSlot: "slot-b", generation: 4 });
+});
+
+test("previous-slot recovery refuses a healthy active generation", async () => {
+  const repository = new VersionedStateRepository(new MemoryBlobStore());
+  await repository.save(createEmptyState());
+  await assert.rejects(repository.recoverPreviousSlot(), (error: unknown) => (
+    error instanceof Error && "code" in error && error.code === "ACTIVE_STATE_HEALTHY"
+  ));
+});
+
 test("recovery bundle restores objects, relations, events and reports missing anchors", () => {
   const state = createEmptyState();
   state.objects.push(createManagedObject({ objectId: "obj_1", objectType: "TASK", text: "恢复演练" }));

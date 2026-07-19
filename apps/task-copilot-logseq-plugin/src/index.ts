@@ -279,6 +279,25 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await showRuntimeDiagnostics();
     return;
   }
+  if (action === "recover-previous-slot") {
+    if (!repository) throw new Error("Persistence Repository 尚未初始化，无法恢复。");
+    if (!window.confirm("只有当 active payload 已损坏时才会切换到上一可读 Slot。损坏 Slot 将保留作为证据。确认继续？")) return;
+    try {
+      const recovered = await repository.recoverPreviousSlot();
+      diagnostics.setRecoveryState(`explicit previous-slot recovery: generation ${recovered.previousGeneration}, ${recovered.previousActiveSlot} -> ${recovered.recoveredSlot}, revision ${recovered.recoveredRevision}`);
+      diagnostics.setNotice({
+        code: "PREVIOUS_SLOT_RECOVERED",
+        message: `已切换到 ${recovered.recoveredSlot}，revision ${recovered.recoveredRevision}；损坏 Slot 未删除。`,
+        next_step: "请在 Logseq 插件页禁用并重新启用 Task Copilot，再扫描 Pending Commit。",
+      });
+      operationalLogger.log("info", "plugin-lifecycle", "previous_slot_recovered", { result: "success", ...recovered });
+    } catch (error) {
+      latestError = explain(error);
+      operationalLogger.log("error", "plugin-lifecycle", "previous_slot_recovery_failed", { result: "error" }, error);
+    }
+    await showRuntimeDiagnostics();
+    return;
+  }
   if (action === "clear-diagnostics") {
     operationalLogger.clear();
     message = "内存日志已清空。";

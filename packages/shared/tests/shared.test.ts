@@ -15,6 +15,28 @@ test("stable JSON and checksum detect changed persisted content", () => {
   assert.notEqual(checksum({ a: 1 }), checksum({ a: 2 }));
 });
 
+test("stable JSON omits undefined object fields and remains parseable for inverse audit changes", () => {
+  const payload = stableJson({
+    domainChanges: [{
+      entityType: "OBJECT",
+      entityId: "obj_1",
+      before: { objectId: "obj_1" },
+      after: undefined,
+    }],
+  });
+
+  assert.deepEqual(JSON.parse(payload), {
+    domainChanges: [{
+      entityType: "OBJECT",
+      entityId: "obj_1",
+      before: { objectId: "obj_1" },
+    }],
+  });
+  assert.equal(payload.includes("undefined"), false);
+  assert.equal(stableJson(["before", undefined, "after"]), '["before",null,"after"]');
+  assert.throws(() => stableJson(undefined), /cannot serialize a top-level undefined/);
+});
+
 test("storage errors are classified across Error, SDK object and host bug shapes", () => {
   assert.equal(classifyStorageError(new Error("file not existed")), "NOT_FOUND");
   assert.equal(classifyStorageError({ message: "FILE NOT EXISTED: state", code: "ENOENT", path: "state" }), "NOT_FOUND");

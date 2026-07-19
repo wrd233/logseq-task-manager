@@ -164,7 +164,16 @@ export class VersionedStateRepository {
       revision: current.revision + 1,
     });
     const payload = stableJson(saved);
-    await this.blobs.set(`task-copilot/state/${activeSlot}.json`, payload);
+    const payloadKey = `task-copilot/state/${activeSlot}.json`;
+    await this.blobs.set(payloadKey, payload);
+    const writtenPayload = await this.blobs.get(payloadKey);
+    if (writtenPayload === undefined || checksum(writtenPayload) !== checksum(payload)) {
+      throw new CorruptionError("Inactive payload 写入后无法通过完整性校验；manifest 未切换。", { payloadKey });
+    }
+    const writtenState = normalizeState(parseJson(writtenPayload, "Inactive state payload"));
+    if (!writtenState) {
+      throw new CorruptionError("Inactive payload 写入后结构校验失败；manifest 未切换。", { payloadKey });
+    }
     const manifest: StateManifest = {
       schemaVersion: CURRENT_SCHEMA_VERSION,
       generation,
@@ -174,6 +183,67 @@ export class VersionedStateRepository {
     };
     await this.blobs.set(manifestKey, stableJson(manifest));
     return saved;
+  }
+
+  async recoverPreviousSlot(): Promise<{
+    previousActiveSlot: "slot-a" | "slot-b";
+    recoveredSlot: "slot-a" | "slot-b";
+    previousGeneration: number;
+    recoveredRevision: number;
+  }> {
+    const manifestText = await this.blobs.get(manifestKey);
+    if (manifestText === undefined) throw new CorruptionError("无法恢复：State manifest 不存在。");
+    const candidate = parseJson(manifestText, "State manifest");
+    if (!candidate || typeof candidate !== "object" || typeof (candidate as { schemaVersion?: unknown }).schemaVersion !== "number") {
+      throw new CorruptionError("无法恢复：State manifest 缺少 schema_version。");
+    }
+    const schemaVersion = (candidate as { schemaVersion: number }).schemaVersion;
+    if (schemaVersion !== CURRENT_SCHEMA_VERSION) throw new UnsupportedSchemaError(schemaVersion);
+    if (!isManifest(candidate)) throw new CorruptionError("无法恢复：State manifest 结构不完整。");
+
+    const activePayloadKey = `task-copilot/state/${candidate.activeSlot}.json`;
+    const activePayload = await this.blobs.get(activePayloadKey);
+    try {
+      if (!activePayload) throw new CorruptionError("Manifest 指向的 active payload 不存在。", { payloadKey: activePayloadKey });
+      if (checksum(activePayload) !== candidate.payloadChecksum) {
+        throw new CorruptionError("Active payload checksum 不匹配。", { payloadKey: activePayloadKey });
+      }
+      const activeState = normalizeState(parseJson(activePayload, "State payload"));
+      if (!activeState) throw new CorruptionError("State payload 结构不完整。");
+      throw new StructuredError({
+        code: "ACTIVE_STATE_HEALTHY",
+        message: "Active payload 仍可正常读取；拒绝回退到旧 Slot。",
+        ruleRefs: ["SYN-REC-001", "SYN-CON-001"],
+      });
+    } catch (error) {
+      if (!(error instanceof CorruptionError)) throw error;
+    }
+
+    const recoveredSlot = candidate.activeSlot === "slot-a" ? "slot-b" : "slot-a";
+    const recoveredPayloadKey = `task-copilot/state/${recoveredSlot}.json`;
+    const recoveredPayload = await this.blobs.get(recoveredPayloadKey);
+    if (!recoveredPayload) throw new CorruptionError("上一 Slot 不存在；manifest 未切换。", { recoveredPayloadKey });
+    const recoveredCandidate = parseJson(recoveredPayload, "Previous state payload");
+    if (recoveredCandidate && typeof recoveredCandidate === "object" && typeof (recoveredCandidate as { schemaVersion?: unknown }).schemaVersion === "number" && (recoveredCandidate as { schemaVersion: number }).schemaVersion !== CURRENT_SCHEMA_VERSION) {
+      throw new UnsupportedSchemaError((recoveredCandidate as { schemaVersion: number }).schemaVersion);
+    }
+    const recoveredState = normalizeState(recoveredCandidate);
+    if (!recoveredState) throw new CorruptionError("上一 Slot 结构不完整；manifest 未切换。", { recoveredPayloadKey });
+
+    const recoveryManifest: StateManifest = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      generation: candidate.generation + 1,
+      activeSlot: recoveredSlot,
+      payloadChecksum: checksum(recoveredPayload),
+      savedAt: new Date().toISOString(),
+    };
+    await this.blobs.set(manifestKey, stableJson(recoveryManifest));
+    return {
+      previousActiveSlot: candidate.activeSlot,
+      recoveredSlot,
+      previousGeneration: candidate.generation,
+      recoveredRevision: recoveredState.revision,
+    };
   }
 
   async backup(at = new Date()): Promise<{ backupId: string; state: PersistedState; checksum: string }> {

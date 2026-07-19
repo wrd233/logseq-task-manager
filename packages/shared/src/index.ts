@@ -20,16 +20,21 @@ export function createId(prefix: IdPrefix, now = new Date(), entropy?: string): 
 
 export function stableJson(value: unknown): string {
   if (Array.isArray(value)) {
-    return `[${value.map(stableJson).join(",")}]`;
+    return `[${value.map((item) => item === undefined ? "null" : stableJson(item)).join(",")}]`;
   }
   if (value !== null && typeof value === "object") {
     const record = value as Record<string, unknown>;
     return `{${Object.keys(record)
+      .filter((key) => record[key] !== undefined)
       .sort()
       .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
       .join(",")}}`;
   }
-  return JSON.stringify(value);
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new TypeError(`stableJson cannot serialize a top-level ${typeof value} value.`);
+  }
+  return serialized;
 }
 
 export function checksum(value: unknown): string {
