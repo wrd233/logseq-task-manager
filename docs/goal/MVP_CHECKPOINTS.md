@@ -81,7 +81,7 @@
 
 ## Checkpoint 8 — Desktop and Pilot
 
-- [ ] Consolidated Desktop runtime test
+- [x] Consolidated Desktop runtime test (`RT-MVP-001B..004`; RT-MVP-003 保留 Logseq Undo 限制)
 - [x] Runtime fixes and RT-MVP-001B regression
 - [ ] Four-item copied-data Pilot
 - [ ] Pilot feedback fixes

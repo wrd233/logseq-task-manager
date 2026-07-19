@@ -88,4 +88,53 @@ Environment: formal unpacked plugin at `apps/task-copilot-logseq-plugin`, plugin
 
 The checksummed Store finished at generation 27, active `slot-a`, revision 27. The second test Capture is `DISMISSED` with resolution note `无需行动`; its exported structured log contains clicked, dispatch-started, Application-command-started/succeeded, query-invalidated and UI-succeeded events under one correlation ID. No console error or silent action was observed.
 
-`RT-MVP-001B` is therefore **PASS**. This is a bounded V1/MVP Desktop regression, not V2 runtime evidence and not `MVP_SUCCESS`; RT-MVP-002..004 and the four-item Pilot remain pending.
+`RT-MVP-001B` is therefore **PASS**. At this checkpoint it was a bounded V1/MVP Desktop regression, not V2 runtime evidence and not `MVP_SUCCESS`; RT-MVP-002..004 and the four-item Pilot were still pending, and the next section records their later execution.
+
+## 2026-07-19/20 — Consolidated RT-MVP-002..004 Desktop acceptance
+
+Environment: formal unpacked plugin at `apps/task-copilot-logseq-plugin`, plugin 0.1.0 / runtime build based on commit `e7a06b7bfd05`, Logseq Desktop 0.10.15, Graph `logseq`. The source changes that removed the remaining browser-modal dependencies were exercised from the locally rebuilt `dist/`; `dist/` and the test Graph remain ignored.
+
+### RT-MVP-002 — Proposal, Commit, Undo, state, Now Work and Re-entry
+
+| Evidence | Result |
+|---|---|
+| Demo partial acceptance | PASS: accepted `rewrite_content` / `create_object` / `resolve_capture`, rejected high-impact ownership / move independently, then committed |
+| Undo durability | PASS after repair: first live attempt exposed an `undefined` field in inverse-Commit serialization; checksummed A/B previous-slot recovery restored the last valid generation without Graph loss; stable JSON normalization plus regression coverage fixed the cause; retry produced original Commit `UNDONE` and inverse Commit `COMPLETED` |
+| Prompt-free action UI | PASS: edit, ownership, Waiting/Blocked/Paused, Proposal edit/defer/reject, high-impact accept, Project completion/reopen, rebind and Undo use in-plugin forms; no `window.prompt` / `window.confirm` remains in plugin source |
+| Direct Phase transitions | PASS: Project `DEFINING -> PLANNED -> ACTIVE` through explicit reviewable buttons and SemanticCommits; stale-state checks remained active |
+| Optional ownership | PASS: Project `obj_20260719143906912_e5dbc36ffe73436b9ad07985fdb83f7e` assigned to Area `obj_20260719155933910_f19c1a60b858407e89353a49f3649f7b` with a separate in-plugin high-impact confirmation and completed Commit |
+| Three-axis state | PASS: Project rendered `ACTIVE + WAITING + REVIEW_DUE`; Waiting details persisted as `Runtime reviewer`, expected result `Confirm the consolidated Desktop evidence`, review time `2026-07-19T13:00:00+08:00` |
+| Now Work | PASS: Project and next action visible; full history intentionally absent |
+| Project Re-entry | PASS: purpose/current state/recent events/waiting context/restore action and one `primary_text` entry point visible |
+| Reload persistence | PASS: Project, ownership, Waiting, Review Due and Re-entry survived a real plugin reload |
+| No-Agent degradation | PASS: Logseq setting changed from `demo` to `none`, plugin reloaded, and header rendered `Agent disabled · 基础事务系统可用` while persisted objects remained accessible |
+
+The inverse-serialization failure was not hidden as a UI-only issue: a deterministic failing readback test reproduced the exact persistence boundary before the serializer was repaired. The previous-slot recovery action itself requires two clicks within 30 seconds rather than a browser confirmation, preserving an explicit recoverability gate in Desktop.
+
+### RT-MVP-003 — Anchor lifecycle
+
+Task `obj_20260719162407545_da2a3c4c652f4600ab03d7182e8c4194` was formalized from Block UUID `6a5cd526-d65d-4e72-9c89-fcad499d0243`.
+
+| Evidence | Result |
+|---|---|
+| External text edit | PASS: scan produced `anchor_conflict` with exact expected/current text and hashes; no overwrite occurred |
+| Real built-in block move | PASS: `Cmd+Shift+Down` changed physical order; subsequent scan returned the same external Block UUID to active state |
+| Real built-in delete | PASS: Task remained; `primary_text` became missing and `anchor_missing` was audited |
+| Logseq Undo after delete | **RUNTIME LIMITATION**: `Cmd+Z` restored the text but Logseq 0.10.15 did not immediately restore a resolvable original Anchor identity; the plugin correctly remained missing instead of guessing |
+| Explicit rebind | PASS: checkbox-confirmed in-plugin rebind marked old Anchor `anc_20260719162250012_70225f958a2a410cbc5ceb30d598511d` as `replaced`, created active Anchor `anc_20260719164814169_775f6c2f70604193925a534d5678597d`, updated object version to 5 and appended `anchor_rebound` |
+| Post-rebind scan | PASS: banner improved from active 4 / missing 2 / conflict 2 to active 5 / missing 1 / conflict 2; the remaining missing Anchor belongs to earlier disposable runtime data, not the rebound Task |
+
+The result is a bounded PASS for the implemented identity/conflict/rebind contract, with the exact Logseq Undo behavior retained as a known limitation. `move_content` remains intentionally disabled; physical location is not treated as ownership or identity.
+
+### RT-MVP-004 — FileStorage, export and recovery
+
+| Evidence | Result |
+|---|---|
+| Recovery bundle creation/download | PASS: `/Users/wangrundong/Downloads/task-copilot-recovery-2026-07-19T16-51-26.410Z.json`, valid JSON, bundle/schema version 1, 13 files, outer SHA-256 `4dac6061232b799729581a8955d71f4e29e29eaa05dba9ec95e875aef005461c` |
+| Bundle secret scan | PASS: API-key/secret/password/token/authorization pattern scan returned no match |
+| In-plugin checksum/readback validation | PASS: temporary Store restored objects 5, relations 1, events 40, Missing Anchor 1, differences 0 |
+| Pending Commit recovery | PASS: safely recovered 0; manual recovery required 0 |
+| Real reload | PASS: checksummed FileStorage state and No-Agent setting survived reload |
+| Test Graph cleanup | PASS: all uniquely labelled RT-MVP-002/003 Blocks and their temporary children were removed; original business Block plus two pre-existing blank Blocks were preserved |
+
+`RT-MVP-002`, `RT-MVP-003` and `RT-MVP-004` are therefore **PASS** for the V1/MVP consolidated Desktop contract. This is still not V2 evidence and not `MVP_SUCCESS`: the four-item copied-data Pilot, Pilot feedback fixes, and root clean success gate remain open; V2 structural work separately waits for OD-001..003 confirmation.

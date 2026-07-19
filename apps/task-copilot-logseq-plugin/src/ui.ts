@@ -5,10 +5,24 @@ import type {
   ProposalImpactView,
   ProjectReentryView,
 } from "@task-copilot/application";
-import type { AttentionSignal, Capture, DomainEvent, ManagedObject, Proposal, SemanticCommit, SemanticOperation } from "@task-copilot/domain";
+import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation } from "@task-copilot/domain";
 import type { ObservableActionState } from "./inbox-action-controller.ts";
 
 export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "audit";
+export type ActionDialogKind =
+  | "edit-object"
+  | "set-owner"
+  | "condition-waiting"
+  | "condition-blocked"
+  | "condition-paused"
+  | "review-edit"
+  | "review-defer"
+  | "reject-proposal"
+  | "confirm-review-accept"
+  | "confirm-phase"
+  | "reopen-phase"
+  | "confirm-rebind"
+  | "confirm-undo";
 
 export interface UiModel {
   workspace: Workspace;
@@ -37,6 +51,7 @@ export interface UiModel {
   };
   inboxActionStates?: Record<string, ObservableActionState>;
   inboxDialog?: { captureId: string; kind: "formalize" | "proposal" | "link" | "defer" | "dismiss" };
+  actionDialog?: { kind: ActionDialogKind; value: string };
 }
 
 export function escapeHtml(value: unknown): string {
@@ -91,7 +106,7 @@ function renderInbox(model: UiModel): string {
 function renderInboxDialog(model: UiModel, capture: Capture): string {
   const dialog = model.inboxDialog!;
   const cancel = button("取消", "cancel-inbox-dialog", capture.captureId, "quiet");
-  if (dialog.kind === "formalize") return `<section class="inbox-dialog" aria-label="手工正式化"><h3>手工正式化</h3><label>对象类型<select data-field="objectType"><option>TASK</option><option>MINI_PROJECT</option><option>PROJECT</option></select></label><label>正式正文<textarea data-field="text">${escapeHtml(capture.originalText)}</textarea></label><label>完成标准<textarea data-field="completionCriteria"></textarea></label><label>下一步<textarea data-field="nextAction"></textarea></label><label>可选主归属<select data-field="ownerId"><option value="">待确认归属</option>${model.objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="ownerConfirmed" value="yes">若选择主归属，我单独确认这项高影响变化</label><div class="actions">${button("创建并解决 Capture", "submit-formalize", capture.captureId, "primary")}${cancel}</div></section>`;
+  if (dialog.kind === "formalize") return `<section class="inbox-dialog" aria-label="手工正式化"><h3>手工正式化</h3><label>对象类型<select data-field="objectType"><option>TASK</option><option>MINI_PROJECT</option><option>PROJECT</option><option>AREA</option></select></label><label>正式正文<textarea data-field="text">${escapeHtml(capture.originalText)}</textarea></label><label>完成标准<textarea data-field="completionCriteria"></textarea></label><label>下一步<textarea data-field="nextAction"></textarea></label><label>可选主归属<select data-field="ownerId"><option value="">待确认归属</option>${model.objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="ownerConfirmed" value="yes">若选择主归属，我单独确认这项高影响变化</label><div class="actions">${button("创建并解决 Capture", "submit-formalize", capture.captureId, "primary")}${cancel}</div></section>`;
   if (dialog.kind === "proposal") return `<section class="inbox-dialog" aria-label="创建手工 Proposal"><h3>创建手工 Proposal</h3><label>建议正文<textarea data-field="suggestedText">${escapeHtml(capture.originalText)}</textarea></label><div class="actions">${button("创建并进入 Review", "submit-manual-proposal", capture.captureId, "primary")}${cancel}</div></section>`;
   if (dialog.kind === "link") return `<section class="inbox-dialog" aria-label="关联现有对象"><h3>关联现有对象</h3><label>按标题、类型或 ID 选择<input data-field="objectSearch" list="objects-${escapeHtml(capture.captureId)}"></label><datalist id="objects-${escapeHtml(capture.captureId)}">${model.objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</datalist><div class="actions">${button("建立来源关系", "submit-link-existing", capture.captureId, "primary")}${cancel}</div></section>`;
   if (dialog.kind === "defer") return `<section class="inbox-dialog" aria-label="暂缓 Capture"><h3>暂缓</h3><label>复查时间<input type="datetime-local" data-field="deferredUntil"></label><label>原因<input data-field="deferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-defer", capture.captureId, "primary")}${cancel}</div></section>`;
@@ -149,7 +164,9 @@ function renderObjects(model: UiModel): string {
       ${button("设置 Waiting", "condition-waiting", object.objectId)}
       ${button("设置 Blocked", "condition-blocked", object.objectId)}
       ${button("设置 Paused", "condition-paused", object.objectId)}
-      ${button("推进 Phase", "advance-phase", object.objectId)}
+      ${allowedPhaseTransitions(object)
+        .map((phase) => button(`进入 ${phase}`, "advance-phase", `${object.objectId}|${phase}|${object.objectType}|${object.phase}`))
+        .join("")}
       ${button("重新绑定当前块", "rebind-anchor", object.objectId, "danger")}
       ${button("查看审计", "view-audit", object.objectId, "quiet")}
       ${undoableCommitId ? button("撤销最近 Commit", "undo-commit", undoableCommitId, "danger") : ""}
@@ -269,6 +286,52 @@ function renderAudit(model: UiModel): string {
     ${commits || events || anchors ? `${commits}${events}${anchors}` : empty("还没有审计事件", "捕获和正式变更会记录在这里。")}`;
 }
 
+function renderActionDialog(model: UiModel): string {
+  const dialog = model.actionDialog;
+  if (!dialog) return "";
+  const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  const object = model.objects.find((candidate) => candidate.objectId === dialog.value);
+  if (dialog.kind === "edit-object" && object) return `<section class="inbox-dialog action-dialog" aria-label="编辑对象"><h3>编辑对象</h3>
+    <label>对象正文<textarea data-field="objectText">${escapeHtml(object.text)}</textarea></label>
+    <label>完成标准<textarea data-field="objectCompletionCriteria">${escapeHtml(object.completionCriteria ?? "")}</textarea></label>
+    <label>下一步/当前推进<textarea data-field="objectNextAction">${escapeHtml(object.nextAction ?? "")}</textarea></label>
+    <label>当前状态摘要<textarea data-field="objectCurrentSummary">${escapeHtml(object.currentSummary ?? "")}</textarea></label>
+    <label>目的/持续责任<textarea data-field="objectPurpose">${escapeHtml(object.purpose ?? "")}</textarea></label>
+    <label>目标结果<textarea data-field="objectTargetOutcome">${escapeHtml(object.targetOutcome ?? "")}</textarea></label>
+    <label>范围内边界<textarea data-field="objectScopeIn">${escapeHtml(object.scopeIn ?? "")}</textarea></label>
+    <label>due 时间（ISO，允许留空）<input data-field="objectDueAt" value="${escapeHtml(object.dueAt ?? "")}"></label>
+    <label>review 时间（ISO，允许留空）<input data-field="objectReviewAt" value="${escapeHtml(object.reviewAt ?? "")}"></label>
+    <div class="actions">${button("创建编辑 Proposal", "submit-edit-object", object.objectId, "primary")}${cancel}</div></section>`;
+  if (dialog.kind === "set-owner" && object) return `<section class="inbox-dialog action-dialog" aria-label="设置主归属"><h3>设置主归属</h3>
+    <label>主归属对象<select data-field="ownerObjectId"><option value="">请选择</option>${model.objects.filter((candidate) => candidate.objectId !== object.objectId).map((candidate) => `<option value="${escapeHtml(candidate.objectId)}">${escapeHtml(candidate.objectType)} · ${escapeHtml(candidate.text)}</option>`).join("")}</select></label>
+    <label class="confirm-line"><input type="checkbox" data-field="highImpactConfirmed">我单独确认这项高影响归属变化；它不会移动正文</label>
+    <div class="actions">${button("创建归属 Proposal", "submit-set-owner", object.objectId, "primary")}${cancel}</div></section>`;
+  if (dialog.kind === "condition-waiting" && object) return `<section class="inbox-dialog action-dialog" aria-label="设置 Waiting"><h3>设置 Waiting</h3>
+    <label>在等谁或什么<input data-field="waitingFor"></label><label>期待结果<input data-field="expectedResult"></label><label>复查时间（ISO）<input data-field="conditionReviewAt" placeholder="2026-07-20T09:00:00+08:00"></label>
+    <div class="actions">${button("创建 Waiting Proposal", "submit-condition", `${object.objectId}|WAITING`, "primary")}${cancel}</div></section>`;
+  if ((dialog.kind === "condition-blocked" || dialog.kind === "condition-paused") && object) {
+    const kind = dialog.kind === "condition-blocked" ? "BLOCKED" : "PAUSED";
+    return `<section class="inbox-dialog action-dialog" aria-label="设置 ${kind}"><h3>设置 ${kind}</h3><label>原因<textarea data-field="conditionReason"></textarea></label><div class="actions">${button(`创建 ${kind} Proposal`, "submit-condition", `${object.objectId}|${kind}`, "primary")}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "review-edit") {
+    const [proposalId, operationId] = dialog.value.split("|");
+    const operation = model.proposals.find((proposal) => proposal.proposalId === proposalId)?.operations.find((candidate) => candidate.operationId === operationId);
+    if (proposalId && operationId && operation) return `<section class="inbox-dialog action-dialog" aria-label="编辑 Proposal 操作"><h3>编辑最终 operation payload</h3><label>JSON object<textarea data-field="operationPayload">${escapeHtml(JSON.stringify(operation.payload, null, 2))}</textarea></label><label class="confirm-line"><input type="checkbox" data-field="finalPayloadConfirmed">我确认这是要提交的最终版本；若风险升高，此确认仅适用于该版本</label><div class="actions">${button("保存编辑后版本", "submit-review-edit", `${proposalId}|${operationId}`, "primary")}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "review-defer") return `<section class="inbox-dialog action-dialog" aria-label="暂缓 Proposal 操作"><h3>暂缓操作</h3><label>复查时间（ISO）<input data-field="operationDeferredUntil"></label><label>原因<input data-field="operationDeferReason"></label><div class="actions">${button("确认暂缓", "submit-review-defer", dialog.value, "primary")}${cancel}</div></section>`;
+  if (dialog.kind === "reject-proposal") return `<section class="inbox-dialog action-dialog" aria-label="全部拒绝 Proposal"><h3>全部拒绝 Proposal</h3><p>已提交的正式变化不会被改写；尚未提交的操作会拒绝。</p><label>原因<input data-field="proposalRejectReason" value="当前建议不适用"></label><div class="actions">${button("确认全部拒绝", "submit-reject-proposal", dialog.value, "danger")}${cancel}</div></section>`;
+  if (dialog.kind === "reopen-phase") return `<section class="inbox-dialog action-dialog" aria-label="重新打开对象"><h3>重新打开对象</h3><label>重新打开原因<input data-field="phaseReason"></label><div class="actions">${button("创建 Phase Proposal", "submit-phase", dialog.value, "primary")}${cancel}</div></section>`;
+  const confirmations: Partial<Record<ActionDialogKind, [string, string, string]>> = {
+    "confirm-review-accept": ["接受高影响操作", "我单独确认接受这个高影响操作；提交前仍会进行确定性校验", "submit-review-accept"],
+    "confirm-phase": ["确认完成 Project", "我已检查目标达成、下层对象、等待项、成果和归档入口", "submit-phase"],
+    "confirm-rebind": ["重新绑定主正文 Anchor", "我确认将当前选中 Block 设为新的主正文 Anchor；旧 Anchor 保留为 replaced", "submit-rebind-anchor"],
+    "confirm-undo": ["撤销 SemanticCommit", "我确认撤销；系统会先校验正文没有被二次编辑，并创建逆向 Commit", "submit-undo-commit"],
+  };
+  const confirmation = confirmations[dialog.kind];
+  if (confirmation) return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(confirmation[0])}"><h3>${escapeHtml(confirmation[0])}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(confirmation[1])}</label><div class="actions">${button("确认继续", confirmation[2], dialog.value, "danger")}${cancel}</div></section>`;
+  return "";
+}
+
 export function renderApp(model: UiModel): string {
   const labels: Array<[Workspace, string]> = [
     ["inbox", "Inbox"],
@@ -300,6 +363,6 @@ export function renderApp(model: UiModel): string {
     ${model.message ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${model.error ? `<div class="error"><strong>未执行：</strong>${escapeHtml(model.error)}<span>请修正后重试；系统不会静默覆盖。</span></div>` : ""}
     <nav>${labels.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}">${label}</button>`).join("")}</nav>
-    <main class="workspace" data-workspace="${model.workspace}">${body}</main>
+    <main class="workspace" data-workspace="${model.workspace}">${renderActionDialog(model)}${body}</main>
   </section>`;
 }

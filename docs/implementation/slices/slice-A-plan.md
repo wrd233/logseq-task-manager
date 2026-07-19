@@ -113,7 +113,7 @@ POST /service/shutdown
 - CLI：help、JSON schema、stdout/stderr、exit code 2-8；
 - Plugin：受限状态、不阻塞正文、无 Store 直写；
 - 首次启用：空 Graph、重复启动、reload、欢迎页三入口、无隐式扫描/迁移/模型调用；
-- 回归：现有 85 tests 和 `./scripts/check.sh` 持续通过。
+- 回归：现有 91 tests 和 `./scripts/check.sh` 持续通过。
 
 ## 风险与回滚
 

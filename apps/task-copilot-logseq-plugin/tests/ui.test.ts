@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { renderApp, type UiModel } from "../src/ui.ts";
@@ -49,6 +50,9 @@ test("object drawer does not render empty optional sections", () => {
   assert.doesNotMatch(html, /<h3>等待<\/h3>/);
   assert.doesNotMatch(html, /<h3>阻塞<\/h3>/);
   for (const action of ["edit-object", "open-object", "set-owner", "view-audit"]) assert.match(html, new RegExp(`data-action="${action}"`));
+  assert.match(html, /data-action="advance-phase" data-value="obj_1\|READY\|TASK\|CLARIFY">进入 READY<\/button>/);
+  assert.match(html, /data-action="advance-phase" data-value="obj_1\|CANCELLED\|TASK\|CLARIFY">进入 CANCELLED<\/button>/);
+  assert.doesNotMatch(html, />推进 Phase<\/button>/);
 });
 
 test("Inbox and Proposal Review expose the complete manual and partial-review controls", () => {
@@ -70,6 +74,7 @@ test("Inbox and Proposal Review expose the complete manual and partial-review co
   assert.doesNotMatch(html, /来源：19/);
   assert.match(html, /来源：未知来源/);
   assert.match(html, /submit-formalize/);
+  assert.match(html, /<option>AREA<\/option>/);
   assert.match(html, /data-field="ownerConfirmed"/);
   assert.match(html, /单独确认这项高影响变化/);
   assert.match(html, /诊断 ID：TC-20260718-test/);
@@ -89,5 +94,42 @@ test("Inbox and Proposal Review expose the complete manual and partial-review co
   assert.match(html, /最终影响预览/);
   for (const action of ["review-accept", "review-reject", "review-edit", "review-defer", "reject-proposal", "commit-proposal"]) {
     assert.match(html, new RegExp(`data-action="${action}"`));
+  }
+});
+
+test("object and high-impact actions render in-plugin forms instead of browser modals", () => {
+  const value = model();
+  value.objects = [{
+    objectId: "obj_project", objectType: "PROJECT", version: 2, phase: "DEFINING", condition: { kind: "ACTIONABLE" }, text: "Runtime project",
+    createdAt: "2026-07-19T00:00:00.000Z", updatedAt: "2026-07-19T00:00:00.000Z", lastMeaningfulEventAt: "2026-07-19T00:00:00.000Z", sourceOrCreationEvent: "event_project",
+  }, {
+    objectId: "obj_area", objectType: "AREA", version: 1, phase: "ACTIVE", condition: { kind: "ACTIONABLE" }, text: "Responsibility area",
+    createdAt: "2026-07-19T00:00:00.000Z", updatedAt: "2026-07-19T00:00:00.000Z", lastMeaningfulEventAt: "2026-07-19T00:00:00.000Z", sourceOrCreationEvent: "event_area",
+  }];
+  value.actionDialog = { kind: "set-owner", value: "obj_project" };
+  let html = renderApp(value);
+  assert.match(html, /aria-label="设置主归属"/);
+  assert.match(html, /data-field="ownerObjectId"/);
+  assert.match(html, /value="obj_area"/);
+  assert.match(html, /data-field="highImpactConfirmed"/);
+  assert.match(html, /data-action="submit-set-owner"/);
+
+  value.actionDialog = { kind: "condition-waiting", value: "obj_project" };
+  html = renderApp(value);
+  for (const field of ["waitingFor", "expectedResult", "conditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
+  assert.match(html, /data-action="submit-condition"/);
+
+  value.actionDialog = { kind: "confirm-review-accept", value: "prop_1|op_1" };
+  html = renderApp(value);
+  assert.match(html, /接受高影响操作/);
+  assert.match(html, /data-field="actionConfirmed"/);
+  assert.match(html, /data-action="submit-review-accept"/);
+});
+
+test("formal plugin entry does not regress to host browser prompts", async () => {
+  const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /window\.(?:prompt|confirm)\s*\(/);
+  for (const kind of ["edit-object", "set-owner", "confirm-review-accept", "confirm-phase", "confirm-rebind", "confirm-undo"]) {
+    assert.match(source, new RegExp(`openActionDialog\\("${kind}"`));
   }
 });

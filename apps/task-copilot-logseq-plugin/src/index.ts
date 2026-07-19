@@ -7,7 +7,7 @@ import {
   type AgentProvider,
   type ProjectReentryView,
 } from "@task-copilot/application";
-import type { ConditionKind, ManagedObject, ObjectType } from "@task-copilot/domain";
+import type { ConditionKind, ObjectType, Phase } from "@task-copilot/domain";
 import {
   LogseqContentPort,
   LogseqFileStorageBlobStore,
@@ -29,7 +29,7 @@ import {
   type RuntimeStage,
 } from "./runtime-diagnostics.ts";
 import { BootstrapRegistration, bindRootClick, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
-import { renderApp, type UiModel, type Workspace } from "./ui.ts";
+import { renderApp, type ActionDialogKind, type UiModel, type Workspace } from "./ui.ts";
 import { InboxActionController, createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger, type LogCategory, type StructuredLogEntry } from "./structured-logger.ts";
 
@@ -50,10 +50,12 @@ let message: string | undefined;
 let latestError: string | undefined;
 let recoveryReport: string | undefined;
 let inboxDialog: UiModel["inboxDialog"];
+let actionDialog: UiModel["actionDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 let inboxActionController: InboxActionController | undefined;
 let runtimeProbeResult: unknown = { status: "not-run" };
 const inboxProbeWaiters = new Map<string, () => void>();
+let previousSlotRecoveryArmedAt: number | undefined;
 
 function requireTaskCopilot(): TaskCopilot {
   if (!taskCopilot || !featureReady) throw new Error("TASK_COPILOT_FEATURE_NOT_READY: 功能尚未就绪；请打开 Runtime Diagnostics。");
@@ -138,6 +140,7 @@ async function model(): Promise<UiModel> {
     },
     ...(inboxActionController ? { inboxActionStates: inboxActionController.snapshot() } : {}),
     ...(inboxDialog ? { inboxDialog } : {}),
+    ...(actionDialog ? { actionDialog } : {}),
   };
 }
 
@@ -149,7 +152,8 @@ async function refresh(): Promise<void> {
   }
   let primaryHtml: string;
   try {
-    primaryHtml = renderApp(await model());
+    const renderedModel = await model();
+    primaryHtml = renderApp(renderedModel);
   } catch (error) {
     diagnostics.fail("APPLICATION_READY", error);
     featureReady = false;
@@ -221,21 +225,9 @@ async function run(action: () => Promise<void>, success?: string): Promise<void>
   await refresh();
 }
 
-function promptRequired(label: string, initial = ""): string | undefined {
-  const value = window.prompt(label, initial)?.trim();
-  return value ? value : undefined;
-}
-
-function workObjectType(): ObjectType | undefined {
-  const raw = window.prompt("对象类型：TASK / MINI_PROJECT / PROJECT / AREA", "TASK")?.trim().toUpperCase();
-  return raw && ["TASK", "MINI_PROJECT", "PROJECT", "AREA"].includes(raw) ? (raw as ObjectType) : undefined;
-}
-
-function objectChoices(objects: readonly ManagedObject[], excludeId?: string): string {
-  return objects
-    .filter((object) => object.objectId !== excludeId)
-    .map((object) => `${object.objectId} · ${object.objectType} · ${object.text}`)
-    .join("\n");
+function openActionDialog(kind: ActionDialogKind, value: string): Promise<void> {
+  actionDialog = { kind, value };
+  return refresh();
 }
 
 async function handleAction(action: string, value?: string): Promise<void> {
@@ -281,7 +273,18 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "recover-previous-slot") {
     if (!repository) throw new Error("Persistence Repository 尚未初始化，无法恢复。");
-    if (!window.confirm("只有当 active payload 已损坏时才会切换到上一可读 Slot。损坏 Slot 将保留作为证据。确认继续？")) return;
+    const now = Date.now();
+    if (!previousSlotRecoveryArmedAt || now - previousSlotRecoveryArmedAt > 30_000) {
+      previousSlotRecoveryArmedAt = now;
+      diagnostics.setNotice({
+        code: "PREVIOUS_SLOT_RECOVERY_CONFIRM_REQUIRED",
+        message: "尚未执行恢复。只有 active payload 已损坏时才可切换；损坏 Slot 会保留作为证据。",
+        next_step: "如确认继续，请在 30 秒内再次点击“恢复上一可读 Slot”。",
+      });
+      await showRuntimeDiagnostics();
+      return;
+    }
+    previousSlotRecoveryArmedAt = undefined;
     try {
       const recovered = await repository.recoverPreviousSlot();
       diagnostics.setRecoveryState(`explicit previous-slot recovery: generation ${recovered.previousGeneration}, ${recovered.previousActiveSlot} -> ${recovered.recoveredSlot}, revision ${recovered.recoveredRevision}`);
@@ -361,6 +364,196 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     return;
   }
+  if (action === "cancel-action-dialog") {
+    actionDialog = undefined;
+    await refresh();
+    return;
+  }
+  if (action === "submit-edit-object" && value) {
+    const text = dialogField("objectText");
+    if (!text) {
+      latestError = "对象正文不能为空。";
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      await taskCopilot.createManualObjectEditProposal(value, {
+        text,
+        completionCriteria: dialogField("objectCompletionCriteria"),
+        nextAction: dialogField("objectNextAction"),
+        currentSummary: dialogField("objectCurrentSummary"),
+        purpose: dialogField("objectPurpose"),
+        targetOutcome: dialogField("objectTargetOutcome"),
+        scopeIn: dialogField("objectScopeIn"),
+        dueAt: dialogField("objectDueAt"),
+        reviewAt: dialogField("objectReviewAt"),
+      });
+      actionDialog = undefined;
+      workspace = "review";
+    }, "对象编辑 Proposal 已创建；Logseq 正文和 Domain State 尚未改变。");
+    return;
+  }
+  if (action === "submit-set-owner" && value) {
+    const ownerObjectId = dialogField("ownerObjectId");
+    if (!ownerObjectId || !dialogChecked("highImpactConfirmed")) {
+      latestError = "请选择主归属，并单独确认这项高影响变化。";
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      await taskCopilot.createManualOwnershipProposal(value, ownerObjectId);
+      actionDialog = undefined;
+      workspace = "review";
+    }, "主归属 Proposal 已创建；正文不会移动，正式归属尚未改变。");
+    return;
+  }
+  if (action === "submit-condition" && value) {
+    const [objectId, rawKind] = value.split("|");
+    if (!objectId || !rawKind) return;
+    const kind = rawKind as ConditionKind;
+    const evidence: Record<string, string> = kind === "WAITING"
+      ? { waitingFor: dialogField("waitingFor"), expectedResult: dialogField("expectedResult"), reviewAt: dialogField("conditionReviewAt") }
+      : { reason: dialogField("conditionReason") };
+    if (Object.values(evidence).some((field) => !field)) {
+      latestError = "Condition 证据字段不能为空。";
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      await taskCopilot.createManualConditionProposal(objectId, kind, evidence);
+      actionDialog = undefined;
+      workspace = "review";
+    }, `Condition ${kind} Proposal 已创建；状态尚未改变。`);
+    return;
+  }
+  if (action === "submit-review-edit" && value) {
+    const [proposalId, operationId] = value.split("|");
+    if (!proposalId || !operationId) return;
+    if (!dialogChecked("finalPayloadConfirmed")) {
+      latestError = "请确认编辑后的最终 payload。";
+      await refresh();
+      return;
+    }
+    let payload: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(dialogField("operationPayload")) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("payload 必须是 JSON object");
+      payload = parsed as Record<string, unknown>;
+    } catch (error) {
+      latestError = explain(error);
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      const editedHighImpact = (await taskCopilot.getEditedOperationRisk(proposalId, operationId, payload)) === "HIGH";
+      await taskCopilot.reviewProposal(proposalId, {
+        [operationId]: { status: "EDITED", payload, highImpactConfirmed: editedHighImpact },
+      });
+      actionDialog = undefined;
+    }, "已保存用户确认版本；Agent 原建议仍在审计字段中保留。");
+    return;
+  }
+  if (action === "submit-review-defer" && value) {
+    const [proposalId, operationId] = value.split("|");
+    const deferredUntil = dialogField("operationDeferredUntil");
+    const reason = dialogField("operationDeferReason");
+    if (!proposalId || !operationId || !deferredUntil || !reason) {
+      latestError = "请填写复查时间和暂缓原因。";
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      await taskCopilot.deferProposalOperation(proposalId, operationId, deferredUntil, reason);
+      actionDialog = undefined;
+    }, "操作已暂缓；Proposal 保持待审查，Capture 未被解决。");
+    return;
+  }
+  if (action === "submit-reject-proposal" && value) {
+    const reason = dialogField("proposalRejectReason");
+    if (!reason) {
+      latestError = "全部拒绝原因不能为空。";
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      const proposal = await taskCopilot.rejectProposal(value, reason);
+      actionDialog = undefined;
+      message = proposal.status === "COMMITTED"
+        ? "其余操作已拒绝；此前已经提交的正式变化保持不变。"
+        : "Proposal 已全部拒绝；没有正式正文或领域变化。";
+    });
+    return;
+  }
+  if (action === "submit-review-accept" && value) {
+    const [proposalId, operationId] = value.split("|");
+    if (!proposalId || !operationId || !dialogChecked("actionConfirmed")) {
+      latestError = "请单独确认这个高影响操作。";
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      await taskCopilot.reviewProposal(proposalId, { [operationId]: { status: "ACCEPTED", highImpactConfirmed: true } });
+      actionDialog = undefined;
+    });
+    return;
+  }
+  if (action === "submit-phase" && value) {
+    const [objectId, requestedPhase, renderedObjectType, renderedPhase] = value.split("|");
+    if (!objectId || !requestedPhase || !renderedObjectType || !renderedPhase) return;
+    if (requestedPhase === "COMPLETED" && !dialogChecked("actionConfirmed")) {
+      latestError = "请确认 Project 完成检查。";
+      await refresh();
+      return;
+    }
+    const reason = renderedPhase === "COMPLETED" && requestedPhase === "ACTIVE" ? dialogField("phaseReason") : "";
+    if (renderedPhase === "COMPLETED" && requestedPhase === "ACTIVE" && !reason) {
+      latestError = "重新打开原因不能为空。";
+      await refresh();
+      return;
+    }
+    const object = await taskCopilot.getObject(objectId);
+    const available = await taskCopilot.getAvailableObjectPhases(objectId);
+    if (object.objectType !== renderedObjectType || object.phase !== renderedPhase || !available.includes(requestedPhase as Phase)) {
+      actionDialog = undefined;
+      latestError = `对象状态已变化；已刷新合法 Phase，请重新选择。`;
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      await taskCopilot.createManualPhaseProposal(objectId, requestedPhase as Phase, {
+        ...(requestedPhase === "COMPLETED" ? { completionChecksPassed: true } : {}),
+        ...(reason ? { reason } : {}),
+      });
+      actionDialog = undefined;
+      workspace = "review";
+    }, `Phase ${requestedPhase} Proposal 已创建；状态尚未改变。`);
+    return;
+  }
+  if (action === "submit-rebind-anchor" && value) {
+    if (!dialogChecked("actionConfirmed")) {
+      latestError = "请确认重新绑定主正文 Anchor。";
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      await taskCopilot.rebindPrimaryAnchor(value);
+      actionDialog = undefined;
+    }, "Anchor 已重新绑定。");
+    return;
+  }
+  if (action === "submit-undo-commit" && value) {
+    if (!dialogChecked("actionConfirmed")) {
+      latestError = "请确认撤销 SemanticCommit。";
+      await refresh();
+      return;
+    }
+    await run(async () => {
+      const commit = await taskCopilot.undoCommit(value);
+      if (commit.status !== "COMPLETED") throw new Error(`Undo SemanticCommit ${commit.status}：${commit.error?.message ?? "请在审计与恢复中处理"}`);
+      actionDialog = undefined;
+    }, "已创建逆向 SemanticCommit；旧历史未被改写。");
+    return;
+  }
   if (value && action === "manual-formalize") return openInboxDialog(value, "formalize");
   if (value && action === "create-manual-proposal") return openInboxDialog(value, "proposal");
   if (value && action === "link-existing-object") return openInboxDialog(value, "link");
@@ -383,8 +576,11 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const ownerId = dialogField("ownerId");
     const ownerConfirmed = dialogChecked("ownerConfirmed");
     await actions().execute("manual-formalize", value, async (correlationId) => {
-      if (!text || !completionCriteria || !nextAction) throw new Error("正式正文、完成标准和下一步不能为空。");
-      const input: Parameters<TaskCopilot["createManualFormalizationProposal"]>[1] = objectType === "PROJECT"
+      if (!text) throw new Error("正式正文不能为空。");
+      if (objectType !== "AREA" && (!completionCriteria || !nextAction)) throw new Error("Task、MiniProject 和 Project 的完成标准与下一步不能为空。");
+      const input: Parameters<TaskCopilot["createManualFormalizationProposal"]>[1] = objectType === "AREA"
+        ? { objectType, text, purpose: text }
+        : objectType === "PROJECT"
         ? { objectType, text, purpose: text, targetOutcome: completionCriteria, scopeIn: "待确认", completionCriteria, nextAction }
         : objectType === "MINI_PROJECT"
           ? { objectType, text, targetOutcome: completionCriteria, completionCriteria, nextAction }
@@ -462,68 +658,11 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }, "已捕获当前 Block；正文未移动，也未自动创建 Task。");
     return;
   }
-  if (action === "formalize" && value) {
-    const state = await taskCopilot.exportState();
-    const capture = state.captures.find((candidate) => candidate.captureId === value);
-    const objectType = workObjectType();
-    if (!objectType) return;
-    const text = promptRequired(`${objectType} 正文`, capture?.originalText ?? "");
-    if (!text) return;
-    let completionCriteria: string | undefined;
-    let nextAction: string | undefined;
-    let purpose: string | undefined;
-    let targetOutcome: string | undefined;
-    let scopeIn: string | undefined;
-    if (objectType === "TASK") {
-      completionCriteria = promptRequired("可判断的完成标准");
-      nextAction = promptRequired("下一步行动", text);
-      if (!completionCriteria || !nextAction) return;
-    } else if (objectType === "MINI_PROJECT") {
-      targetOutcome = promptRequired("目标结果");
-      completionCriteria = promptRequired("完成判据");
-      nextAction = promptRequired("当前推进");
-      if (!targetOutcome || !completionCriteria || !nextAction) return;
-    } else if (objectType === "PROJECT") {
-      purpose = promptRequired("项目目的");
-      targetOutcome = promptRequired("目标结果");
-      scopeIn = promptRequired("范围内边界");
-      completionCriteria = promptRequired("完成判据");
-      nextAction = promptRequired("当前推进");
-      if (!purpose || !targetOutcome || !scopeIn || !completionCriteria || !nextAction) return;
-    } else {
-      purpose = promptRequired("Area 的持续责任或目的");
-      if (!purpose) return;
-    }
-    await run(async () => {
-      await taskCopilot.createManualFormalizationProposal(value, {
-        objectType,
-        text,
-        ...(completionCriteria ? { completionCriteria } : {}),
-        ...(nextAction ? { nextAction } : {}),
-        ...(purpose ? { purpose } : {}),
-        ...(targetOutcome ? { targetOutcome } : {}),
-        ...(scopeIn ? { scopeIn } : {}),
-      });
-      workspace = "review";
-    }, "手工正式化 Proposal 已创建；对象、正文和 Capture 尚未改变，请逐项审查后提交。");
-    return;
-  }
   if (action === "generate-proposal" && value) {
     await run(async () => {
       await taskCopilot.generateProposal(value);
       workspace = "review";
     }, "Demo Proposal 已生成；它仍不是正式事实。");
-    return;
-  }
-  if (action === "manual-proposal" && value) {
-    const state = await taskCopilot.exportState();
-    const capture = state.captures.find((candidate) => candidate.captureId === value);
-    const suggestedText = promptRequired("输入希望审查的正式正文", capture?.originalText ?? "");
-    if (!suggestedText) return;
-    await run(async () => {
-      await taskCopilot.createManualProposal(value, suggestedText);
-      workspace = "review";
-    }, "手工 Proposal 已创建；正文尚未改变，需逐项审查后提交。");
     return;
   }
   if (action === "dismiss-capture" && value) {
@@ -534,77 +673,27 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await run(async () => taskCopilot.openCaptureSource(value));
     return;
   }
-  if (action === "defer-capture" && value) {
-    const deferredUntil = promptRequired("暂缓至（ISO，例如 2026-07-20T09:00:00+08:00）");
-    if (!deferredUntil) return;
-    await run(async () => void (await taskCopilot.deferCapture(value, deferredUntil)), `Capture 已暂缓至 ${deferredUntil}。`);
-    return;
-  }
-  if (action === "associate-capture" && value) {
-    const objects = await taskCopilot.listObjects();
-    const objectId = promptRequired(`输入要关联的对象 ID：\n${objectChoices(objects)}`);
-    if (!objectId) return;
-    await run(async () => void (await taskCopilot.associateCapture(value, objectId)), "Capture 已关联现有对象，来源 Anchor 已保留。");
-    return;
-  }
   if ((action === "review-accept" || action === "review-reject") && value) {
     const [proposalId, operationId, risk] = value.split("|");
     if (!proposalId || !operationId) return;
-    if (action === "review-accept" && risk === "HIGH" && !window.confirm("这是高影响操作。确认单独接受？提交前仍会进行确定性校验。")) return;
+    if (action === "review-accept" && risk === "HIGH") return openActionDialog("confirm-review-accept", `${proposalId}|${operationId}`);
     await run(async () => {
       await taskCopilot.reviewProposal(proposalId, {
         [operationId]: action === "review-accept"
-          ? { status: "ACCEPTED", highImpactConfirmed: risk === "HIGH" }
+          ? { status: "ACCEPTED", highImpactConfirmed: false }
           : "REJECTED",
       });
     });
     return;
   }
   if (action === "review-edit" && value) {
-    const [proposalId, operationId] = value.split("|");
-    if (!proposalId || !operationId) return;
-    const proposal = (await taskCopilot.listProposals()).find((candidate) => candidate.proposalId === proposalId);
-    const operation = proposal?.operations.find((candidate) => candidate.operationId === operationId);
-    if (!operation) return;
-    const raw = window.prompt("编辑最终 operation payload（JSON）", JSON.stringify(operation.payload, null, 2));
-    if (raw === null) return;
-    let payload: Record<string, unknown>;
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("payload 必须是 JSON object");
-      payload = parsed as Record<string, unknown>;
-    } catch (error) {
-      latestError = explain(error);
-      await refresh();
-      return;
-    }
-    const editedHighImpact = (await taskCopilot.getEditedOperationRisk(proposalId, operationId, payload)) === "HIGH";
-    if (editedHighImpact && !window.confirm("编辑后的 payload 属于高影响操作。确认最终版本？")) return;
-    await run(async () => void (await taskCopilot.reviewProposal(proposalId, {
-      [operationId]: { status: "EDITED", payload, highImpactConfirmed: editedHighImpact },
-    })), "已保存用户确认版本；Agent 原建议仍在审计字段中保留。");
-    return;
+    return openActionDialog("review-edit", value);
   }
   if (action === "review-defer" && value) {
-    const [proposalId, operationId] = value.split("|");
-    if (!proposalId || !operationId) return;
-    const deferredUntil = promptRequired("复查时间（ISO）");
-    const reason = promptRequired("暂缓原因");
-    if (!deferredUntil || !reason) return;
-    await run(async () => void (await taskCopilot.deferProposalOperation(proposalId, operationId, deferredUntil, reason)), "操作已暂缓；Proposal 保持待审查，Capture 未被解决。");
-    return;
+    return openActionDialog("review-defer", value);
   }
   if (action === "reject-proposal" && value) {
-    if (!window.confirm("确认拒绝该 Proposal 的全部未提交操作？原始 Capture 会回到 Inbox。")) return;
-    const reason = promptRequired("全部拒绝原因", "当前建议不适用");
-    if (!reason) return;
-    await run(async () => {
-      const proposal = await taskCopilot.rejectProposal(value, reason);
-      message = proposal.status === "COMMITTED"
-        ? "其余操作已拒绝；此前已经提交的正式变化保持不变。"
-        : "Proposal 已全部拒绝；没有正式正文或领域变化。";
-    });
-    return;
+    return openActionDialog("reject-proposal", value);
   }
   if (action === "commit-proposal" && value) {
     await run(async () => {
@@ -627,50 +716,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "edit-object" && value) {
-    const object = await taskCopilot.getObject(value);
-    const text = window.prompt("对象正文（取消则保留）", object.text);
-    if (text === null) return;
-    const completionCriteria = window.prompt("完成标准（允许留空）", object.completionCriteria ?? "");
-    if (completionCriteria === null) return;
-    const nextAction = window.prompt("下一步/当前推进（允许留空）", object.nextAction ?? "");
-    if (nextAction === null) return;
-    const currentSummary = window.prompt("当前状态摘要（允许留空）", object.currentSummary ?? "");
-    if (currentSummary === null) return;
-    const purpose = window.prompt("目的/持续责任（允许留空）", object.purpose ?? "");
-    if (purpose === null) return;
-    const targetOutcome = window.prompt("目标结果（允许留空）", object.targetOutcome ?? "");
-    if (targetOutcome === null) return;
-    const scopeIn = window.prompt("范围内边界（允许留空）", object.scopeIn ?? "");
-    if (scopeIn === null) return;
-    const dueAt = window.prompt("due 时间（ISO，允许留空）", object.dueAt ?? "");
-    if (dueAt === null) return;
-    const reviewAt = window.prompt("review 时间（ISO，允许留空）", object.reviewAt ?? "");
-    if (reviewAt === null) return;
-    await run(
-      async () => {
-        await taskCopilot.createManualObjectEditProposal(value, {
-          text: text.trim(), completionCriteria: completionCriteria.trim(), nextAction: nextAction.trim(), currentSummary: currentSummary.trim(),
-          purpose: purpose.trim(), targetOutcome: targetOutcome.trim(), scopeIn: scopeIn.trim(), dueAt: dueAt.trim(), reviewAt: reviewAt.trim(),
-        });
-        workspace = "review";
-      },
-      "对象编辑 Proposal 已创建；Logseq 正文和 Domain State 尚未改变。",
-    );
-    return;
+    return openActionDialog("edit-object", value);
   }
   if (action === "open-object" && value) {
     await run(async () => taskCopilot.openObjectText(value));
     return;
   }
   if (action === "set-owner" && value) {
-    const objects = await taskCopilot.listObjects();
-    const ownerObjectId = promptRequired(`输入主归属对象 ID：\n${objectChoices(objects, value)}`);
-    if (!ownerObjectId) return;
-    await run(async () => {
-      await taskCopilot.createManualOwnershipProposal(value, ownerObjectId);
-      workspace = "review";
-    }, "主归属 Proposal 已创建；接受时会要求高影响确认，正文不会移动。");
-    return;
+    return openActionDialog("set-owner", value);
   }
   if (action === "view-audit") {
     workspace = "audit";
@@ -679,42 +732,36 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action.startsWith("condition-") && value) {
     const kind = action.slice("condition-".length).toUpperCase() as ConditionKind;
-    const evidence: Record<string, string> = {};
-    if (kind === "WAITING") {
-      const waitingFor = promptRequired("在等谁或什么？");
-      const expectedResult = promptRequired("期待什么结果？");
-      const reviewAt = promptRequired("复查时间（ISO，例如 2026-07-20T09:00:00+08:00）");
-      if (!waitingFor || !expectedResult || !reviewAt) return;
-      Object.assign(evidence, { waitingFor, expectedResult, reviewAt });
-    } else if (kind === "BLOCKED" || kind === "PAUSED") {
-      const reason = promptRequired(kind === "BLOCKED" ? "阻塞说明" : "暂停原因");
-      if (!reason) return;
-      evidence.reason = reason;
-    }
+    if (kind === "WAITING" || kind === "BLOCKED" || kind === "PAUSED") return openActionDialog(`condition-${kind.toLowerCase()}` as ActionDialogKind, value);
     await run(async () => {
-      await taskCopilot.createManualConditionProposal(value, kind, evidence);
+      await taskCopilot.createManualConditionProposal(value, kind, {});
       workspace = "review";
     }, `Condition ${kind} Proposal 已创建；状态尚未改变。`);
     return;
   }
   if (action === "advance-phase" && value) {
-    const object = await taskCopilot.getObject(value);
-    const available = await taskCopilot.getAvailableObjectPhases(value);
-    const chosen = window.prompt(`选择合法目标 Phase：${available.join(" / ")}`, available[0] ?? "")?.trim().toUpperCase();
-    const phase = available.find((candidate) => candidate === chosen);
+    const [objectId, requestedPhase, renderedObjectType, renderedPhase] = value.split("|");
+    if (!objectId || !requestedPhase || !renderedObjectType || !renderedPhase) return;
+    if (renderedObjectType === "PROJECT" && requestedPhase === "COMPLETED") return openActionDialog("confirm-phase", value);
+    if (renderedPhase === "COMPLETED" && requestedPhase === "ACTIVE") return openActionDialog("reopen-phase", value);
+
+    const object = await taskCopilot.getObject(objectId);
+    const available = await taskCopilot.getAvailableObjectPhases(objectId);
+    const phase = available.find((candidate) => candidate === requestedPhase);
+    if (object.objectType !== renderedObjectType || object.phase !== renderedPhase) {
+      latestError = `对象已从 ${renderedPhase} 变为 ${object.phase}；已刷新合法 Phase，请重新选择。`;
+      await refresh();
+      return;
+    }
     if (!phase) {
       latestError = available.length > 0 ? `请选择合法 Phase：${available.join(" / ")}` : `当前 ${object.phase} 没有合法后续流转。`;
       await refresh();
       return;
     }
-    if (object.objectType === "PROJECT" && phase === "COMPLETED" && !window.confirm("已检查目标达成、下层对象、等待项、成果和归档入口？")) return;
-    const reason = object.phase === "COMPLETED" && phase === "ACTIVE" ? promptRequired("重新打开原因") : undefined;
-    if (object.phase === "COMPLETED" && phase === "ACTIVE" && !reason) return;
     await run(
       async () => {
-        await taskCopilot.createManualPhaseProposal(value, phase, {
+        await taskCopilot.createManualPhaseProposal(objectId, phase, {
           ...(object.objectType === "PROJECT" && phase === "COMPLETED" ? { completionChecksPassed: true } : {}),
-          ...(reason ? { reason } : {}),
         });
         workspace = "review";
       },
@@ -723,21 +770,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "rebind-anchor" && value) {
-    if (!window.confirm("将当前选中 Block 设为该对象新的主正文 Anchor？旧 Anchor 会保留为 replaced。")) return;
-    await run(async () => void (await taskCopilot.rebindPrimaryAnchor(value)), "Anchor 已重新绑定。");
-    return;
+    return openActionDialog("confirm-rebind", value);
   }
   if (action === "open-anchor" && value) {
     await run(async () => taskCopilot.openAnchor(value));
     return;
   }
   if (action === "undo-commit" && value) {
-    if (!window.confirm("撤销会先校验正文没有被二次编辑。确认继续？")) return;
-    await run(async () => {
-      const commit = await taskCopilot.undoCommit(value);
-      if (commit.status !== "COMPLETED") throw new Error(`Undo SemanticCommit ${commit.status}：${commit.error?.message ?? "请在审计与恢复中处理"}`);
-    }, "已创建逆向 SemanticCommit；旧历史未被改写。");
-    return;
+    return openActionDialog("confirm-undo", value);
   }
   if (action === "recover-pending") {
     await run(async () => {

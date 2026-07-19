@@ -1,6 +1,6 @@
 # Pending Runtime Tests
 
-> RT-BUG-001/002 修复后的最小 Desktop 回归已于 2026-07-19 通过。剩余 Desktop 验收仍合并为 RT-MVP-002..004；四项 Pilot 在该检查完成前仍暂停。
+> RT-MVP-001B 与合并的 RT-MVP-002..004 已在 Logseq Desktop 0.10.15 完成。当前不再有未执行的 V1/MVP 框架级 Desktop 测试；剩余运行时门槛是需用户参与的四项 copied-data Pilot。V2 仍另行等待 OD-001..003 确认。
 
 正式插件加载路径：
 
@@ -11,9 +11,19 @@
 | ID | Topic | Status |
 |---|---|---|
 | RT-MVP-001B | Journal Source Resolver、旧 Capture 修复、Inbox 六动作、Diagnostics、reload | **PASS 2026-07-19** |
-| RT-MVP-002 | 其余 Capture / Proposal / Commit / Undo / Now / Re-entry | READY / PENDING DESKTOP |
-| RT-MVP-003 | UUID move/delete/undo 与 Anchor conflict | READY / PENDING DESKTOP |
-| RT-MVP-004 | FileStorage reload / backup / recovery | READY / PENDING DESKTOP |
+| RT-MVP-002 | 其余 Capture / Proposal / Commit / Undo / Now / Re-entry | **PASS 2026-07-19/20** |
+| RT-MVP-003 | UUID move/delete/undo 与 Anchor conflict | **PASS WITH DOCUMENTED LOGSEQ UNDO LIMITATION 2026-07-19/20** |
+| RT-MVP-004 | FileStorage reload / backup / recovery | **PASS 2026-07-19/20** |
+
+## 当前剩余的运行时项
+
+1. 四项 copied-data Pilot：需要用户选定或提供代表性事项，不能由测试 Graph 代替。
+2. Pilot 反馈修复与回归。
+3. `MVP_SUCCESS` root clean gate。
+
+RT-MVP-003 的限定结论：真实 Block 移动保持 UUID；删除会产生 missing；Logseq 0.10.15 的 `Cmd+Z` 恢复了正文但未立即恢复可解析的原 Anchor 身份，插件没有猜测，而是经显式确认的 rebind 恢复 active 身份。
+
+RT-MVP-004 的最终回读：恢复包 13 个文件，对象 5、关系 1、事件 40、Missing Anchor 1、差异 0；Pending Commit 扫描为安全恢复 0 / 需人工 0。
 
 ## RT-MVP-001B 已执行步骤
 

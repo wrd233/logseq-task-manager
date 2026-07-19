@@ -40,7 +40,7 @@
 |---|---|
 | install | `npm ci` PASS，118 packages |
 | typecheck / lint | 全 workspace PASS |
-| unit / integration | 85 tests PASS：Capability Lab 13、Plugin 14、Application 26、Domain 11、Logseq Adapter 12、Persistence 6、Shared 3；0 skipped |
+| unit / integration | 91 tests PASS：Capability Lab 13、Plugin 16、Application 26、Domain 11、Logseq Adapter 12、Persistence 9、Shared 4；0 skipped |
 | build | Capability Lab 与正式插件 PASS；正式 bundle 约 230.3 kB |
 | boundaries / rules | 架构边界 PASS；V1 145 条规则覆盖 PASS |
 | recovery rehearsal | 临时 Store 导出、恢复和比较 PASS；differences 为空 |
