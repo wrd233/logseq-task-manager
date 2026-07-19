@@ -5,7 +5,7 @@
 ```yaml
 goal_state: CONSOLIDATED_RUNTIME_CHECKPOINT
 current_slice: "V1/MVP RT-MVP-001B..004 PASS; copied-data Pilot and V2 OD-001..003 confirmation pending"
-last_completed_commit: "e7a06b7 fix: keep inverse commits recoverably serializable"
+last_completed_commit: "366da6b fix: complete consolidated desktop runtime checkpoint"
 last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 91 tests; 145 rules; all builds, boundaries and acceptance rehearsal passed"
 implemented:
   - "Slice 0: Goal/spec baseline, 145-rule coverage, ADRs, workspace and formal plugin shell"

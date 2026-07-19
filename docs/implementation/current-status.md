@@ -23,7 +23,7 @@ Pre-Slice / Repository Assessment and Overall Plan Confirmation
 - 测试：91 tests PASS，0 skipped；
 - 命令：`./scripts/check.sh` PASS；恢复演练 differences 为空；
 - PDF：108/108 页总览；第 3、9、24、28、31、35、44 页高分辨率复核无排版缺陷；
-- Git：调研开始时 outer worktree clean；未 push、未修改 remote；inner Graph dirty 仅作信息。
+- Git：V1 合并 Desktop checkpoint 已保存为本地 commit `366da6b`；未 push、未修改 remote；inner Graph dirty 仅作信息。
 
 ## 尚未完成
 
