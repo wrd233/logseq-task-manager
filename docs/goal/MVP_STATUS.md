@@ -1,5 +1,7 @@
 # MVP Status
 
+> **2026-07-19 V2 候选 Goal 提醒**：用户提供了新的 V2 设计基线与 Codex Goal。结构性实现按新 Goal §30 暂停在总体方案确认点；先读取 `docs/implementation/current-status.md`、`repository-assessment.md`、`open-decisions.md` 和 `slices/slice-A-plan.md`。用户确认 OD-001..003 前，下方 V1/MVP Runtime Checkpoint 仍有效，不得静默改写为 V2，也不得遗漏 V2 确认事项。
+
 ```yaml
 goal_state: CONSOLIDATED_RUNTIME_CHECKPOINT
 current_slice: "Runtime Fix - RT-BUG-001 journal source resolution and RT-BUG-002 observable Inbox actions"
