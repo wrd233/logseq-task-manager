@@ -12,6 +12,7 @@ Pre-Slice / Repository Assessment and Overall Plan Confirmation
 - 运行当前根级完整基线；
 - 建立 V2 仓库评估、初版追踪、开放决定、Slice A 计划和 DeepSeek v4 在线测试计划。
 - 将候选 V2 入口同步到现行 `docs/goal/MVP_STATUS.md`，避免下一轮启动遗漏新基线。
+- 在 Logseq Desktop 0.10.15 完成 V1 `RT-MVP-001B`：来源解析、Inbox 六动作、真实 reload、只读 Probe 与 Diagnostics JSONL 全部 PASS。
 
 ## 证据
 
@@ -24,7 +25,6 @@ Pre-Slice / Repository Assessment and Overall Plan Confirmation
 ## 尚未完成
 
 - 用户确认总体 V2 实施计划和三项迁移合同；
-- 当前 commit 的 Desktop 插件加载、页面读取和受控写入基线；复用 `RT-MVP-001B`，不得用自动测试替代；
 - Slice A-F 代码与 Gate；
 - E2E-01..24；
 - Desktop 验收、DeepSeek 真实在线验收、迁移与 Backup/Restore 实机演练。
@@ -40,12 +40,12 @@ Pre-Slice / Repository Assessment and Overall Plan Confirmation
 ## 与设计偏差
 
 - 新规范源文件仍位于 Downloads/attachment；本轮通过绝对路径和 SHA-256 建立索引，未复制或改写用户原件；
-- V1 Desktop checkpoint 尚未完成，保留为历史 MVP 证据，不冒充 V2 runtime evidence。
+- V1 `RT-MVP-001B` 已完成，仅作历史 MVP 基线，不冒充 V2 runtime evidence；RT-MVP-002..004 仍待集中执行。
 
 ## 下一步
 
 1. 用户确认 OD-001..003 的总体方案；
-2. 完成当前 commit 的 Desktop 基线（`RT-MVP-001B`）；
-3. 冻结 V2 工作约定与迁移 ADR；
-4. 以测试优先方式进入 Slice A0/A1；
+2. 冻结 V2 工作约定与迁移 ADR；
+3. 以测试优先方式进入 Slice A0/A1；
+4. 将 RT-MVP-002..004 合并为一次剩余 V1/MVP Desktop 检查；
 5. 每个可解释闭环运行 `./scripts/check.sh` 并做本地 commit，不 push。

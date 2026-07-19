@@ -63,4 +63,29 @@ Automated fix evidence:
 
 Independent Standards/Spec review found and closed follow-up gaps before the Desktop checkpoint: optional ownership now belongs to the same SemanticCommit and requires its own checkbox confirmation; source conflicts/observations append Audit events; render refresh failures leave diagnostic error state instead of stuck loading; Application Logger Port carries the UI correlation ID through proposal persistence and SemanticCommit; the Inbox Probe dispatches an actual hidden DOM button through the bound root listener before a read-only Application query; numeric strings query numeric page IDs and Block-missing navigation has structured-error coverage.
 
-Desktop proof remains `RT-MVP-001B PENDING`; Pilot remains blocked until it passes.
+## 2026-07-19 — RT-MVP-001B repaired Desktop regression
+
+Environment: formal unpacked plugin at `apps/task-copilot-logseq-plugin`, plugin 0.1.0 / commit `8c2f8e98ba59`, Logseq Desktop 0.10.15, Graph `logseq`.
+
+| Evidence | Result |
+|---|---|
+| Bootstrap and formal surface | PASS: Runtime READY, Store READY, TC Toolbar and five palette commands visible |
+| Capture current Journal Block | PASS: Store generation 17 -> 18; Inbox source rendered `Jul 18th, 2026`, not numeric ID `19` |
+| Legacy numeric source repair | PASS: two pre-existing Capture IDs remained unchanged, both now reference `Jul 18th, 2026`, with two persisted `source_reference_repaired` Audit events |
+| Open Source | PASS: Main UI closed and selected the exact source Block; diagnostic `TC-20260719130703-9f98e31d` |
+| Manual formalization | PASS: inline TASK form accepted completion criteria and next action, then created object `obj_20260719131111831_a208c4c6b0e646dbb4a5bef757a35554` |
+| Capture resolution | PASS: `cap_20260719130559904_95757bb00c3c4382890083d91ff8c148` became `RESOLVED`, retained its Anchor and linked object |
+| Object drawer | PASS: new TASK appeared with body-at-source and source retained |
+| Real reload persistence | PASS: plugin was visibly disabled and re-enabled; Store generation 24 -> 25; transient UI state cleared while resolved Capture and TASK remained |
+| Create manual Proposal | PASS: inline proposal-text form opened; no write was executed |
+| Link existing object | PASS: searchable object-link form opened; no write was executed |
+| Defer | PASS: review-time and reason form opened; no write was executed |
+| No Action | PASS: explicit high-impact confirmation opened; confirmation succeeded and retained Capture/audit history; diagnostic `TC-20260719132749-6751cd29` |
+| Source Resolver Probe | PASS: `status: read-only`; selected Block UUID and runtime shape were displayed; no write |
+| Inbox Action Probe | PASS: `status: read-only-pass`, delegated handler and Application query true, `writesExecuted: false` |
+| Diagnostics export | PASS: 16-line JSONL at `/Users/wangrundong/Downloads/task-copilot-diagnostics-1784467866631.jsonl`; SHA-256 `29a6d190283258ccaf9f7c6218d9e6d5fe01d643305ef98fdf6f63478afd4806`; secret-keyword scan returned no match |
+| Test Graph cleanup | PASS: the two uniquely labelled temporary Blocks were removed; the original business Block was preserved |
+
+The checksummed Store finished at generation 27, active `slot-a`, revision 27. The second test Capture is `DISMISSED` with resolution note `无需行动`; its exported structured log contains clicked, dispatch-started, Application-command-started/succeeded, query-invalidated and UI-succeeded events under one correlation ID. No console error or silent action was observed.
+
+`RT-MVP-001B` is therefore **PASS**. This is a bounded V1/MVP Desktop regression, not V2 runtime evidence and not `MVP_SUCCESS`; RT-MVP-002..004 and the four-item Pilot remain pending.

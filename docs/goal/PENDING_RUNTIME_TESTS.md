@@ -1,6 +1,6 @@
 # Pending Runtime Tests
 
-> RT-BUG-001/002 修复后的单一集中 Desktop 检查点，目标时长 10 分钟以内。四项 Pilot 仍暂停；本检查只验证“来源正确、按钮能执行、失败可观察”。
+> RT-BUG-001/002 修复后的最小 Desktop 回归已于 2026-07-19 通过。剩余 Desktop 验收仍合并为 RT-MVP-002..004；四项 Pilot 在该检查完成前仍暂停。
 
 正式插件加载路径：
 
@@ -10,12 +10,12 @@
 
 | ID | Topic | Status |
 |---|---|---|
-| RT-MVP-001B | Journal Source Resolver、旧 Capture 修复、Inbox 六动作、Diagnostics、reload | PENDING AFTER AUTOMATED FIX |
-| RT-MVP-002 | 其余 Capture / Proposal / Commit / Undo / Now / Re-entry | DEFERRED UNTIL 001B |
-| RT-MVP-003 | UUID move/delete/undo 与 Anchor conflict | DEFERRED UNTIL 001B |
-| RT-MVP-004 | FileStorage reload / backup / recovery | DEFERRED UNTIL 001B |
+| RT-MVP-001B | Journal Source Resolver、旧 Capture 修复、Inbox 六动作、Diagnostics、reload | **PASS 2026-07-19** |
+| RT-MVP-002 | 其余 Capture / Proposal / Commit / Undo / Now / Re-entry | READY / PENDING DESKTOP |
+| RT-MVP-003 | UUID move/delete/undo 与 Anchor conflict | READY / PENDING DESKTOP |
+| RT-MVP-004 | FileStorage reload / backup / recovery | READY / PENDING DESKTOP |
 
-## 最小 Desktop 回归（不超过 10 分钟）
+## RT-MVP-001B 已执行步骤
 
 1. 在 Plugins 页面 Reload 正式 Task Copilot；若需重新加载，选择插件根目录，不能选择 `dist/`。
 2. 打开 `2026-07-18` Journal，新建一个临时测试 Block，选中后执行 `Task Copilot: Capture Current Block`。
@@ -27,7 +27,31 @@
 8. 用新的临时 Capture 分别点击“创建手工 Proposal”“关联现有对象”“暂缓”“无需行动”；每项至少应打开界面、完成操作或显示带诊断 ID 的明确错误，不得静默。
 9. 打开 Diagnostics，依次运行 Source Resolver Probe 与 Inbox Action Probe，复制诊断信息并导出 JSONL。
 
-不要删除原始业务 Block；测试临时 Block 可在记录证据后手工删除。若任一步失败，停止重复提交并回传下面模板。
+本次未删除原始业务 Block；两条临时测试 Block 已在记录证据后移除。详细证据见 `docs/runtime/MVP_RUNTIME_TEST_LOG.md`。
+
+```text
+PLUGIN_COMMIT: 8c2f8e98ba59
+LOGSEQ_VERSION: 0.10.15
+
+SOURCE_DISPLAY: PASS - Jul 18th, 2026
+OPEN_SOURCE: PASS - Main UI closed and the exact source Block was selected
+MANUAL_FORMALIZE: PASS - inline TASK form opened and committed
+TASK_CREATED: PASS - obj_20260719131111831_a208c4c6b0e646dbb4a5bef757a35554
+CAPTURE_RESOLVED: PASS - source Anchor retained
+OBJECT_DRAWER: PASS - Task visible
+RELOAD_PERSISTENCE: PASS - real disable/enable cycle, Store generation 24 -> 25
+
+CREATE_PROPOSAL: PASS - inline Proposal form opened
+LINK_EXISTING: PASS - object lookup form opened
+DEFER: PASS - review time and reason form opened
+NO_ACTION: PASS - explicit confirmation, success feedback, audit retained
+
+DIAGNOSTIC_ID: TC-20260719132749-6751cd29
+CONSOLE_ERROR: none observed
+DIAGNOSTICS_EXPORT: /Users/wangrundong/Downloads/task-copilot-diagnostics-1784467866631.jsonl
+```
+
+## 失败回传模板
 
 ```text
 PLUGIN_COMMIT:

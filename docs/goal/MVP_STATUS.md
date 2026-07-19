@@ -4,9 +4,9 @@
 
 ```yaml
 goal_state: CONSOLIDATED_RUNTIME_CHECKPOINT
-current_slice: "Runtime Fix - RT-BUG-001 journal source resolution and RT-BUG-002 observable Inbox actions"
-last_completed_commit: "1a6df6d fix: close runtime repair review gaps"
-last_successful_check: "2026-07-18 ./scripts/check.sh PASS; 85 tests; 145 rules; all builds, boundaries and acceptance rehearsal passed"
+current_slice: "RT-MVP-001B PASS; V2 overall-plan confirmation and consolidated RT-MVP-002..004 pending"
+last_completed_commit: "bfa4866 docs: establish Task Copilot V2 implementation baseline"
+last_successful_check: "2026-07-19 ./scripts/check.sh PASS; 85 tests; 145 rules; all builds, boundaries and acceptance rehearsal passed"
 implemented:
   - "Slice 0: Goal/spec baseline, 145-rule coverage, ADRs, workspace and formal plugin shell"
   - "Slice 1: object contracts, Phase/Condition/Signal, ownership matrix, dependency cycles, rule-referenced errors"
@@ -26,10 +26,11 @@ implemented:
   - "Runtime Fix 3 review closure: atomic optional ownership with explicit high-impact confirmation, audited source refresh/conflict, refresh-failure diagnostics and real DOM Action Probe"
 remaining_automatable_work: []
 runtime_failures_automatically_fixed:
-  - "RT-BUG-001: root cause confirmed in RuntimeShapeAdapter id-first String mapping; active Store persisted sourcePage/cachedPageRef 19; automated repair complete, Desktop regression pending"
-  - "RT-BUG-002: Store proves dismiss command arrived, while prompt-dependent actions and void Promise dispatch were not reliably observable; automated interaction/diagnostic repair complete, Desktop regression pending"
+  - "RT-BUG-001: root cause confirmed in RuntimeShapeAdapter id-first String mapping; repair and 2026-07-19 Desktop regression PASS"
+  - "RT-BUG-002: prompt-dependent and void Promise dispatch paths replaced by observable actions; 2026-07-19 Desktop regression PASS"
+runtime_checks_completed:
+  - "RT-MVP-001B PASS on Logseq 0.10.15 with plugin commit 8c2f8e98ba59; source, six actions, real reload, two probes and JSONL export verified"
 runtime_checks_pending:
-  - RT-MVP-001B
   - RT-MVP-002
   - RT-MVP-003
   - RT-MVP-004
@@ -45,13 +46,14 @@ acceptance_progress:
   TST-MVP-009: "AUTOMATED_PASS / DESKTOP_PENDING"
   TST-MVP-010: "AUTOMATED_PASS / DESKTOP_PENDING"
 active_risks:
-  - "RT-BUG-001/002 fixes require the single <=10 minute RT-MVP-001B Desktop regression; Pilot is not allowed before PASS"
+  - "RT-MVP-002..004 and the four-item Pilot still require consolidated Desktop execution; RT-MVP-001B alone is not MVP_SUCCESS"
   - "Logseq Desktop runtime shapes, UUID move/delete/undo and FileStorage reload are not claimed without RT evidence"
   - "move_content is intentionally refused by the Adapter until UUID move semantics are observed"
   - "@logseq/libs 0.0.17 retains upstream npm audit findings; forced breaking upgrade is not accepted without compatibility proof"
 user_actions_required:
-  - "Run the single <=10 minute RT-MVP-001B checkpoint in PENDING_RUNTIME_TESTS.md and return the exact feedback template"
-resume_instruction: "Read AGENTS.md and Goal files, ingest RT-MVP-001B result and diagnostics, fix any Desktop regression, rerun ./scripts/check.sh, and do not enter Pilot until source/actions/diagnostics pass. Do not claim MVP_SUCCESS."
+  - "Confirm OD-001..003 in docs/implementation/open-decisions.md before V2 structural implementation"
+  - "When scheduling the remaining V1/MVP Desktop checkpoint, execute RT-MVP-002..004 as one bounded session before Pilot"
+resume_instruction: "Read AGENTS.md and Goal files. RT-MVP-001B is PASS. Preserve the V2 confirmation gate; after OD-001..003 are confirmed, freeze migration ADRs and enter Slice A test-first. Do not claim V2 runtime evidence or MVP_SUCCESS from the V1 regression."
 ```
 
 外层仓库分支为 `feature/task-copilot-mvp`，remote/upstream 均未配置，未 push。内层 Graph dirty 仍只作运行环境信息。

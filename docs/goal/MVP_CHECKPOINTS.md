@@ -82,7 +82,7 @@
 ## Checkpoint 8 — Desktop and Pilot
 
 - [ ] Consolidated Desktop runtime test
-- [ ] Runtime fixes and regression
+- [x] Runtime fixes and RT-MVP-001B regression
 - [ ] Four-item copied-data Pilot
 - [ ] Pilot feedback fixes
 - [ ] MVP_SUCCESS gate
