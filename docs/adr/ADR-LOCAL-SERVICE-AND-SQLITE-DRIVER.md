@@ -21,7 +21,7 @@ Node 20 没有内建 `node:sqlite`，因此不为等待 Node 升级阻塞 V2，�
 - Service 仅绑定 loopback，认证、health/status/doctor/只读 objects 路由通过；不存在意外写路由。
 - runtime descriptor 原子写入且权限 0600；Client 同时校验 descriptor 与运行协议，Service 退出清除 descriptor；
 - `tc status/doctor/object` 只经 Service，具有稳定 JSON envelope 与退出码；真实独立进程冒烟通过。
-- schema v2 具有可审计 migration ledger；v1 升级必须显式创建并校验快照，事务失败全量回滚并可重试。
+- schema v3 具有可审计 migration ledger 和受约束 SemanticCommit step ledger；v1/v2 升级必须显式创建并校验快照，事务失败全量回滚并可重试。
 - 离线 Restore 原语会先校验候选快照和当前库恢复点，再原子替换；注入的激活后失败会回滚原库并保留恢复点。
 
 ## 限制与后续

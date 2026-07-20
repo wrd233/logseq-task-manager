@@ -46,7 +46,7 @@
   "createdAt": "2026-07-20T00:00:00.000Z",
   "validation": {
     "status": "PASS",
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "integrity": "ok",
     "foreignKeyViolations": 0,
     "objectCount": 0

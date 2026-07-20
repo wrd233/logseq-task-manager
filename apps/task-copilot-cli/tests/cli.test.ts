@@ -13,10 +13,10 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
     status: "READY",
     protocolVersion: 1,
     capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
-    databaseSchemaVersion: 2,
+    databaseSchemaVersion: 3,
     objectCount: 0,
   };
-  const doctor: ServiceDoctor = { status: "PASS", schemaVersion: 2, integrity: "ok", foreignKeyViolations: 0, objectCount: 0 };
+  const doctor: ServiceDoctor = { status: "PASS", schemaVersion: 3, integrity: "ok", foreignKeyViolations: 0, objectCount: 0 };
   return {
     service: {
       status: async () => status,
@@ -44,7 +44,7 @@ test("CLI help and JSON status have stable output and exit codes", async () => {
 });
 
 test("CLI distinguishes usage, missing object, doctor failure, and unavailable service", async () => {
-  const value = fixture({ doctor: async () => ({ status: "FAIL", schemaVersion: 2, integrity: "corrupt", foreignKeyViolations: 0, objectCount: 0 }) });
+  const value = fixture({ doctor: async () => ({ status: "FAIL", schemaVersion: 3, integrity: "corrupt", foreignKeyViolations: 0, objectCount: 0 }) });
   const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service };
   assert.equal(await runCli(["unknown"], dependencies, value.io), 2);
   assert.equal(await runCli(["object", "show", "missing"], dependencies, value.io), 6);

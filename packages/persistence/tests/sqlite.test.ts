@@ -31,6 +31,7 @@ test("SQLite initialization is Graph-bound and idempotent", async (t) => {
 
 async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   const database = new Database(path);
+  database.exec("DROP TABLE IF EXISTS semantic_commit_steps; DROP TABLE IF EXISTS semantic_commits");
   database.exec("DROP TABLE IF EXISTS schema_migrations");
   database.prepare("UPDATE schema_meta SET value = '1' WHERE key = 'schema_version'").run();
   database.pragma("user_version = 1");
@@ -53,7 +54,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath, new Date("2026-07-20T08:00:00.000Z")), {
     migrated: true,
     fromVersion: 1,
-    schemaVersion: 2,
+    schemaVersion: 3,
     backupPath,
   });
   const preflight = new Database(backupPath, { readonly: true, fileMustExist: true });
@@ -63,14 +64,15 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
   assert.deepEqual(migrated.schemaMigrationHistory(), [
     { version: 1, name: "initial_core_schema", appliedAt: "2026-07-20T07:00:00.000Z" },
     { version: 2, name: "add_schema_migration_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 3, name: "add_semantic_commit_step_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
-  assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: 2 });
+  assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: 3 });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
     migrated: false,
-    fromVersion: 2,
-    schemaVersion: 2,
+    fromVersion: 3,
+    schemaVersion: 3,
   });
-  assert.equal(migrated.schemaMigrationHistory().length, 2, "repeated initialize must not duplicate migration rows");
+  assert.equal(migrated.schemaMigrationHistory().length, 3, "repeated initialize must not duplicate migration rows");
   migrated.close();
 });
 
@@ -105,9 +107,45 @@ test("failed schema migration rolls back metadata and ledger and can be retried"
   afterFailure.close();
 
   const retried = await V2SqliteStore.open(path);
-  assert.equal((await retried.migrateSchema("graph-a", join(root, "before-retry.db"))).schemaVersion, 2);
-  assert.equal(retried.schemaMigrationHistory().length, 2);
+  assert.equal((await retried.migrateSchema("graph-a", join(root, "before-retry.db"))).schemaVersion, 3);
+  assert.equal(retried.schemaMigrationHistory().length, 3);
   retried.close();
+});
+
+test("schema v2 explicitly migrates to the constrained SemanticCommit step ledger", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec("DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version = 3");
+  legacy.prepare("UPDATE schema_meta SET value = '2' WHERE key = 'schema_version'").run();
+  legacy.pragma("user_version = 2");
+  legacy.close();
+
+  const migrating = await V2SqliteStore.open(path);
+  assert.throws(() => migrating.initialize("graph-a"), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_REQUIRED");
+  const backupPath = join(root, "before-step-ledger.db");
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-20T10:00:00.000Z")), {
+    migrated: true,
+    fromVersion: 2,
+    schemaVersion: 3,
+    backupPath,
+  });
+  const preflight = new Database(backupPath, { readonly: true });
+  assert.equal(preflight.pragma("user_version", { simple: true }), 2);
+  preflight.close();
+  const internal = migrating as unknown as { database: Database.Database };
+  internal.database.prepare("INSERT INTO semantic_commits VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("commit-1", "proposal-1", "PENDING", "before", null, "2026-07-20T10:00:00.000Z", "2026-07-20T10:00:00.000Z", null);
+  internal.database.prepare("INSERT INTO semantic_commit_steps VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("commit-1", 0, "GRAPH_WRITE", "PREPARED", "operation-1", "before-hash", "after-hash", null, "2026-07-20T10:00:00.000Z");
+  assert.throws(
+    () => internal.database.prepare("INSERT INTO semantic_commit_steps VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run("commit-1", 1, "INVALID", "PREPARED", null, null, null, null, "2026-07-20T10:00:00.000Z"),
+    /CHECK constraint failed/,
+  );
+  migrating.close();
 });
 
 test("object writes require expected version and are idempotent", async (t) => {

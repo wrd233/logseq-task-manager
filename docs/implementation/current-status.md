@@ -33,16 +33,17 @@ V2_MIGRATION_DESIGN_READY
 - 建立可执行 `task-copilot-service` 与只读 `tc status/doctor/object`，完成独立进程冒烟。
 - SQLite 写锁冲突已收敛为结构化零写入失败；Backup 增加不覆盖、只读 schema/Graph/完整性/外键校验。
 - Local Service 开放受控 Backup Create/Restore Validate；只接受服务端 ID，拒绝客户端路径、遍历和超大请求，当前不执行 Restore 切换。
-- SQLite schema 升至 v2；`initialize` 不静默升级，v1→v2 需显式恢复点，在单一事务写 ledger/metadata/user_version，注入失败后零半写且可重试。
+- SQLite schema 升至 v3；`initialize` 不静默升级，v1/v2→v3 需显式恢复点，在单一事务写 DDL/ledger/metadata/user_version，注入失败后零半写且可重试。
 - Plugin 已接入版本化 Service Client：仅从设置读取非敏感 descriptor 绝对路径，通过 Electron bridge 校验非链接 0600 文件并执行 health probe；任何失败均进入脱敏 RESTRICTED 状态。
 - descriptor 未配置时，Plugin 在创建 Logseq Adapter/FileStorage 前停止，欢迎页只提供“开始使用 / 迁移现有内容 / 检查系统状态”；无扫描、迁移或模型调用的自动分支证据已建立。
 - SQLite 离线 Restore 原语已通过：候选 Backup 与当前库恢复点均先做只读校验，同目录原子激活后再 Doctor；注入失败会回滚原库并保留恢复点。该原语尚未开放 HTTP/CLI/Plugin 入口。
+- SQLite schema 升至 v3，建立受约束 `semantic_commits` / `semantic_commit_steps`；v1/v2 都必须经显式快照迁移至 v3，无静默升级。当前只是 Saga 持久化结构，不表示 Slice C Commit 编排已完成。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，128 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
-- Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v2 status、Backup create 201 / validate 200 / Doctor PASS、0700/0600 权限与退出清理均 PASS；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，129 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
+- Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create 201 / validate 200 / Doctor PASS、0700/0600 权限与退出清理均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
 - Pilot 后恢复包 SHA-256：`4e9dd666697b94ca0d6b81e7dc7bd0c12c82d0f432b2363eddfbc95a1a602612`；

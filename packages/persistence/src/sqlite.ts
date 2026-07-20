@@ -18,7 +18,7 @@ import type {
 import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 2;
+export const V2_DATABASE_SCHEMA_VERSION = 3;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -41,6 +41,7 @@ export interface SchemaMigrationRecord {
 const schemaMigrationNames = new Map<number, string>([
   [1, "initial_core_schema"],
   [2, "add_schema_migration_ledger"],
+  [3, "add_semantic_commit_step_ledger"],
 ]);
 
 export interface SqliteDoctorReport {
@@ -243,6 +244,28 @@ export class V2SqliteStore {
           after_version INTEGER NOT NULL,
           occurred_at TEXT NOT NULL
         ) STRICT;
+        CREATE TABLE semantic_commits (
+          semantic_commit_id TEXT PRIMARY KEY,
+          proposal_id TEXT,
+          status TEXT NOT NULL CHECK (status IN ('PENDING','COMPLETED','FAILED','RECOVERY_REQUIRED','UNDONE')),
+          before_state_checksum TEXT NOT NULL,
+          after_state_checksum TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          error_code TEXT
+        ) STRICT;
+        CREATE TABLE semantic_commit_steps (
+          semantic_commit_id TEXT NOT NULL REFERENCES semantic_commits(semantic_commit_id),
+          step_index INTEGER NOT NULL CHECK (step_index >= 0),
+          step_kind TEXT NOT NULL CHECK (step_kind IN ('GRAPH_WRITE','DOMAIN_WRITE','AUDIT_WRITE')),
+          status TEXT NOT NULL CHECK (status IN ('PREPARED','APPLIED','VERIFIED','COMPENSATED','RECOVERY_REQUIRED')),
+          operation_id TEXT,
+          before_hash TEXT,
+          after_hash TEXT,
+          error_code TEXT,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (semantic_commit_id, step_index)
+        ) STRICT;
         CREATE TABLE schema_migrations (
           version INTEGER PRIMARY KEY CHECK (version >= 1),
           name TEXT NOT NULL UNIQUE,
@@ -302,22 +325,55 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (fromVersion !== 1 || V2_DATABASE_SCHEMA_VERSION !== 2) {
+    if ((fromVersion !== 1 && fromVersion !== 2) || V2_DATABASE_SCHEMA_VERSION !== 3) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
     if (!createdAt) throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema metadata 缺少 created_at。");
     const migration = this.database.transaction(() => {
+      if (fromVersion === 1) {
+        this.database.exec(`
+          CREATE TABLE schema_migrations (
+            version INTEGER PRIMARY KEY CHECK (version >= 1),
+            name TEXT NOT NULL UNIQUE,
+            applied_at TEXT NOT NULL
+          ) STRICT;
+        `);
+        const insertLegacy = this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)");
+        insertLegacy.run(1, schemaMigrationNames.get(1), createdAt);
+        insertLegacy.run(2, schemaMigrationNames.get(2), at.toISOString());
+      } else {
+        const history = readMigrationHistory(this.database);
+        if (history.length !== 2 || history.some((record, index) => record.version !== index + 1 || record.name !== schemaMigrationNames.get(record.version))) {
+          throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema migration ledger 与 v2 不一致。");
+        }
+      }
       this.database.exec(`
-        CREATE TABLE schema_migrations (
-          version INTEGER PRIMARY KEY CHECK (version >= 1),
-          name TEXT NOT NULL UNIQUE,
-          applied_at TEXT NOT NULL
+        CREATE TABLE semantic_commits (
+          semantic_commit_id TEXT PRIMARY KEY,
+          proposal_id TEXT,
+          status TEXT NOT NULL CHECK (status IN ('PENDING','COMPLETED','FAILED','RECOVERY_REQUIRED','UNDONE')),
+          before_state_checksum TEXT NOT NULL,
+          after_state_checksum TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          error_code TEXT
+        ) STRICT;
+        CREATE TABLE semantic_commit_steps (
+          semantic_commit_id TEXT NOT NULL REFERENCES semantic_commits(semantic_commit_id),
+          step_index INTEGER NOT NULL CHECK (step_index >= 0),
+          step_kind TEXT NOT NULL CHECK (step_kind IN ('GRAPH_WRITE','DOMAIN_WRITE','AUDIT_WRITE')),
+          status TEXT NOT NULL CHECK (status IN ('PREPARED','APPLIED','VERIFIED','COMPENSATED','RECOVERY_REQUIRED')),
+          operation_id TEXT,
+          before_hash TEXT,
+          after_hash TEXT,
+          error_code TEXT,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (semantic_commit_id, step_index)
         ) STRICT;
       `);
-      const insert = this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)");
-      insert.run(1, schemaMigrationNames.get(1), createdAt);
-      insert.run(2, schemaMigrationNames.get(2), at.toISOString());
+      this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+        .run(3, schemaMigrationNames.get(3), at.toISOString());
       this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
     });
