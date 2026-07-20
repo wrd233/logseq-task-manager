@@ -25,7 +25,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 | B1 | Block event + 防抖 + 有限子树读取（事件主链完成） | Service 不可用、事件重复、事件乱序 | fake clock、会话恢复队列与事件注册已通过；有限子树 fixture 待补 | Desktop 编辑/快速重复编辑 |
 | B2 | materialize / update Application Command（后端完成） | 重复创建、旧版本、类型变化 | Object+Anchor+Audit+Receipt 单事务、同类型同步、Service 路由与类型迁移拒绝已通过 | 创建、改标题、reload 待 Desktop |
 | B3 | Marker 同步 | DONE/CANCELED 不静默改错对象；Condition 独立 | Marker matrix | Logseq Marker 实际形态 |
-| B4 | move / copy / delete / consistency（已知 Anchor 恢复与状态持久化完成） | UUID 复制不继承 ID；删除保留对象 | READY 恢复及 5 分钟低频有界 UUID 检查、`missing/conflict/active` 原子观察与失败重试已通过；copy/move/rebind 待补 | 跨页移动、复制、删除 |
+| B4 | move / copy / delete / consistency（已知 Anchor 恢复、状态持久化与 move/copy 自动合同完成） | UUID 复制不继承 ID；删除保留对象 | READY 恢复及 5 分钟低频有界 UUID 检查、`missing/conflict/active` 原子观察、失败重试、同 UUID 保持 ID/Ownership 与新 UUID 新 ID已通过；Plugin 事件夹具覆盖同批移动/复制与重复事件收敛；rebind 待补 | 跨页移动、复制、删除 |
 | B5 | Project 页面原子创建 | 页面成功而 Store 失败及反向失败 | fault injection + compensation | 新 Project 页面/reload |
 
 ## B0 已建立的契约
@@ -59,4 +59,5 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - V2 descriptor 启用时旧 V1 FileStorage/Application 写路径不初始化，Plugin UI 写命令保持受限；不存在为了接入事件同步而激活的 V1/V2 双写；
 - Service 分页列出当前 Graph 未被替换的 Primary Anchor；Plugin 恢复 READY 时及其后每 5 分钟最多逐 UUID 检查 256 项，以游标逐轮收敛，hash 变化走统一同步，缺失/Marker 移除/形态冲突通过 Application Command 原子持久化为 `missing/conflict`，Object 始终保留；同 UUID 恢复合法语法可回到 `active`，`replaced` 不会被复活；
 - Anchor 观察由 Service 注入 Graph、actor、expected version 和幂等边界，Object version、Anchor、Audit、Receipt 同事务写入；重复同状态无写入，失败显式报告并下轮重试；
-- 尚未完成有限子树、Marker、move/copy/rebind，以及退出期间全新未绑定标识的受控候选发现；因此完整 B1/B2/B4 Gate 与 E2E Desktop 仍未完成。
+- 同 UUID 同步保持 object_id/anchor_id 且不改 Primary Ownership；相同文本的新 UUID 经 Service 物化为新 object_id/anchor_id，不从原 Block 继承身份；
+- 尚未完成有限子树、Marker、rebind，以及退出期间全新未绑定标识的受控候选发现；move/copy 仍需真实 Desktop 证据，因此完整 B1/B2/B4 Gate 与 E2E Desktop 仍未完成。

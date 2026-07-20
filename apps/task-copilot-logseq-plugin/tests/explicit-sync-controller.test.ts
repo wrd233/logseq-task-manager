@@ -179,6 +179,42 @@ test("Logseq DB event registration forwards only transaction Blocks and unregist
   assert.equal(unregistered, 1);
 });
 
+test("move and copy DB events keep the stable UUID and deliver each copied UUID once at its latest version", async () => {
+  let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
+  const requests: Array<[string, string]> = [];
+  const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-copy-move" });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push([input.externalId, input.inputVersion]);
+      return success(input.externalId, input.externalId === "uuid-copy" ? 2 : 3);
+    },
+  });
+  const unregister = registerExplicitSyncEvents({
+    DB: {
+      onChanged(callback) {
+        listener = callback;
+        return () => undefined;
+      },
+    },
+  }, controller);
+
+  listener?.({ blocks: [{ uuid: "uuid-original", content: "[任务] 验证外部推送", "updated-at": 2001, page: { id: 1 } }] });
+  await controller.flush();
+  listener?.({ blocks: [
+    { uuid: "uuid-copy", content: "[任务] 验证外部推送", "updated-at": 2002, page: { id: 2 } },
+    { uuid: "uuid-original", content: "[任务] 验证外部推送", "updated-at": 2002, page: { id: 2 } },
+    { uuid: "uuid-copy", content: "[任务] 验证外部推送", "updated-at": 2003, page: { id: 2 } },
+  ] });
+  await controller.flush();
+
+  assert.deepEqual(requests, [
+    ["uuid-original", "2001"],
+    ["uuid-copy", "2003"],
+    ["uuid-original", "2002"],
+  ]);
+  unregister();
+});
+
 test("service recovery reconciles only known Anchors and reports missing or removed markers", async () => {
   const issues: string[] = [];
   const synchronized: string[] = [];

@@ -35,8 +35,8 @@
 | E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | Parser、防抖、Plugin `DB.onChanged`、会话断线重试、原子首次物化、同类型更新、幂等统一 Service route 与类型迁移拒绝已通过；reload 一致性、Now 与 Desktop 未完成 |
 | E2E-02 | V2 §68 | `[任务] 标题` 无 Marker | Marker 不决定身份 | materialize | parser | unit + Desktop | B | REUSE_EVIDENCE | 有/无 Marker Parser、Plugin 事件交付与无 Marker 首次物化路径已自动证明；Desktop 未完成 |
 | E2E-03 | V2 §68 | Task 下裸 TODO 保持内部步骤 | 内部 TODO 无 object_id | synchronize block | subtree parser | fixture | B | REUSE_EVIDENCE | B0 已证明裸 TODO 返回非对象；有限子树同步 fixture 与 Desktop 未完成 |
-| E2E-04 | V2 §68 | 跨页移动 | ID/Ownership 不变，Anchor 更新 | observe/sync | UUID event | integration + Desktop | B | REUSE_EVIDENCE | V1 UUID 定位；真实 move 未验证 |
-| E2E-05 | V2 §68 | 复制正式 Block | 新 UUID 不继承 ID | detect copy/candidate | Graph adapter | fixture + Desktop | B | NOT_STARTED | 缺 copy flow |
+| E2E-04 | V2 §68 | 跨页移动 | ID/Ownership 不变，Anchor 更新 | observe/sync | UUID event | integration + Desktop | B | REUSE_EVIDENCE | 同 UUID 经统一 Service 同步保持 object_id/anchor_id，Application fixture 证明 Primary Ownership 不变；Plugin `DB.onChanged` fixture 已覆盖同事务内原 UUID 移动；真实跨页 move/Desktop 待验证 |
+| E2E-05 | V2 §68 | 复制正式 Block | 新 UUID 不继承 ID | detect copy/candidate | Graph adapter | fixture + Desktop | B | REUSE_EVIDENCE | Service integration fixture 证明同文本新 UUID 走首次物化，获得不同 object_id/anchor_id；Plugin fixture 已覆盖移动与复制同批到达及重复复制事件只交付最新版本；真实 Logseq copy/Desktop 待验证 |
 | E2E-06 | V2 §68 | 删除 Primary Anchor | 对象保留、Anchor Conflict | consistency check | Graph adapter/review | fake + Desktop | B,E | REUSE_EVIDENCE | V2 READY/低频恢复检查对已知 UUID 将缺失持久化为 `missing`、Marker/形态异常持久化为 `conflict`；Object 保留，Object+Anchor+Audit+Receipt 单事务，同 UUID 可恢复 active，重复/失败路径已测。rebind 与 Desktop 仍待完成 |
 | E2E-07 | V2 §68 | 分析普通 Block | 模型只建议 | analyze block | LLM/Review | mock + live + Desktop | D | RUNTIME_BLOCKED_BY_CONFIG | 无真实 LLM |
 | E2E-08 | V2 §68 | 接受表达、拒绝升级 | group dependency 合法 | review/commit/revalidate | Review Center | property + Desktop | C | REUSE_EVIDENCE | V1 128 组合已过；V2 groups/schema 缺失 |

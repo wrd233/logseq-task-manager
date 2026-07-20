@@ -49,12 +49,13 @@ V2_MIGRATION_DESIGN_READY
 - 配置 V2 descriptor 后，Plugin 进入 V2 sync-only 运行路径：不初始化 V1 `VersionedStateRepository`，旧 Capture/Proposal/Commit 写命令保持关闭；V1 实现代码仅作为迁移与历史兼容资产保留，避免 V1 FileStorage 与 V2 SQLite 双写或双语义运行。
 - Service 已开放当前 Graph 未被替换的 Primary Anchor 分页；Plugin 在每次恢复 READY 及其后每 5 分钟最多读取一页 256 个已知 Anchor 的对应 UUID，以不透明游标逐轮收敛且不扫描全 Graph。正文 hash 变化会走同一同步命令，并发检查会合并为同一轮，单个 Graph 读取失败不会断开健康 Service，dispose 后不会继续迟到工作。
 - Slice B4 Anchor 观察持久化已贯通：Block 缺失记为 `missing`，Marker 移除/形态异常记为 `conflict`，Object 不删除；同 UUID 合法正文可恢复 `active`，`replaced` 不可复活。观察经 Local Service/Application，由 Service 注入 Graph/actor/version/幂等边界，Object version + Anchor + Audit + Receipt 单事务；重复同状态零写入，失败显式报告并可下轮重试。
+- Slice B4 move/copy 自动合同已补：同 UUID 修改/移动经同步保持 object_id、anchor_id 和 Primary Ownership；相同正文的新 UUID 经 Service 首次物化为独立 object_id/anchor_id；Plugin `DB.onChanged` 夹具覆盖原 UUID 移动与新 UUID 复制同批到达，并把重复复制事件收敛为最新版本。真实 Logseq 跨页移动/复制仍待 Desktop 验收。
 - 该恢复检查覆盖已知 Anchor，但不能发现 Plugin 退出期间全新创建、尚未物化的显式 Block；受控的新显式标识候选发现仍待 B4 后续。因此当前不能把自动证据冒充 E2E-01/E2E-15 Desktop 完成。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，163 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，166 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
@@ -69,7 +70,7 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. 继续 Slice B4：补 move/copy/rebind 自动 fixture 与受控的新显式标识候选发现；不做频繁全 Graph 扫描；
+1. 继续 Slice B4：实现显式 rebind 安全闭环与受控的新显式标识候选发现；不做频繁全 Graph 扫描；
 2. 将 Backup/Restore/Service restart/Doctor 纳入 Desktop 集中验收；
 3. 按 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 集中验收 Plugin Electron bridge、Service READY/RESTRICTED、首次启用、reload 和原生正文编辑；
 4. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；

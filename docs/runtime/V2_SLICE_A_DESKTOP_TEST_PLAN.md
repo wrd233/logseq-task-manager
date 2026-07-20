@@ -39,8 +39,10 @@
 8. 删除一个已绑定 Block 后 reload，确认 Diagnostics 标记 `EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING`；通过只读查询确认 Object 仍存在、Anchor 为 `missing`、Object version 前进一次且有 `observe_primary_anchor` Audit/Receipt；
 9. 将另一已绑定 Block 移除显式标识或改成冲突形态，确认 Object 保留、Anchor 为 `conflict`，没有静默类型迁移；
 10. 在同一 UUID 恢复原显式语法，确认 Anchor 回到 `active`、object_id 不变；再等待一轮低频检查，确认相同状态不再增加 Object version 或 Audit；
-11. 保持 Plugin 运行，修改另一个已绑定 Block，等待一轮 5 分钟低频检查，确认自动收敛且没有全 Graph 扫描；
-12. 在 Plugin 退出期间新建一个从未物化的显式 Block，确认当前版本不会虚报已发现；将其作为“受控新标识候选发现”后续缺口记录。
+11. 将一个已绑定 Block 移动到另一个测试页，确认 UUID、object_id、anchor_id 和 Primary Ownership 都不变；
+12. 复制该 Block，确认 Logseq 给出新 UUID，Service 为副本建立不同 object_id/anchor_id，原对象不被覆盖；
+13. 保持 Plugin 运行，修改另一个已绑定 Block，等待一轮 5 分钟低频检查，确认自动收敛且没有全 Graph 扫描；
+14. 在 Plugin 退出期间新建一个从未物化的显式 Block，确认当前版本不会虚报已发现；将其作为“受控新标识候选发现”后续缺口记录。
 
 ## 通过标准
 

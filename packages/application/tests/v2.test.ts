@@ -296,6 +296,34 @@ test("bound explicit Block synchronization updates same-type evidence and reject
   assert.equal(repository.audit.length, 2);
 });
 
+test("same-UUID synchronization preserves identity and Primary Ownership", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  await application.createObject({ objectId: "project-move", objectType: "PROJECT", text: "告警治理" }, {
+    actor: "user", expectedVersion: 0, idempotencyKey: "create-project-move", traceId: "trace-project-move",
+  });
+  const task = await application.materializeExplicitObject({
+    objectId: "task-move",
+    objectType: "TASK",
+    text: "验证外部推送",
+    anchor: { graphId: "graph-1", externalId: "stable-block-uuid", contentHash: "11111111" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-move", traceId: "trace-materialize-move" });
+  const owned = await application.assignPrimaryOwner(task.object.objectId, "project-move", {
+    actor: "user", expectedVersion: task.object.version, idempotencyKey: "own-move", traceId: "trace-own-move",
+  });
+  const moved = await application.synchronizeExplicitObject({
+    objectType: "TASK",
+    text: "验证外部推送",
+    graphId: "graph-1",
+    externalId: "stable-block-uuid",
+    contentHash: "11111111",
+  }, { actor: "logseq-plugin", expectedVersion: owned.object.version, idempotencyKey: "sync-after-move", traceId: "trace-after-move" });
+  assert.equal(moved.object.objectId, "task-move");
+  assert.equal(moved.anchor.externalId, "stable-block-uuid");
+  assert.equal(repository.ownerships.get("task-move")?.ownerObjectId, "project-move");
+  assert.equal(repository.ownerships.size, 1);
+});
+
 test("Anchor observations are versioned, idempotent, and never delete the object", async () => {
   const repository = new MemoryV2Repository();
   const application = new V2Application(repository);

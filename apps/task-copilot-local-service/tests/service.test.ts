@@ -185,6 +185,54 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   assert.equal((await missingObservation.json() as { error: { code: string } }).error.code, "V2_PRIMARY_ANCHOR_NOT_FOUND");
 });
 
+test("same UUID move keeps identity while a copied UUID materializes a distinct object", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-copy-move-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-copy-move",
+    token: "copy-move-service-token-24-characters",
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const client = clientFor(service);
+  const base = {
+    objectType: "TASK" as const,
+    text: "验证外部推送",
+    contentHash: checksum("[任务] 验证外部推送"),
+    idempotencyKey: "transport-only",
+  };
+  const original = await client.synchronizeExplicitObject({
+    ...base,
+    externalId: "uuid-original",
+    inputVersion: "2001",
+    traceId: "trace-original",
+  });
+  assert.equal(original.operation, "MATERIALIZED");
+
+  const moved = await client.synchronizeExplicitObject({
+    ...base,
+    externalId: "uuid-original",
+    inputVersion: "2002",
+    traceId: "trace-moved",
+  });
+  assert.equal(moved.operation, "SYNCHRONIZED");
+  assert.equal(moved.object.objectId, original.object.objectId);
+  assert.equal(moved.anchor.anchorId, original.anchor.anchorId);
+
+  const copied = await client.synchronizeExplicitObject({
+    ...base,
+    externalId: "uuid-copy",
+    inputVersion: "2003",
+    traceId: "trace-copy",
+  });
+  assert.equal(copied.operation, "MATERIALIZED");
+  assert.notEqual(copied.object.objectId, original.object.objectId);
+  assert.notEqual(copied.anchor.anchorId, original.anchor.anchorId);
+  assert.deepEqual((await client.listPrimaryAnchors()).anchors.map((anchor) => anchor.externalId), ["uuid-copy", "uuid-original"]);
+});
+
 test("Backup API creates a private server-named snapshot and validates it read-only", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-backup-"));
   const backupRoot = join(root, ".task-copilot", "backups");
