@@ -2,54 +2,52 @@
 
 ## 当前 Slice
 
-Pre-Slice / Repository Assessment and Overall Plan Confirmation
+V1 frozen / Slice A0 migration contract complete / Slice A1-A3 pending
+
+## 当前阶段结论
+
+```text
+V1_RUNTIME_KERNEL_PASS
+V1_MVP_PILOT_PARTIAL
+V1_FROZEN_FOR_MIGRATION
+V2_MIGRATION_DESIGN_READY
+```
+
+`V1_MVP_PILOT_SUCCESS` 未达到：Capture 与 Task 通过；MiniProject/Project 的主归属、推进、聚合以及 Decision/Output/Closure 没有形成低摩擦闭环。V1 不再扩建长期能力，这些差距转入 V2。
 
 ## 本轮完成
 
-- 完整读取四份新规范材料并建立版本、指纹和权威索引；
-- 视觉 PDF 108 页全部巡检，关键架构/UI 页高分辨率复核；
-- 扫描 Git、源码、包、入口、适配器、持久化、测试和旧 MVP 证据；
-- 运行当前根级完整基线；
-- 建立 V2 仓库评估、初版追踪、开放决定、Slice A 计划和 DeepSeek v4 在线测试计划。
-- 将候选 V2 入口同步到现行 `docs/goal/MVP_STATUS.md`，避免下一轮启动遗漏新基线。
-- 在 Logseq Desktop 0.10.15 完成 V1 `RT-MVP-001B`：来源解析、Inbox 六动作、真实 reload、只读 Probe 与 Diagnostics JSONL 全部 PASS。
-- 合并完成 V1 `RT-MVP-002..004`：Proposal 部分接受、Commit/Undo、Project/Area 归属、三轴状态、Now Work、Re-entry、Anchor 冲突/缺失/rebind、FileStorage 备份恢复和 No-Agent reload 全部形成 Desktop 证据。
-- 现场发现并修复逆向 Commit 中 `undefined` 不可稳定序列化的持久化缺陷；A/B 前一 slot 恢复路径本身完成实机验证。
-- 移除正式插件剩余 `window.prompt` / `window.confirm` 依赖，改为插件内可审查表单与两步确认。
+- 复核分支、remote、恢复包、Agent、FileStorage、测试 Graph 和 root checks；
+- 正式接受 OD-001..003，并冻结三份 ADR；
+- 在 Logseq Desktop 0.10.15 使用专用 copied-data 页面完成 Capture、Task、MiniProject、Project Pilot；
+- 建立 Pilot 前后 0600 恢复包，回放 differences 为 `[]`，Pending/Recovery Required Commit 均为 0；
+- 明确 V1 可复用内核、冻结边界和淘汰语义；
+- 完成 FileStorage → SQLite 主权交接设计及 Legacy 状态映射；
+- 完成 DeepSeek 安全配置探测；因缺少 Provider/Base URL/Model/secret reference 的完整配置，未发起真实调用。
 
-## 证据
+## 当前证据
 
-- 文件：`docs/implementation/specification-index.md`、`repository-assessment.md`、`v2-traceability-matrix.md`、`open-decisions.md`、`slices/slice-A-plan.md`；
-- 测试：91 tests PASS，0 skipped；
-- 命令：`./scripts/check.sh` PASS；恢复演练 differences 为空；
-- PDF：108/108 页总览；第 3、9、24、28、31、35、44 页高分辨率复核无排版缺陷；
-- Git：V1 合并 Desktop checkpoint 已保存为本地 commit `366da6b`；未 push、未修改 remote；inner Graph dirty 仅作信息。
+- Git：`feature/task-copilot-mvp`，checkpoint 时 HEAD 与 upstream 相同；本轮改动尚未提交；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，91 tests、145 rules、0 skipped；
+- Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
+- Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
+- Pilot 后恢复包 SHA-256：`4e9dd666697b94ca0d6b81e7dc7bd0c12c82d0f432b2363eddfbc95a1a602612`；
+- DeepSeek：`docs/testing/deepseek-v4-live-test-report.md`，状态 `NOT_RUN_CONFIG_INCOMPLETE`。
 
-## 尚未完成
+## 冻结与复用
 
-- 用户确认总体 V2 实施计划和三项迁移合同；
-- Slice A-F 代码与 Gate；
-- E2E-01..24；
-- V2 Desktop 验收、DeepSeek 真实在线验收、迁移与 Backup/Restore 实机演练；
-- V1 四项 copied-data Pilot、Pilot 反馈修复与 `MVP_SUCCESS` root clean gate。
-
-## 阻塞与风险
-
-- 当前不是技术 BLOCKED；结构性修改按 Goal §30 等待总体实施方案确认；
-- V1 Phase/Signal 与 V2 Lifecycle/Focus 冲突，禁止静默迁移；
-- V1 FileStorage 与 V2 SQLite 冲突，禁止双写；
-- 实际 remote 与旧文档不一致；no-push 约束仍有效；
-- `@logseq/libs@0.0.17` 依赖链有 2 high + 1 critical audit findings；major 升级需兼容证明。
-
-## 与设计偏差
-
-- 新规范源文件仍位于 Downloads/attachment；本轮通过绝对路径和 SHA-256 建立索引，未复制或改写用户原件；
-- V1 `RT-MVP-001B..004` 已完成，仅作历史 MVP 基线，不冒充 V2 runtime evidence。RT-MVP-003 保留已观测限制：Logseq 0.10.15 删除后 Undo 恢复正文，但需显式 rebind 恢复可解析 Anchor。
+- 复用：Domain/Application 分层、object_id、Anchor observation/rebind、Proposal DAG、SemanticCommit/inverse Commit、Pending/Recovery、A/B 恢复、Diagnostics、Logseq Adapter 和 runtime 测试纪律。
+- 冻结只读：V1 FileStorage、恢复包、旧 Phase/Signal、Proposal/Commit/Event 历史。
+- 淘汰：V1 长期写入模型、Phase/Signal 当前轴、Plugin 直写 Store、长期 V1/V2 双模式和双写。
 
 ## 下一步
 
-1. 用户确认 OD-001..003 的总体方案；
-2. 冻结 V2 工作约定与迁移 ADR；
-3. 以测试优先方式进入 Slice A0/A1；
-4. 在用户选定四项代表性事项后执行 V1 copied-data Pilot；
-5. 每个可解释闭环运行 `./scripts/check.sh` 并做本地 commit，不 push。
+1. Slice A1：增加 V2 Lifecycle/Condition/Focus 与六类对象契约，隔离 V1 read model；
+2. Slice A2：SQLite driver spike、schema、事务、幂等、损坏/锁/backup/restore；
+3. Slice A3：一个 loopback Local Service 和只经 Service 的 client；
+4. 在 Slice A-C 闭环后接入 Provider abstraction，再运行 bounded DeepSeek live gate；
+5. Desktop Gate 仍需集中验证首次启用、受限模式、迁移 Preview/Undo 和 SQLite 恢复。
+
+## 仍需用户决定
+
+当前没有新的产品语义决定。真实 DeepSeek Gate 需要用户以环境变量或 Keychain reference 提供完整 Provider、Base URL、Model ID 与 Key 引用；这不阻塞 Slice A-C 自动化工作。

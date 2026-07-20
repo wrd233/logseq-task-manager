@@ -1,17 +1,19 @@
-# Task Copilot MVP — Codex Working Agreement
+# Task Copilot V2 — Codex Working Agreement
 
 ## Persistent Goal
 
-持续开发 Task Copilot Logseq Plugin，直到 `docs/goal/MVP_GOAL.md` 中的个人可用 MVP 验收门槛全部满足。
+持续开发个人事务运行系统 V2，直到 V2 v1.1 的 Slice A～F、E2E-01～24、Desktop、迁移、恢复和真实 DeepSeek Gate 全部满足。
+
+V1 已进入受控交接期：它只作为 Pilot 对象、只读迁移来源、恢复证据和历史兼容入口保留。禁止为 V1 增加长期产品能力，禁止维护 V1/V2 双写或双语义运行模式。
 
 每次运行开始时，依次阅读：
 
-1. `docs/goal/MVP_GOAL.md`
-2. `docs/goal/MVP_STATUS.md`
-3. `docs/goal/MVP_CHECKPOINTS.md`
-4. `docs/goal/PENDING_RUNTIME_TESTS.md`
-5. `docs/mvp/REQUIREMENTS_TRACEABILITY.md`
-6. 当前 Slice 相关 ADR
+1. `docs/implementation/current-status.md`
+2. `docs/implementation/v2-traceability-matrix.md`
+3. `docs/implementation/open-decisions.md`
+4. `docs/runtime/V1_MVP_PILOT_REPORT.md`（若已存在）
+5. `docs/goal/MVP_STATUS.md`
+6. 当前 Slice、迁移和 Provider 相关 ADR
 7. 相关目录中的局部 `AGENTS.md`
 
 ## Deep Run Rule
@@ -29,7 +31,7 @@
 
 - `AUTOMATION_COMPLETE`：所有可自动完成的实质工作已经穷尽；
 - `CONSOLIDATED_RUNTIME_CHECKPOINT`：所有剩余实质工作都依赖一次集中的用户运行时操作；
-- `MVP_SUCCESS`；
+- `V2_IMPLEMENTATION_COMPLETE`；
 - 符合 Goal 严格定义的真实 `BLOCKED`。
 
 测试 Graph dirty 永远不是阻塞。
@@ -55,7 +57,9 @@ Logseq Desktop 行为尚未验证时：
 - 高影响操作必须显式确认；
 - 正文、Domain State、Audit、View 各有单一权威；
 - 位置不等于归属；
-- Phase、Condition、Signal 分离；
+- Lifecycle、Condition、Focus 分离并封顶；
+- FileStorage 只读，SQLite 是迁移切换后的唯一领域状态源；
+- Plugin、CLI、LLM 和迁移的正式写入统一经过 Local Service；
 - 插件关闭后正文仍可读。
 
 ## Git and Safety

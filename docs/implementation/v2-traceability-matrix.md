@@ -13,9 +13,9 @@
 
 | requirement_id | 文档章节 / 决定 | 用户场景 | Domain 规则 / 不变量 | Application 用例 | Adapter / UI | 测试 | Slice | 状态 | 当前证据 / 缺口 |
 |---|---|---|---|---|---|---|---|---|---|
-| V2-ARCH-001 | D-180..191；V2 §5.4-5.5 | Plugin、CLI、Agent 看到同一事实 | 正文/状态/历史/投影单一权威 | 所有 command/query 共享一层 | Service client；SQLite adapter | boundary + integration | A | NOT_STARTED | V1 分层可复用；当前 Plugin 仍直连 Store |
+| V2-ARCH-001 | D-180..191；V2 §5.4-5.5 | Plugin、CLI、Agent 看到同一事实 | 正文/状态/历史/投影单一权威 | 所有 command/query 共享一层 | Service client；SQLite adapter | boundary + integration | A | REUSE_EVIDENCE | ADR 已冻结；V1 分层可复用；当前 Plugin 仍直连 Store |
 | V2-ARCH-002 | D-216；V2 §30-32 | Service 不可用仍可写正文 | Domain 无 transport 语义 | health/status/restricted | 单个 loopback Service | unavailable/protocol | A | NOT_STARTED | 无 Service |
-| V2-DATA-001 | D-190..192；V2 §33-34 | 每 Graph 独立运行和恢复 | SQLite 唯一当前状态；schema 独立版本 | initialize/migrate/backup | SQLite + `.task-copilot/` | idempotency/locked/corrupt | A | NOT_STARTED | V1 JSON 仅迁移输入 |
+| V2-DATA-001 | D-190..192；V2 §33-34 | 每 Graph 独立运行和恢复 | SQLite 唯一当前状态；schema 独立版本 | initialize/migrate/backup | SQLite + `.task-copilot/` | idempotency/locked/corrupt | A | REUSE_EVIDENCE | 主权交接/回滚设计 READY；SQLite 实现未开始 |
 | V2-DOM-001 | D-214、D-220；V2 §13-22 | 六类对象、三层状态可理解 | 六类封顶；Lifecycle/Condition/Focus 封顶 | create/change/focus | UI 弱提示 | domain matrix | A | REUSE_EVIDENCE | V1 有对象/Condition；Phase/Signal 冲突 |
 | V2-ID-001 | D-030..041；V2 §21 | 移动/改名不丢身份 | object_id 独立；最多一 Primary Anchor | bind/observe/rebind | Graph UUID adapter | uniqueness/move/delete | A-B | REUSE_EVIDENCE | V1 ID/Anchor/hash 可复用；DB constraint 缺失 |
 | V2-OWN-001 | D-035..047；V2 §21 | 位置变化不改归属 | 最多一个 Primary Owner；Association 不冒充归属 | change ownership/add association | 语义 Diff 独立控制 | matrix/cycle/scope | A-C | REUSE_EVIDENCE | V1 有唯一性和依赖校验 |
@@ -24,7 +24,7 @@
 | V2-LLM-001 | D-125..144；V2 §40-46 | 局部语义产生 Proposal | Provider/Model 不进 Domain；非法输出零写入 | analyze/scan/revise | Provider/Prompt/Profile runtime | mock/live/golden/security | D | RUNTIME_BLOCKED_BY_CONFIG | 无真实 Provider；测试计划已建立 |
 | V2-VIEW-001 | D-145..171；V2 §9-10、§57-59 | Now Work 与审阅中心低噪可扫读 | Projection 可重建；无 AI 分数 | query now/review | 三区域；两视图；键盘/主题 | VM/UI/Desktop | E | REUSE_EVIDENCE | V1 renderer/Now Work 可复用；状态与布局需 V2 化 |
 | V2-CLI-001 | D-128..135；V2 §36-39 | Agent 确定性获取有限上下文 | CLI 无领域逻辑、无 force apply | object/graph/context/proposal/skill/doctor | Service API + CLI | help/json/exit/integration | A,F | NOT_STARTED | 无 CLI |
-| V2-MIG-001 | D-193..202；V2 §51 | 用户小批次迁移且可撤销 | 手动、幂等、部分采用合法 | scan/preview/commit/undo batch | Settings/CLI | interruption/repeat/rollback | F | NOT_STARTED | V1 recovery bundle 可作只读输入 |
+| V2-MIG-001 | D-193..202；V2 §51 | 用户小批次迁移且可撤销 | 手动、幂等、部分采用合法 | scan/preview/commit/undo batch | Settings/CLI | interruption/repeat/rollback | F | REUSE_EVIDENCE | 迁移/Legacy mapping 设计 READY；Pilot 前后 bundle 已校验；实现未开始 |
 | V2-OPS-001 | D-192、D-203..204；V2 §53-56 | 故障可诊断、备份可恢复、Key 安全 | 高影响修复走 Proposal；secret 永不记录 | backup/restore/doctor/diagnostics | Settings/CLI | restore/redaction | A,F | REUSE_EVIDENCE | V1 logger/recovery 可复用；DB/Provider 检查缺失 |
 | V2-FIRST-001 | D-197..198；V2 §32.1、§33 | 首次启用时空系统可理解、可选择下一步 | 首次启动不扫描、不迁移、不调用模型 | initialize/check graph/status | 非敏感配置模板；欢迎页仅含开始使用、迁移现有内容、检查系统状态；失败进入受限模式 | first-run/reload/Desktop | A | NOT_STARTED | 缺首次启用用例、欢迎页和三入口验收 |
 

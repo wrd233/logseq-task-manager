@@ -138,3 +138,18 @@ The result is a bounded PASS for the implemented identity/conflict/rebind contra
 | Test Graph cleanup | PASS: all uniquely labelled RT-MVP-002/003 Blocks and their temporary children were removed; original business Block plus two pre-existing blank Blocks were preserved |
 
 `RT-MVP-002`, `RT-MVP-003` and `RT-MVP-004` are therefore **PASS** for the V1/MVP consolidated Desktop contract. This is still not V2 evidence and not `MVP_SUCCESS`: the four-item copied-data Pilot, Pilot feedback fixes, and root clean success gate remain open; V2 structural work separately waits for OD-001..003 confirmation.
+
+## 2026-07-20 — Four-item copied-data Pilot
+
+Environment: Logseq Desktop 0.10.15, dedicated page `Task Copilot/Pilot/2026-07-20/告警外部推送治理`, Agent `none`. All items were sanitized copies of one representative alert-delivery work chain; production content was not modified.
+
+| Area | Result |
+|---|---|
+| Capture | PASS: source, duplicate suppression, manual formalization, defer, no-action, ordinary-content retention and reload |
+| Task | PASS WITH LIMITATION: object ID/Anchor/Marker, complete, inverse Commit, reload and explicit rebind; Logseq Marker edit split the Block and required reviewed rebind |
+| MiniProject | PARTIAL: boundary/fields and READY refusal correct; edit and ownership operations remained OPEN + ACCEPTED rather than committed |
+| Project | PARTIAL: page Anchor, re-entry and summary Commit passed; phase remained OPEN + ACCEPTED; no new aggregation, Decision/Output or Closure loop |
+| Recovery | PASS: pre/post 0600 bundles; post bundle 8 objects, 14 captures, 23 proposals, 20 commits, 1 relation, 66 events; differences `[]`; Pending/Recovery Required 0 |
+| Cleanup | PASS: page retained intentionally as ignored migration evidence; no temporary content entered Git; original formal content unchanged |
+
+The safe kernel behaved correctly, including refusal and non-authoritative Proposal states, but the full product Pilot did not pass. Final status is `V1_MVP_PILOT_PARTIAL`; `V1_MVP_PILOT_SUCCESS` and `MVP_SUCCESS` are not used. V1 is frozen for migration because the missing low-friction ownership, aggregation and Project semantic loops are V2 scope. Full steps, friction and evidence are in `docs/runtime/V1_MVP_PILOT_REPORT.md`.
