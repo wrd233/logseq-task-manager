@@ -44,7 +44,7 @@ test("client authenticates and rejects a runtime protocol mismatch", async (t) =
     response.end(JSON.stringify({
       status: "READY",
       protocolVersion: 2,
-      capabilities: { formalWrites: false, migration: false, provider: false },
+      capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
     }));
   });
   t.after(() => server.close());

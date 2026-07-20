@@ -1,4 +1,5 @@
-import { access, mkdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { access, chmod, link, mkdir, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import Database from "better-sqlite3";
@@ -411,12 +412,20 @@ export class V2SqliteStore {
       if (error instanceof StructuredError) throw error;
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
+    const temporary = `${absolute}.tmp-${process.pid}-${randomUUID()}`;
     try {
-      await this.database.backup(absolute);
+      await this.database.backup(temporary);
+      await chmod(temporary, 0o600);
+      await link(temporary, absolute);
     } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        throw persistenceError("V2_BACKUP_DESTINATION_EXISTS", "Backup 目标已存在，拒绝覆盖。", { destination: absolute });
+      }
       throw persistenceError("V2_BACKUP_FAILED", "SQLite Backup 创建失败。", {
         cause: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      await rm(temporary, { force: true });
     }
     return absolute;
   }

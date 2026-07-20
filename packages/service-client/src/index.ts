@@ -7,6 +7,7 @@ export interface ServiceCapabilities {
   formalWrites: boolean;
   migration: boolean;
   provider: boolean;
+  backup: boolean;
 }
 
 export interface ServiceDescriptor {
@@ -34,6 +35,17 @@ export interface ServiceDoctor {
   integrity: string;
   foreignKeyViolations: number;
   objectCount: number;
+}
+
+export interface ServiceBackupCreated {
+  backupId: string;
+  createdAt: string;
+  validation: ServiceDoctor;
+}
+
+export interface ServiceBackupValidation {
+  backupId: string;
+  validation: ServiceDoctor;
 }
 
 export type ServiceConnectionState =
@@ -143,6 +155,18 @@ export class LocalServiceClient {
 
   doctor(): Promise<ServiceDoctor> {
     return this.request<ServiceDoctor>("/doctor", { method: "POST" });
+  }
+
+  createBackup(): Promise<ServiceBackupCreated> {
+    return this.request<ServiceBackupCreated>("/backup/create", { method: "POST" });
+  }
+
+  validateBackup(backupId: string): Promise<ServiceBackupValidation> {
+    return this.request<ServiceBackupValidation>("/backup/restore/validate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ backupId }),
+    });
   }
 
   async listObjects(): Promise<V2ManagedObject[]> {

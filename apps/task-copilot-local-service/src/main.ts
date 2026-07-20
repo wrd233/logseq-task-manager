@@ -8,7 +8,7 @@ try {
     status: "READY",
     pid: process.pid,
     descriptorPath: options.descriptorPath,
-    capabilities: { formalWrites: false, migration: false, provider: false },
+    capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
   })}\n`);
   let closing = false;
   const close = async (): Promise<void> => {

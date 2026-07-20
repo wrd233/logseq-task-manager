@@ -12,7 +12,7 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
   const status: ServiceStatus = {
     status: "READY",
     protocolVersion: 1,
-    capabilities: { formalWrites: false, migration: false, provider: false },
+    capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
     databaseSchemaVersion: 1,
     objectCount: 0,
   };

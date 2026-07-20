@@ -25,7 +25,7 @@
 | V2-VIEW-001 | D-145..171；V2 §9-10、§57-59 | Now Work 与审阅中心低噪可扫读 | Projection 可重建；无 AI 分数 | query now/review | 三区域；两视图；键盘/主题 | VM/UI/Desktop | E | REUSE_EVIDENCE | V1 renderer/Now Work 可复用；状态与布局需 V2 化 |
 | V2-CLI-001 | D-128..135；V2 §36-39 | Agent 确定性获取有限上下文 | CLI 无领域逻辑、无 force apply | object/graph/context/proposal/skill/doctor | Service API + CLI | help/json/exit/integration | A,F | REUSE_EVIDENCE | 可执行 status/doctor/object、JSON schema、退出码和真实进程冒烟通过；graph/context/proposal/skill 属 Slice F |
 | V2-MIG-001 | D-193..202；V2 §51 | 用户小批次迁移且可撤销 | 手动、幂等、部分采用合法 | scan/preview/commit/undo batch | Settings/CLI | interruption/repeat/rollback | F | REUSE_EVIDENCE | 迁移/Legacy mapping 设计 READY；Pilot 前后 bundle 已校验；实现未开始 |
-| V2-OPS-001 | D-192、D-203..204；V2 §53-56 | 故障可诊断、备份可恢复、Key 安全 | 高影响修复走 Proposal；secret 永不记录 | backup/restore/doctor/diagnostics | Settings/CLI | restore/redaction | A,F | REUSE_EVIDENCE | V1 logger/recovery 可复用；DB/Provider 检查缺失 |
+| V2-OPS-001 | D-192、D-203..204；V2 §53-56 | 故障可诊断、备份可恢复、Key 安全 | 高影响修复走 Proposal；secret 永不记录 | backup/restore/doctor/diagnostics | Settings/CLI | restore/redaction | A,F | REUSE_EVIDENCE | 受控 Service Backup API、0700/0600、防覆盖、Graph/schema/integrity/foreign-key 只读校验、路径隔离和错误脱敏已自动证明；实际 Restore/CLI/Desktop 待完成 |
 | V2-FIRST-001 | D-197..198；V2 §32.1、§33 | 首次启用时空系统可理解、可选择下一步 | 首次启动不扫描、不迁移、不调用模型 | initialize/check graph/status | 非敏感配置模板；欢迎页仅含开始使用、迁移现有内容、检查系统状态；失败进入受限模式 | first-run/reload/Desktop | A | NOT_STARTED | 缺首次启用用例、欢迎页和三入口验收 |
 
 ## E2E-01..24
