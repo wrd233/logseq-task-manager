@@ -23,6 +23,9 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
       doctor: async () => doctor,
       listObjects: async () => [],
       getObject: async () => undefined,
+      createBackup: async () => ({ backupId: "backup_20260720130000000_00000000000000000000000000000000", createdAt: "2026-07-20T13:00:00.000Z", validation: doctor }),
+      validateBackup: async (backupId) => ({ backupId, validation: doctor }),
+      restoreBackup: async (backupId) => ({ status: "RESTORED_SERVICE_STOPPING", backupId, recoveryBackupId: "backup_20260720130100000_11111111111111111111111111111111", validation: doctor }),
       ...overrides,
     },
     io: { stdout: (value) => stdout.push(value), stderr: (value) => stderr.push(value) },
@@ -69,4 +72,24 @@ test("CLI requires an explicit descriptor and never receives a SQLite path", asy
   } }, value.io), 3);
   assert.equal(loadedPath, "");
   assert.match(value.stderr[0] ?? "", /descriptor/);
+});
+
+test("CLI backup restore requires the exact confirmation before dispatch and returns recovery evidence", async () => {
+  let restoreCalls = 0;
+  const value = fixture({
+    restoreBackup: async (backupId, confirmation) => {
+      restoreCalls += 1;
+      assert.equal(confirmation, "RESTORE_AND_STOP_SERVICE");
+      return { status: "RESTORED_SERVICE_STOPPING", backupId, recoveryBackupId: "backup_20260720130100000_11111111111111111111111111111111", validation: await value.service.doctor() };
+    },
+  });
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service };
+  const backupId = "backup_20260720130000000_00000000000000000000000000000000";
+  assert.equal(await runCli(["backup", "restore", backupId], dependencies, value.io), 2);
+  assert.equal(restoreCalls, 0);
+  assert.match(value.stderr.at(-1) ?? "", /No request was sent/);
+  assert.equal(await runCli(["--json", "backup", "restore", backupId, "--confirm", "RESTORE_AND_STOP_SERVICE"], dependencies, value.io), 0);
+  assert.equal(restoreCalls, 1);
+  const output = JSON.parse(value.stdout.at(-1) ?? "") as { data: { recoveryBackupId: string } };
+  assert.match(output.data.recoveryBackupId, /^backup_/);
 });

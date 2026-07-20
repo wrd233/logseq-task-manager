@@ -35,4 +35,4 @@
 4. 任一检查失败即回滚原库，且保留恢复前快照和诊断证据；
 5. 返回恢复前 Backup ID 和 Doctor，删除 descriptor 并停止 Service。
 
-CLI 显式命令、重启后二次 Doctor 与 Desktop 集中验收仍未完成，因此 E2E-17 仍不标记 DONE。
+CLI 显式命令与真实进程 create→restore→stop→restart→Doctor 冒烟已通过。Desktop 集中验收仍未完成，因此 E2E-17 仍不标记 DONE。

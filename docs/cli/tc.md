@@ -27,6 +27,9 @@ tc [--service-descriptor <path>] [--json] status
 tc [--service-descriptor <path>] [--json] doctor
 tc [--service-descriptor <path>] [--json] object list
 tc [--service-descriptor <path>] [--json] object show <object_id>
+tc [--service-descriptor <path>] [--json] backup create
+tc [--service-descriptor <path>] [--json] backup validate <backup_id>
+tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm RESTORE_AND_STOP_SERVICE
 ```
 
 也可用 `TASK_COPILOT_SERVICE_DESCRIPTOR` 指定 descriptor。`--json` 输出固定顶层：
@@ -49,3 +52,5 @@ tc [--service-descriptor <path>] [--json] object show <object_id>
 | 8 | 其他结构化失败 |
 
 CLI 不接受 SQLite path 作为查询参数，不 import persistence driver，不提供 `force` 或 apply。正式 Proposal submit 与写命令将在对应 Application / Commit Gate 完成后逐项开放。
+
+Backup 三个命令只接受服务端 ID，不接受文件路径。`backup restore` 是唯一已开放的高影响运维 apply；必须精确提供 `--confirm RESTORE_AND_STOP_SERVICE`，否则 CLI 在发请求前退出 2。成功后 Service 已停止，输出 recovery backup ID；需显式重启 Service 并再运行 `tc doctor`。它不是领域对象的 `force apply`。

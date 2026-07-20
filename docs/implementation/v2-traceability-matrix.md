@@ -48,7 +48,7 @@
 | E2E-14 | V2 §68 | 手动小范围迁移、预览、幂等、Undo | migration batch 可恢复 | scan/commit/undo | Settings/CLI | fixture + Desktop | F | NOT_STARTED | 无 migration |
 | E2E-15 | V2 §68 | Service 故障时正文可编辑 | 无 Service 不允许正式写入 | health/recover/check | Plugin restricted | process fault + Desktop | A | REUSE_EVIDENCE | Client 与 Plugin 诊断均自动证明 graphEditing=true/formalWrites=false，Plugin 受限态不初始化空 FileStorage；真实 Service stop/recover 与 Desktop 正文编辑待验证 |
 | E2E-16 | V2 §68 | Graph 成功、Store 失败 | 明确 Partial Failure | commit/recover | Graph + SQLite | injected failure | C | REUSE_EVIDENCE | V1 Domain save failure/compensation 已测 |
-| E2E-17 | V2 §68 | 恢复快照后 Doctor PASS | 恢复后必须一致性检查 | backup/restore/doctor | SQLite/CLI | temp restore + Desktop | A,F | REUSE_EVIDENCE | Backup 只读校验、离线 Restore 恢复点/原子激活/Doctor/失败回滚已通过；Service Apply 要求固定确认，关闭 live Store，恢复后删除 descriptor 并停服。CLI、重启二次 Doctor 与 Desktop 待完成 |
+| E2E-17 | V2 §68 | 恢复快照后 Doctor PASS | 恢复后必须一致性检查 | backup/restore/doctor | SQLite/CLI | temp restore + Desktop | A,F | REUSE_EVIDENCE | Backup 校验、离线 Restore 恢复点/原子激活/Doctor/失败回滚已通过；Service Apply 固定确认、关闭 live Store、descriptor 删除已通过。真实 CLI create→restore→stop→restart→Doctor 进程冒烟 PASS；Desktop 待完成 |
 | E2E-18 | V2 §68 | Key 不出现在任何默认资产 | secret 非领域数据、永不记录 | config/log/export | Provider/diagnostics | secret canary scan | D,F | NOT_STARTED | V1 正文日志脱敏可复用 |
 | E2E-19 | V2 §68 | Project 对象和页面原子创建 | Project 必须页面；不半成功 | create project | Graph + SQLite | fault injection + Desktop | B | NOT_STARTED | 无 Project page adapter |
 | E2E-20 | V2 §68 | Closure 可说明未完成目标 | Completion 不要求全部 Objective | close project Proposal | Agent/Review | fixture + Desktop | F | NOT_STARTED | V1 Project phase 不符合 V2 |
