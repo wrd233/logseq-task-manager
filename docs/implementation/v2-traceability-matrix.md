@@ -13,7 +13,7 @@
 
 | requirement_id | 文档章节 / 决定 | 用户场景 | Domain 规则 / 不变量 | Application 用例 | Adapter / UI | 测试 | Slice | 状态 | 当前证据 / 缺口 |
 |---|---|---|---|---|---|---|---|---|---|
-| V2-ARCH-001 | D-180..191；V2 §5.4-5.5 | Plugin、CLI、Agent 看到同一事实 | 正文/状态/历史/投影单一权威 | 所有 command/query 共享一层 | Service client；SQLite adapter | boundary + integration | A | REUSE_EVIDENCE | V2 Application/Repository 原子 command seam 与只读 CLI 已通过；Plugin 尚未切换，HTTP write route 未开放 |
+| V2-ARCH-001 | D-180..191；V2 §5.4-5.5 | Plugin、CLI、Agent 看到同一事实 | 正文/状态/历史/投影单一权威 | 所有 command/query 共享一层 | Service client；SQLite adapter | boundary + integration | A | REUSE_EVIDENCE | V2 Application/Repository 原子 command seam 与 CLI 已通过；唯一显式 Block 物化 HTTP route 已开放，Plugin 事件尚未接入，其他 write routes 仍关闭 |
 | V2-ARCH-002 | D-216；V2 §30-32 | Service 不可用仍可写正文 | Domain 无 transport 语义 | health/status/restricted | 单个 loopback Service | unavailable/protocol | A | REUSE_EVIDENCE | descriptor 0600、auth、timeout/unavailable/protocol restricted 自动测试通过；Plugin 已实现 Electron 安全读取、probe、脱敏受限态与无 Store 首次启用分支，待 Desktop 验收 |
 | V2-DATA-001 | D-190..192；V2 §33-34 | 每 Graph 独立运行和恢复 | SQLite 唯一当前状态；schema 独立版本 | initialize/migrate/backup | SQLite + `.task-copilot/` | idempotency/locked/corrupt | A | REUSE_EVIDENCE | Graph-bound schema v3、显式快照后 v1/v2→v3 ledger 升级、受约束 SemanticCommit step 表、失败全量回滚/重试、事务幂等、corrupt/unknown、写锁零写入、Doctor、Backup 和离线 Restore 原语已自动测试；完整业务表/Service 切换待完成 |
 | V2-DOM-001 | D-214、D-220；V2 §13-22 | 六类对象、三层状态可理解 | 六类封顶；Lifecycle/Condition/Focus 封顶 | create/change/focus | UI 弱提示 | domain matrix | A | REUSE_EVIDENCE | V2 pure Domain contracts 与 Application create/lifecycle tests 通过；对象特定完整语义/UI 待后续 Slice |
@@ -32,8 +32,8 @@
 
 | requirement_id | 文档章节 | 用户场景 | Domain 规则 / 不变量 | Application 用例 | Adapter / UI | 自动 / 运行测试 | Slice | 状态 | 当前证据 / 缺口 |
 |---|---|---|---|---|---|---|---|---|---|
-| E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | B0 纯 Parser 已通过固定标识/冲突/空标题；事件、物化、更新、Now 与 Desktop 未完成 |
-| E2E-02 | V2 §68 | `[任务] 标题` 无 Marker | Marker 不决定身份 | materialize | parser | unit + Desktop | B | REUSE_EVIDENCE | `explicit-object-parser.test.ts` 已证明有/无 Marker 同一 Task 身份语义；物化与 Desktop 未完成 |
+| E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | Parser、防抖、Application/SQLite 原子首次物化和受约束 Service route 已通过；Plugin 事件、更新、Now 与 Desktop 未完成 |
+| E2E-02 | V2 §68 | `[任务] 标题` 无 Marker | Marker 不决定身份 | materialize | parser | unit + Desktop | B | REUSE_EVIDENCE | 有/无 Marker Parser 与无 Marker 首次物化路径已自动证明；Plugin 事件与 Desktop 未完成 |
 | E2E-03 | V2 §68 | Task 下裸 TODO 保持内部步骤 | 内部 TODO 无 object_id | synchronize block | subtree parser | fixture | B | REUSE_EVIDENCE | B0 已证明裸 TODO 返回非对象；有限子树同步 fixture 与 Desktop 未完成 |
 | E2E-04 | V2 §68 | 跨页移动 | ID/Ownership 不变，Anchor 更新 | observe/sync | UUID event | integration + Desktop | B | REUSE_EVIDENCE | V1 UUID 定位；真实 move 未验证 |
 | E2E-05 | V2 §68 | 复制正式 Block | 新 UUID 不继承 ID | detect copy/candidate | Graph adapter | fixture + Desktop | B | NOT_STARTED | 缺 copy flow |

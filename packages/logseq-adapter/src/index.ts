@@ -8,6 +8,12 @@ export {
   type ExplicitObjectParseResult,
   type LogseqTodoMarker,
 } from "./explicit-object-parser.ts";
+export {
+  ExplicitObjectChangeDebouncer,
+  type DebounceClock,
+  type ExplicitObjectBlockChange,
+  type ExplicitObjectChangeDebouncerOptions,
+} from "./explicit-object-change-debouncer.ts";
 
 export interface LogseqBlockShape {
   uuid: string;

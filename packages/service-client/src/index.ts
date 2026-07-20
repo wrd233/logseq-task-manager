@@ -1,4 +1,4 @@
-import type { V2ManagedObject } from "@task-copilot/domain";
+import type { V2Anchor, V2ManagedObject, V2ObjectType } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -53,6 +53,21 @@ export interface ServiceBackupRestored {
   backupId: string;
   recoveryBackupId: string;
   validation: ServiceDoctor;
+}
+
+export interface ServiceMaterializeExplicitObjectRequest {
+  objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
+  text: string;
+  externalId: string;
+  contentHash: string;
+  idempotencyKey: string;
+  traceId: string;
+}
+
+export interface ServiceMaterializeExplicitObjectResult {
+  object: V2ManagedObject;
+  anchor: V2Anchor;
+  replayed: boolean;
 }
 
 export type ServiceConnectionState =
@@ -181,6 +196,14 @@ export class LocalServiceClient {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ backupId, confirmation }),
+    });
+  }
+
+  materializeExplicitObject(input: ServiceMaterializeExplicitObjectRequest): Promise<ServiceMaterializeExplicitObjectResult> {
+    return this.request<ServiceMaterializeExplicitObjectResult>("/objects/materialize", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
     });
   }
 

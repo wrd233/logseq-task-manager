@@ -10,6 +10,7 @@ import type {
   V2AnchorCommandResult,
   V2AuditRecord,
   V2CommandReceipt,
+  V2MaterializationCommand,
   V2ObjectCommand,
   V2ObjectCommandResult,
   V2OwnershipCommand,
@@ -463,6 +464,37 @@ export class V2SqliteStore {
     return this.executeWrite(write);
   }
 
+  commitMaterialization(command: V2MaterializationCommand): V2AnchorCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        const result = JSON.parse(receipt.result_json) as { object: V2ManagedObject; anchor: V2Anchor };
+        return { ...result, replayed: true };
+      }
+      this.requireVersion(command.object.objectId, 0);
+      const bound = this.database.prepare(`
+        SELECT anchor_id FROM anchors
+        WHERE graph_id = ? AND external_id = ? AND role = 'primary_text'
+      `).get(command.anchor.graphId, command.anchor.externalId) as { anchor_id: string } | undefined;
+      if (bound) {
+        throw persistenceError("V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS", "该 Logseq Block 已经绑定正式对象；重复事件必须走同步而不是再次物化。", {
+          anchorId: bound.anchor_id,
+        });
+      }
+      this.writeObject(command.object);
+      this.database.prepare(`
+        INSERT INTO anchors(anchor_id, object_id, role, graph_id, external_id, status, content_hash, last_seen_at)
+        VALUES (@anchorId, @objectId, @role, @graphId, @externalId, @status, @contentHash, @lastSeenAt)
+      `).run(command.anchor);
+      this.writeAudit(command.audit);
+      const result = { object: command.object, anchor: command.anchor };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined {
     const receipt = this.receipt(idempotencyKey);
     if (!receipt) return undefined;
@@ -471,7 +503,7 @@ export class V2SqliteStore {
     if (command === "create_object" || command === "transition_lifecycle") {
       return { command, object: result as V2ManagedObject };
     }
-    if (command === "bind_primary_anchor") {
+    if (command === "materialize_explicit_object" || command === "bind_primary_anchor") {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
       return { command, ...value };
     }

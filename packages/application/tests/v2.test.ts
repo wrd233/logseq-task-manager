@@ -8,6 +8,7 @@ import {
   type V2AnchorCommand,
   type V2AuditRecord,
   type V2CommandReceipt,
+  type V2MaterializationCommand,
   type V2ObjectCommand,
   type V2ObjectRepository,
   type V2OwnershipCommand,
@@ -42,6 +43,21 @@ class MemoryV2Repository implements V2ObjectRepository {
     this.commitVersionedChange(command.object, command.expectedVersion, command.idempotencyKey, command.audit);
     this.anchors.set(command.object.objectId, command.anchor);
     this.receipts.set(command.idempotencyKey, { command: "bind_primary_anchor", object: command.object, anchor: command.anchor });
+    return { object: command.object, anchor: command.anchor, replayed: false };
+  }
+
+  commitMaterialization(command: V2MaterializationCommand): { object: V2ManagedObject; anchor: V2Anchor; replayed: boolean } {
+    const receipt = this.receipts.get(command.idempotencyKey);
+    if (receipt?.command === "materialize_explicit_object") return { object: receipt.object, anchor: receipt.anchor, replayed: true };
+    const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
+    if (actualVersion !== 0) throw new Error(`version ${actualVersion} != 0`);
+    if ([...this.anchors.values()].some((anchor) => anchor.graphId === command.anchor.graphId && anchor.externalId === command.anchor.externalId && anchor.role === "primary_text")) {
+      throw new Error("external primary anchor already exists");
+    }
+    this.values.set(command.object.objectId, command.object);
+    this.anchors.set(command.object.objectId, command.anchor);
+    this.receipts.set(command.idempotencyKey, { command: "materialize_explicit_object", object: command.object, anchor: command.anchor });
+    this.audit.push(command.audit);
     return { object: command.object, anchor: command.anchor, replayed: false };
   }
 
@@ -170,4 +186,46 @@ test("Primary Anchor and Ownership changes pass through Application and share ob
     idempotencyKey: "own-stale",
     traceId: "trace-stale",
   }), /版本/);
+});
+
+test("explicit Block materialization creates Object and Primary Anchor as one idempotent command", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const envelope = { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-graph-1-block-1", traceId: "trace-materialize" };
+  const created = await application.materializeExplicitObject({
+    objectId: "task-explicit-1",
+    objectType: "TASK",
+    text: "核对时间同步来源",
+    anchor: { graphId: "graph-1", externalId: "block-1", contentHash: "hash-1" },
+  }, envelope, new Date("2026-07-20T07:00:00Z"));
+
+  assert.equal(created.object.version, 2);
+  assert.equal(created.object.lifecycle, "OPEN");
+  assert.equal(created.anchor.objectId, created.object.objectId);
+  assert.equal(created.anchor.role, "primary_text");
+  assert.equal(repository.values.get(created.object.objectId)?.version, 2);
+  assert.equal(repository.anchors.get(created.object.objectId)?.externalId, "block-1");
+  assert.equal(repository.audit.length, 1);
+
+  const replay = await application.materializeExplicitObject({
+    objectId: "must-not-replace",
+    objectType: "TASK",
+    text: "不得覆盖",
+    anchor: { graphId: "graph-1", externalId: "other-block", contentHash: "other-hash" },
+  }, envelope);
+  assert.deepEqual(replay, { ...created, replayed: true });
+  assert.equal(repository.values.size, 1);
+});
+
+test("explicit Block materialization refuses parser-external Area and Project types before persistence", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  await assert.rejects(() => application.materializeExplicitObject({
+    objectType: "PROJECT" as "TASK",
+    text: "不得绕过 Project 页面原子创建",
+    anchor: { graphId: "graph-1", externalId: "block-project", contentHash: "hash-project" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "invalid-project", traceId: "trace-invalid" }), /不支持/);
+  assert.equal(repository.values.size, 0);
+  assert.equal(repository.anchors.size, 0);
+  assert.equal(repository.audit.length, 0);
 });

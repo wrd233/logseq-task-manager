@@ -446,3 +446,40 @@ test("Primary Anchor and Ownership are unique atomic Application commands", asyn
   assert.equal(store.auditEventCount(), 4);
   store.close();
 });
+
+test("explicit materialization atomically persists Object, Primary Anchor, audit, and receipt", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2Application(store);
+  const envelope = { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-block-1", traceId: "trace-materialize" };
+  const created = await application.materializeExplicitObject({
+    objectId: "task-materialized",
+    objectType: "TASK",
+    text: "核对时间同步来源",
+    anchor: { anchorId: "anchor-materialized", graphId: "graph-a", externalId: "block-1", contentHash: "hash-1" },
+  }, envelope, new Date("2026-07-20T07:00:00Z"));
+  assert.equal(created.replayed, false);
+  assert.equal(store.getObject("task-materialized")?.version, 2);
+  assert.equal(store.auditEventCount(), 1);
+
+  const replay = await application.materializeExplicitObject({
+    objectId: "ignored-object",
+    objectType: "TASK",
+    text: "不得覆盖",
+    anchor: { graphId: "graph-a", externalId: "ignored-block", contentHash: "ignored-hash" },
+  }, envelope);
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.anchor.anchorId, "anchor-materialized");
+
+  await assert.rejects(() => application.materializeExplicitObject({
+    objectId: "must-roll-back",
+    objectType: "TASK",
+    text: "不得复制同一个 Primary Anchor",
+    anchor: { graphId: "graph-a", externalId: "block-1", contentHash: "hash-2" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-duplicate", traceId: "trace-duplicate" }), /已经绑定/);
+  assert.equal(store.getObject("must-roll-back"), undefined);
+  assert.equal(store.auditEventCount(), 1);
+  assert.equal(store.doctor().objectCount, 1);
+  store.close();
+});

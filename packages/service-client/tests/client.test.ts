@@ -73,3 +73,46 @@ test("unavailable and timeout both preserve Graph editing but restrict formal wr
   assert.equal(timeoutState.status, "RESTRICTED");
   if (timeoutState.status === "RESTRICTED") assert.equal(timeoutState.reasonCode, "SERVICE_TIMEOUT");
 });
+
+test("materialization client sends no Graph, database path, or caller-selected object identity", async (t) => {
+  const token = "client-materialize-token-24-characters";
+  let received: unknown;
+  const { server, url } = await listen((request, response) => {
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/objects/materialize");
+    assert.equal(request.headers.authorization, `Bearer ${token}`);
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      received = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      response.writeHead(201, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        object: { objectId: "server-object", objectType: "TASK", version: 2, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "核对时间同步", createdAt: "2026-07-20T07:00:00.000Z", updatedAt: "2026-07-20T07:00:00.000Z", sourceOrCreationEvent: "explicit_block:graph:block" },
+        anchor: { anchorId: "server-anchor", objectId: "server-object", graphId: "graph", externalId: "block", role: "primary_text", status: "active", contentHash: "a".repeat(64), lastSeenAt: "2026-07-20T07:00:00.000Z" },
+        replayed: false,
+      }));
+    });
+  });
+  t.after(() => server.close());
+  const client = new LocalServiceClient(descriptor(url, token));
+  const result = await client.materializeExplicitObject({
+    objectType: "TASK",
+    text: "核对时间同步",
+    externalId: "block",
+    contentHash: "a".repeat(64),
+    idempotencyKey: "graph:block:first-seen",
+    traceId: "trace-materialize",
+  });
+  assert.equal(result.object.objectId, "server-object");
+  assert.deepEqual(received, {
+    objectType: "TASK",
+    text: "核对时间同步",
+    externalId: "block",
+    contentHash: "a".repeat(64),
+    idempotencyKey: "graph:block:first-seen",
+    traceId: "trace-materialize",
+  });
+  assert.equal("graphId" in (received as Record<string, unknown>), false);
+  assert.equal("objectId" in (received as Record<string, unknown>), false);
+  assert.equal("databasePath" in (received as Record<string, unknown>), false);
+});

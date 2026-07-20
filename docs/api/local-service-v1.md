@@ -1,6 +1,6 @@
 # Local Service Protocol v1
 
-> 状态：Slice A 基础协议；查询、受控 Backup 和显式确认后停服的 Restore 已实现，正式领域写路由尚未开放。
+> 状态：Slice A/B 基础协议；查询、受控 Backup、显式确认后停服的 Restore，以及单一显式 Block 物化写路由已实现。
 
 ## 连接与认证
 
@@ -32,10 +32,33 @@
 | POST | `/backup/create` | 服务端生成 ID 的 0600 SQLite 快照及校验结果 | 只写 Backup，不改当前状态 |
 | POST | `/backup/restore/validate` | 只读校验指定 `backupId` | 无；不切换 DB |
 | POST | `/backup/restore/apply` | 创建恢复点、离线切换、Doctor，然后停止 Service | 替换当前 DB；高影响 |
+| POST | `/objects/materialize` | 显式 Block 首次物化的 Object + Primary Anchor + Audit + Receipt | SQLite 单事务正式写入 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
 
-未知路由返回 404。当前 `capabilities.backup=true`，`formalWrites/migration/provider` 均为 `false`；在 Graph + SQLite SemanticCommit Gate 完成前，不提供对象写 HTTP 路由。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示受约束的显式物化路由可用，不表示 Slice B 全部同步、Slice C SemanticCommit 或迁移写入已经开放。
+
+## 显式 Block 物化
+
+`POST /objects/materialize` 只接受固定六字段：
+
+```json
+{
+  "objectType": "TASK",
+  "text": "核对时间同步来源",
+  "externalId": "logseq-block-uuid",
+  "contentHash": "1dd75803",
+  "idempotencyKey": "graph-scoped-block-first-seen-key",
+  "traceId": "trace-materialize"
+}
+```
+
+- `objectType` 仅允许 Parser 管理的 `TASK / MINI_PROJECT / DECISION / OUTPUT`；Area 和 Project 走各自受控创建入口；
+- Graph ID、SQLite 路径、object_id、anchor_id 与 actor 都由 Service/Application 持有，客户端携带这些额外字段会整包拒绝；
+- `contentHash` 必须符合当前 Anchor 契约的 8 位小写 CRC32；
+- Application 在单一 SQLite 事务中写入 Object、Primary Anchor、Audit 和幂等 Receipt；
+- 同一 idempotency key 只重放原结果，不用新正文覆盖；同一 Graph Block 再次首次物化会冲突并整笔回滚；后续标题/Marker 更新属于尚未开放的同步命令；
+- Parser、Block event 和防抖运行在 Logseq Adapter；该 HTTP 路由本身不猜自然语言、不扫描 Graph、不调用模型。
 
 ## Backup 请求
 
@@ -86,6 +109,8 @@
 | `REQUEST_JSON_INVALID` | restore validate 请求不是合法 JSON |
 | `BACKUP_ID_INVALID` | ID 格式不符合服务端生成规则，包括路径遍历 |
 | `RESTORE_CONFIRMATION_REQUIRED` | Restore Apply 缺少精确高影响确认 |
+| `MATERIALIZATION_REQUEST_INVALID` | 显式物化字段、类型、长度或服务端所有权边界无效 |
+| `V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS` | 同一 Graph Block 已绑定正式对象，必须转入同步而非重复物化 |
 | `SERVICE_STOPPING` | Restore 进行中拒绝新请求 |
 | `V2_GRAPH_ID_MISMATCH` | Backup 不属于当前 Graph |
 | `V2_UNSUPPORTED_DATABASE_SCHEMA` | Backup schema 版本不受支持 |

@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseExplicitObjectSyntax } from "../src/index.ts";
+import {
+  ExplicitObjectChangeDebouncer,
+  parseExplicitObjectSyntax,
+  type DebounceClock,
+} from "../src/index.ts";
 
 test("fixed explicit markers produce only the four parser-managed object types", () => {
   assert.deepEqual(parseExplicitObjectSyntax("[任务] 核对时间同步来源"), {
@@ -110,4 +114,89 @@ test("explicit syntax is leading-only and exact instead of natural-language gues
       reason: "NO_EXPLICIT_OBJECT_MARKER",
     });
   }
+});
+
+test("changed Block events debounce by UUID and deliver only the latest pure parse", async () => {
+  const timers = new Map<number, () => void>();
+  let nextTimer = 0;
+  const clock: DebounceClock = {
+    setTimeout(callback) {
+      nextTimer += 1;
+      timers.set(nextTimer, callback);
+      return nextTimer;
+    },
+    clearTimeout(handle) {
+      timers.delete(handle as number);
+    },
+  };
+  const delivered: unknown[] = [];
+  const errors: unknown[] = [];
+  const debouncer = new ExplicitObjectChangeDebouncer({
+    delayMs: 250,
+    clock,
+    async deliver(batch) {
+      delivered.push(batch);
+    },
+    onError(error) {
+      errors.push(error);
+    },
+  });
+
+  debouncer.enqueue([
+    { uuid: "block-2", content: "TODO 内部步骤" },
+    { uuid: "block-1", content: "[任务] 旧标题" },
+    { uuid: 42, content: "[任务] 无效 UUID" },
+  ]);
+  debouncer.enqueue([{ uuid: "block-1", content: "[任务] 新标题" }]);
+  assert.equal(timers.size, 1);
+  await debouncer.flush();
+
+  assert.deepEqual(delivered, [[
+    {
+      externalId: "block-2",
+      content: "TODO 内部步骤",
+      parsed: { kind: "NONE", marker: "TODO", reason: "NO_EXPLICIT_OBJECT_MARKER" },
+    },
+    {
+      externalId: "block-1",
+      content: "[任务] 新标题",
+      parsed: { kind: "OBJECT", objectType: "TASK", marker: undefined, syntax: "[任务]", title: "新标题" },
+    },
+  ]]);
+  assert.deepEqual(errors, []);
+  assert.equal(timers.size, 0);
+});
+
+test("debounced delivery failures are surfaced and dispose prevents late delivery", async () => {
+  let callback: (() => void) | undefined;
+  const errors: unknown[] = [];
+  const clock: DebounceClock = {
+    setTimeout(next) {
+      callback = next;
+      return 1;
+    },
+    clearTimeout() {
+      callback = undefined;
+    },
+  };
+  const debouncer = new ExplicitObjectChangeDebouncer({
+    clock,
+    delayMs: 10,
+    async deliver() {
+      throw new Error("service unavailable");
+    },
+    onError(error, batch) {
+      errors.push([error instanceof Error ? error.message : error, batch.map((item) => item.externalId)]);
+    },
+  });
+  debouncer.enqueue([{ uuid: "block-fail", content: "[任务] 保留失败证据" }]);
+  callback?.();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(errors, [["service unavailable", ["block-fail"]]]);
+
+  debouncer.enqueue([{ uuid: "block-dispose", content: "[任务] 不得迟到提交" }]);
+  debouncer.dispose();
+  assert.equal(callback, undefined);
+  await debouncer.flush();
+  assert.equal(errors.length, 1);
 });

@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2SqliteStore } from "@task-copilot/persistence/node";
+import { checksum } from "@task-copilot/shared";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
 
@@ -44,13 +45,13 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   assert.deepEqual(await health.json(), {
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
-    capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
+    capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
   });
   const status = await fetch(new URL("status", service.url), { headers });
   assert.deepEqual(await status.json(), {
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
-    capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
+    capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
     databaseSchemaVersion: 3,
     objectCount: 0,
   });
@@ -60,7 +61,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   closed = true;
   await assert.rejects(access(join(root, "runtime", "service.json")));
 });
-test("Local Service exposes read-only object routes and no accidental write route", async (t) => {
+test("Local Service exposes object reads but refuses an unscoped generic write route", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-"));
   const service = await startLocalService({
     databasePath: join(root, "task-copilot.db"),
@@ -77,6 +78,45 @@ test("Local Service exposes read-only object routes and no accidental write rout
   assert.equal((await fetch(new URL("objects/missing", service.url), { headers })).status, 404);
   const write = await fetch(new URL("objects", service.url), { method: "POST", headers });
   assert.equal(write.status, 404);
+});
+
+test("Local Service materializes one explicit Block without accepting Graph, path, or object authority", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-materialize-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-materialize",
+    token: "materialize-service-token-24-characters",
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const client = clientFor(service);
+  const input = {
+    objectType: "TASK" as const,
+    text: "核对时间同步来源",
+    externalId: "block-materialize",
+    contentHash: checksum("[任务] 核对时间同步来源"),
+    idempotencyKey: "graph-materialize:block-materialize:first-seen",
+    traceId: "trace-materialize",
+  };
+  const created = await client.materializeExplicitObject(input);
+  assert.equal(created.replayed, false);
+  assert.equal(created.object.objectType, "TASK");
+  assert.equal(created.object.version, 2);
+  assert.equal(created.anchor.graphId, "graph-materialize");
+  assert.equal(created.anchor.externalId, "block-materialize");
+  assert.equal((await client.materializeExplicitObject(input)).replayed, true);
+  assert.equal((await client.status()).objectCount, 1);
+
+  const unsafe = await fetch(new URL("objects/materialize", service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ ...input, graphId: "caller-graph", objectId: "caller-object", databasePath: "/tmp/caller.db" }),
+  });
+  assert.equal(unsafe.status, 400);
+  assert.equal((await unsafe.json() as { error: { code: string } }).error.code, "MATERIALIZATION_REQUEST_INVALID");
+  assert.equal((await client.status()).objectCount, 1);
 });
 
 test("Backup API creates a private server-named snapshot and validates it read-only", async (t) => {

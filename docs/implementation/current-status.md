@@ -2,7 +2,7 @@
 
 ## 当前 Slice
 
-V1 frozen / Slice A0 complete / Slice A1-A4 foundation in progress / Slice B0 parser complete
+V1 frozen / Slice A0 complete / Slice A1-A4 foundation in progress / Slice B0 complete / Slice B1-B2 foundation in progress
 
 ## 当前阶段结论
 
@@ -42,11 +42,13 @@ V2_MIGRATION_DESIGN_READY
 - Service Restore Apply 已通过：固定确认短语、服务端 Backup ID、恢复点、关闭 live Store、原子切换、Doctor、descriptor 删除和 Service 停止；无确认不产生变化。
 - CLI 已提供 `backup create/validate/restore`；Restore 缺少精确 `--confirm RESTORE_AND_STOP_SERVICE` 时在加载 Service 前退出。独立进程冒烟已证明 CLI create → restore → Service exit/descriptor cleanup → restart → Doctor PASS。
 - Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。Parser 只产出纯结果，尚未接 Block event 或正式写入。
+- Slice B 防抖与首次物化基础已建立：UUID 级事件合并只交付最新 Parser 结果，失败显式回调；Application/SQLite 将 Object、Primary Anchor、Audit、Receipt 单事务写入并幂等重放，重复外部 Block 整笔回滚。
+- Local Service 已开放唯一的 `POST /objects/materialize` 正式写路由并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。Plugin `DB.onChanged` 与已绑定对象 update 尚未接入。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，139 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，146 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；

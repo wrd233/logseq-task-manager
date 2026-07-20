@@ -21,6 +21,7 @@ export interface V2CommandEnvelope {
 export interface V2ObjectRepository {
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined | Promise<V2CommandReceipt | undefined>;
   commitObject(command: V2ObjectCommand): V2ObjectCommandResult | Promise<V2ObjectCommandResult>;
+  commitMaterialization(command: V2MaterializationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult | Promise<V2OwnershipCommandResult>;
   getObject(objectId: string): V2ManagedObject | undefined | Promise<V2ManagedObject | undefined>;
@@ -30,7 +31,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
+  command: "create_object" | "materialize_explicit_object" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -57,6 +58,11 @@ export interface V2AnchorCommand {
   audit: V2AuditRecord;
 }
 
+export interface V2MaterializationCommand extends V2AnchorCommand {
+  expectedVersion: 0;
+  audit: V2AuditRecord & { command: "materialize_explicit_object" };
+}
+
 export interface V2AnchorCommandResult {
   object: V2ManagedObject;
   anchor: V2Anchor;
@@ -79,8 +85,15 @@ export interface V2OwnershipCommandResult {
 
 export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle"; object: V2ManagedObject }
-  | { command: "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
+  | { command: "materialize_explicit_object" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership };
+
+export interface MaterializeExplicitObjectInput {
+  objectId?: string;
+  objectType: Extract<CreateV2ManagedObjectInput["objectType"], "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
+  text: string;
+  anchor: Omit<V2Anchor, "anchorId" | "objectId" | "role" | "status" | "lastSeenAt"> & { anchorId?: string };
+}
 
 function requireEnvelope(envelope: V2CommandEnvelope): void {
   const missing = [envelope.actor, envelope.idempotencyKey, envelope.traceId].some((value) => !value.trim());
@@ -127,6 +140,53 @@ export class V2Application {
       },
     });
     return result.object;
+  }
+
+  async materializeExplicitObject(
+    input: MaterializeExplicitObjectInput,
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2AnchorCommandResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "materialize_explicit_object");
+    if (replay?.command === "materialize_explicit_object") {
+      return { object: replay.object, anchor: replay.anchor, replayed: true };
+    }
+    if (envelope.expectedVersion !== 0) {
+      throw new StructuredError({
+        code: "V2_CREATE_EXPECTED_VERSION_INVALID",
+        message: "显式对象物化的 expected version 必须为 0。",
+        ruleRefs: ["D-185"],
+      });
+    }
+    if (!["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"].includes(input.objectType)) {
+      throw new StructuredError({
+        code: "V2_EXPLICIT_OBJECT_TYPE_UNSUPPORTED",
+        message: `显式 Block Parser 不支持 ${input.objectType}；Area 与 Project 必须使用各自受控创建入口。`,
+        ruleRefs: ["D-044", "D-079", "D-220"],
+      });
+    }
+    const initial = createV2ManagedObject({
+      ...(input.objectId ? { objectId: input.objectId } : {}),
+      objectType: input.objectType,
+      text: input.text,
+      sourceOrCreationEvent: `explicit_block:${input.anchor.graphId}:${input.anchor.externalId}`,
+    }, at);
+    const candidate = bindV2PrimaryAnchor(initial, input.anchor, initial.version, at);
+    return this.objects.commitMaterialization({
+      ...candidate,
+      expectedVersion: 0,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "materialize_explicit_object",
+        objectId: candidate.object.objectId,
+        beforeVersion: 0,
+        afterVersion: candidate.object.version,
+        occurredAt: at.toISOString(),
+      },
+    });
   }
 
   async transitionLifecycle(

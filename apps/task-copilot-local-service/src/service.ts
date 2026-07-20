@@ -3,6 +3,7 @@ import { chmod, mkdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
+import { V2Application, type MaterializeExplicitObjectInput } from "@task-copilot/application";
 import { V2SqliteStore } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
@@ -106,15 +107,52 @@ async function readRestoreRequest(request: IncomingMessage): Promise<{ backupId:
   return { backupId: record.backupId };
 }
 
+interface MaterializeRequest {
+  objectType: MaterializeExplicitObjectInput["objectType"];
+  text: string;
+  externalId: string;
+  contentHash: string;
+  idempotencyKey: string;
+  traceId: string;
+}
+
+async function readMaterializeRequest(request: IncomingMessage): Promise<MaterializeRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try {
+    value = JSON.parse(body) as unknown;
+  } catch {
+    throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
+  }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const exactKeys = ["contentHash", "externalId", "idempotencyKey", "objectType", "text", "traceId"];
+  const actualKeys = Object.keys(record).sort();
+  const objectTypes = ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"];
+  if (
+    actualKeys.length !== exactKeys.length ||
+    actualKeys.some((key, index) => key !== exactKeys[index]) ||
+    typeof record.objectType !== "string" ||
+    !objectTypes.includes(record.objectType) ||
+    typeof record.text !== "string" || !record.text.trim() || record.text.length > 8_192 ||
+    typeof record.externalId !== "string" || !record.externalId.trim() || record.externalId.length > 512 ||
+    typeof record.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.contentHash) ||
+    typeof record.idempotencyKey !== "string" || !record.idempotencyKey.trim() || record.idempotencyKey.length > 512 ||
+    typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+  ) {
+    throw serviceError("MATERIALIZATION_REQUEST_INVALID", "显式对象物化请求字段无效或包含服务端所有权字段。");
+  }
+  return record as unknown as MaterializeRequest;
+}
+
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED"
+      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID"
         ? 400
         : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT"
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -133,7 +171,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   let storeOpen = true;
   let stopping = false;
   store.initialize(options.graphId);
-  const capabilities: ServiceCapabilities = { formalWrites: false, migration: false, provider: false, backup: true };
+  const application = new V2Application(store);
+  const capabilities: ServiceCapabilities = { formalWrites: true, migration: false, provider: false, backup: true };
 
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (!authorized(request, token)) {
@@ -163,6 +202,25 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (request.method === "POST" && url.pathname === "/doctor") {
       const doctor = store.doctor();
       respond(response, doctor.status === "PASS" ? 200 : 503, doctor);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/objects/materialize") {
+      const input = await readMaterializeRequest(request);
+      const result = await application.materializeExplicitObject({
+        objectType: input.objectType,
+        text: input.text,
+        anchor: {
+          graphId: options.graphId,
+          externalId: input.externalId,
+          contentHash: input.contentHash,
+        },
+      }, {
+        actor: "logseq-plugin",
+        expectedVersion: 0,
+        idempotencyKey: input.idempotencyKey,
+        traceId: input.traceId,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
       return;
     }
     if (request.method === "POST" && url.pathname === "/backup/create") {
