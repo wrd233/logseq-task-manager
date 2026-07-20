@@ -3,6 +3,7 @@ import {
   revalidateAcceptedV2Proposal,
   reviewV2ProposalGroups,
   validateV2Proposal,
+  validateV2ProposalForSubmission,
   type V2Proposal,
   type V2ProposalFiles,
   type V2ProposalGroupDecision,
@@ -57,7 +58,8 @@ export function planAcceptedV2Formalization(proposal: V2Proposal): V2Formalizati
   if (create.target.kind !== "BLOCK" || create.target.id !== patch.blockUuid || !["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"].includes(String(objectType))) {
     throw proposalApplicationError("V2_PROPOSAL_COMMIT_OPERATION_INVALID", "正式化必须将同一 Block Patch 与一个受支持对象创建绑定。");
   }
-  const text = typeof create.payload.text === "string" ? create.payload.text.trim() : "";
+  const explicitText = typeof create.payload.text === "string" ? create.payload.text.trim() : "";
+  const text = explicitText || (proposal.status === "APPLIED" ? patch.beforeText.trim() : "");
   if (!text) throw proposalApplicationError("V2_PROPOSAL_COMMIT_OPERATION_INVALID", "正式化对象正文不能为空。");
   return {
     proposalId: proposal.proposalId,
@@ -71,7 +73,7 @@ export class V2ProposalApplication {
   constructor(private readonly repository: V2ProposalRepository) {}
 
   async submit(value: unknown, at = new Date()): Promise<{ record: V2StoredProposalRecord; replayed: boolean }> {
-    const proposal = validateV2Proposal(value);
+    const proposal = validateV2ProposalForSubmission(value);
     if (proposal.status !== "READY") throw proposalApplicationError("V2_PROPOSAL_NOT_READY", "只有 READY Proposal 可以进入审阅队列。");
     const files = renderV2ProposalFiles(proposal);
     const result = await this.repository.submitProposal(proposal, files, at);

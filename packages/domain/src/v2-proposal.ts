@@ -135,9 +135,6 @@ export function validateV2Proposal(value: unknown): V2Proposal {
     }
     for (const operation of group.semanticOperations) {
       if (!isRecord(operation) || typeof operation.operationId !== "string" || typeof operation.kind !== "string" || !proposalOperationKinds.has(operation.kind) || !isRecord(operation.target) || typeof operation.summary !== "string" || !isRecord(operation.payload) || !Array.isArray(operation.preconditions) || operation.preconditions.some((condition) => typeof condition !== "string")) throw proposalError("V2_PROPOSAL_OPERATION_SHAPE_INVALID", "Proposal semantic operation shape 无效。");
-      if (operation.kind === "CREATE_OBJECT" && (typeof operation.payload.objectType !== "string" || typeof operation.payload.text !== "string" || !operation.payload.text.trim())) {
-        throw proposalError("V2_PROPOSAL_CREATE_OBJECT_PAYLOAD_INVALID", "CREATE_OBJECT 必须明确声明最终对象类型与正文，不能依赖 Graph 回声补全。");
-      }
     }
   }
   requireIdentifier(proposal.proposalId, "proposal_id");
@@ -189,6 +186,18 @@ export function validateV2Proposal(value: unknown): V2Proposal {
     visited.add(groupId);
   };
   proposal.groups.forEach((group) => visit(group.groupId));
+  return proposal;
+}
+
+export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
+  const proposal = validateV2Proposal(value);
+  for (const group of proposal.groups) {
+    for (const operation of group.semanticOperations) {
+      if (operation.kind === "CREATE_OBJECT" && (typeof operation.payload.objectType !== "string" || typeof operation.payload.text !== "string" || !operation.payload.text.trim())) {
+        throw proposalError("V2_PROPOSAL_CREATE_OBJECT_PAYLOAD_INVALID", "CREATE_OBJECT 必须明确声明最终对象类型与正文，不能依赖 Graph 回声补全。");
+      }
+    }
+  }
   return proposal;
 }
 

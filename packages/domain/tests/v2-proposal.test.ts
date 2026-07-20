@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { checksum } from "@task-copilot/shared";
 
-import { renderV2ProposalFiles, revalidateAcceptedV2Proposal, reviewV2ProposalGroups, validateV2Proposal, type V2Proposal } from "../src/index.ts";
+import { renderV2ProposalFiles, revalidateAcceptedV2Proposal, reviewV2ProposalGroups, validateV2Proposal, validateV2ProposalForSubmission, type V2Proposal } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "核对外部推送";
@@ -41,7 +41,8 @@ test("V2 Proposal validator accepts one coupled text and semantic operation grou
   assert.throws(() => validateV2Proposal({ schemaVersion: "v2" }), /顶层字段/);
   const missingFinalText = proposal();
   delete missingFinalText.groups[0]!.semanticOperations[0]!.payload.text;
-  assert.throws(() => validateV2Proposal(missingFinalText), /最终对象类型与正文/);
+  assert.equal(validateV2Proposal(missingFinalText).proposalId, "prop_example", "legacy persisted records remain readable");
+  assert.throws(() => validateV2ProposalForSubmission(missingFinalText), /最终对象类型与正文/);
 });
 
 test("V2 Proposal validator refuses modify-scope escape, stale patch hashes, and risk downgrade", () => {

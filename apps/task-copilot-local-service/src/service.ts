@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { V2Application, V2ProposalApplication, planAcceptedV2Formalization, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
-import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2Proposal, type V2Condition, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type V2Condition, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
@@ -533,7 +533,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       } catch {
         throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
       }
-      const proposal = validateV2Proposal(candidate);
+      const proposal = validateV2ProposalForSubmission(candidate);
       respond(response, 200, { status: "VALID", proposal, files: renderV2ProposalFiles(proposal) });
       return;
     }
