@@ -84,6 +84,19 @@
 - `tmp/runtime/v2-desktop/b-rt-marker-restored.png`
 - Service 只读查询中的 object/anchor 身份和 version 记录，未保存 descriptor/token。
 
+## SQLite schema v3 → v6 受控升级与进程复核 — PASS（非 Desktop UI Gate）
+
+在 Service 已停止后，对同一专用测试库执行升级前只读检查：Graph identity 为 `logseq-v2-desktop-20260720`、schema v3、integrity `ok`、1 个对象、0 个 `PENDING / RECOVERY_REQUIRED` Commit。
+
+- 使用正式 `V2SqliteStore.migrateSchema()` 在受控 Backup 目录先创建 0600、不覆盖的 schema v3 快照；
+- 快照只读校验通过后，v4 Proposal 表、v5 Audit 解耦和 v6 nullable Task `due_at` 在一个迁移事务中落地；
+- 升级后 Doctor：schema v6、integrity `ok`、foreign-key violations 0、对象数仍为 1；migration ledger 为连续 v1..v6；
+- 迁移前快照再次只读确认仍是 schema v3、integrity `ok`、对象数 1；
+- 当前 DB 权限收紧为 0600；随后以独立 Service 进程启动，CLI `status` / `doctor` / `object list` 分别确认 READY、schema v6、Doctor PASS 和原 object_id/version/text 未变；
+- SIGINT 正常停止后 descriptor 自动删除；最终只读检查仍为 schema v6、integrity `ok`、1 个对象、0 个 Pending/Recovery Required。
+
+本项证明真实运行库和独立进程可安全升级/重启，但没有在 Logseq Desktop 点击期限表单或验证 reload，因此不冒充 E2E-11 Desktop PASS。快照与 DB 位于忽略的 `tmp/runtime/v2-desktop/`，未记录 token。
+
 ## 本轮发现的交互问题
 
 1. Diagnostics 原先没有渲染已有的 `explicit_sync` snapshot，用户只能从底部结构化日志判断断线队列；已补可见 `pending / transportReady / reconciliationRequired` 区块。
@@ -98,5 +111,6 @@
 - 跨页移动、复制新身份。
 - 当前页两个离线新候选、stale preview 与逐项提交。
 - 真实有限子树、裸 TODO、嵌套 Decision、粘贴、预算与取消。
+- Now Work 的 Focus/Condition/期限/筛选分组真实点击、时间本地化与 reload 保持。
 
 因此本报告不将 E2E-01、E2E-15 或整个 Slice A/B 标记为 DONE。

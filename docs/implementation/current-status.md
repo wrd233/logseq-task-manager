@@ -62,13 +62,13 @@ V2_MIGRATION_DESIGN_READY
 - V2 Condition 手工闭环已贯通 Now Work 同页表单 → Local Service → Application `change_condition` → SQLite 现有 `condition_json`：ACTIONABLE / WAITING / BLOCKED / PAUSED 字段集合封闭，WAITING 强制等待对象、期待结果和合法复查时间，PAUSED 可带合法复查时间；对象版本、确定性幂等回执和 Audit 同事务，stale/closed/非法时间均零写入。Condition 更新不改变 Lifecycle 或 Focus；到期 Waiting 立即进入“等待与复查”。没有新增表或 Schema 版本。Desktop 表单、reload 与时间本地化仍待验收。
 - V2 Task 明确期限已贯通 Now Work 表单 → Local Service → Application `change_due_at` → SQLite schema v6 nullable `objects.due_at`：只允许 OPEN Task，合法时间/清除、对象版本、幂等 Receipt 与 Audit 同事务；七天内或已到期限可突破近期更新时间边界进入“接下来值得处理”，按实际时间先后排序并显示自然语言理由，绝不生成分数。v1..v5→v6 均需先创建并只读校验快照，DDL/ledger/metadata 单事务，失败回滚。没有新表、平行状态或第二恢复路径。真实运行库迁移、Desktop 输入/reload 仍待验收。
 - 当前页显式 Candidate 已从 Diagnostics 移入正式 Review Center，并与 Proposal 形成明确的“待整理 / 待审阅”双视图及队列计数：用户在待整理视图手动启动当前页扫描、查看范围/截断/非法项说明、每次选择一个候选；提交前仍按 UUID 重读并经统一 Service/Application/SQLite 同步。切换只是会话级 UI 状态，没有新增领域状态或持久化。Diagnostics 不再承载该日常正式化入口，Anchor 修复与运行诊断仍保留。Candidate 拒绝/暂缓语义、跨来源统一列表和 Desktop Gate 尚未完成。
-- 2026-07-20 Desktop 阶段 Gate：A-RT-01 与 A-RT-02 通过；专用页显式 Task 首次物化、同 object_id 标题更新、已知 Anchor 候选去重通过；Service 停止时正文连续两次可保存，重连同一 SQLite 后仅交付最新正文，object version 3→4。移除原 UUID Marker 后 Anchor 变为 `conflict`且原 Object 保持上一可信正文；恢复 Marker 后同 object_id/anchor_id 回到 `active`，version 5→6。Diagnostics 已真实显示完整 commit/listener snapshot 与显式同步 pending/transport/reconciliation 状态。其余 Anchor missing/rebind、移动复制和有限子树仍待真实验收，详见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`。
+- 2026-07-20 Desktop 阶段 Gate：A-RT-01 与 A-RT-02 通过；专用页显式 Task 首次物化、同 object_id 标题更新、已知 Anchor 候选去重通过；Service 停止时正文连续两次可保存，重连同一 SQLite 后仅交付最新正文，object version 3→4。移除原 UUID Marker 后 Anchor 变为 `conflict`且原 Object 保持上一可信正文；恢复 Marker 后同 object_id/anchor_id 回到 `active`，version 5→6。Diagnostics 已真实显示完整 commit/listener snapshot 与显式同步 pending/transport/reconciliation 状态。同一测试库已在迁移前 0600 快照后从 schema v3 单事务升级至 v6，独立 Service + CLI status/Doctor/object list PASS，停止后 descriptor 清理且对象/完整性/Pending 计数不变；这不是期限 UI Desktop Gate。其余 Anchor missing/rebind、移动复制和有限子树仍待真实验收，详见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
 - 自动检查：2026-07-20 `./scripts/check.sh` PASS，243 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
-- Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；该 smoke 早于 schema v6，v6 真实进程迁移/重启仍待集中运行证据；
+- Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
