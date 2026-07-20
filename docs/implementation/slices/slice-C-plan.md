@@ -9,8 +9,8 @@
 | 阶段 | 交付 | 失败边界 | 当前状态 |
 |---|---|---|---|
 | C0 | V2 Proposal Schema、两文件渲染、Validator | shape、scope、hash、risk、dependency | 自动基础完成 |
-| C1 | SQLite proposals/proposal_groups + submit/read | 非法 Proposal 零持久化；重复 ID 冲突 | 待实施 |
-| C2 | Review Center 待审阅 + 四处置 + 语义组部分接受 | 高影响独立确认；依赖链不可拆 | Domain 自动规则完成；持久化/UI 待实施 |
+| C1 | SQLite proposals/proposal_groups + submit/read | 非法 Proposal 零持久化；重复 ID 冲突 | 自动基础完成 |
+| C2 | Review Center 待审阅 + 四处置 + 语义组部分接受 | 高影响独立确认；依赖链不可拆 | 自动基础完成；Desktop 待验收 |
 | C3 | Stale/version/scope revalidation | Block/Object 变化阻止提交 | 待实施 |
 | C4 | SemanticCommit Graph → Domain → Audit | Partial Failure 不显示成功 | ledger 可复用；编排待实施 |
 | C5 | inverse Commit / Undo / Recovery | 不覆盖后续编辑 | V1 证据可复用；V2 待实施 |
@@ -23,6 +23,15 @@
 - 高影响 operation 不能降为 MEDIUM/LOW；group/operation ID 唯一，依赖必须存在且无环。
 - 部分接受以语义组为单位；接受依赖链后半段、单独接受不可独立组或未单独确认 HIGH 组都会失败。
 - `/proposals/validate` 只验证并返回两文件，不写 Graph、SQLite 对象或 Proposal 元数据，不代表 submit/commit 已开放。
+
+## C1/C2 已建立的合同
+
+- schema v4 只增加 `proposals` / `proposal_groups`；v1/v2/v3 升级均要求预先校验的备份，禁止静默升级。
+- `POST /proposals/submit` 只接收已通过同一 runtime Validator 的 `READY` Proposal；同 ID 同内容幂等重放，同 ID 异内容整包冲突。
+- `GET /proposals` 与 `GET /proposals/{id}` 返回确定性两文件、语义状态与乐观并发 `updatedAt`。
+- `POST /proposals/{id}/review` 按语义组写入接受、拒绝或暂缓；调整仍保留为 revise Proposal，不伪装成原地改写。
+- Review UI 在同一上下文展示最终预览、文本 Diff、语义 Diff 和分组决定；HIGH 组使用插件内独立确认。
+- UI 明确提示“已接受但尚未生效”；C3/C4 未完成前不提供假 Commit，审阅决定不写入正文或对象表。
 
 ## Gate 纪律
 

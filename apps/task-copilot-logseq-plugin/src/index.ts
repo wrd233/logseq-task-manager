@@ -144,6 +144,11 @@ async function model(): Promise<UiModel> {
   if (project) selectedProjectId = project.objectId;
   let reentry: ProjectReentryView | undefined;
   if (project) reentry = await app.getProjectReentry(project.objectId);
+  let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
+  let v2ProposalLoadError: string | undefined;
+  if (serviceConnection.status === "READY" && serviceRuntimeClient) {
+    try { v2Proposals = await serviceRuntimeClient.listProposals(); } catch (error) { v2ProposalLoadError = explain(error); }
+  }
   return {
     workspace,
     agent: app.agentStatus(),
@@ -173,6 +178,8 @@ async function model(): Promise<UiModel> {
     ...(inboxDialog ? { inboxDialog } : {}),
     ...(actionDialog ? { actionDialog } : {}),
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+    v2Proposals,
+    ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
   };
 }
 
@@ -621,6 +628,43 @@ async function handleAction(action: string, value?: string): Promise<void> {
       workspace = "objects";
       message = `${result.pageName} 已创建并验证；Project ${result.object.objectId} 已正式写入 SQLite，可重试且不会重复。`;
     });
+    return;
+  }
+  if ((action === "v2-review-accept" || action === "v2-review-reject") && value) {
+    const [proposalId, groupId, expectedUpdatedAt, risk] = value.split("|");
+    if (!proposalId || !groupId || !expectedUpdatedAt) return;
+    if (action === "v2-review-accept" && risk === "HIGH") return openActionDialog("confirm-v2-review-accept", value);
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client) throw new Error("V2 Local Service 未就绪；审阅决定未保存。");
+      await client.reviewProposal(proposalId, { [groupId]: { disposition: action === "v2-review-accept" ? "ACCEPTED" : "REJECTED" } }, expectedUpdatedAt);
+      workspace = "review";
+    }, action === "v2-review-accept" ? "语义组已接受，但尚未正式生效；最终 Commit 仍需版本重验。" : "语义组已拒绝；没有修改正式状态。");
+    return;
+  }
+  if (action === "v2-review-defer" && value) return openActionDialog("v2-review-defer", value);
+  if (action === "submit-v2-review-accept" && value) {
+    if (!dialogChecked("actionConfirmed")) { latestError = "请独立确认高影响语义组。"; await refresh(); return; }
+    const [proposalId, groupId, expectedUpdatedAt] = value.split("|");
+    await run(async () => {
+      if (!proposalId || !groupId || !expectedUpdatedAt || !serviceRuntimeClient) throw new Error("V2 审阅上下文已失效；请刷新后重试。");
+      await serviceRuntimeClient.reviewProposal(proposalId, { [groupId]: { disposition: "ACCEPTED", highImpactConfirmed: true } }, expectedUpdatedAt);
+      actionDialog = undefined;
+      workspace = "review";
+    }, "高影响语义组已接受，但尚未正式生效；最终 Commit 仍需版本重验。");
+    return;
+  }
+  if (action === "submit-v2-review-defer" && value) {
+    const [proposalId, groupId, expectedUpdatedAt] = value.split("|");
+    const raw = dialogField("v2DeferredUntil");
+    const reason = dialogField("v2DeferReason");
+    await run(async () => {
+      const deferredUntil = new Date(raw);
+      if (!proposalId || !groupId || !expectedUpdatedAt || !serviceRuntimeClient || !raw || !Number.isFinite(deferredUntil.getTime()) || !reason) throw new Error("请填写合法复查时间和原因。");
+      await serviceRuntimeClient.reviewProposal(proposalId, { [groupId]: { disposition: "DEFERRED", deferredUntil: deferredUntil.toISOString(), reason } }, expectedUpdatedAt);
+      actionDialog = undefined;
+      workspace = "review";
+    }, "语义组已暂缓；没有修改正式状态。");
     return;
   }
   if (action === "cancel-inbox-dialog") {

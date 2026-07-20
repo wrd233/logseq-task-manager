@@ -20,7 +20,7 @@ SQLite 同时使用 `PRAGMA user_version`、`schema_meta.schema_version` 和只�
 
 ## 当前路径
 
-schema v2 引入 `schema_migrations`，schema v3 引入受约束的 `semantic_commits` / `semantic_commit_steps`。已实现 v1 → v3 和 v2 → v3：
+schema v2 引入 `schema_migrations`，schema v3 引入受约束的 `semantic_commits` / `semantic_commit_steps`，schema v4 引入 `proposals` / `proposal_groups`。已实现 v1/v2/v3 → v4：
 
 - v1 `initial_core_schema` 以原 `schema_meta.created_at` 作为应用时间；
 - v2 `add_schema_migration_ledger` 记录显式升级时间；

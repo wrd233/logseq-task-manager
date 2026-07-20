@@ -3,8 +3,8 @@ import { chmod, mkdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, type MaterializeExplicitObjectInput } from "@task-copilot/application";
-import { renderV2ProposalFiles, validateV2Proposal } from "@task-copilot/domain";
+import { V2Application, V2ProposalApplication, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { renderV2ProposalFiles, validateV2Proposal, type V2ProposalGroupDecision } from "@task-copilot/domain";
 import { V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
@@ -164,6 +164,23 @@ async function readProjectRequest(request: IncomingMessage, finalize: boolean): 
   return { ...record, name } as unknown as PrepareProjectRequest | FinalizeProjectRequest;
 }
 
+async function readProposalReviewRequest(request: IncomingMessage): Promise<{ decisions: Record<string, V2ProposalGroupDecision>; expectedUpdatedAt: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const decisions = record.decisions && typeof record.decisions === "object" && !Array.isArray(record.decisions) ? record.decisions as Record<string, unknown> : undefined;
+  if (Object.keys(record).sort().join(",") !== "decisions,expectedUpdatedAt" || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || !decisions || Object.keys(decisions).length > 64) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 审阅请求无效。");
+  for (const [groupId, rawDecision] of Object.entries(decisions)) {
+    const decision = rawDecision && typeof rawDecision === "object" && !Array.isArray(rawDecision) ? rawDecision as Record<string, unknown> : {};
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(groupId) || !["ACCEPTED", "REJECTED", "DEFERRED"].includes(String(decision.disposition))) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 审阅决定无效。");
+    if (decision.disposition === "ACCEPTED" && (Object.keys(decision).some((key) => !["disposition", "highImpactConfirmed"].includes(key)) || (decision.highImpactConfirmed !== undefined && typeof decision.highImpactConfirmed !== "boolean"))) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 接受决定包含未知字段。");
+    if (decision.disposition === "REJECTED" && Object.keys(decision).length !== 1) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 拒绝决定包含未知字段。");
+    if (decision.disposition === "DEFERRED" && (Object.keys(decision).sort().join(",") !== "deferredUntil,disposition,reason" || typeof decision.deferredUntil !== "string" || typeof decision.reason !== "string")) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 暂缓决定无效。");
+  }
+  return { decisions: decisions as Record<string, V2ProposalGroupDecision>, expectedUpdatedAt: record.expectedUpdatedAt };
+}
+
 function projectSemanticCommitId(graphId: string, name: string): string {
   return `project-create:${createHash("sha256").update(JSON.stringify([graphId, normalizedProjectName(name).toLocaleLowerCase("zh-CN")])).digest("hex")}`;
 }
@@ -288,16 +305,16 @@ function primaryAnchorRebindIdempotencyKey(graphId: string, input: PrimaryAnchor
 
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
-    const proposalInputError = error.code.startsWith("V2_PROPOSAL_");
+    const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && !["V2_PROPOSAL_NOT_FOUND", "V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_ID_CONFLICT"].includes(error.code);
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : proposalInputError || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
+      : proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
         ? 400
-        : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND"
+        : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND"
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_PROPOSAL_REVIEW_STALE" || error.code === "V2_PROPOSAL_ID_CONFLICT"
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -317,6 +334,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   let stopping = false;
   store.initialize(options.graphId);
   const application = new V2Application(store);
+  const proposalApplication = new V2ProposalApplication(store);
   const capabilities: ServiceCapabilities = { formalWrites: true, migration: false, provider: false, backup: true };
 
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
@@ -359,6 +377,30 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       }
       const proposal = validateV2Proposal(candidate);
       respond(response, 200, { status: "VALID", proposal, files: renderV2ProposalFiles(proposal) });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/proposals/submit") {
+      const body = await readBody(request);
+      let candidate: unknown;
+      try { candidate = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+      const result = await proposalApplication.submit(candidate);
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/proposals") {
+      respond(response, 200, { proposals: await proposalApplication.list() });
+      return;
+    }
+    const proposalReviewMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/review$/) : null;
+    if (proposalReviewMatch?.[1]) {
+      const input = await readProposalReviewRequest(request);
+      respond(response, 200, await proposalApplication.review(decodeURIComponent(proposalReviewMatch[1]), input.decisions, input.expectedUpdatedAt));
+      return;
+    }
+    const proposalReadMatch = request.method === "GET" ? url.pathname.match(/^\/proposals\/([^/]+)$/) : null;
+    if (proposalReadMatch?.[1]) {
+      const record = await proposalApplication.get(decodeURIComponent(proposalReadMatch[1]));
+      respond(response, record ? 200 : 404, record ? { record } : { error: { code: "V2_PROPOSAL_NOT_FOUND" } });
       return;
     }
     if (request.method === "POST" && url.pathname === "/projects/prepare") {

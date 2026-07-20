@@ -110,6 +110,30 @@ test("Inbox and Proposal Review expose the complete manual and partial-review co
   }
 });
 
+test("V2 Review shows text and semantic Diff while making accepted-not-applied explicit", () => {
+  const value = model();
+  value.workspace = "review";
+  value.v2Proposals = [{
+    updatedAt: "2026-07-20T12:00:01.000Z",
+    files: { proposalMd: "# 正式化", proposalJson: "{}" },
+    proposal: {
+      proposalId: "prop_v2", schemaVersion: "v2", title: "正式化告警", context: "当前普通正文。", understanding: "建议 Task。", objective: "建立对象。", logic: "正文语义一起提交。", finalPreview: "[任务] 告警", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [{ kind: "BLOCK", id: "block-v2", version: 1, hash: "11111111" }] }, preconditions: [],
+      groups: [{ groupId: "formalize", explanation: "不可拆组。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-v2", beforeText: "告警", afterText: "[任务] 告警", beforeHash: "11111111", afterHash: "22222222" }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-v2" }, summary: "创建 Task 与 Anchor", payload: {}, preconditions: [] }], disposition: "PENDING" }],
+      status: "READY", createdAt: "2026-07-20T12:00:00.000Z",
+    },
+  }];
+  let html = renderApp(value);
+  assert.match(html, /最终可读预览/);
+  assert.match(html, /语义 Diff/);
+  for (const action of ["v2-review-accept", "v2-review-reject", "v2-review-defer"]) assert.match(html, new RegExp(`data-action="${action}"`));
+  assert.match(html, /审阅决定只更新 Proposal；尚未修改正式正文或对象/);
+  value.v2Proposals[0]!.proposal.status = "ACCEPTED";
+  value.v2Proposals[0]!.proposal.groups[0]!.disposition = "ACCEPTED";
+  html = renderApp(value);
+  assert.match(html, /语义组已接受，但尚未正式生效/);
+  assert.match(html, /显示 Undo/);
+});
+
 test("object and high-impact actions render in-plugin forms instead of browser modals", () => {
   const value = model();
   value.objects = [{

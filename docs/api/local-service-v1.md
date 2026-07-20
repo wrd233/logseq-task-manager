@@ -37,11 +37,16 @@
 | POST | `/objects/synchronize` | 按绑定状态选择首次物化或同类型标题/Anchor 更新 | SQLite 单事务正式写入 |
 | POST | `/anchors/primary/observe` | 将已知 Primary Anchor 观察为 `active / missing / conflict` | Object version + Anchor + Audit + Receipt 单事务写入；不删对象 |
 | POST | `/anchors/primary/rebind` | 显式确认后把对象绑定到新的同类型 Block | Object + 旧 Anchor `replaced` + 新 active Anchor + Audit + Receipt 单事务写入 |
+| POST | `/proposals/validate` | 验证 Proposal 并生成确定性两文件 | 无 |
+| POST | `/proposals/submit` | 将 READY Proposal 提交至审阅队列 | Proposal + Group 单事务写入；不改正文/对象 |
+| GET | `/proposals` | 按创建顺序列出已提交 Proposal | 无 |
+| GET | `/proposals/{id}` | 读取单个 Proposal、两文件和 `updatedAt` | 无 |
+| POST | `/proposals/{id}/review` | 按语义组接受/拒绝/暂缓 | Proposal + Group 单事务写入；不改正文/对象 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
 
-未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步、Anchor 观察、重新绑定与 Project 创建路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。`POST /proposals/validate` 是零持久化校验接口：只返回规范化 Proposal 与两文件预览，不代表 submit/commit 已开放。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步、Anchor 观察、重新绑定与 Project 创建路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。Proposal submit/review 只改审阅状态，不是正式领域生效；C3/C4 未完成前没有 Proposal Commit 路由。
 
 ## 显式 Block 物化
 
@@ -105,7 +110,7 @@
   "createdAt": "2026-07-20T00:00:00.000Z",
   "validation": {
     "status": "PASS",
-    "schemaVersion": 3,
+    "schemaVersion": 4,
     "integrity": "ok",
     "foreignKeyViolations": 0,
     "objectCount": 0
@@ -152,6 +157,11 @@
 | `V2_PRIMARY_ANCHOR_NOT_FOUND` | Anchor 不属于当前 Graph、不存在或已被替换 |
 | `V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS` | 同一 Graph Block 已绑定正式对象，必须转入同步而非重复物化 |
 | `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL` | 已绑定对象的显式类型变化，必须进入可审阅 Proposal |
+| `V2_PROPOSAL_NOT_READY` | 只有 READY Proposal 可进入审阅队列 |
+| `V2_PROPOSAL_ID_CONFLICT` | 相同 Proposal ID 已有不同内容 |
+| `V2_PROPOSAL_NOT_FOUND` | Proposal 不存在 |
+| `V2_PROPOSAL_REVIEW_STALE` | Proposal 审阅版本已变化，本次零写入 |
+| `PROPOSAL_REVIEW_REQUEST_INVALID` | 分组决定、暂缓信息或请求字段无效 |
 | `SERVICE_STOPPING` | Restore 进行中拒绝新请求 |
 | `V2_GRAPH_ID_MISMATCH` | Backup 不属于当前 Graph |
 | `V2_UNSUPPORTED_DATABASE_SCHEMA` | Backup schema 版本不受支持 |

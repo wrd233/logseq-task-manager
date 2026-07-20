@@ -9,7 +9,7 @@
 - 创建后立即以 readonly + fileMustExist 打开，校验 schema、Graph identity、integrity、foreign keys 和 object count；
 - Restore Validate 只接受服务端生成的 `backup_id`，不修改快照字节；
 - 错误响应只包含结构化 code/message，不返回本机路径、SQLite cause、stack 或 session token。
-- schema v3 记录只追加 migration ledger 并建立 SemanticCommit step ledger；旧 schema 的显式升级在 DDL 前另建经校验的不覆盖快照。
+- schema v3 建立 SemanticCommit step ledger，schema v4 增加 Proposal/Group 审阅表；migration ledger 只追加，旧 schema 的显式升级在 DDL 前另建经校验的不覆盖快照。
 - persistence Node 边界已实现未对外开放的 `restoreOffline` 原语：要求主库、候选快照、恢复点路径互不相同，先验证候选快照，再为当前主库创建并验证恢复点，通过同目录 rename 激活快照，重开 Doctor 失败时回滚原库；
 - fault injection 已证明激活后失败会恢复原主库，且恢复前快照保留。
 

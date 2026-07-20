@@ -4,3 +4,4 @@ export * from "./task-copilot.ts";
 export * from "./testing.ts";
 export * from "./views.ts";
 export * from "./v2.ts";
+export * from "./v2-proposal.ts";

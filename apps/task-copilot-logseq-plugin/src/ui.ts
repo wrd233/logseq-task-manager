@@ -6,6 +6,7 @@ import type {
   ProjectReentryView,
 } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation } from "@task-copilot/domain";
+import type { ServiceStoredProposal } from "@task-copilot/service-client";
 import type { ObservableActionState } from "./inbox-action-controller.ts";
 
 export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "audit";
@@ -22,7 +23,9 @@ export type ActionDialogKind =
   | "confirm-phase"
   | "reopen-phase"
   | "confirm-rebind"
-  | "confirm-undo";
+  | "confirm-undo"
+  | "confirm-v2-review-accept"
+  | "v2-review-defer";
 
 export interface UiModel {
   workspace: Workspace;
@@ -53,6 +56,8 @@ export interface UiModel {
   inboxDialog?: { captureId: string; kind: "formalize" | "proposal" | "link" | "defer" | "dismiss" };
   actionDialog?: { kind: ActionDialogKind; value: string };
   v2ProjectCreationAvailable?: boolean;
+  v2Proposals?: ServiceStoredProposal[];
+  v2ProposalLoadError?: string;
 }
 
 export function escapeHtml(value: unknown): string {
@@ -207,8 +212,19 @@ function renderFinalImpact(impact: ProposalImpactView | undefined): string {
 
 function renderReview(model: UiModel): string {
   const open = model.proposals.filter((proposal) => proposal.status === "OPEN");
-  if (open.length === 0) return empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务能力仍可使用。");
-  return `<div class="cards">${open
+  const v2 = model.v2Proposals ?? [];
+  const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
+  const v2Cards = v2.map((record) => `<article class="card proposal v2-proposal">
+    <div class="eyebrow">V2 · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
+    <h3>${escapeHtml(record.proposal.title)}</h3>
+    <p><strong>当前上下文：</strong>${escapeHtml(record.proposal.context)}</p>
+    <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
+    <section class="suggestion"><h4>最终可读预览</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
+    ${record.proposal.groups.map((group) => `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${button("接受该语义组", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}`, "primary")}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}</div>` : ""}</section>`).join("")}
+    <div class="notice">${record.proposal.status === "ACCEPTED" ? "语义组已接受，但尚未正式生效；版本重验与最终 Commit 完成后才会写入 Graph/SQLite，并显示 Undo。" : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
+  </article>`).join("");
+  if (open.length === 0 && v2.length === 0 && !v2LoadError) return empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务能力仍可使用。");
+  return `${v2LoadError}<div class="cards">${v2Cards}${open
     .map(
       (proposal) => `<article class="card proposal">
         <div class="eyebrow">${escapeHtml(proposal.providerId)} · ${escapeHtml(proposal.generatedAt)}</div>
@@ -328,9 +344,11 @@ function renderActionDialog(model: UiModel): string {
     "confirm-phase": ["确认完成 Project", "我已检查目标达成、下层对象、等待项、成果和归档入口", "submit-phase"],
     "confirm-rebind": ["重新绑定主正文 Anchor", "我确认将当前选中 Block 设为新的主正文 Anchor；旧 Anchor 保留为 replaced", "submit-rebind-anchor"],
     "confirm-undo": ["撤销 SemanticCommit", "我确认撤销；系统会先校验正文没有被二次编辑，并创建逆向 Commit", "submit-undo-commit"],
+    "confirm-v2-review-accept": ["接受高影响语义组", "我确认接受当前高影响语义组；这仍不会绕过最终版本重验和 Commit", "submit-v2-review-accept"],
   };
   const confirmation = confirmations[dialog.kind];
   if (confirmation) return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(confirmation[0])}"><h3>${escapeHtml(confirmation[0])}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(confirmation[1])}</label><div class="actions">${button("确认继续", confirmation[2], dialog.value, "danger")}${cancel}</div></section>`;
+  if (dialog.kind === "v2-review-defer") return `<section class="inbox-dialog action-dialog" aria-label="暂缓 V2 语义组"><h3>暂缓语义组</h3><label>复查时间<input type="datetime-local" data-field="v2DeferredUntil"></label><label>原因<input data-field="v2DeferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-v2-review-defer", dialog.value, "primary")}${cancel}</div></section>`;
   return "";
 }
 

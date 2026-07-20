@@ -7,6 +7,8 @@ import test from "node:test";
 import Database from "better-sqlite3";
 
 import { V2Application } from "@task-copilot/application";
+import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
+import { checksum } from "@task-copilot/shared";
 
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "../src/sqlite.ts";
 
@@ -31,6 +33,7 @@ test("SQLite initialization is Graph-bound and idempotent", async (t) => {
 
 async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   const database = new Database(path);
+  database.exec("DROP TABLE IF EXISTS proposal_groups; DROP TABLE IF EXISTS proposals");
   database.exec("DROP TABLE IF EXISTS semantic_commit_steps; DROP TABLE IF EXISTS semantic_commits");
   database.exec("DROP TABLE IF EXISTS schema_migrations");
   database.prepare("UPDATE schema_meta SET value = '1' WHERE key = 'schema_version'").run();
@@ -54,7 +57,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath, new Date("2026-07-20T08:00:00.000Z")), {
     migrated: true,
     fromVersion: 1,
-    schemaVersion: 3,
+    schemaVersion: 4,
     backupPath,
   });
   const preflight = new Database(backupPath, { readonly: true, fileMustExist: true });
@@ -65,14 +68,15 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 1, name: "initial_core_schema", appliedAt: "2026-07-20T07:00:00.000Z" },
     { version: 2, name: "add_schema_migration_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 3, name: "add_semantic_commit_step_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 4, name: "add_proposal_review_tables", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
-  assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: 3 });
+  assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: 4 });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
     migrated: false,
-    fromVersion: 3,
-    schemaVersion: 3,
+    fromVersion: 4,
+    schemaVersion: 4,
   });
-  assert.equal(migrated.schemaMigrationHistory().length, 3, "repeated initialize must not duplicate migration rows");
+  assert.equal(migrated.schemaMigrationHistory().length, 4, "repeated initialize must not duplicate migration rows");
   migrated.close();
 });
 
@@ -107,8 +111,8 @@ test("failed schema migration rolls back metadata and ledger and can be retried"
   afterFailure.close();
 
   const retried = await V2SqliteStore.open(path);
-  assert.equal((await retried.migrateSchema("graph-a", join(root, "before-retry.db"))).schemaVersion, 3);
-  assert.equal(retried.schemaMigrationHistory().length, 3);
+  assert.equal((await retried.migrateSchema("graph-a", join(root, "before-retry.db"))).schemaVersion, 4);
+  assert.equal(retried.schemaMigrationHistory().length, 4);
   retried.close();
 });
 
@@ -118,7 +122,7 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version = 3");
+  legacy.exec("DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
   legacy.prepare("UPDATE schema_meta SET value = '2' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 2");
   legacy.close();
@@ -129,7 +133,7 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-20T10:00:00.000Z")), {
     migrated: true,
     fromVersion: 2,
-    schemaVersion: 3,
+    schemaVersion: 4,
     backupPath,
   });
   const preflight = new Database(backupPath, { readonly: true });
@@ -146,6 +150,50 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
     /CHECK constraint failed/,
   );
   migrating.close();
+});
+
+test("schema v3 explicitly migrates to proposal review tables after a validated backup", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec("DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version = 4");
+  legacy.prepare("UPDATE schema_meta SET value = '3' WHERE key = 'schema_version'").run();
+  legacy.pragma("user_version = 3");
+  legacy.close();
+  const migrating = await V2SqliteStore.open(path);
+  assert.throws(() => migrating.initialize("graph-a"), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_REQUIRED");
+  const backupPath = join(root, "before-proposals.db");
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-20T11:00:00.000Z")), { migrated: true, fromVersion: 3, schemaVersion: 4, backupPath });
+  assert.equal(migrating.schemaMigrationHistory()[3]?.name, "add_proposal_review_tables");
+  migrating.close();
+});
+
+function validProposal(): V2Proposal {
+  const beforeText = "梳理告警";
+  const afterText = "[任务] 梳理告警";
+  return {
+    proposalId: "prop_sqlite", schemaVersion: "v2", title: "正式化告警梳理", context: "当前普通正文。", understanding: "建议 Task。", objective: "可追踪。", logic: "正文与语义绑定。", finalPreview: afterText, unresolvedQuestions: [], source: { kind: "user" },
+    scope: { read: [], modify: [{ kind: "BLOCK", id: "block-sqlite", version: 1, hash: checksum(beforeText) }] }, preconditions: [],
+    groups: [{ groupId: "formalize", explanation: "不可拆组。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-sqlite", beforeText, afterText, beforeHash: checksum(beforeText), afterHash: checksum(afterText) }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-sqlite", version: 1, hash: checksum(beforeText) }, summary: "创建 Task", payload: { objectType: "TASK" }, preconditions: [] }], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-20T12:00:00.000Z",
+  };
+}
+
+test("validated Proposal and group metadata persist atomically and replay only exact content", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const proposal = validProposal();
+  const files = renderV2ProposalFiles(proposal);
+  assert.equal(store.submitProposal(proposal, files).replayed, false);
+  assert.equal(store.submitProposal(proposal, files).replayed, true);
+  assert.deepEqual(store.storedProposal(proposal.proposalId)?.proposal, proposal);
+  assert.equal(store.listStoredProposals().length, 1);
+  const conflicting = { ...proposal, title: "不同内容" };
+  assert.throws(() => store.submitProposal(conflicting, renderV2ProposalFiles(conflicting)), /内容不同/);
+  assert.equal(store.listStoredProposals().length, 1);
+  store.close();
 });
 
 test("SemanticCommit ledger is pending-first, transition-checked, idempotent, and restart-queryable", async (t) => {

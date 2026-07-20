@@ -21,10 +21,10 @@ import type {
   V2OwnershipCommandResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
-import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
+import { renderV2ProposalFiles, validateV2Proposal, type V2Anchor, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 3;
+export const V2_DATABASE_SCHEMA_VERSION = 4;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -48,7 +48,14 @@ const schemaMigrationNames = new Map<number, string>([
   [1, "initial_core_schema"],
   [2, "add_schema_migration_ledger"],
   [3, "add_semantic_commit_step_ledger"],
+  [4, "add_proposal_review_tables"],
 ]);
+
+export interface V2StoredProposal {
+  proposal: V2Proposal;
+  files: V2ProposalFiles;
+  updatedAt: string;
+}
 
 export interface SqliteDoctorReport {
   status: "PASS" | "FAIL";
@@ -299,6 +306,22 @@ export class V2SqliteStore {
           updated_at TEXT NOT NULL,
           PRIMARY KEY (semantic_commit_id, step_index)
         ) STRICT;
+        CREATE TABLE proposals (
+          proposal_id TEXT PRIMARY KEY,
+          status TEXT NOT NULL CHECK (status IN ('DRAFT','READY','IN_REVIEW','PARTIALLY_ACCEPTED','ACCEPTED','REJECTED','STALE','APPLIED','FAILED','SUPERSEDED')),
+          proposal_json TEXT NOT NULL CHECK (json_valid(proposal_json)),
+          proposal_md TEXT NOT NULL CHECK (length(trim(proposal_md)) > 0),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        ) STRICT;
+        CREATE TABLE proposal_groups (
+          proposal_id TEXT NOT NULL REFERENCES proposals(proposal_id) ON DELETE CASCADE,
+          group_id TEXT NOT NULL,
+          disposition TEXT NOT NULL CHECK (disposition IN ('PENDING','ACCEPTED','REJECTED','DEFERRED')),
+          group_json TEXT NOT NULL CHECK (json_valid(group_json)),
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (proposal_id, group_id)
+        ) STRICT;
         CREATE TABLE schema_migrations (
           version INTEGER PRIMARY KEY CHECK (version >= 1),
           name TEXT NOT NULL UNIQUE,
@@ -358,13 +381,14 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if ((fromVersion !== 1 && fromVersion !== 2) || V2_DATABASE_SCHEMA_VERSION !== 3) {
+    if (![1, 2, 3].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 4) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
     if (!createdAt) throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema metadata 缺少 created_at。");
     const migration = this.database.transaction(() => {
-      if (fromVersion === 1) {
+      let workingVersion = fromVersion;
+      if (workingVersion === 1) {
         this.database.exec(`
           CREATE TABLE schema_migrations (
             version INTEGER PRIMARY KEY CHECK (version >= 1),
@@ -375,14 +399,15 @@ export class V2SqliteStore {
         const insertLegacy = this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)");
         insertLegacy.run(1, schemaMigrationNames.get(1), createdAt);
         insertLegacy.run(2, schemaMigrationNames.get(2), at.toISOString());
+        workingVersion = 2;
       } else {
         const history = readMigrationHistory(this.database);
-        if (history.length !== 2 || history.some((record, index) => record.version !== index + 1 || record.name !== schemaMigrationNames.get(record.version))) {
-          throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema migration ledger 与 v2 不一致。");
+        if (history.length !== workingVersion || history.some((record, index) => record.version !== index + 1 || record.name !== schemaMigrationNames.get(record.version))) {
+          throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema migration ledger 与来源版本不一致。");
         }
       }
-      this.database.exec(`
-        CREATE TABLE semantic_commits (
+      if (workingVersion === 2) {
+        this.database.exec(`CREATE TABLE semantic_commits (
           semantic_commit_id TEXT PRIMARY KEY,
           proposal_id TEXT,
           status TEXT NOT NULL CHECK (status IN ('PENDING','COMPLETED','FAILED','RECOVERY_REQUIRED','UNDONE')),
@@ -403,10 +428,33 @@ export class V2SqliteStore {
           error_code TEXT,
           updated_at TEXT NOT NULL,
           PRIMARY KEY (semantic_commit_id, step_index)
-        ) STRICT;
-      `);
-      this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
-        .run(3, schemaMigrationNames.get(3), at.toISOString());
+        ) STRICT;`);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(3, schemaMigrationNames.get(3), at.toISOString());
+        workingVersion = 3;
+      }
+      if (workingVersion === 3) {
+        this.database.exec(`
+          CREATE TABLE proposals (
+            proposal_id TEXT PRIMARY KEY,
+            status TEXT NOT NULL CHECK (status IN ('DRAFT','READY','IN_REVIEW','PARTIALLY_ACCEPTED','ACCEPTED','REJECTED','STALE','APPLIED','FAILED','SUPERSEDED')),
+            proposal_json TEXT NOT NULL CHECK (json_valid(proposal_json)),
+            proposal_md TEXT NOT NULL CHECK (length(trim(proposal_md)) > 0),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          ) STRICT;
+          CREATE TABLE proposal_groups (
+            proposal_id TEXT NOT NULL REFERENCES proposals(proposal_id) ON DELETE CASCADE,
+            group_id TEXT NOT NULL,
+            disposition TEXT NOT NULL CHECK (disposition IN ('PENDING','ACCEPTED','REJECTED','DEFERRED')),
+            group_json TEXT NOT NULL CHECK (json_valid(group_json)),
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (proposal_id, group_id)
+          ) STRICT;
+        `);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(4, schemaMigrationNames.get(4), at.toISOString());
+      }
       this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
     });
@@ -465,6 +513,56 @@ export class V2SqliteStore {
       this.writeAudit(command.audit);
       this.writeReceipt(command.idempotencyKey, command.audit, command.object);
       return { object: command.object, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  submitProposal(proposal: V2Proposal, files: V2ProposalFiles, at = new Date()): { proposal: V2Proposal; replayed: boolean } {
+    validateV2Proposal(proposal);
+    const canonicalFiles = renderV2ProposalFiles(proposal);
+    if (files.proposalJson !== canonicalFiles.proposalJson || files.proposalMd !== canonicalFiles.proposalMd) throw persistenceError("V2_PROPOSAL_FILES_MISMATCH", "Proposal 两文件与已验证语义不一致。");
+    const write = this.database.transaction(() => {
+      const existing = this.database.prepare("SELECT proposal_json, proposal_md FROM proposals WHERE proposal_id = ?").get(proposal.proposalId) as { proposal_json: string; proposal_md: string } | undefined;
+      if (existing) {
+        if (existing.proposal_json !== files.proposalJson.trimEnd() || existing.proposal_md !== files.proposalMd) throw persistenceError("V2_PROPOSAL_ID_CONFLICT", "Proposal ID 已存在且内容不同。");
+        return { proposal: validateV2Proposal(JSON.parse(existing.proposal_json) as unknown), replayed: true };
+      }
+      const updatedAt = at.toISOString();
+      this.database.prepare("INSERT INTO proposals(proposal_id, status, proposal_json, proposal_md, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(proposal.proposalId, proposal.status, files.proposalJson.trimEnd(), files.proposalMd, proposal.createdAt, updatedAt);
+      const insertGroup = this.database.prepare("INSERT INTO proposal_groups(proposal_id, group_id, disposition, group_json, updated_at) VALUES (?, ?, ?, ?, ?)");
+      for (const group of proposal.groups) insertGroup.run(proposal.proposalId, group.groupId, group.disposition, stableJson(group), updatedAt);
+      return { proposal, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  storedProposal(proposalId: string): V2StoredProposal | undefined {
+    const row = this.database.prepare("SELECT proposal_json, proposal_md, updated_at FROM proposals WHERE proposal_id = ?").get(proposalId) as { proposal_json: string; proposal_md: string; updated_at: string } | undefined;
+    if (!row) return undefined;
+    const proposal = validateV2Proposal(JSON.parse(row.proposal_json) as unknown);
+    return { proposal, files: { proposalJson: `${row.proposal_json}\n`, proposalMd: row.proposal_md }, updatedAt: row.updated_at };
+  }
+
+  listStoredProposals(): V2StoredProposal[] {
+    return (this.database.prepare("SELECT proposal_id FROM proposals ORDER BY created_at, proposal_id").all() as Array<{ proposal_id: string }>).map((row) => this.storedProposal(row.proposal_id)!);
+  }
+
+  updateStoredProposal(proposal: V2Proposal, files: V2ProposalFiles, expectedUpdatedAt: string, at = new Date()): V2StoredProposal {
+    validateV2Proposal(proposal);
+    const canonicalFiles = renderV2ProposalFiles(proposal);
+    if (files.proposalJson !== canonicalFiles.proposalJson || files.proposalMd !== canonicalFiles.proposalMd) throw persistenceError("V2_PROPOSAL_FILES_MISMATCH", "Proposal 两文件与已验证语义不一致。");
+    const write = this.database.transaction(() => {
+      const current = this.database.prepare("SELECT updated_at FROM proposals WHERE proposal_id = ?").get(proposal.proposalId) as { updated_at: string } | undefined;
+      if (!current) throw persistenceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      if (current.updated_at !== expectedUpdatedAt) throw persistenceError("V2_PROPOSAL_REVIEW_STALE", "Proposal 已变化；本次审阅没有写入。");
+      const updatedAt = at.toISOString();
+      this.database.prepare("UPDATE proposals SET status = ?, proposal_json = ?, proposal_md = ?, updated_at = ? WHERE proposal_id = ? AND updated_at = ?")
+        .run(proposal.status, files.proposalJson.trimEnd(), files.proposalMd, updatedAt, proposal.proposalId, expectedUpdatedAt);
+      this.database.prepare("DELETE FROM proposal_groups WHERE proposal_id = ?").run(proposal.proposalId);
+      const insertGroup = this.database.prepare("INSERT INTO proposal_groups(proposal_id, group_id, disposition, group_json, updated_at) VALUES (?, ?, ?, ?, ?)");
+      for (const group of proposal.groups) insertGroup.run(proposal.proposalId, group.groupId, group.disposition, stableJson(group), updatedAt);
+      return this.storedProposal(proposal.proposalId)!;
     });
     return this.executeWrite(write);
   }

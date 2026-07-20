@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B2/B4 foundation in progress"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 183 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI schema v3 and restore/restart process smokes PASS; Slice B known-Anchor, move/copy, bounded Plugin rebind review, manual current-page candidate discovery, and finite changed-subtree contracts PASS"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 209 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; schema v4 Proposal/Group migration, submit/read/review service routes, optimistic review concurrency, and Plugin text/semantic Diff UI PASS; Desktop and formal Proposal Commit/Undo remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -26,7 +26,7 @@ implemented:
   - "Executable read-only tc status/doctor/object CLI with JSON envelope and exit codes"
   - "SQLite locked writes fail with zero formal writes; backups reject overwrite and validate schema, Graph identity, integrity and foreign keys read-only"
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
-  - "SQLite schema v3 migration and SemanticCommit step ledgers; v1/v2 upgrades require a validated preflight snapshot and roll back atomically on injected failure"
+  - "SQLite schema v4 migration ledger, SemanticCommit step ledger, and Proposal/Group review tables; v1/v2/v3 upgrades require a validated preflight snapshot and roll back atomically on injected failure"
   - "Known Primary Anchor observations persist missing/conflict/recovery through Local Service and one SQLite transaction without deleting objects or reviving replaced Anchors"
   - "Same-UUID synchronization preserves object_id, anchor_id and Primary Ownership; a copied UUID materializes a distinct object and Anchor"
   - "Explicit V2 Primary Anchor rebind requires confirmation, atomically preserves the old replaced Anchor while activating one new Anchor, and has a bounded Plugin review panel with stale re-read protection"

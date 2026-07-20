@@ -64,7 +64,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
     capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
-    databaseSchemaVersion: 3,
+    databaseSchemaVersion: 4,
     objectCount: 0,
   });
   const doctor = await fetch(new URL("doctor", service.url), { method: "POST", headers });
@@ -92,7 +92,7 @@ test("Local Service exposes object reads but refuses an unscoped generic write r
   assert.equal(write.status, 404);
 });
 
-test("Proposal validation renders review files and performs no formal write", async (t) => {
+test("Proposal validation, persistence, and review never masquerade as a formal object write", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal", token: "proposal-service-token-at-least-24-chars" });
   t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
@@ -104,6 +104,17 @@ test("Proposal validation renders review files and performs no formal write", as
   assert.equal((await client.status()).objectCount, 0);
   await assert.rejects(() => client.validateProposal({ schemaVersion: "v2" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_PROPOSAL_SHAPE_INVALID");
   assert.equal((await client.status()).objectCount, 0);
+  const submitted = await client.submitProposal(validProposal());
+  assert.equal(submitted.replayed, false);
+  assert.equal((await client.submitProposal(validProposal())).replayed, true);
+  assert.equal((await client.listProposals()).length, 1);
+  assert.equal((await client.getProposal("prop_service_validate"))?.proposal.status, "READY");
+  assert.equal(await client.getProposal("missing-proposal"), undefined);
+  const reviewed = await client.reviewProposal("prop_service_validate", { formalize: { disposition: "ACCEPTED" } }, submitted.record.updatedAt);
+  assert.equal(reviewed.proposal.status, "ACCEPTED");
+  await assert.rejects(() => client.reviewProposal("prop_service_validate", { formalize: { disposition: "REJECTED" } }, submitted.record.updatedAt), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_PROPOSAL_REVIEW_STALE");
+  assert.equal((await client.getProposal("prop_service_validate"))?.proposal.status, "ACCEPTED");
+  assert.equal((await client.status()).objectCount, 0, "review state is not a formal object write");
 });
 
 test("Local Service materializes one explicit Block without accepting Graph, path, or object authority", async (t) => {
