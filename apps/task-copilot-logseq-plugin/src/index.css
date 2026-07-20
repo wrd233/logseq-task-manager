@@ -47,6 +47,10 @@
 #task-copilot-personal-mvp-root nav button.active { background: var(--surface-2); color: var(--accent); }
 #task-copilot-personal-mvp-root .workspace { max-height: calc(100vh - 220px); min-height: 360px; overflow: auto; padding: 20px; }
 #task-copilot-personal-mvp-root .cards { display: grid; gap: 12px; }
+#task-copilot-personal-mvp-root .now-work-controls { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; margin-bottom: 18px; }
+#task-copilot-personal-mvp-root .now-work-controls strong { display: block; margin-bottom: 6px; }
+#task-copilot-personal-mvp-root .now-work-controls .muted { flex-basis: 100%; margin: 0; }
+#task-copilot-personal-mvp-root .now-work-group + .now-work-group { margin-top: 16px; }
 #task-copilot-personal-mvp-root .card, #task-copilot-personal-mvp-root .drawer, #task-copilot-personal-mvp-root .reentry { padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 #task-copilot-personal-mvp-root .card h3, #task-copilot-personal-mvp-root .drawer h2, #task-copilot-personal-mvp-root .reentry h2 { margin: 8px 0 10px; }
 #task-copilot-personal-mvp-root .card.compact { padding: 13px 15px; }

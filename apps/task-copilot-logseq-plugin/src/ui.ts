@@ -11,6 +11,8 @@ import type { ObservableActionState } from "./inbox-action-controller.ts";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 
 export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "audit";
+export type V2NowWorkTypeFilter = "ALL" | ServiceNowWork["focus"][number]["objectType"];
+export type V2NowWorkGrouping = "mixed" | "type";
 export type ActionDialogKind =
   | "edit-object"
   | "set-owner"
@@ -63,6 +65,8 @@ export interface UiModel {
   v2Proposals?: ServiceStoredProposal[];
   v2SemanticCommits?: ServiceSemanticCommit[];
   v2NowWork?: ServiceNowWork;
+  v2NowWorkTypeFilter?: V2NowWorkTypeFilter;
+  v2NowWorkGrouping?: V2NowWorkGrouping;
   v2CandidatePanel?: V2ExplicitCandidatePanelState;
   v2CandidateAvailable?: boolean;
   reviewMode?: "candidates" | "proposals";
@@ -130,9 +134,26 @@ function renderInboxDialog(model: UiModel, capture: Capture): string {
 
 function renderNow(model: UiModel): string {
   if (model.v2NowWork) {
-    const section = (title: string, values: ServiceNowWork["next"], kind: "focus" | "candidate") => values.length ? `<section><h2>${escapeHtml(title)}</h2><div class="cards">${values.map((item, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(item.objectType)} · ${escapeHtml(item.condition.kind)}</div><h3>${escapeHtml(item.text)}</h3><p>${escapeHtml(item.reason)}</p><div class="actions">${item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet")}${kind === "focus" ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}</div></article>`).join("")}</div></section>` : "";
+    const filter = model.v2NowWorkTypeFilter ?? "ALL";
+    const grouping = model.v2NowWorkGrouping ?? "mixed";
+    const allItems = [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview];
+    const typeOrder: Array<Exclude<V2NowWorkTypeFilter, "ALL">> = ["PROJECT", "MINI_PROJECT", "TASK", "AREA", "DECISION", "OUTPUT"];
+    const typeLabels: Record<Exclude<V2NowWorkTypeFilter, "ALL">, string> = { PROJECT: "Project", MINI_PROJECT: "MiniProject", TASK: "Task", AREA: "Area", DECISION: "Decision", OUTPUT: "Output" };
+    const availableTypes = typeOrder.filter((type) => allItems.some((item) => item.objectType === type));
+    const filtered = (values: ServiceNowWork["next"]) => filter === "ALL" ? values : values.filter((item) => item.objectType === filter);
+    const orderingAvailable = filter === "ALL" && grouping === "mixed";
+    const cards = (values: ServiceNowWork["next"], kind: "focus" | "candidate") => values.map((item, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(item.objectType)} · ${escapeHtml(item.condition.kind)}</div><h3>${escapeHtml(item.text)}</h3><p>${escapeHtml(item.reason)}</p><div class="actions">${item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet")}${kind === "focus" ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}</div></article>`).join("");
+    const section = (title: string, source: ServiceNowWork["next"], kind: "focus" | "candidate") => {
+      const values = filtered(source);
+      if (!values.length) return "";
+      const content = grouping === "type"
+        ? typeOrder.filter((type) => values.some((item) => item.objectType === type)).map((type) => `<div class="now-work-group"><h3>${escapeHtml(typeLabels[type])}</h3><div class="cards">${cards(values.filter((item) => item.objectType === type), kind)}</div></div>`).join("")
+        : `<div class="cards">${cards(values, kind)}</div>`;
+      return `<section><h2>${escapeHtml(title)}</h2>${content}</section>`;
+    };
+    const controls = `<section class="now-work-controls" aria-label="Now Work 筛选与分组"><div><strong>类型</strong><div class="actions wrap">${button("全部", "v2-now-filter", "ALL", filter === "ALL" ? "active" : "quiet")}${availableTypes.map((type) => button(typeLabels[type], "v2-now-filter", type, filter === type ? "active" : "quiet")).join("")}</div></div><div><strong>排列</strong><div class="actions">${button("混排", "v2-now-grouping", "mixed", grouping === "mixed" ? "active" : "quiet")}${button("按类型分组", "v2-now-grouping", "type", grouping === "type" ? "active" : "quiet")}</div></div>${orderingAvailable ? "" : "<p class=\"muted\">手动调整 Focus 顺序请切回“全部 · 混排”；筛选不会改变正式状态。</p>"}</section>`;
     const content = `${section("当前关注", model.v2NowWork.focus, "focus")}${section("接下来值得处理", model.v2NowWork.next, "candidate")}${section("等待与复查", model.v2NowWork.waitingReview, "candidate")}`;
-    return content || empty("当前没有需要推进的事项", "普通 Waiting 保持安静；这里不会加载全部 OPEN 对象。");
+    return `${controls}${content || empty("当前筛选下没有事项", "普通 Waiting 保持安静；可切换类型查看当前投影。")}`;
   }
   if (model.now.items.length === 0) return empty("当前没有需要推进的事项", "这里只显示 Actionable 与高价值注意项。");
   return `<div class="cards">${model.now.items

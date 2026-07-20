@@ -27,7 +27,7 @@ import {
   type RuntimeStage,
 } from "./runtime-diagnostics.ts";
 import { BootstrapRegistration, bindRootClick, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
-import { renderApp, type ActionDialogKind, type UiModel, type Workspace } from "./ui.ts";
+import { renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
 import { InboxActionController, createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger } from "./structured-logger.ts";
 import {
@@ -73,6 +73,8 @@ let featureReady = false;
 let uiBound = false;
 let workspace: Workspace = "inbox";
 let reviewMode: NonNullable<UiModel["reviewMode"]> = "candidates";
+let v2NowWorkTypeFilter: V2NowWorkTypeFilter = "ALL";
+let v2NowWorkGrouping: V2NowWorkGrouping = "mixed";
 let selectedObjectId: string | undefined;
 let selectedProjectId: string | undefined;
 let message: string | undefined;
@@ -199,6 +201,8 @@ async function model(): Promise<UiModel> {
     v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
+    v2NowWorkTypeFilter,
+    v2NowWorkGrouping,
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
   };
 }
@@ -515,6 +519,18 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "review-mode" && (value === "candidates" || value === "proposals")) {
     workspace = "review";
     reviewMode = value;
+    await refresh();
+    return;
+  }
+  if (action === "v2-now-filter" && value && ["ALL", "AREA", "PROJECT", "MINI_PROJECT", "TASK", "DECISION", "OUTPUT"].includes(value)) {
+    workspace = "now";
+    v2NowWorkTypeFilter = value as V2NowWorkTypeFilter;
+    await refresh();
+    return;
+  }
+  if (action === "v2-now-grouping" && (value === "mixed" || value === "type")) {
+    workspace = "now";
+    v2NowWorkGrouping = value;
     await refresh();
     return;
   }

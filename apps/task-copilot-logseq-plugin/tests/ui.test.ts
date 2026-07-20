@@ -81,6 +81,27 @@ test("V2 Focus exposes compact manual ordering and removal in the same Now Work 
   assert.match(html, /data-action="v2-focus-remove" data-value="task-b\|3"/);
 });
 
+test("V2 Now Work type filtering and grouping stay view-only and protect full Focus ordering", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = {
+    generatedAt: "2026-07-20T12:00:00.000Z", waitingReview: [],
+    focus: [{ objectId: "project-a", objectType: "PROJECT", version: 1, text: "治理告警", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T11:00:00.000Z", reason: "已加入当前关注" }],
+    next: [{ objectId: "task-a", objectType: "TASK", version: 2, text: "核对事件", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T10:00:00.000Z", reason: "近期更新，可继续推进" }],
+  };
+  value.v2NowWorkTypeFilter = "TASK";
+  value.v2NowWorkGrouping = "type";
+  const html = renderApp(value);
+  assert.match(html, /aria-label="Now Work 筛选与分组"/);
+  assert.match(html, /data-action="v2-now-filter" data-value="TASK"/);
+  assert.match(html, /data-action="v2-now-grouping" data-value="type"/);
+  assert.match(html, /<h3>Task<\/h3>/);
+  assert.match(html, /核对事件/);
+  assert.doesNotMatch(html, /治理告警/);
+  assert.doesNotMatch(html, /data-action="v2-focus-(?:up|down)"/);
+  assert.match(html, /筛选不会改变正式状态/);
+});
+
 test("Review Center owns manual current-page candidate discovery instead of Diagnostics", () => {
   const value = model();
   value.workspace = "review";
@@ -240,6 +261,8 @@ test("formal V2 plugin entry keeps the writable V1 FileStorage runtime inactive"
   assert.doesNotMatch(source, /blobStore\s*=\s*new LogseqFileStorageBlobStore/);
   assert.match(source, /V1 FileStorage inactive/);
   for (const token of [
+    "v2-now-filter",
+    "v2-now-grouping",
     "v2-candidate-open",
     "v2-candidate-submit",
     "prepareV2ExplicitCandidateDiscovery",
