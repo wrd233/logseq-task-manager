@@ -1,6 +1,7 @@
 import { StructuredError, createId } from "@task-copilot/shared";
 
 export * from "./v2.ts";
+export * from "./v2-proposal.ts";
 
 export type ObjectType =
   | "TASK"

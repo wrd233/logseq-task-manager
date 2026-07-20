@@ -7,6 +7,7 @@ import test from "node:test";
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2SqliteStore } from "@task-copilot/persistence/node";
 import { checksum } from "@task-copilot/shared";
+import type { V2Proposal } from "@task-copilot/domain";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
 
@@ -19,6 +20,17 @@ function clientFor(service: { url: string; token: string }): LocalServiceClient 
     createdAt: "2026-07-20T06:00:00.000Z",
   };
   return new LocalServiceClient(descriptor);
+}
+
+function validProposal(): V2Proposal {
+  const beforeText = "普通正文";
+  const afterText = "[任务] 普通正文";
+  return {
+    proposalId: "prop_service_validate", schemaVersion: "v2", title: "正式化正文", context: "当前为普通正文。", understanding: "建议建立 Task。", objective: "形成正式对象。", logic: "标识和对象一起提交。", finalPreview: afterText, unresolvedQuestions: [], source: { kind: "user" },
+    scope: { read: [], modify: [{ kind: "BLOCK", id: "proposal-block", version: 1, hash: checksum(beforeText) }] }, preconditions: ["hash unchanged"],
+    groups: [{ groupId: "formalize", explanation: "一个不可拆的正式化组。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "proposal-block", beforeText, afterText, beforeHash: checksum(beforeText), afterHash: checksum(afterText) }], semanticOperations: [{ operationId: "create-task", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "proposal-block", version: 1, hash: checksum(beforeText) }, summary: "创建 Task 与 Anchor", payload: { objectType: "TASK" }, preconditions: [] }], disposition: "PENDING" }],
+    status: "READY", createdAt: "2026-07-20T12:00:00.000Z",
+  };
 }
 
 test("Local Service is loopback-only, authenticated, and reports one SQLite authority", async (t) => {
@@ -78,6 +90,20 @@ test("Local Service exposes object reads but refuses an unscoped generic write r
   assert.equal((await fetch(new URL("objects/missing", service.url), { headers })).status, 404);
   const write = await fetch(new URL("objects", service.url), { method: "POST", headers });
   assert.equal(write.status, 404);
+});
+
+test("Proposal validation renders review files and performs no formal write", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal", token: "proposal-service-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const result = await client.validateProposal(validProposal());
+  assert.equal(result.status, "VALID");
+  assert.match(result.files.proposalMd, /最终可读预览/);
+  assert.equal(JSON.parse(result.files.proposalJson).proposalId, "prop_service_validate");
+  assert.equal((await client.status()).objectCount, 0);
+  await assert.rejects(() => client.validateProposal({ schemaVersion: "v2" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_PROPOSAL_SHAPE_INVALID");
+  assert.equal((await client.status()).objectCount, 0);
 });
 
 test("Local Service materializes one explicit Block without accepting Graph, path, or object authority", async (t) => {

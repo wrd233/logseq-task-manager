@@ -1,4 +1,4 @@
-import type { V2Anchor, V2ExecutionMarker, V2ManagedObject, V2ObjectType } from "@task-copilot/domain";
+import type { V2Anchor, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -131,6 +131,12 @@ export interface ServiceFinalizeProjectRequest {
 export interface ServiceFinalizeProjectResult extends ServiceMaterializeExplicitObjectResult {
   semanticCommitId: string;
   status: "COMPLETED";
+}
+
+export interface ServiceProposalValidationResult {
+  status: "VALID";
+  proposal: V2Proposal;
+  files: { proposalMd: string; proposalJson: string };
 }
 
 export type ServiceConnectionState =
@@ -319,6 +325,14 @@ export class LocalServiceClient {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
+    });
+  }
+
+  validateProposal(proposal: unknown): Promise<ServiceProposalValidationResult> {
+    return this.request<ServiceProposalValidationResult>("/proposals/validate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(proposal),
     });
   }
 

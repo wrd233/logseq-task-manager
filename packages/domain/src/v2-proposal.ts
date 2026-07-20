@@ -1,0 +1,225 @@
+import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
+
+export type V2ProposalSourceKind = "local_llm" | "external_agent" | "user" | "migration" | "repair";
+export type V2ProposalRisk = "LOW" | "MEDIUM" | "HIGH";
+export type V2ProposalGroupDisposition = "PENDING" | "ACCEPTED" | "REJECTED" | "DEFERRED";
+export type V2ProposalStatus = "DRAFT" | "READY" | "IN_REVIEW" | "PARTIALLY_ACCEPTED" | "ACCEPTED" | "REJECTED" | "STALE" | "APPLIED" | "FAILED" | "SUPERSEDED";
+export type V2ProposalOperationKind = "REWRITE_BLOCK" | "CREATE_OBJECT" | "CHANGE_OBJECT_TYPE" | "CHANGE_OWNERSHIP" | "CREATE_DECISION" | "CREATE_OUTPUT" | "MOVE_BLOCK" | "TRANSITION_LIFECYCLE" | "REBIND_ANCHOR" | "UPDATE_PROJECT_INTERFACE" | "DELETE_CONTENT";
+
+export interface V2ProposalScopeTarget {
+  kind: "BLOCK" | "PAGE" | "OBJECT";
+  id: string;
+  version?: number;
+  hash?: string;
+}
+
+export interface V2ProposalTextPatch {
+  blockUuid: string;
+  beforeText: string;
+  afterText: string;
+  beforeHash: string;
+  afterHash: string;
+}
+
+export interface V2ProposalSemanticOperation {
+  operationId: string;
+  kind: V2ProposalOperationKind;
+  target: V2ProposalScopeTarget;
+  summary: string;
+  payload: Record<string, unknown>;
+  preconditions: string[];
+}
+
+export interface V2ProposalOperationGroup {
+  groupId: string;
+  explanation: string;
+  risk: V2ProposalRisk;
+  independentlyAcceptable: boolean;
+  dependencies: string[];
+  textPatches: V2ProposalTextPatch[];
+  semanticOperations: V2ProposalSemanticOperation[];
+  disposition: V2ProposalGroupDisposition;
+  deferredUntil?: string;
+  deferReason?: string;
+}
+
+export interface V2Proposal {
+  proposalId: string;
+  schemaVersion: "v2";
+  title: string;
+  context: string;
+  understanding: string;
+  objective: string;
+  logic: string;
+  finalPreview: string;
+  unresolvedQuestions: string[];
+  source: { kind: V2ProposalSourceKind; provider?: string; model?: string; skillVersion?: string; writingProfileVersion?: string; promptBundleVersion?: string };
+  scope: { read: V2ProposalScopeTarget[]; modify: V2ProposalScopeTarget[] };
+  preconditions: string[];
+  groups: V2ProposalOperationGroup[];
+  status: V2ProposalStatus;
+  createdAt: string;
+}
+
+export interface V2ProposalFiles { proposalMd: string; proposalJson: string }
+
+export type V2ProposalGroupDecision =
+  | { disposition: "ACCEPTED"; highImpactConfirmed?: boolean }
+  | { disposition: "REJECTED" }
+  | { disposition: "DEFERRED"; deferredUntil: string; reason: string };
+
+const highImpactOperations = new Set<V2ProposalOperationKind>(["CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "MOVE_BLOCK", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "DELETE_CONTENT"]);
+const proposalOperationKinds = new Set<V2ProposalOperationKind>(["REWRITE_BLOCK", "CREATE_OBJECT", "CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "CREATE_DECISION", "CREATE_OUTPUT", "MOVE_BLOCK", "TRANSITION_LIFECYCLE", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "DELETE_CONTENT"]);
+const proposalStatuses = new Set<V2ProposalStatus>(["DRAFT", "READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED", "REJECTED", "STALE", "APPLIED", "FAILED", "SUPERSEDED"]);
+
+function proposalError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
+  return new StructuredError({ code, message, ruleRefs: ["D-094", "D-185"], ...(details ? { details } : {}) });
+}
+
+function requireIdentifier(value: string, label: string): void {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) throw proposalError("V2_PROPOSAL_IDENTIFIER_INVALID", `${label} 不是受控标识。`, { label });
+}
+
+function scopeKey(target: V2ProposalScopeTarget): string { return `${target.kind}:${target.id}`; }
+
+function validateScopeTarget(target: V2ProposalScopeTarget): void {
+  if (!target.id.trim() || target.id.length > 512) throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "Proposal scope target 无效。");
+  if (target.version !== undefined && (!Number.isSafeInteger(target.version) || target.version < 0)) throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "Proposal scope version 无效。");
+  if (target.hash !== undefined && !/^[0-9a-f]{8}$/.test(target.hash)) throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "Proposal scope hash 无效。");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
+
+export function validateV2Proposal(value: unknown): V2Proposal {
+  if (!isRecord(value)) throw proposalError("V2_PROPOSAL_SHAPE_INVALID", "Proposal 必须是 JSON object。");
+  const proposal = value as unknown as V2Proposal;
+  if (
+    typeof proposal.proposalId !== "string" || typeof proposal.schemaVersion !== "string" || typeof proposal.title !== "string"
+    || typeof proposal.context !== "string" || typeof proposal.understanding !== "string" || typeof proposal.objective !== "string"
+    || typeof proposal.logic !== "string" || typeof proposal.finalPreview !== "string" || !Array.isArray(proposal.unresolvedQuestions)
+    || !isRecord(proposal.source) || !["local_llm", "external_agent", "user", "migration", "repair"].includes(proposal.source.kind)
+    || !isRecord(proposal.scope) || !Array.isArray(proposal.scope.read) || !Array.isArray(proposal.scope.modify)
+    || !Array.isArray(proposal.preconditions) || !Array.isArray(proposal.groups) || typeof proposal.status !== "string" || !proposalStatuses.has(proposal.status) || typeof proposal.createdAt !== "string"
+  ) throw proposalError("V2_PROPOSAL_SHAPE_INVALID", "Proposal 顶层字段不完整或类型无效。");
+  if (proposal.unresolvedQuestions.some((question) => typeof question !== "string") || proposal.preconditions.some((condition) => typeof condition !== "string")) throw proposalError("V2_PROPOSAL_SHAPE_INVALID", "Proposal 问题和前置条件必须是字符串数组。");
+  for (const target of [...proposal.scope.read, ...proposal.scope.modify]) {
+    if (!isRecord(target) || !["BLOCK", "PAGE", "OBJECT"].includes(target.kind) || typeof target.id !== "string") throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "Proposal scope target shape 无效。");
+  }
+  for (const group of proposal.groups) {
+    if (!isRecord(group) || typeof group.groupId !== "string" || typeof group.explanation !== "string" || !["LOW", "MEDIUM", "HIGH"].includes(group.risk)
+      || typeof group.independentlyAcceptable !== "boolean" || !Array.isArray(group.dependencies) || !Array.isArray(group.textPatches) || !Array.isArray(group.semanticOperations)
+      || !["PENDING", "ACCEPTED", "REJECTED", "DEFERRED"].includes(group.disposition) || group.dependencies.some((dependency) => typeof dependency !== "string")) {
+      throw proposalError("V2_PROPOSAL_GROUP_SHAPE_INVALID", "Proposal operation group shape 无效。");
+    }
+    for (const patch of group.textPatches) {
+      if (!isRecord(patch) || [patch.blockUuid, patch.beforeText, patch.afterText, patch.beforeHash, patch.afterHash].some((field) => typeof field !== "string")) throw proposalError("V2_PROPOSAL_PATCH_SHAPE_INVALID", "Proposal text patch shape 无效。");
+    }
+    for (const operation of group.semanticOperations) {
+      if (!isRecord(operation) || typeof operation.operationId !== "string" || typeof operation.kind !== "string" || !proposalOperationKinds.has(operation.kind) || !isRecord(operation.target) || typeof operation.summary !== "string" || !isRecord(operation.payload) || !Array.isArray(operation.preconditions) || operation.preconditions.some((condition) => typeof condition !== "string")) throw proposalError("V2_PROPOSAL_OPERATION_SHAPE_INVALID", "Proposal semantic operation shape 无效。");
+    }
+  }
+  requireIdentifier(proposal.proposalId, "proposal_id");
+  if (proposal.schemaVersion !== "v2") throw proposalError("V2_PROPOSAL_SCHEMA_UNSUPPORTED", "Proposal schema_version 必须为 v2。");
+  for (const [label, value] of Object.entries({ title: proposal.title, context: proposal.context, understanding: proposal.understanding, objective: proposal.objective, logic: proposal.logic, finalPreview: proposal.finalPreview })) {
+    if (typeof value !== "string" || !value.trim() || value.length > 20_000) throw proposalError("V2_PROPOSAL_NARRATIVE_INVALID", `Proposal ${label} 不能为空或过长。`);
+  }
+  if (!Number.isFinite(Date.parse(proposal.createdAt))) throw proposalError("V2_PROPOSAL_TIME_INVALID", "Proposal created_at 无效。");
+  if (proposal.scope.modify.length === 0) throw proposalError("V2_PROPOSAL_MODIFY_SCOPE_REQUIRED", "Proposal 必须显式声明 modify scope。");
+  const scope = [...proposal.scope.read, ...proposal.scope.modify];
+  scope.forEach(validateScopeTarget);
+  const modifyKeys = new Set(proposal.scope.modify.map(scopeKey));
+  if (modifyKeys.size !== proposal.scope.modify.length) throw proposalError("V2_PROPOSAL_SCOPE_DUPLICATE", "Proposal modify scope 不能重复。");
+  if (proposal.groups.length === 0 || proposal.groups.length > 64) throw proposalError("V2_PROPOSAL_GROUPS_INVALID", "Proposal 必须包含 1 到 64 个语义操作组。");
+  const groupIds = new Set<string>();
+  const operationIds = new Set<string>();
+  for (const group of proposal.groups) {
+    requireIdentifier(group.groupId, "group_id");
+    if (groupIds.has(group.groupId)) throw proposalError("V2_PROPOSAL_GROUP_DUPLICATE", "Proposal group_id 不能重复。", { groupId: group.groupId });
+    groupIds.add(group.groupId);
+    if (!group.explanation.trim() || group.textPatches.length + group.semanticOperations.length === 0) throw proposalError("V2_PROPOSAL_GROUP_EMPTY", "每个语义操作组必须有说明和至少一项变化。", { groupId: group.groupId });
+    if (group.disposition === "DEFERRED" && (!group.deferredUntil || !Number.isFinite(Date.parse(group.deferredUntil)) || !group.deferReason?.trim())) throw proposalError("V2_PROPOSAL_DEFERRAL_INVALID", "暂缓组必须包含复查时间和原因。", { groupId: group.groupId });
+    for (const patch of group.textPatches) {
+      if (!modifyKeys.has(`BLOCK:${patch.blockUuid}`)) throw proposalError("V2_PROPOSAL_SCOPE_VIOLATION", "文本 Patch 超出 modify scope。", { groupId: group.groupId, blockUuid: patch.blockUuid });
+      if (patch.beforeHash !== checksum(patch.beforeText) || patch.afterHash !== checksum(patch.afterText)) throw proposalError("V2_PROPOSAL_PATCH_HASH_INVALID", "文本 Patch 的 before/after hash 与正文不一致。", { groupId: group.groupId, blockUuid: patch.blockUuid });
+    }
+    for (const operation of group.semanticOperations) {
+      requireIdentifier(operation.operationId, "operation_id");
+      if (operationIds.has(operation.operationId)) throw proposalError("V2_PROPOSAL_OPERATION_DUPLICATE", "Proposal operation_id 不能重复。", { operationId: operation.operationId });
+      operationIds.add(operation.operationId);
+      validateScopeTarget(operation.target);
+      if (!modifyKeys.has(scopeKey(operation.target))) throw proposalError("V2_PROPOSAL_SCOPE_VIOLATION", "语义操作超出 modify scope。", { groupId: group.groupId, operationId: operation.operationId });
+      if (!operation.summary.trim()) throw proposalError("V2_PROPOSAL_OPERATION_INVALID", "语义操作必须包含人类可读说明。", { operationId: operation.operationId });
+      if (highImpactOperations.has(operation.kind) && group.risk !== "HIGH") throw proposalError("V2_PROPOSAL_RISK_DOWNGRADE", "高影响语义操作不能降级风险。", { groupId: group.groupId, operationId: operation.operationId });
+    }
+  }
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const byId = new Map(proposal.groups.map((group) => [group.groupId, group]));
+  const visit = (groupId: string): void => {
+    if (visited.has(groupId)) return;
+    if (visiting.has(groupId)) throw proposalError("V2_PROPOSAL_GROUP_DEPENDENCY_CYCLE", "Proposal 操作组依赖不能形成循环。", { groupId });
+    visiting.add(groupId);
+    for (const dependency of byId.get(groupId)?.dependencies ?? []) {
+      if (!byId.has(dependency)) throw proposalError("V2_PROPOSAL_GROUP_DEPENDENCY_MISSING", "Proposal 操作组依赖不存在。", { groupId, dependency });
+      visit(dependency);
+    }
+    visiting.delete(groupId);
+    visited.add(groupId);
+  };
+  proposal.groups.forEach((group) => visit(group.groupId));
+  return proposal;
+}
+
+function bullet(values: readonly string[], fallback = "无"): string { return values.length ? values.map((value) => `- ${value}`).join("\n") : `- ${fallback}`; }
+
+export function renderV2ProposalFiles(proposal: V2Proposal): V2ProposalFiles {
+  validateV2Proposal(proposal);
+  const impacts = proposal.groups.flatMap((group) => group.semanticOperations.map((operation) => `${operation.kind}：${operation.summary}`));
+  const highImpact = proposal.groups.filter((group) => group.risk === "HIGH").map((group) => `${group.groupId}：${group.explanation}`);
+  const versions = [...proposal.scope.read, ...proposal.scope.modify].map((target) => `${scopeKey(target)}${target.version !== undefined ? ` v${target.version}` : ""}${target.hash ? ` #${target.hash}` : ""}`);
+  const proposalMd = `# ${proposal.title}\n\n## 当前上下文\n\n${proposal.context}\n\n## 理解摘要\n\n${proposal.understanding}\n\n## 修改目标\n\n${proposal.objective}\n\n## 修改逻辑\n\n${proposal.logic}\n\n## 最终可读预览\n\n${proposal.finalPreview}\n\n## 语义影响\n\n${bullet(impacts)}\n\n## 高影响操作\n\n${bullet(highImpact)}\n\n## 未解决问题\n\n${bullet(proposal.unresolvedQuestions)}\n\n## 版本与来源摘要\n\n- 来源：${proposal.source.kind}\n- Schema：${proposal.schemaVersion}\n${bullet(versions)}\n`;
+  return { proposalMd, proposalJson: `${stableJson(proposal)}\n` };
+}
+
+export function reviewV2ProposalGroups(
+  proposal: V2Proposal,
+  decisions: Readonly<Record<string, V2ProposalGroupDecision>>,
+): V2Proposal {
+  validateV2Proposal(proposal);
+  if (!["READY", "IN_REVIEW", "PARTIALLY_ACCEPTED"].includes(proposal.status)) throw proposalError("V2_PROPOSAL_NOT_REVIEWABLE", "Proposal 当前状态不可审阅。");
+  const unknown = Object.keys(decisions).find((groupId) => !proposal.groups.some((group) => group.groupId === groupId));
+  if (unknown) throw proposalError("V2_PROPOSAL_GROUP_NOT_FOUND", "审阅决定引用了不存在的操作组。", { groupId: unknown });
+  const groups = proposal.groups.map((group) => {
+    const decision = decisions[group.groupId];
+    if (!decision) return group;
+    const withoutDeferral = { ...group };
+    delete withoutDeferral.deferredUntil;
+    delete withoutDeferral.deferReason;
+    if (decision.disposition === "ACCEPTED") {
+      if (group.risk === "HIGH" && decision.highImpactConfirmed !== true) throw proposalError("V2_PROPOSAL_HIGH_IMPACT_CONFIRMATION_REQUIRED", "高影响操作组必须独立确认。", { groupId: group.groupId });
+      return { ...withoutDeferral, disposition: "ACCEPTED" as const };
+    }
+    if (decision.disposition === "REJECTED") return { ...withoutDeferral, disposition: "REJECTED" as const };
+    if (!Number.isFinite(Date.parse(decision.deferredUntil)) || !decision.reason.trim()) throw proposalError("V2_PROPOSAL_DEFERRAL_INVALID", "暂缓组必须包含复查时间和原因。", { groupId: group.groupId });
+    return { ...group, disposition: "DEFERRED" as const, deferredUntil: decision.deferredUntil, deferReason: decision.reason.trim() };
+  });
+  const byId = new Map(groups.map((group) => [group.groupId, group]));
+  for (const group of groups.filter((candidate) => candidate.disposition === "ACCEPTED")) {
+    const unavailable = group.dependencies.find((dependency) => byId.get(dependency)?.disposition !== "ACCEPTED");
+    if (unavailable) throw proposalError("V2_PROPOSAL_DEPENDENCY_NOT_ACCEPTED", "不能只接受依赖链的后半段。", { groupId: group.groupId, dependency: unavailable });
+    if (!group.independentlyAcceptable && groups.some((candidate) => candidate.disposition !== "ACCEPTED")) throw proposalError("V2_PROPOSAL_GROUP_NOT_INDEPENDENT", "该操作组不能脱离其余 Proposal 单独接受。", { groupId: group.groupId });
+  }
+  const accepted = groups.filter((group) => group.disposition === "ACCEPTED").length;
+  const rejected = groups.filter((group) => group.disposition === "REJECTED").length;
+  const pending = groups.length - accepted - rejected;
+  const status: V2ProposalStatus = accepted === groups.length
+    ? "ACCEPTED"
+    : rejected === groups.length
+      ? "REJECTED"
+      : accepted > 0
+        ? "PARTIALLY_ACCEPTED"
+        : pending > 0
+          ? "IN_REVIEW"
+          : "REJECTED";
+  return { ...proposal, groups, status };
+}

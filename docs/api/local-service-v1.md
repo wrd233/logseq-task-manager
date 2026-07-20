@@ -41,7 +41,7 @@
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
 
-未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步、Anchor 观察与重新绑定路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步、Anchor 观察、重新绑定与 Project 创建路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。`POST /proposals/validate` 是零持久化校验接口：只返回规范化 Proposal 与两文件预览，不代表 submit/commit 已开放。
 
 ## 显式 Block 物化
 

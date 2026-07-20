@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { V2Application, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { renderV2ProposalFiles, validateV2Proposal } from "@task-copilot/domain";
 import { V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
@@ -287,9 +288,10 @@ function primaryAnchorRebindIdempotencyKey(graphId: string, input: PrimaryAnchor
 
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
+    const proposalInputError = error.code.startsWith("V2_PROPOSAL_");
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
+      : proposalInputError || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
         ? 400
         : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND"
           ? 404
@@ -345,6 +347,18 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (request.method === "POST" && url.pathname === "/doctor") {
       const doctor = store.doctor();
       respond(response, doctor.status === "PASS" ? 200 : 503, doctor);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/proposals/validate") {
+      const body = await readBody(request);
+      let candidate: unknown;
+      try {
+        candidate = JSON.parse(body) as unknown;
+      } catch {
+        throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
+      }
+      const proposal = validateV2Proposal(candidate);
+      respond(response, 200, { status: "VALID", proposal, files: renderV2ProposalFiles(proposal) });
       return;
     }
     if (request.method === "POST" && url.pathname === "/projects/prepare") {
