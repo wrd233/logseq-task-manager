@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { access, chmod, link, mkdir, rm } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, chmod, copyFile, link, mkdir, rename, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import Database from "better-sqlite3";
@@ -52,6 +53,17 @@ export interface SqliteDoctorReport {
 
 export interface SqliteOpenOptions {
   busyTimeoutMs?: number;
+}
+
+export interface SqliteRestoreResult {
+  restoredFrom: string;
+  recoveryPath: string;
+  validation: SqliteDoctorReport;
+}
+
+export interface SqliteRestoreOptions {
+  /** Test-only fault boundary; production callers must omit it. */
+  afterActivate?: () => void;
 }
 
 interface ObjectRow {
@@ -639,6 +651,80 @@ export class V2SqliteStore {
       });
     } finally {
       database?.close();
+    }
+  }
+
+  /**
+   * Replaces a closed database from a validated snapshot. The owning Service must
+   * stop accepting requests and close its live store before calling this method.
+   */
+  static async restoreOffline(
+    databasePath: string,
+    backupPath: string,
+    recoveryPath: string,
+    expectedGraphId: string,
+    options: SqliteRestoreOptions = {},
+  ): Promise<SqliteRestoreResult> {
+    const active = resolve(databasePath);
+    const source = resolve(backupPath);
+    const recovery = resolve(recoveryPath);
+    if (active === source || active === recovery || source === recovery) {
+      throw persistenceError("V2_RESTORE_PATH_COLLISION", "Restore 的主库、快照和恢复点必须是三个不同文件。");
+    }
+    try {
+      await access(active);
+    } catch {
+      throw persistenceError("V2_RESTORE_ACTIVE_MISSING", "Restore 前必须存在可恢复的当前主库。");
+    }
+    const sourceValidation = V2SqliteStore.validateBackup(source, expectedGraphId);
+    if (sourceValidation.status !== "PASS") throw persistenceError("V2_BACKUP_VALIDATION_FAILED", "Restore 快照未通过 Doctor。");
+
+    const current = await V2SqliteStore.open(active);
+    try {
+      current.initialize(expectedGraphId);
+      await current.backup(recovery);
+    } finally {
+      current.close();
+    }
+    const recoveryValidation = V2SqliteStore.validateBackup(recovery, expectedGraphId);
+    if (recoveryValidation.status !== "PASS") throw persistenceError("V2_RESTORE_RECOVERY_POINT_INVALID", "Restore 前恢复点未通过 Doctor。");
+
+    const staged = `${active}.restore-${process.pid}-${randomUUID()}`;
+    const displaced = `${active}.previous-${process.pid}-${randomUUID()}`;
+    let displacedActive = false;
+    try {
+      await copyFile(source, staged, constants.COPYFILE_EXCL);
+      await chmod(staged, 0o600);
+      V2SqliteStore.validateBackup(staged, expectedGraphId);
+      await rm(`${active}-wal`, { force: true });
+      await rm(`${active}-shm`, { force: true });
+      await rename(active, displaced);
+      displacedActive = true;
+      await rename(staged, active);
+      options.afterActivate?.();
+      const validation = V2SqliteStore.validateBackup(active, expectedGraphId);
+      if (validation.status !== "PASS") throw persistenceError("V2_RESTORE_VALIDATION_FAILED", "Restore 后 Doctor 未通过。");
+      await rm(displaced, { force: true });
+      displacedActive = false;
+      return { restoredFrom: source, recoveryPath: recovery, validation };
+    } catch (error) {
+      if (displacedActive) {
+        try {
+          await rm(active, { force: true });
+          await rename(displaced, active);
+          displacedActive = false;
+        } catch (rollbackError) {
+          throw persistenceError("V2_RESTORE_ROLLBACK_FAILED", "SQLite Restore 失败且主库回滚未完成；已保留 Restore 前恢复点，必须停止服务人工恢复。", {
+            cause: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+          });
+        }
+      }
+      if (error instanceof StructuredError) throw error;
+      throw persistenceError("V2_RESTORE_FAILED", "SQLite Restore 失败；已恢复原主库。", {
+        cause: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      await rm(staged, { force: true });
     }
   }
 

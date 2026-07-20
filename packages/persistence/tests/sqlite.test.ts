@@ -234,6 +234,77 @@ test("corrupt backup is rejected by read-only validation", async (t) => {
   assert.deepEqual(await readFile(path), before);
 });
 
+test("offline restore creates a recovery point, atomically activates the snapshot, and reopens cleanly", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2Application(store);
+  await application.createObject(
+    { objectId: "before-restore", objectType: "TASK", text: "恢复前" },
+    { actor: "test", expectedVersion: 0, idempotencyKey: "before-restore", traceId: "before-restore" },
+  );
+  const source = await store.backup(join(root, "backups", "source.db"));
+  await application.createObject(
+    { objectId: "after-snapshot", objectType: "TASK", text: "快照后" },
+    { actor: "test", expectedVersion: 0, idempotencyKey: "after-snapshot", traceId: "after-snapshot" },
+  );
+  store.close();
+
+  const recovery = join(root, "backups", "before-restore.db");
+  const result = await V2SqliteStore.restoreOffline(path, source, recovery, "graph-a");
+  assert.equal(result.validation.objectCount, 1);
+  assert.equal(V2SqliteStore.validateBackup(recovery, "graph-a").objectCount, 2);
+  const restored = await V2SqliteStore.open(path);
+  assert.equal(restored.getObject("before-restore")?.text, "恢复前");
+  assert.equal(restored.getObject("after-snapshot"), undefined);
+  assert.equal(restored.doctor().status, "PASS");
+  restored.close();
+});
+
+test("offline restore rolls the active database back when post-activation validation fails", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2Application(store);
+  await application.createObject(
+    { objectId: "snapshot-object", objectType: "TASK", text: "快照" },
+    { actor: "test", expectedVersion: 0, idempotencyKey: "snapshot-object", traceId: "snapshot-object" },
+  );
+  const source = await store.backup(join(root, "backups", "rollback-source.db"));
+  await application.createObject(
+    { objectId: "must-survive", objectType: "TASK", text: "必须保留" },
+    { actor: "test", expectedVersion: 0, idempotencyKey: "must-survive", traceId: "must-survive" },
+  );
+  store.close();
+
+  await assert.rejects(
+    () => V2SqliteStore.restoreOffline(path, source, join(root, "backups", "rollback-recovery.db"), "graph-a", {
+      afterActivate: () => { throw new Error("injected post-activate failure"); },
+    }),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_RESTORE_FAILED",
+  );
+  const reopened = await V2SqliteStore.open(path);
+  assert.equal(reopened.getObject("must-survive")?.text, "必须保留");
+  assert.equal(reopened.doctor().status, "PASS");
+  reopened.close();
+});
+
+test("offline restore refuses path collisions and a missing active database before creating recovery artifacts", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const source = await store.backup(join(root, "backups", "guard-source.db"));
+  store.close();
+  await assert.rejects(
+    () => V2SqliteStore.restoreOffline(path, source, source, "graph-a"),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_RESTORE_PATH_COLLISION",
+  );
+  await assert.rejects(
+    () => V2SqliteStore.restoreOffline(join(root, "missing.db"), source, join(root, "missing-recovery.db"), "graph-a"),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_RESTORE_ACTIVE_MISSING",
+  );
+});
+
 test("Primary Anchor and Ownership are unique atomic Application commands", async (t) => {
   const { root, store } = await fixture();
   t.after(async () => rm(root, { recursive: true, force: true }));

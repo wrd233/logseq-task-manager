@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 125 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI process smoke PASS"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 128 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI process smoke PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -22,6 +22,7 @@ implemented:
   - "Primary Anchor and Primary Ownership Domain plus SQLite uniqueness"
   - "Authenticated loopback Service, 0600 descriptor, versioned Client and restricted-state model"
   - "Plugin descriptor discovery, explicit restricted diagnostics, and zero-Store three-entry first-run welcome"
+  - "Offline SQLite restore primitive with pre-restore recovery point, atomic activation, Doctor, and injected-failure rollback"
   - "Executable read-only tc status/doctor/object CLI with JSON envelope and exit codes"
   - "SQLite locked writes fail with zero formal writes; backups reject overwrite and validate schema, Graph identity, integrity and foreign keys read-only"
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
