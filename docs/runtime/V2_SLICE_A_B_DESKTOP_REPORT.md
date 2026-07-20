@@ -131,6 +131,30 @@
 
 E2E-11 的 Focus/期限/阻碍/Waiting 可解释排序场景已有自动成功/失败路径和真实 Desktop + reload + CLI 证据，可标记 `DONE`。整个 V2-VIEW-001 仍缺 Project/Area 筛选、键盘、深浅主题和 Review Center 完整视觉 Gate，仍为部分通过。
 
+## Slice B5：Project 页面与对象原子创建 — PASS
+
+使用真实 `Projects / 对象` 工作区、专用测试 Graph 与同一 schema v6 SQLite 完成：
+
+- Desktop 首次提交 `V2 Desktop Project Gate 20260720` 时发现 V2 action 被 V1-only runtime guard 提前拦截；修复后 `create-v2-project` 以及 Review/Commit/Undo 路由均先于 V1 guard，并由启动完整性检查锁定；
+- 创建成功后，Logseq 页面 UUID `6a5e3e63-0f91-4210-8c98-6b63adcae895` 同时带 owner、object_id 与 semantic commit 三项证据；CLI 读回同一 Project、Primary Anchor 来源与 SQLite object_id；
+- V2-only `Projects / 对象` 原先固定显示空列表；现从 Local Service 只读 `listObjects()`，直接显示 `Lifecycle / Condition / version`，没有把 V2 映射回 V1 Phase，也没有增加状态源；
+- 预先创建无 Task Copilot 属性的 `Project/V2 Desktop Unknown Conflict 20260720` 后，正式表单明确拒绝覆盖；未知页 UUID 与空属性不变，SQLite 对象数不变。证据完成后该临时冲突页已删除；
+- 将受控页面改名为 `Project/V2 Desktop Project Gate Renamed 20260720` 后，页面 UUID、object_id 和所有权证据不变；用原创建意图重试解析到改名后的同一页，未创建旧名称页面或第二个对象；
+- 冷重启 Logseq 后，bundle commit `65412e6f9e5b`、改名页面、同一 UUID/属性和 V2 对象列表均恢复；
+- 真实进程 fault injection 在 `/projects/finalize` 到达时停止 Local Service：UI 明确提示保留受控页面并同名重试，descriptor 正常清除，SQLite 仍为原 3 个对象且目标 Project 为 0；重启同一 Service 后，同名重试复用页面 UUID `6a5e3fd6-7642-4f04-a1a9-8c08a7076ff2`、预发行 object_id 与 semantic commit，只生成一个 Project，UI 与 CLI 一致；
+- 两个成功 Project 页面保留在专用测试 Graph 作为后续 Project/Review Gate 对象；未修改生产事项，截图与 SQLite 仍在 ignored 本地目录。
+
+证据（本地 ignored）：
+
+- `tmp/runtime/v2-desktop/project-create-7676ddc.png`
+- `tmp/runtime/v2-desktop/project-list-65412e6.png`
+- `tmp/runtime/v2-desktop/project-conflict-65412e6.png`
+- `tmp/runtime/v2-desktop/project-reload-65412e6.png`
+- `tmp/runtime/v2-desktop/project-finalize-outage-65412e6.png`
+- `tmp/runtime/v2-desktop/project-finalize-recovered-65412e6.png`
+
+自动合同已覆盖 prepare/finalize、未知同名零写入、响应不确定、同意图续跑、完成后改名与事务 fault injection；本轮补齐真实 Desktop 和进程边界，因此 E2E-19 标记 `DONE`。
+
 ## 本轮发现的交互问题
 
 1. Diagnostics 原先没有渲染已有的 `explicit_sync` snapshot，用户只能从底部结构化日志判断断线队列；已补可见 `pending / transportReady / reconciliationRequired` 区块。
