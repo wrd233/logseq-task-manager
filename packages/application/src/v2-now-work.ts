@@ -50,7 +50,13 @@ export function projectV2NowWork(
     const blocksFocus = blockedFocusByBlocker.has(object.objectId);
     if (blocksFocus && object.condition.kind === "WAITING") return item(object, `阻碍当前关注 · 等待 ${object.condition.waitingFor}`);
     if (blocksFocus && (object.condition.kind === "BLOCKED" || object.condition.kind === "PAUSED")) return item(object, `阻碍当前关注 · ${object.condition.reason}`);
-    return item(object, object.condition.kind === "WAITING" ? `复查已到 · 等待 ${object.condition.waitingFor}` : object.condition.kind === "BLOCKED" ? `阻碍当前关注 · ${object.condition.reason}` : "暂停复查已到");
+    if (object.condition.kind === "WAITING") {
+      const reason = Date.parse(object.condition.reviewAt) <= at.getTime()
+        ? `复查已到 · 等待 ${object.condition.waitingFor}`
+        : `当前关注正在等待 · ${object.condition.waitingFor}`;
+      return item(object, reason);
+    }
+    return item(object, object.condition.kind === "BLOCKED" ? `阻碍当前关注 · ${object.condition.reason}` : "暂停复查已到");
   });
   const waitingIds = new Set(waitingReview.map((value) => value.objectId));
   const recentBoundary = at.getTime() - 14 * 24 * 60 * 60 * 1000;

@@ -60,3 +60,11 @@ test("V2 Now Work wakes a quiet Waiting object when it blocks Focus", () => {
   ], [{ objectId: "focus-task", selectedAt: "2026-07-20T11:00:00.000Z", rank: 0 }], now);
   assert.equal(projection.waitingReview.find((item) => item.objectId === "supplier-reply")?.reason, "阻碍当前关注 · 等待 供应商");
 });
+
+test("V2 Now Work does not call a future review due merely because the Waiting object is focused", () => {
+  const now = new Date("2026-07-20T12:00:00.000Z");
+  const projection = projectV2NowWork([
+    object("focused-waiting", { kind: "WAITING", waitingFor: "脱敏外部事件", expectedResult: "样本", reviewAt: "2026-07-21T01:00:00.000Z" }, "2026-07-20T10:00:00.000Z"),
+  ], [{ objectId: "focused-waiting", selectedAt: "2026-07-20T11:00:00.000Z", rank: 0 }], now);
+  assert.equal(projection.waitingReview[0]?.reason, "当前关注正在等待 · 脱敏外部事件");
+});

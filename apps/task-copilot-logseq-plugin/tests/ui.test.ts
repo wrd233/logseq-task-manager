@@ -99,6 +99,16 @@ test("V2 Focus exposes compact manual ordering and removal in the same Now Work 
   assert.match(html, /data-action="v2-focus-remove" data-value="task-b\|3"/);
 });
 
+test("a Waiting projection already in Focus does not offer a duplicate Focus action", () => {
+  const value = model();
+  value.workspace = "now";
+  const item = { objectId: "task-wait", objectType: "TASK" as const, version: 2, text: "等待样本", condition: { kind: "WAITING" as const, waitingFor: "外部事件", expectedResult: "样本", reviewAt: "2026-07-21T01:00:00.000Z" }, updatedAt: "2026-07-20T10:00:00.000Z", reason: "当前关注正在等待 · 外部事件" };
+  value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [item], next: [], waitingReview: [item], conditionOptions: [] };
+  const html = renderApp(value);
+  assert.match(html, /已在当前关注/);
+  assert.doesNotMatch(html, /data-action="v2-focus-add"/);
+});
+
 test("V2 Now Work type filtering and grouping stay view-only and protect full Focus ordering", () => {
   const value = model();
   value.workspace = "now";

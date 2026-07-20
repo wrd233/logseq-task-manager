@@ -1,4 +1,4 @@
-import { startLocalService } from "./service.ts";
+import { LOCAL_SERVICE_CAPABILITIES, startLocalService } from "./service.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
 
 try {
@@ -8,7 +8,7 @@ try {
     status: "READY",
     pid: process.pid,
     descriptorPath: options.descriptorPath,
-    capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
+    capabilities: LOCAL_SERVICE_CAPABILITIES,
   })}\n`);
   let closing = false;
   const close = async (): Promise<void> => {

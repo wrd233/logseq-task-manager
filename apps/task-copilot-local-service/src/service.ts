@@ -16,6 +16,13 @@ import { StructuredError, checksum, createId } from "@task-copilot/shared";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
+export const LOCAL_SERVICE_CAPABILITIES = {
+  formalWrites: true,
+  migration: false,
+  provider: false,
+  backup: true,
+} satisfies ServiceCapabilities;
+
 export interface LocalServiceOptions {
   databasePath: string;
   graphId: string;
@@ -477,7 +484,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   store.initialize(options.graphId);
   const application = new V2Application(store);
   const proposalApplication = new V2ProposalApplication(store);
-  const capabilities: ServiceCapabilities = { formalWrites: true, migration: false, provider: false, backup: true };
+  const capabilities = LOCAL_SERVICE_CAPABILITIES;
   const completeProposalObservations = (proposal: Parameters<typeof requiredV2ProposalRevalidationScope>[0], observations: V2ProposalScopeObservation[]): V2ProposalScopeObservation[] => [
     ...observations,
     ...requiredV2ProposalRevalidationScope(proposal).targets.filter((target) => target.kind === "OBJECT").map((target) => {
