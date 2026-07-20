@@ -4,7 +4,7 @@ import type {
   TaskCopilot,
   ProjectReentryView,
 } from "@task-copilot/application";
-import type { ConditionKind, ObjectType, Phase } from "@task-copilot/domain";
+import type { ConditionKind, ObjectType, Phase, V2Condition } from "@task-copilot/domain";
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
@@ -684,6 +684,27 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await client.reorderFocus(expectedObjectIds, objectIds);
       workspace = "now";
     }, "当前关注顺序已保存。");
+    return;
+  }
+  if (action === "v2-condition-open" && value) return openActionDialog("v2-condition", value);
+  if (action === "submit-v2-condition" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      const expectedVersion = Number(rawVersion);
+      const kind = dialogField("v2ConditionKind") as V2Condition["kind"];
+      const reviewRaw = dialogField("v2ConditionReviewAt");
+      const reviewAt = reviewRaw ? new Date(reviewRaw) : undefined;
+      if (!client || !objectId || !Number.isSafeInteger(expectedVersion) || !["ACTIONABLE", "WAITING", "BLOCKED", "PAUSED"].includes(kind)) throw new Error("Condition 上下文已失效；没有写入。");
+      if (reviewAt && !Number.isFinite(reviewAt.getTime())) throw new Error("请填写合法复查时间。");
+      const condition: V2Condition = kind === "ACTIONABLE" ? { kind }
+        : kind === "WAITING" ? { kind, waitingFor: dialogField("v2WaitingFor"), expectedResult: dialogField("v2ExpectedResult"), reviewAt: reviewAt?.toISOString() ?? "" }
+        : kind === "BLOCKED" ? { kind, reason: dialogField("v2ConditionReason") }
+        : { kind, reason: dialogField("v2ConditionReason"), ...(reviewAt ? { reviewAt: reviewAt.toISOString() } : {}) };
+      await client.changeCondition(objectId, expectedVersion, condition);
+      actionDialog = undefined;
+      workspace = "now";
+    }, "状态已正式保存；Now Work 已按新 Condition 重算。");
     return;
   }
   const taskCopilot = requireTaskCopilot();

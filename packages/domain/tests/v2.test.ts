@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  changeV2Condition,
   V2_OBJECT_TYPES,
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
@@ -120,6 +121,12 @@ test("Condition requires its own evidence and Focus remains independent", () => 
     rank: 0,
     expiresAt: "2026-07-21T02:00:00Z",
   });
+  const object = createV2ManagedObject({ objectId: "condition-object", objectType: "TASK", text: "等待答复" });
+  const waiting = changeV2Condition(object, { kind: "WAITING", waitingFor: "负责人", expectedResult: "答复", reviewAt: "2026-07-21T02:00:00Z" }, 1, new Date("2026-07-20T03:00:00Z"));
+  assert.equal(waiting.version, 2);
+  assert.equal(waiting.condition.kind, "WAITING");
+  assert.throws(() => changeV2Condition(waiting, { kind: "PAUSED", reason: "稍后", reviewAt: "not-a-date" }, 2), /合法时间/);
+  assert.throws(() => changeV2Condition({ ...waiting, lifecycle: "COMPLETED" }, { kind: "ACTIONABLE" }, 2), /已关闭/);
 });
 
 test("execution Marker changes only simple Task Lifecycle and never Condition or Focus", () => {

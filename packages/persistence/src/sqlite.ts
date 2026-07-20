@@ -759,7 +759,7 @@ export class V2SqliteStore {
     if (!receipt) return undefined;
     const command = receipt.command_name as V2CommandReceipt["command"];
     const result = JSON.parse(receipt.result_json) as unknown;
-    if (command === "create_object" || command === "transition_lifecycle") {
+    if (command === "create_object" || command === "transition_lifecycle" || command === "change_condition") {
       return { command, object: result as V2ManagedObject };
     }
     if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "undo_materialization" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {

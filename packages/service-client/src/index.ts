@@ -490,6 +490,10 @@ export class LocalServiceClient {
     return this.request<{ selections: ServiceFocusSelection[] }>("/focus/reorder", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedObjectIds, objectIds }) });
   }
 
+  changeCondition(objectId: string, expectedVersion: number, condition: V2Condition): Promise<{ object: V2ManagedObject }> {
+    return this.request<{ object: V2ManagedObject }>(`/objects/${encodeURIComponent(objectId)}/condition`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion, condition }) });
+  }
+
   finalizeProposalUndo(originalSemanticCommitId: string, evidence: ServiceProposalUndoEvidence): Promise<ServiceProposalUndoFinalization> {
     return this.request<ServiceProposalUndoFinalization>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/undo/finalize`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(evidence),

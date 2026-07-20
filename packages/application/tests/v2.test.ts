@@ -63,7 +63,7 @@ class MemoryV2Repository implements V2ObjectRepository {
     const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
     if (actualVersion !== command.expectedVersion) throw new Error(`version ${actualVersion} != ${command.expectedVersion}`);
     this.values.set(command.object.objectId, command.object);
-    this.receipts.set(command.idempotencyKey, { command: command.audit.command as "create_object" | "transition_lifecycle", object: command.object });
+    this.receipts.set(command.idempotencyKey, { command: command.audit.command as "create_object" | "transition_lifecycle" | "change_condition", object: command.object });
     this.audit.push(command.audit);
     return { object: command.object, replayed: false };
   }
@@ -157,7 +157,7 @@ class MemoryV2Repository implements V2ObjectRepository {
     const actualVersion = this.values.get(object.objectId)?.version ?? 0;
     if (actualVersion !== expectedVersion) throw new Error(`version ${actualVersion} != ${expectedVersion}`);
     this.values.set(object.objectId, object);
-    if (audit.command === "create_object" || audit.command === "transition_lifecycle") {
+    if (audit.command === "create_object" || audit.command === "transition_lifecycle" || audit.command === "change_condition") {
       this.receipts.set(idempotencyKey, { command: audit.command, object });
     }
     this.audit.push(audit);
@@ -510,4 +510,18 @@ test("Focus is a version-protected view selection with explicit manual ordering"
   assert.deepEqual([...repository.focus.keys()], [second.objectId]);
   assert.equal(repository.audit.length, 2, "Focus does not masquerade as lifecycle Audit");
   await assert.rejects(() => application.selectFocus(second.objectId, 0, second.version + 1), /版本已变化/);
+});
+
+test("Condition changes are versioned, idempotent, and require complete time evidence", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const object = await application.createObject({ objectId: "condition-task", objectType: "TASK", text: "等待外部结果" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-condition", traceId: "trace-create-condition" });
+  const envelope = { actor: "user", expectedVersion: object.version, idempotencyKey: "condition-waiting", traceId: "trace-condition" };
+  const waiting = await application.changeCondition(object.objectId, { kind: "WAITING", waitingFor: "外部负责人", expectedResult: "确认结果", reviewAt: "2026-07-21T01:00:00.000Z" }, envelope, new Date("2026-07-20T13:00:00.000Z"));
+  assert.equal(waiting.version, 2);
+  assert.equal(waiting.condition.kind, "WAITING");
+  assert.equal((await application.changeCondition(object.objectId, { kind: "ACTIONABLE" }, envelope)).condition.kind, "WAITING", "same idempotency key replays the original result");
+  await assert.rejects(() => application.changeCondition(object.objectId, { kind: "PAUSED", reason: "稍后", reviewAt: "not-a-date" }, { actor: "user", expectedVersion: 2, idempotencyKey: "invalid-review", traceId: "trace-invalid" }), /合法时间/);
+  await assert.rejects(() => application.changeCondition(object.objectId, { kind: "ACTIONABLE" }, { actor: "user", expectedVersion: 1, idempotencyKey: "stale-condition", traceId: "trace-stale" }), /版本/);
+  assert.equal(repository.audit.at(-1)?.command, "change_condition");
 });

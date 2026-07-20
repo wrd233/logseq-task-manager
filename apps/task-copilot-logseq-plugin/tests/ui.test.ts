@@ -53,6 +53,16 @@ test("V2 Now Work renders only non-empty explainable regions without scores or b
   assert.doesNotMatch(html, /score|健康分|风险分/);
   assert.match(html, /data-action="v2-open-primary-anchor" data-value="block-next"/);
   assert.match(html, /data-action="v2-focus-add" data-value="task-next\|2"/);
+  assert.match(html, /data-action="v2-condition-open" data-value="task-next\|2"/);
+});
+
+test("V2 Condition is edited in one in-context form with explicit Waiting evidence", () => {
+  const value = model();
+  value.actionDialog = { kind: "v2-condition", value: "task-next|2" };
+  const html = renderApp(value);
+  assert.match(html, /Condition 与 Lifecycle、Focus 分离/);
+  for (const field of ["v2ConditionKind", "v2WaitingFor", "v2ExpectedResult", "v2ConditionReason", "v2ConditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
+  assert.match(html, /data-action="submit-v2-condition" data-value="task-next\|2"/);
 });
 
 test("V2 Focus exposes compact manual ordering and removal in the same Now Work context", () => {

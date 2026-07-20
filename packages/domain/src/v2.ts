@@ -74,14 +74,22 @@ export function validateV2Condition(condition: V2Condition): V2Condition {
       requireText(condition.waitingFor, "WAITING_FOR_REQUIRED", "WAITING 必须说明正在等待谁或什么。");
       requireText(condition.expectedResult, "WAITING_RESULT_REQUIRED", "WAITING 必须说明期望结果。");
       requireText(condition.reviewAt, "WAITING_REVIEW_REQUIRED", "WAITING 必须有复查时间。");
+      if (!Number.isFinite(Date.parse(condition.reviewAt))) throw new StructuredError({ code: "WAITING_REVIEW_INVALID", message: "WAITING 复查时间必须是合法时间。", ruleRefs: ["D-151", "D-220"] });
       return condition;
     case "BLOCKED":
       requireText(condition.reason, "BLOCKED_REASON_REQUIRED", "BLOCKED 必须说明阻碍。");
       return condition;
     case "PAUSED":
       requireText(condition.reason, "PAUSED_REASON_REQUIRED", "PAUSED 必须说明暂停原因。");
+      if (condition.reviewAt && !Number.isFinite(Date.parse(condition.reviewAt))) throw new StructuredError({ code: "PAUSED_REVIEW_INVALID", message: "PAUSED 复查时间必须是合法时间。", ruleRefs: ["D-151", "D-220"] });
       return condition;
   }
+}
+
+export function changeV2Condition(object: V2ManagedObject, condition: V2Condition, expectedVersion: number, at = new Date()): V2ManagedObject {
+  if (object.version !== expectedVersion) throw new StructuredError({ code: "V2_OBJECT_VERSION_CONFLICT", message: "对象版本已变化；Condition 没有更新。", ruleRefs: ["D-185"] });
+  if (object.lifecycle !== "OPEN") throw new StructuredError({ code: "V2_CONDITION_OBJECT_CLOSED", message: "已关闭对象不能改变当前 Condition。", ruleRefs: ["D-148", "D-220"] });
+  return { ...object, condition: validateV2Condition(condition), version: object.version + 1, updatedAt: at.toISOString() };
 }
 
 export function createV2ManagedObject(input: CreateV2ManagedObjectInput, at = new Date()): V2ManagedObject {

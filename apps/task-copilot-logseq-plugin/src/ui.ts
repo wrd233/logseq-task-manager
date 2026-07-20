@@ -28,6 +28,7 @@ export type ActionDialogKind =
   | "confirm-v2-review-accept"
   | "confirm-v2-commit"
   | "confirm-v2-undo"
+  | "v2-condition"
   | "v2-review-defer";
 
 export interface UiModel {
@@ -129,7 +130,7 @@ function renderInboxDialog(model: UiModel, capture: Capture): string {
 
 function renderNow(model: UiModel): string {
   if (model.v2NowWork) {
-    const section = (title: string, values: ServiceNowWork["next"], kind: "focus" | "candidate") => values.length ? `<section><h2>${escapeHtml(title)}</h2><div class="cards">${values.map((item, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(item.objectType)} · ${escapeHtml(item.condition.kind)}</div><h3>${escapeHtml(item.text)}</h3><p>${escapeHtml(item.reason)}</p><div class="actions">${item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${kind === "focus" ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}</div></article>`).join("")}</div></section>` : "";
+    const section = (title: string, values: ServiceNowWork["next"], kind: "focus" | "candidate") => values.length ? `<section><h2>${escapeHtml(title)}</h2><div class="cards">${values.map((item, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(item.objectType)} · ${escapeHtml(item.condition.kind)}</div><h3>${escapeHtml(item.text)}</h3><p>${escapeHtml(item.reason)}</p><div class="actions">${item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet")}${kind === "focus" ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}</div></article>`).join("")}</div></section>` : "";
     const content = `${section("当前关注", model.v2NowWork.focus, "focus")}${section("接下来值得处理", model.v2NowWork.next, "candidate")}${section("等待与复查", model.v2NowWork.waitingReview, "candidate")}`;
     return content || empty("当前没有需要推进的事项", "普通 Waiting 保持安静；这里不会加载全部 OPEN 对象。");
   }
@@ -334,6 +335,7 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-condition") return `<section class="inbox-dialog action-dialog" aria-label="更新 V2 Condition"><h3>更新状态</h3><p class="muted">Condition 与 Lifecycle、Focus 分离；保存后立即影响 Now Work 投影。</p><label>状态<select data-field="v2ConditionKind"><option>ACTIONABLE</option><option>WAITING</option><option>BLOCKED</option><option>PAUSED</option></select></label><label>等待谁或什么<input data-field="v2WaitingFor"></label><label>期待结果<input data-field="v2ExpectedResult"></label><label>原因<input data-field="v2ConditionReason"></label><label>复查时间（Waiting 必填）<input type="datetime-local" data-field="v2ConditionReviewAt"></label><div class="actions">${button("保存状态", "submit-v2-condition", dialog.value, "primary")}${cancel}</div></section>`;
   const object = model.objects.find((candidate) => candidate.objectId === dialog.value);
   if (dialog.kind === "edit-object" && object) return `<section class="inbox-dialog action-dialog" aria-label="编辑对象"><h3>编辑对象</h3>
     <label>对象正文<textarea data-field="objectText">${escapeHtml(object.text)}</textarea></label>

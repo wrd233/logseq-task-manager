@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B5 automated foundation; Slice C0-C5 automated foundation; Slice E Now Work interactive foundation"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 235 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Commit/Undo, interactive Now Work, and Review Center current-page Candidate entry are automated; Desktop remains pending"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 237 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Commit/Undo, interactive Now Work with Condition, and Review Center current-page Candidate entry are automated; Desktop remains pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -30,6 +30,7 @@ implemented:
   - "V2 Proposal Review now provides one continuous accept, final preview/Diff, explicit Commit, applied status, and inverse Commit/Undo flow with restart continuation and no overwrite of later edits"
   - "V2 Now Work reads SQLite authority through Local Service and renders three explainable, empty-hiding regions; recent actionable work is bounded and ordinary Waiting stays quiet"
   - "V2 Now Work can add/remove/reorder Focus through Application and Local Service concurrency guards, and active Primary Anchors expose a safe open action without changing formal object state"
+  - "V2 Now Work can set ACTIONABLE/WAITING/BLOCKED/PAUSED through one versioned Application command; Waiting review evidence is validated and immediately feeds the quiet review projection"
   - "Review Center now owns the bounded current-page explicit Candidate scan and one-at-a-time stale-protected synchronization; Diagnostics no longer serves as that daily entry"
   - "Review Center separates Candidate and Proposal queues with explicit counted session-level views, without adding another persisted state"
   - "Known Primary Anchor observations persist missing/conflict/recovery through Local Service and one SQLite transaction without deleting objects or reviving replaced Anchors"
