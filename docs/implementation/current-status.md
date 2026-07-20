@@ -31,11 +31,12 @@ V2_MIGRATION_DESIGN_READY
 - Primary Anchor 与 Primary Ownership 同时经过 Domain 与 SQLite 约束，失败事务不会推进对象版本；
 - 建立 0600 runtime descriptor、版本化 Service Client、超时/断连/未授权/协议不兼容错误及受限状态；
 - 建立可执行 `task-copilot-service` 与只读 `tc status/doctor/object`，完成独立进程冒烟。
+- SQLite 写锁冲突已收敛为结构化零写入失败；Backup 增加不覆盖、只读 schema/Graph/完整性/外键校验。
 
 ## 当前证据
 
-- Git：`feature/task-copilot-mvp`，本轮起点 `22677a2` 与 upstream 相同；当前 Slice 改动尚未提交；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，113 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
+- Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，115 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、退出清理均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
@@ -50,7 +51,7 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. 扩展 Slice A2 Commit/migration ledger、SQLite locked 与 restore validate；
+1. 扩展 Slice A2 Commit/migration ledger，将已通过的 Backup 校验接入受控 Service restore-validate 路径；
 2. 完成 Plugin 安全发现 Service 的 transport 与 Desktop 受限模式；
 3. 完成首次启用三入口与无隐式扫描/迁移/模型调用证据；
 4. 在 Slice A-C 闭环后接入 Provider abstraction，再运行 bounded DeepSeek live gate；

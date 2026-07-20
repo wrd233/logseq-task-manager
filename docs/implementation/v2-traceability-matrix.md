@@ -15,7 +15,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | V2-ARCH-001 | D-180..191；V2 §5.4-5.5 | Plugin、CLI、Agent 看到同一事实 | 正文/状态/历史/投影单一权威 | 所有 command/query 共享一层 | Service client；SQLite adapter | boundary + integration | A | REUSE_EVIDENCE | V2 Application/Repository 原子 command seam 与只读 CLI 已通过；Plugin 尚未切换，HTTP write route 未开放 |
 | V2-ARCH-002 | D-216；V2 §30-32 | Service 不可用仍可写正文 | Domain 无 transport 语义 | health/status/restricted | 单个 loopback Service | unavailable/protocol | A | REUSE_EVIDENCE | descriptor 0600、auth、timeout/unavailable/protocol restricted 自动测试通过；Plugin Desktop 接入待完成 |
-| V2-DATA-001 | D-190..192；V2 §33-34 | 每 Graph 独立运行和恢复 | SQLite 唯一当前状态；schema 独立版本 | initialize/migrate/backup | SQLite + `.task-copilot/` | idempotency/locked/corrupt | A | REUSE_EVIDENCE | Graph-bound schema、事务幂等、corrupt/unknown、Doctor/backup 自动测试通过；完整表/restore/切换待完成 |
+| V2-DATA-001 | D-190..192；V2 §33-34 | 每 Graph 独立运行和恢复 | SQLite 唯一当前状态；schema 独立版本 | initialize/migrate/backup | SQLite + `.task-copilot/` | idempotency/locked/corrupt | A | REUSE_EVIDENCE | Graph-bound schema、事务幂等、corrupt/unknown、写锁零写入、Doctor 与只读 Backup 校验自动测试通过；完整表/restore/切换待完成 |
 | V2-DOM-001 | D-214、D-220；V2 §13-22 | 六类对象、三层状态可理解 | 六类封顶；Lifecycle/Condition/Focus 封顶 | create/change/focus | UI 弱提示 | domain matrix | A | REUSE_EVIDENCE | V2 pure Domain contracts 与 Application create/lifecycle tests 通过；对象特定完整语义/UI 待后续 Slice |
 | V2-ID-001 | D-030..041；V2 §21 | 移动/改名不丢身份 | object_id 独立；最多一 Primary Anchor | bind/observe/rebind | Graph UUID adapter | uniqueness/move/delete | A-B | REUSE_EVIDENCE | V2 Domain+Application+SQLite 初始 Primary Anchor 原子/唯一/回滚通过；observe/rebind/Graph event 属 Slice B |
 | V2-OWN-001 | D-035..047；V2 §21 | 位置变化不改归属 | 最多一个 Primary Owner；Association 不冒充归属 | change ownership/add association | 语义 Diff 独立控制 | matrix/cycle/scope | A-C | REUSE_EVIDENCE | V2 owner matrix、Application version 与 SQLite 单一 Primary 事务通过；显式 change/Association 待后续 |
@@ -48,7 +48,7 @@
 | E2E-14 | V2 §68 | 手动小范围迁移、预览、幂等、Undo | migration batch 可恢复 | scan/commit/undo | Settings/CLI | fixture + Desktop | F | NOT_STARTED | 无 migration |
 | E2E-15 | V2 §68 | Service 故障时正文可编辑 | 无 Service 不允许正式写入 | health/recover/check | Plugin restricted | process fault + Desktop | A | REUSE_EVIDENCE | Client restricted model 自动证明 graphEditing=true/formalWrites=false；Plugin Desktop 仍未验证 |
 | E2E-16 | V2 §68 | Graph 成功、Store 失败 | 明确 Partial Failure | commit/recover | Graph + SQLite | injected failure | C | REUSE_EVIDENCE | V1 Domain save failure/compensation 已测 |
-| E2E-17 | V2 §68 | 恢复快照后 Doctor PASS | 恢复后必须一致性检查 | backup/restore/doctor | SQLite/CLI | temp restore + Desktop | A,F | REUSE_EVIDENCE | V1 bundle rehearsal；非 SQLite |
+| E2E-17 | V2 §68 | 恢复快照后 Doctor PASS | 恢复后必须一致性检查 | backup/restore/doctor | SQLite/CLI | temp restore + Desktop | A,F | REUSE_EVIDENCE | SQLite Backup 只读 schema/Graph/integrity/foreign-key 校验、防覆盖与损坏拒绝已自动证明；实际 restore/CLI/Desktop 待完成 |
 | E2E-18 | V2 §68 | Key 不出现在任何默认资产 | secret 非领域数据、永不记录 | config/log/export | Provider/diagnostics | secret canary scan | D,F | NOT_STARTED | V1 正文日志脱敏可复用 |
 | E2E-19 | V2 §68 | Project 对象和页面原子创建 | Project 必须页面；不半成功 | create project | Graph + SQLite | fault injection + Desktop | B | NOT_STARTED | 无 Project page adapter |
 | E2E-20 | V2 §68 | Closure 可说明未完成目标 | Completion 不要求全部 Objective | close project Proposal | Agent/Review | fixture + Desktop | F | NOT_STARTED | V1 Project phase 不符合 V2 |

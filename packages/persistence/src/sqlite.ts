@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import Database from "better-sqlite3";
@@ -26,6 +26,10 @@ export interface SqliteDoctorReport {
   objectCount: number;
 }
 
+export interface SqliteOpenOptions {
+  busyTimeoutMs?: number;
+}
+
 interface ObjectRow {
   object_id: string;
   object_type: V2ManagedObject["objectType"];
@@ -48,15 +52,19 @@ export class V2SqliteStore {
     readonly path: string,
   ) {}
 
-  static async open(path: string): Promise<V2SqliteStore> {
+  static async open(path: string, options: SqliteOpenOptions = {}): Promise<V2SqliteStore> {
     const absolute = resolve(path);
+    const busyTimeoutMs = options.busyTimeoutMs ?? 3000;
+    if (!Number.isSafeInteger(busyTimeoutMs) || busyTimeoutMs < 0 || busyTimeoutMs > 60_000) {
+      throw persistenceError("V2_BUSY_TIMEOUT_INVALID", "SQLite busy timeout 必须是 0 到 60000 毫秒的整数。");
+    }
     await mkdir(dirname(absolute), { recursive: true });
     let database: Database.Database | undefined;
     try {
       database = new Database(absolute);
       database.pragma("foreign_keys = ON");
       database.pragma("journal_mode = WAL");
-      database.pragma("busy_timeout = 3000");
+      database.pragma(`busy_timeout = ${busyTimeoutMs}`);
     } catch (error) {
       database?.close();
       throw persistenceError("V2_DATABASE_OPEN_FAILED", "SQLite 数据库无法打开；原文件未被覆盖。", {
@@ -182,7 +190,7 @@ export class V2SqliteStore {
       this.writeReceipt(command.idempotencyKey, command.audit, command.object);
       return { object: command.object, replayed: false };
     });
-    return write();
+    return this.executeWrite(write);
   }
 
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined {
@@ -234,7 +242,7 @@ export class V2SqliteStore {
       this.writeReceipt(command.idempotencyKey, command.audit, result);
       return { ...result, replayed: false };
     });
-    return write();
+    return this.executeWrite(write);
   }
 
   commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult {
@@ -264,7 +272,19 @@ export class V2SqliteStore {
       this.writeReceipt(command.idempotencyKey, command.audit, result);
       return { ...result, replayed: false };
     });
-    return write();
+    return this.executeWrite(write);
+  }
+
+  private executeWrite<T>(operation: () => T): T {
+    try {
+      return operation();
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
+      if (code === "SQLITE_BUSY" || code === "SQLITE_LOCKED") {
+        throw persistenceError("V2_DATABASE_LOCKED", "SQLite 当前被另一个写事务占用；没有正式变化被提交。", { sqliteCode: code });
+      }
+      throw error;
+    }
   }
 
   private requireIdempotencyKey(value: string): void {
@@ -384,8 +404,58 @@ export class V2SqliteStore {
   async backup(destination: string): Promise<string> {
     const absolute = resolve(destination);
     await mkdir(dirname(absolute), { recursive: true });
-    await this.database.backup(absolute);
+    try {
+      await access(absolute);
+      throw persistenceError("V2_BACKUP_DESTINATION_EXISTS", "Backup 目标已存在，拒绝覆盖。", { destination: absolute });
+    } catch (error) {
+      if (error instanceof StructuredError) throw error;
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    try {
+      await this.database.backup(absolute);
+    } catch (error) {
+      throw persistenceError("V2_BACKUP_FAILED", "SQLite Backup 创建失败。", {
+        cause: error instanceof Error ? error.message : String(error),
+      });
+    }
     return absolute;
+  }
+
+  static validateBackup(path: string, expectedGraphId: string): SqliteDoctorReport {
+    const absolute = resolve(path);
+    let database: Database.Database | undefined;
+    try {
+      database = new Database(absolute, { readonly: true, fileMustExist: true });
+      database.pragma("foreign_keys = ON");
+      const schemaVersion = database.pragma("user_version", { simple: true }) as number;
+      if (schemaVersion !== V2_DATABASE_SCHEMA_VERSION) {
+        throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "Backup schema 版本不受支持。", { schemaVersion });
+      }
+      const graph = database.prepare("SELECT value FROM schema_meta WHERE key = 'graph_id'").get() as { value: string } | undefined;
+      if (!graph || graph.value !== expectedGraphId) {
+        throw persistenceError("V2_GRAPH_ID_MISMATCH", "Backup 属于另一个 Graph，拒绝恢复。", {
+          expectedGraphId,
+          actualGraphId: graph?.value,
+        });
+      }
+      const integrity = database.pragma("integrity_check", { simple: true }) as string;
+      const foreignKeyViolations = (database.pragma("foreign_key_check") as unknown[]).length;
+      const objectCount = (database.prepare("SELECT count(*) AS count FROM objects").get() as { count: number }).count;
+      return {
+        status: integrity === "ok" && foreignKeyViolations === 0 ? "PASS" : "FAIL",
+        schemaVersion,
+        integrity,
+        foreignKeyViolations,
+        objectCount,
+      };
+    } catch (error) {
+      if (error instanceof StructuredError) throw error;
+      throw persistenceError("V2_BACKUP_VALIDATION_FAILED", "Backup 无法以只读方式通过校验。", {
+        cause: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      database?.close();
+    }
   }
 
   close(): void {

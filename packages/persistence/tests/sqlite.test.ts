@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import Database from "better-sqlite3";
+
 import { V2Application } from "@task-copilot/application";
 
 import { V2SqliteStore } from "../src/sqlite.ts";
@@ -99,12 +101,56 @@ test("backup is a readable independent SQLite database", async (t) => {
     { actor: "test", expectedVersion: 0, idempotencyKey: "cmd-backup-create", traceId: "trace-backup" },
   );
   const backupPath = await store.backup(join(root, "backups", "before-change.db"));
+  const backupBytes = await readFile(backupPath);
+  assert.deepEqual(V2SqliteStore.validateBackup(backupPath, "graph-a"), {
+    status: "PASS",
+    schemaVersion: 1,
+    integrity: "ok",
+    foreignKeyViolations: 0,
+    objectCount: 1,
+  });
+  assert.throws(() => V2SqliteStore.validateBackup(backupPath, "graph-other"), /另一个 Graph/);
+  assert.deepEqual(await readFile(backupPath), backupBytes, "read-only validation must not mutate backup bytes");
+  await assert.rejects(() => store.backup(backupPath), /拒绝覆盖/);
+  assert.deepEqual(await readFile(backupPath), backupBytes, "failed duplicate backup must not overwrite bytes");
   store.close();
   const backup = await V2SqliteStore.open(backupPath);
   assert.deepEqual(backup.initialize("graph-a"), { initialized: false, schemaVersion: 1 });
   assert.equal(backup.getObject("obj-backup")?.text, "治理 Pilot");
   assert.equal(backup.doctor().status, "PASS");
   backup.close();
+});
+
+test("locked SQLite write becomes a structured zero-write failure", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-sqlite-lock-"));
+  const path = join(root, "task-copilot.db");
+  const store = await V2SqliteStore.open(path, { busyTimeoutMs: 20 });
+  const locker = new Database(path);
+  t.after(async () => {
+    if (locker.inTransaction) locker.exec("ROLLBACK");
+    locker.close();
+    store.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  store.initialize("graph-a");
+  locker.exec("BEGIN IMMEDIATE");
+  const application = new V2Application(store);
+  await assert.rejects(() => application.createObject(
+    { objectId: "locked-object", objectType: "TASK", text: "不得半写" },
+    { actor: "test", expectedVersion: 0, idempotencyKey: "locked-create", traceId: "trace-locked" },
+  ), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_DATABASE_LOCKED");
+  assert.equal(store.getObject("locked-object"), undefined);
+  assert.equal(store.auditEventCount(), 0);
+});
+
+test("corrupt backup is rejected by read-only validation", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-backup-corrupt-"));
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  const path = join(root, "corrupt.db");
+  await writeFile(path, "not a sqlite backup");
+  const before = await readFile(path);
+  assert.throws(() => V2SqliteStore.validateBackup(path, "graph-a"), /只读方式通过校验/);
+  assert.deepEqual(await readFile(path), before);
 });
 
 test("Primary Anchor and Ownership are unique atomic Application commands", async (t) => {
