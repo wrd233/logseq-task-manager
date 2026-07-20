@@ -860,6 +860,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id),
         updateBlock: (id, content) => logseq.Editor.updateBlock(id, content),
       }, stored, `v2-proposal-commit-ui-${Date.now()}`);
+      actionDialog = undefined;
       workspace = "review";
       message = result.status === "COMPLETED" ? `最终 Commit 已生效；对象 ${result.objectId} 已写入，可在当前卡片撤销。` : result.status === "STALE" ? "提交前重验失败；没有写入。" : "领域写入失败，正文已安全恢复；未报告成功。";
     });
@@ -875,6 +876,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id),
         updateBlock: (id, content) => logseq.Editor.updateBlock(id, content),
       }, value, `v2-proposal-undo-ui-${Date.now()}`);
+      actionDialog = undefined;
       workspace = "review";
       message = result.status === "COMPLETED" ? "Undo 已作为新的逆向 Commit 生效；正文与当前对象投影均已恢复，历史 Audit 保留。" : "Undo 领域写入失败，正文已恢复为 Commit 后状态；原 Commit 仍有效。";
     });
