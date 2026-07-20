@@ -214,15 +214,19 @@ function renderReview(model: UiModel): string {
   const open = model.proposals.filter((proposal) => proposal.status === "OPEN");
   const v2 = model.v2Proposals ?? [];
   const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
-  const v2Cards = v2.map((record) => `<article class="card proposal v2-proposal">
+  const v2Cards = v2.map((record) => {
+    const hasAcceptedGroup = record.proposal.groups.some((group) => group.disposition === "ACCEPTED");
+    return `<article class="card proposal v2-proposal">
     <div class="eyebrow">V2 · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
     <h3>${escapeHtml(record.proposal.title)}</h3>
     <p><strong>当前上下文：</strong>${escapeHtml(record.proposal.context)}</p>
     <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
     <section class="suggestion"><h4>最终可读预览</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
     ${record.proposal.groups.map((group) => `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${button("接受该语义组", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}`, "primary")}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}</div>` : ""}</section>`).join("")}
-    <div class="notice">${record.proposal.status === "ACCEPTED" ? "语义组已接受，但尚未正式生效；版本重验与最终 Commit 完成后才会写入 Graph/SQLite，并显示 Undo。" : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
-  </article>`).join("");
+    ${hasAcceptedGroup ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "primary")}</div>` : ""}
+    <div class="notice">${hasAcceptedGroup ? "已接受的语义组尚未正式生效；先重读 Graph/SQLite 版本与 scope，最终 Commit 完成后才会写入 Graph/SQLite，并显示 Undo。" : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
+  </article>`;
+  }).join("");
   if (open.length === 0 && v2.length === 0 && !v2LoadError) return empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务能力仍可使用。");
   return `${v2LoadError}<div class="cards">${v2Cards}${open
     .map(

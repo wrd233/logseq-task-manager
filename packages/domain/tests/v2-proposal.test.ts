@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { checksum } from "@task-copilot/shared";
 
-import { renderV2ProposalFiles, reviewV2ProposalGroups, validateV2Proposal, type V2Proposal } from "../src/index.ts";
+import { renderV2ProposalFiles, revalidateAcceptedV2Proposal, reviewV2ProposalGroups, validateV2Proposal, type V2Proposal } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "核对外部推送";
@@ -93,4 +93,37 @@ test("group review records a valid deferral and rejects non-independent partial 
   coupled.groups[0]!.independentlyAcceptable = false;
   coupled.groups.push({ ...coupled.groups[0]!, groupId: "second", independentlyAcceptable: true, semanticOperations: [{ ...coupled.groups[0]!.semanticOperations[0]!, operationId: "second-op" }] });
   assert.throws(() => reviewV2ProposalGroups(coupled, { "formalize-task": { disposition: "ACCEPTED" } }), /不能脱离/);
+});
+
+test("accepted Proposal revalidation checks read context and accepted modify targets", () => {
+  const value = proposal();
+  value.scope.read[0]!.hash = checksum("journal snapshot");
+  const accepted = reviewV2ProposalGroups(value, { "formalize-task": { disposition: "ACCEPTED" } });
+  const result = revalidateAcceptedV2Proposal(accepted, [
+    { kind: "PAGE", id: "Journal/2026-07-20", exists: true, hash: checksum("journal snapshot") },
+    { kind: "BLOCK", id: "block-1", exists: true, version: 7, hash: checksum("核对外部推送") },
+  ]);
+  assert.deepEqual(result, { status: "VALID", acceptedGroupIds: ["formalize-task"] });
+});
+
+test("accepted Proposal revalidation reports stale and refuses unscoped or duplicate evidence", () => {
+  const value = proposal();
+  value.scope.read[0]!.hash = checksum("journal snapshot");
+  const accepted = reviewV2ProposalGroups(value, { "formalize-task": { disposition: "ACCEPTED" } });
+  assert.deepEqual(revalidateAcceptedV2Proposal(accepted, [
+    { kind: "PAGE", id: "Journal/2026-07-20", exists: true, hash: checksum("journal snapshot") },
+    { kind: "BLOCK", id: "block-1", exists: true, version: 8, hash: checksum("正文已变化") },
+  ]), {
+    status: "STALE",
+    acceptedGroupIds: ["formalize-task"],
+    issues: [
+      { kind: "BLOCK", id: "block-1", reason: "VERSION_CHANGED" },
+      { kind: "BLOCK", id: "block-1", reason: "HASH_CHANGED" },
+    ],
+  });
+  assert.throws(() => revalidateAcceptedV2Proposal(accepted, [{ kind: "BLOCK", id: "outside", exists: true, version: 1 }]), /scope/);
+  assert.throws(() => revalidateAcceptedV2Proposal(accepted, [
+    { kind: "BLOCK", id: "block-1", exists: true, version: 7, hash: checksum("核对外部推送") },
+    { kind: "BLOCK", id: "block-1", exists: true, version: 7, hash: checksum("核对外部推送") },
+  ]), /重复/);
 });

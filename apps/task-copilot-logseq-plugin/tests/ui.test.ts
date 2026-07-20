@@ -130,8 +130,9 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   value.v2Proposals[0]!.proposal.status = "ACCEPTED";
   value.v2Proposals[0]!.proposal.groups[0]!.disposition = "ACCEPTED";
   html = renderApp(value);
-  assert.match(html, /语义组已接受，但尚未正式生效/);
+  assert.match(html, /已接受的语义组尚未正式生效/);
   assert.match(html, /显示 Undo/);
+  assert.match(html, /data-action="v2-proposal-revalidate"/);
 });
 
 test("object and high-impact actions render in-plugin forms instead of browser modals", () => {

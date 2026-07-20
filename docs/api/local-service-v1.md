@@ -42,6 +42,7 @@
 | GET | `/proposals` | 按创建顺序列出已提交 Proposal | 无 |
 | GET | `/proposals/{id}` | 读取单个 Proposal、两文件和 `updatedAt` | 无 |
 | POST | `/proposals/{id}/review` | 按语义组接受/拒绝/暂缓 | Proposal + Group 单事务写入；不改正文/对象 |
+| POST | `/proposals/{id}/revalidate` | 重验 read scope 与 accepted modify scope | 成功只读；stale 只标记 Proposal，不改正文/对象 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
@@ -162,6 +163,9 @@
 | `V2_PROPOSAL_NOT_FOUND` | Proposal 不存在 |
 | `V2_PROPOSAL_REVIEW_STALE` | Proposal 审阅版本已变化，本次零写入 |
 | `PROPOSAL_REVIEW_REQUEST_INVALID` | 分组决定、暂缓信息或请求字段无效 |
+| `PROPOSAL_REVALIDATION_REQUEST_INVALID` | 重验请求字段、Block/Page 证据或证据数量无效 |
+| `V2_PROPOSAL_REVALIDATION_STALE` | 重验前 Proposal 审阅版本已变化，本次零写入 |
+| `V2_PROPOSAL_NOT_ACCEPTED` | Proposal 没有可进入提交前重验的 accepted 语义组 |
 | `SERVICE_STOPPING` | Restore 进行中拒绝新请求 |
 | `V2_GRAPH_ID_MISMATCH` | Backup 不属于当前 Graph |
 | `V2_UNSUPPORTED_DATABASE_SCHEMA` | Backup schema 版本不受支持 |

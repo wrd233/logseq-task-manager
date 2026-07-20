@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { V2Application, V2ProposalApplication, type MaterializeExplicitObjectInput } from "@task-copilot/application";
-import { renderV2ProposalFiles, validateV2Proposal, type V2ProposalGroupDecision } from "@task-copilot/domain";
+import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
@@ -181,6 +181,29 @@ async function readProposalReviewRequest(request: IncomingMessage): Promise<{ de
   return { decisions: decisions as Record<string, V2ProposalGroupDecision>, expectedUpdatedAt: record.expectedUpdatedAt };
 }
 
+async function readProposalRevalidationRequest(request: IncomingMessage): Promise<{ observations: V2ProposalScopeObservation[]; expectedUpdatedAt: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "expectedUpdatedAt,observations" || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || !Array.isArray(record.observations) || record.observations.length > 256) {
+    throw serviceError("PROPOSAL_REVALIDATION_REQUEST_INVALID", "Proposal 重验请求无效。");
+  }
+  const observations = record.observations.map((value): V2ProposalScopeObservation => {
+    const observation = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    const allowedKeys = ["exists", "hash", "id", "kind", "version"];
+    if (
+      Object.keys(observation).some((key) => !allowedKeys.includes(key))
+      || !["BLOCK", "PAGE"].includes(String(observation.kind)) || typeof observation.id !== "string" || !observation.id.trim() || observation.id.length > 512
+      || typeof observation.exists !== "boolean"
+      || (observation.version !== undefined && (!Number.isSafeInteger(observation.version) || Number(observation.version) < 0))
+      || (observation.hash !== undefined && (typeof observation.hash !== "string" || !/^[0-9a-f]{8}$/.test(observation.hash)))
+    ) throw serviceError("PROPOSAL_REVALIDATION_REQUEST_INVALID", "Proposal 重验证据无效。");
+    return observation as unknown as V2ProposalScopeObservation;
+  });
+  return { observations, expectedUpdatedAt: record.expectedUpdatedAt };
+}
+
 function projectSemanticCommitId(graphId: string, name: string): string {
   return `project-create:${createHash("sha256").update(JSON.stringify([graphId, normalizedProjectName(name).toLocaleLowerCase("zh-CN")])).digest("hex")}`;
 }
@@ -305,16 +328,16 @@ function primaryAnchorRebindIdempotencyKey(graphId: string, input: PrimaryAnchor
 
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
-    const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && !["V2_PROPOSAL_NOT_FOUND", "V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_ID_CONFLICT"].includes(error.code);
+    const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && !["V2_PROPOSAL_NOT_FOUND", "V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT"].includes(error.code);
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
+      : proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
         ? 400
         : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND"
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_PROPOSAL_REVIEW_STALE" || error.code === "V2_PROPOSAL_ID_CONFLICT"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_PROPOSAL_REVIEW_STALE" || error.code === "V2_PROPOSAL_REVALIDATION_STALE" || error.code === "V2_PROPOSAL_NOT_ACCEPTED" || error.code === "V2_PROPOSAL_ID_CONFLICT"
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -389,6 +412,23 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "GET" && url.pathname === "/proposals") {
       respond(response, 200, { proposals: await proposalApplication.list() });
+      return;
+    }
+    const proposalRevalidationMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/revalidate$/) : null;
+    if (proposalRevalidationMatch?.[1]) {
+      const proposalId = decodeURIComponent(proposalRevalidationMatch[1]);
+      const input = await readProposalRevalidationRequest(request);
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const serviceOwnedObservations: V2ProposalScopeObservation[] = requiredV2ProposalRevalidationScope(stored.proposal).targets
+        .filter((target) => target.kind === "OBJECT")
+        .map((target) => {
+          const object = store.getObject(target.id);
+          return object
+            ? { kind: "OBJECT", id: target.id, exists: true, version: object.version, hash: checksum(object) }
+            : { kind: "OBJECT", id: target.id, exists: false };
+        });
+      respond(response, 200, await proposalApplication.revalidate(proposalId, [...input.observations, ...serviceOwnedObservations], input.expectedUpdatedAt));
       return;
     }
     const proposalReviewMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/review$/) : null;

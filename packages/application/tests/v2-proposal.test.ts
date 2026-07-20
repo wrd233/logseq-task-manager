@@ -46,3 +46,21 @@ test("Proposal Application persists group review with optimistic concurrency", a
   assert.equal(reviewed.proposal.status, "ACCEPTED");
   await assert.rejects(() => application.review("prop_app", { formalize: { disposition: "REJECTED" } }, submitted.record.updatedAt), /变化/);
 });
+
+test("Proposal Application revalidates accepted scope and persists an explicit stale state", async () => {
+  const repository = new MemoryProposalRepository();
+  const application = new V2ProposalApplication(repository);
+  const submitted = await application.submit(proposal());
+  const reviewed = await application.review("prop_app", { formalize: { disposition: "ACCEPTED" } }, submitted.record.updatedAt, new Date("2026-07-20T12:01:00.000Z"));
+  const valid = await application.revalidate("prop_app", [
+    { kind: "BLOCK", id: "block-app", exists: true, version: 1, hash: checksum("普通正文") },
+  ], reviewed.updatedAt);
+  assert.equal(valid.result.status, "VALID");
+  assert.equal(valid.record.updatedAt, reviewed.updatedAt, "successful read-only revalidation does not churn review version");
+  const stale = await application.revalidate("prop_app", [
+    { kind: "BLOCK", id: "block-app", exists: true, version: 2, hash: checksum("用户已编辑") },
+  ], reviewed.updatedAt, new Date("2026-07-20T12:02:00.000Z"));
+  assert.equal(stale.result.status, "STALE");
+  assert.equal(stale.record.proposal.status, "STALE");
+  await assert.rejects(() => application.revalidate("prop_app", [], reviewed.updatedAt), /变化/);
+});

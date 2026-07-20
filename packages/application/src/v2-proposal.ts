@@ -1,10 +1,13 @@
 import {
   renderV2ProposalFiles,
+  revalidateAcceptedV2Proposal,
   reviewV2ProposalGroups,
   validateV2Proposal,
   type V2Proposal,
   type V2ProposalFiles,
   type V2ProposalGroupDecision,
+  type V2ProposalRevalidationResult,
+  type V2ProposalScopeObservation,
 } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -56,5 +59,21 @@ export class V2ProposalApplication {
     if (current.updatedAt !== expectedUpdatedAt) throw proposalApplicationError("V2_PROPOSAL_REVIEW_STALE", "Proposal 已在其他审阅操作后变化；请刷新后重试。");
     const proposal = reviewV2ProposalGroups(current.proposal, decisions);
     return this.repository.updateStoredProposal(proposal, renderV2ProposalFiles(proposal), expectedUpdatedAt, at);
+  }
+
+  async revalidate(
+    proposalId: string,
+    observations: readonly V2ProposalScopeObservation[],
+    expectedUpdatedAt: string,
+    at = new Date(),
+  ): Promise<{ record: V2StoredProposalRecord; result: V2ProposalRevalidationResult }> {
+    const current = await this.repository.storedProposal(proposalId);
+    if (!current) throw proposalApplicationError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+    if (current.updatedAt !== expectedUpdatedAt) throw proposalApplicationError("V2_PROPOSAL_REVALIDATION_STALE", "Proposal 已在重验前变化；本次没有写入。");
+    const result = revalidateAcceptedV2Proposal(current.proposal, observations);
+    if (result.status === "VALID") return { record: current, result };
+    const stale = { ...current.proposal, status: "STALE" as const };
+    const record = await this.repository.updateStoredProposal(stale, renderV2ProposalFiles(stale), expectedUpdatedAt, at);
+    return { record, result };
   }
 }

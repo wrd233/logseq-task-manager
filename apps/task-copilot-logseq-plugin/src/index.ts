@@ -52,6 +52,7 @@ import {
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
+import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 
 let appRoot: HTMLElement | undefined;
 const v1Runtime: {
@@ -643,6 +644,27 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-review-defer" && value) return openActionDialog("v2-review-defer", value);
+  if (action === "v2-proposal-revalidate" && value) {
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!proposalId || !expectedUpdatedAt || !client) throw new Error("V2 重验上下文已失效；没有修改正文或正式状态。");
+      const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
+      if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查。");
+      const observations = await collectV2ProposalGraphObservations(stored.proposal, {
+        getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }),
+        getPage: (id) => logseq.Editor.getPage(id),
+      });
+      const result = await client.revalidateProposal(proposalId, observations, expectedUpdatedAt);
+      workspace = "review";
+      if (result.result.status === "STALE") {
+        message = `提交前检查未通过：${result.result.issues.map((issue) => `${issue.kind}:${issue.id} ${issue.reason}`).join("；")}。Proposal 已标记 STALE，没有正式生效。`;
+        return;
+      }
+      message = "提交前版本与 scope 检查通过；仍未正式生效，下一步是在同一审阅上下文确认最终 Commit。";
+    });
+    return;
+  }
   if (action === "submit-v2-review-accept" && value) {
     if (!dialogChecked("actionConfirmed")) { latestError = "请独立确认高影响语义组。"; await refresh(); return; }
     const [proposalId, groupId, expectedUpdatedAt] = value.split("|");

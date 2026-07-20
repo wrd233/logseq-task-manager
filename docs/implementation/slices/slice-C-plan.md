@@ -11,7 +11,7 @@
 | C0 | V2 Proposal Schema、两文件渲染、Validator | shape、scope、hash、risk、dependency | 自动基础完成 |
 | C1 | SQLite proposals/proposal_groups + submit/read | 非法 Proposal 零持久化；重复 ID 冲突 | 自动基础完成 |
 | C2 | Review Center 待审阅 + 四处置 + 语义组部分接受 | 高影响独立确认；依赖链不可拆 | 自动基础完成；Desktop 待验收 |
-| C3 | Stale/version/scope revalidation | Block/Object 变化阻止提交 | 待实施 |
+| C3 | Stale/version/scope revalidation | Block/Object 变化阻止提交 | 自动基础完成；Desktop 待验收 |
 | C4 | SemanticCommit Graph → Domain → Audit | Partial Failure 不显示成功 | ledger 可复用；编排待实施 |
 | C5 | inverse Commit / Undo / Recovery | 不覆盖后续编辑 | V1 证据可复用；V2 待实施 |
 
@@ -33,9 +33,18 @@
 - Review UI 在同一上下文展示最终预览、文本 Diff、语义 Diff 和分组决定；HIGH 组使用插件内独立确认。
 - UI 明确提示“已接受但尚未生效”；C3/C4 未完成前不提供假 Commit，审阅决定不写入正文或对象表。
 
+## C3 已建立的合同
+
+- 只有 `ACCEPTED` / `PARTIALLY_ACCEPTED` 且至少有一个已接受语义组的 Proposal 可重验；未接受组不扩大 modify scope。
+- 必须重验全部 read scope 和已接受组实际引用的 modify target；缺少期望 version/hash 也是 stale，不将“无证据”当成未变化。
+- Plugin 通过有界按 ID 重读 Block/Page；Block hash 是当前正文 CRC32，Page hash 是 UUID/name/originalName/updatedAt 投影 CRC32。不扫描页或 Graph。
+- OBJECT 证据由 Local Service 从当前 SQLite 自行读取，客户端只能上报 BLOCK/PAGE，不能伪造对象版本。
+- 缺失、无观察、版本变化或 hash 变化会把 Proposal 持久化标记为 `STALE`；成功重验是只读的，不刷新 Proposal `updatedAt`。
+- Review UI 在原上下文显示“提交前检查”与具体 stale target；检查通过仍明示未生效。C4 最终 Commit 必须在准备账本时再次执行同一重验，不把早先检查当成写入权限。
+
 ## Gate 纪律
 
 - C0 自动通过不等于 Proposal 已进入正式审阅中心；
-- 未完成 C3 版本重验前不得开放 Commit；
+- C4 未在准备账本时再次执行 C3 重验前不得开放 Commit；
 - 未完成 C4/C5 故障与 Undo Gate 前不得标记 Slice C complete；
 - Desktop 必须证明用户一次连续审阅即可理解“建议、已接受、正式生效、可撤销”，不重复 V1 Pilot 的接受/提交割裂。

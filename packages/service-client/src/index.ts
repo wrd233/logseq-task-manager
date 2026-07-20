@@ -1,4 +1,4 @@
-import type { V2Anchor, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision } from "@task-copilot/domain";
+import type { V2Anchor, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -143,6 +143,11 @@ export interface ServiceStoredProposal {
   proposal: V2Proposal;
   files: { proposalMd: string; proposalJson: string };
   updatedAt: string;
+}
+
+export interface ServiceProposalRevalidation {
+  record: ServiceStoredProposal;
+  result: V2ProposalRevalidationResult;
 }
 
 export type ServiceConnectionState =
@@ -364,6 +369,12 @@ export class LocalServiceClient {
   reviewProposal(proposalId: string, decisions: Readonly<Record<string, V2ProposalGroupDecision>>, expectedUpdatedAt: string): Promise<ServiceStoredProposal> {
     return this.request<ServiceStoredProposal>(`/proposals/${encodeURIComponent(proposalId)}/review`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decisions, expectedUpdatedAt }),
+    });
+  }
+
+  revalidateProposal(proposalId: string, observations: readonly V2ProposalScopeObservation[], expectedUpdatedAt: string): Promise<ServiceProposalRevalidation> {
+    return this.request<ServiceProposalRevalidation>(`/proposals/${encodeURIComponent(proposalId)}/revalidate`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ observations, expectedUpdatedAt }),
     });
   }
 

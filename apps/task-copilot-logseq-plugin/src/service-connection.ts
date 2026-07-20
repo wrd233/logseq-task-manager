@@ -37,7 +37,7 @@ interface ElectronFileSystemPromises {
 
 type ServiceProbeClient = Pick<LocalServiceClient, "health">;
 type ServiceClientFactory = (descriptor: ServiceDescriptor) => ServiceProbeClient;
-export type ServiceRuntimeClient = Pick<LocalServiceClient, "health" | "synchronizeExplicitObject" | "listObjects" | "listPrimaryAnchors" | "observePrimaryAnchor" | "rebindPrimaryAnchor" | "prepareProject" | "finalizeProject" | "listProposals" | "reviewProposal">;
+export type ServiceRuntimeClient = Pick<LocalServiceClient, "health" | "synchronizeExplicitObject" | "listObjects" | "listPrimaryAnchors" | "observePrimaryAnchor" | "rebindPrimaryAnchor" | "prepareProject" | "finalizeProject" | "listProposals" | "reviewProposal" | "revalidateProposal">;
 type ServiceRuntimeClientFactory = (descriptor: ServiceDescriptor) => ServiceRuntimeClient;
 
 export interface DiscoveredServiceRuntime {

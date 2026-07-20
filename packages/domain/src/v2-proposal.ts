@@ -63,6 +63,25 @@ export interface V2Proposal {
 
 export interface V2ProposalFiles { proposalMd: string; proposalJson: string }
 
+export interface V2ProposalScopeObservation {
+  kind: V2ProposalScopeTarget["kind"];
+  id: string;
+  exists: boolean;
+  version?: number;
+  hash?: string;
+}
+
+export type V2ProposalStaleReason = "EVIDENCE_UNSPECIFIED" | "OBSERVATION_MISSING" | "TARGET_MISSING" | "VERSION_CHANGED" | "HASH_CHANGED";
+export interface V2ProposalStaleIssue { kind: V2ProposalScopeTarget["kind"]; id: string; reason: V2ProposalStaleReason }
+export type V2ProposalRevalidationResult =
+  | { status: "VALID"; acceptedGroupIds: string[] }
+  | { status: "STALE"; acceptedGroupIds: string[]; issues: V2ProposalStaleIssue[] };
+
+export interface V2ProposalRevalidationScope {
+  acceptedGroupIds: string[];
+  targets: V2ProposalScopeTarget[];
+}
+
 export type V2ProposalGroupDecision =
   | { disposition: "ACCEPTED"; highImpactConfirmed?: boolean }
   | { disposition: "REJECTED" }
@@ -222,4 +241,64 @@ export function reviewV2ProposalGroups(
           ? "IN_REVIEW"
           : "REJECTED";
   return { ...proposal, groups, status };
+}
+
+export function requiredV2ProposalRevalidationScope(proposal: V2Proposal): V2ProposalRevalidationScope {
+  validateV2Proposal(proposal);
+  if (proposal.status !== "ACCEPTED" && proposal.status !== "PARTIALLY_ACCEPTED") {
+    throw proposalError("V2_PROPOSAL_NOT_ACCEPTED", "只有包含已接受语义组的 Proposal 可以进入提交前重验。");
+  }
+  const acceptedGroups = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+  if (acceptedGroups.length === 0) throw proposalError("V2_PROPOSAL_NOT_ACCEPTED", "Proposal 没有已接受的语义组。");
+  const acceptedGroupIds = acceptedGroups.map((group) => group.groupId);
+  const acceptedModifyKeys = new Set<string>();
+  for (const group of acceptedGroups) {
+    for (const patch of group.textPatches) acceptedModifyKeys.add(`BLOCK:${patch.blockUuid}`);
+    for (const operation of group.semanticOperations) acceptedModifyKeys.add(scopeKey(operation.target));
+  }
+  const targets = new Map<string, V2ProposalScopeTarget>();
+  for (const target of [...proposal.scope.read, ...proposal.scope.modify.filter((candidate) => acceptedModifyKeys.has(scopeKey(candidate)))]) {
+    const existing = targets.get(scopeKey(target));
+    targets.set(scopeKey(target), existing ? { ...existing, ...target } : target);
+  }
+  return { acceptedGroupIds, targets: [...targets.values()] };
+}
+
+export function revalidateAcceptedV2Proposal(
+  proposal: V2Proposal,
+  observations: readonly V2ProposalScopeObservation[],
+): V2ProposalRevalidationResult {
+  const { acceptedGroupIds, targets: requiredTargets } = requiredV2ProposalRevalidationScope(proposal);
+  const requiredByKey = new Map(requiredTargets.map((target) => [scopeKey(target), target]));
+  const observationByKey = new Map<string, V2ProposalScopeObservation>();
+  for (const observation of observations) {
+    if (!isRecord(observation) || !["BLOCK", "PAGE", "OBJECT"].includes(observation.kind) || typeof observation.id !== "string" || typeof observation.exists !== "boolean") {
+      throw proposalError("V2_PROPOSAL_OBSERVATION_INVALID", "Proposal 重验证据形状无效。");
+    }
+    validateScopeTarget(observation);
+    const key = scopeKey(observation);
+    if (!requiredByKey.has(key)) throw proposalError("V2_PROPOSAL_OBSERVATION_SCOPE_VIOLATION", "Proposal 重验证据超出已接受修改与读取 scope。", { target: key });
+    if (observationByKey.has(key)) throw proposalError("V2_PROPOSAL_OBSERVATION_DUPLICATE", "Proposal 重验证据不能重复。", { target: key });
+    observationByKey.set(key, observation);
+  }
+  const issues: V2ProposalStaleIssue[] = [];
+  for (const target of requiredTargets) {
+    const identity = { kind: target.kind, id: target.id };
+    if (target.version === undefined && target.hash === undefined) {
+      issues.push({ ...identity, reason: "EVIDENCE_UNSPECIFIED" });
+      continue;
+    }
+    const observed = observationByKey.get(scopeKey(target));
+    if (!observed) {
+      issues.push({ ...identity, reason: "OBSERVATION_MISSING" });
+      continue;
+    }
+    if (!observed.exists) {
+      issues.push({ ...identity, reason: "TARGET_MISSING" });
+      continue;
+    }
+    if (target.version !== undefined && observed.version !== target.version) issues.push({ ...identity, reason: "VERSION_CHANGED" });
+    if (target.hash !== undefined && observed.hash !== target.hash) issues.push({ ...identity, reason: "HASH_CHANGED" });
+  }
+  return issues.length > 0 ? { status: "STALE", acceptedGroupIds, issues } : { status: "VALID", acceptedGroupIds };
 }
