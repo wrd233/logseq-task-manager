@@ -51,6 +51,7 @@ import {
   submitV2ExplicitCandidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
+import { createProjectWithControlledPage } from "./v2-project-creation.ts";
 
 let appRoot: HTMLElement | undefined;
 const v1Runtime: {
@@ -171,6 +172,7 @@ async function model(): Promise<UiModel> {
     ...(inboxActionController ? { inboxActionStates: inboxActionController.snapshot() } : {}),
     ...(inboxDialog ? { inboxDialog } : {}),
     ...(actionDialog ? { actionDialog } : {}),
+    v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
   };
 }
 
@@ -602,6 +604,25 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   const taskCopilot = requireTaskCopilot();
+  if (action === "create-v2-project") {
+    const name = dialogField("v2ProjectName");
+    await run(async () => {
+      if (!name) throw new Error("Project 名称不能为空。");
+      const client = serviceRuntimeClient;
+      if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+        throw new Error("V2 Local Service 未就绪；没有创建页面或 SQLite 对象。");
+      }
+      const traceId = `project-create-ui-${Date.now()}`;
+      const result = await createProjectWithControlledPage(client, {
+        getPage: (pageName) => logseq.Editor.getPage(pageName),
+        createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
+        getPageBlocksTree: (pageName) => logseq.Editor.getPageBlocksTree(pageName),
+      }, name, traceId);
+      workspace = "objects";
+      message = `${result.pageName} 已创建并验证；Project ${result.object.objectId} 已正式写入 SQLite，可重试且不会重复。`;
+    });
+    return;
+  }
   if (action === "cancel-inbox-dialog") {
     inboxDialog = undefined;
     await refresh();

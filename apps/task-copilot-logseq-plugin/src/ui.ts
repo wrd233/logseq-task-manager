@@ -52,6 +52,7 @@ export interface UiModel {
   inboxActionStates?: Record<string, ObservableActionState>;
   inboxDialog?: { captureId: string; kind: "formalize" | "proposal" | "link" | "defer" | "dismiss" };
   actionDialog?: { kind: ActionDialogKind; value: string };
+  v2ProjectCreationAvailable?: boolean;
 }
 
 export function escapeHtml(value: unknown): string {
@@ -130,7 +131,8 @@ function renderNow(model: UiModel): string {
 }
 
 function renderObjects(model: UiModel): string {
-  if (model.objects.length === 0) return empty("还没有正式对象", "从 Inbox 手工正式化，或审查并提交 Proposal。");
+  const projectCreator = `<section class="card project-creator" aria-label="创建 Project 页面"><div class="eyebrow">V2 · Project 原子创建</div><h3>新建 Project</h3><p class="muted">创建受控的 Project/&lt;名称&gt; 页面，并在页面验证后一次性写入 SQLite。</p><label>Project 名称<input data-field="v2ProjectName" placeholder="例如：告警推送治理"${model.v2ProjectCreationAvailable ? "" : " disabled"}></label>${button("创建 Project 与页面", "create-v2-project", undefined, "primary", !model.v2ProjectCreationAvailable)}</section>`;
+  if (model.objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Inbox 手工正式化，或创建 V2 Project 页面。")}`;
   const list = `<div class="object-list">${model.objects
     .map(
       (object) => `<button class="object-row" data-action="select-object" data-value="${escapeHtml(object.objectId)}">
@@ -139,7 +141,7 @@ function renderObjects(model: UiModel): string {
     )
     .join("")}</div>`;
   const detailView = model.selectedObjectDetail;
-  if (!detailView) return list;
+  if (!detailView) return `${projectCreator}${list}`;
   const { object, owner, anchors, signals, recentEvents, undoableCommitId } = detailView;
   const detail = `<aside class="drawer" aria-label="对象抽屉">
     <div class="eyebrow">${escapeHtml(object.objectType)} · v${object.version}</div>
@@ -172,7 +174,7 @@ function renderObjects(model: UiModel): string {
       ${undoableCommitId ? button("撤销最近 Commit", "undo-commit", undoableCommitId, "danger") : ""}
     </div>
   </aside>`;
-  return `<div class="split">${list}${detail}</div>`;
+  return `${projectCreator}<div class="split">${list}${detail}</div>`;
 }
 
 function suggestedText(operation: SemanticOperation): string | undefined {

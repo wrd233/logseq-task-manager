@@ -26,7 +26,7 @@ export interface V2CommandEnvelope {
 export interface V2ObjectRepository {
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined | Promise<V2CommandReceipt | undefined>;
   commitObject(command: V2ObjectCommand): V2ObjectCommandResult | Promise<V2ObjectCommandResult>;
-  commitMaterialization(command: V2MaterializationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
+  commitMaterialization(command: V2MaterializationCommand | V2ProjectCreationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitSynchronization(command: V2SynchronizationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitAnchorObservation(command: V2AnchorObservationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitAnchorRebind(command: V2AnchorRebindCommand): V2AnchorRebindCommandResult | Promise<V2AnchorRebindCommandResult>;
@@ -41,7 +41,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
+  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -71,6 +71,11 @@ export interface V2AnchorCommand {
 export interface V2MaterializationCommand extends V2AnchorCommand {
   expectedVersion: 0;
   audit: V2AuditRecord & { command: "materialize_explicit_object" };
+}
+
+export interface V2ProjectCreationCommand extends V2AnchorCommand {
+  expectedVersion: 0;
+  audit: V2AuditRecord & { command: "create_project_with_page" };
 }
 
 export interface V2SynchronizationCommand extends V2AnchorCommand {
@@ -113,7 +118,7 @@ export interface V2OwnershipCommandResult {
 
 export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle"; object: V2ManagedObject }
-  | { command: "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
+  | { command: "create_project_with_page" | "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership };
 
@@ -123,6 +128,12 @@ export interface MaterializeExplicitObjectInput {
   text: string;
   marker?: V2ExecutionMarker;
   anchor: Omit<V2Anchor, "anchorId" | "objectId" | "role" | "status" | "lastSeenAt"> & { anchorId?: string };
+}
+
+export interface CreateProjectWithPageInput {
+  objectId?: string;
+  name: string;
+  page: Omit<V2Anchor, "anchorId" | "objectId" | "role" | "status" | "lastSeenAt"> & { anchorId?: string };
 }
 
 export interface SynchronizeExplicitObjectInput {
@@ -241,6 +252,54 @@ export class V2Application {
         traceId: envelope.traceId,
         actor: envelope.actor,
         command: "materialize_explicit_object",
+        objectId: candidate.object.objectId,
+        beforeVersion: 0,
+        afterVersion: candidate.object.version,
+        occurredAt: at.toISOString(),
+      },
+    });
+  }
+
+  async createProjectWithPage(
+    input: CreateProjectWithPageInput,
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2AnchorCommandResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "create_project_with_page");
+    if (replay?.command === "create_project_with_page") {
+      return { object: replay.object, anchor: replay.anchor, replayed: true };
+    }
+    if (envelope.expectedVersion !== 0) {
+      throw new StructuredError({
+        code: "V2_CREATE_EXPECTED_VERSION_INVALID",
+        message: "Project 与页面原子创建的 expected version 必须为 0。",
+        ruleRefs: ["D-185", "D-220"],
+      });
+    }
+    const name = input.name.trim();
+    if (!name || name.includes("\n") || input.page.externalId.trim().length === 0) {
+      throw new StructuredError({
+        code: "V2_PROJECT_CREATION_INVALID",
+        message: "Project 创建必须包含名称和已验证的 Project 页面 UUID。",
+        ruleRefs: ["D-044", "D-220"],
+      });
+    }
+    const created = createV2ManagedObject({
+      ...(input.objectId ? { objectId: input.objectId } : {}),
+      objectType: "PROJECT",
+      text: name,
+      sourceOrCreationEvent: `project_page:${input.page.graphId}:${input.page.externalId}`,
+    }, at);
+    const candidate = bindV2PrimaryAnchor(created, input.page, created.version, at);
+    return this.objects.commitMaterialization({
+      ...candidate,
+      expectedVersion: 0,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "create_project_with_page",
         objectId: candidate.object.objectId,
         beforeVersion: 0,
         afterVersion: candidate.object.version,

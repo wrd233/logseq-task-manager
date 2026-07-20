@@ -28,6 +28,19 @@ test("shell exposes restrained core workspaces and no-agent degradation", () => 
   assert.match(html, /基础事务系统可用/);
 });
 
+test("Project workspace exposes one in-context V2 creation form gated by Local Service readiness", () => {
+  const unavailable = renderApp(model());
+  assert.match(unavailable, /V2 · Project 原子创建/);
+  assert.match(unavailable, /data-field="v2ProjectName"[^>]*disabled/);
+  assert.match(unavailable, /data-action="create-v2-project"[^>]*disabled/);
+  const available = model();
+  available.v2ProjectCreationAvailable = true;
+  const html = renderApp(available);
+  assert.match(html, /data-field="v2ProjectName" placeholder="例如：告警推送治理">/);
+  assert.match(html, /data-action="create-v2-project"/);
+  assert.doesNotMatch(html, /data-action="create-v2-project"[^>]*disabled/);
+});
+
 test("object drawer does not render empty optional sections", () => {
   const value = model();
   value.objects = [

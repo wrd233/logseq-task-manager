@@ -105,6 +105,34 @@ export interface ServicePrimaryAnchorRebindResult extends ServiceMaterializeExpl
   previousAnchor: V2Anchor;
 }
 
+export interface ServicePrepareProjectRequest {
+  name: string;
+  traceId: string;
+}
+
+export interface ServiceProjectIntent {
+  semanticCommitId: string;
+  objectId: string;
+  pageName: string;
+  status: "PENDING" | "COMPLETED";
+  replayed: boolean;
+  pageExternalId?: string;
+}
+
+export interface ServiceFinalizeProjectRequest {
+  semanticCommitId: string;
+  objectId: string;
+  name: string;
+  pageExternalId: string;
+  pageContentHash: string;
+  traceId: string;
+}
+
+export interface ServiceFinalizeProjectResult extends ServiceMaterializeExplicitObjectResult {
+  semanticCommitId: string;
+  status: "COMPLETED";
+}
+
 export type ServiceConnectionState =
   | { status: "READY"; capabilities: ServiceCapabilities; formalWritesAvailable: boolean; graphEditingAvailable: true }
   | { status: "RESTRICTED"; reasonCode: string; message: string; formalWritesAvailable: false; graphEditingAvailable: true };
@@ -272,6 +300,22 @@ export class LocalServiceClient {
 
   rebindPrimaryAnchor(input: ServicePrimaryAnchorRebindRequest): Promise<ServicePrimaryAnchorRebindResult> {
     return this.request<ServicePrimaryAnchorRebindResult>("/anchors/primary/rebind", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  }
+
+  prepareProject(input: ServicePrepareProjectRequest): Promise<ServiceProjectIntent> {
+    return this.request<ServiceProjectIntent>("/projects/prepare", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  }
+
+  finalizeProject(input: ServiceFinalizeProjectRequest): Promise<ServiceFinalizeProjectResult> {
+    return this.request<ServiceFinalizeProjectResult>("/projects/finalize", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

@@ -4,14 +4,14 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { V2Application, type MaterializeExplicitObjectInput } from "@task-copilot/application";
-import { V2SqliteStore } from "@task-copilot/persistence/node";
+import { V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
   type ServiceCapabilities,
   type ServiceDescriptor,
 } from "@task-copilot/service-client";
 import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
-import { StructuredError, createId } from "@task-copilot/shared";
+import { StructuredError, checksum, createId } from "@task-copilot/shared";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
@@ -116,6 +116,55 @@ interface MaterializeRequest {
   contentHash: string;
   idempotencyKey: string;
   traceId: string;
+}
+
+interface PrepareProjectRequest {
+  name: string;
+  traceId: string;
+}
+
+interface FinalizeProjectRequest extends PrepareProjectRequest {
+  semanticCommitId: string;
+  objectId: string;
+  pageExternalId: string;
+  pageContentHash: string;
+}
+
+function normalizedProjectName(value: string): string {
+  return value.trim().replace(/^Project\//i, "").trim();
+}
+
+async function readProjectRequest(request: IncomingMessage, finalize: false): Promise<PrepareProjectRequest>;
+async function readProjectRequest(request: IncomingMessage, finalize: true): Promise<FinalizeProjectRequest>;
+async function readProjectRequest(request: IncomingMessage, finalize: boolean): Promise<PrepareProjectRequest | FinalizeProjectRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try {
+    value = JSON.parse(body) as unknown;
+  } catch {
+    throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
+  }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const exactKeys = finalize
+    ? ["name", "objectId", "pageContentHash", "pageExternalId", "semanticCommitId", "traceId"]
+    : ["name", "traceId"];
+  const actualKeys = Object.keys(record).sort();
+  const name = typeof record.name === "string" ? normalizedProjectName(record.name) : "";
+  const valid = actualKeys.length === exactKeys.length && actualKeys.every((key, index) => key === exactKeys[index])
+    && name.length > 0 && name.length <= 200 && !/[\n\r]/.test(name) && !name.includes("/")
+    && typeof record.traceId === "string" && record.traceId.trim().length > 0 && record.traceId.length <= 256
+    && (!finalize || (
+      typeof record.semanticCommitId === "string" && record.semanticCommitId.length <= 128 && record.semanticCommitId.startsWith("project-create:")
+      && typeof record.objectId === "string" && /^obj_[0-9]{17}_[0-9a-f]{32}$/.test(record.objectId)
+      && typeof record.pageExternalId === "string" && record.pageExternalId.trim().length > 0 && record.pageExternalId.length <= 512
+      && typeof record.pageContentHash === "string" && /^[0-9a-f]{8}$/.test(record.pageContentHash)
+    ));
+  if (!valid) throw serviceError("PROJECT_CREATION_REQUEST_INVALID", "Project 创建请求无效或包含未授权字段。");
+  return { ...record, name } as unknown as PrepareProjectRequest | FinalizeProjectRequest;
+}
+
+function projectSemanticCommitId(graphId: string, name: string): string {
+  return `project-create:${createHash("sha256").update(JSON.stringify([graphId, normalizedProjectName(name).toLocaleLowerCase("zh-CN")])).digest("hex")}`;
 }
 
 async function readMaterializeRequest(request: IncomingMessage): Promise<MaterializeRequest> {
@@ -240,13 +289,13 @@ function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
+      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
         ? 400
         : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND"
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED"
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -296,6 +345,96 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (request.method === "POST" && url.pathname === "/doctor") {
       const doctor = store.doctor();
       respond(response, doctor.status === "PASS" ? 200 : 503, doctor);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/projects/prepare") {
+      const input = await readProjectRequest(request, false);
+      const requestedName = normalizedProjectName(input.name);
+      const semanticCommitId = projectSemanticCommitId(options.graphId, requestedName);
+      const existing = store.semanticCommit(semanticCommitId);
+      if (existing && existing.status !== "PENDING" && existing.status !== "COMPLETED") {
+        throw serviceError("V2_PROJECT_CREATION_RECOVERY_REQUIRED", "该 Project 创建事务需要先完成恢复，不能创建平行事务。");
+      }
+      const now = new Date();
+      const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      const pageName = existingSteps.find((step) => step.stepIndex === 0)?.operationId ?? `Project/${requestedName}`;
+      const objectId = existing
+        ? existingSteps.find((step) => step.stepIndex === 1)?.operationId
+        : createId("obj", now);
+      if (!objectId) throw serviceError("V2_PROJECT_CREATION_LEDGER_CORRUPT", "Project 创建事务缺少对象身份。");
+      const prepared = store.prepareSemanticCommit({
+        semanticCommitId,
+        status: "PENDING",
+        beforeStateChecksum: checksum({ graphId: options.graphId, pageName, objectId }),
+        createdAt: existing?.createdAt ?? now.toISOString(),
+        updatedAt: now.toISOString(),
+      }, [
+        { semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE", status: "PREPARED", operationId: pageName, updatedAt: now.toISOString() },
+        { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: objectId, updatedAt: now.toISOString() },
+      ]);
+      const completedReceipt = existing?.status === "COMPLETED"
+        ? store.getCommandReceipt(`project-create:${semanticCommitId}`)
+        : undefined;
+      if (existing?.status === "COMPLETED" && completedReceipt?.command !== "create_project_with_page") {
+        throw serviceError("V2_PROJECT_CREATION_LEDGER_CORRUPT", "已完成 Project 事务缺少命令回执。");
+      }
+      respond(response, prepared.replayed ? 200 : 201, {
+        semanticCommitId,
+        objectId,
+        pageName,
+        status: existing?.status ?? "PENDING",
+        replayed: prepared.replayed,
+        ...(completedReceipt?.command === "create_project_with_page" ? { pageExternalId: completedReceipt.anchor.externalId } : {}),
+      });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/projects/finalize") {
+      const input = await readProjectRequest(request, true);
+      const requestedName = normalizedProjectName(input.name);
+      const expectedCommitId = projectSemanticCommitId(options.graphId, requestedName);
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const steps = store.semanticCommitSteps(input.semanticCommitId);
+      const pageName = steps[0]?.operationId;
+      const canonicalName = pageName?.startsWith("Project/") ? pageName.slice("Project/".length) : undefined;
+      if (
+        input.semanticCommitId !== expectedCommitId || !commit ||
+        !canonicalName || canonicalName.toLocaleLowerCase("zh-CN") !== requestedName.toLocaleLowerCase("zh-CN") || steps[1]?.operationId !== input.objectId
+      ) {
+        throw serviceError("V2_PROJECT_CREATION_INTENT_MISMATCH", "Project 页面证据与已准备事务不一致；没有写入 SQLite。");
+      }
+      const idempotencyKey = `project-create:${input.semanticCommitId}`;
+      if (commit.status === "COMPLETED") {
+        const receipt = store.getCommandReceipt(idempotencyKey);
+        if (receipt?.command !== "create_project_with_page") throw serviceError("V2_PROJECT_CREATION_LEDGER_CORRUPT", "已完成 Project 事务缺少命令回执。");
+        respond(response, 200, { semanticCommitId: input.semanticCommitId, status: "COMPLETED", object: receipt.object, anchor: receipt.anchor, replayed: true });
+        return;
+      }
+      if (commit.status !== "PENDING") throw serviceError("V2_PROJECT_CREATION_RECOVERY_REQUIRED", "Project 创建事务当前不能继续。");
+      const now = new Date();
+      const verifyStep = (stepIndex: number): void => {
+        let status: V2CommitStepStatus | undefined = store.semanticCommitSteps(input.semanticCommitId).find((step) => step.stepIndex === stepIndex)?.status;
+        if (status === "PREPARED") status = store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "APPLIED", now.toISOString()).status;
+        if (status === "APPLIED") status = store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "VERIFIED", now.toISOString()).status;
+        if (status !== "VERIFIED") throw serviceError("V2_PROJECT_CREATION_RECOVERY_REQUIRED", "Project 创建事务 step 状态异常。");
+      };
+      verifyStep(0);
+      const result = await application.createProjectWithPage({
+        objectId: input.objectId,
+        name: canonicalName,
+        page: { graphId: options.graphId, externalId: input.pageExternalId, contentHash: input.pageContentHash },
+      }, {
+        actor: "logseq-plugin",
+        expectedVersion: 0,
+        idempotencyKey,
+        traceId: input.traceId,
+      }, now);
+      verifyStep(1);
+      store.finalizeSemanticCommit(input.semanticCommitId, "COMPLETED", now.toISOString(), checksum({
+        objectId: result.object.objectId,
+        pageExternalId: result.anchor.externalId,
+        pageContentHash: result.anchor.contentHash,
+      }));
+      respond(response, 201, { semanticCommitId: input.semanticCommitId, status: "COMPLETED", ...result });
       return;
     }
     if (request.method === "POST" && url.pathname === "/objects/materialize") {

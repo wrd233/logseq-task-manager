@@ -26,7 +26,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 | B2 | materialize / update Application Command（后端完成） | 重复创建、旧版本、类型变化 | Object+Anchor+Audit+Receipt 单事务、同类型同步、Service 路由与类型迁移拒绝已通过 | 创建、改标题、reload 待 Desktop |
 | B3 | Marker 同步（自动合同完成） | DONE/CANCELED 不静默改错对象；Condition 独立 | Domain/Application/Service/Plugin Marker matrix 已通过 | Logseq Marker 实际形态、Undo/复杂关闭审阅 |
 | B4 | move / copy / delete / consistency（已知 Anchor 恢复、状态持久化、move/copy、rebind 与当前页候选发现自动证据完成） | UUID 复制不继承 ID；删除保留对象；rebind 必须独立确认 | READY 恢复及低频有界检查、原子观察、失败重试、move/copy 身份合同、显式 rebind 与当前页手动候选发现已通过；候选每次只同步一项且提交前重读防 stale | 跨页移动、复制、删除、rebind、离线新建候选 |
-| B5 | Project 页面原子创建 | 页面成功而 Store 失败及反向失败 | fault injection + compensation | 新 Project 页面/reload |
+| B5 | Project 页面原子创建（自动基础完成） | 页面失败零领域写；finalize 不确定不盲删而同意图续跑；未知同名零覆盖 | prepare/finalize integration、幂等、改名 UUID、冲突；进程 fault injection 待补 | 新 Project 页面/冲突/改名/reload 待 Desktop |
 
 ## B0 已建立的契约
 
@@ -65,3 +65,4 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - Plugin rebind 有界交互已完成自动证据：只在 Service READY/formalWrites 时出现，只采集当前选中的显式 Block、一页 Anchor 和 Service 对象投影，只列同类型候选；明示旧/新影响、需勾选确认，提交前重读新 Block UUID/version/hash/type/title，Service/Application/SQLite 原子校验预览 Object version 和旧 Anchor status/hash；预览不能跨 Service discovery generation，已提交请求不提供假取消，且 V2 恢复动作不会激活冻结的 V1 runtime；
 - Plugin 当前页候选发现已完成自动证据：必须由用户在 Diagnostics 手动启动，以当前页为扫描范围且不在启动或后台扫描 Graph；Logseq 一次提供整页树，Plugin 仅分析快照前 256 项并明确提示截断，嵌套 `BlockUUIDTuple` 在同一预算内显式读取子级、校验引用与返回 UUID 一致，任何异常整轮停写。候选去重分页显式包含历史 `replaced` tombstone；有界 Anchor 覆盖未完成则整轮拒绝、零预览零写入，覆盖完整后才排除所有已占用 UUID，非法显式块只报告数量。用户每次只选择一项，提交前按 UUID 重读并校验 version/hash/type/title，旧预览和 Service generation 变化均停写，正式写入只走统一 `/objects/synchronize`；
 - B3 Marker 自动合同已完成，详见 `docs/implementation/V2_MARKER_LIFECYCLE_CONTRACT.md`；Logseq Marker 真实形态、Undo 和复杂关闭审阅仍需 Desktop/Slice C 证据。有限子树、move/copy/rebind/离线新建候选也仍需真实 Desktop 证据，因此完整 Slice B Gate 仍未完成。
+- B5 自动基础已完成，详见 `docs/implementation/V2_PROJECT_PAGE_CREATION_CONTRACT.md`。复用既有 SemanticCommit step ledger；没有新增 Project 专用状态源。Desktop 与进程 fault injection 未完成，因此 E2E-19 仍不是 DONE。

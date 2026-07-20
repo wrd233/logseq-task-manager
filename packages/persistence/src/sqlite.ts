@@ -14,6 +14,7 @@ import type {
   V2AuditRecord,
   V2CommandReceipt,
   V2MaterializationCommand,
+  V2ProjectCreationCommand,
   V2ObjectCommand,
   V2ObjectCommandResult,
   V2OwnershipCommand,
@@ -468,7 +469,7 @@ export class V2SqliteStore {
     return this.executeWrite(write);
   }
 
-  commitMaterialization(command: V2MaterializationCommand): V2AnchorCommandResult {
+  commitMaterialization(command: V2MaterializationCommand | V2ProjectCreationCommand): V2AnchorCommandResult {
     this.requireIdempotencyKey(command.idempotencyKey);
     const write = this.database.transaction(() => {
       const receipt = this.receipt(command.idempotencyKey);
@@ -604,7 +605,7 @@ export class V2SqliteStore {
     if (command === "create_object" || command === "transition_lifecycle") {
       return { command, object: result as V2ManagedObject };
     }
-    if (command === "materialize_explicit_object" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
+    if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
       return { command, ...value };
     }

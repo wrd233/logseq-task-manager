@@ -10,6 +10,7 @@ import {
   type V2AnchorCommand,
   type V2AuditRecord,
   type V2CommandReceipt,
+  type V2ProjectCreationCommand,
   type V2MaterializationCommand,
   type V2ObjectCommand,
   type V2ObjectRepository,
@@ -57,9 +58,9 @@ class MemoryV2Repository implements V2ObjectRepository {
     return { object: command.object, anchor: command.anchor, replayed: false };
   }
 
-  commitMaterialization(command: V2MaterializationCommand): { object: V2ManagedObject; anchor: V2Anchor; replayed: boolean } {
+  commitMaterialization(command: V2MaterializationCommand | V2ProjectCreationCommand): { object: V2ManagedObject; anchor: V2Anchor; replayed: boolean } {
     const receipt = this.receipts.get(command.idempotencyKey);
-    if (receipt?.command === "materialize_explicit_object") return { object: receipt.object, anchor: receipt.anchor, replayed: true };
+    if (receipt?.command === command.audit.command) return { object: receipt.object, anchor: receipt.anchor, replayed: true };
     const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
     if (actualVersion !== 0) throw new Error(`version ${actualVersion} != 0`);
     if ([...this.anchors.values()].some((anchor) => anchor.graphId === command.anchor.graphId && anchor.externalId === command.anchor.externalId && anchor.role === "primary_text")) {
@@ -67,7 +68,7 @@ class MemoryV2Repository implements V2ObjectRepository {
     }
     this.values.set(command.object.objectId, command.object);
     this.anchors.set(command.object.objectId, command.anchor);
-    this.receipts.set(command.idempotencyKey, { command: "materialize_explicit_object", object: command.object, anchor: command.anchor });
+    this.receipts.set(command.idempotencyKey, { command: command.audit.command, object: command.object, anchor: command.anchor });
     this.audit.push(command.audit);
     return { object: command.object, anchor: command.anchor, replayed: false };
   }
@@ -279,6 +280,33 @@ test("explicit Block materialization refuses parser-external Area and Project ty
   assert.equal(repository.values.size, 0);
   assert.equal(repository.anchors.size, 0);
   assert.equal(repository.audit.length, 0);
+});
+
+test("Project creation binds the controlled Project page in one idempotent domain transaction", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const envelope = { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "project-create-1", traceId: "trace-project" };
+  const created = await application.createProjectWithPage({
+    objectId: "project-1",
+    name: "告警推送治理",
+    page: { graphId: "graph-1", externalId: "page-uuid-1", contentHash: "page-hash-1" },
+  }, envelope, new Date("2026-07-20T08:00:00Z"));
+
+  assert.equal(created.object.objectType, "PROJECT");
+  assert.equal(created.object.text, "告警推送治理");
+  assert.equal(created.object.sourceOrCreationEvent, "project_page:graph-1:page-uuid-1");
+  assert.equal(created.anchor.externalId, "page-uuid-1");
+  assert.equal(created.anchor.role, "primary_text");
+  assert.equal(repository.audit[0]?.command, "create_project_with_page");
+
+  const replay = await application.createProjectWithPage({
+    objectId: "must-not-replace",
+    name: "不得覆盖",
+    page: { graphId: "graph-1", externalId: "other-page", contentHash: "other-hash" },
+  }, envelope);
+  assert.deepEqual(replay, { ...created, replayed: true });
+  assert.equal(repository.values.size, 1);
+  assert.equal(repository.anchors.size, 1);
 });
 
 test("Marker materialization completes only simple Tasks and keeps Condition independent", async () => {

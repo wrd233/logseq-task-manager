@@ -234,6 +234,87 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   assert.equal((await client.getObject(rebound.object.objectId))?.version, rebound.object.version);
 });
 
+test("Project creation prepares one stable intent and finalizes page evidence with no half domain object", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project",
+    token: "project-service-token-at-least-24-characters",
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const client = clientFor(service);
+  const prepared = await client.prepareProject({ name: "告警推送治理", traceId: "trace-project-prepare" });
+  assert.equal(prepared.pageName, "Project/告警推送治理");
+  assert.equal(prepared.status, "PENDING");
+  assert.equal((await client.status()).objectCount, 0, "prepare must not create a half Project object");
+  const replay = await client.prepareProject({ name: "Project/告警推送治理", traceId: "trace-project-retry" });
+  assert.equal(replay.semanticCommitId, prepared.semanticCommitId);
+  assert.equal(replay.objectId, prepared.objectId);
+  assert.equal(replay.pageName, prepared.pageName);
+  assert.equal(replay.replayed, true);
+
+  await assert.rejects(() => client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "错误名称",
+    pageExternalId: "project-page-uuid",
+    pageContentHash: checksum("Project/告警推送治理"),
+    traceId: "trace-project-mismatch",
+  }), (error: unknown) => error instanceof Error
+    && "details" in error
+    && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_PROJECT_CREATION_INTENT_MISMATCH");
+  assert.equal((await client.status()).objectCount, 0);
+
+  const finalized = await client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "告警推送治理",
+    pageExternalId: "project-page-uuid",
+    pageContentHash: checksum("Project/告警推送治理"),
+    traceId: "trace-project-finalize",
+  });
+  assert.equal(finalized.status, "COMPLETED");
+  assert.equal(finalized.object.objectId, prepared.objectId);
+  assert.equal(finalized.object.objectType, "PROJECT");
+  assert.equal(finalized.anchor.externalId, "project-page-uuid");
+  assert.equal((await client.status()).objectCount, 1);
+  const completedReplay = await client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "告警推送治理",
+    pageExternalId: "project-page-uuid",
+    pageContentHash: checksum("Project/告警推送治理"),
+    traceId: "trace-project-finalize-retry",
+  });
+  assert.equal(completedReplay.replayed, true);
+  assert.equal(completedReplay.object.objectId, prepared.objectId);
+  const completedIntent = await client.prepareProject({ name: "告警推送治理", traceId: "trace-project-completed-intent" });
+  assert.equal(completedIntent.status, "COMPLETED");
+  assert.equal(completedIntent.pageExternalId, "project-page-uuid");
+});
+
+test("Project intent follows Logseq case-insensitive page identity", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-case-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-case",
+    token: "project-case-service-token-24-characters",
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const client = clientFor(service);
+  const first = await client.prepareProject({ name: "Incident Review", traceId: "trace-case-first" });
+  const replay = await client.prepareProject({ name: "incident review", traceId: "trace-case-replay" });
+  assert.equal(replay.semanticCommitId, first.semanticCommitId);
+  assert.equal(replay.objectId, first.objectId);
+  assert.equal(replay.pageName, "Project/Incident Review");
+});
+
 test("Local Service maps Task Marker to Lifecycle without changing Condition", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-marker-"));
   const service = await startLocalService({

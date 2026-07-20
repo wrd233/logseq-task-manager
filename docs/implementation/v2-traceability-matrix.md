@@ -6,6 +6,7 @@
 
 - `NOT_STARTED`：V2 尚无实现；
 - `REUSE_EVIDENCE`：V1 有可复用代码/测试，但 V2 契约或架构尚未满足；
+- `AUTOMATED_FOUNDATION`：V2 代码、自动成功/失败路径和文档已建立，但 Desktop 或真实进程 Gate 尚未完成；
 - `RUNTIME_BLOCKED_BY_CONFIG`：自动骨架可继续，最终 Gate 依赖用户提供真实配置；
 - `DONE`：代码、失败路径、文档和对应 Gate 证据全部通过。
 
@@ -50,7 +51,7 @@
 | E2E-16 | V2 §68 | Graph 成功、Store 失败 | 明确 Partial Failure | commit/recover | Graph + SQLite | injected failure | C | REUSE_EVIDENCE | V1 Domain save failure/compensation 已测 |
 | E2E-17 | V2 §68 | 恢复快照后 Doctor PASS | 恢复后必须一致性检查 | backup/restore/doctor | SQLite/CLI | temp restore + Desktop | A,F | REUSE_EVIDENCE | Backup 校验、离线 Restore 恢复点/原子激活/Doctor/失败回滚已通过；Service Apply 固定确认、关闭 live Store、descriptor 删除已通过。真实 CLI create→restore→stop→restart→Doctor 进程冒烟 PASS；Desktop 待完成 |
 | E2E-18 | V2 §68 | Key 不出现在任何默认资产 | secret 非领域数据、永不记录 | config/log/export | Provider/diagnostics | secret canary scan | D,F | NOT_STARTED | V1 正文日志脱敏可复用 |
-| E2E-19 | V2 §68 | Project 对象和页面原子创建 | Project 必须页面；不半成功 | create project | Graph + SQLite | fault injection + Desktop | B | NOT_STARTED | 无 Project page adapter |
+| E2E-19 | V2 §68 | Project 对象和页面原子创建 | Project 必须页面；不半成功 | prepare/finalize project | Projects UI + exact Page Adapter + SQLite ledger | integration/fault injection + Desktop | B | AUTOMATED_FOUNDATION | 最终 Projects 工作区已接入插件内表单；Service prepare 稳定发行 commit/object ID 且零领域对象，受控页面验证后 finalize 原子写 Project+Anchor+Audit+Receipt，未知同名/意图不匹配零写入，重试幂等，完成后按 Page UUID 保持改名身份。复用现有 SemanticCommit step ledger，无专用表/双写/扫描。响应不确定时不盲删可能已提交页面，而保留所有权标记供同意图续跑。仍缺 Desktop 新建/冲突/改名/reload 与进程边界 fault injection，不能 DONE |
 | E2E-20 | V2 §68 | Closure 可说明未完成目标 | Completion 不要求全部 Objective | close project Proposal | Agent/Review | fixture + Desktop | F | NOT_STARTED | V1 Project phase 不符合 V2 |
 | E2E-21 | V2 §68 | DeepSeek 认证、模型、中文、Schema | 模型输出非权威 | llm smoke | Provider | explicit live | D | RUNTIME_BLOCKED_BY_CONFIG | Key 仅存在受保护附件；等完整 Provider/Base URL/Model 配置与显式 live gate |
 | E2E-22 | V2 §68 | Journal -> 真实 Proposal -> Diff | Validator 成功前零写入 | analyze/validate | Provider/Review | live + Desktop | D | RUNTIME_BLOCKED_BY_CONFIG | 等完整配置、Slice C 和显式 live gate |
