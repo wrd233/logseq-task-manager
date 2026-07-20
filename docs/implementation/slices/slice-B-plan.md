@@ -23,7 +23,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 |---|---|---|---|---|
 | B0 | 纯显式语法 Parser（完成） | 空标题、冲突标识、未定义别名、裸 TODO | `explicit-object-parser.test.ts` | 无 |
 | B1 | Block event + 防抖 + 有限子树读取（防抖基础完成） | Service 不可用、事件重复、事件乱序 | fake clock 已通过；Graph fixture 待补 | Desktop 编辑/快速重复编辑 |
-| B2 | materialize / update Application Command（首次物化完成） | 重复创建、旧版本、类型变化 | Object+Anchor+Audit+Receipt 单事务与 Service 边界已通过；update 待补 | 创建、改标题、reload |
+| B2 | materialize / update Application Command（后端完成） | 重复创建、旧版本、类型变化 | Object+Anchor+Audit+Receipt 单事务、同类型同步、Service 路由与类型迁移拒绝已通过 | 创建、改标题、reload 待 Desktop |
 | B3 | Marker 同步 | DONE/CANCELED 不静默改错对象；Condition 独立 | Marker matrix | Logseq Marker 实际形态 |
 | B4 | move / copy / delete / consistency | UUID 复制不继承 ID；删除保留对象 | Graph fixture + restart | 跨页移动、复制、删除 |
 | B5 | Project 页面原子创建 | 页面成功而 Store 失败及反向失败 | fault injection + compensation | 新 Project 页面/reload |
@@ -52,4 +52,5 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - `materializeExplicitObject` 只允许四类 Parser 对象，expected version 固定为 0；创建 Object 与 Primary Anchor 作为一条 Application Command；
 - SQLite 将 Object、Primary Anchor、Audit、Receipt 放在一个事务中；已绑定外部 Block 的第二次物化整笔回滚；
 - Local Service `/objects/materialize` 不接受 Graph ID、数据库路径、object_id、anchor_id 或 actor，Service 自行注入当前 Graph 和固定 actor；
-- 尚未把 `DB.onChanged` 接入生产 Plugin，也未实现已绑定对象的标题/Marker update，因此 B1/B2 仍是部分完成。
+- Local Service `/objects/synchronize` 对未绑定 Block 执行首次物化，对已绑定同类型 Block 原子更新标题和 Anchor 证据；类型变化只返回 Proposal-required，不静默迁移；
+- 尚未把 `DB.onChanged` 接入生产 Plugin，也未建立 Service 不可用时的持久化待恢复意图队列；因此 B1 和完整 B2 Gate 仍未完成。

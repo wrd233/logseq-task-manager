@@ -32,7 +32,7 @@
 
 | requirement_id | 文档章节 | 用户场景 | Domain 规则 / 不变量 | Application 用例 | Adapter / UI | 自动 / 运行测试 | Slice | 状态 | 当前证据 / 缺口 |
 |---|---|---|---|---|---|---|---|---|---|
-| E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | Parser、防抖、Application/SQLite 原子首次物化和受约束 Service route 已通过；Plugin 事件、更新、Now 与 Desktop 未完成 |
+| E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | Parser、防抖、原子首次物化、同类型更新、幂等统一 Service route 与类型迁移拒绝已通过；Plugin 事件、pending recovery、Now 与 Desktop 未完成 |
 | E2E-02 | V2 §68 | `[任务] 标题` 无 Marker | Marker 不决定身份 | materialize | parser | unit + Desktop | B | REUSE_EVIDENCE | 有/无 Marker Parser 与无 Marker 首次物化路径已自动证明；Plugin 事件与 Desktop 未完成 |
 | E2E-03 | V2 §68 | Task 下裸 TODO 保持内部步骤 | 内部 TODO 无 object_id | synchronize block | subtree parser | fixture | B | REUSE_EVIDENCE | B0 已证明裸 TODO 返回非对象；有限子树同步 fixture 与 Desktop 未完成 |
 | E2E-04 | V2 §68 | 跨页移动 | ID/Ownership 不变，Anchor 更新 | observe/sync | UUID event | integration + Desktop | B | REUSE_EVIDENCE | V1 UUID 定位；真实 move 未验证 |

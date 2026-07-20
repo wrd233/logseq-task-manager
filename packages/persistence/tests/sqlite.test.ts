@@ -481,5 +481,25 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
   assert.equal(store.getObject("must-roll-back"), undefined);
   assert.equal(store.auditEventCount(), 1);
   assert.equal(store.doctor().objectCount, 1);
+
+  const synchronized = await application.synchronizeExplicitObject({
+    objectType: "TASK",
+    text: "核对时间同步来源并保存证据",
+    graphId: "graph-a",
+    externalId: "block-1",
+    contentHash: "22222222",
+  }, { actor: "logseq-plugin", expectedVersion: 2, idempotencyKey: "sync-block-1", traceId: "trace-sync" }, new Date("2026-07-20T07:01:00Z"));
+  assert.equal(synchronized.object.version, 3);
+  assert.equal(synchronized.anchor.contentHash, "22222222");
+  assert.equal(store.getPrimaryAnchorByExternal("graph-a", "block-1")?.contentHash, "22222222");
+  await assert.rejects(() => application.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT",
+    text: "不得静默升级",
+    graphId: "graph-a",
+    externalId: "block-1",
+    contentHash: "33333333",
+  }, { actor: "logseq-plugin", expectedVersion: 3, idempotencyKey: "sync-type", traceId: "trace-type" }), /Proposal/);
+  assert.equal(store.getObject("task-materialized")?.objectType, "TASK");
+  assert.equal(store.auditEventCount(), 2);
   store.close();
 });

@@ -15,6 +15,7 @@ import type {
   V2ObjectCommandResult,
   V2OwnershipCommand,
   V2OwnershipCommandResult,
+  V2SynchronizationCommand,
 } from "@task-copilot/application";
 import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
@@ -495,6 +496,35 @@ export class V2SqliteStore {
     return this.executeWrite(write);
   }
 
+  commitSynchronization(command: V2SynchronizationCommand): V2AnchorCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        const result = JSON.parse(receipt.result_json) as { object: V2ManagedObject; anchor: V2Anchor };
+        return { ...result, replayed: true };
+      }
+      this.requireVersion(command.object.objectId, command.expectedVersion);
+      const current = this.getPrimaryAnchorByExternal(command.anchor.graphId, command.anchor.externalId);
+      if (!current || current.anchorId !== command.anchor.anchorId || current.objectId !== command.object.objectId) {
+        throw persistenceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 已变化；本次同步没有写入。", {
+          objectId: command.object.objectId,
+        });
+      }
+      this.writeObject(command.object);
+      const updated = this.database.prepare(`
+        UPDATE anchors SET content_hash = ?, last_seen_at = ?
+        WHERE anchor_id = ? AND object_id = ? AND role = 'primary_text' AND status = 'active'
+      `).run(command.anchor.contentHash, command.anchor.lastSeenAt, command.anchor.anchorId, command.object.objectId);
+      if (updated.changes !== 1) throw persistenceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 已变化；本次同步没有写入。");
+      this.writeAudit(command.audit);
+      const result = { object: command.object, anchor: command.anchor };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined {
     const receipt = this.receipt(idempotencyKey);
     if (!receipt) return undefined;
@@ -503,7 +533,7 @@ export class V2SqliteStore {
     if (command === "create_object" || command === "transition_lifecycle") {
       return { command, object: result as V2ManagedObject };
     }
-    if (command === "materialize_explicit_object" || command === "bind_primary_anchor") {
+    if (command === "materialize_explicit_object" || command === "synchronize_explicit_object" || command === "bind_primary_anchor") {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
       return { command, ...value };
     }
@@ -812,6 +842,24 @@ export class V2SqliteStore {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       sourceOrCreationEvent: row.source_event,
+    };
+  }
+
+  getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined {
+    const row = this.database.prepare(`
+      SELECT * FROM anchors
+      WHERE graph_id = ? AND external_id = ? AND role = 'primary_text' AND status = 'active'
+    `).get(graphId, externalId) as Record<string, unknown> | undefined;
+    if (!row) return undefined;
+    return {
+      anchorId: String(row.anchor_id),
+      objectId: String(row.object_id),
+      graphId: String(row.graph_id),
+      externalId: String(row.external_id),
+      role: "primary_text",
+      status: "active",
+      contentHash: String(row.content_hash),
+      lastSeenAt: String(row.last_seen_at),
     };
   }
 

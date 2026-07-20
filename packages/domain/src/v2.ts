@@ -165,6 +165,50 @@ export function bindV2PrimaryAnchor(
   };
 }
 
+export function synchronizeV2ExplicitObject(
+  object: V2ManagedObject,
+  anchor: V2Anchor,
+  input: { objectType: V2ObjectType; text: string; contentHash: string },
+  expectedVersion: number,
+  at = new Date(),
+): { object: V2ManagedObject; anchor: V2Anchor } {
+  requireExpectedVersion(object, expectedVersion);
+  if (
+    anchor.objectId !== object.objectId ||
+    anchor.role !== "primary_text" ||
+    anchor.status !== "active"
+  ) {
+    throw new StructuredError({
+      code: "V2_PRIMARY_ANCHOR_INVALID",
+      message: "显式对象同步必须引用该对象唯一 active Primary Anchor。",
+      ruleRefs: ["D-030", "D-033", "D-185"],
+    });
+  }
+  if (input.objectType !== object.objectType) {
+    throw new StructuredError({
+      code: "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL",
+      message: `显式类型从 ${object.objectType} 变为 ${input.objectType}；必须形成可审阅 Proposal。`,
+      ruleRefs: ["D-079", "D-185"],
+    });
+  }
+  requireText(input.text, "V2_OBJECT_TEXT_REQUIRED", "正式对象必须保留可读的自然语言正文。");
+  requireText(input.contentHash, "V2_ANCHOR_HASH_REQUIRED", "Primary Anchor 必须包含正文 hash。");
+  const timestamp = at.toISOString();
+  return {
+    object: {
+      ...object,
+      text: input.text.trim(),
+      version: object.version + 1,
+      updatedAt: timestamp,
+    },
+    anchor: {
+      ...anchor,
+      contentHash: input.contentHash,
+      lastSeenAt: timestamp,
+    },
+  };
+}
+
 const allowedPrimaryOwners: Readonly<Record<V2ObjectType, readonly V2ObjectType[]>> = {
   TASK: ["MINI_PROJECT", "PROJECT", "AREA"],
   MINI_PROJECT: ["PROJECT", "AREA"],

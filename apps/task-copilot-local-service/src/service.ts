@@ -152,7 +152,7 @@ function respondError(response: ServerResponse, error: unknown): void {
         ? 400
         : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT"
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -221,6 +221,51 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         traceId: input.traceId,
       });
       respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/objects/synchronize") {
+      const input = await readMaterializeRequest(request);
+      const receipt = store.getCommandReceipt(input.idempotencyKey);
+      if (receipt?.command === "materialize_explicit_object" || receipt?.command === "synchronize_explicit_object") {
+        respond(response, 200, {
+          operation: receipt.command === "materialize_explicit_object" ? "MATERIALIZED" : "SYNCHRONIZED",
+          object: receipt.object,
+          anchor: receipt.anchor,
+          replayed: true,
+        });
+        return;
+      }
+      if (receipt) throw serviceError("V2_IDEMPOTENCY_KEY_REUSED", "idempotency key 已被另一个命令使用。");
+      const anchor = store.getPrimaryAnchorByExternal(options.graphId, input.externalId);
+      if (anchor) {
+        const current = store.getObject(anchor.objectId);
+        if (!current) throw serviceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 引用的对象不存在；同步已停止。");
+        const result = await application.synchronizeExplicitObject({
+          objectType: input.objectType,
+          text: input.text,
+          graphId: options.graphId,
+          externalId: input.externalId,
+          contentHash: input.contentHash,
+        }, {
+          actor: "logseq-plugin",
+          expectedVersion: current.version,
+          idempotencyKey: input.idempotencyKey,
+          traceId: input.traceId,
+        });
+        respond(response, 200, { operation: "SYNCHRONIZED", ...result });
+        return;
+      }
+      const result = await application.materializeExplicitObject({
+        objectType: input.objectType,
+        text: input.text,
+        anchor: { graphId: options.graphId, externalId: input.externalId, contentHash: input.contentHash },
+      }, {
+        actor: "logseq-plugin",
+        expectedVersion: 0,
+        idempotencyKey: input.idempotencyKey,
+        traceId: input.traceId,
+      });
+      respond(response, 201, { operation: "MATERIALIZED", ...result });
       return;
     }
     if (request.method === "POST" && url.pathname === "/backup/create") {

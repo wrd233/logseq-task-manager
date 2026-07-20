@@ -12,6 +12,7 @@ import {
   type V2ObjectCommand,
   type V2ObjectRepository,
   type V2OwnershipCommand,
+  type V2SynchronizationCommand,
 } from "../src/v2.ts";
 
 class MemoryV2Repository implements V2ObjectRepository {
@@ -23,6 +24,10 @@ class MemoryV2Repository implements V2ObjectRepository {
 
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined {
     return this.receipts.get(idempotencyKey);
+  }
+
+  getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined {
+    return [...this.anchors.values()].find((anchor) => anchor.graphId === graphId && anchor.externalId === externalId && anchor.role === "primary_text");
   }
 
   commitObject(command: V2ObjectCommand): { object: V2ManagedObject; replayed: boolean } {
@@ -57,6 +62,18 @@ class MemoryV2Repository implements V2ObjectRepository {
     this.values.set(command.object.objectId, command.object);
     this.anchors.set(command.object.objectId, command.anchor);
     this.receipts.set(command.idempotencyKey, { command: "materialize_explicit_object", object: command.object, anchor: command.anchor });
+    this.audit.push(command.audit);
+    return { object: command.object, anchor: command.anchor, replayed: false };
+  }
+
+  commitSynchronization(command: V2SynchronizationCommand): { object: V2ManagedObject; anchor: V2Anchor; replayed: boolean } {
+    const receipt = this.receipts.get(command.idempotencyKey);
+    if (receipt?.command === "synchronize_explicit_object") return { object: receipt.object, anchor: receipt.anchor, replayed: true };
+    const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
+    if (actualVersion !== command.expectedVersion) throw new Error(`version ${actualVersion} != ${command.expectedVersion}`);
+    this.values.set(command.object.objectId, command.object);
+    this.anchors.set(command.object.objectId, command.anchor);
+    this.receipts.set(command.idempotencyKey, { command: "synchronize_explicit_object", object: command.object, anchor: command.anchor });
     this.audit.push(command.audit);
     return { object: command.object, anchor: command.anchor, replayed: false };
   }
@@ -228,4 +245,34 @@ test("explicit Block materialization refuses parser-external Area and Project ty
   assert.equal(repository.values.size, 0);
   assert.equal(repository.anchors.size, 0);
   assert.equal(repository.audit.length, 0);
+});
+
+test("bound explicit Block synchronization updates same-type evidence and rejects silent type migration", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  await application.materializeExplicitObject({
+    objectId: "task-sync",
+    objectType: "TASK",
+    text: "旧标题",
+    anchor: { graphId: "graph-1", externalId: "block-sync", contentHash: "11111111" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-sync", traceId: "trace-materialize" });
+  const synchronized = await application.synchronizeExplicitObject({
+    objectType: "TASK",
+    text: "新标题",
+    graphId: "graph-1",
+    externalId: "block-sync",
+    contentHash: "22222222",
+  }, { actor: "logseq-plugin", expectedVersion: 2, idempotencyKey: "sync-title", traceId: "trace-sync" }, new Date("2026-07-20T07:01:00Z"));
+  assert.equal(synchronized.object.text, "新标题");
+  assert.equal(synchronized.object.version, 3);
+  assert.equal(synchronized.anchor.contentHash, "22222222");
+  await assert.rejects(() => application.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT",
+    text: "不得迁移",
+    graphId: "graph-1",
+    externalId: "block-sync",
+    contentHash: "33333333",
+  }, { actor: "logseq-plugin", expectedVersion: 3, idempotencyKey: "sync-type", traceId: "trace-type" }), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL");
+  assert.equal(repository.values.get("task-sync")?.objectType, "TASK");
+  assert.equal(repository.audit.length, 2);
 });

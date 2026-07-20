@@ -33,6 +33,7 @@
 | POST | `/backup/restore/validate` | 只读校验指定 `backupId` | 无；不切换 DB |
 | POST | `/backup/restore/apply` | 创建恢复点、离线切换、Doctor，然后停止 Service | 替换当前 DB；高影响 |
 | POST | `/objects/materialize` | 显式 Block 首次物化的 Object + Primary Anchor + Audit + Receipt | SQLite 单事务正式写入 |
+| POST | `/objects/synchronize` | 按绑定状态选择首次物化或同类型标题/Anchor 更新 | SQLite 单事务正式写入 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
 
@@ -59,6 +60,8 @@
 - Application 在单一 SQLite 事务中写入 Object、Primary Anchor、Audit 和幂等 Receipt；
 - 同一 idempotency key 只重放原结果，不用新正文覆盖；同一 Graph Block 再次首次物化会冲突并整笔回滚；后续标题/Marker 更新属于尚未开放的同步命令；
 - Parser、Block event 和防抖运行在 Logseq Adapter；该 HTTP 路由本身不猜自然语言、不扫描 Graph、不调用模型。
+
+`POST /objects/synchronize` 使用相同的固定六字段，但由 Service 查询当前 Graph 的 Primary Anchor：未绑定时走首次物化；已绑定且类型相同时更新标题缓存、Anchor content hash/last seen 和对象版本；标识类型变化返回 `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL`，不修改对象。相同 idempotency key 会按原命令类型重放，因此首次请求在 Anchor 建立后重试也不会被误判成更新。
 
 ## Backup 请求
 
@@ -111,6 +114,7 @@
 | `RESTORE_CONFIRMATION_REQUIRED` | Restore Apply 缺少精确高影响确认 |
 | `MATERIALIZATION_REQUEST_INVALID` | 显式物化字段、类型、长度或服务端所有权边界无效 |
 | `V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS` | 同一 Graph Block 已绑定正式对象，必须转入同步而非重复物化 |
+| `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL` | 已绑定对象的显式类型变化，必须进入可审阅 Proposal |
 | `SERVICE_STOPPING` | Restore 进行中拒绝新请求 |
 | `V2_GRAPH_ID_MISMATCH` | Backup 不属于当前 Graph |
 | `V2_UNSUPPORTED_DATABASE_SCHEMA` | Backup schema 版本不受支持 |

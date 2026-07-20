@@ -2,6 +2,7 @@ import {
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
   createV2ManagedObject,
+  synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
   type CreateV2ManagedObjectInput,
   type Lifecycle,
@@ -22,16 +23,18 @@ export interface V2ObjectRepository {
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined | Promise<V2CommandReceipt | undefined>;
   commitObject(command: V2ObjectCommand): V2ObjectCommandResult | Promise<V2ObjectCommandResult>;
   commitMaterialization(command: V2MaterializationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
+  commitSynchronization(command: V2SynchronizationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult | Promise<V2OwnershipCommandResult>;
   getObject(objectId: string): V2ManagedObject | undefined | Promise<V2ManagedObject | undefined>;
+  getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined | Promise<V2Anchor | undefined>;
   listObjects(): V2ManagedObject[] | Promise<V2ManagedObject[]>;
 }
 
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "materialize_explicit_object" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
+  command: "create_object" | "materialize_explicit_object" | "synchronize_explicit_object" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -63,6 +66,10 @@ export interface V2MaterializationCommand extends V2AnchorCommand {
   audit: V2AuditRecord & { command: "materialize_explicit_object" };
 }
 
+export interface V2SynchronizationCommand extends V2AnchorCommand {
+  audit: V2AuditRecord & { command: "synchronize_explicit_object" };
+}
+
 export interface V2AnchorCommandResult {
   object: V2ManagedObject;
   anchor: V2Anchor;
@@ -85,7 +92,7 @@ export interface V2OwnershipCommandResult {
 
 export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle"; object: V2ManagedObject }
-  | { command: "materialize_explicit_object" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
+  | { command: "materialize_explicit_object" | "synchronize_explicit_object" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership };
 
 export interface MaterializeExplicitObjectInput {
@@ -93,6 +100,14 @@ export interface MaterializeExplicitObjectInput {
   objectType: Extract<CreateV2ManagedObjectInput["objectType"], "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
   anchor: Omit<V2Anchor, "anchorId" | "objectId" | "role" | "status" | "lastSeenAt"> & { anchorId?: string };
+}
+
+export interface SynchronizeExplicitObjectInput {
+  objectType: MaterializeExplicitObjectInput["objectType"];
+  text: string;
+  graphId: string;
+  externalId: string;
+  contentHash: string;
 }
 
 function requireEnvelope(envelope: V2CommandEnvelope): void {
@@ -183,6 +198,42 @@ export class V2Application {
         command: "materialize_explicit_object",
         objectId: candidate.object.objectId,
         beforeVersion: 0,
+        afterVersion: candidate.object.version,
+        occurredAt: at.toISOString(),
+      },
+    });
+  }
+
+  async synchronizeExplicitObject(
+    input: SynchronizeExplicitObjectInput,
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2AnchorCommandResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "synchronize_explicit_object");
+    if (replay?.command === "synchronize_explicit_object") {
+      return { object: replay.object, anchor: replay.anchor, replayed: true };
+    }
+    const anchor = await this.objects.getPrimaryAnchorByExternal(input.graphId, input.externalId);
+    if (!anchor) {
+      throw new StructuredError({
+        code: "V2_EXPLICIT_BINDING_NOT_FOUND",
+        message: "该 Logseq Block 尚未绑定正式对象；必须先走首次物化。",
+        ruleRefs: ["D-030", "D-185"],
+      });
+    }
+    const current = await this.requireObject(anchor.objectId);
+    const candidate = synchronizeV2ExplicitObject(current, anchor, input, envelope.expectedVersion, at);
+    return this.objects.commitSynchronization({
+      ...candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "synchronize_explicit_object",
+        objectId: current.objectId,
+        beforeVersion: current.version,
         afterVersion: candidate.object.version,
         occurredAt: at.toISOString(),
       },

@@ -109,6 +109,29 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   assert.equal((await client.materializeExplicitObject(input)).replayed, true);
   assert.equal((await client.status()).objectCount, 1);
 
+  const synchronizedFirst = await client.synchronizeExplicitObject({ ...input, externalId: "block-sync", idempotencyKey: "sync-block:first" });
+  assert.equal(synchronizedFirst.operation, "MATERIALIZED");
+  assert.equal(synchronizedFirst.object.version, 2);
+  assert.equal((await client.synchronizeExplicitObject({ ...input, externalId: "block-sync", idempotencyKey: "sync-block:first" })).replayed, true);
+  const synchronizedUpdate = await client.synchronizeExplicitObject({
+    ...input,
+    text: "核对时间同步来源并保存证据",
+    externalId: "block-sync",
+    contentHash: checksum("[任务] 核对时间同步来源并保存证据"),
+    idempotencyKey: "sync-block:second",
+  });
+  assert.equal(synchronizedUpdate.operation, "SYNCHRONIZED");
+  assert.equal(synchronizedUpdate.object.version, 3);
+  assert.equal(synchronizedUpdate.object.text, "核对时间同步来源并保存证据");
+  await assert.rejects(() => client.synchronizeExplicitObject({
+    ...input,
+    objectType: "MINI_PROJECT",
+    externalId: "block-sync",
+    contentHash: checksum("[MiniProject] 不得静默迁移"),
+    idempotencyKey: "sync-block:type-change",
+  }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL");
+  assert.equal((await client.getObject(synchronizedFirst.object.objectId))?.objectType, "TASK");
+
   const unsafe = await fetch(new URL("objects/materialize", service.url), {
     method: "POST",
     headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
@@ -116,7 +139,7 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   });
   assert.equal(unsafe.status, 400);
   assert.equal((await unsafe.json() as { error: { code: string } }).error.code, "MATERIALIZATION_REQUEST_INVALID");
-  assert.equal((await client.status()).objectCount, 1);
+  assert.equal((await client.status()).objectCount, 2);
 });
 
 test("Backup API creates a private server-named snapshot and validates it read-only", async (t) => {

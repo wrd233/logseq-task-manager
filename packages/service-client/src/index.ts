@@ -70,6 +70,10 @@ export interface ServiceMaterializeExplicitObjectResult {
   replayed: boolean;
 }
 
+export interface ServiceSynchronizeExplicitObjectResult extends ServiceMaterializeExplicitObjectResult {
+  operation: "MATERIALIZED" | "SYNCHRONIZED";
+}
+
 export type ServiceConnectionState =
   | { status: "READY"; capabilities: ServiceCapabilities; formalWritesAvailable: boolean; graphEditingAvailable: true }
   | { status: "RESTRICTED"; reasonCode: string; message: string; formalWritesAvailable: false; graphEditingAvailable: true };
@@ -201,6 +205,14 @@ export class LocalServiceClient {
 
   materializeExplicitObject(input: ServiceMaterializeExplicitObjectRequest): Promise<ServiceMaterializeExplicitObjectResult> {
     return this.request<ServiceMaterializeExplicitObjectResult>("/objects/materialize", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  }
+
+  synchronizeExplicitObject(input: ServiceMaterializeExplicitObjectRequest): Promise<ServiceSynchronizeExplicitObjectResult> {
+    return this.request<ServiceSynchronizeExplicitObjectResult>("/objects/synchronize", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

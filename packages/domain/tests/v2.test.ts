@@ -7,6 +7,7 @@ import {
   bindV2PrimaryAnchor,
   createV2ManagedObject,
   selectFocus,
+  synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
   validateV2Condition,
 } from "../src/v2.ts";
@@ -72,4 +73,33 @@ test("Condition requires its own evidence and Focus remains independent", () => 
     rank: 0,
     expiresAt: "2026-07-21T02:00:00Z",
   });
+});
+
+test("explicit synchronization updates title and Anchor evidence but refuses silent type migration", () => {
+  const initial = createV2ManagedObject({ objectId: "task-sync", objectType: "TASK", text: "旧标题" });
+  const bound = bindV2PrimaryAnchor(initial, {
+    anchorId: "anchor-sync",
+    graphId: "graph-1",
+    externalId: "block-sync",
+    contentHash: "11111111",
+  }, 1, new Date("2026-07-20T07:00:00Z"));
+  const synchronized = synchronizeV2ExplicitObject(bound.object, bound.anchor, {
+    objectType: "TASK",
+    text: "新标题",
+    contentHash: "22222222",
+  }, 2, new Date("2026-07-20T07:01:00Z"));
+  assert.equal(synchronized.object.text, "新标题");
+  assert.equal(synchronized.object.version, 3);
+  assert.equal(synchronized.anchor.contentHash, "22222222");
+  assert.equal(synchronized.anchor.lastSeenAt, "2026-07-20T07:01:00.000Z");
+  assert.throws(() => synchronizeV2ExplicitObject(synchronized.object, synchronized.anchor, {
+    objectType: "MINI_PROJECT",
+    text: "不得静默迁移",
+    contentHash: "33333333",
+  }, 3), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL");
+  assert.throws(() => synchronizeV2ExplicitObject(synchronized.object, synchronized.anchor, {
+    objectType: "TASK",
+    text: "过期更新",
+    contentHash: "44444444",
+  }, 2), /版本/);
 });

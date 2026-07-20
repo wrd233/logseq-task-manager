@@ -43,12 +43,13 @@ V2_MIGRATION_DESIGN_READY
 - CLI 已提供 `backup create/validate/restore`；Restore 缺少精确 `--confirm RESTORE_AND_STOP_SERVICE` 时在加载 Service 前退出。独立进程冒烟已证明 CLI create → restore → Service exit/descriptor cleanup → restart → Doctor PASS。
 - Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。Parser 只产出纯结果，尚未接 Block event 或正式写入。
 - Slice B 防抖与首次物化基础已建立：UUID 级事件合并只交付最新 Parser 结果，失败显式回调；Application/SQLite 将 Object、Primary Anchor、Audit、Receipt 单事务写入并幂等重放，重复外部 Block 整笔回滚。
-- Local Service 已开放唯一的 `POST /objects/materialize` 正式写路由并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。Plugin `DB.onChanged` 与已绑定对象 update 尚未接入。
+- Local Service 已开放受约束的 `POST /objects/materialize` 与统一 `POST /objects/synchronize`，并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。
+- 同类型显式同步后端已完成：Domain/Application/SQLite 更新标题缓存、对象版本和 Anchor 观察证据；`/objects/synchronize` 自动区分首次物化与已绑定更新，首次请求可幂等重放，类型变化明确要求 Proposal 且零写入。生产 Plugin 事件接线仍等待持久化 pending-recovery 意图，避免 Service 故障时丢事件。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，146 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，148 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
@@ -63,7 +64,7 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. 继续 Slice B1-B2：Block event/防抖/有限子树读取，以及幂等 materialize/update Application Command；
+1. 继续 Slice B1：为 Service 不可用建立有界、可恢复的显式同步意图，再把 `DB.onChanged`/防抖接入 Plugin；
 2. 将 Backup/Restore/Service restart/Doctor 纳入 Desktop 集中验收；
 3. 按 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 集中验收 Plugin Electron bridge、Service READY/RESTRICTED、首次启用、reload 和原生正文编辑；
 4. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；
