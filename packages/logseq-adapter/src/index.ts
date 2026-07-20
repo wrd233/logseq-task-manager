@@ -3,6 +3,11 @@ import type { Anchor, SemanticOperation } from "@task-copilot/domain";
 import type { BlobStore } from "@task-copilot/persistence";
 import { StructuredError, checksum, classifyStorageError, stableJson } from "@task-copilot/shared";
 export { classifyStorageError, type StorageErrorKind } from "@task-copilot/shared";
+export {
+  parseExplicitObjectSyntax,
+  type ExplicitObjectParseResult,
+  type LogseqTodoMarker,
+} from "./explicit-object-parser.ts";
 
 export interface LogseqBlockShape {
   uuid: string;

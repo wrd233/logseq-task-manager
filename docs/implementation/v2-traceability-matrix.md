@@ -32,9 +32,9 @@
 
 | requirement_id | 文档章节 | 用户场景 | Domain 规则 / 不变量 | Application 用例 | Adapter / UI | 自动 / 运行测试 | Slice | 状态 | 当前证据 / 缺口 |
 |---|---|---|---|---|---|---|---|---|---|
-| E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | V1 手工正式化，不是显式事件物化 |
-| E2E-02 | V2 §68 | `[任务] 标题` 无 Marker | Marker 不决定身份 | materialize | parser | unit + Desktop | B | NOT_STARTED | Parser/事件缺失 |
-| E2E-03 | V2 §68 | Task 下裸 TODO 保持内部步骤 | 内部 TODO 无 object_id | synchronize block | subtree parser | fixture | B | NOT_STARTED | 缺显式同步 |
+| E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | B0 纯 Parser 已通过固定标识/冲突/空标题；事件、物化、更新、Now 与 Desktop 未完成 |
+| E2E-02 | V2 §68 | `[任务] 标题` 无 Marker | Marker 不决定身份 | materialize | parser | unit + Desktop | B | REUSE_EVIDENCE | `explicit-object-parser.test.ts` 已证明有/无 Marker 同一 Task 身份语义；物化与 Desktop 未完成 |
+| E2E-03 | V2 §68 | Task 下裸 TODO 保持内部步骤 | 内部 TODO 无 object_id | synchronize block | subtree parser | fixture | B | REUSE_EVIDENCE | B0 已证明裸 TODO 返回非对象；有限子树同步 fixture 与 Desktop 未完成 |
 | E2E-04 | V2 §68 | 跨页移动 | ID/Ownership 不变，Anchor 更新 | observe/sync | UUID event | integration + Desktop | B | REUSE_EVIDENCE | V1 UUID 定位；真实 move 未验证 |
 | E2E-05 | V2 §68 | 复制正式 Block | 新 UUID 不继承 ID | detect copy/candidate | Graph adapter | fixture + Desktop | B | NOT_STARTED | 缺 copy flow |
 | E2E-06 | V2 §68 | 删除 Primary Anchor | 对象保留、Anchor Conflict | consistency check | Graph adapter/review | fake + Desktop | B,E | REUSE_EVIDENCE | V1 missing/conflict/rebind 已测 |
