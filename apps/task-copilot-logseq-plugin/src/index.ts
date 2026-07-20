@@ -59,6 +59,7 @@ import { createProjectWithControlledPage } from "./v2-project-creation.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
+import { checksum } from "@task-copilot/shared";
 
 let appRoot: HTMLElement | undefined;
 const v1Runtime: {
@@ -131,6 +132,16 @@ async function openV2PrimaryAnchor(externalId: string): Promise<void> {
   const page = await resolveLogseqPageReference(block.page, logseq.Editor.getPage?.bind(logseq.Editor));
   if (page.displayName === "无法解析的 Logseq 页面") throw new Error("主 Anchor 所在页面无法解析；没有修改对象。");
   await logseq.Editor.scrollToBlockInPage(page.pageUuid ?? page.pageName ?? page.displayName.replace(" · Journal", ""), externalId);
+}
+
+async function updateBlockWithoutExplicitSyncEcho(externalId: string, content: string): Promise<unknown> {
+  const cancelSuppression = explicitSyncController?.suppressNextObservedContent(externalId, checksum(content));
+  try {
+    return await logseq.Editor.updateBlock(externalId, content);
+  } catch (error) {
+    cancelSuppression?.();
+    throw error;
+  }
 }
 
 function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>[0]): string {
@@ -858,7 +869,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新审阅。");
       const result = await commitV2Formalization(client, {
         getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id),
-        updateBlock: (id, content) => logseq.Editor.updateBlock(id, content),
+        updateBlock: updateBlockWithoutExplicitSyncEcho,
       }, stored, `v2-proposal-commit-ui-${Date.now()}`);
       actionDialog = undefined;
       workspace = "review";
@@ -874,7 +885,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       if (!client) throw new Error("V2 Undo 上下文已失效；没有写入。");
       const result = await undoV2Formalization(client, {
         getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id),
-        updateBlock: (id, content) => logseq.Editor.updateBlock(id, content),
+        updateBlock: updateBlockWithoutExplicitSyncEcho,
       }, value, `v2-proposal-undo-ui-${Date.now()}`);
       actionDialog = undefined;
       workspace = "review";

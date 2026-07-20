@@ -160,6 +160,7 @@ function errorCode(error: unknown): string {
 
 export class ExplicitSyncController {
   private readonly pending = new Map<string, PendingSync>();
+  private readonly suppressedObservations = new Map<string, { contentHash: string; expiresAt: number }>();
   private readonly maximumPending: number;
   private readonly createTraceId: () => string;
   private readonly debouncer: ExplicitObjectChangeDebouncer;
@@ -190,7 +191,29 @@ export class ExplicitSyncController {
   }
 
   onBlocksChanged(blocks: readonly unknown[]): void {
-    if (!this.disposed) this.debouncer.enqueue(blocks);
+    if (this.disposed) return;
+    const now = Date.now();
+    const filtered = blocks.filter((value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return true;
+      const block = value as { uuid?: unknown; content?: unknown };
+      if (typeof block.uuid !== "string") return true;
+      const suppression = this.suppressedObservations.get(block.uuid);
+      if (!suppression) return true;
+      this.suppressedObservations.delete(block.uuid);
+      return suppression.expiresAt < now || typeof block.content !== "string" || checksum(block.content) !== suppression.contentHash;
+    });
+    if (filtered.length > 0) this.debouncer.enqueue(filtered);
+  }
+
+  suppressNextObservedContent(externalId: string, contentHash: string, ttlMs = 10_000): () => void {
+    if (!externalId.trim() || !/^[0-9a-f]{8}$/.test(contentHash) || !Number.isSafeInteger(ttlMs) || ttlMs < 1 || ttlMs > 60_000) {
+      throw new Error("Explicit sync echo suppression requires one bounded UUID, hash, and TTL.");
+    }
+    const suppression = { contentHash, expiresAt: Date.now() + ttlMs };
+    this.suppressedObservations.set(externalId, suppression);
+    return () => {
+      if (this.suppressedObservations.get(externalId) === suppression) this.suppressedObservations.delete(externalId);
+    };
   }
 
   onSubtreeTraversalIssue(code: string, message: string): void {
@@ -231,6 +254,7 @@ export class ExplicitSyncController {
     this.disposed = true;
     this.transport = undefined;
     this.pending.clear();
+    this.suppressedObservations.clear();
     this.debouncer.dispose();
     this.emitState();
   }

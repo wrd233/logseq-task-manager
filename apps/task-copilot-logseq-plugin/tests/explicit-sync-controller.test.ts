@@ -177,6 +177,34 @@ test("queue overflow is explicit and dispose prevents late formal writes", async
   assert.equal(writes, 0);
 });
 
+test("one exact plugin-authored Block observation is suppressed without hiding later or mismatched edits", async () => {
+  const requests: string[] = [];
+  const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-echo" });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.text);
+      return success("echo-object", 3);
+    },
+  });
+
+  const committed = "[任务] 插件正式提交";
+  controller.suppressNextObservedContent("echo-block", checksum(committed));
+  controller.onBlocksChanged([{ uuid: "echo-block", content: committed }]);
+  await controller.flush();
+  assert.deepEqual(requests, []);
+
+  controller.onBlocksChanged([{ uuid: "echo-block", content: committed }]);
+  await controller.flush();
+  assert.deepEqual(requests, ["插件正式提交"]);
+
+  controller.suppressNextObservedContent("echo-block", checksum(committed));
+  controller.onBlocksChanged([{ uuid: "echo-block", content: "[任务] 用户后续编辑" }]);
+  await controller.flush();
+  controller.onBlocksChanged([{ uuid: "echo-block", content: committed }]);
+  await controller.flush();
+  assert.deepEqual(requests, ["插件正式提交", "用户后续编辑", "插件正式提交"]);
+});
+
 test("Logseq DB event registration forwards only transaction Blocks and unregisters cleanly", async () => {
   let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
   let unregistered = 0;
