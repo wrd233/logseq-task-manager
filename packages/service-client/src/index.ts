@@ -150,6 +150,36 @@ export interface ServiceProposalRevalidation {
   result: V2ProposalRevalidationResult;
 }
 
+export interface ServicePreparedProposalCommit {
+  status: "PREPARED" | "COMPLETED";
+  semanticCommitId: string;
+  proposalId: string;
+  expectedUpdatedAt: string;
+  objectId: string;
+  plan: {
+    proposalId: string;
+    groupId: string;
+    patch: { blockUuid: string; beforeText: string; afterText: string; beforeHash: string; afterHash: string };
+    create: { operationId: string; objectType: "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT"; text: string; blockUuid: string };
+  };
+  replayed: boolean;
+}
+
+export type ServiceProposalCommitPreparation = ServicePreparedProposalCommit | ({ status: "STALE" } & ServiceProposalRevalidation);
+export type ServiceProposalCommitFinalization =
+  | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; anchor: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
+  | { status: "COMPENSATION_REQUIRED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; patch: ServicePreparedProposalCommit["plan"]["patch"] };
+
+export interface ServiceProposalCommitEvidence {
+  semanticCommitId: string;
+  proposalId: string;
+  expectedUpdatedAt: string;
+  blockUuid: string;
+  contentHash: string;
+  inputVersion: string;
+  traceId: string;
+}
+
 export type ServiceConnectionState =
   | { status: "READY"; capabilities: ServiceCapabilities; formalWritesAvailable: boolean; graphEditingAvailable: true }
   | { status: "RESTRICTED"; reasonCode: string; message: string; formalWritesAvailable: false; graphEditingAvailable: true };
@@ -375,6 +405,24 @@ export class LocalServiceClient {
   revalidateProposal(proposalId: string, observations: readonly V2ProposalScopeObservation[], expectedUpdatedAt: string): Promise<ServiceProposalRevalidation> {
     return this.request<ServiceProposalRevalidation>(`/proposals/${encodeURIComponent(proposalId)}/revalidate`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ observations, expectedUpdatedAt }),
+    });
+  }
+
+  prepareProposalCommit(proposalId: string, observations: readonly V2ProposalScopeObservation[], expectedUpdatedAt: string): Promise<ServiceProposalCommitPreparation> {
+    return this.request<ServiceProposalCommitPreparation>(`/proposals/${encodeURIComponent(proposalId)}/commit/prepare`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ observations, expectedUpdatedAt }),
+    });
+  }
+
+  finalizeProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<ServiceProposalCommitFinalization> {
+    return this.request<ServiceProposalCommitFinalization>(`/proposals/${encodeURIComponent(proposalId)}/commit/finalize`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(evidence),
+    });
+  }
+
+  compensateProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }> {
+    return this.request<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }>(`/proposals/${encodeURIComponent(proposalId)}/commit/compensate`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(evidence),
     });
   }
 

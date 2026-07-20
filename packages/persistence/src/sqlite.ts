@@ -768,7 +768,7 @@ export class V2SqliteStore {
     const allowed: Record<V2CommitStepStatus, V2CommitStepStatus[]> = {
       PREPARED: ["APPLIED", "RECOVERY_REQUIRED"],
       APPLIED: ["VERIFIED", "COMPENSATED", "RECOVERY_REQUIRED"],
-      VERIFIED: [],
+      VERIFIED: ["RECOVERY_REQUIRED"],
       COMPENSATED: [],
       RECOVERY_REQUIRED: ["COMPENSATED"],
     };
@@ -808,8 +808,8 @@ export class V2SqliteStore {
       if (status === "RECOVERY_REQUIRED" && !steps.some((step) => step.status === "RECOVERY_REQUIRED")) {
         throw persistenceError("V2_RECOVERY_STEP_REQUIRED", "RECOVERY_REQUIRED Commit 必须指明未恢复 step。");
       }
-      if (status === "FAILED" && steps.some((step) => step.status === "APPLIED" || step.status === "RECOVERY_REQUIRED")) {
-        throw persistenceError("V2_SEMANTIC_COMMIT_NOT_COMPENSATED", "FAILED Commit 不能保留 APPLIED/RECOVERY_REQUIRED step。");
+      if (status === "FAILED" && steps.some((step) => step.status === "APPLIED" || step.status === "VERIFIED" || step.status === "RECOVERY_REQUIRED")) {
+        throw persistenceError("V2_SEMANTIC_COMMIT_NOT_COMPENSATED", "FAILED Commit 不能保留 APPLIED/VERIFIED/RECOVERY_REQUIRED step。");
       }
       this.database.prepare(`
         UPDATE semantic_commits SET status = ?, after_state_checksum = ?, error_code = ?, updated_at = ?

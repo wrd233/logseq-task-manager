@@ -248,6 +248,25 @@ test("SemanticCommit recovery cannot report FAILED until every applied step is c
   reopened.close();
 });
 
+test("a verified Graph step can enter compensation when a later Domain step fails", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const at = "2026-07-20T12:30:00.000Z";
+  const semanticCommitId = "commit-verified-graph-compensation";
+  store.prepareSemanticCommit({ semanticCommitId, status: "PENDING", beforeStateChecksum: "before", createdAt: at, updatedAt: at }, [
+    { semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE", status: "PREPARED", beforeHash: "before", afterHash: "after", updatedAt: at },
+    { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE", status: "PREPARED", updatedAt: at },
+  ]);
+  store.advanceSemanticCommitStep(semanticCommitId, 0, "APPLIED", at);
+  store.advanceSemanticCommitStep(semanticCommitId, 0, "VERIFIED", at);
+  store.advanceSemanticCommitStep(semanticCommitId, 0, "RECOVERY_REQUIRED", at, "DOMAIN_WRITE_FAILED");
+  assert.equal(store.finalizeSemanticCommit(semanticCommitId, "RECOVERY_REQUIRED", at, undefined, "DOMAIN_WRITE_FAILED").status, "RECOVERY_REQUIRED");
+  store.advanceSemanticCommitStep(semanticCommitId, 0, "COMPENSATED", at);
+  assert.equal(store.finalizeSemanticCommit(semanticCommitId, "FAILED", at, undefined, "DOMAIN_WRITE_FAILED").status, "FAILED");
+  store.close();
+});
+
 test("object writes require expected version and are idempotent", async (t) => {
   const { root, store } = await fixture();
   t.after(async () => rm(root, { recursive: true, force: true }));

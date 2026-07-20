@@ -95,6 +95,9 @@ test("runtime discovery returns a usable sync client only after a READY probe", 
       listProposals: async () => [],
       reviewProposal: async () => { throw new Error("not called by discovery"); },
       revalidateProposal: async () => { throw new Error("not called by discovery"); },
+      prepareProposalCommit: async () => { throw new Error("not called by discovery"); },
+      finalizeProposalCommit: async () => { throw new Error("not called by discovery"); },
+      compensateProposalCommit: async () => { throw new Error("not called by discovery"); },
     }),
   );
   assert.equal(ready.connection.status, "READY");
@@ -113,6 +116,9 @@ test("runtime discovery returns a usable sync client only after a READY probe", 
     listProposals: async () => [],
     reviewProposal: async () => { throw new Error("must not escape restricted discovery"); },
     revalidateProposal: async () => { throw new Error("must not escape restricted discovery"); },
+    prepareProposalCommit: async () => { throw new Error("must not escape restricted discovery"); },
+    finalizeProposalCommit: async () => { throw new Error("must not escape restricted discovery"); },
+    compensateProposalCommit: async () => { throw new Error("must not escape restricted discovery"); },
   }));
   assert.equal(restrictedRuntime.connection.status, "RESTRICTED");
   assert.equal(restrictedRuntime.client, undefined);

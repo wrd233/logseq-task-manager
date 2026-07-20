@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B2/B4 foundation in progress"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 214 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; C3 accepted-scope Block/Page/OBJECT revalidation, explicit STALE persistence, and in-context pre-commit check UI PASS; Desktop and formal Proposal Commit/Undo remain pending"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 221 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; C4 single-Block formalization prepare/finalize, verified Graph compensation, APPLIED/FAILED Proposal terminal states, and no-false-success controller PASS; C5 Undo/restart recovery, Desktop, and formal UI exposure remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION

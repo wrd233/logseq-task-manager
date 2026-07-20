@@ -126,6 +126,56 @@ test("Proposal validation, review, and scope revalidation never masquerade as a 
   assert.equal((await client.status()).objectCount, 0, "review and revalidation state are not formal object writes");
 });
 
+test("Proposal Commit prepares before Graph, materializes after evidence, and records APPLIED", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-commit-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal-commit", token: "proposal-commit-service-token-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const submitted = await client.submitProposal(validProposal());
+  const reviewed = await client.reviewProposal("prop_service_validate", { formalize: { disposition: "ACCEPTED" } }, submitted.record.updatedAt);
+  const prepared = await client.prepareProposalCommit("prop_service_validate", [
+    { kind: "BLOCK", id: "proposal-block", exists: true, version: 1, hash: checksum("普通正文") },
+  ], reviewed.updatedAt);
+  assert.equal(prepared.status, "PREPARED");
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared commit");
+  assert.equal((await client.status()).objectCount, 0, "prepare never applies Graph or Domain state");
+  const completed = await client.finalizeProposalCommit("prop_service_validate", {
+    semanticCommitId: prepared.semanticCommitId, proposalId: prepared.proposalId, expectedUpdatedAt: prepared.expectedUpdatedAt,
+    blockUuid: prepared.plan.patch.blockUuid, contentHash: prepared.plan.patch.afterHash, inputVersion: "2", traceId: "trace-proposal-commit",
+  });
+  assert.equal(completed.status, "COMPLETED");
+  if (completed.status !== "COMPLETED") throw new Error("expected completed commit");
+  assert.equal(completed.object.objectId, prepared.objectId);
+  assert.equal(completed.anchor.externalId, "proposal-block");
+  assert.equal(completed.record.proposal.status, "APPLIED");
+  assert.equal((await client.status()).objectCount, 1);
+});
+
+test("Proposal Commit requests Graph compensation when Domain materialization conflicts", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-compensation-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal-compensation", token: "proposal-compensation-token-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  await client.synchronizeExplicitObject({ objectType: "TASK", text: "已有对象", externalId: "proposal-block", inputVersion: "existing", contentHash: checksum("[任务] 已有对象"), idempotencyKey: "transport", traceId: "trace-existing" });
+  const submitted = await client.submitProposal(validProposal());
+  const reviewed = await client.reviewProposal("prop_service_validate", { formalize: { disposition: "ACCEPTED" } }, submitted.record.updatedAt);
+  const prepared = await client.prepareProposalCommit("prop_service_validate", [{ kind: "BLOCK", id: "proposal-block", exists: true, version: 1, hash: checksum("普通正文") }], reviewed.updatedAt);
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared commit");
+  const finalization = await client.finalizeProposalCommit("prop_service_validate", {
+    semanticCommitId: prepared.semanticCommitId, proposalId: prepared.proposalId, expectedUpdatedAt: prepared.expectedUpdatedAt,
+    blockUuid: prepared.plan.patch.blockUuid, contentHash: prepared.plan.patch.afterHash, inputVersion: "2", traceId: "trace-conflict",
+  });
+  assert.equal(finalization.status, "COMPENSATION_REQUIRED");
+  if (finalization.status !== "COMPENSATION_REQUIRED") throw new Error("expected compensation");
+  const compensated = await client.compensateProposalCommit("prop_service_validate", {
+    semanticCommitId: prepared.semanticCommitId, proposalId: prepared.proposalId, expectedUpdatedAt: prepared.expectedUpdatedAt,
+    blockUuid: prepared.plan.patch.blockUuid, contentHash: prepared.plan.patch.beforeHash, inputVersion: "3", traceId: "trace-compensated",
+  });
+  assert.equal(compensated.status, "FAILED_COMPENSATED");
+  assert.equal(compensated.record.proposal.status, "FAILED");
+  assert.equal((await client.status()).objectCount, 1, "conflicting original object remains the only object");
+});
+
 test("Local Service materializes one explicit Block without accepting Graph, path, or object authority", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-materialize-"));
   const service = await startLocalService({

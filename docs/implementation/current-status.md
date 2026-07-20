@@ -56,12 +56,13 @@ V2_MIGRATION_DESIGN_READY
 - Slice B4 已增加用户手动启动的当前页显式对象候选发现：范围严格限制为当前页，不做启动扫描或全 Graph 扫描；Logseq API 一次提供整页 Block tree，Plugin 只处理快照前 256 项并如实提示截断，不再把处理预算表述成底层读取上限。`BlockUUIDTuple` 子节点在同一预算内以 `includeChildren: true` 按 UUID 防御性读取，并校验返回实体 UUID；不可读、形态异常或身份不匹配时整轮拒绝而非静默漏报。候选去重使用包含历史 `replaced` tombstone 的 Anchor 身份分页；覆盖未完成时整轮拒绝、零预览零写入，避免把当前或历史已占用 UUID 误称新候选。普通正文忽略，非法显式块只计数。候选逐项审阅、每次只同步一项，提交前按 UUID 重读并逐字段校验 version/hash/type/title；Service 重连使旧预览失效，正式请求发出后不提供假取消。写入仍只经 `/objects/synchronize` → Application → SQLite。该闭环已有自动证据，Plugin 退出期间新建 Block 的真实发现、stale 停写和 reload 仍待 Desktop，因此不能冒充 E2E-01/E2E-15 完成。
 - Slice B5 Project 原子创建自动基础已贯通最终 `Projects / 对象` 工作区 → Logseq Page Adapter → Local Service → Application → SQLite：prepare 发行稳定 semanticCommit/object ID 但不创建领域对象；插件只精确检查/创建带三项所有权证据的 `Project/<名称>` 页面；finalize 校验页面 UUID/hash 后，Project、Primary Anchor、Audit、Receipt 单事务写入，两个账本 step 全 VERIFIED 才成功。同名未知页面零覆盖，响应不确定时保留受控页面并同意图续跑，完成后按 Page UUID 支持页面改名且 object_id 不变。没有新增表、扫描器、双写或平行恢复账本。详见 `docs/implementation/V2_PROJECT_PAGE_CREATION_CONTRACT.md`；Desktop 与进程 fault injection 尚未完成，E2E-19 不能标 DONE。
 - Slice C0-C3 Proposal 审阅与提交前重验基础已建立：runtime schema、确定性两文件、scope/hash/risk/dependency Validator、语义组部分接受、schema v4 Proposal/Group 持久化、submit/list/get/review/revalidate 服务路由与插件 Review UI 通过自动验证。“提交前检查”只重读全部 read scope 和 accepted modify target；Block/Page 由 Logseq Adapter 按 ID 读取，OBJECT 由 Service 从 SQLite 自行补齐。无版本证据、缺失、version/hash 变化都会显式持久化为 `STALE`；检查通过仍明示尚未生效。C4 Commit/Partial Failure、C5 Undo/Recovery 和 Desktop 连续审阅仍未完成，详见 `docs/implementation/slices/slice-C-plan.md`。
+- Slice C4 单 Block 正式化 Commit 自动基础已建立：只支持一个 accepted group 中耦合的一个 Patch + `CREATE_OBJECT`；prepare 重验并持久化 PENDING Graph/Domain steps，但零 Graph/对象写入；Plugin 前后 hash 验证后 finalize 才经 Application 原子物化 Object/Anchor/Audit/Receipt，收口 ledger 并标记 Proposal `APPLIED`。Domain 冲突会进入 `RECOVERY_REQUIRED`，只在无后续编辑时逆写并校验 Graph，然后标记 `COMPENSATED`/`FAILED`；补偿失败保留恢复状态且不显示成功。当前不在 Review UI 开放正式 Commit，必须先完成 C5 Undo/重启恢复与 Desktop Gate。
 - 2026-07-20 Desktop 阶段 Gate：A-RT-01 与 A-RT-02 通过；专用页显式 Task 首次物化、同 object_id 标题更新、已知 Anchor 候选去重通过；Service 停止时正文连续两次可保存，重连同一 SQLite 后仅交付最新正文，object version 3→4。移除原 UUID Marker 后 Anchor 变为 `conflict`且原 Object 保持上一可信正文；恢复 Marker 后同 object_id/anchor_id 回到 `active`，version 5→6。Diagnostics 已真实显示完整 commit/listener snapshot 与显式同步 pending/transport/reconciliation 状态。其余 Anchor missing/rebind、移动复制和有限子树仍待真实验收，详见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，214 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，221 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；该 smoke 早于 schema v4 Proposal 迁移，v4 进程重启尚待下一轮运行证据；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；
@@ -81,7 +82,7 @@ V2_MIGRATION_DESIGN_READY
 2. 在下一轮 Desktop 完成 B3 Marker 形态与 Task DONE/CANCELED Gate，复杂关闭接入 Slice C 审阅；
 3. 在 Desktop 验证 Slice B5 新建、未知同名冲突、页面改名、reload 和中断续跑，并补页面/领域边界 fault injection；
 4. 将 Backup/Restore/Service restart/Doctor 纳入后续 Desktop 集中验收；
-5. 继续 Slice C4-C5：Proposal Commit/Partial Failure 与 inverse Commit；在集中 Desktop Gate 验收 C1-C3 连续审阅与 stale 交互；
+5. 继续 Slice C5：为 C4 正式化补齐 inverse Commit/Undo、重启 Pending/Recovery 入口，然后在同一 Review 上下文开放最终 Commit；在集中 Desktop Gate 验收 C1-C5 连续闭环；
 6. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；在 Slice A-C 闭环后接入 Provider abstraction并运行 bounded DeepSeek live gate。
 
 ## 仍需用户决定

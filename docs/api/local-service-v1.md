@@ -43,6 +43,9 @@
 | GET | `/proposals/{id}` | 读取单个 Proposal、两文件和 `updatedAt` | 无 |
 | POST | `/proposals/{id}/review` | 按语义组接受/拒绝/暂缓 | Proposal + Group 单事务写入；不改正文/对象 |
 | POST | `/proposals/{id}/revalidate` | 重验 read scope 与 accepted modify scope | 成功只读；stale 只标记 Proposal，不改正文/对象 |
+| POST | `/proposals/{id}/commit/prepare` | 重验并准备单 Block 正式化账本 | 只写 PENDING ledger；不改 Graph/对象 |
+| POST | `/proposals/{id}/commit/finalize` | 验证 Graph after evidence 后物化对象 | Object + Anchor + Audit + Receipt；ledger + Proposal APPLIED |
+| POST | `/proposals/{id}/commit/compensate` | 验证 Graph 已逆写 before evidence | ledger COMPENSATED/FAILED + Proposal FAILED |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
@@ -166,6 +169,10 @@
 | `PROPOSAL_REVALIDATION_REQUEST_INVALID` | 重验请求字段、Block/Page 证据或证据数量无效 |
 | `V2_PROPOSAL_REVALIDATION_STALE` | 重验前 Proposal 审阅版本已变化，本次零写入 |
 | `V2_PROPOSAL_NOT_ACCEPTED` | Proposal 没有可进入提交前重验的 accepted 语义组 |
+| `PROPOSAL_COMMIT_REQUEST_INVALID` | finalize/compensate 证据字段或客户端权限越界 |
+| `V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED` | 同 Proposal 已有需恢复事务，禁止平行 Commit |
+| `V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH` | Graph after hash 与已审阅 Patch 不一致 |
+| `V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH` | Graph before hash 与恢复账本不一致 |
 | `SERVICE_STOPPING` | Restore 进行中拒绝新请求 |
 | `V2_GRAPH_ID_MISMATCH` | Backup 不属于当前 Graph |
 | `V2_UNSUPPORTED_DATABASE_SCHEMA` | Backup schema 版本不受支持 |

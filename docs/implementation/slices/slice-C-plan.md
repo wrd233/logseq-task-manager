@@ -12,7 +12,7 @@
 | C1 | SQLite proposals/proposal_groups + submit/read | 非法 Proposal 零持久化；重复 ID 冲突 | 自动基础完成 |
 | C2 | Review Center 待审阅 + 四处置 + 语义组部分接受 | 高影响独立确认；依赖链不可拆 | 自动基础完成；Desktop 待验收 |
 | C3 | Stale/version/scope revalidation | Block/Object 变化阻止提交 | 自动基础完成；Desktop 待验收 |
-| C4 | SemanticCommit Graph → Domain → Audit | Partial Failure 不显示成功 | ledger 可复用；编排待实施 |
+| C4 | SemanticCommit Graph → Domain → Audit | Partial Failure 不显示成功 | 正式化自动基础完成；UI 等 C5 |
 | C5 | inverse Commit / Undo / Recovery | 不覆盖后续编辑 | V1 证据可复用；V2 待实施 |
 
 ## C0 已建立的合同
@@ -41,6 +41,16 @@
 - OBJECT 证据由 Local Service 从当前 SQLite 自行读取，客户端只能上报 BLOCK/PAGE，不能伪造对象版本。
 - 缺失、无观察、版本变化或 hash 变化会把 Proposal 持久化标记为 `STALE`；成功重验是只读的，不刷新 Proposal `updatedAt`。
 - Review UI 在原上下文显示“提交前检查”与具体 stale target；检查通过仍明示未生效。C4 最终 Commit 必须在准备账本时再次执行同一重验，不把早先检查当成写入权限。
+
+## C4 已建立的正式化基础
+
+- 当前受控纵向 Slice 只执行“一个 accepted 语义组 + 一个 Block Patch + 同 Block 一个 `CREATE_OBJECT`”；其他操作返回 unsupported 且零写入，不把未完成操作假装成通用 Commit。
+- prepare 重复 C3 scope/version/hash 重验，以 PENDING 账本发行 Service-owned object_id；prepare 完成时 Graph 和对象数均未变。
+- Plugin controller 在 Patch 前再读 before hash，写入后再读 after hash，然后才请求 Service finalize；不把 `updateBlock` 返回当作成功证据。
+- finalize 经 Application Command 创建 Object + Primary Anchor + Audit + Receipt，再将 Graph/Domain steps 均标记 VERIFIED 并收口 Commit，最后将 Proposal 标记 `APPLIED`。
+- Domain 写入冲突时，已 VERIFIED 的 Graph step 必须转入 `RECOVERY_REQUIRED`；Plugin 只在正文仍等于 after hash 时逆写 before text，校验后由 Service 标记 `COMPENSATED` / Commit `FAILED` / Proposal `FAILED`。
+- finalize 网络结果不确定时最多幂等重试一次；不在未知服务结果下盲目补偿。后续编辑会阻止补偿并保留 `RECOVERY_REQUIRED`。
+- 正式 Review UI 暂不开放 Commit 按钮：C5 inverse Commit/Undo 和重启恢复入口未完成前，不向用户暴露一个“可生效但不可撤销”的日常入口。
 
 ## Gate 纪律
 

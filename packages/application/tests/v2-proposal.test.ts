@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { V2ProposalApplication, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
+import { V2ProposalApplication, planAcceptedV2Formalization, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "普通正文";
@@ -63,4 +63,33 @@ test("Proposal Application revalidates accepted scope and persists an explicit s
   assert.equal(stale.result.status, "STALE");
   assert.equal(stale.record.proposal.status, "STALE");
   await assert.rejects(() => application.revalidate("prop_app", [], reviewed.updatedAt), /变化/);
+});
+
+test("accepted formalization plan couples exactly one Graph patch to one Service-owned object creation", () => {
+  const accepted = { ...proposal(), status: "ACCEPTED" as const, groups: proposal().groups.map((group) => ({ ...group, disposition: "ACCEPTED" as const })) };
+  assert.deepEqual(planAcceptedV2Formalization(accepted), {
+    proposalId: "prop_app",
+    groupId: "formalize",
+    patch: accepted.groups[0]!.textPatches[0],
+    create: { operationId: "create", objectType: "TASK", text: "普通正文", blockUuid: "block-app" },
+  });
+  const unsupported = structuredClone(accepted);
+  unsupported.groups[0]!.risk = "HIGH";
+  unsupported.groups[0]!.semanticOperations.push({ ...unsupported.groups[0]!.semanticOperations[0]!, operationId: "move", kind: "MOVE_BLOCK" });
+  assert.throws(() => planAcceptedV2Formalization(unsupported), /尚不支持/);
+});
+
+test("Proposal Application records applied and compensated terminal states with review concurrency", async () => {
+  const repository = new MemoryProposalRepository();
+  const application = new V2ProposalApplication(repository);
+  const submitted = await application.submit(proposal());
+  const reviewed = await application.review("prop_app", { formalize: { disposition: "ACCEPTED" } }, submitted.record.updatedAt, new Date("2026-07-20T12:01:00.000Z"));
+  const applied = await application.markApplied("prop_app", reviewed.updatedAt, new Date("2026-07-20T12:02:00.000Z"));
+  assert.equal(applied.proposal.status, "APPLIED");
+  await assert.rejects(() => application.markFailed("prop_app", reviewed.updatedAt), /变化/);
+  const failedRepository = new MemoryProposalRepository();
+  const failedApplication = new V2ProposalApplication(failedRepository);
+  const failedSubmitted = await failedApplication.submit(proposal());
+  const failedReviewed = await failedApplication.review("prop_app", { formalize: { disposition: "ACCEPTED" } }, failedSubmitted.record.updatedAt, new Date("2026-07-20T12:01:00.000Z"));
+  assert.equal((await failedApplication.markFailed("prop_app", failedReviewed.updatedAt)).proposal.status, "FAILED");
 });

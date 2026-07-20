@@ -3,7 +3,7 @@ import { chmod, mkdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2ProposalApplication, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { V2Application, V2ProposalApplication, planAcceptedV2Formalization, type MaterializeExplicitObjectInput } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -204,6 +204,39 @@ async function readProposalRevalidationRequest(request: IncomingMessage): Promis
   return { observations, expectedUpdatedAt: record.expectedUpdatedAt };
 }
 
+interface ProposalCommitEvidenceRequest {
+  semanticCommitId: string;
+  proposalId: string;
+  expectedUpdatedAt: string;
+  blockUuid: string;
+  contentHash: string;
+  inputVersion: string;
+  traceId: string;
+}
+
+async function readProposalCommitEvidenceRequest(request: IncomingMessage): Promise<ProposalCommitEvidenceRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const keys = ["blockUuid", "contentHash", "expectedUpdatedAt", "inputVersion", "proposalId", "semanticCommitId", "traceId"];
+  if (
+    Object.keys(record).sort().join(",") !== keys.join(",")
+    || typeof record.semanticCommitId !== "string" || !record.semanticCommitId.startsWith("proposal-commit:") || record.semanticCommitId.length > 96
+    || typeof record.proposalId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.proposalId)
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || typeof record.blockUuid !== "string" || !record.blockUuid.trim() || record.blockUuid.length > 512
+    || typeof record.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.contentHash)
+    || typeof record.inputVersion !== "string" || !record.inputVersion.trim() || record.inputVersion.length > 128
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+  ) throw serviceError("PROPOSAL_COMMIT_REQUEST_INVALID", "Proposal Commit 证据请求无效。");
+  return record as unknown as ProposalCommitEvidenceRequest;
+}
+
+function proposalSemanticCommitId(graphId: string, proposalId: string, expectedUpdatedAt: string): string {
+  return `proposal-commit:${createHash("sha256").update(JSON.stringify([graphId, proposalId, expectedUpdatedAt])).digest("hex")}`;
+}
+
 function projectSemanticCommitId(graphId: string, name: string): string {
   return `project-create:${createHash("sha256").update(JSON.stringify([graphId, normalizedProjectName(name).toLocaleLowerCase("zh-CN")])).digest("hex")}`;
 }
@@ -328,16 +361,17 @@ function primaryAnchorRebindIdempotencyKey(graphId: string, input: PrimaryAnchor
 
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
-    const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && !["V2_PROPOSAL_NOT_FOUND", "V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT"].includes(error.code);
+    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH"];
+    const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
+      : proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
         ? 400
         : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND"
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_PROPOSAL_REVIEW_STALE" || error.code === "V2_PROPOSAL_REVALIDATION_STALE" || error.code === "V2_PROPOSAL_NOT_ACCEPTED" || error.code === "V2_PROPOSAL_ID_CONFLICT"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || proposalConflictCodes.includes(error.code)
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -359,6 +393,15 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const application = new V2Application(store);
   const proposalApplication = new V2ProposalApplication(store);
   const capabilities: ServiceCapabilities = { formalWrites: true, migration: false, provider: false, backup: true };
+  const completeProposalObservations = (proposal: Parameters<typeof requiredV2ProposalRevalidationScope>[0], observations: V2ProposalScopeObservation[]): V2ProposalScopeObservation[] => [
+    ...observations,
+    ...requiredV2ProposalRevalidationScope(proposal).targets.filter((target) => target.kind === "OBJECT").map((target) => {
+      const object = store.getObject(target.id);
+      return object
+        ? { kind: "OBJECT" as const, id: target.id, exists: true, version: object.version, hash: checksum(object) }
+        : { kind: "OBJECT" as const, id: target.id, exists: false };
+    }),
+  ];
 
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (!authorized(request, token)) {
@@ -414,21 +457,109 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       respond(response, 200, { proposals: await proposalApplication.list() });
       return;
     }
+    const proposalCommitPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/commit\/prepare$/) : null;
+    if (proposalCommitPrepareMatch?.[1]) {
+      const proposalId = decodeURIComponent(proposalCommitPrepareMatch[1]);
+      const input = await readProposalRevalidationRequest(request);
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, input.observations), input.expectedUpdatedAt);
+      if (revalidation.result.status === "STALE") {
+        respond(response, 200, { status: "STALE", ...revalidation });
+        return;
+      }
+      const plan = planAcceptedV2Formalization(stored.proposal);
+      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
+      const existing = store.semanticCommit(semanticCommitId);
+      if (existing && existing.status !== "PENDING" && existing.status !== "COMPLETED") throw serviceError("V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "Proposal Commit 必须先完成现有恢复，不能创建平行事务。");
+      const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      const objectId = existingSteps[1]?.operationId ?? createId("obj", new Date());
+      if (!objectId) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "Proposal Commit 缺少对象身份。");
+      const now = new Date();
+      const prepared = store.prepareSemanticCommit({
+        semanticCommitId,
+        proposalId,
+        status: "PENDING",
+        beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, expectedUpdatedAt: input.expectedUpdatedAt }),
+        createdAt: existing?.createdAt ?? now.toISOString(),
+        updatedAt: now.toISOString(),
+      }, [
+        { semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE", status: "PREPARED", operationId: plan.patch.blockUuid, beforeHash: plan.patch.beforeHash, afterHash: plan.patch.afterHash, updatedAt: now.toISOString() },
+        { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: objectId, updatedAt: now.toISOString() },
+      ]);
+      respond(response, prepared.replayed ? 200 : 201, { status: existing?.status === "COMPLETED" ? "COMPLETED" : "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, objectId, plan, replayed: prepared.replayed });
+      return;
+    }
+    const proposalCommitFinalizeMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/commit\/finalize$/) : null;
+    if (proposalCommitFinalizeMatch?.[1]) {
+      const proposalId = decodeURIComponent(proposalCommitFinalizeMatch[1]);
+      const input = await readProposalCommitEvidenceRequest(request);
+      if (input.proposalId !== proposalId || input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "Proposal Commit 意图与当前 Graph/Proposal 不一致。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const plan = planAcceptedV2Formalization(stored.proposal);
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const steps = store.semanticCommitSteps(input.semanticCommitId);
+      const objectId = steps[1]?.operationId;
+      if (!commit || commit.proposalId !== proposalId || steps.length !== 2 || steps[0]?.operationId !== plan.patch.blockUuid || steps[0]?.beforeHash !== plan.patch.beforeHash || steps[0]?.afterHash !== plan.patch.afterHash || !objectId) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "Proposal Commit ledger 与已审阅计划不一致。");
+      const receiptKey = `proposal-commit:${input.semanticCommitId}`;
+      if (commit.status === "COMPLETED") {
+        const receipt = store.getCommandReceipt(receiptKey);
+        if (receipt?.command !== "materialize_explicit_object") throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "已完成 Proposal Commit 缺少领域回执。");
+        const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, object: receipt.object, anchor: receipt.anchor, record, replayed: true });
+        return;
+      }
+      if (commit.status === "RECOVERY_REQUIRED") {
+        respond(response, 200, { status: "COMPENSATION_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, patch: plan.patch });
+        return;
+      }
+      if (input.blockUuid !== plan.patch.blockUuid || input.contentHash !== plan.patch.afterHash) throw serviceError("V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "Graph 结果与已审阅 Patch 不一致。");
+      const now = new Date();
+      if (steps[0]?.status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(input.semanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, 0, "VERIFIED", now.toISOString());
+      let result;
+      try {
+        result = await application.materializeExplicitObject({ objectId, objectType: plan.create.objectType, text: plan.create.text, anchor: { graphId: options.graphId, externalId: plan.patch.blockUuid, contentHash: plan.patch.afterHash } }, { actor: "proposal_commit", expectedVersion: 0, idempotencyKey: receiptKey, traceId: input.traceId }, now);
+      } catch {
+        store.advanceSemanticCommitStep(input.semanticCommitId, 0, "RECOVERY_REQUIRED", now.toISOString(), "DOMAIN_WRITE_FAILED");
+        store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now.toISOString(), undefined, "DOMAIN_WRITE_FAILED");
+        respond(response, 200, { status: "COMPENSATION_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, patch: plan.patch });
+        return;
+      }
+      const domainStep = store.semanticCommitSteps(input.semanticCommitId)[1];
+      if (domainStep?.status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, 1, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(input.semanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, 1, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(input.semanticCommitId, "COMPLETED", now.toISOString(), checksum({ object: result.object, anchor: result.anchor }));
+      const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 200, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, object: result.object, anchor: result.anchor, record, replayed: result.replayed });
+      return;
+    }
+    const proposalCommitCompensateMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/commit\/compensate$/) : null;
+    if (proposalCommitCompensateMatch?.[1]) {
+      const proposalId = decodeURIComponent(proposalCommitCompensateMatch[1]);
+      const input = await readProposalCommitEvidenceRequest(request);
+      if (input.proposalId !== proposalId || input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "Proposal 补偿意图不匹配。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const plan = planAcceptedV2Formalization(stored.proposal);
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const graphStep = store.semanticCommitSteps(input.semanticCommitId)[0];
+      if (commit?.status !== "RECOVERY_REQUIRED" || graphStep?.status !== "RECOVERY_REQUIRED" || input.blockUuid !== plan.patch.blockUuid || input.contentHash !== plan.patch.beforeHash) throw serviceError("V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "Graph 补偿证据与恢复账本不一致。");
+      const now = new Date();
+      store.advanceSemanticCommitStep(input.semanticCommitId, 0, "COMPENSATED", now.toISOString());
+      store.finalizeSemanticCommit(input.semanticCommitId, "FAILED", now.toISOString(), undefined, "DOMAIN_WRITE_FAILED");
+      const record = await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, record });
+      return;
+    }
     const proposalRevalidationMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/revalidate$/) : null;
     if (proposalRevalidationMatch?.[1]) {
       const proposalId = decodeURIComponent(proposalRevalidationMatch[1]);
       const input = await readProposalRevalidationRequest(request);
       const stored = await proposalApplication.get(proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
-      const serviceOwnedObservations: V2ProposalScopeObservation[] = requiredV2ProposalRevalidationScope(stored.proposal).targets
-        .filter((target) => target.kind === "OBJECT")
-        .map((target) => {
-          const object = store.getObject(target.id);
-          return object
-            ? { kind: "OBJECT", id: target.id, exists: true, version: object.version, hash: checksum(object) }
-            : { kind: "OBJECT", id: target.id, exists: false };
-        });
-      respond(response, 200, await proposalApplication.revalidate(proposalId, [...input.observations, ...serviceOwnedObservations], input.expectedUpdatedAt));
+      respond(response, 200, await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, input.observations), input.expectedUpdatedAt));
       return;
     }
     const proposalReviewMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/review$/) : null;
