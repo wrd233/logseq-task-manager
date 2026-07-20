@@ -147,11 +147,12 @@ POST /service/shutdown
 - A2 foundation：Graph-bound SQLite schema v2、显式快照后的 v1→v2 ledger 升级、失败全量回滚/重试、Object/Audit 原子事务、Primary Anchor/Owner 唯一约束、损坏/未知 schema 保护、写锁零写入、Doctor、防覆盖 Backup 与只读 Restore Validate；
 - A3 foundation：仅 loopback、session auth、0600 descriptor、Client protocol/timeout/unavailable restricted state，受控 Backup API 拒绝客户端路径、路径遍历与超大 request body；
 - A4 foundation：可执行 Service，`tc status/doctor/object`、JSON envelope、退出码和独立进程冒烟。
+- A2.5/A4 自动 foundation：Plugin 通过 Desktop Electron bridge 安全读取 0600 descriptor，验证 loopback/protocol 并 probe Service；未配置时在初始化 Adapter/FileStorage 前停止，显示三入口欢迎页，Diagnostics 明确 `formalWrites=false` / `graphEditing=true`。
 
 尚未满足 Slice A Gate：
 
-- Plugin 的安全 Service discovery 与 Desktop 受限模式；
+- Plugin 的真实 Electron bridge、reload 与 Desktop 受限模式集中验收；
 - 实际 Restore 切换/回滚、SemanticCommit step ledger 完整失败路径；
-- 首次启用欢迎页三入口和真实 reload；
+- 首次启用的真实 reload、零隐式请求和原生正文编辑证据；
 - 正式 Graph + SQLite write route（在 SemanticCommit Gate 前保持关闭）；
 - 完整 CLI graph/context/proposal/skill 属 Slice F，不在 A 中冒充完成。

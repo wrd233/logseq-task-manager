@@ -31,6 +31,7 @@ export const RUNTIME_STAGES = [
   "COMMANDS_REGISTERED",
   "MAIN_UI_REGISTERED",
   "SETTINGS_READY",
+  "SERVICE_CONNECTION_READY",
   "RUNTIME_ADAPTER_READY",
   "PERSISTENCE_READY",
   "MIGRATION_READY",
@@ -62,6 +63,13 @@ export interface RuntimeDiagnosticsSnapshot {
   current_graph: string;
   logseq_version: string;
   feature_flags: Record<string, boolean | string>;
+  service_connection: {
+    status: "NOT_CHECKED" | "READY" | "RESTRICTED";
+    reason_code?: string;
+    formal_writes_available: boolean;
+    graph_editing_available: true;
+    capabilities?: { formalWrites: boolean; migration: boolean; provider: boolean; backup: boolean };
+  };
   recovery_state: string;
   notice?: { code: string; message: string; next_step: string };
   stages: RuntimeStageRecord[];
@@ -91,6 +99,11 @@ export class RuntimeDiagnostics {
   private recoveryState = "not checked";
   private storeSchema = "unknown (not loaded)";
   private notice: RuntimeDiagnosticsSnapshot["notice"];
+  private serviceConnection: RuntimeDiagnosticsSnapshot["service_connection"] = {
+    status: "NOT_CHECKED",
+    formal_writes_available: false,
+    graph_editing_available: true,
+  };
 
   constructor() {
     for (const stage of RUNTIME_STAGES) {
@@ -146,6 +159,22 @@ export class RuntimeDiagnostics {
     this.recoveryState = value;
   }
 
+  setServiceConnection(value: {
+    status: "READY" | "RESTRICTED";
+    formalWritesAvailable: boolean;
+    graphEditingAvailable: true;
+    reasonCode?: string;
+    capabilities?: { formalWrites: boolean; migration: boolean; provider: boolean; backup: boolean };
+  }): void {
+    this.serviceConnection = {
+      status: value.status,
+      formal_writes_available: value.formalWritesAvailable,
+      graph_editing_available: value.graphEditingAvailable,
+      ...(value.reasonCode ? { reason_code: value.reasonCode } : {}),
+      ...(value.capabilities ? { capabilities: value.capabilities } : {}),
+    };
+  }
+
   snapshot(): RuntimeDiagnosticsSnapshot {
     const stages = RUNTIME_STAGES.map((stage) => this.records.get(stage)!);
     const latest_error = stages.slice().reverse().find((record) => record.status === "FAILED");
@@ -158,7 +187,13 @@ export class RuntimeDiagnostics {
       store_schema: this.storeSchema,
       current_graph: this.currentGraph,
       logseq_version: this.logseqVersion,
-      feature_flags: { agent_provider: "none_or_demo", graph_writes_require_explicit_action: true, move_content: false },
+      feature_flags: {
+        agent_provider: "none_or_demo",
+        graph_writes_require_explicit_action: true,
+        move_content: false,
+        v2_formal_writes_available: this.serviceConnection.formal_writes_available,
+      },
+      service_connection: this.serviceConnection,
       recovery_state: this.recoveryState,
       stages,
       ...(this.notice ? { notice: this.notice } : {}),
@@ -175,11 +210,14 @@ export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot): 
   const previousSlotRecovery = snapshot.store_status === "READ_ONLY_SAFE_MODE"
     ? `<button type="button" data-action="recover-previous-slot" class="danger">恢复上一可读 Slot</button>`
     : "";
+  const compatibilityProbes = snapshot.store_status === "READY"
+    ? `<button type="button" data-action="source-resolver-probe">运行 Source Resolver Probe</button><button type="button" data-action="inbox-action-probe">运行 Inbox Action Probe</button>`
+    : "";
   return `<section class="app-shell diagnostics-shell" data-task-copilot-ui="${UI_NAMESPACE}">
-    <header class="topbar"><div><div class="eyebrow">Runtime Diagnostics</div><h1>Task Copilot</h1></div><div class="top-actions"><button type="button" data-action="copy-diagnostics" class="primary">复制诊断信息 / Copy diagnostics</button><button type="button" data-action="export-diagnostics">导出 JSONL</button>${previousSlotRecovery}<button type="button" data-action="clear-diagnostics">清空内存日志</button><button type="button" data-action="toggle-debug">切换 Debug Log</button><button type="button" data-action="source-resolver-probe">运行 Source Resolver Probe</button><button type="button" data-action="inbox-action-probe">运行 Inbox Action Probe</button><button type="button" data-action="close" class="quiet">关闭</button></div></header>
+    <header class="topbar"><div><div class="eyebrow">Runtime Diagnostics</div><h1>Task Copilot</h1></div><div class="top-actions"><button type="button" data-action="copy-diagnostics" class="primary">复制诊断信息 / Copy diagnostics</button><button type="button" data-action="export-diagnostics">导出 JSONL</button>${previousSlotRecovery}<button type="button" data-action="clear-diagnostics">清空内存日志</button><button type="button" data-action="toggle-debug">切换 Debug Log</button>${compatibilityProbes}<button type="button" data-action="close" class="quiet">关闭</button></div></header>
     <main class="workspace diagnostics-workspace">
       ${snapshot.notice ? `<section class="diagnostic-notice"><strong>${escapeHtml(snapshot.notice.code)}</strong><p>${escapeHtml(snapshot.notice.message)}</p><p>${escapeHtml(snapshot.notice.next_step)}</p></section>` : ""}
-      <div class="diagnostic-grid"><section><h2>Runtime 状态</h2><p>${escapeHtml(snapshot.runtime_status)}</p></section><section><h2>Store 状态</h2><p>${escapeHtml(snapshot.store_status)} · schema ${escapeHtml(snapshot.store_schema)} · ${escapeHtml(snapshot.persistence_backend ?? "unknown")}</p></section><section><h2>当前 Graph</h2><p>${escapeHtml(snapshot.current_graph)}</p></section><section><h2>版本</h2><p>Plugin ${escapeHtml(snapshot.plugin_version)} · Commit ${escapeHtml(snapshot.plugin_commit ?? "unknown")} · Logseq ${escapeHtml(snapshot.logseq_version)}</p></section><section><h2>Pending / Source Conflict</h2><p>${escapeHtml(snapshot.pending_semantic_commits ?? 0)} / ${escapeHtml(snapshot.source_anchor_conflicts ?? 0)}</p></section><section><h2>Event listeners</h2><p>${escapeHtml(JSON.stringify(snapshot.event_listener_status ?? {}))}</p></section></div>
+      <div class="diagnostic-grid"><section><h2>Runtime 状态</h2><p>${escapeHtml(snapshot.runtime_status)}</p></section><section><h2>Store 状态</h2><p>${escapeHtml(snapshot.store_status)} · schema ${escapeHtml(snapshot.store_schema)} · ${escapeHtml(snapshot.persistence_backend ?? "unknown")}</p></section><section><h2>V2 Local Service</h2><p>${escapeHtml(snapshot.service_connection.status)}${snapshot.service_connection.reason_code ? ` · ${escapeHtml(snapshot.service_connection.reason_code)}` : ""} · formal writes ${escapeHtml(snapshot.service_connection.formal_writes_available)}</p></section><section><h2>当前 Graph</h2><p>${escapeHtml(snapshot.current_graph)}</p></section><section><h2>版本</h2><p>Plugin ${escapeHtml(snapshot.plugin_version)} · Commit ${escapeHtml(snapshot.plugin_commit ?? "unknown")} · Logseq ${escapeHtml(snapshot.logseq_version)}</p></section><section><h2>Pending / Source Conflict</h2><p>${escapeHtml(snapshot.pending_semantic_commits ?? 0)} / ${escapeHtml(snapshot.source_anchor_conflicts ?? 0)}</p></section><section><h2>Event listeners</h2><p>${escapeHtml(JSON.stringify(snapshot.event_listener_status ?? {}))}</p></section></div>
       <nav class="diagnostic-nav"><span>Inbox</span><span>Now Work</span><span>Projects</span><span>Audit / Recovery</span><strong>Diagnostics</strong></nav>
       <section><h2>Runtime stages</h2><div class="diagnostic-table-wrap"><table class="diagnostic-table"><thead><tr><th>Stage</th><th>Status</th><th>Started</th><th>Completed</th><th>Recoverability</th></tr></thead><tbody>${rows}</tbody></table></div></section>
       ${latest}

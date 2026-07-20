@@ -19,6 +19,7 @@ const packages = {
   serviceClient: JSON.parse(await read("packages/service-client/package.json")),
   cli: JSON.parse(await read("apps/task-copilot-cli/package.json")),
   localService: JSON.parse(await read("apps/task-copilot-local-service/package.json")),
+  plugin: JSON.parse(await read("apps/task-copilot-logseq-plugin/package.json")),
 };
 assert.equal(packages.domain.dependencies["@task-copilot/shared"], "0.1.0");
 assert.equal(packages.application.dependencies["@task-copilot/persistence"], undefined, "Application must depend on a port, not persistence");
@@ -27,6 +28,7 @@ assert.equal(packages.adapter.dependencies["@task-copilot/domain"], "0.1.0");
 assert.equal(packages.serviceClient.dependencies["@task-copilot/persistence"], undefined, "Service client must not open persistence");
 assert.equal(packages.cli.dependencies["@task-copilot/persistence"], undefined, "CLI must not open persistence");
 assert.equal(packages.localService.dependencies["@task-copilot/persistence"], "0.1.0", "Only Local Service owns the SQLite adapter");
+assert.equal(packages.plugin.dependencies["@task-copilot/service-client"], "0.1.0", "Plugin V2 discovery must use the versioned Service client");
 const cliSource = `${await read("apps/task-copilot-cli/src/cli.ts")}\n${await read("apps/task-copilot-cli/src/main.ts")}`;
 assert.doesNotMatch(cliSource, /better-sqlite3|@task-copilot\/persistence|\.db\b/i, "CLI must use Service rather than SQLite");
 const serviceClientSource = await read("packages/service-client/src/index.ts");

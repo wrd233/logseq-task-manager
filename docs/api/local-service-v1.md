@@ -9,6 +9,18 @@
 - Client 拒绝非 HTTP、非 `127.0.0.1`、带用户名/密码、非根路径或版本不兼容的 descriptor；
 - 每个请求携带 `Authorization: Bearer <session token>`，但 token 不进入 stdout、错误、诊断或报告；
 - Service 正常退出时删除本次 descriptor；过期 descriptor 的连接失败进入受限模式。
+- Plugin 设置只保存 descriptor 绝对路径，不保存 token。Desktop Adapter 使用 Electron Node bridge 动态读取，并在读取前以 `lstat` 确认它是非符号链接的 0600 普通文件；
+- bridge 不可用、路径未配置、文件不安全、协议不兼容或 probe 失败时，Plugin 显式进入 `RESTRICTED`；原始错误、路径和 token 不进入诊断。
+
+## Plugin 首次启用
+
+`serviceDescriptorPath` 空白时，Plugin 在 Service probe 后立即停在首次启用模式：不构造 Logseq Adapter，不初始化 V1 FileStorage，不扫描、迁移或调用模型。欢迎页只有三个受控入口：
+
+- “开始使用”：显示 Service/descriptor 配置和 reload 说明；
+- “迁移现有内容”：只说明未启动的 Scan/Preview/Confirm 边界；
+- “检查系统状态”：打开脱敏 Diagnostics。
+
+实际 Electron bridge、reload 与原生正文编辑仍须按 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 集中验收。
 
 ## 当前路由
 
@@ -49,6 +61,10 @@
 | Code | 含义 |
 |---|---|
 | `SERVICE_DESCRIPTOR_INVALID` | descriptor 缺字段或非法 JSON |
+| `SERVICE_DESCRIPTOR_PATH_REQUIRED` | Plugin 尚未配置 descriptor 绝对路径 |
+| `SERVICE_DESCRIPTOR_PATH_INVALID` | Plugin 设置的 descriptor 不是绝对路径 |
+| `SERVICE_DESCRIPTOR_READER_UNAVAILABLE` | Logseq 运行时没有可用的安全 Electron 文件读取 bridge |
+| `SERVICE_DESCRIPTOR_READ_FAILED` | descriptor 无法读取；诊断不暴露原始 cause 或路径 |
 | `SERVICE_DESCRIPTOR_INSECURE` | 文件权限不是 0600 |
 | `SERVICE_DESCRIPTOR_NON_LOOPBACK` | URL 不是受控 loopback 根地址 |
 | `SERVICE_UNAVAILABLE` | 拒绝连接或网络失败 |

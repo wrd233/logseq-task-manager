@@ -32,6 +32,9 @@ import { BootstrapRegistration, bindRootClick, type BootstrapCallbacks, type Boo
 import { renderApp, type ActionDialogKind, type UiModel, type Workspace } from "./ui.ts";
 import { InboxActionController, createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger, type LogCategory, type StructuredLogEntry } from "./structured-logger.ts";
+import { discoverServiceConnection } from "./service-connection.ts";
+import { renderFirstRunWelcome, type FirstRunAction } from "./first-run.ts";
+import type { ServiceConnectionState } from "@task-copilot/service-client";
 
 let appRoot: HTMLElement | undefined;
 let blobStore: LogseqFileStorageBlobStore;
@@ -56,6 +59,15 @@ let inboxActionController: InboxActionController | undefined;
 let runtimeProbeResult: unknown = { status: "not-run" };
 const inboxProbeWaiters = new Map<string, () => void>();
 let previousSlotRecoveryArmedAt: number | undefined;
+let firstRunMode = false;
+let firstRunAction: FirstRunAction | undefined;
+let serviceConnection: ServiceConnectionState = {
+  status: "RESTRICTED",
+  reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
+  message: "尚未配置 Local Service descriptor 路径。",
+  formalWritesAvailable: false,
+  graphEditingAvailable: true,
+};
 
 function requireTaskCopilot(): TaskCopilot {
   if (!taskCopilot || !featureReady) throw new Error("TASK_COPILOT_FEATURE_NOT_READY: 功能尚未就绪；请打开 Runtime Diagnostics。");
@@ -146,6 +158,10 @@ async function model(): Promise<UiModel> {
 
 async function refresh(): Promise<void> {
   const root = requireAppRoot();
+  if (firstRunMode) {
+    root.innerHTML = renderFirstRunWelcome({ connection: serviceConnection, ...(firstRunAction ? { selectedAction: firstRunAction } : {}) });
+    return;
+  }
   if (!featureReady) {
     root.innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
     return;
@@ -178,7 +194,7 @@ async function fullDiagnosticsSnapshot() {
   return {
     ...base,
     plugin_commit: PLUGIN_COMMIT,
-    persistence_backend: "Logseq FileStorage checksummed A/B JSON",
+    persistence_backend: base.store_status === "NOT_STARTED" ? "not initialized" : "Logseq FileStorage checksummed A/B JSON",
     pending_semantic_commits: state?.commits.filter((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED").length ?? 0,
     source_anchor_conflicts: (state?.anchors.filter((anchor) => anchor.status === "missing" || anchor.status === "conflict").length ?? 0) + (state?.captures.filter((capture) => capture.sourceConflict).length ?? 0),
     runtime_shape_summary: runtimeProbeResult,
@@ -231,6 +247,15 @@ function openActionDialog(kind: ActionDialogKind, value: string): Promise<void> 
 }
 
 async function handleAction(action: string, value?: string): Promise<void> {
+  if (action === "first-run-start" || action === "first-run-migrate") {
+    firstRunAction = action === "first-run-start" ? "start" : "migrate";
+    await refresh();
+    return;
+  }
+  if (action === "first-run-status") {
+    await showRuntimeDiagnostics();
+    return;
+  }
   if (action === "view" && value) {
     workspace = value as Workspace;
     await refresh();
@@ -938,8 +963,40 @@ async function initializeFeatures(): Promise<void> {
       enumChoices: ["none", "demo"],
       enumPicker: "radio",
     },
+    {
+      key: "serviceDescriptorPath",
+      type: "string",
+      title: "V2 Local Service descriptor 绝对路径",
+      description: "只保存非敏感路径；session token 仅从 0600 descriptor 临时读取，不写入设置或 Graph。",
+      default: "",
+    },
   ]);
   markReady("SETTINGS_READY");
+
+  diagnostics.start("SERVICE_CONNECTION_READY");
+  const descriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
+  serviceConnection = await discoverServiceConnection(typeof descriptorPath === "string" ? descriptorPath : undefined);
+  diagnostics.setServiceConnection(serviceConnection);
+  markReady("SERVICE_CONNECTION_READY", `V2 service ${serviceConnection.status.toLowerCase()}`);
+
+  if (typeof descriptorPath !== "string" || !descriptorPath.trim()) {
+    firstRunMode = true;
+    diagnostics.start("EVENTS_READY");
+    cleanupHooks.push(logseq.onSettingsChanged(() => {
+      const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
+      void discoverServiceConnection(typeof nextDescriptorPath === "string" ? nextDescriptorPath : undefined)
+        .then((connection) => {
+          serviceConnection = connection;
+          diagnostics.setServiceConnection(connection);
+          firstRunAction = "start";
+          if (logseq.isMainUIVisible) void refresh();
+        })
+        .catch((error: unknown) => operationalLogger.log("error", "plugin-lifecycle", "service_connection_refresh_failed", { result: "error" }, error));
+    }));
+    markReady("EVENTS_READY");
+    markReady("PLUGIN_READY", "first-run welcome ready; no Graph scan, migration, or model call performed");
+    return;
+  }
 
   diagnostics.start("RUNTIME_ADAPTER_READY");
   const facade = logseq as unknown as LogseqFacade;
@@ -971,8 +1028,15 @@ async function initializeFeatures(): Promise<void> {
   diagnostics.start("EVENTS_READY");
   cleanupHooks.push(logseq.onSettingsChanged(() => {
     rebuildApplication();
-    message = "Agent 模式已切换；正式领域状态与历史未受影响。";
-    if (logseq.isMainUIVisible) void refresh();
+    const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
+    void discoverServiceConnection(typeof nextDescriptorPath === "string" ? nextDescriptorPath : undefined)
+      .then((connection) => {
+        serviceConnection = connection;
+        diagnostics.setServiceConnection(connection);
+        message = `设置已更新；V2 Local Service ${connection.status}，正式领域状态与历史未受影响。`;
+        if (logseq.isMainUIVisible) void refresh();
+      })
+      .catch((error: unknown) => operationalLogger.log("error", "plugin-lifecycle", "service_connection_refresh_failed", { result: "error" }, error));
   }));
   markReady("EVENTS_READY");
   featureReady = true;

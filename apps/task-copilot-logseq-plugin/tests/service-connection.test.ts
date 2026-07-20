@@ -1,0 +1,99 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import type { ServiceDescriptor } from "@task-copilot/service-client";
+
+import {
+  createElectronDescriptorReader,
+  discoverServiceConnection,
+  type DescriptorFileReader,
+  type ElectronNodeHost,
+} from "../src/service-connection.ts";
+
+const descriptor: ServiceDescriptor = {
+  protocolVersion: 1,
+  url: "http://127.0.0.1:3210/",
+  token: "plugin-test-session-token-24-characters",
+  pid: 123,
+  createdAt: "2026-07-20T09:00:00.000Z",
+};
+
+test("missing descriptor configuration and unavailable Electron bridge are explicit restricted states", async () => {
+  let reads = 0;
+  const reader: DescriptorFileReader = { read: async () => { reads += 1; return descriptor; } };
+  assert.deepEqual(await discoverServiceConnection("", reader), {
+    status: "RESTRICTED",
+    reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
+    message: "尚未配置 Local Service descriptor 路径。",
+    formalWritesAvailable: false,
+    graphEditingAvailable: true,
+  });
+  assert.equal(reads, 0);
+  assert.deepEqual(await discoverServiceConnection("/runtime/service.json", undefined), {
+    status: "RESTRICTED",
+    reasonCode: "SERVICE_DESCRIPTOR_READER_UNAVAILABLE",
+    message: "Logseq 当前运行时不提供安全 descriptor 读取能力。",
+    formalWritesAvailable: false,
+    graphEditingAvailable: true,
+  });
+});
+
+test("descriptor read and parse failures never expose token, path, or underlying cause", async () => {
+  const secret = "plugin-secret-token-must-not-leak";
+  const failed = await discoverServiceConnection("/private/runtime/service.json", {
+    read: async () => { throw new Error(`EACCES /private/runtime/service.json ${secret}`); },
+  });
+  assert.equal(failed.status, "RESTRICTED");
+  assert.doesNotMatch(JSON.stringify(failed), /private\/runtime|plugin-secret|EACCES/);
+
+  const invalid = await discoverServiceConnection("/runtime/service.json", { read: async () => ({ token: secret }) });
+  assert.equal(invalid.status, "RESTRICTED");
+  assert.doesNotMatch(JSON.stringify(invalid), /plugin-secret/);
+});
+
+test("validated descriptor probes the versioned client and preserves capabilities", async () => {
+  const connection = await discoverServiceConnection(
+    "/runtime/service.json",
+    { read: async () => descriptor },
+    () => ({ health: async () => ({
+      status: "READY",
+      protocolVersion: 1,
+      capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
+    }) }),
+  );
+  assert.deepEqual(connection, {
+    status: "READY",
+    capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
+    formalWritesAvailable: false,
+    graphEditingAvailable: true,
+  });
+});
+
+test("Electron descriptor reader requires an absolute regular 0600 file", async () => {
+  const values = new Map<string, { mode: number; json: string; symbolic?: boolean }>([
+    ["/runtime/good.json", { mode: 0o100600, json: JSON.stringify(descriptor) }],
+    ["/runtime/open.json", { mode: 0o100644, json: JSON.stringify(descriptor) }],
+    ["/runtime/link.json", { mode: 0o120777, json: JSON.stringify(descriptor), symbolic: true }],
+  ]);
+  const host: ElectronNodeHost = {
+    require: (specifier) => {
+      if (specifier === "node:path") return { isAbsolute: (value: string) => value.startsWith("/") };
+      if (specifier === "node:fs/promises") return {
+        lstat: async (path: string) => {
+          const value = values.get(path);
+          if (!value) throw new Error("missing");
+          return { mode: value.mode, isFile: () => !value.symbolic, isSymbolicLink: () => Boolean(value.symbolic) };
+        },
+        readFile: async (path: string) => values.get(path)?.json ?? "",
+      };
+      throw new Error("unexpected module");
+    },
+  };
+  const reader = createElectronDescriptorReader(host);
+  assert.ok(reader);
+  assert.deepEqual(await reader.read("/runtime/good.json"), descriptor);
+  await assert.rejects(() => reader.read("relative.json"), (error: unknown) => error instanceof Error && "code" in error && error.code === "SERVICE_DESCRIPTOR_PATH_INVALID");
+  await assert.rejects(() => reader.read("/runtime/open.json"), (error: unknown) => error instanceof Error && "code" in error && error.code === "SERVICE_DESCRIPTOR_INSECURE");
+  await assert.rejects(() => reader.read("/runtime/link.json"), (error: unknown) => error instanceof Error && "code" in error && error.code === "SERVICE_DESCRIPTOR_INSECURE");
+  assert.equal(createElectronDescriptorReader({}), undefined);
+});

@@ -68,14 +68,22 @@ test("initialization failure retains all runtime stages and renders a diagnostic
   diagnostics.start("PERSISTENCE_READY");
   diagnostics.fail("PERSISTENCE_READY", new Error("damaged store"));
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+  diagnostics.setServiceConnection({
+    status: "RESTRICTED",
+    reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
+    formalWritesAvailable: false,
+    graphEditingAvailable: true,
+  });
   const snapshot = diagnostics.snapshot();
   assert.equal(snapshot.stages.length, RUNTIME_STAGES.length);
   assert.equal(snapshot.runtime_status, "DEGRADED");
   assert.equal(snapshot.latest_error?.stage, "PERSISTENCE_READY");
   const html = renderRuntimeDiagnostics(snapshot);
-  for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "恢复上一可读 Slot", "Inbox", "Now Work", "Projects", "Audit / Recovery", "damaged store"]) {
+  for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "恢复上一可读 Slot", "V2 Local Service", "SERVICE_DESCRIPTOR_PATH_REQUIRED", "Inbox", "Now Work", "Projects", "Audit / Recovery", "damaged store"]) {
     assert.match(html, new RegExp(label));
   }
+  assert.doesNotMatch(html, /data-action="source-resolver-probe"/);
+  assert.equal(snapshot.feature_flags.v2_formal_writes_available, false);
 });
 
 test("UI mount failure uses pure HTML diagnostics fallback", () => {
