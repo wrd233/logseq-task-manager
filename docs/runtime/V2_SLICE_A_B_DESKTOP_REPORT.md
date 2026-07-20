@@ -155,6 +155,34 @@ E2E-11 的 Focus/期限/阻碍/Waiting 可解释排序场景已有自动成功/�
 
 自动合同已覆盖 prepare/finalize、未知同名零写入、响应不确定、同意图续跑、完成后改名与事务 fault injection；本轮补齐真实 Desktop 和进程边界，因此 E2E-19 标记 `DONE`。
 
+## Slice C：Proposal → Review → Commit → Undo — PARTIAL PASS
+
+在同一专用测试 Graph 中，以 authenticated Local Service 提交脱敏、确定性的 `source:user` Proposal（本项验证下游审阅闭环，不冒充 DeepSeek/Agent 生成）：
+
+- Review Center “待审阅”真实显示当前上下文、理解与逻辑、最终可读预览、文本 Diff、语义 Diff、风险与组处置；
+- 点击“接受该语义组”后，卡片与顶部消息均明确“尚未正式生效”；“提交前检查”真实重读 Block UUID/hash 并通过，仍不写正文/对象；
+- “确认最终提交”在同一审阅上下文显示独立勾选确认；Commit 后 Block 正文、SQLite Task、Primary Anchor、Proposal `APPLIED` 和 SemanticCommit `COMPLETED` 一致，卡片立即显示“已正式生效”和 Undo；
+- 首次真实 Commit 暴露确认框成功后未关闭，已修复 Commit/Undo settle 后关闭当前确认；
+- 首次真实 Undo 暴露插件正文写入的 `DB.onChanged` 回声把自身对象推进版本，严格 Undo 因而拒绝。修复为一次性精确 UUID+content-hash 回声抑制：只忽略下一次完全匹配的插件写入，任何不匹配或后续观察继续进入正常同步；没有放宽 Undo 版本规则；
+- 回声修复又揭示对象标题曾依赖错误回声从 Patch 前正文“补对”。新 Proposal submission 现强制 `CREATE_OBJECT.payload.text` 明确携带审阅后的最终对象正文；历史记录仍可读，旧 `APPLIED` 记录只允许生成逆向计划，不能借兼容入口重新提交；
+- 修复后的最终 Commit 中，Graph 正文为 `[任务] 对照最终文本验证修复后的 Commit 与 Undo`，SQLite Task 文本为 `对照最终文本验证修复后的 Commit 与 Undo` 且保持 version 2，证明没有自回声和二次补漏；
+- 同一卡片 Undo 后，Block 恢复原普通正文，Object/Primary Anchor 当前投影均不存在，正向 Commit 为 `UNDONE`、逆向 Commit 为 `COMPLETED`；确认框关闭，Audit 历史保留；
+- 冷重启 Logseq 后，bundle commit `b75768eaf34e`、恢复后的正文、撤销卡片和正/逆 Commit 状态保持。
+
+探索期第一个 pre-fix Proposal 已在本地测试库形成 version 3 的自回声对象，其严格 Undo 会按旧证据拒绝。该记录没有伪装成修复后结果，也未手工改库；它保留为诊断证据且只存在于 ignored 测试 Graph/SQLite。后续两个修复后闭环均按正式路径成功 Undo。
+
+证据（本地 ignored）：
+
+- `tmp/runtime/v2-desktop/proposal-review-ready-65412e6.png`
+- `tmp/runtime/v2-desktop/proposal-accepted-not-applied-65412e6.png`
+- `tmp/runtime/v2-desktop/proposal-applied-65412e6.png`
+- `tmp/runtime/v2-desktop/proposal-undone-d33fbc4.png`
+- `tmp/runtime/v2-desktop/proposal-final-applied-b75768e.png`
+- `tmp/runtime/v2-desktop/proposal-final-undone-b75768e.png`
+- `tmp/runtime/v2-desktop/proposal-final-reload-b75768e.png`
+
+本轮完成了 MEDIUM 单组接受、重验、最终 Commit、Undo 与 cold reload。高影响独立确认、拒绝/暂缓、stale 原文、后续编辑拒绝覆盖和 Commit/Undo 进程故障仍需 Desktop，因此 E2E-08、E2E-10 与 E2E-12 仅为 `DESKTOP_PARTIAL_PASS`，不标 DONE。
+
 ## 本轮发现的交互问题
 
 1. Diagnostics 原先没有渲染已有的 `explicit_sync` snapshot，用户只能从底部结构化日志判断断线队列；已补可见 `pending / transportReady / reconciliationRequired` 区块。

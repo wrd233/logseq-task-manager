@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 automated foundation; Slice E Now Work interactive foundation"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 251 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; E2E-11 Now Work and E2E-19 Project atomic creation have Desktop proof; remaining Desktop Gates stay explicit"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 252 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; E2E-11 and E2E-19 are DONE while Proposal/Undo has partial Desktop proof"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -42,6 +42,7 @@ implemented:
   - "Manual current-page discovery recovers explicit objects created while the Plugin was offline with a 256-item processing budget, complete bounded Anchor coverage or zero-write refusal, one-at-a-time synchronization, stale reread protection, and no full-Graph scan"
   - "Changed Block UUIDs are debounced into a 32-root latest-value queue, reread authoritatively, and expanded within a 256-Block frontier budget; internal bare TODO stays non-object, explicit descendants synchronize independently, and overflow/truncation/malformed shapes require reconciliation"
   - "Project atomic creation passed Desktop success, unknown-name conflict, page rename, cold reload, and real finalize-process interruption/restart; V2 objects now render Lifecycle/Condition directly from Local Service without V1 Phase mapping"
+  - "Proposal Review passed a real MEDIUM accept-not-applied, scope revalidation, final confirmation, Graph plus SQLite Commit, same-card inverse Commit/Undo and cold reload; exact plugin-write echo suppression preserves strict later-edit protection"
 pilot_results:
   capture: PASS
   task: PASS_WITH_DOCUMENTED_REBIND_LIMITATION
@@ -53,8 +54,9 @@ runtime_checks_completed:
   - "Pilot pre/post recovery bundles replay with differences []"
   - "V2 Desktop 0.10.15 E2E-11: current cached asset commit verified; V2-only workspace READY; two-item Focus ordering, WAITING/BLOCKED, Task deadline, blocker wake-up, Task filter/grouping, Primary Anchor open and cold-reload persistence verified against SQLite/CLI"
   - "V2 Desktop 0.10.15 E2E-19: Project create/conflict/rename/reload and finalize Service interruption recovery verified with zero half-object and one-object idempotent retry"
+  - "V2 Desktop 0.10.15 Proposal partial Gate: accepted-not-applied, final Commit, same-card Undo and cold reload verified; corrected object text is explicit Proposal data and remains version 2 without DB-event echo"
 runtime_checks_pending:
-  - "V2 remaining Anchor move/copy/rebind, Proposal/Commit/Undo, Review Center, SQLite recovery and migration Preview/Undo Desktop Gates"
+  - "V2 remaining Anchor move/copy/rebind, Proposal high-impact/reject/defer/stale/later-edit/process-fault, Candidate Review Center, SQLite recovery and migration Preview/Undo Desktop Gates"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
