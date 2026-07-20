@@ -6,7 +6,7 @@ import type {
   ProjectReentryView,
 } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation } from "@task-copilot/domain";
-import type { ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import type { ObservableActionState } from "./inbox-action-controller.ts";
 
 export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "audit";
@@ -25,6 +25,8 @@ export type ActionDialogKind =
   | "confirm-rebind"
   | "confirm-undo"
   | "confirm-v2-review-accept"
+  | "confirm-v2-commit"
+  | "confirm-v2-undo"
   | "v2-review-defer";
 
 export interface UiModel {
@@ -57,6 +59,7 @@ export interface UiModel {
   actionDialog?: { kind: ActionDialogKind; value: string };
   v2ProjectCreationAvailable?: boolean;
   v2Proposals?: ServiceStoredProposal[];
+  v2SemanticCommits?: ServiceSemanticCommit[];
   v2ProposalLoadError?: string;
 }
 
@@ -216,6 +219,9 @@ function renderReview(model: UiModel): string {
   const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
   const v2Cards = v2.map((record) => {
     const hasAcceptedGroup = record.proposal.groups.some((group) => group.disposition === "ACCEPTED");
+    const originalCommit = model.v2SemanticCommits?.find((commit) => commit.proposalId === record.proposal.proposalId && commit.semanticCommitId.startsWith("proposal-commit:"));
+    const canCommit = hasAcceptedGroup && (record.proposal.status === "ACCEPTED" || record.proposal.status === "PARTIALLY_ACCEPTED");
+    const canUndo = record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
     return `<article class="card proposal v2-proposal">
     <div class="eyebrow">V2 · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
     <h3>${escapeHtml(record.proposal.title)}</h3>
@@ -223,8 +229,8 @@ function renderReview(model: UiModel): string {
     <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
     <section class="suggestion"><h4>最终可读预览</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
     ${record.proposal.groups.map((group) => `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${button("接受该语义组", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}`, "primary")}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}</div>` : ""}</section>`).join("")}
-    ${hasAcceptedGroup ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "primary")}</div>` : ""}
-    <div class="notice">${hasAcceptedGroup ? "已接受的语义组尚未正式生效；先重读 Graph/SQLite 版本与 scope，最终 Commit 完成后才会写入 Graph/SQLite，并显示 Undo。" : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
+    ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button("确认最终提交", "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}`, "primary")}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
+    <div class="notice">${canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : hasAcceptedGroup ? "已接受的语义组尚未正式生效；最终确认会在同一流程中重验、写入并显示 Undo。" : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
   </article>`;
   }).join("");
   if (open.length === 0 && v2.length === 0 && !v2LoadError) return empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务能力仍可使用。");
@@ -349,6 +355,8 @@ function renderActionDialog(model: UiModel): string {
     "confirm-rebind": ["重新绑定主正文 Anchor", "我确认将当前选中 Block 设为新的主正文 Anchor；旧 Anchor 保留为 replaced", "submit-rebind-anchor"],
     "confirm-undo": ["撤销 SemanticCommit", "我确认撤销；系统会先校验正文没有被二次编辑，并创建逆向 Commit", "submit-undo-commit"],
     "confirm-v2-review-accept": ["接受高影响语义组", "我确认接受当前高影响语义组；这仍不会绕过最终版本重验和 Commit", "submit-v2-review-accept"],
+    "confirm-v2-commit": ["确认最终提交", "我已查看最终预览与 Diff；系统将再次重验后写入正文和 SQLite，并在成功后提供 Undo", "submit-v2-proposal-commit"],
+    "confirm-v2-undo": ["撤销本次生效", "我确认创建逆向 Commit；只有正文、对象和 Anchor 均未被后续修改时才会生效", "submit-v2-proposal-undo"],
   };
   const confirmation = confirmations[dialog.kind];
   if (confirmation) return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(confirmation[0])}"><h3>${escapeHtml(confirmation[0])}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(confirmation[1])}</label><div class="actions">${button("确认继续", confirmation[2], dialog.value, "danger")}${cancel}</div></section>`;

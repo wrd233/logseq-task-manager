@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B2/B4 foundation in progress"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 221 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; C4 single-Block formalization prepare/finalize, verified Graph compensation, APPLIED/FAILED Proposal terminal states, and no-false-success controller PASS; C5 Undo/restart recovery, Desktop, and formal UI exposure remain pending"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B5 automated foundation; Slice C0-C5 automated foundation"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 226 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Commit restart continuation, inverse Commit/Undo, immutable Audit, no-overwrite guards, recovery compensation, and final Review UI are automated; Desktop remains pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -26,7 +26,8 @@ implemented:
   - "Executable read-only tc status/doctor/object CLI with JSON envelope and exit codes"
   - "SQLite locked writes fail with zero formal writes; backups reject overwrite and validate schema, Graph identity, integrity and foreign keys read-only"
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
-  - "SQLite schema v4 migration ledger, SemanticCommit step ledger, and Proposal/Group review tables; v1/v2/v3 upgrades require a validated preflight snapshot and roll back atomically on injected failure"
+  - "SQLite schema v5 migration ledger: SemanticCommit, Proposal/Group, and immutable Audit/current-projection decoupling; v1..v4 upgrades require a validated preflight snapshot and roll back atomically"
+  - "V2 Proposal Review now provides one continuous accept, final preview/Diff, explicit Commit, applied status, and inverse Commit/Undo flow with restart continuation and no overwrite of later edits"
   - "Known Primary Anchor observations persist missing/conflict/recovery through Local Service and one SQLite transaction without deleting objects or reviving replaced Anchors"
   - "Same-UUID synchronization preserves object_id, anchor_id and Primary Ownership; a copied UUID materializes a distinct object and Anchor"
   - "Explicit V2 Primary Anchor rebind requires confirmation, atomically preserves the old replaced Anchor while activating one new Anchor, and has a bounded Plugin review panel with stale re-read protection"

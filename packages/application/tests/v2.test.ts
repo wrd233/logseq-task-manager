@@ -12,6 +12,7 @@ import {
   type V2CommandReceipt,
   type V2ProjectCreationCommand,
   type V2MaterializationCommand,
+  type V2MaterializationUndoCommand,
   type V2ObjectCommand,
   type V2ObjectRepository,
   type V2OwnershipCommand,
@@ -71,6 +72,17 @@ class MemoryV2Repository implements V2ObjectRepository {
     this.receipts.set(command.idempotencyKey, { command: command.audit.command, object: command.object, anchor: command.anchor });
     this.audit.push(command.audit);
     return { object: command.object, anchor: command.anchor, replayed: false };
+  }
+
+  commitMaterializationUndo(command: V2MaterializationUndoCommand): { object: V2ManagedObject; anchor: V2Anchor; replayed: boolean } {
+    const receipt = this.receipts.get(command.idempotencyKey);
+    if (receipt?.command === "undo_materialization") return { object: receipt.object, anchor: receipt.anchor, replayed: true };
+    if (this.values.get(command.expectedObject.objectId) !== command.expectedObject || this.anchors.get(command.expectedObject.objectId) !== command.expectedAnchor) throw new Error("state changed");
+    this.values.delete(command.expectedObject.objectId);
+    this.anchors.delete(command.expectedObject.objectId);
+    this.receipts.set(command.idempotencyKey, { command: "undo_materialization", object: command.expectedObject, anchor: command.expectedAnchor });
+    this.audit.push(command.audit);
+    return { object: command.expectedObject, anchor: command.expectedAnchor, replayed: false };
   }
 
   commitSynchronization(command: V2SynchronizationCommand): { object: V2ManagedObject; anchor: V2Anchor; replayed: boolean } {
@@ -267,6 +279,21 @@ test("explicit Block materialization creates Object and Primary Anchor as one id
   }, envelope);
   assert.deepEqual(replay, { ...created, replayed: true });
   assert.equal(repository.values.size, 1);
+});
+
+test("materialization Undo removes only the exact Object and Anchor and is idempotent", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const created = await application.materializeExplicitObject({
+    objectId: "task-undo-1", objectType: "TASK", text: "核对告警", anchor: { graphId: "graph-1", externalId: "block-undo", contentHash: "after-hash" },
+  }, { actor: "proposal_commit", expectedVersion: 0, idempotencyKey: "materialize-undo-source", traceId: "trace-source" });
+  const envelope = { actor: "user", expectedVersion: created.object.version, idempotencyKey: "undo-materialize-1", traceId: "trace-undo" };
+  const undone = await application.undoMaterialization(created, envelope, new Date("2026-07-20T08:00:00Z"));
+  assert.equal(undone.replayed, false);
+  assert.equal(repository.values.has(created.object.objectId), false);
+  assert.equal(repository.anchors.has(created.object.objectId), false);
+  assert.equal((await application.undoMaterialization(created, envelope)).replayed, true);
+  assert.equal(repository.audit.at(-1)?.command, "undo_materialization");
 });
 
 test("explicit Block materialization refuses parser-external Area and Project types before persistence", async () => {

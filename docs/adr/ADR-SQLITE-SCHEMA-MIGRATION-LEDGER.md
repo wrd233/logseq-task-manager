@@ -20,7 +20,7 @@ SQLite 同时使用 `PRAGMA user_version`、`schema_meta.schema_version` 和只�
 
 ## 当前路径
 
-schema v2 引入 `schema_migrations`，schema v3 引入受约束的 `semantic_commits` / `semantic_commit_steps`，schema v4 引入 `proposals` / `proposal_groups`。已实现 v1/v2/v3 → v4：
+schema v2 引入 `schema_migrations`，schema v3 引入受约束的 `semantic_commits` / `semantic_commit_steps`，schema v4 引入 `proposals` / `proposal_groups`，schema v5 解耦 immutable `audit_events.object_id` 与当前 `objects` 投影。已实现 v1/v2/v3/v4 → v5：
 
 - v1 `initial_core_schema` 以原 `schema_meta.created_at` 作为应用时间；
 - v2 `add_schema_migration_ledger` 记录显式升级时间；
@@ -28,7 +28,8 @@ schema v2 引入 `schema_migrations`，schema v3 引入受约束的 `semantic_co
 - Commit 必须先以 PENDING 和连续 PREPARED steps 原子落盘；step 只能按受控路径推进，COMPLETED 要求全部 VERIFIED，FAILED 不得保留 APPLIED/RECOVERY_REQUIRED；
 - RECOVERY_REQUIRED 可在重启后查询，只有未恢复 step 转为 COMPENSATED 后才能收口为 FAILED；prepare 重放只对不变 identity/payload 幂等。
 - v1 的 ledger 补建与 v3 DDL 在同一事务，v2 必须先验证现有两条 ledger 再追加 v3；
-- 重复调用对当前 v3 返回 `migrated=false`，不重复快照或 ledger 记录；
+- v4→v5 在同一事务重建 Audit 表并完整复制历史行；迁移后 Undo 可删除当前 Object/Anchor，但历史 object_id 不丢失；
+- 重复调用对当前 v5 返回 `migrated=false`，不重复快照或 ledger 记录；
 - 高于当前程序的 schema 不自动降级。
 
 ## 边界

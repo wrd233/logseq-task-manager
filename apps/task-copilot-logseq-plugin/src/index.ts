@@ -53,6 +53,7 @@ import {
 } from "./v2-explicit-candidate-discovery.ts";
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
+import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 
 let appRoot: HTMLElement | undefined;
 const v1Runtime: {
@@ -146,9 +147,10 @@ async function model(): Promise<UiModel> {
   let reentry: ProjectReentryView | undefined;
   if (project) reentry = await app.getProjectReentry(project.objectId);
   let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
+  let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
   let v2ProposalLoadError: string | undefined;
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
-    try { v2Proposals = await serviceRuntimeClient.listProposals(); } catch (error) { v2ProposalLoadError = explain(error); }
+    try { [v2Proposals, v2SemanticCommits] = await Promise.all([serviceRuntimeClient.listProposals(), serviceRuntimeClient.listSemanticCommits()]); } catch (error) { v2ProposalLoadError = explain(error); }
   }
   return {
     workspace,
@@ -180,6 +182,7 @@ async function model(): Promise<UiModel> {
     ...(actionDialog ? { actionDialog } : {}),
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2Proposals,
+    v2SemanticCommits,
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
   };
 }
@@ -662,6 +665,39 @@ async function handleAction(action: string, value?: string): Promise<void> {
         return;
       }
       message = "提交前版本与 scope 检查通过；仍未正式生效，下一步是在同一审阅上下文确认最终 Commit。";
+    });
+    return;
+  }
+  if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
+  if (action === "submit-v2-proposal-commit" && value) {
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认最终 Commit。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!proposalId || !expectedUpdatedAt || !client) throw new Error("V2 Commit 上下文已失效；没有写入。");
+      const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
+      if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新审阅。");
+      const result = await commitV2Formalization(client, {
+        getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id),
+        updateBlock: (id, content) => logseq.Editor.updateBlock(id, content),
+      }, stored, `v2-proposal-commit-ui-${Date.now()}`);
+      workspace = "review";
+      message = result.status === "COMPLETED" ? `最终 Commit 已生效；对象 ${result.objectId} 已写入，可在当前卡片撤销。` : result.status === "STALE" ? "提交前重验失败；没有写入。" : "领域写入失败，正文已安全恢复；未报告成功。";
+    });
+    return;
+  }
+  if (action === "v2-proposal-undo" && value) return openActionDialog("confirm-v2-undo", value);
+  if (action === "submit-v2-proposal-undo" && value) {
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认创建逆向 Commit。"; await refresh(); return; }
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client) throw new Error("V2 Undo 上下文已失效；没有写入。");
+      const result = await undoV2Formalization(client, {
+        getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id),
+        updateBlock: (id, content) => logseq.Editor.updateBlock(id, content),
+      }, value, `v2-proposal-undo-ui-${Date.now()}`);
+      workspace = "review";
+      message = result.status === "COMPLETED" ? "Undo 已作为新的逆向 Commit 生效；正文与当前对象投影均已恢复，历史 Audit 保留。" : "Undo 领域写入失败，正文已恢复为 Commit 后状态；原 Commit 仍有效。";
     });
     return;
   }

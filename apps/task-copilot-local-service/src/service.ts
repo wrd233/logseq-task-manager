@@ -214,6 +214,42 @@ interface ProposalCommitEvidenceRequest {
   traceId: string;
 }
 
+interface ProposalUndoEvidenceRequest {
+  originalSemanticCommitId: string;
+  undoSemanticCommitId: string;
+  blockUuid: string;
+  contentHash: string;
+  inputVersion: string;
+  traceId: string;
+}
+
+async function readProposalUndoPrepareRequest(request: IncomingMessage): Promise<{ traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).join(",") !== "traceId" || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("PROPOSAL_UNDO_REQUEST_INVALID", "Proposal Undo 准备请求无效。");
+  return { traceId: record.traceId };
+}
+
+async function readProposalUndoEvidenceRequest(request: IncomingMessage): Promise<ProposalUndoEvidenceRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const keys = ["blockUuid", "contentHash", "inputVersion", "originalSemanticCommitId", "traceId", "undoSemanticCommitId"];
+  if (
+    Object.keys(record).sort().join(",") !== keys.join(",")
+    || typeof record.originalSemanticCommitId !== "string" || !record.originalSemanticCommitId.startsWith("proposal-commit:") || record.originalSemanticCommitId.length > 96
+    || typeof record.undoSemanticCommitId !== "string" || record.undoSemanticCommitId !== `undo:${record.originalSemanticCommitId}`
+    || typeof record.blockUuid !== "string" || !record.blockUuid.trim() || record.blockUuid.length > 512
+    || typeof record.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.contentHash)
+    || typeof record.inputVersion !== "string" || !record.inputVersion.trim() || record.inputVersion.length > 128
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+  ) throw serviceError("PROPOSAL_UNDO_REQUEST_INVALID", "Proposal Undo 证据请求无效。");
+  return record as unknown as ProposalUndoEvidenceRequest;
+}
+
 async function readProposalCommitEvidenceRequest(request: IncomingMessage): Promise<ProposalCommitEvidenceRequest> {
   const body = await readBody(request);
   let value: unknown;
@@ -235,6 +271,10 @@ async function readProposalCommitEvidenceRequest(request: IncomingMessage): Prom
 
 function proposalSemanticCommitId(graphId: string, proposalId: string, expectedUpdatedAt: string): string {
   return `proposal-commit:${createHash("sha256").update(JSON.stringify([graphId, proposalId, expectedUpdatedAt])).digest("hex")}`;
+}
+
+function proposalUndoSemanticCommitId(originalSemanticCommitId: string): string {
+  return `undo:${originalSemanticCommitId}`;
 }
 
 function projectSemanticCommitId(graphId: string, name: string): string {
@@ -457,23 +497,34 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       respond(response, 200, { proposals: await proposalApplication.list() });
       return;
     }
+    if (request.method === "GET" && url.pathname === "/semantic-commits") {
+      respond(response, 200, { commits: store.listSemanticCommits() });
+      return;
+    }
     const proposalCommitPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/commit\/prepare$/) : null;
     if (proposalCommitPrepareMatch?.[1]) {
       const proposalId = decodeURIComponent(proposalCommitPrepareMatch[1]);
       const input = await readProposalRevalidationRequest(request);
       const stored = await proposalApplication.get(proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const plan = planAcceptedV2Formalization(stored.proposal);
+      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
+      const existing = store.semanticCommit(semanticCommitId);
+      const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      const existingObjectId = existingSteps[1]?.operationId;
+      if (existing && ["PENDING", "RECOVERY_REQUIRED", "COMPLETED"].includes(existing.status)) {
+        if (existingSteps.length !== 2 || !existingObjectId) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "Proposal Commit ledger 缺少对象身份或步骤。");
+        if (existing.status === "COMPLETED" && stored.proposal.status !== "APPLIED") await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: existing.status === "PENDING" ? "PREPARED" : existing.status, semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, objectId: existingObjectId, plan, replayed: true });
+        return;
+      }
+      if (existing) throw serviceError("V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "Proposal Commit 已终止，不能创建平行事务。");
       const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, input.observations), input.expectedUpdatedAt);
       if (revalidation.result.status === "STALE") {
         respond(response, 200, { status: "STALE", ...revalidation });
         return;
       }
-      const plan = planAcceptedV2Formalization(stored.proposal);
-      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
-      const existing = store.semanticCommit(semanticCommitId);
-      if (existing && existing.status !== "PENDING" && existing.status !== "COMPLETED") throw serviceError("V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "Proposal Commit 必须先完成现有恢复，不能创建平行事务。");
-      const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
-      const objectId = existingSteps[1]?.operationId ?? createId("obj", new Date());
+      const objectId = createId("obj", new Date());
       if (!objectId) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "Proposal Commit 缺少对象身份。");
       const now = new Date();
       const prepared = store.prepareSemanticCommit({
@@ -481,13 +532,13 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         proposalId,
         status: "PENDING",
         beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, expectedUpdatedAt: input.expectedUpdatedAt }),
-        createdAt: existing?.createdAt ?? now.toISOString(),
+        createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       }, [
         { semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE", status: "PREPARED", operationId: plan.patch.blockUuid, beforeHash: plan.patch.beforeHash, afterHash: plan.patch.afterHash, updatedAt: now.toISOString() },
         { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: objectId, updatedAt: now.toISOString() },
       ]);
-      respond(response, prepared.replayed ? 200 : 201, { status: existing?.status === "COMPLETED" ? "COMPLETED" : "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, objectId, plan, replayed: prepared.replayed });
+      respond(response, prepared.replayed ? 200 : 201, { status: "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, objectId, plan, replayed: prepared.replayed });
       return;
     }
     const proposalCommitFinalizeMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/commit\/finalize$/) : null;
@@ -551,6 +602,106 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       store.finalizeSemanticCommit(input.semanticCommitId, "FAILED", now.toISOString(), undefined, "DOMAIN_WRITE_FAILED");
       const record = await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt, now);
       respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, record });
+      return;
+    }
+    const proposalUndoPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/undo\/prepare$/) : null;
+    if (proposalUndoPrepareMatch?.[1]) {
+      await readProposalUndoPrepareRequest(request);
+      const originalSemanticCommitId = decodeURIComponent(proposalUndoPrepareMatch[1]);
+      const undoSemanticCommitId = proposalUndoSemanticCommitId(originalSemanticCommitId);
+      const original = store.semanticCommit(originalSemanticCommitId);
+      if (!original?.proposalId || !["COMPLETED", "UNDONE"].includes(original.status)) throw serviceError("V2_PROPOSAL_UNDO_NOT_AVAILABLE", "只有已完成且尚有历史证据的 Proposal Commit 可以 Undo。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 引用的 Proposal 不存在。");
+      const plan = planAcceptedV2Formalization(stored.proposal);
+      const receipt = store.getCommandReceipt(`proposal-commit:${originalSemanticCommitId}`);
+      if (receipt?.command !== "materialize_explicit_object") throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 缺少物化回执。");
+      const existing = store.semanticCommit(undoSemanticCommitId);
+      if (original.status === "UNDONE" && existing?.status === "COMPLETED") {
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, objectId: receipt.object.objectId, patch: plan.patch, replayed: true });
+        return;
+      }
+      if (original.status === "COMPLETED" && existing?.status === "COMPLETED") {
+        store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, objectId: receipt.object.objectId, patch: plan.patch, replayed: true });
+        return;
+      }
+      if (existing && !["PENDING", "RECOVERY_REQUIRED"].includes(existing.status)) throw serviceError("V2_PROPOSAL_UNDO_NOT_AVAILABLE", "Undo 已终止或状态不一致，不能建立平行事务。");
+      const undoReceipt = store.getCommandReceipt(`proposal-undo:${undoSemanticCommitId}`);
+      if (!undoReceipt) {
+        const currentObject = store.getObject(receipt.object.objectId);
+        const currentAnchor = store.getPrimaryAnchorById(receipt.anchor.anchorId);
+        if (checksum(currentObject) !== checksum(receipt.object) || checksum(currentAnchor) !== checksum(receipt.anchor)) throw serviceError("V2_PROPOSAL_UNDO_STATE_CHANGED", "对象或 Anchor 已有后续变化；Undo 没有写入。");
+      }
+      const now = new Date();
+      const prepared = store.prepareSemanticCommit({
+        semanticCommitId: undoSemanticCommitId, proposalId: original.proposalId, status: "PENDING",
+        beforeStateChecksum: original.afterStateChecksum ?? checksum({ object: receipt.object, anchor: receipt.anchor }),
+        createdAt: existing?.createdAt ?? now.toISOString(), updatedAt: now.toISOString(),
+      }, [
+        { semanticCommitId: undoSemanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE", status: "PREPARED", operationId: plan.patch.blockUuid, beforeHash: plan.patch.afterHash, afterHash: plan.patch.beforeHash, updatedAt: now.toISOString() },
+        { semanticCommitId: undoSemanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: receipt.object.objectId, updatedAt: now.toISOString() },
+      ]);
+      respond(response, prepared.replayed ? 200 : 201, { status: existing?.status === "RECOVERY_REQUIRED" ? "RECOVERY_REQUIRED" : "PREPARED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, objectId: receipt.object.objectId, patch: plan.patch, replayed: prepared.replayed });
+      return;
+    }
+    const proposalUndoFinalizeMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/undo\/finalize$/) : null;
+    if (proposalUndoFinalizeMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(proposalUndoFinalizeMatch[1]);
+      const input = await readProposalUndoEvidenceRequest(request);
+      const undoSemanticCommitId = proposalUndoSemanticCommitId(originalSemanticCommitId);
+      if (input.originalSemanticCommitId !== originalSemanticCommitId || input.undoSemanticCommitId !== undoSemanticCommitId) throw serviceError("V2_PROPOSAL_UNDO_INTENT_MISMATCH", "Undo 意图与路径不一致。");
+      const original = store.semanticCommit(originalSemanticCommitId);
+      const inverse = store.semanticCommit(undoSemanticCommitId);
+      if (!original?.proposalId || !inverse || inverse.proposalId !== original.proposalId) throw serviceError("V2_PROPOSAL_UNDO_LEDGER_CORRUPT", "Undo ledger 与原 Commit 不一致。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 引用的 Proposal 不存在。");
+      const plan = planAcceptedV2Formalization(stored.proposal);
+      const receipt = store.getCommandReceipt(`proposal-commit:${originalSemanticCommitId}`);
+      if (receipt?.command !== "materialize_explicit_object") throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 缺少物化回执。");
+      if (inverse.status === "COMPLETED" && ["COMPLETED", "UNDONE"].includes(original.status)) {
+        if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, objectId: receipt.object.objectId, replayed: true });
+        return;
+      }
+      if (inverse.status === "RECOVERY_REQUIRED") {
+        respond(response, 200, { status: "COMPENSATION_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, patch: plan.patch });
+        return;
+      }
+      const steps = store.semanticCommitSteps(undoSemanticCommitId);
+      if (steps.length !== 2 || steps[0]?.operationId !== plan.patch.blockUuid || steps[1]?.operationId !== receipt.object.objectId || input.blockUuid !== plan.patch.blockUuid || input.contentHash !== plan.patch.beforeHash) throw serviceError("V2_PROPOSAL_UNDO_GRAPH_EVIDENCE_MISMATCH", "Undo Graph 证据与逆向账本不一致。");
+      const now = new Date();
+      if (steps[0]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "VERIFIED", now.toISOString());
+      let undone;
+      try {
+        undone = await application.undoMaterialization({ object: receipt.object, anchor: receipt.anchor }, { actor: "proposal_undo", expectedVersion: receipt.object.version, idempotencyKey: `proposal-undo:${undoSemanticCommitId}`, traceId: input.traceId }, now);
+      } catch {
+        store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "RECOVERY_REQUIRED", now.toISOString(), "DOMAIN_UNDO_FAILED");
+        store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now.toISOString(), undefined, "DOMAIN_UNDO_FAILED");
+        respond(response, 200, { status: "COMPENSATION_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, patch: plan.patch });
+        return;
+      }
+      const domainStep = store.semanticCommitSteps(undoSemanticCommitId)[1];
+      if (domainStep?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum({ objectRemoved: undone.object.objectId, anchorRemoved: undone.anchor.anchorId }));
+      store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
+      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, objectId: undone.object.objectId, replayed: undone.replayed });
+      return;
+    }
+    const proposalUndoCompensateMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/undo\/compensate$/) : null;
+    if (proposalUndoCompensateMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(proposalUndoCompensateMatch[1]);
+      const input = await readProposalUndoEvidenceRequest(request);
+      const undoSemanticCommitId = proposalUndoSemanticCommitId(originalSemanticCommitId);
+      const inverse = store.semanticCommit(undoSemanticCommitId);
+      const graphStep = store.semanticCommitSteps(undoSemanticCommitId)[0];
+      if (input.originalSemanticCommitId !== originalSemanticCommitId || input.undoSemanticCommitId !== undoSemanticCommitId || inverse?.status !== "RECOVERY_REQUIRED" || graphStep?.status !== "RECOVERY_REQUIRED" || input.blockUuid !== graphStep.operationId || input.contentHash !== graphStep.beforeHash) throw serviceError("V2_PROPOSAL_UNDO_COMPENSATION_EVIDENCE_MISMATCH", "Undo 补偿证据与恢复账本不一致。");
+      const now = new Date();
+      store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "COMPENSATED", now.toISOString());
+      store.finalizeSemanticCommit(undoSemanticCommitId, "FAILED", now.toISOString(), undefined, "DOMAIN_UNDO_FAILED");
+      respond(response, 200, { status: "FAILED_COMPENSATED", originalSemanticCommitId, undoSemanticCommitId });
       return;
     }
     const proposalRevalidationMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/revalidate$/) : null;

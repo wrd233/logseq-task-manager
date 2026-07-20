@@ -12,8 +12,8 @@
 | C1 | SQLite proposals/proposal_groups + submit/read | 非法 Proposal 零持久化；重复 ID 冲突 | 自动基础完成 |
 | C2 | Review Center 待审阅 + 四处置 + 语义组部分接受 | 高影响独立确认；依赖链不可拆 | 自动基础完成；Desktop 待验收 |
 | C3 | Stale/version/scope revalidation | Block/Object 变化阻止提交 | 自动基础完成；Desktop 待验收 |
-| C4 | SemanticCommit Graph → Domain → Audit | Partial Failure 不显示成功 | 正式化自动基础完成；UI 等 C5 |
-| C5 | inverse Commit / Undo / Recovery | 不覆盖后续编辑 | V1 证据可复用；V2 待实施 |
+| C4 | SemanticCommit Graph → Domain → Audit | Partial Failure 不显示成功 | 自动基础完成；最终 Review UI 已接入；Desktop 待验收 |
+| C5 | inverse Commit / Undo / Recovery | 不覆盖后续编辑 | 自动基础完成；重启续跑与补偿入口已接入；Desktop 待验收 |
 
 ## C0 已建立的合同
 
@@ -26,7 +26,15 @@
 
 ## C1/C2 已建立的合同
 
-- schema v4 只增加 `proposals` / `proposal_groups`；v1/v2/v3 升级均要求预先校验的备份，禁止静默升级。
+- schema v4 只增加 `proposals` / `proposal_groups`；schema v5 仅解除 immutable Audit 对当前 Object 投影的外键依赖；v1..v4 升级均要求预先校验的备份，禁止静默升级。
+
+## C4/C5 已建立的闭环
+
+- 最终确认仍在当前 Review 卡片内；点击后先重验 scope，再建立 PENDING Commit，写 Graph、校验 after hash、写 Domain/Audit，全部完成才显示“已生效”。
+- 服务中断后，同一 intent 允许 Graph 仍为 before 或已写成 after：前者继续写，后者跳过重复写并 finalize；其他 hash 一律拒绝。
+- Undo 是新的 inverse Commit，不删除历史。它要求原 Object、版本、Primary Anchor 和 Graph hash 全部未变化，且没有 Ownership、Focus 或额外 Anchor。
+- Undo 成功删除 SQLite 当前 Object/Anchor 投影并恢复正文；Audit 与两个 Commit 均保留，正向 Commit 标记 `UNDONE`。
+- Domain/Undo 失败只在正文仍等于本事务写入值时补偿；发现后续编辑时保留 `RECOVERY_REQUIRED`，不覆盖用户正文。
 - `POST /proposals/submit` 只接收已通过同一 runtime Validator 的 `READY` Proposal；同 ID 同内容幂等重放，同 ID 异内容整包冲突。
 - `GET /proposals` 与 `GET /proposals/{id}` 返回确定性两文件、语义状态与乐观并发 `updatedAt`。
 - `POST /proposals/{id}/review` 按语义组写入接受、拒绝或暂缓；调整仍保留为 revise Proposal，不伪装成原地改写。

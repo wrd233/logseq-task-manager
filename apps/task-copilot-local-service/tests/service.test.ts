@@ -64,7 +64,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
     capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
-    databaseSchemaVersion: 4,
+    databaseSchemaVersion: 5,
     objectCount: 0,
   });
   const doctor = await fetch(new URL("doctor", service.url), { method: "POST", headers });
@@ -138,6 +138,10 @@ test("Proposal Commit prepares before Graph, materializes after evidence, and re
   ], reviewed.updatedAt);
   assert.equal(prepared.status, "PREPARED");
   if (prepared.status !== "PREPARED") throw new Error("expected prepared commit");
+  const resumed = await client.prepareProposalCommit("prop_service_validate", [
+    { kind: "BLOCK", id: "proposal-block", exists: true, version: 2, hash: prepared.plan.patch.afterHash },
+  ], reviewed.updatedAt);
+  assert.equal(resumed.status, "PREPARED", "persisted intent resumes after a Graph write instead of stale-marking the Proposal");
   assert.equal((await client.status()).objectCount, 0, "prepare never applies Graph or Domain state");
   const completed = await client.finalizeProposalCommit("prop_service_validate", {
     semanticCommitId: prepared.semanticCommitId, proposalId: prepared.proposalId, expectedUpdatedAt: prepared.expectedUpdatedAt,
@@ -149,6 +153,32 @@ test("Proposal Commit prepares before Graph, materializes after evidence, and re
   assert.equal(completed.anchor.externalId, "proposal-block");
   assert.equal(completed.record.proposal.status, "APPLIED");
   assert.equal((await client.status()).objectCount, 1);
+});
+
+test("Proposal Undo is an inverse Commit that restores Graph evidence and removes only unchanged Domain state", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-undo-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal-undo", token: "proposal-undo-service-token-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const submitted = await client.submitProposal(validProposal());
+  const reviewed = await client.reviewProposal("prop_service_validate", { formalize: { disposition: "ACCEPTED" } }, submitted.record.updatedAt);
+  const prepared = await client.prepareProposalCommit("prop_service_validate", [{ kind: "BLOCK", id: "proposal-block", exists: true, version: 1, hash: checksum("普通正文") }], reviewed.updatedAt);
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared commit");
+  const completed = await client.finalizeProposalCommit("prop_service_validate", {
+    semanticCommitId: prepared.semanticCommitId, proposalId: prepared.proposalId, expectedUpdatedAt: prepared.expectedUpdatedAt,
+    blockUuid: prepared.plan.patch.blockUuid, contentHash: prepared.plan.patch.afterHash, inputVersion: "2", traceId: "trace-forward",
+  });
+  if (completed.status !== "COMPLETED") throw new Error("expected completed commit");
+  const undo = await client.prepareProposalUndo(prepared.semanticCommitId, "trace-undo-prepare");
+  assert.equal(undo.status, "PREPARED");
+  assert.equal(undo.patch.beforeHash, checksum("普通正文"));
+  const undone = await client.finalizeProposalUndo(prepared.semanticCommitId, {
+    originalSemanticCommitId: prepared.semanticCommitId, undoSemanticCommitId: undo.undoSemanticCommitId,
+    blockUuid: undo.patch.blockUuid, contentHash: undo.patch.beforeHash, inputVersion: "3", traceId: "trace-undo-finalize",
+  });
+  assert.equal(undone.status, "COMPLETED");
+  assert.equal((await client.status()).objectCount, 0);
+  assert.equal((await client.prepareProposalUndo(prepared.semanticCommitId, "trace-undo-replay")).status, "COMPLETED");
 });
 
 test("Proposal Commit requests Graph compensation when Domain materialization conflicts", async (t) => {

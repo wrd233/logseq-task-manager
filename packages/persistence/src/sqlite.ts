@@ -14,6 +14,8 @@ import type {
   V2AuditRecord,
   V2CommandReceipt,
   V2MaterializationCommand,
+  V2MaterializationUndoCommand,
+  V2MaterializationUndoResult,
   V2ProjectCreationCommand,
   V2ObjectCommand,
   V2ObjectCommandResult,
@@ -24,7 +26,7 @@ import type {
 import { renderV2ProposalFiles, validateV2Proposal, type V2Anchor, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 4;
+export const V2_DATABASE_SCHEMA_VERSION = 5;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -49,6 +51,7 @@ const schemaMigrationNames = new Map<number, string>([
   [2, "add_schema_migration_ledger"],
   [3, "add_semantic_commit_step_ledger"],
   [4, "add_proposal_review_tables"],
+  [5, "decouple_audit_from_current_objects"],
 ]);
 
 export interface V2StoredProposal {
@@ -245,7 +248,7 @@ export class V2SqliteStore {
         ) STRICT;
         CREATE TABLE anchors (
           anchor_id TEXT PRIMARY KEY,
-          object_id TEXT NOT NULL REFERENCES objects(object_id),
+          object_id TEXT NOT NULL,
           role TEXT NOT NULL CHECK (role IN ('primary_text','source','context','event','output')),
           graph_id TEXT NOT NULL,
           external_id TEXT NOT NULL,
@@ -279,7 +282,7 @@ export class V2SqliteStore {
           trace_id TEXT NOT NULL,
           actor TEXT NOT NULL,
           command_name TEXT NOT NULL,
-          object_id TEXT NOT NULL REFERENCES objects(object_id),
+          object_id TEXT NOT NULL,
           before_version INTEGER NOT NULL,
           after_version INTEGER NOT NULL,
           occurred_at TEXT NOT NULL
@@ -381,7 +384,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 4) {
+    if (![1, 2, 3, 4].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 5) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -454,6 +457,27 @@ export class V2SqliteStore {
         `);
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(4, schemaMigrationNames.get(4), at.toISOString());
+        workingVersion = 4;
+      }
+      if (workingVersion === 4) {
+        this.database.exec(`
+          ALTER TABLE audit_events RENAME TO audit_events_object_bound;
+          CREATE TABLE audit_events (
+            event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            trace_id TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            command_name TEXT NOT NULL,
+            object_id TEXT NOT NULL,
+            before_version INTEGER NOT NULL,
+            after_version INTEGER NOT NULL,
+            occurred_at TEXT NOT NULL
+          ) STRICT;
+          INSERT INTO audit_events(event_id, trace_id, actor, command_name, object_id, before_version, after_version, occurred_at)
+            SELECT event_id, trace_id, actor, command_name, object_id, before_version, after_version, occurred_at FROM audit_events_object_bound;
+          DROP TABLE audit_events_object_bound;
+        `);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(5, schemaMigrationNames.get(5), at.toISOString());
       }
       this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
@@ -598,6 +622,41 @@ export class V2SqliteStore {
     return this.executeWrite(write);
   }
 
+  commitMaterializationUndo(command: V2MaterializationUndoCommand): V2MaterializationUndoResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        const result = JSON.parse(receipt.result_json) as { object: V2ManagedObject; anchor: V2Anchor };
+        return { ...result, replayed: true };
+      }
+      const currentObject = this.getObject(command.expectedObject.objectId);
+      const currentAnchor = this.getPrimaryAnchorById(command.expectedAnchor.anchorId);
+      if (stableJson(currentObject) !== stableJson(command.expectedObject) || stableJson(currentAnchor) !== stableJson(command.expectedAnchor)) {
+        throw persistenceError("V2_UNDO_STATE_CHANGED", "对象或 Anchor 已变化；Undo 没有写入。", { objectId: command.expectedObject.objectId });
+      }
+      const dependent = this.database.prepare(`
+        SELECT
+          EXISTS(SELECT 1 FROM primary_ownerships WHERE child_object_id = ? OR owner_object_id = ?) AS ownership_count,
+          EXISTS(SELECT 1 FROM focus_selections WHERE object_id = ?) AS focus_count,
+          (SELECT count(*) FROM anchors WHERE object_id = ?) AS anchor_count
+      `).get(command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId) as { ownership_count: number; focus_count: number; anchor_count: number };
+      if (dependent.ownership_count || dependent.focus_count || dependent.anchor_count !== 1) {
+        throw persistenceError("V2_UNDO_DEPENDENT_STATE_EXISTS", "对象已有归属、Focus 或额外 Anchor；Undo 不会删除后续状态。", { objectId: command.expectedObject.objectId });
+      }
+      const anchorDeleted = this.database.prepare("DELETE FROM anchors WHERE anchor_id = ? AND object_id = ? AND content_hash = ?")
+        .run(command.expectedAnchor.anchorId, command.expectedObject.objectId, command.expectedAnchor.contentHash);
+      const objectDeleted = this.database.prepare("DELETE FROM objects WHERE object_id = ? AND version = ?")
+        .run(command.expectedObject.objectId, command.expectedObject.version);
+      if (anchorDeleted.changes !== 1 || objectDeleted.changes !== 1) throw persistenceError("V2_UNDO_STATE_CHANGED", "对象或 Anchor 在 Undo 事务中变化；本批已回滚。");
+      this.writeAudit(command.audit);
+      const result = { object: command.expectedObject, anchor: command.expectedAnchor };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
   commitSynchronization(command: V2SynchronizationCommand): V2AnchorCommandResult {
     this.requireIdempotencyKey(command.idempotencyKey);
     const write = this.database.transaction(() => {
@@ -703,7 +762,7 @@ export class V2SqliteStore {
     if (command === "create_object" || command === "transition_lifecycle") {
       return { command, object: result as V2ManagedObject };
     }
-    if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
+    if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "undo_materialization" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
       return { command, ...value };
     }
@@ -820,9 +879,31 @@ export class V2SqliteStore {
     return this.executeWrite(write);
   }
 
+  markSemanticCommitUndone(originalSemanticCommitId: string, inverseSemanticCommitId: string, updatedAt: string): V2SemanticCommitLedgerRecord {
+    const write = this.database.transaction(() => {
+      const original = this.semanticCommit(originalSemanticCommitId);
+      const inverse = this.semanticCommit(inverseSemanticCommitId);
+      if (original?.status === "UNDONE") return original;
+      if (!original || original.status !== "COMPLETED" || !inverse || inverse.status !== "COMPLETED" || original.proposalId !== inverse.proposalId) {
+        throw persistenceError("V2_UNDO_COMMIT_STATE_INVALID", "只有已完成且同属一个 Proposal 的正向/逆向 Commit 可以收口 Undo。");
+      }
+      this.database.prepare("UPDATE semantic_commits SET status = 'UNDONE', updated_at = ? WHERE semantic_commit_id = ? AND status = 'COMPLETED'")
+        .run(updatedAt, originalSemanticCommitId);
+      return this.semanticCommit(originalSemanticCommitId)!;
+    });
+    return this.executeWrite(write);
+  }
+
   unresolvedSemanticCommits(): V2SemanticCommitLedgerRecord[] {
     return (this.database.prepare("SELECT * FROM semantic_commits WHERE status IN ('PENDING','RECOVERY_REQUIRED') ORDER BY created_at").all() as Record<string, unknown>[])
       .map((row) => this.mapSemanticCommit(row));
+  }
+
+  listSemanticCommits(proposalId?: string): V2SemanticCommitLedgerRecord[] {
+    const rows = proposalId
+      ? this.database.prepare("SELECT * FROM semantic_commits WHERE proposal_id = ? ORDER BY created_at, semantic_commit_id").all(proposalId)
+      : this.database.prepare("SELECT * FROM semantic_commits ORDER BY created_at, semantic_commit_id").all();
+    return (rows as Record<string, unknown>[]).map((row) => this.mapSemanticCommit(row));
   }
 
   semanticCommit(semanticCommitId: string): V2SemanticCommitLedgerRecord | undefined {

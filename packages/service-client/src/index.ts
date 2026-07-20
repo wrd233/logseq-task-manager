@@ -151,7 +151,7 @@ export interface ServiceProposalRevalidation {
 }
 
 export interface ServicePreparedProposalCommit {
-  status: "PREPARED" | "COMPLETED";
+  status: "PREPARED" | "COMPLETED" | "RECOVERY_REQUIRED";
   semanticCommitId: string;
   proposalId: string;
   expectedUpdatedAt: string;
@@ -179,6 +179,40 @@ export interface ServiceProposalCommitEvidence {
   inputVersion: string;
   traceId: string;
 }
+
+export interface ServicePreparedProposalUndo {
+  status: "PREPARED" | "COMPLETED" | "RECOVERY_REQUIRED";
+  originalSemanticCommitId: string;
+  undoSemanticCommitId: string;
+  proposalId: string;
+  objectId: string;
+  patch: ServicePreparedProposalCommit["plan"]["patch"];
+  replayed: boolean;
+}
+
+export interface ServiceProposalUndoEvidence {
+  originalSemanticCommitId: string;
+  undoSemanticCommitId: string;
+  blockUuid: string;
+  contentHash: string;
+  inputVersion: string;
+  traceId: string;
+}
+
+export interface ServiceSemanticCommit {
+  semanticCommitId: string;
+  proposalId?: string;
+  status: "PENDING" | "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED" | "UNDONE";
+  beforeStateChecksum: string;
+  afterStateChecksum?: string;
+  createdAt: string;
+  updatedAt: string;
+  errorCode?: string;
+}
+
+export type ServiceProposalUndoFinalization =
+  | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; objectId: string; replayed: boolean }
+  | { status: "COMPENSATION_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; patch: ServicePreparedProposalUndo["patch"] };
 
 export type ServiceConnectionState =
   | { status: "READY"; capabilities: ServiceCapabilities; formalWritesAvailable: boolean; graphEditingAvailable: true }
@@ -422,6 +456,28 @@ export class LocalServiceClient {
 
   compensateProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }> {
     return this.request<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }>(`/proposals/${encodeURIComponent(proposalId)}/commit/compensate`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(evidence),
+    });
+  }
+
+  prepareProposalUndo(originalSemanticCommitId: string, traceId: string): Promise<ServicePreparedProposalUndo> {
+    return this.request<ServicePreparedProposalUndo>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/undo/prepare`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ traceId }),
+    });
+  }
+
+  listSemanticCommits(): Promise<ServiceSemanticCommit[]> {
+    return this.request<{ commits: ServiceSemanticCommit[] }>("/semantic-commits").then((result) => result.commits);
+  }
+
+  finalizeProposalUndo(originalSemanticCommitId: string, evidence: ServiceProposalUndoEvidence): Promise<ServiceProposalUndoFinalization> {
+    return this.request<ServiceProposalUndoFinalization>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/undo/finalize`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(evidence),
+    });
+  }
+
+  compensateProposalUndo(originalSemanticCommitId: string, evidence: ServiceProposalUndoEvidence): Promise<{ status: "FAILED_COMPENSATED"; originalSemanticCommitId: string; undoSemanticCommitId: string }> {
+    return this.request<{ status: "FAILED_COMPENSATED"; originalSemanticCommitId: string; undoSemanticCommitId: string }>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/undo/compensate`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(evidence),
     });
   }

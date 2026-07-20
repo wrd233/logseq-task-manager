@@ -32,6 +32,7 @@ export interface V2ObjectRepository {
   commitAnchorRebind(command: V2AnchorRebindCommand): V2AnchorRebindCommandResult | Promise<V2AnchorRebindCommandResult>;
   commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult | Promise<V2OwnershipCommandResult>;
+  commitMaterializationUndo(command: V2MaterializationUndoCommand): V2MaterializationUndoResult | Promise<V2MaterializationUndoResult>;
   getObject(objectId: string): V2ManagedObject | undefined | Promise<V2ManagedObject | undefined>;
   getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined | Promise<V2Anchor | undefined>;
   getPrimaryAnchorById(anchorId: string): V2Anchor | undefined | Promise<V2Anchor | undefined>;
@@ -41,7 +42,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
+  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -116,9 +117,22 @@ export interface V2OwnershipCommandResult {
   replayed: boolean;
 }
 
+export interface V2MaterializationUndoCommand {
+  expectedObject: V2ManagedObject;
+  expectedAnchor: V2Anchor;
+  idempotencyKey: string;
+  audit: V2AuditRecord & { command: "undo_materialization" };
+}
+
+export interface V2MaterializationUndoResult {
+  object: V2ManagedObject;
+  anchor: V2Anchor;
+  replayed: boolean;
+}
+
 export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle"; object: V2ManagedObject }
-  | { command: "create_project_with_page" | "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
+  | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership };
 
@@ -255,6 +269,33 @@ export class V2Application {
         objectId: candidate.object.objectId,
         beforeVersion: 0,
         afterVersion: candidate.object.version,
+        occurredAt: at.toISOString(),
+      },
+    });
+  }
+
+  async undoMaterialization(
+    expected: { object: V2ManagedObject; anchor: V2Anchor },
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2MaterializationUndoResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "undo_materialization");
+    if (replay?.command === "undo_materialization") return { object: replay.object, anchor: replay.anchor, replayed: true };
+    if (envelope.expectedVersion !== expected.object.version || expected.anchor.objectId !== expected.object.objectId || expected.anchor.role !== "primary_text") {
+      throw new StructuredError({ code: "V2_UNDO_EXPECTATION_INVALID", message: "Undo 必须引用同一对象的精确版本和 Primary Anchor。", ruleRefs: ["D-185", "D-188"] });
+    }
+    return this.objects.commitMaterializationUndo({
+      expectedObject: expected.object,
+      expectedAnchor: expected.anchor,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "undo_materialization",
+        objectId: expected.object.objectId,
+        beforeVersion: expected.object.version,
+        afterVersion: 0,
         occurredAt: at.toISOString(),
       },
     });

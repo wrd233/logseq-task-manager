@@ -57,7 +57,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath, new Date("2026-07-20T08:00:00.000Z")), {
     migrated: true,
     fromVersion: 1,
-    schemaVersion: 4,
+    schemaVersion: 5,
     backupPath,
   });
   const preflight = new Database(backupPath, { readonly: true, fileMustExist: true });
@@ -69,14 +69,15 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 2, name: "add_schema_migration_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 3, name: "add_semantic_commit_step_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 4, name: "add_proposal_review_tables", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 5, name: "decouple_audit_from_current_objects", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
-  assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: 4 });
+  assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: 5 });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
     migrated: false,
-    fromVersion: 4,
-    schemaVersion: 4,
+    fromVersion: 5,
+    schemaVersion: 5,
   });
-  assert.equal(migrated.schemaMigrationHistory().length, 4, "repeated initialize must not duplicate migration rows");
+  assert.equal(migrated.schemaMigrationHistory().length, 5, "repeated initialize must not duplicate migration rows");
   migrated.close();
 });
 
@@ -111,8 +112,8 @@ test("failed schema migration rolls back metadata and ledger and can be retried"
   afterFailure.close();
 
   const retried = await V2SqliteStore.open(path);
-  assert.equal((await retried.migrateSchema("graph-a", join(root, "before-retry.db"))).schemaVersion, 4);
-  assert.equal(retried.schemaMigrationHistory().length, 4);
+  assert.equal((await retried.migrateSchema("graph-a", join(root, "before-retry.db"))).schemaVersion, 5);
+  assert.equal(retried.schemaMigrationHistory().length, 5);
   retried.close();
 });
 
@@ -133,7 +134,7 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-20T10:00:00.000Z")), {
     migrated: true,
     fromVersion: 2,
-    schemaVersion: 4,
+    schemaVersion: 5,
     backupPath,
   });
   const preflight = new Database(backupPath, { readonly: true });
@@ -158,15 +159,44 @@ test("schema v3 explicitly migrates to proposal review tables after a validated 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version = 4");
+  legacy.exec("DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
   legacy.prepare("UPDATE schema_meta SET value = '3' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 3");
   legacy.close();
   const migrating = await V2SqliteStore.open(path);
   assert.throws(() => migrating.initialize("graph-a"), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_REQUIRED");
   const backupPath = join(root, "before-proposals.db");
-  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-20T11:00:00.000Z")), { migrated: true, fromVersion: 3, schemaVersion: 4, backupPath });
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-20T11:00:00.000Z")), { migrated: true, fromVersion: 3, schemaVersion: 5, backupPath });
   assert.equal(migrating.schemaMigrationHistory()[3]?.name, "add_proposal_review_tables");
+  assert.equal(migrating.schemaMigrationHistory()[4]?.name, "decouple_audit_from_current_objects");
+  migrating.close();
+});
+
+test("schema v4 explicitly decouples immutable Audit from the current object projection", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec(`
+    DELETE FROM schema_migrations WHERE version = 5;
+    ALTER TABLE audit_events RENAME TO audit_events_unbound;
+    CREATE TABLE audit_events (
+      event_id INTEGER PRIMARY KEY AUTOINCREMENT, trace_id TEXT NOT NULL, actor TEXT NOT NULL, command_name TEXT NOT NULL,
+      object_id TEXT NOT NULL REFERENCES objects(object_id), before_version INTEGER NOT NULL, after_version INTEGER NOT NULL, occurred_at TEXT NOT NULL
+    ) STRICT;
+    INSERT INTO audit_events SELECT * FROM audit_events_unbound;
+    DROP TABLE audit_events_unbound;
+  `);
+  legacy.prepare("UPDATE schema_meta SET value = '4' WHERE key = 'schema_version'").run();
+  legacy.pragma("user_version = 4");
+  legacy.close();
+  const migrating = await V2SqliteStore.open(path);
+  const backupPath = join(root, "before-audit-decoupling.db");
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-20T11:30:00.000Z")), { migrated: true, fromVersion: 4, schemaVersion: 5, backupPath });
+  const internal = migrating as unknown as { database: Database.Database };
+  assert.deepEqual(internal.database.pragma("foreign_key_list(audit_events)"), []);
+  assert.equal(migrating.schemaMigrationHistory()[4]?.name, "decouple_audit_from_current_objects");
   migrating.close();
 });
 
@@ -652,5 +682,34 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
   }, { actor: "logseq-plugin", expectedVersion: 6, idempotencyKey: "rebind-to-history", traceId: "trace-history" }), /已有 Primary Anchor/);
   assert.equal(store.getObject("task-materialized")?.version, 6, "failed rebind must roll back object and both Anchor writes");
   assert.equal(store.auditEventCount(), 5);
+  store.close();
+});
+
+test("materialization Undo preserves Audit while deleting only an unchanged current projection", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2Application(store);
+  const created = await application.materializeExplicitObject({
+    objectId: "task-undo", objectType: "TASK", text: "核对告警", anchor: { anchorId: "anchor-undo", graphId: "graph-a", externalId: "block-undo", contentHash: "after-hash" },
+  }, { actor: "proposal_commit", expectedVersion: 0, idempotencyKey: "materialize-undo-source", traceId: "trace-source" });
+  const result = await application.undoMaterialization(created, {
+    actor: "user", expectedVersion: created.object.version, idempotencyKey: "undo-materialize", traceId: "trace-undo",
+  });
+  assert.equal(result.replayed, false);
+  assert.equal(store.getObject(created.object.objectId), undefined);
+  assert.equal(store.getPrimaryAnchorById(created.anchor.anchorId), undefined);
+  assert.equal(store.auditEventCount(), 2, "creation and inverse audit remain immutable");
+  assert.equal((await application.undoMaterialization(created, { actor: "user", expectedVersion: created.object.version, idempotencyKey: "undo-materialize", traceId: "trace-undo" })).replayed, true);
+
+  const changed = await application.materializeExplicitObject({
+    objectId: "task-changed", objectType: "TASK", text: "原始", anchor: { anchorId: "anchor-changed", graphId: "graph-a", externalId: "block-changed", contentHash: "hash-original" },
+  }, { actor: "proposal_commit", expectedVersion: 0, idempotencyKey: "materialize-changed", traceId: "trace-changed" });
+  await application.synchronizeExplicitObject({ objectType: "TASK", text: "后续编辑", graphId: "graph-a", externalId: "block-changed", contentHash: "hash-changed" }, {
+    actor: "logseq-plugin", expectedVersion: changed.object.version, idempotencyKey: "sync-changed", traceId: "trace-sync-changed",
+  });
+  await assert.rejects(() => application.undoMaterialization(changed, { actor: "user", expectedVersion: changed.object.version, idempotencyKey: "undo-changed", traceId: "trace-undo-changed" }), /已变化/);
+  assert.equal(store.getObject("task-changed")?.text, "后续编辑");
+  assert.equal(store.getCommandReceipt("undo-changed"), undefined);
   store.close();
 });

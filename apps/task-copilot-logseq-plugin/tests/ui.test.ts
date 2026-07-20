@@ -133,6 +133,12 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /已接受的语义组尚未正式生效/);
   assert.match(html, /显示 Undo/);
   assert.match(html, /data-action="v2-proposal-revalidate"/);
+  assert.match(html, /data-action="v2-proposal-commit"/);
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:abc", proposalId: "prop_v2", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-proposal-undo"/);
+  assert.match(html, /已正式生效/);
 });
 
 test("object and high-impact actions render in-plugin forms instead of browser modals", () => {
