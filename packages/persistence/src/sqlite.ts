@@ -8,6 +8,7 @@ import Database from "better-sqlite3";
 import type {
   V2AnchorCommand,
   V2AnchorCommandResult,
+  V2AnchorObservationCommand,
   V2AuditRecord,
   V2CommandReceipt,
   V2MaterializationCommand,
@@ -513,10 +514,37 @@ export class V2SqliteStore {
       }
       this.writeObject(command.object);
       const updated = this.database.prepare(`
-        UPDATE anchors SET content_hash = ?, last_seen_at = ?
-        WHERE anchor_id = ? AND object_id = ? AND role = 'primary_text' AND status = 'active'
+        UPDATE anchors SET status = 'active', content_hash = ?, last_seen_at = ?
+        WHERE anchor_id = ? AND object_id = ? AND role = 'primary_text' AND status <> 'replaced'
       `).run(command.anchor.contentHash, command.anchor.lastSeenAt, command.anchor.anchorId, command.object.objectId);
       if (updated.changes !== 1) throw persistenceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 已变化；本次同步没有写入。");
+      this.writeAudit(command.audit);
+      const result = { object: command.object, anchor: command.anchor };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  commitAnchorObservation(command: V2AnchorObservationCommand): V2AnchorCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        const result = JSON.parse(receipt.result_json) as { object: V2ManagedObject; anchor: V2Anchor };
+        return { ...result, replayed: true };
+      }
+      this.requireVersion(command.object.objectId, command.expectedVersion);
+      const current = this.getPrimaryAnchorById(command.anchor.anchorId);
+      if (!current || current.objectId !== command.object.objectId || current.status === "replaced") {
+        throw persistenceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 已变化；本次观察没有写入。", { objectId: command.object.objectId });
+      }
+      this.writeObject(command.object);
+      const updated = this.database.prepare(`
+        UPDATE anchors SET status = ?, last_seen_at = ?
+        WHERE anchor_id = ? AND object_id = ? AND role = 'primary_text' AND status <> 'replaced'
+      `).run(command.anchor.status, command.anchor.lastSeenAt, command.anchor.anchorId, command.object.objectId);
+      if (updated.changes !== 1) throw persistenceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 已变化；本次观察没有写入。");
       this.writeAudit(command.audit);
       const result = { object: command.object, anchor: command.anchor };
       this.writeReceipt(command.idempotencyKey, command.audit, result);
@@ -533,7 +561,7 @@ export class V2SqliteStore {
     if (command === "create_object" || command === "transition_lifecycle") {
       return { command, object: result as V2ManagedObject };
     }
-    if (command === "materialize_explicit_object" || command === "synchronize_explicit_object" || command === "bind_primary_anchor") {
+    if (command === "materialize_explicit_object" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
       return { command, ...value };
     }
@@ -848,42 +876,41 @@ export class V2SqliteStore {
   getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined {
     const row = this.database.prepare(`
       SELECT * FROM anchors
-      WHERE graph_id = ? AND external_id = ? AND role = 'primary_text' AND status = 'active'
+      WHERE graph_id = ? AND external_id = ? AND role = 'primary_text' AND status <> 'replaced'
     `).get(graphId, externalId) as Record<string, unknown> | undefined;
-    if (!row) return undefined;
+    return row ? this.mapAnchor(row) : undefined;
+  }
+
+  getPrimaryAnchorById(anchorId: string): V2Anchor | undefined {
+    const row = this.database.prepare("SELECT * FROM anchors WHERE anchor_id = ? AND role = 'primary_text'").get(anchorId) as Record<string, unknown> | undefined;
+    return row ? this.mapAnchor(row) : undefined;
+  }
+
+  listPrimaryAnchors(graphId: string, afterExternalId?: string, limit = 257): V2Anchor[] {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_001) {
+      throw persistenceError("V2_ANCHOR_QUERY_LIMIT_INVALID", "Primary Anchor 查询上限无效。");
+    }
+    const rows = this.database.prepare(`
+      SELECT * FROM anchors
+      WHERE graph_id = ? AND role = 'primary_text' AND status <> 'replaced'
+        AND (? IS NULL OR external_id > ?)
+      ORDER BY external_id ASC, anchor_id ASC
+      LIMIT ?
+    `).all(graphId, afterExternalId ?? null, afterExternalId ?? null, limit) as Array<Record<string, unknown>>;
+    return rows.map((row) => this.mapAnchor(row));
+  }
+
+  private mapAnchor(row: Record<string, unknown>): V2Anchor {
     return {
       anchorId: String(row.anchor_id),
       objectId: String(row.object_id),
       graphId: String(row.graph_id),
       externalId: String(row.external_id),
       role: "primary_text",
-      status: "active",
+      status: String(row.status) as V2Anchor["status"],
       contentHash: String(row.content_hash),
       lastSeenAt: String(row.last_seen_at),
     };
-  }
-
-  listActivePrimaryAnchors(graphId: string, afterExternalId?: string, limit = 257): V2Anchor[] {
-    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_001) {
-      throw persistenceError("V2_ANCHOR_QUERY_LIMIT_INVALID", "Primary Anchor 查询上限无效。");
-    }
-    const rows = this.database.prepare(`
-      SELECT * FROM anchors
-      WHERE graph_id = ? AND role = 'primary_text' AND status = 'active'
-        AND (? IS NULL OR external_id > ?)
-      ORDER BY external_id ASC, anchor_id ASC
-      LIMIT ?
-    `).all(graphId, afterExternalId ?? null, afterExternalId ?? null, limit) as Array<Record<string, unknown>>;
-    return rows.map((row) => ({
-      anchorId: String(row.anchor_id),
-      objectId: String(row.object_id),
-      graphId: String(row.graph_id),
-      externalId: String(row.external_id),
-      role: "primary_text",
-      status: "active",
-      contentHash: String(row.content_hash),
-      lastSeenAt: String(row.last_seen_at),
-    }));
   }
 
   listObjects(): V2ManagedObject[] {

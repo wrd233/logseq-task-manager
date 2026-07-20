@@ -5,6 +5,7 @@ import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilo
 
 import {
   V2Application,
+  type V2AnchorObservationCommand,
   type V2AnchorCommand,
   type V2AuditRecord,
   type V2CommandReceipt,
@@ -28,6 +29,10 @@ class MemoryV2Repository implements V2ObjectRepository {
 
   getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined {
     return [...this.anchors.values()].find((anchor) => anchor.graphId === graphId && anchor.externalId === externalId && anchor.role === "primary_text");
+  }
+
+  getPrimaryAnchorById(anchorId: string): V2Anchor | undefined {
+    return [...this.anchors.values()].find((anchor) => anchor.anchorId === anchorId);
   }
 
   commitObject(command: V2ObjectCommand): { object: V2ManagedObject; replayed: boolean } {
@@ -74,6 +79,20 @@ class MemoryV2Repository implements V2ObjectRepository {
     this.values.set(command.object.objectId, command.object);
     this.anchors.set(command.object.objectId, command.anchor);
     this.receipts.set(command.idempotencyKey, { command: "synchronize_explicit_object", object: command.object, anchor: command.anchor });
+    this.audit.push(command.audit);
+    return { object: command.object, anchor: command.anchor, replayed: false };
+  }
+
+  commitAnchorObservation(command: V2AnchorObservationCommand): { object: V2ManagedObject; anchor: V2Anchor; replayed: boolean } {
+    const receipt = this.receipts.get(command.idempotencyKey);
+    if (receipt?.command === "observe_primary_anchor") return { object: receipt.object, anchor: receipt.anchor, replayed: true };
+    const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
+    if (actualVersion !== command.expectedVersion) throw new Error(`version ${actualVersion} != ${command.expectedVersion}`);
+    const current = this.getPrimaryAnchorById(command.anchor.anchorId);
+    if (!current || current.objectId !== command.object.objectId) throw new Error("primary anchor changed");
+    this.values.set(command.object.objectId, command.object);
+    this.anchors.set(command.object.objectId, command.anchor);
+    this.receipts.set(command.idempotencyKey, { command: "observe_primary_anchor", object: command.object, anchor: command.anchor });
     this.audit.push(command.audit);
     return { object: command.object, anchor: command.anchor, replayed: false };
   }
@@ -275,4 +294,30 @@ test("bound explicit Block synchronization updates same-type evidence and reject
   }, { actor: "logseq-plugin", expectedVersion: 3, idempotencyKey: "sync-type", traceId: "trace-type" }), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL");
   assert.equal(repository.values.get("task-sync")?.objectType, "TASK");
   assert.equal(repository.audit.length, 2);
+});
+
+test("Anchor observations are versioned, idempotent, and never delete the object", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const created = await application.materializeExplicitObject({
+    objectId: "task-observed",
+    objectType: "TASK",
+    text: "保留对象",
+    anchor: { anchorId: "anchor-observed", graphId: "graph-1", externalId: "block-observed", contentHash: "11111111" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-observed", traceId: "trace-materialize" });
+  const envelope = { actor: "logseq-plugin", expectedVersion: created.object.version, idempotencyKey: "observe-missing-v2", traceId: "trace-missing" };
+  const missing = await application.observePrimaryAnchor({ anchorId: created.anchor.anchorId, status: "missing" }, envelope, new Date("2026-07-20T08:02:00Z"));
+  assert.equal(missing.anchor.status, "missing");
+  assert.equal(repository.getObject("task-observed")?.version, 3);
+  assert.equal(repository.values.size, 1);
+  const unchanged = await application.observePrimaryAnchor({ anchorId: created.anchor.anchorId, status: "missing" }, {
+    actor: "logseq-plugin", expectedVersion: 3, idempotencyKey: "observe-missing-unchanged", traceId: "trace-unchanged",
+  });
+  assert.equal(unchanged.object.version, 3);
+  assert.equal(unchanged.replayed, true);
+  assert.equal(repository.audit.length, 2, "unchanged observation must not create a write or audit record");
+  assert.equal((await application.observePrimaryAnchor({ anchorId: created.anchor.anchorId, status: "conflict" }, envelope)).anchor.status, "missing", "replay must not adopt a different payload");
+  await assert.rejects(() => application.observePrimaryAnchor({ anchorId: created.anchor.anchorId, status: "active" }, {
+    actor: "logseq-plugin", expectedVersion: 2, idempotencyKey: "observe-stale", traceId: "trace-stale",
+  }), /version|\u7248\u672c/);
 });

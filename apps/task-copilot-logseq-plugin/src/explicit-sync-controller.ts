@@ -6,6 +6,7 @@ import {
 } from "@task-copilot/logseq-adapter";
 import type {
   ServiceMaterializeExplicitObjectRequest,
+  ServicePrimaryAnchorObservationRequest,
   ServicePrimaryAnchorPage,
   ServiceSynchronizeExplicitObjectResult,
 } from "@task-copilot/service-client";
@@ -15,6 +16,7 @@ import { checksum } from "@task-copilot/shared";
 export interface ExplicitSyncTransport {
   synchronizeExplicitObject(input: ServiceMaterializeExplicitObjectRequest): Promise<ServiceSynchronizeExplicitObjectResult>;
   listPrimaryAnchors?(cursor?: string): Promise<ServicePrimaryAnchorPage>;
+  observePrimaryAnchor?(input: ServicePrimaryAnchorObservationRequest): Promise<unknown>;
 }
 
 export interface ExplicitSyncIssue {
@@ -242,19 +244,25 @@ export class ExplicitSyncController {
       if (!value || typeof value !== "object" || Array.isArray(value)) {
         this.needsReconciliation = true;
         this.issue("EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING", "Primary Anchor 对应 Block 不可用；对象未删除。", anchor.externalId);
+        await this.persistAnchorObservation(transport, anchor, "missing");
         continue;
       }
       const block = value as { uuid?: unknown; content?: unknown };
       if (block.uuid !== anchor.externalId || typeof block.content !== "string") {
         this.needsReconciliation = true;
-        this.issue("EXPLICIT_SYNC_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 返回了不一致的 Block 形态；正式状态未修改。", anchor.externalId);
+        this.issue("EXPLICIT_SYNC_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 返回了不一致的 Block 形态；对象保留并记录冲突。", anchor.externalId);
+        await this.persistAnchorObservation(transport, anchor, "conflict");
         continue;
       }
-      if (checksum(block.content) === anchor.contentHash) continue;
+      if (checksum(block.content) === anchor.contentHash) {
+        if (anchor.status !== "active") await this.persistAnchorObservation(transport, anchor, "active");
+        continue;
+      }
       const parsed = parseExplicitObjectSyntax(block.content);
       if (parsed.kind !== "OBJECT") {
         this.needsReconciliation = true;
         this.issue(parsed.kind === "INVALID" ? parsed.code : "EXPLICIT_SYNC_MARKER_REMOVED", "已绑定 Block 的显式对象语法已改变；需要审阅。", anchor.externalId);
+        await this.persistAnchorObservation(transport, anchor, "conflict");
         continue;
       }
       this.onBlocksChanged([value]);
@@ -263,6 +271,26 @@ export class ExplicitSyncController {
     if (this.disposed) return;
     await this.debouncer.flush();
     await this.drain();
+  }
+
+  private async persistAnchorObservation(
+    transport: ExplicitSyncTransport,
+    anchor: V2Anchor,
+    status: ServicePrimaryAnchorObservationRequest["status"],
+  ): Promise<void> {
+    if (anchor.status === status) return;
+    if (!transport.observePrimaryAnchor) {
+      this.needsReconciliation = true;
+      this.issue("EXPLICIT_SYNC_ANCHOR_OBSERVATION_UNAVAILABLE", "Local Service 不支持 Anchor 观察写入；对象保持不变。", anchor.externalId);
+      return;
+    }
+    try {
+      await transport.observePrimaryAnchor({ anchorId: anchor.anchorId, status, traceId: this.createTraceId() });
+    } catch (error) {
+      if (this.disposed) return;
+      this.needsReconciliation = true;
+      this.issue(errorCode(error), "Primary Anchor 观察未持久化；对象保持不变，后续将重试。", anchor.externalId);
+    }
   }
 
   private issue(code: string, message: string, externalId?: string): void {

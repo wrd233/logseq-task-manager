@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ServiceSynchronizeExplicitObjectResult } from "@task-copilot/service-client";
+import { checksum } from "@task-copilot/shared";
 
 import { ExplicitSyncController, registerExplicitSyncEvents, type ExplicitSyncState, type ExplicitSyncTransport } from "../src/explicit-sync-controller.ts";
 
@@ -181,12 +182,14 @@ test("Logseq DB event registration forwards only transaction Blocks and unregist
 test("service recovery reconciles only known Anchors and reports missing or removed markers", async () => {
   const issues: string[] = [];
   const synchronized: string[] = [];
+  const observations: Array<[string, string]> = [];
   const controller = new ExplicitSyncController({
     delayMs: 0,
     createTraceId: () => "trace-reconcile",
     readBlock: async (externalId) => {
       if (externalId === "block-changed") return { uuid: externalId, content: "[任务] 恢复后新标题", "updated-at": 2002 };
       if (externalId === "block-removed") return { uuid: externalId, content: "普通正文", "updated-at": 2003 };
+      if (externalId === "block-recovered") return { uuid: externalId, content: "[任务] 原文", "updated-at": 2004 };
       return null;
     },
     onIssue: (issue) => issues.push(issue.code),
@@ -198,14 +201,20 @@ test("service recovery reconciles only known Anchors and reports missing or remo
         { anchorId: "a1", objectId: "o1", graphId: "graph", externalId: "block-changed", role: "primary_text", status: "active", contentHash: "00000000", lastSeenAt: at },
         { anchorId: "a2", objectId: "o2", graphId: "graph", externalId: "block-removed", role: "primary_text", status: "active", contentHash: "00000000", lastSeenAt: at },
         { anchorId: "a3", objectId: "o3", graphId: "graph", externalId: "block-missing", role: "primary_text", status: "active", contentHash: "00000000", lastSeenAt: at },
+        { anchorId: "a4", objectId: "o4", graphId: "graph", externalId: "block-recovered", role: "primary_text", status: "missing", contentHash: checksum("[任务] 原文"), lastSeenAt: at },
       ] };
     },
     async synchronizeExplicitObject(input) {
       synchronized.push(input.externalId);
       return success("reconciled", 3);
     },
+    async observePrimaryAnchor(input) {
+      observations.push([input.anchorId, input.status]);
+      return {};
+    },
   });
   assert.deepEqual(synchronized, ["block-changed"]);
+  assert.deepEqual(observations, [["a2", "conflict"], ["a3", "missing"], ["a4", "active"]]);
   assert.deepEqual(issues, ["EXPLICIT_SYNC_MARKER_REMOVED", "EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING"]);
   assert.deepEqual(controller.snapshot(), { pending: 0, transportReady: true, reconciliationRequired: true });
 });
@@ -235,6 +244,38 @@ test("known Anchor reconciliation advances a bounded cursor across low-frequency
   await controller.reconcileKnownAnchors();
   assert.deepEqual(cursors, [undefined, "block-1"]);
   assert.deepEqual(synchronized, ["block-1", "block-2"]);
+});
+
+test("failed Anchor observation is explicit and retries without deleting or blocking other Graph reads", async () => {
+  const issues: string[] = [];
+  let attempts = 0;
+  const at = "2026-07-20T08:00:00.000Z";
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    readBlock: async () => null,
+    onIssue: (issue) => issues.push(issue.code),
+  });
+  await controller.resume({
+    async listPrimaryAnchors() {
+      return { anchors: [{ anchorId: "a-retry", objectId: "o-retry", graphId: "graph", externalId: "block-retry", role: "primary_text", status: "active", contentHash: "11111111", lastSeenAt: at }] };
+    },
+    async synchronizeExplicitObject() {
+      throw new Error("must not synchronize a missing block");
+    },
+    async observePrimaryAnchor() {
+      attempts += 1;
+      if (attempts === 1) throw Object.assign(new Error("temporary service failure"), { code: "SERVICE_UNAVAILABLE" });
+      return {};
+    },
+  });
+  await controller.reconcileKnownAnchors();
+  assert.equal(attempts, 2);
+  assert.deepEqual(issues, [
+    "EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING",
+    "SERVICE_UNAVAILABLE",
+    "EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING",
+  ]);
+  assert.equal(controller.snapshot().reconciliationRequired, true);
 });
 
 test("dispose stops an in-flight known Anchor check before any late Graph or Service work", async () => {

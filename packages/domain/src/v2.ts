@@ -165,6 +165,39 @@ export function bindV2PrimaryAnchor(
   };
 }
 
+export function observeV2PrimaryAnchor(
+  object: V2ManagedObject,
+  anchor: V2Anchor,
+  status: Extract<V2AnchorStatus, "active" | "missing" | "conflict">,
+  expectedVersion: number,
+  at = new Date(),
+): { object: V2ManagedObject; anchor: V2Anchor } {
+  requireExpectedVersion(object, expectedVersion);
+  if (anchor.objectId !== object.objectId || anchor.role !== "primary_text") {
+    throw new StructuredError({
+      code: "V2_PRIMARY_ANCHOR_INVALID",
+      message: "Anchor 观察必须引用该对象的 Primary Anchor。",
+      ruleRefs: ["D-030", "D-033", "D-185"],
+    });
+  }
+  if (anchor.status === "replaced") {
+    throw new StructuredError({
+      code: "V2_REPLACED_ANCHOR_IMMUTABLE",
+      message: "replaced Anchor 只作为历史证据保留，不能被观察路径复活。",
+      ruleRefs: ["D-030", "D-033", "D-185"],
+    });
+  }
+  const timestamp = at.toISOString();
+  return {
+    object: { ...object, version: object.version + 1, updatedAt: timestamp },
+    anchor: {
+      ...anchor,
+      status,
+      ...(status === "missing" ? {} : { lastSeenAt: timestamp }),
+    },
+  };
+}
+
 export function synchronizeV2ExplicitObject(
   object: V2ManagedObject,
   anchor: V2Anchor,
@@ -176,11 +209,11 @@ export function synchronizeV2ExplicitObject(
   if (
     anchor.objectId !== object.objectId ||
     anchor.role !== "primary_text" ||
-    anchor.status !== "active"
+    anchor.status === "replaced"
   ) {
     throw new StructuredError({
       code: "V2_PRIMARY_ANCHOR_INVALID",
-      message: "显式对象同步必须引用该对象唯一 active Primary Anchor。",
+      message: "显式对象同步必须引用该对象未被替换的唯一 Primary Anchor。",
       ruleRefs: ["D-030", "D-033", "D-185"],
     });
   }
@@ -203,6 +236,7 @@ export function synchronizeV2ExplicitObject(
     },
     anchor: {
       ...anchor,
+      status: "active",
       contentHash: input.contentHash,
       lastSeenAt: timestamp,
     },

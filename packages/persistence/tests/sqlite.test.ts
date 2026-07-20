@@ -501,5 +501,29 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
   }, { actor: "logseq-plugin", expectedVersion: 3, idempotencyKey: "sync-type", traceId: "trace-type" }), /Proposal/);
   assert.equal(store.getObject("task-materialized")?.objectType, "TASK");
   assert.equal(store.auditEventCount(), 2);
+
+  const missing = await application.observePrimaryAnchor({ anchorId: "anchor-materialized", status: "missing" }, {
+    actor: "logseq-plugin", expectedVersion: 3, idempotencyKey: "observe-block-1-missing-v3", traceId: "trace-missing",
+  }, new Date("2026-07-20T07:02:00Z"));
+  assert.equal(missing.anchor.status, "missing");
+  assert.equal(store.getPrimaryAnchorByExternal("graph-a", "block-1")?.status, "missing");
+  assert.equal(store.listPrimaryAnchors("graph-a")[0]?.status, "missing");
+  assert.equal(store.getObject("task-materialized")?.version, 4, "Anchor observation and object version must commit atomically");
+
+  const recovered = await application.synchronizeExplicitObject({
+    objectType: "TASK",
+    text: "核对时间同步来源并保存证据",
+    graphId: "graph-a",
+    externalId: "block-1",
+    contentHash: "22222222",
+  }, { actor: "logseq-plugin", expectedVersion: 4, idempotencyKey: "recover-block-1", traceId: "trace-recover" }, new Date("2026-07-20T07:03:00Z"));
+  assert.equal(recovered.anchor.status, "active");
+  assert.equal(store.getObject("task-materialized")?.version, 5);
+  assert.equal(store.auditEventCount(), 4);
+
+  await assert.rejects(() => application.observePrimaryAnchor({ anchorId: "anchor-materialized", status: "conflict" }, {
+    actor: "logseq-plugin", expectedVersion: 4, idempotencyKey: "observe-stale-v4", traceId: "trace-stale-observation",
+  }), /版本/);
+  assert.equal(store.getPrimaryAnchorById("anchor-materialized")?.status, "active");
   store.close();
 });

@@ -80,6 +80,12 @@ export interface ServicePrimaryAnchorPage {
   nextCursor?: string;
 }
 
+export interface ServicePrimaryAnchorObservationRequest {
+  anchorId: string;
+  status: "active" | "missing" | "conflict";
+  traceId: string;
+}
+
 export type ServiceConnectionState =
   | { status: "READY"; capabilities: ServiceCapabilities; formalWritesAvailable: boolean; graphEditingAvailable: true }
   | { status: "RESTRICTED"; reasonCode: string; message: string; formalWritesAvailable: false; graphEditingAvailable: true };
@@ -232,6 +238,14 @@ export class LocalServiceClient {
   listPrimaryAnchors(cursor?: string): Promise<ServicePrimaryAnchorPage> {
     const query = cursor ? `?after=${encodeURIComponent(cursor)}` : "";
     return this.request<ServicePrimaryAnchorPage>(`/anchors/primary${query}`);
+  }
+
+  observePrimaryAnchor(input: ServicePrimaryAnchorObservationRequest): Promise<ServiceMaterializeExplicitObjectResult> {
+    return this.request<ServiceMaterializeExplicitObjectResult>("/anchors/primary/observe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
   }
 
   async getObject(objectId: string): Promise<V2ManagedObject | undefined> {

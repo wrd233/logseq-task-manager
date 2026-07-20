@@ -136,6 +136,30 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL");
   assert.equal((await client.getObject(synchronizedFirst.object.objectId))?.objectType, "TASK");
 
+  const observedMissing = await client.observePrimaryAnchor({
+    anchorId: synchronizedUpdate.anchor.anchorId,
+    status: "missing",
+    traceId: "trace-anchor-missing",
+  });
+  assert.equal(observedMissing.anchor.status, "missing");
+  assert.equal(observedMissing.object.version, 4);
+  assert.equal((await client.observePrimaryAnchor({
+    anchorId: synchronizedUpdate.anchor.anchorId,
+    status: "missing",
+    traceId: "trace-anchor-missing-repeat",
+  })).object.version, 4, "an unchanged repeated observation must not inflate object versions");
+  assert.equal((await client.listPrimaryAnchors()).anchors.find((anchor) => anchor.anchorId === observedMissing.anchor.anchorId)?.status, "missing");
+  const recovered = await client.synchronizeExplicitObject({
+    ...input,
+    text: "核对时间同步来源并保存证据",
+    externalId: "block-sync",
+    contentHash: checksum("[任务] 核对时间同步来源并保存证据"),
+    inputVersion: "1004",
+    idempotencyKey: "sync-block:recover",
+  });
+  assert.equal(recovered.anchor.status, "active");
+  assert.equal(recovered.object.version, 5);
+
   const unsafe = await fetch(new URL("objects/materialize", service.url), {
     method: "POST",
     headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
@@ -144,6 +168,21 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   assert.equal(unsafe.status, 400);
   assert.equal((await unsafe.json() as { error: { code: string } }).error.code, "MATERIALIZATION_REQUEST_INVALID");
   assert.equal((await client.status()).objectCount, 2);
+
+  const unsafeObservation = await fetch(new URL("anchors/primary/observe", service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ anchorId: recovered.anchor.anchorId, status: "missing", traceId: "trace-unsafe", graphId: "caller-graph" }),
+  });
+  assert.equal(unsafeObservation.status, 400);
+  assert.equal((await unsafeObservation.json() as { error: { code: string } }).error.code, "PRIMARY_ANCHOR_OBSERVATION_INVALID");
+  const missingObservation = await fetch(new URL("anchors/primary/observe", service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ anchorId: "missing-anchor", status: "missing", traceId: "trace-not-found" }),
+  });
+  assert.equal(missingObservation.status, 404);
+  assert.equal((await missingObservation.json() as { error: { code: string } }).error.code, "V2_PRIMARY_ANCHOR_NOT_FOUND");
 });
 
 test("Backup API creates a private server-named snapshot and validates it read-only", async (t) => {

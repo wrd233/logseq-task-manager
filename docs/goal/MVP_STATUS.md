@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 148 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI schema v3 and restore/restart process smokes PASS; Slice B0 parser and B1-B2 materialize/synchronize backend PASS"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B2/B4 foundation in progress"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 163 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI schema v3 and restore/restart process smokes PASS; Slice B known-Anchor missing/conflict/recovery persistence PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -27,6 +27,7 @@ implemented:
   - "SQLite locked writes fail with zero formal writes; backups reject overwrite and validate schema, Graph identity, integrity and foreign keys read-only"
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
   - "SQLite schema v3 migration and SemanticCommit step ledgers; v1/v2 upgrades require a validated preflight snapshot and roll back atomically on injected failure"
+  - "Known Primary Anchor observations persist missing/conflict/recovery through Local Service and one SQLite transaction without deleting objects or reviving replaced Anchors"
 pilot_results:
   capture: PASS
   task: PASS_WITH_DOCUMENTED_REBIND_LIMITATION

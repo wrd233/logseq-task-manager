@@ -6,6 +6,7 @@ import {
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
   createV2ManagedObject,
+  observeV2PrimaryAnchor,
   selectFocus,
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
@@ -50,6 +51,30 @@ test("Primary Anchor and Ownership are versioned domain changes independent of l
     assignedAt: "2026-07-20T07:01:00.000Z",
   });
   assert.throws(() => assignV2PrimaryOwner(project, task, 1), /不能/);
+});
+
+test("Primary Anchor observation preserves the object and can recover the same UUID", () => {
+  const initial = createV2ManagedObject({ objectId: "task-observed", objectType: "TASK", text: "核对告警" }, new Date("2026-07-20T08:00:00Z"));
+  const bound = bindV2PrimaryAnchor(initial, {
+    anchorId: "anchor-observed",
+    graphId: "graph-1",
+    externalId: "block-observed",
+    contentHash: "11111111",
+  }, initial.version, new Date("2026-07-20T08:01:00Z"));
+
+  const missing = observeV2PrimaryAnchor(bound.object, bound.anchor, "missing", bound.object.version, new Date("2026-07-20T08:02:00Z"));
+  assert.equal(missing.object.objectId, initial.objectId);
+  assert.equal(missing.object.version, 3);
+  assert.equal(missing.anchor.status, "missing");
+  assert.equal(missing.anchor.contentHash, "11111111");
+  assert.equal(missing.anchor.lastSeenAt, bound.anchor.lastSeenAt, "missing observation must preserve the last confirmed sighting");
+
+  const recovered = observeV2PrimaryAnchor(missing.object, missing.anchor, "active", missing.object.version, new Date("2026-07-20T08:03:00Z"));
+  assert.equal(recovered.object.version, 4);
+  assert.equal(recovered.anchor.status, "active");
+  assert.equal(recovered.anchor.lastSeenAt, "2026-07-20T08:03:00.000Z");
+
+  assert.throws(() => observeV2PrimaryAnchor(recovered.object, { ...recovered.anchor, status: "replaced" }, "active", recovered.object.version), /replaced/);
 });
 test("V2 lifecycle is small, version-checked, and terminal objects only archive", () => {
   const open = createV2ManagedObject({ objectId: "obj_1", objectType: "TASK", text: "完成验证" });

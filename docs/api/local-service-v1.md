@@ -1,6 +1,6 @@
 # Local Service Protocol v1
 
-> 状态：Slice A/B 基础协议；查询、受控 Backup、显式确认后停服的 Restore，以及单一显式 Block 物化写路由已实现。
+> 状态：Slice A/B 基础协议；查询、受控 Backup/Restore、显式 Block 同步与 Primary Anchor 观察写路由已实现。
 
 ## 连接与认证
 
@@ -34,11 +34,12 @@
 | POST | `/backup/restore/apply` | 创建恢复点、离线切换、Doctor，然后停止 Service | 替换当前 DB；高影响 |
 | POST | `/objects/materialize` | 显式 Block 首次物化的 Object + Primary Anchor + Audit + Receipt | SQLite 单事务正式写入 |
 | POST | `/objects/synchronize` | 按绑定状态选择首次物化或同类型标题/Anchor 更新 | SQLite 单事务正式写入 |
+| POST | `/anchors/primary/observe` | 将已知 Primary Anchor 观察为 `active / missing / conflict` | Object version + Anchor + Audit + Receipt 单事务写入；不删对象 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
-| GET | `/anchors/primary?after=<cursor>` | 当前 Graph 的 active Primary Anchor 分页 | 无；每页最多 256，`nextCursor` 驱动后续低频逐 UUID 检查 |
+| GET | `/anchors/primary?after=<cursor>` | 当前 Graph 未被替换的 Primary Anchor 分页，包含 `active / missing / conflict` | 无；每页最多 256，`nextCursor` 驱动后续低频逐 UUID 检查 |
 
-未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示受约束的显式物化路由可用，不表示 Slice B 全部同步、Slice C SemanticCommit 或迁移写入已经开放。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步与 Anchor 观察路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。
 
 ## 显式 Block 物化
 
@@ -65,6 +66,17 @@
 - Parser、Block event 和防抖运行在 Logseq Adapter；该 HTTP 路由本身不猜自然语言、不扫描 Graph、不调用模型。
 
 `POST /objects/synchronize` 使用相同的固定七字段，但由 Service 查询当前 Graph 的 Primary Anchor：未绑定时走首次物化；已绑定且类型相同时更新标题缓存、Anchor content hash/last seen 和对象版本；标识类型变化返回 `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL`，不修改对象。相同 Graph/Block/inputVersion 会按原命令类型重放，因此首次请求在 Anchor 建立后重试也不会被误判成更新。
+
+`POST /anchors/primary/observe` 只接受：
+
+```json
+{"anchorId":"anc_...","status":"missing","traceId":"trace-observe"}
+```
+
+- Graph ID、actor、object_id、expected version 和幂等键由 Service 注入，客户端多传字段会整包拒绝；
+- `missing` 保留最后一次确认可见的 hash/lastSeenAt，`conflict` 表示 UUID 返回形态或显式语法不再可信；两者都不删除 Object；
+- 同一 UUID 恢复为合法显式 Block 时，观察或同类型同步可将 Anchor 恢复为 `active`；`replaced` 只作为历史证据，此路径不能复活；
+- 重复的相同状态是无写入重放，不膨胀 Object version。
 
 ## Backup 请求
 
@@ -116,6 +128,8 @@
 | `BACKUP_ID_INVALID` | ID 格式不符合服务端生成规则，包括路径遍历 |
 | `RESTORE_CONFIRMATION_REQUIRED` | Restore Apply 缺少精确高影响确认 |
 | `MATERIALIZATION_REQUEST_INVALID` | 显式物化字段、类型、长度或服务端所有权边界无效 |
+| `PRIMARY_ANCHOR_OBSERVATION_INVALID` | Anchor 观察字段、状态或服务端所有权边界无效 |
+| `V2_PRIMARY_ANCHOR_NOT_FOUND` | Anchor 不属于当前 Graph、不存在或已被替换 |
 | `V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS` | 同一 Graph Block 已绑定正式对象，必须转入同步而非重复物化 |
 | `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL` | 已绑定对象的显式类型变化，必须进入可审阅 Proposal |
 | `SERVICE_STOPPING` | Restore 进行中拒绝新请求 |

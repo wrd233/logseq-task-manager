@@ -118,3 +118,34 @@ test("materialization client sends no Graph, database path, or caller-selected o
   assert.equal("objectId" in (received as Record<string, unknown>), false);
   assert.equal("databasePath" in (received as Record<string, unknown>), false);
 });
+
+test("Anchor observation client sends only bounded evidence and no Graph authority", async (t) => {
+  const token = "client-anchor-observation-token-24-chars";
+  let received: unknown;
+  const { server, url } = await listen((request, response) => {
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/anchors/primary/observe");
+    assert.equal(request.headers.authorization, `Bearer ${token}`);
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      received = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        object: { objectId: "server-object", objectType: "TASK", version: 3, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "保留对象", createdAt: "2026-07-20T07:00:00.000Z", updatedAt: "2026-07-20T07:01:00.000Z", sourceOrCreationEvent: "explicit" },
+        anchor: { anchorId: "server-anchor", objectId: "server-object", graphId: "server-graph", externalId: "block", role: "primary_text", status: "missing", contentHash: "11111111", lastSeenAt: "2026-07-20T07:00:00.000Z" },
+        replayed: false,
+      }));
+    });
+  });
+  t.after(() => server.close());
+  const result = await new LocalServiceClient(descriptor(url, token)).observePrimaryAnchor({
+    anchorId: "server-anchor",
+    status: "missing",
+    traceId: "trace-observe",
+  });
+  assert.equal(result.anchor.status, "missing");
+  assert.deepEqual(received, { anchorId: "server-anchor", status: "missing", traceId: "trace-observe" });
+  assert.equal("graphId" in (received as Record<string, unknown>), false);
+  assert.equal("expectedVersion" in (received as Record<string, unknown>), false);
+});

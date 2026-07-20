@@ -146,6 +146,34 @@ async function readMaterializeRequest(request: IncomingMessage): Promise<Materia
   return record as unknown as MaterializeRequest;
 }
 
+interface PrimaryAnchorObservationRequest {
+  anchorId: string;
+  status: "active" | "missing" | "conflict";
+  traceId: string;
+}
+
+async function readPrimaryAnchorObservationRequest(request: IncomingMessage): Promise<PrimaryAnchorObservationRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try {
+    value = JSON.parse(body) as unknown;
+  } catch {
+    throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
+  }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const exactKeys = ["anchorId", "status", "traceId"];
+  const actualKeys = Object.keys(record).sort();
+  if (
+    actualKeys.length !== exactKeys.length || actualKeys.some((key, index) => key !== exactKeys[index]) ||
+    typeof record.anchorId !== "string" || !record.anchorId.trim() || record.anchorId.length > 512 ||
+    typeof record.status !== "string" || !["active", "missing", "conflict"].includes(record.status) ||
+    typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+  ) {
+    throw serviceError("PRIMARY_ANCHOR_OBSERVATION_INVALID", "Primary Anchor 观察请求无效或包含服务端所有权字段。");
+  }
+  return record as unknown as PrimaryAnchorObservationRequest;
+}
+
 function explicitSyncIdempotencyKey(graphId: string, input: MaterializeRequest): string {
   const digest = createHash("sha256")
     .update(JSON.stringify([graphId, input.externalId, input.inputVersion]))
@@ -153,13 +181,22 @@ function explicitSyncIdempotencyKey(graphId: string, input: MaterializeRequest):
   return `explicit-sync:${digest}`;
 }
 
+function primaryAnchorObservationIdempotencyKey(graphId: string, input: PrimaryAnchorObservationRequest, expectedVersion: number): string {
+  const digest = createHash("sha256")
+    .update(JSON.stringify([graphId, input.anchorId, input.status, expectedVersion]))
+    .digest("hex");
+  return `anchor-observation:${digest}`;
+}
+
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID"
+      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID"
         ? 400
-        : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
+        : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND"
+          ? 404
+          : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
           : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT"
             ? 409
@@ -279,6 +316,23 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       respond(response, 201, { operation: "MATERIALIZED", ...result });
       return;
     }
+    if (request.method === "POST" && url.pathname === "/anchors/primary/observe") {
+      const input = await readPrimaryAnchorObservationRequest(request);
+      const anchor = store.getPrimaryAnchorById(input.anchorId);
+      if (!anchor || anchor.graphId !== options.graphId || anchor.status === "replaced") {
+        throw serviceError("V2_PRIMARY_ANCHOR_NOT_FOUND", "Primary Anchor 不存在于当前 Graph 或已被替换。");
+      }
+      const current = store.getObject(anchor.objectId);
+      if (!current) throw serviceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 引用的对象不存在；观察已停止。");
+      const result = await application.observePrimaryAnchor({ anchorId: anchor.anchorId, status: input.status }, {
+        actor: "logseq-plugin",
+        expectedVersion: current.version,
+        idempotencyKey: primaryAnchorObservationIdempotencyKey(options.graphId, input, current.version),
+        traceId: input.traceId,
+      });
+      respond(response, 200, result);
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/backup/create") {
       await requireNoBody(request);
       const createdAt = new Date();
@@ -334,7 +388,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (after !== undefined && (!after.trim() || after.length > 512)) {
         throw serviceError("PRIMARY_ANCHOR_CURSOR_INVALID", "Primary Anchor 分页游标无效。");
       }
-      const page = store.listActivePrimaryAnchors(options.graphId, after, 257);
+      const page = store.listPrimaryAnchors(options.graphId, after, 257);
       const anchors = page.slice(0, 256);
       respond(response, 200, {
         anchors,

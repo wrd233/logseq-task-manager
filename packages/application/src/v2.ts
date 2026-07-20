@@ -2,6 +2,7 @@ import {
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
   createV2ManagedObject,
+  observeV2PrimaryAnchor,
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
   type CreateV2ManagedObjectInput,
@@ -24,17 +25,19 @@ export interface V2ObjectRepository {
   commitObject(command: V2ObjectCommand): V2ObjectCommandResult | Promise<V2ObjectCommandResult>;
   commitMaterialization(command: V2MaterializationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitSynchronization(command: V2SynchronizationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
+  commitAnchorObservation(command: V2AnchorObservationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult | Promise<V2OwnershipCommandResult>;
   getObject(objectId: string): V2ManagedObject | undefined | Promise<V2ManagedObject | undefined>;
   getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined | Promise<V2Anchor | undefined>;
+  getPrimaryAnchorById(anchorId: string): V2Anchor | undefined | Promise<V2Anchor | undefined>;
   listObjects(): V2ManagedObject[] | Promise<V2ManagedObject[]>;
 }
 
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "materialize_explicit_object" | "synchronize_explicit_object" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
+  command: "create_object" | "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -70,6 +73,10 @@ export interface V2SynchronizationCommand extends V2AnchorCommand {
   audit: V2AuditRecord & { command: "synchronize_explicit_object" };
 }
 
+export interface V2AnchorObservationCommand extends V2AnchorCommand {
+  audit: V2AuditRecord & { command: "observe_primary_anchor" };
+}
+
 export interface V2AnchorCommandResult {
   object: V2ManagedObject;
   anchor: V2Anchor;
@@ -92,7 +99,7 @@ export interface V2OwnershipCommandResult {
 
 export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle"; object: V2ManagedObject }
-  | { command: "materialize_explicit_object" | "synchronize_explicit_object" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
+  | { command: "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership };
 
 export interface MaterializeExplicitObjectInput {
@@ -108,6 +115,11 @@ export interface SynchronizeExplicitObjectInput {
   graphId: string;
   externalId: string;
   contentHash: string;
+}
+
+export interface ObservePrimaryAnchorInput {
+  anchorId: string;
+  status: "active" | "missing" | "conflict";
 }
 
 function requireEnvelope(envelope: V2CommandEnvelope): void {
@@ -232,6 +244,39 @@ export class V2Application {
         traceId: envelope.traceId,
         actor: envelope.actor,
         command: "synchronize_explicit_object",
+        objectId: current.objectId,
+        beforeVersion: current.version,
+        afterVersion: candidate.object.version,
+        occurredAt: at.toISOString(),
+      },
+    });
+  }
+
+  async observePrimaryAnchor(
+    input: ObservePrimaryAnchorInput,
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2AnchorCommandResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "observe_primary_anchor");
+    if (replay?.command === "observe_primary_anchor") {
+      return { object: replay.object, anchor: replay.anchor, replayed: true };
+    }
+    const anchor = await this.objects.getPrimaryAnchorById(input.anchorId);
+    if (!anchor) {
+      throw new StructuredError({ code: "V2_PRIMARY_ANCHOR_NOT_FOUND", message: `Primary Anchor ${input.anchorId} 不存在。`, ruleRefs: ["D-030", "D-185"] });
+    }
+    const current = await this.requireObject(anchor.objectId);
+    if (anchor.status === input.status) return { object: current, anchor, replayed: true };
+    const candidate = observeV2PrimaryAnchor(current, anchor, input.status, envelope.expectedVersion, at);
+    return this.objects.commitAnchorObservation({
+      ...candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "observe_primary_anchor",
         objectId: current.objectId,
         beforeVersion: current.version,
         afterVersion: candidate.object.version,
