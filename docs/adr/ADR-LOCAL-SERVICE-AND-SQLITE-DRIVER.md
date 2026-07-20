@@ -19,7 +19,9 @@ Node 20 没有内建 `node:sqlite`，因此不为等待 Node 升级阻塞 V2，�
 - expected version 与 idempotency receipt 在同一事务；
 - backup 可独立打开并通过 integrity/foreign-key Doctor；
 - Service 仅绑定 loopback，认证、health/status/doctor/只读 objects 路由通过；不存在意外写路由。
+- runtime descriptor 原子写入且权限 0600；Client 同时校验 descriptor 与运行协议，Service 退出清除 descriptor；
+- `tc status/doctor/object` 只经 Service，具有稳定 JSON envelope 与退出码；真实独立进程冒烟通过。
 
 ## 限制与后续
 
-本 ADR 只完成 Slice A 的技术基础，不表示正式切换：当前 Plugin 仍运行冻结的 V1；Service 尚未获得 Application command 写入口，CLI、启动发现、token descriptor、协议不兼容与 Desktop 受限模式仍待实现。
+本 ADR 只完成 Slice A 的技术基础，不表示正式切换：当前 Plugin 仍运行冻结的 V1；Service 的 HTTP 层尚未获得正式 Application write route，Plugin 的安全 descriptor 发现和 Desktop 受限模式仍待实现。

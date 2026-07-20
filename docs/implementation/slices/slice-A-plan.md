@@ -137,3 +137,21 @@ POST /service/shutdown
 - backup/restore 临时演练通过；
 - 全部新失败路径和根级检查通过；
 - 文档、ADR、追踪和已知限制同步更新。
+
+## 2026-07-20 实施进度
+
+已完成并自动验证：
+
+- A0：V1/V2 主权、FileStorage 只读、Legacy 映射 ADR；
+- A1 foundation：六类对象、Lifecycle/Condition/Focus、Application command envelope、版本与幂等；
+- A2 foundation：Graph-bound SQLite schema、Object/Audit 原子事务、Primary Anchor/Owner 唯一约束、损坏/未知 schema 保护、Doctor 与 backup；
+- A3 foundation：仅 loopback、session auth、0600 descriptor、Client protocol/timeout/unavailable restricted state；
+- A4 foundation：可执行 Service，`tc status/doctor/object`、JSON envelope、退出码和独立进程冒烟。
+
+尚未满足 Slice A Gate：
+
+- Plugin 的安全 Service discovery 与 Desktop 受限模式；
+- SQLite locked、restore validate、Commit/migration ledger 完整失败路径；
+- 首次启用欢迎页三入口和真实 reload；
+- 正式 Graph + SQLite write route（在 SemanticCommit Gate 前保持关闭）；
+- 完整 CLI graph/context/proposal/skill 属 Slice F，不在 A 中冒充完成。

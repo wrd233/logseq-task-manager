@@ -2,13 +2,20 @@ import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import { V2SqliteStore } from "@task-copilot/persistence/node";
+import {
+  LOCAL_SERVICE_PROTOCOL_VERSION,
+  type ServiceCapabilities,
+  type ServiceDescriptor,
+} from "@task-copilot/service-client";
+import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
 
-export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
+export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
 export interface LocalServiceOptions {
   databasePath: string;
   graphId: string;
   token?: string;
+  descriptorPath?: string;
 }
 export interface LocalServiceHandle {
   url: string;
@@ -35,6 +42,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   if (token.length < 24) throw new Error("Local Service session token must contain at least 24 characters");
   const store = await V2SqliteStore.open(options.databasePath);
   store.initialize(options.graphId);
+  const capabilities: ServiceCapabilities = { formalWrites: false, migration: false, provider: false };
 
   const server = createServer((request, response) => {
     if (!authorized(request, token)) {
@@ -43,7 +51,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (request.method === "GET" && url.pathname === "/health") {
-      respond(response, 200, { status: "READY", protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION });
+      respond(response, 200, { status: "READY", protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION, capabilities });
       return;
     }
     if (request.method === "GET" && url.pathname === "/status") {
@@ -51,6 +59,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       respond(response, doctor.status === "PASS" ? 200 : 503, {
         status: doctor.status === "PASS" ? "READY" : "RESTRICTED",
         protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
+        capabilities,
         databaseSchemaVersion: doctor.schemaVersion,
         objectCount: doctor.objectCount,
       });
@@ -90,12 +99,30 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     throw new Error("Local Service must bind only to 127.0.0.1");
   }
 
+  if (options.descriptorPath) {
+    const descriptor: ServiceDescriptor = {
+      protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
+      url: `http://127.0.0.1:${address.port}/`,
+      token,
+      pid: process.pid,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      await writeServiceDescriptor(options.descriptorPath, descriptor);
+    } catch (error) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      store.close();
+      throw error;
+    }
+  }
+
   return {
-    url: `http://127.0.0.1:${address.port}`,
+    url: `http://127.0.0.1:${address.port}/`,
     token,
     close: async () => {
       await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
       store.close();
+      if (options.descriptorPath) await removeServiceDescriptor(options.descriptorPath);
     },
   };
 }

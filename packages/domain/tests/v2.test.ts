@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   V2_OBJECT_TYPES,
+  assignV2PrimaryOwner,
+  bindV2PrimaryAnchor,
   createV2ManagedObject,
   selectFocus,
   transitionV2Lifecycle,
@@ -17,6 +19,36 @@ test("V2 exposes exactly six user-visible object types without Phase or Signal",
   assert.equal(object.text, "[任务] 验证外部推送");
   assert.equal("phase" in object, false);
   assert.equal("signals" in object, false);
+});
+
+test("Primary Anchor and Ownership are versioned domain changes independent of location", () => {
+  const task = createV2ManagedObject({ objectId: "task-1", objectType: "TASK", text: "任务" });
+  const project = createV2ManagedObject({ objectId: "project-1", objectType: "PROJECT", text: "项目" });
+  const bound = bindV2PrimaryAnchor(task, {
+    anchorId: "anchor-1",
+    graphId: "graph-1",
+    externalId: "block-uuid-1",
+    contentHash: "hash-1",
+  }, 1, new Date("2026-07-20T07:00:00Z"));
+  assert.equal(bound.object.version, 2);
+  assert.deepEqual(bound.anchor, {
+    anchorId: "anchor-1",
+    objectId: "task-1",
+    graphId: "graph-1",
+    externalId: "block-uuid-1",
+    role: "primary_text",
+    status: "active",
+    contentHash: "hash-1",
+    lastSeenAt: "2026-07-20T07:00:00.000Z",
+  });
+  const assigned = assignV2PrimaryOwner(bound.object, project, 2, new Date("2026-07-20T07:01:00Z"));
+  assert.equal(assigned.object.version, 3);
+  assert.deepEqual(assigned.ownership, {
+    childObjectId: "task-1",
+    ownerObjectId: "project-1",
+    assignedAt: "2026-07-20T07:01:00.000Z",
+  });
+  assert.throws(() => assignV2PrimaryOwner(project, task, 1), /不能/);
 });
 test("V2 lifecycle is small, version-checked, and terminal objects only archive", () => {
   const open = createV2ManagedObject({ objectId: "obj_1", objectType: "TASK", text: "完成验证" });

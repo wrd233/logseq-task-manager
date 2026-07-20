@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 copied-data Pilot PARTIAL; V2 Slice A0 migration contract complete; Slice A1-A3 pending"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 91 tests; 145 rules; 0 skipped; build/boundaries/recovery rehearsal passed"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 113 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI process smoke PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -17,6 +17,11 @@ implemented:
   - "OD-003: reviewable Phase/Signal migration to Lifecycle/Condition/Focus"
   - "Four-item copied-data Pilot on a dedicated local page"
   - "Migration design, Legacy mapping and bounded DeepSeek live-test plan"
+  - "V2 six-object Domain and Lifecycle/Condition/Focus seam"
+  - "Application command envelope with atomic SQLite object/audit/idempotency receipts"
+  - "Primary Anchor and Primary Ownership Domain plus SQLite uniqueness"
+  - "Authenticated loopback Service, 0600 descriptor, versioned Client and restricted-state model"
+  - "Executable read-only tc status/doctor/object CLI with JSON envelope and exit codes"
 pilot_results:
   capture: PASS
   task: PASS_WITH_DOCUMENTED_REBIND_LIMITATION

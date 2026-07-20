@@ -38,6 +38,26 @@ export interface FocusSelection {
   expiresAt?: string;
 }
 
+export type V2AnchorRole = "primary_text" | "source" | "context" | "event" | "output";
+export type V2AnchorStatus = "active" | "missing" | "replaced" | "conflict";
+
+export interface V2Anchor {
+  anchorId: string;
+  objectId: string;
+  graphId: string;
+  externalId: string;
+  role: V2AnchorRole;
+  status: V2AnchorStatus;
+  contentHash: string;
+  lastSeenAt: string;
+}
+
+export interface V2PrimaryOwnership {
+  childObjectId: string;
+  ownerObjectId: string;
+  assignedAt: string;
+}
+
 function requireText(value: string, code: string, message: string): void {
   if (!value.trim()) {
     throw new StructuredError({ code, message, ruleRefs: ["D-220"] });
@@ -107,6 +127,72 @@ export function transitionV2Lifecycle(
     });
   }
   return { ...object, lifecycle: next, version: object.version + 1, updatedAt: at.toISOString() };
+}
+
+function requireExpectedVersion(object: V2ManagedObject, expectedVersion: number): void {
+  if (object.version !== expectedVersion) {
+    throw new StructuredError({
+      code: "V2_OBJECT_VERSION_CONFLICT",
+      message: `对象版本已从 ${expectedVersion} 变为 ${object.version}。`,
+      ruleRefs: ["D-185", "D-188"],
+    });
+  }
+}
+
+export function bindV2PrimaryAnchor(
+  object: V2ManagedObject,
+  input: Omit<V2Anchor, "anchorId" | "objectId" | "role" | "status" | "lastSeenAt"> & { anchorId?: string },
+  expectedVersion: number,
+  at = new Date(),
+): { object: V2ManagedObject; anchor: V2Anchor } {
+  requireExpectedVersion(object, expectedVersion);
+  requireText(input.graphId, "V2_ANCHOR_GRAPH_REQUIRED", "Primary Anchor 必须包含 Graph identity。");
+  requireText(input.externalId, "V2_ANCHOR_EXTERNAL_ID_REQUIRED", "Primary Anchor 必须包含外部 Block identity。");
+  requireText(input.contentHash, "V2_ANCHOR_HASH_REQUIRED", "Primary Anchor 必须包含正文 hash。");
+  const timestamp = at.toISOString();
+  return {
+    object: { ...object, version: object.version + 1, updatedAt: timestamp },
+    anchor: {
+      anchorId: input.anchorId ?? createId("anc", at),
+      objectId: object.objectId,
+      graphId: input.graphId,
+      externalId: input.externalId,
+      role: "primary_text",
+      status: "active",
+      contentHash: input.contentHash,
+      lastSeenAt: timestamp,
+    },
+  };
+}
+
+const allowedPrimaryOwners: Readonly<Record<V2ObjectType, readonly V2ObjectType[]>> = {
+  TASK: ["MINI_PROJECT", "PROJECT", "AREA"],
+  MINI_PROJECT: ["PROJECT", "AREA"],
+  PROJECT: ["AREA"],
+  AREA: [],
+  DECISION: [],
+  OUTPUT: [],
+};
+
+export function assignV2PrimaryOwner(
+  child: V2ManagedObject,
+  owner: V2ManagedObject,
+  expectedVersion: number,
+  at = new Date(),
+): { object: V2ManagedObject; ownership: V2PrimaryOwnership } {
+  requireExpectedVersion(child, expectedVersion);
+  if (child.objectId === owner.objectId || !allowedPrimaryOwners[child.objectType].includes(owner.objectType)) {
+    throw new StructuredError({
+      code: "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED",
+      message: `${child.objectType} 不能以 ${owner.objectType} 作为 Primary Owner。`,
+      ruleRefs: ["D-035", "D-047"],
+    });
+  }
+  const timestamp = at.toISOString();
+  return {
+    object: { ...child, version: child.version + 1, updatedAt: timestamp },
+    ownership: { childObjectId: child.objectId, ownerObjectId: owner.objectId, assignedAt: timestamp },
+  };
 }
 
 export function selectFocus(objectId: string, rank: number, at = new Date(), expiresAt?: string): FocusSelection {

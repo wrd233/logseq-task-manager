@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "task-copilot-service": "dist/service.js"
+  },
   "engines": {
     "node": ">=20.19 <21"
   },
@@ -10,10 +13,12 @@
     ".": "./src/service.ts"
   },
   "scripts": {
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
-    "@task-copilot/persistence": "0.1.0"
+    "@task-copilot/persistence": "0.1.0",
+    "@task-copilot/service-client": "0.1.0"
   }
 }

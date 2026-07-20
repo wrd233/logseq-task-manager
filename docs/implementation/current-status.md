@@ -2,7 +2,7 @@
 
 ## 当前 Slice
 
-V1 frozen / Slice A0 complete / Slice A1-A3 foundation in progress
+V1 frozen / Slice A0 complete / Slice A1-A4 foundation in progress
 
 ## 当前阶段结论
 
@@ -27,11 +27,16 @@ V2_MIGRATION_DESIGN_READY
 - 建立 V2 六类对象、Lifecycle/Condition/Focus 纯 Domain seam；不含 Phase/Signal；
 - 通过 Node 20/macOS arm64 SQLite Spike：Graph-bound 初始化、schema/损坏保护、版本/幂等写入、Doctor 和独立备份；
 - 建立仅绑定 `127.0.0.1`、session-token 认证的只读 Local Service health/status/doctor/object 骨架。
+- 建立 V2 Application Command envelope、版本前置、原子 Object+Audit receipt 和幂等重放；
+- Primary Anchor 与 Primary Ownership 同时经过 Domain 与 SQLite 约束，失败事务不会推进对象版本；
+- 建立 0600 runtime descriptor、版本化 Service Client、超时/断连/未授权/协议不兼容错误及受限状态；
+- 建立可执行 `task-copilot-service` 与只读 `tc status/doctor/object`，完成独立进程冒烟。
 
 ## 当前证据
 
-- Git：`feature/task-copilot-mvp`，checkpoint 时 HEAD 与 upstream 相同；本轮改动尚未提交；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，91 tests、145 rules、0 skipped；
+- Git：`feature/task-copilot-mvp`，本轮起点 `22677a2` 与 upstream 相同；当前 Slice 改动尚未提交；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，113 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
+- Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、退出清理均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
 - Pilot 后恢复包 SHA-256：`4e9dd666697b94ca0d6b81e7dc7bd0c12c82d0f432b2363eddfbc95a1a602612`；
@@ -45,9 +50,9 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. 完成 Slice A1 对象特定约束、Application command 与 V1 read model 隔离；
-2. 扩展 Slice A2 Anchor/Ownership/Commit/migration ledger、锁与 restore validate；
-3. 完成 Slice A3 Service client、启动发现、协议错误和 Plugin 受限模式；
+1. 扩展 Slice A2 Commit/migration ledger、SQLite locked 与 restore validate；
+2. 完成 Plugin 安全发现 Service 的 transport 与 Desktop 受限模式；
+3. 完成首次启用三入口与无隐式扫描/迁移/模型调用证据；
 4. 在 Slice A-C 闭环后接入 Provider abstraction，再运行 bounded DeepSeek live gate；
 5. Desktop Gate 仍需集中验证首次启用、受限模式、迁移 Preview/Undo 和 SQLite 恢复。
 

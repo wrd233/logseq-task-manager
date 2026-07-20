@@ -3,7 +3,17 @@ import { dirname, resolve } from "node:path";
 
 import Database from "better-sqlite3";
 
-import type { V2ManagedObject } from "@task-copilot/domain";
+import type {
+  V2AnchorCommand,
+  V2AnchorCommandResult,
+  V2AuditRecord,
+  V2CommandReceipt,
+  V2ObjectCommand,
+  V2ObjectCommandResult,
+  V2OwnershipCommand,
+  V2OwnershipCommandResult,
+} from "@task-copilot/application";
+import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
 
 export const V2_DATABASE_SCHEMA_VERSION = 1;
@@ -122,6 +132,12 @@ export class V2SqliteStore {
         ) STRICT;
         CREATE UNIQUE INDEX one_active_primary_anchor_per_object
           ON anchors(object_id) WHERE role = 'primary_text' AND status = 'active';
+        CREATE TABLE primary_ownerships (
+          child_object_id TEXT PRIMARY KEY REFERENCES objects(object_id),
+          owner_object_id TEXT NOT NULL REFERENCES objects(object_id),
+          assigned_at TEXT NOT NULL,
+          CHECK (child_object_id <> owner_object_id)
+        ) STRICT;
         CREATE TABLE focus_selections (
           object_id TEXT PRIMARY KEY REFERENCES objects(object_id),
           selected_at TEXT NOT NULL,
@@ -134,6 +150,16 @@ export class V2SqliteStore {
           result_json TEXT NOT NULL CHECK (json_valid(result_json)),
           created_at TEXT NOT NULL
         ) STRICT;
+        CREATE TABLE audit_events (
+          event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trace_id TEXT NOT NULL,
+          actor TEXT NOT NULL,
+          command_name TEXT NOT NULL,
+          object_id TEXT NOT NULL REFERENCES objects(object_id),
+          before_version INTEGER NOT NULL,
+          after_version INTEGER NOT NULL,
+          occurred_at TEXT NOT NULL
+        ) STRICT;
       `);
       const insertMeta = this.database.prepare("INSERT INTO schema_meta(key, value) VALUES (?, ?)");
       insertMeta.run("schema_version", String(V2_DATABASE_SCHEMA_VERSION));
@@ -145,55 +171,170 @@ export class V2SqliteStore {
     return { initialized: true, schemaVersion: V2_DATABASE_SCHEMA_VERSION };
   }
 
-  putObject(object: V2ManagedObject, idempotencyKey: string, expectedVersion: number): V2ManagedObject {
-    if (!idempotencyKey.trim()) throw persistenceError("V2_IDEMPOTENCY_KEY_REQUIRED", "正式写入必须包含 idempotency key。");
+  commitObject(command: V2ObjectCommand): V2ObjectCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
     const write = this.database.transaction(() => {
-      const receipt = this.database.prepare("SELECT result_json FROM command_receipts WHERE idempotency_key = ?").get(idempotencyKey) as
-        | { result_json: string }
-        | undefined;
-      if (receipt) return JSON.parse(receipt.result_json) as V2ManagedObject;
-
-      const existing = this.database.prepare("SELECT version FROM objects WHERE object_id = ?").get(object.objectId) as
-        | { version: number }
-        | undefined;
-      const actualVersion = existing?.version ?? 0;
-      if (actualVersion !== expectedVersion) {
-        throw persistenceError("V2_OBJECT_VERSION_CONFLICT", "SQLite 对象版本与命令前置条件不一致。", {
-          objectId: object.objectId,
-          expectedVersion,
-          actualVersion,
-        });
-      }
-      this.database
-        .prepare(`
-          INSERT INTO objects(object_id, object_type, version, lifecycle, condition_json, text, created_at, updated_at, source_event)
-          VALUES (@objectId, @objectType, @version, @lifecycle, @conditionJson, @text, @createdAt, @updatedAt, @sourceEvent)
-          ON CONFLICT(object_id) DO UPDATE SET
-            object_type = excluded.object_type,
-            version = excluded.version,
-            lifecycle = excluded.lifecycle,
-            condition_json = excluded.condition_json,
-            text = excluded.text,
-            updated_at = excluded.updated_at,
-            source_event = excluded.source_event
-        `)
-        .run({
-          objectId: object.objectId,
-          objectType: object.objectType,
-          version: object.version,
-          lifecycle: object.lifecycle,
-          conditionJson: stableJson(object.condition),
-          text: object.text,
-          createdAt: object.createdAt,
-          updatedAt: object.updatedAt,
-          sourceEvent: object.sourceOrCreationEvent,
-        });
-      this.database
-        .prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
-        .run(idempotencyKey, "put_object", stableJson(object), new Date().toISOString());
-      return object;
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) return { object: JSON.parse(receipt.result_json) as V2ManagedObject, replayed: true };
+      this.requireVersion(command.object.objectId, command.expectedVersion);
+      this.writeObject(command.object);
+      this.writeAudit(command.audit);
+      this.writeReceipt(command.idempotencyKey, command.audit, command.object);
+      return { object: command.object, replayed: false };
     });
     return write();
+  }
+
+  getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined {
+    const receipt = this.receipt(idempotencyKey);
+    if (!receipt) return undefined;
+    const command = receipt.command_name as V2CommandReceipt["command"];
+    const result = JSON.parse(receipt.result_json) as unknown;
+    if (command === "create_object" || command === "transition_lifecycle") {
+      return { command, object: result as V2ManagedObject };
+    }
+    if (command === "bind_primary_anchor") {
+      const value = result as { object: V2ManagedObject; anchor: V2Anchor };
+      return { command, ...value };
+    }
+    if (command === "assign_primary_owner") {
+      const value = result as { object: V2ManagedObject; ownership: V2PrimaryOwnership };
+      return { command, ...value };
+    }
+    throw persistenceError("V2_COMMAND_RECEIPT_CORRUPT", "SQLite command receipt 类型未知。", { command });
+  }
+
+  commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        const result = JSON.parse(receipt.result_json) as { object: V2ManagedObject; anchor: V2Anchor };
+        return { ...result, replayed: true };
+      }
+      this.requireVersion(command.object.objectId, command.expectedVersion);
+      const existing = this.database
+        .prepare("SELECT anchor_id FROM anchors WHERE object_id = ? AND role = 'primary_text' AND status = 'active'")
+        .get(command.object.objectId) as { anchor_id: string } | undefined;
+      if (existing) {
+        throw persistenceError("V2_PRIMARY_ANCHOR_EXISTS", "对象已存在 active Primary Anchor；必须走显式 rebind。", {
+          objectId: command.object.objectId,
+          anchorId: existing.anchor_id,
+        });
+      }
+      this.writeObject(command.object);
+      this.database
+        .prepare(`
+          INSERT INTO anchors(anchor_id, object_id, role, graph_id, external_id, status, content_hash, last_seen_at)
+          VALUES (@anchorId, @objectId, @role, @graphId, @externalId, @status, @contentHash, @lastSeenAt)
+        `)
+        .run(command.anchor);
+      this.writeAudit(command.audit);
+      const result = { object: command.object, anchor: command.anchor };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return write();
+  }
+
+  commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        const result = JSON.parse(receipt.result_json) as { object: V2ManagedObject; ownership: V2PrimaryOwnership };
+        return { ...result, replayed: true };
+      }
+      this.requireVersion(command.object.objectId, command.expectedVersion);
+      const existing = this.database
+        .prepare("SELECT owner_object_id FROM primary_ownerships WHERE child_object_id = ?")
+        .get(command.object.objectId) as { owner_object_id: string } | undefined;
+      if (existing) {
+        throw persistenceError("V2_PRIMARY_OWNER_EXISTS", "对象已存在 Primary Owner；必须走显式变更。", {
+          childObjectId: command.object.objectId,
+          ownerObjectId: existing.owner_object_id,
+        });
+      }
+      this.writeObject(command.object);
+      this.database
+        .prepare("INSERT INTO primary_ownerships(child_object_id, owner_object_id, assigned_at) VALUES (?, ?, ?)")
+        .run(command.ownership.childObjectId, command.ownership.ownerObjectId, command.ownership.assignedAt);
+      this.writeAudit(command.audit);
+      const result = { object: command.object, ownership: command.ownership };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return write();
+  }
+
+  private requireIdempotencyKey(value: string): void {
+    if (!value.trim()) throw persistenceError("V2_IDEMPOTENCY_KEY_REQUIRED", "正式写入必须包含 idempotency key。");
+  }
+
+  private receipt(idempotencyKey: string): { command_name: string; result_json: string } | undefined {
+    return this.database.prepare("SELECT command_name, result_json FROM command_receipts WHERE idempotency_key = ?").get(idempotencyKey) as
+      | { command_name: string; result_json: string }
+      | undefined;
+  }
+
+  private requireVersion(objectId: string, expectedVersion: number): void {
+    const existing = this.database.prepare("SELECT version FROM objects WHERE object_id = ?").get(objectId) as
+      | { version: number }
+      | undefined;
+    const actualVersion = existing?.version ?? 0;
+    if (actualVersion !== expectedVersion) {
+      throw persistenceError("V2_OBJECT_VERSION_CONFLICT", "SQLite 对象版本与命令前置条件不一致。", {
+        objectId,
+        expectedVersion,
+        actualVersion,
+      });
+    }
+  }
+
+  private writeObject(object: V2ManagedObject): void {
+    this.database
+      .prepare(`
+        INSERT INTO objects(object_id, object_type, version, lifecycle, condition_json, text, created_at, updated_at, source_event)
+        VALUES (@objectId, @objectType, @version, @lifecycle, @conditionJson, @text, @createdAt, @updatedAt, @sourceEvent)
+        ON CONFLICT(object_id) DO UPDATE SET
+          object_type = excluded.object_type,
+          version = excluded.version,
+          lifecycle = excluded.lifecycle,
+          condition_json = excluded.condition_json,
+          text = excluded.text,
+          updated_at = excluded.updated_at,
+          source_event = excluded.source_event
+      `)
+      .run({
+        objectId: object.objectId,
+        objectType: object.objectType,
+        version: object.version,
+        lifecycle: object.lifecycle,
+        conditionJson: stableJson(object.condition),
+        text: object.text,
+        createdAt: object.createdAt,
+        updatedAt: object.updatedAt,
+        sourceEvent: object.sourceOrCreationEvent,
+      });
+  }
+
+  private writeAudit(audit: V2AuditRecord): void {
+    this.database
+      .prepare(`
+        INSERT INTO audit_events(trace_id, actor, command_name, object_id, before_version, after_version, occurred_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(audit.traceId, audit.actor, audit.command, audit.objectId, audit.beforeVersion, audit.afterVersion, audit.occurredAt);
+  }
+
+  private writeReceipt(idempotencyKey: string, audit: V2AuditRecord, result: unknown): void {
+    this.database
+      .prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
+      .run(idempotencyKey, audit.command, stableJson(result), audit.occurredAt);
+  }
+
+  auditEventCount(): number {
+    return (this.database.prepare("SELECT count(*) AS count FROM audit_events").get() as { count: number }).count;
   }
 
   getObject(objectId: string): V2ManagedObject | undefined {
