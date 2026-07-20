@@ -139,6 +139,55 @@ function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>
 }
 
 async function model(): Promise<UiModel> {
+  if (!taskCopilot) {
+    let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
+    let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
+    let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
+    let v2ProposalLoadError: string | undefined;
+    if (serviceConnection.status === "READY" && serviceRuntimeClient) {
+      try {
+        [v2Proposals, v2SemanticCommits, v2NowWork] = await Promise.all([
+          serviceRuntimeClient.listProposals(),
+          serviceRuntimeClient.listSemanticCommits(),
+          serviceRuntimeClient.nowWork(),
+        ]);
+      } catch (error) {
+        v2ProposalLoadError = explain(error);
+      }
+    }
+    return {
+      workspace,
+      agent: { enabled: false, providerId: "no-agent" },
+      inbox: [],
+      now: { goal: "开始行动并处理高价值注意项", items: [], hidden: ["完整历史", "已结束对象", "内部属性", "低价值关联"] },
+      objects: [],
+      proposals: [],
+      commits: [],
+      events: [],
+      auditProjection: { anchorConflicts: [], undoableCommitIds: [] },
+      reentryProjects: [],
+      signalsByObject: {},
+      proposalImpacts: {},
+      ...(message ? { message } : {}),
+      ...(latestError ? { error: latestError } : {}),
+      runtime: {
+        pluginVersion: diagnostics.snapshot().plugin_version,
+        runtimeStatus: diagnostics.snapshot().runtime_status,
+        storeStatus: diagnostics.snapshot().store_status,
+        currentGraph: diagnostics.snapshot().current_graph,
+      },
+      v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+      v2Proposals,
+      v2SemanticCommits,
+      v2CandidatePanel,
+      v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+      reviewMode,
+      ...(v2NowWork ? { v2NowWork } : {}),
+      v2NowWorkTypeFilter,
+      v2NowWorkGrouping,
+      ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
+    };
+  }
   const app = requireTaskCopilot();
   const [inbox, now, objects, proposals, commits, events, auditProjection] = await Promise.all([
     app.listInbox(),
@@ -1458,6 +1507,7 @@ async function initializeFeatures(): Promise<void> {
       const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
       void refreshServiceRuntime(nextDescriptorPath)
         .then(() => {
+          featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
           firstRunAction = "start";
           if (logseq.isMainUIVisible) void refresh();
         })
@@ -1488,6 +1538,7 @@ async function initializeFeatures(): Promise<void> {
     const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
     void refreshServiceRuntime(nextDescriptorPath)
       .then(() => {
+        featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
         diagnostics.setStoreStatus(serviceConnection.status === "READY" ? "READY" : "READ_ONLY_SAFE_MODE");
         message = `设置已更新；V2 Local Service ${serviceConnection.status}，正式领域状态与历史未受影响。`;
         if (logseq.isMainUIVisible) void refresh();
@@ -1495,7 +1546,7 @@ async function initializeFeatures(): Promise<void> {
       .catch((error: unknown) => operationalLogger.log("error", "plugin-lifecycle", "service_connection_refresh_failed", { result: "error" }, error));
   }));
   markReady("EVENTS_READY");
-  featureReady = false;
+  featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
   markReady("PLUGIN_READY", "V2 explicit synchronization ready; V1 write UI remains inactive");
 }
 
