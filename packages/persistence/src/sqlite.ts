@@ -23,7 +23,7 @@ import type {
   V2OwnershipCommandResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
-import { renderV2ProposalFiles, validateV2Proposal, type V2Anchor, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
+import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
 
 export const V2_DATABASE_SCHEMA_VERSION = 5;
@@ -904,6 +904,12 @@ export class V2SqliteStore {
       ? this.database.prepare("SELECT * FROM semantic_commits WHERE proposal_id = ? ORDER BY created_at, semantic_commit_id").all(proposalId)
       : this.database.prepare("SELECT * FROM semantic_commits ORDER BY created_at, semantic_commit_id").all();
     return (rows as Record<string, unknown>[]).map((row) => this.mapSemanticCommit(row));
+  }
+
+  listFocusSelections(): FocusSelection[] {
+    return (this.database.prepare("SELECT object_id, selected_at, rank, expires_at FROM focus_selections ORDER BY rank, selected_at").all() as Array<{ object_id: string; selected_at: string; rank: number; expires_at: string | null }>).map((row) => ({
+      objectId: row.object_id, selectedAt: row.selected_at, rank: row.rank, ...(row.expires_at ? { expiresAt: row.expires_at } : {}),
+    }));
   }
 
   semanticCommit(semanticCommitId: string): V2SemanticCommitLedgerRecord | undefined {

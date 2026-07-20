@@ -1,4 +1,4 @@
-import type { V2Anchor, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { V2Anchor, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -209,6 +209,9 @@ export interface ServiceSemanticCommit {
   updatedAt: string;
   errorCode?: string;
 }
+
+export interface ServiceNowWorkItem { objectId: string; objectType: V2ObjectType; text: string; condition: V2Condition; updatedAt: string; reason: string }
+export interface ServiceNowWork { generatedAt: string; focus: ServiceNowWorkItem[]; next: ServiceNowWorkItem[]; waitingReview: ServiceNowWorkItem[] }
 
 export type ServiceProposalUndoFinalization =
   | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; objectId: string; replayed: boolean }
@@ -468,6 +471,10 @@ export class LocalServiceClient {
 
   listSemanticCommits(): Promise<ServiceSemanticCommit[]> {
     return this.request<{ commits: ServiceSemanticCommit[] }>("/semantic-commits").then((result) => result.commits);
+  }
+
+  nowWork(): Promise<ServiceNowWork> {
+    return this.request<ServiceNowWork>("/now-work");
   }
 
   finalizeProposalUndo(originalSemanticCommitId: string, evidence: ServiceProposalUndoEvidence): Promise<ServiceProposalUndoFinalization> {

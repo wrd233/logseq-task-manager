@@ -1,0 +1,49 @@
+import type { FocusSelection, V2ManagedObject } from "@task-copilot/domain";
+
+export interface V2NowWorkItem {
+  objectId: string;
+  objectType: V2ManagedObject["objectType"];
+  text: string;
+  condition: V2ManagedObject["condition"];
+  updatedAt: string;
+  reason: string;
+}
+
+export interface V2NowWorkProjection {
+  generatedAt: string;
+  focus: V2NowWorkItem[];
+  next: V2NowWorkItem[];
+  waitingReview: V2NowWorkItem[];
+}
+
+function item(object: V2ManagedObject, reason: string): V2NowWorkItem {
+  return { objectId: object.objectId, objectType: object.objectType, text: object.text, condition: object.condition, updatedAt: object.updatedAt, reason };
+}
+
+export function projectV2NowWork(
+  objects: readonly V2ManagedObject[],
+  selections: readonly FocusSelection[],
+  at = new Date(),
+  nextLimit = 12,
+): V2NowWorkProjection {
+  const open = new Map(objects.filter((object) => object.lifecycle === "OPEN").map((object) => [object.objectId, object]));
+  const focus = [...selections].sort((left, right) => left.rank - right.rank || left.selectedAt.localeCompare(right.selectedAt))
+    .flatMap((selection) => {
+      const object = open.get(selection.objectId);
+      return object && (!selection.expiresAt || Date.parse(selection.expiresAt) > at.getTime()) ? [item(object, "已加入当前关注")] : [];
+    });
+  const focusIds = new Set(focus.map((value) => value.objectId));
+  const waitingReview = [...open.values()].filter((object) => {
+    if (object.condition.kind === "WAITING") return Date.parse(object.condition.reviewAt) <= at.getTime() || focusIds.has(object.objectId);
+    if (object.condition.kind === "PAUSED" && object.condition.reviewAt) return Date.parse(object.condition.reviewAt) <= at.getTime();
+    return object.condition.kind === "BLOCKED" && focusIds.has(object.objectId);
+  }).map((object) => item(object, object.condition.kind === "WAITING" ? `复查已到 · 等待 ${object.condition.waitingFor}` : object.condition.kind === "BLOCKED" ? `阻碍当前关注 · ${object.condition.reason}` : "暂停复查已到"));
+  const waitingIds = new Set(waitingReview.map((value) => value.objectId));
+  const recentBoundary = at.getTime() - 14 * 24 * 60 * 60 * 1000;
+  const next = [...open.values()]
+    .filter((object) => !focusIds.has(object.objectId) && !waitingIds.has(object.objectId) && object.condition.kind === "ACTIONABLE" && ["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType) && Date.parse(object.updatedAt) >= recentBoundary)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.objectId.localeCompare(right.objectId))
+    .slice(0, Math.max(0, nextLimit))
+    .map((object) => item(object, object.createdAt === object.updatedAt ? "近期建立，可直接推进" : "近期更新，可继续推进"));
+  return { generatedAt: at.toISOString(), focus, next, waitingReview };
+}

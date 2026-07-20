@@ -3,7 +3,7 @@ import { chmod, mkdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2ProposalApplication, planAcceptedV2Formalization, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { V2Application, V2ProposalApplication, planAcceptedV2Formalization, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -499,6 +499,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "GET" && url.pathname === "/semantic-commits") {
       respond(response, 200, { commits: store.listSemanticCommits() });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/now-work") {
+      respond(response, 200, projectV2NowWork(store.listObjects(), store.listFocusSelections(), new Date()));
       return;
     }
     const proposalCommitPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/commit\/prepare$/) : null;

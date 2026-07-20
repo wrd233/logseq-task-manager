@@ -41,6 +41,18 @@ test("Project workspace exposes one in-context V2 creation form gated by Local S
   assert.doesNotMatch(html, /data-action="create-v2-project"[^>]*disabled/);
 });
 
+test("V2 Now Work renders only non-empty explainable regions without scores or button walls", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], waitingReview: [], next: [{ objectId: "task-next", objectType: "TASK", text: "核对告警", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T11:00:00.000Z", reason: "近期建立，可直接推进" }] };
+  const html = renderApp(value);
+  assert.match(html, /接下来值得处理/);
+  assert.match(html, /近期建立，可直接推进/);
+  assert.doesNotMatch(html, /当前关注/);
+  assert.doesNotMatch(html, /等待与复查/);
+  assert.doesNotMatch(html, /score|健康分|风险分/);
+});
+
 test("object drawer does not render empty optional sections", () => {
   const value = model();
   value.objects = [

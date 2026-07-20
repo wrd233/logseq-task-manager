@@ -153,6 +153,7 @@ test("Proposal Commit prepares before Graph, materializes after evidence, and re
   assert.equal(completed.anchor.externalId, "proposal-block");
   assert.equal(completed.record.proposal.status, "APPLIED");
   assert.equal((await client.status()).objectCount, 1);
+  assert.deepEqual((await client.nowWork()).next.map((item) => item.objectId), [completed.object.objectId]);
 });
 
 test("Proposal Undo is an inverse Commit that restores Graph evidence and removes only unchanged Domain state", async (t) => {

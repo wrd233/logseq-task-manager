@@ -6,7 +6,7 @@ import type {
   ProjectReentryView,
 } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation } from "@task-copilot/domain";
-import type { ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import type { ObservableActionState } from "./inbox-action-controller.ts";
 
 export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "audit";
@@ -60,6 +60,7 @@ export interface UiModel {
   v2ProjectCreationAvailable?: boolean;
   v2Proposals?: ServiceStoredProposal[];
   v2SemanticCommits?: ServiceSemanticCommit[];
+  v2NowWork?: ServiceNowWork;
   v2ProposalLoadError?: string;
 }
 
@@ -123,6 +124,11 @@ function renderInboxDialog(model: UiModel, capture: Capture): string {
 }
 
 function renderNow(model: UiModel): string {
+  if (model.v2NowWork) {
+    const section = (title: string, values: ServiceNowWork["next"]) => values.length ? `<section><h2>${escapeHtml(title)}</h2><div class="cards">${values.map((item) => `<article class="card compact"><div class="eyebrow">${escapeHtml(item.objectType)} · ${escapeHtml(item.condition.kind)}</div><h3>${escapeHtml(item.text)}</h3><p>${escapeHtml(item.reason)}</p></article>`).join("")}</div></section>` : "";
+    const content = `${section("当前关注", model.v2NowWork.focus)}${section("接下来值得处理", model.v2NowWork.next)}${section("等待与复查", model.v2NowWork.waitingReview)}`;
+    return content || empty("当前没有需要推进的事项", "普通 Waiting 保持安静；这里不会加载全部 OPEN 对象。");
+  }
   if (model.now.items.length === 0) return empty("当前没有需要推进的事项", "这里只显示 Actionable 与高价值注意项。");
   return `<div class="cards">${model.now.items
     .map(
