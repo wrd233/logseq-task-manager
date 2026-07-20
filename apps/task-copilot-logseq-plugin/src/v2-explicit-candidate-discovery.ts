@@ -167,12 +167,12 @@ function escapeHtml(value: unknown): string {
 
 export function renderV2ExplicitCandidateDiscoveryPanel(state: V2ExplicitCandidatePanelState, available: boolean): string {
   if (!available) return "";
-  if (state.status === "idle") return `<section class="diagnostic-notice"><h2>当前页显式对象恢复</h2><p>只以当前页为范围，不扫描全 Graph；Logseq 会提供整页树，本次最多处理前 256 个 Block，不会自动写入。</p><button type="button" data-action="v2-candidate-open">扫描当前页候选</button></section>`;
-  if (state.status === "loading") return `<section class="diagnostic-notice" aria-busy="true"><h2>当前页显式对象恢复</h2><p>正在读取当前页 Block tree，并按处理预算核对已知 Anchor…</p></section>`;
+  if (state.status === "idle") return `<section class="card candidate-review"><div class="eyebrow">待整理 · 当前页</div><h2>显式对象候选</h2><p>只以当前页为范围，不扫描全 Graph；Logseq 会提供整页树，本次最多处理前 256 个 Block，不会自动写入。</p><button type="button" data-action="v2-candidate-open">扫描当前页候选</button></section>`;
+  if (state.status === "loading") return `<section class="card candidate-review" aria-busy="true"><div class="eyebrow">待整理 · 当前页</div><h2>显式对象候选</h2><p>正在读取当前页 Block tree，并按处理预算核对已知 Anchor…</p></section>`;
   if (state.status === "error") return `<section class="diagnostic-error"><h2>候选同步未执行</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-candidate-open">重新扫描</button><button type="button" data-action="v2-candidate-cancel">关闭</button></section>`;
   if (state.status === "success") return `<section class="diagnostic-notice"><h2>显式对象已同步</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-candidate-open">继续扫描</button><button type="button" data-action="v2-candidate-cancel">关闭</button></section>`;
   const { preview } = state;
-  return `<section class="diagnostic-notice" aria-label="当前页显式对象候选"><h2>预览当前页候选</h2>
+  return `<section class="card candidate-review" aria-label="当前页显式对象候选"><div class="eyebrow">待整理 · 当前页</div><h2>预览当前页候选</h2>
     <p>只扫描当前页：已处理当前页快照前 ${preview.scannedBlocks} 个 Block，发现 ${preview.candidates.length} 个新候选。每次只同步一项，不扫描全 Graph。</p>
     ${preview.truncated ? '<p class="muted">当前页快照超过本次处理预算；超出部分未进入候选分析。</p>' : ""}
     ${preview.invalidExplicitBlocks ? `<p class="muted">${preview.invalidExplicitBlocks} 个显式标识存在冲突或缺少标题，未列为可写候选。</p>` : ""}

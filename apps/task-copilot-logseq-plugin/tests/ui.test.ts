@@ -71,6 +71,19 @@ test("V2 Focus exposes compact manual ordering and removal in the same Now Work 
   assert.match(html, /data-action="v2-focus-remove" data-value="task-b\|3"/);
 });
 
+test("Review Center owns manual current-page candidate discovery instead of Diagnostics", () => {
+  const value = model();
+  value.workspace = "review";
+  value.v2CandidatePanel = { status: "idle" };
+  value.v2CandidateAvailable = true;
+  const html = renderApp(value);
+  assert.match(html, /待整理 · 当前页/);
+  assert.match(html, /显式对象候选/);
+  assert.match(html, /data-action="v2-candidate-open"/);
+  assert.match(html, /不扫描全 Graph/);
+  assert.match(html, /Agent 已关闭；仍可在上方手动整理当前页显式候选/);
+});
+
 test("object drawer does not render empty optional sections", () => {
   const value = model();
   value.objects = [

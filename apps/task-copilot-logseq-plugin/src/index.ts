@@ -52,7 +52,6 @@ import {
 } from "./v2-anchor-rebind.ts";
 import {
   prepareV2ExplicitCandidateDiscovery,
-  renderV2ExplicitCandidateDiscoveryPanel,
   submitV2ExplicitCandidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
@@ -132,10 +131,7 @@ async function openV2PrimaryAnchor(externalId: string): Promise<void> {
 
 function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>[0]): string {
   const available = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
-  return renderRuntimeDiagnostics(snapshot, [
-    renderV2ExplicitCandidateDiscoveryPanel(v2CandidatePanel, available),
-    renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available),
-  ].join(""));
+  return renderRuntimeDiagnostics(snapshot, renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available));
 }
 
 async function model(): Promise<UiModel> {
@@ -198,6 +194,8 @@ async function model(): Promise<UiModel> {
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2Proposals,
     v2SemanticCommits,
+    v2CandidatePanel,
+    v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     ...(v2NowWork ? { v2NowWork } : {}),
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
   };
@@ -364,15 +362,16 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-candidate-open") {
+    workspace = "review";
     const client = serviceRuntimeClient;
     const generation = serviceDiscoveryGeneration;
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
       v2CandidatePanel = { status: "error", message: "Local Service 未处于可正式写入的 READY 状态；没有扫描或写入。" };
-      await showRuntimeDiagnostics();
+      await refresh();
       return;
     }
     v2CandidatePanel = { status: "loading" };
-    await showRuntimeDiagnostics();
+    await refresh();
     try {
       const preview = await prepareV2ExplicitCandidateDiscovery(
         client,
@@ -386,13 +385,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     } catch (error) {
       v2CandidatePanel = { status: "error", message: explain(error) };
     }
-    await showRuntimeDiagnostics();
+    await refresh();
     return;
   }
   if (action === "v2-candidate-cancel") {
     if (v2CandidatePanel.status === "ready" && v2CandidatePanel.busy) return;
     v2CandidatePanel = { status: "idle" };
-    await showRuntimeDiagnostics();
+    workspace = "review";
+    await refresh();
     return;
   }
   if (action === "v2-candidate-submit") {
@@ -401,22 +401,26 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (currentPanel.status === "ready" && currentPanel.busy) return;
     if (currentPanel.status !== "ready") {
       v2CandidatePanel = { status: "error", message: "当前页候选预览已过期或不存在；没有执行同步。" };
-      await showRuntimeDiagnostics();
+      workspace = "review";
+      await refresh();
       return;
     }
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
       v2CandidatePanel = { status: "error", message: "Local Service 正在重连或已不可写；旧候选已作废，没有执行同步。" };
-      await showRuntimeDiagnostics();
+      workspace = "review";
+      await refresh();
       return;
     }
     if (currentPanel.serviceGeneration !== serviceDiscoveryGeneration) {
       v2CandidatePanel = { status: "error", message: "Local Service 已在扫描后重连；旧候选已作废，没有执行写入。" };
-      await showRuntimeDiagnostics();
+      workspace = "review";
+      await refresh();
       return;
     }
     const externalId = dialogField("v2CandidateExternalId");
     v2CandidatePanel = { ...currentPanel, busy: true };
-    await showRuntimeDiagnostics();
+    workspace = "review";
+    await refresh();
     const traceId = `v2-candidate-${Date.now()}-${globalThis.crypto.randomUUID()}`;
     try {
       const result = await submitV2ExplicitCandidate(client, currentPanel.preview, externalId, (blockId) => logseq.Editor.getBlock(blockId), traceId);
@@ -430,7 +434,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         : { status: "error", message: "Local Service 在提交期间重连；旧会话结果不确定，请先在 Audit/Doctor 核对，不要立即重试。" };
       operationalLogger.log("error", "ui-action", "v2_explicit_candidate_sync_failed", { correlationId: traceId, actionId: "v2-candidate-submit", result: "error", ...(externalId ? { blockUuid: externalId } : {}) }, error);
     }
-    await showRuntimeDiagnostics();
+    await refresh();
     return;
   }
   if (action === "v2-rebind-open") {
