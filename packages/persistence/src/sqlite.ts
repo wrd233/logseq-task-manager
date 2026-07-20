@@ -67,6 +67,33 @@ export interface SqliteRestoreOptions {
   afterActivate?: () => void;
 }
 
+export type V2SemanticCommitStatus = "PENDING" | "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED" | "UNDONE";
+export type V2CommitStepStatus = "PREPARED" | "APPLIED" | "VERIFIED" | "COMPENSATED" | "RECOVERY_REQUIRED";
+export type V2CommitStepKind = "GRAPH_WRITE" | "DOMAIN_WRITE" | "AUDIT_WRITE";
+
+export interface V2SemanticCommitLedgerRecord {
+  semanticCommitId: string;
+  proposalId?: string;
+  status: V2SemanticCommitStatus;
+  beforeStateChecksum: string;
+  afterStateChecksum?: string;
+  createdAt: string;
+  updatedAt: string;
+  errorCode?: string;
+}
+
+export interface V2SemanticCommitStepRecord {
+  semanticCommitId: string;
+  stepIndex: number;
+  stepKind: V2CommitStepKind;
+  status: V2CommitStepStatus;
+  operationId?: string;
+  beforeHash?: string;
+  afterHash?: string;
+  errorCode?: string;
+  updatedAt: string;
+}
+
 interface ObjectRow {
   object_id: string;
   object_type: V2ManagedObject["objectType"];
@@ -453,6 +480,146 @@ export class V2SqliteStore {
       return { command, ...value };
     }
     throw persistenceError("V2_COMMAND_RECEIPT_CORRUPT", "SQLite command receipt 类型未知。", { command });
+  }
+
+  prepareSemanticCommit(commit: V2SemanticCommitLedgerRecord, steps: V2SemanticCommitStepRecord[]): { replayed: boolean } {
+    if (commit.status !== "PENDING" || !commit.semanticCommitId.trim() || !commit.beforeStateChecksum.trim()) {
+      throw persistenceError("V2_SEMANTIC_COMMIT_INVALID", "SemanticCommit 必须以 PENDING 和 before checksum 准备。");
+    }
+    if (steps.length === 0 || steps.some((step, index) => step.semanticCommitId !== commit.semanticCommitId || step.stepIndex !== index || step.status !== "PREPARED")) {
+      throw persistenceError("V2_COMMIT_STEPS_INVALID", "SemanticCommit steps 必须非空、连续编号并以 PREPARED 开始。");
+    }
+    const write = this.database.transaction(() => {
+      const existing = this.semanticCommit(commit.semanticCommitId);
+      if (existing) {
+        const existingSteps = this.semanticCommitSteps(commit.semanticCommitId);
+        const immutableCommit = ({ semanticCommitId, proposalId, beforeStateChecksum, createdAt }: V2SemanticCommitLedgerRecord) => ({ semanticCommitId, proposalId, beforeStateChecksum, createdAt });
+        const immutableSteps = (values: V2SemanticCommitStepRecord[]) => values.map(({ semanticCommitId, stepIndex, stepKind, operationId, beforeHash, afterHash }) => ({ semanticCommitId, stepIndex, stepKind, operationId, beforeHash, afterHash }));
+        if (stableJson(immutableCommit(existing)) !== stableJson(immutableCommit(commit)) || stableJson(immutableSteps(existingSteps)) !== stableJson(immutableSteps(steps))) {
+          throw persistenceError("V2_SEMANTIC_COMMIT_ID_CONFLICT", "SemanticCommit ID 已存在且 payload 不同。");
+        }
+        return { replayed: true };
+      }
+      this.database.prepare(`
+        INSERT INTO semantic_commits(
+          semantic_commit_id, proposal_id, status, before_state_checksum, after_state_checksum, created_at, updated_at, error_code
+        ) VALUES (@semanticCommitId, @proposalId, @status, @beforeStateChecksum, @afterStateChecksum, @createdAt, @updatedAt, @errorCode)
+      `).run({ ...commit, proposalId: commit.proposalId ?? null, afterStateChecksum: commit.afterStateChecksum ?? null, errorCode: commit.errorCode ?? null });
+      const insertStep = this.database.prepare(`
+        INSERT INTO semantic_commit_steps(
+          semantic_commit_id, step_index, step_kind, status, operation_id, before_hash, after_hash, error_code, updated_at
+        ) VALUES (@semanticCommitId, @stepIndex, @stepKind, @status, @operationId, @beforeHash, @afterHash, @errorCode, @updatedAt)
+      `);
+      for (const step of steps) insertStep.run({
+        ...step,
+        operationId: step.operationId ?? null,
+        beforeHash: step.beforeHash ?? null,
+        afterHash: step.afterHash ?? null,
+        errorCode: step.errorCode ?? null,
+      });
+      return { replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  advanceSemanticCommitStep(
+    semanticCommitId: string,
+    stepIndex: number,
+    status: Exclude<V2CommitStepStatus, "PREPARED">,
+    updatedAt: string,
+    errorCode?: string,
+  ): V2SemanticCommitStepRecord {
+    const allowed: Record<V2CommitStepStatus, V2CommitStepStatus[]> = {
+      PREPARED: ["APPLIED", "RECOVERY_REQUIRED"],
+      APPLIED: ["VERIFIED", "COMPENSATED", "RECOVERY_REQUIRED"],
+      VERIFIED: [],
+      COMPENSATED: [],
+      RECOVERY_REQUIRED: ["COMPENSATED"],
+    };
+    const write = this.database.transaction(() => {
+      const commit = this.semanticCommit(semanticCommitId);
+      if (!commit || (commit.status !== "PENDING" && commit.status !== "RECOVERY_REQUIRED")) throw persistenceError("V2_SEMANTIC_COMMIT_NOT_PENDING", "只有 PENDING/RECOVERY_REQUIRED SemanticCommit 可推进 step。");
+      const current = this.semanticCommitSteps(semanticCommitId).find((step) => step.stepIndex === stepIndex);
+      if (!current) throw persistenceError("V2_COMMIT_STEP_NOT_FOUND", "SemanticCommit step 不存在。");
+      if (!allowed[current.status].includes(status)) {
+        throw persistenceError("V2_COMMIT_STEP_TRANSITION_INVALID", "SemanticCommit step 状态跳转不合法。", { from: current.status, to: status });
+      }
+      this.database.prepare(`
+        UPDATE semantic_commit_steps SET status = ?, error_code = ?, updated_at = ?
+        WHERE semantic_commit_id = ? AND step_index = ?
+      `).run(status, errorCode ?? null, updatedAt, semanticCommitId, stepIndex);
+      return this.semanticCommitSteps(semanticCommitId).find((step) => step.stepIndex === stepIndex)!;
+    });
+    return this.executeWrite(write);
+  }
+
+  finalizeSemanticCommit(
+    semanticCommitId: string,
+    status: "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED",
+    updatedAt: string,
+    afterStateChecksum?: string,
+    errorCode?: string,
+  ): V2SemanticCommitLedgerRecord {
+    const write = this.database.transaction(() => {
+      const commit = this.semanticCommit(semanticCommitId);
+      if (!commit || (commit.status !== "PENDING" && !(commit.status === "RECOVERY_REQUIRED" && status === "FAILED"))) {
+        throw persistenceError("V2_SEMANTIC_COMMIT_NOT_PENDING", "SemanticCommit 当前状态不允许该收口。");
+      }
+      const steps = this.semanticCommitSteps(semanticCommitId);
+      if (status === "COMPLETED" && (!afterStateChecksum?.trim() || steps.some((step) => step.status !== "VERIFIED"))) {
+        throw persistenceError("V2_SEMANTIC_COMMIT_NOT_VERIFIED", "SemanticCommit 只能在所有 step VERIFIED 后完成。");
+      }
+      if (status === "RECOVERY_REQUIRED" && !steps.some((step) => step.status === "RECOVERY_REQUIRED")) {
+        throw persistenceError("V2_RECOVERY_STEP_REQUIRED", "RECOVERY_REQUIRED Commit 必须指明未恢复 step。");
+      }
+      if (status === "FAILED" && steps.some((step) => step.status === "APPLIED" || step.status === "RECOVERY_REQUIRED")) {
+        throw persistenceError("V2_SEMANTIC_COMMIT_NOT_COMPENSATED", "FAILED Commit 不能保留 APPLIED/RECOVERY_REQUIRED step。");
+      }
+      this.database.prepare(`
+        UPDATE semantic_commits SET status = ?, after_state_checksum = ?, error_code = ?, updated_at = ?
+        WHERE semantic_commit_id = ?
+      `).run(status, afterStateChecksum ?? null, errorCode ?? null, updatedAt, semanticCommitId);
+      return this.semanticCommit(semanticCommitId)!;
+    });
+    return this.executeWrite(write);
+  }
+
+  unresolvedSemanticCommits(): V2SemanticCommitLedgerRecord[] {
+    return (this.database.prepare("SELECT * FROM semantic_commits WHERE status IN ('PENDING','RECOVERY_REQUIRED') ORDER BY created_at").all() as Record<string, unknown>[])
+      .map((row) => this.mapSemanticCommit(row));
+  }
+
+  semanticCommit(semanticCommitId: string): V2SemanticCommitLedgerRecord | undefined {
+    const row = this.database.prepare("SELECT * FROM semantic_commits WHERE semantic_commit_id = ?").get(semanticCommitId) as Record<string, unknown> | undefined;
+    return row ? this.mapSemanticCommit(row) : undefined;
+  }
+
+  semanticCommitSteps(semanticCommitId: string): V2SemanticCommitStepRecord[] {
+    return (this.database.prepare("SELECT * FROM semantic_commit_steps WHERE semantic_commit_id = ? ORDER BY step_index").all(semanticCommitId) as Record<string, unknown>[])
+      .map((row) => ({
+        semanticCommitId: String(row.semantic_commit_id),
+        stepIndex: Number(row.step_index),
+        stepKind: row.step_kind as V2CommitStepKind,
+        status: row.status as V2CommitStepStatus,
+        ...(row.operation_id ? { operationId: String(row.operation_id) } : {}),
+        ...(row.before_hash ? { beforeHash: String(row.before_hash) } : {}),
+        ...(row.after_hash ? { afterHash: String(row.after_hash) } : {}),
+        ...(row.error_code ? { errorCode: String(row.error_code) } : {}),
+        updatedAt: String(row.updated_at),
+      }));
+  }
+
+  private mapSemanticCommit(row: Record<string, unknown>): V2SemanticCommitLedgerRecord {
+    return {
+      semanticCommitId: String(row.semantic_commit_id),
+      ...(row.proposal_id ? { proposalId: String(row.proposal_id) } : {}),
+      status: row.status as V2SemanticCommitStatus,
+      beforeStateChecksum: String(row.before_state_checksum),
+      ...(row.after_state_checksum ? { afterStateChecksum: String(row.after_state_checksum) } : {}),
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+      ...(row.error_code ? { errorCode: String(row.error_code) } : {}),
+    };
   }
 
   commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult {

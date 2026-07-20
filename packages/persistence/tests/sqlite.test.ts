@@ -148,6 +148,58 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   migrating.close();
 });
 
+test("SemanticCommit ledger is pending-first, transition-checked, idempotent, and restart-queryable", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const at = "2026-07-20T11:00:00.000Z";
+  const commit = {
+    semanticCommitId: "commit-ledger-1",
+    proposalId: "proposal-1",
+    status: "PENDING" as const,
+    beforeStateChecksum: "before-state",
+    createdAt: at,
+    updatedAt: at,
+  };
+  const steps = [
+    { semanticCommitId: commit.semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId: "operation-1", beforeHash: "before", afterHash: "after", updatedAt: at },
+    { semanticCommitId: commit.semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE" as const, status: "PREPARED" as const, operationId: "operation-1", updatedAt: at },
+  ];
+  assert.deepEqual(store.prepareSemanticCommit(commit, steps), { replayed: false });
+  assert.deepEqual(store.prepareSemanticCommit(commit, steps), { replayed: true });
+  assert.throws(() => store.advanceSemanticCommitStep(commit.semanticCommitId, 0, "VERIFIED", at), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_COMMIT_STEP_TRANSITION_INVALID");
+  assert.throws(() => store.finalizeSemanticCommit(commit.semanticCommitId, "COMPLETED", at, "after-state"), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SEMANTIC_COMMIT_NOT_VERIFIED");
+  store.advanceSemanticCommitStep(commit.semanticCommitId, 0, "APPLIED", at);
+  store.advanceSemanticCommitStep(commit.semanticCommitId, 0, "VERIFIED", at);
+  assert.deepEqual(store.prepareSemanticCommit(commit, steps), { replayed: true }, "prepare replay remains idempotent after step progress");
+  store.advanceSemanticCommitStep(commit.semanticCommitId, 1, "APPLIED", at);
+  store.advanceSemanticCommitStep(commit.semanticCommitId, 1, "VERIFIED", at);
+  assert.equal(store.finalizeSemanticCommit(commit.semanticCommitId, "COMPLETED", at, "after-state").status, "COMPLETED");
+  assert.deepEqual(store.unresolvedSemanticCommits(), []);
+  store.close();
+});
+
+test("SemanticCommit recovery cannot report FAILED until every applied step is compensated", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const at = "2026-07-20T12:00:00.000Z";
+  const commit = { semanticCommitId: "commit-recovery-1", status: "PENDING" as const, beforeStateChecksum: "before", createdAt: at, updatedAt: at };
+  const steps = [{ semanticCommitId: commit.semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, beforeHash: "before", afterHash: "after", updatedAt: at }];
+  store.prepareSemanticCommit(commit, steps);
+  store.advanceSemanticCommitStep(commit.semanticCommitId, 0, "APPLIED", at);
+  store.advanceSemanticCommitStep(commit.semanticCommitId, 0, "RECOVERY_REQUIRED", at, "COMPENSATION_FAILED");
+  assert.equal(store.finalizeSemanticCommit(commit.semanticCommitId, "RECOVERY_REQUIRED", at, undefined, "COMPENSATION_FAILED").status, "RECOVERY_REQUIRED");
+  store.close();
+
+  const reopened = await V2SqliteStore.open(path);
+  assert.deepEqual(reopened.unresolvedSemanticCommits().map((value) => value.semanticCommitId), [commit.semanticCommitId]);
+  reopened.advanceSemanticCommitStep(commit.semanticCommitId, 0, "COMPENSATED", at);
+  assert.equal(reopened.finalizeSemanticCommit(commit.semanticCommitId, "FAILED", at, undefined, "COMMIT_FAILED").status, "FAILED");
+  assert.deepEqual(reopened.unresolvedSemanticCommits(), []);
+  reopened.close();
+});
+
 test("object writes require expected version and are idempotent", async (t) => {
   const { root, store } = await fixture();
   t.after(async () => rm(root, { recursive: true, force: true }));
