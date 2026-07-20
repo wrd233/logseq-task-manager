@@ -88,6 +88,9 @@ export interface ServicePrimaryAnchorObservationRequest {
 
 export interface ServicePrimaryAnchorRebindRequest {
   previousAnchorId: string;
+  previewObjectVersion: number;
+  previewAnchorStatus: Exclude<V2Anchor["status"], "replaced">;
+  previewAnchorContentHash: string;
   objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
   externalId: string;

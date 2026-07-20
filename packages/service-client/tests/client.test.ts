@@ -171,7 +171,7 @@ test("Anchor rebind client sends explicit confirmation and no object or Graph au
     });
   });
   t.after(() => server.close());
-  const input = { previousAnchorId: "anchor-old", objectType: "TASK" as const, text: "新正文", externalId: "block-new", inputVersion: "1002", contentHash: "22222222", confirmation: "REBIND_PRIMARY_ANCHOR" as const, traceId: "trace-rebind" };
+  const input = { previousAnchorId: "anchor-old", previewObjectVersion: 3, previewAnchorStatus: "missing" as const, previewAnchorContentHash: "11111111", objectType: "TASK" as const, text: "新正文", externalId: "block-new", inputVersion: "1002", contentHash: "22222222", confirmation: "REBIND_PRIMARY_ANCHOR" as const, traceId: "trace-rebind" };
   const result = await new LocalServiceClient(descriptor(url, token)).rebindPrimaryAnchor(input);
   assert.equal(result.previousAnchor.status, "replaced");
   assert.deepEqual(received, input);

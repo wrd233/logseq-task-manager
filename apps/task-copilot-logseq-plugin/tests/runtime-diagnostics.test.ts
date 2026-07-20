@@ -78,11 +78,12 @@ test("initialization failure retains all runtime stages and renders a diagnostic
   assert.equal(snapshot.stages.length, RUNTIME_STAGES.length);
   assert.equal(snapshot.runtime_status, "DEGRADED");
   assert.equal(snapshot.latest_error?.stage, "PERSISTENCE_READY");
-  const html = renderRuntimeDiagnostics(snapshot);
+  const html = renderRuntimeDiagnostics(snapshot, '<section data-test="diagnostics-extension">Primary Anchor repair</section>');
   for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "恢复上一可读 Slot", "V2 Local Service", "SERVICE_DESCRIPTOR_PATH_REQUIRED", "Inbox", "Now Work", "Projects", "Audit / Recovery", "damaged store"]) {
     assert.match(html, new RegExp(label));
   }
   assert.doesNotMatch(html, /data-action="source-resolver-probe"/);
+  assert.match(html, /data-test="diagnostics-extension"[\s\S]*Primary Anchor repair/);
   assert.equal(snapshot.feature_flags.v2_formal_writes_available, false);
 });
 

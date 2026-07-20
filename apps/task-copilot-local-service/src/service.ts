@@ -154,6 +154,9 @@ interface PrimaryAnchorObservationRequest {
 
 interface PrimaryAnchorRebindRequest extends Omit<MaterializeRequest, "idempotencyKey"> {
   previousAnchorId: string;
+  previewObjectVersion: number;
+  previewAnchorStatus: "active" | "missing" | "conflict";
+  previewAnchorContentHash: string;
   confirmation: "REBIND_PRIMARY_ANCHOR";
 }
 
@@ -188,13 +191,16 @@ async function readPrimaryAnchorRebindRequest(request: IncomingMessage): Promise
     throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
   }
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  const exactKeys = ["confirmation", "contentHash", "externalId", "inputVersion", "objectType", "previousAnchorId", "text", "traceId"];
+  const exactKeys = ["confirmation", "contentHash", "externalId", "inputVersion", "objectType", "previewAnchorContentHash", "previewAnchorStatus", "previewObjectVersion", "previousAnchorId", "text", "traceId"];
   const actualKeys = Object.keys(record).sort();
   const objectTypes = ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"];
   if (
     actualKeys.length !== exactKeys.length || actualKeys.some((key, index) => key !== exactKeys[index]) ||
     record.confirmation !== "REBIND_PRIMARY_ANCHOR" ||
     typeof record.previousAnchorId !== "string" || !record.previousAnchorId.trim() || record.previousAnchorId.length > 512 ||
+    !Number.isSafeInteger(record.previewObjectVersion) || (record.previewObjectVersion as number) < 0 ||
+    typeof record.previewAnchorStatus !== "string" || !["active", "missing", "conflict"].includes(record.previewAnchorStatus) ||
+    typeof record.previewAnchorContentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.previewAnchorContentHash) ||
     typeof record.objectType !== "string" || !objectTypes.includes(record.objectType) ||
     typeof record.text !== "string" || !record.text.trim() || record.text.length > 8_192 ||
     typeof record.externalId !== "string" || !record.externalId.trim() || record.externalId.length > 512 ||
@@ -238,7 +244,7 @@ function respondError(response: ServerResponse, error: unknown): void {
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE"
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -388,8 +394,17 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       }
       const current = store.getObject(previousAnchor.objectId);
       if (!current) throw serviceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 引用的对象不存在；重新绑定已停止。");
+      if (
+        current.version !== input.previewObjectVersion ||
+        previousAnchor.status !== input.previewAnchorStatus ||
+        previousAnchor.contentHash !== input.previewAnchorContentHash
+      ) {
+        throw serviceError("V2_REBIND_PREVIEW_STALE", "对象或 Primary Anchor 已在预览后变化；重新绑定没有写入。");
+      }
       const result = await application.rebindPrimaryAnchor({
         previousAnchorId: previousAnchor.anchorId,
+        expectedAnchorStatus: input.previewAnchorStatus,
+        expectedAnchorContentHash: input.previewAnchorContentHash,
         objectType: input.objectType,
         text: input.text,
         graphId: options.graphId,
@@ -398,7 +413,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         confirmation: input.confirmation,
       }, {
         actor: "logseq-plugin",
-        expectedVersion: current.version,
+        expectedVersion: input.previewObjectVersion,
         idempotencyKey,
         traceId: input.traceId,
       });

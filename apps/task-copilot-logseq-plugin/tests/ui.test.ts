@@ -139,4 +139,14 @@ test("formal V2 plugin entry keeps the writable V1 FileStorage runtime inactive"
   assert.doesNotMatch(source, /repository\s*=\s*new VersionedStateRepository/);
   assert.doesNotMatch(source, /blobStore\s*=\s*new LogseqFileStorageBlobStore/);
   assert.match(source, /V1 FileStorage inactive/);
+  for (const token of ["v2-rebind-open", "v2-rebind-submit", "prepareV2PrimaryAnchorRebind", "submitV2PrimaryAnchorRebind"]) {
+    assert.match(source, new RegExp(token));
+  }
+  assert.match(source, /serviceRuntimeClient = undefined;[\s\S]*SERVICE_DISCOVERY_IN_PROGRESS[\s\S]*explicitSyncController\?\.pause\(\)/);
+  assert.match(source, /Local Service 正在重连或已不可写；旧预览已作废/);
+  assert.match(source, /Primary Anchor 预览已过期或不存在；没有执行重新绑定/);
+  assert.ok(
+    source.indexOf('if (action === "v2-rebind-open")') < source.indexOf("const taskCopilot = requireTaskCopilot();"),
+    "V2 Anchor recovery must remain available without activating the frozen V1 runtime",
+  );
 });

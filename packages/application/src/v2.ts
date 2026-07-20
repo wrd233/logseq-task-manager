@@ -81,6 +81,7 @@ export interface V2AnchorObservationCommand extends V2AnchorCommand {
 
 export interface V2AnchorRebindCommand extends V2AnchorCommand {
   previousAnchor: V2Anchor;
+  expectedPreviousAnchor: Pick<V2Anchor, "externalId" | "status" | "contentHash">;
   audit: V2AuditRecord & { command: "rebind_primary_anchor" };
 }
 
@@ -136,6 +137,8 @@ export interface ObservePrimaryAnchorInput {
 
 export interface RebindPrimaryAnchorInput {
   previousAnchorId: string;
+  expectedAnchorStatus: V2Anchor["status"];
+  expectedAnchorContentHash: string;
   objectType: MaterializeExplicitObjectInput["objectType"];
   text: string;
   graphId: string;
@@ -324,10 +327,18 @@ export class V2Application {
     if (!previousAnchor || previousAnchor.status === "replaced") {
       throw new StructuredError({ code: "V2_PRIMARY_ANCHOR_NOT_FOUND", message: `Primary Anchor ${input.previousAnchorId} 不存在或已被替换。`, ruleRefs: ["D-030", "D-185"] });
     }
+    if (previousAnchor.status !== input.expectedAnchorStatus || previousAnchor.contentHash !== input.expectedAnchorContentHash) {
+      throw new StructuredError({ code: "V2_REBIND_PREVIEW_STALE", message: "Primary Anchor 已在预览后变化；本次重新绑定没有写入。", ruleRefs: ["D-030", "D-185"] });
+    }
     const current = await this.requireObject(previousAnchor.objectId);
     const candidate = rebindV2PrimaryAnchor(current, previousAnchor, input, envelope.expectedVersion, at);
     return this.objects.commitAnchorRebind({
       ...candidate,
+      expectedPreviousAnchor: {
+        externalId: previousAnchor.externalId,
+        status: previousAnchor.status,
+        contentHash: previousAnchor.contentHash,
+      },
       expectedVersion: envelope.expectedVersion,
       idempotencyKey: envelope.idempotencyKey,
       audit: {

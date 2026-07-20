@@ -202,7 +202,7 @@ export class RuntimeDiagnostics {
   }
 }
 
-export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot): string {
+export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot, extensionHtml = ""): string {
   const rows = snapshot.stages.map((record) => `<tr><td><code>${escapeHtml(record.stage)}</code></td><td>${escapeHtml(record.status)}</td><td>${escapeHtml(record.started_at ?? "-")}</td><td>${escapeHtml(record.completed_at ?? "-")}</td><td>${escapeHtml(record.recoverability)}</td></tr>`).join("");
   const latest = snapshot.latest_error
     ? `<section class="diagnostic-error"><h2>最近错误</h2><p><strong>${escapeHtml(snapshot.latest_error.stage)}</strong> · ${escapeHtml(snapshot.latest_error.error_name ?? "Error")}: ${escapeHtml(snapshot.latest_error.error_message ?? "Unknown error")}</p><pre>${escapeHtml(snapshot.latest_error.stack ?? "No stack available")}</pre><p>下一步：复制诊断和 Console 中的 [Task Copilot] 日志；不要反复执行写入操作。当前保持只读安全模式。</p></section>`
@@ -219,6 +219,7 @@ export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot): 
       ${snapshot.notice ? `<section class="diagnostic-notice"><strong>${escapeHtml(snapshot.notice.code)}</strong><p>${escapeHtml(snapshot.notice.message)}</p><p>${escapeHtml(snapshot.notice.next_step)}</p></section>` : ""}
       <div class="diagnostic-grid"><section><h2>Runtime 状态</h2><p>${escapeHtml(snapshot.runtime_status)}</p></section><section><h2>Store 状态</h2><p>${escapeHtml(snapshot.store_status)} · schema ${escapeHtml(snapshot.store_schema)} · ${escapeHtml(snapshot.persistence_backend ?? "unknown")}</p></section><section><h2>V2 Local Service</h2><p>${escapeHtml(snapshot.service_connection.status)}${snapshot.service_connection.reason_code ? ` · ${escapeHtml(snapshot.service_connection.reason_code)}` : ""} · formal writes ${escapeHtml(snapshot.service_connection.formal_writes_available)}</p></section><section><h2>当前 Graph</h2><p>${escapeHtml(snapshot.current_graph)}</p></section><section><h2>版本</h2><p>Plugin ${escapeHtml(snapshot.plugin_version)} · Commit ${escapeHtml(snapshot.plugin_commit ?? "unknown")} · Logseq ${escapeHtml(snapshot.logseq_version)}</p></section><section><h2>Pending / Source Conflict</h2><p>${escapeHtml(snapshot.pending_semantic_commits ?? 0)} / ${escapeHtml(snapshot.source_anchor_conflicts ?? 0)}</p></section><section><h2>Event listeners</h2><p>${escapeHtml(JSON.stringify(snapshot.event_listener_status ?? {}))}</p></section></div>
       <nav class="diagnostic-nav"><span>Inbox</span><span>Now Work</span><span>Projects</span><span>Audit / Recovery</span><strong>Diagnostics</strong></nav>
+      ${extensionHtml}
       <section><h2>Runtime stages</h2><div class="diagnostic-table-wrap"><table class="diagnostic-table"><thead><tr><th>Stage</th><th>Status</th><th>Started</th><th>Completed</th><th>Recoverability</th></tr></thead><tbody>${rows}</tbody></table></div></section>
       ${latest}
       <section><h2>Feature flags</h2><pre>${escapeHtml(JSON.stringify(snapshot.feature_flags, null, 2))}</pre></section>

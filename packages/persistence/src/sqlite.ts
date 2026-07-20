@@ -565,7 +565,14 @@ export class V2SqliteStore {
       }
       this.requireVersion(command.object.objectId, command.expectedVersion);
       const current = this.getPrimaryAnchorById(command.previousAnchor.anchorId);
-      if (!current || current.objectId !== command.object.objectId || current.status === "replaced") {
+      if (
+        !current ||
+        current.objectId !== command.object.objectId ||
+        current.status !== command.expectedPreviousAnchor.status ||
+        current.contentHash !== command.expectedPreviousAnchor.contentHash ||
+        current.externalId !== command.expectedPreviousAnchor.externalId ||
+        current.status === "replaced"
+      ) {
         throw persistenceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 已变化；本次重新绑定没有写入。", { objectId: command.object.objectId });
       }
       const target = this.database.prepare("SELECT anchor_id FROM anchors WHERE graph_id = ? AND external_id = ? AND role = 'primary_text'")

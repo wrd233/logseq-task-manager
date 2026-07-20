@@ -373,12 +373,15 @@ test("Primary Anchor rebind requires explicit confirmation and is idempotent", a
     anchor: { anchorId: "anchor-old", graphId: "graph-1", externalId: "block-old", contentHash: "11111111" },
   }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-rebind", traceId: "trace-materialize" });
   const input = {
-    previousAnchorId: "anchor-old", objectType: "TASK" as const, text: "新正文", graphId: "graph-1", externalId: "block-new",
+    previousAnchorId: "anchor-old", expectedAnchorStatus: "active" as const, expectedAnchorContentHash: "11111111", objectType: "TASK" as const, text: "新正文", graphId: "graph-1", externalId: "block-new",
     contentHash: "22222222", confirmation: "REBIND_PRIMARY_ANCHOR" as const,
   };
   await assert.rejects(() => application.rebindPrimaryAnchor({ ...input, confirmation: "no" as "REBIND_PRIMARY_ANCHOR" }, {
     actor: "logseq-plugin", expectedVersion: created.object.version, idempotencyKey: "rebind-unconfirmed", traceId: "trace-unconfirmed",
   }), /确认/);
+  await assert.rejects(() => application.rebindPrimaryAnchor({ ...input, expectedAnchorStatus: "missing" }, {
+    actor: "logseq-plugin", expectedVersion: created.object.version, idempotencyKey: "rebind-stale-preview", traceId: "trace-stale-preview",
+  }), /预览后变化/);
   const envelope = { actor: "logseq-plugin", expectedVersion: created.object.version, idempotencyKey: "rebind-confirmed", traceId: "trace-rebind" };
   const rebound = await application.rebindPrimaryAnchor(input, envelope, new Date("2026-07-20T09:00:00Z"));
   assert.equal(rebound.previousAnchor.status, "replaced");

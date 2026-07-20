@@ -85,6 +85,7 @@ test("runtime discovery returns a usable sync client only after a READY probe", 
         syncCalls += 1;
         throw new Error("not called by discovery");
       },
+      listObjects: async () => [],
       listPrimaryAnchors: async () => ({ anchors: [] }),
       observePrimaryAnchor: async () => { throw new Error("not called by discovery"); },
       rebindPrimaryAnchor: async () => { throw new Error("not called by discovery"); },
@@ -97,6 +98,7 @@ test("runtime discovery returns a usable sync client only after a READY probe", 
   const restrictedRuntime = await discoverServiceRuntime("/runtime/service.json", { read: async () => descriptor }, () => ({
     health: async () => { throw new Error("offline"); },
     synchronizeExplicitObject: async () => { throw new Error("must not escape restricted discovery"); },
+    listObjects: async () => { throw new Error("must not escape restricted discovery"); },
     listPrimaryAnchors: async () => ({ anchors: [] }),
     observePrimaryAnchor: async () => { throw new Error("must not escape restricted discovery"); },
     rebindPrimaryAnchor: async () => { throw new Error("must not escape restricted discovery"); },

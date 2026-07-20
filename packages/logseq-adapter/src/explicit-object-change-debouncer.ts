@@ -43,6 +43,16 @@ function changedBlock(value: unknown): { uuid: string; content: string; inputVer
   return { uuid: candidate.uuid, content: candidate.content, inputVersion };
 }
 
+export function normalizeExplicitObjectBlock(value: unknown): ExplicitObjectBlockChange | undefined {
+  const block = changedBlock(value);
+  return block ? {
+    externalId: block.uuid,
+    content: block.content,
+    inputVersion: block.inputVersion,
+    parsed: parseExplicitObjectSyntax(block.content),
+  } : undefined;
+}
+
 export class ExplicitObjectChangeDebouncer {
   private readonly pending = new Map<string, { content: string; inputVersion: string }>();
   private readonly clock: DebounceClock;

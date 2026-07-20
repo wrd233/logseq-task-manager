@@ -79,14 +79,15 @@
 - 同一 UUID 恢复为合法显式 Block 时，观察或同类型同步可将 Anchor 恢复为 `active`；`replaced` 只作为历史证据，此路径不能复活；
 - 重复的相同状态是无写入重放，不膨胀 Object version。
 
-`POST /anchors/primary/rebind` 只接受固定八字段：
+`POST /anchors/primary/rebind` 只接受固定十一字段：
 
 ```json
-{"previousAnchorId":"anc_old","objectType":"TASK","text":"新的主正文","externalId":"new-block-uuid","inputVersion":"logseq-updated-at","contentHash":"1dd75803","confirmation":"REBIND_PRIMARY_ANCHOR","traceId":"trace-rebind"}
+{"previousAnchorId":"anc_old","previewObjectVersion":5,"previewAnchorStatus":"missing","previewAnchorContentHash":"8d5ac210","objectType":"TASK","text":"新的主正文","externalId":"new-block-uuid","inputVersion":"logseq-updated-at","contentHash":"1dd75803","confirmation":"REBIND_PRIMARY_ANCHOR","traceId":"trace-rebind"}
 ```
 
 - 精确确认短语由 Application 再次校验；缺失或拼写不同整包拒绝且零写入；
-- Graph ID、object_id、新 anchor_id、actor、expected version 和领域幂等键全部由 Service/Application 持有，客户端额外传入即拒绝；
+- `previewObjectVersion` 与旧 Anchor 的 status/hash 是 Service 预览返回的乐观并发前置，不是客户端可选的领域权限；Service/Application/SQLite 会在同一写入链中校验，任一变化都以 `V2_REBIND_PREVIEW_STALE` 零写入停止；
+- Graph ID、object_id、新 anchor_id、actor 和领域幂等键全部由 Service/Application 持有，客户端额外传入即拒绝；
 - 新 Block 必须在当前 Graph、与对象类型一致、UUID 不同且从未被任何 Primary Anchor（包括历史 `replaced`）占用；类型变化进入 Proposal，不借 rebind 静默迁移；
 - 单一事务推进对象版本与标题缓存、将旧 Anchor 标记为 `replaced`、插入新 active Anchor、写 Audit/Receipt；任一步失败全部回滚，Primary Ownership 不变；
 - Service 以 Graph、旧 Anchor、新 UUID 与输入版本生成幂等键；首次成功后的完全重试返回原 Receipt，不因旧 Anchor 已变为 `replaced` 而误报不存在。
@@ -142,6 +143,7 @@
 | `RESTORE_CONFIRMATION_REQUIRED` | Restore Apply 缺少精确高影响确认 |
 | `MATERIALIZATION_REQUEST_INVALID` | 显式物化字段、类型、长度或服务端所有权边界无效 |
 | `PRIMARY_ANCHOR_REBIND_INVALID` | rebind 字段、确认、类型、长度或服务端所有权边界无效 |
+| `V2_REBIND_PREVIEW_STALE` | 预览后 Object version 或旧 Anchor status/hash 已变化，本次零写入停止 |
 | `V2_REBIND_TARGET_ALREADY_BOUND` | 新 Block UUID 已有当前或历史 Primary Anchor 记录 |
 | `PRIMARY_ANCHOR_OBSERVATION_INVALID` | Anchor 观察字段、状态或服务端所有权边界无效 |
 | `V2_PRIMARY_ANCHOR_NOT_FOUND` | Anchor 不属于当前 Graph、不存在或已被替换 |

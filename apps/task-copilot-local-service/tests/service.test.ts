@@ -186,6 +186,9 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
 
   const reboundInput = {
     previousAnchorId: recovered.anchor.anchorId,
+    previewObjectVersion: recovered.object.version,
+    previewAnchorStatus: recovered.anchor.status,
+    previewAnchorContentHash: recovered.anchor.contentHash,
     objectType: "TASK" as const,
     text: "新的主正文",
     externalId: "block-rebound",
@@ -194,6 +197,9 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
     confirmation: "REBIND_PRIMARY_ANCHOR" as const,
     traceId: "trace-rebind",
   };
+  await assert.rejects(() => client.rebindPrimaryAnchor({ ...reboundInput, previewObjectVersion: recovered.object.version - 1 }),
+    (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_REBIND_PREVIEW_STALE");
+  assert.equal((await client.getObject(recovered.object.objectId))?.version, recovered.object.version);
   const rebound = await client.rebindPrimaryAnchor(reboundInput);
   assert.equal(rebound.object.objectId, recovered.object.objectId);
   assert.equal(rebound.previousAnchor.status, "replaced");
@@ -217,6 +223,9 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   await assert.rejects(() => client.rebindPrimaryAnchor({
     ...reboundInput,
     previousAnchorId: rebound.anchor.anchorId,
+    previewObjectVersion: rebound.object.version,
+    previewAnchorStatus: "active",
+    previewAnchorContentHash: rebound.anchor.contentHash,
     externalId: "block-materialize",
     inputVersion: "1006",
     traceId: "trace-rebind-bound-target",

@@ -34,6 +34,12 @@ import {
   type ExplicitSyncEventHost,
   type ExplicitSyncState,
 } from "./explicit-sync-controller.ts";
+import {
+  prepareV2PrimaryAnchorRebind,
+  renderV2PrimaryAnchorRebindPanel,
+  submitV2PrimaryAnchorRebind,
+  type V2RebindPanelState,
+} from "./v2-anchor-rebind.ts";
 
 let appRoot: HTMLElement | undefined;
 const v1Runtime: {
@@ -70,6 +76,7 @@ let explicitSyncState: ExplicitSyncState = {
   transportReady: false,
   reconciliationRequired: false,
 };
+let v2RebindPanel: V2RebindPanelState = { status: "idle" };
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
   reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
@@ -92,6 +99,11 @@ function requireAppRoot(): HTMLElement {
 
 function explain(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>[0]): string {
+  const available = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
+  return renderRuntimeDiagnostics(snapshot, renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available));
 }
 
 async function model(): Promise<UiModel> {
@@ -154,7 +166,7 @@ async function refresh(): Promise<void> {
     return;
   }
   if (!featureReady) {
-    root.innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
+    root.innerHTML = renderDiagnostics(diagnostics.snapshot());
     return;
   }
   let primaryHtml: string;
@@ -200,6 +212,17 @@ async function fullDiagnosticsSnapshot() {
 
 async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   const generation = ++serviceDiscoveryGeneration;
+  if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
+  serviceRuntimeClient = undefined;
+  serviceConnection = {
+    status: "RESTRICTED",
+    reasonCode: "SERVICE_DISCOVERY_IN_PROGRESS",
+    message: "Local Service 正在重新发现；正式写入暂停。",
+    formalWritesAvailable: false,
+    graphEditingAvailable: true,
+  };
+  diagnostics.setServiceConnection(serviceConnection);
+  explicitSyncController?.pause();
   const runtime = await discoverServiceRuntime(typeof descriptorPath === "string" ? descriptorPath : undefined);
   if (generation !== serviceDiscoveryGeneration) return;
   serviceConnection = runtime.connection;
@@ -289,6 +312,73 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "first-run-status") {
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "v2-rebind-open") {
+    const client = serviceRuntimeClient;
+    const generation = serviceDiscoveryGeneration;
+    if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      v2RebindPanel = { status: "error", message: "Local Service 未处于可正式写入的 READY 状态；没有执行重新绑定。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    v2RebindPanel = { status: "loading" };
+    await showRuntimeDiagnostics();
+    try {
+      const preview = await prepareV2PrimaryAnchorRebind(client, () => logseq.Editor.getCurrentBlock());
+      if (generation !== serviceDiscoveryGeneration || client !== serviceRuntimeClient) {
+        throw new Error("Local Service 已在预览期间重连；旧预览已作废，没有执行写入。");
+      }
+      v2RebindPanel = { status: "ready", preview, serviceGeneration: generation };
+    } catch (error) {
+      v2RebindPanel = { status: "error", message: explain(error) };
+    }
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "v2-rebind-cancel") {
+    if (v2RebindPanel.status === "ready" && v2RebindPanel.busy) return;
+    v2RebindPanel = { status: "idle" };
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "v2-rebind-submit") {
+    const client = serviceRuntimeClient;
+    const currentPanel = v2RebindPanel;
+    if (currentPanel.status === "ready" && currentPanel.busy) return;
+    if (currentPanel.status !== "ready") {
+      v2RebindPanel = { status: "error", message: "Primary Anchor 预览已过期或不存在；没有执行重新绑定。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      v2RebindPanel = { status: "error", message: "Local Service 正在重连或已不可写；旧预览已作废，没有执行重新绑定。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    if (currentPanel.serviceGeneration !== serviceDiscoveryGeneration) {
+      v2RebindPanel = { status: "error", message: "Local Service 已在预览后重连；旧预览已作废，没有执行写入。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    const previousAnchorId = dialogField("v2RebindPreviousAnchorId");
+    const confirmed = dialogChecked("v2RebindConfirmed");
+    v2RebindPanel = { ...currentPanel, busy: true };
+    await showRuntimeDiagnostics();
+    const traceId = `v2-rebind-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    try {
+      const result = await submitV2PrimaryAnchorRebind(client, currentPanel.preview, previousAnchorId, confirmed, () => logseq.Editor.getCurrentBlock(), traceId);
+      v2RebindPanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
+        ? { status: "success", message: `对象 ${result.object.objectId} 已绑定到 Block ${result.anchor.externalId}；旧 Anchor 保留为 replaced。` }
+        : { status: "error", message: "Local Service 在提交期间重连；旧会话已返回成功，请先在 Audit/Doctor 核对，不要立即重试。" };
+      operationalLogger.log("info", "ui-action", "v2_primary_anchor_rebound", { correlationId: traceId, actionId: "v2-rebind-submit", result: "success", blockUuid: result.anchor.externalId });
+    } catch (error) {
+      v2RebindPanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
+        ? { status: "error", message: explain(error) }
+        : { status: "error", message: "Local Service 在提交期间重连；旧会话结果不确定，请先在 Audit/Doctor 核对，不要立即重试。" };
+      operationalLogger.log("error", "ui-action", "v2_primary_anchor_rebind_failed", { correlationId: traceId, actionId: "v2-rebind-submit", result: "error" }, error);
+    }
     await showRuntimeDiagnostics();
     return;
   }
@@ -913,7 +1003,7 @@ async function showTaskCopilot(): Promise<void> {
 
 async function showRuntimeDiagnostics(): Promise<void> {
   logseq.showMainUI({ autoFocus: true });
-  requireAppRoot().innerHTML = renderRuntimeDiagnostics(await fullDiagnosticsSnapshot());
+  requireAppRoot().innerHTML = renderDiagnostics(await fullDiagnosticsSnapshot());
 }
 
 async function captureFromCommand(): Promise<void> {

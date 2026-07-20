@@ -42,7 +42,10 @@
 11. 将一个已绑定 Block 移动到另一个测试页，确认 UUID、object_id、anchor_id 和 Primary Ownership 都不变；
 12. 复制该 Block，确认 Logseq 给出新 UUID，Service 为副本建立不同 object_id/anchor_id，原对象不被覆盖；
 13. 保持 Plugin 运行，修改另一个已绑定 Block，等待一轮 5 分钟低频检查，确认自动收敛且没有全 Graph 扫描；
-14. 在 Plugin 退出期间新建一个从未物化的显式 Block，确认当前版本不会虚报已发现；将其作为“受控新标识候选发现”后续缺口记录。
+14. 删除或破坏一个 Task 的 Primary Anchor，再创建一个未绑定的同类型显式 Block；选中新 Block，在 Diagnostics 打开 Primary Anchor repair，确认面板显示旧 Anchor 状态、新 UUID/正文、同类型边界及“旧 replaced / 新 active”影响；
+15. 不勾选确认直接提交，确认可见拒绝且 SQLite 零写入；勾选后提交，确认原 object_id 和 Primary Ownership 不变、旧 Anchor 为 `replaced`、新 Anchor 为 `active`，且 Audit/Receipt 只增加一次；
+16. 再使用一个候选执行预览；分别验证（a）预览后修改新 Block 正文，（b）预览后让旧 Anchor 恢复/变为其他状态或让对象版本前进，（c）预览后重连 Service；三种旧预览提交都必须明确停止且不写 SQLite。真正发出提交后面板不得显示无效“取消”；
+17. 在 Plugin 退出期间新建一个从未物化的显式 Block，确认当前版本不会虚报已发现；将其作为“受控新标识候选发现”后续缺口记录。
 
 ## 通过标准
 

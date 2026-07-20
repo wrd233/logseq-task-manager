@@ -10,6 +10,7 @@ export {
 } from "./explicit-object-parser.ts";
 export {
   ExplicitObjectChangeDebouncer,
+  normalizeExplicitObjectBlock,
   type DebounceClock,
   type ExplicitObjectBlockChange,
   type ExplicitObjectChangeDebouncerOptions,

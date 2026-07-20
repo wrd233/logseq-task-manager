@@ -538,6 +538,8 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
   faultConnection.close();
   await assert.rejects(() => application.rebindPrimaryAnchor({
     previousAnchorId: "anchor-materialized",
+    expectedAnchorStatus: "active",
+    expectedAnchorContentHash: "22222222",
     objectType: "TASK",
     text: "不得留下半写",
     graphId: "graph-a",
@@ -554,6 +556,8 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
 
   const rebound = await application.rebindPrimaryAnchor({
     previousAnchorId: "anchor-materialized",
+    expectedAnchorStatus: "active",
+    expectedAnchorContentHash: "22222222",
     objectType: "TASK",
     text: "新的主正文",
     graphId: "graph-a",
@@ -569,6 +573,8 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
   assert.deepEqual(store.listPrimaryAnchors("graph-a").map((anchor) => anchor.externalId), ["block-rebound"]);
   await assert.rejects(() => application.rebindPrimaryAnchor({
     previousAnchorId: rebound.anchor.anchorId,
+    expectedAnchorStatus: "active",
+    expectedAnchorContentHash: "44444444",
     objectType: "TASK",
     text: "不得复用历史 UUID",
     graphId: "graph-a",
