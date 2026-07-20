@@ -170,6 +170,7 @@ async function model(): Promise<UiModel> {
       proposalImpacts: {},
       ...(message ? { message } : {}),
       ...(latestError ? { error: latestError } : {}),
+      ...(actionDialog ? { actionDialog } : {}),
       runtime: {
         pluginVersion: diagnostics.snapshot().plugin_version,
         runtimeStatus: diagnostics.snapshot().runtime_status,

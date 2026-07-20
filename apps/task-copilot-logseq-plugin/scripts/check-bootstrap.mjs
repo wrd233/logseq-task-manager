@@ -19,6 +19,7 @@ assert.match(source, /initialization failed at \$\{failedStage\}/, "feature init
 assert.match(source, /beforeunload[\s\S]*cleanupHooks/, "reload cleanup hook is required");
 assert.match(source, /featureReady = serviceConnection\.status === "READY" && Boolean\(serviceRuntimeClient\)/, "a READY V2 Local Service must unlock the V2 workspace");
 assert.doesNotMatch(source, /markReady\("EVENTS_READY"\);\s*featureReady = false/, "V2 startup must not deliberately strand the UI in Diagnostics");
+assert.equal((source.match(/\.\.\.\(actionDialog \? \{ actionDialog \} : \{\}\)/g) ?? []).length, 2, "both V1 and V2-only models must expose in-context action dialogs");
 for (const label of ["Task Copilot: Open", "Task Copilot: Capture Current Block", "Task Copilot: Open Inbox", "Task Copilot: Open Now Work", "Task Copilot: Runtime Diagnostics"]) assert.ok(bootstrap.includes(label), `missing command: ${label}`);
 for (const stage of ["BOOTSTRAP_STARTED", "TOOLBAR_REGISTERED", "COMMANDS_REGISTERED", "MAIN_UI_REGISTERED", "SETTINGS_READY", "RUNTIME_ADAPTER_READY", "PERSISTENCE_READY", "MIGRATION_READY", "APPLICATION_READY", "EVENTS_READY", "PLUGIN_READY"]) assert.ok(diagnostics.includes(`"${stage}"`), `missing runtime stage: ${stage}`);
 
