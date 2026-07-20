@@ -537,6 +537,11 @@ export class V2Application {
     const current = await this.objects.getObject(objectId);
     if (!current) throw new StructuredError({ code: "V2_OBJECT_NOT_FOUND", message: `对象 ${objectId} 不存在。`, ruleRefs: ["D-185"] });
     const candidate = changeV2Condition(current, condition, envelope.expectedVersion, at);
+    if (candidate.condition.kind === "BLOCKED" && candidate.condition.blockerObjectId) {
+      const blocker = await this.objects.getObject(candidate.condition.blockerObjectId);
+      if (!blocker) throw new StructuredError({ code: "V2_BLOCKER_OBJECT_NOT_FOUND", message: "选择的阻碍对象不存在；Condition 没有更新。", ruleRefs: ["D-151", "D-185"] });
+      if (blocker.lifecycle !== "OPEN") throw new StructuredError({ code: "V2_BLOCKER_OBJECT_CLOSED", message: "已关闭对象不能作为当前阻碍来源。", ruleRefs: ["D-148", "D-151"] });
+    }
     const result = await this.objects.commitObject({
       object: candidate,
       expectedVersion: envelope.expectedVersion,

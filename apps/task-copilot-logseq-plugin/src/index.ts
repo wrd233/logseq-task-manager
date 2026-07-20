@@ -716,7 +716,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       if (reviewAt && !Number.isFinite(reviewAt.getTime())) throw new Error("请填写合法复查时间。");
       const condition: V2Condition = kind === "ACTIONABLE" ? { kind }
         : kind === "WAITING" ? { kind, waitingFor: dialogField("v2WaitingFor"), expectedResult: dialogField("v2ExpectedResult"), reviewAt: reviewAt?.toISOString() ?? "" }
-        : kind === "BLOCKED" ? { kind, reason: dialogField("v2ConditionReason") }
+        : kind === "BLOCKED" ? { kind, reason: dialogField("v2ConditionReason"), ...(dialogField("v2BlockerObjectId") ? { blockerObjectId: dialogField("v2BlockerObjectId") } : {}) }
         : { kind, reason: dialogField("v2ConditionReason"), ...(reviewAt ? { reviewAt: reviewAt.toISOString() } : {}) };
       await client.changeCondition(objectId, expectedVersion, condition);
       actionDialog = undefined;

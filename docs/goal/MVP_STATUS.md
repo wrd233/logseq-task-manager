@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B5 automated foundation; Slice C0-C5 automated foundation; Slice E Now Work interactive foundation"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 243 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Commit/Undo, interactive Now Work with Condition/type/deadline views, and Review Center current-page Candidate entry are automated; Desktop remains pending"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 245 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Commit/Undo, interactive Now Work with Condition/type/deadline/blocker views, and Review Center current-page Candidate entry are automated; Desktop remains pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -31,6 +31,7 @@ implemented:
   - "V2 Now Work reads SQLite authority through Local Service and renders three explainable, empty-hiding regions; recent actionable work is bounded and ordinary Waiting stays quiet"
   - "V2 Now Work can add/remove/reorder Focus through Application and Local Service concurrency guards, and active Primary Anchors expose a safe open action without changing formal object state"
   - "V2 Now Work can set ACTIONABLE/WAITING/BLOCKED/PAUSED through one versioned Application command; Waiting review evidence is validated and immediately feeds the quiet review projection"
+  - "V2 BLOCKED can reference one readable OPEN blocker; invalid links are zero-write, and actionable or quiet-Waiting blockers of Focus are surfaced with natural-language reasons"
   - "V2 Now Work supports session-only type filtering and grouping; partial views cannot accidentally reorder the full Focus list"
   - "V2 Task due_at is versioned through Local Service, is sorted by explicit time with natural-language reasons, and never becomes a score"
   - "Review Center now owns the bounded current-page explicit Candidate scan and one-at-a-time stale-protected synchronization; Diagnostics no longer serves as that daily entry"

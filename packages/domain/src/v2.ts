@@ -79,7 +79,8 @@ export function validateV2Condition(condition: V2Condition): V2Condition {
       return condition;
     case "BLOCKED":
       requireText(condition.reason, "BLOCKED_REASON_REQUIRED", "BLOCKED 必须说明阻碍。");
-      return condition;
+      if (condition.blockerObjectId !== undefined) requireText(condition.blockerObjectId, "BLOCKER_OBJECT_ID_INVALID", "阻碍对象 ID 不能为空。");
+      return { kind: "BLOCKED", reason: condition.reason.trim(), ...(condition.blockerObjectId ? { blockerObjectId: condition.blockerObjectId.trim() } : {}) };
     case "PAUSED":
       requireText(condition.reason, "PAUSED_REASON_REQUIRED", "PAUSED 必须说明暂停原因。");
       if (condition.reviewAt && !Number.isFinite(Date.parse(condition.reviewAt))) throw new StructuredError({ code: "PAUSED_REVIEW_INVALID", message: "PAUSED 复查时间必须是合法时间。", ruleRefs: ["D-151", "D-220"] });
@@ -90,7 +91,9 @@ export function validateV2Condition(condition: V2Condition): V2Condition {
 export function changeV2Condition(object: V2ManagedObject, condition: V2Condition, expectedVersion: number, at = new Date()): V2ManagedObject {
   if (object.version !== expectedVersion) throw new StructuredError({ code: "V2_OBJECT_VERSION_CONFLICT", message: "对象版本已变化；Condition 没有更新。", ruleRefs: ["D-185"] });
   if (object.lifecycle !== "OPEN") throw new StructuredError({ code: "V2_CONDITION_OBJECT_CLOSED", message: "已关闭对象不能改变当前 Condition。", ruleRefs: ["D-148", "D-220"] });
-  return { ...object, condition: validateV2Condition(condition), version: object.version + 1, updatedAt: at.toISOString() };
+  const validated = validateV2Condition(condition);
+  if (validated.kind === "BLOCKED" && validated.blockerObjectId === object.objectId) throw new StructuredError({ code: "BLOCKER_OBJECT_SELF_REFERENCE", message: "对象不能把自己设为阻碍来源。", ruleRefs: ["D-151", "D-220"] });
+  return { ...object, condition: validated, version: object.version + 1, updatedAt: at.toISOString() };
 }
 
 export function changeV2DueAt(object: V2ManagedObject, dueAt: string | undefined, expectedVersion: number, at = new Date()): V2ManagedObject {

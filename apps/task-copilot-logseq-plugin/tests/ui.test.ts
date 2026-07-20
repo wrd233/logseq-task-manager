@@ -44,7 +44,7 @@ test("Project workspace exposes one in-context V2 creation form gated by Local S
 test("V2 Now Work renders only non-empty explainable regions without scores or button walls", () => {
   const value = model();
   value.workspace = "now";
-  value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], waitingReview: [], next: [{ objectId: "task-next", objectType: "TASK", version: 2, text: "核对告警", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T11:00:00.000Z", reason: "近期建立，可直接推进", primaryAnchorExternalId: "block-next" }] };
+  value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], waitingReview: [], conditionOptions: [], next: [{ objectId: "task-next", objectType: "TASK", version: 2, text: "核对告警", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T11:00:00.000Z", reason: "近期建立，可直接推进", primaryAnchorExternalId: "block-next" }] };
   const html = renderApp(value);
   assert.match(html, /接下来值得处理/);
   assert.match(html, /近期建立，可直接推进/);
@@ -58,17 +58,19 @@ test("V2 Now Work renders only non-empty explainable regions without scores or b
 
 test("V2 Condition is edited in one in-context form with explicit Waiting evidence", () => {
   const value = model();
+  value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], next: [], waitingReview: [], conditionOptions: [{ objectId: "blocker-task", objectType: "TASK", text: "恢复真实事件" }] };
   value.actionDialog = { kind: "v2-condition", value: "task-next|2" };
   const html = renderApp(value);
   assert.match(html, /Condition 与 Lifecycle、Focus 分离/);
-  for (const field of ["v2ConditionKind", "v2WaitingFor", "v2ExpectedResult", "v2ConditionReason", "v2ConditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
+  for (const field of ["v2ConditionKind", "v2WaitingFor", "v2ExpectedResult", "v2ConditionReason", "v2BlockerObjectId", "v2ConditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
+  assert.match(html, /TASK · 恢复真实事件/);
   assert.match(html, /data-action="submit-v2-condition" data-value="task-next\|2"/);
 });
 
 test("V2 Task deadline stays an explicit no-score action in Now Work", () => {
   const value = model();
   value.workspace = "now";
-  value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], waitingReview: [], next: [{ objectId: "task-due", objectType: "TASK", version: 3, text: "核对期限", condition: { kind: "ACTIONABLE" }, dueAt: "2026-07-21T09:00:00.000Z", updatedAt: "2026-07-20T11:00:00.000Z", reason: "明确期限在 1 天内" }] };
+  value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], waitingReview: [], conditionOptions: [], next: [{ objectId: "task-due", objectType: "TASK", version: 3, text: "核对期限", condition: { kind: "ACTIONABLE" }, dueAt: "2026-07-21T09:00:00.000Z", updatedAt: "2026-07-20T11:00:00.000Z", reason: "明确期限在 1 天内" }] };
   let html = renderApp(value);
   assert.match(html, /期限：/);
   assert.match(html, /data-action="v2-deadline-open" data-value="task-due\|3\|2026-07-21T09:00:00.000Z"/);
@@ -85,7 +87,7 @@ test("V2 Focus exposes compact manual ordering and removal in the same Now Work 
   const value = model();
   value.workspace = "now";
   value.v2NowWork = {
-    generatedAt: "2026-07-20T12:00:00.000Z", next: [], waitingReview: [],
+    generatedAt: "2026-07-20T12:00:00.000Z", next: [], waitingReview: [], conditionOptions: [],
     focus: [
       { objectId: "task-a", objectType: "TASK", version: 1, text: "先处理", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T11:00:00.000Z", reason: "已加入当前关注" },
       { objectId: "task-b", objectType: "TASK", version: 3, text: "后处理", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T10:00:00.000Z", reason: "已加入当前关注" },
@@ -101,7 +103,7 @@ test("V2 Now Work type filtering and grouping stay view-only and protect full Fo
   const value = model();
   value.workspace = "now";
   value.v2NowWork = {
-    generatedAt: "2026-07-20T12:00:00.000Z", waitingReview: [],
+    generatedAt: "2026-07-20T12:00:00.000Z", waitingReview: [], conditionOptions: [],
     focus: [{ objectId: "project-a", objectType: "PROJECT", version: 1, text: "治理告警", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T11:00:00.000Z", reason: "已加入当前关注" }],
     next: [{ objectId: "task-a", objectType: "TASK", version: 2, text: "核对事件", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T10:00:00.000Z", reason: "近期更新，可继续推进" }],
   };

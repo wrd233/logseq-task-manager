@@ -176,6 +176,7 @@ test("Now Work Focus is service-owned, manually ordered, and opens from Primary 
   assert.deepEqual(now.focus.map((item) => [item.objectId, item.primaryAnchorExternalId]), [
     [second.object.objectId, "focus-page-b"], [first.object.objectId, "focus-page-a"],
   ]);
+  assert.deepEqual(now.conditionOptions.map((option) => option.objectId).sort(), [first.object.objectId, second.object.objectId].sort());
   await client.reorderFocus(now.focus.map((item) => item.objectId), [first.object.objectId, second.object.objectId]);
   now = await client.nowWork();
   assert.deepEqual(now.focus.map((item) => item.objectId), [first.object.objectId, second.object.objectId]);
@@ -187,6 +188,11 @@ test("Now Work Focus is service-owned, manually ordered, and opens from Primary 
   now = await client.nowWork();
   assert.equal(now.focus.find((item) => item.objectId === second.object.objectId)?.condition.kind, "WAITING", "Focus survives an independent Condition change");
   assert.match(now.waitingReview.find((item) => item.objectId === second.object.objectId)?.reason ?? "", /复查已到/);
+  const blocked = await client.changeCondition(second.object.objectId, waiting.object.version, { kind: "BLOCKED", reason: "需先完成第一项", blockerObjectId: first.object.objectId });
+  assert.equal(blocked.object.condition.kind, "BLOCKED");
+  now = await client.nowWork();
+  assert.match(now.next.find((item) => item.objectId === first.object.objectId)?.reason ?? "", /阻碍当前关注/);
+  await assert.rejects(() => client.changeCondition(second.object.objectId, blocked.object.version, { kind: "BLOCKED", reason: "不存在", blockerObjectId: "missing-blocker" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 404 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_BLOCKER_OBJECT_NOT_FOUND");
   await assert.rejects(() => client.changeCondition(second.object.objectId, second.object.version, { kind: "ACTIONABLE" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_VERSION_CONFLICT");
   const invalid = await fetch(new URL(`focus/${encodeURIComponent(second.object.objectId)}`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: second.object.version, rank: -1 }) });
   assert.equal(invalid.status, 400);

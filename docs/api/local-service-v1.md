@@ -48,12 +48,14 @@
 | POST | `/proposals/{id}/commit/compensate` | 验证 Graph 已逆写 before evidence | ledger COMPENSATED/FAILED + Proposal FAILED |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
-| GET | `/now-work` | 三个可解释区域、Focus、到期 Waiting 与临近 Task 期限 | 无；可重建投影 |
+| GET | `/now-work` | 三个可解释区域、Focus、到期 Waiting、临近 Task 期限与开放对象 Condition 选择项 | 无；可重建投影 |
 | PATCH | `/objects/{object_id}/condition` | 设置 ACTIONABLE / WAITING / BLOCKED / PAUSED | Object + Audit + Receipt 单事务写入 |
 | PATCH | `/objects/{object_id}/deadline` | 设置或清除 Task `due_at` | Object + Audit + Receipt 单事务写入；不产生分数 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
 
-未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步、Anchor 观察、重新绑定与 Project 创建路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。Proposal submit/review 只改审阅状态，不是正式领域生效；C3/C4 未完成前没有 Proposal Commit 路由。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束正式命令可用，不表示迁移或 Provider 写入已经开放。Proposal submit/review 只改审阅状态，不是正式领域生效；只有已接受且重验通过的受限 Proposal 才能进入 prepare/finalize Commit 路由。
+
+`GET /now-work` 的 `conditionOptions` 仅包含当前 OPEN 对象的 `objectId / objectType / text`，供插件以可读选择器设置可选 `BLOCKED.blockerObjectId`；它不是第二份对象状态。Application 拒绝不存在、已关闭或自引用的阻碍对象。若 Focus A 的 `blockerObjectId` 指向 B，则可行动 B 会以“阻碍当前关注”进入可解释排序；安静的 Waiting B 也会被唤醒进入“等待与复查”。
 
 ## 显式 Block 物化
 

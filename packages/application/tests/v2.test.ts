@@ -523,6 +523,11 @@ test("Condition changes are versioned, idempotent, and require complete time evi
   assert.equal((await application.changeCondition(object.objectId, { kind: "ACTIONABLE" }, envelope)).condition.kind, "WAITING", "same idempotency key replays the original result");
   await assert.rejects(() => application.changeCondition(object.objectId, { kind: "PAUSED", reason: "稍后", reviewAt: "not-a-date" }, { actor: "user", expectedVersion: 2, idempotencyKey: "invalid-review", traceId: "trace-invalid" }), /合法时间/);
   await assert.rejects(() => application.changeCondition(object.objectId, { kind: "ACTIONABLE" }, { actor: "user", expectedVersion: 1, idempotencyKey: "stale-condition", traceId: "trace-stale" }), /版本/);
+  const blocker = await application.createObject({ objectId: "condition-blocker", objectType: "TASK", text: "先恢复事件" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-condition-blocker", traceId: "trace-create-blocker" });
+  const blocked = await application.changeCondition(object.objectId, { kind: "BLOCKED", reason: "依赖事件", blockerObjectId: blocker.objectId }, { actor: "user", expectedVersion: waiting.version, idempotencyKey: "condition-blocked", traceId: "trace-blocked" });
+  assert.deepEqual(blocked.condition, { kind: "BLOCKED", reason: "依赖事件", blockerObjectId: blocker.objectId });
+  await assert.rejects(() => application.changeCondition(object.objectId, { kind: "BLOCKED", reason: "不存在", blockerObjectId: "missing-blocker" }, { actor: "user", expectedVersion: blocked.version, idempotencyKey: "missing-blocker", traceId: "trace-missing" }), /不存在/);
+  await assert.rejects(() => application.changeCondition(object.objectId, { kind: "BLOCKED", reason: "错误自引用", blockerObjectId: object.objectId }, { actor: "user", expectedVersion: blocked.version, idempotencyKey: "self-blocker", traceId: "trace-self" }), /自己/);
   assert.equal(repository.audit.at(-1)?.command, "change_condition");
 });
 

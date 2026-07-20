@@ -211,7 +211,8 @@ export interface ServiceSemanticCommit {
 }
 
 export interface ServiceNowWorkItem { objectId: string; objectType: V2ObjectType; version: number; text: string; condition: V2Condition; dueAt?: string; updatedAt: string; reason: string; primaryAnchorExternalId?: string }
-export interface ServiceNowWork { generatedAt: string; focus: ServiceNowWorkItem[]; next: ServiceNowWorkItem[]; waitingReview: ServiceNowWorkItem[] }
+export interface ServiceNowWorkConditionOption { objectId: string; objectType: V2ObjectType; text: string }
+export interface ServiceNowWork { generatedAt: string; focus: ServiceNowWorkItem[]; next: ServiceNowWorkItem[]; waitingReview: ServiceNowWorkItem[]; conditionOptions: ServiceNowWorkConditionOption[] }
 export interface ServiceFocusSelection { objectId: string; selectedAt: string; rank: number; expiresAt?: string }
 
 export type ServiceProposalUndoFinalization =

@@ -39,3 +39,24 @@ test("V2 Now Work surfaces explicit Task deadlines without scores and sorts them
   assert.equal(JSON.stringify(projection).includes("score"), false);
   assert.equal(JSON.stringify(projection).includes("far-due"), false);
 });
+
+test("V2 Now Work surfaces the object that blocks Focus without inventing a score", () => {
+  const now = new Date("2026-07-20T12:00:00.000Z");
+  const projection = projectV2NowWork([
+    object("focus-task", { kind: "BLOCKED", reason: "需要先恢复事件", blockerObjectId: "restore-event" }, "2026-07-20T10:00:00.000Z"),
+    object("restore-event", { kind: "ACTIONABLE" }, "2026-01-01T00:00:00.000Z"),
+    object("recent", { kind: "ACTIONABLE" }, "2026-07-20T11:00:00.000Z"),
+  ], [{ objectId: "focus-task", selectedAt: "2026-07-20T11:00:00.000Z", rank: 0 }], now);
+  assert.deepEqual(projection.next.map((item) => item.objectId), ["restore-event", "recent"]);
+  assert.equal(projection.next[0]?.reason, "阻碍当前关注 · focus-task");
+  assert.equal(JSON.stringify(projection).includes("score"), false);
+});
+
+test("V2 Now Work wakes a quiet Waiting object when it blocks Focus", () => {
+  const now = new Date("2026-07-20T12:00:00.000Z");
+  const projection = projectV2NowWork([
+    object("focus-task", { kind: "BLOCKED", reason: "等待供应商", blockerObjectId: "supplier-reply" }, "2026-07-20T10:00:00.000Z"),
+    object("supplier-reply", { kind: "WAITING", waitingFor: "供应商", expectedResult: "答复", reviewAt: "2026-08-20T00:00:00.000Z" }, "2026-07-01T00:00:00.000Z"),
+  ], [{ objectId: "focus-task", selectedAt: "2026-07-20T11:00:00.000Z", rank: 0 }], now);
+  assert.equal(projection.waitingReview.find((item) => item.objectId === "supplier-reply")?.reason, "阻碍当前关注 · 等待 供应商");
+});
