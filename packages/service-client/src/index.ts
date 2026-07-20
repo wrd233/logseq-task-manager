@@ -210,7 +210,7 @@ export interface ServiceSemanticCommit {
   errorCode?: string;
 }
 
-export interface ServiceNowWorkItem { objectId: string; objectType: V2ObjectType; version: number; text: string; condition: V2Condition; updatedAt: string; reason: string; primaryAnchorExternalId?: string }
+export interface ServiceNowWorkItem { objectId: string; objectType: V2ObjectType; version: number; text: string; condition: V2Condition; dueAt?: string; updatedAt: string; reason: string; primaryAnchorExternalId?: string }
 export interface ServiceNowWork { generatedAt: string; focus: ServiceNowWorkItem[]; next: ServiceNowWorkItem[]; waitingReview: ServiceNowWorkItem[] }
 export interface ServiceFocusSelection { objectId: string; selectedAt: string; rank: number; expiresAt?: string }
 
@@ -492,6 +492,10 @@ export class LocalServiceClient {
 
   changeCondition(objectId: string, expectedVersion: number, condition: V2Condition): Promise<{ object: V2ManagedObject }> {
     return this.request<{ object: V2ManagedObject }>(`/objects/${encodeURIComponent(objectId)}/condition`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion, condition }) });
+  }
+
+  changeDeadline(objectId: string, expectedVersion: number, dueAt?: string): Promise<{ object: V2ManagedObject }> {
+    return this.request<{ object: V2ManagedObject }>(`/objects/${encodeURIComponent(objectId)}/deadline`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion, dueAt: dueAt ?? null }) });
   }
 
   finalizeProposalUndo(originalSemanticCommitId: string, evidence: ServiceProposalUndoEvidence): Promise<ServiceProposalUndoFinalization> {

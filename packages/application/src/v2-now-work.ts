@@ -6,6 +6,7 @@ export interface V2NowWorkItem {
   version: number;
   text: string;
   condition: V2ManagedObject["condition"];
+  dueAt?: string;
   updatedAt: string;
   reason: string;
 }
@@ -18,7 +19,7 @@ export interface V2NowWorkProjection {
 }
 
 function item(object: V2ManagedObject, reason: string): V2NowWorkItem {
-  return { objectId: object.objectId, objectType: object.objectType, version: object.version, text: object.text, condition: object.condition, updatedAt: object.updatedAt, reason };
+  return { objectId: object.objectId, objectType: object.objectType, version: object.version, text: object.text, condition: object.condition, ...(object.dueAt ? { dueAt: object.dueAt } : {}), updatedAt: object.updatedAt, reason };
 }
 
 export function projectV2NowWork(
@@ -41,10 +42,17 @@ export function projectV2NowWork(
   }).map((object) => item(object, object.condition.kind === "WAITING" ? `复查已到 · 等待 ${object.condition.waitingFor}` : object.condition.kind === "BLOCKED" ? `阻碍当前关注 · ${object.condition.reason}` : "暂停复查已到"));
   const waitingIds = new Set(waitingReview.map((value) => value.objectId));
   const recentBoundary = at.getTime() - 14 * 24 * 60 * 60 * 1000;
+  const dueBoundary = at.getTime() + 7 * 24 * 60 * 60 * 1000;
+  const dueTime = (object: V2ManagedObject) => object.dueAt ? Date.parse(object.dueAt) : Number.POSITIVE_INFINITY;
   const next = [...open.values()]
-    .filter((object) => !focusIds.has(object.objectId) && !waitingIds.has(object.objectId) && object.condition.kind === "ACTIONABLE" && ["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType) && Date.parse(object.updatedAt) >= recentBoundary)
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.objectId.localeCompare(right.objectId))
+    .filter((object) => !focusIds.has(object.objectId) && !waitingIds.has(object.objectId) && object.condition.kind === "ACTIONABLE" && ["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType) && (Date.parse(object.updatedAt) >= recentBoundary || dueTime(object) <= dueBoundary))
+    .sort((left, right) => dueTime(left) - dueTime(right) || right.updatedAt.localeCompare(left.updatedAt) || left.objectId.localeCompare(right.objectId))
     .slice(0, Math.max(0, nextLimit))
-    .map((object) => item(object, object.createdAt === object.updatedAt ? "近期建立，可直接推进" : "近期更新，可继续推进"));
+    .map((object) => {
+      const deadline = dueTime(object);
+      if (deadline <= at.getTime()) return item(object, "明确期限已到");
+      if (deadline <= dueBoundary) return item(object, `明确期限在 ${Math.max(1, Math.ceil((deadline - at.getTime()) / (24 * 60 * 60 * 1000)))} 天内`);
+      return item(object, object.createdAt === object.updatedAt ? "近期建立，可直接推进" : "近期更新，可继续推进");
+    });
   return { generatedAt: at.toISOString(), focus, next, waitingReview };
 }

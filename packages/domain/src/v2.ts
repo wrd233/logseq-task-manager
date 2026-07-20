@@ -20,6 +20,7 @@ export interface V2ManagedObject {
   version: number;
   lifecycle: Lifecycle;
   condition: V2Condition;
+  dueAt?: string;
   text: string;
   createdAt: string;
   updatedAt: string;
@@ -90,6 +91,16 @@ export function changeV2Condition(object: V2ManagedObject, condition: V2Conditio
   if (object.version !== expectedVersion) throw new StructuredError({ code: "V2_OBJECT_VERSION_CONFLICT", message: "对象版本已变化；Condition 没有更新。", ruleRefs: ["D-185"] });
   if (object.lifecycle !== "OPEN") throw new StructuredError({ code: "V2_CONDITION_OBJECT_CLOSED", message: "已关闭对象不能改变当前 Condition。", ruleRefs: ["D-148", "D-220"] });
   return { ...object, condition: validateV2Condition(condition), version: object.version + 1, updatedAt: at.toISOString() };
+}
+
+export function changeV2DueAt(object: V2ManagedObject, dueAt: string | undefined, expectedVersion: number, at = new Date()): V2ManagedObject {
+  if (object.version !== expectedVersion) throw new StructuredError({ code: "V2_OBJECT_VERSION_CONFLICT", message: "对象版本已变化；期限没有更新。", ruleRefs: ["D-185"] });
+  if (object.lifecycle !== "OPEN") throw new StructuredError({ code: "V2_DEADLINE_OBJECT_CLOSED", message: "已关闭对象不能改变期限。", ruleRefs: ["D-148", "D-220"] });
+  if (object.objectType !== "TASK") throw new StructuredError({ code: "V2_DEADLINE_TASK_ONLY", message: "明确期限当前只属于 Task。", ruleRefs: ["D-075", "D-220"] });
+  if (dueAt !== undefined && !Number.isFinite(Date.parse(dueAt))) throw new StructuredError({ code: "V2_DEADLINE_INVALID", message: "期限必须是合法时间。", ruleRefs: ["D-145", "D-220"] });
+  const { dueAt: _currentDueAt, ...withoutDueAt } = object;
+  void _currentDueAt;
+  return { ...withoutDueAt, ...(dueAt === undefined ? {} : { dueAt }), version: object.version + 1, updatedAt: at.toISOString() };
 }
 
 export function createV2ManagedObject(input: CreateV2ManagedObjectInput, at = new Date()): V2ManagedObject {

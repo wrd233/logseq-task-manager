@@ -703,6 +703,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-condition-open" && value) return openActionDialog("v2-condition", value);
+  if (action === "v2-deadline-open" && value) return openActionDialog("v2-deadline", value);
   if (action === "submit-v2-condition" && value) {
     const [objectId, rawVersion] = value.split("|");
     await run(async () => {
@@ -721,6 +722,22 @@ async function handleAction(action: string, value?: string): Promise<void> {
       actionDialog = undefined;
       workspace = "now";
     }, "状态已正式保存；Now Work 已按新 Condition 重算。");
+    return;
+  }
+  if (action === "submit-v2-deadline" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      const expectedVersion = Number(rawVersion);
+      const clear = dialogChecked("v2ClearDueAt");
+      const rawDueAt = dialogField("v2DueAt");
+      const dueAt = rawDueAt ? new Date(rawDueAt) : undefined;
+      if (!client || !objectId || !Number.isSafeInteger(expectedVersion)) throw new Error("期限上下文已失效；没有写入。");
+      if (!clear && (!dueAt || !Number.isFinite(dueAt.getTime()))) throw new Error("请填写合法期限，或选择清除现有期限。");
+      await client.changeDeadline(objectId, expectedVersion, clear ? undefined : dueAt!.toISOString());
+      actionDialog = undefined;
+      workspace = "now";
+    }, "期限已正式保存；Now Work 已按明确时间重算，未产生分数。");
     return;
   }
   const taskCopilot = requireTaskCopilot();

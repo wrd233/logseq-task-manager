@@ -64,7 +64,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
     capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
-    databaseSchemaVersion: 5,
+    databaseSchemaVersion: 6,
     objectCount: 0,
   });
   const doctor = await fetch(new URL("doctor", service.url), { method: "POST", headers });
@@ -275,6 +275,10 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   assert.equal((await client.materializeExplicitObject(input)).replayed, true);
   assert.equal((await client.status()).objectCount, 1);
   assert.deepEqual((await client.listPrimaryAnchors()).anchors.map((anchor) => anchor.externalId), ["block-materialize"]);
+  const deadline = await client.changeDeadline(created.object.objectId, created.object.version, "2026-07-21T12:00:00.000Z");
+  assert.equal(deadline.object.dueAt, "2026-07-21T12:00:00.000Z");
+  assert.match((await client.nowWork()).next.find((item) => item.objectId === created.object.objectId)?.reason ?? "", /明确期限/);
+  await assert.rejects(() => client.changeDeadline(created.object.objectId, created.object.version, undefined), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_VERSION_CONFLICT");
 
   const synchronizedFirst = await client.synchronizeExplicitObject({ ...input, externalId: "block-sync", idempotencyKey: "sync-block:first" });
   assert.equal(synchronizedFirst.operation, "MATERIALIZED");

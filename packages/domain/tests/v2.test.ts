@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   changeV2Condition,
+  changeV2DueAt,
   V2_OBJECT_TYPES,
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
@@ -127,6 +128,16 @@ test("Condition requires its own evidence and Focus remains independent", () => 
   assert.equal(waiting.condition.kind, "WAITING");
   assert.throws(() => changeV2Condition(waiting, { kind: "PAUSED", reason: "稍后", reviewAt: "not-a-date" }, 2), /合法时间/);
   assert.throws(() => changeV2Condition({ ...waiting, lifecycle: "COMPLETED" }, { kind: "ACTIONABLE" }, 2), /已关闭/);
+});
+
+test("Task deadline is optional, versioned, and never becomes a score", () => {
+  const task = createV2ManagedObject({ objectId: "due-task", objectType: "TASK", text: "按期核对" });
+  const due = changeV2DueAt(task, "2026-07-21T09:00:00+08:00", 1, new Date("2026-07-20T04:00:00Z"));
+  assert.equal(due.dueAt, "2026-07-21T09:00:00+08:00");
+  assert.equal(due.version, 2);
+  assert.equal(changeV2DueAt(due, undefined, 2).dueAt, undefined);
+  assert.throws(() => changeV2DueAt(task, "not-a-date", 1), /合法时间/);
+  assert.throws(() => changeV2DueAt({ ...task, objectType: "PROJECT" }, "2026-07-21", 1), /只属于 Task/);
 });
 
 test("execution Marker changes only simple Task Lifecycle and never Condition or Focus", () => {

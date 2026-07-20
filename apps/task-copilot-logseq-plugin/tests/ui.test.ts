@@ -65,6 +65,22 @@ test("V2 Condition is edited in one in-context form with explicit Waiting eviden
   assert.match(html, /data-action="submit-v2-condition" data-value="task-next\|2"/);
 });
 
+test("V2 Task deadline stays an explicit no-score action in Now Work", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], waitingReview: [], next: [{ objectId: "task-due", objectType: "TASK", version: 3, text: "核对期限", condition: { kind: "ACTIONABLE" }, dueAt: "2026-07-21T09:00:00.000Z", updatedAt: "2026-07-20T11:00:00.000Z", reason: "明确期限在 1 天内" }] };
+  let html = renderApp(value);
+  assert.match(html, /期限：/);
+  assert.match(html, /data-action="v2-deadline-open" data-value="task-due\|3\|2026-07-21T09:00:00.000Z"/);
+  assert.doesNotMatch(html, /score|风险分|AI 分/);
+  value.actionDialog = { kind: "v2-deadline", value: "task-due|3|2026-07-21T09:00:00.000Z" };
+  html = renderApp(value);
+  assert.match(html, /只影响可解释排序，不产生分数/);
+  assert.match(html, /data-field="v2DueAt"/);
+  assert.match(html, /data-field="v2ClearDueAt"/);
+  assert.match(html, /data-action="submit-v2-deadline"/);
+});
+
 test("V2 Focus exposes compact manual ordering and removal in the same Now Work context", () => {
   const value = model();
   value.workspace = "now";

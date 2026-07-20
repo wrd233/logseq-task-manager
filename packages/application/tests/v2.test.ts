@@ -63,7 +63,7 @@ class MemoryV2Repository implements V2ObjectRepository {
     const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
     if (actualVersion !== command.expectedVersion) throw new Error(`version ${actualVersion} != ${command.expectedVersion}`);
     this.values.set(command.object.objectId, command.object);
-    this.receipts.set(command.idempotencyKey, { command: command.audit.command as "create_object" | "transition_lifecycle" | "change_condition", object: command.object });
+    this.receipts.set(command.idempotencyKey, { command: command.audit.command as "create_object" | "transition_lifecycle" | "change_condition" | "change_due_at", object: command.object });
     this.audit.push(command.audit);
     return { object: command.object, replayed: false };
   }
@@ -157,7 +157,7 @@ class MemoryV2Repository implements V2ObjectRepository {
     const actualVersion = this.values.get(object.objectId)?.version ?? 0;
     if (actualVersion !== expectedVersion) throw new Error(`version ${actualVersion} != ${expectedVersion}`);
     this.values.set(object.objectId, object);
-    if (audit.command === "create_object" || audit.command === "transition_lifecycle" || audit.command === "change_condition") {
+    if (audit.command === "create_object" || audit.command === "transition_lifecycle" || audit.command === "change_condition" || audit.command === "change_due_at") {
       this.receipts.set(idempotencyKey, { command: audit.command, object });
     }
     this.audit.push(audit);
@@ -524,4 +524,15 @@ test("Condition changes are versioned, idempotent, and require complete time evi
   await assert.rejects(() => application.changeCondition(object.objectId, { kind: "PAUSED", reason: "稍后", reviewAt: "not-a-date" }, { actor: "user", expectedVersion: 2, idempotencyKey: "invalid-review", traceId: "trace-invalid" }), /合法时间/);
   await assert.rejects(() => application.changeCondition(object.objectId, { kind: "ACTIONABLE" }, { actor: "user", expectedVersion: 1, idempotencyKey: "stale-condition", traceId: "trace-stale" }), /版本/);
   assert.equal(repository.audit.at(-1)?.command, "change_condition");
+});
+
+test("Task deadline changes are versioned, idempotent, and auditable", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const object = await application.createObject({ objectId: "deadline-task", objectType: "TASK", text: "核对期限" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-deadline", traceId: "trace-create-deadline" });
+  const envelope = { actor: "user", expectedVersion: object.version, idempotencyKey: "deadline-set", traceId: "trace-deadline" };
+  const due = await application.changeDueAt(object.objectId, "2026-07-21T09:00:00+08:00", envelope, new Date("2026-07-20T13:00:00.000Z"));
+  assert.equal(due.dueAt, "2026-07-21T09:00:00+08:00");
+  assert.equal((await application.changeDueAt(object.objectId, undefined, envelope)).dueAt, due.dueAt, "same idempotency key replays original deadline");
+  assert.equal(repository.audit.at(-1)?.command, "change_due_at");
 });

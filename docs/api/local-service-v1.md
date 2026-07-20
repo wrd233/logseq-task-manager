@@ -48,6 +48,9 @@
 | POST | `/proposals/{id}/commit/compensate` | 验证 Graph 已逆写 before evidence | ledger COMPENSATED/FAILED + Proposal FAILED |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
+| GET | `/now-work` | 三个可解释区域、Focus、到期 Waiting 与临近 Task 期限 | 无；可重建投影 |
+| PATCH | `/objects/{object_id}/condition` | 设置 ACTIONABLE / WAITING / BLOCKED / PAUSED | Object + Audit + Receipt 单事务写入 |
+| PATCH | `/objects/{object_id}/deadline` | 设置或清除 Task `due_at` | Object + Audit + Receipt 单事务写入；不产生分数 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
 
 未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步、Anchor 观察、重新绑定与 Project 创建路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。Proposal submit/review 只改审阅状态，不是正式领域生效；C3/C4 未完成前没有 Proposal Commit 路由。
@@ -114,7 +117,7 @@
   "createdAt": "2026-07-20T00:00:00.000Z",
   "validation": {
     "status": "PASS",
-    "schemaVersion": 4,
+    "schemaVersion": 6,
     "integrity": "ok",
     "foreignKeyViolations": 0,
     "objectCount": 0

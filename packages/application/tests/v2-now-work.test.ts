@@ -4,8 +4,8 @@ import test from "node:test";
 import type { V2ManagedObject } from "@task-copilot/domain";
 import { projectV2NowWork } from "../src/v2-now-work.ts";
 
-function object(objectId: string, condition: V2ManagedObject["condition"], updatedAt: string, lifecycle: V2ManagedObject["lifecycle"] = "OPEN"): V2ManagedObject {
-  return { objectId, objectType: "TASK", version: 1, lifecycle, condition, text: objectId, createdAt: updatedAt, updatedAt, sourceOrCreationEvent: "test" };
+function object(objectId: string, condition: V2ManagedObject["condition"], updatedAt: string, lifecycle: V2ManagedObject["lifecycle"] = "OPEN", dueAt?: string): V2ManagedObject {
+  return { objectId, objectType: "TASK", version: 1, lifecycle, condition, text: objectId, ...(dueAt ? { dueAt } : {}), createdAt: updatedAt, updatedAt, sourceOrCreationEvent: "test" };
 }
 
 test("V2 Now Work has three explainable regions, hides ordinary Waiting, and never loads historical OPEN wholesale", () => {
@@ -24,4 +24,18 @@ test("V2 Now Work has three explainable regions, hides ordinary Waiting, and nev
   assert.equal(JSON.stringify(projection).includes("historical-open"), false);
   assert.equal(JSON.stringify(projection).includes("waiting-quiet"), false);
   assert.equal(JSON.stringify(projection).includes("score"), false);
+});
+
+test("V2 Now Work surfaces explicit Task deadlines without scores and sorts them by time", () => {
+  const now = new Date("2026-07-20T12:00:00.000Z");
+  const projection = projectV2NowWork([
+    object("recent", { kind: "ACTIONABLE" }, "2026-07-20T11:00:00.000Z"),
+    object("due-later", { kind: "ACTIONABLE" }, "2026-01-01T00:00:00.000Z", "OPEN", "2026-07-23T12:00:00.000Z"),
+    object("overdue", { kind: "ACTIONABLE" }, "2026-01-01T00:00:00.000Z", "OPEN", "2026-07-19T12:00:00.000Z"),
+    object("far-due", { kind: "ACTIONABLE" }, "2026-01-01T00:00:00.000Z", "OPEN", "2026-08-20T12:00:00.000Z"),
+  ], [], now);
+  assert.deepEqual(projection.next.map((item) => item.objectId), ["overdue", "due-later", "recent"]);
+  assert.deepEqual(projection.next.map((item) => item.reason), ["明确期限已到", "明确期限在 3 天内", "近期建立，可直接推进"]);
+  assert.equal(JSON.stringify(projection).includes("score"), false);
+  assert.equal(JSON.stringify(projection).includes("far-due"), false);
 });

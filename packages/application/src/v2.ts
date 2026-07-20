@@ -2,6 +2,7 @@ import {
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
   changeV2Condition,
+  changeV2DueAt,
   createV2ManagedObject,
   lifecycleForV2ExecutionMarker,
   observeV2PrimaryAnchor,
@@ -47,7 +48,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "change_condition" | "bind_primary_anchor" | "assign_primary_owner";
+  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -136,7 +137,7 @@ export interface V2MaterializationUndoResult {
 }
 
 export type V2CommandReceipt =
-  | { command: "create_object" | "transition_lifecycle" | "change_condition"; object: V2ManagedObject }
+  | { command: "create_object" | "transition_lifecycle" | "change_condition" | "change_due_at"; object: V2ManagedObject }
   | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership };
@@ -541,6 +542,22 @@ export class V2Application {
       expectedVersion: envelope.expectedVersion,
       idempotencyKey: envelope.idempotencyKey,
       audit: { traceId: envelope.traceId, actor: envelope.actor, command: "change_condition", objectId, beforeVersion: current.version, afterVersion: candidate.version, occurredAt: at.toISOString() },
+    });
+    return result.object;
+  }
+
+  async changeDueAt(objectId: string, dueAt: string | undefined, envelope: V2CommandEnvelope, at = new Date()): Promise<V2ManagedObject> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "change_due_at", objectId);
+    if (replay) return replay.object;
+    const current = await this.objects.getObject(objectId);
+    if (!current) throw new StructuredError({ code: "V2_OBJECT_NOT_FOUND", message: `对象 ${objectId} 不存在。`, ruleRefs: ["D-185"] });
+    const candidate = changeV2DueAt(current, dueAt, envelope.expectedVersion, at);
+    const result = await this.objects.commitObject({
+      object: candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: { traceId: envelope.traceId, actor: envelope.actor, command: "change_due_at", objectId, beforeVersion: current.version, afterVersion: candidate.version, occurredAt: at.toISOString() },
     });
     return result.object;
   }
