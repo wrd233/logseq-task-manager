@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B5 automated foundation; Slice C0-C5 automated foundation; Slice E Now Work interactive foundation"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 245 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Commit/Undo, interactive Now Work with Condition/type/deadline/blocker views, and Review Center current-page Candidate entry are automated; Desktop remains pending"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 250 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Now Work Focus/Condition/deadline/blocker/filter/Anchor/reload has partial Desktop proof; remaining Desktop Gates stay explicit"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -50,15 +50,16 @@ runtime_checks_completed:
   - "RT-MVP-001B..004 PASS on Logseq Desktop 0.10.15"
   - "Pilot reload, Task complete/inverse Commit and explicit rebind verified"
   - "Pilot pre/post recovery bundles replay with differences []"
+  - "V2 Desktop 0.10.15: current cached asset commit verified; V2-only workspace READY; Focus add, WAITING/BLOCKED, Task deadline, blocker wake-up, Task filter/grouping, Primary Anchor open and reload persistence verified against SQLite/CLI"
 runtime_checks_pending:
-  - "V2 first-run, Service restricted mode, SQLite recovery and migration Preview/Undo Desktop Gate"
+  - "V2 remaining Anchor move/copy/rebind, Project atomic creation, Proposal/Commit/Undo, two-item Focus ordering, Review Center, SQLite recovery and migration Preview/Undo Desktop Gates"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
-  - "DeepSeek live Gate lacks complete secure Provider/Base URL/Model/Key reference configuration"
+  - "DeepSeek Key has been supplied but not persisted; live Gate still lacks complete Provider/Base URL/Model and secure secret-reference configuration"
   - "@logseq/libs 0.0.17 retains upstream npm audit findings; no forced incompatible upgrade"
 user_actions_required:
-  - "For later Slice D live Gate only: provide complete secure Provider/Base URL/Model/Key reference configuration"
+  - "For later Slice D live Gate only: no product decision is pending; runtime must still establish a secure secret reference and discover/confirm Provider Base URL plus actual model ID before spending calls"
 resume_instruction: "Read AGENTS.md, this file, current-status, Pilot report and migration docs. Keep V1 frozen, never dual-write, continue Slice A test-first. Do not claim V1_MVP_PILOT_SUCCESS, Slice D, or V2 completion without their real gates."
 ```
 

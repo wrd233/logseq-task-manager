@@ -97,11 +97,43 @@
 
 本项证明真实运行库和独立进程可安全升级/重启，但没有在 Logseq Desktop 点击期限表单或验证 reload，因此不冒充 E2E-11 Desktop PASS。快照与 DB 位于忽略的 `tmp/runtime/v2-desktop/`，未记录 token。
 
+## Slice E：Now Work 真实交互与 reload — PARTIAL PASS
+
+使用同一专用页面、schema v6 SQLite 和真实 Local Service，从 Logseq Desktop 正式插件执行：
+
+- 冷启动后确认 Plugin commit `572ea5dd5e47`、Runtime/Store/Service `READY`、`formalWrites=true`；
+- Now Work 真实显示原 Task，点击“加入关注”后立即进入“当前关注”；reload 后 Focus 仍在；
+- 在同页表单将 Condition 设为 `WAITING`，写入等待对象、期待结果和本地复查时间；CLI 读回 object version 7 及 ISO 时间；
+- 通过 Task 期限表单写入明确本地时间，CLI 读回 object version 8 及 `dueAt`；reload 后页面仍按本地时间显示；
+- 在专用页面新建第二个显式 Task，真实 `DB.onChanged` 管道自动物化新 object_id/Anchor，未执行全 Graph 扫描；
+- `BLOCKED` 表单显示可读的第二 Task 选项；选择后原 Task version 9，Condition 持久化 blockerObjectId，阻碍对象提前进入“接下来值得处理”并显示自然语言原因；
+- 点击类型筛选与按类型分组后，页面显示“筛选不会改变正式状态”，局部视图不提供 Focus 排序按钮；
+- 从阻碍对象卡片点击“打开正文”，Logseq 保持专用页面并确认目标 Block 存在，正文与领域状态未改变。
+
+本轮由真实 Desktop 发现并修复了四个不能由原自动测试证明的问题：
+
+1. 冷启动过早的 Logseq Graph/版本 bridge 调用可能不返回，现已有界等待，不再卡住后续 Service 初始化；
+2. 插件内部 JS/CSS 的固定 URL 被 Electron 缓存旧 bundle，现由构建提交号作资产 cache key；
+3. V2 sync-only 路径在 Service READY 后仍将通用 `featureReady` 置 false，导致用户只能看 Diagnostics；现在不启用 V1 Store 的前提下解锁 V2-only 工作区；
+4. V2-only 模型漏传 `actionDialog`，导致“更新状态/设置期限”看似无响应；现已显示、提交和读回。
+
+另外，对已在 Focus 中的 future-review Waiting 对象，不再误报“复查已到”或重复提供“加入关注”。Service 启动 stdout 也与 health 共用同一 capabilities 常量，不再把真实 `formalWrites=true` 误报为 false。
+
+证据（本地 ignored）：
+
+- `tmp/runtime/v2-desktop/now-work-5b85da8-ready.png`
+- `tmp/runtime/v2-desktop/now-work-waiting-8c349e5.png`
+- `tmp/runtime/v2-desktop/now-work-reload-8c349e5.png`
+- `tmp/runtime/v2-desktop/now-work-waiting-corrected-572ea5d.png`
+- `tmp/runtime/v2-desktop/now-work-blocker-572ea5d.png`
+
+E2E-11 的 Focus 排序需要至少两个 Focus 对象才能完整点击验证；Project/Area 筛选、键盘和深浅主题视觉 Gate 仍未完成，因此仍为部分通过。
+
 ## 本轮发现的交互问题
 
 1. Diagnostics 原先没有渲染已有的 `explicit_sync` snapshot，用户只能从底部结构化日志判断断线队列；已补可见 `pending / transportReady / reconciliationRequired` 区块。
 2. V2 sync-only 模式打开主 UI 时使用基础 snapshot，导致 commit 显示 `unknown`、listeners `{}`；已改为完整脱敏 snapshot。
-3. 当前候选恢复与 Anchor repair 仍位于 Diagnostics，符合开发期 Gate，但不符合最终日常入口；后续按既定方向迁入最终审阅中心。
+3. Anchor repair 仍位于 Diagnostics，符合开发期 Gate，但不符合最终日常入口；当前页候选已迁入 Review Center。
 
 ## 尚未通过
 
@@ -111,6 +143,6 @@
 - 跨页移动、复制新身份。
 - 当前页两个离线新候选、stale preview 与逐项提交。
 - 真实有限子树、裸 TODO、嵌套 Decision、粘贴、预算与取消。
-- Now Work 的 Focus/Condition/期限/筛选分组真实点击、时间本地化与 reload 保持。
+- Now Work 的两项 Focus 手动排序、Project/Area 筛选、键盘与深浅主题视觉 Gate。
 
 因此本报告不将 E2E-01、E2E-15 或整个 Slice A/B 标记为 DONE。
