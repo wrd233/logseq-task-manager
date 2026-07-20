@@ -50,7 +50,7 @@ runtime_checks_completed:
   - "RT-MVP-001B..004 PASS on Logseq Desktop 0.10.15"
   - "Pilot reload, Task complete/inverse Commit and explicit rebind verified"
   - "Pilot pre/post recovery bundles replay with differences []"
-  - "V2 Desktop 0.10.15: current cached asset commit verified; V2-only workspace READY; Focus add, WAITING/BLOCKED, Task deadline, blocker wake-up, Task filter/grouping, Primary Anchor open and reload persistence verified against SQLite/CLI"
+  - "V2 Desktop 0.10.15 E2E-11: current cached asset commit verified; V2-only workspace READY; two-item Focus ordering, WAITING/BLOCKED, Task deadline, blocker wake-up, Task filter/grouping, Primary Anchor open and cold-reload persistence verified against SQLite/CLI"
 runtime_checks_pending:
   - "V2 remaining Anchor move/copy/rebind, Project atomic creation, Proposal/Commit/Undo, two-item Focus ordering, Review Center, SQLite recovery and migration Preview/Undo Desktop Gates"
 active_risks:

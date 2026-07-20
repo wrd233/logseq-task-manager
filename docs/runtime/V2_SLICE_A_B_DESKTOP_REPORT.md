@@ -108,6 +108,7 @@
 - 在专用页面新建第二个显式 Task，真实 `DB.onChanged` 管道自动物化新 object_id/Anchor，未执行全 Graph 扫描；
 - `BLOCKED` 表单显示可读的第二 Task 选项；选择后原 Task version 9，Condition 持久化 blockerObjectId，阻碍对象提前进入“接下来值得处理”并显示自然语言原因；
 - 点击类型筛选与按类型分组后，页面显示“筛选不会改变正式状态”，局部视图不提供 Focus 排序按钮；
+- 切回“全部 · 混排”后将第二 Task 加入 Focus，点击上移将它排在原 Task 前；冷重启 Logseq 后该完整顺序仍从 SQLite 恢复；
 - 从阻碍对象卡片点击“打开正文”，Logseq 保持专用页面并确认目标 Block 存在，正文与领域状态未改变。
 
 本轮由真实 Desktop 发现并修复了四个不能由原自动测试证明的问题：
@@ -126,8 +127,9 @@
 - `tmp/runtime/v2-desktop/now-work-reload-8c349e5.png`
 - `tmp/runtime/v2-desktop/now-work-waiting-corrected-572ea5d.png`
 - `tmp/runtime/v2-desktop/now-work-blocker-572ea5d.png`
+- `tmp/runtime/v2-desktop/now-work-focus-order-reload-572ea5d.png`
 
-E2E-11 的 Focus 排序需要至少两个 Focus 对象才能完整点击验证；Project/Area 筛选、键盘和深浅主题视觉 Gate 仍未完成，因此仍为部分通过。
+E2E-11 的 Focus/期限/阻碍/Waiting 可解释排序场景已有自动成功/失败路径和真实 Desktop + reload + CLI 证据，可标记 `DONE`。整个 V2-VIEW-001 仍缺 Project/Area 筛选、键盘、深浅主题和 Review Center 完整视觉 Gate，仍为部分通过。
 
 ## 本轮发现的交互问题
 
@@ -143,6 +145,6 @@ E2E-11 的 Focus 排序需要至少两个 Focus 对象才能完整点击验证�
 - 跨页移动、复制新身份。
 - 当前页两个离线新候选、stale preview 与逐项提交。
 - 真实有限子树、裸 TODO、嵌套 Decision、粘贴、预算与取消。
-- Now Work 的两项 Focus 手动排序、Project/Area 筛选、键盘与深浅主题视觉 Gate。
+- Now Work 的 Project/Area 筛选、键盘与深浅主题视觉 Gate（E2E-11 核心场景已通过）。
 
 因此本报告不将 E2E-01、E2E-15 或整个 Slice A/B 标记为 DONE。
