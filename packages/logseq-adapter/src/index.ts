@@ -15,6 +15,11 @@ export {
   type ExplicitObjectBlockChange,
   type ExplicitObjectChangeDebouncerOptions,
 } from "./explicit-object-change-debouncer.ts";
+export {
+  readBoundedExplicitSubtrees,
+  type BoundedExplicitSubtreeLimits,
+  type BoundedExplicitSubtreeResult,
+} from "./bounded-explicit-subtree.ts";
 
 export interface LogseqBlockShape {
   uuid: string;

@@ -22,7 +22,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 | 阶段 | 交付 | 关键失败路径 | 自动证据 | Runtime 证据 |
 |---|---|---|---|---|
 | B0 | 纯显式语法 Parser（完成） | 空标题、冲突标识、未定义别名、裸 TODO | `explicit-object-parser.test.ts` | 无 |
-| B1 | Block event + 防抖 + 有限子树读取（事件主链完成） | Service 不可用、事件重复、事件乱序 | fake clock、会话恢复队列与事件注册已通过；有限子树 fixture 待补 | Desktop 编辑/快速重复编辑 |
+| B1 | Block event + 防抖 + 有限子树读取（自动合同完成） | Service 不可用、事件重复、事件乱序、子树截断/异常 | fake clock、会话恢复队列、事件注册与 32 roots/256 Blocks 有限 BFS 已通过；裸 TODO 零对象、显式子项独立同步 | Desktop 编辑/粘贴/快速重复编辑 |
 | B2 | materialize / update Application Command（后端完成） | 重复创建、旧版本、类型变化 | Object+Anchor+Audit+Receipt 单事务、同类型同步、Service 路由与类型迁移拒绝已通过 | 创建、改标题、reload 待 Desktop |
 | B3 | Marker 同步 | DONE/CANCELED 不静默改错对象；Condition 独立 | Marker matrix | Logseq Marker 实际形态 |
 | B4 | move / copy / delete / consistency（已知 Anchor 恢复、状态持久化、move/copy、rebind 与当前页候选发现自动证据完成） | UUID 复制不继承 ID；删除保留对象；rebind 必须独立确认 | READY 恢复及低频有界检查、原子观察、失败重试、move/copy 身份合同、显式 rebind 与当前页手动候选发现已通过；候选每次只同步一项且提交前重读防 stale | 跨页移动、复制、删除、rebind、离线新建候选 |
@@ -56,6 +56,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - Local Service `/objects/synchronize` 对未绑定 Block 执行首次物化，对已绑定同类型 Block 原子更新标题和 Anchor 证据；类型变化只返回 Proposal-required，不静默迁移；
 - Service 以自身 Graph ID、Block UUID 和 Logseq `updated-at` 观察版本计算 SHA-256 幂等键；客户端不能选择跨 Graph 的领域幂等边界。类型变化是 terminal 审阅冲突，不暂停健康 transport 或循环重试；
 - Plugin `DB.onChanged` 已接入同一 Parser/防抖/Service Client；Service 能力不足时不交付正式写入，恢复 READY 后重试会话内最新意图；队列容量、交付失败、Parser 冲突和 dispose 均有自动失败路径；
+- 事件有限子树读取已完成自动证据：事件 payload 只提取根 UUID，经 300ms 防抖和最多 32 项的 latest-per-root 覆盖队列后重读权威正文；队列溢出进入 reconciliation。每轮最多 256 个 Block，按 UUID 串行 BFS，frontier 与已访问集合同享预算，单次 `getBlock` 明确 `includeChildren: false`，引用与返回 UUID 必须一致。异常/截断时只同步已验证前缀，失败点与未遍历项停写并要求 reconciliation；根不可读时零写入。注销清空队列且每次 bridge 读取前检查 cancellation。正式 Task 下裸 TODO 保持 `NONE`、不触发 Service；嵌套显式对象仍独立同步；
 - V2 descriptor 启用时旧 V1 FileStorage/Application 写路径不初始化，Plugin UI 写命令保持受限；不存在为了接入事件同步而激活的 V1/V2 双写；
 - Service 分页列出当前 Graph 未被替换的 Primary Anchor；Plugin 恢复 READY 时及其后每 5 分钟最多逐 UUID 检查 256 项，以游标逐轮收敛，hash 变化走统一同步，缺失/Marker 移除/形态冲突通过 Application Command 原子持久化为 `missing/conflict`，Object 始终保留；同 UUID 恢复合法语法可回到 `active`，`replaced` 不会被复活；
 - Anchor 观察由 Service 注入 Graph、actor、expected version 和幂等边界，Object version、Anchor、Audit、Receipt 同事务写入；重复同状态无写入，失败显式报告并下轮重试；
@@ -63,4 +64,4 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - rebind 后端安全合同已完成：Application 强制精确高影响确认，Service 不接受 Graph/object/anchor identity 权限，SQLite 在一个事务中保留旧 `replaced` Anchor、建立唯一新 active Anchor、推进对象版本并写 Audit/Receipt；类型变化、已占用目标、旧版本和未确认都零写入，成功重试幂等；触发器在旧 Anchor 已更新后注入新 Anchor 插入失败，证明 Object/双 Anchor/Audit/Receipt 整笔回滚；
 - Plugin rebind 有界交互已完成自动证据：只在 Service READY/formalWrites 时出现，只采集当前选中的显式 Block、一页 Anchor 和 Service 对象投影，只列同类型候选；明示旧/新影响、需勾选确认，提交前重读新 Block UUID/version/hash/type/title，Service/Application/SQLite 原子校验预览 Object version 和旧 Anchor status/hash；预览不能跨 Service discovery generation，已提交请求不提供假取消，且 V2 恢复动作不会激活冻结的 V1 runtime；
 - Plugin 当前页候选发现已完成自动证据：必须由用户在 Diagnostics 手动启动，以当前页为扫描范围且不在启动或后台扫描 Graph；Logseq 一次提供整页树，Plugin 仅分析快照前 256 项并明确提示截断，嵌套 `BlockUUIDTuple` 在同一预算内显式读取子级、校验引用与返回 UUID 一致，任何异常整轮停写。候选去重分页显式包含历史 `replaced` tombstone；有界 Anchor 覆盖未完成则整轮拒绝、零预览零写入，覆盖完整后才排除所有已占用 UUID，非法显式块只报告数量。用户每次只选择一项，提交前按 UUID 重读并校验 version/hash/type/title，旧预览和 Service generation 变化均停写，正式写入只走统一 `/objects/synchronize`；
-- 尚未完成有限子树与 Marker；move/copy/rebind/离线新建候选仍需真实 Desktop 证据，因此完整 B1/B2/B4 Gate 与 E2E Desktop 仍未完成。
+- 尚未完成 Marker；有限子树、move/copy/rebind/离线新建候选仍需真实 Desktop 证据，因此完整 B1/B2/B4 Gate 与 E2E Desktop 仍未完成。

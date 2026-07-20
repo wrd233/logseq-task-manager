@@ -46,6 +46,7 @@
 15. 不勾选确认直接提交，确认可见拒绝且 SQLite 零写入；勾选后提交，确认原 object_id 和 Primary Ownership 不变、旧 Anchor 为 `replaced`、新 Anchor 为 `active`，且 Audit/Receipt 只增加一次；
 16. 再使用一个候选执行预览；分别验证（a）预览后修改新 Block 正文，（b）预览后让旧 Anchor 恢复/变为其他状态或让对象版本前进，（c）预览后重连 Service；三种旧预览提交都必须明确停止且不写 SQLite。真正发出提交后面板不得显示无效“取消”；
 17. 在 Plugin 退出期间于当前专用测试页新建至少两个从未物化的合法显式 Block，并新建一个空标题或类型冲突块；reload 后确认不会自动扫描或写入。在 Diagnostics 手动执行“扫描当前页候选”，确认范围明确为当前页、UI 如实说明 Logseq 提供整页树而 Plugin 只处理前 256 项、已有对象不重复出现、非法块只报告数量且两个合法项仍未自动写入；模拟 Anchor 分页超过查询预算时应整轮拒绝且零写入。选择一项后修改其标题再提交，确认 stale 预览明确停写。重新扫描后只同步一项，确认 `/objects/synchronize` 建立一个 Object/Anchor/Audit/Receipt，另一候选保持未写入；重连 Service 后旧预览必须失效。记录 UI、SQLite、Audit/Doctor 和无全 Graph 扫描证据。
+18. 新建一个 `[任务]`，其下放置裸 `TODO` 内部步骤，并在更深层放置一个显式 `[决策]`；分别执行逐项编辑、快速连续编辑和整棵子树粘贴。确认事件 payload 只作为 UUID 通知，300ms 后重读当前正文；Task 与 Decision 各有独立 object_id/Anchor，裸 TODO 没有 object_id 且不产生 Service 写入；Diagnostics 不出现隐式整页/全 Graph 扫描。制造不可读子引用、33 个并发新根或超过 256 Block 处理预算的专用 fixture 时，确认只同步失败前已权威验证的前缀，失败点和未遍历项不写入并明确进入 `reconciliationRequired`；根不可读时整轮零写入。卸载 Plugin 时确认未开始的读取被清空、进行中的读取最多返回当前调用且不继续读取后代。
 
 ## 通过标准
 

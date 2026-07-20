@@ -46,6 +46,7 @@ V2_MIGRATION_DESIGN_READY
 - Local Service 已开放受约束的 `POST /objects/materialize` 与统一 `POST /objects/synchronize`，并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。
 - 同类型显式同步后端已完成：Domain/Application/SQLite 更新标题缓存、对象版本和 Anchor 观察证据；`/objects/synchronize` 自动区分首次物化与已绑定更新，Service 用 Graph ID + Block UUID + Logseq 输入版本形成 SHA-256 幂等边界。类型变化明确零写入并作为 terminal Proposal-required 冲突保留，不再误当断线永久重试；正式 Proposal 创建仍属于 Slice C。
 - Plugin 已将 `DB.onChanged` 接入显式 Parser/防抖/Service Client。Service READY 且声明 `formalWrites=true` 时统一经 Local Service 写 SQLite；断线时正文仍可编辑，最近事件只保存在按 UUID 覆盖、上限 256 的会话内队列，恢复连接后按幂等请求重试。该队列不写 FileStorage、不复制正文、不是第二状态源；交付失败、结构冲突或溢出都会进入脱敏诊断和 `reconciliationRequired`。
+- Slice B1 有限子树合同已接入事件主链：`DB.onChanged` payload 只提供待重读根 UUID，不直接作为 Parser 正文；经 300ms 防抖后，以按 UUID 覆盖、最多 32 个待处理根的单消费者队列读取权威当前值，再在 256 个 Block 的总预算内 BFS 子树。相同根快速事件只保留最新一次，队列溢出显式置 `reconciliationRequired`；单次读取固定 `includeChildren: false`，不读取整页或全 Graph。引用/实体 UUID、children shape、循环去重与 frontier 都由防御性 Adapter 控制；截断或后代异常时只同步此前已权威读取并验证形态的前缀，失败点及未遍历部分不写入并要求 reconciliation；根自身不可读则零写入。注销会清空待处理根，cancellation token 在每次 bridge 读取前停止，既不迟到读取也不迟到交付。裸 TODO 进入 Parser `NONE` 且不产生 object_id/正式写入，嵌套显式 Decision/Output 等仍独立走统一同步命令。自动 fixture 已通过；真实 Desktop `DB.onChanged` shape 与粘贴/快速编辑仍待集中验收。
 - 配置 V2 descriptor 后，Plugin 进入 V2 sync-only 运行路径：不初始化 V1 `VersionedStateRepository`，旧 Capture/Proposal/Commit 写命令保持关闭；V1 实现代码仅作为迁移与历史兼容资产保留，避免 V1 FileStorage 与 V2 SQLite 双写或双语义运行。
 - Service 已开放当前 Graph 未被替换的 Primary Anchor 分页；Plugin 在每次恢复 READY 及其后每 5 分钟最多读取一页 256 个已知 Anchor 的对应 UUID，以不透明游标逐轮收敛且不扫描全 Graph。正文 hash 变化会走同一同步命令，并发检查会合并为同一轮，单个 Graph 读取失败不会断开健康 Service，dispose 后不会继续迟到工作。
 - Slice B4 Anchor 观察持久化已贯通：Block 缺失记为 `missing`，Marker 移除/形态异常记为 `conflict`，Object 不删除；同 UUID 合法正文可恢复 `active`，`replaced` 不可复活。观察经 Local Service/Application，由 Service 注入 Graph/actor/version/幂等边界，Object version + Anchor + Audit + Receipt 单事务；重复同状态零写入，失败显式报告并可下轮重试。
@@ -56,7 +57,7 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，176 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，183 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
@@ -71,9 +72,9 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. 继续 Slice B1/B3：补有限子树读取与 Marker 同步的自动合同；
+1. 继续 Slice B3：补 Marker 同步矩阵与 Lifecycle/Condition 分离合同；
 2. 继续 Slice B5：设计并实现 Project 对象与页面的可恢复原子创建；
-3. 将 Backup/Restore/Service restart/Doctor 与当前页候选发现纳入 Desktop 集中验收；
+3. 将 Backup/Restore/Service restart/Doctor、当前页候选发现与有限子树事件纳入 Desktop 集中验收；
 4. 按 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 集中验收 Plugin Electron bridge、Service READY/RESTRICTED、首次启用、reload 和原生正文编辑；
 5. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；在 Slice A-C 闭环后接入 Provider abstraction并运行 bounded DeepSeek live gate。
 

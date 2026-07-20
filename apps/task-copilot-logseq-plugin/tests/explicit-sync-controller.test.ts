@@ -171,17 +171,173 @@ test("Logseq DB event registration forwards only transaction Blocks and unregist
         return () => { unregistered += 1; };
       },
     },
-  }, controller);
-  listener?.({ blocks: [{ uuid: "event-block", content: "[任务] 事件同步" }] });
+    Editor: { getBlock: async (externalId) => ({ uuid: externalId, content: "[任务] 事件同步", children: [] }) },
+  }, controller, { subtreeDelayMs: 0 });
+  listener?.({ blocks: [{ uuid: "event-block" }] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
   await controller.flush();
   assert.deepEqual(requests, ["event-block"]);
   unregister();
   assert.equal(unregistered, 1);
 });
 
+test("event registration expands a finite subtree without materializing an internal bare TODO", async () => {
+  let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
+  const requests: string[] = [];
+  const issues: string[] = [];
+  const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-subtree", onIssue: (issue) => issues.push(issue.code) });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.externalId);
+      return success(input.externalId, 2);
+    },
+  });
+  const values: Record<string, unknown> = {
+    root: { uuid: "root", content: "[任务] 主任务", "updated-at": 1, children: [["uuid", "step"]] },
+    step: { uuid: "step", content: "TODO 内部步骤", "updated-at": 2, children: [["uuid", "decision"]] },
+    decision: { uuid: "decision", content: "[决策] 保留证据", "updated-at": 3, children: [] },
+  };
+  const unregister = registerExplicitSyncEvents({
+    DB: { onChanged(callback) { listener = callback; return () => undefined; } },
+    Editor: { getBlock: async (externalId) => values[externalId] },
+  }, controller, { subtreeDelayMs: 0 });
+  listener?.({ blocks: [{ uuid: "root", content: "[任务] 主任务", "updated-at": 1 }] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await controller.flush();
+  assert.deepEqual(requests, ["root", "decision"]);
+  assert.deepEqual(issues, []);
+  unregister();
+});
+
+test("subtree read failures require reconciliation and unregister prevents late descendant delivery", async () => {
+  let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
+  const issues: string[] = [];
+  const controller = new ExplicitSyncController({ delayMs: 0, onIssue: (issue) => issues.push(issue.code) });
+  const unregisterFailure = registerExplicitSyncEvents({
+    DB: { onChanged(callback) { listener = callback; return () => undefined; } },
+    Editor: { getBlock: async () => ({ uuid: "wrong", content: "[任务] 错误实体", children: [] }) },
+  }, controller, { subtreeDelayMs: 0 });
+  listener?.({ blocks: [{ uuid: "root", content: "普通正文" }] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.deepEqual(issues, ["EXPLICIT_SYNC_SUBTREE_READ_FAILED"]);
+  assert.equal(controller.snapshot().reconciliationRequired, true);
+  unregisterFailure();
+
+  const verifiedPrefix: string[] = [];
+  const prefixIssues: string[] = [];
+  const prefixController = new ExplicitSyncController({ delayMs: 0, onIssue: (issue) => prefixIssues.push(issue.code) });
+  await prefixController.resume({
+    async synchronizeExplicitObject(input) {
+      verifiedPrefix.push(input.externalId);
+      return success(input.externalId, 2);
+    },
+  });
+  const unregisterPrefix = registerExplicitSyncEvents({
+    DB: { onChanged(callback) { listener = callback; return () => undefined; } },
+    Editor: { getBlock: async (externalId) => externalId === "root"
+      ? { uuid: "root", content: "[任务] 已验证根", children: [["uuid", "bad-child"]] }
+      : { uuid: "wrong-child", content: "[决策] 不得写入", children: [] } },
+  }, prefixController, { subtreeDelayMs: 0 });
+  listener?.({ blocks: [{ uuid: "root" }] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await prefixController.flush();
+  assert.deepEqual(verifiedPrefix, ["root"]);
+  assert.deepEqual(prefixIssues, ["EXPLICIT_SYNC_SUBTREE_READ_FAILED"]);
+  unregisterPrefix();
+
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const delivered: string[] = [];
+  const reads: string[] = [];
+  const lateController = new ExplicitSyncController({ delayMs: 0 });
+  await lateController.resume({
+    async synchronizeExplicitObject(input) {
+      delivered.push(input.externalId);
+      return success(input.externalId, 2);
+    },
+  });
+  const unregisterLate = registerExplicitSyncEvents({
+    DB: { onChanged(callback) { listener = callback; return () => undefined; } },
+    Editor: { getBlock: async (externalId) => {
+      reads.push(externalId);
+      await gate;
+      return { uuid: "root", content: "[任务] 根", children: [["uuid", "late-decision"]] };
+    } },
+  }, lateController, { subtreeDelayMs: 0 });
+  listener?.({ blocks: [{ uuid: "root", content: "[任务] 根" }] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.deepEqual(reads, ["root"]);
+  unregisterLate();
+  release?.();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await lateController.flush();
+  assert.deepEqual(reads, ["root"], "unregister must stop before reading the queued child UUID");
+  assert.deepEqual(delivered, []);
+});
+
+test("rapid subtree events use a bounded latest-per-root queue and report overflow", async () => {
+  let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const reads: string[] = [];
+  const issues: string[] = [];
+  let firstRead = true;
+  const controller = new ExplicitSyncController({ delayMs: 0, onIssue: (issue) => issues.push(issue.code) });
+  const unregister = registerExplicitSyncEvents({
+    DB: { onChanged(callback) { listener = callback; return () => undefined; } },
+    Editor: { getBlock: async (externalId) => {
+      reads.push(externalId);
+      if (firstRead) {
+        firstRead = false;
+        await gate;
+      }
+      return { uuid: externalId, content: "普通正文", children: [] };
+    } },
+  }, controller, { subtreeDelayMs: 0, maximumPendingRoots: 2 });
+  listener?.({ blocks: [{ uuid: "root" }] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  for (let index = 0; index < 100; index += 1) listener?.({ blocks: [{ uuid: "root", revision: index }] });
+  listener?.({ blocks: [{ uuid: "root-2" }] });
+  listener?.({ blocks: [{ uuid: "root-3" }] });
+  release?.();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.deepEqual(reads, ["root", "root", "root-2"]);
+  assert.ok(issues.includes("EXPLICIT_SYNC_SUBTREE_QUEUE_CAPACITY_EXCEEDED"));
+  assert.equal(controller.snapshot().reconciliationRequired, true);
+  unregister();
+});
+
+test("an event arriving during traversal still receives the full subtree debounce window", async () => {
+  let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const reads: string[] = [];
+  const controller = new ExplicitSyncController({ delayMs: 0 });
+  const unregister = registerExplicitSyncEvents({
+    DB: { onChanged(callback) { listener = callback; return () => undefined; } },
+    Editor: { getBlock: async (externalId) => {
+      reads.push(externalId);
+      if (externalId === "root-1") await gate;
+      return { uuid: externalId, content: "普通正文", children: [] };
+    } },
+  }, controller, { subtreeDelayMs: 30 });
+
+  listener?.({ blocks: [{ uuid: "root-1" }] });
+  await new Promise((resolve) => setTimeout(resolve, 35));
+  assert.deepEqual(reads, ["root-1"]);
+  listener?.({ blocks: [{ uuid: "root-2" }] });
+  release?.();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.deepEqual(reads, ["root-1"], "the second root must not bypass its debounce while the first traversal finishes");
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.deepEqual(reads, ["root-1", "root-2"]);
+  unregister();
+});
+
 test("move and copy DB events keep the stable UUID and deliver each copied UUID once at its latest version", async () => {
   let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
   const requests: Array<[string, string]> = [];
+  const runtimeBlocks = new Map<string, unknown>();
   const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-copy-move" });
   await controller.resume({
     async synchronizeExplicitObject(input) {
@@ -196,15 +352,21 @@ test("move and copy DB events keep the stable UUID and deliver each copied UUID 
         return () => undefined;
       },
     },
-  }, controller);
+    Editor: { getBlock: async (externalId) => runtimeBlocks.get(externalId) },
+  }, controller, { subtreeDelayMs: 0 });
 
+  runtimeBlocks.set("uuid-original", { uuid: "uuid-original", content: "[任务] 验证外部推送", "updated-at": 2001, children: [] });
   listener?.({ blocks: [{ uuid: "uuid-original", content: "[任务] 验证外部推送", "updated-at": 2001, page: { id: 1 } }] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
   await controller.flush();
+  runtimeBlocks.set("uuid-copy", { uuid: "uuid-copy", content: "[任务] 验证外部推送", "updated-at": 2003, children: [] });
+  runtimeBlocks.set("uuid-original", { uuid: "uuid-original", content: "[任务] 验证外部推送", "updated-at": 2002, children: [] });
   listener?.({ blocks: [
     { uuid: "uuid-copy", content: "[任务] 验证外部推送", "updated-at": 2002, page: { id: 2 } },
     { uuid: "uuid-original", content: "[任务] 验证外部推送", "updated-at": 2002, page: { id: 2 } },
     { uuid: "uuid-copy", content: "[任务] 验证外部推送", "updated-at": 2003, page: { id: 2 } },
   ] });
+  await new Promise((resolve) => setTimeout(resolve, 5));
   await controller.flush();
 
   assert.deepEqual(requests, [

@@ -1,6 +1,7 @@
 import {
   ExplicitObjectChangeDebouncer,
   parseExplicitObjectSyntax,
+  readBoundedExplicitSubtrees,
   type DebounceClock,
   type ExplicitObjectBlockChange,
 } from "@task-copilot/logseq-adapter";
@@ -45,13 +46,103 @@ export interface ExplicitSyncEventHost {
   DB: {
     onChanged(callback: (event: { blocks?: unknown[] }) => void): () => void;
   };
+  Editor: {
+    getBlock(externalId: string, options: { includeChildren: false }): Promise<unknown>;
+  };
+}
+
+export interface ExplicitSyncEventRegistrationOptions {
+  subtreeDelayMs?: number;
+  maximumPendingRoots?: number;
 }
 
 export function registerExplicitSyncEvents(
   host: ExplicitSyncEventHost,
-  controller: Pick<ExplicitSyncController, "onBlocksChanged">,
+  controller: Pick<ExplicitSyncController, "onBlocksChanged" | "onSubtreeTraversalIssue">,
+  options: ExplicitSyncEventRegistrationOptions = {},
 ): () => void {
-  return host.DB.onChanged((event) => controller.onBlocksChanged(event.blocks ?? []));
+  const maximumPendingRoots = options.maximumPendingRoots ?? 32;
+  const subtreeDelayMs = options.subtreeDelayMs ?? 300;
+  if (!Number.isSafeInteger(maximumPendingRoots) || maximumPendingRoots < 1 || maximumPendingRoots > 1_024) throw new Error("maximumPendingRoots must be a bounded integer from 1 to 1024.");
+  if (!Number.isFinite(subtreeDelayMs) || subtreeDelayMs < 0 || subtreeDelayMs > 60_000) throw new Error("subtreeDelayMs must be between 0 and 60000.");
+  let active = true;
+  const pendingRoots = new Map<string, { uuid: string }>();
+  let expansionPromise: Promise<void> | undefined;
+  let expansionTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+  let expansionReady = false;
+
+  const expandPendingRoots = (): void => {
+    if (!active || !expansionReady || expansionPromise || pendingRoots.size === 0) return;
+    expansionReady = false;
+    expansionPromise = (async () => {
+      const roots = [...pendingRoots.values()];
+      pendingRoots.clear();
+      try {
+        const result = await readBoundedExplicitSubtrees(
+          roots,
+          (externalId) => host.Editor.getBlock(externalId, { includeChildren: false }),
+          undefined,
+          () => !active,
+        );
+        if (!active || result.cancelled) return;
+        controller.onBlocksChanged(result.blocks);
+        if (result.failure) {
+          const code = errorCode(result.failure);
+          controller.onSubtreeTraversalIssue(
+            code === "EXPLICIT_SYNC_DELIVERY_FAILED" ? "EXPLICIT_SYNC_SUBTREE_READ_FAILED" : code,
+            "显式对象有限子树读取中断；已验证前缀保持同步，失败点及未遍历部分需要一致性检查。",
+          );
+        } else if (result.truncated) {
+          controller.onSubtreeTraversalIssue("EXPLICIT_SYNC_SUBTREE_TRUNCATED", "显式对象有限子树达到处理上限；只同步已验证前缀，未遍历部分需要一致性检查。");
+        }
+      } catch (error) {
+        if (!active) return;
+        const code = errorCode(error);
+        controller.onSubtreeTraversalIssue(
+          code === "EXPLICIT_SYNC_DELIVERY_FAILED" ? "EXPLICIT_SYNC_SUBTREE_READ_FAILED" : code,
+          "显式对象有限子树读取失败；未验证内容没有写入，需要一致性检查。",
+        );
+      }
+    })().finally(() => {
+      expansionPromise = undefined;
+      if (active && pendingRoots.size > 0 && expansionReady) expandPendingRoots();
+    });
+  };
+
+  const scheduleExpansion = (): void => {
+    if (expansionTimer !== undefined) globalThis.clearTimeout(expansionTimer);
+    expansionReady = false;
+    expansionTimer = globalThis.setTimeout(() => {
+      expansionTimer = undefined;
+      expansionReady = true;
+      expandPendingRoots();
+    }, subtreeDelayMs);
+  };
+
+  const unregister = host.DB.onChanged((event) => {
+    const blocks = event.blocks ?? [];
+    let overflowed = false;
+    for (const value of blocks) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+      const uuid = (value as { uuid?: unknown }).uuid;
+      if (typeof uuid !== "string" || !uuid.trim()) continue;
+      if (!pendingRoots.has(uuid) && pendingRoots.size >= maximumPendingRoots) {
+        overflowed = true;
+        continue;
+      }
+      pendingRoots.set(uuid, { uuid });
+    }
+    if (overflowed) controller.onSubtreeTraversalIssue("EXPLICIT_SYNC_SUBTREE_QUEUE_CAPACITY_EXCEEDED", "显式对象子树待读根队列已达上限；正文保持不变，需要一致性检查。");
+    if (pendingRoots.size > 0) scheduleExpansion();
+  });
+  return () => {
+    active = false;
+    if (expansionTimer !== undefined) globalThis.clearTimeout(expansionTimer);
+    expansionTimer = undefined;
+    expansionReady = false;
+    pendingRoots.clear();
+    unregister();
+  };
 }
 
 type PendingSync = ServiceMaterializeExplicitObjectRequest;
@@ -100,6 +191,13 @@ export class ExplicitSyncController {
 
   onBlocksChanged(blocks: readonly unknown[]): void {
     if (!this.disposed) this.debouncer.enqueue(blocks);
+  }
+
+  onSubtreeTraversalIssue(code: string, message: string): void {
+    if (this.disposed) return;
+    this.needsReconciliation = true;
+    this.issue(code, message);
+    this.emitState();
   }
 
   async flush(): Promise<void> {
