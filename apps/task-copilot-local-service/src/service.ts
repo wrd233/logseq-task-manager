@@ -472,10 +472,14 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "GET" && url.pathname === "/anchors/primary") {
       const after = url.searchParams.get("after") ?? undefined;
+      const includeReplacedValue = url.searchParams.get("includeReplaced");
       if (after !== undefined && (!after.trim() || after.length > 512)) {
         throw serviceError("PRIMARY_ANCHOR_CURSOR_INVALID", "Primary Anchor 分页游标无效。");
       }
-      const page = store.listPrimaryAnchors(options.graphId, after, 257);
+      if (includeReplacedValue !== null && includeReplacedValue !== "1") {
+        throw serviceError("PRIMARY_ANCHOR_QUERY_INVALID", "Primary Anchor 查询参数无效。");
+      }
+      const page = store.listPrimaryAnchors(options.graphId, after, 257, includeReplacedValue === "1");
       const anchors = page.slice(0, 256);
       respond(response, 200, {
         anchors,

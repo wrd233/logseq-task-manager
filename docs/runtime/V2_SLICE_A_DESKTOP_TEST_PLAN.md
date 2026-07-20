@@ -45,7 +45,7 @@
 14. 删除或破坏一个 Task 的 Primary Anchor，再创建一个未绑定的同类型显式 Block；选中新 Block，在 Diagnostics 打开 Primary Anchor repair，确认面板显示旧 Anchor 状态、新 UUID/正文、同类型边界及“旧 replaced / 新 active”影响；
 15. 不勾选确认直接提交，确认可见拒绝且 SQLite 零写入；勾选后提交，确认原 object_id 和 Primary Ownership 不变、旧 Anchor 为 `replaced`、新 Anchor 为 `active`，且 Audit/Receipt 只增加一次；
 16. 再使用一个候选执行预览；分别验证（a）预览后修改新 Block 正文，（b）预览后让旧 Anchor 恢复/变为其他状态或让对象版本前进，（c）预览后重连 Service；三种旧预览提交都必须明确停止且不写 SQLite。真正发出提交后面板不得显示无效“取消”；
-17. 在 Plugin 退出期间新建一个从未物化的显式 Block，确认当前版本不会虚报已发现；将其作为“受控新标识候选发现”后续缺口记录。
+17. 在 Plugin 退出期间于当前专用测试页新建至少两个从未物化的合法显式 Block，并新建一个空标题或类型冲突块；reload 后确认不会自动扫描或写入。在 Diagnostics 手动执行“扫描当前页候选”，确认范围明确为当前页、UI 如实说明 Logseq 提供整页树而 Plugin 只处理前 256 项、已有对象不重复出现、非法块只报告数量且两个合法项仍未自动写入；模拟 Anchor 分页超过查询预算时应整轮拒绝且零写入。选择一项后修改其标题再提交，确认 stale 预览明确停写。重新扫描后只同步一项，确认 `/objects/synchronize` 建立一个 Object/Anchor/Audit/Receipt，另一候选保持未写入；重连 Service 后旧预览必须失效。记录 UI、SQLite、Audit/Doctor 和无全 Graph 扫描证据。
 
 ## 通过标准
 

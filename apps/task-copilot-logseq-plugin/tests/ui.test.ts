@@ -139,7 +139,16 @@ test("formal V2 plugin entry keeps the writable V1 FileStorage runtime inactive"
   assert.doesNotMatch(source, /repository\s*=\s*new VersionedStateRepository/);
   assert.doesNotMatch(source, /blobStore\s*=\s*new LogseqFileStorageBlobStore/);
   assert.match(source, /V1 FileStorage inactive/);
-  for (const token of ["v2-rebind-open", "v2-rebind-submit", "prepareV2PrimaryAnchorRebind", "submitV2PrimaryAnchorRebind"]) {
+  for (const token of [
+    "v2-candidate-open",
+    "v2-candidate-submit",
+    "prepareV2ExplicitCandidateDiscovery",
+    "submitV2ExplicitCandidate",
+    "v2-rebind-open",
+    "v2-rebind-submit",
+    "prepareV2PrimaryAnchorRebind",
+    "submitV2PrimaryAnchorRebind",
+  ]) {
     assert.match(source, new RegExp(token));
   }
   assert.match(source, /serviceRuntimeClient = undefined;[\s\S]*SERVICE_DISCOVERY_IN_PROGRESS[\s\S]*explicitSyncController\?\.pause\(\)/);
@@ -148,5 +157,9 @@ test("formal V2 plugin entry keeps the writable V1 FileStorage runtime inactive"
   assert.ok(
     source.indexOf('if (action === "v2-rebind-open")') < source.indexOf("const taskCopilot = requireTaskCopilot();"),
     "V2 Anchor recovery must remain available without activating the frozen V1 runtime",
+  );
+  assert.ok(
+    source.indexOf('if (action === "v2-candidate-open")') < source.indexOf("const taskCopilot = requireTaskCopilot();"),
+    "V2 explicit candidate discovery must remain available without activating the frozen V1 runtime",
   );
 });

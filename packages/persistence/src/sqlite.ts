@@ -933,17 +933,17 @@ export class V2SqliteStore {
     return row ? this.mapAnchor(row) : undefined;
   }
 
-  listPrimaryAnchors(graphId: string, afterExternalId?: string, limit = 257): V2Anchor[] {
+  listPrimaryAnchors(graphId: string, afterExternalId?: string, limit = 257, includeReplaced = false): V2Anchor[] {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_001) {
       throw persistenceError("V2_ANCHOR_QUERY_LIMIT_INVALID", "Primary Anchor 查询上限无效。");
     }
     const rows = this.database.prepare(`
       SELECT * FROM anchors
-      WHERE graph_id = ? AND role = 'primary_text' AND status <> 'replaced'
+      WHERE graph_id = ? AND role = 'primary_text' AND (? = 1 OR status <> 'replaced')
         AND (? IS NULL OR external_id > ?)
       ORDER BY external_id ASC, anchor_id ASC
       LIMIT ?
-    `).all(graphId, afterExternalId ?? null, afterExternalId ?? null, limit) as Array<Record<string, unknown>>;
+    `).all(graphId, includeReplaced ? 1 : 0, afterExternalId ?? null, afterExternalId ?? null, limit) as Array<Record<string, unknown>>;
     return rows.map((row) => this.mapAnchor(row));
   }
 

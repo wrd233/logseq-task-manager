@@ -32,7 +32,7 @@
 
 | requirement_id | 文档章节 | 用户场景 | Domain 规则 / 不变量 | Application 用例 | Adapter / UI | 自动 / 运行测试 | Slice | 状态 | 当前证据 / 缺口 |
 |---|---|---|---|---|---|---|---|---|---|
-| E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | Parser、防抖、Plugin `DB.onChanged`、会话断线重试、原子首次物化、同类型更新、幂等统一 Service route 与类型迁移拒绝已通过；reload 一致性、Now 与 Desktop 未完成 |
+| E2E-01 | V2 §68 | 写 `[任务]`，重启、改标题、Now Work 可见 | Task OPEN；ID/Anchor 稳定 | materialize/sync/query | block event/parser/Now | fixture + Desktop | B,E | REUSE_EVIDENCE | Parser、防抖、Plugin `DB.onChanged`、会话断线重试、原子首次物化、同类型更新、幂等统一 Service route 与类型迁移拒绝已通过；Plugin 退出期间新建项可由用户手动扫描当前页、按 256 项预算预览并逐项同步，Anchor 有界覆盖不完整则零写入拒绝，提交前重读防 stale；reload 一致性、Now 与 Desktop 未完成 |
 | E2E-02 | V2 §68 | `[任务] 标题` 无 Marker | Marker 不决定身份 | materialize | parser | unit + Desktop | B | REUSE_EVIDENCE | 有/无 Marker Parser、Plugin 事件交付与无 Marker 首次物化路径已自动证明；Desktop 未完成 |
 | E2E-03 | V2 §68 | Task 下裸 TODO 保持内部步骤 | 内部 TODO 无 object_id | synchronize block | subtree parser | fixture | B | REUSE_EVIDENCE | B0 已证明裸 TODO 返回非对象；有限子树同步 fixture 与 Desktop 未完成 |
 | E2E-04 | V2 §68 | 跨页移动 | ID/Ownership 不变，Anchor 更新 | observe/sync | UUID event | integration + Desktop | B | REUSE_EVIDENCE | 同 UUID 经统一 Service 同步保持 object_id/anchor_id，Application fixture 证明 Primary Ownership 不变；Plugin `DB.onChanged` fixture 已覆盖同事务内原 UUID 移动；真实跨页 move/Desktop 待验证 |
@@ -46,7 +46,7 @@
 | E2E-12 | V2 §68 | 审阅中心原文优先、四处置 | Candidate/Proposal 分离 | disposition/review | two-tab Review | UI + Desktop | E | REUSE_EVIDENCE | V1 Inbox 动作可复用，语义需调整 |
 | E2E-13 | V2 §68 | 外部 Agent 导出、验证、提交、插件审阅 | submit != commit；scope 封闭 | export/validate/submit | CLI/Review | CLI integration + Desktop | F | NOT_STARTED | 无 CLI/Context Package |
 | E2E-14 | V2 §68 | 手动小范围迁移、预览、幂等、Undo | migration batch 可恢复 | scan/commit/undo | Settings/CLI | fixture + Desktop | F | NOT_STARTED | 无 migration |
-| E2E-15 | V2 §68 | Service 故障时正文可编辑 | 无 Service 不允许正式写入 | health/recover/check | Plugin restricted | process fault + Desktop | A | REUSE_EVIDENCE | Client 与 Plugin 诊断均自动证明 graphEditing=true/formalWrites=false；断线事件只进有界会话队列，READY 后重试，失败/溢出要求一致性检查且不写 FileStorage；reload 补漏与真实 Service stop/recover/Desktop 正文编辑待验证 |
+| E2E-15 | V2 §68 | Service 故障时正文可编辑 | 无 Service 不允许正式写入 | health/recover/check | Plugin restricted | process fault + Desktop | A | REUSE_EVIDENCE | Client 与 Plugin 诊断均自动证明 graphEditing=true/formalWrites=false；断线事件只进有界会话队列，READY 后重试，失败/溢出要求一致性检查且不写 FileStorage；reload 后用户可手动扫描当前页的新显式候选，范围可见、逐项同步、不做全 Graph 扫描；真实 Service stop/recover/Desktop 正文编辑待验证 |
 | E2E-16 | V2 §68 | Graph 成功、Store 失败 | 明确 Partial Failure | commit/recover | Graph + SQLite | injected failure | C | REUSE_EVIDENCE | V1 Domain save failure/compensation 已测 |
 | E2E-17 | V2 §68 | 恢复快照后 Doctor PASS | 恢复后必须一致性检查 | backup/restore/doctor | SQLite/CLI | temp restore + Desktop | A,F | REUSE_EVIDENCE | Backup 校验、离线 Restore 恢复点/原子激活/Doctor/失败回滚已通过；Service Apply 固定确认、关闭 live Store、descriptor 删除已通过。真实 CLI create→restore→stop→restart→Doctor 进程冒烟 PASS；Desktop 待完成 |
 | E2E-18 | V2 §68 | Key 不出现在任何默认资产 | secret 非领域数据、永不记录 | config/log/export | Provider/diagnostics | secret canary scan | D,F | NOT_STARTED | V1 正文日志脱敏可复用 |

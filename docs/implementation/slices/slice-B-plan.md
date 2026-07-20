@@ -25,7 +25,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 | B1 | Block event + 防抖 + 有限子树读取（事件主链完成） | Service 不可用、事件重复、事件乱序 | fake clock、会话恢复队列与事件注册已通过；有限子树 fixture 待补 | Desktop 编辑/快速重复编辑 |
 | B2 | materialize / update Application Command（后端完成） | 重复创建、旧版本、类型变化 | Object+Anchor+Audit+Receipt 单事务、同类型同步、Service 路由与类型迁移拒绝已通过 | 创建、改标题、reload 待 Desktop |
 | B3 | Marker 同步 | DONE/CANCELED 不静默改错对象；Condition 独立 | Marker matrix | Logseq Marker 实际形态 |
-| B4 | move / copy / delete / consistency（已知 Anchor 恢复、状态持久化、move/copy 与 rebind 合同/交互自动证据完成） | UUID 复制不继承 ID；删除保留对象；rebind 必须独立确认 | READY 恢复及低频有界检查、原子观察、失败重试、move/copy 身份合同与显式 rebind Domain/Application/SQLite/Service/Client/Plugin 已通过；Plugin 面板只读选中 Block 与一页已知 Anchor，确认后重读防 stale | 跨页移动、复制、删除、rebind |
+| B4 | move / copy / delete / consistency（已知 Anchor 恢复、状态持久化、move/copy、rebind 与当前页候选发现自动证据完成） | UUID 复制不继承 ID；删除保留对象；rebind 必须独立确认 | READY 恢复及低频有界检查、原子观察、失败重试、move/copy 身份合同、显式 rebind 与当前页手动候选发现已通过；候选每次只同步一项且提交前重读防 stale | 跨页移动、复制、删除、rebind、离线新建候选 |
 | B5 | Project 页面原子创建 | 页面成功而 Store 失败及反向失败 | fault injection + compensation | 新 Project 页面/reload |
 
 ## B0 已建立的契约
@@ -62,4 +62,5 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - 同 UUID 同步保持 object_id/anchor_id 且不改 Primary Ownership；相同文本的新 UUID 经 Service 物化为新 object_id/anchor_id，不从原 Block 继承身份；
 - rebind 后端安全合同已完成：Application 强制精确高影响确认，Service 不接受 Graph/object/anchor identity 权限，SQLite 在一个事务中保留旧 `replaced` Anchor、建立唯一新 active Anchor、推进对象版本并写 Audit/Receipt；类型变化、已占用目标、旧版本和未确认都零写入，成功重试幂等；触发器在旧 Anchor 已更新后注入新 Anchor 插入失败，证明 Object/双 Anchor/Audit/Receipt 整笔回滚；
 - Plugin rebind 有界交互已完成自动证据：只在 Service READY/formalWrites 时出现，只采集当前选中的显式 Block、一页 Anchor 和 Service 对象投影，只列同类型候选；明示旧/新影响、需勾选确认，提交前重读新 Block UUID/version/hash/type/title，Service/Application/SQLite 原子校验预览 Object version 和旧 Anchor status/hash；预览不能跨 Service discovery generation，已提交请求不提供假取消，且 V2 恢复动作不会激活冻结的 V1 runtime；
-- 尚未完成有限子树、Marker，以及退出期间全新未绑定标识的受控候选发现；move/copy/rebind 仍需真实 Desktop 证据，因此完整 B1/B2/B4 Gate 与 E2E Desktop 仍未完成。
+- Plugin 当前页候选发现已完成自动证据：必须由用户在 Diagnostics 手动启动，以当前页为扫描范围且不在启动或后台扫描 Graph；Logseq 一次提供整页树，Plugin 仅分析快照前 256 项并明确提示截断，嵌套 `BlockUUIDTuple` 在同一预算内显式读取子级、校验引用与返回 UUID 一致，任何异常整轮停写。候选去重分页显式包含历史 `replaced` tombstone；有界 Anchor 覆盖未完成则整轮拒绝、零预览零写入，覆盖完整后才排除所有已占用 UUID，非法显式块只报告数量。用户每次只选择一项，提交前按 UUID 重读并校验 version/hash/type/title，旧预览和 Service generation 变化均停写，正式写入只走统一 `/objects/synchronize`；
+- 尚未完成有限子树与 Marker；move/copy/rebind/离线新建候选仍需真实 Desktop 证据，因此完整 B1/B2/B4 Gate 与 E2E Desktop 仍未完成。

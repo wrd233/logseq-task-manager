@@ -206,6 +206,7 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   assert.equal(rebound.anchor.externalId, "block-rebound");
   assert.equal((await client.rebindPrimaryAnchor(reboundInput)).replayed, true);
   assert.equal((await client.listPrimaryAnchors()).anchors.some((anchor) => anchor.anchorId === recovered.anchor.anchorId), false);
+  assert.equal((await client.listPrimaryAnchors(undefined, true)).anchors.find((anchor) => anchor.anchorId === recovered.anchor.anchorId)?.status, "replaced");
   const unconfirmedRebind = await fetch(new URL("anchors/primary/rebind", service.url), {
     method: "POST",
     headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },

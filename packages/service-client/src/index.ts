@@ -253,8 +253,11 @@ export class LocalServiceClient {
     return (await this.request<{ objects: V2ManagedObject[] }>("/objects")).objects;
   }
 
-  listPrimaryAnchors(cursor?: string): Promise<ServicePrimaryAnchorPage> {
-    const query = cursor ? `?after=${encodeURIComponent(cursor)}` : "";
+  listPrimaryAnchors(cursor?: string, includeReplaced = false): Promise<ServicePrimaryAnchorPage> {
+    const parameters = new URLSearchParams();
+    if (cursor) parameters.set("after", cursor);
+    if (includeReplaced) parameters.set("includeReplaced", "1");
+    const query = parameters.size > 0 ? `?${parameters.toString()}` : "";
     return this.request<ServicePrimaryAnchorPage>(`/anchors/primary${query}`);
   }
 

@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0 complete; B1-B2/B4 foundation in progress"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 172 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI schema v3 and restore/restart process smokes PASS; Slice B known-Anchor, move/copy and bounded Plugin rebind review contracts PASS"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 176 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI schema v3 and restore/restart process smokes PASS; Slice B known-Anchor, move/copy, bounded Plugin rebind review, and manual current-page candidate discovery contracts PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -30,6 +30,7 @@ implemented:
   - "Known Primary Anchor observations persist missing/conflict/recovery through Local Service and one SQLite transaction without deleting objects or reviving replaced Anchors"
   - "Same-UUID synchronization preserves object_id, anchor_id and Primary Ownership; a copied UUID materializes a distinct object and Anchor"
   - "Explicit V2 Primary Anchor rebind requires confirmation, atomically preserves the old replaced Anchor while activating one new Anchor, and has a bounded Plugin review panel with stale re-read protection"
+  - "Manual current-page discovery recovers explicit objects created while the Plugin was offline with a 256-item processing budget, complete bounded Anchor coverage or zero-write refusal, one-at-a-time synchronization, stale reread protection, and no full-Graph scan"
 pilot_results:
   capture: PASS
   task: PASS_WITH_DOCUMENTED_REBIND_LIMITATION

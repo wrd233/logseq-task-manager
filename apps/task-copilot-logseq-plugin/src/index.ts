@@ -40,6 +40,12 @@ import {
   submitV2PrimaryAnchorRebind,
   type V2RebindPanelState,
 } from "./v2-anchor-rebind.ts";
+import {
+  prepareV2ExplicitCandidateDiscovery,
+  renderV2ExplicitCandidateDiscoveryPanel,
+  submitV2ExplicitCandidate,
+  type V2ExplicitCandidatePanelState,
+} from "./v2-explicit-candidate-discovery.ts";
 
 let appRoot: HTMLElement | undefined;
 const v1Runtime: {
@@ -77,6 +83,7 @@ let explicitSyncState: ExplicitSyncState = {
   reconciliationRequired: false,
 };
 let v2RebindPanel: V2RebindPanelState = { status: "idle" };
+let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
   reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
@@ -103,7 +110,10 @@ function explain(error: unknown): string {
 
 function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>[0]): string {
   const available = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
-  return renderRuntimeDiagnostics(snapshot, renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available));
+  return renderRuntimeDiagnostics(snapshot, [
+    renderV2ExplicitCandidateDiscoveryPanel(v2CandidatePanel, available),
+    renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available),
+  ].join(""));
 }
 
 async function model(): Promise<UiModel> {
@@ -213,6 +223,7 @@ async function fullDiagnosticsSnapshot() {
 async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   const generation = ++serviceDiscoveryGeneration;
   if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
+  if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
   serviceRuntimeClient = undefined;
   serviceConnection = {
     status: "RESTRICTED",
@@ -312,6 +323,76 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "first-run-status") {
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "v2-candidate-open") {
+    const client = serviceRuntimeClient;
+    const generation = serviceDiscoveryGeneration;
+    if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      v2CandidatePanel = { status: "error", message: "Local Service 未处于可正式写入的 READY 状态；没有扫描或写入。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    v2CandidatePanel = { status: "loading" };
+    await showRuntimeDiagnostics();
+    try {
+      const preview = await prepareV2ExplicitCandidateDiscovery(
+        client,
+        () => logseq.Editor.getCurrentPageBlocksTree(),
+        (blockId) => logseq.Editor.getBlock(blockId, { includeChildren: true }),
+      );
+      if (generation !== serviceDiscoveryGeneration || client !== serviceRuntimeClient) {
+        throw new Error("Local Service 已在扫描期间重连；旧候选已作废，没有执行写入。");
+      }
+      v2CandidatePanel = { status: "ready", preview, serviceGeneration: generation };
+    } catch (error) {
+      v2CandidatePanel = { status: "error", message: explain(error) };
+    }
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "v2-candidate-cancel") {
+    if (v2CandidatePanel.status === "ready" && v2CandidatePanel.busy) return;
+    v2CandidatePanel = { status: "idle" };
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "v2-candidate-submit") {
+    const client = serviceRuntimeClient;
+    const currentPanel = v2CandidatePanel;
+    if (currentPanel.status === "ready" && currentPanel.busy) return;
+    if (currentPanel.status !== "ready") {
+      v2CandidatePanel = { status: "error", message: "当前页候选预览已过期或不存在；没有执行同步。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      v2CandidatePanel = { status: "error", message: "Local Service 正在重连或已不可写；旧候选已作废，没有执行同步。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    if (currentPanel.serviceGeneration !== serviceDiscoveryGeneration) {
+      v2CandidatePanel = { status: "error", message: "Local Service 已在扫描后重连；旧候选已作废，没有执行写入。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    const externalId = dialogField("v2CandidateExternalId");
+    v2CandidatePanel = { ...currentPanel, busy: true };
+    await showRuntimeDiagnostics();
+    const traceId = `v2-candidate-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    try {
+      const result = await submitV2ExplicitCandidate(client, currentPanel.preview, externalId, (blockId) => logseq.Editor.getBlock(blockId), traceId);
+      v2CandidatePanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
+        ? { status: "success", message: `${result.operation}：对象 ${result.object.objectId} 已绑定到 Block ${result.anchor.externalId}。其余候选未写入。` }
+        : { status: "error", message: "Local Service 在提交期间重连；旧会话已返回成功，请先在 Audit/Doctor 核对，不要立即重试。" };
+      operationalLogger.log("info", "ui-action", "v2_explicit_candidate_synchronized", { correlationId: traceId, actionId: "v2-candidate-submit", result: "success", blockUuid: result.anchor.externalId, objectId: result.object.objectId });
+    } catch (error) {
+      v2CandidatePanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
+        ? { status: "error", message: explain(error) }
+        : { status: "error", message: "Local Service 在提交期间重连；旧会话结果不确定，请先在 Audit/Doctor 核对，不要立即重试。" };
+      operationalLogger.log("error", "ui-action", "v2_explicit_candidate_sync_failed", { correlationId: traceId, actionId: "v2-candidate-submit", result: "error", ...(externalId ? { blockUuid: externalId } : {}) }, error);
+    }
     await showRuntimeDiagnostics();
     return;
   }

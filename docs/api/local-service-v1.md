@@ -38,7 +38,7 @@
 | POST | `/anchors/primary/rebind` | 显式确认后把对象绑定到新的同类型 Block | Object + 旧 Anchor `replaced` + 新 active Anchor + Audit + Receipt 单事务写入 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
-| GET | `/anchors/primary?after=<cursor>` | 当前 Graph 未被替换的 Primary Anchor 分页，包含 `active / missing / conflict` | 无；每页最多 256，`nextCursor` 驱动后续低频逐 UUID 检查 |
+| GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
 
 未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步、Anchor 观察与重新绑定路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。
 

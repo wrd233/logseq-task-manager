@@ -571,6 +571,7 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
   assert.equal(store.getPrimaryAnchorByExternal("graph-a", "block-1"), undefined);
   assert.equal(store.getPrimaryAnchorByExternal("graph-a", "block-rebound")?.status, "active");
   assert.deepEqual(store.listPrimaryAnchors("graph-a").map((anchor) => anchor.externalId), ["block-rebound"]);
+  assert.deepEqual(store.listPrimaryAnchors("graph-a", undefined, 257, true).map((anchor) => anchor.externalId), ["block-1", "block-rebound"]);
   await assert.rejects(() => application.rebindPrimaryAnchor({
     previousAnchorId: rebound.anchor.anchorId,
     expectedAnchorStatus: "active",
