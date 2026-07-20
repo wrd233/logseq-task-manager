@@ -1,5 +1,5 @@
 import { build, context } from "esbuild";
-import { copyFile, mkdir, rm } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -14,6 +14,9 @@ await Promise.all([
   copyFile(resolve(root, "index.html"), resolve(dist, "index.html")),
   copyFile(resolve(root, "src/index.css"), resolve(dist, "index.css")),
 ]);
+const builtHtmlPath = resolve(dist, "index.html");
+const builtHtml = await readFile(builtHtmlPath, "utf8");
+await writeFile(builtHtmlPath, builtHtml.replaceAll("__TASK_COPILOT_BUILD__", pluginCommit), "utf8");
 
 const options = {
   entryPoints: [resolve(root, "src/index.ts")],
