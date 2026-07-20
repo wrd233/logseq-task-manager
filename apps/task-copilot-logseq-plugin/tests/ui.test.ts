@@ -81,7 +81,8 @@ test("Review Center owns manual current-page candidate discovery instead of Diag
   assert.match(html, /显式对象候选/);
   assert.match(html, /data-action="v2-candidate-open"/);
   assert.match(html, /不扫描全 Graph/);
-  assert.match(html, /Agent 已关闭；仍可在上方手动整理当前页显式候选/);
+  assert.match(html, /data-action="review-mode" data-value="candidates"/);
+  assert.match(html, /data-action="review-mode" data-value="proposals"/);
 });
 
 test("object drawer does not render empty optional sections", () => {
@@ -135,6 +136,7 @@ test("Inbox and Proposal Review expose the complete manual and partial-review co
   assert.match(html, /单独确认这项高影响变化/);
   assert.match(html, /诊断 ID：TC-20260718-test/);
   value.workspace = "review";
+  value.reviewMode = "proposals";
   value.proposals = [{
     proposalId: "prop_1", sourceAnchorIds: ["anc_1"], sourceObjectIds: [], summary: "手工建议", facts: ["原文"], assumptions: [], uncertainties: [],
     operations: [{ operationId: "op_1", operationType: "rewrite_content", target: { kind: "CAPTURE", id: "cap_1" }, payload: { text: "建议正文" }, preconditions: [], dependencies: [], riskLevel: "MEDIUM", ruleRefs: ["REV-PART-001"], rationale: "用户建议", confidence: 1, status: "PROPOSED" }],
@@ -156,6 +158,7 @@ test("Inbox and Proposal Review expose the complete manual and partial-review co
 test("V2 Review shows text and semantic Diff while making accepted-not-applied explicit", () => {
   const value = model();
   value.workspace = "review";
+  value.reviewMode = "proposals";
   value.v2Proposals = [{
     updatedAt: "2026-07-20T12:00:01.000Z",
     files: { proposalMd: "# 正式化", proposalJson: "{}" },

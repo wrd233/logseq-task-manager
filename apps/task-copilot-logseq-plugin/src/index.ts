@@ -72,6 +72,7 @@ const cleanupHooks: Array<() => void> = [];
 let featureReady = false;
 let uiBound = false;
 let workspace: Workspace = "inbox";
+let reviewMode: NonNullable<UiModel["reviewMode"]> = "candidates";
 let selectedObjectId: string | undefined;
 let selectedProjectId: string | undefined;
 let message: string | undefined;
@@ -196,6 +197,7 @@ async function model(): Promise<UiModel> {
     v2SemanticCommits,
     v2CandidatePanel,
     v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+    reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
   };
@@ -363,6 +365,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-candidate-open") {
     workspace = "review";
+    reviewMode = "candidates";
     const client = serviceRuntimeClient;
     const generation = serviceDiscoveryGeneration;
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
@@ -506,6 +509,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "view" && value) {
     workspace = value as Workspace;
+    await refresh();
+    return;
+  }
+  if (action === "review-mode" && (value === "candidates" || value === "proposals")) {
+    workspace = "review";
+    reviewMode = value;
     await refresh();
     return;
   }

@@ -64,6 +64,7 @@ export interface UiModel {
   v2NowWork?: ServiceNowWork;
   v2CandidatePanel?: V2ExplicitCandidatePanelState;
   v2CandidateAvailable?: boolean;
+  reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
 }
 
@@ -225,7 +226,12 @@ function renderFinalImpact(impact: ProposalImpactView | undefined): string {
 function renderReview(model: UiModel): string {
   const open = model.proposals.filter((proposal) => proposal.status === "OPEN");
   const v2 = model.v2Proposals ?? [];
+  const reviewMode = model.reviewMode ?? "candidates";
   const candidatePanel = model.v2CandidatePanel ? renderV2ExplicitCandidateDiscoveryPanel(model.v2CandidatePanel, Boolean(model.v2CandidateAvailable)) : "";
+  const candidateCount = model.v2CandidatePanel?.status === "ready" ? model.v2CandidatePanel.preview.candidates.length : 0;
+  const proposalCount = open.length + v2.filter((record) => !["APPLIED", "REJECTED"].includes(record.proposal.status)).length;
+  const tabs = `<div class="actions review-modes" role="tablist" aria-label="审阅中心视图">${button(`待整理${candidateCount ? ` (${candidateCount})` : ""}`, "review-mode", "candidates", reviewMode === "candidates" ? "primary" : "quiet")}${button(`待审阅${proposalCount ? ` (${proposalCount})` : ""}`, "review-mode", "proposals", reviewMode === "proposals" ? "primary" : "quiet")}</div>`;
+  if (reviewMode === "candidates") return `${tabs}${candidatePanel || empty("当前不可扫描候选", "Local Service 就绪后，可手动扫描当前页；不会自动扫描全 Graph。")}`;
   const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
   const v2Cards = v2.map((record) => {
     const hasAcceptedGroup = record.proposal.groups.some((group) => group.disposition === "ACCEPTED");
@@ -243,8 +249,8 @@ function renderReview(model: UiModel): string {
     <div class="notice">${canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : hasAcceptedGroup ? "已接受的语义组尚未正式生效；最终确认会在同一流程中重验、写入并显示 Undo。" : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
   </article>`;
   }).join("");
-  if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${candidatePanel}${empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；仍可在上方手动整理当前页显式候选。")}`;
-  return `${candidatePanel}${v2LoadError}<div class="cards">${v2Cards}${open
+  if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
+  return `${tabs}${v2LoadError}<div class="cards">${v2Cards}${open
     .map(
       (proposal) => `<article class="card proposal">
         <div class="eyebrow">${escapeHtml(proposal.providerId)} · ${escapeHtml(proposal.generatedAt)}</div>
