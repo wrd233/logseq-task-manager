@@ -791,7 +791,6 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }, "期限已正式保存；Now Work 已按明确时间重算，未产生分数。");
     return;
   }
-  const taskCopilot = requireTaskCopilot();
   if (action === "create-v2-project") {
     const name = dialogField("v2ProjectName");
     await run(async () => {
@@ -912,6 +911,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     return;
   }
+  const taskCopilot = requireTaskCopilot();
   if (action === "submit-edit-object" && value) {
     const text = dialogField("objectText");
     if (!text) {
