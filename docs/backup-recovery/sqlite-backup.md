@@ -9,6 +9,7 @@
 - 创建后立即以 readonly + fileMustExist 打开，校验 schema、Graph identity、integrity、foreign keys 和 object count；
 - Restore Validate 只接受服务端生成的 `backup_id`，不修改快照字节；
 - 错误响应只包含结构化 code/message，不返回本机路径、SQLite cause、stack 或 session token。
+- schema v2 记录只追加 migration ledger；旧 schema 的显式升级在 DDL 前另建经校验的不覆盖快照。
 
 ## 当前明确未实现
 

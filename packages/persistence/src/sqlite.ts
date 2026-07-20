@@ -17,7 +17,30 @@ import type {
 import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 1;
+export const V2_DATABASE_SCHEMA_VERSION = 2;
+
+export interface SqliteInitializationResult {
+  initialized: boolean;
+  schemaVersion: number;
+}
+
+export interface SqliteSchemaMigrationResult {
+  migrated: boolean;
+  fromVersion: number;
+  schemaVersion: number;
+  backupPath?: string;
+}
+
+export interface SchemaMigrationRecord {
+  version: number;
+  name: string;
+  appliedAt: string;
+}
+
+const schemaMigrationNames = new Map<number, string>([
+  [1, "initial_core_schema"],
+  [2, "add_schema_migration_ledger"],
+]);
 
 export interface SqliteDoctorReport {
   status: "PASS" | "FAIL";
@@ -45,6 +68,31 @@ interface ObjectRow {
 
 function persistenceError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-190", "D-192"], ...(details ? { details } : {}) });
+}
+
+function readMigrationHistory(database: Database.Database): SchemaMigrationRecord[] {
+  try {
+    return (database
+      .prepare("SELECT version, name, applied_at AS appliedAt FROM schema_migrations ORDER BY version")
+      .all() as SchemaMigrationRecord[]);
+  } catch (error) {
+    throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema migration ledger 缺失或无法读取。", {
+      cause: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function requireCompleteMigrationHistory(database: Database.Database): SchemaMigrationRecord[] {
+  const history = readMigrationHistory(database);
+  if (
+    history.length !== V2_DATABASE_SCHEMA_VERSION ||
+    history.some((record, index) => record.version !== index + 1 || record.name !== schemaMigrationNames.get(record.version))
+  ) {
+    throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema migration ledger 与当前 schema 版本不一致。", {
+      versions: history.map((record) => record.version),
+    });
+  }
+  return history;
 }
 
 export class V2SqliteStore {
@@ -75,7 +123,7 @@ export class V2SqliteStore {
     return new V2SqliteStore(database, absolute);
   }
 
-  initialize(graphId: string, at = new Date()): { initialized: boolean; schemaVersion: number } {
+  initialize(graphId: string, at = new Date()): SqliteInitializationResult {
     if (!graphId.trim()) throw persistenceError("V2_GRAPH_ID_REQUIRED", "初始化 SQLite 前必须确认 Graph identity。");
     const userVersion = this.database.pragma("user_version", { simple: true }) as number;
     if (userVersion > V2_DATABASE_SCHEMA_VERSION) {
@@ -94,9 +142,11 @@ export class V2SqliteStore {
         | { value: string }
         | undefined;
       if (!storedGraph || !storedSchema) throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema metadata 不完整。");
-      if (Number(storedSchema.value) !== V2_DATABASE_SCHEMA_VERSION) {
-        throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 版本不受支持。", {
-          schemaVersion: storedSchema.value,
+      const storedSchemaVersion = Number(storedSchema.value);
+      if (!Number.isSafeInteger(storedSchemaVersion) || storedSchemaVersion < 1 || userVersion !== storedSchemaVersion) {
+        throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite user_version 与 schema metadata 不一致。", {
+          userVersion,
+          storedSchemaVersion: storedSchema.value,
         });
       }
       if (storedGraph.value !== graphId) {
@@ -105,6 +155,18 @@ export class V2SqliteStore {
           actualGraphId: storedGraph.value,
         });
       }
+      if (storedSchemaVersion > V2_DATABASE_SCHEMA_VERSION) {
+        throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 版本高于当前程序支持范围。", {
+          schemaVersion: storedSchemaVersion,
+        });
+      }
+      if (storedSchemaVersion < V2_DATABASE_SCHEMA_VERSION) {
+        throw persistenceError("V2_SCHEMA_MIGRATION_REQUIRED", "SQLite schema 需要显式创建恢复点后再升级。", {
+          fromVersion: storedSchemaVersion,
+          toVersion: V2_DATABASE_SCHEMA_VERSION,
+        });
+      }
+      requireCompleteMigrationHistory(this.database);
       return { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION };
     }
     if (userVersion !== 0) {
@@ -169,15 +231,127 @@ export class V2SqliteStore {
           after_version INTEGER NOT NULL,
           occurred_at TEXT NOT NULL
         ) STRICT;
+        CREATE TABLE schema_migrations (
+          version INTEGER PRIMARY KEY CHECK (version >= 1),
+          name TEXT NOT NULL UNIQUE,
+          applied_at TEXT NOT NULL
+        ) STRICT;
       `);
       const insertMeta = this.database.prepare("INSERT INTO schema_meta(key, value) VALUES (?, ?)");
       insertMeta.run("schema_version", String(V2_DATABASE_SCHEMA_VERSION));
       insertMeta.run("graph_id", graphId);
       insertMeta.run("created_at", at.toISOString());
+      const insertMigration = this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)");
+      for (let version = 1; version <= V2_DATABASE_SCHEMA_VERSION; version += 1) {
+        insertMigration.run(version, schemaMigrationNames.get(version), at.toISOString());
+      }
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
     });
     createSchema();
     return { initialized: true, schemaVersion: V2_DATABASE_SCHEMA_VERSION };
+  }
+
+  async migrateSchema(graphId: string, backupDestination: string, at = new Date()): Promise<SqliteSchemaMigrationResult> {
+    if (!graphId.trim()) throw persistenceError("V2_GRAPH_ID_REQUIRED", "迁移 SQLite schema 前必须确认 Graph identity。");
+    const userVersion = this.database.pragma("user_version", { simple: true }) as number;
+    const storedGraph = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'graph_id'").pluck().get() as string | undefined;
+    const storedSchemaText = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").pluck().get() as string | undefined;
+    const storedSchemaVersion = Number(storedSchemaText);
+    if (!storedGraph || !storedSchemaText || !Number.isSafeInteger(storedSchemaVersion) || storedSchemaVersion < 1 || userVersion !== storedSchemaVersion) {
+      throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite user_version 与 schema metadata 不一致。", {
+        userVersion,
+        storedSchemaVersion: storedSchemaText,
+      });
+    }
+    if (storedGraph !== graphId) {
+      throw persistenceError("V2_GRAPH_ID_MISMATCH", "SQLite 数据库属于另一个 Graph，拒绝迁移。", {
+        expectedGraphId: graphId,
+        actualGraphId: storedGraph,
+      });
+    }
+    if (storedSchemaVersion === V2_DATABASE_SCHEMA_VERSION) {
+      requireCompleteMigrationHistory(this.database);
+      return { migrated: false, fromVersion: storedSchemaVersion, schemaVersion: V2_DATABASE_SCHEMA_VERSION };
+    }
+    if (storedSchemaVersion > V2_DATABASE_SCHEMA_VERSION) {
+      throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 版本高于当前程序支持范围。", {
+        schemaVersion: storedSchemaVersion,
+      });
+    }
+    const backupPath = await this.backup(backupDestination);
+    V2SqliteStore.validateSchemaUpgradeBackup(backupPath, graphId, storedSchemaVersion);
+    this.applySchemaMigration(storedSchemaVersion, at);
+    return {
+      migrated: true,
+      fromVersion: storedSchemaVersion,
+      schemaVersion: V2_DATABASE_SCHEMA_VERSION,
+      backupPath,
+    };
+  }
+
+  private applySchemaMigration(fromVersion: number, at: Date): void {
+    if (fromVersion !== 1 || V2_DATABASE_SCHEMA_VERSION !== 2) {
+      throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
+    }
+    const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
+    if (!createdAt) throw persistenceError("V2_DATABASE_META_CORRUPT", "SQLite schema metadata 缺少 created_at。");
+    const migration = this.database.transaction(() => {
+      this.database.exec(`
+        CREATE TABLE schema_migrations (
+          version INTEGER PRIMARY KEY CHECK (version >= 1),
+          name TEXT NOT NULL UNIQUE,
+          applied_at TEXT NOT NULL
+        ) STRICT;
+      `);
+      const insert = this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)");
+      insert.run(1, schemaMigrationNames.get(1), createdAt);
+      insert.run(2, schemaMigrationNames.get(2), at.toISOString());
+      this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
+      this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
+    });
+    try {
+      migration();
+      requireCompleteMigrationHistory(this.database);
+    } catch (error) {
+      if (error instanceof StructuredError) throw error;
+      throw persistenceError("V2_SCHEMA_MIGRATION_FAILED", "SQLite schema 迁移失败；本批变化已回滚。", {
+        fromVersion,
+        cause: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  schemaMigrationHistory(): SchemaMigrationRecord[] {
+    return requireCompleteMigrationHistory(this.database);
+  }
+
+  private static validateSchemaUpgradeBackup(path: string, expectedGraphId: string, expectedSchemaVersion: number): void {
+    let database: Database.Database | undefined;
+    try {
+      database = new Database(resolve(path), { readonly: true, fileMustExist: true });
+      database.pragma("foreign_keys = ON");
+      const userVersion = database.pragma("user_version", { simple: true }) as number;
+      const storedGraph = database.prepare("SELECT value FROM schema_meta WHERE key = 'graph_id'").pluck().get() as string | undefined;
+      const storedSchema = Number(database.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").pluck().get());
+      const integrity = database.pragma("integrity_check", { simple: true }) as string;
+      const foreignKeyViolations = (database.pragma("foreign_key_check") as unknown[]).length;
+      if (
+        userVersion !== expectedSchemaVersion ||
+        storedSchema !== expectedSchemaVersion ||
+        storedGraph !== expectedGraphId ||
+        integrity !== "ok" ||
+        foreignKeyViolations !== 0
+      ) {
+        throw persistenceError("V2_SCHEMA_MIGRATION_BACKUP_INVALID", "Schema 迁移前快照未通过只读校验。");
+      }
+    } catch (error) {
+      if (error instanceof StructuredError) throw error;
+      throw persistenceError("V2_SCHEMA_MIGRATION_BACKUP_INVALID", "Schema 迁移前快照无法通过只读校验。", {
+        cause: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      database?.close();
+    }
   }
 
   commitObject(command: V2ObjectCommand): V2ObjectCommandResult {
@@ -447,6 +621,7 @@ export class V2SqliteStore {
           actualGraphId: graph?.value,
         });
       }
+      requireCompleteMigrationHistory(database);
       const integrity = database.pragma("integrity_check", { simple: true }) as string;
       const foreignKeyViolations = (database.pragma("foreign_key_check") as unknown[]).length;
       const objectCount = (database.prepare("SELECT count(*) AS count FROM objects").get() as { count: number }).count;

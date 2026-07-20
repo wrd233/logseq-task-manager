@@ -50,7 +50,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
     capabilities: { formalWrites: false, migration: false, provider: false, backup: true },
-    databaseSchemaVersion: 1,
+    databaseSchemaVersion: 2,
     objectCount: 0,
   });
   const doctor = await fetch(new URL("doctor", service.url), { method: "POST", headers });

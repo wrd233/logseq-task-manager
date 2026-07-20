@@ -8,7 +8,7 @@ import Database from "better-sqlite3";
 
 import { V2Application } from "@task-copilot/application";
 
-import { V2SqliteStore } from "../src/sqlite.ts";
+import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "../src/sqlite.ts";
 
 async function fixture(): Promise<{ root: string; path: string; store: V2SqliteStore }> {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-sqlite-"));
@@ -19,14 +19,95 @@ async function fixture(): Promise<{ root: string; path: string; store: V2SqliteS
 test("SQLite initialization is Graph-bound and idempotent", async (t) => {
   const { root, path, store } = await fixture();
   t.after(async () => rm(root, { recursive: true, force: true }));
-  assert.deepEqual(store.initialize("graph-a"), { initialized: true, schemaVersion: 1 });
-  assert.deepEqual(store.initialize("graph-a"), { initialized: false, schemaVersion: 1 });
+  assert.deepEqual(store.initialize("graph-a"), { initialized: true, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
+  assert.deepEqual(store.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.throws(() => store.initialize("graph-b"), /另一个 Graph/);
   assert.equal(store.doctor().status, "PASS");
   store.close();
   const reopened = await V2SqliteStore.open(path);
-  assert.deepEqual(reopened.initialize("graph-a"), { initialized: false, schemaVersion: 1 });
+  assert.deepEqual(reopened.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   reopened.close();
+});
+
+async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
+  const database = new Database(path);
+  database.exec("DROP TABLE IF EXISTS schema_migrations");
+  database.prepare("UPDATE schema_meta SET value = '1' WHERE key = 'schema_version'").run();
+  database.pragma("user_version = 1");
+  database.close();
+}
+
+test("schema v1 requires an explicit preflight backup before one auditable migration", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a", new Date("2026-07-20T07:00:00.000Z"));
+  store.close();
+  await downgradeFixtureToSchemaV1(path);
+
+  const migrated = await V2SqliteStore.open(path);
+  assert.throws(
+    () => migrated.initialize("graph-a"),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_REQUIRED",
+  );
+  const backupPath = join(root, "schema-upgrade-backups", "before-v2.db");
+  assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath, new Date("2026-07-20T08:00:00.000Z")), {
+    migrated: true,
+    fromVersion: 1,
+    schemaVersion: 2,
+    backupPath,
+  });
+  const preflight = new Database(backupPath, { readonly: true, fileMustExist: true });
+  assert.equal(preflight.pragma("user_version", { simple: true }), 1);
+  assert.equal((preflight.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").pluck().get()), "1");
+  preflight.close();
+  assert.deepEqual(migrated.schemaMigrationHistory(), [
+    { version: 1, name: "initial_core_schema", appliedAt: "2026-07-20T07:00:00.000Z" },
+    { version: 2, name: "add_schema_migration_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
+  ]);
+  assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: 2 });
+  assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
+    migrated: false,
+    fromVersion: 2,
+    schemaVersion: 2,
+  });
+  assert.equal(migrated.schemaMigrationHistory().length, 2, "repeated initialize must not duplicate migration rows");
+  migrated.close();
+});
+
+test("failed schema migration rolls back metadata and ledger and can be retried", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  store.close();
+  await downgradeFixtureToSchemaV1(path);
+  const injection = new Database(path);
+  injection.exec(`
+    CREATE TRIGGER fail_schema_upgrade
+    BEFORE UPDATE OF value ON schema_meta
+    WHEN OLD.key = 'schema_version'
+    BEGIN
+      SELECT RAISE(ABORT, 'injected schema migration failure');
+    END;
+  `);
+  injection.close();
+
+  const failing = await V2SqliteStore.open(path);
+  await assert.rejects(
+    () => failing.migrateSchema("graph-a", join(root, "before-failed-upgrade.db")),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_FAILED",
+  );
+  failing.close();
+  const afterFailure = new Database(path);
+  assert.equal(afterFailure.pragma("user_version", { simple: true }), 1);
+  assert.equal((afterFailure.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string }).value, "1");
+  assert.equal(afterFailure.prepare("SELECT count(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'").pluck().get(), 0);
+  afterFailure.exec("DROP TRIGGER fail_schema_upgrade");
+  afterFailure.close();
+
+  const retried = await V2SqliteStore.open(path);
+  assert.equal((await retried.migrateSchema("graph-a", join(root, "before-retry.db"))).schemaVersion, 2);
+  assert.equal(retried.schemaMigrationHistory().length, 2);
+  retried.close();
 });
 
 test("object writes require expected version and are idempotent", async (t) => {
@@ -62,7 +143,7 @@ test("object writes require expected version and are idempotent", async (t) => {
   assert.equal(store.auditEventCount(), 2);
   assert.deepEqual(store.doctor(), {
     status: "PASS",
-    schemaVersion: 1,
+    schemaVersion: V2_DATABASE_SCHEMA_VERSION,
     integrity: "ok",
     foreignKeyViolations: 0,
     objectCount: 1,
@@ -104,7 +185,7 @@ test("backup is a readable independent SQLite database", async (t) => {
   const backupBytes = await readFile(backupPath);
   assert.deepEqual(V2SqliteStore.validateBackup(backupPath, "graph-a"), {
     status: "PASS",
-    schemaVersion: 1,
+    schemaVersion: V2_DATABASE_SCHEMA_VERSION,
     integrity: "ok",
     foreignKeyViolations: 0,
     objectCount: 1,
@@ -115,7 +196,7 @@ test("backup is a readable independent SQLite database", async (t) => {
   assert.deepEqual(await readFile(backupPath), backupBytes, "failed duplicate backup must not overwrite bytes");
   store.close();
   const backup = await V2SqliteStore.open(backupPath);
-  assert.deepEqual(backup.initialize("graph-a"), { initialized: false, schemaVersion: 1 });
+  assert.deepEqual(backup.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.equal(backup.getObject("obj-backup")?.text, "治理 Pilot");
   assert.equal(backup.doctor().status, "PASS");
   backup.close();
