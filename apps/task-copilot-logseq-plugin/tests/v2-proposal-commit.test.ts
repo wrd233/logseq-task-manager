@@ -11,7 +11,7 @@ function record(): ServiceStoredProposal {
   const after = "[任务] 核对告警";
   return { updatedAt: "2026-07-20T12:01:00.000Z", files: { proposalMd: "# 正式化", proposalJson: "{}" }, proposal: {
     proposalId: "prop_commit", schemaVersion: "v2", title: "正式化", context: "普通正文", understanding: "建议 Task", objective: "建立对象", logic: "同组提交", finalPreview: after, unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [{ kind: "BLOCK", id: "block-commit", version: 1, hash: checksum(before) }] }, preconditions: [],
-    groups: [{ groupId: "formalize", explanation: "不可拆", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-commit", beforeText: before, afterText: after, beforeHash: checksum(before), afterHash: checksum(after) }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-commit" }, summary: "创建 Task", payload: { objectType: "TASK" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-20T12:00:00.000Z",
+    groups: [{ groupId: "formalize", explanation: "不可拆", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-commit", beforeText: before, afterText: after, beforeHash: checksum(before), afterHash: checksum(after) }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-commit" }, summary: "创建 Task", payload: { objectType: "TASK", text: "核对告警" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-20T12:00:00.000Z",
   } };
 }
 

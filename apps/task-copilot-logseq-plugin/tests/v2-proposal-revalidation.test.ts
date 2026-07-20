@@ -12,7 +12,7 @@ function acceptedProposal(): V2Proposal {
   const value: V2Proposal = {
     proposalId: "prop_graph_revalidation", schemaVersion: "v2", title: "正式化", context: "Pilot 页上的普通正文。", understanding: "建议 Task。", objective: "建立对象。", logic: "正文与语义同组。", finalPreview: "[任务] 核对告警", unresolvedQuestions: [], source: { kind: "user" },
     scope: { read: [{ kind: "PAGE", id: "Pilot", version: 10, hash: proposalPageEvidenceHash(page) }], modify: [{ kind: "BLOCK", id: "block-1", version: 20, hash: checksum(before) }] }, preconditions: [],
-    groups: [{ groupId: "formalize", explanation: "不可拆。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-1", beforeText: before, afterText: "[任务] 核对告警", beforeHash: checksum(before), afterHash: checksum("[任务] 核对告警") }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-1", version: 20, hash: checksum(before) }, summary: "创建 Task", payload: { objectType: "TASK" }, preconditions: [] }], disposition: "PENDING" }],
+    groups: [{ groupId: "formalize", explanation: "不可拆。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-1", beforeText: before, afterText: "[任务] 核对告警", beforeHash: checksum(before), afterHash: checksum("[任务] 核对告警") }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-1", version: 20, hash: checksum(before) }, summary: "创建 Task", payload: { objectType: "TASK", text: "核对告警" }, preconditions: [] }], disposition: "PENDING" }],
     status: "READY", createdAt: "2026-07-20T12:00:00.000Z",
   };
   return reviewV2ProposalGroups(value, { formalize: { disposition: "ACCEPTED" } });

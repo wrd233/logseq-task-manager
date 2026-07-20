@@ -28,7 +28,7 @@ function proposal(): V2Proposal {
       independentlyAcceptable: true,
       dependencies: [],
       textPatches: [{ blockUuid: "block-1", beforeText, afterText, beforeHash: checksum(beforeText), afterHash: checksum(afterText) }],
-      semanticOperations: [{ operationId: "create-task", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-1", version: 7, hash: checksum(beforeText) }, summary: "创建 OPEN Task 并绑定 Primary Anchor", payload: { objectType: "TASK" }, preconditions: ["marker absent"] }],
+      semanticOperations: [{ operationId: "create-task", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-1", version: 7, hash: checksum(beforeText) }, summary: "创建 OPEN Task 并绑定 Primary Anchor", payload: { objectType: "TASK", text: "核对外部推送" }, preconditions: ["marker absent"] }],
       disposition: "PENDING",
     }],
     status: "READY",
@@ -39,6 +39,9 @@ function proposal(): V2Proposal {
 test("V2 Proposal validator accepts one coupled text and semantic operation group", () => {
   assert.equal(validateV2Proposal(proposal()).groups[0]?.groupId, "formalize-task");
   assert.throws(() => validateV2Proposal({ schemaVersion: "v2" }), /顶层字段/);
+  const missingFinalText = proposal();
+  delete missingFinalText.groups[0]!.semanticOperations[0]!.payload.text;
+  assert.throws(() => validateV2Proposal(missingFinalText), /最终对象类型与正文/);
 });
 
 test("V2 Proposal validator refuses modify-scope escape, stale patch hashes, and risk downgrade", () => {
