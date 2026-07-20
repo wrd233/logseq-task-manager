@@ -3,6 +3,7 @@ import type { FocusSelection, V2ManagedObject } from "@task-copilot/domain";
 export interface V2NowWorkItem {
   objectId: string;
   objectType: V2ManagedObject["objectType"];
+  version: number;
   text: string;
   condition: V2ManagedObject["condition"];
   updatedAt: string;
@@ -17,7 +18,7 @@ export interface V2NowWorkProjection {
 }
 
 function item(object: V2ManagedObject, reason: string): V2NowWorkItem {
-  return { objectId: object.objectId, objectType: object.objectType, text: object.text, condition: object.condition, updatedAt: object.updatedAt, reason };
+  return { objectId: object.objectId, objectType: object.objectType, version: object.version, text: object.text, condition: object.condition, updatedAt: object.updatedAt, reason };
 }
 
 export function projectV2NowWork(

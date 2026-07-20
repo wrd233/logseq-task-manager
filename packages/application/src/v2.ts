@@ -8,6 +8,7 @@ import {
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
   type CreateV2ManagedObjectInput,
+  type FocusSelection,
   type Lifecycle,
   type V2Anchor,
   type V2ManagedObject,
@@ -37,6 +38,8 @@ export interface V2ObjectRepository {
   getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined | Promise<V2Anchor | undefined>;
   getPrimaryAnchorById(anchorId: string): V2Anchor | undefined | Promise<V2Anchor | undefined>;
   listObjects(): V2ManagedObject[] | Promise<V2ManagedObject[]>;
+  commitFocusSelection(objectId: string, expectedVersion: number, selection: FocusSelection | undefined): FocusSelection | undefined | Promise<FocusSelection | undefined>;
+  reorderFocusSelections(expectedObjectIds: readonly string[], objectIds: readonly string[]): FocusSelection[] | Promise<FocusSelection[]>;
 }
 
 export interface V2AuditRecord {
@@ -189,6 +192,29 @@ function requireEnvelope(envelope: V2CommandEnvelope): void {
 
 export class V2Application {
   constructor(private readonly objects: V2ObjectRepository) {}
+
+  async selectFocus(objectId: string, rank: number, expectedVersion: number, at = new Date()): Promise<FocusSelection> {
+    if (!objectId.trim() || !Number.isSafeInteger(rank) || rank < 0 || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+      throw new StructuredError({ code: "V2_FOCUS_COMMAND_INVALID", message: "Focus 必须引用对象版本和非负排序位置。", ruleRefs: ["D-148", "D-159"] });
+    }
+    const object = await this.objects.getObject(objectId);
+    if (!object || object.version !== expectedVersion || object.lifecycle !== "OPEN") {
+      throw new StructuredError({ code: "V2_FOCUS_OBJECT_STALE", message: "对象不存在、版本已变化或已关闭；Focus 没有写入。", ruleRefs: ["D-148", "D-185"] });
+    }
+    return (await this.objects.commitFocusSelection(objectId, expectedVersion, { objectId, selectedAt: at.toISOString(), rank }))!;
+  }
+
+  async removeFocus(objectId: string, expectedVersion: number): Promise<void> {
+    if (!objectId.trim() || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) throw new StructuredError({ code: "V2_FOCUS_COMMAND_INVALID", message: "Focus 移出必须引用对象版本。", ruleRefs: ["D-148"] });
+    await this.objects.commitFocusSelection(objectId, expectedVersion, undefined);
+  }
+
+  async reorderFocus(expectedObjectIds: readonly string[], objectIds: readonly string[]): Promise<FocusSelection[]> {
+    if (new Set(expectedObjectIds).size !== expectedObjectIds.length || new Set(objectIds).size !== objectIds.length || expectedObjectIds.length !== objectIds.length || expectedObjectIds.some((id) => !id.trim()) || objectIds.some((id) => !id.trim()) || expectedObjectIds.some((id) => !objectIds.includes(id))) {
+      throw new StructuredError({ code: "V2_FOCUS_ORDER_INVALID", message: "Focus 排序必须包含同一组唯一对象。", ruleRefs: ["D-159"] });
+    }
+    return this.objects.reorderFocusSelections(expectedObjectIds, objectIds);
+  }
 
   async createObject(
     input: CreateV2ManagedObjectInput,

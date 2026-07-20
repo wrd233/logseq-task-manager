@@ -210,8 +210,9 @@ export interface ServiceSemanticCommit {
   errorCode?: string;
 }
 
-export interface ServiceNowWorkItem { objectId: string; objectType: V2ObjectType; text: string; condition: V2Condition; updatedAt: string; reason: string }
+export interface ServiceNowWorkItem { objectId: string; objectType: V2ObjectType; version: number; text: string; condition: V2Condition; updatedAt: string; reason: string; primaryAnchorExternalId?: string }
 export interface ServiceNowWork { generatedAt: string; focus: ServiceNowWorkItem[]; next: ServiceNowWorkItem[]; waitingReview: ServiceNowWorkItem[] }
+export interface ServiceFocusSelection { objectId: string; selectedAt: string; rank: number; expiresAt?: string }
 
 export type ServiceProposalUndoFinalization =
   | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; objectId: string; replayed: boolean }
@@ -475,6 +476,18 @@ export class LocalServiceClient {
 
   nowWork(): Promise<ServiceNowWork> {
     return this.request<ServiceNowWork>("/now-work");
+  }
+
+  selectFocus(objectId: string, expectedVersion: number, rank: number): Promise<{ status: "SELECTED"; selection: ServiceFocusSelection }> {
+    return this.request<{ status: "SELECTED"; selection: ServiceFocusSelection }>(`/focus/${encodeURIComponent(objectId)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion, rank }) });
+  }
+
+  removeFocus(objectId: string, expectedVersion: number): Promise<{ status: "REMOVED"; objectId: string }> {
+    return this.request<{ status: "REMOVED"; objectId: string }>(`/focus/${encodeURIComponent(objectId)}`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion }) });
+  }
+
+  reorderFocus(expectedObjectIds: readonly string[], objectIds: readonly string[]): Promise<{ selections: ServiceFocusSelection[] }> {
+    return this.request<{ selections: ServiceFocusSelection[] }>("/focus/reorder", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedObjectIds, objectIds }) });
   }
 
   finalizeProposalUndo(originalSemanticCommitId: string, evidence: ServiceProposalUndoEvidence): Promise<ServiceProposalUndoFinalization> {

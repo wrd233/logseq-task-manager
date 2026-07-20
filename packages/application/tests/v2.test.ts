@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
+import type { FocusSelection, V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 
 import {
   V2Application,
@@ -25,6 +25,25 @@ class MemoryV2Repository implements V2ObjectRepository {
   readonly audit: V2AuditRecord[] = [];
   readonly anchors = new Map<string, V2Anchor>();
   readonly ownerships = new Map<string, V2PrimaryOwnership>();
+  readonly focus = new Map<string, FocusSelection>();
+
+  commitFocusSelection(objectId: string, expectedVersion: number, selection: FocusSelection | undefined): FocusSelection | undefined {
+    const object = this.values.get(objectId);
+    if (!object || object.version !== expectedVersion) throw new Error("focus object stale");
+    if (!selection) {
+      this.focus.delete(objectId);
+      return undefined;
+    }
+    this.focus.set(objectId, selection);
+    return selection;
+  }
+
+  reorderFocusSelections(expectedObjectIds: readonly string[], objectIds: readonly string[]): FocusSelection[] {
+    const current = [...this.focus.values()].sort((left, right) => left.rank - right.rank).map((selection) => selection.objectId);
+    if (JSON.stringify(current) !== JSON.stringify(expectedObjectIds)) throw new Error("focus order stale");
+    objectIds.forEach((objectId, rank) => this.focus.set(objectId, { ...this.focus.get(objectId)!, rank }));
+    return [...this.focus.values()].sort((left, right) => left.rank - right.rank);
+  }
 
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined {
     return this.receipts.get(idempotencyKey);
@@ -476,4 +495,19 @@ test("Primary Anchor rebind requires explicit confirmation and is idempotent", a
   assert.equal(rebound.object.objectId, created.object.objectId);
   assert.equal((await application.rebindPrimaryAnchor({ ...input, text: "不得覆盖" }, envelope)).replayed, true);
   assert.equal(repository.audit.length, 2);
+});
+
+test("Focus is a version-protected view selection with explicit manual ordering", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const first = await application.createObject({ objectId: "focus-a", objectType: "TASK", text: "先处理" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-focus-a", traceId: "trace-focus-a" });
+  const second = await application.createObject({ objectId: "focus-b", objectType: "MINI_PROJECT", text: "后处理" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-focus-b", traceId: "trace-focus-b" });
+  await application.selectFocus(first.objectId, 0, first.version, new Date("2026-07-20T12:00:00.000Z"));
+  await application.selectFocus(second.objectId, 1, second.version, new Date("2026-07-20T12:01:00.000Z"));
+  assert.deepEqual((await application.reorderFocus([first.objectId, second.objectId], [second.objectId, first.objectId])).map((selection) => selection.objectId), [second.objectId, first.objectId]);
+  await assert.rejects(() => application.reorderFocus([first.objectId, second.objectId], [second.objectId, first.objectId]), /stale/);
+  await application.removeFocus(first.objectId, first.version);
+  assert.deepEqual([...repository.focus.keys()], [second.objectId]);
+  assert.equal(repository.audit.length, 2, "Focus does not masquerade as lifecycle Audit");
+  await assert.rejects(() => application.selectFocus(second.objectId, 0, second.version + 1), /版本已变化/);
 });

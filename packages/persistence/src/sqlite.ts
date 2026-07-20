@@ -912,6 +912,42 @@ export class V2SqliteStore {
     }));
   }
 
+  commitFocusSelection(objectId: string, expectedVersion: number, selection: FocusSelection | undefined): FocusSelection | undefined {
+    const write = this.database.transaction(() => {
+      this.requireVersion(objectId, expectedVersion);
+      if (!selection) {
+        this.database.prepare("DELETE FROM focus_selections WHERE object_id = ?").run(objectId);
+        return undefined;
+      }
+      const object = this.getObject(objectId)!;
+      if (object.lifecycle !== "OPEN") throw persistenceError("V2_FOCUS_OBJECT_CLOSED", "关闭对象不能加入 Focus。", { objectId });
+      if (selection.objectId !== objectId || !Number.isSafeInteger(selection.rank) || selection.rank < 0 || !Number.isFinite(Date.parse(selection.selectedAt)) || (selection.expiresAt && !Number.isFinite(Date.parse(selection.expiresAt)))) {
+        throw persistenceError("V2_FOCUS_SELECTION_INVALID", "Focus selection 无效。");
+      }
+      this.database.prepare("UPDATE focus_selections SET rank = rank + 1 WHERE object_id <> ? AND rank >= ?")
+        .run(objectId, selection.rank);
+      this.database.prepare(`INSERT INTO focus_selections(object_id, selected_at, rank, expires_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(object_id) DO UPDATE SET selected_at = excluded.selected_at, rank = excluded.rank, expires_at = excluded.expires_at`)
+        .run(objectId, selection.selectedAt, selection.rank, selection.expiresAt ?? null);
+      return this.listFocusSelections().find((value) => value.objectId === objectId)!;
+    });
+    return this.executeWrite(write);
+  }
+
+  reorderFocusSelections(expectedObjectIds: readonly string[], objectIds: readonly string[]): FocusSelection[] {
+    const write = this.database.transaction(() => {
+      const current = this.listFocusSelections().map((selection) => selection.objectId);
+      if (stableJson(current) !== stableJson(expectedObjectIds)) throw persistenceError("V2_FOCUS_ORDER_STALE", "Focus 顺序已变化；本次排序没有写入。");
+      const update = this.database.prepare("UPDATE focus_selections SET rank = ? WHERE object_id = ?");
+      objectIds.forEach((objectId, rank) => {
+        if (!expectedObjectIds.includes(objectId)) throw persistenceError("V2_FOCUS_ORDER_INVALID", "Focus 排序包含未知对象。");
+        if (update.run(rank, objectId).changes !== 1) throw persistenceError("V2_FOCUS_ORDER_STALE", "Focus 顺序已变化；本批已回滚。");
+      });
+      return this.listFocusSelections();
+    });
+    return this.executeWrite(write);
+  }
+
   semanticCommit(semanticCommitId: string): V2SemanticCommitLedgerRecord | undefined {
     const row = this.database.prepare("SELECT * FROM semantic_commits WHERE semantic_commit_id = ?").get(semanticCommitId) as Record<string, unknown> | undefined;
     return row ? this.mapSemanticCommit(row) : undefined;
@@ -1069,6 +1105,7 @@ export class V2SqliteStore {
         updatedAt: object.updatedAt,
         sourceEvent: object.sourceOrCreationEvent,
       });
+    if (object.lifecycle !== "OPEN") this.database.prepare("DELETE FROM focus_selections WHERE object_id = ?").run(object.objectId);
   }
 
   private writeAudit(audit: V2AuditRecord): void {
@@ -1116,6 +1153,11 @@ export class V2SqliteStore {
 
   getPrimaryAnchorById(anchorId: string): V2Anchor | undefined {
     const row = this.database.prepare("SELECT * FROM anchors WHERE anchor_id = ? AND role = 'primary_text'").get(anchorId) as Record<string, unknown> | undefined;
+    return row ? this.mapAnchor(row) : undefined;
+  }
+
+  getActivePrimaryAnchorByObject(objectId: string): V2Anchor | undefined {
+    const row = this.database.prepare("SELECT * FROM anchors WHERE object_id = ? AND role = 'primary_text' AND status = 'active'").get(objectId) as Record<string, unknown> | undefined;
     return row ? this.mapAnchor(row) : undefined;
   }
 

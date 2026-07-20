@@ -2,7 +2,7 @@
 
 ## 当前 Slice
 
-V1 frozen / Slice A0 complete / Slice A1-A4 foundation in progress / Slice B0-B3 automated foundation / Slice B4 Anchor recovery in progress / Slice B5 Project creation automated foundation / Slice C0-C5 automated foundation / Slice E Now Work foundation
+V1 frozen / Slice A0 complete / Slice A1-A4 foundation in progress / Slice B0-B3 automated foundation / Slice B4 Anchor recovery in progress / Slice B5 Project creation automated foundation / Slice C0-C5 automated foundation / Slice E Now Work interactive foundation
 
 ## 当前阶段结论
 
@@ -58,13 +58,13 @@ V2_MIGRATION_DESIGN_READY
 - Slice C0-C5 Proposal 安全闭环自动基础已建立：runtime schema、确定性两文件、scope/hash/risk/dependency Validator、语义组部分接受、Proposal/Group 持久化、submit/list/get/review/revalidate 均通过。Review UI 在同一卡片展示理解、最终预览、文本/语义 Diff、分组处置、提交前检查和独立最终确认；接受不会伪装成生效。
 - 单 Block 正式化 Commit 只支持一个 accepted group 中耦合的一个 Patch + `CREATE_OBJECT`；prepare 先持久化 PENDING Graph/Domain steps，Plugin 逐次重读 before/after hash，finalize 才经 Application 原子物化 Object/Anchor/Audit/Receipt，全部 VERIFIED 后标记 Proposal `APPLIED` 并在原卡片显示生效与 Undo。Domain 冲突只在无后续编辑时补偿；未知响应最多幂等重试一次。重启时已存在的 PENDING intent 接受精确 before 或 after Graph 证据继续，不会把自己写入的 after 状态误判 STALE；RECOVERY_REQUIRED 可从同一入口补偿。
 - C5 inverse Commit/Undo 自动基础已完成：Undo 先建立独立 PENDING 逆向 Commit，将 Graph Patch 反向应用并验证，再通过 Application 删除精确未变化的当前 Object/Primary Anchor 投影；immutable Audit、正向 receipt 和 inverse receipt 均保留，正向 Commit 收口 `UNDONE`。Object version、完整 Object/Anchor、Ownership、Focus、额外 Anchor 或 Graph hash 任一后续变化都会零写入拒绝。中断后可按持久化 Commit 列表在同一 Review 卡片续跑；领域 Undo 失败只在正文未被二次编辑时恢复正向正文，否则保留 `RECOVERY_REQUIRED`。Desktop 连续审阅、真实中断和 Logseq Undo 对照仍待集中验收。
-- Slice E Now Work 首条纵向闭环已接入 SQLite → Application projection → Local Service → Plugin 正式 Now Work 页面：严格三个可空区域，不显示分数；Focus 按持久化 rank 读取；“接下来”只选近期可推进的 Task/MiniProject/Project 并限制 12 项；普通 Waiting 保持安静，仅复查到期或影响 Focus 才出现。当前仅完成查询与显示，Focus 加入/移出/排序、Primary Anchor 打开、筛选/分组和 Candidate 待整理仍未完成。
+- Slice E Now Work 纵向闭环已接入 SQLite → Application projection/Command → Local Service → Plugin 正式 Now Work 页面：严格三个可空区域，不显示分数；Focus 可在同一页面加入、移出和手动上下排序，写入以对象版本和当前完整顺序作并发前置，但不伪装成 Lifecycle/Condition 或完整 Audit；插入 rank 会事务性让位，stale 批次整笔回滚。每张有 active Primary Anchor 的卡片可安全解析当前 Logseq 页面并打开正文。近期可推进项限制 12 项，普通 Waiting 保持安静，仅复查到期或影响 Focus 才出现。筛选/分组、期限输入、复杂阻碍排序、Candidate 待整理及 Desktop 点击/reload Gate 仍未完成。
 - 2026-07-20 Desktop 阶段 Gate：A-RT-01 与 A-RT-02 通过；专用页显式 Task 首次物化、同 object_id 标题更新、已知 Anchor 候选去重通过；Service 停止时正文连续两次可保存，重连同一 SQLite 后仅交付最新正文，object version 3→4。移除原 UUID Marker 后 Anchor 变为 `conflict`且原 Object 保持上一可信正文；恢复 Marker 后同 object_id/anchor_id 回到 `active`，version 5→6。Diagnostics 已真实显示完整 commit/listener snapshot 与显式同步 pending/transport/reconciliation 状态。其余 Anchor missing/rebind、移动复制和有限子树仍待真实验收，详见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，228 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，234 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；该 smoke 早于 schema v5，v5 真实进程迁移/重启仍待集中运行证据；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；
@@ -85,7 +85,8 @@ V2_MIGRATION_DESIGN_READY
 3. 在 Desktop 验证 Slice B5 新建、未知同名冲突、页面改名、reload 和中断续跑，并补页面/领域边界 fault injection；
 4. 将 Backup/Restore/Service restart/Doctor 纳入后续 Desktop 集中验收；
 5. 在集中 Desktop Gate 验收 C1-C5 连续闭环：接受→最终确认→Commit→已生效→Undo，并注入 Service 中断与后续正文编辑；
-6. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；在 Slice A-C 闭环后接入 Provider abstraction并运行 bounded DeepSeek live gate。
+6. 在同轮 Desktop 验收 Now Work 加入/移出 Focus、手动排序、主 Anchor 打开与 reload 保序；自动证据不替代该 Gate；
+7. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；在 Slice A-C 闭环后接入 Provider abstraction并运行 bounded DeepSeek live gate。
 
 ## 仍需用户决定
 

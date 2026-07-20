@@ -713,3 +713,28 @@ test("materialization Undo preserves Audit while deleting only an unchanged curr
   assert.equal(store.getCommandReceipt("undo-changed"), undefined);
   store.close();
 });
+
+test("Focus persistence inserts at rank, reorders atomically, and preserves object Audit", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2Application(store);
+  const first = await application.createObject({ objectId: "focus-first", objectType: "TASK", text: "第一项" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-focus-first", traceId: "trace-first" });
+  const second = await application.createObject({ objectId: "focus-second", objectType: "MINI_PROJECT", text: "第二项" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-focus-second", traceId: "trace-second" });
+  await application.selectFocus(first.objectId, 0, first.version, new Date("2026-07-20T12:00:00.000Z"));
+  await application.selectFocus(second.objectId, 0, second.version, new Date("2026-07-20T12:01:00.000Z"));
+  assert.deepEqual(store.listFocusSelections().map(({ objectId, rank }) => ({ objectId, rank })), [
+    { objectId: second.objectId, rank: 0 }, { objectId: first.objectId, rank: 1 },
+  ]);
+  assert.deepEqual((await application.reorderFocus([second.objectId, first.objectId], [first.objectId, second.objectId])).map((selection) => selection.objectId), [first.objectId, second.objectId]);
+  await assert.rejects(() => application.reorderFocus([second.objectId, first.objectId], [first.objectId, second.objectId]), /顺序已变化/);
+  assert.deepEqual(store.listFocusSelections().map((selection) => selection.objectId), [first.objectId, second.objectId], "stale reorder rolls back the whole batch");
+  await application.removeFocus(first.objectId, first.version);
+  assert.deepEqual(store.listFocusSelections().map((selection) => selection.objectId), [second.objectId]);
+  assert.equal(store.auditEventCount(), 2, "Focus remains a view selection rather than formal object Audit");
+  assert.equal(store.getObject(second.objectId)?.version, second.version);
+  await application.transitionLifecycle(second.objectId, "COMPLETED", { actor: "user", expectedVersion: second.version, idempotencyKey: "complete-focus-second", traceId: "trace-complete-focus" });
+  assert.deepEqual(store.listFocusSelections(), [], "a terminal lifecycle transition removes its temporary Focus selection atomically");
+  assert.equal(store.auditEventCount(), 3, "only the lifecycle transition adds formal Audit");
+  store.close();
+});

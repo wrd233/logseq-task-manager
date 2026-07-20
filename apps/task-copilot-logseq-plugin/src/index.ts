@@ -5,7 +5,12 @@ import type {
   ProjectReentryView,
 } from "@task-copilot/application";
 import type { ConditionKind, ObjectType, Phase } from "@task-copilot/domain";
-import type { LogseqContentPort, LogseqFileStorageBlobStore } from "@task-copilot/logseq-adapter";
+import {
+  RuntimeShapeAdapter,
+  resolveLogseqPageReference,
+  type LogseqContentPort,
+  type LogseqFileStorageBlobStore,
+} from "@task-copilot/logseq-adapter";
 import {
   exportRecoveryBundle,
   restoreRecoveryBundle,
@@ -114,6 +119,15 @@ function requireAppRoot(): HTMLElement {
 
 function explain(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function openV2PrimaryAnchor(externalId: string): Promise<void> {
+  const block = RuntimeShapeAdapter.block(await logseq.Editor.getBlock(externalId, { includeChildren: false }));
+  if (!block) throw new Error("主 Anchor 已失联；没有修改对象，请进入 Anchor 修复流程。");
+  if (!logseq.Editor.scrollToBlockInPage || block.page === undefined) throw new Error("当前 Logseq 运行时无法安全定位主 Anchor。");
+  const page = await resolveLogseqPageReference(block.page, logseq.Editor.getPage?.bind(logseq.Editor));
+  if (page.displayName === "无法解析的 Logseq 页面") throw new Error("主 Anchor 所在页面无法解析；没有修改对象。");
+  await logseq.Editor.scrollToBlockInPage(page.pageUuid ?? page.pageName ?? page.displayName.replace(" · Journal", ""), externalId);
 }
 
 function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>[0]): string {
@@ -614,6 +628,49 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "inbox-probe-ping" && value) {
     inboxProbeWaiters.get(value)?.();
     inboxProbeWaiters.delete(value);
+    return;
+  }
+  if (action === "v2-open-primary-anchor" && value) {
+    await run(async () => openV2PrimaryAnchor(value), "已定位到主正文；Now Work 和正式状态未改变。");
+    return;
+  }
+  if (action === "v2-focus-add" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      const expectedVersion = Number(rawVersion);
+      if (!client || !objectId || !Number.isSafeInteger(expectedVersion)) throw new Error("Focus 上下文已失效；没有写入。");
+      const current = await client.nowWork();
+      await client.selectFocus(objectId, expectedVersion, current.focus.length);
+      workspace = "now";
+    }, "已加入当前关注；对象正式状态与正文未改变。");
+    return;
+  }
+  if (action === "v2-focus-remove" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      const expectedVersion = Number(rawVersion);
+      if (!client || !objectId || !Number.isSafeInteger(expectedVersion)) throw new Error("Focus 上下文已失效；没有写入。");
+      await client.removeFocus(objectId, expectedVersion);
+      workspace = "now";
+    }, "已移出当前关注；对象正式状态与正文未改变。");
+    return;
+  }
+  if ((action === "v2-focus-up" || action === "v2-focus-down") && value) {
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client) throw new Error("V2 Local Service 未就绪；Focus 顺序未改变。");
+      const current = await client.nowWork();
+      const expectedObjectIds = current.focus.map((item) => item.objectId);
+      const index = expectedObjectIds.indexOf(value);
+      const target = action === "v2-focus-up" ? index - 1 : index + 1;
+      if (index < 0 || target < 0 || target >= expectedObjectIds.length) throw new Error("Focus 顺序已变化；请刷新后重试。");
+      const objectIds = [...expectedObjectIds];
+      [objectIds[index], objectIds[target]] = [objectIds[target]!, objectIds[index]!];
+      await client.reorderFocus(expectedObjectIds, objectIds);
+      workspace = "now";
+    }, "当前关注顺序已保存。");
     return;
   }
   const taskCopilot = requireTaskCopilot();

@@ -156,6 +156,36 @@ test("Proposal Commit prepares before Graph, materializes after evidence, and re
   assert.deepEqual((await client.nowWork()).next.map((item) => item.objectId), [completed.object.objectId]);
 });
 
+test("Now Work Focus is service-owned, manually ordered, and opens from Primary Anchor data", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-focus-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-focus", token: "focus-service-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const createProject = async (name: string, pageExternalId: string) => {
+    const intent = await client.prepareProject({ name, traceId: `prepare-${pageExternalId}` });
+    return client.finalizeProject({
+      semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name, pageExternalId,
+      pageContentHash: checksum(`Project/${name}`), traceId: `finalize-${pageExternalId}`,
+    });
+  };
+  const first = await createProject("Focus 第一项", "focus-page-a");
+  const second = await createProject("Focus 第二项", "focus-page-b");
+  await client.selectFocus(first.object.objectId, first.object.version, 0);
+  await client.selectFocus(second.object.objectId, second.object.version, 0);
+  let now = await client.nowWork();
+  assert.deepEqual(now.focus.map((item) => [item.objectId, item.primaryAnchorExternalId]), [
+    [second.object.objectId, "focus-page-b"], [first.object.objectId, "focus-page-a"],
+  ]);
+  await client.reorderFocus(now.focus.map((item) => item.objectId), [first.object.objectId, second.object.objectId]);
+  now = await client.nowWork();
+  assert.deepEqual(now.focus.map((item) => item.objectId), [first.object.objectId, second.object.objectId]);
+  await assert.rejects(() => client.reorderFocus([second.object.objectId, first.object.objectId], [first.object.objectId, second.object.objectId]), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_FOCUS_ORDER_STALE");
+  await client.removeFocus(first.object.objectId, first.object.version);
+  assert.deepEqual((await client.nowWork()).focus.map((item) => item.objectId), [second.object.objectId]);
+  const invalid = await fetch(new URL(`focus/${encodeURIComponent(second.object.objectId)}`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: second.object.version, rank: -1 }) });
+  assert.equal(invalid.status, 400);
+});
+
 test("Proposal Undo is an inverse Commit that restores Graph evidence and removes only unchanged Domain state", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-undo-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal-undo", token: "proposal-undo-service-token-24-chars" });

@@ -125,8 +125,8 @@ function renderInboxDialog(model: UiModel, capture: Capture): string {
 
 function renderNow(model: UiModel): string {
   if (model.v2NowWork) {
-    const section = (title: string, values: ServiceNowWork["next"]) => values.length ? `<section><h2>${escapeHtml(title)}</h2><div class="cards">${values.map((item) => `<article class="card compact"><div class="eyebrow">${escapeHtml(item.objectType)} · ${escapeHtml(item.condition.kind)}</div><h3>${escapeHtml(item.text)}</h3><p>${escapeHtml(item.reason)}</p></article>`).join("")}</div></section>` : "";
-    const content = `${section("当前关注", model.v2NowWork.focus)}${section("接下来值得处理", model.v2NowWork.next)}${section("等待与复查", model.v2NowWork.waitingReview)}`;
+    const section = (title: string, values: ServiceNowWork["next"], kind: "focus" | "candidate") => values.length ? `<section><h2>${escapeHtml(title)}</h2><div class="cards">${values.map((item, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(item.objectType)} · ${escapeHtml(item.condition.kind)}</div><h3>${escapeHtml(item.text)}</h3><p>${escapeHtml(item.reason)}</p><div class="actions">${item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${kind === "focus" ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}</div></article>`).join("")}</div></section>` : "";
+    const content = `${section("当前关注", model.v2NowWork.focus, "focus")}${section("接下来值得处理", model.v2NowWork.next, "candidate")}${section("等待与复查", model.v2NowWork.waitingReview, "candidate")}`;
     return content || empty("当前没有需要推进的事项", "普通 Waiting 保持安静；这里不会加载全部 OPEN 对象。");
   }
   if (model.now.items.length === 0) return empty("当前没有需要推进的事项", "这里只显示 Actionable 与高价值注意项。");
