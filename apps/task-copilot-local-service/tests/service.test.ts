@@ -183,6 +183,45 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   });
   assert.equal(missingObservation.status, 404);
   assert.equal((await missingObservation.json() as { error: { code: string } }).error.code, "V2_PRIMARY_ANCHOR_NOT_FOUND");
+
+  const reboundInput = {
+    previousAnchorId: recovered.anchor.anchorId,
+    objectType: "TASK" as const,
+    text: "新的主正文",
+    externalId: "block-rebound",
+    inputVersion: "1005",
+    contentHash: checksum("[任务] 新的主正文"),
+    confirmation: "REBIND_PRIMARY_ANCHOR" as const,
+    traceId: "trace-rebind",
+  };
+  const rebound = await client.rebindPrimaryAnchor(reboundInput);
+  assert.equal(rebound.object.objectId, recovered.object.objectId);
+  assert.equal(rebound.previousAnchor.status, "replaced");
+  assert.equal(rebound.anchor.externalId, "block-rebound");
+  assert.equal((await client.rebindPrimaryAnchor(reboundInput)).replayed, true);
+  assert.equal((await client.listPrimaryAnchors()).anchors.some((anchor) => anchor.anchorId === recovered.anchor.anchorId), false);
+  const unconfirmedRebind = await fetch(new URL("anchors/primary/rebind", service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ ...reboundInput, confirmation: "yes" }),
+  });
+  assert.equal(unconfirmedRebind.status, 400);
+  assert.equal((await unconfirmedRebind.json() as { error: { code: string } }).error.code, "PRIMARY_ANCHOR_REBIND_INVALID");
+  const unsafeRebind = await fetch(new URL("anchors/primary/rebind", service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ ...reboundInput, objectId: rebound.object.objectId, graphId: "caller-graph", expectedVersion: rebound.object.version }),
+  });
+  assert.equal(unsafeRebind.status, 400);
+  assert.equal((await unsafeRebind.json() as { error: { code: string } }).error.code, "PRIMARY_ANCHOR_REBIND_INVALID");
+  await assert.rejects(() => client.rebindPrimaryAnchor({
+    ...reboundInput,
+    previousAnchorId: rebound.anchor.anchorId,
+    externalId: "block-materialize",
+    inputVersion: "1006",
+    traceId: "trace-rebind-bound-target",
+  }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_REBIND_TARGET_ALREADY_BOUND");
+  assert.equal((await client.getObject(rebound.object.objectId))?.version, rebound.object.version);
 });
 
 test("same UUID move keeps identity while a copied UUID materializes a distinct object", async (t) => {

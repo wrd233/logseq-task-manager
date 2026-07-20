@@ -1,6 +1,6 @@
 # Local Service Protocol v1
 
-> 状态：Slice A/B 基础协议；查询、受控 Backup/Restore、显式 Block 同步与 Primary Anchor 观察写路由已实现。
+> 状态：Slice A/B 基础协议；查询、受控 Backup/Restore、显式 Block 同步、Primary Anchor 观察与重新绑定写路由已实现。
 
 ## 连接与认证
 
@@ -35,11 +35,12 @@
 | POST | `/objects/materialize` | 显式 Block 首次物化的 Object + Primary Anchor + Audit + Receipt | SQLite 单事务正式写入 |
 | POST | `/objects/synchronize` | 按绑定状态选择首次物化或同类型标题/Anchor 更新 | SQLite 单事务正式写入 |
 | POST | `/anchors/primary/observe` | 将已知 Primary Anchor 观察为 `active / missing / conflict` | Object version + Anchor + Audit + Receipt 单事务写入；不删对象 |
+| POST | `/anchors/primary/rebind` | 显式确认后把对象绑定到新的同类型 Block | Object + 旧 Anchor `replaced` + 新 active Anchor + Audit + Receipt 单事务写入 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
 | GET | `/anchors/primary?after=<cursor>` | 当前 Graph 未被替换的 Primary Anchor 分页，包含 `active / missing / conflict` | 无；每页最多 256，`nextCursor` 驱动后续低频逐 UUID 检查 |
 
-未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步与 Anchor 观察路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束显式同步、Anchor 观察与重新绑定路由可用，不表示 Slice B 全部、Slice C SemanticCommit 或迁移写入已经开放。
 
 ## 显式 Block 物化
 
@@ -77,6 +78,18 @@
 - `missing` 保留最后一次确认可见的 hash/lastSeenAt，`conflict` 表示 UUID 返回形态或显式语法不再可信；两者都不删除 Object；
 - 同一 UUID 恢复为合法显式 Block 时，观察或同类型同步可将 Anchor 恢复为 `active`；`replaced` 只作为历史证据，此路径不能复活；
 - 重复的相同状态是无写入重放，不膨胀 Object version。
+
+`POST /anchors/primary/rebind` 只接受固定八字段：
+
+```json
+{"previousAnchorId":"anc_old","objectType":"TASK","text":"新的主正文","externalId":"new-block-uuid","inputVersion":"logseq-updated-at","contentHash":"1dd75803","confirmation":"REBIND_PRIMARY_ANCHOR","traceId":"trace-rebind"}
+```
+
+- 精确确认短语由 Application 再次校验；缺失或拼写不同整包拒绝且零写入；
+- Graph ID、object_id、新 anchor_id、actor、expected version 和领域幂等键全部由 Service/Application 持有，客户端额外传入即拒绝；
+- 新 Block 必须在当前 Graph、与对象类型一致、UUID 不同且从未被任何 Primary Anchor（包括历史 `replaced`）占用；类型变化进入 Proposal，不借 rebind 静默迁移；
+- 单一事务推进对象版本与标题缓存、将旧 Anchor 标记为 `replaced`、插入新 active Anchor、写 Audit/Receipt；任一步失败全部回滚，Primary Ownership 不变；
+- Service 以 Graph、旧 Anchor、新 UUID 与输入版本生成幂等键；首次成功后的完全重试返回原 Receipt，不因旧 Anchor 已变为 `replaced` 而误报不存在。
 
 ## Backup 请求
 
@@ -128,6 +141,8 @@
 | `BACKUP_ID_INVALID` | ID 格式不符合服务端生成规则，包括路径遍历 |
 | `RESTORE_CONFIRMATION_REQUIRED` | Restore Apply 缺少精确高影响确认 |
 | `MATERIALIZATION_REQUEST_INVALID` | 显式物化字段、类型、长度或服务端所有权边界无效 |
+| `PRIMARY_ANCHOR_REBIND_INVALID` | rebind 字段、确认、类型、长度或服务端所有权边界无效 |
+| `V2_REBIND_TARGET_ALREADY_BOUND` | 新 Block UUID 已有当前或历史 Primary Anchor 记录 |
 | `PRIMARY_ANCHOR_OBSERVATION_INVALID` | Anchor 观察字段、状态或服务端所有权边界无效 |
 | `V2_PRIMARY_ANCHOR_NOT_FOUND` | Anchor 不属于当前 Graph、不存在或已被替换 |
 | `V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS` | 同一 Graph Block 已绑定正式对象，必须转入同步而非重复物化 |

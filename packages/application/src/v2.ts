@@ -3,6 +3,7 @@ import {
   bindV2PrimaryAnchor,
   createV2ManagedObject,
   observeV2PrimaryAnchor,
+  rebindV2PrimaryAnchor,
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
   type CreateV2ManagedObjectInput,
@@ -26,6 +27,7 @@ export interface V2ObjectRepository {
   commitMaterialization(command: V2MaterializationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitSynchronization(command: V2SynchronizationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitAnchorObservation(command: V2AnchorObservationCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
+  commitAnchorRebind(command: V2AnchorRebindCommand): V2AnchorRebindCommandResult | Promise<V2AnchorRebindCommandResult>;
   commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult | Promise<V2OwnershipCommandResult>;
   getObject(objectId: string): V2ManagedObject | undefined | Promise<V2ManagedObject | undefined>;
@@ -37,7 +39,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
+  command: "create_object" | "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "bind_primary_anchor" | "assign_primary_owner";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -77,10 +79,19 @@ export interface V2AnchorObservationCommand extends V2AnchorCommand {
   audit: V2AuditRecord & { command: "observe_primary_anchor" };
 }
 
+export interface V2AnchorRebindCommand extends V2AnchorCommand {
+  previousAnchor: V2Anchor;
+  audit: V2AuditRecord & { command: "rebind_primary_anchor" };
+}
+
 export interface V2AnchorCommandResult {
   object: V2ManagedObject;
   anchor: V2Anchor;
   replayed: boolean;
+}
+
+export interface V2AnchorRebindCommandResult extends V2AnchorCommandResult {
+  previousAnchor: V2Anchor;
 }
 
 export interface V2OwnershipCommand {
@@ -100,6 +111,7 @@ export interface V2OwnershipCommandResult {
 export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle"; object: V2ManagedObject }
   | { command: "materialize_explicit_object" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
+  | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership };
 
 export interface MaterializeExplicitObjectInput {
@@ -120,6 +132,16 @@ export interface SynchronizeExplicitObjectInput {
 export interface ObservePrimaryAnchorInput {
   anchorId: string;
   status: "active" | "missing" | "conflict";
+}
+
+export interface RebindPrimaryAnchorInput {
+  previousAnchorId: string;
+  objectType: MaterializeExplicitObjectInput["objectType"];
+  text: string;
+  graphId: string;
+  externalId: string;
+  contentHash: string;
+  confirmation: "REBIND_PRIMARY_ANCHOR";
 }
 
 function requireEnvelope(envelope: V2CommandEnvelope): void {
@@ -277,6 +299,41 @@ export class V2Application {
         traceId: envelope.traceId,
         actor: envelope.actor,
         command: "observe_primary_anchor",
+        objectId: current.objectId,
+        beforeVersion: current.version,
+        afterVersion: candidate.object.version,
+        occurredAt: at.toISOString(),
+      },
+    });
+  }
+
+  async rebindPrimaryAnchor(
+    input: RebindPrimaryAnchorInput,
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2AnchorRebindCommandResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "rebind_primary_anchor");
+    if (replay?.command === "rebind_primary_anchor") {
+      return { object: replay.object, previousAnchor: replay.previousAnchor, anchor: replay.anchor, replayed: true };
+    }
+    if (input.confirmation !== "REBIND_PRIMARY_ANCHOR") {
+      throw new StructuredError({ code: "V2_REBIND_CONFIRMATION_REQUIRED", message: "重新绑定 Primary Anchor 必须单独明确确认。", ruleRefs: ["D-030", "D-185"] });
+    }
+    const previousAnchor = await this.objects.getPrimaryAnchorById(input.previousAnchorId);
+    if (!previousAnchor || previousAnchor.status === "replaced") {
+      throw new StructuredError({ code: "V2_PRIMARY_ANCHOR_NOT_FOUND", message: `Primary Anchor ${input.previousAnchorId} 不存在或已被替换。`, ruleRefs: ["D-030", "D-185"] });
+    }
+    const current = await this.requireObject(previousAnchor.objectId);
+    const candidate = rebindV2PrimaryAnchor(current, previousAnchor, input, envelope.expectedVersion, at);
+    return this.objects.commitAnchorRebind({
+      ...candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "rebind_primary_anchor",
         objectId: current.objectId,
         beforeVersion: current.version,
         afterVersion: candidate.object.version,

@@ -152,6 +152,11 @@ interface PrimaryAnchorObservationRequest {
   traceId: string;
 }
 
+interface PrimaryAnchorRebindRequest extends Omit<MaterializeRequest, "idempotencyKey"> {
+  previousAnchorId: string;
+  confirmation: "REBIND_PRIMARY_ANCHOR";
+}
+
 async function readPrimaryAnchorObservationRequest(request: IncomingMessage): Promise<PrimaryAnchorObservationRequest> {
   const body = await readBody(request);
   let value: unknown;
@@ -174,6 +179,34 @@ async function readPrimaryAnchorObservationRequest(request: IncomingMessage): Pr
   return record as unknown as PrimaryAnchorObservationRequest;
 }
 
+async function readPrimaryAnchorRebindRequest(request: IncomingMessage): Promise<PrimaryAnchorRebindRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try {
+    value = JSON.parse(body) as unknown;
+  } catch {
+    throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
+  }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const exactKeys = ["confirmation", "contentHash", "externalId", "inputVersion", "objectType", "previousAnchorId", "text", "traceId"];
+  const actualKeys = Object.keys(record).sort();
+  const objectTypes = ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"];
+  if (
+    actualKeys.length !== exactKeys.length || actualKeys.some((key, index) => key !== exactKeys[index]) ||
+    record.confirmation !== "REBIND_PRIMARY_ANCHOR" ||
+    typeof record.previousAnchorId !== "string" || !record.previousAnchorId.trim() || record.previousAnchorId.length > 512 ||
+    typeof record.objectType !== "string" || !objectTypes.includes(record.objectType) ||
+    typeof record.text !== "string" || !record.text.trim() || record.text.length > 8_192 ||
+    typeof record.externalId !== "string" || !record.externalId.trim() || record.externalId.length > 512 ||
+    typeof record.inputVersion !== "string" || !record.inputVersion.trim() || record.inputVersion.length > 128 ||
+    typeof record.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.contentHash) ||
+    typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+  ) {
+    throw serviceError("PRIMARY_ANCHOR_REBIND_INVALID", "Primary Anchor 重新绑定请求无效、未确认或包含服务端所有权字段。");
+  }
+  return record as unknown as PrimaryAnchorRebindRequest;
+}
+
 function explicitSyncIdempotencyKey(graphId: string, input: MaterializeRequest): string {
   const digest = createHash("sha256")
     .update(JSON.stringify([graphId, input.externalId, input.inputVersion]))
@@ -188,17 +221,24 @@ function primaryAnchorObservationIdempotencyKey(graphId: string, input: PrimaryA
   return `anchor-observation:${digest}`;
 }
 
+function primaryAnchorRebindIdempotencyKey(graphId: string, input: PrimaryAnchorRebindRequest): string {
+  const digest = createHash("sha256")
+    .update(JSON.stringify([graphId, input.previousAnchorId, input.externalId, input.inputVersion]))
+    .digest("hex");
+  return `anchor-rebind:${digest}`;
+}
+
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID"
+      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED"
         ? 400
         : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND"
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND"
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -328,6 +368,38 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         actor: "logseq-plugin",
         expectedVersion: current.version,
         idempotencyKey: primaryAnchorObservationIdempotencyKey(options.graphId, input, current.version),
+        traceId: input.traceId,
+      });
+      respond(response, 200, result);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/anchors/primary/rebind") {
+      const input = await readPrimaryAnchorRebindRequest(request);
+      const idempotencyKey = primaryAnchorRebindIdempotencyKey(options.graphId, input);
+      const receipt = store.getCommandReceipt(idempotencyKey);
+      if (receipt?.command === "rebind_primary_anchor") {
+        respond(response, 200, { object: receipt.object, previousAnchor: receipt.previousAnchor, anchor: receipt.anchor, replayed: true });
+        return;
+      }
+      if (receipt) throw serviceError("V2_IDEMPOTENCY_KEY_REUSED", "idempotency key 已被另一个命令使用。");
+      const previousAnchor = store.getPrimaryAnchorById(input.previousAnchorId);
+      if (!previousAnchor || previousAnchor.graphId !== options.graphId || previousAnchor.status === "replaced") {
+        throw serviceError("V2_PRIMARY_ANCHOR_NOT_FOUND", "Primary Anchor 不存在于当前 Graph 或已被替换。");
+      }
+      const current = store.getObject(previousAnchor.objectId);
+      if (!current) throw serviceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 引用的对象不存在；重新绑定已停止。");
+      const result = await application.rebindPrimaryAnchor({
+        previousAnchorId: previousAnchor.anchorId,
+        objectType: input.objectType,
+        text: input.text,
+        graphId: options.graphId,
+        externalId: input.externalId,
+        contentHash: input.contentHash,
+        confirmation: input.confirmation,
+      }, {
+        actor: "logseq-plugin",
+        expectedVersion: current.version,
+        idempotencyKey,
         traceId: input.traceId,
       });
       respond(response, 200, result);

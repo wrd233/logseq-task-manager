@@ -6,6 +6,7 @@ import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilo
 import {
   V2Application,
   type V2AnchorObservationCommand,
+  type V2AnchorRebindCommand,
   type V2AnchorCommand,
   type V2AuditRecord,
   type V2CommandReceipt,
@@ -95,6 +96,20 @@ class MemoryV2Repository implements V2ObjectRepository {
     this.receipts.set(command.idempotencyKey, { command: "observe_primary_anchor", object: command.object, anchor: command.anchor });
     this.audit.push(command.audit);
     return { object: command.object, anchor: command.anchor, replayed: false };
+  }
+
+  commitAnchorRebind(command: V2AnchorRebindCommand): { object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor; replayed: boolean } {
+    const receipt = this.receipts.get(command.idempotencyKey);
+    if (receipt?.command === "rebind_primary_anchor") return { object: receipt.object, previousAnchor: receipt.previousAnchor, anchor: receipt.anchor, replayed: true };
+    const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
+    if (actualVersion !== command.expectedVersion) throw new Error(`version ${actualVersion} != ${command.expectedVersion}`);
+    if (this.getPrimaryAnchorByExternal(command.anchor.graphId, command.anchor.externalId)) throw new Error("target already bound");
+    this.values.set(command.object.objectId, command.object);
+    this.anchors.set(`previous:${command.previousAnchor.anchorId}`, command.previousAnchor);
+    this.anchors.set(command.object.objectId, command.anchor);
+    this.receipts.set(command.idempotencyKey, { command: "rebind_primary_anchor", object: command.object, previousAnchor: command.previousAnchor, anchor: command.anchor });
+    this.audit.push(command.audit);
+    return { object: command.object, previousAnchor: command.previousAnchor, anchor: command.anchor, replayed: false };
   }
 
   commitOwnership(command: V2OwnershipCommand): { object: V2ManagedObject; ownership: V2PrimaryOwnership; replayed: boolean } {
@@ -348,4 +363,27 @@ test("Anchor observations are versioned, idempotent, and never delete the object
   await assert.rejects(() => application.observePrimaryAnchor({ anchorId: created.anchor.anchorId, status: "active" }, {
     actor: "logseq-plugin", expectedVersion: 2, idempotencyKey: "observe-stale", traceId: "trace-stale",
   }), /version|\u7248\u672c/);
+});
+
+test("Primary Anchor rebind requires explicit confirmation and is idempotent", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const created = await application.materializeExplicitObject({
+    objectId: "task-rebind", objectType: "TASK", text: "旧正文",
+    anchor: { anchorId: "anchor-old", graphId: "graph-1", externalId: "block-old", contentHash: "11111111" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-rebind", traceId: "trace-materialize" });
+  const input = {
+    previousAnchorId: "anchor-old", objectType: "TASK" as const, text: "新正文", graphId: "graph-1", externalId: "block-new",
+    contentHash: "22222222", confirmation: "REBIND_PRIMARY_ANCHOR" as const,
+  };
+  await assert.rejects(() => application.rebindPrimaryAnchor({ ...input, confirmation: "no" as "REBIND_PRIMARY_ANCHOR" }, {
+    actor: "logseq-plugin", expectedVersion: created.object.version, idempotencyKey: "rebind-unconfirmed", traceId: "trace-unconfirmed",
+  }), /确认/);
+  const envelope = { actor: "logseq-plugin", expectedVersion: created.object.version, idempotencyKey: "rebind-confirmed", traceId: "trace-rebind" };
+  const rebound = await application.rebindPrimaryAnchor(input, envelope, new Date("2026-07-20T09:00:00Z"));
+  assert.equal(rebound.previousAnchor.status, "replaced");
+  assert.equal(rebound.anchor.externalId, "block-new");
+  assert.equal(rebound.object.objectId, created.object.objectId);
+  assert.equal((await application.rebindPrimaryAnchor({ ...input, text: "不得覆盖" }, envelope)).replayed, true);
+  assert.equal(repository.audit.length, 2);
 });

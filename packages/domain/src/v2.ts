@@ -198,6 +198,59 @@ export function observeV2PrimaryAnchor(
   };
 }
 
+export function rebindV2PrimaryAnchor(
+  object: V2ManagedObject,
+  previousAnchor: V2Anchor,
+  input: Omit<V2Anchor, "anchorId" | "objectId" | "role" | "status" | "lastSeenAt"> & {
+    anchorId?: string;
+    objectType: V2ObjectType;
+    text: string;
+  },
+  expectedVersion: number,
+  at = new Date(),
+): { object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor } {
+  requireExpectedVersion(object, expectedVersion);
+  if (previousAnchor.objectId !== object.objectId || previousAnchor.role !== "primary_text" || previousAnchor.status === "replaced") {
+    throw new StructuredError({
+      code: "V2_PRIMARY_ANCHOR_INVALID",
+      message: "重新绑定必须引用该对象当前未被替换的 Primary Anchor。",
+      ruleRefs: ["D-030", "D-033", "D-185"],
+    });
+  }
+  if (input.objectType !== object.objectType) {
+    throw new StructuredError({
+      code: "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL",
+      message: `显式类型从 ${object.objectType} 变为 ${input.objectType}；必须形成可审阅 Proposal。`,
+      ruleRefs: ["D-079", "D-185"],
+    });
+  }
+  requireText(input.text, "V2_OBJECT_TEXT_REQUIRED", "正式对象必须保留可读的自然语言正文。");
+  requireText(input.graphId, "V2_ANCHOR_GRAPH_REQUIRED", "Primary Anchor 必须包含 Graph identity。");
+  requireText(input.externalId, "V2_ANCHOR_EXTERNAL_ID_REQUIRED", "Primary Anchor 必须包含外部 Block identity。");
+  requireText(input.contentHash, "V2_ANCHOR_HASH_REQUIRED", "Primary Anchor 必须包含正文 hash。");
+  if (input.graphId !== previousAnchor.graphId) {
+    throw new StructuredError({ code: "V2_ANCHOR_GRAPH_MISMATCH", message: "Primary Anchor 不能跨 Graph 重新绑定。", ruleRefs: ["D-030", "D-190"] });
+  }
+  if (input.externalId === previousAnchor.externalId) {
+    throw new StructuredError({ code: "V2_REBIND_TARGET_UNCHANGED", message: "新的 Primary Anchor 必须引用不同 Block。", ruleRefs: ["D-030", "D-185"] });
+  }
+  const timestamp = at.toISOString();
+  return {
+    object: { ...object, text: input.text.trim(), version: object.version + 1, updatedAt: timestamp },
+    previousAnchor: { ...previousAnchor, status: "replaced" },
+    anchor: {
+      anchorId: input.anchorId ?? createId("anc", at),
+      objectId: object.objectId,
+      graphId: input.graphId,
+      externalId: input.externalId,
+      role: "primary_text",
+      status: "active",
+      contentHash: input.contentHash,
+      lastSeenAt: timestamp,
+    },
+  };
+}
+
 export function synchronizeV2ExplicitObject(
   object: V2ManagedObject,
   anchor: V2Anchor,

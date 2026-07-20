@@ -9,6 +9,8 @@ import type {
   V2AnchorCommand,
   V2AnchorCommandResult,
   V2AnchorObservationCommand,
+  V2AnchorRebindCommand,
+  V2AnchorRebindCommandResult,
   V2AuditRecord,
   V2CommandReceipt,
   V2MaterializationCommand,
@@ -553,6 +555,40 @@ export class V2SqliteStore {
     return this.executeWrite(write);
   }
 
+  commitAnchorRebind(command: V2AnchorRebindCommand): V2AnchorRebindCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        const result = JSON.parse(receipt.result_json) as { object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor };
+        return { ...result, replayed: true };
+      }
+      this.requireVersion(command.object.objectId, command.expectedVersion);
+      const current = this.getPrimaryAnchorById(command.previousAnchor.anchorId);
+      if (!current || current.objectId !== command.object.objectId || current.status === "replaced") {
+        throw persistenceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 已变化；本次重新绑定没有写入。", { objectId: command.object.objectId });
+      }
+      const target = this.database.prepare("SELECT anchor_id FROM anchors WHERE graph_id = ? AND external_id = ? AND role = 'primary_text'")
+        .get(command.anchor.graphId, command.anchor.externalId) as { anchor_id: string } | undefined;
+      if (target) throw persistenceError("V2_REBIND_TARGET_ALREADY_BOUND", "新的 Logseq Block 已有 Primary Anchor 记录；重新绑定没有写入。", { anchorId: target.anchor_id });
+      this.writeObject(command.object);
+      const replaced = this.database.prepare(`
+        UPDATE anchors SET status = 'replaced'
+        WHERE anchor_id = ? AND object_id = ? AND role = 'primary_text' AND status <> 'replaced'
+      `).run(command.previousAnchor.anchorId, command.object.objectId);
+      if (replaced.changes !== 1) throw persistenceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 已变化；本次重新绑定没有写入。");
+      this.database.prepare(`
+        INSERT INTO anchors(anchor_id, object_id, role, graph_id, external_id, status, content_hash, last_seen_at)
+        VALUES (@anchorId, @objectId, @role, @graphId, @externalId, @status, @contentHash, @lastSeenAt)
+      `).run(command.anchor);
+      this.writeAudit(command.audit);
+      const result = { object: command.object, previousAnchor: command.previousAnchor, anchor: command.anchor };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
   getCommandReceipt(idempotencyKey: string): V2CommandReceipt | undefined {
     const receipt = this.receipt(idempotencyKey);
     if (!receipt) return undefined;
@@ -563,6 +599,10 @@ export class V2SqliteStore {
     }
     if (command === "materialize_explicit_object" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
+      return { command, ...value };
+    }
+    if (command === "rebind_primary_anchor") {
+      const value = result as { object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor };
       return { command, ...value };
     }
     if (command === "assign_primary_owner") {

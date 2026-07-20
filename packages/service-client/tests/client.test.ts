@@ -149,3 +149,33 @@ test("Anchor observation client sends only bounded evidence and no Graph authori
   assert.equal("graphId" in (received as Record<string, unknown>), false);
   assert.equal("expectedVersion" in (received as Record<string, unknown>), false);
 });
+
+test("Anchor rebind client sends explicit confirmation and no object or Graph authority", async (t) => {
+  const token = "client-anchor-rebind-token-24-chars";
+  let received: unknown;
+  const { server, url } = await listen((request, response) => {
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/anchors/primary/rebind");
+    assert.equal(request.headers.authorization, `Bearer ${token}`);
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      received = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        object: { objectId: "server-object", objectType: "TASK", version: 4, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "新正文", createdAt: "2026-07-20T07:00:00.000Z", updatedAt: "2026-07-20T07:02:00.000Z", sourceOrCreationEvent: "explicit" },
+        previousAnchor: { anchorId: "anchor-old", objectId: "server-object", graphId: "server-graph", externalId: "block-old", role: "primary_text", status: "replaced", contentHash: "11111111", lastSeenAt: "2026-07-20T07:00:00.000Z" },
+        anchor: { anchorId: "anchor-new", objectId: "server-object", graphId: "server-graph", externalId: "block-new", role: "primary_text", status: "active", contentHash: "22222222", lastSeenAt: "2026-07-20T07:02:00.000Z" },
+        replayed: false,
+      }));
+    });
+  });
+  t.after(() => server.close());
+  const input = { previousAnchorId: "anchor-old", objectType: "TASK" as const, text: "新正文", externalId: "block-new", inputVersion: "1002", contentHash: "22222222", confirmation: "REBIND_PRIMARY_ANCHOR" as const, traceId: "trace-rebind" };
+  const result = await new LocalServiceClient(descriptor(url, token)).rebindPrimaryAnchor(input);
+  assert.equal(result.previousAnchor.status, "replaced");
+  assert.deepEqual(received, input);
+  assert.equal("graphId" in (received as Record<string, unknown>), false);
+  assert.equal("objectId" in (received as Record<string, unknown>), false);
+  assert.equal("expectedVersion" in (received as Record<string, unknown>), false);
+});

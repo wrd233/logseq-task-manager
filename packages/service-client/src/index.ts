@@ -86,6 +86,21 @@ export interface ServicePrimaryAnchorObservationRequest {
   traceId: string;
 }
 
+export interface ServicePrimaryAnchorRebindRequest {
+  previousAnchorId: string;
+  objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
+  text: string;
+  externalId: string;
+  inputVersion: string;
+  contentHash: string;
+  confirmation: "REBIND_PRIMARY_ANCHOR";
+  traceId: string;
+}
+
+export interface ServicePrimaryAnchorRebindResult extends ServiceMaterializeExplicitObjectResult {
+  previousAnchor: V2Anchor;
+}
+
 export type ServiceConnectionState =
   | { status: "READY"; capabilities: ServiceCapabilities; formalWritesAvailable: boolean; graphEditingAvailable: true }
   | { status: "RESTRICTED"; reasonCode: string; message: string; formalWritesAvailable: false; graphEditingAvailable: true };
@@ -242,6 +257,14 @@ export class LocalServiceClient {
 
   observePrimaryAnchor(input: ServicePrimaryAnchorObservationRequest): Promise<ServiceMaterializeExplicitObjectResult> {
     return this.request<ServiceMaterializeExplicitObjectResult>("/anchors/primary/observe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  }
+
+  rebindPrimaryAnchor(input: ServicePrimaryAnchorRebindRequest): Promise<ServicePrimaryAnchorRebindResult> {
+    return this.request<ServicePrimaryAnchorRebindResult>("/anchors/primary/rebind", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

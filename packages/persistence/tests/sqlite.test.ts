@@ -448,7 +448,7 @@ test("Primary Anchor and Ownership are unique atomic Application commands", asyn
 });
 
 test("explicit materialization atomically persists Object, Primary Anchor, audit, and receipt", async (t) => {
-  const { root, store } = await fixture();
+  const { root, path, store } = await fixture();
   t.after(async () => rm(root, { recursive: true, force: true }));
   store.initialize("graph-a");
   const application = new V2Application(store);
@@ -525,5 +525,58 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
     actor: "logseq-plugin", expectedVersion: 4, idempotencyKey: "observe-stale-v4", traceId: "trace-stale-observation",
   }), /版本/);
   assert.equal(store.getPrimaryAnchorById("anchor-materialized")?.status, "active");
+
+  const faultConnection = new Database(path);
+  faultConnection.exec(`
+    CREATE TRIGGER inject_rebind_anchor_failure
+    BEFORE INSERT ON anchors
+    WHEN NEW.external_id = 'block-rebind-failure'
+    BEGIN
+      SELECT RAISE(ABORT, 'injected rebind anchor failure');
+    END;
+  `);
+  faultConnection.close();
+  await assert.rejects(() => application.rebindPrimaryAnchor({
+    previousAnchorId: "anchor-materialized",
+    objectType: "TASK",
+    text: "不得留下半写",
+    graphId: "graph-a",
+    externalId: "block-rebind-failure",
+    contentHash: "44444444",
+    confirmation: "REBIND_PRIMARY_ANCHOR",
+  }, { actor: "logseq-plugin", expectedVersion: 5, idempotencyKey: "rebind-injected-failure", traceId: "trace-rebind-failure" }), /injected rebind anchor failure/);
+  assert.equal(store.getObject("task-materialized")?.version, 5, "injected failure must roll back the object update");
+  assert.equal(store.getObject("task-materialized")?.text, "核对时间同步来源并保存证据");
+  assert.equal(store.getPrimaryAnchorById("anchor-materialized")?.status, "active", "injected failure must roll back replaced status");
+  assert.equal(store.getPrimaryAnchorByExternal("graph-a", "block-rebind-failure"), undefined);
+  assert.equal(store.getCommandReceipt("rebind-injected-failure"), undefined);
+  assert.equal(store.auditEventCount(), 4);
+
+  const rebound = await application.rebindPrimaryAnchor({
+    previousAnchorId: "anchor-materialized",
+    objectType: "TASK",
+    text: "新的主正文",
+    graphId: "graph-a",
+    externalId: "block-rebound",
+    contentHash: "44444444",
+    confirmation: "REBIND_PRIMARY_ANCHOR",
+  }, { actor: "logseq-plugin", expectedVersion: 5, idempotencyKey: "rebind-block", traceId: "trace-rebind" }, new Date("2026-07-20T07:04:00Z"));
+  assert.equal(rebound.object.version, 6);
+  assert.equal(rebound.previousAnchor.status, "replaced");
+  assert.equal(store.getPrimaryAnchorById("anchor-materialized")?.status, "replaced");
+  assert.equal(store.getPrimaryAnchorByExternal("graph-a", "block-1"), undefined);
+  assert.equal(store.getPrimaryAnchorByExternal("graph-a", "block-rebound")?.status, "active");
+  assert.deepEqual(store.listPrimaryAnchors("graph-a").map((anchor) => anchor.externalId), ["block-rebound"]);
+  await assert.rejects(() => application.rebindPrimaryAnchor({
+    previousAnchorId: rebound.anchor.anchorId,
+    objectType: "TASK",
+    text: "不得复用历史 UUID",
+    graphId: "graph-a",
+    externalId: "block-1",
+    contentHash: "55555555",
+    confirmation: "REBIND_PRIMARY_ANCHOR",
+  }, { actor: "logseq-plugin", expectedVersion: 6, idempotencyKey: "rebind-to-history", traceId: "trace-history" }), /已有 Primary Anchor/);
+  assert.equal(store.getObject("task-materialized")?.version, 6, "failed rebind must roll back object and both Anchor writes");
+  assert.equal(store.auditEventCount(), 5);
   store.close();
 });

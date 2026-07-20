@@ -7,6 +7,7 @@ import {
   bindV2PrimaryAnchor,
   createV2ManagedObject,
   observeV2PrimaryAnchor,
+  rebindV2PrimaryAnchor,
   selectFocus,
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
@@ -75,6 +76,26 @@ test("Primary Anchor observation preserves the object and can recover the same U
   assert.equal(recovered.anchor.lastSeenAt, "2026-07-20T08:03:00.000Z");
 
   assert.throws(() => observeV2PrimaryAnchor(recovered.object, { ...recovered.anchor, status: "replaced" }, "active", recovered.object.version), /replaced/);
+});
+
+test("Primary Anchor rebind replaces historical evidence and keeps object identity", () => {
+  const object = createV2ManagedObject({ objectId: "task-rebind", objectType: "TASK", text: "旧正文" }, new Date("2026-07-20T07:00:00Z"));
+  const bound = bindV2PrimaryAnchor(object, {
+    anchorId: "anchor-old", graphId: "graph-1", externalId: "block-old", contentHash: "11111111",
+  }, 1, new Date("2026-07-20T07:01:00Z"));
+  const rebound = rebindV2PrimaryAnchor(bound.object, bound.anchor, {
+    anchorId: "anchor-new", graphId: "graph-1", externalId: "block-new", contentHash: "22222222", objectType: "TASK", text: "新正文",
+  }, 2, new Date("2026-07-20T07:02:00Z"));
+  assert.equal(rebound.object.objectId, "task-rebind");
+  assert.equal(rebound.object.version, 3);
+  assert.equal(rebound.object.text, "新正文");
+  assert.equal(rebound.previousAnchor.status, "replaced");
+  assert.equal(rebound.previousAnchor.externalId, "block-old");
+  assert.equal(rebound.anchor.status, "active");
+  assert.equal(rebound.anchor.externalId, "block-new");
+  assert.throws(() => rebindV2PrimaryAnchor(rebound.object, rebound.anchor, {
+    graphId: "graph-1", externalId: "block-other", contentHash: "33333333", objectType: "MINI_PROJECT", text: "不得静默迁移",
+  }, 3), /Proposal/);
 });
 test("V2 lifecycle is small, version-checked, and terminal objects only archive", () => {
   const open = createV2ManagedObject({ objectId: "obj_1", objectType: "TASK", text: "完成验证" });
