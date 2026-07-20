@@ -58,6 +58,7 @@ import {
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
+import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 
 let appRoot: HTMLElement | undefined;
 const v1Runtime: {
@@ -1414,8 +1415,8 @@ function registerBootstrapShell(): void {
 
 async function environmentInfo(): Promise<void> {
   const [graph, version] = await Promise.all([
-    logseq.App.getCurrentGraph().catch(() => null),
-    logseq.App.getInfo("version").catch(() => "unavailable"),
+    settleRuntimeBridgeCall(logseq.App.getCurrentGraph()).catch(() => null),
+    settleRuntimeBridgeCall(logseq.App.getInfo("version")).catch(() => "unavailable"),
   ]);
   const graphShape = graph as { name?: unknown; url?: unknown } | null;
   const graphLabel = graphShape && typeof graphShape.name === "string" ? graphShape.name : "unavailable";
