@@ -48,6 +48,13 @@ export interface ServiceBackupValidation {
   validation: ServiceDoctor;
 }
 
+export interface ServiceBackupRestored {
+  status: "RESTORED_SERVICE_STOPPING";
+  backupId: string;
+  recoveryBackupId: string;
+  validation: ServiceDoctor;
+}
+
 export type ServiceConnectionState =
   | { status: "READY"; capabilities: ServiceCapabilities; formalWritesAvailable: boolean; graphEditingAvailable: true }
   | { status: "RESTRICTED"; reasonCode: string; message: string; formalWritesAvailable: false; graphEditingAvailable: true };
@@ -166,6 +173,14 @@ export class LocalServiceClient {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ backupId }),
+    });
+  }
+
+  restoreBackup(backupId: string, confirmation: "RESTORE_AND_STOP_SERVICE"): Promise<ServiceBackupRestored> {
+    return this.request<ServiceBackupRestored>("/backup/restore/apply", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ backupId, confirmation }),
     });
   }
 

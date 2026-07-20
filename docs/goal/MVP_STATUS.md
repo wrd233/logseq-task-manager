@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress"
-last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 131 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI schema v3 process smoke PASS"
+last_successful_check: "2026-07-20 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 132 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Service/CLI schema v3 process smoke PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION

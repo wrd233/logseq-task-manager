@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
+import { V2SqliteStore } from "@task-copilot/persistence/node";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
 
@@ -167,4 +168,80 @@ test("Backup API rejects request paths, traversal IDs, and corrupt snapshots wit
   assert.equal("path" in corruptBody, false);
   assert.equal("cause" in corruptBody, false);
   assert.doesNotMatch(JSON.stringify(corruptBody), new RegExp(root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
+
+test("Restore Apply requires explicit confirmation, creates a recovery point, restores, and stops Service", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-restore-"));
+  const databasePath = join(root, ".task-copilot", "task-copilot.db");
+  const backupRoot = join(root, ".task-copilot", "backups");
+  const descriptorPath = join(root, "runtime", "service.json");
+  let first = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore",
+    token: "restore-first-session-token-24-characters",
+  });
+  t.after(async () => {
+    await first.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const snapshot = await clientFor(first).createBackup();
+  await first.close();
+
+  const changed = await V2SqliteStore.open(databasePath);
+  const occurredAt = "2026-07-20T13:00:00.000Z";
+  changed.commitObject({
+    object: {
+      objectId: "post-snapshot",
+      objectType: "TASK",
+      version: 1,
+      lifecycle: "OPEN",
+      condition: { kind: "ACTIONABLE" },
+      text: "快照后必须可回滚",
+      createdAt: occurredAt,
+      updatedAt: occurredAt,
+      sourceOrCreationEvent: "restore-test",
+    },
+    expectedVersion: 0,
+    idempotencyKey: "post-snapshot",
+    audit: { traceId: "post-snapshot", actor: "test", command: "create_object", objectId: "post-snapshot", beforeVersion: 0, afterVersion: 1, occurredAt },
+  });
+  changed.close();
+
+  first = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore",
+    token: "restore-second-session-token-24-characters",
+  });
+  const headers = { authorization: `Bearer ${first.token}`, "content-type": "application/json" };
+  const unconfirmed = await fetch(new URL("backup/restore/apply", first.url), {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ backupId: snapshot.backupId, confirmation: "yes" }),
+  });
+  assert.equal(unconfirmed.status, 400);
+  assert.equal((await unconfirmed.json() as { error: { code: string } }).error.code, "RESTORE_CONFIRMATION_REQUIRED");
+
+  const restored = await clientFor(first).restoreBackup(snapshot.backupId, "RESTORE_AND_STOP_SERVICE");
+  assert.equal(restored.status, "RESTORED_SERVICE_STOPPING");
+  assert.equal(restored.validation.objectCount, 0);
+  assert.match(restored.recoveryBackupId, /^backup_[0-9]{17}_[0-9a-f]{32}$/);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      await access(descriptorPath);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    } catch {
+      break;
+    }
+  }
+  await assert.rejects(access(descriptorPath));
+  await assert.rejects(() => clientFor(first).health());
+  assert.equal(V2SqliteStore.validateBackup(join(backupRoot, `${restored.recoveryBackupId}.db`), "graph-restore").objectCount, 1);
+  const active = await V2SqliteStore.open(databasePath);
+  assert.equal(active.getObject("post-snapshot"), undefined);
+  assert.equal(active.doctor().status, "PASS");
+  active.close();
 });

@@ -1,6 +1,6 @@
 # Local Service Protocol v1
 
-> 状态：Slice A 基础协议；查询和受控 Backup 已实现，正式领域写路由与实际 Restore 切换尚未开放。
+> 状态：Slice A 基础协议；查询、受控 Backup 和显式确认后停服的 Restore 已实现，正式领域写路由尚未开放。
 
 ## 连接与认证
 
@@ -31,6 +31,7 @@
 | POST | `/doctor` | integrity、foreign keys、对象数 | 无 |
 | POST | `/backup/create` | 服务端生成 ID 的 0600 SQLite 快照及校验结果 | 只写 Backup，不改当前状态 |
 | POST | `/backup/restore/validate` | 只读校验指定 `backupId` | 无；不切换 DB |
+| POST | `/backup/restore/apply` | 创建恢复点、离线切换、Doctor，然后停止 Service | 替换当前 DB；高影响 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
 
@@ -56,6 +57,14 @@
 
 `POST /backup/restore/validate` 只接受 `{"backupId":"backup_..."}`，且只能解析受控 Backup 目录内的服务端 ID。它校验 schema 版本、Graph identity、SQLite integrity 和 foreign keys，不修改快照字节，不停 Service，不替换当前 DB。实际 Restore 仍属后续高影响闭环。
 
+`POST /backup/restore/apply` 只接受：
+
+```json
+{"backupId":"backup_...","confirmation":"RESTORE_AND_STOP_SERVICE"}
+```
+
+它先再次只读校验候选快照，然后将 Service 置为 stopping、关闭 live Store，为当前库创建新的服务端 recovery backup，原子激活候选快照并运行 Doctor。成功响应只返回两个 Backup ID 和校验结果，不返回路径。随后删除 descriptor 并停止 Service，用户必须显式重启；失败时底层原语回滚原库，Service 仍停止，不在可疑状态继续写入。
+
 ## Client 错误
 
 | Code | 含义 |
@@ -76,6 +85,8 @@
 | `REQUEST_BODY_TOO_LARGE` | request body 超过 16 KiB |
 | `REQUEST_JSON_INVALID` | restore validate 请求不是合法 JSON |
 | `BACKUP_ID_INVALID` | ID 格式不符合服务端生成规则，包括路径遍历 |
+| `RESTORE_CONFIRMATION_REQUIRED` | Restore Apply 缺少精确高影响确认 |
+| `SERVICE_STOPPING` | Restore 进行中拒绝新请求 |
 | `V2_GRAPH_ID_MISMATCH` | Backup 不属于当前 Graph |
 | `V2_UNSUPPORTED_DATABASE_SCHEMA` | Backup schema 版本不受支持 |
 | `V2_BACKUP_VALIDATION_FAILED` | Backup 损坏或无法完成只读校验 |

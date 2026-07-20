@@ -86,11 +86,31 @@ async function readBackupId(request: IncomingMessage): Promise<string> {
   return record.backupId;
 }
 
+async function readRestoreRequest(request: IncomingMessage): Promise<{ backupId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try {
+    value = JSON.parse(body) as unknown;
+  } catch {
+    throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
+  }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (
+    Object.keys(record).length !== 2 ||
+    typeof record.backupId !== "string" ||
+    !backupIdPattern.test(record.backupId) ||
+    record.confirmation !== "RESTORE_AND_STOP_SERVICE"
+  ) {
+    throw serviceError("RESTORE_CONFIRMATION_REQUIRED", "Restore 必须引用服务端 Backup ID 并显式确认停止 Service。");
+  }
+  return { backupId: record.backupId };
+}
+
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID"
+      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED"
         ? 400
         : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
@@ -110,6 +130,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   await mkdir(backupRoot, { recursive: true, mode: 0o700 });
   await chmod(backupRoot, 0o700);
   const store = await V2SqliteStore.open(options.databasePath);
+  let storeOpen = true;
+  let stopping = false;
   store.initialize(options.graphId);
   const capabilities: ServiceCapabilities = { formalWrites: false, migration: false, provider: false, backup: true };
 
@@ -119,6 +141,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       return;
     }
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    if (stopping) {
+      respond(response, 503, { error: { code: "SERVICE_STOPPING", message: "Local Service 正在执行受控恢复并停止。" } });
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/health") {
       respond(response, 200, { status: "READY", protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION, capabilities });
       return;
@@ -155,6 +181,34 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const validation = V2SqliteStore.validateBackup(join(backupRoot, `${backupId}.db`), options.graphId);
       if (validation.status !== "PASS") throw serviceError("V2_BACKUP_VALIDATION_FAILED", "Backup 未通过完整性校验。");
       respond(response, 200, { backupId, validation });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/backup/restore/apply") {
+      const { backupId } = await readRestoreRequest(request);
+      const source = join(backupRoot, `${backupId}.db`);
+      const validation = V2SqliteStore.validateBackup(source, options.graphId);
+      if (validation.status !== "PASS") throw serviceError("V2_BACKUP_VALIDATION_FAILED", "Backup 未通过完整性校验。");
+      stopping = true;
+      const createdAt = new Date();
+      const recoveryBackupId = createId("backup", createdAt);
+      const recoveryPath = join(backupRoot, `${recoveryBackupId}.db`);
+      try {
+        store.close();
+        storeOpen = false;
+        const restored = await V2SqliteStore.restoreOffline(options.databasePath, source, recoveryPath, options.graphId);
+        respond(response, 200, {
+          status: "RESTORED_SERVICE_STOPPING",
+          backupId,
+          recoveryBackupId,
+          validation: restored.validation,
+        });
+      } finally {
+        try {
+          if (options.descriptorPath) await removeServiceDescriptor(options.descriptorPath);
+        } finally {
+          server.close();
+        }
+      }
       return;
     }
     if (request.method === "GET" && url.pathname === "/objects") {
@@ -202,7 +256,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       await writeServiceDescriptor(options.descriptorPath, descriptor);
     } catch (error) {
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      store.close();
+      if (storeOpen) store.close();
       throw error;
     }
   }
@@ -211,8 +265,11 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     url: `http://127.0.0.1:${address.port}/`,
     token,
     close: async () => {
-      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
-      store.close();
+      if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+      if (storeOpen) {
+        store.close();
+        storeOpen = false;
+      }
       if (options.descriptorPath) await removeServiceDescriptor(options.descriptorPath);
     },
   };
