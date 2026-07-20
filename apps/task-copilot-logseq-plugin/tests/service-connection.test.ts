@@ -5,6 +5,7 @@ import type { ServiceDescriptor } from "@task-copilot/service-client";
 
 import {
   createElectronDescriptorReader,
+  createLogseqPrivateStorageDescriptorReader,
   discoverServiceConnection,
   discoverServiceRuntime,
   type DescriptorFileReader,
@@ -135,4 +136,26 @@ test("Electron descriptor reader requires an absolute regular 0600 file", async 
   await assert.rejects(() => reader.read("/runtime/open.json"), (error: unknown) => error instanceof Error && "code" in error && error.code === "SERVICE_DESCRIPTOR_INSECURE");
   await assert.rejects(() => reader.read("/runtime/link.json"), (error: unknown) => error instanceof Error && "code" in error && error.code === "SERVICE_DESCRIPTOR_INSECURE");
   assert.equal(createElectronDescriptorReader({}), undefined);
+});
+
+test("Logseq private storage descriptor reader accepts one bounded key and never leaks storage failures", async () => {
+  const reader = createLogseqPrivateStorageDescriptorReader({
+    getItem: async (key) => key === "v2-service-descriptor.json" ? JSON.stringify(descriptor) : undefined,
+  });
+  assert.deepEqual(await reader.read("v2-service-descriptor.json"), descriptor);
+  await assert.rejects(
+    () => reader.read("../service-descriptor.json"),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "SERVICE_DESCRIPTOR_PATH_INVALID",
+  );
+
+  const failed = createLogseqPrivateStorageDescriptorReader({
+    getItem: async () => { throw new Error("private path and token must stay hidden"); },
+  });
+  await assert.rejects(
+    () => failed.read("v2-service-descriptor.json"),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "SERVICE_DESCRIPTOR_READ_FAILED"
+      && !error.message.includes("token"),
+  );
 });

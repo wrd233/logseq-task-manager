@@ -25,7 +25,12 @@ import { BootstrapRegistration, bindRootClick, type BootstrapCallbacks, type Boo
 import { renderApp, type ActionDialogKind, type UiModel, type Workspace } from "./ui.ts";
 import { InboxActionController, createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger } from "./structured-logger.ts";
-import { discoverServiceRuntime, type ServiceRuntimeClient } from "./service-connection.ts";
+import {
+  createElectronDescriptorReader,
+  createLogseqPrivateStorageDescriptorReader,
+  discoverServiceRuntime,
+  type ServiceRuntimeClient,
+} from "./service-connection.ts";
 import { renderFirstRunWelcome, type FirstRunAction } from "./first-run.ts";
 import type { ServiceConnectionState } from "@task-copilot/service-client";
 import {
@@ -176,7 +181,7 @@ async function refresh(): Promise<void> {
     return;
   }
   if (!featureReady) {
-    root.innerHTML = renderDiagnostics(diagnostics.snapshot());
+    root.innerHTML = renderDiagnostics(await fullDiagnosticsSnapshot());
     return;
   }
   let primaryHtml: string;
@@ -234,7 +239,10 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   };
   diagnostics.setServiceConnection(serviceConnection);
   explicitSyncController?.pause();
-  const runtime = await discoverServiceRuntime(typeof descriptorPath === "string" ? descriptorPath : undefined);
+  const configuredDescriptor = typeof descriptorPath === "string" ? descriptorPath : undefined;
+  const descriptorReader = createElectronDescriptorReader()
+    ?? createLogseqPrivateStorageDescriptorReader(logseq.FileStorage);
+  const runtime = await discoverServiceRuntime(configuredDescriptor, descriptorReader);
   if (generation !== serviceDiscoveryGeneration) return;
   serviceConnection = runtime.connection;
   serviceRuntimeClient = runtime.client;
@@ -1180,8 +1188,8 @@ async function initializeFeatures(): Promise<void> {
     {
       key: "serviceDescriptorPath",
       type: "string",
-      title: "V2 Local Service descriptor 绝对路径",
-      description: "只保存非敏感路径；session token 仅从 0600 descriptor 临时读取，不写入设置或 Graph。",
+      title: "V2 Local Service descriptor 私有存储 key",
+      description: "仅填写 Service 写入 Task Copilot 私有 FileStorage 的文件名；token 不写入设置或 Graph，FileStorage 不作为领域状态源。",
       default: "",
     },
   ]);

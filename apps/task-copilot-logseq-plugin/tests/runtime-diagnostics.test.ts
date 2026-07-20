@@ -87,6 +87,17 @@ test("initialization failure retains all runtime stages and renders a diagnostic
   assert.equal(snapshot.feature_flags.v2_formal_writes_available, false);
 });
 
+test("runtime diagnostics makes the bounded explicit-sync recovery state visible", () => {
+  const diagnostics = new RuntimeDiagnostics();
+  const html = renderRuntimeDiagnostics({
+    ...diagnostics.snapshot(),
+    explicit_sync: { pending: 1, transportReady: false, reconciliationRequired: true },
+  });
+  assert.match(html, /Explicit sync/);
+  assert.match(html, /&quot;pending&quot;:1/);
+  assert.match(html, /&quot;reconciliationRequired&quot;:true/);
+});
+
 test("UI mount failure uses pure HTML diagnostics fallback", () => {
   const root = { innerHTML: "" };
   const result = mountWithDiagnosticFallback(root, () => { throw new Error("renderer failed"); }, () => "<h1>Runtime Diagnostics</h1>");

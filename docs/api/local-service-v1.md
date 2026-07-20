@@ -9,12 +9,13 @@
 - Client 拒绝非 HTTP、非 `127.0.0.1`、带用户名/密码、非根路径或版本不兼容的 descriptor；
 - 每个请求携带 `Authorization: Bearer <session token>`，但 token 不进入 stdout、错误、诊断或报告；
 - Service 正常退出时删除本次 descriptor；过期 descriptor 的连接失败进入受限模式。
-- Plugin 设置只保存 descriptor 绝对路径，不保存 token。Desktop Adapter 使用 Electron Node bridge 动态读取，并在读取前以 `lstat` 确认它是非符号链接的 0600 普通文件；
-- bridge 不可用、路径未配置、文件不安全、协议不兼容或 probe 失败时，Plugin 显式进入 `RESTRICTED`；原始错误、路径和 token 不进入诊断。
+- Local Service 始终以绝对路径原子写入并强制 descriptor 为 0600。Logseq 0.10.15 的 plugin iframe 不暴露 Node `require`；因此 Plugin 设置只保存一个受限的私有 FileStorage 文件名 key，通过 Logseq 官方 FileStorage bridge 读取同一 descriptor，不保存 token。
+- 私有 FileStorage 只承担会话发现，不存放 V2 领域状态，不恢复 V1 写入，也不与 SQLite 双写；兼容运行时若提供 Electron Node bridge，仍可校验绝对路径、普通文件、非符号链接与 0600。
+- key 未配置/越界、读取失败、文件不安全、协议不兼容或 probe 失败时，Plugin 显式进入 `RESTRICTED`；原始错误、路径和 token 不进入诊断。
 
 ## Plugin 首次启用
 
-`serviceDescriptorPath` 空白时，Plugin 在 Service probe 后立即停在首次启用模式：不构造 Logseq Adapter，不初始化 V1 FileStorage，不扫描、迁移或调用模型。欢迎页只有三个受控入口：
+`serviceDescriptorPath` 保留为兼容设置键，但其值在 Logseq Desktop 中是私有 FileStorage 文件名。空白时，Plugin 在 Service probe 后立即停在首次启用模式：不构造 Logseq Adapter，不初始化 V1 领域 FileStorage，不扫描、迁移或调用模型。欢迎页只有三个受控入口：
 
 - “开始使用”：显示 Service/descriptor 配置和 reload 说明；
 - “迁移现有内容”：只说明未启动的 Scan/Preview/Confirm 边界；
@@ -125,9 +126,9 @@
 | Code | 含义 |
 |---|---|
 | `SERVICE_DESCRIPTOR_INVALID` | descriptor 缺字段或非法 JSON |
-| `SERVICE_DESCRIPTOR_PATH_REQUIRED` | Plugin 尚未配置 descriptor 绝对路径 |
-| `SERVICE_DESCRIPTOR_PATH_INVALID` | Plugin 设置的 descriptor 不是绝对路径 |
-| `SERVICE_DESCRIPTOR_READER_UNAVAILABLE` | Logseq 运行时没有可用的安全 Electron 文件读取 bridge |
+| `SERVICE_DESCRIPTOR_PATH_REQUIRED` | Plugin 尚未配置 descriptor 私有存储 key（保留旧 code 名称） |
+| `SERVICE_DESCRIPTOR_PATH_INVALID` | Plugin 设置的 key 越界，或兼容 Node reader 的路径不是绝对路径 |
+| `SERVICE_DESCRIPTOR_READER_UNAVAILABLE` | 运行时既无私有 FileStorage bridge，也无兼容 Electron reader |
 | `SERVICE_DESCRIPTOR_READ_FAILED` | descriptor 无法读取；诊断不暴露原始 cause 或路径 |
 | `SERVICE_DESCRIPTOR_INSECURE` | 文件权限不是 0600 |
 | `SERVICE_DESCRIPTOR_NON_LOOPBACK` | URL 不是受控 loopback 根地址 |

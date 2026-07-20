@@ -34,7 +34,7 @@ V2_MIGRATION_DESIGN_READY
 - SQLite 写锁冲突已收敛为结构化零写入失败；Backup 增加不覆盖、只读 schema/Graph/完整性/外键校验。
 - Local Service 开放受控 Backup Create/Restore Validate；只接受服务端 ID，拒绝客户端路径、遍历和超大请求，当前不执行 Restore 切换。
 - SQLite schema 升至 v3；`initialize` 不静默升级，v1/v2→v3 需显式恢复点，在单一事务写 DDL/ledger/metadata/user_version，注入失败后零半写且可重试。
-- Plugin 已接入版本化 Service Client：仅从设置读取非敏感 descriptor 绝对路径，通过 Electron bridge 校验非链接 0600 文件并执行 health probe；任何失败均进入脱敏 RESTRICTED 状态。
+- Plugin 已接入版本化 Service Client。Desktop 0.10.15 实测 iframe 不暴露 Electron Node reader，现由 Service 将 0600 descriptor 写入 Task Copilot 私有 FileStorage，Plugin 设置只保存受限文件名 key 并通过 Logseq bridge 临时读取；该文件不含领域状态、不恢复 V1 写入、不构成 SQLite 双写。兼容 Node reader 保留；任何发现失败均进入脱敏 RESTRICTED 状态。
 - descriptor 未配置时，Plugin 在创建 Logseq Adapter/FileStorage 前停止，欢迎页只提供“开始使用 / 迁移现有内容 / 检查系统状态”；无扫描、迁移或模型调用的自动分支证据已建立。
 - SQLite 离线 Restore 原语已通过：候选 Backup 与当前库恢复点均先做只读校验，同目录原子激活后再 Doctor；注入失败会回滚原库并保留恢复点。该原语尚未开放 HTTP/CLI/Plugin 入口。
 - SQLite schema 升至 v3，建立受约束 `semantic_commits` / `semantic_commit_steps`；v1/v2 都必须经显式快照迁移至 v3，无静默升级。当前只是 Saga 持久化结构，不表示 Slice C Commit 编排已完成。
@@ -53,13 +53,15 @@ V2_MIGRATION_DESIGN_READY
 - Slice B4 move/copy 自动合同已补：同 UUID 修改/移动经同步保持 object_id、anchor_id 和 Primary Ownership；相同正文的新 UUID 经 Service 首次物化为独立 object_id/anchor_id；Plugin `DB.onChanged` 夹具覆盖原 UUID 移动与新 UUID 复制同批到达，并把重复复制事件收敛为最新版本。真实 Logseq 跨页移动/复制仍待 Desktop 验收。
 - Slice B4 rebind 安全闭环已补：精确 `REBIND_PRIMARY_ANCHOR` 确认由 Application 强制；Service 只接受旧 Anchor 引用、预览并发前置与新 Block 证据，注入 Graph/actor/幂等边界；SQLite 单事务把旧 Anchor 保留为 `replaced`、建立唯一新 active Anchor、更新同一 object_id 的正文缓存/版本及 Audit/Receipt。未确认、类型变化、目标 UUID 已有当前或历史绑定、Object/Anchor 预览 stale、重复请求及新 Anchor 插入中途故障均有零写入/幂等证据。Plugin Diagnostics 已提供有界审阅面板：只读当前选中的显式 Block、一页已知 Anchor 和 Service 对象投影，只显示同类型候选，展示旧/新影响并要求勾选确认；提交前重读 Block，Service/Application/SQLite 再校验 Object version 和旧 Anchor status/hash；预览绑定 Service discovery generation，discovery 期间先撤销旧 client 并暂停正式写入，提交期间不提供假取消。全程有 loading/success/error 与重复提交保护。Desktop 仍待验收。
 - Slice B4 已增加用户手动启动的当前页显式对象候选发现：范围严格限制为当前页，不做启动扫描或全 Graph 扫描；Logseq API 一次提供整页 Block tree，Plugin 只处理快照前 256 项并如实提示截断，不再把处理预算表述成底层读取上限。`BlockUUIDTuple` 子节点在同一预算内以 `includeChildren: true` 按 UUID 防御性读取，并校验返回实体 UUID；不可读、形态异常或身份不匹配时整轮拒绝而非静默漏报。候选去重使用包含历史 `replaced` tombstone 的 Anchor 身份分页；覆盖未完成时整轮拒绝、零预览零写入，避免把当前或历史已占用 UUID 误称新候选。普通正文忽略，非法显式块只计数。候选逐项审阅、每次只同步一项，提交前按 UUID 重读并逐字段校验 version/hash/type/title；Service 重连使旧预览失效，正式请求发出后不提供假取消。写入仍只经 `/objects/synchronize` → Application → SQLite。该闭环已有自动证据，Plugin 退出期间新建 Block 的真实发现、stale 停写和 reload 仍待 Desktop，因此不能冒充 E2E-01/E2E-15 完成。
+- 2026-07-20 Desktop 阶段 Gate：A-RT-01 与 A-RT-02 通过；专用页显式 Task 首次物化、同 object_id 标题更新、已知 Anchor 候选去重通过；Service 停止时正文连续两次可保存，重连同一 SQLite 后仅交付最新正文，object version 3→4。移除原 UUID Marker 后 Anchor 变为 `conflict`且原 Object 保持上一可信正文；恢复 Marker 后同 object_id/anchor_id 回到 `active`，version 5→6。Diagnostics 已真实显示完整 commit/listener snapshot 与显式同步 pending/transport/reconciliation 状态。其余 Anchor missing/rebind、移动复制和有限子树仍待真实验收，详见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，183 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，184 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
+- V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
 - Pilot 后恢复包 SHA-256：`4e9dd666697b94ca0d6b81e7dc7bd0c12c82d0f432b2363eddfbc95a1a602612`；
 - DeepSeek：`docs/testing/deepseek-v4-live-test-report.md`，状态 `NOT_RUN_CONFIG_INCOMPLETE`。
@@ -72,10 +74,10 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. 继续 Slice B3：补 Marker 同步矩阵与 Lifecycle/Condition 分离合同；
-2. 继续 Slice B5：设计并实现 Project 对象与页面的可恢复原子创建；
-3. 将 Backup/Restore/Service restart/Doctor、当前页候选发现与有限子树事件纳入 Desktop 集中验收；
-4. 按 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 集中验收 Plugin Electron bridge、Service READY/RESTRICTED、首次启用、reload 和原生正文编辑；
+1. 继续完成 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 剩余 Anchor、移动复制、当前页离线候选和有限子树真实 Gate；
+2. 继续 Slice B3：补 Marker 同步矩阵与 Lifecycle/Condition 分离合同；
+3. 继续 Slice B5：设计并实现 Project 对象与页面的可恢复原子创建；
+4. 将 Backup/Restore/Service restart/Doctor 纳入后续 Desktop 集中验收；
 5. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；在 Slice A-C 闭环后接入 Provider abstraction并运行 bounded DeepSeek live gate。
 
 ## 仍需用户决定

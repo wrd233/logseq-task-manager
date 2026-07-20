@@ -1,0 +1,102 @@
+# V2 Slice A/B Desktop 阶段验收报告
+
+> 日期：2026-07-20
+> 环境：Logseq Desktop 0.10.15 / macOS arm64 / Node 20.20.2
+> 状态：`PARTIAL_PASS`。A-RT-01、A-RT-02、A-RT-03 的断线最新值恢复，以及 Marker conflict → active 恢复已通过；其余 Anchor missing/rebind、移动复制和有限子树项目仍按集中清单继续。
+
+## 范围与恢复边界
+
+- 只使用 `Task Copilot/V2 Runtime/2026-07-20` 专用页面；没有修改正式事项。
+- SQLite、Backup 和截图位于被忽略的 `tmp/runtime/v2-desktop/`；不进入 Git。
+- 测试前 Graph 聚合 SHA-256：`bbfe2e776ccc243f38132d2bc3e3c684eb7e4a8f69eddcd1e1bb474bceaee4d9`。
+- 测试前 V1 FileStorage 聚合 SHA-256：`2ee68e641f3be5c93c192127d6b3d6e15450bcdb9e6f5ecbd6caff475e92e438`。
+- 未启动 Migration、Restore 或 Provider；没有模型调用。
+
+## A-RT-01：未配置首次启用 — PASS
+
+预期：受限欢迎页只有三个入口，Store 不启动，正式写入关闭，原生正文可编辑。
+
+实际：
+
+- Desktop 最初仍加载旧提交 `f1c61da006ca`；重新构建并 reload 后确认当前提交为 `690466ef876a`，避免把旧 V1 UI 当作 V2 证据。
+- 欢迎页只显示“开始使用 / 迁移现有内容 / 检查系统状态”。
+- Diagnostics：`SERVICE_DESCRIPTOR_PATH_REQUIRED`、formal writes false、Store `NOT_STARTED`、`V1 FileStorage inactive`、Pending/Conflict `0/0`。
+- 专用页面成功新建并保存普通 Block，证明受限态不阻断正文编辑。
+
+证据：
+
+- `tmp/runtime/v2-desktop/a-rt-01-restricted-diagnostics.png`
+- `tmp/runtime/v2-desktop/a-rt-01-graph-editing.png`
+
+## A-RT-02：Service READY — PASS（含真实阻塞修复）
+
+首次实际结果：Service health 为 READY、descriptor 为普通 0600 文件，但 Logseq 0.10.15 plugin iframe 不暴露 `globalThis.require/window.require`，Plugin 进入 `SERVICE_DESCRIPTOR_READER_UNAVAILABLE`。
+
+修复：
+
+- 保留 Electron Node reader 作为兼容入口；Desktop 无该能力时，使用 Logseq 自带的插件私有 FileStorage bridge 读取一个受限文件名 key。
+- descriptor 仍由 Local Service 原子创建并强制 0600；设置只保存非敏感 key，不保存 token。
+- 私有 FileStorage 在此只承担会话发现，不保存领域状态，不恢复 V1 写入，也不构成 SQLite 双写。
+- 补充 key traversal、读取失败脱敏和 UI 状态自动测试。
+
+修复后实际：
+
+- Diagnostics：Service READY、formal writes true、SQLite 单一状态源、V1 FileStorage inactive。
+- 显示 Plugin `690466ef876a`、Logseq 0.10.15、事件监听齐全。
+- descriptor 权限实测 `0600`；health protocol v1 与 capabilities 匹配；输出和截图无 token。
+
+证据：`tmp/runtime/v2-desktop/a-rt-02-service-ready.png`。
+
+## Slice B：显式 Task、Anchor 与断线恢复 — PARTIAL PASS
+
+在专用页创建 `[任务] V2 Desktop Gate Task — verify explicit synchronization`：
+
+- Service 产生一个 `TASK`、一个 active primary Anchor；object version 从 2 开始。
+- 修改标题后，同一 object_id/anchor_id 保持，version 变为 3，SQLite 标题与正文一致。
+- 手动“扫描当前页候选”返回“没有新的合法显式对象候选”，与 Service 已知 Anchor 去重一致，没有重复物化。
+
+随后停止 Service，连续保存 `offline draft one` 和 `offline latest`：
+
+- Logseq 正文两次均成功保存；结构化日志出现 `explicit_sync_issue` / deferred，没有正式写入成功提示。
+- 重启同一 SQLite Service，并仅更新 descriptor key 触发连接；不 reload Plugin。
+- 队列只交付最新正文：同一 object_id version 从 3 变为 4，SQLite 最终仅为 `offline latest`。
+- Diagnostics 恢复 READY；V1 FileStorage 领域写入仍未启用。
+
+证据：`tmp/runtime/v2-desktop/b-rt-offline-recovered.png`；SQLite/Service 只读查询记录在本轮执行日志，未保存 token 或原始 descriptor。
+
+## Slice B：Marker conflict 与原身份恢复 — PASS
+
+在同一 Block 和同一运行 Service 上移除 `[任务]` 显式 Marker：
+
+- Plugin reload 后的已知 Anchor reconciliation 将 Anchor 从 `active` 置为 `conflict`；
+- 原 object_id/anchor_id 保持，Object 没有删除、复制或被非法正文覆盖；标题仍为上一次可信值 `offline latest`；
+- Diagnostics 实际显示 `pending: 0`、`transportReady: true`、`reconciliationRequired: true`，不再只能从底部日志推断。
+
+随后在原 UUID 恢复 `[任务] V2 Desktop Gate Task — marker restored`：
+
+- 同一 object_id/anchor_id 恢复为 `active`；
+- Object version 5→6，标题与正文一致；
+- 没有重新绑定、新建对象或人工修补数据。
+
+证据：
+
+- `tmp/runtime/v2-desktop/b-rt-marker-conflict-diagnostics.png`
+- `tmp/runtime/v2-desktop/b-rt-marker-restored.png`
+- Service 只读查询中的 object/anchor 身份和 version 记录，未保存 descriptor/token。
+
+## 本轮发现的交互问题
+
+1. Diagnostics 原先没有渲染已有的 `explicit_sync` snapshot，用户只能从底部结构化日志判断断线队列；已补可见 `pending / transportReady / reconciliationRequired` 区块。
+2. V2 sync-only 模式打开主 UI 时使用基础 snapshot，导致 commit 显示 `unknown`、listeners `{}`；已改为完整脱敏 snapshot。
+3. 当前候选恢复与 Anchor repair 仍位于 Diagnostics，符合开发期 Gate，但不符合最终日常入口；后续按既定方向迁入最终审阅中心。
+
+## 尚未通过
+
+- 明确 `SERVICE_UNAVAILABLE` reload、协议版本错误。
+- Plugin 退出期间变更后的已知 Anchor 恢复。
+- Anchor missing 与审阅式 rebind（conflict→active 原 UUID 恢复已通过）。
+- 跨页移动、复制新身份。
+- 当前页两个离线新候选、stale preview 与逐项提交。
+- 真实有限子树、裸 TODO、嵌套 Decision、粘贴、预算与取消。
+
+因此本报告不将 E2E-01、E2E-15 或整个 Slice A/B 标记为 DONE。

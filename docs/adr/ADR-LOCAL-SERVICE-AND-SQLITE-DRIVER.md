@@ -23,7 +23,8 @@ Node 20 没有内建 `node:sqlite`，因此不为等待 Node 升级阻塞 V2，�
 - `tc status/doctor/object` 只经 Service，具有稳定 JSON envelope 与退出码；真实独立进程冒烟通过。
 - schema v3 具有可审计 migration ledger 和受约束 SemanticCommit step ledger；v1/v2 升级必须显式创建并校验快照，事务失败全量回滚并可重试。
 - 离线 Restore 原语会先校验候选快照和当前库恢复点，再原子替换；注入的激活后失败会回滚原库并保留恢复点。
+- Desktop 0.10.15 实测 plugin iframe 不暴露 Node `require`。Service 继续原子创建 0600 descriptor；Plugin 通过 Logseq 官方私有 FileStorage bridge 按受限文件名 key 读取它。该文件只用于会话发现，不是领域状态源，不构成 FileStorage/SQLite 双写；Electron Node reader仅作为兼容能力保留。
 
 ## 限制与后续
 
-本 ADR 只完成 Slice A 的技术基础，不表示正式切换：当前 Plugin 仍保留冻结的 V1 兼容路径；Service HTTP 层尚未获得正式 Application write 或 Restore Apply 路由。Plugin 已实现安全 descriptor 发现和自动受限态，Electron bridge/reload/原生正文编辑仍待 Desktop 验收。
+本 ADR 不表示 V2 全部完成。Service 已开放受约束显式同步、Anchor 与 Restore 路由；Plugin 的首次启用、私有 descriptor 发现、Service READY、原生正文编辑和一次断线最新值恢复已通过 Desktop，剩余 Anchor/移动复制/子树 Gate 仍见集中清单。

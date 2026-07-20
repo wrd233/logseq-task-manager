@@ -18,7 +18,7 @@ function escapeHtml(value: unknown): string {
 
 function guidance(action: FirstRunAction | undefined): string {
   if (action === "start") {
-    return `<section class="first-run-guidance" role="status"><h2>开始使用</h2><p>先启动本地 Service，再在 Logseq 插件设置中填入它生成的 0600 descriptor 绝对路径，然后重新加载插件。</p><p>本页不会扫描 Graph、迁移旧状态或调用模型。</p></section>`;
+    return `<section class="first-run-guidance" role="status"><h2>开始使用</h2><p>先让本地 Service 把 0600 descriptor 写入 Task Copilot 私有 FileStorage，再在插件设置中填入该文件名并重新加载插件。</p><p>该私有文件只用于会话发现，不是领域状态源；本页不会扫描 Graph、迁移旧状态或调用模型。</p></section>`;
   }
   if (action === "migrate") {
     return `<section class="first-run-guidance" role="status"><h2>迁移现有内容</h2><p>迁移尚未启动。Service 就绪后将先提供只读扫描、映射预览和恢复点，只有你显式确认才会写入 SQLite。</p><p>FileStorage 与 SQLite 不会双写。</p></section>`;

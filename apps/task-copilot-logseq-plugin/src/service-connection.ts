@@ -16,6 +16,10 @@ export interface ElectronNodeHost {
   window?: { require?: (specifier: string) => unknown };
 }
 
+export interface LogseqPrivateFileStorage {
+  getItem(key: string): Promise<unknown>;
+}
+
 interface ElectronPathModule {
   isAbsolute(path: string): boolean;
 }
@@ -79,6 +83,30 @@ export function createElectronDescriptorReader(host: ElectronNodeHost = globalTh
       } catch (error) {
         if (error instanceof StructuredError) throw error;
         throw connectionError("SERVICE_DESCRIPTOR_READ_FAILED", "Local Service descriptor 无法安全读取。");
+      }
+    },
+  };
+}
+
+const privateStorageKeyPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+export function createLogseqPrivateStorageDescriptorReader(storage: LogseqPrivateFileStorage): DescriptorFileReader {
+  return {
+    async read(key: string): Promise<unknown> {
+      if (!privateStorageKeyPattern.test(key)) {
+        throw connectionError("SERVICE_DESCRIPTOR_PATH_INVALID", "Local Service descriptor storage key 无效。");
+      }
+      try {
+        const value = await storage.getItem(key);
+        if (typeof value !== "string") return value;
+        try {
+          return JSON.parse(value) as unknown;
+        } catch {
+          throw connectionError("SERVICE_DESCRIPTOR_INVALID", "Local Service descriptor 不是合法 JSON。");
+        }
+      } catch (error) {
+        if (error instanceof StructuredError) throw error;
+        throw connectionError("SERVICE_DESCRIPTOR_READ_FAILED", "Local Service descriptor 无法从插件私有存储安全读取。");
       }
     },
   };
