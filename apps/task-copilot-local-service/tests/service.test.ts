@@ -96,6 +96,7 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
     objectType: "TASK" as const,
     text: "核对时间同步来源",
     externalId: "block-materialize",
+    inputVersion: "1001",
     contentHash: checksum("[任务] 核对时间同步来源"),
     idempotencyKey: "graph-materialize:block-materialize:first-seen",
     traceId: "trace-materialize",
@@ -112,12 +113,13 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   const synchronizedFirst = await client.synchronizeExplicitObject({ ...input, externalId: "block-sync", idempotencyKey: "sync-block:first" });
   assert.equal(synchronizedFirst.operation, "MATERIALIZED");
   assert.equal(synchronizedFirst.object.version, 2);
-  assert.equal((await client.synchronizeExplicitObject({ ...input, externalId: "block-sync", idempotencyKey: "sync-block:first" })).replayed, true);
+  assert.equal((await client.synchronizeExplicitObject({ ...input, externalId: "block-sync", idempotencyKey: "sync-block:first-retry" })).replayed, true);
   const synchronizedUpdate = await client.synchronizeExplicitObject({
     ...input,
     text: "核对时间同步来源并保存证据",
     externalId: "block-sync",
     contentHash: checksum("[任务] 核对时间同步来源并保存证据"),
+    inputVersion: "1002",
     idempotencyKey: "sync-block:second",
   });
   assert.equal(synchronizedUpdate.operation, "SYNCHRONIZED");
@@ -128,6 +130,7 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
     objectType: "MINI_PROJECT",
     externalId: "block-sync",
     contentHash: checksum("[MiniProject] 不得静默迁移"),
+    inputVersion: "1003",
     idempotencyKey: "sync-block:type-change",
   }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL");
   assert.equal((await client.getObject(synchronizedFirst.object.objectId))?.objectType, "TASK");

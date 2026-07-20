@@ -59,6 +59,7 @@ export interface ServiceMaterializeExplicitObjectRequest {
   objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
   externalId: string;
+  inputVersion: string;
   contentHash: string;
   idempotencyKey: string;
   traceId: string;

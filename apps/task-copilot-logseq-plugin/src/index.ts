@@ -1,23 +1,16 @@
 import "@logseq/libs";
 
-import {
-  DeterministicDemoProvider,
-  NoAgentProvider,
+import type {
   TaskCopilot,
-  type AgentProvider,
-  type ProjectReentryView,
+  ProjectReentryView,
 } from "@task-copilot/application";
 import type { ConditionKind, ObjectType, Phase } from "@task-copilot/domain";
+import type { LogseqContentPort, LogseqFileStorageBlobStore } from "@task-copilot/logseq-adapter";
 import {
-  LogseqContentPort,
-  LogseqFileStorageBlobStore,
-  type LogseqFacade,
-} from "@task-copilot/logseq-adapter";
-import {
-  VersionedStateRepository,
   exportRecoveryBundle,
   restoreRecoveryBundle,
   type RecoveryBundle,
+  type VersionedStateRepository,
 } from "@task-copilot/persistence";
 
 import {
@@ -31,15 +24,23 @@ import {
 import { BootstrapRegistration, bindRootClick, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
 import { renderApp, type ActionDialogKind, type UiModel, type Workspace } from "./ui.ts";
 import { InboxActionController, createDelegatedActionHandler } from "./inbox-action-controller.ts";
-import { StructuredLogger, type LogCategory, type StructuredLogEntry } from "./structured-logger.ts";
-import { discoverServiceConnection } from "./service-connection.ts";
+import { StructuredLogger } from "./structured-logger.ts";
+import { discoverServiceRuntime, type ServiceRuntimeClient } from "./service-connection.ts";
 import { renderFirstRunWelcome, type FirstRunAction } from "./first-run.ts";
 import type { ServiceConnectionState } from "@task-copilot/service-client";
+import {
+  ExplicitSyncController,
+  registerExplicitSyncEvents,
+  type ExplicitSyncEventHost,
+  type ExplicitSyncState,
+} from "./explicit-sync-controller.ts";
 
 let appRoot: HTMLElement | undefined;
-let blobStore: LogseqFileStorageBlobStore;
-let repository: VersionedStateRepository;
-let contentPort: LogseqContentPort;
+const v1Runtime: {
+  blobStore?: LogseqFileStorageBlobStore;
+  repository?: VersionedStateRepository;
+  contentPort?: LogseqContentPort;
+} = {};
 let taskCopilot: TaskCopilot | undefined;
 const diagnostics = new RuntimeDiagnostics();
 const bootstrapRegistration = new BootstrapRegistration();
@@ -61,6 +62,14 @@ const inboxProbeWaiters = new Map<string, () => void>();
 let previousSlotRecoveryArmedAt: number | undefined;
 let firstRunMode = false;
 let firstRunAction: FirstRunAction | undefined;
+let serviceRuntimeClient: ServiceRuntimeClient | undefined;
+let serviceDiscoveryGeneration = 0;
+let explicitSyncController: ExplicitSyncController | undefined;
+let explicitSyncState: ExplicitSyncState = {
+  pending: 0,
+  transportReady: false,
+  reconciliationRequired: false,
+};
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
   reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
@@ -79,24 +88,6 @@ function requireAppRoot(): HTMLElement {
   if (!root) throw new Error(`Task Copilot root element #${MAIN_UI_ROOT_ID} is unavailable.`);
   appRoot = root;
   return root;
-}
-
-function currentProvider(): AgentProvider {
-  const mode = (logseq.settings as { agentMode?: unknown } | undefined)?.agentMode;
-  return mode === "demo" ? new DeterministicDemoProvider() : new NoAgentProvider();
-}
-
-function rebuildApplication(): void {
-  taskCopilot = new TaskCopilot({
-    store: repository,
-    content: contentPort,
-    provider: currentProvider(),
-    logger: {
-      emit(category, event, fields = {}, error) {
-        operationalLogger.log(error ? "error" : "info", category as LogCategory, event, fields as Partial<StructuredLogEntry>, error);
-      },
-    },
-  });
 }
 
 function explain(error: unknown): string {
@@ -194,14 +185,54 @@ async function fullDiagnosticsSnapshot() {
   return {
     ...base,
     plugin_commit: PLUGIN_COMMIT,
-    persistence_backend: base.store_status === "NOT_STARTED" ? "not initialized" : "Logseq FileStorage checksummed A/B JSON",
+    persistence_backend: explicitSyncController
+      ? "V2 SQLite via Local Service; V1 FileStorage inactive"
+      : base.store_status === "NOT_STARTED" ? "not initialized" : "Logseq FileStorage checksummed A/B JSON",
     pending_semantic_commits: state?.commits.filter((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED").length ?? 0,
     source_anchor_conflicts: (state?.anchors.filter((anchor) => anchor.status === "missing" || anchor.status === "conflict").length ?? 0) + (state?.captures.filter((capture) => capture.sourceConflict).length ?? 0),
     runtime_shape_summary: runtimeProbeResult,
-    event_listener_status: { rootClick: uiBound, settings: featureReady, unhandledRejection: true, globalError: true },
+    event_listener_status: { rootClick: uiBound, settings: featureReady, explicitSync: explicitSyncController !== undefined, unhandledRejection: true, globalError: true },
+    explicit_sync: explicitSyncState,
     recent_logs: operationalLogger.snapshot(),
     recent_action_failure: operationalLogger.latestError(),
   };
+}
+
+async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
+  const generation = ++serviceDiscoveryGeneration;
+  const runtime = await discoverServiceRuntime(typeof descriptorPath === "string" ? descriptorPath : undefined);
+  if (generation !== serviceDiscoveryGeneration) return;
+  serviceConnection = runtime.connection;
+  serviceRuntimeClient = runtime.client;
+  diagnostics.setServiceConnection(runtime.connection);
+  if (explicitSyncController) {
+    if (runtime.client && runtime.connection.formalWritesAvailable) {
+      await explicitSyncController.resume(runtime.client);
+    } else {
+      explicitSyncController.pause();
+    }
+  }
+}
+
+function initializeExplicitSync(): void {
+  explicitSyncController = new ExplicitSyncController({
+    onIssue(issue) {
+      operationalLogger.log("warn", "plugin-lifecycle", "explicit_sync_issue", {
+        result: "deferred",
+        errorCode: issue.code,
+        ...(issue.externalId ? { blockUuid: issue.externalId } : {}),
+      });
+    },
+    onState(state) {
+      explicitSyncState = state;
+    },
+  });
+  cleanupHooks.push(registerExplicitSyncEvents(logseq as unknown as ExplicitSyncEventHost, explicitSyncController));
+  cleanupHooks.push(() => {
+    explicitSyncController?.dispose();
+    explicitSyncController = undefined;
+    serviceRuntimeClient = undefined;
+  });
 }
 
 function downloadText(filename: string, content: string, type: string): void {
@@ -297,7 +328,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "recover-previous-slot") {
-    if (!repository) throw new Error("Persistence Repository 尚未初始化，无法恢复。");
+    const repository = v1Runtime.repository;
+    if (!repository) throw new Error("V1 Persistence Repository 未启用，无法恢复。");
     const now = Date.now();
     if (!previousSlotRecoveryArmedAt || now - previousSlotRecoveryArmedAt > 30_000) {
       previousSlotRecoveryArmedAt = now;
@@ -342,6 +374,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const correlationId = `probe-${Date.now()}`;
     operationalLogger.log("info", "source-resolution", "source_resolution_started", { correlationId });
     try {
+      const contentPort = v1Runtime.contentPort;
+      if (!contentPort) throw new Error("V1 Logseq Content Adapter 未启用。");
       runtimeProbeResult = await contentPort.sourceProbe();
       operationalLogger.log("info", "source-resolution", "source_resolution_succeeded", { correlationId, result: "read-only" });
     } catch (error) {
@@ -821,6 +855,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "export-backup") {
     await run(async () => {
       const bundle = exportRecoveryBundle(await taskCopilot.exportState());
+      const blobStore = v1Runtime.blobStore;
+      if (!blobStore) throw new Error("V1 FileStorage 未启用；请使用只读迁移导出工具。");
       await blobStore.set("task-copilot/backups/latest.json", JSON.stringify(bundle));
       const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
       const anchor = document.createElement("a");
@@ -834,6 +870,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "verify-backup") {
     await run(async () => {
+      const blobStore = v1Runtime.blobStore;
+      if (!blobStore) throw new Error("V1 FileStorage 未启用；请使用只读迁移导出工具。");
       const raw = await blobStore.get("task-copilot/backups/latest.json");
       if (!raw) throw new Error("尚无恢复包，请先创建备份。");
       const result = restoreRecoveryBundle(JSON.parse(raw) as RecoveryBundle);
@@ -975,19 +1013,17 @@ async function initializeFeatures(): Promise<void> {
 
   diagnostics.start("SERVICE_CONNECTION_READY");
   const descriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
-  serviceConnection = await discoverServiceConnection(typeof descriptorPath === "string" ? descriptorPath : undefined);
-  diagnostics.setServiceConnection(serviceConnection);
+  await refreshServiceRuntime(descriptorPath);
   markReady("SERVICE_CONNECTION_READY", `V2 service ${serviceConnection.status.toLowerCase()}`);
+  diagnostics.start("EVENTS_READY");
+  initializeExplicitSync();
 
   if (typeof descriptorPath !== "string" || !descriptorPath.trim()) {
     firstRunMode = true;
-    diagnostics.start("EVENTS_READY");
     cleanupHooks.push(logseq.onSettingsChanged(() => {
       const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
-      void discoverServiceConnection(typeof nextDescriptorPath === "string" ? nextDescriptorPath : undefined)
-        .then((connection) => {
-          serviceConnection = connection;
-          diagnostics.setServiceConnection(connection);
+      void refreshServiceRuntime(nextDescriptorPath)
+        .then(() => {
           firstRunAction = "start";
           if (logseq.isMainUIVisible) void refresh();
         })
@@ -999,48 +1035,34 @@ async function initializeFeatures(): Promise<void> {
   }
 
   diagnostics.start("RUNTIME_ADAPTER_READY");
-  const facade = logseq as unknown as LogseqFacade;
-  contentPort = new LogseqContentPort(facade);
-  markReady("RUNTIME_ADAPTER_READY");
+  markReady("RUNTIME_ADAPTER_READY", "V2 Logseq event adapter ready; V1 content commands inactive");
 
   diagnostics.start("PERSISTENCE_READY");
-  blobStore = new LogseqFileStorageBlobStore(facade.FileStorage);
-  repository = new VersionedStateRepository(blobStore);
-  const persistence = await repository.initialize();
-  diagnostics.setStoreSchema("v1 (observed and validated)");
-  if (persistence.initializedNewStore) diagnostics.setRecoveryState("initialized_new_store");
-  markReady("PERSISTENCE_READY", "persistence ready");
+  diagnostics.setStoreSchema("V2 SQLite owned by Local Service");
+  diagnostics.setStoreStatus(serviceConnection.status === "READY" ? "READY" : "READ_ONLY_SAFE_MODE");
+  diagnostics.setRecoveryState("V1 FileStorage inactive; V2 consistency check pending Slice B4");
+  markReady("PERSISTENCE_READY", "V2 persistence authority remains behind Local Service");
 
   diagnostics.start("MIGRATION_READY");
-  // load() validates the supported schema without rewriting damaged or newer data.
-  markReady("MIGRATION_READY");
+  markReady("MIGRATION_READY", "no automatic migration performed");
 
   diagnostics.start("APPLICATION_READY");
-  rebuildApplication();
-  const recovery = await taskCopilot!.initialize();
-  diagnostics.setStoreStatus("READY");
-  diagnostics.setRecoveryState(`${persistence.initializedNewStore ? "initialized_new_store; " : ""}recovered ${recovery.recovered.length}; recovery required ${recovery.recoveryRequired.length}`);
-  if (recovery.recovered.length || recovery.recoveryRequired.length) {
-    recoveryReport = `启动扫描：已恢复 ${recovery.recovered.length}，需人工处理 ${recovery.recoveryRequired.length}。`;
-  }
-  markReady("APPLICATION_READY");
+  markReady("APPLICATION_READY", "formal explicit synchronization delegated to V2 Local Service");
 
-  diagnostics.start("EVENTS_READY");
+  if (serviceRuntimeClient && serviceConnection.formalWritesAvailable) await explicitSyncController!.resume(serviceRuntimeClient);
   cleanupHooks.push(logseq.onSettingsChanged(() => {
-    rebuildApplication();
     const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
-    void discoverServiceConnection(typeof nextDescriptorPath === "string" ? nextDescriptorPath : undefined)
-      .then((connection) => {
-        serviceConnection = connection;
-        diagnostics.setServiceConnection(connection);
-        message = `设置已更新；V2 Local Service ${connection.status}，正式领域状态与历史未受影响。`;
+    void refreshServiceRuntime(nextDescriptorPath)
+      .then(() => {
+        diagnostics.setStoreStatus(serviceConnection.status === "READY" ? "READY" : "READ_ONLY_SAFE_MODE");
+        message = `设置已更新；V2 Local Service ${serviceConnection.status}，正式领域状态与历史未受影响。`;
         if (logseq.isMainUIVisible) void refresh();
       })
       .catch((error: unknown) => operationalLogger.log("error", "plugin-lifecycle", "service_connection_refresh_failed", { result: "error" }, error));
   }));
   markReady("EVENTS_READY");
-  featureReady = true;
-  markReady("PLUGIN_READY", "plugin ready");
+  featureReady = false;
+  markReady("PLUGIN_READY", "V2 explicit synchronization ready; V1 write UI remains inactive");
 }
 
 async function main(): Promise<void> {

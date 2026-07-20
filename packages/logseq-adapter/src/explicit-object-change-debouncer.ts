@@ -2,6 +2,7 @@ import {
   parseExplicitObjectSyntax,
   type ExplicitObjectParseResult,
 } from "./explicit-object-parser.ts";
+import { checksum } from "@task-copilot/shared";
 
 export interface DebounceClock {
   setTimeout(callback: () => void, delayMs: number): unknown;
@@ -11,6 +12,7 @@ export interface DebounceClock {
 export interface ExplicitObjectBlockChange {
   externalId: string;
   content: string;
+  inputVersion: string;
   parsed: ExplicitObjectParseResult;
 }
 
@@ -30,15 +32,19 @@ const systemClock: DebounceClock = {
   },
 };
 
-function changedBlock(value: unknown): { uuid: string; content: string } | undefined {
+function changedBlock(value: unknown): { uuid: string; content: string; inputVersion: string } | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const candidate = value as { uuid?: unknown; content?: unknown };
+  const candidate = value as { uuid?: unknown; content?: unknown; updatedAt?: unknown; "updated-at"?: unknown };
   if (typeof candidate.uuid !== "string" || !candidate.uuid.trim() || typeof candidate.content !== "string") return undefined;
-  return { uuid: candidate.uuid, content: candidate.content };
+  const observedVersion = candidate.updatedAt ?? candidate["updated-at"];
+  const inputVersion = typeof observedVersion === "number" || typeof observedVersion === "string"
+    ? String(observedVersion)
+    : `content-${checksum(candidate.content)}`;
+  return { uuid: candidate.uuid, content: candidate.content, inputVersion };
 }
 
 export class ExplicitObjectChangeDebouncer {
-  private readonly pending = new Map<string, string>();
+  private readonly pending = new Map<string, { content: string; inputVersion: string }>();
   private readonly clock: DebounceClock;
   private timer: unknown | undefined;
   private disposed = false;
@@ -55,7 +61,7 @@ export class ExplicitObjectChangeDebouncer {
       const block = changedBlock(value);
       if (!block) continue;
       accepted = true;
-      this.pending.set(block.uuid, block.content);
+      this.pending.set(block.uuid, { content: block.content, inputVersion: block.inputVersion });
     }
     if (!accepted) return;
     if (this.timer !== undefined) this.clock.clearTimeout(this.timer);
@@ -71,10 +77,11 @@ export class ExplicitObjectChangeDebouncer {
       this.timer = undefined;
     }
     if (this.disposed || this.pending.size === 0) return;
-    const batch = [...this.pending].map(([externalId, content]) => ({
+    const batch = [...this.pending].map(([externalId, value]) => ({
       externalId,
-      content,
-      parsed: parseExplicitObjectSyntax(content),
+      content: value.content,
+      inputVersion: value.inputVersion,
+      parsed: parseExplicitObjectSyntax(value.content),
     }));
     this.pending.clear();
     try {

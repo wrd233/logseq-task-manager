@@ -41,15 +41,18 @@ V2_MIGRATION_DESIGN_READY
 - step ledger 最小状态机已通过：PENDING + PREPARED 原子准备、幂等重放、非法跳步拒绝、全 VERIFIED 后才能 COMPLETED、未补偿 step 不得标记 FAILED，RECOVERY_REQUIRED 可重启查询并补偿收口。
 - Service Restore Apply 已通过：固定确认短语、服务端 Backup ID、恢复点、关闭 live Store、原子切换、Doctor、descriptor 删除和 Service 停止；无确认不产生变化。
 - CLI 已提供 `backup create/validate/restore`；Restore 缺少精确 `--confirm RESTORE_AND_STOP_SERVICE` 时在加载 Service 前退出。独立进程冒烟已证明 CLI create → restore → Service exit/descriptor cleanup → restart → Doctor PASS。
-- Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。Parser 只产出纯结果，尚未接 Block event 或正式写入。
+- Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。
 - Slice B 防抖与首次物化基础已建立：UUID 级事件合并只交付最新 Parser 结果，失败显式回调；Application/SQLite 将 Object、Primary Anchor、Audit、Receipt 单事务写入并幂等重放，重复外部 Block 整笔回滚。
 - Local Service 已开放受约束的 `POST /objects/materialize` 与统一 `POST /objects/synchronize`，并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。
-- 同类型显式同步后端已完成：Domain/Application/SQLite 更新标题缓存、对象版本和 Anchor 观察证据；`/objects/synchronize` 自动区分首次物化与已绑定更新，首次请求可幂等重放，类型变化明确要求 Proposal 且零写入。生产 Plugin 事件接线仍等待持久化 pending-recovery 意图，避免 Service 故障时丢事件。
+- 同类型显式同步后端已完成：Domain/Application/SQLite 更新标题缓存、对象版本和 Anchor 观察证据；`/objects/synchronize` 自动区分首次物化与已绑定更新，Service 用 Graph ID + Block UUID + Logseq 输入版本形成 SHA-256 幂等边界。类型变化明确零写入并作为 terminal Proposal-required 冲突保留，不再误当断线永久重试；正式 Proposal 创建仍属于 Slice C。
+- Plugin 已将 `DB.onChanged` 接入显式 Parser/防抖/Service Client。Service READY 且声明 `formalWrites=true` 时统一经 Local Service 写 SQLite；断线时正文仍可编辑，最近事件只保存在按 UUID 覆盖、上限 256 的会话内队列，恢复连接后按幂等请求重试。该队列不写 FileStorage、不复制正文、不是第二状态源；交付失败、结构冲突或溢出都会进入脱敏诊断和 `reconciliationRequired`。
+- 配置 V2 descriptor 后，Plugin 进入 V2 sync-only 运行路径：不初始化 V1 `VersionedStateRepository`，旧 Capture/Proposal/Commit 写命令保持关闭；V1 实现代码仅作为迁移与历史兼容资产保留，避免 V1 FileStorage 与 V2 SQLite 双写或双语义运行。
+- 会话队列不能覆盖 Plugin 退出期间的新事件；重启后的低频、受控一致性检查仍待 B4 实现。因此当前不能把事件接线或自动测试冒充 E2E-01/E2E-15 Desktop 完成。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，148 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，156 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
@@ -64,7 +67,7 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. 继续 Slice B1：为 Service 不可用建立有界、可恢复的显式同步意图，再把 `DB.onChanged`/防抖接入 Plugin；
+1. 继续 Slice B4：建立基于已知 Anchor 的低频一致性检查，覆盖 Plugin reload 后的漏事件、移动与删除，不做频繁全 Graph 扫描；
 2. 将 Backup/Restore/Service restart/Doctor 纳入 Desktop 集中验收；
 3. 按 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 集中验收 Plugin Electron bridge、Service READY/RESTRICTED、首次启用、reload 和原生正文编辑；
 4. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；

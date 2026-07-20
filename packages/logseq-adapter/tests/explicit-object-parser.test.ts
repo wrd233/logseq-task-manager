@@ -144,10 +144,10 @@ test("changed Block events debounce by UUID and deliver only the latest pure par
 
   debouncer.enqueue([
     { uuid: "block-2", content: "TODO 内部步骤" },
-    { uuid: "block-1", content: "[任务] 旧标题" },
+    { uuid: "block-1", content: "[任务] 旧标题", "updated-at": 1001 },
     { uuid: 42, content: "[任务] 无效 UUID" },
   ]);
-  debouncer.enqueue([{ uuid: "block-1", content: "[任务] 新标题" }]);
+  debouncer.enqueue([{ uuid: "block-1", content: "[任务] 新标题", "updated-at": 1002 }]);
   assert.equal(timers.size, 1);
   await debouncer.flush();
 
@@ -155,11 +155,13 @@ test("changed Block events debounce by UUID and deliver only the latest pure par
     {
       externalId: "block-2",
       content: "TODO 内部步骤",
+      inputVersion: "content-c4995b97",
       parsed: { kind: "NONE", marker: "TODO", reason: "NO_EXPLICIT_OBJECT_MARKER" },
     },
     {
       externalId: "block-1",
       content: "[任务] 新标题",
+      inputVersion: "1002",
       parsed: { kind: "OBJECT", objectType: "TASK", marker: undefined, syntax: "[任务]", title: "新标题" },
     },
   ]]);

@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { chmod, mkdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
@@ -111,6 +111,7 @@ interface MaterializeRequest {
   objectType: MaterializeExplicitObjectInput["objectType"];
   text: string;
   externalId: string;
+  inputVersion: string;
   contentHash: string;
   idempotencyKey: string;
   traceId: string;
@@ -125,7 +126,7 @@ async function readMaterializeRequest(request: IncomingMessage): Promise<Materia
     throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
   }
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  const exactKeys = ["contentHash", "externalId", "idempotencyKey", "objectType", "text", "traceId"];
+  const exactKeys = ["contentHash", "externalId", "idempotencyKey", "inputVersion", "objectType", "text", "traceId"];
   const actualKeys = Object.keys(record).sort();
   const objectTypes = ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"];
   if (
@@ -135,6 +136,7 @@ async function readMaterializeRequest(request: IncomingMessage): Promise<Materia
     !objectTypes.includes(record.objectType) ||
     typeof record.text !== "string" || !record.text.trim() || record.text.length > 8_192 ||
     typeof record.externalId !== "string" || !record.externalId.trim() || record.externalId.length > 512 ||
+    typeof record.inputVersion !== "string" || !record.inputVersion.trim() || record.inputVersion.length > 128 ||
     typeof record.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.contentHash) ||
     typeof record.idempotencyKey !== "string" || !record.idempotencyKey.trim() || record.idempotencyKey.length > 512 ||
     typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
@@ -142,6 +144,13 @@ async function readMaterializeRequest(request: IncomingMessage): Promise<Materia
     throw serviceError("MATERIALIZATION_REQUEST_INVALID", "显式对象物化请求字段无效或包含服务端所有权字段。");
   }
   return record as unknown as MaterializeRequest;
+}
+
+function explicitSyncIdempotencyKey(graphId: string, input: MaterializeRequest): string {
+  const digest = createHash("sha256")
+    .update(JSON.stringify([graphId, input.externalId, input.inputVersion]))
+    .digest("hex");
+  return `explicit-sync:${digest}`;
 }
 
 function respondError(response: ServerResponse, error: unknown): void {
@@ -206,6 +215,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "POST" && url.pathname === "/objects/materialize") {
       const input = await readMaterializeRequest(request);
+      const idempotencyKey = explicitSyncIdempotencyKey(options.graphId, input);
       const result = await application.materializeExplicitObject({
         objectType: input.objectType,
         text: input.text,
@@ -217,7 +227,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       }, {
         actor: "logseq-plugin",
         expectedVersion: 0,
-        idempotencyKey: input.idempotencyKey,
+        idempotencyKey,
         traceId: input.traceId,
       });
       respond(response, result.replayed ? 200 : 201, result);
@@ -225,7 +235,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "POST" && url.pathname === "/objects/synchronize") {
       const input = await readMaterializeRequest(request);
-      const receipt = store.getCommandReceipt(input.idempotencyKey);
+      const idempotencyKey = explicitSyncIdempotencyKey(options.graphId, input);
+      const receipt = store.getCommandReceipt(idempotencyKey);
       if (receipt?.command === "materialize_explicit_object" || receipt?.command === "synchronize_explicit_object") {
         respond(response, 200, {
           operation: receipt.command === "materialize_explicit_object" ? "MATERIALIZED" : "SYNCHRONIZED",
@@ -249,7 +260,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         }, {
           actor: "logseq-plugin",
           expectedVersion: current.version,
-          idempotencyKey: input.idempotencyKey,
+          idempotencyKey,
           traceId: input.traceId,
         });
         respond(response, 200, { operation: "SYNCHRONIZED", ...result });
@@ -262,7 +273,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       }, {
         actor: "logseq-plugin",
         expectedVersion: 0,
-        idempotencyKey: input.idempotencyKey,
+        idempotencyKey,
         traceId: input.traceId,
       });
       respond(response, 201, { operation: "MATERIALIZED", ...result });

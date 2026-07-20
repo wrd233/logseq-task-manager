@@ -25,6 +25,7 @@
 3. 确认 Diagnostics 为 `READY`，protocol/capabilities 与 Service 一致；
 4. 确认诊断 JSON、Console、Graph、FileStorage 和截图均无 session token；
 5. 再次 reload，确认重新 probe 且不缓存过期 token。
+6. 确认 Diagnostics 显示 `V1 FileStorage inactive`，旧 Capture/Proposal/Commit 写入口不可执行；对比 FileStorage，确认未因 V2 启动创建或更新 V1 Slot。
 
 ## A-RT-03 故障与恢复
 
@@ -32,7 +33,9 @@
 2. 确认进入 `SERVICE_UNAVAILABLE` 受限态，不出现任何正式写入成功提示；
 3. 确认 Logseq 原生正文仍可编辑；
 4. 使用错误协议版本的脱敏 descriptor，确认 `SERVICE_PROTOCOL_MISMATCH`；
-5. 恢复 Service 并 reload，确认回到 READY。
+5. Service 保持停止时创建 `[任务] 断线同步测试`，快速改名两次；确认正文可正常保存，Diagnostics 显示 `explicit_sync.pending=1` 且没有正式写入成功提示；
+6. 不 reload Plugin，恢复 Service 并在设置中重新触发连接；确认只提交最新标题、pending 回到 0，SQLite 中只有一个对象和一个 Primary Anchor；
+7. 模拟一次超过会话边界的漏事件后 reload，确认当前版本只标记/保留一致性风险，不把它误报为已恢复；该项在 B4 低频一致性检查落地前记录为已知缺口。
 
 ## 通过标准
 

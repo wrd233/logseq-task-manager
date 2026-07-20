@@ -41,13 +41,14 @@
 
 ## 显式 Block 物化
 
-`POST /objects/materialize` 只接受固定六字段：
+`POST /objects/materialize` 只接受固定七字段：
 
 ```json
 {
   "objectType": "TASK",
   "text": "核对时间同步来源",
   "externalId": "logseq-block-uuid",
+  "inputVersion": "logseq-updated-at",
   "contentHash": "1dd75803",
   "idempotencyKey": "graph-scoped-block-first-seen-key",
   "traceId": "trace-materialize"
@@ -57,11 +58,12 @@
 - `objectType` 仅允许 Parser 管理的 `TASK / MINI_PROJECT / DECISION / OUTPUT`；Area 和 Project 走各自受控创建入口；
 - Graph ID、SQLite 路径、object_id、anchor_id 与 actor 都由 Service/Application 持有，客户端携带这些额外字段会整包拒绝；
 - `contentHash` 必须符合当前 Anchor 契约的 8 位小写 CRC32；
+- `inputVersion` 来自本次 Logseq Block 观察版本；Service 用自身 Graph ID、Block UUID 与该版本计算 SHA-256 幂等键，不接受客户端选择领域幂等边界；请求中的 `idempotencyKey` 仅保留为有界传输关联字段；
 - Application 在单一 SQLite 事务中写入 Object、Primary Anchor、Audit 和幂等 Receipt；
-- 同一 idempotency key 只重放原结果，不用新正文覆盖；同一 Graph Block 再次首次物化会冲突并整笔回滚；后续标题/Marker 更新属于尚未开放的同步命令；
+- 同一 Graph/Block/inputVersion 只重放原结果，不用新正文覆盖；同一 Graph Block 再次首次物化会冲突并整笔回滚；
 - Parser、Block event 和防抖运行在 Logseq Adapter；该 HTTP 路由本身不猜自然语言、不扫描 Graph、不调用模型。
 
-`POST /objects/synchronize` 使用相同的固定六字段，但由 Service 查询当前 Graph 的 Primary Anchor：未绑定时走首次物化；已绑定且类型相同时更新标题缓存、Anchor content hash/last seen 和对象版本；标识类型变化返回 `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL`，不修改对象。相同 idempotency key 会按原命令类型重放，因此首次请求在 Anchor 建立后重试也不会被误判成更新。
+`POST /objects/synchronize` 使用相同的固定七字段，但由 Service 查询当前 Graph 的 Primary Anchor：未绑定时走首次物化；已绑定且类型相同时更新标题缓存、Anchor content hash/last seen 和对象版本；标识类型变化返回 `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL`，不修改对象。相同 Graph/Block/inputVersion 会按原命令类型重放，因此首次请求在 Anchor 建立后重试也不会被误判成更新。
 
 ## Backup 请求
 

@@ -6,6 +6,7 @@ import type { ServiceDescriptor } from "@task-copilot/service-client";
 import {
   createElectronDescriptorReader,
   discoverServiceConnection,
+  discoverServiceRuntime,
   type DescriptorFileReader,
   type ElectronNodeHost,
 } from "../src/service-connection.ts";
@@ -67,6 +68,36 @@ test("validated descriptor probes the versioned client and preserves capabilitie
     formalWritesAvailable: false,
     graphEditingAvailable: true,
   });
+});
+
+test("runtime discovery returns a usable sync client only after a READY probe", async () => {
+  let syncCalls = 0;
+  const ready = await discoverServiceRuntime(
+    "/runtime/service.json",
+    { read: async () => descriptor },
+    () => ({
+      health: async () => ({
+        status: "READY",
+        protocolVersion: 1,
+        capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
+      }),
+      synchronizeExplicitObject: async () => {
+        syncCalls += 1;
+        throw new Error("not called by discovery");
+      },
+    }),
+  );
+  assert.equal(ready.connection.status, "READY");
+  assert.ok(ready.client);
+  assert.equal(syncCalls, 0);
+
+  const restrictedRuntime = await discoverServiceRuntime("/runtime/service.json", { read: async () => descriptor }, () => ({
+    health: async () => { throw new Error("offline"); },
+    synchronizeExplicitObject: async () => { throw new Error("must not escape restricted discovery"); },
+  }));
+  assert.equal(restrictedRuntime.connection.status, "RESTRICTED");
+  assert.equal(restrictedRuntime.client, undefined);
+  assert.doesNotMatch(JSON.stringify(restrictedRuntime), /plugin-test-session-token/);
 });
 
 test("Electron descriptor reader requires an absolute regular 0600 file", async () => {

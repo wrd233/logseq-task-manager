@@ -33,6 +33,13 @@ interface ElectronFileSystemPromises {
 
 type ServiceProbeClient = Pick<LocalServiceClient, "health">;
 type ServiceClientFactory = (descriptor: ServiceDescriptor) => ServiceProbeClient;
+export type ServiceRuntimeClient = Pick<LocalServiceClient, "health" | "synchronizeExplicitObject">;
+type ServiceRuntimeClientFactory = (descriptor: ServiceDescriptor) => ServiceRuntimeClient;
+
+export interface DiscoveredServiceRuntime {
+  connection: ServiceConnectionState;
+  client?: ServiceRuntimeClient;
+}
 
 function connectionError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-198", "D-216"] });
@@ -82,15 +89,25 @@ export async function discoverServiceConnection(
   reader = createElectronDescriptorReader(),
   createClient: ServiceClientFactory = (descriptor) => new LocalServiceClient(descriptor),
 ): Promise<ServiceConnectionState> {
+  return (await discoverConnection(descriptorPath, reader, createClient)).connection;
+}
+
+async function discoverConnection<T extends ServiceProbeClient>(
+  descriptorPath: string | undefined,
+  reader: DescriptorFileReader | undefined,
+  createClient: (descriptor: ServiceDescriptor) => T,
+): Promise<{ connection: ServiceConnectionState; client?: T }> {
   if (!descriptorPath?.trim()) {
-    return restricted("SERVICE_DESCRIPTOR_PATH_REQUIRED", "尚未配置 Local Service descriptor 路径。");
+    return { connection: restricted("SERVICE_DESCRIPTOR_PATH_REQUIRED", "尚未配置 Local Service descriptor 路径。") };
   }
   if (!reader) {
-    return restricted("SERVICE_DESCRIPTOR_READER_UNAVAILABLE", "Logseq 当前运行时不提供安全 descriptor 读取能力。");
+    return { connection: restricted("SERVICE_DESCRIPTOR_READER_UNAVAILABLE", "Logseq 当前运行时不提供安全 descriptor 读取能力。") };
   }
   try {
     const descriptor = validateServiceDescriptor(await reader.read(descriptorPath));
-    return await probeService(createClient(descriptor));
+    const client = createClient(descriptor);
+    const connection = await probeService(client);
+    return connection.status === "READY" ? { connection, client } : { connection };
   } catch (error) {
     const reasonCode = error instanceof StructuredError ? error.code : "SERVICE_DESCRIPTOR_READ_FAILED";
     const messages: Record<string, string> = {
@@ -100,6 +117,14 @@ export async function discoverServiceConnection(
       SERVICE_DESCRIPTOR_NON_LOOPBACK: "Local Service descriptor 不是受控 loopback 地址。",
       SERVICE_PROTOCOL_MISMATCH: "Local Service descriptor 协议版本不兼容。",
     };
-    return restricted(reasonCode, messages[reasonCode] ?? "Local Service descriptor 无法安全读取。");
+    return { connection: restricted(reasonCode, messages[reasonCode] ?? "Local Service descriptor 无法安全读取。") };
   }
+}
+
+export async function discoverServiceRuntime(
+  descriptorPath: string | undefined,
+  reader = createElectronDescriptorReader(),
+  createClient: ServiceRuntimeClientFactory = (descriptor) => new LocalServiceClient(descriptor),
+): Promise<DiscoveredServiceRuntime> {
+  return discoverConnection(descriptorPath, reader, createClient);
 }

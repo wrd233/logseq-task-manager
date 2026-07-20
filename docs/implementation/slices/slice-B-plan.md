@@ -22,7 +22,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 | 阶段 | 交付 | 关键失败路径 | 自动证据 | Runtime 证据 |
 |---|---|---|---|---|
 | B0 | 纯显式语法 Parser（完成） | 空标题、冲突标识、未定义别名、裸 TODO | `explicit-object-parser.test.ts` | 无 |
-| B1 | Block event + 防抖 + 有限子树读取（防抖基础完成） | Service 不可用、事件重复、事件乱序 | fake clock 已通过；Graph fixture 待补 | Desktop 编辑/快速重复编辑 |
+| B1 | Block event + 防抖 + 有限子树读取（事件主链完成） | Service 不可用、事件重复、事件乱序 | fake clock、会话恢复队列与事件注册已通过；有限子树 fixture 待补 | Desktop 编辑/快速重复编辑 |
 | B2 | materialize / update Application Command（后端完成） | 重复创建、旧版本、类型变化 | Object+Anchor+Audit+Receipt 单事务、同类型同步、Service 路由与类型迁移拒绝已通过 | 创建、改标题、reload 待 Desktop |
 | B3 | Marker 同步 | DONE/CANCELED 不静默改错对象；Condition 独立 | Marker matrix | Logseq Marker 实际形态 |
 | B4 | move / copy / delete / consistency | UUID 复制不继承 ID；删除保留对象 | Graph fixture + restart | 跨页移动、复制、删除 |
@@ -44,6 +44,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - 重复事件以 Graph ID + Block UUID + 规范化输入版本构造幂等边界；
 - 类型变化必须形成 Proposal，不在同步路径静默迁移；
 - Service 故障不阻塞 Logseq 正文保存，只记录待恢复的一致性状态；
+- 断线队列只保存会话内最新同步意图，不持久化正文或领域状态；Plugin reload 后依靠 B4 低频一致性检查补漏，禁止用 FileStorage 建第二权威；
 - E2E-01..06、19 只有补齐独立测试 Graph 的 Desktop 证据后才可标记 `DONE`。
 
 ## 当前自动证据
@@ -53,4 +54,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - SQLite 将 Object、Primary Anchor、Audit、Receipt 放在一个事务中；已绑定外部 Block 的第二次物化整笔回滚；
 - Local Service `/objects/materialize` 不接受 Graph ID、数据库路径、object_id、anchor_id 或 actor，Service 自行注入当前 Graph 和固定 actor；
 - Local Service `/objects/synchronize` 对未绑定 Block 执行首次物化，对已绑定同类型 Block 原子更新标题和 Anchor 证据；类型变化只返回 Proposal-required，不静默迁移；
-- 尚未把 `DB.onChanged` 接入生产 Plugin，也未建立 Service 不可用时的持久化待恢复意图队列；因此 B1 和完整 B2 Gate 仍未完成。
+- Service 以自身 Graph ID、Block UUID 和 Logseq `updated-at` 观察版本计算 SHA-256 幂等键；客户端不能选择跨 Graph 的领域幂等边界。类型变化是 terminal 审阅冲突，不暂停健康 transport 或循环重试；
+- Plugin `DB.onChanged` 已接入同一 Parser/防抖/Service Client；Service 能力不足时不交付正式写入，恢复 READY 后重试会话内最新意图；队列容量、交付失败、Parser 冲突和 dispose 均有自动失败路径；
+- V2 descriptor 启用时旧 V1 FileStorage/Application 写路径不初始化，Plugin UI 写命令保持受限；不存在为了接入事件同步而激活的 V1/V2 双写；
+- 尚未完成有限子树、Marker、移动/复制/删除和 reload 后低频一致性检查；因此完整 B1/B2 Gate 与 E2E Desktop 仍未完成。

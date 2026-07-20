@@ -133,3 +133,10 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
     assert.match(source, new RegExp(`openActionDialog\\("${kind}"`));
   }
 });
+
+test("formal V2 plugin entry keeps the writable V1 FileStorage runtime inactive", async () => {
+  const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /repository\s*=\s*new VersionedStateRepository/);
+  assert.doesNotMatch(source, /blobStore\s*=\s*new LogseqFileStorageBlobStore/);
+  assert.match(source, /V1 FileStorage inactive/);
+});
