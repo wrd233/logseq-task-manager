@@ -2,7 +2,7 @@
 
 ## 当前 Slice
 
-V1 frozen / Slice A0 migration contract complete / Slice A1-A3 pending
+V1 frozen / Slice A0 complete / Slice A1-A3 foundation in progress
 
 ## 当前阶段结论
 
@@ -24,6 +24,9 @@ V2_MIGRATION_DESIGN_READY
 - 明确 V1 可复用内核、冻结边界和淘汰语义；
 - 完成 FileStorage → SQLite 主权交接设计及 Legacy 状态映射；
 - 完成 DeepSeek 安全配置探测；因缺少 Provider/Base URL/Model/secret reference 的完整配置，未发起真实调用。
+- 建立 V2 六类对象、Lifecycle/Condition/Focus 纯 Domain seam；不含 Phase/Signal；
+- 通过 Node 20/macOS arm64 SQLite Spike：Graph-bound 初始化、schema/损坏保护、版本/幂等写入、Doctor 和独立备份；
+- 建立仅绑定 `127.0.0.1`、session-token 认证的只读 Local Service health/status/doctor/object 骨架。
 
 ## 当前证据
 
@@ -42,9 +45,9 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. Slice A1：增加 V2 Lifecycle/Condition/Focus 与六类对象契约，隔离 V1 read model；
-2. Slice A2：SQLite driver spike、schema、事务、幂等、损坏/锁/backup/restore；
-3. Slice A3：一个 loopback Local Service 和只经 Service 的 client；
+1. 完成 Slice A1 对象特定约束、Application command 与 V1 read model 隔离；
+2. 扩展 Slice A2 Anchor/Ownership/Commit/migration ledger、锁与 restore validate；
+3. 完成 Slice A3 Service client、启动发现、协议错误和 Plugin 受限模式；
 4. 在 Slice A-C 闭环后接入 Provider abstraction，再运行 bounded DeepSeek live gate；
 5. Desktop Gate 仍需集中验证首次启用、受限模式、迁移 Preview/Undo 和 SQLite 恢复。
 

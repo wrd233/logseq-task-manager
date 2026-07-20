@@ -1,0 +1,19 @@
+{
+  "name": "@task-copilot/local-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19 <21"
+  },
+  "exports": {
+    ".": "./src/service.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@task-copilot/persistence": "0.1.0"
+  }
+}

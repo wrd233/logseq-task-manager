@@ -3,6 +3,8 @@ import { dirname, join, relative, resolve } from "node:path";
 
 import type { BlobStore } from "./index.ts";
 
+export * from "./sqlite.ts";
+
 export class FileSystemBlobStore implements BlobStore {
   private readonly root: string;
 
