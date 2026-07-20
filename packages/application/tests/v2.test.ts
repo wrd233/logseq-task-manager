@@ -281,6 +281,28 @@ test("explicit Block materialization refuses parser-external Area and Project ty
   assert.equal(repository.audit.length, 0);
 });
 
+test("Marker materialization completes only simple Tasks and keeps Condition independent", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const completed = await application.materializeExplicitObject({
+    objectId: "task-done",
+    objectType: "TASK",
+    text: "已完成核对",
+    marker: "DONE",
+    anchor: { graphId: "graph-1", externalId: "block-done", contentHash: "11111111" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-done", traceId: "trace-done" });
+  assert.equal(completed.object.lifecycle, "COMPLETED");
+  assert.deepEqual(completed.object.condition, { kind: "ACTIONABLE" });
+  await assert.rejects(() => application.materializeExplicitObject({
+    objectType: "MINI_PROJECT",
+    text: "复杂关闭",
+    marker: "DONE",
+    anchor: { graphId: "graph-1", externalId: "block-mini-done", contentHash: "22222222" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-mini-done", traceId: "trace-mini-done" }),
+  (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL");
+  assert.equal(repository.values.size, 1);
+});
+
 test("bound explicit Block synchronization updates same-type evidence and rejects silent type migration", async () => {
   const repository = new MemoryV2Repository();
   const application = new V2Application(repository);
@@ -300,15 +322,25 @@ test("bound explicit Block synchronization updates same-type evidence and reject
   assert.equal(synchronized.object.text, "新标题");
   assert.equal(synchronized.object.version, 3);
   assert.equal(synchronized.anchor.contentHash, "22222222");
+  const completed = await application.synchronizeExplicitObject({
+    objectType: "TASK",
+    text: "新标题",
+    marker: "DONE",
+    graphId: "graph-1",
+    externalId: "block-sync",
+    contentHash: "33333333",
+  }, { actor: "logseq-plugin", expectedVersion: 3, idempotencyKey: "sync-done", traceId: "trace-done" });
+  assert.equal(completed.object.lifecycle, "COMPLETED");
+  assert.deepEqual(completed.object.condition, { kind: "ACTIONABLE" });
   await assert.rejects(() => application.synchronizeExplicitObject({
     objectType: "MINI_PROJECT",
     text: "不得迁移",
     graphId: "graph-1",
     externalId: "block-sync",
-    contentHash: "33333333",
-  }, { actor: "logseq-plugin", expectedVersion: 3, idempotencyKey: "sync-type", traceId: "trace-type" }), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL");
+    contentHash: "44444444",
+  }, { actor: "logseq-plugin", expectedVersion: 4, idempotencyKey: "sync-type", traceId: "trace-type" }), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL");
   assert.equal(repository.values.get("task-sync")?.objectType, "TASK");
-  assert.equal(repository.audit.length, 2);
+  assert.equal(repository.audit.length, 3);
 });
 
 test("same-UUID synchronization preserves identity and Primary Ownership", async () => {

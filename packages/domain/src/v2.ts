@@ -5,6 +5,8 @@ export type V2ObjectType = (typeof V2_OBJECT_TYPES)[number];
 
 export const V2_LIFECYCLES = ["OPEN", "COMPLETED", "CANCELLED", "ARCHIVED"] as const;
 export type Lifecycle = (typeof V2_LIFECYCLES)[number];
+export const V2_EXECUTION_MARKERS = ["TODO", "NOW", "DOING", "DONE", "CANCELED", "CANCELLED", "WAITING"] as const;
+export type V2ExecutionMarker = (typeof V2_EXECUTION_MARKERS)[number];
 
 export type V2Condition =
   | { kind: "ACTIONABLE" }
@@ -97,6 +99,45 @@ export function createV2ManagedObject(input: CreateV2ManagedObjectInput, at = ne
     updatedAt: timestamp,
     sourceOrCreationEvent: input.sourceOrCreationEvent ?? `event_created_${objectId}`,
   };
+}
+
+export function lifecycleForV2ExecutionMarker(
+  objectType: V2ObjectType,
+  current: Lifecycle,
+  marker: V2ExecutionMarker | undefined,
+): Lifecycle {
+  if (marker === undefined || marker === "TODO" || marker === "NOW" || marker === "DOING" || marker === "WAITING") return current;
+  if (objectType === "PROJECT" || objectType === "MINI_PROJECT") {
+    throw new StructuredError({
+      code: "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL",
+      message: `${objectType} 的 ${marker} Marker 只表示关闭请求；必须进入可审阅关闭流程。`,
+      ruleRefs: ["D-183", "D-220"],
+    });
+  }
+  if (objectType !== "TASK") {
+    throw new StructuredError({
+      code: "V2_MARKER_LIFECYCLE_UNSUPPORTED",
+      message: `${objectType} 不使用 TODO Marker 改变 Lifecycle。`,
+      ruleRefs: ["D-183", "D-220"],
+    });
+  }
+  const requested = marker === "DONE" ? "COMPLETED" : "CANCELLED";
+  if (current === requested) return current;
+  if (requested === "CANCELLED" && current === "OPEN") {
+    throw new StructuredError({
+      code: "V2_TASK_CANCELLATION_REASON_REQUIRED",
+      message: "CANCELED Marker 只表示取消请求；需要记录取消原因后再改变 Lifecycle。",
+      ruleRefs: ["D-183", "D-220"],
+    });
+  }
+  if (current !== "OPEN") {
+    throw new StructuredError({
+      code: "V2_MARKER_TERMINAL_CONFLICT",
+      message: `Marker 请求 ${requested}，但对象已是 ${current}；不会静默改写终态。`,
+      ruleRefs: ["D-183", "D-220"],
+    });
+  }
+  return requested;
 }
 
 const lifecycleTransitions: Readonly<Record<Lifecycle, readonly Lifecycle[]>> = {
@@ -254,7 +295,7 @@ export function rebindV2PrimaryAnchor(
 export function synchronizeV2ExplicitObject(
   object: V2ManagedObject,
   anchor: V2Anchor,
-  input: { objectType: V2ObjectType; text: string; contentHash: string },
+  input: { objectType: V2ObjectType; text: string; contentHash: string; marker?: V2ExecutionMarker },
   expectedVersion: number,
   at = new Date(),
 ): { object: V2ManagedObject; anchor: V2Anchor } {
@@ -280,9 +321,11 @@ export function synchronizeV2ExplicitObject(
   requireText(input.text, "V2_OBJECT_TEXT_REQUIRED", "正式对象必须保留可读的自然语言正文。");
   requireText(input.contentHash, "V2_ANCHOR_HASH_REQUIRED", "Primary Anchor 必须包含正文 hash。");
   const timestamp = at.toISOString();
+  const lifecycle = lifecycleForV2ExecutionMarker(object.objectType, object.lifecycle, input.marker);
   return {
     object: {
       ...object,
+      lifecycle,
       text: input.text.trim(),
       version: object.version + 1,
       updatedAt: timestamp,

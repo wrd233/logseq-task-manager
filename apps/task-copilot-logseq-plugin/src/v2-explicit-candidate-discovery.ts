@@ -9,6 +9,7 @@ export interface V2ExplicitCandidate {
   inputVersion: string;
   contentHash: string;
   objectType: ServiceMaterializeExplicitObjectRequest["objectType"];
+  marker?: ServiceMaterializeExplicitObjectRequest["marker"];
   text: string;
 }
 
@@ -107,6 +108,7 @@ export async function prepareV2ExplicitCandidateDiscovery(
       inputVersion: normalized.inputVersion,
       contentHash: checksum(normalized.content),
       objectType: normalized.parsed.objectType,
+      ...(normalized.parsed.marker ? { marker: normalized.parsed.marker } : {}),
       text: normalized.parsed.title,
     });
   }
@@ -121,6 +123,7 @@ function candidateFromBlock(value: unknown): V2ExplicitCandidate | undefined {
     inputVersion: normalized.inputVersion,
     contentHash: checksum(normalized.content),
     objectType: normalized.parsed.objectType,
+    ...(normalized.parsed.marker ? { marker: normalized.parsed.marker } : {}),
     text: normalized.parsed.title,
   } : undefined;
 }
@@ -141,6 +144,7 @@ export async function submitV2ExplicitCandidate(
     || current.inputVersion !== candidate.inputVersion
     || current.contentHash !== candidate.contentHash
     || current.objectType !== candidate.objectType
+    || current.marker !== candidate.marker
     || current.text !== candidate.text
   ) {
     throw new Error("候选 Block 已在预览后变化或不再是合法显式对象；请重新扫描，旧预览没有提交。");
@@ -148,6 +152,7 @@ export async function submitV2ExplicitCandidate(
   return client.synchronizeExplicitObject({
     objectType: current.objectType,
     text: current.text,
+    ...(current.marker ? { marker: current.marker } : {}),
     externalId: current.externalId,
     inputVersion: current.inputVersion,
     contentHash: current.contentHash,

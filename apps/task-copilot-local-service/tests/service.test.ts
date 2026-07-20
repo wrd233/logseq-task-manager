@@ -234,6 +234,60 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   assert.equal((await client.getObject(rebound.object.objectId))?.version, rebound.object.version);
 });
 
+test("Local Service maps Task Marker to Lifecycle without changing Condition", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-marker-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-marker",
+    token: "marker-service-token-at-least-24-characters",
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const client = clientFor(service);
+  await assert.rejects(() => client.synchronizeExplicitObject({
+    objectType: "TASK",
+    text: "取消需要原因",
+    marker: "CANCELED",
+    externalId: "block-marker-cancel",
+    inputVersion: "2000",
+    contentHash: checksum("[任务] CANCELED 取消需要原因"),
+    idempotencyKey: "caller-cancel-key-is-not-authoritative",
+    traceId: "trace-marker-cancel",
+  }), (error: unknown) => error instanceof Error
+    && "details" in error
+    && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_TASK_CANCELLATION_REASON_REQUIRED");
+  assert.equal((await client.status()).objectCount, 0);
+  const created = await client.synchronizeExplicitObject({
+    objectType: "TASK",
+    text: "核对完成",
+    marker: "DONE",
+    externalId: "block-marker-done",
+    inputVersion: "2001",
+    contentHash: checksum("[任务] DONE 核对完成"),
+    idempotencyKey: "caller-key-is-not-authoritative",
+    traceId: "trace-marker-done",
+  });
+  assert.equal(created.operation, "MATERIALIZED");
+  assert.equal(created.object.lifecycle, "COMPLETED");
+  assert.deepEqual(created.object.condition, { kind: "ACTIONABLE" });
+
+  await assert.rejects(() => client.synchronizeExplicitObject({
+    objectType: "TASK",
+    text: "不得改写终态",
+    marker: "CANCELED",
+    externalId: "block-marker-done",
+    inputVersion: "2002",
+    contentHash: checksum("[任务] CANCELED 不得改写终态"),
+    idempotencyKey: "caller-key-remains-non-authoritative",
+    traceId: "trace-marker-conflict",
+  }), (error: unknown) => error instanceof Error
+    && "details" in error
+    && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_MARKER_TERMINAL_CONFLICT");
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "COMPLETED");
+});
+
 test("same UUID move keeps identity while a copied UUID materializes a distinct object", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-copy-move-"));
   const service = await startLocalService({

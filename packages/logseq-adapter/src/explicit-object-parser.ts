@@ -1,6 +1,6 @@
 import type { V2ObjectType } from "@task-copilot/domain";
 
-export type LogseqTodoMarker = "TODO" | "NOW" | "DOING" | "DONE" | "CANCELED";
+export type LogseqTodoMarker = "TODO" | "NOW" | "DOING" | "DONE" | "CANCELED" | "CANCELLED" | "WAITING";
 
 export type ExplicitObjectParseResult =
   | {
@@ -41,7 +41,9 @@ const explicitSyntax: readonly {
 ];
 
 const todoMarkers: readonly LogseqTodoMarker[] = [
+  "CANCELLED",
   "CANCELED",
+  "WAITING",
   "DOING",
   "DONE",
   "TODO",

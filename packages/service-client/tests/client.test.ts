@@ -87,7 +87,7 @@ test("materialization client sends no Graph, database path, or caller-selected o
       received = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       response.writeHead(201, { "content-type": "application/json" });
       response.end(JSON.stringify({
-        object: { objectId: "server-object", objectType: "TASK", version: 2, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "核对时间同步", createdAt: "2026-07-20T07:00:00.000Z", updatedAt: "2026-07-20T07:00:00.000Z", sourceOrCreationEvent: "explicit_block:graph:block" },
+        object: { objectId: "server-object", objectType: "TASK", version: 2, lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, text: "核对时间同步", createdAt: "2026-07-20T07:00:00.000Z", updatedAt: "2026-07-20T07:00:00.000Z", sourceOrCreationEvent: "explicit_block:graph:block" },
         anchor: { anchorId: "server-anchor", objectId: "server-object", graphId: "graph", externalId: "block", role: "primary_text", status: "active", contentHash: "a".repeat(64), lastSeenAt: "2026-07-20T07:00:00.000Z" },
         replayed: false,
       }));
@@ -98,6 +98,7 @@ test("materialization client sends no Graph, database path, or caller-selected o
   const result = await client.materializeExplicitObject({
     objectType: "TASK",
     text: "核对时间同步",
+    marker: "DONE",
     externalId: "block",
     inputVersion: "1001",
     contentHash: "a".repeat(64),
@@ -108,6 +109,7 @@ test("materialization client sends no Graph, database path, or caller-selected o
   assert.deepEqual(received, {
     objectType: "TASK",
     text: "核对时间同步",
+    marker: "DONE",
     externalId: "block",
     inputVersion: "1001",
     contentHash: "a".repeat(64),

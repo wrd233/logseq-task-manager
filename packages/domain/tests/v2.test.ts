@@ -6,6 +6,7 @@ import {
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
   createV2ManagedObject,
+  lifecycleForV2ExecutionMarker,
   observeV2PrimaryAnchor,
   rebindV2PrimaryAnchor,
   selectFocus,
@@ -121,6 +122,27 @@ test("Condition requires its own evidence and Focus remains independent", () => 
   });
 });
 
+test("execution Marker changes only simple Task Lifecycle and never Condition or Focus", () => {
+  assert.equal(lifecycleForV2ExecutionMarker("TASK", "OPEN", undefined), "OPEN");
+  assert.equal(lifecycleForV2ExecutionMarker("TASK", "OPEN", "TODO"), "OPEN");
+  assert.equal(lifecycleForV2ExecutionMarker("TASK", "OPEN", "NOW"), "OPEN");
+  assert.equal(lifecycleForV2ExecutionMarker("TASK", "OPEN", "DOING"), "OPEN");
+  assert.equal(lifecycleForV2ExecutionMarker("TASK", "OPEN", "WAITING"), "OPEN");
+  assert.equal(lifecycleForV2ExecutionMarker("TASK", "OPEN", "DONE"), "COMPLETED");
+  for (const marker of ["CANCELED", "CANCELLED"] as const) {
+    assert.throws(
+      () => lifecycleForV2ExecutionMarker("TASK", "OPEN", marker),
+      (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED",
+    );
+  }
+  assert.throws(
+    () => lifecycleForV2ExecutionMarker("MINI_PROJECT", "OPEN", "DONE"),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL",
+  );
+  assert.throws(() => lifecycleForV2ExecutionMarker("DECISION", "OPEN", "DONE"), /Lifecycle/);
+  assert.throws(() => lifecycleForV2ExecutionMarker("TASK", "COMPLETED", "CANCELED"), /终态/);
+});
+
 test("explicit synchronization updates title and Anchor evidence but refuses silent type migration", () => {
   const initial = createV2ManagedObject({ objectId: "task-sync", objectType: "TASK", text: "旧标题" });
   const bound = bindV2PrimaryAnchor(initial, {
@@ -138,6 +160,11 @@ test("explicit synchronization updates title and Anchor evidence but refuses sil
   assert.equal(synchronized.object.version, 3);
   assert.equal(synchronized.anchor.contentHash, "22222222");
   assert.equal(synchronized.anchor.lastSeenAt, "2026-07-20T07:01:00.000Z");
+  const completed = synchronizeV2ExplicitObject(synchronized.object, synchronized.anchor, {
+    objectType: "TASK", text: "新标题", contentHash: "33333333", marker: "DONE",
+  }, 3, new Date("2026-07-20T07:02:00Z"));
+  assert.equal(completed.object.lifecycle, "COMPLETED");
+  assert.deepEqual(completed.object.condition, { kind: "ACTIONABLE" });
   assert.throws(() => synchronizeV2ExplicitObject(synchronized.object, synchronized.anchor, {
     objectType: "MINI_PROJECT",
     text: "不得静默迁移",

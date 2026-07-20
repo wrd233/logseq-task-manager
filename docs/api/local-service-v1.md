@@ -45,12 +45,13 @@
 
 ## 显式 Block 物化
 
-`POST /objects/materialize` 只接受固定七字段：
+`POST /objects/materialize` 只接受固定七字段加一个可选 Marker 证据：
 
 ```json
 {
   "objectType": "TASK",
   "text": "核对时间同步来源",
+  "marker": "TODO",
   "externalId": "logseq-block-uuid",
   "inputVersion": "logseq-updated-at",
   "contentHash": "1dd75803",
@@ -60,6 +61,7 @@
 ```
 
 - `objectType` 仅允许 Parser 管理的 `TASK / MINI_PROJECT / DECISION / OUTPUT`；Area 和 Project 走各自受控创建入口；
+- `marker` 可省略，只允许 `TODO / NOW / DOING / DONE / CANCELED / CANCELLED / WAITING`；Client 不得直接传 Lifecycle/Condition，Domain 按 `docs/implementation/V2_MARKER_LIFECYCLE_CONTRACT.md` 决定结果；
 - Graph ID、SQLite 路径、object_id、anchor_id 与 actor 都由 Service/Application 持有，客户端携带这些额外字段会整包拒绝；
 - `contentHash` 必须符合当前 Anchor 契约的 8 位小写 CRC32；
 - `inputVersion` 来自本次 Logseq Block 观察版本；Service 用自身 Graph ID、Block UUID 与该版本计算 SHA-256 幂等键，不接受客户端选择领域幂等边界；请求中的 `idempotencyKey` 仅保留为有界传输关联字段；
@@ -67,7 +69,7 @@
 - 同一 Graph/Block/inputVersion 只重放原结果，不用新正文覆盖；同一 Graph Block 再次首次物化会冲突并整笔回滚；
 - Parser、Block event 和防抖运行在 Logseq Adapter；该 HTTP 路由本身不猜自然语言、不扫描 Graph、不调用模型。
 
-`POST /objects/synchronize` 使用相同的固定七字段，但由 Service 查询当前 Graph 的 Primary Anchor：未绑定时走首次物化；已绑定且类型相同时更新标题缓存、Anchor content hash/last seen 和对象版本；标识类型变化返回 `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL`，不修改对象。相同 Graph/Block/inputVersion 会按原命令类型重放，因此首次请求在 Anchor 建立后重试也不会被误判成更新。
+`POST /objects/synchronize` 使用相同字段，但由 Service 查询当前 Graph 的 Primary Anchor：未绑定时走首次物化；已绑定且类型相同时更新标题缓存、Marker 语义、Anchor content hash/last seen 和对象版本；标识类型变化返回 `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL`。Task CANCELED/CANCELLED 在记录取消原因前返回 `V2_TASK_CANCELLATION_REASON_REQUIRED`；复杂关闭、Marker 不支持或终态冲突也返回结构化 409。这些语义拒绝均不修改对象，也不错将健康 Service 降级为断线。相同 Graph/Block/inputVersion 会按原命令类型重放，因此首次请求在 Anchor 建立后重试也不会被误判成更新。
 
 `POST /anchors/primary/observe` 只接受：
 

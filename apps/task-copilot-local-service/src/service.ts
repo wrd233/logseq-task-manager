@@ -110,6 +110,7 @@ async function readRestoreRequest(request: IncomingMessage): Promise<{ backupId:
 interface MaterializeRequest {
   objectType: MaterializeExplicitObjectInput["objectType"];
   text: string;
+  marker?: "TODO" | "NOW" | "DOING" | "DONE" | "CANCELED" | "CANCELLED" | "WAITING";
   externalId: string;
   inputVersion: string;
   contentHash: string;
@@ -126,15 +127,16 @@ async function readMaterializeRequest(request: IncomingMessage): Promise<Materia
     throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
   }
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  const exactKeys = ["contentHash", "externalId", "idempotencyKey", "inputVersion", "objectType", "text", "traceId"];
+  const requiredKeys = ["contentHash", "externalId", "idempotencyKey", "inputVersion", "objectType", "text", "traceId"];
   const actualKeys = Object.keys(record).sort();
   const objectTypes = ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"];
   if (
-    actualKeys.length !== exactKeys.length ||
-    actualKeys.some((key, index) => key !== exactKeys[index]) ||
+    actualKeys.some((key) => ![...requiredKeys, "marker"].includes(key)) ||
+    requiredKeys.some((key) => !actualKeys.includes(key)) ||
     typeof record.objectType !== "string" ||
     !objectTypes.includes(record.objectType) ||
     typeof record.text !== "string" || !record.text.trim() || record.text.length > 8_192 ||
+    (record.marker !== undefined && (typeof record.marker !== "string" || !["TODO", "NOW", "DOING", "DONE", "CANCELED", "CANCELLED", "WAITING"].includes(record.marker))) ||
     typeof record.externalId !== "string" || !record.externalId.trim() || record.externalId.length > 512 ||
     typeof record.inputVersion !== "string" || !record.inputVersion.trim() || record.inputVersion.length > 128 ||
     typeof record.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.contentHash) ||
@@ -244,7 +246,7 @@ function respondError(response: ServerResponse, error: unknown): void {
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE"
+          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE"
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -302,6 +304,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const result = await application.materializeExplicitObject({
         objectType: input.objectType,
         text: input.text,
+        ...(input.marker ? { marker: input.marker } : {}),
         anchor: {
           graphId: options.graphId,
           externalId: input.externalId,
@@ -337,6 +340,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         const result = await application.synchronizeExplicitObject({
           objectType: input.objectType,
           text: input.text,
+          ...(input.marker ? { marker: input.marker } : {}),
           graphId: options.graphId,
           externalId: input.externalId,
           contentHash: input.contentHash,
@@ -352,6 +356,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const result = await application.materializeExplicitObject({
         objectType: input.objectType,
         text: input.text,
+        ...(input.marker ? { marker: input.marker } : {}),
         anchor: { graphId: options.graphId, externalId: input.externalId, contentHash: input.contentHash },
       }, {
         actor: "logseq-plugin",

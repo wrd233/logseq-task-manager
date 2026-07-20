@@ -1,4 +1,4 @@
-import type { V2Anchor, V2ManagedObject, V2ObjectType } from "@task-copilot/domain";
+import type { V2Anchor, V2ExecutionMarker, V2ManagedObject, V2ObjectType } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -58,6 +58,7 @@ export interface ServiceBackupRestored {
 export interface ServiceMaterializeExplicitObjectRequest {
   objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
+  marker?: V2ExecutionMarker;
   externalId: string;
   inputVersion: string;
   contentHash: string;

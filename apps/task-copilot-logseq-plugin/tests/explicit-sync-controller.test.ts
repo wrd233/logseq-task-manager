@@ -112,6 +112,30 @@ test("proposal-required type changes are terminal conflicts, not transport retri
   assert.equal(calls, 1);
 });
 
+test("Marker intent is delivered and semantic conflicts do not disable healthy transport", async () => {
+  const issues: string[] = [];
+  const markers: Array<string | undefined> = [];
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    createTraceId: () => "trace-marker",
+    onIssue: (issue) => issues.push(issue.code),
+  });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      markers.push(input.marker);
+      const error = new Error("terminal conflict") as Error & { code: string; details: { remoteCode: string } };
+      error.code = "SERVICE_HTTP_ERROR";
+      error.details = { remoteCode: "V2_TASK_CANCELLATION_REASON_REQUIRED" };
+      throw error;
+    },
+  });
+  controller.onBlocksChanged([{ uuid: "block-marker", content: "[任务] CANCELED 不覆盖已完成终态" }]);
+  await controller.flush();
+  assert.deepEqual(markers, ["CANCELED"]);
+  assert.deepEqual(issues, ["V2_TASK_CANCELLATION_REASON_REQUIRED"]);
+  assert.deepEqual(controller.snapshot(), { pending: 0, transportReady: true, reconciliationRequired: true });
+});
+
 test("parser marker conflicts require reconciliation without attempting a formal write", async () => {
   const issues: string[] = [];
   let writes = 0;

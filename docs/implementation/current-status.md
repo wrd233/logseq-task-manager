@@ -42,6 +42,7 @@ V2_MIGRATION_DESIGN_READY
 - Service Restore Apply 已通过：固定确认短语、服务端 Backup ID、恢复点、关闭 live Store、原子切换、Doctor、descriptor 删除和 Service 停止；无确认不产生变化。
 - CLI 已提供 `backup create/validate/restore`；Restore 缺少精确 `--confirm RESTORE_AND_STOP_SERVICE` 时在加载 Service 前退出。独立进程冒烟已证明 CLI create → restore → Service exit/descriptor cleanup → restart → Doctor PASS。
 - Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。
+- Slice B3 Marker 自动合同已贯通 Parser → Plugin 有界队列 → Service → Application → Domain → SQLite：简单 Task DONE 改为 `COMPLETED`；CANCELED/CANCELLED 在记录取消原因前零写入；TODO/NOW/DOING/WAITING 不改 Condition/Focus；MiniProject/Project 关闭要求审阅；Decision/Output 不用 Marker 改 Lifecycle；语义冲突不断开健康 transport。Desktop Marker 形态与 Undo/复杂关闭审阅待验收。
 - Slice B 防抖与首次物化基础已建立：UUID 级事件合并只交付最新 Parser 结果，失败显式回调；Application/SQLite 将 Object、Primary Anchor、Audit、Receipt 单事务写入并幂等重放，重复外部 Block 整笔回滚。
 - Local Service 已开放受约束的 `POST /objects/materialize` 与统一 `POST /objects/synchronize`，并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。
 - 同类型显式同步后端已完成：Domain/Application/SQLite 更新标题缓存、对象版本和 Anchor 观察证据；`/objects/synchronize` 自动区分首次物化与已绑定更新，Service 用 Graph ID + Block UUID + Logseq 输入版本形成 SHA-256 幂等边界。类型变化明确零写入并作为 terminal Proposal-required 冲突保留，不再误当断线永久重试；正式 Proposal 创建仍属于 Slice C。
@@ -58,7 +59,7 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，184 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
+- 自动检查：2026-07-20 `./scripts/check.sh` PASS，189 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 同时报告现有依赖树 2 high / 1 critical，未运行破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、schema v3 status、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；
@@ -75,7 +76,7 @@ V2_MIGRATION_DESIGN_READY
 ## 下一步
 
 1. 继续完成 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 剩余 Anchor、移动复制、当前页离线候选和有限子树真实 Gate；
-2. 继续 Slice B3：补 Marker 同步矩阵与 Lifecycle/Condition 分离合同；
+2. 在下一轮 Desktop 完成 B3 Marker 形态与 Task DONE/CANCELED Gate，复杂关闭接入 Slice C 审阅；
 3. 继续 Slice B5：设计并实现 Project 对象与页面的可恢复原子创建；
 4. 将 Backup/Restore/Service restart/Doctor 纳入后续 Desktop 集中验收；
 5. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；在 Slice A-C 闭环后接入 Provider abstraction并运行 bounded DeepSeek live gate。

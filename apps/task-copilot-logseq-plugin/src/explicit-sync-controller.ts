@@ -256,10 +256,11 @@ export class ExplicitSyncController {
       const request: PendingSync = {
         objectType: change.parsed.objectType,
         text: change.parsed.title,
+        ...(change.parsed.marker ? { marker: change.parsed.marker } : {}),
         externalId: change.externalId,
         inputVersion: change.inputVersion,
         contentHash: checksum(change.content),
-        idempotencyKey: `explicit-sync:${change.externalId}:${change.inputVersion}:${checksum(`${change.parsed.objectType}\0${change.parsed.title.normalize("NFKC").replace(/\s+/gu, " ")}`)}`,
+        idempotencyKey: `explicit-sync:${change.externalId}:${change.inputVersion}:${checksum(`${change.parsed.objectType}\0${change.parsed.marker ? `${change.parsed.marker}\0` : ""}${change.parsed.title.normalize("NFKC").replace(/\s+/gu, " ")}`)}`,
         traceId: this.createTraceId(),
       };
       if (!this.pending.has(change.externalId) && this.pending.size >= this.maximumPending) {
@@ -294,9 +295,19 @@ export class ExplicitSyncController {
         if (this.disposed) return;
         const code = errorCode(error);
         this.needsReconciliation = true;
-        if (code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL") {
+        if (code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL") {
           if (this.pending.get(externalId) === request) this.pending.delete(externalId);
           this.issue(code, "显式类型变化未提交；需要在 Proposal 管道中审阅。", externalId);
+          continue;
+        }
+        if (code === "V2_TASK_CANCELLATION_REASON_REQUIRED") {
+          if (this.pending.get(externalId) === request) this.pending.delete(externalId);
+          this.issue(code, "Task 取消请求未提交；需要记录取消原因并审阅。", externalId);
+          continue;
+        }
+        if (code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || code === "V2_MARKER_TERMINAL_CONFLICT") {
+          if (this.pending.get(externalId) === request) this.pending.delete(externalId);
+          this.issue(code, "Marker 与当前对象语义冲突；没有写入，需要用户审阅。", externalId);
           continue;
         }
         this.transport = undefined;

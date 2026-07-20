@@ -9,7 +9,7 @@ import {
   submitV2ExplicitCandidate,
 } from "../src/v2-explicit-candidate-discovery.ts";
 
-const task = { uuid: "candidate-task", content: "[任务] 核对候选", "updated-at": 101, children: [] };
+const task = { uuid: "candidate-task", content: "[任务] DONE 核对候选", "updated-at": 101, children: [] };
 const mini = { uuid: "candidate-mini", content: "[MiniProject] 收敛候选", "updated-at": 102, children: [] };
 const known = { uuid: "known-task", content: "[任务] 已同步", "updated-at": 103, children: [] };
 const historical = { uuid: "historical-task", content: "[任务] 历史 UUID", "updated-at": 104, children: [] };
@@ -69,6 +69,7 @@ test("candidate submit rereads the selected Block and sends one bounded synchron
   assert.deepEqual(received[0], {
     objectType: "TASK",
     text: "核对候选",
+    marker: "DONE",
     externalId: "candidate-task",
     inputVersion: "101",
     contentHash: preview.candidates[0]?.contentHash,

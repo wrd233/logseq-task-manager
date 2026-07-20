@@ -60,6 +60,20 @@ test("TODO Marker is optional execution syntax and never decides object identity
     syntax: "[任务]",
     title: "核对时间同步来源",
   });
+  assert.deepEqual(parseExplicitObjectSyntax("[任务] WAITING 等待外部答复"), {
+    kind: "OBJECT",
+    objectType: "TASK",
+    marker: "WAITING",
+    syntax: "[任务]",
+    title: "等待外部答复",
+  });
+  assert.deepEqual(parseExplicitObjectSyntax("[任务] CANCELLED 取消旧路径"), {
+    kind: "OBJECT",
+    objectType: "TASK",
+    marker: "CANCELLED",
+    syntax: "[任务]",
+    title: "取消旧路径",
+  });
   assert.deepEqual(parseExplicitObjectSyntax("TODO 核对时间同步来源"), {
     kind: "NONE",
     marker: "TODO",

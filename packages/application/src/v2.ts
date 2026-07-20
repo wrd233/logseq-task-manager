@@ -2,6 +2,7 @@ import {
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
   createV2ManagedObject,
+  lifecycleForV2ExecutionMarker,
   observeV2PrimaryAnchor,
   rebindV2PrimaryAnchor,
   synchronizeV2ExplicitObject,
@@ -10,6 +11,7 @@ import {
   type Lifecycle,
   type V2Anchor,
   type V2ManagedObject,
+  type V2ExecutionMarker,
   type V2PrimaryOwnership,
 } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
@@ -119,6 +121,7 @@ export interface MaterializeExplicitObjectInput {
   objectId?: string;
   objectType: Extract<CreateV2ManagedObjectInput["objectType"], "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
+  marker?: V2ExecutionMarker;
   anchor: Omit<V2Anchor, "anchorId" | "objectId" | "role" | "status" | "lastSeenAt"> & { anchorId?: string };
 }
 
@@ -128,6 +131,7 @@ export interface SynchronizeExplicitObjectInput {
   graphId: string;
   externalId: string;
   contentHash: string;
+  marker?: V2ExecutionMarker;
 }
 
 export interface ObservePrimaryAnchorInput {
@@ -218,12 +222,16 @@ export class V2Application {
         ruleRefs: ["D-044", "D-079", "D-220"],
       });
     }
-    const initial = createV2ManagedObject({
+    const created = createV2ManagedObject({
       ...(input.objectId ? { objectId: input.objectId } : {}),
       objectType: input.objectType,
       text: input.text,
       sourceOrCreationEvent: `explicit_block:${input.anchor.graphId}:${input.anchor.externalId}`,
     }, at);
+    const initial = {
+      ...created,
+      lifecycle: lifecycleForV2ExecutionMarker(created.objectType, created.lifecycle, input.marker),
+    };
     const candidate = bindV2PrimaryAnchor(initial, input.anchor, initial.version, at);
     return this.objects.commitMaterialization({
       ...candidate,
