@@ -142,13 +142,15 @@ async function model(): Promise<UiModel> {
   if (!taskCopilot) {
     let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
     let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
+    let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
     let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
     let v2ProposalLoadError: string | undefined;
     if (serviceConnection.status === "READY" && serviceRuntimeClient) {
       try {
-        [v2Proposals, v2SemanticCommits, v2NowWork] = await Promise.all([
+        [v2Proposals, v2SemanticCommits, v2Objects, v2NowWork] = await Promise.all([
           serviceRuntimeClient.listProposals(),
           serviceRuntimeClient.listSemanticCommits(),
+          serviceRuntimeClient.listObjects(),
           serviceRuntimeClient.nowWork(),
         ]);
       } catch (error) {
@@ -178,6 +180,7 @@ async function model(): Promise<UiModel> {
         currentGraph: diagnostics.snapshot().current_graph,
       },
       v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+      v2Objects,
       v2Proposals,
       v2SemanticCommits,
       v2CandidatePanel,

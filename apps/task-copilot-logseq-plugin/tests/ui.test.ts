@@ -41,6 +41,27 @@ test("Project workspace exposes one in-context V2 creation form gated by Local S
   assert.doesNotMatch(html, /data-action="create-v2-project"[^>]*disabled/);
 });
 
+test("V2 Project workspace reads formal objects without mapping Lifecycle back to V1 Phase", () => {
+  const value = model();
+  value.v2ProjectCreationAvailable = true;
+  value.v2Objects = [{
+    objectId: "project-1",
+    objectType: "PROJECT",
+    version: 2,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "告警推送治理",
+    createdAt: "2026-07-20T12:00:00.000Z",
+    updatedAt: "2026-07-20T12:00:00.000Z",
+    sourceOrCreationEvent: "project_page:graph:page",
+  }];
+  const html = renderApp(value);
+  assert.match(html, /告警推送治理/);
+  assert.match(html, /PROJECT · OPEN · ACTIONABLE · v2/);
+  assert.doesNotMatch(html, /还没有正式对象/);
+  assert.doesNotMatch(html, /PROJECT · ACTIVE · ACTIONABLE/);
+});
+
 test("V2 Now Work renders only non-empty explainable regions without scores or button walls", () => {
   const value = model();
   value.workspace = "now";

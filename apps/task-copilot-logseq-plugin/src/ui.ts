@@ -5,7 +5,7 @@ import type {
   ProposalImpactView,
   ProjectReentryView,
 } from "@task-copilot/application";
-import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation } from "@task-copilot/domain";
+import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2ManagedObject } from "@task-copilot/domain";
 import type { ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import type { ObservableActionState } from "./inbox-action-controller.ts";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
@@ -63,6 +63,7 @@ export interface UiModel {
   inboxDialog?: { captureId: string; kind: "formalize" | "proposal" | "link" | "defer" | "dismiss" };
   actionDialog?: { kind: ActionDialogKind; value: string };
   v2ProjectCreationAvailable?: boolean;
+  v2Objects?: V2ManagedObject[];
   v2Proposals?: ServiceStoredProposal[];
   v2SemanticCommits?: ServiceSemanticCommit[];
   v2NowWork?: ServiceNowWork;
@@ -174,6 +175,11 @@ function renderNow(model: UiModel): string {
 
 function renderObjects(model: UiModel): string {
   const projectCreator = `<section class="card project-creator" aria-label="创建 Project 页面"><div class="eyebrow">V2 · Project 原子创建</div><h3>新建 Project</h3><p class="muted">创建受控的 Project/&lt;名称&gt; 页面，并在页面验证后一次性写入 SQLite。</p><label>Project 名称<input data-field="v2ProjectName" placeholder="例如：告警推送治理"${model.v2ProjectCreationAvailable ? "" : " disabled"}></label>${button("创建 Project 与页面", "create-v2-project", undefined, "primary", !model.v2ProjectCreationAvailable)}</section>`;
+  if (model.v2Objects !== undefined) {
+    if (model.v2Objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Review Center 正式化，或创建 V2 Project 页面。")}`;
+    const list = `<section aria-label="V2 正式对象"><h2>正式对象</h2><div class="object-list">${model.v2Objects.map((object) => `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small></article>`).join("")}</div></section>`;
+    return `${projectCreator}${list}`;
+  }
   if (model.objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Inbox 手工正式化，或创建 V2 Project 页面。")}`;
   const list = `<div class="object-list">${model.objects
     .map(
