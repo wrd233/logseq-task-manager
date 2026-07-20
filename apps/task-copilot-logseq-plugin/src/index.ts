@@ -216,6 +216,7 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
 
 function initializeExplicitSync(): void {
   explicitSyncController = new ExplicitSyncController({
+    readBlock: (externalId) => logseq.Editor.getBlock(externalId),
     onIssue(issue) {
       operationalLogger.log("warn", "plugin-lifecycle", "explicit_sync_issue", {
         result: "deferred",
@@ -228,6 +229,10 @@ function initializeExplicitSync(): void {
     },
   });
   cleanupHooks.push(registerExplicitSyncEvents(logseq as unknown as ExplicitSyncEventHost, explicitSyncController));
+  const reconciliationTimer = globalThis.setInterval(() => {
+    void explicitSyncController?.reconcileKnownAnchors();
+  }, 5 * 60 * 1000);
+  cleanupHooks.push(() => globalThis.clearInterval(reconciliationTimer));
   cleanupHooks.push(() => {
     explicitSyncController?.dispose();
     explicitSyncController = undefined;

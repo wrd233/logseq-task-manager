@@ -157,7 +157,7 @@ function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID"
+      : error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID"
         ? 400
         : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
@@ -327,6 +327,19 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "GET" && url.pathname === "/objects") {
       respond(response, 200, { objects: store.listObjects() });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/anchors/primary") {
+      const after = url.searchParams.get("after") ?? undefined;
+      if (after !== undefined && (!after.trim() || after.length > 512)) {
+        throw serviceError("PRIMARY_ANCHOR_CURSOR_INVALID", "Primary Anchor 分页游标无效。");
+      }
+      const page = store.listActivePrimaryAnchors(options.graphId, after, 257);
+      const anchors = page.slice(0, 256);
+      respond(response, 200, {
+        anchors,
+        ...(page.length > anchors.length ? { nextCursor: anchors.at(-1)?.externalId } : {}),
+      });
       return;
     }
     if (request.method === "GET" && url.pathname.startsWith("/objects/")) {

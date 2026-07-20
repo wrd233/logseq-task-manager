@@ -75,6 +75,11 @@ export interface ServiceSynchronizeExplicitObjectResult extends ServiceMateriali
   operation: "MATERIALIZED" | "SYNCHRONIZED";
 }
 
+export interface ServicePrimaryAnchorPage {
+  anchors: V2Anchor[];
+  nextCursor?: string;
+}
+
 export type ServiceConnectionState =
   | { status: "READY"; capabilities: ServiceCapabilities; formalWritesAvailable: boolean; graphEditingAvailable: true }
   | { status: "RESTRICTED"; reasonCode: string; message: string; formalWritesAvailable: false; graphEditingAvailable: true };
@@ -222,6 +227,11 @@ export class LocalServiceClient {
 
   async listObjects(): Promise<V2ManagedObject[]> {
     return (await this.request<{ objects: V2ManagedObject[] }>("/objects")).objects;
+  }
+
+  listPrimaryAnchors(cursor?: string): Promise<ServicePrimaryAnchorPage> {
+    const query = cursor ? `?after=${encodeURIComponent(cursor)}` : "";
+    return this.request<ServicePrimaryAnchorPage>(`/anchors/primary${query}`);
   }
 
   async getObject(objectId: string): Promise<V2ManagedObject | undefined> {

@@ -109,6 +109,7 @@ test("Local Service materializes one explicit Block without accepting Graph, pat
   assert.equal(created.anchor.externalId, "block-materialize");
   assert.equal((await client.materializeExplicitObject(input)).replayed, true);
   assert.equal((await client.status()).objectCount, 1);
+  assert.deepEqual((await client.listPrimaryAnchors()).anchors.map((anchor) => anchor.externalId), ["block-materialize"]);
 
   const synchronizedFirst = await client.synchronizeExplicitObject({ ...input, externalId: "block-sync", idempotencyKey: "sync-block:first" });
   assert.equal(synchronizedFirst.operation, "MATERIALIZED");

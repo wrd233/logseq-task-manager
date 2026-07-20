@@ -85,6 +85,7 @@ test("runtime discovery returns a usable sync client only after a READY probe", 
         syncCalls += 1;
         throw new Error("not called by discovery");
       },
+      listPrimaryAnchors: async () => ({ anchors: [] }),
     }),
   );
   assert.equal(ready.connection.status, "READY");
@@ -94,6 +95,7 @@ test("runtime discovery returns a usable sync client only after a READY probe", 
   const restrictedRuntime = await discoverServiceRuntime("/runtime/service.json", { read: async () => descriptor }, () => ({
     health: async () => { throw new Error("offline"); },
     synchronizeExplicitObject: async () => { throw new Error("must not escape restricted discovery"); },
+    listPrimaryAnchors: async () => ({ anchors: [] }),
   }));
   assert.equal(restrictedRuntime.connection.status, "RESTRICTED");
   assert.equal(restrictedRuntime.client, undefined);

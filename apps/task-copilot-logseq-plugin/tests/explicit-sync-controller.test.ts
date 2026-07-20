@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { ServiceSynchronizeExplicitObjectResult } from "@task-copilot/service-client";
 
-import { ExplicitSyncController, registerExplicitSyncEvents, type ExplicitSyncTransport } from "../src/explicit-sync-controller.ts";
+import { ExplicitSyncController, registerExplicitSyncEvents, type ExplicitSyncState, type ExplicitSyncTransport } from "../src/explicit-sync-controller.ts";
 
 function success(objectId: string, version: number): ServiceSynchronizeExplicitObjectResult {
   const at = "2026-07-20T08:00:00.000Z";
@@ -176,4 +176,97 @@ test("Logseq DB event registration forwards only transaction Blocks and unregist
   assert.deepEqual(requests, ["event-block"]);
   unregister();
   assert.equal(unregistered, 1);
+});
+
+test("service recovery reconciles only known Anchors and reports missing or removed markers", async () => {
+  const issues: string[] = [];
+  const synchronized: string[] = [];
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    createTraceId: () => "trace-reconcile",
+    readBlock: async (externalId) => {
+      if (externalId === "block-changed") return { uuid: externalId, content: "[任务] 恢复后新标题", "updated-at": 2002 };
+      if (externalId === "block-removed") return { uuid: externalId, content: "普通正文", "updated-at": 2003 };
+      return null;
+    },
+    onIssue: (issue) => issues.push(issue.code),
+  });
+  await controller.resume({
+    async listPrimaryAnchors() {
+      const at = "2026-07-20T08:00:00.000Z";
+      return { anchors: [
+        { anchorId: "a1", objectId: "o1", graphId: "graph", externalId: "block-changed", role: "primary_text", status: "active", contentHash: "00000000", lastSeenAt: at },
+        { anchorId: "a2", objectId: "o2", graphId: "graph", externalId: "block-removed", role: "primary_text", status: "active", contentHash: "00000000", lastSeenAt: at },
+        { anchorId: "a3", objectId: "o3", graphId: "graph", externalId: "block-missing", role: "primary_text", status: "active", contentHash: "00000000", lastSeenAt: at },
+      ] };
+    },
+    async synchronizeExplicitObject(input) {
+      synchronized.push(input.externalId);
+      return success("reconciled", 3);
+    },
+  });
+  assert.deepEqual(synchronized, ["block-changed"]);
+  assert.deepEqual(issues, ["EXPLICIT_SYNC_MARKER_REMOVED", "EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING"]);
+  assert.deepEqual(controller.snapshot(), { pending: 0, transportReady: true, reconciliationRequired: true });
+});
+
+test("known Anchor reconciliation advances a bounded cursor across low-frequency runs", async () => {
+  const cursors: Array<string | undefined> = [];
+  const synchronized: string[] = [];
+  const at = "2026-07-20T08:00:00.000Z";
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    readBlock: async (externalId) => ({ uuid: externalId, content: `[任务] ${externalId}`, "updated-at": 3001 }),
+  });
+  await controller.resume({
+    async listPrimaryAnchors(cursor) {
+      cursors.push(cursor);
+      const externalId = cursor ? "block-2" : "block-1";
+      return {
+        anchors: [{ anchorId: `a-${externalId}`, objectId: `o-${externalId}`, graphId: "graph", externalId, role: "primary_text", status: "active", contentHash: "00000000", lastSeenAt: at }],
+        ...(!cursor ? { nextCursor: "block-1" } : {}),
+      };
+    },
+    async synchronizeExplicitObject(input) {
+      synchronized.push(input.externalId);
+      return success(`object-${input.externalId}`, 3);
+    },
+  });
+  await controller.reconcileKnownAnchors();
+  assert.deepEqual(cursors, [undefined, "block-1"]);
+  assert.deepEqual(synchronized, ["block-1", "block-2"]);
+});
+
+test("dispose stops an in-flight known Anchor check before any late Graph or Service work", async () => {
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let writes = 0;
+  const issues: string[] = [];
+  const states: ExplicitSyncState[] = [];
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    readBlock: async (externalId) => {
+      await gate;
+      return { uuid: externalId, content: "[任务] 不得迟到同步", "updated-at": 4001 };
+    },
+    onIssue: (issue) => issues.push(issue.code),
+    onState: (state) => states.push(state),
+  });
+  const resume = controller.resume({
+    async listPrimaryAnchors() {
+      return { anchors: [{ anchorId: "a-late", objectId: "o-late", graphId: "graph", externalId: "block-late", role: "primary_text", status: "active", contentHash: "00000000", lastSeenAt: "2026-07-20T08:00:00.000Z" }] };
+    },
+    async synchronizeExplicitObject() {
+      writes += 1;
+      return success("late-object", 3);
+    },
+  });
+  await Promise.resolve();
+  controller.dispose();
+  const stateCountAfterDispose = states.length;
+  release?.();
+  await resume;
+  assert.equal(writes, 0);
+  assert.deepEqual(issues, []);
+  assert.equal(states.length, stateCountAfterDispose);
 });

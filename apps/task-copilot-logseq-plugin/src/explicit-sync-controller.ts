@@ -1,16 +1,20 @@
 import {
   ExplicitObjectChangeDebouncer,
+  parseExplicitObjectSyntax,
   type DebounceClock,
   type ExplicitObjectBlockChange,
 } from "@task-copilot/logseq-adapter";
 import type {
   ServiceMaterializeExplicitObjectRequest,
+  ServicePrimaryAnchorPage,
   ServiceSynchronizeExplicitObjectResult,
 } from "@task-copilot/service-client";
+import type { V2Anchor } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
 export interface ExplicitSyncTransport {
   synchronizeExplicitObject(input: ServiceMaterializeExplicitObjectRequest): Promise<ServiceSynchronizeExplicitObjectResult>;
+  listPrimaryAnchors?(cursor?: string): Promise<ServicePrimaryAnchorPage>;
 }
 
 export interface ExplicitSyncIssue {
@@ -30,6 +34,7 @@ export interface ExplicitSyncControllerOptions {
   maximumPending?: number;
   clock?: DebounceClock;
   createTraceId?: () => string;
+  readBlock?(externalId: string): Promise<unknown>;
   onIssue?(issue: ExplicitSyncIssue): void;
   onState?(state: ExplicitSyncState): void;
 }
@@ -67,6 +72,8 @@ export class ExplicitSyncController {
   private readonly debouncer: ExplicitObjectChangeDebouncer;
   private transport: ExplicitSyncTransport | undefined;
   private drainPromise: Promise<void> | undefined;
+  private reconciliationPromise: Promise<void> | undefined;
+  private reconciliationCursor: string | undefined;
   private disposed = false;
   private needsReconciliation = false;
 
@@ -104,6 +111,7 @@ export class ExplicitSyncController {
     this.transport = transport;
     this.emitState();
     await this.drain();
+    await this.reconcileKnownAnchors();
   }
 
   pause(): void {
@@ -125,6 +133,16 @@ export class ExplicitSyncController {
     this.pending.clear();
     this.debouncer.dispose();
     this.emitState();
+  }
+
+  reconcileKnownAnchors(): Promise<void> {
+    if (this.disposed) return Promise.resolve();
+    if (this.reconciliationPromise) return this.reconciliationPromise;
+    this.reconciliationPromise = this.performKnownAnchorReconciliation().finally(() => {
+      this.reconciliationPromise = undefined;
+      if (!this.disposed) this.emitState();
+    });
+    return this.reconciliationPromise;
   }
 
   private async acceptBatch(batch: ExplicitObjectBlockChange[]): Promise<void> {
@@ -159,7 +177,7 @@ export class ExplicitSyncController {
     if (this.drainPromise) return this.drainPromise;
     this.drainPromise = this.performDrain().finally(() => {
       this.drainPromise = undefined;
-      this.emitState();
+      if (!this.disposed) this.emitState();
     });
     return this.drainPromise;
   }
@@ -173,6 +191,7 @@ export class ExplicitSyncController {
         await this.transport.synchronizeExplicitObject(request);
         if (this.pending.get(externalId) === request) this.pending.delete(externalId);
       } catch (error) {
+        if (this.disposed) return;
         const code = errorCode(error);
         this.needsReconciliation = true;
         if (code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL") {
@@ -185,6 +204,65 @@ export class ExplicitSyncController {
         return;
       }
     }
+  }
+
+  private async performKnownAnchorReconciliation(): Promise<void> {
+    const transport = this.transport;
+    const listPrimaryAnchors = transport?.listPrimaryAnchors;
+    const readBlock = this.options.readBlock;
+    if (!transport || !listPrimaryAnchors || !readBlock) return;
+    let page: ServicePrimaryAnchorPage;
+    try {
+      page = await listPrimaryAnchors.call(transport, this.reconciliationCursor);
+    } catch (error) {
+      if (this.disposed) return;
+      this.transport = undefined;
+      this.needsReconciliation = true;
+      this.issue(errorCode(error), "Primary Anchor 清单读取失败；未执行全 Graph 扫描。", undefined);
+      return;
+    }
+    if (this.disposed) return;
+    const anchors: V2Anchor[] = page.anchors;
+    if (page.nextCursor) {
+      this.needsReconciliation = true;
+      this.issue("EXPLICIT_SYNC_RECONCILIATION_PAGE_DEFERRED", "已知 Primary Anchor 将在下一轮继续分页检查；未执行全 Graph 扫描。");
+    }
+    for (const anchor of anchors) {
+      if (this.disposed) return;
+      let value: unknown;
+      try {
+        value = await readBlock(anchor.externalId);
+      } catch (error) {
+        if (this.disposed) return;
+        this.needsReconciliation = true;
+        this.issue(errorCode(error), "Primary Anchor 对应 Block 读取失败；其余已知 Anchor 继续检查。", anchor.externalId);
+        continue;
+      }
+      if (this.disposed) return;
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        this.needsReconciliation = true;
+        this.issue("EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING", "Primary Anchor 对应 Block 不可用；对象未删除。", anchor.externalId);
+        continue;
+      }
+      const block = value as { uuid?: unknown; content?: unknown };
+      if (block.uuid !== anchor.externalId || typeof block.content !== "string") {
+        this.needsReconciliation = true;
+        this.issue("EXPLICIT_SYNC_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 返回了不一致的 Block 形态；正式状态未修改。", anchor.externalId);
+        continue;
+      }
+      if (checksum(block.content) === anchor.contentHash) continue;
+      const parsed = parseExplicitObjectSyntax(block.content);
+      if (parsed.kind !== "OBJECT") {
+        this.needsReconciliation = true;
+        this.issue(parsed.kind === "INVALID" ? parsed.code : "EXPLICIT_SYNC_MARKER_REMOVED", "已绑定 Block 的显式对象语法已改变；需要审阅。", anchor.externalId);
+        continue;
+      }
+      this.onBlocksChanged([value]);
+    }
+    this.reconciliationCursor = page.nextCursor;
+    if (this.disposed) return;
+    await this.debouncer.flush();
+    await this.drain();
   }
 
   private issue(code: string, message: string, externalId?: string): void {

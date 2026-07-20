@@ -863,6 +863,29 @@ export class V2SqliteStore {
     };
   }
 
+  listActivePrimaryAnchors(graphId: string, afterExternalId?: string, limit = 257): V2Anchor[] {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_001) {
+      throw persistenceError("V2_ANCHOR_QUERY_LIMIT_INVALID", "Primary Anchor 查询上限无效。");
+    }
+    const rows = this.database.prepare(`
+      SELECT * FROM anchors
+      WHERE graph_id = ? AND role = 'primary_text' AND status = 'active'
+        AND (? IS NULL OR external_id > ?)
+      ORDER BY external_id ASC, anchor_id ASC
+      LIMIT ?
+    `).all(graphId, afterExternalId ?? null, afterExternalId ?? null, limit) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      anchorId: String(row.anchor_id),
+      objectId: String(row.object_id),
+      graphId: String(row.graph_id),
+      externalId: String(row.external_id),
+      role: "primary_text",
+      status: "active",
+      contentHash: String(row.content_hash),
+      lastSeenAt: String(row.last_seen_at),
+    }));
+  }
+
   listObjects(): V2ManagedObject[] {
     const rows = this.database.prepare("SELECT * FROM objects ORDER BY updated_at DESC, object_id ASC").all() as ObjectRow[];
     return rows.map((row) => ({

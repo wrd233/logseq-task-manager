@@ -36,6 +36,7 @@
 | POST | `/objects/synchronize` | 按绑定状态选择首次物化或同类型标题/Anchor 更新 | SQLite 单事务正式写入 |
 | GET | `/objects` | V2 对象列表 | 无 |
 | GET | `/objects/{object_id}` | 单对象或 `OBJECT_NOT_FOUND` | 无 |
+| GET | `/anchors/primary?after=<cursor>` | 当前 Graph 的 active Primary Anchor 分页 | 无；每页最多 256，`nextCursor` 驱动后续低频逐 UUID 检查 |
 
 未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示受约束的显式物化路由可用，不表示 Slice B 全部同步、Slice C SemanticCommit 或迁移写入已经开放。
 

@@ -35,7 +35,10 @@
 4. 使用错误协议版本的脱敏 descriptor，确认 `SERVICE_PROTOCOL_MISMATCH`；
 5. Service 保持停止时创建 `[任务] 断线同步测试`，快速改名两次；确认正文可正常保存，Diagnostics 显示 `explicit_sync.pending=1` 且没有正式写入成功提示；
 6. 不 reload Plugin，恢复 Service 并在设置中重新触发连接；确认只提交最新标题、pending 回到 0，SQLite 中只有一个对象和一个 Primary Anchor；
-7. 模拟一次超过会话边界的漏事件后 reload，确认当前版本只标记/保留一致性风险，不把它误报为已恢复；该项在 B4 低频一致性检查落地前记录为已知缺口。
+7. Service READY 时先建立一个已绑定 Task；卸载 Plugin 后修改其标题，再 reload Plugin，确认恢复检查只按 Service 返回的 UUID 读取该 Block，并经统一同步命令更新同一 object_id/Anchor；
+8. 删除一个已绑定 Block 后 reload，确认 Diagnostics 标记 `EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING`，SQLite 对象没有被删除；
+9. 保持 Plugin 运行，修改另一个已绑定 Block，等待一轮 5 分钟低频检查，确认自动收敛且没有全 Graph 扫描；
+10. 在 Plugin 退出期间新建一个从未物化的显式 Block，确认当前版本不会虚报已发现；将其作为“受控新标识候选发现”后续缺口记录。
 
 ## 通过标准
 
