@@ -1,5 +1,5 @@
 import type { V2ManagedObject } from "@task-copilot/domain";
-import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceDoctor, ServiceStatus } from "@task-copilot/service-client";
+import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceDoctor, ServiceProposalValidationResult, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
 export interface CliService {
@@ -7,6 +7,10 @@ export interface CliService {
   doctor(): Promise<ServiceDoctor>;
   listObjects(): Promise<V2ManagedObject[]>;
   getObject(objectId: string): Promise<V2ManagedObject | undefined>;
+  listProposals(): Promise<ServiceStoredProposal[]>;
+  getProposal(proposalId: string): Promise<ServiceStoredProposal | undefined>;
+  validateProposal(proposal: unknown): Promise<ServiceProposalValidationResult>;
+  submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }>;
   createBackup(): Promise<ServiceBackupCreated>;
   validateBackup(backupId: string): Promise<ServiceBackupValidation>;
   restoreBackup(backupId: string, confirmation: "RESTORE_AND_STOP_SERVICE"): Promise<ServiceBackupRestored>;
@@ -19,6 +23,7 @@ export interface CliIo {
 
 export interface CliDependencies {
   loadService(descriptorPath: string): Promise<CliService>;
+  loadProposal?(path: string): Promise<unknown>;
   descriptorPath?: string;
 }
 
@@ -29,11 +34,16 @@ Usage:
   tc [--service-descriptor <path>] [--json] doctor
   tc [--service-descriptor <path>] [--json] object list
   tc [--service-descriptor <path>] [--json] object show <object_id>
+  tc [--service-descriptor <path>] [--json] proposal list
+  tc [--service-descriptor <path>] [--json] proposal show <proposal_id>
+  tc [--service-descriptor <path>] [--json] proposal validate <proposal.json>
+  tc [--service-descriptor <path>] [--json] proposal submit <proposal.json>
   tc [--service-descriptor <path>] [--json] backup create
   tc [--service-descriptor <path>] [--json] backup validate <backup_id>
   tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm RESTORE_AND_STOP_SERVICE
 
-The CLI talks only to Task Copilot Local Service. It never opens SQLite directly.`;
+The CLI talks only to Task Copilot Local Service. It never opens SQLite directly.
+Proposal submit only enters the review queue; it never commits or applies a change.`;
 
 function emit(io: CliIo, json: boolean, value: unknown, plain: string): void {
   io.stdout(json ? JSON.stringify({ schema_version: 1, data: value }) : plain);
@@ -115,6 +125,43 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
         return 6;
       }
       emit(io, parsed.json, { object }, `${object.objectId}\n${object.objectType} · ${object.lifecycle}\n${object.text}`);
+      return 0;
+    }
+    if (root === "proposal" && action === "list" && !target) {
+      const proposals = await service.listProposals();
+      emit(io, parsed.json, { proposals }, proposals.map(({ proposal, updatedAt }) => `${proposal.proposalId}\t${proposal.status}\t${updatedAt}\t${proposal.title}`).join("\n"));
+      return 0;
+    }
+    if (root === "proposal" && action === "show" && target) {
+      const record = await service.getProposal(target);
+      if (!record) {
+        io.stderr(`Proposal not found: ${target}`);
+        return 6;
+      }
+      emit(io, parsed.json, { record }, `${record.proposal.proposalId}\n${record.proposal.status} · ${record.proposal.title}\nupdated ${record.updatedAt}`);
+      return 0;
+    }
+    if (root === "proposal" && ["validate", "submit"].includes(action ?? "") && target) {
+      if (!dependencies.loadProposal) {
+        io.stderr("Proposal file loading is unavailable.");
+        return 2;
+      }
+      let proposal: unknown;
+      try {
+        proposal = await dependencies.loadProposal(target);
+      } catch (error) {
+        io.stderr(error instanceof Error ? error.message : String(error));
+        return 2;
+      }
+      if (action === "validate") {
+        const validated = await service.validateProposal(proposal);
+        const output = { ...validated, effects: { proposalStored: false, formalWritesExecuted: false } };
+        emit(io, parsed.json, output, `${validated.status}\n${validated.proposal.proposalId}\nNo Proposal or formal state was written.`);
+        return 0;
+      }
+      const submitted = await service.submitProposal(proposal);
+      const output = { ...submitted, effects: { proposalStored: true, formalWritesExecuted: false } };
+      emit(io, parsed.json, output, `${submitted.record.proposal.proposalId}\n${submitted.record.proposal.status} · submitted for review${submitted.replayed ? " (replayed)" : ""}\nNo formal change was committed.`);
       return 0;
     }
     if (root === "backup" && action === "create" && !target && !parsed.confirmation) {

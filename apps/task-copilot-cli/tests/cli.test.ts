@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ServiceDoctor, ServiceStatus } from "@task-copilot/service-client";
+import type { ServiceDoctor, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
 import { runCli, type CliIo, type CliService } from "../src/cli.ts";
@@ -17,12 +17,24 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
     objectCount: 0,
   };
   const doctor: ServiceDoctor = { status: "PASS", schemaVersion: 3, integrity: "ok", foreignKeyViolations: 0, objectCount: 0 };
+  const proposalRecord: ServiceStoredProposal = {
+    proposal: {
+      proposalId: "proposal-cli-1", schemaVersion: "v2", title: "整理当前块", context: "当前块", understanding: "需要整理", objective: "形成任务", logic: "保留原意", finalPreview: "TODO 整理当前块", unresolvedQuestions: [],
+      source: { kind: "external_agent" }, scope: { read: [{ kind: "BLOCK", id: "block-1", hash: "11111111" }], modify: [{ kind: "BLOCK", id: "block-1", hash: "11111111" }] }, preconditions: [], groups: [], status: "READY", createdAt: "2026-07-21T08:00:00.000Z",
+    },
+    files: { proposalMd: "# Proposal", proposalJson: "{}" },
+    updatedAt: "2026-07-21T08:00:00.000Z",
+  };
   return {
     service: {
       status: async () => status,
       doctor: async () => doctor,
       listObjects: async () => [],
       getObject: async () => undefined,
+      listProposals: async () => [],
+      getProposal: async () => undefined,
+      validateProposal: async () => ({ status: "VALID", proposal: proposalRecord.proposal, files: proposalRecord.files }),
+      submitProposal: async () => ({ record: proposalRecord, replayed: false }),
       createBackup: async () => ({ backupId: "backup_20260720130000000_00000000000000000000000000000000", createdAt: "2026-07-20T13:00:00.000Z", validation: doctor }),
       validateBackup: async (backupId) => ({ backupId, validation: doctor }),
       restoreBackup: async (backupId) => ({ status: "RESTORED_SERVICE_STOPPING", backupId, recoveryBackupId: "backup_20260720130100000_11111111111111111111111111111111", validation: doctor }),
@@ -92,4 +104,57 @@ test("CLI backup restore requires the exact confirmation before dispatch and ret
   assert.equal(restoreCalls, 1);
   const output = JSON.parse(value.stdout.at(-1) ?? "") as { data: { recoveryBackupId: string } };
   assert.match(output.data.recoveryBackupId, /^backup_/);
+});
+
+test("CLI lists and shows the shared Local Service Proposal review queue", async () => {
+  const listed = fixture();
+  const record = (await listed.service.validateProposal({}));
+  const stored: ServiceStoredProposal = { proposal: record.proposal, files: record.files, updatedAt: "2026-07-21T08:00:00.000Z" };
+  listed.service.listProposals = async () => [stored];
+  listed.service.getProposal = async (proposalId) => proposalId === stored.proposal.proposalId ? stored : undefined;
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => listed.service };
+
+  assert.equal(await runCli(["proposal", "list"], dependencies, listed.io), 0);
+  assert.match(listed.stdout.at(-1) ?? "", /proposal-cli-1\tREADY/);
+  assert.equal(await runCli(["--json", "proposal", "show", "proposal-cli-1"], dependencies, listed.io), 0);
+  const shown = JSON.parse(listed.stdout.at(-1) ?? "") as { data: { record: ServiceStoredProposal } };
+  assert.equal(shown.data.record.proposal.title, "整理当前块");
+  assert.equal(await runCli(["proposal", "show", "missing"], dependencies, listed.io), 6);
+});
+
+test("CLI validates and submits external Proposal files without exposing a commit/apply path", async () => {
+  const value = fixture();
+  let submitted = 0;
+  value.service.submitProposal = async (proposal) => {
+    submitted += 1;
+    assert.deepEqual(proposal, { proposalId: "external" });
+    const validated = await value.service.validateProposal(proposal);
+    return { record: { proposal: validated.proposal, files: validated.files, updatedAt: "2026-07-21T08:00:00.000Z" }, replayed: false };
+  };
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service, loadProposal: async () => ({ proposalId: "external" }) };
+
+  assert.equal(await runCli(["--json", "proposal", "validate", "/tmp/proposal.json"], dependencies, value.io), 0);
+  const validated = JSON.parse(value.stdout.at(-1) ?? "") as { data: { effects: { proposalStored: boolean; formalWritesExecuted: boolean } } };
+  assert.deepEqual(validated.data.effects, { proposalStored: false, formalWritesExecuted: false });
+  assert.equal(submitted, 0);
+
+  assert.equal(await runCli(["--json", "proposal", "submit", "/tmp/proposal.json"], dependencies, value.io), 0);
+  const submittedOutput = JSON.parse(value.stdout.at(-1) ?? "") as { data: { effects: { proposalStored: boolean; formalWritesExecuted: boolean } } };
+  assert.deepEqual(submittedOutput.data.effects, { proposalStored: true, formalWritesExecuted: false });
+  assert.equal(submitted, 1);
+  assert.equal(await runCli(["proposal", "commit", "proposal-cli-1"], dependencies, value.io), 2);
+  assert.equal(await runCli(["proposal", "apply", "proposal-cli-1"], dependencies, value.io), 2);
+});
+
+test("CLI rejects unreadable Proposal input before any validate or submit request", async () => {
+  let requests = 0;
+  const value = fixture({
+    validateProposal: async () => { requests += 1; throw new Error("not reached"); },
+    submitProposal: async () => { requests += 1; throw new Error("not reached"); },
+  });
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service, loadProposal: async () => { throw new Error("Proposal input is not valid JSON"); } };
+  assert.equal(await runCli(["proposal", "validate", "bad.json"], dependencies, value.io), 2);
+  assert.equal(await runCli(["proposal", "submit", "bad.json"], dependencies, value.io), 2);
+  assert.equal(requests, 0);
+  assert.match(value.stderr.at(-1) ?? "", /not valid JSON/);
 });
