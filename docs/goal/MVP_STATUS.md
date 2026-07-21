@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B3 automated foundation; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 370 tests; 145 rules; 0 failed/skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE/UPDATE, Association, Ownership change/Undo, and Anchor Move/Copy/Rebind Desktop passed"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B3 automated foundation; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration foundation and Project Closure Desktop pass"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 370 tests; 145 rules; 0 failed/skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE/UPDATE, Association, Ownership change/Undo, Anchor Move/Copy/Rebind, and Project Closure Desktop passed"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -37,7 +37,7 @@ implemented:
   - "Reviewed V1 migration batch kernel: complete decisions, <=50 item atomic Object/Anchor/Ownership import, exact idempotency, Verify, changed-state-safe Undo, retry, restart and single activation without reusing SemanticCommit"
   - "Migration Service/CLI vertical path: server-owned validated Backup, preview/show/import/verify/undo/activate, exact preflight confirmations, and real CLI-to-Service copied-data fixture"
   - "Plugin migration workspace reads the same SQLite migration ledger through Local Service and shows run progress, review counts, recovery point and next step without accepting bundles or adding a write path"
-  - "E2E-20 automated Project Closure: external Agent Proposal, high-impact group and final confirmations, object-version revalidation, one Domain SemanticCommit, structured unfinished-Objective disposition, atomic completion and readable Plugin projection"
+  - "E2E-20 Project Closure DONE: external Agent Proposal and CLI handoff, Desktop high-impact group and final confirmations, object-version revalidation, one Domain SemanticCommit, structured unfinished-Objective disposition, atomic completion, reload-stable readable Plugin projection, completed-Project absence from Now Work and retained Logseq page"
   - "V2 Proposal Review now provides one continuous accept, final preview/Diff, explicit Commit, applied status, and inverse Commit/Undo flow with restart continuation and no overwrite of later edits"
   - "Slice D L1 now provides explicit DeepSeek runtime selection, env/Keychain secret references, bounded Structured Output with timeout/cancel/retry/error isolation, deterministic five-layer Prompt assembly, machine-owned Proposal metadata/hash, Domain validation, NO_PROPOSAL zero-write handling, and a capability-gated Review Center current-block entry"
   - "Slice D L2 has a default-off one-request smoke harness with sanitized zero-write metadata, and DS-01..12 fixed sanitized golden manifests are ready for real-model execution"
@@ -74,9 +74,9 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 Association Gate: TASK to OUTPUT selection, missing-confirmation zero write, explicit confirmation, one RELATED/ACTIVE SQLite write, source version/Audit 4 to 5, Ownership/Focus/Anchor unchanged, and Plugin reload verified"
   - "V2 Desktop 0.10.15 Primary Ownership Gate: external Proposal validate/submit, HIGH accept with zero formal write, scope revalidation, final Commit, plugin reload, dedicated Undo and second reload verified; Task v5 to v6 to v7 while Project v2, Anchors and the existing Association remained unchanged"
   - "V2 Desktop 0.10.15 E2E-04/E2E-05 and Rebind sub-Gate: native cross-page move retained the same object/active Anchor/UUID/version/Ownership/Association; property-free copy created an independent object/Anchor; confirmed rebind persisted id:: UUID, retained replaced history and remained active after cold reload"
+  - "V2 Desktop 0.10.15 E2E-20: HIGH acceptance left the Project OPEN at v2; exact final completion produced APPLIED Proposal, one COMPLETED Domain Commit and the same Project COMPLETED at v3; reload preserved readable Closure, Focus count was zero and Now Work did not show that Project, while the Logseq Project page remained openable; pending/recovery zero and SQLite integrity/FK passed"
 runtime_checks_pending:
   - "V2 delete-Anchor review, finite-subtree and current-page Candidate one-at-a-time failure paths, Proposal reject/defer and process-fault, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
-  - "Project Closure Desktop review/completion/reload and retained-page Gate"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"

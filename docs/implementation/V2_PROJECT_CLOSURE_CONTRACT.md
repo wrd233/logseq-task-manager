@@ -36,4 +36,5 @@ Commit 先记录 PENDING 的单一 `DOMAIN_WRITE` step。Application 写入使�
 - Domain/Application/Persistence/Service/Client/Plugin UI 自动成功与失败路径已建立。
 - 已证明：缺精确确认零写入；部分 Objective 未完成可合法关闭；Closure/Lifecycle/Focus/Receipt/Audit 一致；正常重放幂等；Domain receipt 成功但 Commit step 未收口时，Service 重启可继续完成。
 - 固定 `external_agent` fixture 和真实独立 Agent 输出均已经 CLI 磁盘文件 `validate → submit → Local Service Review queue`；后者只读 Context Package 与 `design-project@1.1.0`，提交后 Project 仍为 OPEN，详见 `docs/runtime/V2_PROJECT_CLOSURE_EXTERNAL_AGENT_REPORT.md`。
-- 尚缺：Logseq Desktop 审阅、完成、reload 和页面保留 Gate。
+- Logseq Desktop 0.10.15 已通过完整 Gate：可读 Closure/HIGH 组，组确认后仍为 `OPEN + v2`，最终确认后同一对象为 `COMPLETED + v3`，Proposal/Commit 分别为 `APPLIED`/`COMPLETED`；reload 后 Closure 可读、Focus 计数为 0 且 Now Work 不显示该 Project、原 Project 页可搜索打开。Pending/Recovery=0，SQLite integrity/FK 通过。
+- E2E-20 为 `DONE`；详细证据见 `docs/runtime/V2_PROJECT_CLOSURE_EXTERNAL_AGENT_REPORT.md`。
