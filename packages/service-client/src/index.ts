@@ -1,4 +1,4 @@
-import type { LegacyMigrationReviewDecision, V2Anchor, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -206,6 +206,14 @@ export interface ServiceSynchronizeExplicitObjectResult extends ServiceMateriali
 export interface ServicePrimaryAnchorPage {
   anchors: V2Anchor[];
   nextCursor?: string;
+}
+
+export interface ServiceAddAssociationRequest {
+  sourceObjectId: string;
+  targetObjectId: string;
+  expectedVersion: number;
+  confirmation: "ADD_ASSOCIATION";
+  traceId: string;
 }
 
 export interface ServicePrimaryAnchorObservationRequest {
@@ -525,6 +533,14 @@ export class LocalServiceClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
     });
+  }
+
+  async listAssociations(): Promise<V2Association[]> {
+    return (await this.request<{ associations: V2Association[] }>("/associations")).associations;
+  }
+
+  addAssociation(input: ServiceAddAssociationRequest): Promise<{ object: V2ManagedObject; association: V2Association; replayed: boolean }> {
+    return this.request("/associations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
   }
 
   prepareProject(input: ServicePrepareProjectRequest): Promise<ServiceProjectIntent> {

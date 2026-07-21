@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
+import type { V2Anchor, V2Association, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
 import type { TaskCopilotSkillDocument } from "./skill-catalog.ts";
@@ -27,6 +27,7 @@ export interface ContextPackageSource {
   getObject(objectId: string): V2ManagedObject | undefined;
   listObjects(): V2ManagedObject[];
   listPrimaryOwnerships(): V2PrimaryOwnership[];
+  listAssociations(): V2Association[];
   getActivePrimaryAnchorByObject(objectId: string): V2Anchor | undefined;
   databaseSchemaVersion(): number;
 }
@@ -73,6 +74,7 @@ export function buildContextPackage(
   if (objects.length !== ids.length) throw contextError("CONTEXT_OWNERSHIP_DANGLING", "Context Ownership 引用了不存在的对象。");
   const anchors = objects.map((object) => source.getActivePrimaryAnchorByObject(object.objectId)).filter((anchor): anchor is V2Anchor => Boolean(anchor));
   const ownerships = allOwnerships.filter(({ childObjectId, ownerObjectId }) => idSet.has(childObjectId) && idSet.has(ownerObjectId));
+  const associations = source.listAssociations().filter(({ sourceObjectId, targetObjectId }) => idSet.has(sourceObjectId) && idSet.has(targetObjectId));
   const modifyScope = objects.map((object) => ({ kind: "OBJECT" as const, id: object.objectId, version: object.version, hash: checksum(object) }));
   const generatedAt = at.toISOString();
   const skillVersions = skills.map((skill) => ({ name: skill.name, version: skill.version, description: skill.description, sha256: skill.sha256 }));
@@ -80,7 +82,7 @@ export function buildContextPackage(
     "scope.md": `# Task Copilot Context Scope\n\n- Scope: ${scope.kind}\n- Root object: ${root.objectId}\n- Authority: read-only derivative; this package grants no write permission\n- Formal facts: SQLite\n- Graph excerpts: unavailable from Local Service; query through the approved Logseq adapter when required\n- Included objects: ${objects.length}\n\nProposal modify scope must remain explicit and is revalidated again at review/commit time.\n`,
     "objects.json": pretty({ schemaVersion: 1, formalFacts: objects }),
     "anchors.json": pretty({ schemaVersion: 1, formalFacts: anchors }),
-    "relations.json": pretty({ schemaVersion: 1, formalFacts: { primaryOwnerships: ownerships } }),
+    "relations.json": pretty({ schemaVersion: 1, formalFacts: { primaryOwnerships: ownerships, associations } }),
     "decisions.json": pretty({ schemaVersion: 1, formalFacts: objects.filter(({ objectType }) => objectType === "DECISION") }),
     "outputs.json": pretty({ schemaVersion: 1, formalFacts: objects.filter(({ objectType }) => objectType === "OUTPUT") }),
     "graph-excerpts.json": pretty({ schemaVersion: 1, status: "NOT_AVAILABLE_IN_LOCAL_SERVICE", excerpts: [] }),

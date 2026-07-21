@@ -11,6 +11,8 @@ import type {
   V2AnchorObservationCommand,
   V2AnchorRebindCommand,
   V2AnchorRebindCommandResult,
+  V2AssociationCommand,
+  V2AssociationCommandResult,
   V2AuditRecord,
   V2CommandReceipt,
   V2MaterializationCommand,
@@ -28,10 +30,10 @@ import type {
   V2OwnershipCommandResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
-import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
+import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2Association, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 8;
+export const V2_DATABASE_SCHEMA_VERSION = 9;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -60,6 +62,7 @@ const schemaMigrationNames = new Map<number, string>([
   [6, "add_task_due_at"],
   [7, "add_v1_migration_ledger"],
   [8, "add_project_closure_summary"],
+  [9, "add_plain_associations"],
 ]);
 
 export interface V2StoredProposal {
@@ -287,6 +290,17 @@ export class V2SqliteStore {
           assigned_at TEXT NOT NULL,
           CHECK (child_object_id <> owner_object_id)
         ) STRICT;
+        CREATE TABLE associations (
+          association_id TEXT PRIMARY KEY,
+          source_object_id TEXT NOT NULL REFERENCES objects(object_id),
+          target_object_id TEXT NOT NULL REFERENCES objects(object_id),
+          association_kind TEXT NOT NULL CHECK (association_kind = 'RELATED'),
+          status TEXT NOT NULL CHECK (status = 'ACTIVE'),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          UNIQUE(source_object_id, target_object_id, association_kind),
+          CHECK (source_object_id <> target_object_id)
+        ) STRICT;
         CREATE TABLE focus_selections (
           object_id TEXT PRIMARY KEY REFERENCES objects(object_id),
           selected_at TEXT NOT NULL,
@@ -437,7 +451,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5, 6, 7].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 8) {
+    if (![1, 2, 3, 4, 5, 6, 7, 8].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 9) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -581,6 +595,22 @@ export class V2SqliteStore {
         this.database.exec("ALTER TABLE objects ADD COLUMN closure_json TEXT CHECK (closure_json IS NULL OR (object_type = 'PROJECT' AND lifecycle = 'COMPLETED' AND json_valid(closure_json)));");
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(8, schemaMigrationNames.get(8), at.toISOString());
+        workingVersion = 8;
+      }
+      if (workingVersion === 8) {
+        this.database.exec(`CREATE TABLE associations (
+          association_id TEXT PRIMARY KEY,
+          source_object_id TEXT NOT NULL REFERENCES objects(object_id),
+          target_object_id TEXT NOT NULL REFERENCES objects(object_id),
+          association_kind TEXT NOT NULL CHECK (association_kind = 'RELATED'),
+          status TEXT NOT NULL CHECK (status = 'ACTIVE'),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          UNIQUE(source_object_id, target_object_id, association_kind),
+          CHECK (source_object_id <> target_object_id)
+        ) STRICT;`);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(9, schemaMigrationNames.get(9), at.toISOString());
       }
       this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
@@ -742,10 +772,11 @@ export class V2SqliteStore {
         SELECT
           EXISTS(SELECT 1 FROM primary_ownerships WHERE child_object_id = ? OR owner_object_id = ?) AS ownership_count,
           EXISTS(SELECT 1 FROM focus_selections WHERE object_id = ?) AS focus_count,
+          EXISTS(SELECT 1 FROM associations WHERE source_object_id = ? OR target_object_id = ?) AS association_count,
           (SELECT count(*) FROM anchors WHERE object_id = ?) AS anchor_count
-      `).get(command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId) as { ownership_count: number; focus_count: number; anchor_count: number };
-      if (dependent.ownership_count || dependent.focus_count || dependent.anchor_count !== 1) {
-        throw persistenceError("V2_UNDO_DEPENDENT_STATE_EXISTS", "对象已有归属、Focus 或额外 Anchor；Undo 不会删除后续状态。", { objectId: command.expectedObject.objectId });
+      `).get(command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId) as { ownership_count: number; focus_count: number; association_count: number; anchor_count: number };
+      if (dependent.ownership_count || dependent.focus_count || dependent.association_count || dependent.anchor_count !== 1) {
+        throw persistenceError("V2_UNDO_DEPENDENT_STATE_EXISTS", "对象已有归属、Association、Focus 或额外 Anchor；Undo 不会删除后续状态。", { objectId: command.expectedObject.objectId });
       }
       const anchorDeleted = this.database.prepare("DELETE FROM anchors WHERE anchor_id = ? AND object_id = ? AND content_hash = ?")
         .run(command.expectedAnchor.anchorId, command.expectedObject.objectId, command.expectedAnchor.contentHash);
@@ -875,6 +906,10 @@ export class V2SqliteStore {
     }
     if (command === "assign_primary_owner") {
       const value = result as { object: V2ManagedObject; ownership: V2PrimaryOwnership };
+      return { command, ...value };
+    }
+    if (command === "add_association") {
+      const value = result as { object: V2ManagedObject; association: V2Association };
       return { command, ...value };
     }
     throw persistenceError("V2_COMMAND_RECEIPT_CORRUPT", "SQLite command receipt 类型未知。", { command });
@@ -1141,6 +1176,26 @@ export class V2SqliteStore {
         .run(command.ownership.childObjectId, command.ownership.ownerObjectId, command.ownership.assignedAt);
       this.writeAudit(command.audit);
       const result = { object: command.object, ownership: command.ownership };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  commitAssociation(command: V2AssociationCommand): V2AssociationCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) return { ...(JSON.parse(receipt.result_json) as { object: V2ManagedObject; association: V2Association }), replayed: true };
+      this.requireVersion(command.object.objectId, command.expectedVersion);
+      const duplicate = this.database.prepare("SELECT association_id FROM associations WHERE source_object_id = ? AND target_object_id = ? AND association_kind = ?")
+        .get(command.association.sourceObjectId, command.association.targetObjectId, command.association.associationKind);
+      if (duplicate) throw persistenceError("V2_ASSOCIATION_EXISTS", "相同方向的普通 Association 已存在；没有重复创建。");
+      this.writeObject(command.object);
+      this.database.prepare(`INSERT INTO associations(association_id, source_object_id, target_object_id, association_kind, status, created_at, updated_at)
+        VALUES (@associationId, @sourceObjectId, @targetObjectId, @associationKind, @status, @createdAt, @updatedAt)`).run(command.association);
+      this.writeAudit(command.audit);
+      const result = { object: command.object, association: command.association };
       this.writeReceipt(command.idempotencyKey, command.audit, result);
       return { ...result, replayed: false };
     });
@@ -1420,8 +1475,13 @@ export class V2SqliteStore {
       SELECT child_object_id AS childObjectId, owner_object_id AS ownerObjectId, assigned_at AS assignedAt
       FROM primary_ownerships WHERE child_object_id = ?
     `).get(objectId) ?? null;
+    const associations = this.database.prepare(`
+      SELECT association_id AS associationId, source_object_id AS sourceObjectId, target_object_id AS targetObjectId,
+             association_kind AS associationKind, status, created_at AS createdAt, updated_at AS updatedAt
+      FROM associations WHERE source_object_id = ? OR target_object_id = ? ORDER BY association_id
+    `).all(objectId, objectId);
     const focus = this.database.prepare("SELECT object_id AS objectId, selected_at AS selectedAt, rank, expires_at AS expiresAt FROM focus_selections WHERE object_id = ?").get(objectId) ?? null;
-    return checksum({ object, anchors, ownership, focus });
+    return checksum({ object, anchors, ownership, associations, focus });
   }
 
   private executeWrite<T>(operation: () => T): T {
@@ -1596,6 +1656,13 @@ export class V2SqliteStore {
       childObjectId: row.child_object_id,
       ownerObjectId: row.owner_object_id,
       assignedAt: row.assigned_at,
+    }));
+  }
+
+  listAssociations(): V2Association[] {
+    return (this.database.prepare("SELECT * FROM associations ORDER BY source_object_id, target_object_id, association_id").all() as Array<Record<string, unknown>>).map((row) => ({
+      associationId: String(row.association_id), sourceObjectId: String(row.source_object_id), targetObjectId: String(row.target_object_id),
+      associationKind: "RELATED", status: "ACTIVE", createdAt: String(row.created_at), updatedAt: String(row.updated_at),
     }));
   }
 

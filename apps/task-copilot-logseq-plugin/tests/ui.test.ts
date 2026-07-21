@@ -61,6 +61,11 @@ test("Project workspace exposes one in-context V2 creation form gated by Local S
 test("V2 Project workspace reads formal objects without mapping Lifecycle back to V1 Phase", () => {
   const value = model();
   value.v2ProjectCreationAvailable = true;
+  value.v2AssociationAvailable = true;
+  value.v2Associations = [{
+    associationId: "rel-project-output", sourceObjectId: "project-1", targetObjectId: "output-1", associationKind: "RELATED", status: "ACTIVE",
+    createdAt: "2026-07-20T12:05:00.000Z", updatedAt: "2026-07-20T12:05:00.000Z",
+  }];
   value.v2Objects = [{
     objectId: "project-1",
     objectType: "PROJECT",
@@ -71,12 +76,20 @@ test("V2 Project workspace reads formal objects without mapping Lifecycle back t
     createdAt: "2026-07-20T12:00:00.000Z",
     updatedAt: "2026-07-20T12:00:00.000Z",
     sourceOrCreationEvent: "project_page:graph:page",
+  }, {
+    objectId: "output-1", objectType: "OUTPUT", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "验证记录",
+    createdAt: "2026-07-20T12:00:00.000Z", updatedAt: "2026-07-20T12:00:00.000Z", sourceOrCreationEvent: "output",
   }];
   const html = renderApp(value);
   assert.match(html, /告警推送治理/);
   assert.match(html, /PROJECT · OPEN · ACTIONABLE · v2/);
   assert.doesNotMatch(html, /还没有正式对象/);
   assert.doesNotMatch(html, /PROJECT · ACTIVE · ACTIONABLE/);
+  assert.match(html, /只表达“相关”，不会改变 Primary Ownership/);
+  assert.match(html, /data-action="v2-association-add"/);
+  assert.match(html, /data-field="v2AssociationConfirmed"/);
+  assert.match(html, /PROJECT · 告警推送治理 → OUTPUT · 验证记录/);
+  assert.match(html, /RELATED · ACTIVE/);
 });
 
 test("V2 Now Work renders only non-empty explainable regions without scores or button walls", () => {
@@ -369,6 +382,21 @@ test("object and high-impact actions render in-plugin forms instead of browser m
   assert.match(html, /接受高影响操作/);
   assert.match(html, /data-field="actionConfirmed"/);
   assert.match(html, /data-action="submit-review-accept"/);
+});
+
+test("Association creation exposes an observable busy state and disables duplicate submission", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [
+    { objectId: "task-association-source", objectType: "TASK", text: "来源", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, version: 2, createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:00:00.000Z", sourceOrCreationEvent: "test" },
+    { objectId: "decision-association-target", objectType: "DECISION", text: "目标", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, version: 1, createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:00:00.000Z", sourceOrCreationEvent: "test" },
+  ];
+  value.v2AssociationAvailable = true;
+  value.v2AssociationBusy = true;
+  const html = renderApp(value);
+  assert.match(html, /正在添加…/);
+  assert.match(html, /data-action="v2-association-add" disabled aria-busy="true"/);
+  assert.match(html, /data-version="2"/);
 });
 
 test("formal plugin entry does not regress to host browser prompts", async () => {

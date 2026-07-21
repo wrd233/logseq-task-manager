@@ -58,6 +58,7 @@ import {
 } from "./v2-explicit-candidate-discovery.ts";
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
 import { buildSelectedBlockProposalPrompt } from "./v2-provider-analysis.ts";
+import { submitV2Association, type V2AssociationSubmissionState } from "./v2-association-controller.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
@@ -104,6 +105,7 @@ let explicitSyncState: ExplicitSyncState = {
 let v2RebindPanel: V2RebindPanelState = { status: "idle" };
 let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
+const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
   reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
@@ -169,16 +171,18 @@ async function model(): Promise<UiModel> {
     let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
     let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
     let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
+    let v2Associations: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listAssociations"]>> = [];
     let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
     let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
     let v2ProposalLoadError: string | undefined;
     let v2MigrationLoadError: string | undefined;
     if (serviceConnection.status === "READY" && serviceRuntimeClient) {
       try {
-        [v2Proposals, v2SemanticCommits, v2Objects, v2NowWork] = await Promise.all([
+        [v2Proposals, v2SemanticCommits, v2Objects, v2Associations, v2NowWork] = await Promise.all([
           serviceRuntimeClient.listProposals(),
           serviceRuntimeClient.listSemanticCommits(),
           serviceRuntimeClient.listObjects(),
+          serviceRuntimeClient.listAssociations(),
           serviceRuntimeClient.nowWork(),
         ]);
       } catch (error) {
@@ -214,6 +218,9 @@ async function model(): Promise<UiModel> {
       },
       v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
       v2Objects,
+      v2Associations,
+      v2AssociationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+      v2AssociationBusy: v2AssociationSubmission.busy,
       v2Proposals,
       v2MigrationRuns,
       v2SemanticCommits,
@@ -431,6 +438,13 @@ function dialogField(name: string): string {
 
 function dialogChecked(name: string): boolean {
   return requireAppRoot().querySelector<HTMLInputElement>(`[data-field="${name}"]`)?.checked === true;
+}
+
+function dialogSelectedVersion(name: string): number | undefined {
+  const value = requireAppRoot().querySelector<HTMLSelectElement>(`[data-field="${name}"]`)?.selectedOptions[0]?.dataset.version;
+  if (!value) return undefined;
+  const version = Number(value);
+  return Number.isSafeInteger(version) && version > 0 ? version : undefined;
 }
 
 function openInboxDialog(captureId: string, kind: NonNullable<UiModel["inboxDialog"]>["kind"]): Promise<void> {
@@ -891,6 +905,22 @@ async function handleAction(action: string, value?: string): Promise<void> {
       workspace = "objects";
       message = `${result.pageName} 已创建并验证；Project ${result.object.objectId} 已正式写入 SQLite，可重试且不会重复。`;
     });
+    return;
+  }
+  if (action === "v2-association-add") {
+    if (v2AssociationSubmission.busy) return;
+    const sourceObjectId = dialogField("v2AssociationSource");
+    const expectedVersion = dialogSelectedVersion("v2AssociationSource");
+    const targetObjectId = dialogField("v2AssociationTarget");
+    const confirmed = dialogChecked("v2AssociationConfirmed");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) throw new Error("V2 Local Service 未就绪；Association 未创建。");
+      await submitV2Association(v2AssociationSubmission, client, {
+        sourceObjectId, targetObjectId, expectedVersion, confirmed, traceId: `v2-association-ui-${Date.now()}`,
+      }, async () => refresh());
+      workspace = "objects";
+    }, "Association 已添加；Primary Ownership、位置、Lifecycle 与 Focus 均未改变。");
     return;
   }
   if ((action === "v2-review-accept" || action === "v2-review-reject") && value) {

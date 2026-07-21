@@ -33,6 +33,7 @@ test("SQLite initialization is Graph-bound and idempotent", async (t) => {
 
 async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   const database = new Database(path);
+  database.exec("DROP TABLE associations");
   database.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs");
   database.exec("ALTER TABLE objects DROP COLUMN closure_json");
   database.exec("ALTER TABLE objects DROP COLUMN due_at");
@@ -76,6 +77,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 6, name: "add_task_due_at", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 7, name: "add_v1_migration_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 8, name: "add_project_closure_summary", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 9, name: "add_plain_associations", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -129,7 +131,7 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
+  legacy.exec("DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
   legacy.prepare("UPDATE schema_meta SET value = '2' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 2");
   legacy.close();
@@ -165,7 +167,7 @@ test("schema v3 explicitly migrates to proposal review tables after a validated 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
+  legacy.exec("DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
   legacy.prepare("UPDATE schema_meta SET value = '3' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 3");
   legacy.close();
@@ -187,6 +189,7 @@ test("schema v4 explicitly decouples immutable Audit from the current object pro
   store.close();
   const legacy = new Database(path);
   legacy.exec(`
+    DROP TABLE associations;
     DROP TABLE legacy_evidence;
     DROP TABLE migration_batches;
     DROP TABLE migration_runs;
@@ -221,7 +224,7 @@ test("schema v5 explicitly adds nullable Task due_at after a validated backup", 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
+  legacy.exec("DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
   legacy.prepare("UPDATE schema_meta SET value = '5' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 5");
   legacy.close();
@@ -241,7 +244,7 @@ test("schema v6 explicitly adds only the bounded V1 migration ledger after a val
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 7");
+  legacy.exec("DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 7");
   legacy.prepare("UPDATE schema_meta SET value = '6' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 6");
   legacy.close();
@@ -261,7 +264,7 @@ test("schema v7 adds only nullable Project closure_summary after a validated bac
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version = 8");
+  legacy.exec("DROP TABLE associations; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 8");
   legacy.prepare("UPDATE schema_meta SET value = '7' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 7");
   legacy.close();
@@ -271,6 +274,30 @@ test("schema v7 adds only nullable Project closure_summary after a validated bac
   const internal = migrating as unknown as { database: Database.Database };
   assert.equal(internal.database.prepare("SELECT count(*) FROM pragma_table_info('objects') WHERE name = 'closure_json'").pluck().get(), 1);
   assert.equal(migrating.schemaMigrationHistory()[7]?.name, "add_project_closure_summary");
+  migrating.close();
+});
+
+test("schema v8 adds only plain associations after preserving an exact v8 backup", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec("DROP TABLE associations; DELETE FROM schema_migrations WHERE version >= 9");
+  legacy.prepare("UPDATE schema_meta SET value = '8' WHERE key = 'schema_version'").run();
+  legacy.pragma("user_version = 8");
+  legacy.close();
+  const migrating = await V2SqliteStore.open(path);
+  assert.throws(() => migrating.initialize("graph-a"), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_REQUIRED");
+  const backupPath = join(root, "before-plain-associations.db");
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-21T12:20:00.000Z")), { migrated: true, fromVersion: 8, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath });
+  const backup = new Database(backupPath, { readonly: true, fileMustExist: true });
+  assert.equal(backup.pragma("user_version", { simple: true }), 8);
+  assert.equal(backup.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'associations'").pluck().get(), 0);
+  backup.close();
+  const internal = migrating as unknown as { database: Database.Database };
+  assert.equal(internal.database.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'associations'").pluck().get(), 1);
+  assert.equal(migrating.schemaMigrationHistory()[8]?.name, "add_plain_associations");
   migrating.close();
 });
 
@@ -614,7 +641,13 @@ test("Primary Anchor and Ownership are unique atomic Application commands", asyn
     traceId: "trace-owner-2",
   }), /显式变更/);
   assert.equal(store.getObject("task-1")?.version, 3, "failed Ownership transaction must roll object version back");
-  assert.equal(store.auditEventCount(), 4);
+  const associated = await application.addAssociation("task-1", "project-1", { actor: "test", expectedVersion: 3, idempotencyKey: "associate-project", traceId: "trace-associate" });
+  assert.equal(associated.object.version, 4);
+  assert.equal(store.listAssociations()[0]?.targetObjectId, "project-1");
+  assert.equal(store.listPrimaryOwnerships()[0]?.ownerObjectId, "project-1", "Association does not replace Primary Ownership");
+  await assert.rejects(() => application.addAssociation("task-1", "project-1", { actor: "test", expectedVersion: 4, idempotencyKey: "associate-duplicate", traceId: "trace-associate-duplicate" }), /已存在/);
+  assert.equal(store.getObject("task-1")?.version, 4, "duplicate Association rolls back object version");
+  assert.equal(store.auditEventCount(), 5);
   store.close();
 });
 
@@ -794,6 +827,21 @@ test("materialization Undo preserves Audit while deleting only an unchanged curr
   await assert.rejects(() => application.undoMaterialization(changed, { actor: "user", expectedVersion: changed.object.version, idempotencyKey: "undo-changed", traceId: "trace-undo-changed" }), /已变化/);
   assert.equal(store.getObject("task-changed")?.text, "后续编辑");
   assert.equal(store.getCommandReceipt("undo-changed"), undefined);
+
+  const relatedTarget = await application.materializeExplicitObject({
+    objectId: "task-related-target", objectType: "TASK", text: "被关联对象", anchor: { anchorId: "anchor-related-target", graphId: "graph-a", externalId: "block-related-target", contentHash: "hash-related-target" },
+  }, { actor: "proposal_commit", expectedVersion: 0, idempotencyKey: "materialize-related-target", traceId: "trace-related-target" });
+  const relatedSource = await application.createObject({ objectId: "decision-related-source", objectType: "DECISION", text: "引用决定" }, {
+    actor: "user", expectedVersion: 0, idempotencyKey: "create-related-source", traceId: "trace-related-source",
+  });
+  await application.addAssociation(relatedSource.objectId, relatedTarget.object.objectId, {
+    actor: "user", expectedVersion: relatedSource.version, idempotencyKey: "associate-related-target", traceId: "trace-associate-related-target",
+  });
+  await assert.rejects(
+    () => application.undoMaterialization(relatedTarget, { actor: "user", expectedVersion: relatedTarget.object.version, idempotencyKey: "undo-related-target", traceId: "trace-undo-related-target" }),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_UNDO_DEPENDENT_STATE_EXISTS",
+  );
+  assert.equal(store.getObject(relatedTarget.object.objectId)?.version, relatedTarget.object.version, "incoming Association is explicit dependent state even though it does not change target version");
   store.close();
 });
 

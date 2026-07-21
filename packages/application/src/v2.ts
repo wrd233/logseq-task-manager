@@ -1,5 +1,6 @@
 import {
   assignV2PrimaryOwner,
+  associateV2Objects,
   bindV2PrimaryAnchor,
   changeV2Condition,
   changeV2DueAt,
@@ -14,6 +15,7 @@ import {
   type FocusSelection,
   type Lifecycle,
   type V2Anchor,
+  type V2Association,
   type V2ManagedObject,
   type V2Condition,
   type V2ExecutionMarker,
@@ -38,6 +40,7 @@ export interface V2ObjectRepository {
   commitAnchorRebind(command: V2AnchorRebindCommand): V2AnchorRebindCommandResult | Promise<V2AnchorRebindCommandResult>;
   commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult | Promise<V2OwnershipCommandResult>;
+  commitAssociation(command: V2AssociationCommand): V2AssociationCommandResult | Promise<V2AssociationCommandResult>;
   commitMaterializationUndo(command: V2MaterializationUndoCommand): V2MaterializationUndoResult | Promise<V2MaterializationUndoResult>;
   getObject(objectId: string): V2ManagedObject | undefined | Promise<V2ManagedObject | undefined>;
   getPrimaryAnchorByExternal(graphId: string, externalId: string): V2Anchor | undefined | Promise<V2Anchor | undefined>;
@@ -50,7 +53,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner";
+  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "add_association";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -125,6 +128,20 @@ export interface V2OwnershipCommandResult {
   replayed: boolean;
 }
 
+export interface V2AssociationCommand {
+  object: V2ManagedObject;
+  association: V2Association;
+  expectedVersion: number;
+  idempotencyKey: string;
+  audit: V2AuditRecord & { command: "add_association" };
+}
+
+export interface V2AssociationCommandResult {
+  object: V2ManagedObject;
+  association: V2Association;
+  replayed: boolean;
+}
+
 export interface V2MaterializationUndoCommand {
   expectedObject: V2ManagedObject;
   expectedAnchor: V2Anchor;
@@ -142,7 +159,8 @@ export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
   | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
-  | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership };
+  | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }
+  | { command: "add_association"; object: V2ManagedObject; association: V2Association };
 
 export interface MaterializeExplicitObjectInput {
   objectId?: string;
@@ -651,6 +669,25 @@ export class V2Application {
         afterVersion: candidate.object.version,
         occurredAt: at.toISOString(),
       },
+    });
+  }
+
+  async addAssociation(
+    sourceObjectId: string,
+    targetObjectId: string,
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2AssociationCommandResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "add_association", sourceObjectId);
+    if (replay?.command === "add_association") return { object: replay.object, association: replay.association, replayed: true };
+    const [source, target] = await Promise.all([this.requireObject(sourceObjectId), this.requireObject(targetObjectId)]);
+    const candidate = associateV2Objects(source, target, envelope.expectedVersion, at);
+    return this.objects.commitAssociation({
+      ...candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: { traceId: envelope.traceId, actor: envelope.actor, command: "add_association", objectId: sourceObjectId, beforeVersion: source.version, afterVersion: candidate.object.version, occurredAt: at.toISOString() },
     });
   }
 

@@ -5,7 +5,7 @@ import type {
   ProposalImpactView,
   ProjectReentryView,
 } from "@task-copilot/application";
-import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2ManagedObject } from "@task-copilot/domain";
+import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2ManagedObject } from "@task-copilot/domain";
 import type { ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import type { ObservableActionState } from "./inbox-action-controller.ts";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
@@ -65,6 +65,9 @@ export interface UiModel {
   actionDialog?: { kind: ActionDialogKind; value: string };
   v2ProjectCreationAvailable?: boolean;
   v2Objects?: V2ManagedObject[];
+  v2Associations?: V2Association[];
+  v2AssociationAvailable?: boolean;
+  v2AssociationBusy?: boolean;
   v2Proposals?: ServiceStoredProposal[];
   v2SemanticCommits?: ServiceSemanticCommit[];
   v2NowWork?: ServiceNowWork;
@@ -180,10 +183,14 @@ function renderNow(model: UiModel): string {
 
 function renderObjects(model: UiModel): string {
   const projectCreator = `<section class="card project-creator" aria-label="创建 Project 页面"><div class="eyebrow">V2 · Project 原子创建</div><h3>新建 Project</h3><p class="muted">创建受控的 Project/&lt;名称&gt; 页面，并在页面验证后一次性写入 SQLite。</p><label>Project 名称<input data-field="v2ProjectName" placeholder="例如：告警推送治理"${model.v2ProjectCreationAvailable ? "" : " disabled"}></label>${button("创建 Project 与页面", "create-v2-project", undefined, "primary", !model.v2ProjectCreationAvailable)}</section>`;
+  const associationCreator = model.v2Objects && model.v2Objects.length >= 2 ? `<section class="card association-creator" aria-label="添加普通 Association"><div class="eyebrow">V2 · 普通关联</div><h3>关联两个正式对象</h3><p class="muted">只表达“相关”，不会改变 Primary Ownership、位置、Lifecycle 或 Focus。</p><label>来源对象<select data-field="v2AssociationSource"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}" data-version="${object.version}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)} · v${object.version}</option>`).join("")}</select></label><label>目标对象<select data-field="v2AssociationTarget"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="v2AssociationConfirmed" value="yes">确认添加普通 Association，不改变归属</label>${button(model.v2AssociationBusy ? "正在添加…" : "添加 Association", "v2-association-add", undefined, "primary", !model.v2AssociationAvailable || model.v2AssociationBusy)}${model.v2Associations?.length ? `<p class="muted">当前已有 ${model.v2Associations.length} 条普通 Association。</p>` : ""}</section>` : "";
   if (model.v2Objects !== undefined) {
     if (model.v2Objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Review Center 正式化，或创建 V2 Project 页面。")}`;
+    const objectLabels = new Map(model.v2Objects.map((object) => [object.objectId, `${object.objectType} · ${object.text}`]));
+    const visibleAssociations = (model.v2Associations ?? []).slice(0, 100);
+    const associationList = visibleAssociations.length ? `<section aria-label="普通 Association 列表"><h2>普通 Association</h2><div class="object-list">${visibleAssociations.map((association) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(association.sourceObjectId) ?? association.sourceObjectId)} → ${escapeHtml(objectLabels.get(association.targetObjectId) ?? association.targetObjectId)}</span><small>${escapeHtml(association.associationKind)} · ${escapeHtml(association.status)}</small></article>`).join("")}</div>${(model.v2Associations?.length ?? 0) > visibleAssociations.length ? `<p class="muted">仅显示前 ${visibleAssociations.length} 条；完整投影仍由 Local Service 提供。</p>` : ""}</section>` : "";
     const list = `<section aria-label="V2 正式对象"><h2>正式对象</h2><div class="object-list">${model.v2Objects.map((object) => `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${object.closure ? `<details class="project-closure" open><summary>Project Closure</summary><p><strong>原始目标：</strong>${escapeHtml(object.closure.originalGoal)}</p><p><strong>实际结果：</strong>${escapeHtml(object.closure.actualResult)}</p><p><strong>主要交付：</strong>${escapeHtml(object.closure.majorDeliverables.join("；") || "无")}</p><p><strong>未完成 Objective：</strong>${object.closure.incompleteObjectives.length ? object.closure.incompleteObjectives.map((item) => `${escapeHtml(item.objective)}（${escapeHtml(item.reason)} → ${escapeHtml(item.nextStep)}）`).join("；") : "无"}</p><p><strong>遗留去向：</strong>${escapeHtml(object.closure.legacyDisposition)}</p><p><strong>关键 Decision：</strong>${escapeHtml(object.closure.keyDecisions.join("；") || "无")}</p><p><strong>未来重入：</strong>${escapeHtml(object.closure.futureSummary)}</p></details>` : ""}</article>`).join("")}</div></section>`;
-    return `${projectCreator}${list}`;
+    return `${projectCreator}${associationCreator}${associationList}${list}`;
   }
   if (model.objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Inbox 手工正式化，或创建 V2 Project 页面。")}`;
   const list = `<div class="object-list">${model.objects

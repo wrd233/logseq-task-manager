@@ -160,6 +160,31 @@ test("Local Service exports a read-only Project Context Package without Graph sc
   await assert.rejects(() => client.exportContext("object", "missing"), /Context 根对象不存在/);
 });
 
+test("Local Service adds one confirmed plain Association without changing Primary Ownership", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-association-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-association", token: "association-service-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const createProject = async (name: string, suffix: string) => {
+    const intent = await client.prepareProject({ name, traceId: `prepare-${suffix}` });
+    return client.finalizeProject({ semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name, pageExternalId: `page-${suffix}`, pageContentHash: checksum(name), traceId: `finalize-${suffix}` });
+  };
+  const source = await createProject("Association Source", "source");
+  const target = await createProject("Association Target", "target");
+  const malformed = await fetch(new URL("associations", service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ sourceObjectId: source.object.objectId, targetObjectId: target.object.objectId, expectedVersion: 1, traceId: "missing-confirmation" }) });
+  assert.equal(malformed.status, 400);
+  assert.deepEqual(await client.listAssociations(), []);
+  const added = await client.addAssociation({ sourceObjectId: source.object.objectId, targetObjectId: target.object.objectId, expectedVersion: source.object.version, confirmation: "ADD_ASSOCIATION", traceId: "trace-association" });
+  assert.equal(added.object.version, source.object.version + 1);
+  assert.equal(added.association.associationKind, "RELATED");
+  assert.deepEqual(await client.listAssociations(), [added.association]);
+  assert.equal((await client.exportContext("project", source.object.objectId)).contextPackage.files["relations.json"]?.includes(target.object.objectId), false, "Association export remains pending instead of pretending to be Ownership");
+  await assert.rejects(() => client.addAssociation({ sourceObjectId: source.object.objectId, targetObjectId: target.object.objectId, expectedVersion: added.object.version, confirmation: "ADD_ASSOCIATION", traceId: "trace-duplicate-association" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_ASSOCIATION_EXISTS");
+  await assert.rejects(() => client.addAssociation({ sourceObjectId: target.object.objectId, targetObjectId: target.object.objectId, expectedVersion: target.object.version, confirmation: "ADD_ASSOCIATION", traceId: "trace-self-association" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 400 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_ASSOCIATION_SELF_REFERENCE");
+  await assert.rejects(() => client.addAssociation({ sourceObjectId: target.object.objectId, targetObjectId: "missing-association-target", expectedVersion: target.object.version, confirmation: "ADD_ASSOCIATION", traceId: "trace-missing-association" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 404 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_NOT_FOUND");
+  assert.equal((await client.getObject(source.object.objectId))?.version, added.object.version, "duplicate Association rolls back source version");
+});
+
 test("Local Service migration scan validates an explicit Recovery Bundle and leaves Store unchanged", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-migration-scan-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-migration-scan", token: "migration-scan-service-token-24-chars" });

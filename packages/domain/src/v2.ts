@@ -72,6 +72,26 @@ export interface V2PrimaryOwnership {
   assignedAt: string;
 }
 
+export interface V2Association {
+  associationId: string;
+  sourceObjectId: string;
+  targetObjectId: string;
+  associationKind: "RELATED";
+  status: "ACTIVE";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function associateV2Objects(source: V2ManagedObject, target: V2ManagedObject, expectedVersion: number, at = new Date()): { object: V2ManagedObject; association: V2Association } {
+  requireExpectedVersion(source, expectedVersion);
+  if (source.objectId === target.objectId) throw new StructuredError({ code: "V2_ASSOCIATION_SELF_REFERENCE", message: "Association 不能把对象关联到自身。", ruleRefs: ["D-035", "D-047"] });
+  const timestamp = at.toISOString();
+  return {
+    object: { ...source, version: source.version + 1, updatedAt: timestamp },
+    association: { associationId: createId("rel"), sourceObjectId: source.objectId, targetObjectId: target.objectId, associationKind: "RELATED", status: "ACTIVE", createdAt: timestamp, updatedAt: timestamp },
+  };
+}
+
 function requireText(value: string, code: string, message: string): void {
   if (!value.trim()) {
     throw new StructuredError({ code, message, ruleRefs: ["D-220"] });

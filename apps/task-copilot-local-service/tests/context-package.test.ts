@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import type { V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
+import type { V2Anchor, V2Association, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 
 import { buildContextPackage, contextPackageFingerprint, type ContextPackageSource } from "../src/context-package.ts";
 
@@ -17,10 +17,12 @@ test("Project Context Package contains bounded formal descendants, versions, has
     { childObjectId: "decision-1", ownerObjectId: "project-1", assignedAt: "2026-07-21T08:00:00.000Z" },
   ];
   const anchors = new Map<string, V2Anchor>(objects.map(({ objectId }) => [objectId, { anchorId: `anchor-${objectId}`, objectId, graphId: "graph", externalId: `block-${objectId}`, role: "primary_text", status: "active", contentHash: "11111111", lastSeenAt: "2026-07-21T08:00:00.000Z" }]));
+  const associations: V2Association[] = [{ associationId: "rel-project-task", sourceObjectId: "task-1", targetObjectId: "decision-1", associationKind: "RELATED", status: "ACTIVE", createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z" }];
   const source: ContextPackageSource = {
     getObject: (id) => objects.find(({ objectId }) => objectId === id),
     listObjects: () => objects,
     listPrimaryOwnerships: () => ownerships,
+    listAssociations: () => associations,
     getActivePrimaryAnchorByObject: (id) => anchors.get(id),
     databaseSchemaVersion: () => 6,
   };
@@ -31,6 +33,7 @@ test("Project Context Package contains bounded formal descendants, versions, has
   assert.equal(JSON.parse(result.files["objects.json"] ?? "").formalFacts.some(({ objectId }: { objectId: string }) => objectId === "outside"), false);
   assert.deepEqual(JSON.parse(result.files["retrieval-candidates.json"] ?? "").candidates, []);
   assert.equal(JSON.parse(result.files["graph-excerpts.json"] ?? "").status, "NOT_AVAILABLE_IN_LOCAL_SERVICE");
+  assert.deepEqual(JSON.parse(result.files["relations.json"] ?? "").formalFacts.associations, associations);
   assert.equal(result.files["skills/task-copilot-core/SKILL.md"], "# Core\n");
   for (const entry of result.manifest.files) assert.equal(createHash("sha256").update(result.files[entry.path] ?? "").digest("hex"), entry.sha256);
   assert.match(contextPackageFingerprint(result), /^[0-9a-f]{64}$/);

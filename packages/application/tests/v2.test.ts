@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { FocusSelection, V2Anchor, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
+import type { FocusSelection, V2Anchor, V2Association, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 
 import {
   V2Application,
   type V2AnchorObservationCommand,
+  type V2AssociationCommand,
   type V2AnchorRebindCommand,
   type V2AnchorCommand,
   type V2AuditRecord,
@@ -25,6 +26,7 @@ class MemoryV2Repository implements V2ObjectRepository {
   readonly audit: V2AuditRecord[] = [];
   readonly anchors = new Map<string, V2Anchor>();
   readonly ownerships = new Map<string, V2PrimaryOwnership>();
+  readonly associations = new Map<string, V2Association>();
   readonly focus = new Map<string, FocusSelection>();
 
   commitFocusSelection(objectId: string, expectedVersion: number, selection: FocusSelection | undefined): FocusSelection | undefined {
@@ -153,6 +155,16 @@ class MemoryV2Repository implements V2ObjectRepository {
     return { object: command.object, ownership: command.ownership, replayed: false };
   }
 
+  commitAssociation(command: V2AssociationCommand): { object: V2ManagedObject; association: V2Association; replayed: boolean } {
+    const receipt = this.receipts.get(command.idempotencyKey);
+    if (receipt?.command === "add_association") return { object: receipt.object, association: receipt.association, replayed: true };
+    if ([...this.associations.values()].some((value) => value.sourceObjectId === command.association.sourceObjectId && value.targetObjectId === command.association.targetObjectId)) throw new Error("association exists");
+    this.commitVersionedChange(command.object, command.expectedVersion, command.idempotencyKey, command.audit);
+    this.associations.set(command.association.associationId, command.association);
+    this.receipts.set(command.idempotencyKey, { command: "add_association", object: command.object, association: command.association });
+    return { object: command.object, association: command.association, replayed: false };
+  }
+
   private commitVersionedChange(object: V2ManagedObject, expectedVersion: number, idempotencyKey: string, audit: V2AuditRecord): void {
     const actualVersion = this.values.get(object.objectId)?.version ?? 0;
     if (actualVersion !== expectedVersion) throw new Error(`version ${actualVersion} != ${expectedVersion}`);
@@ -269,6 +281,19 @@ test("Primary Anchor and Ownership changes pass through Application and share ob
     idempotencyKey: "own-stale",
     traceId: "trace-stale",
   }), /版本/);
+});
+
+test("plain Association relates distinct objects without becoming Primary Ownership", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  await application.createObject({ objectId: "task-association", objectType: "TASK", text: "核对事件" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-source", traceId: "trace-source" });
+  await application.createObject({ objectId: "output-association", objectType: "OUTPUT", text: "验证记录" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-target", traceId: "trace-target" });
+  const associated = await application.addAssociation("task-association", "output-association", { actor: "user", expectedVersion: 1, idempotencyKey: "associate", traceId: "trace-associate" }, new Date("2026-07-21T14:00:00.000Z"));
+  assert.equal(associated.object.version, 2);
+  assert.equal(associated.association.associationKind, "RELATED");
+  assert.equal(repository.ownerships.size, 0);
+  assert.equal((await application.addAssociation("task-association", "output-association", { actor: "user", expectedVersion: 1, idempotencyKey: "associate", traceId: "trace-replay" })).replayed, true);
+  await assert.rejects(() => application.addAssociation("task-association", "task-association", { actor: "user", expectedVersion: 2, idempotencyKey: "self", traceId: "trace-self" }), /自身/);
 });
 
 test("explicit Block materialization creates Object and Primary Anchor as one idempotent command", async () => {

@@ -109,6 +109,27 @@ test("verified migration batch can undo exactly, but refuses changed current sta
   store.close();
 });
 
+test("migration projection detects a later incoming Association before Undo", async (t) => {
+  const { root, store, migration } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  const { run } = await reviewed(migration);
+  const imported = await migration.importBatch(importInput(run.runId), new Date("2026-07-21T09:00:00.000Z"));
+  await migration.verifyBatch(run.runId, imported.batch.batchId, new Date("2026-07-21T10:00:00.000Z"));
+  const application = new V2Application(store);
+  const source = await application.createObject({ objectId: "decision-after-migration", objectType: "DECISION", text: "迁移后关联" }, {
+    actor: "tester", expectedVersion: 0, idempotencyKey: "create-after-migration", traceId: "trace-create-after-migration",
+  });
+  await application.addAssociation(source.objectId, "legacy-task-1", {
+    actor: "tester", expectedVersion: source.version, idempotencyKey: "associate-after-migration", traceId: "trace-associate-after-migration",
+  });
+  assert.throws(
+    () => migration.undoBatch(run.runId, imported.batch.batchId, "UNDO_MIGRATION_BATCH", new Date("2026-07-21T11:00:00.000Z")),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "MIGRATION_UNDO_TARGET_CHANGED",
+  );
+  assert.equal(store.getObject("legacy-task-1")?.version, 1, "incoming Association must be detected without mutating the migrated target version");
+  store.close();
+});
+
 test("unchanged verified migration batch undoes projection but preserves evidence and audit history", async (t) => {
   const { root, store, migration } = await fixture();
   t.after(async () => rm(root, { recursive: true, force: true }));
