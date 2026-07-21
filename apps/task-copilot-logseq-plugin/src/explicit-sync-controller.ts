@@ -12,11 +12,12 @@ import type {
   ServicePrimaryAnchorPage,
   ServiceSynchronizeExplicitObjectResult,
 } from "@task-copilot/service-client";
-import type { V2Anchor } from "@task-copilot/domain";
+import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
 export interface ExplicitSyncTransport {
   synchronizeExplicitObject(input: ServiceMaterializeExplicitObjectRequest): Promise<ServiceSynchronizeExplicitObjectResult>;
+  listObjects?(): Promise<ReadonlyArray<Pick<V2ManagedObject, "objectId" | "objectType">>>;
   listPrimaryAnchors?(cursor?: string): Promise<ServicePrimaryAnchorPage>;
   observePrimaryAnchor?(input: ServicePrimaryAnchorObservationRequest): Promise<unknown>;
 }
@@ -440,7 +441,23 @@ export class ExplicitSyncController {
       return;
     }
     if (this.disposed) return;
-    const anchors: V2Anchor[] = page.anchors;
+    let anchors: V2Anchor[] = page.anchors;
+    if (transport.listObjects) {
+      let objects: ReadonlyArray<Pick<V2ManagedObject, "objectId" | "objectType">>;
+      try {
+        objects = await transport.listObjects();
+      } catch (error) {
+        if (this.disposed) return;
+        this.needsReconciliation = true;
+        this.issue(errorCode(error), "显式 Block 对象范围读取失败；本轮未观察任何 Anchor。", undefined);
+        return;
+      }
+      if (this.disposed) return;
+      const blockObjectIds = new Set(objects
+        .filter(({ objectType }) => objectType === "TASK" || objectType === "MINI_PROJECT" || objectType === "DECISION" || objectType === "OUTPUT")
+        .map(({ objectId }) => objectId));
+      anchors = anchors.filter(({ objectId }) => blockObjectIds.has(objectId));
+    }
     if (page.nextCursor) {
       this.needsReconciliation = true;
       this.issue("EXPLICIT_SYNC_RECONCILIATION_PAGE_DEFERRED", "已知 Primary Anchor 将在下一轮继续分页检查；未执行全 Graph 扫描。");

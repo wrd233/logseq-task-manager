@@ -548,6 +548,43 @@ test("service recovery reconciles only known Anchors and reports missing or remo
   assert.deepEqual(controller.snapshot(), { pending: 0, transportReady: true, reconciliationRequired: true });
 });
 
+test("Block reconciliation leaves Project page Anchors to their page-specific workflow", async () => {
+  const reads: string[] = [];
+  const observations: Array<[string, string]> = [];
+  const at = "2026-07-20T08:00:00.000Z";
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    readBlock: async (externalId) => {
+      reads.push(externalId);
+      return null;
+    },
+  });
+  await controller.resume({
+    async listObjects() {
+      return [
+        { objectId: "task-object", objectType: "TASK" },
+        { objectId: "project-object", objectType: "PROJECT" },
+      ];
+    },
+    async listPrimaryAnchors() {
+      return { anchors: [
+        { anchorId: "task-anchor", objectId: "task-object", graphId: "graph", externalId: "task-block", role: "primary_text", status: "active", contentHash: "11111111", lastSeenAt: at },
+        { anchorId: "project-anchor", objectId: "project-object", graphId: "graph", externalId: "project-page", role: "primary_text", status: "active", contentHash: "22222222", lastSeenAt: at },
+      ] };
+    },
+    async synchronizeExplicitObject() {
+      throw new Error("a missing Block must not synchronize");
+    },
+    async observePrimaryAnchor(input) {
+      observations.push([input.anchorId, input.status]);
+      return {};
+    },
+  } as ExplicitSyncTransport);
+
+  assert.deepEqual(reads, ["task-block"]);
+  assert.deepEqual(observations, [["task-anchor", "missing"]]);
+});
+
 test("known Anchor reconciliation advances a bounded cursor across low-frequency runs", async () => {
   const cursors: Array<string | undefined> = [];
   const synchronized: string[] = [];
