@@ -1,4 +1,4 @@
-import type { LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -366,6 +366,34 @@ export interface ServiceNowWorkConditionOption { objectId: string; objectType: V
 export interface ServiceNowWork { generatedAt: string; focus: ServiceNowWorkItem[]; next: ServiceNowWorkItem[]; waitingReview: ServiceNowWorkItem[]; conditionOptions: ServiceNowWorkConditionOption[] }
 export interface ServiceFocusSelection { objectId: string; selectedAt: string; rank: number; expiresAt?: string }
 
+export interface ServiceCandidateDiscoveryRequest {
+  sourceAnchorId: string;
+  sourceVersion: string;
+  candidateKind: V2CandidateKind;
+  reason: string;
+  suggestion: string;
+  traceId: string;
+}
+
+export interface ServiceCandidateDispositionRequest {
+  disposition: Exclude<V2CandidateDisposition, "PENDING" | "RESOLVED">;
+  reason: string;
+  deferredUntil?: string;
+  expectedUpdatedAt: string;
+  traceId: string;
+}
+
+export interface ServiceCandidateFormalizationRequest {
+  sourceAnchorId: string;
+  inputVersion: string;
+  contentHash: string;
+  content: string;
+  objectType: "MINI_PROJECT" | "TASK" | "DECISION" | "OUTPUT";
+  text: string;
+  expectedUpdatedAt: string;
+  traceId: string;
+}
+
 export type ServiceProposalUndoFinalization =
   | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; objectId: string; replayed: boolean }
   | { status: "COMPENSATION_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; patch: ServicePreparedProposalUndo["patch"] };
@@ -553,6 +581,22 @@ export class LocalServiceClient {
 
   async listPrimaryOwnerships(): Promise<V2PrimaryOwnership[]> {
     return (await this.request<{ ownerships: V2PrimaryOwnership[] }>("/ownerships/primary")).ownerships;
+  }
+
+  async listCandidates(): Promise<V2Candidate[]> {
+    return (await this.request<{ candidates: V2Candidate[] }>("/candidates")).candidates;
+  }
+
+  discoverCandidate(input: ServiceCandidateDiscoveryRequest): Promise<{ candidate: V2Candidate; replayed: boolean }> {
+    return this.request("/candidates/discover", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  setCandidateDisposition(candidateId: string, input: ServiceCandidateDispositionRequest): Promise<{ candidate: V2Candidate; replayed: boolean }> {
+    return this.request(`/candidates/${encodeURIComponent(candidateId)}/disposition`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  formalizeCandidate(candidateId: string, input: ServiceCandidateFormalizationRequest): Promise<{ candidate: V2Candidate; record: ServiceStoredProposal; replayed: boolean }> {
+    return this.request(`/candidates/${encodeURIComponent(candidateId)}/formalize`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
   }
 
   addAssociation(input: ServiceAddAssociationRequest): Promise<{ object: V2ManagedObject; association: V2Association; replayed: boolean }> {

@@ -1,5 +1,6 @@
-import { normalizeExplicitObjectBlock, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
-import type { ServiceMaterializeExplicitObjectRequest, ServiceSynchronizeExplicitObjectResult } from "@task-copilot/service-client";
+import { normalizeExplicitObjectBlock, stripLogseqBlockIdentityProperty, type LogseqTodoMarker } from "@task-copilot/logseq-adapter";
+import type { ServiceCandidateDiscoveryRequest } from "@task-copilot/service-client";
+import type { V2Candidate } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
 import type { ServiceRuntimeClient } from "./service-connection.ts";
@@ -8,8 +9,8 @@ export interface V2ExplicitCandidate {
   externalId: string;
   inputVersion: string;
   contentHash: string;
-  objectType: ServiceMaterializeExplicitObjectRequest["objectType"];
-  marker?: ServiceMaterializeExplicitObjectRequest["marker"];
+  objectType: "AREA" | "PROJECT" | "MINI_PROJECT" | "TASK" | "DECISION" | "OUTPUT";
+  marker?: LogseqTodoMarker;
   text: string;
 }
 
@@ -27,7 +28,7 @@ export type V2ExplicitCandidatePanelState =
   | { status: "success"; message: string }
   | { status: "error"; message: string };
 
-type CandidateClient = Pick<ServiceRuntimeClient, "listPrimaryAnchors" | "synchronizeExplicitObject">;
+type CandidateClient = Pick<ServiceRuntimeClient, "listPrimaryAnchors" | "discoverCandidate">;
 
 interface DiscoveryLimits {
   maxBlocks: number;
@@ -128,37 +129,79 @@ function candidateFromBlock(value: unknown): V2ExplicitCandidate | undefined {
   } : undefined;
 }
 
-export async function submitV2ExplicitCandidate(
+function candidateKindForExplicitObject(objectType: V2ExplicitCandidate["objectType"]): ServiceCandidateDiscoveryRequest["candidateKind"] {
+  return objectType === "DECISION" ? "DECISION" : objectType === "OUTPUT" ? "OUTPUT" : "WORK_ITEM";
+}
+
+export async function persistV2ExplicitCandidateDiscovery(
   client: CandidateClient,
   preview: V2ExplicitCandidatePreview,
-  externalId: string,
+  readBlock: (externalId: string) => Promise<unknown>,
+  traceId: string,
+): Promise<{ candidates: V2Candidate[]; replayed: number }> {
+  if (!preview.candidates.length) throw new Error("当前预览没有可保存 Candidate；没有执行写入。");
+  const currentCandidates: V2ExplicitCandidate[] = [];
+  for (const candidate of preview.candidates) {
+    const current = candidateFromBlock(await readBlock(candidate.externalId));
+    if (!current || current.externalId !== candidate.externalId || current.inputVersion !== candidate.inputVersion
+      || current.contentHash !== candidate.contentHash || current.objectType !== candidate.objectType
+      || current.marker !== candidate.marker || current.text !== candidate.text) {
+      throw new Error(`候选 Block ${candidate.externalId} 已在预览后变化或不再合法；请重新扫描，本批尚未提交。`);
+    }
+    currentCandidates.push(current);
+  }
+  const results = [];
+  for (const current of currentCandidates) {
+    const candidateKind = candidateKindForExplicitObject(current.objectType);
+    results.push(await client.discoverCandidate({
+      sourceAnchorId: current.externalId,
+      sourceVersion: `${current.inputVersion}:${current.contentHash}`,
+      candidateKind,
+      reason: `${current.objectType} 显式标识尚未绑定正式对象。`,
+      suggestion: current.objectType === "AREA" || current.objectType === "PROJECT" ? "在审阅中心选择对应正式创建流程。" : `生成 ${current.objectType} 正式化 Proposal。`,
+      traceId: `${traceId}:${current.externalId}`,
+    }));
+  }
+  return { candidates: results.map(({ candidate }) => candidate), replayed: results.filter(({ replayed }) => replayed).length };
+}
+
+export async function formalizeV2Candidate(
+  client: Pick<ServiceRuntimeClient, "discoverCandidate" | "formalizeCandidate">,
+  candidate: V2Candidate,
   readBlock: (externalId: string) => Promise<unknown>,
   traceId: string,
   ensurePersistentIdentity?: (externalId: string) => Promise<void>,
-): Promise<ServiceSynchronizeExplicitObjectResult> {
-  const candidate = preview.candidates.find((value) => value.externalId === externalId);
-  if (!candidate) throw new Error("请选择当前预览中的显式对象候选；没有执行写入。");
-  const current = candidateFromBlock(await readBlock(candidate.externalId));
-  if (
-    !current
-    || current.externalId !== candidate.externalId
-    || current.inputVersion !== candidate.inputVersion
-    || current.contentHash !== candidate.contentHash
-    || current.objectType !== candidate.objectType
-    || current.marker !== candidate.marker
-    || current.text !== candidate.text
-  ) {
-    throw new Error("候选 Block 已在预览后变化或不再是合法显式对象；请重新扫描，旧预览没有提交。");
+) {
+  const beforeIdentity = candidateFromBlock(await readBlock(candidate.sourceAnchorId));
+  if (!beforeIdentity || !candidate.sourceVersion.endsWith(`:${beforeIdentity.contentHash}`) || candidateKindForExplicitObject(beforeIdentity.objectType) !== candidate.candidateKind) throw new Error("Candidate 来源 Block 已变化；请重新扫描后再生成 Proposal。");
+  await ensurePersistentIdentity?.(candidate.sourceAnchorId);
+  const contentValue = await readBlock(candidate.sourceAnchorId);
+  const current = candidateFromBlock(contentValue);
+  if (!current || current.contentHash !== beforeIdentity.contentHash || current.objectType !== beforeIdentity.objectType || current.text !== beforeIdentity.text) throw new Error("Candidate 来源 Block 在建立持久身份时发生正文变化；请重新扫描后再生成 Proposal。");
+  if (!(["MINI_PROJECT", "TASK", "DECISION", "OUTPUT"] as string[]).includes(current.objectType)) throw new Error(`${current.objectType} 必须使用专属创建流程；当前 Candidate 没有生成不兼容 Proposal。`);
+  const contentRecord = contentValue && typeof contentValue === "object" && !Array.isArray(contentValue) ? contentValue as { content?: unknown } : undefined;
+  if (typeof contentRecord?.content !== "string") throw new Error("Candidate 来源正文不可读；没有生成 Proposal。");
+  let currentCandidate = candidate;
+  const sourceVersion = `${current.inputVersion}:${current.contentHash}`;
+  if (sourceVersion !== candidate.sourceVersion) {
+    const refreshed = await client.discoverCandidate({
+      sourceAnchorId: current.externalId,
+      sourceVersion,
+      candidateKind: candidateKindForExplicitObject(current.objectType),
+      reason: candidate.reason,
+      suggestion: candidate.suggestion,
+      traceId: `${traceId}:identity-refresh`,
+    });
+    currentCandidate = refreshed.candidate;
   }
-  await ensurePersistentIdentity?.(current.externalId);
-  return client.synchronizeExplicitObject({
-    objectType: current.objectType,
-    text: current.text,
-    ...(current.marker ? { marker: current.marker } : {}),
-    externalId: current.externalId,
+  return client.formalizeCandidate(currentCandidate.candidateId, {
+    sourceAnchorId: current.externalId,
     inputVersion: current.inputVersion,
     contentHash: current.contentHash,
-    idempotencyKey: `explicit-discovery:${current.externalId}:${current.inputVersion}:${current.contentHash}`,
+    content: stripLogseqBlockIdentityProperty(contentRecord.content, current.externalId),
+    objectType: current.objectType as "MINI_PROJECT" | "TASK" | "DECISION" | "OUTPUT",
+    text: current.text,
+    expectedUpdatedAt: currentCandidate.updatedAt,
     traceId,
   });
 }
@@ -167,18 +210,21 @@ function escapeHtml(value: unknown): string {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
-export function renderV2ExplicitCandidateDiscoveryPanel(state: V2ExplicitCandidatePanelState, available: boolean): string {
+export function renderV2ExplicitCandidateDiscoveryPanel(state: V2ExplicitCandidatePanelState, available: boolean, persistedCandidates: readonly V2Candidate[] = [], sourcePreviews: Readonly<Record<string, string>> = {}): string {
   if (!available) return "";
-  if (state.status === "idle") return `<section class="card candidate-review"><div class="eyebrow">待整理 · 当前页</div><h2>显式对象候选</h2><p>只以当前页为范围，不扫描全 Graph；Logseq 会提供整页树，本次最多处理前 256 个 Block，不会自动写入。</p><button type="button" data-action="v2-candidate-open">扫描当前页候选</button></section>`;
+  const actionable = persistedCandidates.filter(({ disposition, deferredUntil }) => disposition === "PENDING" || (disposition === "LATER" && deferredUntil !== undefined && Date.parse(deferredUntil) <= Date.now()));
+  const visible = actionable.slice(0, 50);
+  const queue = visible.length ? `<section aria-label="持久 Candidate 审阅队列"><div class="eyebrow">待整理 · SQLite</div><h2>Candidate 审阅队列</h2>${actionable.length > visible.length ? `<p class="muted">当前显示前 ${visible.length} 项；处理后刷新即可继续查看其余 ${actionable.length - visible.length} 项。</p>` : ""}${visible.map((candidate) => `<article class="card compact"><div class="eyebrow">${escapeHtml(candidate.candidateKind)} · ${escapeHtml(candidate.disposition)}</div><h3>原始内容</h3><blockquote>${escapeHtml(sourcePreviews[candidate.candidateId] ?? "原文暂不可读；请打开来源检查 Anchor。")}</blockquote><p><strong>进入这里的原因：</strong>${escapeHtml(candidate.reason)}</p><p><strong>建议：</strong>${escapeHtml(candidate.suggestion)}</p><p class="muted">来源 Block：${escapeHtml(candidate.sourceAnchorId)}${candidate.deferredUntil ? ` · 复查 ${escapeHtml(new Date(candidate.deferredUntil).toLocaleString("zh-CN"))}` : ""}</p><div class="actions"><button type="button" data-action="v2-open-primary-anchor" data-value="${escapeHtml(candidate.sourceAnchorId)}">打开来源</button>${candidate.activeProposalId ? '<button type="button" class="primary" data-action="review-mode" data-value="proposals">审阅已生成 Proposal</button>' : `<button type="button" class="primary" data-action="v2-candidate-formalize" data-value="${escapeHtml(candidate.candidateId)}">生成 Proposal</button><button type="button" data-action="v2-candidate-later" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">7 天后再看</button><button type="button" data-action="v2-candidate-dismiss" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">保持普通内容</button><button type="button" data-action="v2-candidate-no-more" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">以后不再提示</button>`}</div></article>`).join("")}</section>` : `<section class="card compact"><div class="eyebrow">待整理 · SQLite</div><h2>Candidate 审阅队列</h2><p>当前没有待处理或到期 Candidate。</p></section>`;
+  if (state.status === "idle") return `${queue}<section class="card candidate-review"><div class="eyebrow">待整理 · 当前页</div><h2>发现显式对象候选</h2><p>只以当前页为范围，不扫描全 Graph；本次最多处理前 256 个 Block。扫描只保存 Candidate，不创建正式对象。</p><button type="button" data-action="v2-candidate-open">扫描当前页候选</button></section>`;
   if (state.status === "loading") return `<section class="card candidate-review" aria-busy="true"><div class="eyebrow">待整理 · 当前页</div><h2>显式对象候选</h2><p>正在读取当前页 Block tree，并按处理预算核对已知 Anchor…</p></section>`;
   if (state.status === "error") return `<section class="diagnostic-error"><h2>候选同步未执行</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-candidate-open">重新扫描</button><button type="button" data-action="v2-candidate-cancel">关闭</button></section>`;
-  if (state.status === "success") return `<section class="diagnostic-notice"><h2>显式对象已同步</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-candidate-open">继续扫描</button><button type="button" data-action="v2-candidate-cancel">关闭</button></section>`;
+  if (state.status === "success") return `${queue}<section class="diagnostic-notice"><h2>Candidate 已保存</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-candidate-open">继续扫描</button><button type="button" data-action="v2-candidate-cancel">关闭</button></section>`;
   const { preview } = state;
   return `<section class="card candidate-review" aria-label="当前页显式对象候选"><div class="eyebrow">待整理 · 当前页</div><h2>预览当前页候选</h2>
-    <p>只扫描当前页：已处理当前页快照前 ${preview.scannedBlocks} 个 Block，发现 ${preview.candidates.length} 个新候选。每次只同步一项，不扫描全 Graph。</p>
+    <p>只扫描当前页、不扫描全 Graph：已处理当前页快照前 ${preview.scannedBlocks} 个 Block，发现 ${preview.candidates.length} 个候选。确认后整批保存为 Candidate，不创建正式对象。</p>
     ${preview.truncated ? '<p class="muted">当前页快照超过本次处理预算；超出部分未进入候选分析。</p>' : ""}
     ${preview.invalidExplicitBlocks ? `<p class="muted">${preview.invalidExplicitBlocks} 个显式标识存在冲突或缺少标题，未列为可写候选。</p>` : ""}
-    <label>选择一个候选<select data-field="v2CandidateExternalId"><option value="">请选择</option>${preview.candidates.map((candidate) => `<option value="${escapeHtml(candidate.externalId)}">${escapeHtml(candidate.objectType)} · ${escapeHtml(candidate.text)} · ${escapeHtml(candidate.externalId)}</option>`).join("")}</select></label>
-    <div class="actions"><button type="button" class="primary" data-action="v2-candidate-submit"${state.busy ? ' disabled aria-busy="true"' : ""}>${state.busy ? "同步中…" : "同步选中候选"}</button>${state.busy ? '<span class="muted">正式请求已提交，请等待明确结果。</span>' : '<button type="button" data-action="v2-candidate-cancel">取消</button>'}</div>
+    <ul>${preview.candidates.map((candidate) => `<li>${escapeHtml(candidate.objectType)} · ${escapeHtml(candidate.text)} · ${escapeHtml(candidate.externalId)}</li>`).join("")}</ul>
+    <div class="actions"><button type="button" class="primary" data-action="v2-candidate-submit"${state.busy ? ' disabled aria-busy="true"' : ""}>${state.busy ? "保存中…" : "保存本批 Candidate"}</button>${state.busy ? '<span class="muted">幂等请求已提交；失败后可安全重试。</span>' : '<button type="button" data-action="v2-candidate-cancel">取消</button>'}</div>
   </section>`;
 }

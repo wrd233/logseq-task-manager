@@ -190,6 +190,70 @@ test("Local Service adds one confirmed plain Association without changing Primar
   assert.equal((await client.getObject(source.object.objectId))?.version, added.object.version, "duplicate Association rolls back source version");
 });
 
+test("Local Service persists bounded Candidate discovery and all non-formal review dispositions without creating Objects", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-candidate-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-candidate", token: "candidate-service-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const content = "[任务] 核对 Candidate 闭环";
+  const contentHash = checksum(content);
+  const discovery = { sourceAnchorId: "block-candidate", sourceVersion: `7:${contentHash}`, candidateKind: "WORK_ITEM" as const, reason: "显式对象标识尚未建立正式对象", suggestion: "生成 Proposal 后审阅", traceId: "candidate-discover-service" };
+  const created = await client.discoverCandidate(discovery);
+  assert.equal(created.replayed, false);
+  assert.equal(created.candidate.disposition, "PENDING");
+  assert.equal("sourceText" in created.candidate, false, "Candidate authority must not duplicate Logseq source text");
+  assert.deepEqual(await client.listObjects(), [], "scan creates Candidate only, never a formal Object");
+  const repeated = await client.discoverCandidate({ ...discovery, traceId: "candidate-discover-repeat" });
+  assert.equal(repeated.replayed, true);
+  assert.equal(repeated.candidate.candidateId, created.candidate.candidateId);
+  const later = await client.setCandidateDisposition(created.candidate.candidateId, { disposition: "LATER", reason: "等待上下文", deferredUntil: "2099-07-28T13:20:00.000Z", expectedUpdatedAt: created.candidate.updatedAt, traceId: "candidate-later-service" });
+  assert.equal(later.candidate.disposition, "LATER");
+  assert.equal((await client.listCandidates())[0]?.disposition, "LATER");
+  await assert.rejects(() => client.setCandidateDisposition(created.candidate.candidateId, { disposition: "DISMISSED", reason: "旧视图", expectedUpdatedAt: created.candidate.updatedAt, traceId: "candidate-stale-service" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_CANDIDATE_STALE");
+  const malformed = await fetch(new URL("candidates/discover", service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ ...discovery, sourceText: "不得进入 Candidate" }) });
+  assert.equal(malformed.status, 400);
+  assert.deepEqual(await client.listObjects(), []);
+
+  const formalized = await client.formalizeCandidate(created.candidate.candidateId, { sourceAnchorId: "block-candidate", inputVersion: "7", contentHash, content, objectType: "TASK", text: "核对 Candidate 闭环", expectedUpdatedAt: later.candidate.updatedAt, traceId: "candidate-formalize-service" });
+  assert.equal(formalized.candidate.activeProposalId, formalized.record.proposal.proposalId);
+  assert.equal(formalized.record.proposal.status, "READY");
+  assert.deepEqual(await client.listObjects(), [], "formalization creates only a Proposal before review and Commit");
+  await assert.rejects(() => client.setCandidateDisposition(created.candidate.candidateId, { disposition: "DISMISSED", reason: "不能绕过 Proposal 审阅", expectedUpdatedAt: formalized.candidate.updatedAt, traceId: "candidate-disposition-with-active-proposal" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_CANDIDATE_PROPOSAL_ACTIVE");
+  const replayedFormalization = await client.formalizeCandidate(created.candidate.candidateId, { sourceAnchorId: "block-candidate", inputVersion: "7", contentHash, content, objectType: "TASK", text: "核对 Candidate 闭环", expectedUpdatedAt: later.candidate.updatedAt, traceId: "candidate-formalize-retry" });
+  assert.equal(replayedFormalization.replayed, true);
+  assert.equal((await client.listProposals()).length, 1, "one Candidate has one current Proposal");
+
+  const reviewed = await client.reviewProposal(formalized.record.proposal.proposalId, { "formalize-candidate": { disposition: "ACCEPTED" } }, formalized.record.updatedAt);
+  const observations = [{ kind: "BLOCK" as const, id: "block-candidate", exists: true, version: 7, hash: contentHash }];
+  const prepared = await client.prepareProposalCommit(reviewed.proposal.proposalId, observations, reviewed.updatedAt);
+  assert.equal(prepared.status, "PREPARED");
+  if (prepared.status !== "PREPARED") throw new Error("candidate proposal was not prepared");
+  const committed = await client.finalizeProposalCommit(reviewed.proposal.proposalId, { semanticCommitId: prepared.semanticCommitId, proposalId: reviewed.proposal.proposalId, expectedUpdatedAt: reviewed.updatedAt, blockUuid: "block-candidate", contentHash, inputVersion: "7", traceId: "candidate-commit-service" });
+  assert.equal(committed.status, "COMPLETED");
+  assert.equal((await client.listCandidates())[0]?.disposition, "RESOLVED");
+  assert.equal((await client.listObjects()).length, 1);
+
+  const undoPrepared = await client.prepareProposalUndo(prepared.semanticCommitId, "candidate-undo-prepare");
+  const undone = await client.finalizeProposalUndo(prepared.semanticCommitId, { originalSemanticCommitId: prepared.semanticCommitId, undoSemanticCommitId: undoPrepared.undoSemanticCommitId, blockUuid: "block-candidate", contentHash, inputVersion: "7", traceId: "candidate-undo-finalize" });
+  assert.equal(undone.status, "COMPLETED");
+  assert.equal((await client.listCandidates())[0]?.disposition, "PENDING", "Undo reopens the same Candidate instead of losing the work item");
+  assert.equal((await client.listCandidates())[0]?.activeProposalId, undefined);
+  assert.deepEqual(await client.listObjects(), []);
+
+  const maintenance = await V2SqliteStore.open(join(root, "task-copilot.db"));
+  maintenance.initialize("graph-candidate");
+  const reopened = maintenance.getCandidate(created.candidate.candidateId);
+  if (!reopened) throw new Error("Candidate missing while simulating the post-Undo recovery window");
+  maintenance.updateCandidate({ ...reopened, disposition: "RESOLVED", activeProposalId: reviewed.proposal.proposalId, updatedAt: "2026-07-21T23:59:00.000Z" }, reopened.updatedAt, "simulate-undo-before-candidate-reopen");
+  const maintenanceDatabase = (maintenance as unknown as { database: { prepare(sql: string): { run(...values: unknown[]): unknown } } }).database;
+  maintenanceDatabase.prepare("DELETE FROM command_receipts WHERE idempotency_key = ?").run(`candidate-reopen:${created.candidate.candidateId}:${reviewed.proposal.proposalId}`);
+  maintenance.close();
+  assert.equal((await client.listCandidates())[0]?.disposition, "RESOLVED", "fixture reproduces crash after Commit UNDONE but before Candidate reopen");
+  const replayedUndo = await client.prepareProposalUndo(prepared.semanticCommitId, "candidate-undo-replay-after-gap");
+  assert.equal(replayedUndo.status, "COMPLETED");
+  assert.equal((await client.listCandidates())[0]?.disposition, "PENDING", "completed Undo replay repairs the Candidate reopen gap idempotently");
+});
+
 test("Local Service migration scan validates an explicit Recovery Bundle and leaves Store unchanged", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-migration-scan-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-migration-scan", token: "migration-scan-service-token-24-chars" });

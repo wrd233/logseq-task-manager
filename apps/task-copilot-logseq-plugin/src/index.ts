@@ -52,8 +52,9 @@ import {
   type V2RebindPanelState,
 } from "./v2-anchor-rebind.ts";
 import {
+  formalizeV2Candidate,
+  persistV2ExplicitCandidateDiscovery,
   prepareV2ExplicitCandidateDiscovery,
-  submitV2ExplicitCandidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
@@ -162,6 +163,24 @@ async function ensurePersistentBlockIdentity(externalId: string): Promise<void> 
   if (verifiedBlock?.uuid !== externalId || verifiedProperties.id !== externalId) throw new Error("Logseq Block 持久身份复核失败；没有创建正式对象。");
 }
 
+async function loadV2CandidateSourcePreviews(candidates: readonly { candidateId: string; sourceAnchorId: string; disposition: string; deferredUntil?: string }[]): Promise<Record<string, string>> {
+  if (workspace !== "review" || reviewMode !== "candidates") return {};
+  const now = Date.now();
+  const visible = candidates.filter(({ disposition, deferredUntil }) => disposition === "PENDING" || (disposition === "LATER" && deferredUntil !== undefined && Date.parse(deferredUntil) <= now)).slice(0, 50);
+  const entries = await Promise.all(visible.map(async ({ candidateId, sourceAnchorId }) => {
+    try {
+      const value = await logseq.Editor.getBlock(sourceAnchorId, { includeChildren: false });
+      const block = value && typeof value === "object" && !Array.isArray(value) ? value as { uuid?: unknown; content?: unknown } : undefined;
+      if (block?.uuid !== sourceAnchorId || typeof block.content !== "string") return [candidateId, "原文暂不可读；请打开来源检查 Anchor。"] as const;
+      const content = stripLogseqBlockIdentityProperty(block.content, sourceAnchorId).trim();
+      return [candidateId, content ? content.slice(0, 2_000) : "原文为空。"] as const;
+    } catch {
+      return [candidateId, "原文暂不可读；请打开来源检查 Anchor。"] as const;
+    }
+  }));
+  return Object.fromEntries(entries);
+}
+
 function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>[0]): string {
   const available = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
   return renderRuntimeDiagnostics(snapshot, renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available));
@@ -170,6 +189,7 @@ function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>
 async function model(): Promise<UiModel> {
   if (!taskCopilot) {
     let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
+    let v2Candidates: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listCandidates"]>> = [];
     let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
     let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
     let v2Associations: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listAssociations"]>> = [];
@@ -181,11 +201,12 @@ async function model(): Promise<UiModel> {
     let v2MigrationLoadError: string | undefined;
     if (serviceConnection.status === "READY" && serviceRuntimeClient) {
       try {
-        [v2Proposals, v2SemanticCommits, v2Objects, v2NowWork] = await Promise.all([
+        [v2Proposals, v2SemanticCommits, v2Objects, v2NowWork, v2Candidates] = await Promise.all([
           serviceRuntimeClient.listProposals(),
           serviceRuntimeClient.listSemanticCommits(),
           serviceRuntimeClient.listObjects(),
           serviceRuntimeClient.nowWork(),
+          serviceRuntimeClient.listCandidates(),
         ]);
       } catch (error) {
         v2ProposalLoadError = explain(error);
@@ -204,6 +225,7 @@ async function model(): Promise<UiModel> {
         v2MigrationLoadError = explain(error);
       }
     }
+    const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
     return {
       workspace,
       agent: { enabled: false, providerId: "no-agent" },
@@ -235,6 +257,8 @@ async function model(): Promise<UiModel> {
       v2AssociationBusy: v2AssociationSubmission.busy,
       v2OwnershipCommitBusy,
       v2Proposals,
+      v2Candidates,
+      v2CandidateSourcePreviews,
       v2MigrationRuns,
       v2SemanticCommits,
       v2CandidatePanel,
@@ -271,15 +295,17 @@ async function model(): Promise<UiModel> {
   let reentry: ProjectReentryView | undefined;
   if (project) reentry = await app.getProjectReentry(project.objectId);
   let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
+  let v2Candidates: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listCandidates"]>> = [];
   let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
   let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
   let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
   let v2ProposalLoadError: string | undefined;
   let v2MigrationLoadError: string | undefined;
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
-    try { [v2Proposals, v2SemanticCommits, v2NowWork] = await Promise.all([serviceRuntimeClient.listProposals(), serviceRuntimeClient.listSemanticCommits(), serviceRuntimeClient.nowWork()]); } catch (error) { v2ProposalLoadError = explain(error); }
+    try { [v2Proposals, v2SemanticCommits, v2NowWork, v2Candidates] = await Promise.all([serviceRuntimeClient.listProposals(), serviceRuntimeClient.listSemanticCommits(), serviceRuntimeClient.nowWork(), serviceRuntimeClient.listCandidates()]); } catch (error) { v2ProposalLoadError = explain(error); }
     try { v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns(); } catch (error) { v2MigrationLoadError = explain(error); }
   }
+  const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
   return {
     workspace,
     agent: app.agentStatus(),
@@ -311,6 +337,8 @@ async function model(): Promise<UiModel> {
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2OwnershipCommitBusy,
     v2Proposals,
+    v2Candidates,
+    v2CandidateSourcePreviews,
     v2MigrationRuns,
     v2SemanticCommits,
     v2CandidatePanel,
@@ -535,13 +563,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const currentPanel = v2CandidatePanel;
     if (currentPanel.status === "ready" && currentPanel.busy) return;
     if (currentPanel.status !== "ready") {
-      v2CandidatePanel = { status: "error", message: "当前页候选预览已过期或不存在；没有执行同步。" };
+      v2CandidatePanel = { status: "error", message: "当前页候选预览已过期或不存在；没有保存 Candidate。" };
       workspace = "review";
       await refresh();
       return;
     }
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
-      v2CandidatePanel = { status: "error", message: "Local Service 正在重连或已不可写；旧候选已作废，没有执行同步。" };
+      v2CandidatePanel = { status: "error", message: "Local Service 正在重连或已不可写；旧候选已作废，没有保存 Candidate。" };
       workspace = "review";
       await refresh();
       return;
@@ -552,24 +580,56 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await refresh();
       return;
     }
-    const externalId = dialogField("v2CandidateExternalId");
     v2CandidatePanel = { ...currentPanel, busy: true };
     workspace = "review";
     await refresh();
     const traceId = `v2-candidate-${Date.now()}-${globalThis.crypto.randomUUID()}`;
     try {
-      const result = await submitV2ExplicitCandidate(client, currentPanel.preview, externalId, (blockId) => logseq.Editor.getBlock(blockId), traceId, ensurePersistentBlockIdentity);
+      const result = await persistV2ExplicitCandidateDiscovery(client, currentPanel.preview, (blockId) => logseq.Editor.getBlock(blockId), traceId);
       v2CandidatePanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
-        ? { status: "success", message: `${result.operation}：对象 ${result.object.objectId} 已绑定到 Block ${result.anchor.externalId}。其余候选未写入。` }
+        ? { status: "success", message: `${result.candidates.length} 个 Candidate 已保存（${result.replayed} 个为幂等重放）；没有创建正式对象。` }
         : { status: "error", message: "Local Service 在提交期间重连；旧会话已返回成功，请先在 Audit/Doctor 核对，不要立即重试。" };
-      operationalLogger.log("info", "ui-action", "v2_explicit_candidate_synchronized", { correlationId: traceId, actionId: "v2-candidate-submit", result: "success", blockUuid: result.anchor.externalId, objectId: result.object.objectId });
+      operationalLogger.log("info", "ui-action", "v2_candidates_persisted", { correlationId: traceId, actionId: "v2-candidate-submit", result: `success:${result.candidates.length}:replayed:${result.replayed}` });
     } catch (error) {
       v2CandidatePanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
         ? { status: "error", message: explain(error) }
         : { status: "error", message: "Local Service 在提交期间重连；旧会话结果不确定，请先在 Audit/Doctor 核对，不要立即重试。" };
-      operationalLogger.log("error", "ui-action", "v2_explicit_candidate_sync_failed", { correlationId: traceId, actionId: "v2-candidate-submit", result: "error", ...(externalId ? { blockUuid: externalId } : {}) }, error);
+      operationalLogger.log("error", "ui-action", "v2_candidate_persistence_failed", { correlationId: traceId, actionId: "v2-candidate-submit", result: "error" }, error);
     }
     await refresh();
+    return;
+  }
+  if ((action === "v2-candidate-later" || action === "v2-candidate-dismiss" || action === "v2-candidate-no-more") && value) {
+    const [candidateId, expectedUpdatedAt] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client || !candidateId || !expectedUpdatedAt) throw new Error("Candidate 审阅上下文已失效；没有保存决定。");
+      const traceId = `v2-candidate-disposition-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+      const disposition = action === "v2-candidate-later" ? "LATER" : action === "v2-candidate-dismiss" ? "DISMISSED" : "NO_MORE_LIKE_THIS";
+      const reason = action === "v2-candidate-later" ? "用户选择稍后复查" : action === "v2-candidate-dismiss" ? "用户选择保持普通内容" : "用户选择以后不再对该来源提出此类建议";
+      await client.setCandidateDisposition(candidateId, {
+        disposition,
+        reason,
+        ...(disposition === "LATER" ? { deferredUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString() } : {}),
+        expectedUpdatedAt,
+        traceId,
+      });
+      workspace = "review";
+      reviewMode = "candidates";
+    }, action === "v2-candidate-later" ? "Candidate 已安排 7 天后复查。" : action === "v2-candidate-dismiss" ? "Candidate 已保留为普通内容；没有正式写入。" : "偏好已保存；该来源的同类建议不会因普通编辑再次出现。");
+    return;
+  }
+  if (action === "v2-candidate-formalize" && value) {
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client) throw new Error("Local Service 未就绪；没有生成 Proposal。");
+      const candidate = (await client.listCandidates()).find(({ candidateId }) => candidateId === value);
+      if (!candidate) throw new Error("Candidate 已变化或不存在；没有生成 Proposal。");
+      const result = await formalizeV2Candidate(client, candidate, (blockId) => logseq.Editor.getBlock(blockId, { includeChildren: false }), `v2-candidate-formalize-${Date.now()}-${globalThis.crypto.randomUUID()}`, ensurePersistentBlockIdentity);
+      workspace = "review";
+      reviewMode = "proposals";
+      message = `Proposal ${result.record.proposal.proposalId} 已进入审阅队列；正式对象尚未创建。`;
+    });
     return;
   }
   if (action === "v2-rebind-open") {

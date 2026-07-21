@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ServiceMaterializeExplicitObjectRequest } from "@task-copilot/service-client";
+import type { ServiceCandidateDiscoveryRequest } from "@task-copilot/service-client";
+import { checksum } from "@task-copilot/shared";
 
 import {
+  formalizeV2Candidate,
+  persistV2ExplicitCandidateDiscovery,
   prepareV2ExplicitCandidateDiscovery,
   renderV2ExplicitCandidateDiscoveryPanel,
-  submitV2ExplicitCandidate,
 } from "../src/v2-explicit-candidate-discovery.ts";
 
 const task = { uuid: "candidate-task", content: "[任务] DONE 核对候选", "updated-at": 101, children: [] };
@@ -14,7 +16,7 @@ const mini = { uuid: "candidate-mini", content: "[MiniProject] 收敛候选", "u
 const known = { uuid: "known-task", content: "[任务] 已同步", "updated-at": 103, children: [] };
 const historical = { uuid: "historical-task", content: "[任务] 历史 UUID", "updated-at": 104, children: [] };
 
-function client(received: ServiceMaterializeExplicitObjectRequest[]) {
+function client(received: ServiceCandidateDiscoveryRequest[]) {
   return {
     listPrimaryAnchors: async (cursor?: string, includeReplaced = false) => cursor
       ? { anchors: [] }
@@ -22,12 +24,10 @@ function client(received: ServiceMaterializeExplicitObjectRequest[]) {
         { anchorId: "known-anchor", objectId: "known-object", graphId: "graph-1", externalId: "known-task", role: "primary_text" as const, status: "active" as const, contentHash: "11111111", lastSeenAt: "2026-07-20T00:00:00.000Z" },
         ...(includeReplaced ? [{ anchorId: "historical-anchor", objectId: "historical-object", graphId: "graph-1", externalId: "historical-task", role: "primary_text" as const, status: "replaced" as const, contentHash: "22222222", lastSeenAt: "2026-07-20T00:00:00.000Z" }] : []),
       ], nextCursor: "page-2" },
-    synchronizeExplicitObject: async (input: ServiceMaterializeExplicitObjectRequest) => {
+    discoverCandidate: async (input: ServiceCandidateDiscoveryRequest) => {
       received.push(input);
       return {
-        object: { objectId: "new-object", objectType: input.objectType, version: 1, lifecycle: "OPEN" as const, condition: { kind: "ACTIONABLE" as const }, text: input.text, createdAt: "2026-07-20T00:00:00.000Z", updatedAt: "2026-07-20T00:00:00.000Z", sourceOrCreationEvent: "explicit" },
-        anchor: { anchorId: "new-anchor", objectId: "new-object", graphId: "graph-1", externalId: input.externalId, role: "primary_text" as const, status: "active" as const, contentHash: input.contentHash, lastSeenAt: "2026-07-20T00:00:00.000Z" },
-        operation: "MATERIALIZED" as const,
+        candidate: { candidateId: `candidate:${input.sourceAnchorId}`, sourceAnchorId: input.sourceAnchorId, sourceVersion: input.sourceVersion, candidateKind: input.candidateKind, reason: input.reason, suggestion: input.suggestion, disposition: "PENDING" as const, lastAnalyzedAt: "2026-07-20T00:00:00.000Z", createdAt: "2026-07-20T00:00:00.000Z", updatedAt: "2026-07-20T00:00:00.000Z" },
         replayed: false,
       };
     },
@@ -51,35 +51,71 @@ test("manual candidate discovery traverses only the current page within explicit
   assert.match(html, /candidate-task/);
   assert.doesNotMatch(html, /known-task/);
   assert.doesNotMatch(html, /historical-task/);
-  assert.match(html, /每次只同步一项/);
+  assert.match(html, /整批保存为 Candidate/);
   const busyHtml = renderV2ExplicitCandidateDiscoveryPanel({ status: "ready", preview, serviceGeneration: 3, busy: true }, true);
-  assert.match(busyHtml, /同步中/);
+  assert.match(busyHtml, /保存中/);
   assert.doesNotMatch(busyHtml, /data-action="v2-candidate-cancel"/);
 });
 
-test("candidate submit rereads the selected Block and sends one bounded synchronize command", async () => {
-  const received: ServiceMaterializeExplicitObjectRequest[] = [];
+test("candidate persistence rereads the whole preview before sending bounded Candidate-only commands", async () => {
+  const received: ServiceCandidateDiscoveryRequest[] = [];
   const transport = client(received);
-  const preview = await prepareV2ExplicitCandidateDiscovery(transport, async () => [task], async () => undefined, { maxBlocks: 10, maxAnchorPages: 2 });
-  await assert.rejects(() => submitV2ExplicitCandidate(transport, preview, "unknown", async () => task, "trace-unknown"), /候选/);
-  await assert.rejects(() => submitV2ExplicitCandidate(transport, preview, task.uuid, async () => ({ ...task, content: "[任务] 已变化" }), "trace-stale"), /变化/);
+  const preview = await prepareV2ExplicitCandidateDiscovery(transport, async () => [task, mini], async () => undefined, { maxBlocks: 10, maxAnchorPages: 2 });
+  await assert.rejects(() => persistV2ExplicitCandidateDiscovery(transport, preview, async (id) => id === task.uuid ? task : ({ ...mini, content: "[MiniProject] 已变化" }), "trace-stale"), /变化/);
   assert.equal(received.length, 0);
-  await submitV2ExplicitCandidate(transport, preview, task.uuid, async () => task, "trace-ok");
-  assert.equal(received.length, 1);
+  const result = await persistV2ExplicitCandidateDiscovery(transport, preview, async (id) => id === task.uuid ? task : mini, "trace-ok");
+  assert.equal(result.candidates.length, 2);
+  assert.equal(received.length, 2);
   assert.deepEqual(received[0], {
-    objectType: "TASK",
-    text: "核对候选",
-    marker: "DONE",
-    externalId: "candidate-task",
-    inputVersion: "101",
-    contentHash: preview.candidates[0]?.contentHash,
-    idempotencyKey: `explicit-discovery:candidate-task:101:${preview.candidates[0]?.contentHash}`,
-    traceId: "trace-ok",
+    sourceAnchorId: "candidate-task",
+    sourceVersion: `101:${preview.candidates[0]?.contentHash}`,
+    candidateKind: "WORK_ITEM",
+    reason: "TASK 显式标识尚未绑定正式对象。",
+    suggestion: "生成 TASK 正式化 Proposal。",
+    traceId: "trace-ok:candidate-task",
   });
 });
 
+test("Candidate formalization rereads source evidence and creates only one review-ready Proposal request", async () => {
+  let received: unknown;
+  let rediscovered: ServiceCandidateDiscoveryRequest | undefined;
+  const formalTask = { ...task, uuid: "11111111-1111-4111-8111-111111111111" };
+  const candidate = { candidateId: "candidate:task", sourceAnchorId: formalTask.uuid, sourceVersion: `101:${checksum("[任务] DONE 核对候选")}`, candidateKind: "WORK_ITEM" as const, reason: "显式标识", suggestion: "生成 Proposal", disposition: "PENDING" as const, lastAnalyzedAt: "2026-07-21T00:00:00.000Z", createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:01:00.000Z" };
+  const transport = {
+    discoverCandidate: async (input: ServiceCandidateDiscoveryRequest) => {
+      rediscovered = input;
+      return { candidate: { ...candidate, sourceVersion: input.sourceVersion, updatedAt: "2026-07-21T00:02:00.000Z" }, replayed: false };
+    },
+    formalizeCandidate: async (candidateId: string, input: unknown) => { received = { candidateId, input }; return { candidate: { ...candidate, activeProposalId: "proposal:task" }, record: { proposal: { proposalId: "proposal:task" }, files: {}, updatedAt: "now" }, replayed: false } as never; },
+  };
+  await assert.rejects(() => formalizeV2Candidate(transport, candidate, async () => ({ ...formalTask, content: "[任务] 已变化" }), "trace-stale"), /重新扫描/);
+  assert.equal(received, undefined);
+  await formalizeV2Candidate(transport, candidate, async () => formalTask, "trace-formalize");
+  assert.deepEqual(received, { candidateId: candidate.candidateId, input: { sourceAnchorId: formalTask.uuid, inputVersion: "101", contentHash: checksum(formalTask.content), content: formalTask.content, objectType: "TASK", text: "核对候选", expectedUpdatedAt: candidate.updatedAt, traceId: "trace-formalize" } });
+  let identityEstablished = false;
+  received = undefined;
+  await formalizeV2Candidate(transport, candidate, async () => identityEstablished
+    ? { ...formalTask, content: `${formalTask.content}\nid:: ${formalTask.uuid}`, "updated-at": 102, properties: { id: formalTask.uuid } }
+    : formalTask, "trace-identity", async () => { identityEstablished = true; });
+  assert.equal(rediscovered?.sourceVersion, `102:${checksum(formalTask.content)}`, "identity-only version changes refresh the Candidate before Proposal creation");
+  assert.deepEqual(received, { candidateId: candidate.candidateId, input: { sourceAnchorId: formalTask.uuid, inputVersion: "102", contentHash: checksum(formalTask.content), content: formalTask.content, objectType: "TASK", text: "核对候选", expectedUpdatedAt: "2026-07-21T00:02:00.000Z", traceId: "trace-identity" } });
+  received = undefined;
+  await formalizeV2Candidate(transport, candidate, async () => ({ ...formalTask, content: `${formalTask.content}\nid:: ${formalTask.uuid}`, "updated-at": 102, properties: { id: formalTask.uuid } }), "trace-identity-retry", async () => undefined);
+  assert.ok(received, "an identity-only version change remains recoverable without forcing another page scan after a transient Service failure");
+});
+
+test("Candidate queue renders only the same bounded set whose source text was hydrated", () => {
+  const candidates = Array.from({ length: 51 }, (_, index) => ({ candidateId: `candidate-${index}`, sourceAnchorId: `block-${index}`, sourceVersion: `1:hash-${index}`, candidateKind: "WORK_ITEM" as const, reason: "原因", suggestion: "建议", disposition: "PENDING" as const, lastAnalyzedAt: "2026-07-21T00:00:00.000Z", createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:00:00.000Z" }));
+  const previews = Object.fromEntries(candidates.slice(0, 50).map(({ candidateId }, index) => [candidateId, `原文 ${index}`]));
+  const html = renderV2ExplicitCandidateDiscoveryPanel({ status: "idle" }, true, candidates, previews);
+  assert.match(html, /当前显示前 50 项/);
+  assert.match(html, /block-49/);
+  assert.doesNotMatch(html, /block-50/);
+  assert.doesNotMatch(html, /正在等待来源重读/);
+});
+
 test("candidate discovery refuses incomplete Anchor coverage and non-page shapes", async () => {
-  const received: ServiceMaterializeExplicitObjectRequest[] = [];
+  const received: ServiceCandidateDiscoveryRequest[] = [];
   await assert.rejects(() => prepareV2ExplicitCandidateDiscovery({
     ...client(received),
     listPrimaryAnchors: async () => ({ anchors: [], nextCursor: "more" }),

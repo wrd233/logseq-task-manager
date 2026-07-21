@@ -2,6 +2,7 @@ import { StructuredError, createId } from "@task-copilot/shared";
 
 export * from "./v2.ts";
 export * from "./v2-proposal.ts";
+export * from "./v2-candidate.ts";
 export * from "./legacy-migration.ts";
 
 export type ObjectType =

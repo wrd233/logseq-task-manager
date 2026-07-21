@@ -6,7 +6,7 @@ import test from "node:test";
 
 import Database from "better-sqlite3";
 
-import { V2Application } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication } from "@task-copilot/application";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
@@ -33,6 +33,7 @@ test("SQLite initialization is Graph-bound and idempotent", async (t) => {
 
 async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   const database = new Database(path);
+  database.exec("DROP TABLE candidates");
   database.exec("DROP TABLE associations");
   database.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs");
   database.exec("ALTER TABLE objects DROP COLUMN closure_json");
@@ -78,6 +79,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 7, name: "add_v1_migration_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 8, name: "add_project_closure_summary", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 9, name: "add_plain_associations", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 10, name: "add_candidate_review_state", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -131,7 +133,7 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
+  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
   legacy.prepare("UPDATE schema_meta SET value = '2' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 2");
   legacy.close();
@@ -167,7 +169,7 @@ test("schema v3 explicitly migrates to proposal review tables after a validated 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
+  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
   legacy.prepare("UPDATE schema_meta SET value = '3' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 3");
   legacy.close();
@@ -189,6 +191,7 @@ test("schema v4 explicitly decouples immutable Audit from the current object pro
   store.close();
   const legacy = new Database(path);
   legacy.exec(`
+    DROP TABLE candidates;
     DROP TABLE associations;
     DROP TABLE legacy_evidence;
     DROP TABLE migration_batches;
@@ -224,7 +227,7 @@ test("schema v5 explicitly adds nullable Task due_at after a validated backup", 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
+  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
   legacy.prepare("UPDATE schema_meta SET value = '5' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 5");
   legacy.close();
@@ -244,7 +247,7 @@ test("schema v6 explicitly adds only the bounded V1 migration ledger after a val
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 7");
+  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 7");
   legacy.prepare("UPDATE schema_meta SET value = '6' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 6");
   legacy.close();
@@ -264,7 +267,7 @@ test("schema v7 adds only nullable Project closure_summary after a validated bac
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE associations; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 8");
+  legacy.exec("DROP TABLE candidates; DROP TABLE associations; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 8");
   legacy.prepare("UPDATE schema_meta SET value = '7' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 7");
   legacy.close();
@@ -283,7 +286,7 @@ test("schema v8 adds only plain associations after preserving an exact v8 backup
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE associations; DELETE FROM schema_migrations WHERE version >= 9");
+  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DELETE FROM schema_migrations WHERE version >= 9");
   legacy.prepare("UPDATE schema_meta SET value = '8' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 8");
   legacy.close();
@@ -301,6 +304,30 @@ test("schema v8 adds only plain associations after preserving an exact v8 backup
   migrating.close();
 });
 
+test("schema v9 adds only Candidate review state after preserving an exact v9 backup", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec("DROP TABLE candidates; DELETE FROM schema_migrations WHERE version >= 10");
+  legacy.prepare("UPDATE schema_meta SET value = '9' WHERE key = 'schema_version'").run();
+  legacy.pragma("user_version = 9");
+  legacy.close();
+  const migrating = await V2SqliteStore.open(path);
+  assert.throws(() => migrating.initialize("graph-a"), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_REQUIRED");
+  const backupPath = join(root, "before-candidate-review.db");
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-21T13:00:00.000Z")), { migrated: true, fromVersion: 9, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath });
+  const backup = new Database(backupPath, { readonly: true, fileMustExist: true });
+  assert.equal(backup.pragma("user_version", { simple: true }), 9);
+  assert.equal(backup.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'candidates'").pluck().get(), 0);
+  backup.close();
+  const internal = migrating as unknown as { database: Database.Database };
+  assert.equal(internal.database.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'candidates'").pluck().get(), 1);
+  assert.equal(migrating.schemaMigrationHistory()[9]?.name, "add_candidate_review_state");
+  migrating.close();
+});
+
 function validProposal(): V2Proposal {
   const beforeText = "梳理告警";
   const afterText = "[任务] 梳理告警";
@@ -310,6 +337,64 @@ function validProposal(): V2Proposal {
     groups: [{ groupId: "formalize", explanation: "不可拆组。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-sqlite", beforeText, afterText, beforeHash: checksum(beforeText), afterHash: checksum(afterText) }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-sqlite", version: 1, hash: checksum(beforeText) }, summary: "创建 Task", payload: { objectType: "TASK", text: "梳理告警" }, preconditions: [] }], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-20T12:00:00.000Z",
   };
 }
+
+test("Candidate persistence deduplicates stable source identity, remembers dispositions, and reopens only changed source", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2CandidateApplication(store);
+  const envelope = (idempotencyKey: string) => ({ actor: "plugin", traceId: idempotencyKey, idempotencyKey });
+  const input = { candidateId: "candidate:block-1:WORK_ITEM", sourceAnchorId: "block-1", sourceVersion: "1:hash-a", candidateKind: "WORK_ITEM" as const, reason: "包含可执行动作", suggestion: "正式化为 Task" };
+  const discovered = await application.discover(input, envelope("candidate-discover-1"), new Date("2026-07-21T13:10:00.000Z"));
+  assert.equal(discovered.replayed, false);
+  const dismissed = await application.setDisposition(discovered.candidate.candidateId, "DISMISSED", { reason: "只是会议记录" }, discovered.candidate.updatedAt, envelope("candidate-dismiss-1"), new Date("2026-07-21T13:11:00.000Z"));
+  assert.equal(dismissed.candidate.disposition, "DISMISSED");
+
+  const exact = await application.discover({ ...input, candidateId: "different-id" }, envelope("candidate-discover-2"), new Date("2026-07-21T13:12:00.000Z"));
+  assert.equal(exact.replayed, true);
+  assert.equal(exact.candidate.disposition, "DISMISSED", "same source version must remember the user's decision");
+  assert.equal(exact.candidate.candidateId, discovered.candidate.candidateId);
+
+  const changed = await application.discover({ ...input, candidateId: "different-id", sourceVersion: "2:hash-b", reason: "正文已新增明确动作" }, envelope("candidate-discover-3"), new Date("2026-07-21T13:13:00.000Z"));
+  assert.equal(changed.replayed, false);
+  assert.equal(changed.candidate.candidateId, discovered.candidate.candidateId);
+  assert.equal(changed.candidate.disposition, "PENDING");
+  assert.equal(changed.candidate.dispositionReason, undefined);
+  const suppressed = await application.setDisposition(changed.candidate.candidateId, "NO_MORE_LIKE_THIS", { reason: "此来源不再建议工作项" }, changed.candidate.updatedAt, envelope("candidate-suppress-1"), new Date("2026-07-21T13:14:00.000Z"));
+  const suppressedAfterEdit = await application.discover({ ...input, candidateId: "another-id", sourceVersion: "3:hash-c", reason: "正文再次变化" }, envelope("candidate-discover-4"), new Date("2026-07-21T13:15:00.000Z"));
+  assert.equal(suppressedAfterEdit.candidate.disposition, "NO_MORE_LIKE_THIS", "stable source and Candidate kind preserve suppression across ordinary source edits");
+  assert.equal(suppressedAfterEdit.candidate.dispositionReason, suppressed.candidate.dispositionReason);
+  assert.equal(suppressedAfterEdit.candidate.sourceVersion, "3:hash-c", "suppressed Candidate still records the latest analyzed source version without reopening");
+  const differentSuggestion = await application.discover({ ...input, candidateId: "yet-another-id", sourceVersion: "4:hash-d", suggestion: "改为 MiniProject 正式化 Proposal" }, envelope("candidate-discover-5"), new Date("2026-07-21T13:16:00.000Z"));
+  assert.equal(differentSuggestion.candidate.disposition, "PENDING", "a materially different recommendation is not hidden by an older suppression on the same source");
+  assert.equal(store.listCandidates().length, 1);
+  store.close();
+});
+
+test("Candidate updates are idempotent, optimistic, and allow only one persisted active Proposal", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2CandidateApplication(store);
+  const envelope = (idempotencyKey: string) => ({ actor: "plugin", traceId: idempotencyKey, idempotencyKey });
+  const discovered = await application.discover({ candidateId: "candidate:block-2:WORK_ITEM", sourceAnchorId: "block-2", sourceVersion: "1:hash", candidateKind: "WORK_ITEM", reason: "包含动作", suggestion: "正式化" }, envelope("candidate-2-discover"), new Date("2026-07-21T13:20:00.000Z"));
+  const later = await application.setDisposition(discovered.candidate.candidateId, "LATER", { reason: "下周再决定", deferredUntil: "2026-07-28T13:20:00.000Z" }, discovered.candidate.updatedAt, envelope("candidate-2-later"), new Date("2026-07-21T13:21:00.000Z"));
+  const replay = await application.setDisposition(discovered.candidate.candidateId, "LATER", { reason: "重复请求", deferredUntil: "2026-07-29T13:20:00.000Z" }, discovered.candidate.updatedAt, envelope("candidate-2-later"), new Date("2026-07-21T13:22:00.000Z"));
+  assert.equal(replay.replayed, true);
+  assert.deepEqual(replay.candidate, later.candidate);
+  await assert.rejects(() => application.setDisposition(discovered.candidate.candidateId, "DISMISSED", { reason: "过期视图" }, discovered.candidate.updatedAt, envelope("candidate-2-stale"), new Date("2026-07-21T13:23:00.000Z")), /已变化/);
+
+  const proposal = validProposal();
+  store.submitProposal(proposal, renderV2ProposalFiles(proposal));
+  const linked = await application.linkProposal(later.candidate.candidateId, proposal.proposalId, later.candidate.updatedAt, envelope("candidate-2-link"), new Date("2026-07-21T13:24:00.000Z"));
+  assert.equal(linked.candidate.activeProposalId, proposal.proposalId);
+  assert.deepEqual(store.candidateForProposal(proposal.proposalId), linked.candidate);
+  await assert.rejects(() => application.linkProposal(linked.candidate.candidateId, "proposal-other", linked.candidate.updatedAt, envelope("candidate-2-link-other")), /当前 Proposal/);
+  const refreshed = await application.discover({ candidateId: "ignored-new-id", sourceAnchorId: "block-2", sourceVersion: "2:changed", candidateKind: "WORK_ITEM", reason: "来源正文已变化", suggestion: "重新审阅" }, envelope("candidate-2-refresh"), new Date("2026-07-21T13:25:00.000Z"));
+  assert.equal(refreshed.candidate.activeProposalId, undefined);
+  assert.equal(store.storedProposal(proposal.proposalId)?.proposal.status, "STALE", "source changes stale the old current Proposal before reopening Candidate");
+  store.close();
+});
 
 test("validated Proposal and group metadata persist atomically and replay only exact content", async (t) => {
   const { root, store } = await fixture();

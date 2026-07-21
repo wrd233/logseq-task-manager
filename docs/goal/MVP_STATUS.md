@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
-last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 349 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Ownership Desktop, Association Desktop, Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, and Project Closure Desktop gates remain pending"
+last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 360 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Ownership Desktop, Association Desktop, Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, Project Closure Desktop, and Candidate Desktop gates remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -30,7 +30,7 @@ implemented:
   - "Explicit V1 Recovery Bundle migration scan validates schema/checksums/recovery state and produces reviewable Phase/Condition/Signal previews with zero SQLite writes"
   - "SQLite locked writes fail with zero formal writes; backups reject overwrite and validate schema, Graph identity, integrity and foreign keys read-only"
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
-  - "SQLite schema v9: SemanticCommit, Proposal/Group, immutable Audit/current-projection decoupling, nullable Task due_at, bounded V1 migration evidence, nullable Project closure_json, and one plain RELATED Association projection; v1..v8 upgrades require a validated preflight snapshot and roll back atomically"
+  - "SQLite schema v10: prior projections plus Candidate review state without source text; v1..v9 upgrades require a validated preflight snapshot and roll back atomically"
   - "Plain Association vertical path: one RELATED meaning, source-version protection, explicit Plugin confirmation/busy/error/success, Local Service/Application/SQLite atomic write, scope-bounded Context projection, and Association-aware Materialization/Migration Undo"
   - "Primary Ownership and plain Association are visibly distinct in the V2 object workspace through bounded read-only Local Service projections; no direct Ownership write path was added"
   - "Primary Ownership change and Undo are dedicated reviewed HIGH paths: server-owned Proposal/receipt evidence, transaction-level child/new-owner/current-owner protection, explicit Plugin confirmation/busy feedback, one Domain step per forward/inverse SemanticCommit, restore-to-old-or-unassigned behavior, later-edit refusal, idempotent replay, and bounded recovery after either Domain receipt"
@@ -47,8 +47,8 @@ implemented:
   - "V2 BLOCKED can reference one readable OPEN blocker; invalid links are zero-write, and actionable or quiet-Waiting blockers of Focus are surfaced with natural-language reasons"
   - "V2 Now Work supports session-only type filtering and grouping; partial views cannot accidentally reorder the full Focus list"
   - "V2 Task due_at is versioned through Local Service, is sorted by explicit time with natural-language reasons, and never becomes a score"
-  - "Review Center now owns the bounded current-page explicit Candidate scan and one-at-a-time stale-protected synchronization; Diagnostics no longer serves as that daily entry"
-  - "Review Center separates Candidate and Proposal queues with explicit counted session-level views, without adding another persisted state"
+  - "Review Center owns bounded current-page Candidate discovery; scan persists only Candidate authority and never directly creates Objects"
+  - "Candidate and Proposal queues persist across reload, show bounded transient source-first previews, support later/ordinary/stable same-recommendation suppression, one current Proposal, identity-safe formalization, Commit resolution and restart-safe Undo reopening"
   - "Known Primary Anchor observations persist missing/conflict/recovery through Local Service and one SQLite transaction without deleting objects or reviving replaced Anchors"
   - "Same-UUID synchronization preserves object_id, anchor_id and Primary Ownership; a copied UUID materializes a distinct object and Anchor"
   - "Explicit V2 Primary Anchor rebind requires confirmation, atomically preserves the old replaced Anchor while activating one new Anchor, and has a bounded Plugin review panel with stale re-read protection"

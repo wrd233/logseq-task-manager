@@ -5,7 +5,7 @@ import type {
   ProposalImpactView,
   ProjectReentryView,
 } from "@task-copilot/application";
-import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2ManagedObject, type V2PrimaryOwnership } from "@task-copilot/domain";
+import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2ManagedObject, type V2PrimaryOwnership } from "@task-copilot/domain";
 import type { ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import type { ObservableActionState } from "./inbox-action-controller.ts";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
@@ -79,6 +79,8 @@ export interface UiModel {
   v2NowWorkTypeFilter?: V2NowWorkTypeFilter;
   v2NowWorkGrouping?: V2NowWorkGrouping;
   v2CandidatePanel?: V2ExplicitCandidatePanelState;
+  v2Candidates?: V2Candidate[];
+  v2CandidateSourcePreviews?: Record<string, string>;
   v2CandidateAvailable?: boolean;
   v2ProviderAvailable?: boolean;
   v2ProviderState?: { status: "idle" | "loading" | "success" | "error"; message?: string };
@@ -276,8 +278,8 @@ function renderReview(model: UiModel): string {
   const open = model.proposals.filter((proposal) => proposal.status === "OPEN");
   const v2 = model.v2Proposals ?? [];
   const reviewMode = model.reviewMode ?? "candidates";
-  const candidatePanel = model.v2CandidatePanel ? renderV2ExplicitCandidateDiscoveryPanel(model.v2CandidatePanel, Boolean(model.v2CandidateAvailable)) : "";
-  const candidateCount = model.v2CandidatePanel?.status === "ready" ? model.v2CandidatePanel.preview.candidates.length : 0;
+  const candidatePanel = model.v2CandidatePanel ? renderV2ExplicitCandidateDiscoveryPanel(model.v2CandidatePanel, Boolean(model.v2CandidateAvailable), model.v2Candidates, model.v2CandidateSourcePreviews) : "";
+  const candidateCount = (model.v2Candidates ?? []).filter(({ disposition, deferredUntil }) => disposition === "PENDING" || (disposition === "LATER" && deferredUntil !== undefined && Date.parse(deferredUntil) <= Date.now())).length;
   const proposalCount = open.length + v2.filter((record) => !["APPLIED", "REJECTED"].includes(record.proposal.status)).length;
   const tabs = `<div class="actions review-modes" role="tablist" aria-label="审阅中心视图">${button(`待整理${candidateCount ? ` (${candidateCount})` : ""}`, "review-mode", "candidates", reviewMode === "candidates" ? "primary" : "quiet")}${button(`待审阅${proposalCount ? ` (${proposalCount})` : ""}`, "review-mode", "proposals", reviewMode === "proposals" ? "primary" : "quiet")}</div>`;
   if (reviewMode === "candidates") {

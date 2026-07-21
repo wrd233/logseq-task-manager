@@ -34,10 +34,10 @@ import type {
   V2OwnershipUndoResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
-import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2Association, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
+import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 9;
+export const V2_DATABASE_SCHEMA_VERSION = 10;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -67,6 +67,7 @@ const schemaMigrationNames = new Map<number, string>([
   [7, "add_v1_migration_ledger"],
   [8, "add_project_closure_summary"],
   [9, "add_plain_associations"],
+  [10, "add_candidate_review_state"],
 ]);
 
 export interface V2StoredProposal {
@@ -147,6 +148,22 @@ interface ObjectRow {
   created_at: string;
   updated_at: string;
   source_event: string;
+}
+
+interface CandidateRow {
+  candidate_id: string;
+  source_anchor_id: string;
+  source_version: string;
+  candidate_kind: V2Candidate["candidateKind"];
+  reason: string;
+  suggestion: string;
+  disposition: V2Candidate["disposition"];
+  disposition_reason: string | null;
+  deferred_until: string | null;
+  active_proposal_id: string | null;
+  last_analyzed_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
 function persistenceError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
@@ -365,6 +382,26 @@ export class V2SqliteStore {
           updated_at TEXT NOT NULL,
           PRIMARY KEY (proposal_id, group_id)
         ) STRICT;
+        CREATE TABLE candidates (
+          candidate_id TEXT PRIMARY KEY,
+          source_anchor_id TEXT NOT NULL,
+          source_version TEXT NOT NULL,
+          candidate_kind TEXT NOT NULL CHECK (candidate_kind IN ('WORK_ITEM','UPDATE','DECISION','OUTPUT','OWNERSHIP','CONFLICT')),
+          reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+          suggestion TEXT NOT NULL CHECK (length(trim(suggestion)) > 0),
+          disposition TEXT NOT NULL CHECK (disposition IN ('PENDING','LATER','DISMISSED','NO_MORE_LIKE_THIS','RESOLVED')),
+          disposition_reason TEXT,
+          deferred_until TEXT,
+          active_proposal_id TEXT REFERENCES proposals(proposal_id) ON DELETE SET NULL,
+          last_analyzed_at TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          UNIQUE(source_anchor_id, source_version, candidate_kind),
+          CHECK (disposition <> 'LATER' OR (deferred_until IS NOT NULL AND length(trim(disposition_reason)) > 0)),
+          CHECK (disposition NOT IN ('DISMISSED','NO_MORE_LIKE_THIS') OR length(trim(disposition_reason)) > 0),
+          CHECK (disposition <> 'RESOLVED' OR active_proposal_id IS NOT NULL)
+        ) STRICT;
+        CREATE INDEX candidate_source_kind_current ON candidates(source_anchor_id, candidate_kind, updated_at DESC);
         CREATE TABLE migration_runs (
           run_id TEXT PRIMARY KEY,
           source_bundle_sha256 TEXT NOT NULL UNIQUE CHECK (length(source_bundle_sha256) = 64),
@@ -455,7 +492,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5, 6, 7, 8].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 9) {
+    if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 10) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -615,6 +652,31 @@ export class V2SqliteStore {
         ) STRICT;`);
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(9, schemaMigrationNames.get(9), at.toISOString());
+        workingVersion = 9;
+      }
+      if (workingVersion === 9) {
+        this.database.exec(`CREATE TABLE candidates (
+          candidate_id TEXT PRIMARY KEY,
+          source_anchor_id TEXT NOT NULL,
+          source_version TEXT NOT NULL,
+          candidate_kind TEXT NOT NULL CHECK (candidate_kind IN ('WORK_ITEM','UPDATE','DECISION','OUTPUT','OWNERSHIP','CONFLICT')),
+          reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+          suggestion TEXT NOT NULL CHECK (length(trim(suggestion)) > 0),
+          disposition TEXT NOT NULL CHECK (disposition IN ('PENDING','LATER','DISMISSED','NO_MORE_LIKE_THIS','RESOLVED')),
+          disposition_reason TEXT,
+          deferred_until TEXT,
+          active_proposal_id TEXT REFERENCES proposals(proposal_id) ON DELETE SET NULL,
+          last_analyzed_at TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          UNIQUE(source_anchor_id, source_version, candidate_kind),
+          CHECK (disposition <> 'LATER' OR (deferred_until IS NOT NULL AND length(trim(disposition_reason)) > 0)),
+          CHECK (disposition NOT IN ('DISMISSED','NO_MORE_LIKE_THIS') OR length(trim(disposition_reason)) > 0),
+          CHECK (disposition <> 'RESOLVED' OR active_proposal_id IS NOT NULL)
+        ) STRICT;
+        CREATE INDEX candidate_source_kind_current ON candidates(source_anchor_id, candidate_kind, updated_at DESC);`);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(10, schemaMigrationNames.get(10), at.toISOString());
       }
       this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
@@ -674,6 +736,132 @@ export class V2SqliteStore {
       this.writeAudit(command.audit);
       this.writeReceipt(command.idempotencyKey, command.audit, command.object);
       return { object: command.object, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  upsertCandidate(candidate: V2Candidate, idempotencyKey: string): { candidate: V2Candidate; replayed: boolean } {
+    this.requireIdempotencyKey(idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.candidateReceipt(idempotencyKey, "DiscoverCandidate");
+      if (receipt) return { candidate: receipt, replayed: true };
+      const row = this.database.prepare(`SELECT * FROM candidates
+        WHERE source_anchor_id = ? AND candidate_kind = ? ORDER BY updated_at DESC, candidate_id LIMIT 1`)
+        .get(candidate.sourceAnchorId, candidate.candidateKind) as CandidateRow | undefined;
+      if (row) {
+        const current = this.mapCandidate(row);
+        if (current.sourceVersion === candidate.sourceVersion) {
+          this.writeCandidateReceipt(idempotencyKey, "DiscoverCandidate", current, candidate.lastAnalyzedAt);
+          return { candidate: current, replayed: true };
+        }
+        const refreshed: V2Candidate = {
+          ...candidate,
+          candidateId: current.candidateId,
+          createdAt: current.createdAt,
+          ...(current.disposition === "NO_MORE_LIKE_THIS" && current.suggestion === candidate.suggestion ? {
+            disposition: current.disposition,
+            ...(current.dispositionReason ? { dispositionReason: current.dispositionReason } : {}),
+          } : {}),
+        };
+        if (current.activeProposalId) {
+          const active = this.storedProposal(current.activeProposalId);
+          if (active && !["APPLIED", "REJECTED", "FAILED", "SUPERSEDED"].includes(active.proposal.status)) {
+            const staleProposal: V2Proposal = { ...active.proposal, status: "STALE" };
+            const staleFiles = renderV2ProposalFiles(staleProposal);
+            this.database.prepare("UPDATE proposals SET status = 'STALE', proposal_json = ?, proposal_md = ?, updated_at = ? WHERE proposal_id = ?")
+              .run(staleFiles.proposalJson.trimEnd(), staleFiles.proposalMd, refreshed.updatedAt, staleProposal.proposalId);
+          }
+        }
+        const result = this.database.prepare(`UPDATE candidates SET
+          source_version = ?, reason = ?, suggestion = ?, disposition = ?, disposition_reason = ?,
+          deferred_until = NULL, active_proposal_id = NULL, last_analyzed_at = ?, updated_at = ?
+          WHERE candidate_id = ? AND updated_at = ?`)
+          .run(refreshed.sourceVersion, refreshed.reason, refreshed.suggestion, refreshed.disposition,
+            refreshed.dispositionReason ?? null, refreshed.lastAnalyzedAt, refreshed.updatedAt,
+            refreshed.candidateId, current.updatedAt);
+        if (result.changes !== 1) throw persistenceError("V2_CANDIDATE_STALE", "Candidate 在重新分析期间发生变化；本次更新已回滚。");
+        this.writeCandidateReceipt(idempotencyKey, "DiscoverCandidate", refreshed, refreshed.updatedAt);
+        return { candidate: refreshed, replayed: false };
+      }
+      this.insertCandidate(candidate);
+      this.writeCandidateReceipt(idempotencyKey, "DiscoverCandidate", candidate, candidate.createdAt);
+      return { candidate, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  getCandidate(candidateId: string): V2Candidate | undefined {
+    const row = this.database.prepare("SELECT * FROM candidates WHERE candidate_id = ?").get(candidateId) as CandidateRow | undefined;
+    return row ? this.mapCandidate(row) : undefined;
+  }
+
+  candidateForProposal(proposalId: string): V2Candidate | undefined {
+    const row = this.database.prepare("SELECT * FROM candidates WHERE active_proposal_id = ? ORDER BY updated_at DESC LIMIT 1").get(proposalId) as CandidateRow | undefined;
+    return row ? this.mapCandidate(row) : undefined;
+  }
+
+  listCandidates(): V2Candidate[] {
+    return (this.database.prepare(`SELECT * FROM candidates ORDER BY
+      CASE disposition WHEN 'PENDING' THEN 0 WHEN 'LATER' THEN 1 WHEN 'DISMISSED' THEN 2 WHEN 'NO_MORE_LIKE_THIS' THEN 3 ELSE 4 END,
+      COALESCE(deferred_until, updated_at), candidate_id`).all() as CandidateRow[]).map((row) => this.mapCandidate(row));
+  }
+
+  updateCandidate(candidate: V2Candidate, expectedUpdatedAt: string, idempotencyKey: string): { candidate: V2Candidate; replayed: boolean } {
+    this.requireIdempotencyKey(idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.candidateReceipt(idempotencyKey, "UpdateCandidate");
+      if (receipt) return { candidate: receipt, replayed: true };
+      const current = this.getCandidate(candidate.candidateId);
+      if (!current) throw persistenceError("V2_CANDIDATE_NOT_FOUND", "Candidate 不存在。");
+      if (current.updatedAt !== expectedUpdatedAt) throw persistenceError("V2_CANDIDATE_STALE", "Candidate 已变化；本次处置没有写入。");
+      if (candidate.createdAt !== current.createdAt || candidate.sourceAnchorId !== current.sourceAnchorId || candidate.sourceVersion !== current.sourceVersion || candidate.candidateKind !== current.candidateKind) {
+        throw persistenceError("V2_CANDIDATE_IDENTITY_IMMUTABLE", "Candidate 来源身份只能由重新分析命令更新。");
+      }
+      const result = this.database.prepare(`UPDATE candidates SET reason = ?, suggestion = ?, disposition = ?,
+        disposition_reason = ?, deferred_until = ?, active_proposal_id = ?, last_analyzed_at = ?, updated_at = ?
+        WHERE candidate_id = ? AND updated_at = ?`)
+        .run(candidate.reason, candidate.suggestion, candidate.disposition, candidate.dispositionReason ?? null,
+          candidate.deferredUntil ?? null, candidate.activeProposalId ?? null, candidate.lastAnalyzedAt,
+          candidate.updatedAt, candidate.candidateId, expectedUpdatedAt);
+      if (result.changes !== 1) throw persistenceError("V2_CANDIDATE_STALE", "Candidate 在处置期间发生变化；本次更新已回滚。");
+      this.writeCandidateReceipt(idempotencyKey, "UpdateCandidate", candidate, candidate.updatedAt);
+      return { candidate, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  submitCandidateProposal(candidate: V2Candidate, proposal: V2Proposal, files: V2ProposalFiles, expectedUpdatedAt: string, idempotencyKey: string): { candidate: V2Candidate; proposal: V2Proposal; replayed: boolean } {
+    this.requireIdempotencyKey(idempotencyKey);
+    validateV2Proposal(proposal);
+    const canonicalFiles = renderV2ProposalFiles(proposal);
+    if (files.proposalJson !== canonicalFiles.proposalJson || files.proposalMd !== canonicalFiles.proposalMd) throw persistenceError("V2_PROPOSAL_FILES_MISMATCH", "Proposal 两文件与已验证语义不一致。");
+    const write = this.database.transaction(() => {
+      const receipt = this.candidateReceipt(idempotencyKey, "FormalizeCandidate");
+      if (receipt) {
+        const stored = this.storedProposal(receipt.activeProposalId ?? "");
+        if (!stored) throw persistenceError("V2_CANDIDATE_PROPOSAL_LEDGER_CORRUPT", "Candidate formalization 回执缺少 Proposal。");
+        return { candidate: receipt, proposal: stored.proposal, replayed: true };
+      }
+      const current = this.getCandidate(candidate.candidateId);
+      if (!current) throw persistenceError("V2_CANDIDATE_NOT_FOUND", "Candidate 不存在。");
+      if (current.updatedAt !== expectedUpdatedAt) throw persistenceError("V2_CANDIDATE_STALE", "Candidate 已变化；没有生成 Proposal。");
+      if (candidate.createdAt !== current.createdAt || candidate.sourceAnchorId !== current.sourceAnchorId || candidate.sourceVersion !== current.sourceVersion || candidate.candidateKind !== current.candidateKind || candidate.activeProposalId !== proposal.proposalId) {
+        throw persistenceError("V2_CANDIDATE_IDENTITY_IMMUTABLE", "Candidate formalization 身份与 Proposal 不一致。");
+      }
+      const existing = this.database.prepare("SELECT proposal_json, proposal_md FROM proposals WHERE proposal_id = ?").get(proposal.proposalId) as { proposal_json: string; proposal_md: string } | undefined;
+      if (existing) {
+        if (existing.proposal_json !== files.proposalJson.trimEnd() || existing.proposal_md !== files.proposalMd) throw persistenceError("V2_PROPOSAL_ID_CONFLICT", "Proposal ID 已存在且内容不同。");
+      } else {
+        this.database.prepare("INSERT INTO proposals(proposal_id, status, proposal_json, proposal_md, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+          .run(proposal.proposalId, proposal.status, files.proposalJson.trimEnd(), files.proposalMd, proposal.createdAt, candidate.updatedAt);
+        const insertGroup = this.database.prepare("INSERT INTO proposal_groups(proposal_id, group_id, disposition, group_json, updated_at) VALUES (?, ?, ?, ?, ?)");
+        for (const group of proposal.groups) insertGroup.run(proposal.proposalId, group.groupId, group.disposition, stableJson(group), candidate.updatedAt);
+      }
+      const updated = this.database.prepare("UPDATE candidates SET disposition = ?, disposition_reason = ?, deferred_until = ?, active_proposal_id = ?, updated_at = ? WHERE candidate_id = ? AND updated_at = ?")
+        .run(candidate.disposition, candidate.dispositionReason ?? null, candidate.deferredUntil ?? null, candidate.activeProposalId ?? null, candidate.updatedAt, candidate.candidateId, expectedUpdatedAt);
+      if (updated.changes !== 1) throw persistenceError("V2_CANDIDATE_STALE", "Candidate 在 Proposal 创建期间发生变化；本批已回滚。");
+      this.writeCandidateReceipt(idempotencyKey, "FormalizeCandidate", candidate, candidate.updatedAt);
+      return { candidate, proposal, replayed: false };
     });
     return this.executeWrite(write);
   }
@@ -1552,6 +1740,47 @@ export class V2SqliteStore {
     return this.database.prepare("SELECT command_name, result_json FROM command_receipts WHERE idempotency_key = ?").get(idempotencyKey) as
       | { command_name: string; result_json: string }
       | undefined;
+  }
+
+  private candidateReceipt(idempotencyKey: string, commandName: string): V2Candidate | undefined {
+    const receipt = this.receipt(idempotencyKey);
+    if (!receipt) return undefined;
+    if (receipt.command_name !== commandName) throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+    return JSON.parse(receipt.result_json) as V2Candidate;
+  }
+
+  private writeCandidateReceipt(idempotencyKey: string, commandName: string, candidate: V2Candidate, createdAt: string): void {
+    this.database.prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
+      .run(idempotencyKey, commandName, stableJson(candidate), createdAt);
+  }
+
+  private insertCandidate(candidate: V2Candidate): void {
+    this.database.prepare(`INSERT INTO candidates(
+      candidate_id, source_anchor_id, source_version, candidate_kind, reason, suggestion, disposition,
+      disposition_reason, deferred_until, active_proposal_id, last_analyzed_at, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(candidate.candidateId, candidate.sourceAnchorId, candidate.sourceVersion, candidate.candidateKind,
+        candidate.reason, candidate.suggestion, candidate.disposition, candidate.dispositionReason ?? null,
+        candidate.deferredUntil ?? null, candidate.activeProposalId ?? null, candidate.lastAnalyzedAt,
+        candidate.createdAt, candidate.updatedAt);
+  }
+
+  private mapCandidate(row: CandidateRow): V2Candidate {
+    return {
+      candidateId: row.candidate_id,
+      sourceAnchorId: row.source_anchor_id,
+      sourceVersion: row.source_version,
+      candidateKind: row.candidate_kind,
+      reason: row.reason,
+      suggestion: row.suggestion,
+      disposition: row.disposition,
+      ...(row.disposition_reason ? { dispositionReason: row.disposition_reason } : {}),
+      ...(row.deferred_until ? { deferredUntil: row.deferred_until } : {}),
+      ...(row.active_proposal_id ? { activeProposalId: row.active_proposal_id } : {}),
+      lastAnalyzedAt: row.last_analyzed_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 
   private requireVersion(objectId: string, expectedVersion: number): void {
