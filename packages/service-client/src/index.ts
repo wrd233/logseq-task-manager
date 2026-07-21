@@ -291,11 +291,15 @@ export class LocalServiceClient {
       throw clientError("SERVICE_RESPONSE_INVALID", "Local Service 返回了非 JSON 响应。", { status: response.status });
     }
     if (!response.ok) {
-      const remoteCode = body && typeof body === "object" && "error" in body
-        ? (body as { error?: { code?: unknown } }).error?.code
+      const remoteError = body && typeof body === "object" && "error" in body
+        ? (body as { error?: { code?: unknown; message?: unknown } }).error
+        : undefined;
+      const remoteCode = remoteError?.code;
+      const remoteMessage = typeof remoteError?.message === "string" && remoteError.message.trim() && remoteError.message.length <= 1_000
+        ? remoteError.message.trim()
         : undefined;
       const code = response.status === 401 ? "SERVICE_UNAUTHORIZED" : "SERVICE_HTTP_ERROR";
-      throw clientError(code, response.status === 401 ? "Local Service 会话认证失败。" : "Local Service 请求失败。", {
+      throw clientError(code, response.status === 401 ? "Local Service 会话认证失败。" : remoteMessage ?? "Local Service 请求失败。", {
         status: response.status,
         ...(typeof remoteCode === "string" ? { remoteCode } : {}),
       });

@@ -2,6 +2,7 @@ import {
   ExplicitObjectChangeDebouncer,
   parseExplicitObjectSyntax,
   readBoundedExplicitSubtrees,
+  stripLogseqBlockIdentityProperty,
   type DebounceClock,
   type ExplicitObjectBlockChange,
 } from "@task-copilot/logseq-adapter";
@@ -38,6 +39,7 @@ export interface ExplicitSyncControllerOptions {
   clock?: DebounceClock;
   createTraceId?: () => string;
   readBlock?(externalId: string): Promise<unknown>;
+  ensurePersistentIdentity?(externalId: string): Promise<void>;
   onIssue?(issue: ExplicitSyncIssue): void;
   onState?(state: ExplicitSyncState): void;
 }
@@ -200,7 +202,7 @@ export class ExplicitSyncController {
       const suppression = this.suppressedObservations.get(block.uuid);
       if (!suppression) return true;
       this.suppressedObservations.delete(block.uuid);
-      return suppression.expiresAt < now || typeof block.content !== "string" || checksum(block.content) !== suppression.contentHash;
+      return suppression.expiresAt < now || typeof block.content !== "string" || checksum(stripLogseqBlockIdentityProperty(block.content, block.uuid)) !== suppression.contentHash;
     });
     if (filtered.length > 0) this.debouncer.enqueue(filtered);
   }
@@ -277,13 +279,21 @@ export class ExplicitSyncController {
         continue;
       }
       if (change.parsed.kind === "NONE") continue;
+      try {
+        await this.options.ensurePersistentIdentity?.(change.externalId);
+      } catch {
+        this.needsReconciliation = true;
+        this.issue("EXPLICIT_SYNC_BLOCK_IDENTITY_PERSIST_FAILED", "Block 持久身份写入或复核失败；没有创建正式对象。", change.externalId);
+        continue;
+      }
+      const contentHash = checksum(stripLogseqBlockIdentityProperty(change.content, change.externalId));
       const request: PendingSync = {
         objectType: change.parsed.objectType,
         text: change.parsed.title,
         ...(change.parsed.marker ? { marker: change.parsed.marker } : {}),
         externalId: change.externalId,
         inputVersion: change.inputVersion,
-        contentHash: checksum(change.content),
+        contentHash,
         idempotencyKey: `explicit-sync:${change.externalId}:${change.inputVersion}:${checksum(`${change.parsed.objectType}\0${change.parsed.marker ? `${change.parsed.marker}\0` : ""}${change.parsed.title.normalize("NFKC").replace(/\s+/gu, " ")}`)}`,
         traceId: this.createTraceId(),
       };
@@ -387,7 +397,7 @@ export class ExplicitSyncController {
         await this.persistAnchorObservation(transport, anchor, "conflict");
         continue;
       }
-      if (checksum(block.content) === anchor.contentHash) {
+      if (checksum(stripLogseqBlockIdentityProperty(block.content, anchor.externalId)) === anchor.contentHash) {
         if (anchor.status !== "active") await this.persistAnchorObservation(transport, anchor, "active");
         continue;
       }

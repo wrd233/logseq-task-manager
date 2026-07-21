@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ExplicitObjectChangeDebouncer,
   parseExplicitObjectSyntax,
+  stripLogseqBlockIdentityProperty,
   type DebounceClock,
 } from "../src/index.ts";
 
@@ -90,6 +91,16 @@ test("bare TODO stays non-object regardless of whether a parent formal object ex
   const child = parseExplicitObjectSyntax("TODO 收集一条测试事件");
   assert.equal(child.kind, "NONE");
   assert.equal(child.reason, "NO_EXPLICIT_OBJECT_MARKER");
+});
+
+test("parser and semantic content ignore Logseq's persisted Block identity property", () => {
+  const uuid = "6a5e48ce-c0e3-4281-9f74-1a8f49a3e539";
+  const withIdentity = `[任务] 稳定的正式对象\nid:: ${uuid}`;
+  assert.deepEqual(parseExplicitObjectSyntax(withIdentity), {
+    kind: "OBJECT", objectType: "TASK", marker: undefined, syntax: "[任务]", title: "稳定的正式对象",
+  });
+  assert.equal(stripLogseqBlockIdentityProperty(withIdentity, uuid), "[任务] 稳定的正式对象");
+  assert.equal(stripLogseqBlockIdentityProperty(`${withIdentity}\nid:: 00000000-0000-4000-8000-000000000000`, uuid), "[任务] 稳定的正式对象\nid:: 00000000-0000-4000-8000-000000000000");
 });
 
 test("unsupported Area and Project labels are not guessed into formal objects", () => {

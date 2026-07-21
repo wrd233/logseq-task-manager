@@ -1,11 +1,17 @@
 import type { ServiceStoredProposal } from "@task-copilot/service-client";
+import { planAcceptedV2Formalization } from "@task-copilot/application";
+import { stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { StructuredError, checksum } from "@task-copilot/shared";
 
 import type { ServiceRuntimeClient } from "./service-connection.ts";
 import { collectV2ProposalGraphObservations, type ProposalRevalidationGraphHost } from "./v2-proposal-revalidation.ts";
 
-export interface ProposalCommitGraphHost extends ProposalRevalidationGraphHost {
+export interface ProposalMutationGraphHost extends ProposalRevalidationGraphHost {
   updateBlock(id: string, content: string): Promise<unknown>;
+}
+
+export interface ProposalCommitGraphHost extends ProposalMutationGraphHost {
+  ensurePersistentIdentity(id: string): Promise<void>;
 }
 
 function commitError(code: string, message: string): StructuredError {
@@ -16,7 +22,8 @@ function blockEvidence(value: unknown, expectedId: string): { hash: string; inpu
   const block = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
   if (!block || typeof block.content !== "string" || (typeof block.uuid === "string" && block.uuid !== expectedId)) throw commitError("V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_INVALID", "Logseq Block 身份或正文证据无效。");
   const version = block.updatedAt ?? block["updated-at"];
-  return { hash: checksum(block.content), inputVersion: typeof version === "string" || typeof version === "number" ? String(version) : `content-${checksum(block.content)}` };
+  const contentHash = checksum(stripLogseqBlockIdentityProperty(block.content, expectedId));
+  return { hash: contentHash, inputVersion: typeof version === "string" || typeof version === "number" ? String(version) : `content-${contentHash}` };
 }
 
 export async function commitV2Formalization(
@@ -25,6 +32,8 @@ export async function commitV2Formalization(
   record: ServiceStoredProposal,
   traceId: string,
 ): Promise<{ status: "COMPLETED" | "STALE" | "FAILED_COMPENSATED"; semanticCommitId?: string; objectId?: string }> {
+  const reviewedPlan = planAcceptedV2Formalization(record.proposal);
+  await host.ensurePersistentIdentity(reviewedPlan.patch.blockUuid);
   const observations = await collectV2ProposalGraphObservations(record.proposal, host);
   const prepared = await client.prepareProposalCommit(record.proposal.proposalId, observations, record.updatedAt);
   if (prepared.status === "STALE") return { status: "STALE" };
@@ -69,7 +78,7 @@ export async function commitV2Formalization(
 
 export async function undoV2Formalization(
   client: Pick<ServiceRuntimeClient, "prepareProposalUndo" | "finalizeProposalUndo" | "compensateProposalUndo">,
-  host: ProposalCommitGraphHost,
+  host: ProposalMutationGraphHost,
   originalSemanticCommitId: string,
   traceId: string,
 ): Promise<{ status: "COMPLETED" | "FAILED_COMPENSATED"; undoSemanticCommitId: string; objectId?: string }> {

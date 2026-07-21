@@ -50,6 +50,16 @@ const todoMarkers: readonly LogseqTodoMarker[] = [
   "NOW",
 ];
 
+const logseqBlockUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+export function stripLogseqBlockIdentityProperty(content: string, expectedUuid?: string): string {
+  return content.split(/\r?\n/u).filter((line) => {
+    const match = line.trim().match(/^id::\s*(\S+)$/iu);
+    if (!match?.[1] || !logseqBlockUuid.test(match[1])) return true;
+    return expectedUuid !== undefined && match[1].toLowerCase() !== expectedUuid.toLowerCase();
+  }).join("\n");
+}
+
 function leadingTodoMarker(content: string): LogseqTodoMarker | undefined {
   return todoMarkers.find(
     (marker) => content === marker || (content.startsWith(marker) && /^\s/u.test(content.slice(marker.length))),
@@ -65,7 +75,7 @@ function allExplicitSyntax(content: string): typeof explicitSyntax {
 }
 
 export function parseExplicitObjectSyntax(content: string): ExplicitObjectParseResult {
-  const trimmed = content.trim();
+  const trimmed = stripLogseqBlockIdentityProperty(content).trim();
   const leading = explicitSyntax.find(
     ({ syntax }) => startsWithToken(trimmed, syntax),
   );

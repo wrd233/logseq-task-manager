@@ -1,4 +1,5 @@
 import { build, context } from "esbuild";
+import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -10,13 +11,12 @@ const pluginCommit = execFileSync("git", ["rev-parse", "--short=12", "HEAD"], { 
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-await Promise.all([
-  copyFile(resolve(root, "index.html"), resolve(dist, "index.html")),
-  copyFile(resolve(root, "src/index.css"), resolve(dist, "index.css")),
-]);
-const builtHtmlPath = resolve(dist, "index.html");
-const builtHtml = await readFile(builtHtmlPath, "utf8");
-await writeFile(builtHtmlPath, builtHtml.replaceAll("__TASK_COPILOT_BUILD__", pluginCommit), "utf8");
+await copyFile(resolve(root, "src/index.css"), resolve(dist, "index.css"));
+
+async function writeBuiltHtml(buildId) {
+  const template = await readFile(resolve(root, "index.html"), "utf8");
+  await writeFile(resolve(dist, "index.html"), template.replaceAll("__TASK_COPILOT_BUILD__", buildId), "utf8");
+}
 
 const options = {
   entryPoints: [resolve(root, "src/index.ts")],
@@ -33,9 +33,16 @@ const options = {
 };
 
 if (watch) {
+  await writeBuiltHtml(pluginCommit);
   const ctx = await context(options);
   await ctx.watch();
   console.log("Task Copilot watch build is active. Reload the plugin in Logseq after a rebuild.");
 } else {
   await build(options);
+  const [javascript, css] = await Promise.all([
+    readFile(resolve(dist, "index.js")),
+    readFile(resolve(dist, "index.css")),
+  ]);
+  const assetBuildId = createHash("sha256").update(javascript).update(css).digest("hex").slice(0, 12);
+  await writeBuiltHtml(assetBuildId);
 }

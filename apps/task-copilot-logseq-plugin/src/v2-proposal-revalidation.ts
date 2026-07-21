@@ -1,4 +1,5 @@
 import { requiredV2ProposalRevalidationScope, type V2Proposal, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { StructuredError, checksum } from "@task-copilot/shared";
 
 export interface ProposalRevalidationGraphHost {
@@ -44,7 +45,7 @@ export async function collectV2ProposalGraphObservations(
       if (!block || typeof block.content !== "string") throw revalidationError("Logseq Block evidence shape 无效。");
       if (typeof block.uuid === "string" && block.uuid !== target.id) throw revalidationError("Logseq Block identity 与 Proposal scope 不一致。");
       const version = observedVersion(block.updatedAt ?? block["updated-at"]);
-      observations.push({ kind: "BLOCK", id: target.id, exists: true, ...(version === undefined ? {} : { version }), hash: checksum(block.content) });
+      observations.push({ kind: "BLOCK", id: target.id, exists: true, ...(version === undefined ? {} : { version }), hash: checksum(stripLogseqBlockIdentityProperty(block.content, target.id)) });
       continue;
     }
     const value = await host.getPage(target.id);

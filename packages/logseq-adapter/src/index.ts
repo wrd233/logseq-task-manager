@@ -5,6 +5,7 @@ import { StructuredError, checksum, classifyStorageError, stableJson } from "@ta
 export { classifyStorageError, type StorageErrorKind } from "@task-copilot/shared";
 export {
   parseExplicitObjectSyntax,
+  stripLogseqBlockIdentityProperty,
   type ExplicitObjectParseResult,
   type LogseqTodoMarker,
 } from "./explicit-object-parser.ts";

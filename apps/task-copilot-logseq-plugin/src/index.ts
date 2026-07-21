@@ -8,6 +8,7 @@ import type { ConditionKind, ObjectType, Phase, V2Condition } from "@task-copilo
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
+  stripLogseqBlockIdentityProperty,
   type LogseqContentPort,
   type LogseqFileStorageBlobStore,
 } from "@task-copilot/logseq-adapter";
@@ -135,13 +136,25 @@ async function openV2PrimaryAnchor(externalId: string): Promise<void> {
 }
 
 async function updateBlockWithoutExplicitSyncEcho(externalId: string, content: string): Promise<unknown> {
-  const cancelSuppression = explicitSyncController?.suppressNextObservedContent(externalId, checksum(content));
+  const cancelSuppression = explicitSyncController?.suppressNextObservedContent(externalId, checksum(stripLogseqBlockIdentityProperty(content, externalId)));
   try {
     return await logseq.Editor.updateBlock(externalId, content);
   } catch (error) {
     cancelSuppression?.();
     throw error;
   }
+}
+
+async function ensurePersistentBlockIdentity(externalId: string): Promise<void> {
+  const before = await logseq.Editor.getBlock(externalId, { includeChildren: false });
+  const block = before && typeof before === "object" && !Array.isArray(before) ? before as { uuid?: unknown; properties?: unknown } : undefined;
+  if (block?.uuid !== externalId) throw new Error("Logseq Block 身份不可用；没有创建正式对象。");
+  const properties = block.properties && typeof block.properties === "object" && !Array.isArray(block.properties) ? block.properties as Record<string, unknown> : {};
+  if (properties.id !== externalId) await logseq.Editor.upsertBlockProperty(externalId, "id", externalId);
+  const verified = await logseq.Editor.getBlock(externalId, { includeChildren: false });
+  const verifiedBlock = verified && typeof verified === "object" && !Array.isArray(verified) ? verified as { uuid?: unknown; properties?: unknown } : undefined;
+  const verifiedProperties = verifiedBlock?.properties && typeof verifiedBlock.properties === "object" && !Array.isArray(verifiedBlock.properties) ? verifiedBlock.properties as Record<string, unknown> : {};
+  if (verifiedBlock?.uuid !== externalId || verifiedProperties.id !== externalId) throw new Error("Logseq Block 持久身份复核失败；没有创建正式对象。");
 }
 
 function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>[0]): string {
@@ -357,6 +370,7 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
 function initializeExplicitSync(): void {
   explicitSyncController = new ExplicitSyncController({
     readBlock: (externalId) => logseq.Editor.getBlock(externalId),
+    ensurePersistentIdentity: ensurePersistentBlockIdentity,
     onIssue(issue) {
       operationalLogger.log("warn", "plugin-lifecycle", "explicit_sync_issue", {
         result: "deferred",
@@ -495,7 +509,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     const traceId = `v2-candidate-${Date.now()}-${globalThis.crypto.randomUUID()}`;
     try {
-      const result = await submitV2ExplicitCandidate(client, currentPanel.preview, externalId, (blockId) => logseq.Editor.getBlock(blockId), traceId);
+      const result = await submitV2ExplicitCandidate(client, currentPanel.preview, externalId, (blockId) => logseq.Editor.getBlock(blockId), traceId, ensurePersistentBlockIdentity);
       v2CandidatePanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
         ? { status: "success", message: `${result.operation}：对象 ${result.object.objectId} 已绑定到 Block ${result.anchor.externalId}。其余候选未写入。` }
         : { status: "error", message: "Local Service 在提交期间重连；旧会话已返回成功，请先在 Audit/Doctor 核对，不要立即重试。" };
@@ -870,6 +884,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       const result = await commitV2Formalization(client, {
         getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id),
         updateBlock: updateBlockWithoutExplicitSyncEcho,
+        ensurePersistentIdentity: ensurePersistentBlockIdentity,
       }, stored, `v2-proposal-commit-ui-${Date.now()}`);
       actionDialog = undefined;
       workspace = "review";
@@ -880,6 +895,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-proposal-undo" && value) return openActionDialog("confirm-v2-undo", value);
   if (action === "submit-v2-proposal-undo" && value) {
     if (!dialogChecked("actionConfirmed")) { latestError = "请确认创建逆向 Commit。"; await refresh(); return; }
+    actionDialog = undefined;
     await run(async () => {
       const client = serviceRuntimeClient;
       if (!client) throw new Error("V2 Undo 上下文已失效；没有写入。");
@@ -887,7 +903,6 @@ async function handleAction(action: string, value?: string): Promise<void> {
         getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id),
         updateBlock: updateBlockWithoutExplicitSyncEcho,
       }, value, `v2-proposal-undo-ui-${Date.now()}`);
-      actionDialog = undefined;
       workspace = "review";
       message = result.status === "COMPLETED" ? "Undo 已作为新的逆向 Commit 生效；正文与当前对象投影均已恢复，历史 Audit 保留。" : "Undo 领域写入失败，正文已恢复为 Commit 后状态；原 Commit 仍有效。";
     });

@@ -168,6 +168,8 @@ E2E-11 的 Focus/期限/阻碍/Waiting 可解释排序场景已有自动成功/�
 - 修复后的最终 Commit 中，Graph 正文为 `[任务] 对照最终文本验证修复后的 Commit 与 Undo`，SQLite Task 文本为 `对照最终文本验证修复后的 Commit 与 Undo` 且保持 version 2，证明没有自回声和二次补漏；
 - 同一卡片 Undo 后，Block 恢复原普通正文，Object/Primary Anchor 当前投影均不存在，正向 Commit 为 `UNDONE`、逆向 Commit 为 `COMPLETED`；确认框关闭，Audit 历史保留；
 - 冷重启 Logseq 后，bundle commit `b75768eaf34e`、恢复后的正文、撤销卡片和正/逆 Commit 状态保持。
+- 后续编辑拒绝 Gate：对已完成 Commit 的 Block 做用户后续编辑，再从同一卡片确认 Undo；UI 显示“对象或 Anchor 已有后续变化；Undo 没有写入”，确认框关闭，正文保留，Object version 继续前进，正向 Commit 仍为 `COMPLETED`，没有逆向 Commit。
+- 真实复核发现 Logseq 普通 Block 的 UUID 在硬退出后的重新索引中可能变化；未持久化 `id:: <Block UUID>` 时，旧 Anchor 正确进入 `missing`，不是误报。V2 现将 `id::` 作为 Logseq 原生身份证据：正式同步、候选提交和 Proposal Commit 前确保写入并复核；Parser、Proposal evidence、Anchor hash 和回声抑制均忽略匹配的身份属性行，不把它混入用户正文。未知/不匹配的身份属性不被静默删除。
 
 探索期第一个 pre-fix Proposal 已在本地测试库形成 version 3 的自回声对象，其严格 Undo 会按旧证据拒绝。该记录没有伪装成修复后结果，也未手工改库；它保留为诊断证据且只存在于 ignored 测试 Graph/SQLite。后续两个修复后闭环均按正式路径成功 Undo。
 
@@ -180,8 +182,11 @@ E2E-11 的 Focus/期限/阻碍/Waiting 可解释排序场景已有自动成功/�
 - `tmp/runtime/v2-desktop/proposal-final-applied-b75768e.png`
 - `tmp/runtime/v2-desktop/proposal-final-undone-b75768e.png`
 - `tmp/runtime/v2-desktop/proposal-final-reload-b75768e.png`
+- `tmp/runtime/v2-desktop/proposal-stale-refused-b75768e.png`
+- `tmp/runtime/v2-desktop/proposal-later-edit-applied-b75768e.png`
+- `tmp/runtime/v2-desktop/proposal-later-edit-undo-refused-cf0bf600db5b.png`
 
-本轮完成了 MEDIUM 单组接受、重验、最终 Commit、Undo 与 cold reload。高影响独立确认、拒绝/暂缓、stale 原文、后续编辑拒绝覆盖和 Commit/Undo 进程故障仍需 Desktop，因此 E2E-08、E2E-10 与 E2E-12 仅为 `DESKTOP_PARTIAL_PASS`，不标 DONE。
+本轮完成了 MEDIUM 单组接受、重验、最终 Commit、Undo、cold reload、审阅期 stale 原文停写和 Commit 后后续编辑拒绝覆盖。高影响独立确认、拒绝/暂缓与 Commit/Undo 进程故障仍需 Desktop，因此 E2E-08、E2E-12 仍为 `DESKTOP_PARTIAL_PASS`；E2E-09、E2E-10 的核心 Desktop Gate 已通过，但进程故障分支仍保留在 Slice C 待验收。
 
 ## 本轮发现的交互问题
 

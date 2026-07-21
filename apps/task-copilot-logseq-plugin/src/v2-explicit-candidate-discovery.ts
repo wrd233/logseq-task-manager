@@ -1,4 +1,4 @@
-import { normalizeExplicitObjectBlock } from "@task-copilot/logseq-adapter";
+import { normalizeExplicitObjectBlock, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import type { ServiceMaterializeExplicitObjectRequest, ServiceSynchronizeExplicitObjectResult } from "@task-copilot/service-client";
 import { checksum } from "@task-copilot/shared";
 
@@ -106,7 +106,7 @@ export async function prepareV2ExplicitCandidateDiscovery(
     candidates.push({
       externalId: normalized.externalId,
       inputVersion: normalized.inputVersion,
-      contentHash: checksum(normalized.content),
+      contentHash: checksum(stripLogseqBlockIdentityProperty(normalized.content, normalized.externalId)),
       objectType: normalized.parsed.objectType,
       ...(normalized.parsed.marker ? { marker: normalized.parsed.marker } : {}),
       text: normalized.parsed.title,
@@ -121,7 +121,7 @@ function candidateFromBlock(value: unknown): V2ExplicitCandidate | undefined {
   return normalized?.parsed.kind === "OBJECT" ? {
     externalId: normalized.externalId,
     inputVersion: normalized.inputVersion,
-    contentHash: checksum(normalized.content),
+    contentHash: checksum(stripLogseqBlockIdentityProperty(normalized.content, normalized.externalId)),
     objectType: normalized.parsed.objectType,
     ...(normalized.parsed.marker ? { marker: normalized.parsed.marker } : {}),
     text: normalized.parsed.title,
@@ -134,6 +134,7 @@ export async function submitV2ExplicitCandidate(
   externalId: string,
   readBlock: (externalId: string) => Promise<unknown>,
   traceId: string,
+  ensurePersistentIdentity?: (externalId: string) => Promise<void>,
 ): Promise<ServiceSynchronizeExplicitObjectResult> {
   const candidate = preview.candidates.find((value) => value.externalId === externalId);
   if (!candidate) throw new Error("请选择当前预览中的显式对象候选；没有执行写入。");
@@ -149,6 +150,7 @@ export async function submitV2ExplicitCandidate(
   ) {
     throw new Error("候选 Block 已在预览后变化或不再是合法显式对象；请重新扫描，旧预览没有提交。");
   }
+  await ensurePersistentIdentity?.(current.externalId);
   return client.synchronizeExplicitObject({
     objectType: current.objectType,
     text: current.text,

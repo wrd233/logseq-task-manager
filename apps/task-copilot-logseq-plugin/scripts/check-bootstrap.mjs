@@ -7,6 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 const source = await readFile(resolve(root, "src/index.ts"), "utf8");
 const bootstrap = await readFile(resolve(root, "src/bootstrap-shell.ts"), "utf8");
+const buildScript = await readFile(resolve(root, "scripts/build.mjs"), "utf8");
 const diagnostics = await readFile(resolve(root, "src/runtime-diagnostics.ts"), "utf8");
 const html = await readFile(resolve(root, "index.html"), "utf8");
 const css = await readFile(resolve(root, "src/index.css"), "utf8");
@@ -20,6 +21,7 @@ assert.match(source, /beforeunload[\s\S]*cleanupHooks/, "reload cleanup hook is 
 assert.match(source, /featureReady = serviceConnection\.status === "READY" && Boolean\(serviceRuntimeClient\)/, "a READY V2 Local Service must unlock the V2 workspace");
 assert.doesNotMatch(source, /markReady\("EVENTS_READY"\);\s*featureReady = false/, "V2 startup must not deliberately strand the UI in Diagnostics");
 assert.equal((source.match(/\.\.\.\(actionDialog \? \{ actionDialog \} : \{\}\)/g) ?? []).length, 2, "both V1 and V2-only models must expose in-context action dialogs");
+assert.match(buildScript, /assetBuildId = createHash\("sha256"\)\.update\(javascript\)\.update\(css\)/, "production asset URLs must change when built JS or CSS changes");
 const v1ActionGuard = source.indexOf("const taskCopilot = requireTaskCopilot();");
 assert.ok(v1ActionGuard > 0, "V1 action guard is required");
 for (const action of ["create-v2-project", "v2-review-accept", "v2-review-defer", "v2-proposal-revalidate", "v2-proposal-commit", "v2-proposal-undo", "submit-v2-review-defer"]) {

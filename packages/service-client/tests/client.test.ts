@@ -74,6 +74,21 @@ test("unavailable and timeout both preserve Graph editing but restrict formal wr
   if (timeoutState.status === "RESTRICTED") assert.equal(timeoutState.reasonCode, "SERVICE_TIMEOUT");
 });
 
+test("client preserves bounded Local Service conflict messages for reviewable UI errors", async (t) => {
+  const { server, url } = await listen((_request, response) => {
+    response.writeHead(409, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: { code: "V2_PROPOSAL_UNDO_STATE_CHANGED", message: "对象或 Anchor 已有后续变化；Undo 没有写入。" } }));
+  });
+  t.after(() => server.close());
+  const client = new LocalServiceClient(descriptor(url));
+  await assert.rejects(() => client.prepareProposalUndo("proposal-commit:changed", "trace"), (error: unknown) => {
+    assert.ok(error instanceof Error);
+    assert.equal(error.message, "对象或 Anchor 已有后续变化；Undo 没有写入。");
+    assert.equal("details" in error && (error.details as { remoteCode?: string }).remoteCode, "V2_PROPOSAL_UNDO_STATE_CHANGED");
+    return true;
+  });
+});
+
 test("materialization client sends no Graph, database path, or caller-selected object identity", async (t) => {
   const token = "client-materialize-token-24-characters";
   let received: unknown;
