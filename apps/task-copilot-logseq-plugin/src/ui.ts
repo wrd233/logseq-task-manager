@@ -29,6 +29,7 @@ export type ActionDialogKind =
   | "confirm-undo"
   | "confirm-v2-review-accept"
   | "confirm-v2-commit"
+  | "confirm-v2-project-closure"
   | "confirm-v2-undo"
   | "v2-condition"
   | "v2-deadline"
@@ -181,7 +182,7 @@ function renderObjects(model: UiModel): string {
   const projectCreator = `<section class="card project-creator" aria-label="创建 Project 页面"><div class="eyebrow">V2 · Project 原子创建</div><h3>新建 Project</h3><p class="muted">创建受控的 Project/&lt;名称&gt; 页面，并在页面验证后一次性写入 SQLite。</p><label>Project 名称<input data-field="v2ProjectName" placeholder="例如：告警推送治理"${model.v2ProjectCreationAvailable ? "" : " disabled"}></label>${button("创建 Project 与页面", "create-v2-project", undefined, "primary", !model.v2ProjectCreationAvailable)}</section>`;
   if (model.v2Objects !== undefined) {
     if (model.v2Objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Review Center 正式化，或创建 V2 Project 页面。")}`;
-    const list = `<section aria-label="V2 正式对象"><h2>正式对象</h2><div class="object-list">${model.v2Objects.map((object) => `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small></article>`).join("")}</div></section>`;
+    const list = `<section aria-label="V2 正式对象"><h2>正式对象</h2><div class="object-list">${model.v2Objects.map((object) => `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${object.closure ? `<details class="project-closure" open><summary>Project Closure</summary><p><strong>原始目标：</strong>${escapeHtml(object.closure.originalGoal)}</p><p><strong>实际结果：</strong>${escapeHtml(object.closure.actualResult)}</p><p><strong>主要交付：</strong>${escapeHtml(object.closure.majorDeliverables.join("；") || "无")}</p><p><strong>未完成 Objective：</strong>${object.closure.incompleteObjectives.length ? object.closure.incompleteObjectives.map((item) => `${escapeHtml(item.objective)}（${escapeHtml(item.reason)} → ${escapeHtml(item.nextStep)}）`).join("；") : "无"}</p><p><strong>遗留去向：</strong>${escapeHtml(object.closure.legacyDisposition)}</p><p><strong>关键 Decision：</strong>${escapeHtml(object.closure.keyDecisions.join("；") || "无")}</p><p><strong>未来重入：</strong>${escapeHtml(object.closure.futureSummary)}</p></details>` : ""}</article>`).join("")}</div></section>`;
     return `${projectCreator}${list}`;
   }
   if (model.objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Inbox 手工正式化，或创建 V2 Project 页面。")}`;
@@ -274,10 +275,17 @@ function renderReview(model: UiModel): string {
   }
   const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
   const v2Cards = v2.map((record) => {
-    const hasAcceptedGroup = record.proposal.groups.some((group) => group.disposition === "ACCEPTED");
+    const acceptedGroups = record.proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+    const hasAcceptedGroup = acceptedGroups.length > 0;
+    const isProjectClosure = acceptedGroups.length === 1
+      && acceptedGroups[0]!.risk === "HIGH"
+      && acceptedGroups[0]!.textPatches.length === 0
+      && acceptedGroups[0]!.semanticOperations.length === 2
+      && acceptedGroups[0]!.semanticOperations.some((operation) => operation.kind === "UPDATE_PROJECT_INTERFACE" && "closure" in operation.payload)
+      && acceptedGroups[0]!.semanticOperations.some((operation) => operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.lifecycle === "COMPLETED");
     const originalCommit = model.v2SemanticCommits?.find((commit) => commit.proposalId === record.proposal.proposalId && commit.semanticCommitId.startsWith("proposal-commit:"));
     const canCommit = hasAcceptedGroup && (record.proposal.status === "ACCEPTED" || record.proposal.status === "PARTIALLY_ACCEPTED");
-    const canUndo = record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
+    const canUndo = !isProjectClosure && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
     return `<article class="card proposal v2-proposal">
     <div class="eyebrow">V2 · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
     <h3>${escapeHtml(record.proposal.title)}</h3>
@@ -285,8 +293,8 @@ function renderReview(model: UiModel): string {
     <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
     <section class="suggestion"><h4>最终可读预览</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
     ${record.proposal.groups.map((group) => `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${button("接受该语义组", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}`, "primary")}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}</div>` : ""}</section>`).join("")}
-    ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button("确认最终提交", "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}`, "primary")}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
-    <div class="notice">${canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : hasAcceptedGroup ? "已接受的语义组尚未正式生效；最终确认会在同一流程中重验、写入并显示 Undo。" : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
+    ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}`, "primary")}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
+    <div class="notice">${canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : isProjectClosure && record.proposal.status === "APPLIED" ? `Project Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Project 已退出活跃视图，页面保留。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
   </article>`;
   }).join("");
   if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
@@ -432,6 +440,7 @@ function renderActionDialog(model: UiModel): string {
     "confirm-undo": ["撤销 SemanticCommit", "我确认撤销；系统会先校验正文没有被二次编辑，并创建逆向 Commit", "submit-undo-commit"],
     "confirm-v2-review-accept": ["接受高影响语义组", "我确认接受当前高影响语义组；这仍不会绕过最终版本重验和 Commit", "submit-v2-review-accept"],
     "confirm-v2-commit": ["确认最终提交", "我已查看最终预览与 Diff；系统将再次重验后写入正文和 SQLite，并在成功后提供 Undo", "submit-v2-proposal-commit"],
+    "confirm-v2-project-closure": ["确认完成 Project", "我已检查原始目标、实际结果、未完成 Objective 的原因与去向；系统将重验后原子记录 Closure 并完成 Project", "submit-v2-project-closure"],
     "confirm-v2-undo": ["撤销本次生效", "我确认创建逆向 Commit；只有正文、对象和 Anchor 均未被后续修改时才会生效", "submit-v2-proposal-undo"],
   };
   const confirmation = confirmations[dialog.kind];

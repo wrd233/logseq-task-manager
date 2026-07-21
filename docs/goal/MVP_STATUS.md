@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation"
-last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 317 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Slice D live/Desktop, E2E-13 Graph context/Desktop, and migration copied-data/read-only workspace Desktop gates remain pending"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
+last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 326 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, and Project Closure external-Agent/Desktop gates remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -30,10 +30,11 @@ implemented:
   - "Explicit V1 Recovery Bundle migration scan validates schema/checksums/recovery state and produces reviewable Phase/Condition/Signal previews with zero SQLite writes"
   - "SQLite locked writes fail with zero formal writes; backups reject overwrite and validate schema, Graph identity, integrity and foreign keys read-only"
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
-  - "SQLite schema v7 migration ledger: SemanticCommit, Proposal/Group, immutable Audit/current-projection decoupling, nullable Task due_at, and bounded V1 migration evidence; v1..v6 upgrades require a validated preflight snapshot and roll back atomically"
+  - "SQLite schema v8: SemanticCommit, Proposal/Group, immutable Audit/current-projection decoupling, nullable Task due_at, bounded V1 migration evidence, and nullable Project closure_json; v1..v7 upgrades require a validated preflight snapshot and roll back atomically"
   - "Reviewed V1 migration batch kernel: complete decisions, <=50 item atomic Object/Anchor/Ownership import, exact idempotency, Verify, changed-state-safe Undo, retry, restart and single activation without reusing SemanticCommit"
   - "Migration Service/CLI vertical path: server-owned validated Backup, preview/show/import/verify/undo/activate, exact preflight confirmations, and real CLI-to-Service copied-data fixture"
   - "Plugin migration workspace reads the same SQLite migration ledger through Local Service and shows run progress, review counts, recovery point and next step without accepting bundles or adding a write path"
+  - "E2E-20 automated Project Closure: external Agent Proposal, high-impact group and final confirmations, object-version revalidation, one Domain SemanticCommit, structured unfinished-Objective disposition, atomic completion and readable Plugin projection"
   - "V2 Proposal Review now provides one continuous accept, final preview/Diff, explicit Commit, applied status, and inverse Commit/Undo flow with restart continuation and no overwrite of later edits"
   - "Slice D L1 now provides explicit DeepSeek runtime selection, env/Keychain secret references, bounded Structured Output with timeout/cancel/retry/error isolation, deterministic five-layer Prompt assembly, machine-owned Proposal metadata/hash, Domain validation, NO_PROPOSAL zero-write handling, and a capability-gated Review Center current-block entry"
   - "Slice D L2 has a default-off one-request smoke harness with sanitized zero-write metadata, and DS-01..12 fixed sanitized golden manifests are ready for real-model execution"
@@ -66,6 +67,7 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 Proposal partial Gate: accepted-not-applied, final Commit, same-card Undo and cold reload verified; corrected object text is explicit Proposal data and remains version 2 without DB-event echo"
 runtime_checks_pending:
   - "V2 remaining Anchor move/copy/rebind, Proposal high-impact/reject/defer/stale/later-edit/process-fault, Candidate Review Center, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
+  - "Project Closure external-Agent submission, Desktop review/completion/reload, and retained-page Gate"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"

@@ -8,6 +8,7 @@ import {
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
   createV2ManagedObject,
+  completeV2Project,
   lifecycleForV2ExecutionMarker,
   observeV2PrimaryAnchor,
   rebindV2PrimaryAnchor,
@@ -108,6 +109,31 @@ test("V2 lifecycle is small, version-checked, and terminal objects only archive"
   assert.throws(() => transitionV2Lifecycle(completed, "CANCELLED", 2), /不允许/);
   assert.throws(() => transitionV2Lifecycle(completed, "ARCHIVED", 1), /版本/);
   assert.equal(transitionV2Lifecycle(completed, "ARCHIVED", 2).lifecycle, "ARCHIVED");
+});
+
+test("Project Closure records outcomes and explicit unfinished Objective dispositions before completion", () => {
+  const project = createV2ManagedObject({ objectId: "project-closure", objectType: "PROJECT", text: "告警治理" });
+  const closure = {
+    originalGoal: "让告警外部推送可控。",
+    actualResult: "完成新链路与回滚验证。",
+    majorDeliverables: ["推送服务", "验收报告"],
+    incompleteObjectives: [{ objective: "历史告警回放", reason: "源数据未齐", nextStep: "转入数据治理 Project" }],
+    legacyDisposition: "剩余回放工作由新 Project 承接。",
+    keyDecisions: ["保留人工回退开关"],
+    futureSummary: "重入时先检查历史数据完整性。",
+  };
+  const completed = completeV2Project(project, closure, project.version, new Date("2026-07-21T12:00:00Z"));
+  assert.equal(completed.lifecycle, "COMPLETED");
+  assert.equal(completed.version, 2);
+  assert.deepEqual(completed.closure, closure);
+  assert.throws(() => transitionV2Lifecycle(project, "COMPLETED", 1), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_PROJECT_CLOSURE_REQUIRED");
+  assert.throws(() => completeV2Project(project, { ...closure, incompleteObjectives: [{ objective: "未完成", reason: "", nextStep: "稍后" }] }, 1), /原因/);
+  assert.throws(() => completeV2Project(project, { ...closure, originalGoal: 42 } as unknown as typeof closure, 1), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_PROJECT_CLOSURE_FIELD_REQUIRED");
+  assert.throws(() => completeV2Project(project, { ...closure, majorDeliverables: [] }, 1), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_PROJECT_CLOSURE_LIST_INVALID");
+  assert.throws(() => completeV2Project(project, { ...closure, keyDecisions: [] }, 1), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_PROJECT_CLOSURE_LIST_INVALID");
+  assert.throws(() => completeV2Project(project, { ...closure, incompleteObjectives: [null] } as unknown as typeof closure, 1), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_PROJECT_CLOSURE_LIST_INVALID");
+  assert.throws(() => completeV2Project({ ...project, objectType: "TASK" }, closure, 1), /Project/);
+  assert.throws(() => completeV2Project(project, closure, 2), /版本/);
 });
 
 test("Condition requires its own evidence and Focus remains independent", () => {

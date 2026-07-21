@@ -297,6 +297,10 @@ export type ServiceProposalCommitFinalization =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; anchor: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
   | { status: "COMPENSATION_REQUIRED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; patch: ServicePreparedProposalCommit["plan"]["patch"] };
 
+export type ServiceProjectClosureCommitResult =
+  | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; record: ServiceStoredProposal; replayed: boolean }
+  | ({ status: "STALE" } & ServiceProposalRevalidation);
+
 export interface ServiceProposalCommitEvidence {
   semanticCommitId: string;
   proposalId: string;
@@ -658,6 +662,12 @@ export class LocalServiceClient {
   finalizeProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<ServiceProposalCommitFinalization> {
     return this.request<ServiceProposalCommitFinalization>(`/proposals/${encodeURIComponent(proposalId)}/commit/finalize`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(evidence),
+    });
+  }
+
+  commitProjectClosure(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "COMPLETE_PROJECT_WITH_CLOSURE"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceProjectClosureCommitResult> {
+    return this.request<ServiceProjectClosureCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/closure/commit`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });
   }
 

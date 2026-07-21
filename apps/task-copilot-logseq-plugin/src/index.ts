@@ -928,6 +928,26 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
+  if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
+  if (action === "submit-v2-project-closure" && value) {
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认 Project Closure 与未完成 Objective 的后续去向。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!proposalId || !expectedUpdatedAt || !client) throw new Error("Project Closure 上下文已失效；没有写入。");
+      const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
+      if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查 Project Closure。");
+      const observations = await collectV2ProposalGraphObservations(stored.proposal, {
+        getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }),
+        getPage: (id) => logseq.Editor.getPage(id),
+      });
+      const result = await client.commitProjectClosure(proposalId, { expectedUpdatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: `v2-project-closure-ui-${Date.now()}` });
+      actionDialog = undefined;
+      workspace = "review";
+      message = result.status === "COMPLETED" ? `Project Closure 已生效；${result.object.text} 已退出活跃视图，Logseq 页面保留。` : "Project 版本已变化；Proposal 已标记 STALE，没有完成对象。";
+    });
+    return;
+  }
   if (action === "submit-v2-proposal-commit" && value) {
     if (!dialogChecked("actionConfirmed")) { latestError = "请确认最终 Commit。"; await refresh(); return; }
     const [proposalId, expectedUpdatedAt] = value.split("|");

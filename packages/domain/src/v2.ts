@@ -14,6 +14,16 @@ export type V2Condition =
   | { kind: "BLOCKED"; reason: string; blockerObjectId?: string }
   | { kind: "PAUSED"; reason: string; reviewAt?: string };
 
+export interface V2ProjectClosure {
+  originalGoal: string;
+  actualResult: string;
+  majorDeliverables: string[];
+  incompleteObjectives: Array<{ objective: string; reason: string; nextStep: string }>;
+  legacyDisposition: string;
+  keyDecisions: string[];
+  futureSummary: string;
+}
+
 export interface V2ManagedObject {
   objectId: string;
   objectType: V2ObjectType;
@@ -25,6 +35,7 @@ export interface V2ManagedObject {
   createdAt: string;
   updatedAt: string;
   sourceOrCreationEvent: string;
+  closure?: V2ProjectClosure;
 }
 export interface CreateV2ManagedObjectInput {
   objectId?: string;
@@ -189,7 +200,51 @@ export function transitionV2Lifecycle(
       ruleRefs: ["D-220"],
     });
   }
+  if (object.objectType === "PROJECT" && object.lifecycle === "OPEN" && next === "COMPLETED") {
+    throw new StructuredError({
+      code: "V2_PROJECT_CLOSURE_REQUIRED",
+      message: "Project 必须通过经审阅的 Closure 完成。",
+      ruleRefs: ["D-207", "D-220"],
+    });
+  }
   return { ...object, lifecycle: next, version: object.version + 1, updatedAt: at.toISOString() };
+}
+
+function boundedClosureText(value: unknown, label: string): string {
+  if (typeof value !== "string") throw new StructuredError({ code: "V2_PROJECT_CLOSURE_FIELD_REQUIRED", message: `Project Closure 必须说明${label}。`, ruleRefs: ["D-207", "D-220"] });
+  const text = value.trim();
+  if (!text) throw new StructuredError({ code: "V2_PROJECT_CLOSURE_FIELD_REQUIRED", message: `Project Closure 必须说明${label}。`, ruleRefs: ["D-207", "D-220"] });
+  if (text.length > 4_000) throw new StructuredError({ code: "V2_PROJECT_CLOSURE_FIELD_TOO_LONG", message: `Project Closure ${label}过长。`, ruleRefs: ["D-207", "D-220"] });
+  return text;
+}
+
+export function validateV2ProjectClosure(closure: V2ProjectClosure): V2ProjectClosure {
+  if (!Array.isArray(closure.majorDeliverables) || closure.majorDeliverables.length === 0 || closure.majorDeliverables.length > 64 || !Array.isArray(closure.incompleteObjectives) || closure.incompleteObjectives.length > 64 || !Array.isArray(closure.keyDecisions) || closure.keyDecisions.length === 0 || closure.keyDecisions.length > 64) {
+    throw new StructuredError({ code: "V2_PROJECT_CLOSURE_LIST_INVALID", message: "Project Closure 列表必须是有界数组。", ruleRefs: ["D-207", "D-220"] });
+  }
+  if (closure.incompleteObjectives.some((value) => !value || typeof value !== "object" || Array.isArray(value))) {
+    throw new StructuredError({ code: "V2_PROJECT_CLOSURE_LIST_INVALID", message: "Project Closure 未完成 Objective 必须是结构化条目。", ruleRefs: ["D-207", "D-220"] });
+  }
+  return {
+    originalGoal: boundedClosureText(closure.originalGoal, "原始目标"),
+    actualResult: boundedClosureText(closure.actualResult, "实际结果"),
+    majorDeliverables: closure.majorDeliverables.map((value) => boundedClosureText(value, "主要 Deliverable / Output")),
+    incompleteObjectives: closure.incompleteObjectives.map((value) => ({
+      objective: boundedClosureText(value.objective, "未完成 Objective"),
+      reason: boundedClosureText(value.reason, "未完成 Objective 的原因"),
+      nextStep: boundedClosureText(value.nextStep, "未完成 Objective 的后续"),
+    })),
+    legacyDisposition: boundedClosureText(closure.legacyDisposition, "遗留去向"),
+    keyDecisions: closure.keyDecisions.map((value) => boundedClosureText(value, "关键 Decision")),
+    futureSummary: boundedClosureText(closure.futureSummary, "面向未来的总结"),
+  };
+}
+
+export function completeV2Project(object: V2ManagedObject, closure: V2ProjectClosure, expectedVersion: number, at = new Date()): V2ManagedObject {
+  if (object.version !== expectedVersion) throw new StructuredError({ code: "V2_OBJECT_VERSION_CONFLICT", message: `对象版本已从 ${expectedVersion} 变为 ${object.version}。`, ruleRefs: ["D-185", "D-188"] });
+  if (object.objectType !== "PROJECT") throw new StructuredError({ code: "V2_PROJECT_CLOSURE_PROJECT_ONLY", message: "只有 Project 可以通过 Project Closure 完成。", ruleRefs: ["D-207", "D-220"] });
+  if (object.lifecycle !== "OPEN") throw new StructuredError({ code: "V2_PROJECT_CLOSURE_NOT_OPEN", message: "只有 OPEN Project 可以形成 Closure。", ruleRefs: ["D-207", "D-220"] });
+  return { ...object, lifecycle: "COMPLETED", closure: validateV2ProjectClosure(closure), version: object.version + 1, updatedAt: at.toISOString() };
 }
 
 function requireExpectedVersion(object: V2ManagedObject, expectedVersion: number): void {

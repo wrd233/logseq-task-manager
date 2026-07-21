@@ -9,6 +9,8 @@ import {
   type V2ProposalGroupDecision,
   type V2ProposalRevalidationResult,
   type V2ProposalScopeObservation,
+  type V2ProjectClosure,
+  validateV2ProjectClosure,
 } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -34,6 +36,14 @@ export interface V2FormalizationPlan {
     text: string;
     blockUuid: string;
   };
+}
+
+export interface V2ProjectClosurePlan {
+  proposalId: string;
+  groupId: string;
+  objectId: string;
+  expectedVersion: number;
+  closure: V2ProjectClosure;
 }
 
 function proposalApplicationError(code: string, message: string): StructuredError {
@@ -67,6 +77,26 @@ export function planAcceptedV2Formalization(proposal: V2Proposal): V2Formalizati
     patch,
     create: { operationId: create.operationId, objectType: objectType as V2FormalizationPlan["create"]["objectType"], text, blockUuid: patch.blockUuid },
   };
+}
+
+export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClosurePlan {
+  validateV2Proposal(proposal);
+  const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) throw proposalApplicationError("V2_PROJECT_CLOSURE_COMMIT_SHAPE_INVALID", "Project Closure 必须是唯一已接受的高影响语义组。");
+  const group = accepted[0]!;
+  const updates = group.semanticOperations.filter((operation) => operation.kind === "UPDATE_PROJECT_INTERFACE");
+  const transitions = group.semanticOperations.filter((operation) => operation.kind === "TRANSITION_LIFECYCLE");
+  if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 2 || updates.length !== 1 || transitions.length !== 1) {
+    throw proposalApplicationError("V2_PROJECT_CLOSURE_COMMIT_OPERATION_INVALID", "Project Closure 必须以一个 HIGH 组同时确认 Closure 和 COMPLETED Lifecycle。");
+  }
+  const update = updates[0]!;
+  const transition = transitions[0]!;
+  if (update.target.kind !== "OBJECT" || transition.target.kind !== "OBJECT" || update.target.id !== transition.target.id || update.target.version === undefined || transition.target.version !== update.target.version || transition.payload.lifecycle !== "COMPLETED") {
+    throw proposalApplicationError("V2_PROJECT_CLOSURE_COMMIT_TARGET_INVALID", "Project Closure 必须指向同一个带版本的 Project 并转为 COMPLETED。");
+  }
+  const closure = update.payload.closure;
+  if (!closure || typeof closure !== "object" || Array.isArray(closure)) throw proposalApplicationError("V2_PROJECT_CLOSURE_PAYLOAD_INVALID", "Project Closure payload 缺失。");
+  return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: update.target.id, expectedVersion: update.target.version, closure: validateV2ProjectClosure(closure as unknown as V2ProjectClosure) };
 }
 
 export class V2ProposalApplication {

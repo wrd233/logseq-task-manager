@@ -1,4 +1,5 @@
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
+import { validateV2ProjectClosure, type V2ProjectClosure } from "./v2.ts";
 
 export type V2ProposalSourceKind = "local_llm" | "external_agent" | "user" | "migration" | "repair";
 export type V2ProposalRisk = "LOW" | "MEDIUM" | "HIGH";
@@ -195,6 +196,14 @@ export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
     for (const operation of group.semanticOperations) {
       if (operation.kind === "CREATE_OBJECT" && (typeof operation.payload.objectType !== "string" || typeof operation.payload.text !== "string" || !operation.payload.text.trim())) {
         throw proposalError("V2_PROPOSAL_CREATE_OBJECT_PAYLOAD_INVALID", "CREATE_OBJECT 必须明确声明最终对象类型与正文，不能依赖 Graph 回声补全。");
+      }
+      if (operation.kind === "TRANSITION_LIFECYCLE" && !["COMPLETED", "CANCELLED", "ARCHIVED"].includes(String(operation.payload.lifecycle))) {
+        throw proposalError("V2_PROPOSAL_LIFECYCLE_PAYLOAD_INVALID", "TRANSITION_LIFECYCLE 必须明确声明合法的终态。");
+      }
+      if (operation.kind === "UPDATE_PROJECT_INTERFACE" && "closure" in operation.payload) {
+        const closure = operation.payload.closure;
+        if (!closure || typeof closure !== "object" || Array.isArray(closure)) throw proposalError("V2_PROPOSAL_PROJECT_CLOSURE_INVALID", "Project Closure payload 必须是结构化对象。");
+        validateV2ProjectClosure(closure as unknown as V2ProjectClosure);
       }
     }
   }

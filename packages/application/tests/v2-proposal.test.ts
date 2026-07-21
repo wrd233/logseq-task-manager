@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { V2ProposalApplication, planAcceptedV2Formalization, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
+import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2ProjectClosure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "普通正文";
@@ -77,6 +77,32 @@ test("accepted formalization plan couples exactly one Graph patch to one Service
   unsupported.groups[0]!.risk = "HIGH";
   unsupported.groups[0]!.semanticOperations.push({ ...unsupported.groups[0]!.semanticOperations[0]!, operationId: "move", kind: "MOVE_BLOCK" });
   assert.throws(() => planAcceptedV2Formalization(unsupported), /尚不支持/);
+});
+
+test("accepted Project Closure plan couples structured Closure and COMPLETED lifecycle on one versioned Project", () => {
+  const closure = {
+    originalGoal: "让推送可控。", actualResult: "新链路已上线。", majorDeliverables: ["推送服务"],
+    incompleteObjectives: [{ objective: "历史回放", reason: "数据未齐", nextStep: "转入数据治理" }],
+    legacyDisposition: "由新 Project 承接。", keyDecisions: ["保留回退"], futureSummary: "重入先查历史数据。",
+  };
+  const accepted: V2Proposal = {
+    proposalId: "prop-closure", schemaVersion: "v2", title: "关闭告警治理", context: "Project 已完成主要交付。", understanding: "一项 Objective 转移。", objective: "形成 Closure 并完成 Project。", logic: "先审阅未完成原因和去向。", finalPreview: "新链路已上线；历史回放转移。", unresolvedQuestions: [], source: { kind: "external_agent", skillVersion: "design-project@1" },
+    scope: { read: [], modify: [{ kind: "OBJECT", id: "project-closure", version: 4 }] }, preconditions: ["Project 仍为 OPEN"],
+    groups: [{ groupId: "close-project", explanation: "Closure 与 Lifecycle 不可拆分。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [
+      { operationId: "record-closure", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: "project-closure", version: 4 }, summary: "记录 Project Closure", payload: { closure }, preconditions: [] },
+      { operationId: "complete-project", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "project-closure", version: 4 }, summary: "完成 Project", payload: { lifecycle: "COMPLETED" }, preconditions: [] },
+    ], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-21T12:00:00.000Z",
+  };
+  assert.deepEqual(planAcceptedV2ProjectClosure(accepted), { proposalId: "prop-closure", groupId: "close-project", objectId: "project-closure", expectedVersion: 4, closure });
+  const partiallyAccepted = structuredClone(accepted);
+  partiallyAccepted.status = "PARTIALLY_ACCEPTED";
+  partiallyAccepted.groups.push({ groupId: "optional-note", explanation: "不影响 Closure。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [
+    { operationId: "optional-note", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: "project-closure", version: 4 }, summary: "可选说明", payload: { note: "不采纳" }, preconditions: [] },
+  ], disposition: "REJECTED" });
+  assert.equal(planAcceptedV2ProjectClosure(partiallyAccepted).objectId, "project-closure");
+  const split = structuredClone(accepted);
+  split.groups[0]!.semanticOperations.pop();
+  assert.throws(() => planAcceptedV2ProjectClosure(split), /Closure 和 COMPLETED/);
 });
 
 test("Proposal Application records applied and compensated terminal states with review concurrency", async () => {

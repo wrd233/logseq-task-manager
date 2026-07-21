@@ -302,6 +302,46 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /已正式生效/);
 });
 
+test("Project Closure Review shows the external Agent outcome and uses a dedicated completion confirmation", () => {
+  const value = model();
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  const closure = { originalGoal: "推送可控", actualResult: "新链路上线", majorDeliverables: ["推送服务"], incompleteObjectives: [{ objective: "历史回放", reason: "数据未齐", nextStep: "转入数据治理" }], legacyDisposition: "新 Project 承接", keyDecisions: ["保留回退"], futureSummary: "重入先查数据" };
+  value.v2Proposals = [{ updatedAt: "2026-07-21T12:01:00.000Z", files: { proposalMd: "# Closure", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-closure", schemaVersion: "v2", title: "关闭告警治理", context: "主要交付已完成。", understanding: "历史回放转移。", objective: "完成 Project。", logic: "Closure 与 Lifecycle 同时生效。", finalPreview: "新链路上线；历史回放转移。", unresolvedQuestions: [], source: { kind: "external_agent", skillVersion: "design-project@1" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "project-1", version: 4 }] }, preconditions: [],
+    groups: [{ groupId: "close", explanation: "不可拆分。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [
+      { operationId: "closure", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: "project-1", version: 4 }, summary: "记录 Closure", payload: { closure }, preconditions: [] },
+      { operationId: "complete", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "project-1", version: 4 }, summary: "完成 Project", payload: { lifecycle: "COMPLETED" }, preconditions: [] },
+    ], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-21T12:00:00.000Z",
+  } }];
+  let html = renderApp(value);
+  assert.match(html, /external_agent/);
+  assert.match(html, /历史回放转移/);
+  assert.match(html, /data-action="v2-project-closure-commit"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  value.actionDialog = { kind: "confirm-v2-project-closure", value: "prop-closure|2026-07-21T12:01:00.000Z" };
+  html = renderApp(value);
+  assert.match(html, /未完成 Objective 的原因与去向/);
+  assert.match(html, /data-action="submit-v2-project-closure"/);
+  delete value.actionDialog;
+  value.v2Proposals[0]!.proposal.groups[0]!.disposition = "REJECTED";
+  value.v2Proposals[0]!.proposal.groups.push({ groupId: "ordinary", explanation: "普通独立变更。", risk: "LOW", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [], disposition: "ACCEPTED" });
+  value.v2Proposals[0]!.proposal.status = "PARTIALLY_ACCEPTED";
+  html = renderApp(value);
+  assert.doesNotMatch(html, /data-action="v2-project-closure-commit"/);
+  assert.match(html, /data-action="v2-proposal-commit"/);
+});
+
+test("completed Project keeps its readable Closure in the formal object workspace", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [{ objectId: "project-closed", objectType: "PROJECT", version: 5, lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, text: "告警治理", createdAt: "2026-07-20T00:00:00.000Z", updatedAt: "2026-07-21T12:00:00.000Z", sourceOrCreationEvent: "project", closure: {
+    originalGoal: "推送可控", actualResult: "新链路上线", majorDeliverables: ["推送服务"], incompleteObjectives: [{ objective: "历史回放", reason: "数据未齐", nextStep: "转入数据治理" }], legacyDisposition: "新 Project 承接", keyDecisions: ["保留回退"], futureSummary: "重入先查数据",
+  } }];
+  const html = renderApp(value);
+  for (const text of ["Project Closure", "推送可控", "新链路上线", "历史回放", "数据未齐", "转入数据治理", "新 Project 承接", "保留回退", "重入先查数据"]) assert.match(html, new RegExp(text));
+});
+
 test("object and high-impact actions render in-plugin forms instead of browser modals", () => {
   const value = model();
   value.objects = [{

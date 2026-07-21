@@ -36,6 +36,22 @@ function validProposal(): V2Proposal {
   };
 }
 
+function projectClosureProposal(objectId: string, version: number): V2Proposal {
+  const closure = {
+    originalGoal: "让告警外部推送可控。", actualResult: "新链路和回滚验证已完成。", majorDeliverables: ["推送服务", "验收报告"],
+    incompleteObjectives: [{ objective: "历史告警回放", reason: "源数据未齐", nextStep: "转入数据治理 Project" }],
+    legacyDisposition: "由数据治理 Project 承接剩余回放。", keyDecisions: ["保留人工回退开关"], futureSummary: "重入时先检查历史数据完整性。",
+  };
+  return {
+    proposalId: "prop_project_closure", schemaVersion: "v2", title: "关闭告警推送治理", context: "主要交付已完成。", understanding: "历史回放未完成但有明确承接。", objective: "形成 Closure 并完成 Project。", logic: "Closure 与 Lifecycle 在同一正式变化中生效。", finalPreview: "新链路已上线；历史回放转入数据治理。", unresolvedQuestions: [], source: { kind: "external_agent", skillVersion: "design-project@1" },
+    scope: { read: [{ kind: "PAGE", id: "Project/告警推送治理", hash: checksum("project-closure-context") }], modify: [{ kind: "OBJECT", id: objectId, version }] }, preconditions: ["Project 仍为 OPEN"],
+    groups: [{ groupId: "close-project", explanation: "Closure 与 Project 完成不可拆分。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [
+      { operationId: "record-closure", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: objectId, version }, summary: "记录结构化 Closure", payload: { closure }, preconditions: [] },
+      { operationId: "complete-project", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: objectId, version }, summary: "完成 Project", payload: { lifecycle: "COMPLETED" }, preconditions: [] },
+    ], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-21T12:00:00.000Z",
+  };
+}
+
 const proposalPrompt: V2PromptBundle = {
   core: { version: "core-1", content: "只生成 Proposal。" },
   domain: { version: "domain-6", content: "正式状态只经 Application Command。" },
@@ -627,6 +643,76 @@ test("Project intent follows Logseq case-insensitive page identity", async (t) =
   assert.equal(replay.semanticCommitId, first.semanticCommitId);
   assert.equal(replay.objectId, first.objectId);
   assert.equal(replay.pageName, "Project/Incident Review");
+});
+
+test("external Agent Project Closure Proposal completes with explicit unfinished Objective disposition", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-project-closure", token: "project-closure-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const intent = await client.prepareProject({ name: "告警推送治理", traceId: "trace-project-closure-create" });
+  const created = await client.finalizeProject({
+    semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name: "告警推送治理", pageExternalId: "page-project-closure",
+    pageContentHash: checksum("Project/告警推送治理"), traceId: "trace-project-closure-finalize",
+  });
+  const submitted = await client.submitProposal(projectClosureProposal(created.object.objectId, created.object.version));
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "close-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const refused = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/closure/commit`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "yes", observations: [], traceId: "trace-refused-closure" }),
+  });
+  assert.equal(refused.status, 400);
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN");
+  const observations = [{ kind: "PAGE" as const, id: "Project/告警推送治理", exists: true, hash: checksum("project-closure-context") }];
+  const completed = await client.commitProjectClosure(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: "trace-project-closure-commit" });
+  assert.equal(completed.status, "COMPLETED");
+  if (completed.status !== "COMPLETED") return;
+  assert.equal(completed.object.lifecycle, "COMPLETED");
+  assert.equal(completed.object.closure?.incompleteObjectives[0]?.reason, "源数据未齐");
+  assert.equal(completed.record.proposal.status, "APPLIED");
+  assert.equal([...(await client.nowWork()).focus, ...(await client.nowWork()).next, ...(await client.nowWork()).waitingReview].some(({ objectId }) => objectId === completed.object.objectId), false);
+  const replay = await client.commitProjectClosure(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: "trace-project-closure-replay" });
+  assert.equal(replay.status, "COMPLETED");
+  if (replay.status === "COMPLETED") assert.equal(replay.replayed, true);
+});
+
+test("Project Closure resumes from its receipt after interruption before Commit step finalization", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-recovery-"));
+  const databasePath = join(root, "task-copilot.db");
+  let interruptOnce = true;
+  let service = await startLocalService({
+    databasePath, graphId: "graph-project-closure-recovery", token: "project-closure-recovery-token-24-chars",
+    faults: { afterProjectClosureDomainWrite: () => { if (interruptOnce) { interruptOnce = false; throw new Error("simulated process interruption"); } } },
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const intent = await client.prepareProject({ name: "Closure Recovery", traceId: "trace-project-closure-recovery-create" });
+  const created = await client.finalizeProject({
+    semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name: "Closure Recovery", pageExternalId: "page-project-closure-recovery",
+    pageContentHash: checksum("Project/Closure Recovery"), traceId: "trace-project-closure-recovery-finalize",
+  });
+  const submitted = await client.submitProposal(projectClosureProposal(created.object.objectId, created.object.version));
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "close-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const observations = [{ kind: "PAGE" as const, id: "Project/告警推送治理", exists: true, hash: checksum("project-closure-context") }];
+  const interrupted = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/closure/commit`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: "trace-project-closure-interrupted" }),
+  });
+  assert.equal(interrupted.status, 500);
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "COMPLETED", "Domain receipt committed before the interruption");
+  assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "ACCEPTED");
+  await service.close();
+  service = await startLocalService({ databasePath, graphId: "graph-project-closure-recovery", token: "project-closure-recovery-resume-24-chars" });
+  client = clientFor(service);
+  const resumed = await client.commitProjectClosure(reviewed.proposal.proposalId, {
+    expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: "trace-project-closure-resumed",
+  });
+  assert.equal(resumed.status, "COMPLETED");
+  if (resumed.status === "COMPLETED") {
+    assert.equal(resumed.replayed, false, "the pending Commit is finalized from the existing Domain receipt");
+    assert.equal(resumed.record.proposal.status, "APPLIED");
+    assert.equal(resumed.object.version, created.object.version + 1);
+  }
 });
 
 test("Local Service maps Task Marker to Lifecycle without changing Condition", async (t) => {

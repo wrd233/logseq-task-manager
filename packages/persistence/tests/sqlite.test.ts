@@ -34,6 +34,7 @@ test("SQLite initialization is Graph-bound and idempotent", async (t) => {
 async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   const database = new Database(path);
   database.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs");
+  database.exec("ALTER TABLE objects DROP COLUMN closure_json");
   database.exec("ALTER TABLE objects DROP COLUMN due_at");
   database.exec("DROP TABLE IF EXISTS proposal_groups; DROP TABLE IF EXISTS proposals");
   database.exec("DROP TABLE IF EXISTS semantic_commit_steps; DROP TABLE IF EXISTS semantic_commits");
@@ -74,6 +75,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 5, name: "decouple_audit_from_current_objects", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 6, name: "add_task_due_at", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 7, name: "add_v1_migration_ledger", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 8, name: "add_project_closure_summary", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -127,7 +129,7 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
+  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
   legacy.prepare("UPDATE schema_meta SET value = '2' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 2");
   legacy.close();
@@ -163,7 +165,7 @@ test("schema v3 explicitly migrates to proposal review tables after a validated 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
+  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
   legacy.prepare("UPDATE schema_meta SET value = '3' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 3");
   legacy.close();
@@ -188,6 +190,7 @@ test("schema v4 explicitly decouples immutable Audit from the current object pro
     DROP TABLE legacy_evidence;
     DROP TABLE migration_batches;
     DROP TABLE migration_runs;
+    ALTER TABLE objects DROP COLUMN closure_json;
     ALTER TABLE objects DROP COLUMN due_at;
     DELETE FROM schema_migrations WHERE version >= 5;
     ALTER TABLE audit_events RENAME TO audit_events_unbound;
@@ -218,7 +221,7 @@ test("schema v5 explicitly adds nullable Task due_at after a validated backup", 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
+  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
   legacy.prepare("UPDATE schema_meta SET value = '5' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 5");
   legacy.close();
@@ -238,17 +241,36 @@ test("schema v6 explicitly adds only the bounded V1 migration ledger after a val
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
-  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; DELETE FROM schema_migrations WHERE version = 7");
+  legacy.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 7");
   legacy.prepare("UPDATE schema_meta SET value = '6' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 6");
   legacy.close();
   const migrating = await V2SqliteStore.open(path);
   assert.throws(() => migrating.initialize("graph-a"), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_REQUIRED");
   const backupPath = join(root, "before-v1-migration-ledger.db");
-  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-21T12:00:00.000Z")), { migrated: true, fromVersion: 6, schemaVersion: 7, backupPath });
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-21T12:00:00.000Z")), { migrated: true, fromVersion: 6, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath });
   const internal = migrating as unknown as { database: Database.Database };
   assert.deepEqual(["legacy_evidence", "migration_batches", "migration_runs"].map((name) => internal.database.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?").pluck().get(name)), [1, 1, 1]);
   assert.equal(migrating.schemaMigrationHistory()[6]?.name, "add_v1_migration_ledger");
+  migrating.close();
+});
+
+test("schema v7 adds only nullable Project closure_summary after a validated backup", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec("ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version = 8");
+  legacy.prepare("UPDATE schema_meta SET value = '7' WHERE key = 'schema_version'").run();
+  legacy.pragma("user_version = 7");
+  legacy.close();
+  const migrating = await V2SqliteStore.open(path);
+  const backupPath = join(root, "before-project-closure.db");
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-21T12:10:00.000Z")), { migrated: true, fromVersion: 7, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath });
+  const internal = migrating as unknown as { database: Database.Database };
+  assert.equal(internal.database.prepare("SELECT count(*) FROM pragma_table_info('objects') WHERE name = 'closure_json'").pluck().get(), 1);
+  assert.equal(migrating.schemaMigrationHistory()[7]?.name, "add_project_closure_summary");
   migrating.close();
 });
 
@@ -797,5 +819,29 @@ test("Focus persistence inserts at rank, reorders atomically, and preserves obje
   await application.transitionLifecycle(second.objectId, "COMPLETED", { actor: "user", expectedVersion: second.version, idempotencyKey: "complete-focus-second", traceId: "trace-complete-focus" });
   assert.deepEqual(store.listFocusSelections(), [], "a terminal lifecycle transition removes its temporary Focus selection atomically");
   assert.equal(store.auditEventCount(), 3, "only the lifecycle transition adds formal Audit");
+  store.close();
+});
+
+test("Project Closure persists with completion and removes temporary Focus in one object transaction", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2Application(store);
+  const project = await application.createObject({ objectId: "project-closure", objectType: "PROJECT", text: "告警治理" }, {
+    actor: "test", expectedVersion: 0, idempotencyKey: "create-project-closure", traceId: "trace-create-project-closure",
+  });
+  await application.selectFocus(project.objectId, 0, project.version);
+  const closure = {
+    originalGoal: "让推送可控。", actualResult: "新链路已上线。", majorDeliverables: ["推送服务"],
+    incompleteObjectives: [{ objective: "历史回放", reason: "数据未齐", nextStep: "转入数据治理" }],
+    legacyDisposition: "由新 Project 承接。", keyDecisions: ["保留回退"], futureSummary: "重入先查历史数据。",
+  };
+  const completed = await application.completeProject(project.objectId, closure, {
+    actor: "proposal_commit", expectedVersion: project.version, idempotencyKey: "complete-project-closure", traceId: "trace-complete-project-closure",
+  });
+  assert.equal(completed.lifecycle, "COMPLETED");
+  assert.deepEqual(store.getObject(project.objectId)?.closure, closure);
+  assert.deepEqual(store.listFocusSelections(), []);
+  assert.equal(store.getCommandReceipt("complete-project-closure")?.command, "complete_project");
   store.close();
 });

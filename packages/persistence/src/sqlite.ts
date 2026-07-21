@@ -31,7 +31,7 @@ import type {
 import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 7;
+export const V2_DATABASE_SCHEMA_VERSION = 8;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -59,6 +59,7 @@ const schemaMigrationNames = new Map<number, string>([
   [5, "decouple_audit_from_current_objects"],
   [6, "add_task_due_at"],
   [7, "add_v1_migration_ledger"],
+  [8, "add_project_closure_summary"],
 ]);
 
 export interface V2StoredProposal {
@@ -134,6 +135,7 @@ interface ObjectRow {
   lifecycle: V2ManagedObject["lifecycle"];
   condition_json: string;
   due_at: string | null;
+  closure_json: string | null;
   text: string;
   created_at: string;
   updated_at: string;
@@ -260,6 +262,7 @@ export class V2SqliteStore {
           lifecycle TEXT NOT NULL CHECK (lifecycle IN ('OPEN','COMPLETED','CANCELLED','ARCHIVED')),
           condition_json TEXT NOT NULL CHECK (json_valid(condition_json)),
           due_at TEXT,
+          closure_json TEXT CHECK (closure_json IS NULL OR (object_type = 'PROJECT' AND lifecycle = 'COMPLETED' AND json_valid(closure_json))),
           text TEXT NOT NULL CHECK (length(trim(text)) > 0),
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
@@ -434,7 +437,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5, 6].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 7) {
+    if (![1, 2, 3, 4, 5, 6, 7].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 8) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -572,6 +575,12 @@ export class V2SqliteStore {
         `);
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(7, schemaMigrationNames.get(7), at.toISOString());
+        workingVersion = 7;
+      }
+      if (workingVersion === 7) {
+        this.database.exec("ALTER TABLE objects ADD COLUMN closure_json TEXT CHECK (closure_json IS NULL OR (object_type = 'PROJECT' AND lifecycle = 'COMPLETED' AND json_valid(closure_json)));");
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(8, schemaMigrationNames.get(8), at.toISOString());
       }
       this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
@@ -853,7 +862,7 @@ export class V2SqliteStore {
     if (!receipt) return undefined;
     const command = receipt.command_name as V2CommandReceipt["command"];
     const result = JSON.parse(receipt.result_json) as unknown;
-    if (command === "create_object" || command === "transition_lifecycle" || command === "change_condition" || command === "change_due_at") {
+    if (command === "create_object" || command === "transition_lifecycle" || command === "complete_project" || command === "change_condition" || command === "change_due_at") {
       return { command, object: result as V2ManagedObject };
     }
     if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "undo_materialization" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
@@ -1454,14 +1463,15 @@ export class V2SqliteStore {
   private writeObject(object: V2ManagedObject): void {
     this.database
       .prepare(`
-        INSERT INTO objects(object_id, object_type, version, lifecycle, condition_json, due_at, text, created_at, updated_at, source_event)
-        VALUES (@objectId, @objectType, @version, @lifecycle, @conditionJson, @dueAt, @text, @createdAt, @updatedAt, @sourceEvent)
+        INSERT INTO objects(object_id, object_type, version, lifecycle, condition_json, due_at, closure_json, text, created_at, updated_at, source_event)
+        VALUES (@objectId, @objectType, @version, @lifecycle, @conditionJson, @dueAt, @closureJson, @text, @createdAt, @updatedAt, @sourceEvent)
         ON CONFLICT(object_id) DO UPDATE SET
           object_type = excluded.object_type,
           version = excluded.version,
           lifecycle = excluded.lifecycle,
           condition_json = excluded.condition_json,
           due_at = excluded.due_at,
+          closure_json = excluded.closure_json,
           text = excluded.text,
           updated_at = excluded.updated_at,
           source_event = excluded.source_event
@@ -1473,6 +1483,7 @@ export class V2SqliteStore {
         lifecycle: object.lifecycle,
         conditionJson: stableJson(object.condition),
         dueAt: object.dueAt ?? null,
+        closureJson: object.closure ? stableJson(object.closure) : null,
         text: object.text,
         createdAt: object.createdAt,
         updatedAt: object.updatedAt,
@@ -1510,6 +1521,7 @@ export class V2SqliteStore {
       lifecycle: row.lifecycle,
       condition: JSON.parse(row.condition_json) as V2ManagedObject["condition"],
       ...(row.due_at ? { dueAt: row.due_at } : {}),
+      ...(row.closure_json ? { closure: JSON.parse(row.closure_json) as NonNullable<V2ManagedObject["closure"]> } : {}),
       text: row.text,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -1571,6 +1583,7 @@ export class V2SqliteStore {
       lifecycle: row.lifecycle,
       condition: JSON.parse(row.condition_json) as V2ManagedObject["condition"],
       ...(row.due_at ? { dueAt: row.due_at } : {}),
+      ...(row.closure_json ? { closure: JSON.parse(row.closure_json) as NonNullable<V2ManagedObject["closure"]> } : {}),
       text: row.text,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

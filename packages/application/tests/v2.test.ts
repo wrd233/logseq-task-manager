@@ -355,6 +355,28 @@ test("Project creation binds the controlled Project page in one idempotent domai
   assert.equal(repository.anchors.size, 1);
 });
 
+test("Project completion atomically records Closure without requiring every Objective to finish", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const project = await application.createObject({ objectId: "project-close", objectType: "PROJECT", text: "告警治理" }, {
+    actor: "test", expectedVersion: 0, idempotencyKey: "create-project-close", traceId: "trace-create-close",
+  });
+  const closure = {
+    originalGoal: "让推送可控。", actualResult: "新链路已上线。", majorDeliverables: ["推送服务"],
+    incompleteObjectives: [{ objective: "历史回放", reason: "数据未齐", nextStep: "转移至数据治理 Project" }],
+    legacyDisposition: "由新 Project 承接。", keyDecisions: ["保留回退"], futureSummary: "重入先查历史数据。",
+  };
+  const completed = await application.completeProject(project.objectId, closure, {
+    actor: "proposal_commit", expectedVersion: project.version, idempotencyKey: "complete-project-close", traceId: "trace-complete-close",
+  }, new Date("2026-07-21T12:00:00Z"));
+  assert.equal(completed.lifecycle, "COMPLETED");
+  assert.deepEqual(completed.closure, closure);
+  assert.equal(repository.audit.at(-1)?.command, "complete_project");
+  assert.deepEqual(await application.completeProject(project.objectId, { ...closure, actualResult: "不应覆盖" }, {
+    actor: "proposal_commit", expectedVersion: project.version, idempotencyKey: "complete-project-close", traceId: "trace-replay-close",
+  }), completed);
+});
+
 test("Marker materialization completes only simple Tasks and keeps Condition independent", async () => {
   const repository = new MemoryV2Repository();
   const application = new V2Application(repository);
