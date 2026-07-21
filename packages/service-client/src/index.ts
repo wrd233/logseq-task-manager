@@ -66,6 +66,27 @@ export interface ServiceSkillDocument extends ServiceSkillSummary {
   content: string;
 }
 
+export interface ServiceContextPackageManifest {
+  schemaVersion: 1;
+  generatedAt: string;
+  scope: { kind: "object" | "project"; id: string };
+  authority: "READ_ONLY_DERIVATIVE";
+  formalFactsSource: "SQLITE";
+  graphExcerptStatus: "NOT_AVAILABLE_IN_LOCAL_SERVICE";
+  includedObjectCount: number;
+  files: Array<{ path: string; sha256: string; bytes: number }>;
+}
+
+export interface ServiceContextPackage {
+  manifest: ServiceContextPackageManifest;
+  files: Record<string, string>;
+}
+
+export interface ServiceContextExportResult {
+  contextPackage: ServiceContextPackage;
+  fingerprint: string;
+}
+
 export interface ServicePromptLayer {
   version: string;
   content: string;
@@ -486,6 +507,14 @@ export class LocalServiceClient {
       if (error instanceof StructuredError && error.details?.remoteCode === "SKILL_NOT_FOUND") return undefined;
       throw error;
     }
+  }
+
+  exportContext(scope: "object" | "project", id: string): Promise<ServiceContextExportResult> {
+    return this.request<ServiceContextExportResult>("/context/export", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scope, id }),
+    });
   }
 
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {

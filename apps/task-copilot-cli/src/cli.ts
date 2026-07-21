@@ -1,5 +1,5 @@
 import type { V2ManagedObject } from "@task-copilot/domain";
-import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceDoctor, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
 export interface CliService {
@@ -13,6 +13,7 @@ export interface CliService {
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }>;
   listSkills(): Promise<ServiceSkillSummary[]>;
   getSkill(name: string): Promise<ServiceSkillDocument | undefined>;
+  exportContext(scope: "object" | "project", id: string): Promise<ServiceContextExportResult>;
   createBackup(): Promise<ServiceBackupCreated>;
   validateBackup(backupId: string): Promise<ServiceBackupValidation>;
   restoreBackup(backupId: string, confirmation: "RESTORE_AND_STOP_SERVICE"): Promise<ServiceBackupRestored>;
@@ -26,6 +27,7 @@ export interface CliIo {
 export interface CliDependencies {
   loadService(descriptorPath: string): Promise<CliService>;
   loadProposal?(path: string): Promise<unknown>;
+  writeContextPackage?(outPath: string, result: ServiceContextExportResult): Promise<void>;
   descriptorPath?: string;
 }
 
@@ -42,6 +44,8 @@ Usage:
   tc [--service-descriptor <path>] [--json] proposal submit <proposal.json>
   tc [--service-descriptor <path>] [--json] skill list
   tc [--service-descriptor <path>] [--json] skill show <name>
+  tc [--service-descriptor <path>] [--json] context export --scope object --object <object_id> --out <directory>
+  tc [--service-descriptor <path>] [--json] context export --scope project --project <project_id> --out <directory>
   tc [--service-descriptor <path>] [--json] backup create
   tc [--service-descriptor <path>] [--json] backup validate <backup_id>
   tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm RESTORE_AND_STOP_SERVICE
@@ -53,11 +57,15 @@ function emit(io: CliIo, json: boolean, value: unknown, plain: string): void {
   io.stdout(json ? JSON.stringify({ schema_version: 1, data: value }) : plain);
 }
 
-function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string } {
+function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextObjectId?: string; contextProjectId?: string; outPath?: string } {
   const command: string[] = [];
   let json = false;
   let descriptorPath: string | undefined;
   let confirmation: string | undefined;
+  let scope: string | undefined;
+  let contextObjectId: string | undefined;
+  let contextProjectId: string | undefined;
+  let outPath: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const value = args[index];
     if (value === "--json") json = true;
@@ -69,9 +77,17 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
       confirmation = args[index + 1];
       if (!confirmation) throw new Error("--confirm requires the exact confirmation phrase");
       index += 1;
+    } else if (["--scope", "--object", "--project", "--out"].includes(value ?? "")) {
+      const optionValue = args[index + 1];
+      if (!optionValue) throw new Error(`${value} requires a value`);
+      if (value === "--scope") scope = optionValue;
+      else if (value === "--object") contextObjectId = optionValue;
+      else if (value === "--project") contextProjectId = optionValue;
+      else outPath = optionValue;
+      index += 1;
     } else if (value) command.push(value);
   }
-  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}) };
+  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(outPath ? { outPath } : {}) };
 }
 
 function errorExit(error: unknown): number {
@@ -180,6 +196,19 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
         return 6;
       }
       emit(io, parsed.json, { skill }, skill.content);
+      return 0;
+    }
+    if (root === "context" && action === "export" && !target) {
+      const scope = parsed.scope === "object" || parsed.scope === "project" ? parsed.scope : undefined;
+      const id = scope === "object" ? parsed.contextObjectId : scope === "project" ? parsed.contextProjectId : undefined;
+      const exclusiveId = scope === "object" ? !parsed.contextProjectId : scope === "project" ? !parsed.contextObjectId : false;
+      if (!scope || !id || !exclusiveId || !parsed.outPath || !dependencies.writeContextPackage) {
+        io.stderr("Context export requires exactly one object/project scope, matching ID, and --out directory.");
+        return 2;
+      }
+      const result = await service.exportContext(scope, id);
+      await dependencies.writeContextPackage(parsed.outPath, result);
+      emit(io, parsed.json, { path: parsed.outPath, fingerprint: result.fingerprint, manifest: result.contextPackage.manifest }, `${parsed.outPath}\n${result.contextPackage.manifest.includedObjectCount} objects · ${result.fingerprint}\nRead-only Context Package written.`);
       return 0;
     }
     if (root === "backup" && action === "create" && !target && !parsed.confirmation) {

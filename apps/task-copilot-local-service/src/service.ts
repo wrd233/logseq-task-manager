@@ -16,6 +16,7 @@ import { StructuredError, checksum, createId } from "@task-copilot/shared";
 
 import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
+import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
@@ -95,6 +96,17 @@ async function readProposalGenerationRequest(request: IncomingMessage): Promise<
     throw serviceError("LLM_GENERATION_REQUEST_INVALID", "Provider 请求只接受有界的五层 Prompt。");
   }
   return { prompt: record.prompt as unknown as V2PromptBundle };
+}
+
+async function readContextExportRequest(request: IncomingMessage): Promise<{ scope: ContextExportScope; id: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "id,scope" || !["object", "project"].includes(String(record.scope)) || typeof record.id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.id)) {
+    throw serviceError("CONTEXT_EXPORT_REQUEST_INVALID", "Context export 只接受 object/project 和受控对象 ID。");
+  }
+  return { scope: record.scope as ContextExportScope, id: record.id };
 }
 
 async function readBackupId(request: IncomingMessage): Promise<string> {
@@ -477,9 +489,9 @@ function respondError(response: ServerResponse, error: unknown): void {
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
+      : proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
         ? 400
-        : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND"
+        : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND"
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
@@ -547,6 +559,20 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "GET" && url.pathname === "/skills") {
       respond(response, 200, { skills: await listTaskCopilotSkills() });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/context/export") {
+      const input = await readContextExportRequest(request);
+      const skillSummaries = await listTaskCopilotSkills();
+      const skillDocuments = (await Promise.all(skillSummaries.map(({ name }) => readTaskCopilotSkill(name)))).filter((skill) => skill !== undefined);
+      const contextPackage = buildContextPackage({
+        getObject: (objectId) => store.getObject(objectId),
+        listObjects: () => store.listObjects(),
+        listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
+        getActivePrimaryAnchorByObject: (objectId) => store.getActivePrimaryAnchorByObject(objectId),
+        databaseSchemaVersion: () => store.doctor().schemaVersion,
+      }, skillDocuments, { kind: input.scope, id: input.id });
+      respond(response, 200, { contextPackage, fingerprint: contextPackageFingerprint(contextPackage) });
       return;
     }
     const skillMatch = request.method === "GET" ? url.pathname.match(/^\/skills\/([^/]+)$/) : null;

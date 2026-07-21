@@ -118,6 +118,23 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   assert.equal((await client.status()).objectCount, 0, "Skill reads do not create formal state");
 });
 
+test("Local Service exports a read-only Project Context Package without Graph scanning or formal writes", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-context-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-context", token: "context-service-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const prepared = await client.prepareProject({ name: "Context Export", traceId: "context-project-prepare" });
+  await client.finalizeProject({ semanticCommitId: prepared.semanticCommitId, objectId: prepared.objectId, name: "Context Export", pageExternalId: "page-context-export", pageContentHash: checksum(""), traceId: "context-project-finalize" });
+  const before = await client.status();
+  const result = await client.exportContext("project", prepared.objectId);
+  assert.equal(result.contextPackage.manifest.includedObjectCount, 1);
+  assert.equal(result.contextPackage.manifest.graphExcerptStatus, "NOT_AVAILABLE_IN_LOCAL_SERVICE");
+  assert.match(result.fingerprint, /^[0-9a-f]{64}$/);
+  assert.equal(JSON.parse(result.contextPackage.files["versions.json"] ?? "").databaseSchemaVersion, 6);
+  assert.deepEqual(await client.status(), before, "Context export does not mutate formal state");
+  await assert.rejects(() => client.exportContext("object", "missing"), /Context 根对象不存在/);
+});
+
 test("Proposal validation, review, and scope revalidation never masquerade as a formal object write", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal", token: "proposal-service-token-at-least-24-chars" });

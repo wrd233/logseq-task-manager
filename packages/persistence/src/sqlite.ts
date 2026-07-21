@@ -1216,6 +1216,14 @@ export class V2SqliteStore {
     }));
   }
 
+  listPrimaryOwnerships(): V2PrimaryOwnership[] {
+    return (this.database.prepare("SELECT child_object_id, owner_object_id, assigned_at FROM primary_ownerships ORDER BY owner_object_id, child_object_id").all() as Array<{ child_object_id: string; owner_object_id: string; assigned_at: string }>).map((row) => ({
+      childObjectId: row.child_object_id,
+      ownerObjectId: row.owner_object_id,
+      assignedAt: row.assigned_at,
+    }));
+  }
+
   doctor(): SqliteDoctorReport {
     const integrity = this.database.pragma("integrity_check", { simple: true }) as string;
     const foreignKeyViolations = (this.database.pragma("foreign_key_check") as unknown[]).length;

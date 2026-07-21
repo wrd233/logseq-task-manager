@@ -37,6 +37,13 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
       submitProposal: async () => ({ record: proposalRecord, replayed: false }),
       listSkills: async () => [],
       getSkill: async () => undefined,
+      exportContext: async (scope, id) => ({
+        fingerprint: "f".repeat(64),
+        contextPackage: {
+          manifest: { schemaVersion: 1, generatedAt: "2026-07-21T08:00:00.000Z", scope: { kind: scope, id }, authority: "READ_ONLY_DERIVATIVE", formalFactsSource: "SQLITE", graphExcerptStatus: "NOT_AVAILABLE_IN_LOCAL_SERVICE", includedObjectCount: 1, files: [] },
+          files: {},
+        },
+      }),
       createBackup: async () => ({ backupId: "backup_20260720130000000_00000000000000000000000000000000", createdAt: "2026-07-20T13:00:00.000Z", validation: doctor }),
       validateBackup: async (backupId) => ({ backupId, validation: doctor }),
       restoreBackup: async (backupId) => ({ status: "RESTORED_SERVICE_STOPPING", backupId, recoveryBackupId: "backup_20260720130100000_11111111111111111111111111111111", validation: doctor }),
@@ -173,4 +180,16 @@ test("CLI lists and shows versioned Skill content from Local Service", async () 
   const shown = JSON.parse(value.stdout.at(-1) ?? "") as { data: { skill: { content: string } } };
   assert.equal(shown.data.skill.content, "# Task Copilot Core");
   assert.equal(await runCli(["skill", "show", "missing"], dependencies, value.io), 6);
+});
+
+test("CLI context export requires a matching bounded scope and delegates verified package output", async () => {
+  const value = fixture();
+  let written: { path: string; fingerprint: string } | undefined;
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service, writeContextPackage: async (path: string, result: { fingerprint: string }) => { written = { path, fingerprint: result.fingerprint }; } };
+  assert.equal(await runCli(["--json", "context", "export", "--scope", "object", "--object", "object-1", "--out", "/tmp/context-1"], dependencies, value.io), 0);
+  assert.deepEqual(written, { path: "/tmp/context-1", fingerprint: "f".repeat(64) });
+  const output = JSON.parse(value.stdout.at(-1) ?? "") as { data: { manifest: { authority: string } } };
+  assert.equal(output.data.manifest.authority, "READ_ONLY_DERIVATIVE");
+  assert.equal(await runCli(["context", "export", "--scope", "project", "--object", "object-1", "--out", "/tmp/context-2"], dependencies, value.io), 2);
+  assert.equal(await runCli(["context", "export", "--scope", "page", "--out", "/tmp/context-3"], dependencies, value.io), 2);
 });
