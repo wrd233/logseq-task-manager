@@ -27,6 +27,7 @@ import type {
   V2ObjectCommand,
   V2ObjectCommandResult,
   V2OwnershipCommand,
+  V2OwnershipChangeCommand,
   V2OwnershipCommandResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
@@ -904,7 +905,7 @@ export class V2SqliteStore {
       const value = result as { object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor };
       return { command, ...value };
     }
-    if (command === "assign_primary_owner") {
+    if (command === "assign_primary_owner" || command === "change_primary_owner") {
       const value = result as { object: V2ManagedObject; ownership: V2PrimaryOwnership };
       return { command, ...value };
     }
@@ -1174,6 +1175,25 @@ export class V2SqliteStore {
       this.database
         .prepare("INSERT INTO primary_ownerships(child_object_id, owner_object_id, assigned_at) VALUES (?, ?, ?)")
         .run(command.ownership.childObjectId, command.ownership.ownerObjectId, command.ownership.assignedAt);
+      this.writeAudit(command.audit);
+      const result = { object: command.object, ownership: command.ownership };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  commitOwnershipChange(command: V2OwnershipChangeCommand): V2OwnershipCommandResult {
+    this.requireIdempotencyKey(command.idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) return { ...(JSON.parse(receipt.result_json) as { object: V2ManagedObject; ownership: V2PrimaryOwnership }), replayed: true };
+      this.requireVersion(command.object.objectId, command.expectedVersion);
+      const current = this.database.prepare("SELECT owner_object_id FROM primary_ownerships WHERE child_object_id = ?").pluck().get(command.object.objectId) as string | undefined;
+      if (current !== command.expectedCurrentOwnerId) throw persistenceError("V2_PRIMARY_OWNER_STALE", "Primary Owner 已变化；本次变更没有写入。", { expectedCurrentOwnerId: command.expectedCurrentOwnerId, currentOwnerId: current });
+      this.writeObject(command.object);
+      if (current === undefined) this.database.prepare("INSERT INTO primary_ownerships(child_object_id, owner_object_id, assigned_at) VALUES (?, ?, ?)").run(command.ownership.childObjectId, command.ownership.ownerObjectId, command.ownership.assignedAt);
+      else if (this.database.prepare("UPDATE primary_ownerships SET owner_object_id = ?, assigned_at = ? WHERE child_object_id = ? AND owner_object_id = ?").run(command.ownership.ownerObjectId, command.ownership.assignedAt, command.ownership.childObjectId, current).changes !== 1) throw persistenceError("V2_PRIMARY_OWNER_STALE", "Primary Owner 在事务中变化；本次变更已回滚。");
       this.writeAudit(command.audit);
       const result = { object: command.object, ownership: command.ownership };
       this.writeReceipt(command.idempotencyKey, command.audit, result);

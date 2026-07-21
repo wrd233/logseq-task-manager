@@ -17,6 +17,7 @@ import {
   type V2ObjectCommand,
   type V2ObjectRepository,
   type V2OwnershipCommand,
+  type V2OwnershipChangeCommand,
   type V2SynchronizationCommand,
 } from "../src/v2.ts";
 
@@ -155,6 +156,16 @@ class MemoryV2Repository implements V2ObjectRepository {
     return { object: command.object, ownership: command.ownership, replayed: false };
   }
 
+  commitOwnershipChange(command: V2OwnershipChangeCommand): { object: V2ManagedObject; ownership: V2PrimaryOwnership; replayed: boolean } {
+    const receipt = this.receipts.get(command.idempotencyKey);
+    if (receipt?.command === "change_primary_owner") return { object: receipt.object, ownership: receipt.ownership, replayed: true };
+    if (this.ownerships.get(command.object.objectId)?.ownerObjectId !== command.expectedCurrentOwnerId) throw new Error("owner stale");
+    this.commitVersionedChange(command.object, command.expectedVersion, command.idempotencyKey, command.audit);
+    this.ownerships.set(command.object.objectId, command.ownership);
+    this.receipts.set(command.idempotencyKey, { command: "change_primary_owner", object: command.object, ownership: command.ownership });
+    return { object: command.object, ownership: command.ownership, replayed: false };
+  }
+
   commitAssociation(command: V2AssociationCommand): { object: V2ManagedObject; association: V2Association; replayed: boolean } {
     const receipt = this.receipts.get(command.idempotencyKey);
     if (receipt?.command === "add_association") return { object: receipt.object, association: receipt.association, replayed: true };
@@ -275,6 +286,12 @@ test("Primary Anchor and Ownership changes pass through Application and share ob
   });
   assert.equal(owned.object.version, 3);
   assert.equal(owned.ownership.ownerObjectId, "project-1");
+  await application.createObject({ objectId: "area-1", objectType: "AREA", text: "领域" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-area", traceId: "trace-area" });
+  const changedOwner = await application.changePrimaryOwner("task-1", "area-1", "project-1", { actor: "proposal_commit", expectedVersion: 3, idempotencyKey: "change-owner", traceId: "trace-change-owner" });
+  assert.equal(changedOwner.ownership.ownerObjectId, "area-1");
+  assert.equal(changedOwner.object.version, 4);
+  await assert.rejects(() => application.changePrimaryOwner("task-1", "project-1", "other-old-owner", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-owner-stale", traceId: "trace-change-owner-stale" }), /stale/);
+  await assert.rejects(() => application.changePrimaryOwner("task-1", "area-1", "area-1", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-owner-noop", traceId: "trace-change-owner-noop" }), /相同/);
   await assert.rejects(() => application.assignPrimaryOwner("task-1", "project-1", {
     actor: "user",
     expectedVersion: 2,
