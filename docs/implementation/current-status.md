@@ -44,6 +44,7 @@ V2_MIGRATION_DESIGN_READY
 - Service Restore Apply 已通过：固定确认短语、服务端 Backup ID、恢复点、关闭 live Store、原子切换、Doctor、descriptor 删除和 Service 停止；无确认不产生变化。
 - CLI 已提供 `backup create/validate/restore`；Restore 缺少精确 `--confirm RESTORE_AND_STOP_SERVICE` 时在加载 Service 前退出。独立进程冒烟已证明 CLI create → restore → Service exit/descriptor cleanup → restart → Doctor PASS。
 - CLI Proposal 纵向入口已复用同一 Local Service：`proposal list/show/validate/submit` 支持固定 JSON envelope 与退出码，外部文件限制为 1 MiB UTF-8 JSON；validate 零持久化，submit 只进入 Plugin 共用审阅队列并显式返回 `formalWritesExecuted: false`，不存在 `proposal apply/commit`。真实 Service 集成已证明提交后 Proposal=1、Object=0、SemanticCommit=0；Context Package/export 与 Desktop 外部 Agent Gate 尚未完成。
+- 外部 Agent Skill 第一版已版本化：`task-copilot-core` 固定 scope/事实分层/Proposal-only/submit≠commit 边界，`design-project` 覆盖 Project 设计、重入、分组与 Closure；两者经 Skill 结构校验、SHA-256 标识并随 Service 构建复制。Local Service `GET /skills[/{name}]` 与 CLI `skill list/show` 返回同一只读资产，读取后 Object 仍为 0；没有新增表或可编辑副本。Context Package 尚未实现。
 - Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。
 - Slice B3 Marker 自动合同已贯通 Parser → Plugin 有界队列 → Service → Application → Domain → SQLite：简单 Task DONE 改为 `COMPLETED`；CANCELED/CANCELLED 在记录取消原因前零写入；TODO/NOW/DOING/WAITING 不改 Condition/Focus；MiniProject/Project 关闭要求审阅；Decision/Output 不用 Marker 改 Lifecycle；语义冲突不断开健康 transport。Desktop Marker 形态与 Undo/复杂关闭审阅待验收。
 - Slice B 防抖与首次物化基础已建立：UUID 级事件合并只交付最新 Parser 结果，失败显式回调；Application/SQLite 将 Object、Primary Anchor、Audit、Receipt 单事务写入并幂等重放，重复外部 Block 整笔回滚。
@@ -73,7 +74,7 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-21 `./scripts/check.sh` PASS，282 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-21 `./scripts/check.sh` PASS，285 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；

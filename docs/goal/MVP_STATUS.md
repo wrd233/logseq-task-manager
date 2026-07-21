@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation"
-last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 282 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Slice D live/Desktop and E2E-13 Context Package/Desktop gates remain pending"
+last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 285 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Slice D live/Desktop and E2E-13 Context Package/Desktop gates remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -25,6 +25,7 @@ implemented:
   - "Offline SQLite restore primitive with pre-restore recovery point, atomic activation, Doctor, and injected-failure rollback"
   - "Executable read-only tc status/doctor/object CLI with JSON envelope and exit codes"
   - "tc Proposal list/show/validate/submit reuses Local Service review storage; validate is zero-write and submit cannot commit/apply formal state"
+  - "Versioned task-copilot-core and design-project Skills are hash-addressed, bundled with Local Service, and readable through tc skill list/show"
   - "SQLite locked writes fail with zero formal writes; backups reject overwrite and validate schema, Graph identity, integrity and foreign keys read-only"
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
   - "SQLite schema v6 migration ledger: SemanticCommit, Proposal/Group, immutable Audit/current-projection decoupling, and nullable Task due_at; v1..v5 upgrades require a validated preflight snapshot and roll back atomically"

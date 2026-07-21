@@ -15,6 +15,7 @@ import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/s
 import { StructuredError, checksum, createId } from "@task-copilot/shared";
 
 import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
+import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
@@ -542,6 +543,16 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (request.method === "POST" && url.pathname === "/doctor") {
       const doctor = store.doctor();
       respond(response, doctor.status === "PASS" ? 200 : 503, doctor);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/skills") {
+      respond(response, 200, { skills: await listTaskCopilotSkills() });
+      return;
+    }
+    const skillMatch = request.method === "GET" ? url.pathname.match(/^\/skills\/([^/]+)$/) : null;
+    if (skillMatch?.[1]) {
+      const skill = await readTaskCopilotSkill(decodeURIComponent(skillMatch[1]));
+      respond(response, skill ? 200 : 404, skill ? { skill } : { error: { code: "SKILL_NOT_FOUND", message: "Skill 不存在。" } });
       return;
     }
     if (request.method === "POST" && url.pathname === "/proposals/validate") {

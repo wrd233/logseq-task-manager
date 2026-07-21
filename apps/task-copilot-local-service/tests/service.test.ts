@@ -101,6 +101,23 @@ test("Local Service exposes object reads but refuses an unscoped generic write r
   assert.equal(write.status, 404);
 });
 
+test("Local Service exposes the same immutable versioned Skill catalog to every client", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-skills-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-skills", token: "skills-service-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const skills = await client.listSkills();
+  assert.deepEqual(skills.map(({ name, version }) => ({ name, version })), [
+    { name: "task-copilot-core", version: "1.0.0" },
+    { name: "design-project", version: "1.0.0" },
+  ]);
+  const project = await client.getSkill("design-project");
+  assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
+  assert.equal(project?.sha256, skills.find(({ name }) => name === "design-project")?.sha256);
+  assert.equal(await client.getSkill("missing"), undefined);
+  assert.equal((await client.status()).objectCount, 0, "Skill reads do not create formal state");
+});
+
 test("Proposal validation, review, and scope revalidation never masquerade as a formal object write", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal", token: "proposal-service-token-at-least-24-chars" });

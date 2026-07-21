@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Copilot Core"
+  short_description: "Keep external Agent work inside safe authority boundaries"
+  default_prompt: "Use $task-copilot-core to inspect scoped context and produce a review-only Proposal."

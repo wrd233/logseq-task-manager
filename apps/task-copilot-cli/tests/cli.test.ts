@@ -35,6 +35,8 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
       getProposal: async () => undefined,
       validateProposal: async () => ({ status: "VALID", proposal: proposalRecord.proposal, files: proposalRecord.files }),
       submitProposal: async () => ({ record: proposalRecord, replayed: false }),
+      listSkills: async () => [],
+      getSkill: async () => undefined,
       createBackup: async () => ({ backupId: "backup_20260720130000000_00000000000000000000000000000000", createdAt: "2026-07-20T13:00:00.000Z", validation: doctor }),
       validateBackup: async (backupId) => ({ backupId, validation: doctor }),
       restoreBackup: async (backupId) => ({ status: "RESTORED_SERVICE_STOPPING", backupId, recoveryBackupId: "backup_20260720130100000_11111111111111111111111111111111", validation: doctor }),
@@ -157,4 +159,18 @@ test("CLI rejects unreadable Proposal input before any validate or submit reques
   assert.equal(await runCli(["proposal", "submit", "bad.json"], dependencies, value.io), 2);
   assert.equal(requests, 0);
   assert.match(value.stderr.at(-1) ?? "", /not valid JSON/);
+});
+
+test("CLI lists and shows versioned Skill content from Local Service", async () => {
+  const value = fixture({
+    listSkills: async () => [{ name: "task-copilot-core", version: "1.0.0", description: "Safe authority boundary", sha256: "a".repeat(64) }],
+    getSkill: async (name) => name === "task-copilot-core" ? { name, version: "1.0.0", description: "Safe authority boundary", sha256: "a".repeat(64), content: "# Task Copilot Core" } : undefined,
+  });
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service };
+  assert.equal(await runCli(["skill", "list"], dependencies, value.io), 0);
+  assert.match(value.stdout.at(-1) ?? "", /task-copilot-core\t1\.0\.0/);
+  assert.equal(await runCli(["--json", "skill", "show", "task-copilot-core"], dependencies, value.io), 0);
+  const shown = JSON.parse(value.stdout.at(-1) ?? "") as { data: { skill: { content: string } } };
+  assert.equal(shown.data.skill.content, "# Task Copilot Core");
+  assert.equal(await runCli(["skill", "show", "missing"], dependencies, value.io), 6);
 });

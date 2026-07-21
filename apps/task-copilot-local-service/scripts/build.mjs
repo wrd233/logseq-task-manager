@@ -1,4 +1,4 @@
-import { chmod, mkdir, rm } from "node:fs/promises";
+import { chmod, cp, mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { build } from "esbuild";
@@ -26,3 +26,4 @@ await build({
   legalComments: "none",
 });
 await Promise.all([chmod(serviceOutput, 0o755), chmod(liveSmokeOutput, 0o755)]);
+await cp(resolve(root, "../../skills"), resolve(dist, "skills"), { recursive: true });

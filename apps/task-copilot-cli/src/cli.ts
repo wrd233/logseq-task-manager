@@ -1,5 +1,5 @@
 import type { V2ManagedObject } from "@task-copilot/domain";
-import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceDoctor, ServiceProposalValidationResult, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceDoctor, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
 export interface CliService {
@@ -11,6 +11,8 @@ export interface CliService {
   getProposal(proposalId: string): Promise<ServiceStoredProposal | undefined>;
   validateProposal(proposal: unknown): Promise<ServiceProposalValidationResult>;
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }>;
+  listSkills(): Promise<ServiceSkillSummary[]>;
+  getSkill(name: string): Promise<ServiceSkillDocument | undefined>;
   createBackup(): Promise<ServiceBackupCreated>;
   validateBackup(backupId: string): Promise<ServiceBackupValidation>;
   restoreBackup(backupId: string, confirmation: "RESTORE_AND_STOP_SERVICE"): Promise<ServiceBackupRestored>;
@@ -38,6 +40,8 @@ Usage:
   tc [--service-descriptor <path>] [--json] proposal show <proposal_id>
   tc [--service-descriptor <path>] [--json] proposal validate <proposal.json>
   tc [--service-descriptor <path>] [--json] proposal submit <proposal.json>
+  tc [--service-descriptor <path>] [--json] skill list
+  tc [--service-descriptor <path>] [--json] skill show <name>
   tc [--service-descriptor <path>] [--json] backup create
   tc [--service-descriptor <path>] [--json] backup validate <backup_id>
   tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm RESTORE_AND_STOP_SERVICE
@@ -162,6 +166,20 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
       const submitted = await service.submitProposal(proposal);
       const output = { ...submitted, effects: { proposalStored: true, formalWritesExecuted: false } };
       emit(io, parsed.json, output, `${submitted.record.proposal.proposalId}\n${submitted.record.proposal.status} · submitted for review${submitted.replayed ? " (replayed)" : ""}\nNo formal change was committed.`);
+      return 0;
+    }
+    if (root === "skill" && action === "list" && !target) {
+      const skills = await service.listSkills();
+      emit(io, parsed.json, { skills }, skills.map((skill) => `${skill.name}\t${skill.version}\t${skill.sha256}\t${skill.description}`).join("\n"));
+      return 0;
+    }
+    if (root === "skill" && action === "show" && target) {
+      const skill = await service.getSkill(target);
+      if (!skill) {
+        io.stderr(`Skill not found: ${target}`);
+        return 6;
+      }
+      emit(io, parsed.json, { skill }, skill.content);
       return 0;
     }
     if (root === "backup" && action === "create" && !target && !parsed.confirmation) {

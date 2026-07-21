@@ -31,6 +31,8 @@ tc [--service-descriptor <path>] [--json] proposal list
 tc [--service-descriptor <path>] [--json] proposal show <proposal_id>
 tc [--service-descriptor <path>] [--json] proposal validate <proposal.json>
 tc [--service-descriptor <path>] [--json] proposal submit <proposal.json>
+tc [--service-descriptor <path>] [--json] skill list
+tc [--service-descriptor <path>] [--json] skill show <name>
 tc [--service-descriptor <path>] [--json] backup create
 tc [--service-descriptor <path>] [--json] backup validate <backup_id>
 tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm RESTORE_AND_STOP_SERVICE

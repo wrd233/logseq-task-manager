@@ -55,6 +55,17 @@ export interface ServiceBackupRestored {
   validation: ServiceDoctor;
 }
 
+export interface ServiceSkillSummary {
+  name: "task-copilot-core" | "design-project";
+  version: string;
+  description: string;
+  sha256: string;
+}
+
+export interface ServiceSkillDocument extends ServiceSkillSummary {
+  content: string;
+}
+
 export interface ServicePromptLayer {
   version: string;
   content: string;
@@ -462,6 +473,19 @@ export class LocalServiceClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(proposal),
     });
+  }
+
+  async listSkills(): Promise<ServiceSkillSummary[]> {
+    return (await this.request<{ skills: ServiceSkillSummary[] }>("/skills")).skills;
+  }
+
+  async getSkill(name: string): Promise<ServiceSkillDocument | undefined> {
+    try {
+      return (await this.request<{ skill: ServiceSkillDocument }>(`/skills/${encodeURIComponent(name)}`)).skill;
+    } catch (error) {
+      if (error instanceof StructuredError && error.details?.remoteCode === "SKILL_NOT_FOUND") return undefined;
+      throw error;
+    }
   }
 
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {
