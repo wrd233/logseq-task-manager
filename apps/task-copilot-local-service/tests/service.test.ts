@@ -6,6 +6,8 @@ import test from "node:test";
 
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2SqliteStore } from "@task-copilot/persistence/node";
+import { exportRecoveryBundle } from "@task-copilot/persistence";
+import { createEmptyState } from "@task-copilot/application";
 import { checksum } from "@task-copilot/shared";
 import type { V2Proposal } from "@task-copilot/domain";
 
@@ -133,6 +135,20 @@ test("Local Service exports a read-only Project Context Package without Graph sc
   assert.equal(JSON.parse(result.contextPackage.files["versions.json"] ?? "").databaseSchemaVersion, 6);
   assert.deepEqual(await client.status(), before, "Context export does not mutate formal state");
   await assert.rejects(() => client.exportContext("object", "missing"), /Context 根对象不存在/);
+});
+
+test("Local Service migration scan validates an explicit Recovery Bundle and leaves capability and Store unchanged", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-migration-scan-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-migration-scan", token: "migration-scan-service-token-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const before = await client.status();
+  assert.equal(before.capabilities.migration, false, "scan-only foundation does not advertise commit/undo capability");
+  const report = await client.scanLegacyMigration(exportRecoveryBundle(createEmptyState(), new Date("2026-07-21T09:00:00.000Z")));
+  assert.equal(report.status, "SCANNED");
+  assert.equal(report.zeroFormalWrites, true);
+  assert.equal(report.counts.total, 0);
+  assert.deepEqual(await client.status(), before);
 });
 
 test("Proposal validation, review, and scope revalidation never masquerade as a formal object write", async (t) => {

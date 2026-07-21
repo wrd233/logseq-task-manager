@@ -87,6 +87,28 @@ export interface ServiceContextExportResult {
   fingerprint: string;
 }
 
+export interface ServiceLegacyMigrationPreview {
+  legacyObjectId: string;
+  sourceBundleSha256: string;
+  classification: "DIRECT_BIND" | "NEEDS_CONFIRMATION" | "KEEP_ORDINARY" | "STRUCTURAL_ERROR";
+  reasonCodes: string[];
+  evidenceRefs: string[];
+  informationLoss: string[];
+  conflicts: string[];
+  decision: "PENDING_REVIEW";
+  [key: string]: unknown;
+}
+
+export interface ServiceLegacyMigrationScanReport {
+  schemaVersion: 1;
+  sourceBundleSha256: string;
+  sourceCreatedAt: string;
+  status: "SCANNED";
+  zeroFormalWrites: true;
+  counts: { total: number; directBind: number; needsConfirmation: number; keepOrdinary: number; structuralError: number };
+  previews: ServiceLegacyMigrationPreview[];
+}
+
 export interface ServicePromptLayer {
   version: string;
   content: string;
@@ -515,6 +537,14 @@ export class LocalServiceClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ scope, id }),
     });
+  }
+
+  scanLegacyMigration(bundle: unknown): Promise<ServiceLegacyMigrationScanReport> {
+    return this.request<{ report: ServiceLegacyMigrationScanReport }>("/migration/scan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(bundle),
+    }).then(({ report }) => report);
   }
 
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {

@@ -54,7 +54,7 @@
 | PATCH | `/objects/{object_id}/deadline` | 设置或清除 Task `due_at` | Object + Audit + Receipt 单事务写入；不产生分数 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
 
-未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`、`migration=false`；`provider` 仅在 Service runner 显式选择并成功解析安全配置后为 `true`。`formalWrites` 只表示已列出的受约束正式命令可用，不表示迁移或 Provider 已配置。Proposal generate/submit/review 只改审阅状态，不是正式领域生效；只有已接受且重验通过的受限 Proposal 才能进入 prepare/finalize Commit 路由。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`、`migration=false`；`provider` 仅在 Service runner 显式选择并成功解析安全配置后为 `true`。`formalWrites` 只表示已列出的受约束正式命令可用，不表示迁移或 Provider 已配置。Proposal generate/submit/review 只改审阅状态，不是正式领域生效；只有已接受且重验通过的受限 Proposal 才能进入 prepare/finalize Commit 路由。`POST /migration/scan` 是显式、只读的 V1 Recovery Bundle 校验与 Preview 基础，不开放迁移 Commit/Activate/Undo，因此不改变 migration capability。
 
 ## Provider runtime
 

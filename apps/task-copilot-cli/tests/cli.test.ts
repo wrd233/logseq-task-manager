@@ -44,6 +44,7 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
           files: {},
         },
       }),
+      scanLegacyMigration: async () => ({ schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 1, directBind: 0, needsConfirmation: 1, keepOrdinary: 0, structuralError: 0 }, previews: [] }),
       createBackup: async () => ({ backupId: "backup_20260720130000000_00000000000000000000000000000000", createdAt: "2026-07-20T13:00:00.000Z", validation: doctor }),
       validateBackup: async (backupId) => ({ backupId, validation: doctor }),
       restoreBackup: async (backupId) => ({ status: "RESTORED_SERVICE_STOPPING", backupId, recoveryBackupId: "backup_20260720130100000_11111111111111111111111111111111", validation: doctor }),
@@ -192,4 +193,20 @@ test("CLI context export requires a matching bounded scope and delegates verifie
   assert.equal(output.data.manifest.authority, "READ_ONLY_DERIVATIVE");
   assert.equal(await runCli(["context", "export", "--scope", "project", "--object", "object-1", "--out", "/tmp/context-2"], dependencies, value.io), 2);
   assert.equal(await runCli(["context", "export", "--scope", "page", "--out", "/tmp/context-3"], dependencies, value.io), 2);
+});
+
+test("CLI migration scan is explicit, read-only, and never exposes commit or activate", async () => {
+  const value = fixture();
+  let received: unknown;
+  value.service.scanLegacyMigration = async (bundle) => {
+    received = bundle;
+    return { schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 1, directBind: 0, needsConfirmation: 1, keepOrdinary: 0, structuralError: 0 }, previews: [] };
+  };
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service, loadMigrationBundle: async () => ({ bundleVersion: 1 }) };
+  assert.equal(await runCli(["--json", "migration", "scan", "/tmp/v1-bundle.json"], dependencies, value.io), 0);
+  assert.deepEqual(received, { bundleVersion: 1 });
+  const output = JSON.parse(value.stdout.at(-1) ?? "") as { data: { report: { zeroFormalWrites: boolean } } };
+  assert.equal(output.data.report.zeroFormalWrites, true);
+  assert.equal(await runCli(["migration", "commit", "run-1"], dependencies, value.io), 2);
+  assert.equal(await runCli(["migration", "activate", "run-1"], dependencies, value.io), 2);
 });

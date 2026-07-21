@@ -12,11 +12,12 @@ import {
   type ServiceDescriptor,
 } from "@task-copilot/service-client";
 import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
-import { StructuredError, checksum, createId } from "@task-copilot/shared";
+import { StructuredError, checksum, createId, stableJson } from "@task-copilot/shared";
 
 import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
+import { scanLegacyRecoveryBundle } from "./migration-scan.ts";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
@@ -63,14 +64,14 @@ function serviceError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-192", "D-204"] });
 }
 
-async function readBody(request: IncomingMessage): Promise<string> {
+async function readBody(request: IncomingMessage, maximumBytes = maximumRequestBodyBytes): Promise<string> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const value of request) {
     const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value as Uint8Array);
     size += chunk.length;
-    if (size > maximumRequestBodyBytes) {
-      throw serviceError("REQUEST_BODY_TOO_LARGE", "Local Service 请求体超过 16 KiB 限制。");
+    if (size > maximumBytes) {
+      throw serviceError("REQUEST_BODY_TOO_LARGE", maximumBytes === maximumRequestBodyBytes ? "Local Service 请求体超过 16 KiB 限制。" : `Local Service 请求体超过 ${maximumBytes} bytes 限制。`);
     }
     chunks.push(chunk);
   }
@@ -573,6 +574,16 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         databaseSchemaVersion: () => store.doctor().schemaVersion,
       }, skillDocuments, { kind: input.scope, id: input.id });
       respond(response, 200, { contextPackage, fingerprint: contextPackageFingerprint(contextPackage) });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/migration/scan") {
+      const body = await readBody(request, 8 * 1024 * 1024);
+      let bundle: unknown;
+      try { bundle = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "迁移输入必须是合法 Recovery Bundle JSON。"); }
+      const before = store.doctor();
+      const report = scanLegacyRecoveryBundle(bundle as Parameters<typeof scanLegacyRecoveryBundle>[0]);
+      if (stableJson(store.doctor()) !== stableJson(before)) throw serviceError("MIGRATION_SCAN_MUTATED_STORE", "迁移扫描意外改变了 SQLite；结果已拒绝。");
+      respond(response, 200, { report });
       return;
     }
     const skillMatch = request.method === "GET" ? url.pathname.match(/^\/skills\/([^/]+)$/) : null;

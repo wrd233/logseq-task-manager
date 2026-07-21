@@ -1,5 +1,5 @@
 import type { V2ManagedObject } from "@task-copilot/domain";
-import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceLegacyMigrationScanReport, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
 export interface CliService {
@@ -14,6 +14,7 @@ export interface CliService {
   listSkills(): Promise<ServiceSkillSummary[]>;
   getSkill(name: string): Promise<ServiceSkillDocument | undefined>;
   exportContext(scope: "object" | "project", id: string): Promise<ServiceContextExportResult>;
+  scanLegacyMigration(bundle: unknown): Promise<ServiceLegacyMigrationScanReport>;
   createBackup(): Promise<ServiceBackupCreated>;
   validateBackup(backupId: string): Promise<ServiceBackupValidation>;
   restoreBackup(backupId: string, confirmation: "RESTORE_AND_STOP_SERVICE"): Promise<ServiceBackupRestored>;
@@ -27,6 +28,7 @@ export interface CliIo {
 export interface CliDependencies {
   loadService(descriptorPath: string): Promise<CliService>;
   loadProposal?(path: string): Promise<unknown>;
+  loadMigrationBundle?(path: string): Promise<unknown>;
   writeContextPackage?(outPath: string, result: ServiceContextExportResult): Promise<void>;
   descriptorPath?: string;
 }
@@ -46,6 +48,7 @@ Usage:
   tc [--service-descriptor <path>] [--json] skill show <name>
   tc [--service-descriptor <path>] [--json] context export --scope object --object <object_id> --out <directory>
   tc [--service-descriptor <path>] [--json] context export --scope project --project <project_id> --out <directory>
+  tc [--service-descriptor <path>] [--json] migration scan <v1-recovery-bundle.json>
   tc [--service-descriptor <path>] [--json] backup create
   tc [--service-descriptor <path>] [--json] backup validate <backup_id>
   tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm RESTORE_AND_STOP_SERVICE
@@ -209,6 +212,20 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
       const result = await service.exportContext(scope, id);
       await dependencies.writeContextPackage(parsed.outPath, result);
       emit(io, parsed.json, { path: parsed.outPath, fingerprint: result.fingerprint, manifest: result.contextPackage.manifest }, `${parsed.outPath}\n${result.contextPackage.manifest.includedObjectCount} objects · ${result.fingerprint}\nRead-only Context Package written.`);
+      return 0;
+    }
+    if (root === "migration" && action === "scan" && target) {
+      if (!dependencies.loadMigrationBundle) {
+        io.stderr("Migration bundle loading is unavailable.");
+        return 2;
+      }
+      let bundle: unknown;
+      try { bundle = await dependencies.loadMigrationBundle(target); } catch (error) {
+        io.stderr(error instanceof Error ? error.message : String(error));
+        return 2;
+      }
+      const report = await service.scanLegacyMigration(bundle);
+      emit(io, parsed.json, { report }, `${report.status}\n${report.sourceBundleSha256}\n${report.counts.total} records · ${report.counts.directBind} direct · ${report.counts.needsConfirmation} review · ${report.counts.structuralError} errors\nNo formal state was written.`);
       return 0;
     }
     if (root === "backup" && action === "create" && !target && !parsed.confirmation) {

@@ -2,7 +2,7 @@ import { LocalServiceClient } from "@task-copilot/service-client";
 import { readServiceDescriptor } from "@task-copilot/service-client/node";
 
 import { runCli } from "./cli.ts";
-import { loadProposalFile } from "./proposal-file.ts";
+import { loadMigrationBundleFile, loadProposalFile } from "./proposal-file.ts";
 import { writeContextPackage } from "./context-output.ts";
 
 const exitCode = await runCli(
@@ -10,6 +10,7 @@ const exitCode = await runCli(
   {
     loadService: async (path) => new LocalServiceClient(await readServiceDescriptor(path)),
     loadProposal: loadProposalFile,
+    loadMigrationBundle: loadMigrationBundleFile,
     writeContextPackage,
     ...(process.env.TASK_COPILOT_SERVICE_DESCRIPTOR
       ? { descriptorPath: process.env.TASK_COPILOT_SERVICE_DESCRIPTOR }
