@@ -73,7 +73,7 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 Primary Ownership Gate: external Proposal validate/submit, HIGH accept with zero formal write, scope revalidation, final Commit, plugin reload, dedicated Undo and second reload verified; Task v5 to v6 to v7 while Project v2, Anchors and the existing Association remained unchanged"
   - "V2 Desktop 0.10.15 E2E-04/E2E-05 and Rebind sub-Gate: native cross-page move retained the same object/active Anchor/UUID/version/Ownership/Association; property-free copy created an independent object/Anchor; confirmed rebind persisted id:: UUID, retained replaced history and remained active after cold reload"
 runtime_checks_pending:
-  - "V2 delete-Anchor review, finite-subtree and offline-current-page Candidate, Proposal reject/defer and process-fault, Candidate UPDATE flow, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
+  - "V2 delete-Anchor review, finite-subtree and current-page Candidate stale/one-at-a-time failure paths, Proposal reject/defer and process-fault, Candidate UPDATE flow, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
   - "Project Closure Desktop review/completion/reload and retained-page Gate"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
