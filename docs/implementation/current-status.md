@@ -43,6 +43,7 @@ V2_MIGRATION_DESIGN_READY
 - step ledger 最小状态机已通过：PENDING + PREPARED 原子准备、幂等重放、非法跳步拒绝、全 VERIFIED 后才能 COMPLETED、未补偿 step 不得标记 FAILED，RECOVERY_REQUIRED 可重启查询并补偿收口。
 - Service Restore Apply 已通过：固定确认短语、服务端 Backup ID、恢复点、关闭 live Store、原子切换、Doctor、descriptor 删除和 Service 停止；无确认不产生变化。
 - CLI 已提供 `backup create/validate/restore`；Restore 缺少精确 `--confirm RESTORE_AND_STOP_SERVICE` 时在加载 Service 前退出。独立进程冒烟已证明 CLI create → restore → Service exit/descriptor cleanup → restart → Doctor PASS。
+- `tc doctor` 已从 SQLite 完整性扩展为结构化组件报告：直接检查 Schema、Anchor missing/conflict/多 Primary、标识、Stale Proposal、Pending/Recovery Commit、最新 Backup、Key 引用边界、Provider 配置、内置 Skills 和 CLI/Service 协议；FAIL 仍以 HTTP 200 返回可诊断报告，CLI 用稳定退出码 7 表示不健康。Graph/Desktop 事件、Provider 在线健康和诊断包导出仍明确标记为专用 Gate，不伪装成已检查。
 - CLI Proposal 纵向入口已复用同一 Local Service：`proposal list/show/validate/submit` 支持固定 JSON envelope 与退出码，外部文件限制为 1 MiB UTF-8 JSON；validate 零持久化，submit 只进入 Plugin 共用审阅队列并显式返回 `formalWritesExecuted: false`，不存在 `proposal apply/commit`。真实 Service 集成已证明提交后 Proposal=1、Object=0、SemanticCommit=0；Context Package/export 与 Desktop 外部 Agent Gate 尚未完成。
 - 外部 Agent Skill 第一版已版本化：`task-copilot-core` 固定 scope/事实分层/Proposal-only/submit≠commit 边界，`design-project` 覆盖 Project 设计、重入、分组与 Closure；两者经 Skill 结构校验、SHA-256 标识并随 Service 构建复制。Local Service `GET /skills[/{name}]` 与 CLI `skill list/show` 返回同一只读资产，读取后 Object 仍为 0；没有新增表或可编辑副本，Context Package 复用同一资产。
 - Context Package 已开放不依赖 Graph 扫描的 object/project 范围：Local Service 从 SQLite 导出最多 256 个正式对象及 Primary Anchor/Ownership、Decision/Output 子集、显式 modify targets、DB/Domain/Skill 版本、完整 Skill 和逐文件 SHA-256；正式事实与空检索候选分开，Graph excerpt/用户语义/写作配置未具备时明确标记而不伪造。CLI 先验证文件集/bytes/hash，创建 0700/0600 新目录并最后写 manifest，已有目录、路径穿越或 hash 不匹配均拒绝并清理新产物。导出前后 Service 状态一致，无新表/扫描器/权威副本；block/page 仍需未来受控 Logseq 读取桥接。
@@ -76,7 +77,7 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-21 `./scripts/check.sh` PASS，297 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-21 `./scripts/check.sh` PASS，300 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；

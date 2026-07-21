@@ -85,6 +85,22 @@ test("CLI distinguishes usage, missing object, doctor failure, and unavailable s
   assert.deepEqual(unavailable.stderr, ["offline"]);
 });
 
+test("CLI doctor renders component codes while JSON preserves the structured report", async () => {
+  const comprehensive: ServiceDoctor = {
+    status: "PASS", schemaVersion: 6, integrity: "ok", foreignKeyViolations: 0, objectCount: 0,
+    checks: [{ component: "BACKUP", status: "WARN", code: "BACKUP_NONE", count: 0 }],
+    summary: { pass: 0, warn: 1, fail: 0, info: 0 },
+    limitations: ["Graph runtime gate required."],
+  };
+  const plain = fixture({ doctor: async () => comprehensive });
+  assert.equal(await runCli(["doctor"], { descriptorPath: "/runtime/service.json", loadService: async () => plain.service }, plain.io), 0);
+  assert.match(plain.stdout.join("\n"), /WARN\tBACKUP\tBACKUP_NONE\t0/);
+  assert.match(plain.stdout.join("\n"), /LIMITATION\tGraph runtime gate required/);
+  const json = fixture({ doctor: async () => comprehensive });
+  assert.equal(await runCli(["--json", "doctor"], { descriptorPath: "/runtime/service.json", loadService: async () => json.service }, json.io), 0);
+  assert.deepEqual(JSON.parse(json.stdout[0] ?? "").data, comprehensive);
+});
+
 test("CLI requires an explicit descriptor and never receives a SQLite path", async () => {
   const value = fixture();
   let loadedPath = "";

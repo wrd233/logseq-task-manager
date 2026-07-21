@@ -69,6 +69,16 @@ export interface SqliteDoctorReport {
   objectCount: number;
 }
 
+export interface SqliteOperationalDiagnostics {
+  missingAnchorCount: number;
+  conflictAnchorCount: number;
+  multiplePrimaryAnchorObjectCount: number;
+  staleProposalCount: number;
+  pendingCommitCount: number;
+  recoveryRequiredCommitCount: number;
+  invalidIdentityCount: number;
+}
+
 export interface SqliteOpenOptions {
   busyTimeoutMs?: number;
 }
@@ -1234,6 +1244,19 @@ export class V2SqliteStore {
       integrity,
       foreignKeyViolations,
       objectCount,
+    };
+  }
+
+  operationalDiagnostics(): SqliteOperationalDiagnostics {
+    const count = (sql: string): number => (this.database.prepare(sql).get() as { count: number }).count;
+    return {
+      missingAnchorCount: count("SELECT count(*) AS count FROM anchors WHERE role = 'primary_text' AND status = 'missing'"),
+      conflictAnchorCount: count("SELECT count(*) AS count FROM anchors WHERE role = 'primary_text' AND status = 'conflict'"),
+      multiplePrimaryAnchorObjectCount: count("SELECT count(*) AS count FROM (SELECT object_id FROM anchors WHERE role = 'primary_text' AND status <> 'replaced' GROUP BY object_id HAVING count(*) > 1)"),
+      staleProposalCount: count("SELECT count(*) AS count FROM proposals WHERE status = 'STALE'"),
+      pendingCommitCount: count("SELECT count(*) AS count FROM semantic_commits WHERE status = 'PENDING'"),
+      recoveryRequiredCommitCount: count("SELECT count(*) AS count FROM semantic_commits WHERE status = 'RECOVERY_REQUIRED'"),
+      invalidIdentityCount: count("SELECT count(*) AS count FROM objects WHERE length(trim(object_id)) = 0 OR length(trim(object_type)) = 0"),
     };
   }
 

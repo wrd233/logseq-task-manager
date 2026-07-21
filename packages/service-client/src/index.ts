@@ -35,6 +35,16 @@ export interface ServiceDoctor {
   integrity: string;
   foreignKeyViolations: number;
   objectCount: number;
+  checks?: ServiceDoctorCheck[];
+  summary?: { pass: number; warn: number; fail: number; info: number };
+  limitations?: string[];
+}
+
+export interface ServiceDoctorCheck {
+  component: "LOCAL_SERVICE" | "GRAPH" | "SQLITE" | "SCHEMA" | "ANCHOR" | "IDENTITY" | "PROPOSAL" | "SEMANTIC_COMMIT" | "BACKUP" | "KEY_REFERENCE" | "PROVIDER" | "SKILL_PROFILE" | "LOGGING" | "PROTOCOL";
+  status: "PASS" | "WARN" | "FAIL" | "INFO";
+  code: string;
+  count?: number;
 }
 
 export interface ServiceBackupCreated {

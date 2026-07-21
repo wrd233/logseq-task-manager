@@ -79,7 +79,13 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
     objectCount: 0,
   });
   const doctor = await fetch(new URL("doctor", service.url), { method: "POST", headers });
-  assert.equal((await doctor.json() as { status: string }).status, "PASS");
+  const doctorReport = await doctor.json() as Awaited<ReturnType<LocalServiceClient["doctor"]>>;
+  assert.equal(doctorReport.status, "PASS");
+  assert.equal(doctorReport.checks?.find(({ component }) => component === "BACKUP")?.code, "BACKUP_NONE");
+  assert.equal(doctorReport.checks?.find(({ component }) => component === "GRAPH")?.code, "GRAPH_RUNTIME_NOT_OBSERVED");
+  assert.equal(doctorReport.checks?.find(({ component }) => component === "SEMANTIC_COMMIT")?.status, "PASS");
+  assert.deepEqual(doctorReport.summary, { pass: 10, warn: 1, fail: 0, info: 3 });
+  assert.equal(doctorReport.limitations?.length, 3);
   await service.close();
   closed = true;
   await assert.rejects(access(join(root, "runtime", "service.json")));
@@ -187,6 +193,7 @@ test("Proposal validation, review, and scope revalidation never masquerade as a 
   assert.equal(stale.result.status, "STALE");
   assert.equal(stale.record.proposal.status, "STALE");
   assert.equal((await client.getProposal("prop_service_validate"))?.proposal.status, "STALE");
+  assert.deepEqual((await client.doctor()).checks?.find(({ component }) => component === "PROPOSAL"), { component: "PROPOSAL", status: "WARN", code: "STALE_PROPOSAL_PRESENT", count: 1 });
   assert.equal((await client.status()).objectCount, 0, "review and revalidation state are not formal object writes");
 });
 
@@ -230,6 +237,7 @@ test("Proposal Commit prepares before Graph, materializes after evidence, and re
   ], reviewed.updatedAt);
   assert.equal(prepared.status, "PREPARED");
   if (prepared.status !== "PREPARED") throw new Error("expected prepared commit");
+  assert.deepEqual((await client.doctor()).checks?.find(({ component }) => component === "SEMANTIC_COMMIT"), { component: "SEMANTIC_COMMIT", status: "WARN", code: "COMMIT_PENDING", count: 1 });
   const resumed = await client.prepareProposalCommit("prop_service_validate", [
     { kind: "BLOCK", id: "proposal-block", exists: true, version: 2, hash: prepared.plan.patch.afterHash },
   ], reviewed.updatedAt);
@@ -245,6 +253,7 @@ test("Proposal Commit prepares before Graph, materializes after evidence, and re
   assert.equal(completed.anchor.externalId, "proposal-block");
   assert.equal(completed.record.proposal.status, "APPLIED");
   assert.equal((await client.status()).objectCount, 1);
+  assert.deepEqual((await client.doctor()).checks?.find(({ component }) => component === "SEMANTIC_COMMIT"), { component: "SEMANTIC_COMMIT", status: "PASS", code: "COMMIT_HEALTHY", count: 0 });
   assert.deepEqual((await client.nowWork()).next.map((item) => item.objectId), [completed.object.objectId]);
 });
 
@@ -334,11 +343,15 @@ test("Proposal Commit requests Graph compensation when Domain materialization co
   });
   assert.equal(finalization.status, "COMPENSATION_REQUIRED");
   if (finalization.status !== "COMPENSATION_REQUIRED") throw new Error("expected compensation");
+  const restrictedDoctor = await client.doctor();
+  assert.equal(restrictedDoctor.status, "FAIL", "Doctor returns its report instead of hiding it behind an HTTP transport error");
+  assert.deepEqual(restrictedDoctor.checks?.find(({ component }) => component === "SEMANTIC_COMMIT"), { component: "SEMANTIC_COMMIT", status: "FAIL", code: "COMMIT_RECOVERY_REQUIRED", count: 1 });
   const compensated = await client.compensateProposalCommit("prop_service_validate", {
     semanticCommitId: prepared.semanticCommitId, proposalId: prepared.proposalId, expectedUpdatedAt: prepared.expectedUpdatedAt,
     blockUuid: prepared.plan.patch.blockUuid, contentHash: prepared.plan.patch.beforeHash, inputVersion: "3", traceId: "trace-compensated",
   });
   assert.equal(compensated.status, "FAILED_COMPENSATED");
+  assert.equal((await client.doctor()).checks?.find(({ component }) => component === "SEMANTIC_COMMIT")?.status, "PASS");
   assert.equal(compensated.record.proposal.status, "FAILED");
   assert.equal((await client.status()).objectCount, 1, "conflicting original object remains the only object");
 });

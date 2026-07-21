@@ -133,7 +133,8 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
     }
     if (root === "doctor" && !action) {
       const doctor = await service.doctor();
-      emit(io, parsed.json, doctor, `${doctor.status} · schema ${doctor.schemaVersion} · integrity ${doctor.integrity}`);
+      const checkLines = doctor.checks?.map(({ component, status, code, count }) => `${status}\t${component}\t${code}${count === undefined ? "" : `\t${count}`}`) ?? [];
+      emit(io, parsed.json, doctor, [`${doctor.status} · schema ${doctor.schemaVersion} · integrity ${doctor.integrity}`, ...checkLines, ...(doctor.limitations?.map((value) => `INFO\tLIMITATION\t${value}`) ?? [])].join("\n"));
       return doctor.status === "PASS" ? 0 : 7;
     }
     if (root === "object" && action === "list" && !target) {

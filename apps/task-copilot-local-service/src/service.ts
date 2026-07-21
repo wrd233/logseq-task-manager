@@ -1,15 +1,17 @@
 import { createHash, randomBytes } from "node:crypto";
-import { chmod, mkdir } from "node:fs/promises";
+import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
 import { V2Application, V2ProposalApplication, planAcceptedV2Formalization, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type V2Condition, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
-import { V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
+import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
   type ServiceCapabilities,
   type ServiceDescriptor,
+  type ServiceDoctor,
+  type ServiceDoctorCheck,
 } from "@task-copilot/service-client";
 import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
 import { StructuredError, checksum, createId, stableJson } from "@task-copilot/shared";
@@ -518,6 +520,55 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const application = new V2Application(store);
   const proposalApplication = new V2ProposalApplication(store);
   const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: options.proposalGenerator !== undefined };
+  const comprehensiveDoctor = async (): Promise<ServiceDoctor> => {
+    const core = store.doctor();
+    const operational = store.operationalDiagnostics();
+    const skillCount = (await listTaskCopilotSkills()).length;
+    let backupCount = 0;
+    let backupCode = "BACKUP_NONE";
+    let backupStatus: ServiceDoctorCheck["status"] = "WARN";
+    try {
+      const backupNames = (await readdir(backupRoot)).filter((name) => backupIdPattern.test(name.replace(/\.db$/, "")) && name.endsWith(".db")).sort();
+      backupCount = backupNames.length;
+      if (backupNames.length > 0) {
+        const latest = backupNames.at(-1)!;
+        try {
+          const validation = V2SqliteStore.validateBackup(join(backupRoot, latest), options.graphId);
+          backupCode = validation.status === "PASS" ? "BACKUP_LATEST_VALID" : "BACKUP_LATEST_INVALID";
+          backupStatus = validation.status === "PASS" ? "PASS" : "WARN";
+        } catch {
+          backupCode = "BACKUP_LATEST_INVALID";
+          backupStatus = "WARN";
+        }
+      }
+    } catch {
+      backupCode = "BACKUP_DIRECTORY_UNREADABLE";
+      backupStatus = "WARN";
+    }
+    const checks: ServiceDoctorCheck[] = [
+      { component: "LOCAL_SERVICE", status: "PASS", code: "LOCAL_SERVICE_READY" },
+      { component: "GRAPH", status: "INFO", code: "GRAPH_RUNTIME_NOT_OBSERVED" },
+      { component: "SQLITE", status: core.integrity === "ok" && core.foreignKeyViolations === 0 ? "PASS" : "FAIL", code: core.integrity === "ok" && core.foreignKeyViolations === 0 ? "SQLITE_INTEGRITY_VALID" : "SQLITE_INTEGRITY_INVALID", count: core.foreignKeyViolations },
+      { component: "SCHEMA", status: core.schemaVersion === V2_DATABASE_SCHEMA_VERSION ? "PASS" : "FAIL", code: core.schemaVersion === V2_DATABASE_SCHEMA_VERSION ? "SCHEMA_CURRENT" : "SCHEMA_UNSUPPORTED" },
+      { component: "ANCHOR", status: operational.multiplePrimaryAnchorObjectCount > 0 ? "FAIL" : operational.missingAnchorCount + operational.conflictAnchorCount > 0 ? "WARN" : "PASS", code: operational.multiplePrimaryAnchorObjectCount > 0 ? "ANCHOR_MULTIPLE_PRIMARY" : operational.missingAnchorCount + operational.conflictAnchorCount > 0 ? "ANCHOR_RECONCILIATION_REQUIRED" : "ANCHOR_HEALTHY", count: operational.missingAnchorCount + operational.conflictAnchorCount + operational.multiplePrimaryAnchorObjectCount },
+      { component: "IDENTITY", status: operational.invalidIdentityCount > 0 ? "FAIL" : "PASS", code: operational.invalidIdentityCount > 0 ? "IDENTITY_INVALID" : "IDENTITY_VALID", count: operational.invalidIdentityCount },
+      { component: "PROPOSAL", status: operational.staleProposalCount > 0 ? "WARN" : "PASS", code: operational.staleProposalCount > 0 ? "STALE_PROPOSAL_PRESENT" : "PROPOSAL_HEALTHY", count: operational.staleProposalCount },
+      { component: "SEMANTIC_COMMIT", status: operational.recoveryRequiredCommitCount > 0 ? "FAIL" : operational.pendingCommitCount > 0 ? "WARN" : "PASS", code: operational.recoveryRequiredCommitCount > 0 ? "COMMIT_RECOVERY_REQUIRED" : operational.pendingCommitCount > 0 ? "COMMIT_PENDING" : "COMMIT_HEALTHY", count: operational.pendingCommitCount + operational.recoveryRequiredCommitCount },
+      { component: "BACKUP", status: backupStatus, code: backupCode, count: backupCount },
+      { component: "KEY_REFERENCE", status: "PASS", code: options.proposalGenerator ? "KEY_RESOLVED_OUT_OF_BAND" : "KEY_NOT_REQUIRED" },
+      { component: "PROVIDER", status: "INFO", code: options.proposalGenerator ? "PROVIDER_CONFIGURED_NOT_PROBED" : "PROVIDER_DISABLED" },
+      { component: "SKILL_PROFILE", status: skillCount === 2 ? "PASS" : "FAIL", code: skillCount === 2 ? "BUILTIN_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
+      { component: "LOGGING", status: "INFO", code: "SERVICE_LOG_EXPORT_NOT_CONFIGURED" },
+      { component: "PROTOCOL", status: "PASS", code: "CLI_SERVICE_PROTOCOL_CURRENT" },
+    ];
+    const summary = {
+      pass: checks.filter(({ status }) => status === "PASS").length,
+      warn: checks.filter(({ status }) => status === "WARN").length,
+      fail: checks.filter(({ status }) => status === "FAIL").length,
+      info: checks.filter(({ status }) => status === "INFO").length,
+    };
+    return { ...core, status: summary.fail > 0 ? "FAIL" : "PASS", checks, summary, limitations: ["Graph and Desktop event health require the Plugin runtime gate.", "Provider health requires an explicit bounded live smoke.", "Diagnostic archive export is not implemented."] };
+  };
   const completeProposalObservations = (proposal: Parameters<typeof requiredV2ProposalRevalidationScope>[0], observations: V2ProposalScopeObservation[]): V2ProposalScopeObservation[] => [
     ...observations,
     ...requiredV2ProposalRevalidationScope(proposal).targets.filter((target) => target.kind === "OBJECT").map((target) => {
@@ -554,8 +605,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       return;
     }
     if (request.method === "POST" && url.pathname === "/doctor") {
-      const doctor = store.doctor();
-      respond(response, doctor.status === "PASS" ? 200 : 503, doctor);
+      const doctor = await comprehensiveDoctor();
+      respond(response, 200, doctor);
       return;
     }
     if (request.method === "GET" && url.pathname === "/skills") {

@@ -630,6 +630,15 @@ test("explicit materialization atomically persists Object, Primary Anchor, audit
   assert.equal(store.getPrimaryAnchorByExternal("graph-a", "block-1")?.status, "missing");
   assert.equal(store.listPrimaryAnchors("graph-a")[0]?.status, "missing");
   assert.equal(store.getObject("task-materialized")?.version, 4, "Anchor observation and object version must commit atomically");
+  assert.deepEqual(store.operationalDiagnostics(), {
+    missingAnchorCount: 1,
+    conflictAnchorCount: 0,
+    multiplePrimaryAnchorObjectCount: 0,
+    staleProposalCount: 0,
+    pendingCommitCount: 0,
+    recoveryRequiredCommitCount: 0,
+    invalidIdentityCount: 0,
+  });
 
   const recovered = await application.synchronizeExplicitObject({
     objectType: "TASK",
