@@ -113,6 +113,7 @@ test("Candidate update rereads source and target, then creates only one existing
   const transport = {
     listObjects: async () => [{ objectId: "task-existing", objectType: "TASK" as const, lifecycle: "OPEN" as const, condition: { kind: "ACTIONABLE" as const }, version: 4, text: "核对旧告警", sourceOrCreationEvent: "test", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z" }],
     listPrimaryAnchors: async () => ({ anchors: [{ anchorId: "anchor-existing", objectId: "task-existing", graphId: "graph", externalId: "target-update", role: "primary_text" as const, status: "active" as const, contentHash: checksum(targetContent), lastSeenAt: "2026-07-22T00:00:00.000Z" }] }),
+    discoverCandidate: async () => { throw new Error("unchanged source version must not refresh Candidate"); },
     updateCandidate: async (_candidateId: string, input: unknown) => { request = input; return { candidate: { ...candidate, activeProposalId: "proposal-update" }, record: { proposal: { proposalId: "proposal-update" }, files: {}, updatedAt: "now" }, replayed: false } as never; },
   };
   const blocks = new Map<string, unknown>([["source-update", { uuid: "source-update", content: sourceContent, "updated-at": 3 }], ["target-update", { uuid: "target-update", content: targetContent, "updated-at": 8 }]]);
@@ -124,6 +125,35 @@ test("Candidate update rereads source and target, then creates only one existing
   await assert.rejects(() => updateExistingObjectFromV2Candidate(transport, candidate, "task-existing", "[成果] 类型偷换", async (id) => blocks.get(id), "trace-wrong-type"), /显式类型/);
   blocks.set("source-update", { uuid: "source-update", content: `${sourceContent} 已变化`, "updated-at": 4 });
   await assert.rejects(() => updateExistingObjectFromV2Candidate(transport, candidate, "task-existing", "[任务] 最终正文", async (id) => blocks.get(id), "trace-stale"), /来源已变化/);
+});
+
+test("Candidate update refreshes an identity-only Logseq version change before creating the Proposal", async () => {
+  const sourceContent = "[任务] 供应商补充事实";
+  const targetContent = "[任务] 核对旧告警";
+  const sourceId = "11111111-1111-4111-8111-111111111111";
+  const candidate = { candidateId: "candidate:update-identity", sourceAnchorId: sourceId, sourceVersion: `3:${checksum(sourceContent)}`, candidateKind: "WORK_ITEM" as const, reason: "补充事实", suggestion: "更新已有对象", disposition: "PENDING" as const, lastAnalyzedAt: "2026-07-22T00:00:00.000Z", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:01:00.000Z" };
+  let refreshed: ServiceCandidateDiscoveryRequest | undefined;
+  let request: { expectedUpdatedAt?: string; sourceInputVersion?: string } | undefined;
+  const transport = {
+    listObjects: async () => [{ objectId: "task-existing", objectType: "TASK" as const, lifecycle: "OPEN" as const, condition: { kind: "ACTIONABLE" as const }, version: 4, text: "核对旧告警", sourceOrCreationEvent: "test", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z" }],
+    listPrimaryAnchors: async () => ({ anchors: [{ anchorId: "anchor-existing", objectId: "task-existing", graphId: "graph", externalId: "target-update", role: "primary_text" as const, status: "active" as const, contentHash: checksum(targetContent), lastSeenAt: "2026-07-22T00:00:00.000Z" }] }),
+    discoverCandidate: async (input: ServiceCandidateDiscoveryRequest) => {
+      refreshed = input;
+      return { candidate: { ...candidate, sourceVersion: input.sourceVersion, updatedAt: "2026-07-22T00:02:00.000Z" }, replayed: false };
+    },
+    updateCandidate: async (_candidateId: string, input: unknown) => {
+      request = input as typeof request;
+      return { candidate: { ...candidate, activeProposalId: "proposal-update" }, record: { proposal: { proposalId: "proposal-update" }, files: {}, updatedAt: "now" }, replayed: false } as never;
+    },
+  };
+  const blocks = new Map<string, unknown>([
+    [sourceId, { uuid: sourceId, content: `${sourceContent}\nid:: ${sourceId}`, "updated-at": 4, properties: { id: sourceId } }],
+    ["target-update", { uuid: "target-update", content: targetContent, "updated-at": 8 }],
+  ]);
+  await updateExistingObjectFromV2Candidate(transport, candidate, "task-existing", "[任务] 核对新告警", async (id) => blocks.get(id), "trace-identity");
+  assert.equal(refreshed?.sourceVersion, `4:${checksum(sourceContent)}`);
+  assert.equal(request?.sourceInputVersion, "4");
+  assert.equal(request?.expectedUpdatedAt, "2026-07-22T00:02:00.000Z");
 });
 
 test("Candidate queue renders only the same bounded set whose source text was hydrated", () => {

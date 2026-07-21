@@ -29,7 +29,7 @@ export type V2ExplicitCandidatePanelState =
   | { status: "error"; message: string };
 
 type CandidateClient = Pick<ServiceRuntimeClient, "listPrimaryAnchors" | "discoverCandidate">;
-type CandidateUpdateClient = Pick<ServiceRuntimeClient, "listObjects" | "listPrimaryAnchors" | "updateCandidate">;
+type CandidateUpdateClient = Pick<ServiceRuntimeClient, "listObjects" | "listPrimaryAnchors" | "discoverCandidate" | "updateCandidate">;
 
 interface DiscoveryLimits {
   maxBlocks: number;
@@ -160,17 +160,33 @@ export async function updateExistingObjectFromV2Candidate(
   if (!targetAnchor) throw new Error("目标对象没有位于本次有界 Anchor 查询中的 active Primary Anchor；没有生成 Proposal。");
   if (targetAnchor.externalId === candidate.sourceAnchorId) throw new Error("Candidate 来源不能同时作为目标对象主正文；没有生成 Proposal。");
   const source = sourceEvidence(await readBlock(candidate.sourceAnchorId), candidate.sourceAnchorId);
-  if (candidate.sourceVersion !== `${source.inputVersion}:${source.contentHash}`) throw new Error("Candidate 来源已变化；请重新分析后再生成更新 Proposal。");
+  if (!candidate.sourceVersion.endsWith(`:${source.contentHash}`)) throw new Error("Candidate 来源已变化；请重新分析后再生成更新 Proposal。");
+  let currentCandidate = candidate;
+  const sourceVersion = `${source.inputVersion}:${source.contentHash}`;
+  if (sourceVersion !== candidate.sourceVersion) {
+    const refreshed = await client.discoverCandidate({
+      sourceAnchorId: candidate.sourceAnchorId,
+      sourceVersion,
+      candidateKind: candidate.candidateKind,
+      reason: candidate.reason,
+      suggestion: candidate.suggestion,
+      traceId: `${traceId}:identity-refresh`,
+    });
+    currentCandidate = refreshed.candidate;
+    if (currentCandidate.sourceAnchorId !== candidate.sourceAnchorId || currentCandidate.sourceVersion !== sourceVersion || currentCandidate.candidateKind !== candidate.candidateKind) {
+      throw new Error("Candidate 身份刷新结果与当前来源不一致；没有生成更新 Proposal。");
+    }
+  }
   const targetValue = await readBlock(targetAnchor.externalId);
   const target = candidateFromBlock(targetValue);
   if (!target || target.objectType !== targetObject.objectType || target.contentHash !== targetAnchor.contentHash) throw new Error("目标 Primary Anchor 已变化或类型不一致；没有生成 Proposal。");
   const after = candidateFromBlock({ uuid: target.externalId, content: afterContent, "updated-at": target.inputVersion });
   if (!after || after.objectType !== targetObject.objectType) throw new Error("最终正文必须保留目标对象的显式类型和非空标题；没有生成 Proposal。");
-  return client.updateCandidate(candidate.candidateId, {
+  return client.updateCandidate(currentCandidate.candidateId, {
     sourceAnchorId: candidate.sourceAnchorId, sourceInputVersion: source.inputVersion, sourceContentHash: source.contentHash,
     targetObjectId: targetObject.objectId, targetExternalId: target.externalId, targetInputVersion: target.inputVersion, targetContentHash: target.contentHash,
     targetContent: stripLogseqBlockIdentityProperty((targetValue as { content: string }).content, target.externalId), afterContent: stripLogseqBlockIdentityProperty(afterContent, target.externalId),
-    expectedUpdatedAt: candidate.updatedAt, traceId,
+    expectedUpdatedAt: currentCandidate.updatedAt, traceId,
   });
 }
 

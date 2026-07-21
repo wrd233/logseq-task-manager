@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B3 automated foundation; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 369 tests; 145 rules; 0 failed/skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE, Association, Ownership change/Undo, and Anchor Move/Copy/Rebind Desktop passed"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 370 tests; 145 rules; 0 failed/skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE/UPDATE, Association, Ownership change/Undo, and Anchor Move/Copy/Rebind Desktop passed"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -49,7 +49,7 @@ implemented:
   - "V2 Task due_at is versioned through Local Service, is sorted by explicit time with natural-language reasons, and never becomes a score"
   - "Review Center owns bounded current-page Candidate discovery; scan persists only Candidate authority and never directly creates Objects"
   - "Candidate and Proposal queues persist across reload, show bounded transient source-first previews, support later/ordinary/stable same-recommendation suppression, one current Proposal, identity-safe formalization, Commit resolution and restart-safe Undo reopening"
-  - "Candidate UPDATE can select one existing Block object, edit an explicit final body, create only a reviewed REWRITE_BLOCK Proposal, and reuse the existing SemanticCommit/Undo path to update the same object_id with source, Anchor and object-version protection"
+  - "Candidate UPDATE can select one existing Block object, edit an explicit final body, create only a reviewed REWRITE_BLOCK Proposal, and reuse the existing SemanticCommit/Undo path to update the same object_id with source, Anchor and object-version protection; Desktop target selection, Diff, accepted-not-applied, Commit, reload, Undo, second reload and stale zero-write are verified"
   - "Known Primary Anchor observations persist missing/conflict/recovery through Local Service and one SQLite transaction without deleting objects or reviving replaced Anchors"
   - "Same-UUID synchronization preserves object_id, anchor_id, Primary Ownership and Association across a real native cross-page move; a property-free Desktop copy materializes a distinct UUID, object and Anchor without inheriting relations"
   - "Explicit V2 Primary Anchor rebind requires confirmation, persists and verifies the selected Block identity after stale checks, atomically preserves the old replaced Anchor while activating one new Anchor, and delays cold-start reconciliation through the existing known-Anchor path until Logseq indexing is ready"
@@ -70,11 +70,12 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 E2E-19: Project create/conflict/rename/reload and finalize Service interruption recovery verified with zero half-object and one-object idempotent retry"
   - "V2 Desktop 0.10.15 Proposal partial Gate: accepted-not-applied, final Commit, same-card Undo and cold reload verified; corrected object text is explicit Proposal data and remains version 2 without DB-event echo"
   - "V2 Desktop 0.10.15 CREATE Candidate Gate: offline current-page discovery, source-first cards, later/ordinary/stable suppression, READY/ACCEPTED with Object=0, final Commit RESOLVED, Undo reopen and Plugin reload verified; id:: property echo cannot materialize before Commit"
+  - "V2 Desktop 0.10.15 UPDATE Candidate Gate / E2E-12 DONE: existing TASK target selection, full final-body editing, red/green plus REWRITE_BLOCK Diff, ACCEPTED zero formal write, same-object version 4 to 5 Commit, reload, inverse Undo version 5 to 6, second reload and Candidate reopen verified; identity-only id:: version refresh reuses rediscovery while real content stale remains zero-write"
   - "V2 Desktop 0.10.15 Association Gate: TASK to OUTPUT selection, missing-confirmation zero write, explicit confirmation, one RELATED/ACTIVE SQLite write, source version/Audit 4 to 5, Ownership/Focus/Anchor unchanged, and Plugin reload verified"
   - "V2 Desktop 0.10.15 Primary Ownership Gate: external Proposal validate/submit, HIGH accept with zero formal write, scope revalidation, final Commit, plugin reload, dedicated Undo and second reload verified; Task v5 to v6 to v7 while Project v2, Anchors and the existing Association remained unchanged"
   - "V2 Desktop 0.10.15 E2E-04/E2E-05 and Rebind sub-Gate: native cross-page move retained the same object/active Anchor/UUID/version/Ownership/Association; property-free copy created an independent object/Anchor; confirmed rebind persisted id:: UUID, retained replaced history and remained active after cold reload"
 runtime_checks_pending:
-  - "V2 delete-Anchor review, finite-subtree and current-page Candidate stale/one-at-a-time failure paths, Proposal reject/defer and process-fault, Candidate UPDATE Desktop flow, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
+  - "V2 delete-Anchor review, finite-subtree and current-page Candidate one-at-a-time failure paths, Proposal reject/defer and process-fault, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
   - "Project Closure Desktop review/completion/reload and retained-page Gate"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
