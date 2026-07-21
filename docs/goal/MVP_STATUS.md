@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation"
-last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 317 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Slice D live/Desktop, E2E-13 Graph context/Desktop, and migration process/Desktop gates remain pending"
+last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 317 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Slice D live/Desktop, E2E-13 Graph context/Desktop, and migration Plugin/Desktop gates remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
