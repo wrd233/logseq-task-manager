@@ -558,7 +558,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       { component: "KEY_REFERENCE", status: "PASS", code: options.proposalGenerator ? "KEY_RESOLVED_OUT_OF_BAND" : "KEY_NOT_REQUIRED" },
       { component: "PROVIDER", status: "INFO", code: options.proposalGenerator ? "PROVIDER_CONFIGURED_NOT_PROBED" : "PROVIDER_DISABLED" },
       { component: "SKILL_PROFILE", status: skillCount === 2 ? "PASS" : "FAIL", code: skillCount === 2 ? "BUILTIN_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
-      { component: "LOGGING", status: "INFO", code: "SERVICE_LOG_EXPORT_NOT_CONFIGURED" },
+      { component: "LOGGING", status: "INFO", code: "SERVICE_LOG_COLLECTION_NOT_CONFIGURED" },
       { component: "PROTOCOL", status: "PASS", code: "CLI_SERVICE_PROTOCOL_CURRENT" },
     ];
     const summary = {
@@ -567,7 +567,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       fail: checks.filter(({ status }) => status === "FAIL").length,
       info: checks.filter(({ status }) => status === "INFO").length,
     };
-    return { ...core, status: summary.fail > 0 ? "FAIL" : "PASS", checks, summary, limitations: ["Graph and Desktop event health require the Plugin runtime gate.", "Provider health requires an explicit bounded live smoke.", "Diagnostic archive export is not implemented."] };
+    return { ...core, status: summary.fail > 0 ? "FAIL" : "PASS", checks, summary, limitations: ["Graph and Desktop event health require the Plugin runtime gate.", "Provider health requires an explicit bounded live smoke.", "Service log collection is not configured; the diagnostic archive contains structured status only."] };
   };
   const completeProposalObservations = (proposal: Parameters<typeof requiredV2ProposalRevalidationScope>[0], observations: V2ProposalScopeObservation[]): V2ProposalScopeObservation[] => [
     ...observations,

@@ -101,6 +101,23 @@ test("CLI doctor renders component codes while JSON preserves the structured rep
   assert.deepEqual(JSON.parse(json.stdout[0] ?? "").data, comprehensive);
 });
 
+test("CLI doctor export obtains one sanitized status snapshot and delegates archive creation", async () => {
+  const value = fixture();
+  let written: { path: string; doctor: ServiceDoctor; status: ServiceStatus } | undefined;
+  const exit = await runCli(["doctor", "--export", "/tmp/task-copilot-diagnostics.zip"], {
+    descriptorPath: "/runtime/service.json",
+    loadService: async () => value.service,
+    writeDiagnosticsArchive: async (path, doctor, status) => { written = { path, doctor, status }; },
+  }, value.io);
+  assert.equal(exit, 0);
+  assert.equal(written?.path, "/tmp/task-copilot-diagnostics.zip");
+  assert.equal(written?.doctor.status, "PASS");
+  assert.equal(written?.status.status, "READY");
+  assert.match(value.stdout.join("\n"), /EXPORTED\t\/tmp\/task-copilot-diagnostics\.zip/);
+  assert.equal(await runCli(["status", "--export", "/tmp/not-written.zip"], { descriptorPath: "/runtime/service.json", loadService: async () => value.service }, value.io), 2);
+  assert.match(value.stderr.join("\n"), /only by tc doctor/);
+});
+
 test("CLI requires an explicit descriptor and never receives a SQLite path", async () => {
   const value = fixture();
   let loadedPath = "";

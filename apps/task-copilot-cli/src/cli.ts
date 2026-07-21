@@ -30,6 +30,7 @@ export interface CliDependencies {
   loadProposal?(path: string): Promise<unknown>;
   loadMigrationBundle?(path: string): Promise<unknown>;
   writeContextPackage?(outPath: string, result: ServiceContextExportResult): Promise<void>;
+  writeDiagnosticsArchive?(outPath: string, doctor: ServiceDoctor, status: ServiceStatus): Promise<void>;
   descriptorPath?: string;
 }
 
@@ -37,7 +38,7 @@ const help = `Task Copilot CLI
 
 Usage:
   tc [--service-descriptor <path>] [--json] status
-  tc [--service-descriptor <path>] [--json] doctor
+  tc [--service-descriptor <path>] [--json] doctor [--export <diagnostics.zip>]
   tc [--service-descriptor <path>] [--json] object list
   tc [--service-descriptor <path>] [--json] object show <object_id>
   tc [--service-descriptor <path>] [--json] proposal list
@@ -60,7 +61,7 @@ function emit(io: CliIo, json: boolean, value: unknown, plain: string): void {
   io.stdout(json ? JSON.stringify({ schema_version: 1, data: value }) : plain);
 }
 
-function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextObjectId?: string; contextProjectId?: string; outPath?: string } {
+function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextObjectId?: string; contextProjectId?: string; outPath?: string; exportPath?: string } {
   const command: string[] = [];
   let json = false;
   let descriptorPath: string | undefined;
@@ -69,6 +70,7 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
   let contextObjectId: string | undefined;
   let contextProjectId: string | undefined;
   let outPath: string | undefined;
+  let exportPath: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const value = args[index];
     if (value === "--json") json = true;
@@ -80,17 +82,18 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
       confirmation = args[index + 1];
       if (!confirmation) throw new Error("--confirm requires the exact confirmation phrase");
       index += 1;
-    } else if (["--scope", "--object", "--project", "--out"].includes(value ?? "")) {
+    } else if (["--scope", "--object", "--project", "--out", "--export"].includes(value ?? "")) {
       const optionValue = args[index + 1];
       if (!optionValue) throw new Error(`${value} requires a value`);
       if (value === "--scope") scope = optionValue;
       else if (value === "--object") contextObjectId = optionValue;
       else if (value === "--project") contextProjectId = optionValue;
-      else outPath = optionValue;
+      else if (value === "--out") outPath = optionValue;
+      else exportPath = optionValue;
       index += 1;
     } else if (value) command.push(value);
   }
-  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(outPath ? { outPath } : {}) };
+  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(outPath ? { outPath } : {}), ...(exportPath ? { exportPath } : {}) };
 }
 
 function errorExit(error: unknown): number {
@@ -118,6 +121,10 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
     io.stderr("Service descriptor path is required.");
     return 3;
   }
+  if (parsed.exportPath && (root !== "doctor" || action !== undefined)) {
+    io.stderr("--export is supported only by tc doctor.");
+    return 2;
+  }
   if (root === "backup" && action === "restore" && target && parsed.confirmation !== "RESTORE_AND_STOP_SERVICE") {
     io.stderr("Restore requires --confirm RESTORE_AND_STOP_SERVICE. No request was sent.");
     return 2;
@@ -132,9 +139,14 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
       return 0;
     }
     if (root === "doctor" && !action) {
-      const doctor = await service.doctor();
+      const [doctor, status] = parsed.exportPath ? await Promise.all([service.doctor(), service.status()]) : [await service.doctor(), undefined];
+      if (parsed.exportPath) {
+        if (!dependencies.writeDiagnosticsArchive || !status) throw new Error("Diagnostic archive writer is unavailable.");
+        await dependencies.writeDiagnosticsArchive(parsed.exportPath, doctor, status);
+      }
       const checkLines = doctor.checks?.map(({ component, status, code, count }) => `${status}\t${component}\t${code}${count === undefined ? "" : `\t${count}`}`) ?? [];
-      emit(io, parsed.json, doctor, [`${doctor.status} · schema ${doctor.schemaVersion} · integrity ${doctor.integrity}`, ...checkLines, ...(doctor.limitations?.map((value) => `INFO\tLIMITATION\t${value}`) ?? [])].join("\n"));
+      const output = parsed.exportPath ? { ...doctor, diagnosticArchive: parsed.exportPath } : doctor;
+      emit(io, parsed.json, output, [`${doctor.status} · schema ${doctor.schemaVersion} · integrity ${doctor.integrity}`, ...checkLines, ...(doctor.limitations?.map((value) => `INFO\tLIMITATION\t${value}`) ?? []), ...(parsed.exportPath ? [`EXPORTED\t${parsed.exportPath}`] : [])].join("\n"));
       return doctor.status === "PASS" ? 0 : 7;
     }
     if (root === "object" && action === "list" && !target) {
