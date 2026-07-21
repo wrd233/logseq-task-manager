@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
-last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 328 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, and Project Closure Desktop gates remain pending"
+last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 329 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, and Project Closure Desktop gates remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -23,7 +23,7 @@ implemented:
   - "Authenticated loopback Service, 0600 descriptor, versioned Client and restricted-state model"
   - "Plugin descriptor discovery, explicit restricted diagnostics, and zero-Store three-entry first-run welcome"
   - "Offline SQLite restore primitive with pre-restore recovery point, atomic activation, Doctor, and injected-failure rollback"
-  - "Executable read-only tc status/doctor/object CLI with JSON envelope and exit codes"
+  - "Executable read-only tc status/doctor/object CLI with JSON envelope and exit codes; object list/search reuse the Service projection with type/Lifecycle filters and no new state source"
   - "tc Proposal list/show/validate/submit reuses Local Service review storage; validate is zero-write and submit cannot commit/apply formal state"
   - "Versioned task-copilot-core and design-project Skills are hash-addressed, bundled with Local Service, and readable through tc skill list/show; design-project@1.1.0 includes the exact Closure Proposal machine shape proven by a real external Agent correction loop"
   - "Read-only object/project Context Packages export bounded SQLite facts, Anchors, Ownership, versions, hashes and full nested Skills without Graph scanning or formal writes; canonical SKILL.md paths pass bounded component validation while traversal remains rejected"

@@ -93,6 +93,33 @@ test("CLI distinguishes usage, missing object, doctor failure, and unavailable s
   assert.deepEqual(unavailable.stderr, ["offline"]);
 });
 
+test("CLI lists and searches the Local Service object projection with read-only filters", async () => {
+  let listCalls = 0;
+  let serviceLoads = 0;
+  const objects = [
+    { objectId: "project-graylog", objectType: "PROJECT" as const, version: 2, lifecycle: "OPEN" as const, condition: { kind: "ACTIONABLE" as const }, text: "Graylog 告警治理", createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z", sourceOrCreationEvent: "test" },
+    { objectId: "task-graylog", objectType: "TASK" as const, version: 1, lifecycle: "COMPLETED" as const, condition: { kind: "ACTIONABLE" as const }, text: "整理 Graylog 路由", createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z", sourceOrCreationEvent: "test" },
+    { objectId: "task-other", objectType: "TASK" as const, version: 1, lifecycle: "OPEN" as const, condition: { kind: "ACTIONABLE" as const }, text: "准备周报", createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z", sourceOrCreationEvent: "test" },
+  ];
+  const value = fixture({ listObjects: async () => { listCalls += 1; return objects; } });
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => { serviceLoads += 1; return value.service; } };
+
+  assert.equal(await runCli(["--json", "object", "list", "--type", "task", "--lifecycle", "open"], dependencies, value.io), 0);
+  assert.deepEqual((JSON.parse(value.stdout.at(-1) ?? "") as { data: { objects: Array<{ objectId: string }> } }).data.objects.map(({ objectId }) => objectId), ["task-other"]);
+  assert.equal(await runCli(["--json", "object", "search", "graylog", "--lifecycle", "open"], dependencies, value.io), 0);
+  assert.deepEqual((JSON.parse(value.stdout.at(-1) ?? "") as { data: { objects: Array<{ objectId: string }> } }).data.objects.map(({ objectId }) => objectId), ["project-graylog"]);
+  assert.equal(listCalls, 2);
+  assert.equal(serviceLoads, 2);
+
+  assert.equal(await runCli(["object", "list", "--type", "phase"], dependencies, value.io), 2);
+  assert.equal(await runCli(["status", "--lifecycle", "open"], dependencies, value.io), 2);
+  assert.equal(await runCli(["object", "show", "task-other", "--type", "task"], dependencies, value.io), 2);
+  assert.equal(await runCli(["object", "search", "graylog", "extra"], dependencies, value.io), 2);
+  assert.equal(listCalls, 2, "invalid filters are rejected before loading the object projection");
+  assert.equal(serviceLoads, 2, "invalid filter placement and arity are rejected before loading Service");
+  assert.match(value.stderr.at(-1) ?? "", /No request was sent/);
+});
+
 test("CLI doctor renders component codes while JSON preserves the structured report", async () => {
   const comprehensive: ServiceDoctor = {
     status: "PASS", schemaVersion: 6, integrity: "ok", foreignKeyViolations: 0, objectCount: 0,

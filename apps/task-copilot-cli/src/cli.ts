@@ -1,4 +1,4 @@
-import type { LegacyMigrationReviewDecision, V2ManagedObject } from "@task-copilot/domain";
+import { V2_LIFECYCLES, V2_OBJECT_TYPES, type LegacyMigrationReviewDecision, type V2ManagedObject, type V2ObjectType } from "@task-copilot/domain";
 import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceLegacyMigrationScanReport, ServiceMigrationBatch, ServiceMigrationRun, ServiceMigrationRunDetails, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -45,8 +45,9 @@ const help = `Task Copilot CLI
 Usage:
   tc [--service-descriptor <path>] [--json] status
   tc [--service-descriptor <path>] [--json] doctor [--export <diagnostics.zip>]
-  tc [--service-descriptor <path>] [--json] object list
+  tc [--service-descriptor <path>] [--json] object list [--type <type>] [--lifecycle <lifecycle>]
   tc [--service-descriptor <path>] [--json] object show <object_id>
+  tc [--service-descriptor <path>] [--json] object search <keyword> [--type <type>] [--lifecycle <lifecycle>]
   tc [--service-descriptor <path>] [--json] proposal list
   tc [--service-descriptor <path>] [--json] proposal show <proposal_id>
   tc [--service-descriptor <path>] [--json] proposal validate <proposal.json>
@@ -73,7 +74,7 @@ function emit(io: CliIo, json: boolean, value: unknown, plain: string): void {
   io.stdout(json ? JSON.stringify({ schema_version: 1, data: value }) : plain);
 }
 
-function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextObjectId?: string; contextProjectId?: string; outPath?: string; exportPath?: string; decisionsPath?: string; bundlePath?: string; batchValue?: string; backupId?: string } {
+function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextObjectId?: string; contextProjectId?: string; objectType?: string; lifecycle?: string; outPath?: string; exportPath?: string; decisionsPath?: string; bundlePath?: string; batchValue?: string; backupId?: string } {
   const command: string[] = [];
   let json = false;
   let descriptorPath: string | undefined;
@@ -81,6 +82,8 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
   let scope: string | undefined;
   let contextObjectId: string | undefined;
   let contextProjectId: string | undefined;
+  let objectType: string | undefined;
+  let lifecycle: string | undefined;
   let outPath: string | undefined;
   let exportPath: string | undefined;
   let decisionsPath: string | undefined;
@@ -98,12 +101,14 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
       confirmation = args[index + 1];
       if (!confirmation) throw new Error("--confirm requires the exact confirmation phrase");
       index += 1;
-    } else if (["--scope", "--object", "--project", "--out", "--export", "--decisions", "--bundle", "--batch", "--backup"].includes(value ?? "")) {
+    } else if (["--scope", "--object", "--project", "--type", "--lifecycle", "--out", "--export", "--decisions", "--bundle", "--batch", "--backup"].includes(value ?? "")) {
       const optionValue = args[index + 1];
       if (!optionValue) throw new Error(`${value} requires a value`);
       if (value === "--scope") scope = optionValue;
       else if (value === "--object") contextObjectId = optionValue;
       else if (value === "--project") contextProjectId = optionValue;
+      else if (value === "--type") objectType = optionValue;
+      else if (value === "--lifecycle") lifecycle = optionValue;
       else if (value === "--out") outPath = optionValue;
       else if (value === "--export") exportPath = optionValue;
       else if (value === "--decisions") decisionsPath = optionValue;
@@ -113,7 +118,22 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
       index += 1;
     } else if (value) command.push(value);
   }
-  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(outPath ? { outPath } : {}), ...(exportPath ? { exportPath } : {}), ...(decisionsPath ? { decisionsPath } : {}), ...(bundlePath ? { bundlePath } : {}), ...(batchValue ? { batchValue } : {}), ...(backupId ? { backupId } : {}) };
+  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(objectType ? { objectType } : {}), ...(lifecycle ? { lifecycle } : {}), ...(outPath ? { outPath } : {}), ...(exportPath ? { exportPath } : {}), ...(decisionsPath ? { decisionsPath } : {}), ...(bundlePath ? { bundlePath } : {}), ...(batchValue ? { batchValue } : {}), ...(backupId ? { backupId } : {}) };
+}
+
+function objectFilters(parsed: ReturnType<typeof parse>): { objectType?: V2ObjectType; lifecycle?: V2ManagedObject["lifecycle"] } | undefined {
+  const objectType = parsed.objectType?.toUpperCase();
+  const lifecycle = parsed.lifecycle?.toUpperCase();
+  if (objectType && !V2_OBJECT_TYPES.includes(objectType as V2ObjectType)) return undefined;
+  if (lifecycle && !V2_LIFECYCLES.includes(lifecycle as V2ManagedObject["lifecycle"])) return undefined;
+  return {
+    ...(objectType ? { objectType: objectType as V2ObjectType } : {}),
+    ...(lifecycle ? { lifecycle: lifecycle as V2ManagedObject["lifecycle"] } : {}),
+  };
+}
+
+function filterObjects(objects: V2ManagedObject[], filters: NonNullable<ReturnType<typeof objectFilters>>): V2ManagedObject[] {
+  return objects.filter((object) => (!filters.objectType || object.objectType === filters.objectType) && (!filters.lifecycle || object.lifecycle === filters.lifecycle));
 }
 
 function errorExit(error: unknown): number {
@@ -145,6 +165,15 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
     io.stderr("--export is supported only by tc doctor.");
     return 2;
   }
+  const exactObjectFilterCommand = root === "object" && ((action === "list" && parsed.command.length === 2) || (action === "search" && parsed.command.length === 3));
+  if ((parsed.objectType || parsed.lifecycle) && !exactObjectFilterCommand) {
+    io.stderr("--type and --lifecycle are supported only by exact object list/search commands. No request was sent.");
+    return 2;
+  }
+  if (root === "object" && ((action === "list" && parsed.command.length !== 2) || (action === "search" && parsed.command.length !== 3))) {
+    io.stderr("Object list accepts no positional value; object search requires exactly one keyword. No request was sent.");
+    return 2;
+  }
   if (root === "backup" && action === "restore" && target && parsed.confirmation !== "RESTORE_AND_STOP_SERVICE") {
     io.stderr("Restore requires --confirm RESTORE_AND_STOP_SERVICE. No request was sent.");
     return 2;
@@ -152,6 +181,11 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
   const migrationConfirmation = action === "import" ? "IMPORT_REVIEWED_V1_BATCH" : action === "undo" ? "UNDO_MIGRATION_BATCH" : action === "activate" ? "ACTIVATE_V2_SQLITE" : undefined;
   if (root === "migration" && migrationConfirmation && parsed.confirmation !== migrationConfirmation) {
     io.stderr(`Migration ${action} requires --confirm ${migrationConfirmation}. No request was sent.`);
+    return 2;
+  }
+  const filters = objectFilters(parsed);
+  if (root === "object" && (action === "list" || action === "search") && !filters) {
+    io.stderr(`Object filters must use a supported type (${V2_OBJECT_TYPES.join(", ")}) and lifecycle (${V2_LIFECYCLES.join(", ")}). No request was sent.`);
     return 2;
   }
 
@@ -175,8 +209,18 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
       return doctor.status === "PASS" ? 0 : 7;
     }
     if (root === "object" && action === "list" && !target) {
-      const objects = await service.listObjects();
+      const objects = filterObjects(await service.listObjects(), filters ?? {});
       emit(io, parsed.json, { objects }, objects.map((object) => `${object.objectId}\t${object.objectType}\t${object.lifecycle}\t${object.text}`).join("\n"));
+      return 0;
+    }
+    if (root === "object" && action === "search" && target) {
+      const query = target.trim().toLowerCase();
+      if (!query) {
+        io.stderr("Object search requires a non-empty keyword.");
+        return 2;
+      }
+      const objects = filterObjects(await service.listObjects(), filters ?? {}).filter((object) => `${object.objectId}\n${object.text}`.toLowerCase().includes(query));
+      emit(io, parsed.json, { query: target, objects }, objects.map((object) => `${object.objectId}\t${object.objectType}\t${object.lifecycle}\t${object.text}`).join("\n"));
       return 0;
     }
     if (root === "object" && action === "show" && target) {

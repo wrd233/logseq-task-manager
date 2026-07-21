@@ -32,7 +32,7 @@ V2_MIGRATION_DESIGN_READY
 - 建立 V2 Application Command envelope、版本前置、原子 Object+Audit receipt 和幂等重放；
 - Primary Anchor 与 Primary Ownership 同时经过 Domain 与 SQLite 约束，失败事务不会推进对象版本；
 - 建立 0600 runtime descriptor、版本化 Service Client、超时/断连/未授权/协议不兼容错误及受限状态；
-- 建立可执行 `task-copilot-service` 与只读 `tc status/doctor/object`，完成独立进程冒烟。
+- 建立可执行 `task-copilot-service` 与只读 `tc status/doctor/object`；`tc object list` 可按六类对象和四种 Lifecycle 筛选，`tc object search` 可在同一 Service 投影中按 object_id/正文关键词检索，均不直读 SQLite、不新增索引或状态源；真实 Local Service 集成已覆盖 Project 查询。
 - SQLite 写锁冲突已收敛为结构化零写入失败；Backup 增加不覆盖、只读 schema/Graph/完整性/外键校验。
 - Local Service 开放受控 Backup Create/Restore Validate；只接受服务端 ID，拒绝客户端路径、遍历和超大请求，当前不执行 Restore 切换。
 - SQLite schema 升至 v3；`initialize` 不静默升级，v1/v2→v3 需显式恢复点，在单一事务写 DDL/ledger/metadata/user_version，注入失败后零半写且可重试。
@@ -81,7 +81,7 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-21 `./scripts/check.sh` PASS，328 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-21 `./scripts/check.sh` PASS，329 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；

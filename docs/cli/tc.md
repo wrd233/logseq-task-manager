@@ -24,9 +24,10 @@ task-copilot-service \
 
 ```text
 tc [--service-descriptor <path>] [--json] status
-tc [--service-descriptor <path>] [--json] doctor
-tc [--service-descriptor <path>] [--json] object list
+tc [--service-descriptor <path>] [--json] doctor [--export <diagnostics.zip>]
+tc [--service-descriptor <path>] [--json] object list [--type <type>] [--lifecycle <lifecycle>]
 tc [--service-descriptor <path>] [--json] object show <object_id>
+tc [--service-descriptor <path>] [--json] object search <keyword> [--type <type>] [--lifecycle <lifecycle>]
 tc [--service-descriptor <path>] [--json] proposal list
 tc [--service-descriptor <path>] [--json] proposal show <proposal_id>
 tc [--service-descriptor <path>] [--json] proposal validate <proposal.json>
@@ -36,6 +37,12 @@ tc [--service-descriptor <path>] [--json] skill show <name>
 tc [--service-descriptor <path>] [--json] context export --scope object --object <object_id> --out <directory>
 tc [--service-descriptor <path>] [--json] context export --scope project --project <project_id> --out <directory>
 tc [--service-descriptor <path>] [--json] migration scan <v1-recovery-bundle.json>
+tc [--service-descriptor <path>] [--json] migration preview <v1-recovery-bundle.json> --decisions <decisions.json>
+tc [--service-descriptor <path>] [--json] migration show <run_id>
+tc [--service-descriptor <path>] [--json] migration import <run_id> --bundle <bundle.json> --batch <batch.json> --backup <backup_id> --confirm IMPORT_REVIEWED_V1_BATCH
+tc [--service-descriptor <path>] [--json] migration verify <run_id> --batch <batch_id>
+tc [--service-descriptor <path>] [--json] migration undo <run_id> --batch <batch_id> --confirm UNDO_MIGRATION_BATCH
+tc [--service-descriptor <path>] [--json] migration activate <run_id> --confirm ACTIVATE_V2_SQLITE
 tc [--service-descriptor <path>] [--json] backup create
 tc [--service-descriptor <path>] [--json] backup validate <backup_id>
 tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm RESTORE_AND_STOP_SERVICE
@@ -62,10 +69,12 @@ tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm R
 
 CLI 不接受 SQLite path 作为查询参数，不 import persistence driver，不提供 `force`、`proposal apply` 或 `proposal commit`。`proposal validate` 只调用现有 Domain Validator，零持久化；`proposal submit` 只把合法的 `READY` Proposal 放进与 Plugin 共用的 Local Service 审阅队列，输出明确标记 `formalWritesExecuted: false`。正式变化仍必须在 Plugin 中经过 Review、版本重验、独立确认和 SemanticCommit。
 
+`object list` 可用 `--type` 选择 `AREA / PROJECT / MINI_PROJECT / TASK / DECISION / OUTPUT`，并用 `--lifecycle` 选择 `OPEN / COMPLETED / CANCELLED / ARCHIVED`；选项不区分大小写。`object search` 在同一 Local Service 对象投影中对 `object_id` 与正文做不区分大小写的子串检索，并可叠加相同筛选。非法筛选在读取对象投影前拒绝；这两个命令都不直读 SQLite，也不创建索引、缓存或第二状态源。
+
 Proposal 文件必须是 UTF-8 JSON 普通文件且不超过 1 MiB。CLI 不扫描 Graph、不推断 scope，也不重写外部 Agent 的内容；Service 继续负责 schema、scope、hash、risk 和 dependency 校验。
 
 `context export` 当前开放已有正式对象可完整表达的 `object` 与 `project` 两种范围。Project 递归包含 Primary Ownership 下最多 255 个后代（总计最多 256 个对象）；包内分离正式事实、空的检索候选、Anchor、Ownership、版本、SHA-256 和完整 Skill。它是 0700/0600 的只读派生目录，已存在目录会被拒绝，`manifest.json` 最后写入。Local Service 没有 Graph 读取权，因此包内明确记录 `graphExcerptStatus: NOT_AVAILABLE_IN_LOCAL_SERVICE`；`block/page` 要等受控 Logseq 读取桥接，不能由 CLI 扫描 Graph 或猜文件名。
 
-`migration scan` 必须由用户显式提供不超过 8 MiB 的 V1 Recovery Bundle JSON。Service 校验 bundle schema/checksum/round-trip，发现 PENDING 或 RECOVERY_REQUIRED Commit 立即停止；报告逐项保留旧 Phase/Condition/Signal、建议、理由、信息损失和冲突，但不回传正文且不写 SQLite。当前没有 `migration commit/activate/undo` 命令，`capabilities.migration` 仍为 `false`。
+`migration scan` 必须由用户显式提供不超过 8 MiB 的 V1 Recovery Bundle JSON。Service 校验 bundle schema/checksum/round-trip，发现 PENDING 或 RECOVERY_REQUIRED Commit 立即停止；报告逐项保留旧 Phase/Condition/Signal、建议、理由、信息损失和冲突，但不回传正文且不写 SQLite。`preview/show` 提供审阅与续跑；`import/undo/activate` 分别要求命令中列出的精确确认短语，批次最多 50 项，并继续通过 Local Service 的单一 Application/SQLite 写入路径。迁移不会复用 SemanticCommit，也不会恢复 V1/V2 双写。
 
 Backup 三个命令只接受服务端 ID，不接受文件路径。`backup restore` 是唯一已开放的高影响运维 apply；必须精确提供 `--confirm RESTORE_AND_STOP_SERVICE`，否则 CLI 在发请求前退出 2。成功后 Service 已停止，输出 recovery backup ID；需显式重启 Service 并再运行 `tc doctor`。它不是领域对象的 `force apply`。

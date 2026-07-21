@@ -94,6 +94,11 @@ test("external Agent Project Closure file reaches Review through CLI without com
   const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => client, loadProposal: loadProposalFile };
   const commitsBefore = (await client.listSemanticCommits()).length;
 
+  assert.equal(await runCli(["--json", "object", "list", "--type", "project", "--lifecycle", "open"], dependencies, io), 0);
+  assert.deepEqual((JSON.parse(stdout.at(-1) ?? "") as { data: { objects: Array<{ objectId: string }> } }).data.objects.map(({ objectId }) => objectId), [created.object.objectId]);
+  assert.equal(await runCli(["--json", "object", "search", "closure", "--type", "project"], dependencies, io), 0);
+  assert.deepEqual((JSON.parse(stdout.at(-1) ?? "") as { data: { objects: Array<{ objectId: string }> } }).data.objects.map(({ objectId }) => objectId), [created.object.objectId]);
+
   assert.equal(await runCli(["--json", "proposal", "validate", proposalPath], dependencies, io), 0);
   assert.equal((await client.listProposals()).length, 0);
   assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN");
