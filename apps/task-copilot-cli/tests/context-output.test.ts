@@ -32,3 +32,14 @@ test("Context output verifies every file, writes manifest last, and refuses over
   await assert.rejects(() => writeContextPackage(join(root, "escape"), result("../escape.json")), /unsafe path/);
   await assert.rejects(() => stat(join(root, "escape")));
 });
+
+test("Context output accepts canonical nested Skill paths while refusing unsafe components", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-context-skills-"));
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  const output = join(root, "context");
+  await writeContextPackage(output, result("skills/design-project/SKILL.md", "# Design Project\n"));
+  assert.equal(await readFile(join(output, "skills", "design-project", "SKILL.md"), "utf8"), "# Design Project\n");
+  for (const [index, path] of ["/absolute.json", "skills//SKILL.md", "skills/./SKILL.md", "skills/../escape.json", "skills\\escape.json"].entries()) {
+    await assert.rejects(() => writeContextPackage(join(root, `unsafe-${index}`), result(path)), /unsafe path/);
+  }
+});

@@ -5,7 +5,10 @@ import { dirname, join, resolve, sep } from "node:path";
 import type { ServiceContextExportResult } from "@task-copilot/service-client";
 
 function safeFile(root: string, path: string): string {
-  if (!/^[a-z0-9][a-z0-9./-]*$/.test(path) || path.includes("..") || path.startsWith("/") || path.endsWith("/")) throw new Error(`Context Package contains an unsafe path: ${path}`);
+  const components = path.split("/");
+  if (path.length > 512 || components.length > 16 || components.some((component) => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(component) || component === "." || component === "..")) {
+    throw new Error(`Context Package contains an unsafe path: ${path}`);
+  }
   const target = resolve(root, path);
   if (!target.startsWith(`${resolve(root)}${sep}`)) throw new Error(`Context Package path escapes output directory: ${path}`);
   return target;

@@ -35,5 +35,5 @@ Commit 先记录 PENDING 的单一 `DOMAIN_WRITE` step。Application 写入使�
 
 - Domain/Application/Persistence/Service/Client/Plugin UI 自动成功与失败路径已建立。
 - 已证明：缺精确确认零写入；部分 Objective 未完成可合法关闭；Closure/Lifecycle/Focus/Receipt/Audit 一致；正常重放幂等；Domain receipt 成功但 Commit step 未收口时，Service 重启可继续完成。
-- 已通过真实 CLI 文件路径将固定 `external_agent` 形状的 Closure fixture 执行 `validate → submit → Local Service Review queue`，且 Project 仍为 OPEN、SemanticCommit 计数不变。
-- 尚缺：真实外部 Agent 生成/导出，以及 Logseq Desktop 审阅、完成、reload 和页面保留 Gate。
+- 固定 `external_agent` fixture 和真实独立 Agent 输出均已经 CLI 磁盘文件 `validate → submit → Local Service Review queue`；后者只读 Context Package 与 `design-project@1.1.0`，提交后 Project 仍为 OPEN，详见 `docs/runtime/V2_PROJECT_CLOSURE_EXTERNAL_AGENT_REPORT.md`。
+- 尚缺：Logseq Desktop 审阅、完成、reload 和页面保留 Gate。
