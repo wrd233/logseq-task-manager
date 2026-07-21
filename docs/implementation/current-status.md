@@ -51,7 +51,7 @@ V2_MIGRATION_DESIGN_READY
 - 首次启用“迁移现有内容”不再停留在未来时描述：它明确给出 scan → preview → backup 的零写入/恢复点顺序、三项高影响命令的精确确认边界，以及 Service 重启后用 `migration show` 继续的方法；页面自身仍零文件读取、零扫描和零写入。Plugin 日常迁移视图也仅显示同一 Service 账本，操作继续经显式 CLI 命令完成。
 - SQLite schema v7 只包含设计中明确要求的 `migration_runs` / `migration_batches` / `legacy_evidence`，用于 E2E-14 的 run 状态、≤50 项幂等批次/Undo 校验和和旧标识映射依据，不存当前对象副本。`task-copilot-service migrate-schema` 必须显式给出 DB、Graph 和不存在的 Backup 路径，不启动 HTTP/Provider/descriptor；已用真实 v6 库证明 0600 快照、v6→v7、Service 重启与 CLI Doctor schema 7 PASS。迁移批次沿用单一 Application Command 与 SQLite 事务，不扩展 SemanticCommit、不新增补漏器或第二恢复路径。
 - SQLite schema v8 只在 `objects` 新增 nullable `closure_json`，且 DB 约束其仅能用于 `PROJECT + COMPLETED`；v1..v7 均需显式快照后升级，失败整体回滚。该列直接对应 E2E-20 规范已存在的 `closure_summary`，没有新表、第二状态机或平行恢复路径。已有自动 v7→v8 快照/升级证据；Desktop 专用库尚未执行该升级。
-- E2E-20 Project Closure 已形成自动纵向闭环：外部 Agent 只能提交 Proposal；Closure 与 `COMPLETED` 必须是同一个 HIGH 组，分别经组确认和最终精确确认。Validator 要求原始目标、实际结果、Deliverable/Output、未完成 Objective 的原因与后续、遗留去向、关键 Decision 和未来总结，但允许部分 Objective 未完成。Service 重验 SQLite Object version，用既有 SemanticCommit 单一 Domain step 调用 Application，原子写 Closure/Lifecycle/Audit/Receipt 并移出 Focus/Now Work；Plugin 可读完整 Closure，Logseq Project 页不自动移动或删除。尚缺真实外部 Agent 和 Desktop 审阅/reload/页面保留 Gate，详见 `docs/implementation/V2_PROJECT_CLOSURE_CONTRACT.md`。
+- E2E-20 Project Closure 已形成自动纵向闭环：外部 Agent 只能提交 Proposal；Closure 与 `COMPLETED` 必须是同一个 HIGH 组，分别经组确认和最终精确确认。Validator 要求原始目标、实际结果、Deliverable/Output、未完成 Objective 的原因与后续、遗留去向、关键 Decision 和未来总结，但允许部分 Objective 未完成。固定 `external_agent` fixture 已经真实 CLI 磁盘文件 `validate → submit` 进入共享 Review queue，且 Project 仍 OPEN、无新 Commit。Service 重验 SQLite Object version，用既有 SemanticCommit 单一 Domain step 调用 Application，原子写 Closure/Lifecycle/Audit/Receipt 并移出 Focus/Now Work；Plugin 可读完整 Closure，Logseq Project 页不自动移动或删除。尚缺真实外部 Agent 生成与 Desktop 审阅/reload/页面保留 Gate，详见 `docs/implementation/V2_PROJECT_CLOSURE_CONTRACT.md`。
 - Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。
 - Slice B3 Marker 自动合同已贯通 Parser → Plugin 有界队列 → Service → Application → Domain → SQLite：简单 Task DONE 改为 `COMPLETED`；CANCELED/CANCELLED 在记录取消原因前零写入；TODO/NOW/DOING/WAITING 不改 Condition/Focus；MiniProject/Project 关闭要求审阅；Decision/Output 不用 Marker 改 Lifecycle；语义冲突不断开健康 transport。Desktop Marker 形态与 Undo/复杂关闭审阅待验收。
 - Slice B 防抖与首次物化基础已建立：UUID 级事件合并只交付最新 Parser 结果，失败显式回调；Application/SQLite 将 Object、Primary Anchor、Audit、Receipt 单事务写入并幂等重放，重复外部 Block 整笔回滚。
@@ -81,7 +81,7 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-21 `./scripts/check.sh` PASS，326 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-21 `./scripts/check.sh` PASS，327 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；
