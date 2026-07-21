@@ -58,6 +58,54 @@ export interface ExplicitSyncEventRegistrationOptions {
   maximumPendingRoots?: number;
 }
 
+export interface PersistentBlockIdentityHost {
+  getBlock(externalId: string, options: { includeChildren: false }): Promise<unknown>;
+  upsertBlockProperty(externalId: string, key: string, value: string): Promise<unknown>;
+}
+
+export interface ExplicitSyncEchoSuppressor {
+  suppressObservedContentWindow(externalId: string, contentHash: string): () => void;
+}
+
+export async function ensurePersistentBlockIdentity(
+  host: PersistentBlockIdentityHost,
+  externalId: string,
+  suppressor?: ExplicitSyncEchoSuppressor,
+): Promise<void> {
+  const before = await host.getBlock(externalId, { includeChildren: false });
+  const block = before && typeof before === "object" && !Array.isArray(before)
+    ? before as { uuid?: unknown; content?: unknown; properties?: unknown }
+    : undefined;
+  if (block?.uuid !== externalId || typeof block.content !== "string") {
+    throw new Error("Logseq Block 身份不可用；没有创建正式对象。");
+  }
+  const properties = block.properties && typeof block.properties === "object" && !Array.isArray(block.properties)
+    ? block.properties as Record<string, unknown>
+    : {};
+  if (properties.id !== externalId) {
+    const cancelSuppression = suppressor?.suppressObservedContentWindow(
+      externalId,
+      checksum(stripLogseqBlockIdentityProperty(block.content, externalId)),
+    );
+    try {
+      await host.upsertBlockProperty(externalId, "id", externalId);
+    } catch (error) {
+      cancelSuppression?.();
+      throw error;
+    }
+  }
+  const verified = await host.getBlock(externalId, { includeChildren: false });
+  const verifiedBlock = verified && typeof verified === "object" && !Array.isArray(verified)
+    ? verified as { uuid?: unknown; properties?: unknown }
+    : undefined;
+  const verifiedProperties = verifiedBlock?.properties && typeof verifiedBlock.properties === "object" && !Array.isArray(verifiedBlock.properties)
+    ? verifiedBlock.properties as Record<string, unknown>
+    : {};
+  if (verifiedBlock?.uuid !== externalId || verifiedProperties.id !== externalId) {
+    throw new Error("Logseq Block 持久身份复核失败；没有创建正式对象。");
+  }
+}
+
 export function registerExplicitSyncEvents(
   host: ExplicitSyncEventHost,
   controller: Pick<ExplicitSyncController, "onBlocksChanged" | "onSubtreeTraversalIssue">,
@@ -162,7 +210,11 @@ function errorCode(error: unknown): string {
 
 export class ExplicitSyncController {
   private readonly pending = new Map<string, PendingSync>();
-  private readonly suppressedObservations = new Map<string, { contentHash: string; expiresAt: number }>();
+  private readonly suppressedObservations = new Map<string, {
+    contentHash: string;
+    expiresAt: number;
+    expiryTimer: ReturnType<typeof globalThis.setTimeout>;
+  }>();
   private readonly maximumPending: number;
   private readonly createTraceId: () => string;
   private readonly debouncer: ExplicitObjectChangeDebouncer;
@@ -201,20 +253,40 @@ export class ExplicitSyncController {
       if (typeof block.uuid !== "string") return true;
       const suppression = this.suppressedObservations.get(block.uuid);
       if (!suppression) return true;
+      if (suppression.expiresAt < now) {
+        globalThis.clearTimeout(suppression.expiryTimer);
+        this.suppressedObservations.delete(block.uuid);
+        return true;
+      }
+      if (typeof block.content === "string" && checksum(stripLogseqBlockIdentityProperty(block.content, block.uuid)) === suppression.contentHash) {
+        return false;
+      }
+      globalThis.clearTimeout(suppression.expiryTimer);
       this.suppressedObservations.delete(block.uuid);
-      return suppression.expiresAt < now || typeof block.content !== "string" || checksum(stripLogseqBlockIdentityProperty(block.content, block.uuid)) !== suppression.contentHash;
+      return true;
     });
     if (filtered.length > 0) this.debouncer.enqueue(filtered);
   }
 
-  suppressNextObservedContent(externalId: string, contentHash: string, ttlMs = 10_000): () => void {
+  suppressObservedContentWindow(externalId: string, contentHash: string, ttlMs = 10_000): () => void {
     if (!externalId.trim() || !/^[0-9a-f]{8}$/.test(contentHash) || !Number.isSafeInteger(ttlMs) || ttlMs < 1 || ttlMs > 60_000) {
       throw new Error("Explicit sync echo suppression requires one bounded UUID, hash, and TTL.");
     }
-    const suppression = { contentHash, expiresAt: Date.now() + ttlMs };
+    const previous = this.suppressedObservations.get(externalId);
+    if (previous) globalThis.clearTimeout(previous.expiryTimer);
+    const suppression = {
+      contentHash,
+      expiresAt: Date.now() + ttlMs,
+      expiryTimer: undefined as unknown as ReturnType<typeof globalThis.setTimeout>,
+    };
+    suppression.expiryTimer = globalThis.setTimeout(() => {
+      if (this.suppressedObservations.get(externalId) === suppression) this.suppressedObservations.delete(externalId);
+    }, ttlMs);
     this.suppressedObservations.set(externalId, suppression);
     return () => {
-      if (this.suppressedObservations.get(externalId) === suppression) this.suppressedObservations.delete(externalId);
+      if (this.suppressedObservations.get(externalId) !== suppression) return;
+      globalThis.clearTimeout(suppression.expiryTimer);
+      this.suppressedObservations.delete(externalId);
     };
   }
 
@@ -256,6 +328,7 @@ export class ExplicitSyncController {
     this.disposed = true;
     this.transport = undefined;
     this.pending.clear();
+    for (const suppression of this.suppressedObservations.values()) globalThis.clearTimeout(suppression.expiryTimer);
     this.suppressedObservations.clear();
     this.debouncer.dispose();
     this.emitState();

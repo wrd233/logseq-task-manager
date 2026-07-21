@@ -4,7 +4,7 @@ import test from "node:test";
 import type { ServiceSynchronizeExplicitObjectResult } from "@task-copilot/service-client";
 import { checksum } from "@task-copilot/shared";
 
-import { ExplicitSyncController, registerExplicitSyncEvents, type ExplicitSyncState, type ExplicitSyncTransport } from "../src/explicit-sync-controller.ts";
+import { ensurePersistentBlockIdentity, ExplicitSyncController, registerExplicitSyncEvents, type ExplicitSyncState, type ExplicitSyncTransport } from "../src/explicit-sync-controller.ts";
 
 function success(objectId: string, version: number): ServiceSynchronizeExplicitObjectResult {
   const at = "2026-07-20T08:00:00.000Z";
@@ -177,7 +177,7 @@ test("queue overflow is explicit and dispose prevents late formal writes", async
   assert.equal(writes, 0);
 });
 
-test("one exact plugin-authored Block observation is suppressed without hiding later or mismatched edits", async () => {
+test("a bounded exact-content window suppresses duplicate plugin echoes without hiding mismatched edits", async () => {
   const requests: string[] = [];
   const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-echo" });
   await controller.resume({
@@ -188,21 +188,100 @@ test("one exact plugin-authored Block observation is suppressed without hiding l
   });
 
   const committed = "[任务] 插件正式提交";
-  controller.suppressNextObservedContent("echo-block", checksum(committed));
+  controller.suppressObservedContentWindow("echo-block", checksum(committed));
   controller.onBlocksChanged([{ uuid: "echo-block", content: committed }]);
   await controller.flush();
   assert.deepEqual(requests, []);
 
   controller.onBlocksChanged([{ uuid: "echo-block", content: committed }]);
   await controller.flush();
-  assert.deepEqual(requests, ["插件正式提交"]);
+  assert.deepEqual(requests, [], "duplicate same-content observations stay suppressed during the bounded window");
 
-  controller.suppressNextObservedContent("echo-block", checksum(committed));
   controller.onBlocksChanged([{ uuid: "echo-block", content: "[任务] 用户后续编辑" }]);
   await controller.flush();
   controller.onBlocksChanged([{ uuid: "echo-block", content: committed }]);
   await controller.flush();
-  assert.deepEqual(requests, ["插件正式提交", "用户后续编辑", "插件正式提交"]);
+  assert.deepEqual(requests, ["用户后续编辑", "插件正式提交"]);
+});
+
+test("persisting id:: suppresses the Logseq property echo so Candidate review cannot materialize early", async () => {
+  const requests: string[] = [];
+  const externalId = "6a5f95f3-5746-4009-bf3c-a884fe493036";
+  const original = "[任务] 只在 Commit 后正式化";
+  let block = { uuid: externalId, content: original, properties: {} as Record<string, unknown> };
+  const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-identity-echo" });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.text);
+      return success("candidate-object", 2);
+    },
+  });
+
+  await ensurePersistentBlockIdentity({
+    async getBlock() { return block; },
+    async upsertBlockProperty(_id, key, value) {
+      block = { uuid: externalId, content: `${original}\nid:: ${externalId}`, properties: { [key]: value } };
+      controller.onBlocksChanged([block]);
+    },
+  }, externalId, controller);
+  await controller.flush();
+  assert.deepEqual(requests, [], "the plugin-authored id:: event must not enter formal explicit synchronization");
+
+  controller.onBlocksChanged([{ ...block, content: `[任务] 用户后续编辑\nid:: ${externalId}` }]);
+  await controller.flush();
+  assert.deepEqual(requests, ["用户后续编辑"], "a later human edit must remain observable");
+});
+
+test("identity echo suppression survives an already in-flight event-bridge read for the same Block", async () => {
+  const requests: string[] = [];
+  const externalId = "6a5f991a-53f9-466a-ac34-ee03648f48d0";
+  const original = "[任务] 事件桥竞争窗口";
+  let block = { uuid: externalId, content: original, properties: {} as Record<string, unknown> };
+  let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
+  let releaseFirstRead: (() => void) | undefined;
+  let signalFirstRead: (() => void) | undefined;
+  const firstReadStarted = new Promise<void>((resolve) => { signalFirstRead = resolve; });
+  const firstReadReleased = new Promise<void>((resolve) => { releaseFirstRead = resolve; });
+  let reads = 0;
+  const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-identity-race" });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.text);
+      return success("candidate-race-object", 2);
+    },
+  });
+  const unregister = registerExplicitSyncEvents({
+    DB: { onChanged(callback) { listener = callback; return () => undefined; } },
+    Editor: {
+      async getBlock() {
+        reads += 1;
+        if (reads === 1) {
+          const staleSnapshot = { ...block, properties: { ...block.properties } };
+          signalFirstRead?.();
+          await firstReadReleased;
+          return staleSnapshot;
+        }
+        return block;
+      },
+    },
+  }, controller, { subtreeDelayMs: 0 });
+
+  listener?.({ blocks: [{ uuid: externalId }] });
+  await firstReadStarted;
+  await ensurePersistentBlockIdentity({
+    async getBlock() { return block; },
+    async upsertBlockProperty(_id, key, value) {
+      block = { uuid: externalId, content: `${original}\nid:: ${externalId}`, properties: { [key]: value } };
+      listener?.({ blocks: [{ uuid: externalId }] });
+    },
+  }, externalId, controller);
+  releaseFirstRead?.();
+  await new Promise((resolve) => globalThis.setTimeout(resolve, 20));
+  await controller.flush();
+  assert.deepEqual(requests, [], "both the stale queued read and the real id:: echo must remain Candidate-only");
+
+  unregister();
+  controller.dispose();
 });
 
 test("Logseq DB event registration forwards only transaction Blocks and unregisters cleanly", async () => {

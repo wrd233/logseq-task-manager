@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
-last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 360 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Ownership Desktop, Association Desktop, Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, Project Closure Desktop, and Candidate Desktop gates remain pending"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 361 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE Desktop passed; Ownership Desktop, Association Desktop, Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, Project Closure Desktop, and Candidate UPDATE gates remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -68,8 +68,9 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 E2E-11: current cached asset commit verified; V2-only workspace READY; two-item Focus ordering, WAITING/BLOCKED, Task deadline, blocker wake-up, Task filter/grouping, Primary Anchor open and cold-reload persistence verified against SQLite/CLI"
   - "V2 Desktop 0.10.15 E2E-19: Project create/conflict/rename/reload and finalize Service interruption recovery verified with zero half-object and one-object idempotent retry"
   - "V2 Desktop 0.10.15 Proposal partial Gate: accepted-not-applied, final Commit, same-card Undo and cold reload verified; corrected object text is explicit Proposal data and remains version 2 without DB-event echo"
+  - "V2 Desktop 0.10.15 CREATE Candidate Gate: offline current-page discovery, source-first cards, later/ordinary/stable suppression, READY/ACCEPTED with Object=0, final Commit RESOLVED, Undo reopen and Plugin reload verified; id:: property echo cannot materialize before Commit"
 runtime_checks_pending:
-  - "V2 remaining Anchor move/copy/rebind, Proposal high-impact/reject/defer/stale/later-edit/process-fault, Candidate Review Center, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
+  - "V2 remaining Anchor move/copy/rebind, Proposal high-impact/reject/defer/stale/later-edit/process-fault, Candidate UPDATE flow, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
   - "Project Closure Desktop review/completion/reload and retained-page Gate"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"

@@ -40,6 +40,7 @@ import {
 import { renderFirstRunWelcome, type FirstRunAction } from "./first-run.ts";
 import type { ServiceConnectionState } from "@task-copilot/service-client";
 import {
+  ensurePersistentBlockIdentity as ensurePersistentBlockIdentityWithoutEcho,
   ExplicitSyncController,
   registerExplicitSyncEvents,
   type ExplicitSyncEventHost,
@@ -142,7 +143,7 @@ async function openV2PrimaryAnchor(externalId: string): Promise<void> {
 }
 
 async function updateBlockWithoutExplicitSyncEcho(externalId: string, content: string): Promise<unknown> {
-  const cancelSuppression = explicitSyncController?.suppressNextObservedContent(externalId, checksum(stripLogseqBlockIdentityProperty(content, externalId)));
+  const cancelSuppression = explicitSyncController?.suppressObservedContentWindow(externalId, checksum(stripLogseqBlockIdentityProperty(content, externalId)));
   try {
     return await logseq.Editor.updateBlock(externalId, content);
   } catch (error) {
@@ -152,15 +153,7 @@ async function updateBlockWithoutExplicitSyncEcho(externalId: string, content: s
 }
 
 async function ensurePersistentBlockIdentity(externalId: string): Promise<void> {
-  const before = await logseq.Editor.getBlock(externalId, { includeChildren: false });
-  const block = before && typeof before === "object" && !Array.isArray(before) ? before as { uuid?: unknown; properties?: unknown } : undefined;
-  if (block?.uuid !== externalId) throw new Error("Logseq Block 身份不可用；没有创建正式对象。");
-  const properties = block.properties && typeof block.properties === "object" && !Array.isArray(block.properties) ? block.properties as Record<string, unknown> : {};
-  if (properties.id !== externalId) await logseq.Editor.upsertBlockProperty(externalId, "id", externalId);
-  const verified = await logseq.Editor.getBlock(externalId, { includeChildren: false });
-  const verifiedBlock = verified && typeof verified === "object" && !Array.isArray(verified) ? verified as { uuid?: unknown; properties?: unknown } : undefined;
-  const verifiedProperties = verifiedBlock?.properties && typeof verifiedBlock.properties === "object" && !Array.isArray(verifiedBlock.properties) ? verifiedBlock.properties as Record<string, unknown> : {};
-  if (verifiedBlock?.uuid !== externalId || verifiedProperties.id !== externalId) throw new Error("Logseq Block 持久身份复核失败；没有创建正式对象。");
+  await ensurePersistentBlockIdentityWithoutEcho(logseq.Editor, externalId, explicitSyncController);
 }
 
 async function loadV2CandidateSourcePreviews(candidates: readonly { candidateId: string; sourceAnchorId: string; disposition: string; deferredUntil?: string }[]): Promise<Record<string, string>> {
