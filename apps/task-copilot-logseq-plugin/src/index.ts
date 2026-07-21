@@ -172,21 +172,30 @@ async function model(): Promise<UiModel> {
     let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
     let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
     let v2Associations: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listAssociations"]>> = [];
+    let v2PrimaryOwnerships: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listPrimaryOwnerships"]>> = [];
     let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
     let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
     let v2ProposalLoadError: string | undefined;
+    let v2RelationLoadError: string | undefined;
     let v2MigrationLoadError: string | undefined;
     if (serviceConnection.status === "READY" && serviceRuntimeClient) {
       try {
-        [v2Proposals, v2SemanticCommits, v2Objects, v2Associations, v2NowWork] = await Promise.all([
+        [v2Proposals, v2SemanticCommits, v2Objects, v2NowWork] = await Promise.all([
           serviceRuntimeClient.listProposals(),
           serviceRuntimeClient.listSemanticCommits(),
           serviceRuntimeClient.listObjects(),
-          serviceRuntimeClient.listAssociations(),
           serviceRuntimeClient.nowWork(),
         ]);
       } catch (error) {
         v2ProposalLoadError = explain(error);
+      }
+      try {
+        [v2Associations, v2PrimaryOwnerships] = await Promise.all([
+          serviceRuntimeClient.listAssociations(),
+          serviceRuntimeClient.listPrimaryOwnerships(),
+        ]);
+      } catch (error) {
+        v2RelationLoadError = explain(error);
       }
       try {
         v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns();
@@ -219,6 +228,8 @@ async function model(): Promise<UiModel> {
       v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
       v2Objects,
       v2Associations,
+      v2PrimaryOwnerships,
+      ...(v2RelationLoadError ? { v2RelationLoadError } : {}),
       v2AssociationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
       v2AssociationBusy: v2AssociationSubmission.busy,
       v2Proposals,

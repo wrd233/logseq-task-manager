@@ -171,6 +171,7 @@ test("Local Service adds one confirmed plain Association without changing Primar
   };
   const source = await createProject("Association Source", "source");
   const target = await createProject("Association Target", "target");
+  assert.deepEqual(await client.listPrimaryOwnerships(), [], "Primary Ownership has a distinct read projection");
   const malformed = await fetch(new URL("associations", service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ sourceObjectId: source.object.objectId, targetObjectId: target.object.objectId, expectedVersion: 1, traceId: "missing-confirmation" }) });
   assert.equal(malformed.status, 400);
   assert.deepEqual(await client.listAssociations(), []);

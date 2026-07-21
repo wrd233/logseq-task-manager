@@ -1,4 +1,4 @@
-import type { LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -537,6 +537,10 @@ export class LocalServiceClient {
 
   async listAssociations(): Promise<V2Association[]> {
     return (await this.request<{ associations: V2Association[] }>("/associations")).associations;
+  }
+
+  async listPrimaryOwnerships(): Promise<V2PrimaryOwnership[]> {
+    return (await this.request<{ ownerships: V2PrimaryOwnership[] }>("/ownerships/primary")).ownerships;
   }
 
   addAssociation(input: ServiceAddAssociationRequest): Promise<{ object: V2ManagedObject; association: V2Association; replayed: boolean }> {

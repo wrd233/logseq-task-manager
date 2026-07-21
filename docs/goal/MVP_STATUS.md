@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
-last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 338 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Association, Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, and Project Closure Desktop gates remain pending"
+last_successful_check: "2026-07-21 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 339 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Association, Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, and Project Closure Desktop gates remain pending"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -32,6 +32,7 @@ implemented:
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
   - "SQLite schema v9: SemanticCommit, Proposal/Group, immutable Audit/current-projection decoupling, nullable Task due_at, bounded V1 migration evidence, nullable Project closure_json, and one plain RELATED Association projection; v1..v8 upgrades require a validated preflight snapshot and roll back atomically"
   - "Plain Association vertical path: one RELATED meaning, source-version protection, explicit Plugin confirmation/busy/error/success, Local Service/Application/SQLite atomic write, scope-bounded Context projection, and Association-aware Materialization/Migration Undo"
+  - "Primary Ownership and plain Association are visibly distinct in the V2 object workspace through bounded read-only Local Service projections; no direct Ownership write path was added"
   - "Reviewed V1 migration batch kernel: complete decisions, <=50 item atomic Object/Anchor/Ownership import, exact idempotency, Verify, changed-state-safe Undo, retry, restart and single activation without reusing SemanticCommit"
   - "Migration Service/CLI vertical path: server-owned validated Backup, preview/show/import/verify/undo/activate, exact preflight confirmations, and real CLI-to-Service copied-data fixture"
   - "Plugin migration workspace reads the same SQLite migration ledger through Local Service and shows run progress, review counts, recovery point and next step without accepting bundles or adding a write path"

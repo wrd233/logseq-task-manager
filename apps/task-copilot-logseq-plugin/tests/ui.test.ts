@@ -66,6 +66,7 @@ test("V2 Project workspace reads formal objects without mapping Lifecycle back t
     associationId: "rel-project-output", sourceObjectId: "project-1", targetObjectId: "output-1", associationKind: "RELATED", status: "ACTIVE",
     createdAt: "2026-07-20T12:05:00.000Z", updatedAt: "2026-07-20T12:05:00.000Z",
   }];
+  value.v2PrimaryOwnerships = [{ childObjectId: "output-1", ownerObjectId: "project-1", assignedAt: "2026-07-20T12:04:00.000Z" }];
   value.v2Objects = [{
     objectId: "project-1",
     objectType: "PROJECT",
@@ -90,6 +91,8 @@ test("V2 Project workspace reads formal objects without mapping Lifecycle back t
   assert.match(html, /data-field="v2AssociationConfirmed"/);
   assert.match(html, /PROJECT · 告警推送治理 → OUTPUT · 验证记录/);
   assert.match(html, /RELATED · ACTIVE/);
+  assert.match(html, /OUTPUT · 验证记录 → PROJECT · 告警推送治理/);
+  assert.match(html, /唯一主归属/);
 });
 
 test("V2 Now Work renders only non-empty explainable regions without scores or button walls", () => {
@@ -397,6 +400,16 @@ test("Association creation exposes an observable busy state and disables duplica
   assert.match(html, /正在添加…/);
   assert.match(html, /data-action="v2-association-add" disabled aria-busy="true"/);
   assert.match(html, /data-version="2"/);
+});
+
+test("relation projection failure is explicit without hiding formal objects", () => {
+  const value = model();
+  value.v2Objects = [{ objectId: "task-visible", objectType: "TASK", text: "仍可见", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, version: 1, createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:00:00.000Z", sourceOrCreationEvent: "test" }];
+  value.v2RelationLoadError = "关系查询暂时失败";
+  const html = renderApp(value);
+  assert.match(html, /关系投影暂不可用/);
+  assert.match(html, /仍可见/);
+  assert.match(html, /没有执行关系写入/);
 });
 
 test("formal plugin entry does not regress to host browser prompts", async () => {

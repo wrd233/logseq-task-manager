@@ -665,6 +665,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       respond(response, 200, { associations: store.listAssociations() });
       return;
     }
+    if (request.method === "GET" && url.pathname === "/ownerships/primary") {
+      respond(response, 200, { ownerships: store.listPrimaryOwnerships() });
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/associations") {
       const input = await readAssociationRequest(request);
       const result = await application.addAssociation(input.sourceObjectId, input.targetObjectId, {
