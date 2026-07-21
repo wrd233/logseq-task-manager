@@ -581,7 +581,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       let bundle: unknown;
       try { bundle = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "迁移输入必须是合法 Recovery Bundle JSON。"); }
       const before = store.doctor();
-      const report = scanLegacyRecoveryBundle(bundle as Parameters<typeof scanLegacyRecoveryBundle>[0]);
+      const report = scanLegacyRecoveryBundle(bundle);
       if (stableJson(store.doctor()) !== stableJson(before)) throw serviceError("MIGRATION_SCAN_MUTATED_STORE", "迁移扫描意外改变了 SQLite；结果已拒绝。");
       respond(response, 200, { report });
       return;

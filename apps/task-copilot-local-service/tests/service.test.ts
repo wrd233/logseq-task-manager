@@ -149,6 +149,11 @@ test("Local Service migration scan validates an explicit Recovery Bundle and lea
   assert.equal(report.zeroFormalWrites, true);
   assert.equal(report.counts.total, 0);
   assert.deepEqual(await client.status(), before);
+  await assert.rejects(
+    () => client.scanLegacyMigration(null),
+    (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "MIGRATION_BUNDLE_SHAPE_INVALID",
+  );
+  assert.deepEqual(await client.status(), before, "malformed scan input is also zero-write");
 });
 
 test("Proposal validation, review, and scope revalidation never masquerade as a formal object write", async (t) => {

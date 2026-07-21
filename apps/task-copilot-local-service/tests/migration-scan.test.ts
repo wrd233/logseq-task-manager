@@ -4,6 +4,7 @@ import test from "node:test";
 import { createEmptyState } from "@task-copilot/application";
 import type { ManagedObject, SemanticCommit } from "@task-copilot/domain";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
+import { checksum } from "@task-copilot/shared";
 
 import { scanLegacyRecoveryBundle } from "../src/migration-scan.ts";
 
@@ -34,4 +35,20 @@ test("corrupt bundles and unfinished Commit evidence stop migration scanning", (
   const corrupt = exportRecoveryBundle(createEmptyState());
   corrupt.files["objects.jsonl"] = "tampered";
   assert.throws(() => scanLegacyRecoveryBundle(corrupt), /校验失败/);
+});
+
+test("malformed bundle containers and internal JSON fail as structured migration errors", () => {
+  for (const malformed of [null, [], { bundleVersion: 1 }, { bundleVersion: 1, createdAt: "not-a-date", files: {}, checksums: {} }]) {
+    assert.throws(
+      () => scanLegacyRecoveryBundle(malformed),
+      (error: unknown) => error instanceof Error && "code" in error && (error as { code?: string }).code === "MIGRATION_BUNDLE_SHAPE_INVALID",
+    );
+  }
+  const malformedContent = exportRecoveryBundle(createEmptyState());
+  malformedContent.files["views.json"] = "{";
+  malformedContent.checksums["views.json"] = checksum(malformedContent.files["views.json"]!);
+  assert.throws(
+    () => scanLegacyRecoveryBundle(malformedContent),
+    (error: unknown) => error instanceof Error && "code" in error && (error as { code?: string }).code === "MIGRATION_BUNDLE_CONTENT_INVALID",
+  );
 });

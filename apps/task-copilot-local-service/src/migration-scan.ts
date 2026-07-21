@@ -18,8 +18,37 @@ function migrationError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-189", "D-193", "D-199", "D-208"] });
 }
 
-export function scanLegacyRecoveryBundle(bundle: RecoveryBundle): LegacyMigrationScanReport {
-  const restored = restoreRecoveryBundle(bundle);
+function stringRecord(value: unknown): value is Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.values(value).every((entry) => typeof entry === "string");
+}
+
+function requireRecoveryBundle(value: unknown): RecoveryBundle {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw migrationError("MIGRATION_BUNDLE_SHAPE_INVALID", "V1 Recovery Bundle 顶层必须是对象。");
+  }
+  const candidate = value as Partial<RecoveryBundle>;
+  if (
+    candidate.bundleVersion !== 1
+    || typeof candidate.createdAt !== "string"
+    || !Number.isFinite(Date.parse(candidate.createdAt))
+    || !stringRecord(candidate.files)
+    || !stringRecord(candidate.checksums)
+  ) {
+    throw migrationError("MIGRATION_BUNDLE_SHAPE_INVALID", "V1 Recovery Bundle 版本、时间、文件或校验清单结构无效。");
+  }
+  return candidate as RecoveryBundle;
+}
+
+export function scanLegacyRecoveryBundle(input: unknown): LegacyMigrationScanReport {
+  const bundle = requireRecoveryBundle(input);
+  let restored: ReturnType<typeof restoreRecoveryBundle>;
+  try {
+    restored = restoreRecoveryBundle(bundle);
+  } catch (error) {
+    if (error instanceof StructuredError) throw error;
+    throw migrationError("MIGRATION_BUNDLE_CONTENT_INVALID", "V1 Recovery Bundle 内容无法按受支持的结构恢复。");
+  }
   if (restored.differences.length > 0) throw migrationError("MIGRATION_BUNDLE_ROUND_TRIP_MISMATCH", "V1 Recovery Bundle 无法无损只读恢复。");
   if (restored.state.commits.some(({ status }) => status === "PENDING" || status === "RECOVERY_REQUIRED")) throw migrationError("MIGRATION_SOURCE_RECOVERY_REQUIRED", "V1 Recovery Bundle 含未完成或待恢复 Commit；扫描已停止。");
   const sourceBundleSha256 = createHash("sha256").update(stableJson(bundle)).digest("hex");
