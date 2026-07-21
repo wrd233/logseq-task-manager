@@ -26,7 +26,7 @@ import type {
 import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 6;
+export const V2_DATABASE_SCHEMA_VERSION = 7;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -53,6 +53,7 @@ const schemaMigrationNames = new Map<number, string>([
   [4, "add_proposal_review_tables"],
   [5, "decouple_audit_from_current_objects"],
   [6, "add_task_due_at"],
+  [7, "add_v1_migration_ledger"],
 ]);
 
 export interface V2StoredProposal {
@@ -338,6 +339,37 @@ export class V2SqliteStore {
           updated_at TEXT NOT NULL,
           PRIMARY KEY (proposal_id, group_id)
         ) STRICT;
+        CREATE TABLE migration_runs (
+          run_id TEXT PRIMARY KEY,
+          source_bundle_sha256 TEXT NOT NULL UNIQUE CHECK (length(source_bundle_sha256) = 64),
+          source_created_at TEXT NOT NULL,
+          status TEXT NOT NULL CHECK (status IN ('SCANNED','PREVIEWED','IMPORTING','VERIFIED','ACTIVATED','FAILED','CANCELLED')),
+          summary_json TEXT NOT NULL CHECK (json_valid(summary_json)),
+          snapshot_backup_id TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        ) STRICT;
+        CREATE TABLE migration_batches (
+          batch_id TEXT PRIMARY KEY,
+          run_id TEXT NOT NULL REFERENCES migration_runs(run_id),
+          idempotency_key TEXT NOT NULL UNIQUE,
+          source_hash TEXT NOT NULL CHECK (length(source_hash) = 64),
+          status TEXT NOT NULL CHECK (status IN ('PREPARED','IMPORTED','VERIFIED','UNDONE','FAILED')),
+          scope_json TEXT NOT NULL CHECK (json_valid(scope_json)),
+          imported_count INTEGER NOT NULL DEFAULT 0 CHECK (imported_count >= 0 AND imported_count <= 50),
+          validation_json TEXT CHECK (validation_json IS NULL OR json_valid(validation_json)),
+          inverse_json TEXT CHECK (inverse_json IS NULL OR json_valid(inverse_json)),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        ) STRICT;
+        CREATE TABLE legacy_evidence (
+          run_id TEXT NOT NULL REFERENCES migration_runs(run_id),
+          legacy_object_id TEXT NOT NULL,
+          source_hash TEXT NOT NULL CHECK (length(source_hash) = 64),
+          mapping_json TEXT NOT NULL CHECK (json_valid(mapping_json)),
+          target_object_id TEXT REFERENCES objects(object_id) ON DELETE SET NULL,
+          PRIMARY KEY (run_id, legacy_object_id)
+        ) STRICT;
         CREATE TABLE schema_migrations (
           version INTEGER PRIMARY KEY CHECK (version >= 1),
           name TEXT NOT NULL UNIQUE,
@@ -397,7 +429,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 6) {
+    if (![1, 2, 3, 4, 5, 6].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 7) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -497,6 +529,44 @@ export class V2SqliteStore {
         this.database.exec("ALTER TABLE objects ADD COLUMN due_at TEXT;");
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(6, schemaMigrationNames.get(6), at.toISOString());
+        workingVersion = 6;
+      }
+      if (workingVersion === 6) {
+        this.database.exec(`
+          CREATE TABLE migration_runs (
+            run_id TEXT PRIMARY KEY,
+            source_bundle_sha256 TEXT NOT NULL UNIQUE CHECK (length(source_bundle_sha256) = 64),
+            source_created_at TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('SCANNED','PREVIEWED','IMPORTING','VERIFIED','ACTIVATED','FAILED','CANCELLED')),
+            summary_json TEXT NOT NULL CHECK (json_valid(summary_json)),
+            snapshot_backup_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          ) STRICT;
+          CREATE TABLE migration_batches (
+            batch_id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL REFERENCES migration_runs(run_id),
+            idempotency_key TEXT NOT NULL UNIQUE,
+            source_hash TEXT NOT NULL CHECK (length(source_hash) = 64),
+            status TEXT NOT NULL CHECK (status IN ('PREPARED','IMPORTED','VERIFIED','UNDONE','FAILED')),
+            scope_json TEXT NOT NULL CHECK (json_valid(scope_json)),
+            imported_count INTEGER NOT NULL DEFAULT 0 CHECK (imported_count >= 0 AND imported_count <= 50),
+            validation_json TEXT CHECK (validation_json IS NULL OR json_valid(validation_json)),
+            inverse_json TEXT CHECK (inverse_json IS NULL OR json_valid(inverse_json)),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          ) STRICT;
+          CREATE TABLE legacy_evidence (
+            run_id TEXT NOT NULL REFERENCES migration_runs(run_id),
+            legacy_object_id TEXT NOT NULL,
+            source_hash TEXT NOT NULL CHECK (length(source_hash) = 64),
+            mapping_json TEXT NOT NULL CHECK (json_valid(mapping_json)),
+            target_object_id TEXT REFERENCES objects(object_id) ON DELETE SET NULL,
+            PRIMARY KEY (run_id, legacy_object_id)
+          ) STRICT;
+        `);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(7, schemaMigrationNames.get(7), at.toISOString());
       }
       this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);

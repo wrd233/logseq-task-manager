@@ -20,7 +20,7 @@ SQLite 同时使用 `PRAGMA user_version`、`schema_meta.schema_version` 和只�
 
 ## 当前路径
 
-schema v2 引入 `schema_migrations`，schema v3 引入受约束的 `semantic_commits` / `semantic_commit_steps`，schema v4 引入 `proposals` / `proposal_groups`，schema v5 解耦 immutable `audit_events.object_id` 与当前 `objects` 投影，schema v6 为 Task 增加 nullable `due_at`。已实现 v1/v2/v3/v4/v5 → v6：
+schema v2 引入 `schema_migrations`，schema v3 引入受约束的 `semantic_commits` / `semantic_commit_steps`，schema v4 引入 `proposals` / `proposal_groups`，schema v5 解耦 immutable `audit_events.object_id` 与当前 `objects` 投影，schema v6 为 Task 增加 nullable `due_at`，schema v7 只增加 V1 手动迁移需要的 `migration_runs` / `migration_batches` / `legacy_evidence`。已实现 v1…v6 → v7：
 
 - v1 `initial_core_schema` 以原 `schema_meta.created_at` 作为应用时间；
 - v2 `add_schema_migration_ledger` 记录显式升级时间；

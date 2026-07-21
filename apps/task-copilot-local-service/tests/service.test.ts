@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
-import { V2SqliteStore } from "@task-copilot/persistence/node";
+import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persistence/node";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
 import { createEmptyState } from "@task-copilot/application";
 import { checksum } from "@task-copilot/shared";
@@ -75,7 +75,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
     capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
-    databaseSchemaVersion: 6,
+    databaseSchemaVersion: V2_DATABASE_SCHEMA_VERSION,
     objectCount: 0,
   });
   const doctor = await fetch(new URL("doctor", service.url), { method: "POST", headers });
@@ -138,7 +138,7 @@ test("Local Service exports a read-only Project Context Package without Graph sc
   assert.equal(result.contextPackage.manifest.includedObjectCount, 1);
   assert.equal(result.contextPackage.manifest.graphExcerptStatus, "NOT_AVAILABLE_IN_LOCAL_SERVICE");
   assert.match(result.fingerprint, /^[0-9a-f]{64}$/);
-  assert.equal(JSON.parse(result.contextPackage.files["versions.json"] ?? "").databaseSchemaVersion, 6);
+  assert.equal(JSON.parse(result.contextPackage.files["versions.json"] ?? "").databaseSchemaVersion, V2_DATABASE_SCHEMA_VERSION);
   assert.deepEqual(await client.status(), before, "Context export does not mutate formal state");
   await assert.rejects(() => client.exportContext("object", "missing"), /Context 根对象不存在/);
 });
