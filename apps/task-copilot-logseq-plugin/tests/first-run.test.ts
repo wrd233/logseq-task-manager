@@ -28,6 +28,11 @@ test("first-run actions explain setup and preserve explicit migration", () => {
 
   const migrate = renderFirstRunWelcome({ connection: restricted, selectedAction: "migrate" });
   assert.match(migrate, /迁移尚未启动/);
-  assert.match(migrate, /只有你显式确认/);
+  assert.match(migrate, /tc migration scan/);
+  assert.match(migrate, /tc migration preview/);
+  assert.match(migrate, /tc backup create/);
+  assert.match(migrate, /migration import/);
+  assert.match(migrate, /tc migration show/);
+  assert.match(migrate, /精确确认短语/);
   assert.match(migrate, /不会双写/);
 });

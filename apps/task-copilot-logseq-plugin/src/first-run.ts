@@ -21,7 +21,7 @@ function guidance(action: FirstRunAction | undefined): string {
     return `<section class="first-run-guidance" role="status"><h2>开始使用</h2><p>先让本地 Service 把 0600 descriptor 写入 Task Copilot 私有 FileStorage，再在插件设置中填入该文件名并重新加载插件。</p><p>该私有文件只用于会话发现，不是领域状态源；本页不会扫描 Graph、迁移旧状态或调用模型。</p></section>`;
   }
   if (action === "migrate") {
-    return `<section class="first-run-guidance" role="status"><h2>迁移现有内容</h2><p>迁移尚未启动。Service 就绪后将先提供只读扫描、映射预览和恢复点，只有你显式确认才会写入 SQLite。</p><p>FileStorage 与 SQLite 不会双写。</p></section>`;
+    return `<section class="first-run-guidance" role="status"><h2>迁移现有内容</h2><p>迁移尚未启动，本页也不会读取你的 Recovery Bundle。先按“开始使用”连接 Local Service，再在终端依次运行只读 <code>tc migration scan</code>、带 decisions 文件的 <code>tc migration preview</code> 和 <code>tc backup create</code>。</p><p>只有 <code>migration import</code>、<code>undo</code> 与 <code>activate</code> 会改变正式状态，并分别要求命令行显示的精确确认短语；可随时用 <code>tc migration show &lt;run_id&gt;</code> 查看并在 Service 重启后继续。FileStorage 与 SQLite 不会双写。</p></section>`;
   }
   return "";
 }
