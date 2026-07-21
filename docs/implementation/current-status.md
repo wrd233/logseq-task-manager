@@ -23,7 +23,7 @@ V2_MIGRATION_DESIGN_READY
 - 建立 Pilot 前后 0600 恢复包，回放 differences 为 `[]`，Pending/Recovery Required Commit 均为 0；
 - 明确 V1 可复用内核、冻结边界和淘汰语义；
 - 完成 FileStorage → SQLite 主权交接设计及 Legacy 状态映射；
-- 完成 DeepSeek 安全配置探测；用户已提供真实 Key，但本轮没有将明文放入命令、环境、Graph、Git 或报告。Provider/Base URL/Model 与安全 secret reference 尚未形成完整运行配置，未发起真实调用。
+- 完成 DeepSeek 实际在线探测：`/models` HTTP 200，发现 `deepseek-v4-flash` 与 `deepseek-v4-pro`；另做 1 次有界中文请求，HTTP 200 但 `finish_reason=length` 且非 JSON。Key 只在内存使用，未进入命令、环境、Graph、Git、日志或报告；Provider abstraction/Validator 尚未完成，Slice D 仍未通过。
 - 建立 V2 六类对象、Lifecycle/Condition/Focus 纯 Domain seam；不含 Phase/Signal；
 - 通过 Node 20/macOS arm64 SQLite Spike：Graph-bound 初始化、schema/损坏保护、版本/幂等写入、Doctor 和独立备份；
 - 建立仅绑定 `127.0.0.1`、session-token 认证的只读 Local Service health/status/doctor/object 骨架。
