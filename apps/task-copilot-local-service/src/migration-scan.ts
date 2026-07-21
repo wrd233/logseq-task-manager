@@ -14,6 +14,11 @@ export interface LegacyMigrationScanReport {
   previews: LegacyMigrationPreview[];
 }
 
+export interface ValidatedLegacyRecoveryBundle {
+  report: LegacyMigrationScanReport;
+  state: ReturnType<typeof restoreRecoveryBundle>["state"];
+}
+
 function migrationError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-189", "D-193", "D-199", "D-208"] });
 }
@@ -40,7 +45,7 @@ function requireRecoveryBundle(value: unknown): RecoveryBundle {
   return candidate as RecoveryBundle;
 }
 
-export function scanLegacyRecoveryBundle(input: unknown): LegacyMigrationScanReport {
+export function readLegacyRecoveryBundle(input: unknown): ValidatedLegacyRecoveryBundle {
   const bundle = requireRecoveryBundle(input);
   let restored: ReturnType<typeof restoreRecoveryBundle>;
   try {
@@ -73,7 +78,7 @@ export function scanLegacyRecoveryBundle(input: unknown): LegacyMigrationScanRep
     });
   }).sort((left, right) => left.legacyObjectId.localeCompare(right.legacyObjectId));
   const count = (classification: LegacyMigrationPreview["classification"]): number => previews.filter((preview) => preview.classification === classification).length;
-  return {
+  const report: LegacyMigrationScanReport = {
     schemaVersion: 1,
     sourceBundleSha256,
     sourceCreatedAt: bundle.createdAt,
@@ -82,4 +87,9 @@ export function scanLegacyRecoveryBundle(input: unknown): LegacyMigrationScanRep
     counts: { total: previews.length, directBind: count("DIRECT_BIND"), needsConfirmation: count("NEEDS_CONFIRMATION"), keepOrdinary: count("KEEP_ORDINARY"), structuralError: count("STRUCTURAL_ERROR") },
     previews,
   };
+  return { report, state: restored.state };
+}
+
+export function scanLegacyRecoveryBundle(input: unknown): LegacyMigrationScanReport {
+  return readLegacyRecoveryBundle(input).report;
 }

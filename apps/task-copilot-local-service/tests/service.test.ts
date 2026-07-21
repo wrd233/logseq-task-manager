@@ -9,7 +9,7 @@ import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persist
 import { exportRecoveryBundle } from "@task-copilot/persistence";
 import { createEmptyState } from "@task-copilot/application";
 import { checksum } from "@task-copilot/shared";
-import type { V2Proposal } from "@task-copilot/domain";
+import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
 import { LocalLlmProposalGenerator, type StructuredProposalProvider, type V2PromptBundle } from "../src/llm-proposal.ts";
@@ -68,13 +68,13 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   assert.deepEqual(await health.json(), {
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
-    capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
+    capabilities: { formalWrites: true, migration: true, provider: false, backup: true },
   });
   const status = await fetch(new URL("status", service.url), { headers });
   assert.deepEqual(await status.json(), {
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
-    capabilities: { formalWrites: true, migration: false, provider: false, backup: true },
+    capabilities: { formalWrites: true, migration: true, provider: false, backup: true },
     databaseSchemaVersion: V2_DATABASE_SCHEMA_VERSION,
     objectCount: 0,
   });
@@ -143,13 +143,13 @@ test("Local Service exports a read-only Project Context Package without Graph sc
   await assert.rejects(() => client.exportContext("object", "missing"), /Context 根对象不存在/);
 });
 
-test("Local Service migration scan validates an explicit Recovery Bundle and leaves capability and Store unchanged", async (t) => {
+test("Local Service migration scan validates an explicit Recovery Bundle and leaves Store unchanged", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-migration-scan-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-migration-scan", token: "migration-scan-service-token-24-chars" });
   t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
   const client = clientFor(service);
   const before = await client.status();
-  assert.equal(before.capabilities.migration, false, "scan-only foundation does not advertise commit/undo capability");
+  assert.equal(before.capabilities.migration, true, "complete migration routes advertise the bounded capability");
   const report = await client.scanLegacyMigration(exportRecoveryBundle(createEmptyState(), new Date("2026-07-21T09:00:00.000Z")));
   assert.equal(report.status, "SCANNED");
   assert.equal(report.zeroFormalWrites, true);
@@ -160,6 +160,38 @@ test("Local Service migration scan validates an explicit Recovery Bundle and lea
     (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "MIGRATION_BUNDLE_SHAPE_INVALID",
   );
   assert.deepEqual(await client.status(), before, "malformed scan input is also zero-write");
+});
+
+test("Local Service completes reviewed migration through validated backup, import, verify, undo, retry, and activate", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-migration-run-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), backupRoot: join(root, "backups"), graphId: "graph-migration-run", token: "migration-run-service-token-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const legacy = createManagedObject({ objectId: "legacy-service-task", objectType: "TASK", text: "迁移服务闭环" }, new Date("2026-07-20T08:00:00.000Z"));
+  const state = { ...createEmptyState(), objects: [{ ...legacy, phase: "ACTIVE" as const, condition: { kind: "ACTIONABLE" as const } }] };
+  const bundle = exportRecoveryBundle(state, new Date("2026-07-21T08:00:00.000Z"));
+  const scanned = await client.scanLegacyMigration(bundle);
+  const previewed = await client.previewLegacyMigration(bundle, [{ legacyObjectId: "legacy-service-task", action: "IMPORT" }]);
+  assert.equal(previewed.run.summary.import, 1);
+  assert.equal((await client.getMigrationRun(previewed.run.runId)).evidence[0]?.targetObjectId, undefined);
+  const snapshot = await client.createBackup();
+  const imported = await client.importLegacyMigration(previewed.run.runId, {
+    bundle, backupId: snapshot.backupId, objectIds: ["legacy-service-task"], idempotencyKey: "service-batch-1", confirmation: "IMPORT_REVIEWED_V1_BATCH",
+  });
+  assert.equal(imported.batch.status, "IMPORTED");
+  assert.equal((await client.importLegacyMigration(previewed.run.runId, {
+    bundle, backupId: snapshot.backupId, objectIds: ["legacy-service-task"], idempotencyKey: "service-batch-1", confirmation: "IMPORT_REVIEWED_V1_BATCH",
+  })).replayed, true);
+  assert.equal((await client.verifyLegacyMigrationBatch(previewed.run.runId, imported.batch.batchId)).status, "VERIFIED");
+  assert.equal((await client.undoLegacyMigrationBatch(previewed.run.runId, imported.batch.batchId, "UNDO_MIGRATION_BATCH")).status, "UNDONE");
+  assert.equal(await client.getObject("legacy-service-task"), undefined);
+  const retried = await client.importLegacyMigration(previewed.run.runId, {
+    bundle, backupId: snapshot.backupId, objectIds: ["legacy-service-task"], idempotencyKey: "service-batch-2", confirmation: "IMPORT_REVIEWED_V1_BATCH",
+  });
+  await client.verifyLegacyMigrationBatch(previewed.run.runId, retried.batch.batchId);
+  assert.equal((await client.activateLegacyMigration(previewed.run.runId, "ACTIVATE_V2_SQLITE")).status, "ACTIVATED");
+  assert.equal((await client.getObject("legacy-service-task"))?.text, "迁移服务闭环");
+  assert.equal(scanned.sourceBundleSha256, previewed.run.sourceBundleSha256);
 });
 
 test("Proposal validation, review, and scope revalidation never masquerade as a formal object write", async (t) => {

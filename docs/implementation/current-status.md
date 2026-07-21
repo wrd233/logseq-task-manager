@@ -38,7 +38,7 @@ V2_MIGRATION_DESIGN_READY
 - SQLite schema 升至 v3；`initialize` 不静默升级，v1/v2→v3 需显式恢复点，在单一事务写 DDL/ledger/metadata/user_version，注入失败后零半写且可重试。
 - Plugin 已接入版本化 Service Client。Desktop 0.10.15 实测 iframe 不暴露 Electron Node reader，现由 Service 将 0600 descriptor 写入 Task Copilot 私有 FileStorage，Plugin 设置只保存受限文件名 key 并通过 Logseq bridge 临时读取；该文件不含领域状态、不恢复 V1 写入、不构成 SQLite 双写。兼容 Node reader 保留；任何发现失败均进入脱敏 RESTRICTED 状态。
 - descriptor 未配置时，Plugin 在创建 Logseq Adapter/FileStorage 前停止，欢迎页只提供“开始使用 / 迁移现有内容 / 检查系统状态”；无扫描、迁移或模型调用的自动分支证据已建立。
-- SQLite 离线 Restore 原语已通过：候选 Backup 与当前库恢复点均先做只读校验，同目录原子激活后再 Doctor；注入失败会回滚原库并保留恢复点。该原语尚未开放 HTTP/CLI/Plugin 入口。
+- SQLite 离线 Restore 原语已通过：候选 Backup 与当前库恢复点均先做只读校验，同目录原子激活后再 Doctor；注入失败会回滚原库并保留恢复点。Service/CLI 已要求固定确认并在切换后停止服务；Plugin 入口仍待 Gate。
 - SQLite schema 升至 v5：v3 建立受约束 `semantic_commits` / `semantic_commit_steps`，v4 新增 `proposals` / `proposal_groups`，v5 只解除 immutable Audit 对当前 Object 投影的外键依赖，使严格 Undo 可删除当前 Object/Anchor 而保留历史 object_id；所有旧版本必须经显式快照迁移，无静默升级。
 - step ledger 最小状态机已通过：PENDING + PREPARED 原子准备、幂等重放、非法跳步拒绝、全 VERIFIED 后才能 COMPLETED、未补偿 step 不得标记 FAILED，RECOVERY_REQUIRED 可重启查询并补偿收口。
 - Service Restore Apply 已通过：固定确认短语、服务端 Backup ID、恢复点、关闭 live Store、原子切换、Doctor、descriptor 删除和 Service 停止；无确认不产生变化。
@@ -47,7 +47,7 @@ V2_MIGRATION_DESIGN_READY
 - CLI Proposal 纵向入口已复用同一 Local Service：`proposal list/show/validate/submit` 支持固定 JSON envelope 与退出码，外部文件限制为 1 MiB UTF-8 JSON；validate 零持久化，submit 只进入 Plugin 共用审阅队列并显式返回 `formalWritesExecuted: false`，不存在 `proposal apply/commit`。真实 Service 集成已证明提交后 Proposal=1、Object=0、SemanticCommit=0；Context Package/export 与 Desktop 外部 Agent Gate 尚未完成。
 - 外部 Agent Skill 第一版已版本化：`task-copilot-core` 固定 scope/事实分层/Proposal-only/submit≠commit 边界，`design-project` 覆盖 Project 设计、重入、分组与 Closure；两者经 Skill 结构校验、SHA-256 标识并随 Service 构建复制。Local Service `GET /skills[/{name}]` 与 CLI `skill list/show` 返回同一只读资产，读取后 Object 仍为 0；没有新增表或可编辑副本，Context Package 复用同一资产。
 - Context Package 已开放不依赖 Graph 扫描的 object/project 范围：Local Service 从 SQLite 导出最多 256 个正式对象及 Primary Anchor/Ownership、Decision/Output 子集、显式 modify targets、DB/Domain/Skill 版本、完整 Skill 和逐文件 SHA-256；正式事实与空检索候选分开，Graph excerpt/用户语义/写作配置未具备时明确标记而不伪造。CLI 先验证文件集/bytes/hash，创建 0700/0600 新目录并最后写 manifest，已有目录、路径穿越或 hash 不匹配均拒绝并清理新产物。导出前后 Service 状态一致，无新表/扫描器/权威副本；block/page 仍需未来受控 Logseq 读取桥接。
-- V1→V2 迁移已具备 Scan → 人工逐项审阅 → ≤50 项 Application batch → SQLite 原子导入 → Verify → 精确 Undo → Activate 自动内核：纯 Domain 覆盖全部旧 Phase/Condition/Signal，ACTIVE 不自动 Focus，结构冲突拒绝导入，非直接或人工改映射必须记录审阅说明；批次只物化既定 Object/Anchor/Ownership，不复制正文到迁移账本。幂等重放、重复目标、约束失败、写锁、重启续读、导入后变化拒绝 Undo、Undo 后重试和单一 Activation 均有自动测试。HTTP/CLI 与 Desktop copied-data 入口尚未接入，因此 `capabilities.migration=false`。
+- V1→V2 迁移已具备 Scan → 人工逐项审阅 → 服务端快照校验 → ≤50 项 batch → SQLite 原子导入 → Verify → 精确 Undo → Activate 的 Service/CLI 纵向闭环：纯 Domain 覆盖全部旧 Phase/Condition/Signal，ACTIVE 不自动 Focus，结构冲突拒绝导入，非直接或人工改映射必须记录审阅说明；批次只物化既定 Object/Anchor/Ownership，不复制正文到迁移账本。真实 Local Service 与 CLI 集成已证明 Backup、Preview、Import、幂等、Verify、Undo、重试和 Activate，缺确认在加载 Service 前停止；`capabilities.migration=true`。Desktop copied-data、Plugin Settings 与中断进程 Gate 尚未完成。
 - SQLite schema v7 只包含设计中明确要求的 `migration_runs` / `migration_batches` / `legacy_evidence`，用于 E2E-14 的 run 状态、≤50 项幂等批次/Undo 校验和和旧标识映射依据，不存当前对象副本。`task-copilot-service migrate-schema` 必须显式给出 DB、Graph 和不存在的 Backup 路径，不启动 HTTP/Provider/descriptor；已用真实 v6 库证明 0600 快照、v6→v7、Service 重启与 CLI Doctor schema 7 PASS。迁移批次沿用单一 Application Command 与 SQLite 事务，不扩展 SemanticCommit、不新增补漏器或第二恢复路径。
 - Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。
 - Slice B3 Marker 自动合同已贯通 Parser → Plugin 有界队列 → Service → Application → Domain → SQLite：简单 Task DONE 改为 `COMPLETED`；CANCELED/CANCELLED 在记录取消原因前零写入；TODO/NOW/DOING/WAITING 不改 Condition/Focus；MiniProject/Project 关闭要求审阅；Decision/Output 不用 Marker 改 Lifecycle；语义冲突不断开健康 transport。Desktop Marker 形态与 Undo/复杂关闭审阅待验收。
@@ -78,7 +78,7 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-21 `./scripts/check.sh` PASS，314 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-21 `./scripts/check.sh` PASS，317 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；

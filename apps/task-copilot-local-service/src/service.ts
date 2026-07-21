@@ -3,8 +3,8 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2ProposalApplication, planAcceptedV2Formalization, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
-import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type V2Condition, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { V2Application, V2MigrationApplication, V2ProposalApplication, planAcceptedV2Formalization, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Condition, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
@@ -19,13 +19,13 @@ import { StructuredError, checksum, createId, stableJson } from "@task-copilot/s
 import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
-import { scanLegacyRecoveryBundle } from "./migration-scan.ts";
+import { readLegacyRecoveryBundle, scanLegacyRecoveryBundle } from "./migration-scan.ts";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
 export const LOCAL_SERVICE_CAPABILITIES = {
   formalWrites: true,
-  migration: false,
+  migration: true,
   provider: false,
   backup: true,
 } satisfies ServiceCapabilities;
@@ -78,6 +78,18 @@ async function readBody(request: IncomingMessage, maximumBytes = maximumRequestB
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString("utf8");
+}
+
+async function readMigrationJson(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const body = await readBody(request, 8 * 1024 * 1024);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "迁移请求必须是合法 JSON。"); }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw serviceError("MIGRATION_REQUEST_INVALID", "迁移请求必须是对象。");
+  return value as Record<string, unknown>;
+}
+
+function safeMigrationId(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value);
 }
 
 async function requireNoBody(request: IncomingMessage): Promise<void> {
@@ -490,15 +502,18 @@ function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH"];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
+    const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
+    const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
+    const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
+      : migrationInputError || proposalInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
         ? 400
-        : error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND"
+        : migrationNotFound || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND"
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
+          : migrationConflict || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -518,6 +533,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   let stopping = false;
   store.initialize(options.graphId);
   const application = new V2Application(store);
+  const migrationApplication = new V2MigrationApplication(store);
   const proposalApplication = new V2ProposalApplication(store);
   const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: options.proposalGenerator !== undefined };
   const comprehensiveDoctor = async (): Promise<ServiceDoctor> => {
@@ -635,6 +651,79 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const report = scanLegacyRecoveryBundle(bundle);
       if (stableJson(store.doctor()) !== stableJson(before)) throw serviceError("MIGRATION_SCAN_MUTATED_STORE", "迁移扫描意外改变了 SQLite；结果已拒绝。");
       respond(response, 200, { report });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/migration/preview") {
+      const input = await readMigrationJson(request);
+      if (Object.keys(input).sort().join(",") !== "bundle,decisions" || !Array.isArray(input.decisions)) throw serviceError("MIGRATION_REQUEST_INVALID", "Migration Preview 只接受 Recovery Bundle 与完整审阅决定。");
+      const { report } = readLegacyRecoveryBundle(input.bundle);
+      const result = await migrationApplication.reviewPreview({
+        sourceBundleSha256: report.sourceBundleSha256,
+        sourceCreatedAt: report.sourceCreatedAt,
+        previews: report.previews,
+        decisions: input.decisions as LegacyMigrationReviewDecision[],
+      });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    const migrationRunMatch = request.method === "GET" ? url.pathname.match(/^\/migration\/runs\/([^/]+)$/) : null;
+    if (migrationRunMatch?.[1]) {
+      const runId = decodeURIComponent(migrationRunMatch[1]);
+      const run = store.migrationRun(runId);
+      if (!run) throw serviceError("MIGRATION_RUN_NOT_FOUND", "找不到 Migration Run。");
+      respond(response, 200, { run, evidence: store.migrationEvidence(runId) });
+      return;
+    }
+    const migrationImportMatch = request.method === "POST" ? url.pathname.match(/^\/migration\/runs\/([^/]+)\/batches\/import$/) : null;
+    if (migrationImportMatch?.[1]) {
+      const runId = decodeURIComponent(migrationImportMatch[1]);
+      const input = await readMigrationJson(request);
+      if (Object.keys(input).sort().join(",") !== "backupId,bundle,confirmation,idempotencyKey,objectIds" || !backupIdPattern.test(String(input.backupId)) || input.confirmation !== "IMPORT_REVIEWED_V1_BATCH" || !safeMigrationId(input.idempotencyKey) || !Array.isArray(input.objectIds) || input.objectIds.some((id) => !safeMigrationId(id))) {
+        throw serviceError("MIGRATION_IMPORT_REQUEST_INVALID", "Migration Import 需要服务端 Backup ID、唯一对象范围、幂等键和精确确认。");
+      }
+      const validation = V2SqliteStore.validateBackup(join(backupRoot, `${String(input.backupId)}.db`), options.graphId);
+      if (validation.status !== "PASS") throw serviceError("V2_BACKUP_VALIDATION_FAILED", "Migration Import 前快照未通过校验。");
+      const { report, state } = readLegacyRecoveryBundle(input.bundle);
+      const objectIds = input.objectIds as string[];
+      const sources = objectIds.map((objectId) => {
+        const object = state.objects.find((candidate) => candidate.objectId === objectId);
+        if (!object) throw serviceError("MIGRATION_SOURCE_OBJECT_NOT_FOUND", `Recovery Bundle 不含对象 ${objectId}。`);
+        const ownership = state.relations.find((relation) => relation.status === "ACTIVE" && relation.relationType === "primary_ownership" && relation.fromObjectId === objectId);
+        return {
+          object: { objectId, text: object.text, createdAt: object.createdAt, updatedAt: object.updatedAt },
+          anchors: state.anchors.filter((anchor) => anchor.objectId === objectId).map((anchor) => ({
+            anchorId: anchor.anchorId, objectId, graphId: anchor.graphId, externalId: anchor.externalId,
+            role: anchor.role, status: anchor.status, contentHash: anchor.contentHash, lastSeenAt: anchor.lastSeenAt,
+          })),
+          ...(ownership ? { ownership: { childObjectId: objectId, ownerObjectId: ownership.toObjectId, assignedAt: ownership.createdAt } } : {}),
+        };
+      });
+      const result = await migrationApplication.importBatch({
+        runId, sourceBundleSha256: report.sourceBundleSha256, snapshotBackupId: String(input.backupId), objectIds, sources,
+        idempotencyKey: String(input.idempotencyKey), actor: "migration-cli", traceId: `migration:${String(input.idempotencyKey)}`,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    const migrationBatchActionMatch = request.method === "POST" ? url.pathname.match(/^\/migration\/runs\/([^/]+)\/batches\/([^/]+)\/(verify|undo)$/) : null;
+    if (migrationBatchActionMatch?.[1] && migrationBatchActionMatch[2] && migrationBatchActionMatch[3]) {
+      const runId = decodeURIComponent(migrationBatchActionMatch[1]);
+      const batchId = decodeURIComponent(migrationBatchActionMatch[2]);
+      if (migrationBatchActionMatch[3] === "verify") {
+        await requireNoBody(request);
+        respond(response, 200, { batch: await migrationApplication.verifyBatch(runId, batchId) });
+      } else {
+        const input = await readMigrationJson(request);
+        if (Object.keys(input).join(",") !== "confirmation" || input.confirmation !== "UNDO_MIGRATION_BATCH") throw serviceError("MIGRATION_UNDO_CONFIRMATION_REQUIRED", "Migration Undo 需要精确确认。");
+        respond(response, 200, { batch: await migrationApplication.undoBatch(runId, batchId, "UNDO_MIGRATION_BATCH") });
+      }
+      return;
+    }
+    const migrationActivateMatch = request.method === "POST" ? url.pathname.match(/^\/migration\/runs\/([^/]+)\/activate$/) : null;
+    if (migrationActivateMatch?.[1]) {
+      const input = await readMigrationJson(request);
+      if (Object.keys(input).join(",") !== "confirmation" || input.confirmation !== "ACTIVATE_V2_SQLITE") throw serviceError("MIGRATION_ACTIVATION_CONFIRMATION_REQUIRED", "Migration Activate 需要精确确认。");
+      respond(response, 200, { run: await migrationApplication.activate(decodeURIComponent(migrationActivateMatch[1]), "ACTIVATE_V2_SQLITE") });
       return;
     }
     const skillMatch = request.method === "GET" ? url.pathname.match(/^\/skills\/([^/]+)$/) : null;

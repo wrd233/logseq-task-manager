@@ -50,6 +50,8 @@ SCANNED → PREVIEWED → IMPORTING → VERIFIED → ACTIVATED
 
 中断后只从最后一个 VERIFIED batch 继续。重复执行同一批返回原结果，不制造重复对象、Anchor、Commit 或事件。
 
+当前 CLI 只经 Local Service 执行该状态机：`migration preview/show/import/verify/undo/activate`。Import 必须同时提供原 Recovery Bundle、服务端创建的 Backup ID、≤50 项 batch 文件及 `IMPORT_REVIEWED_V1_BATCH`；Undo 与 Activate 分别要求 `UNDO_MIGRATION_BATCH`、`ACTIVATE_V2_SQLITE`。缺少精确确认时 CLI 在加载 Service 前停止。
+
 ## 4. SQLite 目标边界
 
 首版核心表职责：
@@ -87,4 +89,3 @@ SCANNED → PREVIEWED → IMPORTING → VERIFIED → ACTIVATED
 - activation 前后可证明只有一个当前状态源；
 - 临时恢复演练和 Doctor 通过；
 - Desktop copied-data 迁移验收通过后才允许正式 Graph 迁移。
-

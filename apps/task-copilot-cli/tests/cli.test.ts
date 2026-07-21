@@ -25,6 +25,8 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
     files: { proposalMd: "# Proposal", proposalJson: "{}" },
     updatedAt: "2026-07-21T08:00:00.000Z",
   };
+  const migrationRun = { runId: "migration-run:test", sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "PREVIEWED" as const, summary: { total: 1, import: 1, keepOrdinary: 0, defer: 0, exclude: 0 }, createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z" };
+  const migrationBatch = { batchId: "migration-batch:test", runId: migrationRun.runId, idempotencyKey: "test", sourceHash: "b".repeat(64), status: "IMPORTED" as const, objectIds: ["legacy-1"], importedCount: 1, createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z" };
   return {
     service: {
       status: async () => status,
@@ -45,6 +47,12 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
         },
       }),
       scanLegacyMigration: async () => ({ schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 1, directBind: 0, needsConfirmation: 1, keepOrdinary: 0, structuralError: 0 }, previews: [] }),
+      previewLegacyMigration: async () => ({ run: migrationRun, replayed: false }),
+      getMigrationRun: async () => ({ run: migrationRun, evidence: [] }),
+      importLegacyMigration: async () => ({ batch: migrationBatch, replayed: false }),
+      verifyLegacyMigrationBatch: async () => ({ ...migrationBatch, status: "VERIFIED", validation: { status: "PASS", objectCount: 1, checksum: "12345678" } }),
+      undoLegacyMigrationBatch: async () => ({ ...migrationBatch, status: "UNDONE" }),
+      activateLegacyMigration: async () => ({ ...migrationRun, status: "ACTIVATED" }),
       createBackup: async () => ({ backupId: "backup_20260720130000000_00000000000000000000000000000000", createdAt: "2026-07-20T13:00:00.000Z", validation: doctor }),
       validateBackup: async (backupId) => ({ backupId, validation: doctor }),
       restoreBackup: async (backupId) => ({ status: "RESTORED_SERVICE_STOPPING", backupId, recoveryBackupId: "backup_20260720130100000_11111111111111111111111111111111", validation: doctor }),
@@ -228,7 +236,7 @@ test("CLI context export requires a matching bounded scope and delegates verifie
   assert.equal(await runCli(["context", "export", "--scope", "page", "--out", "/tmp/context-3"], dependencies, value.io), 2);
 });
 
-test("CLI migration scan is explicit, read-only, and never exposes commit or activate", async () => {
+test("CLI migration scan is explicit and migration writes require exact preflight confirmations", async () => {
   const value = fixture();
   let received: unknown;
   value.service.scanLegacyMigration = async (bundle) => {
@@ -240,6 +248,25 @@ test("CLI migration scan is explicit, read-only, and never exposes commit or act
   assert.deepEqual(received, { bundleVersion: 1 });
   const output = JSON.parse(value.stdout.at(-1) ?? "") as { data: { report: { zeroFormalWrites: boolean } } };
   assert.equal(output.data.report.zeroFormalWrites, true);
-  assert.equal(await runCli(["migration", "commit", "run-1"], dependencies, value.io), 2);
-  assert.equal(await runCli(["migration", "activate", "run-1"], dependencies, value.io), 2);
+  let loads = 0;
+  const guarded = { ...dependencies, loadService: async () => { loads += 1; return value.service; } };
+  assert.equal(await runCli(["migration", "import", "run-1"], guarded, value.io), 2);
+  assert.equal(await runCli(["migration", "undo", "run-1", "--batch", "batch-1"], guarded, value.io), 2);
+  assert.equal(await runCli(["migration", "activate", "run-1"], guarded, value.io), 2);
+  assert.equal(loads, 0);
+});
+
+test("CLI drives reviewed migration preview, import, verify, undo, and activate through Local Service", async () => {
+  const value = fixture();
+  const dependencies = {
+    descriptorPath: "/runtime/service.json",
+    loadService: async () => value.service,
+    loadMigrationBundle: async (path: string) => path.includes("decisions") ? [{ legacyObjectId: "legacy-1", action: "IMPORT" }] : path.includes("batch") ? { objectIds: ["legacy-1"], idempotencyKey: "batch-1" } : { bundleVersion: 1 },
+  };
+  assert.equal(await runCli(["migration", "preview", "bundle.json", "--decisions", "decisions.json"], dependencies, value.io), 0);
+  assert.equal(await runCli(["migration", "show", "migration-run:test"], dependencies, value.io), 0);
+  assert.equal(await runCli(["migration", "import", "migration-run:test", "--bundle", "bundle.json", "--batch", "batch.json", "--backup", "backup_20260720130000000_00000000000000000000000000000000", "--confirm", "IMPORT_REVIEWED_V1_BATCH"], dependencies, value.io), 0);
+  assert.equal(await runCli(["migration", "verify", "migration-run:test", "--batch", "migration-batch:test"], dependencies, value.io), 0);
+  assert.equal(await runCli(["migration", "undo", "migration-run:test", "--batch", "migration-batch:test", "--confirm", "UNDO_MIGRATION_BATCH"], dependencies, value.io), 0);
+  assert.equal(await runCli(["migration", "activate", "migration-run:test", "--confirm", "ACTIVATE_V2_SQLITE"], dependencies, value.io), 0);
 });

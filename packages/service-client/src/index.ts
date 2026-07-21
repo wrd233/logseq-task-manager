@@ -1,4 +1,4 @@
-import type { V2Anchor, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { LegacyMigrationReviewDecision, V2Anchor, V2Condition, V2ExecutionMarker, V2ManagedObject, V2ObjectType, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -117,6 +117,25 @@ export interface ServiceLegacyMigrationScanReport {
   zeroFormalWrites: true;
   counts: { total: number; directBind: number; needsConfirmation: number; keepOrdinary: number; structuralError: number };
   previews: ServiceLegacyMigrationPreview[];
+}
+
+export interface ServiceMigrationRun {
+  runId: string; sourceBundleSha256: string; sourceCreatedAt: string;
+  status: "PREVIEWED" | "IMPORTING" | "VERIFIED" | "ACTIVATED" | "FAILED" | "CANCELLED";
+  summary: { total: number; import: number; keepOrdinary: number; defer: number; exclude: number };
+  snapshotBackupId?: string; createdAt: string; updatedAt: string;
+}
+
+export interface ServiceMigrationBatch {
+  batchId: string; runId: string; idempotencyKey: string; sourceHash: string;
+  status: "PREPARED" | "IMPORTED" | "VERIFIED" | "UNDONE" | "FAILED";
+  objectIds: string[]; importedCount: number; validation?: { status: "PASS"; objectCount: number; checksum: string };
+  createdAt: string; updatedAt: string;
+}
+
+export interface ServiceMigrationRunDetails {
+  run: ServiceMigrationRun;
+  evidence: Array<{ legacyObjectId: string; decision: LegacyMigrationReviewDecision; targetObjectId?: string; [key: string]: unknown }>;
 }
 
 export interface ServicePromptLayer {
@@ -555,6 +574,38 @@ export class LocalServiceClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(bundle),
     }).then(({ report }) => report);
+  }
+
+  previewLegacyMigration(bundle: unknown, decisions: LegacyMigrationReviewDecision[]): Promise<{ run: ServiceMigrationRun; replayed: boolean }> {
+    return this.request<{ run: ServiceMigrationRun; replayed: boolean }>("/migration/preview", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ bundle, decisions }),
+    });
+  }
+
+  getMigrationRun(runId: string): Promise<ServiceMigrationRunDetails> {
+    return this.request<ServiceMigrationRunDetails>(`/migration/runs/${encodeURIComponent(runId)}`);
+  }
+
+  importLegacyMigration(runId: string, input: { bundle: unknown; backupId: string; objectIds: string[]; idempotencyKey: string; confirmation: "IMPORT_REVIEWED_V1_BATCH" }): Promise<{ batch: ServiceMigrationBatch; replayed: boolean }> {
+    return this.request<{ batch: ServiceMigrationBatch; replayed: boolean }>(`/migration/runs/${encodeURIComponent(runId)}/batches/import`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    });
+  }
+
+  verifyLegacyMigrationBatch(runId: string, batchId: string): Promise<ServiceMigrationBatch> {
+    return this.request<{ batch: ServiceMigrationBatch }>(`/migration/runs/${encodeURIComponent(runId)}/batches/${encodeURIComponent(batchId)}/verify`, { method: "POST" }).then(({ batch }) => batch);
+  }
+
+  undoLegacyMigrationBatch(runId: string, batchId: string, confirmation: "UNDO_MIGRATION_BATCH"): Promise<ServiceMigrationBatch> {
+    return this.request<{ batch: ServiceMigrationBatch }>(`/migration/runs/${encodeURIComponent(runId)}/batches/${encodeURIComponent(batchId)}/undo`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirmation }),
+    }).then(({ batch }) => batch);
+  }
+
+  activateLegacyMigration(runId: string, confirmation: "ACTIVATE_V2_SQLITE"): Promise<ServiceMigrationRun> {
+    return this.request<{ run: ServiceMigrationRun }>(`/migration/runs/${encodeURIComponent(runId)}/activate`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirmation }),
+    }).then(({ run }) => run);
   }
 
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {

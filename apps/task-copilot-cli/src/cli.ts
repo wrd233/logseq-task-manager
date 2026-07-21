@@ -1,5 +1,5 @@
-import type { V2ManagedObject } from "@task-copilot/domain";
-import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceLegacyMigrationScanReport, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { LegacyMigrationReviewDecision, V2ManagedObject } from "@task-copilot/domain";
+import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceLegacyMigrationScanReport, ServiceMigrationBatch, ServiceMigrationRun, ServiceMigrationRunDetails, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
 export interface CliService {
@@ -15,6 +15,12 @@ export interface CliService {
   getSkill(name: string): Promise<ServiceSkillDocument | undefined>;
   exportContext(scope: "object" | "project", id: string): Promise<ServiceContextExportResult>;
   scanLegacyMigration(bundle: unknown): Promise<ServiceLegacyMigrationScanReport>;
+  previewLegacyMigration(bundle: unknown, decisions: LegacyMigrationReviewDecision[]): Promise<{ run: ServiceMigrationRun; replayed: boolean }>;
+  getMigrationRun(runId: string): Promise<ServiceMigrationRunDetails>;
+  importLegacyMigration(runId: string, input: { bundle: unknown; backupId: string; objectIds: string[]; idempotencyKey: string; confirmation: "IMPORT_REVIEWED_V1_BATCH" }): Promise<{ batch: ServiceMigrationBatch; replayed: boolean }>;
+  verifyLegacyMigrationBatch(runId: string, batchId: string): Promise<ServiceMigrationBatch>;
+  undoLegacyMigrationBatch(runId: string, batchId: string, confirmation: "UNDO_MIGRATION_BATCH"): Promise<ServiceMigrationBatch>;
+  activateLegacyMigration(runId: string, confirmation: "ACTIVATE_V2_SQLITE"): Promise<ServiceMigrationRun>;
   createBackup(): Promise<ServiceBackupCreated>;
   validateBackup(backupId: string): Promise<ServiceBackupValidation>;
   restoreBackup(backupId: string, confirmation: "RESTORE_AND_STOP_SERVICE"): Promise<ServiceBackupRestored>;
@@ -50,6 +56,12 @@ Usage:
   tc [--service-descriptor <path>] [--json] context export --scope object --object <object_id> --out <directory>
   tc [--service-descriptor <path>] [--json] context export --scope project --project <project_id> --out <directory>
   tc [--service-descriptor <path>] [--json] migration scan <v1-recovery-bundle.json>
+  tc [--service-descriptor <path>] [--json] migration preview <v1-recovery-bundle.json> --decisions <decisions.json>
+  tc [--service-descriptor <path>] [--json] migration show <run_id>
+  tc [--service-descriptor <path>] [--json] migration import <run_id> --bundle <bundle.json> --batch <batch.json> --backup <backup_id> --confirm IMPORT_REVIEWED_V1_BATCH
+  tc [--service-descriptor <path>] [--json] migration verify <run_id> --batch <batch_id>
+  tc [--service-descriptor <path>] [--json] migration undo <run_id> --batch <batch_id> --confirm UNDO_MIGRATION_BATCH
+  tc [--service-descriptor <path>] [--json] migration activate <run_id> --confirm ACTIVATE_V2_SQLITE
   tc [--service-descriptor <path>] [--json] backup create
   tc [--service-descriptor <path>] [--json] backup validate <backup_id>
   tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm RESTORE_AND_STOP_SERVICE
@@ -61,7 +73,7 @@ function emit(io: CliIo, json: boolean, value: unknown, plain: string): void {
   io.stdout(json ? JSON.stringify({ schema_version: 1, data: value }) : plain);
 }
 
-function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextObjectId?: string; contextProjectId?: string; outPath?: string; exportPath?: string } {
+function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextObjectId?: string; contextProjectId?: string; outPath?: string; exportPath?: string; decisionsPath?: string; bundlePath?: string; batchValue?: string; backupId?: string } {
   const command: string[] = [];
   let json = false;
   let descriptorPath: string | undefined;
@@ -71,6 +83,10 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
   let contextProjectId: string | undefined;
   let outPath: string | undefined;
   let exportPath: string | undefined;
+  let decisionsPath: string | undefined;
+  let bundlePath: string | undefined;
+  let batchValue: string | undefined;
+  let backupId: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const value = args[index];
     if (value === "--json") json = true;
@@ -82,18 +98,22 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
       confirmation = args[index + 1];
       if (!confirmation) throw new Error("--confirm requires the exact confirmation phrase");
       index += 1;
-    } else if (["--scope", "--object", "--project", "--out", "--export"].includes(value ?? "")) {
+    } else if (["--scope", "--object", "--project", "--out", "--export", "--decisions", "--bundle", "--batch", "--backup"].includes(value ?? "")) {
       const optionValue = args[index + 1];
       if (!optionValue) throw new Error(`${value} requires a value`);
       if (value === "--scope") scope = optionValue;
       else if (value === "--object") contextObjectId = optionValue;
       else if (value === "--project") contextProjectId = optionValue;
       else if (value === "--out") outPath = optionValue;
-      else exportPath = optionValue;
+      else if (value === "--export") exportPath = optionValue;
+      else if (value === "--decisions") decisionsPath = optionValue;
+      else if (value === "--bundle") bundlePath = optionValue;
+      else if (value === "--batch") batchValue = optionValue;
+      else backupId = optionValue;
       index += 1;
     } else if (value) command.push(value);
   }
-  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(outPath ? { outPath } : {}), ...(exportPath ? { exportPath } : {}) };
+  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(outPath ? { outPath } : {}), ...(exportPath ? { exportPath } : {}), ...(decisionsPath ? { decisionsPath } : {}), ...(bundlePath ? { bundlePath } : {}), ...(batchValue ? { batchValue } : {}), ...(backupId ? { backupId } : {}) };
 }
 
 function errorExit(error: unknown): number {
@@ -127,6 +147,11 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
   }
   if (root === "backup" && action === "restore" && target && parsed.confirmation !== "RESTORE_AND_STOP_SERVICE") {
     io.stderr("Restore requires --confirm RESTORE_AND_STOP_SERVICE. No request was sent.");
+    return 2;
+  }
+  const migrationConfirmation = action === "import" ? "IMPORT_REVIEWED_V1_BATCH" : action === "undo" ? "UNDO_MIGRATION_BATCH" : action === "activate" ? "ACTIVATE_V2_SQLITE" : undefined;
+  if (root === "migration" && migrationConfirmation && parsed.confirmation !== migrationConfirmation) {
+    io.stderr(`Migration ${action} requires --confirm ${migrationConfirmation}. No request was sent.`);
     return 2;
   }
 
@@ -239,6 +264,45 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
       }
       const report = await service.scanLegacyMigration(bundle);
       emit(io, parsed.json, { report }, `${report.status}\n${report.sourceBundleSha256}\n${report.counts.total} records · ${report.counts.directBind} direct · ${report.counts.needsConfirmation} review · ${report.counts.structuralError} errors\nNo formal state was written.`);
+      return 0;
+    }
+    if (root === "migration" && action === "preview" && target && parsed.decisionsPath && dependencies.loadMigrationBundle) {
+      try {
+        const [bundle, decisionsValue] = await Promise.all([dependencies.loadMigrationBundle(target), dependencies.loadMigrationBundle(parsed.decisionsPath)]);
+        if (!Array.isArray(decisionsValue)) throw new Error("Migration decisions must be a JSON array.");
+        const result = await service.previewLegacyMigration(bundle, decisionsValue as LegacyMigrationReviewDecision[]);
+        emit(io, parsed.json, result, `${result.run.runId}\n${result.run.status} · ${result.run.summary.import} import · ${result.run.summary.defer} defer${result.replayed ? " · replayed" : ""}`);
+        return 0;
+      } catch (error) { io.stderr(error instanceof Error ? error.message : String(error)); return 2; }
+    }
+    if (root === "migration" && action === "show" && target) {
+      const details = await service.getMigrationRun(target);
+      emit(io, parsed.json, details, `${details.run.runId}\n${details.run.status} · ${details.run.summary.total} reviewed\n${details.evidence.filter(({ targetObjectId }) => targetObjectId).length} imported`);
+      return 0;
+    }
+    if (root === "migration" && action === "import" && target && parsed.bundlePath && parsed.batchValue && parsed.backupId && dependencies.loadMigrationBundle) {
+      let bundle: unknown; let batch: unknown;
+      try { [bundle, batch] = await Promise.all([dependencies.loadMigrationBundle(parsed.bundlePath), dependencies.loadMigrationBundle(parsed.batchValue)]); }
+      catch (error) { io.stderr(error instanceof Error ? error.message : String(error)); return 2; }
+      const record = batch && typeof batch === "object" && !Array.isArray(batch) ? batch as Record<string, unknown> : {};
+      if (!Array.isArray(record.objectIds) || record.objectIds.some((id) => typeof id !== "string") || typeof record.idempotencyKey !== "string") { io.stderr("Migration batch file must contain objectIds and idempotencyKey."); return 2; }
+      const result = await service.importLegacyMigration(target, { bundle, backupId: parsed.backupId, objectIds: record.objectIds as string[], idempotencyKey: record.idempotencyKey, confirmation: "IMPORT_REVIEWED_V1_BATCH" });
+      emit(io, parsed.json, result, `${result.batch.batchId}\n${result.batch.status} · ${result.batch.importedCount} objects${result.replayed ? " · replayed" : ""}`);
+      return 0;
+    }
+    if (root === "migration" && action === "verify" && target && parsed.batchValue) {
+      const batch = await service.verifyLegacyMigrationBatch(target, parsed.batchValue);
+      emit(io, parsed.json, { batch }, `${batch.batchId}\n${batch.status} · ${batch.validation?.checksum ?? "no checksum"}`);
+      return 0;
+    }
+    if (root === "migration" && action === "undo" && target && parsed.batchValue) {
+      const batch = await service.undoLegacyMigrationBatch(target, parsed.batchValue, "UNDO_MIGRATION_BATCH");
+      emit(io, parsed.json, { batch }, `${batch.batchId}\n${batch.status}`);
+      return 0;
+    }
+    if (root === "migration" && action === "activate" && target) {
+      const run = await service.activateLegacyMigration(target, "ACTIVATE_V2_SQLITE");
+      emit(io, parsed.json, { run }, `${run.runId}\n${run.status}`);
       return 0;
     }
     if (root === "backup" && action === "create" && !target && !parsed.confirmation) {
