@@ -16,6 +16,11 @@ import type {
   V2MaterializationCommand,
   V2MaterializationUndoCommand,
   V2MaterializationUndoResult,
+  V2LegacyMigrationEvidence,
+  V2MigrationBatch,
+  V2MigrationBatchCommand,
+  V2MigrationPreviewCommand,
+  V2MigrationRun,
   V2ProjectCreationCommand,
   V2ObjectCommand,
   V2ObjectCommandResult,
@@ -24,7 +29,7 @@ import type {
   V2SynchronizationCommand,
 } from "@task-copilot/application";
 import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
-import { StructuredError, stableJson } from "@task-copilot/shared";
+import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
 export const V2_DATABASE_SCHEMA_VERSION = 7;
 
@@ -1131,6 +1136,277 @@ export class V2SqliteStore {
       return { ...result, replayed: false };
     });
     return this.executeWrite(write);
+  }
+
+  createMigrationPreview(command: V2MigrationPreviewCommand): { run: V2MigrationRun; replayed: boolean } {
+    const write = this.database.transaction(() => {
+      const existing = this.migrationRun(command.run.runId);
+      if (existing) {
+        const currentEvidence = this.migrationEvidence(command.run.runId);
+        const same = existing.sourceBundleSha256 === command.run.sourceBundleSha256
+          && existing.sourceCreatedAt === command.run.sourceCreatedAt
+          && stableJson(existing.summary) === stableJson(command.run.summary)
+          && stableJson(currentEvidence.map((value) => ({
+            runId: value.runId,
+            legacyObjectId: value.legacyObjectId,
+            sourceHash: value.sourceHash,
+            preview: value.preview,
+            decision: value.decision,
+          }))) === stableJson(command.evidence);
+        if (!same) throw persistenceError("MIGRATION_PREVIEW_REPLAY_CONFLICT", "同一 Migration Run 已存在不同的审阅结果；没有覆盖原记录。");
+        return { run: existing, replayed: true };
+      }
+      this.database.prepare(`
+        INSERT INTO migration_runs(run_id, source_bundle_sha256, source_created_at, status, summary_json, created_at, updated_at)
+        VALUES (?, ?, ?, 'PREVIEWED', ?, ?, ?)
+      `).run(command.run.runId, command.run.sourceBundleSha256, command.run.sourceCreatedAt, stableJson(command.run.summary), command.run.createdAt, command.run.updatedAt);
+      const insertEvidence = this.database.prepare(`
+        INSERT INTO legacy_evidence(run_id, legacy_object_id, source_hash, mapping_json)
+        VALUES (?, ?, ?, ?)
+      `);
+      for (const evidence of command.evidence) {
+        if (evidence.runId !== command.run.runId || evidence.sourceHash !== command.run.sourceBundleSha256) {
+          throw persistenceError("MIGRATION_PREVIEW_EVIDENCE_INVALID", "Migration evidence 与 Run 身份不一致。");
+        }
+        insertEvidence.run(evidence.runId, evidence.legacyObjectId, evidence.sourceHash, stableJson({ preview: evidence.preview, decision: evidence.decision }));
+      }
+      return { run: command.run, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  migrationRun(runId: string): V2MigrationRun | undefined {
+    const row = this.database.prepare(`
+      SELECT run_id, source_bundle_sha256, source_created_at, status, summary_json, snapshot_backup_id, created_at, updated_at
+      FROM migration_runs WHERE run_id = ?
+    `).get(runId) as {
+      run_id: string; source_bundle_sha256: string; source_created_at: string; status: V2MigrationRun["status"];
+      summary_json: string; snapshot_backup_id: string | null; created_at: string; updated_at: string;
+    } | undefined;
+    if (!row) return undefined;
+    return {
+      runId: row.run_id,
+      sourceBundleSha256: row.source_bundle_sha256,
+      sourceCreatedAt: row.source_created_at,
+      status: row.status,
+      summary: JSON.parse(row.summary_json) as V2MigrationRun["summary"],
+      ...(row.snapshot_backup_id ? { snapshotBackupId: row.snapshot_backup_id } : {}),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  migrationEvidence(runId: string): V2LegacyMigrationEvidence[] {
+    const rows = this.database.prepare(`
+      SELECT run_id, legacy_object_id, source_hash, mapping_json, target_object_id
+      FROM legacy_evidence WHERE run_id = ? ORDER BY legacy_object_id
+    `).all(runId) as Array<{ run_id: string; legacy_object_id: string; source_hash: string; mapping_json: string; target_object_id: string | null }>;
+    return rows.map((row) => {
+      const mapping = JSON.parse(row.mapping_json) as Pick<V2LegacyMigrationEvidence, "preview" | "decision">;
+      return {
+        runId: row.run_id,
+        legacyObjectId: row.legacy_object_id,
+        sourceHash: row.source_hash,
+        preview: mapping.preview,
+        decision: mapping.decision,
+        ...(row.target_object_id ? { targetObjectId: row.target_object_id } : {}),
+      };
+    });
+  }
+
+  migrationBatch(runId: string, batchId: string): V2MigrationBatch | undefined {
+    const row = this.database.prepare(`
+      SELECT batch_id, run_id, idempotency_key, source_hash, status, scope_json, imported_count,
+             validation_json, inverse_json, created_at, updated_at
+      FROM migration_batches WHERE run_id = ? AND batch_id = ?
+    `).get(runId, batchId) as {
+      batch_id: string; run_id: string; idempotency_key: string; source_hash: string; status: V2MigrationBatch["status"];
+      scope_json: string; imported_count: number; validation_json: string | null; inverse_json: string | null; created_at: string; updated_at: string;
+    } | undefined;
+    if (!row) return undefined;
+    return {
+      batchId: row.batch_id,
+      runId: row.run_id,
+      idempotencyKey: row.idempotency_key,
+      sourceHash: row.source_hash,
+      status: row.status,
+      objectIds: JSON.parse(row.scope_json) as string[],
+      importedCount: row.imported_count,
+      ...(row.validation_json ? { validation: JSON.parse(row.validation_json) as NonNullable<V2MigrationBatch["validation"]> } : {}),
+      ...(row.inverse_json ? { inverse: JSON.parse(row.inverse_json) as NonNullable<V2MigrationBatch["inverse"]> } : {}),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  commitMigrationBatch(command: V2MigrationBatchCommand): { batch: V2MigrationBatch; replayed: boolean } {
+    const commandChecksum = checksum({
+      runId: command.batch.runId,
+      idempotencyKey: command.batch.idempotencyKey,
+      sourceHash: command.batch.sourceHash,
+      snapshotBackupId: command.snapshotBackupId,
+      objectIds: command.batch.objectIds,
+      objects: command.objects,
+      anchors: command.anchors,
+      ownerships: command.ownerships,
+      actor: command.actor,
+      traceId: command.traceId,
+    });
+    const write = this.database.transaction(() => {
+      const replay = this.database.prepare("SELECT run_id, batch_id FROM migration_batches WHERE idempotency_key = ? OR batch_id = ?").get(command.batch.idempotencyKey, command.batch.batchId) as { run_id: string; batch_id: string } | undefined;
+      if (replay) {
+        const existing = this.migrationBatch(replay.run_id, replay.batch_id)!;
+        if (existing.runId !== command.batch.runId || existing.inverse?.commandChecksum !== commandChecksum) {
+          throw persistenceError("MIGRATION_BATCH_REPLAY_CONFLICT", "Migration batch 的幂等键已绑定不同内容；没有重复写入。");
+        }
+        return { batch: existing, replayed: true };
+      }
+      const run = this.migrationRun(command.batch.runId);
+      if (!run || run.sourceBundleSha256 !== command.batch.sourceHash || !["PREVIEWED", "IMPORTING"].includes(run.status)) {
+        throw persistenceError("MIGRATION_RUN_NOT_IMPORTABLE", "Migration Run 不存在、源已变化或当前状态不可导入。");
+      }
+      if (run.snapshotBackupId && run.snapshotBackupId !== command.snapshotBackupId) {
+        throw persistenceError("MIGRATION_SNAPSHOT_CHANGED", "同一 Migration Run 不能更换导入前快照。");
+      }
+      if (command.objects.length < 1 || command.objects.length > 50 || command.objects.length !== command.batch.objectIds.length) {
+        throw persistenceError("MIGRATION_BATCH_SCOPE_INVALID", "Migration batch 必须包含 1 到 50 个完整对象。");
+      }
+      const scope = new Set(command.batch.objectIds);
+      if (scope.size !== command.batch.objectIds.length || command.objects.some((object) => !scope.has(object.objectId)) || command.anchors.some((anchor) => !scope.has(anchor.objectId)) || command.ownerships.some((ownership) => !scope.has(ownership.childObjectId))) {
+        throw persistenceError("MIGRATION_BATCH_SCOPE_MISMATCH", "Migration batch 的对象、Anchor 或 Ownership 超出审阅范围。");
+      }
+      for (const objectId of scope) {
+        if (this.getObject(objectId)) throw persistenceError("MIGRATION_TARGET_ALREADY_EXISTS", `Migration target ${objectId} 已存在；没有覆盖。`);
+        const evidence = this.database.prepare("SELECT target_object_id, mapping_json FROM legacy_evidence WHERE run_id = ? AND legacy_object_id = ? AND source_hash = ?").get(command.batch.runId, objectId, command.batch.sourceHash) as { target_object_id: string | null; mapping_json: string } | undefined;
+        const action = evidence ? (JSON.parse(evidence.mapping_json) as { decision?: { action?: string } }).decision?.action : undefined;
+        if (!evidence || evidence.target_object_id || action !== "IMPORT") throw persistenceError("MIGRATION_EVIDENCE_NOT_IMPORTABLE", `Migration evidence ${objectId} 未审阅、已导入或源不一致。`);
+      }
+      this.database.prepare(`
+        INSERT INTO migration_batches(batch_id, run_id, idempotency_key, source_hash, status, scope_json, imported_count, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'PREPARED', ?, 0, ?, ?)
+      `).run(command.batch.batchId, command.batch.runId, command.batch.idempotencyKey, command.batch.sourceHash, stableJson(command.batch.objectIds), command.batch.createdAt, command.batch.updatedAt);
+      for (const object of command.objects) this.writeObject(object);
+      const insertAnchor = this.database.prepare(`
+        INSERT INTO anchors(anchor_id, object_id, role, graph_id, external_id, status, content_hash, last_seen_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const anchor of command.anchors) insertAnchor.run(anchor.anchorId, anchor.objectId, anchor.role, anchor.graphId, anchor.externalId, anchor.status, anchor.contentHash, anchor.lastSeenAt);
+      const insertOwnership = this.database.prepare("INSERT INTO primary_ownerships(child_object_id, owner_object_id, assigned_at) VALUES (?, ?, ?)");
+      for (const ownership of command.ownerships) insertOwnership.run(ownership.childObjectId, ownership.ownerObjectId, ownership.assignedAt);
+      const audit = this.database.prepare(`
+        INSERT INTO audit_events(trace_id, actor, command_name, object_id, before_version, after_version, occurred_at)
+        VALUES (?, ?, 'migrate_v1_object', ?, 0, ?, ?)
+      `);
+      for (const object of command.objects) {
+        audit.run(command.traceId, command.actor, object.objectId, object.version, command.batch.updatedAt);
+        this.database.prepare("UPDATE legacy_evidence SET target_object_id = ? WHERE run_id = ? AND legacy_object_id = ? AND target_object_id IS NULL").run(object.objectId, command.batch.runId, object.objectId);
+      }
+      const inverse = { commandChecksum, objects: command.batch.objectIds.map((objectId) => ({ objectId, checksum: this.migrationProjectionChecksum(objectId) })) };
+      this.database.prepare(`
+        UPDATE migration_batches SET status = 'IMPORTED', imported_count = ?, inverse_json = ?, updated_at = ? WHERE batch_id = ?
+      `).run(command.objects.length, stableJson(inverse), command.batch.updatedAt, command.batch.batchId);
+      this.database.prepare("UPDATE migration_runs SET status = 'IMPORTING', snapshot_backup_id = coalesce(snapshot_backup_id, ?), updated_at = ? WHERE run_id = ?").run(command.snapshotBackupId, command.batch.updatedAt, command.batch.runId);
+      return { batch: this.migrationBatch(command.batch.runId, command.batch.batchId)!, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  verifyMigrationBatch(runId: string, batchId: string, at: string): V2MigrationBatch {
+    const write = this.database.transaction(() => {
+      const batch = this.migrationBatch(runId, batchId);
+      if (!batch) throw persistenceError("MIGRATION_BATCH_NOT_FOUND", "找不到 Migration batch。");
+      if (batch.status === "VERIFIED") return batch;
+      if (batch.status !== "IMPORTED" || !batch.inverse) throw persistenceError("MIGRATION_BATCH_NOT_VERIFIABLE", "只有已导入且保留逆向证据的 Migration batch 可以验证。");
+      const current = batch.inverse.objects.map(({ objectId, checksum: expected }) => {
+        const actual = this.migrationProjectionChecksum(objectId);
+        if (actual !== expected) throw persistenceError("MIGRATION_BATCH_VERIFICATION_FAILED", `Migration target ${objectId} 已变化或不完整。`);
+        return { objectId, checksum: actual };
+      });
+      const validation = { status: "PASS" as const, objectCount: current.length, checksum: checksum(current) };
+      this.database.prepare("UPDATE migration_batches SET status = 'VERIFIED', validation_json = ?, updated_at = ? WHERE batch_id = ?").run(stableJson(validation), at, batchId);
+      const pendingImports = this.database.prepare(`
+        SELECT count(*) AS count FROM legacy_evidence
+        WHERE run_id = ? AND json_extract(mapping_json, '$.decision.action') = 'IMPORT' AND target_object_id IS NULL
+      `).pluck().get(runId) as number;
+      const unverifiedBatches = this.database.prepare("SELECT count(*) AS count FROM migration_batches WHERE run_id = ? AND status IN ('PREPARED','IMPORTED','FAILED')").pluck().get(runId) as number;
+      if (pendingImports === 0 && unverifiedBatches === 0) this.database.prepare("UPDATE migration_runs SET status = 'VERIFIED', updated_at = ? WHERE run_id = ?").run(at, runId);
+      return this.migrationBatch(runId, batchId)!;
+    });
+    return this.executeWrite(write);
+  }
+
+  undoMigrationBatch(runId: string, batchId: string, at: string): V2MigrationBatch {
+    const write = this.database.transaction(() => {
+      const run = this.migrationRun(runId);
+      const batch = this.migrationBatch(runId, batchId);
+      if (!run || !batch) throw persistenceError("MIGRATION_BATCH_NOT_FOUND", "找不到 Migration batch。");
+      if (run.status === "ACTIVATED") throw persistenceError("MIGRATION_RUN_ALREADY_ACTIVATED", "V2 已激活；不能用批次 Undo 回到迁移前状态。");
+      if (batch.status === "UNDONE") return batch;
+      if (batch.status !== "VERIFIED" || !batch.inverse) throw persistenceError("MIGRATION_BATCH_NOT_UNDOABLE", "只有已验证且未激活的 Migration batch 可以 Undo。");
+      for (const expected of batch.inverse.objects) {
+        if (this.migrationProjectionChecksum(expected.objectId) !== expected.checksum) throw persistenceError("MIGRATION_UNDO_TARGET_CHANGED", `Migration target ${expected.objectId} 已在导入后变化；拒绝静默删除。`);
+      }
+      const placeholders = batch.objectIds.map(() => "?").join(",");
+      const externalDependents = this.database.prepare(`
+        SELECT count(*) AS count FROM primary_ownerships
+        WHERE owner_object_id IN (${placeholders}) AND child_object_id NOT IN (${placeholders})
+      `).pluck().get(...batch.objectIds, ...batch.objectIds) as number;
+      if (externalDependents > 0) throw persistenceError("MIGRATION_UNDO_DEPENDENCY_EXISTS", "其他对象已归属于本批对象；拒绝删除仍被引用的 Owner。");
+      this.database.prepare(`DELETE FROM primary_ownerships WHERE child_object_id IN (${placeholders})`).run(...batch.objectIds);
+      this.database.prepare(`DELETE FROM focus_selections WHERE object_id IN (${placeholders})`).run(...batch.objectIds);
+      this.database.prepare(`DELETE FROM anchors WHERE object_id IN (${placeholders})`).run(...batch.objectIds);
+      const audit = this.database.prepare(`
+        INSERT INTO audit_events(trace_id, actor, command_name, object_id, before_version, after_version, occurred_at)
+        VALUES (?, 'migration-cli', 'undo_v1_migration', ?, ?, 0, ?)
+      `);
+      for (const objectId of batch.objectIds) {
+        const object = this.getObject(objectId)!;
+        audit.run(`migration-undo:${batchId}`, objectId, object.version, at);
+      }
+      this.database.prepare(`DELETE FROM objects WHERE object_id IN (${placeholders})`).run(...batch.objectIds);
+      this.database.prepare(`UPDATE legacy_evidence SET target_object_id = NULL WHERE run_id = ? AND legacy_object_id IN (${placeholders})`).run(runId, ...batch.objectIds);
+      this.database.prepare("UPDATE migration_batches SET status = 'UNDONE', updated_at = ? WHERE batch_id = ?").run(at, batchId);
+      const remaining = this.database.prepare("SELECT count(*) AS count FROM legacy_evidence WHERE run_id = ? AND target_object_id IS NOT NULL").pluck().get(runId) as number;
+      this.database.prepare("UPDATE migration_runs SET status = ?, updated_at = ? WHERE run_id = ?").run(remaining > 0 ? "IMPORTING" : "PREVIEWED", at, runId);
+      return this.migrationBatch(runId, batchId)!;
+    });
+    return this.executeWrite(write);
+  }
+
+  activateMigrationRun(runId: string, at: string): V2MigrationRun {
+    const write = this.database.transaction(() => {
+      const run = this.migrationRun(runId);
+      if (!run) throw persistenceError("MIGRATION_RUN_NOT_FOUND", "找不到 Migration Run。");
+      if (run.status === "ACTIVATED") return run;
+      if (run.status !== "VERIFIED") throw persistenceError("MIGRATION_RUN_NOT_VERIFIED", "Migration Run 尚未完成全部导入与验证。");
+      const another = this.database.prepare("SELECT run_id FROM migration_runs WHERE status = 'ACTIVATED' AND run_id <> ?").pluck().get(runId) as string | undefined;
+      if (another) throw persistenceError("MIGRATION_ACTIVATION_ALREADY_EXISTS", "另一个 Migration Run 已激活；拒绝形成第二权威。");
+      const incomplete = this.database.prepare(`
+        SELECT count(*) AS count FROM legacy_evidence
+        WHERE run_id = ? AND json_extract(mapping_json, '$.decision.action') = 'IMPORT' AND target_object_id IS NULL
+      `).pluck().get(runId) as number;
+      const invalidBatches = this.database.prepare("SELECT count(*) AS count FROM migration_batches WHERE run_id = ? AND status IN ('PREPARED','IMPORTED','FAILED')").pluck().get(runId) as number;
+      if (incomplete > 0 || invalidBatches > 0) throw persistenceError("MIGRATION_ACTIVATION_INCOMPLETE", "Migration Run 仍有未导入对象或未验证批次。");
+      this.database.prepare("UPDATE migration_runs SET status = 'ACTIVATED', updated_at = ? WHERE run_id = ?").run(at, runId);
+      return this.migrationRun(runId)!;
+    });
+    return this.executeWrite(write);
+  }
+
+  private migrationProjectionChecksum(objectId: string): string {
+    const object = this.getObject(objectId);
+    if (!object) return checksum({ objectId, missing: true });
+    const anchors = this.database.prepare(`
+      SELECT anchor_id AS anchorId, object_id AS objectId, graph_id AS graphId, external_id AS externalId,
+             role, status, content_hash AS contentHash, last_seen_at AS lastSeenAt
+      FROM anchors WHERE object_id = ? ORDER BY anchor_id
+    `).all(objectId);
+    const ownership = this.database.prepare(`
+      SELECT child_object_id AS childObjectId, owner_object_id AS ownerObjectId, assigned_at AS assignedAt
+      FROM primary_ownerships WHERE child_object_id = ?
+    `).get(objectId) ?? null;
+    const focus = this.database.prepare("SELECT object_id AS objectId, selected_at AS selectedAt, rank, expires_at AS expiresAt FROM focus_selections WHERE object_id = ?").get(objectId) ?? null;
+    return checksum({ object, anchors, ownership, focus });
   }
 
   private executeWrite<T>(operation: () => T): T {

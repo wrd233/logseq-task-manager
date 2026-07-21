@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { previewLegacyStateMigration, type AttentionSignal, type ExecutionCondition, type Phase } from "../src/index.ts";
+import { materializeReviewedLegacyObject, previewLegacyStateMigration, resolveLegacyMigrationDecision, type AttentionSignal, type ExecutionCondition, type Phase } from "../src/index.ts";
 
 const hash = "a".repeat(64);
 const base = { legacyObjectId: "legacy-1", sourceBundleSha256: hash, objectType: "TASK" as const, signals: [] as AttentionSignal[], evidenceRefs: ["object:legacy-1"] };
@@ -50,4 +50,21 @@ test("non-V2 legacy object types remain ordinary and conflicts never become dire
   assert.equal(conflict.classification, "STRUCTURAL_ERROR");
   assert.deepEqual(conflict.decision, "PENDING_REVIEW");
   assert.equal(conflict.rollbackRef, null);
+});
+
+test("reviewed migration decisions require explicit resolution without inventing Focus", () => {
+  const direct = previewLegacyStateMigration({ ...base, phase: "ACTIVE", condition: { kind: "ACTIONABLE" } });
+  const imported = materializeReviewedLegacyObject(direct, resolveLegacyMigrationDecision(direct, { legacyObjectId: "legacy-1", action: "IMPORT" }), {
+    text: "核对迁移", createdAt: "2026-07-20T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z",
+  });
+  assert.equal(imported.objectId, "legacy-1");
+  assert.equal(imported.lifecycle, "OPEN");
+  assert.equal(imported.condition.kind, "ACTIONABLE");
+  assert.equal("focus" in imported, false);
+
+  const uncertain = previewLegacyStateMigration({ ...base, phase: "ACTIVE", condition: { kind: "NONE" } });
+  assert.throws(() => resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "IMPORT" }), /explicitly resolve/);
+  assert.equal(resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "IMPORT", objectType: "TASK", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, reviewNote: "已人工确认下一步" }).action, "IMPORT");
+  const conflict = previewLegacyStateMigration({ ...base, phase: "ACTIVE", condition: { kind: "ACTIONABLE" }, stateConflict: "conflict" });
+  assert.throws(() => resolveLegacyMigrationDecision(conflict, { legacyObjectId: "legacy-1", action: "IMPORT", reviewNote: "ignore" }), /source before import/);
 });

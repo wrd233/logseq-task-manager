@@ -6,3 +6,4 @@ export * from "./views.ts";
 export * from "./v2.ts";
 export * from "./v2-proposal.ts";
 export * from "./v2-now-work.ts";
+export * from "./v2-migration.ts";

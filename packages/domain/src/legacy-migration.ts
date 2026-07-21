@@ -1,5 +1,7 @@
 import type { AttentionSignal, ExecutionCondition, ObjectType, Phase } from "./index.ts";
-import type { Lifecycle, V2Condition, V2ObjectType } from "./v2.ts";
+import { StructuredError } from "@task-copilot/shared";
+
+import { createV2ManagedObject, validateV2Condition, type Lifecycle, type V2Condition, type V2ManagedObject, type V2ObjectType } from "./v2.ts";
 
 const v2Types = new Set<V2ObjectType>(["AREA", "PROJECT", "MINI_PROJECT", "TASK", "DECISION", "OUTPUT"]);
 const progressPhases = new Set<Phase>(["CLARIFY", "READY", "ACTIVE", "CLOSING", "DEFINING", "IDEA", "PLANNED", "DORMANT", "RETIRED"]);
@@ -36,6 +38,56 @@ export interface LegacyMigrationPreview {
   conflicts: string[];
   decision: "PENDING_REVIEW";
   rollbackRef: null;
+}
+
+export type LegacyMigrationReviewDecision =
+  | { legacyObjectId: string; action: "IMPORT"; objectType?: V2ObjectType; lifecycle?: Lifecycle; condition?: V2Condition; reviewNote?: string }
+  | { legacyObjectId: string; action: "KEEP_ORDINARY" | "DEFER" | "EXCLUDE"; reviewNote?: string };
+
+export interface ResolvedLegacyMigrationDecision {
+  legacyObjectId: string;
+  action: LegacyMigrationReviewDecision["action"];
+  objectType?: V2ObjectType;
+  lifecycle?: Lifecycle;
+  condition?: V2Condition;
+  reviewNote?: string;
+}
+
+function migrationDecisionError(code: string, message: string): StructuredError {
+  return new StructuredError({ code, message, ruleRefs: ["D-189", "D-190", "D-193", "D-208"] });
+}
+
+export function resolveLegacyMigrationDecision(preview: LegacyMigrationPreview, decision: LegacyMigrationReviewDecision): ResolvedLegacyMigrationDecision {
+  if (decision.legacyObjectId !== preview.legacyObjectId) throw migrationDecisionError("MIGRATION_DECISION_IDENTITY_MISMATCH", "Migration decision identity does not match its preview.");
+  const reviewNote = decision.reviewNote?.trim();
+  if (decision.action !== "IMPORT") return { legacyObjectId: decision.legacyObjectId, action: decision.action, ...(reviewNote ? { reviewNote } : {}) };
+  if (preview.classification === "STRUCTURAL_ERROR") throw migrationDecisionError("MIGRATION_STRUCTURAL_CONFLICT", "Structural migration conflicts must be resolved at the source before import.");
+  const objectType = decision.objectType ?? preview.suggestedObjectType;
+  const lifecycle = decision.lifecycle ?? preview.suggestedLifecycle;
+  const condition = decision.condition ?? preview.suggestedCondition;
+  if (!objectType || !lifecycle || !condition) throw migrationDecisionError("MIGRATION_MAPPING_INCOMPLETE", "Import decisions must explicitly resolve Object Type, Lifecycle, and Condition.");
+  const adjusted = objectType !== preview.suggestedObjectType || lifecycle !== preview.suggestedLifecycle || JSON.stringify(condition) !== JSON.stringify(preview.suggestedCondition);
+  if ((preview.classification !== "DIRECT_BIND" || adjusted) && !reviewNote) throw migrationDecisionError("MIGRATION_REVIEW_NOTE_REQUIRED", "Non-direct or adjusted migration decisions require a review note.");
+  return { legacyObjectId: decision.legacyObjectId, action: "IMPORT", objectType, lifecycle, condition: validateV2Condition(condition), ...(reviewNote ? { reviewNote } : {}) };
+}
+
+export function materializeReviewedLegacyObject(
+  preview: LegacyMigrationPreview,
+  resolved: ResolvedLegacyMigrationDecision,
+  source: { text: string; createdAt: string; updatedAt: string },
+): V2ManagedObject {
+  if (resolved.legacyObjectId !== preview.legacyObjectId) throw migrationDecisionError("MIGRATION_DECISION_IDENTITY_MISMATCH", "Migration decision identity does not match its preview.");
+  if (resolved.action !== "IMPORT" || !resolved.objectType || !resolved.lifecycle || !resolved.condition) throw migrationDecisionError("MIGRATION_DECISION_NOT_IMPORTABLE", "Only reviewed IMPORT decisions materialize V2 objects.");
+  const createdAt = new Date(source.createdAt);
+  if (!Number.isFinite(createdAt.getTime()) || !Number.isFinite(Date.parse(source.updatedAt))) throw migrationDecisionError("MIGRATION_SOURCE_TIMESTAMP_INVALID", "Legacy object timestamps are invalid.");
+  const created = createV2ManagedObject({
+    objectId: preview.legacyObjectId,
+    objectType: resolved.objectType,
+    text: source.text,
+    condition: resolved.condition,
+    sourceOrCreationEvent: `v1_migration:${preview.sourceBundleSha256}:${preview.legacyObjectId}`,
+  }, createdAt);
+  return { ...created, lifecycle: resolved.lifecycle, updatedAt: source.updatedAt };
 }
 
 function conditionPreview(condition: ExecutionCondition, reasons: string[], loss: string[], conflicts: string[]): V2Condition | undefined {
