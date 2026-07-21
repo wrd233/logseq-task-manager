@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2ProjectClosure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
+import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "普通正文";
@@ -103,6 +103,19 @@ test("accepted Project Closure plan couples structured Closure and COMPLETED lif
   const split = structuredClone(accepted);
   split.groups[0]!.semanticOperations.pop();
   assert.throws(() => planAcceptedV2ProjectClosure(split), /Closure 和 COMPLETED/);
+});
+
+test("accepted Ownership plan requires one versioned HIGH operation and explicit current-owner evidence", () => {
+  const accepted: V2Proposal = { ...proposal(), proposalId: "prop-owner", status: "ACCEPTED", scope: { read: [{ kind: "OBJECT", id: "area-owner", version: 3 }], modify: [{ kind: "OBJECT", id: "task-child", version: 2 }] }, groups: [{ groupId: "change-owner", explanation: "独立审阅主归属。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "owner", kind: "CHANGE_OWNERSHIP", target: { kind: "OBJECT", id: "task-child", version: 2 }, summary: "改归属", payload: { ownerObjectId: "area-owner", expectedCurrentOwnerId: "project-old" }, preconditions: [] }], disposition: "ACCEPTED" }] };
+  assert.deepEqual(planAcceptedV2OwnershipChange(accepted), { proposalId: "prop-owner", groupId: "change-owner", childObjectId: "task-child", ownerObjectId: "area-owner", expectedVersion: 2, expectedCurrentOwnerId: "project-old" });
+  const unsafe = structuredClone(accepted); unsafe.groups[0]!.risk = "MEDIUM";
+  assert.throws(() => planAcceptedV2OwnershipChange(unsafe), /不能降级风险/);
+  const missingOwnerEvidence = structuredClone(accepted); missingOwnerEvidence.scope.read = [];
+  assert.throws(() => planAcceptedV2OwnershipChange(missingOwnerEvidence), /read scope/);
+  const unversionedOwner = structuredClone(accepted); delete unversionedOwner.scope.read[0]!.version;
+  assert.throws(() => planAcceptedV2OwnershipChange(unversionedOwner), /read scope/);
+  const invalidOwner = structuredClone(accepted); invalidOwner.groups[0]!.semanticOperations[0]!.payload.ownerObjectId = " ";
+  assert.throws(() => planAcceptedV2OwnershipChange(invalidOwner), /read scope/);
 });
 
 test("Proposal Application records applied and compensated terminal states with review concurrency", async () => {

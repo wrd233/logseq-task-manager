@@ -46,6 +46,10 @@ export interface V2ProjectClosurePlan {
   closure: V2ProjectClosure;
 }
 
+export interface V2OwnershipChangePlan {
+  proposalId: string; groupId: string; childObjectId: string; ownerObjectId: string; expectedVersion: number; expectedCurrentOwnerId?: string;
+}
+
 function proposalApplicationError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-094", "D-185"] });
 }
@@ -97,6 +101,22 @@ export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClo
   const closure = update.payload.closure;
   if (!closure || typeof closure !== "object" || Array.isArray(closure)) throw proposalApplicationError("V2_PROJECT_CLOSURE_PAYLOAD_INVALID", "Project Closure payload 缺失。");
   return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: update.target.id, expectedVersion: update.target.version, closure: validateV2ProjectClosure(closure as unknown as V2ProjectClosure) };
+}
+
+export function planAcceptedV2OwnershipChange(proposal: V2Proposal): V2OwnershipChangePlan {
+  validateV2Proposal(proposal);
+  const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) throw proposalApplicationError("V2_OWNERSHIP_COMMIT_SHAPE_INVALID", "Primary Ownership 必须是唯一已接受的高影响语义组。");
+  const group = accepted[0]!;
+  const operations = group.semanticOperations.filter((operation) => operation.kind === "CHANGE_OWNERSHIP");
+  if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || operations.length !== 1) throw proposalApplicationError("V2_OWNERSHIP_COMMIT_OPERATION_INVALID", "Primary Ownership 变更必须由一个独立 HIGH 组表达。");
+  const operation = operations[0]!;
+  const ownerObjectId = typeof operation.payload.ownerObjectId === "string" ? operation.payload.ownerObjectId : "";
+  const expectedCurrentOwnerId = operation.payload.expectedCurrentOwnerId;
+  const controlledId = (value: string) => /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value);
+  const ownerEvidence = proposal.scope.read.filter((target) => target.kind === "OBJECT" && target.id === ownerObjectId && target.version !== undefined);
+  if (operation.target.kind !== "OBJECT" || operation.target.version === undefined || !controlledId(ownerObjectId) || ownerEvidence.length !== 1 || (expectedCurrentOwnerId !== undefined && (typeof expectedCurrentOwnerId !== "string" || !controlledId(expectedCurrentOwnerId)))) throw proposalApplicationError("V2_OWNERSHIP_COMMIT_TARGET_INVALID", "Primary Ownership 变更必须指向带版本 child，并在 read scope 中提供唯一带版本新 Owner 与合法当前 Owner 前置。");
+  return { proposalId: proposal.proposalId, groupId: group.groupId, childObjectId: operation.target.id, ownerObjectId, expectedVersion: operation.target.version, ...(typeof expectedCurrentOwnerId === "string" ? { expectedCurrentOwnerId } : {}) };
 }
 
 export class V2ProposalApplication {
