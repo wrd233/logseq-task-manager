@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "task-copilot-service": "dist/service.js"
+    "task-copilot-service": "dist/service.js",
+    "task-copilot-llm-live-smoke": "dist/llm-live-smoke.js"
   },
   "engines": {
     "node": ">=20.19 <21"
@@ -15,7 +16,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "test:llm-live": "tsx src/live-smoke.ts"
   },
   "dependencies": {
     "@task-copilot/application": "0.1.0",

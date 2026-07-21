@@ -41,6 +41,14 @@ export async function loadProposalGeneratorFromEnvironment(
   environment: NodeJS.ProcessEnv = process.env,
   resolver: ProviderSecretResolver = new RuntimeSecretResolver(environment),
 ): Promise<LocalLlmProposalGenerator | undefined> {
+  const provider = await loadStructuredProviderFromEnvironment(environment, resolver);
+  return provider ? new LocalLlmProposalGenerator(provider) : undefined;
+}
+
+export async function loadStructuredProviderFromEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+  resolver: ProviderSecretResolver = new RuntimeSecretResolver(environment),
+): Promise<DeepSeekStructuredProvider | undefined> {
   const provider = environment.TASK_COPILOT_LLM_PROVIDER?.trim();
   if (!provider) return undefined;
   if (provider !== "deepseek") throw new DeepSeekProviderError("LLM_PROVIDER_UNSUPPORTED", "Local Service 只接受已实现的 Provider 标识。");
@@ -57,5 +65,5 @@ export async function loadProposalGeneratorFromEnvironment(
     maxRetries: 1,
     retryBaseDelayMs: 250,
   }, resolver);
-  return new LocalLlmProposalGenerator(new DeepSeekStructuredProvider(config));
+  return new DeepSeekStructuredProvider(config);
 }

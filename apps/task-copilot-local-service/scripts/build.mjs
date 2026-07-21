@@ -5,12 +5,16 @@ import { build } from "esbuild";
 
 const root = resolve(import.meta.dirname, "..");
 const dist = resolve(root, "dist");
-const output = resolve(dist, "service.js");
+const serviceOutput = resolve(dist, "service.js");
+const liveSmokeOutput = resolve(dist, "llm-live-smoke.js");
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 await build({
-  entryPoints: [resolve(root, "src/main.ts")],
-  outfile: output,
+  entryPoints: {
+    service: resolve(root, "src/main.ts"),
+    "llm-live-smoke": resolve(root, "src/live-smoke.ts"),
+  },
+  outdir: dist,
   bundle: true,
   format: "esm",
   platform: "node",
@@ -21,4 +25,4 @@ await build({
   minify: false,
   legalComments: "none",
 });
-await chmod(output, 0o755);
+await Promise.all([chmod(serviceOutput, 0o755), chmod(liveSmokeOutput, 0o755)]);

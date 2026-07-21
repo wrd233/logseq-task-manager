@@ -21,6 +21,8 @@
 - 在线测试计划已限定请求数、超时、取消、重试和原始响应保留；
 - L1 Mock 已实现并通过：runtime secret reference、请求/Header/Base URL/Model、Structured Output、request/token/duration 元数据、timeout/cancel、有限 retry、401/403/404/429/5xx/network/空/非法/截断分类与脱敏；
 - 五层 Prompt → 机器 envelope/hash → Domain Validator → READY Proposal/`NO_PROPOSAL` → Local Service → Plugin Review Center 的自动纵向合同已通过；任何模型结果都不能直接写 Graph 或正式对象；
+- L2 可执行 smoke harness 已加入：默认不开网、退出码 2；显式开关后固定一个中文 Schema 请求，只输出 model/request_id/token/duration/attempt 与 `graphWrites/formalStoreWrites=0`，不保存原始响应；
+- DS-01..12 脱敏黄金案例 manifest 已固定并自动校验类别、顺序、非空断言和敏感模式；尚未在真实模型上运行；
 - L2 冒烟、12 个黄金案例与核心 5 案例稳定性 Gate 已定义但尚未重跑；
 - Slice D 继续保持未完成；HTTP 200 或 Mock 不能替代真实质量验收。
 
