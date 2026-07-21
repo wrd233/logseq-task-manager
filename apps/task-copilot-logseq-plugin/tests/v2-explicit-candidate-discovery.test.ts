@@ -9,6 +9,7 @@ import {
   persistV2ExplicitCandidateDiscovery,
   prepareV2ExplicitCandidateDiscovery,
   renderV2ExplicitCandidateDiscoveryPanel,
+  updateExistingObjectFromV2Candidate,
 } from "../src/v2-explicit-candidate-discovery.ts";
 
 const task = { uuid: "candidate-task", content: "[任务] DONE 核对候选", "updated-at": 101, children: [] };
@@ -102,6 +103,27 @@ test("Candidate formalization rereads source evidence and creates only one revie
   received = undefined;
   await formalizeV2Candidate(transport, candidate, async () => ({ ...formalTask, content: `${formalTask.content}\nid:: ${formalTask.uuid}`, "updated-at": 102, properties: { id: formalTask.uuid } }), "trace-identity-retry", async () => undefined);
   assert.ok(received, "an identity-only version change remains recoverable without forcing another page scan after a transient Service failure");
+});
+
+test("Candidate update rereads source and target, then creates only one existing-object Proposal request", async () => {
+  const sourceContent = "供应商补充：必须记录结论";
+  const targetContent = "[任务] 核对旧告警";
+  const candidate = { candidateId: "candidate:update", sourceAnchorId: "source-update", sourceVersion: `3:${checksum(sourceContent)}`, candidateKind: "UPDATE" as const, reason: "补充事实", suggestion: "更新已有对象", disposition: "PENDING" as const, lastAnalyzedAt: "2026-07-22T00:00:00.000Z", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:01:00.000Z" };
+  let request: unknown;
+  const transport = {
+    listObjects: async () => [{ objectId: "task-existing", objectType: "TASK" as const, lifecycle: "OPEN" as const, condition: { kind: "ACTIONABLE" as const }, version: 4, text: "核对旧告警", sourceOrCreationEvent: "test", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z" }],
+    listPrimaryAnchors: async () => ({ anchors: [{ anchorId: "anchor-existing", objectId: "task-existing", graphId: "graph", externalId: "target-update", role: "primary_text" as const, status: "active" as const, contentHash: checksum(targetContent), lastSeenAt: "2026-07-22T00:00:00.000Z" }] }),
+    updateCandidate: async (_candidateId: string, input: unknown) => { request = input; return { candidate: { ...candidate, activeProposalId: "proposal-update" }, record: { proposal: { proposalId: "proposal-update" }, files: {}, updatedAt: "now" }, replayed: false } as never; },
+  };
+  const blocks = new Map<string, unknown>([["source-update", { uuid: "source-update", content: sourceContent, "updated-at": 3 }], ["target-update", { uuid: "target-update", content: targetContent, "updated-at": 8 }]]);
+  await updateExistingObjectFromV2Candidate(transport, candidate, "task-existing", "[任务] 核对新告警并记录结论", async (id) => blocks.get(id), "trace-update");
+  assert.deepEqual(request, {
+    sourceAnchorId: "source-update", sourceInputVersion: "3", sourceContentHash: checksum(sourceContent), targetObjectId: "task-existing", targetExternalId: "target-update", targetInputVersion: "8", targetContentHash: checksum(targetContent), targetContent,
+    afterContent: "[任务] 核对新告警并记录结论", expectedUpdatedAt: candidate.updatedAt, traceId: "trace-update",
+  });
+  await assert.rejects(() => updateExistingObjectFromV2Candidate(transport, candidate, "task-existing", "[成果] 类型偷换", async (id) => blocks.get(id), "trace-wrong-type"), /显式类型/);
+  blocks.set("source-update", { uuid: "source-update", content: `${sourceContent} 已变化`, "updated-at": 4 });
+  await assert.rejects(() => updateExistingObjectFromV2Candidate(transport, candidate, "task-existing", "[任务] 最终正文", async (id) => blocks.get(id), "trace-stale"), /来源已变化/);
 });
 
 test("Candidate queue renders only the same bounded set whose source text was hydrated", () => {

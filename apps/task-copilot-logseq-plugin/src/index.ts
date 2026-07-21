@@ -56,6 +56,7 @@ import {
   formalizeV2Candidate,
   persistV2ExplicitCandidateDiscovery,
   prepareV2ExplicitCandidateDiscovery,
+  updateExistingObjectFromV2Candidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
@@ -611,6 +612,23 @@ async function handleAction(action: string, value?: string): Promise<void> {
       workspace = "review";
       reviewMode = "candidates";
     }, action === "v2-candidate-later" ? "Candidate 已安排 7 天后复查。" : action === "v2-candidate-dismiss" ? "Candidate 已保留为普通内容；没有正式写入。" : "偏好已保存；该来源的同类建议不会因普通编辑再次出现。");
+    return;
+  }
+  if (action === "v2-candidate-update" && value) return openActionDialog("v2-candidate-update", value);
+  if (action === "submit-v2-candidate-update" && value) {
+    const targetObjectId = dialogField("v2CandidateUpdateTarget");
+    const afterContent = dialogField("v2CandidateUpdateContent");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client || !targetObjectId || !afterContent) throw new Error("请选择目标对象并填写完整最终正文；没有生成 Proposal。");
+      const candidate = (await client.listCandidates()).find(({ candidateId }) => candidateId === value);
+      if (!candidate) throw new Error("Candidate 已变化或不存在；没有生成 Proposal。");
+      const result = await updateExistingObjectFromV2Candidate(client, candidate, targetObjectId, afterContent, (blockId) => logseq.Editor.getBlock(blockId, { includeChildren: false }), `v2-candidate-update-${Date.now()}-${globalThis.crypto.randomUUID()}`);
+      actionDialog = undefined;
+      workspace = "review";
+      reviewMode = "proposals";
+      message = `更新 Proposal ${result.record.proposal.proposalId} 已进入审阅队列；来源和目标正式对象尚未变化。`;
+    });
     return;
   }
   if (action === "v2-candidate-formalize" && value) {

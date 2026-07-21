@@ -4,7 +4,7 @@
 >
 > Logseq：Desktop 0.10.15
 >
-> 状态：`CREATE_CANDIDATE_DESKTOP_PASS / E2E-12_PARTIAL`。新建显式对象的四处置、Proposal、Review、Commit、Undo 与 reload 已通过；`UPDATE` Candidate 的“更新已有对象”专用 Proposal 仍未实现，因此 E2E-12 不升级为 DONE。
+> 状态：`CREATE_CANDIDATE_DESKTOP_PASS / UPDATE_CANDIDATE_AUTOMATED_FOUNDATION / E2E-12_PARTIAL`。新建显式对象的四处置、Proposal、Review、Commit、Undo 与 reload 已通过；UPDATE 的专用 Proposal/Commit/Undo 自动闭环已完成，真实 Desktop 尚未验收，因此 E2E-12 不升级为 DONE。
 
 ## 1. 隔离环境
 
@@ -73,4 +73,5 @@ Logseq 源文件保留自然正文和原生身份：
 - Candidate/Proposal 分离和 accepted-not-applied：PASS。
 - later / ordinary / stable same-recommendation suppression：PASS。
 - Commit / Undo / reload：PASS。
-- 仍未通过：`UPDATE` Candidate 必须在用户确认目标对象后生成“更新已有对象”的专用 Proposal；不能用 `object.text` 或直接 Graph 写入伪装完成。
+- UPDATE 自动基础已通过：用户明确选择现有 Block 对象并编辑完整最终正文；来源与目标重读后只生成单组 `REWRITE_BLOCK` Proposal，READY/ACCEPTED 零正式写入，最终复用既有 SemanticCommit 更新同一 object_id，Undo 恢复旧正文而不删除对象。没有新增表、状态机、Commit 类型或恢复器。
+- 仍未通过：UPDATE 的真实 Logseq Desktop 目标选择、Diff、Commit、Undo、reload 与 stale 反馈；不能把自动测试冒充 Desktop 证据。

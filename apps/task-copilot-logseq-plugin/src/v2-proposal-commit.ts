@@ -1,5 +1,5 @@
 import type { ServiceStoredProposal } from "@task-copilot/service-client";
-import { planAcceptedV2Formalization } from "@task-copilot/application";
+import { planAcceptedV2ProposalCommit } from "@task-copilot/application";
 import { stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { StructuredError, checksum } from "@task-copilot/shared";
 
@@ -32,8 +32,8 @@ export async function commitV2Formalization(
   record: ServiceStoredProposal,
   traceId: string,
 ): Promise<{ status: "COMPLETED" | "STALE" | "FAILED_COMPENSATED"; semanticCommitId?: string; objectId?: string }> {
-  const reviewedPlan = planAcceptedV2Formalization(record.proposal);
-  await host.ensurePersistentIdentity(reviewedPlan.patch.blockUuid);
+  const reviewedPlan = planAcceptedV2ProposalCommit(record.proposal);
+  if ("create" in reviewedPlan) await host.ensurePersistentIdentity(reviewedPlan.patch.blockUuid);
   const observations = await collectV2ProposalGraphObservations(record.proposal, host);
   const prepared = await client.prepareProposalCommit(record.proposal.proposalId, observations, record.updatedAt);
   if (prepared.status === "STALE") return { status: "STALE" };

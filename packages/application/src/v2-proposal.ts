@@ -38,6 +38,23 @@ export interface V2FormalizationPlan {
   };
 }
 
+export interface V2ObjectUpdatePlan {
+  proposalId: string;
+  groupId: string;
+  patch: V2Proposal["groups"][number]["textPatches"][number];
+  update: {
+    operationId: string;
+    objectId: string;
+    expectedVersion: number;
+    objectType: "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT";
+    beforeText: string;
+    text: string;
+    blockUuid: string;
+  };
+}
+
+export type V2ProposalCommitPlan = V2FormalizationPlan | V2ObjectUpdatePlan;
+
 export interface V2ProjectClosurePlan {
   proposalId: string;
   groupId: string;
@@ -81,6 +98,54 @@ export function planAcceptedV2Formalization(proposal: V2Proposal): V2Formalizati
     patch,
     create: { operationId: create.operationId, objectType: objectType as V2FormalizationPlan["create"]["objectType"], text, blockUuid: patch.blockUuid },
   };
+}
+
+export function planAcceptedV2ObjectUpdate(proposal: V2Proposal): V2ObjectUpdatePlan {
+  validateV2Proposal(proposal);
+  const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) {
+    throw proposalApplicationError("V2_OBJECT_UPDATE_COMMIT_SHAPE_UNSUPPORTED", "更新已有对象只支持一个已接受的语义组。");
+  }
+  const group = accepted[0]!;
+  const rewrites = group.semanticOperations.filter((operation) => operation.kind === "REWRITE_BLOCK");
+  if (group.textPatches.length !== 1 || group.semanticOperations.length !== 1 || rewrites.length !== 1) {
+    throw proposalApplicationError("V2_OBJECT_UPDATE_COMMIT_OPERATION_UNSUPPORTED", "更新已有对象必须只包含一个正文 Patch 和一个 REWRITE_BLOCK 操作。");
+  }
+  const patch = group.textPatches[0]!;
+  const rewrite = rewrites[0]!;
+  const objectId = typeof rewrite.payload.objectId === "string" ? rewrite.payload.objectId : "";
+  const objectType = rewrite.payload.objectType;
+  const beforeText = typeof rewrite.payload.beforeText === "string" ? rewrite.payload.beforeText.trim() : "";
+  const text = typeof rewrite.payload.text === "string" ? rewrite.payload.text.trim() : "";
+  const objectTargets = proposal.scope.modify.filter((target) => target.kind === "OBJECT" && target.id === objectId && target.version !== undefined);
+  if (rewrite.target.kind !== "BLOCK" || rewrite.target.id !== patch.blockUuid || objectTargets.length !== 1 || !objectId || !beforeText || !text) {
+    throw proposalApplicationError("V2_OBJECT_UPDATE_COMMIT_TARGET_INVALID", "更新已有对象必须绑定同一 Block、唯一带版本对象和明确最终正文。");
+  }
+  if (!["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"].includes(String(objectType))) {
+    throw proposalApplicationError("V2_OBJECT_UPDATE_COMMIT_TYPE_INVALID", "更新已有对象的对象类型不受 Block 工作流支持。");
+  }
+  return {
+    proposalId: proposal.proposalId,
+    groupId: group.groupId,
+    patch,
+    update: {
+      operationId: rewrite.operationId,
+      objectId,
+      expectedVersion: objectTargets[0]!.version!,
+      objectType: objectType as V2ObjectUpdatePlan["update"]["objectType"],
+      beforeText,
+      text,
+      blockUuid: patch.blockUuid,
+    },
+  };
+}
+
+export function planAcceptedV2ProposalCommit(proposal: V2Proposal): V2ProposalCommitPlan {
+  const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+  if (accepted.length === 1 && accepted[0]!.semanticOperations.some((operation) => operation.kind === "CREATE_OBJECT")) {
+    return planAcceptedV2Formalization(proposal);
+  }
+  return planAcceptedV2ObjectUpdate(proposal);
 }
 
 export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClosurePlan {

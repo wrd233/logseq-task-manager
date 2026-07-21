@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
+import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2ObjectUpdate, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "普通正文";
@@ -77,6 +77,26 @@ test("accepted formalization plan couples exactly one Graph patch to one Service
   unsupported.groups[0]!.risk = "HIGH";
   unsupported.groups[0]!.semanticOperations.push({ ...unsupported.groups[0]!.semanticOperations[0]!, operationId: "move", kind: "MOVE_BLOCK" });
   assert.throws(() => planAcceptedV2Formalization(unsupported), /尚不支持/);
+});
+
+test("accepted object update plan couples one reviewed Block rewrite to one versioned existing object", () => {
+  const beforeText = "[任务] 核对旧告警";
+  const afterText = "[任务] 核对新告警并记录结论";
+  const accepted: V2Proposal = {
+    proposalId: "prop-update-existing", schemaVersion: "v2", title: "更新已有任务", context: "Candidate 提供了补充信息。", understanding: "应合并到已有任务。", objective: "更新已有对象正文。", logic: "先审阅最终正文，再以同一 Commit 更新 Graph 与对象缓存。", finalPreview: afterText, unresolvedQuestions: [], source: { kind: "user" },
+    scope: { read: [{ kind: "BLOCK", id: "candidate-source", version: 3, hash: checksum("补充信息") }], modify: [{ kind: "BLOCK", id: "target-block", version: 8, hash: checksum(beforeText) }, { kind: "OBJECT", id: "task-existing", version: 4 }] }, preconditions: ["来源与目标均未变化"],
+    groups: [{ groupId: "update-existing", explanation: "Graph 正文与对象缓存不可拆分。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "target-block", beforeText, afterText, beforeHash: checksum(beforeText), afterHash: checksum(afterText) }], semanticOperations: [{ operationId: "rewrite-existing", kind: "REWRITE_BLOCK", target: { kind: "BLOCK", id: "target-block", version: 8, hash: checksum(beforeText) }, summary: "更新已有 Task 正文", payload: { objectId: "task-existing", objectType: "TASK", beforeText: "核对旧告警", text: "核对新告警并记录结论" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T12:00:00.000Z",
+  };
+  assert.deepEqual(planAcceptedV2ObjectUpdate(accepted), {
+    proposalId: "prop-update-existing", groupId: "update-existing", patch: accepted.groups[0]!.textPatches[0],
+    update: { operationId: "rewrite-existing", objectId: "task-existing", expectedVersion: 4, objectType: "TASK", beforeText: "核对旧告警", text: "核对新告警并记录结论", blockUuid: "target-block" },
+  });
+  const missingObjectScope = structuredClone(accepted); missingObjectScope.scope.modify.pop();
+  assert.throws(() => planAcceptedV2ObjectUpdate(missingObjectScope), /带版本对象/);
+  const typeChange = structuredClone(accepted); typeChange.groups[0]!.semanticOperations[0]!.payload.objectType = "PROJECT";
+  assert.throws(() => planAcceptedV2ObjectUpdate(typeChange), /对象类型/);
+  const extraOperation = structuredClone(accepted); extraOperation.groups[0]!.semanticOperations.push({ ...extraOperation.groups[0]!.semanticOperations[0]!, operationId: "extra" });
+  assert.throws(() => planAcceptedV2ObjectUpdate(extraOperation), /一个正文 Patch/);
 });
 
 test("accepted Project Closure plan couples structured Closure and COMPLETED lifecycle on one versioned Project", () => {

@@ -3,8 +3,9 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
@@ -186,6 +187,33 @@ async function readCandidateFormalizationRequest(request: IncomingMessage): Prom
     throw serviceError("V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "Candidate formalization 需要当前 Block 内容、版本、目标类型与审阅版本证据。");
   }
   return { sourceAnchorId: String(record.sourceAnchorId).trim(), inputVersion: String(record.inputVersion).trim(), contentHash: String(record.contentHash), content: String(record.content), objectType: record.objectType as "MINI_PROJECT" | "TASK" | "DECISION" | "OUTPUT", text: String(record.text).trim(), expectedUpdatedAt: String(record.expectedUpdatedAt), traceId: String(record.traceId) };
+}
+
+async function readCandidateObjectUpdateRequest(request: IncomingMessage): Promise<{
+  sourceAnchorId: string; sourceInputVersion: string; sourceContentHash: string;
+  targetObjectId: string; targetExternalId: string; targetInputVersion: string; targetContentHash: string; targetContent: string;
+  afterContent: string; expectedUpdatedAt: string; traceId: string;
+}> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const valid = (candidate: unknown, maximum: number) => typeof candidate === "string" && candidate.trim().length > 0 && candidate.length <= maximum;
+  const validHash = (candidate: unknown) => typeof candidate === "string" && /^[0-9a-f]{8,64}$/.test(candidate);
+  if (Object.keys(record).sort().join(",") !== "afterContent,expectedUpdatedAt,sourceAnchorId,sourceContentHash,sourceInputVersion,targetContent,targetContentHash,targetExternalId,targetInputVersion,targetObjectId,traceId"
+    || !valid(record.sourceAnchorId, 512) || !valid(record.sourceInputVersion, 128) || !validHash(record.sourceContentHash)
+    || !valid(record.targetObjectId, 128) || !valid(record.targetExternalId, 512) || !valid(record.targetInputVersion, 128)
+    || !validHash(record.targetContentHash) || !valid(record.targetContent, 8_192) || checksum(record.targetContent) !== record.targetContentHash
+    || !valid(record.afterContent, 8_192) || checksum(record.afterContent) === record.targetContentHash
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || typeof record.traceId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.traceId)) {
+    throw serviceError("V2_CANDIDATE_UPDATE_REQUEST_INVALID", "Candidate update 需要来源、目标对象、目标 Anchor、最终正文和审阅版本证据。");
+  }
+  return {
+    sourceAnchorId: String(record.sourceAnchorId).trim(), sourceInputVersion: String(record.sourceInputVersion).trim(), sourceContentHash: String(record.sourceContentHash),
+    targetObjectId: String(record.targetObjectId).trim(), targetExternalId: String(record.targetExternalId).trim(), targetInputVersion: String(record.targetInputVersion).trim(), targetContentHash: String(record.targetContentHash), targetContent: String(record.targetContent),
+    afterContent: String(record.afterContent), expectedUpdatedAt: String(record.expectedUpdatedAt), traceId: String(record.traceId),
+  };
 }
 
 async function readBackupId(request: IncomingMessage): Promise<string> {
@@ -610,7 +638,7 @@ function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
-    const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code));
+    const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code));
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
@@ -622,7 +650,7 @@ function respondError(response: ServerResponse, error: unknown): void {
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : migrationConflict || error.code === "V2_ASSOCIATION_EXISTS" || error.code === "V2_CANDIDATE_STALE" || error.code === "V2_CANDIDATE_ALREADY_RESOLVED" || error.code === "V2_CANDIDATE_NOT_ACTIONABLE" || error.code === "V2_CANDIDATE_PROPOSAL_EXISTS" || error.code === "V2_CANDIDATE_PROPOSAL_ACTIVE" || error.code === "V2_IDEMPOTENCY_KEY_CONFLICT" || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_PROJECT_CLOSURE_REQUIRED" || error.code === "V2_PROJECT_CLOSURE_PROJECT_ONLY" || error.code === "V2_PROJECT_CLOSURE_NOT_OPEN" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
+          : migrationConflict || error.code === "V2_ASSOCIATION_EXISTS" || error.code === "V2_CANDIDATE_STALE" || error.code === "V2_CANDIDATE_UPDATE_TARGET_STALE" || error.code === "V2_OBJECT_UPDATE_TARGET_STALE" || error.code === "V2_CANDIDATE_ALREADY_RESOLVED" || error.code === "V2_CANDIDATE_NOT_ACTIONABLE" || error.code === "V2_CANDIDATE_PROPOSAL_EXISTS" || error.code === "V2_CANDIDATE_PROPOSAL_ACTIVE" || error.code === "V2_IDEMPOTENCY_KEY_CONFLICT" || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_PROJECT_CLOSURE_REQUIRED" || error.code === "V2_PROJECT_CLOSURE_PROJECT_ONLY" || error.code === "V2_PROJECT_CLOSURE_NOT_OPEN" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -828,6 +856,49 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         status: "READY", createdAt: now.toISOString(),
       };
       const result = await candidateApplication.formalize(candidateId, proposal, input.expectedUpdatedAt, { actor: "logseq-plugin", traceId: input.traceId, idempotencyKey: `candidate-formalize:${candidateId}:${proposalIdentity}` }, now);
+      respond(response, result.replayed ? 200 : 201, { candidate: result.candidate, record: store.storedProposal(result.proposal.proposalId), replayed: result.replayed });
+      return;
+    }
+    const candidateUpdateMatch = request.method === "POST" ? url.pathname.match(/^\/candidates\/([^/]+)\/update$/) : null;
+    if (candidateUpdateMatch?.[1]) {
+      const candidateId = decodeURIComponent(candidateUpdateMatch[1]);
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(candidateId)) throw serviceError("V2_CANDIDATE_UPDATE_REQUEST_INVALID", "Candidate ID 无效。");
+      const input = await readCandidateObjectUpdateRequest(request);
+      const candidate = await candidateApplication.get(candidateId);
+      if (!candidate) throw serviceError("V2_CANDIDATE_NOT_FOUND", "Candidate 不存在。");
+      if (candidate.sourceAnchorId !== input.sourceAnchorId || candidate.sourceVersion !== `${input.sourceInputVersion}:${input.sourceContentHash}`) {
+        throw serviceError("V2_CANDIDATE_STALE", "Candidate 来源已变化；请重新分析后再生成更新 Proposal。");
+      }
+      const object = store.getObject(input.targetObjectId);
+      const anchor = store.getPrimaryAnchorByExternal(options.graphId, input.targetExternalId);
+      if (!object || !anchor || anchor.objectId !== object.objectId || anchor.status !== "active" || anchor.contentHash !== input.targetContentHash) {
+        throw serviceError("V2_CANDIDATE_UPDATE_TARGET_STALE", "目标对象或 Primary Anchor 已变化；没有生成 Proposal。");
+      }
+      if (!["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"].includes(object.objectType)) throw serviceError("V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "更新已有对象当前只支持 Block 型正式对象。");
+      if (input.sourceAnchorId === input.targetExternalId) throw serviceError("V2_CANDIDATE_UPDATE_TARGET_INVALID", "Candidate 来源不能同时作为被更新的目标 Anchor。");
+      const beforeParsed = parseExplicitObjectSyntax(input.targetContent);
+      const afterParsed = parseExplicitObjectSyntax(input.afterContent);
+      if (beforeParsed.kind !== "OBJECT" || beforeParsed.objectType !== object.objectType || beforeParsed.title !== object.text) throw serviceError("V2_CANDIDATE_UPDATE_TARGET_STALE", "目标正文与正式对象投影不一致；没有生成 Proposal。");
+      if (afterParsed.kind !== "OBJECT" || afterParsed.objectType !== object.objectType || afterParsed.marker !== beforeParsed.marker) throw serviceError("V2_CANDIDATE_UPDATE_REQUEST_INVALID", "最终正文必须保留目标对象类型、Marker 和非空标题；Lifecycle 变化请使用专用入口。");
+      const proposalIdentity = createHash("sha256").update(stableJson({ graphId: options.graphId, candidateId, sourceVersion: candidate.sourceVersion, targetObjectId: object.objectId, targetVersion: object.version, afterHash: checksum(input.afterContent) })).digest("hex").slice(0, 32);
+      const proposalId = `proposal_candidate_update_${proposalIdentity}`;
+      const sourceVersion = /^\d+$/.test(input.sourceInputVersion) ? Number(input.sourceInputVersion) : undefined;
+      const targetVersion = /^\d+$/.test(input.targetInputVersion) ? Number(input.targetInputVersion) : undefined;
+      const sourceTarget: V2Proposal["scope"]["read"][number] = { kind: "BLOCK", id: input.sourceAnchorId, ...(sourceVersion !== undefined && Number.isSafeInteger(sourceVersion) ? { version: sourceVersion } : {}), hash: input.sourceContentHash };
+      const blockTarget: V2Proposal["scope"]["modify"][number] = { kind: "BLOCK", id: input.targetExternalId, ...(targetVersion !== undefined && Number.isSafeInteger(targetVersion) ? { version: targetVersion } : {}), hash: input.targetContentHash };
+      const objectTarget: V2Proposal["scope"]["modify"][number] = { kind: "OBJECT", id: object.objectId, version: object.version };
+      const now = new Date();
+      const proposal: V2Proposal = {
+        proposalId, schemaVersion: "v2", title: `更新已有 ${object.objectType}：${object.text}`, context: "Candidate Review Center 中的补充信息。",
+        understanding: `${candidate.reason} ${candidate.suggestion}`, objective: `经审阅后更新已有 ${object.objectType}，不创建第二对象。`,
+        logic: "Candidate 来源保持只读；最终正文只在 Review 接受并完成 SemanticCommit 后同时更新 Logseq 与 SQLite 投影。", finalPreview: input.afterContent,
+        unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [sourceTarget], modify: [blockTarget, objectTarget] }, preconditions: ["Candidate 来源、目标对象版本与 Primary Anchor 正文保持不变"],
+        groups: [{ groupId: "update-existing-object", explanation: "目标 Graph 正文与现有对象缓存必须作为一个可恢复 Commit 更新。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [],
+          textPatches: [{ blockUuid: input.targetExternalId, beforeText: input.targetContent, afterText: input.afterContent, beforeHash: input.targetContentHash, afterHash: checksum(input.afterContent) }],
+          semanticOperations: [{ operationId: "rewrite-existing-object", kind: "REWRITE_BLOCK", target: blockTarget, summary: `更新已有 ${object.objectType} 正文`, payload: { objectId: object.objectId, objectType: object.objectType, beforeText: object.text, text: afterParsed.title }, preconditions: [] }], disposition: "PENDING" }],
+        status: "READY", createdAt: now.toISOString(),
+      };
+      const result = await candidateApplication.formalize(candidateId, proposal, input.expectedUpdatedAt, { actor: "logseq-plugin", traceId: input.traceId, idempotencyKey: `candidate-update:${candidateId}:${proposalIdentity}` }, now);
       respond(response, result.replayed ? 200 : 201, { candidate: result.candidate, record: store.storedProposal(result.proposal.proposalId), replayed: result.replayed });
       return;
     }
@@ -1225,7 +1296,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const input = await readProposalRevalidationRequest(request);
       const stored = await proposalApplication.get(proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
-      const plan = planAcceptedV2Formalization(stored.proposal);
+      const plan = planAcceptedV2ProposalCommit(stored.proposal);
       const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
       const existing = store.semanticCommit(semanticCommitId);
       const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
@@ -1238,12 +1309,26 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         return;
       }
       if (existing) throw serviceError("V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "Proposal Commit 已终止，不能创建平行事务。");
+      if ("update" in plan) {
+        const currentObject = store.getObject(plan.update.objectId);
+        const currentAnchor = store.getPrimaryAnchorByExternal(options.graphId, plan.patch.blockUuid);
+        const beforeParsed = parseExplicitObjectSyntax(plan.patch.beforeText);
+        const afterParsed = parseExplicitObjectSyntax(plan.patch.afterText);
+        if (!currentObject || !currentAnchor || currentAnchor.status !== "active" || currentAnchor.objectId !== plan.update.objectId
+          || currentAnchor.contentHash !== plan.patch.beforeHash || currentObject.version !== plan.update.expectedVersion
+          || currentObject.objectType !== plan.update.objectType || currentObject.text !== plan.update.beforeText
+          || beforeParsed.kind !== "OBJECT" || beforeParsed.objectType !== plan.update.objectType || beforeParsed.title !== plan.update.beforeText
+          || afterParsed.kind !== "OBJECT" || afterParsed.objectType !== plan.update.objectType || afterParsed.title !== plan.update.text
+          || (beforeParsed.kind === "OBJECT" && afterParsed.kind === "OBJECT" && beforeParsed.marker !== afterParsed.marker)) {
+          throw serviceError("V2_OBJECT_UPDATE_TARGET_STALE", "更新 Proposal 的 Block、Anchor、对象或正文投影不再一致；没有准备 Commit。");
+        }
+      }
       const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, input.observations), input.expectedUpdatedAt);
       if (revalidation.result.status === "STALE") {
         respond(response, 200, { status: "STALE", ...revalidation });
         return;
       }
-      const objectId = createId("obj", new Date());
+      const objectId = "update" in plan ? plan.update.objectId : createId("obj", new Date());
       if (!objectId) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "Proposal Commit 缺少对象身份。");
       const now = new Date();
       const prepared = store.prepareSemanticCommit({
@@ -1267,15 +1352,16 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (input.proposalId !== proposalId || input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "Proposal Commit 意图与当前 Graph/Proposal 不一致。");
       const stored = await proposalApplication.get(proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
-      const plan = planAcceptedV2Formalization(stored.proposal);
+      const plan = planAcceptedV2ProposalCommit(stored.proposal);
       const commit = store.semanticCommit(input.semanticCommitId);
       const steps = store.semanticCommitSteps(input.semanticCommitId);
       const objectId = steps[1]?.operationId;
-      if (!commit || commit.proposalId !== proposalId || steps.length !== 2 || steps[0]?.operationId !== plan.patch.blockUuid || steps[0]?.beforeHash !== plan.patch.beforeHash || steps[0]?.afterHash !== plan.patch.afterHash || !objectId) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "Proposal Commit ledger 与已审阅计划不一致。");
+      if (!commit || commit.proposalId !== proposalId || steps.length !== 2 || steps[0]?.operationId !== plan.patch.blockUuid || steps[0]?.beforeHash !== plan.patch.beforeHash || steps[0]?.afterHash !== plan.patch.afterHash || !objectId || ("update" in plan && objectId !== plan.update.objectId)) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "Proposal Commit ledger 与已审阅计划不一致。");
       const receiptKey = `proposal-commit:${input.semanticCommitId}`;
       if (commit.status === "COMPLETED") {
         const receipt = store.getCommandReceipt(receiptKey);
-        if (receipt?.command !== "materialize_explicit_object") throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "已完成 Proposal Commit 缺少领域回执。");
+        const expectedCommand = "update" in plan ? "synchronize_explicit_object" : "materialize_explicit_object";
+        if (receipt?.command !== expectedCommand || ("update" in plan && (receipt.object.objectId !== plan.update.objectId || receipt.anchor.objectId !== plan.update.objectId || receipt.anchor.externalId !== plan.patch.blockUuid))) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "已完成 Proposal Commit 缺少匹配的领域回执。");
         const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
         await resolveCandidateForAppliedProposal(proposalId);
         respond(response, 200, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, object: receipt.object, anchor: receipt.anchor, record, replayed: true });
@@ -1291,7 +1377,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (store.semanticCommitSteps(input.semanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, 0, "VERIFIED", now.toISOString());
       let result;
       try {
-        result = await application.materializeExplicitObject({ objectId, objectType: plan.create.objectType, text: plan.create.text, anchor: { graphId: options.graphId, externalId: plan.patch.blockUuid, contentHash: plan.patch.afterHash } }, { actor: "proposal_commit", expectedVersion: 0, idempotencyKey: receiptKey, traceId: input.traceId }, now);
+        result = "update" in plan
+          ? await application.synchronizeExplicitObject({ objectType: plan.update.objectType, text: plan.update.text, graphId: options.graphId, externalId: plan.patch.blockUuid, contentHash: plan.patch.afterHash, expectedObjectId: plan.update.objectId }, { actor: "proposal_commit", expectedVersion: plan.update.expectedVersion, idempotencyKey: receiptKey, traceId: input.traceId }, now)
+          : await application.materializeExplicitObject({ objectId, objectType: plan.create.objectType, text: plan.create.text, anchor: { graphId: options.graphId, externalId: plan.patch.blockUuid, contentHash: plan.patch.afterHash } }, { actor: "proposal_commit", expectedVersion: 0, idempotencyKey: receiptKey, traceId: input.traceId }, now);
+        if ("update" in plan && (result.object.objectId !== plan.update.objectId || result.anchor.objectId !== plan.update.objectId || result.anchor.externalId !== plan.patch.blockUuid)) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "更新结果脱离已审阅对象与 Anchor 绑定；Commit 需要恢复。");
       } catch {
         store.advanceSemanticCommitStep(input.semanticCommitId, 0, "RECOVERY_REQUIRED", now.toISOString(), "DOMAIN_WRITE_FAILED");
         store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now.toISOString(), undefined, "DOMAIN_WRITE_FAILED");
@@ -1314,7 +1403,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (input.proposalId !== proposalId || input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "Proposal 补偿意图不匹配。");
       const stored = await proposalApplication.get(proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
-      const plan = planAcceptedV2Formalization(stored.proposal);
+      const plan = planAcceptedV2ProposalCommit(stored.proposal);
       const commit = store.semanticCommit(input.semanticCommitId);
       const graphStep = store.semanticCommitSteps(input.semanticCommitId)[0];
       if (commit?.status !== "RECOVERY_REQUIRED" || graphStep?.status !== "RECOVERY_REQUIRED" || input.blockUuid !== plan.patch.blockUuid || input.contentHash !== plan.patch.beforeHash) throw serviceError("V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "Graph 补偿证据与恢复账本不一致。");
@@ -1334,9 +1423,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (!original?.proposalId || !["COMPLETED", "UNDONE"].includes(original.status)) throw serviceError("V2_PROPOSAL_UNDO_NOT_AVAILABLE", "只有已完成且尚有历史证据的 Proposal Commit 可以 Undo。");
       const stored = await proposalApplication.get(original.proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 引用的 Proposal 不存在。");
-      const plan = planAcceptedV2Formalization(stored.proposal);
+      const plan = planAcceptedV2ProposalCommit(stored.proposal);
       const receipt = store.getCommandReceipt(`proposal-commit:${originalSemanticCommitId}`);
-      if (receipt?.command !== "materialize_explicit_object") throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 缺少物化回执。");
+      const expectedCommand = "update" in plan ? "synchronize_explicit_object" : "materialize_explicit_object";
+      if (receipt?.command !== expectedCommand || ("update" in plan && (receipt.object.objectId !== plan.update.objectId || receipt.anchor.objectId !== plan.update.objectId || receipt.anchor.externalId !== plan.patch.blockUuid))) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 缺少匹配的领域回执。");
       const existing = store.semanticCommit(undoSemanticCommitId);
       if (original.status === "UNDONE" && existing?.status === "COMPLETED") {
         await reopenCandidateForUndoneProposal(original.proposalId);
@@ -1379,9 +1469,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (!original?.proposalId || !inverse || inverse.proposalId !== original.proposalId) throw serviceError("V2_PROPOSAL_UNDO_LEDGER_CORRUPT", "Undo ledger 与原 Commit 不一致。");
       const stored = await proposalApplication.get(original.proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 引用的 Proposal 不存在。");
-      const plan = planAcceptedV2Formalization(stored.proposal);
+      const plan = planAcceptedV2ProposalCommit(stored.proposal);
       const receipt = store.getCommandReceipt(`proposal-commit:${originalSemanticCommitId}`);
-      if (receipt?.command !== "materialize_explicit_object") throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 缺少物化回执。");
+      const expectedCommand = "update" in plan ? "synchronize_explicit_object" : "materialize_explicit_object";
+      if (receipt?.command !== expectedCommand || ("update" in plan && (receipt.object.objectId !== plan.update.objectId || receipt.anchor.objectId !== plan.update.objectId || receipt.anchor.externalId !== plan.patch.blockUuid))) throw serviceError("V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "原 Commit 缺少匹配的领域回执。");
       if (inverse.status === "COMPLETED" && ["COMPLETED", "UNDONE"].includes(original.status)) {
         if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
         await reopenCandidateForUndoneProposal(original.proposalId);
@@ -1399,7 +1490,9 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "VERIFIED", now.toISOString());
       let undone;
       try {
-        undone = await application.undoMaterialization({ object: receipt.object, anchor: receipt.anchor }, { actor: "proposal_undo", expectedVersion: receipt.object.version, idempotencyKey: `proposal-undo:${undoSemanticCommitId}`, traceId: input.traceId }, now);
+        undone = "update" in plan
+          ? await application.synchronizeExplicitObject({ objectType: plan.update.objectType, text: plan.update.beforeText, graphId: options.graphId, externalId: plan.patch.blockUuid, contentHash: plan.patch.beforeHash, expectedObjectId: plan.update.objectId }, { actor: "proposal_undo", expectedVersion: receipt.object.version, idempotencyKey: `proposal-undo:${undoSemanticCommitId}`, traceId: input.traceId }, now)
+          : await application.undoMaterialization({ object: receipt.object, anchor: receipt.anchor }, { actor: "proposal_undo", expectedVersion: receipt.object.version, idempotencyKey: `proposal-undo:${undoSemanticCommitId}`, traceId: input.traceId }, now);
       } catch {
         store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "RECOVERY_REQUIRED", now.toISOString(), "DOMAIN_UNDO_FAILED");
         store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now.toISOString(), undefined, "DOMAIN_UNDO_FAILED");
@@ -1409,7 +1502,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const domainStep = store.semanticCommitSteps(undoSemanticCommitId)[1];
       if (domainStep?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "APPLIED", now.toISOString());
       if (store.semanticCommitSteps(undoSemanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "VERIFIED", now.toISOString());
-      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum({ objectRemoved: undone.object.objectId, anchorRemoved: undone.anchor.anchorId }));
+      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), "update" in plan ? checksum({ object: undone.object, anchor: undone.anchor }) : checksum({ objectRemoved: undone.object.objectId, anchorRemoved: undone.anchor.anchorId }));
       store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
       await reopenCandidateForUndoneProposal(original.proposalId, now);
       respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, objectId: undone.object.objectId, replayed: undone.replayed });

@@ -207,11 +207,26 @@ test("Review Center renders persisted Candidate decisions and Proposal generatio
   value.v2Candidates = [{ candidateId: "candidate-ui", sourceAnchorId: "block-ui", sourceVersion: "7:abc12345", candidateKind: "WORK_ITEM", reason: "显式标识", suggestion: "生成 Task Proposal", disposition: "PENDING", lastAnalyzedAt: "2026-07-21T00:00:00.000Z", createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:01:00.000Z" }];
   value.v2CandidateSourcePreviews = { "candidate-ui": "[任务] 核对真实原文" };
   const html = renderApp(value);
-  for (const action of ["v2-candidate-formalize", "v2-candidate-later", "v2-candidate-dismiss", "v2-candidate-no-more"]) assert.match(html, new RegExp(`data-action="${action}"`));
+  for (const action of ["v2-candidate-formalize", "v2-candidate-update", "v2-candidate-later", "v2-candidate-dismiss", "v2-candidate-no-more"]) assert.match(html, new RegExp(`data-action="${action}"`));
   assert.match(html, /保持普通内容/);
   assert.match(html, /以后不再提示/);
   assert.match(html, /扫描只保存 Candidate，不创建正式对象/);
   assert.ok(html.indexOf("核对真实原文") < html.indexOf("显式标识") && html.indexOf("显式标识") < html.indexOf("生成 Task Proposal"), "original content precedes reason and Agent suggestion");
+});
+
+test("Candidate update dialog selects one existing Block object and explains Proposal-only behavior", () => {
+  const value = model();
+  value.workspace = "review";
+  value.v2Candidates = [{ candidateId: "candidate-ui", sourceAnchorId: "block-ui", sourceVersion: "7:abc12345", candidateKind: "UPDATE", reason: "补充事实", suggestion: "更新已有", disposition: "PENDING", lastAnalyzedAt: "2026-07-21T00:00:00.000Z", createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:01:00.000Z" }];
+  value.v2CandidateSourcePreviews = { "candidate-ui": "供应商补充" };
+  value.v2Objects = [{ objectId: "task-target", objectType: "TASK", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, version: 2, text: "核对告警", sourceOrCreationEvent: "test", createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:00:00.000Z" }];
+  value.actionDialog = { kind: "v2-candidate-update", value: "candidate-ui" };
+  const html = renderApp(value);
+  assert.match(html, /供应商补充/);
+  assert.match(html, /TASK · 核对告警/);
+  assert.match(html, /data-field="v2CandidateUpdateContent"/);
+  assert.match(html, /只生成 Proposal/);
+  assert.match(html, /data-action="submit-v2-candidate-update"/);
 });
 
 test("Review Center exposes Provider analysis only when capability is enabled and shows observable state", () => {

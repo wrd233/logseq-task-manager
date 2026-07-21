@@ -15,6 +15,15 @@ function record(): ServiceStoredProposal {
   } };
 }
 
+function updateRecord(): ServiceStoredProposal {
+  const before = "[任务] 核对旧告警";
+  const after = "[任务] 核对新告警并记录结论";
+  return { updatedAt: "2026-07-22T12:01:00.000Z", files: { proposalMd: "# 更新", proposalJson: "{}" }, proposal: {
+    proposalId: "prop_update", schemaVersion: "v2", title: "更新已有任务", context: "Candidate 补充信息", understanding: "合并到已有任务", objective: "更新正文", logic: "同组提交", finalPreview: after, unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "BLOCK", id: "source-update", version: 3, hash: checksum("补充信息") }], modify: [{ kind: "BLOCK", id: "target-update", version: 8, hash: checksum(before) }, { kind: "OBJECT", id: "task-existing", version: 4 }] }, preconditions: [],
+    groups: [{ groupId: "update-existing-object", explanation: "不可拆", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "target-update", beforeText: before, afterText: after, beforeHash: checksum(before), afterHash: checksum(after) }], semanticOperations: [{ operationId: "rewrite-existing-object", kind: "REWRITE_BLOCK", target: { kind: "BLOCK", id: "target-update", version: 8, hash: checksum(before) }, summary: "更新已有 Task", payload: { objectId: "task-existing", objectType: "TASK", beforeText: "核对旧告警", text: "核对新告警并记录结论" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T12:00:00.000Z",
+  } };
+}
+
 test("Plugin Proposal Commit applies Graph once and reports success only after Service completion", async () => {
   let content = "核对告警";
   let updates = 0;
@@ -31,6 +40,24 @@ test("Plugin Proposal Commit applies Graph once and reports success only after S
   assert.deepEqual(result, { status: "COMPLETED", semanticCommitId: "proposal-commit:abc", objectId: "obj-commit" });
   assert.equal(content, "[任务] 核对告警");
   assert.equal(updates, 1);
+});
+
+test("Plugin Candidate UPDATE Commit rewrites the existing Anchor without issuing a new identity", async () => {
+  let content = "[任务] 核对旧告警";
+  let identityWrites = 0;
+  const value = updateRecord();
+  const patch = value.proposal.groups[0]!.textPatches[0]!;
+  const result = await commitV2Formalization({
+    prepareProposalCommit: async () => ({ status: "PREPARED", semanticCommitId: "proposal-commit:update", proposalId: "prop_update", expectedUpdatedAt: value.updatedAt, objectId: "task-existing", plan: { proposalId: "prop_update", groupId: "update-existing-object", patch, update: { operationId: "rewrite-existing-object", objectId: "task-existing", expectedVersion: 4, objectType: "TASK", beforeText: "核对旧告警", text: "核对新告警并记录结论", blockUuid: "target-update" } }, replayed: false }),
+    finalizeProposalCommit: async () => ({ status: "COMPLETED", semanticCommitId: "proposal-commit:update", object: { objectId: "task-existing", objectType: "TASK", version: 5, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "核对新告警并记录结论", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "explicit" }, anchor: { anchorId: "anchor-existing", objectId: "task-existing", graphId: "graph", externalId: "target-update", role: "primary_text", status: "active", contentHash: checksum(content), lastSeenAt: "now" }, record: value, replayed: false }),
+    compensateProposalCommit: async () => { throw new Error("not expected"); },
+  }, {
+    getBlock: async (id) => id === "source-update" ? ({ uuid: id, content: "补充信息", updatedAt: 3 }) : ({ uuid: id, content, updatedAt: 8 }), getPage: async () => null,
+    updateBlock: async (_id, next) => { content = next; }, ensurePersistentIdentity: async () => { identityWrites += 1; },
+  }, value, "trace-update");
+  assert.equal(result.status, "COMPLETED");
+  assert.equal(content, "[任务] 核对新告警并记录结论");
+  assert.equal(identityWrites, 0, "an existing active Anchor already owns persistent identity");
 });
 
 test("Plugin Proposal Commit compensates Graph and never reports success after Domain failure", async () => {

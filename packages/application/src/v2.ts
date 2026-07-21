@@ -213,6 +213,7 @@ export interface SynchronizeExplicitObjectInput {
   graphId: string;
   externalId: string;
   contentHash: string;
+  expectedObjectId?: string;
   marker?: V2ExecutionMarker;
 }
 
@@ -435,8 +436,11 @@ export class V2Application {
     at = new Date(),
   ): Promise<V2AnchorCommandResult> {
     requireEnvelope(envelope);
-    const replay = await this.replay(envelope.idempotencyKey, "synchronize_explicit_object");
+    const replay = await this.replay(envelope.idempotencyKey, "synchronize_explicit_object", input.expectedObjectId);
     if (replay?.command === "synchronize_explicit_object") {
+      if (replay.anchor.graphId !== input.graphId || replay.anchor.externalId !== input.externalId || replay.anchor.objectId !== replay.object.objectId) {
+        throw new StructuredError({ code: "V2_IDEMPOTENCY_KEY_REUSED", message: "idempotency key 的既有同步回执不属于当前 Graph Anchor。", ruleRefs: ["D-030", "D-185", "D-190"] });
+      }
       return { object: replay.object, anchor: replay.anchor, replayed: true };
     }
     const anchor = await this.objects.getPrimaryAnchorByExternal(input.graphId, input.externalId);
@@ -445,6 +449,13 @@ export class V2Application {
         code: "V2_EXPLICIT_BINDING_NOT_FOUND",
         message: "该 Logseq Block 尚未绑定正式对象；必须先走首次物化。",
         ruleRefs: ["D-030", "D-185"],
+      });
+    }
+    if (input.expectedObjectId !== undefined && anchor.objectId !== input.expectedObjectId) {
+      throw new StructuredError({
+        code: "V2_EXPLICIT_BINDING_OBJECT_MISMATCH",
+        message: "该 Logseq Block 已不再绑定审阅时的正式对象；本次同步没有写入。",
+        ruleRefs: ["D-030", "D-094", "D-185"],
       });
     }
     const current = await this.requireObject(anchor.objectId);

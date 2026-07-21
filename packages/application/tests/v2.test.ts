@@ -479,6 +479,12 @@ test("bound explicit Block synchronization updates same-type evidence and reject
   assert.equal(synchronized.object.text, "新标题");
   assert.equal(synchronized.object.version, 3);
   assert.equal(synchronized.anchor.contentHash, "22222222");
+  await assert.rejects(() => application.synchronizeExplicitObject({
+    objectType: "TASK", text: "新标题", graphId: "graph-1", externalId: "block-sync", contentHash: "22222222", expectedObjectId: "another-object",
+  }, { actor: "proposal_commit", expectedVersion: 2, idempotencyKey: "sync-title", traceId: "trace-replay-wrong-object" }), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_IDEMPOTENCY_KEY_REUSED");
+  await assert.rejects(() => application.synchronizeExplicitObject({
+    objectType: "TASK", text: "新标题", graphId: "graph-1", externalId: "another-block", contentHash: "22222222", expectedObjectId: "task-sync",
+  }, { actor: "proposal_commit", expectedVersion: 2, idempotencyKey: "sync-title", traceId: "trace-replay-wrong-anchor" }), (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_IDEMPOTENCY_KEY_REUSED");
   const completed = await application.synchronizeExplicitObject({
     objectType: "TASK",
     text: "新标题",

@@ -35,7 +35,8 @@ export type ActionDialogKind =
   | "confirm-v2-undo"
   | "v2-condition"
   | "v2-deadline"
-  | "v2-review-defer";
+  | "v2-review-defer"
+  | "v2-candidate-update";
 
 export interface UiModel {
   workspace: Workspace;
@@ -414,6 +415,12 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-candidate-update") {
+    const candidate = model.v2Candidates?.find(({ candidateId }) => candidateId === dialog.value);
+    const targets = (model.v2Objects ?? []).filter(({ objectType }) => ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"].includes(objectType));
+    if (!candidate) return "";
+    return `<section class="inbox-dialog action-dialog" aria-label="更新已有对象"><h3>更新已有对象</h3><p class="muted">来源保持只读；请选择目标并填写审阅后希望保留的完整显式 Block 正文。此操作只生成 Proposal，接受与最终 Commit 前不会改正文或 SQLite。</p><blockquote>${escapeHtml(model.v2CandidateSourcePreviews?.[candidate.candidateId] ?? "原文暂不可读；提交时会再次检查。")}</blockquote><label>目标对象<select data-field="v2CandidateUpdateTarget"><option value="">请选择</option>${targets.map((target) => `<option value="${escapeHtml(target.objectId)}">${escapeHtml(target.objectType)} · ${escapeHtml(target.text)}</option>`).join("")}</select></label><label>目标最终完整正文<textarea data-field="v2CandidateUpdateContent" placeholder="[任务] 合并后的最终正文"></textarea></label><div class="actions">${button("生成更新 Proposal", "submit-v2-candidate-update", candidate.candidateId, "primary")}${cancel}</div></section>`;
+  }
   if (dialog.kind === "v2-condition") {
     const objectId = dialog.value.split("|")[0];
     const current = model.v2NowWork ? [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview].find((item) => item.objectId === objectId) : undefined;

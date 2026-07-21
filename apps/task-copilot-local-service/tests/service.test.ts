@@ -254,6 +254,107 @@ test("Local Service persists bounded Candidate discovery and all non-formal revi
   assert.equal((await client.listCandidates())[0]?.disposition, "PENDING", "completed Undo replay repairs the Candidate reopen gap idempotently");
 });
 
+test("UPDATE Candidate proposes, commits, and undoes a versioned existing object without creating a second object", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-candidate-update-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-candidate-update", token: "candidate-update-service-token-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const targetContent = "[任务] 核对旧告警";
+  const target = await client.synchronizeExplicitObject({ objectType: "TASK", text: "核对旧告警", externalId: "target-update-block", inputVersion: "8", contentHash: checksum(targetContent), idempotencyKey: "create-update-target", traceId: "create-update-target" });
+  const sourceContent = "供应商补充：新告警必须记录结论";
+  const discovered = await client.discoverCandidate({ sourceAnchorId: "candidate-update-source", sourceVersion: `3:${checksum(sourceContent)}`, candidateKind: "UPDATE", reason: "包含已有工作的补充事实", suggestion: "更新已有对象", traceId: "discover-update-candidate" });
+  const afterContent = "[任务] 核对新告警并记录结论";
+  const updateRequest = {
+    sourceAnchorId: "candidate-update-source", sourceInputVersion: "3", sourceContentHash: checksum(sourceContent),
+    targetObjectId: target.object.objectId, targetExternalId: target.anchor.externalId, targetInputVersion: "8", targetContentHash: checksum(targetContent), targetContent,
+    afterContent, expectedUpdatedAt: discovered.candidate.updatedAt, traceId: "propose-update-candidate",
+  };
+  await assert.rejects(() => client.updateCandidate(discovered.candidate.candidateId, { ...updateRequest, targetContent: "[任务] stale target", targetContentHash: checksum("[任务] stale target") }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_CANDIDATE_UPDATE_TARGET_STALE");
+  await assert.rejects(() => client.updateCandidate(discovered.candidate.candidateId, { ...updateRequest, afterContent: "[成果] Graph 与对象不得分叉" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 400 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_CANDIDATE_UPDATE_REQUEST_INVALID");
+  await assert.rejects(() => client.updateCandidate(discovered.candidate.candidateId, { ...updateRequest, afterContent: "[任务] DONE 核对新告警并记录结论" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 400 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_CANDIDATE_UPDATE_REQUEST_INVALID");
+  assert.equal((await client.getObject(target.object.objectId))?.version, target.object.version, "stale target creates no Proposal or formal write");
+  assert.equal((await client.listProposals()).length, 0);
+  const proposed = await client.updateCandidate(discovered.candidate.candidateId, updateRequest);
+  assert.equal(proposed.record.proposal.status, "READY");
+  assert.equal((await client.listObjects()).length, 1, "Proposal creation must not create a second object or update the target");
+  assert.equal((await client.getObject(target.object.objectId))?.text, "核对旧告警");
+  for (const [suffix, beforeText, text] of [["forged-before", "伪造旧标题", "核对新告警并记录结论"], ["divergent-after", "核对旧告警", "与 Graph 不一致的领域标题"]] as const) {
+    const forged: V2Proposal = {
+      ...proposed.record.proposal,
+      proposalId: `${proposed.record.proposal.proposalId}_${suffix}`,
+      groups: proposed.record.proposal.groups.map((group) => ({
+        ...group,
+        semanticOperations: group.semanticOperations.map((operation) => ({ ...operation, payload: { ...operation.payload, beforeText, text } })),
+      })),
+    };
+    const submitted = await client.submitProposal(forged);
+    const accepted = await client.reviewProposal(forged.proposalId, { "update-existing-object": { disposition: "ACCEPTED" } }, submitted.record.updatedAt);
+    await assert.rejects(() => client.prepareProposalCommit(forged.proposalId, [
+      { kind: "BLOCK", id: "candidate-update-source", exists: true, version: 3, hash: checksum(sourceContent) },
+      { kind: "BLOCK", id: target.anchor.externalId, exists: true, version: 8, hash: checksum(targetContent) },
+    ], accepted.updatedAt), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_UPDATE_TARGET_STALE");
+  }
+  assert.equal((await client.getObject(target.object.objectId))?.text, "核对旧告警", "forged external Proposal evidence remains zero-write");
+  const reviewed = await client.reviewProposal(proposed.record.proposal.proposalId, { "update-existing-object": { disposition: "ACCEPTED" } }, proposed.record.updatedAt);
+  const prepared = await client.prepareProposalCommit(reviewed.proposal.proposalId, [
+    { kind: "BLOCK", id: "candidate-update-source", exists: true, version: 3, hash: checksum(sourceContent) },
+    { kind: "BLOCK", id: target.anchor.externalId, exists: true, version: 8, hash: checksum(targetContent) },
+  ], reviewed.updatedAt);
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared UPDATE Candidate Commit");
+  assert.equal(prepared.objectId, target.object.objectId);
+  assert.ok("update" in prepared.plan);
+  const completed = await client.finalizeProposalCommit(reviewed.proposal.proposalId, { semanticCommitId: prepared.semanticCommitId, proposalId: prepared.proposalId, expectedUpdatedAt: prepared.expectedUpdatedAt, blockUuid: target.anchor.externalId, contentHash: checksum(afterContent), inputVersion: "9", traceId: "commit-update-candidate" });
+  if (completed.status !== "COMPLETED") throw new Error("expected completed UPDATE Candidate Commit");
+  assert.equal(completed.object.objectId, target.object.objectId);
+  assert.equal(completed.object.version, target.object.version + 1);
+  assert.equal(completed.object.text, "核对新告警并记录结论");
+  assert.equal((await client.listCandidates())[0]?.disposition, "RESOLVED");
+  const undo = await client.prepareProposalUndo(prepared.semanticCommitId, "prepare-update-undo");
+  assert.equal(undo.status, "PREPARED");
+  const undone = await client.finalizeProposalUndo(prepared.semanticCommitId, { originalSemanticCommitId: prepared.semanticCommitId, undoSemanticCommitId: undo.undoSemanticCommitId, blockUuid: target.anchor.externalId, contentHash: checksum(targetContent), inputVersion: "10", traceId: "finalize-update-undo" });
+  assert.equal(undone.status, "COMPLETED");
+  assert.equal((await client.getObject(target.object.objectId))?.text, "核对旧告警");
+  assert.equal((await client.getObject(target.object.objectId))?.version, target.object.version + 2);
+  assert.equal((await client.listCandidates())[0]?.disposition, "PENDING");
+});
+
+test("UPDATE Commit refuses an Anchor binding change after prepare instead of updating another object", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-candidate-update-binding-"));
+  const databasePath = join(root, "task-copilot.db");
+  const service = await startLocalService({ databasePath, graphId: "graph-candidate-update-binding", token: "candidate-update-binding-token-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const targetContent = "[任务] 原目标";
+  const target = await client.synchronizeExplicitObject({ objectType: "TASK", text: "原目标", externalId: "binding-target", inputVersion: "1", contentHash: checksum(targetContent), idempotencyKey: "binding-target", traceId: "binding-target" });
+  const otherContent = "[任务] 另一对象";
+  const other = await client.synchronizeExplicitObject({ objectType: "TASK", text: "另一对象", externalId: "binding-other", inputVersion: "1", contentHash: checksum(otherContent), idempotencyKey: "binding-other", traceId: "binding-other" });
+  const sourceContent = "把补充信息并入原目标";
+  const discovered = await client.discoverCandidate({ sourceAnchorId: "binding-source", sourceVersion: `1:${checksum(sourceContent)}`, candidateKind: "UPDATE", reason: "补充", suggestion: "更新已有对象", traceId: "binding-discover" });
+  const proposed = await client.updateCandidate(discovered.candidate.candidateId, {
+    sourceAnchorId: "binding-source", sourceInputVersion: "1", sourceContentHash: checksum(sourceContent), targetObjectId: target.object.objectId,
+    targetExternalId: target.anchor.externalId, targetInputVersion: "1", targetContentHash: checksum(targetContent), targetContent,
+    afterContent: "[任务] 原目标已补充", expectedUpdatedAt: discovered.candidate.updatedAt, traceId: "binding-propose",
+  });
+  const reviewed = await client.reviewProposal(proposed.record.proposal.proposalId, { "update-existing-object": { disposition: "ACCEPTED" } }, proposed.record.updatedAt);
+  const prepared = await client.prepareProposalCommit(reviewed.proposal.proposalId, [
+    { kind: "BLOCK", id: "binding-source", exists: true, version: 1, hash: checksum(sourceContent) },
+    { kind: "BLOCK", id: target.anchor.externalId, exists: true, version: 1, hash: checksum(targetContent) },
+  ], reviewed.updatedAt);
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared binding-race Commit");
+  const maintenance = await V2SqliteStore.open(databasePath);
+  maintenance.initialize("graph-candidate-update-binding");
+  const database = (maintenance as unknown as { database: { transaction<T>(callback: () => T): () => T; prepare(sql: string): { run(...values: unknown[]): unknown } } }).database;
+  database.transaction(() => {
+    database.prepare("UPDATE anchors SET status = 'replaced' WHERE anchor_id = ?").run(other.anchor.anchorId);
+    database.prepare("UPDATE anchors SET object_id = ? WHERE anchor_id = ?").run(other.object.objectId, target.anchor.anchorId);
+  })();
+  maintenance.close();
+  const finalized = await client.finalizeProposalCommit(reviewed.proposal.proposalId, { semanticCommitId: prepared.semanticCommitId, proposalId: prepared.proposalId, expectedUpdatedAt: prepared.expectedUpdatedAt, blockUuid: target.anchor.externalId, contentHash: checksum("[任务] 原目标已补充"), inputVersion: "2", traceId: "binding-finalize" });
+  assert.equal(finalized.status, "COMPENSATION_REQUIRED");
+  assert.equal((await client.getObject(target.object.objectId))?.text, "原目标");
+  assert.equal((await client.getObject(other.object.objectId))?.text, "另一对象");
+});
+
 test("Local Service migration scan validates an explicit Recovery Bundle and leaves Store unchanged", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-migration-scan-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-migration-scan", token: "migration-scan-service-token-24-chars" });

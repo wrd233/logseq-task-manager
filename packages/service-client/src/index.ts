@@ -296,6 +296,11 @@ export interface ServicePreparedProposalCommit {
     groupId: string;
     patch: { blockUuid: string; beforeText: string; afterText: string; beforeHash: string; afterHash: string };
     create: { operationId: string; objectType: "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT"; text: string; blockUuid: string };
+  } | {
+    proposalId: string;
+    groupId: string;
+    patch: { blockUuid: string; beforeText: string; afterText: string; beforeHash: string; afterHash: string };
+    update: { operationId: string; objectId: string; expectedVersion: number; objectType: "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT"; beforeText: string; text: string; blockUuid: string };
   };
   replayed: boolean;
 }
@@ -390,6 +395,20 @@ export interface ServiceCandidateFormalizationRequest {
   content: string;
   objectType: "MINI_PROJECT" | "TASK" | "DECISION" | "OUTPUT";
   text: string;
+  expectedUpdatedAt: string;
+  traceId: string;
+}
+
+export interface ServiceCandidateObjectUpdateRequest {
+  sourceAnchorId: string;
+  sourceInputVersion: string;
+  sourceContentHash: string;
+  targetObjectId: string;
+  targetExternalId: string;
+  targetInputVersion: string;
+  targetContentHash: string;
+  targetContent: string;
+  afterContent: string;
   expectedUpdatedAt: string;
   traceId: string;
 }
@@ -597,6 +616,10 @@ export class LocalServiceClient {
 
   formalizeCandidate(candidateId: string, input: ServiceCandidateFormalizationRequest): Promise<{ candidate: V2Candidate; record: ServiceStoredProposal; replayed: boolean }> {
     return this.request(`/candidates/${encodeURIComponent(candidateId)}/formalize`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  updateCandidate(candidateId: string, input: ServiceCandidateObjectUpdateRequest): Promise<{ candidate: V2Candidate; record: ServiceStoredProposal; replayed: boolean }> {
+    return this.request(`/candidates/${encodeURIComponent(candidateId)}/update`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
   }
 
   addAssociation(input: ServiceAddAssociationRequest): Promise<{ object: V2ManagedObject; association: V2Association; replayed: boolean }> {
