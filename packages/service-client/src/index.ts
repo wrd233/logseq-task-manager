@@ -55,6 +55,50 @@ export interface ServiceBackupRestored {
   validation: ServiceDoctor;
 }
 
+export interface ServicePromptLayer {
+  version: string;
+  content: string;
+}
+
+export interface ServiceProposalPromptBundle {
+  core: ServicePromptLayer;
+  domain: ServicePromptLayer;
+  skill: ServicePromptLayer;
+  userSemantics: ServicePromptLayer;
+  runtimeContext: ServicePromptLayer;
+}
+
+export interface ServiceProviderCompletionMetadata {
+  requestId?: string;
+  model: string;
+  finishReason?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  durationMs: number;
+  attempts: number;
+}
+
+export type ServiceGeneratedProposalResult = {
+  generated: {
+    kind: "PROPOSAL";
+    proposal: V2Proposal;
+    files: { proposalMd: string; proposalJson: string };
+    provider: ServiceProviderCompletionMetadata;
+    promptBundleVersion: string;
+  };
+  record: ServiceStoredProposal;
+  replayed: boolean;
+} | {
+  generated: {
+    kind: "NO_PROPOSAL";
+    reason: string;
+    provider: ServiceProviderCompletionMetadata;
+    promptBundleVersion: string;
+  };
+  replayed: false;
+};
+
 export interface ServiceMaterializeExplicitObjectRequest {
   objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
@@ -423,6 +467,12 @@ export class LocalServiceClient {
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {
     return this.request<{ record: ServiceStoredProposal; replayed: boolean }>("/proposals/submit", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal),
+    });
+  }
+
+  generateProposal(prompt: ServiceProposalPromptBundle): Promise<ServiceGeneratedProposalResult> {
+    return this.request<ServiceGeneratedProposalResult>("/provider/proposals/generate", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt }),
     });
   }
 

@@ -1,14 +1,16 @@
-import { LOCAL_SERVICE_CAPABILITIES, startLocalService } from "./service.ts";
+import { startLocalService } from "./service.ts";
+import { loadProposalGeneratorFromEnvironment } from "./provider-runtime.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
 
 try {
   const options = parseServiceRunnerArgs(process.argv.slice(2));
-  const service = await startLocalService(options);
+  const proposalGenerator = await loadProposalGeneratorFromEnvironment();
+  const service = await startLocalService({ ...options, ...(proposalGenerator ? { proposalGenerator } : {}) });
   process.stdout.write(`${JSON.stringify({
     status: "READY",
     pid: process.pid,
     descriptorPath: options.descriptorPath,
-    capabilities: LOCAL_SERVICE_CAPABILITIES,
+    capabilities: service.capabilities,
   })}\n`);
   let closing = false;
   const close = async (): Promise<void> => {

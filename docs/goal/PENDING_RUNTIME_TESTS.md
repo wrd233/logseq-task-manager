@@ -22,7 +22,7 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 4. copied-data migration Scan/Preview、小批 Commit、中断继续、重复导入和单批 Undo；
 5. object_id、Primary Anchor、Commit 链和 Legacy mapping 证据完整；
 6. Slice C 完成后验证 Proposal review → SemanticCommit → inverse Commit；
-7. Slice D 具备完整安全配置后验证真实 DeepSeek 冒烟与审阅，不以 Mock 替代。
+7. Slice D 具备完整安全配置后，从 Review Center 验证真实 DeepSeek 当前块 → Proposal/NO_PROPOSAL → Diff → Review；同时覆盖超时/取消和凭据 canary，不以 Mock 替代。
 
 ## 已知限定
 

@@ -19,9 +19,11 @@
 ## 已完成准备
 
 - 在线测试计划已限定请求数、超时、取消、重试和原始响应保留；
-- L1 Mock、L2 冒烟、12 个黄金案例与核心 5 案例稳定性 Gate 已定义；
+- L1 Mock 已实现并通过：runtime secret reference、请求/Header/Base URL/Model、Structured Output、request/token/duration 元数据、timeout/cancel、有限 retry、401/403/404/429/5xx/network/空/非法/截断分类与脱敏；
+- 五层 Prompt → 机器 envelope/hash → Domain Validator → READY Proposal/`NO_PROPOSAL` → Local Service → Plugin Review Center 的自动纵向合同已通过；任何模型结果都不能直接写 Graph 或正式对象；
+- L2 冒烟、12 个黄金案例与核心 5 案例稳定性 Gate 已定义但尚未重跑；
 - Slice D 继续保持未完成；HTTP 200 或 Mock 不能替代真实质量验收。
 
 ## 下一步解锁条件
 
-先在仓库内完成 Provider abstraction、超时/取消、Structured Output 校验和 Proposal Validator，再以脱敏报告重新执行最多 3 次冒烟；任何认证、Schema 或安全失败都停止后续收费请求。正式接入仍必须经过 Review Center，不允许模型直接写入领域状态。
+以安全 secret reference 提供本轮可用 Base URL、实际 Model ID 与 Key 后，显式开启 live gate，先重新执行最多 3 次脱敏 L2 冒烟；任何认证、Schema 或安全失败都停止后续收费请求。通过后再进入 12 个黄金案例与 Desktop Review Center，不能用当前 Mock 基础替代。

@@ -57,6 +57,7 @@ import {
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
+import { buildSelectedBlockProposalPrompt } from "./v2-provider-analysis.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
@@ -102,6 +103,7 @@ let explicitSyncState: ExplicitSyncState = {
 };
 let v2RebindPanel: V2RebindPanelState = { status: "idle" };
 let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
+let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
   reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
@@ -209,6 +211,8 @@ async function model(): Promise<UiModel> {
       v2SemanticCommits,
       v2CandidatePanel,
       v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+      v2ProviderAvailable: serviceConnection.status === "READY" && serviceConnection.capabilities.provider && Boolean(serviceRuntimeClient),
+      v2ProviderState,
       reviewMode,
       ...(v2NowWork ? { v2NowWork } : {}),
       v2NowWorkTypeFilter,
@@ -277,6 +281,8 @@ async function model(): Promise<UiModel> {
     v2SemanticCommits,
     v2CandidatePanel,
     v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+    v2ProviderAvailable: serviceConnection.status === "READY" && serviceConnection.capabilities.provider && Boolean(serviceRuntimeClient),
+    v2ProviderState,
     reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
     v2NowWorkTypeFilter,
@@ -340,6 +346,7 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   const generation = ++serviceDiscoveryGeneration;
   if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
   if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
+  if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间重连；旧请求已取消或结果未知，请刷新审阅队列后再试。" };
   serviceRuntimeClient = undefined;
   serviceConnection = {
     status: "RESTRICTED",
@@ -592,6 +599,40 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "view" && value) {
     workspace = value as Workspace;
+    await refresh();
+    return;
+  }
+  if (action === "v2-provider-analyze-current-block") {
+    workspace = "review";
+    reviewMode = "candidates";
+    const client = serviceRuntimeClient;
+    if (v2ProviderState.status === "loading") return;
+    if (!client || serviceConnection.status !== "READY" || !serviceConnection.capabilities.provider) {
+      v2ProviderState = { status: "error", message: "Local Service Provider 未启用或正在重连；没有发起模型请求，也没有写入。" };
+      await refresh();
+      return;
+    }
+    v2ProviderState = { status: "loading", message: "正在分析当前选中 Block；Logseq 正文仍可编辑。" };
+    await refresh();
+    const traceId = `v2-provider-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    try {
+      const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
+      if (!block) throw new Error("请先选中一个有正文的 Logseq Block；没有调用 Provider。");
+      const text = stripLogseqBlockIdentityProperty(block.content, block.uuid).trim();
+      const result = await client.generateProposal(buildSelectedBlockProposalPrompt({ blockUuid: block.uuid, text }));
+      if (result.generated.kind === "NO_PROPOSAL") {
+        v2ProviderState = { status: "success", message: `未创建 Proposal：${result.generated.reason}` };
+        operationalLogger.log("info", "proposal", "v2_provider_no_proposal", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "no-proposal", blockUuid: block.uuid });
+      } else {
+        if (!("record" in result)) throw new Error("Provider 返回缺少审阅记录；没有修改正式状态。");
+        reviewMode = "proposals";
+        v2ProviderState = { status: "success", message: `Proposal ${result.record.proposal.proposalId} 已进入待审阅；尚未修改正文或正式状态。` };
+        operationalLogger.log("info", "proposal", "v2_provider_proposal_ready", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "success", blockUuid: block.uuid, proposalId: result.record.proposal.proposalId });
+      }
+    } catch (error) {
+      v2ProviderState = { status: "error", message: `${explain(error)} 正文和正式 Store 未改变。` };
+      operationalLogger.log("error", "proposal", "v2_provider_analysis_failed", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "error" }, error);
+    }
     await refresh();
     return;
   }

@@ -39,6 +39,7 @@
 | POST | `/anchors/primary/rebind` | 显式确认后把对象绑定到新的同类型 Block | Object + 旧 Anchor `replaced` + 新 active Anchor + Audit + Receipt 单事务写入 |
 | POST | `/proposals/validate` | 验证 Proposal 并生成确定性两文件 | 无 |
 | POST | `/proposals/submit` | 将 READY Proposal 提交至审阅队列 | Proposal + Group 单事务写入；不改正文/对象 |
+| POST | `/provider/proposals/generate` | 五层 Prompt → Structured Output → Validator → READY Proposal，或 `NO_PROPOSAL` 理由 | 仅校验成功的 Proposal + Group；不改 Graph/对象/Anchor/Lifecycle/Condition/Focus |
 | GET | `/proposals` | 按创建顺序列出已提交 Proposal | 无 |
 | GET | `/proposals/{id}` | 读取单个 Proposal、两文件和 `updatedAt` | 无 |
 | POST | `/proposals/{id}/review` | 按语义组接受/拒绝/暂缓 | Proposal + Group 单事务写入；不改正文/对象 |
@@ -53,7 +54,13 @@
 | PATCH | `/objects/{object_id}/deadline` | 设置或清除 Task `due_at` | Object + Audit + Receipt 单事务写入；不产生分数 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
 
-未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`，`migration/provider=false`。`formalWrites` 只表示已列出的受约束正式命令可用，不表示迁移或 Provider 写入已经开放。Proposal submit/review 只改审阅状态，不是正式领域生效；只有已接受且重验通过的受限 Proposal 才能进入 prepare/finalize Commit 路由。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`、`migration=false`；`provider` 仅在 Service runner 显式选择并成功解析安全配置后为 `true`。`formalWrites` 只表示已列出的受约束正式命令可用，不表示迁移或 Provider 已配置。Proposal generate/submit/review 只改审阅状态，不是正式领域生效；只有已接受且重验通过的受限 Proposal 才能进入 prepare/finalize Commit 路由。
+
+## Provider runtime
+
+Provider 默认关闭；runner 只有在 `TASK_COPILOT_LLM_PROVIDER=deepseek` 且 Base URL、实际 Model ID、secret reference 均有效时才启用 capability。非敏感配置使用 `DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` 与 `TASK_COPILOT_DEEPSEEK_API_KEY_REF`。secret reference 只允许 `env:<VARIABLE>` 或 `keychain:<service>/<account>`；兼容 `DEEPSEEK_API_KEY` 时只在进程内将其视为 `env:DEEPSEEK_API_KEY`，不写入 descriptor、Graph、SQLite、日志或报告。
+
+Plugin Review Center 的“分析当前块”只发送当前选中 Block 的有界正文、UUID/hash 与五层 Prompt。Service 发放 proposal_id 并覆盖模型返回的 source/status/createdAt；text patch hash 由机器计算，Domain Validator 再检查 scope、group dependency、risk 和最终对象正文。普通记录允许返回有界 `NO_PROPOSAL` 理由且零持久化；非法、空、截断、超时、取消、认证、限流和网络响应都不能创建 Proposal 或正式写入。
 
 `GET /now-work` 的 `conditionOptions` 仅包含当前 OPEN 对象的 `objectId / objectType / text`，供插件以可读选择器设置可选 `BLOCKED.blockerObjectId`；它不是第二份对象状态。Application 拒绝不存在、已关闭或自引用的阻碍对象。若 Focus A 的 `blockerObjectId` 指向 B，则可行动 B 会以“阻碍当前关注”进入可解释排序；安静的 Waiting B 也会被唤醒进入“等待与复查”。
 

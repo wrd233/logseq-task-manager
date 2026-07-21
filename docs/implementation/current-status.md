@@ -23,7 +23,8 @@ V2_MIGRATION_DESIGN_READY
 - 建立 Pilot 前后 0600 恢复包，回放 differences 为 `[]`，Pending/Recovery Required Commit 均为 0；
 - 明确 V1 可复用内核、冻结边界和淘汰语义；
 - 完成 FileStorage → SQLite 主权交接设计及 Legacy 状态映射；
-- 完成 DeepSeek 实际在线探测：`/models` HTTP 200，发现 `deepseek-v4-flash` 与 `deepseek-v4-pro`；另做 1 次有界中文请求，HTTP 200 但 `finish_reason=length` 且非 JSON。Key 只在内存使用，未进入命令、环境、Graph、Git、日志或报告；Provider abstraction/Validator 尚未完成，Slice D 仍未通过。
+- 完成 DeepSeek 实际在线探测：`/models` HTTP 200，发现 `deepseek-v4-flash` 与 `deepseek-v4-pro`；另做 1 次有界中文请求，HTTP 200 但 `finish_reason=length` 且非 JSON。Key 只在内存使用，未进入命令、环境、Graph、Git、日志或报告；该旧结果仍不是 Slice D 通过。
+- Slice D L1 自动基础已贯通：Provider 非硬编码 Base URL/Model、env/Keychain secret reference、Structured Output 元数据、timeout/cancel、有限 retry、认证/限流/5xx/network/空/非法/截断错误；五层 Prompt 后由 Service 覆盖模型 ID/source/status/time 与机器计算 patch hash，再经现有 Domain Validator。合法结果只进入 Proposal Review，普通记录可返回 `NO_PROPOSAL` 理由且零持久化，非法结果零 Proposal/Graph/正式 Store。Plugin Review Center 已提供 capability-gated 当前块分析与 loading/success/error；真实 API 与 Desktop 尚未验收。
 - 建立 V2 六类对象、Lifecycle/Condition/Focus 纯 Domain seam；不含 Phase/Signal；
 - 通过 Node 20/macOS arm64 SQLite Spike：Graph-bound 初始化、schema/损坏保护、版本/幂等写入、Doctor 和独立备份；
 - 建立仅绑定 `127.0.0.1`、session-token 认证的只读 Local Service health/status/doctor/object 骨架。
@@ -70,13 +71,13 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-20 `./scripts/check.sh` PASS，252 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-21 `./scripts/check.sh` PASS，274 tests、145 rules、0 skipped；typecheck、lint、build、package/bootstrap/dist、边界与恢复演练全过；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：`docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，当前 `PARTIAL_PASS`；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
 - Pilot 后恢复包 SHA-256：`4e9dd666697b94ca0d6b81e7dc7bd0c12c82d0f432b2363eddfbc95a1a602612`；
-- DeepSeek：`docs/testing/deepseek-v4-live-test-report.md`，状态 `NOT_RUN_CONFIG_INCOMPLETE`。
+- DeepSeek：`docs/testing/deepseek-v4-live-test-report.md`，状态 `L1_AUTOMATED_PASS_L2_CONFIG_INCOMPLETE`。
 
 ## 冻结与复用
 
@@ -91,8 +92,8 @@ V2_MIGRATION_DESIGN_READY
 3. 将 Backup/Restore/Service restart/Doctor 纳入后续 Desktop 集中验收；
 4. 在集中 Desktop Gate 验收 C1-C5 连续闭环：接受→最终确认→Commit→已生效→Undo，并注入 Service 中断与后续正文编辑；
 5. 在同轮 Desktop 验收 Review Center 当前页 Candidate 扫描/逐项同步、Proposal 四处置与最终视觉；自动证据不替代该 Gate；
-6. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；在 Slice A-C 闭环后接入 Provider abstraction并运行 bounded DeepSeek live gate。
+6. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；Provider 自动基础已接入，取得安全运行配置后按显式开关执行 bounded DeepSeek L2/L3 live gate 与 Review Center Desktop 验收。
 
 ## 仍需用户决定
 
-当前没有新的产品语义决定。真实 DeepSeek Gate 需要用户以环境变量或 Keychain reference 提供完整 Provider、Base URL、Model ID 与 Key 引用；这不阻塞 Slice A-C 自动化工作。
+当前没有新的产品语义决定。真实 DeepSeek Gate 需要用户以环境变量或 Keychain reference 提供当前可用的 Base URL、Model ID 与 Key 引用；这不阻塞其他自动化和集中 Desktop 准备。

@@ -37,7 +37,7 @@ interface ElectronFileSystemPromises {
 
 type ServiceProbeClient = Pick<LocalServiceClient, "health">;
 type ServiceClientFactory = (descriptor: ServiceDescriptor) => ServiceProbeClient;
-export type ServiceRuntimeClient = Pick<LocalServiceClient, "health" | "synchronizeExplicitObject" | "listObjects" | "listPrimaryAnchors" | "observePrimaryAnchor" | "rebindPrimaryAnchor" | "prepareProject" | "finalizeProject" | "nowWork" | "selectFocus" | "removeFocus" | "reorderFocus" | "changeCondition" | "changeDeadline" | "listProposals" | "reviewProposal" | "revalidateProposal" | "prepareProposalCommit" | "finalizeProposalCommit" | "compensateProposalCommit" | "listSemanticCommits" | "prepareProposalUndo" | "finalizeProposalUndo" | "compensateProposalUndo">;
+export type ServiceRuntimeClient = Pick<LocalServiceClient, "health" | "synchronizeExplicitObject" | "listObjects" | "listPrimaryAnchors" | "observePrimaryAnchor" | "rebindPrimaryAnchor" | "prepareProject" | "finalizeProject" | "nowWork" | "selectFocus" | "removeFocus" | "reorderFocus" | "changeCondition" | "changeDeadline" | "listProposals" | "generateProposal" | "reviewProposal" | "revalidateProposal" | "prepareProposalCommit" | "finalizeProposalCommit" | "compensateProposalCommit" | "listSemanticCommits" | "prepareProposalUndo" | "finalizeProposalUndo" | "compensateProposalUndo">;
 type ServiceRuntimeClientFactory = (descriptor: ServiceDescriptor) => ServiceRuntimeClient;
 
 export interface DiscoveredServiceRuntime {

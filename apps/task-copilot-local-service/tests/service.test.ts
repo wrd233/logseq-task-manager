@@ -10,6 +10,7 @@ import { checksum } from "@task-copilot/shared";
 import type { V2Proposal } from "@task-copilot/domain";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
+import { LocalLlmProposalGenerator, type StructuredProposalProvider, type V2PromptBundle } from "../src/llm-proposal.ts";
 
 function clientFor(service: { url: string; token: string }): LocalServiceClient {
   const descriptor: ServiceDescriptor = {
@@ -32,6 +33,14 @@ function validProposal(): V2Proposal {
     status: "READY", createdAt: "2026-07-20T12:00:00.000Z",
   };
 }
+
+const proposalPrompt: V2PromptBundle = {
+  core: { version: "core-1", content: "只生成 Proposal。" },
+  domain: { version: "domain-6", content: "正式状态只经 Application Command。" },
+  skill: { version: "formalize-1", content: "识别明确承诺。" },
+  userSemantics: { version: "profile-1", content: "简洁中文。" },
+  runtimeContext: { version: "block-v1", content: "普通正文" },
+};
 
 test("Local Service is loopback-only, authenticated, and reports one SQLite authority", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-"));
@@ -124,6 +133,34 @@ test("Proposal validation, review, and scope revalidation never masquerade as a 
   assert.equal(stale.record.proposal.status, "STALE");
   assert.equal((await client.getProposal("prop_service_validate"))?.proposal.status, "STALE");
   assert.equal((await client.status()).objectCount, 0, "review and revalidation state are not formal object writes");
+});
+
+test("configured Provider creates only a validated review-ready Proposal through Local Service", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-provider-"));
+  const modelCandidate = { ...validProposal(), proposalId: "model-id", status: "APPLIED", source: { kind: "user" } };
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({ value: modelCandidate, metadata: { requestId: "req-provider", model: "actual-model", finishReason: "stop", totalTokens: 90, durationMs: 25, attempts: 1 } }),
+  };
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"), graphId: "graph-provider", token: "provider-service-token-at-least-24-chars",
+    proposalGenerator: new LocalLlmProposalGenerator(provider),
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  assert.equal((await clientFor(service).health()).capabilities.provider, true);
+  const result = await clientFor(service).generateProposal(proposalPrompt);
+  assert.equal(result.generated.kind, "PROPOSAL");
+  if (result.generated.kind !== "PROPOSAL" || !("record" in result)) throw new Error("expected submitted Proposal");
+  assert.equal(result.record.proposal.status, "READY");
+  assert.notEqual(result.record.proposal.proposalId, "model-id");
+  assert.deepEqual(result.record.proposal.source, {
+    kind: "local_llm", provider: "deepseek", model: "actual-model", skillVersion: "formalize-1",
+    writingProfileVersion: "profile-1", promptBundleVersion: result.generated.promptBundleVersion,
+  });
+  assert.equal(result.generated.provider.requestId, "req-provider");
+  assert.equal((await clientFor(service).status()).objectCount, 0);
+  assert.equal((await clientFor(service).listProposals()).length, 1);
 });
 
 test("Proposal Commit prepares before Graph, materializes after evidence, and records APPLIED", async (t) => {

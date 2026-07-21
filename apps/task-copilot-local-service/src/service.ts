@@ -14,6 +14,8 @@ import {
 import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
 import { StructuredError, checksum, createId } from "@task-copilot/shared";
 
+import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
+
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
 export const LOCAL_SERVICE_CAPABILITIES = {
@@ -29,10 +31,12 @@ export interface LocalServiceOptions {
   token?: string;
   descriptorPath?: string;
   backupRoot?: string;
+  proposalGenerator?: LocalLlmProposalGenerator;
 }
 export interface LocalServiceHandle {
   url: string;
   token: string;
+  capabilities: ServiceCapabilities;
   close(): Promise<void>;
 }
 
@@ -75,6 +79,21 @@ async function requireNoBody(request: IncomingMessage): Promise<void> {
   if ((await readBody(request)).trim().length > 0) {
     throw serviceError("REQUEST_BODY_NOT_ALLOWED", "Backup 创建不接受客户端路径或其他参数。");
   }
+}
+
+async function readProposalGenerationRequest(request: IncomingMessage): Promise<{ prompt: V2PromptBundle }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try {
+    value = JSON.parse(body) as unknown;
+  } catch {
+    throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。");
+  }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).length !== 1 || !record.prompt || typeof record.prompt !== "object" || Array.isArray(record.prompt)) {
+    throw serviceError("LLM_GENERATION_REQUEST_INVALID", "Provider 请求只接受有界的五层 Prompt。");
+  }
+  return { prompt: record.prompt as unknown as V2PromptBundle };
 }
 
 async function readBackupId(request: IncomingMessage): Promise<string> {
@@ -484,7 +503,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   store.initialize(options.graphId);
   const application = new V2Application(store);
   const proposalApplication = new V2ProposalApplication(store);
-  const capabilities = LOCAL_SERVICE_CAPABILITIES;
+  const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: options.proposalGenerator !== undefined };
   const completeProposalObservations = (proposal: Parameters<typeof requiredV2ProposalRevalidationScope>[0], observations: V2ProposalScopeObservation[]): V2ProposalScopeObservation[] => [
     ...observations,
     ...requiredV2ProposalRevalidationScope(proposal).targets.filter((target) => target.kind === "OBJECT").map((target) => {
@@ -543,6 +562,26 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       try { candidate = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
       const result = await proposalApplication.submit(candidate);
       respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/provider/proposals/generate") {
+      if (!options.proposalGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Provider；没有创建 Proposal。");
+      const input = await readProposalGenerationRequest(request);
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        const createdAt = new Date().toISOString();
+        const result = await options.proposalGenerator.generateAndSubmit({
+          proposalId: createId("prop"),
+          createdAt,
+          prompt: input.prompt,
+          signal: controller.signal,
+        }, proposalApplication);
+        respond(response, result.replayed ? 200 : 201, result);
+      } finally {
+        request.removeListener("aborted", abort);
+      }
       return;
     }
     if (request.method === "GET" && url.pathname === "/proposals") {
@@ -1160,6 +1199,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   return {
     url: `http://127.0.0.1:${address.port}/`,
     token,
+    capabilities,
     close: async () => {
       if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
       if (storeOpen) {

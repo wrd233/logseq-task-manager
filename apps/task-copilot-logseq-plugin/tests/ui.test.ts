@@ -165,6 +165,24 @@ test("Review Center owns manual current-page candidate discovery instead of Diag
   assert.match(html, /data-action="review-mode" data-value="proposals"/);
 });
 
+test("Review Center exposes Provider analysis only when capability is enabled and shows observable state", () => {
+  const unavailable = model();
+  unavailable.workspace = "review";
+  unavailable.reviewMode = "candidates";
+  assert.doesNotMatch(renderApp(unavailable), /v2-provider-analyze-current-block/);
+
+  const available = model();
+  available.workspace = "review";
+  available.reviewMode = "candidates";
+  available.v2ProviderAvailable = true;
+  available.v2ProviderState = { status: "loading", message: "正在分析当前选中 Block；Logseq 正文仍可编辑。" };
+  const html = renderApp(available);
+  assert.match(html, /局部语义 · DeepSeek Provider/);
+  assert.match(html, /data-action="v2-provider-analyze-current-block"[^>]*disabled aria-busy="true"/);
+  assert.match(html, /只生成可审阅 Proposal/);
+  assert.match(html, /正文仍可编辑/);
+});
+
 test("object drawer does not render empty optional sections", () => {
   const value = model();
   value.objects = [

@@ -71,6 +71,8 @@ export interface UiModel {
   v2NowWorkGrouping?: V2NowWorkGrouping;
   v2CandidatePanel?: V2ExplicitCandidatePanelState;
   v2CandidateAvailable?: boolean;
+  v2ProviderAvailable?: boolean;
+  v2ProviderState?: { status: "idle" | "loading" | "success" | "error"; message?: string };
   reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
 }
@@ -261,7 +263,13 @@ function renderReview(model: UiModel): string {
   const candidateCount = model.v2CandidatePanel?.status === "ready" ? model.v2CandidatePanel.preview.candidates.length : 0;
   const proposalCount = open.length + v2.filter((record) => !["APPLIED", "REJECTED"].includes(record.proposal.status)).length;
   const tabs = `<div class="actions review-modes" role="tablist" aria-label="审阅中心视图">${button(`待整理${candidateCount ? ` (${candidateCount})` : ""}`, "review-mode", "candidates", reviewMode === "candidates" ? "primary" : "quiet")}${button(`待审阅${proposalCount ? ` (${proposalCount})` : ""}`, "review-mode", "proposals", reviewMode === "proposals" ? "primary" : "quiet")}</div>`;
-  if (reviewMode === "candidates") return `${tabs}${candidatePanel || empty("当前不可扫描候选", "Local Service 就绪后，可手动扫描当前页；不会自动扫描全 Graph。")}`;
+  if (reviewMode === "candidates") {
+    const providerState = model.v2ProviderState ?? { status: "idle" as const };
+    const providerPanel = model.v2ProviderAvailable
+      ? `<section class="card compact"><div class="eyebrow">局部语义 · DeepSeek Provider</div><h3>分析当前选中 Block</h3><p>只生成可审阅 Proposal；普通记录会返回理由且零写入。不会自动扫描页面或修改正式状态。</p><div class="actions">${button(providerState.status === "loading" ? "分析中…" : "分析当前块", "v2-provider-analyze-current-block", undefined, "primary", providerState.status === "loading")}</div>${providerState.message ? `<div class="${providerState.status === "error" ? "error" : "notice"}">${escapeHtml(providerState.message)}</div>` : ""}</section>`
+      : "";
+    return `${tabs}${providerPanel}${candidatePanel || empty("当前不可扫描候选", "Local Service 就绪后，可手动扫描当前页；不会自动扫描全 Graph。")}`;
+  }
   const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
   const v2Cards = v2.map((record) => {
     const hasAcceptedGroup = record.proposal.groups.some((group) => group.disposition === "ACCEPTED");
@@ -269,7 +277,7 @@ function renderReview(model: UiModel): string {
     const canCommit = hasAcceptedGroup && (record.proposal.status === "ACCEPTED" || record.proposal.status === "PARTIALLY_ACCEPTED");
     const canUndo = record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
     return `<article class="card proposal v2-proposal">
-    <div class="eyebrow">V2 · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
+    <div class="eyebrow">V2 · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
     <h3>${escapeHtml(record.proposal.title)}</h3>
     <p><strong>当前上下文：</strong>${escapeHtml(record.proposal.context)}</p>
     <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
