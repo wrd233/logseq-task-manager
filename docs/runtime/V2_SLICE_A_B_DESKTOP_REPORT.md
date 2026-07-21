@@ -205,3 +205,13 @@ E2E-11 的 Focus/期限/阻碍/Waiting 可解释排序场景已有自动成功/�
 - Now Work 的 Project/Area 筛选、键盘与深浅主题视觉 Gate（E2E-11 核心场景已通过）。
 
 因此本报告不将 E2E-01、E2E-15 或整个 Slice A/B 标记为 DONE。
+
+## 2026-07-21 增量 Gate：PAUSED 与期限清除 — PASS
+
+在同一专用测试 Graph 的 Now Work 页面完成两条低风险交互：
+
+- 对 `V2 Desktop Gate Task — marker restored` 打开已有期限，勾选“期限清除”并保存；卡片立即移除期限显示，Local Service/SQLite 读回保持对象与 Focus 不变；
+- 对 `V2 Desktop Blocker — restore event` 打开“更新状态”，选择 `PAUSED`，填写原因“暂缓，等待下一轮集中验收”并保存；卡片立即显示 `TASK · PAUSED`，对话框关闭，未改变 Lifecycle 或 Focus；
+- 两次操作均通过正式 Now Work → Local Service → Application → SQLite 路径完成，没有直接改 Graph 正文或新增状态源。
+
+这补齐了 Condition `PAUSED` 点击路径与 Task 期限清除的真实 Desktop 证据；Condition 失败表单、协议错误和受限态 reload 仍待集中验收。
