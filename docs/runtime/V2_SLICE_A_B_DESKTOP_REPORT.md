@@ -215,3 +215,45 @@ E2E-11 的 Focus/期限/阻碍/Waiting 可解释排序场景已有自动成功/�
 - 两次操作均通过正式 Now Work → Local Service → Application → SQLite 路径完成，没有直接改 Graph 正文或新增状态源。
 
 这补齐了 Condition `PAUSED` 点击路径与 Task 期限清除的真实 Desktop 证据；Condition 失败表单、协议错误和受限态 reload 仍待集中验收。
+
+## 2026-07-22 增量 Gate：Anchor Move / Copy / Rebind / reload — PASS
+
+环境：Logseq Desktop 0.10.15、专用 ignored Test Graph `logseq/`、同一 schema v10 SQLite、基于 `23ad015` 的本地重建 Plugin。全部操作均发生在专用测试页面；没有修改正式 Graph，也没有手工写 SQLite。
+
+### 先失败、再收口的真实证据
+
+1. 首次以 Logseq 原生 Cut/Paste 跨页移动正式 Task 时，`id::` 随 Block 保留，运行中 `object_id`/`anchor_id` 也保持；但 Plugin reload 后立即运行的 Anchor reconciliation 早于 Logseq 页面索引完成，把可恢复 Block 短暂误报为 `missing`。
+2. 通过 Diagnostics 的高影响 Rebind 把同一 Object 绑定到新 Block 后，发现旧提交路径未先固化新 Block 的 `id::`；该 Anchor 下一次 reload 仍可能再次失联。
+3. 曾评估从 `txData` 补抓粘贴 UUID；真实 `insert-blocks` 事件证明 `event.blocks` 已包含所需 Block，而 datom 还会包含瞬态空 Block。该补漏会制造无效子树读取，因此完整撤回，没有形成第二事件路径。
+
+对应修复严格复用既有机制：
+
+- Rebind 在独立确认和 stale 重读通过后，先调用既有 `ensurePersistentBlockIdentity` 写入并复核 `id:: <Block UUID>`，再以身份写入后的 Logseq version 和去身份属性 hash 调用唯一 Local Service Rebind；确认缺失或预览过期仍为 Graph/SQLite 零写入。
+- Service 恢复后的同一已知 Anchor reconciliation 首轮延迟 5 秒，避开 Logseq cold reload 索引窗口；仍是原有一页 Anchor、同一 `readBlock` 和同一 `observePrimaryAnchor` 路径。没有新增表、扫描器、补漏器、协议、状态源或正式写入口。
+
+### Rebind 与 reload
+
+- 失联 Object：`obj_20260721164223658_cdcfa30bfe7149cca7996f0f3d4d042f`；首次旧 Anchor 保留 `replaced`，没有删除历史。
+- 修复后重新绑定的新 Block UUID：`6a5fbcda-bc45-4524-b73d-5c9fd41c2b25`；UI 在确认后真实写入同值 `id::`，新 Anchor `anc_20260721184321814_e2c49fd576844d32b8dc20889a8bc44d` 成为唯一 active。
+- 下一次 Plugin reload 中，页面先短暂为空、随后 Logseq 完成索引；5 秒后 reconciliation 将此前 `missing` 的同一 Anchor 恢复为 `active`，Object version 13→14，正文缓存保持 `Association 来源对象 20260722 Copy`，没有创建新 Object。
+
+### E2E-04 跨页移动
+
+将上述 active Task 从 `V2 Anchor Move Target 20260722` 以 Logseq 原生 Cut/Paste 移到新页 `V2AnchorNativeMoveTarget20260722`：
+
+- Graph 目标页保留 `id:: 6a5fbcda-bc45-4524-b73d-5c9fd41c2b25`，源页不再含该 Block；
+- 移动前后及 reload 后均为同一 `object_id`、同一 active `anchor_id`、同一 external Block UUID、同一正文和 object version 14；
+- Primary Ownership 前后均为 0；既有 RELATED Association `rel_20260721165023297_2de4bc92d9dd40048bb35243d649bf88` 前后均为 `ACTIVE`；位置没有变成归属或 Association；
+- reload 9 秒后 Anchor 仍为 active，没有 false missing、第二 Object 或第二 Anchor。
+
+因此 E2E-04 的真实 Desktop + reload Gate 为 `DONE`。
+
+### E2E-05 复制正式 Block
+
+通过 Logseq “复制/导出为不含 properties 的正文 → 粘贴 → 结束编辑事务”复制同一显式 Task：
+
+- 原对象保持 `obj_20260721164223658_cdcfa30bfe7149cca7996f0f3d4d042f` / UUID `6a5fbcda-bc45-4524-b73d-5c9fd41c2b25`；
+- 副本获得新 UUID `6a5fb2b5-ee25-41e9-a85c-99e7f81493e0`、新 Object `obj_20260721175750014_fde635dc8c5542e79bfd1efcf3b408d5`、新 Anchor `anc_20260721175750014_c4bf040d3ed843e0801d5592410c880a`；
+- 两者在 reload 后均为 active；副本没有继承原 `object_id`、Anchor、Ownership 或 Association，原对象也没有被覆盖。
+
+因此 E2E-05 的真实 Desktop + reload Gate 为 `DONE`。E2E-06 的 missing→显式确认→replaced 历史→新 active→reload 恢复子路径已通过；删除正文后的完整审阅场景仍由独立 Gate 保留。

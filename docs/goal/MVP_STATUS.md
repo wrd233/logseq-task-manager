@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B4 foundation; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 362 tests; 145 rules; 0 skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE, Association, and Ownership change/Undo Desktop passed; Slice D live/Desktop, E2E-13 Graph context/Desktop, migration copied-data/read-only workspace Desktop, Project Closure Desktop, Candidate UPDATE, and remaining Anchor gates remain pending"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B0-B3 automated foundation; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration and Project Closure automated foundation"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 363 tests; 145 rules; 0 failed/skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE, Association, Ownership change/Undo, and Anchor Move/Copy/Rebind Desktop passed"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -50,8 +50,8 @@ implemented:
   - "Review Center owns bounded current-page Candidate discovery; scan persists only Candidate authority and never directly creates Objects"
   - "Candidate and Proposal queues persist across reload, show bounded transient source-first previews, support later/ordinary/stable same-recommendation suppression, one current Proposal, identity-safe formalization, Commit resolution and restart-safe Undo reopening"
   - "Known Primary Anchor observations persist missing/conflict/recovery through Local Service and one SQLite transaction without deleting objects or reviving replaced Anchors"
-  - "Same-UUID synchronization preserves object_id, anchor_id and Primary Ownership; a copied UUID materializes a distinct object and Anchor"
-  - "Explicit V2 Primary Anchor rebind requires confirmation, atomically preserves the old replaced Anchor while activating one new Anchor, and has a bounded Plugin review panel with stale re-read protection"
+  - "Same-UUID synchronization preserves object_id, anchor_id, Primary Ownership and Association across a real native cross-page move; a property-free Desktop copy materializes a distinct UUID, object and Anchor without inheriting relations"
+  - "Explicit V2 Primary Anchor rebind requires confirmation, persists and verifies the selected Block identity after stale checks, atomically preserves the old replaced Anchor while activating one new Anchor, and delays cold-start reconciliation through the existing known-Anchor path until Logseq indexing is ready"
   - "Manual current-page discovery recovers explicit objects created while the Plugin was offline with a 256-item processing budget, complete bounded Anchor coverage or zero-write refusal, one-at-a-time synchronization, stale reread protection, and no full-Graph scan"
   - "Changed Block UUIDs are debounced into a 32-root latest-value queue, reread authoritatively, and expanded within a 256-Block frontier budget; internal bare TODO stays non-object, explicit descendants synchronize independently, and overflow/truncation/malformed shapes require reconciliation"
   - "Project atomic creation passed Desktop success, unknown-name conflict, page rename, cold reload, and real finalize-process interruption/restart; V2 objects now render Lifecycle/Condition directly from Local Service without V1 Phase mapping"
@@ -71,8 +71,9 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 CREATE Candidate Gate: offline current-page discovery, source-first cards, later/ordinary/stable suppression, READY/ACCEPTED with Object=0, final Commit RESOLVED, Undo reopen and Plugin reload verified; id:: property echo cannot materialize before Commit"
   - "V2 Desktop 0.10.15 Association Gate: TASK to OUTPUT selection, missing-confirmation zero write, explicit confirmation, one RELATED/ACTIVE SQLite write, source version/Audit 4 to 5, Ownership/Focus/Anchor unchanged, and Plugin reload verified"
   - "V2 Desktop 0.10.15 Primary Ownership Gate: external Proposal validate/submit, HIGH accept with zero formal write, scope revalidation, final Commit, plugin reload, dedicated Undo and second reload verified; Task v5 to v6 to v7 while Project v2, Anchors and the existing Association remained unchanged"
+  - "V2 Desktop 0.10.15 E2E-04/E2E-05 and Rebind sub-Gate: native cross-page move retained the same object/active Anchor/UUID/version/Ownership/Association; property-free copy created an independent object/Anchor; confirmed rebind persisted id:: UUID, retained replaced history and remained active after cold reload"
 runtime_checks_pending:
-  - "V2 remaining Anchor move/copy/rebind, Proposal reject/defer and process-fault, Candidate UPDATE flow, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
+  - "V2 delete-Anchor review, finite-subtree and offline-current-page Candidate, Proposal reject/defer and process-fault, Candidate UPDATE flow, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
   - "Project Closure Desktop review/completion/reload and retained-page Gate"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"

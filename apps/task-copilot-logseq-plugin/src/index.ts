@@ -432,6 +432,7 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
 
 function initializeExplicitSync(): void {
   explicitSyncController = new ExplicitSyncController({
+    reconciliationDelayMs: 5_000,
     readBlock: (externalId) => logseq.Editor.getBlock(externalId),
     ensurePersistentIdentity: ensurePersistentBlockIdentity,
     onIssue(issue) {
@@ -678,7 +679,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await showRuntimeDiagnostics();
     const traceId = `v2-rebind-${Date.now()}-${globalThis.crypto.randomUUID()}`;
     try {
-      const result = await submitV2PrimaryAnchorRebind(client, currentPanel.preview, previousAnchorId, confirmed, () => logseq.Editor.getCurrentBlock(), traceId);
+      const result = await submitV2PrimaryAnchorRebind(client, currentPanel.preview, previousAnchorId, confirmed, () => logseq.Editor.getCurrentBlock(), ensurePersistentBlockIdentity, traceId);
       v2RebindPanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
         ? { status: "success", message: `对象 ${result.object.objectId} 已绑定到 Block ${result.anchor.externalId}；旧 Anchor 保留为 replaced。` }
         : { status: "error", message: "Local Service 在提交期间重连；旧会话已返回成功，请先在 Audit/Doctor 核对，不要立即重试。" };

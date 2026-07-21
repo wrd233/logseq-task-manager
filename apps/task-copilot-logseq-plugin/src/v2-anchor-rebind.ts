@@ -1,4 +1,4 @@
-import { normalizeExplicitObjectBlock } from "@task-copilot/logseq-adapter";
+import { normalizeExplicitObjectBlock, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 import type { ServicePrimaryAnchorRebindResult } from "@task-copilot/service-client";
 import { checksum } from "@task-copilot/shared";
@@ -42,7 +42,7 @@ function targetFromBlock(value: unknown): V2RebindPreview["target"] {
   return {
     externalId: block.externalId,
     inputVersion: block.inputVersion,
-    contentHash: checksum(block.content),
+    contentHash: checksum(stripLogseqBlockIdentityProperty(block.content, block.externalId)),
     objectType: block.parsed.objectType,
     text: block.parsed.title,
   };
@@ -72,6 +72,7 @@ export async function submitV2PrimaryAnchorRebind(
   previousAnchorId: string,
   confirmed: boolean,
   readCurrentBlock: () => Promise<unknown>,
+  ensurePersistentIdentity: (externalId: string) => Promise<void>,
   traceId: string,
 ): Promise<ServicePrimaryAnchorRebindResult> {
   if (!confirmed) throw new Error("请单独确认 Primary Anchor 重新绑定；没有执行写入。");
@@ -87,16 +88,26 @@ export async function submitV2PrimaryAnchorRebind(
   ) {
     throw new Error("当前 Block 已在预览后变化；请重新打开预览，旧预览没有提交。");
   }
+  await ensurePersistentIdentity(current.externalId);
+  const persistent = targetFromBlock(await readCurrentBlock());
+  if (
+    persistent.externalId !== preview.target.externalId ||
+    persistent.contentHash !== preview.target.contentHash ||
+    persistent.objectType !== preview.target.objectType ||
+    persistent.text !== preview.target.text
+  ) {
+    throw new Error("当前 Block 的持久身份建立后正文发生变化；没有提交重新绑定。");
+  }
   return client.rebindPrimaryAnchor({
     previousAnchorId: candidate.anchor.anchorId,
     previewObjectVersion: candidate.object.version,
     previewAnchorStatus: candidate.anchor.status,
     previewAnchorContentHash: candidate.anchor.contentHash,
-    objectType: current.objectType,
-    text: current.text,
-    externalId: current.externalId,
-    inputVersion: current.inputVersion,
-    contentHash: current.contentHash,
+    objectType: persistent.objectType,
+    text: persistent.text,
+    externalId: persistent.externalId,
+    inputVersion: persistent.inputVersion,
+    contentHash: persistent.contentHash,
     confirmation: "REBIND_PRIMARY_ANCHOR",
     traceId,
   });

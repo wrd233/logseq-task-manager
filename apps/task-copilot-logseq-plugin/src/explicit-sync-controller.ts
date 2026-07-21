@@ -36,6 +36,7 @@ export interface ExplicitSyncState {
 
 export interface ExplicitSyncControllerOptions {
   delayMs?: number;
+  reconciliationDelayMs?: number;
   maximumPending?: number;
   clock?: DebounceClock;
   createTraceId?: () => string;
@@ -218,10 +219,12 @@ export class ExplicitSyncController {
   }>();
   private readonly maximumPending: number;
   private readonly createTraceId: () => string;
+  private readonly reconciliationDelayMs: number;
   private readonly debouncer: ExplicitObjectChangeDebouncer;
   private transport: ExplicitSyncTransport | undefined;
   private drainPromise: Promise<void> | undefined;
   private reconciliationPromise: Promise<void> | undefined;
+  private resumeReconciliationTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   private reconciliationCursor: string | undefined;
   private disposed = false;
   private needsReconciliation = false;
@@ -230,6 +233,10 @@ export class ExplicitSyncController {
     this.maximumPending = options.maximumPending ?? 256;
     if (!Number.isSafeInteger(this.maximumPending) || this.maximumPending < 1) {
       throw new Error("Explicit sync maximum pending count must be a positive integer.");
+    }
+    this.reconciliationDelayMs = options.reconciliationDelayMs ?? 0;
+    if (!Number.isFinite(this.reconciliationDelayMs) || this.reconciliationDelayMs < 0 || this.reconciliationDelayMs > 60_000) {
+      throw new Error("Explicit sync reconciliation delay must be between 0 and 60000.");
     }
     this.createTraceId = options.createTraceId ?? (() => `explicit-sync-${Date.now()}-${globalThis.crypto.randomUUID()}`);
     this.debouncer = new ExplicitObjectChangeDebouncer({
@@ -306,13 +313,25 @@ export class ExplicitSyncController {
 
   async resume(transport: ExplicitSyncTransport): Promise<void> {
     if (this.disposed) return;
+    if (this.resumeReconciliationTimer !== undefined) globalThis.clearTimeout(this.resumeReconciliationTimer);
+    this.resumeReconciliationTimer = undefined;
     this.transport = transport;
     this.emitState();
     await this.drain();
-    await this.reconcileKnownAnchors();
+    if (this.disposed || this.transport !== transport) return;
+    if (this.reconciliationDelayMs === 0) {
+      await this.reconcileKnownAnchors();
+      return;
+    }
+    this.resumeReconciliationTimer = globalThis.setTimeout(() => {
+      this.resumeReconciliationTimer = undefined;
+      if (!this.disposed && this.transport === transport) void this.reconcileKnownAnchors();
+    }, this.reconciliationDelayMs);
   }
 
   pause(): void {
+    if (this.resumeReconciliationTimer !== undefined) globalThis.clearTimeout(this.resumeReconciliationTimer);
+    this.resumeReconciliationTimer = undefined;
     this.transport = undefined;
     this.emitState();
   }
@@ -327,6 +346,8 @@ export class ExplicitSyncController {
 
   dispose(): void {
     this.disposed = true;
+    if (this.resumeReconciliationTimer !== undefined) globalThis.clearTimeout(this.resumeReconciliationTimer);
+    this.resumeReconciliationTimer = undefined;
     this.transport = undefined;
     this.pending.clear();
     for (const suppression of this.suppressedObservations.values()) globalThis.clearTimeout(suppression.expiryTimer);

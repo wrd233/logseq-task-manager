@@ -548,6 +548,37 @@ test("service recovery reconciles only known Anchors and reports missing or remo
   assert.deepEqual(controller.snapshot(), { pending: 0, transportReady: true, reconciliationRequired: true });
 });
 
+test("cold-start reconciliation waits for Logseq indexing before declaring a persisted Anchor missing", async () => {
+  let graphReadable = false;
+  const issues: string[] = [];
+  const observations: Array<[string, string]> = [];
+  const content = "[任务] reload 后仍可定位";
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    reconciliationDelayMs: 20,
+    readBlock: async (externalId) => graphReadable ? { uuid: externalId, content, "updated-at": 2001 } : null,
+    onIssue: (issue) => issues.push(issue.code),
+  });
+  const resumed = controller.resume({
+    async listPrimaryAnchors() {
+      return { anchors: [{ anchorId: "a-reload", objectId: "o-reload", graphId: "graph", externalId: "block-reload", role: "primary_text", status: "active", contentHash: checksum(content), lastSeenAt: "2026-07-20T08:00:00.000Z" }] };
+    },
+    async synchronizeExplicitObject() {
+      throw new Error("unchanged persisted content must not synchronize");
+    },
+    async observePrimaryAnchor(input) {
+      observations.push([input.anchorId, input.status]);
+      return {};
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  graphReadable = true;
+  await resumed;
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.deepEqual(issues, []);
+  assert.deepEqual(observations, []);
+});
+
 test("Block reconciliation leaves Project page Anchors to their page-specific workflow", async () => {
   const reads: string[] = [];
   const observations: Array<[string, string]> = [];
