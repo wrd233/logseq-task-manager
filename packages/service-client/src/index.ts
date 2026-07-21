@@ -586,6 +586,10 @@ export class LocalServiceClient {
     return this.request<ServiceMigrationRunDetails>(`/migration/runs/${encodeURIComponent(runId)}`);
   }
 
+  async listMigrationRuns(): Promise<ServiceMigrationRun[]> {
+    return (await this.request<{ runs: ServiceMigrationRun[] }>("/migration/runs")).runs;
+  }
+
   importLegacyMigration(runId: string, input: { bundle: unknown; backupId: string; objectIds: string[]; idempotencyKey: string; confirmation: "IMPORT_REVIEWED_V1_BATCH" }): Promise<{ batch: ServiceMigrationBatch; replayed: boolean }> {
     return this.request<{ batch: ServiceMigrationBatch; replayed: boolean }>(`/migration/runs/${encodeURIComponent(runId)}/batches/import`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),

@@ -6,11 +6,11 @@ import type {
   ProjectReentryView,
 } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2ManagedObject } from "@task-copilot/domain";
-import type { ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import type { ObservableActionState } from "./inbox-action-controller.ts";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 
-export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "audit";
+export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "migration" | "audit";
 export type V2NowWorkTypeFilter = "ALL" | ServiceNowWork["focus"][number]["objectType"];
 export type V2NowWorkGrouping = "mixed" | "type";
 export type ActionDialogKind =
@@ -75,6 +75,8 @@ export interface UiModel {
   v2ProviderState?: { status: "idle" | "loading" | "success" | "error"; message?: string };
   reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
+  v2MigrationRuns?: ServiceMigrationRun[];
+  v2MigrationLoadError?: string;
 }
 
 export function escapeHtml(value: unknown): string {
@@ -368,6 +370,15 @@ function renderAudit(model: UiModel): string {
     ${commits || events || anchors ? `${commits}${events}${anchors}` : empty("还没有审计事件", "捕获和正式变更会记录在这里。")}`;
 }
 
+function renderMigration(model: UiModel): string {
+  if (model.v2MigrationLoadError) return `<section><h2>V1 → V2 迁移</h2><div class="error"><strong>迁移状态不可用：</strong>${escapeHtml(model.v2MigrationLoadError)}<span>没有执行扫描、导入或状态切换。</span></div></section>`;
+  const runs = model.v2MigrationRuns ?? [];
+  const guidance = `<section class="card"><div class="eyebrow">手动 · 可恢复 · SQLite 单一权威</div><h2>V1 → V2 迁移</h2><p>Recovery Bundle 只由 CLI 显式读取；插件不保存正文副本，也不会自动扫描或迁移。</p><p class="muted">顺序：scan → preview → backup → import → verify → activate。导入前可用 show 查看 Run；未激活且未变化的批次可 Undo。</p></section>`;
+  if (!runs.length) return `${guidance}${empty("还没有迁移 Run", "先在终端执行 tc migration scan 与 tc migration preview；完成审阅前不会写入正式状态。")}`;
+  const cards = runs.map((run) => `<article class="card compact"><div class="eyebrow">${escapeHtml(run.status)} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>${escapeHtml(run.runId)}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项导入 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p class="muted">源：${escapeHtml(run.sourceBundleSha256.slice(0, 12))}…${run.snapshotBackupId ? ` · 恢复点：${escapeHtml(run.snapshotBackupId)}` : " · 尚未绑定恢复点"}</p><p>${run.status === "PREVIEWED" ? "下一步：创建并校验 Backup，再明确确认 Import。" : run.status === "IMPORTING" ? "下一步：验证已导入批次；Service 重启后可继续。" : run.status === "VERIFIED" ? "下一步：确认所有审阅结果后显式 Activate。" : run.status === "ACTIVATED" ? "V2 SQLite 已激活；V1 只保留为只读历史与恢复证据。" : "请使用 tc migration show 查看结构化错误与证据。"}</p></article>`).join("");
+  return `${guidance}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;
+}
+
 function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
@@ -436,6 +447,7 @@ export function renderApp(model: UiModel): string {
     ["objects", "Projects / 对象"],
     ["review", "Proposal Review"],
     ["reentry", "Project 重入"],
+    ["migration", "迁移"],
     ["audit", "Audit / Recovery / 审计与恢复"],
   ];
   const body =
@@ -449,7 +461,9 @@ export function renderApp(model: UiModel): string {
             ? renderReview(model)
             : model.workspace === "reentry"
               ? renderReentry(model)
-              : renderAudit(model);
+              : model.workspace === "migration"
+                ? renderMigration(model)
+                : renderAudit(model);
   return `<section class="app-shell">
     <header class="topbar">
       <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>

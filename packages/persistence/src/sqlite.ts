@@ -1196,6 +1196,12 @@ export class V2SqliteStore {
     };
   }
 
+  listMigrationRuns(limit = 20): V2MigrationRun[] {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw persistenceError("MIGRATION_RUN_QUERY_LIMIT_INVALID", "Migration Run 查询上限必须是 1 到 100。");
+    const ids = this.database.prepare("SELECT run_id FROM migration_runs ORDER BY updated_at DESC, run_id ASC LIMIT ?").pluck().all(limit) as string[];
+    return ids.map((runId) => this.migrationRun(runId)!);
+  }
+
   migrationEvidence(runId: string): V2LegacyMigrationEvidence[] {
     const rows = this.database.prepare(`
       SELECT run_id, legacy_object_id, source_hash, mapping_json, target_object_id

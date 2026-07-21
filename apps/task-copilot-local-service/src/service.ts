@@ -666,6 +666,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       respond(response, result.replayed ? 200 : 201, result);
       return;
     }
+    if (request.method === "GET" && url.pathname === "/migration/runs") {
+      respond(response, 200, { runs: store.listMigrationRuns() });
+      return;
+    }
     const migrationRunMatch = request.method === "GET" ? url.pathname.match(/^\/migration\/runs\/([^/]+)$/) : null;
     if (migrationRunMatch?.[1]) {
       const runId = decodeURIComponent(migrationRunMatch[1]);

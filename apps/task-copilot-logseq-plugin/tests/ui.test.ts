@@ -23,9 +23,26 @@ function model(): UiModel {
 
 test("shell exposes restrained core workspaces and no-agent degradation", () => {
   const html = renderApp(model());
-  for (const label of ["Inbox", "现在工作", "对象", "Proposal Review", "Project 重入", "审计与恢复"]) assert.match(html, new RegExp(label));
+  for (const label of ["Inbox", "现在工作", "对象", "Proposal Review", "Project 重入", "迁移", "审计与恢复"]) assert.match(html, new RegExp(label));
   assert.match(html, /Agent disabled/);
   assert.match(html, /基础事务系统可用/);
+});
+
+test("Migration workspace projects the Service ledger without accepting bundle content or direct writes", () => {
+  const value = model();
+  value.workspace = "migration";
+  value.v2MigrationRuns = [{
+    runId: "migration-run:abc", sourceBundleSha256: "a".repeat(64), sourceCreatedAt: "2026-07-20T08:00:00.000Z",
+    status: "IMPORTING", summary: { total: 3, import: 2, keepOrdinary: 0, defer: 1, exclude: 0 }, snapshotBackupId: "backup_20260721080000000_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T09:00:00.000Z",
+  }];
+  const html = renderApp(value);
+  assert.match(html, /V1 → V2 迁移/);
+  assert.match(html, /IMPORTING/);
+  assert.match(html, /3 项已审阅 · 2 项导入 · 1 项暂缓/);
+  assert.match(html, /Service 重启后可继续/);
+  assert.match(html, /backup_20260721080000000/);
+  assert.doesNotMatch(html, /textarea|type="file"|data-action="migration-(?:import|activate|undo)"/);
 });
 
 test("Project workspace exposes one in-context V2 creation form gated by Local Service readiness", () => {

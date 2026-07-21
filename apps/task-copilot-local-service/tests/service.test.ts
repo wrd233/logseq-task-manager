@@ -173,6 +173,8 @@ test("Local Service completes reviewed migration through validated backup, impor
   const scanned = await client.scanLegacyMigration(bundle);
   const previewed = await client.previewLegacyMigration(bundle, [{ legacyObjectId: "legacy-service-task", action: "IMPORT" }]);
   assert.equal(previewed.run.summary.import, 1);
+  assert.deepEqual((await client.listMigrationRuns()).map(({ runId, status }) => ({ runId, status })), [{ runId: previewed.run.runId, status: "PREVIEWED" }]);
+  assert.doesNotMatch(JSON.stringify(await client.listMigrationRuns()), /迁移服务闭环/);
   assert.equal((await client.getMigrationRun(previewed.run.runId)).evidence[0]?.targetObjectId, undefined);
   const snapshot = await client.createBackup();
   const imported = await client.importLegacyMigration(previewed.run.runId, {

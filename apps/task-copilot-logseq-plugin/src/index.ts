@@ -169,8 +169,10 @@ async function model(): Promise<UiModel> {
     let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
     let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
     let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
+    let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
     let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
     let v2ProposalLoadError: string | undefined;
+    let v2MigrationLoadError: string | undefined;
     if (serviceConnection.status === "READY" && serviceRuntimeClient) {
       try {
         [v2Proposals, v2SemanticCommits, v2Objects, v2NowWork] = await Promise.all([
@@ -181,6 +183,11 @@ async function model(): Promise<UiModel> {
         ]);
       } catch (error) {
         v2ProposalLoadError = explain(error);
+      }
+      try {
+        v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns();
+      } catch (error) {
+        v2MigrationLoadError = explain(error);
       }
     }
     return {
@@ -208,6 +215,7 @@ async function model(): Promise<UiModel> {
       v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
       v2Objects,
       v2Proposals,
+      v2MigrationRuns,
       v2SemanticCommits,
       v2CandidatePanel,
       v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
@@ -218,6 +226,7 @@ async function model(): Promise<UiModel> {
       v2NowWorkTypeFilter,
       v2NowWorkGrouping,
       ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
+      ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
     };
   }
   const app = requireTaskCopilot();
@@ -244,9 +253,12 @@ async function model(): Promise<UiModel> {
   let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
   let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
   let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
+  let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
   let v2ProposalLoadError: string | undefined;
+  let v2MigrationLoadError: string | undefined;
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
     try { [v2Proposals, v2SemanticCommits, v2NowWork] = await Promise.all([serviceRuntimeClient.listProposals(), serviceRuntimeClient.listSemanticCommits(), serviceRuntimeClient.nowWork()]); } catch (error) { v2ProposalLoadError = explain(error); }
+    try { v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns(); } catch (error) { v2MigrationLoadError = explain(error); }
   }
   return {
     workspace,
@@ -278,6 +290,7 @@ async function model(): Promise<UiModel> {
     ...(actionDialog ? { actionDialog } : {}),
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2Proposals,
+    v2MigrationRuns,
     v2SemanticCommits,
     v2CandidatePanel,
     v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
@@ -288,6 +301,7 @@ async function model(): Promise<UiModel> {
     v2NowWorkTypeFilter,
     v2NowWorkGrouping,
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
+    ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
   };
 }
 
