@@ -373,7 +373,22 @@ test("HIGH Ownership Review uses a dedicated confirmation and never falls throug
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:owner", proposalId: "prop-owner", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
-  assert.match(html, /位置、Anchor 与 Association 未改变/);
+  assert.match(html, /data-action="v2-ownership-undo"/);
+  assert.match(html, /可恢复到审阅前主归属/);
+  value.actionDialog = { kind: "confirm-v2-ownership-undo", value: "proposal-commit:owner" };
+  html = renderApp(value);
+  assert.match(html, /恢复为未归属/);
+  assert.match(html, /data-action="submit-v2-ownership-undo"/);
+  delete value.actionDialog;
+  value.v2SemanticCommits.push({ semanticCommitId: "ownership-undo:proposal-commit:owner", proposalId: "prop-owner", status: "FAILED", beforeStateChecksum: "before", createdAt: "now", updatedAt: "now" });
+  html = renderApp(value);
+  assert.doesNotMatch(html, /data-action="v2-ownership-undo"/);
+  assert.match(html, /后续变化；Undo 已安全终止/);
+  value.v2SemanticCommits.pop();
+  value.v2SemanticCommits[0]!.status = "UNDONE";
+  html = renderApp(value);
+  assert.doesNotMatch(html, /data-action="v2-ownership-undo"/);
+  assert.match(html, /原 Commit 已撤销/);
 });
 
 test("completed Project keeps its readable Closure in the formal object workspace", () => {

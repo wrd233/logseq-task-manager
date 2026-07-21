@@ -38,7 +38,7 @@ export interface LocalServiceOptions {
   backupRoot?: string;
   proposalGenerator?: LocalLlmProposalGenerator;
   /** Test-only fault boundary; production callers must omit it. */
-  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void };
+  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void };
 }
 export interface LocalServiceHandle {
   url: string;
@@ -347,6 +347,17 @@ async function readOwnershipCommitRequest(request: IncomingMessage): Promise<{ e
   return { expectedUpdatedAt: record.expectedUpdatedAt, observations: parseProposalGraphObservations(record.observations, "OWNERSHIP_COMMIT_REQUEST_INVALID", "Primary Ownership 重验证据无效。"), traceId: record.traceId };
 }
 
+async function readOwnershipUndoRequest(request: IncomingMessage): Promise<{ traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "confirmation,traceId" || record.confirmation !== "UNDO_PRIMARY_OWNERSHIP" || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) {
+    throw serviceError("OWNERSHIP_UNDO_REQUEST_INVALID", "Primary Ownership Undo 必须有 trace_id 和精确高影响确认。");
+  }
+  return { traceId: record.traceId };
+}
+
 interface ProposalCommitEvidenceRequest {
   semanticCommitId: string;
   proposalId: string;
@@ -418,6 +429,10 @@ function proposalSemanticCommitId(graphId: string, proposalId: string, expectedU
 
 function proposalUndoSemanticCommitId(originalSemanticCommitId: string): string {
   return `undo:${originalSemanticCommitId}`;
+}
+
+function ownershipUndoSemanticCommitId(originalSemanticCommitId: string): string {
+  return `ownership-undo:${originalSemanticCommitId}`;
 }
 
 function projectSemanticCommitId(graphId: string, name: string): string {
@@ -544,9 +559,9 @@ function primaryAnchorRebindIdempotencyKey(graphId: string, input: PrimaryAnchor
 
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
-    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
+    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
-    const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "OWNERSHIP_COMMIT_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code));
+    const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code));
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
@@ -941,6 +956,83 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       store.finalizeSemanticCommit(semanticCommitId, "COMPLETED", now.toISOString(), checksum(result));
       const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
       respond(response, 200, { status: "COMPLETED", semanticCommitId, object: result.object, ownership: result.ownership, record, replayed: false }); return;
+    }
+    const ownershipUndoMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/ownership\/undo$/) : null;
+    if (ownershipUndoMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(ownershipUndoMatch[1]);
+      const input = await readOwnershipUndoRequest(request);
+      const original = store.semanticCommit(originalSemanticCommitId);
+      if (!original?.proposalId || !["COMPLETED", "UNDONE"].includes(original.status)) throw serviceError("V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "只有已完成且尚有审阅证据的 Ownership Commit 可以 Undo。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "原 Ownership Commit 引用的 Proposal 不存在。");
+      const plan = planAcceptedV2OwnershipChange(stored.proposal);
+      const forwardSteps = store.semanticCommitSteps(originalSemanticCommitId);
+      const forwardReceipt = store.getCommandReceipt(`ownership-change:${originalSemanticCommitId}`);
+      if (
+        forwardSteps.length !== 1 || forwardSteps[0]?.operationId !== plan.childObjectId
+        || forwardReceipt?.command !== "change_primary_owner"
+        || forwardReceipt.object.objectId !== plan.childObjectId
+        || forwardReceipt.object.version !== plan.expectedVersion + 1
+        || forwardReceipt.ownership.childObjectId !== plan.childObjectId
+        || forwardReceipt.ownership.ownerObjectId !== plan.ownerObjectId
+        || (forwardReceipt.previousOwnerId !== undefined && forwardReceipt.previousOwnerId !== plan.expectedCurrentOwnerId)
+      ) throw serviceError("V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "Ownership Undo 的正向回执与已审阅计划不一致。");
+      // Receipts written before Ownership Undo support did not carry previousOwnerId.
+      // The accepted Proposal is immutable machine authority for that reviewed precondition.
+      const previousOwnerId = forwardReceipt.previousOwnerId ?? plan.expectedCurrentOwnerId;
+
+      const undoSemanticCommitId = ownershipUndoSemanticCommitId(originalSemanticCommitId);
+      const receiptKey = `ownership-undo:${undoSemanticCommitId}`;
+      const existing = store.semanticCommit(undoSemanticCommitId);
+      const steps = existing ? store.semanticCommitSteps(undoSemanticCommitId) : [];
+      if (original.status === "UNDONE" && existing?.status !== "COMPLETED") throw serviceError("V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "已撤销的 Ownership Commit 缺少已完成逆向 Commit。");
+      if (existing?.status === "COMPLETED") {
+        const receipt = store.getCommandReceipt(receiptKey);
+        const restoredOwnerId = receipt?.command === "undo_primary_owner_change" ? receipt.ownership?.ownerObjectId : undefined;
+        if (existing.proposalId !== original.proposalId || steps.length !== 1 || steps[0]?.operationId !== plan.childObjectId || receipt?.command !== "undo_primary_owner_change" || receipt.object.objectId !== plan.childObjectId || receipt.object.version !== forwardReceipt.object.version + 1 || restoredOwnerId !== previousOwnerId || (receipt.ownership !== undefined && receipt.ownership.childObjectId !== plan.childObjectId)) throw serviceError("V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "已完成 Ownership Undo 缺少一致的逆向回执。");
+        if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, object: receipt.object, ...(receipt.ownership ? { ownership: receipt.ownership } : {}), replayed: true });
+        return;
+      }
+      if (existing && existing.status !== "PENDING") throw serviceError("V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "Ownership Undo 已安全终止，不能建立平行逆向事务。");
+      if (!existing) {
+        const now = new Date();
+        store.prepareSemanticCommit({
+          semanticCommitId: undoSemanticCommitId,
+          proposalId: original.proposalId,
+          status: "PENDING",
+          beforeStateChecksum: checksum({ object: forwardReceipt.object, ownership: forwardReceipt.ownership, previousOwnerId }),
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        }, [{ semanticCommitId: undoSemanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: plan.childObjectId, updatedAt: now.toISOString() }]);
+      } else if (existing.proposalId !== original.proposalId || steps.length !== 1 || steps[0]?.operationId !== plan.childObjectId) {
+        throw serviceError("V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "Ownership Undo 账本与已审阅计划不一致。");
+      }
+
+      const now = new Date();
+      let result;
+      try {
+        options.faults?.beforeOwnershipUndoDomainWrite?.();
+        result = await application.undoPrimaryOwnerChange(plan.childObjectId, plan.ownerObjectId, previousOwnerId, {
+          actor: "proposal_undo",
+          expectedVersion: forwardReceipt.object.version,
+          idempotencyKey: receiptKey,
+          traceId: input.traceId,
+        }, now);
+      } catch (error) {
+        const terminalCodes = ["V2_OBJECT_VERSION_CONFLICT", "V2_OBJECT_NOT_FOUND", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
+        if (error instanceof StructuredError && terminalCodes.includes(error.code) && !store.getCommandReceipt(receiptKey) && store.semanticCommit(undoSemanticCommitId)?.status === "PENDING") {
+          store.finalizeSemanticCommit(undoSemanticCommitId, "FAILED", now.toISOString(), undefined, error.code);
+        }
+        throw error;
+      }
+      options.faults?.afterOwnershipUndoDomainWrite?.();
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum(result));
+      store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
+      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, object: result.object, ...(result.ownership ? { ownership: result.ownership } : {}), replayed: result.replayed });
+      return;
     }
     const projectClosureCommitMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/closure\/commit$/) : null;
     if (projectClosureCommitMatch?.[1]) {

@@ -466,6 +466,19 @@ export function assignV2PrimaryOwner(
   };
 }
 
+export function restoreV2PrimaryOwner(
+  child: V2ManagedObject,
+  previousOwner: V2ManagedObject | undefined,
+  expectedVersion: number,
+  at = new Date(),
+): { object: V2ManagedObject; ownership?: V2PrimaryOwnership } {
+  requireExpectedVersion(child, expectedVersion);
+  const timestamp = at.toISOString();
+  if (!previousOwner) return { object: { ...child, version: child.version + 1, updatedAt: timestamp } };
+  const restored = assignV2PrimaryOwner(child, previousOwner, expectedVersion, at);
+  return { object: restored.object, ownership: restored.ownership };
+}
+
 export function selectFocus(objectId: string, rank: number, at = new Date(), expiresAt?: string): FocusSelection {
   requireText(objectId, "FOCUS_OBJECT_REQUIRED", "Focus 必须引用正式对象。");
   if (!Number.isSafeInteger(rank) || rank < 0) {

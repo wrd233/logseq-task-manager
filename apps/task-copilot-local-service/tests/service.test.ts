@@ -52,8 +52,8 @@ function projectClosureProposal(objectId: string, version: number): V2Proposal {
   };
 }
 
-function ownershipProposal(childObjectId: string, childVersion: number, ownerObjectId: string, ownerVersion: number): V2Proposal {
-  return { proposalId: "prop_primary_owner", schemaVersion: "v2", title: "设置主归属", context: "Task 当前未归属。", understanding: "将 Task 归入已存在 Project。", objective: "建立唯一主归属。", logic: "独立 HIGH 组审阅且不改变位置。", finalPreview: "Task 的 Primary Owner 将更新。", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "OBJECT", id: ownerObjectId, version: ownerVersion }], modify: [{ kind: "OBJECT", id: childObjectId, version: childVersion }] }, preconditions: ["child 与 owner 版本未变化"], groups: [{ groupId: "change-owner", explanation: "主归属独立审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "change-owner", kind: "CHANGE_OWNERSHIP", target: { kind: "OBJECT", id: childObjectId, version: childVersion }, summary: "设置 Primary Owner", payload: { ownerObjectId }, preconditions: [] }], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-21T13:00:00.000Z" };
+function ownershipProposal(childObjectId: string, childVersion: number, ownerObjectId: string, ownerVersion: number, expectedCurrentOwnerId?: string, proposalId = "prop_primary_owner"): V2Proposal {
+  return { proposalId, schemaVersion: "v2", title: "设置主归属", context: "Task 当前归属已由版本证据表达。", understanding: "将 Task 归入已存在 Project。", objective: "建立唯一主归属。", logic: "独立 HIGH 组审阅且不改变位置。", finalPreview: "Task 的 Primary Owner 将更新。", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "OBJECT", id: ownerObjectId, version: ownerVersion }], modify: [{ kind: "OBJECT", id: childObjectId, version: childVersion }] }, preconditions: ["child 与 owner 版本未变化"], groups: [{ groupId: "change-owner", explanation: "主归属独立审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "change-owner", kind: "CHANGE_OWNERSHIP", target: { kind: "OBJECT", id: childObjectId, version: childVersion }, summary: "设置 Primary Owner", payload: { ownerObjectId, ...(expectedCurrentOwnerId ? { expectedCurrentOwnerId } : {}) }, preconditions: [] }], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-21T13:00:00.000Z" };
 }
 
 const proposalPrompt: V2PromptBundle = {
@@ -726,6 +726,54 @@ test("reviewed HIGH Ownership Proposal commits through one Domain SemanticCommit
   assert.equal((await client.listPrimaryOwnerships())[0]?.childObjectId, child.object.objectId);
   const replay = await client.commitPrimaryOwnership("prop_primary_owner", { expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "commit-owner-replay" });
   assert.equal(replay.status === "COMPLETED" && replay.replayed, true);
+  if (committed.status !== "COMPLETED") return;
+  const invalidUndo = await fetch(new URL(`semantic-commits/${encodeURIComponent(committed.semanticCommitId)}/ownership/undo`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ confirmation: "yes", traceId: "refuse-owner-undo" }) });
+  assert.equal(invalidUndo.status, 400);
+  const undone = await client.undoPrimaryOwnership(committed.semanticCommitId, { confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: "undo-owner" });
+  assert.equal(undone.ownership, undefined, "an originally unassigned child returns to Unassigned");
+  assert.equal(undone.object.version, child.object.version + 2);
+  assert.deepEqual(await client.listPrimaryOwnerships(), []);
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === committed.semanticCommitId)?.status, "UNDONE");
+  const undoReplay = await client.undoPrimaryOwnership(committed.semanticCommitId, { confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: "undo-owner-replay" });
+  assert.equal(undoReplay.replayed, true);
+});
+
+test("Ownership Undo restores the reviewed previous Owner and refuses later child edits", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-owner-undo-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-owner-undo", token: "ownership-undo-token-at-least-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const oldIntent = await client.prepareProject({ name: "Old Owner", traceId: "prepare-old-owner" });
+  const oldOwner = await client.finalizeProject({ semanticCommitId: oldIntent.semanticCommitId, objectId: oldIntent.objectId, name: "Old Owner", pageExternalId: "page-old-owner", pageContentHash: checksum("Old Owner"), traceId: "finalize-old-owner" });
+  const newIntent = await client.prepareProject({ name: "New Owner", traceId: "prepare-new-owner" });
+  const newOwner = await client.finalizeProject({ semanticCommitId: newIntent.semanticCommitId, objectId: newIntent.objectId, name: "New Owner", pageExternalId: "page-new-owner", pageContentHash: checksum("New Owner"), traceId: "finalize-new-owner" });
+  const child = await client.materializeExplicitObject({ objectType: "TASK", text: "换归属任务", externalId: "block-owner-undo-task", inputVersion: "1", contentHash: checksum("[任务] 换归属任务"), idempotencyKey: "owner-undo-task", traceId: "materialize-owner-undo-task" });
+
+  const initial = await client.submitProposal(ownershipProposal(child.object.objectId, child.object.version, oldOwner.object.objectId, oldOwner.object.version, undefined, "prop_initial_owner"));
+  const initialReviewed = await client.reviewProposal("prop_initial_owner", { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, initial.record.updatedAt);
+  const initialCommit = await client.commitPrimaryOwnership("prop_initial_owner", { expectedUpdatedAt: initialReviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "commit-initial-owner" });
+  assert.equal(initialCommit.status, "COMPLETED");
+  if (initialCommit.status !== "COMPLETED") return;
+
+  const change = await client.submitProposal(ownershipProposal(child.object.objectId, initialCommit.object.version, newOwner.object.objectId, newOwner.object.version, oldOwner.object.objectId, "prop_change_owner"));
+  const changeReviewed = await client.reviewProposal("prop_change_owner", { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, change.record.updatedAt);
+  const changed = await client.commitPrimaryOwnership("prop_change_owner", { expectedUpdatedAt: changeReviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "commit-changed-owner" });
+  assert.equal(changed.status, "COMPLETED");
+  if (changed.status !== "COMPLETED") return;
+  const restored = await client.undoPrimaryOwnership(changed.semanticCommitId, { confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: "restore-old-owner" });
+  assert.equal(restored.ownership?.ownerObjectId, oldOwner.object.objectId);
+  assert.equal((await client.listPrimaryOwnerships()).find(({ childObjectId }) => childObjectId === child.object.objectId)?.ownerObjectId, oldOwner.object.objectId);
+
+  const secondChange = await client.submitProposal(ownershipProposal(child.object.objectId, restored.object.version, newOwner.object.objectId, newOwner.object.version, oldOwner.object.objectId, "prop_change_owner_again"));
+  const secondReviewed = await client.reviewProposal("prop_change_owner_again", { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, secondChange.record.updatedAt);
+  const secondCommitted = await client.commitPrimaryOwnership("prop_change_owner_again", { expectedUpdatedAt: secondReviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "commit-owner-again" });
+  assert.equal(secondCommitted.status, "COMPLETED");
+  if (secondCommitted.status !== "COMPLETED") return;
+  await client.addAssociation({ sourceObjectId: child.object.objectId, targetObjectId: oldOwner.object.objectId, expectedVersion: secondCommitted.object.version, confirmation: "ADD_ASSOCIATION", traceId: "edit-child-after-owner-change" });
+  const refused = await fetch(new URL(`semantic-commits/${encodeURIComponent(secondCommitted.semanticCommitId)}/ownership/undo`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: "refuse-stale-owner-undo" }) });
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json() as { error: { code: string } }).error.code, "V2_OBJECT_VERSION_CONFLICT");
+  assert.equal((await client.listPrimaryOwnerships()).find(({ childObjectId }) => childObjectId === child.object.objectId)?.ownerObjectId, newOwner.object.objectId);
 });
 
 test("Ownership Commit resumes from its idempotent Domain receipt after interruption", async (t) => {
@@ -767,6 +815,45 @@ test("Ownership Commit resumes from its idempotent Domain receipt after interrup
     assert.equal(resumed.record.proposal.status, "APPLIED");
     assert.equal(resumed.object.version, child.object.version + 1);
   }
+});
+
+test("Ownership Undo resumes from its idempotent Domain receipt after interruption", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-owner-undo-recovery-"));
+  const databasePath = join(root, "task-copilot.db");
+  let interruptBeforeReceiptOnce = true;
+  let interruptAfterReceiptOnce = true;
+  let service = await startLocalService({
+    databasePath, graphId: "graph-owner-undo-recovery", token: "ownership-undo-recovery-token-24",
+    faults: {
+      beforeOwnershipUndoDomainWrite: () => { if (interruptBeforeReceiptOnce) { interruptBeforeReceiptOnce = false; throw new Error("simulated transient error before ownership undo receipt"); } },
+      afterOwnershipUndoDomainWrite: () => { if (interruptAfterReceiptOnce) { interruptAfterReceiptOnce = false; throw new Error("simulated ownership undo interruption"); } },
+    },
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const intent = await client.prepareProject({ name: "Undo Recovery Owner", traceId: "prepare-undo-recovery-owner" });
+  const owner = await client.finalizeProject({ semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name: "Undo Recovery Owner", pageExternalId: "page-undo-recovery-owner", pageContentHash: checksum("Undo Recovery Owner"), traceId: "finalize-undo-recovery-owner" });
+  const child = await client.materializeExplicitObject({ objectType: "TASK", text: "恢复撤销归属", externalId: "block-undo-recovery-owner", inputVersion: "1", contentHash: checksum("[任务] 恢复撤销归属"), idempotencyKey: "undo-recovery-owner-task", traceId: "materialize-undo-recovery-owner" });
+  const submitted = await client.submitProposal(ownershipProposal(child.object.objectId, child.object.version, owner.object.objectId, owner.object.version));
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const committed = await client.commitPrimaryOwnership(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "commit-before-undo-recovery" });
+  assert.equal(committed.status, "COMPLETED");
+  if (committed.status !== "COMPLETED") return;
+  const beforeReceiptFailure = await fetch(new URL(`semantic-commits/${encodeURIComponent(committed.semanticCommitId)}/ownership/undo`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: "transient-before-owner-undo" }) });
+  assert.equal(beforeReceiptFailure.status, 500);
+  assert.equal((await client.listPrimaryOwnerships())[0]?.ownerObjectId, owner.object.objectId, "transient pre-receipt failure performs no formal write");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === `ownership-undo:${committed.semanticCommitId}`)?.status, "PENDING", "transient failure remains retryable");
+  const afterReceiptFailure = await fetch(new URL(`semantic-commits/${encodeURIComponent(committed.semanticCommitId)}/ownership/undo`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: "interrupt-owner-undo" }) });
+  assert.equal(afterReceiptFailure.status, 500);
+  assert.deepEqual(await client.listPrimaryOwnerships(), [], "Domain receipt committed before interruption");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === committed.semanticCommitId)?.status, "COMPLETED");
+  await service.close();
+  service = await startLocalService({ databasePath, graphId: "graph-owner-undo-recovery", token: "ownership-undo-recovery-resume-24" });
+  client = clientFor(service);
+  const resumed = await client.undoPrimaryOwnership(committed.semanticCommitId, { confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: "resume-owner-undo" });
+  assert.equal(resumed.replayed, true);
+  assert.equal(resumed.object.version, child.object.version + 2);
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === committed.semanticCommitId)?.status, "UNDONE");
 });
 
 test("Ownership recovery refuses a new Owner version changed after Commit preparation", async (t) => {

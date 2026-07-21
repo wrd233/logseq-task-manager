@@ -654,10 +654,18 @@ test("Primary Anchor and Ownership are unique atomic Application commands", asyn
   assert.equal(store.listPrimaryOwnerships()[0]?.ownerObjectId, "project-1");
   const changedOwner = await application.changePrimaryOwner("task-1", "area-owner", 2, "project-1", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-primary-owner", traceId: "trace-change-owner" });
   assert.equal(changedOwner.object.version, 5);
+  assert.equal(changedOwner.previousOwnerId, "project-1");
   assert.equal(store.listPrimaryOwnerships()[0]?.ownerObjectId, "area-owner");
   await assert.rejects(() => application.changePrimaryOwner("task-1", "project-1", 1, "other-old-owner", { actor: "proposal_commit", expectedVersion: 5, idempotencyKey: "change-primary-owner-stale", traceId: "trace-change-owner-stale" }), /已变化/);
   assert.equal(store.getObject("task-1")?.version, 5, "stale current Owner rolls back object update");
-  assert.equal(store.auditEventCount(), 8);
+  const undoneOwner = await application.undoPrimaryOwnerChange("task-1", "area-owner", changedOwner.previousOwnerId, { actor: "user", expectedVersion: 5, idempotencyKey: "undo-primary-owner-change", traceId: "trace-undo-primary-owner-change" });
+  assert.equal(undoneOwner.object.version, 6);
+  assert.equal(undoneOwner.ownership?.ownerObjectId, "project-1");
+  assert.equal(store.listPrimaryOwnerships()[0]?.ownerObjectId, "project-1");
+  assert.equal((await application.undoPrimaryOwnerChange("task-1", "area-owner", changedOwner.previousOwnerId, { actor: "user", expectedVersion: 5, idempotencyKey: "undo-primary-owner-change", traceId: "trace-undo-primary-owner-change" })).replayed, true);
+  await assert.rejects(() => application.undoPrimaryOwnerChange("task-1", "area-owner", "project-1", { actor: "user", expectedVersion: 6, idempotencyKey: "undo-primary-owner-stale", traceId: "trace-undo-primary-owner-stale" }), /后续变化/);
+  assert.equal(store.getObject("task-1")?.version, 6);
+  assert.equal(store.auditEventCount(), 9);
   store.close();
 });
 

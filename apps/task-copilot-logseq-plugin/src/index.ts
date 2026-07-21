@@ -974,6 +974,27 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
   if (action === "v2-ownership-commit" && value) return openActionDialog("confirm-v2-ownership", value);
+  if (action === "v2-ownership-undo" && value) return openActionDialog("confirm-v2-ownership-undo", value);
+  if (action === "submit-v2-ownership-undo" && value) {
+    if (v2OwnershipCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认恢复审阅前的 Primary Ownership。"; await refresh(); return; }
+    v2OwnershipCommitBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client) throw new Error("Primary Ownership Undo 上下文已失效；没有写入。");
+        await client.undoPrimaryOwnership(value, { confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: `v2-ownership-undo-ui-${Date.now()}` });
+        actionDialog = undefined;
+        workspace = "review";
+        message = "Primary Ownership 已恢复到审阅前状态；正文位置、Anchor 与 Association 未改变。";
+      });
+    } finally {
+      v2OwnershipCommitBusy = false;
+      await refresh();
+    }
+    return;
+  }
   if (action === "submit-v2-ownership" && value) {
     if (v2OwnershipCommitBusy) return;
     if (!dialogChecked("actionConfirmed")) { latestError = "请确认新的 Primary Ownership。"; await refresh(); return; }

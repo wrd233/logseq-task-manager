@@ -9,6 +9,7 @@ import {
   lifecycleForV2ExecutionMarker,
   observeV2PrimaryAnchor,
   rebindV2PrimaryAnchor,
+  restoreV2PrimaryOwner,
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
   type CreateV2ManagedObjectInput,
@@ -40,7 +41,8 @@ export interface V2ObjectRepository {
   commitAnchorRebind(command: V2AnchorRebindCommand): V2AnchorRebindCommandResult | Promise<V2AnchorRebindCommandResult>;
   commitAnchor(command: V2AnchorCommand): V2AnchorCommandResult | Promise<V2AnchorCommandResult>;
   commitOwnership(command: V2OwnershipCommand): V2OwnershipCommandResult | Promise<V2OwnershipCommandResult>;
-  commitOwnershipChange(command: V2OwnershipChangeCommand): V2OwnershipCommandResult | Promise<V2OwnershipCommandResult>;
+  commitOwnershipChange(command: V2OwnershipChangeCommand): V2OwnershipChangeCommandResult | Promise<V2OwnershipChangeCommandResult>;
+  commitOwnershipUndo(command: V2OwnershipUndoCommand): V2OwnershipUndoResult | Promise<V2OwnershipUndoResult>;
   commitAssociation(command: V2AssociationCommand): V2AssociationCommandResult | Promise<V2AssociationCommandResult>;
   commitMaterializationUndo(command: V2MaterializationUndoCommand): V2MaterializationUndoResult | Promise<V2MaterializationUndoResult>;
   getObject(objectId: string): V2ManagedObject | undefined | Promise<V2ManagedObject | undefined>;
@@ -54,7 +56,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "add_association";
+  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -135,6 +137,26 @@ export interface V2OwnershipChangeCommand extends V2OwnershipCommand {
   audit: V2AuditRecord & { command: "change_primary_owner" };
 }
 
+export interface V2OwnershipChangeCommandResult extends V2OwnershipCommandResult {
+  previousOwnerId?: string;
+}
+
+export interface V2OwnershipUndoCommand {
+  object: V2ManagedObject;
+  expectedVersion: number;
+  expectedCurrentOwnerId: string;
+  restoredOwnership?: V2PrimaryOwnership;
+  expectedPreviousOwnerVersion?: number;
+  idempotencyKey: string;
+  audit: V2AuditRecord & { command: "undo_primary_owner_change" };
+}
+
+export interface V2OwnershipUndoResult {
+  object: V2ManagedObject;
+  ownership?: V2PrimaryOwnership;
+  replayed: boolean;
+}
+
 export interface V2AssociationCommand {
   object: V2ManagedObject;
   association: V2Association;
@@ -166,7 +188,9 @@ export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
   | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
-  | { command: "assign_primary_owner" | "change_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }
+  | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }
+  | { command: "change_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership; previousOwnerId?: string }
+  | { command: "undo_primary_owner_change"; object: V2ManagedObject; ownership?: V2PrimaryOwnership }
   | { command: "add_association"; object: V2ManagedObject; association: V2Association };
 
 export interface MaterializeExplicitObjectInput {
@@ -679,14 +703,30 @@ export class V2Application {
     });
   }
 
-  async changePrimaryOwner(childObjectId: string, ownerObjectId: string, expectedOwnerVersion: number, expectedCurrentOwnerId: string | undefined, envelope: V2CommandEnvelope, at = new Date()): Promise<V2OwnershipCommandResult> {
+  async changePrimaryOwner(childObjectId: string, ownerObjectId: string, expectedOwnerVersion: number, expectedCurrentOwnerId: string | undefined, envelope: V2CommandEnvelope, at = new Date()): Promise<V2OwnershipChangeCommandResult> {
     requireEnvelope(envelope);
     if (expectedCurrentOwnerId === ownerObjectId) throw new StructuredError({ code: "V2_PRIMARY_OWNER_UNCHANGED", message: "新 Primary Owner 与当前 Owner 相同；没有正式变化。", ruleRefs: ["D-035"] });
     const replay = await this.replay(envelope.idempotencyKey, "change_primary_owner", childObjectId);
-    if (replay?.command === "change_primary_owner") return { object: replay.object, ownership: replay.ownership, replayed: true };
+    if (replay?.command === "change_primary_owner") return { object: replay.object, ownership: replay.ownership, ...(replay.previousOwnerId ? { previousOwnerId: replay.previousOwnerId } : {}), replayed: true };
     const [child, owner] = await Promise.all([this.requireObject(childObjectId), this.requireObject(ownerObjectId)]);
     const candidate = assignV2PrimaryOwner(child, owner, envelope.expectedVersion, at);
     return this.objects.commitOwnershipChange({ ...candidate, expectedCurrentOwnerId, expectedOwnerVersion, expectedVersion: envelope.expectedVersion, idempotencyKey: envelope.idempotencyKey, audit: { traceId: envelope.traceId, actor: envelope.actor, command: "change_primary_owner", objectId: childObjectId, beforeVersion: child.version, afterVersion: candidate.object.version, occurredAt: at.toISOString() } });
+  }
+
+  async undoPrimaryOwnerChange(childObjectId: string, expectedCurrentOwnerId: string, previousOwnerId: string | undefined, envelope: V2CommandEnvelope, at = new Date()): Promise<V2OwnershipUndoResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "undo_primary_owner_change", childObjectId);
+    if (replay?.command === "undo_primary_owner_change") return { object: replay.object, ...(replay.ownership ? { ownership: replay.ownership } : {}), replayed: true };
+    const [child, previousOwner] = await Promise.all([this.requireObject(childObjectId), previousOwnerId ? this.requireObject(previousOwnerId) : undefined]);
+    const candidate = restoreV2PrimaryOwner(child, previousOwner, envelope.expectedVersion, at);
+    return this.objects.commitOwnershipUndo({
+      object: candidate.object,
+      expectedVersion: envelope.expectedVersion,
+      expectedCurrentOwnerId,
+      ...(candidate.ownership ? { restoredOwnership: candidate.ownership, expectedPreviousOwnerVersion: previousOwner!.version } : {}),
+      idempotencyKey: envelope.idempotencyKey,
+      audit: { traceId: envelope.traceId, actor: envelope.actor, command: "undo_primary_owner_change", objectId: childObjectId, beforeVersion: child.version, afterVersion: candidate.object.version, occurredAt: at.toISOString() },
+    });
   }
 
   async addAssociation(

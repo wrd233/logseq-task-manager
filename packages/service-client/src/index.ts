@@ -312,6 +312,14 @@ export type ServiceOwnershipCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; ownership: V2PrimaryOwnership; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation)
   | { status: "FAILED"; semanticCommitId: string; record: ServiceStoredProposal; errorCode: string; replayed: boolean };
+export type ServiceOwnershipUndoResult = {
+  status: "COMPLETED";
+  originalSemanticCommitId: string;
+  undoSemanticCommitId: string;
+  object: V2ManagedObject;
+  ownership?: V2PrimaryOwnership;
+  replayed: boolean;
+};
 
 export interface ServiceProposalCommitEvidence {
   semanticCommitId: string;
@@ -697,6 +705,10 @@ export class LocalServiceClient {
 
   commitPrimaryOwnership(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "CHANGE_PRIMARY_OWNERSHIP"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceOwnershipCommitResult> {
     return this.request<ServiceOwnershipCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/ownership/commit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  undoPrimaryOwnership(originalSemanticCommitId: string, input: { confirmation: "UNDO_PRIMARY_OWNERSHIP"; traceId: string }): Promise<ServiceOwnershipUndoResult> {
+    return this.request<ServiceOwnershipUndoResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/ownership/undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
   }
 
   compensateProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }> {
