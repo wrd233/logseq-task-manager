@@ -348,6 +348,34 @@ test("Project Closure Review shows the external Agent outcome and uses a dedicat
   assert.match(html, /data-action="v2-proposal-commit"/);
 });
 
+test("HIGH Ownership Review uses a dedicated confirmation and never falls through to generic formalization", () => {
+  const value = model();
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  value.v2Proposals = [{ updatedAt: "2026-07-21T13:01:00.000Z", files: { proposalMd: "# Ownership", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-owner", schemaVersion: "v2", title: "改变任务主归属", context: "Task 当前未归属。", understanding: "归入现有 Project。", objective: "建立唯一主归属。", logic: "只改变 Ownership。", finalPreview: "Task 将归入 Owner Project。", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "OBJECT", id: "owner-1", version: 2 }], modify: [{ kind: "OBJECT", id: "task-1", version: 4 }] }, preconditions: [],
+    groups: [{ groupId: "owner", explanation: "高影响独立审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "change-owner", kind: "CHANGE_OWNERSHIP", target: { kind: "OBJECT", id: "task-1", version: 4 }, summary: "设置主归属", payload: { ownerObjectId: "owner-1" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-21T13:00:00.000Z",
+  } }];
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-ownership-commit"/);
+  assert.match(html, /确认改变主归属/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  value.actionDialog = { kind: "confirm-v2-ownership", value: "prop-owner|2026-07-21T13:01:00.000Z" };
+  html = renderApp(value);
+  assert.match(html, /位置、Anchor 和 Association 不会改变/);
+  assert.match(html, /data-action="submit-v2-ownership"/);
+  value.v2OwnershipCommitBusy = true;
+  delete value.actionDialog;
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-ownership-commit"[^>]*disabled[^>]*aria-busy="true"/);
+  value.v2OwnershipCommitBusy = false;
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:owner", proposalId: "prop-owner", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  html = renderApp(value);
+  assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
+  assert.match(html, /位置、Anchor 与 Association 未改变/);
+});
+
 test("completed Project keeps its readable Closure in the formal object workspace", () => {
   const value = model();
   value.workspace = "objects";

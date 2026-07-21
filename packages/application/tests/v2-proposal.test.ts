@@ -107,7 +107,7 @@ test("accepted Project Closure plan couples structured Closure and COMPLETED lif
 
 test("accepted Ownership plan requires one versioned HIGH operation and explicit current-owner evidence", () => {
   const accepted: V2Proposal = { ...proposal(), proposalId: "prop-owner", status: "ACCEPTED", scope: { read: [{ kind: "OBJECT", id: "area-owner", version: 3 }], modify: [{ kind: "OBJECT", id: "task-child", version: 2 }] }, groups: [{ groupId: "change-owner", explanation: "独立审阅主归属。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "owner", kind: "CHANGE_OWNERSHIP", target: { kind: "OBJECT", id: "task-child", version: 2 }, summary: "改归属", payload: { ownerObjectId: "area-owner", expectedCurrentOwnerId: "project-old" }, preconditions: [] }], disposition: "ACCEPTED" }] };
-  assert.deepEqual(planAcceptedV2OwnershipChange(accepted), { proposalId: "prop-owner", groupId: "change-owner", childObjectId: "task-child", ownerObjectId: "area-owner", expectedVersion: 2, expectedCurrentOwnerId: "project-old" });
+  assert.deepEqual(planAcceptedV2OwnershipChange(accepted), { proposalId: "prop-owner", groupId: "change-owner", childObjectId: "task-child", ownerObjectId: "area-owner", expectedVersion: 2, expectedOwnerVersion: 3, expectedCurrentOwnerId: "project-old" });
   const unsafe = structuredClone(accepted); unsafe.groups[0]!.risk = "MEDIUM";
   assert.throws(() => planAcceptedV2OwnershipChange(unsafe), /不能降级风险/);
   const missingOwnerEvidence = structuredClone(accepted); missingOwnerEvidence.scope.read = [];
@@ -116,6 +116,10 @@ test("accepted Ownership plan requires one versioned HIGH operation and explicit
   assert.throws(() => planAcceptedV2OwnershipChange(unversionedOwner), /read scope/);
   const invalidOwner = structuredClone(accepted); invalidOwner.groups[0]!.semanticOperations[0]!.payload.ownerObjectId = " ";
   assert.throws(() => planAcceptedV2OwnershipChange(invalidOwner), /read scope/);
+  const unchangedOwner = structuredClone(accepted); unchangedOwner.groups[0]!.semanticOperations[0]!.payload.expectedCurrentOwnerId = "area-owner";
+  assert.throws(() => planAcceptedV2OwnershipChange(unchangedOwner), /不表达正式变化/);
+  const selfOwner = structuredClone(accepted); selfOwner.groups[0]!.semanticOperations[0]!.target.id = "area-owner"; selfOwner.scope.modify[0]!.id = "area-owner";
+  assert.throws(() => planAcceptedV2OwnershipChange(selfOwner), /不能成为自己的/);
 });
 
 test("Proposal Application records applied and compensated terminal states with review concurrency", async () => {

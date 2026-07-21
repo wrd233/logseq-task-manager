@@ -1189,6 +1189,7 @@ export class V2SqliteStore {
       const receipt = this.receipt(command.idempotencyKey);
       if (receipt) return { ...(JSON.parse(receipt.result_json) as { object: V2ManagedObject; ownership: V2PrimaryOwnership }), replayed: true };
       this.requireVersion(command.object.objectId, command.expectedVersion);
+      this.requireVersion(command.ownership.ownerObjectId, command.expectedOwnerVersion);
       const current = this.database.prepare("SELECT owner_object_id FROM primary_ownerships WHERE child_object_id = ?").pluck().get(command.object.objectId) as string | undefined;
       if (current !== command.expectedCurrentOwnerId) throw persistenceError("V2_PRIMARY_OWNER_STALE", "Primary Owner 已变化；本次变更没有写入。", { expectedCurrentOwnerId: command.expectedCurrentOwnerId, currentOwnerId: current });
       this.writeObject(command.object);

@@ -648,12 +648,16 @@ test("Primary Anchor and Ownership are unique atomic Application commands", asyn
   await assert.rejects(() => application.addAssociation("task-1", "project-1", { actor: "test", expectedVersion: 4, idempotencyKey: "associate-duplicate", traceId: "trace-associate-duplicate" }), /已存在/);
   assert.equal(store.getObject("task-1")?.version, 4, "duplicate Association rolls back object version");
   await application.createObject({ objectId: "area-owner", objectType: "AREA", text: "新归属" }, { actor: "test", expectedVersion: 0, idempotencyKey: "create-area-owner", traceId: "trace-area-owner" });
-  const changedOwner = await application.changePrimaryOwner("task-1", "area-owner", "project-1", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-primary-owner", traceId: "trace-change-owner" });
+  await application.bindPrimaryAnchor("area-owner", { anchorId: "area-owner-anchor", graphId: "graph-a", externalId: "page-area-owner", contentHash: "area-owner-hash" }, { actor: "test", expectedVersion: 1, idempotencyKey: "bind-area-owner", traceId: "trace-bind-area-owner" });
+  await assert.rejects(() => application.changePrimaryOwner("task-1", "area-owner", 1, "project-1", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-primary-owner-stale-target", traceId: "trace-change-owner-stale-target" }), /版本/);
+  assert.equal(store.getObject("task-1")?.version, 4, "stale new Owner version rolls back the entire Ownership transaction");
+  assert.equal(store.listPrimaryOwnerships()[0]?.ownerObjectId, "project-1");
+  const changedOwner = await application.changePrimaryOwner("task-1", "area-owner", 2, "project-1", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-primary-owner", traceId: "trace-change-owner" });
   assert.equal(changedOwner.object.version, 5);
   assert.equal(store.listPrimaryOwnerships()[0]?.ownerObjectId, "area-owner");
-  await assert.rejects(() => application.changePrimaryOwner("task-1", "project-1", "other-old-owner", { actor: "proposal_commit", expectedVersion: 5, idempotencyKey: "change-primary-owner-stale", traceId: "trace-change-owner-stale" }), /已变化/);
+  await assert.rejects(() => application.changePrimaryOwner("task-1", "project-1", 1, "other-old-owner", { actor: "proposal_commit", expectedVersion: 5, idempotencyKey: "change-primary-owner-stale", traceId: "trace-change-owner-stale" }), /已变化/);
   assert.equal(store.getObject("task-1")?.version, 5, "stale current Owner rolls back object update");
-  assert.equal(store.auditEventCount(), 7);
+  assert.equal(store.auditEventCount(), 8);
   store.close();
 });
 

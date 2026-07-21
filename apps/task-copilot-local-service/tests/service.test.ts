@@ -7,7 +7,7 @@ import test from "node:test";
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persistence/node";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
-import { createEmptyState } from "@task-copilot/application";
+import { createEmptyState, V2Application } from "@task-copilot/application";
 import { checksum } from "@task-copilot/shared";
 import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 
@@ -50,6 +50,10 @@ function projectClosureProposal(objectId: string, version: number): V2Proposal {
       { operationId: "complete-project", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: objectId, version }, summary: "完成 Project", payload: { lifecycle: "COMPLETED" }, preconditions: [] },
     ], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-21T12:00:00.000Z",
   };
+}
+
+function ownershipProposal(childObjectId: string, childVersion: number, ownerObjectId: string, ownerVersion: number): V2Proposal {
+  return { proposalId: "prop_primary_owner", schemaVersion: "v2", title: "设置主归属", context: "Task 当前未归属。", understanding: "将 Task 归入已存在 Project。", objective: "建立唯一主归属。", logic: "独立 HIGH 组审阅且不改变位置。", finalPreview: "Task 的 Primary Owner 将更新。", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "OBJECT", id: ownerObjectId, version: ownerVersion }], modify: [{ kind: "OBJECT", id: childObjectId, version: childVersion }] }, preconditions: ["child 与 owner 版本未变化"], groups: [{ groupId: "change-owner", explanation: "主归属独立审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "change-owner", kind: "CHANGE_OWNERSHIP", target: { kind: "OBJECT", id: childObjectId, version: childVersion }, summary: "设置 Primary Owner", payload: { ownerObjectId }, preconditions: [] }], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-21T13:00:00.000Z" };
 }
 
 const proposalPrompt: V2PromptBundle = {
@@ -701,6 +705,168 @@ test("external Agent Project Closure Proposal completes with explicit unfinished
   const replay = await client.commitProjectClosure(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: "trace-project-closure-replay" });
   assert.equal(replay.status, "COMPLETED");
   if (replay.status === "COMPLETED") assert.equal(replay.replayed, true);
+});
+
+test("reviewed HIGH Ownership Proposal commits through one Domain SemanticCommit", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-owner-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-owner", token: "ownership-service-token-at-least-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const intent = await client.prepareProject({ name: "Owner Project", traceId: "prepare-owner" });
+  const owner = await client.finalizeProject({ semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name: "Owner Project", pageExternalId: "page-owner-project", pageContentHash: checksum("Owner Project"), traceId: "finalize-owner" });
+  const child = await client.materializeExplicitObject({ objectType: "TASK", text: "归属任务", externalId: "block-owner-task", inputVersion: "1", contentHash: checksum("[任务] 归属任务"), idempotencyKey: "owner-task-materialize", traceId: "materialize-owner-task" });
+  const submitted = await client.submitProposal(ownershipProposal(child.object.objectId, child.object.version, owner.object.objectId, owner.object.version));
+  const reviewed = await client.reviewProposal("prop_primary_owner", { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const refused = await fetch(new URL("proposals/prop_primary_owner/ownership/commit", service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "yes", observations: [], traceId: "refuse-owner" }) });
+  assert.equal(refused.status, 400);
+  assert.deepEqual(await client.listPrimaryOwnerships(), []);
+  const committed = await client.commitPrimaryOwnership("prop_primary_owner", { expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "commit-owner" });
+  assert.equal(committed.status, "COMPLETED");
+  if (committed.status === "COMPLETED") { assert.equal(committed.ownership.ownerObjectId, owner.object.objectId); assert.equal(committed.record.proposal.status, "APPLIED"); }
+  assert.equal((await client.listPrimaryOwnerships())[0]?.childObjectId, child.object.objectId);
+  const replay = await client.commitPrimaryOwnership("prop_primary_owner", { expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "commit-owner-replay" });
+  assert.equal(replay.status === "COMPLETED" && replay.replayed, true);
+});
+
+test("Ownership Commit resumes from its idempotent Domain receipt after interruption", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-owner-recovery-"));
+  const databasePath = join(root, "task-copilot.db");
+  let interruptOnce = true;
+  let service = await startLocalService({
+    databasePath, graphId: "graph-owner-recovery", token: "ownership-recovery-token-at-least-24",
+    faults: { afterOwnershipDomainWrite: () => { if (interruptOnce) { interruptOnce = false; throw new Error("simulated ownership interruption"); } } },
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const intent = await client.prepareProject({ name: "Recovery Owner", traceId: "prepare-recovery-owner" });
+  const owner = await client.finalizeProject({ semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name: "Recovery Owner", pageExternalId: "page-recovery-owner", pageContentHash: checksum("Recovery Owner"), traceId: "finalize-recovery-owner" });
+  const child = await client.materializeExplicitObject({ objectType: "TASK", text: "恢复归属任务", externalId: "block-recovery-owner-task", inputVersion: "1", contentHash: checksum("[任务] 恢复归属任务"), idempotencyKey: "recovery-owner-task", traceId: "materialize-recovery-owner-task" });
+  const submitted = await client.submitProposal(ownershipProposal(child.object.objectId, child.object.version, owner.object.objectId, owner.object.version));
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const interrupted = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/ownership/commit`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "interrupt-owner" }),
+  });
+  assert.equal(interrupted.status, 500);
+  assert.equal((await client.listPrimaryOwnerships())[0]?.ownerObjectId, owner.object.objectId, "Domain receipt committed before interruption");
+  assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "ACCEPTED");
+  const forbiddenRevalidation = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/revalidate`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, observations: [] }),
+  });
+  assert.equal(forbiddenRevalidation.status, 409);
+  assert.equal((await forbiddenRevalidation.json() as { error: { code: string } }).error.code, "V2_PROPOSAL_COMMIT_IN_PROGRESS");
+  assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "ACCEPTED", "revalidation cannot stale an in-flight Commit");
+  await service.close();
+  service = await startLocalService({ databasePath, graphId: "graph-owner-recovery", token: "ownership-recovery-resume-token-24" });
+  client = clientFor(service);
+  const resumed = await client.commitPrimaryOwnership(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "resume-owner" });
+  assert.equal(resumed.status, "COMPLETED");
+  if (resumed.status === "COMPLETED") {
+    assert.equal(resumed.replayed, false, "pending ledger finalizes from the existing Domain receipt");
+    assert.equal(resumed.record.proposal.status, "APPLIED");
+    assert.equal(resumed.object.version, child.object.version + 1);
+  }
+});
+
+test("Ownership recovery refuses a new Owner version changed after Commit preparation", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-owner-prepared-stale-"));
+  const databasePath = join(root, "task-copilot.db");
+  let interruptOnce = true;
+  let service = await startLocalService({
+    databasePath, graphId: "graph-owner-prepared-stale", token: "ownership-prepared-stale-token-24",
+    faults: { afterOwnershipPrepare: () => { if (interruptOnce) { interruptOnce = false; throw new Error("simulated interruption after prepare"); } } },
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const intent = await client.prepareProject({ name: "Prepared Owner", traceId: "prepare-stale-owner" });
+  const owner = await client.finalizeProject({ semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name: "Prepared Owner", pageExternalId: "page-prepared-owner", pageContentHash: checksum("Prepared Owner"), traceId: "finalize-stale-owner" });
+  const child = await client.materializeExplicitObject({ objectType: "TASK", text: "准备后变更任务", externalId: "block-prepared-owner-task", inputVersion: "1", contentHash: checksum("[任务] 准备后变更任务"), idempotencyKey: "prepared-owner-task", traceId: "materialize-prepared-owner-task" });
+  const submitted = await client.submitProposal(ownershipProposal(child.object.objectId, child.object.version, owner.object.objectId, owner.object.version));
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const interrupted = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/ownership/commit`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "interrupt-after-prepare" }),
+  });
+  assert.equal(interrupted.status, 500);
+  assert.deepEqual(await client.listPrimaryOwnerships(), []);
+  await client.addAssociation({ sourceObjectId: owner.object.objectId, targetObjectId: child.object.objectId, expectedVersion: owner.object.version, confirmation: "ADD_ASSOCIATION", traceId: "change-owner-version-after-prepare" });
+  await service.close();
+  service = await startLocalService({ databasePath, graphId: "graph-owner-prepared-stale", token: "ownership-prepared-stale-resume-24" });
+  client = clientFor(service);
+  const refused = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/ownership/commit`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "resume-with-stale-owner" }),
+  });
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json() as { error: { code: string } }).error.code, "V2_OBJECT_VERSION_CONFLICT");
+  assert.deepEqual(await client.listPrimaryOwnerships(), []);
+  assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "STALE");
+  assert.equal((await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId)?.status, "FAILED");
+});
+
+test("invalid Ownership type matrix terminates its prepared Commit without a formal write", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-owner-type-invalid-"));
+  const databasePath = join(root, "task-copilot.db");
+  let interruptOnce = true;
+  let service = await startLocalService({ databasePath, graphId: "graph-owner-type-invalid", token: "ownership-type-invalid-token-24", faults: { afterOwnershipCommitFailedBeforeProposalTerminal: () => { if (interruptOnce) { interruptOnce = false; throw new Error("simulated failure-terminal interruption"); } } } });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const owner = await client.materializeExplicitObject({ objectType: "TASK", text: "非法 Task Owner", externalId: "block-invalid-owner", inputVersion: "1", contentHash: checksum("[任务] 非法 Task Owner"), idempotencyKey: "invalid-owner", traceId: "materialize-invalid-owner" });
+  const child = await client.materializeExplicitObject({ objectType: "TASK", text: "待归属 Task", externalId: "block-invalid-child", inputVersion: "1", contentHash: checksum("[任务] 待归属 Task"), idempotencyKey: "invalid-child", traceId: "materialize-invalid-child" });
+  const submitted = await client.submitProposal(ownershipProposal(child.object.objectId, child.object.version, owner.object.objectId, owner.object.version));
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const refused = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/ownership/commit`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "invalid-owner-matrix" }),
+  });
+  assert.equal(refused.status, 500);
+  assert.deepEqual(await client.listPrimaryOwnerships(), []);
+  assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "ACCEPTED", "fault occurs after Commit FAILED but before Proposal terminalization");
+  assert.equal((await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId)?.status, "FAILED");
+  await service.close();
+  service = await startLocalService({ databasePath, graphId: "graph-owner-type-invalid", token: "ownership-type-invalid-resume-24" });
+  client = clientFor(service);
+  const resumed = await client.commitPrimaryOwnership(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "resume-invalid-owner-matrix" });
+  assert.equal(resumed.status, "FAILED");
+  if (resumed.status === "FAILED") assert.equal(resumed.errorCode, "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED");
+  assert.deepEqual(await client.listPrimaryOwnerships(), []);
+  assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "FAILED");
+});
+
+test("Ownership recovery terminates cleanly when the prepared new Owner was removed", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-owner-removed-"));
+  const databasePath = join(root, "task-copilot.db");
+  const graphId = "graph-owner-removed";
+  let interruptOnce = true;
+  let service = await startLocalService({ databasePath, graphId, token: "ownership-owner-removed-token-24", faults: { afterOwnershipPrepare: () => { if (interruptOnce) { interruptOnce = false; throw new Error("simulated prepare before owner removal"); } } } });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const owner = await client.materializeExplicitObject({ objectType: "MINI_PROJECT", text: "可撤销 Owner", externalId: "block-removable-owner", inputVersion: "1", contentHash: checksum("[微项目] 可撤销 Owner"), idempotencyKey: "removable-owner", traceId: "materialize-removable-owner" });
+  const child = await client.materializeExplicitObject({ objectType: "TASK", text: "Owner 删除测试", externalId: "block-owner-removed-child", inputVersion: "1", contentHash: checksum("[任务] Owner 删除测试"), idempotencyKey: "owner-removed-child", traceId: "materialize-owner-removed-child" });
+  const submitted = await client.submitProposal(ownershipProposal(child.object.objectId, child.object.version, owner.object.objectId, owner.object.version));
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const interrupted = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/ownership/commit`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "prepare-before-owner-removal" }),
+  });
+  assert.equal(interrupted.status, 500);
+  await service.close();
+  const maintenanceStore = await V2SqliteStore.open(databasePath);
+  maintenanceStore.initialize(graphId);
+  await new V2Application(maintenanceStore).undoMaterialization(owner, { actor: "test", expectedVersion: owner.object.version, idempotencyKey: "remove-prepared-owner", traceId: "remove-prepared-owner" });
+  maintenanceStore.close();
+  service = await startLocalService({ databasePath, graphId, token: "ownership-owner-removed-resume-24" });
+  client = clientFor(service);
+  const refused = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/ownership/commit`, service.url), {
+    method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ expectedUpdatedAt: reviewed.updatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations: [], traceId: "resume-after-owner-removal" }),
+  });
+  assert.equal(refused.status, 404);
+  assert.equal((await refused.json() as { error: { code: string } }).error.code, "V2_OBJECT_NOT_FOUND");
+  assert.deepEqual(await client.listPrimaryOwnerships(), []);
+  assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "STALE");
+  assert.equal((await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId)?.status, "FAILED");
 });
 
 test("Project Closure resumes from its receipt after interruption before Commit step finalization", async (t) => {

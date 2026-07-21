@@ -131,6 +131,7 @@ export interface V2OwnershipCommandResult {
 
 export interface V2OwnershipChangeCommand extends V2OwnershipCommand {
   expectedCurrentOwnerId: string | undefined;
+  expectedOwnerVersion: number;
   audit: V2AuditRecord & { command: "change_primary_owner" };
 }
 
@@ -678,14 +679,14 @@ export class V2Application {
     });
   }
 
-  async changePrimaryOwner(childObjectId: string, ownerObjectId: string, expectedCurrentOwnerId: string | undefined, envelope: V2CommandEnvelope, at = new Date()): Promise<V2OwnershipCommandResult> {
+  async changePrimaryOwner(childObjectId: string, ownerObjectId: string, expectedOwnerVersion: number, expectedCurrentOwnerId: string | undefined, envelope: V2CommandEnvelope, at = new Date()): Promise<V2OwnershipCommandResult> {
     requireEnvelope(envelope);
     if (expectedCurrentOwnerId === ownerObjectId) throw new StructuredError({ code: "V2_PRIMARY_OWNER_UNCHANGED", message: "新 Primary Owner 与当前 Owner 相同；没有正式变化。", ruleRefs: ["D-035"] });
     const replay = await this.replay(envelope.idempotencyKey, "change_primary_owner", childObjectId);
     if (replay?.command === "change_primary_owner") return { object: replay.object, ownership: replay.ownership, replayed: true };
     const [child, owner] = await Promise.all([this.requireObject(childObjectId), this.requireObject(ownerObjectId)]);
     const candidate = assignV2PrimaryOwner(child, owner, envelope.expectedVersion, at);
-    return this.objects.commitOwnershipChange({ ...candidate, expectedCurrentOwnerId, expectedVersion: envelope.expectedVersion, idempotencyKey: envelope.idempotencyKey, audit: { traceId: envelope.traceId, actor: envelope.actor, command: "change_primary_owner", objectId: childObjectId, beforeVersion: child.version, afterVersion: candidate.object.version, occurredAt: at.toISOString() } });
+    return this.objects.commitOwnershipChange({ ...candidate, expectedCurrentOwnerId, expectedOwnerVersion, expectedVersion: envelope.expectedVersion, idempotencyKey: envelope.idempotencyKey, audit: { traceId: envelope.traceId, actor: envelope.actor, command: "change_primary_owner", objectId: childObjectId, beforeVersion: child.version, afterVersion: candidate.object.version, occurredAt: at.toISOString() } });
   }
 
   async addAssociation(

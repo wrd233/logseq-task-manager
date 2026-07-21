@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2MigrationApplication, V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2ProjectClosure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { V2Application, V2MigrationApplication, V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Condition, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -38,7 +38,7 @@ export interface LocalServiceOptions {
   backupRoot?: string;
   proposalGenerator?: LocalLlmProposalGenerator;
   /** Test-only fault boundary; production callers must omit it. */
-  faults?: { afterProjectClosureDomainWrite?: () => void };
+  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void };
 }
 export interface LocalServiceHandle {
   url: string;
@@ -338,6 +338,15 @@ async function readProjectClosureCommitRequest(request: IncomingMessage): Promis
   return { expectedUpdatedAt: record.expectedUpdatedAt, confirmation: record.confirmation, observations, traceId: record.traceId } as { expectedUpdatedAt: string; confirmation: "COMPLETE_PROJECT_WITH_CLOSURE"; observations: V2ProposalScopeObservation[]; traceId: string };
 }
 
+async function readOwnershipCommitRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; observations: V2ProposalScopeObservation[]; traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "confirmation,expectedUpdatedAt,observations,traceId" || record.confirmation !== "CHANGE_PRIMARY_OWNERSHIP" || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("OWNERSHIP_COMMIT_REQUEST_INVALID", "Primary Ownership Commit 必须有当前 Proposal 版本、trace_id 和精确高影响确认。");
+  return { expectedUpdatedAt: record.expectedUpdatedAt, observations: parseProposalGraphObservations(record.observations, "OWNERSHIP_COMMIT_REQUEST_INVALID", "Primary Ownership 重验证据无效。"), traceId: record.traceId };
+}
+
 interface ProposalCommitEvidenceRequest {
   semanticCommitId: string;
   proposalId: string;
@@ -535,15 +544,15 @@ function primaryAnchorRebindIdempotencyKey(graphId: string, input: PrimaryAnchor
 
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
-    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT"];
+    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
-    const associationInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE"].includes(error.code);
+    const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "OWNERSHIP_COMMIT_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code));
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : migrationInputError || proposalInputError || associationInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
+      : migrationInputError || proposalInputError || domainInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
         ? 400
         : migrationNotFound || error.code === "V2_OBJECT_NOT_FOUND" || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND"
           ? 404
@@ -630,6 +639,11 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         : { kind: "OBJECT" as const, id: target.id, exists: false };
     }),
   ];
+  const requireNoUnfinishedProposalCommit = (proposalId: string): void => {
+    if (store.listSemanticCommits(proposalId).some((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED")) {
+      throw serviceError("V2_PROPOSAL_COMMIT_IN_PROGRESS", "Proposal 已有未完成 Commit；请先恢复或完成该 Commit，审阅状态没有改变。");
+    }
+  };
 
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (!authorized(request, token)) {
@@ -868,6 +882,65 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         respond(response, 200, { status: "SELECTED", selection: await application.selectFocus(objectId, input.rank!, input.expectedVersion) });
       }
       return;
+    }
+    const ownershipCommitMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/ownership\/commit$/) : null;
+    if (ownershipCommitMatch?.[1]) {
+      const proposalId = decodeURIComponent(ownershipCommitMatch[1]);
+      const input = await readOwnershipCommitRequest(request);
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
+      const receiptKey = `ownership-change:${semanticCommitId}`;
+      const existing = store.semanticCommit(semanticCommitId);
+      const steps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      const terminalFailureCodes = ["V2_OBJECT_VERSION_CONFLICT", "V2_OBJECT_NOT_FOUND", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
+      const terminalizeFailedProposal = async (at: Date) => {
+        const latest = await proposalApplication.get(proposalId);
+        if (!latest) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+        if (latest.proposal.status === "STALE" || latest.proposal.status === "FAILED") return latest;
+        if (latest.proposal.status !== "ACCEPTED" && latest.proposal.status !== "PARTIALLY_ACCEPTED") throw serviceError("V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "失败的 Ownership Commit 与 Proposal 终态不一致。");
+        const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(latest.proposal, input.observations), input.expectedUpdatedAt, at);
+        return revalidation.result.status === "VALID" ? proposalApplication.markFailed(proposalId, input.expectedUpdatedAt, at) : revalidation.record;
+      };
+      if (existing?.status === "FAILED") {
+        if (existing.proposalId !== proposalId || steps.length !== 1 || !existing.errorCode || !terminalFailureCodes.includes(existing.errorCode)) throw serviceError("V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "失败的 Ownership Commit 缺少可恢复终态证据。");
+        if ((stored.proposal.status === "ACCEPTED" || stored.proposal.status === "PARTIALLY_ACCEPTED") && steps[0]?.operationId !== planAcceptedV2OwnershipChange(stored.proposal).childObjectId) throw serviceError("V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "失败的 Ownership Commit step 与已审阅计划不一致。");
+        const record = await terminalizeFailedProposal(new Date());
+        respond(response, 200, { status: "FAILED", semanticCommitId, record, errorCode: existing.errorCode, replayed: true }); return;
+      }
+      const plan = planAcceptedV2OwnershipChange(stored.proposal);
+      if (existing?.status === "COMPLETED") {
+        const receipt = store.getCommandReceipt(receiptKey);
+        if (steps.length !== 1 || steps[0]?.operationId !== plan.childObjectId || receipt?.command !== "change_primary_owner" || receipt.object.objectId !== plan.childObjectId || receipt.object.version !== plan.expectedVersion + 1 || receipt.ownership.childObjectId !== plan.childObjectId || receipt.ownership.ownerObjectId !== plan.ownerObjectId) throw serviceError("V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "Ownership Commit 账本、回执与已审阅计划不一致。");
+        const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "COMPLETED", semanticCommitId, object: receipt.object, ownership: receipt.ownership, record, replayed: true }); return;
+      }
+      if (existing && existing.status !== "PENDING") throw serviceError("V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "Ownership Commit 已终止，不能建立平行事务。");
+      if (!existing) {
+        const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, input.observations), input.expectedUpdatedAt);
+        if (revalidation.result.status === "STALE") { respond(response, 200, { status: "STALE", ...revalidation }); return; }
+        const now = new Date();
+        store.prepareSemanticCommit({ semanticCommitId, proposalId, status: "PENDING", beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, expectedUpdatedAt: input.expectedUpdatedAt }), createdAt: now.toISOString(), updatedAt: now.toISOString() }, [{ semanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: plan.childObjectId, updatedAt: now.toISOString() }]);
+        options.faults?.afterOwnershipPrepare?.();
+      } else if (steps.length !== 1 || steps[0]?.operationId !== plan.childObjectId) throw serviceError("V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "Ownership Commit 账本与预览不一致。");
+      const now = new Date();
+      let result;
+      try {
+        result = await application.changePrimaryOwner(plan.childObjectId, plan.ownerObjectId, plan.expectedOwnerVersion, plan.expectedCurrentOwnerId, { actor: "proposal_commit", expectedVersion: plan.expectedVersion, idempotencyKey: receiptKey, traceId: input.traceId }, now);
+      } catch (error) {
+        if (error instanceof StructuredError && terminalFailureCodes.includes(error.code) && !store.getCommandReceipt(receiptKey)) {
+          store.finalizeSemanticCommit(semanticCommitId, "FAILED", now.toISOString(), undefined, error.code);
+          options.faults?.afterOwnershipCommitFailedBeforeProposalTerminal?.();
+          await terminalizeFailedProposal(now);
+        }
+        throw error;
+      }
+      options.faults?.afterOwnershipDomainWrite?.();
+      if (store.semanticCommitSteps(semanticCommitId)[0]?.status === "PREPARED") store.advanceSemanticCommitStep(semanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(semanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(semanticCommitId, 0, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(semanticCommitId, "COMPLETED", now.toISOString(), checksum(result));
+      const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 200, { status: "COMPLETED", semanticCommitId, object: result.object, ownership: result.ownership, record, replayed: false }); return;
     }
     const projectClosureCommitMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/closure\/commit$/) : null;
     if (projectClosureCommitMatch?.[1]) {
@@ -1128,6 +1201,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (proposalRevalidationMatch?.[1]) {
       const proposalId = decodeURIComponent(proposalRevalidationMatch[1]);
       const input = await readProposalRevalidationRequest(request);
+      requireNoUnfinishedProposalCommit(proposalId);
       const stored = await proposalApplication.get(proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
       respond(response, 200, await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, input.observations), input.expectedUpdatedAt));
@@ -1136,7 +1210,9 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     const proposalReviewMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/review$/) : null;
     if (proposalReviewMatch?.[1]) {
       const input = await readProposalReviewRequest(request);
-      respond(response, 200, await proposalApplication.review(decodeURIComponent(proposalReviewMatch[1]), input.decisions, input.expectedUpdatedAt));
+      const proposalId = decodeURIComponent(proposalReviewMatch[1]);
+      requireNoUnfinishedProposalCommit(proposalId);
+      respond(response, 200, await proposalApplication.review(proposalId, input.decisions, input.expectedUpdatedAt));
       return;
     }
     const proposalReadMatch = request.method === "GET" ? url.pathname.match(/^\/proposals\/([^/]+)$/) : null;

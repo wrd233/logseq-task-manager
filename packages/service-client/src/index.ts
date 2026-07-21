@@ -308,6 +308,10 @@ export type ServiceProposalCommitFinalization =
 export type ServiceProjectClosureCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation);
+export type ServiceOwnershipCommitResult =
+  | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; ownership: V2PrimaryOwnership; record: ServiceStoredProposal; replayed: boolean }
+  | ({ status: "STALE" } & ServiceProposalRevalidation)
+  | { status: "FAILED"; semanticCommitId: string; record: ServiceStoredProposal; errorCode: string; replayed: boolean };
 
 export interface ServiceProposalCommitEvidence {
   semanticCommitId: string;
@@ -689,6 +693,10 @@ export class LocalServiceClient {
     return this.request<ServiceProjectClosureCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/closure/commit`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });
+  }
+
+  commitPrimaryOwnership(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "CHANGE_PRIMARY_OWNERSHIP"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceOwnershipCommitResult> {
+    return this.request<ServiceOwnershipCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/ownership/commit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
   }
 
   compensateProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }> {

@@ -106,6 +106,7 @@ let v2RebindPanel: V2RebindPanelState = { status: "idle" };
 let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
 const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
+let v2OwnershipCommitBusy = false;
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
   reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
@@ -232,6 +233,7 @@ async function model(): Promise<UiModel> {
       ...(v2RelationLoadError ? { v2RelationLoadError } : {}),
       v2AssociationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
       v2AssociationBusy: v2AssociationSubmission.busy,
+      v2OwnershipCommitBusy,
       v2Proposals,
       v2MigrationRuns,
       v2SemanticCommits,
@@ -307,6 +309,7 @@ async function model(): Promise<UiModel> {
     ...(inboxDialog ? { inboxDialog } : {}),
     ...(actionDialog ? { actionDialog } : {}),
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+    v2OwnershipCommitBusy,
     v2Proposals,
     v2MigrationRuns,
     v2SemanticCommits,
@@ -970,6 +973,44 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
+  if (action === "v2-ownership-commit" && value) return openActionDialog("confirm-v2-ownership", value);
+  if (action === "submit-v2-ownership" && value) {
+    if (v2OwnershipCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认新的 Primary Ownership。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    v2OwnershipCommitBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!proposalId || !expectedUpdatedAt || !client) throw new Error("Primary Ownership 上下文已失效；没有写入。");
+        const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
+        if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查 Primary Ownership。");
+        const observations = await collectV2ProposalGraphObservations(stored.proposal, {
+          getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }),
+          getPage: (id) => logseq.Editor.getPage(id),
+        });
+        const result = await client.commitPrimaryOwnership(proposalId, { expectedUpdatedAt, confirmation: "CHANGE_PRIMARY_OWNERSHIP", observations, traceId: `v2-ownership-ui-${Date.now()}` });
+        if (result.status === "STALE") {
+          message = "Primary Ownership 的对象或上下文版本已变化；Proposal 已标记 STALE，没有改变归属。";
+          return;
+        }
+        if (result.status === "FAILED") {
+          actionDialog = undefined;
+          workspace = "review";
+          message = `Primary Ownership Commit 已安全终止（${result.errorCode}）；没有改变归属。`;
+          return;
+        }
+        actionDialog = undefined;
+        workspace = "review";
+        message = "Primary Ownership 已通过 Proposal Commit 更新；位置、Anchor 与 Association 未改变。";
+      });
+    } finally {
+      v2OwnershipCommitBusy = false;
+      await refresh();
+    }
+    return;
+  }
   if (action === "submit-v2-project-closure" && value) {
     if (!dialogChecked("actionConfirmed")) { latestError = "请确认 Project Closure 与未完成 Objective 的后续去向。"; await refresh(); return; }
     const [proposalId, expectedUpdatedAt] = value.split("|");

@@ -47,7 +47,7 @@ export interface V2ProjectClosurePlan {
 }
 
 export interface V2OwnershipChangePlan {
-  proposalId: string; groupId: string; childObjectId: string; ownerObjectId: string; expectedVersion: number; expectedCurrentOwnerId?: string;
+  proposalId: string; groupId: string; childObjectId: string; ownerObjectId: string; expectedVersion: number; expectedOwnerVersion: number; expectedCurrentOwnerId?: string;
 }
 
 function proposalApplicationError(code: string, message: string): StructuredError {
@@ -116,7 +116,9 @@ export function planAcceptedV2OwnershipChange(proposal: V2Proposal): V2Ownership
   const controlledId = (value: string) => /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value);
   const ownerEvidence = proposal.scope.read.filter((target) => target.kind === "OBJECT" && target.id === ownerObjectId && target.version !== undefined);
   if (operation.target.kind !== "OBJECT" || operation.target.version === undefined || !controlledId(ownerObjectId) || ownerEvidence.length !== 1 || (expectedCurrentOwnerId !== undefined && (typeof expectedCurrentOwnerId !== "string" || !controlledId(expectedCurrentOwnerId)))) throw proposalApplicationError("V2_OWNERSHIP_COMMIT_TARGET_INVALID", "Primary Ownership 变更必须指向带版本 child，并在 read scope 中提供唯一带版本新 Owner 与合法当前 Owner 前置。");
-  return { proposalId: proposal.proposalId, groupId: group.groupId, childObjectId: operation.target.id, ownerObjectId, expectedVersion: operation.target.version, ...(typeof expectedCurrentOwnerId === "string" ? { expectedCurrentOwnerId } : {}) };
+  if (operation.target.id === ownerObjectId) throw proposalApplicationError("V2_OWNERSHIP_COMMIT_TARGET_INVALID", "对象不能成为自己的 Primary Owner。");
+  if (expectedCurrentOwnerId === ownerObjectId) throw proposalApplicationError("V2_OWNERSHIP_COMMIT_TARGET_INVALID", "新 Primary Owner 与当前 Owner 相同；Proposal 不表达正式变化。");
+  return { proposalId: proposal.proposalId, groupId: group.groupId, childObjectId: operation.target.id, ownerObjectId, expectedVersion: operation.target.version, expectedOwnerVersion: ownerEvidence[0]!.version!, ...(typeof expectedCurrentOwnerId === "string" ? { expectedCurrentOwnerId } : {}) };
 }
 
 export class V2ProposalApplication {

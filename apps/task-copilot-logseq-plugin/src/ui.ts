@@ -30,6 +30,7 @@ export type ActionDialogKind =
   | "confirm-v2-review-accept"
   | "confirm-v2-commit"
   | "confirm-v2-project-closure"
+  | "confirm-v2-ownership"
   | "confirm-v2-undo"
   | "v2-condition"
   | "v2-deadline"
@@ -70,6 +71,7 @@ export interface UiModel {
   v2RelationLoadError?: string;
   v2AssociationAvailable?: boolean;
   v2AssociationBusy?: boolean;
+  v2OwnershipCommitBusy?: boolean;
   v2Proposals?: ServiceStoredProposal[];
   v2SemanticCommits?: ServiceSemanticCommit[];
   v2NowWork?: ServiceNowWork;
@@ -294,9 +296,14 @@ function renderReview(model: UiModel): string {
       && acceptedGroups[0]!.semanticOperations.length === 2
       && acceptedGroups[0]!.semanticOperations.some((operation) => operation.kind === "UPDATE_PROJECT_INTERFACE" && "closure" in operation.payload)
       && acceptedGroups[0]!.semanticOperations.some((operation) => operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.lifecycle === "COMPLETED");
+    const isOwnershipChange = acceptedGroups.length === 1
+      && acceptedGroups[0]!.risk === "HIGH"
+      && acceptedGroups[0]!.textPatches.length === 0
+      && acceptedGroups[0]!.semanticOperations.length === 1
+      && acceptedGroups[0]!.semanticOperations[0]!.kind === "CHANGE_OWNERSHIP";
     const originalCommit = model.v2SemanticCommits?.find((commit) => commit.proposalId === record.proposal.proposalId && commit.semanticCommitId.startsWith("proposal-commit:"));
     const canCommit = hasAcceptedGroup && (record.proposal.status === "ACCEPTED" || record.proposal.status === "PARTIALLY_ACCEPTED");
-    const canUndo = !isProjectClosure && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
+    const canUndo = !isProjectClosure && !isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
     return `<article class="card proposal v2-proposal">
     <div class="eyebrow">V2 · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
     <h3>${escapeHtml(record.proposal.title)}</h3>
@@ -304,8 +311,8 @@ function renderReview(model: UiModel): string {
     <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
     <section class="suggestion"><h4>最终可读预览</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
     ${record.proposal.groups.map((group) => `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${button("接受该语义组", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}`, "primary")}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}</div>` : ""}</section>`).join("")}
-    ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}`, "primary")}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
-    <div class="notice">${canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : isProjectClosure && record.proposal.status === "APPLIED" ? `Project Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Project 已退出活跃视图，页面保留。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
+    ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : isOwnershipChange ? "确认改变主归属" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}`, "primary", isOwnershipChange && model.v2OwnershipCommitBusy === true)}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
+    <div class="notice">${canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : isProjectClosure && record.proposal.status === "APPLIED" ? `Project Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Project 已退出活跃视图，页面保留。` : isOwnershipChange && record.proposal.status === "APPLIED" ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；位置、Anchor 与 Association 未改变。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : isOwnershipChange ? "原子改变唯一 Primary Ownership" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
   </article>`;
   }).join("");
   if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
@@ -452,6 +459,7 @@ function renderActionDialog(model: UiModel): string {
     "confirm-v2-review-accept": ["接受高影响语义组", "我确认接受当前高影响语义组；这仍不会绕过最终版本重验和 Commit", "submit-v2-review-accept"],
     "confirm-v2-commit": ["确认最终提交", "我已查看最终预览与 Diff；系统将再次重验后写入正文和 SQLite，并在成功后提供 Undo", "submit-v2-proposal-commit"],
     "confirm-v2-project-closure": ["确认完成 Project", "我已检查原始目标、实际结果、未完成 Objective 的原因与去向；系统将重验后原子记录 Closure 并完成 Project", "submit-v2-project-closure"],
+    "confirm-v2-ownership": ["确认改变 Primary Ownership", "我已确认新的主归属；系统将重验子对象、新 Owner 与当前归属版本，位置、Anchor 和 Association 不会改变", "submit-v2-ownership"],
     "confirm-v2-undo": ["撤销本次生效", "我确认创建逆向 Commit；只有正文、对象和 Anchor 均未被后续修改时才会生效", "submit-v2-proposal-undo"],
   };
   const confirmation = confirmations[dialog.kind];

@@ -287,11 +287,11 @@ test("Primary Anchor and Ownership changes pass through Application and share ob
   assert.equal(owned.object.version, 3);
   assert.equal(owned.ownership.ownerObjectId, "project-1");
   await application.createObject({ objectId: "area-1", objectType: "AREA", text: "领域" }, { actor: "user", expectedVersion: 0, idempotencyKey: "create-area", traceId: "trace-area" });
-  const changedOwner = await application.changePrimaryOwner("task-1", "area-1", "project-1", { actor: "proposal_commit", expectedVersion: 3, idempotencyKey: "change-owner", traceId: "trace-change-owner" });
+  const changedOwner = await application.changePrimaryOwner("task-1", "area-1", 1, "project-1", { actor: "proposal_commit", expectedVersion: 3, idempotencyKey: "change-owner", traceId: "trace-change-owner" });
   assert.equal(changedOwner.ownership.ownerObjectId, "area-1");
   assert.equal(changedOwner.object.version, 4);
-  await assert.rejects(() => application.changePrimaryOwner("task-1", "project-1", "other-old-owner", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-owner-stale", traceId: "trace-change-owner-stale" }), /stale/);
-  await assert.rejects(() => application.changePrimaryOwner("task-1", "area-1", "area-1", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-owner-noop", traceId: "trace-change-owner-noop" }), /相同/);
+  await assert.rejects(() => application.changePrimaryOwner("task-1", "project-1", 1, "other-old-owner", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-owner-stale", traceId: "trace-change-owner-stale" }), /stale/);
+  await assert.rejects(() => application.changePrimaryOwner("task-1", "area-1", 1, "area-1", { actor: "proposal_commit", expectedVersion: 4, idempotencyKey: "change-owner-noop", traceId: "trace-change-owner-noop" }), /相同/);
   await assert.rejects(() => application.assignPrimaryOwner("task-1", "project-1", {
     actor: "user",
     expectedVersion: 2,
