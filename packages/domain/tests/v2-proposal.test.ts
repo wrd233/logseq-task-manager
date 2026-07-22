@@ -45,6 +45,22 @@ test("V2 Proposal validator accepts one coupled text and semantic operation grou
   assert.throws(() => validateV2ProposalForSubmission(missingFinalText), /最终对象类型与正文/);
 });
 
+test("MiniProject completion submission validates the reviewed shape early while allowing unresolved three questions", () => {
+  const value = proposal();
+  value.scope = { read: [{ kind: "BLOCK", id: "block-mini", hash: "12345678" }], modify: [{ kind: "OBJECT", id: "mini-1", version: 3 }] };
+  value.groups = [{ groupId: "complete-mini", explanation: "独立关闭。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{
+    operationId: "complete-mini", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-1", version: 3 }, summary: "完成 MiniProject",
+    payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: "关闭 Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678" }, preconditions: [],
+  }], disposition: "PENDING" }];
+  value.unresolvedQuestions = ["原目标？", "实际结果？", "遗留？"];
+  assert.equal(validateV2ProposalForSubmission(value).proposalId, value.proposalId, "Marker Proposal may wait for the human answers");
+  value.groups[0]!.semanticOperations[0]!.payload.closure = { originalGoal: "完成 Gate", actualResult: "", remainingWork: "无遗留" };
+  assert.throws(() => validateV2ProposalForSubmission(value), /实际结果/);
+  delete value.groups[0]!.semanticOperations[0]!.payload.closure;
+  value.groups[0]!.semanticOperations[0]!.payload.contentHash = "bad";
+  assert.throws(() => validateV2ProposalForSubmission(value), /独立 HIGH/);
+});
+
 test("V2 Proposal validator refuses modify-scope escape, stale patch hashes, and risk downgrade", () => {
   const outside = proposal();
   outside.groups[0]!.textPatches[0]!.blockUuid = "block-outside";

@@ -37,7 +37,7 @@ import type {
 import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 10;
+export const V2_DATABASE_SCHEMA_VERSION = 11;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -68,6 +68,7 @@ const schemaMigrationNames = new Map<number, string>([
   [8, "add_project_closure_summary"],
   [9, "add_plain_associations"],
   [10, "add_candidate_review_state"],
+  [11, "allow_project_closure_retention_and_mini_project_closure"],
 ]);
 
 export interface V2StoredProposal {
@@ -286,7 +287,7 @@ export class V2SqliteStore {
           lifecycle TEXT NOT NULL CHECK (lifecycle IN ('OPEN','COMPLETED','CANCELLED','ARCHIVED')),
           condition_json TEXT NOT NULL CHECK (json_valid(condition_json)),
           due_at TEXT,
-          closure_json TEXT CHECK (closure_json IS NULL OR (object_type = 'PROJECT' AND lifecycle = 'COMPLETED' AND json_valid(closure_json))),
+          closure_json TEXT CHECK (closure_json IS NULL OR (object_type IN ('PROJECT','MINI_PROJECT') AND lifecycle IN ('COMPLETED','ARCHIVED') AND json_valid(closure_json))),
           text TEXT NOT NULL CHECK (length(trim(text)) > 0),
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
@@ -492,7 +493,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 10) {
+    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 11) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -677,10 +678,37 @@ export class V2SqliteStore {
         CREATE INDEX candidate_source_kind_current ON candidates(source_anchor_id, candidate_kind, updated_at DESC);`);
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(10, schemaMigrationNames.get(10), at.toISOString());
+        workingVersion = 10;
       }
+      if (workingVersion === 10) {
+        this.database.exec(`
+          CREATE TABLE objects_v11 (
+            object_id TEXT PRIMARY KEY,
+            object_type TEXT NOT NULL CHECK (object_type IN ('AREA','PROJECT','MINI_PROJECT','TASK','DECISION','OUTPUT')),
+            version INTEGER NOT NULL CHECK (version >= 1),
+            lifecycle TEXT NOT NULL CHECK (lifecycle IN ('OPEN','COMPLETED','CANCELLED','ARCHIVED')),
+            condition_json TEXT NOT NULL CHECK (json_valid(condition_json)),
+            due_at TEXT,
+            closure_json TEXT CHECK (closure_json IS NULL OR (object_type IN ('PROJECT','MINI_PROJECT') AND lifecycle IN ('COMPLETED','ARCHIVED') AND json_valid(closure_json))),
+            text TEXT NOT NULL CHECK (length(trim(text)) > 0),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            source_event TEXT NOT NULL
+          ) STRICT;
+          INSERT INTO objects_v11(object_id, object_type, version, lifecycle, condition_json, due_at, closure_json, text, created_at, updated_at, source_event)
+            SELECT object_id, object_type, version, lifecycle, condition_json, due_at, closure_json, text, created_at, updated_at, source_event FROM objects;
+          DROP TABLE objects;
+          ALTER TABLE objects_v11 RENAME TO objects;
+        `);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(11, schemaMigrationNames.get(11), at.toISOString());
+      }
+      const foreignKeyViolations = (this.database.pragma("foreign_key_check") as unknown[]).length;
+      if (foreignKeyViolations > 0) throw persistenceError("V2_SCHEMA_MIGRATION_FOREIGN_KEY_FAILED", "SQLite schema 迁移后出现外键错误；本批变化已回滚。", { foreignKeyViolations });
       this.database.prepare("UPDATE schema_meta SET value = ? WHERE key = 'schema_version'").run(String(V2_DATABASE_SCHEMA_VERSION));
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
     });
+    this.database.pragma("foreign_keys = OFF");
     try {
       migration();
       requireCompleteMigrationHistory(this.database);
@@ -690,6 +718,8 @@ export class V2SqliteStore {
         fromVersion,
         cause: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      this.database.pragma("foreign_keys = ON");
     }
   }
 

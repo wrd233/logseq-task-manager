@@ -1,5 +1,5 @@
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
-import { validateV2ProjectClosure, type V2ProjectClosure } from "./v2.ts";
+import { validateV2MiniProjectClosure, validateV2ProjectClosure, type V2MiniProjectClosure, type V2ProjectClosure } from "./v2.ts";
 
 export type V2ProposalSourceKind = "local_llm" | "external_agent" | "user" | "migration" | "repair";
 export type V2ProposalRisk = "LOW" | "MEDIUM" | "HIGH";
@@ -199,6 +199,16 @@ export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
       }
       if (operation.kind === "TRANSITION_LIFECYCLE" && !["COMPLETED", "CANCELLED", "ARCHIVED"].includes(String(operation.payload.lifecycle))) {
         throw proposalError("V2_PROPOSAL_LIFECYCLE_PAYLOAD_INVALID", "TRANSITION_LIFECYCLE 必须明确声明合法的终态。");
+      }
+      if (operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.objectType === "MINI_PROJECT" && operation.payload.lifecycle === "COMPLETED") {
+        const blockEvidence = proposal.scope.read.filter((target) => target.kind === "BLOCK" && target.id === operation.payload.externalId && target.hash === operation.payload.contentHash);
+        if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || operation.target.kind !== "OBJECT" || operation.target.version === undefined
+          || typeof operation.payload.text !== "string" || !operation.payload.text.trim() || operation.payload.marker !== "DONE"
+          || typeof operation.payload.externalId !== "string" || !operation.payload.externalId.trim() || operation.payload.externalId.length > 512
+          || typeof operation.payload.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(operation.payload.contentHash) || blockEvidence.length !== 1) {
+          throw proposalError("V2_PROPOSAL_MINI_PROJECT_CLOSURE_SHAPE_INVALID", "MiniProject Completion 必须是绑定 DONE Block 与带版本对象的独立 HIGH 组。");
+        }
+        if ("closure" in operation.payload) validateV2MiniProjectClosure(operation.payload.closure as V2MiniProjectClosure);
       }
       if (operation.kind === "UPDATE_PROJECT_INTERFACE" && "closure" in operation.payload) {
         const closure = operation.payload.closure;

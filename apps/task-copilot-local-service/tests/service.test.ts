@@ -864,7 +864,7 @@ test("external Agent Project Closure Proposal completes with explicit unfinished
   assert.equal(completed.status, "COMPLETED");
   if (completed.status !== "COMPLETED") return;
   assert.equal(completed.object.lifecycle, "COMPLETED");
-  assert.equal(completed.object.closure?.incompleteObjectives[0]?.reason, "源数据未齐");
+  assert.equal(completed.object.closure && "incompleteObjectives" in completed.object.closure ? completed.object.closure.incompleteObjectives[0]?.reason : undefined, "源数据未齐");
   assert.equal(completed.record.proposal.status, "APPLIED");
   assert.equal([...(await client.nowWork()).focus, ...(await client.nowWork()).next, ...(await client.nowWork()).waitingReview].some(({ objectId }) => objectId === completed.object.objectId), false);
   const replay = await client.commitProjectClosure(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: "trace-project-closure-replay" });
@@ -1275,7 +1275,14 @@ test("MiniProject DONE Marker creates one review Proposal and commits only after
   assert.equal(delayedOldReplay.proposalId, revised.proposalId);
   assert.equal((await client.getProposal(record.proposal.proposalId))!.proposal.scope.read[0]?.hash, markerHash, "delayed receipt cannot roll the active Proposal back");
   assert.equal((await client.getObject(open.object.objectId))?.lifecycle, "OPEN");
-  const accepted = await client.reviewProposal(record.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, record.updatedAt);
+  await assert.rejects(() => client.reviewProposal(record.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, record.updatedAt), /三问|409/);
+  await assert.rejects(() => client.reviewProposal(record.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, record.updatedAt, { originalGoal: "完成真实 Marker 闭环", actualResult: "", remainingWork: "无遗留" }), /三问|409/);
+  const closure = { originalGoal: "完成真实 Marker 闭环", actualResult: "Marker、审阅与提交均通过", remainingWork: "无遗留" };
+  const accepted = await client.reviewProposal(record.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, record.updatedAt, closure);
+  await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "检查真实 Marker 闭环（修订）", marker: "DONE", externalId: "block-mini-marker", inputVersion: "3003", contentHash: markerHash, idempotencyKey: "ignored-accepted-replay", traceId: "trace-mini-accepted-replay" });
+  const acceptedAfterReplay = await client.getProposal(record.proposal.proposalId);
+  assert.equal(acceptedAfterReplay?.updatedAt, accepted.updatedAt, "same DONE evidence cannot erase accepted three-question Closure");
+  assert.deepEqual(acceptedAfterReplay?.proposal.groups[0]?.semanticOperations[0]?.payload.closure, closure);
   assert.equal((await client.getObject(open.object.objectId))?.lifecycle, "OPEN", "accept is not commit");
   const committed = await client.commitLifecycleTransition(record.proposal.proposalId, {
     expectedUpdatedAt: accepted.updatedAt, confirmation: "COMPLETE_MINI_PROJECT",
@@ -1286,6 +1293,7 @@ test("MiniProject DONE Marker creates one review Proposal and commits only after
     assert.equal(committed.object.objectId, open.object.objectId);
     assert.equal(committed.object.lifecycle, "COMPLETED");
     assert.equal(committed.object.condition.kind, "ACTIONABLE");
+    assert.deepEqual(committed.object.closure, closure);
     assert.equal(committed.anchor.externalId, "block-mini-marker");
     assert.equal(committed.anchor.contentHash, markerHash);
     assert.equal(committed.record.proposal.status, "APPLIED");
@@ -1327,7 +1335,7 @@ test("MiniProject lifecycle Commit revalidates recovery, terminalizes stale stat
     const hash = checksum(`[MiniProject] DONE ${text}`);
     const proposed = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text, marker: "DONE", externalId, inputVersion: `${suffix}-done`, contentHash: hash, idempotencyKey: "ignored", traceId: `trace-${suffix}-done` });
     const ready = (await client.listProposals()).find(({ proposal }) => proposal.proposalId === proposed.proposalId)!;
-    const accepted = await client.reviewProposal(ready.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, ready.updatedAt);
+    const accepted = await client.reviewProposal(ready.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, ready.updatedAt, { originalGoal: `完成 ${text}`, actualResult: `${text} 已完成`, remainingWork: "无遗留" });
     return { externalId, hash, objectId: proposed.object.objectId, proposalId: ready.proposal.proposalId, expectedUpdatedAt: accepted.updatedAt };
   };
 

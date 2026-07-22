@@ -9,7 +9,7 @@
 - 创建后立即以 readonly + fileMustExist 打开，校验 schema、Graph identity、integrity、foreign keys 和 object count；
 - Restore Validate 只接受服务端生成的 `backup_id`，不修改快照字节；
 - 错误响应只包含结构化 code/message，不返回本机路径、SQLite cause、stack 或 session token。
-- schema v3 建立 SemanticCommit step ledger，schema v4 增加 Proposal/Group 审阅表，schema v5 解耦 immutable Audit 与当前 Object 投影以支持严格 Undo，schema v6 增加 nullable Task `due_at`，schema v7 增加有界 V1 迁移 run/batch/evidence 账本；migration ledger 只追加，旧 schema 的显式升级在 DDL 前另建经校验的不覆盖快照。
+- schema v3 建立 SemanticCommit step ledger，v4 增加 Proposal/Group，v5 解耦 immutable Audit 与当前 Object 投影，v6 增加 Task `due_at`，v7 增加有界 V1 迁移账本，v8 增加 Project `closure_json`，v9 增加普通 Association，v10 增加 Candidate，v11 只放宽已有 `closure_json` 以容纳 MiniProject 三问并在 Project/MiniProject 归档后保留完成事实；migration ledger 只追加，旧 schema 的显式升级在 DDL 前另建经校验的不覆盖快照。
 
 Service 维护二进制提供独立显式模式，不启动 HTTP、Provider 或 descriptor：
 

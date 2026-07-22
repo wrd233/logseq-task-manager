@@ -9,8 +9,10 @@ import {
   type V2ProposalGroupDecision,
   type V2ProposalRevalidationResult,
   type V2ProposalScopeObservation,
+  type V2MiniProjectClosure,
   type V2ProjectClosure,
   validateV2ProjectClosure,
+  validateV2MiniProjectClosure,
 } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -74,6 +76,7 @@ export interface V2LifecycleTransitionPlan {
   marker: "DONE";
   externalId: string;
   contentHash: string;
+  closure: V2MiniProjectClosure;
 }
 
 export interface V2OwnershipChangePlan {
@@ -192,6 +195,9 @@ export function planAcceptedV2LifecycleTransition(proposal: V2Proposal): V2Lifec
   const payload = operation.payload;
   const objectTarget = proposal.scope.modify.filter((target) => target.kind === "OBJECT" && target.id === operation.target.id && target.version !== undefined);
   const blockEvidence = proposal.scope.read.filter((target) => target.kind === "BLOCK" && target.id === payload.externalId && target.hash === payload.contentHash);
+  let closure: V2MiniProjectClosure;
+  try { closure = validateV2MiniProjectClosure(payload.closure as unknown as V2MiniProjectClosure); }
+  catch { throw proposalApplicationError("V2_LIFECYCLE_COMMIT_CLOSURE_INVALID", "MiniProject Lifecycle Proposal 必须包含已确认的原目标、实际结果和遗留三问。"); }
   if (
     operation.target.kind !== "OBJECT" || operation.target.version === undefined || objectTarget.length !== 1 || objectTarget[0]!.version !== operation.target.version
     || payload.lifecycle !== "COMPLETED" || payload.objectType !== "MINI_PROJECT" || payload.marker !== "DONE"
@@ -201,7 +207,7 @@ export function planAcceptedV2LifecycleTransition(proposal: V2Proposal): V2Lifec
   ) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_TARGET_INVALID", "MiniProject Lifecycle Proposal 必须绑定 DONE Block 证据和同一带版本对象。");
   return {
     proposalId: proposal.proposalId, groupId: group.groupId, objectId: operation.target.id, expectedVersion: operation.target.version,
-    lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: payload.text.trim(), marker: "DONE", externalId: payload.externalId, contentHash: payload.contentHash,
+    lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: payload.text.trim(), marker: "DONE", externalId: payload.externalId, contentHash: payload.contentHash, closure,
   };
 }
 
@@ -263,8 +269,40 @@ export class V2ProposalApplication {
     const current = await this.repository.storedProposal(proposalId);
     if (!current) throw proposalApplicationError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
     if (current.updatedAt !== expectedUpdatedAt) throw proposalApplicationError("V2_PROPOSAL_REVIEW_STALE", "Proposal 已在其他审阅操作后变化；请刷新后重试。");
+    for (const [groupId, decision] of Object.entries(decisions)) {
+      const group = current.proposal.groups.find((candidate) => candidate.groupId === groupId);
+      const miniProjectClosure = group?.semanticOperations.find((operation) => operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.objectType === "MINI_PROJECT" && operation.payload.lifecycle === "COMPLETED");
+      if (decision.disposition === "ACCEPTED" && miniProjectClosure) throw proposalApplicationError("V2_MINI_PROJECT_CLOSURE_REQUIRED", "MiniProject Completion 必须通过专用三问审阅，不能使用通用接受绕过。");
+    }
     const proposal = reviewV2ProposalGroups(current.proposal, decisions);
     return this.repository.updateStoredProposal(proposal, renderV2ProposalFiles(proposal), expectedUpdatedAt, at);
+  }
+
+  async reviewMiniProjectClosure(
+    proposalId: string,
+    groupId: string,
+    closureValue: V2MiniProjectClosure,
+    expectedUpdatedAt: string,
+    at = new Date(),
+  ): Promise<V2StoredProposalRecord> {
+    const current = await this.repository.storedProposal(proposalId);
+    if (!current) throw proposalApplicationError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+    if (current.updatedAt !== expectedUpdatedAt) throw proposalApplicationError("V2_PROPOSAL_REVIEW_STALE", "Proposal 已在其他审阅操作后变化；请刷新后重试。");
+    const closure = validateV2MiniProjectClosure(closureValue);
+    const group = current.proposal.groups.find((candidate) => candidate.groupId === groupId);
+    const transition = group?.semanticOperations.length === 1 ? group.semanticOperations[0] : undefined;
+    if (!group || group.risk !== "HIGH" || transition?.kind !== "TRANSITION_LIFECYCLE" || transition.payload.objectType !== "MINI_PROJECT" || transition.payload.lifecycle !== "COMPLETED") throw proposalApplicationError("V2_MINI_PROJECT_CLOSURE_REVIEW_INVALID", "三问只能写入独立 HIGH MiniProject Closure 语义组。");
+    const enriched: V2Proposal = {
+      ...current.proposal,
+      finalPreview: `原目标：${closure.originalGoal}\n实际结果：${closure.actualResult}\n遗留：${closure.remainingWork}`,
+      unresolvedQuestions: [],
+      groups: current.proposal.groups.map((candidate) => candidate.groupId === groupId ? {
+        ...candidate,
+        semanticOperations: candidate.semanticOperations.map((operation) => operation.operationId === transition.operationId ? { ...operation, payload: { ...operation.payload, closure } } : operation),
+      } : candidate),
+    };
+    const reviewed = reviewV2ProposalGroups(enriched, { [groupId]: { disposition: "ACCEPTED", highImpactConfirmed: true } });
+    return this.repository.updateStoredProposal(reviewed, renderV2ProposalFiles(reviewed), expectedUpdatedAt, at);
   }
 
   async revalidate(

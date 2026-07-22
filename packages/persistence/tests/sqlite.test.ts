@@ -80,6 +80,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 8, name: "add_project_closure_summary", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 9, name: "add_plain_associations", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 10, name: "add_candidate_review_state", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 11, name: "allow_project_closure_retention_and_mini_project_closure", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -325,6 +326,43 @@ test("schema v9 adds only Candidate review state after preserving an exact v9 ba
   const internal = migrating as unknown as { database: Database.Database };
   assert.equal(internal.database.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'candidates'").pluck().get(), 1);
   assert.equal(migrating.schemaMigrationHistory()[9]?.name, "add_candidate_review_state");
+  migrating.close();
+});
+
+test("schema v10 reuses closure_json for MiniProject three-question Closure without losing object or Anchor data", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const application = new V2Application(store);
+  const created = await application.materializeExplicitObject({
+    objectId: "mini-v10", objectType: "MINI_PROJECT", text: "迁移后关闭", anchor: { graphId: "graph-a", externalId: "block-mini-v10", contentHash: "12345678" },
+  }, { actor: "test", expectedVersion: 0, idempotencyKey: "mini-v10-create", traceId: "trace-create" });
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec("DELETE FROM schema_migrations WHERE version >= 11");
+  legacy.prepare("UPDATE schema_meta SET value = '10' WHERE key = 'schema_version'").run();
+  legacy.pragma("user_version = 10");
+  legacy.close();
+  const migrating = await V2SqliteStore.open(path);
+  const backupPath = join(root, "before-mini-project-closure.db");
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-22T09:00:00.000Z")), { migrated: true, fromVersion: 10, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath });
+  assert.equal(migrating.getObject(created.object.objectId)?.text, "迁移后关闭");
+  assert.equal(migrating.getPrimaryAnchorByExternal("graph-a", "block-mini-v10")?.objectId, created.object.objectId);
+  const migratedDatabase = new Database(path);
+  assert.equal(migratedDatabase.pragma("foreign_keys", { simple: true }), 1);
+  assert.throws(() => migratedDatabase.prepare("UPDATE objects SET closure_json = ? WHERE object_id = ?").run(JSON.stringify({ originalGoal: "x", actualResult: "y", remainingWork: "z" }), created.object.objectId), /constraint/i, "Closure cannot exist before MiniProject completion");
+  migratedDatabase.close();
+  const completed = await new V2Application(migrating).completeMiniProjectFromMarker({
+    objectType: "MINI_PROJECT", text: "迁移后关闭", marker: "DONE", graphId: "graph-a", externalId: "block-mini-v10", contentHash: "12345678", expectedObjectId: created.object.objectId,
+    closure: { originalGoal: "验证迁移", actualResult: "迁移和关闭均通过", remainingWork: "无遗留" },
+  }, { actor: "proposal_commit", expectedVersion: created.object.version, idempotencyKey: "mini-v10-close", traceId: "trace-close" });
+  assert.deepEqual(completed.object.closure, { originalGoal: "验证迁移", actualResult: "迁移和关闭均通过", remainingWork: "无遗留" });
+  const archiveDatabase = new Database(path);
+  archiveDatabase.prepare("UPDATE objects SET lifecycle = 'ARCHIVED' WHERE object_id = ?").run(created.object.objectId);
+  assert.equal(JSON.parse(archiveDatabase.prepare("SELECT closure_json FROM objects WHERE object_id = ?").pluck().get(created.object.objectId) as string).actualResult, "迁移和关闭均通过", "archiving preserves the completion fact");
+  archiveDatabase.close();
+  assert.equal(migrating.getObject(created.object.objectId)?.lifecycle, "ARCHIVED");
+  assert.equal(migrating.doctor().status, "PASS");
   migrating.close();
 });
 

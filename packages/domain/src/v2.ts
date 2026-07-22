@@ -24,6 +24,12 @@ export interface V2ProjectClosure {
   futureSummary: string;
 }
 
+export interface V2MiniProjectClosure {
+  originalGoal: string;
+  actualResult: string;
+  remainingWork: string;
+}
+
 export interface V2ManagedObject {
   objectId: string;
   objectType: V2ObjectType;
@@ -35,7 +41,7 @@ export interface V2ManagedObject {
   createdAt: string;
   updatedAt: string;
   sourceOrCreationEvent: string;
-  closure?: V2ProjectClosure;
+  closure?: V2ProjectClosure | V2MiniProjectClosure;
 }
 export interface CreateV2ManagedObjectInput {
   objectId?: string;
@@ -439,7 +445,7 @@ export function synchronizeV2ExplicitObject(
 export function completeV2MiniProjectFromReviewedMarker(
   object: V2ManagedObject,
   anchor: V2Anchor,
-  input: { objectType: V2ObjectType; text: string; contentHash: string; marker?: V2ExecutionMarker },
+  input: { objectType: V2ObjectType; text: string; contentHash: string; marker?: V2ExecutionMarker; closure: V2MiniProjectClosure },
   expectedVersion: number,
   at = new Date(),
 ): { object: V2ManagedObject; anchor: V2Anchor } {
@@ -467,10 +473,24 @@ export function completeV2MiniProjectFromReviewedMarker(
   }
   requireText(input.text, "V2_OBJECT_TEXT_REQUIRED", "正式对象必须保留可读的自然语言正文。");
   requireText(input.contentHash, "V2_ANCHOR_HASH_REQUIRED", "Primary Anchor 必须包含正文 hash。");
+  const closure = validateV2MiniProjectClosure(input.closure);
   const timestamp = at.toISOString();
   return {
-    object: { ...object, lifecycle: "COMPLETED", text: input.text.trim(), version: object.version + 1, updatedAt: timestamp },
+    object: { ...object, lifecycle: "COMPLETED", text: input.text.trim(), closure, version: object.version + 1, updatedAt: timestamp },
     anchor: { ...anchor, status: "active", contentHash: input.contentHash, lastSeenAt: timestamp },
+  };
+}
+
+export function validateV2MiniProjectClosure(value: V2MiniProjectClosure): V2MiniProjectClosure {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new StructuredError({ code: "V2_MINI_PROJECT_CLOSURE_INVALID", message: "MiniProject Closure 必须包含三问答案。", ruleRefs: ["D-048", "D-206"] });
+  const requireAnswer = (answer: unknown, label: string): string => {
+    if (typeof answer !== "string" || !answer.trim() || answer.length > 4000) throw new StructuredError({ code: "V2_MINI_PROJECT_CLOSURE_FIELD_REQUIRED", message: `MiniProject Closure 必须填写有界的${label}。`, ruleRefs: ["D-048", "D-206"] });
+    return answer.trim();
+  };
+  return {
+    originalGoal: requireAnswer(value.originalGoal, "原目标"),
+    actualResult: requireAnswer(value.actualResult, "实际结果"),
+    remainingWork: requireAnswer(value.remainingWork, "遗留或转移说明；没有遗留时请明确写无"),
   };
 }
 

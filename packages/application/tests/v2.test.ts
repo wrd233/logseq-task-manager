@@ -470,12 +470,14 @@ test("reviewed MiniProject DONE closes object and updates Anchor in one versione
   const input = {
     objectType: "MINI_PROJECT" as const, text: "发布前核对", marker: "DONE" as const,
     graphId: "graph-1", externalId: "block-mini-close", contentHash: "done-hash", expectedObjectId: created.object.objectId,
+    closure: { originalGoal: "完成发布前核对", actualResult: "核对项全部通过", remainingWork: "无遗留" },
   };
   const envelope = { actor: "proposal_commit", expectedVersion: created.object.version, idempotencyKey: "reviewed-mini-close", traceId: "trace-close" };
   const completed = await application.completeMiniProjectFromMarker(input, envelope, new Date("2026-07-22T08:00:00Z"));
   assert.equal(completed.object.lifecycle, "COMPLETED");
   assert.deepEqual(completed.object.condition, { kind: "ACTIONABLE" });
   assert.equal(completed.object.version, created.object.version + 1);
+  assert.deepEqual(completed.object.closure, input.closure);
   assert.equal(completed.anchor.contentHash, "done-hash");
   assert.equal(repository.audit.at(-1)?.command, "complete_mini_project_from_marker");
   assert.equal((await application.completeMiniProjectFromMarker(input, envelope)).replayed, true);

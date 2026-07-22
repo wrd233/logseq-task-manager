@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
-import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -355,13 +355,14 @@ async function readProjectRequest(request: IncomingMessage, finalize: boolean): 
   return { ...record, name } as unknown as PrepareProjectRequest | FinalizeProjectRequest;
 }
 
-async function readProposalReviewRequest(request: IncomingMessage): Promise<{ decisions: Record<string, V2ProposalGroupDecision>; expectedUpdatedAt: string }> {
+async function readProposalReviewRequest(request: IncomingMessage): Promise<{ decisions: Record<string, V2ProposalGroupDecision>; expectedUpdatedAt: string; miniProjectClosure?: V2MiniProjectClosure }> {
   const body = await readBody(request);
   let value: unknown;
   try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const decisions = record.decisions && typeof record.decisions === "object" && !Array.isArray(record.decisions) ? record.decisions as Record<string, unknown> : undefined;
-  if (Object.keys(record).sort().join(",") !== "decisions,expectedUpdatedAt" || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || !decisions || Object.keys(decisions).length > 64) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 审阅请求无效。");
+  const keys = Object.keys(record).sort().join(",");
+  if (!["decisions,expectedUpdatedAt", "decisions,expectedUpdatedAt,miniProjectClosure"].includes(keys) || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || !decisions || Object.keys(decisions).length > 64) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 审阅请求无效。");
   for (const [groupId, rawDecision] of Object.entries(decisions)) {
     const decision = rawDecision && typeof rawDecision === "object" && !Array.isArray(rawDecision) ? rawDecision as Record<string, unknown> : {};
     if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(groupId) || !["ACCEPTED", "REJECTED", "DEFERRED"].includes(String(decision.disposition))) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 审阅决定无效。");
@@ -369,7 +370,13 @@ async function readProposalReviewRequest(request: IncomingMessage): Promise<{ de
     if (decision.disposition === "REJECTED" && Object.keys(decision).length !== 1) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 拒绝决定包含未知字段。");
     if (decision.disposition === "DEFERRED" && (Object.keys(decision).sort().join(",") !== "deferredUntil,disposition,reason" || typeof decision.deferredUntil !== "string" || typeof decision.reason !== "string")) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "Proposal 暂缓决定无效。");
   }
-  return { decisions: decisions as Record<string, V2ProposalGroupDecision>, expectedUpdatedAt: record.expectedUpdatedAt };
+  let miniProjectClosure: V2MiniProjectClosure | undefined;
+  if (record.miniProjectClosure !== undefined) {
+    const closure = record.miniProjectClosure && typeof record.miniProjectClosure === "object" && !Array.isArray(record.miniProjectClosure) ? record.miniProjectClosure as Record<string, unknown> : {};
+    if (Object.keys(closure).sort().join(",") !== "actualResult,originalGoal,remainingWork" || !Object.values(closure).every((value) => typeof value === "string" && value.trim().length > 0 && value.length <= 4000)) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "MiniProject Closure 三问必须完整且有界。");
+    miniProjectClosure = closure as unknown as V2MiniProjectClosure;
+  }
+  return { decisions: decisions as Record<string, V2ProposalGroupDecision>, expectedUpdatedAt: record.expectedUpdatedAt, ...(miniProjectClosure ? { miniProjectClosure } : {}) };
 }
 
 function parseProposalGraphObservations(value: unknown, errorCode: string, message: string): V2ProposalScopeObservation[] {
@@ -706,11 +713,13 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     const active = await activeMiniProjectClosure(object.objectId);
     const proposalId = active?.proposal.proposalId ?? `proposal_marker_closure_${createHash("sha256").update(JSON.stringify([options.graphId, object.objectId, object.version, input.contentHash])).digest("hex").slice(0, 32)}`;
     const current = active ?? await proposalApplication.get(proposalId);
+    const currentTransition = current?.proposal.groups.flatMap(({ semanticOperations }) => semanticOperations).find(({ kind }) => kind === "TRANSITION_LIFECYCLE");
+    if (current && currentTransition?.target.id === object.objectId && currentTransition.target.version === object.version && currentTransition.payload.externalId === input.externalId && currentTransition.payload.contentHash === input.contentHash && currentTransition.payload.text === input.text) return { record: current, replayed: true };
     const proposal: V2Proposal = {
       proposalId, schemaVersion: "v2", title: `完成 MiniProject：${input.text}`, context: `Logseq Block ${input.externalId} 的显式 MiniProject 已改为 DONE。`,
       understanding: "DONE Marker 只是关闭请求；MiniProject 需要独立高影响审阅。", objective: "审阅后完成同一 MiniProject，不改变 Condition、Focus 或 Primary Ownership。",
-      logic: "提交前重验当前 Block hash 与 SQLite Object version，再通过单一 Domain SemanticCommit 同步 Lifecycle 和 Anchor 观察。", finalPreview: `${input.text} 将从 OPEN 变为 COMPLETED。`,
-      unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "BLOCK", id: input.externalId, hash: input.contentHash }], modify: [{ kind: "OBJECT", id: object.objectId, version: object.version }] },
+      logic: "先填写并确认原目标、实际结果和遗留三问；提交前再重验当前 Block hash 与 SQLite Object version，通过单一 Domain SemanticCommit 原子记录 Closure、Lifecycle 和 Anchor 观察。", finalPreview: `${input.text} 等待填写三问，尚不会变为 COMPLETED。`,
+      unresolvedQuestions: ["原本要得到什么？", "实际得到了什么？", "有什么遗留或需要转移？"], source: { kind: "user" }, scope: { read: [{ kind: "BLOCK", id: input.externalId, hash: input.contentHash }], modify: [{ kind: "OBJECT", id: object.objectId, version: object.version }] },
       preconditions: ["DONE Block hash 与 MiniProject Object version 保持不变"], groups: [{ groupId: "complete-mini-project", explanation: "MiniProject 关闭是独立 HIGH 组；接受后仍需最终确认。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{
         operationId: "complete-mini-project", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: object.objectId, version: object.version }, summary: "完成 MiniProject", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: input.text, marker: "DONE", externalId: input.externalId, contentHash: input.contentHash }, preconditions: ["Object 仍为 OPEN"],
       }], disposition: "PENDING" }], status: "READY", createdAt: current?.proposal.createdAt ?? object.updatedAt,
@@ -1386,7 +1395,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         options.faults?.afterLifecyclePrepare?.();
       } else if (existingSteps.length !== 1 || existingSteps[0]?.operationId !== plan.objectId) throw serviceError("V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "MiniProject Completion Commit 账本与审阅计划不一致。");
       const now = new Date();
-      const commandInput = { objectType: plan.objectType, text: plan.text, marker: plan.marker, graphId: options.graphId, externalId: plan.externalId, contentHash: plan.contentHash, expectedObjectId: plan.objectId } as const;
+      const commandInput = { objectType: plan.objectType, text: plan.text, marker: plan.marker, graphId: options.graphId, externalId: plan.externalId, contentHash: plan.contentHash, expectedObjectId: plan.objectId, closure: plan.closure } as const;
       const envelope = { actor: "proposal_commit", expectedVersion: plan.expectedVersion, idempotencyKey: receiptKey, traceId: input.traceId };
       let result;
       try {
@@ -1670,7 +1679,13 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const input = await readProposalReviewRequest(request);
       const proposalId = decodeURIComponent(proposalReviewMatch[1]);
       requireNoUnfinishedProposalCommit(proposalId);
-      respond(response, 200, await proposalApplication.review(proposalId, input.decisions, input.expectedUpdatedAt));
+      if (input.miniProjectClosure) {
+        const accepted = Object.entries(input.decisions).filter(([, decision]) => decision.disposition === "ACCEPTED" && decision.highImpactConfirmed === true);
+        if (accepted.length !== 1 || Object.keys(input.decisions).length !== 1) throw serviceError("PROPOSAL_REVIEW_REQUEST_INVALID", "MiniProject Closure 三问必须与唯一 HIGH 语义组一起确认。");
+        respond(response, 200, await proposalApplication.reviewMiniProjectClosure(proposalId, accepted[0]![0], input.miniProjectClosure, input.expectedUpdatedAt));
+      } else {
+        respond(response, 200, await proposalApplication.review(proposalId, input.decisions, input.expectedUpdatedAt));
+      }
       return;
     }
     const proposalReadMatch = request.method === "GET" ? url.pathname.match(/^\/proposals\/([^/]+)$/) : null;

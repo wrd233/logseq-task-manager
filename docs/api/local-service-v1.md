@@ -56,6 +56,24 @@
 
 未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`、`migration=false`；`provider` 仅在 Service runner 显式选择并成功解析安全配置后为 `true`。`formalWrites` 只表示已列出的受约束正式命令可用，不表示迁移或 Provider 已配置。Proposal generate/submit/review 只改审阅状态，不是正式领域生效；只有已接受且重验通过的受限 Proposal 才能进入 prepare/finalize Commit 路由。`POST /migration/scan` 是显式、只读的 V1 Recovery Bundle 校验与 Preview 基础，不开放迁移 Commit/Activate/Undo，因此不改变 migration capability。
 
+### MiniProject 三问审阅
+
+MiniProject DONE 的唯一 HIGH 完成组在接受时，`POST /proposals/{id}/review` 还必须携带 `miniProjectClosure`：
+
+```json
+{
+  "decisions": { "complete-mini-project": { "disposition": "ACCEPTED", "highImpactConfirmed": true } },
+  "expectedUpdatedAt": "2026-07-22T09:00:00.000Z",
+  "miniProjectClosure": {
+    "originalGoal": "完成本次小项目",
+    "actualResult": "已交付并验收",
+    "remainingWork": "无遗留"
+  }
+}
+```
+
+三项都必须是非空、有界文本，且请求必须只接受这一个 HIGH 组。通用接受不能绕过三问；审阅成功仍然不修改对象，只把三问收入唯一 Proposal 机器表示，正式写入仍需独立最终确认与 Lifecycle Commit。
+
 ## Provider runtime
 
 Provider 默认关闭；runner 只有在 `TASK_COPILOT_LLM_PROVIDER=deepseek` 且 Base URL、实际 Model ID、secret reference 均有效时才启用 capability。非敏感配置使用 `DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` 与 `TASK_COPILOT_DEEPSEEK_API_KEY_REF`。secret reference 只允许 `env:<VARIABLE>` 或 `keychain:<service>/<account>`；兼容 `DEEPSEEK_API_KEY` 时只在进程内将其视为 `env:DEEPSEEK_API_KEY`，不写入 descriptor、Graph、SQLite、日志或报告。
@@ -126,7 +144,7 @@ Plugin Review Center 的“分析当前块”只发送当前选中 Block 的有�
   "createdAt": "2026-07-20T00:00:00.000Z",
   "validation": {
     "status": "PASS",
-    "schemaVersion": 6,
+    "schemaVersion": 11,
     "integrity": "ok",
     "foreignKeyViolations": 0,
     "objectCount": 0

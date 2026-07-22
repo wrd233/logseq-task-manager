@@ -19,6 +19,7 @@ import {
   type V2Anchor,
   type V2Association,
   type V2ManagedObject,
+  type V2MiniProjectClosure,
   type V2Condition,
   type V2ExecutionMarker,
   type V2PrimaryOwnership,
@@ -222,6 +223,7 @@ export type CompleteMiniProjectFromMarkerInput = SynchronizeExplicitObjectInput 
   objectType: "MINI_PROJECT";
   marker: "DONE";
   expectedObjectId: string;
+  closure: V2MiniProjectClosure;
 };
 
 export interface ObservePrimaryAnchorInput {

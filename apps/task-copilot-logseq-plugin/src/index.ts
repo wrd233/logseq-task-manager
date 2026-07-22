@@ -1013,9 +1013,9 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if ((action === "v2-review-accept" || action === "v2-review-reject") && value) {
-    const [proposalId, groupId, expectedUpdatedAt, risk] = value.split("|");
+    const [proposalId, groupId, expectedUpdatedAt, risk, reviewKind] = value.split("|");
     if (!proposalId || !groupId || !expectedUpdatedAt) return;
-    if (action === "v2-review-accept" && risk === "HIGH") return openActionDialog("confirm-v2-review-accept", value);
+    if (action === "v2-review-accept" && risk === "HIGH") return openActionDialog(reviewKind === "MINI_PROJECT_CLOSURE" ? "v2-mini-project-closure-review" : "confirm-v2-review-accept", value);
     await run(async () => {
       const client = serviceRuntimeClient;
       if (!client) throw new Error("V2 Local Service 未就绪；审阅决定未保存。");
@@ -1192,9 +1192,15 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "submit-v2-review-accept" && value) {
     if (!dialogChecked("actionConfirmed")) { latestError = "请独立确认高影响语义组。"; await refresh(); return; }
     const [proposalId, groupId, expectedUpdatedAt] = value.split("|");
+    const miniProjectClosure = actionDialog?.kind === "v2-mini-project-closure-review" ? {
+      originalGoal: dialogField("miniClosureOriginalGoal").trim(),
+      actualResult: dialogField("miniClosureActualResult").trim(),
+      remainingWork: dialogField("miniClosureRemainingWork").trim(),
+    } : undefined;
     await run(async () => {
       if (!proposalId || !groupId || !expectedUpdatedAt || !serviceRuntimeClient) throw new Error("V2 审阅上下文已失效；请刷新后重试。");
-      await serviceRuntimeClient.reviewProposal(proposalId, { [groupId]: { disposition: "ACCEPTED", highImpactConfirmed: true } }, expectedUpdatedAt);
+      if (miniProjectClosure && (!miniProjectClosure.originalGoal || !miniProjectClosure.actualResult || !miniProjectClosure.remainingWork)) throw new Error("请完整填写 MiniProject 原目标、实际结果和遗留三问。");
+      await serviceRuntimeClient.reviewProposal(proposalId, { [groupId]: { disposition: "ACCEPTED", highImpactConfirmed: true } }, expectedUpdatedAt, miniProjectClosure);
       actionDialog = undefined;
       workspace = "review";
     }, "高影响语义组已接受，但尚未正式生效；最终 Commit 仍需版本重验。");

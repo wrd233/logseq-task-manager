@@ -385,15 +385,21 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   value.reviewMode = "proposals";
   value.v2Proposals = [{ updatedAt: "2026-07-22T08:01:00.000Z", files: { proposalMd: "# MiniProject Completion", proposalJson: "{}" }, proposal: {
     proposalId: "prop-mini-close", schemaVersion: "v2", title: "完成 MiniProject", context: "Logseq Marker 已改为 DONE。", understanding: "这是关闭请求。", objective: "审阅后完成 MiniProject。", logic: "重验对象、Block 与 Anchor 后原子生效。", finalPreview: "MiniProject 将变为 COMPLETED。", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "BLOCK", id: "block-mini", hash: "done-hash" }], modify: [{ kind: "OBJECT", id: "mini-1", version: 3 }] }, preconditions: [],
-    groups: [{ groupId: "complete-mini-project", explanation: "高影响关闭请求。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "complete-mini", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-1", version: 3 }, summary: "完成 MiniProject", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: "收尾", marker: "DONE", externalId: "block-mini", contentHash: "done-hash" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T08:00:00.000Z",
+    groups: [{ groupId: "complete-mini-project", explanation: "高影响关闭请求。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "complete-mini", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-1", version: 3 }, summary: "完成 MiniProject", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: "收尾", marker: "DONE", externalId: "block-mini", contentHash: "done-hash", closure: { originalGoal: "完成收尾", actualResult: "收尾完成", remainingWork: "无遗留" } }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T08:00:00.000Z",
   } }];
   let html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-closure-commit"/);
-  assert.match(html, /原子更新 MiniProject Lifecycle 与 Anchor 证据/);
+  assert.match(html, /原子记录 MiniProject 三问 Closure、Lifecycle 与 Anchor 证据/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  value.actionDialog = { kind: "v2-mini-project-closure-review", value: "prop-mini-close|complete-mini-project|2026-07-22T08:01:00.000Z|HIGH" };
+  html = renderApp(value);
+  assert.match(html, /data-field="miniClosureOriginalGoal"/);
+  assert.match(html, /data-field="miniClosureActualResult"/);
+  assert.match(html, /data-field="miniClosureRemainingWork"/);
+  assert.match(html, /保存三问并接受/);
   value.actionDialog = { kind: "confirm-v2-mini-project-closure", value: "prop-mini-close|2026-07-22T08:01:00.000Z" };
   html = renderApp(value);
-  assert.match(html, /重验 Block、Anchor 和对象版本/);
+  assert.match(html, /原目标、实际结果和遗留三问/);
   assert.match(html, /data-action="submit-v2-mini-project-closure"/);
   delete value.actionDialog;
   value.v2LifecycleCommitBusy = true;
@@ -458,6 +464,16 @@ test("completed Project keeps its readable Closure in the formal object workspac
   } }];
   const html = renderApp(value);
   for (const text of ["Project Closure", "推送可控", "新链路上线", "历史回放", "数据未齐", "转入数据治理", "新 Project 承接", "保留回退", "重入先查数据"]) assert.match(html, new RegExp(text));
+});
+
+test("completed MiniProject keeps the three-question Closure readable in the formal object workspace", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [{ objectId: "mini-closed", objectType: "MINI_PROJECT", version: 4, lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, text: "发布核对", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T01:00:00.000Z", sourceOrCreationEvent: "block", closure: {
+    originalGoal: "发布前完成全部核对", actualResult: "检查项全部通过", remainingWork: "监控首日指标",
+  } }];
+  const html = renderApp(value);
+  for (const text of ["MiniProject Closure", "发布前完成全部核对", "检查项全部通过", "监控首日指标"]) assert.match(html, new RegExp(text));
 });
 
 test("object and high-impact actions render in-plugin forms instead of browser modals", () => {

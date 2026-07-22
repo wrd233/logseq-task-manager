@@ -6,12 +6,12 @@
 date: 2026-07-22
 desktop: Logseq 0.10.15
 gate: Slice B3 Marker and reviewed MiniProject completion
-status: PASS
+status: MARKER_SAFETY_PASS / THREE_QUESTION_CLOSURE_HISTORICAL_EVIDENCE_ONLY
 graph: isolated Test Graph
 database: isolated schema v10 SQLite
 ```
 
-真实 Desktop 已证明 Marker 只是 Logseq 正文中的执行输入，SQLite Lifecycle 仍是唯一正式状态。Task 的简单完成可直接同步；MiniProject 的 DONE 只能生成 Proposal，必须经过 HIGH 审阅、提交前重验和独立最终确认，才由 Local Service 的 Application Command 原子完成。
+真实 Desktop 已证明 Marker 只是 Logseq 正文中的执行输入，SQLite Lifecycle 仍是唯一正式状态。Task 的简单完成可直接同步；MiniProject 的 DONE 只能生成 Proposal，必须经过 HIGH 审阅、提交前重验和独立最终确认，才由 Local Service 的 Application Command 原子完成。本次运行早于三问实现，因此它只是安全链的历史 Desktop 证据，不是当前三问 Closure 的 Desktop PASS。
 
 ## Task Marker
 
@@ -62,5 +62,5 @@ database: isolated schema v10 SQLite
 ## Gate 结论
 
 - Slice B3 的真实 Marker 形态、Task DONE/重复/移除/终态冲突/CANCELED 原因保护，以及 MiniProject DONE 的 Proposal/Review/Commit 安全路径为 `PASS`。
-- 完整 MiniProject Closure 仍为 `PARTIAL`：冻结规范要求 Proposal 与正式记录携带“原目标、实际结果、遗留”三问；当前 Desktop 证据只证明 DONE 请求和安全提交，不将单一 Lifecycle 转换冒充完整 Closure。
-- 本报告不声称 Task 取消原因录入、显式重开、完整 MiniProject 三问 Closure 或通用 Proposal Undo；这些由后续专用 Gate 负责。Project Closure 已由 E2E-20 独立验证。
+- 完整 MiniProject Closure 已达 `AUTOMATED_CONTRACT_PASS / DESKTOP_PENDING`：当前实现已将“原目标、实际结果、遗留”三问纳入 Proposal 与正式记录，但本报告的截图与运行日志没有重跑新表单。
+- 本报告不声称 Task 取消原因录入、显式重开、完整 MiniProject 三问 Desktop PASS 或通用 Proposal Undo；这些由后续专用 Gate 负责。Project Closure 已由 E2E-20 独立验证。

@@ -125,7 +125,7 @@ test("accepted Project Closure plan couples structured Closure and COMPLETED lif
   assert.throws(() => planAcceptedV2ProjectClosure(split), /Closure 和 COMPLETED/);
 });
 
-test("accepted MiniProject Marker closure plan is one HIGH versioned Domain transition", () => {
+test("MiniProject closure review requires three answers before producing one accepted versioned plan", async () => {
   const accepted: V2Proposal = {
     ...proposal(),
     proposalId: "prop-marker-close",
@@ -138,18 +138,34 @@ test("accepted MiniProject Marker closure plan is one HIGH versioned Domain tran
     scope: { read: [{ kind: "BLOCK", id: "block-mini", hash: "12345678" }], modify: [{ kind: "OBJECT", id: "mini-1", version: 3 }] },
     groups: [{ groupId: "complete-mini", explanation: "MiniProject 关闭需要独立审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{
       operationId: "complete-mini", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-1", version: 3 }, summary: "完成 MiniProject",
-      payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: "Marker Desktop Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678" }, preconditions: [],
+      payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: "Marker Desktop Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678", closure: { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" } }, preconditions: [],
     }], disposition: "ACCEPTED" }],
     status: "ACCEPTED",
   };
   assert.deepEqual(planAcceptedV2LifecycleTransition(accepted), {
     proposalId: "prop-marker-close", groupId: "complete-mini", objectId: "mini-1", expectedVersion: 3, lifecycle: "COMPLETED",
-    objectType: "MINI_PROJECT", text: "Marker Desktop Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678",
+    objectType: "MINI_PROJECT", text: "Marker Desktop Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678", closure: { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" },
   });
   const downgraded = structuredClone(accepted); downgraded.groups[0]!.risk = "MEDIUM";
   assert.throws(() => planAcceptedV2LifecycleTransition(downgraded), /HIGH/);
   const projectBypass = structuredClone(accepted); projectBypass.groups[0]!.semanticOperations[0]!.payload.objectType = "PROJECT";
   assert.throws(() => planAcceptedV2LifecycleTransition(projectBypass), /MiniProject/);
+  const ready = structuredClone(accepted);
+  ready.status = "READY";
+  ready.groups[0]!.disposition = "PENDING";
+  const prefilledRepository = new MemoryProposalRepository();
+  const prefilledApplication = new V2ProposalApplication(prefilledRepository);
+  const prefilled = await prefilledApplication.submit(ready);
+  await assert.rejects(() => prefilledApplication.review(ready.proposalId, { "complete-mini": { disposition: "ACCEPTED", highImpactConfirmed: true } }, prefilled.record.updatedAt), /专用三问/);
+  delete ready.groups[0]!.semanticOperations[0]!.payload.closure;
+  ready.unresolvedQuestions = ["原目标？", "实际结果？", "遗留？"];
+  const repository = new MemoryProposalRepository();
+  const application = new V2ProposalApplication(repository);
+  const submitted = await application.submit(ready);
+  await assert.rejects(() => application.review(ready.proposalId, { "complete-mini": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt), /三问/);
+  const reviewed = await application.reviewMiniProjectClosure(ready.proposalId, "complete-mini", { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" }, submitted.record.updatedAt);
+  assert.equal(reviewed.proposal.status, "ACCEPTED");
+  assert.deepEqual(planAcceptedV2LifecycleTransition(reviewed.proposal).closure, { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" });
 });
 
 test("accepted Ownership plan requires one versioned HIGH operation and explicit current-owner evidence", () => {
