@@ -42,6 +42,43 @@ test("Plugin Proposal Commit applies Graph once and reports success only after S
   assert.equal(updates, 1);
 });
 
+test("Plugin Proposal Commit tolerates one stale Logseq read immediately after its own Graph write", async () => {
+  const value = record();
+  const before = value.proposal.groups[0]!.textPatches[0]!.beforeText;
+  const after = value.proposal.groups[0]!.textPatches[0]!.afterText;
+  let visibleContent = before;
+  let pendingContent: string | undefined;
+  let staleReadsAfterWrite = 0;
+  let updates = 0;
+  const result = await commitV2Formalization({
+    prepareProposalCommit: async () => ({ status: "PREPARED", semanticCommitId: "proposal-commit:eventual", proposalId: "prop_commit", expectedUpdatedAt: value.updatedAt, objectId: "obj-eventual", plan: { proposalId: "prop_commit", groupId: "formalize", patch: value.proposal.groups[0]!.textPatches[0]!, create: { operationId: "create", objectType: "TASK", text: "核对告警", blockUuid: "block-commit" } }, replayed: false }),
+    finalizeProposalCommit: async () => ({ status: "COMPLETED", semanticCommitId: "proposal-commit:eventual", object: { objectId: "obj-eventual", objectType: "TASK", version: 2, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "核对告警", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "proposal" }, anchor: { anchorId: "anc-eventual", objectId: "obj-eventual", graphId: "graph", externalId: "block-commit", role: "primary_text", status: "active", contentHash: checksum(after), lastSeenAt: "now" }, record: value, replayed: false }),
+    compensateProposalCommit: async () => { throw new Error("not expected"); },
+  }, {
+    getBlock: async () => {
+      if (pendingContent !== undefined) {
+        if (staleReadsAfterWrite > 0) staleReadsAfterWrite -= 1;
+        else {
+          visibleContent = pendingContent;
+          pendingContent = undefined;
+        }
+      }
+      return { uuid: "block-commit", content: visibleContent, updatedAt: updates + 1 };
+    },
+    getPage: async () => null,
+    updateBlock: async (_id, next) => {
+      updates += 1;
+      pendingContent = next;
+      staleReadsAfterWrite = 1;
+    },
+    ensurePersistentIdentity: async () => undefined,
+  }, value, "trace-eventual");
+
+  assert.equal(result.status, "COMPLETED");
+  assert.equal(visibleContent, after);
+  assert.equal(updates, 1);
+});
+
 test("Plugin Candidate UPDATE Commit rewrites the existing Anchor without issuing a new identity", async () => {
   let content = "[任务] 核对旧告警";
   let identityWrites = 0;

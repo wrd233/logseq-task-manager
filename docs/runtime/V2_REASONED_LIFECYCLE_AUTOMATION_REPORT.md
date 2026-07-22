@@ -1,7 +1,7 @@
 # V2 原因化取消与显式重开自动化报告
 
 日期：2026-07-22
-状态：`AUTOMATED_PASS_DESKTOP_PENDING`
+状态：`AUTOMATED_PASS / TASK_DESKTOP_PASS`
 
 ## 已证明
 
@@ -22,13 +22,13 @@
 - Local Service：真实临时 SQLite 中完成 `OPEN → CANCELLED → OPEN`；Proposal 创建/接受阶段 Object 不变、SemanticCommit 为 0；错误确认零 ledger；终态 Proposal 被拒绝后同一版本可生成新 Proposal；外部 Proposal 伪造对象类型在 Commit 前被拒绝；Lifecycle 正向 Commit 与 inverse Commit 均覆盖 prepare 后中断、领域回执后中断、重启续作和幂等重放；MiniProject `COMPLETED → OPEN` 清除当前 Closure，Undo 恢复精确 Closure 快照。
 - Plugin：对象入口、原因对话框、Review 专用 Commit 分类、Lifecycle Undo 按钮和最终确认渲染；全部插件测试通过。
 
-## 尚未证明
+## Desktop 补证
 
-- Logseq Desktop 真实点击、弹窗焦点/反馈、cold reload 后原因与 Lifecycle 读回。
-- Logseq Desktop 在取消/重开 Domain receipt 前后中断及 Lifecycle Undo 的恢复交互。
-- Project/MiniProject HIGH 接受与最终确认的真实 Desktop 路径。
+- Task 已在 Logseq Desktop 0.10.15 完成空原因拒绝、取消/重开 Proposal、accepted-not-applied、最终确认、Service 中断后读回、cold reload、原因可读和 Lifecycle Undo；详见 `docs/runtime/V2_REASONED_LIFECYCLE_DESKTOP_REPORT.md`。
+- Project/MiniProject HIGH 接受与最终确认继续由各自 Closure/高影响 Gate 证明，不以 Task MEDIUM 证据替代。
+- 本轮 Service 中断位于正式回执落盘之后；prepare-before-receipt 等内部窗口继续由自动 fault tests 证明。
 
-这些项目合并到下一轮集中 Desktop Gate；在通过前不标记 Desktop PASS。
+因此 Task 原因化 Lifecycle 已标记 Desktop PASS，剩余高影响对象不在本报告中扩张结论。
 
 ## 复杂度结论
 

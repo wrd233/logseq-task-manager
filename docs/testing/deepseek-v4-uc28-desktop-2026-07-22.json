@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "runId": "deepseek-v4-uc28-desktop-2026-07-22",
+  "executedAt": "2026-07-22T08:33:42.554Z",
+  "environment": {
+    "client": "Logseq Desktop 0.10.15",
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "databaseSchemaVersion": 11,
+    "graph": "isolated-test-graph"
+  },
+  "credentialHandling": {
+    "apiKeyReference": "keychain:task-copilot/deepseek-v4",
+    "plaintextPersisted": false,
+    "providerRequestIdPersisted": false,
+    "rawHeadersPersisted": false
+  },
+  "input": {
+    "intent": "draft_mini_project_closure",
+    "objectType": "MINI_PROJECT",
+    "objectLifecycle": "OPEN",
+    "objectVersion": 2,
+    "objectText": "桌面 Agent 三问与遗留承接",
+    "proposalId": "proposal_object_closure_b13880b392449041bd6bcba8555722e9",
+    "proposalStatusBefore": "READY",
+    "groupDispositionBefore": "PENDING",
+    "editableDraftBefore": {
+      "originalGoal": "桌面 Agent 三问与遗留承接",
+      "actualResult": "待用户填写",
+      "remainingWork": "待用户填写"
+    }
+  },
+  "desktopFailureCase": {
+    "fault": "local_service_process_interrupted_during_provider_request",
+    "loadingWasObservable": true,
+    "uiError": "Provider 请求超时。 正文和正式 Store 未改变。",
+    "retryWasAvailable": true,
+    "editableDraftAfterFailure": {
+      "originalGoal": "桌面 Agent 三问与遗留承接",
+      "actualResult": "",
+      "remainingWork": ""
+    },
+    "formalWrites": {
+      "graphWrites": 0,
+      "objectLifecycleChanges": 0,
+      "semanticCommits": 0
+    }
+  },
+  "desktopSuccessCase": {
+    "httpStatus": 200,
+    "loadingControl": {
+      "label": "Agent 正在草拟…",
+      "disabled": true
+    },
+    "elapsedMs": 17024,
+    "provider": {
+      "model": "deepseek-v4-flash",
+      "finishReason": "stop",
+      "promptTokens": 1058,
+      "completionTokens": 1800,
+      "totalTokens": 2858,
+      "durationMs": 16948,
+      "attempts": 1
+    },
+    "validatedDraft": {
+      "originalGoal": "桌面 Agent 三问与遗留承接",
+      "actualResult": "实际结果待确认",
+      "remainingWork": "遗留工作待确认"
+    },
+    "storedProposal": {
+      "proposalId": "proposal_object_closure_b13880b392449041bd6bcba8555722e9",
+      "status": "READY",
+      "groupDisposition": "PENDING",
+      "sourceKind": "local_llm",
+      "model": "deepseek-v4-flash",
+      "promptBundleVersion": "d9168646",
+      "skillVersion": "mini-project-closure-writing-v1",
+      "writingProfileVersion": "mini-project-closure-user-v1"
+    },
+    "sameMachineIntent": {
+      "sameProposalId": true,
+      "sameObjectScope": true,
+      "sameGroup": true,
+      "sameOperationTarget": true
+    },
+    "formalWritesAfterDraft": {
+      "objectLifecycle": "OPEN",
+      "objectVersion": 2,
+      "closurePersistedOnObject": false,
+      "closureSemanticCommits": 0,
+      "graphWrites": 0
+    }
+  },
+  "humanReviewAndCommit": {
+    "draftWasEditable": true,
+    "highImpactAcceptanceRequired": true,
+    "acceptanceLeftObjectOpen": true,
+    "separateFinalConfirmationRequired": true,
+    "finalObjectLifecycle": "COMPLETED",
+    "legacyTransferUsedSeparateProposal": true,
+    "legacyTransferCommitWasUndoable": true
+  },
+  "result": "UC28_DEEPSEEK_DESKTOP_PASS"
+}

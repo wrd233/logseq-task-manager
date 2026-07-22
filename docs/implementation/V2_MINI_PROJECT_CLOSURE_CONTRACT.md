@@ -1,6 +1,6 @@
 # V2 MiniProject Closure 合同
 
-> 状态：`UC28_AUTOMATED_AND_LIVE_PROVIDER_PASS / DESKTOP_PENDING`
+> 状态：`UC28_AUTOMATED_LIVE_PROVIDER_DESKTOP_PASS`
 
 ## 真实问题
 
@@ -51,4 +51,6 @@ Schema v11 只放宽已有 `objects.closure_json` 的 CHECK，从“仅 `PROJECT
 
 ## Gate
 
-自动证据已覆盖 Marker、侧栏和外部 Agent 三种发起方式的 Domain/Application/Proposal Validator/Service/Client/Plugin 渲染，侧栏重复发起复用一个 Proposal 且零正式写入；还覆盖 SQLite v10→v11 恢复点迁移、迁移后关闭/归档保留、提交重放和错误输入零正式写入。Agent 草拟自动集成已证明同 proposal_id、模型机器 scope/target/version 丢弃、stale 拒绝、OPEN/PENDING 和零 SemanticCommit；遗留转移已通过四类对象、空 Block 保护、独立 Proposal 和 Validator 自动 Gate。2026-07-22 真实 `deepseek-v4-flash` 专用端点一次通过：1 attempt、3859 tokens、约 28.3 秒，返回三个 Closure 字段，Proposal 仍 READY、Object 仍 OPEN、SemanticCommit=0。此过程同时发现并修复通用 Client 3 秒早于 Provider 有界超时的真实问题：只为两个 Provider 端点使用 125 秒客户端上限，其他命令保持 3 秒。侧栏 object-only 与 Marker/DONE 既有 Desktop Gate 仍 PASS，证据见 `docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md`。新的 Agent 按钮、加载/错误反馈、表单回填、空 Block 承接与两份 Proposal 独立审阅尚需一次集中 Desktop Gate，因此 UC-28 不标 DONE。
+自动证据已覆盖 Marker、侧栏和外部 Agent 三种发起方式的 Domain/Application/Proposal Validator/Service/Client/Plugin 渲染，侧栏重复发起复用一个 Proposal 且零正式写入；还覆盖 SQLite v10→v11 恢复点迁移、迁移后关闭/归档保留、提交重放和错误输入零正式写入。Agent 草拟自动集成已证明同 proposal_id、模型机器 scope/target/version 丢弃、stale 拒绝、OPEN/PENDING 和零 SemanticCommit；遗留转移已通过四类对象、空 Block 保护、独立 Proposal 和 Validator 自动 Gate。2026-07-22 真实 `deepseek-v4-flash` 专用端点一次通过：1 attempt、3859 tokens、约 28.3 秒，返回三个 Closure 字段，Proposal 仍 READY、Object 仍 OPEN、SemanticCommit=0。此过程同时发现并修复通用 Client 3 秒早于 Provider 有界超时的真实问题：只为两个 Provider 端点使用 125 秒客户端上限，其他命令保持 3 秒。
+
+同日 Logseq Desktop 集中 Gate 又真实通过 Agent loading/disabled、Service 中断后的 timeout/可重试、Flash 成功回填、人工编辑、HIGH accepted-not-applied、独立最终 Closure Commit、非空 Block 零写入拒绝、空 Block 独立 Proposal、正式 Commit、Undo 与 reload。真实 Graph 写入暴露并修复 Logseq read-after-write 延迟和连续 `id::`/正文 echo 竞态：只对仍等于精确旧 hash 的读取做最长 1 秒轮询，同 UUID 的插件写入 suppression 在既有 10 秒窗口内最多保存 4 个 hash，并在已排队/待恢复发送前再检查；任何其他 hash 立即解除 suppression。最终遗留 Task 只由 `proposal_commit` 建立为 v2，没有 `logseq-plugin` echo，Undo 恢复语义空 Block并删除对象；Pending/Recovery=0，Backup/Doctor PASS。证据见 `docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md` 与 `docs/testing/deepseek-v4-uc28-desktop-2026-07-22.json`，UC-28 现标 Desktop PASS。

@@ -213,7 +213,7 @@ function errorCode(error: unknown): string {
 export class ExplicitSyncController {
   private readonly pending = new Map<string, PendingSync>();
   private readonly suppressedObservations = new Map<string, {
-    contentHash: string;
+    contentHashes: Set<string>;
     expiresAt: number;
     expiryTimer: ReturnType<typeof globalThis.setTimeout>;
   }>();
@@ -254,47 +254,71 @@ export class ExplicitSyncController {
 
   onBlocksChanged(blocks: readonly unknown[]): void {
     if (this.disposed) return;
-    const now = Date.now();
     const filtered = blocks.filter((value) => {
       if (!value || typeof value !== "object" || Array.isArray(value)) return true;
       const block = value as { uuid?: unknown; content?: unknown };
       if (typeof block.uuid !== "string") return true;
-      const suppression = this.suppressedObservations.get(block.uuid);
-      if (!suppression) return true;
-      if (suppression.expiresAt < now) {
-        globalThis.clearTimeout(suppression.expiryTimer);
-        this.suppressedObservations.delete(block.uuid);
+      if (typeof block.content !== "string") {
+        this.clearObservedContentSuppression(block.uuid);
         return true;
       }
-      if (typeof block.content === "string" && checksum(stripLogseqBlockIdentityProperty(block.content, block.uuid)) === suppression.contentHash) {
-        return false;
-      }
-      globalThis.clearTimeout(suppression.expiryTimer);
-      this.suppressedObservations.delete(block.uuid);
-      return true;
+      return !this.isObservedContentSuppressed(block.uuid, checksum(stripLogseqBlockIdentityProperty(block.content, block.uuid)));
     });
     if (filtered.length > 0) this.debouncer.enqueue(filtered);
+  }
+
+  private clearObservedContentSuppression(externalId: string): void {
+    const suppression = this.suppressedObservations.get(externalId);
+    if (!suppression) return;
+    globalThis.clearTimeout(suppression.expiryTimer);
+    this.suppressedObservations.delete(externalId);
+  }
+
+  private isObservedContentSuppressed(externalId: string, contentHash: string): boolean {
+    const suppression = this.suppressedObservations.get(externalId);
+    if (!suppression) return false;
+    if (suppression.expiresAt < Date.now()) {
+      this.clearObservedContentSuppression(externalId);
+      return false;
+    }
+    if (suppression.contentHashes.has(contentHash)) return true;
+    this.clearObservedContentSuppression(externalId);
+    return false;
   }
 
   suppressObservedContentWindow(externalId: string, contentHash: string, ttlMs = 10_000): () => void {
     if (!externalId.trim() || !/^[0-9a-f]{8}$/.test(contentHash) || !Number.isSafeInteger(ttlMs) || ttlMs < 1 || ttlMs > 60_000) {
       throw new Error("Explicit sync echo suppression requires one bounded UUID, hash, and TTL.");
     }
-    const previous = this.suppressedObservations.get(externalId);
-    if (previous) globalThis.clearTimeout(previous.expiryTimer);
-    const suppression = {
-      contentHash,
-      expiresAt: Date.now() + ttlMs,
-      expiryTimer: undefined as unknown as ReturnType<typeof globalThis.setTimeout>,
-    };
+    let suppression = this.suppressedObservations.get(externalId);
+    if (suppression?.expiresAt && suppression.expiresAt < Date.now()) {
+      this.clearObservedContentSuppression(externalId);
+      suppression = undefined;
+    }
+    if (!suppression) {
+      suppression = {
+        contentHashes: new Set<string>(),
+        expiresAt: 0,
+        expiryTimer: undefined as unknown as ReturnType<typeof globalThis.setTimeout>,
+      };
+      this.suppressedObservations.set(externalId, suppression);
+    } else {
+      globalThis.clearTimeout(suppression.expiryTimer);
+    }
+    const alreadyPresent = suppression.contentHashes.has(contentHash);
+    if (!alreadyPresent && suppression.contentHashes.size >= 4) {
+      const oldest = suppression.contentHashes.values().next().value as string | undefined;
+      if (oldest) suppression.contentHashes.delete(oldest);
+    }
+    suppression.contentHashes.add(contentHash);
+    suppression.expiresAt = Date.now() + ttlMs;
     suppression.expiryTimer = globalThis.setTimeout(() => {
       if (this.suppressedObservations.get(externalId) === suppression) this.suppressedObservations.delete(externalId);
     }, ttlMs);
-    this.suppressedObservations.set(externalId, suppression);
     return () => {
       if (this.suppressedObservations.get(externalId) !== suppression) return;
-      globalThis.clearTimeout(suppression.expiryTimer);
-      this.suppressedObservations.delete(externalId);
+      if (!alreadyPresent) suppression.contentHashes.delete(contentHash);
+      if (suppression.contentHashes.size === 0) this.clearObservedContentSuppression(externalId);
     };
   }
 
@@ -368,6 +392,8 @@ export class ExplicitSyncController {
 
   private async acceptBatch(batch: ExplicitObjectBlockChange[]): Promise<void> {
     for (const change of batch) {
+      const contentHash = checksum(stripLogseqBlockIdentityProperty(change.content, change.externalId));
+      if (this.isObservedContentSuppressed(change.externalId, contentHash)) continue;
       if (change.parsed.kind === "INVALID") {
         this.needsReconciliation = true;
         this.issue(change.parsed.code, "显式对象标识存在结构异常；正文未被修改。", change.externalId);
@@ -381,7 +407,6 @@ export class ExplicitSyncController {
         this.issue("EXPLICIT_SYNC_BLOCK_IDENTITY_PERSIST_FAILED", "Block 持久身份写入或复核失败；没有创建正式对象。", change.externalId);
         continue;
       }
-      const contentHash = checksum(stripLogseqBlockIdentityProperty(change.content, change.externalId));
       const request: PendingSync = {
         objectType: change.parsed.objectType,
         text: change.parsed.title,
@@ -417,6 +442,10 @@ export class ExplicitSyncController {
       const next = this.pending.entries().next().value as [string, PendingSync] | undefined;
       if (!next) return;
       const [externalId, request] = next;
+      if (this.isObservedContentSuppressed(externalId, request.contentHash)) {
+        if (this.pending.get(externalId) === request) this.pending.delete(externalId);
+        continue;
+      }
       try {
         await this.transport.synchronizeExplicitObject(request);
         if (this.pending.get(externalId) === request) this.pending.delete(externalId);

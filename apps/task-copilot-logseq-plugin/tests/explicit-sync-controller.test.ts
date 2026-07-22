@@ -204,6 +204,71 @@ test("a bounded exact-content window suppresses duplicate plugin echoes without 
   assert.deepEqual(requests, ["用户后续编辑", "插件正式提交"]);
 });
 
+test("echo suppression is rechecked for a change already queued before a formal Commit", async () => {
+  const requests: string[] = [];
+  const committed = "[任务] Commit 排队竞争";
+  const controller = new ExplicitSyncController({ delayMs: 60_000, createTraceId: () => "trace-queued-echo" });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.text);
+      return success("queued-echo-object", 2);
+    },
+  });
+
+  controller.onBlocksChanged([{ uuid: "queued-echo-block", content: committed }]);
+  controller.suppressObservedContentWindow("queued-echo-block", checksum(committed));
+  await controller.flush();
+
+  assert.deepEqual(requests, [], "a pre-queued observation must not bypass the later exact Commit suppression");
+  controller.dispose();
+});
+
+test("echo suppression drops an exact pending recovery item before transport resumes", async () => {
+  const requests: string[] = [];
+  const committed = "[任务] Commit 断线竞争";
+  const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-pending-echo" });
+
+  controller.onBlocksChanged([{ uuid: "pending-echo-block", content: committed }]);
+  await controller.flush();
+  assert.equal(controller.snapshot().pending, 1);
+
+  controller.suppressObservedContentWindow("pending-echo-block", checksum(committed));
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.text);
+      return success("pending-echo-object", 2);
+    },
+  });
+
+  assert.deepEqual(requests, [], "an exact plugin-authored pending item must be removed instead of formalized in parallel");
+  assert.equal(controller.snapshot().pending, 0);
+  controller.dispose();
+});
+
+test("two consecutive plugin writes suppress both late echoes for the same Block", async () => {
+  const requests: string[] = [];
+  const externalId = "6a5f9e91-7bbb-41ea-b8ca-3ac5d0f9552d";
+  const identityOnly = `id:: ${externalId}`;
+  const committed = `[任务] 连续写入竞争\nid:: ${externalId}`;
+  const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-two-write-echo" });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.text);
+      return success("two-write-object", 2);
+    },
+  });
+
+  controller.suppressObservedContentWindow(externalId, checksum(""));
+  controller.suppressObservedContentWindow(externalId, checksum("[任务] 连续写入竞争"));
+  controller.onBlocksChanged([{ uuid: externalId, content: identityOnly }]);
+  await controller.flush();
+  controller.onBlocksChanged([{ uuid: externalId, content: committed }]);
+  await controller.flush();
+
+  assert.deepEqual(requests, [], "the late id:: event must not clear suppression for the following plugin-authored text patch");
+  controller.dispose();
+});
+
 test("persisting id:: suppresses the Logseq property echo so Candidate review cannot materialize early", async () => {
   const requests: string[] = [];
   const externalId = "6a5f95f3-5746-4009-bf3c-a884fe493036";

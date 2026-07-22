@@ -12,6 +12,8 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 | RT-MVP-004 | FileStorage reload / backup / recovery | PASS |
 | V1-PILOT | Capture / Task / MiniProject / Project copied-data Pilot | PARTIAL — 详见 `docs/runtime/V1_MVP_PILOT_REPORT.md` |
 | V2-DEEPSEEK-L4 | 当前块、READY/NO_PROPOSAL、直接/调整后/部分接受、拒绝、日志与 Diagnostics | PASS — 详见 `docs/runtime/V2_DEEPSEEK_PROVIDER_L4_DESKTOP_REPORT.md` |
+| V2-REASONED-LIFECYCLE | Task 空原因拒绝、取消、显式重开、reload、Service 中断读回、Lifecycle Undo | PASS — 详见 `docs/runtime/V2_REASONED_LIFECYCLE_DESKTOP_REPORT.md` |
+| V2-UC28 | MiniProject Agent loading/失败/成功、三问回填、独立遗留 Proposal/Commit/Undo、非空保护 | PASS — 详见 `docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md` |
 
 ## 下一次集中 Desktop 检查
 
@@ -22,9 +24,8 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 3. SQLite 初始化、持久化、backup/restore 与 Doctor；
 4. copied-data migration Scan/Preview、小批 Commit、中断继续、重复导入和单批 Undo；
 5. object_id、Primary Anchor、Commit 链和 Legacy mapping 证据完整；
-6. Slice C 完成后验证 Proposal review → SemanticCommit → inverse Commit；
+6. Proposal 暂缓/多组依赖组合与真实 Commit process-fault 恢复交互；
 7. Slice D L3/L4 已通过，不重复消耗在线额度；E2E-23 中取消、认证失败和限流继续保留非破坏性自动证据，除非真实运行自然出现对应失败才补在线分类。
-8. UC-28 新增 Desktop 闭环：在 MiniProject 三问对话中验证 Agent loading/失败/成功回填、草稿后仍 OPEN/PENDING；再选中新空 Block 创建独立遗留承接 Proposal，验证关闭与新对象可分开审阅/提交/Undo，非空 Block 拒绝覆盖。
 
 ## 已知限定
 
