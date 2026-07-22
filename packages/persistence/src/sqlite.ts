@@ -825,6 +825,13 @@ export class V2SqliteStore {
     return row ? this.mapCandidate(row) : undefined;
   }
 
+  activeCandidateForSourceAnchor(sourceAnchorId: string): V2Candidate | undefined {
+    const row = this.database.prepare(`SELECT * FROM candidates
+      WHERE source_anchor_id = ? AND disposition <> 'RESOLVED'
+      ORDER BY updated_at DESC, candidate_id LIMIT 1`).get(sourceAnchorId) as CandidateRow | undefined;
+    return row ? this.mapCandidate(row) : undefined;
+  }
+
   candidateForProposal(proposalId: string): V2Candidate | undefined {
     const row = this.database.prepare("SELECT * FROM candidates WHERE active_proposal_id = ? ORDER BY updated_at DESC LIMIT 1").get(proposalId) as CandidateRow | undefined;
     return row ? this.mapCandidate(row) : undefined;

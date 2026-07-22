@@ -112,6 +112,32 @@ test("proposal-required type changes are terminal conflicts, not transport retri
   assert.equal(calls, 1);
 });
 
+test("Candidate review authority is a terminal conflict, not a transport retry", async () => {
+  const issues: string[] = [];
+  let calls = 0;
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    createTraceId: () => "trace-candidate-review",
+    onIssue: (issue) => issues.push(issue.code),
+  });
+  await controller.resume({
+    async synchronizeExplicitObject() {
+      calls += 1;
+      const error = new Error("candidate review required") as Error & { code: string; details: { remoteCode: string } };
+      error.code = "SERVICE_HTTP_ERROR";
+      error.details = { remoteCode: "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED" };
+      throw error;
+    },
+  });
+  controller.onBlocksChanged([{ uuid: "block-candidate", content: "[任务] 必须先审阅 Candidate" }]);
+  await controller.flush();
+  assert.equal(calls, 1);
+  assert.deepEqual(controller.snapshot(), { pending: 0, transportReady: true, reconciliationRequired: true });
+  assert.deepEqual(issues, ["V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED"]);
+  await controller.flush();
+  assert.equal(calls, 1);
+});
+
 test("Marker intent is delivered and semantic conflicts do not disable healthy transport", async () => {
   const issues: string[] = [];
   const markers: Array<string | undefined> = [];

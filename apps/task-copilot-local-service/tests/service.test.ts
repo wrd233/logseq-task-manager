@@ -298,6 +298,24 @@ test("Local Service persists bounded Candidate discovery and all non-formal revi
   assert.equal((await client.listCandidates())[0]?.disposition, "PENDING", "completed Undo replay repairs the Candidate reopen gap idempotently");
 });
 
+test("Local Service does not let explicit sync bypass unresolved Candidate review", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-candidate-authority-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-candidate-authority", token: "candidate-authority-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const content = "[任务] Candidate 审阅权威";
+  const contentHash = checksum(content);
+  await client.discoverCandidate({ sourceAnchorId: "block-candidate-authority", sourceVersion: `1:${contentHash}`, candidateKind: "WORK_ITEM", reason: "显式对象标识尚未建立正式对象", suggestion: "生成 Proposal 后审阅", traceId: "candidate-authority-discover" });
+
+  await assert.rejects(() => client.synchronizeExplicitObject({
+    objectType: "TASK", text: "Candidate 审阅权威", externalId: "block-candidate-authority", inputVersion: "1", contentHash,
+    idempotencyKey: "candidate-authority-sync", traceId: "candidate-authority-sync",
+  }), (error: unknown) => error instanceof Error && "details" in error
+    && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409
+    && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED");
+  assert.deepEqual(await client.listObjects(), [], "Candidate remains Proposal-only until Review and Commit");
+});
+
 test("UPDATE Candidate proposes, commits, and undoes a versioned existing object without creating a second object", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-candidate-update-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-candidate-update", token: "candidate-update-service-token-24-chars" });

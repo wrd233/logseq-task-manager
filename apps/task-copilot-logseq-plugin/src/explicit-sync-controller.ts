@@ -464,6 +464,11 @@ export class ExplicitSyncController {
           this.issue(code, "显式类型变化未提交；需要在 Proposal 管道中审阅。", externalId);
           continue;
         }
+        if (code === "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED") {
+          if (this.pending.get(externalId) === pending) this.pending.delete(externalId);
+          this.issue(code, "该 Block 已进入 Candidate 审阅；请从审阅中心继续 Proposal 与 Commit。", externalId);
+          continue;
+        }
         if (code === "V2_TASK_CANCELLATION_REASON_REQUIRED") {
           if (this.pending.get(externalId) === pending) this.pending.delete(externalId);
           this.issue(code, "Task 取消请求未提交；需要记录取消原因并审阅。", externalId);
