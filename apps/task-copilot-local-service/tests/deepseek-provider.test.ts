@@ -130,6 +130,21 @@ test("retry is capped and only applies to retryable failures", async () => {
   });
 });
 
+test("transient empty structured content is retried within the existing bound", async () => {
+  let attempts = 0;
+  const provider = new DeepSeekStructuredProvider({ ...config, maxRetries: 1 }, {
+    fetch: async () => {
+      attempts += 1;
+      if (attempts === 1) return new Response(JSON.stringify({ choices: [{ message: { content: "" } }] }));
+      return new Response(JSON.stringify({ choices: [{ message: { content: "{\"ok\":true}" } }] }));
+    },
+    sleep: async () => undefined,
+  });
+  const result = await provider.completeStructured({ system: "JSON", user: "输入" });
+  assert.deepEqual(result.value, { ok: true });
+  assert.equal(result.metadata.attempts, 2);
+});
+
 test("external cancellation aborts the request and is distinguished from timeout", async () => {
   const hanging: DeepSeekProviderTransport = { fetch: async (_input, init) => await new Promise<Response>((_resolve, reject) => {
     init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });

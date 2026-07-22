@@ -95,7 +95,7 @@ export async function resolveDeepSeekProviderConfig(
 }
 
 function parseJsonContent(value: unknown): unknown {
-  if (typeof value !== "string" || !value.trim()) throw new DeepSeekProviderError("LLM_RESPONSE_EMPTY", "Provider 没有返回可审阅的文本内容。");
+  if (typeof value !== "string" || !value.trim()) throw new DeepSeekProviderError("LLM_RESPONSE_EMPTY", "Provider 没有返回可审阅的文本内容。", { retryable: true });
   const trimmed = value.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)?.[1]?.trim() ?? trimmed;
   try {

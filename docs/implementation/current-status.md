@@ -23,7 +23,7 @@ V2_MIGRATION_DESIGN_READY
 - 建立 Pilot 前后 0600 恢复包，回放 differences 为 `[]`，Pending/Recovery Required Commit 均为 0；
 - 明确 V1 可复用内核、冻结边界和淘汰语义；
 - 完成 FileStorage → SQLite 主权交接设计及 Legacy 状态映射；
-- DeepSeek v4 真实 Gate 已从旧的 HTTP 200 / `finish_reason=length` 失败推进到严格可测：Key 只经 Keychain reference 解析，中文 Structured Output 与真实 Journal→Proposal 正向路径通过，E2E-21 完成；真实截断/timeout 均零写入。复审发现早期 22/22 runner 存在 expected/assertion 答案泄漏后已作废，严格复验中 Flash 的 Task/MiniProject 边界不稳定，Pro 又把 Decision 降为 Task，因此 L3 FAIL、L4 未通过；没有为通过数字放宽 Validator。E2E-22 仍待 Desktop Review Center。
+- DeepSeek v4 真实 Gate 已从旧的 HTTP 200 / `finish_reason=length` 失败推进到严格可测：Key 只经 Keychain reference 解析，中文 Structured Output 与真实 Journal→Proposal 正向路径通过，E2E-21 完成；真实截断/timeout 均零写入。早期带 expected/assertion 答案泄漏的 22/22 runner 已作废；补强 MiniProject、Decision、Output 产出者、Ownership 候选和证据不足边界后，严格无答案黄金套件在 `deepseek-v4-flash` 与 `deepseek-v4-pro` 各完成 22/22 `PIPELINE_PASS`，仍只生成 Proposal/NO_PROPOSAL，零 Graph/正式 Store 写入。真实 Pro 空 Structured Content 复现后复用既有 bounded retry（最多一次），无新状态或写入路径。L3 Provider/Prompt/Validator 层已通过；L4 与 Desktop Review Center 仍待验收，脱敏矩阵见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`。
 - Slice D L1 自动基础已贯通：Provider 非硬编码 Base URL/Model、env/Keychain secret reference、Structured Output 元数据、timeout/cancel、有限 retry、认证/限流/5xx/network/空/非法/截断错误；五层 Prompt 后由 Service 覆盖模型 ID/source/status/time 与机器计算 patch hash，再经现有 Domain Validator。合法结果只进入 Proposal Review，普通记录可返回 `NO_PROPOSAL` 理由且零持久化，非法结果零 Proposal/Graph/正式 Store。生产默认输出/超时仍为 2048/20 秒，受限 runtime override 只用于已证明需要的真实 Gate。Plugin Review Center Desktop 尚未验收。
 - 建立 V2 六类对象、Lifecycle/Condition/Focus 纯 Domain seam；不含 Phase/Signal；
 - 通过 Node 20/macOS arm64 SQLite Spike：Graph-bound 初始化、schema/损坏保护、版本/幂等写入、Doctor 和独立备份；
@@ -89,13 +89,13 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-22 根级 `./scripts/check.sh` 为 403 tests、145 rules、0 failed/skipped；全部 typecheck/lint/test/build、Plugin/边界检查与恢复演练 PASS。npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-22 根级 `./scripts/check.sh` 为 412 tests、145 rules、0 failed/skipped；全部 typecheck/lint/test/build、Plugin/边界检查与恢复演练 PASS。npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：总状态仍为 `PARTIAL_PASS`；基础 Anchor/Now Work 见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，Candidate、Association 与 Ownership 专项见对应 Runtime Report；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
 - Pilot 后恢复包 SHA-256：`4e9dd666697b94ca0d6b81e7dc7bd0c12c82d0f432b2363eddfbc95a1a602612`；
-- DeepSeek：`docs/testing/deepseek-v4-live-test-report.md`，状态 `L2_SUCCESS_PATH_PASS_L3_FAIL_DESKTOP_PENDING`。
+- DeepSeek：`docs/testing/deepseek-v4-live-test-report.md`，状态 `L2_SUCCESS_PATH_PASS_L3_FLASH_PRO_PASS_DESKTOP_PENDING`；完整脱敏在线矩阵见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`。
 
 ## 冻结与复用
 
@@ -110,8 +110,8 @@ V2_MIGRATION_DESIGN_READY
 3. 将 Backup/Restore/Service restart/Doctor 纳入后续 Desktop 集中验收；Project Closure 已完成 Desktop 纵向闭环，不再重复验收；
 4. 在集中 Desktop Gate 验收 C1-C5 连续闭环：接受→最终确认→Commit→已生效→Undo，并注入 Service 中断与后续正文编辑；
 5. 继续验收 Review Center 的完整 Candidate 列表、Project/Area 筛选、键盘、深浅主题与当前页逐项失败路径；CREATE/UPDATE Candidate 的 E2E-12 闭环不再重复验收；
-6. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；DeepSeek 已有安全配置与严格 runner，下一轮从 Flash 的 Task/MiniProject 稳定性和 Pro 的 Decision 误判继续，不重复答案泄漏的旧 22-run；同时验收 Review Center Desktop。
+6. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；DeepSeek L3 已在 Flash/Pro 严格 runner 通过，下一步集中验收 Review Center Desktop、L4 处置和默认日志/Diagnostics。
 
 ## 仍需用户决定
 
-当前没有新的产品语义决定。真实 DeepSeek 配置已安全建立，不需要用户再提供 Key；L3 模型质量与 Desktop Gate 仍由实现继续推进。
+当前没有新的产品语义决定。真实 DeepSeek 配置已安全建立，不需要用户再提供 Key；L3 Provider 层已通过，L4/Review Center Desktop、故障分类和剩余 Desktop Gate 仍由实现继续推进。
