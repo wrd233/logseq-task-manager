@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "gate": "V2_PROJECT_REASONED_LIFECYCLE_DESKTOP",
+  "status": "PASS",
+  "testedAt": "2026-07-22T12:36:00.000Z",
+  "environment": {
+    "logseqVersion": "0.10.15",
+    "nodeVersion": "20.20.2",
+    "databaseSchemaVersion": 11,
+    "graphId": "logseq-v2-desktop-20260720"
+  },
+  "objectId": "obj_20260722114408000_faccf5f4b14a4da7bda85483b9badc9f",
+  "proposalId": "proposal_lifecycle_9da9781aa6b7954eeb998ca4b478d98e",
+  "risk": "HIGH",
+  "acceptedNotApplied": {
+    "proposalStatus": "ACCEPTED",
+    "objectVersion": 2,
+    "lifecycle": "OPEN"
+  },
+  "afterCommit": {
+    "proposalStatus": "APPLIED",
+    "objectVersion": 3,
+    "lifecycle": "CANCELLED",
+    "forwardCommitStatus": "COMPLETED"
+  },
+  "afterReload": {
+    "reasonVisible": true,
+    "dedicatedUndoVisible": true,
+    "anchorId": "anc_20260722114408086_de81224b641440568c1569ce268bb8f7",
+    "anchorStatus": "active",
+    "pageExternalId": "6a60ad08-1e54-49d2-9c00-5aed8a464c22"
+  },
+  "afterUndo": {
+    "objectVersion": 4,
+    "lifecycle": "OPEN",
+    "closure": null,
+    "forwardCommitStatus": "UNDONE",
+    "inverseCommitStatus": "COMPLETED",
+    "pendingOrRecoveryCount": 0
+  },
+  "graphWrite": false,
+  "newPersistentMechanism": false,
+  "secretsPersisted": false
+}

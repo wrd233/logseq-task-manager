@@ -1,7 +1,7 @@
 # V2 原因化取消、显式重开与 Lifecycle Undo Desktop Report
 
 日期：2026-07-22
-状态：`TASK_REASONED_LIFECYCLE_DESKTOP_PASS`
+状态：`TASK_PROJECT_REASONED_LIFECYCLE_DESKTOP_PASS`
 
 ## 结论
 
@@ -40,3 +40,22 @@ OPEN Task
 ## 复杂度结论
 
 没有新增表、Schema、状态轴、扫描器、恢复器或写入入口。原因继续只存在于唯一 Proposal；正向和逆向变化复用既有 Object version、Application Command、SemanticCommit、Audit 与 Receipt。
+
+## 2026-07-22 增量：Project HIGH 取消与 Undo
+
+同一隔离 Desktop Runtime 又对已存在且带 active Page Anchor 的 Project 完成：
+
+```text
+OPEN Project v2
+→ 填写原因创建唯一 HIGH Proposal
+→ 独立确认接受后仍 OPEN v2
+→ 最终确认后 CANCELLED v3
+→ plugin reload 后原因与“撤销取消”仍可读
+→ Lifecycle inverse Commit
+→ OPEN v4
+```
+
+- HIGH 接受使用专用二次确认，且只改变 Proposal；最终确认继续独立存在。
+- 正向 Commit 为 `COMPLETED` 后，Project 为 `CANCELLED v3`；Page Anchor 的 anchor_id、external page UUID 与 active 状态未变化，未改写 Graph。
+- reload 后完整原因与专用 Undo 入口恢复；Undo 后正向 Commit 为 `UNDONE`、逆向 `lifecycle-undo:*` 为 `COMPLETED`，Project 恢复 `OPEN v4`，Closure 仍为空，Pending/Recovery 为 0。
+- 结构化证据：`docs/testing/v2-project-reasoned-lifecycle-desktop-2026-07-22.json`。MiniProject 的 HIGH 原因化取消/重开仍单独保留，不能由本节替代。
