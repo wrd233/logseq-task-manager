@@ -26,4 +26,4 @@
 
 ## 范围边界
 
-本 Gate 完成 V2 Area 的最小正式支持：创建、编辑、列表与版本冲突保护。Project 归属 Area 的 Domain/Proposal/Commit 能力已存在；Project/Area 筛选、键盘和深浅主题仍属 `V2-VIEW-001` 剩余 Desktop Gate，本报告不将其冒充为已完成。
+本 Gate 完成 V2 Area 的最小正式支持：创建、编辑、列表与版本冲突保护。Project 归属 Area 的 Domain/Proposal/Commit 能力已存在；后续同一真实 Area 已通过 Now Work 类型筛选与分组 Gate，证据见 `docs/runtime/V2_NOW_WORK_PROJECT_AREA_FILTER_DESKTOP_REPORT.md`。键盘和深浅主题仍属 `V2-VIEW-001` 剩余 Desktop Gate。
