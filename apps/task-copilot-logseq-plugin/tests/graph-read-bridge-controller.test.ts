@@ -36,3 +36,26 @@ test("Graph read bridge controller answers one Service request and stops without
   assert.equal(controller.isActive(), false);
   if (result?.status === "FOUND") assert.equal(result.snapshot.blocks[0]?.content, "read only");
 });
+
+test("Graph read bridge controller stops after the first transport failure instead of retrying a dead Service", async () => {
+  let attempts = 0;
+  const issues: string[] = [];
+  const controller = new GraphReadBridgeController({
+    getPage: async () => undefined,
+    getPageBlocksTree: async () => [],
+    getBlock: async () => undefined,
+  }, {
+    onIssue: (code) => issues.push(code),
+  });
+  controller.start({
+    claimGraphReadRequest: async () => {
+      attempts += 1;
+      throw new Error("service stopped");
+    },
+    completeGraphReadRequest: async () => undefined,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(controller.isActive(), false);
+  assert.equal(attempts, 1);
+  assert.deepEqual(issues, ["GRAPH_READ_BRIDGE_TRANSPORT_FAILED"]);
+});

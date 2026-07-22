@@ -2,7 +2,7 @@
 
 ## 当前 Slice
 
-V1 frozen / Slice A0 complete / Slice A1-A4 foundation in progress / Slice B0-B3 automated foundation / Slice B4 move-copy-rebind Desktop pass / Slice B5 Project creation Desktop pass / Slice C0-C5 Desktop partial pass / Slice E Now Work interactive foundation / Slice F copied-data migration and Project Closure Desktop pass
+V1 frozen / Slice A0 complete / Slice A1-A4 foundation in progress with SQLite Restore Desktop pass / Slice B0-B3 automated foundation / Slice B4 move-copy-rebind Desktop pass / Slice B5 Project creation Desktop pass / Slice C0-C5 Desktop partial pass / Slice E Now Work interactive foundation / Slice F copied-data migration and Project Closure Desktop pass
 
 ## 当前阶段结论
 
@@ -33,11 +33,11 @@ V2_MIGRATION_DESIGN_READY
 - 建立 0600 runtime descriptor、版本化 Service Client、超时/断连/未授权/协议不兼容错误及受限状态；
 - 建立可执行 `task-copilot-service` 与只读 `tc status/doctor/object`；`tc object list` 可按六类对象和四种 Lifecycle 筛选，`tc object search` 可在同一 Service 投影中按 object_id/正文关键词检索，均不直读 SQLite、不新增索引或状态源；真实 Local Service 集成已覆盖 Project 查询。
 - SQLite 写锁冲突已收敛为结构化零写入失败；Backup 增加不覆盖、只读 schema/Graph/完整性/外键校验。
-- Local Service 开放受控 Backup Create/Restore Validate；只接受服务端 ID，拒绝客户端路径、遍历和超大请求，当前不执行 Restore 切换。
+- Local Service 开放受控 Backup Create/Restore Validate/Apply；只接受服务端 ID，拒绝客户端路径、遍历和超大请求，Apply 必须使用固定确认并在原子切换后停服。
 - SQLite schema 升至 v3；`initialize` 不静默升级，v1/v2→v3 需显式恢复点，在单一事务写 DDL/ledger/metadata/user_version，注入失败后零半写且可重试。
 - Plugin 已接入版本化 Service Client。Desktop 0.10.15 实测 iframe 不暴露 Electron Node reader，现由 Service 将 0600 descriptor 写入 Task Copilot 私有 FileStorage，Plugin 设置只保存受限文件名 key 并通过 Logseq bridge 临时读取；该文件不含领域状态、不恢复 V1 写入、不构成 SQLite 双写。兼容 Node reader 保留；任何发现失败均进入脱敏 RESTRICTED 状态。
 - descriptor 未配置时，Plugin 在创建 Logseq Adapter/FileStorage 前停止，欢迎页只提供“开始使用 / 迁移现有内容 / 检查系统状态”；无扫描、迁移或模型调用的自动分支证据已建立。
-- SQLite 离线 Restore 原语已通过：候选 Backup 与当前库恢复点均先做只读校验，同目录原子激活后再 Doctor；注入失败会回滚原库并保留恢复点。Service/CLI 已要求固定确认并在切换后停止服务；Plugin 入口仍待 Gate。
+- SQLite 离线 Restore 已完成自动与 Desktop Gate：候选 Backup 与当前库恢复点均先做只读校验，同目录原子激活后再 Doctor；注入失败会回滚原库并保留恢复点。真实 Desktop 已证明固定确认、descriptor 删除、Service 进程退出、Plugin 自动受限、同库重启、对象快照读回与 Doctor 12 PASS/0 WARN。
 - SQLite schema 升至 v5：v3 建立受约束 `semantic_commits` / `semantic_commit_steps`，v4 新增 `proposals` / `proposal_groups`，v5 只解除 immutable Audit 对当前 Object 投影的外键依赖，使严格 Undo 可删除当前 Object/Anchor 而保留历史 object_id；所有旧版本必须经显式快照迁移，无静默升级。
 - step ledger 最小状态机已通过：PENDING + PREPARED 原子准备、幂等重放、非法跳步拒绝、全 VERIFIED 后才能 COMPLETED、未补偿 step 不得标记 FAILED，RECOVERY_REQUIRED 可重启查询并补偿收口。
 - Service Restore Apply 已通过：固定确认短语、服务端 Backup ID、恢复点、关闭 live Store、原子切换、Doctor、descriptor 删除和 Service 停止；无确认不产生变化。
@@ -47,6 +47,7 @@ V2_MIGRATION_DESIGN_READY
 - 外部 Agent Skills 已版本化：`task-copilot-core@1.0.0` 固定 scope/事实分层/Proposal-only/submit≠commit 边界，`design-project@1.1.0` 覆盖 Project 设计、重入、分组与 Closure，并在真实 Agent 首次 Schema 错误后补入精确机器模板与 read-scope 要求；两者经 Skill 结构校验、SHA-256 标识并随 Service 构建复制。Local Service `GET /skills[/{name}]` 与 CLI `skill list/show` 返回同一只读资产，读取后 Object 仍为 0；没有新增表或可编辑副本，Context Package 复用同一资产。
 - Context Package 已开放设计既定的 block/page/object/project 四种范围：object/project 继续从 SQLite 导出最多 256 个正式对象及 Primary Anchor/Ownership、Decision/Output 子集；block/page 通过 Plugin 的瞬态 Logseq API 只读桥接取得实时有界 excerpt，再只纳入 excerpt 中锚定的 SQLite 正式对象。Page depth 0..5、Block parents 0..8、总计最多 256 Blocks / 1 MiB；Service 重验请求/结果 shape、UUID、Block 去身份语义 hash、Page revalidation hash 和 scope hash。CLI 先验证完整文件集/bytes/hash，创建 0700/0600 新目录并最后写 manifest，已有目录、路径穿越或 hash 不匹配均拒绝并清理新产物。真实 Logseq Desktop 已完成 Page/Block/resolve、reload 后 UUID 变化、Page parent entity shape 修复、Context Package→DeepSeek 外部 Agent→CLI validate/submit→Plugin Review；接受组后仍为 Object 0 / Proposal 1 / Commit 0，E2E-13 `DONE`。桥接请求和正文只在内存中存在，无新表、缓存、扫描器、Graph 写路径或第二权威；详见 `docs/runtime/V2_E2E13_GRAPH_CONTEXT_DESKTOP_REPORT.md`。
 - V1→V2 迁移已完成自动与 copied-data Desktop 纵向闭环：Scan → 人工逐项审阅 → 服务端快照校验 → ≤50 项 batch → SQLite 原子导入 → Verify → 精确 Undo → 新幂等键重试 → Activate。纯 Domain 覆盖全部旧 Phase/Condition/Signal，ACTIVE 不自动 Focus，结构冲突拒绝导入，非直接或人工改映射必须记录审阅说明；批次只物化既定 Object/Anchor/Ownership，不复制正文到迁移账本。真实 V1 Pilot 后 0600 Recovery Bundle 在 Logseq Desktop 0.10.15 中完成 8 项 Scan、完整 Decisions、Backup、缺确认零请求、Import 重放、IMPORTING 时 Service 中断/重启续作、Verify、单批 Undo、重试与 Activate。首轮导入的当前 Graph 缺失 Anchor 被既有 reconciliation 更新后，Verify 安全拒绝且未 Activate；最终只导入当前 Anchor 仍可解析的范围，Run 为 ACTIVATED、Doctor 12 PASS/0 WARN。Plugin 只读迁移工作区真实显示 PREVIEWED/IMPORTING/VERIFIED/ACTIVATED、计数、恢复点和下一步，无可编辑控件、不接收 Bundle。E2E-14 `DONE`，详见 `docs/runtime/V2_MIGRATION_COPIED_DATA_DESKTOP_REPORT.md`。
+- SQLite Restore Desktop Gate 已完成：隔离 Task v2 快照后修改为 v3，缺确认零请求；Restore 原子恢复 v2 并把 v3 保存为恢复点。第一次实测发现 Plugin 陈旧 READY 与 Graph bridge 重试风暴，现复用既有 restricted state 与 explicit-sync pause，在首次传输失败后停止 bridge。重跑中 descriptor 删除、Service 在 Desktop 保持打开时退出、Plugin 自动显示 `READ_ONLY_SAFE_MODE / RESTRICTED / formal writes false`，同库重启后恢复 READY、Task v2、Graph bridge 与 Doctor 12 PASS/0 WARN。E2E-17 `DONE`，详见 `docs/runtime/V2_SQLITE_RESTORE_DESKTOP_REPORT.md`。
 - 首次启用“迁移现有内容”不再停留在未来时描述：它明确给出 scan → preview → backup 的零写入/恢复点顺序、三项高影响命令的精确确认边界，以及 Service 重启后用 `migration show` 继续的方法；页面自身仍零文件读取、零扫描和零写入。Plugin 日常迁移视图也仅显示同一 Service 账本，操作继续经显式 CLI 命令完成。
 - SQLite schema v7 只包含设计中明确要求的 `migration_runs` / `migration_batches` / `legacy_evidence`，用于 E2E-14 的 run 状态、≤50 项幂等批次/Undo 校验和和旧标识映射依据，不存当前对象副本。`task-copilot-service migrate-schema` 必须显式给出 DB、Graph 和不存在的 Backup 路径，不启动 HTTP/Provider/descriptor；已用真实 v6 库证明 0600 快照、v6→v7、Service 重启与 CLI Doctor schema 7 PASS。迁移批次沿用单一 Application Command 与 SQLite 事务，不扩展 SemanticCommit、不新增补漏器或第二恢复路径。
 - SQLite schema v8 只在 `objects` 新增 nullable `closure_json`，且 DB 约束其仅能用于 `PROJECT + COMPLETED`；v1..v7 均需显式快照后升级，失败整体回滚。该列直接对应 E2E-20 规范已存在的 `closure_summary`，没有新表、第二状态机或平行恢复路径。已有自动 v7→v8 快照/升级证据；当前 schema v10 隔离 Desktop 库已实际持久化并读回 Closure。
@@ -109,11 +110,11 @@ V2_MIGRATION_DESIGN_READY
 ## 下一步
 
 1. 继续完成 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 剩余当前页候选 stale/逐项处理、删除 Anchor 审阅和有限子树真实 Gate；
-2. 完成 SQLite Restore 激活、Service stop/restart 与恢复后 Doctor 的 Desktop Gate；Backup create/validate 和迁移中断续作已通过，不再重复验收；
-3. 在集中 Desktop Gate 验收 Proposal 暂缓/多组依赖组合与 Commit/Undo 进程故障；正常 Commit/Undo、后续编辑保护和 UC-28 写后旧读保护已通过；
-4. 继续验收 Review Center 的完整 Candidate 列表、Project/Area 筛选、键盘、深浅主题与当前页逐项失败路径；CREATE/UPDATE Candidate 的 E2E-12 闭环不再重复验收；
-5. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；DeepSeek L4、UC-28 与 E2E-13 外部 Agent 跨入口已通过，不再重复消耗在线额度，后续只保留 E2E-23 中不宜破坏性制造的在线错误分类。
+2. 在集中 Desktop Gate 验收 Proposal 暂缓/多组依赖组合与 Commit/Undo 进程故障；正常 Commit/Undo、后续编辑保护和 UC-28 写后旧读保护已通过；
+3. 继续验收 Review Center 的完整 Candidate 列表、Project/Area 筛选、键盘、深浅主题与当前页逐项失败路径；CREATE/UPDATE Candidate 的 E2E-12 闭环不再重复验收；
+4. 在 Desktop 证据通过后再将 V2-FIRST-001 / E2E-15 标记为 DONE；Restore 停服受限与重连已经通过，仍需协议错误、空 Graph 首次启用和正文可编辑的集中证明；
+5. DeepSeek L4、UC-28 与 E2E-13 外部 Agent 跨入口已通过，不再重复消耗在线额度，后续只保留 E2E-23 中不宜破坏性制造的在线错误分类。
 
 ## 仍需用户决定
 
-当前没有新的产品语义决定。真实 DeepSeek 配置已安全建立，不需要用户再提供 Key；L4/Review Center 与 copied-data 迁移 Desktop 已通过，剩余 Desktop、Restore 和 E2E-23 安全错误分类继续推进。
+当前没有新的产品语义决定。真实 DeepSeek 配置已安全建立，不需要用户再提供 Key；L4/Review Center、copied-data 迁移与 SQLite Restore Desktop 已通过，剩余 Desktop 与 E2E-23 安全错误分类继续推进。

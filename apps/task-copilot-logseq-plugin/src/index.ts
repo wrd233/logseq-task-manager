@@ -98,7 +98,7 @@ const graphReadBridgeController = new GraphReadBridgeController({
   getPageBlocksTree: (target) => logseq.Editor.getPageBlocksTree(target as never),
   getBlock: (target, options) => logseq.Editor.getBlock(target as never, options),
 }, {
-  onIssue: (errorCode) => operationalLogger.log("warn", "logseq-adapter", "graph_read_bridge_transport_failed", { result: "deferred", errorCode }),
+  onIssue: restrictServiceRuntimeAfterTransportFailure,
 });
 let inboxActionController: InboxActionController | undefined;
 let runtimeProbeResult: unknown = { status: "not-run" };
@@ -413,6 +413,33 @@ function actions(): InboxActionController {
   return inboxActionController;
 }
 
+function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: string): void {
+  graphReadBridgeController.stop();
+  if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
+  if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
+  if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间中断；旧请求已取消或结果未知，请重启 Service 后刷新审阅队列。" };
+  serviceRuntimeClient = undefined;
+  serviceConnection = {
+    status: "RESTRICTED",
+    reasonCode,
+    message: restrictedMessage,
+    formalWritesAvailable: false,
+    graphEditingAvailable: true,
+  };
+  diagnostics.setServiceConnection(serviceConnection);
+  explicitSyncController?.pause();
+}
+
+function restrictServiceRuntimeAfterTransportFailure(errorCode: string): void {
+  if (serviceConnection.status !== "READY") return;
+  operationalLogger.log("warn", "logseq-adapter", "graph_read_bridge_transport_failed", { result: "restricted", errorCode });
+  enterRestrictedServiceMode(errorCode, "Local Service 连接已中断；正式写入暂停。重启 Service 并重新加载插件后可继续。");
+  diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+  featureReady = false;
+  message = "Local Service 连接已中断；正式写入已暂停，Graph 正文和 SQLite 历史未受影响。";
+  if (logseq.isMainUIVisible) void refresh();
+}
+
 async function fullDiagnosticsSnapshot() {
   const base = diagnostics.snapshot();
   const state = featureReady && taskCopilot ? await taskCopilot.exportState().catch(() => undefined) : undefined;
@@ -434,20 +461,7 @@ async function fullDiagnosticsSnapshot() {
 
 async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   const generation = ++serviceDiscoveryGeneration;
-  graphReadBridgeController.stop();
-  if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
-  if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
-  if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间重连；旧请求已取消或结果未知，请刷新审阅队列后再试。" };
-  serviceRuntimeClient = undefined;
-  serviceConnection = {
-    status: "RESTRICTED",
-    reasonCode: "SERVICE_DISCOVERY_IN_PROGRESS",
-    message: "Local Service 正在重新发现；正式写入暂停。",
-    formalWritesAvailable: false,
-    graphEditingAvailable: true,
-  };
-  diagnostics.setServiceConnection(serviceConnection);
-  explicitSyncController?.pause();
+  enterRestrictedServiceMode("SERVICE_DISCOVERY_IN_PROGRESS", "Local Service 正在重新发现；正式写入暂停。");
   const configuredDescriptor = typeof descriptorPath === "string" ? descriptorPath : undefined;
   const descriptorReader = createElectronDescriptorReader()
     ?? createLogseqPrivateStorageDescriptorReader(logseq.FileStorage);

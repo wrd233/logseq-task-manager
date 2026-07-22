@@ -9,7 +9,6 @@ export interface GraphReadBridgeClient {
 
 export interface GraphReadBridgeControllerOptions {
   onIssue?(code: string): void;
-  retryDelayMs?: number;
 }
 
 export class GraphReadBridgeController {
@@ -50,8 +49,9 @@ export class GraphReadBridgeController {
         if (!this.active || generation !== this.generation) return;
       } catch {
         if (!this.active || generation !== this.generation) return;
+        this.stop();
         this.options.onIssue?.("GRAPH_READ_BRIDGE_TRANSPORT_FAILED");
-        await new Promise((resolve) => setTimeout(resolve, this.options.retryDelayMs ?? 1_000));
+        return;
       }
     }
   }

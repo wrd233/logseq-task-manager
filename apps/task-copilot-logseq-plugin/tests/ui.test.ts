@@ -699,7 +699,8 @@ test("formal V2 plugin entry keeps the writable V1 FileStorage runtime inactive"
   ]) {
     assert.match(source, new RegExp(token));
   }
-  assert.match(source, /serviceRuntimeClient = undefined;[\s\S]*SERVICE_DISCOVERY_IN_PROGRESS[\s\S]*explicitSyncController\?\.pause\(\)/);
+  assert.match(source, /function enterRestrictedServiceMode[\s\S]*serviceRuntimeClient = undefined;[\s\S]*explicitSyncController\?\.pause\(\)/);
+  assert.match(source, /enterRestrictedServiceMode\("SERVICE_DISCOVERY_IN_PROGRESS"/);
   assert.match(source, /Local Service 正在重连或已不可写；旧预览已作废/);
   assert.match(source, /Primary Anchor 预览已过期或不存在；没有执行重新绑定/);
   assert.ok(
