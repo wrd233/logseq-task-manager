@@ -44,4 +44,4 @@ Schema v11 只放宽已有 `objects.closure_json` 的 CHECK，从“仅 `PROJECT
 
 ## Gate
 
-自动证据已覆盖 Marker、侧栏和外部 Agent 三种发起方式的 Domain/Application/Proposal Validator/Service/Client/Plugin 渲染，侧栏重复发起复用一个 Proposal 且零正式写入；还覆盖 SQLite v10→v11 恢复点迁移、迁移后关闭/归档保留、提交重放和错误输入零正式写入。仍需在 Logseq Desktop 批量验证侧栏发起、三问表单、接受但未生效、两种证据文案、最终确认、reload 读回和故障恢复。UC-28 的 Agent 草拟三问与“把遗留转为新对象”仍未完成，当前只保存人工审阅的遗留说明；不将自动合同冒充完整 UC-28。
+自动证据已覆盖 Marker、侧栏和外部 Agent 三种发起方式的 Domain/Application/Proposal Validator/Service/Client/Plugin 渲染，侧栏重复发起复用一个 Proposal 且零正式写入；还覆盖 SQLite v10→v11 恢复点迁移、迁移后关闭/归档保留、提交重放和错误输入零正式写入。侧栏 object-only 路径已在 Logseq Desktop 0.10.15 真实通过：READY 时对象仍 `OPEN + v2`，三问 HIGH 接受后仍 `OPEN + v2 + closure=null`，最终显式确认后才变为 `COMPLETED + v3`；Anchor hash 不变，reload 后三问和 APPLIED Proposal 可读，Backup 校验与 Doctor 均 PASS。证据见 `docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md`。Marker/DONE 的新三问仍需真实 Block 事件验证 Block + active Anchor + Object 重验文案和行为；不用 object-only 证据代替。UC-28 的 Agent 草拟三问与“把遗留转为新对象”仍未完成，当前只保存人工审阅的遗留说明；不将自动合同或侧栏 Gate 冒充完整 UC-28。
