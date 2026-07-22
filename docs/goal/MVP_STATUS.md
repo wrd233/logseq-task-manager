@@ -90,8 +90,9 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 Area: controlled creation, same-object edit v1 to v2, concurrent v3 stale refusal with zero overwrite, no implicit Graph page/Anchor, and Doctor PASS"
   - "V2 Desktop 0.10.15 Now Work Project/Area filters: real Area and anchored Project Focus entries, type grouping, no partial-order controls, unchanged object versions/ranks and zero filter Audit writes"
   - "V2 Desktop 0.10.15 V2-VIEW-001: Review and workspace keyboard activation with focus restoration and visible focus ring, correct current/pressed semantics, distinct Light/Dark renderer tokens, and zero formal writes"
+  - "V2 Desktop 0.10.15 E2E-16: stable-identity Proposal wrote Graph, injected existing-Anchor conflict forced Domain failure, Plugin visibly compensated the original body without false success, persisted FAILED/COMPENSATED ledger state across reload, and returned Doctor COMMIT_HEALTHY with zero pending/recovery"
 runtime_checks_pending:
-  - "Remaining release and safe online error-classification Gates; Task/Project/MiniProject reasoned Lifecycle, Commit/Undo process-fault, Proposal defer/dependency and V2-VIEW-001 are complete"
+  - "Remaining release and safe online error-classification Gates; E2E-16, Task/Project/MiniProject reasoned Lifecycle, Commit/Undo process-fault, Proposal defer/dependency and V2-VIEW-001 are complete"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"

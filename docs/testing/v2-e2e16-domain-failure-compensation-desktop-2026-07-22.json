@@ -1,0 +1,61 @@
+{
+  "result": "E2E16_DOMAIN_FAILURE_COMPENSATION_DESKTOP_PASS",
+  "environment": {
+    "logseq": "0.10.15",
+    "node": "20.20.2",
+    "sqliteSchema": 11,
+    "graphId": "logseq-v2-e2e16-20260722"
+  },
+  "testGraph": {
+    "pageUuid": "6a60bd09-9f30-4519-a6b4-494fdbce141c",
+    "blockUuid": "6a60bd09-009c-43fe-93cb-2114c8b8da0d",
+    "identityPersisted": true,
+    "pageDeleted": true,
+    "blockDeleted": true
+  },
+  "faultInjection": {
+    "mechanism": "existing synchronize route created an active Anchor conflict before Proposal Commit",
+    "conflictingObjectId": "obj_20260722125309813_3b46e91b7d2045c5b73b79fb1939f3e5",
+    "conflictingAnchorId": "anc_20260722125309813_920ac27d681a41e2b57dcb6947e05256",
+    "newFaultApi": false,
+    "directSqliteWrite": false
+  },
+  "preflightProtection": {
+    "proposalId": "proposal_e2e16_domain_failure_20260722",
+    "result": "STALE",
+    "commitCreated": false,
+    "formalWriteReported": false
+  },
+  "compensation": {
+    "proposalId": "proposal_e2e16_domain_failure_retry_20260722",
+    "proposalStatus": "FAILED",
+    "semanticCommitId": "proposal-commit:8ac944d6ad96c29f351a3473e67bff434578d23739d5f231e3ccf950973d9797",
+    "semanticCommitStatus": "FAILED",
+    "semanticCommitError": "DOMAIN_WRITE_FAILED",
+    "steps": [
+      { "index": 0, "kind": "GRAPH_WRITE", "status": "COMPENSATED" },
+      { "index": 1, "kind": "DOMAIN_WRITE", "status": "PREPARED" }
+    ],
+    "graphBodyRestored": true,
+    "stableIdentityRetained": true,
+    "falseSuccessReported": false,
+    "objectCount": 1
+  },
+  "reload": {
+    "failedStateVisible": true,
+    "commitActionVisible": false,
+    "undoActionVisible": false
+  },
+  "doctor": {
+    "status": "PASS",
+    "semanticCommit": "COMMIT_HEALTHY",
+    "pendingOrRecoveryCount": 0
+  },
+  "cleanup": {
+    "descriptorCleared": true,
+    "serviceStopped": true,
+    "runtimeRemovedFromWorkspace": true
+  },
+  "newPersistentMechanism": false,
+  "secretsPersisted": false
+}
