@@ -39,7 +39,7 @@ export interface LocalServiceOptions {
   backupRoot?: string;
   proposalGenerator?: LocalLlmProposalGenerator;
   /** Test-only fault boundary; production callers must omit it. */
-  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void };
+  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void };
 }
 export interface LocalServiceHandle {
   url: string;
@@ -682,9 +682,30 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const candidateApplication = new V2CandidateApplication(store);
   const migrationApplication = new V2MigrationApplication(store);
   const proposalApplication = new V2ProposalApplication(store);
+  const lifecycleCommitTails = new Map<string, Promise<void>>();
+  const serializeLifecycleCommit = async <T>(key: string, task: () => Promise<T>): Promise<T> => {
+    const prior = lifecycleCommitTails.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const tail = prior.then(() => gate);
+    lifecycleCommitTails.set(key, tail);
+    await prior;
+    try { return await task(); }
+    finally {
+      release();
+      if (lifecycleCommitTails.get(key) === tail) lifecycleCommitTails.delete(key);
+    }
+  };
+  const activeMiniProjectClosure = async (objectId: string) => (await proposalApplication.list()).find(({ proposal }) =>
+    ["DRAFT", "READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED"].includes(proposal.status)
+    && proposal.scope.modify.some(({ kind, id }) => kind === "OBJECT" && id === objectId)
+    && proposal.groups.some(({ semanticOperations }) => semanticOperations.some(({ kind, payload }) => kind === "TRANSITION_LIFECYCLE" && payload.objectType === "MINI_PROJECT" && payload.lifecycle === "COMPLETED")),
+  );
   const submitMiniProjectMarkerClosure = async (input: MaterializeRequest, object: V2ManagedObject, anchor: V2Anchor) => {
     if (object.objectType !== "MINI_PROJECT" || object.lifecycle !== "OPEN" || input.objectType !== "MINI_PROJECT" || input.marker !== "DONE" || anchor.status !== "active" || anchor.objectId !== object.objectId) throw serviceError("V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL", "MiniProject 关闭请求不符合可审阅形状；没有修改正式状态。");
-    const proposalId = `proposal_marker_closure_${createHash("sha256").update(JSON.stringify([options.graphId, object.objectId, object.version, input.externalId, input.contentHash])).digest("hex").slice(0, 32)}`;
+    const active = await activeMiniProjectClosure(object.objectId);
+    const proposalId = active?.proposal.proposalId ?? `proposal_marker_closure_${createHash("sha256").update(JSON.stringify([options.graphId, object.objectId, object.version, input.contentHash])).digest("hex").slice(0, 32)}`;
+    const current = active ?? await proposalApplication.get(proposalId);
     const proposal: V2Proposal = {
       proposalId, schemaVersion: "v2", title: `完成 MiniProject：${input.text}`, context: `Logseq Block ${input.externalId} 的显式 MiniProject 已改为 DONE。`,
       understanding: "DONE Marker 只是关闭请求；MiniProject 需要独立高影响审阅。", objective: "审阅后完成同一 MiniProject，不改变 Condition、Focus 或 Primary Ownership。",
@@ -692,8 +713,14 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "BLOCK", id: input.externalId, hash: input.contentHash }], modify: [{ kind: "OBJECT", id: object.objectId, version: object.version }] },
       preconditions: ["DONE Block hash 与 MiniProject Object version 保持不变"], groups: [{ groupId: "complete-mini-project", explanation: "MiniProject 关闭是独立 HIGH 组；接受后仍需最终确认。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{
         operationId: "complete-mini-project", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: object.objectId, version: object.version }, summary: "完成 MiniProject", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: input.text, marker: "DONE", externalId: input.externalId, contentHash: input.contentHash }, preconditions: ["Object 仍为 OPEN"],
-      }], disposition: "PENDING" }], status: "READY", createdAt: object.updatedAt,
+      }], disposition: "PENDING" }], status: "READY", createdAt: current?.proposal.createdAt ?? object.updatedAt,
     };
+    if (current) {
+      const files = renderV2ProposalFiles(proposal);
+      if (current.files.proposalJson === files.proposalJson && current.files.proposalMd === files.proposalMd) return { record: current, replayed: true };
+      if (store.listSemanticCommits(proposalId).some((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED")) throw serviceError("V2_PROPOSAL_COMMIT_IN_PROGRESS", "MiniProject 关闭 Proposal 已有未完成 Commit；不能并行修订。");
+      return { record: await proposalApplication.reviseSameMachineIntent(proposal, current.updatedAt), replayed: false };
+    }
     return proposalApplication.submit(proposal, new Date(object.updatedAt));
   };
   const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: options.proposalGenerator !== undefined };
@@ -1317,13 +1344,23 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (lifecycleCommitMatch?.[1]) {
       const proposalId = decodeURIComponent(lifecycleCommitMatch[1]);
       const input = await readLifecycleCommitRequest(request);
-      const stored = await proposalApplication.get(proposalId);
-      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
-      const plan = planAcceptedV2LifecycleTransition(stored.proposal);
       const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
       const receiptKey = `lifecycle-transition:${semanticCommitId}`;
+      await serializeLifecycleCommit(semanticCommitId, async () => {
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
       const existing = store.semanticCommit(semanticCommitId);
       const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      const priorReceipt = store.getCommandReceipt(receiptKey);
+      if (existing?.status === "PENDING" && stored.proposal.status === "STALE" && !priorReceipt) {
+        if (existingSteps.every((step) => step.status === "PREPARED")) store.finalizeSemanticCommit(semanticCommitId, "FAILED", new Date().toISOString(), undefined, "V2_PROPOSAL_COMMIT_STALE");
+        throw serviceError("V2_LIFECYCLE_COMMIT_STALE_RECOVERED", "已收口正文变化后的 MiniProject Completion Commit；请重新发起关闭审阅。");
+      }
+      if (existing?.status === "FAILED" && ["ACCEPTED", "PARTIALLY_ACCEPTED"].includes(stored.proposal.status)) {
+        await proposalApplication.markFailed(proposalId, stored.updatedAt);
+        throw serviceError("V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "已收口失败的 MiniProject Completion Proposal；请重新发起关闭审阅。");
+      }
+      const plan = planAcceptedV2LifecycleTransition(stored.proposal);
       if (existing?.status === "COMPLETED") {
         const receipt = store.getCommandReceipt(receiptKey);
         if (existingSteps.length !== 1 || existingSteps[0]?.operationId !== plan.objectId || receipt?.command !== "complete_mini_project_from_marker") throw serviceError("V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "MiniProject Completion Commit 账本与审阅计划不一致。");
@@ -1332,23 +1369,58 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         return;
       }
       if (existing && existing.status !== "PENDING") throw serviceError("V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "MiniProject Completion Commit 已终止，不能建立平行事务。");
-      if (!existing) {
+      if (priorReceipt && priorReceipt.command !== "complete_mini_project_from_marker") throw serviceError("V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "MiniProject Completion 回执类型与审阅计划不一致。");
+      if (!priorReceipt) {
         const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, input.observations), input.expectedUpdatedAt);
-        if (revalidation.result.status === "STALE") { respond(response, 200, { status: "STALE", ...revalidation }); return; }
-        const now = new Date();
-        store.prepareSemanticCommit({ semanticCommitId, proposalId, status: "PENDING", beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, expectedUpdatedAt: input.expectedUpdatedAt }), createdAt: now.toISOString(), updatedAt: now.toISOString() }, [
-          { semanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: plan.objectId, updatedAt: now.toISOString() },
+        if (revalidation.result.status === "STALE") {
+          options.faults?.afterLifecycleProposalStale?.();
+          if (existing?.status === "PENDING" && existingSteps.every((step) => step.status === "PREPARED")) store.finalizeSemanticCommit(semanticCommitId, "FAILED", new Date().toISOString(), undefined, "V2_PROPOSAL_COMMIT_STALE");
+          respond(response, 200, { status: "STALE", ...revalidation }); return;
+        }
+      }
+      if (!existing) {
+        const preparedAt = input.expectedUpdatedAt;
+        store.prepareSemanticCommit({ semanticCommitId, proposalId, status: "PENDING", beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, expectedUpdatedAt: input.expectedUpdatedAt }), createdAt: preparedAt, updatedAt: preparedAt }, [
+          { semanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: plan.objectId, updatedAt: preparedAt },
         ]);
+        options.faults?.afterLifecyclePrepare?.();
       } else if (existingSteps.length !== 1 || existingSteps[0]?.operationId !== plan.objectId) throw serviceError("V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "MiniProject Completion Commit 账本与审阅计划不一致。");
       const now = new Date();
-      const result = await application.completeMiniProjectFromMarker({ objectType: plan.objectType, text: plan.text, marker: plan.marker, graphId: options.graphId, externalId: plan.externalId, contentHash: plan.contentHash, expectedObjectId: plan.objectId }, {
-        actor: "proposal_commit", expectedVersion: plan.expectedVersion, idempotencyKey: receiptKey, traceId: input.traceId,
-      }, now);
+      const commandInput = { objectType: plan.objectType, text: plan.text, marker: plan.marker, graphId: options.graphId, externalId: plan.externalId, contentHash: plan.contentHash, expectedObjectId: plan.objectId } as const;
+      const envelope = { actor: "proposal_commit", expectedVersion: plan.expectedVersion, idempotencyKey: receiptKey, traceId: input.traceId };
+      let result;
+      try {
+        result = await application.completeMiniProjectFromMarker(commandInput, envelope, now);
+      } catch (error) {
+        const concurrentReceipt = store.getCommandReceipt(receiptKey);
+        if (concurrentReceipt?.command === "complete_mini_project_from_marker") result = await application.completeMiniProjectFromMarker(commandInput, envelope, now);
+        else {
+          const terminalCodes = ["V2_OBJECT_VERSION_CONFLICT", "V2_EXPLICIT_BINDING_OBJECT_MISMATCH", "V2_REVIEWED_MINI_PROJECT_CLOSURE_CONFLICT", "V2_PRIMARY_ANCHOR_INVALID"];
+          if (error instanceof StructuredError && terminalCodes.includes(error.code) && store.semanticCommit(semanticCommitId)?.status === "PENDING" && store.semanticCommitSteps(semanticCommitId).every((step) => step.status === "PREPARED")) {
+            store.finalizeSemanticCommit(semanticCommitId, "FAILED", now.toISOString(), undefined, error.code);
+            options.faults?.afterLifecycleCommitFailed?.();
+            const latest = await proposalApplication.get(proposalId);
+            if (latest && !["APPLIED", "FAILED"].includes(latest.proposal.status)) await proposalApplication.markFailed(proposalId, latest.updatedAt, now);
+          }
+          throw error;
+        }
+      }
+      options.faults?.afterLifecycleDomainWrite?.();
       if (store.semanticCommitSteps(semanticCommitId)[0]?.status === "PREPARED") store.advanceSemanticCommitStep(semanticCommitId, 0, "APPLIED", now.toISOString());
       if (store.semanticCommitSteps(semanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(semanticCommitId, 0, "VERIFIED", now.toISOString());
-      store.finalizeSemanticCommit(semanticCommitId, "COMPLETED", now.toISOString(), checksum({ object: result.object, anchor: result.anchor }));
-      const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
+      if (store.semanticCommit(semanticCommitId)?.status === "PENDING") store.finalizeSemanticCommit(semanticCommitId, "COMPLETED", now.toISOString(), checksum({ object: result.object, anchor: result.anchor }));
+      let record = await proposalApplication.get(proposalId);
+      if (!record) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 在 Commit 收口时不存在。");
+      if (record.proposal.status !== "APPLIED") {
+        try { record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now); }
+        catch (error) {
+          const converged = await proposalApplication.get(proposalId);
+          if (converged?.proposal.status !== "APPLIED") throw error;
+          record = converged;
+        }
+      }
       respond(response, 200, { status: "COMPLETED", semanticCommitId, object: result.object, anchor: result.anchor, record, replayed: result.replayed });
+      });
       return;
     }
     const proposalCommitPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/commit\/prepare$/) : null;
@@ -1723,9 +1795,17 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const idempotencyKey = explicitSyncIdempotencyKey(options.graphId, input);
       const receipt = store.getCommandReceipt(idempotencyKey);
       if (receipt?.command === "materialize_explicit_object" || receipt?.command === "synchronize_explicit_object") {
-        if (receipt.command === "materialize_explicit_object" && receipt.object.objectType === "MINI_PROJECT" && receipt.object.lifecycle === "OPEN" && input.objectType === "MINI_PROJECT" && input.marker === "DONE") {
-          const submitted = await submitMiniProjectMarkerClosure(input, receipt.object, receipt.anchor);
-          respond(response, 200, { operation: "PROPOSAL_CREATED", proposalId: submitted.record.proposal.proposalId, object: receipt.object, anchor: receipt.anchor, replayed: true });
+        if (receipt.object.objectType === "MINI_PROJECT" && receipt.object.lifecycle === "OPEN" && input.objectType === "MINI_PROJECT" && input.marker === "DONE") {
+          const currentObject = store.getObject(receipt.object.objectId);
+          const currentAnchor = store.getPrimaryAnchorByExternal(options.graphId, input.externalId);
+          if (!currentObject || !currentAnchor || currentObject.version !== receipt.object.version || currentAnchor.contentHash !== input.contentHash || currentAnchor.status !== "active") {
+            const active = await activeMiniProjectClosure(receipt.object.objectId);
+            if (!active) throw serviceError("V2_EXPLICIT_SYNC_RECEIPT_STALE", "旧版 MiniProject DONE 回执已被较新正文取代；没有回退 Proposal。");
+            respond(response, 200, { operation: "PROPOSAL_CREATED", proposalId: active.proposal.proposalId, object: currentObject ?? receipt.object, anchor: currentAnchor ?? receipt.anchor, replayed: true });
+            return;
+          }
+          const submitted = await submitMiniProjectMarkerClosure(input, currentObject, currentAnchor);
+          respond(response, 200, { operation: "PROPOSAL_CREATED", proposalId: submitted.record.proposal.proposalId, object: currentObject, anchor: currentAnchor, replayed: true });
           return;
         }
         respond(response, 200, {
@@ -1742,8 +1822,14 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         const current = store.getObject(anchor.objectId);
         if (!current) throw serviceError("V2_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 引用的对象不存在；同步已停止。");
         if (current.objectType === "MINI_PROJECT" && current.lifecycle === "OPEN" && input.objectType === "MINI_PROJECT" && input.marker === "DONE") {
-          const submitted = await submitMiniProjectMarkerClosure(input, current, anchor);
-          respond(response, submitted.replayed ? 200 : 202, { operation: "PROPOSAL_CREATED", proposalId: submitted.record.proposal.proposalId, object: current, anchor, replayed: submitted.replayed });
+          if (anchor.status !== "active") throw serviceError("V2_PRIMARY_ANCHOR_CONFLICT", "MiniProject 关闭请求的 Primary Anchor 当前不是 active；请先完成 Anchor 恢复或重绑。");
+          const evidence = current.text === input.text && anchor.status === "active" && anchor.contentHash === input.contentHash
+            ? { object: current, anchor, replayed: true }
+            : await application.synchronizeExplicitObject({
+              objectType: input.objectType, text: input.text, graphId: options.graphId, externalId: input.externalId, contentHash: input.contentHash, expectedObjectId: current.objectId,
+            }, { actor: "logseq-plugin", expectedVersion: current.version, idempotencyKey: idempotencyKey, traceId: input.traceId });
+          const submitted = await submitMiniProjectMarkerClosure(input, evidence.object, evidence.anchor);
+          respond(response, submitted.replayed ? 200 : 202, { operation: "PROPOSAL_CREATED", proposalId: submitted.record.proposal.proposalId, object: evidence.object, anchor: evidence.anchor, replayed: submitted.replayed });
           return;
         }
         const result = await application.synchronizeExplicitObject({

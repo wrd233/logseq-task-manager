@@ -244,6 +244,16 @@ export class V2ProposalApplication {
     return this.repository.listStoredProposals();
   }
 
+  async reviseSameMachineIntent(value: unknown, expectedUpdatedAt: string, at = new Date()): Promise<V2StoredProposalRecord> {
+    const proposal = validateV2ProposalForSubmission(value);
+    const current = await this.repository.storedProposal(proposal.proposalId);
+    if (!current) throw proposalApplicationError("V2_PROPOSAL_NOT_FOUND", "待修订 Proposal 不存在。");
+    if (current.updatedAt !== expectedUpdatedAt) throw proposalApplicationError("V2_PROPOSAL_REVIEW_STALE", "Proposal 已在修订前变化；没有覆盖当前机器表示。");
+    if (["APPLIED", "FAILED", "REJECTED", "SUPERSEDED"].includes(current.proposal.status)) throw proposalApplicationError("V2_PROPOSAL_REVISION_NOT_ALLOWED", "已终结 Proposal 不能原位修订。");
+    if (proposal.createdAt !== current.proposal.createdAt) throw proposalApplicationError("V2_PROPOSAL_REVISION_INTENT_MISMATCH", "同一机器意图修订必须保留 Proposal 创建身份。");
+    return this.repository.updateStoredProposal(proposal, renderV2ProposalFiles(proposal), expectedUpdatedAt, at);
+  }
+
   async review(
     proposalId: string,
     decisions: Readonly<Record<string, V2ProposalGroupDecision>>,

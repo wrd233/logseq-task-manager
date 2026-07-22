@@ -58,7 +58,7 @@ V2_MIGRATION_DESIGN_READY
 - Primary Ownership 已形成自动化正向与逆向纵向闭环：Domain/Application/SQLite 在同一事务校验 child version、new Owner version 与精确当前 Owner，并更新 Object version、唯一 `primary_ownerships`、Audit 和幂等 Receipt；accepted HIGH Proposal 专用 `/ownership/commit` 由服务端权威重读对象，固定确认后复用一个既有 DOMAIN_WRITE SemanticCommit step。Review Center 只为唯一 HIGH `CHANGE_OWNERSHIP` 显示专用确认，具备 busy 防重复、stale/错误反馈和成功后同一列表读回。专用 Ownership Undo 再以正向 Proposal 的审阅前 Owner 与正向 Receipt 的实际结果交叉验证，恢复旧 Owner 或未归属；它只创建一个 Domain-only 逆向 Commit，不触碰正文、位置、Anchor、Association 或其他状态。child/当前 Owner 有后续变化时零写入并收口 FAILED；逆向 receipt 后中断可重启幂等续完并把正向 Commit 标记 UNDONE。正向未完成 Commit 仍锁住 review/revalidate，prepare/receipt/FAILED 各故障边界保持既有恢复证据。无直接 Ownership 写路由、平行恢复器或第二权威。Desktop 已真实通过 CLI Proposal-only、HIGH 接受但零正式写、版本重验、最终 Commit、reload 读回、专用 Undo 与再次 reload；Task v5→v6→v7，正向 Commit `COMPLETED→UNDONE`、逆向 Commit `COMPLETED`，Project v2、Anchor 与普通 Association 全程不变。真实移动不改归属仍由 E2E-04 独立验收；合同见 `docs/implementation/V2_OWNERSHIP_CHANGE_CONTRACT.md`，运行证据见 `docs/runtime/V2_OWNERSHIP_DESKTOP_REPORT.md`。
 - E2E-20 Project Closure 已形成完整纵向闭环：外部 Agent 只能提交 Proposal；Closure 与 `COMPLETED` 必须是同一个 HIGH 组，分别经组确认和最终精确确认。Validator 要求原始目标、实际结果、Deliverable/Output、未完成 Objective 的原因与后续、遗留去向、关键 Decision 和未来总结，但允许部分 Objective 未完成。固定 fixture 与真实独立 Agent 输出均已经真实 CLI 文件 `validate → submit` 进入 Review queue，且 Project 仍 OPEN、无正式写入；首次 Agent Schema 错误被 Validator 零写入拒绝，`design-project@1.1.0` 补齐精确模板后通过。Service 重验 SQLite Object version，用既有 SemanticCommit 单一 Domain step 调用 Application，原子写 Closure/Lifecycle/Audit/Receipt；Focus 清理由自动事务证据覆盖。Desktop 0.10.15 已实测 HIGH 接受时对象仍 `OPEN + v2`，最终确认后同一对象为 `COMPLETED + v3`、Proposal/Commit 为 `APPLIED`/`COMPLETED`；reload 后 Closure 可读、Focus 计数为 0 且 Now Work 中不显示该 Project、原 Logseq Project 页仍可搜索打开，Pending/Recovery=0 且 SQLite integrity/FK 通过。`E2E-20` 已为 `DONE`，详见 `docs/runtime/V2_PROJECT_CLOSURE_EXTERNAL_AGENT_REPORT.md`。
 - Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。
-- Slice B3 Marker 已完成自动合同与 Desktop Gate：简单 Task DONE 改为 `COMPLETED`，重复与 Marker 移除不重开；CANCELED/CANCELLED 在记录取消原因前零写入；TODO/NOW/DOING/WAITING 不改 Condition/Focus；终态相反 Marker 为零写入语义冲突且不影响健康 transport。MiniProject DONE 复用唯一 SQLite Proposal 表示、HIGH 审阅、对象/Anchor/Block 重验和既有 SemanticCommit；HIGH 接受时对象仍 OPEN，专用最终确认后同一对象原子完成，reload 与 Marker 移除均不重开。首次 DONE 可先复用既有同步回执建立 OPEN 对象，重试确定性复用同一 Proposal；没有新增表、扫描器、恢复器或平行写路径。Project 仍使用结构化 Closure Proposal；Decision/Output 不用 Marker 改 Lifecycle。详见 `docs/runtime/V2_MARKER_DESKTOP_REPORT.md`。
+- Slice B3 Marker 的 Task 与 MiniProject 安全提交路径已完成自动合同与 Desktop Gate：简单 Task DONE 改为 `COMPLETED`，重复与 Marker 移除不重开；CANCELED/CANCELLED 在记录取消原因前零写入；TODO/NOW/DOING/WAITING 不改 Condition/Focus；终态相反 Marker 为零写入语义冲突。MiniProject DONE 复用唯一 SQLite Proposal 表示、HIGH 审阅、对象/active Anchor/Block 重验和既有 SemanticCommit；一个活跃意图原位修订，终态后新 DONE 使用新代次，旧回执不能倒灌。双轴复审补齐 PENDING stale、Domain receipt、分步终结重启恢复、相同 Commit 串行化、Plugin busy；没有新增表、协议、扫描器、恢复器或平行写路径。完整 MiniProject Closure 仍为 `PARTIAL`，下一步必须把原目标、实际结果、遗留三问纳入 Proposal、确认和正式记录；不能以单一 Lifecycle 转换宣称完成。详见 `docs/runtime/V2_MARKER_DESKTOP_REPORT.md`。
 - Slice B 防抖与首次物化基础已建立：UUID 级事件合并只交付最新 Parser 结果，失败显式回调；Application/SQLite 将 Object、Primary Anchor、Audit、Receipt 单事务写入并幂等重放，重复外部 Block 整笔回滚。
 - Local Service 已开放受约束的 `POST /objects/materialize` 与统一 `POST /objects/synchronize`，并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。
 - 同类型显式同步后端已完成：Domain/Application/SQLite 更新标题缓存、对象版本和 Anchor 观察证据；`/objects/synchronize` 自动区分首次物化与已绑定更新，Service 用 Graph ID + Block UUID + Logseq 输入版本形成 SHA-256 幂等边界。类型变化明确零写入并作为 terminal Proposal-required 冲突保留，不再误当断线永久重试；正式 Proposal 创建仍属于 Slice C。
@@ -88,7 +88,7 @@ V2_MIGRATION_DESIGN_READY
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-22 根级 `./scripts/check.sh` 为 375 tests、145 rules、0 failed/skipped；全部 typecheck/lint/test/build、Plugin/边界检查与恢复演练 PASS；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-22 根级 `./scripts/check.sh` 为 376 tests、145 rules、0 failed/skipped；全部 typecheck/lint/test/build、Plugin/边界检查与恢复演练 PASS；npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：总状态仍为 `PARTIAL_PASS`；基础 Anchor/Now Work 见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，Candidate、Association 与 Ownership 专项见对应 Runtime Report；
@@ -105,7 +105,7 @@ V2_MIGRATION_DESIGN_READY
 ## 下一步
 
 1. 继续完成 `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 剩余当前页候选 stale/逐项处理、删除 Anchor 审阅和有限子树真实 Gate；
-2. 完成 Task 取消原因录入与显式重开专用命令 Gate；B3 Marker 与 MiniProject reviewed completion 已通过，不再重复验收；
+2. 完成 MiniProject 原目标/实际结果/遗留三问 Closure，再完成 Task 取消原因录入与显式重开专用命令 Gate；B3 Marker 安全路径不再重复验收；
 3. 将 Backup/Restore/Service restart/Doctor 纳入后续 Desktop 集中验收；Project Closure 已完成 Desktop 纵向闭环，不再重复验收；
 4. 在集中 Desktop Gate 验收 C1-C5 连续闭环：接受→最终确认→Commit→已生效→Undo，并注入 Service 中断与后续正文编辑；
 5. 继续验收 Review Center 的完整 Candidate 列表、Project/Area 筛选、键盘、深浅主题与当前页逐项失败路径；CREATE/UPDATE Candidate 的 E2E-12 闭环不再重复验收；

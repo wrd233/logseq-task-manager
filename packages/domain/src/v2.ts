@@ -458,10 +458,10 @@ export function completeV2MiniProjectFromReviewedMarker(
       ruleRefs: ["D-183", "D-185"],
     });
   }
-  if (anchor.objectId !== object.objectId || anchor.role !== "primary_text" || anchor.status === "replaced") {
+  if (anchor.objectId !== object.objectId || anchor.role !== "primary_text" || anchor.status !== "active" || anchor.contentHash !== input.contentHash) {
     throw new StructuredError({
       code: "V2_PRIMARY_ANCHOR_INVALID",
-      message: "审阅后关闭必须引用该 MiniProject 未被替换的 Primary Anchor。",
+      message: "审阅后关闭必须引用该 MiniProject 当前 active 且正文 hash 一致的 Primary Anchor。",
       ruleRefs: ["D-030", "D-033", "D-185"],
     });
   }

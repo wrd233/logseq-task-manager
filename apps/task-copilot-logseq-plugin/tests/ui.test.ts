@@ -396,6 +396,10 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   assert.match(html, /重验 Block、Anchor 和对象版本/);
   assert.match(html, /data-action="submit-v2-mini-project-closure"/);
   delete value.actionDialog;
+  value.v2LifecycleCommitBusy = true;
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-mini-project-closure-commit"[^>]*disabled[^>]*aria-busy="true"/);
+  value.v2LifecycleCommitBusy = false;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:mini", proposalId: "prop-mini-close", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
   html = renderApp(value);

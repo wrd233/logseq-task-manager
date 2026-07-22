@@ -1241,7 +1241,7 @@ test("MiniProject DONE Marker creates one review Proposal and commits only after
     contentHash: checksum("[MiniProject] 检查真实 Marker 闭环"), idempotencyKey: "ignored-open", traceId: "trace-mini-open",
   });
   assert.equal(open.object.lifecycle, "OPEN");
-  const markerHash = checksum("[MiniProject] DONE 检查真实 Marker 闭环");
+  let markerHash = checksum("[MiniProject] DONE 检查真实 Marker 闭环");
   const proposed = await client.synchronizeExplicitObject({
     objectType: "MINI_PROJECT", text: "检查真实 Marker 闭环", marker: "DONE", externalId: "block-mini-marker", inputVersion: "3001",
     contentHash: markerHash, idempotencyKey: "ignored-proposal", traceId: "trace-mini-proposal",
@@ -1255,8 +1255,25 @@ test("MiniProject DONE Marker creates one review Proposal and commits only after
   });
   assert.equal(repeated.proposalId, proposed.proposalId);
   assert.equal(repeated.replayed, true);
-  const record = (await client.listProposals()).find(({ proposal }) => proposal.proposalId === proposed.proposalId)!;
+  markerHash = checksum("[MiniProject] DONE 检查真实 Marker 闭环（修订）");
+  const revised = await client.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT", text: "检查真实 Marker 闭环（修订）", marker: "DONE", externalId: "block-mini-marker", inputVersion: "3003",
+    contentHash: markerHash, idempotencyKey: "ignored-revision", traceId: "trace-mini-revision",
+  });
+  assert.equal(revised.proposalId, proposed.proposalId, "same lifecycle intent keeps one machine Proposal identity");
+  assert.equal(revised.replayed, false);
+  const matching = (await client.listProposals()).filter(({ proposal }) => proposal.proposalId === proposed.proposalId);
+  assert.equal(matching.length, 1);
+  const record = matching[0]!;
+  assert.equal((await client.listProposals()).filter(({ proposal }) => proposal.scope.modify.some(({ kind, id }) => kind === "OBJECT" && id === open.object.objectId) && !["APPLIED", "FAILED", "REJECTED", "STALE", "SUPERSEDED"].includes(proposal.status)).length, 1);
   assert.equal(record.proposal.status, "READY");
+  assert.equal(record.proposal.scope.read[0]?.hash, markerHash);
+  const delayedOldReplay = await client.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT", text: "检查真实 Marker 闭环", marker: "DONE", externalId: "block-mini-marker", inputVersion: "3001",
+    contentHash: checksum("[MiniProject] DONE 检查真实 Marker 闭环"), idempotencyKey: "ignored-delayed", traceId: "trace-mini-delayed",
+  });
+  assert.equal(delayedOldReplay.proposalId, revised.proposalId);
+  assert.equal((await client.getProposal(record.proposal.proposalId))!.proposal.scope.read[0]?.hash, markerHash, "delayed receipt cannot roll the active Proposal back");
   assert.equal((await client.getObject(open.object.objectId))?.lifecycle, "OPEN");
   const accepted = await client.reviewProposal(record.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, record.updatedAt);
   assert.equal((await client.getObject(open.object.objectId))?.lifecycle, "OPEN", "accept is not commit");
@@ -1280,6 +1297,89 @@ test("MiniProject DONE Marker creates one review Proposal and commits only after
   assert.equal(replayed.status, "COMPLETED");
   if (replayed.status === "COMPLETED") assert.equal(replayed.replayed, true);
   assert.equal((await client.listSemanticCommits()).filter(({ proposalId }) => proposalId === record.proposal.proposalId).length, 1);
+});
+
+test("MiniProject lifecycle Commit revalidates recovery, terminalizes stale state, and converges duplicate submission", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-mini-lifecycle-recovery-"));
+  const databasePath = join(root, "task-copilot.db");
+  let failAfterPrepare = false;
+  let failAfterDomain = false;
+  let failAfterStale = false;
+  let failAfterCommitFailed = false;
+  const serviceOptions = {
+    databasePath, graphId: "graph-mini-lifecycle-recovery", token: "mini-lifecycle-recovery-token-24chars",
+    faults: {
+      afterLifecyclePrepare: () => { if (failAfterPrepare) { failAfterPrepare = false; throw new Error("fault after lifecycle prepare"); } },
+      afterLifecycleDomainWrite: () => { if (failAfterDomain) { failAfterDomain = false; throw new Error("fault after lifecycle domain receipt"); } },
+      afterLifecycleProposalStale: () => { if (failAfterStale) { failAfterStale = false; throw new Error("fault after lifecycle proposal stale"); } },
+      afterLifecycleCommitFailed: () => { if (failAfterCommitFailed) { failAfterCommitFailed = false; throw new Error("fault after lifecycle commit failed"); } },
+    },
+  };
+  let service = await startLocalService(serviceOptions);
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const restart = async () => { await service.close(); service = await startLocalService(serviceOptions); client = clientFor(service); };
+
+  const acceptedMini = async (suffix: string) => {
+    const externalId = `block-mini-${suffix}`;
+    const text = `Mini ${suffix}`;
+    await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text, externalId, inputVersion: `${suffix}-open`, contentHash: checksum(`[MiniProject] ${text}`), idempotencyKey: "ignored", traceId: `trace-${suffix}-open` });
+    const hash = checksum(`[MiniProject] DONE ${text}`);
+    const proposed = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text, marker: "DONE", externalId, inputVersion: `${suffix}-done`, contentHash: hash, idempotencyKey: "ignored", traceId: `trace-${suffix}-done` });
+    const ready = (await client.listProposals()).find(({ proposal }) => proposal.proposalId === proposed.proposalId)!;
+    const accepted = await client.reviewProposal(ready.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, ready.updatedAt);
+    return { externalId, hash, objectId: proposed.object.objectId, proposalId: ready.proposal.proposalId, expectedUpdatedAt: accepted.updatedAt };
+  };
+
+  const stale = await acceptedMini("stale");
+  failAfterPrepare = true;
+  await assert.rejects(() => client.commitLifecycleTransition(stale.proposalId, { expectedUpdatedAt: stale.expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [{ kind: "BLOCK", id: stale.externalId, exists: true, hash: stale.hash }], traceId: "trace-stale-first" }), /Local Service/);
+  failAfterStale = true;
+  await assert.rejects(() => client.commitLifecycleTransition(stale.proposalId, { expectedUpdatedAt: stale.expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [{ kind: "BLOCK", id: stale.externalId, exists: true, hash: checksum("changed after prepare") }], traceId: "trace-stale-crash-window" }), /Local Service/);
+  await restart();
+  await assert.rejects(() => client.commitLifecycleTransition(stale.proposalId, { expectedUpdatedAt: stale.expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [{ kind: "BLOCK", id: stale.externalId, exists: true, hash: checksum("changed after prepare") }], traceId: "trace-stale-recovery" }), /已收口|409/);
+  assert.equal((await client.getObject(stale.objectId))?.lifecycle, "OPEN");
+  assert.equal((await client.listSemanticCommits()).find(({ proposalId }) => proposalId === stale.proposalId)?.status, "FAILED");
+
+  const recovered = await acceptedMini("receipt-recovery");
+  failAfterDomain = true;
+  await assert.rejects(() => client.commitLifecycleTransition(recovered.proposalId, { expectedUpdatedAt: recovered.expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [{ kind: "BLOCK", id: recovered.externalId, exists: true, hash: recovered.hash }], traceId: "trace-recovery-first" }), /Local Service/);
+  assert.equal((await client.getObject(recovered.objectId))?.lifecycle, "COMPLETED", "Domain receipt is the recovery point");
+  const resumed = await client.commitLifecycleTransition(recovered.proposalId, { expectedUpdatedAt: recovered.expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [{ kind: "BLOCK", id: recovered.externalId, exists: false }], traceId: "trace-recovery-resume" });
+  assert.equal(resumed.status, "COMPLETED", "after the Domain receipt recovery must finish rather than re-run Graph policy");
+  if (resumed.status === "COMPLETED") assert.equal(resumed.replayed, true);
+
+  const duplicate = await acceptedMini("duplicate");
+  const duplicateInput = { expectedUpdatedAt: duplicate.expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT" as const, observations: [{ kind: "BLOCK" as const, id: duplicate.externalId, exists: true, hash: duplicate.hash }], traceId: "trace-duplicate" };
+  const duplicateResults = await Promise.all([client.commitLifecycleTransition(duplicate.proposalId, duplicateInput), client.commitLifecycleTransition(duplicate.proposalId, { ...duplicateInput, traceId: "trace-duplicate-2" })]);
+  assert.deepEqual(duplicateResults.map(({ status }) => status), ["COMPLETED", "COMPLETED"]);
+  assert.equal((await client.listSemanticCommits()).filter(({ proposalId }) => proposalId === duplicate.proposalId).length, 1);
+
+  const invalidAnchor = await acceptedMini("invalid-anchor");
+  const maintenance = await V2SqliteStore.open(databasePath);
+  const database = (maintenance as unknown as { database: { prepare(sql: string): { run(...values: unknown[]): unknown } } }).database;
+  database.prepare("UPDATE anchors SET status = 'conflict' WHERE graph_id = ? AND external_id = ?").run("graph-mini-lifecycle-recovery", invalidAnchor.externalId);
+  maintenance.close();
+  failAfterCommitFailed = true;
+  await assert.rejects(() => client.commitLifecycleTransition(invalidAnchor.proposalId, { expectedUpdatedAt: invalidAnchor.expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [{ kind: "BLOCK", id: invalidAnchor.externalId, exists: true, hash: invalidAnchor.hash }], traceId: "trace-invalid-anchor" }), /Local Service/);
+  await restart();
+  await assert.rejects(() => client.commitLifecycleTransition(invalidAnchor.proposalId, { expectedUpdatedAt: invalidAnchor.expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [{ kind: "BLOCK", id: invalidAnchor.externalId, exists: true, hash: invalidAnchor.hash }], traceId: "trace-invalid-anchor-recovery" }), /已收口|409/);
+  assert.equal((await client.getObject(invalidAnchor.objectId))?.lifecycle, "OPEN");
+  assert.equal((await client.listSemanticCommits()).find(({ proposalId }) => proposalId === invalidAnchor.proposalId)?.status, "FAILED");
+  assert.equal((await client.getProposal(invalidAnchor.proposalId))!.proposal.status, "FAILED");
+
+  const rejectedExternalId = "block-mini-rejected-generation";
+  const rejectedText = "Mini rejected-generation";
+  await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: rejectedText, externalId: rejectedExternalId, inputVersion: "rejected-generation-open", contentHash: checksum(`[MiniProject] ${rejectedText}`), idempotencyKey: "ignored", traceId: "trace-rejected-open" });
+  const rejectedHash = checksum(`[MiniProject] DONE ${rejectedText}`);
+  const rejected = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: rejectedText, marker: "DONE", externalId: rejectedExternalId, inputVersion: "rejected-generation-done", contentHash: rejectedHash, idempotencyKey: "ignored", traceId: "trace-rejected-done" });
+  assert.ok(rejected.proposalId);
+  const rejectedRecord = await client.getProposal(rejected.proposalId);
+  assert.ok(rejectedRecord);
+  await client.reviewProposal(rejected.proposalId, { "complete-mini-project": { disposition: "REJECTED" } }, rejectedRecord.updatedAt);
+  await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: rejectedText, externalId: rejectedExternalId, inputVersion: "rejected-generation-clear", contentHash: checksum(`[MiniProject] ${rejectedText}`), idempotencyKey: "ignored", traceId: "trace-rejected-clear" });
+  const reproposed = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: rejectedText, marker: "DONE", externalId: rejectedExternalId, inputVersion: "rejected-generation-done-again", contentHash: rejectedHash, idempotencyKey: "ignored", traceId: "trace-rejected-again" });
+  assert.notEqual(reproposed.proposalId, rejected.proposalId, "a terminal review permits a new closure generation after a fresh DONE event");
 });
 
 test("same UUID move keeps identity while a copied UUID materializes a distinct object", async (t) => {

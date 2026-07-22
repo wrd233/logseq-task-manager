@@ -110,6 +110,7 @@ let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
 const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
+let v2LifecycleCommitBusy = false;
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
   reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
@@ -250,6 +251,7 @@ async function model(): Promise<UiModel> {
       v2AssociationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
       v2AssociationBusy: v2AssociationSubmission.busy,
       v2OwnershipCommitBusy,
+      v2LifecycleCommitBusy,
       v2Proposals,
       v2Candidates,
       v2CandidateSourcePreviews,
@@ -330,6 +332,7 @@ async function model(): Promise<UiModel> {
     ...(actionDialog ? { actionDialog } : {}),
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2OwnershipCommitBusy,
+    v2LifecycleCommitBusy,
     v2Proposals,
     v2Candidates,
     v2CandidateSourcePreviews,
@@ -1125,22 +1128,30 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "submit-v2-mini-project-closure" && value) {
+    if (v2LifecycleCommitBusy) return;
     if (!dialogChecked("actionConfirmed")) { latestError = "请确认 MiniProject DONE 关闭请求。"; await refresh(); return; }
     const [proposalId, expectedUpdatedAt] = value.split("|");
-    await run(async () => {
-      const client = serviceRuntimeClient;
-      if (!proposalId || !expectedUpdatedAt || !client) throw new Error("MiniProject 关闭上下文已失效；没有写入。");
-      const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
-      if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查 MiniProject 关闭。");
-      const observations = await collectV2ProposalGraphObservations(stored.proposal, {
-        getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }),
-        getPage: (id) => logseq.Editor.getPage(id),
+    v2LifecycleCommitBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!proposalId || !expectedUpdatedAt || !client) throw new Error("MiniProject 关闭上下文已失效；没有写入。");
+        const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
+        if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查 MiniProject 关闭。");
+        const observations = await collectV2ProposalGraphObservations(stored.proposal, {
+          getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }),
+          getPage: (id) => logseq.Editor.getPage(id),
+        });
+        const result = await client.commitLifecycleTransition(proposalId, { expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations, traceId: `v2-mini-project-closure-ui-${Date.now()}` });
+        actionDialog = undefined;
+        workspace = "review";
+        message = result.status === "COMPLETED" ? `MiniProject ${result.object.text} 已完成；Marker 移除不会自动重开。` : "MiniProject 版本或 Anchor 已变化；Proposal 已标记 STALE，没有完成对象。";
       });
-      const result = await client.commitLifecycleTransition(proposalId, { expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations, traceId: `v2-mini-project-closure-ui-${Date.now()}` });
-      actionDialog = undefined;
-      workspace = "review";
-      message = result.status === "COMPLETED" ? `MiniProject ${result.object.text} 已完成；Marker 移除不会自动重开。` : "MiniProject 版本或 Anchor 已变化；Proposal 已标记 STALE，没有完成对象。";
-    });
+    } finally {
+      v2LifecycleCommitBusy = false;
+      await refresh();
+    }
     return;
   }
   if (action === "submit-v2-proposal-commit" && value) {

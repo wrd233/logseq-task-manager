@@ -46,7 +46,21 @@ database: isolated schema v10 SQLite
 - Plugin 只为这一种 accepted HIGH 操作提供专用最终确认，不把 SemanticCommit 扩成通用工作流平台；
 - Project Closure 继续使用既有结构化 Closure Proposal，不与 MiniProject Marker 路径混合。
 
+提交后的 Spec / Standards 双轴复审又发现并关闭了五个失败边界：
+
+- 同一 MiniProject 关闭意图改标题或 hash 时，稳定 Proposal identity 原位修订唯一机器表示并重置审阅，不保留平行 READY/ACCEPTED；
+- 已绑定 MiniProject 先复用普通同步命令更新正文缓存与 active Anchor hash，再生成/修订关闭 Proposal；missing/conflict/replaced Anchor 不能被关闭命令静默恢复；
+- PENDING Commit 在尚无 Domain receipt 时每次重试都重新校验 Graph/Object scope，变化后收口 FAILED Commit 与 STALE Proposal，不永久锁住 Review；
+- Domain receipt 已存在时，重启跳过已经越过的 Graph 策略边界并幂等完成同一个 Commit；
+- 最终确认具备 Plugin busy 防重复，服务端使用确定性 prepare 证据；并发相同请求收敛为一个 Commit/receipt。
+- 唯一性限定为“一个活跃关闭意图”：正文前进时原位修订，REJECTED/FAILED/APPLIED 等终态后新的 DONE 事件使用新代次 Proposal；延迟旧同步回执只读回当前活跃结果，不能倒灌旧 hash/version。
+- Proposal 已 STALE 但 Commit 尚 PENDING、以及 Commit 已 FAILED 但 Proposal 尚 accepted 的两个终结崩溃窗口，会在 planner 前用现有 ledger 状态幂等收口；重启故障注入已覆盖。
+- 同一 Local Service 内相同 Lifecycle Commit ID 串行执行，避免 stale 重验与 Domain receipt 并发交错把已完成对象错收口为 FAILED；这只是进程内重复提交保护，不是新账本或第二状态源。
+
+这些边界已由真实 SQLite/Service 故障注入与并发测试覆盖。它们没有新增表、协议、扫描器或恢复器，仍只使用现有 Proposal、Anchor、command receipt 和 SemanticCommit。
+
 ## Gate 结论
 
-- Slice B3 的真实 Marker 形态、Task DONE/重复/移除/终态冲突/CANCELED 原因保护，以及 MiniProject reviewed completion 为 `PASS`。
-- 本报告不声称 Task 取消原因录入、显式重开、Project Closure 或通用 Proposal Undo；这些分别由后续专用 Gate、E2E-20 和 Slice C 证据负责。
+- Slice B3 的真实 Marker 形态、Task DONE/重复/移除/终态冲突/CANCELED 原因保护，以及 MiniProject DONE 的 Proposal/Review/Commit 安全路径为 `PASS`。
+- 完整 MiniProject Closure 仍为 `PARTIAL`：冻结规范要求 Proposal 与正式记录携带“原目标、实际结果、遗留”三问；当前 Desktop 证据只证明 DONE 请求和安全提交，不将单一 Lifecycle 转换冒充完整 Closure。
+- 本报告不声称 Task 取消原因录入、显式重开、完整 MiniProject 三问 Closure 或通用 Proposal Undo；这些由后续专用 Gate 负责。Project Closure 已由 E2E-20 独立验证。

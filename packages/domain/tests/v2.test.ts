@@ -190,7 +190,7 @@ test("execution Marker changes only simple Task Lifecycle and never Condition or
 
 test("reviewed MiniProject DONE transition preserves independent state and refreshes Anchor evidence", () => {
   const object = createV2ManagedObject({ objectId: "mini-reviewed", objectType: "MINI_PROJECT", text: "收尾" }, new Date("2026-07-22T00:00:00Z"));
-  const anchor = bindV2PrimaryAnchor(object, { anchorId: "anchor-mini", graphId: "graph-1", externalId: "block-mini", contentHash: "before" }, object.version, new Date("2026-07-22T00:01:00Z"));
+  const anchor = bindV2PrimaryAnchor(object, { anchorId: "anchor-mini", graphId: "graph-1", externalId: "block-mini", contentHash: "after" }, object.version, new Date("2026-07-22T00:01:00Z"));
   const completed = completeV2MiniProjectFromReviewedMarker(anchor.object, anchor.anchor, { objectType: "MINI_PROJECT", text: "收尾", marker: "DONE", contentHash: "after" }, anchor.object.version, new Date("2026-07-22T00:02:00Z"));
   assert.equal(completed.object.lifecycle, "COMPLETED");
   assert.deepEqual(completed.object.condition, { kind: "ACTIONABLE" });
@@ -199,6 +199,10 @@ test("reviewed MiniProject DONE transition preserves independent state and refre
   assert.equal(completed.anchor.status, "active");
   assert.throws(() => completeV2MiniProjectFromReviewedMarker(anchor.object, anchor.anchor, { objectType: "TASK", text: "收尾", marker: "DONE", contentHash: "after" }, anchor.object.version), /MiniProject/);
   assert.throws(() => completeV2MiniProjectFromReviewedMarker({ ...anchor.object, lifecycle: "COMPLETED" }, anchor.anchor, { objectType: "MINI_PROJECT", text: "收尾", marker: "DONE", contentHash: "after" }, anchor.object.version), /COMPLETED/);
+  for (const status of ["missing", "conflict", "replaced"] as const) {
+    assert.throws(() => completeV2MiniProjectFromReviewedMarker(anchor.object, { ...anchor.anchor, status }, { objectType: "MINI_PROJECT", text: "收尾", marker: "DONE", contentHash: "after" }, anchor.object.version), /active/);
+  }
+  assert.throws(() => completeV2MiniProjectFromReviewedMarker(anchor.object, anchor.anchor, { objectType: "MINI_PROJECT", text: "收尾", marker: "DONE", contentHash: "different" }, anchor.object.version), /hash/);
 });
 
 test("explicit synchronization updates title and Anchor evidence but refuses silent type migration", () => {

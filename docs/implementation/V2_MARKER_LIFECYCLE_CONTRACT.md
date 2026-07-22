@@ -37,7 +37,7 @@ Client 不能提供 Lifecycle、Condition、object_id、Graph ID 或 SQLite 路�
 
 ## 当前证据与缺口
 
-自动证据已覆盖：Parser 别名、Task 首次 DONE、同 UUID DONE 更新、Condition 不变、Task 缺少取消原因时零写入、终态冲突零写入、Service 409 以及 Plugin 不错将语义冲突当作传输断线。MiniProject DONE 复用既有 Proposal、Review、版本重验和单步 Domain SemanticCommit：首次观察可先以现有同步回执建立 OPEN 对象，再生成确定性唯一 Proposal；重试不增加 Proposal；只有已接受的唯一 HIGH Lifecycle 操作才能进入专用最终确认。
+自动证据已覆盖：Parser 别名、Task 首次 DONE、同 UUID DONE 更新、Condition 不变、Task 缺少取消原因时零写入、终态冲突零写入、Service 409 以及 Plugin 不错将语义冲突当作传输断线。MiniProject DONE 复用既有 Proposal、Review、版本重验和单步 Domain SemanticCommit：首次观察可先以现有同步回执建立 OPEN 对象，再生成确定性 Proposal；一个活跃关闭意图的正文变化只修订这一机器表示并重置审阅，不产生平行 READY/ACCEPTED，终态审阅后的新 DONE 事件则建立新代次。延迟旧回执不能倒灌旧 version/hash。Commit 仅接受 active 且 hash 一致的 Anchor；无 Domain receipt 的 PENDING 重试再次重验并在 stale 时安全终结，有 receipt 的故障恢复幂等续完；Proposal/Commit 分步终结的两个崩溃窗口在 planner 前恢复收口，并发最终确认收敛为一个 Commit。
 
 Logseq Desktop 0.10.15 已验证 Task DONE、重复 DONE、移除 Marker 不重开、终态相反 Marker 冲突零写入，以及 CANCELED 缺少原因零写入。MiniProject DONE 已真实进入 Review Center；HIGH 接受时仍为 OPEN，最终确认后同一对象原子完成，reload 后保持；移除 DONE 不重开。详细证据见 `docs/runtime/V2_MARKER_DESKTOP_REPORT.md`。
 

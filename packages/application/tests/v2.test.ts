@@ -465,7 +465,7 @@ test("reviewed MiniProject DONE closes object and updates Anchor in one versione
   const application = new V2Application(repository);
   const created = await application.materializeExplicitObject({
     objectId: "mini-reviewed-close", objectType: "MINI_PROJECT", text: "发布前核对",
-    anchor: { graphId: "graph-1", externalId: "block-mini-close", contentHash: "before-hash" },
+    anchor: { graphId: "graph-1", externalId: "block-mini-close", contentHash: "done-hash" },
   }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-mini-close", traceId: "trace-materialize" });
   const input = {
     objectType: "MINI_PROJECT" as const, text: "发布前核对", marker: "DONE" as const,

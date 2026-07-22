@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B3 Marker Desktop pass; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration foundation and Project Closure Desktop pass"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 375 tests; 145 rules; 0 failed/skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE/UPDATE, Association, Ownership change/Undo, Anchor Move/Copy/Rebind, Project Closure, and Marker/MiniProject Completion Desktop passed"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B3 Marker safety Desktop pass and MiniProject three-question Closure partial; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration foundation and Project Closure Desktop pass"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 376 tests; 145 rules; 0 failed/skipped; all builds, boundaries and recovery rehearsal passed; Candidate CREATE/UPDATE, Association, Ownership change/Undo, Anchor Move/Copy/Rebind, Project Closure, and Marker safety Desktop passed; full MiniProject three-question Closure remains partial"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -38,7 +38,7 @@ implemented:
   - "Migration Service/CLI vertical path: server-owned validated Backup, preview/show/import/verify/undo/activate, exact preflight confirmations, and real CLI-to-Service copied-data fixture"
   - "Plugin migration workspace reads the same SQLite migration ledger through Local Service and shows run progress, review counts, recovery point and next step without accepting bundles or adding a write path"
   - "E2E-20 Project Closure DONE: external Agent Proposal and CLI handoff, Desktop high-impact group and final confirmations, object-version revalidation, one Domain SemanticCommit, structured unfinished-Objective disposition, atomic completion, reload-stable readable Plugin projection, completed-Project absence from Now Work and retained Logseq page"
-  - "Slice B3 Marker Desktop DONE: Task DONE/retry/removal/terminal conflict/CANCELED reason protection and MiniProject unique HIGH Proposal, accept-not-applied, final completion, reload and Marker-removal no-reopen verified without a new table or recovery path"
+  - "Slice B3 Marker safety Desktop DONE: Task DONE/retry/removal/terminal conflict/CANCELED reason protection and MiniProject unique active HIGH Proposal, accept-not-applied, safe Lifecycle Commit, reload and Marker-removal no-reopen verified without a new table or recovery path; full three-question MiniProject Closure remains partial"
   - "V2 Proposal Review now provides one continuous accept, final preview/Diff, explicit Commit, applied status, and inverse Commit/Undo flow with restart continuation and no overwrite of later edits"
   - "Slice D L1 now provides explicit DeepSeek runtime selection, env/Keychain secret references, bounded Structured Output with timeout/cancel/retry/error isolation, deterministic five-layer Prompt assembly, machine-owned Proposal metadata/hash, Domain validation, NO_PROPOSAL zero-write handling, and a capability-gated Review Center current-block entry"
   - "Slice D L2 has a default-off one-request smoke harness with sanitized zero-write metadata, and DS-01..12 fixed sanitized golden manifests are ready for real-model execution"
