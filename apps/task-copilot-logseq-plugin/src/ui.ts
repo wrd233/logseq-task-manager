@@ -5,12 +5,11 @@ import type {
   ProposalImpactView,
   ProjectReentryView,
 } from "@task-copilot/application";
-import { allowedPhaseTransitions, type AttentionSignal, type Capture, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
+import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
 import type { ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
-import type { ObservableActionState } from "./inbox-action-controller.ts";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 
-export type Workspace = "inbox" | "now" | "objects" | "review" | "reentry" | "migration" | "audit";
+export type Workspace = "now" | "objects" | "review" | "reentry" | "migration" | "audit";
 export type V2NowWorkTypeFilter = "ALL" | ServiceNowWork["focus"][number]["objectType"];
 export type V2NowWorkGrouping = "mixed" | "type";
 export type ActionDialogKind =
@@ -48,7 +47,6 @@ export type ActionDialogKind =
 export interface UiModel {
   workspace: Workspace;
   agent: { enabled: boolean; providerId: string };
-  inbox: Capture[];
   now: NowWorkView;
   objects: ManagedObject[];
   proposals: Proposal[];
@@ -70,8 +68,6 @@ export interface UiModel {
     storeStatus: string;
     currentGraph: string;
   };
-  inboxActionStates?: Record<string, ObservableActionState>;
-  inboxDialog?: { captureId: string; kind: "formalize" | "proposal" | "link" | "defer" | "dismiss" };
   actionDialog?: { kind: ActionDialogKind; value: string };
   v2ProjectCreationAvailable?: boolean;
   v2AreaAvailable?: boolean;
@@ -104,6 +100,7 @@ export interface UiModel {
   v2ProviderRevisionBusy?: boolean;
   reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
+  v2AuditLoadError?: string;
   v2MigrationRuns?: ServiceMigrationRun[];
   v2MigrationLoadError?: string;
 }
@@ -123,48 +120,6 @@ function button(label: string, action: string, value?: string, className = "", d
 
 function empty(title: string, detail: string): string {
   return `<div class="empty"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(detail)}</p></div>`;
-}
-
-function renderInbox(model: UiModel): string {
-  if (model.inbox.length === 0) return empty("Inbox 已清空", "选择一个 Logseq Block 后使用“捕获当前块”。");
-  return `<div class="cards">${model.inbox
-    .map(
-      (capture) => {
-        const states = Object.entries(model.inboxActionStates ?? {}).filter(([key]) => key.endsWith(`:${capture.captureId}`)).map(([, state]) => state);
-        const loading = states.some((state) => state.status === "loading");
-        const feedback = states.slice().reverse().find((state) => state.status !== "idle");
-        const dialog = model.inboxDialog?.captureId === capture.captureId ? renderInboxDialog(model, capture) : "";
-        return `<article class="card">
-        <div class="eyebrow">${escapeHtml(capture.phase)} · ${escapeHtml(new Date(capture.capturedAt).toLocaleString("zh-CN"))}</div>
-        <p class="natural-text">${escapeHtml(capture.originalText)}</p>
-        <p class="muted">来源：${escapeHtml(capture.sourcePage && !/^\d+$/.test(capture.sourcePage) ? capture.sourcePage : "未知来源")}</p>
-        ${capture.sourceConflict ? `<p class="action-error">${escapeHtml(capture.sourceConflict.message)}</p>` : ""}
-        <div class="actions">
-          ${button(loading ? "处理中…" : "打开来源", "open-source", capture.captureId, "quiet", loading)}
-          ${button("手工正式化", "manual-formalize", capture.captureId, "", loading)}
-          ${button("创建手工 Proposal", "create-manual-proposal", capture.captureId, "quiet", loading)}
-          ${model.agent.enabled ? button("生成 Demo Proposal", "generate-proposal", capture.captureId, "", loading) : ""}
-          ${button("关联现有对象", "link-existing-object", capture.captureId, "quiet", loading)}
-          ${button("暂缓", "defer", capture.captureId, "quiet", loading)}
-          ${button("无需行动", "no-action", capture.captureId, "quiet", loading)}
-        </div>
-        ${capture.deferredUntil ? `<p class="muted">暂缓至：${escapeHtml(capture.deferredUntil)}${capture.deferReason ? ` · ${escapeHtml(capture.deferReason)}` : ""}</p>` : ""}
-        ${feedback ? `<div class="action-feedback ${feedback.status}"><strong>${escapeHtml(feedback.status === "loading" ? "处理中" : feedback.status === "success" ? "已完成" : "操作失败")}</strong><span>${escapeHtml(feedback.message ?? "")}</span>${feedback.correlationId ? `<code>诊断 ID：${escapeHtml(feedback.correlationId)}</code>` : ""}${feedback.status === "error" ? "<small>Capture 保持安全，原始 Logseq 内容未修改。请复制 Diagnostics 后重试。</small>" : ""}</div>` : ""}
-        ${dialog}
-      </article>`;
-      },
-    )
-    .join("")}</div>`;
-}
-
-function renderInboxDialog(model: UiModel, capture: Capture): string {
-  const dialog = model.inboxDialog!;
-  const cancel = button("取消", "cancel-inbox-dialog", capture.captureId, "quiet");
-  if (dialog.kind === "formalize") return `<section class="inbox-dialog" aria-label="手工正式化"><h3>手工正式化</h3><label>对象类型<select data-field="objectType"><option>TASK</option><option>MINI_PROJECT</option><option>PROJECT</option><option>AREA</option></select></label><label>正式正文<textarea data-field="text">${escapeHtml(capture.originalText)}</textarea></label><label>完成标准<textarea data-field="completionCriteria"></textarea></label><label>下一步<textarea data-field="nextAction"></textarea></label><label>可选主归属<select data-field="ownerId"><option value="">待确认归属</option>${model.objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="ownerConfirmed" value="yes">若选择主归属，我单独确认这项高影响变化</label><div class="actions">${button("创建并解决 Capture", "submit-formalize", capture.captureId, "primary")}${cancel}</div></section>`;
-  if (dialog.kind === "proposal") return `<section class="inbox-dialog" aria-label="创建手工 Proposal"><h3>创建手工 Proposal</h3><label>建议正文<textarea data-field="suggestedText">${escapeHtml(capture.originalText)}</textarea></label><div class="actions">${button("创建并进入 Review", "submit-manual-proposal", capture.captureId, "primary")}${cancel}</div></section>`;
-  if (dialog.kind === "link") return `<section class="inbox-dialog" aria-label="关联现有对象"><h3>关联现有对象</h3><label>按标题、类型或 ID 选择<input data-field="objectSearch" list="objects-${escapeHtml(capture.captureId)}"></label><datalist id="objects-${escapeHtml(capture.captureId)}">${model.objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</datalist><div class="actions">${button("建立来源关系", "submit-link-existing", capture.captureId, "primary")}${cancel}</div></section>`;
-  if (dialog.kind === "defer") return `<section class="inbox-dialog" aria-label="暂缓 Capture"><h3>暂缓</h3><label>复查时间<input type="datetime-local" data-field="deferredUntil"></label><label>原因<input data-field="deferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-defer", capture.captureId, "primary")}${cancel}</div></section>`;
-  return `<section class="inbox-dialog" aria-label="无需行动确认"><h3>确认无需行动？</h3><p>Capture 与审计会保留，原始 Logseq Block 不会删除。</p><label>原因<input data-field="dismissReason" value="无需行动"></label><div class="actions">${button("确认并保留历史", "submit-no-action", capture.captureId, "danger")}${cancel}</div></section>`;
 }
 
 function renderNow(model: UiModel): string {
@@ -240,7 +195,7 @@ function renderObjects(model: UiModel): string {
     }).join("")}</div></section>`;
     return `${areaCreator}${projectCreator}${relationError}${associationCreator}${ownershipList}${associationList}${list}`;
   }
-  if (model.objects.length === 0) return `${areaCreator}${projectCreator}${empty("还没有正式对象", "从 Inbox 手工正式化，或创建 V2 Area / Project。")}`;
+  if (model.objects.length === 0) return `${areaCreator}${projectCreator}${empty("还没有正式对象", "从 Proposal Review 整理当前页，或创建 V2 Area / Project。")}`;
   const list = `<div class="object-list">${model.objects
     .map(
       (object) => `<button class="object-row" data-action="select-object" data-value="${escapeHtml(object.objectId)}">
@@ -381,7 +336,7 @@ function renderReview(model: UiModel): string {
     <div class="notice">${canOwnershipUndo ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复到审阅前主归属，且不会移动正文。` : ownershipUndoCommit?.status === "FAILED" ? "对象或 Primary Ownership 已有后续变化；Undo 已安全终止且没有覆盖当前状态。" : canLifecycleUndo ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复 Lifecycle${reasonedLifecycleOperation!.payload.action === "REOPEN" ? " 与 Closure 快照" : ""}，不改写正文。` : lifecycleUndoCommit?.status === "FAILED" ? "对象在 Lifecycle Commit 后已有变化；Undo 已安全终止且没有覆盖当前状态。" : canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : isProjectClosure && record.proposal.status === "APPLIED" ? `Project Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Project 已退出活跃视图，页面保留。` : hasAcceptedMiniProjectClosure && record.proposal.status === "APPLIED" ? `MiniProject 三问 Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；${isMarkerDrivenMiniProjectClosure ? "移除 Marker 不会自动重开" : "本次对象级关闭未改写 Logseq 正文"}，重开必须显式命令与理由。` : isReasonedLifecycle && record.proposal.status === "APPLIED" ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；原因保留在已应用 Proposal，正文、Anchor、Condition 与 Focus 未改变。` : isOwnershipChange && record.proposal.status === "APPLIED" ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；位置、Anchor 与 Association 未改变。` : miniProjectClosureBlockedByOtherGroups ? "MiniProject Closure 已接受，但其余语义组仍未终结；请先拒绝这些组，或将其拆成独立 Proposal，再进行最终关闭。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : isMiniProjectClosure ? `原子记录 MiniProject 三问 Closure 与 Lifecycle${isMarkerDrivenMiniProjectClosure ? "，并保留 Anchor 证据" : "，且不改写 Graph"}` : isReasonedLifecycle ? "记录原因并改变 Lifecycle，不改写 Graph" : isOwnershipChange ? "原子改变唯一 Primary Ownership" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
   </article>`;
   }).join("");
-  if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
+  if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "在待整理视图分析当前 Block，或从当前页 Candidate 生成 Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
   return `${tabs}${v2LoadError}<div class="cards">${v2Cards}${open
     .map(
       (proposal) => `<article class="card proposal">
@@ -415,6 +370,22 @@ function renderReview(model: UiModel): string {
 }
 
 function renderReentry(model: UiModel): string {
+  if (model.v2Objects) {
+    const projects = model.v2Objects.filter((object) => object.objectType === "PROJECT");
+    if (!projects.length) return empty("暂无 Project 可重入", "先在对象工作区创建 Project；这里会从同一 SQLite 投影恢复状态、关联和下一步。");
+    const objectById = new Map(model.v2Objects.map((object) => [object.objectId, object]));
+    const nowItems = model.v2NowWork ? [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview] : [];
+    const focused = new Set(model.v2NowWork?.focus.map((item) => item.objectId) ?? []);
+    const cards = projects.map((project) => {
+      const children = (model.v2PrimaryOwnerships ?? []).filter((ownership) => ownership.ownerObjectId === project.objectId).map((ownership) => objectById.get(ownership.childObjectId)).filter((object): object is V2ManagedObject => object !== undefined);
+      const related = (model.v2Associations ?? []).filter((association) => association.sourceObjectId === project.objectId || association.targetObjectId === project.objectId).map((association) => objectById.get(association.sourceObjectId === project.objectId ? association.targetObjectId : association.sourceObjectId)).filter((object): object is V2ManagedObject => object !== undefined);
+      const nowItem = nowItems.find((item) => item.objectId === project.objectId);
+      const condition = project.condition.kind === "ACTIONABLE" ? "可行动" : project.condition.kind === "WAITING" ? `等待：${project.condition.waitingFor}；期待 ${project.condition.expectedResult}` : project.condition.kind === "BLOCKED" ? `阻塞：${project.condition.reason}` : `暂停：${project.condition.reason}`;
+      const closure = project.closure && "actualResult" in project.closure ? `<section><h3>完成回顾</h3><p>${escapeHtml(project.closure.actualResult)}</p></section>` : "";
+      return `<article class="card reentry"><div class="eyebrow">${escapeHtml(project.lifecycle)} · ${escapeHtml(project.condition.kind)} · v${escapeHtml(project.version)}</div><h2>${escapeHtml(project.text)}</h2><p class="lead">${escapeHtml(condition)}</p>${children.length ? `<section><h3>当前主归属对象</h3><ul>${children.map((child) => `<li>${escapeHtml(child.objectType)} · ${escapeHtml(child.text)} · ${escapeHtml(child.lifecycle)}</li>`).join("")}</ul></section>` : ""}${related.length ? `<section><h3>相关对象</h3><ul>${related.map((object) => `<li>${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</li>`).join("")}</ul></section>` : ""}${closure}<section class="restore"><h3>建议恢复动作</h3><p>${escapeHtml(nowItem?.reason ?? (project.lifecycle === "OPEN" ? "检查当前 Condition 与主归属对象，明确下一步后加入当前关注。" : "查看完成回顾与关联成果；需要继续时走显式重开 Proposal。"))}</p></section><div class="actions">${nowItem?.primaryAnchorExternalId ? button("打开 Project 正文", "v2-open-primary-anchor", nowItem.primaryAnchorExternalId, "quiet") : ""}${project.lifecycle === "OPEN" ? button("更新状态", "v2-condition-open", `${project.objectId}|${project.version}`, "quiet") : ""}${project.lifecycle === "OPEN" && !focused.has(project.objectId) ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "primary") : ""}</div></article>`;
+    }).join("");
+    return `<section><div class="eyebrow">V2 SQLite 实时投影</div><h2>Project 重入</h2><p class="muted">状态、主归属、普通关联和 Now Work 理由均来自同一 Local Service；此页不保存恢复包副本。</p><div class="cards">${cards}</div></section>`;
+  }
   if (!model.reentry) return empty("暂无 Project 可重入", "创建 Project 后，这里会生成行动导向的恢复包。");
   const reentry = model.reentry;
   const selector = `<div class="object-list">${model.reentryProjects.map((project) => `<button class="object-row ${project.objectId === model.selectedReentryProjectId ? "active" : ""}" data-action="select-reentry-project" data-value="${escapeHtml(project.objectId)}"><span>${escapeHtml(project.text)}</span><small>${escapeHtml(project.phase)}</small></button>`).join("")}</div>`;
@@ -432,34 +403,11 @@ function renderReentry(model: UiModel): string {
 }
 
 function renderAudit(model: UiModel): string {
-  const commits = model.commits.length
-    ? `<section><h2>SemanticCommit</h2><div class="cards">${model.commits
-        .slice()
-        .reverse()
-        .map((commit) => `<article class="card compact">
-          <div class="eyebrow">${escapeHtml(commit.status)} · ${escapeHtml(commit.updatedAt)}</div><code>${escapeHtml(commit.semanticCommitId)}</code>
-          ${commit.error ? `<p class="error">${escapeHtml(commit.error.code)} · ${escapeHtml(commit.error.message)}</p>` : ""}
-          ${commit.textMutations.map((mutation) => `<details><summary>正文 before / after · ${escapeHtml(mutation.externalId)}</summary><del>${escapeHtml(mutation.beforeText)}</del><ins>${escapeHtml(mutation.afterText)}</ins></details>`).join("")}
-          ${commit.domainChanges.map((change) => `<details><summary>${escapeHtml(change.entityType)} · ${escapeHtml(change.entityId)}</summary><pre>${escapeHtml(JSON.stringify({ before: change.before ?? null, after: change.after ?? null }, null, 2))}</pre></details>`).join("")}
-          ${model.auditProjection.undoableCommitIds.includes(commit.semanticCommitId) ? button("撤销", "undo-commit", commit.semanticCommitId, "danger") : ""}
-        </article>`)
-        .join("")}</div></section>`
-    : "";
-  const events = model.events.length
-    ? `<section><h2>最近事件</h2><ol class="timeline">${model.events.slice(0, 20).map((event) => `<li><time>${escapeHtml(event.timestamp)}</time><span>${escapeHtml(event.operationType)}</span></li>`).join("")}</ol></section>`
-    : "";
-  const anchorConflicts = model.auditProjection.anchorConflicts;
-  const anchors = anchorConflicts.length
-    ? `<section><h2>Anchor Conflict</h2><div class="cards">${anchorConflicts.map((anchor) => `<article class="card compact">
-      <div class="eyebrow">${escapeHtml(anchor.status)} · ${escapeHtml(anchor.observedAt)}</div><code>${escapeHtml(anchor.anchorId)}</code>
-      <p>来源：${escapeHtml(anchor.source)} · Graph ${escapeHtml(anchor.graphId)}</p>
-      <details open><summary>预期版本 / 当前版本</summary><del>${escapeHtml(anchor.expectedText)}</del><ins>${escapeHtml(anchor.currentText ?? "Block 缺失，无法读取当前正文")}</ins></details>
-      <p class="muted">处理选项：${escapeHtml(anchor.options.join("；"))}</p>
-    </article>`).join("")}</div></section>`
-    : "";
-  return `<div class="audit-actions">${button("创建备份并导出", "export-backup", undefined, "primary")}${button("验证最近恢复包", "verify-backup")}${button("扫描 Pending Commit", "recover-pending")}${button("扫描 Anchor", "scan-anchors")}</div>
-    ${model.recoveryReport ? `<div class="report">${escapeHtml(model.recoveryReport)}</div>` : ""}
-    ${commits || events || anchors ? `${commits}${events}${anchors}` : empty("还没有审计事件", "捕获和正式变更会记录在这里。")}`;
+  if (model.v2AuditLoadError) return `<section><h2>V2 恢复与诊断</h2><div class="error"><strong>SemanticCommit 投影不可用：</strong>${escapeHtml(model.v2AuditLoadError)}<span>没有把查询失败显示为空历史，也没有执行恢复或写入。</span></div></section>`;
+  const commits = model.v2SemanticCommits ?? [];
+  const guidance = `<section class="card"><div class="eyebrow">SQLite 单一权威 · Local Service 单一写入口</div><h2>V2 恢复与诊断</h2><p>此处只读展示 SemanticCommit。备份、校验、Doctor 与 Restore 请使用同一 Local Service 的 <code>tc backup</code>、<code>tc doctor</code> 和 <code>tc backup restore</code>；Restore 仍要求固定确认并在完成后停服。</p><p class="muted">V1 Recovery Bundle 只用于只读迁移和历史兼容，不在正常 V2 Runtime 提供写入按钮。</p></section>`;
+  if (!commits.length) return `${guidance}${empty("还没有 V2 SemanticCommit", "Proposal 接受后仍不会写入；只有最终 Commit 才会出现在这里。")}`;
+  return `${guidance}<section><h2>最近 SemanticCommit</h2><div class="cards">${commits.slice().reverse().map((commit) => `<article class="card compact"><div class="eyebrow">${escapeHtml(commit.status)} · ${escapeHtml(commit.updatedAt)}</div><code>${escapeHtml(commit.semanticCommitId)}</code>${commit.proposalId ? `<p>Proposal：<code>${escapeHtml(commit.proposalId)}</code></p>` : ""}${commit.errorCode ? `<p class="error">${escapeHtml(commit.errorCode)}</p>` : ""}<p class="muted">before ${escapeHtml(commit.beforeStateChecksum.slice(0, 12))}${commit.afterStateChecksum ? ` · after ${escapeHtml(commit.afterStateChecksum.slice(0, 12))}` : ""}</p></article>`).join("")}</div></section>`;
 }
 
 function renderMigration(model: UiModel): string {
@@ -586,7 +534,6 @@ function renderActionDialog(model: UiModel): string {
 
 export function renderApp(model: UiModel): string {
   const labels: Array<[Workspace, string]> = [
-    ["inbox", "Inbox"],
     ["now", "Now Work / 现在工作"],
     ["objects", "Projects / 对象"],
     ["review", "Proposal Review"],
@@ -595,9 +542,7 @@ export function renderApp(model: UiModel): string {
     ["audit", "Audit / Recovery / 审计与恢复"],
   ];
   const body =
-    model.workspace === "inbox"
-      ? renderInbox(model)
-      : model.workspace === "now"
+    model.workspace === "now"
         ? renderNow(model)
         : model.workspace === "objects"
           ? renderObjects(model)
@@ -611,7 +556,7 @@ export function renderApp(model: UiModel): string {
   return `<section class="app-shell">
     <header class="topbar">
       <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
-      <div class="top-actions">${button("捕获当前块", "capture", undefined, "primary")}${button("Diagnostics", "runtime-diagnostics", undefined, "quiet")}${button("关闭", "close", undefined, "quiet")}</div>
+      <div class="top-actions">${button("整理当前页", "v2-candidate-open", undefined, "primary")}${button("Diagnostics", "runtime-diagnostics", undefined, "quiet")}${button("关闭", "close", undefined, "quiet")}</div>
     </header>
     ${model.runtime ? `<div class="runtime-strip"><span>Plugin ${escapeHtml(model.runtime.pluginVersion)}</span><span>Runtime ${escapeHtml(model.runtime.runtimeStatus)}</span><span>Store ${escapeHtml(model.runtime.storeStatus)}</span><span>Graph ${escapeHtml(model.runtime.currentGraph)}</span></div>` : ""}
     <div class="agent-state ${model.agent.enabled ? "enabled" : "disabled"}">Agent ${model.agent.enabled ? `Demo · ${escapeHtml(model.agent.providerId)}` : "disabled · 基础事务系统可用"}</div>

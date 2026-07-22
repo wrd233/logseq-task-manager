@@ -79,10 +79,12 @@ test("initialization failure retains all runtime stages and renders a diagnostic
   assert.equal(snapshot.runtime_status, "DEGRADED");
   assert.equal(snapshot.latest_error?.stage, "PERSISTENCE_READY");
   const html = renderRuntimeDiagnostics(snapshot, '<section data-test="diagnostics-extension">Primary Anchor repair</section>');
-  for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "恢复上一可读 Slot", "V2 Local Service", "SERVICE_DESCRIPTOR_PATH_REQUIRED", "Inbox", "Now Work", "Projects", "Audit / Recovery", "damaged store"]) {
+  for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "V2 Local Service", "SERVICE_DESCRIPTOR_PATH_REQUIRED", "Review Center", "Now Work", "Projects", "Audit / Recovery", "damaged store"]) {
     assert.match(html, new RegExp(label));
   }
+  assert.doesNotMatch(html, /data-action="recover-previous-slot"/);
   assert.doesNotMatch(html, /data-action="source-resolver-probe"/);
+  assert.doesNotMatch(html, /data-action="inbox-action-probe"/);
   assert.match(html, /data-test="diagnostics-extension"[\s\S]*Primary Anchor repair/);
   assert.equal(snapshot.feature_flags.v2_formal_writes_available, false);
 });
@@ -111,7 +113,7 @@ test("bootstrap registrations survive a simulated feature initialization failure
   const callbacks: BootstrapCallbacks = {
     open: () => { opened.push("open"); },
     capture: () => { opened.push("capture"); },
-    openInbox: () => { opened.push("inbox"); },
+    openReview: () => { opened.push("review"); },
     openNowWork: () => { opened.push("now"); },
     diagnostics: () => { opened.push("diagnostics"); },
   };
@@ -136,7 +138,7 @@ test("bootstrap registrations survive a simulated feature initialization failure
 test("bootstrap registrar prevents duplicate registration and applies visible Main UI geometry", () => {
   const fake = fakeBootstrap();
   const noop = () => undefined;
-  const callbacks: BootstrapCallbacks = { open: noop, capture: noop, openInbox: noop, openNowWork: noop, diagnostics: noop };
+  const callbacks: BootstrapCallbacks = { open: noop, capture: noop, openReview: noop, openNowWork: noop, diagnostics: noop };
   const registration = new BootstrapRegistration();
   assert.equal(registration.registerToolbar(fake.host), true);
   assert.equal(registration.registerToolbar(fake.host), false);

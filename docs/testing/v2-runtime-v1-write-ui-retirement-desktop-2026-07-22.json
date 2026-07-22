@@ -1,0 +1,38 @@
+{
+  "gate": "V2-ARCH-001",
+  "date": "2026-07-22",
+  "status": "PASS",
+  "environment": {
+    "logseq": "0.10.15",
+    "node": "20.20.2",
+    "graph": "dedicated local test graph",
+    "database": "isolated temporary SQLite"
+  },
+  "observations": {
+    "runtimeStages": "READY",
+    "formalWrites": true,
+    "topAction": "v2-candidate-open",
+    "captureActionPresent": false,
+    "defaultWorkspace": "now",
+    "inboxNavigationPresent": false,
+    "candidateFailureVisible": true,
+    "candidateFailureWritesExecuted": false,
+    "v1AuditWriteActionsPresent": false,
+    "semanticCommitProjection": "V2 Local Service",
+    "auditFailureDistinctFromEmpty": true,
+    "projectReentryAuthority": "V2 Local Service",
+    "pendingSemanticCommits": 0,
+    "sourceAnchorConflicts": 0,
+    "explicitSyncTransportReady": true,
+    "graphReadBridgeActive": true,
+    "v1PreviousSlotActionPresent": false,
+    "v1CompatibilityProbeActionsPresent": false
+  },
+  "cleanup": {
+    "descriptorCleared": true,
+    "serviceStopped": true,
+    "runtimeMovedToTrash": true,
+    "graphBodyModified": false
+  },
+  "newPersistenceOrProtocol": false
+}

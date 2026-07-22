@@ -8,7 +8,6 @@ function model(): UiModel {
   return {
     workspace: "objects",
     agent: { enabled: false, providerId: "no-agent" },
-    inbox: [],
     now: { goal: "开始行动并处理高价值注意项", items: [], hidden: ["完整历史", "已结束对象", "内部属性", "低价值关联"] },
     objects: [],
     proposals: [],
@@ -23,11 +22,64 @@ function model(): UiModel {
 
 test("shell exposes restrained core workspaces and no-agent degradation", () => {
   const html = renderApp(model());
-  for (const label of ["Inbox", "现在工作", "对象", "Proposal Review", "Project 重入", "迁移", "审计与恢复"]) assert.match(html, new RegExp(label));
+  for (const label of ["现在工作", "对象", "Proposal Review", "Project 重入", "迁移", "审计与恢复"]) assert.match(html, new RegExp(label));
+  assert.doesNotMatch(html, /data-value="inbox"/);
   assert.match(html, /Agent disabled/);
   assert.match(html, /基础事务系统可用/);
   assert.match(html, /<nav aria-label="主要工作区">/);
   assert.match(html, /data-value="objects" aria-current="page"/);
+  assert.match(html, /整理当前页/);
+  assert.match(html, /data-action="v2-candidate-open"/);
+  assert.doesNotMatch(html, /data-action="capture"/);
+});
+
+test("V2 audit is read-only and delegates recovery to the Local Service CLI", () => {
+  const value = model();
+  value.workspace = "audit";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:v2", proposalId: "proposal:v2", status: "RECOVERY_REQUIRED", beforeStateChecksum: "before-checksum", createdAt: "2026-07-22T08:00:00.000Z", updatedAt: "2026-07-22T08:01:00.000Z", errorCode: "VERIFY_FAILED" }];
+  const html = renderApp(value);
+  assert.match(html, /SQLite 单一权威/);
+  assert.match(html, /tc backup/);
+  assert.match(html, /RECOVERY_REQUIRED/);
+  assert.match(html, /VERIFY_FAILED/);
+  for (const action of ["export-backup", "verify-backup", "recover-pending", "scan-anchors"]) assert.doesNotMatch(html, new RegExp(`data-action="${action}"`));
+});
+
+test("V2 audit distinguishes a failed Service projection from an empty ledger", () => {
+  const value = model();
+  value.workspace = "audit";
+  value.v2SemanticCommits = [];
+  value.v2AuditLoadError = "service unavailable";
+  const html = renderApp(value);
+  assert.match(html, /SemanticCommit 投影不可用/);
+  assert.match(html, /service unavailable/);
+  assert.doesNotMatch(html, /还没有 V2 SemanticCommit/);
+});
+
+test("Project reentry is projected from V2 objects, ownership, associations, and Now Work", () => {
+  const value = model();
+  value.workspace = "reentry";
+  value.v2Objects = [
+    { objectId: "project_1", objectType: "PROJECT", version: 3, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "发布 V2", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T01:00:00.000Z", sourceOrCreationEvent: "event_1" },
+    { objectId: "task_1", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "完成发布审计", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T01:00:00.000Z", sourceOrCreationEvent: "event_2" },
+    { objectId: "output_1", objectType: "OUTPUT", version: 1, lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, text: "验收报告", createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T01:00:00.000Z", sourceOrCreationEvent: "event_3" },
+  ];
+  value.v2PrimaryOwnerships = [{ ownerObjectId: "project_1", childObjectId: "task_1", assignedAt: "2026-07-22T01:00:00.000Z" }];
+  value.v2Associations = [{ associationId: "rel_1", sourceObjectId: "project_1", targetObjectId: "output_1", associationKind: "RELATED", status: "ACTIVE", createdAt: "2026-07-22T01:00:00.000Z", updatedAt: "2026-07-22T01:00:00.000Z" }];
+  value.v2NowWork = {
+    generatedAt: "2026-07-22T01:00:00.000Z",
+    focus: [],
+    next: [{ objectId: "project_1", objectType: "PROJECT", version: 3, text: "发布 V2", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-22T01:00:00.000Z", reason: "下一步：完成发布审计", primaryAnchorExternalId: "block-project" }],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  const html = renderApp(value);
+  assert.match(html, /V2 SQLite 实时投影/);
+  assert.match(html, /发布 V2/);
+  assert.match(html, /当前主归属对象[\s\S]*完成发布审计/);
+  assert.match(html, /相关对象[\s\S]*验收报告/);
+  assert.match(html, /下一步：完成发布审计/);
+  for (const action of ["v2-open-primary-anchor", "v2-condition-open", "v2-focus-add"]) assert.match(html, new RegExp(`data-action="${action}"`));
 });
 
 test("Migration workspace projects the Service ledger without accepting bundle content or direct writes", () => {
@@ -387,29 +439,8 @@ test("object drawer does not render empty optional sections", () => {
   assert.doesNotMatch(html, />推进 Phase<\/button>/);
 });
 
-test("Inbox and Proposal Review expose the complete manual and partial-review controls", () => {
+test("Proposal Review exposes the complete partial-review controls", () => {
   const value = model();
-  value.workspace = "inbox";
-  value.inbox = [{
-    captureId: "cap_1", phase: "NEW", originalText: "原始输入", sourceAnchorId: "anc_1", captureMethod: "CURRENT_BLOCK",
-    capturedAt: "2026-07-17T00:00:00.000Z", updatedAt: "2026-07-17T00:00:00.000Z", resolvedObjectIds: [],
-  }];
-  let html = renderApp(value);
-  for (const action of ["open-source", "manual-formalize", "create-manual-proposal", "link-existing-object", "defer", "no-action"]) {
-    assert.match(html, new RegExp(`data-action="${action}"`));
-  }
-  assert.match(html, /type="button"/);
-  value.inbox[0]!.sourcePage = "19";
-  value.inboxDialog = { captureId: "cap_1", kind: "formalize" };
-  value.inboxActionStates = { "manual-formalize:cap_1": { status: "error", correlationId: "TC-20260718-test", message: "failed" } };
-  html = renderApp(value);
-  assert.doesNotMatch(html, /来源：19/);
-  assert.match(html, /来源：未知来源/);
-  assert.match(html, /submit-formalize/);
-  assert.match(html, /<option>AREA<\/option>/);
-  assert.match(html, /data-field="ownerConfirmed"/);
-  assert.match(html, /单独确认这项高影响变化/);
-  assert.match(html, /诊断 ID：TC-20260718-test/);
   value.workspace = "review";
   value.reviewMode = "proposals";
   value.proposals = [{
@@ -421,7 +452,7 @@ test("Inbox and Proposal Review expose the complete manual and partial-review co
     executable: 1, blocked: 0, pending: 0, rejected: 0, effects: ["改写正文"], affectedObjects: [], affectedViews: ["Audit / Recovery"],
     affectedFiles: ["Logseq Block graph / block"], downstream: [], validationErrors: [], commitReady: true,
   };
-  html = renderApp(value);
+  const html = renderApp(value);
   assert.match(html, /建议正文/);
   assert.match(html, /readable-diff/);
   assert.match(html, /最终影响预览/);
@@ -718,15 +749,14 @@ test("relation projection failure is explicit without hiding formal objects", ()
 test("formal plugin entry does not regress to host browser prompts", async () => {
   const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /window\.(?:prompt|confirm)\s*\(/);
-  for (const kind of ["edit-object", "set-owner", "confirm-review-accept", "confirm-phase", "confirm-rebind", "confirm-undo"]) {
+  for (const kind of ["v2-candidate-update", "confirm-v2-commit", "confirm-v2-undo", "v2-condition", "v2-deadline"]) {
     assert.match(source, new RegExp(`openActionDialog\\("${kind}"`));
   }
 });
 
-test("formal V2 plugin entry keeps the writable V1 FileStorage runtime inactive", async () => {
+test("formal V2 plugin entry excludes the writable V1 runtime", async () => {
   const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(source, /repository\s*=\s*new VersionedStateRepository/);
-  assert.doesNotMatch(source, /blobStore\s*=\s*new LogseqFileStorageBlobStore/);
+  for (const token of ["@task-copilot/application", "VersionedStateRepository", "LogseqFileStorageBlobStore", "exportRecoveryBundle", "restoreRecoveryBundle", "requireTaskCopilot", "let taskCopilot", "const taskCopilot", "@task-copilot/persistence"]) assert.doesNotMatch(source, new RegExp(token));
   assert.match(source, /V1 FileStorage inactive/);
   for (const token of [
     "v2-now-filter",
@@ -746,12 +776,7 @@ test("formal V2 plugin entry keeps the writable V1 FileStorage runtime inactive"
   assert.match(source, /enterRestrictedServiceMode\("SERVICE_DISCOVERY_IN_PROGRESS"/);
   assert.match(source, /Local Service 正在重连或已不可写；旧预览已作废/);
   assert.match(source, /Primary Anchor 预览已过期或不存在；没有执行重新绑定/);
-  assert.ok(
-    source.indexOf('if (action === "v2-rebind-open")') < source.indexOf("const taskCopilot = requireTaskCopilot();"),
-    "V2 Anchor recovery must remain available without activating the frozen V1 runtime",
-  );
-  assert.ok(
-    source.indexOf('if (action === "v2-candidate-open")') < source.indexOf("const taskCopilot = requireTaskCopilot();"),
-    "V2 explicit candidate discovery must remain available without activating the frozen V1 runtime",
-  );
+  assert.match(source, /V2_UI_ACTION_UNSUPPORTED/);
+  assert.match(source, /listSemanticCommits\(\)/);
+  assert.match(source, /listPrimaryAnchors\(cursor, true\)/);
 });

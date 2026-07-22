@@ -14,7 +14,7 @@ export interface BootstrapHost {
 export interface BootstrapCallbacks {
   open(): unknown;
   capture(): unknown;
-  openInbox(): unknown;
+  openReview(): unknown;
   openNowWork(): unknown;
   diagnostics(): unknown;
 }
@@ -22,7 +22,7 @@ export interface BootstrapCallbacks {
 export const COMMAND_KEYS = {
   open: "task-copilot-command-open",
   capture: "task-copilot-command-capture-current-block",
-  inbox: "task-copilot-command-open-inbox",
+  review: "task-copilot-command-open-review",
   now: "task-copilot-command-open-now-work",
   diagnostics: "task-copilot-command-runtime-diagnostics",
 } as const;
@@ -47,8 +47,8 @@ export class BootstrapRegistration {
   registerCommands(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
     if (this.commandsRegistered) return false;
     host.App.registerCommandPalette({ key: COMMAND_KEYS.open, label: "Task Copilot: Open" }, callbacks.open);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.capture, label: "Task Copilot: Capture Current Block" }, callbacks.capture);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.inbox, label: "Task Copilot: Open Inbox" }, callbacks.openInbox);
+    host.App.registerCommandPalette({ key: COMMAND_KEYS.capture, label: "Task Copilot: Review Current Page" }, callbacks.capture);
+    host.App.registerCommandPalette({ key: COMMAND_KEYS.review, label: "Task Copilot: Open Review Center" }, callbacks.openReview);
     host.App.registerCommandPalette({ key: COMMAND_KEYS.now, label: "Task Copilot: Open Now Work" }, callbacks.openNowWork);
     host.App.registerCommandPalette({ key: COMMAND_KEYS.diagnostics, label: "Task Copilot: Runtime Diagnostics" }, callbacks.diagnostics);
     host.Editor.registerSlashCommand("Task Copilot: Open", callbacks.open);

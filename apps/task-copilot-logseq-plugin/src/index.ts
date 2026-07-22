@@ -1,23 +1,11 @@
 import "@logseq/libs";
 
-import type {
-  TaskCopilot,
-  ProjectReentryView,
-} from "@task-copilot/application";
-import type { ConditionKind, ObjectType, Phase, V2Condition, V2MiniProjectClosure } from "@task-copilot/domain";
+import type { V2Condition, V2MiniProjectClosure } from "@task-copilot/domain";
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
   stripLogseqBlockIdentityProperty,
-  type LogseqContentPort,
-  type LogseqFileStorageBlobStore,
 } from "@task-copilot/logseq-adapter";
-import {
-  exportRecoveryBundle,
-  restoreRecoveryBundle,
-  type RecoveryBundle,
-  type VersionedStateRepository,
-} from "@task-copilot/persistence";
 
 import {
   MAIN_UI_ROOT_ID,
@@ -29,7 +17,7 @@ import {
 } from "./runtime-diagnostics.ts";
 import { BootstrapRegistration, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
 import { renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
-import { InboxActionController, createDelegatedActionHandler } from "./inbox-action-controller.ts";
+import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger } from "./structured-logger.ts";
 import {
   createElectronDescriptorReader,
@@ -70,27 +58,17 @@ import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
 
 let appRoot: HTMLElement | undefined;
-const v1Runtime: {
-  blobStore?: LogseqFileStorageBlobStore;
-  repository?: VersionedStateRepository;
-  contentPort?: LogseqContentPort;
-} = {};
-let taskCopilot: TaskCopilot | undefined;
 const diagnostics = new RuntimeDiagnostics();
 const bootstrapRegistration = new BootstrapRegistration();
 const cleanupHooks: Array<() => void> = [];
 let featureReady = false;
 let uiBound = false;
-let workspace: Workspace = "inbox";
+let workspace: Workspace = "now";
 let reviewMode: NonNullable<UiModel["reviewMode"]> = "candidates";
 let v2NowWorkTypeFilter: V2NowWorkTypeFilter = "ALL";
 let v2NowWorkGrouping: V2NowWorkGrouping = "mixed";
-let selectedObjectId: string | undefined;
-let selectedProjectId: string | undefined;
 let message: string | undefined;
 let latestError: string | undefined;
-let recoveryReport: string | undefined;
-let inboxDialog: UiModel["inboxDialog"];
 let actionDialog: UiModel["actionDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 const graphReadBridgeController = new GraphReadBridgeController({
@@ -100,10 +78,6 @@ const graphReadBridgeController = new GraphReadBridgeController({
 }, {
   onIssue: restrictServiceRuntimeAfterTransportFailure,
 });
-let inboxActionController: InboxActionController | undefined;
-let runtimeProbeResult: unknown = { status: "not-run" };
-const inboxProbeWaiters = new Map<string, () => void>();
-let previousSlotRecoveryArmedAt: number | undefined;
 let firstRunMode = false;
 let firstRunAction: FirstRunAction | undefined;
 let serviceRuntimeClient: ServiceRuntimeClient | undefined;
@@ -135,11 +109,6 @@ let serviceConnection: ServiceConnectionState = {
   formalWritesAvailable: false,
   graphEditingAvailable: true,
 };
-
-function requireTaskCopilot(): TaskCopilot {
-  if (!taskCopilot || !featureReady) throw new Error("TASK_COPILOT_FEATURE_NOT_READY: 功能尚未就绪；请打开 Runtime Diagnostics。");
-  return taskCopilot;
-}
 
 function requireAppRoot(): HTMLElement {
   const root = appRoot ?? document.getElementById(MAIN_UI_ROOT_ID);
@@ -203,166 +172,79 @@ function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>
 }
 
 async function model(): Promise<UiModel> {
-  if (!taskCopilot) {
-    let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
-    let v2Candidates: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listCandidates"]>> = [];
-    let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
-    let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
-    let v2Associations: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listAssociations"]>> = [];
-    let v2PrimaryOwnerships: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listPrimaryOwnerships"]>> = [];
-    let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
-    let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
-    let v2ProposalLoadError: string | undefined;
-    let v2RelationLoadError: string | undefined;
-    let v2MigrationLoadError: string | undefined;
-    if (serviceConnection.status === "READY" && serviceRuntimeClient) {
-      try {
-        [v2Proposals, v2SemanticCommits, v2Objects, v2NowWork, v2Candidates] = await Promise.all([
-          serviceRuntimeClient.listProposals(),
-          serviceRuntimeClient.listSemanticCommits(),
-          serviceRuntimeClient.listObjects(),
-          serviceRuntimeClient.nowWork(),
-          serviceRuntimeClient.listCandidates(),
-        ]);
-      } catch (error) {
-        v2ProposalLoadError = explain(error);
-      }
-      try {
-        [v2Associations, v2PrimaryOwnerships] = await Promise.all([
-          serviceRuntimeClient.listAssociations(),
-          serviceRuntimeClient.listPrimaryOwnerships(),
-        ]);
-      } catch (error) {
-        v2RelationLoadError = explain(error);
-      }
-      try {
-        v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns();
-      } catch (error) {
-        v2MigrationLoadError = explain(error);
-      }
-    }
-    const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
-    return {
-      workspace,
-      agent: { enabled: false, providerId: "no-agent" },
-      inbox: [],
-      now: { goal: "开始行动并处理高价值注意项", items: [], hidden: ["完整历史", "已结束对象", "内部属性", "低价值关联"] },
-      objects: [],
-      proposals: [],
-      commits: [],
-      events: [],
-      auditProjection: { anchorConflicts: [], undoableCommitIds: [] },
-      reentryProjects: [],
-      signalsByObject: {},
-      proposalImpacts: {},
-      ...(message ? { message } : {}),
-      ...(latestError ? { error: latestError } : {}),
-      ...(actionDialog ? { actionDialog } : {}),
-      runtime: {
-        pluginVersion: diagnostics.snapshot().plugin_version,
-        runtimeStatus: diagnostics.snapshot().runtime_status,
-        storeStatus: diagnostics.snapshot().store_status,
-        currentGraph: diagnostics.snapshot().current_graph,
-      },
-      v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
-      v2AreaAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
-      v2AreaBusy,
-      v2Objects,
-      v2Associations,
-      v2PrimaryOwnerships,
-      ...(v2RelationLoadError ? { v2RelationLoadError } : {}),
-      v2AssociationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
-      v2AssociationBusy: v2AssociationSubmission.busy,
-      v2OwnershipCommitBusy,
-      v2LifecycleCommitBusy,
-      v2ClosureProposalBusy,
-      v2LifecycleProposalBusy,
-      v2ClosureDraftBusy,
-      ...(v2ClosureDraftInput ? { v2ClosureDraftInput } : {}),
-      v2LegacyTransferBusy,
-      v2ClosureReviewBusy,
-      v2Proposals,
-      v2Candidates,
-      v2CandidateSourcePreviews,
-      v2MigrationRuns,
-      v2SemanticCommits,
-      v2CandidatePanel,
-      v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
-      v2ProviderAvailable: serviceConnection.status === "READY" && serviceConnection.capabilities.provider && Boolean(serviceRuntimeClient),
-      v2ProviderState,
-      v2ProviderRevisionBusy,
-      reviewMode,
-      ...(v2NowWork ? { v2NowWork } : {}),
-      v2NowWorkTypeFilter,
-      v2NowWorkGrouping,
-      ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
-      ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
-    };
-  }
-  const app = requireTaskCopilot();
-  const [inbox, now, objects, proposals, commits, events, auditProjection] = await Promise.all([
-    app.listInbox(),
-    app.queryNowWork(),
-    app.listObjects(),
-    app.listProposals(),
-    app.listCommits(),
-    app.getAuditTrail(),
-    app.getAuditProjection(),
-  ]);
-  const selectedObject = selectedObjectId ? objects.find((object) => object.objectId === selectedObjectId) : undefined;
-  const selectedObjectDetail = selectedObject ? await app.getObjectDetail(selectedObject.objectId) : undefined;
-  const signalsByObject = Object.fromEntries(await Promise.all(objects.map(async (object) => [object.objectId, await app.getObjectSignals(object.objectId)] as const)));
-  const proposalImpacts = Object.fromEntries(
-    await Promise.all(proposals.filter((proposal) => proposal.status === "OPEN").map(async (proposal) => [proposal.proposalId, await app.getProposalImpact(proposal.proposalId)] as const)),
-  );
-  const reentryProjects = objects.filter((object) => object.objectType === "PROJECT");
-  const project = reentryProjects.find((object) => object.objectId === selectedProjectId) ?? reentryProjects[0];
-  if (project) selectedProjectId = project.objectId;
-  let reentry: ProjectReentryView | undefined;
-  if (project) reentry = await app.getProjectReentry(project.objectId);
   let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
   let v2Candidates: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listCandidates"]>> = [];
   let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
-  let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
+  let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
+  let v2Associations: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listAssociations"]>> = [];
+  let v2PrimaryOwnerships: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listPrimaryOwnerships"]>> = [];
   let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
+  let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
   let v2ProposalLoadError: string | undefined;
+  let v2AuditLoadError: string | undefined;
+  let v2RelationLoadError: string | undefined;
   let v2MigrationLoadError: string | undefined;
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
-    try { [v2Proposals, v2SemanticCommits, v2NowWork, v2Candidates] = await Promise.all([serviceRuntimeClient.listProposals(), serviceRuntimeClient.listSemanticCommits(), serviceRuntimeClient.nowWork(), serviceRuntimeClient.listCandidates()]); } catch (error) { v2ProposalLoadError = explain(error); }
-    try { v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns(); } catch (error) { v2MigrationLoadError = explain(error); }
+    try {
+      [v2Proposals, v2Objects, v2NowWork, v2Candidates] = await Promise.all([
+        serviceRuntimeClient.listProposals(),
+        serviceRuntimeClient.listObjects(),
+        serviceRuntimeClient.nowWork(),
+        serviceRuntimeClient.listCandidates(),
+      ]);
+    } catch (error) {
+      v2ProposalLoadError = explain(error);
+    }
+    try {
+      v2SemanticCommits = await serviceRuntimeClient.listSemanticCommits();
+    } catch (error) {
+      v2AuditLoadError = explain(error);
+    }
+    try {
+      [v2Associations, v2PrimaryOwnerships] = await Promise.all([
+        serviceRuntimeClient.listAssociations(),
+        serviceRuntimeClient.listPrimaryOwnerships(),
+      ]);
+    } catch (error) {
+      v2RelationLoadError = explain(error);
+    }
+    try {
+      v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns();
+    } catch (error) {
+      v2MigrationLoadError = explain(error);
+    }
   }
   const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
   return {
     workspace,
-    agent: app.agentStatus(),
-    inbox,
-    now,
-    objects,
-    proposals,
-    commits,
-    events,
-    auditProjection,
-    reentryProjects,
-    ...(selectedProjectId ? { selectedReentryProjectId: selectedProjectId } : {}),
-    signalsByObject,
-    proposalImpacts,
-    ...(selectedObjectDetail ? { selectedObjectDetail } : {}),
-    ...(reentry ? { reentry } : {}),
+    agent: { enabled: false, providerId: "no-agent" },
+    now: { goal: "开始行动并处理高价值注意项", items: [], hidden: ["完整历史", "已结束对象", "内部属性", "低价值关联"] },
+    objects: [],
+    proposals: [],
+    commits: [],
+    events: [],
+    auditProjection: { anchorConflicts: [], undoableCommitIds: [] },
+    reentryProjects: [],
+    signalsByObject: {},
+    proposalImpacts: {},
     ...(message ? { message } : {}),
     ...(latestError ? { error: latestError } : {}),
-    ...(recoveryReport ? { recoveryReport } : {}),
+    ...(actionDialog ? { actionDialog } : {}),
     runtime: {
       pluginVersion: diagnostics.snapshot().plugin_version,
       runtimeStatus: diagnostics.snapshot().runtime_status,
       storeStatus: diagnostics.snapshot().store_status,
       currentGraph: diagnostics.snapshot().current_graph,
     },
-    ...(inboxActionController ? { inboxActionStates: inboxActionController.snapshot() } : {}),
-    ...(inboxDialog ? { inboxDialog } : {}),
-    ...(actionDialog ? { actionDialog } : {}),
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2AreaAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2AreaBusy,
+    v2Objects,
+    v2Associations,
+    v2PrimaryOwnerships,
+    ...(v2RelationLoadError ? { v2RelationLoadError } : {}),
+    v2AssociationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+    v2AssociationBusy: v2AssociationSubmission.busy,
     v2OwnershipCommitBusy,
     v2LifecycleCommitBusy,
     v2ClosureProposalBusy,
@@ -386,8 +268,10 @@ async function model(): Promise<UiModel> {
     v2NowWorkTypeFilter,
     v2NowWorkGrouping,
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
+    ...(v2AuditLoadError ? { v2AuditLoadError } : {}),
     ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
   };
+
 }
 
 async function refresh(): Promise<void> {
@@ -420,11 +304,6 @@ async function refresh(): Promise<void> {
   }
 }
 
-function actions(): InboxActionController {
-  inboxActionController ??= new InboxActionController(operationalLogger, refresh);
-  return inboxActionController;
-}
-
 function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: string): void {
   graphReadBridgeController.stop();
   if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
@@ -454,16 +333,35 @@ function restrictServiceRuntimeAfterTransportFailure(errorCode: string): void {
 
 async function fullDiagnosticsSnapshot() {
   const base = diagnostics.snapshot();
-  const state = featureReady && taskCopilot ? await taskCopilot.exportState().catch(() => undefined) : undefined;
+  let pendingSemanticCommits: number | "unavailable" = "unavailable";
+  let sourceAnchorConflicts: number | "unavailable" = "unavailable";
+  if (serviceConnection.status === "READY" && serviceRuntimeClient) {
+    try {
+      const commits = await serviceRuntimeClient.listSemanticCommits();
+      pendingSemanticCommits = commits.filter((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED").length;
+      let cursor: string | undefined;
+      let conflicts = 0;
+      const visitedCursors = new Set<string>();
+      do {
+        const page = await serviceRuntimeClient.listPrimaryAnchors(cursor, true);
+        conflicts += page.anchors.filter((anchor) => anchor.status === "missing" || anchor.status === "conflict").length;
+        cursor = page.nextCursor;
+        if (cursor && visitedCursors.has(cursor)) throw new Error("V2_DIAGNOSTICS_ANCHOR_CURSOR_LOOP");
+        if (cursor) visitedCursors.add(cursor);
+      } while (cursor);
+      sourceAnchorConflicts = conflicts;
+    } catch (error) {
+      operationalLogger.log("warn", "query-refresh", "v2_diagnostics_facts_unavailable", { result: "unavailable", errorCode: explain(error) });
+    }
+  }
   return {
     ...base,
     plugin_commit: PLUGIN_COMMIT,
     persistence_backend: explicitSyncController
       ? "V2 SQLite via Local Service; V1 FileStorage inactive"
-      : base.store_status === "NOT_STARTED" ? "not initialized" : "Logseq FileStorage checksummed A/B JSON",
-    pending_semantic_commits: state?.commits.filter((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED").length ?? 0,
-    source_anchor_conflicts: (state?.anchors.filter((anchor) => anchor.status === "missing" || anchor.status === "conflict").length ?? 0) + (state?.captures.filter((capture) => capture.sourceConflict).length ?? 0),
-    runtime_shape_summary: runtimeProbeResult,
+      : base.store_status === "NOT_STARTED" ? "not initialized" : "V2 SQLite via Local Service; connection restricted",
+    pending_semantic_commits: pendingSemanticCommits,
+    source_anchor_conflicts: sourceAnchorConflicts,
     event_listener_status: { rootClick: uiBound, settings: featureReady, explicitSync: explicitSyncController !== undefined, graphReadBridge: graphReadBridgeController.isActive(), unhandledRejection: true, globalError: true },
     explicit_sync: explicitSyncState,
     recent_logs: operationalLogger.snapshot(),
@@ -549,13 +447,6 @@ function dialogSelectedVersion(name: string): number | undefined {
   if (!value) return undefined;
   const version = Number(value);
   return Number.isSafeInteger(version) && version > 0 ? version : undefined;
-}
-
-function openInboxDialog(captureId: string, kind: NonNullable<UiModel["inboxDialog"]>["kind"]): Promise<void> {
-  const correlationId = `dialog-${Date.now()}`;
-  operationalLogger.log("info", "ui-action", "ui_action_clicked", { correlationId, actionId: kind, captureId });
-  inboxDialog = { captureId, kind };
-  return refresh();
 }
 
 async function run(action: () => Promise<void>, success?: string): Promise<void> {
@@ -921,37 +812,6 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await showRuntimeDiagnostics();
     return;
   }
-  if (action === "recover-previous-slot") {
-    const repository = v1Runtime.repository;
-    if (!repository) throw new Error("V1 Persistence Repository 未启用，无法恢复。");
-    const now = Date.now();
-    if (!previousSlotRecoveryArmedAt || now - previousSlotRecoveryArmedAt > 30_000) {
-      previousSlotRecoveryArmedAt = now;
-      diagnostics.setNotice({
-        code: "PREVIOUS_SLOT_RECOVERY_CONFIRM_REQUIRED",
-        message: "尚未执行恢复。只有 active payload 已损坏时才可切换；损坏 Slot 会保留作为证据。",
-        next_step: "如确认继续，请在 30 秒内再次点击“恢复上一可读 Slot”。",
-      });
-      await showRuntimeDiagnostics();
-      return;
-    }
-    previousSlotRecoveryArmedAt = undefined;
-    try {
-      const recovered = await repository.recoverPreviousSlot();
-      diagnostics.setRecoveryState(`explicit previous-slot recovery: generation ${recovered.previousGeneration}, ${recovered.previousActiveSlot} -> ${recovered.recoveredSlot}, revision ${recovered.recoveredRevision}`);
-      diagnostics.setNotice({
-        code: "PREVIOUS_SLOT_RECOVERED",
-        message: `已切换到 ${recovered.recoveredSlot}，revision ${recovered.recoveredRevision}；损坏 Slot 未删除。`,
-        next_step: "请在 Logseq 插件页禁用并重新启用 Task Copilot，再扫描 Pending Commit。",
-      });
-      operationalLogger.log("info", "plugin-lifecycle", "previous_slot_recovered", { result: "success", ...recovered });
-    } catch (error) {
-      latestError = explain(error);
-      operationalLogger.log("error", "plugin-lifecycle", "previous_slot_recovery_failed", { result: "error" }, error);
-    }
-    await showRuntimeDiagnostics();
-    return;
-  }
   if (action === "clear-diagnostics") {
     operationalLogger.clear();
     message = "内存日志已清空。";
@@ -964,51 +824,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await showRuntimeDiagnostics();
     return;
   }
-  if (action === "source-resolver-probe") {
-    const correlationId = `probe-${Date.now()}`;
-    operationalLogger.log("info", "source-resolution", "source_resolution_started", { correlationId });
-    try {
-      const contentPort = v1Runtime.contentPort;
-      if (!contentPort) throw new Error("V1 Logseq Content Adapter 未启用。");
-      runtimeProbeResult = await contentPort.sourceProbe();
-      operationalLogger.log("info", "source-resolution", "source_resolution_succeeded", { correlationId, result: "read-only" });
-    } catch (error) {
-      runtimeProbeResult = { status: "failed", message: explain(error), correlationId };
-      operationalLogger.log("error", "source-resolution", "source_resolution_failed", { correlationId, result: "error" }, error);
-    }
-    await showRuntimeDiagnostics();
-    return;
-  }
-  if (action === "inbox-action-probe") {
-    const correlationId = `probe-${Date.now()}`;
-    operationalLogger.log("info", "ui-action", "ui_action_clicked", { correlationId, actionId: "inbox-action-probe" });
-    const token = `${correlationId}-${Math.random().toString(16).slice(2)}`;
-    const delegated = new Promise<boolean>((resolve) => {
-      inboxProbeWaiters.set(token, () => resolve(true));
-      globalThis.setTimeout(() => { inboxProbeWaiters.delete(token); resolve(false); }, 500);
-    });
-    const probeButton = document.createElement("button");
-    probeButton.type = "button";
-    probeButton.dataset.action = "inbox-probe-ping";
-    probeButton.dataset.value = token;
-    probeButton.hidden = true;
-    requireAppRoot().append(probeButton);
-    probeButton.click();
-    const delegatedHandler = await delegated;
-    probeButton.remove();
-    const count = featureReady ? (await requireTaskCopilot().listInbox()).length : 0;
-    runtimeProbeResult = { status: delegatedHandler && featureReady ? "read-only-pass" : "read-only-fail", probe: "Inbox Action", layers: { domClick: true, delegatedHandler, applicationQuery: featureReady }, inboxCount: count, writesExecuted: false };
-    operationalLogger.log("info", "query-refresh", "query_invalidated", { correlationId, actionId: "inbox-action-probe", result: "probe-only" });
-    await showRuntimeDiagnostics();
-    return;
-  }
   if (action === "runtime-diagnostics") {
     await showRuntimeDiagnostics();
-    return;
-  }
-  if (action === "inbox-probe-ping" && value) {
-    inboxProbeWaiters.get(value)?.();
-    inboxProbeWaiters.delete(value);
     return;
   }
   if (action === "v2-open-primary-anchor" && value) {
@@ -1557,473 +1374,18 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }, "语义组已暂缓；没有修改正式状态。");
     return;
   }
-  if (action === "cancel-inbox-dialog") {
-    inboxDialog = undefined;
-    await refresh();
-    return;
-  }
   if (action === "cancel-action-dialog") {
     v2ClosureDraftInput = undefined;
     actionDialog = undefined;
     await refresh();
     return;
   }
-  const taskCopilot = requireTaskCopilot();
-  if (action === "submit-edit-object" && value) {
-    const text = dialogField("objectText");
-    if (!text) {
-      latestError = "对象正文不能为空。";
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      await taskCopilot.createManualObjectEditProposal(value, {
-        text,
-        completionCriteria: dialogField("objectCompletionCriteria"),
-        nextAction: dialogField("objectNextAction"),
-        currentSummary: dialogField("objectCurrentSummary"),
-        purpose: dialogField("objectPurpose"),
-        targetOutcome: dialogField("objectTargetOutcome"),
-        scopeIn: dialogField("objectScopeIn"),
-        dueAt: dialogField("objectDueAt"),
-        reviewAt: dialogField("objectReviewAt"),
-      });
-      actionDialog = undefined;
-      workspace = "review";
-    }, "对象编辑 Proposal 已创建；Logseq 正文和 Domain State 尚未改变。");
-    return;
-  }
-  if (action === "submit-set-owner" && value) {
-    const ownerObjectId = dialogField("ownerObjectId");
-    if (!ownerObjectId || !dialogChecked("highImpactConfirmed")) {
-      latestError = "请选择主归属，并单独确认这项高影响变化。";
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      await taskCopilot.createManualOwnershipProposal(value, ownerObjectId);
-      actionDialog = undefined;
-      workspace = "review";
-    }, "主归属 Proposal 已创建；正文不会移动，正式归属尚未改变。");
-    return;
-  }
-  if (action === "submit-condition" && value) {
-    const [objectId, rawKind] = value.split("|");
-    if (!objectId || !rawKind) return;
-    const kind = rawKind as ConditionKind;
-    const evidence: Record<string, string> = kind === "WAITING"
-      ? { waitingFor: dialogField("waitingFor"), expectedResult: dialogField("expectedResult"), reviewAt: dialogField("conditionReviewAt") }
-      : { reason: dialogField("conditionReason") };
-    if (Object.values(evidence).some((field) => !field)) {
-      latestError = "Condition 证据字段不能为空。";
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      await taskCopilot.createManualConditionProposal(objectId, kind, evidence);
-      actionDialog = undefined;
-      workspace = "review";
-    }, `Condition ${kind} Proposal 已创建；状态尚未改变。`);
-    return;
-  }
-  if (action === "submit-review-edit" && value) {
-    const [proposalId, operationId] = value.split("|");
-    if (!proposalId || !operationId) return;
-    if (!dialogChecked("finalPayloadConfirmed")) {
-      latestError = "请确认编辑后的最终 payload。";
-      await refresh();
-      return;
-    }
-    let payload: Record<string, unknown>;
-    try {
-      const parsed = JSON.parse(dialogField("operationPayload")) as unknown;
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("payload 必须是 JSON object");
-      payload = parsed as Record<string, unknown>;
-    } catch (error) {
-      latestError = explain(error);
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      const editedHighImpact = (await taskCopilot.getEditedOperationRisk(proposalId, operationId, payload)) === "HIGH";
-      await taskCopilot.reviewProposal(proposalId, {
-        [operationId]: { status: "EDITED", payload, highImpactConfirmed: editedHighImpact },
-      });
-      actionDialog = undefined;
-    }, "已保存用户确认版本；Agent 原建议仍在审计字段中保留。");
-    return;
-  }
-  if (action === "submit-review-defer" && value) {
-    const [proposalId, operationId] = value.split("|");
-    const deferredUntil = dialogField("operationDeferredUntil");
-    const reason = dialogField("operationDeferReason");
-    if (!proposalId || !operationId || !deferredUntil || !reason) {
-      latestError = "请填写复查时间和暂缓原因。";
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      await taskCopilot.deferProposalOperation(proposalId, operationId, deferredUntil, reason);
-      actionDialog = undefined;
-    }, "操作已暂缓；Proposal 保持待审查，Capture 未被解决。");
-    return;
-  }
-  if (action === "submit-reject-proposal" && value) {
-    const reason = dialogField("proposalRejectReason");
-    if (!reason) {
-      latestError = "全部拒绝原因不能为空。";
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      const proposal = await taskCopilot.rejectProposal(value, reason);
-      actionDialog = undefined;
-      message = proposal.status === "COMMITTED"
-        ? "其余操作已拒绝；此前已经提交的正式变化保持不变。"
-        : "Proposal 已全部拒绝；没有正式正文或领域变化。";
-    });
-    return;
-  }
-  if (action === "submit-review-accept" && value) {
-    const [proposalId, operationId] = value.split("|");
-    if (!proposalId || !operationId || !dialogChecked("actionConfirmed")) {
-      latestError = "请单独确认这个高影响操作。";
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      await taskCopilot.reviewProposal(proposalId, { [operationId]: { status: "ACCEPTED", highImpactConfirmed: true } });
-      actionDialog = undefined;
-    });
-    return;
-  }
-  if (action === "submit-phase" && value) {
-    const [objectId, requestedPhase, renderedObjectType, renderedPhase] = value.split("|");
-    if (!objectId || !requestedPhase || !renderedObjectType || !renderedPhase) return;
-    if (requestedPhase === "COMPLETED" && !dialogChecked("actionConfirmed")) {
-      latestError = "请确认 Project 完成检查。";
-      await refresh();
-      return;
-    }
-    const reason = renderedPhase === "COMPLETED" && requestedPhase === "ACTIVE" ? dialogField("phaseReason") : "";
-    if (renderedPhase === "COMPLETED" && requestedPhase === "ACTIVE" && !reason) {
-      latestError = "重新打开原因不能为空。";
-      await refresh();
-      return;
-    }
-    const object = await taskCopilot.getObject(objectId);
-    const available = await taskCopilot.getAvailableObjectPhases(objectId);
-    if (object.objectType !== renderedObjectType || object.phase !== renderedPhase || !available.includes(requestedPhase as Phase)) {
-      actionDialog = undefined;
-      latestError = `对象状态已变化；已刷新合法 Phase，请重新选择。`;
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      await taskCopilot.createManualPhaseProposal(objectId, requestedPhase as Phase, {
-        ...(requestedPhase === "COMPLETED" ? { completionChecksPassed: true } : {}),
-        ...(reason ? { reason } : {}),
-      });
-      actionDialog = undefined;
-      workspace = "review";
-    }, `Phase ${requestedPhase} Proposal 已创建；状态尚未改变。`);
-    return;
-  }
-  if (action === "submit-rebind-anchor" && value) {
-    if (!dialogChecked("actionConfirmed")) {
-      latestError = "请确认重新绑定主正文 Anchor。";
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      await taskCopilot.rebindPrimaryAnchor(value);
-      actionDialog = undefined;
-    }, "Anchor 已重新绑定。");
-    return;
-  }
-  if (action === "submit-undo-commit" && value) {
-    if (!dialogChecked("actionConfirmed")) {
-      latestError = "请确认撤销 SemanticCommit。";
-      await refresh();
-      return;
-    }
-    await run(async () => {
-      const commit = await taskCopilot.undoCommit(value);
-      if (commit.status !== "COMPLETED") throw new Error(`Undo SemanticCommit ${commit.status}：${commit.error?.message ?? "请在审计与恢复中处理"}`);
-      actionDialog = undefined;
-    }, "已创建逆向 SemanticCommit；旧历史未被改写。");
-    return;
-  }
-  if (value && action === "manual-formalize") return openInboxDialog(value, "formalize");
-  if (value && action === "create-manual-proposal") return openInboxDialog(value, "proposal");
-  if (value && action === "link-existing-object") return openInboxDialog(value, "link");
-  if (value && action === "defer") return openInboxDialog(value, "defer");
-  if (value && action === "no-action") return openInboxDialog(value, "dismiss");
-  if (value && action === "open-source") {
-    await actions().execute("open-source", value, async (correlationId) => {
-      await taskCopilot.openCaptureSource(value, { correlationId });
-      message = "已按 Block UUID 定位来源；Capture 身份与来源均保留。";
-      globalThis.setTimeout(() => logseq.hideMainUI(), 600);
-      return message;
-    });
-    return;
-  }
-  if (value && action === "submit-formalize") {
-    const objectType = dialogField("objectType") as ObjectType;
-    const text = dialogField("text");
-    const completionCriteria = dialogField("completionCriteria");
-    const nextAction = dialogField("nextAction");
-    const ownerId = dialogField("ownerId");
-    const ownerConfirmed = dialogChecked("ownerConfirmed");
-    await actions().execute("manual-formalize", value, async (correlationId) => {
-      if (!text) throw new Error("正式正文不能为空。");
-      if (objectType !== "AREA" && (!completionCriteria || !nextAction)) throw new Error("Task、MiniProject 和 Project 的完成标准与下一步不能为空。");
-      const input: Parameters<TaskCopilot["createManualFormalizationProposal"]>[1] = objectType === "AREA"
-        ? { objectType, text, purpose: text }
-        : objectType === "PROJECT"
-        ? { objectType, text, purpose: text, targetOutcome: completionCriteria, scopeIn: "待确认", completionCriteria, nextAction }
-        : objectType === "MINI_PROJECT"
-          ? { objectType, text, targetOutcome: completionCriteria, completionCriteria, nextAction }
-          : { objectType: "TASK", text, completionCriteria, nextAction };
-      if (ownerId && !ownerConfirmed) throw new Error("主归属是高影响变化，必须单独勾选确认。");
-      const context = { correlationId };
-      const proposal = await taskCopilot.createManualFormalizationProposal(value, input, ownerId || undefined, context);
-      await taskCopilot.reviewProposal(proposal.proposalId, Object.fromEntries(proposal.operations.map((operation) => [operation.operationId, operation.riskLevel === "HIGH" ? { status: "ACCEPTED", highImpactConfirmed: true } : "ACCEPTED"])), context);
-      const commit = await taskCopilot.commitProposal(proposal.proposalId, context);
-      if (commit.status !== "COMPLETED") throw new Error(`SemanticCommit ${commit.status}；Capture 保持可恢复，诊断请查看 Audit。`);
-      const state = await taskCopilot.exportState();
-      const capture = state.captures.find((candidate) => candidate.captureId === value);
-      const objectId = capture?.resolvedObjectIds[0];
-      if (!objectId || capture.phase !== "RESOLVED") throw new Error("对象提交后未观察到 Capture RESOLVED；请勿重复提交并检查 Diagnostics。");
-      selectedObjectId = objectId;
-      workspace = "objects";
-      inboxDialog = undefined;
-      message = `已创建 ${objectType}；正文位于原 Block（如有编辑已在同一 Commit 更新），来源 Anchor 已保留，Capture 已解决。`;
-      return message;
-    });
-    return;
-  }
-  if (value && action === "submit-manual-proposal") {
-    const suggestedText = dialogField("suggestedText");
-    await actions().execute("create-manual-proposal", value, async () => {
-      if (!suggestedText) throw new Error("Proposal 至少需要一项建议正文。");
-      await taskCopilot.createManualProposal(value, suggestedText);
-      workspace = "review";
-      inboxDialog = undefined;
-      message = "手工 Proposal 已创建，可在 Proposal Review 中审查。";
-      return message;
-    });
-    return;
-  }
-  if (value && action === "submit-link-existing") {
-    const search = dialogField("objectSearch").toLowerCase();
-    await actions().execute("link-existing-object", value, async () => {
-      const objects = await taskCopilot.listObjects();
-      const matches = objects.filter((object) => object.objectId.toLowerCase() === search || object.text.toLowerCase().includes(search) || object.objectType.toLowerCase() === search);
-      if (matches.length !== 1) throw new Error(matches.length ? "匹配到多个对象，请输入精确对象 ID。" : "未找到对象；可按标题、类型或 ID 搜索。");
-      await taskCopilot.associateCapture(value, matches[0]!.objectId);
-      inboxDialog = undefined;
-      message = "已建立 sourced_from 来源关系；主归属未改变，Capture 已解决。";
-      return message;
-    });
-    return;
-  }
-  if (value && action === "submit-defer") {
-    const raw = dialogField("deferredUntil");
-    const reason = dialogField("deferReason");
-    await actions().execute("defer", value, async () => {
-      const date = new Date(raw);
-      if (!raw || !Number.isFinite(date.getTime()) || !reason) throw new Error("请填写合法复查时间和原因。");
-      await taskCopilot.deferCapture(value, date.toISOString(), reason);
-      inboxDialog = undefined;
-      message = `Capture 已暂缓至 ${date.toLocaleString("zh-CN")}，到期后仍可追踪。`;
-      return message;
-    });
-    return;
-  }
-  if (value && action === "submit-no-action") {
-    const reason = dialogField("dismissReason") || "无需行动";
-    await actions().execute("no-action", value, async () => {
-      await taskCopilot.dismissCapture(value, reason);
-      inboxDialog = undefined;
-      message = "Capture 已标记为无需行动；原始 Block 与审计历史均已保留。";
-      return message;
-    });
-    return;
-  }
-  if (action === "capture") {
-    await run(async () => {
-      await taskCopilot.captureCurrentBlock();
-      workspace = "inbox";
-    }, "已捕获当前 Block；正文未移动，也未自动创建 Task。");
-    return;
-  }
-  if (action === "generate-proposal" && value) {
-    await run(async () => {
-      await taskCopilot.generateProposal(value);
-      workspace = "review";
-    }, "Demo Proposal 已生成；它仍不是正式事实。");
-    return;
-  }
-  if (action === "dismiss-capture" && value) {
-    await run(async () => void (await taskCopilot.dismissCapture(value)), "Capture 已标记为无需行动。");
-    return;
-  }
-  if (action === "open-capture" && value) {
-    await run(async () => taskCopilot.openCaptureSource(value));
-    return;
-  }
-  if ((action === "review-accept" || action === "review-reject") && value) {
-    const [proposalId, operationId, risk] = value.split("|");
-    if (!proposalId || !operationId) return;
-    if (action === "review-accept" && risk === "HIGH") return openActionDialog("confirm-review-accept", `${proposalId}|${operationId}`);
-    await run(async () => {
-      await taskCopilot.reviewProposal(proposalId, {
-        [operationId]: action === "review-accept"
-          ? { status: "ACCEPTED", highImpactConfirmed: false }
-          : "REJECTED",
-      });
-    });
-    return;
-  }
-  if (action === "review-edit" && value) {
-    return openActionDialog("review-edit", value);
-  }
-  if (action === "review-defer" && value) {
-    return openActionDialog("review-defer", value);
-  }
-  if (action === "reject-proposal" && value) {
-    return openActionDialog("reject-proposal", value);
-  }
-  if (action === "commit-proposal" && value) {
-    await run(async () => {
-      const commit = await taskCopilot.commitProposal(value);
-      if (commit.status !== "COMPLETED") throw new Error(`SemanticCommit ${commit.status}：${commit.error?.message ?? "请在审计与恢复中处理"}`);
-      workspace = "audit";
-    }, "SemanticCommit 已完成；结果和撤销入口已记录。");
-    return;
-  }
-  if (action === "select-object" && value) {
-    selectedObjectId = value;
-    workspace = "objects";
-    await refresh();
-    return;
-  }
-  if (action === "select-reentry-project" && value) {
-    selectedProjectId = value;
-    workspace = "reentry";
-    await refresh();
-    return;
-  }
-  if (action === "edit-object" && value) {
-    return openActionDialog("edit-object", value);
-  }
-  if (action === "open-object" && value) {
-    await run(async () => taskCopilot.openObjectText(value));
-    return;
-  }
-  if (action === "set-owner" && value) {
-    return openActionDialog("set-owner", value);
-  }
-  if (action === "view-audit") {
-    workspace = "audit";
-    await refresh();
-    return;
-  }
-  if (action.startsWith("condition-") && value) {
-    const kind = action.slice("condition-".length).toUpperCase() as ConditionKind;
-    if (kind === "WAITING" || kind === "BLOCKED" || kind === "PAUSED") return openActionDialog(`condition-${kind.toLowerCase()}` as ActionDialogKind, value);
-    await run(async () => {
-      await taskCopilot.createManualConditionProposal(value, kind, {});
-      workspace = "review";
-    }, `Condition ${kind} Proposal 已创建；状态尚未改变。`);
-    return;
-  }
-  if (action === "advance-phase" && value) {
-    const [objectId, requestedPhase, renderedObjectType, renderedPhase] = value.split("|");
-    if (!objectId || !requestedPhase || !renderedObjectType || !renderedPhase) return;
-    if (renderedObjectType === "PROJECT" && requestedPhase === "COMPLETED") return openActionDialog("confirm-phase", value);
-    if (renderedPhase === "COMPLETED" && requestedPhase === "ACTIVE") return openActionDialog("reopen-phase", value);
-
-    const object = await taskCopilot.getObject(objectId);
-    const available = await taskCopilot.getAvailableObjectPhases(objectId);
-    const phase = available.find((candidate) => candidate === requestedPhase);
-    if (object.objectType !== renderedObjectType || object.phase !== renderedPhase) {
-      latestError = `对象已从 ${renderedPhase} 变为 ${object.phase}；已刷新合法 Phase，请重新选择。`;
-      await refresh();
-      return;
-    }
-    if (!phase) {
-      latestError = available.length > 0 ? `请选择合法 Phase：${available.join(" / ")}` : `当前 ${object.phase} 没有合法后续流转。`;
-      await refresh();
-      return;
-    }
-    await run(
-      async () => {
-        await taskCopilot.createManualPhaseProposal(objectId, phase, {
-          ...(object.objectType === "PROJECT" && phase === "COMPLETED" ? { completionChecksPassed: true } : {}),
-        });
-        workspace = "review";
-      },
-      `Phase ${phase} Proposal 已创建；状态尚未改变。`,
-    );
-    return;
-  }
-  if (action === "rebind-anchor" && value) {
-    return openActionDialog("confirm-rebind", value);
-  }
-  if (action === "open-anchor" && value) {
-    await run(async () => taskCopilot.openAnchor(value));
-    return;
-  }
-  if (action === "undo-commit" && value) {
-    return openActionDialog("confirm-undo", value);
-  }
-  if (action === "recover-pending") {
-    await run(async () => {
-      const result = await taskCopilot.recoverPendingCommits();
-      recoveryReport = `已安全恢复：${result.recovered.length}；仍需人工处理：${result.recoveryRequired.length}`;
-    });
-    return;
-  }
-  if (action === "scan-anchors") {
-    await run(async () => {
-      const result = await taskCopilot.scanAnchors();
-      recoveryReport = `Anchor 扫描：active ${result.active}；missing ${result.missing}；conflict ${result.conflict}；其他 Graph ${result.unavailable}。`;
-    });
-    return;
-  }
-  if (action === "export-backup") {
-    await run(async () => {
-      const bundle = exportRecoveryBundle(await taskCopilot.exportState());
-      const blobStore = v1Runtime.blobStore;
-      if (!blobStore) throw new Error("V1 FileStorage 未启用；请使用只读迁移导出工具。");
-      await blobStore.set("task-copilot/backups/latest.json", JSON.stringify(bundle));
-      const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `task-copilot-recovery-${bundle.createdAt.replaceAll(":", "-")}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      recoveryReport = `恢复包已写入插件私有备份槽并下载。文件数：${Object.keys(bundle.files).length}`;
-    });
-    return;
-  }
-  if (action === "verify-backup") {
-    await run(async () => {
-      const blobStore = v1Runtime.blobStore;
-      if (!blobStore) throw new Error("V1 FileStorage 未启用；请使用只读迁移导出工具。");
-      const raw = await blobStore.get("task-copilot/backups/latest.json");
-      if (!raw) throw new Error("尚无恢复包，请先创建备份。");
-      const result = restoreRecoveryBundle(JSON.parse(raw) as RecoveryBundle);
-      recoveryReport = `临时 Store 恢复校验完成：对象 ${result.state.objects.length}，关系 ${result.state.relations.length}，事件 ${result.state.events.length}，Missing Anchor ${result.anchorReport.missing.length}，差异 ${result.differences.length}。`;
-    });
-  }
+  throw new Error(`V2_UI_ACTION_UNSUPPORTED: 未注册操作 ${action}；没有执行写入。`);
 }
 
 const onRootClick = createDelegatedActionHandler(handleAction, (error) => {
   const correlationId = `TC-unhandled-${Date.now()}`;
-  latestError = `界面操作失败：${explain(error)}。Capture 与原始 Logseq 内容保持安全。诊断 ID：${correlationId}`;
+  latestError = `界面操作失败：${explain(error)}。Graph 正文与 SQLite 正式状态保持安全。诊断 ID：${correlationId}`;
   operationalLogger.log("error", "ui-action", "ui_action_unhandled", { correlationId, result: "error" }, error);
   void refresh().catch((refreshError) => {
     operationalLogger.log("error", "query-refresh", "ui_refresh_failed", { correlationId, result: "error" }, refreshError);
@@ -2052,9 +1414,8 @@ async function showRuntimeDiagnostics(): Promise<void> {
   requireAppRoot().innerHTML = renderDiagnostics(await fullDiagnosticsSnapshot());
 }
 
-async function captureFromCommand(): Promise<void> {
-  await requireTaskCopilot().captureCurrentBlock();
-  workspace = "inbox";
+async function reviewCurrentPageFromCommand(): Promise<void> {
+  await handleAction("v2-candidate-open");
   await showTaskCopilot();
 }
 
@@ -2098,8 +1459,8 @@ function registerBootstrapShell(): void {
   const host = logseq as unknown as BootstrapHost;
   const callbacks: BootstrapCallbacks = {
     open: showTaskCopilot,
-    capture: () => guardedFeatureCommand(captureFromCommand),
-    openInbox: () => guardedFeatureCommand(() => openWorkspace("inbox")),
+    capture: () => guardedFeatureCommand(reviewCurrentPageFromCommand),
+    openReview: () => guardedFeatureCommand(() => openWorkspace("review")),
     openNowWork: () => guardedFeatureCommand(() => openWorkspace("now")),
     diagnostics: showRuntimeDiagnostics,
   };
@@ -2182,7 +1543,7 @@ async function initializeFeatures(): Promise<void> {
   diagnostics.start("PERSISTENCE_READY");
   diagnostics.setStoreSchema("V2 SQLite owned by Local Service");
   diagnostics.setStoreStatus(serviceConnection.status === "READY" ? "READY" : "READ_ONLY_SAFE_MODE");
-  diagnostics.setRecoveryState("V1 FileStorage inactive; V2 consistency check pending Slice B4");
+  diagnostics.setRecoveryState("V1 FileStorage inactive; V2 consistency is reported by Local Service Doctor and SemanticCommit evidence");
   markReady("PERSISTENCE_READY", "V2 persistence authority remains behind Local Service");
 
   diagnostics.start("MIGRATION_READY");
@@ -2205,7 +1566,7 @@ async function initializeFeatures(): Promise<void> {
   }));
   markReady("EVENTS_READY");
   featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
-  markReady("PLUGIN_READY", "V2 explicit synchronization ready; V1 write UI remains inactive");
+  markReady("PLUGIN_READY", "V2 Local Service runtime ready; V1 FileStorage is migration-only");
 }
 
 async function main(): Promise<void> {
@@ -2229,7 +1590,6 @@ async function main(): Promise<void> {
   logseq.beforeunload(async () => {
     for (const off of cleanupHooks.splice(0).reverse()) off();
     featureReady = false;
-    taskCopilot = undefined;
     logseq.hideMainUI();
     operationalLogger.log("info", "plugin-lifecycle", "plugin_unloaded", { result: "success" });
   });

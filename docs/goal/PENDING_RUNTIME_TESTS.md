@@ -19,13 +19,9 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 | V2-FIRST-RESTRICTED | 三入口首次启用、Service unavailable/protocol mismatch、reload 与普通 Graph 正文可编辑 | PASS — 详见 `docs/runtime/V2_FIRST_RUN_RESTRICTED_DESKTOP_REPORT.md` |
 | V2-DEEPSEEK-E2E23 | 真实 401、真实配置主动取消、受控 HTTP 429、既有 timeout/invalid/empty/truncated 零写入分类 | PASS — 详见 `docs/runtime/V2_DEEPSEEK_E2E23_ERROR_CLASSIFICATION_REPORT.md` |
 
-## 下一次集中 Desktop 检查
+## 当前 Desktop 队列
 
-以下项目必须在 V2 相应自动 Gate 完成后合并执行，不设置中间人工检查点；预计总时长不超过 30 分钟：
-
-1. object_id、Primary Anchor、Commit 链和 Legacy mapping 证据完整；copied-data 迁移、SQLite Restore 与 first-run/restricted 已通过，不重复执行；
-2. Proposal 暂缓/多组依赖组合与真实 Commit process-fault 恢复交互；
-3. Slice D L3/L4 与 E2E-23 已通过，不重复消耗在线额度；后续仅在 Provider 代码或 Prompt 契约变化时做必要回归。
+当前没有未完成的 V2 Desktop Runtime Gate。object_id/Anchor、Proposal 暂缓与依赖、Commit/Undo process-fault、DeepSeek L3/L4/E2E-23、迁移、Restore 和 first-run/restricted 均已有真实证据。只在对应 Runtime 契约或代码变化时重开必要回归；Release 审计不重复消耗在线额度或 Desktop 时间。
 
 ## 已知限定
 

@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress with first-run, restricted Service and SQLite Restore Desktop pass; Slice B1 finite-subtree user loop Desktop pass; Slice B3 Marker, MiniProject three-question Closure, UC-28 Agent/legacy transfer and Task reasoned lifecycle Desktop pass; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice D DeepSeek L4 Desktop pass; Slice E Now Work interactive foundation; Slice F copied-data migration and Project Closure Desktop pass"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 437 tests; 145 rules; 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
+current_slice: "V1 frozen; V2 Slice A-F requirement gates and E2E-01-24 complete; release audit in progress"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; all typecheck/lint/tests/build, Plugin and architecture boundaries, 145 rules, acceptance rehearsal and repository boundary PASS with 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -43,7 +43,7 @@ implemented:
   - "V2-FIRST-001 / E2E-15 Desktop DONE: the three-entry welcome stopped before Store initialization and performed no automatic Graph scan, migration or Provider call; SERVICE_UNAVAILABLE and SERVICE_PROTOCOL_MISMATCH remained formally read-only, the latter persisted across reload, and one ordinary Block UUID remained editable and readable with zero formal objects or persistent queue"
   - "E2E-20 Project Closure DONE: external Agent Proposal and CLI handoff, Desktop high-impact group and final confirmations, object-version revalidation, one Domain SemanticCommit, structured unfinished-Objective disposition, atomic completion, reload-stable readable Plugin projection, completed-Project absence from Now Work and retained Logseq page"
   - "Slice B3 Marker safety and MiniProject three-question Closure Desktop DONE for Marker, sidebar and UC-28: the Agent button shows loading and recoverable Service failure, real Flash fills the same validated Closure Proposal, user edits remain authoritative, and a selected empty Block creates a separate review-only legacy Proposal; nonempty protection, accept-not-applied, final Commit, reload, independent Undo, Backup and Doctor all passed without a new table or recovery path"
-  - "Reasoned cancellation and explicit reopen vertical path: Domain rejects reasonless cancellation/reopen, Plugin creates one review-only Proposal, exact final confirmation reuses one Domain SemanticCommit, and Lifecycle inverse Commit/Undo restores the protected prior state. Task Desktop passed empty-reason rejection, cancellation, final-response Service interruption/restart recovery, explicit reopen, reload and Undo; Project/MiniProject HIGH interaction remains pending"
+  - "Reasoned cancellation and explicit reopen vertical path: Domain rejects reasonless cancellation/reopen, Plugin creates one review-only Proposal, exact final confirmation reuses one Domain SemanticCommit, and Lifecycle inverse Commit/Undo restores the protected prior state. Task MEDIUM and Project/MiniProject HIGH Desktop paths passed empty-reason rejection, review, final confirmation, reload, interruption recovery and dedicated Undo"
   - "V2 Proposal Review now provides one continuous accept, final preview/Diff, explicit Commit, applied status, and inverse Commit/Undo flow with restart continuation and no overwrite of later edits"
   - "Slice D L1 now provides explicit DeepSeek runtime selection, env/Keychain secret references, bounded Structured Output with timeout/cancel/retry/error isolation, deterministic five-layer Prompt assembly, machine-owned Proposal metadata/hash, Domain validation, NO_PROPOSAL zero-write handling, and a capability-gated Review Center current-block entry"
   - "Slice D real DeepSeek measurement: Keychain-only secret reference, default-off fail-fast harness, no-answer Prompt and strict semantic evaluator; E2E-21 positive Provider/Schema path DONE; strict Flash and Pro golden suites each completed 22/22. L4 Desktop completed current-block loading/error, READY/NO_PROPOSAL, direct/revised/partial acceptance, rejection and Diagnostics secret scan with zero Graph/formal Store writes"
@@ -93,7 +93,7 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 E2E-16: stable-identity Proposal wrote Graph, injected existing-Anchor conflict forced Domain failure, Plugin visibly compensated the original body without false success, persisted FAILED/COMPENSATED ledger state across reload, and returned Doctor COMMIT_HEALTHY with zero pending/recovery"
   - "V2 E2E-23: real endpoint invalid-token 401 mapped to LLM_AUTH_FAILED, real Keychain-configured request cancellation settled as LLM_CANCELLED, bounded loopback HTTP 429 mapped to LLM_RATE_LIMITED after the configured retry cap, and all probes remained zero-write and credential-free"
 runtime_checks_pending:
-  - "Remaining architecture and release-status audit; E2E-16, E2E-23, Task/Project/MiniProject reasoned Lifecycle, Commit/Undo process-fault, Proposal defer/dependency and V2-VIEW-001 are complete"
+  - "Release audit only; architecture, E2E-01-24, Task/Project/MiniProject reasoned Lifecycle, Commit/Undo process-fault, Proposal defer/dependency and V2-VIEW-001 are complete"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
@@ -101,7 +101,7 @@ active_risks:
   - "E2E-13 live Graph bridge and external-Agent cross-entry Review are complete; the first online Agent candidate still required an exact-field prompt repair after Domain Validator rejection, so future Prompt changes must preserve validator-first golden coverage"
   - "@logseq/libs 0.0.17 retains upstream npm audit findings; no forced incompatible upgrade"
 user_actions_required: []
-resume_instruction: "Read AGENTS.md, this file, current-status, Pilot report and migration docs. Keep V1 frozen, never dual-write, continue Slice A test-first. Do not claim V1_MVP_PILOT_SUCCESS, Slice D, or V2 completion without their real gates."
+resume_instruction: "Read AGENTS.md, this file, current-status, traceability and the latest Runtime Report. Keep V1 frozen and never dual-write. Continue the release audit without repeating unchanged expensive gates; claim V2 completion only after every release check passes."
 ```
 
 外层仓库分支为 `feature/task-copilot-mvp`。`logseq/` 是 ignored 本地测试 Graph；inner dirty 仅作运行证据，不进入提交。

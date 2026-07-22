@@ -43,6 +43,7 @@ for (const path of ["apps/logseq-plugin-capability-lab/package-lock.json", "apps
 const pluginIndex = await read("apps/task-copilot-logseq-plugin/src/index.ts");
 const ui = await read("apps/task-copilot-logseq-plugin/src/ui.ts");
 assert.doesNotMatch(ui, /StateStore|VersionedStateRepository|FileStorage/, "UI renderer must not write Stores");
-assert.match(pluginIndex, /TaskCopilot/, "Interaction must use Application commands and queries");
+assert.doesNotMatch(pluginIndex, /@task-copilot\/persistence|VersionedStateRepository|LogseqFileStorageBlobStore|exportRecoveryBundle|restoreRecoveryBundle|requireTaskCopilot/, "V2 Plugin runtime must not import or activate writable V1 persistence");
+assert.match(pluginIndex, /ServiceRuntimeClient|serviceRuntimeClient/, "V2 Plugin interaction must use the Local Service client");
 
 console.log("MVP architecture and package boundaries passed.");

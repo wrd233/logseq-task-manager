@@ -2,7 +2,7 @@
 
 ## 当前 Slice
 
-V1 frozen / Slice A0 complete / Slice A1-A4 foundation in progress with first-run, restricted Service and SQLite Restore Desktop pass / Slice B0-B3 automated foundation / Slice B4 move-copy-rebind Desktop pass / Slice B5 Project creation Desktop pass / Slice C0-C5 Desktop partial pass / Slice E Now Work interactive foundation / Slice F copied-data migration and Project Closure Desktop pass
+V1 frozen / V2 Slice A–F requirement gates complete / E2E-01–24 complete / release audit in progress
 
 ## 当前阶段结论
 
@@ -11,6 +11,7 @@ V1_RUNTIME_KERNEL_PASS
 V1_MVP_PILOT_PARTIAL
 V1_FROZEN_FOR_MIGRATION
 V2_MIGRATION_DESIGN_READY
+V2_REQUIREMENT_GATES_PASS
 ```
 
 `V1_MVP_PILOT_SUCCESS` 未达到：Capture 与 Task 通过；MiniProject/Project 的主归属、推进、聚合以及 Decision/Output/Closure 没有形成低摩擦闭环。V1 不再扩建长期能力，这些差距转入 V2。
@@ -61,7 +62,7 @@ V2_MIGRATION_DESIGN_READY
 - E2E-20 Project Closure 已形成完整纵向闭环：外部 Agent 只能提交 Proposal；Closure 与 `COMPLETED` 必须是同一个 HIGH 组，分别经组确认和最终精确确认。Validator 要求原始目标、实际结果、Deliverable/Output、未完成 Objective 的原因与后续、遗留去向、关键 Decision 和未来总结，但允许部分 Objective 未完成。固定 fixture 与真实独立 Agent 输出均已经真实 CLI 文件 `validate → submit` 进入 Review queue，且 Project 仍 OPEN、无正式写入；首次 Agent Schema 错误被 Validator 零写入拒绝，`design-project@1.1.0` 补齐精确模板后通过。Service 重验 SQLite Object version，用既有 SemanticCommit 单一 Domain step 调用 Application，原子写 Closure/Lifecycle/Audit/Receipt；Focus 清理由自动事务证据覆盖。Desktop 0.10.15 已实测 HIGH 接受时对象仍 `OPEN + v2`，最终确认后同一对象为 `COMPLETED + v3`、Proposal/Commit 为 `APPLIED`/`COMPLETED`；reload 后 Closure 可读、Focus 计数为 0 且 Now Work 中不显示该 Project、原 Logseq Project 页仍可搜索打开，Pending/Recovery=0 且 SQLite integrity/FK 通过。`E2E-20` 已为 `DONE`，详见 `docs/runtime/V2_PROJECT_CLOSURE_EXTERNAL_AGENT_REPORT.md`。
 - Slice B0 显式语法 Parser 已建立：只接受 `[任务]`、`[MiniProject]`/`#MiniProject`、`[决策]`、`[成果]`；Marker 不决定身份，裸 TODO 不物化，空标题/多类型冲突确定性拒绝，Area/Project 不使用未定义前缀猜测。
 - Slice B3 Marker 的 Task 与 MiniProject 安全提交路径已完成自动合同与历史 Desktop Gate：简单 Task DONE 改为 `COMPLETED`，重复与 Marker 移除不重开；CANCELED/CANCELLED 在记录取消原因前零写入；TODO/NOW/DOING/WAITING 不改 Condition/Focus；终态相反 Marker 为零写入语义冲突。MiniProject DONE 复用唯一 SQLite Proposal 表示、HIGH 审阅、对象/active Anchor/Block 重验和既有 SemanticCommit；一个活跃意图原位修订，终态后新 DONE 使用新代次，旧回执不能倒灌。完整 MiniProject 三问 Closure 已扩展到三种正式发起方式：Marker、对象列表侧栏与外部 Agent Proposal；侧栏只创建/打开一个确定性 object-only Proposal，外部 Agent 继续走统一 validate/submit，二者最终只重验 Object version 且不伪造 Anchor 或改写 Graph。三问必须一次填完并进入唯一 Proposal；接受不生效，最终确认后才与 Lifecycle/Audit/Receipt 原子持久。UC-28 Agent 草拟已在真实 Logseq Desktop 0.10.15 通过 loading、Service 中断安全失败、同 Proposal 三问回填与真实 Flash 成功；模型仍只生成完整可验证 Proposal，Service 只取三问并丢弃模型 scope/target/version。遗留 Task 在用户选择的空 Block 上建立独立 Formalization Proposal，非空保护、接受零写入、最终 Commit、reload 和独立 Undo 均通过；Closure 始终与遗留 Commit 解耦。真实运行发现并修复 Logseq 写后短暂旧读和两次连续插件写入的晚到事件回声，最终 Object 只有 Proposal Commit/Undo Audit，显式同步 echo 为 0。全路径没有新表、状态机、扫描器、恢复器或第二写入路径，详见 `docs/implementation/V2_MINI_PROJECT_CLOSURE_CONTRACT.md`、`docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md` 和 `docs/runtime/V2_MARKER_DESKTOP_REPORT.md`。
-- Task/Project/MiniProject 的原因化取消与显式重开已完成自动纵向闭环：Domain 不再允许通用 Lifecycle 命令无原因进入 `CANCELLED`，并提供独立版本保护的 cancel/reopen Application Command；Local Service 对象路由只创建或原位修订一个 Proposal，Review 仍零正式写，最终确认词必须与已审阅动作一致后才复用一个 DOMAIN_WRITE SemanticCommit。已增加独立 Lifecycle inverse Commit/Undo：取消可恢复 OPEN，重开可恢复原 COMPLETED/CANCELLED，并在 SQLite v11 约束下清除/恢复 Project/MiniProject Closure 快照；真实对象类型重读、终态 Proposal 重试、幂等重放及 prepare/领域回执后中断续作均有回归证据。原因由已应用 Proposal 保留，SQLite Object 只存冻结的四态 Lifecycle，不新增字段/表或 Markdown 权威。Plugin 对象页、原因表单、Review 分类、busy/error、专用最终确认和 Lifecycle Undo 已接通；Task 为 MEDIUM，Project/MiniProject 为 HIGH。Logseq Desktop 0.10.15 已验证 Task 空原因拒绝、取消、Service 在最终响应后中断并从同一 SQLite 收口、显式重开、reload 与 Lifecycle Undo；Project/MiniProject 的 HIGH 交互仍待集中 Gate。详见 `docs/runtime/V2_REASONED_LIFECYCLE_AUTOMATION_REPORT.md` 与 `docs/runtime/V2_REASONED_LIFECYCLE_DESKTOP_REPORT.md`。
+- Task/Project/MiniProject 的原因化取消与显式重开已完成自动纵向闭环：Domain 不再允许通用 Lifecycle 命令无原因进入 `CANCELLED`，并提供独立版本保护的 cancel/reopen Application Command；Local Service 对象路由只创建或原位修订一个 Proposal，Review 仍零正式写，最终确认词必须与已审阅动作一致后才复用一个 DOMAIN_WRITE SemanticCommit。独立 Lifecycle inverse Commit/Undo 可恢复取消或重开前状态，并在 SQLite v11 约束下清除/恢复 Project/MiniProject Closure 快照。Logseq Desktop 0.10.15 已完成 Task MEDIUM 以及 Project/MiniProject HIGH 的空原因拒绝、审阅、最终确认、reload、中断收口和专用 Undo；正文、Anchor、Condition、Focus、Ownership 与 Closure 保持指定边界。详见 `docs/runtime/V2_REASONED_LIFECYCLE_AUTOMATION_REPORT.md` 与 `docs/runtime/V2_REASONED_LIFECYCLE_DESKTOP_REPORT.md`。
 - Slice B 防抖与首次物化基础已建立：UUID 级事件合并只交付最新 Parser 结果，失败显式回调；Application/SQLite 将 Object、Primary Anchor、Audit、Receipt 单事务写入并幂等重放，重复外部 Block 整笔回滚。
 - Local Service 已开放受约束的 `POST /objects/materialize` 与统一 `POST /objects/synchronize`，并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。
 - 同类型显式同步后端已完成：Domain/Application/SQLite 更新标题缓存、对象版本和 Anchor 观察证据；`/objects/synchronize` 自动区分首次物化与已绑定更新，Service 用 Graph ID + Block UUID + Logseq 输入版本形成 SHA-256 幂等边界。类型变化明确零写入并作为 terminal Proposal-required 冲突保留，不再误当断线永久重试；正式 Proposal 创建仍属于 Slice C。
@@ -76,7 +77,7 @@ V2_MIGRATION_DESIGN_READY
 - Slice B5 Project 原子创建已通过自动与 Desktop Gate：最终 `Projects / 对象` 工作区 → Logseq Page Adapter → Local Service → Application → SQLite；prepare 发行稳定 semanticCommit/object ID 但不创建领域对象，插件只精确检查/创建带三项所有权证据的 `Project/<名称>` 页面，finalize 校验页面 UUID/hash 后将 Project、Primary Anchor、Audit、Receipt 单事务写入。真实 Desktop 已验证成功创建、V2 Lifecycle/Condition 对象列表、未知同名零覆盖、页面改名后同 UUID/同 object_id、冷 reload，以及 finalize 请求到达时停止 Service 后 SQLite 目标对象为 0、受控页面保留、重启同意图只收口一个对象。没有新增表、扫描器、双写或平行恢复账本。E2E-19 `DONE`；详见 `docs/implementation/V2_PROJECT_PAGE_CREATION_CONTRACT.md` 与 Desktop 报告。
 - Slice C0-C5 Proposal 安全闭环已有自动基础与 Desktop 部分通过：runtime schema、确定性两文件、scope/hash/risk/dependency Validator、语义组部分接受、Proposal/Group 持久化、submit/list/get/review/revalidate 均通过。Review UI 在同一卡片展示理解、最终预览、文本/语义 Diff、分组处置、提交前检查和独立最终确认；Desktop 已真实证明接受不等于生效、拒绝、两个独立组部分接受、Provider 同机器意图调整后接受、版本重验、最终确认、Graph+SQLite Commit、卡片 Undo 和 cold reload。
 - 单 Block 正式化 Commit 只支持一个 accepted group 中耦合的一个 Patch + `CREATE_OBJECT`；prepare 先持久化 PENDING Graph/Domain steps，Plugin 逐次重读 before/after hash，finalize 才经 Application 原子物化 Object/Anchor/Audit/Receipt，全部 VERIFIED 后标记 Proposal `APPLIED` 并在原卡片显示生效与 Undo。Domain 冲突只在无后续编辑时补偿；未知响应最多幂等重试一次。重启时已存在的 PENDING intent 接受精确 before 或 after Graph 证据继续，不会把自己写入的 after 状态误判 STALE；RECOVERY_REQUIRED 可从同一入口补偿。
-- C5 inverse Commit/Undo 自动基础已完成：Undo 先建立独立 PENDING 逆向 Commit，将 Graph Patch 反向应用并验证，再通过 Application 删除精确未变化的当前 Object/Primary Anchor 投影；immutable Audit、正向 receipt 和 inverse receipt 均保留，正向 Commit 收口 `UNDONE`。Object version、完整 Object/Anchor、Ownership、Focus、额外 Anchor 或 Graph hash 任一后续变化都会零写入拒绝。中断后可按持久化 Commit 列表在同一 Review 卡片续跑；领域 Undo 失败只在正文未被二次编辑时恢复正向正文，否则保留 `RECOVERY_REQUIRED`。Desktop 连续审阅、真实中断和 Logseq Undo 对照仍待集中验收。
+- C5 inverse Commit/Undo 已完成自动与 Desktop 验收：Undo 建立独立 PENDING 逆向 Commit，反向应用并验证 Graph Patch，再删除精确未变化的当前 Object/Primary Anchor 投影；immutable Audit、正向 receipt 和 inverse receipt 均保留，正向 Commit 收口 `UNDONE`。真实进程在正向与逆向 `PREPARED/PENDING` 后终止，同库重启后从 Review Center 续完原 semantic_commit_id，四步 `VERIFIED`、Pending/Recovery 0、Doctor PASS；后续编辑保护仍零覆盖。
 - Slice E Now Work 纵向闭环已接入 SQLite → Application projection/Command → Local Service → Plugin 正式 Now Work 页面：严格三个可空区域，不显示分数；Focus 可在同一页面加入、移出和手动上下排序，写入以对象版本和当前完整顺序作并发前置，但不伪装成 Lifecycle/Condition 或完整 Audit；插入 rank 会事务性让位，stale 批次整笔回滚。每张有 active Primary Anchor 的卡片可安全解析当前 Logseq 页面并打开正文。近期可推进项限制 12 项，普通 Waiting 保持安静，仅复查到期或影响 Focus 才出现。类型筛选和按类型分组是纯会话视图状态；筛选/分组时不暴露基于局部列表的顺序按钮，必须回到“全部 · 混排”调整完整 Focus 顺序。Desktop 已完成 Focus 加入、两项上移排序与 reload 恢复、Anchor 打开、WAITING/BLOCKED、本地时间期限、阻碍唤醒，以及 Task、Project、Area 筛选/分组；筛选后 SQLite Focus rank、对象版本和 Audit 均不变。主导航键盘激活后焦点跨重绘保持，深浅主题 token 已在 Desktop renderer 分别验证；E2E-11 与 `V2-VIEW-001` 已完成。
 - V2 Condition 手工闭环已贯通 Now Work 同页表单 → Local Service → Application `change_condition` → SQLite 现有 `condition_json`：ACTIONABLE / WAITING / BLOCKED / PAUSED 字段集合封闭，WAITING 强制等待对象、期待结果和合法复查时间，PAUSED 可带合法复查时间；BLOCKED 可从 OPEN 对象可读列表选择阻碍来源，不存在、关闭和自引用均零写入。Focus A 指向阻碍 B 时，旧的可行动 B 会提前进入“接下来值得处理”，安静 Waiting B 也会被唤醒进入“等待与复查”，并显示自然语言原因。对象版本、确定性幂等回执和 Audit 同事务；Condition 更新不改变 Lifecycle 或 Focus。没有新增表、Schema 版本或关系状态源。Desktop 已验证 WAITING、BLOCKED 与阻碍唤醒，并新增验证 PAUSED 含原因保存/读回、对话框关闭且 Focus/Lifecycle 不变；失败表单仍待集中验收。
 - V2 Task 明确期限已贯通 Now Work 表单 → Local Service → Application `change_due_at` → SQLite schema v6 nullable `objects.due_at`：只允许 OPEN Task，合法时间/清除、对象版本、幂等 Receipt 与 Audit 同事务；七天内或已到期限可突破近期更新时间边界进入“接下来值得处理”，按实际时间先后排序并显示自然语言理由，绝不生成分数。v1..v5→v6 均需先创建并只读校验快照，DDL/ledger/metadata 单事务，失败回滚。没有新表、平行状态或第二恢复路径。真实运行库 v3→v6 迁移与独立 Service/CLI 已通过，Desktop 已验证写入、显示、CLI 读回、reload 保持和已有期限清除；失败输入 Desktop Gate 尚未完成。
@@ -98,14 +99,15 @@ V2_MIGRATION_DESIGN_READY
 - 2026-07-22 Area Desktop Gate：`Projects / 对象` 工作区已贯通受控创建、就地编辑、列表和版本冲突零覆盖。真实 Area 在同一 object_id 上 v1→v2→v3，旧 v2 对话框在并发变更后明确拒绝，SQLite 保留 v3；0 Anchor，Logseq 未创建普通或命名空间页面。复用现有 Object/Audit/Receipt 和 Local Service/Application Command，无新表、状态、Graph 写路径或恢复机制；证据见 `docs/runtime/V2_AREA_DESKTOP_REPORT.md`。
 - 2026-07-22 Now Work Project/Area 过滤 Desktop Gate：真实 Area v3 与带 Logseq Page/active primary Anchor 的 Project v2 同时进入 Focus；Area、Project 类型筛选和按类型分组只改变可见卡片，筛选前后两条 Focus 的 object_id/version/rank 不变，Audit 保持 4，局部视图不暴露顺序按钮。无新增状态或写路径；证据见 `docs/runtime/V2_NOW_WORK_PROJECT_AREA_FILTER_DESKTOP_REPORT.md`。
 - 2026-07-22 View 键盘/主题 Desktop Gate：Review 双视图与主导航可由 Enter/Space 操作，重绘后按稳定控件身份恢复焦点，toggle/current ARIA 明确且焦点环可见；Light/Dark renderer 分别命中独立 token。结合既有非空 Candidate/Proposal 专项，`V2-VIEW-001` 已为 `DONE`；无持久机制或正式写入，证据见 `docs/runtime/V2_VIEW_KEYBOARD_THEME_DESKTOP_REPORT.md`。
+- 2026-07-22 V2 Runtime 权威收口：正常 Plugin 入口已删除 V1 Application/FileStorage 写 Runtime、Inbox 导航与 V1 Audit 写按钮；默认 Now Work、Project 重入、Audit 和 Diagnostics 都读同一 Local Service 投影，查询失败不再伪装为空历史。Logseq Desktop 0.10.15 冷启动真实显示全阶段 READY、formal writes/explicit sync/Graph bridge true、Pending/Conflict 0/0，无 Inbox/V1 操作。无新表、状态、协议或恢复路径；证据见 `docs/runtime/V2_RUNTIME_V1_WRITE_UI_RETIREMENT_DESKTOP_REPORT.md`。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-22 根级 `./scripts/check.sh` 为 437 tests、145 rules、0 failed/skipped；全部 typecheck/lint/test/build、Plugin/边界检查与恢复演练 PASS。npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-22 根级 `./scripts/check.sh` 的全部 typecheck/lint/test/build、Plugin/架构边界、145 rules、acceptance rehearsal 与仓库边界 PASS，0 failed/skipped。npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
-- V2 Desktop：总状态仍为 `PARTIAL_PASS`；基础 Anchor/Now Work 见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，Candidate、Association 与 Ownership 专项见对应 Runtime Report；
+- V2 Desktop：需求级 Gate 总状态为 `V2_REQUIREMENT_DESKTOP_PASS`；E2E-01–24 和追踪矩阵条目均已有对应 Runtime Report，现在只进行 Release 审计；
 - Recovery：Pilot 前后 bundle 均已做 checksum/readback；Pilot 后 8 objects、14 captures、23 proposals、20 commits、1 relation、66 events；
 - Pilot 后恢复包 SHA-256：`4e9dd666697b94ca0d6b81e7dc7bd0c12c82d0f432b2363eddfbc95a1a602612`；
 - DeepSeek：L4 Desktop 与 UC-28 live Provider 均 `PASS`；L3 黄金矩阵见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`，L4/UC-28 脱敏交互见 `docs/testing/deepseek-v4-l4-desktop-2026-07-22.json` 与 `docs/testing/deepseek-v4-uc28-desktop-2026-07-22.json`。
@@ -118,11 +120,9 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 的当前页 Candidate stale/多项逐项处理、删除 Anchor 和有限子树用户闭环均已通过；精确 truncation 与进行中卸载 cancellation 已由事件入口集成测试收口，不再重复安排 Desktop 时序 Gate；
-2. Proposal 暂缓/多组依赖、正常 Commit/Undo、真实进程故障续跑、后续编辑保护和 UC-28 写后旧读保护均已通过，不再重复该昂贵 Gate；
-3. `V2-VIEW-001` 的 Review Center 视觉、键盘、深浅主题与 Now Work Task/Project/Area 筛选分组已完成，不再重复验收；
-4. DeepSeek L4、E2E-23、UC-28、E2E-13 外部 Agent 与 V2-FIRST-001 / E2E-15 已通过，不再重复消耗在线额度或 Desktop 时间；只有 Provider 或 Prompt 契约变化才做必要回归。
+1. 执行 Release 审计：TODO/FIXME/stub、skipped tests、MUST 覆盖、导出恢复演练、Pending Commit Recovery、Silent Overwrite、根级全量检查和外层 Git 边界；
+2. 已通过且契约未变的 DeepSeek L3/L4、迁移、Restore、first-run 和其他 Desktop Gate 不重复执行。
 
 ## 仍需用户决定
 
-当前没有新的产品语义决定。真实 DeepSeek 配置已安全建立，不需要用户再提供 Key；L4/Review Center、E2E-23、copied-data 迁移、SQLite Restore 与 first-run/restricted Desktop 已通过。下一步只按追踪矩阵处理仍有真实缺口的架构与 Release 状态，不重复昂贵 Gate。
+当前没有新的产品语义决定。真实 DeepSeek 配置已安全建立，不需要用户再提供 Key；L4/Review Center、E2E-23、copied-data 迁移、SQLite Restore 与 first-run/restricted Desktop 已通过。下一步只处理 Release 审计发现的真实缺口，不重复昂贵 Gate。
