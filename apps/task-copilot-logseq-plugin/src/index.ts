@@ -111,6 +111,8 @@ let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" 
 const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
 let v2LifecycleCommitBusy = false;
+let v2ClosureProposalBusy = false;
+let v2ClosureReviewBusy = false;
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
   reasonCode: "SERVICE_DESCRIPTOR_PATH_REQUIRED",
@@ -252,6 +254,8 @@ async function model(): Promise<UiModel> {
       v2AssociationBusy: v2AssociationSubmission.busy,
       v2OwnershipCommitBusy,
       v2LifecycleCommitBusy,
+      v2ClosureProposalBusy,
+      v2ClosureReviewBusy,
       v2Proposals,
       v2Candidates,
       v2CandidateSourcePreviews,
@@ -333,6 +337,8 @@ async function model(): Promise<UiModel> {
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2OwnershipCommitBusy,
     v2LifecycleCommitBusy,
+    v2ClosureProposalBusy,
+    v2ClosureReviewBusy,
     v2Proposals,
     v2Candidates,
     v2CandidateSourcePreviews,
@@ -977,6 +983,27 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }, "期限已正式保存；Now Work 已按明确时间重算，未产生分数。");
     return;
   }
+  if (action === "v2-mini-project-closure-propose" && value) {
+    if (v2ClosureProposalBusy) return;
+    const [objectId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    v2ClosureProposalBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable || !objectId || !Number.isSafeInteger(expectedVersion)) throw new Error("MiniProject Closure 上下文已失效；没有创建 Proposal。");
+        const result = await client.createMiniProjectClosureProposal(objectId, { expectedVersion });
+        workspace = "review";
+        reviewMode = "proposals";
+        message = result.replayed ? "已打开该 MiniProject 现有的 Closure Proposal；正式对象和正文均未改变。" : "Closure Proposal 已创建；请填写三问并独立审阅，正式对象和正文均未改变。";
+      });
+    } finally {
+      v2ClosureProposalBusy = false;
+      await refresh();
+    }
+    return;
+  }
   if (action === "create-v2-project") {
     const name = dialogField("v2ProjectName");
     await run(async () => {
@@ -1129,7 +1156,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "submit-v2-mini-project-closure" && value) {
     if (v2LifecycleCommitBusy) return;
-    if (!dialogChecked("actionConfirmed")) { latestError = "请确认 MiniProject DONE 关闭请求。"; await refresh(); return; }
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认 MiniProject 关闭请求。"; await refresh(); return; }
     const [proposalId, expectedUpdatedAt] = value.split("|");
     v2LifecycleCommitBusy = true;
     try {
@@ -1146,7 +1173,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         const result = await client.commitLifecycleTransition(proposalId, { expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations, traceId: `v2-mini-project-closure-ui-${Date.now()}` });
         actionDialog = undefined;
         workspace = "review";
-        message = result.status === "COMPLETED" ? `MiniProject ${result.object.text} 已完成；Marker 移除不会自动重开。` : "MiniProject 版本或 Anchor 已变化；Proposal 已标记 STALE，没有完成对象。";
+        message = result.status === "COMPLETED" ? `MiniProject ${result.object.text} 已完成；${result.anchor ? "Marker 移除不会自动重开" : "Logseq 正文未被改写"}。` : "MiniProject 版本或所需 Graph 证据已变化；Proposal 已标记 STALE，没有完成对象。";
       });
     } finally {
       v2LifecycleCommitBusy = false;
@@ -1197,13 +1224,20 @@ async function handleAction(action: string, value?: string): Promise<void> {
       actualResult: dialogField("miniClosureActualResult").trim(),
       remainingWork: dialogField("miniClosureRemainingWork").trim(),
     } : undefined;
-    await run(async () => {
+    if (miniProjectClosure && v2ClosureReviewBusy) return;
+    const submitReview = async () => run(async () => {
       if (!proposalId || !groupId || !expectedUpdatedAt || !serviceRuntimeClient) throw new Error("V2 审阅上下文已失效；请刷新后重试。");
       if (miniProjectClosure && (!miniProjectClosure.originalGoal || !miniProjectClosure.actualResult || !miniProjectClosure.remainingWork)) throw new Error("请完整填写 MiniProject 原目标、实际结果和遗留三问。");
       await serviceRuntimeClient.reviewProposal(proposalId, { [groupId]: { disposition: "ACCEPTED", highImpactConfirmed: true } }, expectedUpdatedAt, miniProjectClosure);
       actionDialog = undefined;
       workspace = "review";
     }, "高影响语义组已接受，但尚未正式生效；最终 Commit 仍需版本重验。");
+    if (!miniProjectClosure) await submitReview();
+    else {
+      v2ClosureReviewBusy = true;
+      try { await refresh(); await submitReview(); }
+      finally { v2ClosureReviewBusy = false; await refresh(); }
+    }
     return;
   }
   if (action === "submit-v2-review-defer" && value) {

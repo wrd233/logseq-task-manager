@@ -1,6 +1,6 @@
-# V2 Marker-Driven MiniProject Closure 合同
+# V2 MiniProject Closure 合同
 
-> 状态：`MARKER_DRIVEN_AUTOMATED_PASS / DESKTOP_PENDING / UC28_PARTIAL`
+> 状态：`MARKER_SIDEBAR_EXTERNAL_AGENT_AUTOMATED_PASS / DESKTOP_PENDING / UC28_PARTIAL`
 
 ## 真实问题
 
@@ -21,19 +21,22 @@ type V2MiniProjectClosure = {
 ## 唯一写入链
 
 ```text
-Logseq DONE evidence
+Logseq DONE evidence / sidebar object intent / external Agent object scope
 → one READY HIGH Proposal with three unresolved questions
 → human enters all three answers and accepts the group
 → Proposal stores the single reviewed machine representation
-→ independent final confirmation and Object/Anchor/Graph revalidation
+→ independent final confirmation and evidence-specific revalidation
 → existing one-step Domain SemanticCommit
-→ Object closure_json + COMPLETED + Anchor + Audit + Receipt atomically
+→ Object closure_json + COMPLETED + Audit + Receipt atomically
 ```
 
-- 普通 HIGH 接受请求不能绕过三问；空答案整包拒绝。Closure 组自身必须是独立 HIGH 单操作组，但 Proposal 可以保留其他可独立审阅的组。
+- 普通 HIGH 接受请求不能绕过三问；空答案整包拒绝。Closure 组自身必须是独立 HIGH 单操作组。Proposal 可以携带其他可独立审阅的组，但在当前 Closure Commit 前必须将它们明确拒绝或拆成独立 Proposal，避免整份 Proposal 标记 APPLIED 后冻结未提交工作；“遗留转新对象”专用拆分闭环仍是后续 Gate。
 - Review 仍然不是 Commit；接受后对象保持 `OPEN`。
 - 同一 DONE 证据重放不得擦除已接受的三问；正文 hash/version 变化仍使现有 Proposal 原位修订并重置审阅。
 - 最终提交继续使用现有 Proposal、Anchor、Application Command、Receipt 和 SemanticCommit 恢复机制；没有新表、第二写入路径或通用 Saga。
+- Marker 路径重验 Block、active Anchor 和 Object version，并更新 Anchor 观察；侧栏与外部 Agent 路径只重验 Object version，不伪造 Graph 证据也不改写正文。
+- 对象列表的 `关闭 MiniProject` 只创建或打开一个确定性 object-only Proposal；对象仍为 OPEN。外部 Agent 可经既有 `/proposals/submit` 提交相同机器形状，LLM 仍不能直接完成对象。
+- 外部 `/proposals/submit`、Provider、Marker 与侧栏共用按 object_id 串行的 Closure 提交边界，并统一检查 OPEN/type/version/活跃意图；不同 proposal_id 的并发请求只能成功一个，一个 Proposal 也只能关闭一个 MiniProject。历史歧义会显式进入恢复状态而不是任意 `.find()`。
 
 ## SQLite 迁移
 
@@ -41,4 +44,4 @@ Schema v11 只放宽已有 `objects.closure_json` 的 CHECK，从“仅 `PROJECT
 
 ## Gate
 
-自动证据已覆盖 Marker DONE 路径的 Domain/Application/Proposal Validator/Service/Client/Plugin 渲染、SQLite v10→v11 恢复点迁移、迁移后关闭/归档保留、重放和错误输入零正式写入。仍需在 Logseq Desktop 批量验证三问表单、接受但未生效、最终确认、reload 读回和故障恢复。UC-28 的侧栏/外部 Agent 发起、Agent 草拟三问与“把遗留转为新对象”仍属后续 Proposal 用户闭环，当前只保存人工审阅的遗留说明；不将本轮自动合同冒充完整 UC-28。
+自动证据已覆盖 Marker、侧栏和外部 Agent 三种发起方式的 Domain/Application/Proposal Validator/Service/Client/Plugin 渲染，侧栏重复发起复用一个 Proposal 且零正式写入；还覆盖 SQLite v10→v11 恢复点迁移、迁移后关闭/归档保留、提交重放和错误输入零正式写入。仍需在 Logseq Desktop 批量验证侧栏发起、三问表单、接受但未生效、两种证据文案、最终确认、reload 读回和故障恢复。UC-28 的 Agent 草拟三问与“把遗留转为新对象”仍未完成，当前只保存人工审阅的遗留说明；不将自动合同冒充完整 UC-28。

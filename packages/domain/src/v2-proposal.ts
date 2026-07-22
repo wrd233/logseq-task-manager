@@ -192,6 +192,7 @@ export function validateV2Proposal(value: unknown): V2Proposal {
 
 export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
   const proposal = validateV2Proposal(value);
+  let miniProjectCompletionCount = 0;
   for (const group of proposal.groups) {
     for (const operation of group.semanticOperations) {
       if (operation.kind === "CREATE_OBJECT" && (typeof operation.payload.objectType !== "string" || typeof operation.payload.text !== "string" || !operation.payload.text.trim())) {
@@ -201,12 +202,19 @@ export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
         throw proposalError("V2_PROPOSAL_LIFECYCLE_PAYLOAD_INVALID", "TRANSITION_LIFECYCLE 必须明确声明合法的终态。");
       }
       if (operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.objectType === "MINI_PROJECT" && operation.payload.lifecycle === "COMPLETED") {
-        const blockEvidence = proposal.scope.read.filter((target) => target.kind === "BLOCK" && target.id === operation.payload.externalId && target.hash === operation.payload.contentHash);
-        if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || operation.target.kind !== "OBJECT" || operation.target.version === undefined
-          || typeof operation.payload.text !== "string" || !operation.payload.text.trim() || operation.payload.marker !== "DONE"
-          || typeof operation.payload.externalId !== "string" || !operation.payload.externalId.trim() || operation.payload.externalId.length > 512
-          || typeof operation.payload.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(operation.payload.contentHash) || blockEvidence.length !== 1) {
-          throw proposalError("V2_PROPOSAL_MINI_PROJECT_CLOSURE_SHAPE_INVALID", "MiniProject Completion 必须是绑定 DONE Block 与带版本对象的独立 HIGH 组。");
+        miniProjectCompletionCount += 1;
+        if (miniProjectCompletionCount > 1) throw proposalError("V2_PROPOSAL_MINI_PROJECT_CLOSURE_MULTIPLE", "一个 Proposal 只能关闭一个 MiniProject；其他关闭意图必须拆成独立 Proposal。");
+        if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || operation.target.kind !== "OBJECT" || operation.target.version === undefined) {
+          throw proposalError("V2_PROPOSAL_MINI_PROJECT_CLOSURE_SHAPE_INVALID", "MiniProject Completion 必须是指向带版本对象的独立 HIGH 组。");
+        }
+        const hasMarkerEvidence = [operation.payload.marker, operation.payload.text, operation.payload.externalId, operation.payload.contentHash].some((item) => item !== undefined);
+        if (hasMarkerEvidence) {
+          const blockEvidence = proposal.scope.read.filter((target) => target.kind === "BLOCK" && target.id === operation.payload.externalId && target.hash === operation.payload.contentHash);
+          if (typeof operation.payload.text !== "string" || !operation.payload.text.trim() || operation.payload.marker !== "DONE"
+            || typeof operation.payload.externalId !== "string" || !operation.payload.externalId.trim() || operation.payload.externalId.length > 512
+            || typeof operation.payload.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(operation.payload.contentHash) || blockEvidence.length !== 1) {
+            throw proposalError("V2_PROPOSAL_MINI_PROJECT_CLOSURE_MARKER_INVALID", "Marker 驱动的 MiniProject Completion 必须绑定 DONE Block 证据。");
+          }
         }
         if ("closure" in operation.payload) validateV2MiniProjectClosure(operation.payload.closure as V2MiniProjectClosure);
       }

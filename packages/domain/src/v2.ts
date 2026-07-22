@@ -457,13 +457,6 @@ export function completeV2MiniProjectFromReviewedMarker(
       ruleRefs: ["D-183", "D-220"],
     });
   }
-  if (object.lifecycle !== "OPEN") {
-    throw new StructuredError({
-      code: "V2_REVIEWED_MINI_PROJECT_CLOSURE_CONFLICT",
-      message: `MiniProject 已是 ${object.lifecycle}；审阅后关闭没有写入。`,
-      ruleRefs: ["D-183", "D-185"],
-    });
-  }
   if (anchor.objectId !== object.objectId || anchor.role !== "primary_text" || anchor.status !== "active" || anchor.contentHash !== input.contentHash) {
     throw new StructuredError({
       code: "V2_PRIMARY_ANCHOR_INVALID",
@@ -473,12 +466,25 @@ export function completeV2MiniProjectFromReviewedMarker(
   }
   requireText(input.text, "V2_OBJECT_TEXT_REQUIRED", "正式对象必须保留可读的自然语言正文。");
   requireText(input.contentHash, "V2_ANCHOR_HASH_REQUIRED", "Primary Anchor 必须包含正文 hash。");
-  const closure = validateV2MiniProjectClosure(input.closure);
+  const completed = completeV2MiniProject(object, input.closure, expectedVersion, at);
   const timestamp = at.toISOString();
   return {
-    object: { ...object, lifecycle: "COMPLETED", text: input.text.trim(), closure, version: object.version + 1, updatedAt: timestamp },
+    object: { ...completed, text: input.text.trim() },
     anchor: { ...anchor, status: "active", contentHash: input.contentHash, lastSeenAt: timestamp },
   };
+}
+
+export function completeV2MiniProject(
+  object: V2ManagedObject,
+  closureValue: V2MiniProjectClosure,
+  expectedVersion: number,
+  at = new Date(),
+): V2ManagedObject {
+  requireExpectedVersion(object, expectedVersion);
+  if (object.objectType !== "MINI_PROJECT") throw new StructuredError({ code: "V2_MINI_PROJECT_CLOSURE_MINI_PROJECT_ONLY", message: "仅 MiniProject 可使用三问 Closure。", ruleRefs: ["D-048", "D-206"] });
+  if (object.lifecycle !== "OPEN") throw new StructuredError({ code: "V2_REVIEWED_MINI_PROJECT_CLOSURE_CONFLICT", message: `MiniProject 已是 ${object.lifecycle}；审阅后关闭没有写入。`, ruleRefs: ["D-048", "D-185", "D-206"] });
+  const closure = validateV2MiniProjectClosure(closureValue);
+  return { ...object, lifecycle: "COMPLETED", closure, version: object.version + 1, updatedAt: at.toISOString() };
 }
 
 export function validateV2MiniProjectClosure(value: V2MiniProjectClosure): V2MiniProjectClosure {

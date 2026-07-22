@@ -5,6 +5,7 @@ import {
   changeV2Condition,
   changeV2DueAt,
   completeV2Project,
+  completeV2MiniProject,
   completeV2MiniProjectFromReviewedMarker,
   createV2ManagedObject,
   lifecycleForV2ExecutionMarker,
@@ -58,7 +59,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
+  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -187,7 +188,7 @@ export interface V2MaterializationUndoResult {
 }
 
 export type V2CommandReceipt =
-  | { command: "create_object" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
+  | { command: "create_object" | "transition_lifecycle" | "complete_mini_project" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
   | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }
@@ -522,6 +523,34 @@ export class V2Application {
         occurredAt: at.toISOString(),
       },
     });
+  }
+
+  async completeMiniProject(
+    objectId: string,
+    closure: V2MiniProjectClosure,
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2ManagedObject> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "complete_mini_project", objectId);
+    if (replay) return replay.object;
+    const current = await this.requireObject(objectId);
+    const candidate = completeV2MiniProject(current, closure, envelope.expectedVersion, at);
+    const result = await this.objects.commitObject({
+      object: candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "complete_mini_project",
+        objectId: candidate.objectId,
+        beforeVersion: current.version,
+        afterVersion: candidate.version,
+        occurredAt: at.toISOString(),
+      },
+    });
+    return result.object;
   }
 
   async observePrimaryAnchor(

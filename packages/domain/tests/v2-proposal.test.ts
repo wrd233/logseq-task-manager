@@ -54,11 +54,20 @@ test("MiniProject completion submission validates the reviewed shape early while
   }], disposition: "PENDING" }];
   value.unresolvedQuestions = ["原目标？", "实际结果？", "遗留？"];
   assert.equal(validateV2ProposalForSubmission(value).proposalId, value.proposalId, "Marker Proposal may wait for the human answers");
+  const objectOnly = structuredClone(value);
+  objectOnly.scope.read = [];
+  const objectOnlyPayload = objectOnly.groups[0]!.semanticOperations[0]!.payload;
+  delete objectOnlyPayload.text; delete objectOnlyPayload.marker; delete objectOnlyPayload.externalId; delete objectOnlyPayload.contentHash;
+  assert.equal(validateV2ProposalForSubmission(objectOnly).proposalId, value.proposalId, "sidebar and external Agent Proposal may bind only the versioned object");
+  const multiple = structuredClone(objectOnly);
+  multiple.groups.push({ ...structuredClone(multiple.groups[0]!), groupId: "complete-another-mini", semanticOperations: [{ ...structuredClone(multiple.groups[0]!.semanticOperations[0]!), operationId: "complete-another-mini", target: { kind: "OBJECT", id: "mini-other", version: 1 } }] });
+  multiple.scope.modify.push({ kind: "OBJECT", id: "mini-other", version: 1 });
+  assert.throws(() => validateV2ProposalForSubmission(multiple), /只能关闭一个 MiniProject/);
   value.groups[0]!.semanticOperations[0]!.payload.closure = { originalGoal: "完成 Gate", actualResult: "", remainingWork: "无遗留" };
   assert.throws(() => validateV2ProposalForSubmission(value), /实际结果/);
   delete value.groups[0]!.semanticOperations[0]!.payload.closure;
   value.groups[0]!.semanticOperations[0]!.payload.contentHash = "bad";
-  assert.throws(() => validateV2ProposalForSubmission(value), /独立 HIGH/);
+  assert.throws(() => validateV2ProposalForSubmission(value), /DONE Block/);
 });
 
 test("V2 Proposal validator refuses modify-scope escape, stale patch hashes, and risk downgrade", () => {

@@ -35,6 +35,7 @@
 | POST | `/backup/restore/apply` | 创建恢复点、离线切换、Doctor，然后停止 Service | 替换当前 DB；高影响 |
 | POST | `/objects/materialize` | 显式 Block 首次物化的 Object + Primary Anchor + Audit + Receipt | SQLite 单事务正式写入 |
 | POST | `/objects/synchronize` | 按绑定状态选择首次物化或同类型标题/Anchor 更新 | SQLite 单事务正式写入 |
+| POST | `/objects/{object_id}/closure/proposal` | 为 OPEN MiniProject 创建或打开唯一 object-only Closure Proposal | 只写 Proposal + Group；不改正文/对象/Anchor |
 | POST | `/anchors/primary/observe` | 将已知 Primary Anchor 观察为 `active / missing / conflict` | Object version + Anchor + Audit + Receipt 单事务写入；不删对象 |
 | POST | `/anchors/primary/rebind` | 显式确认后把对象绑定到新的同类型 Block | Object + 旧 Anchor `replaced` + 新 active Anchor + Audit + Receipt 单事务写入 |
 | POST | `/proposals/validate` | 验证 Proposal 并生成确定性两文件 | 无 |
@@ -109,6 +110,8 @@ Plugin Review Center 的“分析当前块”只发送当前选中 Block 的有�
 - Parser、Block event 和防抖运行在 Logseq Adapter；该 HTTP 路由本身不猜自然语言、不扫描 Graph、不调用模型。
 
 `POST /objects/synchronize` 使用相同字段，但由 Service 查询当前 Graph 的 Primary Anchor：未绑定时走首次物化；已绑定且类型相同时更新标题缓存、Marker 语义、Anchor content hash/last seen 和对象版本；标识类型变化返回 `V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL`。Task CANCELED/CANCELLED 在记录取消原因前返回 `V2_TASK_CANCELLATION_REASON_REQUIRED`；复杂关闭、Marker 不支持或终态冲突也返回结构化 409。这些语义拒绝均不修改对象，也不错将健康 Service 降级为断线。相同 Graph/Block/inputVersion 会按原命令类型重放，因此首次请求在 Anchor 建立后重试也不会被误判成更新。
+
+`POST /objects/{object_id}/closure/proposal` 只接受 `{ "expectedVersion": 4 }`。仅 `OPEN MINI_PROJECT` 可用；Service 按 Graph/object/version 生成确定性 Proposal identity，重复点击返回同一活跃 Proposal。该 Proposal 的 modify scope 只有带版本 Object，三问由 Review Center 收集；发起和接受都不改 Object、正文或 Anchor，最终专用 Commit 只重验 Object version。Marker 路径仍保留 Block/Anchor evidence，两种入口共用同一 Proposal Validator、Review、Application Command 和 SemanticCommit，不形成第二关闭协议。通用 `/proposals/submit`、Provider、Marker 与侧栏共用按 object_id 串行的提交边界；它统一校验 OPEN/type/version 并拒绝第二个活跃 proposal_id，防止并发或外部 Agent 绕过唯一机器权威。
 
 `POST /anchors/primary/observe` 只接受：
 

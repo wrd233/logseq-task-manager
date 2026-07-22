@@ -486,6 +486,24 @@ test("reviewed MiniProject DONE closes object and updates Anchor in one versione
   assert.equal(repository.audit.filter(({ command }) => command === "complete_mini_project_from_marker").length, 1);
 });
 
+test("reviewed object-only MiniProject closure does not fabricate Graph evidence", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const created = await application.materializeExplicitObject({
+    objectId: "mini-agent-close", objectType: "MINI_PROJECT", text: "收口外部交付",
+    anchor: { graphId: "graph-1", externalId: "block-mini-agent", contentHash: "open-hash" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-mini-agent", traceId: "trace-materialize-agent" });
+  const closure = { originalGoal: "完成外部交付", actualResult: "可验收结果已交付", remainingWork: "文档整理转入后续任务" };
+  const envelope = { actor: "proposal_commit", expectedVersion: created.object.version, idempotencyKey: "reviewed-mini-agent-close", traceId: "trace-agent-close" };
+  const completed = await application.completeMiniProject(created.object.objectId, closure, envelope, new Date("2026-07-22T10:00:00Z"));
+  assert.equal(completed.lifecycle, "COMPLETED");
+  assert.deepEqual(completed.closure, closure);
+  assert.equal(repository.anchors.get(created.object.objectId)?.contentHash, "open-hash");
+  assert.equal(repository.audit.at(-1)?.command, "complete_mini_project");
+  assert.deepEqual(await application.completeMiniProject(created.object.objectId, closure, envelope), completed);
+  assert.equal(repository.audit.filter(({ command }) => command === "complete_mini_project").length, 1);
+});
+
 test("bound explicit Block synchronization updates same-type evidence and rejects silent type migration", async () => {
   const repository = new MemoryV2Repository();
   const application = new V2Application(repository);

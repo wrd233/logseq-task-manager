@@ -95,6 +95,22 @@ test("V2 Project workspace reads formal objects without mapping Lifecycle back t
   assert.match(html, /唯一主归属/);
 });
 
+test("OPEN MiniProject exposes one sidebar Closure Proposal entry and completed objects do not", () => {
+  const value = model();
+  value.v2Objects = [{ objectId: "mini-open", objectType: "MINI_PROJECT", version: 4, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "侧栏关闭验收", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" }];
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-mini-project-closure-propose" data-value="mini-open\|4"/);
+  assert.match(html, /关闭 MiniProject/);
+  value.v2ClosureProposalBusy = true;
+  html = renderApp(value);
+  assert.match(html, /正在发起…/);
+  assert.match(html, /data-action="v2-mini-project-closure-propose"[^>]*disabled[^>]*aria-busy="true"/);
+  value.v2Objects[0] = { ...value.v2Objects[0]!, lifecycle: "COMPLETED", closure: { originalGoal: "完成验收", actualResult: "已完成", remainingWork: "无遗留" } };
+  value.v2ClosureProposalBusy = false;
+  html = renderApp(value);
+  assert.doesNotMatch(html, /data-action="v2-mini-project-closure-propose"/);
+});
+
 test("V2 Now Work renders only non-empty explainable regions without scores or button walls", () => {
   const value = model();
   value.workspace = "now";
@@ -389,7 +405,7 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   } }];
   let html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-closure-commit"/);
-  assert.match(html, /原子记录 MiniProject 三问 Closure、Lifecycle 与 Anchor 证据/);
+  assert.match(html, /原子记录 MiniProject 三问 Closure 与 Lifecycle，并保留 Anchor 证据/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
   value.actionDialog = { kind: "v2-mini-project-closure-review", value: "prop-mini-close|complete-mini-project|2026-07-22T08:01:00.000Z|HIGH" };
   html = renderApp(value);
@@ -397,6 +413,11 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   assert.match(html, /data-field="miniClosureActualResult"/);
   assert.match(html, /data-field="miniClosureRemainingWork"/);
   assert.match(html, /保存三问并接受/);
+  value.v2ClosureReviewBusy = true;
+  html = renderApp(value);
+  assert.match(html, /正在保存…/);
+  assert.match(html, /data-action="submit-v2-review-accept"[^>]*disabled[^>]*aria-busy="true"/);
+  value.v2ClosureReviewBusy = false;
   value.actionDialog = { kind: "confirm-v2-mini-project-closure", value: "prop-mini-close|2026-07-22T08:01:00.000Z" };
   html = renderApp(value);
   assert.match(html, /原目标、实际结果和遗留三问/);
@@ -411,6 +432,48 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
   assert.match(html, /移除 Marker 不会自动重开/);
+});
+
+test("MiniProject Closure waits until every other group is explicitly rejected", () => {
+  const value = model();
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  value.v2Proposals = [{ updatedAt: "now", files: { proposalMd: "# Closure", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-mini-partial", schemaVersion: "v2", title: "完成 MiniProject", context: "对象级关闭。", understanding: "三问已确认。", objective: "完成 MiniProject。", logic: "独立提交。", finalPreview: "完成。", unresolvedQuestions: [], source: { kind: "external_agent" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "mini-partial", version: 2 }] }, preconditions: [], status: "PARTIALLY_ACCEPTED", createdAt: "now",
+    groups: [
+      { groupId: "close", explanation: "关闭。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "close", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-partial", version: 2 }, summary: "完成", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", closure: { originalGoal: "目标", actualResult: "结果", remainingWork: "另行处理" } }, preconditions: [] }], disposition: "ACCEPTED" },
+      { groupId: "remaining", explanation: "创建后续对象。", risk: "LOW", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [], disposition: "PENDING" },
+    ],
+  } }];
+  let html = renderApp(value);
+  assert.doesNotMatch(html, /data-action="v2-mini-project-closure-commit"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  assert.match(html, /请先拒绝这些组，或将其拆成独立 Proposal/);
+  value.v2Proposals[0]!.proposal.groups[1]!.disposition = "REJECTED";
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-mini-project-closure-commit"/);
+});
+
+test("object-only MiniProject Closure explains version revalidation without claiming Graph writes", () => {
+  const value = model();
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  value.v2Objects = [{ objectId: "mini-agent", objectType: "MINI_PROJECT", text: "外部交付", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, version: 2, createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" }];
+  value.v2Proposals = [{ updatedAt: "2026-07-22T10:01:00.000Z", files: { proposalMd: "# Closure", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-mini-agent", schemaVersion: "v2", title: "关闭外部交付", context: "对象级关闭。", understanding: "需要三问。", objective: "完成 MiniProject。", logic: "仅重验对象版本。", finalPreview: "等待审阅。", unresolvedQuestions: [], source: { kind: "external_agent" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "mini-agent", version: 2 }] }, preconditions: [],
+    groups: [{ groupId: "complete-mini-project", explanation: "高影响关闭。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "complete-mini", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-agent", version: 2 }, summary: "完成", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", closure: { originalGoal: "外部交付", actualResult: "已完成", remainingWork: "无遗留" } }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T10:00:00.000Z",
+  } }];
+  let html = renderApp(value);
+  assert.match(html, /且不改写 Graph/);
+  value.actionDialog = { kind: "confirm-v2-mini-project-closure", value: "prop-mini-agent|2026-07-22T10:01:00.000Z" };
+  html = renderApp(value);
+  assert.match(html, /重验对象版本且不会改写 Logseq 正文/);
+  assert.doesNotMatch(html, /重验 Block、Anchor/);
+  delete value.actionDialog;
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:agent", proposalId: "prop-mini-agent", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  html = renderApp(value);
+  assert.match(html, /本次对象级关闭未改写 Logseq 正文/);
 });
 
 test("HIGH Ownership Review uses a dedicated confirmation and never falls through to generic formalization", () => {

@@ -52,6 +52,14 @@ function projectClosureProposal(objectId: string, version: number): V2Proposal {
   };
 }
 
+function miniProjectClosureProposal(objectId: string, version: number): V2Proposal {
+  return {
+    proposalId: "prop_agent_mini_closure", schemaVersion: "v2", title: "关闭小型交付", context: "MiniProject 已达成有限结果。", understanding: "用户需要确认三问后关闭。", objective: "记录 Closure 并完成同一 MiniProject。", logic: "只修改带版本正式对象，不依赖 Marker。", finalPreview: "等待用户审阅三问。", unresolvedQuestions: ["原目标？", "实际结果？", "遗留？"], source: { kind: "external_agent", skillVersion: "task-copilot-core@1" },
+    scope: { read: [], modify: [{ kind: "OBJECT", id: objectId, version }] }, preconditions: ["MiniProject 仍为 OPEN"],
+    groups: [{ groupId: "complete-mini-project", explanation: "Closure 与完成不可拆分。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "complete-mini-project", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: objectId, version }, summary: "完成 MiniProject", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT" }, preconditions: ["Object 仍为 OPEN"] }], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-22T10:00:00.000Z",
+  };
+}
+
 function ownershipProposal(childObjectId: string, childVersion: number, ownerObjectId: string, ownerVersion: number, expectedCurrentOwnerId?: string, proposalId = "prop_primary_owner"): V2Proposal {
   return { proposalId, schemaVersion: "v2", title: "设置主归属", context: "Task 当前归属已由版本证据表达。", understanding: "将 Task 归入已存在 Project。", objective: "建立唯一主归属。", logic: "独立 HIGH 组审阅且不改变位置。", finalPreview: "Task 的 Primary Owner 将更新。", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [{ kind: "OBJECT", id: ownerObjectId, version: ownerVersion }], modify: [{ kind: "OBJECT", id: childObjectId, version: childVersion }] }, preconditions: ["child 与 owner 版本未变化"], groups: [{ groupId: "change-owner", explanation: "主归属独立审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "change-owner", kind: "CHANGE_OWNERSHIP", target: { kind: "OBJECT", id: childObjectId, version: childVersion }, summary: "设置 Primary Owner", payload: { ownerObjectId, ...(expectedCurrentOwnerId ? { expectedCurrentOwnerId } : {}) }, preconditions: [] }], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-21T13:00:00.000Z" };
 }
@@ -445,7 +453,7 @@ test("Proposal validation, review, and scope revalidation never masquerade as a 
 
 test("configured Provider creates only a validated review-ready Proposal through Local Service", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-provider-"));
-  const modelCandidate = { ...validProposal(), proposalId: "model-id", status: "APPLIED", source: { kind: "user" } };
+  let modelCandidate = { ...validProposal(), proposalId: "model-id", status: "APPLIED", source: { kind: "user" } } as V2Proposal;
   const provider: StructuredProposalProvider = {
     providerId: "deepseek",
     providerVersion: "chat-completions-v1",
@@ -456,8 +464,9 @@ test("configured Provider creates only a validated review-ready Proposal through
     proposalGenerator: new LocalLlmProposalGenerator(provider),
   });
   t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
-  assert.equal((await clientFor(service).health()).capabilities.provider, true);
-  const result = await clientFor(service).generateProposal(proposalPrompt);
+  const client = clientFor(service);
+  assert.equal((await client.health()).capabilities.provider, true);
+  const result = await client.generateProposal(proposalPrompt);
   assert.equal(result.generated.kind, "PROPOSAL");
   if (result.generated.kind !== "PROPOSAL" || !("record" in result)) throw new Error("expected submitted Proposal");
   assert.equal(result.record.proposal.status, "READY");
@@ -467,8 +476,16 @@ test("configured Provider creates only a validated review-ready Proposal through
     writingProfileVersion: "profile-1", promptBundleVersion: result.generated.promptBundleVersion,
   });
   assert.equal(result.generated.provider.requestId, "req-provider");
-  assert.equal((await clientFor(service).status()).objectCount, 0);
-  assert.equal((await clientFor(service).listProposals()).length, 1);
+  assert.equal((await client.status()).objectCount, 0);
+  assert.equal((await client.listProposals()).length, 1);
+  const mini = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "Provider 关闭目标", externalId: "block-provider-mini", inputVersion: "1", contentHash: checksum("[MiniProject] Provider 关闭目标"), idempotencyKey: "ignored", traceId: "trace-provider-mini" });
+  modelCandidate = miniProjectClosureProposal(mini.object.objectId, mini.object.version);
+  const providerClosure = await client.generateProposal(proposalPrompt);
+  assert.equal(providerClosure.generated.kind, "PROPOSAL");
+  assert.equal((await client.getObject(mini.object.objectId))?.lifecycle, "OPEN");
+  const duplicate = miniProjectClosureProposal(mini.object.objectId, mini.object.version);
+  duplicate.proposalId = "prop_external_after_provider_closure";
+  await assert.rejects(() => client.submitProposal(duplicate), /活跃 Closure Proposal|409/);
 });
 
 test("Proposal Commit prepares before Graph, materializes after evidence, and records APPLIED", async (t) => {
@@ -1294,6 +1311,7 @@ test("MiniProject DONE Marker creates one review Proposal and commits only after
     assert.equal(committed.object.lifecycle, "COMPLETED");
     assert.equal(committed.object.condition.kind, "ACTIONABLE");
     assert.deepEqual(committed.object.closure, closure);
+    assert.ok(committed.anchor);
     assert.equal(committed.anchor.externalId, "block-mini-marker");
     assert.equal(committed.anchor.contentHash, markerHash);
     assert.equal(committed.record.proposal.status, "APPLIED");
@@ -1305,6 +1323,76 @@ test("MiniProject DONE Marker creates one review Proposal and commits only after
   assert.equal(replayed.status, "COMPLETED");
   if (replayed.status === "COMPLETED") assert.equal(replayed.replayed, true);
   assert.equal((await client.listSemanticCommits()).filter(({ proposalId }) => proposalId === record.proposal.proposalId).length, 1);
+});
+
+test("external Agent MiniProject Closure completes a versioned object without requiring a DONE Marker", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-agent-mini-closure-"));
+  let failAfterDomain = false;
+  const serviceOptions = { databasePath: join(root, "task-copilot.db"), graphId: "graph-agent-mini-closure", token: "agent-mini-closure-token-at-least-24", faults: { afterLifecycleDomainWrite: () => { if (failAfterDomain) { failAfterDomain = false; throw new Error("fault after object-only domain write"); } } } };
+  let service = await startLocalService(serviceOptions);
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const created = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "交付离线验收", externalId: "block-agent-mini", inputVersion: "1", contentHash: checksum("[MiniProject] 交付离线验收"), idempotencyKey: "ignored", traceId: "trace-agent-mini-create" });
+  const submitted = await client.submitProposal(miniProjectClosureProposal(created.object.objectId, created.object.version));
+  const closure = { originalGoal: "完成离线验收", actualResult: "验收报告已通过", remainingWork: "后续指标转入新 Task" };
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt, closure);
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN", "review is not a formal write");
+  failAfterDomain = true;
+  await assert.rejects(() => client.commitLifecycleTransition(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [], traceId: "trace-agent-mini-interrupted" }), /Local Service/);
+  await service.close();
+  service = await startLocalService(serviceOptions);
+  client = clientFor(service);
+  const completed = await client.commitLifecycleTransition(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [], traceId: "trace-agent-mini-commit" });
+  assert.equal(completed.status, "COMPLETED");
+  if (completed.status !== "COMPLETED") return;
+  assert.equal(completed.anchor, undefined, "object-only Closure does not manufacture Graph evidence");
+  assert.equal(completed.replayed, true, "restart recovery reports the existing Domain receipt");
+  assert.equal(completed.object.lifecycle, "COMPLETED");
+  assert.deepEqual(completed.object.closure, closure);
+  const replay = await client.commitLifecycleTransition(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [], traceId: "trace-agent-mini-replay" });
+  assert.equal(replay.status, "COMPLETED");
+  if (replay.status === "COMPLETED") assert.equal(replay.replayed, true);
+});
+
+test("sidebar MiniProject Closure entry creates one Proposal with zero formal writes", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-sidebar-mini-closure-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-sidebar-mini-closure", token: "sidebar-mini-closure-token-at-least-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const created = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "侧栏关闭验收", externalId: "block-sidebar-mini", inputVersion: "1", contentHash: checksum("[MiniProject] 侧栏关闭验收"), idempotencyKey: "ignored", traceId: "trace-sidebar-mini-create" });
+  const proposed = await client.createMiniProjectClosureProposal(created.object.objectId, { expectedVersion: created.object.version });
+  assert.equal(proposed.replayed, false);
+  assert.equal(proposed.record.proposal.source.kind, "user");
+  assert.deepEqual(proposed.record.proposal.scope.read, []);
+  assert.equal(proposed.record.proposal.groups[0]?.semanticOperations[0]?.payload.marker, undefined);
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN");
+  const duplicate = miniProjectClosureProposal(created.object.objectId, created.object.version);
+  duplicate.proposalId = "prop_agent_duplicate_sidebar_closure";
+  await assert.rejects(() => client.submitProposal(duplicate), /活跃 Closure Proposal|409/);
+  const replay = await client.createMiniProjectClosureProposal(created.object.objectId, { expectedVersion: created.object.version });
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.record.proposal.proposalId, proposed.record.proposal.proposalId);
+  assert.equal((await client.listProposals()).filter(({ proposal }) => proposal.proposalId === proposed.record.proposal.proposalId).length, 1);
+  const changed = await client.changeCondition(created.object.objectId, created.object.version, { kind: "PAUSED", reason: "等待最终材料" });
+  const revised = await client.createMiniProjectClosureProposal(created.object.objectId, { expectedVersion: changed.object.version });
+  assert.equal(revised.replayed, false);
+  assert.equal(revised.record.proposal.proposalId, proposed.record.proposal.proposalId, "version refresh revises the one machine authority");
+  assert.equal(revised.record.proposal.groups[0]?.semanticOperations[0]?.target.version, changed.object.version);
+  assert.equal((await client.listProposals()).filter(({ proposal }) => proposal.proposalId === proposed.record.proposal.proposalId).length, 1);
+  assert.equal((await client.getObject(created.object.objectId))?.version, changed.object.version, "Proposal revision is not a formal object write");
+  await assert.rejects(() => client.createMiniProjectClosureProposal(created.object.objectId, { expectedVersion: changed.object.version + 1 }), /变化|409/);
+  const malformed = await fetch(new URL(`objects/${encodeURIComponent(created.object.objectId)}/closure/proposal`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: "{}" });
+  assert.equal(malformed.status, 400);
+  const task = await client.synchronizeExplicitObject({ objectType: "TASK", text: "不是 MiniProject", externalId: "block-sidebar-task", inputVersion: "1", contentHash: checksum("[任务] 不是 MiniProject"), idempotencyKey: "ignored", traceId: "trace-sidebar-task" });
+  const unavailable = await fetch(new URL(`objects/${encodeURIComponent(task.object.objectId)}/closure/proposal`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: task.object.version }) });
+  assert.equal(unavailable.status, 409);
+  const raceMini = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "并发唯一权威", externalId: "block-race-mini", inputVersion: "1", contentHash: checksum("[MiniProject] 并发唯一权威"), idempotencyKey: "ignored", traceId: "trace-race-mini" });
+  const raceA = miniProjectClosureProposal(raceMini.object.objectId, raceMini.object.version); raceA.proposalId = "prop_race_closure_a";
+  const raceB = miniProjectClosureProposal(raceMini.object.objectId, raceMini.object.version); raceB.proposalId = "prop_race_closure_b";
+  const raced = await Promise.allSettled([client.submitProposal(raceA), client.submitProposal(raceB)]);
+  assert.equal(raced.filter(({ status }) => status === "fulfilled").length, 1);
+  assert.equal(raced.filter(({ status }) => status === "rejected").length, 1);
+  assert.equal((await client.listProposals()).filter(({ proposal }) => proposal.scope.modify.some(({ kind, id }) => kind === "OBJECT" && id === raceMini.object.objectId)).length, 1);
 });
 
 test("MiniProject lifecycle Commit revalidates recovery, terminalizes stale state, and converges duplicate submission", async (t) => {

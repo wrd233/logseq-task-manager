@@ -144,7 +144,17 @@ test("MiniProject closure review requires three answers before producing one acc
   };
   assert.deepEqual(planAcceptedV2LifecycleTransition(accepted), {
     proposalId: "prop-marker-close", groupId: "complete-mini", objectId: "mini-1", expectedVersion: 3, lifecycle: "COMPLETED",
-    objectType: "MINI_PROJECT", text: "Marker Desktop Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678", closure: { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" },
+    objectType: "MINI_PROJECT", evidenceKind: "MARKER", text: "Marker Desktop Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678", closure: { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" },
+  });
+  const externalAgent = structuredClone(accepted);
+  externalAgent.proposalId = "prop-agent-close";
+  externalAgent.source = { kind: "external_agent", skillVersion: "task-copilot-core@1" };
+  externalAgent.scope.read = [];
+  const externalPayload = externalAgent.groups[0]!.semanticOperations[0]!.payload;
+  delete externalPayload.text; delete externalPayload.marker; delete externalPayload.externalId; delete externalPayload.contentHash;
+  assert.deepEqual(planAcceptedV2LifecycleTransition(externalAgent), {
+    proposalId: "prop-agent-close", groupId: "complete-mini", objectId: "mini-1", expectedVersion: 3, lifecycle: "COMPLETED",
+    objectType: "MINI_PROJECT", evidenceKind: "OBJECT_ONLY", closure: { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" },
   });
   const downgraded = structuredClone(accepted); downgraded.groups[0]!.risk = "MEDIUM";
   assert.throws(() => planAcceptedV2LifecycleTransition(downgraded), /HIGH/);
@@ -166,6 +176,16 @@ test("MiniProject closure review requires three answers before producing one acc
   const reviewed = await application.reviewMiniProjectClosure(ready.proposalId, "complete-mini", { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" }, submitted.record.updatedAt);
   assert.equal(reviewed.proposal.status, "ACCEPTED");
   assert.deepEqual(planAcceptedV2LifecycleTransition(reviewed.proposal).closure, { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" });
+
+  const withRemaining = structuredClone(ready);
+  withRemaining.proposalId = "prop-mini-with-remaining";
+  withRemaining.groups.push({ groupId: "remaining-work", explanation: "遗留工作必须拆为独立 Proposal。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "remaining-note", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: "mini-1", version: 3 }, summary: "记录待拆分遗留", payload: { note: "另行创建对象" }, preconditions: [] }], disposition: "PENDING" });
+  const remainingApplication = new V2ProposalApplication(new MemoryProposalRepository());
+  const remainingSubmitted = await remainingApplication.submit(withRemaining);
+  const closureAccepted = await remainingApplication.reviewMiniProjectClosure(withRemaining.proposalId, "complete-mini", { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "另行处理" }, remainingSubmitted.record.updatedAt);
+  assert.throws(() => planAcceptedV2LifecycleTransition(closureAccepted.proposal), /拒绝其余未提交语义组/);
+  const remainingRejected = await remainingApplication.review(withRemaining.proposalId, { "remaining-work": { disposition: "REJECTED" } }, closureAccepted.updatedAt);
+  assert.equal(planAcceptedV2LifecycleTransition(remainingRejected.proposal).groupId, "complete-mini");
 });
 
 test("accepted Ownership plan requires one versioned HIGH operation and explicit current-owner evidence", () => {

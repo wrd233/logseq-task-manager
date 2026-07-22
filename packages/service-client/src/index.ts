@@ -315,7 +315,7 @@ export type ServiceProjectClosureCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation);
 export type ServiceLifecycleTransitionCommitResult =
-  | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; anchor: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
+  | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; anchor?: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation);
 export type ServiceOwnershipCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; ownership: V2PrimaryOwnership; record: ServiceStoredProposal; replayed: boolean }
@@ -572,6 +572,12 @@ export class LocalServiceClient {
 
   async listObjects(): Promise<V2ManagedObject[]> {
     return (await this.request<{ objects: V2ManagedObject[] }>("/objects")).objects;
+  }
+
+  createMiniProjectClosureProposal(objectId: string, input: { expectedVersion: number }): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {
+    return this.request<{ record: ServiceStoredProposal; replayed: boolean }>(`/objects/${encodeURIComponent(objectId)}/closure/proposal`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    });
   }
 
   listPrimaryAnchors(cursor?: string, includeReplaced = false): Promise<ServicePrimaryAnchorPage> {
