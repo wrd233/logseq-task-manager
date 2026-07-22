@@ -26,7 +26,7 @@ MARKER_EVIDENCE_CLOSURE_DESKTOP_PASS
 
 - 本次通过的是“对象列表 -> object-only Proposal -> 三问 -> Review -> Commit -> reload”。
 - Marker/DONE 路径也已用真实 Logseq Block 事件通过：真实 SDK 形状是 `DONE [MiniProject] 标题`，首跑因 Parser 只接受 `[MiniProject] DONE 标题` 而安全地保持 OPEN。修复后新 Block 从 `OPEN + v2` 生成唯一 READY Proposal，同步证据为 `DONE + Block hash + active Anchor + Object v3`；三问接受后仍 `OPEN + v3`，最终对话明示重验 Block、Anchor 和 Object，确认后为 `COMPLETED + v4`。正文仍保留 DONE，Anchor hash 与重验证据一致，reload 读回 Closure；Backup/Doctor PASS。运行证据位于被忽略的 `tmp/runtime/v2-desktop/mini-closure-marker/`。
-- Agent 草拟三问和“将遗留转为新对象”仍是 UC-28 的后续工作；本报告不将人工填写遗留说明冒充该能力。
+- Agent 草拟三问和“将遗留转为新对象 Proposal”现已通过自动 Gate，前者还有一次真实 DeepSeek Flash 零正式写入证据；但这两个新按钮尚未在 Desktop 中验收，本报告不将既有人工填写场景冒充新交互证据。
 
 ## 复杂度结论
 

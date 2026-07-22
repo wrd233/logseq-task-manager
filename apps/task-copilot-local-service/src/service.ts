@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
-import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -331,6 +331,24 @@ async function readMiniProjectClosureProposalRequest(request: IncomingMessage): 
     throw serviceError("MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MiniProject Closure Proposal 请求必须只引用对象版本。");
   }
   return { expectedVersion: Number(record.expectedVersion) };
+}
+
+async function readMiniProjectClosureDraftRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; draft: V2MiniProjectClosure }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const draft = record.draft && typeof record.draft === "object" && !Array.isArray(record.draft) ? record.draft as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "draft,expectedUpdatedAt"
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || Object.keys(draft).sort().join(",") !== "actualResult,originalGoal,remainingWork"
+    || !Object.values(draft).every((item) => typeof item === "string" && item.length <= 4_000)) {
+    throw serviceError("MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "Agent 三问草稿请求必须包含有界的当前表单和 Proposal 版本。");
+  }
+  return {
+    expectedUpdatedAt: record.expectedUpdatedAt,
+    draft: { originalGoal: String(draft.originalGoal).trim(), actualResult: String(draft.actualResult).trim(), remainingWork: String(draft.remainingWork).trim() },
+  };
 }
 
 function normalizedProjectName(value: string): string {
@@ -665,7 +683,7 @@ function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
     const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
-    const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code));
+    const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code));
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
@@ -673,7 +691,7 @@ function respondError(response: ServerResponse, error: unknown): void {
       ? 413
       : migrationInputError || proposalInputError || domainInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
         ? 400
-          : migrationNotFound || error.code === "V2_OBJECT_NOT_FOUND" || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_CANDIDATE_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND"
+          : migrationNotFound || error.code === "V2_OBJECT_NOT_FOUND" || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_NOT_FOUND" || error.code === "V2_CANDIDATE_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND"
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
@@ -768,6 +786,58 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     return proposalApplication.submit(proposal, new Date(object.updatedAt));
   });
+  const draftMiniProjectClosure = async (proposalId: string, input: { expectedUpdatedAt: string; draft: V2MiniProjectClosure }, signal: AbortSignal) => {
+    if (!options.proposalGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Provider；没有修改 Proposal。");
+    const initial = await proposalApplication.get(proposalId);
+    const initialTransition = initial?.proposal.groups.flatMap(({ semanticOperations }) => semanticOperations)
+      .find(({ kind, payload }) => kind === "TRANSITION_LIFECYCLE" && payload.objectType === "MINI_PROJECT" && payload.lifecycle === "COMPLETED");
+    if (!initial || !initialTransition) throw serviceError("V2_MINI_PROJECT_CLOSURE_PROPOSAL_NOT_FOUND", "未找到可草拟三问的 MiniProject Closure Proposal。");
+    return serializeByKey(`closure-proposal:${initialTransition.target.id}`, async () => {
+      requireNoUnfinishedProposalCommit(proposalId);
+      const current = await proposalApplication.get(proposalId);
+      if (!current || current.updatedAt !== input.expectedUpdatedAt) throw serviceError("V2_PROPOSAL_REVIEW_STALE", "Proposal 已变化；Agent 草稿没有覆盖当前表示。");
+      if (current.proposal.status !== "READY") throw serviceError("V2_MINI_PROJECT_CLOSURE_DRAFT_NOT_ALLOWED", "只能在审阅前草拟 MiniProject Closure 三问。");
+      const transition = current.proposal.groups.flatMap(({ semanticOperations }) => semanticOperations)
+        .find(({ kind, payload }) => kind === "TRANSITION_LIFECYCLE" && payload.objectType === "MINI_PROJECT" && payload.lifecycle === "COMPLETED");
+      const object = transition ? store.getObject(transition.target.id) : undefined;
+      if (!transition || !object || object.objectType !== "MINI_PROJECT" || object.lifecycle !== "OPEN" || transition.target.version !== object.version) {
+        throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 已变化；Agent 草稿没有修改 Proposal 或正式状态。");
+      }
+      const generated = await options.proposalGenerator!.generate({
+        proposalId: current.proposal.proposalId,
+        createdAt: current.proposal.createdAt,
+        signal,
+        prompt: {
+          core: { version: "mini-project-closure-draft-v1", content: "只为已存在的 MiniProject Closure Proposal 草拟三问。输出仍必须是完整、可验证、READY 但未审阅的 Proposal；不得声称已完成、已提交或已写入。" },
+          domain: { version: "mini-project-closure-domain-v1", content: "三问为 originalGoal、actualResult、remainingWork，必须全部是非空、有界、可供用户修改的中文草稿。三问只能位于唯一 HIGH TRANSITION_LIFECYCLE 操作的 payload.closure。" },
+          skill: { version: "mini-project-closure-writing-v1", content: "优先保留用户已填内容；对缺失内容给出简洁、保守草稿，不虚构数字、交付物或外部事实。" },
+          userSemantics: { version: "mini-project-closure-user-v1", content: "用户将在 UI 中审阅和修改三问；Agent 草稿不是事实。" },
+          runtimeContext: { version: `proposal-${current.updatedAt}`, content: stableJson({ object: { objectId: object.objectId, objectType: object.objectType, text: object.text, version: object.version }, currentDraft: input.draft, proposal: current.proposal }) },
+        },
+      });
+      if (generated.kind !== "PROPOSAL") throw serviceError("LLM_MINI_PROJECT_CLOSURE_DRAFT_UNAVAILABLE", `Provider 未生成三问草稿：${generated.reason}`);
+      const generatedTransitions = generated.proposal.groups.flatMap(({ semanticOperations }) => semanticOperations)
+        .filter(({ kind, payload }) => kind === "TRANSITION_LIFECYCLE" && payload.objectType === "MINI_PROJECT" && payload.lifecycle === "COMPLETED" && payload.closure !== undefined);
+      if (generatedTransitions.length !== 1) throw serviceError("LLM_MINI_PROJECT_CLOSURE_DRAFT_INVALID", "Provider 没有返回唯一、完整的 MiniProject Closure 三问；没有修改 Proposal。");
+      const closure = validateV2MiniProjectClosure(generatedTransitions[0]!.payload.closure as V2MiniProjectClosure);
+      const latestObject = store.getObject(object.objectId);
+      if (!latestObject || latestObject.lifecycle !== "OPEN" || latestObject.version !== object.version) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 在 Agent 草拟期间已变化；没有覆盖 Proposal 或正式状态。");
+      const revised: V2Proposal = {
+        ...current.proposal,
+        finalPreview: `Agent 草稿（待审阅）\n原目标：${closure.originalGoal}\n实际结果：${closure.actualResult}\n遗留：${closure.remainingWork}`,
+        unresolvedQuestions: [],
+        source: generated.proposal.source,
+        groups: current.proposal.groups.map((group) => ({
+          ...group,
+          semanticOperations: group.semanticOperations.map((operation) => operation.operationId === transition.operationId
+            ? { ...operation, payload: { ...operation.payload, closure } }
+            : operation),
+        })),
+      };
+      const record = await proposalApplication.reviseSameMachineIntent(revised, current.updatedAt);
+      return { record, provider: generated.provider, promptBundleVersion: generated.promptBundleVersion };
+    });
+  };
   const submitReviewProposal = async (candidate: unknown, at = new Date()) => {
     const proposal = validateV2ProposalForSubmission(candidate);
     const closureOperation = proposal.groups.flatMap(({ semanticOperations }) => semanticOperations)
@@ -1745,6 +1815,19 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         respond(response, 200, await proposalApplication.reviewMiniProjectClosure(proposalId, accepted[0]![0], input.miniProjectClosure, input.expectedUpdatedAt));
       } else {
         respond(response, 200, await proposalApplication.review(proposalId, input.decisions, input.expectedUpdatedAt));
+      }
+      return;
+    }
+    const miniProjectClosureDraftMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/mini-project-closure\/draft$/) : null;
+    if (miniProjectClosureDraftMatch?.[1]) {
+      const input = await readMiniProjectClosureDraftRequest(request);
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        respond(response, 200, await draftMiniProjectClosure(decodeURIComponent(miniProjectClosureDraftMatch[1]), input, controller.signal));
+      } finally {
+        request.removeListener("aborted", abort);
       }
       return;
     }

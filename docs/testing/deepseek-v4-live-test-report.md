@@ -21,6 +21,8 @@
 
 这替代了 2026-07-21 仅 HTTP 200 且 `finish_reason=length` 的旧失败探测；旧结果保留为真实失败依据，不再作为当前状态。
 
+UC-28 的专用 MiniProject Closure 草拟端点也以合成内容真实通过：`deepseek-v4-flash`、1 attempt、3859 tokens、约 28.3 秒，同 proposal_id 返回完整三问并保持 `READY`；Object 仍 `OPEN`，SemanticCommit 为 0。首轮真实调用暴露了 Service Client 通用 3 秒超时会早于 Provider 自身边界断开；现只将两个 Provider 生成端点的 Client 上限调整为 125 秒，其他命令仍保持 3 秒。
+
 ## 作废的早期 22-run
 
 早期 runner 曾完成固定 DS-01..12 与核心 5 例各三次共 22/22 Pipeline + Validator，但复审发现 Prompt 把 `expected` 和 assertion 标签传给模型，形成答案泄漏。该轮只保留为结构化 Prompt 调试证据，明确作废，不能用于 L3/L4 Gate。

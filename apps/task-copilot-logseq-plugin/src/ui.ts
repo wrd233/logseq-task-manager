@@ -78,6 +78,9 @@ export interface UiModel {
   v2OwnershipCommitBusy?: boolean;
   v2LifecycleCommitBusy?: boolean;
   v2ClosureProposalBusy?: boolean;
+  v2ClosureDraftBusy?: boolean;
+  v2ClosureDraftInput?: V2MiniProjectClosure;
+  v2LegacyTransferBusy?: boolean;
   v2ClosureReviewBusy?: boolean;
   v2Proposals?: ServiceStoredProposal[];
   v2SemanticCommits?: ServiceSemanticCommit[];
@@ -493,7 +496,12 @@ function renderActionDialog(model: UiModel): string {
     const proposal = model.v2Proposals?.find((candidate) => candidate.proposal.proposalId === proposalId)?.proposal;
     const operation = proposal?.groups.find((group) => group.groupId === groupId)?.semanticOperations.find((candidate) => candidate.kind === "TRANSITION_LIFECYCLE");
     const objectText = model.v2Objects?.find(({ objectId }) => objectId === operation?.target.id)?.text;
-    return `<section class="inbox-dialog action-dialog" aria-label="填写 MiniProject Closure 三问"><h3>确认 MiniProject Closure</h3><p class="muted">三问会进入唯一 Proposal，并随完成状态原子写入 SQLite。</p><label>原本要得到什么<textarea data-field="miniClosureOriginalGoal">${escapeHtml(String(operation?.payload.text ?? objectText ?? ""))}</textarea></label><label>实际得到了什么<textarea data-field="miniClosureActualResult"></textarea></label><label>有什么遗留或需要转移<textarea data-field="miniClosureRemainingWork" placeholder="没有遗留时请明确写“无遗留”"></textarea></label><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认三问内容和当前 HIGH 关闭语义组</label><div class="actions">${button(model.v2ClosureReviewBusy ? "正在保存…" : "保存三问并接受", "submit-v2-review-accept", dialog.value, "danger", model.v2ClosureReviewBusy === true)}${cancel}</div></section>`;
+    const storedClosure = operation?.payload.closure && typeof operation.payload.closure === "object" ? operation.payload.closure as unknown as V2MiniProjectClosure : undefined;
+    const closure = model.v2ClosureDraftInput ?? storedClosure ?? { originalGoal: String(operation?.payload.text ?? objectText ?? ""), actualResult: "", remainingWork: "" };
+    const draftDisabled = model.v2ClosureDraftBusy === true || model.v2ProviderAvailable !== true;
+    const draftLabel = model.v2ClosureDraftBusy ? "Agent 正在草拟…" : model.v2ProviderAvailable ? "Agent 草拟三问" : "Agent 草拟不可用";
+    const transferDisabled = model.v2LegacyTransferBusy === true || model.v2CandidateAvailable !== true;
+    return `<section class="inbox-dialog action-dialog" aria-label="填写 MiniProject Closure 三问"><h3>确认 MiniProject Closure</h3><p class="muted">三问会进入唯一 Proposal，并随完成状态原子写入 SQLite。Agent 只生成可编辑草稿，不会接受或提交。</p><label>原本要得到什么<textarea data-field="miniClosureOriginalGoal">${escapeHtml(closure.originalGoal)}</textarea></label><label>实际得到了什么<textarea data-field="miniClosureActualResult">${escapeHtml(closure.actualResult)}</textarea></label><label>有什么遗留或需要转移<textarea data-field="miniClosureRemainingWork" placeholder="没有遗留时请明确写“无遗留”">${escapeHtml(closure.remainingWork)}</textarea></label><div class="legacy-transfer"><p class="muted">如需承接遗留：先在 Logseq 新建并选中一个空 Block，再创建独立 Proposal；不选择则只保留上方说明。</p><label>承接对象类型<select data-field="miniClosureLegacyObjectType"><option value="TASK">Task</option><option value="MINI_PROJECT">MiniProject</option><option value="DECISION">Decision</option><option value="OUTPUT">Output</option></select></label>${button(model.v2LegacyTransferBusy ? "正在创建独立 Proposal…" : "将遗留转为新对象 Proposal", "v2-mini-project-legacy-transfer", dialog.value, "quiet", transferDisabled)}</div><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认三问内容和当前 HIGH 关闭语义组</label><div class="actions">${button(draftLabel, "v2-mini-project-closure-draft", dialog.value, "quiet", draftDisabled)}${button(model.v2ClosureReviewBusy ? "正在保存…" : "保存三问并接受", "submit-v2-review-accept", dialog.value, "danger", model.v2ClosureReviewBusy === true || model.v2ClosureDraftBusy === true || model.v2LegacyTransferBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-mini-project-closure") {
     const proposalId = dialog.value.split("|")[0];

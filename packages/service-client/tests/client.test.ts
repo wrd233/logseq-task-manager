@@ -74,6 +74,22 @@ test("unavailable and timeout both preserve Graph editing but restrict formal wr
   if (timeoutState.status === "RESTRICTED") assert.equal(timeoutState.reasonCode, "SERVICE_TIMEOUT");
 });
 
+test("Provider generation uses its bounded long-running window without relaxing ordinary client timeouts", async (t) => {
+  const { server, url } = await listen((_request, response) => {
+    setTimeout(() => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ generated: { kind: "NO_PROPOSAL", reason: "测试", provider: { model: "test", durationMs: 40, attempts: 1 }, promptBundleVersion: "v1" }, replayed: false }));
+    }, 40);
+  });
+  t.after(() => server.close());
+  const client = new LocalServiceClient(descriptor(url), 10);
+  const result = await client.generateProposal({
+    core: { version: "1", content: "core" }, domain: { version: "1", content: "domain" }, skill: { version: "1", content: "skill" },
+    userSemantics: { version: "1", content: "user" }, runtimeContext: { version: "1", content: "runtime" },
+  });
+  assert.equal(result.generated.kind, "NO_PROPOSAL");
+});
+
 test("client preserves bounded Local Service conflict messages for reviewable UI errors", async (t) => {
   const { server, url } = await listen((_request, response) => {
     response.writeHead(409, { "content-type": "application/json" });

@@ -23,6 +23,7 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 5. object_id、Primary Anchor、Commit 链和 Legacy mapping 证据完整；
 6. Slice C 完成后验证 Proposal review → SemanticCommit → inverse Commit；
 7. Slice D 的真实 Provider 正向 smoke 已通过，但安全错误在线分类仍部分、严格 L3 失败、L4 未通过；继续无答案 Prompt 的黄金稳定性与接受/部分接受/编辑/拒绝记录，再集中从 Review Center 验证当前块 → Proposal/NO_PROPOSAL → Diff → Review，并复验 loading/error、默认日志、Diagnostics 和凭据 canary。
+8. UC-28 新增 Desktop 闭环：在 MiniProject 三问对话中验证 Agent loading/失败/成功回填、草稿后仍 OPEN/PENDING；再选中新空 Block 创建独立遗留承接 Proposal，验证关闭与新对象可分开审阅/提交/Undo，非空 Block 拒绝覆盖。
 
 ## 已知限定
 

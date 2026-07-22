@@ -1395,6 +1395,61 @@ test("sidebar MiniProject Closure entry creates one Proposal with zero formal wr
   assert.equal((await client.listProposals()).filter(({ proposal }) => proposal.scope.modify.some(({ kind, id }) => kind === "OBJECT" && id === raceMini.object.objectId)).length, 1);
 });
 
+test("Agent drafts MiniProject Closure answers into the one Proposal without changing machine intent", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-agent-mini-draft-"));
+  let requestedRuntimeContext = "";
+  let mutateDuringGeneration: (() => Promise<void>) | undefined;
+  const modelCandidate = miniProjectClosureProposal("model-controlled-object", 99);
+  modelCandidate.groups[0]!.semanticOperations[0]!.payload.closure = {
+    originalGoal: "交付离线验收",
+    actualResult: "验收报告已通过",
+    remainingWork: "监控指标转入新 Task",
+  };
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async (request) => {
+      requestedRuntimeContext = request.user;
+      await mutateDuringGeneration?.();
+      return { value: modelCandidate, metadata: { requestId: "req-mini-draft", model: "actual-model", finishReason: "stop", totalTokens: 120, durationMs: 30, attempts: 1 } };
+    },
+  };
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"), graphId: "graph-agent-mini-draft", token: "agent-mini-draft-token-at-least-24",
+    proposalGenerator: new LocalLlmProposalGenerator(provider),
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const created = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "交付离线验收", externalId: "block-agent-mini-draft", inputVersion: "1", contentHash: checksum("[MiniProject] 交付离线验收"), idempotencyKey: "ignored", traceId: "trace-agent-mini-draft-create" });
+  const proposed = await client.createMiniProjectClosureProposal(created.object.objectId, { expectedVersion: created.object.version });
+  const beforeMachineIntent = {
+    scope: proposed.record.proposal.scope,
+    groups: proposed.record.proposal.groups.map((group) => ({ ...group, semanticOperations: group.semanticOperations.map((operation) => ({ ...operation, payload: { ...operation.payload, closure: undefined } })) })),
+  };
+  const drafted = await client.draftMiniProjectClosure(proposed.record.proposal.proposalId, {
+    expectedUpdatedAt: proposed.record.updatedAt,
+    draft: { originalGoal: "交付离线验收", actualResult: "", remainingWork: "" },
+  });
+  assert.equal(drafted.record.proposal.proposalId, proposed.record.proposal.proposalId);
+  assert.equal(drafted.record.proposal.status, "READY");
+  assert.equal(drafted.record.proposal.source.kind, "local_llm");
+  assert.deepEqual(drafted.record.proposal.groups[0]?.semanticOperations[0]?.payload.closure, modelCandidate.groups[0]?.semanticOperations[0]?.payload.closure);
+  assert.deepEqual(drafted.record.proposal.scope, beforeMachineIntent.scope, "model scope is discarded");
+  assert.equal(drafted.record.proposal.groups[0]?.semanticOperations[0]?.target.id, created.object.objectId, "model target is discarded");
+  assert.equal(drafted.record.proposal.groups[0]?.semanticOperations[0]?.target.version, created.object.version);
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN", "draft is not a formal write");
+  assert.equal((await client.listSemanticCommits()).length, 0);
+  assert.equal(requestedRuntimeContext.includes("验收报告已通过"), false, "expected answer is not leaked into the prompt");
+  await assert.rejects(() => client.draftMiniProjectClosure(proposed.record.proposal.proposalId, { expectedUpdatedAt: proposed.record.updatedAt, draft: { originalGoal: "旧值", actualResult: "", remainingWork: "" } }), /stale|变化|409/i);
+
+  const concurrent = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "并发草拟保护", externalId: "block-agent-mini-draft-race", inputVersion: "1", contentHash: checksum("[MiniProject] 并发草拟保护"), idempotencyKey: "ignored", traceId: "trace-agent-mini-draft-race" });
+  const concurrentProposal = await client.createMiniProjectClosureProposal(concurrent.object.objectId, { expectedVersion: concurrent.object.version });
+  mutateDuringGeneration = async () => { await client.changeCondition(concurrent.object.objectId, concurrent.object.version, { kind: "PAUSED", reason: "草拟期间正式对象变化" }); };
+  await assert.rejects(() => client.draftMiniProjectClosure(concurrentProposal.record.proposal.proposalId, { expectedUpdatedAt: concurrentProposal.record.updatedAt, draft: { originalGoal: "验证并发保护", actualResult: "", remainingWork: "" } }), /草拟期间已变化|409/);
+  mutateDuringGeneration = undefined;
+  assert.equal((await client.getProposal(concurrentProposal.record.proposal.proposalId))?.proposal.groups[0]?.semanticOperations[0]?.payload.closure, undefined);
+});
+
 test("MiniProject lifecycle Commit revalidates recovery, terminalizes stale state, and converges duplicate submission", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-mini-lifecycle-recovery-"));
   const databasePath = join(root, "task-copilot.db");

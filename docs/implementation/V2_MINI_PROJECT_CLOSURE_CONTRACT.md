@@ -1,6 +1,6 @@
 # V2 MiniProject Closure 合同
 
-> 状态：`MARKER_SIDEBAR_EXTERNAL_AGENT_AUTOMATED_PASS / DESKTOP_PENDING / UC28_PARTIAL`
+> 状态：`UC28_AUTOMATED_AND_LIVE_PROVIDER_PASS / DESKTOP_PENDING`
 
 ## 真实问题
 
@@ -38,10 +38,17 @@ Logseq DONE evidence / sidebar object intent / external Agent object scope
 - 对象列表的 `关闭 MiniProject` 只创建或打开一个确定性 object-only Proposal；对象仍为 OPEN。外部 Agent 可经既有 `/proposals/submit` 提交相同机器形状，LLM 仍不能直接完成对象。
 - 外部 `/proposals/submit`、Provider、Marker 与侧栏共用按 object_id 串行的 Closure 提交边界，并统一检查 OPEN/type/version/活跃意图；不同 proposal_id 的并发请求只能成功一个，一个 Proposal 也只能关闭一个 MiniProject。历史歧义会显式进入恢复状态而不是任意 `.find()`。
 
+## UC-28 Agent 草拟与遗留承接
+
+- `Agent 草拟三问` 调用专用 Local Service 端点；Provider 仍必须输出一份通过 V2 Validator 的完整 Proposal。Service 只提取已验证的 `payload.closure` 三问，丢弃模型的 scope、target、version、group 和 operation 选择，再通过 `reviseSameMachineIntent` 写回原 proposal_id。
+- 草拟后 Proposal 仍为 `READY/PENDING`，对象仍为 `OPEN`，无 SemanticCommit；用户仍需编辑、确认 HIGH 组并独立最终提交。过期 updated_at、终结 Proposal、对象版本漂移、NO_PROPOSAL 或非唯一三问都是零正式写入失败。
+- `将遗留转为新对象 Proposal` 要求用户新建并选中空 Block，可选 Task、MiniProject、Decision 或 Output。它生成另一份确定性、可重放的普通 Formalization Proposal，关闭 Proposal 不增加第二组，两者分开审阅/提交/Undo。目标 Block 非空时拒绝覆盖；不点击转移时，遗留仍只作为 Closure 说明保留。
+- 这两项能力复用现有 Proposal 表、Validator、Review、Commit、Undo 和恢复路径；没有新表、新状态、第二权威或新的 Saga。
+
 ## SQLite 迁移
 
 Schema v11 只放宽已有 `objects.closure_json` 的 CHECK，从“仅 `PROJECT + COMPLETED`”改为“`PROJECT` 或 `MINI_PROJECT`，且 Lifecycle 为 `COMPLETED` 或保留完成事实的 `ARCHIVED`”。v10→v11 必须先创建经校验的不覆盖快照，然后在单一事务中重建 `objects`、执行 foreign-key check 并追加 migration ledger。对象、Anchor 或外键有任何丢失时整体回滚。
 
 ## Gate
 
-自动证据已覆盖 Marker、侧栏和外部 Agent 三种发起方式的 Domain/Application/Proposal Validator/Service/Client/Plugin 渲染，侧栏重复发起复用一个 Proposal 且零正式写入；还覆盖 SQLite v10→v11 恢复点迁移、迁移后关闭/归档保留、提交重放和错误输入零正式写入。侧栏 object-only 路径已在 Logseq Desktop 0.10.15 真实通过：READY 时对象仍 `OPEN + v2`，三问 HIGH 接受后仍 `OPEN + v2 + closure=null`，最终显式确认后才变为 `COMPLETED + v3`；Anchor hash 不变，reload 后三问和 APPLIED Proposal 可读，Backup 校验与 Doctor 均 PASS。Marker/DONE 也已以真实 `DONE [MiniProject]` Block 事件通过：Parser 修复真实前置 Marker 形状后，Proposal 绑定 Block hash + active Anchor + Object v3，ACCEPTED 仍 OPEN，最终三重验后为 `COMPLETED + v4`，正文 DONE 和 Anchor 证据保留，reload/Backup/Doctor PASS。证据见 `docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md`。UC-28 的 Agent 草拟三问与“把遗留转为新对象”仍未完成，当前只保存人工审阅的遗留说明；不将已通过的两条 Gate 冒充完整 UC-28。
+自动证据已覆盖 Marker、侧栏和外部 Agent 三种发起方式的 Domain/Application/Proposal Validator/Service/Client/Plugin 渲染，侧栏重复发起复用一个 Proposal 且零正式写入；还覆盖 SQLite v10→v11 恢复点迁移、迁移后关闭/归档保留、提交重放和错误输入零正式写入。Agent 草拟自动集成已证明同 proposal_id、模型机器 scope/target/version 丢弃、stale 拒绝、OPEN/PENDING 和零 SemanticCommit；遗留转移已通过四类对象、空 Block 保护、独立 Proposal 和 Validator 自动 Gate。2026-07-22 真实 `deepseek-v4-flash` 专用端点一次通过：1 attempt、3859 tokens、约 28.3 秒，返回三个 Closure 字段，Proposal 仍 READY、Object 仍 OPEN、SemanticCommit=0。此过程同时发现并修复通用 Client 3 秒早于 Provider 有界超时的真实问题：只为两个 Provider 端点使用 125 秒客户端上限，其他命令保持 3 秒。侧栏 object-only 与 Marker/DONE 既有 Desktop Gate 仍 PASS，证据见 `docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md`。新的 Agent 按钮、加载/错误反馈、表单回填、空 Block 承接与两份 Proposal 独立审阅尚需一次集中 Desktop Gate，因此 UC-28 不标 DONE。

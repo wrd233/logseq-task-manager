@@ -4,7 +4,7 @@ import type {
   TaskCopilot,
   ProjectReentryView,
 } from "@task-copilot/application";
-import type { ConditionKind, ObjectType, Phase, V2Condition } from "@task-copilot/domain";
+import type { ConditionKind, ObjectType, Phase, V2Condition, V2MiniProjectClosure } from "@task-copilot/domain";
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
@@ -61,6 +61,7 @@ import {
 } from "./v2-explicit-candidate-discovery.ts";
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
 import { buildSelectedBlockProposalPrompt } from "./v2-provider-analysis.ts";
+import { buildMiniProjectLegacyTransferProposal } from "./v2-mini-project-legacy-transfer.ts";
 import { submitV2Association, type V2AssociationSubmissionState } from "./v2-association-controller.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
@@ -112,6 +113,9 @@ const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
 let v2LifecycleCommitBusy = false;
 let v2ClosureProposalBusy = false;
+let v2ClosureDraftBusy = false;
+let v2ClosureDraftInput: V2MiniProjectClosure | undefined;
+let v2LegacyTransferBusy = false;
 let v2ClosureReviewBusy = false;
 let serviceConnection: ServiceConnectionState = {
   status: "RESTRICTED",
@@ -255,6 +259,9 @@ async function model(): Promise<UiModel> {
       v2OwnershipCommitBusy,
       v2LifecycleCommitBusy,
       v2ClosureProposalBusy,
+      v2ClosureDraftBusy,
+      ...(v2ClosureDraftInput ? { v2ClosureDraftInput } : {}),
+      v2LegacyTransferBusy,
       v2ClosureReviewBusy,
       v2Proposals,
       v2Candidates,
@@ -338,6 +345,9 @@ async function model(): Promise<UiModel> {
     v2OwnershipCommitBusy,
     v2LifecycleCommitBusy,
     v2ClosureProposalBusy,
+    v2ClosureDraftBusy,
+    ...(v2ClosureDraftInput ? { v2ClosureDraftInput } : {}),
+    v2LegacyTransferBusy,
     v2ClosureReviewBusy,
     v2Proposals,
     v2Candidates,
@@ -513,6 +523,7 @@ async function run(action: () => Promise<void>, success?: string): Promise<void>
 }
 
 function openActionDialog(kind: ActionDialogKind, value: string): Promise<void> {
+  if (kind === "v2-mini-project-closure-review") v2ClosureDraftInput = undefined;
   actionDialog = { kind, value };
   return refresh();
 }
@@ -1229,6 +1240,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       if (!proposalId || !groupId || !expectedUpdatedAt || !serviceRuntimeClient) throw new Error("V2 审阅上下文已失效；请刷新后重试。");
       if (miniProjectClosure && (!miniProjectClosure.originalGoal || !miniProjectClosure.actualResult || !miniProjectClosure.remainingWork)) throw new Error("请完整填写 MiniProject 原目标、实际结果和遗留三问。");
       await serviceRuntimeClient.reviewProposal(proposalId, { [groupId]: { disposition: "ACCEPTED", highImpactConfirmed: true } }, expectedUpdatedAt, miniProjectClosure);
+      if (miniProjectClosure) v2ClosureDraftInput = undefined;
       actionDialog = undefined;
       workspace = "review";
     }, "高影响语义组已接受，但尚未正式生效；最终 Commit 仍需版本重验。");
@@ -1237,6 +1249,75 @@ async function handleAction(action: string, value?: string): Promise<void> {
       v2ClosureReviewBusy = true;
       try { await refresh(); await submitReview(); }
       finally { v2ClosureReviewBusy = false; await refresh(); }
+    }
+    return;
+  }
+  if (action === "v2-mini-project-closure-draft" && value) {
+    if (v2ClosureDraftBusy) return;
+    const [proposalId, groupId, expectedUpdatedAt] = value.split("|");
+    v2ClosureDraftInput = {
+      originalGoal: dialogField("miniClosureOriginalGoal").trim(),
+      actualResult: dialogField("miniClosureActualResult").trim(),
+      remainingWork: dialogField("miniClosureRemainingWork").trim(),
+    };
+    v2ClosureDraftBusy = true;
+    latestError = undefined;
+    message = undefined;
+    try {
+      await refresh();
+      const client = serviceRuntimeClient;
+      if (!client || serviceConnection.status !== "READY" || !serviceConnection.capabilities.provider || !proposalId || !groupId || !expectedUpdatedAt) throw new Error("Agent 草稿上下文已失效；没有修改 Proposal。");
+      const result = await client.draftMiniProjectClosure(proposalId, { expectedUpdatedAt, draft: v2ClosureDraftInput });
+      actionDialog = { kind: "v2-mini-project-closure-review", value: `${proposalId}|${groupId}|${result.record.updatedAt}|HIGH` };
+      v2ClosureDraftInput = undefined;
+      workspace = "review";
+      reviewMode = "proposals";
+      message = "Agent 三问草稿已写入同一 Proposal；请修改并独立确认，正文和正式状态均未改变。";
+    } catch (error) {
+      latestError = `${explain(error)} 正文和正式 Store 未改变。`;
+    } finally {
+      v2ClosureDraftBusy = false;
+      await refresh();
+    }
+    return;
+  }
+  if (action === "v2-mini-project-legacy-transfer" && value) {
+    if (v2LegacyTransferBusy) return;
+    const [proposalId, , expectedUpdatedAt] = value.split("|");
+    v2ClosureDraftInput = {
+      originalGoal: dialogField("miniClosureOriginalGoal").trim(),
+      actualResult: dialogField("miniClosureActualResult").trim(),
+      remainingWork: dialogField("miniClosureRemainingWork").trim(),
+    };
+    const objectType = dialogField("miniClosureLegacyObjectType") as "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT";
+    v2LegacyTransferBusy = true;
+    latestError = undefined;
+    message = undefined;
+    try {
+      await refresh();
+      const client = serviceRuntimeClient;
+      if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable || !proposalId || !expectedUpdatedAt) throw new Error("遗留转移上下文已失效；没有创建 Proposal。");
+      const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
+      if (!block) throw new Error("请先在 Logseq 新建并选中一个空 Block。");
+      const proposal = buildMiniProjectLegacyTransferProposal({
+        closureProposalId: proposalId,
+        blockUuid: block.uuid,
+        beforeText: stripLogseqBlockIdentityProperty(block.content, block.uuid),
+        remainingWork: v2ClosureDraftInput.remainingWork,
+        objectType,
+        createdAt: expectedUpdatedAt,
+      });
+      const result = await client.submitProposal(proposal);
+      workspace = "review";
+      reviewMode = "proposals";
+      message = result.replayed
+        ? "已打开同一遗留承接 Proposal；MiniProject Closure、正文和正式状态均未改变。"
+        : "遗留承接已作为独立 Proposal 进入审阅；它与 MiniProject 关闭分开提交，当前未改正文或创建对象。";
+    } catch (error) {
+      latestError = `${explain(error)} 正文、Closure Proposal 和正式 Store 未改变。`;
+    } finally {
+      v2LegacyTransferBusy = false;
+      await refresh();
     }
     return;
   }
@@ -1259,6 +1340,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "cancel-action-dialog") {
+    v2ClosureDraftInput = undefined;
     actionDialog = undefined;
     await refresh();
     return;

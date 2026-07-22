@@ -182,6 +182,12 @@ export type ServiceGeneratedProposalResult = {
   replayed: false;
 };
 
+export interface ServiceMiniProjectClosureDraftResult {
+  record: ServiceStoredProposal;
+  provider: ServiceProviderCompletionMetadata;
+  promptBundleVersion: string;
+}
+
 export interface ServiceMaterializeExplicitObjectRequest {
   objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
@@ -468,9 +474,9 @@ export class LocalServiceClient {
     validateServiceDescriptor(descriptor);
   }
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private async request<T>(path: string, init?: RequestInit, timeoutMs = this.timeoutMs): Promise<T> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort("timeout"), this.timeoutMs);
+    const timeout = setTimeout(() => controller.abort("timeout"), timeoutMs);
     let response: Response;
     try {
       response = await fetch(`${this.descriptor.url}${path.slice(1)}`, {
@@ -578,6 +584,12 @@ export class LocalServiceClient {
     return this.request<{ record: ServiceStoredProposal; replayed: boolean }>(`/objects/${encodeURIComponent(objectId)}/closure/proposal`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });
+  }
+
+  draftMiniProjectClosure(proposalId: string, input: { expectedUpdatedAt: string; draft: V2MiniProjectClosure }): Promise<ServiceMiniProjectClosureDraftResult> {
+    return this.request<ServiceMiniProjectClosureDraftResult>(`/proposals/${encodeURIComponent(proposalId)}/mini-project-closure/draft`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    }, 125_000);
   }
 
   listPrimaryAnchors(cursor?: string, includeReplaced = false): Promise<ServicePrimaryAnchorPage> {
@@ -734,7 +746,7 @@ export class LocalServiceClient {
   generateProposal(prompt: ServiceProposalPromptBundle): Promise<ServiceGeneratedProposalResult> {
     return this.request<ServiceGeneratedProposalResult>("/provider/proposals/generate", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt }),
-    });
+    }, 125_000);
   }
 
   async listProposals(): Promise<ServiceStoredProposal[]> {
