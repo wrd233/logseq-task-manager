@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "runId": "v2-first-run-restricted-desktop-2026-07-22",
+  "environment": {
+    "client": "Logseq Desktop 0.10.15",
+    "graph": "isolated-test-graph"
+  },
+  "firstRun": {
+    "descriptorConfigured": false,
+    "serviceStatus": "RESTRICTED",
+    "reasonCode": "SERVICE_DESCRIPTOR_PATH_REQUIRED",
+    "storeStatus": "NOT_STARTED",
+    "formalWritesAvailable": false,
+    "entries": [
+      "开始使用",
+      "迁移现有内容",
+      "检查系统状态"
+    ],
+    "entryCount": 3,
+    "editableControls": 0,
+    "automaticGraphScan": false,
+    "automaticMigration": false,
+    "automaticProviderCall": false
+  },
+  "unavailableService": {
+    "descriptorProtocolVersion": 1,
+    "loopbackOnly": true,
+    "listeningProcess": false,
+    "reasonCode": "SERVICE_UNAVAILABLE",
+    "formalWritesAvailable": false
+  },
+  "protocolMismatch": {
+    "descriptorProtocolVersion": 2,
+    "reasonCode": "SERVICE_PROTOCOL_MISMATCH",
+    "formalWritesAvailable": false,
+    "persistedAcrossLogseqReload": true
+  },
+  "graphEditing": {
+    "objectSyntax": false,
+    "stableBlockUuid": "6a6092b7-dad8-4e81-95fd-f64eda9a0f6d",
+    "editedWhileServiceUnavailable": true,
+    "readBackAfterReload": true,
+    "editedAfterProtocolMismatchReload": true,
+    "formalObjectCreated": false
+  },
+  "explicitSync": {
+    "transportReady": false,
+    "pending": 0,
+    "reconciliationRequired": true,
+    "boundedSubtreeWarnings": 3,
+    "persistentQueueCreated": false
+  },
+  "cleanup": {
+    "privateDescriptorRemoved": true,
+    "descriptorSettingCleared": true,
+    "testPageDeleted": true,
+    "testPageReadBackAfterDelete": false,
+    "cdpInstanceRequiredTargetedTermination": true,
+    "normalLogseqRestarted": true
+  },
+  "security": {
+    "realCredentialUsed": false,
+    "credentialPersisted": false,
+    "descriptorTokenPersistedInEvidence": false
+  },
+  "complexity": {
+    "codeChanges": 0,
+    "newTables": 0,
+    "newProtocols": 0,
+    "newWritePaths": 0
+  },
+  "result": "V2_FIRST_RUN_AND_E2E15_DESKTOP_PASS"
+}
