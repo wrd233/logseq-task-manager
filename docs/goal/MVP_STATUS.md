@@ -1,8 +1,8 @@
 # MVP Status
 
 ```yaml
-goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A-F requirement gates and E2E-01-24 complete; release audit decisions closed; final clean audit in progress"
+goal_state: V2_IMPLEMENTATION_COMPLETE
+current_slice: "V1 frozen for read-only migration; V2 Slice A-F, E2E-01-24, Desktop, migration, recovery, DeepSeek and final clean audit complete"
 last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; all typecheck/lint/tests/build, Plugin and architecture boundaries, 145 rules, acceptance rehearsal and repository boundary PASS with 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
@@ -94,8 +94,7 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 V2-VIEW-001: Review and workspace keyboard activation with focus restoration and visible focus ring, correct current/pressed semantics, distinct Light/Dark renderer tokens, and zero formal writes"
   - "V2 Desktop 0.10.15 E2E-16: stable-identity Proposal wrote Graph, injected existing-Anchor conflict forced Domain failure, Plugin visibly compensated the original body without false success, persisted FAILED/COMPENSATED ledger state across reload, and returned Doctor COMMIT_HEALTHY with zero pending/recovery"
   - "V2 E2E-23: real endpoint invalid-token 401 mapped to LLM_AUTH_FAILED, real Keychain-configured request cancellation settled as LLM_CANCELLED, bounded loopback HTTP 429 mapped to LLM_RATE_LIMITED after the configured retry cap, and all probes remained zero-write and credential-free"
-runtime_checks_pending:
-  - "Final repository clean audit only; architecture, E2E-01-24, Project current interface, release decisions and all applicable Desktop Gates are complete"
+runtime_checks_pending: []
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
@@ -103,7 +102,7 @@ active_risks:
   - "E2E-13 live Graph bridge and external-Agent cross-entry Review are complete; the first online Agent candidate still required an exact-field prompt repair after Domain Validator rejection, so future Prompt changes must preserve validator-first golden coverage"
   - "@logseq/libs 0.0.17 retains 2 high / 1 critical upstream npm audit findings; 0.3.4 carries the currently affected transitive versions and type-only isolation fails real Desktop bootstrap, so release must retain this explicit exception until upstream provides a materially safer runtime"
 user_actions_required: []
-resume_instruction: "Read AGENTS.md, this file, current-status, traceability and the latest Runtime Report. Keep V1 frozen and never dual-write. Run the final clean audit without repeating unchanged expensive gates; preserve the explicit OD-008 upstream risk and claim V2 completion only after every release check passes."
+resume_instruction: "V2 implementation is complete. For maintenance, read AGENTS.md, current-status, traceability and the latest Runtime Report; keep V1 frozen, never dual-write, preserve OD-008 as an explicit upstream risk, and rerun only Gates affected by future code changes."
 ```
 
 外层仓库分支为 `feature/task-copilot-mvp`。`logseq/` 是 ignored 本地测试 Graph；inner dirty 仅作运行证据，不进入提交。

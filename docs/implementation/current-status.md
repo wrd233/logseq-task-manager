@@ -12,6 +12,7 @@ V1_MVP_PILOT_PARTIAL
 V1_FROZEN_FOR_MIGRATION
 V2_MIGRATION_DESIGN_READY
 V2_REQUIREMENT_GATES_PASS
+V2_IMPLEMENTATION_COMPLETE
 ```
 
 `V1_MVP_PILOT_SUCCESS` 未达到：Capture 与 Task 通过；MiniProject/Project 的主归属、推进、聚合以及 Decision/Output/Closure 没有形成低摩擦闭环。V1 不再扩建长期能力，这些差距转入 V2。
@@ -102,6 +103,7 @@ V2_REQUIREMENT_GATES_PASS
 - 2026-07-22 View 键盘/主题 Desktop Gate：Review 双视图与主导航可由 Enter/Space 操作，重绘后按稳定控件身份恢复焦点，toggle/current ARIA 明确且焦点环可见；Light/Dark renderer 分别命中独立 token。结合既有非空 Candidate/Proposal 专项，`V2-VIEW-001` 已为 `DONE`；无持久机制或正式写入，证据见 `docs/runtime/V2_VIEW_KEYBOARD_THEME_DESKTOP_REPORT.md`。
 - 2026-07-22 V2 Runtime 权威收口：正常 Plugin 入口已删除 V1 Application/FileStorage 写 Runtime、Inbox 导航与 V1 Audit 写按钮；默认 Now Work、Project 重入、Audit 和 Diagnostics 都读同一 Local Service 投影，查询失败不再伪装为空历史。Logseq Desktop 0.10.15 冷启动真实显示全阶段 READY、formal writes/explicit sync/Graph bridge true、Pending/Conflict 0/0，无 Inbox/V1 操作。无新表、状态、协议或恢复路径；证据见 `docs/runtime/V2_RUNTIME_V1_WRITE_UI_RETIREMENT_DESKTOP_REPORT.md`。
 - 2026-07-22 OD-008 release spike：npm 建议的 `@logseq/libs` 0.3.4 仍固定 DOMPurify 3.3.3 与 lodash-es 4.17.23，均落在当前 advisory 影响范围，因此 major upgrade 不能消除既有 2 high / 1 critical。隔离 0.3.4 在把 nullable Page Block tree 明确转成零写入失败后通过 typecheck、129 tests、build/bootstrap/dist；但把 SDK 改为纯类型依赖后，真实 Logseq 0.10.15 只有 `__LSP__HOST__`、不会自行建立 `window.logseq`，Plugin Frame 无法加载。该方案已拒绝并恢复；当前继续固定 0.0.17 runtime、保留 audit 风险，等待上游提供实质更安全构建后再走同一兼容 Gate。无 shim、fork、双 SDK 或隐藏 audit override；证据见 `docs/testing/logseq-libs-od008-spike-2026-07-22.json` 与 ADR 0007。
+- 2026-07-22 最终 clean audit：追踪矩阵 39/39 `DONE`，开放 `ADR_REQUIRED` 0，skipped/only 测试 0，可执行 FIXME/stub 0；UI 的 HTML `placeholder` 均为真实输入提示，不是实现占位。当前代码的根级 typecheck/lint/全部测试（Plugin 130）、build、Plugin/架构边界、145 rules、acceptance rehearsal 与仓库边界全部 PASS，临时 Store 恢复 `differences: []`。Silent Overwrite、Pending/Recovery、Feature Flag、插件受限/关闭后正文可读和外层 Git 均复核；仅保留用户已有且从未暂存的 `apps/task-copilot-local-service/package.json` 改动。结论与证据见 `docs/runtime/V2_FINAL_CLEAN_AUDIT_REPORT.md`。
 
 ## 当前证据
 
