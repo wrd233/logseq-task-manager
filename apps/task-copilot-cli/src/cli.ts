@@ -1,5 +1,5 @@
 import { V2_LIFECYCLES, V2_OBJECT_TYPES, type LegacyMigrationReviewDecision, type V2ManagedObject, type V2ObjectType } from "@task-copilot/domain";
-import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceLegacyMigrationScanReport, ServiceMigrationBatch, ServiceMigrationRun, ServiceMigrationRunDetails, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceGraphReadQuery, ServiceGraphSnapshot, ServiceLegacyMigrationScanReport, ServiceMigrationBatch, ServiceMigrationRun, ServiceMigrationRunDetails, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
 export interface CliService {
@@ -13,7 +13,8 @@ export interface CliService {
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }>;
   listSkills(): Promise<ServiceSkillSummary[]>;
   getSkill(name: string): Promise<ServiceSkillDocument | undefined>;
-  exportContext(scope: "object" | "project", id: string): Promise<ServiceContextExportResult>;
+  exportContext(scope: "block" | "page" | "object" | "project", id: string): Promise<ServiceContextExportResult>;
+  readGraph(query: ServiceGraphReadQuery): Promise<ServiceGraphSnapshot>;
   scanLegacyMigration(bundle: unknown): Promise<ServiceLegacyMigrationScanReport>;
   previewLegacyMigration(bundle: unknown, decisions: LegacyMigrationReviewDecision[]): Promise<{ run: ServiceMigrationRun; replayed: boolean }>;
   getMigrationRun(runId: string): Promise<ServiceMigrationRunDetails>;
@@ -48,12 +49,17 @@ Usage:
   tc [--service-descriptor <path>] [--json] object list [--type <type>] [--lifecycle <lifecycle>]
   tc [--service-descriptor <path>] [--json] object show <object_id>
   tc [--service-descriptor <path>] [--json] object search <keyword> [--type <type>] [--lifecycle <lifecycle>]
+  tc [--service-descriptor <path>] [--json] graph page <name-or-uuid> [--depth <0..5>]
+  tc [--service-descriptor <path>] [--json] graph block <uuid> [--children] [--parents <0..8>]
+  tc [--service-descriptor <path>] [--json] graph resolve <block-ref-or-page-name>
   tc [--service-descriptor <path>] [--json] proposal list
   tc [--service-descriptor <path>] [--json] proposal show <proposal_id>
   tc [--service-descriptor <path>] [--json] proposal validate <proposal.json>
   tc [--service-descriptor <path>] [--json] proposal submit <proposal.json>
   tc [--service-descriptor <path>] [--json] skill list
   tc [--service-descriptor <path>] [--json] skill show <name>
+  tc [--service-descriptor <path>] [--json] context export --scope block --block <uuid> --out <directory>
+  tc [--service-descriptor <path>] [--json] context export --scope page --page <name> --out <directory>
   tc [--service-descriptor <path>] [--json] context export --scope object --object <object_id> --out <directory>
   tc [--service-descriptor <path>] [--json] context export --scope project --project <project_id> --out <directory>
   tc [--service-descriptor <path>] [--json] migration scan <v1-recovery-bundle.json>
@@ -74,16 +80,21 @@ function emit(io: CliIo, json: boolean, value: unknown, plain: string): void {
   io.stdout(json ? JSON.stringify({ schema_version: 1, data: value }) : plain);
 }
 
-function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextObjectId?: string; contextProjectId?: string; objectType?: string; lifecycle?: string; outPath?: string; exportPath?: string; decisionsPath?: string; bundlePath?: string; batchValue?: string; backupId?: string } {
+function parse(args: string[]): { command: string[]; json: boolean; descriptorPath?: string; confirmation?: string; scope?: string; contextBlockId?: string; contextPageId?: string; contextObjectId?: string; contextProjectId?: string; objectType?: string; lifecycle?: string; graphDepth?: number; graphParents?: number; graphChildren: boolean; outPath?: string; exportPath?: string; decisionsPath?: string; bundlePath?: string; batchValue?: string; backupId?: string } {
   const command: string[] = [];
   let json = false;
   let descriptorPath: string | undefined;
   let confirmation: string | undefined;
   let scope: string | undefined;
+  let contextBlockId: string | undefined;
+  let contextPageId: string | undefined;
   let contextObjectId: string | undefined;
   let contextProjectId: string | undefined;
   let objectType: string | undefined;
   let lifecycle: string | undefined;
+  let graphDepth: number | undefined;
+  let graphParents: number | undefined;
+  let graphChildren = false;
   let outPath: string | undefined;
   let exportPath: string | undefined;
   let decisionsPath: string | undefined;
@@ -101,14 +112,19 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
       confirmation = args[index + 1];
       if (!confirmation) throw new Error("--confirm requires the exact confirmation phrase");
       index += 1;
-    } else if (["--scope", "--object", "--project", "--type", "--lifecycle", "--out", "--export", "--decisions", "--bundle", "--batch", "--backup"].includes(value ?? "")) {
+    } else if (value === "--children") graphChildren = true;
+    else if (["--scope", "--block", "--page", "--object", "--project", "--type", "--lifecycle", "--depth", "--parents", "--out", "--export", "--decisions", "--bundle", "--batch", "--backup"].includes(value ?? "")) {
       const optionValue = args[index + 1];
       if (!optionValue) throw new Error(`${value} requires a value`);
       if (value === "--scope") scope = optionValue;
+      else if (value === "--block") contextBlockId = optionValue;
+      else if (value === "--page") contextPageId = optionValue;
       else if (value === "--object") contextObjectId = optionValue;
       else if (value === "--project") contextProjectId = optionValue;
       else if (value === "--type") objectType = optionValue;
       else if (value === "--lifecycle") lifecycle = optionValue;
+      else if (value === "--depth") graphDepth = Number(optionValue);
+      else if (value === "--parents") graphParents = Number(optionValue);
       else if (value === "--out") outPath = optionValue;
       else if (value === "--export") exportPath = optionValue;
       else if (value === "--decisions") decisionsPath = optionValue;
@@ -118,7 +134,7 @@ function parse(args: string[]): { command: string[]; json: boolean; descriptorPa
       index += 1;
     } else if (value) command.push(value);
   }
-  return { command, json, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(objectType ? { objectType } : {}), ...(lifecycle ? { lifecycle } : {}), ...(outPath ? { outPath } : {}), ...(exportPath ? { exportPath } : {}), ...(decisionsPath ? { decisionsPath } : {}), ...(bundlePath ? { bundlePath } : {}), ...(batchValue ? { batchValue } : {}), ...(backupId ? { backupId } : {}) };
+  return { command, json, graphChildren, ...(descriptorPath ? { descriptorPath } : {}), ...(confirmation ? { confirmation } : {}), ...(scope ? { scope } : {}), ...(contextBlockId ? { contextBlockId } : {}), ...(contextPageId ? { contextPageId } : {}), ...(contextObjectId ? { contextObjectId } : {}), ...(contextProjectId ? { contextProjectId } : {}), ...(objectType ? { objectType } : {}), ...(lifecycle ? { lifecycle } : {}), ...(graphDepth !== undefined ? { graphDepth } : {}), ...(graphParents !== undefined ? { graphParents } : {}), ...(outPath ? { outPath } : {}), ...(exportPath ? { exportPath } : {}), ...(decisionsPath ? { decisionsPath } : {}), ...(bundlePath ? { bundlePath } : {}), ...(batchValue ? { batchValue } : {}), ...(backupId ? { backupId } : {}) };
 }
 
 function objectFilters(parsed: ReturnType<typeof parse>): { objectType?: V2ObjectType; lifecycle?: V2ManagedObject["lifecycle"] } | undefined {
@@ -138,6 +154,10 @@ function filterObjects(objects: V2ManagedObject[], filters: NonNullable<ReturnTy
 
 function errorExit(error: unknown): number {
   if (!(error instanceof StructuredError)) return 8;
+  const remoteCode = typeof error.details?.remoteCode === "string" ? error.details.remoteCode : undefined;
+  if (remoteCode === "GRAPH_READ_NOT_FOUND") return 6;
+  if (["GRAPH_READ_BRIDGE_UNAVAILABLE", "GRAPH_READ_BRIDGE_CLOSED", "GRAPH_READ_TIMEOUT"].includes(remoteCode ?? "")) return 4;
+  if (["GRAPH_READ_REQUEST_INVALID", "GRAPH_READ_RESULT_INVALID"].includes(remoteCode ?? "")) return 2;
   if (error.code.startsWith("SERVICE_DESCRIPTOR")) return 3;
   if (error.code === "SERVICE_UNAVAILABLE" || error.code === "SERVICE_TIMEOUT") return 4;
   if (error.code === "SERVICE_UNAUTHORIZED" || error.code === "SERVICE_PROTOCOL_MISMATCH") return 5;
@@ -168,6 +188,14 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
   const exactObjectFilterCommand = root === "object" && ((action === "list" && parsed.command.length === 2) || (action === "search" && parsed.command.length === 3));
   if ((parsed.objectType || parsed.lifecycle) && !exactObjectFilterCommand) {
     io.stderr("--type and --lifecycle are supported only by exact object list/search commands. No request was sent.");
+    return 2;
+  }
+  if ((parsed.graphDepth !== undefined || parsed.graphParents !== undefined || parsed.graphChildren) && root !== "graph") {
+    io.stderr("--depth, --parents, and --children are supported only by tc graph. No request was sent.");
+    return 2;
+  }
+  if ((parsed.scope || parsed.contextBlockId || parsed.contextPageId || parsed.contextObjectId || parsed.contextProjectId || parsed.outPath) && !(root === "context" && action === "export" && parsed.command.length === 2)) {
+    io.stderr("--scope, matching context target, and --out are supported only by exact context export. No request was sent.");
     return 2;
   }
   if (root === "object" && ((action === "list" && parsed.command.length !== 2) || (action === "search" && parsed.command.length !== 3))) {
@@ -232,6 +260,29 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
       emit(io, parsed.json, { object }, `${object.objectId}\n${object.objectType} · ${object.lifecycle}\n${object.text}`);
       return 0;
     }
+    if (root === "graph" && action === "page" && target && parsed.command.length === 3) {
+      if (parsed.graphParents !== undefined || parsed.graphChildren || (parsed.graphDepth !== undefined && (!Number.isSafeInteger(parsed.graphDepth) || parsed.graphDepth < 0 || parsed.graphDepth > 5))) {
+        io.stderr("Graph page accepts only --depth 0..5. No request was sent.");
+        return 2;
+      }
+      const snapshot = await service.readGraph({ kind: "PAGE", target, depth: parsed.graphDepth ?? 2 });
+      emit(io, parsed.json, { snapshot }, `${snapshot.resolved.name ?? snapshot.resolved.id}\n${snapshot.blocks.length} blocks${snapshot.truncated ? " · bounded/truncated" : ""}\nRead-only Logseq snapshot.`);
+      return 0;
+    }
+    if (root === "graph" && action === "block" && target && parsed.command.length === 3) {
+      if (parsed.graphDepth !== undefined || (parsed.graphParents !== undefined && (!Number.isSafeInteger(parsed.graphParents) || parsed.graphParents < 0 || parsed.graphParents > 8))) {
+        io.stderr("Graph block accepts only --children and --parents 0..8. No request was sent.");
+        return 2;
+      }
+      const snapshot = await service.readGraph({ kind: "BLOCK", target, includeChildren: parsed.graphChildren, parents: parsed.graphParents ?? 0 });
+      emit(io, parsed.json, { snapshot }, `${snapshot.resolved.id}\n${snapshot.blocks.length} blocks${snapshot.truncated ? " · bounded/truncated" : ""}\nRead-only Logseq snapshot.`);
+      return 0;
+    }
+    if (root === "graph" && action === "resolve" && target && parsed.command.length === 3 && parsed.graphDepth === undefined && parsed.graphParents === undefined && !parsed.graphChildren) {
+      const snapshot = await service.readGraph({ kind: "RESOLVE", target });
+      emit(io, parsed.json, { resolved: snapshot.resolved, scopeHash: snapshot.scopeHash, readAt: snapshot.readAt }, `${snapshot.resolved.kind}\t${snapshot.resolved.id}${snapshot.resolved.name ? `\t${snapshot.resolved.name}` : ""}`);
+      return 0;
+    }
     if (root === "proposal" && action === "list" && !target) {
       const proposals = await service.listProposals();
       emit(io, parsed.json, { proposals }, proposals.map(({ proposal, updatedAt }) => `${proposal.proposalId}\t${proposal.status}\t${updatedAt}\t${proposal.title}`).join("\n"));
@@ -284,11 +335,12 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
       return 0;
     }
     if (root === "context" && action === "export" && !target) {
-      const scope = parsed.scope === "object" || parsed.scope === "project" ? parsed.scope : undefined;
-      const id = scope === "object" ? parsed.contextObjectId : scope === "project" ? parsed.contextProjectId : undefined;
-      const exclusiveId = scope === "object" ? !parsed.contextProjectId : scope === "project" ? !parsed.contextObjectId : false;
+      const scope = ["block", "page", "object", "project"].includes(parsed.scope ?? "") ? parsed.scope as "block" | "page" | "object" | "project" : undefined;
+      const ids = { block: parsed.contextBlockId, page: parsed.contextPageId, object: parsed.contextObjectId, project: parsed.contextProjectId };
+      const id = scope ? ids[scope] : undefined;
+      const exclusiveId = Object.values(ids).filter(Boolean).length === 1;
       if (!scope || !id || !exclusiveId || !parsed.outPath || !dependencies.writeContextPackage) {
-        io.stderr("Context export requires exactly one object/project scope, matching ID, and --out directory.");
+        io.stderr("Context export requires exactly one block/page/object/project scope, matching target, and --out directory.");
         return 2;
       }
       const result = await service.exportContext(scope, id);

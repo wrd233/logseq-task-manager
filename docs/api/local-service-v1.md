@@ -54,8 +54,24 @@
 | PATCH | `/objects/{object_id}/condition` | 设置 ACTIONABLE / WAITING / BLOCKED / PAUSED | Object + Audit + Receipt 单事务写入 |
 | PATCH | `/objects/{object_id}/deadline` | 设置或清除 Task `due_at` | Object + Audit + Receipt 单事务写入；不产生分数 |
 | GET | `/anchors/primary?after=<cursor>&includeReplaced=1` | 当前 Graph Primary Anchor 身份分页；默认只含 `active / missing / conflict`，候选去重可显式包含历史 `replaced` tombstone | 无；每页最多 256，`nextCursor` 驱动后续有界查询；`includeReplaced` 只接受固定值 `1` |
+| GET | `/graph/bridge/next` | Plugin 长轮询取得一个瞬态只读 Graph 请求 | 无；请求只驻留 Service 内存 |
+| POST | `/graph/bridge/result` | Plugin 返回经 Logseq API 读取的有界结果 | 无；Service 重验 shape/hash/范围后立即释放 |
+| POST | `/graph/read` | CLI 经已连接 Plugin 读取 page、block 或 resolve 结果 | 无；不读 Graph 文件、不使用缓存 |
+| POST | `/context/export` | 导出 block/page/object/project Context Package 传输对象 | 无；block/page 必须取得实时 Graph excerpt |
 
-未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`、`migration=false`；`provider` 仅在 Service runner 显式选择并成功解析安全配置后为 `true`。`formalWrites` 只表示已列出的受约束正式命令可用，不表示迁移或 Provider 已配置。Proposal generate/submit/review 只改审阅状态，不是正式领域生效；只有已接受且重验通过的受限 Proposal 才能进入 prepare/finalize Commit 路由。`POST /migration/scan` 是显式、只读的 V1 Recovery Bundle 校验与 Preview 基础，不开放迁移 Commit/Activate/Undo，因此不改变 migration capability。
+未知路由返回 404。当前 `capabilities.backup=true`、`formalWrites=true`、`graphReadBridge=true`、`migration=false`；`graphReadBridge` 表示协议支持，不等于 Logseq Desktop 当前已连接，实际状态由 Doctor 的 `GRAPH_READ_BRIDGE_CONNECTED / GRAPH_READ_BRIDGE_NOT_CONNECTED` 给出。`provider` 仅在 Service runner 显式选择并成功解析安全配置后为 `true`。`formalWrites` 只表示已列出的受约束正式命令可用，不表示迁移或 Provider 已配置。Proposal generate/submit/review 只改审阅状态，不是正式领域生效；只有已接受且重验通过的受限 Proposal 才能进入 prepare/finalize Commit 路由。`POST /migration/scan` 是显式、只读的 V1 Recovery Bundle 校验与 Preview 基础，不开放迁移 Commit/Activate/Undo，因此不改变 migration capability。
+
+### Logseq Graph 只读桥接
+
+Graph 正文仍由 Logseq 持有。Service 不读取 Graph 文件，也不保存正文快照；Plugin 只在 Desktop 在线时通过 Logseq API 回答 page、block 或 resolve 查询。Service 的单一内存 Broker 同时服务 CLI Graph 命令与 block/page Context Package，不引入表、缓存、扫描器、第二服务或第二写入路径。
+
+- page 深度只允许 0..5，block 父级只允许 0..8；一次结果最多 256 Blocks、每块 64 KiB、总正文 1 MiB；
+- Service 重验精确请求/结果字段、UUID 唯一性、Block 去 `id::` 身份语义 hash、Page evidence hash 和整体 scope hash；
+- 最多 8 个并发等候请求；Desktop 缺席、繁忙、8 秒超时、重连、目标不存在或结果不匹配都结构化 fail closed；
+- `/graph/bridge/next` 最多长轮询 15 秒、领取租约 20 秒；恢复、停服或 descriptor 失效会拒绝剩余请求，不留下可重放正文；
+- Context Package 的 object/project 范围只读 SQLite；block/page 范围先取得实时 excerpt，再只纳入 excerpt 中 active Anchor 可证明的正式对象；LLM 或外部 Agent 仍只能提交 Proposal。
+
+公开 CLI 只调用 `/graph/read` 和 `/context/export`；`/graph/bridge/*` 是 Plugin 与同一 Local Service 间的内部传输面。边界与未采用方案见 `docs/adr/ADR-LOGSEQ-GRAPH-READ-BRIDGE.md`。
 
 ### MiniProject 三问审阅
 

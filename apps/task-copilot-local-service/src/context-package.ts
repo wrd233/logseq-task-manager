@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 
 import type { V2Anchor, V2Association, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
+import type { ServiceGraphSnapshot } from "@task-copilot/service-client";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
 import type { TaskCopilotSkillDocument } from "./skill-catalog.ts";
 
-export type ContextExportScope = "object" | "project";
+export type ContextExportScope = "block" | "page" | "object" | "project";
 
 export interface ContextPackageManifest {
   schemaVersion: 1;
@@ -13,7 +14,7 @@ export interface ContextPackageManifest {
   scope: { kind: ContextExportScope; id: string };
   authority: "READ_ONLY_DERIVATIVE";
   formalFactsSource: "SQLITE";
-  graphExcerptStatus: "NOT_AVAILABLE_IN_LOCAL_SERVICE";
+  graphExcerptStatus: "NOT_INCLUDED" | "AVAILABLE_FROM_LOGSEQ_BRIDGE";
   includedObjectCount: number;
   files: Array<{ path: string; sha256: string; bytes: number }>;
 }
@@ -62,36 +63,55 @@ export function buildContextPackage(
   skills: readonly TaskCopilotSkillDocument[],
   scope: { kind: ContextExportScope; id: string },
   at = new Date(),
+  graphSnapshot?: ServiceGraphSnapshot,
 ): ServiceContextPackage {
-  const root = source.getObject(scope.id);
-  if (!root) throw contextError("CONTEXT_OBJECT_NOT_FOUND", "Context 根对象不存在。");
-  if (scope.kind === "project" && !["PROJECT", "MINI_PROJECT"].includes(root.objectType)) throw contextError("CONTEXT_PROJECT_REQUIRED", "Project Context 必须引用 Project 或 Mini Project。");
+  const graphScope = scope.kind === "block" || scope.kind === "page";
+  const root = graphScope ? undefined : source.getObject(scope.id);
+  if (!graphScope && !root) throw contextError("CONTEXT_OBJECT_NOT_FOUND", "Context 根对象不存在。");
+  if (scope.kind === "project" && root && !["PROJECT", "MINI_PROJECT"].includes(root.objectType)) throw contextError("CONTEXT_PROJECT_REQUIRED", "Project Context 必须引用 Project 或 Mini Project。");
+  if (graphScope && (!graphSnapshot || graphSnapshot.requestedTarget !== scope.id || graphSnapshot.kind !== scope.kind.toUpperCase())) throw contextError("CONTEXT_GRAPH_SNAPSHOT_REQUIRED", "Block/Page Context 必须使用同一目标的实时 Logseq 只读快照。");
   const allObjects = source.listObjects();
   const allOwnerships = source.listPrimaryOwnerships();
-  const ids = scope.kind === "project" ? [root.objectId, ...descendants(root.objectId, allOwnerships)] : [root.objectId];
+  const graphExternalIds = new Set(graphSnapshot?.blocks.map(({ uuid }) => uuid) ?? []);
+  if (graphSnapshot?.resolved.kind === "PAGE") {
+    graphExternalIds.add(graphSnapshot.resolved.id);
+    if (graphSnapshot.resolved.name) graphExternalIds.add(graphSnapshot.resolved.name);
+  }
+  const graphObjectIds = allObjects.filter((object) => {
+    const anchor = source.getActivePrimaryAnchorByObject(object.objectId);
+    return Boolean(anchor && graphExternalIds.has(anchor.externalId));
+  }).map(({ objectId }) => objectId).sort();
+  const ids = scope.kind === "project" && root
+    ? [root.objectId, ...descendants(root.objectId, allOwnerships)]
+    : scope.kind === "object" && root ? [root.objectId] : graphObjectIds;
   const idSet = new Set(ids);
   const objects = ids.map((id) => allObjects.find((object) => object.objectId === id)).filter((object): object is V2ManagedObject => Boolean(object));
   if (objects.length !== ids.length) throw contextError("CONTEXT_OWNERSHIP_DANGLING", "Context Ownership 引用了不存在的对象。");
   const anchors = objects.map((object) => source.getActivePrimaryAnchorByObject(object.objectId)).filter((anchor): anchor is V2Anchor => Boolean(anchor));
   const ownerships = allOwnerships.filter(({ childObjectId, ownerObjectId }) => idSet.has(childObjectId) && idSet.has(ownerObjectId));
   const associations = source.listAssociations().filter(({ sourceObjectId, targetObjectId }) => idSet.has(sourceObjectId) && idSet.has(targetObjectId));
-  const modifyScope = objects.map((object) => ({ kind: "OBJECT" as const, id: object.objectId, version: object.version, hash: checksum(object) }));
+  const modifyScope = graphSnapshot
+    ? graphSnapshot.kind === "BLOCK"
+      ? [{ kind: "BLOCK" as const, id: graphSnapshot.resolved.id, hash: graphSnapshot.blocks.find(({ relation }) => relation === "ROOT")?.contentHash ?? graphSnapshot.scopeHash }]
+      : [{ kind: "PAGE" as const, id: graphSnapshot.resolved.id, ...(graphSnapshot.resolved.version !== undefined ? { version: graphSnapshot.resolved.version } : {}), hash: graphSnapshot.resolved.evidenceHash ?? graphSnapshot.scopeHash }]
+    : objects.map((object) => ({ kind: "OBJECT" as const, id: object.objectId, version: object.version, hash: checksum(object) }));
   const generatedAt = at.toISOString();
   const skillVersions = skills.map((skill) => ({ name: skill.name, version: skill.version, description: skill.description, sha256: skill.sha256 }));
   const files: Record<string, string> = {
-    "scope.md": `# Task Copilot Context Scope\n\n- Scope: ${scope.kind}\n- Root object: ${root.objectId}\n- Authority: read-only derivative; this package grants no write permission\n- Formal facts: SQLite\n- Graph excerpts: unavailable from Local Service; query through the approved Logseq adapter when required\n- Included objects: ${objects.length}\n\nProposal modify scope must remain explicit and is revalidated again at review/commit time.\n`,
+    "scope.md": `# Task Copilot Context Scope\n\n- Scope: ${scope.kind}\n- Root target: ${scope.id}\n- Authority: read-only derivative; this package grants no write permission\n- Formal facts: SQLite\n- Graph excerpts: ${graphSnapshot ? "live bounded snapshot from the Logseq Desktop read bridge" : "not included for this object-derived export"}\n- Included objects: ${objects.length}\n\nProposal modify scope must remain explicit and is revalidated again at review/commit time.\n`,
     "objects.json": pretty({ schemaVersion: 1, formalFacts: objects }),
     "anchors.json": pretty({ schemaVersion: 1, formalFacts: anchors }),
     "relations.json": pretty({ schemaVersion: 1, formalFacts: { primaryOwnerships: ownerships, associations } }),
     "decisions.json": pretty({ schemaVersion: 1, formalFacts: objects.filter(({ objectType }) => objectType === "DECISION") }),
     "outputs.json": pretty({ schemaVersion: 1, formalFacts: objects.filter(({ objectType }) => objectType === "OUTPUT") }),
-    "graph-excerpts.json": pretty({ schemaVersion: 1, status: "NOT_AVAILABLE_IN_LOCAL_SERVICE", excerpts: [] }),
+    "graph-excerpts.json": pretty({ schemaVersion: 1, status: graphSnapshot ? "AVAILABLE_FROM_LOGSEQ_BRIDGE" : "NOT_INCLUDED", excerpts: graphSnapshot ? [{ path: graphSnapshot.kind === "PAGE" ? "graph/page.json" : "graph/block.json", scopeHash: graphSnapshot.scopeHash, readAt: graphSnapshot.readAt, truncated: graphSnapshot.truncated }] : [] }),
     "retrieval-candidates.json": pretty({ schemaVersion: 1, candidates: [], note: "Candidates are not formal facts." }),
     "workspace-semantics.md": "# Workspace Semantics\n\nStatus: NOT_CONFIGURED\n\nNo user semantic profile was invented for this export.\n",
     "writing-profile.md": "# Writing Profile\n\nStatus: NOT_CONFIGURED\n\nNo writing profile was invented for this export.\n",
     "versions.json": pretty({ schemaVersion: 1, contextPackageSchemaVersion: 1, domainSchemaVersion: "v2", databaseSchemaVersion: source.databaseSchemaVersion(), skills: skillVersions }),
     "modify-scope.json": pretty({ schemaVersion: 1, informationalOnly: true, targets: modifyScope }),
   };
+  if (graphSnapshot) files[graphSnapshot.kind === "PAGE" ? "graph/page.json" : "graph/block.json"] = pretty({ schemaVersion: 1, source: "LOGSEQ_DESKTOP_BRIDGE", snapshot: graphSnapshot });
   for (const skill of skills) files[`skills/${skill.name}/SKILL.md`] = skill.content;
   const fileEntries = Object.entries(files).sort(([left], [right]) => left.localeCompare(right)).map(([path, content]) => ({
     path,
@@ -104,7 +124,7 @@ export function buildContextPackage(
     scope,
     authority: "READ_ONLY_DERIVATIVE",
     formalFactsSource: "SQLITE",
-    graphExcerptStatus: "NOT_AVAILABLE_IN_LOCAL_SERVICE",
+    graphExcerptStatus: graphSnapshot ? "AVAILABLE_FROM_LOGSEQ_BRIDGE" : "NOT_INCLUDED",
     includedObjectCount: objects.length,
     files: fileEntries,
   };

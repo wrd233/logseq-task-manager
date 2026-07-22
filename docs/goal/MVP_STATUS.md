@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B3 Marker safety and Marker/sidebar MiniProject three-question Closure Desktop pass; reasoned cancellation/explicit reopen automated, Desktop pending; UC-28 Agent drafting/legacy transfer automated and live Provider pass, Desktop pending; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration foundation and Project Closure Desktop pass"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 412 tests; 145 rules; 0 failed/skipped; UC-28 real DeepSeek draft pass; strict DeepSeek Flash/Pro L3 each 22/22 PASS with zero formal writes"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 422 tests; 145 rules; 0 failed/skipped; UC-28 real DeepSeek draft pass; strict DeepSeek Flash/Pro L3 each 22/22 PASS with zero formal writes"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -26,7 +26,7 @@ implemented:
   - "Executable read-only tc status/doctor/object CLI with JSON envelope and exit codes; object list/search reuse the Service projection with type/Lifecycle filters and no new state source"
   - "tc Proposal list/show/validate/submit reuses Local Service review storage; validate is zero-write and submit cannot commit/apply formal state"
   - "Versioned task-copilot-core and design-project Skills are hash-addressed, bundled with Local Service, and readable through tc skill list/show; design-project@1.1.0 includes the exact Closure Proposal machine shape proven by a real external Agent correction loop"
-  - "Read-only object/project Context Packages export bounded SQLite facts, Anchors, Ownership, versions, hashes and full nested Skills without Graph scanning or formal writes; canonical SKILL.md paths pass bounded component validation while traversal remains rejected"
+  - "Read-only block/page/object/project Context Packages export bounded live Logseq excerpts plus SQLite facts, Anchors, Ownership, versions, hashes and full nested Skills without Graph file scanning or formal writes; the transient Desktop bridge persists no text, while canonical nested paths pass bounded validation and traversal remains rejected"
   - "Explicit V1 Recovery Bundle migration scan validates schema/checksums/recovery state and produces reviewable Phase/Condition/Signal previews with zero SQLite writes"
   - "SQLite locked writes fail with zero formal writes; backups reject overwrite and validate schema, Graph identity, integrity and foreign keys read-only"
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
@@ -79,7 +79,7 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 E2E-20: HIGH acceptance left the Project OPEN at v2; exact final completion produced APPLIED Proposal, one COMPLETED Domain Commit and the same Project COMPLETED at v3; reload preserved readable Closure, Focus count was zero and Now Work did not show that Project, while the Logseq Project page remained openable; pending/recovery zero and SQLite integrity/FK passed"
   - "V2 Desktop 0.10.15 Slice B3: Task simple completion and safety matrix passed; MiniProject DONE created one reviewed HIGH Proposal, acceptance left it OPEN, exact final confirmation completed the same object at v4, and reload plus Marker removal did not reopen it"
 runtime_checks_pending:
-  - "V2 delete-Anchor review, finite-subtree and current-page Candidate one-at-a-time failure paths, Proposal reject/defer and process-fault, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
+  - "V2 live Graph bridge plus external-Agent cross-entry Review, delete-Anchor review, finite-subtree and current-page Candidate one-at-a-time failure paths, Proposal reject/defer and process-fault, SQLite recovery and migration copied-data/read-only workspace Desktop Gates"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"

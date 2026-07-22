@@ -32,11 +32,27 @@ test("Project Context Package contains bounded formal descendants, versions, has
   assert.equal(result.manifest.authority, "READ_ONLY_DERIVATIVE");
   assert.equal(JSON.parse(result.files["objects.json"] ?? "").formalFacts.some(({ objectId }: { objectId: string }) => objectId === "outside"), false);
   assert.deepEqual(JSON.parse(result.files["retrieval-candidates.json"] ?? "").candidates, []);
-  assert.equal(JSON.parse(result.files["graph-excerpts.json"] ?? "").status, "NOT_AVAILABLE_IN_LOCAL_SERVICE");
+  assert.equal(JSON.parse(result.files["graph-excerpts.json"] ?? "").status, "NOT_INCLUDED");
   assert.deepEqual(JSON.parse(result.files["relations.json"] ?? "").formalFacts.associations, associations);
   assert.equal(result.files["skills/task-copilot-core/SKILL.md"], "# Core\n");
   for (const entry of result.manifest.files) assert.equal(createHash("sha256").update(result.files[entry.path] ?? "").digest("hex"), entry.sha256);
   assert.match(contextPackageFingerprint(result), /^[0-9a-f]{64}$/);
   assert.equal(buildContextPackage(source, skills, { kind: "object", id: "task-1" }).manifest.includedObjectCount, 1);
   assert.throws(() => buildContextPackage(source, skills, { kind: "project", id: "task-1" }), /Project Context/);
+
+  const graphSnapshot = {
+    kind: "BLOCK" as const,
+    requestedTarget: "block-task-1",
+    resolved: { kind: "BLOCK" as const, id: "block-task-1" },
+    blocks: [{ uuid: "block-task-1", content: "[任务] 校验告警", contentHash: "11111111", relation: "ROOT" as const, depth: 0, pageName: "Project/Test" }],
+    truncated: false,
+    readAt: "2026-07-21T09:00:00.000Z",
+    scopeHash: "22222222",
+  };
+  const graph = buildContextPackage(source, skills, { kind: "block", id: "block-task-1" }, new Date("2026-07-21T09:00:01.000Z"), graphSnapshot);
+  assert.equal(graph.manifest.graphExcerptStatus, "AVAILABLE_FROM_LOGSEQ_BRIDGE");
+  assert.deepEqual(JSON.parse(graph.files["objects.json"] ?? "").formalFacts.map(({ objectId }: { objectId: string }) => objectId), ["task-1"]);
+  assert.equal(JSON.parse(graph.files["graph/block.json"] ?? "").snapshot.scopeHash, "22222222");
+  assert.deepEqual(JSON.parse(graph.files["modify-scope.json"] ?? "").targets, [{ kind: "BLOCK", id: "block-task-1", hash: "11111111" }]);
+  assert.throws(() => buildContextPackage(source, skills, { kind: "page", id: "Project/Test" }), /实时 Logseq/);
 });

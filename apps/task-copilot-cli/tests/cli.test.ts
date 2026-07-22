@@ -42,10 +42,15 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
       exportContext: async (scope, id) => ({
         fingerprint: "f".repeat(64),
         contextPackage: {
-          manifest: { schemaVersion: 1, generatedAt: "2026-07-21T08:00:00.000Z", scope: { kind: scope, id }, authority: "READ_ONLY_DERIVATIVE", formalFactsSource: "SQLITE", graphExcerptStatus: "NOT_AVAILABLE_IN_LOCAL_SERVICE", includedObjectCount: 1, files: [] },
+          manifest: { schemaVersion: 1, generatedAt: "2026-07-21T08:00:00.000Z", scope: { kind: scope, id }, authority: "READ_ONLY_DERIVATIVE", formalFactsSource: "SQLITE", graphExcerptStatus: scope === "block" || scope === "page" ? "AVAILABLE_FROM_LOGSEQ_BRIDGE" : "NOT_INCLUDED", includedObjectCount: 1, files: [] },
           files: {},
         },
       }),
+      readGraph: async (query) => {
+        const kind = query.kind === "PAGE" ? "PAGE" as const : "BLOCK" as const;
+        const id = query.kind === "RESOLVE" ? "block-resolved" : query.target;
+        return { kind, requestedTarget: query.target, resolved: { kind, id, ...(kind === "PAGE" ? { name: query.target } : {}) }, blocks: [], truncated: false, readAt: "2026-07-22T10:00:00.000Z", scopeHash: "11111111" };
+      },
       scanLegacyMigration: async () => ({ schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 1, directBind: 0, needsConfirmation: 1, keepOrdinary: 0, structuralError: 0 }, previews: [] }),
       previewLegacyMigration: async () => ({ run: migrationRun, replayed: false }),
       getMigrationRun: async () => ({ run: migrationRun, evidence: [] }),
@@ -259,8 +264,35 @@ test("CLI context export requires a matching bounded scope and delegates verifie
   assert.deepEqual(written, { path: "/tmp/context-1", fingerprint: "f".repeat(64) });
   const output = JSON.parse(value.stdout.at(-1) ?? "") as { data: { manifest: { authority: string } } };
   assert.equal(output.data.manifest.authority, "READ_ONLY_DERIVATIVE");
+  assert.equal(await runCli(["context", "export", "--scope", "block", "--block", "block-1", "--out", "/tmp/context-block"], dependencies, value.io), 0);
+  assert.deepEqual(written, { path: "/tmp/context-block", fingerprint: "f".repeat(64) });
+  assert.equal(await runCli(["context", "export", "--scope", "page", "--page", "Project/Test", "--out", "/tmp/context-page"], dependencies, value.io), 0);
   assert.equal(await runCli(["context", "export", "--scope", "project", "--object", "object-1", "--out", "/tmp/context-2"], dependencies, value.io), 2);
   assert.equal(await runCli(["context", "export", "--scope", "page", "--out", "/tmp/context-3"], dependencies, value.io), 2);
+});
+
+test("CLI graph page, block, and resolve are bounded read-only Service commands", async () => {
+  const queries: unknown[] = [];
+  const value = fixture({ readGraph: async (query) => {
+    queries.push(query);
+    const kind = query.kind === "PAGE" ? "PAGE" as const : "BLOCK" as const;
+    return { kind, requestedTarget: query.target, resolved: { kind, id: query.target, ...(kind === "PAGE" ? { name: query.target } : {}) }, blocks: [], truncated: false, readAt: "2026-07-22T10:00:00.000Z", scopeHash: "11111111" };
+  } });
+  let loads = 0;
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => { loads += 1; return value.service; } };
+  assert.equal(await runCli(["--json", "graph", "page", "Project/Test", "--depth", "3"], dependencies, value.io), 0);
+  assert.equal(await runCli(["graph", "block", "block-1", "--children", "--parents", "2"], dependencies, value.io), 0);
+  assert.equal(await runCli(["graph", "resolve", "((block-1))"], dependencies, value.io), 0);
+  assert.deepEqual(queries, [
+    { kind: "PAGE", target: "Project/Test", depth: 3 },
+    { kind: "BLOCK", target: "block-1", includeChildren: true, parents: 2 },
+    { kind: "RESOLVE", target: "((block-1))" },
+  ]);
+  assert.equal(await runCli(["graph", "page", "Project/Test", "--depth", "6"], dependencies, value.io), 2);
+  assert.equal(await runCli(["graph", "block", "block-1", "--parents", "9"], dependencies, value.io), 2);
+  assert.equal(await runCli(["graph", "resolve", "Page", "--children"], dependencies, value.io), 2);
+  assert.equal(loads, 6, "valid and shape-invalid graph commands load Service, but never execute invalid reads");
+  assert.equal(queries.length, 3);
 });
 
 test("CLI migration scan is explicit and migration writes require exact preflight confirmations", async () => {

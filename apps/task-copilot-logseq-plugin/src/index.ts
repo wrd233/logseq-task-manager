@@ -66,6 +66,7 @@ import { submitV2Association, type V2AssociationSubmissionState } from "./v2-ass
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
+import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
 import { checksum } from "@task-copilot/shared";
 
 let appRoot: HTMLElement | undefined;
@@ -92,6 +93,13 @@ let recoveryReport: string | undefined;
 let inboxDialog: UiModel["inboxDialog"];
 let actionDialog: UiModel["actionDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
+const graphReadBridgeController = new GraphReadBridgeController({
+  getPage: (target) => logseq.Editor.getPage(target as never),
+  getPageBlocksTree: (target) => logseq.Editor.getPageBlocksTree(target as never),
+  getBlock: (target, options) => logseq.Editor.getBlock(target as never, options),
+}, {
+  onIssue: (errorCode) => operationalLogger.log("warn", "logseq-adapter", "graph_read_bridge_transport_failed", { result: "deferred", errorCode }),
+});
 let inboxActionController: InboxActionController | undefined;
 let runtimeProbeResult: unknown = { status: "not-run" };
 const inboxProbeWaiters = new Map<string, () => void>();
@@ -414,7 +422,7 @@ async function fullDiagnosticsSnapshot() {
     pending_semantic_commits: state?.commits.filter((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED").length ?? 0,
     source_anchor_conflicts: (state?.anchors.filter((anchor) => anchor.status === "missing" || anchor.status === "conflict").length ?? 0) + (state?.captures.filter((capture) => capture.sourceConflict).length ?? 0),
     runtime_shape_summary: runtimeProbeResult,
-    event_listener_status: { rootClick: uiBound, settings: featureReady, explicitSync: explicitSyncController !== undefined, unhandledRejection: true, globalError: true },
+    event_listener_status: { rootClick: uiBound, settings: featureReady, explicitSync: explicitSyncController !== undefined, graphReadBridge: graphReadBridgeController.isActive(), unhandledRejection: true, globalError: true },
     explicit_sync: explicitSyncState,
     recent_logs: operationalLogger.snapshot(),
     recent_action_failure: operationalLogger.latestError(),
@@ -423,6 +431,7 @@ async function fullDiagnosticsSnapshot() {
 
 async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   const generation = ++serviceDiscoveryGeneration;
+  graphReadBridgeController.stop();
   if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
   if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
   if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间重连；旧请求已取消或结果未知，请刷新审阅队列后再试。" };
@@ -444,6 +453,12 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   serviceConnection = runtime.connection;
   serviceRuntimeClient = runtime.client;
   diagnostics.setServiceConnection(runtime.connection);
+  if (runtime.connection.status === "READY" && runtime.connection.capabilities.graphReadBridge === true && runtime.client?.claimGraphReadRequest && runtime.client.completeGraphReadRequest) {
+    graphReadBridgeController.start({
+      claimGraphReadRequest: () => runtime.client!.claimGraphReadRequest!(),
+      completeGraphReadRequest: (result) => runtime.client!.completeGraphReadRequest!(result),
+    });
+  }
   if (explicitSyncController) {
     if (runtime.client && runtime.connection.formalWritesAvailable) {
       await explicitSyncController.resume(runtime.client);
@@ -475,6 +490,7 @@ function initializeExplicitSync(): void {
   }, 5 * 60 * 1000);
   cleanupHooks.push(() => globalThis.clearInterval(reconciliationTimer));
   cleanupHooks.push(() => {
+    graphReadBridgeController.stop();
     explicitSyncController?.dispose();
     explicitSyncController = undefined;
     serviceRuntimeClient = undefined;

@@ -96,13 +96,13 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   assert.deepEqual(await health.json(), {
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
-    capabilities: { formalWrites: true, migration: true, provider: false, backup: true },
+    capabilities: { formalWrites: true, migration: true, provider: false, backup: true, graphReadBridge: true },
   });
   const status = await fetch(new URL("status", service.url), { headers });
   assert.deepEqual(await status.json(), {
     status: "READY",
     protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION,
-    capabilities: { formalWrites: true, migration: true, provider: false, backup: true },
+    capabilities: { formalWrites: true, migration: true, provider: false, backup: true, graphReadBridge: true },
     databaseSchemaVersion: V2_DATABASE_SCHEMA_VERSION,
     objectCount: 0,
   });
@@ -110,7 +110,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   const doctorReport = await doctor.json() as Awaited<ReturnType<LocalServiceClient["doctor"]>>;
   assert.equal(doctorReport.status, "PASS");
   assert.equal(doctorReport.checks?.find(({ component }) => component === "BACKUP")?.code, "BACKUP_NONE");
-  assert.equal(doctorReport.checks?.find(({ component }) => component === "GRAPH")?.code, "GRAPH_RUNTIME_NOT_OBSERVED");
+  assert.equal(doctorReport.checks?.find(({ component }) => component === "GRAPH")?.code, "GRAPH_READ_BRIDGE_NOT_CONNECTED");
   assert.equal(doctorReport.checks?.find(({ component }) => component === "SEMANTIC_COMMIT")?.status, "PASS");
   assert.deepEqual(doctorReport.summary, { pass: 10, warn: 1, fail: 0, info: 3 });
   assert.equal(doctorReport.limitations?.length, 3);
@@ -165,11 +165,47 @@ test("Local Service exports a read-only Project Context Package without Graph sc
   const before = await client.status();
   const result = await client.exportContext("project", prepared.objectId);
   assert.equal(result.contextPackage.manifest.includedObjectCount, 1);
-  assert.equal(result.contextPackage.manifest.graphExcerptStatus, "NOT_AVAILABLE_IN_LOCAL_SERVICE");
+  assert.equal(result.contextPackage.manifest.graphExcerptStatus, "NOT_INCLUDED");
   assert.match(result.fingerprint, /^[0-9a-f]{64}$/);
   assert.equal(JSON.parse(result.contextPackage.files["versions.json"] ?? "").databaseSchemaVersion, V2_DATABASE_SCHEMA_VERSION);
   assert.deepEqual(await client.status(), before, "Context export does not mutate formal state");
   await assert.rejects(() => client.exportContext("object", "missing"), /Context 根对象不存在/);
+});
+
+test("Local Service relays bounded Logseq Graph reads and exports page Context without formal writes", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-graph-context-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-read-context", token: "graph-read-service-token-at-least-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  await assert.rejects(() => client.readGraph({ kind: "PAGE", target: "Project/Bridge", depth: 1 }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "GRAPH_READ_BRIDGE_UNAVAILABLE");
+
+  const prepared = await client.prepareProject({ name: "Bridge", traceId: "graph-bridge-project-prepare" });
+  await client.finalizeProject({ semanticCommitId: prepared.semanticCommitId, objectId: prepared.objectId, name: "Bridge", pageExternalId: "page-bridge", pageContentHash: checksum(""), traceId: "graph-bridge-project-finalize" });
+  const before = await client.status();
+  const answerNext = async () => {
+    const request = await client.claimGraphReadRequest();
+    assert.equal(request?.kind, "PAGE");
+    if (!request) throw new Error("expected a Graph bridge request");
+    const resolved = { kind: "PAGE" as const, id: "page-bridge", name: "Project/Bridge", version: 7, evidenceHash: checksum("page-bridge-evidence") };
+    const blocks = [{ uuid: "block-bridge", content: "[任务] Read bridge", contentHash: checksum("[任务] Read bridge"), relation: "ROOT" as const, depth: 0, pageUuid: "page-bridge", pageName: "Project/Bridge" }];
+    const snapshot = { kind: "PAGE" as const, requestedTarget: request.target, resolved, blocks, truncated: false, readAt: "2026-07-22T10:00:00.000Z", scopeHash: checksum({ kind: "PAGE", resolved, blocks, truncated: false }) };
+    await client.completeGraphReadRequest({ requestId: request.requestId, status: "FOUND", snapshot });
+  };
+
+  const bridgeRead = answerNext();
+  const snapshot = await client.readGraph({ kind: "PAGE", target: "Project/Bridge", depth: 1 });
+  await bridgeRead;
+  assert.equal(snapshot.scopeHash, checksum({ kind: "PAGE", resolved: snapshot.resolved, blocks: snapshot.blocks, truncated: false }));
+
+  const bridgeExport = answerNext();
+  const exported = await client.exportContext("page", "Project/Bridge");
+  await bridgeExport;
+  assert.equal(exported.contextPackage.manifest.graphExcerptStatus, "AVAILABLE_FROM_LOGSEQ_BRIDGE");
+  assert.equal(JSON.parse(exported.contextPackage.files["graph/page.json"] ?? "").snapshot.resolved.id, "page-bridge");
+  assert.deepEqual(JSON.parse(exported.contextPackage.files["modify-scope.json"] ?? "").targets, [{ kind: "PAGE", id: "page-bridge", version: 7, hash: checksum("page-bridge-evidence") }]);
+  assert.deepEqual(JSON.parse(exported.contextPackage.files["objects.json"] ?? "").formalFacts.map(({ objectId }: { objectId: string }) => objectId), [prepared.objectId]);
+  assert.equal((await client.doctor()).checks?.find(({ component }) => component === "GRAPH")?.code, "GRAPH_READ_BRIDGE_CONNECTED");
+  assert.deepEqual(await client.status(), before, "Graph read and Context export do not mutate formal state");
 });
 
 test("Local Service adds one confirmed plain Association without changing Primary Ownership", async (t) => {

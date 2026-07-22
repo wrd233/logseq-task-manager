@@ -28,12 +28,17 @@ tc [--service-descriptor <path>] [--json] doctor [--export <diagnostics.zip>]
 tc [--service-descriptor <path>] [--json] object list [--type <type>] [--lifecycle <lifecycle>]
 tc [--service-descriptor <path>] [--json] object show <object_id>
 tc [--service-descriptor <path>] [--json] object search <keyword> [--type <type>] [--lifecycle <lifecycle>]
+tc [--service-descriptor <path>] [--json] graph page <name-or-uuid> [--depth <0..5>]
+tc [--service-descriptor <path>] [--json] graph block <uuid> [--children] [--parents <0..8>]
+tc [--service-descriptor <path>] [--json] graph resolve <block-ref-or-page-name>
 tc [--service-descriptor <path>] [--json] proposal list
 tc [--service-descriptor <path>] [--json] proposal show <proposal_id>
 tc [--service-descriptor <path>] [--json] proposal validate <proposal.json>
 tc [--service-descriptor <path>] [--json] proposal submit <proposal.json>
 tc [--service-descriptor <path>] [--json] skill list
 tc [--service-descriptor <path>] [--json] skill show <name>
+tc [--service-descriptor <path>] [--json] context export --scope block --block <uuid> --out <directory>
+tc [--service-descriptor <path>] [--json] context export --scope page --page <name> --out <directory>
 tc [--service-descriptor <path>] [--json] context export --scope object --object <object_id> --out <directory>
 tc [--service-descriptor <path>] [--json] context export --scope project --project <project_id> --out <directory>
 tc [--service-descriptor <path>] [--json] migration scan <v1-recovery-bundle.json>
@@ -63,7 +68,7 @@ tc [--service-descriptor <path>] [--json] backup restore <backup_id> --confirm R
 | 3 | descriptor 缺失、非法或不安全 |
 | 4 | Service 不可用或超时 |
 | 5 | 未授权或协议不兼容 |
-| 6 | 对象或 Proposal 不存在 |
+| 6 | 对象、Proposal 或 Graph 目标不存在 |
 | 7 | Doctor 运行完成但未通过 |
 | 8 | 其他结构化失败 |
 
@@ -73,7 +78,9 @@ CLI 不接受 SQLite path 作为查询参数，不 import persistence driver，�
 
 Proposal 文件必须是 UTF-8 JSON 普通文件且不超过 1 MiB。CLI 不扫描 Graph、不推断 scope，也不重写外部 Agent 的内容；Service 继续负责 schema、scope、hash、risk 和 dependency 校验。
 
-`context export` 当前开放已有正式对象可完整表达的 `object` 与 `project` 两种范围。Project 递归包含 Primary Ownership 下最多 255 个后代（总计最多 256 个对象）；包内分离正式事实、空的检索候选、Anchor、Ownership、版本、SHA-256 和完整 Skill。它是 0700/0600 的只读派生目录，已存在目录会被拒绝，`manifest.json` 最后写入。Local Service 没有 Graph 读取权，因此包内明确记录 `graphExcerptStatus: NOT_AVAILABLE_IN_LOCAL_SERVICE`；`block/page` 要等受控 Logseq 读取桥接，不能由 CLI 扫描 Graph 或猜文件名。
+`graph page/block/resolve` 通过运行中的 Logseq Desktop Plugin 执行瞬态只读桥接；CLI 和 Local Service 都不扫描 Graph 文件或猜测页面文件名。Page depth 限于 0..5，Block parents 限于 0..8，单次最多 256 Blocks / 1 MiB；无 Desktop、超时、目标不存在、越界或 hash 不一致均结构化失败且不返回缓存。`id::` 身份行保留在可读 excerpt 中，但 Block revalidation hash 复用正式 Proposal 的去身份语义算法；Page 使用同一 revalidation evidence hash。
+
+`context export` 开放 `block / page / object / project` 四种设计既定范围。Project 递归包含 Primary Ownership 下最多 255 个后代（总计最多 256 个对象）；block/page 只包含本次 Logseq bridge snapshot 中锚定的 SQLite 正式对象。包内严格分离 Graph excerpt、SQLite 正式事实、空的检索候选、Anchor、Ownership、版本、SHA-256 和完整 Skill。它是 0700/0600 的只读派生目录，已存在目录会被拒绝，`manifest.json` 最后写入。Graph scope 标记 `AVAILABLE_FROM_LOGSEQ_BRIDGE`；object/project 不伪造 Graph，标记 `NOT_INCLUDED`。桥接不持久化正文，不新增表、缓存、Graph 写路径或第二权威，技术决定见 `docs/adr/ADR-LOGSEQ-GRAPH-READ-BRIDGE.md`。
 
 `migration scan` 必须由用户显式提供不超过 8 MiB 的 V1 Recovery Bundle JSON。Service 校验 bundle schema/checksum/round-trip，发现 PENDING 或 RECOVERY_REQUIRED Commit 立即停止；报告逐项保留旧 Phase/Condition/Signal、建议、理由、信息损失和冲突，但不回传正文且不写 SQLite。`preview/show` 提供审阅与续跑；`import/undo/activate` 分别要求命令中列出的精确确认短语，批次最多 50 项，并继续通过 Local Service 的单一 Application/SQLite 写入路径。迁移不会复用 SemanticCommit，也不会恢复 V1/V2 双写。
 

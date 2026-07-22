@@ -13,7 +13,7 @@ function result(path = "objects.json", content = "{\"formalFacts\":[]}\n"): Serv
   return {
     fingerprint: "f".repeat(64),
     contextPackage: {
-      manifest: { schemaVersion: 1, generatedAt: "2026-07-21T08:00:00.000Z", scope: { kind: "object", id: "object-1" }, authority: "READ_ONLY_DERIVATIVE", formalFactsSource: "SQLITE", graphExcerptStatus: "NOT_AVAILABLE_IN_LOCAL_SERVICE", includedObjectCount: 1, files: [{ path, bytes: Buffer.byteLength(content), sha256: createHash("sha256").update(content).digest("hex") }] },
+      manifest: { schemaVersion: 1, generatedAt: "2026-07-21T08:00:00.000Z", scope: { kind: "object", id: "object-1" }, authority: "READ_ONLY_DERIVATIVE", formalFactsSource: "SQLITE", graphExcerptStatus: "NOT_INCLUDED", includedObjectCount: 1, files: [{ path, bytes: Buffer.byteLength(content), sha256: createHash("sha256").update(content).digest("hex") }] },
       files: { [path]: content },
     },
   };

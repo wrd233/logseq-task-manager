@@ -13,6 +13,7 @@ import {
   type ServiceDescriptor,
   type ServiceDoctor,
   type ServiceDoctorCheck,
+  type ServiceGraphReadResult,
 } from "@task-copilot/service-client";
 import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
 import { StructuredError, checksum, createId, stableJson } from "@task-copilot/shared";
@@ -20,6 +21,8 @@ import { StructuredError, checksum, createId, stableJson } from "@task-copilot/s
 import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
+import { GraphReadBroker } from "./graph-read-broker.ts";
+import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
 import { readLegacyRecoveryBundle, scanLegacyRecoveryBundle } from "./migration-scan.ts";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
@@ -29,6 +32,7 @@ export const LOCAL_SERVICE_CAPABILITIES = {
   migration: true,
   provider: false,
   backup: true,
+  graphReadBridge: true,
 } satisfies ServiceCapabilities;
 
 export interface LocalServiceOptions {
@@ -121,10 +125,27 @@ async function readContextExportRequest(request: IncomingMessage): Promise<{ sco
   let value: unknown;
   try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  if (Object.keys(record).sort().join(",") !== "id,scope" || !["object", "project"].includes(String(record.scope)) || typeof record.id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.id)) {
-    throw serviceError("CONTEXT_EXPORT_REQUEST_INVALID", "Context export 只接受 object/project 和受控对象 ID。");
+  const scope = String(record.scope);
+  const objectId = typeof record.id === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.id);
+  const pageId = typeof record.id === "string" && record.id.trim().length > 0 && record.id.length <= 512 && !Array.from(record.id).some((character) => character.charCodeAt(0) <= 31);
+  if (Object.keys(record).sort().join(",") !== "id,scope" || !["block", "page", "object", "project"].includes(scope) || (scope === "page" ? !pageId : !objectId)) {
+    throw serviceError("CONTEXT_EXPORT_REQUEST_INVALID", "Context export 只接受 block/page/object/project 与匹配的受控目标。");
   }
-  return { scope: record.scope as ContextExportScope, id: record.id };
+  return { scope: record.scope as ContextExportScope, id: String(record.id) };
+}
+
+async function readGraphQueryRequest(request: IncomingMessage) {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Graph 读取请求必须是合法 JSON。"); }
+  return parseGraphReadQuery(value);
+}
+
+async function readGraphResultRequest(request: IncomingMessage): Promise<ServiceGraphReadResult> {
+  const body = await readBody(request, 2 * 1024 * 1024);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Graph 只读桥接结果必须是合法 JSON。"); }
+  return parseGraphReadResult(value);
 }
 
 async function readAssociationRequest(request: IncomingMessage): Promise<{ sourceObjectId: string; targetObjectId: string; expectedVersion: number; traceId: string }> {
@@ -706,6 +727,17 @@ function primaryAnchorRebindIdempotencyKey(graphId: string, input: PrimaryAnchor
 
 function respondError(response: ServerResponse, error: unknown): void {
   if (error instanceof StructuredError) {
+    const graphStatus = ["GRAPH_READ_REQUEST_INVALID", "GRAPH_READ_RESULT_INVALID", "GRAPH_READ_RESULT_MISMATCH"].includes(error.code) ? 400
+      : ["GRAPH_READ_NOT_FOUND", "GRAPH_READ_REQUEST_NOT_FOUND"].includes(error.code) ? 404
+      : error.code === "GRAPH_READ_BRIDGE_BUSY" ? 429
+      : ["GRAPH_READ_BRIDGE_UNAVAILABLE", "GRAPH_READ_BRIDGE_CLOSED"].includes(error.code) ? 503
+      : error.code === "GRAPH_READ_TIMEOUT" ? 504
+      : error.code.startsWith("GRAPH_READ_") ? 502
+      : undefined;
+    if (graphStatus !== undefined) {
+      respond(response, graphStatus, { error: { code: error.code, message: error.message } });
+      return;
+    }
     const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_TARGET_STALE", "V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "V2_LIFECYCLE_UNDO_NOT_AVAILABLE", "V2_LIFECYCLE_UNDO_LEDGER_CORRUPT", "V2_LIFECYCLE_UNDO_STATE_CHANGED", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
     const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_PROPOSAL_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID", "LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "LIFECYCLE_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code));
@@ -743,6 +775,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const candidateApplication = new V2CandidateApplication(store);
   const migrationApplication = new V2MigrationApplication(store);
   const proposalApplication = new V2ProposalApplication(store);
+  const graphReadBroker = new GraphReadBroker();
   const serializedTails = new Map<string, Promise<void>>();
   const serializeByKey = async <T>(key: string, task: () => Promise<T>): Promise<T> => {
     const prior = serializedTails.get(key) ?? Promise.resolve();
@@ -910,6 +943,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     const core = store.doctor();
     const operational = store.operationalDiagnostics();
     const skillCount = (await listTaskCopilotSkills()).length;
+    const graphRuntime = graphReadBroker.status();
     let backupCount = 0;
     let backupCode = "BACKUP_NONE";
     let backupStatus: ServiceDoctorCheck["status"] = "WARN";
@@ -933,7 +967,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     const checks: ServiceDoctorCheck[] = [
       { component: "LOCAL_SERVICE", status: "PASS", code: "LOCAL_SERVICE_READY" },
-      { component: "GRAPH", status: "INFO", code: "GRAPH_RUNTIME_NOT_OBSERVED" },
+      { component: "GRAPH", status: graphRuntime.connected ? "PASS" : "INFO", code: graphRuntime.connected ? "GRAPH_READ_BRIDGE_CONNECTED" : "GRAPH_READ_BRIDGE_NOT_CONNECTED", count: graphRuntime.pending + graphRuntime.queued },
       { component: "SQLITE", status: core.integrity === "ok" && core.foreignKeyViolations === 0 ? "PASS" : "FAIL", code: core.integrity === "ok" && core.foreignKeyViolations === 0 ? "SQLITE_INTEGRITY_VALID" : "SQLITE_INTEGRITY_INVALID", count: core.foreignKeyViolations },
       { component: "SCHEMA", status: core.schemaVersion === V2_DATABASE_SCHEMA_VERSION ? "PASS" : "FAIL", code: core.schemaVersion === V2_DATABASE_SCHEMA_VERSION ? "SCHEMA_CURRENT" : "SCHEMA_UNSUPPORTED" },
       { component: "ANCHOR", status: operational.multiplePrimaryAnchorObjectCount > 0 ? "FAIL" : operational.missingAnchorCount + operational.conflictAnchorCount > 0 ? "WARN" : "PASS", code: operational.multiplePrimaryAnchorObjectCount > 0 ? "ANCHOR_MULTIPLE_PRIMARY" : operational.missingAnchorCount + operational.conflictAnchorCount > 0 ? "ANCHOR_RECONCILIATION_REQUIRED" : "ANCHOR_HEALTHY", count: operational.missingAnchorCount + operational.conflictAnchorCount + operational.multiplePrimaryAnchorObjectCount },
@@ -953,7 +987,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       fail: checks.filter(({ status }) => status === "FAIL").length,
       info: checks.filter(({ status }) => status === "INFO").length,
     };
-    return { ...core, status: summary.fail > 0 ? "FAIL" : "PASS", checks, summary, limitations: ["Graph and Desktop event health require the Plugin runtime gate.", "Provider health requires an explicit bounded live smoke.", "Service log collection is not configured; the diagnostic archive contains structured status only."] };
+    return { ...core, status: summary.fail > 0 ? "FAIL" : "PASS", checks, summary, limitations: ["Graph read availability is observed through the transient Desktop bridge; Desktop event health still requires the Plugin runtime gate.", "Provider health requires an explicit bounded live smoke.", "Service log collection is not configured; the diagnostic archive contains structured status only."] };
   };
   const completeProposalObservations = (proposal: Parameters<typeof requiredV2ProposalRevalidationScope>[0], observations: V2ProposalScopeObservation[]): V2ProposalScopeObservation[] => [
     ...observations,
@@ -1144,6 +1178,25 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       respond(response, result.replayed ? 200 : 201, result);
       return;
     }
+    if (request.method === "GET" && url.pathname === "/graph/bridge/next") {
+      const next = await graphReadBroker.claim();
+      respond(response, 200, next ? { request: next } : {});
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/graph/bridge/result") {
+      graphReadBroker.complete(await readGraphResultRequest(request));
+      respond(response, 200, { accepted: true });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/graph/read") {
+      const result = await graphReadBroker.read(await readGraphQueryRequest(request));
+      if (result.status === "FOUND") {
+        respond(response, 200, { snapshot: result.snapshot });
+        return;
+      }
+      if (result.status === "NOT_FOUND") throw new StructuredError({ code: "GRAPH_READ_NOT_FOUND", message: "Logseq Desktop 中未找到目标。", ruleRefs: ["D-132", "D-135"] });
+      throw new StructuredError({ code: result.errorCode, message: result.message, ruleRefs: ["D-132", "D-135"] });
+    }
     if (request.method === "GET" && url.pathname === "/skills") {
       respond(response, 200, { skills: await listTaskCopilotSkills() });
       return;
@@ -1152,6 +1205,15 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const input = await readContextExportRequest(request);
       const skillSummaries = await listTaskCopilotSkills();
       const skillDocuments = (await Promise.all(skillSummaries.map(({ name }) => readTaskCopilotSkill(name)))).filter((skill) => skill !== undefined);
+      let graphSnapshot;
+      if (input.scope === "block" || input.scope === "page") {
+        const result = await graphReadBroker.read(input.scope === "block"
+          ? { kind: "BLOCK", target: input.id, includeChildren: true, parents: 2 }
+          : { kind: "PAGE", target: input.id, depth: 2 });
+        if (result.status === "NOT_FOUND") throw new StructuredError({ code: "GRAPH_READ_NOT_FOUND", message: "Logseq Desktop 中未找到 Context 目标。", ruleRefs: ["D-132", "D-135"] });
+        if (result.status === "ERROR") throw new StructuredError({ code: result.errorCode, message: result.message, ruleRefs: ["D-132", "D-135"] });
+        graphSnapshot = result.snapshot;
+      }
       const contextPackage = buildContextPackage({
         getObject: (objectId) => store.getObject(objectId),
         listObjects: () => store.listObjects(),
@@ -1159,7 +1221,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         listAssociations: () => store.listAssociations(),
         getActivePrimaryAnchorByObject: (objectId) => store.getActivePrimaryAnchorByObject(objectId),
         databaseSchemaVersion: () => store.doctor().schemaVersion,
-      }, skillDocuments, { kind: input.scope, id: input.id });
+      }, skillDocuments, { kind: input.scope, id: input.id }, new Date(), graphSnapshot);
       respond(response, 200, { contextPackage, fingerprint: contextPackageFingerprint(contextPackage) });
       return;
     }
@@ -2266,6 +2328,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         try {
           if (options.descriptorPath) await removeServiceDescriptor(options.descriptorPath);
         } finally {
+          graphReadBroker.close();
           server.close();
         }
       }
@@ -2355,11 +2418,13 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       server.listen(0, "127.0.0.1", () => resolve());
     });
   } catch (error) {
+    graphReadBroker.close();
     store.close();
     throw error;
   }
   const address = server.address();
   if (!address || typeof address === "string" || address.address !== "127.0.0.1") {
+    graphReadBroker.close();
     server.close();
     store.close();
     throw new Error("Local Service must bind only to 127.0.0.1");
@@ -2376,6 +2441,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     try {
       await writeServiceDescriptor(options.descriptorPath, descriptor);
     } catch (error) {
+      graphReadBroker.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       if (storeOpen) store.close();
       throw error;
@@ -2387,6 +2453,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     token,
     capabilities,
     close: async () => {
+      graphReadBroker.close();
       if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
       if (storeOpen) {
         store.close();

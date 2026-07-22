@@ -8,6 +8,7 @@ export interface ServiceCapabilities {
   migration: boolean;
   provider: boolean;
   backup: boolean;
+  graphReadBridge?: boolean;
 }
 
 export interface ServiceDescriptor {
@@ -79,10 +80,10 @@ export interface ServiceSkillDocument extends ServiceSkillSummary {
 export interface ServiceContextPackageManifest {
   schemaVersion: 1;
   generatedAt: string;
-  scope: { kind: "object" | "project"; id: string };
+  scope: { kind: "block" | "page" | "object" | "project"; id: string };
   authority: "READ_ONLY_DERIVATIVE";
   formalFactsSource: "SQLITE";
-  graphExcerptStatus: "NOT_AVAILABLE_IN_LOCAL_SERVICE";
+  graphExcerptStatus: "NOT_INCLUDED" | "AVAILABLE_FROM_LOGSEQ_BRIDGE";
   includedObjectCount: number;
   files: Array<{ path: string; sha256: string; bytes: number }>;
 }
@@ -96,6 +97,43 @@ export interface ServiceContextExportResult {
   contextPackage: ServiceContextPackage;
   fingerprint: string;
 }
+
+export type ServiceGraphReadQuery =
+  | { kind: "PAGE"; target: string; depth: number }
+  | { kind: "BLOCK"; target: string; includeChildren: boolean; parents: number }
+  | { kind: "RESOLVE"; target: string };
+
+export type ServiceGraphReadRequest = ServiceGraphReadQuery & {
+  requestId: string;
+  requestedAt: string;
+  expiresAt: string;
+};
+
+export interface ServiceGraphBlockExcerpt {
+  uuid: string;
+  content: string;
+  contentHash: string;
+  relation: "PARENT" | "ROOT" | "CHILD";
+  depth: number;
+  parentUuid?: string;
+  pageUuid?: string;
+  pageName?: string;
+}
+
+export interface ServiceGraphSnapshot {
+  kind: "PAGE" | "BLOCK";
+  requestedTarget: string;
+  resolved: { kind: "PAGE" | "BLOCK"; id: string; name?: string; version?: number; evidenceHash?: string };
+  blocks: ServiceGraphBlockExcerpt[];
+  truncated: boolean;
+  readAt: string;
+  scopeHash: string;
+}
+
+export type ServiceGraphReadResult =
+  | { requestId: string; status: "FOUND"; snapshot: ServiceGraphSnapshot }
+  | { requestId: string; status: "NOT_FOUND" }
+  | { requestId: string; status: "ERROR"; errorCode: string; message: string };
 
 export interface ServiceLegacyMigrationPreview {
   legacyObjectId: string;
@@ -699,12 +737,32 @@ export class LocalServiceClient {
     }
   }
 
-  exportContext(scope: "object" | "project", id: string): Promise<ServiceContextExportResult> {
+  exportContext(scope: "block" | "page" | "object" | "project", id: string): Promise<ServiceContextExportResult> {
     return this.request<ServiceContextExportResult>("/context/export", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ scope, id }),
-    });
+    }, scope === "block" || scope === "page" ? 12_000 : undefined);
+  }
+
+  readGraph(query: ServiceGraphReadQuery): Promise<ServiceGraphSnapshot> {
+    return this.request<{ snapshot: ServiceGraphSnapshot }>("/graph/read", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(query),
+    }, 12_000).then(({ snapshot }) => snapshot);
+  }
+
+  claimGraphReadRequest(): Promise<ServiceGraphReadRequest | undefined> {
+    return this.request<{ request?: ServiceGraphReadRequest }>("/graph/bridge/next", undefined, 25_000).then(({ request }) => request);
+  }
+
+  completeGraphReadRequest(result: ServiceGraphReadResult): Promise<void> {
+    return this.request<{ accepted: true }>("/graph/bridge/result", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(result),
+    }).then(() => undefined);
   }
 
   scanLegacyMigration(bundle: unknown): Promise<ServiceLegacyMigrationScanReport> {
