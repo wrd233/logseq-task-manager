@@ -88,6 +88,15 @@ test("ambiguous finalize failure preserves the owned page for a same-intent retr
   assert.ok(await value.host.getPage(value.prepared.pageName), "an ambiguous response must never delete a possibly committed Project page");
 });
 
+test("Project controller refuses a null page tree without finalizing SQLite", async () => {
+  const value = fixture();
+  value.host.getPageBlocksTree = async () => null;
+  await assert.rejects(() => createProjectWithControlledPage(value.service, value.host, "告警推送治理", "trace-null-tree"), /尚未返回可验证的页面 Block 树/);
+  assert.equal(value.createCalls(), 1);
+  assert.equal(value.finalizeCalls(), 0);
+  assert.ok(await value.host.getPage(value.prepared.pageName));
+});
+
 test("a completed intent resolves its recorded page UUID after a user rename instead of creating a duplicate", async () => {
   const prepared = { ...intent(), status: "COMPLETED" as const, replayed: true, pageExternalId: "renamed-page-uuid" };
   let requestedIdentity = "";

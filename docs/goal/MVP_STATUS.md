@@ -2,7 +2,7 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A-F requirement gates and E2E-01-24 complete; release audit in progress"
+current_slice: "V1 frozen; V2 Slice A-F requirement gates and E2E-01-24 complete; release audit decisions closed; final clean audit in progress"
 last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; all typecheck/lint/tests/build, Plugin and architecture boundaries, 145 rules, acceptance rehearsal and repository boundary PASS with 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
@@ -32,6 +32,7 @@ implemented:
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
   - "SQLite schema v12: v11 Closure rules plus one validated Project-owned aggregate in objects for objectives, deliverables, work stages, current summary, 1-3 current focuses and optional stage mappings; no Project side tables or second authority; v1..v11 upgrades require a validated preflight snapshot and roll back atomically"
   - "V2-PROJECT-001 Desktop DONE: structured Project editing creates one HIGH Proposal, Review acceptance remains zero-write, final Commit is version protected, Project reentry survives renderer reload, and dedicated Undo restores the exact prior aggregate without changing Graph, position or ownership"
+  - "OD-008 closed by isolated spike: @logseq/libs 0.3.4 passes the forward compatibility suite after one nullable page-tree guard but still bundles advisory-affected DOMPurify/lodash-es; removing the runtime dependency breaks Logseq 0.10.15 plugin bootstrap, so 0.0.17 remains pinned as an explicit upstream risk without a shim, fork or audit override"
   - "Plain Association vertical path: one RELATED meaning, source-version protection, explicit Plugin confirmation/busy/error/success, Local Service/Application/SQLite atomic write, scope-bounded Context projection, and Association-aware Materialization/Migration Undo"
   - "Area controlled vertical path: in-plugin create/edit/list, Local Service/Application command ownership, optimistic stale protection, same object_id versioning, and zero implicit Graph page or Anchor"
   - "Primary Ownership and plain Association are visibly distinct in the V2 object workspace through bounded read-only Local Service projections; no direct Ownership write path was added"
@@ -94,15 +95,15 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 E2E-16: stable-identity Proposal wrote Graph, injected existing-Anchor conflict forced Domain failure, Plugin visibly compensated the original body without false success, persisted FAILED/COMPENSATED ledger state across reload, and returned Doctor COMMIT_HEALTHY with zero pending/recovery"
   - "V2 E2E-23: real endpoint invalid-token 401 mapped to LLM_AUTH_FAILED, real Keychain-configured request cancellation settled as LLM_CANCELLED, bounded loopback HTTP 429 mapped to LLM_RATE_LIMITED after the configured retry cap, and all probes remained zero-write and credential-free"
 runtime_checks_pending:
-  - "Release audit only; architecture, E2E-01-24, Task/Project/MiniProject reasoned Lifecycle, Commit/Undo process-fault, Proposal defer/dependency and V2-VIEW-001 are complete"
+  - "Final repository clean audit only; architecture, E2E-01-24, Project current interface, release decisions and all applicable Desktop Gates are complete"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
   - "DeepSeek L4, Desktop Review/default log/Diagnostics and E2E-23 are complete; 429 remains intentionally verified through bounded real HTTP simulation rather than destructive Provider load"
   - "E2E-13 live Graph bridge and external-Agent cross-entry Review are complete; the first online Agent candidate still required an exact-field prompt repair after Domain Validator rejection, so future Prompt changes must preserve validator-first golden coverage"
-  - "@logseq/libs 0.0.17 retains upstream npm audit findings; no forced incompatible upgrade"
+  - "@logseq/libs 0.0.17 retains 2 high / 1 critical upstream npm audit findings; 0.3.4 carries the currently affected transitive versions and type-only isolation fails real Desktop bootstrap, so release must retain this explicit exception until upstream provides a materially safer runtime"
 user_actions_required: []
-resume_instruction: "Read AGENTS.md, this file, current-status, traceability and the latest Runtime Report. Keep V1 frozen and never dual-write. Continue the release audit without repeating unchanged expensive gates; claim V2 completion only after every release check passes."
+resume_instruction: "Read AGENTS.md, this file, current-status, traceability and the latest Runtime Report. Keep V1 frozen and never dual-write. Run the final clean audit without repeating unchanged expensive gates; preserve the explicit OD-008 upstream risk and claim V2 completion only after every release check passes."
 ```
 
 外层仓库分支为 `feature/task-copilot-mvp`。`logseq/` 是 ignored 本地测试 Graph；inner dirty 仅作运行证据，不进入提交。

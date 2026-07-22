@@ -2,7 +2,7 @@
 
 ## 当前 Slice
 
-V1 frozen / V2 E2E-01–24 complete / Project current-interface Gate complete / release audit continues
+V1 frozen / V2 E2E-01–24 complete / Project current-interface Gate complete / release audit decisions closed
 
 ## 当前阶段结论
 
@@ -101,11 +101,12 @@ V2_REQUIREMENT_GATES_PASS
 - 2026-07-22 Now Work Project/Area 过滤 Desktop Gate：真实 Area v3 与带 Logseq Page/active primary Anchor 的 Project v2 同时进入 Focus；Area、Project 类型筛选和按类型分组只改变可见卡片，筛选前后两条 Focus 的 object_id/version/rank 不变，Audit 保持 4，局部视图不暴露顺序按钮。无新增状态或写路径；证据见 `docs/runtime/V2_NOW_WORK_PROJECT_AREA_FILTER_DESKTOP_REPORT.md`。
 - 2026-07-22 View 键盘/主题 Desktop Gate：Review 双视图与主导航可由 Enter/Space 操作，重绘后按稳定控件身份恢复焦点，toggle/current ARIA 明确且焦点环可见；Light/Dark renderer 分别命中独立 token。结合既有非空 Candidate/Proposal 专项，`V2-VIEW-001` 已为 `DONE`；无持久机制或正式写入，证据见 `docs/runtime/V2_VIEW_KEYBOARD_THEME_DESKTOP_REPORT.md`。
 - 2026-07-22 V2 Runtime 权威收口：正常 Plugin 入口已删除 V1 Application/FileStorage 写 Runtime、Inbox 导航与 V1 Audit 写按钮；默认 Now Work、Project 重入、Audit 和 Diagnostics 都读同一 Local Service 投影，查询失败不再伪装为空历史。Logseq Desktop 0.10.15 冷启动真实显示全阶段 READY、formal writes/explicit sync/Graph bridge true、Pending/Conflict 0/0，无 Inbox/V1 操作。无新表、状态、协议或恢复路径；证据见 `docs/runtime/V2_RUNTIME_V1_WRITE_UI_RETIREMENT_DESKTOP_REPORT.md`。
+- 2026-07-22 OD-008 release spike：npm 建议的 `@logseq/libs` 0.3.4 仍固定 DOMPurify 3.3.3 与 lodash-es 4.17.23，均落在当前 advisory 影响范围，因此 major upgrade 不能消除既有 2 high / 1 critical。隔离 0.3.4 在把 nullable Page Block tree 明确转成零写入失败后通过 typecheck、129 tests、build/bootstrap/dist；但把 SDK 改为纯类型依赖后，真实 Logseq 0.10.15 只有 `__LSP__HOST__`、不会自行建立 `window.logseq`，Plugin Frame 无法加载。该方案已拒绝并恢复；当前继续固定 0.0.17 runtime、保留 audit 风险，等待上游提供实质更安全构建后再走同一兼容 Gate。无 shim、fork、双 SDK 或隐藏 audit override；证据见 `docs/testing/logseq-libs-od008-spike-2026-07-22.json` 与 ADR 0007。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-22 根级 `./scripts/check.sh` 的全部 typecheck/lint/test/build、Plugin/架构边界、145 rules、acceptance rehearsal 与仓库边界 PASS，0 failed/skipped。npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-22 根级 `./scripts/check.sh` 的全部 typecheck/lint/test/build、Plugin/架构边界、145 rules、acceptance rehearsal 与仓库边界 PASS，0 failed/skipped。npm audit 既有 2 high / 1 critical 已由 OD-008 spike 证明当前无安全有效的自动修复目标，未使用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：需求级 Gate 总状态为 `V2_REQUIREMENT_DESKTOP_PASS`；E2E-01–24 和追踪矩阵条目均已有对应 Runtime Report，现在只进行 Release 审计；

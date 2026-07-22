@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "decision": "OD-008",
+  "result": "ACCEPTED_KEEP_PINNED",
+  "currentRuntime": "@logseq/libs@0.0.17",
+  "candidate": "@logseq/libs@0.3.4",
+  "auditAtDecision": {
+    "high": 2,
+    "critical": 1,
+    "forcedFixUsed": false
+  },
+  "candidatePublishedDependencies": {
+    "dompurify": "3.3.3",
+    "lodash-es": "4.17.23",
+    "insideCurrentAdvisoryRanges": true
+  },
+  "isolatedCandidateCompatibility": {
+    "nullablePageTreeGuardRequired": true,
+    "typecheck": "PASS",
+    "pluginTests": { "passed": 129, "failed": 0, "skipped": 0 },
+    "build": "PASS",
+    "bootstrapCheck": "PASS",
+    "distCheck": "PASS"
+  },
+  "runtimeRemovalExperiment": {
+    "automatedTypecheckAndBuild": "PASS",
+    "productionDependencyAudit": { "high": 0, "critical": 0 },
+    "logseqDesktop": "FAIL",
+    "observedHostGlobal": "__LSP__HOST__",
+    "missingWithoutSdkRuntime": "window.logseq",
+    "pluginFrameLoaded": false,
+    "experimentRejectedAndRestored": true
+  },
+  "finalDesktopRegression": {
+    "logseq": "0.10.15",
+    "sdkRuntimeRestored": true,
+    "pluginFrameLoaded": true,
+    "runtime": "READY",
+    "store": "READY",
+    "sameLocalServiceRecovered": true
+  },
+  "futureUpgradeGate": [
+    "materially safer published dependency graph",
+    "typecheck",
+    "129 plugin tests",
+    "build bootstrap and dist checks",
+    "real Logseq Desktop load and API validation"
+  ]
+}

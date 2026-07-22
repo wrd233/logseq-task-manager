@@ -19,7 +19,7 @@ export interface ProjectPageEntity {
 export interface ProjectPageHost {
   getPage(pageName: string): Promise<ProjectPageEntity | null>;
   createPage(pageName: string, properties: Record<string, string>, options: { redirect: false; createFirstBlock: false; journal: false }): Promise<ProjectPageEntity | null>;
-  getPageBlocksTree(pageName: string): Promise<unknown[]>;
+  getPageBlocksTree(pageName: string): Promise<unknown[] | null>;
 }
 
 export interface ProjectCreationService {
@@ -100,6 +100,9 @@ export async function createProjectWithControlledPage(
     assertOwnedPage(page, intent);
   }
   const blocks = await host.getPageBlocksTree(page.uuid);
+  if (!Array.isArray(blocks)) {
+    throw projectError("V2_PROJECT_PAGE_READ_FAILED", `${intent.pageName} 已创建但 Logseq 尚未返回可验证的页面 Block 树；SQLite 尚未创建 Project，请保留页面并重试同名创建。`);
+  }
   const pageContentHash = checksum({
     pageName: intent.pageName,
     pageExternalId: page.uuid,
