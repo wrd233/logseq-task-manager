@@ -174,6 +174,10 @@ async function ensurePersistentBlockIdentity(externalId: string): Promise<void> 
   await ensurePersistentBlockIdentityWithoutEcho(logseq.Editor, externalId, explicitSyncController);
 }
 
+async function ensurePersistentBlockIdentityForExplicitSync(externalId: string): Promise<boolean> {
+  return ensurePersistentBlockIdentityWithoutEcho(logseq.Editor, externalId, explicitSyncController);
+}
+
 async function loadV2CandidateSourcePreviews(candidates: readonly { candidateId: string; sourceAnchorId: string; disposition: string; deferredUntil?: string }[]): Promise<Record<string, string>> {
   if (workspace !== "review" || reviewMode !== "candidates") return {};
   const now = Date.now();
@@ -489,7 +493,7 @@ function initializeExplicitSync(): void {
   explicitSyncController = new ExplicitSyncController({
     reconciliationDelayMs: 5_000,
     readBlock: (externalId) => logseq.Editor.getBlock(externalId),
-    ensurePersistentIdentity: ensurePersistentBlockIdentity,
+    ensurePersistentIdentity: ensurePersistentBlockIdentityForExplicitSync,
     onIssue(issue) {
       operationalLogger.log("warn", "plugin-lifecycle", "explicit_sync_issue", {
         result: "deferred",

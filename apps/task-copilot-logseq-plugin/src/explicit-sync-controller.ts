@@ -41,7 +41,7 @@ export interface ExplicitSyncControllerOptions {
   clock?: DebounceClock;
   createTraceId?: () => string;
   readBlock?(externalId: string): Promise<unknown>;
-  ensurePersistentIdentity?(externalId: string): Promise<void>;
+  ensurePersistentIdentity?(externalId: string): Promise<boolean | void>;
   onIssue?(issue: ExplicitSyncIssue): void;
   onState?(state: ExplicitSyncState): void;
 }
@@ -73,7 +73,7 @@ export async function ensurePersistentBlockIdentity(
   host: PersistentBlockIdentityHost,
   externalId: string,
   suppressor?: ExplicitSyncEchoSuppressor,
-): Promise<void> {
+): Promise<boolean> {
   const before = await host.getBlock(externalId, { includeChildren: false });
   const block = before && typeof before === "object" && !Array.isArray(before)
     ? before as { uuid?: unknown; content?: unknown; properties?: unknown }
@@ -84,7 +84,8 @@ export async function ensurePersistentBlockIdentity(
   const properties = block.properties && typeof block.properties === "object" && !Array.isArray(block.properties)
     ? block.properties as Record<string, unknown>
     : {};
-  if (properties.id !== externalId) {
+  const identityPersisted = properties.id !== externalId;
+  if (identityPersisted) {
     const cancelSuppression = suppressor?.suppressObservedContentWindow(
       externalId,
       checksum(stripLogseqBlockIdentityProperty(block.content, externalId)),
@@ -106,6 +107,7 @@ export async function ensurePersistentBlockIdentity(
   if (verifiedBlock?.uuid !== externalId || verifiedProperties.id !== externalId) {
     throw new Error("Logseq Block 持久身份复核失败；没有创建正式对象。");
   }
+  return identityPersisted;
 }
 
 export function registerExplicitSyncEvents(
@@ -197,7 +199,10 @@ export function registerExplicitSyncEvents(
   };
 }
 
-type PendingSync = ServiceMaterializeExplicitObjectRequest;
+interface PendingSync {
+  request: ServiceMaterializeExplicitObjectRequest;
+  allowSuppressedOrigin: boolean;
+}
 
 function errorCode(error: unknown): string {
   if (error && typeof error === "object") {
@@ -400,14 +405,15 @@ export class ExplicitSyncController {
         continue;
       }
       if (change.parsed.kind === "NONE") continue;
+      let identityPersisted: boolean;
       try {
-        await this.options.ensurePersistentIdentity?.(change.externalId);
+        identityPersisted = await this.options.ensurePersistentIdentity?.(change.externalId) === true;
       } catch {
         this.needsReconciliation = true;
         this.issue("EXPLICIT_SYNC_BLOCK_IDENTITY_PERSIST_FAILED", "Block 持久身份写入或复核失败；没有创建正式对象。", change.externalId);
         continue;
       }
-      const request: PendingSync = {
+      const request: ServiceMaterializeExplicitObjectRequest = {
         objectType: change.parsed.objectType,
         text: change.parsed.title,
         ...(change.parsed.marker ? { marker: change.parsed.marker } : {}),
@@ -422,7 +428,7 @@ export class ExplicitSyncController {
         this.issue("EXPLICIT_SYNC_QUEUE_CAPACITY_EXCEEDED", "显式同步待恢复队列已达上限；正文保持不变，需要一致性检查。", change.externalId);
         continue;
       }
-      this.pending.set(change.externalId, request);
+      this.pending.set(change.externalId, { request, allowSuppressedOrigin: identityPersisted });
     }
     this.emitState();
     await this.drain();
@@ -441,30 +447,30 @@ export class ExplicitSyncController {
     while (!this.disposed && this.transport && this.pending.size > 0) {
       const next = this.pending.entries().next().value as [string, PendingSync] | undefined;
       if (!next) return;
-      const [externalId, request] = next;
-      if (this.isObservedContentSuppressed(externalId, request.contentHash)) {
-        if (this.pending.get(externalId) === request) this.pending.delete(externalId);
+      const [externalId, pending] = next;
+      if (this.isObservedContentSuppressed(externalId, pending.request.contentHash) && !pending.allowSuppressedOrigin) {
+        if (this.pending.get(externalId) === pending) this.pending.delete(externalId);
         continue;
       }
       try {
-        await this.transport.synchronizeExplicitObject(request);
-        if (this.pending.get(externalId) === request) this.pending.delete(externalId);
+        await this.transport.synchronizeExplicitObject(pending.request);
+        if (this.pending.get(externalId) === pending) this.pending.delete(externalId);
       } catch (error) {
         if (this.disposed) return;
         const code = errorCode(error);
         this.needsReconciliation = true;
         if (code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL") {
-          if (this.pending.get(externalId) === request) this.pending.delete(externalId);
+          if (this.pending.get(externalId) === pending) this.pending.delete(externalId);
           this.issue(code, "显式类型变化未提交；需要在 Proposal 管道中审阅。", externalId);
           continue;
         }
         if (code === "V2_TASK_CANCELLATION_REASON_REQUIRED") {
-          if (this.pending.get(externalId) === request) this.pending.delete(externalId);
+          if (this.pending.get(externalId) === pending) this.pending.delete(externalId);
           this.issue(code, "Task 取消请求未提交；需要记录取消原因并审阅。", externalId);
           continue;
         }
         if (code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || code === "V2_MARKER_TERMINAL_CONFLICT") {
-          if (this.pending.get(externalId) === request) this.pending.delete(externalId);
+          if (this.pending.get(externalId) === pending) this.pending.delete(externalId);
           this.issue(code, "Marker 与当前对象语义冲突；没有写入，需要用户审阅。", externalId);
           continue;
         }

@@ -297,6 +297,43 @@ test("persisting id:: suppresses the Logseq property echo so Candidate review ca
   assert.deepEqual(requests, ["用户后续编辑"], "a later human edit must remain observable");
 });
 
+test("a new explicit Block persists identity and still synchronizes its originating observation once", async () => {
+  const requests: string[] = [];
+  const externalId = "6a60988c-dab9-4fdf-a8ac-ae5721a80b70";
+  const original = "[任务] 首次显式创建";
+  let block = { uuid: externalId, content: original, properties: {} as Record<string, unknown> };
+  const controllerCell: { current?: ExplicitSyncController } = {};
+  const host = {
+    async getBlock() { return block; },
+    async upsertBlockProperty(_id: string, key: string, value: string) {
+      block = { uuid: externalId, content: `${original}\nid:: ${externalId}`, properties: { [key]: value } };
+      controllerCell.current?.onBlocksChanged([block]);
+    },
+  };
+  const controller: ExplicitSyncController = new ExplicitSyncController({
+    delayMs: 0,
+    createTraceId: () => "trace-originating-identity",
+    ensurePersistentIdentity: async (id): Promise<boolean> => {
+      const current = controllerCell.current;
+      if (!current) throw new Error("controller not initialized");
+      return ensurePersistentBlockIdentity(host, id, current);
+    },
+  });
+  controllerCell.current = controller;
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.text);
+      return success("originating-identity-object", 1);
+    },
+  });
+
+  controller.onBlocksChanged([{ uuid: externalId, content: original }]);
+  await controller.flush();
+
+  assert.deepEqual(requests, ["首次显式创建"], "the user observation must survive its own identity echo suppression");
+  controller.dispose();
+});
+
 test("identity echo suppression survives an already in-flight event-bridge read for the same Block", async () => {
   const requests: string[] = [];
   const externalId = "6a5f991a-53f9-466a-ac34-ee03648f48d0";
