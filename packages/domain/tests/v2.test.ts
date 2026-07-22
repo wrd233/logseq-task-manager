@@ -21,6 +21,7 @@ import {
   reopenV2Lifecycle,
   restoreV2LifecycleFromUndo,
   validateV2Condition,
+  updateV2ProjectStructure,
 } from "../src/v2.ts";
 
 test("V2 exposes exactly six user-visible object types without Phase or Signal", () => {
@@ -45,6 +46,33 @@ test("Area responsibility text is edited in place with optimistic version protec
   assert.throws(() => editV2Area(area, "   ", 1), /责任描述/);
   assert.throws(() => editV2Area({ ...area, objectType: "TASK" }, "新责任", 1), /Area/);
   assert.throws(() => editV2Area({ ...area, lifecycle: "ARCHIVED" }, "新责任", 1), /关闭/);
+});
+
+test("Project structure is one versioned aggregate with bounded current interface and stage mappings", () => {
+  const project = createV2ManagedObject({ objectId: "project-structure", objectType: "PROJECT", text: "发布 V2" }, new Date("2026-07-22T01:00:00Z"));
+  assert.equal(project.projectStructure?.currentFocuses.length, 1);
+  const updated = updateV2ProjectStructure(project, {
+    objectives: [
+      { objectiveId: "objective-main", text: "形成可日常使用的闭环", priority: "PRIMARY", successEvidence: ["真实 Desktop 验收通过"] },
+      { objectiveId: "objective-docs", text: "保留可追溯证据", priority: "SECONDARY", successEvidence: [] },
+    ],
+    deliverables: [{ deliverableId: "deliverable-release", text: "V2 发布包", acceptance: "Doctor 和 Release Gate 通过", status: "AVAILABLE" }],
+    workStages: [
+      { stageId: "stage-verify", name: "验收", statusDescription: "正在进行 Release 审计" },
+      { stageId: "stage-release", name: "发布", statusDescription: "等待审计完成" },
+    ],
+    currentSummary: "需求 Gate 完成，正在收口发布。",
+    currentFocuses: ["完成 Release 审计", "确认可恢复性"],
+    stageMappings: [{ objectId: "task-release-audit", stageId: "stage-verify" }],
+  }, 1, new Date("2026-07-22T02:00:00Z"));
+  assert.equal(updated.version, 2);
+  assert.equal(updated.projectStructure?.objectives.length, 2);
+  assert.equal(updated.projectStructure?.currentFocuses.length, 2);
+  assert.throws(() => updateV2ProjectStructure(project, { ...updated.projectStructure!, currentFocuses: [] }, 1), /当前推进/);
+  assert.throws(() => updateV2ProjectStructure(project, { ...updated.projectStructure!, currentFocuses: ["1", "2", "3", "4"] }, 1), /当前推进/);
+  assert.throws(() => updateV2ProjectStructure(project, { ...updated.projectStructure!, stageMappings: [{ objectId: "task", stageId: "missing" }] }, 1), /Stage/);
+  assert.throws(() => updateV2ProjectStructure({ ...project, objectType: "TASK" }, updated.projectStructure!, 1), /Project/);
+  assert.throws(() => updateV2ProjectStructure(project, updated.projectStructure!, 2), /版本/);
 });
 
 test("Primary Anchor and Ownership are versioned domain changes independent of location", () => {

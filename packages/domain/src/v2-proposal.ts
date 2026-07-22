@@ -1,5 +1,5 @@
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
-import { validateV2MiniProjectClosure, validateV2ProjectClosure, type V2MiniProjectClosure, type V2ProjectClosure } from "./v2.ts";
+import { validateV2MiniProjectClosure, validateV2ProjectClosure, validateV2ProjectStructure, type V2MiniProjectClosure, type V2ProjectClosure, type V2ProjectStructure } from "./v2.ts";
 
 export type V2ProposalSourceKind = "local_llm" | "external_agent" | "user" | "migration" | "repair";
 export type V2ProposalRisk = "LOW" | "MEDIUM" | "HIGH";
@@ -233,6 +233,10 @@ export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
         const closure = operation.payload.closure;
         if (!closure || typeof closure !== "object" || Array.isArray(closure)) throw proposalError("V2_PROPOSAL_PROJECT_CLOSURE_INVALID", "Project Closure payload 必须是结构化对象。");
         validateV2ProjectClosure(closure as unknown as V2ProjectClosure);
+      }
+      if (operation.kind === "UPDATE_PROJECT_INTERFACE" && "projectStructure" in operation.payload) {
+        validateV2ProjectStructure(operation.payload.projectStructure as unknown as V2ProjectStructure);
+        validateV2ProjectStructure(operation.payload.previousProjectStructure as unknown as V2ProjectStructure);
       }
     }
   }

@@ -469,6 +469,30 @@ test("Project completion atomically records Closure without requiring every Obje
   }), completed);
 });
 
+test("Project current interface updates one versioned aggregate through the Application command boundary", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const project = await application.createObject({ objectId: "project-interface", objectType: "PROJECT", text: "发布治理" }, {
+    actor: "test", expectedVersion: 0, idempotencyKey: "create-project-interface", traceId: "trace-create-interface",
+  });
+  const structure = {
+    objectives: [{ objectiveId: "objective-safe-release", text: "稳定发布", priority: "PRIMARY" as const, successEvidence: ["回滚演练通过"] }],
+    deliverables: [{ deliverableId: "deliverable-runbook", text: "发布手册", acceptance: "值班同学可独立执行", status: "AVAILABLE" as const }],
+    workStages: [{ stageId: "stage-verify", name: "验收", statusDescription: "正在验证恢复路径" }],
+    currentSummary: "核心链路已完成，正在做恢复验收。",
+    currentFocuses: ["完成恢复演练", "收口操作手册"],
+    stageMappings: [{ objectId: "task-restore", stageId: "stage-verify" }],
+  };
+  const updated = await application.updateProjectStructure(project.objectId, structure, {
+    actor: "proposal_commit", expectedVersion: project.version, idempotencyKey: "update-project-interface", traceId: "trace-update-interface",
+  }, new Date("2026-07-22T13:00:00Z"));
+  assert.deepEqual(updated.projectStructure, structure);
+  assert.equal(repository.audit.at(-1)?.command, "update_project_structure");
+  assert.deepEqual(await application.updateProjectStructure(project.objectId, { ...structure, currentSummary: "不得覆盖" }, {
+    actor: "proposal_commit", expectedVersion: project.version, idempotencyKey: "update-project-interface", traceId: "trace-replay-interface",
+  }), updated);
+});
+
 test("Marker materialization completes only simple Tasks and keeps Condition independent", async () => {
   const repository = new MemoryV2Repository();
   const application = new V2Application(repository);

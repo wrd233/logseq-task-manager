@@ -82,6 +82,26 @@ test("Project reentry is projected from V2 objects, ownership, associations, and
   for (const action of ["v2-open-primary-anchor", "v2-condition-open", "v2-focus-add"]) assert.match(html, new RegExp(`data-action="${action}"`));
 });
 
+test("Project current interface is readable in reentry and editable only through a HIGH Proposal", () => {
+  const value = model();
+  value.workspace = "reentry";
+  const structure = { objectives: [{ objectiveId: "objective-1", text: "稳定发布", priority: "PRIMARY" as const, successEvidence: ["恢复演练通过"] }], deliverables: [{ deliverableId: "deliverable-1", text: "发布手册", acceptance: "可独立执行", status: "AVAILABLE" as const }], workStages: [{ stageId: "stage-1", name: "验收", statusDescription: "正在验证恢复路径" }], currentSummary: "核心链路已完成。", currentFocuses: ["完成恢复演练"], stageMappings: [] };
+  value.v2Objects = [{ objectId: "project-structure", objectType: "PROJECT", version: 2, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "发布治理", projectStructure: structure, createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T01:00:00.000Z", sourceOrCreationEvent: "event" }];
+  value.v2PrimaryOwnerships = [];
+  value.v2Associations = [];
+  const html = renderApp(value);
+  assert.match(html, /Project 当前接口/);
+  assert.match(html, /稳定发布/);
+  assert.match(html, /发布手册/);
+  assert.match(html, /正在验证恢复路径/);
+  assert.match(html, /data-action="v2-project-structure-open"/);
+  value.actionDialog = { kind: "v2-project-structure-edit", value: "project-structure|2" };
+  const dialog = renderApp(value);
+  assert.match(dialog, /生成 HIGH Proposal/);
+  assert.match(dialog, /data-action="submit-v2-project-structure"/);
+  assert.doesNotMatch(dialog, /直接保存正式状态/);
+});
+
 test("Migration workspace projects the Service ledger without accepting bundle content or direct writes", () => {
   const value = model();
   value.workspace = "migration";
@@ -532,6 +552,24 @@ test("Project Closure Review shows the external Agent outcome and uses a dedicat
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-project-closure-commit"/);
   assert.match(html, /data-action="v2-proposal-commit"/);
+});
+
+test("Project current interface Review has dedicated Commit and version-safe Undo controls", () => {
+  const value = model();
+  value.workspace = "review"; value.reviewMode = "proposals";
+  const structure = { objectives: [], deliverables: [], workStages: [], currentSummary: "正在验收。", currentFocuses: ["完成恢复演练"], stageMappings: [] };
+  value.v2Proposals = [{ updatedAt: "2026-07-22T13:01:00.000Z", files: { proposalMd: "# Project", proposalJson: "{}" }, proposal: { proposalId: "prop-project-structure", schemaVersion: "v2", title: "更新当前接口", context: "当前信息已编辑。", understanding: "一起审阅。", objective: "可重入。", logic: "单一聚合。", finalPreview: "正在验收。", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "project-1", version: 2 }] }, preconditions: [], groups: [{ groupId: "update-project-interface", explanation: "不可拆分。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "update-project-interface", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: "project-1", version: 2 }, summary: "更新 Project 当前接口", payload: { previousProjectStructure: structure, projectStructure: structure }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T13:00:00.000Z" } }];
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-project-structure-commit"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  value.actionDialog = { kind: "confirm-v2-project-structure", value: "prop-project-structure|2026-07-22T13:01:00.000Z" };
+  assert.match(renderApp(value), /data-action="submit-v2-project-structure-commit"/);
+  delete value.actionDialog;
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-structure", proposalId: "prop-project-structure", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-project-structure-undo"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
 });
 
 test("MiniProject DONE Review uses a dedicated final confirmation and does not expose generic Undo", () => {

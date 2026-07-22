@@ -30,6 +30,40 @@ export interface V2MiniProjectClosure {
   remainingWork: string;
 }
 
+export interface V2ProjectObjective {
+  objectiveId: string;
+  text: string;
+  priority: "PRIMARY" | "SECONDARY";
+  successEvidence: string[];
+}
+
+export interface V2ProjectDeliverable {
+  deliverableId: string;
+  text: string;
+  acceptance: string;
+  status: "PLANNED" | "AVAILABLE" | "ACCEPTED" | "SUPERSEDED";
+}
+
+export interface V2ProjectWorkStage {
+  stageId: string;
+  name: string;
+  statusDescription: string;
+}
+
+export interface V2ProjectStageMapping {
+  objectId: string;
+  stageId: string;
+}
+
+export interface V2ProjectStructure {
+  objectives: V2ProjectObjective[];
+  deliverables: V2ProjectDeliverable[];
+  workStages: V2ProjectWorkStage[];
+  currentSummary: string;
+  currentFocuses: string[];
+  stageMappings: V2ProjectStageMapping[];
+}
+
 export interface V2ManagedObject {
   objectId: string;
   objectType: V2ObjectType;
@@ -42,6 +76,7 @@ export interface V2ManagedObject {
   updatedAt: string;
   sourceOrCreationEvent: string;
   closure?: V2ProjectClosure | V2MiniProjectClosure;
+  projectStructure?: V2ProjectStructure;
 }
 export interface CreateV2ManagedObjectInput {
   objectId?: string;
@@ -49,6 +84,47 @@ export interface CreateV2ManagedObjectInput {
   text: string;
   condition?: V2Condition;
   sourceOrCreationEvent?: string;
+}
+
+function projectStructureError(code: string, message: string): StructuredError {
+  return new StructuredError({ code, message, ruleRefs: ["D-049", "D-054", "D-064", "D-065", "D-071"] });
+}
+
+function boundedProjectText(value: unknown, label: string, max = 4_000): string {
+  if (typeof value !== "string" || !value.trim() || value.trim().length > max) throw projectStructureError("V2_PROJECT_STRUCTURE_TEXT_INVALID", `${label}必须是非空有界文本。`);
+  return value.trim();
+}
+
+function boundedProjectId(value: unknown, label: string): string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) throw projectStructureError("V2_PROJECT_STRUCTURE_ID_INVALID", `${label}必须是受控标识。`);
+  return value;
+}
+
+export function initialV2ProjectStructure(projectText: string): V2ProjectStructure {
+  const text = boundedProjectText(projectText, "Project 名称");
+  return { objectives: [], deliverables: [], workStages: [], currentSummary: `已创建 ${text}，待明确目标与当前推进。`, currentFocuses: ["明确目标与下一步"], stageMappings: [] };
+}
+
+export function validateV2ProjectStructure(value: V2ProjectStructure): V2ProjectStructure {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw projectStructureError("V2_PROJECT_STRUCTURE_INVALID", "Project 当前接口必须是结构化对象。");
+  if (![value.objectives, value.deliverables, value.workStages, value.currentFocuses, value.stageMappings].every(Array.isArray)) throw projectStructureError("V2_PROJECT_STRUCTURE_INVALID", "Project 当前接口列表不完整。");
+  if (value.objectives.length > 64 || value.deliverables.length > 64 || value.workStages.length > 32 || value.stageMappings.length > 256 || value.currentFocuses.length < 1 || value.currentFocuses.length > 3) throw projectStructureError("V2_PROJECT_STRUCTURE_BOUNDS_INVALID", "Project 结构或当前推进超出有界范围。");
+  const objectives = value.objectives.map((item) => ({ objectiveId: boundedProjectId(item?.objectiveId, "Objective ID"), text: boundedProjectText(item?.text, "Objective"), priority: item?.priority === "PRIMARY" || item?.priority === "SECONDARY" ? item.priority : (() => { throw projectStructureError("V2_PROJECT_OBJECTIVE_PRIORITY_INVALID", "Objective 必须标记 Primary 或 Secondary。"); })(), successEvidence: Array.isArray(item?.successEvidence) && item.successEvidence.length <= 16 ? item.successEvidence.map((evidence) => boundedProjectText(evidence, "成功证据", 1_000)) : (() => { throw projectStructureError("V2_PROJECT_OBJECTIVE_EVIDENCE_INVALID", "Objective 成功证据必须是有界列表。"); })() }));
+  const deliverables = value.deliverables.map((item) => ({ deliverableId: boundedProjectId(item?.deliverableId, "Deliverable ID"), text: boundedProjectText(item?.text, "Deliverable"), acceptance: boundedProjectText(item?.acceptance, "Deliverable 验收说明"), status: ["PLANNED", "AVAILABLE", "ACCEPTED", "SUPERSEDED"].includes(item?.status) ? item.status : (() => { throw projectStructureError("V2_PROJECT_DELIVERABLE_STATUS_INVALID", "Deliverable 状态无效。"); })() })) as V2ProjectDeliverable[];
+  const workStages = value.workStages.map((item) => ({ stageId: boundedProjectId(item?.stageId, "Stage ID"), name: boundedProjectText(item?.name, "Work Stage"), statusDescription: boundedProjectText(item?.statusDescription, "Work Stage 状态") }));
+  for (const ids of [objectives.map(({ objectiveId }) => objectiveId), deliverables.map(({ deliverableId }) => deliverableId), workStages.map(({ stageId }) => stageId)]) if (new Set(ids).size !== ids.length) throw projectStructureError("V2_PROJECT_STRUCTURE_DUPLICATE_ID", "Project 内部标识不能重复。");
+  const stageIds = new Set(workStages.map(({ stageId }) => stageId));
+  const stageMappings = value.stageMappings.map((item) => ({ objectId: boundedProjectId(item?.objectId, "工作对象 ID"), stageId: boundedProjectId(item?.stageId, "Stage ID") }));
+  if (stageMappings.some(({ stageId }) => !stageIds.has(stageId))) throw projectStructureError("V2_PROJECT_STAGE_MAPPING_INVALID", "Work Stage 映射引用了不存在的 Stage。");
+  if (new Set(stageMappings.map(({ objectId }) => objectId)).size !== stageMappings.length) throw projectStructureError("V2_PROJECT_STAGE_MAPPING_DUPLICATE", "一个工作对象最多映射一个主 Work Stage。");
+  return { objectives, deliverables, workStages, currentSummary: boundedProjectText(value.currentSummary, "Project 当前摘要"), currentFocuses: value.currentFocuses.map((focus) => boundedProjectText(focus, "Project 当前推进", 1_000)), stageMappings };
+}
+
+export function updateV2ProjectStructure(object: V2ManagedObject, structure: V2ProjectStructure, expectedVersion: number, at = new Date()): V2ManagedObject {
+  requireExpectedVersion(object, expectedVersion);
+  if (object.objectType !== "PROJECT") throw projectStructureError("V2_PROJECT_STRUCTURE_TYPE_INVALID", "只有 Project 可以保存 Project 当前接口。");
+  if (object.lifecycle !== "OPEN") throw projectStructureError("V2_PROJECT_STRUCTURE_CLOSED", "已关闭 Project 不能修改当前接口。");
+  return { ...object, projectStructure: validateV2ProjectStructure(structure), version: object.version + 1, updatedAt: at.toISOString() };
 }
 
 export interface FocusSelection {
@@ -157,6 +233,7 @@ export function createV2ManagedObject(input: CreateV2ManagedObjectInput, at = ne
     createdAt: timestamp,
     updatedAt: timestamp,
     sourceOrCreationEvent: input.sourceOrCreationEvent ?? `event_created_${objectId}`,
+    ...(input.objectType === "PROJECT" ? { projectStructure: initialV2ProjectStructure(input.text) } : {}),
   };
 }
 

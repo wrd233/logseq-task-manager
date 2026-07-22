@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2LifecycleTransition, planAcceptedV2ObjectUpdate, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
+import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2LifecycleTransition, planAcceptedV2ObjectUpdate, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "普通正文";
@@ -123,6 +123,25 @@ test("accepted Project Closure plan couples structured Closure and COMPLETED lif
   const split = structuredClone(accepted);
   split.groups[0]!.semanticOperations.pop();
   assert.throws(() => planAcceptedV2ProjectClosure(split), /Closure 和 COMPLETED/);
+});
+
+test("accepted Project current interface plan is one reviewed HIGH aggregate update", () => {
+  const structure = {
+    objectives: [{ objectiveId: "objective-1", text: "稳定发布", priority: "PRIMARY" as const, successEvidence: ["恢复演练通过"] }],
+    deliverables: [{ deliverableId: "deliverable-1", text: "发布手册", acceptance: "可独立执行", status: "PLANNED" as const }],
+    workStages: [{ stageId: "stage-1", name: "验收", statusDescription: "正在验证" }],
+    currentSummary: "正在验收恢复路径。", currentFocuses: ["完成演练"], stageMappings: [{ objectId: "task-1", stageId: "stage-1" }],
+  };
+  const accepted: V2Proposal = {
+    proposalId: "prop-project-interface", schemaVersion: "v2", title: "更新发布治理当前接口", context: "Project 信息需要收口。", understanding: "目标、交付与阶段应一起更新。", objective: "形成一屏当前接口。", logic: "结构由同一个版本化聚合承载。", finalPreview: "正在验收恢复路径。", unresolvedQuestions: [], source: { kind: "user" },
+    scope: { read: [], modify: [{ kind: "OBJECT", id: "project-1", version: 3 }] }, preconditions: ["Project 仍为 OPEN"],
+    groups: [{ groupId: "update-project-interface", explanation: "当前接口一起审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "update-project-interface", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: "project-1", version: 3 }, summary: "更新 Project 当前接口", payload: { previousProjectStructure: structure, projectStructure: structure }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T13:00:00.000Z",
+  };
+  assert.deepEqual(planAcceptedV2ProjectStructure(accepted), { proposalId: accepted.proposalId, groupId: "update-project-interface", objectId: "project-1", expectedVersion: 3, structure, previousStructure: structure });
+  const unresolved = structuredClone(accepted);
+  unresolved.status = "PARTIALLY_ACCEPTED";
+  unresolved.groups.push({ ...structuredClone(unresolved.groups[0]!), groupId: "other", disposition: "DEFERRED", deferredUntil: "2026-07-23T13:00:00.000Z", deferReason: "稍后处理", semanticOperations: [{ ...structuredClone(unresolved.groups[0]!.semanticOperations[0]!), operationId: "other-operation" }] });
+  assert.throws(() => planAcceptedV2ProjectStructure(unresolved), /拒绝其余/);
 });
 
 test("MiniProject closure review requires three answers before producing one accepted versioned plan", async () => {

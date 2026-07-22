@@ -1,6 +1,6 @@
 import "@logseq/libs";
 
-import type { V2Condition, V2MiniProjectClosure } from "@task-copilot/domain";
+import type { V2Condition, V2MiniProjectClosure, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
@@ -994,6 +994,57 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-area-edit-open" && value) return openActionDialog("v2-area-edit", value);
+  if (action === "v2-project-structure-open" && value) return openActionDialog("v2-project-structure-edit", value);
+  if (action === "submit-v2-project-structure" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!dialogChecked("actionConfirmed")) throw new Error("请先确认完整的 Project 当前接口。");
+      if (!client || !objectId || !Number.isSafeInteger(expectedVersion)) throw new Error("Project 当前接口上下文已失效；没有创建 Proposal。");
+      const current = (await client.listObjects()).find((object) => object.objectId === objectId);
+      if (!current || current.objectType !== "PROJECT" || current.lifecycle !== "OPEN" || current.version !== expectedVersion || !current.projectStructure) { actionDialog = undefined; throw new Error("Project 已变化、关闭或不存在；请刷新后重新编辑。"); }
+      const lines = (name: string) => dialogField(name).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const parts = (line: string, expected: number, label: string) => {
+        const values = line.split("｜").map((item) => item.trim());
+        if (values.length !== expected || values.some((item) => !item)) throw new Error(`${label} 每行必须包含 ${expected} 个非空字段，并使用全角 ｜ 分隔。`);
+        return values;
+      };
+      const stamp = Date.now();
+      const objectiveLines = lines("v2ProjectObjectives");
+      const deliverableLines = lines("v2ProjectDeliverables");
+      const stageLines = lines("v2ProjectStages");
+      const objectives = objectiveLines.map((line, index) => {
+        const [priority, text, evidence] = parts(line, 3, "Objective") as [string, string, string];
+        if (priority !== "PRIMARY" && priority !== "SECONDARY") throw new Error("Objective 优先级必须是 PRIMARY 或 SECONDARY。");
+        const existing = current.projectStructure!.objectives.find((item) => item.text === text) ?? current.projectStructure!.objectives[index];
+        return { objectiveId: existing?.objectiveId ?? `objective-ui-${stamp}-${index + 1}`, text, priority: priority as "PRIMARY" | "SECONDARY", successEvidence: evidence.split("；").map((item) => item.trim()).filter(Boolean) };
+      });
+      const deliverables = deliverableLines.map((line, index) => {
+        const [status, text, acceptance] = parts(line, 3, "Deliverable") as [string, string, string];
+        if (!["PLANNED", "AVAILABLE", "ACCEPTED", "SUPERSEDED"].includes(status)) throw new Error("Deliverable 状态必须是 PLANNED、AVAILABLE、ACCEPTED 或 SUPERSEDED。");
+        const existing = current.projectStructure!.deliverables.find((item) => item.text === text) ?? current.projectStructure!.deliverables[index];
+        return { deliverableId: existing?.deliverableId ?? `deliverable-ui-${stamp}-${index + 1}`, text, acceptance, status: status as "PLANNED" | "AVAILABLE" | "ACCEPTED" | "SUPERSEDED" };
+      });
+      const workStages = stageLines.map((line, index) => {
+        const [name, statusDescription] = parts(line, 2, "Work Stage") as [string, string];
+        const existing = current.projectStructure!.workStages.find((item) => item.name === name) ?? current.projectStructure!.workStages[index];
+        return { stageId: existing?.stageId ?? `stage-ui-${stamp}-${index + 1}`, name, statusDescription };
+      });
+      const stageIds = new Set(workStages.map(({ stageId }) => stageId));
+      const ownedChildren = (await client.listPrimaryOwnerships()).filter((ownership) => ownership.ownerObjectId === objectId).map(({ childObjectId }) => childObjectId);
+      const stageMappings = ownedChildren.map((childObjectId) => ({ objectId: childObjectId, stageId: dialogField(`v2ProjectStageMapping:${childObjectId}`) })).filter((mapping) => mapping.stageId && stageIds.has(mapping.stageId));
+      const structure: V2ProjectStructure = { objectives, deliverables, workStages, currentSummary: dialogField("v2ProjectCurrentSummary"), currentFocuses: lines("v2ProjectCurrentFocuses"), stageMappings };
+      const createdAt = new Date().toISOString();
+      const proposal: V2Proposal = { proposalId: `project-interface-${checksum(`${objectId}:${expectedVersion}:${stamp}`)}`, schemaVersion: "v2", title: `更新 ${current.text} 当前接口`, context: "用户在 Project 工作区编辑了一屏当前接口。", understanding: "Objectives、Deliverables、Work Stages 与当前推进作为一个版本化聚合一起审阅。", objective: "保持 Project 可重入并明确当前推进。", logic: "只生成一个 HIGH UPDATE_PROJECT_INTERFACE；不修改 Graph、归属或位置。", finalPreview: `${structure.currentSummary}\n当前推进：${structure.currentFocuses.join("；")}`, unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [{ kind: "OBJECT", id: objectId, version: expectedVersion }] }, preconditions: ["Project 仍为 OPEN 且版本未变化"], groups: [{ groupId: "update-project-interface", explanation: "一屏当前接口共同表达 Project 当前事实，不拆成平行写入。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "update-project-interface", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: objectId, version: expectedVersion }, summary: "更新 Project 当前接口", payload: { previousProjectStructure: current.projectStructure, projectStructure: structure }, preconditions: ["Object version unchanged"] }], disposition: "PENDING" }], status: "READY", createdAt };
+      await client.submitProposal(proposal);
+      actionDialog = undefined;
+      workspace = "review";
+      reviewMode = "proposals";
+      message = "Project 当前接口 Proposal 已创建；正式状态仍未改变，请独立接受 HIGH 语义组并最终 Commit。";
+    });
+    return;
+  }
   if (action === "submit-v2-area-edit" && value) {
     if (v2AreaBusy) return;
     const [objectId, rawVersion] = value.split("|");
@@ -1078,6 +1129,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
+  if (action === "v2-project-structure-commit" && value) return openActionDialog("confirm-v2-project-structure", value);
+  if (action === "v2-project-structure-undo" && value) return openActionDialog("confirm-v2-project-structure-undo", value);
   if (action === "v2-mini-project-closure-commit" && value) return openActionDialog("confirm-v2-mini-project-closure", value);
   if (action === "v2-reasoned-lifecycle-commit" && value) return openActionDialog("confirm-v2-reasoned-lifecycle", value);
   if (action === "v2-lifecycle-undo" && value) return openActionDialog("confirm-v2-lifecycle-undo", value);
@@ -1176,6 +1229,34 @@ async function handleAction(action: string, value?: string): Promise<void> {
       actionDialog = undefined;
       workspace = "review";
       message = result.status === "COMPLETED" ? `Project Closure 已生效；${result.object.text} 已退出活跃视图，Logseq 页面保留。` : "Project 版本已变化；Proposal 已标记 STALE，没有完成对象。";
+    });
+    return;
+  }
+  if (action === "submit-v2-project-structure-commit" && value) {
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认完整的 Project 当前接口。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!proposalId || !expectedUpdatedAt || !client) throw new Error("Project 当前接口上下文已失效；没有写入。");
+      const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
+      if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查 Project 当前接口。");
+      const observations = await collectV2ProposalGraphObservations(stored.proposal, { getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id) });
+      const result = await client.commitProjectStructure(proposalId, { expectedUpdatedAt, confirmation: "UPDATE_PROJECT_INTERFACE", observations, traceId: `v2-project-structure-ui-${Date.now()}` });
+      actionDialog = undefined;
+      workspace = result.status === "COMPLETED" ? "reentry" : "review";
+      message = result.status === "COMPLETED" ? `Project ${result.object.text} 当前接口已更新为 v${result.object.version}；Graph、位置与归属未改变。` : "Project 版本已变化；Proposal 已标记 STALE，没有更新当前接口。";
+    });
+    return;
+  }
+  if (action === "submit-v2-project-structure-undo" && value) {
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认恢复审阅前的 Project 当前接口。"; await refresh(); return; }
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client) throw new Error("Project 当前接口 Undo 上下文已失效；没有写入。");
+      const result = await client.undoProjectStructure(value, { confirmation: "UNDO_PROJECT_INTERFACE", traceId: `v2-project-structure-undo-ui-${Date.now()}` });
+      actionDialog = undefined;
+      workspace = "reentry";
+      message = `Project ${result.object.text} 已恢复审阅前的当前接口；Graph、位置与归属未改变。`;
     });
     return;
   }

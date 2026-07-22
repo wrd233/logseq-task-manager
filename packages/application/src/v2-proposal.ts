@@ -11,8 +11,10 @@ import {
   type V2ProposalScopeObservation,
   type V2MiniProjectClosure,
   type V2ProjectClosure,
+  type V2ProjectStructure,
   validateV2ProjectClosure,
   validateV2MiniProjectClosure,
+  validateV2ProjectStructure,
 } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -63,6 +65,15 @@ export interface V2ProjectClosurePlan {
   objectId: string;
   expectedVersion: number;
   closure: V2ProjectClosure;
+}
+
+export interface V2ProjectStructurePlan {
+  proposalId: string;
+  groupId: string;
+  objectId: string;
+  expectedVersion: number;
+  structure: V2ProjectStructure;
+  previousStructure: V2ProjectStructure;
 }
 
 interface V2MiniProjectLifecycleTransitionPlanBase {
@@ -202,6 +213,23 @@ export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClo
   const closure = update.payload.closure;
   if (!closure || typeof closure !== "object" || Array.isArray(closure)) throw proposalApplicationError("V2_PROJECT_CLOSURE_PAYLOAD_INVALID", "Project Closure payload 缺失。");
   return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: update.target.id, expectedVersion: update.target.version, closure: validateV2ProjectClosure(closure as unknown as V2ProjectClosure) };
+}
+
+export function planAcceptedV2ProjectStructure(proposal: V2Proposal): V2ProjectStructurePlan {
+  validateV2Proposal(proposal);
+  const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) throw proposalApplicationError("V2_PROJECT_STRUCTURE_COMMIT_SHAPE_INVALID", "Project 当前接口必须是唯一已接受的高影响语义组。");
+  const group = accepted[0]!;
+  if (proposal.groups.some((candidate) => candidate.groupId !== group.groupId && candidate.disposition !== "REJECTED")) throw proposalApplicationError("V2_PROJECT_STRUCTURE_OTHER_GROUPS_UNRESOLVED", "更新 Project 当前接口前必须拒绝其余未提交语义组。");
+  const updates = group.semanticOperations.filter((operation) => operation.kind === "UPDATE_PROJECT_INTERFACE");
+  if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || updates.length !== 1) throw proposalApplicationError("V2_PROJECT_STRUCTURE_COMMIT_OPERATION_INVALID", "Project 当前接口必须是独立 HIGH 组中的单一领域变更。");
+  const update = updates[0]!;
+  const objectTargets = proposal.scope.modify.filter((target) => target.kind === "OBJECT" && target.id === update.target.id && target.version !== undefined);
+  if (update.target.kind !== "OBJECT" || update.target.version === undefined || objectTargets.length !== 1 || objectTargets[0]!.version !== update.target.version) throw proposalApplicationError("V2_PROJECT_STRUCTURE_COMMIT_TARGET_INVALID", "Project 当前接口必须指向同一个带版本 Project。");
+  const structure = update.payload.projectStructure;
+  const previousStructure = update.payload.previousProjectStructure;
+  if (!structure || typeof structure !== "object" || Array.isArray(structure) || !previousStructure || typeof previousStructure !== "object" || Array.isArray(previousStructure)) throw proposalApplicationError("V2_PROJECT_STRUCTURE_PAYLOAD_INVALID", "Project 当前接口 payload 必须包含审阅前后的完整结构。");
+  return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: update.target.id, expectedVersion: update.target.version, structure: validateV2ProjectStructure(structure as unknown as V2ProjectStructure), previousStructure: validateV2ProjectStructure(previousStructure as unknown as V2ProjectStructure) };
 }
 
 export function planAcceptedV2LifecycleTransition(proposal: V2Proposal): V2LifecycleTransitionPlan {

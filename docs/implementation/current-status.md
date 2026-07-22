@@ -2,7 +2,7 @@
 
 ## 当前 Slice
 
-V1 frozen / V2 Slice A–F requirement gates complete / E2E-01–24 complete / release audit in progress
+V1 frozen / V2 E2E-01–24 complete / Project current-interface Gate complete / release audit continues
 
 ## 当前阶段结论
 
@@ -56,6 +56,7 @@ V2_REQUIREMENT_GATES_PASS
 - SQLite schema v9 增加最小 `associations` 投影，只表达有方向的普通 `RELATED`，不改变 Primary Ownership、位置、Lifecycle、Condition 或 Focus。Plugin 明示影响并要求确认，提交前重验来源版本且有 busy/error/success 与防重复提交；写入仍只走 Local Service → Application → 单一 SQLite 事务。Context Package 只导出 scope 内两端都存在的关系；Materialization/Migration Undo 已把入向与出向关系纳入变化保护。v8→v9 有精确只读快照和迁移证据；未增加关系分类、扫描器、补漏器或第二权威。Desktop 已真实通过 TASK→OUTPUT 选择、缺确认零写入/可修正错误、确认后唯一 RELATED、来源版本/Audit 4→5、Ownership/Focus/Anchor 不变及 Plugin reload 读回；证据见 `docs/runtime/V2_ASSOCIATION_DESKTOP_REPORT.md`。
 - SQLite schema v10 只新增设计既定的 `candidates` 审阅状态表：正文仍以 Logseq 为唯一权威，表内仅保存来源 UUID/版本、分类、理由、处置、当前 Proposal 与时间。来源 UUID + kind 保持一个稳定 Candidate；同版本重扫保留用户处置，来源变化才重开并把旧当前 Proposal 标为 `STALE`。v9→v10 必须先做精确只读快照，迁移、回滚和重试均有自动证据；没有新增扫描器、恢复器、写入路径或通用工作流状态机。Desktop 已真实通过离线当前页发现、原文优先、稍后/普通/同建议不再提示、CREATE Proposal READY/ACCEPTED 时 Object=0、最终 Commit RESOLVED、Undo reopen 和 Plugin reload。真实运行同时发现并修复 `id::` 属性回声提前物化：现用有界同正文窗口覆盖旧 traversal 与真实 echo，正文变化立即解除，timer 主动回收。UPDATE 也已通过真实 Desktop 纵向闭环：用户选择一个已有 Block 对象并编辑完整最终正文，审阅单组 `REWRITE_BLOCK` 的红/绿 Diff；READY/ACCEPTED 零正式写入，最终复用既有两步 SemanticCommit 同步同一 object_id，版本 4→5，Plugin reload 稳定读回，Undo 恢复旧正文并推进同一对象版本 5→6，再 reload 后 Candidate 重开。首次真实运行发现 Logseq 持久化 `id::` 导致 identity-only 假 stale；修复复用已有 Candidate rediscovery，仅在去身份正文 hash 未变时刷新版本，正文真实改动仍零写入拒绝。没有新增表、Commit 类型或恢复器。`E2E-12` 已升级 `DONE`；合同见 `docs/implementation/V2_CANDIDATE_UPDATE_CONTRACT.md`，运行证据见 `docs/runtime/V2_CANDIDATE_REVIEW_DESKTOP_REPORT.md`。
 - SQLite schema v11 不新增表或字段，只放宽已有 `closure_json` 约束，使它也能用于 MiniProject 完成，并允许 Project/MiniProject 归档后保留完成事实。v10→v11 仍要求显式恢复点，在单一事务中重建 objects 约束并执行 foreign-key check；自动证据已证明对象/Anchor 保留、OPEN Closure 零写入拒绝、迁移后三问关闭、ARCHIVED 保留与 Doctor PASS。
+- OD-006 与 Project 当前接口已完整收口：schema v12 只在 `objects` 增加一个 Project-owned、受验证的 JSON aggregate，覆盖 Objectives（Primary/Secondary + success evidence）、Deliverables（自然验收 + 状态）、并行 Work Stages、当前摘要、1–3 当前推进和可选主 Stage 映射。完整变化只经唯一 HIGH Proposal → Review → Object version revalidation → 单步 Domain SemanticCommit；专用 inverse Commit 恢复审阅前 aggregate，后续版本变化零覆盖。Logseq Desktop 0.10.15 已真实完成创建、结构化编辑、HIGH 接受、最终 Commit、v3 reload 读回、专用 Undo、v4 reload 精确恢复；Pending/Recovery 为 0、integrity `ok`、foreign-key check 无记录。进程故障首次暴露新 renderer 与旧 15 秒长轮询冲突会被误判为 Service 死亡，修复只在既有 GraphReadBridgeController 对 `GRAPH_READ_BRIDGE_ALREADY_CONNECTED` 做最多 20 次、每次 1 秒的有界接管重试；真实复测保持同一 Service PID 并直接恢复 READY，没有新增协议、状态源或写路径。证据见 `docs/runtime/V2_PROJECT_STRUCTURE_DESKTOP_REPORT.md`。
 - 对象页已通过 `GET /ownerships/primary` 读取同一 SQLite 投影，以有界 `child → owner / 唯一主归属` 列表与普通 Association 并列展示；该只读可见性不开放直接 Ownership 写入。新增/变更主归属仍必须进入既定 HIGH Proposal 审阅与 Commit 路径。
 - Primary Ownership HIGH Proposal 的 accepted-plan Validator 已建立：只接受唯一已接受 HIGH 组、单个 `CHANGE_OWNERSHIP`、零正文 Patch、带版本 child、新 Owner 和可选当前 Owner 前置；新 Owner 必须是 `scope.read` 中唯一带版本 OBJECT，风险降级或复合操作在 Commit 规划前拒绝。
 - Primary Ownership 已形成自动化正向与逆向纵向闭环：Domain/Application/SQLite 在同一事务校验 child version、new Owner version 与精确当前 Owner，并更新 Object version、唯一 `primary_ownerships`、Audit 和幂等 Receipt；accepted HIGH Proposal 专用 `/ownership/commit` 由服务端权威重读对象，固定确认后复用一个既有 DOMAIN_WRITE SemanticCommit step。Review Center 只为唯一 HIGH `CHANGE_OWNERSHIP` 显示专用确认，具备 busy 防重复、stale/错误反馈和成功后同一列表读回。专用 Ownership Undo 再以正向 Proposal 的审阅前 Owner 与正向 Receipt 的实际结果交叉验证，恢复旧 Owner 或未归属；它只创建一个 Domain-only 逆向 Commit，不触碰正文、位置、Anchor、Association 或其他状态。child/当前 Owner 有后续变化时零写入并收口 FAILED；逆向 receipt 后中断可重启幂等续完并把正向 Commit 标记 UNDONE。正向未完成 Commit 仍锁住 review/revalidate，prepare/receipt/FAILED 各故障边界保持既有恢复证据。无直接 Ownership 写路由、平行恢复器或第二权威。Desktop 已真实通过 CLI Proposal-only、HIGH 接受但零正式写、版本重验、最终 Commit、reload 读回、专用 Undo 与再次 reload；Task v5→v6→v7，正向 Commit `COMPLETED→UNDONE`、逆向 Commit `COMPLETED`，Project v2、Anchor 与普通 Association 全程不变。真实移动不改归属仍由 E2E-04 独立验收；合同见 `docs/implementation/V2_OWNERSHIP_CHANGE_CONTRACT.md`，运行证据见 `docs/runtime/V2_OWNERSHIP_DESKTOP_REPORT.md`。
@@ -120,8 +121,8 @@ V2_REQUIREMENT_GATES_PASS
 
 ## 下一步
 
-1. 执行 Release 审计：TODO/FIXME/stub、skipped tests、MUST 覆盖、导出恢复演练、Pending Commit Recovery、Silent Overwrite、根级全量检查和外层 Git 边界；
-2. 已通过且契约未变的 DeepSeek L3/L4、迁移、Restore、first-run 和其他 Desktop Gate 不重复执行。
+1. 在隔离 Logseq Desktop 完成 Project 当前接口 Proposal → Review → Commit → reload → Undo → reload，并记录结构化证据；
+2. 继续 Release 审计与根级全量检查；不重复 DeepSeek L3/L4、迁移、Restore、first-run 等未受影响的昂贵 Gate。
 
 ## 仍需用户决定
 

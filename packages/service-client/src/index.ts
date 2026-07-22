@@ -377,6 +377,7 @@ export type ServiceProposalCommitFinalization =
 export type ServiceProjectClosureCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation);
+export type ServiceProjectStructureCommitResult = ServiceProjectClosureCommitResult;
 export type ServiceLifecycleTransitionCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; anchor?: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation);
@@ -400,6 +401,7 @@ export type ServiceLifecycleUndoResult = {
   object: V2ManagedObject;
   replayed: boolean;
 };
+export type ServiceProjectStructureUndoResult = ServiceLifecycleUndoResult;
 
 export interface ServiceProposalCommitEvidence {
   semanticCommitId: string;
@@ -901,6 +903,12 @@ export class LocalServiceClient {
     });
   }
 
+  commitProjectStructure(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "UPDATE_PROJECT_INTERFACE"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceProjectStructureCommitResult> {
+    return this.request<ServiceProjectStructureCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/project-interface/commit`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    });
+  }
+
   commitLifecycleTransition(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceLifecycleTransitionCommitResult> {
     return this.request<ServiceLifecycleTransitionCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/lifecycle/commit`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
@@ -917,6 +925,10 @@ export class LocalServiceClient {
 
   undoLifecycle(originalSemanticCommitId: string, input: { confirmation: "UNDO_LIFECYCLE"; traceId: string }): Promise<ServiceLifecycleUndoResult> {
     return this.request<ServiceLifecycleUndoResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/lifecycle/undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  undoProjectStructure(originalSemanticCommitId: string, input: { confirmation: "UNDO_PROJECT_INTERFACE"; traceId: string }): Promise<ServiceProjectStructureUndoResult> {
+    return this.request<ServiceProjectStructureUndoResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/project-interface/undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
   }
 
   compensateProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }> {

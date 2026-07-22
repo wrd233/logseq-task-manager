@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "gate": "V2-PROJECT-001",
+  "result": "DONE",
+  "date": "2026-07-22",
+  "environment": {
+    "logseq": "0.10.15",
+    "node": "20.20.2",
+    "databaseSchema": 12,
+    "graph": "isolated-test-graph",
+    "providerCalls": 0
+  },
+  "scenario": [
+    { "step": "create_project", "objectVersion": 2, "result": "PASS" },
+    { "step": "generate_high_proposal", "formalObjectVersion": 2, "result": "PASS" },
+    { "step": "accept_review_group", "formalObjectVersion": 2, "result": "PASS" },
+    { "step": "commit_project_interface", "objectVersion": 3, "result": "PASS" },
+    { "step": "renderer_reload_readback", "objectVersion": 3, "result": "PASS" },
+    { "step": "dedicated_inverse_commit", "objectVersion": 4, "result": "PASS" },
+    { "step": "renderer_reload_prior_aggregate", "objectVersion": 4, "result": "PASS" }
+  ],
+  "reviewedAggregate": {
+    "objectives": 2,
+    "deliverables": 1,
+    "workStages": 2,
+    "currentFocuses": 2,
+    "stageMappings": 0
+  },
+  "finalAggregate": {
+    "objectives": 0,
+    "deliverables": 0,
+    "workStages": 0,
+    "currentFocuses": ["明确目标与下一步"],
+    "stageMappings": 0
+  },
+  "semanticCommits": {
+    "projectCreate": "COMPLETED",
+    "projectInterfaceForward": "UNDONE",
+    "projectInterfaceInverse": "COMPLETED",
+    "pendingOrRecoveryRequired": 0
+  },
+  "rendererTakeoverRegression": {
+    "observedFailure": "GRAPH_READ_BRIDGE_ALREADY_CONNECTED was misclassified as a dead Service",
+    "fix": "bounded retry in existing GraphReadBridgeController only",
+    "maximumRetries": 20,
+    "retryDelayMs": 1000,
+    "sameServiceProcessRecovered": true,
+    "result": "PASS"
+  },
+  "safety": {
+    "graphContentChangedByProjectInterfaceCommit": false,
+    "positionChanged": false,
+    "ownershipChanged": false,
+    "integrityCheck": "ok",
+    "foreignKeyViolations": 0,
+    "credentialsRecorded": false
+  }
+}

@@ -37,7 +37,7 @@ import type {
 import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 11;
+export const V2_DATABASE_SCHEMA_VERSION = 12;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -69,6 +69,7 @@ const schemaMigrationNames = new Map<number, string>([
   [9, "add_plain_associations"],
   [10, "add_candidate_review_state"],
   [11, "allow_project_closure_retention_and_mini_project_closure"],
+  [12, "add_project_structure_aggregate"],
 ]);
 
 export interface V2StoredProposal {
@@ -145,6 +146,7 @@ interface ObjectRow {
   condition_json: string;
   due_at: string | null;
   closure_json: string | null;
+  project_structure_json: string | null;
   text: string;
   created_at: string;
   updated_at: string;
@@ -288,6 +290,7 @@ export class V2SqliteStore {
           condition_json TEXT NOT NULL CHECK (json_valid(condition_json)),
           due_at TEXT,
           closure_json TEXT CHECK (closure_json IS NULL OR (object_type IN ('PROJECT','MINI_PROJECT') AND lifecycle IN ('COMPLETED','ARCHIVED') AND json_valid(closure_json))),
+          project_structure_json TEXT CHECK ((object_type = 'PROJECT' AND project_structure_json IS NOT NULL AND json_valid(project_structure_json)) OR (object_type <> 'PROJECT' AND project_structure_json IS NULL)),
           text TEXT NOT NULL CHECK (length(trim(text)) > 0),
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
@@ -493,7 +496,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 11) {
+    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 12) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -702,6 +705,40 @@ export class V2SqliteStore {
         `);
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(11, schemaMigrationNames.get(11), at.toISOString());
+        workingVersion = 11;
+      }
+      if (workingVersion === 11) {
+        this.database.exec(`
+          CREATE TABLE objects_v12 (
+            object_id TEXT PRIMARY KEY,
+            object_type TEXT NOT NULL CHECK (object_type IN ('AREA','PROJECT','MINI_PROJECT','TASK','DECISION','OUTPUT')),
+            version INTEGER NOT NULL CHECK (version >= 1),
+            lifecycle TEXT NOT NULL CHECK (lifecycle IN ('OPEN','COMPLETED','CANCELLED','ARCHIVED')),
+            condition_json TEXT NOT NULL CHECK (json_valid(condition_json)),
+            due_at TEXT,
+            closure_json TEXT CHECK (closure_json IS NULL OR (object_type IN ('PROJECT','MINI_PROJECT') AND lifecycle IN ('COMPLETED','ARCHIVED') AND json_valid(closure_json))),
+            project_structure_json TEXT CHECK ((object_type = 'PROJECT' AND project_structure_json IS NOT NULL AND json_valid(project_structure_json)) OR (object_type <> 'PROJECT' AND project_structure_json IS NULL)),
+            text TEXT NOT NULL CHECK (length(trim(text)) > 0),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            source_event TEXT NOT NULL
+          ) STRICT;
+          INSERT INTO objects_v12(object_id, object_type, version, lifecycle, condition_json, due_at, closure_json, project_structure_json, text, created_at, updated_at, source_event)
+            SELECT object_id, object_type, version, lifecycle, condition_json, due_at, closure_json,
+              CASE WHEN object_type = 'PROJECT' THEN json_object(
+                'objectives', json('[]'),
+                'deliverables', json('[]'),
+                'workStages', json('[]'),
+                'currentSummary', '已迁移 Project，待明确目标与当前推进。',
+                'currentFocuses', json_array('明确目标与下一步'),
+                'stageMappings', json('[]')
+              ) ELSE NULL END,
+              text, created_at, updated_at, source_event FROM objects;
+          DROP TABLE objects;
+          ALTER TABLE objects_v12 RENAME TO objects;
+        `);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(12, schemaMigrationNames.get(12), at.toISOString());
       }
       const foreignKeyViolations = (this.database.pragma("foreign_key_check") as unknown[]).length;
       if (foreignKeyViolations > 0) throw persistenceError("V2_SCHEMA_MIGRATION_FOREIGN_KEY_FAILED", "SQLite schema 迁移后出现外键错误；本批变化已回滚。", { foreignKeyViolations });
@@ -1122,7 +1159,7 @@ export class V2SqliteStore {
     if (!receipt) return undefined;
     const command = receipt.command_name as V2CommandReceipt["command"];
     const result = JSON.parse(receipt.result_json) as unknown;
-    if (command === "create_object" || command === "edit_area" || command === "transition_lifecycle" || command === "cancel_lifecycle" || command === "reopen_lifecycle" || command === "undo_lifecycle" || command === "complete_mini_project" || command === "complete_project" || command === "change_condition" || command === "change_due_at") {
+    if (command === "create_object" || command === "edit_area" || command === "transition_lifecycle" || command === "cancel_lifecycle" || command === "reopen_lifecycle" || command === "undo_lifecycle" || command === "complete_mini_project" || command === "complete_project" || command === "update_project_structure" || command === "change_condition" || command === "change_due_at") {
       return { command, object: result as V2ManagedObject };
     }
     if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "undo_materialization" || command === "synchronize_explicit_object" || command === "complete_mini_project_from_marker" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
@@ -1837,8 +1874,8 @@ export class V2SqliteStore {
   private writeObject(object: V2ManagedObject): void {
     this.database
       .prepare(`
-        INSERT INTO objects(object_id, object_type, version, lifecycle, condition_json, due_at, closure_json, text, created_at, updated_at, source_event)
-        VALUES (@objectId, @objectType, @version, @lifecycle, @conditionJson, @dueAt, @closureJson, @text, @createdAt, @updatedAt, @sourceEvent)
+        INSERT INTO objects(object_id, object_type, version, lifecycle, condition_json, due_at, closure_json, project_structure_json, text, created_at, updated_at, source_event)
+        VALUES (@objectId, @objectType, @version, @lifecycle, @conditionJson, @dueAt, @closureJson, @projectStructureJson, @text, @createdAt, @updatedAt, @sourceEvent)
         ON CONFLICT(object_id) DO UPDATE SET
           object_type = excluded.object_type,
           version = excluded.version,
@@ -1846,6 +1883,7 @@ export class V2SqliteStore {
           condition_json = excluded.condition_json,
           due_at = excluded.due_at,
           closure_json = excluded.closure_json,
+          project_structure_json = excluded.project_structure_json,
           text = excluded.text,
           updated_at = excluded.updated_at,
           source_event = excluded.source_event
@@ -1858,6 +1896,7 @@ export class V2SqliteStore {
         conditionJson: stableJson(object.condition),
         dueAt: object.dueAt ?? null,
         closureJson: object.closure ? stableJson(object.closure) : null,
+        projectStructureJson: object.projectStructure ? stableJson(object.projectStructure) : null,
         text: object.text,
         createdAt: object.createdAt,
         updatedAt: object.updatedAt,
@@ -1896,6 +1935,7 @@ export class V2SqliteStore {
       condition: JSON.parse(row.condition_json) as V2ManagedObject["condition"],
       ...(row.due_at ? { dueAt: row.due_at } : {}),
       ...(row.closure_json ? { closure: JSON.parse(row.closure_json) as NonNullable<V2ManagedObject["closure"]> } : {}),
+      ...(row.project_structure_json ? { projectStructure: JSON.parse(row.project_structure_json) as NonNullable<V2ManagedObject["projectStructure"]> } : {}),
       text: row.text,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -1958,6 +1998,7 @@ export class V2SqliteStore {
       condition: JSON.parse(row.condition_json) as V2ManagedObject["condition"],
       ...(row.due_at ? { dueAt: row.due_at } : {}),
       ...(row.closure_json ? { closure: JSON.parse(row.closure_json) as NonNullable<V2ManagedObject["closure"]> } : {}),
+      ...(row.project_structure_json ? { projectStructure: JSON.parse(row.project_structure_json) as NonNullable<V2ManagedObject["projectStructure"]> } : {}),
       text: row.text,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

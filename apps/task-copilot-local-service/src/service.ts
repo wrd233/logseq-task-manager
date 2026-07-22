@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -545,6 +545,15 @@ async function readProjectClosureCommitRequest(request: IncomingMessage): Promis
   return { expectedUpdatedAt: record.expectedUpdatedAt, confirmation: record.confirmation, observations, traceId: record.traceId } as { expectedUpdatedAt: string; confirmation: "COMPLETE_PROJECT_WITH_CLOSURE"; observations: V2ProposalScopeObservation[]; traceId: string };
 }
 
+async function readProjectStructureCommitRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; confirmation: "UPDATE_PROJECT_INTERFACE"; observations: V2ProposalScopeObservation[]; traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "confirmation,expectedUpdatedAt,observations,traceId" || record.confirmation !== "UPDATE_PROJECT_INTERFACE" || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("PROJECT_STRUCTURE_COMMIT_REQUEST_INVALID", "Project 当前接口 Commit 必须有当前 Proposal 版本、trace_id 和精确高影响确认。");
+  return { expectedUpdatedAt: record.expectedUpdatedAt, confirmation: "UPDATE_PROJECT_INTERFACE", observations: parseProposalGraphObservations(record.observations, "PROJECT_STRUCTURE_COMMIT_REQUEST_INVALID", "Project 当前接口重验证据无效。"), traceId: record.traceId };
+}
+
 async function readLifecycleCommitRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT"; observations: V2ProposalScopeObservation[]; traceId: string }> {
   const body = await readBody(request);
   let value: unknown;
@@ -582,6 +591,15 @@ async function readLifecycleUndoRequest(request: IncomingMessage): Promise<{ tra
   if (Object.keys(record).sort().join(",") !== "confirmation,traceId" || record.confirmation !== "UNDO_LIFECYCLE" || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) {
     throw serviceError("LIFECYCLE_UNDO_REQUEST_INVALID", "Lifecycle Undo 必须有 trace_id 和精确确认词。");
   }
+  return { traceId: record.traceId };
+}
+
+async function readProjectStructureUndoRequest(request: IncomingMessage): Promise<{ traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "confirmation,traceId" || record.confirmation !== "UNDO_PROJECT_INTERFACE" || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("PROJECT_STRUCTURE_UNDO_REQUEST_INVALID", "Project 当前接口 Undo 必须有 trace_id 和精确确认词。");
   return { traceId: record.traceId };
 }
 
@@ -664,6 +682,10 @@ function ownershipUndoSemanticCommitId(originalSemanticCommitId: string): string
 
 function lifecycleUndoSemanticCommitId(originalSemanticCommitId: string): string {
   return `lifecycle-undo:${originalSemanticCommitId}`;
+}
+
+function projectStructureUndoSemanticCommitId(originalSemanticCommitId: string): string {
+  return `project-structure-undo:${originalSemanticCommitId}`;
 }
 
 function projectSemanticCommitId(graphId: string, name: string): string {
@@ -1628,6 +1650,80 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
       respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, object: result.object, ...(result.ownership ? { ownership: result.ownership } : {}), replayed: result.replayed });
       return;
+    }
+    const projectStructureCommitMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/project-interface\/commit$/) : null;
+    if (projectStructureCommitMatch?.[1]) {
+      const proposalId = decodeURIComponent(projectStructureCommitMatch[1]);
+      const input = await readProjectStructureCommitRequest(request);
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const plan = planAcceptedV2ProjectStructure(stored.proposal);
+      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
+      const receiptKey = `project-structure:${semanticCommitId}`;
+      const existing = store.semanticCommit(semanticCommitId);
+      const steps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      if (existing?.status === "COMPLETED") {
+        const receipt = store.getCommandReceipt(receiptKey);
+        if (steps.length !== 1 || steps[0]?.operationId !== plan.objectId || receipt?.command !== "update_project_structure" || receipt.object.objectId !== plan.objectId || receipt.object.version !== plan.expectedVersion + 1) throw serviceError("V2_PROJECT_STRUCTURE_COMMIT_LEDGER_CORRUPT", "Project 当前接口 Commit 账本与回执不一致。");
+        const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "COMPLETED", semanticCommitId, object: receipt.object, record, replayed: true }); return;
+      }
+      if (existing && existing.status !== "PENDING") throw serviceError("V2_PROJECT_STRUCTURE_COMMIT_RECOVERY_REQUIRED", "Project 当前接口 Commit 已终止，不能建立平行事务。");
+      if (!existing) {
+        const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, input.observations), input.expectedUpdatedAt);
+        if (revalidation.result.status === "STALE") { respond(response, 200, { status: "STALE", ...revalidation }); return; }
+        const now = new Date();
+        store.prepareSemanticCommit({ semanticCommitId, proposalId, status: "PENDING", beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, expectedUpdatedAt: input.expectedUpdatedAt }), createdAt: now.toISOString(), updatedAt: now.toISOString() }, [{ semanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: plan.objectId, updatedAt: now.toISOString() }]);
+      } else if (steps.length !== 1 || steps[0]?.operationId !== plan.objectId) throw serviceError("V2_PROJECT_STRUCTURE_COMMIT_LEDGER_CORRUPT", "Project 当前接口 Commit 账本与预览不一致。");
+      const now = new Date();
+      const object = await application.updateProjectStructure(plan.objectId, plan.structure, { actor: "proposal_commit", expectedVersion: plan.expectedVersion, idempotencyKey: receiptKey, traceId: input.traceId }, now);
+      if (store.semanticCommitSteps(semanticCommitId)[0]?.status === "PREPARED") store.advanceSemanticCommitStep(semanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(semanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(semanticCommitId, 0, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(semanticCommitId, "COMPLETED", now.toISOString(), checksum(object));
+      const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 200, { status: "COMPLETED", semanticCommitId, object, record, replayed: false }); return;
+    }
+    const projectStructureUndoMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/project-interface\/undo$/) : null;
+    if (projectStructureUndoMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(projectStructureUndoMatch[1]);
+      const input = await readProjectStructureUndoRequest(request);
+      const original = store.semanticCommit(originalSemanticCommitId);
+      if (!original?.proposalId || !["COMPLETED", "UNDONE"].includes(original.status)) throw serviceError("V2_PROJECT_STRUCTURE_UNDO_NOT_AVAILABLE", "只有已完成且保留审阅证据的 Project 当前接口 Commit 可以 Undo。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_PROJECT_STRUCTURE_UNDO_LEDGER_CORRUPT", "原 Project 当前接口 Commit 引用的 Proposal 不存在。");
+      const plan = planAcceptedV2ProjectStructure(stored.proposal);
+      const forwardSteps = store.semanticCommitSteps(originalSemanticCommitId);
+      const forwardReceipt = store.getCommandReceipt(`project-structure:${originalSemanticCommitId}`);
+      if (forwardSteps.length !== 1 || forwardSteps[0]?.operationId !== plan.objectId || forwardReceipt?.command !== "update_project_structure" || forwardReceipt.object.objectId !== plan.objectId || forwardReceipt.object.version !== plan.expectedVersion + 1 || stableJson(forwardReceipt.object.projectStructure) !== stableJson(plan.structure)) throw serviceError("V2_PROJECT_STRUCTURE_UNDO_LEDGER_CORRUPT", "Project 当前接口 Undo 的正向回执与已审阅计划不一致。");
+      const undoSemanticCommitId = projectStructureUndoSemanticCommitId(originalSemanticCommitId);
+      const receiptKey = `project-structure-undo:${undoSemanticCommitId}`;
+      const existing = store.semanticCommit(undoSemanticCommitId);
+      const steps = existing ? store.semanticCommitSteps(undoSemanticCommitId) : [];
+      if (original.status === "UNDONE" && existing?.status !== "COMPLETED") throw serviceError("V2_PROJECT_STRUCTURE_UNDO_LEDGER_CORRUPT", "已撤销的 Project 当前接口 Commit 缺少已完成逆向 Commit。");
+      if (existing?.status === "COMPLETED") {
+        const receipt = store.getCommandReceipt(receiptKey);
+        if (existing.proposalId !== original.proposalId || steps.length !== 1 || steps[0]?.operationId !== plan.objectId || receipt?.command !== "update_project_structure" || receipt.object.objectId !== plan.objectId || receipt.object.version !== forwardReceipt.object.version + 1 || stableJson(receipt.object.projectStructure) !== stableJson(plan.previousStructure)) throw serviceError("V2_PROJECT_STRUCTURE_UNDO_LEDGER_CORRUPT", "已完成 Project 当前接口 Undo 缺少一致逆向回执。");
+        if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, object: receipt.object, replayed: true }); return;
+      }
+      if (existing && existing.status !== "PENDING") throw serviceError("V2_PROJECT_STRUCTURE_UNDO_NOT_AVAILABLE", "Project 当前接口 Undo 已安全终止，不能建立平行逆向事务。");
+      if (!existing) {
+        const now = new Date();
+        store.prepareSemanticCommit({ semanticCommitId: undoSemanticCommitId, proposalId: original.proposalId, status: "PENDING", beforeStateChecksum: checksum(forwardReceipt.object), createdAt: now.toISOString(), updatedAt: now.toISOString() }, [{ semanticCommitId: undoSemanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: plan.objectId, updatedAt: now.toISOString() }]);
+      } else if (existing.proposalId !== original.proposalId || steps.length !== 1 || steps[0]?.operationId !== plan.objectId) throw serviceError("V2_PROJECT_STRUCTURE_UNDO_LEDGER_CORRUPT", "Project 当前接口 Undo 账本与已审阅计划不一致。");
+      const now = new Date();
+      let object: V2ManagedObject;
+      try {
+        object = await application.updateProjectStructure(plan.objectId, plan.previousStructure, { actor: "proposal_undo", expectedVersion: forwardReceipt.object.version, idempotencyKey: receiptKey, traceId: input.traceId }, now);
+      } catch (error) {
+        if (error instanceof StructuredError && ["V2_OBJECT_VERSION_CONFLICT", "V2_OBJECT_NOT_FOUND", "V2_PROJECT_STRUCTURE_CLOSED"].includes(error.code) && !store.getCommandReceipt(receiptKey) && store.semanticCommit(undoSemanticCommitId)?.status === "PENDING") store.finalizeSemanticCommit(undoSemanticCommitId, "FAILED", now.toISOString(), undefined, error.code);
+        throw error;
+      }
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum(object));
+      store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
+      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, object, replayed: false }); return;
     }
     const projectClosureCommitMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/closure\/commit$/) : null;
     if (projectClosureCommitMatch?.[1]) {

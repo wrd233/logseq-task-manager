@@ -81,6 +81,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 9, name: "add_plain_associations", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 10, name: "add_candidate_review_state", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 11, name: "allow_project_closure_retention_and_mini_project_closure", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 12, name: "add_project_structure_aggregate", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -362,6 +363,53 @@ test("schema v10 reuses closure_json for MiniProject three-question Closure with
   assert.equal(JSON.parse(archiveDatabase.prepare("SELECT closure_json FROM objects WHERE object_id = ?").pluck().get(created.object.objectId) as string).actualResult, "迁移和关闭均通过", "archiving preserves the completion fact");
   archiveDatabase.close();
   assert.equal(migrating.getObject(created.object.objectId)?.lifecycle, "ARCHIVED");
+  assert.equal(migrating.doctor().status, "PASS");
+  migrating.close();
+});
+
+test("schema v11 adds one Project structure aggregate without adding a parallel authority", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const created = await new V2Application(store).createProjectWithPage({ objectId: "project-v11", name: "旧 Project", page: { graphId: "graph-a", externalId: "page-project-v11", contentHash: "12345678" } }, { actor: "test", expectedVersion: 0, idempotencyKey: "project-v11-create", traceId: "trace-project-v11" });
+  store.close();
+  const legacy = new Database(path);
+  legacy.pragma("foreign_keys = OFF");
+  legacy.exec(`
+    CREATE TABLE objects_v11 (
+      object_id TEXT PRIMARY KEY,
+      object_type TEXT NOT NULL CHECK (object_type IN ('AREA','PROJECT','MINI_PROJECT','TASK','DECISION','OUTPUT')),
+      version INTEGER NOT NULL CHECK (version >= 1),
+      lifecycle TEXT NOT NULL CHECK (lifecycle IN ('OPEN','COMPLETED','CANCELLED','ARCHIVED')),
+      condition_json TEXT NOT NULL CHECK (json_valid(condition_json)),
+      due_at TEXT,
+      closure_json TEXT CHECK (closure_json IS NULL OR (object_type IN ('PROJECT','MINI_PROJECT') AND lifecycle IN ('COMPLETED','ARCHIVED') AND json_valid(closure_json))),
+      text TEXT NOT NULL CHECK (length(trim(text)) > 0),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      source_event TEXT NOT NULL
+    ) STRICT;
+    INSERT INTO objects_v11(object_id, object_type, version, lifecycle, condition_json, due_at, closure_json, text, created_at, updated_at, source_event)
+      SELECT object_id, object_type, version, lifecycle, condition_json, due_at, closure_json, text, created_at, updated_at, source_event FROM objects;
+    DROP TABLE objects;
+    ALTER TABLE objects_v11 RENAME TO objects;
+    DELETE FROM schema_migrations WHERE version >= 12;
+    UPDATE schema_meta SET value = '11' WHERE key = 'schema_version';
+    PRAGMA user_version = 11;
+  `);
+  legacy.close();
+  const migrating = await V2SqliteStore.open(path);
+  const backupPath = join(root, "before-project-structure.db");
+  assert.deepEqual(await migrating.migrateSchema("graph-a", backupPath, new Date("2026-07-22T13:30:00.000Z")), { migrated: true, fromVersion: 11, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath });
+  const backup = new Database(backupPath, { readonly: true, fileMustExist: true });
+  assert.equal((backup.prepare("PRAGMA table_info(objects)").all() as Array<{ name: string }>).some(({ name }) => name === "project_structure_json"), false);
+  backup.close();
+  const project = migrating.getObject(created.object.objectId);
+  assert.equal(project?.projectStructure?.currentSummary, "已迁移 Project，待明确目标与当前推进。");
+  assert.deepEqual(project?.projectStructure?.currentFocuses, ["明确目标与下一步"]);
+  assert.equal(migrating.getPrimaryAnchorByExternal("graph-a", "page-project-v11")?.objectId, created.object.objectId);
+  const internal = migrating as unknown as { database: Database.Database };
+  assert.equal(internal.database.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name LIKE '%project_structure%'").pluck().get(), 0, "aggregate is a column, not a parallel table");
   assert.equal(migrating.doctor().status, "PASS");
   migrating.close();
 });

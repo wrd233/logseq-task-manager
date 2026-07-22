@@ -52,6 +52,18 @@ function projectClosureProposal(objectId: string, version: number): V2Proposal {
   };
 }
 
+function projectStructureProposal(objectId: string, version: number): V2Proposal {
+  const projectStructure = {
+    objectives: [{ objectiveId: "objective-release", text: "稳定发布", priority: "PRIMARY" as const, successEvidence: ["恢复演练通过"] }],
+    deliverables: [{ deliverableId: "deliverable-runbook", text: "发布手册", acceptance: "值班同学可独立执行", status: "AVAILABLE" as const }],
+    workStages: [{ stageId: "stage-verify", name: "验收", statusDescription: "正在验证恢复路径" }],
+    currentSummary: "核心链路已完成，正在做恢复验收。", currentFocuses: ["完成恢复演练", "收口操作手册"],
+    stageMappings: [{ objectId: "task-restore", stageId: "stage-verify" }],
+  };
+  const previousProjectStructure = { objectives: [], deliverables: [], workStages: [], currentSummary: "已创建 发布治理，待明确目标与当前推进。", currentFocuses: ["明确目标与下一步"], stageMappings: [] };
+  return { proposalId: "prop_project_structure", schemaVersion: "v2", title: "更新发布治理当前接口", context: "Project 当前信息需要收口。", understanding: "目标、交付、阶段和当前推进必须一起审阅。", objective: "形成可重入的一屏接口。", logic: "单一版本化聚合随 Proposal 提交。", finalPreview: projectStructure.currentSummary, unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [{ kind: "OBJECT", id: objectId, version }] }, preconditions: ["Project 仍为 OPEN"], groups: [{ groupId: "update-project-interface", explanation: "当前接口不可拆分。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "update-project-interface", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: objectId, version }, summary: "更新 Project 当前接口", payload: { previousProjectStructure, projectStructure }, preconditions: [] }], disposition: "PENDING" }], status: "READY", createdAt: "2026-07-22T13:00:00.000Z" };
+}
+
 function miniProjectClosureProposal(objectId: string, version: number): V2Proposal {
   return {
     proposalId: "prop_agent_mini_closure", schemaVersion: "v2", title: "关闭小型交付", context: "MiniProject 已达成有限结果。", understanding: "用户需要确认三问后关闭。", objective: "记录 Closure 并完成同一 MiniProject。", logic: "只修改带版本正式对象，不依赖 Marker。", finalPreview: "等待用户审阅三问。", unresolvedQuestions: ["原目标？", "实际结果？", "遗留？"], source: { kind: "external_agent", skillVersion: "task-copilot-core@1" },
@@ -1038,6 +1050,31 @@ test("external Agent Project Closure Proposal completes with explicit unfinished
   const replay = await client.commitProjectClosure(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: "trace-project-closure-replay" });
   assert.equal(replay.status, "COMPLETED");
   if (replay.status === "COMPLETED") assert.equal(replay.replayed, true);
+});
+
+test("reviewed Project current interface commits one versioned aggregate and rejects stale overwrite", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-structure-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-project-structure", token: "project-structure-token-at-least-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const intent = await client.prepareProject({ name: "发布治理", traceId: "trace-project-structure-create" });
+  const created = await client.finalizeProject({ semanticCommitId: intent.semanticCommitId, objectId: intent.objectId, name: "发布治理", pageExternalId: "page-project-structure", pageContentHash: checksum("Project/发布治理"), traceId: "trace-project-structure-finalize" });
+  const submitted = await client.submitProposal(projectStructureProposal(created.object.objectId, created.object.version));
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "update-project-interface": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const completed = await client.commitProjectStructure(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "UPDATE_PROJECT_INTERFACE", observations: [], traceId: "trace-project-structure-commit" });
+  assert.equal(completed.status, "COMPLETED");
+  if (completed.status !== "COMPLETED") return;
+  assert.equal(completed.object.projectStructure?.objectives[0]?.priority, "PRIMARY");
+  assert.deepEqual(completed.object.projectStructure?.currentFocuses, ["完成恢复演练", "收口操作手册"]);
+  assert.equal(completed.record.proposal.status, "APPLIED");
+  const replay = await client.commitProjectStructure(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "UPDATE_PROJECT_INTERFACE", observations: [], traceId: "trace-project-structure-replay" });
+  assert.equal(replay.status, "COMPLETED");
+  if (replay.status === "COMPLETED") assert.equal(replay.replayed, true);
+  const undone = await client.undoProjectStructure(completed.semanticCommitId, { confirmation: "UNDO_PROJECT_INTERFACE", traceId: "trace-project-structure-undo" });
+  assert.equal(undone.object.projectStructure?.currentSummary, "已创建 发布治理，待明确目标与当前推进。");
+  assert.equal(undone.object.version, completed.object.version + 1);
+  const undoReplay = await client.undoProjectStructure(completed.semanticCommitId, { confirmation: "UNDO_PROJECT_INTERFACE", traceId: "trace-project-structure-undo-replay" });
+  assert.equal(undoReplay.replayed, true);
 });
 
 test("reviewed HIGH Ownership Proposal commits through one Domain SemanticCommit", async (t) => {
