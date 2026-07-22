@@ -248,6 +248,20 @@ export interface ServiceMaterializeExplicitObjectResult {
   replayed: boolean;
 }
 
+export interface ServiceCreateAreaRequest {
+  text: string;
+  traceId: string;
+}
+
+export interface ServiceEditAreaRequest extends ServiceCreateAreaRequest {
+  expectedVersion: number;
+}
+
+export interface ServiceAreaCommandResult {
+  object: V2ManagedObject;
+  replayed: boolean;
+}
+
 export interface ServiceSynchronizeExplicitObjectResult extends ServiceMaterializeExplicitObjectResult {
   operation: "MATERIALIZED" | "SYNCHRONIZED" | "PROPOSAL_CREATED";
   proposalId?: string;
@@ -629,6 +643,18 @@ export class LocalServiceClient {
 
   async listObjects(): Promise<V2ManagedObject[]> {
     return (await this.request<{ objects: V2ManagedObject[] }>("/objects")).objects;
+  }
+
+  createArea(input: ServiceCreateAreaRequest): Promise<ServiceAreaCommandResult> {
+    return this.request<ServiceAreaCommandResult>("/areas", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    });
+  }
+
+  editArea(objectId: string, input: ServiceEditAreaRequest): Promise<ServiceAreaCommandResult> {
+    return this.request<ServiceAreaCommandResult>(`/areas/${encodeURIComponent(objectId)}/edit`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    });
   }
 
   createMiniProjectClosureProposal(objectId: string, input: { expectedVersion: number }): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {

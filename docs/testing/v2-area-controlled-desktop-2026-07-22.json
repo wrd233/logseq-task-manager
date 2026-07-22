@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "gate": "V2_AREA_CONTROLLED_DESKTOP",
+  "status": "PASS",
+  "testedAt": "2026-07-22T11:36:00.000Z",
+  "environment": {
+    "logseqVersion": "0.10.15",
+    "nodeVersion": "20.20.2",
+    "databaseSchemaVersion": 11,
+    "graphId": "logseq-v2-desktop-20260720",
+    "database": "ignored isolated runtime database"
+  },
+  "authority": {
+    "formalState": "SQLite",
+    "formalWriteEntry": "Local Service",
+    "graphWriteExecuted": false,
+    "newTableOrStateMachine": false
+  },
+  "observations": [
+    {
+      "scenario": "controlled-create",
+      "result": "PASS",
+      "objectType": "AREA",
+      "objectVersion": 1,
+      "lifecycle": "OPEN",
+      "condition": "ACTIONABLE",
+      "sourceEvent": "controlled_area_entry",
+      "anchorCount": 0
+    },
+    {
+      "scenario": "versioned-edit",
+      "result": "PASS",
+      "sameObjectId": true,
+      "beforeVersion": 1,
+      "afterVersion": 2,
+      "uiConfirmedGraphUnchanged": true
+    },
+    {
+      "scenario": "stale-edit-zero-overwrite",
+      "result": "PASS",
+      "dialogVersion": 2,
+      "concurrentVersion": 3,
+      "preservedText": "后台已确认的责任描述",
+      "rejectedText": "不应覆盖的旧编辑",
+      "visibleError": "Area 已变化、关闭或不存在；请刷新后重新编辑。"
+    },
+    {
+      "scenario": "no-implicit-graph-copy",
+      "result": "PASS",
+      "plainPageLookup": "NOT_FOUND",
+      "namespacedPageLookup": "NOT_FOUND",
+      "anchorCount": 0
+    },
+    {
+      "scenario": "doctor",
+      "result": "PASS",
+      "integrity": "ok",
+      "summary": { "pass": 11, "warn": 1, "fail": 0, "info": 2 },
+      "onlyWarning": "BACKUP_NONE",
+      "graphBridge": "CONNECTED"
+    }
+  ],
+  "finalProjection": {
+    "objectCount": 1,
+    "areaCount": 1,
+    "areaVersion": 3,
+    "anchorCount": 0,
+    "auditCommands": ["create_object", "edit_area", "edit_area"],
+    "receiptCounts": { "create_object": 1, "edit_area": 2 }
+  },
+  "secretsPersisted": false
+}

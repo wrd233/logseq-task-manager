@@ -118,6 +118,38 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   closed = true;
   await assert.rejects(access(join(root, "runtime", "service.json")));
 });
+
+test("Area controlled routes create, replay, edit, and reject stale or cross-type writes", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-area-service-"));
+  const service = await startLocalService({
+    databasePath: join(root, ".task-copilot", "task-copilot.db"),
+    graphId: "graph-area-service-test",
+    token: "area-test-session-token-at-least-24-characters",
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+
+  const created = await client.createArea({ text: "  健康管理  ", traceId: "trace-area-create" });
+  assert.equal(created.object.objectType, "AREA");
+  assert.equal(created.object.text, "健康管理");
+  assert.equal(created.object.version, 1);
+  assert.equal(created.replayed, false);
+  assert.equal((await client.createArea({ text: "健康管理", traceId: "trace-area-create" })).replayed, true);
+  assert.deepEqual(await client.listObjects(), [created.object]);
+
+  const edited = await client.editArea(created.object.objectId, { text: "维持稳定作息与健康检查", expectedVersion: 1, traceId: "trace-area-edit" });
+  assert.equal(edited.object.version, 2);
+  assert.equal(edited.object.text, "维持稳定作息与健康检查");
+  assert.equal((await client.editArea(created.object.objectId, { text: "维持稳定作息与健康检查", expectedVersion: 1, traceId: "trace-area-edit" })).replayed, true);
+  await assert.rejects(() => client.editArea(created.object.objectId, { text: "过期更改", expectedVersion: 1, traceId: "trace-area-stale" }), (error: unknown) => {
+    return error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_VERSION_CONFLICT";
+  });
+  const task = await client.materializeExplicitObject({ objectType: "TASK", text: "不可经 Area 入口编辑", externalId: "area-cross-type-task", inputVersion: "1", contentHash: checksum("[任务] 不可经 Area 入口编辑"), idempotencyKey: "unused-client-key", traceId: "trace-area-cross-type" });
+  await assert.rejects(() => client.editArea(task.object.objectId, { text: "越权更改", expectedVersion: task.object.version, traceId: "trace-area-cross-type-edit" }), (error: unknown) => {
+    return error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_AREA_ONLY";
+  });
+  await assert.rejects(() => client.createArea({ text: "", traceId: "trace-area-invalid" }));
+});
 test("Local Service exposes object reads but refuses an unscoped generic write route", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-"));
   const service = await startLocalService({

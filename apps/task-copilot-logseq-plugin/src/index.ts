@@ -67,7 +67,7 @@ import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.t
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
-import { checksum } from "@task-copilot/shared";
+import { checksum, StructuredError } from "@task-copilot/shared";
 
 let appRoot: HTMLElement | undefined;
 const v1Runtime: {
@@ -123,6 +123,7 @@ let v2OwnershipCommitBusy = false;
 let v2LifecycleCommitBusy = false;
 let v2ClosureProposalBusy = false;
 let v2LifecycleProposalBusy = false;
+let v2AreaBusy = false;
 let v2ClosureDraftBusy = false;
 let v2ClosureDraftInput: V2MiniProjectClosure | undefined;
 let v2LegacyTransferBusy = false;
@@ -264,6 +265,8 @@ async function model(): Promise<UiModel> {
         currentGraph: diagnostics.snapshot().current_graph,
       },
       v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+      v2AreaAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+      v2AreaBusy,
       v2Objects,
       v2Associations,
       v2PrimaryOwnerships,
@@ -358,6 +361,8 @@ async function model(): Promise<UiModel> {
     ...(inboxDialog ? { inboxDialog } : {}),
     ...(actionDialog ? { actionDialog } : {}),
     v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+    v2AreaAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
+    v2AreaBusy,
     v2OwnershipCommitBusy,
     v2LifecycleCommitBusy,
     v2ClosureProposalBusy,
@@ -1147,6 +1152,58 @@ async function handleAction(action: string, value?: string): Promise<void> {
       workspace = "objects";
       message = `${result.pageName} 已创建并验证；Project ${result.object.objectId} 已正式写入 SQLite，可重试且不会重复。`;
     });
+    return;
+  }
+  if (action === "create-v2-area") {
+    if (v2AreaBusy) return;
+    const text = dialogField("v2AreaText");
+    v2AreaBusy = true;
+    try {
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) throw new Error("V2 Local Service 未就绪；Area 没有创建。");
+        if (!text) throw new Error("Area 责任描述不能为空。");
+        const result = await client.createArea({ text, traceId: `area-create-ui-${Date.now()}` });
+        workspace = "objects";
+        message = result.replayed ? `已打开现有 Area ${result.object.objectId}。` : `Area ${result.object.objectId} 已写入 SQLite；未创建 Graph 副本。`;
+      });
+    } finally {
+      v2AreaBusy = false;
+      await refresh();
+    }
+    return;
+  }
+  if (action === "v2-area-edit-open" && value) return openActionDialog("v2-area-edit", value);
+  if (action === "submit-v2-area-edit" && value) {
+    if (v2AreaBusy) return;
+    const [objectId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    const text = dialogField("v2AreaEditText");
+    v2AreaBusy = true;
+    try {
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) throw new Error("V2 Local Service 未就绪；Area 没有修改。");
+        if (!objectId || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1 || !text) throw new Error("Area 编辑上下文无效；没有写入。");
+        const current = (await client.listObjects()).find((object) => object.objectId === objectId);
+        if (!current || current.objectType !== "AREA" || current.version !== expectedVersion || current.lifecycle !== "OPEN") {
+          actionDialog = undefined;
+          throw new Error("Area 已变化、关闭或不存在；请刷新后重新编辑。");
+        }
+        let result: Awaited<ReturnType<typeof client.editArea>>;
+        try {
+          result = await client.editArea(objectId, { text, expectedVersion, traceId: `area-edit-ui-${Date.now()}` });
+        } catch (error) {
+          if (error instanceof StructuredError && error.details?.remoteCode === "V2_OBJECT_VERSION_CONFLICT") actionDialog = undefined;
+          throw error;
+        }
+        actionDialog = undefined;
+        message = result.replayed ? `Area ${objectId} 已是该版本。` : `Area ${objectId} 已更新为 v${result.object.version}；Graph 未改写。`;
+      });
+    } finally {
+      v2AreaBusy = false;
+      await refresh();
+    }
     return;
   }
   if (action === "v2-association-add") {

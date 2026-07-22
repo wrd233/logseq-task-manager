@@ -351,6 +351,26 @@ async function readFocusRequest(request: IncomingMessage, remove: boolean): Prom
   return { expectedVersion: Number(record.expectedVersion), ...(!remove ? { rank: Number(record.rank) } : {}) };
 }
 
+async function readAreaRequest(request: IncomingMessage, edit: false): Promise<{ text: string; traceId: string }>;
+async function readAreaRequest(request: IncomingMessage, edit: true): Promise<{ text: string; expectedVersion: number; traceId: string }>;
+async function readAreaRequest(request: IncomingMessage, edit: boolean): Promise<{ text: string; expectedVersion?: number; traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Area 请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const expectedKeys = edit ? ["expectedVersion", "text", "traceId"] : ["text", "traceId"];
+  const actualKeys = Object.keys(record).sort();
+  if (
+    actualKeys.length !== expectedKeys.length || actualKeys.some((key, index) => key !== expectedKeys[index]) ||
+    typeof record.text !== "string" || !record.text.trim() || record.text.length > 4_000 ||
+    typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256 ||
+    (edit && (!Number.isSafeInteger(record.expectedVersion) || (record.expectedVersion as number) < 1))
+  ) {
+    throw serviceError("AREA_REQUEST_INVALID", "Area 请求必须包含有界责任描述、trace_id，编辑时还必须包含对象版本。");
+  }
+  return record as { text: string; expectedVersion?: number; traceId: string };
+}
+
 async function readFocusReorderRequest(request: IncomingMessage): Promise<{ expectedObjectIds: string[]; objectIds: string[] }> {
   const body = await readBody(request);
   let value: unknown;
@@ -783,7 +803,7 @@ function respondError(response: ServerResponse, error: unknown): void {
     }
     const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_TARGET_STALE", "V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "V2_LIFECYCLE_UNDO_NOT_AVAILABLE", "V2_LIFECYCLE_UNDO_LEDGER_CORRUPT", "V2_LIFECYCLE_UNDO_STATE_CHANGED", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
-    const domainInputError = ["V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_PROPOSAL_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID", "LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "LIFECYCLE_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code));
+    const domainInputError = ["AREA_REQUEST_INVALID", "V2_AREA_ONLY", "V2_AREA_TEXT_REQUIRED", "V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_PROPOSAL_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID", "LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "LIFECYCLE_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code));
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
@@ -795,7 +815,7 @@ function respondError(response: ServerResponse, error: unknown): void {
           ? 404
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : migrationConflict || error.code === "V2_ASSOCIATION_EXISTS" || error.code === "V2_CANDIDATE_STALE" || error.code === "V2_CANDIDATE_UPDATE_TARGET_STALE" || error.code === "V2_OBJECT_UPDATE_TARGET_STALE" || error.code === "V2_CANDIDATE_ALREADY_RESOLVED" || error.code === "V2_CANDIDATE_NOT_ACTIONABLE" || error.code === "V2_CANDIDATE_PROPOSAL_EXISTS" || error.code === "V2_CANDIDATE_PROPOSAL_ACTIVE" || error.code === "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED" || error.code === "V2_MINI_PROJECT_CLOSURE_NOT_AVAILABLE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_ACTIVE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_AMBIGUOUS" || error.code === "V2_IDEMPOTENCY_KEY_CONFLICT" || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_PROJECT_CLOSURE_REQUIRED" || error.code === "V2_PROJECT_CLOSURE_PROJECT_ONLY" || error.code === "V2_PROJECT_CLOSURE_NOT_OPEN" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
+          : migrationConflict || error.code === "V2_AREA_CLOSED" || error.code === "V2_ASSOCIATION_EXISTS" || error.code === "V2_CANDIDATE_STALE" || error.code === "V2_CANDIDATE_UPDATE_TARGET_STALE" || error.code === "V2_OBJECT_UPDATE_TARGET_STALE" || error.code === "V2_CANDIDATE_ALREADY_RESOLVED" || error.code === "V2_CANDIDATE_NOT_ACTIONABLE" || error.code === "V2_CANDIDATE_PROPOSAL_EXISTS" || error.code === "V2_CANDIDATE_PROPOSAL_ACTIVE" || error.code === "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED" || error.code === "V2_MINI_PROJECT_CLOSURE_NOT_AVAILABLE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_ACTIVE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_AMBIGUOUS" || error.code === "V2_IDEMPOTENCY_KEY_CONFLICT" || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_PROJECT_CLOSURE_REQUIRED" || error.code === "V2_PROJECT_CLOSURE_PROJECT_ONLY" || error.code === "V2_PROJECT_CLOSURE_NOT_OPEN" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -2409,6 +2429,35 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
           server.close();
         }
       }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/areas") {
+      const input = await readAreaRequest(request, false);
+      const text = input.text.trim();
+      const digest = createHash("sha256").update(JSON.stringify([options.graphId, text, input.traceId])).digest("hex");
+      const idempotencyKey = `area-create:${digest}`;
+      const receipt = store.getCommandReceipt(idempotencyKey);
+      if (receipt && receipt.command !== "create_object") throw serviceError("V2_IDEMPOTENCY_KEY_REUSED", "Area 创建命令的 idempotency key 已被其他命令使用。");
+      const object = await application.createObject({ objectType: "AREA", text, sourceOrCreationEvent: "controlled_area_entry" }, {
+        actor: "logseq-plugin", expectedVersion: 0, idempotencyKey, traceId: input.traceId,
+      });
+      respond(response, receipt ? 200 : 201, { object, replayed: receipt !== undefined });
+      return;
+    }
+    const areaEditMatch = request.method === "POST" ? url.pathname.match(/^\/areas\/([^/]+)\/edit$/) : null;
+    if (areaEditMatch?.[1]) {
+      const objectId = decodeURIComponent(areaEditMatch[1]);
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(objectId)) throw serviceError("AREA_REQUEST_INVALID", "Area 对象 ID 无效。");
+      const input = await readAreaRequest(request, true);
+      const text = input.text.trim();
+      const digest = createHash("sha256").update(JSON.stringify([options.graphId, objectId, input.expectedVersion, text, input.traceId])).digest("hex");
+      const idempotencyKey = `area-edit:${digest}`;
+      const receipt = store.getCommandReceipt(idempotencyKey);
+      if (receipt && receipt.command !== "edit_area") throw serviceError("V2_IDEMPOTENCY_KEY_REUSED", "Area 编辑命令的 idempotency key 已被其他命令使用。");
+      const object = await application.editArea(objectId, text, {
+        actor: "logseq-plugin", expectedVersion: input.expectedVersion, idempotencyKey, traceId: input.traceId,
+      });
+      respond(response, 200, { object, replayed: receipt !== undefined });
       return;
     }
     if (request.method === "GET" && url.pathname === "/objects") {

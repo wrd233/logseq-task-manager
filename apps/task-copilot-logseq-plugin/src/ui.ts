@@ -42,7 +42,8 @@ export type ActionDialogKind =
   | "v2-deadline"
   | "v2-review-defer"
   | "v2-provider-revise"
-  | "v2-candidate-update";
+  | "v2-candidate-update"
+  | "v2-area-edit";
 
 export interface UiModel {
   workspace: Workspace;
@@ -73,6 +74,8 @@ export interface UiModel {
   inboxDialog?: { captureId: string; kind: "formalize" | "proposal" | "link" | "defer" | "dismiss" };
   actionDialog?: { kind: ActionDialogKind; value: string };
   v2ProjectCreationAvailable?: boolean;
+  v2AreaAvailable?: boolean;
+  v2AreaBusy?: boolean;
   v2Objects?: V2ManagedObject[];
   v2Associations?: V2Association[];
   v2PrimaryOwnerships?: V2PrimaryOwnership[];
@@ -216,9 +219,10 @@ function renderV2ObjectClosure(object: V2ManagedObject): string {
 function renderObjects(model: UiModel): string {
   const relationError = model.v2RelationLoadError ? `<section class="card error" role="alert"><strong>关系投影暂不可用</strong><p>${escapeHtml(model.v2RelationLoadError)}</p><p class="muted">正式对象与其他工作区仍可使用；没有执行关系写入。</p></section>` : "";
   const projectCreator = `<section class="card project-creator" aria-label="创建 Project 页面"><div class="eyebrow">V2 · Project 原子创建</div><h3>新建 Project</h3><p class="muted">创建受控的 Project/&lt;名称&gt; 页面，并在页面验证后一次性写入 SQLite。</p><label>Project 名称<input data-field="v2ProjectName" placeholder="例如：告警推送治理"${model.v2ProjectCreationAvailable ? "" : " disabled"}></label>${button("创建 Project 与页面", "create-v2-project", undefined, "primary", !model.v2ProjectCreationAvailable)}</section>`;
+  const areaCreator = `<section class="card area-creator" aria-label="创建 Area"><div class="eyebrow">V2 · Area 受控入口</div><h3>新建 Area</h3><p class="muted">记录长期责任边界并写入 SQLite；页面与 Anchor 为可选能力，此处不创建隐式 Graph 副本。</p><label>责任描述<input data-field="v2AreaText" placeholder="例如：维持稳定作息与健康检查"${model.v2AreaAvailable && !model.v2AreaBusy ? "" : " disabled"}></label>${button(model.v2AreaBusy ? "正在创建…" : "创建 Area", "create-v2-area", undefined, "primary", !model.v2AreaAvailable || model.v2AreaBusy === true)}</section>`;
   const associationCreator = model.v2Objects && model.v2Objects.length >= 2 ? `<section class="card association-creator" aria-label="添加普通 Association"><div class="eyebrow">V2 · 普通关联</div><h3>关联两个正式对象</h3><p class="muted">只表达“相关”，不会改变 Primary Ownership、位置、Lifecycle 或 Focus。</p><label>来源对象<select data-field="v2AssociationSource"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}" data-version="${object.version}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)} · v${object.version}</option>`).join("")}</select></label><label>目标对象<select data-field="v2AssociationTarget"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="v2AssociationConfirmed" value="yes">确认添加普通 Association，不改变归属</label>${button(model.v2AssociationBusy ? "正在添加…" : "添加 Association", "v2-association-add", undefined, "primary", !model.v2AssociationAvailable || model.v2AssociationBusy)}${model.v2Associations?.length ? `<p class="muted">当前已有 ${model.v2Associations.length} 条普通 Association。</p>` : ""}</section>` : "";
   if (model.v2Objects !== undefined) {
-    if (model.v2Objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Review Center 正式化，或创建 V2 Project 页面。")}`;
+    if (model.v2Objects.length === 0) return `${areaCreator}${projectCreator}${empty("还没有正式对象", "从 Review Center 正式化，或创建 V2 Area / Project。")}`;
     const objectLabels = new Map(model.v2Objects.map((object) => [object.objectId, `${object.objectType} · ${object.text}`]));
     const ownershipList = (model.v2PrimaryOwnerships ?? []).length ? `<section aria-label="Primary Ownership 列表"><h2>Primary Ownership</h2><div class="object-list">${(model.v2PrimaryOwnerships ?? []).slice(0, 100).map((ownership) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(ownership.childObjectId) ?? ownership.childObjectId)} → ${escapeHtml(objectLabels.get(ownership.ownerObjectId) ?? ownership.ownerObjectId)}</span><small>唯一主归属</small></article>`).join("")}</div>${(model.v2PrimaryOwnerships?.length ?? 0) > 100 ? `<p class="muted">仅显示前 100 条；完整投影仍由 Local Service 提供。</p>` : ""}</section>` : "";
     const visibleAssociations = (model.v2Associations ?? []).slice(0, 100);
@@ -231,11 +235,12 @@ function renderObjects(model: UiModel): string {
           ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${object.objectType}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
           : "";
       const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成 MiniProject", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
-      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction ? `<div class="actions">${closureAction}${lifecycleActions}</div>` : ""}${renderV2ObjectClosure(object)}</article>`;
+      const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑 Area", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
+      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction || areaAction ? `<div class="actions">${areaAction}${closureAction}${lifecycleActions}</div>` : ""}${renderV2ObjectClosure(object)}</article>`;
     }).join("")}</div></section>`;
-    return `${projectCreator}${relationError}${associationCreator}${ownershipList}${associationList}${list}`;
+    return `${areaCreator}${projectCreator}${relationError}${associationCreator}${ownershipList}${associationList}${list}`;
   }
-  if (model.objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Inbox 手工正式化，或创建 V2 Project 页面。")}`;
+  if (model.objects.length === 0) return `${areaCreator}${projectCreator}${empty("还没有正式对象", "从 Inbox 手工正式化，或创建 V2 Area / Project。")}`;
   const list = `<div class="object-list">${model.objects
     .map(
       (object) => `<button class="object-row" data-action="select-object" data-value="${escapeHtml(object.objectId)}">
@@ -244,7 +249,7 @@ function renderObjects(model: UiModel): string {
     )
     .join("")}</div>`;
   const detailView = model.selectedObjectDetail;
-  if (!detailView) return `${projectCreator}${list}`;
+  if (!detailView) return `${areaCreator}${projectCreator}${list}`;
   const { object, owner, anchors, signals, recentEvents, undoableCommitId } = detailView;
   const detail = `<aside class="drawer" aria-label="对象抽屉">
     <div class="eyebrow">${escapeHtml(object.objectType)} · v${object.version}</div>
@@ -477,6 +482,12 @@ function renderActionDialog(model: UiModel): string {
     const targets = (model.v2Objects ?? []).filter(({ objectType }) => ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"].includes(objectType));
     if (!candidate) return "";
     return `<section class="inbox-dialog action-dialog" aria-label="更新已有对象"><h3>更新已有对象</h3><p class="muted">来源保持只读；请选择目标并填写审阅后希望保留的完整显式 Block 正文。此操作只生成 Proposal，接受与最终 Commit 前不会改正文或 SQLite。</p><blockquote>${escapeHtml(model.v2CandidateSourcePreviews?.[candidate.candidateId] ?? "原文暂不可读；提交时会再次检查。")}</blockquote><label>目标对象<select data-field="v2CandidateUpdateTarget"><option value="">请选择</option>${targets.map((target) => `<option value="${escapeHtml(target.objectId)}">${escapeHtml(target.objectType)} · ${escapeHtml(target.text)}</option>`).join("")}</select></label><label>目标最终完整正文<textarea data-field="v2CandidateUpdateContent" placeholder="[任务] 合并后的最终正文"></textarea></label><div class="actions">${button("生成更新 Proposal", "submit-v2-candidate-update", candidate.candidateId, "primary")}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "v2-area-edit") {
+    const [objectId] = dialog.value.split("|");
+    const object = model.v2Objects?.find((candidate) => candidate.objectId === objectId && candidate.objectType === "AREA");
+    if (!object) return "";
+    return `<section class="inbox-dialog action-dialog" aria-label="编辑 Area 责任描述"><h3>编辑 Area</h3><p class="muted">保留同一 object_id，并以当前版本保护 SQLite 正式状态；不会创建或改写 Graph 页面。</p><label>责任描述<textarea data-field="v2AreaEditText">${escapeHtml(object.text)}</textarea></label><div class="actions">${button(model.v2AreaBusy ? "正在保存…" : "保存 Area", "submit-v2-area-edit", dialog.value, "primary", model.v2AreaBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-condition") {
     const objectId = dialog.value.split("|")[0];

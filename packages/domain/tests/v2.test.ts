@@ -8,6 +8,7 @@ import {
   assignV2PrimaryOwner,
   bindV2PrimaryAnchor,
   createV2ManagedObject,
+  editV2Area,
   completeV2Project,
   completeV2MiniProjectFromReviewedMarker,
   lifecycleForV2ExecutionMarker,
@@ -30,6 +31,20 @@ test("V2 exposes exactly six user-visible object types without Phase or Signal",
   assert.equal(object.text, "[任务] 验证外部推送");
   assert.equal("phase" in object, false);
   assert.equal("signals" in object, false);
+});
+
+test("Area responsibility text is edited in place with optimistic version protection", () => {
+  const area = createV2ManagedObject({ objectId: "area-health", objectType: "AREA", text: "健康管理" }, new Date("2026-07-22T01:00:00Z"));
+  const edited = editV2Area(area, "  维持稳定作息与健康检查  ", 1, new Date("2026-07-22T02:00:00Z"));
+  assert.equal(edited.objectId, area.objectId);
+  assert.equal(edited.objectType, "AREA");
+  assert.equal(edited.text, "维持稳定作息与健康检查");
+  assert.equal(edited.version, 2);
+  assert.equal(edited.updatedAt, "2026-07-22T02:00:00.000Z");
+  assert.throws(() => editV2Area(area, "新责任", 2), /版本/);
+  assert.throws(() => editV2Area(area, "   ", 1), /责任描述/);
+  assert.throws(() => editV2Area({ ...area, objectType: "TASK" }, "新责任", 1), /Area/);
+  assert.throws(() => editV2Area({ ...area, lifecycle: "ARCHIVED" }, "新责任", 1), /关闭/);
 });
 
 test("Primary Anchor and Ownership are versioned domain changes independent of location", () => {

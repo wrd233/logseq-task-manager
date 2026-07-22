@@ -1122,7 +1122,7 @@ export class V2SqliteStore {
     if (!receipt) return undefined;
     const command = receipt.command_name as V2CommandReceipt["command"];
     const result = JSON.parse(receipt.result_json) as unknown;
-    if (command === "create_object" || command === "transition_lifecycle" || command === "cancel_lifecycle" || command === "reopen_lifecycle" || command === "undo_lifecycle" || command === "complete_mini_project" || command === "complete_project" || command === "change_condition" || command === "change_due_at") {
+    if (command === "create_object" || command === "edit_area" || command === "transition_lifecycle" || command === "cancel_lifecycle" || command === "reopen_lifecycle" || command === "undo_lifecycle" || command === "complete_mini_project" || command === "complete_project" || command === "change_condition" || command === "change_due_at") {
       return { command, object: result as V2ManagedObject };
     }
     if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "undo_materialization" || command === "synchronize_explicit_object" || command === "complete_mini_project_from_marker" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {

@@ -160,6 +160,20 @@ export function createV2ManagedObject(input: CreateV2ManagedObjectInput, at = ne
   };
 }
 
+export function editV2Area(object: V2ManagedObject, text: string, expectedVersion: number, at = new Date()): V2ManagedObject {
+  if (object.version !== expectedVersion) {
+    throw new StructuredError({ code: "V2_OBJECT_VERSION_CONFLICT", message: `Area 版本已从 ${expectedVersion} 变为 ${object.version}；责任描述没有更新。`, ruleRefs: ["D-185"] });
+  }
+  if (object.objectType !== "AREA") {
+    throw new StructuredError({ code: "V2_AREA_ONLY", message: "Area 编辑入口只能修改 Area 对象。", ruleRefs: ["D-044", "D-220"] });
+  }
+  if (object.lifecycle !== "OPEN") {
+    throw new StructuredError({ code: "V2_AREA_CLOSED", message: "已关闭 Area 不能修改责任描述。", ruleRefs: ["D-148", "D-220"] });
+  }
+  requireText(text, "V2_AREA_TEXT_REQUIRED", "Area 必须保留可读的责任描述。");
+  return { ...object, text: text.trim(), version: object.version + 1, updatedAt: at.toISOString() };
+}
+
 export function lifecycleForV2ExecutionMarker(
   objectType: V2ObjectType,
   current: Lifecycle,

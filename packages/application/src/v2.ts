@@ -9,6 +9,7 @@ import {
   completeV2MiniProject,
   completeV2MiniProjectFromReviewedMarker,
   createV2ManagedObject,
+  editV2Area,
   lifecycleForV2ExecutionMarker,
   observeV2PrimaryAnchor,
   rebindV2PrimaryAnchor,
@@ -62,7 +63,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
+  command: "create_object" | "edit_area" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -191,7 +192,7 @@ export interface V2MaterializationUndoResult {
 }
 
 export type V2CommandReceipt =
-  | { command: "create_object" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_mini_project" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
+  | { command: "create_object" | "edit_area" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_mini_project" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
   | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }
@@ -310,6 +311,29 @@ export class V2Application {
         command: "create_object",
         objectId: candidate.objectId,
         beforeVersion: 0,
+        afterVersion: candidate.version,
+        occurredAt: at.toISOString(),
+      },
+    });
+    return result.object;
+  }
+
+  async editArea(objectId: string, text: string, envelope: V2CommandEnvelope, at = new Date()): Promise<V2ManagedObject> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "edit_area", objectId);
+    if (replay) return replay.object;
+    const current = await this.requireObject(objectId);
+    const candidate = editV2Area(current, text, envelope.expectedVersion, at);
+    const result = await this.objects.commitObject({
+      object: candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "edit_area",
+        objectId,
+        beforeVersion: current.version,
         afterVersion: candidate.version,
         occurredAt: at.toISOString(),
       },

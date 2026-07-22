@@ -67,7 +67,7 @@ class MemoryV2Repository implements V2ObjectRepository {
     const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
     if (actualVersion !== command.expectedVersion) throw new Error(`version ${actualVersion} != ${command.expectedVersion}`);
     this.values.set(command.object.objectId, command.object);
-    this.receipts.set(command.idempotencyKey, { command: command.audit.command as "create_object" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "change_condition" | "change_due_at", object: command.object });
+    this.receipts.set(command.idempotencyKey, { command: command.audit.command as "create_object" | "edit_area" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "change_condition" | "change_due_at", object: command.object });
     this.audit.push(command.audit);
     return { object: command.object, replayed: false };
   }
@@ -346,6 +346,21 @@ test("plain Association relates distinct objects without becoming Primary Owners
   assert.equal(repository.ownerships.size, 0);
   assert.equal((await application.addAssociation("task-association", "output-association", { actor: "user", expectedVersion: 1, idempotencyKey: "associate", traceId: "trace-replay" })).replayed, true);
   await assert.rejects(() => application.addAssociation("task-association", "task-association", { actor: "user", expectedVersion: 2, idempotencyKey: "self", traceId: "trace-self" }), /自身/);
+});
+
+test("Area controlled entry creates and edits one versioned formal object", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const created = await application.createObject({ objectId: "area-health", objectType: "AREA", text: "健康管理", sourceOrCreationEvent: "controlled_area_entry" }, {
+    actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "create-area-health", traceId: "trace-create-area",
+  }, new Date("2026-07-22T01:00:00Z"));
+  const envelope = { actor: "logseq-plugin", expectedVersion: created.version, idempotencyKey: "edit-area-health", traceId: "trace-edit-area" };
+  const edited = await application.editArea(created.objectId, "维持稳定作息与健康检查", envelope, new Date("2026-07-22T02:00:00Z"));
+  assert.equal(edited.text, "维持稳定作息与健康检查");
+  assert.equal(edited.version, 2);
+  assert.equal(repository.audit.at(-1)?.command, "edit_area");
+  assert.equal((await application.editArea(created.objectId, "不得覆盖", envelope)).text, edited.text);
+  await assert.rejects(() => application.editArea(created.objectId, "过期更改", { ...envelope, expectedVersion: 1, idempotencyKey: "edit-area-stale" }), /版本/);
 });
 
 test("explicit Block materialization creates Object and Primary Anchor as one idempotent command", async () => {

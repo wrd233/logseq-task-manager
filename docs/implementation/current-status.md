@@ -92,11 +92,12 @@ V2_MIGRATION_DESIGN_READY
 - 2026-07-22 UC-28 Desktop Gate：真实 Flash 完成 MiniProject Closure 三问草拟，失败可重试且零正式写；校对后 Closure 与独立遗留 Proposal 分别审阅。遗留 Task 的最终 Commit/Undo/reload 均通过，MiniProject Closure 保持 COMPLETED；非空 Block 零写入拒绝。首轮真实运行暴露 Logseq 写后旧读与连续插件写事件回声，修复后用有界 read-after-own-write 和同一 10 秒窗口内最多四个精确 hash 抑制收口，不新增状态源或恢复路径；结束时 Doctor/Backup PASS、Pending/Recovery 0，脱敏 Provider 证据已版本化。
 - 2026-07-22 显式子树 Desktop Gate：真实首次显式 Block 曾因 `id::` 回声抑制误删原始同步而只写身份、不创建 Object；`c28fa06` 修复只在现有 pending 项保留“本次持久身份”来源位。修复后 Desktop 逐项/快速/整树粘贴、断线恢复与 cold reload 均通过；2 Task + 2 Decision、4 active Anchor，裸 TODO 零写入，pending 0、reconciliation false、Doctor PASS。无新表、协议、扫描器或写路径；详见 `docs/runtime/V2_EXPLICIT_SUBTREE_DESKTOP_REPORT.md`。
 - 2026-07-22 Candidate 多项/stale Desktop Gate：真实预览 2 个合法项并计数 1 个非法项，整批保存后 Object 0。修改首项正文时，显式同步未绕过 Candidate 审阅、连接保持 READY；旧视图正式化明确 stale 且零写入。重扫后只将 OUTPUT 推进至 Proposal→Review→Commit→Undo，另一 Candidate 保持 PENDING；结束 Object 0，正向/逆向 Commit 为 UNDONE/COMPLETED，Doctor PASS。修复 `979b440` 只复用现有 Candidate 索引和 Explicit Sync 终态冲突分支。
+- 2026-07-22 Area Desktop Gate：`Projects / 对象` 工作区已贯通受控创建、就地编辑、列表和版本冲突零覆盖。真实 Area 在同一 object_id 上 v1→v2→v3，旧 v2 对话框在并发变更后明确拒绝，SQLite 保留 v3；0 Anchor，Logseq 未创建普通或命名空间页面。复用现有 Object/Audit/Receipt 和 Local Service/Application Command，无新表、状态、Graph 写路径或恢复机制；证据见 `docs/runtime/V2_AREA_DESKTOP_REPORT.md`。
 
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-22 根级 `./scripts/check.sh` 为 431 tests、145 rules、0 failed/skipped；全部 typecheck/lint/test/build、Plugin/边界检查与恢复演练 PASS。npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
+- 自动检查：2026-07-22 根级 `./scripts/check.sh` 为 437 tests、145 rules、0 failed/skipped；全部 typecheck/lint/test/build、Plugin/边界检查与恢复演练 PASS。npm audit 既有 2 high / 1 critical 未用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：总状态仍为 `PARTIAL_PASS`；基础 Anchor/Now Work 见 `docs/runtime/V2_SLICE_A_B_DESKTOP_REPORT.md`，Candidate、Association 与 Ownership 专项见对应 Runtime Report；

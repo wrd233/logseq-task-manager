@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress with first-run, restricted Service and SQLite Restore Desktop pass; Slice B1 finite-subtree user loop Desktop pass; Slice B3 Marker, MiniProject three-question Closure, UC-28 Agent/legacy transfer and Task reasoned lifecycle Desktop pass; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice D DeepSeek L4 Desktop pass; Slice E Now Work interactive foundation; Slice F copied-data migration and Project Closure Desktop pass"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 433 tests; 145 rules; 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 437 tests; 145 rules; 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -32,6 +32,7 @@ implemented:
   - "Authenticated Service Backup create/restore-validate contract with server-generated IDs, 0700/0600 permissions, bounded bodies and no restore activation"
   - "SQLite schema v11: v10 Candidate projection plus reuse of closure_json for MiniProject three-question Closure and retained Project/MiniProject completion facts after archive; no new table or field; v1..v10 upgrades require a validated preflight snapshot and roll back atomically"
   - "Plain Association vertical path: one RELATED meaning, source-version protection, explicit Plugin confirmation/busy/error/success, Local Service/Application/SQLite atomic write, scope-bounded Context projection, and Association-aware Materialization/Migration Undo"
+  - "Area controlled vertical path: in-plugin create/edit/list, Local Service/Application command ownership, optimistic stale protection, same object_id versioning, and zero implicit Graph page or Anchor"
   - "Primary Ownership and plain Association are visibly distinct in the V2 object workspace through bounded read-only Local Service projections; no direct Ownership write path was added"
   - "Primary Ownership change and Undo are dedicated reviewed HIGH paths: server-owned Proposal/receipt evidence, transaction-level child/new-owner/current-owner protection, explicit Plugin confirmation/busy feedback, one Domain step per forward/inverse SemanticCommit, restore-to-old-or-unassigned behavior, later-edit refusal, idempotent replay, and bounded recovery after either Domain receipt"
   - "Reviewed V1 migration batch kernel: complete decisions, <=50 item atomic Object/Anchor/Ownership import, exact idempotency, Verify, changed-state-safe Undo, retry, restart and single activation without reusing SemanticCommit"
@@ -86,6 +87,7 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 E2E-14: real copied-data Recovery Bundle Scan/Preview, Backup, exact confirmation guards, Import replay, IMPORTING Service restart/show, Verify, single-batch Undo, new-key retry and Activate passed; stale current Anchors caused safe Verify refusal in the discarded attempt, while the final active-Anchor scope ended Doctor 12 PASS/0 WARN and appeared in the read-only Plugin migration/object workspaces"
   - "V2 Desktop 0.10.15 E2E-17: isolated Task v2 snapshot to v3 mutation to Restore passed; missing confirmation sent no request, recovery point retained v3, active DB returned to v2, descriptor disappeared, Service exited with Desktop open, Plugin automatically became restricted, same DB restart returned READY and Doctor 12 PASS/0 WARN"
   - "V2 Desktop 0.10.15 V2-FIRST-001/E2E-15: descriptor-missing three-entry welcome, SERVICE_UNAVAILABLE, SERVICE_PROTOCOL_MISMATCH, restricted reload and same-UUID ordinary body editing passed with Store NOT_STARTED, formal writes false, no automatic scan/migration/Provider call and no persistent queue"
+  - "V2 Desktop 0.10.15 Area: controlled creation, same-object edit v1 to v2, concurrent v3 stale refusal with zero overwrite, no implicit Graph page/Anchor, and Doctor PASS"
 runtime_checks_pending:
   - "Proposal defer/dependency and process-fault, finite-subtree exact truncation/unload engineering edges, Project/Area filtering, keyboard/theme, and remaining recovery Desktop Gates; current-page Candidate multi-item/stale failure paths are complete"
 active_risks:

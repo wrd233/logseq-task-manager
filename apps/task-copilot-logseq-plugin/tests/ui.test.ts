@@ -58,6 +58,32 @@ test("Project workspace exposes one in-context V2 creation form gated by Local S
   assert.doesNotMatch(html, /data-action="create-v2-project"[^>]*disabled/);
 });
 
+test("Area workspace exposes controlled creation and versioned edit without inventing a Graph page", () => {
+  const unavailable = renderApp(model());
+  assert.match(unavailable, /V2 · Area 受控入口/);
+  assert.match(unavailable, /data-field="v2AreaText"[^>]*disabled/);
+  assert.match(unavailable, /data-action="create-v2-area"[^>]*disabled/);
+
+  const value = model();
+  value.v2AreaAvailable = true;
+  value.v2Objects = [{ objectId: "area-health", objectType: "AREA", version: 2, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "健康管理", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "controlled_area_entry" }];
+  let html = renderApp(value);
+  assert.match(html, /data-field="v2AreaText" placeholder="例如：维持稳定作息与健康检查">/);
+  assert.match(html, /data-action="v2-area-edit-open" data-value="area-health\|2"/);
+  assert.doesNotMatch(html, /Area\//);
+
+  value.actionDialog = { kind: "v2-area-edit", value: "area-health|2" };
+  html = renderApp(value);
+  assert.match(html, /aria-label="编辑 Area 责任描述"/);
+  assert.match(html, /data-field="v2AreaEditText">\s*健康管理/);
+  assert.match(html, /data-action="submit-v2-area-edit" data-value="area-health\|2"/);
+
+  value.v2AreaBusy = true;
+  html = renderApp(value);
+  assert.match(html, /正在保存…/);
+  assert.match(html, /data-action="submit-v2-area-edit"[^>]*disabled[^>]*aria-busy="true"/);
+});
+
 test("V2 Project workspace reads formal objects without mapping Lifecycle back to V1 Phase", () => {
   const value = model();
   value.v2ProjectCreationAvailable = true;
