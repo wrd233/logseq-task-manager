@@ -468,6 +468,53 @@ test("event registration expands a finite subtree without materializing an inter
   unregister();
 });
 
+test("event registration stops exactly at the 256-block subtree budget and exposes reconciliation", async () => {
+  let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
+  const reads: string[] = [];
+  const delivered: string[] = [];
+  const issues: string[] = [];
+  const values = Object.fromEntries(Array.from({ length: 257 }, (_, index) => {
+    const uuid = `bounded-${index}`;
+    return [uuid, {
+      uuid,
+      content: `[任务] 有限子树 ${index}`,
+      "updated-at": index + 1,
+      children: index < 256 ? [["uuid", `bounded-${index + 1}`]] : [],
+    }];
+  }));
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    maximumPending: 512,
+    onIssue: (issue) => issues.push(issue.code),
+  });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      delivered.push(input.externalId);
+      return success(input.externalId, 2);
+    },
+  });
+  const unregister = registerExplicitSyncEvents({
+    DB: { onChanged(callback) { listener = callback; return () => undefined; } },
+    Editor: { getBlock: async (externalId) => {
+      reads.push(externalId);
+      return values[externalId];
+    } },
+  }, controller, { subtreeDelayMs: 0 });
+
+  listener?.({ blocks: [{ uuid: "bounded-0" }] });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await controller.flush();
+
+  assert.equal(reads.length, 256);
+  assert.equal(delivered.length, 256);
+  assert.equal(reads.at(-1), "bounded-255");
+  assert.equal(reads.includes("bounded-256"), false);
+  assert.equal(delivered.includes("bounded-256"), false);
+  assert.deepEqual(issues, ["EXPLICIT_SYNC_SUBTREE_TRUNCATED"]);
+  assert.equal(controller.snapshot().reconciliationRequired, true);
+  unregister();
+});
+
 test("subtree read failures require reconciliation and unregister prevents late descendant delivery", async () => {
   let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
   const issues: string[] = [];

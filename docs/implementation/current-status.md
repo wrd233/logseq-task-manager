@@ -66,7 +66,7 @@ V2_MIGRATION_DESIGN_READY
 - Local Service 已开放受约束的 `POST /objects/materialize` 与统一 `POST /objects/synchronize`，并报告 `formalWrites=true`；请求不能携带 Graph/DB 路径/object_id/anchor_id/actor，只允许四类 Parser 对象、8 位 Anchor hash 和有界命令字段。
 - 同类型显式同步后端已完成：Domain/Application/SQLite 更新标题缓存、对象版本和 Anchor 观察证据；`/objects/synchronize` 自动区分首次物化与已绑定更新，Service 用 Graph ID + Block UUID + Logseq 输入版本形成 SHA-256 幂等边界。类型变化明确零写入并作为 terminal Proposal-required 冲突保留，不再误当断线永久重试；正式 Proposal 创建仍属于 Slice C。
 - Plugin 已将 `DB.onChanged` 接入显式 Parser/防抖/Service Client。Service READY 且声明 `formalWrites=true` 时统一经 Local Service 写 SQLite；断线时正文仍可编辑，最近事件只保存在按 UUID 覆盖、上限 256 的会话内队列，恢复连接后按幂等请求重试。该队列不写 FileStorage、不复制正文、不是第二状态源；交付失败、结构冲突或溢出都会进入脱敏诊断和 `reconciliationRequired`。
-- Slice B1 有限子树已接入唯一事件主链：`DB.onChanged` payload 只提供待重读根 UUID，经 300ms 防抖后以 32 根队列和 256 Block 预算重读权威子树，不读整页或全 Graph；截断/异常只交付已验证前缀，其余明确要求 reconciliation，卸载 cancellation 不迟到交付。Desktop 已真实验证逐项编辑、快速连续编辑、整树批量粘贴及 Service 中断后恢复：Task/Decision 各自物化，裸 TODO 无 `id::`/无 Object，快速编辑只交付最新值。33 根溢出显式为 `EXPLICIT_SYNC_SUBTREE_QUEUE_CAPACITY_EXCEEDED`，257 子块在 Desktop bridge 上安全停于 `EXPLICIT_SYNC_SUBTREE_READ_FAILED`且零额外 Object；精确 `TRUNCATED` 码与进行中卸载仍是 A-RT-03.18 的工程边界，不阻塞 E2E-03 用户语义。详见 `docs/runtime/V2_EXPLICIT_SUBTREE_DESKTOP_REPORT.md`。
+- Slice B1 有限子树已接入唯一事件主链：`DB.onChanged` payload 只提供待重读根 UUID，经 300ms 防抖后以 32 根队列和 256 Block 预算重读权威子树，不读整页或全 Graph；截断/异常只交付已验证前缀，其余明确要求 reconciliation，卸载 cancellation 不迟到交付。Desktop 已真实验证逐项编辑、快速连续编辑、整树批量粘贴及 Service 中断后恢复：Task/Decision 各自物化，裸 TODO 无 `id::`/无 Object，快速编辑只交付最新值。33 根溢出显式为 `EXPLICIT_SYNC_SUBTREE_QUEUE_CAPACITY_EXCEEDED`。事件入口集成测试又精确覆盖 257 节点：只读写前 256 项，第 257 项不触达，发出 `EXPLICIT_SYNC_SUBTREE_TRUNCATED` 且要求 reconciliation；进行中 unregister/dispose 不再读子节点或迟到写入。A-RT-03.18 工程边界已收口。详见 `docs/runtime/V2_EXPLICIT_SUBTREE_DESKTOP_REPORT.md`。
 - 配置 V2 descriptor 后，Plugin 进入 V2 sync-only 运行路径：不初始化 V1 `VersionedStateRepository`，旧 Capture/Proposal/Commit 写命令保持关闭；V1 实现代码仅作为迁移与历史兼容资产保留，避免 V1 FileStorage 与 V2 SQLite 双写或双语义运行。
 - Service 已开放当前 Graph 未被替换的 Primary Anchor 分页；Plugin 在每次恢复 READY 及其后每 5 分钟最多读取一页 256 个已知 Anchor 的对应 UUID，以不透明游标逐轮收敛且不扫描全 Graph。正文 hash 变化会走同一同步命令，并发检查会合并为同一轮，单个 Graph 读取失败不会断开健康 Service，dispose 后不会继续迟到工作。
 - Slice B4 Anchor 观察持久化已贯通：Block 缺失记为 `missing`，Marker 移除/形态异常记为 `conflict`，Object 不删除；同 UUID 合法正文可恢复 `active`，`replaced` 不可复活。观察经 Local Service/Application，由 Service 注入 Graph/actor/version/幂等边界，Object version + Anchor + Audit + Receipt 单事务；重复同状态零写入，失败显式报告并可下轮重试。
@@ -115,7 +115,7 @@ V2_MIGRATION_DESIGN_READY
 
 ## 下一步
 
-1. `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 的当前页 Candidate stale/多项逐项处理、删除 Anchor 和有限子树用户闭环已通过；只剩同类批次中的精确 truncation/进行中卸载 cancellation 工程边界；
+1. `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 的当前页 Candidate stale/多项逐项处理、删除 Anchor 和有限子树用户闭环均已通过；精确 truncation 与进行中卸载 cancellation 已由事件入口集成测试收口，不再重复安排 Desktop 时序 Gate；
 2. 在集中 Desktop Gate 验收 Proposal 暂缓/多组依赖组合与 Commit/Undo 进程故障；正常 Commit/Undo、后续编辑保护和 UC-28 写后旧读保护已通过；
 3. `V2-VIEW-001` 的 Review Center 视觉、键盘、深浅主题与 Now Work Task/Project/Area 筛选分组已完成，不再重复验收；
 4. DeepSeek L4、UC-28、E2E-13 外部 Agent 与 V2-FIRST-001 / E2E-15 已通过，不再重复消耗在线额度或 Desktop 时间；后续只保留 E2E-23 中不宜破坏性制造的在线错误分类。

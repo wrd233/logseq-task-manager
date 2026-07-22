@@ -2,7 +2,7 @@
 
 > 日期：2026-07-22  
 > 环境：Logseq Desktop 0.10.15 / macOS arm64 / Node 20.20.2 / SQLite schema v11  
-> 状态：核心用户闭环 `PASS`，E2E-03 `DONE`；A-RT-03.18 的精确 256 截断码与卸载中止边界仍保留为 Desktop 子项。
+> 状态：核心用户闭环 `PASS`，E2E-03 `DONE`；A-RT-03.18 的精确 256 截断与卸载中止工程边界已由事件入口集成测试收口。
 
 ## 真实失败与修复
 
@@ -31,6 +31,6 @@
 
 ## 边界与剩余项
 
-E2E-03 的真实用户语义已完成：在 Task 子树中，裸 TODO 不成为领域对象，嵌套显式对象独立物化，快速编辑只取最新权威正文，整树粘贴可在断线后恢复。A-RT-03.18 仍保留两个精确 Desktop 工程边界：稳定制造并观测 256 前缀后的 `TRUNCATED`，以及在进行中读取时真实卸载 Plugin 证明 cancellation。它们不需要新产品机制，应在下一次同类 Desktop 批次中继续。
+E2E-03 的真实用户语义已完成：在 Task 子树中，裸 TODO 不成为领域对象，嵌套显式对象独立物化，快速编辑只取最新权威正文，整树粘贴可在断线后恢复。后续事件入口集成测试又构造了 257 节点链，精确证明只读取并同步前 256 项、第 257 项不触达、发出 `EXPLICIT_SYNC_SUBTREE_TRUNCATED` 且 reconciliation=true；既有进行中读取测试证明 unregister/dispose 后不再读取子节点、不迟到写入。两项都是确定性工程边界，自动测试比反复制造 Desktop 时序更精确，因此不再保留重复 Desktop Gate，也没有新增产品机制。
 
 结构化脱敏证据：`docs/testing/v2-explicit-subtree-desktop-2026-07-22.json`。
