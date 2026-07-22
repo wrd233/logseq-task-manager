@@ -220,6 +220,11 @@ export type ServiceGeneratedProposalResult = {
   replayed: false;
 };
 
+export interface ServiceRevisedProposalResult {
+  generated: Extract<ServiceGeneratedProposalResult, { generated: { kind: "PROPOSAL" } }>["generated"];
+  record: ServiceStoredProposal;
+}
+
 export interface ServiceMiniProjectClosureDraftResult {
   record: ServiceStoredProposal;
   provider: ServiceProviderCompletionMetadata;
@@ -818,6 +823,12 @@ export class LocalServiceClient {
   generateProposal(prompt: ServiceProposalPromptBundle): Promise<ServiceGeneratedProposalResult> {
     return this.request<ServiceGeneratedProposalResult>("/provider/proposals/generate", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt }),
+    }, 125_000);
+  }
+
+  reviseGeneratedProposal(proposalId: string, expectedUpdatedAt: string, prompt: ServiceProposalPromptBundle): Promise<ServiceRevisedProposalResult> {
+    return this.request<ServiceRevisedProposalResult>(`/provider/proposals/${encodeURIComponent(proposalId)}/revise`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedUpdatedAt, prompt }),
     }, 125_000);
   }
 

@@ -60,7 +60,7 @@ import {
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
 import { createProjectWithControlledPage } from "./v2-project-creation.ts";
-import { buildSelectedBlockProposalPrompt } from "./v2-provider-analysis.ts";
+import { buildSelectedBlockProposalPrompt, buildSelectedBlockProposalRevisionPrompt } from "./v2-provider-analysis.ts";
 import { buildMiniProjectLegacyTransferProposal } from "./v2-mini-project-legacy-transfer.ts";
 import { submitV2Association, type V2AssociationSubmissionState } from "./v2-association-controller.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
@@ -117,6 +117,7 @@ let explicitSyncState: ExplicitSyncState = {
 let v2RebindPanel: V2RebindPanelState = { status: "idle" };
 let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
+let v2ProviderRevisionBusy = false;
 const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
 let v2LifecycleCommitBusy = false;
@@ -282,6 +283,7 @@ async function model(): Promise<UiModel> {
       v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
       v2ProviderAvailable: serviceConnection.status === "READY" && serviceConnection.capabilities.provider && Boolean(serviceRuntimeClient),
       v2ProviderState,
+      v2ProviderRevisionBusy,
       reviewMode,
       ...(v2NowWork ? { v2NowWork } : {}),
       v2NowWorkTypeFilter,
@@ -369,6 +371,7 @@ async function model(): Promise<UiModel> {
     v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2ProviderAvailable: serviceConnection.status === "READY" && serviceConnection.capabilities.provider && Boolean(serviceRuntimeClient),
     v2ProviderState,
+    v2ProviderRevisionBusy,
     reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
     v2NowWorkTypeFilter,
@@ -787,6 +790,56 @@ async function handleAction(action: string, value?: string): Promise<void> {
       operationalLogger.log("error", "proposal", "v2_provider_analysis_failed", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "error" }, error);
     }
     await refresh();
+    return;
+  }
+  if (action === "v2-provider-revise-open" && value) {
+    return openActionDialog("v2-provider-revise", value);
+  }
+  if (action === "submit-v2-provider-revise" && value) {
+    if (v2ProviderRevisionBusy) return;
+    const client = serviceRuntimeClient;
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    const instruction = dialogField("v2ProviderRevisionInstruction").trim();
+    if (!client || serviceConnection.status !== "READY" || !serviceConnection.capabilities.provider || !proposalId || !expectedUpdatedAt) {
+      latestError = "Local Service Provider 未启用或正在重连；没有调用 Agent，也没有修改 Proposal。";
+      await refresh();
+      return;
+    }
+    if (!instruction || instruction.length > 2_000) {
+      latestError = "请用不超过 2000 字的一句话说明调整要求；没有调用 Agent。";
+      await refresh();
+      return;
+    }
+    const generation = serviceDiscoveryGeneration;
+    const traceId = `v2-provider-revise-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    try {
+      const current = await client.getProposal(proposalId);
+      if (!current || current.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请关闭对话框并从最新卡片重新调整。");
+      const group = current.proposal.groups.length === 1 ? current.proposal.groups[0] : undefined;
+      const patch = group?.textPatches.length === 1 ? group.textPatches[0] : undefined;
+      if (!patch) throw new Error("当前 Proposal 不是可调整的单 Block 正式化建议。");
+      const block = RuntimeShapeAdapter.block(await logseq.Editor.getBlock(patch.blockUuid, { includeChildren: false }));
+      if (!block || block.uuid !== patch.blockUuid) throw new Error("原 Block 已不可读；没有修改 Proposal。");
+      const text = stripLogseqBlockIdentityProperty(block.content, block.uuid).trim();
+      const prompt = buildSelectedBlockProposalRevisionPrompt({ blockUuid: block.uuid, text }, current.proposal, instruction);
+      v2ProviderRevisionBusy = true;
+      latestError = undefined;
+      message = undefined;
+      await refresh();
+      const result = await client.reviseGeneratedProposal(proposalId, expectedUpdatedAt, prompt);
+      if (generation !== serviceDiscoveryGeneration) throw new Error("Local Service 在 Agent 调整期间重连；请刷新审阅队列核对结果。");
+      actionDialog = undefined;
+      workspace = "review";
+      reviewMode = "proposals";
+      message = `Proposal ${result.record.proposal.proposalId} 已原位调整并重置审阅；正文和正式状态均未改变。`;
+      operationalLogger.log("info", "proposal", "v2_provider_proposal_revised", { correlationId: traceId, actionId: "submit-v2-provider-revise", result: "success", proposalId });
+    } catch (error) {
+      latestError = `${explain(error)} 正文和正式 Store 未改变。`;
+      operationalLogger.log("error", "proposal", "v2_provider_proposal_revision_failed", { correlationId: traceId, actionId: "submit-v2-provider-revise", result: "error", proposalId }, error);
+    } finally {
+      v2ProviderRevisionBusy = false;
+      await refresh();
+    }
     return;
   }
   if (action === "review-mode" && (value === "candidates" || value === "proposals")) {

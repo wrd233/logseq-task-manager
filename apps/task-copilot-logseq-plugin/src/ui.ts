@@ -41,6 +41,7 @@ export type ActionDialogKind =
   | "v2-condition"
   | "v2-deadline"
   | "v2-review-defer"
+  | "v2-provider-revise"
   | "v2-candidate-update";
 
 export interface UiModel {
@@ -97,6 +98,7 @@ export interface UiModel {
   v2CandidateAvailable?: boolean;
   v2ProviderAvailable?: boolean;
   v2ProviderState?: { status: "idle" | "loading" | "success" | "error"; message?: string };
+  v2ProviderRevisionBusy?: boolean;
   reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
   v2MigrationRuns?: ServiceMigrationRun[];
@@ -354,6 +356,7 @@ function renderReview(model: UiModel): string {
     const canOwnershipUndo = isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && ownershipUndoCommit?.status !== "FAILED";
     const canLifecycleUndo = isReasonedLifecycle && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && lifecycleUndoCommit?.status !== "FAILED" && lifecycleUndoCommit?.status !== "COMPLETED";
     const canUndo = !isProjectClosure && !isMiniProjectClosure && !isReasonedLifecycle && !isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
+    const canReviseWithProvider = model.v2ProviderAvailable === true && record.proposal.source.kind === "local_llm" && ["READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED"].includes(record.proposal.status);
     return `<article class="card proposal v2-proposal">
     <div class="eyebrow">V2 · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
     <h3>${escapeHtml(record.proposal.title)}</h3>
@@ -364,6 +367,7 @@ function renderReview(model: UiModel): string {
       const reviewKind = group.semanticOperations.some((operation) => operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.objectType === "MINI_PROJECT" && operation.payload.lifecycle === "COMPLETED") ? "MINI_PROJECT_CLOSURE" : "ORDINARY";
       return `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${button("接受该语义组", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}|${reviewKind}`, "primary")}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}</div>` : ""}</section>`;
     }).join("")}
+    ${canReviseWithProvider ? `<div class="actions">${button(model.v2ProviderRevisionBusy ? "Agent 调整中…" : "调整建议", "v2-provider-revise-open", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet", model.v2ProviderRevisionBusy === true)}</div>` : ""}
     ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消对象" : "确认重开对象") : isOwnershipChange ? "确认改变主归属" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, "primary", (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true))}</div>` : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>` : canLifecycleUndo ? `<div class="actions">${button(reasonedLifecycleOperation!.payload.action === "CANCEL" ? "撤销取消" : "撤销重开", "v2-lifecycle-undo", originalCommit.semanticCommitId, "danger", model.v2LifecycleCommitBusy === true)}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
     <div class="notice">${canOwnershipUndo ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复到审阅前主归属，且不会移动正文。` : ownershipUndoCommit?.status === "FAILED" ? "对象或 Primary Ownership 已有后续变化；Undo 已安全终止且没有覆盖当前状态。" : canLifecycleUndo ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复 Lifecycle${reasonedLifecycleOperation!.payload.action === "REOPEN" ? " 与 Closure 快照" : ""}，不改写正文。` : lifecycleUndoCommit?.status === "FAILED" ? "对象在 Lifecycle Commit 后已有变化；Undo 已安全终止且没有覆盖当前状态。" : canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : isProjectClosure && record.proposal.status === "APPLIED" ? `Project Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Project 已退出活跃视图，页面保留。` : hasAcceptedMiniProjectClosure && record.proposal.status === "APPLIED" ? `MiniProject 三问 Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；${isMarkerDrivenMiniProjectClosure ? "移除 Marker 不会自动重开" : "本次对象级关闭未改写 Logseq 正文"}，重开必须显式命令与理由。` : isReasonedLifecycle && record.proposal.status === "APPLIED" ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；原因保留在已应用 Proposal，正文、Anchor、Condition 与 Focus 未改变。` : isOwnershipChange && record.proposal.status === "APPLIED" ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；位置、Anchor 与 Association 未改变。` : miniProjectClosureBlockedByOtherGroups ? "MiniProject Closure 已接受，但其余语义组仍未终结；请先拒绝这些组，或将其拆成独立 Proposal，再进行最终关闭。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : isMiniProjectClosure ? `原子记录 MiniProject 三问 Closure 与 Lifecycle${isMarkerDrivenMiniProjectClosure ? "，并保留 Anchor 证据" : "，且不改写 Graph"}` : isReasonedLifecycle ? "记录原因并改变 Lifecycle，不改写 Graph" : isOwnershipChange ? "原子改变唯一 Primary Ownership" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
   </article>`;
@@ -462,6 +466,12 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-provider-revise") {
+    const [proposalId] = dialog.value.split("|");
+    const record = model.v2Proposals?.find(({ proposal }) => proposal.proposalId === proposalId);
+    if (!record) return "";
+    return `<section class="inbox-dialog action-dialog" aria-label="调整 Agent Proposal"><h3>调整当前建议</h3><p class="muted">用一句话说明希望怎样调整。Agent 必须修订同一个 proposal_id、Block 和 scope；成功后审阅决定会重置，正文与正式状态不变。</p><blockquote>${escapeHtml(record.proposal.finalPreview)}</blockquote><label>调整说明<textarea data-field="v2ProviderRevisionInstruction" placeholder="例如：保留原句，只把标题写得更简洁"></textarea></label><div class="actions">${button(model.v2ProviderRevisionBusy ? "Agent 调整中…" : "生成调整后版本", "submit-v2-provider-revise", dialog.value, "primary", model.v2ProviderRevisionBusy === true)}${cancel}</div></section>`;
+  }
   if (dialog.kind === "v2-candidate-update") {
     const candidate = model.v2Candidates?.find(({ candidateId }) => candidateId === dialog.value);
     const targets = (model.v2Objects ?? []).filter(({ objectType }) => ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"].includes(objectType));

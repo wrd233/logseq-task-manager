@@ -490,10 +490,15 @@ test("Proposal validation, review, and scope revalidation never masquerade as a 
 test("configured Provider creates only a validated review-ready Proposal through Local Service", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-provider-"));
   let modelCandidate = { ...validProposal(), proposalId: "model-id", status: "APPLIED", source: { kind: "user" } } as V2Proposal;
+  let providerGate: { onStarted: () => void; wait: Promise<void> } | undefined;
   const provider: StructuredProposalProvider = {
     providerId: "deepseek",
     providerVersion: "chat-completions-v1",
-    completeStructured: async () => ({ value: modelCandidate, metadata: { requestId: "req-provider", model: "actual-model", finishReason: "stop", totalTokens: 90, durationMs: 25, attempts: 1 } }),
+    completeStructured: async () => {
+      const gate = providerGate;
+      if (gate) { gate.onStarted(); await gate.wait; }
+      return { value: modelCandidate, metadata: { requestId: "req-provider", model: "actual-model", finishReason: "stop", totalTokens: 90, durationMs: 25, attempts: 1 } };
+    },
   };
   const service = await startLocalService({
     databasePath: join(root, "task-copilot.db"), graphId: "graph-provider", token: "provider-service-token-at-least-24-chars",
@@ -514,6 +519,66 @@ test("configured Provider creates only a validated review-ready Proposal through
   assert.equal(result.generated.provider.requestId, "req-provider");
   assert.equal((await client.status()).objectCount, 0);
   assert.equal((await client.listProposals()).length, 1);
+  const revisedAfterText = "[任务] 普通正文（保留原句）";
+  modelCandidate = {
+    ...result.record.proposal,
+    proposalId: "model-revision-id",
+    title: "更简洁的正式化建议",
+    finalPreview: revisedAfterText,
+    groups: result.record.proposal.groups.map((group) => ({
+      ...group,
+      disposition: "PENDING",
+      textPatches: group.textPatches.map((patch) => ({ ...patch, afterText: revisedAfterText })),
+      semanticOperations: group.semanticOperations.map((operation) => ({ ...operation, payload: { ...operation.payload, text: "普通正文（保留原句）" } })),
+    })),
+    status: "READY",
+  };
+  const revised = await client.reviseGeneratedProposal(result.record.proposal.proposalId, result.record.updatedAt, proposalPrompt);
+  assert.equal(revised.record.proposal.proposalId, result.record.proposal.proposalId, "revision updates the one machine Proposal");
+  assert.equal(revised.record.proposal.createdAt, result.record.proposal.createdAt);
+  assert.equal(revised.record.proposal.status, "READY");
+  assert.equal(revised.record.proposal.finalPreview, revisedAfterText);
+  assert.equal((await client.listProposals()).length, 1);
+  assert.equal((await client.status()).objectCount, 0);
+  const beforeRejectedRevision = revised.record.files.proposalJson;
+  const wrongTarget = { kind: "BLOCK" as const, id: "another-block", version: 1, hash: checksum("普通正文") };
+  modelCandidate = {
+    ...revised.record.proposal,
+    scope: { read: [], modify: [wrongTarget] },
+    groups: revised.record.proposal.groups.map((group) => ({ ...group,
+      textPatches: group.textPatches.map((patch) => ({ ...patch, blockUuid: wrongTarget.id })),
+      semanticOperations: group.semanticOperations.map((operation) => ({ ...operation, target: wrongTarget })),
+    })),
+  };
+  await assert.rejects(
+    () => client.reviseGeneratedProposal(revised.record.proposal.proposalId, revised.record.updatedAt, proposalPrompt),
+    /脱离原 Proposal|409/,
+  );
+  assert.equal((await client.getProposal(revised.record.proposal.proposalId))?.files.proposalJson, beforeRejectedRevision, "invalid revision cannot replace machine authority");
+  const acceptedForConcurrentCommit = await client.reviewProposal(revised.record.proposal.proposalId, { formalize: { disposition: "ACCEPTED" } }, revised.record.updatedAt);
+  modelCandidate = {
+    ...acceptedForConcurrentCommit.proposal,
+    title: "不应越过已开始的 Commit",
+    groups: acceptedForConcurrentCommit.proposal.groups.map((group) => ({ ...group, disposition: "PENDING" })),
+    status: "READY",
+  };
+  let markProviderStarted: (() => void) | undefined;
+  let releaseProvider: (() => void) | undefined;
+  const providerStarted = new Promise<void>((resolve) => { markProviderStarted = resolve; });
+  const providerRelease = new Promise<void>((resolve) => { releaseProvider = resolve; });
+  providerGate = { onStarted: () => markProviderStarted?.(), wait: providerRelease };
+  const concurrentRevision = client.reviseGeneratedProposal(acceptedForConcurrentCommit.proposal.proposalId, acceptedForConcurrentCommit.updatedAt, proposalPrompt);
+  await providerStarted;
+  const preparedDuringRevision = await client.prepareProposalCommit(acceptedForConcurrentCommit.proposal.proposalId, [
+    { kind: "BLOCK", id: "proposal-block", exists: true, version: 1, hash: checksum("普通正文") },
+  ], acceptedForConcurrentCommit.updatedAt);
+  assert.equal(preparedDuringRevision.status, "PREPARED");
+  releaseProvider?.();
+  await assert.rejects(concurrentRevision, /未完成 Commit|409/);
+  providerGate = undefined;
+  const preservedAfterConcurrentCommit = await client.getProposal(acceptedForConcurrentCommit.proposal.proposalId);
+  assert.equal(preservedAfterConcurrentCommit?.updatedAt, acceptedForConcurrentCommit.updatedAt);
+  assert.equal(preservedAfterConcurrentCommit?.proposal.status, "ACCEPTED", "revision cannot replace a Proposal after Commit preparation starts");
   const mini = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "Provider 关闭目标", externalId: "block-provider-mini", inputVersion: "1", contentHash: checksum("[MiniProject] Provider 关闭目标"), idempotencyKey: "ignored", traceId: "trace-provider-mini" });
   modelCandidate = miniProjectClosureProposal(mini.object.objectId, mini.object.version);
   const providerClosure = await client.generateProposal(proposalPrompt);

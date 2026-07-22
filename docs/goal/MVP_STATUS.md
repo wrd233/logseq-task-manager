@@ -2,8 +2,8 @@
 
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
-current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B3 Marker safety and Marker/sidebar MiniProject three-question Closure Desktop pass; reasoned cancellation/explicit reopen automated, Desktop pending; UC-28 Agent drafting/legacy transfer automated and live Provider pass, Desktop pending; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration foundation and Project Closure Desktop pass"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 423 tests; 145 rules; 0 failed/skipped; E2E-13 live Graph/DeepSeek/CLI/Desktop Review PASS; strict DeepSeek Flash/Pro L3 each 22/22 PASS with zero formal writes"
+current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B3 Marker safety and Marker/sidebar MiniProject three-question Closure Desktop pass; reasoned cancellation/explicit reopen automated, Desktop pending; UC-28 Agent drafting/legacy transfer automated and live Provider pass, Desktop pending; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice D DeepSeek L4 Desktop pass; Slice E Now Work interactive foundation; Slice F migration foundation and Project Closure Desktop pass"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 425 tests; 145 rules; 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22 and Logseq Desktop L4 PASS with zero formal writes"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -42,7 +42,7 @@ implemented:
   - "Reasoned cancellation and explicit reopen automated vertical path: Domain rejects reasonless cancellation/reopen, Plugin creates one review-only Proposal, exact final confirmation reuses one Domain SemanticCommit, Lifecycle inverse Commit/Undo restores the protected prior state (including MiniProject/Project Closure snapshots), and applied Proposal retains the reason without Graph writes or new persistence schema; Desktop pending"
   - "V2 Proposal Review now provides one continuous accept, final preview/Diff, explicit Commit, applied status, and inverse Commit/Undo flow with restart continuation and no overwrite of later edits"
   - "Slice D L1 now provides explicit DeepSeek runtime selection, env/Keychain secret references, bounded Structured Output with timeout/cancel/retry/error isolation, deterministic five-layer Prompt assembly, machine-owned Proposal metadata/hash, Domain validation, NO_PROPOSAL zero-write handling, and a capability-gated Review Center current-block entry"
-  - "Slice D real DeepSeek measurement: Keychain-only secret reference, default-off fail-fast harness, no-answer Prompt and strict semantic evaluator; E2E-21 positive Provider/Schema path DONE; after strengthening MiniProject/Decision/Output/Ownership/insufficient-evidence rules and bounded retry for transient empty content, strict Flash and Pro golden suites each completed 22/22 with zero Graph/formal Store writes. L4 and Desktop Review remain pending"
+  - "Slice D real DeepSeek measurement: Keychain-only secret reference, default-off fail-fast harness, no-answer Prompt and strict semantic evaluator; E2E-21 positive Provider/Schema path DONE; strict Flash and Pro golden suites each completed 22/22. L4 Desktop completed current-block loading/error, READY/NO_PROPOSAL, direct/revised/partial acceptance, rejection and Diagnostics secret scan with zero Graph/formal Store writes"
   - "V2 Now Work reads SQLite authority through Local Service and renders three explainable, empty-hiding regions; recent actionable work is bounded and ordinary Waiting stays quiet"
   - "V2 Now Work can add/remove/reorder Focus through Application and Local Service concurrency guards, and active Primary Anchors expose a safe open action without changing formal object state"
   - "V2 Now Work can set ACTIONABLE/WAITING/BLOCKED/PAUSED through one versioned Application command; Waiting review evidence is validated and immediately feeds the quiet review projection"
@@ -83,7 +83,7 @@ runtime_checks_pending:
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
-  - "DeepSeek L2 success path and strict Flash/Pro L3 are complete at Provider/Prompt/Validator level; safe online error classification remains partial, L4 is not passed, and Desktop Review/default log/Diagnostics interaction remain pending"
+  - "DeepSeek L4 and Desktop Review/default log/Diagnostics are complete; safe online error classification remains partial only for cancellation, authentication failure and rate limiting that are intentionally not manufactured with destructive live calls"
   - "E2E-13 live Graph bridge and external-Agent cross-entry Review are complete; the first online Agent candidate still required an exact-field prompt repair after Domain Validator rejection, so future Prompt changes must preserve validator-first golden coverage"
   - "@logseq/libs 0.0.17 retains upstream npm audit findings; no forced incompatible upgrade"
 user_actions_required: []

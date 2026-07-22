@@ -41,6 +41,7 @@
 | POST | `/proposals/validate` | 验证 Proposal 并生成确定性两文件 | 无 |
 | POST | `/proposals/submit` | 将 READY Proposal 提交至审阅队列 | Proposal + Group 单事务写入；不改正文/对象 |
 | POST | `/provider/proposals/generate` | 五层 Prompt → Structured Output → Validator → READY Proposal，或 `NO_PROPOSAL` 理由 | 仅校验成功的 Proposal + Group；不改 Graph/对象/Anchor/Lifecycle/Condition/Focus |
+| POST | `/provider/proposals/{id}/revise` | 对当前 local_llm Proposal 做同机器意图调整 | 原 proposal_id 原位修订并回到 READY；不改 Graph/对象/Anchor/Lifecycle/Condition/Focus |
 | GET | `/proposals` | 按创建顺序列出已提交 Proposal | 无 |
 | GET | `/proposals/{id}` | 读取单个 Proposal、两文件和 `updatedAt` | 无 |
 | POST | `/proposals/{id}/review` | 按语义组接受/拒绝/暂缓 | Proposal + Group 单事务写入；不改正文/对象 |
@@ -96,6 +97,8 @@ MiniProject DONE 的唯一 HIGH 完成组在接受时，`POST /proposals/{id}/re
 Provider 默认关闭；runner 只有在 `TASK_COPILOT_LLM_PROVIDER=deepseek` 且 Base URL、实际 Model ID、secret reference 均有效时才启用 capability。非敏感配置使用 `DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` 与 `TASK_COPILOT_DEEPSEEK_API_KEY_REF`。secret reference 只允许 `env:<VARIABLE>` 或 `keychain:<service>/<account>`；兼容 `DEEPSEEK_API_KEY` 时只在进程内将其视为 `env:DEEPSEEK_API_KEY`，不写入 descriptor、Graph、SQLite、日志或报告。
 
 Plugin Review Center 的“分析当前块”只发送当前选中 Block 的有界正文、UUID/hash 与五层 Prompt。Service 发放 proposal_id 并覆盖模型返回的 source/status/createdAt；text patch hash 由机器计算，Domain Validator 再检查 scope、group dependency、risk 和最终对象正文。普通记录允许返回有界 `NO_PROPOSAL` 理由且零持久化；非法、空、截断、超时、取消、认证、限流和网络响应都不能创建 Proposal 或正式写入。
+
+Review Center 的“调整建议”只适用于当前 `local_llm` 正式化 Proposal。Client 必须提交精确 `expectedUpdatedAt` 与有界五层 revision Prompt；Service 先重读当前唯一机器表示并阻止未完成 Commit，再要求模型输出完整 READY Proposal。Validator 通过后，Service 仍强制 proposal_id、createdAt、Block scope、group/risk/dependency、Patch target 和 operation identity 与原 Proposal 相同，随后复用现有 same-machine-intent 原位修订。`NO_PROPOSAL`、版本过期、target/scope 漂移或非法输出都保留原 Proposal，不产生第二表示或正式写入。
 
 `GET /now-work` 的 `conditionOptions` 仅包含当前 OPEN 对象的 `objectId / objectType / text`，供插件以可读选择器设置可选 `BLOCKED.blockerObjectId`；它不是第二份对象状态。Application 拒绝不存在、已关闭或自引用的阻碍对象。若 Focus A 的 `blockerObjectId` 指向 B，则可行动 B 会以“阻碍当前关注”进入可解释排序；安静的 Waiting B 也会被唤醒进入“等待与复查”。
 
@@ -215,6 +218,9 @@ Plugin Review Center 的“分析当前块”只发送当前选中 Block 的有�
 | `V2_PROPOSAL_NOT_FOUND` | Proposal 不存在 |
 | `V2_PROPOSAL_REVIEW_STALE` | Proposal 审阅版本已变化，本次零写入 |
 | `PROPOSAL_REVIEW_REQUEST_INVALID` | 分组决定、暂缓信息或请求字段无效 |
+| `LLM_REVISION_REQUEST_INVALID` | 调整请求缺少精确 Proposal 版本或有界五层 Prompt |
+| `LLM_PROPOSAL_REVISION_EMPTY` | 模型调整返回 `NO_PROPOSAL`；原机器表示保持不变 |
+| `LLM_PROPOSAL_REVISION_INTENT_MISMATCH` | 调整试图改变 Block、scope 或操作身份；原机器表示保持不变 |
 | `PROPOSAL_REVALIDATION_REQUEST_INVALID` | 重验请求字段、Block/Page 证据或证据数量无效 |
 | `V2_PROPOSAL_REVALIDATION_STALE` | 重验前 Proposal 审阅版本已变化，本次零写入 |
 | `V2_PROPOSAL_NOT_ACCEPTED` | Proposal 没有可进入提交前重验的 accepted 语义组 |

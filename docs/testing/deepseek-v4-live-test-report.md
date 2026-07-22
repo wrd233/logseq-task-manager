@@ -1,7 +1,7 @@
 # DeepSeek v4 真实在线测试报告
 
 > 更新：2026-07-22
-> 结果：`L2_SUCCESS_PATH_PASS_L3_FLASH_PRO_PASS_E2E13_DESKTOP_PASS`。E2E-21 的认证、实际模型、中文与 Schema 正向 Gate 已通过；严格无答案黄金套件已在 Flash 与 Pro 各完成 22/22，E2E-13 外部 Agent 跨入口已通过，Provider 当前块 L4 与默认日志/Diagnostics 仍未完成。
+> 结果：`L4_DESKTOP_PASS`。E2E-21 的认证、实际模型、中文与 Schema 正向 Gate 已通过；严格无答案黄金套件已在 Flash 与 Pro 各完成 22/22，E2E-13 外部 Agent 跨入口和 Provider 当前块 L4/Review/Diagnostics 均已通过。
 
 ## 安全配置与边界
 
@@ -57,15 +57,28 @@ UC-28 的专用 MiniProject Closure 草拟端点也以合成内容真实通过�
 - 两个模型均通过 MiniProject 边界、已确认 Decision、Output 产出者未决、候选 Ownership、证据不足 `NO_PROPOSAL` 和稳定重复案例；
 - 所有运行只调用 `LocalLlmProposalGenerator.generate()`，均为零 Proposal 持久化、零 Graph/正式 Store 写入。
 
-本轮 L3 已达到 Provider/Prompt/Validator 层的通过条件；仍不能把它扩展为 L4 或 Desktop 通过：
+本轮 L3 已达到 Provider/Prompt/Validator 层的通过条件；以下跨持久化语义继续由各自 Service Gate 证明，不让黄金 runner 复制状态机：
 
 - DS-08 的跨持久化同一 Proposal 版本递增仍由 Review/Service Gate 证明；
 - DS-09 的跨持久化 Candidate/Proposal 相邻去重仍由 Candidate Gate 证明；
-- L4 的直接接受、部分接受、编辑后接受、拒绝与 Desktop Review 仍未完成。
+- L4 的直接接受、部分接受、调整后接受、拒绝与 Desktop Review 已由后述真实运行完成。
 
-E2E-13 已补充一条不同于 Plugin 当前块 Provider 的真实外部 Agent Desktop 证据：DeepSeek v4 Flash 从实时 Page Context Package 生成候选，首轮虽是 Structured JSON，仍因 operation group shape 不完整被 Domain Validator 零写入拒绝；改为完整逐字段模板后，第二轮 1 attempt / 2997 tokens 通过。该 Proposal 经 CLI validate/submit 后在 Logseq Review Center 显示原文、最终预览、Diff 与模型来源，接受语义组后 Object/Commit 仍为 0。它证明 Context/CLI/Review 边界，但不冒充尚未完成的 Plugin Provider L4。原始成功候选和首轮失败分类见 `docs/testing/deepseek-v4-e2e13-desktop-2026-07-22.json`。
+E2E-13 已补充一条不同于 Plugin 当前块 Provider 的真实外部 Agent Desktop 证据：DeepSeek v4 Flash 从实时 Page Context Package 生成候选，首轮虽是 Structured JSON，仍因 operation group shape 不完整被 Domain Validator 零写入拒绝；改为完整逐字段模板后，第二轮 1 attempt / 2997 tokens 通过。该 Proposal 经 CLI validate/submit 后在 Logseq Review Center 显示原文、最终预览、Diff 与模型来源，接受语义组后 Object/Commit 仍为 0。它独立证明 Context/CLI/Review 边界；原始成功候选和首轮失败分类见 `docs/testing/deepseek-v4-e2e13-desktop-2026-07-22.json`。
 
-P0 仍为 0：无凭据泄露、无模型直写、无非法输出进入审阅、无高影响降级、无静默覆盖；但 P0=0 不代表 L3/L4 通过。
+P0 仍为 0：无凭据泄露、无模型直写、无非法输出进入审阅、无高影响降级、无静默覆盖。
+
+## L4 Logseq Desktop
+
+隔离 schema v11 Service 与 Logseq Desktop 0.10.15 连续完成：
+
+- 首轮旧 selected-block Prompt 返回非法顶层 shape，Validator 拒绝、UI 显示错误并恢复操作，Proposal/Object/Commit 均为 0；
+- 收紧为与黄金 Prompt 一致的逐字段机器契约后，真实 Flash 生成 READY Proposal，Review Center 展示原文、最终正文、语义 Diff 和来源；直接接受后仍未正式生效；
+- 普通天气记录返回可读 `NO_PROPOSAL` 且不持久化；另一 READY Proposal 被用户拒绝；
+- 新增“调整建议”后，真实 Flash 按自然语言缩短标题；Service 强制复用同 proposal_id、createdAt、Block scope、group、operation 和 target，正文中的期限与事实未变，再次接受后仍未正式生效；
+- 两个独立组用明确标记的 external Agent 确定性 fixture 完成一接受一拒绝，状态为 `PARTIALLY_ACCEPTED`；该项只验证 Review 交互，不冒充模型输出；
+- 两次实际 Diagnostics JSONL 导出覆盖 ready/no-proposal/revised，脱敏 pattern scan 为 0；Doctor PASS，Object 0、SemanticCommit 0、Pending 0、源 Block 原文未变。
+
+完整耗时、输入和 Validator 后 Proposal 见 `docs/testing/deepseek-v4-l4-desktop-2026-07-22.json`，运行解释见 `docs/runtime/V2_DEEPSEEK_PROVIDER_L4_DESKTOP_REPORT.md`。
 
 ## 真实失败与调整证据
 
@@ -83,8 +96,8 @@ P0 仍为 0：无凭据泄露、无模型直写、无非法输出进入审阅、
 ## 当前 Gate
 
 - `E2E-21`: `DONE`；真实认证、Flash/Pro 实际模型、中文 Structured Output 与 Schema 正向路径均通过；
-- `E2E-22`: `LIVE_L3_PASS_DESKTOP_PENDING`；Flash/Pro 严格无答案黄金套件各 22/22 通过，Journal → 真实 Proposal → Validator/Diff 与普通记录 `NO_PROPOSAL` 均零写入；仍需 Desktop 当前块入口、加载反馈、Proposal/NO_PROPOSAL 与 Review 卡片验收；
+- `E2E-22`: `DONE`；Flash/Pro 严格无答案黄金套件各 22/22 通过，L4 当前块、loading/error、Proposal/NO_PROPOSAL、直接/调整后/部分接受与拒绝均已真实验收；
 - `E2E-23`: `AUTOMATED_PLUS_LIVE_PARTIAL`；真实截断与 timeout 零写入失败已取得，取消/认证/限流不以破坏性在线请求制造，因此 L2 整体仍部分；
-- `E2E-24`: `LIVE_SECRET_SCAN_PASS`；真实 Keychain 引用和运行后 repo/Graph canary 扫描通过，Desktop 日志/最终诊断导出随 E2E-22 集中复验。
+- `E2E-24`: `DONE`；真实 Keychain 引用、repo/Graph canary、Desktop 默认日志和两次最终 Diagnostics 导出均通过脱敏扫描。
 
-完整脱敏黄金矩阵见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`；E2E-13 外部 Agent 的原始成功候选、规范化 Proposal、首轮失败分类与跨入口计数见 `docs/testing/deepseek-v4-e2e13-desktop-2026-07-22.json`。二者都不包含 Authorization、Bearer 或 Key。
+完整脱敏黄金矩阵见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`；E2E-13 外部 Agent 跨入口证据见 `docs/testing/deepseek-v4-e2e13-desktop-2026-07-22.json`；L4 输入、耗时、完整 Proposal 与审阅结果见 `docs/testing/deepseek-v4-l4-desktop-2026-07-22.json`。三者都不包含凭据值或请求认证材料。

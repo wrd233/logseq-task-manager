@@ -120,6 +120,49 @@ async function readProposalGenerationRequest(request: IncomingMessage): Promise<
   return { prompt: record.prompt as unknown as V2PromptBundle };
 }
 
+async function readProposalRevisionRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; prompt: V2PromptBundle }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "expectedUpdatedAt,prompt"
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || !record.prompt || typeof record.prompt !== "object" || Array.isArray(record.prompt)) {
+    throw serviceError("LLM_REVISION_REQUEST_INVALID", "Provider 调整请求必须包含当前 Proposal 版本与有界五层 Prompt。");
+  }
+  return { expectedUpdatedAt: record.expectedUpdatedAt, prompt: record.prompt as unknown as V2PromptBundle };
+}
+
+function localLlmFormalizationRevisionIdentity(proposal: V2Proposal): string | undefined {
+  const group = proposal.groups.length === 1 ? proposal.groups[0] : undefined;
+  const patch = group?.textPatches.length === 1 ? group.textPatches[0] : undefined;
+  const operation = group?.semanticOperations.length === 1 ? group.semanticOperations[0] : undefined;
+  if (!group || !patch || operation?.kind !== "CREATE_OBJECT" || operation.target.kind !== "BLOCK") return undefined;
+  return stableJson({
+    proposalId: proposal.proposalId,
+    createdAt: proposal.createdAt,
+    scope: proposal.scope,
+    group: {
+      groupId: group.groupId,
+      risk: group.risk,
+      independentlyAcceptable: group.independentlyAcceptable,
+      dependencies: group.dependencies,
+      patch: { blockUuid: patch.blockUuid, beforeText: patch.beforeText, beforeHash: patch.beforeHash },
+      operation: { operationId: operation.operationId, kind: operation.kind, target: operation.target },
+    },
+  });
+}
+
+function requireSameLocalLlmFormalizationIntent(current: V2Proposal, revised: V2Proposal): void {
+  const currentIdentity = localLlmFormalizationRevisionIdentity(current);
+  const revisedIdentity = localLlmFormalizationRevisionIdentity(revised);
+  if (current.source.kind !== "local_llm" || revised.source.kind !== "local_llm"
+    || !["READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED"].includes(current.status)
+    || revised.status !== "READY" || !currentIdentity || currentIdentity !== revisedIdentity) {
+    throw serviceError("LLM_PROPOSAL_REVISION_INTENT_MISMATCH", "Agent 调整脱离原 Proposal 的 Block、scope 或操作身份；机器表示保持不变。");
+  }
+}
+
 async function readContextExportRequest(request: IncomingMessage): Promise<{ scope: ContextExportScope; id: string }> {
   const body = await readBody(request);
   let value: unknown;
@@ -1336,6 +1379,37 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       try { candidate = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
       const result = await submitReviewProposal(candidate);
       respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    const providerProposalRevisionMatch = request.method === "POST" ? url.pathname.match(/^\/provider\/proposals\/([^/]+)\/revise$/) : null;
+    if (providerProposalRevisionMatch?.[1]) {
+      if (!options.proposalGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Provider；没有修改 Proposal。");
+      const proposalId = decodeURIComponent(providerProposalRevisionMatch[1]);
+      const input = await readProposalRevisionRequest(request);
+      requireNoUnfinishedProposalCommit(proposalId);
+      const current = await proposalApplication.get(proposalId);
+      if (!current) throw serviceError("V2_PROPOSAL_NOT_FOUND", "待调整 Proposal 不存在。");
+      if (current.updatedAt !== input.expectedUpdatedAt) throw serviceError("V2_PROPOSAL_REVIEW_STALE", "Proposal 已在 Agent 调整前变化；没有覆盖当前机器表示。");
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        const generated = await options.proposalGenerator.generate({
+          proposalId,
+          createdAt: current.proposal.createdAt,
+          prompt: input.prompt,
+          signal: controller.signal,
+        });
+        if (generated.kind === "NO_PROPOSAL") throw serviceError("LLM_PROPOSAL_REVISION_EMPTY", "Agent 调整没有返回完整 Proposal；原机器表示保持不变。");
+        requireNoUnfinishedProposalCommit(proposalId);
+        const latest = await proposalApplication.get(proposalId);
+        if (!latest || latest.updatedAt !== input.expectedUpdatedAt) throw serviceError("V2_PROPOSAL_REVIEW_STALE", "Proposal 已在 Agent 调整期间变化；没有覆盖当前机器表示。");
+        requireSameLocalLlmFormalizationIntent(latest.proposal, generated.proposal);
+        const record = await proposalApplication.reviseSameMachineIntent(generated.proposal, input.expectedUpdatedAt);
+        respond(response, 200, { generated, record });
+      } finally {
+        request.removeListener("aborted", abort);
+      }
       return;
     }
     if (request.method === "POST" && url.pathname === "/provider/proposals/generate") {

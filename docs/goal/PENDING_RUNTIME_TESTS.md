@@ -11,6 +11,7 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 | RT-MVP-003 | UUID move/delete/undo、Anchor conflict/rebind | PASS WITH DOCUMENTED LOGSEQ UNDO LIMITATION |
 | RT-MVP-004 | FileStorage reload / backup / recovery | PASS |
 | V1-PILOT | Capture / Task / MiniProject / Project copied-data Pilot | PARTIAL — 详见 `docs/runtime/V1_MVP_PILOT_REPORT.md` |
+| V2-DEEPSEEK-L4 | 当前块、READY/NO_PROPOSAL、直接/调整后/部分接受、拒绝、日志与 Diagnostics | PASS — 详见 `docs/runtime/V2_DEEPSEEK_PROVIDER_L4_DESKTOP_REPORT.md` |
 
 ## 下一次集中 Desktop 检查
 
@@ -22,11 +23,11 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 4. copied-data migration Scan/Preview、小批 Commit、中断继续、重复导入和单批 Undo；
 5. object_id、Primary Anchor、Commit 链和 Legacy mapping 证据完整；
 6. Slice C 完成后验证 Proposal review → SemanticCommit → inverse Commit；
-7. Slice D 的真实 Provider 正向 smoke 已通过，但安全错误在线分类仍部分、严格 L3 失败、L4 未通过；继续无答案 Prompt 的黄金稳定性与接受/部分接受/编辑/拒绝记录，再集中从 Review Center 验证当前块 → Proposal/NO_PROPOSAL → Diff → Review，并复验 loading/error、默认日志、Diagnostics 和凭据 canary。
+7. Slice D L3/L4 已通过，不重复消耗在线额度；E2E-23 中取消、认证失败和限流继续保留非破坏性自动证据，除非真实运行自然出现对应失败才补在线分类。
 8. UC-28 新增 Desktop 闭环：在 MiniProject 三问对话中验证 Agent loading/失败/成功回填、草稿后仍 OPEN/PENDING；再选中新空 Block 创建独立遗留承接 Proposal，验证关闭与新对象可分开审阅/提交/Undo，非空 Block 拒绝覆盖。
 
 ## 已知限定
 
 - Logseq 0.10.15 删除后 Undo 只恢复正文，不恢复可解析的原 Anchor 身份；显式 rebind 是已验证路径。
 - V1 Proposal “接受”与“提交”分离且视觉层级不足；OPEN + ACCEPTED 不代表正式状态。
-- DeepSeek live Provider 正向路径已通过；安全错误在线分类、严格 L3/L4、Desktop Review Center 与默认日志/Diagnostics 交互证据仍待完成。
+- DeepSeek L3/L4、Desktop Review Center 与默认日志/Diagnostics 已通过；安全错误在线分类只剩不宜主动制造的取消、认证失败和限流，保持 `AUTOMATED_PLUS_LIVE_PARTIAL`。

@@ -305,6 +305,29 @@ test("Review Center exposes Provider analysis only when capability is enabled an
   assert.match(html, /正文仍可编辑/);
 });
 
+test("local LLM Proposal exposes one-machine revision with observable busy state", () => {
+  const value = model();
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  value.v2ProviderAvailable = true;
+  value.v2Proposals = [{ updatedAt: "2026-07-22T07:01:00.000Z", files: { proposalMd: "# revise", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-revise", schemaVersion: "v2", title: "确认范围", context: "当前 Block。", understanding: "这是 Task。", objective: "形成对象。", logic: "局部正式化。", finalPreview: "[任务] 明天确认范围。", unresolvedQuestions: [],
+    source: { kind: "local_llm", provider: "deepseek", model: "deepseek-v4-flash" }, scope: { read: [], modify: [{ kind: "BLOCK", id: "block-revise", hash: "12345678" }] }, preconditions: [], status: "READY", createdAt: "2026-07-22T07:00:00.000Z",
+    groups: [{ groupId: "formalize", explanation: "正式化。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], disposition: "PENDING", textPatches: [{ blockUuid: "block-revise", beforeText: "明天确认范围。", afterText: "[任务] 明天确认范围。", beforeHash: "12345678", afterHash: "87654321" }], semanticOperations: [{ operationId: "create-object", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-revise", hash: "12345678" }, summary: "创建 Task", payload: { objectType: "TASK", text: "[任务] 明天确认范围。" }, preconditions: [] }] }],
+  } }];
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-provider-revise-open" data-value="prop-revise\|2026-07-22T07:01:00.000Z"/);
+  value.actionDialog = { kind: "v2-provider-revise", value: "prop-revise|2026-07-22T07:01:00.000Z" };
+  html = renderApp(value);
+  assert.match(html, /data-field="v2ProviderRevisionInstruction"/);
+  assert.match(html, /同一个 proposal_id、Block 和 scope/);
+  assert.match(html, /data-action="submit-v2-provider-revise"/);
+  value.v2ProviderRevisionBusy = true;
+  html = renderApp(value);
+  assert.match(html, /Agent 调整中…/);
+  assert.match(html, /data-action="submit-v2-provider-revise"[^>]*disabled aria-busy="true"/);
+});
+
 test("object drawer does not render empty optional sections", () => {
   const value = model();
   value.objects = [

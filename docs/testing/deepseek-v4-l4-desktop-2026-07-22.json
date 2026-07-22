@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 1,
+  "gate": "deepseek-v4-l4-desktop",
+  "observedAt": "2026-07-22",
+  "environment": {
+    "logseqDesktop": "0.10.15",
+    "provider": "deepseek",
+    "baseUrl": "https://api.deepseek.com",
+    "actualModel": "deepseek-v4-flash",
+    "credentialSource": "keychain:task-copilot/deepseek-v4",
+    "databaseSchemaVersion": 11,
+    "graph": "dedicated-test-graph"
+  },
+  "retention": {
+    "rawHttpResponsePersisted": false,
+    "validatedMachineProposalPersisted": true,
+    "note": "The validated Proposal/NO_PROPOSAL is the sanitized interaction result. Credential material, service token, provider request id and raw response headers are intentionally not retained."
+  },
+  "deepseekInteractions": [
+    {
+      "caseId": "L4-INVALID-01",
+      "inputBlock": "下周三前确认告警发布范围，并把最终口径发给值班同事。",
+      "elapsedMs": 9300,
+      "outcome": "VALIDATOR_REJECTED",
+      "errorCode": "V2_PROPOSAL_SHAPE_INVALID",
+      "visibleError": "Proposal 顶层字段不完整或类型无效",
+      "persistedProposal": false,
+      "formalWrites": 0,
+      "note": "First Desktop call exposed an underspecified selected-block prompt. The rejected candidate was not persisted."
+    },
+    {
+      "caseId": "L4-READY-ACCEPT-01",
+      "inputBlock": "下周三前确认告警发布范围，并把最终口径发给值班同事。",
+      "elapsedMs": 9775,
+      "outcome": "READY_THEN_ACCEPTED_NOT_APPLIED",
+      "validatedMachineProposalBeforeReview": {
+        "context": "当前选中 block 记录了在指定时间前完成两项具体操作的要求。",
+        "createdAt": "2026-07-22T07:32:17.529Z",
+        "finalPreview": "[任务] 下周三前确认告警发布范围，并把最终口径发给值班同事。",
+        "groups": [
+          {
+            "dependencies": [],
+            "disposition": "PENDING",
+            "explanation": "将待办事项正式化为 TASK 对象。",
+            "groupId": "formalize",
+            "independentlyAcceptable": true,
+            "risk": "MEDIUM",
+            "semanticOperations": [
+              {
+                "kind": "CREATE_OBJECT",
+                "operationId": "create-object",
+                "payload": {
+                  "objectType": "TASK",
+                  "text": "[任务] 下周三前确认告警发布范围，并把最终口径发给值班同事。"
+                },
+                "preconditions": [
+                  "Block 正文与 hash 未变化"
+                ],
+                "summary": "为所选 block 创建 TASK 对象。",
+                "target": {
+                  "hash": "341c0b02",
+                  "id": "6a6071f8-63a8-4b06-83eb-38d0f0d879d9",
+                  "kind": "BLOCK"
+                }
+              }
+            ],
+            "textPatches": [
+              {
+                "afterHash": "17ef6851",
+                "afterText": "[任务] 下周三前确认告警发布范围，并把最终口径发给值班同事。",
+                "beforeHash": "341c0b02",
+                "beforeText": "下周三前确认告警发布范围，并把最终口径发给值班同事。",
+                "blockUuid": "6a6071f8-63a8-4b06-83eb-38d0f0d879d9"
+              }
+            ]
+          }
+        ],
+        "logic": "该 block 明确表达了待办事项，具有时间约束和具体交付物，适合正式化为一个 TASK。",
+        "objective": "确保在下周三前完成告警发布范围的确认和最终口径的传递。",
+        "preconditions": [],
+        "proposalId": "prop_20260722073217529_cb9f34eaf1a744c4957f28810e0a2f40",
+        "schemaVersion": "v2",
+        "scope": {
+          "modify": [
+            {
+              "hash": "341c0b02",
+              "id": "6a6071f8-63a8-4b06-83eb-38d0f0d879d9",
+              "kind": "BLOCK"
+            }
+          ],
+          "read": []
+        },
+        "source": {
+          "kind": "local_llm",
+          "model": "deepseek-v4-flash",
+          "promptBundleVersion": "27b0fddf",
+          "provider": "deepseek",
+          "skillVersion": "analyze-selected-block-2",
+          "writingProfileVersion": "default-writing-profile-2"
+        },
+        "status": "READY",
+        "title": "确认告警发布范围并发送最终口径",
+        "understanding": "这是一项有明确截止日期的行动承诺，属于可一次完成的任务。",
+        "unresolvedQuestions": []
+      },
+      "storedReviewState": {
+        "status": "ACCEPTED",
+        "updatedAt": "2026-07-22T07:32:48.039Z"
+      },
+      "formalWrites": 0
+    },
+    {
+      "caseId": "L4-NO-PROPOSAL-01",
+      "inputBlock": "今天午后下了一阵雨，办公室比上午安静。",
+      "elapsedMs": 3712,
+      "outcome": "NO_PROPOSAL",
+      "visibleReasonSummary": "Only weather and office ambience were stated; there was no task, project, decision or output basis.",
+      "persistedProposal": false,
+      "formalWrites": 0
+    },
+    {
+      "caseId": "L4-REJECT-01",
+      "inputBlock": "本周五下班前确认演练时间，并通知参与同事。",
+      "elapsedMs": 9629,
+      "outcome": "READY_THEN_REJECTED",
+      "validatedMachineProposalBeforeReview": {
+        "context": "用户记录了一条待办：本周五下班前完成确认演练时间并通知同事。",
+        "createdAt": "2026-07-22T07:35:16.739Z",
+        "finalPreview": "[任务] 本周五下班前确认演练时间，并通知参与同事。",
+        "groups": [
+          {
+            "dependencies": [],
+            "disposition": "PENDING",
+            "explanation": "将当前待办正式化为 TASK 对象",
+            "groupId": "formalize",
+            "independentlyAcceptable": true,
+            "risk": "MEDIUM",
+            "semanticOperations": [
+              {
+                "kind": "CREATE_OBJECT",
+                "operationId": "create-object",
+                "payload": {
+                  "objectType": "TASK",
+                  "text": "[任务] 本周五下班前确认演练时间，并通知参与同事。"
+                },
+                "preconditions": [
+                  "Block 正文与 hash 未变化"
+                ],
+                "summary": "创建 TASK 对象",
+                "target": {
+                  "hash": "8211f6f7",
+                  "id": "6a6072ad-f598-4cf0-91e9-fc90ccabad69",
+                  "kind": "BLOCK"
+                }
+              }
+            ],
+            "textPatches": [
+              {
+                "afterHash": "caee246a",
+                "afterText": "[任务] 本周五下班前确认演练时间，并通知参与同事。",
+                "beforeHash": "8211f6f7",
+                "beforeText": "本周五下班前确认演练时间，并通知参与同事。",
+                "blockUuid": "6a6072ad-f598-4cf0-91e9-fc90ccabad69"
+              }
+            ]
+          }
+        ],
+        "logic": "因为这是明确的单一任务，适合作为 TASK 正式化。",
+        "objective": "确保在本周五下班前完成演练时间的确认和通知同事。",
+        "preconditions": [
+          "Block 正文与 hash 未变化"
+        ],
+        "proposalId": "prop_20260722073516739_2fbddf11c1894be6893d33dbfe607722",
+        "schemaVersion": "v2",
+        "scope": {
+          "modify": [
+            {
+              "hash": "8211f6f7",
+              "id": "6a6072ad-f598-4cf0-91e9-fc90ccabad69",
+              "kind": "BLOCK"
+            }
+          ],
+          "read": []
+        },
+        "source": {
+          "kind": "local_llm",
+          "model": "deepseek-v4-flash",
+          "promptBundleVersion": "8e160af6",
+          "provider": "deepseek",
+          "skillVersion": "analyze-selected-block-2",
+          "writingProfileVersion": "default-writing-profile-2"
+        },
+        "status": "READY",
+        "title": "确认演练时间并通知参与同事",
+        "understanding": "这是一个具体、有时间截止的单一任务，包含两个紧邻动作：确认时间和通知。属于一次可完成的承诺。",
+        "unresolvedQuestions": []
+      },
+      "storedReviewState": {
+        "status": "REJECTED",
+        "updatedAt": "2026-07-22T07:35:31.929Z"
+      },
+      "formalWrites": 0
+    },
+    {
+      "caseId": "L4-REVISE-ACCEPT-01",
+      "inputBlock": "下周一中午前核对演练名单，并把缺席人员发给组织者。",
+      "initialGenerationElapsedMs": 11167,
+      "initialTitle": "核对演练名单并发送缺席人员",
+      "revisionInstruction": "保留任务类型、期限和所有事实，只把标题改成更短的“核对演练名单”。",
+      "revisionElapsedMs": 8786,
+      "outcome": "SAME_ID_REVISED_THEN_ACCEPTED_NOT_APPLIED",
+      "invariantEvidence": {
+        "sameProposalId": true,
+        "sameCreatedAt": true,
+        "sameBlockScope": true,
+        "sameGroupAndOperationIdentity": true,
+        "finalBodyAndFactsUnchanged": true
+      },
+      "validatedMachineProposalAfterRevisionBeforeReview": {
+        "context": "下周一中午前核对演练名单，并把缺席人员发给组织者。",
+        "createdAt": "2026-07-22T07:49:42.809Z",
+        "finalPreview": "[任务] 下周一中午前核对演练名单，并把缺席人员发给组织者。",
+        "groups": [
+          {
+            "dependencies": [],
+            "disposition": "PENDING",
+            "explanation": "创建 TASK 对象，将当前承诺正式化。",
+            "groupId": "formalize",
+            "independentlyAcceptable": true,
+            "risk": "MEDIUM",
+            "semanticOperations": [
+              {
+                "kind": "CREATE_OBJECT",
+                "operationId": "create-object",
+                "payload": {
+                  "objectType": "TASK",
+                  "text": "[任务] 下周一中午前核对演练名单，并把缺席人员发给组织者。"
+                },
+                "preconditions": [
+                  "Block 正文与 hash 未变化"
+                ],
+                "summary": "创建 TASK 对象",
+                "target": {
+                  "hash": "11728a8a",
+                  "id": "6a60760f-3515-44e1-bae5-60f5c7639aee",
+                  "kind": "BLOCK"
+                }
+              }
+            ],
+            "textPatches": [
+              {
+                "afterHash": "3b76667d",
+                "afterText": "[任务] 下周一中午前核对演练名单，并把缺席人员发给组织者。",
+                "beforeHash": "11728a8a",
+                "beforeText": "下周一中午前核对演练名单，并把缺席人员发给组织者。",
+                "blockUuid": "6a60760f-3515-44e1-bae5-60f5c7639aee"
+              }
+            ]
+          }
+        ],
+        "logic": "符合 Domain 规则：TASK 是近期、可一次判断完成的承诺，包含为同一结果服务的相邻动作。当前文本有明确时间（下周一中午前）和动作（核对、发送），适合创建为 TASK。",
+        "objective": "将该承诺正式化为一个 TASK 对象，以便在正式系统中跟踪和确认完成。",
+        "preconditions": [],
+        "proposalId": "prop_20260722074942809_a9d490851e944c44ac8d4676cdb4f6e7",
+        "schemaVersion": "v2",
+        "scope": {
+          "modify": [
+            {
+              "hash": "11728a8a",
+              "id": "6a60760f-3515-44e1-bae5-60f5c7639aee",
+              "kind": "BLOCK"
+            }
+          ],
+          "read": []
+        },
+        "source": {
+          "kind": "local_llm",
+          "model": "deepseek-v4-flash",
+          "promptBundleVersion": "31af213f",
+          "provider": "deepseek",
+          "skillVersion": "analyze-selected-block-revise-1",
+          "writingProfileVersion": "default-writing-profile-2"
+        },
+        "status": "READY",
+        "title": "核对演练名单",
+        "understanding": "这是一个明确的承诺，要求在下周一中午前完成两项动作：核对演练名单，并将缺席人员名单发送给组织者。属于可一次判断完成的短期任务。",
+        "unresolvedQuestions": []
+      },
+      "storedReviewState": {
+        "status": "ACCEPTED",
+        "updatedAt": "2026-07-22T07:50:47.228Z"
+      },
+      "formalWrites": 0
+    }
+  ],
+  "desktopPartialReviewFixture": {
+    "sourceDisclosure": "Deterministic external_agent fixture; not a DeepSeek output.",
+    "validatedProposal": {
+      "context": "测试页包含两条彼此独立、带期限的行动承诺。",
+      "createdAt": "2026-07-22T08:00:00.000Z",
+      "finalPreview": "[任务] 周二下班前确认发布窗口。\n[任务] 周三中午前核对值班名单。",
+      "groups": [
+        {
+          "dependencies": [],
+          "disposition": "ACCEPTED",
+          "explanation": "将发布窗口承诺正式化为 Task。",
+          "groupId": "formalize-window",
+          "independentlyAcceptable": true,
+          "risk": "MEDIUM",
+          "semanticOperations": [
+            {
+              "kind": "CREATE_OBJECT",
+              "operationId": "create-window-task",
+              "payload": {
+                "objectType": "TASK",
+                "text": "周二下班前确认发布窗口。"
+              },
+              "preconditions": [],
+              "summary": "为发布窗口承诺创建 Task。",
+              "target": {
+                "hash": "44ead091",
+                "id": "6a6076e0-2d3e-489e-9d13-41e329849649",
+                "kind": "BLOCK",
+                "version": 1
+              }
+            }
+          ],
+          "textPatches": [
+            {
+              "afterHash": "6dd6f346",
+              "afterText": "[任务] 周二下班前确认发布窗口。",
+              "beforeHash": "44ead091",
+              "beforeText": "周二下班前确认发布窗口。",
+              "blockUuid": "6a6076e0-2d3e-489e-9d13-41e329849649"
+            }
+          ]
+        },
+        {
+          "dependencies": [],
+          "disposition": "REJECTED",
+          "explanation": "将值班名单承诺正式化为 Task。",
+          "groupId": "formalize-roster",
+          "independentlyAcceptable": true,
+          "risk": "MEDIUM",
+          "semanticOperations": [
+            {
+              "kind": "CREATE_OBJECT",
+              "operationId": "create-roster-task",
+              "payload": {
+                "objectType": "TASK",
+                "text": "周三中午前核对值班名单。"
+              },
+              "preconditions": [],
+              "summary": "为值班名单承诺创建 Task。",
+              "target": {
+                "hash": "a0b45744",
+                "id": "6a6076e0-62d9-4670-8ee5-7e61d0b0f449",
+                "kind": "BLOCK",
+                "version": 1
+              }
+            }
+          ],
+          "textPatches": [
+            {
+              "afterHash": "89887493",
+              "afterText": "[任务] 周三中午前核对值班名单。",
+              "beforeHash": "a0b45744",
+              "beforeText": "周三中午前核对值班名单。",
+              "blockUuid": "6a6076e0-62d9-4670-8ee5-7e61d0b0f449"
+            }
+          ]
+        }
+      ],
+      "logic": "每个语义组只改写并正式化自己的 Block，机器意图和范围完全独立。",
+      "objective": "验证 Desktop 对多语义组的部分接受与拒绝反馈。",
+      "preconditions": [
+        "两条 Block 的正文与版本证据未变化"
+      ],
+      "proposalId": "prop_l4_partial_review_20260722",
+      "schemaVersion": "v2",
+      "scope": {
+        "modify": [
+          {
+            "hash": "44ead091",
+            "id": "6a6076e0-2d3e-489e-9d13-41e329849649",
+            "kind": "BLOCK",
+            "version": 1
+          },
+          {
+            "hash": "a0b45744",
+            "id": "6a6076e0-62d9-4670-8ee5-7e61d0b0f449",
+            "kind": "BLOCK",
+            "version": 1
+          }
+        ],
+        "read": []
+      },
+      "source": {
+        "kind": "external_agent",
+        "skillVersion": "l4-partial-review-fixture@1"
+      },
+      "status": "PARTIALLY_ACCEPTED",
+      "title": "分别审阅两个独立任务",
+      "understanding": "两条记录可以分别正式化，任一审阅决定不依赖另一条。",
+      "unresolvedQuestions": []
+    },
+    "outcome": "FIRST_GROUP_ACCEPTED_SECOND_GROUP_REJECTED",
+    "finalStatus": "PARTIALLY_ACCEPTED",
+    "finalCommitExecuted": false,
+    "formalWrites": 0
+  },
+  "zeroWriteEvidence": {
+    "objectCount": 0,
+    "semanticCommitCount": 0,
+    "pendingCommitCount": 0,
+    "sourceBlocksUnchanged": true,
+    "sqliteIntegrity": "ok",
+    "foreignKeyViolations": 0,
+    "doctorStatus": "PASS"
+  },
+  "diagnostics": {
+    "defaultEventsObserved": [
+      "v2_provider_proposal_ready",
+      "v2_provider_no_proposal",
+      "v2_provider_proposal_revised"
+    ],
+    "exportedJsonlScanned": true,
+    "forbiddenPatternClasses": [
+      "http-auth-header",
+      "credential-prefix-plus-value",
+      "secret-looking-provider-token"
+    ],
+    "matches": 0,
+    "note": "Transient graph_read_bridge_transport_failed events occurred while the plugin iframe was reloading; the bridge subsequently reconnected and Doctor passed."
+  }
+}
