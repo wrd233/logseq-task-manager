@@ -1,6 +1,6 @@
 # V1 → V2 迁移设计
 
-> 状态：`V2_MIGRATION_DESIGN_READY`  
+> 状态：`V2_MIGRATION_DESIGN_READY / E2E14_COPIED_DATA_DESKTOP_PASS`
 > 日期：2026-07-20  
 > 约束：手动、小批次、幂等、可恢复；FileStorage 只读；切换后 SQLite 是唯一领域状态源。
 
@@ -88,4 +88,6 @@ SCANNED → PREVIEWED → IMPORTING → VERIFIED → ACTIVATED
 - 中断/继续、重复导入、单批 Undo、锁和损坏路径均有自动测试；
 - activation 前后可证明只有一个当前状态源；
 - 临时恢复演练和 Doctor 通过；
-- Desktop copied-data 迁移验收通过后才允许正式 Graph 迁移。
+- Desktop copied-data 迁移验收已通过；正式 Graph 迁移仍必须逐项审阅，并且只允许导入当前 Anchor 证据可接受的范围。
+
+2026-07-22 的真实 Test Graph Gate 使用 V1 Pilot 后 Recovery Bundle 完成 Scan、Preview、Backup、小批 Import、重放、Service 中断续作、Verify、Undo、重试和 Activate。已有 Anchor reconciliation 在源证据与当前 Graph 不一致时推进对象版本，使 Verify 明确拒绝且阻止 Activate；最终审阅范围排除了这些项，没有增加迁移专用扫描器或平行恢复路径。证据见 `docs/runtime/V2_MIGRATION_COPIED_DATA_DESKTOP_REPORT.md`。

@@ -14,6 +14,7 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 | V2-DEEPSEEK-L4 | 当前块、READY/NO_PROPOSAL、直接/调整后/部分接受、拒绝、日志与 Diagnostics | PASS — 详见 `docs/runtime/V2_DEEPSEEK_PROVIDER_L4_DESKTOP_REPORT.md` |
 | V2-REASONED-LIFECYCLE | Task 空原因拒绝、取消、显式重开、reload、Service 中断读回、Lifecycle Undo | PASS — 详见 `docs/runtime/V2_REASONED_LIFECYCLE_DESKTOP_REPORT.md` |
 | V2-UC28 | MiniProject Agent loading/失败/成功、三问回填、独立遗留 Proposal/Commit/Undo、非空保护 | PASS — 详见 `docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md` |
+| V2-MIGRATION | copied-data Scan/Preview、恢复点、小批 Import、重放、重启续作、Verify、Undo、重试、Activate 与只读面板 | PASS — 详见 `docs/runtime/V2_MIGRATION_COPIED_DATA_DESKTOP_REPORT.md` |
 
 ## 下一次集中 Desktop 检查
 
@@ -21,11 +22,10 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 
 1. 首次启用：空 Graph、欢迎页三入口、reload、无自动扫描/迁移/模型调用；
 2. Local Service 不可用/协议不兼容时，正文仍可编辑，正式语义写入明确受限；
-3. SQLite 初始化、持久化、backup/restore 与 Doctor；
-4. copied-data migration Scan/Preview、小批 Commit、中断继续、重复导入和单批 Undo；
-5. object_id、Primary Anchor、Commit 链和 Legacy mapping 证据完整；
-6. Proposal 暂缓/多组依赖组合与真实 Commit process-fault 恢复交互；
-7. Slice D L3/L4 已通过，不重复消耗在线额度；E2E-23 中取消、认证失败和限流继续保留非破坏性自动证据，除非真实运行自然出现对应失败才补在线分类。
+3. SQLite Restore 激活、Service stop/restart 与恢复后 Doctor；Backup create/validate 已通过，不重复验收；
+4. object_id、Primary Anchor、Commit 链和 Legacy mapping 证据完整；copied-data 迁移本身已通过，不重复执行；
+5. Proposal 暂缓/多组依赖组合与真实 Commit process-fault 恢复交互；
+6. Slice D L3/L4 已通过，不重复消耗在线额度；E2E-23 中取消、认证失败和限流继续保留非破坏性自动证据，除非真实运行自然出现对应失败才补在线分类。
 
 ## 已知限定
 

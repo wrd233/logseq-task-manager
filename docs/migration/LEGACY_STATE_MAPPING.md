@@ -1,6 +1,6 @@
 # Legacy Phase / Signal → V2 状态映射
 
-> 状态：设计已冻结，实现与真实迁移尚未开始。映射输出是可审阅候选，不是自动事实。
+> 状态：设计已冻结，自动化与 copied-data Desktop 迁移已通过。映射输出仍是可审阅候选，不是自动事实。
 
 ## 1. 目标模型
 
@@ -82,3 +82,4 @@ V2 不保留 Phase / Signal 当前轴。旧值仅出现在 `legacy_evidence`、�
 - 映射报告逐项说明理由与信息损失；
 - 撤销批次后无 V2 当前状态残留，源 bundle hash 不变。
 
+2026-07-22 真实 V1 Pilot 后 Recovery Bundle 已完成 Scan、完整人工 Decisions、小批 Import/Verify/Undo/重试/Activate 与只读 Plugin 工作区 Gate。源内 Anchor 冲突继续为 `STRUCTURAL_ERROR`；当前 Graph 已失效但源 Bundle 仍标 active 的 Anchor 在首轮导入后由既有 reconciliation 更新，并使 Verify 安全拒绝、没有 Activate。最终只导入当前 Anchor 可解析的审阅范围；详见 `docs/runtime/V2_MIGRATION_COPIED_DATA_DESKTOP_REPORT.md`。
