@@ -55,10 +55,42 @@ test("Logseq read bridge resolves block refs, reports absence, and fails closed 
   };
   const resolved = await executeGraphReadRequest(request({ kind: "RESOLVE", target: "((block-resolved))" }), host, at);
   assert.equal(resolved.status, "FOUND");
-  if (resolved.status === "FOUND") assert.equal(resolved.snapshot.resolved.id, "block-resolved");
+  if (resolved.status === "FOUND") {
+    assert.equal(resolved.snapshot.resolved.id, "block-resolved");
+    assert.equal(resolved.snapshot.requestedTarget, "((block-resolved))", "broker correlation retains the caller's resolve target");
+  }
   assert.equal((await executeGraphReadRequest(request({ kind: "BLOCK", target: "missing", includeChildren: true, parents: 2 }), host, at)).status, "NOT_FOUND");
 
   const malformed: GraphReadBridgeHost = { ...host, getPage: async () => ({ uuid: "page-without-name" }), getPageBlocksTree: async () => "not-an-array" };
   const error = await executeGraphReadRequest(request({ kind: "PAGE", target: "broken", depth: 2 }), malformed, at);
   assert.equal(error.status, "NOT_FOUND", "a page without a canonical name is not invented");
+});
+
+test("Logseq read bridge accepts Desktop entity references and stops block parents at the page", async () => {
+  const page = { id: 10, uuid: "page-real-shape", name: "task copilot/desktop shape", originalName: "Task Copilot/Desktop Shape" };
+  const root = { id: 20, uuid: "block-real-root", content: "root", parent: { id: 10 }, page: { id: 10 }, children: [] };
+  const child = { id: 30, uuid: "block-real-child", content: "child", parent: { id: 20 }, page: { id: 10 }, children: [] };
+  const blockTargets: unknown[] = [];
+  const pageTargets: unknown[] = [];
+  const host: GraphReadBridgeHost = {
+    getPage: async (target) => { pageTargets.push(target); return target === 10 ? page : undefined; },
+    getPageBlocksTree: async () => [root],
+    getBlock: async (target) => {
+      blockTargets.push(target);
+      if (target === "block-real-root" || target === 20) return root;
+      if (target === "block-real-child") return child;
+      throw new Error("SDK rejected page identity passed to getBlock");
+    },
+  };
+
+  const rootResult = await executeGraphReadRequest(request({ kind: "BLOCK", target: "block-real-root", includeChildren: false, parents: 2 }), host, at);
+  assert.equal(rootResult.status, "FOUND");
+  assert.deepEqual(blockTargets, ["block-real-root"], "the page parent is not misread as a block");
+  assert.deepEqual(pageTargets, [10], "the Page entity object is reduced to its accepted Logseq ID");
+  if (rootResult.status === "FOUND") assert.equal(rootResult.snapshot.blocks[0]?.pageName, "Task Copilot/Desktop Shape");
+
+  blockTargets.length = 0;
+  const childResult = await executeGraphReadRequest(request({ kind: "BLOCK", target: "block-real-child", includeChildren: false, parents: 2 }), host, at);
+  assert.equal(childResult.status, "FOUND");
+  assert.deepEqual(blockTargets, ["block-real-child", 20], "Block entity parent IDs remain traversable");
 });

@@ -1,6 +1,6 @@
 # ADR：Logseq Desktop 瞬态 Graph 只读桥接
 
-- 状态：accepted by automated integration; Desktop Gate pending
+- 状态：accepted；automated integration + Logseq Desktop Gate passed
 - 日期：2026-07-22
 - 对应：D-132、D-133、D-135；V2 §35.8、§37.2-37.3、§39；E2E-13
 
@@ -34,4 +34,4 @@ CLI 必须能确定性读取 `block / page` 少量范围并导出 Context Packag
 - 真实 Local Service + CLI 集成已写出含 `graph/page.json`、正式对象、Skill、hash manifest 的私有 Context Package，前后 Object/Proposal/Commit 计数不变；
 - Doctor 只报告 bridge connected/not-connected 与等待计数，不导出正文。
 
-这些自动证据不替代 Logseq Desktop：真实页面名/UUID、Block tree shape、reload/reconnect 和 CLI→Desktop Review 跨入口仍须在集中 Desktop Gate 验收。
+真实 Logseq Desktop 0.10.15 随后完成页面名/UUID、Page/Block entity reference、父链 Page 边界、reload 后 UUID 变化、wrapped resolve、Context Package、CLI→DeepSeek 外部 Agent→Plugin Review 跨入口验收。真实 SDK shape 只要求在既有 Adapter 中归一 entity ID 并保留 resolve 原始 target，没有改变本 ADR 的协议、权威或复杂度决定；详见 `docs/runtime/V2_E2E13_GRAPH_CONTEXT_DESKTOP_REPORT.md`。

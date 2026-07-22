@@ -43,14 +43,24 @@ function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }
 
-function blockReference(value: unknown): unknown {
-  if (!Array.isArray(value)) return value;
-  return value.length === 2 && typeof value[1] === "string" ? value[1] : value[0];
+function entityReference(value: unknown): unknown {
+  if (Array.isArray(value)) return value.length === 2 && typeof value[1] === "string" ? value[1] : value[0];
+  const source = record(value);
+  if (!source) return value;
+  if (typeof source.uuid === "string" && source.uuid.trim()) return source.uuid;
+  if (typeof source.id === "string" || typeof source.id === "number") return source.id;
+  return stringField(source, "originalName") ?? stringField(source, "name") ?? value;
+}
+
+function sameEntityReference(left: unknown, right: unknown): boolean {
+  const normalizedLeft = entityReference(left);
+  const normalizedRight = entityReference(right);
+  return (typeof normalizedLeft === "string" || typeof normalizedLeft === "number") && normalizedLeft === normalizedRight;
 }
 
 async function normalizeBlock(value: unknown, host: GraphReadBridgeHost): Promise<RawBlock | undefined> {
   let source = record(value);
-  if (!source) source = record(await host.getBlock(blockReference(value), { includeChildren: false }));
+  if (!source) source = record(await host.getBlock(entityReference(value), { includeChildren: false }));
   if (!source) return undefined;
   const uuid = stringField(source, "uuid");
   if (!uuid || typeof source.content !== "string") return undefined;
@@ -122,12 +132,13 @@ async function pageSnapshot(request: Extract<ServiceGraphReadRequest, { kind: "P
 async function blockSnapshot(request: Extract<ServiceGraphReadRequest, { kind: "BLOCK" }>, host: GraphReadBridgeHost, at: Date): Promise<ServiceGraphSnapshot | undefined> {
   const root = await normalizeBlock(await host.getBlock(request.target, { includeChildren: request.includeChildren }), host);
   if (!root) return undefined;
-  const page = root.page === undefined ? undefined : normalizePage(await host.getPage(root.page));
+  const page = root.page === undefined ? undefined : normalizePage(await host.getPage(entityReference(root.page)));
   const parents: ServiceGraphBlockExcerpt[] = [];
   const seen = new Set<string>([root.uuid]);
   let parentReference = root.parent;
   for (let distance = 1; distance <= request.parents && parentReference !== undefined; distance += 1) {
-    const parent = await normalizeBlock(await host.getBlock(parentReference, { includeChildren: false }), host);
+    if (root.page !== undefined && sameEntityReference(parentReference, root.page)) break;
+    const parent = await normalizeBlock(await host.getBlock(entityReference(parentReference), { includeChildren: false }), host);
     if (!parent || seen.has(parent.uuid)) break;
     seen.add(parent.uuid);
     parents.unshift(excerpt(parent, "PARENT", distance, page));
@@ -169,6 +180,7 @@ export async function executeGraphReadRequest(request: ServiceGraphReadRequest, 
         const pageRequest: Extract<ServiceGraphReadRequest, { kind: "PAGE" }> = { ...request, kind: "PAGE", target: request.target, depth: 0 };
         snapshot = await pageSnapshot(pageRequest, host, at);
       }
+      if (snapshot) snapshot = { ...snapshot, requestedTarget: request.target };
     }
     return snapshot ? { requestId: request.requestId, status: "FOUND", snapshot } : { requestId: request.requestId, status: "NOT_FOUND" };
   } catch (error) {

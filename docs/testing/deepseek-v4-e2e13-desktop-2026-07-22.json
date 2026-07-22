@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-22T07:13:52.802Z",
+  "gate": "E2E-13",
+  "provider": "deepseek",
+  "model": "deepseek-v4-flash",
+  "secret_reference": "keychain:task-copilot/deepseek-v4",
+  "context_package": {
+    "scope": { "kind": "page", "id": "Task Copilot/V2 Graph Context Gate/2026-07-22-1505" },
+    "package_fingerprint": "83156722d2e68c525f0da9d685272effa8a7fed6630961419ddb86b2aa257d10",
+    "manifest_sha256": "a43183d386ce610be6fdb8977771feeaba19a3fd8b3a7bea11abc74f572b5286",
+    "graph_scope_hash": "e7eaa924",
+    "block_id": "6a606be9-e7ad-45aa-a79f-2187dc04655a",
+    "block_hash": "c8fd796b",
+    "input_sha256": "cb5ac0061b6687be9c421418804b348ac4cf5dac511a38803358ecac7f131de6"
+  },
+  "prompt_layers": {
+    "core": "task-copilot-v2-core-1",
+    "domain": "task-copilot-v2-e2e13-domain-1",
+    "skill": "task-copilot-core-context-package-1",
+    "user_semantics": "e2e13-default-writing-1",
+    "runtime_context": "e2e13-desktop-context-20260722"
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "outcome": "VALIDATOR_REJECTED",
+      "validator_code": "V2_PROPOSAL_GROUP_SHAPE_INVALID",
+      "finding": "The model returned Structured JSON but omitted required operation-group shape fields. The Domain Validator rejected it before Proposal persistence.",
+      "prompt_adjustment": "Changed requiredGroupShape from a partial shape plus prose completion request to a complete exact-field template.",
+      "raw_candidate_retained": false,
+      "graph_writes": 0,
+      "formal_store_writes": 0
+    },
+    {
+      "attempt": 2,
+      "outcome": "VALIDATED_PROPOSAL",
+      "finish_reason": "stop",
+      "provider_attempts": 1,
+      "duration_ms": 14922,
+      "prompt_tokens": 1523,
+      "completion_tokens": 1474,
+      "total_tokens": 2997,
+      "request_id_sha256": "5b550f24fdc73872a377011f6e514eef7c646f161769af5b40fa4c6d4aa7feee",
+      "raw_candidate": {
+        "title": "正式化任务：整理 Graph Context Desktop Gate 验收证据",
+        "context": "当前 Graph Context Desktop Gate 的验收证据整理工作以普通 Block 形式存在，需要正式化为 TASK 对象以便跟踪。",
+        "understanding": "该 Block 内容为口语化描述，缺少任务标记，符合转换为正式任务的条件。",
+        "objective": "将原文改写为以 [任务] 开头的正式表述，并创建对应的 TASK 对象。",
+        "logic": "1. 文本内容明确指示整理证据并提交审阅，适合作为任务。\n2. 保留原文全部事实，仅添加任务前缀。\n3. 创建 TASK 对象与改写后的 Block 内容一致。",
+        "finalPreview": "[任务] 今天整理 Graph Context Desktop Gate 的验收证据并提交审阅",
+        "unresolvedQuestions": [],
+        "scope": { "read": [], "modify": [{ "hash": "c8fd796b", "id": "6a606be9-e7ad-45aa-a79f-2187dc04655a", "kind": "BLOCK" }] },
+        "preconditions": ["Block 正文与 hash 未变化"],
+        "groups": [{
+          "dependencies": [],
+          "disposition": "PENDING",
+          "explanation": "将当前普通正文与同一 TASK 对象作为一个不可拆分的可恢复变更审阅。",
+          "groupId": "formalize-task",
+          "independentlyAcceptable": true,
+          "risk": "MEDIUM",
+          "semanticOperations": [{
+            "kind": "CREATE_OBJECT",
+            "operationId": "create-task",
+            "payload": { "objectType": "TASK", "text": "[任务] 今天整理 Graph Context Desktop Gate 的验收证据并提交审阅" },
+            "preconditions": ["Block 正文与 hash 未变化"],
+            "summary": "创建同一 TASK 对象",
+            "target": { "hash": "c8fd796b", "id": "6a606be9-e7ad-45aa-a79f-2187dc04655a", "kind": "BLOCK" }
+          }],
+          "textPatches": [{
+            "afterText": "[任务] 今天整理 Graph Context Desktop Gate 的验收证据并提交审阅",
+            "beforeText": "今天整理 Graph Context Desktop Gate 的验收证据并提交审阅",
+            "blockUuid": "6a606be9-e7ad-45aa-a79f-2187dc04655a"
+          }]
+        }]
+      },
+      "machine_normalization": ["proposal envelope", "external_agent source", "beforeHash", "afterHash", "schema validation", "scope validation"],
+      "graph_writes": 0,
+      "formal_store_writes": 0
+    }
+  ],
+  "cross_entry_result": {
+    "before": { "objects": 0, "proposals": 0, "semantic_commits": 0 },
+    "after_cli_validate": { "objects": 0, "proposals": 0, "semantic_commits": 0 },
+    "after_cli_submit": { "objects": 0, "proposals": 1, "semantic_commits": 0, "formal_writes_executed": false },
+    "after_desktop_review": { "objects": 0, "proposals": 1, "semantic_commits": 0, "proposal_status": "ACCEPTED", "graph_block_hash": "c8fd796b" }
+  },
+  "security": {
+    "api_key_present": false,
+    "authorization_present": false,
+    "raw_request_id_present": false,
+    "absolute_descriptor_path_present": false,
+    "model_submitted_proposal": false
+  }
+}

@@ -1,7 +1,7 @@
 # DeepSeek v4 真实在线测试报告
 
 > 更新：2026-07-22
-> 结果：`L2_SUCCESS_PATH_PASS_L3_FLASH_PRO_PASS_DESKTOP_PENDING`。E2E-21 的认证、实际模型、中文与 Schema 正向 Gate 已通过；严格无答案黄金套件已在 Flash 与 Pro 各完成 22/22，L4 与 Desktop 仍未完成。
+> 结果：`L2_SUCCESS_PATH_PASS_L3_FLASH_PRO_PASS_E2E13_DESKTOP_PASS`。E2E-21 的认证、实际模型、中文与 Schema 正向 Gate 已通过；严格无答案黄金套件已在 Flash 与 Pro 各完成 22/22，E2E-13 外部 Agent 跨入口已通过，Provider 当前块 L4 与默认日志/Diagnostics 仍未完成。
 
 ## 安全配置与边界
 
@@ -63,6 +63,8 @@ UC-28 的专用 MiniProject Closure 草拟端点也以合成内容真实通过�
 - DS-09 的跨持久化 Candidate/Proposal 相邻去重仍由 Candidate Gate 证明；
 - L4 的直接接受、部分接受、编辑后接受、拒绝与 Desktop Review 仍未完成。
 
+E2E-13 已补充一条不同于 Plugin 当前块 Provider 的真实外部 Agent Desktop 证据：DeepSeek v4 Flash 从实时 Page Context Package 生成候选，首轮虽是 Structured JSON，仍因 operation group shape 不完整被 Domain Validator 零写入拒绝；改为完整逐字段模板后，第二轮 1 attempt / 2997 tokens 通过。该 Proposal 经 CLI validate/submit 后在 Logseq Review Center 显示原文、最终预览、Diff 与模型来源，接受语义组后 Object/Commit 仍为 0。它证明 Context/CLI/Review 边界，但不冒充尚未完成的 Plugin Provider L4。原始成功候选和首轮失败分类见 `docs/testing/deepseek-v4-e2e13-desktop-2026-07-22.json`。
+
 P0 仍为 0：无凭据泄露、无模型直写、无非法输出进入审阅、无高影响降级、无静默覆盖；但 P0=0 不代表 L3/L4 通过。
 
 ## 真实失败与调整证据
@@ -85,4 +87,4 @@ P0 仍为 0：无凭据泄露、无模型直写、无非法输出进入审阅、
 - `E2E-23`: `AUTOMATED_PLUS_LIVE_PARTIAL`；真实截断与 timeout 零写入失败已取得，取消/认证/限流不以破坏性在线请求制造，因此 L2 整体仍部分；
 - `E2E-24`: `LIVE_SECRET_SCAN_PASS`；真实 Keychain 引用和运行后 repo/Graph canary 扫描通过，Desktop 日志/最终诊断导出随 E2E-22 集中复验。
 
-完整脱敏矩阵（供外部质量分析）见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`；其中不包含原始响应、Authorization、Bearer 或 Key。
+完整脱敏黄金矩阵见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`；E2E-13 外部 Agent 的原始成功候选、规范化 Proposal、首轮失败分类与跨入口计数见 `docs/testing/deepseek-v4-e2e13-desktop-2026-07-22.json`。二者都不包含 Authorization、Bearer 或 Key。
