@@ -4,7 +4,7 @@
 >
 > Logseq：Desktop 0.10.15
 >
-> 状态：`CREATE_CANDIDATE_DESKTOP_PASS / UPDATE_CANDIDATE_DESKTOP_PASS / E2E-12_DONE`。新建显式对象的四处置、Proposal、Review、Commit、Undo 与 reload 已通过；UPDATE 也已在真实 Logseq Desktop 完成目标选择、Diff、accepted-not-applied、Commit、reload、Undo、再次 reload 与 stale 零写入。
+> 状态：`CREATE_CANDIDATE_DESKTOP_PASS / UPDATE_CANDIDATE_DESKTOP_PASS / MULTI_STALE_DESKTOP_PASS / E2E-12_DONE`。新建显式对象的四处置、Proposal、Review、Commit、Undo 与 reload 已通过；UPDATE 也已在真实 Logseq Desktop 完成目标选择、Diff、accepted-not-applied、Commit、reload、Undo、再次 reload 与 stale 零写入；多项列表、非法项计数、正文过期和逐项处理也已补齐。
 
 ## 1. 隔离环境
 
@@ -104,3 +104,22 @@ Desktop 暴露的 identity-only 假 stale 修复不新增表、状态、协议�
 - UPDATE 真实 Desktop 已通过：用户明确选择现有 Block 对象并编辑完整最终正文；来源与目标重读后只生成单组 `REWRITE_BLOCK` Proposal，READY/ACCEPTED 零正式写入，最终复用既有 SemanticCommit 更新同一 object_id，Undo 恢复旧正文而不删除对象。
 - identity-only 版本刷新和真正正文 stale 零写入均已有自动与 Desktop 证据；没有新增表、状态机、Commit 类型或恢复器。
 - `E2E-12` 的原文优先、四处置、Candidate/Proposal 分离、CREATE 与 UPDATE 闭环已满足，可升级为 `DONE`。审阅中心更广的筛选、键盘和主题 Gate 仍由 `V2-VIEW-001` 独立跟踪，不回退本 E2E。
+
+## 7. 多项、过期与同步旁路关闭 — PASS
+
+在隔离页 `Task Copilot/V2 Candidate Multi Gate/2026-07-22` 与独立 schema v11 SQLite 中，使用当前插件提交 `979b4409a646`：
+
+| Desktop 步骤 | 真实结果 |
+| --- | --- |
+| 有界当前页预览 | 处理 4 个 Block，识别 TASK + OUTPUT 2 个合法候选，明确计数 1 个类型冲突项 |
+| 保存整批 Candidate | Candidate 0→2；Object/Proposal/Commit 均为 0 |
+| 编辑第一个 Candidate 正文 | 显式同步收到 `V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED`，连接保持 READY，Object 仍为 0 |
+| 用旧 Candidate 视图正式化 | UI 明确显示“来源 Block 已变化；请重新扫描”，Object/Proposal 均为 0 |
+| 重新扫描后只处理一项 | 只产生 1 个 OUTPUT Proposal，另一 Candidate 保持 PENDING |
+| READY / ACCEPTED | Object 始终为 0，提交前检查和最终确认均可见 |
+| 最终 Commit | 只生成 1 个 OUTPUT v2；Candidate `RESOLVED`；Proposal `APPLIED`；正向 Commit `COMPLETED` |
+| 独立 Undo | Object 回到 0；两个 Candidate 均 `PENDING`；正向 Commit `UNDONE`；逆向 Commit `COMPLETED` |
+
+本轮暴露的真实缺陷是：来源已有 SQLite Candidate 时，`/objects/synchronize` 仍可将无 Anchor Block 直接物化，绕过 Candidate→Proposal→Review。修复没有增加表、状态、协议或写入路径：Service 只使用现有 `candidate_source_kind_current` 索引查找未完成 Candidate，对“无 Anchor + 已进入 Candidate 审阅”返回 409；Plugin 将它作为可见终态语义冲突，删除当前 pending 但不误判 Service 掉线。已有 Anchor 的正常对象同步不受影响。
+
+结束时 `tc doctor` 为 `PASS`：SQLite integrity `ok`、11 PASS / 0 FAIL；唯一 WARN 为该临时库尚未创建 Backup，不是一致性失败。脱敏结构化证据见 `docs/testing/v2-candidate-multi-stale-desktop-2026-07-22.json`。

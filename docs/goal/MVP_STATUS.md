@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress with first-run, restricted Service and SQLite Restore Desktop pass; Slice B1 finite-subtree user loop Desktop pass; Slice B3 Marker, MiniProject three-question Closure, UC-28 Agent/legacy transfer and Task reasoned lifecycle Desktop pass; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice D DeepSeek L4 Desktop pass; Slice E Now Work interactive foundation; Slice F copied-data migration and Project Closure Desktop pass"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 431 tests; 145 rules; 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 433 tests; 145 rules; 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -87,7 +87,7 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 E2E-17: isolated Task v2 snapshot to v3 mutation to Restore passed; missing confirmation sent no request, recovery point retained v3, active DB returned to v2, descriptor disappeared, Service exited with Desktop open, Plugin automatically became restricted, same DB restart returned READY and Doctor 12 PASS/0 WARN"
   - "V2 Desktop 0.10.15 V2-FIRST-001/E2E-15: descriptor-missing three-entry welcome, SERVICE_UNAVAILABLE, SERVICE_PROTOCOL_MISMATCH, restricted reload and same-UUID ordinary body editing passed with Store NOT_STARTED, formal writes false, no automatic scan/migration/Provider call and no persistent queue"
 runtime_checks_pending:
-  - "V2 current-page Candidate one-at-a-time failure paths, Proposal reject/defer and process-fault, finite-subtree exact truncation/unload engineering edges, and remaining recovery Desktop Gates"
+  - "Proposal defer/dependency and process-fault, finite-subtree exact truncation/unload engineering edges, Project/Area filtering, keyboard/theme, and remaining recovery Desktop Gates; current-page Candidate multi-item/stale failure paths are complete"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
