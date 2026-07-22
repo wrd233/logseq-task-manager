@@ -26,6 +26,8 @@ test("shell exposes restrained core workspaces and no-agent degradation", () => 
   for (const label of ["Inbox", "现在工作", "对象", "Proposal Review", "Project 重入", "迁移", "审计与恢复"]) assert.match(html, new RegExp(label));
   assert.match(html, /Agent disabled/);
   assert.match(html, /基础事务系统可用/);
+  assert.match(html, /<nav aria-label="主要工作区">/);
+  assert.match(html, /data-value="objects" aria-current="page"/);
 });
 
 test("Migration workspace projects the Service ledger without accepting bundle content or direct writes", () => {
@@ -280,6 +282,10 @@ test("Review Center owns manual current-page candidate discovery instead of Diag
   assert.match(html, /不扫描全 Graph/);
   assert.match(html, /data-action="review-mode" data-value="candidates"/);
   assert.match(html, /data-action="review-mode" data-value="proposals"/);
+  assert.match(html, /role="group" aria-label="审阅中心视图"/);
+  assert.match(html, /data-value="candidates" aria-pressed="true"/);
+  assert.match(html, /data-value="proposals" aria-pressed="false"/);
+  assert.doesNotMatch(html, /role="tablist"/);
 });
 
 test("Review Center renders persisted Candidate decisions and Proposal generation without direct formal writes", () => {

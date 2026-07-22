@@ -320,7 +320,8 @@ function renderReview(model: UiModel): string {
   const candidatePanel = model.v2CandidatePanel ? renderV2ExplicitCandidateDiscoveryPanel(model.v2CandidatePanel, Boolean(model.v2CandidateAvailable), model.v2Candidates, model.v2CandidateSourcePreviews) : "";
   const candidateCount = (model.v2Candidates ?? []).filter(({ disposition, deferredUntil }) => disposition === "PENDING" || (disposition === "LATER" && deferredUntil !== undefined && Date.parse(deferredUntil) <= Date.now())).length;
   const proposalCount = open.length + v2.filter((record) => !["APPLIED", "REJECTED"].includes(record.proposal.status)).length;
-  const tabs = `<div class="actions review-modes" role="tablist" aria-label="审阅中心视图">${button(`待整理${candidateCount ? ` (${candidateCount})` : ""}`, "review-mode", "candidates", reviewMode === "candidates" ? "primary" : "quiet")}${button(`待审阅${proposalCount ? ` (${proposalCount})` : ""}`, "review-mode", "proposals", reviewMode === "proposals" ? "primary" : "quiet")}</div>`;
+  const reviewModeButton = (label: string, value: "candidates" | "proposals") => `<button type="button" class="${reviewMode === value ? "primary" : "quiet"}" data-action="review-mode" data-value="${value}" aria-pressed="${reviewMode === value}">${escapeHtml(label)}</button>`;
+  const tabs = `<div class="actions review-modes" role="group" aria-label="审阅中心视图">${reviewModeButton(`待整理${candidateCount ? ` (${candidateCount})` : ""}`, "candidates")}${reviewModeButton(`待审阅${proposalCount ? ` (${proposalCount})` : ""}`, "proposals")}</div>`;
   if (reviewMode === "candidates") {
     const providerState = model.v2ProviderState ?? { status: "idle" as const };
     const providerPanel = model.v2ProviderAvailable
@@ -613,7 +614,7 @@ export function renderApp(model: UiModel): string {
     <div class="agent-state ${model.agent.enabled ? "enabled" : "disabled"}">Agent ${model.agent.enabled ? `Demo · ${escapeHtml(model.agent.providerId)}` : "disabled · 基础事务系统可用"}</div>
     ${model.message ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${model.error ? `<div class="error"><strong>未执行：</strong>${escapeHtml(model.error)}<span>请修正后重试；系统不会静默覆盖。</span></div>` : ""}
-    <nav>${labels.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}">${label}</button>`).join("")}</nav>
+    <nav aria-label="主要工作区">${labels.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}"${model.workspace === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}</nav>
     <main class="workspace" data-workspace="${model.workspace}">${renderActionDialog(model)}${body}</main>
   </section>`;
 }

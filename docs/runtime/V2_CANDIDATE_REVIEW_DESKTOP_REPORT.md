@@ -103,7 +103,7 @@ Desktop 暴露的 identity-only 假 stale 修复不新增表、状态、协议�
 - Commit / Undo / reload：PASS。
 - UPDATE 真实 Desktop 已通过：用户明确选择现有 Block 对象并编辑完整最终正文；来源与目标重读后只生成单组 `REWRITE_BLOCK` Proposal，READY/ACCEPTED 零正式写入，最终复用既有 SemanticCommit 更新同一 object_id，Undo 恢复旧正文而不删除对象。
 - identity-only 版本刷新和真正正文 stale 零写入均已有自动与 Desktop 证据；没有新增表、状态机、Commit 类型或恢复器。
-- `E2E-12` 的原文优先、四处置、Candidate/Proposal 分离、CREATE 与 UPDATE 闭环已满足，可升级为 `DONE`。审阅中心更广的筛选、键盘和主题 Gate 仍由 `V2-VIEW-001` 独立跟踪，不回退本 E2E。
+- `E2E-12` 的原文优先、四处置、Candidate/Proposal 分离、CREATE 与 UPDATE 闭环已满足，可升级为 `DONE`。审阅中心更广的筛选、键盘和主题也已由后续 `V2-VIEW-001` 专项完成。
 
 ## 7. 多项、过期与同步旁路关闭 — PASS
 

@@ -28,4 +28,4 @@
 
 ## 范围边界
 
-本 Gate 完成 `V2-VIEW-001` 的 Project / Area 类型筛选与按类型分组 Desktop 验收。键盘操作、深浅主题和 Review Center 整体视觉 Gate 仍未完成，因此 `V2-VIEW-001` 保持 `DESKTOP_PARTIAL_PASS`。
+本 Gate 完成 `V2-VIEW-001` 的 Project / Area 类型筛选与按类型分组 Desktop 验收。后续键盘、深浅主题和 Review Center 整体视觉收口见 `docs/runtime/V2_VIEW_KEYBOARD_THEME_DESKTOP_REPORT.md`；两份证据合并后 `V2-VIEW-001` 为 `DONE`。

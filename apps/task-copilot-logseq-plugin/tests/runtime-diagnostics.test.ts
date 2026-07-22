@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BootstrapRegistration, COMMAND_KEYS, bindRootClick, type BootstrapCallbacks, type BootstrapHost } from "../src/bootstrap-shell.ts";
+import { BootstrapRegistration, COMMAND_KEYS, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "../src/bootstrap-shell.ts";
 import {
   MAIN_UI_ROOT_ID,
   MODEL_DIAGNOSTICS,
@@ -160,4 +160,23 @@ test("reload cleanup removes the delegated UI listener exactly once", () => {
   cleanup();
   cleanup();
   assert.deepEqual({ added, removed }, { added: 1, removed: 1 });
+});
+
+test("UI refresh restores the same keyboard control without relying on text or DOM position", () => {
+  const before = {
+    dataset: { action: "review-mode", value: "proposals" },
+    getAttribute: (name: string) => name === "data-field" ? null : null,
+  } as unknown as HTMLElement;
+  const token = captureUiFocus(before);
+  assert.deepEqual(token, { action: "review-mode", value: "proposals" });
+
+  let matchingFocused = 0;
+  const controls = [
+    { dataset: { action: "review-mode", value: "candidates" }, getAttribute: () => null, focus: () => undefined },
+    { dataset: { action: "review-mode", value: "proposals" }, getAttribute: () => null, focus: () => { matchingFocused += 1; } },
+  ] as unknown as HTMLElement[];
+  const root = { querySelectorAll: () => controls } as unknown as Pick<HTMLElement, "querySelectorAll">;
+  assert.equal(restoreUiFocus(root, token), true);
+  assert.equal(matchingFocused, 1);
+  assert.equal(restoreUiFocus(root, { action: "review-mode", value: "missing" }), false);
 });

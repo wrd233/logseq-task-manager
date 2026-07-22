@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "gate": "V2_VIEW_KEYBOARD_THEME_DESKTOP",
+  "status": "PASS",
+  "testedAt": "2026-07-22T11:59:00.000Z",
+  "environment": {
+    "logseqVersion": "0.10.15",
+    "nodeVersion": "20.20.2",
+    "databaseSchemaVersion": 11,
+    "graphId": "logseq-v2-desktop-20260720"
+  },
+  "keyboard": [
+    {
+      "scenario": "review-proposals-enter",
+      "result": "PASS",
+      "activationKey": "Enter",
+      "activeControlAfterRender": "review-mode:proposals",
+      "ariaPressed": true,
+      "visibleState": "没有待审查 Proposal"
+    },
+    {
+      "scenario": "review-candidates-space",
+      "result": "PASS",
+      "activationKey": "Space",
+      "activeControlAfterRender": "review-mode:candidates",
+      "ariaPressed": true,
+      "focusVisible": true,
+      "visibleState": ["Candidate 审阅队列", "扫描当前页候选"]
+    },
+    {
+      "scenario": "workspace-navigation-enter",
+      "result": "PASS",
+      "activationKey": "Enter",
+      "activeControlAfterRender": "view:now",
+      "ariaCurrent": "page",
+      "visibleFocusCards": 2
+    }
+  ],
+  "themes": {
+    "light": {
+      "mediaMatched": true,
+      "bg": "#f6f7f4",
+      "surface": "#ffffff",
+      "text": "#1d2823",
+      "accent": "#176b50"
+    },
+    "dark": {
+      "mediaMatched": true,
+      "bg": "#17201c",
+      "surface": "#202c27",
+      "text": "#edf4ef",
+      "accent": "#6dd8ac"
+    },
+    "nativeColorScheme": "light dark"
+  },
+  "formalStateAfter": {
+    "auditCount": 4,
+    "focusCount": 2,
+    "focusRanks": [0, 1],
+    "pendingOrRecoveryCommitCount": 0
+  },
+  "newPersistentMechanism": false,
+  "secretsPersisted": false
+}

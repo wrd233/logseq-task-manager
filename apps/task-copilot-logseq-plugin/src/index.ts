@@ -27,7 +27,7 @@ import {
   renderRuntimeDiagnostics,
   type RuntimeStage,
 } from "./runtime-diagnostics.ts";
-import { BootstrapRegistration, bindRootClick, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
+import { BootstrapRegistration, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
 import { renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
 import { InboxActionController, createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger } from "./structured-logger.ts";
@@ -401,6 +401,7 @@ async function refresh(): Promise<void> {
     return;
   }
   let primaryHtml: string;
+  const focusToken = root.contains(document.activeElement) ? captureUiFocus(document.activeElement as HTMLElement) : undefined;
   try {
     const renderedModel = await model();
     primaryHtml = renderApp(renderedModel);
@@ -414,6 +415,8 @@ async function refresh(): Promise<void> {
   if (mounted.fallbackUsed) {
     diagnostics.fail("APPLICATION_READY", mounted.error);
     featureReady = false;
+  } else {
+    restoreUiFocus(root, focusToken);
   }
 }
 

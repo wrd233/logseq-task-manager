@@ -81,3 +81,34 @@ export function bindRootClick(
     root.removeEventListener("click", listener);
   };
 }
+
+export interface UiFocusToken {
+  action?: string;
+  value?: string;
+  field?: string;
+}
+
+export function captureUiFocus(element: HTMLElement | null): UiFocusToken | undefined {
+  if (!element) return undefined;
+  const action = element.dataset.action;
+  const value = element.dataset.value;
+  const field = element.getAttribute("data-field") ?? undefined;
+  if (!action && !field) return undefined;
+  return {
+    ...(action ? { action } : {}),
+    ...(value ? { value } : {}),
+    ...(field ? { field } : {}),
+  };
+}
+
+export function restoreUiFocus(root: Pick<HTMLElement, "querySelectorAll">, token: UiFocusToken | undefined): boolean {
+  if (!token) return false;
+  const match = Array.from(root.querySelectorAll<HTMLElement>("[data-action], [data-field]")).find((element) => (
+    element.dataset.action === token.action
+    && element.dataset.value === token.value
+    && (element.getAttribute("data-field") ?? undefined) === token.field
+  ));
+  if (!match) return false;
+  match.focus({ preventScroll: true });
+  return true;
+}

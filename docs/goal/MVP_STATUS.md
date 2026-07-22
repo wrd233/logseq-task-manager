@@ -89,8 +89,9 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 V2-FIRST-001/E2E-15: descriptor-missing three-entry welcome, SERVICE_UNAVAILABLE, SERVICE_PROTOCOL_MISMATCH, restricted reload and same-UUID ordinary body editing passed with Store NOT_STARTED, formal writes false, no automatic scan/migration/Provider call and no persistent queue"
   - "V2 Desktop 0.10.15 Area: controlled creation, same-object edit v1 to v2, concurrent v3 stale refusal with zero overwrite, no implicit Graph page/Anchor, and Doctor PASS"
   - "V2 Desktop 0.10.15 Now Work Project/Area filters: real Area and anchored Project Focus entries, type grouping, no partial-order controls, unchanged object versions/ranks and zero filter Audit writes"
+  - "V2 Desktop 0.10.15 V2-VIEW-001: Review and workspace keyboard activation with focus restoration and visible focus ring, correct current/pressed semantics, distinct Light/Dark renderer tokens, and zero formal writes"
 runtime_checks_pending:
-  - "Proposal defer/dependency and process-fault, finite-subtree exact truncation/unload engineering edges, keyboard/theme, Review Center visual closure, and remaining recovery Desktop Gates; current-page Candidate multi-item/stale failure paths and Now Work Task/Project/Area filters are complete"
+  - "Proposal defer/dependency and process-fault, finite-subtree exact truncation/unload engineering edges, and remaining recovery Desktop Gates; V2-VIEW-001 keyboard/theme/Review Center and Now Work Task/Project/Area filters are complete"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"

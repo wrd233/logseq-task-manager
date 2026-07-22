@@ -34,4 +34,4 @@ Candidate(SQLite authority) + 来源 Block(Logseq authority)
 - 只支持具有 active Block Primary Anchor 的四类对象；Area 与 Project 不使用 Block 改写入口。
 - UPDATE 必须保留目标 Marker；Lifecycle 变化继续走既有 Marker/Lifecycle 专用入口，避免一个正文更新 Proposal 暗含第二种状态变更语义。
 - 最终正文由用户明确编辑，不自动拼接 Candidate 原文，避免模型或字符串规则静默覆盖目标。
-- 真实 Logseq Desktop 已通过目标选择、红/绿文本与 `REWRITE_BLOCK` 语义 Diff、accepted-not-applied、同 object_id Commit、reload、Undo、再 reload、Candidate reopen 与 stale 零写入，`E2E-12` 为 `DONE`。审阅中心更广的列表、Project/Area 筛选、键盘与主题 Gate 由 `V2-VIEW-001` 独立跟踪。
+- 真实 Logseq Desktop 已通过目标选择、红/绿文本与 `REWRITE_BLOCK` 语义 Diff、accepted-not-applied、同 object_id Commit、reload、Undo、再 reload、Candidate reopen 与 stale 零写入，`E2E-12` 为 `DONE`。审阅中心更广的列表、Project/Area 筛选、键盘与主题也已由 `V2-VIEW-001` 专项完成。
