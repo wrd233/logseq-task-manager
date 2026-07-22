@@ -1,5 +1,7 @@
 # V2 Marker / MiniProject Lifecycle Desktop Report
 
+> 本报告保留 2026-07-22 较早的 Marker 安全链历史证据。其中 `THREE_QUESTION_CLOSURE_HISTORICAL_EVIDENCE_ONLY` / `DESKTOP_PENDING` 已由后续真实三问重跑取代；当前 Marker 与侧栏 Closure Desktop 权威结论见 `docs/runtime/V2_MINI_PROJECT_CLOSURE_DESKTOP_REPORT.md`。
+
 ## 结论
 
 ```yaml

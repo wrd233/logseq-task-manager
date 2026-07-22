@@ -4,7 +4,7 @@
 
 ```text
 SIDEBAR_OBJECT_ONLY_CLOSURE_DESKTOP_PASS
-MARKER_EVIDENCE_CLOSURE_DESKTOP_PENDING
+MARKER_EVIDENCE_CLOSURE_DESKTOP_PASS
 ```
 
 2026-07-22 在 Logseq Desktop 0.10.15、专用 Test Graph `experiment/logseq-plugin-capability-lab` 和隔离 SQLite schema v11 中，完成了对象列表发起的 MiniProject 三问 Closure 纵向闭环。未修改用户正式 Graph，未使用 Provider，未在报告或截图中保存 Service token。
@@ -25,9 +25,9 @@ MARKER_EVIDENCE_CLOSURE_DESKTOP_PENDING
 ## 未通过与边界
 
 - 本次通过的是“对象列表 -> object-only Proposal -> 三问 -> Review -> Commit -> reload”。
-- Marker/DONE 路径的新三问 UI 仍需以真实 Block 事件重跑，并确认其不同于 object-only 的 Block + active Anchor + Object 重验文案和行为。
+- Marker/DONE 路径也已用真实 Logseq Block 事件通过：真实 SDK 形状是 `DONE [MiniProject] 标题`，首跑因 Parser 只接受 `[MiniProject] DONE 标题` 而安全地保持 OPEN。修复后新 Block 从 `OPEN + v2` 生成唯一 READY Proposal，同步证据为 `DONE + Block hash + active Anchor + Object v3`；三问接受后仍 `OPEN + v3`，最终对话明示重验 Block、Anchor 和 Object，确认后为 `COMPLETED + v4`。正文仍保留 DONE，Anchor hash 与重验证据一致，reload 读回 Closure；Backup/Doctor PASS。运行证据位于被忽略的 `tmp/runtime/v2-desktop/mini-closure-marker/`。
 - Agent 草拟三问和“将遗留转为新对象”仍是 UC-28 的后续工作；本报告不将人工填写遗留说明冒充该能力。
 
 ## 复杂度结论
 
-该 Gate 未引入任何新表、状态、扫描器、恢复器或写入路径。Desktop 操作重用唯一 Proposal、既有 SemanticCommit、Application Command 和 SQLite Closure 列；DevTools 端口只用于测试界面的可重复操作，不是产品运行依赖。
+该 Gate 未引入任何新表、状态、扫描器、恢复器或写入路径。Desktop 操作重用唯一 Proposal、既有 SemanticCommit、Application Command 和 SQLite Closure 列；唯一代码修复是让纯 Parser 接受 Logseq 真实前置 Marker 形状，并显式拒绝内外 Marker 冲突。DevTools 端口只用于测试界面的可重复操作，不是产品运行依赖。

@@ -75,6 +75,34 @@ test("TODO Marker is optional execution syntax and never decides object identity
     syntax: "[任务]",
     title: "取消旧路径",
   });
+  assert.deepEqual(parseExplicitObjectSyntax("DONE [MiniProject] 完成真实 Desktop 验证"), {
+    kind: "OBJECT",
+    objectType: "MINI_PROJECT",
+    marker: "DONE",
+    syntax: "[MiniProject]",
+    title: "完成真实 Desktop 验证",
+  });
+  assert.deepEqual(parseExplicitObjectSyntax("TODO [任务] 核对时间同步来源"), {
+    kind: "OBJECT",
+    objectType: "TASK",
+    marker: "TODO",
+    syntax: "[任务]",
+    title: "核对时间同步来源",
+  });
+  assert.deepEqual(parseExplicitObjectSyntax("DONE [MiniProject] DONE 完成真实 Desktop 验证"), {
+    kind: "OBJECT",
+    objectType: "MINI_PROJECT",
+    marker: "DONE",
+    syntax: "[MiniProject]",
+    title: "完成真实 Desktop 验证",
+  });
+  assert.deepEqual(parseExplicitObjectSyntax("CANCELED [任务] CANCELLED 取消旧路径"), {
+    kind: "OBJECT",
+    objectType: "TASK",
+    marker: "CANCELED",
+    syntax: "[任务]",
+    title: "取消旧路径",
+  });
   assert.deepEqual(parseExplicitObjectSyntax("TODO 核对时间同步来源"), {
     kind: "NONE",
     marker: "TODO",
@@ -123,6 +151,11 @@ test("empty titles and conflicting explicit types are deterministic structural e
     kind: "INVALID",
     code: "EXPLICIT_OBJECT_MARKER_CONFLICT",
     markers: ["[任务]", "[MiniProject]"],
+  });
+  assert.deepEqual(parseExplicitObjectSyntax("DONE [MiniProject] TODO 冲突状态"), {
+    kind: "INVALID",
+    code: "EXPLICIT_OBJECT_MARKER_CONFLICT",
+    markers: ["DONE", "TODO"],
   });
 });
 

@@ -66,6 +66,10 @@ function leadingTodoMarker(content: string): LogseqTodoMarker | undefined {
   );
 }
 
+function markerMeaning(marker: LogseqTodoMarker): Exclude<LogseqTodoMarker, "CANCELLED"> {
+  return marker === "CANCELLED" ? "CANCELED" : marker;
+}
+
 function startsWithToken(content: string, token: string): boolean {
   return content === token || (content.startsWith(token) && /^\s/u.test(content.slice(token.length)));
 }
@@ -76,19 +80,21 @@ function allExplicitSyntax(content: string): typeof explicitSyntax {
 
 export function parseExplicitObjectSyntax(content: string): ExplicitObjectParseResult {
   const trimmed = stripLogseqBlockIdentityProperty(content).trim();
+  const outerMarker = leadingTodoMarker(trimmed);
+  const explicitContent = outerMarker ? trimmed.slice(outerMarker.length).trim() : trimmed;
   const leading = explicitSyntax.find(
-    ({ syntax }) => startsWithToken(trimmed, syntax),
+    ({ syntax }) => startsWithToken(explicitContent, syntax),
   );
 
   if (!leading) {
     return {
       kind: "NONE",
-      marker: leadingTodoMarker(trimmed),
+      marker: outerMarker,
       reason: "NO_EXPLICIT_OBJECT_MARKER",
     };
   }
 
-  const presentSyntax = allExplicitSyntax(trimmed);
+  const presentSyntax = allExplicitSyntax(explicitContent);
   if (new Set(presentSyntax.map(({ objectType }) => objectType)).size > 1) {
     return {
       kind: "INVALID",
@@ -97,9 +103,17 @@ export function parseExplicitObjectSyntax(content: string): ExplicitObjectParseR
     };
   }
 
-  let title = trimmed.slice(leading.syntax.length).trim();
-  const marker = leadingTodoMarker(title);
-  if (marker) title = title.slice(marker.length).trim();
+  let title = explicitContent.slice(leading.syntax.length).trim();
+  const innerMarker = leadingTodoMarker(title);
+  if (outerMarker && innerMarker && markerMeaning(outerMarker) !== markerMeaning(innerMarker)) {
+    return {
+      kind: "INVALID",
+      code: "EXPLICIT_OBJECT_MARKER_CONFLICT",
+      markers: [outerMarker, innerMarker],
+    };
+  }
+  const marker = outerMarker ?? innerMarker;
+  if (innerMarker) title = title.slice(innerMarker.length).trim();
   if (!title) {
     return {
       kind: "INVALID",
