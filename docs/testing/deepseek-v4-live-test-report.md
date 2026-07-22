@@ -97,7 +97,7 @@ P0 仍为 0：无凭据泄露、无模型直写、无非法输出进入审阅、
 
 - `E2E-21`: `DONE`；真实认证、Flash/Pro 实际模型、中文 Structured Output 与 Schema 正向路径均通过；
 - `E2E-22`: `DONE`；Flash/Pro 严格无答案黄金套件各 22/22 通过，L4 当前块、loading/error、Proposal/NO_PROPOSAL、直接/调整后/部分接受与拒绝均已真实验收；
-- `E2E-23`: `AUTOMATED_PLUS_LIVE_PARTIAL`；真实截断与 timeout 零写入失败已取得，取消/认证/限流不以破坏性在线请求制造，因此 L2 整体仍部分；
+- `E2E-23`: `DONE`；在既有真实截断、timeout 和空内容证据外，单次真实 endpoint 无效临时 token 正确分类 401，真实 Keychain 配置请求被主动取消并快速收口；429 使用真实 loopback HTTP 有界模拟，避免向 Provider 制造洪峰。完整脱敏证据见 `docs/testing/deepseek-v4-e2e23-error-classification-2026-07-22.json`；
 - `E2E-24`: `DONE`；真实 Keychain 引用、repo/Graph canary、Desktop 默认日志和两次最终 Diagnostics 导出均通过脱敏扫描。
 
-完整脱敏黄金矩阵见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`；E2E-13 外部 Agent 跨入口证据见 `docs/testing/deepseek-v4-e2e13-desktop-2026-07-22.json`；L4 输入、耗时、完整 Proposal 与审阅结果见 `docs/testing/deepseek-v4-l4-desktop-2026-07-22.json`。三者都不包含凭据值或请求认证材料。
+完整脱敏黄金矩阵见 `docs/testing/deepseek-v4-golden-live-2026-07-22.json`；E2E-13 外部 Agent 跨入口证据见 `docs/testing/deepseek-v4-e2e13-desktop-2026-07-22.json`；L4 输入、耗时、完整 Proposal 与审阅结果见 `docs/testing/deepseek-v4-l4-desktop-2026-07-22.json`；错误分类见 `docs/testing/deepseek-v4-e2e23-error-classification-2026-07-22.json`。这些资产都不包含凭据值或请求认证材料。

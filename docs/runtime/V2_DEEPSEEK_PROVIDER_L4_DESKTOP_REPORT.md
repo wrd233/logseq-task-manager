@@ -50,6 +50,6 @@ Review Center 原有接受与拒绝，但缺少 V2 的“调整后接受”。�
 - `E2E-22`：`DONE`
 - `E2E-18`：`DONE`
 - `E2E-24`：`DONE`
-- `E2E-23`：保持 `AUTOMATED_PLUS_LIVE_PARTIAL`。真实 invalid shape、timeout、truncation、空 Structured Content 已有零写入证据；取消、认证失败和限流继续由非破坏性自动测试证明，不为追求在线标签制造异常凭据或流量。
+- `E2E-23`：本 L4 运行当时未覆盖认证、取消和限流专项；2026-07-22 后续安全 Gate 已用单次真实 401、真实配置主动取消和受控 loopback HTTP 429 补齐，当前为 `DONE`。详见 `V2_DEEPSEEK_E2E23_ERROR_CLASSIFICATION_REPORT.md`。
 
 本报告不代表最终 Commit 已执行；本轮刻意停在 Proposal 审阅层，证明模型不能直接改变 Graph 或 SQLite 正式状态。

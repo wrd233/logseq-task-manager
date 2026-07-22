@@ -87,6 +87,7 @@ V2_MIGRATION_DESIGN_READY
 - Proposal Desktop Gate：真实 Desktop 已验证审阅期改文导致 `STALE` 且零写入、Commit 后后续编辑拒绝 Undo 覆盖，以及高影响独立确认。2026-07-22 又完成两组依赖与暂缓闭环：后置组先接受明确失败，前置组暂缓时间/原因可见且 reload 持久，仍不能绕过依赖；按依赖顺序接受后只进入 `ACCEPTED`，对象/Audit/Commit 均未变化。正式同步、候选提交和 Proposal Commit 前继续确保 `id:: <Block UUID>` 持久身份；构建入口缓存键按内容摘要变化。
 - 2026-07-22 Commit/Undo 进程故障 Desktop Gate：正向与逆向流程都在既有 `PREPARED/PENDING` 后真实终止 Local Service，插件立即进入 `formal writes false` 且不报假成功。同一 SQLite 重启后，用户从 Review Center 显式确认并续完原 semantic_commit_id；最终正文恢复、测试 Object/Anchor 移除、正向 `UNDONE`、逆向 `COMPLETED`、四步 `VERIFIED`、Pending/Recovery 0、Doctor PASS。没有新增 fault API、状态、协议或恢复路径；专用 Test Graph 页面已清理。
 - 2026-07-22 E2E-16 Desktop Gate：隔离库先用既有同步入口在测试 Block UUID 建立 active Anchor 冲突；首轮合成版本被提交前重验安全标为 `STALE`。稳定身份重试经 Plugin Review 与最终确认后真实完成 Graph 写入，再因 Domain materialization 冲突进入补偿；Plugin 明示失败并恢复原正文，不报假成功。Proposal/Commit 为 `FAILED / DOMAIN_WRITE_FAILED`，Graph step `COMPENSATED`、Domain step `PREPARED`，唯一冲突对象未变；reload 后失败终态保持，Doctor `PASS / COMMIT_HEALTHY / 0`。没有新增 fault API、表、状态、协议或恢复器；测试页、descriptor 和隔离运行时已清理。
+- 2026-07-22 E2E-23 Error Classification Gate：不重复 L3/L4；真实 endpoint 用单次非敏感无效 token 得到 `401→LLM_AUTH_FAILED`，真实 Keychain 配置请求在开始后 10ms Abort 并于 20ms 收口 `LLM_CANCELLED`。429 依规范使用真实 loopback HTTP server 验证生产 fetch、请求外形、两次有限尝试和 `LLM_RATE_LIMITED`，没有向 DeepSeek 制造洪峰。结合既有真实 timeout/truncated/empty 与 Provider 10/10 回归，Graph/Candidate/Proposal/正式 Store 写入均为 0；没有代码、错误码、重试、表或恢复路径变化。
 - 2026-07-22 Ownership Desktop Gate：首次 HIGH Proposal 最终确认因 Project page Anchor 被通用 Block reconciliation 误判 `missing` 而安全变为 `STALE`，Ownership 保持 0。TDD 修复复用现有对象投影，仅让 TASK/MINI_PROJECT/DECISION/OUTPUT 进入 Block reconciliation，PROJECT/AREA page Anchor 留给 page workflow；不新增扫描器、状态或写入路径。修复后真实走完 external Proposal `validate→submit`、HIGH 接受零正式写、版本重验、最终 Commit、插件 reload、专用 Undo 与再次 reload；Task v5→v6→v7，Project v2 与 Anchor 均不变，普通 Association 始终为 1，结束时 integrity ok、Pending/Recovery 0、descriptor 已清理。详见 `docs/runtime/V2_OWNERSHIP_DESKTOP_REPORT.md`。
 - 2026-07-22 Marker Desktop Gate：Task DONE/重复/移除不重开、相反终态冲突与 CANCELED 原因保护均通过。MiniProject DONE 进入唯一 HIGH Proposal，接受后仍 OPEN，专用最终确认后同一对象 v3→v4 COMPLETED；reload 和 Marker 移除均不重开，Proposal/Commit 为 APPLIED/COMPLETED，Condition/Focus 独立，Pending 0、integrity ok、descriptor 已清理。修复只复用现有 Proposal、同步回执与 SemanticCommit，没有新表、扫描器或恢复路径。详见 `docs/runtime/V2_MARKER_DESKTOP_REPORT.md`。
 - 2026-07-22 DeepSeek L4 Desktop Gate：真实 Flash 完成当前块 Validator 安全失败、READY Proposal、普通记录 `NO_PROPOSAL`、直接接受、拒绝和同 proposal_id 调整标题后接受；确定性 external Agent fixture 完成两个独立组的部分接受。所有审阅均未执行最终 Commit，运行结束前 Object 0 / Commit 0 / Pending 0、Graph 原文未变、Doctor PASS。两次 Diagnostics 导出覆盖 ready/no-proposal/revised，credential-looking pattern 为 0；没有新增表、状态机、写入口或 Provider 绕过。详见 `docs/runtime/V2_DEEPSEEK_PROVIDER_L4_DESKTOP_REPORT.md`。
@@ -120,8 +121,8 @@ V2_MIGRATION_DESIGN_READY
 1. `docs/runtime/V2_SLICE_A_DESKTOP_TEST_PLAN.md` 的当前页 Candidate stale/多项逐项处理、删除 Anchor 和有限子树用户闭环均已通过；精确 truncation 与进行中卸载 cancellation 已由事件入口集成测试收口，不再重复安排 Desktop 时序 Gate；
 2. Proposal 暂缓/多组依赖、正常 Commit/Undo、真实进程故障续跑、后续编辑保护和 UC-28 写后旧读保护均已通过，不再重复该昂贵 Gate；
 3. `V2-VIEW-001` 的 Review Center 视觉、键盘、深浅主题与 Now Work Task/Project/Area 筛选分组已完成，不再重复验收；
-4. DeepSeek L4、UC-28、E2E-13 外部 Agent 与 V2-FIRST-001 / E2E-15 已通过，不再重复消耗在线额度或 Desktop 时间；后续只保留 E2E-23 中不宜破坏性制造的在线错误分类。
+4. DeepSeek L4、E2E-23、UC-28、E2E-13 外部 Agent 与 V2-FIRST-001 / E2E-15 已通过，不再重复消耗在线额度或 Desktop 时间；只有 Provider 或 Prompt 契约变化才做必要回归。
 
 ## 仍需用户决定
 
-当前没有新的产品语义决定。真实 DeepSeek 配置已安全建立，不需要用户再提供 Key；L4/Review Center、copied-data 迁移、SQLite Restore 与 first-run/restricted Desktop 已通过，剩余 Desktop 与 E2E-23 安全错误分类继续推进。
+当前没有新的产品语义决定。真实 DeepSeek 配置已安全建立，不需要用户再提供 Key；L4/Review Center、E2E-23、copied-data 迁移、SQLite Restore 与 first-run/restricted Desktop 已通过。下一步只按追踪矩阵处理仍有真实缺口的架构与 Release 状态，不重复昂贵 Gate。

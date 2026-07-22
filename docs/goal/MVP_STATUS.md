@@ -91,12 +91,13 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 Now Work Project/Area filters: real Area and anchored Project Focus entries, type grouping, no partial-order controls, unchanged object versions/ranks and zero filter Audit writes"
   - "V2 Desktop 0.10.15 V2-VIEW-001: Review and workspace keyboard activation with focus restoration and visible focus ring, correct current/pressed semantics, distinct Light/Dark renderer tokens, and zero formal writes"
   - "V2 Desktop 0.10.15 E2E-16: stable-identity Proposal wrote Graph, injected existing-Anchor conflict forced Domain failure, Plugin visibly compensated the original body without false success, persisted FAILED/COMPENSATED ledger state across reload, and returned Doctor COMMIT_HEALTHY with zero pending/recovery"
+  - "V2 E2E-23: real endpoint invalid-token 401 mapped to LLM_AUTH_FAILED, real Keychain-configured request cancellation settled as LLM_CANCELLED, bounded loopback HTTP 429 mapped to LLM_RATE_LIMITED after the configured retry cap, and all probes remained zero-write and credential-free"
 runtime_checks_pending:
-  - "Remaining release and safe online error-classification Gates; E2E-16, Task/Project/MiniProject reasoned Lifecycle, Commit/Undo process-fault, Proposal defer/dependency and V2-VIEW-001 are complete"
+  - "Remaining architecture and release-status audit; E2E-16, E2E-23, Task/Project/MiniProject reasoned Lifecycle, Commit/Undo process-fault, Proposal defer/dependency and V2-VIEW-001 are complete"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
-  - "DeepSeek L4 and Desktop Review/default log/Diagnostics are complete; safe online error classification remains partial only for cancellation, authentication failure and rate limiting that are intentionally not manufactured with destructive live calls"
+  - "DeepSeek L4, Desktop Review/default log/Diagnostics and E2E-23 are complete; 429 remains intentionally verified through bounded real HTTP simulation rather than destructive Provider load"
   - "E2E-13 live Graph bridge and external-Agent cross-entry Review are complete; the first online Agent candidate still required an exact-field prompt repair after Domain Validator rejection, so future Prompt changes must preserve validator-first golden coverage"
   - "@logseq/libs 0.0.17 retains upstream npm audit findings; no forced incompatible upgrade"
 user_actions_required: []
