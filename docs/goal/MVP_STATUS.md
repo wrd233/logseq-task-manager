@@ -91,7 +91,7 @@ runtime_checks_completed:
   - "V2 Desktop 0.10.15 Now Work Project/Area filters: real Area and anchored Project Focus entries, type grouping, no partial-order controls, unchanged object versions/ranks and zero filter Audit writes"
   - "V2 Desktop 0.10.15 V2-VIEW-001: Review and workspace keyboard activation with focus restoration and visible focus ring, correct current/pressed semantics, distinct Light/Dark renderer tokens, and zero formal writes"
 runtime_checks_pending:
-  - "Commit/Undo process-fault plus remaining recovery Desktop Gates; Proposal defer/dependency, finite-subtree exact truncation/unload engineering edges and V2-VIEW-001 are complete"
+  - "Project/MiniProject HIGH reasoned-lifecycle interaction and remaining release/error-classification Gates; Commit/Undo process-fault, Proposal defer/dependency and V2-VIEW-001 are complete"
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "gate": "V2_COMMIT_UNDO_PROCESS_FAULT_DESKTOP",
+  "status": "PASS",
+  "testedAt": "2026-07-22T12:30:00.000Z",
+  "environment": {
+    "logseqVersion": "0.10.15",
+    "nodeVersion": "20.20.2",
+    "databaseSchemaVersion": 11,
+    "graphId": "logseq-v2-desktop-20260720"
+  },
+  "proposalId": "proposal_process_fault_desktop_20260722",
+  "blockUuid": "6a60b601-13ab-4604-8f49-c16604e2654c",
+  "objectId": "obj_20260722122356788_24fb52ef4f2449f299be6beeeb722e39",
+  "forwardSemanticCommitId": "proposal-commit:3eb2ed494bfd477bab7ed792f8e57b76b37e3bf92a790bda23d73ed12a18aa46",
+  "undoSemanticCommitId": "undo:proposal-commit:3eb2ed494bfd477bab7ed792f8e57b76b37e3bf92a790bda23d73ed12a18aa46",
+  "commitFault": {
+    "beforeTermination": {
+      "commitStatus": "PENDING",
+      "steps": ["GRAPH_WRITE:PREPARED", "DOMAIN_WRITE:PREPARED"],
+      "objectExists": false
+    },
+    "duringTermination": {
+      "desktopRestricted": true,
+      "formalWrites": false,
+      "falseSuccess": false
+    },
+    "afterRestart": {
+      "sameIntentResumed": true,
+      "proposalStatus": "APPLIED",
+      "commitStatus": "COMPLETED",
+      "steps": ["GRAPH_WRITE:VERIFIED", "DOMAIN_WRITE:VERIFIED"],
+      "objectCount": 1,
+      "activeAnchorCount": 1
+    }
+  },
+  "undoFault": {
+    "beforeTermination": {
+      "undoStatus": "PENDING",
+      "steps": ["GRAPH_WRITE:PREPARED", "DOMAIN_WRITE:PREPARED"]
+    },
+    "duringTermination": {
+      "desktopRestricted": true,
+      "formalWrites": false,
+      "falseSuccess": false
+    },
+    "afterRestart": {
+      "sameIntentResumed": true,
+      "forwardStatus": "UNDONE",
+      "undoStatus": "COMPLETED",
+      "steps": ["GRAPH_WRITE:VERIFIED", "DOMAIN_WRITE:VERIFIED"],
+      "restoredBody": "Process fault source 20260722",
+      "stableIdentityRetained": true,
+      "testObjectCount": 0,
+      "testActiveAnchorCount": 0,
+      "pendingOrRecoveryCount": 0
+    }
+  },
+  "postReload": {
+    "undoHistoryVisible": true,
+    "duplicateUndoOffered": false
+  },
+  "doctor": {
+    "status": "PASS",
+    "semanticCommitCode": "COMMIT_HEALTHY",
+    "graphCode": "GRAPH_READ_BRIDGE_CONNECTED"
+  },
+  "testGraphPageDeleted": true,
+  "newPersistentMechanism": false,
+  "secretsPersisted": false
+}
