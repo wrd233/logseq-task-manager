@@ -436,6 +436,44 @@ export function synchronizeV2ExplicitObject(
   };
 }
 
+export function completeV2MiniProjectFromReviewedMarker(
+  object: V2ManagedObject,
+  anchor: V2Anchor,
+  input: { objectType: V2ObjectType; text: string; contentHash: string; marker?: V2ExecutionMarker },
+  expectedVersion: number,
+  at = new Date(),
+): { object: V2ManagedObject; anchor: V2Anchor } {
+  requireExpectedVersion(object, expectedVersion);
+  if (object.objectType !== "MINI_PROJECT" || input.objectType !== "MINI_PROJECT" || input.marker !== "DONE") {
+    throw new StructuredError({
+      code: "V2_REVIEWED_MINI_PROJECT_CLOSURE_INVALID",
+      message: "审阅后关闭命令只接受 MiniProject 的 DONE Marker。",
+      ruleRefs: ["D-183", "D-220"],
+    });
+  }
+  if (object.lifecycle !== "OPEN") {
+    throw new StructuredError({
+      code: "V2_REVIEWED_MINI_PROJECT_CLOSURE_CONFLICT",
+      message: `MiniProject 已是 ${object.lifecycle}；审阅后关闭没有写入。`,
+      ruleRefs: ["D-183", "D-185"],
+    });
+  }
+  if (anchor.objectId !== object.objectId || anchor.role !== "primary_text" || anchor.status === "replaced") {
+    throw new StructuredError({
+      code: "V2_PRIMARY_ANCHOR_INVALID",
+      message: "审阅后关闭必须引用该 MiniProject 未被替换的 Primary Anchor。",
+      ruleRefs: ["D-030", "D-033", "D-185"],
+    });
+  }
+  requireText(input.text, "V2_OBJECT_TEXT_REQUIRED", "正式对象必须保留可读的自然语言正文。");
+  requireText(input.contentHash, "V2_ANCHOR_HASH_REQUIRED", "Primary Anchor 必须包含正文 hash。");
+  const timestamp = at.toISOString();
+  return {
+    object: { ...object, lifecycle: "COMPLETED", text: input.text.trim(), version: object.version + 1, updatedAt: timestamp },
+    anchor: { ...anchor, status: "active", contentHash: input.contentHash, lastSeenAt: timestamp },
+  };
+}
+
 const allowedPrimaryOwners: Readonly<Record<V2ObjectType, readonly V2ObjectType[]>> = {
   TASK: ["MINI_PROJECT", "PROJECT", "AREA"],
   MINI_PROJECT: ["PROJECT", "AREA"],

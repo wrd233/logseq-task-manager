@@ -24,7 +24,7 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 | B0 | 纯显式语法 Parser（完成） | 空标题、冲突标识、未定义别名、裸 TODO | `explicit-object-parser.test.ts` | 无 |
 | B1 | Block event + 防抖 + 有限子树读取（自动合同完成） | Service 不可用、事件重复、事件乱序、子树截断/异常 | fake clock、会话恢复队列、事件注册与 32 roots/256 Blocks 有限 BFS 已通过；裸 TODO 零对象、显式子项独立同步 | Desktop 编辑/粘贴/快速重复编辑 |
 | B2 | materialize / update Application Command（后端完成） | 重复创建、旧版本、类型变化 | Object+Anchor+Audit+Receipt 单事务、同类型同步、Service 路由与类型迁移拒绝已通过 | 创建、改标题、reload 待 Desktop |
-| B3 | Marker 同步（自动合同完成） | DONE/CANCELED 不静默改错对象；Condition 独立 | Domain/Application/Service/Plugin Marker matrix 已通过 | Logseq Marker 实际形态、Undo/复杂关闭审阅 |
+| B3 | Marker 同步 | DONE/CANCELED 不静默改错对象；Condition 独立 | 自动合同与 Desktop Task/MiniProject Gate 已通过 | Task 取消原因录入与显式重开归后续专用命令 Gate |
 | B4 | move / copy / delete / consistency（已知 Anchor 恢复、状态持久化、move/copy、rebind 与当前页候选发现自动证据完成） | UUID 复制不继承 ID；删除保留对象；rebind 必须独立确认 | READY 恢复及低频有界检查、原子观察、失败重试、move/copy 身份合同、显式 rebind 与当前页手动候选发现已通过；候选每次只同步一项且提交前重读防 stale | 跨页移动、复制、删除、rebind、离线新建候选 |
 | B5 | Project 页面原子创建（自动基础完成） | 页面失败零领域写；finalize 不确定不盲删而同意图续跑；未知同名零覆盖 | prepare/finalize integration、幂等、改名 UUID、冲突；进程 fault injection 待补 | 新 Project 页面/冲突/改名/reload 待 Desktop |
 
@@ -64,5 +64,5 @@ Area 通过受控领域入口创建，Project 必须与 `Project/<名称>` 页�
 - rebind 后端安全合同已完成：Application 强制精确高影响确认，Service 不接受 Graph/object/anchor identity 权限，SQLite 在一个事务中保留旧 `replaced` Anchor、建立唯一新 active Anchor、推进对象版本并写 Audit/Receipt；类型变化、已占用目标、旧版本和未确认都零写入，成功重试幂等；触发器在旧 Anchor 已更新后注入新 Anchor 插入失败，证明 Object/双 Anchor/Audit/Receipt 整笔回滚；
 - Plugin rebind 有界交互已完成自动证据：只在 Service READY/formalWrites 时出现，只采集当前选中的显式 Block、一页 Anchor 和 Service 对象投影，只列同类型候选；明示旧/新影响、需勾选确认，提交前重读新 Block UUID/version/hash/type/title，Service/Application/SQLite 原子校验预览 Object version 和旧 Anchor status/hash；预览不能跨 Service discovery generation，已提交请求不提供假取消，且 V2 恢复动作不会激活冻结的 V1 runtime；
 - Plugin 当前页候选发现已完成自动证据：必须由用户在 Diagnostics 手动启动，以当前页为扫描范围且不在启动或后台扫描 Graph；Logseq 一次提供整页树，Plugin 仅分析快照前 256 项并明确提示截断，嵌套 `BlockUUIDTuple` 在同一预算内显式读取子级、校验引用与返回 UUID 一致，任何异常整轮停写。候选去重分页显式包含历史 `replaced` tombstone；有界 Anchor 覆盖未完成则整轮拒绝、零预览零写入，覆盖完整后才排除所有已占用 UUID，非法显式块只报告数量。用户每次只选择一项，提交前按 UUID 重读并校验 version/hash/type/title，旧预览和 Service generation 变化均停写，正式写入只走统一 `/objects/synchronize`；
-- B3 Marker 自动合同已完成，详见 `docs/implementation/V2_MARKER_LIFECYCLE_CONTRACT.md`；Logseq Marker 真实形态、Undo 和复杂关闭审阅仍需 Desktop/Slice C 证据。有限子树、move/copy/rebind/离线新建候选也仍需真实 Desktop 证据，因此完整 Slice B Gate 仍未完成。
+- B3 Marker 自动合同与 Desktop Gate 已完成，详见 `docs/implementation/V2_MARKER_LIFECYCLE_CONTRACT.md` 和 `docs/runtime/V2_MARKER_DESKTOP_REPORT.md`。Task DONE/重复/移除/终态冲突/CANCELED 原因保护已验证；MiniProject DONE 只生成唯一 HIGH Proposal，接受仍不生效，最终确认后复用既有 SemanticCommit 原子完成。Task 取消原因录入和显式重开继续作为专用命令 Gate；有限子树与删除 Anchor 的完整审阅场景仍使完整 Slice B 保持进行中。
 - B5 自动基础已完成，详见 `docs/implementation/V2_PROJECT_PAGE_CREATION_CONTRACT.md`。复用既有 SemanticCommit step ledger；没有新增 Project 专用状态源。Desktop 与进程 fault injection 未完成，因此 E2E-19 仍不是 DONE。

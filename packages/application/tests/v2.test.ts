@@ -110,12 +110,12 @@ class MemoryV2Repository implements V2ObjectRepository {
 
   commitSynchronization(command: V2SynchronizationCommand): { object: V2ManagedObject; anchor: V2Anchor; replayed: boolean } {
     const receipt = this.receipts.get(command.idempotencyKey);
-    if (receipt?.command === "synchronize_explicit_object") return { object: receipt.object, anchor: receipt.anchor, replayed: true };
+    if (receipt?.command === command.audit.command && "anchor" in receipt) return { object: receipt.object, anchor: receipt.anchor, replayed: true };
     const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
     if (actualVersion !== command.expectedVersion) throw new Error(`version ${actualVersion} != ${command.expectedVersion}`);
     this.values.set(command.object.objectId, command.object);
     this.anchors.set(command.object.objectId, command.anchor);
-    this.receipts.set(command.idempotencyKey, { command: "synchronize_explicit_object", object: command.object, anchor: command.anchor });
+    this.receipts.set(command.idempotencyKey, { command: command.audit.command, object: command.object, anchor: command.anchor });
     this.audit.push(command.audit);
     return { object: command.object, anchor: command.anchor, replayed: false };
   }
@@ -458,6 +458,30 @@ test("Marker materialization completes only simple Tasks and keeps Condition ind
   }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-mini-done", traceId: "trace-mini-done" }),
   (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL");
   assert.equal(repository.values.size, 1);
+});
+
+test("reviewed MiniProject DONE closes object and updates Anchor in one versioned command", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const created = await application.materializeExplicitObject({
+    objectId: "mini-reviewed-close", objectType: "MINI_PROJECT", text: "发布前核对",
+    anchor: { graphId: "graph-1", externalId: "block-mini-close", contentHash: "before-hash" },
+  }, { actor: "logseq-plugin", expectedVersion: 0, idempotencyKey: "materialize-mini-close", traceId: "trace-materialize" });
+  const input = {
+    objectType: "MINI_PROJECT" as const, text: "发布前核对", marker: "DONE" as const,
+    graphId: "graph-1", externalId: "block-mini-close", contentHash: "done-hash", expectedObjectId: created.object.objectId,
+  };
+  const envelope = { actor: "proposal_commit", expectedVersion: created.object.version, idempotencyKey: "reviewed-mini-close", traceId: "trace-close" };
+  const completed = await application.completeMiniProjectFromMarker(input, envelope, new Date("2026-07-22T08:00:00Z"));
+  assert.equal(completed.object.lifecycle, "COMPLETED");
+  assert.deepEqual(completed.object.condition, { kind: "ACTIONABLE" });
+  assert.equal(completed.object.version, created.object.version + 1);
+  assert.equal(completed.anchor.contentHash, "done-hash");
+  assert.equal(repository.audit.at(-1)?.command, "complete_mini_project_from_marker");
+  assert.equal((await application.completeMiniProjectFromMarker(input, envelope)).replayed, true);
+  await assert.rejects(() => application.completeMiniProjectFromMarker({ ...input, expectedObjectId: "another-mini" }, { ...envelope, idempotencyKey: "wrong-object" }), /MiniProject/);
+  await assert.rejects(() => application.completeMiniProjectFromMarker(input, { ...envelope, expectedVersion: created.object.version + 1, idempotencyKey: "already-closed" }), /COMPLETED/);
+  assert.equal(repository.audit.filter(({ command }) => command === "complete_mini_project_from_marker").length, 1);
 });
 
 test("bound explicit Block synchronization updates same-type evidence and rejects silent type migration", async () => {

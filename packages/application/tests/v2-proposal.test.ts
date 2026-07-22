@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2ObjectUpdate, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
+import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2LifecycleTransition, planAcceptedV2ObjectUpdate, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "普通正文";
@@ -123,6 +123,33 @@ test("accepted Project Closure plan couples structured Closure and COMPLETED lif
   const split = structuredClone(accepted);
   split.groups[0]!.semanticOperations.pop();
   assert.throws(() => planAcceptedV2ProjectClosure(split), /Closure 和 COMPLETED/);
+});
+
+test("accepted MiniProject Marker closure plan is one HIGH versioned Domain transition", () => {
+  const accepted: V2Proposal = {
+    ...proposal(),
+    proposalId: "prop-marker-close",
+    title: "完成 MiniProject",
+    context: "Logseq 中的显式 MiniProject 已改为 DONE。",
+    understanding: "DONE 是关闭请求，不能绕过审阅。",
+    objective: "审阅后完成同一 MiniProject。",
+    logic: "重验 Block hash 和 Object version 后使用单一 Domain Commit。",
+    finalPreview: "Marker Desktop Gate 将从 OPEN 变为 COMPLETED。",
+    scope: { read: [{ kind: "BLOCK", id: "block-mini", hash: "12345678" }], modify: [{ kind: "OBJECT", id: "mini-1", version: 3 }] },
+    groups: [{ groupId: "complete-mini", explanation: "MiniProject 关闭需要独立审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{
+      operationId: "complete-mini", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-1", version: 3 }, summary: "完成 MiniProject",
+      payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: "Marker Desktop Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678" }, preconditions: [],
+    }], disposition: "ACCEPTED" }],
+    status: "ACCEPTED",
+  };
+  assert.deepEqual(planAcceptedV2LifecycleTransition(accepted), {
+    proposalId: "prop-marker-close", groupId: "complete-mini", objectId: "mini-1", expectedVersion: 3, lifecycle: "COMPLETED",
+    objectType: "MINI_PROJECT", text: "Marker Desktop Gate", marker: "DONE", externalId: "block-mini", contentHash: "12345678",
+  });
+  const downgraded = structuredClone(accepted); downgraded.groups[0]!.risk = "MEDIUM";
+  assert.throws(() => planAcceptedV2LifecycleTransition(downgraded), /HIGH/);
+  const projectBypass = structuredClone(accepted); projectBypass.groups[0]!.semanticOperations[0]!.payload.objectType = "PROJECT";
+  assert.throws(() => planAcceptedV2LifecycleTransition(projectBypass), /MiniProject/);
 });
 
 test("accepted Ownership plan requires one versioned HIGH operation and explicit current-owner evidence", () => {

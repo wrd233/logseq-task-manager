@@ -200,7 +200,8 @@ export interface ServiceMaterializeExplicitObjectResult {
 }
 
 export interface ServiceSynchronizeExplicitObjectResult extends ServiceMaterializeExplicitObjectResult {
-  operation: "MATERIALIZED" | "SYNCHRONIZED";
+  operation: "MATERIALIZED" | "SYNCHRONIZED" | "PROPOSAL_CREATED";
+  proposalId?: string;
 }
 
 export interface ServicePrimaryAnchorPage {
@@ -312,6 +313,9 @@ export type ServiceProposalCommitFinalization =
 
 export type ServiceProjectClosureCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; record: ServiceStoredProposal; replayed: boolean }
+  | ({ status: "STALE" } & ServiceProposalRevalidation);
+export type ServiceLifecycleTransitionCommitResult =
+  | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; anchor: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation);
 export type ServiceOwnershipCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; ownership: V2PrimaryOwnership; record: ServiceStoredProposal; replayed: boolean }
@@ -766,6 +770,12 @@ export class LocalServiceClient {
 
   commitProjectClosure(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "COMPLETE_PROJECT_WITH_CLOSURE"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceProjectClosureCommitResult> {
     return this.request<ServiceProjectClosureCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/closure/commit`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    });
+  }
+
+  commitLifecycleTransition(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceLifecycleTransitionCommitResult> {
+    return this.request<ServiceLifecycleTransitionCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/lifecycle/commit`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });
   }

@@ -5,6 +5,7 @@ import {
   changeV2Condition,
   changeV2DueAt,
   completeV2Project,
+  completeV2MiniProjectFromReviewedMarker,
   createV2ManagedObject,
   lifecycleForV2ExecutionMarker,
   observeV2PrimaryAnchor,
@@ -56,7 +57,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
+  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -94,7 +95,7 @@ export interface V2ProjectCreationCommand extends V2AnchorCommand {
 }
 
 export interface V2SynchronizationCommand extends V2AnchorCommand {
-  audit: V2AuditRecord & { command: "synchronize_explicit_object" };
+  audit: V2AuditRecord & { command: "synchronize_explicit_object" | "complete_mini_project_from_marker" };
 }
 
 export interface V2AnchorObservationCommand extends V2AnchorCommand {
@@ -186,7 +187,7 @@ export interface V2MaterializationUndoResult {
 
 export type V2CommandReceipt =
   | { command: "create_object" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
-  | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
+  | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }
   | { command: "change_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership; previousOwnerId?: string }
@@ -216,6 +217,12 @@ export interface SynchronizeExplicitObjectInput {
   expectedObjectId?: string;
   marker?: V2ExecutionMarker;
 }
+
+export type CompleteMiniProjectFromMarkerInput = SynchronizeExplicitObjectInput & {
+  objectType: "MINI_PROJECT";
+  marker: "DONE";
+  expectedObjectId: string;
+};
 
 export interface ObservePrimaryAnchorInput {
   anchorId: string;
@@ -468,6 +475,45 @@ export class V2Application {
         traceId: envelope.traceId,
         actor: envelope.actor,
         command: "synchronize_explicit_object",
+        objectId: current.objectId,
+        beforeVersion: current.version,
+        afterVersion: candidate.object.version,
+        occurredAt: at.toISOString(),
+      },
+    });
+  }
+
+  async completeMiniProjectFromMarker(
+    input: CompleteMiniProjectFromMarkerInput,
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2AnchorCommandResult> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "complete_mini_project_from_marker", input.expectedObjectId);
+    if (replay?.command === "complete_mini_project_from_marker") {
+      if (replay.anchor.graphId !== input.graphId || replay.anchor.externalId !== input.externalId) {
+        throw new StructuredError({ code: "V2_IDEMPOTENCY_KEY_REUSED", message: "idempotency key 的既有关闭回执不属于当前 Graph Anchor。", ruleRefs: ["D-030", "D-185", "D-190"] });
+      }
+      return { object: replay.object, anchor: replay.anchor, replayed: true };
+    }
+    const anchor = await this.objects.getPrimaryAnchorByExternal(input.graphId, input.externalId);
+    if (!anchor || anchor.objectId !== input.expectedObjectId) {
+      throw new StructuredError({
+        code: "V2_EXPLICIT_BINDING_OBJECT_MISMATCH",
+        message: "该 Logseq Block 已不再绑定审阅时的 MiniProject；本次关闭没有写入。",
+        ruleRefs: ["D-030", "D-094", "D-185"],
+      });
+    }
+    const current = await this.requireObject(input.expectedObjectId);
+    const candidate = completeV2MiniProjectFromReviewedMarker(current, anchor, input, envelope.expectedVersion, at);
+    return this.objects.commitSynchronization({
+      ...candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: {
+        traceId: envelope.traceId,
+        actor: envelope.actor,
+        command: "complete_mini_project_from_marker",
         objectId: current.objectId,
         beforeVersion: current.version,
         afterVersion: candidate.object.version,

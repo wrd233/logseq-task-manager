@@ -1088,7 +1088,7 @@ export class V2SqliteStore {
     if (command === "create_object" || command === "transition_lifecycle" || command === "complete_project" || command === "change_condition" || command === "change_due_at") {
       return { command, object: result as V2ManagedObject };
     }
-    if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "undo_materialization" || command === "synchronize_explicit_object" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
+    if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "undo_materialization" || command === "synchronize_explicit_object" || command === "complete_mini_project_from_marker" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
       return { command, ...value };
     }

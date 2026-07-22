@@ -63,6 +63,19 @@ export interface V2ProjectClosurePlan {
   closure: V2ProjectClosure;
 }
 
+export interface V2LifecycleTransitionPlan {
+  proposalId: string;
+  groupId: string;
+  objectId: string;
+  expectedVersion: number;
+  lifecycle: "COMPLETED";
+  objectType: "MINI_PROJECT";
+  text: string;
+  marker: "DONE";
+  externalId: string;
+  contentHash: string;
+}
+
 export interface V2OwnershipChangePlan {
   proposalId: string; groupId: string; childObjectId: string; ownerObjectId: string; expectedVersion: number; expectedOwnerVersion: number; expectedCurrentOwnerId?: string;
 }
@@ -166,6 +179,30 @@ export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClo
   const closure = update.payload.closure;
   if (!closure || typeof closure !== "object" || Array.isArray(closure)) throw proposalApplicationError("V2_PROJECT_CLOSURE_PAYLOAD_INVALID", "Project Closure payload 缺失。");
   return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: update.target.id, expectedVersion: update.target.version, closure: validateV2ProjectClosure(closure as unknown as V2ProjectClosure) };
+}
+
+export function planAcceptedV2LifecycleTransition(proposal: V2Proposal): V2LifecycleTransitionPlan {
+  validateV2Proposal(proposal);
+  const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_SHAPE_INVALID", "MiniProject Lifecycle 变更必须是唯一已接受语义组。");
+  const group = accepted[0]!;
+  const transitions = group.semanticOperations.filter((operation) => operation.kind === "TRANSITION_LIFECYCLE");
+  if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || transitions.length !== 1) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OPERATION_INVALID", "MiniProject 完成必须是独立 HIGH 组的单一 Lifecycle 变更。");
+  const operation = transitions[0]!;
+  const payload = operation.payload;
+  const objectTarget = proposal.scope.modify.filter((target) => target.kind === "OBJECT" && target.id === operation.target.id && target.version !== undefined);
+  const blockEvidence = proposal.scope.read.filter((target) => target.kind === "BLOCK" && target.id === payload.externalId && target.hash === payload.contentHash);
+  if (
+    operation.target.kind !== "OBJECT" || operation.target.version === undefined || objectTarget.length !== 1 || objectTarget[0]!.version !== operation.target.version
+    || payload.lifecycle !== "COMPLETED" || payload.objectType !== "MINI_PROJECT" || payload.marker !== "DONE"
+    || typeof payload.text !== "string" || !payload.text.trim()
+    || typeof payload.externalId !== "string" || !payload.externalId.trim() || payload.externalId.length > 512
+    || typeof payload.contentHash !== "string" || !/^[0-9a-f]{8}$/.test(payload.contentHash) || blockEvidence.length !== 1
+  ) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_TARGET_INVALID", "MiniProject Lifecycle Proposal 必须绑定 DONE Block 证据和同一带版本对象。");
+  return {
+    proposalId: proposal.proposalId, groupId: group.groupId, objectId: operation.target.id, expectedVersion: operation.target.version,
+    lifecycle: "COMPLETED", objectType: "MINI_PROJECT", text: payload.text.trim(), marker: "DONE", externalId: payload.externalId, contentHash: payload.contentHash,
+  };
 }
 
 export function planAcceptedV2OwnershipChange(proposal: V2Proposal): V2OwnershipChangePlan {

@@ -1045,6 +1045,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
+  if (action === "v2-mini-project-closure-commit" && value) return openActionDialog("confirm-v2-mini-project-closure", value);
   if (action === "v2-ownership-commit" && value) return openActionDialog("confirm-v2-ownership", value);
   if (action === "v2-ownership-undo" && value) return openActionDialog("confirm-v2-ownership-undo", value);
   if (action === "submit-v2-ownership-undo" && value) {
@@ -1120,6 +1121,25 @@ async function handleAction(action: string, value?: string): Promise<void> {
       actionDialog = undefined;
       workspace = "review";
       message = result.status === "COMPLETED" ? `Project Closure 已生效；${result.object.text} 已退出活跃视图，Logseq 页面保留。` : "Project 版本已变化；Proposal 已标记 STALE，没有完成对象。";
+    });
+    return;
+  }
+  if (action === "submit-v2-mini-project-closure" && value) {
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认 MiniProject DONE 关闭请求。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!proposalId || !expectedUpdatedAt || !client) throw new Error("MiniProject 关闭上下文已失效；没有写入。");
+      const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
+      if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查 MiniProject 关闭。");
+      const observations = await collectV2ProposalGraphObservations(stored.proposal, {
+        getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }),
+        getPage: (id) => logseq.Editor.getPage(id),
+      });
+      const result = await client.commitLifecycleTransition(proposalId, { expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations, traceId: `v2-mini-project-closure-ui-${Date.now()}` });
+      actionDialog = undefined;
+      workspace = "review";
+      message = result.status === "COMPLETED" ? `MiniProject ${result.object.text} 已完成；Marker 移除不会自动重开。` : "MiniProject 版本或 Anchor 已变化；Proposal 已标记 STALE，没有完成对象。";
     });
     return;
   }

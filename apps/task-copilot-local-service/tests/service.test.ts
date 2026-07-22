@@ -1214,6 +1214,74 @@ test("Local Service maps Task Marker to Lifecycle without changing Condition", a
   assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "COMPLETED");
 });
 
+test("MiniProject DONE Marker creates one review Proposal and commits only after both confirmations", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-marker-review-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"), graphId: "graph-marker-review", token: "marker-review-token-at-least-24-chars",
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const initialHash = checksum("[MiniProject] DONE 首次观察即请求关闭");
+  const initiallyDone = await client.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT", text: "首次观察即请求关闭", marker: "DONE", externalId: "block-mini-initial-done", inputVersion: "2999",
+    contentHash: initialHash, idempotencyKey: "ignored-initial-done", traceId: "trace-mini-initial-done",
+  });
+  assert.equal(initiallyDone.operation, "PROPOSAL_CREATED");
+  assert.equal(initiallyDone.object.lifecycle, "OPEN");
+  assert.ok(initiallyDone.proposalId);
+  const initialReplay = await client.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT", text: "首次观察即请求关闭", marker: "DONE", externalId: "block-mini-initial-done", inputVersion: "2999",
+    contentHash: initialHash, idempotencyKey: "ignored-initial-done-retry", traceId: "trace-mini-initial-done-retry",
+  });
+  assert.equal(initialReplay.operation, "PROPOSAL_CREATED");
+  assert.equal(initialReplay.proposalId, initiallyDone.proposalId);
+  assert.equal(initialReplay.replayed, true);
+  const open = await client.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT", text: "检查真实 Marker 闭环", externalId: "block-mini-marker", inputVersion: "3000",
+    contentHash: checksum("[MiniProject] 检查真实 Marker 闭环"), idempotencyKey: "ignored-open", traceId: "trace-mini-open",
+  });
+  assert.equal(open.object.lifecycle, "OPEN");
+  const markerHash = checksum("[MiniProject] DONE 检查真实 Marker 闭环");
+  const proposed = await client.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT", text: "检查真实 Marker 闭环", marker: "DONE", externalId: "block-mini-marker", inputVersion: "3001",
+    contentHash: markerHash, idempotencyKey: "ignored-proposal", traceId: "trace-mini-proposal",
+  });
+  assert.equal(proposed.operation, "PROPOSAL_CREATED");
+  assert.ok(proposed.proposalId);
+  assert.equal(proposed.object.lifecycle, "OPEN");
+  const repeated = await client.synchronizeExplicitObject({
+    objectType: "MINI_PROJECT", text: "检查真实 Marker 闭环", marker: "DONE", externalId: "block-mini-marker", inputVersion: "3002",
+    contentHash: markerHash, idempotencyKey: "ignored-repeat", traceId: "trace-mini-repeat",
+  });
+  assert.equal(repeated.proposalId, proposed.proposalId);
+  assert.equal(repeated.replayed, true);
+  const record = (await client.listProposals()).find(({ proposal }) => proposal.proposalId === proposed.proposalId)!;
+  assert.equal(record.proposal.status, "READY");
+  assert.equal((await client.getObject(open.object.objectId))?.lifecycle, "OPEN");
+  const accepted = await client.reviewProposal(record.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, record.updatedAt);
+  assert.equal((await client.getObject(open.object.objectId))?.lifecycle, "OPEN", "accept is not commit");
+  const committed = await client.commitLifecycleTransition(record.proposal.proposalId, {
+    expectedUpdatedAt: accepted.updatedAt, confirmation: "COMPLETE_MINI_PROJECT",
+    observations: [{ kind: "BLOCK", id: "block-mini-marker", exists: true, hash: markerHash }], traceId: "trace-mini-commit",
+  });
+  assert.equal(committed.status, "COMPLETED");
+  if (committed.status === "COMPLETED") {
+    assert.equal(committed.object.objectId, open.object.objectId);
+    assert.equal(committed.object.lifecycle, "COMPLETED");
+    assert.equal(committed.object.condition.kind, "ACTIONABLE");
+    assert.equal(committed.anchor.externalId, "block-mini-marker");
+    assert.equal(committed.anchor.contentHash, markerHash);
+    assert.equal(committed.record.proposal.status, "APPLIED");
+  }
+  const replayed = await client.commitLifecycleTransition(record.proposal.proposalId, {
+    expectedUpdatedAt: accepted.updatedAt, confirmation: "COMPLETE_MINI_PROJECT",
+    observations: [{ kind: "BLOCK", id: "block-mini-marker", exists: true, hash: markerHash }], traceId: "trace-mini-commit-replay",
+  });
+  assert.equal(replayed.status, "COMPLETED");
+  if (replayed.status === "COMPLETED") assert.equal(replayed.replayed, true);
+  assert.equal((await client.listSemanticCommits()).filter(({ proposalId }) => proposalId === record.proposal.proposalId).length, 1);
+});
+
 test("same UUID move keeps identity while a copied UUID materializes a distinct object", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-copy-move-"));
   const service = await startLocalService({
