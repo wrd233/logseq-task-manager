@@ -256,4 +256,19 @@ E2E-11 的 Focus/期限/阻碍/Waiting 可解释排序场景已有自动成功/�
 - 副本获得新 UUID `6a5fb2b5-ee25-41e9-a85c-99e7f81493e0`、新 Object `obj_20260721175750014_fde635dc8c5542e79bfd1efcf3b408d5`、新 Anchor `anc_20260721175750014_c4bf040d3ed843e0801d5592410c880a`；
 - 两者在 reload 后均为 active；副本没有继承原 `object_id`、Anchor、Ownership 或 Association，原对象也没有被覆盖。
 
-因此 E2E-05 的真实 Desktop + reload Gate 为 `DONE`。E2E-06 的 missing→显式确认→replaced 历史→新 active→reload 恢复子路径已通过；删除正文后的完整审阅场景仍由独立 Gate 保留。
+因此 E2E-05 的真实 Desktop + reload Gate 为 `DONE`。本轮当时已通过 E2E-06 的 missing→显式确认→replaced 历史→新 active→reload 子路径；后文 2026-07-22 增量 Gate 已进一步补齐从真实删除开始的完整审阅场景。
+
+## 2026-07-22 增量 Gate：删除 Primary Anchor → Review → Rebind → reload — PASS
+
+在隔离测试 Graph 中对一个已物化 Decision 执行完整用户路径：
+
+1. 停止 Local Service 后真实删除旧 Block UUID `6a609a8c-2a21-423c-b88b-48fc5e028460`，并在同一测试页新建未绑定 Decision UUID `6a60a094-6f26-49b7-9263-a877a76e42af`；随后 cold restart Plugin，会话内待同步事件没有变成持久第二队列，新 Block 未被自动扫描或物化。
+2. 重启同一 SQLite Service 后，已知 Anchor reconciliation 只按 Service 返回的旧 UUID 读取；Diagnostics 显示 `EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING`。原 Decision Object 保留，version 2→3，旧 Anchor 为 `missing`，且只有一条 `observe_primary_anchor` Audit/Receipt。
+3. 选中新 Decision 后，Diagnostics 预览同时显示新 UUID/正文/hash、同类型候选及旧 `missing` Anchor，并明确“object_id/Primary Ownership 不变，旧 replaced，新 active”。
+4. 选择旧 Anchor 但不勾选独立确认时，UI 明确显示“没有执行写入”；SQLite 前后均为 object version 3、1 Anchor、2 Audit，证明零写入。
+5. 重新预览并勾选独立确认后，插件先持久并复核新 Block `id:: 6a60a094-6f26-49b7-9263-a877a76e42af`，再调用唯一 Local Service Rebind。同一 object_id 前进到 version 4，正文更新为新 Decision；旧 Anchor 保留 `replaced`，新 Anchor `anc_20260722105315235_f928bbaffeb043979cb08dd2a3432764` 为唯一 `active`，只增加一条 `rebind_primary_anchor` Audit/Receipt。
+6. cold reload 后 Object 仍是 version 4，旧 `replaced`/新 `active` 和新 `id::` 均保持。连续测试会话首次 reload 的旧 Graph broker 请求使 Plugin 进入受限态；按正常会话边界重启 Local Service 并重新探测后，Runtime/Store/Service 全部 `READY`，Graph bridge `CONNECTED`，Doctor `PASS`、integrity `ok`、foreign-key violations 0。Domain/Anchor 结果在受限期间也未变。
+
+这补齐了之前只有“已经 missing 的对象→rebind”的子路径；E2E-06 现在有真实删除起点、明确零写入拒绝、唯一高影响写入和 reload 证据，可标记 `DONE`。未新增表、协议、扫描器、持久队列或恢复路径。
+
+结构化脱敏证据：`docs/testing/v2-anchor-delete-rebind-desktop-2026-07-22.json`。
