@@ -113,6 +113,7 @@ const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
 let v2LifecycleCommitBusy = false;
 let v2ClosureProposalBusy = false;
+let v2LifecycleProposalBusy = false;
 let v2ClosureDraftBusy = false;
 let v2ClosureDraftInput: V2MiniProjectClosure | undefined;
 let v2LegacyTransferBusy = false;
@@ -259,6 +260,7 @@ async function model(): Promise<UiModel> {
       v2OwnershipCommitBusy,
       v2LifecycleCommitBusy,
       v2ClosureProposalBusy,
+      v2LifecycleProposalBusy,
       v2ClosureDraftBusy,
       ...(v2ClosureDraftInput ? { v2ClosureDraftInput } : {}),
       v2LegacyTransferBusy,
@@ -345,6 +347,7 @@ async function model(): Promise<UiModel> {
     v2OwnershipCommitBusy,
     v2LifecycleCommitBusy,
     v2ClosureProposalBusy,
+    v2LifecycleProposalBusy,
     v2ClosureDraftBusy,
     ...(v2ClosureDraftInput ? { v2ClosureDraftInput } : {}),
     v2LegacyTransferBusy,
@@ -1015,6 +1018,31 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }
     return;
   }
+  if (action === "v2-lifecycle-propose-open" && value) return openActionDialog("v2-lifecycle-reason", value);
+  if (action === "submit-v2-lifecycle-proposal" && value) {
+    if (v2LifecycleProposalBusy) return;
+    const [objectId, rawVersion, rawAction] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    const lifecycleAction = rawAction === "CANCEL" || rawAction === "REOPEN" ? rawAction : undefined;
+    const reason = dialogField("v2LifecycleReason");
+    v2LifecycleProposalBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client || !objectId || !Number.isSafeInteger(expectedVersion) || !lifecycleAction || !reason.trim()) throw new Error("请填写取消或重开原因；没有创建 Proposal。");
+        const result = await client.createLifecycleProposal(objectId, { expectedVersion, action: lifecycleAction, reason });
+        actionDialog = undefined;
+        workspace = "review";
+        reviewMode = "proposals";
+        message = result.replayed ? "已打开现有 Lifecycle Proposal；正式状态未改变。" : "Lifecycle Proposal 已创建；原因将在审阅后随正式 Commit 保留，当前状态未改变。";
+      });
+    } finally {
+      v2LifecycleProposalBusy = false;
+      await refresh();
+    }
+    return;
+  }
   if (action === "create-v2-project") {
     const name = dialogField("v2ProjectName");
     await run(async () => {
@@ -1087,6 +1115,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
   if (action === "v2-mini-project-closure-commit" && value) return openActionDialog("confirm-v2-mini-project-closure", value);
+  if (action === "v2-reasoned-lifecycle-commit" && value) return openActionDialog("confirm-v2-reasoned-lifecycle", value);
+  if (action === "v2-lifecycle-undo" && value) return openActionDialog("confirm-v2-lifecycle-undo", value);
   if (action === "v2-ownership-commit" && value) return openActionDialog("confirm-v2-ownership", value);
   if (action === "v2-ownership-undo" && value) return openActionDialog("confirm-v2-ownership-undo", value);
   if (action === "submit-v2-ownership-undo" && value) {
@@ -1105,6 +1135,26 @@ async function handleAction(action: string, value?: string): Promise<void> {
       });
     } finally {
       v2OwnershipCommitBusy = false;
+      await refresh();
+    }
+    return;
+  }
+  if (action === "submit-v2-lifecycle-undo" && value) {
+    if (v2LifecycleCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认恢复 Lifecycle 变化。"; await refresh(); return; }
+    v2LifecycleCommitBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client) throw new Error("Lifecycle Undo 上下文已失效；没有写入。" );
+        await client.undoLifecycle(value, { confirmation: "UNDO_LIFECYCLE", traceId: `v2-lifecycle-undo-ui-${Date.now()}` });
+        actionDialog = undefined;
+        workspace = "review";
+        message = "Lifecycle 已恢复到正向 Commit 之前；正文、Anchor、Condition、Focus 与 Ownership 未改变。";
+      });
+    } finally {
+      v2LifecycleCommitBusy = false;
       await refresh();
     }
     return;
@@ -1185,6 +1235,32 @@ async function handleAction(action: string, value?: string): Promise<void> {
         actionDialog = undefined;
         workspace = "review";
         message = result.status === "COMPLETED" ? `MiniProject ${result.object.text} 已完成；${result.anchor ? "Marker 移除不会自动重开" : "Logseq 正文未被改写"}。` : "MiniProject 版本或所需 Graph 证据已变化；Proposal 已标记 STALE，没有完成对象。";
+      });
+    } finally {
+      v2LifecycleCommitBusy = false;
+      await refresh();
+    }
+    return;
+  }
+  if (action === "submit-v2-reasoned-lifecycle" && value) {
+    if (v2LifecycleCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认已审阅取消或重开原因。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt, rawAction] = value.split("|");
+    const lifecycleAction = rawAction === "CANCEL" || rawAction === "REOPEN" ? rawAction : undefined;
+    v2LifecycleCommitBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!proposalId || !expectedUpdatedAt || !lifecycleAction || !client) throw new Error("Lifecycle Commit 上下文已失效；没有写入。");
+        const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
+        if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查原因。");
+        const observations = await collectV2ProposalGraphObservations(stored.proposal, { getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id) });
+        const confirmation = lifecycleAction === "CANCEL" ? "CANCEL_OBJECT" : "REOPEN_OBJECT";
+        const result = await client.commitLifecycleTransition(proposalId, { expectedUpdatedAt, confirmation, observations, traceId: `v2-reasoned-lifecycle-ui-${Date.now()}` });
+        actionDialog = undefined;
+        workspace = "review";
+        message = result.status === "COMPLETED" ? `${lifecycleAction === "CANCEL" ? "取消" : "重开"}已正式生效；原因保留在已应用 Proposal，正文与其他状态轴未改变。` : "对象版本已变化；Proposal 已标记 STALE，没有改变 Lifecycle。";
       });
     } finally {
       v2LifecycleCommitBusy = false;

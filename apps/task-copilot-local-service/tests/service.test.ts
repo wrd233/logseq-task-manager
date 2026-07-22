@@ -1395,6 +1395,179 @@ test("sidebar MiniProject Closure entry creates one Proposal with zero formal wr
   assert.equal((await client.listProposals()).filter(({ proposal }) => proposal.scope.modify.some(({ kind, id }) => kind === "OBJECT" && id === raceMini.object.objectId)).length, 1);
 });
 
+test("Task cancellation and explicit reopen retain reasons in one reviewed Lifecycle Proposal each", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-reasoned-lifecycle-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-reasoned-lifecycle", token: "reasoned-lifecycle-token-at-least-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const created = await client.synchronizeExplicitObject({ objectType: "TASK", text: "核对下线旧路径", externalId: "block-reasoned-task", inputVersion: "1", contentHash: checksum("[任务] 核对下线旧路径"), idempotencyKey: "ignored-reasoned-create", traceId: "trace-reasoned-create" });
+
+  await assert.rejects(() => client.createLifecycleProposal(created.object.objectId, { expectedVersion: created.object.version, action: "CANCEL", reason: "  " }), /原因|400/);
+  const proposed = await client.createLifecycleProposal(created.object.objectId, { expectedVersion: created.object.version, action: "CANCEL", reason: "外部系统已正式下线" });
+  assert.equal(proposed.record.proposal.status, "READY");
+  assert.equal(proposed.record.proposal.groups[0]?.semanticOperations[0]?.payload.reason, "外部系统已正式下线");
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN", "creating a Proposal is zero-write");
+  assert.equal((await client.listSemanticCommits()).length, 0);
+
+  const retryTask = await client.synchronizeExplicitObject({ objectType: "TASK", text: "拒绝后允许重新说明", externalId: "block-reasoned-retry", inputVersion: "1", contentHash: checksum("[任务] 拒绝后允许重新说明"), idempotencyKey: "ignored-reasoned-retry", traceId: "trace-reasoned-retry-create" });
+  const rejectedProposal = await client.createLifecycleProposal(retryTask.object.objectId, { expectedVersion: retryTask.object.version, action: "CANCEL", reason: "第一次原因不完整" });
+  const rejectedRecord = await client.reviewProposal(rejectedProposal.record.proposal.proposalId, { "cancel-object": { disposition: "REJECTED" } }, rejectedProposal.record.updatedAt);
+  assert.equal(rejectedRecord.proposal.status, "REJECTED");
+  const retriedProposal = await client.createLifecycleProposal(retryTask.object.objectId, { expectedVersion: retryTask.object.version, action: "CANCEL", reason: "补充完整的取消原因" });
+  assert.notEqual(retriedProposal.record.proposal.proposalId, rejectedProposal.record.proposal.proposalId, "终态 Proposal 不应阻塞同一版本的新审阅尝试");
+
+  const revised = await client.createLifecycleProposal(created.object.objectId, { expectedVersion: created.object.version, action: "CANCEL", reason: "外部系统已下线且无需兼容" });
+  assert.equal(revised.record.proposal.proposalId, proposed.record.proposal.proposalId, "same machine intent keeps one Proposal identity");
+  const accepted = await client.reviewProposal(revised.record.proposal.proposalId, { "cancel-object": { disposition: "ACCEPTED" } }, revised.record.updatedAt);
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN", "review is not commit");
+  await assert.rejects(() => client.commitLifecycleTransition(accepted.proposal.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "REOPEN_OBJECT", observations: [], traceId: "trace-wrong-cancel-confirmation" }), /确认|409/);
+  assert.equal((await client.listSemanticCommits()).length, 0, "wrong exact confirmation creates no ledger entry");
+  const cancelled = await client.commitLifecycleTransition(accepted.proposal.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "CANCEL_OBJECT", observations: [], traceId: "trace-cancel-task" });
+  assert.equal(cancelled.status, "COMPLETED");
+  if (cancelled.status !== "COMPLETED") return;
+  assert.equal(cancelled.object.lifecycle, "CANCELLED");
+  assert.equal(cancelled.record.proposal.status, "APPLIED");
+  assert.equal(cancelled.record.proposal.groups[0]?.semanticOperations[0]?.payload.reason, "外部系统已下线且无需兼容");
+
+  const reopenProposal = await client.createLifecycleProposal(cancelled.object.objectId, { expectedVersion: cancelled.object.version, action: "REOPEN", reason: "新增兼容需求已确认" });
+  const reopenAccepted = await client.reviewProposal(reopenProposal.record.proposal.proposalId, { "reopen-object": { disposition: "ACCEPTED" } }, reopenProposal.record.updatedAt);
+  const reopened = await client.commitLifecycleTransition(reopenAccepted.proposal.proposalId, { expectedUpdatedAt: reopenAccepted.updatedAt, confirmation: "REOPEN_OBJECT", observations: [], traceId: "trace-reopen-task" });
+  assert.equal(reopened.status, "COMPLETED");
+  if (reopened.status !== "COMPLETED") return;
+  assert.equal(reopened.object.lifecycle, "OPEN");
+  assert.equal(reopened.record.proposal.groups[0]?.semanticOperations[0]?.payload.reason, "新增兼容需求已确认");
+  assert.equal((await client.listSemanticCommits()).filter(({ status }) => status === "COMPLETED").length, 2);
+
+  const reopenForward = (await client.listSemanticCommits()).find((commit) => commit.proposalId === reopenAccepted.proposal.proposalId && commit.status === "COMPLETED");
+  assert.ok(reopenForward);
+  const undone = await client.undoLifecycle(reopenForward!.semanticCommitId, { confirmation: "UNDO_LIFECYCLE", traceId: "trace-reopen-undo" });
+  assert.equal(undone.object.lifecycle, "CANCELLED");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === reopenForward!.semanticCommitId)?.status, "UNDONE");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === undone.undoSemanticCommitId)?.status, "COMPLETED");
+  const undoReplay = await client.undoLifecycle(reopenForward!.semanticCommitId, { confirmation: "UNDO_LIFECYCLE", traceId: "trace-reopen-undo-replay" });
+  assert.equal(undoReplay.replayed, true);
+  assert.equal(undoReplay.object.lifecycle, "CANCELLED");
+});
+
+test("Lifecycle Commit rechecks the real object type and rejects a downgraded external Proposal before any ledger write", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-lifecycle-type-spoof-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-lifecycle-type-spoof", token: "lifecycle-type-spoof-token-at-least-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const created = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "不能被降级取消", externalId: "block-lifecycle-type-spoof", inputVersion: "1", contentHash: checksum("[MiniProject] 不能被降级取消"), idempotencyKey: "ignored-lifecycle-type-spoof", traceId: "trace-lifecycle-type-spoof-create" });
+  const valid = await client.createLifecycleProposal(created.object.objectId, { expectedVersion: created.object.version, action: "CANCEL", reason: "MiniProject 已经停止" });
+  const operation = valid.record.proposal.groups[0]!.semanticOperations[0]!;
+  const spoof: V2Proposal = {
+    ...valid.record.proposal,
+    proposalId: "prop_lifecycle_type_spoof",
+    groups: valid.record.proposal.groups.map((group) => ({ ...group, risk: "MEDIUM" as const, semanticOperations: group.semanticOperations.map((candidate) => ({ ...candidate, payload: { ...candidate.payload, objectType: "TASK" as const } })) })),
+  };
+  assert.equal(operation.payload.objectType, "MINI_PROJECT");
+  const submitted = await client.submitProposal(spoof);
+  const reviewed = await client.reviewProposal(submitted.record.proposal.proposalId, { "cancel-object": { disposition: "ACCEPTED" } }, submitted.record.updatedAt);
+  await assert.rejects(() => client.commitLifecycleTransition(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "CANCEL_OBJECT", observations: [], traceId: "trace-lifecycle-type-spoof-commit" }), /类型|版本|变化|409/);
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN");
+  assert.equal((await client.listSemanticCommits()).length, 0, "spoofed type must fail before preparing a SemanticCommit");
+});
+
+test("reopening a completed MiniProject clears the current Closure and Lifecycle Undo restores its exact snapshot", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-lifecycle-closure-undo-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-lifecycle-closure-undo", token: "lifecycle-closure-undo-token-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const created = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "可恢复 Closure 的交付", externalId: "block-lifecycle-closure-undo", inputVersion: "1", contentHash: checksum("[MiniProject] 可恢复 Closure 的交付"), idempotencyKey: "ignored-lifecycle-closure-undo", traceId: "trace-lifecycle-closure-undo-create" });
+  const submitted = await client.submitProposal(miniProjectClosureProposal(created.object.objectId, created.object.version));
+  const closure = { originalGoal: "完成可恢复交付", actualResult: "交付验收已完成", remainingWork: "无遗留" };
+  const completedProposal = await client.reviewProposal(submitted.record.proposal.proposalId, { "complete-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt, closure);
+  const completed = await client.commitLifecycleTransition(completedProposal.proposal.proposalId, { expectedUpdatedAt: completedProposal.updatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations: [], traceId: "trace-lifecycle-closure-undo-complete" });
+  assert.equal(completed.status, "COMPLETED");
+  if (completed.status !== "COMPLETED") return;
+  const reopen = await client.createLifecycleProposal(completed.object.objectId, { expectedVersion: completed.object.version, action: "REOPEN", reason: "需要补充一个交付指标" });
+  const reopenReviewed = await client.reviewProposal(reopen.record.proposal.proposalId, { "reopen-object": { disposition: "ACCEPTED", highImpactConfirmed: true } }, reopen.record.updatedAt);
+  const reopened = await client.commitLifecycleTransition(reopenReviewed.proposal.proposalId, { expectedUpdatedAt: reopenReviewed.updatedAt, confirmation: "REOPEN_OBJECT", observations: [], traceId: "trace-lifecycle-closure-undo-reopen" });
+  assert.equal(reopened.status, "COMPLETED");
+  if (reopened.status !== "COMPLETED") return;
+  assert.equal(reopened.object.lifecycle, "OPEN");
+  assert.equal(reopened.object.closure, undefined, "OPEN projection must not retain a Closure under the SQLite v11 invariant");
+  const forward = (await client.listSemanticCommits()).find((commit) => commit.proposalId === reopenReviewed.proposal.proposalId && commit.status === "COMPLETED");
+  assert.ok(forward);
+  const undone = await client.undoLifecycle(forward!.semanticCommitId, { confirmation: "UNDO_LIFECYCLE", traceId: "trace-lifecycle-closure-undo" });
+  assert.equal(undone.object.lifecycle, "COMPLETED");
+  assert.deepEqual(undone.object.closure, closure);
+});
+
+test("reasoned Lifecycle Commit and inverse Undo resume across prepare and Domain receipt interruption", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-reasoned-lifecycle-recovery-"));
+  const databasePath = join(root, "task-copilot.db");
+  let failAfterLifecyclePrepare = false;
+  let failAfterLifecycleDomain = false;
+  let failAfterLifecycleUndoPrepare = false;
+  let failAfterLifecycleUndoDomain = false;
+  const serviceOptions = {
+    databasePath,
+    graphId: "graph-reasoned-lifecycle-recovery",
+    token: "reasoned-lifecycle-recovery-token-24",
+    faults: {
+      afterLifecyclePrepare: () => { if (failAfterLifecyclePrepare) { failAfterLifecyclePrepare = false; throw new Error("fault after reasoned lifecycle prepare"); } },
+      afterLifecycleDomainWrite: () => { if (failAfterLifecycleDomain) { failAfterLifecycleDomain = false; throw new Error("fault after reasoned lifecycle receipt"); } },
+      afterLifecycleUndoPrepare: () => { if (failAfterLifecycleUndoPrepare) { failAfterLifecycleUndoPrepare = false; throw new Error("fault after reasoned lifecycle undo prepare"); } },
+      afterLifecycleUndoDomainWrite: () => { if (failAfterLifecycleUndoDomain) { failAfterLifecycleUndoDomain = false; throw new Error("fault after reasoned lifecycle undo receipt"); } },
+    },
+  };
+  let service = await startLocalService(serviceOptions);
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const restart = async () => { await service.close(); service = await startLocalService(serviceOptions); client = clientFor(service); };
+  const acceptedCancellation = async (suffix: string) => {
+    const created = await client.synchronizeExplicitObject({ objectType: "TASK", text: `恢复取消 ${suffix}`, externalId: `block-reasoned-recovery-${suffix}`, inputVersion: "1", contentHash: checksum(`[任务] 恢复取消 ${suffix}`), idempotencyKey: `ignored-reasoned-recovery-${suffix}`, traceId: `trace-reasoned-recovery-create-${suffix}` });
+    const proposal = await client.createLifecycleProposal(created.object.objectId, { expectedVersion: created.object.version, action: "CANCEL", reason: `恢复测试 ${suffix}` });
+    return client.reviewProposal(proposal.record.proposal.proposalId, { "cancel-object": { disposition: "ACCEPTED" } }, proposal.record.updatedAt);
+  };
+
+  const prepareInterrupted = await acceptedCancellation("prepare");
+  failAfterLifecyclePrepare = true;
+  await assert.rejects(() => client.commitLifecycleTransition(prepareInterrupted.proposal.proposalId, { expectedUpdatedAt: prepareInterrupted.updatedAt, confirmation: "CANCEL_OBJECT", observations: [], traceId: "trace-reasoned-recovery-prepare-first" }), /Local Service/);
+  assert.equal((await client.getObject(prepareInterrupted.proposal.groups[0]!.semanticOperations[0]!.target.id))?.lifecycle, "OPEN");
+  assert.equal((await client.listSemanticCommits()).find(({ proposalId }) => proposalId === prepareInterrupted.proposal.proposalId)?.status, "PENDING");
+  const prepareResumed = await client.commitLifecycleTransition(prepareInterrupted.proposal.proposalId, { expectedUpdatedAt: prepareInterrupted.updatedAt, confirmation: "CANCEL_OBJECT", observations: [], traceId: "trace-reasoned-recovery-prepare-resume" });
+  assert.equal(prepareResumed.status, "COMPLETED");
+  if (prepareResumed.status !== "COMPLETED") return;
+
+  const receiptInterrupted = await acceptedCancellation("receipt");
+  failAfterLifecycleDomain = true;
+  await assert.rejects(() => client.commitLifecycleTransition(receiptInterrupted.proposal.proposalId, { expectedUpdatedAt: receiptInterrupted.updatedAt, confirmation: "CANCEL_OBJECT", observations: [], traceId: "trace-reasoned-recovery-receipt-first" }), /Local Service/);
+  const receiptObjectId = receiptInterrupted.proposal.groups[0]!.semanticOperations[0]!.target.id;
+  assert.equal((await client.getObject(receiptObjectId))?.lifecycle, "CANCELLED");
+  assert.equal((await client.listSemanticCommits()).find(({ proposalId }) => proposalId === receiptInterrupted.proposal.proposalId)?.status, "PENDING");
+  const receiptResumed = await client.commitLifecycleTransition(receiptInterrupted.proposal.proposalId, { expectedUpdatedAt: receiptInterrupted.updatedAt, confirmation: "CANCEL_OBJECT", observations: [], traceId: "trace-reasoned-recovery-receipt-resume" });
+  assert.equal(receiptResumed.status, "COMPLETED");
+  if (receiptResumed.status !== "COMPLETED") return;
+  assert.equal(receiptResumed.replayed, true);
+
+  const undoPrepare = (await client.listSemanticCommits()).find(({ proposalId, status }) => proposalId === receiptInterrupted.proposal.proposalId && status === "COMPLETED");
+  assert.ok(undoPrepare);
+  failAfterLifecycleUndoPrepare = true;
+  await assert.rejects(() => client.undoLifecycle(undoPrepare!.semanticCommitId, { confirmation: "UNDO_LIFECYCLE", traceId: "trace-reasoned-undo-prepare-first" }), /Local Service/);
+  assert.equal((await client.getObject(receiptObjectId))?.lifecycle, "CANCELLED");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === `lifecycle-undo:${undoPrepare!.semanticCommitId}`)?.status, "PENDING");
+  const undoPreparedResumed = await client.undoLifecycle(undoPrepare!.semanticCommitId, { confirmation: "UNDO_LIFECYCLE", traceId: "trace-reasoned-undo-prepare-resume" });
+  assert.equal(undoPreparedResumed.object.lifecycle, "OPEN");
+
+  const receiptUndoForward = await acceptedCancellation("undo-receipt");
+  const receiptUndoCommitted = await client.commitLifecycleTransition(receiptUndoForward.proposal.proposalId, { expectedUpdatedAt: receiptUndoForward.updatedAt, confirmation: "CANCEL_OBJECT", observations: [], traceId: "trace-reasoned-undo-receipt-forward" });
+  assert.equal(receiptUndoCommitted.status, "COMPLETED");
+  if (receiptUndoCommitted.status !== "COMPLETED") return;
+  const receiptUndoObjectId = receiptUndoCommitted.object.objectId;
+  failAfterLifecycleUndoDomain = true;
+  await assert.rejects(() => client.undoLifecycle(receiptUndoCommitted.semanticCommitId, { confirmation: "UNDO_LIFECYCLE", traceId: "trace-reasoned-undo-receipt-first" }), /Local Service/);
+  assert.equal((await client.getObject(receiptUndoObjectId))?.lifecycle, "OPEN");
+  const undoReceiptResumed = await client.undoLifecycle(receiptUndoCommitted.semanticCommitId, { confirmation: "UNDO_LIFECYCLE", traceId: "trace-reasoned-undo-receipt-resume" });
+  assert.equal(undoReceiptResumed.object.lifecycle, "OPEN");
+  assert.equal(undoReceiptResumed.replayed, true);
+  await restart();
+  assert.equal((await client.getObject(receiptUndoObjectId))?.lifecycle, "OPEN");
+});
+
 test("Agent drafts MiniProject Closure answers into the one Proposal without changing machine intent", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-agent-mini-draft-"));
   let requestedRuntimeContext = "";

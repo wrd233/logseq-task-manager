@@ -29,9 +29,12 @@ export type ActionDialogKind =
   | "confirm-undo"
   | "confirm-v2-review-accept"
   | "v2-mini-project-closure-review"
+  | "v2-lifecycle-reason"
   | "confirm-v2-commit"
   | "confirm-v2-project-closure"
   | "confirm-v2-mini-project-closure"
+  | "confirm-v2-reasoned-lifecycle"
+  | "confirm-v2-lifecycle-undo"
   | "confirm-v2-ownership"
   | "confirm-v2-ownership-undo"
   | "confirm-v2-undo"
@@ -78,6 +81,7 @@ export interface UiModel {
   v2OwnershipCommitBusy?: boolean;
   v2LifecycleCommitBusy?: boolean;
   v2ClosureProposalBusy?: boolean;
+  v2LifecycleProposalBusy?: boolean;
   v2ClosureDraftBusy?: boolean;
   v2ClosureDraftInput?: V2MiniProjectClosure;
   v2LegacyTransferBusy?: boolean;
@@ -217,7 +221,16 @@ function renderObjects(model: UiModel): string {
     const ownershipList = (model.v2PrimaryOwnerships ?? []).length ? `<section aria-label="Primary Ownership 列表"><h2>Primary Ownership</h2><div class="object-list">${(model.v2PrimaryOwnerships ?? []).slice(0, 100).map((ownership) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(ownership.childObjectId) ?? ownership.childObjectId)} → ${escapeHtml(objectLabels.get(ownership.ownerObjectId) ?? ownership.ownerObjectId)}</span><small>唯一主归属</small></article>`).join("")}</div>${(model.v2PrimaryOwnerships?.length ?? 0) > 100 ? `<p class="muted">仅显示前 100 条；完整投影仍由 Local Service 提供。</p>` : ""}</section>` : "";
     const visibleAssociations = (model.v2Associations ?? []).slice(0, 100);
     const associationList = visibleAssociations.length ? `<section aria-label="普通 Association 列表"><h2>普通 Association</h2><div class="object-list">${visibleAssociations.map((association) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(association.sourceObjectId) ?? association.sourceObjectId)} → ${escapeHtml(objectLabels.get(association.targetObjectId) ?? association.targetObjectId)}</span><small>${escapeHtml(association.associationKind)} · ${escapeHtml(association.status)}</small></article>`).join("")}</div>${(model.v2Associations?.length ?? 0) > visibleAssociations.length ? `<p class="muted">仅显示前 ${visibleAssociations.length} 条；完整投影仍由 Local Service 提供。</p>` : ""}</section>` : "";
-    const list = `<section aria-label="V2 正式对象"><h2>正式对象</h2><div class="object-list">${model.v2Objects.map((object) => `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? `<div class="actions">${button(model.v2ClosureProposalBusy ? "正在发起…" : "关闭 MiniProject", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true)}</div>` : ""}${renderV2ObjectClosure(object)}</article>`).join("")}</div></section>`;
+    const list = `<section aria-label="V2 正式对象"><h2>正式对象</h2><div class="object-list">${model.v2Objects.map((object) => {
+      const supportsReasonedLifecycle = ["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType);
+      const lifecycleActions = supportsReasonedLifecycle && object.lifecycle === "OPEN"
+        ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `取消 ${object.objectType}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|CANCEL`, "quiet", model.v2LifecycleProposalBusy === true)
+        : supportsReasonedLifecycle && (object.lifecycle === "COMPLETED" || object.lifecycle === "CANCELLED")
+          ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${object.objectType}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
+          : "";
+      const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成 MiniProject", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
+      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction ? `<div class="actions">${closureAction}${lifecycleActions}</div>` : ""}${renderV2ObjectClosure(object)}</article>`;
+    }).join("")}</div></section>`;
     return `${projectCreator}${relationError}${associationCreator}${ownershipList}${associationList}${list}`;
   }
   if (model.objects.length === 0) return `${projectCreator}${empty("还没有正式对象", "从 Inbox 手工正式化，或创建 V2 Project 页面。")}`;
@@ -328,13 +341,19 @@ function renderReview(model: UiModel): string {
     const miniProjectClosureGroup = acceptedMiniProjectClosureGroups[0];
     const miniProjectClosureBlockedByOtherGroups = hasAcceptedMiniProjectClosure && record.proposal.groups.some((group) => group.groupId !== miniProjectClosureGroup!.groupId && group.disposition !== "REJECTED");
     const isMiniProjectClosure = hasAcceptedMiniProjectClosure && !miniProjectClosureBlockedByOtherGroups && acceptedGroups.length === 1;
+    const reasonedLifecycleOperation = acceptedGroups.length === 1 && acceptedGroups[0]!.textPatches.length === 0 && acceptedGroups[0]!.semanticOperations.length === 1
+      ? acceptedGroups[0]!.semanticOperations[0]
+      : undefined;
+    const isReasonedLifecycle = reasonedLifecycleOperation?.kind === "TRANSITION_LIFECYCLE" && (reasonedLifecycleOperation.payload.action === "CANCEL" || reasonedLifecycleOperation.payload.action === "REOPEN");
     const miniProjectClosureOperation = hasAcceptedMiniProjectClosure ? miniProjectClosureGroup!.semanticOperations[0] : undefined;
     const isMarkerDrivenMiniProjectClosure = miniProjectClosureOperation?.payload.marker === "DONE";
     const originalCommit = model.v2SemanticCommits?.find((commit) => commit.proposalId === record.proposal.proposalId && commit.semanticCommitId.startsWith("proposal-commit:"));
     const ownershipUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `ownership-undo:${originalCommit.semanticCommitId}`) : undefined;
     const canCommit = hasAcceptedGroup && !miniProjectClosureBlockedByOtherGroups && (record.proposal.status === "ACCEPTED" || record.proposal.status === "PARTIALLY_ACCEPTED");
+    const lifecycleUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `lifecycle-undo:${originalCommit.semanticCommitId}`) : undefined;
     const canOwnershipUndo = isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && ownershipUndoCommit?.status !== "FAILED";
-    const canUndo = !isProjectClosure && !isMiniProjectClosure && !isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
+    const canLifecycleUndo = isReasonedLifecycle && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && lifecycleUndoCommit?.status !== "FAILED" && lifecycleUndoCommit?.status !== "COMPLETED";
+    const canUndo = !isProjectClosure && !isMiniProjectClosure && !isReasonedLifecycle && !isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
     return `<article class="card proposal v2-proposal">
     <div class="eyebrow">V2 · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
     <h3>${escapeHtml(record.proposal.title)}</h3>
@@ -345,8 +364,8 @@ function renderReview(model: UiModel): string {
       const reviewKind = group.semanticOperations.some((operation) => operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.objectType === "MINI_PROJECT" && operation.payload.lifecycle === "COMPLETED") ? "MINI_PROJECT_CLOSURE" : "ORDINARY";
       return `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${button("接受该语义组", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}|${reviewKind}`, "primary")}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}</div>` : ""}</section>`;
     }).join("")}
-    ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : isMiniProjectClosure ? "确认完成 MiniProject" : isOwnershipChange ? "确认改变主归属" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}`, "primary", (isOwnershipChange && model.v2OwnershipCommitBusy === true) || (isMiniProjectClosure && model.v2LifecycleCommitBusy === true))}</div>` : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
-    <div class="notice">${canOwnershipUndo ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复到审阅前主归属，且不会移动正文。` : ownershipUndoCommit?.status === "FAILED" ? "对象或 Primary Ownership 已有后续变化；Undo 已安全终止且没有覆盖当前状态。" : canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : isProjectClosure && record.proposal.status === "APPLIED" ? `Project Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Project 已退出活跃视图，页面保留。` : hasAcceptedMiniProjectClosure && record.proposal.status === "APPLIED" ? `MiniProject 三问 Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；${isMarkerDrivenMiniProjectClosure ? "移除 Marker 不会自动重开" : "本次对象级关闭未改写 Logseq 正文"}，重开必须显式命令与理由。` : isOwnershipChange && record.proposal.status === "APPLIED" ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；位置、Anchor 与 Association 未改变。` : miniProjectClosureBlockedByOtherGroups ? "MiniProject Closure 已接受，但其余语义组仍未终结；请先拒绝这些组，或将其拆成独立 Proposal，再进行最终关闭。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : isMiniProjectClosure ? `原子记录 MiniProject 三问 Closure 与 Lifecycle${isMarkerDrivenMiniProjectClosure ? "，并保留 Anchor 证据" : "，且不改写 Graph"}` : isOwnershipChange ? "原子改变唯一 Primary Ownership" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
+    ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消对象" : "确认重开对象") : isOwnershipChange ? "确认改变主归属" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, "primary", (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true))}</div>` : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>` : canLifecycleUndo ? `<div class="actions">${button(reasonedLifecycleOperation!.payload.action === "CANCEL" ? "撤销取消" : "撤销重开", "v2-lifecycle-undo", originalCommit.semanticCommitId, "danger", model.v2LifecycleCommitBusy === true)}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
+    <div class="notice">${canOwnershipUndo ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复到审阅前主归属，且不会移动正文。` : ownershipUndoCommit?.status === "FAILED" ? "对象或 Primary Ownership 已有后续变化；Undo 已安全终止且没有覆盖当前状态。" : canLifecycleUndo ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复 Lifecycle${reasonedLifecycleOperation!.payload.action === "REOPEN" ? " 与 Closure 快照" : ""}，不改写正文。` : lifecycleUndoCommit?.status === "FAILED" ? "对象在 Lifecycle Commit 后已有变化；Undo 已安全终止且没有覆盖当前状态。" : canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : isProjectClosure && record.proposal.status === "APPLIED" ? `Project Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Project 已退出活跃视图，页面保留。` : hasAcceptedMiniProjectClosure && record.proposal.status === "APPLIED" ? `MiniProject 三问 Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；${isMarkerDrivenMiniProjectClosure ? "移除 Marker 不会自动重开" : "本次对象级关闭未改写 Logseq 正文"}，重开必须显式命令与理由。` : isReasonedLifecycle && record.proposal.status === "APPLIED" ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；原因保留在已应用 Proposal，正文、Anchor、Condition 与 Focus 未改变。` : isOwnershipChange && record.proposal.status === "APPLIED" ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；位置、Anchor 与 Association 未改变。` : miniProjectClosureBlockedByOtherGroups ? "MiniProject Closure 已接受，但其余语义组仍未终结；请先拒绝这些组，或将其拆成独立 Proposal，再进行最终关闭。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : isMiniProjectClosure ? `原子记录 MiniProject 三问 Closure 与 Lifecycle${isMarkerDrivenMiniProjectClosure ? "，并保留 Anchor 证据" : "，且不改写 Graph"}` : isReasonedLifecycle ? "记录原因并改变 Lifecycle，不改写 Graph" : isOwnershipChange ? "原子改变唯一 Primary Ownership" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
   </article>`;
   }).join("");
   if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "从 Inbox 生成确定性 Demo Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
@@ -460,6 +479,11 @@ function renderActionDialog(model: UiModel): string {
     const current = dialog.value.split("|")[2];
     return `<section class="inbox-dialog action-dialog" aria-label="设置 Task 期限"><h3>设置明确期限</h3><p class="muted">期限是明确承诺时间，只影响可解释排序，不产生分数。${current ? ` 当前：${escapeHtml(new Date(current).toLocaleString("zh-CN"))}` : ""}</p><label>期限<input type="datetime-local" data-field="v2DueAt"></label><label class="confirm-line"><input type="checkbox" data-field="v2ClearDueAt">清除现有期限</label><div class="actions">${button("保存期限", "submit-v2-deadline", dialog.value, "primary")}${cancel}</div></section>`;
   }
+  if (dialog.kind === "v2-lifecycle-reason") {
+    const action = dialog.value.split("|")[2];
+    const verb = action === "CANCEL" ? "取消" : "重开";
+    return `<section class="inbox-dialog action-dialog" aria-label="${verb}对象"><h3>${verb}对象</h3><p class="muted">只创建可审阅 Proposal；正式状态在 Review 和最终 Commit 前不会变化。</p><label>${verb}原因<textarea data-field="v2LifecycleReason"></textarea></label><div class="actions">${button(`创建${verb} Proposal`, "submit-v2-lifecycle-proposal", dialog.value, "primary")}${cancel}</div></section>`;
+  }
   const object = model.objects.find((candidate) => candidate.objectId === dialog.value);
   if (dialog.kind === "edit-object" && object) return `<section class="inbox-dialog action-dialog" aria-label="编辑对象"><h3>编辑对象</h3>
     <label>对象正文<textarea data-field="objectText">${escapeHtml(object.text)}</textarea></label>
@@ -508,6 +532,14 @@ function renderActionDialog(model: UiModel): string {
     const operation = model.v2Proposals?.find((candidate) => candidate.proposal.proposalId === proposalId)?.proposal.groups.flatMap(({ semanticOperations }) => semanticOperations).find((candidate) => candidate.kind === "TRANSITION_LIFECYCLE" && candidate.payload.objectType === "MINI_PROJECT" && candidate.payload.lifecycle === "COMPLETED");
     const evidence = operation?.payload.marker === "DONE" ? "系统将重验 Block、Anchor 和对象版本" : "系统将重验对象版本且不会改写 Logseq 正文";
     return `<section class="inbox-dialog action-dialog" aria-label="确认完成 MiniProject"><h3>确认完成 MiniProject</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(`我已审阅原目标、实际结果和遗留三问；${evidence}，然后原子记录 Closure 并完成 MiniProject`)}</label><div class="actions">${button("确认继续", "submit-v2-mini-project-closure", dialog.value, "danger")}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "confirm-v2-reasoned-lifecycle") {
+    const action = dialog.value.split("|")[2];
+    const verb = action === "CANCEL" ? "取消" : "重开";
+    return `<section class="inbox-dialog action-dialog" aria-label="确认${verb}对象"><h3>确认${verb}对象</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已审阅${verb}原因；系统将重验对象版本并通过单一 Domain Commit 改变 Lifecycle，不改写 Graph</label><div class="actions">${button("确认继续", "submit-v2-reasoned-lifecycle", dialog.value, "danger")}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "confirm-v2-lifecycle-undo") {
+    return `<section class="inbox-dialog action-dialog" aria-label="撤销 Lifecycle 变化"><h3>撤销 Lifecycle 变化</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认只恢复对象的 Lifecycle 与必要的 Closure 快照；系统会校验当前对象版本，不改写正文、Anchor、Condition、Focus 或 Ownership</label><div class="actions">${button("确认继续", "submit-v2-lifecycle-undo", dialog.value, "danger")}${cancel}</div></section>`;
   }
   const confirmations: Partial<Record<ActionDialogKind, [string, string, string]>> = {
     "confirm-review-accept": ["接受高影响操作", "我单独确认接受这个高影响操作；提交前仍会进行确定性校验", "submit-review-accept"],

@@ -16,6 +16,9 @@ import {
   selectFocus,
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
+  cancelV2Lifecycle,
+  reopenV2Lifecycle,
+  restoreV2LifecycleFromUndo,
   validateV2Condition,
 } from "../src/v2.ts";
 
@@ -102,14 +105,30 @@ test("Primary Anchor rebind replaces historical evidence and keeps object identi
     graphId: "graph-1", externalId: "block-other", contentHash: "33333333", objectType: "MINI_PROJECT", text: "不得静默迁移",
   }, 3), /Proposal/);
 });
-test("V2 lifecycle is small, version-checked, and terminal objects only archive", () => {
+test("V2 lifecycle requires recorded reasons for cancellation and explicit reopen", () => {
   const open = createV2ManagedObject({ objectId: "obj_1", objectType: "TASK", text: "完成验证" });
   const completed = transitionV2Lifecycle(open, "COMPLETED", 1, new Date("2026-07-20T01:00:00Z"));
   assert.equal(completed.version, 2);
   assert.equal(completed.lifecycle, "COMPLETED");
+  assert.throws(() => transitionV2Lifecycle(open, "CANCELLED", 1), /原因/);
+  const cancelled = cancelV2Lifecycle(open, "外部需求已撤销", 1, new Date("2026-07-20T01:00:00Z"));
+  assert.equal(cancelled.lifecycle, "CANCELLED");
+  assert.throws(() => cancelV2Lifecycle(open, "  ", 1), /原因/);
+  assert.equal(reopenV2Lifecycle(completed, "验收发现仍需修正", 2).lifecycle, "OPEN");
+  assert.equal(reopenV2Lifecycle(cancelled, "外部需求重新生效", 2).lifecycle, "OPEN");
+  assert.throws(() => reopenV2Lifecycle(completed, "", 2), /原因/);
+  assert.equal(restoreV2LifecycleFromUndo(reopenV2Lifecycle(completed, "验收重开", 2), { lifecycle: "COMPLETED" }, 3).lifecycle, "COMPLETED");
   assert.throws(() => transitionV2Lifecycle(completed, "CANCELLED", 2), /不允许/);
   assert.throws(() => transitionV2Lifecycle(completed, "ARCHIVED", 1), /版本/);
   assert.equal(transitionV2Lifecycle(completed, "ARCHIVED", 2).lifecycle, "ARCHIVED");
+});
+
+test("reopening completed Project and MiniProject clears current Closure while Undo restores it", () => {
+  const projectClosure = { originalGoal: "完成治理", actualResult: "已交付", majorDeliverables: ["报告"], incompleteObjectives: [], legacyDisposition: "无", keyDecisions: ["保留"], futureSummary: "按需重入" };
+  const project = completeV2Project(createV2ManagedObject({ objectId: "project-reopen", objectType: "PROJECT", text: "治理" }), projectClosure, 1);
+  const reopenedProject = reopenV2Lifecycle(project, "发现回归", 2);
+  assert.equal(reopenedProject.closure, undefined);
+  assert.deepEqual(restoreV2LifecycleFromUndo(reopenedProject, { lifecycle: "COMPLETED", closure: projectClosure }, 3).closure, projectClosure);
 });
 
 test("Project Closure records outcomes and explicit unfinished Objective dispositions before completion", () => {

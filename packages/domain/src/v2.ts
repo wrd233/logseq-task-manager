@@ -200,7 +200,7 @@ export function lifecycleForV2ExecutionMarker(
 }
 
 const lifecycleTransitions: Readonly<Record<Lifecycle, readonly Lifecycle[]>> = {
-  OPEN: ["COMPLETED", "CANCELLED"],
+  OPEN: ["COMPLETED"],
   COMPLETED: ["ARCHIVED"],
   CANCELLED: ["ARCHIVED"],
   ARCHIVED: [],
@@ -220,6 +220,13 @@ export function transitionV2Lifecycle(
     });
   }
   if (!lifecycleTransitions[object.lifecycle].includes(next)) {
+    if (object.lifecycle === "OPEN" && next === "CANCELLED") {
+      throw new StructuredError({
+        code: "V2_CANCELLATION_REASON_REQUIRED",
+        message: "取消对象必须通过显式命令记录原因。",
+        ruleRefs: ["D-055", "D-220"],
+      });
+    }
     throw new StructuredError({
       code: "V2_ILLEGAL_LIFECYCLE_TRANSITION",
       message: `不允许从 ${object.lifecycle} 流转到 ${next}。`,
@@ -234,6 +241,48 @@ export function transitionV2Lifecycle(
     });
   }
   return { ...object, lifecycle: next, version: object.version + 1, updatedAt: at.toISOString() };
+}
+
+function validateLifecycleReason(reason: unknown, action: "取消" | "重开"): string {
+  if (typeof reason !== "string" || !reason.trim()) {
+    throw new StructuredError({ code: `V2_${action === "取消" ? "CANCELLATION" : "REOPEN"}_REASON_REQUIRED`, message: `${action}对象必须记录原因。`, ruleRefs: ["D-055", "D-220"] });
+  }
+  const normalized = reason.trim();
+  if (normalized.length > 4_000) throw new StructuredError({ code: "V2_LIFECYCLE_REASON_TOO_LONG", message: `${action}原因过长。`, ruleRefs: ["D-055", "D-220"] });
+  return normalized;
+}
+
+export function cancelV2Lifecycle(object: V2ManagedObject, reason: string, expectedVersion: number, at = new Date()): V2ManagedObject {
+  requireExpectedVersion(object, expectedVersion);
+  validateLifecycleReason(reason, "取消");
+  if (object.lifecycle !== "OPEN") throw new StructuredError({ code: "V2_ILLEGAL_LIFECYCLE_TRANSITION", message: `不允许从 ${object.lifecycle} 取消对象。`, ruleRefs: ["D-220"] });
+  return { ...object, lifecycle: "CANCELLED", version: object.version + 1, updatedAt: at.toISOString() };
+}
+
+export function reopenV2Lifecycle(object: V2ManagedObject, reason: string, expectedVersion: number, at = new Date()): V2ManagedObject {
+  requireExpectedVersion(object, expectedVersion);
+  validateLifecycleReason(reason, "重开");
+  if (object.lifecycle !== "COMPLETED" && object.lifecycle !== "CANCELLED") throw new StructuredError({ code: "V2_ILLEGAL_LIFECYCLE_TRANSITION", message: `不允许从 ${object.lifecycle} 重开对象。`, ruleRefs: ["D-220"] });
+  const { closure: _historicalClosure, ...withoutClosure } = object;
+  void _historicalClosure;
+  return { ...withoutClosure, lifecycle: "OPEN", version: object.version + 1, updatedAt: at.toISOString() };
+}
+
+export function restoreV2LifecycleFromUndo(
+  object: V2ManagedObject,
+  previous: { lifecycle: "OPEN" | "COMPLETED" | "CANCELLED"; closure?: V2ProjectClosure | V2MiniProjectClosure },
+  expectedVersion: number,
+  at = new Date(),
+): V2ManagedObject {
+  requireExpectedVersion(object, expectedVersion);
+  const validInverse = (object.lifecycle === "CANCELLED" && previous.lifecycle === "OPEN")
+    || (object.lifecycle === "OPEN" && (previous.lifecycle === "COMPLETED" || previous.lifecycle === "CANCELLED"));
+  if (!validInverse) throw new StructuredError({ code: "V2_LIFECYCLE_UNDO_INVALID", message: `当前 ${object.lifecycle} 不能恢复为 ${previous.lifecycle}。`, ruleRefs: ["D-185", "D-220"] });
+  let closure: V2ManagedObject["closure"];
+  if (previous.lifecycle === "COMPLETED" && object.objectType === "PROJECT") closure = validateV2ProjectClosure(previous.closure as V2ProjectClosure);
+  else if (previous.lifecycle === "COMPLETED" && object.objectType === "MINI_PROJECT") closure = validateV2MiniProjectClosure(previous.closure as V2MiniProjectClosure);
+  else if (previous.closure !== undefined) throw new StructuredError({ code: "V2_LIFECYCLE_UNDO_SNAPSHOT_INVALID", message: "Lifecycle Undo 的 Closure 快照与对象类型或目标状态不一致。", ruleRefs: ["D-185", "D-220"] });
+  return { ...object, lifecycle: previous.lifecycle, version: object.version + 1, updatedAt: at.toISOString(), ...(closure ? { closure } : {}) };
 }
 
 function boundedClosureText(value: unknown, label: string): string {

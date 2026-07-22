@@ -41,4 +41,4 @@ Client 不能提供 Lifecycle、Condition、object_id、Graph ID 或 SQLite 路�
 
 Logseq Desktop 0.10.15 已验证 Task DONE、重复 DONE、移除 Marker 不重开、终态相反 Marker 冲突零写入，以及 CANCELED 缺少原因零写入。MiniProject 的旧 Desktop 证据只证明 Proposal/Review/Commit 安全链，三问 UI 和读回尚需重跑；详见 `docs/runtime/V2_MARKER_DESKTOP_REPORT.md` 和 `docs/implementation/V2_MINI_PROJECT_CLOSURE_CONTRACT.md`。
 
-Task 的产品内“记录取消原因后正式取消”与“显式重开”仍属于后续专用命令/审阅 Gate；Logseq 原生 Undo 只能撤回正文 Marker，不能绕过 SQLite Lifecycle 或自动重开。
+Task 的产品内“记录取消原因后正式取消”与“显式重开”已完成自动纵向闭环：对象页填写原因后只创建/修订同一机器 Proposal；Review 接受仍零正式写，最终精确确认后才经现有单步 Domain SemanticCommit 改变 SQLite Lifecycle。Domain 直接拒绝无原因取消/重开；原因保存在已应用 Proposal，正文、Anchor、Condition、Focus 与 Ownership 均不改变。Task 使用 MEDIUM 组，Project/MiniProject 保持 HIGH 组；未新增表、扫描器、恢复器或第二权威。真实 Logseq Desktop 点击、reload 与故障注入仍待集中 Gate；Logseq 原生 Undo 只能撤回正文 Marker，不能绕过 SQLite Lifecycle 或自动重开。自动证据详见 `docs/runtime/V2_REASONED_LIFECYCLE_AUTOMATION_REPORT.md`。

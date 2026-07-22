@@ -336,6 +336,14 @@ export type ServiceOwnershipUndoResult = {
   replayed: boolean;
 };
 
+export type ServiceLifecycleUndoResult = {
+  status: "COMPLETED";
+  originalSemanticCommitId: string;
+  undoSemanticCommitId: string;
+  object: V2ManagedObject;
+  replayed: boolean;
+};
+
 export interface ServiceProposalCommitEvidence {
   semanticCommitId: string;
   proposalId: string;
@@ -586,6 +594,12 @@ export class LocalServiceClient {
     });
   }
 
+  createLifecycleProposal(objectId: string, input: { expectedVersion: number; action: "CANCEL" | "REOPEN"; reason: string }): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {
+    return this.request<{ record: ServiceStoredProposal; replayed: boolean }>(`/objects/${encodeURIComponent(objectId)}/lifecycle/proposal`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    });
+  }
+
   draftMiniProjectClosure(proposalId: string, input: { expectedUpdatedAt: string; draft: V2MiniProjectClosure }): Promise<ServiceMiniProjectClosureDraftResult> {
     return this.request<ServiceMiniProjectClosureDraftResult>(`/proposals/${encodeURIComponent(proposalId)}/mini-project-closure/draft`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
@@ -792,7 +806,7 @@ export class LocalServiceClient {
     });
   }
 
-  commitLifecycleTransition(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceLifecycleTransitionCommitResult> {
+  commitLifecycleTransition(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceLifecycleTransitionCommitResult> {
     return this.request<ServiceLifecycleTransitionCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/lifecycle/commit`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });
@@ -804,6 +818,10 @@ export class LocalServiceClient {
 
   undoPrimaryOwnership(originalSemanticCommitId: string, input: { confirmation: "UNDO_PRIMARY_OWNERSHIP"; traceId: string }): Promise<ServiceOwnershipUndoResult> {
     return this.request<ServiceOwnershipUndoResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/ownership/undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  undoLifecycle(originalSemanticCommitId: string, input: { confirmation: "UNDO_LIFECYCLE"; traceId: string }): Promise<ServiceLifecycleUndoResult> {
+    return this.request<ServiceLifecycleUndoResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/lifecycle/undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
   }
 
   compensateProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }> {

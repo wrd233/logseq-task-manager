@@ -100,7 +100,7 @@ test("OPEN MiniProject exposes one sidebar Closure Proposal entry and completed 
   value.v2Objects = [{ objectId: "mini-open", objectType: "MINI_PROJECT", version: 4, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "侧栏关闭验收", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" }];
   let html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-closure-propose" data-value="mini-open\|4"/);
-  assert.match(html, /关闭 MiniProject/);
+  assert.match(html, /完成 MiniProject/);
   value.v2ClosureProposalBusy = true;
   html = renderApp(value);
   assert.match(html, /正在发起…/);
@@ -109,6 +109,48 @@ test("OPEN MiniProject exposes one sidebar Closure Proposal entry and completed 
   value.v2ClosureProposalBusy = false;
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-mini-project-closure-propose"/);
+});
+
+test("V2 objects and Review expose reasoned cancellation and explicit reopen without generic Commit", () => {
+  const value = model();
+  value.v2Objects = [
+    { objectId: "task-open", objectType: "TASK", version: 2, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "旧路径", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" },
+    { objectId: "task-cancelled", objectType: "TASK", version: 3, lifecycle: "CANCELLED", condition: { kind: "ACTIONABLE" }, text: "已取消路径", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" },
+  ];
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-lifecycle-propose-open" data-value="task-open\|2\|CANCEL"/);
+  assert.match(html, /data-action="v2-lifecycle-propose-open" data-value="task-cancelled\|3\|REOPEN"/);
+  value.actionDialog = { kind: "v2-lifecycle-reason", value: "task-open|2|CANCEL" };
+  html = renderApp(value);
+  assert.match(html, /data-field="v2LifecycleReason"/);
+  assert.match(html, /只创建可审阅 Proposal/);
+
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  delete value.actionDialog;
+  value.v2Proposals = [{ updatedAt: "2026-07-22T13:00:01.000Z", files: { proposalMd: "# cancel", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-cancel", schemaVersion: "v2", title: "取消 Task", context: "用户发起。", understanding: "显式取消。", objective: "记录原因后取消。", logic: "版本重验后提交。", finalPreview: "取消原因：需求撤销", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "task-open", version: 2 }] }, preconditions: [],
+    groups: [{ groupId: "cancel-object", explanation: "原因与取消不可拆分。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "cancel-object", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "task-open", version: 2 }, summary: "取消 Task", payload: { action: "CANCEL", lifecycle: "CANCELLED", objectType: "TASK", reason: "需求撤销" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T13:00:00.000Z",
+  } }];
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-reasoned-lifecycle-commit"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  assert.match(html, /记录原因并改变 Lifecycle，不改写 Graph/);
+  value.actionDialog = { kind: "confirm-v2-reasoned-lifecycle", value: "prop-cancel|2026-07-22T13:00:01.000Z|CANCEL" };
+  html = renderApp(value);
+  assert.match(html, /data-action="submit-v2-reasoned-lifecycle"/);
+  assert.match(html, /单一 Domain Commit/);
+
+  delete value.actionDialog;
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:cancel", proposalId: "prop-cancel", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-lifecycle-undo" data-value="proposal-commit:cancel"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
+  value.actionDialog = { kind: "confirm-v2-lifecycle-undo", value: "proposal-commit:cancel" };
+  html = renderApp(value);
+  assert.match(html, /data-action="submit-v2-lifecycle-undo"/);
+  assert.match(html, /不改写正文、Anchor、Condition、Focus 或 Ownership/);
 });
 
 test("V2 Now Work renders only non-empty explainable regions without scores or button walls", () => {

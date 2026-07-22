@@ -67,7 +67,7 @@ class MemoryV2Repository implements V2ObjectRepository {
     const actualVersion = this.values.get(command.object.objectId)?.version ?? 0;
     if (actualVersion !== command.expectedVersion) throw new Error(`version ${actualVersion} != ${command.expectedVersion}`);
     this.values.set(command.object.objectId, command.object);
-    this.receipts.set(command.idempotencyKey, { command: command.audit.command as "create_object" | "transition_lifecycle" | "change_condition" | "change_due_at", object: command.object });
+    this.receipts.set(command.idempotencyKey, { command: command.audit.command as "create_object" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "change_condition" | "change_due_at", object: command.object });
     this.audit.push(command.audit);
     return { object: command.object, replayed: false };
   }
@@ -193,7 +193,7 @@ class MemoryV2Repository implements V2ObjectRepository {
     const actualVersion = this.values.get(object.objectId)?.version ?? 0;
     if (actualVersion !== expectedVersion) throw new Error(`version ${actualVersion} != ${expectedVersion}`);
     this.values.set(object.objectId, object);
-    if (audit.command === "create_object" || audit.command === "transition_lifecycle" || audit.command === "change_condition" || audit.command === "change_due_at") {
+    if (audit.command === "create_object" || audit.command === "transition_lifecycle" || audit.command === "cancel_lifecycle" || audit.command === "reopen_lifecycle" || audit.command === "undo_lifecycle" || audit.command === "change_condition" || audit.command === "change_due_at") {
       this.receipts.set(idempotencyKey, { command: audit.command, object });
     }
     this.audit.push(audit);
@@ -257,6 +257,22 @@ test("replayed command is idempotent and stale lifecycle transition is refused",
     /版本/,
   );
   assert.equal(repository.getObject(first.objectId)?.lifecycle, "COMPLETED");
+});
+
+test("cancellation and reopen are explicit reasoned Application commands", async () => {
+  const repository = new MemoryV2Repository();
+  const application = new V2Application(repository);
+  const task = await application.createObject({ objectType: "TASK", text: "核对旧链路" }, { actor: "user", expectedVersion: 0, idempotencyKey: "reasoned-create", traceId: "reasoned-create" });
+  await assert.rejects(() => application.cancelLifecycle(task.objectId, "", { actor: "user", expectedVersion: 1, idempotencyKey: "cancel-empty", traceId: "cancel-empty" }), /原因/);
+  const cancelled = await application.cancelLifecycle(task.objectId, "旧链路正式下线", { actor: "user", expectedVersion: 1, idempotencyKey: "cancel-reasoned", traceId: "cancel-reasoned" });
+  assert.equal(cancelled.lifecycle, "CANCELLED");
+  assert.equal((await application.cancelLifecycle(task.objectId, "不会覆盖", { actor: "user", expectedVersion: 1, idempotencyKey: "cancel-reasoned", traceId: "cancel-replay" })).version, 2);
+  const reopened = await application.reopenLifecycle(task.objectId, "兼容需求恢复", { actor: "user", expectedVersion: 2, idempotencyKey: "reopen-reasoned", traceId: "reopen-reasoned" });
+  assert.equal(reopened.lifecycle, "OPEN");
+  const undone = await application.undoLifecycle(task.objectId, { lifecycle: "CANCELLED" }, { actor: "proposal_undo", expectedVersion: 3, idempotencyKey: "undo-reasoned", traceId: "undo-reasoned" });
+  assert.equal(undone.lifecycle, "CANCELLED");
+  assert.deepEqual(repository.audit.slice(-3).map(({ command }) => command), ["cancel_lifecycle", "reopen_lifecycle", "undo_lifecycle"]);
+  assert.equal((await application.undoLifecycle(task.objectId, { lifecycle: "CANCELLED" }, { actor: "proposal_undo", expectedVersion: 3, idempotencyKey: "undo-reasoned", traceId: "undo-replay" })).version, 4);
 });
 
 test("invalid command envelope reaches neither repository nor audit", async () => {

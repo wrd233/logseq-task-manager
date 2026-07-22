@@ -70,6 +70,21 @@ test("MiniProject completion submission validates the reviewed shape early while
   assert.throws(() => validateV2ProposalForSubmission(value), /DONE Block/);
 });
 
+test("reasoned cancellation and reopen submission cannot omit the action or reason", () => {
+  const value = proposal();
+  value.scope = { read: [], modify: [{ kind: "OBJECT", id: "task-cancel", version: 2 }] };
+  value.groups = [{ groupId: "cancel-object", explanation: "原因与取消不可拆。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "cancel-object", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "task-cancel", version: 2 }, summary: "取消 Task", payload: { action: "CANCEL", lifecycle: "CANCELLED", fromLifecycle: "OPEN", objectType: "TASK", reason: "需求撤销" }, preconditions: [] }], disposition: "PENDING" }];
+  assert.equal(validateV2ProposalForSubmission(value).proposalId, value.proposalId);
+  const reopen = structuredClone(value);
+  Object.assign(reopen.groups[0]!.semanticOperations[0]!.payload, { action: "REOPEN", lifecycle: "OPEN", fromLifecycle: "CANCELLED", reason: "需求恢复" });
+  assert.equal(validateV2ProposalForSubmission(reopen).proposalId, value.proposalId);
+  delete value.groups[0]!.semanticOperations[0]!.payload.reason;
+  assert.throws(() => validateV2ProposalForSubmission(value), /记录原因/);
+  const projectDowngrade = structuredClone(reopen);
+  projectDowngrade.groups[0]!.semanticOperations[0]!.payload.objectType = "PROJECT";
+  assert.throws(() => validateV2ProposalForSubmission(projectDowngrade), /HIGH/);
+});
+
 test("V2 Proposal validator refuses modify-scope escape, stale patch hashes, and risk downgrade", () => {
   const outside = proposal();
   outside.groups[0]!.textPatches[0]!.blockUuid = "block-outside";

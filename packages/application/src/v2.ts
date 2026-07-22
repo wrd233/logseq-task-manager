@@ -4,6 +4,7 @@ import {
   bindV2PrimaryAnchor,
   changeV2Condition,
   changeV2DueAt,
+  cancelV2Lifecycle,
   completeV2Project,
   completeV2MiniProject,
   completeV2MiniProjectFromReviewedMarker,
@@ -11,6 +12,8 @@ import {
   lifecycleForV2ExecutionMarker,
   observeV2PrimaryAnchor,
   rebindV2PrimaryAnchor,
+  reopenV2Lifecycle,
+  restoreV2LifecycleFromUndo,
   restoreV2PrimaryOwner,
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
@@ -59,7 +62,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
+  command: "create_object" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_project" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -188,7 +191,7 @@ export interface V2MaterializationUndoResult {
 }
 
 export type V2CommandReceipt =
-  | { command: "create_object" | "transition_lifecycle" | "complete_mini_project" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
+  | { command: "create_object" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_mini_project" | "complete_project" | "change_condition" | "change_due_at"; object: V2ManagedObject }
   | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }
@@ -662,6 +665,46 @@ export class V2Application {
       },
     });
     return result.object;
+  }
+
+  async cancelLifecycle(objectId: string, reason: string, envelope: V2CommandEnvelope, at = new Date()): Promise<V2ManagedObject> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "cancel_lifecycle", objectId);
+    if (replay) return replay.object;
+    const current = await this.objects.getObject(objectId);
+    if (!current) throw new StructuredError({ code: "V2_OBJECT_NOT_FOUND", message: `对象 ${objectId} 不存在。`, ruleRefs: ["D-185"] });
+    const candidate = cancelV2Lifecycle(current, reason, envelope.expectedVersion, at);
+    return (await this.objects.commitObject({ object: candidate, expectedVersion: envelope.expectedVersion, idempotencyKey: envelope.idempotencyKey, audit: { traceId: envelope.traceId, actor: envelope.actor, command: "cancel_lifecycle", objectId, beforeVersion: current.version, afterVersion: candidate.version, occurredAt: at.toISOString() } })).object;
+  }
+
+  async reopenLifecycle(objectId: string, reason: string, envelope: V2CommandEnvelope, at = new Date()): Promise<V2ManagedObject> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "reopen_lifecycle", objectId);
+    if (replay) return replay.object;
+    const current = await this.objects.getObject(objectId);
+    if (!current) throw new StructuredError({ code: "V2_OBJECT_NOT_FOUND", message: `对象 ${objectId} 不存在。`, ruleRefs: ["D-185"] });
+    const candidate = reopenV2Lifecycle(current, reason, envelope.expectedVersion, at);
+    return (await this.objects.commitObject({ object: candidate, expectedVersion: envelope.expectedVersion, idempotencyKey: envelope.idempotencyKey, audit: { traceId: envelope.traceId, actor: envelope.actor, command: "reopen_lifecycle", objectId, beforeVersion: current.version, afterVersion: candidate.version, occurredAt: at.toISOString() } })).object;
+  }
+
+  async undoLifecycle(
+    objectId: string,
+    previous: { lifecycle: "OPEN" | "COMPLETED" | "CANCELLED"; closure?: V2ProjectClosure | V2MiniProjectClosure },
+    envelope: V2CommandEnvelope,
+    at = new Date(),
+  ): Promise<V2ManagedObject> {
+    requireEnvelope(envelope);
+    const replay = await this.replay(envelope.idempotencyKey, "undo_lifecycle", objectId);
+    if (replay) return replay.object;
+    const current = await this.objects.getObject(objectId);
+    if (!current) throw new StructuredError({ code: "V2_OBJECT_NOT_FOUND", message: `对象 ${objectId} 不存在。`, ruleRefs: ["D-185"] });
+    const candidate = restoreV2LifecycleFromUndo(current, previous, envelope.expectedVersion, at);
+    return (await this.objects.commitObject({
+      object: candidate,
+      expectedVersion: envelope.expectedVersion,
+      idempotencyKey: envelope.idempotencyKey,
+      audit: { traceId: envelope.traceId, actor: envelope.actor, command: "undo_lifecycle", objectId, beforeVersion: current.version, afterVersion: candidate.version, occurredAt: at.toISOString() },
+    })).object;
   }
 
   async completeProject(

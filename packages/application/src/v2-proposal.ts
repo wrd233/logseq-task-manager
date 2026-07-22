@@ -65,7 +65,7 @@ export interface V2ProjectClosurePlan {
   closure: V2ProjectClosure;
 }
 
-interface V2LifecycleTransitionPlanBase {
+interface V2MiniProjectLifecycleTransitionPlanBase {
   proposalId: string;
   groupId: string;
   objectId: string;
@@ -75,13 +75,29 @@ interface V2LifecycleTransitionPlanBase {
   closure: V2MiniProjectClosure;
 }
 
-export type V2LifecycleTransitionPlan = V2LifecycleTransitionPlanBase & ({
+export type V2MiniProjectLifecycleTransitionPlan = V2MiniProjectLifecycleTransitionPlanBase & ({
   evidenceKind: "MARKER";
   text: string;
   marker: "DONE";
   externalId: string;
   contentHash: string;
 } | { evidenceKind: "OBJECT_ONLY" });
+
+export interface V2ReasonedLifecycleTransitionPlan {
+  proposalId: string;
+  groupId: string;
+  objectId: string;
+  expectedVersion: number;
+  action: "CANCEL" | "REOPEN";
+  lifecycle: "CANCELLED" | "OPEN";
+  objectType: "TASK" | "MINI_PROJECT" | "PROJECT";
+  reason: string;
+  previousLifecycle: "OPEN" | "COMPLETED" | "CANCELLED";
+  previousClosure?: V2ProjectClosure | V2MiniProjectClosure;
+  evidenceKind: "OBJECT_ONLY";
+}
+
+export type V2LifecycleTransitionPlan = V2MiniProjectLifecycleTransitionPlan | V2ReasonedLifecycleTransitionPlan;
 
 export interface V2OwnershipChangePlan {
   proposalId: string; groupId: string; childObjectId: string; ownerObjectId: string; expectedVersion: number; expectedOwnerVersion: number; expectedCurrentOwnerId?: string;
@@ -191,23 +207,34 @@ export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClo
 export function planAcceptedV2LifecycleTransition(proposal: V2Proposal): V2LifecycleTransitionPlan {
   validateV2Proposal(proposal);
   const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
-  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_SHAPE_INVALID", "MiniProject Lifecycle 变更必须是唯一已接受语义组。");
+  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_SHAPE_INVALID", "Lifecycle 变更必须是唯一已接受语义组。");
   const group = accepted[0]!;
   if (proposal.groups.some((candidate) => candidate.groupId !== group.groupId && candidate.disposition !== "REJECTED")) {
     throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "完成 MiniProject 前必须拒绝其余未提交语义组，避免 Closure Commit 冻结独立工作。");
   }
   const transitions = group.semanticOperations.filter((operation) => operation.kind === "TRANSITION_LIFECYCLE");
-  if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || transitions.length !== 1) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OPERATION_INVALID", "MiniProject 完成必须是独立 HIGH 组的单一 Lifecycle 变更。");
+  if (group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || transitions.length !== 1) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OPERATION_INVALID", "Lifecycle Commit 必须是独立组中的单一领域变更。");
   const operation = transitions[0]!;
   const payload = operation.payload;
   const objectTarget = proposal.scope.modify.filter((target) => target.kind === "OBJECT" && target.id === operation.target.id && target.version !== undefined);
+  const reason = typeof payload.reason === "string" ? payload.reason.trim() : "";
+  const isCancellation = payload.action === "CANCEL" && payload.lifecycle === "CANCELLED";
+  const isReopen = payload.action === "REOPEN" && payload.lifecycle === "OPEN";
+  if (isCancellation || isReopen) {
+    const previousLifecycle = payload.fromLifecycle;
+    const fromStateValid = isCancellation ? previousLifecycle === "OPEN" : previousLifecycle === "COMPLETED" || previousLifecycle === "CANCELLED";
+    if (operation.target.kind !== "OBJECT" || operation.target.version === undefined || objectTarget.length !== 1 || objectTarget[0]!.version !== operation.target.version || !fromStateValid || !reason || reason.length > 4_000 || !["TASK", "MINI_PROJECT", "PROJECT"].includes(String(payload.objectType))) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_TARGET_INVALID", "取消或重开必须指向同一带版本对象、记录源状态和有界原因。");
+    if ((payload.objectType === "PROJECT" || payload.objectType === "MINI_PROJECT") && group.risk !== "HIGH") throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OPERATION_INVALID", "Project 或 MiniProject 的取消与重开必须按 HIGH 独立审阅。");
+    return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: operation.target.id, expectedVersion: operation.target.version, action: payload.action as "CANCEL" | "REOPEN", lifecycle: payload.lifecycle as "CANCELLED" | "OPEN", objectType: payload.objectType as "TASK" | "MINI_PROJECT" | "PROJECT", reason, previousLifecycle: previousLifecycle as "OPEN" | "COMPLETED" | "CANCELLED", ...(payload.previousClosure && typeof payload.previousClosure === "object" ? { previousClosure: payload.previousClosure as unknown as V2ProjectClosure | V2MiniProjectClosure } : {}), evidenceKind: "OBJECT_ONLY" };
+  }
+  if (group.risk !== "HIGH") throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OPERATION_INVALID", "MiniProject 完成必须是独立 HIGH 组。");
   let closure: V2MiniProjectClosure;
   try { closure = validateV2MiniProjectClosure(payload.closure as unknown as V2MiniProjectClosure); }
   catch { throw proposalApplicationError("V2_LIFECYCLE_COMMIT_CLOSURE_INVALID", "MiniProject Lifecycle Proposal 必须包含已确认的原目标、实际结果和遗留三问。"); }
   if (operation.target.kind !== "OBJECT" || operation.target.version === undefined || objectTarget.length !== 1 || objectTarget[0]!.version !== operation.target.version || payload.lifecycle !== "COMPLETED" || payload.objectType !== "MINI_PROJECT") {
     throw proposalApplicationError("V2_LIFECYCLE_COMMIT_TARGET_INVALID", "MiniProject Lifecycle Proposal 必须指向同一带版本对象。");
   }
-  const base: V2LifecycleTransitionPlanBase = {
+  const base: V2MiniProjectLifecycleTransitionPlanBase = {
     proposalId: proposal.proposalId, groupId: group.groupId, objectId: operation.target.id, expectedVersion: operation.target.version,
     lifecycle: "COMPLETED", objectType: "MINI_PROJECT", closure,
   };

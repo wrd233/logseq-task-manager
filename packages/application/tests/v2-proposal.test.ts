@@ -175,7 +175,9 @@ test("MiniProject closure review requires three answers before producing one acc
   await assert.rejects(() => application.review(ready.proposalId, { "complete-mini": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt), /三问/);
   const reviewed = await application.reviewMiniProjectClosure(ready.proposalId, "complete-mini", { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" }, submitted.record.updatedAt);
   assert.equal(reviewed.proposal.status, "ACCEPTED");
-  assert.deepEqual(planAcceptedV2LifecycleTransition(reviewed.proposal).closure, { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" });
+  const reviewedPlan = planAcceptedV2LifecycleTransition(reviewed.proposal);
+  assert.ok("closure" in reviewedPlan);
+  assert.deepEqual(reviewedPlan.closure, { originalGoal: "完成 Gate", actualResult: "Gate 通过", remainingWork: "无遗留" });
 
   const withRemaining = structuredClone(ready);
   withRemaining.proposalId = "prop-mini-with-remaining";
@@ -186,6 +188,22 @@ test("MiniProject closure review requires three answers before producing one acc
   assert.throws(() => planAcceptedV2LifecycleTransition(closureAccepted.proposal), /拒绝其余未提交语义组/);
   const remainingRejected = await remainingApplication.review(withRemaining.proposalId, { "remaining-work": { disposition: "REJECTED" } }, closureAccepted.updatedAt);
   assert.equal(planAcceptedV2LifecycleTransition(remainingRejected.proposal).groupId, "complete-mini");
+});
+
+test("reasoned cancellation and reopen plans preserve the reviewed reason without Graph writes", () => {
+  const cancellation: V2Proposal = {
+    ...proposal(), proposalId: "prop-cancel-task", title: "取消 Task", finalPreview: "取消原因：外部需求撤销", scope: { read: [], modify: [{ kind: "OBJECT", id: "task-1", version: 4 }] },
+    groups: [{ groupId: "cancel-object", explanation: "原因与取消不可拆分。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "cancel-object", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "task-1", version: 4 }, summary: "取消 Task", payload: { action: "CANCEL", lifecycle: "CANCELLED", fromLifecycle: "OPEN", objectType: "TASK", reason: "外部需求撤销" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED",
+  };
+  assert.deepEqual(planAcceptedV2LifecycleTransition(cancellation), { proposalId: "prop-cancel-task", groupId: "cancel-object", objectId: "task-1", expectedVersion: 4, action: "CANCEL", lifecycle: "CANCELLED", objectType: "TASK", reason: "外部需求撤销", previousLifecycle: "OPEN", evidenceKind: "OBJECT_ONLY" });
+  const reopen = structuredClone(cancellation);
+  reopen.proposalId = "prop-reopen-task";
+  reopen.groups[0]!.groupId = "reopen-object";
+  Object.assign(reopen.groups[0]!.semanticOperations[0]!.payload, { action: "REOPEN", lifecycle: "OPEN", fromLifecycle: "CANCELLED", reason: "需求重新确认" });
+  assert.equal(planAcceptedV2LifecycleTransition(reopen).lifecycle, "OPEN");
+  const missingReason = structuredClone(cancellation);
+  missingReason.groups[0]!.semanticOperations[0]!.payload.reason = "";
+  assert.throws(() => planAcceptedV2LifecycleTransition(missingReason), /原因/);
 });
 
 test("accepted Ownership plan requires one versioned HIGH operation and explicit current-owner evidence", () => {

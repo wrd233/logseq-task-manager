@@ -198,8 +198,19 @@ export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
       if (operation.kind === "CREATE_OBJECT" && (typeof operation.payload.objectType !== "string" || typeof operation.payload.text !== "string" || !operation.payload.text.trim())) {
         throw proposalError("V2_PROPOSAL_CREATE_OBJECT_PAYLOAD_INVALID", "CREATE_OBJECT 必须明确声明最终对象类型与正文，不能依赖 Graph 回声补全。");
       }
-      if (operation.kind === "TRANSITION_LIFECYCLE" && !["COMPLETED", "CANCELLED", "ARCHIVED"].includes(String(operation.payload.lifecycle))) {
+      if (operation.kind === "TRANSITION_LIFECYCLE" && !["OPEN", "COMPLETED", "CANCELLED", "ARCHIVED"].includes(String(operation.payload.lifecycle))) {
         throw proposalError("V2_PROPOSAL_LIFECYCLE_PAYLOAD_INVALID", "TRANSITION_LIFECYCLE 必须明确声明合法的终态。");
+      }
+      if (operation.kind === "TRANSITION_LIFECYCLE" && (operation.payload.lifecycle === "CANCELLED" || operation.payload.lifecycle === "OPEN")) {
+        const isCancellation = operation.payload.lifecycle === "CANCELLED" && operation.payload.action === "CANCEL";
+        const isReopen = operation.payload.lifecycle === "OPEN" && operation.payload.action === "REOPEN";
+        const reason = typeof operation.payload.reason === "string" ? operation.payload.reason.trim() : "";
+        const fromLifecycle = operation.payload.fromLifecycle;
+        const fromStateValid = isCancellation ? fromLifecycle === "OPEN" : fromLifecycle === "COMPLETED" || fromLifecycle === "CANCELLED";
+        if ((!isCancellation && !isReopen) || !fromStateValid || !reason || reason.length > 4_000 || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || operation.target.kind !== "OBJECT" || operation.target.version === undefined || !["TASK", "MINI_PROJECT", "PROJECT"].includes(String(operation.payload.objectType))) {
+          throw proposalError("V2_PROPOSAL_REASONED_LIFECYCLE_SHAPE_INVALID", "取消或重开必须是指向带版本对象、记录原因的独立 Lifecycle 语义组。");
+        }
+        if ((operation.payload.objectType === "PROJECT" || operation.payload.objectType === "MINI_PROJECT") && group.risk !== "HIGH") throw proposalError("V2_PROPOSAL_RISK_DOWNGRADE", "Project 或 MiniProject 的取消与重开必须独立按 HIGH 审阅。");
       }
       if (operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.objectType === "MINI_PROJECT" && operation.payload.lifecycle === "COMPLETED") {
         miniProjectCompletionCount += 1;
