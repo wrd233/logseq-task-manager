@@ -1,0 +1,89 @@
+{
+  "proposalId": "proposal_dependency_defer_desktop_20260722",
+  "schemaVersion": "v2",
+  "title": "先记录决策，再发布验收输出",
+  "context": "Area 已完成受控创建与 Now Work 验收，需要把验收结论拆成有先后依赖的两组建议。",
+  "understanding": "先记录采用的验收结论，随后才能发布依赖该结论的输出。",
+  "objective": "验证 Proposal 暂缓、依赖阻止与按依赖顺序接受的真实审阅交互。",
+  "logic": "record-decision 是前置组；publish-output 依赖前置组，不能脱离接受。两组都只进入审阅，不在本 Gate 提交正式状态。",
+  "finalPreview": "记录键盘与主题验收决策后，发布对应验收输出。",
+  "unresolvedQuestions": [],
+  "source": {
+    "kind": "user"
+  },
+  "scope": {
+    "read": [],
+    "modify": [
+      {
+        "kind": "OBJECT",
+        "id": "obj_20260722113518916_0826f2bb3f7844f1aa4b4ed18500c205",
+        "version": 3
+      }
+    ]
+  },
+  "preconditions": [
+    "Area object_id 与 version 仍为 v3"
+  ],
+  "groups": [
+    {
+      "groupId": "record-decision",
+      "explanation": "先记录本次 View Gate 的验收决策。",
+      "risk": "LOW",
+      "independentlyAcceptable": true,
+      "dependencies": [],
+      "textPatches": [],
+      "semanticOperations": [
+        {
+          "operationId": "record-view-decision",
+          "kind": "CREATE_DECISION",
+          "target": {
+            "kind": "OBJECT",
+            "id": "obj_20260722113518916_0826f2bb3f7844f1aa4b4ed18500c205",
+            "version": 3
+          },
+          "summary": "记录 View Gate 通过的决策",
+          "payload": {
+            "objectType": "DECISION",
+            "text": "采用已通过 Desktop 验证的键盘、焦点与主题行为"
+          },
+          "preconditions": [
+            "验收证据仍可读"
+          ]
+        }
+      ],
+      "disposition": "PENDING"
+    },
+    {
+      "groupId": "publish-output",
+      "explanation": "只有前置决策被接受后，发布验收输出才有明确依据。",
+      "risk": "LOW",
+      "independentlyAcceptable": true,
+      "dependencies": [
+        "record-decision"
+      ],
+      "textPatches": [],
+      "semanticOperations": [
+        {
+          "operationId": "publish-view-output",
+          "kind": "CREATE_OUTPUT",
+          "target": {
+            "kind": "OBJECT",
+            "id": "obj_20260722113518916_0826f2bb3f7844f1aa4b4ed18500c205",
+            "version": 3
+          },
+          "summary": "发布 View Gate 验收输出",
+          "payload": {
+            "objectType": "OUTPUT",
+            "text": "V2 View 键盘与主题 Desktop 验收报告"
+          },
+          "preconditions": [
+            "record-decision 已接受"
+          ]
+        }
+      ],
+      "disposition": "PENDING"
+    }
+  ],
+  "status": "READY",
+  "createdAt": "2026-07-22T12:10:00.000Z"
+}

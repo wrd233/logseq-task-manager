@@ -448,6 +448,17 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /语义 Diff/);
   for (const action of ["v2-review-accept", "v2-review-reject", "v2-review-defer"]) assert.match(html, new RegExp(`data-action="${action}"`));
   assert.match(html, /审阅决定只更新 Proposal；尚未修改正式正文或对象/);
+  value.v2Proposals[0]!.proposal.status = "IN_REVIEW";
+  value.v2Proposals[0]!.proposal.groups[0] = {
+    ...value.v2Proposals[0]!.proposal.groups[0]!,
+    disposition: "DEFERRED",
+    deferredUntil: "2026-07-30T01:30:00.000Z",
+    deferReason: "等待验收负责人确认",
+  };
+  html = renderApp(value);
+  assert.match(html, /暂缓至 .*2026.*7.*30.*等待验收负责人确认/);
+  assert.match(html, /data-action="v2-review-accept"/);
+  assert.match(html, /data-action="v2-review-defer"/);
   value.v2Proposals[0]!.proposal.status = "ACCEPTED";
   value.v2Proposals[0]!.proposal.groups[0]!.disposition = "ACCEPTED";
   html = renderApp(value);
