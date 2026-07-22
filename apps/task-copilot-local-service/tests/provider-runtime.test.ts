@@ -24,6 +24,32 @@ test("runtime resolves a secret reference without placing the secret in public e
   assert.deepEqual(references, ["keychain:task-copilot/deepseek"]);
 });
 
+test("runtime rejects output token limits outside the bounded provider range", async () => {
+  await assert.rejects(
+    () => loadProposalGeneratorFromEnvironment({
+      TASK_COPILOT_LLM_PROVIDER: "deepseek",
+      TASK_COPILOT_DEEPSEEK_API_KEY_REF: "env:DEEPSEEK_API_KEY",
+      DEEPSEEK_BASE_URL: "https://provider.example/v1",
+      DEEPSEEK_MODEL: "actual-runtime-model",
+      DEEPSEEK_MAX_OUTPUT_TOKENS: "999999",
+    }, { resolve: () => "runtime-only-secret" }),
+    (error: unknown) => error instanceof DeepSeekProviderError && error.code === "LLM_CONFIG_INVALID",
+  );
+});
+
+test("runtime rejects timeout limits outside the bounded provider range", async () => {
+  await assert.rejects(
+    () => loadProposalGeneratorFromEnvironment({
+      TASK_COPILOT_LLM_PROVIDER: "deepseek",
+      TASK_COPILOT_DEEPSEEK_API_KEY_REF: "env:DEEPSEEK_API_KEY",
+      DEEPSEEK_BASE_URL: "https://provider.example/v1",
+      DEEPSEEK_MODEL: "actual-runtime-model",
+      DEEPSEEK_TIMEOUT_MS: "120001",
+    }, { resolve: () => "runtime-only-secret" }),
+    (error: unknown) => error instanceof DeepSeekProviderError && error.code === "LLM_CONFIG_INVALID",
+  );
+});
+
 test("environment secret resolver accepts only bounded references and never falls back to a shell", async () => {
   const resolver = new RuntimeSecretResolver({ DEEPSEEK_API_KEY: "in-memory-key" });
   assert.equal(await resolver.resolve("env:DEEPSEEK_API_KEY"), "in-memory-key");

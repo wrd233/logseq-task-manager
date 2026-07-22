@@ -79,8 +79,9 @@ export function assembleV2ProposalPrompt(bundle: V2PromptBundle): { system: stri
   };
   const promptBundleVersion = checksum(stableJson({ manifest, layers }));
   const system = [
-    "你是个人事务运行系统的局部语义 Provider。输出一个 JSON object：有可审阅变化时输出 V2 Proposal；普通记录或证据不足时输出 {\"decision\":\"NO_PROPOSAL\",\"reason\":\"简洁理由\"}。",
+    "你是个人事务运行系统的局部语义 Provider。输出一个 JSON object：有可审阅变化时，直接以 title/context/understanding/objective/logic/finalPreview/unresolvedQuestions/scope/preconditions/groups 作为顶层字段输出 V2 Proposal，禁止 decision=PROPOSAL 或 proposal wrapper；普通记录或证据不足时输出且只输出 {\"decision\":\"NO_PROPOSAL\",\"reason\":\"简洁理由\"}。",
     "模型输出不是事实或命令；不得声称已写入 Logseq、SQLite、Lifecycle、Condition、Focus 或 Anchor。",
+    "unresolvedQuestions 与 preconditions 必须是 JSON 字符串数组；没有内容时必须输出 []，禁止用“无”、空字符串或 null 代替数组。",
     "modify scope、版本/hash 前置、Operation Group、risk、最终预览必须显式且保守；信息不足时保留未决问题。",
     `Core [${layers.core.version}]\n${layers.core.content}`,
     `Domain [${layers.domain.version}]\n${layers.domain.content}`,

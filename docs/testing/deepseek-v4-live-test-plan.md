@@ -1,6 +1,6 @@
 # DeepSeek v4 真实在线测试计划
 
-> 状态：L1 PASS / L2 HARNESS READY / CURRENT CONFIG NOT AVAILABLE。历史受保护输入中的 API Key 未持久化；本文件不会复制、显示或引用该值。当前进程没有完整 Base URL、实际 Model ID 与 secret reference，因此本轮未发起新的真实调用。
+> 状态：L1 PASS / L2 SUCCESS-PATH PASS + SAFE ERROR LIVE PARTIAL / L3 FAIL / L4 NOT PASSED / DESKTOP PENDING。真实配置通过 Keychain secret reference 使用；严格结果见 `deepseek-v4-live-test-report.md`。
 
 ## 1. 目标与边界
 
@@ -23,7 +23,7 @@ DEEPSEEK_MODEL         actual model identifier, not hard-coded
 RUN_LIVE_LLM_TESTS=1   explicit live gate
 ```
 
-实现使用 `TASK_COPILOT_LLM_PROVIDER=deepseek` 显式选择 Provider，并以 `TASK_COPILOT_DEEPSEEK_API_KEY_REF=env:<NAME>` 或 `keychain:<service>/<account>` 引用凭据；兼容直接提供 `DEEPSEEK_API_KEY` 时也只在进程内解析。`npm run test:llm-live --workspace @task-copilot/local-service` 默认以 `LLM_LIVE_GATE_DISABLED` 和退出码 2 停止，只有 live 开关与完整配置同时存在时才执行一个有界中文 Structured Output 请求。
+实现使用 `TASK_COPILOT_LLM_PROVIDER=deepseek` 显式选择 Provider，并以 `TASK_COPILOT_DEEPSEEK_API_KEY_REF=env:<NAME>` 或 `keychain:<service>/<account>` 引用凭据；兼容直接提供 `DEEPSEEK_API_KEY` 时也只在进程内解析。单例 smoke 与 22-run golden runner 都默认在解析凭据前停止。输出 token 和 timeout 的运行时覆盖分别受 256–8192、100ms–120s 边界约束；生产默认仍为 2048 与 20 秒。
 
 配置加载顺序：Keychain reference 优先，其次进程环境；配置文件只保存 secret reference。启动前打印 Provider、脱敏 Base URL、Model、案例数、最大请求数和最大重试数，不打印 Key。
 

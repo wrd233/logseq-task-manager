@@ -22,10 +22,10 @@ V1 `RT-MVP-001B..004` 已在 Logseq Desktop 0.10.15 通过；四项 copied-data 
 4. copied-data migration Scan/Preview、小批 Commit、中断继续、重复导入和单批 Undo；
 5. object_id、Primary Anchor、Commit 链和 Legacy mapping 证据完整；
 6. Slice C 完成后验证 Proposal review → SemanticCommit → inverse Commit；
-7. Slice D 具备完整安全配置后，从 Review Center 验证真实 DeepSeek 当前块 → Proposal/NO_PROPOSAL → Diff → Review；同时覆盖超时/取消和凭据 canary，不以 Mock 替代。
+7. Slice D 的真实 Provider 正向 smoke 已通过，但安全错误在线分类仍部分、严格 L3 失败、L4 未通过；继续无答案 Prompt 的黄金稳定性与接受/部分接受/编辑/拒绝记录，再集中从 Review Center 验证当前块 → Proposal/NO_PROPOSAL → Diff → Review，并复验 loading/error、默认日志、Diagnostics 和凭据 canary。
 
 ## 已知限定
 
 - Logseq 0.10.15 删除后 Undo 只恢复正文，不恢复可解析的原 Anchor 身份；显式 rebind 是已验证路径。
 - V1 Proposal “接受”与“提交”分离且视觉层级不足；OPEN + ACCEPTED 不代表正式状态。
-- DeepSeek live Gate 当前缺完整 Provider/Base URL/Model/Key reference 配置，不阻塞 Slice A-C。
+- DeepSeek live Provider 正向路径已通过；安全错误在线分类、严格 L3/L4、Desktop Review Center 与默认日志/Diagnostics 交互证据仍待完成。

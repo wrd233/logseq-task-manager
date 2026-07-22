@@ -72,6 +72,8 @@ test("five prompt layers are deterministic, versioned, and preserve the local-LL
   assert.match(first.system, /User Semantics \[profile-2\]/);
   assert.match(first.user, /Runtime Context \[ctx-9\]/);
   assert.match(first.system, /不得声称已写入 Logseq、SQLite/);
+  assert.match(first.system, /禁止 decision=PROPOSAL 或 proposal wrapper/);
+  assert.match(first.system, /没有内容时必须输出 \[\]/);
 });
 
 test("model source, ID, status, and timestamps are replaced by machine-owned Proposal metadata", async () => {

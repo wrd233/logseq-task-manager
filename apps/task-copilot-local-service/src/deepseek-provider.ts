@@ -8,6 +8,7 @@ export interface DeepSeekProviderConfig {
   maxResponseChars?: number;
   maxRetries?: number;
   retryBaseDelayMs?: number;
+  maxOutputTokens?: number;
 }
 
 export interface DeepSeekProviderReferenceConfig extends Omit<DeepSeekProviderConfig, "apiKey"> {
@@ -71,13 +72,15 @@ function requireConfig(config: DeepSeekProviderConfig): Required<DeepSeekProvide
   const maxResponseChars = config.maxResponseChars ?? 200_000;
   const maxRetries = config.maxRetries ?? 1;
   const retryBaseDelayMs = config.retryBaseDelayMs ?? 250;
+  const maxOutputTokens = config.maxOutputTokens ?? 2_048;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120_000
     || !Number.isSafeInteger(maxResponseChars) || maxResponseChars < 1_024 || maxResponseChars > 2_000_000
     || !Number.isSafeInteger(maxRetries) || maxRetries < 0 || maxRetries > 2
-    || !Number.isSafeInteger(retryBaseDelayMs) || retryBaseDelayMs < 0 || retryBaseDelayMs > 5_000) {
-    throw new DeepSeekProviderError("LLM_CONFIG_INVALID", "Provider timeout、响应大小或重试限制无效。");
+    || !Number.isSafeInteger(retryBaseDelayMs) || retryBaseDelayMs < 0 || retryBaseDelayMs > 5_000
+    || !Number.isSafeInteger(maxOutputTokens) || maxOutputTokens < 256 || maxOutputTokens > 8_192) {
+    throw new DeepSeekProviderError("LLM_CONFIG_INVALID", "Provider timeout、响应大小、重试或输出限制无效。");
   }
-  return { baseUrl, model, apiKey, timeoutMs, maxResponseChars, maxRetries, retryBaseDelayMs };
+  return { baseUrl, model, apiKey, timeoutMs, maxResponseChars, maxRetries, retryBaseDelayMs, maxOutputTokens };
 }
 
 export async function resolveDeepSeekProviderConfig(
@@ -202,7 +205,7 @@ export class DeepSeekStructuredProvider {
     const body = JSON.stringify({
       model: this.config.model,
       temperature: 0,
-      max_tokens: 2_048,
+      max_tokens: this.config.maxOutputTokens,
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: request.system }, { role: "user", content: request.user }],
     });

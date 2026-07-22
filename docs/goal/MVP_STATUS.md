@@ -3,7 +3,7 @@
 ```yaml
 goal_state: V1_FROZEN_FOR_MIGRATION
 current_slice: "V1 frozen; V2 Slice A0 complete; A1-A4 foundation in progress; Slice B3 Marker safety and Marker/sidebar MiniProject three-question Closure Desktop pass; UC-28 Agent drafting/legacy transfer partial; Slice B4 move-copy-rebind Desktop pass; Slice B5 Project Desktop pass; Slice C0-C5 Desktop partial pass; Slice E Now Work interactive foundation; Slice F migration foundation and Project Closure Desktop pass"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 385 tests; 145 rules; 0 failed/skipped; all builds, boundaries and recovery rehearsal passed; MiniProject three-question Closure automated contract, schema v11 migration/archive retention, sidebar object-only Desktop and real Logseq Marker evidence Desktop passed; general UC-28 Agent drafting and legacy transfer remain pending"
+last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; 398 tests; 145 rules; 0 failed/skipped; strict real DeepSeek L3 currently FAIL with zero formal writes"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V1_MVP_PILOT_PARTIAL
 v1_state: V1_FROZEN_FOR_MIGRATION
@@ -41,7 +41,7 @@ implemented:
   - "Slice B3 Marker safety and MiniProject three-question Closure Desktop DONE for Marker and sidebar: one active HIGH Proposal, all three answers required, accept-not-applied, evidence-specific final revalidation, atomic lifecycle/closure/anchor/audit/receipt, reload, backup/Doctor and schema v11 migration without a new table or recovery path; external-Agent submission is automated, while UC-28 Agent drafting and legacy transfer remain partial"
   - "V2 Proposal Review now provides one continuous accept, final preview/Diff, explicit Commit, applied status, and inverse Commit/Undo flow with restart continuation and no overwrite of later edits"
   - "Slice D L1 now provides explicit DeepSeek runtime selection, env/Keychain secret references, bounded Structured Output with timeout/cancel/retry/error isolation, deterministic five-layer Prompt assembly, machine-owned Proposal metadata/hash, Domain validation, NO_PROPOSAL zero-write handling, and a capability-gated Review Center current-block entry"
-  - "Slice D L2 has a default-off one-request smoke harness with sanitized zero-write metadata, and DS-01..12 fixed sanitized golden manifests are ready for real-model execution"
+  - "Slice D real DeepSeek measurement: Keychain-only secret reference, default-off fail-fast harness, no-answer Prompt and strict semantic evaluator; E2E-21 positive Provider/Schema path DONE, but early leaked-answer 22-run was invalidated and strict L3 currently fails on Flash MiniProject stability and Pro Decision classification; zero Graph/formal Store writes throughout"
   - "V2 Now Work reads SQLite authority through Local Service and renders three explainable, empty-hiding regions; recent actionable work is bounded and ordinary Waiting stays quiet"
   - "V2 Now Work can add/remove/reorder Focus through Application and Local Service concurrency guards, and active Primary Anchors expose a safe open action without changing formal object state"
   - "V2 Now Work can set ACTIONABLE/WAITING/BLOCKED/PAUSED through one versioned Application command; Waiting review evidence is validated and immediately feeds the quiet review projection"
@@ -82,10 +82,9 @@ runtime_checks_pending:
 active_risks:
   - "Proposal accept and commit remain visually separate in V1; OPEN+ACCEPTED is safe but confusing"
   - "Logseq Undo restores block text but not resolvable original Anchor identity; explicit rebind remains required"
-  - "DeepSeek L1 automatic foundation is complete, but the live Gate still lacks a currently available Base URL/actual Model/Key secret-reference configuration and L2-L4 evidence"
+  - "DeepSeek L2 success path is complete, but safe online error classification is partial, L3 quality fails, L4 is not passed, and Desktop Review/default log/Diagnostics interaction remain pending"
   - "@logseq/libs 0.0.17 retains upstream npm audit findings; no forced incompatible upgrade"
-user_actions_required:
-  - "For later Slice D live Gate only: no product decision is pending; runtime must still establish a secure secret reference and discover/confirm Provider Base URL plus actual model ID before spending calls"
+user_actions_required: []
 resume_instruction: "Read AGENTS.md, this file, current-status, Pilot report and migration docs. Keep V1 frozen, never dual-write, continue Slice A test-first. Do not claim V1_MVP_PILOT_SUCCESS, Slice D, or V2 completion without their real gates."
 ```
 

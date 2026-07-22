@@ -44,6 +44,21 @@ test("DeepSeek structured provider assembles configured request and returns boun
   });
 });
 
+test("a bounded explicit output token limit is sent without changing the default", async () => {
+  let body: Record<string, unknown> | undefined;
+  const provider = new DeepSeekStructuredProvider({ ...config, maxOutputTokens: 8_192 }, {
+    fetch: async (_input, init) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({ choices: [{ message: { content: "{\"ok\":true}" } }] }));
+    },
+  });
+  await provider.completeStructured({ system: "JSON", user: "输入" });
+  assert.equal(body?.max_tokens, 8_192);
+  for (const invalid of [255, 8_193, 2.5]) {
+    assert.throws(() => new DeepSeekStructuredProvider({ ...config, maxOutputTokens: invalid }), (error: unknown) => error instanceof DeepSeekProviderError && error.code === "LLM_CONFIG_INVALID");
+  }
+});
+
 test("secret reference is resolved out of band and is never returned as public config metadata", async () => {
   let reference = "";
   const resolved = await resolveDeepSeekProviderConfig(

@@ -56,14 +56,19 @@ export async function loadStructuredProviderFromEnvironment(
   const model = environment.DEEPSEEK_MODEL?.trim() ?? "";
   const apiKeyRef = environment.TASK_COPILOT_DEEPSEEK_API_KEY_REF?.trim()
     || (environment.DEEPSEEK_API_KEY ? "env:DEEPSEEK_API_KEY" : "");
+  const maxOutputTokens = environment.DEEPSEEK_MAX_OUTPUT_TOKENS === undefined
+    ? 2_048
+    : Number(environment.DEEPSEEK_MAX_OUTPUT_TOKENS);
+  const timeoutMs = environment.DEEPSEEK_TIMEOUT_MS === undefined ? 20_000 : Number(environment.DEEPSEEK_TIMEOUT_MS);
   const config = await resolveDeepSeekProviderConfig({
     baseUrl,
     model,
     apiKeyRef,
-    timeoutMs: 20_000,
+    timeoutMs,
     maxResponseChars: 200_000,
     maxRetries: 1,
     retryBaseDelayMs: 250,
+    maxOutputTokens,
   }, resolver);
   return new DeepSeekStructuredProvider(config);
 }
