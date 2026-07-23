@@ -127,7 +127,7 @@
 - P0-D 本地 commit：`6f6ef49`；
 - P0-E 本地 commit：`72cbbd4`；
 - P0-F 本地 commit：`53835b1`；
-- P0-G 本地 commit：待本轮收口后记录；
+- P0-G 本地 commit：`ff10b93`；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
