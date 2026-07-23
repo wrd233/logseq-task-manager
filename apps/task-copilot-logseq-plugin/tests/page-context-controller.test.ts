@@ -1,0 +1,206 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
+
+import {
+  PageContextController,
+  type PageContextClient,
+  type PageContextHost,
+} from "../src/page-context-controller.ts";
+
+function object(overrides: Partial<V2ManagedObject> = {}): V2ManagedObject {
+  return {
+    objectId: "task-1",
+    objectType: "TASK",
+    version: 3,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "核对发布结果",
+    createdAt: "2026-07-23T01:00:00.000Z",
+    updatedAt: "2026-07-23T01:00:00.000Z",
+    sourceOrCreationEvent: "test",
+    ...overrides,
+  };
+}
+
+function anchor(overrides: Partial<V2Anchor> = {}): V2Anchor {
+  return {
+    anchorId: "anchor-1",
+    objectId: "task-1",
+    graphId: "graph-a",
+    externalId: "block-1",
+    role: "primary_text",
+    status: "active",
+    contentHash: "hash-1",
+    lastSeenAt: "2026-07-23T01:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function host(overrides: Partial<PageContextHost> = {}): PageContextHost {
+  const page = { uuid: "page-1", name: "release-check", originalName: "Release Check" };
+  return {
+    async getPage() { return page; },
+    async getCurrentPage() { return page; },
+    async getPageBlocksTree() {
+      return [{ uuid: "block-1", children: [{ uuid: "block-child" }] }];
+    },
+    ...overrides,
+  };
+}
+
+function client(overrides: Partial<PageContextClient> = {}): PageContextClient {
+  return {
+    async listObjects() { return [object()]; },
+    async listPrimaryAnchors() { return { anchors: [anchor()] }; },
+    ...overrides,
+  };
+}
+
+test("Page Context rereads payload/current identity and lists only formal items on the page", async () => {
+  const reads: string[] = [];
+  const value = host({
+    async getPage(identity) {
+      reads.push(`page:${identity}`);
+      return { uuid: "page-1", name: "release-check", originalName: "Release Check" };
+    },
+    async getCurrentPage() {
+      reads.push("current");
+      return { uuid: "page-1", name: "release-check", originalName: "Release Check" };
+    },
+  });
+  const result = await new PageContextController(() => client(), value).open("Release Check");
+
+  assert.equal(result.kind, "PAGE");
+  assert.equal(result.pageUuid, "page-1");
+  assert.equal(result.pageName, "Release Check");
+  assert.deepEqual(result.formalItems.map(({ objectId }) => objectId), ["task-1"]);
+  assert.deepEqual(reads, ["page:Release Check", "current", "page:page-1"]);
+});
+
+test("Page Context recognizes a Project only from its active page Primary Anchor", async () => {
+  const project = object({
+    objectId: "project-1",
+    objectType: "PROJECT",
+    text: "发布 Task Copilot",
+    version: 7,
+    projectStructure: {
+      currentSummary: "正在做 Desktop 验收",
+      currentFocuses: ["Page Context"],
+      objectives: [],
+      deliverables: [],
+      workStages: [],
+      stageMappings: [],
+    },
+  });
+  const result = await new PageContextController(
+    () => client({
+      async listObjects() { return [project, object()]; },
+      async listPrimaryAnchors() {
+        return {
+          anchors: [
+            anchor({ anchorId: "project-anchor", objectId: "project-1", externalId: "page-1" }),
+            anchor(),
+          ],
+        };
+      },
+    }),
+    host(),
+  ).open({ uuid: "page-1" });
+
+  assert.equal(result.kind, "PROJECT");
+  assert.equal(result.originSurface, "MAIN_PAGE");
+  assert.deepEqual(result.project, {
+    objectId: "project-1",
+    objectText: "发布 Task Copilot",
+    objectVersion: 7,
+    lifecycle: "OPEN",
+  });
+  assert.deepEqual(result.formalItems.map(({ objectId }) => objectId), ["project-1", "task-1"]);
+});
+
+test("Page Context rejects a target whose identity changes while the route is loading", async () => {
+  let pageReads = 0;
+  const value = host({
+    async getPage() {
+      pageReads += 1;
+      return pageReads === 1
+        ? { uuid: "page-1", name: "release-check", originalName: "Release Check" }
+        : { uuid: "page-2", name: "another-page", originalName: "Another Page" };
+    },
+  });
+  await assert.rejects(
+    () => new PageContextController(() => client(), value).open("Release Check"),
+    /页面已切换/,
+  );
+});
+
+test("Page Context supports a right-sidebar target without treating the main page as its identity", async () => {
+  const result = await new PageContextController(
+    () => client(),
+    host({
+      async getCurrentPage() {
+        return { uuid: "main-page", name: "main-page", originalName: "Main Page" };
+      },
+    }),
+  ).open("Release Check");
+
+  assert.equal(result.originSurface, "SECONDARY_PAGE");
+  assert.equal(result.pageUuid, "page-1");
+  await new PageContextController(
+    () => client(),
+    host({
+      async getCurrentPage() {
+        return { uuid: "main-page", name: "main-page", originalName: "Main Page" };
+      },
+    }),
+  ).revalidate(result);
+});
+
+test("Page Context revalidates the original page before a routed action", async () => {
+  let currentUuid = "page-1";
+  const controller = new PageContextController(
+    () => client(),
+    host({
+      async getCurrentPage() {
+        return { uuid: currentUuid, name: currentUuid, originalName: currentUuid };
+      },
+    }),
+  );
+  const snapshot = await controller.open("Release Check");
+  currentUuid = "page-2";
+
+  await assert.rejects(() => controller.revalidate(snapshot), /页面已切换/);
+});
+
+test("Page Context fails closed for duplicate Project anchors and anchor cursor loops", async () => {
+  const project = object({ objectId: "project-1", objectType: "PROJECT", text: "Project" });
+  await assert.rejects(
+    () => new PageContextController(
+      () => client({
+        async listObjects() { return [project]; },
+        async listPrimaryAnchors() {
+          return {
+            anchors: [
+              anchor({ anchorId: "a", objectId: "project-1", externalId: "page-1" }),
+              anchor({ anchorId: "b", objectId: "project-1", externalId: "page-1" }),
+            ],
+          };
+        },
+      }),
+      host(),
+    ).open("Release Check"),
+    /多个 active Project Primary Anchor/,
+  );
+
+  await assert.rejects(
+    () => new PageContextController(
+      () => client({
+        async listPrimaryAnchors() { return { anchors: [], nextCursor: "same" }; },
+      }),
+      host(),
+    ).open("Release Check"),
+    /分页状态异常/,
+  );
+});

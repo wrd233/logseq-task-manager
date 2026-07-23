@@ -1,9 +1,9 @@
 # 交互优化实施进度
 
 > 更新时间：2026-07-23
-> 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”、P0-C 低风险“接受并应用”和
-> P0-H descriptor 私有 handshake 已完成自动与 Desktop 验收；Service 进程生命周期及其余
-> P0 仍未完成。
+> 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
+> P0-D Page 现场路由和 P0-H descriptor 私有 handshake 已完成自动与 Desktop 验收；Service
+> 进程生命周期及其余 P0 仍未完成。
 
 ## 总体状态
 
@@ -16,7 +16,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -55,25 +55,36 @@
 - 真实 Desktop 执行 LOW `REWRITE_BLOCK` 一次接受应用，捕获 applying 禁用态、APPLIED/Undo；
 - Undo 后 Graph 与 SQLite 恢复原正文，对象 version 10→11→12，正向 Commit UNDONE、逆向
   Commit COMPLETED、Pending/Recovery 0、integrity `ok`，测试普通 Block 已清除。
+- 完成 P0-D 单一 Page menu 入口、执行时 Page UUID/Anchor/target tree 重验和普通/Project
+  三项现场路由；
+- Page 正式事项按目标 Page tree 与 active Primary Anchor 投影，不把 page string 或 main
+  Page 当作 secondary target 身份；
+- Plugin 155/155 tests、0 skipped、typecheck 与 build PASS；
+- 真实 Desktop 通过普通 Page、Project Page、Journal、受控 Project 创建/进入、HIGH
+  current-interface 路由、取消/Back 和 sidebar 保留；
+- SQLite 读回新 Project OPEN v2、唯一 active Primary Anchor、Pending/Recovery 0、
+  integrity `ok`、foreign-key 无记录；
+- Logseq 0.10.15 的 right-sidebar `…` 不提供 Plugin Page menu item；此宿主限制已记录，
+  secondary-page payload 只按自动边界声明。
 
 ## 当前进行
 
-### Slice P0-D：Page 现场路由
+### Slice P0-E：四项主导航
 
 状态：`IN_PROGRESS`
 
-下一项建立普通 Page / Project Page 的稳定现场意图，执行时重读 page identity 与 Project
-Anchor；不把 page string 当作持久身份，不复制 Project 状态机。
+下一项把六个工程工作区收束为“现在 / 待我确认 / 项目 / 更多”，并证明 Objects、Project
+重入、迁移、Audit/Recovery 与 Diagnostics 仍可达。
 
 ## 当前阻塞
 
-当前没有阻塞 P0-D 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
+当前没有阻塞 P0-E 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
 但 descriptor handshake 不再阻塞其他正式 Desktop 写入 Gate。
 
 ## 当前风险
 
-- SDK context menu 的正式 Block payload/排序及 Focus/Condition 动作已真实验证；普通 Block、
-  Query/引用仍待后续 Gate；
+- SDK context menu 的正式 Block payload/排序及 Focus/Condition 动作已真实验证；Page menu
+  的普通/Project/Journal 主 Page 已验证；Query/引用与 sidebar Page 扩展入口仍待宿主能力；
 - Service 产品化需要独立 runtime spike；
 - 默认 shell Node v25，不得用于受支持 Gate；
 - `@logseq/libs` 依赖告警继续公开保留。
@@ -81,15 +92,18 @@ Anchor；不把 page string 当作持久身份，不复制 Project 状态机。
 ## 证据
 
 - P0-A 本地 commit：`e459939`；
+- P0-B 本地 commit：`02e6472`；
+- P0-C 本地 commit：`5998490`；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮已归档 20 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张；
+- 本轮已归档 29 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
+  P0-D 9 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
 ## 下一步
 
-1. 跑 P0-C 修改后的根级全量检查、stub/skip 和 secret scan；
-2. 精确提交 P0-C 代码、测试、文档和脱敏证据；
-3. 以 TDD 实现 P0-D Page 现场路由；
-4. 在隔离 Graph 分别验收普通 Page 与 Project Page 的 payload、重验与返回现场。
+1. 跑 P0-D 修改后的根级全量检查、stub/skip、rule coverage、恢复与 secret scan；
+2. 精确提交 P0-D 代码、测试、文档和脱敏证据；
+3. 以 TDD 实现 P0-E 四项主导航；
+4. 证明旧六工作区能力在四入口信息架构下仍可到达。

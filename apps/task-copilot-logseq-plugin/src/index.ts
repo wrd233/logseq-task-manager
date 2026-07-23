@@ -59,6 +59,7 @@ import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
 import { BlockFocusController } from "./block-focus-controller.ts";
 import { BlockConditionController, type BlockConditionDraft } from "./block-condition-controller.ts";
+import { PageContextController, type PageContextSnapshot } from "./page-context-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
 
 let appRoot: HTMLElement | undefined;
@@ -90,6 +91,12 @@ let ignoredDescriptorSettingValue: string | undefined;
 let serviceRuntimeClient: ServiceRuntimeClient | undefined;
 const blockFocusController = new BlockFocusController(() => serviceRuntimeClient);
 const blockConditionController = new BlockConditionController(() => serviceRuntimeClient);
+const pageContextController = new PageContextController(() => serviceRuntimeClient, {
+  getPage: (identity) => logseq.Editor.getPage(identity),
+  getCurrentPage: () => logseq.Editor.getCurrentPage(),
+  getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
+});
+let pageContext: PageContextSnapshot | undefined;
 let serviceDiscoveryGeneration = 0;
 let explicitSyncController: ExplicitSyncController | undefined;
 let explicitSyncState: ExplicitSyncState = {
@@ -283,6 +290,7 @@ async function model(): Promise<UiModel> {
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
     ...(v2AuditLoadError ? { v2AuditLoadError } : {}),
     ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
+    ...(pageContext ? { pageContext } : {}),
   };
 
 }
@@ -557,9 +565,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
     v2CandidatePanel = { status: "loading" };
     await refresh();
     try {
+      const targetPage = value ? requirePageContext(value) : undefined;
+      if (targetPage) await pageContextController.revalidate(targetPage);
       const preview = await prepareV2ExplicitCandidateDiscovery(
         client,
-        () => logseq.Editor.getCurrentPageBlocksTree(),
+        () => targetPage
+          ? logseq.Editor.getPageBlocksTree(targetPage.pageUuid)
+          : logseq.Editor.getCurrentPageBlocksTree(),
         (blockId) => logseq.Editor.getBlock(blockId, { includeChildren: true }),
       );
       if (generation !== serviceDiscoveryGeneration || client !== serviceRuntimeClient) {
@@ -848,6 +860,73 @@ async function handleAction(action: string, value?: string): Promise<void> {
     logseq.hideMainUI();
     return;
   }
+  if (action === "v2-page-context-back" && value) {
+    const current = requirePageContext(value);
+    pageContext = await pageContextController.open(current.pageUuid);
+    actionDialog = { kind: "v2-page-context", value: pageContext.pageUuid };
+    await refresh();
+    return;
+  }
+  if (action === "v2-page-formal-items-open" && value) {
+    const current = requirePageContext(value);
+    pageContext = await pageContextController.open(current.pageUuid);
+    actionDialog = { kind: "v2-page-formal-items", value: pageContext.pageUuid };
+    await refresh();
+    return;
+  }
+  if (action === "v2-page-organize" && value) {
+    const current = requirePageContext(value);
+    await pageContextController.revalidate(current);
+    actionDialog = undefined;
+    await handleAction("v2-candidate-open", current.pageUuid);
+    return;
+  }
+  if (action === "v2-page-project-create-route" && value) {
+    const current = requirePageContext(value);
+    await pageContextController.revalidate(current);
+    actionDialog = undefined;
+    workspace = "objects";
+    message = `已打开受控 Project 创建入口。P0 不直接转换“${current.pageName}”；创建成功后会进入新的 Project Page。`;
+    await refresh();
+    return;
+  }
+  if (action === "v2-page-project-update" && value) {
+    const current = requirePageContext(value);
+    pageContext = await pageContextController.open(current.pageUuid);
+    const project = pageContext.project;
+    if (!project || project.lifecycle !== "OPEN") {
+      throw new Error("当前页已不再对应可编辑的 OPEN Project；没有创建 Proposal。");
+    }
+    actionDialog = { kind: "v2-project-structure-edit", value: `${project.objectId}|${project.objectVersion}` };
+    workspace = "objects";
+    await refresh();
+    return;
+  }
+  if (action === "v2-page-project-discuss" && value) {
+    const current = requirePageContext(value);
+    pageContext = await pageContextController.open(current.pageUuid);
+    const project = pageContext.project;
+    if (!project || project.lifecycle !== "OPEN") {
+      throw new Error("当前页已不再对应可讨论的 OPEN Project；没有创建 Proposal。");
+    }
+    workspace = "review";
+    reviewMode = "proposals";
+    actionDialog = undefined;
+    message = `“${project.objectText}”的结构讨论在 P0 复用 HIGH Proposal 审阅闭环：先用“更新项目当前状态”生成建议，再在这里独立审阅与 Commit。`;
+    await refresh();
+    return;
+  }
+  if (action === "v2-page-project-operations" && value) {
+    const current = requirePageContext(value);
+    pageContext = await pageContextController.open(current.pageUuid);
+    const project = pageContext.project;
+    if (!project) throw new Error("当前页已不再对应 Project；没有执行项目操作。");
+    workspace = "objects";
+    actionDialog = undefined;
+    message = `已从 ${pageContext.pageName} 打开“${project.objectText}”的正式对象操作；关闭 Task Copilot 后仍回原 Page。`;
+    await refresh();
+    return;
+  }
   if (action === "copy-diagnostics") {
     const value = JSON.stringify(await fullDiagnosticsSnapshot(), null, 2);
     const correlationId = `TC-copy-${Date.now()}`;
@@ -1110,7 +1189,11 @@ async function handleAction(action: string, value?: string): Promise<void> {
         getPageBlocksTree: (pageName) => logseq.Editor.getPageBlocksTree(pageName),
       }, name, traceId);
       workspace = "objects";
-      message = `${result.pageName} 已创建并验证；Project ${result.object.objectId} 已正式写入 SQLite，可重试且不会重复。`;
+      message = `${result.pageName} 已创建并验证；Project 正式状态已写入 SQLite，可重试且不会重复。`;
+      pageContext = undefined;
+      actionDialog = undefined;
+      logseq.App.pushState("page", { name: result.pageName });
+      logseq.hideMainUI();
     });
     return;
   }
@@ -1629,8 +1712,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "cancel-action-dialog") {
+    const returnToPage = pageContext !== undefined;
     v2ClosureDraftInput = undefined;
     actionDialog = undefined;
+    pageContext = undefined;
+    if (returnToPage) {
+      logseq.hideMainUI();
+      return;
+    }
     await refresh();
     return;
   }
@@ -1699,6 +1788,13 @@ async function guardedFeatureCommand(action: () => Promise<void>): Promise<void>
     latestError = explain(error);
     await showTaskCopilot();
   }
+}
+
+function requirePageContext(pageUuid: string): PageContextSnapshot {
+  if (!pageContext || pageContext.pageUuid !== pageUuid) {
+    throw new Error("Page Context 已过期；没有执行操作。请从当前页菜单重新打开。");
+  }
+  return pageContext;
 }
 
 async function showBlockContextMessage(content: string, status: "success" | "warning" | "error"): Promise<void> {
@@ -1808,6 +1904,21 @@ async function undoBlockConditionFromContext(): Promise<void> {
   await runBlockContextAction("block-condition-undo", () => blockConditionController.undoLast());
 }
 
+async function openPageContextFromMenu(page: string): Promise<void> {
+  await guardedFeatureCommand(async () => {
+    pageContext = await pageContextController.open(page);
+    actionDialog = { kind: "v2-page-context", value: pageContext.pageUuid };
+    latestError = undefined;
+    operationalLogger.log("info", "ui-action", "page_context_opened", {
+      actionId: "page-context-open",
+      result: pageContext.kind,
+      pageRefShape: "uuid",
+      ...(pageContext.project ? { objectId: pageContext.project.objectId } : {}),
+    });
+    await showTaskCopilot();
+  });
+}
+
 function markReady(stage: RuntimeStage, logMessage?: string): void {
   diagnostics.ready(stage);
   if (logMessage) console.info(`[Task Copilot] ${logMessage}`);
@@ -1828,6 +1939,7 @@ function registerBootstrapShell(): void {
     undoBlockFocus: undoBlockFocusFromContext,
     openBlockCondition: openBlockConditionFromContext,
     undoBlockCondition: undoBlockConditionFromContext,
+    openPageContext: openPageContextFromMenu,
   };
 
   diagnostics.start("TOOLBAR_REGISTERED");
@@ -1837,6 +1949,7 @@ function registerBootstrapShell(): void {
   diagnostics.start("COMMANDS_REGISTERED");
   bootstrapRegistration.registerCommands(host, callbacks);
   bootstrapRegistration.registerBlockContextMenus(host, callbacks);
+  bootstrapRegistration.registerPageContextMenu(host, callbacks);
   markReady("COMMANDS_REGISTERED", "commands registered");
 
   diagnostics.start("MAIN_UI_REGISTERED");

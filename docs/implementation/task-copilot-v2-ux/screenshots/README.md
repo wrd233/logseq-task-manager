@@ -30,3 +30,12 @@
 | `original/p0-c-03-applied-with-undo.png` | 真实 Logseq Desktop 0.10.15 | 只有 Proposal APPLIED、SemanticCommit COMPLETED 后才显示成功和既有安全 Undo |
 | `original/p0-c-04-undo-confirmation.png` | 真实 Logseq Desktop 0.10.15 | Undo 仍要求独立确认，并说明只在正文、对象与 Anchor 未被后续修改时生效 |
 | `original/p0-c-05-undone.png` | 真实 Logseq Desktop 0.10.15 | 逆向 Commit 完成后正文与对象恢复，正向 Audit/Commit 历史保留 |
+| `original/p0-d-01-ordinary-page-route.png` | 真实 Logseq Desktop 0.10.15 | 普通 Page 的单一原生入口显示整理、正式事项、建立 Project 三项意图 |
+| `original/p0-d-02-page-formal-items.png` | 真实 Logseq Desktop 0.10.15 | 本 Page tree 中通过 active Primary Anchor 关联的正式事项被有界投影 |
+| `original/p0-d-03-project-create-route.png` | 真实 Logseq Desktop 0.10.15 | 普通 Page 只路由既有受控 Project 创建器，并明确不转换当前 Page |
+| `original/p0-d-05-project-page-route.png` | 真实 Logseq Desktop 0.10.15 | Project Page 显示更新当前状态、讨论项目结构、项目操作三项意图 |
+| `original/p0-d-06-project-current-state-route.png` | 真实 Logseq Desktop 0.10.15 | Project 当前状态进入既有版本保护 HIGH Proposal 编辑器 |
+| `original/p0-d-08-return-original-page.png` | 真实 Logseq Desktop 0.10.15 | 完成新 Project 路由后可返回原普通 Page |
+| `original/p0-d-09-page-route-with-sidebar-open.png` | 真实 Logseq Desktop 0.10.15 | main Page route 打开时 right sidebar 保持存在 |
+| `original/p0-d-10-sidebar-preserved-after-close.png` | 真实 Logseq Desktop 0.10.15 | 关闭 route 后 main Page 与 right sidebar 均保持原现场 |
+| `original/p0-d-11-journal-page-route.png` | 真实 Logseq Desktop 0.10.15 | Journal 被安全识别为普通 Page；截图已裁掉 Journal 正文 |

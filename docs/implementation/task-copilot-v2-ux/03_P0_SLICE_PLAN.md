@@ -223,13 +223,27 @@ review accept
 
 ## P0-D：Page 现场路由
 
-状态：`NOT_STARTED`
+状态：`DONE` — Plugin tests 155/155、typecheck、build 与真实 Logseq Desktop 0.10.15
+均通过；右侧栏宿主扩展入口限制单独保留。
 
 - 普通 Page：整理当前页、查看本页正式事项、将本页建立为 Project；
 - Project Page：更新项目当前状态、讨论项目结构、项目操作；
 - Page payload 必须重读当前 page identity；
 - “将本页建立为 Project”在 P0 只可路由既有安全入口；P2 再加入 Grill Me；
 - 完成后回原 Page，创建新 Project 时进入新 Project Page。
+
+实现与证据：
+
+- 注册一个稳定的 `Task Copilot：页面操作`，动作执行时重读 Page UUID、Block tree、分页
+  Anchor 和正式对象；
+- 只有唯一 active page-level Project Primary Anchor 才进入 Project 路由；重复 Anchor、
+  cursor loop、Page 消失/变化均零写入失败；
+- 普通 Page、Project Page 与 Journal 的三项路由均通过真实 Desktop；
+- Project create 复用既有受控入口，成功后进入新 Project Page；当前状态复用既有 HIGH
+  Proposal，取消后零变化；讨论结构只进入 Review；
+- main Page 打开/关闭路由时 right sidebar 保留；Logseq 0.10.15 的 sidebar `…` 不暴露
+  Plugin Page menu item，secondary-page target 由自动测试覆盖，不虚报宿主入口；
+- 证据见 `logs/p0-d-page-context-desktop-20260723.md` 与 `screenshots/original/p0-d-*`。
 
 ## P0-E：四项主导航
 

@@ -7,6 +7,7 @@ export interface BootstrapHost {
   App: {
     registerUIItem(type: "toolbar", options: { key: string; template: string }): void;
     registerCommandPalette(options: { key: string; label: string }, action: () => unknown): void;
+    registerPageMenuItem(label: string, action: (event: { page: string }) => Promise<void>): void;
   };
   Editor: {
     registerSlashCommand(label: string, action: () => unknown): unknown;
@@ -24,6 +25,7 @@ export interface BootstrapCallbacks {
   undoBlockFocus(): Promise<void>;
   openBlockCondition(blockUuid: string): Promise<void>;
   undoBlockCondition(): Promise<void>;
+  openPageContext(page: string): Promise<void>;
 }
 
 export const COMMAND_KEYS = {
@@ -41,12 +43,15 @@ export const BLOCK_CONTEXT_LABELS = {
   undoCondition: "Task Copilot：撤销上一次状态变化",
 } as const;
 
+export const PAGE_CONTEXT_LABEL = "Task Copilot：页面操作";
+
 for (const key of Object.values(COMMAND_KEYS)) assertCssSafeIdentifier(key);
 
 export class BootstrapRegistration {
   private toolbarRegistered = false;
   private commandsRegistered = false;
   private blockContextMenusRegistered = false;
+  private pageContextMenuRegistered = false;
   private mainUiRegistered = false;
 
   registerToolbar(host: BootstrapHost): boolean {
@@ -86,6 +91,15 @@ export class BootstrapRegistration {
       await callbacks.undoBlockCondition();
     });
     this.blockContextMenusRegistered = true;
+    return true;
+  }
+
+  registerPageContextMenu(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
+    if (this.pageContextMenuRegistered) return false;
+    host.App.registerPageMenuItem(PAGE_CONTEXT_LABEL, async ({ page }) => {
+      await callbacks.openPageContext(page);
+    });
+    this.pageContextMenuRegistered = true;
     return true;
   }
 

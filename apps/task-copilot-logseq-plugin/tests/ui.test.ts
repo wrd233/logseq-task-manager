@@ -104,6 +104,64 @@ test("Project current interface is readable in reentry and editable only through
   assert.doesNotMatch(dialog, /直接保存正式状态/);
 });
 
+test("ordinary Page Context exposes three user intents and a page-scoped formal-item view", () => {
+  const value = model();
+  value.pageContext = {
+    kind: "PAGE",
+    originSurface: "MAIN_PAGE",
+    pageUuid: "page-1",
+    pageName: "Release Check",
+    formalItems: [{
+      objectId: "task-1",
+      objectType: "TASK",
+      objectText: "核对发布结果",
+      objectVersion: 3,
+      lifecycle: "OPEN",
+    }],
+  };
+  value.actionDialog = { kind: "v2-page-context", value: "page-1" };
+  const route = renderApp(value);
+  for (const label of ["整理当前页", "查看本页正式事项", "将本页建立为 Project"]) {
+    assert.match(route, new RegExp(label));
+  }
+  for (const action of ["v2-page-organize", "v2-page-formal-items-open", "v2-page-project-create-route"]) {
+    assert.match(route, new RegExp(`data-action="${action}"`));
+  }
+  assert.match(route, /完成或取消后仍回到 Release Check/);
+
+  value.actionDialog = { kind: "v2-page-formal-items", value: "page-1" };
+  const items = renderApp(value);
+  assert.match(items, /本页正式事项/);
+  assert.match(items, /TASK · OPEN · v3/);
+  assert.match(items, /核对发布结果/);
+});
+
+test("Project Page Context routes current state, structure discussion, and project operations", () => {
+  const value = model();
+  value.pageContext = {
+    kind: "PROJECT",
+    originSurface: "MAIN_PAGE",
+    pageUuid: "page-project",
+    pageName: "Project/Task Copilot",
+    formalItems: [],
+    project: {
+      objectId: "project-1",
+      objectText: "Task Copilot",
+      objectVersion: 7,
+      lifecycle: "OPEN",
+    },
+  };
+  value.actionDialog = { kind: "v2-page-context", value: "page-project" };
+  const html = renderApp(value);
+  for (const label of ["更新项目当前状态", "讨论项目结构", "项目操作"]) {
+    assert.match(html, new RegExp(label));
+  }
+  for (const action of ["v2-page-project-update", "v2-page-project-discuss", "v2-page-project-operations"]) {
+    assert.match(html, new RegExp(`data-action="${action}"`));
+  }
+  assert.doesNotMatch(html, /data-action="v2-page-project-create-route"/);
+});
+
 test("Migration workspace projects the Service ledger without accepting bundle content or direct writes", () => {
   const value = model();
   value.workspace = "migration";
@@ -845,6 +903,10 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   for (const kind of ["v2-candidate-update", "confirm-v2-commit", "confirm-v2-undo", "v2-condition", "v2-deadline"]) {
     assert.match(source, new RegExp(`openActionDialog\\("${kind}"`));
   }
+  assert.match(source, /registerPageContextMenu/);
+  assert.match(source, /getCurrentPage\(\)/);
+  assert.match(source, /pushState\("page", \{ name: result\.pageName \}\)/);
+  assert.match(source, /const returnToPage = pageContext !== undefined;[\s\S]*if \(returnToPage\) \{[\s\S]*logseq\.hideMainUI\(\);/);
 });
 
 test("formal V2 plugin entry excludes the writable V1 runtime", async () => {

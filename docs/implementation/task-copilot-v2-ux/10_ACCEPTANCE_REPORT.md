@@ -8,7 +8,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS | P0-A/P0-B/P0-C + P0-H handshake PASS | Focus/Condition/LOW apply/handshake PASS；P0-H lifecycle OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D + P0-H handshake PASS | Focus/Condition/LOW apply/Page route/handshake PASS；P0-H lifecycle OPEN | 不得宣布 P0 完成 |
 | P1 | NOT_STARTED | — | — | — |
 | P2 | NOT_STARTED | — | — | — |
 | Final Release | NOT_STARTED | — | — | — |
@@ -16,7 +16,8 @@
 ## 2. P0 验收
 
 - [ ] 主导航只有现在、待我确认、项目、更多；
-- [ ] Block/Page 就近入口；正式 Block Focus 的注册、写入、Undo 与读回已完成，其他现场入口待做
+- [ ] Block/Page 就近入口；Block Focus/Condition 与 Page 普通/Project/Journal 路由已完成，
+  普通 Block 现场建议和 Query/引用仍待做
 - [ ] 高频动作 1—2 个明确决定；
 - [x] 暂时做不了统一入口；三种意图、最小字段和版本保护 Undo 已通过
 - [x] 低风险一次接受并应用；LOW 单组单 Block CREATE/REWRITE 自动覆盖，真实 Desktop REWRITE 通过
@@ -68,9 +69,9 @@
 |---|---:|---:|---:|
 | Block 加 Focus | 离开正文→Now Work→找对象→操作 | 1 个现场动作 | 自动 + Desktop PASS；右键一次，原地反馈与读回一致 |
 | 暂时做不了 | Now Work→状态表单→选择字段 | 2 个决定 | Desktop PASS：Block 右键→三选一→最小字段；保存后回原 Block |
-| 普通 Block 整理 | 当前页 Candidate→Review→接受→Commit | 现场建议 + 1 次接受应用 | Review 内 LOW 单击应用/Undo Desktop PASS；Page/Block 现场建议入口仍待 P0-D |
+| 普通 Block 整理 | 当前页 Candidate→Review→接受→Commit | 现场建议 + 1 次接受应用 | Page route 可一键进入当前页整理，Review 内 LOW 单击应用/Undo Desktop PASS；Block 行内建议仍待后续 |
 | 打开正文 | Now Work/Project 找卡片 | 1 个动作 | 待测 |
-| Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | 待测 |
+| Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | Desktop PASS：Project Page menu 一次进入三项路由；current-interface 复用 HIGH Proposal |
 | Service 恢复 | 终端 + descriptor + reload | 1 个产品入口 | descriptor 文件一次导入与 reload READY PASS；进程启动/停止待做 |
 
 ## 6. 发布否决条件
@@ -101,6 +102,8 @@
 - [x] P0-H descriptor 私有导入、失败边界与 reload READY 证据；
 - [x] P0-B 三种 Condition、失败零写入、Focus 不变、Undo 和 reload 证据；
 - [x] P0-C LOW 白名单、连续 Review/revalidate/Commit、busy/stale/transport 与真实 Desktop Undo 证据；
+- [x] P0-D 普通/Project/Journal Page 路由、UUID/Anchor 重验、Project create/reentry 与
+  sidebar 共存证据；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

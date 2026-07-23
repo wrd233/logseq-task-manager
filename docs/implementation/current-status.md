@@ -12,9 +12,13 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P0-C 低风险“接受并应用”：严格 LOW/单组/单 Block 白名单、连续
   accept→revalidate→SemanticCommit、busy 防重复、显式 stale/transport/recovery 结果与既有
   Undo 已通过自动和真实 Desktop；HIGH/Ownership/Closure/Lifecycle/Project structure 均不进入；
+- P0-D Page 现场路由：普通 Page、Project Page 与 Journal 的单一原生入口、执行时 UUID/Anchor
+  重验、page-scoped 正式事项、Project 创建后进入新 Page、取消/返回原现场均已通过；当前
+  Logseq 0.10.15 不在右侧栏 `…` 暴露 Plugin Page menu item，secondary-page payload 仅由自动
+  边界证明；
 - P0-H descriptor 私有 handshake：文件选择、校验、固定私有 FileStorage key、直接重连与
   reload READY 已通过；Service 自动启动、owned shutdown 与崩溃恢复仍未产品化；
-- 当前继续 P0-D Page 现场路由；
+- 当前继续 P0-E 四项主导航；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

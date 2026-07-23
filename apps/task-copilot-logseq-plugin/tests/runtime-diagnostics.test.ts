@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BLOCK_CONTEXT_LABELS, BootstrapRegistration, COMMAND_KEYS, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "../src/bootstrap-shell.ts";
+import { BLOCK_CONTEXT_LABELS, PAGE_CONTEXT_LABEL, BootstrapRegistration, COMMAND_KEYS, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "../src/bootstrap-shell.ts";
 import {
   MAIN_UI_ROOT_ID,
   MODEL_DIAGNOSTICS,
@@ -22,18 +22,21 @@ function fakeBootstrap(): {
   toolbar: Array<{ key: string; template: string }>;
   commands: Array<{ key: string; label: string; action: () => unknown }>;
   blockContextMenus: Array<{ label: string; action: (event: { uuid: string }) => Promise<void> }>;
+  pageContextMenus: Array<{ label: string; action: (event: { page: string }) => Promise<void> }>;
   models: Record<string, (...args: unknown[]) => unknown>;
   styles: Array<Record<string, string | number>>;
 } {
   const toolbar: Array<{ key: string; template: string }> = [];
   const commands: Array<{ key: string; label: string; action: () => unknown }> = [];
   const blockContextMenus: Array<{ label: string; action: (event: { uuid: string }) => Promise<void> }> = [];
+  const pageContextMenus: Array<{ label: string; action: (event: { page: string }) => Promise<void> }> = [];
   const models: Record<string, (...args: unknown[]) => unknown> = {};
   const styles: Array<Record<string, string | number>> = [];
   return {
     toolbar,
     commands,
     blockContextMenus,
+    pageContextMenus,
     models,
     styles,
     host: {
@@ -43,6 +46,7 @@ function fakeBootstrap(): {
       App: {
         registerUIItem: (_type, options) => { toolbar.push(options); },
         registerCommandPalette: (options, action) => { commands.push({ ...options, action }); },
+        registerPageMenuItem: (label, action) => { pageContextMenus.push({ label, action }); },
       },
       Editor: {
         registerSlashCommand: () => undefined,
@@ -126,11 +130,13 @@ test("bootstrap registrations survive a simulated feature initialization failure
     undoBlockFocus: async () => { opened.push("block-focus-undo"); },
     openBlockCondition: async (blockUuid) => { opened.push(`block-condition:${blockUuid}`); },
     undoBlockCondition: async () => { opened.push("block-condition-undo"); },
+    openPageContext: async (page) => { opened.push(`page-context:${page}`); },
   };
   const registration = new BootstrapRegistration();
   registration.registerToolbar(fake.host);
   registration.registerCommands(fake.host, callbacks);
   registration.registerBlockContextMenus(fake.host, callbacks);
+  registration.registerPageContextMenu(fake.host, callbacks);
   registration.registerMainUi(fake.host, callbacks);
   assert.throws(() => { throw new Error("simulated persistence failure"); });
   const diagnostics = new RuntimeDiagnostics();
@@ -143,10 +149,12 @@ test("bootstrap registrations survive a simulated feature initialization failure
   await fake.blockContextMenus[1]?.action({ uuid: "block-ctx-2" });
   await fake.blockContextMenus[2]?.action({ uuid: "ignored" });
   await fake.blockContextMenus[3]?.action({ uuid: "ignored" });
-  assert.deepEqual(opened, ["open", "diagnostics", "block-focus:block-ctx-1", "block-condition:block-ctx-2", "block-focus-undo", "block-condition-undo"]);
+  await fake.pageContextMenus[0]?.action({ page: "page-ctx-1" });
+  assert.deepEqual(opened, ["open", "diagnostics", "block-focus:block-ctx-1", "block-condition:block-ctx-2", "block-focus-undo", "block-condition-undo", "page-context:page-ctx-1"]);
   assert.equal(fake.toolbar.length, 1);
   assert.equal(fake.commands.length, 5);
   assert.equal(fake.blockContextMenus.length, 4);
+  assert.equal(fake.pageContextMenus.length, 1);
   assert.equal(typeof fake.models[MODEL_OPEN], "function");
   assert.match(renderRuntimeDiagnostics(diagnostics.snapshot()), /PERSISTENCE_READY[\s\S]*simulated persistence failure/);
 });
@@ -164,6 +172,7 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
     undoBlockFocus: async () => undefined,
     openBlockCondition: async () => undefined,
     undoBlockCondition: async () => undefined,
+    openPageContext: async () => undefined,
   };
   const registration = new BootstrapRegistration();
   assert.equal(registration.registerToolbar(fake.host), true);
@@ -172,6 +181,8 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
   assert.equal(registration.registerCommands(fake.host, callbacks), false);
   assert.equal(registration.registerBlockContextMenus(fake.host, callbacks), true);
   assert.equal(registration.registerBlockContextMenus(fake.host, callbacks), false);
+  assert.equal(registration.registerPageContextMenu(fake.host, callbacks), true);
+  assert.equal(registration.registerPageContextMenu(fake.host, callbacks), false);
   assert.equal(registration.registerMainUi(fake.host, callbacks), true);
   assert.equal(registration.registerMainUi(fake.host, callbacks), false);
   assert.equal(fake.toolbar.length, 1);
@@ -182,6 +193,7 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
     BLOCK_CONTEXT_LABELS.undoFocus,
     BLOCK_CONTEXT_LABELS.undoCondition,
   ]);
+  assert.deepEqual(fake.pageContextMenus.map(({ label }) => label), [PAGE_CONTEXT_LABEL]);
   assert.deepEqual(fake.styles[0], { position: "fixed", inset: "0", zIndex: 999, width: "100vw", height: "100vh", background: "rgb(11 24 18 / 35%)", opacity: 1 });
 });
 

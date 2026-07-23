@@ -9,6 +9,7 @@ import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type M
 import type { ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
+import type { PageContextSnapshot } from "./page-context-controller.ts";
 
 export type Workspace = "now" | "objects" | "review" | "reentry" | "migration" | "audit";
 export type V2NowWorkTypeFilter = "ALL" | ServiceNowWork["focus"][number]["objectType"];
@@ -50,7 +51,9 @@ export type ActionDialogKind =
   | "v2-provider-revise"
   | "v2-candidate-update"
   | "v2-area-edit"
-  | "v2-project-structure-edit";
+  | "v2-project-structure-edit"
+  | "v2-page-context"
+  | "v2-page-formal-items";
 
 export interface UiModel {
   workspace: Workspace;
@@ -113,6 +116,7 @@ export interface UiModel {
   v2AuditLoadError?: string;
   v2MigrationRuns?: ServiceMigrationRun[];
   v2MigrationLoadError?: string;
+  pageContext?: PageContextSnapshot;
 }
 
 export function escapeHtml(value: unknown): string {
@@ -453,6 +457,24 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-page-context") {
+    const context = model.pageContext;
+    if (!context || context.pageUuid !== dialog.value) return "";
+    const origin = `<p class="muted">执行前会再次核对当前页身份；完成或取消后仍回到 ${escapeHtml(context.pageName)}。</p>`;
+    if (context.kind === "PROJECT" && context.project) {
+      const unavailable = context.project.lifecycle !== "OPEN";
+      return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="Project 页面操作"><div class="eyebrow">Project Page · ${escapeHtml(context.pageName)}</div><h3>${escapeHtml(context.project.objectText)}</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-project-update" data-value="${escapeHtml(context.pageUuid)}"${unavailable ? " disabled" : ""}><strong>更新项目当前状态</strong><span>打开既有受版本保护的 Project 当前接口</span></button><button type="button" data-action="v2-page-project-discuss" data-value="${escapeHtml(context.pageUuid)}"${unavailable ? " disabled" : ""}><strong>讨论项目结构</strong><span>P0 进入既有 HIGH Proposal 审阅闭环，不直接改正式状态</span></button><button type="button" data-action="v2-page-project-operations" data-value="${escapeHtml(context.pageUuid)}"><strong>项目操作</strong><span>进入正式对象工作区继续处理</span></button></div><div class="actions">${cancel}</div></section>`;
+    }
+    return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="普通页面操作"><div class="eyebrow">Page · ${escapeHtml(context.pageName)}</div><h3>从当前页继续</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-organize" data-value="${escapeHtml(context.pageUuid)}"><strong>整理当前页</strong><span>扫描当前页显式候选；先预览，不直接改正文或正式状态</span></button><button type="button" data-action="v2-page-formal-items-open" data-value="${escapeHtml(context.pageUuid)}"><strong>查看本页正式事项</strong><span>${context.formalItems.length} 项由 active Primary Anchor 关联到本页</span></button><button type="button" data-action="v2-page-project-create-route" data-value="${escapeHtml(context.pageUuid)}"><strong>将本页建立为 Project</strong><span>P0 只打开既有受控 Project 创建入口，不直接转换当前页</span></button></div><div class="actions">${cancel}</div></section>`;
+  }
+  if (dialog.kind === "v2-page-formal-items") {
+    const context = model.pageContext;
+    if (!context || context.pageUuid !== dialog.value) return "";
+    const items = context.formalItems.length
+      ? `<div class="object-list">${context.formalItems.map((item) => `<article class="object-row"><span>${escapeHtml(item.objectText)}</span><small>${escapeHtml(item.objectType)} · ${escapeHtml(item.lifecycle)} · v${escapeHtml(item.objectVersion)}</small></article>`).join("")}</div>`
+      : empty("本页没有正式事项", "这里只统计 active Primary Anchor 指向当前 Page 或当前页 Block 的正式对象。");
+    return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="本页正式事项"><div class="eyebrow">Page · ${escapeHtml(context.pageName)}</div><h3>本页正式事项</h3><p class="muted">这是 SQLite 正式对象与 Graph Primary Anchor 的只读投影；不会把页面位置当成归属。</p>${items}<div class="actions">${button("返回页面操作", "v2-page-context-back", context.pageUuid, "quiet")}${cancel}</div></section>`;
+  }
   if (dialog.kind === "v2-provider-revise") {
     const [proposalId] = dialog.value.split("|");
     const record = model.v2Proposals?.find(({ proposal }) => proposal.proposalId === proposalId);
