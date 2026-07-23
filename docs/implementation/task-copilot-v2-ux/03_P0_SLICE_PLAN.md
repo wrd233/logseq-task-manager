@@ -248,7 +248,8 @@ review accept
 
 ## P0-E：四项主导航
 
-状态：`NOT_STARTED`
+状态：`DONE` — Plugin tests 157/157、typecheck、build 与真实 Logseq Desktop 0.10.15
+均通过；本轮未复验窄宽度和键盘 Tab 注入，不扩大声明。
 
 | 新入口 | 组合现有能力 |
 |---|---|
@@ -258,6 +259,19 @@ review accept
 | 更多 | 最近修改、系统状态、技术诊断、Backup/Restore、Migration、Audit/Recovery |
 
 完成时必须证明原有能力仍可达，不只是隐藏旧导航。
+
+实现与证据：
+
+- 主导航严格收束为“现在 / 待我确认 / 项目 / 更多”，Diagnostics 不再占据顶栏；
+- “项目”保留 Project 列表/重入、当前接口、正式对象与受控创建；
+- “更多”保留最近修改/恢复、系统状态/技术诊断、备份/恢复、迁移；
+- `objects` / `reentry` 映射为同一个 active“项目”，`audit` / `migration` 映射为同一个
+  active“更多”，未删除工程能力；
+- delegated `view` value 经过显式 `isWorkspace` 边界校验；
+- Desktop 真实下钻到 Project、Objects、Audit、Migration 与 Diagnostics；含完整内部
+  Commit ID 的 Audit/Diagnostics 页面只记操作结果、不留截图；
+- 证据见 `logs/p0-e-four-primary-navigation-desktop-20260724.md` 与
+  `screenshots/original/p0-e-*`。
 
 ## P0-F：工具栏介入摘要
 

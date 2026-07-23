@@ -16,6 +16,10 @@
 | UX-D010 | Project current interface 是 schema v12 单 aggregate | ADR-0006 | 不新增 Project side tables |
 | UX-D011 | LLM 只生成 Proposal | 现有架构 + 设计 | 不扩大写入权 |
 
+2026-07-24 实施补充：UX-D002 已在 P0-E 落地。主导航严格为“现在 / 待我确认 / 项目 /
+更多”；Objects/Project reentry 聚合到“项目”，Audit/Recovery/Diagnostics/Backup/Restore/
+Migration 聚合到“更多”。自动测试与真实 Desktop 下钻证明旧能力仍可达，不是简单隐藏。
+
 ## 代码已回答的缺口
 
 | 问题 | 结论 | 证据 |

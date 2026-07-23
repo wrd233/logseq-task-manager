@@ -45,8 +45,11 @@
 #task-copilot-personal-mvp-root nav { display: flex; gap: 3px; padding: 10px 18px; overflow-x: auto; background: var(--surface); border-bottom: 1px solid var(--border); }
 #task-copilot-personal-mvp-root nav button { white-space: nowrap; border-color: transparent; background: transparent; }
 #task-copilot-personal-mvp-root nav button.active { background: var(--surface-2); color: var(--accent); }
+#task-copilot-personal-mvp-root .section-nav { margin: -4px 0 18px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+#task-copilot-personal-mvp-root .section-nav button { flex: 0 0 auto; }
 #task-copilot-personal-mvp-root .workspace { max-height: calc(100vh - 220px); min-height: 360px; overflow: auto; padding: 20px; }
 #task-copilot-personal-mvp-root .cards { display: grid; gap: 12px; }
+#task-copilot-personal-mvp-root .more-hub { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #task-copilot-personal-mvp-root .now-work-controls { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; margin-bottom: 18px; }
 #task-copilot-personal-mvp-root .now-work-controls strong { display: block; margin-bottom: 6px; }
 #task-copilot-personal-mvp-root .now-work-controls .muted { flex-basis: 100%; margin: 0; }
@@ -116,6 +119,7 @@
   #task-copilot-personal-mvp-root .top-actions { flex-direction: column; align-items: stretch; }
   #task-copilot-personal-mvp-root .workspace { max-height: calc(100vh - 210px); padding: 14px; }
   #task-copilot-personal-mvp-root .split { grid-template-columns: 1fr; }
+  #task-copilot-personal-mvp-root .more-hub { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .drawer { position: static; }
   #task-copilot-personal-mvp-root .timeline li { grid-template-columns: 1fr; gap: 3px; }
   #task-copilot-personal-mvp-root .diagnostic-grid { grid-template-columns: 1fr; }

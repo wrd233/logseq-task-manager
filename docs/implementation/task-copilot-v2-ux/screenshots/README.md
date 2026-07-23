@@ -39,3 +39,7 @@
 | `original/p0-d-09-page-route-with-sidebar-open.png` | 真实 Logseq Desktop 0.10.15 | main Page route 打开时 right sidebar 保持存在 |
 | `original/p0-d-10-sidebar-preserved-after-close.png` | 真实 Logseq Desktop 0.10.15 | 关闭 route 后 main Page 与 right sidebar 均保持原现场 |
 | `original/p0-d-11-journal-page-route.png` | 真实 Logseq Desktop 0.10.15 | Journal 被安全识别为普通 Page；截图已裁掉 Journal 正文 |
+| `original/p0-e-01-four-primary-nav.png` | 真实 Logseq Desktop 0.10.15 | 主导航只显示“现在 / 待我确认 / 项目 / 更多”，顶部 Diagnostics 已降级 |
+| `original/p0-e-02-project-navigation.png` | 真实 Logseq Desktop 0.10.15 | “项目”保留 Project 列表、重入、当前接口与正文动作 |
+| `original/p0-e-03-project-formal-items.png` | 真实 Logseq Desktop 0.10.15 | “项目”二级入口继续提供正式对象与受控 Area/Project/Association 创建 |
+| `original/p0-e-04-more-hub.png` | 真实 Logseq Desktop 0.10.15 | “更多”汇集最近修改/恢复、系统状态/诊断、备份/恢复与迁移 |

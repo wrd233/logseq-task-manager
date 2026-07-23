@@ -22,17 +22,63 @@ function model(): UiModel {
   };
 }
 
-test("shell exposes restrained core workspaces and no-agent degradation", () => {
-  const html = renderApp(model());
-  for (const label of ["现在工作", "对象", "Proposal Review", "Project 重入", "迁移", "审计与恢复"]) assert.match(html, new RegExp(label));
+test("shell exposes exactly four user-level primary destinations and no-agent degradation", () => {
+  const value = model();
+  value.workspace = "now";
+  const html = renderApp(value);
+  const primary = html.match(/<nav aria-label="主要工作区">([\s\S]*?)<\/nav>/)?.[1] ?? "";
+  assert.deepEqual(
+    [...primary.matchAll(/data-value="([^"]+)"/g)].map((match) => match[1]),
+    ["now", "review", "reentry", "more"],
+  );
+  for (const label of ["现在", "待我确认", "项目", "更多"]) assert.match(primary, new RegExp(`>${label}<`));
+  for (const engineeringLabel of ["Now Work", "对象", "Proposal Review", "Project 重入", "迁移", "审计与恢复"]) {
+    assert.doesNotMatch(primary, new RegExp(engineeringLabel));
+  }
   assert.doesNotMatch(html, /data-value="inbox"/);
   assert.match(html, /Agent disabled/);
   assert.match(html, /基础事务系统可用/);
   assert.match(html, /<nav aria-label="主要工作区">/);
-  assert.match(html, /data-value="objects" aria-current="page"/);
+  assert.match(primary, /data-value="now" aria-current="page"/);
   assert.match(html, /整理当前页/);
   assert.match(html, /data-action="v2-candidate-open"/);
+  assert.doesNotMatch(html.match(/<header class="topbar">([\s\S]*?)<\/header>/)?.[1] ?? "", /Diagnostics/);
   assert.doesNotMatch(html, /data-action="capture"/);
+});
+
+test("Project primary destination keeps reentry and formal-object capabilities reachable", () => {
+  const value = model();
+  value.workspace = "reentry";
+  let html = renderApp(value);
+  assert.match(html, /data-value="reentry" aria-current="page">项目</);
+  assert.match(html, /aria-label="项目区域"/);
+  assert.match(html, /data-value="reentry"[\s\S]*项目列表与重入/);
+  assert.match(html, /data-value="objects"[\s\S]*正式事项与创建/);
+
+  value.workspace = "objects";
+  html = renderApp(value);
+  assert.match(html, /data-value="reentry" aria-current="page">项目</);
+  assert.match(html, /data-value="objects" aria-pressed="true"/);
+});
+
+test("More is a user-facing hub and keeps maintenance capabilities reachable", () => {
+  const value = model();
+  value.workspace = "more";
+  let html = renderApp(value);
+  assert.match(html, /data-value="more" aria-current="page">更多</);
+  assert.match(html, /最近修改与恢复/);
+  assert.match(html, /data-value="audit"/);
+  assert.match(html, /系统状态与技术诊断/);
+  assert.match(html, /data-action="runtime-diagnostics"/);
+  assert.match(html, /备份与恢复/);
+  assert.match(html, /data-value="migration"/);
+
+  value.workspace = "audit";
+  html = renderApp(value);
+  assert.match(html, /data-value="more" aria-current="page">更多</);
+  assert.match(html, /aria-label="更多区域"/);
+  assert.match(html, /data-value="more"[\s\S]*更多首页/);
+  assert.match(html, /data-value="migration"[\s\S]*迁移/);
 });
 
 test("V2 audit is read-only and delegates recovery to the Local Service CLI", () => {

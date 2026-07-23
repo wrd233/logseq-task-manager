@@ -18,7 +18,10 @@ V2 v1.1 底座完成结论不变；当前继续按
   边界证明；
 - P0-H descriptor 私有 handshake：文件选择、校验、固定私有 FileStorage key、直接重连与
   reload READY 已通过；Service 自动启动、owned shutdown 与崩溃恢复仍未产品化；
-- 当前继续 P0-E 四项主导航；
+- P0-E 四项主导航：主入口已收束为“现在 / 待我确认 / 项目 / 更多”；Project
+  列表/重入/当前接口/正式创建与 Audit/Recovery/Diagnostics/Backup/Restore/Migration
+  均在二级入口继续可达，自动测试与真实 Desktop 下钻已通过；窄宽度和本轮键盘注入未虚报；
+- 当前继续 P0-F 工具栏介入摘要；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

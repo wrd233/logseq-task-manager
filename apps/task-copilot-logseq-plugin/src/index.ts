@@ -16,7 +16,7 @@ import {
   type RuntimeStage,
 } from "./runtime-diagnostics.ts";
 import { BootstrapRegistration, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
-import { renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
+import { isWorkspace, renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
 import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger } from "./structured-logger.ts";
 import {
@@ -750,7 +750,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "view" && value) {
-    workspace = value as Workspace;
+    if (!isWorkspace(value)) throw new Error("未知工作区；没有改变当前页面。");
+    workspace = value;
     await refresh();
     return;
   }

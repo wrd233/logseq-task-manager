@@ -11,7 +11,9 @@ import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelS
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
 
-export type Workspace = "now" | "objects" | "review" | "reentry" | "migration" | "audit";
+export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
+export type Workspace = typeof WORKSPACE_IDS[number];
+type PrimaryWorkspace = "now" | "review" | "projects" | "more";
 export type V2NowWorkTypeFilter = "ALL" | ServiceNowWork["focus"][number]["objectType"];
 export type V2NowWorkGrouping = "mixed" | "type";
 export type ActionDialogKind =
@@ -126,6 +128,10 @@ export function escapeHtml(value: unknown): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+export function isWorkspace(value: string): value is Workspace {
+  return (WORKSPACE_IDS as readonly string[]).includes(value);
 }
 
 function button(label: string, action: string, value?: string, className = "", disabled = false): string {
@@ -453,6 +459,40 @@ function renderMigration(model: UiModel): string {
   return `${guidance}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;
 }
 
+function primaryWorkspace(workspace: Workspace): PrimaryWorkspace {
+  if (workspace === "now" || workspace === "review" || workspace === "more") return workspace;
+  if (workspace === "objects" || workspace === "reentry") return "projects";
+  return "more";
+}
+
+function sectionNavigation(model: UiModel): string {
+  if (model.workspace === "objects" || model.workspace === "reentry") {
+    const entries: Array<[Workspace, string]> = [
+      ["reentry", "项目列表与重入"],
+      ["objects", "正式事项与创建"],
+    ];
+    return `<nav class="section-nav" aria-label="项目区域">${entries.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}" aria-pressed="${model.workspace === id}">${label}</button>`).join("")}</nav>`;
+  }
+  if (model.workspace === "more" || model.workspace === "audit" || model.workspace === "migration") {
+    const entries: Array<[Workspace, string]> = [
+      ["more", "更多首页"],
+      ["audit", "最近修改与恢复"],
+      ["migration", "迁移"],
+    ];
+    return `<nav class="section-nav" aria-label="更多区域">${entries.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}" aria-pressed="${model.workspace === id}">${label}</button>`).join("")}${button("系统状态", "runtime-diagnostics", undefined, "quiet")}</nav>`;
+  }
+  return "";
+}
+
+function renderMore(): string {
+  return `<section><div class="eyebrow">高级与维护</div><h2>更多</h2><p class="muted">日常只需要“现在”“待我确认”和“项目”。这里保留系统状态、恢复、迁移与技术证据，不删除原有能力。</p><div class="cards more-hub">
+    <article class="card"><h3>最近修改与恢复</h3><p>查看已经应用、尚未完成或需要恢复的变化，并按安全前置决定能否撤销。</p>${button("查看最近修改与恢复", "view", "audit", "primary")}</article>
+    <article class="card"><h3>系统状态与技术诊断</h3><p>先说明哪些能力受影响、哪些仍可用和数据是否安全，再按需展开技术组件。</p>${button("检查系统状态与技术诊断", "runtime-diagnostics", undefined, "quiet")}</article>
+    <article class="card"><h3>备份与恢复</h3><p>继续复用唯一 Local Service、Doctor、Backup 与固定确认的 Restore 安全链。</p>${button("查看备份与恢复说明", "view", "audit", "quiet")}</article>
+    <article class="card"><h3>迁移现有内容</h3><p>查看手动、小批次、可验证、可恢复的 V1 → V2 迁移账本。</p>${button("查看迁移状态", "view", "migration", "quiet")}</article>
+  </div></section>`;
+}
+
 function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
@@ -616,14 +656,13 @@ function renderActionDialog(model: UiModel): string {
 }
 
 export function renderApp(model: UiModel): string {
-  const labels: Array<[Workspace, string]> = [
-    ["now", "Now Work / 现在工作"],
-    ["objects", "Projects / 对象"],
-    ["review", "Proposal Review"],
-    ["reentry", "Project 重入"],
-    ["migration", "迁移"],
-    ["audit", "Audit / Recovery / 审计与恢复"],
+  const labels: Array<[PrimaryWorkspace, Workspace, string]> = [
+    ["now", "now", "现在"],
+    ["review", "review", "待我确认"],
+    ["projects", "reentry", "项目"],
+    ["more", "more", "更多"],
   ];
+  const activePrimary = primaryWorkspace(model.workspace);
   const body =
     model.workspace === "now"
         ? renderNow(model)
@@ -633,19 +672,21 @@ export function renderApp(model: UiModel): string {
             ? renderReview(model)
             : model.workspace === "reentry"
               ? renderReentry(model)
+              : model.workspace === "more"
+                ? renderMore()
               : model.workspace === "migration"
                 ? renderMigration(model)
                 : renderAudit(model);
   return `<section class="app-shell">
     <header class="topbar">
       <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
-      <div class="top-actions">${button("整理当前页", "v2-candidate-open", undefined, "primary")}${button("Diagnostics", "runtime-diagnostics", undefined, "quiet")}${button("关闭", "close", undefined, "quiet")}</div>
+      <div class="top-actions">${button("整理当前页", "v2-candidate-open", undefined, "primary")}${button("关闭", "close", undefined, "quiet")}</div>
     </header>
     ${model.runtime ? `<div class="runtime-strip"><span>Plugin ${escapeHtml(model.runtime.pluginVersion)}</span><span>Runtime ${escapeHtml(model.runtime.runtimeStatus)}</span><span>Store ${escapeHtml(model.runtime.storeStatus)}</span><span>Graph ${escapeHtml(model.runtime.currentGraph)}</span></div>` : ""}
     <div class="agent-state ${model.agent.enabled ? "enabled" : "disabled"}">Agent ${model.agent.enabled ? `Demo · ${escapeHtml(model.agent.providerId)}` : "disabled · 基础事务系统可用"}</div>
     ${model.message ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${model.error ? `<div class="error"><strong>未执行：</strong>${escapeHtml(model.error)}<span>请修正后重试；系统不会静默覆盖。</span></div>` : ""}
-    <nav aria-label="主要工作区">${labels.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}"${model.workspace === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}</nav>
-    <main class="workspace" data-workspace="${model.workspace}">${renderActionDialog(model)}${body}</main>
+    <nav aria-label="主要工作区">${labels.map(([id, target, label]) => `<button class="${activePrimary === id ? "active" : ""}" data-action="view" data-value="${target}"${activePrimary === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}</nav>
+    <main class="workspace" data-workspace="${model.workspace}">${renderActionDialog(model)}${sectionNavigation(model)}${body}</main>
   </section>`;
 }

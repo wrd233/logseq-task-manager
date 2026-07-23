@@ -8,14 +8,14 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D + P0-H handshake PASS | Focus/Condition/LOW apply/Page route/handshake PASS；P0-H lifecycle OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E + P0-H handshake PASS | Focus/Condition/LOW apply/Page route/four-nav/handshake PASS；P0-H lifecycle OPEN | 不得宣布 P0 完成 |
 | P1 | NOT_STARTED | — | — | — |
 | P2 | NOT_STARTED | — | — | — |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
 
-- [ ] 主导航只有现在、待我确认、项目、更多；
+- [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
 - [ ] Block/Page 就近入口；Block Focus/Condition 与 Page 普通/Project/Journal 路由已完成，
   普通 Block 现场建议和 Query/引用仍待做
 - [ ] 高频动作 1—2 个明确决定；
@@ -104,6 +104,8 @@
 - [x] P0-C LOW 白名单、连续 Review/revalidate/Commit、busy/stale/transport 与真实 Desktop Undo 证据；
 - [x] P0-D 普通/Project/Journal Page 路由、UUID/Anchor 重验、Project create/reentry 与
   sidebar 共存证据；
+- [x] P0-E 四项主导航、Project/Objects 与 More/Audit/Migration/Diagnostics 可达性及四张
+  脱敏 Desktop 截图；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

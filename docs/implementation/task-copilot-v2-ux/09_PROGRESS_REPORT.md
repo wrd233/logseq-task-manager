@@ -1,9 +1,9 @@
 # 交互优化实施进度
 
-> 更新时间：2026-07-23
+> 更新时间：2026-07-24
 > 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
-> P0-D Page 现场路由和 P0-H descriptor 私有 handshake 已完成自动与 Desktop 验收；Service
-> 进程生命周期及其余 P0 仍未完成。
+> P0-D Page 现场路由、P0-E 四项主导航和 P0-H descriptor 私有 handshake 已完成自动与
+> Desktop 验收；Service 进程生命周期及其余 P0 仍未完成。
 
 ## 总体状态
 
@@ -16,7 +16,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -66,19 +66,27 @@
   integrity `ok`、foreign-key 无记录；
 - Logseq 0.10.15 的 right-sidebar `…` 不提供 Plugin Page menu item；此宿主限制已记录，
   secondary-page payload 只按自动边界声明。
+- 完成 P0-E 四项用户层主导航，顶部 Diagnostics 降级到“更多”而不删除；
+- “项目”下保留 Project 列表/重入、当前接口、正式对象与受控创建，“更多”下保留最近修改/
+  恢复、系统状态/诊断、备份/恢复和迁移；
+- delegated `view` value 改为显式白名单校验，Plugin tests 157/157、0 skipped、typecheck
+  与 build PASS；
+- 真实 Desktop 下钻验证 Project、Objects、Audit、Migration、Diagnostics 均可达；包含完整
+  内部 Commit ID 的页面不留截图，四张脱敏主流程截图逐张检查。
 
 ## 当前进行
 
-### Slice P0-E：四项主导航
+### Slice P0-F：工具栏介入摘要
 
 状态：`IN_PROGRESS`
 
-下一项把六个工程工作区收束为“现在 / 待我确认 / 项目 / 更多”，并证明 Objects、Project
-重入、迁移、Audit/Recovery 与 Diagnostics 仍可达。
+下一项把工具栏信号限制为真正需要用户介入的到期 review、待确认、高影响已确认未应用、
+PENDING/RECOVERY_REQUIRED 与当前 Graph 正式连接风险；普通 OPEN/Focus/WAITING 和对象总数
+不得形成噪声。
 
 ## 当前阻塞
 
-当前没有阻塞 P0-E 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
+当前没有阻塞 P0-F 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
 但 descriptor handshake 不再阻塞其他正式 Desktop 写入 Gate。
 
 ## 当前风险
@@ -95,17 +103,18 @@
 - P0-B 本地 commit：`02e6472`；
 - P0-C 本地 commit：`5998490`；
 - P0-D 本地 commit：`6f6ef49`；
+- P0-E 本地 commit：待本 Slice 根级检查后记录；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮已归档 29 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
-  P0-D 9 张；
+- 本轮已归档 33 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
+  P0-D 9 张，P0-E 4 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
 ## 下一步
 
-1. 以 TDD 实现 P0-E 四项主导航；
-2. 将 Objects、Project reentry/current interface、Migration、Audit/Recovery 与 Diagnostics
-   重新映射到“项目 / 更多”，不删除能力；
-3. 自动证明旧六工作区能力仍可到达；
-4. 在真实 Logseq Desktop 验收四项主导航、窄宽度与返回现场。
+1. 以 TDD 实现 P0-F 工具栏介入摘要；
+2. 从既有 Projection 派生 due review、待确认、accepted-not-applied、Pending/Recovery 和
+   Graph 连接风险，不新增正式状态源；
+3. 自动证明普通 OPEN/Focus/WAITING 和对象总数不进入 badge；
+4. 在真实 Logseq Desktop 验收数字、`↻` 恢复优先级与点击路由。
