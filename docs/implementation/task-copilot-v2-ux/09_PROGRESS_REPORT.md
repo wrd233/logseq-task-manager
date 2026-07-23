@@ -103,7 +103,7 @@ PENDING/RECOVERY_REQUIRED 与当前 Graph 正式连接风险；普通 OPEN/Focus
 - P0-B 本地 commit：`02e6472`；
 - P0-C 本地 commit：`5998490`；
 - P0-D 本地 commit：`6f6ef49`；
-- P0-E 本地 commit：待本 Slice 根级检查后记录；
+- P0-E 本地 commit：`72cbbd4`；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
