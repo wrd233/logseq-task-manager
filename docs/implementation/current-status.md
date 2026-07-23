@@ -25,7 +25,11 @@ V2 v1.1 底座完成结论不变；当前继续按
   待确认、HIGH 已接受未应用、Pending/Recovery 和正式连接风险；OPEN/Focus/普通 WAITING/
   Project/Candidate 不计数。真实 Desktop 已通过安静态、连接风险 `TC ①`、诊断路由与连接
   恢复；`RECOVERY_REQUIRED ↻` 只按自动测试声明；
-- 当前继续 P0-G 最近修改与用户层结果；
+- P0-G 最近修改与用户层结果：既有 Proposal/SemanticCommit 已投影为用户意图、时间、
+  “已应用/尚未完成/需要恢复/未能应用/已撤销”和安全动作；技术 ID 只进折叠详情，即时与长期
+  结果共享实际 commit identity。真实 Desktop 已完成 LOW 应用、跨 reload 长期 Undo 与
+  Graph/SQLite 恢复；PENDING/Recovery 新投影只按自动测试声明；
+- 当前继续 P0-H Service 产品化 capability spike 与 P0-I 用户层系统状态；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

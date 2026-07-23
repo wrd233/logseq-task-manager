@@ -8,7 +8,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F + P0-H handshake PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/handshake PASS；P0-H lifecycle OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G + P0-H handshake PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/handshake PASS；P0-H lifecycle OPEN | 不得宣布 P0 完成 |
 | P1 | NOT_STARTED | — | — | — |
 | P2 | NOT_STARTED | — | — | — |
 | Final Release | NOT_STARTED | — | — | — |
@@ -23,7 +23,8 @@
 - [x] 低风险一次接受并应用；LOW 单组单 Block CREATE/REWRITE 自动覆盖，真实 Desktop REWRITE 通过
 - [ ] accepted-not-applied 不静默；
 - [ ] 成功/失败/PENDING/Recovery 清楚；
-- [ ] 即时 Undo 与最近修改可发现；
+- [x] 即时 Undo 与最近修改可发现；同一 Commit identity、跨 reload 长期入口与真实逆向
+  Commit/Graph 恢复已验证
 - [x] 工具栏只表示需要介入；安静态、连接风险数字与诊断路由已 Desktop 验证，
   `RECOVERY_REQUIRED ↻` 仅自动验证
 - [ ] Service 日常无需终端；
@@ -109,6 +110,8 @@
   脱敏 Desktop 截图；
 - [x] P0-F 介入计数/噪声排除/Recovery 优先级自动覆盖，以及安静态、正式连接风险 `TC ①`、
   诊断路由和恢复后安静态的两张脱敏 Desktop 截图；
+- [x] P0-G 用户层状态翻译、inverse 折叠、专用 Undo 路由、折叠技术详情，以及 LOW 应用→
+  即时结果→跨 reload 长期 Undo→Graph/SQLite 恢复的四张脱敏 Desktop 截图；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

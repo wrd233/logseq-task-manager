@@ -88,9 +88,110 @@ test("V2 audit is read-only and delegates recovery to the Local Service CLI", ()
   const html = renderApp(value);
   assert.match(html, /SQLite 单一权威/);
   assert.match(html, /tc backup/);
-  assert.match(html, /RECOVERY_REQUIRED/);
-  assert.match(html, /VERIFY_FAILED/);
+  assert.match(html, /需要恢复/);
+  assert.match(html, /上一次修改尚未完成/);
+  assert.match(html, /技术详情[\s\S]*RECOVERY_REQUIRED[\s\S]*VERIFY_FAILED/);
   for (const action of ["export-backup", "verify-backup", "recover-pending", "scan-anchors"]) assert.doesNotMatch(html, new RegExp(`data-action="${action}"`));
+});
+
+test("recent changes leads with user intent, application result, and existing Undo instead of engineering IDs", () => {
+  const value = model();
+  value.workspace = "audit";
+  value.v2Proposals = [{
+    updatedAt: "2026-07-24T06:32:00.000Z",
+    files: { proposalMd: "# proposal", proposalJson: "{}" },
+    proposal: {
+      proposalId: "proposal-private-1",
+      schemaVersion: "v2",
+      title: "整理设备托管材料",
+      context: "当前材料仍是一条普通记录。",
+      understanding: "整理为可推进事项。",
+      objective: "建立正式事项。",
+      logic: "应用一个低风险修改。",
+      finalPreview: "把设备托管材料组织为 MiniProject。",
+      unresolvedQuestions: [],
+      source: { kind: "user" },
+      scope: { read: [], modify: [{ kind: "BLOCK", id: "block-1", version: 3 }] },
+      preconditions: [],
+      groups: [{
+        groupId: "group-private-1",
+        explanation: "一次独立修改。",
+        risk: "LOW",
+        independentlyAcceptable: true,
+        dependencies: [],
+        textPatches: [],
+        semanticOperations: [{
+          operationId: "rewrite-1",
+          kind: "REWRITE_BLOCK",
+          target: { kind: "BLOCK", id: "block-1", version: 3 },
+          summary: "整理正文",
+          payload: { text: "整理后的正文" },
+          preconditions: [],
+        }],
+        disposition: "ACCEPTED",
+      }],
+      status: "APPLIED",
+      createdAt: "2026-07-24T06:30:00.000Z",
+    },
+  }];
+  value.v2SemanticCommits = [{
+    semanticCommitId: "proposal-commit:private-1",
+    proposalId: "proposal-private-1",
+    status: "COMPLETED",
+    beforeStateChecksum: "before-private-checksum",
+    afterStateChecksum: "after-private-checksum",
+    createdAt: "2026-07-24T06:31:00.000Z",
+    updatedAt: "2026-07-24T06:32:00.000Z",
+  }];
+
+  const html = renderApp(value);
+  const cardLead = html.match(/<article class="card compact recent-change">([\s\S]*?)<details/)?.[1] ?? "";
+  assert.match(cardLead, /整理设备托管材料/);
+  assert.match(cardLead, /把设备托管材料组织为 MiniProject/);
+  assert.match(cardLead, /已应用/);
+  assert.match(cardLead, /data-action="recent-change-review"[\s\S]*>查看</);
+  assert.match(cardLead, /data-action="v2-proposal-undo"[\s\S]*>撤销</);
+  const visibleLead = cardLead.replace(/<[^>]+>/g, "");
+  for (const engineeringValue of ["proposal-commit:private-1", "proposal-private-1", "before-private-checksum", "COMPLETED"]) {
+    assert.doesNotMatch(visibleLead, new RegExp(engineeringValue));
+  }
+  assert.match(html, /技术详情[\s\S]*proposal-commit:private-1[\s\S]*proposal-private-1/);
+});
+
+test("immediate result resolves the same recent-change identity and keeps technical ID in details", () => {
+  const value = model();
+  value.workspace = "review";
+  value.message = "旧的工程化成功提示";
+  value.recentActionCommitId = "proposal-commit:second";
+  value.v2Proposals = [
+    {
+      updatedAt: "2026-07-24T06:32:00.000Z",
+      files: { proposalMd: "# one", proposalJson: "{}" },
+      proposal: {
+        proposalId: "proposal-one", schemaVersion: "v2", title: "第一项修改", context: "c", understanding: "u", objective: "o", logic: "l", finalPreview: "第一项结果", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [] }, preconditions: [],
+        groups: [], status: "APPLIED", createdAt: "2026-07-24T06:30:00.000Z",
+      },
+    },
+    {
+      updatedAt: "2026-07-24T06:34:00.000Z",
+      files: { proposalMd: "# two", proposalJson: "{}" },
+      proposal: {
+        proposalId: "proposal-two", schemaVersion: "v2", title: "第二项修改", context: "c", understanding: "u", objective: "o", logic: "l", finalPreview: "第二项结果", unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [] }, preconditions: [],
+        groups: [], status: "APPLIED", createdAt: "2026-07-24T06:33:00.000Z",
+      },
+    },
+  ];
+  value.v2SemanticCommits = [
+    { semanticCommitId: "proposal-commit:first", proposalId: "proposal-one", status: "COMPLETED", beforeStateChecksum: "one", createdAt: "2026-07-24T06:31:00.000Z", updatedAt: "2026-07-24T06:32:00.000Z" },
+    { semanticCommitId: "proposal-commit:second", proposalId: "proposal-two", status: "COMPLETED", beforeStateChecksum: "two", createdAt: "2026-07-24T06:33:00.000Z", updatedAt: "2026-07-24T06:34:00.000Z" },
+  ];
+
+  const html = renderApp(value);
+  const immediateLead = html.match(/<section class="action-result"[\s\S]*?<article class="card compact recent-change">([\s\S]*?)<details/)?.[1] ?? "";
+  assert.match(immediateLead, /刚刚的结果/);
+  assert.match(immediateLead, /第二项修改/);
+  assert.doesNotMatch(immediateLead.replace(/<[^>]+>/g, ""), /第一项修改|proposal-commit:second|旧的工程化成功提示/);
+  assert.match(html, /技术详情[\s\S]*proposal-commit:second/);
 });
 
 test("V2 audit distinguishes a failed Service projection from an empty ledger", () => {
@@ -99,7 +200,7 @@ test("V2 audit distinguishes a failed Service projection from an empty ledger", 
   value.v2SemanticCommits = [];
   value.v2AuditLoadError = "service unavailable";
   const html = renderApp(value);
-  assert.match(html, /SemanticCommit 投影不可用/);
+  assert.match(html, /正式修改历史暂时不可用/);
   assert.match(html, /service unavailable/);
   assert.doesNotMatch(html, /还没有 V2 SemanticCommit/);
 });
@@ -950,6 +1051,7 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
     assert.match(source, new RegExp(`openActionDialog\\("${kind}"`));
   }
   assert.match(source, /registerPageContextMenu/);
+  assert.match(source, /action === "recent-change-review"[\s\S]*workspace = "review";[\s\S]*reviewMode = "proposals";/);
   assert.match(source, /getCurrentPage\(\)/);
   assert.match(source, /pushState\("page", \{ name: result\.pageName \}\)/);
   assert.match(source, /const returnToPage = pageContext !== undefined;[\s\S]*if \(returnToPage\) \{[\s\S]*logseq\.hideMainUI\(\);/);

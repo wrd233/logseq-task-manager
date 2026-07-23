@@ -25,6 +25,11 @@ SemanticCommit 和当前连接状态派生。数字明确排除 OPEN/Focus/普�
 Candidate 噪声；Recovery 覆盖数字。Logseq 0.10.15 真实证明对同一 toolbar key 重注册会更新
 单一入口，因此无需第二 renderer 或持久化 badge 状态。
 
+2026-07-24 实施补充：P0-G 不建立新的 recent-change 表。用户层结果由 Proposal 标题/
+预览与 SemanticCommit 状态实时组合；session 只记刚完成的 commit identity，并从同一投影
+取回即时卡片。inverse Commit 折叠到原业务变化，专业 ID/checksum 只在折叠详情。真实
+Desktop 已证明跨 reload 的长期 Undo 和最终 Graph/SQLite 恢复。
+
 ## 代码已回答的缺口
 
 | 问题 | 结论 | 证据 |

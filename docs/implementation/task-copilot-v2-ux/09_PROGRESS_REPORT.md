@@ -2,8 +2,9 @@
 
 > 更新时间：2026-07-24
 > 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
-> P0-D Page 现场路由、P0-E 四项主导航、P0-F 工具栏介入摘要和 P0-H descriptor 私有
-> handshake 已完成自动与适用 Desktop 验收；Service 进程生命周期及其余 P0 仍未完成。
+> P0-D Page 现场路由、P0-E 四项主导航、P0-F 工具栏介入摘要、P0-G 最近修改和 P0-H
+> descriptor 私有 handshake 已完成自动与适用 Desktop 验收；Service 进程生命周期及其余
+> P0 仍未完成。
 
 ## 总体状态
 
@@ -16,7 +17,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -82,20 +83,33 @@
 - 真实 Desktop 证明 READY/Pending=0/Recovery=0 时安静 `TC`，受控停服时为 `TC ①` 且进入
   Diagnostics，同库重启和 descriptor 安全刷新后恢复 `TC`；
 - 当前库没有 Recovery 项，因此 `↻` 不虚报 Desktop PASS；P0-H 自动生命周期仍保持 OPEN。
+- 完成 P0-G 纯用户层最近修改投影；只组合既有 Proposal/SemanticCommit，不新增 Audit、
+  Receipt、Commit 或持久缓存；
+- 主卡只显示用户意图、时间、“已应用/尚未完成/需要恢复/未能应用/已撤销”和可用动作；
+  Commit/Proposal ID、error code、checksum 进入折叠技术详情；
+- inverse Commit 折叠回原用户变化；后续正文、对象、Anchor、Ownership 或 Project interface
+  变化时解释不能直接 Undo 的原因；
+- generic、Ownership、Lifecycle、Project interface 分别复用既有 Undo handler，Closure
+  不伪造通用 Undo；
+- 即时结果用实际 semanticCommitId 查同一长期投影，导航/关闭后清除 session 提示；
+- Plugin tests 167/167、0 skipped、typecheck 与 build PASS；
+- 真实 Desktop 完成 LOW 应用→即时结果→reload→长期 Undo→已撤销；最终 Graph 正文和对象
+  恢复，正向 Commit UNDONE、逆向 Commit COMPLETED、Pending/Recovery 0。
 
 ## 当前进行
 
-### Slice P0-G：最近修改与用户层结果
+### Slice P0-H / P0-I：Service 产品化与用户层系统状态
 
 状态：`IN_PROGRESS`
 
-下一项把既有 Audit/Receipt/SemanticCommit 投影转成用户层结果：显示意图、是否应用、时间、
-可用 Undo/恢复动作；稳定 identity 仍来自既有 Commit，技术 ID 只进详情。
+下一项以受控 capability spike 回答 Plugin-owned process、ownership、shutdown 与 descriptor
+刷新边界；并把既有 Diagnostics 投影成先回答影响、仍可用能力、数据安全和所需动作的用户层
+系统状态。
 
 ## 当前阻塞
 
-当前没有阻塞 P0-G 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
-但 descriptor handshake 不再阻塞其他正式 Desktop 写入 Gate。
+当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
+子进程，必须以真实证据选择独立 launcher，不得在 UI 假装自动。
 
 ## 当前风险
 
@@ -113,17 +127,18 @@
 - P0-D 本地 commit：`6f6ef49`；
 - P0-E 本地 commit：`72cbbd4`；
 - P0-F 本地 commit：`53835b1`；
+- P0-G 本地 commit：待本轮收口后记录；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮已归档 35 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
-  P0-D 9 张，P0-E 4 张，P0-F 2 张；
+- 本轮已归档 39 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
+  P0-D 9 张，P0-E 4 张，P0-F 2 张，P0-G 4 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
 ## 下一步
 
-1. 以 TDD 实现 P0-G 最近修改的用户语言投影；
-2. 复用既有 Audit/Receipt/SemanticCommit identity 和 Undo/Recovery，不新增 Audit；
-3. 让即时反馈与长期入口引用同一结果，并将技术 ID 收进详情；
-4. 在真实 Logseq Desktop 验收成功、失败、Pending、Recovery 的适用样本，不为构造截图直写
-   SQLite 或破坏 Graph。
+1. 执行 P0-H Plugin-owned process capability spike，记录可证明与不可证明的宿主边界；
+2. 若宿主不可行，收束最小独立 launcher、ownership token、Graph binding、safe shutdown、
+   crash/orphan 与 descriptor refresh 契约；
+3. 以 TDD 实现 P0-I 用户层系统状态，技术 Diagnostics 继续按需展开；
+4. 汇总 P0 剩余 Query/引用、Light/窄栏和 Service 生命周期到最少 Desktop Gate。

@@ -45,3 +45,7 @@
 | `original/p0-e-04-more-hub.png` | 真实 Logseq Desktop 0.10.15 | “更多”汇集最近修改/恢复、系统状态/诊断、备份/恢复与迁移 |
 | `original/p0-f-01-formal-connection-risk-badge.png` | 真实 Logseq Desktop 0.10.15 | 受控停服后只形成一次正式连接风险，工具栏显示 `TC ①` 并可进入诊断 |
 | `original/p0-f-02-recovered-quiet-toolbar.png` | 真实 Logseq Desktop 0.10.15 | 同库 Service 与私有 descriptor 恢复后工具栏回到无噪声 `TC` |
+| `original/p0-g-01-recent-changes-user-language.png` | 真实 Logseq Desktop 0.10.15 | 最近修改以用户意图、时间和结果为主，技术详情默认折叠 |
+| `original/p0-g-02-immediate-result-same-commit.png` | 真实 Logseq Desktop 0.10.15 | LOW 正式应用后的即时结果提供查看与撤销，并由实际 Commit identity 取回 |
+| `original/p0-g-03-long-term-undo-entry.png` | 真实 Logseq Desktop 0.10.15 | reload 后同一修改仍在长期入口显示已应用与撤销 |
+| `original/p0-g-04-long-term-undo-completed.png` | 真实 Logseq Desktop 0.10.15 | 长期 Undo 完成后显示已撤销且不再提供重复 Undo |

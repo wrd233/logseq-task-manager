@@ -314,13 +314,30 @@ Logseq Desktop 0.10.15 的安静态、正式连接风险数字、点击诊断及
 
 ## P0-G：最近修改与用户层结果
 
-状态：`NOT_STARTED`
+状态：`DONE_WITH_BOUNDED_DESKTOP_SCOPE` — Plugin tests 167/167、typecheck、build 与真实
+Logseq Desktop 0.10.15 的用户层历史、折叠技术详情、查看原 Proposal、即时结果、跨 reload
+长期 Undo、逆向 Commit 和 Graph/SQLite 恢复均通过；PENDING/Recovery 新投影只按自动测试
+声明。
 
 - 不新增 Audit；
 - 由 Audit/Receipt/Commit 投影生成一句用户语言；
 - 即时结果和长期入口共享同一 commit identity；
 - 无法撤销时说明后续哪类变化阻止覆盖；
 - 最近修改只显示用户意图、时间、是否应用和可用动作，技术 ID 进入详情。
+
+实现与证据：
+
+- 新增纯 `projectRecentChanges`，只组合既有 Proposal 与 SemanticCommit，不增加正式状态源；
+- 用户状态固定翻译为“已应用 / 尚未完成 / 需要恢复 / 未能应用 / 已撤销”；
+- generic、Ownership、Lifecycle 与 Project interface 分别复用既有 Undo；Closure 无通用
+  Undo 时明确说明，不显示虚假动作；
+- inverse Commit 折叠回原用户修改；failed inverse 根据正文、对象、Anchor、Ownership 或
+  Project interface 变化解释为何不能覆盖；
+- Commit/Proposal ID、error code 与 checksum 只在折叠技术详情出现；
+- 即时结果保存实际 commit identity，再从同一长期投影取结果；导航/关闭清除 session 提示；
+- 真实 Desktop 完成 LOW 应用→即时结果→reload→长期 Undo→Graph/SQLite 恢复；
+- 证据见 `logs/p0-g-recent-changes-desktop-20260724.md` 与
+  `screenshots/original/p0-g-*`。
 
 ## P0-H：Service 产品化
 

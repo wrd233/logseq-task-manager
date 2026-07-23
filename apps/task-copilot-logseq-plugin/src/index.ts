@@ -80,6 +80,7 @@ let v2NowWorkTypeFilter: V2NowWorkTypeFilter = "ALL";
 let v2NowWorkGrouping: V2NowWorkGrouping = "mixed";
 let message: string | undefined;
 let latestError: string | undefined;
+let recentActionCommitId: string | undefined;
 let actionDialog: UiModel["actionDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 const graphReadBridgeController = new GraphReadBridgeController({
@@ -357,6 +358,7 @@ async function model(): Promise<UiModel> {
     v2NowWorkGrouping,
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
     ...(v2AuditLoadError ? { v2AuditLoadError } : {}),
+    ...(recentActionCommitId ? { recentActionCommitId } : {}),
     ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
     ...(pageContext ? { pageContext } : {}),
   };
@@ -548,6 +550,7 @@ function dialogSelectedVersion(name: string): number | undefined {
 async function run(action: () => Promise<void>, success?: string): Promise<void> {
   latestError = undefined;
   message = undefined;
+  recentActionCommitId = undefined;
   try {
     await action();
     if (success) message = success;
@@ -820,8 +823,16 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await showRuntimeDiagnostics();
     return;
   }
+  if (action === "recent-change-review") {
+    recentActionCommitId = undefined;
+    workspace = "review";
+    reviewMode = "proposals";
+    await refresh();
+    return;
+  }
   if (action === "view" && value) {
     if (!isWorkspace(value)) throw new Error("未知工作区；没有改变当前页面。");
+    recentActionCommitId = undefined;
     workspace = value;
     await refresh();
     return;
@@ -929,6 +940,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "close") {
+    recentActionCommitId = undefined;
     logseq.hideMainUI();
     return;
   }
@@ -1407,6 +1419,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
           ensurePersistentIdentity: ensurePersistentBlockIdentity,
         }, stored, `v2-low-risk-apply-ui-${Date.now()}`);
         workspace = "review";
+        recentActionCommitId = "semanticCommitId" in result ? result.semanticCommitId : undefined;
         if (result.status === "COMPLETED") {
           message = `已接受并应用 LOW 风险变更；对象 ${result.objectId ?? "已创建或更新"} 已正式写入，可在当前卡片撤销。`;
         } else if (result.status === "STALE") {
@@ -1473,9 +1486,10 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await run(async () => {
         const client = serviceRuntimeClient;
         if (!client) throw new Error("Primary Ownership Undo 上下文已失效；没有写入。");
-        await client.undoPrimaryOwnership(value, { confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: `v2-ownership-undo-ui-${Date.now()}` });
+        const result = await client.undoPrimaryOwnership(value, { confirmation: "UNDO_PRIMARY_OWNERSHIP", traceId: `v2-ownership-undo-ui-${Date.now()}` });
         actionDialog = undefined;
         workspace = "review";
+        recentActionCommitId = result.originalSemanticCommitId;
         message = "Primary Ownership 已恢复到审阅前状态；正文位置、Anchor 与 Association 未改变。";
       });
     } finally {
@@ -1493,9 +1507,10 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await run(async () => {
         const client = serviceRuntimeClient;
         if (!client) throw new Error("Lifecycle Undo 上下文已失效；没有写入。" );
-        await client.undoLifecycle(value, { confirmation: "UNDO_LIFECYCLE", traceId: `v2-lifecycle-undo-ui-${Date.now()}` });
+        const result = await client.undoLifecycle(value, { confirmation: "UNDO_LIFECYCLE", traceId: `v2-lifecycle-undo-ui-${Date.now()}` });
         actionDialog = undefined;
         workspace = "review";
+        recentActionCommitId = result.originalSemanticCommitId;
         message = "Lifecycle 已恢复到正向 Commit 之前；正文、Anchor、Condition、Focus 与 Ownership 未改变。";
       });
     } finally {
@@ -1528,11 +1543,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
         if (result.status === "FAILED") {
           actionDialog = undefined;
           workspace = "review";
+          recentActionCommitId = result.semanticCommitId;
           message = `Primary Ownership Commit 已安全终止（${result.errorCode}）；没有改变归属。`;
           return;
         }
         actionDialog = undefined;
         workspace = "review";
+        recentActionCommitId = result.semanticCommitId;
         message = "Primary Ownership 已通过 Proposal Commit 更新；位置、Anchor 与 Association 未改变。";
       });
     } finally {
@@ -1556,6 +1573,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       const result = await client.commitProjectClosure(proposalId, { expectedUpdatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: `v2-project-closure-ui-${Date.now()}` });
       actionDialog = undefined;
       workspace = "review";
+      if (result.status === "COMPLETED") recentActionCommitId = result.semanticCommitId;
       message = result.status === "COMPLETED" ? `Project Closure 已生效；${result.object.text} 已退出活跃视图，Logseq 页面保留。` : "Project 版本已变化；Proposal 已标记 STALE，没有完成对象。";
     });
     return;
@@ -1572,6 +1590,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       const result = await client.commitProjectStructure(proposalId, { expectedUpdatedAt, confirmation: "UPDATE_PROJECT_INTERFACE", observations, traceId: `v2-project-structure-ui-${Date.now()}` });
       actionDialog = undefined;
       workspace = result.status === "COMPLETED" ? "reentry" : "review";
+      if (result.status === "COMPLETED") recentActionCommitId = result.semanticCommitId;
       message = result.status === "COMPLETED" ? `Project ${result.object.text} 当前接口已更新为 v${result.object.version}；Graph、位置与归属未改变。` : "Project 版本已变化；Proposal 已标记 STALE，没有更新当前接口。";
     });
     return;
@@ -1584,6 +1603,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       const result = await client.undoProjectStructure(value, { confirmation: "UNDO_PROJECT_INTERFACE", traceId: `v2-project-structure-undo-ui-${Date.now()}` });
       actionDialog = undefined;
       workspace = "reentry";
+      recentActionCommitId = result.originalSemanticCommitId;
       message = `Project ${result.object.text} 已恢复审阅前的当前接口；Graph、位置与归属未改变。`;
     });
     return;
@@ -1607,6 +1627,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         const result = await client.commitLifecycleTransition(proposalId, { expectedUpdatedAt, confirmation: "COMPLETE_MINI_PROJECT", observations, traceId: `v2-mini-project-closure-ui-${Date.now()}` });
         actionDialog = undefined;
         workspace = "review";
+        if (result.status === "COMPLETED") recentActionCommitId = result.semanticCommitId;
         message = result.status === "COMPLETED" ? `MiniProject ${result.object.text} 已完成；${result.anchor ? "Marker 移除不会自动重开" : "Logseq 正文未被改写"}。` : "MiniProject 版本或所需 Graph 证据已变化；Proposal 已标记 STALE，没有完成对象。";
       });
     } finally {
@@ -1633,6 +1654,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         const result = await client.commitLifecycleTransition(proposalId, { expectedUpdatedAt, confirmation, observations, traceId: `v2-reasoned-lifecycle-ui-${Date.now()}` });
         actionDialog = undefined;
         workspace = "review";
+        if (result.status === "COMPLETED") recentActionCommitId = result.semanticCommitId;
         message = result.status === "COMPLETED" ? `${lifecycleAction === "CANCEL" ? "取消" : "重开"}已正式生效；原因保留在已应用 Proposal，正文与其他状态轴未改变。` : "对象版本已变化；Proposal 已标记 STALE，没有改变 Lifecycle。";
       });
     } finally {
@@ -1656,6 +1678,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       }, stored, `v2-proposal-commit-ui-${Date.now()}`);
       actionDialog = undefined;
       workspace = "review";
+      recentActionCommitId = result.semanticCommitId;
       message = result.status === "COMPLETED" ? `最终 Commit 已生效；对象 ${result.objectId} 已写入，可在当前卡片撤销。` : result.status === "STALE" ? "提交前重验失败；没有写入。" : "领域写入失败，正文已安全恢复；未报告成功。";
     });
     return;
@@ -1672,6 +1695,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         updateBlock: updateBlockWithoutExplicitSyncEcho,
       }, value, `v2-proposal-undo-ui-${Date.now()}`);
       workspace = "review";
+      recentActionCommitId = value;
       message = result.status === "COMPLETED" ? "Undo 已作为新的逆向 Commit 生效；正文与当前对象投影均已恢复，历史 Audit 保留。" : "Undo 领域写入失败，正文已恢复为 Commit 后状态；原 Commit 仍有效。";
     });
     return;

@@ -10,6 +10,7 @@ import type { ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, Servic
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
+import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -116,6 +117,7 @@ export interface UiModel {
   reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
   v2AuditLoadError?: string;
+  recentActionCommitId?: string;
   v2MigrationRuns?: ServiceMigrationRun[];
   v2MigrationLoadError?: string;
   pageContext?: PageContextSnapshot;
@@ -442,12 +444,56 @@ function renderReentry(model: UiModel): string {
   </article></div>`;
 }
 
+function recentChangeTime(value: string): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function renderRecentChange(change: RecentChange, immediate = false): string {
+  const action = (item: NonNullable<RecentChange["primaryAction"] | RecentChange["secondaryAction"]>) => (
+    button(item.label, item.action, item.value, item.tone)
+  );
+  const technical = change.technical;
+  return `<article class="card compact recent-change">
+    <div class="eyebrow">${immediate ? "刚刚的结果 · " : ""}${escapeHtml(recentChangeTime(change.occurredAt))} · <strong>${escapeHtml(change.statusLabel)}</strong></div>
+    <h3>${escapeHtml(change.intent)}</h3>
+    <p>${escapeHtml(change.summary)}</p>
+    ${change.availability ? `<p class="${change.status === "FAILED" || change.status === "RECOVERY_REQUIRED" ? "error" : "muted"}">${escapeHtml(change.availability)}</p>` : ""}
+    ${change.primaryAction || change.secondaryAction ? `<div class="actions">${change.secondaryAction ? action(change.secondaryAction) : ""}${change.primaryAction ? action(change.primaryAction) : ""}</div>` : ""}
+    <details><summary>技术详情</summary>
+      <p>SemanticCommit：<code>${escapeHtml(technical.semanticCommitId)}</code></p>
+      ${technical.proposalId ? `<p>Proposal：<code>${escapeHtml(technical.proposalId)}</code></p>` : ""}
+      <p>状态：<code>${escapeHtml(technical.status)}</code>${technical.errorCode ? ` · 错误：<code>${escapeHtml(technical.errorCode)}</code>` : ""}</p>
+      <p class="muted">before ${escapeHtml(technical.beforeStateChecksum.slice(0, 12))}${technical.afterStateChecksum ? ` · after ${escapeHtml(technical.afterStateChecksum.slice(0, 12))}` : ""}</p>
+    </details>
+  </article>`;
+}
+
+function recentChanges(model: UiModel): RecentChange[] {
+  return projectRecentChanges({
+    proposals: model.v2Proposals ?? [],
+    commits: model.v2SemanticCommits ?? [],
+  });
+}
+
+function renderImmediateResult(model: UiModel, changes: readonly RecentChange[]): string {
+  if (!model.recentActionCommitId) return "";
+  const change = changes.find((candidate) => candidate.commitIdentity === model.recentActionCommitId);
+  return change ? `<section class="action-result" aria-label="刚刚的正式修改结果">${renderRecentChange(change, true)}</section>` : "";
+}
+
 function renderAudit(model: UiModel): string {
-  if (model.v2AuditLoadError) return `<section><h2>V2 恢复与诊断</h2><div class="error"><strong>SemanticCommit 投影不可用：</strong>${escapeHtml(model.v2AuditLoadError)}<span>没有把查询失败显示为空历史，也没有执行恢复或写入。</span></div></section>`;
-  const commits = model.v2SemanticCommits ?? [];
-  const guidance = `<section class="card"><div class="eyebrow">SQLite 单一权威 · Local Service 单一写入口</div><h2>V2 恢复与诊断</h2><p>此处只读展示 SemanticCommit。备份、校验、Doctor 与 Restore 请使用同一 Local Service 的 <code>tc backup</code>、<code>tc doctor</code> 和 <code>tc backup restore</code>；Restore 仍要求固定确认并在完成后停服。</p><p class="muted">V1 Recovery Bundle 只用于只读迁移和历史兼容，不在正常 V2 Runtime 提供写入按钮。</p></section>`;
-  if (!commits.length) return `${guidance}${empty("还没有 V2 SemanticCommit", "Proposal 接受后仍不会写入；只有最终 Commit 才会出现在这里。")}`;
-  return `${guidance}<section><h2>最近 SemanticCommit</h2><div class="cards">${commits.slice().reverse().map((commit) => `<article class="card compact"><div class="eyebrow">${escapeHtml(commit.status)} · ${escapeHtml(commit.updatedAt)}</div><code>${escapeHtml(commit.semanticCommitId)}</code>${commit.proposalId ? `<p>Proposal：<code>${escapeHtml(commit.proposalId)}</code></p>` : ""}${commit.errorCode ? `<p class="error">${escapeHtml(commit.errorCode)}</p>` : ""}<p class="muted">before ${escapeHtml(commit.beforeStateChecksum.slice(0, 12))}${commit.afterStateChecksum ? ` · after ${escapeHtml(commit.afterStateChecksum.slice(0, 12))}` : ""}</p></article>`).join("")}</div></section>`;
+  if (model.v2AuditLoadError) return `<section><h2>最近修改与恢复</h2><div class="error"><strong>正式修改历史暂时不可用：</strong>${escapeHtml(model.v2AuditLoadError)}<span>没有把查询失败显示为空历史，也没有执行恢复或写入。</span></div></section>`;
+  const changes = recentChanges(model);
+  const guidance = `<section class="card"><div class="eyebrow">SQLite 单一权威 · Local Service 单一写入口</div><h2>最近修改与恢复</h2><p>这里按用户意图显示已经应用、尚未完成、需要恢复或已撤销的正式修改；记录来自既有 Audit、Receipt 与 SemanticCommit，不是第二份状态。</p><details><summary>维护与恢复说明</summary><p>备份、校验、Doctor 与 Restore 继续使用同一 Local Service 的 <code>tc backup</code>、<code>tc doctor</code> 和 <code>tc backup restore</code>；恢复必须继续原 Commit，不新建重复操作。</p><p class="muted">V1 Recovery Bundle 只用于只读迁移和历史兼容。</p></details></section>`;
+  if (!changes.length) return `${guidance}${empty("还没有正式修改", "确认修改内容不等于已经应用；只有正式应用后才会出现在这里。")}`;
+  return `${guidance}<section><h2>最近修改</h2><div class="cards">${changes.map((change) => renderRecentChange(change)).join("")}</div></section>`;
 }
 
 function renderMigration(model: UiModel): string {
@@ -663,6 +709,8 @@ export function renderApp(model: UiModel): string {
     ["more", "more", "更多"],
   ];
   const activePrimary = primaryWorkspace(model.workspace);
+  const changes = recentChanges(model);
+  const immediateResult = renderImmediateResult(model, changes);
   const body =
     model.workspace === "now"
         ? renderNow(model)
@@ -684,7 +732,8 @@ export function renderApp(model: UiModel): string {
     </header>
     ${model.runtime ? `<div class="runtime-strip"><span>Plugin ${escapeHtml(model.runtime.pluginVersion)}</span><span>Runtime ${escapeHtml(model.runtime.runtimeStatus)}</span><span>Store ${escapeHtml(model.runtime.storeStatus)}</span><span>Graph ${escapeHtml(model.runtime.currentGraph)}</span></div>` : ""}
     <div class="agent-state ${model.agent.enabled ? "enabled" : "disabled"}">Agent ${model.agent.enabled ? `Demo · ${escapeHtml(model.agent.providerId)}` : "disabled · 基础事务系统可用"}</div>
-    ${model.message ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
+    ${model.message && !immediateResult ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
+    ${immediateResult}
     ${model.error ? `<div class="error"><strong>未执行：</strong>${escapeHtml(model.error)}<span>请修正后重试；系统不会静默覆盖。</span></div>` : ""}
     <nav aria-label="主要工作区">${labels.map(([id, target, label]) => `<button class="${activePrimary === id ? "active" : ""}" data-action="view" data-value="${target}"${activePrimary === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}</nav>
     <main class="workspace" data-workspace="${model.workspace}">${renderActionDialog(model)}${sectionNavigation(model)}${body}</main>
