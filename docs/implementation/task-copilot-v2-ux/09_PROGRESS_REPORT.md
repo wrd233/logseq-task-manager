@@ -1,8 +1,9 @@
 # 交互优化实施进度
 
 > 更新时间：2026-07-23
-> 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”和 P0-H descriptor 私有
-> handshake 已完成自动与 Desktop 验收；Service 进程生命周期及其余 P0 仍未完成。
+> 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”、P0-C 低风险“接受并应用”和
+> P0-H descriptor 私有 handshake 已完成自动与 Desktop 验收；Service 进程生命周期及其余
+> P0 仍未完成。
 
 ## 总体状态
 
@@ -15,7 +16,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -47,19 +48,26 @@
 - 每种状态写入均保持 Lifecycle OPEN、Focus 空，Undo 后恢复 ACTIONABLE；
 - 真实 WAITING Undo 发现 JSON key 顺序假 stale，改用 `stableJson` 并补回归后复测通过；
 - 最终 force reload 读回 version 10 / ACTIONABLE / Focus 空。
+- 完成 P0-C LOW 单组单 Block 白名单，`CREATE_OBJECT`/`REWRITE_BLOCK` 之外及 HIGH 组均拒绝；
+- 连续编排复用既有 Review→Graph/版本重验→SemanticCommit→verify，不新增写路径或恢复器；
+- busy 禁用同卡片审阅动作；stale 显示未写入；接受请求不确定时零自动重试并要求刷新；
+- Plugin typecheck、147/147 测试和 build PASS；
+- 真实 Desktop 执行 LOW `REWRITE_BLOCK` 一次接受应用，捕获 applying 禁用态、APPLIED/Undo；
+- Undo 后 Graph 与 SQLite 恢复原正文，对象 version 10→11→12，正向 Commit UNDONE、逆向
+  Commit COMPLETED、Pending/Recovery 0、integrity `ok`，测试普通 Block 已清除。
 
 ## 当前进行
 
-### Slice P0-C：低风险“接受并应用”
+### Slice P0-D：Page 现场路由
 
 状态：`IN_PROGRESS`
 
-下一项先建立 LOW 白名单和 accepted→revalidate→commit 连续编排 seam；高影响、跨对象、
-Ownership、Closure、Lifecycle 与 Project structure 明确排除，任何不确定 transport 不自动重试。
+下一项建立普通 Page / Project Page 的稳定现场意图，执行时重读 page identity 与 Project
+Anchor；不把 page string 当作持久身份，不复制 Project 状态机。
 
 ## 当前阻塞
 
-当前没有阻塞 P0-C 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
+当前没有阻塞 P0-D 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
 但 descriptor handshake 不再阻塞其他正式 Desktop 写入 Gate。
 
 ## 当前风险
@@ -76,12 +84,12 @@ Ownership、Closure、Lifecycle 与 Project structure 明确排除，任何不�
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮已归档 15 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张；
+- 本轮已归档 20 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
 ## 下一步
 
-1. 跑 P0-B 修改后的根级全量检查、stub/skip 和 secret scan；
-2. 精确提交 P0-B 代码、测试、文档和脱敏证据；
-3. 以 TDD 实现 P0-C LOW 白名单与连续编排；
-4. 在隔离 Graph 验收一次接受并应用、失败、PENDING/Recovery 和 Undo。
+1. 跑 P0-C 修改后的根级全量检查、stub/skip 和 secret scan；
+2. 精确提交 P0-C 代码、测试、文档和脱敏证据；
+3. 以 TDD 实现 P0-D Page 现场路由；
+4. 在隔离 Graph 分别验收普通 Page 与 Project Page 的 payload、重验与返回现场。

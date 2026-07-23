@@ -13,7 +13,7 @@
 | P0-4 Page 菜单 | 尚未注册；SDK 有 `registerPageMenuItem` | 当前页 Candidate、Project 创建/重入 | UI_ORCHESTRATION | Page payload 只有 string；Project Page 身份需重验 | 三个稳定 Page 意图入口，动作时解析页面与 Project Anchor |
 | P0-5 斜杠与快捷动作 | 只有 `Task Copilot: Open`；命令面板 5 个英文入口 | command registration、显式 parser | UI_ORCHESTRATION | 斜杠直接正式写入会绕过现有 parser/Proposal | 先注册中文创建模板与三个可配置命令；创建仍走正文 + 正式同步/Proposal 边界 |
 | P0-6 “暂时做不了” | Now Work 分散的 WAITING/BLOCKED/PAUSED 表单 | `changeCondition`、版本/幂等/Audit | UI_ORCHESTRATION | 字段遗漏或状态恢复时自动 Focus | 一个紧凑路由器选择三种意图，再复用现有 command；成功回原 Block |
-| P0-7 低风险接受并应用 | Review accept 与 Commit 分离 | Proposal Validator、revalidate、SemanticCommit、Undo | UI_ORCHESTRATION | 错误合并高影响组；重复点击；中断误报成功 | 只对受白名单约束的 LOW 单意图提供连续 orchestration；后台保留完整链 |
+| P0-7 低风险接受并应用 | `v2-low-risk-apply.ts` + Review card；自动/真实 Desktop 已闭环 | Proposal Validator、revalidate、SemanticCommit、Undo | UI_ORCHESTRATION | 错误合并高影响组；重复点击；中断误报成功 | DONE：只对 READY/LOW/唯一单 Block CREATE/REWRITE 连续编排；后台完整链、busy、stale/transport/recovery 文案与 Undo 保留 |
 | P0-8 accepted-not-applied | Proposal `ACCEPTED` + Commit 状态已有 | Proposal/Commit query | DERIVED_DATA | 低风险静默遗忘；高影响未完成不可见 | 派生 intervention item；低风险连续提交，高影响在工具栏/待我确认顶部持续显现 |
 | P0-9 结果、Undo、最近修改 | 当前 `message/error`、Proposal card Undo、Audit workspace | Audit/Receipt/SemanticCommit/inverse Commit | UI_ORCHESTRATION | Toast 消失后 Undo 不可发现；后续编辑时误覆盖 | 新建用户层 action result 与 recent changes projection，不新增权威 |
 | P0-10 Service 自动启动/结束 | Node 进程手启；filesystem descriptor；Plugin 私有 reader；beforeunload 只清理 Plugin | runner、descriptor、health、safe close、Restore stop | SERVICE_PRODUCTIZATION | 进程所有权、跨 Graph、崩溃、secret/path 泄漏 | 先做受控 launcher/handshake spike；明确 Plugin-owned process；安全 shutdown endpoint；fail closed |

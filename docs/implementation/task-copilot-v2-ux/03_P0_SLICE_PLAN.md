@@ -157,7 +157,10 @@ Desktop 验收；普通 Block 仍由后续“处理这条内容”路由负责�
 
 ## P0-C：低风险“接受并应用”
 
-状态：`NOT_STARTED`
+状态：`DONE_WITH_BOUNDED_DESKTOP_SCOPE` — 自动覆盖 CREATE/REWRITE 白名单、高风险拒绝、
+scope stale 与不确定接受请求零重试；真实 Desktop 完成 LOW `REWRITE_BLOCK` 的单击连续
+应用、busy 禁用、SQLite/Graph 读回和安全 Undo。CREATE 正向与恢复故障仍由既有
+Proposal Commit 自动/历史 Desktop Gate 提供底层证据。
 
 ### 白名单
 
@@ -199,6 +202,24 @@ review accept
 - 高风险组误入一键流程；
 - 失败仍显示绿色成功；
 - Undo 覆盖后续正文编辑。
+
+### 2026-07-23 实施与实证
+
+- `v2-low-risk-apply.ts` 只接受 READY、无未决问题、唯一独立 LOW 组、一个 Block Patch 和
+  一个 `CREATE_OBJECT` 或 `REWRITE_BLOCK`；再调用既有 accepted-plan Validator；
+- 连续流程仍逐步调用 `reviewProposal`、Graph scope observation、`revalidateProposal` 和
+  `commitV2Formalization`，没有直接 Store 写入口、第二 Commit 或新恢复器；
+- 接受请求 transport 不确定时只调用一次并要求刷新；接受后任一步失败都会明确显示
+  “已接受但未报告正式应用”，不会绿色报成功；
+- UI 在运行期间禁用该卡片的接受、拒绝和暂缓动作；只有最终 `COMPLETED` 才显示成功与 Undo；
+- Plugin typecheck、147/147 tests 和 build PASS；
+- Logseq Desktop 0.10.15 对真实 schema-v12 测试对象执行唯一 LOW `REWRITE_BLOCK`：
+  READY/PENDING → applying disabled → APPLIED/Commit COMPLETED → Undo；
+- Local Service/SQLite 读回对象 version 10→11→12，最终正文恢复 `P0 Focus Gate`；
+  正向 Commit `UNDONE`、逆向 Commit `COMPLETED`、Pending/Recovery 0、integrity `ok`、
+  foreign key check 无记录；
+- 测试新增普通 Block 已从 Graph 清除，Focus/Condition/Lifecycle 未改变；截图不含 token、
+  descriptor 内容、路径、真实业务正文或 API Key。
 
 ## P0-D：Page 现场路由
 

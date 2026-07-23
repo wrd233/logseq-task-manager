@@ -71,6 +71,12 @@ key→直接 refresh 的产品通道；真实 Desktop 导入和 reload 均 READY
 
 推荐：仅把 LOW 白名单的 review/revalidate/commit 编排在一个连续组件中；状态、ledger、恢复与 Undo 不合并。高影响保持独立最终确认。
 
+2026-07-23 结论：`RESOLVED_FOR_P0`。新增编排层严格限制 READY、唯一独立 LOW 组、单 Block
+`CREATE_OBJECT`/受约束 `REWRITE_BLOCK`，并在 accepted-plan Validator 后继续调用既有
+Review、Graph/版本重验、SemanticCommit 和 Undo。真实 Desktop 已证明按钮 busy 禁用、
+APPLIED 后 Undo 和最终 SQLite/Graph 恢复；transport 不确定自动测试证明只请求一次且要求刷新。
+HIGH、Ownership、Closure、Lifecycle、Project structure、批量与跨对象修改仍保持原专用流程。
+
 ## 尚不需要用户决定
 
 当前所有首批 P0 选择都可由设计文档、代码与原型回答。没有需要立即向用户提出的产品语义问题。

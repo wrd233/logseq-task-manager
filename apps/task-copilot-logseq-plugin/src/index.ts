@@ -54,6 +54,7 @@ import { buildMiniProjectLegacyTransferProposal } from "./v2-mini-project-legacy
 import { submitV2Association, type V2AssociationSubmissionState } from "./v2-association-controller.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
+import { applyLowRiskV2Proposal } from "./v2-low-risk-apply.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
 import { BlockFocusController } from "./block-focus-controller.ts";
@@ -100,6 +101,7 @@ let v2RebindPanel: V2RebindPanelState = { status: "idle" };
 let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
 let v2ProviderRevisionBusy = false;
+let v2LowRiskApplyBusyProposalId: string | undefined;
 const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
 let v2BlockConditionBusy = false;
@@ -273,6 +275,7 @@ async function model(): Promise<UiModel> {
     v2ProviderAvailable: serviceConnection.status === "READY" && serviceConnection.capabilities.provider && Boolean(serviceRuntimeClient),
     v2ProviderState,
     v2ProviderRevisionBusy,
+    ...(v2LowRiskApplyBusyProposalId ? { v2LowRiskApplyBusyProposalId } : {}),
     reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
     v2NowWorkTypeFilter,
@@ -1228,6 +1231,39 @@ async function handleAction(action: string, value?: string): Promise<void> {
       }, async () => refresh());
       workspace = "objects";
     }, "Association 已添加；Primary Ownership、位置、Lifecycle 与 Focus 均未改变。");
+    return;
+  }
+  if (action === "v2-low-risk-apply" && value) {
+    if (v2LowRiskApplyBusyProposalId) return;
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    if (!proposalId || !expectedUpdatedAt) return;
+    v2LowRiskApplyBusyProposalId = proposalId;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) throw new Error("Local Service 未就绪；没有接受或应用 Proposal。");
+        const stored = await client.getProposal(proposalId);
+        if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请重新检查最新内容。");
+        const result = await applyLowRiskV2Proposal(client, {
+          getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }),
+          getPage: (id) => logseq.Editor.getPage(id),
+          updateBlock: updateBlockWithoutExplicitSyncEcho,
+          ensurePersistentIdentity: ensurePersistentBlockIdentity,
+        }, stored, `v2-low-risk-apply-ui-${Date.now()}`);
+        workspace = "review";
+        if (result.status === "COMPLETED") {
+          message = `已接受并应用 LOW 风险变更；对象 ${result.objectId ?? "已创建或更新"} 已正式写入，可在当前卡片撤销。`;
+        } else if (result.status === "STALE") {
+          message = "应用前检查发现正文或版本已变化；没有写入，请重新检查 Proposal。";
+        } else {
+          message = "领域写入未完成，正文已安全恢复；Proposal 与恢复记录已保留，没有报告成功。";
+        }
+      });
+    } finally {
+      v2LowRiskApplyBusyProposalId = undefined;
+      await refresh();
+    }
     return;
   }
   if ((action === "v2-review-accept" || action === "v2-review-reject") && value) {

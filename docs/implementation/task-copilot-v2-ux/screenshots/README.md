@@ -25,3 +25,8 @@
 | `original/p0-b-06-blocked-success.png` | 真实 Logseq Desktop 0.10.15 | BLOCKED 正式保存后自动返回原 Block，并明确 Focus 未改变、Undo 可用 |
 | `original/p0-b-07-waiting-undo-success.png` | 真实 Logseq Desktop 0.10.15 | stable JSON 修复后，WAITING 的会话 Undo 真实恢复 ACTIONABLE，Focus 未改变 |
 | `original/p0-b-08-validation-error.png` | 真实 Logseq Desktop 0.10.15 | 缺少必要字段时明确显示没有保存、原状态未改变 |
+| `original/p0-c-01-low-risk-ready.png` | 真实 Logseq Desktop 0.10.15 | READY/PENDING/LOW 单组 `REWRITE_BLOCK` 只显示白名单的一键“接受并应用”；HIGH 与复合 Proposal 不会得到该入口 |
+| `original/p0-c-02-applying-disabled.png` | 真实 Logseq Desktop 0.10.15 | 连续 Review/revalidate/Commit 期间按钮显示“正在接受并应用…”且同卡片审阅动作禁用 |
+| `original/p0-c-03-applied-with-undo.png` | 真实 Logseq Desktop 0.10.15 | 只有 Proposal APPLIED、SemanticCommit COMPLETED 后才显示成功和既有安全 Undo |
+| `original/p0-c-04-undo-confirmation.png` | 真实 Logseq Desktop 0.10.15 | Undo 仍要求独立确认，并说明只在正文、对象与 Anchor 未被后续修改时生效 |
+| `original/p0-c-05-undone.png` | 真实 Logseq Desktop 0.10.15 | 逆向 Commit 完成后正文与对象恢复，正向 Audit/Commit 历史保留 |

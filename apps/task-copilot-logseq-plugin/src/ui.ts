@@ -8,6 +8,7 @@ import type {
 import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
 import type { ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
+import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 
 export type Workspace = "now" | "objects" | "review" | "reentry" | "migration" | "audit";
 export type V2NowWorkTypeFilter = "ALL" | ServiceNowWork["focus"][number]["objectType"];
@@ -106,6 +107,7 @@ export interface UiModel {
   v2ProviderAvailable?: boolean;
   v2ProviderState?: { status: "idle" | "loading" | "success" | "error"; message?: string };
   v2ProviderRevisionBusy?: boolean;
+  v2LowRiskApplyBusyProposalId?: string;
   reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
   v2AuditLoadError?: string;
@@ -304,6 +306,8 @@ function renderReview(model: UiModel): string {
   }
   const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
   const v2Cards = v2.map((record) => {
+    const lowRiskApply = lowRiskApplyEligibility(record);
+    const lowRiskApplyBusy = model.v2LowRiskApplyBusyProposalId === record.proposal.proposalId;
     const acceptedGroups = record.proposal.groups.filter((group) => group.disposition === "ACCEPTED");
     const hasAcceptedGroup = acceptedGroups.length > 0;
     const isProjectClosure = acceptedGroups.length === 1
@@ -355,7 +359,7 @@ function renderReview(model: UiModel): string {
       const deferral = group.disposition === "DEFERRED" && group.deferredUntil
         ? `<p class="muted">暂缓至 ${escapeHtml(new Date(group.deferredUntil).toLocaleString("zh-CN"))}${group.deferReason ? ` · ${escapeHtml(group.deferReason)}` : ""}</p>`
         : "";
-      return `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${deferral}${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${button("接受该语义组", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}|${reviewKind}`, "primary")}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet")}</div>` : ""}</section>`;
+      return `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${deferral}${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${lowRiskApply.eligible ? button(lowRiskApplyBusy ? "正在接受并应用…" : "接受并应用", "v2-low-risk-apply", `${record.proposal.proposalId}|${record.updatedAt}`, "primary", lowRiskApplyBusy) : ""}${button("仅接受，稍后应用", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}|${reviewKind}`, "quiet", lowRiskApplyBusy)}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet", lowRiskApplyBusy)}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet", lowRiskApplyBusy)}</div>` : ""}</section>`;
     }).join("")}
     ${canReviseWithProvider ? `<div class="actions">${button(model.v2ProviderRevisionBusy ? "Agent 调整中…" : "调整建议", "v2-provider-revise-open", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet", model.v2ProviderRevisionBusy === true)}</div>` : ""}
     ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : isProjectStructure ? "确认更新当前接口" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消对象" : "确认重开对象") : isOwnershipChange ? "确认改变主归属" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : isProjectStructure ? "v2-project-structure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, "primary", (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true))}</div>` : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>` : canProjectStructureUndo ? `<div class="actions">${button("撤销当前接口更新", "v2-project-structure-undo", originalCommit.semanticCommitId, "danger")}</div>` : canLifecycleUndo ? `<div class="actions">${button(reasonedLifecycleOperation!.payload.action === "CANCEL" ? "撤销取消" : "撤销重开", "v2-lifecycle-undo", originalCommit.semanticCommitId, "danger", model.v2LifecycleCommitBusy === true)}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}

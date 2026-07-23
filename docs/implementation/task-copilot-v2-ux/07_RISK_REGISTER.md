@@ -2,8 +2,8 @@
 
 | ID | 风险 | 触发征兆 | 影响 | 控制 | 状态 |
 |---|---|---|---|---|---|
-| UX-R01 | “接受并应用”绕过高影响安全边界 | HIGH/Ownership/Closure 进入一键流程 | 静默正式写入 | LOW 白名单 + 服务端重验 + 单一 Commit | OPEN |
-| UX-R02 | accepted-not-applied 静默遗忘 | 工具栏/待我确认无持续入口 | 用户误以为已生效 | intervention projection；低风险连续提交 | OPEN |
+| UX-R01 | “接受并应用”绕过高影响安全边界 | HIGH/Ownership/Closure 进入一键流程 | 静默正式写入 | READY/LOW/唯一单 Block 白名单 + accepted-plan Validator + 服务端重验 + 单一 Commit；自动与 Desktop 通过 | CONTROLLED |
+| UX-R02 | accepted-not-applied 静默遗忘 | 工具栏/待我确认无持续入口 | 用户误以为已生效 | 低风险连续提交及错误后的明确刷新/恢复提示已完成；高影响 intervention projection 仍待 P0-E | PARTIAL |
 | UX-R03 | Block 右键无法真正动态 | SDK 注册项固定、payload 不稳定 | 菜单膨胀或语义错误 | 两项稳定意图 + 动作时解析已在正式 Block Desktop 通过；继续 Query/引用 Gate | CONTROLLED |
 | UX-R04 | Block UI 破坏 Logseq 阅读/编辑 | 大色块、光标遮挡、Query 噪声 | 正文体验退化 | prototype/feature flag/性能与主题 Gate | OPEN |
 | UX-R05 | Service productization 误管他人进程 | Plugin 关闭非 owned PID | 数据/其他 Graph 中断 | process ownership token、Graph binding、只停 owned process | OPEN |

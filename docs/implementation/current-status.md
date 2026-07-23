@@ -9,9 +9,12 @@ V2 v1.1 底座完成结论不变；当前继续按
   Local Service 读回均已通过；
 - P0-B“暂时做不了”：三种用户意图、最小字段、失败零写入、Focus/Lifecycle 不变、会话内
   Undo 与 reload 读回均已通过；
+- P0-C 低风险“接受并应用”：严格 LOW/单组/单 Block 白名单、连续
+  accept→revalidate→SemanticCommit、busy 防重复、显式 stale/transport/recovery 结果与既有
+  Undo 已通过自动和真实 Desktop；HIGH/Ownership/Closure/Lifecycle/Project structure 均不进入；
 - P0-H descriptor 私有 handshake：文件选择、校验、固定私有 FileStorage key、直接重连与
   reload READY 已通过；Service 自动启动、owned shutdown 与崩溃恢复仍未产品化；
-- 当前继续 P0-C 低风险“接受并应用”连续编排；
+- 当前继续 P0-D Page 现场路由；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。
