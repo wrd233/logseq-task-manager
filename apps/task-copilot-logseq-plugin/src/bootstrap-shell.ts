@@ -8,7 +8,10 @@ export interface BootstrapHost {
     registerUIItem(type: "toolbar", options: { key: string; template: string }): void;
     registerCommandPalette(options: { key: string; label: string }, action: () => unknown): void;
   };
-  Editor: { registerSlashCommand(label: string, action: () => unknown): unknown };
+  Editor: {
+    registerSlashCommand(label: string, action: () => unknown): unknown;
+    registerBlockContextMenuItem(label: string, action: (event: { uuid: string }) => Promise<void>): unknown;
+  };
 }
 
 export interface BootstrapCallbacks {
@@ -17,6 +20,8 @@ export interface BootstrapCallbacks {
   openReview(): unknown;
   openNowWork(): unknown;
   diagnostics(): unknown;
+  toggleBlockFocus(blockUuid: string): Promise<void>;
+  undoBlockFocus(): Promise<void>;
 }
 
 export const COMMAND_KEYS = {
@@ -27,11 +32,17 @@ export const COMMAND_KEYS = {
   diagnostics: "task-copilot-command-runtime-diagnostics",
 } as const;
 
+export const BLOCK_CONTEXT_LABELS = {
+  toggleFocus: "Task Copilot：加入／移出当前关注",
+  undoFocus: "Task Copilot：撤销上一次关注变化",
+} as const;
+
 for (const key of Object.values(COMMAND_KEYS)) assertCssSafeIdentifier(key);
 
 export class BootstrapRegistration {
   private toolbarRegistered = false;
   private commandsRegistered = false;
+  private blockContextMenusRegistered = false;
   private mainUiRegistered = false;
 
   registerToolbar(host: BootstrapHost): boolean {
@@ -53,6 +64,18 @@ export class BootstrapRegistration {
     host.App.registerCommandPalette({ key: COMMAND_KEYS.diagnostics, label: "Task Copilot: Runtime Diagnostics" }, callbacks.diagnostics);
     host.Editor.registerSlashCommand("Task Copilot: Open", callbacks.open);
     this.commandsRegistered = true;
+    return true;
+  }
+
+  registerBlockContextMenus(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
+    if (this.blockContextMenusRegistered) return false;
+    host.Editor.registerBlockContextMenuItem(BLOCK_CONTEXT_LABELS.toggleFocus, async ({ uuid }) => {
+      await callbacks.toggleBlockFocus(uuid);
+    });
+    host.Editor.registerBlockContextMenuItem(BLOCK_CONTEXT_LABELS.undoFocus, async () => {
+      await callbacks.undoBlockFocus();
+    });
+    this.blockContextMenusRegistered = true;
     return true;
   }
 

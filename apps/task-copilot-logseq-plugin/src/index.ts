@@ -55,6 +55,7 @@ import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.t
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
+import { BlockFocusController, type BlockFocusResult } from "./block-focus-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
 
 let appRoot: HTMLElement | undefined;
@@ -81,6 +82,7 @@ const graphReadBridgeController = new GraphReadBridgeController({
 let firstRunMode = false;
 let firstRunAction: FirstRunAction | undefined;
 let serviceRuntimeClient: ServiceRuntimeClient | undefined;
+const blockFocusController = new BlockFocusController(() => serviceRuntimeClient);
 let serviceDiscoveryGeneration = 0;
 let explicitSyncController: ExplicitSyncController | undefined;
 let explicitSyncState: ExplicitSyncState = {
@@ -1528,6 +1530,58 @@ async function guardedFeatureCommand(action: () => Promise<void>): Promise<void>
   }
 }
 
+async function showBlockContextMessage(content: string, status: "success" | "warning" | "error"): Promise<void> {
+  try {
+    await logseq.UI.showMsg(content, status, { timeout: 6500 });
+  } catch (error) {
+    operationalLogger.log("warn", "ui-action", "block_context_feedback_failed", { result: "feedback-unavailable", errorCode: explain(error) });
+  }
+}
+
+async function runBlockContextAction(actionId: string, action: () => Promise<BlockFocusResult>): Promise<void> {
+  const correlationId = `TC-block-${Date.now()}`;
+  if (!featureReady) {
+    diagnostics.setNotice({
+      code: "FEATURE_NOT_READY",
+      message: "Task Copilot 功能尚未就绪；Block 右键操作未执行。",
+      next_step: "请打开 Task Copilot 查看系统状态和失败阶段。",
+    });
+    operationalLogger.log("warn", "ui-action", "block_context_action_unavailable", { correlationId, actionId, result: "feature-not-ready" });
+    await showBlockContextMessage("Task Copilot 尚未就绪；当前关注没有改变。请打开 Task Copilot 查看系统状态。", "warning");
+    return;
+  }
+  try {
+    const result = await action();
+    message = result.message;
+    latestError = undefined;
+    operationalLogger.log("info", "ui-action", "block_context_action_completed", {
+      correlationId,
+      actionId,
+      result: result.status,
+      blockUuid: result.blockUuid,
+      objectId: result.objectId,
+    });
+    await showBlockContextMessage(result.message, "success");
+  } catch (error) {
+    const explanation = explain(error);
+    latestError = explanation;
+    operationalLogger.log("error", "ui-action", "block_context_action_failed", {
+      correlationId,
+      actionId,
+      result: "error",
+    }, error);
+    await showBlockContextMessage(`${explanation} 原 Block 保持原位。`, "error");
+  }
+}
+
+async function toggleBlockFocusFromContext(blockUuid: string): Promise<void> {
+  await runBlockContextAction("block-focus-toggle", () => blockFocusController.toggle(blockUuid));
+}
+
+async function undoBlockFocusFromContext(): Promise<void> {
+  await runBlockContextAction("block-focus-undo", () => blockFocusController.undoLast());
+}
+
 function markReady(stage: RuntimeStage, logMessage?: string): void {
   diagnostics.ready(stage);
   if (logMessage) console.info(`[Task Copilot] ${logMessage}`);
@@ -1544,6 +1598,8 @@ function registerBootstrapShell(): void {
     openReview: () => guardedFeatureCommand(() => openWorkspace("review")),
     openNowWork: () => guardedFeatureCommand(() => openWorkspace("now")),
     diagnostics: showRuntimeDiagnostics,
+    toggleBlockFocus: toggleBlockFocusFromContext,
+    undoBlockFocus: undoBlockFocusFromContext,
   };
 
   diagnostics.start("TOOLBAR_REGISTERED");
@@ -1552,6 +1608,7 @@ function registerBootstrapShell(): void {
 
   diagnostics.start("COMMANDS_REGISTERED");
   bootstrapRegistration.registerCommands(host, callbacks);
+  bootstrapRegistration.registerBlockContextMenus(host, callbacks);
   markReady("COMMANDS_REGISTERED", "commands registered");
 
   diagnostics.start("MAIN_UI_REGISTERED");

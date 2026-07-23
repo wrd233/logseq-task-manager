@@ -1,0 +1,42 @@
+# 风险登记
+
+| ID | 风险 | 触发征兆 | 影响 | 控制 | 状态 |
+|---|---|---|---|---|---|
+| UX-R01 | “接受并应用”绕过高影响安全边界 | HIGH/Ownership/Closure 进入一键流程 | 静默正式写入 | LOW 白名单 + 服务端重验 + 单一 Commit | OPEN |
+| UX-R02 | accepted-not-applied 静默遗忘 | 工具栏/待我确认无持续入口 | 用户误以为已生效 | intervention projection；低风险连续提交 | OPEN |
+| UX-R03 | Block 右键无法真正动态 | SDK 注册项固定、payload 不稳定 | 菜单膨胀或语义错误 | 已实现两项稳定意图 + 动作时解析；继续 Desktop Gate | CONTROLLED |
+| UX-R04 | Block UI 破坏 Logseq 阅读/编辑 | 大色块、光标遮挡、Query 噪声 | 正文体验退化 | prototype/feature flag/性能与主题 Gate | OPEN |
+| UX-R05 | Service productization 误管他人进程 | Plugin 关闭非 owned PID | 数据/其他 Graph 中断 | process ownership token、Graph binding、只停 owned process | OPEN |
+| UX-R06 | iframe 无法可靠启动 Node | child process API 不存在 | “自动启动”不可实现 | 先 spike；必要时独立受控 launcher | OPEN |
+| UX-R07 | descriptor 投放仍需开发者步骤 | 真实 Desktop 对 filesystem path 返回 `SERVICE_DESCRIPTOR_PATH_INVALID` | P0-10 不成立，P0-A 无法取得正式写入证据 | 实现 FileStorage 私有导入/产品化 handshake，不暴露 token/path | CONFIRMED |
+| UX-R08 | Logseq 退出窗口不足 | shutdown 未完成或迟到 | orphan process/PENDING | fast safe endpoint、ledger first、下次恢复 | OPEN |
+| UX-R09 | 多 Graph 错配 | Graph switch 后复用旧 DB | 跨 Graph 正式写入 | 每次 switch 重验 Graph identity，失败停写 | OPEN |
+| UX-R10 | attention signal 形成第二 Inbox | 信号长期堆积/需逐条归档 | 新认知负担 | 派生、失效、冷却、业务处置后消失 | OPEN |
+| UX-R11 | LLM 提醒噪声 | 频繁弱建议/垃圾下一步 | 信任下降 | 规则决定强显现；影子模式；eligibility | OPEN |
+| UX-R12 | 状态翻译隐藏关键信息 | 结论过度压缩 | 恢复风险不可见 | 恢复优先级最高；详情可展开 | OPEN |
+| UX-R13 | “现在”退化为所有 OPEN | 首页几十条 | 传统任务列表压力 | stable skeleton + explicit inclusion rules | OPEN |
+| UX-R14 | Project current interface 成为第二正文 | 每次编辑都要求更新 | 维护负担/事实冲突 | 正式 aggregate + 自动 facts + 关键变化才确认 | OPEN |
+| UX-R15 | Grill Me 固定问卷 | 每次都问同样字段 | 用户绕开 Project | evidence-first、自适应、stop conditions | OPEN |
+| UX-R16 | 原位重构丢失事实 | 预览与原子操作不完整 | 正文损坏 | zero-loss property test、待判断区、one Commit/Undo | OPEN |
+| UX-R17 | default logs 保存私人正文 | log/Diagnostics 出现 Block 原文 | 隐私泄漏 | 结构化元数据、显式授权样本、secret scan | OPEN |
+| UX-R18 | API Key 进入持久产物 | Key 出现在 Graph/Git/log | 严重凭据泄漏 | Keychain/env reference；全资产 scan | CONTROLLED |
+| UX-R19 | 现有用户 dirty 被覆盖 | package/research/Graph 变化丢失 | 用户工作损坏 | 不 reset/stash/format；精确 stage | CONTROLLED |
+| UX-R20 | Node 默认 v25 被误当支持 | build/service 用错运行时 | 假运行证据 | 所有 Gate 显式 Node20 PATH | CONTROLLED |
+| UX-R21 | `@logseq/libs` 上游漏洞 | audit 2 high/1 critical | release 风险 | ADR-0007 公开例外；未来兼容+Desktop Gate | ACCEPTED |
+| UX-R22 | current-status 历史残留误导 | 下一步与 complete 冲突 | 计划漂移 | 新 Goal 进度另建；更新权威状态时收口 | OPEN |
+| UX-R23 | 只做文档不进入 Slice | 资料完成后停止 | Goal 无产品结果 | Deep Run：资料后立即 P0-A | CONTROLLED |
+| UX-R24 | 只做自动测试不做 Desktop | unit PASS 即宣告 | 假完成 | 每 Slice 独立 Desktop status | CONTROLLED |
+
+## 风险优先级
+
+1. 数据安全与可恢复；
+2. 正文权威；
+3. 用户注意力权威；
+4. 操作连续性；
+5. 状态理解；
+6. 重入质量；
+7. 信息密度；
+8. 视觉；
+9. 功能丰富度。
+
+任一发布否决风险出现时，停止发布但继续所有不依赖该结果的安全工作。

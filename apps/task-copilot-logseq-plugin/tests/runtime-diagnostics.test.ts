@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BootstrapRegistration, COMMAND_KEYS, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "../src/bootstrap-shell.ts";
+import { BLOCK_CONTEXT_LABELS, BootstrapRegistration, COMMAND_KEYS, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "../src/bootstrap-shell.ts";
 import {
   MAIN_UI_ROOT_ID,
   MODEL_DIAGNOSTICS,
@@ -21,16 +21,19 @@ function fakeBootstrap(): {
   host: BootstrapHost;
   toolbar: Array<{ key: string; template: string }>;
   commands: Array<{ key: string; label: string; action: () => unknown }>;
+  blockContextMenus: Array<{ label: string; action: (event: { uuid: string }) => Promise<void> }>;
   models: Record<string, (...args: unknown[]) => unknown>;
   styles: Array<Record<string, string | number>>;
 } {
   const toolbar: Array<{ key: string; template: string }> = [];
   const commands: Array<{ key: string; label: string; action: () => unknown }> = [];
+  const blockContextMenus: Array<{ label: string; action: (event: { uuid: string }) => Promise<void> }> = [];
   const models: Record<string, (...args: unknown[]) => unknown> = {};
   const styles: Array<Record<string, string | number>> = [];
   return {
     toolbar,
     commands,
+    blockContextMenus,
     models,
     styles,
     host: {
@@ -41,7 +44,10 @@ function fakeBootstrap(): {
         registerUIItem: (_type, options) => { toolbar.push(options); },
         registerCommandPalette: (options, action) => { commands.push({ ...options, action }); },
       },
-      Editor: { registerSlashCommand: () => undefined },
+      Editor: {
+        registerSlashCommand: () => undefined,
+        registerBlockContextMenuItem: (label, action) => { blockContextMenus.push({ label, action }); },
+      },
     },
   };
 }
@@ -107,7 +113,7 @@ test("UI mount failure uses pure HTML diagnostics fallback", () => {
   assert.equal(root.innerHTML, "<h1>Runtime Diagnostics</h1>");
 });
 
-test("bootstrap registrations survive a simulated feature initialization failure", () => {
+test("bootstrap registrations survive a simulated feature initialization failure", async () => {
   const fake = fakeBootstrap();
   const opened: string[] = [];
   const callbacks: BootstrapCallbacks = {
@@ -116,10 +122,13 @@ test("bootstrap registrations survive a simulated feature initialization failure
     openReview: () => { opened.push("review"); },
     openNowWork: () => { opened.push("now"); },
     diagnostics: () => { opened.push("diagnostics"); },
+    toggleBlockFocus: async (blockUuid) => { opened.push(`block-focus:${blockUuid}`); },
+    undoBlockFocus: async () => { opened.push("block-focus-undo"); },
   };
   const registration = new BootstrapRegistration();
   registration.registerToolbar(fake.host);
   registration.registerCommands(fake.host, callbacks);
+  registration.registerBlockContextMenus(fake.host, callbacks);
   registration.registerMainUi(fake.host, callbacks);
   assert.throws(() => { throw new Error("simulated persistence failure"); });
   const diagnostics = new RuntimeDiagnostics();
@@ -128,9 +137,12 @@ test("bootstrap registrations survive a simulated feature initialization failure
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
   fake.commands.find((command) => command.label === "Task Copilot: Open")?.action();
   fake.commands.find((command) => command.label === "Task Copilot: Runtime Diagnostics")?.action();
-  assert.deepEqual(opened, ["open", "diagnostics"]);
+  await fake.blockContextMenus[0]?.action({ uuid: "block-ctx-1" });
+  await fake.blockContextMenus[1]?.action({ uuid: "ignored" });
+  assert.deepEqual(opened, ["open", "diagnostics", "block-focus:block-ctx-1", "block-focus-undo"]);
   assert.equal(fake.toolbar.length, 1);
   assert.equal(fake.commands.length, 5);
+  assert.equal(fake.blockContextMenus.length, 2);
   assert.equal(typeof fake.models[MODEL_OPEN], "function");
   assert.match(renderRuntimeDiagnostics(diagnostics.snapshot()), /PERSISTENCE_READY[\s\S]*simulated persistence failure/);
 });
@@ -138,16 +150,30 @@ test("bootstrap registrations survive a simulated feature initialization failure
 test("bootstrap registrar prevents duplicate registration and applies visible Main UI geometry", () => {
   const fake = fakeBootstrap();
   const noop = () => undefined;
-  const callbacks: BootstrapCallbacks = { open: noop, capture: noop, openReview: noop, openNowWork: noop, diagnostics: noop };
+  const callbacks: BootstrapCallbacks = {
+    open: noop,
+    capture: noop,
+    openReview: noop,
+    openNowWork: noop,
+    diagnostics: noop,
+    toggleBlockFocus: async () => undefined,
+    undoBlockFocus: async () => undefined,
+  };
   const registration = new BootstrapRegistration();
   assert.equal(registration.registerToolbar(fake.host), true);
   assert.equal(registration.registerToolbar(fake.host), false);
   assert.equal(registration.registerCommands(fake.host, callbacks), true);
   assert.equal(registration.registerCommands(fake.host, callbacks), false);
+  assert.equal(registration.registerBlockContextMenus(fake.host, callbacks), true);
+  assert.equal(registration.registerBlockContextMenus(fake.host, callbacks), false);
   assert.equal(registration.registerMainUi(fake.host, callbacks), true);
   assert.equal(registration.registerMainUi(fake.host, callbacks), false);
   assert.equal(fake.toolbar.length, 1);
   assert.equal(fake.commands.length, 5);
+  assert.deepEqual(fake.blockContextMenus.map(({ label }) => label), [
+    BLOCK_CONTEXT_LABELS.toggleFocus,
+    BLOCK_CONTEXT_LABELS.undoFocus,
+  ]);
   assert.deepEqual(fake.styles[0], { position: "fixed", inset: "0", zIndex: 999, width: "100vw", height: "100vh", background: "rgb(11 24 18 / 35%)", opacity: 1 });
 });
 
