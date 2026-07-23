@@ -94,6 +94,7 @@
 - P0-A 本地 commit：`e459939`；
 - P0-B 本地 commit：`02e6472`；
 - P0-C 本地 commit：`5998490`；
+- P0-D 本地 commit：`6f6ef49`；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -103,7 +104,8 @@
 
 ## 下一步
 
-1. 跑 P0-D 修改后的根级全量检查、stub/skip、rule coverage、恢复与 secret scan；
-2. 精确提交 P0-D 代码、测试、文档和脱敏证据；
-3. 以 TDD 实现 P0-E 四项主导航；
-4. 证明旧六工作区能力在四入口信息架构下仍可到达。
+1. 以 TDD 实现 P0-E 四项主导航；
+2. 将 Objects、Project reentry/current interface、Migration、Audit/Recovery 与 Diagnostics
+   重新映射到“项目 / 更多”，不删除能力；
+3. 自动证明旧六工作区能力仍可到达；
+4. 在真实 Logseq Desktop 验收四项主导航、窄宽度与返回现场。

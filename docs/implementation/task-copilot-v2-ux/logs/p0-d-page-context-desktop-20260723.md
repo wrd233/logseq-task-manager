@@ -7,7 +7,7 @@
 
 分支：`feature/task-copilot-mvp`
 
-代码基线：`5998490` + P0-D worktree；P0-D 本地提交后在本文件补记精确 commit
+代码与证据提交：`6f6ef49`
 
 数据：ignored Test Graph，仅使用虚构 Page、Project 与 MiniProject；Provider 关闭，未调用 LLM
 

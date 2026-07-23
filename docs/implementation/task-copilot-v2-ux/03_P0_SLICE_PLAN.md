@@ -244,6 +244,7 @@ review accept
 - main Page 打开/关闭路由时 right sidebar 保留；Logseq 0.10.15 的 sidebar `…` 不暴露
   Plugin Page menu item，secondary-page target 由自动测试覆盖，不虚报宿主入口；
 - 证据见 `logs/p0-d-page-context-desktop-20260723.md` 与 `screenshots/original/p0-d-*`。
+- 本地提交：`6f6ef49`。
 
 ## P0-E：四项主导航
 
