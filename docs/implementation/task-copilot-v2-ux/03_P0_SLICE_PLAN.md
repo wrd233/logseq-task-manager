@@ -2,7 +2,9 @@
 
 ## P0-A：Block 现场路由与 Focus 纵向 Slice
 
-状态：`PARTIAL` — 代码与自动验收完成；Desktop 正式写入 Gate 被已证实的 descriptor 投放断点阻塞，转入 P0-H。
+状态：`DONE_WITH_BOUNDED_DESKTOP_SCOPE` — 正式 Block 的 Focus 加入、移出、会话内 Undo、
+Local Service 读回与 reload 一致性已经完成自动和真实 Desktop 验收；普通 Block、Query/引用、
+右侧栏与 Light 主题仍在后续现场路由 Slice 中验证，不影响本纵向 Focus 闭环。
 
 ### 用户问题
 
@@ -74,7 +76,8 @@
 - toggle/Undo 共享 in-flight mutex，重复点击不形成第二次写入；
 - Bootstrap 注册两项稳定 Block 右键意图，UUID payload 通过测试；
 - 成功/失败使用 Logseq 原地消息，不打开主 UI；代码路径不导航离开原 Block；
-- Plugin typecheck、132 项 Plugin 测试、根级 `./scripts/check.sh` 全部通过。
+- 首轮 Plugin typecheck、132 项 Plugin 测试、根级 `./scripts/check.sh` 全部通过；
+- P0-H 私有导入加入后，Plugin 测试增至 137 项并继续全绿。
 
 ### Desktop 验收
 
@@ -90,17 +93,16 @@
 - reload 后 SQLite 状态一致；
 - 截图包含 commit、前置、动作和实际结果。
 
-2026-07-23 当前 Gate：
+2026-07-23 真实 Desktop 结果：
 
 - 已在真实 Logseq 0.10.15 重新加载构建产物；
-- 已确认独立 Local Service/CLI 为 READY；
-- 将安全的 0600 filesystem descriptor 路径填入当前插件设置后，Desktop 明确返回
-  `SERVICE_DESCRIPTOR_PATH_INVALID`，证明当前 renderer 未暴露 Electron reader，fallback 只接受
-  FileStorage key；
-- 因当前产品没有把 Service descriptor 导入插件私有 FileStorage 的通道，不能伪造
-  `formalWrites=true`，也不能把右键菜单出现当成 Focus 写入完成；
-- P0-A 的 Desktop 正式写入、读回和 Undo 验收因此保持 `BLOCKED_BY_P0_H`，继续实现 P0-H
-  descriptor private handshake 后立即回归本节。
+- P0-H 私有 descriptor 导入使 Plugin 进入 `Runtime READY / Store READY`，且 reload 后无需再次导入；
+- 当前正式 MiniProject Block 的右键菜单真实显示两项稳定意图；
+- 加入关注后原地反馈成功，Local Service 读回唯一 Focus；
+- 再次触发可移出关注，Local Service 读回空集；
+- “撤销上一次关注变化”把该对象恢复到原关注位置，Local Service 再次读回；
+- 最终测试清理把 Focus 恢复为空，正文 Block 与页面位置保持不变；
+- 截图只含虚构测试内容，不含 descriptor、token、路径、终端历史或私人正文。
 
 ## P0-B：“暂时做不了”
 
@@ -234,6 +236,10 @@ review accept
 - 最近修改只显示用户意图、时间、是否应用和可用动作，技术 ID 进入详情。
 
 ## P0-H：Service 产品化
+
+状态：`PARTIAL` — descriptor 私有导入/重连 handshake 已完成自动与 Desktop 闭环；Service
+进程仍由外部启动，Plugin-owned launcher、安全退出、崩溃恢复与 Graph 切换尚未实现，因此
+P0-H 整体不得标记完成。
 
 状态：`NOT_STARTED`
 

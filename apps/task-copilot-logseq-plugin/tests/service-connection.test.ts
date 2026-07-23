@@ -4,10 +4,12 @@ import test from "node:test";
 import type { ServiceDescriptor } from "@task-copilot/service-client";
 
 import {
+  PRIVATE_SERVICE_DESCRIPTOR_KEY,
   createElectronDescriptorReader,
   createLogseqPrivateStorageDescriptorReader,
   discoverServiceConnection,
   discoverServiceRuntime,
+  importServiceDescriptorToPrivateStorage,
   type DescriptorFileReader,
   type ElectronNodeHost,
 } from "../src/service-connection.ts";
@@ -243,5 +245,46 @@ test("Logseq private storage descriptor reader accepts one bounded key and never
       && "code" in error
       && error.code === "SERVICE_DESCRIPTOR_READ_FAILED"
       && !error.message.includes("token"),
+  );
+});
+
+test("descriptor import validates before writing only to the fixed private FileStorage key", async () => {
+  const writes: Array<{ key: string; value: string }> = [];
+  const result = await importServiceDescriptorToPrivateStorage({
+    getItem: async () => undefined,
+    setItem: async (key, value) => { writes.push({ key, value }); },
+  }, JSON.stringify(descriptor));
+
+  assert.deepEqual(result, { storageKey: PRIVATE_SERVICE_DESCRIPTOR_KEY });
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0]?.key, PRIVATE_SERVICE_DESCRIPTOR_KEY);
+  assert.deepEqual(JSON.parse(writes[0]!.value), descriptor);
+  assert.doesNotMatch(JSON.stringify(result), /plugin-test-session-token/);
+});
+
+test("invalid descriptor import performs no private write and storage failures redact the token", async () => {
+  let writes = 0;
+  const storage = {
+    getItem: async () => undefined,
+    setItem: async () => { writes += 1; },
+  };
+  await assert.rejects(
+    () => importServiceDescriptorToPrivateStorage(storage, '{"token":"must-not-be-enough"}'),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "SERVICE_DESCRIPTOR_INVALID"
+      && !error.message.includes("must-not-be-enough"),
+  );
+  assert.equal(writes, 0);
+
+  await assert.rejects(
+    () => importServiceDescriptorToPrivateStorage({
+      getItem: async () => undefined,
+      setItem: async () => { throw new Error(`disk failed ${descriptor.token}`); },
+    }, JSON.stringify(descriptor)),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "SERVICE_DESCRIPTOR_WRITE_FAILED"
+      && !error.message.includes(descriptor.token),
   );
 });

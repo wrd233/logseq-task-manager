@@ -1,5 +1,19 @@
 # V2 当前实施状态
 
+## 交互优化 Goal（2026-07-23）
+
+V2 v1.1 底座完成结论不变；当前继续按
+`docs/implementation/task-copilot-v2-ux/02_IMPLEMENTATION_ROADMAP.md` 推进交互优化 P0→P1→P2。
+
+- P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
+  Local Service 读回均已通过；
+- P0-H descriptor 私有 handshake：文件选择、校验、固定私有 FileStorage key、直接重连与
+  reload READY 已通过；Service 自动启动、owned shutdown 与崩溃恢复仍未产品化；
+- 当前继续 P0-B“暂时做不了”现场 Condition 路由；
+- 本 Goal 的细粒度状态、风险、缺口和验收以
+  `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
+  `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。
+
 ## 当前 Slice
 
 V1 frozen / V2 E2E-01–24 complete / Project current-interface Gate complete / release audit decisions closed

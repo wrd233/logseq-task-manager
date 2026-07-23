@@ -36,11 +36,11 @@
 
 | ID | 问题 | 验证方法 | 不得先假设 |
 |---|---|---|---|
-| UX-G001 | context menu 的实际排序、分组与 Query/引用 payload | isolated Desktop prototype | 自动注册与 UUID 转发已通过；真实菜单/Query/引用仍待 Service handshake 后验收 |
+| UX-G001 | context menu 的实际排序、分组与 Query/引用 payload | isolated Desktop prototype | 正式 Block 的菜单排序、UUID 与 Focus 动作已通过；Query/引用仍待验收 |
 | UX-G002 | Page menu 对 Journal/namespace/Project Page 的 payload | Desktop probe | page string 不一定稳定表示身份 |
 | UX-G003 | Block renderer slot 的布局/性能 | test page + Light/Dark/100 blocks | 不先全局上线 |
 | UX-G004 | Plugin 能否启动 Node20 child process | isolated capability spike | 不用 shell 拼接硬做 |
-| UX-G005 | descriptor 写入 private FileStorage 的产品通道 | real Desktop | 2026-07-23 已证明 filesystem path 在当前 Desktop 被 fallback 判为 INVALID；必须新增私有导入/handshake |
+| UX-G005 | descriptor 写入 private FileStorage 的产品通道 | real Desktop | DONE：本地文件读取后校验，只写固定私有 key；设置不含 token/path；reload 自动 READY |
 | UX-G006 | Logseq exit shutdown 时间窗口 | process + Desktop fault Gate | beforeunload 不等于可等待任意时长 |
 | UX-G007 | 多 Block SemanticCommit scope 是否足以原位重构 | application prototype | 不先扩 Schema/恢复器 |
 | UX-G008 | attention signal 持久化位置 | SQLite derivative vs cache spike | 不建第二正式权威 |
@@ -55,8 +55,9 @@
 推荐：先验证 Plugin-owned process 能力；若 Logseq iframe 无法可靠启动 Node，采用独立受控 launcher，而不是在 UI 声称自动。无论方案如何，都必须有 ownership token、Graph binding、safe shutdown、crash recovery 和 descriptor private handshake。
 
 2026-07-23 实证补充：独立 Service 与 CLI READY，但插件设置接收安全的 filesystem descriptor
-路径后返回 `SERVICE_DESCRIPTOR_PATH_INVALID`。因此“把路径填入设置”不是可用连接方案；P0-H
-必须先提供 token 不进入设置/Graph/日志的私有 FileStorage 投放通道，再讨论进程托管。
+路径后返回 `SERVICE_DESCRIPTOR_PATH_INVALID`。P0-H 已新增文件选择→校验→固定私有 FileStorage
+key→直接 refresh 的产品通道；真实 Desktop 导入和 reload 均 READY，token 未进入设置、Graph、
+日志或截图。此项只解决 handshake，外部 Service 的启动、ownership、退出和崩溃恢复仍未解决。
 
 ### UX-C002：设计要求约四项动态 Block 菜单，SDK 注册项固定
 

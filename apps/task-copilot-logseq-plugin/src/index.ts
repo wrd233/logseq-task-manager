@@ -23,9 +23,10 @@ import {
   createElectronDescriptorReader,
   createLogseqPrivateStorageDescriptorReader,
   discoverServiceRuntime,
+  importServiceDescriptorToPrivateStorage,
   type ServiceRuntimeClient,
 } from "./service-connection.ts";
-import { renderFirstRunWelcome, type FirstRunAction } from "./first-run.ts";
+import { renderFirstRunWelcome, type FirstRunAction, type FirstRunModel } from "./first-run.ts";
 import type { ServiceConnectionState } from "@task-copilot/service-client";
 import {
   ensurePersistentBlockIdentity as ensurePersistentBlockIdentityWithoutEcho,
@@ -81,6 +82,9 @@ const graphReadBridgeController = new GraphReadBridgeController({
 });
 let firstRunMode = false;
 let firstRunAction: FirstRunAction | undefined;
+let firstRunDescriptorImport: FirstRunModel["descriptorImport"];
+let firstRunDescriptorImportBusy = false;
+let ignoredDescriptorSettingValue: string | undefined;
 let serviceRuntimeClient: ServiceRuntimeClient | undefined;
 const blockFocusController = new BlockFocusController(() => serviceRuntimeClient);
 let serviceDiscoveryGeneration = 0;
@@ -279,7 +283,11 @@ async function model(): Promise<UiModel> {
 async function refresh(): Promise<void> {
   const root = requireAppRoot();
   if (firstRunMode) {
-    root.innerHTML = renderFirstRunWelcome({ connection: serviceConnection, ...(firstRunAction ? { selectedAction: firstRunAction } : {}) });
+    root.innerHTML = renderFirstRunWelcome({
+      connection: serviceConnection,
+      ...(firstRunAction ? { selectedAction: firstRunAction } : {}),
+      ...(firstRunDescriptorImport ? { descriptorImport: firstRunDescriptorImport } : {}),
+    });
     return;
   }
   if (!featureReady) {
@@ -470,6 +478,56 @@ function openActionDialog(kind: ActionDialogKind, value: string): Promise<void> 
 }
 
 async function handleAction(action: string, value?: string): Promise<void> {
+  if (action === "first-run-import-descriptor") {
+    if (firstRunDescriptorImportBusy) return;
+    firstRunAction = "start";
+    const input = requireAppRoot().querySelector<HTMLInputElement>('[data-field="serviceDescriptorFile"]');
+    const file = input?.files?.[0];
+    if (!file) {
+      firstRunDescriptorImport = { status: "error", message: "请选择 Local Service 启动时生成的 descriptor JSON 文件；正式写入仍保持关闭。" };
+      await refresh();
+      return;
+    }
+    if (file.size < 2 || file.size > 16_384) {
+      firstRunDescriptorImport = { status: "error", message: "所选 descriptor 文件大小不在安全范围内；没有读取或保存。" };
+      await refresh();
+      return;
+    }
+    firstRunDescriptorImportBusy = true;
+    firstRunDescriptorImport = { status: "loading" };
+    await refresh();
+    try {
+      const rawDescriptor = await file.text();
+      const imported = await importServiceDescriptorToPrivateStorage(logseq.FileStorage, rawDescriptor);
+      await refreshServiceRuntime(imported.storageKey);
+      if (serviceConnection.status !== "READY" || !serviceRuntimeClient) {
+        throw new Error(serviceConnection.status === "RESTRICTED"
+          ? serviceConnection.message
+          : "Local Service 未返回 READY；正式写入仍保持关闭。");
+      }
+      await activateConnectedFeatureRuntime();
+      ignoredDescriptorSettingValue = imported.storageKey;
+      logseq.updateSettings({ serviceDescriptorPath: imported.storageKey });
+      firstRunMode = false;
+      firstRunDescriptorImport = undefined;
+      message = "本地 Service 已安全连接；descriptor token 只保存在插件私有存储。";
+      markReady("EVENTS_READY");
+      markReady("PLUGIN_READY", "V2 Local Service connected through private descriptor import");
+      operationalLogger.log("info", "plugin-lifecycle", "service_descriptor_imported", {
+        result: "ready",
+      });
+    } catch (error) {
+      firstRunDescriptorImport = {
+        status: "error",
+        message: `${explain(error)} 正式写入仍保持关闭；可选择新的 descriptor 重试。`,
+      };
+      operationalLogger.log("error", "plugin-lifecycle", "service_descriptor_import_failed", { result: "restricted" }, error);
+    } finally {
+      firstRunDescriptorImportBusy = false;
+    }
+    await refresh();
+    return;
+  }
   if (action === "first-run-start" || action === "first-run-migrate") {
     firstRunAction = action === "first-run-start" ? "start" : "migrate";
     await refresh();
@@ -1629,6 +1687,28 @@ async function environmentInfo(): Promise<void> {
   diagnostics.setEnvironment(graphLabel || "available (identity shape unavailable)", typeof version === "string" ? version : JSON.stringify(version));
 }
 
+async function activateConnectedFeatureRuntime(): Promise<void> {
+  diagnostics.start("RUNTIME_ADAPTER_READY");
+  markReady("RUNTIME_ADAPTER_READY", "V2 Logseq event adapter ready; V1 content commands inactive");
+
+  diagnostics.start("PERSISTENCE_READY");
+  diagnostics.setStoreSchema("V2 SQLite owned by Local Service");
+  diagnostics.setStoreStatus(serviceConnection.status === "READY" ? "READY" : "READ_ONLY_SAFE_MODE");
+  diagnostics.setRecoveryState("V1 FileStorage inactive; V2 consistency is reported by Local Service Doctor and SemanticCommit evidence");
+  markReady("PERSISTENCE_READY", "V2 persistence authority remains behind Local Service");
+
+  diagnostics.start("MIGRATION_READY");
+  markReady("MIGRATION_READY", "no automatic migration performed");
+
+  diagnostics.start("APPLICATION_READY");
+  markReady("APPLICATION_READY", "formal explicit synchronization delegated to V2 Local Service");
+
+  if (serviceRuntimeClient && serviceConnection.formalWritesAvailable) {
+    await explicitSyncController!.resume(serviceRuntimeClient);
+  }
+  featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
+}
+
 async function initializeFeatures(): Promise<void> {
   diagnostics.start("SETTINGS_READY");
   logseq.useSettingsSchema([
@@ -1662,6 +1742,10 @@ async function initializeFeatures(): Promise<void> {
     firstRunMode = true;
     cleanupHooks.push(logseq.onSettingsChanged(() => {
       const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
+      if (nextDescriptorPath === ignoredDescriptorSettingValue) {
+        ignoredDescriptorSettingValue = undefined;
+        return;
+      }
       void refreshServiceRuntime(nextDescriptorPath)
         .then(() => {
           featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
@@ -1675,24 +1759,13 @@ async function initializeFeatures(): Promise<void> {
     return;
   }
 
-  diagnostics.start("RUNTIME_ADAPTER_READY");
-  markReady("RUNTIME_ADAPTER_READY", "V2 Logseq event adapter ready; V1 content commands inactive");
-
-  diagnostics.start("PERSISTENCE_READY");
-  diagnostics.setStoreSchema("V2 SQLite owned by Local Service");
-  diagnostics.setStoreStatus(serviceConnection.status === "READY" ? "READY" : "READ_ONLY_SAFE_MODE");
-  diagnostics.setRecoveryState("V1 FileStorage inactive; V2 consistency is reported by Local Service Doctor and SemanticCommit evidence");
-  markReady("PERSISTENCE_READY", "V2 persistence authority remains behind Local Service");
-
-  diagnostics.start("MIGRATION_READY");
-  markReady("MIGRATION_READY", "no automatic migration performed");
-
-  diagnostics.start("APPLICATION_READY");
-  markReady("APPLICATION_READY", "formal explicit synchronization delegated to V2 Local Service");
-
-  if (serviceRuntimeClient && serviceConnection.formalWritesAvailable) await explicitSyncController!.resume(serviceRuntimeClient);
+  await activateConnectedFeatureRuntime();
   cleanupHooks.push(logseq.onSettingsChanged(() => {
     const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
+    if (nextDescriptorPath === ignoredDescriptorSettingValue) {
+      ignoredDescriptorSettingValue = undefined;
+      return;
+    }
     void refreshServiceRuntime(nextDescriptorPath)
       .then(() => {
         featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);

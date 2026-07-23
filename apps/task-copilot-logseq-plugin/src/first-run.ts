@@ -5,6 +5,7 @@ export type FirstRunAction = "start" | "migrate";
 export interface FirstRunModel {
   connection: ServiceConnectionState;
   selectedAction?: FirstRunAction;
+  descriptorImport?: { status: "loading" | "error"; message?: string };
 }
 
 function escapeHtml(value: unknown): string {
@@ -16,9 +17,16 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
-function guidance(action: FirstRunAction | undefined): string {
+function guidance(action: FirstRunAction | undefined, descriptorImport: FirstRunModel["descriptorImport"]): string {
   if (action === "start") {
-    return `<section class="first-run-guidance" role="status"><h2>开始使用</h2><p>先让本地 Service 把 0600 descriptor 写入 Task Copilot 私有 FileStorage，再在插件设置中填入该文件名并重新加载插件。</p><p>该私有文件只用于会话发现，不是领域状态源；本页不会扫描 Graph、迁移旧状态或调用模型。</p></section>`;
+    const loading = descriptorImport?.status === "loading";
+    return `<section class="first-run-guidance" role="status"><h2>连接本地 Service</h2>
+      <p>选择本地 Service 启动时生成的 0600 descriptor 文件。Task Copilot 会先验证 loopback、协议和字段，再写入插件私有 FileStorage；token 不进入设置、Graph、日志或截图。</p>
+      <label>Service descriptor 文件<input type="file" accept="application/json,.json" data-field="serviceDescriptorFile"${loading ? " disabled" : ""}></label>
+      <button type="button" class="primary" data-action="first-run-import-descriptor"${loading ? ' disabled aria-busy="true"' : ""}>${loading ? "正在安全连接…" : "安全连接"}</button>
+      ${descriptorImport?.status === "error" ? `<p class="diagnostic-error" role="alert">${escapeHtml(descriptorImport.message ?? "连接未完成；正式写入仍保持关闭。")}</p>` : ""}
+      <p>该私有文件只用于会话发现，不是领域状态源；本页不会扫描 Graph、迁移旧状态或调用模型。</p>
+    </section>`;
   }
   if (action === "migrate") {
     return `<section class="first-run-guidance" role="status"><h2>迁移现有内容</h2><p>迁移尚未启动，本页也不会读取你的 Recovery Bundle。先按“开始使用”连接 Local Service，再在终端依次运行只读 <code>tc migration scan</code>、带 decisions 文件的 <code>tc migration preview</code> 和 <code>tc backup create</code>。</p><p>只有 <code>migration import</code>、<code>undo</code> 与 <code>activate</code> 会改变正式状态，并分别要求命令行显示的精确确认短语；可随时用 <code>tc migration show &lt;run_id&gt;</code> 查看并在 Service 重启后继续。FileStorage 与 SQLite 不会双写。</p></section>`;
@@ -38,7 +46,7 @@ export function renderFirstRunWelcome(model: FirstRunModel): string {
         <button type="button" data-action="first-run-migrate" data-first-run-entry="true">迁移现有内容</button>
         <button type="button" data-action="first-run-status" data-first-run-entry="true">检查系统状态</button>
       </div>
-      ${guidance(model.selectedAction)}
+      ${guidance(model.selectedAction, model.descriptorImport)}
     </main>
   </section>`;
 }

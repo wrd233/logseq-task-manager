@@ -8,7 +8,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS | P0-A PASS | P0-A BLOCKED_BY_P0_H | 不得宣布完成 |
+| P0 | IN_PROGRESS | P0-A + P0-H handshake PASS | P0-A Focus PASS；P0-H lifecycle OPEN | 不得宣布 P0 完成 |
 | P1 | NOT_STARTED | — | — | — |
 | P2 | NOT_STARTED | — | — | — |
 | Final Release | NOT_STARTED | — | — | — |
@@ -16,7 +16,7 @@
 ## 2. P0 验收
 
 - [ ] 主导航只有现在、待我确认、项目、更多；
-- [ ] Block/Page 就近入口；Block Focus 注册与自动测试已完成，真实写入待 handshake
+- [ ] Block/Page 就近入口；正式 Block Focus 的注册、写入、Undo 与读回已完成，其他现场入口待做
 - [ ] 高频动作 1—2 个明确决定；
 - [ ] 暂时做不了统一入口；
 - [ ] 低风险一次接受并应用；
@@ -66,12 +66,12 @@
 
 | 场景 | 基线 | 目标 | 实测 |
 |---|---:|---:|---:|
-| Block 加 Focus | 离开正文→Now Work→找对象→操作 | 1 个现场动作 | 自动链路 PASS；Desktop 被 descriptor handshake 阻塞 |
+| Block 加 Focus | 离开正文→Now Work→找对象→操作 | 1 个现场动作 | 自动 + Desktop PASS；右键一次，原地反馈与读回一致 |
 | 暂时做不了 | Now Work→状态表单→选择字段 | 2 个决定 | 待测 |
 | 普通 Block 整理 | 当前页 Candidate→Review→接受→Commit | 现场建议 + 1 次接受应用 | 待测 |
 | 打开正文 | Now Work/Project 找卡片 | 1 个动作 | 待测 |
 | Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | 待测 |
-| Service 恢复 | 终端 + descriptor + reload | 1 个产品入口 | 待测 |
+| Service 恢复 | 终端 + descriptor + reload | 1 个产品入口 | descriptor 文件一次导入与 reload READY PASS；进程启动/停止待做 |
 
 ## 6. 发布否决条件
 
@@ -97,7 +97,8 @@
 - [ ] 自动测试；
 - [ ] 真实操作截图；
 - [x] 设计到代码映射；
-- [x] P0-A 自动测试与 Desktop 阻塞证据；
+- [x] P0-A 自动测试、真实 Desktop Focus/Undo 与 Local Service 读回证据；
+- [x] P0-H descriptor 私有导入、失败边界与 reload READY 证据；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

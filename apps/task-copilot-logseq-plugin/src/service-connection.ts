@@ -20,6 +20,12 @@ export interface LogseqPrivateFileStorage {
   getItem(key: string): Promise<unknown>;
 }
 
+export interface LogseqPrivateFileStorageWriter extends LogseqPrivateFileStorage {
+  setItem(key: string, value: string): Promise<unknown>;
+}
+
+export const PRIVATE_SERVICE_DESCRIPTOR_KEY = "task-copilot-v2-service-descriptor.json";
+
 interface ElectronPathModule {
   isAbsolute(path: string): boolean;
 }
@@ -111,6 +117,25 @@ export function createLogseqPrivateStorageDescriptorReader(storage: LogseqPrivat
       }
     },
   };
+}
+
+export async function importServiceDescriptorToPrivateStorage(
+  storage: LogseqPrivateFileStorageWriter,
+  rawDescriptor: string,
+): Promise<{ storageKey: typeof PRIVATE_SERVICE_DESCRIPTOR_KEY }> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawDescriptor);
+  } catch {
+    throw connectionError("SERVICE_DESCRIPTOR_INVALID", "所选 Local Service descriptor 不是合法 JSON。");
+  }
+  const descriptor = validateServiceDescriptor(parsed);
+  try {
+    await storage.setItem(PRIVATE_SERVICE_DESCRIPTOR_KEY, JSON.stringify(descriptor));
+  } catch {
+    throw connectionError("SERVICE_DESCRIPTOR_WRITE_FAILED", "Local Service descriptor 无法安全写入插件私有存储。");
+  }
+  return { storageKey: PRIVATE_SERVICE_DESCRIPTOR_KEY };
 }
 
 export async function discoverServiceConnection(

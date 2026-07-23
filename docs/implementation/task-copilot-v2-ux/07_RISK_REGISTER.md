@@ -4,11 +4,11 @@
 |---|---|---|---|---|---|
 | UX-R01 | “接受并应用”绕过高影响安全边界 | HIGH/Ownership/Closure 进入一键流程 | 静默正式写入 | LOW 白名单 + 服务端重验 + 单一 Commit | OPEN |
 | UX-R02 | accepted-not-applied 静默遗忘 | 工具栏/待我确认无持续入口 | 用户误以为已生效 | intervention projection；低风险连续提交 | OPEN |
-| UX-R03 | Block 右键无法真正动态 | SDK 注册项固定、payload 不稳定 | 菜单膨胀或语义错误 | 已实现两项稳定意图 + 动作时解析；继续 Desktop Gate | CONTROLLED |
+| UX-R03 | Block 右键无法真正动态 | SDK 注册项固定、payload 不稳定 | 菜单膨胀或语义错误 | 两项稳定意图 + 动作时解析已在正式 Block Desktop 通过；继续 Query/引用 Gate | CONTROLLED |
 | UX-R04 | Block UI 破坏 Logseq 阅读/编辑 | 大色块、光标遮挡、Query 噪声 | 正文体验退化 | prototype/feature flag/性能与主题 Gate | OPEN |
 | UX-R05 | Service productization 误管他人进程 | Plugin 关闭非 owned PID | 数据/其他 Graph 中断 | process ownership token、Graph binding、只停 owned process | OPEN |
 | UX-R06 | iframe 无法可靠启动 Node | child process API 不存在 | “自动启动”不可实现 | 先 spike；必要时独立受控 launcher | OPEN |
-| UX-R07 | descriptor 投放仍需开发者步骤 | 真实 Desktop 对 filesystem path 返回 `SERVICE_DESCRIPTOR_PATH_INVALID` | P0-10 不成立，P0-A 无法取得正式写入证据 | 实现 FileStorage 私有导入/产品化 handshake，不暴露 token/path | CONFIRMED |
+| UX-R07 | descriptor 投放仍需开发者步骤 | filesystem path 被 renderer 拒绝 | 无法取得正式写入 client | 固定私有 key 的文件导入、校验、错误脱敏和 reload 已 Desktop 通过；进程生命周期由 UX-R05/R06/R08 跟踪 | CONTROLLED |
 | UX-R08 | Logseq 退出窗口不足 | shutdown 未完成或迟到 | orphan process/PENDING | fast safe endpoint、ledger first、下次恢复 | OPEN |
 | UX-R09 | 多 Graph 错配 | Graph switch 后复用旧 DB | 跨 Graph 正式写入 | 每次 switch 重验 Graph identity，失败停写 | OPEN |
 | UX-R10 | attention signal 形成第二 Inbox | 信号长期堆积/需逐条归档 | 新认知负担 | 派生、失效、冷却、业务处置后消失 | OPEN |
