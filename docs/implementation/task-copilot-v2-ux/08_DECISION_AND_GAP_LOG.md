@@ -20,6 +20,11 @@
 更多”；Objects/Project reentry 聚合到“项目”，Audit/Recovery/Diagnostics/Backup/Restore/
 Migration 聚合到“更多”。自动测试与真实 Desktop 下钻证明旧能力仍可达，不是简单隐藏。
 
+2026-07-24 实施补充：P0-F 工具栏介入摘要只从既有 Now Work、Proposal、
+SemanticCommit 和当前连接状态派生。数字明确排除 OPEN/Focus/普通 WAITING/Project/
+Candidate 噪声；Recovery 覆盖数字。Logseq 0.10.15 真实证明对同一 toolbar key 重注册会更新
+单一入口，因此无需第二 renderer 或持久化 badge 状态。
+
 ## 代码已回答的缺口
 
 | 问题 | 结论 | 证据 |
@@ -62,6 +67,10 @@ Migration 聚合到“更多”。自动测试与真实 Desktop 下钻证明旧�
 路径后返回 `SERVICE_DESCRIPTOR_PATH_INVALID`。P0-H 已新增文件选择→校验→固定私有 FileStorage
 key→直接 refresh 的产品通道；真实 Desktop 导入和 reload 均 READY，token 未进入设置、Graph、
 日志或截图。此项只解决 handshake，外部 Service 的启动、ownership、退出和崩溃恢复仍未解决。
+
+2026-07-24 P0-F 故障 Gate 再次证明：安全停服后 toolbar 能进入正式连接风险和 Diagnostics；
+同库 Service 重启会生成新 descriptor，仍需要外部校验并刷新 Plugin 私有 key。连接可见性已
+产品化，但 descriptor/进程的自动刷新、ownership 与退出仍属于本冲突，未因 P0-F 关闭。
 
 ### UX-C002：设计要求约四项动态 Block 菜单，SDK 注册项固定
 

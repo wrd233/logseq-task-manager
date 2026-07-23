@@ -2,8 +2,8 @@
 
 > 更新时间：2026-07-24
 > 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
-> P0-D Page 现场路由、P0-E 四项主导航和 P0-H descriptor 私有 handshake 已完成自动与
-> Desktop 验收；Service 进程生命周期及其余 P0 仍未完成。
+> P0-D Page 现场路由、P0-E 四项主导航、P0-F 工具栏介入摘要和 P0-H descriptor 私有
+> handshake 已完成自动与适用 Desktop 验收；Service 进程生命周期及其余 P0 仍未完成。
 
 ## 总体状态
 
@@ -16,7 +16,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -73,20 +73,28 @@
   与 build PASS；
 - 真实 Desktop 下钻验证 Project、Objects、Audit、Migration、Diagnostics 均可达；包含完整
   内部 Commit ID 的页面不留截图，四张脱敏主流程截图逐张检查。
+- 完成 P0-F 纯派生工具栏介入摘要，不新增领域状态源或写路径；
+- 数字只计到期 review、待确认、HIGH 已接受未应用、PENDING Commit 与一次正式连接风险；
+  OPEN、Focus、未来/普通 WAITING、Project 与 Candidate 总数被自动测试排除；
+- `RECOVERY_REQUIRED` 自动覆盖数字为 `↻`，点击优先进入既有恢复；其他点击按连接诊断、
+  Pending Commit、Proposal Review、Now 的顺序路由；
+- Plugin tests 161/161、0 skipped、typecheck 与 build PASS；
+- 真实 Desktop 证明 READY/Pending=0/Recovery=0 时安静 `TC`，受控停服时为 `TC ①` 且进入
+  Diagnostics，同库重启和 descriptor 安全刷新后恢复 `TC`；
+- 当前库没有 Recovery 项，因此 `↻` 不虚报 Desktop PASS；P0-H 自动生命周期仍保持 OPEN。
 
 ## 当前进行
 
-### Slice P0-F：工具栏介入摘要
+### Slice P0-G：最近修改与用户层结果
 
 状态：`IN_PROGRESS`
 
-下一项把工具栏信号限制为真正需要用户介入的到期 review、待确认、高影响已确认未应用、
-PENDING/RECOVERY_REQUIRED 与当前 Graph 正式连接风险；普通 OPEN/Focus/WAITING 和对象总数
-不得形成噪声。
+下一项把既有 Audit/Receipt/SemanticCommit 投影转成用户层结果：显示意图、是否应用、时间、
+可用 Undo/恢复动作；稳定 identity 仍来自既有 Commit，技术 ID 只进详情。
 
 ## 当前阻塞
 
-当前没有阻塞 P0-F 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
+当前没有阻塞 P0-G 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
 但 descriptor handshake 不再阻塞其他正式 Desktop 写入 Gate。
 
 ## 当前风险
@@ -104,17 +112,18 @@ PENDING/RECOVERY_REQUIRED 与当前 Graph 正式连接风险；普通 OPEN/Focus
 - P0-C 本地 commit：`5998490`；
 - P0-D 本地 commit：`6f6ef49`；
 - P0-E 本地 commit：`72cbbd4`；
+- P0-F 本地 commit：待本轮收口后记录；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮已归档 33 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
-  P0-D 9 张，P0-E 4 张；
+- 本轮已归档 35 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
+  P0-D 9 张，P0-E 4 张，P0-F 2 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
 ## 下一步
 
-1. 以 TDD 实现 P0-F 工具栏介入摘要；
-2. 从既有 Projection 派生 due review、待确认、accepted-not-applied、Pending/Recovery 和
-   Graph 连接风险，不新增正式状态源；
-3. 自动证明普通 OPEN/Focus/WAITING 和对象总数不进入 badge；
-4. 在真实 Logseq Desktop 验收数字、`↻` 恢复优先级与点击路由。
+1. 以 TDD 实现 P0-G 最近修改的用户语言投影；
+2. 复用既有 Audit/Receipt/SemanticCommit identity 和 Undo/Recovery，不新增 Audit；
+3. 让即时反馈与长期入口引用同一结果，并将技术 ID 收进详情；
+4. 在真实 Logseq Desktop 验收成功、失败、Pending、Recovery 的适用样本，不为构造截图直写
+   SQLite 或破坏 Graph。

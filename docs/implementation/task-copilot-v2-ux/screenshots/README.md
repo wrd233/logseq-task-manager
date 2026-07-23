@@ -43,3 +43,5 @@
 | `original/p0-e-02-project-navigation.png` | 真实 Logseq Desktop 0.10.15 | “项目”保留 Project 列表、重入、当前接口与正文动作 |
 | `original/p0-e-03-project-formal-items.png` | 真实 Logseq Desktop 0.10.15 | “项目”二级入口继续提供正式对象与受控 Area/Project/Association 创建 |
 | `original/p0-e-04-more-hub.png` | 真实 Logseq Desktop 0.10.15 | “更多”汇集最近修改/恢复、系统状态/诊断、备份/恢复与迁移 |
+| `original/p0-f-01-formal-connection-risk-badge.png` | 真实 Logseq Desktop 0.10.15 | 受控停服后只形成一次正式连接风险，工具栏显示 `TC ①` 并可进入诊断 |
+| `original/p0-f-02-recovered-quiet-toolbar.png` | 真实 Logseq Desktop 0.10.15 | 同库 Service 与私有 descriptor 恢复后工具栏回到无噪声 `TC` |

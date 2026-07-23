@@ -21,7 +21,11 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P0-E 四项主导航：主入口已收束为“现在 / 待我确认 / 项目 / 更多”；Project
   列表/重入/当前接口/正式创建与 Audit/Recovery/Diagnostics/Backup/Restore/Migration
   均在二级入口继续可达，自动测试与真实 Desktop 下钻已通过；窄宽度和本轮键盘注入未虚报；
-- 当前继续 P0-F 工具栏介入摘要；
+- P0-F 工具栏介入摘要：只从既有 Now Work/Proposal/SemanticCommit/连接投影派生到期复查、
+  待确认、HIGH 已接受未应用、Pending/Recovery 和正式连接风险；OPEN/Focus/普通 WAITING/
+  Project/Candidate 不计数。真实 Desktop 已通过安静态、连接风险 `TC ①`、诊断路由与连接
+  恢复；`RECOVERY_REQUIRED ↻` 只按自动测试声明；
+- 当前继续 P0-G 最近修改与用户层结果；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

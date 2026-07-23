@@ -27,7 +27,12 @@ import {
   type ServiceRuntimeClient,
 } from "./service-connection.ts";
 import { renderFirstRunWelcome, type FirstRunAction, type FirstRunModel } from "./first-run.ts";
-import type { ServiceConnectionState } from "@task-copilot/service-client";
+import type {
+  ServiceConnectionState,
+  ServiceNowWork,
+  ServiceSemanticCommit,
+  ServiceStoredProposal,
+} from "@task-copilot/service-client";
 import {
   ensurePersistentBlockIdentity as ensurePersistentBlockIdentityWithoutEcho,
   ExplicitSyncController,
@@ -61,6 +66,7 @@ import { BlockFocusController } from "./block-focus-controller.ts";
 import { BlockConditionController, type BlockConditionDraft } from "./block-condition-controller.ts";
 import { PageContextController, type PageContextSnapshot } from "./page-context-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
+import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-intervention.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -127,6 +133,21 @@ let serviceConnection: ServiceConnectionState = {
   formalWritesAvailable: false,
   graphEditingAvailable: true,
 };
+let toolbarFacts: {
+  nowWork?: ServiceNowWork;
+  proposals: ServiceStoredProposal[];
+  semanticCommits: ServiceSemanticCommit[];
+  available: boolean;
+} = {
+  proposals: [],
+  semanticCommits: [],
+  available: false,
+};
+let toolbarIntervention: ToolbarIntervention = deriveToolbarIntervention({
+  proposals: [],
+  semanticCommits: [],
+  formalConnectionRisk: false,
+});
 
 function requireAppRoot(): HTMLElement {
   const root = appRoot ?? document.getElementById(MAIN_UI_ROOT_ID);
@@ -137,6 +158,46 @@ function requireAppRoot(): HTMLElement {
 
 function explain(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function updateToolbarIntervention(): void {
+  toolbarIntervention = deriveToolbarIntervention({
+    ...(toolbarFacts.nowWork ? { nowWork: toolbarFacts.nowWork } : {}),
+    proposals: toolbarFacts.proposals,
+    semanticCommits: toolbarFacts.semanticCommits,
+    formalConnectionRisk: serviceConnection.status !== "READY"
+      || !serviceConnection.formalWritesAvailable
+      || !toolbarFacts.available
+      || (explicitSyncController !== undefined && !explicitSyncState.transportReady),
+  });
+  bootstrapRegistration.updateToolbar(logseq as unknown as BootstrapHost, toolbarIntervention);
+}
+
+async function refreshToolbarInterventionFacts(): Promise<void> {
+  const client = serviceRuntimeClient;
+  const generation = serviceDiscoveryGeneration;
+  if (serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable || !client) {
+    toolbarFacts = { proposals: [], semanticCommits: [], available: false };
+    updateToolbarIntervention();
+    return;
+  }
+  try {
+    const [nowWork, proposals, semanticCommits] = await Promise.all([
+      client.nowWork(),
+      client.listProposals(),
+      client.listSemanticCommits(),
+    ]);
+    if (client !== serviceRuntimeClient || generation !== serviceDiscoveryGeneration) return;
+    toolbarFacts = { nowWork, proposals, semanticCommits, available: true };
+  } catch (error) {
+    if (client !== serviceRuntimeClient || generation !== serviceDiscoveryGeneration) return;
+    toolbarFacts = { proposals: [], semanticCommits: [], available: false };
+    operationalLogger.log("warn", "query-refresh", "toolbar_intervention_unavailable", {
+      result: "formal-connection-risk",
+      errorCode: explain(error),
+    });
+  }
+  updateToolbarIntervention();
 }
 
 async function openV2PrimaryAnchor(externalId: string): Promise<void> {
@@ -233,6 +294,13 @@ async function model(): Promise<UiModel> {
     }
   }
   const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
+  toolbarFacts = {
+    ...(v2NowWork ? { nowWork: v2NowWork } : {}),
+    proposals: v2Proposals,
+    semanticCommits: v2SemanticCommits,
+    available: serviceConnection.status === "READY" && !v2ProposalLoadError && !v2AuditLoadError,
+  };
+  updateToolbarIntervention();
   return {
     workspace,
     agent: { enabled: false, providerId: "no-agent" },
@@ -344,6 +412,8 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   };
   diagnostics.setServiceConnection(serviceConnection);
   explicitSyncController?.pause();
+  toolbarFacts = { proposals: [], semanticCommits: [], available: false };
+  updateToolbarIntervention();
 }
 
 function restrictServiceRuntimeAfterTransportFailure(errorCode: string): void {
@@ -434,6 +504,7 @@ function initializeExplicitSync(): void {
     },
     onState(state) {
       explicitSyncState = state;
+      updateToolbarIntervention();
     },
   });
   cleanupHooks.push(registerExplicitSyncEvents(logseq as unknown as ExplicitSyncEventHost, explicitSyncController));
@@ -1753,6 +1824,15 @@ async function showTaskCopilot(): Promise<void> {
   await refresh();
 }
 
+async function openFromToolbar(): Promise<void> {
+  if (toolbarIntervention.target === "diagnostics" || !featureReady) {
+    await showRuntimeDiagnostics();
+    return;
+  }
+  workspace = toolbarIntervention.target;
+  await showTaskCopilot();
+}
+
 async function showRuntimeDiagnostics(): Promise<void> {
   logseq.showMainUI({ autoFocus: true });
   requireAppRoot().innerHTML = renderDiagnostics(await fullDiagnosticsSnapshot());
@@ -1837,6 +1917,7 @@ async function runBlockContextAction(actionId: string, action: () => Promise<Blo
       objectId: result.objectId,
     });
     await showBlockContextMessage(result.message, "success");
+    void refreshToolbarInterventionFacts();
   } catch (error) {
     const explanation = explain(error);
     latestError = explanation;
@@ -1932,6 +2013,7 @@ function registerBootstrapShell(): void {
   const host = logseq as unknown as BootstrapHost;
   const callbacks: BootstrapCallbacks = {
     open: showTaskCopilot,
+    openToolbar: openFromToolbar,
     capture: () => guardedFeatureCommand(reviewCurrentPageFromCommand),
     openReview: () => guardedFeatureCommand(() => openWorkspace("review")),
     openNowWork: () => guardedFeatureCommand(() => openWorkspace("now")),
@@ -2031,19 +2113,22 @@ async function initializeFeatures(): Promise<void> {
         return;
       }
       void refreshServiceRuntime(nextDescriptorPath)
-        .then(() => {
+        .then(async () => {
           featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
           firstRunAction = "start";
+          await refreshToolbarInterventionFacts();
           if (logseq.isMainUIVisible) void refresh();
         })
         .catch((error: unknown) => operationalLogger.log("error", "plugin-lifecycle", "service_connection_refresh_failed", { result: "error" }, error));
     }));
     markReady("EVENTS_READY");
     markReady("PLUGIN_READY", "first-run welcome ready; no Graph scan, migration, or model call performed");
+    await refreshToolbarInterventionFacts();
     return;
   }
 
   await activateConnectedFeatureRuntime();
+  await refreshToolbarInterventionFacts();
   cleanupHooks.push(logseq.onSettingsChanged(() => {
     const nextDescriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
     if (nextDescriptorPath === ignoredDescriptorSettingValue) {
@@ -2051,10 +2136,11 @@ async function initializeFeatures(): Promise<void> {
       return;
     }
     void refreshServiceRuntime(nextDescriptorPath)
-      .then(() => {
+      .then(async () => {
         featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
         diagnostics.setStoreStatus(serviceConnection.status === "READY" ? "READY" : "READ_ONLY_SAFE_MODE");
         message = `设置已更新；V2 Local Service ${serviceConnection.status}，正式领域状态与历史未受影响。`;
+        await refreshToolbarInterventionFacts();
         if (logseq.isMainUIVisible) void refresh();
       })
       .catch((error: unknown) => operationalLogger.log("error", "plugin-lifecycle", "service_connection_refresh_failed", { result: "error" }, error));
@@ -2098,6 +2184,8 @@ async function main(): Promise<void> {
     diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
     diagnostics.setRecoveryState("initialization stopped; no automatic Graph write performed");
     featureReady = false;
+    toolbarFacts = { proposals: [], semanticCommits: [], available: false };
+    updateToolbarIntervention();
     console.error(`[Task Copilot] initialization failed at ${failedStage}`, error);
     try {
       requireAppRoot().innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());

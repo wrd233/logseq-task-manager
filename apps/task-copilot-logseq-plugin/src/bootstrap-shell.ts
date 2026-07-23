@@ -1,4 +1,9 @@
 import { MODEL_DIAGNOSTICS, MODEL_OPEN, PLUGIN_ID, TOOLBAR_KEY, assertCssSafeIdentifier } from "./runtime-diagnostics.ts";
+import {
+  deriveToolbarIntervention,
+  renderToolbarIntervention,
+  type ToolbarIntervention,
+} from "./toolbar-intervention.ts";
 
 export interface BootstrapHost {
   setMainUIInlineStyle(style: Record<string, string | number>): void;
@@ -17,6 +22,7 @@ export interface BootstrapHost {
 
 export interface BootstrapCallbacks {
   open(): unknown;
+  openToolbar(): unknown;
   capture(): unknown;
   openReview(): unknown;
   openNowWork(): unknown;
@@ -54,14 +60,28 @@ export class BootstrapRegistration {
   private pageContextMenuRegistered = false;
   private mainUiRegistered = false;
 
-  registerToolbar(host: BootstrapHost): boolean {
-    if (this.toolbarRegistered) return false;
+  private writeToolbar(host: BootstrapHost, summary: ToolbarIntervention): void {
     host.App.registerUIItem("toolbar", {
       key: TOOLBAR_KEY,
-      template: `<a class="button task-copilot-personal-mvp-toolbar" data-on-click="${MODEL_OPEN}" title="Task Copilot" aria-label="Task Copilot">TC</a>`,
+      template: `<a class="button task-copilot-personal-mvp-toolbar" data-on-click="${MODEL_OPEN}">${renderToolbarIntervention(summary)}</a>`,
     });
+  }
+
+  registerToolbar(host: BootstrapHost): boolean {
+    if (this.toolbarRegistered) return false;
+    const initial = deriveToolbarIntervention({
+      proposals: [],
+      semanticCommits: [],
+      formalConnectionRisk: false,
+    });
+    this.writeToolbar(host, initial);
     this.toolbarRegistered = true;
     return true;
+  }
+
+  updateToolbar(host: BootstrapHost, summary: ToolbarIntervention): void {
+    if (!this.toolbarRegistered) throw new Error("Toolbar must be registered before its intervention state can be updated.");
+    this.writeToolbar(host, summary);
   }
 
   registerCommands(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
@@ -106,10 +126,13 @@ export class BootstrapRegistration {
   registerMainUi(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
     if (this.mainUiRegistered) return false;
     host.setMainUIInlineStyle({ position: "fixed", inset: "0", zIndex: 999, width: "100vw", height: "100vh", background: "rgb(11 24 18 / 35%)", opacity: 1 });
-    host.provideModel({ [MODEL_OPEN]: callbacks.open, [MODEL_DIAGNOSTICS]: callbacks.diagnostics });
+    host.provideModel({ [MODEL_OPEN]: callbacks.openToolbar, [MODEL_DIAGNOSTICS]: callbacks.diagnostics });
     host.provideStyle(`
       div[data-injected-ui="${TOOLBAR_KEY}-${PLUGIN_ID}"] { display: inline-flex; align-items: center; }
       .task-copilot-personal-mvp-toolbar { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; font-weight: 700; }
+      .task-copilot-toolbar-state { display: inline-flex; align-items: center; gap: 3px; }
+      .task-copilot-toolbar-badge { color: var(--ls-primary-text-color); font-weight: 800; }
+      .task-copilot-toolbar-badge.recovery { color: var(--ls-error-text-color, #b42318); }
     `);
     this.mainUiRegistered = true;
     return true;

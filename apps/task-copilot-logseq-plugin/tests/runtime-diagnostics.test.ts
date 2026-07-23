@@ -122,6 +122,7 @@ test("bootstrap registrations survive a simulated feature initialization failure
   const opened: string[] = [];
   const callbacks: BootstrapCallbacks = {
     open: () => { opened.push("open"); },
+    openToolbar: () => { opened.push("toolbar"); },
     capture: () => { opened.push("capture"); },
     openReview: () => { opened.push("review"); },
     openNowWork: () => { opened.push("now"); },
@@ -134,6 +135,13 @@ test("bootstrap registrations survive a simulated feature initialization failure
   };
   const registration = new BootstrapRegistration();
   registration.registerToolbar(fake.host);
+  registration.updateToolbar(fake.host, {
+    mode: "attention",
+    count: 3,
+    target: "review",
+    title: "Task Copilot：3 项需要介入",
+    counts: { dueReview: 1, pendingConfirmation: 1, acceptedNotApplied: 1, pendingCommit: 0, formalConnectionRisk: 0 },
+  });
   registration.registerCommands(fake.host, callbacks);
   registration.registerBlockContextMenus(fake.host, callbacks);
   registration.registerPageContextMenu(fake.host, callbacks);
@@ -151,11 +159,15 @@ test("bootstrap registrations survive a simulated feature initialization failure
   await fake.blockContextMenus[3]?.action({ uuid: "ignored" });
   await fake.pageContextMenus[0]?.action({ page: "page-ctx-1" });
   assert.deepEqual(opened, ["open", "diagnostics", "block-focus:block-ctx-1", "block-condition:block-ctx-2", "block-focus-undo", "block-condition-undo", "page-context:page-ctx-1"]);
-  assert.equal(fake.toolbar.length, 1);
+  assert.equal(fake.toolbar.length, 2);
+  assert.match(fake.toolbar[0]!.template, /data-toolbar-mode="quiet"/);
+  assert.match(fake.toolbar[1]!.template, /toolbar-badge[^>]*>③</);
   assert.equal(fake.commands.length, 5);
   assert.equal(fake.blockContextMenus.length, 4);
   assert.equal(fake.pageContextMenus.length, 1);
   assert.equal(typeof fake.models[MODEL_OPEN], "function");
+  fake.models[MODEL_OPEN]?.();
+  assert.equal(opened.at(-1), "toolbar");
   assert.match(renderRuntimeDiagnostics(diagnostics.snapshot()), /PERSISTENCE_READY[\s\S]*simulated persistence failure/);
 });
 
@@ -164,6 +176,7 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
   const noop = () => undefined;
   const callbacks: BootstrapCallbacks = {
     open: noop,
+    openToolbar: noop,
     capture: noop,
     openReview: noop,
     openNowWork: noop,

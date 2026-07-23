@@ -275,7 +275,9 @@ review accept
 
 ## P0-F：工具栏介入摘要
 
-状态：`NOT_STARTED`
+状态：`DONE_WITH_BOUNDED_DESKTOP_SCOPE` — Plugin tests 161/161、typecheck、build 与真实
+Logseq Desktop 0.10.15 的安静态、正式连接风险数字、点击诊断及恢复后回安静态均通过；
+`RECOVERY_REQUIRED ↻` 因当前库无恢复项，仅按自动测试声明。
 
 计入：
 
@@ -293,6 +295,22 @@ review accept
 - Project/Candidate 总数。
 
 恢复风险存在时用 `↻` 取代数字，点击直接进入恢复。
+
+实现与证据：
+
+- 新增纯 `deriveToolbarIntervention`，只从 Now Work、Proposal 与 SemanticCommit 既有投影
+  及当前连接状态派生，不增加表、缓存权威或正式写路径；
+- 到期 WAITING/PAUSED review 与 DEFERRED Proposal 去重计数；待确认、HIGH 已接受未应用、
+  PENDING Commit 和一次正式连接风险进入数字；
+- OPEN、Focus、未来 review、普通 WAITING、Project 与 Candidate 总数没有输入计数；
+- `RECOVERY_REQUIRED` 覆盖数字并路由 Audit/Recovery；其余优先级为连接诊断、Pending
+  Commit、Proposal Review、Now；
+- 工具栏用同一 host key 动态更新，安静态为 `TC`，数字为 `TC ①…`，tooltip/aria-label
+  使用用户语言；
+- 真实 Desktop 安全停服后显示 `TC ①` 并点击进入 Diagnostics，同库重启与私有 descriptor
+  刷新后恢复 `TC`；Service 进程/descriptor 自动生命周期仍归 P0-H；
+- 证据见 `logs/p0-f-toolbar-intervention-desktop-20260724.md` 与
+  `screenshots/original/p0-f-*`。
 
 ## P0-G：最近修改与用户层结果
 
