@@ -1,8 +1,8 @@
 # 交互优化实施进度
 
 > 更新时间：2026-07-23
-> 当前结论：`PARTIAL` — P0-A 的正式 Block Focus 纵向闭环已完成自动与 Desktop 验收；
-> P0-H 的 descriptor 私有 handshake 已完成，但 Service 进程生命周期仍未产品化。
+> 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”和 P0-H descriptor 私有
+> handshake 已完成自动与 Desktop 验收；Service 进程生命周期及其余 P0 仍未完成。
 
 ## 总体状态
 
@@ -15,7 +15,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -41,25 +41,31 @@
 - 真实 Desktop 一次导入进入 `Runtime READY / Store READY`，reload 后自动恢复 READY；
 - 真实 Block context menu 完成 Focus 加入、移出、Undo 恢复及 Local Service 状态读回；
 - 测试结束后 Focus 清回空集，临时 descriptor 文件和剪贴板已清理。
+- 完成 P0-B 的 Block 现场 Condition router、三种最小字段表单、busy 状态和状态 Undo；
+- Plugin typecheck、143/143 测试与 build PASS；
+- 真实 Desktop 分别写入 WAITING/BLOCKED/PAUSED，Local Service 读回一致；
+- 每种状态写入均保持 Lifecycle OPEN、Focus 空，Undo 后恢复 ACTIONABLE；
+- 真实 WAITING Undo 发现 JSON key 顺序假 stale，改用 `stableJson` 并补回归后复测通过；
+- 最终 force reload 读回 version 10 / ACTIONABLE / Focus 空。
 
 ## 当前进行
 
-### Slice P0-B：“暂时做不了”
+### Slice P0-C：低风险“接受并应用”
 
 状态：`IN_PROGRESS`
 
-下一项复用既有 `changeCondition` Application command，把 WAITING/BLOCKED/PAUSED 的工程表单
-压缩为一个现场入口、三种用户意图和最小必要字段；不新增 Condition/Focus 状态，不自动改变
-Focus。
+下一项先建立 LOW 白名单和 accepted→revalidate→commit 连续编排 seam；高影响、跨对象、
+Ownership、Closure、Lifecycle 与 Project structure 明确排除，任何不确定 transport 不自动重试。
 
 ## 当前阻塞
 
-当前没有阻塞 P0-B 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
+当前没有阻塞 P0-C 的外部依赖。P0-H 的进程自动启动/owned shutdown 仍需 capability spike，
 但 descriptor handshake 不再阻塞其他正式 Desktop 写入 Gate。
 
 ## 当前风险
 
-- SDK context menu 的正式 Block payload/排序已真实验证；普通 Block、Query/引用仍待后续 Gate；
+- SDK context menu 的正式 Block payload/排序及 Focus/Condition 动作已真实验证；普通 Block、
+  Query/引用仍待后续 Gate；
 - Service 产品化需要独立 runtime spike；
 - 默认 shell Node v25，不得用于受支持 Gate；
 - `@logseq/libs` 依赖告警继续公开保留。
@@ -70,12 +76,12 @@ Focus。
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮新增 7 张脱敏 Desktop 截图：1 张失败边界、2 张私有 handshake/reload、4 张 Focus 交互；
+- 本轮已归档 15 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
 ## 下一步
 
-1. 跑 P0-H handshake 修改后的根级全量检查与 secret scan；
-2. 精确提交 P0-H 私有导入、测试、文档和脱敏证据；
-3. 以 TDD 实现 P0-B 现场 Condition 路由；
-4. 在同一隔离 Graph 验收 WAITING/BLOCKED/PAUSED、失败、重复提交和 Focus 不变。
+1. 跑 P0-B 修改后的根级全量检查、stub/skip 和 secret scan；
+2. 精确提交 P0-B 代码、测试、文档和脱敏证据；
+3. 以 TDD 实现 P0-C LOW 白名单与连续编排；
+4. 在隔离 Graph 验收一次接受并应用、失败、PENDING/Recovery 和 Undo。

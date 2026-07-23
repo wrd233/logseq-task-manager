@@ -17,3 +17,11 @@
 | `original/p0-a-03-focus-added.png` | 真实 Logseq Desktop 0.10.15 | 从原 Block 加入当前关注并获得原地成功反馈 |
 | `original/p0-a-04-focus-removed.png` | 真实 Logseq Desktop 0.10.15 | 同一 Block 再次触发后移出当前关注并获得原地反馈 |
 | `original/p0-a-05-focus-remove-undone.png` | 真实 Logseq Desktop 0.10.15 | 会话内 Undo 将刚移出的对象恢复到关注集；Local Service 读回一致 |
+| `original/p0-b-01-block-context-menu.png` | 真实 Logseq Desktop 0.10.15 | 正式 Block 的原生菜单同时显示 Focus、暂时做不了及两项精确 Undo |
+| `original/p0-b-02-intent-router.png` | 真实 Logseq Desktop 0.10.15 | “暂时做不了”先显示等待别人、被问题卡住、我先暂停三种用户意图 |
+| `original/p0-b-03-waiting-minimal-form.png` | 真实 Logseq Desktop 0.10.15 | WAITING 只要求一个合并短语与复查时间 |
+| `original/p0-b-04-blocked-minimal-form.png` | 真实 Logseq Desktop 0.10.15 | BLOCKED 只要求具体卡点，可选 blocker object |
+| `original/p0-b-05-paused-minimal-form.png` | 真实 Logseq Desktop 0.10.15 | PAUSED 只要求暂停原因与重新判断时间 |
+| `original/p0-b-06-blocked-success.png` | 真实 Logseq Desktop 0.10.15 | BLOCKED 正式保存后自动返回原 Block，并明确 Focus 未改变、Undo 可用 |
+| `original/p0-b-07-waiting-undo-success.png` | 真实 Logseq Desktop 0.10.15 | stable JSON 修复后，WAITING 的会话 Undo 真实恢复 ACTIONABLE，Focus 未改变 |
+| `original/p0-b-08-validation-error.png` | 真实 Logseq Desktop 0.10.15 | 缺少必要字段时明确显示没有保存、原状态未改变 |

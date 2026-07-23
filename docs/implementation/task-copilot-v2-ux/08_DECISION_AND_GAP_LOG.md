@@ -36,7 +36,7 @@
 
 | ID | 问题 | 验证方法 | 不得先假设 |
 |---|---|---|---|
-| UX-G001 | context menu 的实际排序、分组与 Query/引用 payload | isolated Desktop prototype | 正式 Block 的菜单排序、UUID 与 Focus 动作已通过；Query/引用仍待验收 |
+| UX-G001 | context menu 的实际排序、分组与 Query/引用 payload | isolated Desktop prototype | 正式 Block 的四项菜单排序、UUID、Focus 与 Condition 动作已通过；Query/引用仍待验收 |
 | UX-G002 | Page menu 对 Journal/namespace/Project Page 的 payload | Desktop probe | page string 不一定稳定表示身份 |
 | UX-G003 | Block renderer slot 的布局/性能 | test page + Light/Dark/100 blocks | 不先全局上线 |
 | UX-G004 | Plugin 能否启动 Node20 child process | isolated capability spike | 不用 shell 拼接硬做 |

@@ -106,7 +106,9 @@ Local Service 读回与 reload 一致性已经完成自动和真实 Desktop 验�
 
 ## P0-B：“暂时做不了”
 
-状态：`NOT_STARTED`
+状态：`DONE_WITH_BOUNDED_DESKTOP_SCOPE` — 正式 Block 的三种意图、最小字段、版本保护、
+重复提交保护、原地反馈、Focus/Lifecycle/Ownership 不变和会话内 Undo 已完成自动与真实
+Desktop 验收；普通 Block 仍由后续“处理这条内容”路由负责。
 
 ### 纵向链
 
@@ -135,6 +137,23 @@ Local Service 读回与 reload 一致性已经完成自动和真实 Desktop 验�
 - 错误显示“没有保存，原状态未改变”；
 - 成功后 Now Work 重算；
 - 恢复为 ACTIONABLE 后只建议 Focus。
+
+### 2026-07-23 结果
+
+- Block context menu 新增一个稳定的“暂时做不了”现场入口和一个状态 Undo 入口；
+- 先显示三种用户意图，不先展示 `WAITING/BLOCKED/PAUSED` 工程枚举；
+- WAITING 把“在等谁/什么”和期待结果合并为一个用户短语，另只要求复查时间；底层仍生成
+  Domain 要求的封闭 `waitingFor/expectedResult/reviewAt`；
+- BLOCKED 只显示具体卡点与可选 blocker object；
+- PAUSED 只显示暂停原因与强制的重新判断时间；
+- 新增 `BlockConditionController`，复用唯一 active Primary Anchor、Object version 和
+  `LocalServiceClient.changeCondition`，不直接写 Store；
+- controller 与 UI 共有 6 项新增/扩展测试；Plugin typecheck、143/143 测试和 build PASS；
+- 真实 Logseq Desktop 0.10.15 分别写入 WAITING、BLOCKED、PAUSED，Local Service 逐次读回；
+- 每次写入前后 Focus 均为空，Lifecycle 始终 OPEN，Undo 逐次恢复 ACTIONABLE；
+- 首轮 WAITING Undo 暴露 SQLite 读回 JSON key 顺序不同导致的假 stale；比较改用
+  `stableJson` 并加入回归测试后，真实 WAITING Undo 通过；
+- 最终 reload 读回对象 version 10、Condition ACTIONABLE、Focus 空。
 
 ## P0-C：低风险“接受并应用”
 

@@ -124,6 +124,8 @@ test("bootstrap registrations survive a simulated feature initialization failure
     diagnostics: () => { opened.push("diagnostics"); },
     toggleBlockFocus: async (blockUuid) => { opened.push(`block-focus:${blockUuid}`); },
     undoBlockFocus: async () => { opened.push("block-focus-undo"); },
+    openBlockCondition: async (blockUuid) => { opened.push(`block-condition:${blockUuid}`); },
+    undoBlockCondition: async () => { opened.push("block-condition-undo"); },
   };
   const registration = new BootstrapRegistration();
   registration.registerToolbar(fake.host);
@@ -138,11 +140,13 @@ test("bootstrap registrations survive a simulated feature initialization failure
   fake.commands.find((command) => command.label === "Task Copilot: Open")?.action();
   fake.commands.find((command) => command.label === "Task Copilot: Runtime Diagnostics")?.action();
   await fake.blockContextMenus[0]?.action({ uuid: "block-ctx-1" });
-  await fake.blockContextMenus[1]?.action({ uuid: "ignored" });
-  assert.deepEqual(opened, ["open", "diagnostics", "block-focus:block-ctx-1", "block-focus-undo"]);
+  await fake.blockContextMenus[1]?.action({ uuid: "block-ctx-2" });
+  await fake.blockContextMenus[2]?.action({ uuid: "ignored" });
+  await fake.blockContextMenus[3]?.action({ uuid: "ignored" });
+  assert.deepEqual(opened, ["open", "diagnostics", "block-focus:block-ctx-1", "block-condition:block-ctx-2", "block-focus-undo", "block-condition-undo"]);
   assert.equal(fake.toolbar.length, 1);
   assert.equal(fake.commands.length, 5);
-  assert.equal(fake.blockContextMenus.length, 2);
+  assert.equal(fake.blockContextMenus.length, 4);
   assert.equal(typeof fake.models[MODEL_OPEN], "function");
   assert.match(renderRuntimeDiagnostics(diagnostics.snapshot()), /PERSISTENCE_READY[\s\S]*simulated persistence failure/);
 });
@@ -158,6 +162,8 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
     diagnostics: noop,
     toggleBlockFocus: async () => undefined,
     undoBlockFocus: async () => undefined,
+    openBlockCondition: async () => undefined,
+    undoBlockCondition: async () => undefined,
   };
   const registration = new BootstrapRegistration();
   assert.equal(registration.registerToolbar(fake.host), true);
@@ -172,7 +178,9 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
   assert.equal(fake.commands.length, 5);
   assert.deepEqual(fake.blockContextMenus.map(({ label }) => label), [
     BLOCK_CONTEXT_LABELS.toggleFocus,
+    BLOCK_CONTEXT_LABELS.blockCondition,
     BLOCK_CONTEXT_LABELS.undoFocus,
+    BLOCK_CONTEXT_LABELS.undoCondition,
   ]);
   assert.deepEqual(fake.styles[0], { position: "fixed", inset: "0", zIndex: 999, width: "100vw", height: "100vh", background: "rgb(11 24 18 / 35%)", opacity: 1 });
 });

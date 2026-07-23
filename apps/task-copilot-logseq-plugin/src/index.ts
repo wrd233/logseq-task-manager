@@ -56,7 +56,8 @@ import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.t
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
-import { BlockFocusController, type BlockFocusResult } from "./block-focus-controller.ts";
+import { BlockFocusController } from "./block-focus-controller.ts";
+import { BlockConditionController, type BlockConditionDraft } from "./block-condition-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
 
 let appRoot: HTMLElement | undefined;
@@ -87,6 +88,7 @@ let firstRunDescriptorImportBusy = false;
 let ignoredDescriptorSettingValue: string | undefined;
 let serviceRuntimeClient: ServiceRuntimeClient | undefined;
 const blockFocusController = new BlockFocusController(() => serviceRuntimeClient);
+const blockConditionController = new BlockConditionController(() => serviceRuntimeClient);
 let serviceDiscoveryGeneration = 0;
 let explicitSyncController: ExplicitSyncController | undefined;
 let explicitSyncState: ExplicitSyncState = {
@@ -100,6 +102,7 @@ let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" 
 let v2ProviderRevisionBusy = false;
 const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
+let v2BlockConditionBusy = false;
 let v2LifecycleCommitBusy = false;
 let v2ClosureProposalBusy = false;
 let v2LifecycleProposalBusy = false;
@@ -252,6 +255,7 @@ async function model(): Promise<UiModel> {
     v2AssociationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2AssociationBusy: v2AssociationSubmission.busy,
     v2OwnershipCommitBusy,
+    v2BlockConditionBusy,
     v2LifecycleCommitBusy,
     v2ClosureProposalBusy,
     v2LifecycleProposalBusy,
@@ -932,6 +936,79 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-condition-open" && value) return openActionDialog("v2-condition", value);
+  if (action === "v2-block-condition-intent" && value) {
+    const [intent, ...context] = value.split("|");
+    if (typeof intent !== "string" || !["WAITING", "BLOCKED", "PAUSED"].includes(intent) || context.length !== 3) {
+      throw new Error("状态意图上下文无效；没有保存，原状态未改变。");
+    }
+    actionDialog = {
+      kind: intent === "WAITING" ? "v2-block-condition-waiting"
+        : intent === "BLOCKED" ? "v2-block-condition-blocked"
+        : "v2-block-condition-paused",
+      value: context.join("|"),
+    };
+    await refresh();
+    return;
+  }
+  if (action === "submit-v2-block-condition" && value) {
+    if (v2BlockConditionBusy) return;
+    const [objectId, rawVersion, blockUuid] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    const dialogKind = actionDialog?.kind;
+    if (
+      !objectId
+      || !blockUuid
+      || !Number.isSafeInteger(expectedVersion)
+      || !["v2-block-condition-waiting", "v2-block-condition-blocked", "v2-block-condition-paused"].includes(dialogKind ?? "")
+    ) {
+      throw new Error("状态表单上下文无效；没有保存，原状态未改变。");
+    }
+    const draft: BlockConditionDraft = dialogKind === "v2-block-condition-waiting"
+      ? {
+        intent: "WAITING",
+        summary: dialogField("v2BlockWaitingSummary"),
+        reviewAt: dialogField("v2BlockConditionReviewAt"),
+      }
+      : dialogKind === "v2-block-condition-blocked"
+        ? {
+          intent: "BLOCKED",
+          reason: dialogField("v2BlockConditionReason"),
+          ...(dialogField("v2BlockerObjectId") ? { blockerObjectId: dialogField("v2BlockerObjectId") } : {}),
+        }
+        : {
+          intent: "PAUSED",
+          reason: dialogField("v2BlockConditionReason"),
+          reviewAt: dialogField("v2BlockConditionReviewAt"),
+        };
+    v2BlockConditionBusy = true;
+    await refresh();
+    try {
+      const result = await blockConditionController.apply({ blockUuid, objectId, expectedVersion, draft });
+      message = result.message;
+      latestError = undefined;
+      actionDialog = undefined;
+      operationalLogger.log("info", "ui-action", "block_condition_changed", {
+        actionId: "submit-v2-block-condition",
+        result: result.status,
+        blockUuid: result.blockUuid,
+        objectId: result.objectId,
+      });
+      await showBlockContextMessage(result.message, "success");
+      logseq.hideMainUI();
+    } catch (error) {
+      latestError = explain(error);
+      operationalLogger.log("error", "ui-action", "block_condition_change_failed", {
+        actionId: "submit-v2-block-condition",
+        result: "error",
+        blockUuid,
+        objectId,
+      }, error);
+    } finally {
+      v2BlockConditionBusy = false;
+      await refresh();
+    }
+    return;
+  }
   if (action === "v2-deadline-open" && value) return openActionDialog("v2-deadline", value);
   if (action === "submit-v2-condition" && value) {
     const [objectId, rawVersion] = value.split("|");
@@ -1596,7 +1673,14 @@ async function showBlockContextMessage(content: string, status: "success" | "war
   }
 }
 
-async function runBlockContextAction(actionId: string, action: () => Promise<BlockFocusResult>): Promise<void> {
+interface BlockContextActionResult {
+  status: string;
+  blockUuid: string;
+  objectId: string;
+  message: string;
+}
+
+async function runBlockContextAction(actionId: string, action: () => Promise<BlockContextActionResult>): Promise<void> {
   const correlationId = `TC-block-${Date.now()}`;
   if (!featureReady) {
     diagnostics.setNotice({
@@ -1640,6 +1724,54 @@ async function undoBlockFocusFromContext(): Promise<void> {
   await runBlockContextAction("block-focus-undo", () => blockFocusController.undoLast());
 }
 
+async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
+  const correlationId = `TC-block-condition-${Date.now()}`;
+  if (!featureReady) {
+    diagnostics.setNotice({
+      code: "FEATURE_NOT_READY",
+      message: "Task Copilot 功能尚未就绪；Block 状态未改变。",
+      next_step: "请打开 Task Copilot 查看系统状态和失败阶段。",
+    });
+    operationalLogger.log("warn", "ui-action", "block_condition_open_unavailable", {
+      correlationId,
+      actionId: "block-condition-open",
+      result: "feature-not-ready",
+    });
+    await showBlockContextMessage("Task Copilot 尚未就绪；原状态未改变。请打开 Task Copilot 查看系统状态。", "warning");
+    return;
+  }
+  try {
+    const prepared = await blockConditionController.prepare(blockUuid);
+    actionDialog = {
+      kind: "v2-block-condition-route",
+      value: `${prepared.objectId}|${prepared.objectVersion}|${prepared.blockUuid}`,
+    };
+    latestError = undefined;
+    operationalLogger.log("info", "ui-action", "block_condition_opened", {
+      correlationId,
+      actionId: "block-condition-open",
+      result: "ready",
+      blockUuid,
+      objectId: prepared.objectId,
+    });
+    await showTaskCopilot();
+  } catch (error) {
+    const explanation = explain(error);
+    latestError = explanation;
+    operationalLogger.log("error", "ui-action", "block_condition_open_failed", {
+      correlationId,
+      actionId: "block-condition-open",
+      result: "error",
+      blockUuid,
+    }, error);
+    await showBlockContextMessage(`${explanation} 原 Block 保持原位。`, "error");
+  }
+}
+
+async function undoBlockConditionFromContext(): Promise<void> {
+  await runBlockContextAction("block-condition-undo", () => blockConditionController.undoLast());
+}
+
 function markReady(stage: RuntimeStage, logMessage?: string): void {
   diagnostics.ready(stage);
   if (logMessage) console.info(`[Task Copilot] ${logMessage}`);
@@ -1658,6 +1790,8 @@ function registerBootstrapShell(): void {
     diagnostics: showRuntimeDiagnostics,
     toggleBlockFocus: toggleBlockFocusFromContext,
     undoBlockFocus: undoBlockFocusFromContext,
+    openBlockCondition: openBlockConditionFromContext,
+    undoBlockCondition: undoBlockConditionFromContext,
   };
 
   diagnostics.start("TOOLBAR_REGISTERED");

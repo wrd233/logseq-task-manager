@@ -22,6 +22,8 @@ export interface BootstrapCallbacks {
   diagnostics(): unknown;
   toggleBlockFocus(blockUuid: string): Promise<void>;
   undoBlockFocus(): Promise<void>;
+  openBlockCondition(blockUuid: string): Promise<void>;
+  undoBlockCondition(): Promise<void>;
 }
 
 export const COMMAND_KEYS = {
@@ -34,7 +36,9 @@ export const COMMAND_KEYS = {
 
 export const BLOCK_CONTEXT_LABELS = {
   toggleFocus: "Task Copilot：加入／移出当前关注",
+  blockCondition: "Task Copilot：暂时做不了",
   undoFocus: "Task Copilot：撤销上一次关注变化",
+  undoCondition: "Task Copilot：撤销上一次状态变化",
 } as const;
 
 for (const key of Object.values(COMMAND_KEYS)) assertCssSafeIdentifier(key);
@@ -72,8 +76,14 @@ export class BootstrapRegistration {
     host.Editor.registerBlockContextMenuItem(BLOCK_CONTEXT_LABELS.toggleFocus, async ({ uuid }) => {
       await callbacks.toggleBlockFocus(uuid);
     });
+    host.Editor.registerBlockContextMenuItem(BLOCK_CONTEXT_LABELS.blockCondition, async ({ uuid }) => {
+      await callbacks.openBlockCondition(uuid);
+    });
     host.Editor.registerBlockContextMenuItem(BLOCK_CONTEXT_LABELS.undoFocus, async () => {
       await callbacks.undoBlockFocus();
+    });
+    host.Editor.registerBlockContextMenuItem(BLOCK_CONTEXT_LABELS.undoCondition, async () => {
+      await callbacks.undoBlockCondition();
     });
     this.blockContextMenusRegistered = true;
     return true;

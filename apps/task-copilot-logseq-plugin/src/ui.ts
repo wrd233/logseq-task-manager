@@ -40,6 +40,10 @@ export type ActionDialogKind =
   | "confirm-v2-ownership-undo"
   | "confirm-v2-undo"
   | "v2-condition"
+  | "v2-block-condition-route"
+  | "v2-block-condition-waiting"
+  | "v2-block-condition-blocked"
+  | "v2-block-condition-paused"
   | "v2-deadline"
   | "v2-review-defer"
   | "v2-provider-revise"
@@ -82,6 +86,7 @@ export interface UiModel {
   v2AssociationAvailable?: boolean;
   v2AssociationBusy?: boolean;
   v2OwnershipCommitBusy?: boolean;
+  v2BlockConditionBusy?: boolean;
   v2LifecycleCommitBusy?: boolean;
   v2ClosureProposalBusy?: boolean;
   v2LifecycleProposalBusy?: boolean;
@@ -481,6 +486,22 @@ function renderActionDialog(model: UiModel): string {
     const blockerObjectId = current?.condition.kind === "BLOCKED" ? current.condition.blockerObjectId : undefined;
     const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}"${option.objectId === blockerObjectId ? " selected" : ""}>${escapeHtml(option.objectType)} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
     return `<section class="inbox-dialog action-dialog" aria-label="更新 V2 Condition"><h3>更新状态</h3><p class="muted">Condition 与 Lifecycle、Focus 分离；保存后立即影响 Now Work 投影。</p><label>状态<select data-field="v2ConditionKind"><option>ACTIONABLE</option><option>WAITING</option><option>BLOCKED</option><option>PAUSED</option></select></label><label>等待谁或什么<input data-field="v2WaitingFor"></label><label>期待结果<input data-field="v2ExpectedResult"></label><label>原因<input data-field="v2ConditionReason"></label><label>阻碍来源（Blocked 可选）<select data-field="v2BlockerObjectId"><option value="">仅记录原因</option>${blockers}</select></label><label>复查时间（Waiting 必填）<input type="datetime-local" data-field="v2ConditionReviewAt"></label><div class="actions">${button("保存状态", "submit-v2-condition", dialog.value, "primary")}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "v2-block-condition-route") {
+    const [objectId] = dialog.value.split("|");
+    const object = model.v2Objects?.find((candidate) => candidate.objectId === objectId);
+    return `<section class="inbox-dialog action-dialog" aria-label="暂时做不了"><div class="eyebrow">当前 Block · ${escapeHtml(object?.objectType ?? "正式对象")}</div><h3>暂时做不了：${escapeHtml(object?.text ?? "当前对象")}</h3><p class="muted">先选择真实原因。Condition 与 Lifecycle、Ownership、Focus 分离；这里只会走一个受版本保护的状态命令。</p><div class="cards compact"><button type="button" data-action="v2-block-condition-intent" data-value="WAITING|${escapeHtml(dialog.value)}"><strong>等待别人</strong><span>在等谁或什么结果，并约定复查时间</span></button><button type="button" data-action="v2-block-condition-intent" data-value="BLOCKED|${escapeHtml(dialog.value)}"><strong>被问题卡住</strong><span>记录具体卡点，可选关联阻碍对象</span></button><button type="button" data-action="v2-block-condition-intent" data-value="PAUSED|${escapeHtml(dialog.value)}"><strong>我先暂停</strong><span>记录原因和重新判断时间</span></button></div><div class="actions">${cancel}</div></section>`;
+  }
+  if (dialog.kind === "v2-block-condition-waiting") {
+    return `<section class="inbox-dialog action-dialog" aria-label="等待别人"><h3>等待别人</h3><p class="muted">用一个短语说明在等谁/什么以及期待结果；到点后回到“需要回看”。Focus 不会自动改变。</p><label>在等谁或什么结果<input data-field="v2BlockWaitingSummary" placeholder="例如：等评审人确认恢复结果"></label><label>复查时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为等待别人", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "v2-block-condition-blocked") {
+    const [objectId] = dialog.value.split("|");
+    const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}">${escapeHtml(option.objectType)} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
+    return `<section class="inbox-dialog action-dialog" aria-label="被问题卡住"><h3>被问题卡住</h3><p class="muted">只记录当前卡点；不会改变 Lifecycle、Ownership 或 Focus。</p><label>具体卡点<textarea data-field="v2BlockConditionReason" placeholder="例如：测试环境暂不可用"></textarea></label><label>阻碍来源（可选）<select data-field="v2BlockerObjectId"><option value="">只记录卡点</option>${blockers}</select></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为被问题卡住", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "v2-block-condition-paused") {
+    return `<section class="inbox-dialog action-dialog" aria-label="我先暂停"><h3>我先暂停</h3><p class="muted">暂停不是完成；到重新判断时间后再决定是否恢复。Focus 不会自动改变。</p><label>暂停原因<textarea data-field="v2BlockConditionReason" placeholder="例如：先完成本周发布"></textarea></label><label>重新判断时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为我先暂停", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-deadline") {
     const current = dialog.value.split("|")[2];

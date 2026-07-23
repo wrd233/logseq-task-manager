@@ -26,8 +26,12 @@ interface ResolvedBlockObject {
   object: V2ManagedObject;
 }
 
-async function resolveBlockObject(client: BlockFocusClient, blockUuid: string): Promise<ResolvedBlockObject> {
-  if (!blockUuid.trim()) throw new Error("当前 Block 身份无效；当前关注没有改变。");
+export async function resolveBlockObject(
+  client: Pick<BlockFocusClient, "listObjects" | "listPrimaryAnchors">,
+  blockUuid: string,
+  failureSuffix = "当前关注没有改变。",
+): Promise<ResolvedBlockObject> {
+  if (!blockUuid.trim()) throw new Error(`当前 Block 身份无效；${failureSuffix}`);
   const objectsPromise = client.listObjects();
   const matches: V2Anchor[] = [];
   const seenCursors = new Set<string>();
@@ -40,20 +44,20 @@ async function resolveBlockObject(client: BlockFocusClient, blockUuid: string): 
       && value.status === "active"
     )));
     cursor = page.nextCursor;
-    if (cursor && seenCursors.has(cursor)) throw new Error("Primary Anchor 分页状态异常；当前关注没有改变。");
+    if (cursor && seenCursors.has(cursor)) throw new Error(`Primary Anchor 分页状态异常；${failureSuffix}`);
     if (cursor) seenCursors.add(cursor);
   } while (cursor);
   const objects = await objectsPromise;
   if (matches.length === 0) {
-    throw new Error("当前 Block 不是已管理对象的 active Primary Anchor；当前关注没有改变。");
+    throw new Error(`当前 Block 不是已管理对象的 active Primary Anchor；${failureSuffix}`);
   }
   if (matches.length !== 1) {
-    throw new Error("当前 Block 对应多个 active Primary Anchor；请先修复 Anchor 冲突，当前关注没有改变。");
+    throw new Error(`当前 Block 对应多个 active Primary Anchor；请先修复 Anchor 冲突，${failureSuffix}`);
   }
   const anchor = matches[0]!;
   const object = objects.find((value) => value.objectId === anchor.objectId);
-  if (!object) throw new Error("当前 Block 的对象状态不可用；当前关注没有改变。");
-  if (object.lifecycle !== "OPEN") throw new Error("当前 Block 对应的对象已关闭；当前关注没有改变。");
+  if (!object) throw new Error(`当前 Block 的对象状态不可用；${failureSuffix}`);
+  if (object.lifecycle !== "OPEN") throw new Error(`当前 Block 对应的对象已关闭；${failureSuffix}`);
   return { anchor, object };
 }
 

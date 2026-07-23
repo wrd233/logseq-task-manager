@@ -759,6 +759,48 @@ test("object and high-impact actions render in-plugin forms instead of browser m
   assert.match(html, /data-action="submit-review-accept"/);
 });
 
+test("Block Condition router shows three user intents and only their necessary fields", () => {
+  const value = model();
+  value.v2Objects = [{
+    objectId: "task-block", objectType: "TASK", version: 3, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" },
+    text: "等待评审", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test",
+  }];
+  value.v2NowWork = {
+    generatedAt: "now",
+    focus: [],
+    next: [],
+    waitingReview: [],
+    conditionOptions: [
+      { objectId: "task-block", objectType: "TASK", text: "等待评审" },
+      { objectId: "project-blocker", objectType: "PROJECT", text: "测试环境" },
+    ],
+  };
+  value.actionDialog = { kind: "v2-block-condition-route", value: "task-block|3|block-1" };
+  let html = renderApp(value);
+  for (const intent of ["WAITING", "BLOCKED", "PAUSED"]) {
+    assert.match(html, new RegExp(`data-action="v2-block-condition-intent" data-value="${intent}\\|task-block\\|3\\|block-1"`));
+  }
+  for (const label of ["等待别人", "被问题卡住", "我先暂停"]) assert.match(html, new RegExp(label));
+
+  value.actionDialog = { kind: "v2-block-condition-waiting", value: "task-block|3|block-1" };
+  html = renderApp(value);
+  for (const field of ["v2BlockWaitingSummary", "v2BlockConditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
+  for (const field of ["v2BlockConditionReason", "v2BlockerObjectId"]) assert.doesNotMatch(html, new RegExp(`data-field="${field}"`));
+
+  value.actionDialog = { kind: "v2-block-condition-blocked", value: "task-block|3|block-1" };
+  html = renderApp(value);
+  for (const field of ["v2BlockConditionReason", "v2BlockerObjectId"]) assert.match(html, new RegExp(`data-field="${field}"`));
+  assert.match(html, /PROJECT · 测试环境/);
+  assert.doesNotMatch(html, /data-field="v2BlockConditionReviewAt"/);
+
+  value.v2BlockConditionBusy = true;
+  value.actionDialog = { kind: "v2-block-condition-paused", value: "task-block|3|block-1" };
+  html = renderApp(value);
+  for (const field of ["v2BlockConditionReason", "v2BlockConditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
+  assert.match(html, /正在保存…/);
+  assert.match(html, /data-action="submit-v2-block-condition"[^>]*disabled aria-busy="true"/);
+});
+
 test("Association creation exposes an observable busy state and disables duplicate submission", () => {
   const value = model();
   value.workspace = "objects";
