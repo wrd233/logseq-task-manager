@@ -388,6 +388,12 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   3/3 材料、1 unclassified、root preserved、SESSION_PREVIEW_ONLY PASS；没有 Proposal 或正式写入，
   Application 132/132、Local Service 111/111、Plugin 238/238 与根级检查 PASS；Desktop/完整
   Graph bridge route 与 Preview→Proposal/Commit/Undo 仍 OPEN；
+- P2-B Proposal 合同：代码审计证明通用 Commit 与 Plugin executor 只支持单 Block patch，正式
+  Adapter 对 move 仍 fail closed。ADR-0007 与 Application Preview→Proposal builder 已落地；
+  一个 HIGH 组显式记录 CREATE_BLOCK/MOVE_BLOCK 的 UUID、hash、原/目标父级和相邻位置，原材料
+  禁止 rewrite/delete、未归类不移动；focused 13/13、Application 135/135、Domain 42/42 PASS。
+  目前只形成可审阅合同，Service session handle/Proposal route、专用 ledger/补偿/Undo/Desktop
+  均 OPEN，不能点击应用；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；

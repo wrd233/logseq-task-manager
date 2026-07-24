@@ -5,7 +5,7 @@ export type V2ProposalSourceKind = "local_llm" | "external_agent" | "user" | "mi
 export type V2ProposalRisk = "LOW" | "MEDIUM" | "HIGH";
 export type V2ProposalGroupDisposition = "PENDING" | "ACCEPTED" | "REJECTED" | "DEFERRED";
 export type V2ProposalStatus = "DRAFT" | "READY" | "IN_REVIEW" | "PARTIALLY_ACCEPTED" | "ACCEPTED" | "REJECTED" | "STALE" | "APPLIED" | "FAILED" | "SUPERSEDED";
-export type V2ProposalOperationKind = "REWRITE_BLOCK" | "CREATE_OBJECT" | "CHANGE_OBJECT_TYPE" | "CHANGE_OWNERSHIP" | "CREATE_DECISION" | "CREATE_OUTPUT" | "MOVE_BLOCK" | "TRANSITION_LIFECYCLE" | "REBIND_ANCHOR" | "UPDATE_PROJECT_INTERFACE" | "DELETE_CONTENT";
+export type V2ProposalOperationKind = "REWRITE_BLOCK" | "CREATE_BLOCK" | "CREATE_OBJECT" | "CHANGE_OBJECT_TYPE" | "CHANGE_OWNERSHIP" | "CREATE_DECISION" | "CREATE_OUTPUT" | "MOVE_BLOCK" | "TRANSITION_LIFECYCLE" | "REBIND_ANCHOR" | "UPDATE_PROJECT_INTERFACE" | "DELETE_CONTENT";
 
 export interface V2ProposalScopeTarget {
   kind: "BLOCK" | "PAGE" | "OBJECT";
@@ -88,8 +88,8 @@ export type V2ProposalGroupDecision =
   | { disposition: "REJECTED" }
   | { disposition: "DEFERRED"; deferredUntil: string; reason: string };
 
-const highImpactOperations = new Set<V2ProposalOperationKind>(["CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "MOVE_BLOCK", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "DELETE_CONTENT"]);
-const proposalOperationKinds = new Set<V2ProposalOperationKind>(["REWRITE_BLOCK", "CREATE_OBJECT", "CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "CREATE_DECISION", "CREATE_OUTPUT", "MOVE_BLOCK", "TRANSITION_LIFECYCLE", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "DELETE_CONTENT"]);
+const highImpactOperations = new Set<V2ProposalOperationKind>(["CREATE_BLOCK", "CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "MOVE_BLOCK", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "DELETE_CONTENT"]);
+const proposalOperationKinds = new Set<V2ProposalOperationKind>(["REWRITE_BLOCK", "CREATE_BLOCK", "CREATE_OBJECT", "CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "CREATE_DECISION", "CREATE_OUTPUT", "MOVE_BLOCK", "TRANSITION_LIFECYCLE", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "DELETE_CONTENT"]);
 const proposalStatuses = new Set<V2ProposalStatus>(["DRAFT", "READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED", "REJECTED", "STALE", "APPLIED", "FAILED", "SUPERSEDED"]);
 
 function proposalError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
@@ -195,6 +195,24 @@ export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
   let miniProjectCompletionCount = 0;
   for (const group of proposal.groups) {
     for (const operation of group.semanticOperations) {
+      if (operation.kind === "CREATE_BLOCK") {
+        const { newBlockUuid, parentBlockUuid, previousSiblingUuid, text, contentHash } = operation.payload;
+        if (operation.target.kind !== "BLOCK" || typeof newBlockUuid !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(newBlockUuid)
+          || typeof parentBlockUuid !== "string" || !parentBlockUuid.trim() || parentBlockUuid.length > 512
+          || (previousSiblingUuid !== null && (typeof previousSiblingUuid !== "string" || !previousSiblingUuid.trim() || previousSiblingUuid.length > 512))
+          || typeof text !== "string" || !text.trim() || text.length > 8_192 || typeof contentHash !== "string" || contentHash !== checksum(text)) {
+          throw proposalError("V2_PROPOSAL_CREATE_BLOCK_PAYLOAD_INVALID", "CREATE_BLOCK 必须绑定机器生成 UUID、父级/顺序前置与可校验正文。", { operationId: operation.operationId });
+        }
+      }
+      if (operation.kind === "MOVE_BLOCK") {
+        const { fromParentBlockUuid, fromPreviousSiblingUuid, toParentBlockUuid, toPreviousSiblingUuid, contentHash } = operation.payload;
+        const boundedBlockId = (item: unknown): item is string => typeof item === "string" && Boolean(item.trim()) && item.length <= 512;
+        const boundedSibling = (item: unknown): item is string | null => item === null || boundedBlockId(item);
+        if (operation.target.kind !== "BLOCK" || operation.target.hash !== contentHash || !boundedBlockId(fromParentBlockUuid) || !boundedSibling(fromPreviousSiblingUuid)
+          || !boundedBlockId(toParentBlockUuid) || !boundedSibling(toPreviousSiblingUuid) || fromParentBlockUuid === toParentBlockUuid && fromPreviousSiblingUuid === toPreviousSiblingUuid) {
+          throw proposalError("V2_PROPOSAL_MOVE_BLOCK_PAYLOAD_INVALID", "MOVE_BLOCK 必须绑定原位置、目标位置和未改写正文 hash。", { operationId: operation.operationId });
+        }
+      }
       if (operation.kind === "CREATE_OBJECT" && (typeof operation.payload.objectType !== "string" || typeof operation.payload.text !== "string" || !operation.payload.text.trim())) {
         throw proposalError("V2_PROPOSAL_CREATE_OBJECT_PAYLOAD_INVALID", "CREATE_OBJECT 必须明确声明最终对象类型与正文，不能依赖 Graph 回声补全。");
       }

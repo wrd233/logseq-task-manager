@@ -47,7 +47,15 @@ Proposal Review、Commit/Undo、交互证据接线。
 
 ## P2-B：MiniProject 原位重构
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_PROPOSAL_CONTRACT_AUTOMATED`
+
+代码审计确认现有通用 Proposal Commit 只能执行一个 Block patch，正式 Adapter 也仍拒绝未完成
+Desktop Gate 的 move；因此不复用该路径伪装多 Block 原子性。Application 已新增 Preview→HIGH
+Proposal 纯构建合同，Domain 新增受约束 `CREATE_BLOCK` 并收紧 `MOVE_BLOCK` payload：每项操作
+记录机器 UUID、正文 hash、原/目标父级与前一相邻位置；原材料不允许 rewrite/delete，未归类
+材料不移动，所有操作保持一个不可拆组。focused 13/13、Application 135/135、Domain 42/42 PASS。
+该 Proposal 当前只可审阅，通用 Commit 继续 fail closed；专用 ledger/Plugin executor/Desktop
+identity Gate 尚未完成。
 
 默认保留原根 Block；原始事实零丢失；无法归类内容进入待判断/原始材料；结构只使用最小骨架和按需区块。
 
