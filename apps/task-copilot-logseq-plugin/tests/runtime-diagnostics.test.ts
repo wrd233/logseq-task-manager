@@ -16,6 +16,7 @@ import {
   renderRuntimeDiagnostics,
   sanitizeUiKey,
 } from "../src/runtime-diagnostics.ts";
+import { MODEL_PROJECT_REENTRY, PROJECT_PAGE_HEAD_UI_KEY } from "../src/project-page-head-action.ts";
 
 function fakeBootstrap(): {
   host: BootstrapHost;
@@ -26,6 +27,8 @@ function fakeBootstrap(): {
   pageContextMenus: Array<{ label: string; action: (event: { page: string }) => Promise<void> }>;
   models: Record<string, (...args: unknown[]) => unknown>;
   styles: Array<Record<string, string | number>>;
+  pageHeadSlots: Array<(event: { slot: string }) => void>;
+  providedUi: Array<{ key: string; slot: string; template: string | null }>;
 } {
   const toolbar: Array<{ key: string; template: string }> = [];
   const commands: Array<{ key: string; label: string; action: () => unknown }> = [];
@@ -34,6 +37,8 @@ function fakeBootstrap(): {
   const pageContextMenus: Array<{ label: string; action: (event: { page: string }) => Promise<void> }> = [];
   const models: Record<string, (...args: unknown[]) => unknown> = {};
   const styles: Array<Record<string, string | number>> = [];
+  const pageHeadSlots: Array<(event: { slot: string }) => void> = [];
+  const providedUi: Array<{ key: string; slot: string; template: string | null }> = [];
   return {
     toolbar,
     commands,
@@ -42,14 +47,21 @@ function fakeBootstrap(): {
     pageContextMenus,
     models,
     styles,
+    pageHeadSlots,
+    providedUi,
     host: {
       setMainUIInlineStyle: (style) => { styles.push(style); },
       provideModel: (value) => { Object.assign(models, value); },
       provideStyle: () => undefined,
+      provideUI: (value) => { providedUi.push(value); },
+      UI: {
+        checkSlotValid: async () => true,
+      },
       App: {
         registerUIItem: (_type, options) => { toolbar.push(options); },
         registerCommandPalette: (options, action) => { commands.push({ ...options, action }); },
         registerPageMenuItem: (label, action) => { pageContextMenus.push({ label, action }); },
+        onPageHeadActionsSlotted: (callback) => { pageHeadSlots.push(callback); },
       },
       Editor: {
         registerSlashCommand: (label, action) => { slashCommands.push({ label, action }); },
@@ -61,7 +73,7 @@ function fakeBootstrap(): {
 
 test("all formal UI, Toolbar, model, command, DOM and portal identifiers are CSS-safe and unique", () => {
   assert.equal(PLUGIN_ID, "task-copilot-personal-mvp");
-  const values = [TOOLBAR_KEY, UI_NAMESPACE, MODEL_OPEN, MODEL_DIAGNOSTICS, MAIN_UI_ROOT_ID, ...Object.values(COMMAND_KEYS)];
+  const values = [TOOLBAR_KEY, UI_NAMESPACE, MODEL_OPEN, MODEL_DIAGNOSTICS, MODEL_PROJECT_REENTRY, PROJECT_PAGE_HEAD_UI_KEY, MAIN_UI_ROOT_ID, ...Object.values(COMMAND_KEYS)];
   for (const value of values) assert.match(assertCssSafeIdentifier(value), /^[A-Za-z][A-Za-z0-9_-]*$/);
   assert.equal(new Set(values).size, values.length);
   for (const reserved of ["open-logseq-plugin-capability-lab", "ai-task-copilot-logseq-bridge"]) assert.equal(values.includes(reserved), false);
@@ -209,6 +221,8 @@ test("bootstrap registrations survive a simulated feature initialization failure
     openBlockCondition: async (blockUuid) => { opened.push(`block-condition:${blockUuid}`); },
     undoBlockCondition: async () => { opened.push("block-condition-undo"); },
     openPageContext: async (page) => { opened.push(`page-context:${page}`); },
+    openProjectReentry: async () => { opened.push("project-reentry"); },
+    observeProjectPageHeadSlot: (slot) => { opened.push(`page-head:${slot}`); },
   };
   const registration = new BootstrapRegistration();
   registration.registerToolbar(fake.host);
@@ -223,6 +237,7 @@ test("bootstrap registrations survive a simulated feature initialization failure
   registration.registerBlockContextMenus(fake.host, callbacks);
   registration.registerPageContextMenu(fake.host, callbacks);
   registration.registerMainUi(fake.host, callbacks);
+  registration.registerProjectPageHeadAction(fake.host, callbacks);
   assert.throws(() => { throw new Error("simulated persistence failure"); });
   const diagnostics = new RuntimeDiagnostics();
   diagnostics.start("PERSISTENCE_READY");
@@ -267,9 +282,14 @@ test("bootstrap registrations survive a simulated feature initialization failure
   ]);
   assert.equal(fake.blockContextMenus.length, 5);
   assert.equal(fake.pageContextMenus.length, 1);
+  assert.equal(fake.pageHeadSlots.length, 1);
   assert.equal(typeof fake.models[MODEL_OPEN], "function");
   fake.models[MODEL_OPEN]?.();
   assert.equal(opened.at(-1), "toolbar");
+  fake.pageHeadSlots[0]?.({ slot: "project-page-head" });
+  assert.equal(opened.at(-1), "page-head:project-page-head");
+  fake.models[MODEL_PROJECT_REENTRY]?.();
+  assert.equal(opened.at(-1), "project-reentry");
   assert.match(renderRuntimeDiagnostics(diagnostics.snapshot()), /PERSISTENCE_READY[\s\S]*simulated persistence failure/);
 });
 
@@ -294,6 +314,8 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
     openBlockCondition: async () => undefined,
     undoBlockCondition: async () => undefined,
     openPageContext: async () => undefined,
+    openProjectReentry: async () => undefined,
+    observeProjectPageHeadSlot: () => undefined,
   };
   const registration = new BootstrapRegistration();
   assert.equal(registration.registerToolbar(fake.host), true);
@@ -306,6 +328,8 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
   assert.equal(registration.registerPageContextMenu(fake.host, callbacks), false);
   assert.equal(registration.registerMainUi(fake.host, callbacks), true);
   assert.equal(registration.registerMainUi(fake.host, callbacks), false);
+  assert.equal(registration.registerProjectPageHeadAction(fake.host, callbacks), true);
+  assert.equal(registration.registerProjectPageHeadAction(fake.host, callbacks), false);
   assert.equal(fake.toolbar.length, 1);
   assert.equal(fake.commands.length, 6);
   assert.deepEqual(fake.slashCommands.map(({ label }) => label), [
@@ -322,6 +346,7 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
     BLOCK_CONTEXT_LABELS.undoCondition,
   ]);
   assert.deepEqual(fake.pageContextMenus.map(({ label }) => label), [PAGE_CONTEXT_LABEL]);
+  assert.equal(fake.pageHeadSlots.length, 1);
   assert.deepEqual(fake.styles[0], { position: "fixed", inset: "0", zIndex: 999, width: "100vw", height: "100vh", background: "rgb(11 24 18 / 35%)", opacity: 1 });
 });
 

@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H/J/K/Desktop host Gate OPEN | 不得宣布 P0 完成 |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D System/Proposal/Recent Changes/Now/Anchor repair consumer + P1-F Project reentry workspace automated PASS | Page slot/Desktop 未验；Attention 仍无用户显现 | 不得开放信号显示 |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D System/Proposal/Recent Changes/Now/Anchor repair consumer + P1-F Project reentry workspace/main Page Head action automated PASS | Page Head/Desktop 未验；Attention 仍无用户显现 | 不得开放信号显示 |
 | P2 | NOT_STARTED | — | — | — |
 | Final Release | NOT_STARTED | — | — | — |
 
@@ -76,7 +76,7 @@
 | 暂时做不了 | Now Work→状态表单→选择字段 | 2 个决定 | Desktop PASS：Block 右键→三选一→最小字段；保存后回原 Block |
 | 普通 Block 整理 | 当前页 Candidate→Review→接受→Commit | 现场建议 + 1 次接受应用 | 右键“处理这条内容”按精确 UUID 进入既有 Provider→Proposal，自动 Gate PASS；LOW 单击应用/Undo Desktop PASS；普通/Query/引用现场入口仍待 Desktop |
 | 打开正文 | Now Work/Project 找卡片 | 1 个动作 | 待测 |
-| Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | Desktop PASS：Project Page menu 一次进入三项路由；current-interface 复用 HIGH Proposal |
+| Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | 既有 Page menu Desktop PASS；新增 main Page Head 单动作仅 automated PASS、Desktop OPEN；current-interface 复用 HIGH Proposal |
 | Service 恢复 | 终端 + descriptor + reload | 1 个产品入口 | descriptor 文件一次导入与 reload READY PASS；进程启动/停止待做 |
 
 ## 6. 发布否决条件

@@ -113,6 +113,7 @@ export interface UiModel {
   v2NowWorkTypeFilter?: V2NowWorkTypeFilter;
   v2NowWorkGrouping?: V2NowWorkGrouping;
   v2ProjectReentryCards?: PluginProjectReentryCard[];
+  v2ReentryTargetObjectId?: string;
   v2ReentryLoadError?: string;
   v2ObjectNarrations?: Record<string, PluginObjectNarration>;
   v2StatusNarrationLoadError?: string;
@@ -457,7 +458,13 @@ function renderReentry(model: UiModel): string {
     if (!model.v2ProjectReentryCards.length) {
       return empty("暂无 Project 可重入", "先创建 Project；这里会从同一正式投影恢复当前停留点。");
     }
-    const cards = model.v2ProjectReentryCards.map((card) => {
+    const visibleCards = model.v2ReentryTargetObjectId
+      ? model.v2ProjectReentryCards.filter(({ project }) => project.objectId === model.v2ReentryTargetObjectId)
+      : model.v2ProjectReentryCards;
+    if (model.v2ReentryTargetObjectId && visibleCards.length === 0) {
+      return `<section><h2>项目重入</h2><div class="error"><strong>当前 Project 重入上下文已变化。</strong><span>没有回退到另一个项目；请返回当前 Page 重新打开。</span></div><div class="actions">${button("查看全部项目", "v2-reentry-show-all", undefined, "quiet")}</div></section>`;
+    }
+    const cards = visibleCards.map((card) => {
       const { project, projection } = card;
       const evidence = projection.keyEvidence.length
         ? `<p class="muted">${projection.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>`
@@ -483,7 +490,7 @@ function renderReentry(model: UiModel): string {
         <details><summary>查看依据</summary><ul>${projection.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>${projection.relatedContextCount ? `<p class="muted">${projection.relatedContextCount} 个普通关联仅作为背景，未升级为进入点。</p>` : ""}</details>
       </article>`;
     }).join("");
-    return `<section><div class="eyebrow">同一正式投影 · 不保存第二摘要</div><h2>项目重入</h2><p class="muted">每个 Project 只显示一个当前结论、最多两个关键依据和最多三个可定位进入点；信息不足时直接打开原文。</p><div class="cards">${cards}</div></section>`;
+    return `<section><div class="eyebrow">同一正式投影 · 不保存第二摘要</div><h2>项目重入</h2><p class="muted">每个 Project 只显示一个当前结论、最多两个关键依据和最多三个可定位进入点；信息不足时直接打开原文。</p>${model.v2ReentryTargetObjectId ? `<div class="actions">${button("查看全部项目", "v2-reentry-show-all", undefined, "quiet")}</div>` : ""}<div class="cards">${cards}</div></section>`;
   }
   if (model.v2Objects) {
     const projects = model.v2Objects.filter((object) => object.objectType === "PROJECT");

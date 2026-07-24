@@ -65,7 +65,10 @@ V2 v1.1 底座完成结论不变；当前继续按
   98/98、Plugin 197/197 与根级 Gate 通过，未替换 Service/UI；
 - P1-F Project/Task 重入投影已接入 Project workspace：恢复风险优先，Project 只保留最多
   三个 Focus 直属进入点，普通 Association 不升级为动作；新 Project 与无正文 Task 会明确
-  承认进入点不足；Application 112/112、Plugin 200/200 通过，Desktop/Page slot 仍待验证；
+  承认进入点不足；Project 主 Page 顶部新增一个只读“继续项目”宿主动作，点击时重验当前
+  Page UUID、唯一 active Project Page Anchor 与 Object version，再只打开该 Project 的同一
+  重入投影；Page Head hook 不提供页面 payload，因此右侧栏入口明确隐藏，不伪装成精确现场；
+  Application 112/112、Plugin 219/219 通过，Desktop 视觉与点击 Gate 仍待验证；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

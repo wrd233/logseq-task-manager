@@ -1,4 +1,5 @@
 import { MODEL_DIAGNOSTICS, MODEL_OPEN, PLUGIN_ID, TOOLBAR_KEY, assertCssSafeIdentifier } from "./runtime-diagnostics.ts";
+import { MODEL_PROJECT_REENTRY, PROJECT_PAGE_HEAD_UI_KEY } from "./project-page-head-action.ts";
 import {
   deriveToolbarIntervention,
   renderToolbarIntervention,
@@ -9,10 +10,15 @@ export interface BootstrapHost {
   setMainUIInlineStyle(style: Record<string, string | number>): void;
   provideModel(model: Record<string, (...args: unknown[]) => unknown>): unknown;
   provideStyle(style: string): unknown;
+  provideUI(ui: { key: string; slot: string; template: string | null }): unknown;
+  UI: {
+    checkSlotValid(slot: string): Promise<boolean>;
+  };
   App: {
     registerUIItem(type: "toolbar", options: { key: string; template: string }): void;
     registerCommandPalette(options: { key: string; label: string }, action: () => unknown): void;
     registerPageMenuItem(label: string, action: (event: { page: string }) => Promise<void>): void;
+    onPageHeadActionsSlotted(callback: (event: { slot: string }) => void): void;
   };
   Editor: {
     registerSlashCommand(label: string, action: () => unknown): unknown;
@@ -38,6 +44,8 @@ export interface BootstrapCallbacks {
   openBlockCondition(blockUuid: string): Promise<void>;
   undoBlockCondition(): Promise<void>;
   openPageContext(page: string): Promise<void>;
+  openProjectReentry(): Promise<void>;
+  observeProjectPageHeadSlot(slot: string): void;
 }
 
 export const COMMAND_KEYS = {
@@ -59,13 +67,14 @@ export const BLOCK_CONTEXT_LABELS = {
 
 export const PAGE_CONTEXT_LABEL = "Task Copilot：页面操作";
 
-for (const key of Object.values(COMMAND_KEYS)) assertCssSafeIdentifier(key);
+for (const key of [...Object.values(COMMAND_KEYS), PROJECT_PAGE_HEAD_UI_KEY, MODEL_PROJECT_REENTRY]) assertCssSafeIdentifier(key);
 
 export class BootstrapRegistration {
   private toolbarRegistered = false;
   private commandsRegistered = false;
   private blockContextMenusRegistered = false;
   private pageContextMenuRegistered = false;
+  private projectPageHeadRegistered = false;
   private mainUiRegistered = false;
 
   private writeToolbar(host: BootstrapHost, summary: ToolbarIntervention): void {
@@ -138,16 +147,30 @@ export class BootstrapRegistration {
     return true;
   }
 
+  registerProjectPageHeadAction(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
+    if (this.projectPageHeadRegistered) return false;
+    host.App.onPageHeadActionsSlotted(({ slot }) => callbacks.observeProjectPageHeadSlot(slot));
+    this.projectPageHeadRegistered = true;
+    return true;
+  }
+
   registerMainUi(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
     if (this.mainUiRegistered) return false;
     host.setMainUIInlineStyle({ position: "fixed", inset: "0", zIndex: 999, width: "100vw", height: "100vh", background: "rgb(11 24 18 / 35%)", opacity: 1 });
-    host.provideModel({ [MODEL_OPEN]: callbacks.openToolbar, [MODEL_DIAGNOSTICS]: callbacks.diagnostics });
+    host.provideModel({
+      [MODEL_OPEN]: callbacks.openToolbar,
+      [MODEL_DIAGNOSTICS]: callbacks.diagnostics,
+      [MODEL_PROJECT_REENTRY]: callbacks.openProjectReentry,
+    });
     host.provideStyle(`
       div[data-injected-ui="${TOOLBAR_KEY}-${PLUGIN_ID}"] { display: inline-flex; align-items: center; }
       .task-copilot-personal-mvp-toolbar { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; font-weight: 700; }
       .task-copilot-toolbar-state { display: inline-flex; align-items: center; gap: 3px; }
       .task-copilot-toolbar-badge { color: var(--ls-primary-text-color); font-weight: 800; }
       .task-copilot-toolbar-badge.recovery { color: var(--ls-error-text-color, #b42318); }
+      .task-copilot-project-reentry-head-action { margin-left: 6px; padding: 3px 9px; border: 1px solid var(--ls-border-color, currentColor); border-radius: 999px; color: var(--ls-primary-text-color); background: var(--ls-secondary-background-color); font-size: 12px; line-height: 1.5; }
+      .task-copilot-project-reentry-head-action:hover { background: var(--ls-tertiary-background-color); }
+      #right-sidebar .task-copilot-project-reentry-head-action { display: none !important; }
     `);
     this.mainUiRegistered = true;
     return true;

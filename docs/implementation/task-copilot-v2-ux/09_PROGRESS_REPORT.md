@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace automated PASS；Attention 未展示、Page slot/Desktop 与 UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head action automated PASS；Attention 未展示、Desktop 与 UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -209,6 +209,13 @@ shadow 与重入使用；每张卡只有一个结论、最多两个依据和最�
 Association 不再展开为行动列表，完整 Objectives/Deliverables/对象树不再压过当前停留点。
 读取链任一部分失败会显示明确错误，不伪装成空项目。
 
+同一投影已接入 Logseq 0.10.15 的 Page Head 宿主 slot：当前 main Page 只有在 UUID 对应
+唯一 active Project Page Anchor 时才出现一个“继续项目”动作；点击会再次读取当前 Page，
+再走既有 Page Context 完整重验 Page、Project object/version，并只显示目标 Project 的
+重入卡。被动检测不读取 Page Block tree。SDK 类型与 0.10.15 host 源码均显示该 hook 的
+payload 为 `nil`，不能识别 sidebar Page，因此 sidebar 中明确隐藏按钮，不假装支持精确
+secondary-page 重入；Desktop 仍需验证实际 slot 生命周期、主题、窄栏与点击链。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -240,6 +247,7 @@ Association 不再展开为行动列表，完整 Objectives/Deliverables/对象�
 - P1-D Plugin consumer 后 tests：204/204、0 skipped，typecheck/build PASS；
 - P1-D Object/Now consumer 后 tests：208/208、0 skipped，typecheck/build PASS；
 - P1-D Anchor repair consumer 后 tests：213/213、0 skipped，typecheck/build PASS；
+- P1-F Project Page Head consumer 后 tests：219/219、0 skipped，typecheck/build PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -253,7 +261,7 @@ Association 不再展开为行动列表，完整 Objectives/Deliverables/对象�
 ## 下一步
 
 1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 将同一 P1-F 投影接到 Project Page slot，并完成 Project workspace 与 P1-D
+2. 完成 P1-F Project workspace/Page Head 与 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
 3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

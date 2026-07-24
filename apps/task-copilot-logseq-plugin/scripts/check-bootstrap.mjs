@@ -49,7 +49,7 @@ const appsRoot = resolve(root, "..");
 const peerPackages = ["logseq-plugin-capability-lab", "task-copilot-logseq-plugin"];
 const ids = await Promise.all(peerPackages.map(async (name) => JSON.parse(await readFile(resolve(appsRoot, name, "package.json"), "utf8")).logseq.id));
 assert.equal(new Set(ids).size, ids.length, `duplicate Logseq plugin IDs: ${ids.join(", ")}`);
-const formalUiIdentifiers = ["task-copilot-personal-mvp-toolbar", "task-copilot-main-ui", "task-copilot-open-main-ui", "task-copilot-runtime-diagnostics", "task-copilot-personal-mvp-root"];
+const formalUiIdentifiers = ["task-copilot-personal-mvp-toolbar", "task-copilot-main-ui", "task-copilot-open-main-ui", "task-copilot-runtime-diagnostics", "task-copilot-project-reentry-head", "task-copilot-open-current-project-reentry", "task-copilot-personal-mvp-root"];
 const externalUiIdentifiers = ["open-logseq-plugin-capability-lab", "ai-task-copilot-logseq-bridge"];
 for (const identifier of [...formalUiIdentifiers, ...externalUiIdentifiers]) assert.match(identifier, /^[A-Za-z][A-Za-z0-9_-]*$/);
 assert.equal(new Set([...formalUiIdentifiers, ...externalUiIdentifiers]).size, formalUiIdentifiers.length + externalUiIdentifiers.length, "formal, Capability Lab and known Bridge identifiers must be unique");

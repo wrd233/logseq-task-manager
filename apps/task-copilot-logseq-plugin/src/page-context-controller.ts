@@ -26,6 +26,12 @@ export interface PageContextProject {
   lifecycle: V2ManagedObject["lifecycle"];
 }
 
+export interface CurrentProjectPage {
+  pageUuid: string;
+  pageName: string;
+  project: PageContextProject;
+}
+
 export interface PageContextSnapshot {
   kind: "PAGE" | "PROJECT";
   originSurface: "MAIN_PAGE" | "SECONDARY_PAGE";
@@ -145,6 +151,45 @@ export class PageContextController {
     if (snapshot.originSurface === "MAIN_PAGE") {
       assertSamePage({ uuid: snapshot.pageUuid, name: snapshot.pageName }, current);
     }
+  }
+
+  async resolveCurrentProject(): Promise<CurrentProjectPage | undefined> {
+    const client = this.getClient();
+    if (!client) return undefined;
+    const current = pageIdentity(await this.host.getCurrentPage());
+    const [objects, anchors] = await Promise.all([
+      client.listObjects(),
+      this.loadAnchors(client),
+    ]);
+    assertSamePage(current, pageIdentity(await this.host.getCurrentPage()));
+    const objectsById = new Map<string, V2ManagedObject>();
+    for (const object of objects) {
+      if (objectsById.has(object.objectId)) {
+        throw new Error("正式对象身份重复；顶部项目入口保持隐藏。");
+      }
+      objectsById.set(object.objectId, object);
+    }
+    const matches = anchors.filter((anchor) => (
+      anchor.role === "primary_text"
+      && anchor.status === "active"
+      && anchor.externalId === current.uuid
+      && objectsById.get(anchor.objectId)?.objectType === "PROJECT"
+    ));
+    if (matches.length > 1) {
+      throw new Error("当前页对应多个 active Project Primary Anchor；顶部项目入口保持隐藏。");
+    }
+    const object = matches[0] ? objectsById.get(matches[0].objectId) : undefined;
+    if (!object) return undefined;
+    return {
+      pageUuid: current.uuid,
+      pageName: current.name,
+      project: {
+        objectId: object.objectId,
+        objectText: object.text,
+        objectVersion: object.version,
+        lifecycle: object.lifecycle,
+      },
+    };
   }
 
   private async loadAnchors(client: PageContextClient) {

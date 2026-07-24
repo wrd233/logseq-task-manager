@@ -89,6 +89,7 @@ import {
   type PluginAnchorIssueNarration,
   type PluginObjectNarration,
 } from "./status-narration-runtime.ts";
+import { ProjectPageHeadActionController } from "./project-page-head-action.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -135,6 +136,22 @@ const pageContextController = new PageContextController(() => serviceRuntimeClie
   getCurrentPage: () => logseq.Editor.getCurrentPage(),
   getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
 });
+const projectPageHeadActionController = new ProjectPageHeadActionController({
+  checkSlotValid: (slot) => logseq.UI.checkSlotValid(slot),
+  provideUi: (input) => {
+    logseq.provideUI(input);
+  },
+}, {
+  available: () => featureReady && serviceConnection.status === "READY" && Boolean(serviceRuntimeClient),
+  resolveCurrentProject: async () => {
+    const current = await pageContextController.resolveCurrentProject();
+    return current ? { projectText: current.project.objectText } : undefined;
+  },
+  onIssue: (error) => operationalLogger.log("warn", "source-resolution", "project_page_head_action_unavailable", {
+    result: "hidden",
+    errorCode: explain(error),
+  }),
+});
 const originRouteController = new OriginRouteController({
   getCurrentPage: () => logseq.Editor.getCurrentPage(),
   getPage: (identity) => logseq.Editor.getPage(identity as never),
@@ -147,6 +164,7 @@ const originRouteController = new OriginRouteController({
 });
 let pageContext: PageContextSnapshot | undefined;
 let originRoute: OriginRouteToken | undefined;
+let v2ReentryTargetObjectId: string | undefined;
 const v2ProviderTarget = new SelectedBlockAnalysisTarget();
 let serviceDiscoveryGeneration = 0;
 let explicitSyncController: ExplicitSyncController | undefined;
@@ -452,6 +470,7 @@ async function model(): Promise<UiModel> {
     v2NowWorkTypeFilter,
     v2NowWorkGrouping,
     ...(v2ProjectReentryCards !== undefined ? { v2ProjectReentryCards } : {}),
+    ...(v2ReentryTargetObjectId ? { v2ReentryTargetObjectId } : {}),
     ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
     ...(v2ObjectNarrations !== undefined ? { v2ObjectNarrations } : {}),
     ...(v2StatusNarrationLoadError ? { v2StatusNarrationLoadError } : {}),
@@ -598,6 +617,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   explicitSyncController?.pause();
   toolbarFacts = { proposals: [], semanticCommits: [], available: false };
   updateToolbarIntervention();
+  void projectPageHeadActionController.refreshAll();
 }
 
 function restrictServiceRuntimeAfterTransportFailure(errorCode: string): void {
@@ -755,6 +775,7 @@ async function replaceServiceLifecycleSession(next: ServiceLifecycleSession | un
             featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
             diagnostics.setStoreStatus(featureReady ? "READY" : "READ_ONLY_SAFE_MODE");
             await refreshToolbarInterventionFacts();
+            await projectPageHeadActionController.refreshAll();
             if (logseq.isMainUIVisible) await refresh();
           })
           .catch((recoveryError: unknown) => operationalLogger.log("error", "plugin-lifecycle", "launcher_automatic_rediscovery_failed", {
@@ -881,6 +902,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       operationalLogger.log("info", "plugin-lifecycle", "service_descriptor_imported", {
         result: "ready",
       });
+      await projectPageHeadActionController.refreshAll();
     } catch (error) {
       firstRunDescriptorImport = {
         status: "error",
@@ -1109,7 +1131,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "view" && value) {
     if (!isWorkspace(value)) throw new Error("未知工作区；没有改变当前页面。");
     recentActionCommitId = undefined;
+    if (value === "reentry") v2ReentryTargetObjectId = undefined;
     workspace = value;
+    await refresh();
+    return;
+  }
+  if (action === "v2-reentry-show-all") {
+    v2ReentryTargetObjectId = undefined;
+    workspace = "reentry";
     await refresh();
     return;
   }
@@ -1397,6 +1426,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     message = featureReady
       ? "当前 Graph 的 Task Copilot 已重新启动。"
       : "本地运行环境尚未恢复；Graph 正文仍可编辑，请查看系统状态。";
+    await projectPageHeadActionController.refreshAll();
     await refresh();
     return;
   }
@@ -2193,12 +2223,14 @@ async function showTaskCopilot(): Promise<void> {
 
 async function showTaskCopilotFromGeneralEntry(): Promise<void> {
   originRoute = undefined;
+  v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   await showTaskCopilot();
 }
 
 async function openFromToolbar(): Promise<void> {
   originRoute = undefined;
+  v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   if (toolbarIntervention.target === "diagnostics" || !featureReady) {
     await showRuntimeDiagnostics();
@@ -2458,6 +2490,37 @@ async function openPageContextFromMenu(page: string): Promise<void> {
   });
 }
 
+async function openCurrentProjectReentryFromPageHead(): Promise<void> {
+  await guardedFeatureCommand(async () => {
+    const current = await pageContextController.resolveCurrentProject();
+    if (!current) {
+      void projectPageHeadActionController.refreshAll().catch(() => undefined);
+      throw new Error("当前主 Page 已不再对应 active Project；没有打开其他项目。");
+    }
+    const snapshot = await pageContextController.open(current.pageUuid);
+    if (
+      snapshot.originSurface !== "MAIN_PAGE"
+      || !snapshot.project
+      || snapshot.project.objectId !== current.project.objectId
+      || snapshot.project.objectVersion !== current.project.objectVersion
+    ) {
+      throw new Error("当前 Project Page 在打开期间发生变化；旧顶部入口已作废。");
+    }
+    pageContext = snapshot;
+    originRoute = originRouteController.capturePage(snapshot);
+    v2ReentryTargetObjectId = snapshot.project.objectId;
+    workspace = "reentry";
+    actionDialog = undefined;
+    latestError = undefined;
+    message = `已从当前 Page 恢复“${snapshot.project.objectText}”的同一正式重入投影。`;
+    operationalLogger.log("info", "source-resolution", "project_page_head_reentry_opened", {
+      result: "ready",
+      objectId: snapshot.project.objectId,
+    });
+    await showTaskCopilot();
+  });
+}
+
 function markReady(stage: RuntimeStage, logMessage?: string): void {
   diagnostics.ready(stage);
   if (logMessage) console.info(`[Task Copilot] ${logMessage}`);
@@ -2492,6 +2555,8 @@ function registerBootstrapShell(): void {
     openBlockCondition: openBlockConditionFromContext,
     undoBlockCondition: undoBlockConditionFromContext,
     openPageContext: openPageContextFromMenu,
+    openProjectReentry: openCurrentProjectReentryFromPageHead,
+    observeProjectPageHeadSlot: (slot) => projectPageHeadActionController.observe(slot),
   };
 
   diagnostics.start("TOOLBAR_REGISTERED");
@@ -2506,6 +2571,7 @@ function registerBootstrapShell(): void {
 
   diagnostics.start("MAIN_UI_REGISTERED");
   bootstrapRegistration.registerMainUi(host, callbacks);
+  bootstrapRegistration.registerProjectPageHeadAction(host, callbacks);
   bindUi();
   requireAppRoot().innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
   markReady("MAIN_UI_REGISTERED", "main UI registered");
@@ -2530,6 +2596,7 @@ async function environmentInfo(): Promise<void> {
 
 async function handleCurrentGraphChanged(): Promise<void> {
   originRoute = undefined;
+  v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   attentionShadowSession.clear();
   lastAttentionShadowSummarySignature = undefined;
@@ -2547,6 +2614,7 @@ async function handleCurrentGraphChanged(): Promise<void> {
     ? "已为当前 Graph 重新绑定 Task Copilot；未复用上一 Graph 的数据库会话。"
     : "当前 Graph 尚未配置 Task Copilot 本地数据库；正式写入保持关闭，Graph 正文仍可编辑。";
   await refreshToolbarInterventionFacts();
+  await projectPageHeadActionController.refreshAll();
   if (logseq.isMainUIVisible) await refresh();
 }
 
@@ -2625,6 +2693,7 @@ async function initializeFeatures(): Promise<void> {
           featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
           firstRunAction = "start";
           await refreshToolbarInterventionFacts();
+          await projectPageHeadActionController.refreshAll();
           if (logseq.isMainUIVisible) void refresh();
         })
         .catch((error: unknown) => operationalLogger.log("error", "plugin-lifecycle", "service_connection_refresh_failed", { result: "error" }, error));
@@ -2632,6 +2701,7 @@ async function initializeFeatures(): Promise<void> {
     markReady("EVENTS_READY");
     markReady("PLUGIN_READY", "first-run welcome ready; no Graph scan, migration, or model call performed");
     await refreshToolbarInterventionFacts();
+    await projectPageHeadActionController.refreshAll();
     return;
   }
 
@@ -2649,12 +2719,14 @@ async function initializeFeatures(): Promise<void> {
         diagnostics.setStoreStatus(serviceConnection.status === "READY" ? "READY" : "READ_ONLY_SAFE_MODE");
         message = `设置已更新；V2 Local Service ${serviceConnection.status}，正式领域状态与历史未受影响。`;
         await refreshToolbarInterventionFacts();
+        await projectPageHeadActionController.refreshAll();
         if (logseq.isMainUIVisible) void refresh();
       })
       .catch((error: unknown) => operationalLogger.log("error", "plugin-lifecycle", "service_connection_refresh_failed", { result: "error" }, error));
   }));
   markReady("EVENTS_READY");
   featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
+  await projectPageHeadActionController.refreshAll();
   markReady("PLUGIN_READY", "V2 Local Service runtime ready; V1 FileStorage is migration-only");
 }
 
@@ -2678,6 +2750,7 @@ async function main(): Promise<void> {
 
   logseq.beforeunload(async () => {
     for (const off of cleanupHooks.splice(0).reverse()) off();
+    projectPageHeadActionController.clear();
     await releaseServiceLifecycleSession();
     featureReady = false;
     logseq.hideMainUI();

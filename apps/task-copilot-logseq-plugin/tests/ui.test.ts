@@ -370,6 +370,16 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
   assert.doesNotMatch(html, /完整方案文档/);
   assert.doesNotMatch(html, /<h3>Objectives<\/h3>/);
   assert.doesNotMatch(html, /当前主归属对象/);
+
+  value.v2ReentryTargetObjectId = "project-compact";
+  const targeted = renderApp(value);
+  assert.match(targeted, /设备托管｜等待厂家补充功耗参数/);
+  assert.match(targeted, /data-action="v2-reentry-show-all"/);
+
+  value.v2ReentryTargetObjectId = "project-stale";
+  const stale = renderApp(value);
+  assert.match(stale, /当前 Project 重入上下文已变化/);
+  assert.doesNotMatch(stale, /设备托管｜等待厂家补充功耗参数/);
 });
 
 test("Project current interface is readable in reentry and editable only through a HIGH Proposal", () => {

@@ -257,8 +257,8 @@ source
 
 ## P1-F：Project/Task 重入
 
-状态：`PARTIAL_UI_AUTOMATED` — Application 只读重入投影已接入 Plugin Project workspace；
-Project Page slot 与 Desktop Gate 尚未完成。
+状态：`PARTIAL_UI_AUTOMATED` — Application 只读重入投影已接入 Plugin Project workspace
+与 Project 主 Page 的 Page Head 单动作；Desktop Gate 尚未完成。
 
 Project 顶部条只组合 schema v12、Condition、Focus、Anchor、最近 Audit 与未完成 Commit；不建立第二摘要权威。
 
@@ -289,9 +289,19 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
   没有为每个 Project 重复请求；
 - Project workspace 已改为一个结论、最多两个关键依据、最多三个可定位进入点；
   完整 Objectives/Deliverables/对象树仅通过现有编辑/详情路径访问，不在重入卡片铺开；
+- Logseq 0.10.15 的 `onPageHeadActionsSlotted` / `provideUI(slot)` 已作为正式宿主入口，
+  Header 只显示紧凑“继续项目”，不写 Graph、不保存第二摘要；
+- 固定 SDK 与 0.10.15 host 源码均表明 Page Head hook 的 payload 不含 Page identity；
+  因此按钮只在 main Page 可见，right sidebar 通过样式明确隐藏，不把无身份 slot 误当现场；
+- 被动入口只读取当前 Page identity、对象和分页 Primary Anchor，不读取 Page Block 树；
+  只有当前 UUID 对应唯一 active Project Page Anchor 时才注入；
+- 点击后再次解析当前 Project，再用既有 Page Context 完整重验 Page、Project object/version；
+  任一变化均 fail closed，不回退到其他 Project；
+- 打开后只显示目标 Project 的同一 P1-F 投影，目标消失会明确报错；“查看全部项目”才解除
+  session-only 目标过滤；
 - Recovery route 只打开既有 Audit，Anchor route 只调用既有定位动作；
 - 任一 Object/Commit/Relation/Anchor 投影读取失败会显示显式错误，不伪装为空项目；
-- Application tests 112/112、Plugin tests 200/200、0 skipped，typecheck/build PASS；
+- Application tests 112/112、Plugin tests 219/219、0 skipped，typecheck/build PASS；
   根级 Gate PASS（145 条稳定规则、恢复演练 differences 为空）。
 
 ## P1-G：LLM 叙述与上下文恢复 Skill

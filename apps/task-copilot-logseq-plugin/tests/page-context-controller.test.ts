@@ -120,6 +120,104 @@ test("Page Context recognizes a Project only from its active page Primary Anchor
   assert.deepEqual(result.formalItems.map(({ objectId }) => objectId), ["project-1", "task-1"]);
 });
 
+test("current Project resolver uses only the exact active Page Anchor and revalidates the main Page", async () => {
+  const project = object({
+    objectId: "project-1",
+    objectType: "PROJECT",
+    text: "发布 Task Copilot",
+    version: 7,
+  });
+  let treeReads = 0;
+  const controller = new PageContextController(
+    () => client({
+      async listObjects() { return [project]; },
+      async listPrimaryAnchors() {
+        return {
+          anchors: [
+            anchor({ anchorId: "project-active", objectId: project.objectId, externalId: "page-1" }),
+            anchor({ anchorId: "project-missing", objectId: project.objectId, externalId: "page-1", status: "missing" }),
+          ],
+        };
+      },
+    }),
+    host({
+      async getPageBlocksTree() {
+        treeReads += 1;
+        return [];
+      },
+    }),
+  );
+
+  assert.deepEqual(await controller.resolveCurrentProject(), {
+    pageUuid: "page-1",
+    pageName: "Release Check",
+    project: {
+      objectId: "project-1",
+      objectText: "发布 Task Copilot",
+      objectVersion: 7,
+      lifecycle: "OPEN",
+    },
+  });
+  assert.equal(treeReads, 0, "the passive Page head action must not scan the Page Block tree");
+});
+
+test("current Project resolver hides ordinary, changed, and ambiguous pages", async () => {
+  const project = object({ objectId: "project-1", objectType: "PROJECT", text: "Project" });
+  assert.equal(await new PageContextController(() => client(), host()).resolveCurrentProject(), undefined);
+
+  let reads = 0;
+  await assert.rejects(
+    () => new PageContextController(
+      () => client({
+        async listObjects() { return [project]; },
+        async listPrimaryAnchors() {
+          return { anchors: [anchor({ objectId: project.objectId, externalId: "page-1" })] };
+        },
+      }),
+      host({
+        async getCurrentPage() {
+          reads += 1;
+          return reads === 1
+            ? { uuid: "page-1", name: "one", originalName: "One" }
+            : { uuid: "page-2", name: "two", originalName: "Two" };
+        },
+      }),
+    ).resolveCurrentProject(),
+    /页面已切换/,
+  );
+
+  await assert.rejects(
+    () => new PageContextController(
+      () => client({
+        async listObjects() { return [project]; },
+        async listPrimaryAnchors() {
+          return {
+            anchors: [
+              anchor({ anchorId: "one", objectId: project.objectId, externalId: "page-1" }),
+              anchor({ anchorId: "two", objectId: project.objectId, externalId: "page-1" }),
+            ],
+          };
+        },
+      }),
+      host(),
+    ).resolveCurrentProject(),
+    /多个 active Project Primary Anchor/,
+  );
+
+  await assert.rejects(
+    () => new PageContextController(
+      () => client({
+        async listObjects() { return [project, { ...project, version: 2 }]; },
+        async listPrimaryAnchors() {
+          return { anchors: [anchor({ objectId: project.objectId, externalId: "page-1" })] };
+        },
+      }),
+      host(),
+    ).resolveCurrentProject(),
+    /正式对象身份重复/,
+  );
+});
+
 test("Page Context rejects a target whose identity changes while the route is loading", async () => {
   let pageReads = 0;
   const value = host({
