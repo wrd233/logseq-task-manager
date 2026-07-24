@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { V2ManagedObject } from "@task-copilot/domain";
+import type { V2Anchor, V2ManagedObject, V2Proposal } from "@task-copilot/domain";
 
-import { narrateV2ObjectStatus } from "../src/status-narration.ts";
+import {
+  narrateV2AnchorStatus,
+  narrateV2CommitStatus,
+  narrateV2ObjectStatus,
+  narrateV2ProposalStatus,
+  narrateV2SystemStatus,
+} from "../src/status-narration.ts";
 
 const observedAt = "2026-07-24T10:00:00.000Z";
 
@@ -18,6 +24,36 @@ function object(overrides: Partial<V2ManagedObject> = {}): V2ManagedObject {
     createdAt: "2026-07-20T00:00:00.000Z",
     updatedAt: "2026-07-24T09:00:00.000Z",
     sourceOrCreationEvent: "test",
+    ...overrides,
+  };
+}
+
+function proposal(overrides: Partial<V2Proposal> = {}): V2Proposal {
+  return {
+    proposalId: "proposal-1",
+    schemaVersion: "v2",
+    title: "整理采购记录",
+    context: "当前记录需要整理。",
+    understanding: "把记录整理为一个明确事项。",
+    objective: "建立可推进事项。",
+    logic: "只处理当前记录。",
+    finalPreview: "整理为采购 Task。",
+    unresolvedQuestions: [],
+    source: { kind: "user" },
+    scope: { read: [], modify: [{ kind: "OBJECT", id: "task-1", version: 3 }] },
+    preconditions: [],
+    groups: [{
+      groupId: "group-1",
+      explanation: "一项独立修改。",
+      risk: "HIGH",
+      independentlyAcceptable: true,
+      dependencies: [],
+      textPatches: [],
+      semanticOperations: [],
+      disposition: "ACCEPTED",
+    }],
+    status: "ACCEPTED",
+    createdAt: "2026-07-24T09:00:00.000Z",
     ...overrides,
   };
 }
@@ -252,4 +288,243 @@ test("invalid observation or mismatched blocker evidence fails closed", () => {
     }),
     blocker: object({ objectId: "different-object" }),
   }), /blocker/i);
+});
+
+test("accepted Proposal without a completed Commit stays visible and only routes to existing review", () => {
+  const narration = narrateV2ProposalStatus({
+    observedAt,
+    scene: "REVIEW",
+    proposal: proposal(),
+    commits: [],
+  });
+
+  assert.equal(narration.conclusion, "修改内容已经确认，尚未正式应用");
+  assert.deepEqual(narration.inferences, []);
+  assert.deepEqual(narration.unknowns, []);
+  assert.deepEqual(narration.nextAction, {
+    intent: "OPEN_PROPOSAL_REVIEW",
+    label: "返回检查并正式应用",
+    targetProposalId: "proposal-1",
+  });
+  assert.deepEqual(narration.evidenceScope.refs, ["proposal:proposal-1"]);
+
+  const applied = narrateV2ProposalStatus({
+    observedAt,
+    scene: "REVIEW",
+    proposal: proposal(),
+    commits: [{
+      semanticCommitId: "commit-1",
+      proposalId: "proposal-1",
+      status: "COMPLETED",
+      updatedAt: observedAt,
+    }],
+  });
+  assert.equal(applied.conclusion, "这次修改已经应用");
+  assert.equal(applied.nextActionEligible, false);
+  assert.deepEqual(applied.evidenceScope.refs, ["commit:commit-1", "proposal:proposal-1"]);
+
+  const undone = narrateV2ProposalStatus({
+    observedAt,
+    scene: "REVIEW",
+    proposal: proposal(),
+    commits: [
+      {
+        semanticCommitId: "commit-original",
+        proposalId: "proposal-1",
+        status: "UNDONE",
+        updatedAt: observedAt,
+      },
+      {
+        semanticCommitId: "undo:commit-original",
+        proposalId: "proposal-1",
+        status: "COMPLETED",
+        updatedAt: observedAt,
+      },
+    ],
+  });
+  assert.equal(undone.conclusion, "这次修改已经撤销");
+});
+
+test("unfinished Commit routes to recovery evidence without inventing a recovery command", () => {
+  const pending = narrateV2CommitStatus({
+    observedAt,
+    scene: "REVIEW",
+    commit: {
+      semanticCommitId: "commit-pending",
+      proposalId: "proposal-1",
+      status: "PENDING",
+      updatedAt: observedAt,
+    },
+  });
+  const recovery = narrateV2CommitStatus({
+    observedAt,
+    scene: "REVIEW",
+    commit: {
+      semanticCommitId: "commit-recovery",
+      proposalId: "proposal-1",
+      status: "RECOVERY_REQUIRED",
+      updatedAt: observedAt,
+      errorCode: "DOMAIN_WRITE_FAILED",
+    },
+  });
+
+  assert.equal(pending.conclusion, "这次修改尚未完成");
+  assert.match(pending.facts[0]!.text, /原 Commit/);
+  assert.deepEqual(pending.nextAction, {
+    intent: "OPEN_RECOVERY_DETAILS",
+    label: "查看并继续原修改",
+    targetCommitId: "commit-pending",
+  });
+  assert.equal(recovery.conclusion, "这次修改需要恢复");
+  assert.match(recovery.keyEvidence[0]!, /停止继续写入/);
+  assert.deepEqual(recovery.nextAction, {
+    intent: "OPEN_RECOVERY_DETAILS",
+    label: "查看差异与恢复记录",
+    targetCommitId: "commit-recovery",
+  });
+  assert.equal(JSON.stringify(recovery).includes("DOMAIN_WRITE_FAILED"), false);
+});
+
+test("completed, failed, and undone Commit states do not overclaim Undo or retry availability", () => {
+  const states = (["COMPLETED", "FAILED", "UNDONE"] as const).map((status) => narrateV2CommitStatus({
+    observedAt,
+    scene: "REVIEW",
+    commit: {
+      semanticCommitId: `commit-${status.toLowerCase()}`,
+      proposalId: "proposal-1",
+      status,
+      updatedAt: observedAt,
+      ...(status === "FAILED" ? { errorCode: "GRAPH_CONTENT_CHANGED" } : {}),
+    },
+  }));
+
+  assert.deepEqual(states.map((item) => item.conclusion), [
+    "这次修改已经应用",
+    "这次修改没有应用",
+    "这次修改已经撤销",
+  ]);
+  assert.equal(states.every((item) => item.nextActionEligible === false), true);
+  assert.match(states[1]!.facts[1]!.text, /没有覆盖后续变化/);
+  assert.match(states[2]!.facts[1]!.text, /历史证据仍保留/);
+});
+
+test("missing and conflicting Anchor keep the object fact and route only to the bounded repair surface", () => {
+  const baseAnchor: V2Anchor = {
+    anchorId: "anchor-1",
+    objectId: "task-1",
+    graphId: "graph-1",
+    externalId: "block-1",
+    role: "primary_text",
+    status: "missing",
+    contentHash: "content-hash",
+    lastSeenAt: observedAt,
+  };
+  const missing = narrateV2AnchorStatus({
+    observedAt,
+    scene: "OBJECT",
+    anchor: baseAnchor,
+    object: object(),
+  });
+  const conflict = narrateV2AnchorStatus({
+    observedAt,
+    scene: "OBJECT",
+    anchor: { ...baseAnchor, status: "conflict" },
+    object: object(),
+  });
+
+  assert.equal(missing.conclusion, "正式事项与正文失去连接");
+  assert.match(missing.facts[1]!.text, /正式事项仍保留/);
+  assert.equal(conflict.conclusion, "正式事项与正文连接存在冲突");
+  assert.deepEqual(conflict.nextAction, {
+    intent: "OPEN_ANCHOR_REPAIR",
+    label: "检查正文连接",
+    targetObjectId: "task-1",
+    targetAnchorId: "anchor-1",
+  });
+  assert.equal(JSON.stringify(conflict).includes("block-1"), false);
+});
+
+test("system narration applies recovery, pending, connection, Anchor, sync, then ready priority", () => {
+  const base = {
+    observedAt,
+    scene: "BACKGROUND" as const,
+    service: {
+      status: "READY" as const,
+      formalWritesAvailable: true,
+      storeStatus: "READY" as const,
+      providerAvailable: false,
+    },
+    pendingCommitCount: 0,
+    recoveryRequiredCommitCount: 0,
+    anchorIssueCount: 0,
+    explicitSyncPendingCount: 0,
+    explicitSyncReconciliationRequired: false,
+  };
+  const recovery = narrateV2SystemStatus({
+    ...base,
+    recoveryRequiredCommitCount: 1,
+    pendingCommitCount: 2,
+  });
+  const graphMismatch = narrateV2SystemStatus({
+    ...base,
+    service: {
+      ...base.service,
+      status: "RESTRICTED",
+      formalWritesAvailable: false,
+      storeStatus: "READ_ONLY_SAFE_MODE",
+      reasonCode: "SERVICE_GRAPH_MISMATCH",
+    },
+  });
+  const ready = narrateV2SystemStatus(base);
+
+  assert.equal(recovery.conclusion, "有 1 项修改需要恢复");
+  assert.equal(recovery.source.ruleId, "system-commit-recovery-required");
+  assert.equal(graphMismatch.conclusion, "当前 Graph 与正式状态不匹配");
+  assert.match(graphMismatch.facts.map((item) => item.text).join(" "), /Logseq 正文仍可编辑/);
+  assert.equal(ready.conclusion, "Task Copilot 可以正常使用");
+  assert.deepEqual(ready.unknowns, []);
+  assert.match(ready.facts.map((item) => item.text).join(" "), /Agent 分析未启用/);
+});
+
+test("operational narration rejects mismatched identities and invalid aggregate counts", () => {
+  assert.throws(() => narrateV2AnchorStatus({
+    observedAt,
+    scene: "OBJECT",
+    anchor: {
+      anchorId: "anchor-1",
+      objectId: "other-object",
+      graphId: "graph-1",
+      externalId: "block-1",
+      role: "primary_text",
+      status: "missing",
+      contentHash: "hash",
+      lastSeenAt: observedAt,
+    },
+    object: object(),
+  }), /Anchor.*object/i);
+  assert.throws(() => narrateV2ProposalStatus({
+    observedAt,
+    scene: "REVIEW",
+    proposal: proposal(),
+    commits: [{
+      semanticCommitId: "commit-other",
+      proposalId: "other-proposal",
+      status: "COMPLETED",
+      updatedAt: observedAt,
+    }],
+  }), /Commit.*Proposal/i);
+  assert.throws(() => narrateV2SystemStatus({
+    observedAt,
+    scene: "BACKGROUND",
+    service: {
+      status: "READY",
+      formalWritesAvailable: true,
+      storeStatus: "READY",
+    },
+    pendingCommitCount: -1,
+    recoveryRequiredCommitCount: 0,
+    anchorIssueCount: 0,
+    explicitSyncPendingCount: 0,
+    explicitSyncReconciliationRequired: false,
+  }), /count/i);
 });

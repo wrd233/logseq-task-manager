@@ -52,9 +52,10 @@ V2 v1.1 底座完成结论不变；当前继续按
   Anchor missing/conflict 与 Graph mismatch；按数据/恢复风险优先合并为一对象一主问题，
   CREATE Proposal/未挂对象 Commit 以自身 subjectRef 保持真实身份；已接入 session-only
   runtime count telemetry，Application 82/82、Plugin 196/196 与根级 Gate 通过，仍未接 UI；
-- P1-D 确定性状态翻译首轮契约已完成：主结论/依据/事实/推断/未知/下一动作资格/
-  evidence scope/source 分离；仅 WAITING/PAUSED 到期与已完成 blocker 在相关现场有动作，
-  普通 ACTIONABLE 与 Project focus 不猜下一步；Application 91/91 与根级 Gate 通过，未接 UI；
+- P1-D 确定性状态翻译契约已扩到 Object/Proposal/Commit/Anchor/System：主结论/依据/
+  事实/推断/未知/下一动作资格/evidence scope/source 分离；恢复只路由既有 Audit，
+  Anchor 只路由受控修复，完成 Commit 不擅自承诺 Undo；Application 104/104 通过，
+  尚未接 ViewModel/UI；
 - P1-C `SHADOW` 动态 Now 已进入 Plugin count-only runtime 对照：继续处理只来自可行动 Focus，需要回看按
   blocker/review/due/Focus blocked 收敛，保持等待只含 Focus 中安静等待，普通 OPEN 不进入；
   复用 `/now-work.focus` 的过滤后顺序，不新增 API；Copilot 建议固定为空，Application

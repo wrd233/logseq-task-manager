@@ -168,6 +168,15 @@ Plugin 已把该投影接到既有 Attention session cycle 的 count-only teleme
 `/now-work.focus` 已过滤的 object ID 顺序，不新增 Focus endpoint，不记录对象 ID 或正文；
 日志只增加三段/建议/suppressed/overflow 数量与 Focus overload。相同当前数量不重复写日志。
 
+### P1-D 确定性状态翻译扩展
+
+Application 状态叙述现已覆盖 Object、Proposal、SemanticCommit、Primary Anchor 与 System。
+Proposal accepted-not-applied 会先排除完成 Commit；PENDING/RECOVERY_REQUIRED 只路由既有
+“最近修改与恢复”，Anchor 只路由受控 Rebind 预览，系统状态沿用
+Recovery > Pending > Service/Graph > Anchor > Explicit Sync > Ready 的用户风险优先级。
+用户叙述不暴露 Commit error code 或 Anchor external ID，也不会从完成状态猜测 Undo 仍安全。
+当前仍是纯契约，尚未替换现有 Plugin ViewModel/UI。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -193,7 +202,7 @@ Plugin 已把该投影接到既有 Attention session cycle 的 count-only teleme
 - P0-A 普通 Block 路由 Plugin tests：191/191、0 skipped，typecheck/build PASS；
 - P1-A/B Application tests：82/82、0 skipped，typecheck/lint PASS；
 - P1-B Plugin runtime tests + 全量：196/196、0 skipped，typecheck/build PASS；
-- P1-D 后 Application tests：91/91、0 skipped，typecheck PASS；
+- P1-D 扩展后 Application tests：104/104、0 skipped，typecheck PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -207,7 +216,7 @@ Plugin 已把该投影接到既有 Attention session cycle 的 count-only teleme
 ## 下一步
 
 1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 扩 P1-D Commit/Anchor/System narration，并为 P1-C runtime 对照准备真实 reload 读回；
-   在 P0 Desktop 总 Gate 前不替换现有 Now UI、不开放影子信号；
+2. 将 P1-D 确定性叙述接到只读 ViewModel，对照现有 System/Recent Changes 文案但不复制
+   恢复状态机；并为 P1-C runtime 对照准备真实 reload 读回；
 3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

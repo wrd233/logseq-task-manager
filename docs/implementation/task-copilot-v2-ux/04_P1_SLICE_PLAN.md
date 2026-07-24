@@ -151,8 +151,8 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 
 ## P1-D：状态翻译层
 
-状态：`PARTIAL_AUTOMATED` — Application 确定性对象叙述契约与下一动作资格首轮 Gate 已完成；
-尚未接 Plugin ViewModel/UI，Commit/Anchor/System narration 与 LLM draft protocol 仍待扩展。
+状态：`PARTIAL_AUTOMATED` — Application 确定性 Object/Proposal/Commit/Anchor/System
+叙述契约与下一动作资格 Gate 已完成；尚未接 Plugin ViewModel/UI，LLM draft protocol 仍待扩展。
 
 Application/ViewModel 契约：
 
@@ -176,7 +176,7 @@ source
 
 下一动作资格至少要求：信号强、上下文充分、动作具体、不依赖猜测、与对象直接相关、当前场景适合且减少判断成本。
 
-2026-07-24 首轮自动结果：
+2026-07-24 自动结果：
 
 - 新增 `StatusNarration` 纯契约，固定分离 `conclusion / keyEvidence / facts /
   inferences / unknowns / nextActionEligible / nextAction / evidenceScope / source`；
@@ -188,7 +188,14 @@ source
 - 主结论和关键依据各封顶 160 字、next-action label 封顶 80 字；完整正式内容保留在 facts，
   不以高密度为理由丢失证据；
 - 用户层文本不直接暴露 Lifecycle/Condition 字段名；
-- Application tests 91/91、0 skipped，typecheck 与根级 Gate PASS；
+- accepted-not-applied 只有不存在完成 Commit 时成立，并只路由既有 Proposal Review；
+- PENDING/RECOVERY_REQUIRED 保留原 Commit 语义，只打开既有 Audit/Recovery 详情，不生成
+  第二个恢复命令；FAILED/COMPLETED/UNDONE 不猜测 retry 或 Undo 资格；
+- Anchor missing/conflict 不显示外部 Block identity，只在对象证据已读取时声明“正式事项仍保留”，
+  并只打开受控修复入口；
+- System priority 固定为 Recovery > Pending > Service/Graph > Anchor > Explicit Sync > Ready；
+  restricted 状态明确正文仍可编辑，Provider 未配置不降级基础事务能力；
+- Application tests 104/104、0 skipped，typecheck 与根级 Gate PASS；
 - 当前不构成用户可见状态翻译或 Desktop PASS。
 
 ## P1-E：Block 轻标记原型
