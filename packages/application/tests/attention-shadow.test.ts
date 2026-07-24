@@ -6,8 +6,8 @@ import {
   type AttentionSignalCandidate,
 } from "../src/attention-shadow.ts";
 
-const HASH_A = "a".repeat(64);
-const HASH_B = "b".repeat(64);
+const HASH_A = "a".repeat(8);
+const HASH_B = "b".repeat(8);
 const at = "2026-07-24T03:00:00.000Z";
 
 function candidate(overrides: Partial<AttentionSignalCandidate> = {}): AttentionSignalCandidate {

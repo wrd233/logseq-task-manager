@@ -40,7 +40,7 @@
   merge target、cooldown、shown/disposition、rule/Skill/Prompt/model provenance 与 evidence scope；
 - shadow repository 只接受 `SHADOW / NONE`，没有 UI、Focus/Ownership、正式 Object、
   Proposal 或 SemanticCommit 端口；
-- source facts 只接受有界机器 code、opaque ref、timestamp 与 SHA-256 fingerprint，模型结构
+- source facts 只接受有界机器 code、opaque ref、timestamp 与稳定 checksum，模型结构
   没有 `text/content/summary` 字段；
 - 同一问题保留 first detection 并更新 last confirmation；事实不再出现时自动 invalidated；
   scope hash 改变解除 cooldown，`NEVER` 策略拒绝对 Recovery 信号冷却；
@@ -52,7 +52,8 @@
 
 ## P1-B：确定性 detector、合并与失效
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_AUTOMATED` — 第一波确定性 detector 与合并优先级已完成纯函数 Gate；尚未接
+runtime，blocker 变化、WAITING 过久、Project 静默与 LLM 跨对象仍未实现。
 
 开放顺序：
 
@@ -80,6 +81,21 @@
 ```
 
 测试必须覆盖合并、自动失效、用户处置、冷却、新事实解除冷却和一对象一主问题。
+
+2026-07-24 第一波自动结果：
+
+- detector 只读取结构化 object/proposal/commit/anchor/Graph binding facts，不接正文；
+- 已覆盖 reviewAt due、due、accepted-not-applied、PENDING、RECOVERY_REQUIRED、
+  Anchor missing/conflict 与 Graph mismatch；
+- 非 OPEN 对象、未来 reviewAt/due 和已由 COMPLETED Commit 应用的 Proposal 不产生候选；
+- Graph mismatch 只生成一个 `system-graph` 问题，不按所有对象复制；
+- 一对象一主问题优先级已锁定为 Graph/Recovery/Anchor/Pending 数据安全风险
+  > accepted-not-applied > reviewAt > due；
+- 次要问题只进入本次 merge 的 suppressed metadata，不形成第二组可见卡片；
+- eligible cooldown 可抑制重复事实；scope checksum 变化经 repository 自动解除 cooldown；
+  PENDING/RECOVERY/Anchor/Graph 风险使用 `NEVER` 且不允许冷却；
+- 输出继续强制 `SHADOW / NONE`，Application tests 81/81、0 skipped，typecheck/lint PASS；
+- 当前没有 runtime detector 调度或 UI，不能算影子运行数据与 Desktop PASS。
 
 ## P1-C：“现在”动态编排
 

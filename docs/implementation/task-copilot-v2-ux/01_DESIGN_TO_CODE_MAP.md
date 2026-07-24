@@ -20,6 +20,7 @@
 | P0-11 系统状态 | `runtime-diagnostics.ts` 工程网格 | Doctor component report、restricted model | UI_ORCHESTRATION | 将 HTTP 200 当健康；详情泄密 | 建立结论/影响/安全/动作四段式系统状态，技术诊断二级展开 |
 | P0-12 完成后路由 | 主 UI 全屏 overlay；部分操作留在当前 workspace | Anchor open、workspace state | UI_ORCHESTRATION | 动作后丢失 Block/Page 发起现场 | 新增 origin route token（session-only）；成功/失败/恢复均按来源返回 |
 | P1-1 注意力信号数据层 | Application `attention-shadow.ts` 纯模型 + bounded session repository；V2 Domain 仍无 Signal | due/review/Proposal/Commit/Anchor/Doctor facts | DERIVED_DATA | 形成第二套 Inbox 或第二权威 | PARTIAL：invalidation/cooldown/provenance/capacity/clear/telemetry 自动 Gate PASS；runtime/persistence 未开放 |
+| P1-1b 确定性 detector/merge | Application `attention-detector.ts` 第一波 pure detector | object/proposal/commit/anchor/Graph binding facts | DERIVED_DATA | 多问题轰炸、恢复风险被 due 遮住 | PARTIAL：一对象一主问题、data risk priority、cooldown 与自动 exclusion PASS；runtime 未接 |
 | P1-2 检查调度 | 显式同步事件、5 分钟 Anchor reconciliation、workspace query | 事件控制器与 Service query | DERIVED_DATA | 全 Graph 扫描、重复 LLM、编辑卡顿 | 局部事件检查 + 低频 timer + 现场刷新；宽检索独立后台 job |
 | P1-3 影子模式 | session repository 仅接受 SHADOW/NONE 与机器引用/hash；尚未接 runtime | structured logger、规则/Prompt 版本 | DERIVED_DATA | 未展示数据却无限积累私人正文 | 容量/clear/metrics 已实现；detector/runtime/跨 reload 位置仍待验证 |
 | P1-4 状态翻译层 | Now Work `reason` 与零散中文 message | Condition/due/review/blocker/Commit facts | UI_ORCHESTRATION | LLM 杜撰下一动作；字段式输出 | 建立纯 Application/ViewModel translator；确定性模板优先，LLM 只优化表达 |

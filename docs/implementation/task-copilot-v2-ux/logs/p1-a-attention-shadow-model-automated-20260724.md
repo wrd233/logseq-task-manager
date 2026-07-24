@@ -18,7 +18,7 @@
 - repository 只接受 `SHADOW / NONE`，拒绝任何用户可见 level/surface；
 - 没有 Object/Condition/Lifecycle/Focus/Ownership 写接口；
 - 没有 Proposal/Commit/Graph/SQLite/FileStorage 端口；
-- source fact 只允许 bounded machine code、opaque reference、timestamp、SHA-256 fingerprint；
+- source fact 只允许 bounded machine code、opaque reference、timestamp、stable checksum；
 - 类型中没有完整正文、summary 或自然语言 evidence 值；
 - `COMMIT_PENDING / COMMIT_RECOVERY_REQUIRED / Graph mismatch` 所需的不可冷却能力由
   `cooldown.policy = NEVER` 表达，repository 拒绝为该记录设置 cooldown；

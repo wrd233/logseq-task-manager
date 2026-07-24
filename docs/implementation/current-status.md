@@ -47,7 +47,10 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P1-A shadow-only 已开始：Application Attention Signal 纯派生模型与 bounded session
   repository 覆盖失效、cooldown、provenance、capacity、clear 和 metrics；只接受
   `SHADOW/NONE` 与机器引用/hash，未接 UI/Service/SQLite，Application 75/75 自动 Gate 通过；
-- 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续不开放前台的 P1-B detector；
+- P1-B 第一波确定性纯函数覆盖 reviewAt/due、accepted-not-applied、Pending/Recovery、
+  Anchor missing/conflict 与 Graph mismatch；按数据/恢复风险优先合并为一对象一主问题，
+  Application 81/81 自动 Gate 通过，仍未接 runtime/UI；
+- 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续不开放前台的 P1 shadow runtime；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

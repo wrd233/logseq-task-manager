@@ -12,7 +12,7 @@
 | UX-R08 | Logseq 退出窗口不足 | shutdown 未完成或迟到 | orphan process/PENDING | unload release + 15s lease expiry + Service owner-PID self-stop + ledger-first Recovery；crash 真实进程通过，Desktop quit 待验 | MITIGATED |
 | UX-R09 | 多 Graph 错配 | Graph switch 后复用旧 DB | 跨 Graph 正式写入 | path hash→显式 mapping；switch 先释放旧租约，unknown Graph fail closed；自动通过，Desktop switch 待验 | MITIGATED |
 | UX-R10 | attention signal 形成第二 Inbox | 信号长期堆积/需逐条归档 | 新认知负担 | P1-A session shadow 已实现派生、自动失效、容量、clear、cooldown/disposition 与 telemetry；runtime/persistence 未开放 | MITIGATED |
-| UX-R11 | LLM 提醒噪声 | 频繁弱建议/垃圾下一步 | 信任下降 | 规则决定强显现；影子模式；eligibility | OPEN |
+| UX-R11 | LLM 提醒噪声 | 频繁弱建议/垃圾下一步 | 信任下降 | P1-B 第一波只用确定性 facts 并一对象一主问题；所有输出仍 SHADOW/NONE；LLM/eligibility 未开放 | MITIGATED |
 | UX-R12 | 状态翻译隐藏关键信息 | 结论过度压缩 | 恢复风险不可见 | P0-I 已实现 Recovery/Pending/受限/Anchor/正文核对安全优先级；五问首屏，详情可展开 | MITIGATED |
 | UX-R13 | “现在”退化为所有 OPEN | 首页几十条 | 传统任务列表压力 | stable skeleton + explicit inclusion rules | OPEN |
 | UX-R14 | Project current interface 成为第二正文 | 每次编辑都要求更新 | 维护负担/事实冲突 | 正式 aggregate + 自动 facts + 关键变化才确认 | OPEN |

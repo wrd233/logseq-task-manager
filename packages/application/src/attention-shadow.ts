@@ -6,6 +6,7 @@ export type AttentionSignalType =
   | "ACCEPTED_NOT_APPLIED"
   | "COMMIT_PENDING"
   | "COMMIT_RECOVERY_REQUIRED"
+  | "GRAPH_MISMATCH"
   | "ANCHOR_MISSING"
   | "ANCHOR_CONFLICT"
   | "BLOCKER_CHANGED"
@@ -93,7 +94,7 @@ const SAFE_IDENTIFIER = /^[^\s]{1,256}$/u;
 const SAFE_REFERENCE = /^[a-z][a-z0-9_-]{0,31}:[^\s]{1,223}$/u;
 const SAFE_CODE = /^[A-Z0-9][A-Z0-9_.:-]{0,127}$/u;
 const SAFE_VERSION = /^[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}$/u;
-const SHA256 = /^[a-f0-9]{64}$/u;
+const STABLE_CHECKSUM = /^[a-f0-9]{8}$/u;
 
 function requireTimestamp(value: string, field: string): void {
   if (!value || !Number.isFinite(Date.parse(value))) throw new Error(`${field} must be an ISO timestamp.`);
@@ -116,10 +117,10 @@ function requireVersion(value: string, field: string): void {
 }
 
 function requireHash(value: string, field: string): void {
-  if (!SHA256.test(value)) throw new Error(`${field} must be one lowercase SHA-256 digest.`);
+  if (!STABLE_CHECKSUM.test(value)) throw new Error(`${field} must be one lowercase stable checksum.`);
 }
 
-function signalId(candidate: AttentionSignalCandidate): string {
+export function attentionSignalId(candidate: AttentionSignalCandidate): string {
   return `attention_${checksum(stableJson({
     evaluationKey: candidate.evaluationKey,
     mergeTarget: candidate.mergeTarget,
@@ -226,7 +227,7 @@ export class AttentionShadowRepository {
     const incoming = new Map<string, AttentionSignalCandidate>();
     for (const candidate of candidates) {
       validateCandidate(candidate, evaluationKey);
-      const id = signalId(candidate);
+      const id = attentionSignalId(candidate);
       if (incoming.has(id)) throw new Error(`Duplicate attention signal candidate: ${id}`);
       incoming.set(id, candidate);
     }
