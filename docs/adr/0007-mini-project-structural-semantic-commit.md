@@ -10,8 +10,13 @@ Plugin 内直接串联 Logseq API。预览确认后先形成一个独立 HIGH Pr
 
 原材料禁止使用 `REWRITE_BLOCK` 或 `DELETE_CONTENT`。未归类材料不产生移动操作。Proposal 必须
 读取当前 MiniProject Object version，并把 root 与所有被移动 Block 放入 modify scope；其他来源
-材料进入 read scope。全部结构操作是一个不可拆 HIGH 组，接受后仍不能落地，直到专用
-prepare/apply/verify/compensate/undo ledger 和 Desktop move/insert identity Gate 完成。
+材料进入 read scope。Proposal 同时固化完整来源 scope hash、来源结构指纹、预期最终结构指纹，
+并分开保存 MOVE 的“执行前位置”与“补偿回原位置”。全部结构操作是一个不可拆 HIGH 组。
+
+专用 prepare 为每项操作建立一个 `GRAPH_WRITE` step；Service 不执行 Graph 写入，只通过瞬态
+Desktop bridge 重读整棵子树，把观察到的 before/after 位置推进为 `APPLIED/VERIFIED`。全部 step
+VERIFIED 且最终结构指纹一致后才能完成 Commit 并标记 Proposal `APPLIED`。写入或核验失败进入
+同一账本的 `RECOVERY_REQUIRED`，按逆序核验补偿；完整来源结构恢复后收口 `FAILED`，不能假成功。
 
 ## 代码事实
 
@@ -20,11 +25,13 @@ prepare/apply/verify/compensate/undo ledger 和 Desktop move/insert identity Gat
   Plugin executor 都明确只支持一个 Block patch；
 - `@logseq/libs` 暴露 `insertBlock(customUUID)`、`moveBlock` 和 `removeBlock`，但当前正式 Adapter
   仍以 `MOVE_RUNTIME_UNVERIFIED` 拒绝移动，不能把 SDK 类型当 Desktop 证据；
-- 现有 SemanticCommit step ledger 可表达多步骤状态，但每一步的结构 before/after 证据与逆序
-  补偿尚未实现。
+- 现有 SemanticCommit step ledger 已复用于多步骤结构状态；没有新增表、第二恢复器或 Graph
+  权威副本。自动故障注入已覆盖 prepare replay、stale 零账本、逐步 verify、完整最终指纹、失败
+  逆序补偿、补偿前拒绝、恢复后 FAILED、终态 replay 和对象版本不变。
 
 ## 后果
 
-现有单 Block Proposal/Commit/Undo 路径保持不变。新的结构 Proposal 可以进入 Review，但通用
-Commit planner 会继续 fail closed。后续专用 executor 必须逐步写入并验证，任一步失败都逆序
-恢复；若后续编辑阻止补偿，则保持 `RECOVERY_REQUIRED`，不得覆盖用户正文或伪报成功。
+现有单 Block Proposal/Commit/Undo 路径保持不变，通用 Commit planner 继续 fail closed。专用
+Service planner/ledger/verify/recovery 协议已经自动闭环，但 Plugin 尚未调用真实 Logseq
+insert/move/remove；正向完成后的产品级 Undo 也尚未开放。若 Desktop identity Gate 或补偿观察
+不匹配，保持 `RECOVERY_REQUIRED`，不得覆盖用户正文或伪报成功。

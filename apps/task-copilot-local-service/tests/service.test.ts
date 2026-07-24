@@ -7,7 +7,7 @@ import test from "node:test";
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persistence/node";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
-import { createEmptyState, InteractionEvidenceBuffer, V2Application } from "@task-copilot/application";
+import { buildMiniProjectRestructureProposal, createEmptyState, InteractionEvidenceBuffer, V2Application, type GrillPreview } from "@task-copilot/application";
 import { checksum } from "@task-copilot/shared";
 import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 
@@ -541,6 +541,151 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
     (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "GRILL_REQUEST_INVALID",
   );
   assert.equal(providerCalls, 4, "invalid client-owned uncertainty fails before Graph read and Provider");
+
+  const accepted = await client.reviewProposal(restructure.record.proposal.proposalId, { "restructure-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, restructure.record.updatedAt);
+  const stalePrepareBridge = (async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected stale MiniProject restructure prepare Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: changedSnapshot });
+  })();
+  await assert.rejects(
+    () => client.prepareMiniProjectRestructure(accepted.proposal.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "mini-restructure-stale" }),
+    (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_MINI_PROJECT_RESTRUCTURE_SOURCE_STALE",
+  );
+  await stalePrepareBridge;
+  assert.equal((await client.listSemanticCommits()).length, 0, "stale subtree creates no structural ledger");
+  const prepareBridge = (async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    assert.equal(pending?.kind, "BLOCK");
+    if (!pending) throw new Error("expected MiniProject restructure prepare Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+  })();
+  const preparePromise = client.prepareMiniProjectRestructure(accepted.proposal.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "mini-restructure-prepare" });
+  const [, preparedCommit] = await Promise.all([prepareBridge, preparePromise]);
+  assert.equal(preparedCommit.status, "PREPARED");
+  if (preparedCommit.status !== "PREPARED") throw new Error("expected prepared MiniProject structure commit");
+  assert.equal(preparedCommit.formalGraphWritesExecuted, false);
+  assert.deepEqual(preparedCommit.plan.steps.map(({ kind }) => kind), ["CREATE_BLOCK", "MOVE_BLOCK"]);
+  assert.deepEqual(preparedCommit.plan.compensationSteps.map(({ kind }) => kind), ["MOVE_BLOCK", "REMOVE_CREATED_BLOCK"]);
+  assert.equal((await client.getObject(created.object.objectId))?.version, created.object.version, "prepare does not mutate the formal MiniProject object");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === preparedCommit.semanticCommitId)?.status, "PENDING");
+  const replay = await client.prepareMiniProjectRestructure(accepted.proposal.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "mini-restructure-prepare-replay" });
+  assert.equal(replay.status, "PREPARED");
+  assert.equal(replay.status === "PREPARED" && replay.replayed, true, "replay reuses the ledger without another Graph read");
+  const [createStep, moveStep] = preparedCommit.plan.steps;
+  if (createStep?.kind !== "CREATE_BLOCK" || moveStep?.kind !== "MOVE_BLOCK") throw new Error("expected create then move structure plan");
+  const snapshotAfterCreateBlocks = [
+    blocks[0]!,
+    { uuid: createStep.blockUuid, content: createStep.text, contentHash: createStep.contentHash, relation: "CHILD" as const, depth: 1, parentUuid: createStep.parentBlockUuid },
+    blocks[1]!,
+  ];
+  const snapshotAfterCreate = { ...snapshot, blocks: snapshotAfterCreateBlocks, scopeHash: checksum({ kind: "BLOCK", resolved, blocks: snapshotAfterCreateBlocks, truncated: false }) };
+  const verifyCreateBridge = (async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected create verification Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: snapshotAfterCreate });
+  })();
+  const verifyCreatePromise = client.verifyMiniProjectRestructureStep(accepted.proposal.proposalId, 0, { semanticCommitId: preparedCommit.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "mini-restructure-verify-create" });
+  const [, createVerified] = await Promise.all([verifyCreateBridge, verifyCreatePromise]);
+  assert.equal(createVerified.status, "VERIFIED");
+  assert.equal(createVerified.status === "VERIFIED" && createVerified.nextStepIndex, 1);
+
+  const finalBlocks = [
+    blocks[0]!,
+    { uuid: createStep.blockUuid, content: createStep.text, contentHash: createStep.contentHash, relation: "CHILD" as const, depth: 1, parentUuid: createStep.parentBlockUuid },
+    { ...blocks[1]!, depth: 2, parentUuid: moveStep.toParentBlockUuid },
+  ];
+  const finalSnapshot = { ...snapshot, blocks: finalBlocks, scopeHash: checksum({ kind: "BLOCK", resolved, blocks: finalBlocks, truncated: false }) };
+  const verifyMoveBridge = (async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected move verification Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: finalSnapshot });
+  })();
+  const verifyMovePromise = client.verifyMiniProjectRestructureStep(accepted.proposal.proposalId, 1, { semanticCommitId: preparedCommit.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "mini-restructure-verify-move" });
+  const [, completedRestructure] = await Promise.all([verifyMoveBridge, verifyMovePromise]);
+  assert.equal(completedRestructure.status, "COMPLETED");
+  assert.equal(completedRestructure.status === "COMPLETED" && completedRestructure.record.proposal.status, "APPLIED");
+  assert.equal((await client.getObject(created.object.objectId))?.version, created.object.version, "Graph-only restructure preserves the formal MiniProject version and root authority");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === preparedCommit.semanticCommitId)?.status, "COMPLETED");
+  const completedReplay = await client.verifyMiniProjectRestructureStep(accepted.proposal.proposalId, 1, { semanticCommitId: preparedCommit.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "mini-restructure-completed-replay" });
+  assert.equal(completedReplay.status === "COMPLETED" && completedReplay.replayed, true);
+});
+
+test("MiniProject structure recovery compensates verified Graph steps in reverse and never marks a failed Proposal applied", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-mini-restructure-recovery-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-mini-restructure-recovery", token: "mini-restructure-recovery-token-24-chars" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const rootContent = "[MiniProject] 恢复结构重构";
+  const sourceContent = "保留原材料";
+  const materialized = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "恢复结构重构", externalId: "root-recovery", inputVersion: "1", contentHash: checksum(rootContent), idempotencyKey: "mini-restructure-recovery-object", traceId: "mini-restructure-recovery-object" });
+  const resolved = { kind: "BLOCK" as const, id: "root-recovery" };
+  const originalBlocks = [
+    { uuid: "root-recovery", content: rootContent, contentHash: checksum(rootContent), relation: "ROOT" as const, depth: 0 },
+    { uuid: "source-recovery", content: sourceContent, contentHash: checksum(sourceContent), relation: "CHILD" as const, depth: 1, parentUuid: "root-recovery" },
+  ];
+  const originalSnapshot = { kind: "BLOCK" as const, requestedTarget: "root-recovery", resolved, blocks: originalBlocks, truncated: false, readAt: "2026-07-24T19:00:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved, blocks: originalBlocks, truncated: false }) };
+  const preview: GrillPreview = {
+    schemaVersion: "task-copilot-grill-preview-v1",
+    finalReading: {
+      title: { text: "恢复结构重构", evidenceRefs: ["block:root-recovery"] }, outcome: { text: "形成可恢复结构", evidenceRefs: ["answer:outcome"] },
+      boundary: { included: [{ text: "原材料", evidenceRefs: ["block:source-recovery"] }], excluded: [] }, completionEvidence: [{ text: "结构可读", evidenceRefs: ["block:source-recovery"] }],
+      sections: [
+        { sectionId: "root", heading: "入口", purpose: "保留根", sourceMaterials: [{ materialId: "root", sourceRef: "block:root-recovery", contentHash: checksum(rootContent), text: rootContent, preservation: "UNCHANGED" }], derivedBlocks: [] },
+        { sectionId: "work", heading: "材料", purpose: "归位", sourceMaterials: [{ materialId: "material-2", sourceRef: "block:source-recovery", contentHash: checksum(sourceContent), text: sourceContent, preservation: "UNCHANGED" }], derivedBlocks: [] },
+      ],
+    },
+    unclassified: [], impact: { sourceMaterialCount: 2, movedMaterialCount: 1, addedDerivedBlockCount: 0, deletedMaterialCount: 0, unclassifiedMaterialCount: 0 },
+    evidenceScope: { refs: ["block:root-recovery", "block:source-recovery", "answer:outcome"], scopeHash: "11111111", observedAt: "2026-07-24T19:00:00.000Z" }, authorityBoundary: "SESSION_PREVIEW_ONLY",
+    provenance: { contractVersion: "1.0.0", promptVersion: "prompt-v1", skillName: "mini-project-modeling", skillVersion: "1.1.0", providerId: "deepseek", providerVersion: "chat-completions-v1", model: "test-model", generatedAt: "2026-07-24T19:00:00.000Z" },
+  };
+  const ready = buildMiniProjectRestructureProposal({
+    proposalId: "proposal_mini_restructure_recovery", createdAt: "2026-07-24T19:00:01.000Z", objectId: materialized.object.objectId, objectVersion: materialized.object.version, preview, sourceScopeHash: originalSnapshot.scopeHash,
+    sourcePositions: [
+      { materialId: "root", blockUuid: "root-recovery", parentBlockUuid: null, previousSiblingUuid: null, exactText: rootContent, contentHash: checksum(rootContent), isRoot: true },
+      { materialId: "material-2", blockUuid: "source-recovery", parentBlockUuid: "root-recovery", previousSiblingUuid: null, exactText: sourceContent, contentHash: checksum(sourceContent), isRoot: false },
+    ],
+    createdBlockUuids: { "section:work": "33333333-3333-4333-8333-333333333333" },
+  });
+  const submitted = await client.submitProposal(ready);
+  const accepted = await client.reviewProposal(ready.proposalId, { "restructure-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const bridgeSnapshot = async (snapshot: typeof originalSnapshot): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected structure recovery Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+  };
+  const prepareBridge = bridgeSnapshot(originalSnapshot);
+  const preparePromise = client.prepareMiniProjectRestructure(ready.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "recovery-prepare" });
+  const [, prepared] = await Promise.all([prepareBridge, preparePromise]);
+  if (prepared.status !== "PREPARED") throw new Error("expected recovery fixture prepare");
+  const [createStep] = prepared.plan.steps;
+  if (createStep?.kind !== "CREATE_BLOCK") throw new Error("expected recovery fixture create step");
+  const afterCreateBlocks = [originalBlocks[0]!, { uuid: createStep.blockUuid, content: createStep.text, contentHash: createStep.contentHash, relation: "CHILD" as const, depth: 1, parentUuid: "root-recovery" }, originalBlocks[1]!];
+  const afterCreateSnapshot = { ...originalSnapshot, blocks: afterCreateBlocks, scopeHash: checksum({ kind: "BLOCK", resolved, blocks: afterCreateBlocks, truncated: false }) };
+  const verifyBridge = bridgeSnapshot(afterCreateSnapshot);
+  const verifyPromise = client.verifyMiniProjectRestructureStep(ready.proposalId, 0, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "recovery-verify-create" });
+  const [, verified] = await Promise.all([verifyBridge, verifyPromise]);
+  assert.equal(verified.status, "VERIFIED");
+  const beginBridge = bridgeSnapshot(afterCreateSnapshot);
+  const beginPromise = client.beginMiniProjectRestructureRecovery(ready.proposalId, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, failedStepIndex: 1, failureCode: "GRAPH_WRITE_FAILED", traceId: "recovery-begin" });
+  const [, recovery] = await Promise.all([beginBridge, beginPromise]);
+  assert.equal(recovery.status, "COMPENSATION_REQUIRED");
+  assert.deepEqual(recovery.status === "COMPENSATION_REQUIRED" ? recovery.compensations.map(({ stepIndex, step }) => [stepIndex, step.kind]) : [], [[0, "REMOVE_CREATED_BLOCK"]]);
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === prepared.semanticCommitId)?.status, "RECOVERY_REQUIRED");
+
+  const notCompensatedBridge = bridgeSnapshot(afterCreateSnapshot);
+  const notCompensatedPromise = client.verifyMiniProjectRestructureCompensation(ready.proposalId, 0, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "recovery-not-compensated" });
+  const [, notCompensated] = await Promise.all([notCompensatedBridge, notCompensatedPromise]);
+  assert.equal(notCompensated.status, "NOT_COMPENSATED");
+  const compensatedBridge = bridgeSnapshot(originalSnapshot);
+  const compensatedPromise = client.verifyMiniProjectRestructureCompensation(ready.proposalId, 0, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "recovery-compensated" });
+  const [, compensated] = await Promise.all([compensatedBridge, compensatedPromise]);
+  assert.equal(compensated.status, "FAILED_COMPENSATED");
+  assert.equal(compensated.status === "FAILED_COMPENSATED" && compensated.record.proposal.status, "FAILED");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === prepared.semanticCommitId)?.status, "FAILED");
+  assert.equal((await client.getObject(materialized.object.objectId))?.version, materialized.object.version);
+  const replay = await client.beginMiniProjectRestructureRecovery(ready.proposalId, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, failedStepIndex: 1, failureCode: "DESKTOP_DISCONNECTED", traceId: "recovery-replay" });
+  assert.equal(replay.status === "FAILED_COMPENSATED" && replay.replayed, true);
 });
 
 test("Local Service relays bounded Logseq Graph reads and exports page Context without formal writes", async (t) => {

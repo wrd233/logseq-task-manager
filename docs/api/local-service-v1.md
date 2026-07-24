@@ -121,6 +121,17 @@ Service 重新读取并重验完整来源后确定性建立一个 HIGH `CREATE_B
 再次调用 Provider，也不改 Graph/对象。正式变化仍必须进入 Proposal Review，并等待专用结构
 Commit/Undo/Recovery 链完成验证；通用单 Block Commit 不接受该 Proposal。
 
+已接受的结构 Proposal 只能用精确确认调用
+`POST /proposals/{id}/mini-project-restructure/commit/prepare`。Service 再次读取完整 root 子树，校验
+Object/version/Primary Anchor、scope hash、来源结构指纹与每个 MOVE 原位置，然后为 1–64 项操作
+各准备一个 `GRAPH_WRITE` ledger step；响应明确 `formalGraphWritesExecuted:false`。Plugin 每次实际
+写入后只提交账本/step identity 到 `.../steps/{index}/verify`，Service 通过 Graph read bridge 自行
+观察 before/after；最终结构指纹完全一致才完成 Commit 与 `APPLIED`。失败通过
+`.../recovery/begin` 进入同一 `RECOVERY_REQUIRED` 账本，并由
+`.../recovery/steps/{index}/verify` 按逆序证明补偿；恢复完整来源结构后收口 `FAILED`。协议不接收
+客户端上传的 Block 正文、位置或“已成功”声明。真实 Plugin executor、完成态 Undo 与 Desktop
+identity Gate 尚未开放。
+
 `GET /now-work` 的 `conditionOptions` 仅包含当前 OPEN 对象的 `objectId / objectType / text`，供插件以可读选择器设置可选 `BLOCKED.blockerObjectId`；它不是第二份对象状态。Application 拒绝不存在、已关闭或自引用的阻碍对象。若 Focus A 的 `blockerObjectId` 指向 B，则可行动 B 会以“阻碍当前关注”进入可解释排序；安静的 Waiting B 也会被唤醒进入“等待与复查”。
 
 ## 显式 Block 物化

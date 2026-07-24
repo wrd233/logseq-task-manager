@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -629,6 +629,33 @@ async function readProjectStructureCommitRequest(request: IncomingMessage): Prom
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   if (Object.keys(record).sort().join(",") !== "confirmation,expectedUpdatedAt,observations,traceId" || record.confirmation !== "UPDATE_PROJECT_INTERFACE" || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("PROJECT_STRUCTURE_COMMIT_REQUEST_INVALID", "Project 当前接口 Commit 必须有当前 Proposal 版本、trace_id 和精确高影响确认。");
   return { expectedUpdatedAt: record.expectedUpdatedAt, confirmation: "UPDATE_PROJECT_INTERFACE", observations: parseProposalGraphObservations(record.observations, "PROJECT_STRUCTURE_COMMIT_REQUEST_INVALID", "Project 当前接口重验证据无效。"), traceId: record.traceId };
+}
+
+async function readMiniProjectRestructurePrepareRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE"; traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "MiniProject 原位重构准备请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "confirmation,expectedUpdatedAt,traceId" || record.confirmation !== "APPLY_MINI_PROJECT_RESTRUCTURE" || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("MINI_PROJECT_RESTRUCTURE_PREPARE_REQUEST_INVALID", "MiniProject 原位重构需要当前 Proposal 版本、trace_id 和精确高影响确认。");
+  return { expectedUpdatedAt: record.expectedUpdatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: record.traceId };
+}
+
+async function readMiniProjectRestructureVerifyRequest(request: IncomingMessage): Promise<{ semanticCommitId: string; expectedUpdatedAt: string; traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "MiniProject 原位重构核验请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "expectedUpdatedAt,semanticCommitId,traceId" || typeof record.semanticCommitId !== "string" || !record.semanticCommitId.startsWith("proposal-commit:") || record.semanticCommitId.length > 96 || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("MINI_PROJECT_RESTRUCTURE_VERIFY_REQUEST_INVALID", "MiniProject 原位重构核验请求缺少匹配账本、Proposal 版本或 trace_id。");
+  return record as unknown as { semanticCommitId: string; expectedUpdatedAt: string; traceId: string };
+}
+
+async function readMiniProjectRestructureRecoveryRequest(request: IncomingMessage): Promise<{ semanticCommitId: string; expectedUpdatedAt: string; failedStepIndex: number; failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED"; traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "MiniProject 原位重构恢复请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "expectedUpdatedAt,failedStepIndex,failureCode,semanticCommitId,traceId" || typeof record.semanticCommitId !== "string" || !record.semanticCommitId.startsWith("proposal-commit:") || record.semanticCommitId.length > 96 || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || !Number.isSafeInteger(record.failedStepIndex) || Number(record.failedStepIndex) < 0 || Number(record.failedStepIndex) > 63 || !["GRAPH_WRITE_FAILED", "GRAPH_VERIFY_FAILED", "DESKTOP_DISCONNECTED"].includes(String(record.failureCode)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("MINI_PROJECT_RESTRUCTURE_RECOVERY_REQUEST_INVALID", "MiniProject 原位重构恢复请求缺少受控故障、账本或 step 证据。");
+  return record as unknown as { semanticCommitId: string; expectedUpdatedAt: string; failedStepIndex: number; failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED"; traceId: string };
 }
 
 async function readLifecycleCommitRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT"; observations: V2ProposalScopeObservation[]; traceId: string }> {
@@ -1579,10 +1606,275 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         if (section.sectionId !== "root") createdBlockUuids[`section:${section.sectionId}`] = deterministicBlockUuid(`${proposalId}:section:${section.sectionId}`);
         section.derivedBlocks.forEach((_block, index) => { createdBlockUuids[`derived:${section.sectionId}:${index}`] = deterministicBlockUuid(`${proposalId}:derived:${section.sectionId}:${index}`); });
       }
-      const proposal = buildMiniProjectRestructureProposal({ proposalId, createdAt: session.preview.provenance.generatedAt, objectId: input.objectId, objectVersion: input.expectedVersion, preview: session.preview, sourcePositions: buildMiniProjectSourcePositions(prepared.source.graphSnapshot), createdBlockUuids });
+      const proposal = buildMiniProjectRestructureProposal({ proposalId, createdAt: session.preview.provenance.generatedAt, objectId: input.objectId, objectVersion: input.expectedVersion, preview: session.preview, sourceScopeHash: prepared.source.graphSnapshot.scopeHash, sourcePositions: buildMiniProjectSourcePositions(prepared.source.graphSnapshot), createdBlockUuids });
       await revalidateMiniProjectGrillSource(input, prepared.primaryAnchor, prepared.source.graphSnapshot.scopeHash);
       const submitted = await proposalApplication.submit(proposal, new Date(session.preview.provenance.generatedAt));
       respond(response, submitted.replayed ? 200 : 201, submitted);
+      return;
+    }
+    const miniProjectRestructurePrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/mini-project-restructure\/commit\/prepare$/) : null;
+    if (miniProjectRestructurePrepareMatch?.[1]) {
+      const proposalId = decodeURIComponent(miniProjectRestructurePrepareMatch[1]);
+      const input = await readMiniProjectRestructurePrepareRequest(request);
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
+      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
+      const existing = store.semanticCommit(semanticCommitId);
+      const expectedSteps = plan.steps.map((step, stepIndex) => ({ semanticCommitId, stepIndex, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId: step.operationId, beforeHash: step.beforeHash, afterHash: step.afterHash }));
+      if (existing) {
+        const steps = store.semanticCommitSteps(semanticCommitId);
+        const matches = existing.proposalId === proposalId && existing.status === "PENDING" && steps.length === expectedSteps.length && steps.every((step, index) => {
+          const expected = expectedSteps[index]!;
+          return step.stepIndex === expected.stepIndex && step.stepKind === expected.stepKind && step.operationId === expected.operationId && step.beforeHash === expected.beforeHash && step.afterHash === expected.afterHash;
+        });
+        if (!matches) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构账本与已审阅结构计划不一致。");
+        respond(response, 200, { status: "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, plan, stepStatuses: steps.map(({ status }) => status), replayed: true, formalGraphWritesExecuted: false });
+        return;
+      }
+      requireNoUnfinishedProposalCommit(proposalId);
+      const subject = store.getObject(plan.objectId);
+      const anchor = store.getActivePrimaryAnchorByObject(plan.objectId);
+      if (!subject || subject.objectType !== "MINI_PROJECT" || subject.lifecycle !== "OPEN" || subject.version !== plan.expectedVersion || !anchor || anchor.role !== "primary_text" || anchor.externalId !== plan.sourceRootBlockUuid) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_SUBJECT_STALE", "MiniProject 对象、版本或正文入口已变化；没有准备 Commit。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
+      if (graphResult.status === "NOT_FOUND") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_SOURCE_STALE", "MiniProject 来源子树已不存在；没有准备 Commit。");
+      if (graphResult.status === "ERROR") throw new StructuredError({ code: graphResult.errorCode, message: graphResult.message, ruleRefs: ["D-132", "D-135"] });
+      const snapshot = graphResult.snapshot;
+      if (snapshot.kind !== "BLOCK" || snapshot.resolved.id !== plan.sourceRootBlockUuid || snapshot.truncated || snapshot.scopeHash !== plan.sourceScopeHash) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_SOURCE_STALE", "MiniProject 完整子树在审阅后已变化；没有准备 Commit。");
+      if (miniProjectStructureHash(buildMiniProjectSourcePositions(snapshot)) !== plan.sourceStructureHash) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_SOURCE_STALE", "MiniProject 子树结构指纹在审阅后已变化；没有准备 Commit。");
+      const blocks = new Map(snapshot.blocks.map((block) => [block.uuid, block]));
+      const observations = requiredV2ProposalRevalidationScope(stored.proposal).targets.filter((target) => target.kind === "BLOCK").map((target): V2ProposalScopeObservation => {
+        const block = blocks.get(target.id);
+        return block ? { kind: "BLOCK", id: target.id, exists: true, hash: block.contentHash } : { kind: "BLOCK", id: target.id, exists: false };
+      });
+      const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, observations), input.expectedUpdatedAt);
+      if (revalidation.result.status === "STALE") { respond(response, 200, { status: "STALE", ...revalidation }); return; }
+      for (const step of plan.steps) {
+        if (step.kind !== "MOVE_BLOCK") continue;
+        const block = blocks.get(step.blockUuid);
+        const siblings = snapshot.blocks.filter((candidate) => candidate.parentUuid === step.fromParentBlockUuid);
+        const index = siblings.findIndex((candidate) => candidate.uuid === step.blockUuid);
+        const previousSiblingUuid = index > 0 ? siblings[index - 1]!.uuid : null;
+        if (!block || block.contentHash !== step.contentHash || block.parentUuid !== step.fromParentBlockUuid || previousSiblingUuid !== step.fromPreviousSiblingUuid) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_POSITION_STALE", "原材料 Block 的父级或相邻位置已变化；没有准备 Commit。");
+      }
+      const now = new Date().toISOString();
+      store.prepareSemanticCommit({ semanticCommitId, proposalId, status: "PENDING", beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, sourceScopeHash: plan.sourceScopeHash, sourceStructureHash: plan.sourceStructureHash, expectedStructureHash: plan.expectedStructureHash }), createdAt: now, updatedAt: now }, expectedSteps.map((step) => ({ ...step, updatedAt: now })));
+      respond(response, 201, { status: "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, plan, stepStatuses: expectedSteps.map(({ status }) => status), replayed: false, formalGraphWritesExecuted: false });
+      return;
+    }
+    const miniProjectRestructureVerifyMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/mini-project-restructure\/commit\/steps\/(\d+)\/verify$/) : null;
+    if (miniProjectRestructureVerifyMatch?.[1] && miniProjectRestructureVerifyMatch[2]) {
+      const proposalId = decodeURIComponent(miniProjectRestructureVerifyMatch[1]);
+      const stepIndex = Number(miniProjectRestructureVerifyMatch[2]);
+      const input = await readMiniProjectRestructureVerifyRequest(request);
+      if (!Number.isSafeInteger(stepIndex) || stepIndex < 0 || stepIndex > 63 || input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("MINI_PROJECT_RESTRUCTURE_VERIFY_REQUEST_INVALID", "MiniProject 原位重构核验目标与账本意图不匹配。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const ledgerSteps = store.semanticCommitSteps(input.semanticCommitId);
+      const step = plan.steps[stepIndex];
+      if (!commit || commit.proposalId !== proposalId || !step || ledgerSteps.length !== plan.steps.length || ledgerSteps.some((ledgerStep, index) => ledgerStep.stepKind !== "GRAPH_WRITE" || ledgerStep.operationId !== plan.steps[index]!.operationId || ledgerStep.beforeHash !== plan.steps[index]!.beforeHash || ledgerStep.afterHash !== plan.steps[index]!.afterHash)) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构核验账本与已审阅计划不一致。");
+      if (commit.status === "COMPLETED") {
+        const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: true });
+        return;
+      }
+      if (commit.status === "RECOVERY_REQUIRED") {
+        const recoveryStep = ledgerSteps.find(({ status }) => status === "RECOVERY_REQUIRED");
+        respond(response, 200, { status: "RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex: recoveryStep?.stepIndex ?? stepIndex, errorCode: commit.errorCode ?? "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_REQUIRED" });
+        return;
+      }
+      if (commit.status !== "PENDING" || ledgerSteps.slice(0, stepIndex).some(({ status }) => status !== "VERIFIED") || ledgerSteps.slice(stepIndex + 1).some(({ status }) => status !== "PREPARED")) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_STEP_ORDER_INVALID", "MiniProject 原位重构必须按账本顺序逐步核验。");
+      const currentLedgerStep = ledgerSteps[stepIndex]!;
+      if (currentLedgerStep.status === "VERIFIED") {
+        respond(response, 200, { status: "VERIFIED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, stepStatus: "VERIFIED", ...(stepIndex + 1 < plan.steps.length ? { nextStepIndex: stepIndex + 1 } : {}) });
+        return;
+      }
+      if (currentLedgerStep.status !== "PREPARED" && currentLedgerStep.status !== "APPLIED") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_STEP_ORDER_INVALID", "MiniProject 原位重构 step 当前不能核验。");
+      const subject = store.getObject(plan.objectId);
+      const anchor = store.getActivePrimaryAnchorByObject(plan.objectId);
+      if (!subject || subject.objectType !== "MINI_PROJECT" || subject.lifecycle !== "OPEN" || subject.version !== plan.expectedVersion || !anchor || anchor.externalId !== plan.sourceRootBlockUuid) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_SUBJECT_STALE", "MiniProject 对象或正文入口在结构应用期间已变化。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
+      if (graphResult.status !== "FOUND" || graphResult.snapshot.kind !== "BLOCK" || graphResult.snapshot.resolved.id !== plan.sourceRootBlockUuid || graphResult.snapshot.truncated) {
+        const now = new Date().toISOString();
+        store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_GRAPH_UNREADABLE");
+        store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_GRAPH_UNREADABLE");
+        respond(response, 200, { status: "RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_GRAPH_UNREADABLE" });
+        return;
+      }
+      const positions = buildMiniProjectSourcePositions(graphResult.snapshot);
+      const position = positions.find(({ blockUuid }) => blockUuid === step.blockUuid);
+      const matchesPosition = (parentBlockUuid: string, previousSiblingUuid: string | null): boolean => Boolean(position && position.contentHash === step.contentHash && position.parentBlockUuid === parentBlockUuid && position.previousSiblingUuid === previousSiblingUuid);
+      const before = step.kind === "CREATE_BLOCK" ? position === undefined : matchesPosition(step.applyFromParentBlockUuid, step.applyFromPreviousSiblingUuid);
+      const after = step.kind === "CREATE_BLOCK" ? matchesPosition(step.parentBlockUuid, step.previousSiblingUuid) : matchesPosition(step.toParentBlockUuid, step.toPreviousSiblingUuid);
+      if (before && currentLedgerStep.status === "PREPARED") {
+        respond(response, 200, { status: "NOT_APPLIED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, stepStatus: "PREPARED" });
+        return;
+      }
+      if (!after) {
+        const now = new Date().toISOString();
+        store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_STEP_DIVERGED");
+        store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_STEP_DIVERGED");
+        respond(response, 200, { status: "RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_STEP_DIVERGED" });
+        return;
+      }
+      const now = new Date().toISOString();
+      if (currentLedgerStep.status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "APPLIED", now);
+      if (store.semanticCommitSteps(input.semanticCommitId)[stepIndex]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "VERIFIED", now);
+      if (stepIndex + 1 < plan.steps.length) {
+        respond(response, 200, { status: "VERIFIED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, stepStatus: "VERIFIED", nextStepIndex: stepIndex + 1 });
+        return;
+      }
+      if (miniProjectStructureHash(positions) !== plan.expectedStructureHash) {
+        store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_FINAL_SHAPE_MISMATCH");
+        store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_FINAL_SHAPE_MISMATCH");
+        respond(response, 200, { status: "RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_FINAL_SHAPE_MISMATCH" });
+        return;
+      }
+      store.finalizeSemanticCommit(input.semanticCommitId, "COMPLETED", now, plan.expectedStructureHash);
+      const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, new Date(now));
+      respond(response, 200, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: false });
+      return;
+    }
+    const miniProjectRestructureRecoveryBeginMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/mini-project-restructure\/commit\/recovery\/begin$/) : null;
+    if (miniProjectRestructureRecoveryBeginMatch?.[1]) {
+      const proposalId = decodeURIComponent(miniProjectRestructureRecoveryBeginMatch[1]);
+      const input = await readMiniProjectRestructureRecoveryRequest(request);
+      if (input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("MINI_PROJECT_RESTRUCTURE_RECOVERY_REQUEST_INVALID", "MiniProject 原位重构恢复意图与账本不匹配。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const commit = store.semanticCommit(input.semanticCommitId);
+      if (!commit || commit.proposalId !== proposalId) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构恢复账本与 Proposal 不一致。");
+      if (commit.status === "FAILED") {
+        const record = stored.proposal.status === "FAILED" ? stored : await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: true });
+        return;
+      }
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
+      const ledgerSteps = store.semanticCommitSteps(input.semanticCommitId);
+      if (ledgerSteps.length !== plan.steps.length || !plan.steps[input.failedStepIndex]) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构恢复账本与计划不一致。");
+      const compensationFor = (stepIndex: number) => {
+        const operationId = `compensate:${plan.steps[stepIndex]!.operationId}`;
+        const step = plan.compensationSteps.find((candidate) => candidate.operationId === operationId);
+        if (!step) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构缺少逆向计划。");
+        return { stepIndex, step };
+      };
+      const remainingCompensations = () => store.semanticCommitSteps(input.semanticCommitId).filter(({ status }) => status === "RECOVERY_REQUIRED").map(({ stepIndex }) => compensationFor(stepIndex)).sort((left, right) => right.stepIndex - left.stepIndex);
+      if (commit.status === "RECOVERY_REQUIRED") {
+        const compensations = remainingCompensations();
+        if (compensations.length === 0) {
+          respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex: input.failedStepIndex, errorCode: commit.errorCode ?? "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_REQUIRED" });
+        } else respond(response, 200, { status: "COMPENSATION_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, compensations, replayed: true });
+        return;
+      }
+      if (commit.status !== "PENDING" || ledgerSteps.slice(0, input.failedStepIndex).some(({ status }) => status !== "VERIFIED") || ledgerSteps.slice(input.failedStepIndex + 1).some(({ status }) => status !== "PREPARED") || !["PREPARED", "APPLIED"].includes(ledgerSteps[input.failedStepIndex]!.status)) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_STEP_ORDER_INVALID", "恢复只能从第一个未完成结构 step 开始。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
+      const currentPlanStep = plan.steps[input.failedStepIndex]!;
+      const markRecovery = (errorCode: string): void => {
+        const now = new Date().toISOString();
+        const status = store.semanticCommitSteps(input.semanticCommitId)[input.failedStepIndex]!.status;
+        if (status === "PREPARED" || status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, input.failedStepIndex, "RECOVERY_REQUIRED", now, errorCode);
+        if (store.semanticCommit(input.semanticCommitId)?.status === "PENDING") store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now, undefined, errorCode);
+      };
+      if (graphResult.status !== "FOUND" || graphResult.snapshot.kind !== "BLOCK" || graphResult.snapshot.resolved.id !== plan.sourceRootBlockUuid || graphResult.snapshot.truncated) {
+        markRecovery("V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_GRAPH_UNREADABLE");
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex: input.failedStepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_GRAPH_UNREADABLE" });
+        return;
+      }
+      const positions = buildMiniProjectSourcePositions(graphResult.snapshot);
+      const position = positions.find(({ blockUuid }) => blockUuid === currentPlanStep.blockUuid);
+      const matches = (parentBlockUuid: string, previousSiblingUuid: string | null) => Boolean(position && position.contentHash === currentPlanStep.contentHash && position.parentBlockUuid === parentBlockUuid && position.previousSiblingUuid === previousSiblingUuid);
+      const before = currentPlanStep.kind === "CREATE_BLOCK" ? position === undefined : matches(currentPlanStep.applyFromParentBlockUuid, currentPlanStep.applyFromPreviousSiblingUuid);
+      const after = currentPlanStep.kind === "CREATE_BLOCK" ? matches(currentPlanStep.parentBlockUuid, currentPlanStep.previousSiblingUuid) : matches(currentPlanStep.toParentBlockUuid, currentPlanStep.toPreviousSiblingUuid);
+      if (!before && !after) {
+        markRecovery("V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_DIVERGED");
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex: input.failedStepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_DIVERGED" });
+        return;
+      }
+      const appliedIndexes = ledgerSteps.slice(0, input.failedStepIndex).map(({ stepIndex }) => stepIndex);
+      if (after) appliedIndexes.push(input.failedStepIndex);
+      const now = new Date().toISOString();
+      if (after && ledgerSteps[input.failedStepIndex]!.status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, input.failedStepIndex, "APPLIED", now);
+      for (const stepIndex of [...appliedIndexes, ...(before ? [input.failedStepIndex] : [])]) {
+        const status = store.semanticCommitSteps(input.semanticCommitId)[stepIndex]!.status;
+        if (status === "VERIFIED" || status === "APPLIED" || status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_EXECUTION_FAILED");
+      }
+      store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_EXECUTION_FAILED");
+      if (before) store.advanceSemanticCommitStep(input.semanticCommitId, input.failedStepIndex, "COMPENSATED", now);
+      const compensations = remainingCompensations();
+      if (compensations.length === 0) {
+        if (miniProjectStructureHash(positions) !== plan.sourceStructureHash) {
+          respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex: input.failedStepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_SHAPE_MISMATCH" });
+          return;
+        }
+        store.finalizeSemanticCommit(input.semanticCommitId, "FAILED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_EXECUTION_FAILED");
+        const record = await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt, new Date(now));
+        respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: false });
+        return;
+      }
+      respond(response, 200, { status: "COMPENSATION_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, compensations, replayed: false });
+      return;
+    }
+    const miniProjectRestructureCompensationVerifyMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/mini-project-restructure\/commit\/recovery\/steps\/(\d+)\/verify$/) : null;
+    if (miniProjectRestructureCompensationVerifyMatch?.[1] && miniProjectRestructureCompensationVerifyMatch[2]) {
+      const proposalId = decodeURIComponent(miniProjectRestructureCompensationVerifyMatch[1]);
+      const stepIndex = Number(miniProjectRestructureCompensationVerifyMatch[2]);
+      const input = await readMiniProjectRestructureVerifyRequest(request);
+      if (!Number.isSafeInteger(stepIndex) || stepIndex < 0 || stepIndex > 63 || input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("MINI_PROJECT_RESTRUCTURE_RECOVERY_REQUEST_INVALID", "MiniProject 原位重构补偿核验意图与账本不匹配。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+      const commit = store.semanticCommit(input.semanticCommitId);
+      if (!commit || commit.proposalId !== proposalId) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构补偿账本与 Proposal 不一致。");
+      if (commit.status === "FAILED") {
+        const record = stored.proposal.status === "FAILED" ? stored : await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: true });
+        return;
+      }
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
+      let ledgerSteps = store.semanticCommitSteps(input.semanticCommitId);
+      if (!plan.steps[stepIndex] || ledgerSteps.length !== plan.steps.length) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构补偿账本与计划不一致。");
+      if (commit.status !== "RECOVERY_REQUIRED" || ledgerSteps.slice(stepIndex + 1).some(({ status }) => status === "RECOVERY_REQUIRED")) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_COMPENSATION_ORDER_INVALID", "MiniProject 原位重构必须按逆序补偿。");
+      if (ledgerSteps[stepIndex]!.status === "COMPENSATED") {
+        const next = ledgerSteps.filter(({ status }) => status === "RECOVERY_REQUIRED").map(({ stepIndex: index }) => index).sort((a, b) => b - a)[0];
+        respond(response, 200, { status: "COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, ...(next !== undefined ? { nextStepIndex: next } : {}) });
+        return;
+      }
+      if (ledgerSteps[stepIndex]!.status !== "RECOVERY_REQUIRED") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_COMPENSATION_ORDER_INVALID", "当前结构 step 不需要补偿。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
+      if (graphResult.status !== "FOUND" || graphResult.snapshot.kind !== "BLOCK" || graphResult.snapshot.resolved.id !== plan.sourceRootBlockUuid || graphResult.snapshot.truncated) {
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_GRAPH_UNREADABLE" });
+        return;
+      }
+      const positions = buildMiniProjectSourcePositions(graphResult.snapshot);
+      const planStep = plan.steps[stepIndex]!;
+      const position = positions.find(({ blockUuid }) => blockUuid === planStep.blockUuid);
+      const matches = (parentBlockUuid: string, previousSiblingUuid: string | null) => Boolean(position && position.contentHash === planStep.contentHash && position.parentBlockUuid === parentBlockUuid && position.previousSiblingUuid === previousSiblingUuid);
+      const compensated = planStep.kind === "CREATE_BLOCK" ? position === undefined : matches(planStep.fromParentBlockUuid, planStep.fromPreviousSiblingUuid);
+      const stillApplied = planStep.kind === "CREATE_BLOCK" ? matches(planStep.parentBlockUuid, planStep.previousSiblingUuid) : matches(planStep.toParentBlockUuid, planStep.toPreviousSiblingUuid);
+      if (stillApplied) {
+        respond(response, 200, { status: "NOT_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex });
+        return;
+      }
+      if (!compensated) {
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_COMPENSATION_DIVERGED" });
+        return;
+      }
+      const now = new Date().toISOString();
+      store.advanceSemanticCommitStep(input.semanticCommitId, stepIndex, "COMPENSATED", now);
+      ledgerSteps = store.semanticCommitSteps(input.semanticCommitId);
+      const next = ledgerSteps.filter(({ status }) => status === "RECOVERY_REQUIRED").map(({ stepIndex: index }) => index).sort((a, b) => b - a)[0];
+      if (next !== undefined) {
+        respond(response, 200, { status: "COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, nextStepIndex: next });
+        return;
+      }
+      if (miniProjectStructureHash(positions) !== plan.sourceStructureHash) {
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_SHAPE_MISMATCH" });
+        return;
+      }
+      store.finalizeSemanticCommit(input.semanticCommitId, "FAILED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_EXECUTION_FAILED");
+      const record = await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt, new Date(now));
+      respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: false });
       return;
     }
     const interactionDispositionMatch = request.method === "POST" ? url.pathname.match(/^\/provider\/ux\/interactions\/(uxi_[A-Za-z0-9_-]{16,96})\/disposition$/) : null;

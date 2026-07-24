@@ -200,6 +200,37 @@ export interface ServiceMiniProjectGrillPreviewResult {
 export interface ServiceMiniProjectGrillProposalRequest { objectId: string; expectedVersion: number; previewHandle: string }
 export interface ServiceMiniProjectGrillProposalResult { record: ServiceStoredProposal; replayed: boolean }
 
+export type ServiceMiniProjectRestructureStep =
+  | { operationId: string; kind: "CREATE_BLOCK"; blockUuid: string; parentBlockUuid: string; previousSiblingUuid: string | null; text: string; contentHash: string; beforeHash: string; afterHash: string }
+  | { operationId: string; kind: "MOVE_BLOCK"; blockUuid: string; contentHash: string; fromParentBlockUuid: string; fromPreviousSiblingUuid: string | null; applyFromParentBlockUuid: string; applyFromPreviousSiblingUuid: string | null; toParentBlockUuid: string; toPreviousSiblingUuid: string | null; beforeHash: string; afterHash: string };
+export type ServiceMiniProjectRestructureCompensationStep =
+  | { operationId: string; kind: "REMOVE_CREATED_BLOCK"; blockUuid: string; contentHash: string; expectedParentBlockUuid: string; expectedPreviousSiblingUuid: string | null }
+  | { operationId: string; kind: "MOVE_BLOCK"; blockUuid: string; contentHash: string; fromParentBlockUuid: string; fromPreviousSiblingUuid: string | null; toParentBlockUuid: string; toPreviousSiblingUuid: string | null };
+export interface ServiceMiniProjectRestructurePlan {
+  proposalId: string; groupId: string; objectId: string; expectedVersion: number; sourceRootBlockUuid: string; sourceScopeHash: string; sourceStructureHash: string; expectedStructureHash: string;
+  steps: ServiceMiniProjectRestructureStep[]; compensationSteps: ServiceMiniProjectRestructureCompensationStep[];
+}
+export interface ServiceMiniProjectRestructurePreparation {
+  status: "PREPARED";
+  semanticCommitId: string;
+  proposalId: string;
+  expectedUpdatedAt: string;
+  plan: ServiceMiniProjectRestructurePlan;
+  stepStatuses: Array<"PREPARED" | "APPLIED" | "VERIFIED" | "COMPENSATED" | "RECOVERY_REQUIRED">;
+  replayed: boolean;
+  formalGraphWritesExecuted: false;
+}
+export type ServiceMiniProjectRestructurePreparationResult = ServiceMiniProjectRestructurePreparation | ({ status: "STALE" } & ServiceProposalRevalidation);
+export type ServiceMiniProjectRestructureStepVerification =
+  | { status: "NOT_APPLIED" | "VERIFIED"; semanticCommitId: string; proposalId: string; stepIndex: number; stepStatus: "PREPARED" | "VERIFIED"; nextStepIndex?: number }
+  | { status: "COMPLETED"; semanticCommitId: string; proposalId: string; record: ServiceStoredProposal; replayed: boolean }
+  | { status: "RECOVERY_REQUIRED"; semanticCommitId: string; proposalId: string; stepIndex: number; errorCode: string };
+export type ServiceMiniProjectRestructureRecoveryResult =
+  | { status: "COMPENSATION_REQUIRED"; semanticCommitId: string; proposalId: string; compensations: Array<{ stepIndex: number; step: ServiceMiniProjectRestructureCompensationStep }>; replayed: boolean }
+  | { status: "NOT_COMPENSATED" | "COMPENSATED"; semanticCommitId: string; proposalId: string; stepIndex: number; nextStepIndex?: number }
+  | { status: "FAILED_COMPENSATED"; semanticCommitId: string; proposalId: string; record: ServiceStoredProposal; replayed: boolean }
+  | { status: "MANUAL_RECOVERY_REQUIRED"; semanticCommitId: string; proposalId: string; stepIndex: number; errorCode: string };
+
 export type ServiceInteractionDisposition = "HELPFUL" | "NOT_NEEDED" | "INACCURATE" | "TOO_MUCH" | "DO_NOT_REPEAT";
 export interface ServiceInteractionEvidenceSummary {
   total: number;
@@ -920,6 +951,34 @@ export class LocalServiceClient {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  prepareMiniProjectRestructure(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE"; traceId: string }): Promise<ServiceMiniProjectRestructurePreparationResult> {
+    return this.request<ServiceMiniProjectRestructurePreparationResult>(`/proposals/${encodeURIComponent(proposalId)}/mini-project-restructure/commit/prepare`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  verifyMiniProjectRestructureStep(proposalId: string, stepIndex: number, input: { semanticCommitId: string; expectedUpdatedAt: string; traceId: string }): Promise<ServiceMiniProjectRestructureStepVerification> {
+    return this.request<ServiceMiniProjectRestructureStepVerification>(`/proposals/${encodeURIComponent(proposalId)}/mini-project-restructure/commit/steps/${stepIndex}/verify`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  beginMiniProjectRestructureRecovery(proposalId: string, input: { semanticCommitId: string; expectedUpdatedAt: string; failedStepIndex: number; failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED"; traceId: string }): Promise<ServiceMiniProjectRestructureRecoveryResult> {
+    return this.request<ServiceMiniProjectRestructureRecoveryResult>(`/proposals/${encodeURIComponent(proposalId)}/mini-project-restructure/commit/recovery/begin`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  verifyMiniProjectRestructureCompensation(proposalId: string, stepIndex: number, input: { semanticCommitId: string; expectedUpdatedAt: string; traceId: string }): Promise<ServiceMiniProjectRestructureRecoveryResult> {
+    return this.request<ServiceMiniProjectRestructureRecoveryResult>(`/proposals/${encodeURIComponent(proposalId)}/mini-project-restructure/commit/recovery/steps/${stepIndex}/verify`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     }, 15_000);
   }
 

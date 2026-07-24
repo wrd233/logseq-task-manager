@@ -10,7 +10,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H/J/K/Desktop host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_REVIEW_UI_AUTOMATED | P2-A turn/preview + P2-B server-owned HIGH Proposal/Plugin Review route 自动 PASS；真实 DeepSeek turn 与 preview PASS | 未验；bridge 当前未连接 | exact-once/root/zero-delete 与 preview-handle 重验已锁定；完整 live route、结构 Commit/Undo 仍开放 |
+| P2 | IN_PROGRESS_LEDGER_AUTOMATED | P2-A turn/preview + P2-B server-owned HIGH Proposal/Review + dedicated structure prepare/verify/recovery 自动 PASS；真实 DeepSeek turn 与 preview PASS | 未验；bridge 当前未连接 | exact-once/root/zero-delete、完整结构指纹、逐步 Commit 与逆序补偿已锁定；Plugin executor/完成态 Undo/Desktop identity 仍开放 |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收

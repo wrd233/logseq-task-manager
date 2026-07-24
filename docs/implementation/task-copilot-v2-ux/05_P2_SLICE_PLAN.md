@@ -47,7 +47,7 @@ Proposal Review、Commit/Undo、交互证据接线。
 
 ## P2-B：MiniProject 原位重构
 
-状态：`PARTIAL_PROPOSAL_CONTRACT_AUTOMATED`
+状态：`PARTIAL_STRUCTURAL_LEDGER_AUTOMATED`
 
 代码审计确认现有通用 Proposal Commit 只能执行一个 Block patch，正式 Adapter 也仍拒绝未完成
 Desktop Gate 的 move；因此不复用该路径伪装多 Block 原子性。Application 已新增 Preview→HIGH
@@ -57,7 +57,10 @@ Proposal 纯构建合同，Domain 新增受约束 `CREATE_BLOCK` 并收紧 `MOVE
 Service 已用 session-only preview handle 接通 server-owned Proposal route：handle 30 分钟过期、
 容量 64、重启清空；client 不能上传 preview，Service 重新读取 Object/Anchor/subtree 后构建同一
 HIGH Proposal。Plugin 提供 loading/error 的“进入变更审阅”并跳转待我确认，但不显示结构
-Commit。通用 Commit 继续 fail closed；专用 ledger/executor/Desktop identity Gate 尚未完成。
+Commit。专用 Application planner 与 Service ledger 已进一步完成：每项操作一个 GRAPH_WRITE step，
+完整来源/最终结构指纹，执行前位置与补偿回原位置分离，按序 verify、最终 APPLIED、失败进入同一
+RECOVERY_REQUIRED 账本并逆序补偿至 FAILED；stale、replay 和补偿前拒绝已有自动故障证据。
+通用 Commit 继续 fail closed；Plugin executor、完成态 Undo 与 Desktop identity Gate 尚未完成。
 
 默认保留原根 Block；原始事实零丢失；无法归类内容进入待判断/原始材料；结构只使用最小骨架和按需区块。
 

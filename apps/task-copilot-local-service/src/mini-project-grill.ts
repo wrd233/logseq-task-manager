@@ -29,7 +29,7 @@ export interface MiniProjectGrillSource {
 }
 
 export function buildMiniProjectSourcePositions(snapshot: ServiceGraphSnapshot): MiniProjectSourcePosition[] {
-  if (snapshot.kind !== "BLOCK" || snapshot.blocks.length < 1) throw new Error("MiniProject restructure requires a Block subtree.");
+  if (snapshot.kind !== "BLOCK" || snapshot.blocks.length < 1 || snapshot.truncated) throw new Error("MiniProject restructure requires one complete Block subtree.");
   const previousByParent = new Map<string, string>();
   return snapshot.blocks.map((block, index) => {
     const isRoot = block.relation === "ROOT";

@@ -35,7 +35,7 @@ function preview(): GrillPreview {
 
 function input(): MiniProjectRestructureProposalInput {
   return {
-    proposalId: "proposal_restructure_mini_1", createdAt: "2026-07-24T18:00:01.000Z", objectId: "mini-1", objectVersion: 3, preview: preview(),
+    proposalId: "proposal_restructure_mini_1", createdAt: "2026-07-24T18:00:01.000Z", objectId: "mini-1", objectVersion: 3, preview: preview(), sourceScopeHash: "1234abcd",
     sourcePositions: [
       { materialId: "root", blockUuid: "root-block", parentBlockUuid: null, previousSiblingUuid: null, exactText: rootText, contentHash: rootHash, isRoot: true },
       { materialId: "material-2", blockUuid: "source-block", parentBlockUuid: "root-block", previousSiblingUuid: null, exactText: sourceText, contentHash: sourceHash, isRoot: false },
@@ -59,7 +59,14 @@ test("zero-loss preview becomes one HIGH review Proposal without rewriting or de
 test("move operation preserves exact source hash and captures reversible before/after position", () => {
   const proposal = buildMiniProjectRestructureProposal(input());
   const move = proposal.groups[0]?.semanticOperations.find(({ kind }) => kind === "MOVE_BLOCK");
-  assert.deepEqual(move?.payload, { fromParentBlockUuid: "root-block", fromPreviousSiblingUuid: null, toParentBlockUuid: "11111111-1111-4111-8111-111111111111", toPreviousSiblingUuid: null, contentHash: sourceHash });
+  assert.deepEqual(move && {
+    fromParentBlockUuid: move.payload.fromParentBlockUuid, fromPreviousSiblingUuid: move.payload.fromPreviousSiblingUuid,
+    toParentBlockUuid: move.payload.toParentBlockUuid, toPreviousSiblingUuid: move.payload.toPreviousSiblingUuid,
+    contentHash: move.payload.contentHash, sourceRootBlockUuid: move.payload.sourceRootBlockUuid, sourceScopeHash: move.payload.sourceScopeHash,
+  }, { fromParentBlockUuid: "root-block", fromPreviousSiblingUuid: null, toParentBlockUuid: "11111111-1111-4111-8111-111111111111", toPreviousSiblingUuid: null, contentHash: sourceHash, sourceRootBlockUuid: "root-block", sourceScopeHash: "1234abcd" });
+  assert.match(String(move?.payload.sourceStructureHash), /^[0-9a-f]{8}$/);
+  assert.match(String(move?.payload.expectedStructureHash), /^[0-9a-f]{8}$/);
+  assert.notEqual(move?.payload.sourceStructureHash, move?.payload.expectedStructureHash);
   assert.equal(move?.target.hash, sourceHash);
 });
 
