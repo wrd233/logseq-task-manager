@@ -4,6 +4,7 @@ import type { ServicePrimaryAnchorRebindResult } from "@task-copilot/service-cli
 import { checksum } from "@task-copilot/shared";
 
 import type { ServiceRuntimeClient } from "./service-connection.ts";
+import type { PluginAnchorIssueNarration } from "./status-narration-runtime.ts";
 
 export interface V2RebindCandidate {
   anchor: V2Anchor & { status: Exclude<V2Anchor["status"], "replaced"> };
@@ -132,5 +133,30 @@ export function renderV2PrimaryAnchorRebindPanel(state: V2RebindPanelState, avai
     <p>提交后 object_id 与 Primary Ownership 不变；旧 Anchor 保留为 replaced，新 Block 成为唯一 active Primary Anchor。</p>
     <label class="confirm-line"><input type="checkbox" data-field="v2RebindConfirmed">我单独确认这项高影响重新绑定</label>
     <div class="actions"><button type="button" class="danger" data-action="v2-rebind-submit"${state.busy ? " disabled aria-busy=\"true\"" : ""}>${state.busy ? "提交中…" : "确认重新绑定"}</button>${state.busy ? "<span class=\"muted\">正式请求已提交，请等待明确结果。</span>" : '<button type="button" data-action="v2-rebind-cancel">取消</button>'}</div>
+  </section>`;
+}
+
+export function renderV2AnchorIssueStatus(
+  issues: readonly PluginAnchorIssueNarration[] | "unavailable" | undefined,
+  available: boolean,
+): string {
+  if (issues === undefined || issues === "unavailable" || issues.length === 0) return "";
+  const visible = issues.slice(0, 5);
+  const actionable = issues.some((issue) => issue.nextActionEligible);
+  const actionLabel = issues.find((issue) => issue.nextActionLabel)?.nextActionLabel ?? "检查正文连接";
+  return `<section class="anchor-issue-status" aria-label="正文连接待处理">
+    <div class="eyebrow">正文连接</div>
+    <h2>有 ${issues.length} 个正式事项需要重新确认正文</h2>
+    <p class="muted">正式事项仍保留；这里不会自动移动、覆盖或删除任何 Logseq 正文。</p>
+    <div class="anchor-issue-list">${visible.map((issue) => `<article class="anchor-issue-card" data-narration-rule="${escapeHtml(issue.narrationRuleId)}">
+      <h3>${escapeHtml(issue.objectText ?? "尚未读取到名称的正式事项")}</h3>
+      <p>${escapeHtml(issue.conclusion)}</p>
+      ${issue.keyEvidence.length ? `<p class="muted">${issue.keyEvidence.slice(0, 2).map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}
+      ${issue.unknowns.length ? `<p class="muted">${escapeHtml(issue.unknowns[0])}</p>` : ""}
+    </article>`).join("")}</div>
+    ${issues.length > visible.length ? `<p class="muted">另有 ${issues.length - visible.length} 项；修复后刷新可继续处理。</p>` : ""}
+    ${available && actionable
+      ? `<p>先在 Logseq 中选中要作为新正文的明确对象 Block，再预览影响并单独确认。</p><button type="button" data-action="v2-rebind-open">${escapeHtml(actionLabel)}</button>`
+      : `<p class="muted">当前正式写入已暂停；恢复 Local Service 后再处理正文连接。</p>`}
   </section>`;
 }

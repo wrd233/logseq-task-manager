@@ -5,6 +5,7 @@ import type { ServicePrimaryAnchorRebindRequest } from "@task-copilot/service-cl
 
 import {
   prepareV2PrimaryAnchorRebind,
+  renderV2AnchorIssueStatus,
   renderV2PrimaryAnchorRebindPanel,
   submitV2PrimaryAnchorRebind,
 } from "../src/v2-anchor-rebind.ts";
@@ -92,4 +93,42 @@ test("rebind preview refuses non-explicit current Blocks and mismatched object t
     ...client([]),
     listObjects: async () => [{ ...object, objectType: "MINI_PROJECT" as const }],
   }, async () => targetBlock), /同类型/);
+});
+
+test("Anchor issue status stays user-readable, bounded, and routes only to existing preview", () => {
+  const issue = {
+    objectText: "恢复发布",
+    conclusion: "正式事项与正文失去连接",
+    keyEvidence: ["原正文位置当前不可用", "正式事项仍保留"],
+    unknowns: [],
+    nextActionEligible: true,
+    nextActionLabel: "检查正文连接",
+    narrationRuleId: "anchor-missing",
+  };
+  const html = renderV2AnchorIssueStatus([
+    issue,
+    ...Array.from({ length: 5 }, (_, index) => ({ ...issue, objectText: `事项 ${index + 2}` })),
+  ], true);
+
+  assert.match(html, /有 6 个正式事项需要重新确认正文/);
+  assert.match(html, /正式事项仍保留/);
+  assert.match(html, /先在 Logseq 中选中/);
+  assert.match(html, /data-action="v2-rebind-open"/);
+  assert.match(html, /另有 1 项/);
+  assert.doesNotMatch(html, /事项 6/);
+  assert.doesNotMatch(html, /anchorId|externalId|objectId|contentHash|Primary Anchor/);
+});
+
+test("Anchor issue status suppresses repair action while formal writes are unavailable", () => {
+  const html = renderV2AnchorIssueStatus([{
+    conclusion: "正式事项与正文连接存在冲突",
+    keyEvidence: ["当前连接不能安全确定唯一正文位置"],
+    unknowns: ["尚未读取正式事项的当前状态"],
+    nextActionEligible: true,
+    nextActionLabel: "检查正文连接",
+    narrationRuleId: "anchor-conflict",
+  }], false);
+
+  assert.match(html, /正式写入已暂停/);
+  assert.doesNotMatch(html, /data-action="v2-rebind-open"/);
 });

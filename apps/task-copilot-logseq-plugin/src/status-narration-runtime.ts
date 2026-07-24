@@ -1,11 +1,12 @@
 import {
+  narrateV2AnchorStatus,
   narrateV2CommitStatus,
   narrateV2ObjectStatus,
   narrateV2ProposalStatus,
   narrateV2SystemStatus,
   type StatusNarration,
 } from "@task-copilot/application";
-import type { V2ManagedObject } from "@task-copilot/domain";
+import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 import type {
   ServiceSemanticCommit,
   ServiceStoredProposal,
@@ -16,6 +17,16 @@ import type { RuntimeDiagnosticsSnapshot } from "./runtime-diagnostics.ts";
 export interface PluginObjectNarration {
   objectVersion: number;
   narration: StatusNarration;
+}
+
+export interface PluginAnchorIssueNarration {
+  objectText?: string;
+  conclusion: string;
+  keyEvidence: string[];
+  unknowns: string[];
+  nextActionEligible: boolean;
+  nextActionLabel?: string;
+  narrationRuleId: string;
 }
 
 function availableCount(value: number | "unavailable" | undefined): number {
@@ -92,6 +103,50 @@ export function projectPluginObjectNarrations(
       }),
     }];
   }));
+}
+
+export function projectPluginAnchorIssueNarrations(
+  objects: readonly V2ManagedObject[],
+  anchors: readonly V2Anchor[],
+  observedAt: string,
+): PluginAnchorIssueNarration[] {
+  const objectsById = new Map<string, V2ManagedObject>();
+  for (const object of objects) {
+    if (objectsById.has(object.objectId)) {
+      throw new Error("Duplicate Object identity in Anchor narration projection.");
+    }
+    objectsById.set(object.objectId, object);
+  }
+  const anchorIds = new Set<string>();
+  for (const anchor of anchors) {
+    if (anchorIds.has(anchor.anchorId)) {
+      throw new Error("Duplicate Anchor identity in status narration projection.");
+    }
+    anchorIds.add(anchor.anchorId);
+  }
+
+  return anchors
+    .filter((anchor) => anchor.status === "missing" || anchor.status === "conflict")
+    .map((anchor) => {
+      const object = objectsById.get(anchor.objectId);
+      const narration = narrateV2AnchorStatus({
+        observedAt,
+        scene: "OBJECT",
+        anchor,
+        ...(object ? { object } : {}),
+      });
+      return {
+        ...(object ? { objectText: object.text } : {}),
+        conclusion: narration.conclusion,
+        keyEvidence: narration.keyEvidence,
+        unknowns: narration.unknowns,
+        nextActionEligible: narration.nextActionEligible,
+        ...(narration.nextAction?.intent === "OPEN_ANCHOR_REPAIR"
+          ? { nextActionLabel: narration.nextAction.label }
+          : {}),
+        narrationRuleId: narration.source.ruleId,
+      };
+    });
 }
 
 export function projectPluginProposalNarration(

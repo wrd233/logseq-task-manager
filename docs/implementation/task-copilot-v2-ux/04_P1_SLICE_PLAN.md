@@ -153,7 +153,8 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 
 状态：`PARTIAL_UI_AUTOMATED` — Application 确定性 Object/Proposal/Commit/Anchor/System
 叙述契约已接入 Plugin System、Proposal Review、Recent Changes 与 Now Work；
-Anchor repair consumer、Desktop Gate 与 LLM draft protocol 仍待扩展。
+Anchor missing/conflict 的用户问题卡和既有 Rebind 修复链也已接入；Desktop Gate 与 LLM
+draft protocol 仍待扩展。
 
 Application/ViewModel 契约：
 
@@ -211,8 +212,16 @@ source
   target identity 不匹配或资格不足时保持普通“更新状态”；
 - Now 卡片先显示结论、依据与 unknown，完整 facts 折叠；投影失败明确降级到 Local Service
   既有 reason，不改变正式状态或动作资格；
-- Application tests 112/112、Plugin tests 208/208、0 skipped，typecheck/build PASS；
-- 当前未完成 Anchor repair consumer 与 Desktop 主题/窄栏/真实恢复对照，不能声明 P1-D 完成。
+- Anchor missing/conflict 只在“系统状态”用户层生成有界问题卡，active/replaced 不产生卡片；
+  标题、结论、最多两条依据和 unknown 不包含 object/Anchor/Graph/Block/hash 标识；
+- 问题卡一次最多展示 5 项，修复按钮只复用既有 `v2-rebind-open`；用户仍需先选中明确对象
+  Block，随后经过既有候选预览、独立高影响确认、Block/hash/version 与 Service generation
+  重校验，未建立第二套恢复状态机；
+- Rebind loading/error/preview/success 重绘后保持在折叠技术详情之外；Service 受限时不显示
+  可提交动作；
+- 复制/导出的 diagnostics snapshot 只保留冲突计数，不包含对象标题或用户叙述投影；
+- Application tests 112/112、Plugin tests 213/213、0 skipped，typecheck/build PASS；
+- 当前未完成 Desktop 主题/窄栏/真实 missing→repair→reload 对照，不能声明 P1-D 完成。
 
 ## P1-E：Block 轻标记原型
 

@@ -204,7 +204,7 @@ export class RuntimeDiagnostics {
   }
 }
 
-export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot, extensionHtml = ""): string {
+export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot, extensionHtml = "", userExtensionHtml = ""): string {
   const userStatus = deriveUserSystemStatus(snapshot);
   const rows = snapshot.stages.map((record) => `<tr><td><code>${escapeHtml(record.stage)}</code></td><td>${escapeHtml(record.status)}</td><td>${escapeHtml(record.started_at ?? "-")}</td><td>${escapeHtml(record.completed_at ?? "-")}</td><td>${escapeHtml(record.recoverability)}</td></tr>`).join("");
   const latest = snapshot.latest_error
@@ -224,6 +224,7 @@ export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot, e
           <div><dt>是否需要我操作</dt><dd>${escapeHtml(userStatus.actionRequired)}</dd></div>
         </dl>
       </section>
+      ${userExtensionHtml}
       <details class="technical-diagnostics">
         <summary>展开技术诊断</summary>
         <div class="technical-diagnostics-body">

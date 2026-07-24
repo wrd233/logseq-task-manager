@@ -5,6 +5,7 @@ import type { ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot
 import type { V2ManagedObject } from "@task-copilot/domain";
 
 import {
+  projectPluginAnchorIssueNarrations,
   projectPluginCommitNarration,
   projectPluginObjectNarrations,
   projectPluginProposalNarration,
@@ -161,6 +162,79 @@ test("object adapter rejects duplicate identity instead of selecting one version
   };
   assert.throws(
     () => projectPluginObjectNarrations([object, { ...object, version: 2 }], observedAt),
+    /Duplicate Object identity/,
+  );
+});
+
+test("Anchor adapter exposes only missing and conflicting user facts without Graph identities", () => {
+  const object: V2ManagedObject = {
+    objectId: "task-anchor",
+    objectType: "TASK",
+    version: 3,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "恢复正文连接",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  const baseAnchor = {
+    anchorId: "private-anchor-00",
+    objectId: object.objectId,
+    graphId: "graph-secret",
+    externalId: "block-secret",
+    role: "primary_text" as const,
+    contentHash: "hash-secret",
+    lastSeenAt: observedAt,
+  };
+  const projected = projectPluginAnchorIssueNarrations([object], [
+    { ...baseAnchor, status: "active" },
+    { ...baseAnchor, anchorId: "private-anchor-01", status: "missing" },
+    { ...baseAnchor, anchorId: "private-anchor-02", status: "conflict" },
+    { ...baseAnchor, anchorId: "private-anchor-03", status: "replaced" },
+  ], observedAt);
+
+  assert.equal(projected.length, 2);
+  assert.deepEqual(projected.map((issue) => issue.conclusion), [
+    "正式事项与正文失去连接",
+    "正式事项与正文连接存在冲突",
+  ]);
+  assert.equal(projected.every((issue) => issue.objectText === "恢复正文连接"), true);
+  assert.equal(projected.every((issue) => issue.nextActionLabel === "检查正文连接"), true);
+  const serialized = JSON.stringify(projected);
+  for (const privateFact of ["private-anchor-00", "private-anchor-01", "private-anchor-02", "private-anchor-03", "block-secret", "graph-secret", "hash-secret", "task-anchor"]) {
+    assert.equal(serialized.includes(privateFact), false);
+  }
+});
+
+test("Anchor adapter fails closed on duplicate Anchor or Object identities", () => {
+  const object: V2ManagedObject = {
+    objectId: "task-duplicate-anchor",
+    objectType: "TASK",
+    version: 1,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "重复正文",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  const anchor = {
+    anchorId: "anchor-duplicate",
+    objectId: object.objectId,
+    graphId: "graph-1",
+    externalId: "block-1",
+    role: "primary_text" as const,
+    status: "missing" as const,
+    contentHash: "hash",
+    lastSeenAt: observedAt,
+  };
+  assert.throws(
+    () => projectPluginAnchorIssueNarrations([object], [anchor, anchor], observedAt),
+    /Duplicate Anchor identity/,
+  );
+  assert.throws(
+    () => projectPluginAnchorIssueNarrations([object, { ...object, version: 2 }], [anchor], observedAt),
     /Duplicate Object identity/,
   );
 });

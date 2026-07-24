@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D deterministic narration contract automated PASS；未展示、UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace automated PASS；Attention 未展示、Page slot/Desktop 与 UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -180,13 +180,21 @@ System 继续回答影响/可用能力/数据安全/用户动作五问，但 hea
 来自 Application；Proposal 与 Commit 卡片先显示结论和最多两条依据，unknown 明示，内部
 status、provider/model、Commit identity、checksum 与 error code 退到折叠详情。既有
 Commit/Undo/Recovery Handler 和前置校验没有转移到叙述层，完成状态不会自动获得 Undo。
-此时 Object/Anchor/Now consumer 与真实 Desktop 信息密度对照仍未完成。
+此时 Object/Now consumer 与真实 Desktop 信息密度对照仍未完成。
 
 同一 adapter 随后接入 Now Work Object 卡片：Object 列表重复 identity 会 fail closed，只有
 与 Now item 完全相同的 Object version 才能替换既有 reason；到期 WAITING/PAUSED 与已结束
 blocker 的 next action 只映射到既有 Condition 编辑 Handler。投影不完整时明确显示错误并
 保留 Service reason，不开放 Attention shadow，也不增加正式写入权限。Anchor repair 现场
 与 Desktop 信息密度对照仍待完成。
+
+Anchor missing/conflict 随后接入同一用户层系统状态：只投影缺失/冲突，active/replaced 保持
+安静；每项只显示对象标题、结论、最多两条依据和 unknown，最多展示 5 项，不把
+object/Anchor/Graph/Block/hash 标识带入用户投影或 diagnostics snapshot。唯一动作继续调用
+既有 `v2-rebind-open`，要求用户先选择明确对象 Block，再走候选预览、独立确认、提交前
+Block/hash/version 与 Service generation 重校验。Service 受限时动作不可用，重绘后的
+loading/error/preview/success 也保持在折叠技术详情外；没有新增恢复状态机、正式写入路径或
+自动正文修改。
 
 ### P1-F Project/Task 重入纯投影
 
@@ -231,6 +239,7 @@ Association 不再展开为行动列表，完整 Objectives/Deliverables/对象�
 - P1-F Plugin consumer 后 tests：200/200、0 skipped，typecheck/build PASS；
 - P1-D Plugin consumer 后 tests：204/204、0 skipped，typecheck/build PASS；
 - P1-D Object/Now consumer 后 tests：208/208、0 skipped，typecheck/build PASS；
+- P1-D Anchor repair consumer 后 tests：213/213、0 skipped，typecheck/build PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -244,7 +253,7 @@ Association 不再展开为行动列表，完整 Objectives/Deliverables/对象�
 ## 下一步
 
 1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 将同一 P1-F 投影接到 Project Page slot，并完成 Project workspace 的 Desktop 信息密度
-   对照；同时让 P1-D 对照现有 System/Recent Changes 文案而不复制恢复状态机；
+2. 将同一 P1-F 投影接到 Project Page slot，并完成 Project workspace 与 P1-D
+   System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
 3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

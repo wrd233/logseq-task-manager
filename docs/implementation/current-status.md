@@ -55,8 +55,10 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P1-D 确定性状态翻译已接入 System、Proposal Review、最近修改与 Now Work：主结论/依据/事实/
   推断/未知/下一动作资格/evidence scope/source 分离；恢复只路由既有 Audit，Anchor
   只路由受控修复，完成 Commit 不擅自承诺 Undo；Now narration 必须匹配 Object version，
-  到期复查只复用既有 Condition Handler；Application 112/112、Plugin 208/208 通过，
-  Anchor repair 现场与 Desktop 仍待验证；
+  到期复查只复用既有 Condition Handler；Anchor missing/conflict 已在用户层系统状态下显示
+  有界问题卡，并复用既有 Rebind 预览、独立确认和提交前重校验链，正常/历史 Anchor 保持
+  安静，Service 受限时不开放动作；Application 112/112、Plugin 213/213 通过，Desktop
+  主题/窄栏与真实 repair Gate 仍待验证；
 - P1-C `SHADOW` 动态 Now 已进入 Plugin count-only runtime 对照：继续处理只来自可行动 Focus，需要回看按
   blocker/review/due/Focus blocked 收敛，保持等待只含 Focus 中安静等待，普通 OPEN 不进入；
   复用 `/now-work.focus` 的过滤后顺序，不新增 API；Copilot 建议固定为空，Application

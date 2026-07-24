@@ -44,6 +44,7 @@ import {
 } from "./explicit-sync-controller.ts";
 import {
   prepareV2PrimaryAnchorRebind,
+  renderV2AnchorIssueStatus,
   renderV2PrimaryAnchorRebindPanel,
   submitV2PrimaryAnchorRebind,
   type V2RebindPanelState,
@@ -83,7 +84,9 @@ import {
 } from "./attention-shadow-runtime.ts";
 import { projectPluginV2ProjectReentry, type PluginProjectReentryCard } from "./reentry-runtime.ts";
 import {
+  projectPluginAnchorIssueNarrations,
   projectPluginObjectNarrations,
+  type PluginAnchorIssueNarration,
   type PluginObjectNarration,
 } from "./status-narration-runtime.ts";
 
@@ -287,9 +290,14 @@ async function loadV2CandidateSourcePreviews(candidates: readonly { candidateId:
   return Object.fromEntries(entries);
 }
 
-function renderDiagnostics(snapshot: Parameters<typeof renderRuntimeDiagnostics>[0]): string {
+function renderDiagnostics(
+  snapshot: Parameters<typeof renderRuntimeDiagnostics>[0],
+  anchorIssueNarrations: readonly PluginAnchorIssueNarration[] | "unavailable" = "unavailable",
+): string {
   const available = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
-  return renderRuntimeDiagnostics(snapshot, renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available));
+  const anchorStatus = renderV2AnchorIssueStatus(anchorIssueNarrations, available);
+  const rebindPanel = v2RebindPanel.status === "idle" ? "" : renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available);
+  return renderRuntimeDiagnostics(snapshot, "", `${anchorStatus}${rebindPanel}`);
 }
 
 async function model(): Promise<UiModel> {
@@ -550,7 +558,7 @@ async function refresh(): Promise<void> {
     return;
   }
   if (!featureReady) {
-    root.innerHTML = renderDiagnostics(await fullDiagnosticsSnapshot());
+    root.innerHTML = await fullDiagnosticsHtml();
     return;
   }
   let primaryHtml: string;
@@ -602,32 +610,35 @@ function restrictServiceRuntimeAfterTransportFailure(errorCode: string): void {
   if (logseq.isMainUIVisible) void refresh();
 }
 
-async function fullDiagnosticsSnapshot() {
+async function collectFullDiagnostics() {
   const base = diagnostics.snapshot();
   let pendingSemanticCommits: number | "unavailable" = "unavailable";
   let recoveryRequiredCommits: number | "unavailable" = "unavailable";
   let sourceAnchorConflicts: number | "unavailable" = "unavailable";
+  let anchorIssueNarrations: PluginAnchorIssueNarration[] | "unavailable" = "unavailable";
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
     try {
       const commits = await serviceRuntimeClient.listSemanticCommits();
       pendingSemanticCommits = commits.filter((commit) => commit.status === "PENDING").length;
       recoveryRequiredCommits = commits.filter((commit) => commit.status === "RECOVERY_REQUIRED").length;
-      let cursor: string | undefined;
-      let conflicts = 0;
-      const visitedCursors = new Set<string>();
-      do {
-        const page = await serviceRuntimeClient.listPrimaryAnchors(cursor, true);
-        conflicts += page.anchors.filter((anchor) => anchor.status === "missing" || anchor.status === "conflict").length;
-        cursor = page.nextCursor;
-        if (cursor && visitedCursors.has(cursor)) throw new Error("V2_DIAGNOSTICS_ANCHOR_CURSOR_LOOP");
-        if (cursor) visitedCursors.add(cursor);
-      } while (cursor);
-      sourceAnchorConflicts = conflicts;
     } catch (error) {
       operationalLogger.log("warn", "query-refresh", "v2_diagnostics_facts_unavailable", { result: "unavailable", errorCode: explain(error) });
     }
+    try {
+      const anchors = await listAllPrimaryAnchors(serviceRuntimeClient);
+      sourceAnchorConflicts = anchors.filter((anchor) => anchor.status === "missing" || anchor.status === "conflict").length;
+      let objects: Awaited<ReturnType<ServiceRuntimeClient["listObjects"]>> = [];
+      try {
+        objects = await serviceRuntimeClient.listObjects();
+      } catch (error) {
+        operationalLogger.log("warn", "query-refresh", "v2_anchor_object_facts_unavailable", { result: "partial", errorCode: explain(error) });
+      }
+      anchorIssueNarrations = projectPluginAnchorIssueNarrations(objects, anchors, new Date().toISOString());
+    } catch (error) {
+      operationalLogger.log("warn", "query-refresh", "v2_anchor_narration_unavailable", { result: "unavailable", errorCode: explain(error) });
+    }
   }
-  return {
+  const snapshot = {
     ...base,
     plugin_commit: PLUGIN_COMMIT,
     persistence_backend: explicitSyncController
@@ -641,6 +652,16 @@ async function fullDiagnosticsSnapshot() {
     recent_logs: operationalLogger.snapshot(),
     recent_action_failure: operationalLogger.latestError(),
   };
+  return { snapshot, anchorIssueNarrations };
+}
+
+async function fullDiagnosticsSnapshot() {
+  return (await collectFullDiagnostics()).snapshot;
+}
+
+async function fullDiagnosticsHtml(): Promise<string> {
+  const { snapshot, anchorIssueNarrations } = await collectFullDiagnostics();
+  return renderDiagnostics(snapshot, anchorIssueNarrations);
 }
 
 async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
@@ -2189,7 +2210,7 @@ async function openFromToolbar(): Promise<void> {
 
 async function showRuntimeDiagnostics(): Promise<void> {
   logseq.showMainUI({ autoFocus: true });
-  requireAppRoot().innerHTML = renderDiagnostics(await fullDiagnosticsSnapshot());
+  requireAppRoot().innerHTML = await fullDiagnosticsHtml();
 }
 
 async function showRuntimeDiagnosticsFromGeneralEntry(): Promise<void> {

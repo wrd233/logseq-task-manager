@@ -147,6 +147,18 @@ test("system status answers the five user questions before keeping engineering d
   assert.match(html.slice(detailBoundary), /Runtime Diagnostics[\s\S]*Copy diagnostics[\s\S]*v12[\s\S]*personal-graph/);
 });
 
+test("runtime diagnostics keeps user repair content outside collapsed engineering details", () => {
+  const diagnostics = new RuntimeDiagnostics();
+  const html = renderRuntimeDiagnostics(
+    diagnostics.snapshot(),
+    '<section data-test="technical-extension">technical only</section>',
+    '<section data-test="user-extension">正文连接需要处理</section>',
+  );
+  const detailBoundary = html.indexOf('<details class="technical-diagnostics">');
+  assert.ok(html.indexOf('data-test="user-extension"') < detailBoundary);
+  assert.ok(html.indexOf('data-test="technical-extension"') > detailBoundary);
+});
+
 test("restricted system status explains safety before exposing reason codes on demand", () => {
   const diagnostics = new RuntimeDiagnostics();
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
