@@ -66,6 +66,7 @@ PID 恢复且 SQLite 对象不丢。Desktop reload/结束/退出/Graph switch �
 | UX-G007 | 多 Block SemanticCommit scope 是否足以原位重构 | application prototype | 不先扩 Schema/恢复器 |
 | UX-G008 | attention signal 持久化位置 | PARTIAL_RUNTIME：Plugin 已接 bounded session cache、Graph switch clear 与 count-only telemetry；下一步用 reload/recompute Desktop 证据比较是否根本需要 SQLite derivative | 不建第二正式权威；当前不改 schema、不开放 UI |
 | UX-G009 | unified UX output 是否需要持久化 | CLOSED_FOR_P1：Application/Service contract 直接返回机器物化的派生草稿，不持久化；修改建议只有无 operation 的 `DRAFT_PROPOSAL`，正式保留必须重建为现有 Proposal | Provider 类型未进入 Domain；若以后有性能证据，只加可失效 cache，不建第二正式权威 |
+| UX-G010 | interaction evidence 的默认存储与留存 | PARTIAL_SESSION：strict-allowlist bounded buffer 与 P1-G 结构事件已完成；当前不自动持久化、上传或保存正文/身份/Prompt/原始响应 | 噪声 dashboard 或跨会话比较只有在明确价值、用户可见开关、期限与一键清除完成后才可加入 derivative store；正式事实仍不进入 |
 
 ## 当前冲突
 

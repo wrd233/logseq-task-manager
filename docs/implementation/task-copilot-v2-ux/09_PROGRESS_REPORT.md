@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract/recover-context Skill automated PASS；Attention 未展示、Desktop 与 UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract/recover-context Skill、P1-H session evidence contract automated PASS；Attention 未展示、Desktop、处置/噪声 dashboard 与 UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -230,6 +230,19 @@ Provider transport，但结果不会直接进入 Domain 或 UI。`recover-contex
 默认不生成。UX-G009 因此关闭为“不持久化派生 UX 草稿；正式修改仍进入 Proposal”，但真实
 Provider 语义质量、Plugin consumer 和 Desktop 仍开放。
 
+### P1-H privacy-bounded interaction evidence
+
+Application 新增 session-only `InteractionEvidenceBuffer`：exact-key allowlist 从结构上排除
+正文、summary、对象/Block 身份、Prompt、请求/响应与异常消息，只允许有界 scene/outcome、
+对象类型、Signal/Rule/Skill/Prompt/model 版本、scope hash、数量、用户处置、固定失败码和
+时长。buffer 默认只保留最近 500 项、最大 4096，不新增 SQLite 表、Graph 写入或自动上传。
+
+P1-G 生成器已记录三个结构事件：成功包含 evidence 数量和 next-action eligibility；
+Validator 拒绝只含 `UX_OUTPUT_VALIDATION_FAILED`；Provider 失败只含
+`UX_OUTPUT_PROVIDER_FAILED`。证据 sink 采用 best-effort 隔离，自己的异常不能让已生成结果
+失败，也不能覆盖原始 Provider/Validator 错误。当前仍未接用户 disposition、噪声 dashboard
+或跨会话留存；通用 StructuredLogger 的完整调用面隐私审计也不能由此替代。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -264,6 +277,9 @@ Provider 语义质量、Plugin consumer 和 Desktop 仍开放。
 - P1-F Project Page Head consumer 后 tests：219/219、0 skipped，typecheck/build PASS；
 - P1-G contract 后 Application tests：120/120、Local Service tests：94/94、Service Client
   tests：12/12；`recover-context` skill validator PASS；
+- P1-H focused tests：5/5；Application tests：121/121、Local Service tests：97/97，
+  0 skipped；两包 typecheck PASS；根级 Gate PASS，145 条稳定规则，恢复演练
+  `differences: []`；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -276,10 +292,12 @@ Provider 语义质量、Plugin consumer 和 Desktop 仍开放。
 
 ## 下一步
 
-1. 完成 P1-H privacy-bounded interaction event/version contract，并把 P1-G 生成/拒绝结果
-   接入结构化证据，不记录正文或模型原始输出；
-2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-3. 完成 P1-F Project workspace/Page Head 与 P1-D
+1. 审计通用 StructuredLogger 的默认字段、异常与 diagnostics export，确保 P1-H 之外也不会
+   默认保存完整正文、Provider 响应或 Key；
+2. 补 P1-H 用户 disposition/噪声指标的 session-only 路径，再以真实价值证据决定是否需要
+   跨会话 derivative；
+3. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
+4. 完成 P1-F Project workspace/Page Head 与 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-4. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
+5. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

@@ -347,7 +347,9 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
 
 ## P1-H：交互日志与版本
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_SESSION_AUTOMATED` — Application 已建立 session-only bounded
+Interaction Evidence Buffer，P1-G 生成器已记录成功、Validator 拒绝和 Provider 失败；
+用户处置 UI、跨会话持久化/清理策略、噪声 dashboard 与通用日志隐私审计仍开放。
 
 默认仅记录：
 
@@ -368,3 +370,20 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
 - 无期限 raw request/response。
 
 Prompt/Skill 演化仍必须走证据 → 候选 → 人工审阅 → 测试 → 版本 → 可回退。
+
+2026-07-24 首轮自动结果：
+
+- buffer 容量限制为 1–4096，默认 500，超过容量只丢弃最旧项，Graph/SQLite 不新增表或写路径；
+- runtime parser 使用 exact-key allowlist，未知字段直接拒绝；接口没有 summary/content/objectId/
+  blockUuid/Prompt/request/response 字段；
+- version、model、rule、signal、failure code 只接受长度受限 machine token；scope hash 只接受
+  有界十六进制值，计数与时长均封顶；
+- P1-G 成功只记录 evidence scope hash、fact/inference/unknown/suggestion/ref 数量、
+  next-action eligibility、版本与时长；
+- Validator 拒绝只记录固定 `UX_OUTPUT_VALIDATION_FAILED`；Provider 失败只记录固定
+  `UX_OUTPUT_PROVIDER_FAILED`，不保存 exception message 或原始响应；
+- evidence sink 是 best-effort 派生观测；写入失败不能覆盖成功结果、Validator 错误或
+  Provider 错误；
+- 当前不自动持久化或上传；`snapshot/exportJsonl/clear` 只是显式 session API。完整正文
+  即使显式授权也必须进入未来独立、可删除的研究样本流程，不能复用本默认事件模型。
+- Application tests 121/121、Local Service tests 97/97，0 skipped，typecheck PASS。

@@ -74,6 +74,12 @@ V2 v1.1 底座完成结论不变；当前继续按
   Skill/Prompt/Provider/model provenance 由机器物化，模型不能降低 risk/review；
   `DRAFT_PROPOSAL` 建议没有正式 operation/write authority，当前不持久化、不接用户 UI。
   Application 120/120、Local Service 94/94 与 Skill 格式/Hash/Service catalog 自动 Gate 通过；
+- P1-H 已建立 session-only、bounded、strict-allowlist 的 Interaction Evidence：只记录
+  scene/outcome、对象类型、规则/Signal/Skill/Prompt/model 版本、结构计数、用户处置、固定
+  failure code 与时长；未知字段、正文、summary、对象/Block 身份、Prompt 和模型原始输出
+  无存储入口。P1-G 成功、Validator 拒绝与 Provider 失败已接入，证据 sink 故障不影响用户
+  结果；Application 121/121、Local Service 97/97 通过；尚未接用户处置 UI、持久化或噪声
+  dashboard，默认通用日志仍需单独审计；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
@@ -82,7 +88,7 @@ V2 v1.1 底座完成结论不变；当前继续按
 ## 当前 Slice
 
 V1 frozen / V2 E2E-01–24 complete / interaction optimization P1-G contract complete /
-P1 Desktop and P1-H interaction evidence remain in progress
+P1-H interaction evidence contract partial / P1 Desktop remains in progress
 
 ## 当前阶段结论
 

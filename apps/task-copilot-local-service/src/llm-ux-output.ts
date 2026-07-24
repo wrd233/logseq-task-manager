@@ -1,5 +1,6 @@
 import {
   materializeUnifiedUxOutput,
+  type InteractionEvidenceEntry,
   type UnifiedUxFactAuthority,
   type UnifiedUxNextActionAuthority,
   type UnifiedUxOutput,
@@ -32,6 +33,10 @@ export interface GeneratedUnifiedUxOutput {
   promptBundleVersion: string;
 }
 
+export interface InteractionEvidenceSink {
+  record(entry: InteractionEvidenceEntry): unknown;
+}
+
 function layer(value: PromptLayer, name: string): PromptLayer {
   if (
     !value
@@ -51,7 +56,18 @@ function layer(value: PromptLayer, name: string): PromptLayer {
 }
 
 export class LocalLlmUxOutputGenerator {
-  constructor(private readonly provider: StructuredProposalProvider) {}
+  constructor(
+    private readonly provider: StructuredProposalProvider,
+    private readonly evidence?: InteractionEvidenceSink,
+  ) {}
+
+  private recordEvidence(entry: InteractionEvidenceEntry): void {
+    try {
+      this.evidence?.record(entry);
+    } catch {
+      return;
+    }
+  }
 
   async generate(request: UxOutputGenerationRequest): Promise<GeneratedUnifiedUxOutput> {
     const core = layer(request.core, "Core");
@@ -82,29 +98,84 @@ export class LocalLlmUxOutputGenerator {
     ].join("\n\n");
     const user = `Runtime Context [${runtimeContext.version}]\n${runtimeContext.content}`;
     if (system.length + user.length > 200_000) throw new Error("Unified UX prompt exceeds the bounded input size.");
-    const completion = await this.provider.completeStructured({
-      system,
-      user,
-      ...(request.signal ? { signal: request.signal } : {}),
-    });
-    const output = materializeUnifiedUxOutput(completion.value, {
-      observedAt: request.observedAt,
-      contractVersion: "1.0.0",
-      promptVersion: promptBundleVersion,
+    let completion: Awaited<ReturnType<StructuredProposalProvider["completeStructured"]>>;
+    try {
+      completion = await this.provider.completeStructured({
+        system,
+        user,
+        ...(request.signal ? { signal: request.signal } : {}),
+      });
+    } catch (error) {
+      this.recordEvidence({
+        timestamp: request.observedAt,
+        scene: "CONTEXT_RECOVERY",
+        outcome: "ERROR",
+        skill: {
+          name: skill.name,
+          version: skill.version,
+        },
+        promptVersion: promptBundleVersion,
+        failureCode: "UX_OUTPUT_PROVIDER_FAILED",
+      });
+      throw error;
+    }
+    let output: UnifiedUxOutput;
+    try {
+      output = materializeUnifiedUxOutput(completion.value, {
+        observedAt: request.observedAt,
+        contractVersion: "1.0.0",
+        promptVersion: promptBundleVersion,
+        skill: {
+          name: skill.name,
+          version: skill.version,
+        },
+        provider: {
+          providerId: this.provider.providerId,
+          providerVersion: this.provider.providerVersion,
+          model: completion.metadata.model,
+        },
+        minimumRiskLevel: request.minimumRiskLevel,
+        requiresDiscussion: request.requiresDiscussion,
+        requiresReview: request.requiresReview,
+        facts: request.facts,
+        allowedNextActions: request.allowedNextActions,
+      });
+    } catch (error) {
+      this.recordEvidence({
+        timestamp: request.observedAt,
+        scene: "CONTEXT_RECOVERY",
+        outcome: "REJECTED",
+        skill: {
+          name: skill.name,
+          version: skill.version,
+        },
+        promptVersion: promptBundleVersion,
+        model: completion.metadata.model,
+        failureCode: "UX_OUTPUT_VALIDATION_FAILED",
+        elapsedMs: completion.metadata.durationMs,
+      });
+      throw error;
+    }
+    this.recordEvidence({
+      timestamp: request.observedAt,
+      scene: "CONTEXT_RECOVERY",
+      outcome: "GENERATED",
       skill: {
         name: skill.name,
         version: skill.version,
       },
-      provider: {
-        providerId: this.provider.providerId,
-        providerVersion: this.provider.providerVersion,
-        model: completion.metadata.model,
+      promptVersion: promptBundleVersion,
+      model: completion.metadata.model,
+      evidence: {
+        scopeHash: output.evidenceScope.scopeHash,
+        factCount: output.facts.length,
+        inferenceCount: output.inferences.length,
+        unknownCount: output.unknowns.length,
+        suggestedChangeCount: output.suggestedChanges.length,
+        evidenceRefCount: output.evidenceScope.refs.length,
+        nextActionEligible: output.nextActionEligible,
       },
-      minimumRiskLevel: request.minimumRiskLevel,
-      requiresDiscussion: request.requiresDiscussion,
-      requiresReview: request.requiresReview,
-      facts: request.facts,
-      allowedNextActions: request.allowedNextActions,
+      elapsedMs: completion.metadata.durationMs,
     });
     return {
       output,
