@@ -121,6 +121,11 @@ interface；模型仍只有 `SESSION_DRAFT_ONLY`。Application 140/140、typeche
 Package、Skill/Prompt、Provider、最终预览、server-owned create Proposal、Review 和既有原子
 创建接线仍 OPEN。
 
+第二个自动合同已完成：Local Service `project-creation-grill.ts` 将三种入口材料构造成
+有界 Context 和六维 machine uncertainty，`project-creation-modeling@1.0.0` 明确要求
+跟随材料而非固定问卷。Blank 首问结果、Page 首问材料去向、MiniProject 首问升级边界；
+此时仍未开放 route，也未创建 Object、Page 或 Proposal。
+
 ## P2-D：Project 结构操作路由
 
 状态：`NOT_STARTED`

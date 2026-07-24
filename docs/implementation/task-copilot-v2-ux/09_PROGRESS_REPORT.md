@@ -420,9 +420,10 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 - P0-H hidden reload：真实 Plugin reload 后不打开面板，等待 25 秒超过旧 lease 停止窗口，
   owned Service 仍由新 lease 保持；首次点击 `TC` 直接 Runtime/Store READY。Plugin 255/255、
   typecheck/build/dist PASS；Graph switch 视觉 Gate仍 OPEN；
-- P2-C 首个合同：Project 创建前不伪造 Object ID；Blank/Page/MiniProject 来源边界与
-  internal closure/current interface 额外 readiness 维度已自动锁定。Application 140/140、
-  typecheck PASS；Provider/Proposal/原子创建接线与 Desktop OPEN；
+- P2-C 两层自动合同：Project 创建前不伪造 Object ID；Blank/Page/MiniProject 来源边界、
+  internal closure/current interface readiness、来源相关 focus builder 与
+  `project-creation-modeling@1.0.0` 已自动锁定；Service route/Provider/Proposal/原子创建
+  接线与 Desktop OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；

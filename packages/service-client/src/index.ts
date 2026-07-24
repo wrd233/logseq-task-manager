@@ -67,7 +67,7 @@ export interface ServiceBackupRestored {
 }
 
 export interface ServiceSkillSummary {
-  name: "task-copilot-core" | "design-project" | "recover-context" | "mini-project-modeling";
+  name: "task-copilot-core" | "design-project" | "recover-context" | "mini-project-modeling" | "project-creation-modeling";
   version: string;
   description: string;
   sha256: string;

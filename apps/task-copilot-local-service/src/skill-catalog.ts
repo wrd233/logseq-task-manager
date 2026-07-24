@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { StructuredError } from "@task-copilot/shared";
 
-const skillNames = ["task-copilot-core", "design-project", "recover-context", "mini-project-modeling"] as const;
+const skillNames = ["task-copilot-core", "design-project", "recover-context", "mini-project-modeling", "project-creation-modeling"] as const;
 export type TaskCopilotSkillName = (typeof skillNames)[number];
 
 export interface TaskCopilotSkillSummary {

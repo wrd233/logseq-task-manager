@@ -127,11 +127,11 @@ overall_goal: IN_PROGRESS
   八步正式 Commit、reload、真实 divergence→Recovery、修正后的八步 inverse Undo、再次 reload、
   最近修改 inverse 折叠与精确返回原根 Block 均有证据。该结论只关闭 P2-A/P2-B 的这条主链，
   P2-C～P2-G、P1 和整体产品化 Goal 继续 IN_PROGRESS；
-- P2-C 已进入首个自动合同：Grill session 支持不伪造 Object identity 的
-  `PROJECT_CREATION` subject，区分空白/Page/MiniProject 三种来源，并要求 Project 特有的
-  internal closure 与 current interface 和通用四维一起由机器判定 readiness。Application
-  140/140、typecheck PASS；Provider、预览、Proposal/Review、既有原子 create 接线和 Desktop
-  仍 OPEN；
+- P2-C 已进入第二个自动合同：Grill session 支持不伪造 Object identity 的
+  `PROJECT_CREATION` subject；Local Service 已有三来源自适应 generation builder 与
+  `project-creation-modeling@1.0.0`，Blank/Page/MiniProject 分别先处理结果、现有材料去向、
+  升级边界，并要求 Project 特有的 internal closure/current interface；Service route、
+  Provider、预览、Proposal/Review、既有原子 create 接线和 Desktop 仍 OPEN；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

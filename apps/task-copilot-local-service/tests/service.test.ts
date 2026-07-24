@@ -195,6 +195,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
     { name: "mini-project-modeling", version: "1.2.0" },
+    { name: "project-creation-modeling", version: "1.0.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
@@ -206,6 +207,9 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   const grill = await client.getSkill("mini-project-modeling");
   assert.match(grill?.content ?? "", /task-copilot-grill-turn-v1/);
   assert.equal(grill?.sha256, skills.find(({ name }) => name === "mini-project-modeling")?.sha256);
+  const projectCreation = await client.getSkill("project-creation-modeling");
+  assert.match(projectCreation?.content ?? "", /Do not ask a fixed/i);
+  assert.equal(projectCreation?.sha256, skills.find(({ name }) => name === "project-creation-modeling")?.sha256);
   assert.equal(await client.getSkill("missing"), undefined);
   assert.equal((await client.status()).objectCount, 0, "Skill reads do not create formal state");
 });

@@ -18,6 +18,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
     { name: "mini-project-modeling", version: "1.2.0" },
+    { name: "project-creation-modeling", version: "1.0.0" },
   ]);
   assert.equal(first.every(({ sha256 }) => /^[0-9a-f]{64}$/.test(sha256)), true);
 
@@ -42,6 +43,11 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   assert.match(grill?.content ?? "", /never a Proposal or a formal change/i);
   assert.match(grill?.content ?? "", /final machine `outputContract`/);
   assert.match(grill?.content ?? "", /resolvedUncertaintyIds.*forbidden/is);
+  const projectCreation = await readTaskCopilotSkill("project-creation-modeling");
+  assert.match(projectCreation?.content ?? "", /Do not ask a fixed/i);
+  assert.match(projectCreation?.content ?? "", /Blank creation.*Page conversion.*MiniProject evolution/is);
+  assert.match(projectCreation?.content ?? "", /never creates an Object.*Proposal.*Graph write.*SQLite write/is);
+  assert.match(projectCreation?.content ?? "", /prepare\/page\/finalize/);
   assert.equal(await readTaskCopilotSkill("../task-copilot-core"), undefined);
   assert.equal(await readTaskCopilotSkill("missing"), undefined);
 });
