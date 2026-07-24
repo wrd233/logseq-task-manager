@@ -47,7 +47,7 @@ Proposal Review、Commit/Undo、交互证据接线。
 
 ## P2-B：MiniProject 原位重构
 
-状态：`PARTIAL_EXECUTOR_DESKTOP_GATE`
+状态：`PARTIAL_FORMAL_UI_AUTOMATED_DESKTOP_GATE`
 
 代码审计确认现有通用 Proposal Commit 只能执行一个 Block patch，正式 Adapter 也仍拒绝未完成
 Desktop Gate 的 move；因此不复用该路径伪装多 Block 原子性。Application 已新增 Preview→HIGH
@@ -71,8 +71,11 @@ Plugin 测试覆盖正常顺序、重放、move 失败补偿 create 与 UUID 不
 完整子树仍为已应用结构，逆序移动/删除机器新增空 Block，每步由 Service 观察；失败会用原
 forward steps 恢复已应用结构，原 Commit 只有在 inverse 全部 VERIFIED 后才标记 UNDONE。
 Local Service 115/115、Plugin 246/246 通过 changed-state 零账本、成功、reload replay 与失败
-恢复。通用 Commit 继续 fail closed；正式 UI 接线、完整 Desktop Commit/Undo 与跨 reload
-Rebind 仍未完成，因此尚不开放用户正式应用按钮。
+恢复。Review 现已只对该 HIGH 结构 Proposal 暴露专用“确认原位重构”，显式复核
+最终阅读预览、删除为 0、UUID/正文保留与整树重验；完成后转为独立 inverse
+Undo，不落入通用单 Block Commit/Undo。Plugin 247/247 回归 PASS。通用 Commit 继续
+fail closed；完整 Desktop Preview→Review→Commit→reload→Undo 和跨 reload Rebind
+仍未完成，因此不声称 P2-B 已完成。
 
 默认保留原根 Block；原始事实零丢失；无法归类内容进入待判断/原始材料；结构只使用最小骨架和按需区块。
 

@@ -31,6 +31,7 @@ import {
 import { renderFirstRunWelcome, type FirstRunAction, type FirstRunModel } from "./first-run.ts";
 import type {
   ServiceConnectionState,
+  LocalServiceClient,
   ServiceNowWork,
   ServiceSemanticCommit,
   ServiceStoredProposal,
@@ -63,6 +64,7 @@ import { submitV2Association, type V2AssociationSubmissionState } from "./v2-ass
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
 import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit.ts";
 import { applyLowRiskV2Proposal } from "./v2-low-risk-apply.ts";
+import { commitMiniProjectRestructure, undoMiniProjectRestructure, type MiniProjectRestructureGraphHost } from "./v2-mini-project-restructure.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
 import { BlockFocusController, resolveBlockObject } from "./block-focus-controller.ts";
@@ -217,6 +219,7 @@ const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
 let v2BlockConditionBusy = false;
 let v2LifecycleCommitBusy = false;
+let v2StructureCommitBusy = false;
 let v2ClosureProposalBusy = false;
 let v2LifecycleProposalBusy = false;
 let v2AreaBusy = false;
@@ -524,6 +527,7 @@ async function model(): Promise<UiModel> {
     v2OwnershipCommitBusy,
     v2BlockConditionBusy,
     v2LifecycleCommitBusy,
+    v2StructureCommitBusy,
     v2ClosureProposalBusy,
     v2LifecycleProposalBusy,
     v2ClosureDraftBusy,
@@ -2023,6 +2027,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
   if (action === "v2-project-structure-commit" && value) return openActionDialog("confirm-v2-project-structure", value);
   if (action === "v2-project-structure-undo" && value) return openActionDialog("confirm-v2-project-structure-undo", value);
+  if (action === "v2-mini-project-restructure-commit" && value) return openActionDialog("confirm-v2-mini-project-restructure", value);
+  if (action === "v2-mini-project-restructure-undo" && value) return openActionDialog("confirm-v2-mini-project-restructure-undo", value);
   if (action === "v2-mini-project-closure-commit" && value) return openActionDialog("confirm-v2-mini-project-closure", value);
   if (action === "v2-reasoned-lifecycle-commit" && value) return openActionDialog("confirm-v2-reasoned-lifecycle", value);
   if (action === "v2-lifecycle-undo" && value) return openActionDialog("confirm-v2-lifecycle-undo", value);
@@ -2157,6 +2163,93 @@ async function handleAction(action: string, value?: string): Promise<void> {
       recentActionCommitId = result.originalSemanticCommitId;
       message = `Project ${result.object.text} 已恢复审阅前的当前接口；Graph、位置与归属未改变。`;
     });
+    return;
+  }
+  if (action === "submit-v2-mini-project-restructure" && value) {
+    if (v2StructureCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认最终阅读预览、零删除边界与原位结构影响。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    v2StructureCommitBusy = true;
+    let returnToOrigin = false;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!proposalId || !expectedUpdatedAt || !client?.prepareMiniProjectRestructure || !client.verifyMiniProjectRestructureStep || !client.beginMiniProjectRestructureRecovery || !client.verifyMiniProjectRestructureCompensation) throw new Error("MiniProject 原位重构上下文已失效；没有写入。");
+        const executorClient: Pick<LocalServiceClient, "prepareMiniProjectRestructure" | "verifyMiniProjectRestructureStep" | "beginMiniProjectRestructureRecovery" | "verifyMiniProjectRestructureCompensation"> = {
+          prepareMiniProjectRestructure: client.prepareMiniProjectRestructure.bind(client),
+          verifyMiniProjectRestructureStep: client.verifyMiniProjectRestructureStep.bind(client),
+          beginMiniProjectRestructureRecovery: client.beginMiniProjectRestructureRecovery.bind(client),
+          verifyMiniProjectRestructureCompensation: client.verifyMiniProjectRestructureCompensation.bind(client),
+        };
+        const host: MiniProjectRestructureGraphHost = {
+          insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
+          moveBlock: async (source, target, options) => { await logseq.Editor.moveBlock(source, target, options); },
+          removeBlock: async (blockUuid) => { await logseq.Editor.removeBlock(blockUuid); },
+        };
+        const result = await commitMiniProjectRestructure(executorClient, host, proposalId, expectedUpdatedAt, `v2-mini-project-restructure-ui-${Date.now()}`);
+        actionDialog = undefined;
+        workspace = "review";
+        if (result.status === "COMPLETED") {
+          recentActionCommitId = result.semanticCommitId;
+          message = "MiniProject 已按最终预览原位重构；原材料 UUID 与正文保持，独立 Undo 已可用。";
+          returnToOrigin = originRoute !== undefined;
+        } else if (result.status === "STALE") {
+          message = "MiniProject 原材料、对象版本或结构已变化；没有开始重构。";
+        } else if (result.status === "FAILED_COMPENSATED") {
+          recentActionCommitId = result.semanticCommitId;
+          message = "MiniProject 原位重构未完成，已恢复原结构；没有报告成功。";
+        } else {
+          recentActionCommitId = result.semanticCommitId;
+          message = `MiniProject 结构需要恢复（${result.errorCode}）；请在系统状态继续同一 Commit，不要重复建立 Proposal。`;
+        }
+      });
+    } finally {
+      v2StructureCommitBusy = false;
+      await refresh();
+    }
+    if (returnToOrigin && !latestError) await returnToBusinessOrigin();
+    return;
+  }
+  if (action === "submit-v2-mini-project-restructure-undo" && value) {
+    if (v2StructureCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认只在整棵子树未被后续修改时撤销原位重构。"; await refresh(); return; }
+    v2StructureCommitBusy = true;
+    let returnToOrigin = false;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client?.prepareMiniProjectRestructureUndo || !client.verifyMiniProjectRestructureUndoStep || !client.beginMiniProjectRestructureUndoRecovery || !client.verifyMiniProjectRestructureUndoCompensation) throw new Error("MiniProject 原位重构 Undo 上下文已失效；没有写入。");
+        const executorClient: Pick<LocalServiceClient, "prepareMiniProjectRestructureUndo" | "verifyMiniProjectRestructureUndoStep" | "beginMiniProjectRestructureUndoRecovery" | "verifyMiniProjectRestructureUndoCompensation"> = {
+          prepareMiniProjectRestructureUndo: client.prepareMiniProjectRestructureUndo.bind(client),
+          verifyMiniProjectRestructureUndoStep: client.verifyMiniProjectRestructureUndoStep.bind(client),
+          beginMiniProjectRestructureUndoRecovery: client.beginMiniProjectRestructureUndoRecovery.bind(client),
+          verifyMiniProjectRestructureUndoCompensation: client.verifyMiniProjectRestructureUndoCompensation.bind(client),
+        };
+        const host: MiniProjectRestructureGraphHost = {
+          insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
+          moveBlock: async (source, target, options) => { await logseq.Editor.moveBlock(source, target, options); },
+          removeBlock: async (blockUuid) => { await logseq.Editor.removeBlock(blockUuid); },
+        };
+        const result = await undoMiniProjectRestructure(executorClient, host, value, `v2-mini-project-restructure-undo-ui-${Date.now()}`);
+        actionDialog = undefined;
+        workspace = "review";
+        recentActionCommitId = result.originalSemanticCommitId;
+        if (result.status === "COMPLETED") {
+          message = "MiniProject 已通过独立 inverse Commit 恢复原材料结构；审阅与 Commit 历史保留。";
+          returnToOrigin = originRoute !== undefined;
+        } else if (result.status === "FAILED_COMPENSATED") {
+          message = "结构撤销未完成，但已恢复到撤销前的已应用结构；原 Commit 仍有效。";
+        } else {
+          message = `结构撤销需要恢复（${result.errorCode}）；请在系统状态继续同一 inverse Commit。`;
+        }
+      });
+    } finally {
+      v2StructureCommitBusy = false;
+      await refresh();
+    }
+    if (returnToOrigin && !latestError) await returnToBusinessOrigin();
     return;
   }
   if (action === "submit-v2-mini-project-closure" && value) {

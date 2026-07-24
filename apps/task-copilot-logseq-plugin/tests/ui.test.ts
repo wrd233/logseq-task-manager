@@ -1164,6 +1164,47 @@ test("Project current interface Review has dedicated Commit and version-safe Und
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
 });
 
+test("MiniProject restructure Review uses the recoverable Graph Commit and inverse Undo controls", () => {
+  const value = model();
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  value.v2Proposals = [{ updatedAt: "2026-07-24T15:01:00.000Z", files: { proposalMd: "# MiniProject restructure", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-mini-restructure", schemaVersion: "v2", title: "重构设备托管 MiniProject", context: "原材料仍是松散 Block。", understanding: "保留原材料身份并建立可阅读结构。", objective: "原位重构。", logic: "先创建栏目，再移动原材料。", finalPreview: "在当前 MiniProject 下建立成果栏目并移入材料，删除 0 条。", unresolvedQuestions: [], source: { kind: "local_llm" }, scope: { read: [{ kind: "BLOCK", id: "root", hash: "root-hash" }, { kind: "BLOCK", id: "source", hash: "source-hash" }], modify: [{ kind: "OBJECT", id: "mini-1", version: 3 }, { kind: "BLOCK", id: "root", hash: "root-hash" }, { kind: "BLOCK", id: "source", hash: "source-hash" }] }, preconditions: [], groups: [{ groupId: "restructure-mini-project", explanation: "结构变更必须整体审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [
+      { operationId: "create-outcome", kind: "CREATE_BLOCK", target: { kind: "BLOCK", id: "root", hash: "root-hash" }, summary: "创建成果栏目", payload: { newBlockUuid: "11111111-1111-4111-8111-111111111111", parentBlockUuid: "root", previousSiblingUuid: null, text: "成果", contentHash: checksum("成果") }, preconditions: [] },
+      { operationId: "move-source", kind: "MOVE_BLOCK", target: { kind: "BLOCK", id: "source", hash: "source-hash" }, summary: "移动原材料", payload: { fromParentBlockUuid: "root", fromPreviousSiblingUuid: null, toParentBlockUuid: "11111111-1111-4111-8111-111111111111", toPreviousSiblingUuid: null, contentHash: "source-hash" }, preconditions: [] },
+    ], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-24T15:00:00.000Z",
+  } }];
+
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-mini-project-restructure-commit"/);
+  assert.match(html, /原位移动材料、保留 UUID 与正文/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  value.actionDialog = { kind: "confirm-v2-mini-project-restructure", value: "prop-mini-restructure|2026-07-24T15:01:00.000Z" };
+  html = renderApp(value);
+  assert.match(html, /删除内容为 0/);
+  assert.match(html, /data-action="submit-v2-mini-project-restructure"/);
+  delete value.actionDialog;
+  value.v2StructureCommitBusy = true;
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-mini-project-restructure-commit"[^>]*disabled[^>]*aria-busy="true"/);
+  value.v2StructureCommitBusy = false;
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:mini-restructure", proposalId: "prop-mini-restructure", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-24T15:00:00.000Z", updatedAt: "2026-07-24T15:01:00.000Z" }];
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-mini-project-restructure-undo"/);
+  assert.match(html, /任何后续变化都会停止覆盖/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
+  value.actionDialog = { kind: "confirm-v2-mini-project-restructure-undo", value: "proposal-commit:mini-restructure" };
+  html = renderApp(value);
+  assert.match(html, /独立 inverse Commit 留痕/);
+  assert.match(html, /data-action="submit-v2-mini-project-restructure-undo"/);
+  delete value.actionDialog;
+  value.v2SemanticCommits.push({ semanticCommitId: "mini-project-restructure-undo:proposal-commit:mini-restructure", proposalId: "prop-mini-restructure", status: "FAILED", beforeStateChecksum: "undo-before", createdAt: "2026-07-24T15:02:00.000Z", updatedAt: "2026-07-24T15:03:00.000Z" });
+  html = renderApp(value);
+  assert.doesNotMatch(html, /data-action="v2-mini-project-restructure-undo"/);
+  assert.match(html, /原 Commit 仍有效/);
+});
+
 test("MiniProject DONE Review uses a dedicated final confirmation and does not expose generic Undo", () => {
   const value = model();
   value.workspace = "review";
