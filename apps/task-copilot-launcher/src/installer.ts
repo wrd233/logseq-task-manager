@@ -36,6 +36,7 @@ interface InstallDependencies {
   createToken?: () => string;
   findPort?: () => Promise<number>;
   runLaunchctl?: (args: string[], tolerateFailure?: boolean) => Promise<void>;
+  waitForLaunchctlRetry?: (milliseconds: number) => Promise<void>;
   waitForReady?: (descriptorPath: string) => Promise<void>;
 }
 
@@ -246,17 +247,19 @@ export async function installLauncher(input: InstallLauncherInput, dependencies:
   }), 0o600);
 
   const runLaunchctl = dependencies.runLaunchctl ?? defaultRunLaunchctl;
+  const waitForLaunchctlRetry = dependencies.waitForLaunchctlRetry
+    ?? ((milliseconds: number) => new Promise<void>((resolveWait) => setTimeout(resolveWait, milliseconds)));
   const domain = `gui/${userId}`;
   await runLaunchctl(["bootout", `${domain}/${LAUNCH_AGENT_LABEL}`], true);
   let bootstrapError: unknown;
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
     try {
       await runLaunchctl(["bootstrap", domain, launchAgentPath]);
       bootstrapError = undefined;
       break;
     } catch (error) {
       bootstrapError = error;
-      await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+      if (attempt < 19) await waitForLaunchctlRetry(Math.min(100 + attempt * 25, 300));
     }
   }
   if (bootstrapError) throw bootstrapError;

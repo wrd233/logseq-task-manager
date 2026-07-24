@@ -53,6 +53,27 @@ const preview: ServiceMiniProjectGrillPreviewResult = {
   provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "prompt-hash", contextFingerprint: "fingerprint", previewHandle: "grill_preview_aaaaaaaaaaaaaaaaaaaaaaaa",
 };
 
+const structuralPreview: ServiceMiniProjectGrillPreviewResult = {
+  ...preview,
+  output: {
+    ...preview.output,
+    finalReading: {
+      ...preview.output.finalReading,
+      sections: [
+        ...preview.output.finalReading.sections,
+        {
+          sectionId: "outcome",
+          heading: "验收结果",
+          purpose: "把已确认结果放回工作现场",
+          sourceMaterials: [],
+          derivedBlocks: [{ text: "形成可复核记录", evidenceRefs: ["answer:outcome"] }],
+        },
+      ],
+    },
+    impact: { ...preview.output.impact, addedDerivedBlockCount: 1 },
+  },
+};
+
 test("runs a session-only multi-turn grill and validates the MiniProject before and after every turn", async () => {
   const calls: Array<{ objectId: string; expectedVersion: number; answers: Array<{ uncertaintyId: string; text: string }> }> = [];
   let listCalls = 0;
@@ -181,16 +202,56 @@ test("creates one server-owned HIGH review Proposal from the current preview han
   const client = {
     listObjects: async () => [{ objectId: "mini-1", objectType: "MINI_PROJECT", lifecycle: "OPEN", version: 2 }],
     grillMiniProject: async () => turn("boundary", "READY_FOR_PREVIEW"),
-    previewMiniProjectGrill: async () => preview,
+    previewMiniProjectGrill: async () => structuralPreview,
     createMiniProjectRestructureProposal: async (input: unknown) => { proposalInput = input; return proposalResult; },
   };
   const controller = new MiniProjectGrillController(() => ({ client, providerAvailable: true, generation: 1 }), async () => undefined);
   await controller.start("mini-1", 2);
   await controller.generatePreview("mini-1");
   assert.equal(await controller.createProposal("mini-1"), proposalResult);
-  assert.deepEqual(proposalInput, { objectId: "mini-1", expectedVersion: 2, previewHandle: preview.previewHandle });
+  assert.deepEqual(proposalInput, { objectId: "mini-1", expectedVersion: 2, previewHandle: structuralPreview.previewHandle });
   const state = controller.snapshot()["mini-1"];
   assert.equal(state?.status === "ready" && state.preview?.status === "ready" ? state.preview.proposal?.status : undefined, "ready");
+});
+
+test("turns an expired Service preview handle back into a regenerable preview state without losing confirmed answers", async () => {
+  const expired = Object.assign(new Error("结构预览已过期"), { details: { remoteCode: "GRILL_PREVIEW_SESSION_EXPIRED" } });
+  const client = {
+    listObjects: async () => [{ objectId: "mini-1", objectType: "MINI_PROJECT", lifecycle: "OPEN", version: 2 }],
+    grillMiniProject: async () => turn("boundary", "READY_FOR_PREVIEW"),
+    previewMiniProjectGrill: async () => structuralPreview,
+    createMiniProjectRestructureProposal: async () => { throw expired; },
+  };
+  const controller = new MiniProjectGrillController(() => ({ client, providerAvailable: true, generation: 2 }), async () => undefined);
+  await controller.start("mini-1", 2);
+  await controller.generatePreview("mini-1");
+  await controller.createProposal("mini-1");
+
+  const state = controller.snapshot()["mini-1"];
+  assert.equal(state?.status, "ready");
+  assert.equal(state?.status === "ready" ? state.preview?.status : undefined, "error");
+  assert.match(state?.status === "ready" && state.preview?.status === "error" ? state.preview.message : "", /重新生成结构预览/);
+  assert.deepEqual(state?.status === "ready" ? state.answers : undefined, []);
+});
+
+test("classifies a zero-change reading preview as complete without calling the Proposal route", async () => {
+  let proposalCalls = 0;
+  const client = {
+    listObjects: async () => [{ objectId: "mini-1", objectType: "MINI_PROJECT", lifecycle: "OPEN", version: 2 }],
+    grillMiniProject: async () => turn("boundary", "READY_FOR_PREVIEW"),
+    previewMiniProjectGrill: async () => preview,
+    createMiniProjectRestructureProposal: async () => {
+      proposalCalls += 1;
+      throw new Error("must not call");
+    },
+  };
+  const controller = new MiniProjectGrillController(() => ({ client, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.start("mini-1", 2);
+  await controller.generatePreview("mini-1");
+  assert.equal(await controller.createProposal("mini-1"), undefined);
+  assert.equal(proposalCalls, 0);
+  const state = controller.snapshot()["mini-1"];
+  assert.equal(state?.status === "ready" && state.preview?.status === "ready" ? state.preview.proposal?.status : undefined, "not-needed");
 });
 
 test("classifies Service source-stale as a terminal stale session", async () => {

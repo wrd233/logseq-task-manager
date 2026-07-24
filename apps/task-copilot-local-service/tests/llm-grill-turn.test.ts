@@ -95,3 +95,87 @@ test("Grill generator rejects invented evidence and operation authority as a zer
       && error.message.includes("没有进入结构预览"),
   );
 });
+
+test("multi-turn prompt ends with a machine-owned output contract that excludes resolved uncertainties", async () => {
+  const captured: StructuredChatRequest[] = [];
+  const multiTurnAuthority = {
+    ...authority,
+    facts: [
+      ...authority.facts,
+      { factId: "answer-scope-current-list", text: "只包含当前设备清单。", sourceRefs: ["answer:scope-current-list"] },
+    ],
+    uncertainties: authority.uncertainties.map((item) => item.uncertaintyId === "scope-current-list"
+      ? { ...item, status: "RESOLVED" as const, evidenceRefs: ["answer:scope-current-list"] }
+      : item),
+  };
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async (input) => {
+      captured.push(input);
+      return {
+        value: {
+          schemaVersion: GRILL_TURN_SCHEMA_VERSION,
+          understanding: "范围已封顶，但成果仍待确认。",
+          factRefs: ["material", "answer-scope-current-list"],
+          inferences: [{ text: "下一步应该确认成果。", evidenceRefs: ["answer:scope-current-list"] }],
+          unknowns: [{ uncertaintyId: "outcome-record", text: "最终成果尚未明确。" }],
+          readiness: "CONTINUE",
+          focusUncertaintyId: "outcome-record",
+          questions: [{ uncertaintyId: "outcome-record", text: "这次要交付什么结果？" }],
+          recommendation: { text: "先确认一个可复核成果。", evidenceRefs: ["answer:scope-current-list"], tradeoffs: ["范围更稳定，但不会自动扩大交付"] },
+        },
+        metadata: { model: "deepseek-chat", durationMs: 18, attempts: 1 },
+      };
+    },
+  };
+
+  const result = await new LocalLlmGrillTurnGenerator(provider).generate({ ...request, authority: multiTurnAuthority });
+  assert.equal(result.output.questionGroup?.focusUncertaintyId, "outcome-record");
+  const userPrompt = captured[0]?.user ?? "";
+  assert.match(userPrompt, /machine outputContract/);
+  assert.match(userPrompt, /"requiredFocusUncertaintyId":"outcome-record"/);
+  assert.match(userPrompt, /"allowedOpenUncertaintyIds":\["outcome-record","evidence-acceptance","material-unclassified"\]/);
+  assert.match(userPrompt, /"resolvedUncertaintyIds":\["scope-current-list"\]/);
+  assert.match(userPrompt, /"allowedFactIds":\["material","answer-scope-current-list"\]/);
+  assert.match(userPrompt, /resolved uncertainty IDs are forbidden/i);
+});
+
+test("preview-ready prompt contains only the machine stop instruction and no continuing-turn conflict", async () => {
+  const captured: StructuredChatRequest[] = [];
+  const readyAuthority = {
+    ...authority,
+    uncertainties: authority.uncertainties.map((item) => ({ ...item, status: "RESOLVED" as const })),
+    unclassifiedMaterialRefs: [],
+  };
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async (input) => {
+      captured.push(input);
+      return {
+        value: {
+          schemaVersion: GRILL_TURN_SCHEMA_VERSION,
+          understanding: "边界、成果、完成证据和材料去向均已确认，可以进入最终阅读预览。",
+          factRefs: ["material"],
+          inferences: [],
+          unknowns: [],
+          readiness: "READY_FOR_PREVIEW",
+          questions: [],
+        },
+        metadata: { model: "deepseek-chat", durationMs: 18, attempts: 1 },
+      };
+    },
+  };
+
+  const result = await new LocalLlmGrillTurnGenerator(provider).generate({ ...request, authority: readyAuthority });
+  assert.equal(result.output.readiness, "READY_FOR_PREVIEW");
+  const systemPrompt = captured[0]?.system ?? "";
+  const userPrompt = captured[0]?.user ?? "";
+  assert.doesNotMatch(systemPrompt, /Follow the machine requiredFocusUncertaintyId/);
+  assert.match(systemPrompt, /omit focusUncertaintyId and recommendation/i);
+  assert.match(userPrompt, /"machineReadiness":"READY_FOR_PREVIEW"/);
+  assert.match(userPrompt, /"requiredFocusUncertaintyId":null/);
+  assert.match(userPrompt, /"allowedOpenUncertaintyIds":\[\]/);
+  assert.match(userPrompt, /questions must be an empty array/i);
+});

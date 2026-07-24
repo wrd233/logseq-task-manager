@@ -1,16 +1,18 @@
 # 交互优化验收报告
 
-> 当前状态：`PARTIAL`
+> 当前状态：`IN_PROGRESS`
 > 本文件只登记已经有对应代码、自动化和适用运行证据的结果。设计或计划不会标成完成。
+> `base_v2_status=IMPLEMENTATION_COMPLETE` 与 `ux_productization_goal=IN_PROGRESS` 是不同层级；
+> `overall_goal=IN_PROGRESS`。
 
 ## 1. 阶段结论
 
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H/J/K/Desktop host Gate OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/reload/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_FORMAL_UI_DESKTOP_GATE | P2-A turn/preview + P2-B server-owned HIGH Proposal/Review + dedicated structure Commit/inverse Undo ledger/recovery/executors/formal UI 自动 PASS；真实 DeepSeek turn/preview PASS | 同会话 custom UUID move/restore PASS；完整正式链、reload Rebind 未验 | exact-once/root/zero-delete、完整结构指纹、逐步 Commit、独立 inverse Undo、重放与双向补偿已锁定；完整 Desktop/Rebind 仍开放 |
+| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE | P2-A turn/preview + P2-B server-owned HIGH Proposal/Review + dedicated Commit/inverse Undo/recovery 自动 PASS | 一个隔离 MiniProject 的真实 DeepSeek→Review→Commit→Recovery→Undo→reload→根 Block 完整链 PASS | P2-A/B 当前纵向 Slice DONE；P2-C～G OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -28,8 +30,8 @@
 - [x] 工具栏只表示需要介入；安静态、连接风险数字与诊断路由已 Desktop 验证，
   `RECOVERY_REQUIRED ↻` 仅自动验证
 - [x] Service 日常无需终端；真实 LaunchAgent 安装、READY、更新、租约启动/结束与 crash recovery 通过
-- [ ] Logseq 退出安全结束 owned Service；自动 unload/TTL/owner-PID 与真实进程 Gate 通过，
-  仍缺本轮真实 Desktop quit 证据
+- [x] Logseq 退出安全结束 owned Service；自动 unload/TTL/owner-PID 与真实 Desktop quit 后
+  租约窗口内 owned Service 结束、Launcher 保留均通过
 - [x] 用户层系统状态；READY/协议/Graph/Pending/Recovery/Anchor/正文核对自动覆盖，
   真实 Desktop 注意状态与 Service unavailable 受限状态通过，技术诊断默认折叠；
 - [ ] 完成后回业务现场；session-only Block/Page origin route 自动 Gate PASS，真实
@@ -61,17 +63,16 @@
 
 ## 4. P2 验收
 
-- [ ] MiniProject Grill Me 非模板化；自适应 focus/readiness、精确子树、两轮 Service route、
-  Plugin 多轮 session/零丢失预览 UI、error 保留、stale/cleanup 与返回原 Block 已自动验证；
-  真实 DeepSeek turn 与 preview Provider/Validator PASS；Desktop、完整 live route 与正式 Proposal
-  仍未完成；
+- [x] MiniProject Grill Me 当前纵向 Slice 非模板化；真实 DeepSeek 四轮按 boundary/outcome/
+  completion/material disposition 自适应收敛，Validator rejection 可安全重试，5/5 canonical
+  材料进入最终阅读预览并完成正式链；跨场景质量继续纳入后续验收；
 - [ ] Project 所有创建入口经过自适应 Grill Me；
-- [ ] 原位重构零丢失；
+- [x] 原位重构当前纵向 Slice 零丢失；原 UUID/正文守恒、0 delete、Undo 后父级与顺序恢复；
 - [x] 原位结构宿主能力有界通过；同一会话内 custom UUID、语义正文与 A/B/C 顺序经过
   move-first-child/restore-after-sibling 保持，Page runtime UUID 跨 reload 限制已明确转入 Rebind；
-- [ ] 预览为最终阅读效果；
-- [ ] 一次 Commit + Undo；独立 forward/inverse ledger、Plugin executors、changed-state 拒绝、
-  失败恢复与专用 Review/confirm/result/Undo UI 自动 PASS，完整 Desktop reload Gate 未完成；
+- [x] 预览为最终阅读效果；identity property 已从 canonical 用户材料剥离；
+- [x] 当前纵向 Slice 一次 Commit + Undo；8-step forward/inverse、真实 divergence Recovery、
+  reload、recent-changes 折叠和返回根 Block Desktop PASS；
 - [ ] Closure 从证据起草；
 - [ ] 跨对象候选有证据和数量上限；
 - [ ] LLM 不改变 Ownership/Focus；

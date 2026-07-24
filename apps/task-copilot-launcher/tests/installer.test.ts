@@ -122,6 +122,38 @@ test("installer rejects relative authority paths before writing or invoking laun
   assert.equal(calls, 0);
 });
 
+test("installer tolerates a slow launchd bootout before bootstrapping the replacement agent", async () => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-installer-retry-"));
+  const home = join(root, "home");
+  const launchAgents = join(home, "Library", "LaunchAgents");
+  const payloadRoot = await fakePayload(root);
+  let bootstrapAttempts = 0;
+  const retryDelays: number[] = [];
+  const result = await installLauncher({
+    graphPath: "/Users/test/Task Graph",
+    graphId: "logseq",
+    databasePath: join(root, "existing.sqlite"),
+  }, {
+    homeDirectory: home,
+    userId: 501,
+    nodeExecutable: "/opt/node/bin/node",
+    payloadRoot,
+    launchAgentsRoot: launchAgents,
+    createToken: () => "private-installer-token-at-least-32-characters",
+    findPort: async () => 19_673,
+    runLaunchctl: async (args) => {
+      if (args[0] !== "bootstrap") return;
+      bootstrapAttempts += 1;
+      if (bootstrapAttempts <= 7) throw new Error("launchd still completing bootout");
+    },
+    waitForLaunchctlRetry: async (milliseconds) => { retryDelays.push(milliseconds); },
+    waitForReady: async () => undefined,
+  });
+  assert.equal(result.status, "INSTALLED");
+  assert.equal(bootstrapAttempts, 8);
+  assert.deepEqual(retryDelays, [100, 125, 150, 175, 200, 225, 250]);
+});
+
 function resultPath(home: string): string {
   return join(home, "Library", "Application Support", "Task Copilot", "pairing", "task-copilot-v2-launcher-descriptor.json");
 }

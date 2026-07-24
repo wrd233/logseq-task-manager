@@ -19,6 +19,7 @@ import { BootstrapRegistration, bindRootClick, captureUiFocus, restoreUiFocus, t
 import { isWorkspace, renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
 import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger } from "./structured-logger.ts";
+import { recoverServiceRuntime } from "./service-runtime-recovery.ts";
 import {
   createElectronDescriptorReader,
   createLogseqPrivateStorageDescriptorReader,
@@ -812,6 +813,13 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   }
 }
 
+async function recoverConfiguredServiceRuntime(descriptorPath: unknown): Promise<boolean> {
+  return recoverServiceRuntime({
+    refresh: () => refreshServiceRuntime(descriptorPath),
+    ready: () => serviceConnection.status === "READY" && Boolean(serviceRuntimeClient),
+  });
+}
+
 function stopServiceLifecycleHeartbeat(): void {
   if (serviceLifecycleHeartbeatTimer !== undefined) {
     globalThis.clearInterval(serviceLifecycleHeartbeatTimer);
@@ -864,10 +872,13 @@ async function replaceServiceLifecycleSession(next: ServiceLifecycleSession | un
         featureReady = false;
         message = "Task Copilot 本地运行环境连接中断，正在自动恢复；正式写入暂时暂停。";
         const descriptorPath = configuredServiceDescriptorPath;
-        void refreshServiceRuntime(descriptorPath)
-          .then(async () => {
-            featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
+        void recoverConfiguredServiceRuntime(descriptorPath)
+          .then(async (recovered) => {
+            featureReady = recovered;
             diagnostics.setStoreStatus(featureReady ? "READY" : "READ_ONLY_SAFE_MODE");
+            message = recovered
+              ? "Task Copilot 本地运行环境已自动恢复；正式能力重新可用。"
+              : "Task Copilot 本地运行环境仍不可用；正文保持可编辑，正式写入继续暂停。";
             await refreshToolbarInterventionFacts();
             await projectPageHeadActionController.refreshAll();
             if (logseq.isMainUIVisible) await refresh();
@@ -2983,7 +2994,7 @@ async function initializeFeatures(): Promise<void> {
   diagnostics.start("SERVICE_CONNECTION_READY");
   const descriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
   let lastDescriptorSettingValue = descriptorPath;
-  await refreshServiceRuntime(descriptorPath);
+  await recoverConfiguredServiceRuntime(descriptorPath);
   markReady("SERVICE_CONNECTION_READY", `V2 service ${serviceConnection.status.toLowerCase()}`);
   diagnostics.start("EVENTS_READY");
   initializeExplicitSync();

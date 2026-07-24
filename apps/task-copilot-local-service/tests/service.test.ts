@@ -194,7 +194,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
-    { name: "mini-project-modeling", version: "1.1.0" },
+    { name: "mini-project-modeling", version: "1.2.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);

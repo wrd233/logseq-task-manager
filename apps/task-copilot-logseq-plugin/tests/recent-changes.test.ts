@@ -147,6 +147,46 @@ test("a failed inverse commit disables another Undo and explains which later sta
   assert.equal(changes[0]!.availability, "正式事项已在本次修改后变化；为避免覆盖新状态，不能直接撤销。");
 });
 
+test("completed MiniProject structure inverse is folded into the undone original instead of appearing as a new applied change", () => {
+  const changes = projectRecentChanges({
+    proposals: [proposal("proposal-1", rewrite)],
+    commits: [
+      commit("proposal-commit:structure", "UNDONE"),
+      commit("mini-project-restructure-undo:proposal-commit:structure", "COMPLETED", {
+        updatedAt: "2026-07-24T06:36:00.000Z",
+      }),
+    ],
+  });
+
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0]!.commitIdentity, "proposal-commit:structure");
+  assert.equal(changes[0]!.status, "UNDONE");
+  assert.equal(changes[0]!.primaryAction, undefined);
+  assert.equal(changes[0]!.availability, "撤销已经生效，历史证据仍保留。");
+});
+
+test("an applied MiniProject structure change routes to its dedicated subtree-safe Undo", () => {
+  const createBlock = {
+    operationId: "create-section",
+    kind: "CREATE_BLOCK" as const,
+    target: { kind: "BLOCK" as const, id: "root-block", hash: "root-hash" },
+    summary: "创建结构区块",
+    payload: { newBlockUuid: "11111111-1111-4111-8111-111111111111" },
+    preconditions: [],
+  };
+  const changes = projectRecentChanges({
+    proposals: [proposal("proposal-1", createBlock)],
+    commits: [commit("proposal-commit:structure", "COMPLETED")],
+  });
+
+  assert.deepEqual(changes[0]!.primaryAction, {
+    action: "v2-mini-project-restructure-undo",
+    label: "撤销",
+    value: "proposal-commit:structure",
+    tone: "danger",
+  });
+});
+
 test("high-impact Ownership uses its existing dedicated Undo handler", () => {
   const ownership = {
     operationId: "owner-1",

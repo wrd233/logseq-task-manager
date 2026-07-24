@@ -4,11 +4,12 @@ import type {
   ServiceMiniProjectGrillResult,
   ServiceMiniProjectGrillProposalResult,
 } from "@task-copilot/service-client";
+import { miniProjectRestructureHasStructuralChange } from "@task-copilot/application";
 
 export type MiniProjectGrillAnswer = ServiceMiniProjectGrillRequest["answers"][number];
 export type PluginMiniProjectGrillPreviewState =
   | { status: "loading" }
-  | { status: "ready"; result: ServiceMiniProjectGrillPreviewResult; proposal?: { status: "loading" } | { status: "ready"; result: ServiceMiniProjectGrillProposalResult } | { status: "error"; message: string } }
+  | { status: "ready"; result: ServiceMiniProjectGrillPreviewResult; proposal?: { status: "loading" } | { status: "ready"; result: ServiceMiniProjectGrillProposalResult } | { status: "not-needed"; message: string } | { status: "error"; message: string } }
   | { status: "error"; message: string };
 
 export type PluginMiniProjectGrillState =
@@ -57,11 +58,15 @@ function currentResult(state: PluginMiniProjectGrillState | undefined): ServiceM
   return undefined;
 }
 
-function staleServiceError(error: unknown): boolean {
+function serviceErrorCode(error: unknown): string | undefined {
   const remoteCode = error && typeof error === "object" && "details" in error
     ? (error as { details?: { remoteCode?: unknown } }).details?.remoteCode
     : undefined;
-  return typeof remoteCode === "string" && ["V2_OBJECT_VERSION_CONFLICT", "GRILL_SOURCE_STALE", "GRILL_OPEN_MINI_PROJECT_REQUIRED", "V2_OBJECT_NOT_FOUND"].includes(remoteCode);
+  return typeof remoteCode === "string" ? remoteCode : undefined;
+}
+
+function staleServiceError(error: unknown): boolean {
+  return ["V2_OBJECT_VERSION_CONFLICT", "GRILL_SOURCE_STALE", "GRILL_OPEN_MINI_PROJECT_REQUIRED", "V2_OBJECT_NOT_FOUND"].includes(serviceErrorCode(error) ?? "");
 }
 
 export class MiniProjectGrillController {
@@ -146,7 +151,16 @@ export class MiniProjectGrillController {
       requireCurrentMiniProject(await client.listObjects(), objectId, state.expectedVersion);
       const latest = this.states.get(objectId);
       if (latest?.status !== "ready") return;
-      this.states.set(objectId, { ...latest, preview: { status: "ready", result } });
+      this.states.set(objectId, {
+        ...latest,
+        preview: {
+          status: "ready",
+          result,
+          ...(!miniProjectRestructureHasStructuralChange(result.output)
+            ? { proposal: { status: "not-needed" as const, message: "当前材料已经处于预览结构，无需创建 Proposal 或改动正文。" } }
+            : {}),
+        },
+      });
     } catch (error) {
       if (epoch !== this.epoch) return;
       if (error instanceof StaleGrillSessionError || staleServiceError(error)) {
@@ -166,6 +180,7 @@ export class MiniProjectGrillController {
     const optionalCreate = started.client?.createMiniProjectRestructureProposal;
     if (!state || state.status !== "ready" || !preview) throw new Error("结构预览已失效；请重新生成后再进入审阅。");
     if (preview.proposal?.status === "loading") return undefined;
+    if (preview.proposal?.status === "not-needed" || !miniProjectRestructureHasStructuralChange(preview.result.output)) return undefined;
     if (!started.client || !optionalCreate) {
       this.states.set(objectId, { ...state, preview: { ...preview, proposal: { status: "error", message: "Local Service 尚未提供结构 Proposal；没有写入审阅队列。" } } });
       await this.onStateChange();
@@ -189,7 +204,18 @@ export class MiniProjectGrillController {
       return result;
     } catch (error) {
       if (epoch !== this.epoch) return undefined;
-      if (error instanceof StaleGrillSessionError || staleServiceError(error)) this.states.set(objectId, { status: "stale", expectedVersion: state.expectedVersion, message: boundedMessage(error) });
+      if (serviceErrorCode(error) === "GRILL_PREVIEW_SESSION_EXPIRED") {
+        const latest = this.states.get(objectId);
+        if (latest?.status === "ready") {
+          this.states.set(objectId, {
+            ...latest,
+            preview: {
+              status: "error",
+              message: "Local Service 会话已恢复；请重新生成结构预览，已确认的讨论答案仍保留。",
+            },
+          });
+        }
+      } else if (error instanceof StaleGrillSessionError || staleServiceError(error)) this.states.set(objectId, { status: "stale", expectedVersion: state.expectedVersion, message: boundedMessage(error) });
       else {
         const latest = this.states.get(objectId);
         if (latest?.status === "ready" && latest.preview?.status === "ready") this.states.set(objectId, { ...latest, preview: { ...latest.preview, proposal: { status: "error", message: boundedMessage(error) } } });

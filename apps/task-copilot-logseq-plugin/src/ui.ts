@@ -756,6 +756,7 @@ function renderActionDialog(model: UiModel): string {
     const proposalCta = preview
       ? restructureProposal?.status === "loading" ? `<p class="notice" aria-live="polite">正在重验原材料并建立 HIGH 变更审阅；正文仍未修改。</p>`
         : restructureProposal?.status === "error" ? `<div class="notice error">${escapeHtml(restructureProposal.message)}</div>${button("重新进入变更审阅", "v2-mini-project-grill-proposal", object.objectId, "quiet", model.v2MiniProjectGrillProposalAvailable !== true)}`
+        : restructureProposal?.status === "not-needed" ? `<div class="notice"><strong>讨论已完成，无需正式变更。</strong><p>${escapeHtml(restructureProposal.message)}</p></div>`
         : restructureProposal?.status === "ready" ? `<p class="notice">结构 Proposal 已进入“待我确认”；尚未 Commit。</p>`
         : button("进入变更审阅", "v2-mini-project-grill-proposal", object.objectId, "primary", model.v2MiniProjectGrillProposalAvailable !== true)
       : "";

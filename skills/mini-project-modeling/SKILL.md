@@ -5,7 +5,7 @@ description: Resolve the largest evidence-specific uncertainty in one bounded Ta
 
 # Model One MiniProject Grill Turn
 
-Version: `1.1.0`
+Version: `1.2.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and machine
 `grillAuthority`. This Skill produces one session draft, never a Proposal or a formal change.
@@ -46,6 +46,11 @@ counts. Never emit Proposal fields, operations, Commit commands, Graph patches, 
 Return exactly one `task-copilot-grill-turn-v1` JSON object using only supplied machine IDs and
 evidence references. Do not include provenance, subject identity, Proposal fields, operations,
 commands, Graph patches, Focus, Ownership, Lifecycle, Condition, Anchor, Commit, or SQLite fields.
+
+Treat the final machine `outputContract` as the response authority. Copy its `machineReadiness`
+and non-null `requiredFocusUncertaintyId` exactly. Use only `allowedFactIds`,
+`allowedOpenUncertaintyIds`, and `allowedEvidenceRefs`; IDs in `resolvedUncertaintyIds` are forbidden
+in `unknowns` and `questions`. The first question must use the required focus ID.
 
 For a continuing turn:
 

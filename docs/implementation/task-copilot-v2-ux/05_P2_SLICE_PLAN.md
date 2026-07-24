@@ -2,33 +2,37 @@
 
 ## P2-A：MiniProject Grill Me
 
-状态：`PARTIAL_UI_AUTOMATED`
+状态：`BOUNDED_VERTICAL_SLICE_DONE`
 
 已完成的有界部分：Application 已建立 session-only Grill Turn 契约。机器按当前材料中的
 critical、priority 与 evidence 选择最大开放不确定性，机器独占 readiness；四个维度和
 未分类材料未全部安全解决前不得进入结构预览。模型只能返回理解草稿、事实引用、推断、
 未知、最多三问和带取舍的建议，未知 ID、越界证据、固定字段外输出及提前结束均 fail closed。
 该契约没有 Proposal、operation 或正式对象写入能力，术语边界见根目录 `CONTEXT.md`。
-Local Service 已接入版本化 `mini-project-modeling@1.1.0`、精确 Primary Anchor 子树的
+Local Service 已接入版本化 `mini-project-modeling@1.2.0`、精确 Primary Anchor 子树的
 Logseq read bridge、正式对象 Context Package、结构化 Provider、前后 Object/Anchor/子树
 stale 重验和两轮 answer→next-focus 自动闭环。回答只成为当前请求的 session fact；路由
 不写 SQLite/Graph，也不生成 Proposal。
 
 真实 `deepseek-v4-flash` 已在 Keychain-only 配置下完成两轮 Provider→Validator Gate：第一轮
 聚焦 boundary，用户边界回答后第二轮转向 outcome，两轮均保留事实/推断/未知与带取舍建议。
-当前 Logseq read bridge 未连接，完整 Service live route 明确返回
-`GRAPH_READ_BRIDGE_UNAVAILABLE`，因此没有把 Provider 层 Gate 冒充 Desktop/Service live PASS。
+之后 Graph read bridge 已接入正式 Plugin→Service 路径；隔离 Desktop 中完成四轮真实
+`deepseek-v4-flash` 自适应 Grill，覆盖 Validator 拒绝后保留回答并安全重试、四个真实不确定性
+依次收敛、最终进入 preview。该结论只证明当前 MiniProject 纵向场景，不等于所有 P2 完成。
 
 Plugin 已接入 Objects 卡片，并让既有“处理这条内容”在正式 MiniProject Block 上按点击时
 身份路由 Grill，未增加固定宿主菜单项；提供 session-only 多轮
 理解/事实/推断/未知/建议/问题 UI。每轮前后重验对象，Provider error 保留上一轮，stale、
 duplicate、Graph switch/restricted/cleanup 清空与返回原 Block 均已有自动合同；UI 不暴露
-Proposal/Review/Commit 动作。独立最终阅读/结构预览也已接线：Application Validator 强制
+未审阅的正式写入动作。独立最终阅读/结构预览也已接线：Application Validator 强制
 每项原材料恰好出现一次、root 保留、越界 evidence 拒绝、未归类原位保留和机器零删除；
-Service 前后重验同一 Object/Anchor/subtree；Plugin 展示阅读结果与 impact，但没有应用按钮。
-真实 `deepseek-v4-flash` 在两次 fail-closed 纠偏后已通过 3/3 材料守恒 Gate。仍未完成：
-Graph bridge 完整 live route、真实 Desktop 的 loading/error/reload/返回原 Block与预览，
-Proposal Review、Commit/Undo、交互证据接线。
+Service 前后重验同一 Object/Anchor/subtree；Plugin 展示阅读结果与 impact，并只允许进入
+独立 HIGH Proposal Review，不提供绕过 Review 的直接应用按钮。
+真实 `deepseek-v4-flash` 预览在 canonical identity-property 修复后通过 5/5 材料守恒、
+0 删除、0 未分类 Gate；Desktop 又完成 Preview→Proposal Review→Commit→reload→Undo→reload
+并返回原根 Block。Skill 已升级为 `mini-project-modeling@1.2.0`，追加 follow-up history 和
+已回答问题避重，避免连续轮次重复追问。P2-A 的当前纵向 Slice 因此从 Partial 变为 Done；
+跨场景内容质量、P2-C Project Grill 和完整交互证据产品化继续由后续 Slice 验收。
 
 循环：
 
@@ -47,7 +51,7 @@ Proposal Review、Commit/Undo、交互证据接线。
 
 ## P2-B：MiniProject 原位重构
 
-状态：`PARTIAL_FORMAL_UI_AUTOMATED_DESKTOP_GATE`
+状态：`BOUNDED_VERTICAL_SLICE_DONE`
 
 代码审计确认现有通用 Proposal Commit 只能执行一个 Block patch，正式 Adapter 也仍拒绝未完成
 Desktop Gate 的 move；因此不复用该路径伪装多 Block 原子性。Application 已新增 Preview→HIGH
@@ -73,9 +77,14 @@ forward steps 恢复已应用结构，原 Commit 只有在 inverse 全部 VERIFI
 Local Service 115/115、Plugin 246/246 通过 changed-state 零账本、成功、reload replay 与失败
 恢复。Review 现已只对该 HIGH 结构 Proposal 暴露专用“确认原位重构”，显式复核
 最终阅读预览、删除为 0、UUID/正文保留与整树重验；完成后转为独立 inverse
-Undo，不落入通用单 Block Commit/Undo。Plugin 247/247 回归 PASS。通用 Commit 继续
-fail closed；完整 Desktop Preview→Review→Commit→reload→Undo 和跨 reload Rebind
-仍未完成，因此不声称 P2-B 已完成。
+Undo，不落入通用单 Block Commit/Undo。真实 Desktop 已进一步完成一个隔离 MiniProject 的
+Preview→HIGH Review→八步 Commit→reload→八步 inverse Undo→reload→返回根 Block。
+第一次 Undo 真实触发 sibling-order divergence，Service 正确进入 Recovery 而没有静默覆盖；
+修正后的 completed-state Undo 按 source sibling 拓扑先恢复 MOVE，再逆创建顺序删除 section，
+最终原 UUID/正文/父级/顺序全部恢复，机器 section 全部消失，Pending/Recovery 为 0。
+最近修改也已把 inverse structure Commit 折叠回原意图，不再重复显示或提供通用 Undo。
+P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩展和 P2-G 用户化恢复向导仍
+保持 OPEN，详见 `logs/p2-b-grill-structure-desktop-live-20260725.md`。
 
 默认保留原根 Block；原始事实零丢失；无法归类内容进入待判断/原始材料；结构只使用最小骨架和按需区块。
 

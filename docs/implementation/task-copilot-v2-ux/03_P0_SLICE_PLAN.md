@@ -354,11 +354,15 @@ Logseq Desktop 0.10.15 的用户层历史、折叠技术详情、查看原 Propo
 
 ## P0-H：Service 产品化
 
-状态：`PARTIAL` — descriptor 私有导入/重连 handshake 已完成既有 Desktop 闭环；独立
-Launcher/LaunchAgent、Graph-bound lease、owned shutdown、TTL、Service/Launcher crash
-recovery、owner-PID orphan self-stop、显式结束恢复前置与 Graph switch fail-closed 已完成
-自动及真实独立进程 Gate。reload/结束/Logseq 退出/Graph switch 的本轮 Desktop 视觉证据仍
-OPEN，因此 P0-H 整体不得标记完成。
+状态：`IN_PROGRESS_DESKTOP_GRAPH_SWITCH_GATE` — descriptor 私有导入/重连 handshake 已完成
+既有 Desktop 闭环；独立 Launcher/LaunchAgent、Graph-bound lease、owned shutdown、TTL、
+Service/Launcher crash recovery、owner-PID orphan self-stop、显式结束恢复前置与 Graph switch
+fail-closed 已完成自动及真实独立进程 Gate。
+
+Graph-bound Launcher、lease、crash/orphan recovery、reload 自动恢复与真实 Logseq quit 后
+owned Service 结束均已有自动和 Desktop/进程证据；Launcher 保留以服务后续会话。Graph switch
+仍缺本轮完整视觉 Gate，因此 P0-H 保持 `IN_PROGRESS_DESKTOP_GRAPH_SWITCH_GATE`，不得把生命周期
+主链已完成误写成“仍需终端维护”，也不得提前宣布整个 P0 完成。
 
 先做受控 spike，再选择最小方案。必须回答：
 

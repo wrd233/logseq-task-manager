@@ -1,11 +1,13 @@
 # 交互优化实施进度
 
-> 更新时间：2026-07-24
-> 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
+> 更新时间：2026-07-25
+> 当前结论：`IN_PROGRESS` — `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；
+> `ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。P0-A Focus、
+> P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
 > P0-D Page 现场路由、P0-E 四项主导航、P0-F 工具栏介入摘要、P0-G 最近修改和 P0-H
 > descriptor 私有 handshake 已完成自动与适用 Desktop 验收；P0-H 独立 Launcher、
-> LaunchAgent、owned shutdown 与 crash/orphan recovery 已完成自动和真实进程 Gate，剩余
-> Desktop reload/退出/Graph switch 视觉 Gate；P0-J 中文命令自动 Gate 已完成，剩余
+> LaunchAgent、owned shutdown 与 crash/orphan recovery 已完成自动和真实进程 Gate，reload
+> 与真实 Logseq quit 已补 Desktop 证据，Graph switch 视觉 Gate仍开放；P0-J 中文命令自动 Gate 已完成，剩余
 > slash/palette/custom binding Desktop Gate；P0-K session origin route 与 P0-A 普通 Block
 > “处理这条内容”自动 Gate 已完成，剩余 main/sidebar/Query/reference Desktop Gate 及其余
 > P0 仍未完成。
@@ -21,9 +23,9 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + reload + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_FORMAL_UI_DESKTOP_GATE | P2-A turn + 零丢失 preview contract/Service/Plugin 自动 PASS，真实 DeepSeek turn 与 preview Provider/Validator PASS；P2-B 专用 ledger/recovery、Plugin Commit/inverse Undo executor 及正式 Review UI 自动 PASS，同会话 UUID move/restore Desktop PASS；完整 Desktop、reload Rebind 仍开放 |
+| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE | P2-A+B 一个隔离 MiniProject 已完成真实 DeepSeek Grill→canonical preview→HIGH Review→8-step Commit→reload→真实 Recovery→修正后 8-step Undo→reload→返回根 Block；P2-C～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -407,7 +409,12 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   executor 246/246 PASS。正式 Review 已接入专用 Commit/inverse Undo：只有单一已接受 HIGH
   `CREATE_BLOCK`/`MOVE_BLOCK` 组会显示结构动作，确认框明示零删除、UUID/正文保留、
   整树重验与双向恢复；完成后返回 session origin，不可用时返回 Review。专项 UI 与
-  Plugin 全量 247/247 PASS。完整 Desktop Preview→Review→Commit→reload→Undo Gate 仍 OPEN；
+  Plugin 全量 247/247 PASS。随后真实 Desktop 完成四轮 DeepSeek Grill、5/5 canonical
+  零丢失预览、HIGH Review、8/8 step Commit、reload、真实 Undo divergence→Recovery、
+  修正后 8/8 inverse Undo、reload、最近修改 inverse 折叠和返回原根 Block。原五个 UUID、
+  正文、父级及 sibling chain 恢复，四个机器 section 消失，Pending/Recovery 0。该纵向 Slice
+  状态从 Partial 变为 Done，P2-C～G 仍 OPEN；完整记录见
+  `logs/p2-b-grill-structure-desktop-live-20260725.md`；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -418,17 +425,13 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 恢复 Graph read bridge 后复跑 Plugin→Service→DeepSeek turn + preview Desktop Gate，覆盖
-   loading、Provider failure retry、source stale、reload 清空与返回原 Block；保持输出仅为
-   session draft/session preview；
-2. 在已通过的正式 Review→Commit/inverse Undo UI 和同会话 Desktop identity Gate 之上，
-   完成 Preview→Review→Commit→reload→Undo→回根 Block 的真实 Desktop Gate；reload Rebind 前保持
-   fail closed；
-3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
+1. 进入 P2-C：复用已证明的 adaptive Grill、Context Package、Validator 与正式 Project
+   prepare/page/finalize 原子链，先建立 Project 创建的纵向 Proposal/Review 边界；
+2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；
-4. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-5. 完成 P1-D
+3. 汇总 P0-H/P0-J/P0-K 的 Graph switch、slash/palette/custom binding 与多宿主 origin；
+4. 完成 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-6. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
+5. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
    shadow 决定不建 derivative，跨 reload 用户处置只在首批信号开放并证明减噪后重开。

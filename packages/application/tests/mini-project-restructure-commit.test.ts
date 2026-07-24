@@ -4,7 +4,7 @@ import test from "node:test";
 import { reviewV2ProposalGroups } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { buildMiniProjectRestructureProposal, planAcceptedMiniProjectRestructure, type GrillPreview, type MiniProjectRestructureProposalInput } from "../src/index.ts";
+import { buildMiniProjectRestructureProposal, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, type GrillPreview, type MiniProjectRestructureProposalInput } from "../src/index.ts";
 
 const rootText = "[MiniProject] 整理设备";
 const sourceText = "核对设备清单";
@@ -51,6 +51,49 @@ test("accepted MiniProject structure Proposal becomes an ordered Graph plan with
   assert.deepEqual(plan.compensationSteps.map(({ kind }) => kind), ["REMOVE_CREATED_BLOCK", "MOVE_BLOCK", "REMOVE_CREATED_BLOCK"]);
   assert.equal(plan.steps.every(({ beforeHash, afterHash }) => beforeHash !== afterHash), true);
   assert.equal(plan.compensationSteps[1]?.kind === "MOVE_BLOCK" && plan.compensationSteps[1].toParentBlockUuid === "root-block", true);
+});
+
+test("completed Undo restores moved source siblings before removing created containers", () => {
+  const base = planAcceptedMiniProjectRestructure(acceptedProposal());
+  const firstCreate = base.steps[0]!;
+  const firstMove = base.steps[1]!;
+  const secondCreate = {
+    ...firstCreate,
+    operationId: "create-section-two",
+    blockUuid: "33333333-3333-4333-8333-333333333333",
+    previousSiblingUuid: firstCreate.blockUuid,
+    beforeHash: "11111111",
+    afterHash: "22222222",
+  };
+  const secondMove = {
+    ...firstMove,
+    operationId: "move-source-two",
+    blockUuid: "source-block-two",
+    fromPreviousSiblingUuid: firstMove.blockUuid,
+    applyFromPreviousSiblingUuid: secondCreate.blockUuid,
+    toParentBlockUuid: secondCreate.blockUuid,
+    toPreviousSiblingUuid: null,
+    beforeHash: "33333333",
+    afterHash: "44444444",
+  };
+  const plan = {
+    ...base,
+    steps: [firstCreate, firstMove, secondCreate, secondMove],
+  };
+
+  const undo = planCompletedMiniProjectRestructureUndo(plan);
+
+  assert.deepEqual(undo.map(({ forwardStepIndex, step }) => ({
+    forwardStepIndex,
+    kind: step.kind,
+    blockUuid: step.blockUuid,
+    ...(step.kind === "MOVE_BLOCK" ? { previousSiblingUuid: step.toPreviousSiblingUuid } : {}),
+  })), [
+    { forwardStepIndex: 1, kind: "MOVE_BLOCK", blockUuid: firstMove.blockUuid, previousSiblingUuid: null },
+    { forwardStepIndex: 3, kind: "MOVE_BLOCK", blockUuid: secondMove.blockUuid, previousSiblingUuid: firstMove.blockUuid },
+    { forwardStepIndex: 2, kind: "REMOVE_CREATED_BLOCK", blockUuid: secondCreate.blockUuid },
+    { forwardStepIndex: 0, kind: "REMOVE_CREATED_BLOCK", blockUuid: firstCreate.blockUuid },
+  ]);
 });
 
 test("structure planner rejects unresolved groups, forward references, mixed operations, and inconsistent scope evidence", () => {

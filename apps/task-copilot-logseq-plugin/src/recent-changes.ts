@@ -6,7 +6,7 @@ import { projectPluginCommitNarration } from "./status-narration-runtime.ts";
 export type RecentChangeStatus = "APPLIED" | "PENDING" | "RECOVERY_REQUIRED" | "FAILED" | "UNDONE";
 
 export interface RecentChangeAction {
-  action: "recent-change-review" | "v2-proposal-undo" | "v2-ownership-undo" | "v2-lifecycle-undo" | "v2-project-structure-undo";
+  action: "recent-change-review" | "v2-proposal-undo" | "v2-ownership-undo" | "v2-lifecycle-undo" | "v2-project-structure-undo" | "v2-mini-project-restructure-undo";
   label: string;
   value: string;
   tone: "quiet" | "danger";
@@ -41,7 +41,7 @@ export interface RecentChangesInput {
 }
 
 function originalIdentity(commitId: string): string | undefined {
-  for (const prefix of ["project-structure-undo:", "ownership-undo:", "lifecycle-undo:", "undo:"]) {
+  for (const prefix of ["mini-project-restructure-undo:", "project-structure-undo:", "ownership-undo:", "lifecycle-undo:", "undo:"]) {
     if (commitId.startsWith(prefix)) return commitId.slice(prefix.length);
   }
   return undefined;
@@ -123,6 +123,12 @@ function proposalUndoAction(
     && (operation.payload.action === "CANCEL" || operation.payload.action === "REOPEN")
   ))) {
     return { action: "v2-lifecycle-undo", label: "撤销", value: semanticCommitId, tone: "danger" };
+  }
+  if (
+    acceptedOperations.length > 0
+    && acceptedOperations.every((operation) => operation.kind === "CREATE_BLOCK" || operation.kind === "MOVE_BLOCK")
+  ) {
+    return { action: "v2-mini-project-restructure-undo", label: "撤销", value: semanticCommitId, tone: "danger" };
   }
   const isNonGenericClosure = acceptedOperations.some((operation) => (
     operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.lifecycle === "COMPLETED"

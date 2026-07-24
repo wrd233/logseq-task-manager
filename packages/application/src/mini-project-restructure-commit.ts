@@ -47,6 +47,15 @@ export interface MiniProjectRestructureCommitPlan {
   compensationSteps: MiniProjectRestructureCompensationStep[];
 }
 
+export interface MiniProjectRestructureUndoPlanEntry {
+  stepIndex: number;
+  forwardStepIndex: number;
+  step: MiniProjectRestructureCompensationStep;
+  operationId: string;
+  beforeHash: string;
+  afterHash: string;
+}
+
 function commitError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-094", "D-185"] });
 }
@@ -121,4 +130,58 @@ export function planAcceptedMiniProjectRestructure(proposal: V2Proposal): MiniPr
     ? { operationId: `compensate:${step.operationId}`, kind: "REMOVE_CREATED_BLOCK", blockUuid: step.blockUuid, contentHash: step.contentHash, expectedParentBlockUuid: step.parentBlockUuid, expectedPreviousSiblingUuid: step.previousSiblingUuid }
     : { operationId: `compensate:${step.operationId}`, kind: "MOVE_BLOCK", blockUuid: step.blockUuid, contentHash: step.contentHash, fromParentBlockUuid: step.toParentBlockUuid, fromPreviousSiblingUuid: step.toPreviousSiblingUuid, toParentBlockUuid: step.fromParentBlockUuid, toPreviousSiblingUuid: step.fromPreviousSiblingUuid });
   return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: objectTargets[0]!.id, expectedVersion: objectTargets[0]!.version!, sourceRootBlockUuid: sourceRootBlockUuid!, sourceScopeHash: sourceScopeHash!, sourceStructureHash: sourceStructureHash!, expectedStructureHash: expectedStructureHash!, steps, compensationSteps };
+}
+
+export function planCompletedMiniProjectRestructureUndo(plan: MiniProjectRestructureCommitPlan): MiniProjectRestructureUndoPlanEntry[] {
+  const pendingMoves = plan.steps
+    .map((step, forwardStepIndex) => ({ step, forwardStepIndex }))
+    .filter((entry): entry is { step: MiniProjectRestructureMoveStep; forwardStepIndex: number } => entry.step.kind === "MOVE_BLOCK");
+  const orderedMoves: typeof pendingMoves = [];
+  while (pendingMoves.length > 0) {
+    const pendingBlockIds = new Set(pendingMoves.map(({ step }) => step.blockUuid));
+    const readyIndex = pendingMoves.findIndex(({ step }) =>
+      step.fromPreviousSiblingUuid === null || !pendingBlockIds.has(step.fromPreviousSiblingUuid));
+    if (readyIndex < 0) throw commitError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_ORDER_INVALID", "结构 Undo 的原始相邻顺序存在循环依赖。");
+    orderedMoves.push(pendingMoves.splice(readyIndex, 1)[0]!);
+  }
+  const removals = plan.steps
+    .map((step, forwardStepIndex) => ({ step, forwardStepIndex }))
+    .filter((entry): entry is { step: MiniProjectRestructureCreateStep; forwardStepIndex: number } => entry.step.kind === "CREATE_BLOCK")
+    .reverse();
+  const ordered = [
+    ...orderedMoves.map(({ step, forwardStepIndex }) => ({
+      forwardStepIndex,
+      forward: step,
+      inverse: {
+        operationId: `compensate:${step.operationId}`,
+        kind: "MOVE_BLOCK" as const,
+        blockUuid: step.blockUuid,
+        contentHash: step.contentHash,
+        fromParentBlockUuid: step.toParentBlockUuid,
+        fromPreviousSiblingUuid: step.toPreviousSiblingUuid,
+        toParentBlockUuid: step.fromParentBlockUuid,
+        toPreviousSiblingUuid: step.fromPreviousSiblingUuid,
+      },
+    })),
+    ...removals.map(({ step, forwardStepIndex }) => ({
+      forwardStepIndex,
+      forward: step,
+      inverse: {
+        operationId: `compensate:${step.operationId}`,
+        kind: "REMOVE_CREATED_BLOCK" as const,
+        blockUuid: step.blockUuid,
+        contentHash: step.contentHash,
+        expectedParentBlockUuid: step.parentBlockUuid,
+        expectedPreviousSiblingUuid: step.previousSiblingUuid,
+      },
+    })),
+  ];
+  return ordered.map(({ forwardStepIndex, forward, inverse }, stepIndex) => ({
+    stepIndex,
+    forwardStepIndex,
+    step: inverse,
+    operationId: `undo:${forward.operationId}`,
+    beforeHash: forward.afterHash,
+    afterHash: forward.beforeHash,
+  }));
 }

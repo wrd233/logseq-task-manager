@@ -4,7 +4,7 @@ import test from "node:test";
 import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, type MiniProjectGrillSource } from "../src/mini-project-grill.ts";
+import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, buildMiniProjectSourcePositions, type MiniProjectGrillSource } from "../src/mini-project-grill.ts";
 
 const subject: V2ManagedObject = {
   objectId: "mini-1", objectType: "MINI_PROJECT", version: 3, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" },
@@ -87,4 +87,38 @@ test("preview generation opens only after all uncertainties resolve and preserve
   ]);
   assert.equal(preview.authority.sessionFacts.filter(({ factId }) => factId.startsWith("answer-")).length, 4);
   assert.throws(() => buildMiniProjectGrillPreviewGeneration({ ...readySource, graphSnapshot: { ...readySource.graphSnapshot, truncated: true } }), /truncated/i);
+});
+
+test("preview and Proposal source positions share the canonical Logseq text behind the bridge content hash", () => {
+  const rootUuid = "11111111-1111-4111-8111-111111111111";
+  const childUuid = "22222222-2222-4222-8222-222222222222";
+  const rootContent = `[MiniProject] 整理托管设备记录
+id:: ${rootUuid}`;
+  const childContent = `厂家参数尚未归类
+id:: ${childUuid}`;
+  const canonicalRoot = "[MiniProject] 整理托管设备记录";
+  const canonicalChild = "厂家参数尚未归类";
+  const readySource = source([
+    { uncertaintyId: "boundary", text: "只覆盖当前设备清单。" },
+    { uncertaintyId: "outcome", text: "形成可维护的设备记录。" },
+    { uncertaintyId: "completion-evidence", text: "每台设备都有型号和参数来源。" },
+    { uncertaintyId: "material-disposition", text: "厂家参数归入对应设备记录。" },
+  ]);
+  readySource.anchors = [{ ...anchors[0]!, externalId: rootUuid, contentHash: checksum(canonicalRoot) }];
+  readySource.graphSnapshot = {
+    ...readySource.graphSnapshot,
+    requestedTarget: rootUuid,
+    resolved: { kind: "BLOCK", id: rootUuid },
+    blocks: [
+      { uuid: rootUuid, content: rootContent, contentHash: checksum(canonicalRoot), relation: "ROOT", depth: 0 },
+      { uuid: childUuid, content: childContent, contentHash: checksum(canonicalChild), relation: "CHILD", depth: 1, parentUuid: rootUuid },
+    ],
+  };
+
+  const preview = buildMiniProjectGrillPreviewGeneration(readySource);
+  const positions = buildMiniProjectSourcePositions(readySource.graphSnapshot);
+
+  assert.deepEqual(preview.authority.materials.map(({ exactText }) => exactText), [canonicalRoot, canonicalChild]);
+  assert.deepEqual(positions.map(({ exactText }) => exactText), [canonicalRoot, canonicalChild]);
+  assert.deepEqual(positions.map(({ exactText, contentHash }) => checksum(exactText) === contentHash), [true, true]);
 });

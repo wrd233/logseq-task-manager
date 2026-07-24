@@ -1,4 +1,5 @@
 import {
+  grillReadiness,
   materializeGrillTurn,
   requiredGrillFocus,
   type GrillTurn,
@@ -76,26 +77,66 @@ export class LocalLlmGrillTurnGenerator {
       },
     };
     const focus = requiredGrillFocus(authority);
+    const machineReadiness = grillReadiness(authority);
+    const openUncertainties = authority.uncertainties.filter(({ status }) => status === "OPEN");
+    const resolvedUncertaintyIds = authority.uncertainties
+      .filter(({ status }) => status === "RESOLVED")
+      .map(({ uncertaintyId }) => uncertaintyId);
+    const allowedEvidenceRefs = [...new Set([
+      ...authority.facts.flatMap(({ sourceRefs }) => sourceRefs),
+      ...openUncertainties.flatMap(({ evidenceRefs }) => evidenceRefs),
+      ...authority.unclassifiedMaterialRefs,
+    ])].sort();
     const grillAuthority = {
       subject: { kind: authority.subject.kind, version: authority.subject.version },
       sourceFingerprint: authority.sourceFingerprint,
       facts: authority.facts.map(({ factId, sourceRefs }) => ({ factId, sourceRefs })),
-      uncertainties: authority.uncertainties.map(({ uncertaintyId, dimension, status, priority, critical, evidenceRefs }) => ({ uncertaintyId, dimension, status, priority, critical, evidenceRefs })),
+      openUncertainties: openUncertainties.map(({ uncertaintyId, dimension, priority, critical, evidenceRefs }) => ({ uncertaintyId, dimension, priority, critical, evidenceRefs })),
+      resolvedUncertaintyIds,
       unclassifiedMaterialRefs: authority.unclassifiedMaterialRefs,
       requiredFocusUncertaintyId: focus?.uncertaintyId,
     };
+    const outputContract = {
+      schemaVersion: "task-copilot-grill-turn-v1",
+      machineReadiness,
+      requiredFocusUncertaintyId: focus?.uncertaintyId ?? null,
+      allowedFactIds: authority.facts.map(({ factId }) => factId),
+      allowedOpenUncertaintyIds: openUncertainties.map(({ uncertaintyId }) => uncertaintyId),
+      resolvedUncertaintyIds,
+      allowedEvidenceRefs,
+      constraints: machineReadiness === "CONTINUE"
+        ? [
+          "Copy machineReadiness into readiness exactly.",
+          "Copy requiredFocusUncertaintyId into focusUncertaintyId and the first question exactly.",
+          "Resolved uncertainty IDs are forbidden in unknowns and questions.",
+          "Use only allowedFactIds, allowedOpenUncertaintyIds, and allowedEvidenceRefs.",
+        ]
+        : [
+          "Copy machineReadiness into readiness exactly.",
+          "Questions must be an empty array and unknowns must be an empty array; omit focusUncertaintyId and recommendation.",
+          "Resolved uncertainty IDs are forbidden in unknowns and questions.",
+          "Use only allowedFactIds and allowedEvidenceRefs.",
+        ],
+    };
+    const turnInstruction = machineReadiness === "CONTINUE"
+      ? "Follow the machine requiredFocusUncertaintyId: ask it first, state it in unknowns, and give one evidence-backed recommendation with at least one tradeoff."
+      : "Machine readiness is READY_FOR_PREVIEW: return empty unknowns and questions, and omit focusUncertaintyId and recommendation. Summarize only why the bounded material is ready for a separate preview.";
     const system = [
       "Return exactly one task-copilot-grill-turn-v1 JSON draft for one bounded conversation turn.",
-      "Follow the machine requiredFocusUncertaintyId: ask it first, state it in unknowns, and give one evidence-backed recommendation with at least one tradeoff.",
+      turnInstruction,
       "Use only supplied factId, uncertaintyId, sourceRef, and evidenceRef values. Keep facts, inferences, and unknowns separate.",
+      "The final machine outputContract is authoritative. Copy its machineReadiness and requiredFocusUncertaintyId exactly. Resolved uncertainty IDs are forbidden in unknowns and questions.",
       "Machine code owns the largest open uncertainty, readiness, evidence scope, and provenance; model values cannot override them.",
       "Never emit Proposal, operations, Commit, Focus, Ownership, Lifecycle, Condition, Anchor, Graph writes, or SQLite writes. 不得输出 Proposal 或任何正式写入命令。",
-      "When machine readiness is READY_FOR_PREVIEW, return no focusUncertaintyId, questions, or recommendation.",
       `Core [${core.version}]\n${core.content}`,
       `Skill [${skill.version}]\n${skill.content}`,
       `User Semantics [${userSemantics.version}]\n${userSemantics.content}`,
     ].join("\n\n");
-    const user = `Runtime Context [${runtimeContext.version}]\n${runtimeContext.content}\n\nmachine grillAuthority\n${stableJson(grillAuthority)}`;
+    const user = [
+      `Runtime Context [${runtimeContext.version}]\n${runtimeContext.content}`,
+      `machine grillAuthority\n${stableJson(grillAuthority)}`,
+      `machine outputContract (final authority for the JSON response)\n${stableJson(outputContract)}`,
+    ].join("\n\n");
     if (system.length + user.length > 200_000) {
       throw new StructuredError({
         code: "GRILL_PROMPT_TOO_LARGE",

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { grillReadiness, type GrillFactAuthority, type GrillUncertaintyAuthority, type MiniProjectSourcePosition } from "@task-copilot/application";
 import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
+import { stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import type { ServiceGraphSnapshot } from "@task-copilot/service-client";
 import { stableJson } from "@task-copilot/shared";
 
@@ -37,7 +38,7 @@ export function buildMiniProjectSourcePositions(snapshot: ServiceGraphSnapshot):
     const parentKey = parentBlockUuid ?? "__root__";
     const previousSiblingUuid = isRoot ? null : previousByParent.get(parentKey) ?? null;
     if (!isRoot) previousByParent.set(parentKey, block.uuid);
-    return { materialId: isRoot ? "root" : `material-${index + 1}`, blockUuid: block.uuid, parentBlockUuid, previousSiblingUuid, exactText: block.content, contentHash: block.contentHash, isRoot };
+    return { materialId: isRoot ? "root" : `material-${index + 1}`, blockUuid: block.uuid, parentBlockUuid, previousSiblingUuid, exactText: stripLogseqBlockIdentityProperty(block.content, block.uuid), contentHash: block.contentHash, isRoot };
   });
 }
 
@@ -136,7 +137,7 @@ export function buildMiniProjectGrillPreviewGeneration(source: MiniProjectGrillS
     materialId: materialIdByUuid.get(block.uuid)!,
     sourceRef: `block:${block.uuid}`,
     contentHash: block.contentHash,
-    exactText: block.content,
+    exactText: stripLogseqBlockIdentityProperty(block.content, block.uuid),
     currentSectionId: block.relation === "ROOT" ? "root" : block.parentUuid ? materialIdByUuid.get(block.parentUuid) ?? "root" : "root",
     isRoot: block.relation === "ROOT",
   }));

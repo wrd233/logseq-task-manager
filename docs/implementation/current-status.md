@@ -5,6 +5,18 @@
 V2 v1.1 底座完成结论不变；当前继续按
 `docs/implementation/task-copilot-v2-ux/02_IMPLEMENTATION_ROADMAP.md` 推进交互优化 P0→P1→P2。
 
+```yaml
+base_v2_status: IMPLEMENTATION_COMPLETE
+ux_productization_goal: IN_PROGRESS
+p0_status: IN_PROGRESS_DESKTOP_GATES
+p1_status: IN_PROGRESS_PARTIAL_UI
+p2_status: IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE
+overall_goal: IN_PROGRESS
+```
+
+这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
+它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
+
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
   Local Service 读回均已通过；
 - P0-B“暂时做不了”：三种用户意图、最小字段、失败零写入、Focus/Lifecycle 不变、会话内
@@ -20,7 +32,8 @@ V2 v1.1 底座完成结论不变；当前继续按
   Launcher、LaunchAgent installer、Graph-bound lease/heartbeat、最后租约 owned shutdown、
   TTL、Service/Launcher crash recovery、owner-PID orphan self-stop、显式结束前恢复检查与
   Graph switch fail-closed 已完成自动和真实独立进程 Gate。当前专用 LaunchAgent 已安装并
-  READY；本轮 Desktop reload/结束/退出/Graph switch 视觉 Gate 因控制端接口不匹配保持 OPEN；
+  READY；真实 Logseq reload 已证明面板重开后自动恢复 READY，真实 quit 后 owned Service 在
+  租约窗口内结束而 Launcher 保留；Graph switch 视觉 Gate 仍 OPEN；
 - P0-E 四项主导航：主入口已收束为“现在 / 待我确认 / 项目 / 更多”；Project
   列表/重入/当前接口/正式创建与 Audit/Recovery/Diagnostics/Backup/Restore/Migration
   均在二级入口继续可达，自动测试与真实 Desktop 下钻已通过；窄宽度和本轮键盘注入未虚报；
@@ -106,6 +119,11 @@ V2 v1.1 底座完成结论不变；当前继续按
   属于默认关闭的显式研究 Gate，均不归入自动留存日志；session buffer 已可按
   Skill/Prompt/model version 汇总 helpful/noise/error/rejection/do-not-repeat，Application
   122/122 通过，但用户处置入口与真实噪声阈值仍未验；
+- P2-A/P2-B 的一个隔离纵向 Slice 已完成真实 Desktop 闭环：真实 DeepSeek 四轮自适应 Grill、
+  Validator 拒绝后安全重试、canonical 零丢失预览、server-owned HIGH Proposal、显式 Review、
+  八步正式 Commit、reload、真实 divergence→Recovery、修正后的八步 inverse Undo、再次 reload、
+  最近修改 inverse 折叠与精确返回原根 Block 均有证据。该结论只关闭 P2-A/P2-B 的这条主链，
+  P2-C～P2-G、P1 和整体产品化 Goal 继续 IN_PROGRESS；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
@@ -113,9 +131,10 @@ V2 v1.1 底座完成结论不变；当前继续按
 
 ## 当前 Slice
 
-V1 frozen / V2 E2E-01–24 complete / interaction optimization P1-G live-provider service+plugin partial /
-P1-H session disposition live-service pass and Desktop open / P2-A adaptive MiniProject Grill + zero-loss preview live-provider pass / P2-B restructure Proposal Review + formal recoverable Commit/inverse Undo UI automated + same-session Desktop UUID move/restore PASS; full Desktop/reload Rebind open /
-P1 and P2 remain in progress
+V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
+P0 remaining host Desktop gates / P1 partial UI and shadow gates /
+P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
+P2-C–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论
 

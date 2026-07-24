@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { checksum } from "@task-copilot/shared";
 
-import { buildMiniProjectRestructureProposal, type GrillPreview, type MiniProjectRestructureProposalInput } from "../src/index.ts";
+import { buildMiniProjectRestructureProposal, miniProjectRestructureHasStructuralChange, type GrillPreview, type MiniProjectRestructureProposalInput } from "../src/index.ts";
 
 const rootText = "[MiniProject] 整理设备";
 const sourceText = "核对设备清单";
@@ -79,4 +79,18 @@ test("changed evidence, missing material, duplicate created UUID, or impact mism
   assert.throws(() => buildMiniProjectRestructureProposal(duplicate), /identity is invalid/);
   const impact = input(); impact.preview = { ...impact.preview, impact: { ...impact.preview.impact, movedMaterialCount: 0 } };
   assert.throws(() => buildMiniProjectRestructureProposal(impact), /move impact/);
+});
+
+test("a root-only reading result is complete without pretending to be a structural Proposal", () => {
+  const noChange = input();
+  noChange.preview = {
+    ...noChange.preview,
+    finalReading: { ...noChange.preview.finalReading, sections: [noChange.preview.finalReading.sections[0]!] },
+    unclassified: [],
+    impact: { sourceMaterialCount: 1, movedMaterialCount: 0, addedDerivedBlockCount: 0, deletedMaterialCount: 0, unclassifiedMaterialCount: 0 },
+  };
+  noChange.sourcePositions = [noChange.sourcePositions[0]!];
+  noChange.createdBlockUuids = {};
+  assert.equal(miniProjectRestructureHasStructuralChange(noChange.preview), false);
+  assert.throws(() => buildMiniProjectRestructureProposal(noChange), /no structural change/);
 });

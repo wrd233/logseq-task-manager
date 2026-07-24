@@ -28,6 +28,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 type StructurePosition = Pick<MiniProjectSourcePosition, "blockUuid" | "parentBlockUuid" | "previousSiblingUuid" | "contentHash">;
 
+export function miniProjectRestructureHasStructuralChange(preview: GrillPreview): boolean {
+  return preview.impact.movedMaterialCount > 0
+    || preview.impact.addedDerivedBlockCount > 0
+    || preview.finalReading.sections.some(({ sectionId }) => sectionId !== "root");
+}
+
 export function miniProjectStructureHash(positions: readonly StructurePosition[]): string {
   return checksum(positions.map(({ blockUuid, parentBlockUuid, previousSiblingUuid, contentHash }) => ({ blockUuid, parentBlockUuid, previousSiblingUuid, contentHash })).sort((left, right) => left.blockUuid.localeCompare(right.blockUuid)));
 }
@@ -106,6 +112,9 @@ function readablePreview(preview: GrillPreview): string {
 }
 
 export function buildMiniProjectRestructureProposal(input: MiniProjectRestructureProposalInput): V2Proposal {
+  if (!miniProjectRestructureHasStructuralChange(input.preview)) {
+    throw new Error("MiniProject restructure proposal has no structural change.");
+  }
   if (input.preview.authorityBoundary !== "SESSION_PREVIEW_ONLY" || input.preview.impact.deletedMaterialCount !== 0) throw new Error("MiniProject restructure requires a zero-delete session preview.");
   if (!Number.isSafeInteger(input.objectVersion) || input.objectVersion < 1 || !input.objectId.trim() || !Number.isFinite(Date.parse(input.createdAt))) throw new Error("MiniProject restructure subject is invalid.");
   const positions = new Map(input.sourcePositions.map((position) => [position.materialId, position]));

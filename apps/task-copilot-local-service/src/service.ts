@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -81,6 +81,34 @@ const backupIdPattern = /^backup_[0-9]{17}_[0-9a-f]{32}$/;
 
 function serviceError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-192", "D-204"] });
+}
+
+function miniProjectRestructureProposalBuildError(error: unknown): StructuredError {
+  if (error instanceof StructuredError) return error;
+  const reason = error instanceof Error ? error.message : "";
+  const messages: Record<string, string> = {
+    "MiniProject restructure requires a zero-delete session preview.": "结构预览不满足零删除边界；没有创建 Proposal。",
+    "MiniProject restructure subject is invalid.": "MiniProject 对象版本或预览时间无效；没有创建 Proposal。",
+    "MiniProject restructure source positions are incomplete.": "结构预览与当前来源 Block 数量不一致；没有创建 Proposal。",
+    "MiniProject restructure preview material placement is invalid.": "结构预览没有为每项来源材料提供唯一去向；没有创建 Proposal。",
+    "MiniProject restructure source evidence changed after preview.": "结构预览中的材料证据与当前来源不一致；没有创建 Proposal。",
+    "MiniProject restructure requires one root source Block.": "结构预览无法确定唯一根 Block；没有创建 Proposal。",
+    "MiniProject restructure source scope hash is invalid.": "结构预览缺少有效的来源范围指纹；没有创建 Proposal。",
+    "MiniProject root material cannot move out of root.": "结构预览试图移动 MiniProject 根 Block；没有创建 Proposal。",
+    "MiniProject restructure source material lacks an original parent.": "结构预览中的来源 Block 缺少可恢复的原位置；没有创建 Proposal。",
+    "MiniProject restructure move impact does not match the preview.": "结构预览的移动统计与正式操作不一致；没有创建 Proposal。",
+    "MiniProject restructure create impact does not match the preview.": "结构预览的新增统计与正式操作不一致；没有创建 Proposal。",
+    "MiniProject restructure source sibling chain is invalid.": "当前 Block 子树的相邻顺序无法安全还原；没有创建 Proposal。",
+    "MiniProject restructure target sibling is invalid.": "结构预览包含无法安全定位的目标顺序；没有创建 Proposal。",
+    "MiniProject restructure source Block is missing.": "结构预览引用的来源 Block 已不存在；没有创建 Proposal。",
+    "MiniProject restructure source position is invalid.": "结构预览引用的来源 Block 位置无效；没有创建 Proposal。",
+    "MiniProject restructure create simulation is invalid.": "结构预览的新增 Block 无法通过安全模拟；没有创建 Proposal。",
+    "MiniProject restructure move simulation is invalid.": "结构预览的移动操作无法通过安全模拟；没有创建 Proposal。",
+  };
+  if (reason.startsWith("MiniProject restructure created Block identity is invalid for ")) {
+    return serviceError("GRILL_PREVIEW_PROPOSAL_INVALID", "结构预览无法生成唯一且可恢复的 Block 身份；没有创建 Proposal。");
+  }
+  return serviceError("GRILL_PREVIEW_PROPOSAL_INVALID", messages[reason] ?? "结构预览无法安全转换为正式 Proposal；没有写入审阅队列。");
 }
 
 async function readBody(request: IncomingMessage, maximumBytes = maximumRequestBodyBytes): Promise<string> {
@@ -824,11 +852,7 @@ function miniProjectRestructureUndoSemanticCommitId(originalSemanticCommitId: st
 }
 
 function miniProjectRestructureUndoPlan(plan: ReturnType<typeof planAcceptedMiniProjectRestructure>) {
-  return plan.compensationSteps.map((step, stepIndex) => {
-    const forwardStepIndex = plan.steps.length - 1 - stepIndex;
-    const forward = plan.steps[forwardStepIndex]!;
-    return { stepIndex, forwardStepIndex, step, operationId: `undo:${forward.operationId}`, beforeHash: forward.afterHash, afterHash: forward.beforeHash };
-  });
+  return planCompletedMiniProjectRestructureUndo(plan);
 }
 
 function projectSemanticCommitId(graphId: string, name: string): string {
@@ -1645,7 +1669,15 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         if (section.sectionId !== "root") createdBlockUuids[`section:${section.sectionId}`] = deterministicBlockUuid(`${proposalId}:section:${section.sectionId}`);
         section.derivedBlocks.forEach((_block, index) => { createdBlockUuids[`derived:${section.sectionId}:${index}`] = deterministicBlockUuid(`${proposalId}:derived:${section.sectionId}:${index}`); });
       }
-      const proposal = buildMiniProjectRestructureProposal({ proposalId, createdAt: session.preview.provenance.generatedAt, objectId: input.objectId, objectVersion: input.expectedVersion, preview: session.preview, sourceScopeHash: prepared.source.graphSnapshot.scopeHash, sourcePositions: buildMiniProjectSourcePositions(prepared.source.graphSnapshot), createdBlockUuids });
+      let proposal: ReturnType<typeof buildMiniProjectRestructureProposal>;
+      try {
+        proposal = buildMiniProjectRestructureProposal({ proposalId, createdAt: session.preview.provenance.generatedAt, objectId: input.objectId, objectVersion: input.expectedVersion, preview: session.preview, sourceScopeHash: prepared.source.graphSnapshot.scopeHash, sourcePositions: buildMiniProjectSourcePositions(prepared.source.graphSnapshot), createdBlockUuids });
+      } catch (error) {
+        if (error instanceof Error && error.message === "MiniProject restructure proposal has no structural change.") {
+          throw serviceError("GRILL_PREVIEW_NO_STRUCTURAL_CHANGE", "当前阅读预览不需要移动或新增 Block；讨论已完成，但无需创建正式变更。");
+        }
+        throw miniProjectRestructureProposalBuildError(error);
+      }
       await revalidateMiniProjectGrillSource(input, prepared.primaryAnchor, prepared.source.graphSnapshot.scopeHash);
       const submitted = await proposalApplication.submit(proposal, new Date(session.preview.provenance.generatedAt));
       respond(response, submitted.replayed ? 200 : 201, submitted);
