@@ -83,7 +83,9 @@ V2 v1.1 底座完成结论不变；当前继续按
   `errorName/errorCode`，启动/全局/fallback 异常不再把 message/stack/cause 送入 Console
   或导出，Plugin 222/222 通过；Local Service READY/migration/stderr 也只输出无路径的结构
   状态与错误码，Local Service 98/98 通过。CLI 属于用户主动前台反馈，live/golden runner
-  属于默认关闭的显式研究 Gate，均不归入自动留存日志；
+  属于默认关闭的显式研究 Gate，均不归入自动留存日志；session buffer 已可按
+  Skill/Prompt/model version 汇总 helpful/noise/error/rejection/do-not-repeat，Application
+  122/122 通过，但用户处置入口与真实噪声阈值仍未验；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

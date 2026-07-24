@@ -397,3 +397,7 @@ Prompt/Skill 演化仍必须走证据 → 候选 → 人工审阅 → 测试 →
   stderr 只返回 machine error code；Local Service tests 98/98、0 skipped，typecheck/build PASS；
 - CLI stderr 是用户显式调用的即时反馈而非自动留存日志；live/golden runner 默认关闭且已有
   bounded metadata/zero-write/structural failure 测试，完整样本只能进入独立显式研究流程。
+- session summary 按 Skill/Prompt/model version 汇总 generated/rejected/error、用户 rated、
+  helpful/noise/do-not-repeat 与有界 rate；未评分时 rate 为 null，不用“无反馈”伪装满意；
+- summary 只消费已验证 session entry，不含对象/Block identity 或正文；Application tests
+  122/122、0 skipped，typecheck PASS。

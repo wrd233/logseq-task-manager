@@ -257,6 +257,11 @@ machine code。Launcher 原本已使用同类结构码且忽略 Service 子进�
 分类为用户主动命令的即时反馈，不是后台自动留存；live/golden runner 默认关闭并已有 bounded
 metadata、zero-write 与 structural failure 测试，不能混入日常交互日志。
 
+Interaction Evidence 随后增加纯派生版本/噪声汇总：按 Skill/Prompt/model 版本分别统计
+generated/rejected/error、rated、helpful、noise 与 do-not-repeat，并给出 helpful/noise rate。
+未评分版本返回 null 而不是伪造 0% 噪声；summary 只读取已经通过 allowlist 的 session entry，
+不产生对象身份、正文、持久化或上传。用户 disposition 入口和真实可接受阈值仍未完成。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -297,6 +302,7 @@ metadata、zero-write 与 structural failure 测试，不能混入日常交互�
 - P1-H Plugin diagnostics privacy tests + 全量：222/222、0 skipped，typecheck/build PASS；
 - P1-H Local Service process output：focused 1/1、Local Service 98/98、0 skipped，
   typecheck/build PASS；
+- P1-H version/noise summary：focused 2/2、Application 122/122、0 skipped，typecheck PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -309,8 +315,8 @@ metadata、zero-write 与 structural failure 测试，不能混入日常交互�
 
 ## 下一步
 
-1. 补 P1-H 用户 disposition/噪声指标的 session-only 路径，再以真实价值证据决定是否需要
-   跨会话 derivative；
+1. 把 P1-H 用户 disposition 接到统一 UX output 的可撤回 session 入口，并在 Desktop 中
+   验证噪声指标是否足够有用，再决定是否需要跨会话 derivative；
 2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
 3. 完成 P1-F Project workspace/Page Head 与 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；

@@ -52,6 +52,30 @@ export interface InteractionEvidenceEntry {
   elapsedMs?: number;
 }
 
+export interface InteractionEvidenceVersionSummary {
+  versionKey: string;
+  total: number;
+  generated: number;
+  rejected: number;
+  errors: number;
+  rated: number;
+  helpful: number;
+  noise: number;
+  doNotRepeat: number;
+  helpfulRate: number | null;
+  noiseRate: number | null;
+}
+
+export interface InteractionEvidenceSummary {
+  total: number;
+  outcomes: Record<InteractionEvidenceOutcome, number>;
+  dispositions: Record<NonNullable<InteractionEvidenceEntry["userDisposition"]>, number>;
+  rated: number;
+  helpfulRate: number | null;
+  noiseRate: number | null;
+  versions: InteractionEvidenceVersionSummary[];
+}
+
 function record(value: unknown, name: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`Interaction evidence ${name} must be an object.`);
@@ -191,6 +215,86 @@ function parseEntry(value: unknown): InteractionEvidenceEntry {
   };
 }
 
+function versionKey(entry: InteractionEvidenceEntry): string {
+  return [
+    entry.skill ? `${entry.skill.name}@${entry.skill.version}` : "skill:none",
+    entry.promptVersion ? `prompt:${entry.promptVersion}` : "prompt:none",
+    entry.model ? `model:${entry.model}` : "model:none",
+  ].join("|");
+}
+
+function rate(value: number, total: number): number | null {
+  return total === 0 ? null : Number((value / total).toFixed(4));
+}
+
+function summarize(entries: readonly InteractionEvidenceEntry[]): InteractionEvidenceSummary {
+  const outcomes: InteractionEvidenceSummary["outcomes"] = {
+    GENERATED: 0,
+    REJECTED: 0,
+    ACCEPTED: 0,
+    ADJUSTED: 0,
+    DISMISSED: 0,
+    COMMITTED: 0,
+    UNDONE: 0,
+    STALE: 0,
+    CONFLICT: 0,
+    ERROR: 0,
+  };
+  const dispositions: InteractionEvidenceSummary["dispositions"] = {
+    HELPFUL: 0,
+    NOT_NEEDED: 0,
+    INACCURATE: 0,
+    TOO_MUCH: 0,
+    DO_NOT_REPEAT: 0,
+  };
+  const groups = new Map<string, Omit<InteractionEvidenceVersionSummary, "helpfulRate" | "noiseRate">>();
+  for (const entry of entries) {
+    outcomes[entry.outcome] += 1;
+    if (entry.userDisposition) dispositions[entry.userDisposition] += 1;
+    const key = versionKey(entry);
+    const group = groups.get(key) ?? {
+      versionKey: key,
+      total: 0,
+      generated: 0,
+      rejected: 0,
+      errors: 0,
+      rated: 0,
+      helpful: 0,
+      noise: 0,
+      doNotRepeat: 0,
+    };
+    group.total += 1;
+    if (entry.outcome === "GENERATED") group.generated += 1;
+    if (entry.outcome === "REJECTED") group.rejected += 1;
+    if (entry.outcome === "ERROR") group.errors += 1;
+    if (entry.userDisposition) {
+      group.rated += 1;
+      if (entry.userDisposition === "HELPFUL") group.helpful += 1;
+      else group.noise += 1;
+      if (entry.userDisposition === "DO_NOT_REPEAT") group.doNotRepeat += 1;
+    }
+    groups.set(key, group);
+  }
+  const rated = Object.values(dispositions).reduce((sum, value) => sum + value, 0);
+  const helpful = dispositions.HELPFUL;
+  const noise = rated - helpful;
+  return {
+    total: entries.length,
+    outcomes,
+    dispositions,
+    rated,
+    helpfulRate: rate(helpful, rated),
+    noiseRate: rate(noise, rated),
+    versions: [...groups.values()]
+      .map((group) => ({
+        ...group,
+        helpfulRate: rate(group.helpful, group.rated),
+        noiseRate: rate(group.noise, group.rated),
+      }))
+      .sort((left, right) => left.versionKey.localeCompare(right.versionKey)),
+  };
+}
+
 export class InteractionEvidenceBuffer {
   private readonly entries: InteractionEvidenceEntry[] = [];
 
@@ -213,6 +317,10 @@ export class InteractionEvidenceBuffer {
 
   exportJsonl(): string {
     return this.entries.map((entry) => JSON.stringify(entry)).join("\n");
+  }
+
+  summary(): InteractionEvidenceSummary {
+    return structuredClone(summarize(this.entries));
   }
 
   clear(): void {
