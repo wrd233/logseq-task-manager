@@ -44,9 +44,16 @@
 - 不创建 Proposal、SemanticCommit、Graph/SQLite 写入或持久缓存；
 - Local Service 100/100、Service Client 12/12、两包 typecheck PASS。
 
+## Plugin consumer
+
+- Project 重入卡只在用户点击后生成，不在刷新或 shadow 中自动调用 Provider；
+- 确定性投影始终保留；草稿按 facts/inferences/unknowns/suggestions 分区；
+- loading/error/stale 明确，Service reconnect/Graph switch 清空 session 草稿；
+- next action 必须再次匹配当前 deterministic projection 与既有只读 route；
+- Plugin 225/225、0 skipped、typecheck PASS。
+
 ## 尚未声明
 
 - 未运行真实 DeepSeek context-recovery 语义 Gate；
-- 未把 unified UX output 接到 Plugin 用户可见 Project 重入状态；
 - 未验证 Desktop 信息密度、下一动作接受率或上下文恢复时间；
 - 因此不能声明 P1-G 或 P1 完成。

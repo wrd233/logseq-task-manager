@@ -90,6 +90,7 @@ import {
   type PluginObjectNarration,
 } from "./status-narration-runtime.ts";
 import { ProjectPageHeadActionController } from "./project-page-head-action.ts";
+import { ProjectContextRecoveryController } from "./project-context-recovery-controller.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -177,6 +178,16 @@ let v2RebindPanel: V2RebindPanelState = { status: "idle" };
 let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
 let v2ProviderRevisionBusy = false;
+const projectContextRecoveryController = new ProjectContextRecoveryController(
+  () => ({
+    ...(serviceRuntimeClient ? { client: serviceRuntimeClient } : {}),
+    providerAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && Boolean(serviceRuntimeClient?.recoverProjectContext),
+    generation: serviceDiscoveryGeneration,
+  }),
+  refresh,
+);
 let v2LowRiskApplyBusyProposalId: string | undefined;
 const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
@@ -470,6 +481,7 @@ async function model(): Promise<UiModel> {
     v2NowWorkTypeFilter,
     v2NowWorkGrouping,
     ...(v2ProjectReentryCards !== undefined ? { v2ProjectReentryCards } : {}),
+    v2ProjectContextRecovery: projectContextRecoveryController.snapshot(),
     ...(v2ReentryTargetObjectId ? { v2ReentryTargetObjectId } : {}),
     ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
     ...(v2ObjectNarrations !== undefined ? { v2ObjectNarrations } : {}),
@@ -605,6 +617,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
   if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
   if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间中断；旧请求已取消或结果未知，请重启 Service 后刷新审阅队列。" };
+  projectContextRecoveryController.clear();
   serviceRuntimeClient = undefined;
   serviceConnection = {
     status: "RESTRICTED",
@@ -1140,6 +1153,25 @@ async function handleAction(action: string, value?: string): Promise<void> {
     v2ReentryTargetObjectId = undefined;
     workspace = "reentry";
     await refresh();
+    return;
+  }
+  if (action === "v2-project-context-recovery" && value) {
+    const [objectId, versionText] = value.split("|");
+    const expectedVersion = Number(versionText);
+    if (!objectId || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+      throw new Error("Project 恢复上下文已失效；没有调用 Provider。");
+    }
+    await projectContextRecoveryController.generate(objectId, expectedVersion);
+    const state = projectContextRecoveryController.snapshot()[objectId];
+    operationalLogger.log(
+      state?.status === "ready" ? "info" : "warn",
+      "ui-action",
+      state?.status === "ready" ? "project_context_recovery_generated" : "project_context_recovery_unavailable",
+      {
+        actionId: "v2-project-context-recovery",
+        result: state?.status ?? "discarded",
+      },
+    );
     return;
   }
   if (action === "v2-provider-analyze-current-block") {
@@ -2599,6 +2631,7 @@ async function handleCurrentGraphChanged(): Promise<void> {
   v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   attentionShadowSession.clear();
+  projectContextRecoveryController.clear();
   lastAttentionShadowSummarySignature = undefined;
   enterRestrictedServiceMode("GRAPH_SWITCH_IN_PROGRESS", "正在为新的 Graph 重新绑定本地运行环境；正式写入暂停。");
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");

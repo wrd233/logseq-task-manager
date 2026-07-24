@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract + server-owned Project recovery route、P1-H session evidence contract automated PASS；Attention 未展示、LLM Plugin consumer/Desktop、处置/噪声 dashboard 与 UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract + server-owned Project recovery + Plugin consumer、P1-H session evidence contract automated PASS；Attention 未展示、LLM 真实 Provider/Desktop、处置/噪声 dashboard 与 UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -231,7 +231,15 @@ Context Package、内置 `task-copilot-core`/`recover-context` 与只读动作�
 stale、错误类型和额外客户端字段在 Provider 前拒绝，生成后再次重验版本，结果不进入 Domain、
 Proposal 或持久化。`recover-context@1.0.0` 固定逐层读到够用即停、信息不足明确承认、下一
 动作默认不生成。UX-G009 因此关闭为“不持久化派生 UX 草稿；正式修改仍进入 Proposal”，但
-真实 Provider 语义质量、Plugin consumer 和 Desktop 仍开放。
+真实 Provider 语义质量和 Desktop 仍开放。
+
+Plugin 已把该路由作为 Project 重入卡内的可选显式动作接入，不在刷新、Page Head 或后台
+shadow 中自动调用 Provider。确定性重入结论始终位于上方；Copilot 草稿只在 session 内保存，
+分别显示 facts、inferences、unknowns 与 review-only suggestions，生成中、错误、Project
+version stale 均不伪装为空。模型动作还必须匹配当前 deterministic projection 的
+Primary Anchor 或 Recovery Commit，并复用既有 `v2-open-primary-anchor` / Audit route；
+伪造或过期 target 只显示失效提示。Graph switch、Service reconnect/restricted 会清空草稿，
+并发重复点击只产生一个请求。
 
 ### P1-H privacy-bounded interaction evidence
 
@@ -309,6 +317,9 @@ generated/rejected/error、rated、helpful、noise 与 do-not-repeat，并给出
 - P1-G Project recovery Service route：Local Service 100/100、Service Client 12/12，
   typecheck PASS；成功、信息不足、只读动作、stale-before-provider、错误类型、额外字段、
   Provider disabled 和零正式写入均覆盖；
+- P1-G Plugin consumer：Plugin 225/225、0 skipped、typecheck PASS；覆盖显式触发、
+  loading/ready/error、前后版本重验、重复点击、Graph/runtime 清空、facts/inferences/
+  unknowns 分区、内部 fingerprint 不显示与伪造动作 target 不可点击；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -321,12 +332,10 @@ generated/rejected/error、rated、helpful、noise 与 do-not-repeat，并给出
 
 ## 下一步
 
-1. 把 P1-G Project recovery 草稿接入既有 Project 重入卡；必须保留确定性投影为基线，
-   明确 loading/error/stale，机器动作只能解析到现有只读 route；
-2. 把 P1-H 用户 disposition 接到统一 UX output 的可撤回 session 入口，并在 Desktop 中
+1. 把 P1-H 用户 disposition 接到统一 UX output 的可撤回 session 入口，并在 Desktop 中
    验证噪声指标是否足够有用，再决定是否需要跨会话 derivative；
-3. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-4. 完成 P1-F Project workspace/Page Head 与 P1-D
+2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
+3. 完成 P1-F Project workspace/Page Head、P1-G recovery draft 与 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-5. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
+4. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

@@ -371,6 +371,60 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
   assert.doesNotMatch(html, /<h3>Objectives<\/h3>/);
   assert.doesNotMatch(html, /当前主归属对象/);
 
+  value.v2ProviderAvailable = true;
+  assert.match(renderApp(value), /data-action="v2-project-context-recovery"/);
+  value.v2ProjectContextRecovery = {
+    "project-compact": {
+      status: "ready",
+      expectedVersion: 3,
+      result: {
+        output: {
+          schemaVersion: "task-copilot-ux-output-v1",
+          summary: "当前可从厂家参数等待点恢复。",
+          facts: [{ text: "正式 Condition 正在等待厂家参数", sourceRefs: ["object:project-compact@v3"] }],
+          inferences: [{ text: "参数到达后可继续资源测算", evidenceRefs: ["object:project-compact@v3"] }],
+          unknowns: ["参数到达时间未知"],
+          suggestedChanges: [{ kind: "DRAFT_PROPOSAL", summary: "讨论是否补充等待复查时间", evidenceRefs: ["object:project-compact@v3"], riskLevel: "LOW" }],
+          nextActionEligible: true,
+          nextAction: { intent: "OPEN_SOURCE", label: "打开当前项目", targetRef: "anchor:anchor-project" },
+          riskLevel: "LOW",
+          requiresDiscussion: true,
+          requiresReview: true,
+          evidenceScope: { refs: ["object:project-compact@v3"], observedAt: "2026-07-24T12:00:00.000Z", scopeHash: "scope-hash-private" },
+          provenance: { kind: "LLM_DRAFT", contractVersion: "1.0.0", promptVersion: "prompt-hash", skillName: "recover-context", skillVersion: "1.0.0", providerId: "deepseek", providerVersion: "chat-completions-v1", model: "deepseek-chat", generatedAt: "2026-07-24T12:00:00.000Z" },
+        },
+        provider: { model: "deepseek-chat", durationMs: 15, attempts: 1 },
+        promptBundleVersion: "prompt-hash",
+        contextFingerprint: "context-fingerprint-private",
+      },
+    },
+  };
+  const withDraft = renderApp(value);
+  assert.match(withDraft, /Copilot 草稿 · 不保存第二摘要/);
+  assert.match(withDraft, /已确认事实[\s\S]*正式 Condition 正在等待厂家参数/);
+  assert.match(withDraft, /Copilot 判断[\s\S]*参数到达后可继续资源测算/);
+  assert.match(withDraft, /仍不知道[\s\S]*参数到达时间未知/);
+  assert.match(withDraft, /可讨论建议[\s\S]*必须另建 Proposal 审阅/);
+  assert.match(withDraft, /data-action="v2-open-primary-anchor" data-value="block-project"/);
+  assert.doesNotMatch(withDraft, /context-fingerprint-private|scope-hash-private|anchor-project/);
+
+  const readyRecovery = value.v2ProjectContextRecovery["project-compact"];
+  assert.equal(readyRecovery?.status, "ready");
+  if (!readyRecovery || readyRecovery.status !== "ready") throw new Error("expected ready recovery fixture");
+  value.v2ProjectContextRecovery["project-compact"] = {
+    ...readyRecovery,
+    result: {
+      ...readyRecovery.result,
+      output: {
+        ...readyRecovery.result.output,
+        nextAction: { intent: "OPEN_SOURCE", label: "越界动作", targetRef: "anchor:invented" },
+      },
+    },
+  };
+  const inventedAction = renderApp(value);
+  assert.match(inventedAction, /建议动作已失效/);
+  assert.doesNotMatch(inventedAction, />越界动作<\/button>/);
+
   value.v2ReentryTargetObjectId = "project-compact";
   const targeted = renderApp(value);
   assert.match(targeted, /设备托管｜等待厂家补充功耗参数/);

@@ -13,6 +13,10 @@ import type { PageContextSnapshot } from "./page-context-controller.ts";
 import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
 import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
 import {
+  resolveProjectContextRecoveryRoute,
+  type PluginProjectContextRecoveryState,
+} from "./project-context-recovery-controller.ts";
+import {
   projectPluginProposalNarration,
   type PluginObjectNarration,
 } from "./status-narration-runtime.ts";
@@ -113,6 +117,7 @@ export interface UiModel {
   v2NowWorkTypeFilter?: V2NowWorkTypeFilter;
   v2NowWorkGrouping?: V2NowWorkGrouping;
   v2ProjectReentryCards?: PluginProjectReentryCard[];
+  v2ProjectContextRecovery?: Record<string, PluginProjectContextRecoveryState>;
   v2ReentryTargetObjectId?: string;
   v2ReentryLoadError?: string;
   v2ObjectNarrations?: Record<string, PluginObjectNarration>;
@@ -450,6 +455,60 @@ function renderReview(model: UiModel): string {
     .join("")}</div>`;
 }
 
+function renderProjectContextRecovery(
+  model: UiModel,
+  card: PluginProjectReentryCard,
+  state: PluginProjectContextRecoveryState | undefined,
+): string {
+  const requestValue = `${card.project.objectId}|${card.project.version}`;
+  if (!state) {
+    return model.v2ProviderAvailable
+      ? `<section class="restore"><div class="eyebrow">可选 Copilot · 不修改正式状态</div>${button("帮我恢复上下文", "v2-project-context-recovery", requestValue, "quiet")}</section>`
+      : "";
+  }
+  if (state.expectedVersion !== card.project.version) {
+    return `<section class="restore"><div class="error"><strong>Copilot 草稿已过期。</strong><span>Project 正式版本已变化；旧草稿没有继续显示或执行动作。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("基于当前版本重新生成", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}</section>`;
+  }
+  if (state.status === "loading") {
+    return `<section class="restore" aria-live="polite"><div class="eyebrow">Copilot 正在整理 · 正式状态未改变</div><p>正在从当前受限 Context Package 生成恢复草稿…</p><div class="actions">${button("正在生成", "v2-project-context-recovery", requestValue, "quiet", true)}</div></section>`;
+  }
+  if (state.status === "error") {
+    return `<section class="restore"><div class="error"><strong>Copilot 恢复草稿暂不可用。</strong><span>${escapeHtml(state.message)}</span><span>上方确定性重入卡仍可使用；没有修改正式状态。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("重试", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}</section>`;
+  }
+  const output = state.result.output;
+  const facts = output.facts.length
+    ? `<section><h4>已确认事实</h4><ul>${output.facts.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul></section>`
+    : "";
+  const inferences = output.inferences.length
+    ? `<section><h4>Copilot 判断</h4><ul>${output.inferences.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul></section>`
+    : "";
+  const unknowns = output.unknowns.length
+    ? `<section><h4>仍不知道</h4><ul>${output.unknowns.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul></section>`
+    : "";
+  const suggestions = output.suggestedChanges.length
+    ? `<section><h4>可讨论建议</h4><ul>${output.suggestedChanges.map(({ summary, riskLevel }) => `<li>${escapeHtml(summary)} <small>${escapeHtml(riskLevel)} · 必须另建 Proposal 审阅</small></li>`).join("")}</ul></section>`
+    : "";
+  const route = resolveProjectContextRecoveryRoute(state, card);
+  const action = route
+    ? button(output.nextAction?.label ?? route.label, route.action, route.value, "primary")
+    : output.nextActionEligible
+      ? "<span class=\"muted\">建议动作已失效；请基于上方当前正式状态操作。</span>"
+      : "";
+  const policy = [
+    output.requiresDiscussion ? "需要讨论" : undefined,
+    output.requiresReview ? "正式变化需审阅" : undefined,
+    output.riskLevel !== "NONE" ? `风险 ${output.riskLevel}` : undefined,
+  ].filter((value): value is string => value !== undefined);
+  return `<section class="restore" data-project-context-recovery="ready">
+    <div class="eyebrow">Copilot 草稿 · 不保存第二摘要</div>
+    <p class="lead">${escapeHtml(output.summary)}</p>
+    ${facts}${inferences}${unknowns}${suggestions}
+    ${policy.length ? `<p class="muted">${escapeHtml(policy.join(" · "))}</p>` : ""}
+    <div class="actions">${action}${model.v2ProviderAvailable ? button("重新生成", "v2-project-context-recovery", requestValue, "quiet") : ""}</div>
+    <details><summary>查看生成依据</summary><p class="muted">${escapeHtml(`${output.provenance.skillName}@${output.provenance.skillVersion} · ${output.provenance.model} · ${output.provenance.generatedAt}`)}</p></details>
+  </section>`;
+}
+
 function renderReentry(model: UiModel): string {
   if (model.v2ReentryLoadError) {
     return `<section><h2>项目重入</h2><div class="error"><strong>重入上下文暂时不可用：</strong>${escapeHtml(model.v2ReentryLoadError)}<span>没有把读取失败显示成空项目，也没有生成猜测性进入点。</span></div></section>`;
@@ -466,6 +525,7 @@ function renderReentry(model: UiModel): string {
     }
     const cards = visibleCards.map((card) => {
       const { project, projection } = card;
+      const recoveryState = model.v2ProjectContextRecovery?.[project.objectId];
       const evidence = projection.keyEvidence.length
         ? `<p class="muted">${projection.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>`
         : "";
@@ -481,12 +541,14 @@ function renderReentry(model: UiModel): string {
       const shortcuts = projection.safetyState === "CLEAN" && project.lifecycle === "OPEN"
         ? `${button("更新当前接口", "v2-project-structure-open", `${project.objectId}|${project.version}`, "quiet")}${!card.focused ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "quiet") : ""}`
         : "";
+      const recoveryDraft = renderProjectContextRecovery(model, card, recoveryState);
       return `<article class="card reentry" data-reentry-sufficiency="${projection.sufficiency}">
         <div class="eyebrow">${projection.safetyState === "CLEAN" ? (projection.sufficiency === "SUFFICIENT" ? "当前停留点" : "需要恢复上下文") : "安全状态优先"} · ${escapeHtml(new Date(projection.lastFormalChangeAt).toLocaleString("zh-CN"))}</div>
         <h2>${escapeHtml(projection.headline)}</h2>
         <p class="lead">${escapeHtml(projection.summary)}</p>
         ${evidence}${unknown}${entryPoints}
         <div class="actions">${primary}${shortcuts}</div>
+        ${recoveryDraft}
         <details><summary>查看依据</summary><ul>${projection.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>${projection.relatedContextCount ? `<p class="muted">${projection.relatedContextCount} 个普通关联仅作为背景，未升级为进入点。</p>` : ""}</details>
       </article>`;
     }).join("");
