@@ -42,6 +42,16 @@ function identifier(value: unknown, field: string): string {
   return value;
 }
 
+export async function deriveLauncherGraphKey(graphIdentity: unknown): Promise<string> {
+  if (typeof graphIdentity !== "string" || !graphIdentity.trim() || graphIdentity.length > 4_096) {
+    throw launcherError("LAUNCHER_GRAPH_IDENTITY_REQUIRED", "当前 Graph 缺少可用于安全绑定的稳定身份。");
+  }
+  const normalized = graphIdentity.trim().normalize("NFC").replace(/\/+$/, "");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
+  const hex = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+  return `graph-${hex}`;
+}
+
 export function validateLauncherDescriptor(value: unknown): LauncherDescriptor {
   const candidate = record(value);
   if (!candidate || candidate.kind !== "task-copilot-launcher") {

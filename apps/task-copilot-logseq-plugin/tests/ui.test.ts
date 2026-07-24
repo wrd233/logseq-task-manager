@@ -72,6 +72,23 @@ test("More is a user-facing hub and keeps maintenance capabilities reachable", (
   assert.match(html, /data-action="runtime-diagnostics"/);
   assert.match(html, /备份与恢复/);
   assert.match(html, /data-value="migration"/);
+  assert.doesNotMatch(html, /结束本次 Task Copilot/);
+
+  value.v2ManagedRuntimeState = "RUNNING";
+  html = renderApp(value);
+  assert.match(html, /结束本次 Task Copilot/);
+  assert.match(html, /data-action="end-task-copilot-open"/);
+  value.actionDialog = { kind: "confirm-end-task-copilot", value: "current-graph" };
+  html = renderApp(value);
+  assert.match(html, /aria-label="结束本次 Task Copilot"/);
+  assert.match(html, /data-action="submit-end-task-copilot"/);
+  assert.match(html, /其他进程不受影响/);
+
+  delete value.actionDialog;
+  value.v2ManagedRuntimeState = "ENDED";
+  html = renderApp(value);
+  assert.match(html, /重新启动 Task Copilot/);
+  assert.match(html, /data-action="restart-task-copilot"/);
 
   value.workspace = "audit";
   html = renderApp(value);

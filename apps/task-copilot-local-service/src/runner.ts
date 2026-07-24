@@ -3,6 +3,7 @@ export interface ServiceRunnerOptions {
   databasePath: string;
   graphId: string;
   descriptorPath: string;
+  ownerPid?: number;
 }
 
 export interface SchemaMigrationRunnerOptions {
@@ -34,8 +35,16 @@ export function parseServiceRunnerArgs(args: string[]): ServiceRunnerOptions | S
     return { mode, databasePath, graphId, backupPath };
   }
   const descriptorPath = values.get("--descriptor");
-  if (!databasePath || !graphId || !descriptorPath || values.size !== 3) {
-    throw new Error("Usage: task-copilot-service --database <path> --graph-id <id> --descriptor <path>");
+  const ownerPidText = values.get("--owner-pid");
+  const ownerPid = ownerPidText === undefined ? undefined : Number(ownerPidText);
+  if (
+    !databasePath ||
+    !graphId ||
+    !descriptorPath ||
+    values.size !== (ownerPidText === undefined ? 3 : 4) ||
+    (ownerPidText !== undefined && (!Number.isSafeInteger(ownerPid) || ownerPid! <= 0))
+  ) {
+    throw new Error("Usage: task-copilot-service --database <path> --graph-id <id> --descriptor <path> [--owner-pid <positive-pid>]");
   }
-  return { mode, databasePath, graphId, descriptorPath };
+  return { mode, databasePath, graphId, descriptorPath, ...(ownerPid !== undefined ? { ownerPid } : {}) };
 }

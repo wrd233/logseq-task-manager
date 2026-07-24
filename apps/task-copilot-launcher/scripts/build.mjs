@@ -6,10 +6,14 @@ import { build } from "esbuild";
 const root = resolve(import.meta.dirname, "..");
 const dist = resolve(root, "dist");
 const output = resolve(dist, "launcher.js");
+const installerOutput = resolve(dist, "installer.js");
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 await build({
-  entryPoints: { launcher: resolve(root, "src/main.ts") },
+  entryPoints: {
+    launcher: resolve(root, "src/main.ts"),
+    installer: resolve(root, "src/installer-main.ts"),
+  },
   outdir: dist,
   bundle: true,
   format: "esm",
@@ -20,4 +24,4 @@ await build({
   minify: false,
   legalComments: "none",
 });
-await chmod(output, 0o755);
+await Promise.all([chmod(output, 0o755), chmod(installerOutput, 0o755)]);

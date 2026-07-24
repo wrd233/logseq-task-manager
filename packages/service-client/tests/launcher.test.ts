@@ -5,6 +5,7 @@ import test from "node:test";
 import type { ServiceDescriptor } from "../src/index.ts";
 import {
   LAUNCHER_PROTOCOL_VERSION,
+  deriveLauncherGraphKey,
   LauncherClient,
   validateLauncherDescriptor,
   type LauncherDescriptor,
@@ -38,6 +39,14 @@ test("launcher descriptor is distinct, versioned, and exact-loopback", () => {
   assert.throws(() => validateLauncherDescriptor({ ...launcherDescriptor("http://localhost:19673/") }), /127\.0\.0\.1/);
   assert.throws(() => validateLauncherDescriptor({ ...launcherDescriptor("http://127.0.0.1:19673/"), protocolVersion: 2 }), /协议版本/);
   assert.throws(() => validateLauncherDescriptor(serviceDescriptor), /Launcher/);
+});
+
+test("Graph binding key is stable, bounded, and does not expose the local Graph path", async () => {
+  const path = "/Users/private/Task Graph/";
+  const graphKey = await deriveLauncherGraphKey(path);
+  assert.match(graphKey, /^graph-[a-f0-9]{64}$/);
+  assert.equal(graphKey, await deriveLauncherGraphKey("/Users/private/Task Graph"));
+  assert.doesNotMatch(graphKey, /Users|private|Task/);
 });
 
 test("launcher client ensures, heartbeats, and releases one Graph-bound Service lease", async (t) => {

@@ -341,11 +341,11 @@ Logseq Desktop 0.10.15 的用户层历史、折叠技术详情、查看原 Propo
 
 ## P0-H：Service 产品化
 
-状态：`PARTIAL` — descriptor 私有导入/重连 handshake 已完成自动与 Desktop 闭环；Service
-进程仍由外部启动，Plugin-owned launcher、安全退出、崩溃恢复与 Graph 切换尚未实现，因此
-P0-H 整体不得标记完成。
-
-状态：`NOT_STARTED`
+状态：`PARTIAL` — descriptor 私有导入/重连 handshake 已完成既有 Desktop 闭环；独立
+Launcher/LaunchAgent、Graph-bound lease、owned shutdown、TTL、Service/Launcher crash
+recovery、owner-PID orphan self-stop、显式结束恢复前置与 Graph switch fail-closed 已完成
+自动及真实独立进程 Gate。reload/结束/Logseq 退出/Graph switch 的本轮 Desktop 视觉证据仍
+OPEN，因此 P0-H 整体不得标记完成。
 
 先做受控 spike，再选择最小方案。必须回答：
 
@@ -361,6 +361,11 @@ P0-H 整体不得标记完成。
 10. 不配置 Provider 时如何保持全部基础能力。
 
 实现不得依赖硬编码用户路径、shell 拼接或把 token 放入设置。
+
+架构决定与真实证据：
+
+- `docs/adr/0008-local-launcher-owned-service-lifecycle.md`
+- `logs/p0-h-launcher-lifecycle-runtime-20260724.md`
 
 ## P0-I：系统状态
 

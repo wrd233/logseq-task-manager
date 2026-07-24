@@ -3,8 +3,9 @@
 > 更新时间：2026-07-24
 > 当前结论：`PARTIAL` — P0-A Focus、P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
 > P0-D Page 现场路由、P0-E 四项主导航、P0-F 工具栏介入摘要、P0-G 最近修改和 P0-H
-> descriptor 私有 handshake 已完成自动与适用 Desktop 验收；Service 进程生命周期及其余
-> P0 仍未完成。
+> descriptor 私有 handshake 已完成自动与适用 Desktop 验收；P0-H 独立 Launcher、
+> LaunchAgent、owned shutdown 与 crash/orphan recovery 已完成自动和真实进程 Gate，剩余
+> Desktop reload/退出/Graph switch 视觉 Gate 及其余 P0 仍未完成。
 
 ## 总体状态
 
@@ -17,7 +18,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G bounded scope DONE；P0-H handshake DONE / lifecycle OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE，Desktop lifecycle Gate OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -106,8 +107,10 @@ P0-I 已完成：用户首屏固定回答发生了什么、影响能力、仍可
 工程组件、协议、日志、ID 与修复入口默认折叠。真实 Desktop 已验证 READY 连接下的正文核对
 注意状态，以及受控停服/reload 后的只读安全状态；没有把连接失败当空数据。
 
-当前继续 P0-H 受控 capability spike，回答 Plugin-owned process、ownership、shutdown、
-Graph binding 与 descriptor 刷新边界。
+P0-H capability spike 已得出结论：iframe 不支持可靠 child process，采用独立 Launcher。
+Launcher/LaunchAgent、ownership、shutdown、Graph binding、descriptor 刷新、TTL 与
+crash/orphan recovery 已由自动和真实进程证据闭合；当前等待不绕过桌面安全机制的集中
+reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 
 ## 当前阻塞
 

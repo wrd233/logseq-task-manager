@@ -56,6 +56,7 @@ test("real spawner invokes the current Node executable without a shell and stops
       "--database", "/Users/test/graph.sqlite",
       "--graph-id", "graph-id",
       "--descriptor", "/Users/test/runtime/graph.service.json",
+      "--owner-pid", String(process.pid),
     ],
     options: { shell: false, detached: false, stdio: "ignore", cwd: "/Users/test" },
   }]);

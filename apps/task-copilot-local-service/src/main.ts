@@ -2,6 +2,7 @@ import { startLocalService } from "./service.ts";
 import { V2SqliteStore } from "@task-copilot/persistence/node";
 import { loadProposalGeneratorFromEnvironment } from "./provider-runtime.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
+import { startOwnerMonitor } from "./owner-monitor.ts";
 
 try {
   const options = parseServiceRunnerArgs(process.argv.slice(2));
@@ -14,8 +15,9 @@ try {
       store.close();
     }
   } else {
+  const { ownerPid, ...serviceOptions } = options;
   const proposalGenerator = await loadProposalGeneratorFromEnvironment();
-  const service = await startLocalService({ ...options, ...(proposalGenerator ? { proposalGenerator } : {}) });
+  const service = await startLocalService({ ...serviceOptions, ...(proposalGenerator ? { proposalGenerator } : {}) });
   process.stdout.write(`${JSON.stringify({
     status: "READY",
     pid: process.pid,
@@ -23,11 +25,14 @@ try {
     capabilities: service.capabilities,
   })}\n`);
   let closing = false;
+  let ownerMonitor: ReturnType<typeof startOwnerMonitor> | undefined;
   const close = async (): Promise<void> => {
     if (closing) return;
     closing = true;
+    ownerMonitor?.stop();
     await service.close();
   };
+  if (ownerPid !== undefined) ownerMonitor = startOwnerMonitor(ownerPid, close);
   process.once("SIGINT", () => void close().then(() => { process.exitCode = 0; }));
   process.once("SIGTERM", () => void close().then(() => { process.exitCode = 0; }));
   }

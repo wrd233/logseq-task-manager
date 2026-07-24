@@ -16,8 +16,11 @@ V2 v1.1 底座完成结论不变；当前继续按
   重验、page-scoped 正式事项、Project 创建后进入新 Page、取消/返回原现场均已通过；当前
   Logseq 0.10.15 不在右侧栏 `…` 暴露 Plugin Page menu item，secondary-page payload 仅由自动
   边界证明；
-- P0-H descriptor 私有 handshake：文件选择、校验、固定私有 FileStorage key、直接重连与
-  reload READY 已通过；Service 自动启动、owned shutdown 与崩溃恢复仍未产品化；
+- P0-H Service 产品化：descriptor 私有 handshake 的既有 Desktop 证据保持；独立
+  Launcher、LaunchAgent installer、Graph-bound lease/heartbeat、最后租约 owned shutdown、
+  TTL、Service/Launcher crash recovery、owner-PID orphan self-stop、显式结束前恢复检查与
+  Graph switch fail-closed 已完成自动和真实独立进程 Gate。当前专用 LaunchAgent 已安装并
+  READY；本轮 Desktop reload/结束/退出/Graph switch 视觉 Gate 因控制端接口不匹配保持 OPEN；
 - P0-E 四项主导航：主入口已收束为“现在 / 待我确认 / 项目 / 更多”；Project
   列表/重入/当前接口/正式创建与 Audit/Recovery/Diagnostics/Backup/Restore/Migration
   均在二级入口继续可达，自动测试与真实 Desktop 下钻已通过；窄宽度和本轮键盘注入未虚报；
@@ -32,7 +35,7 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P0-I 用户层系统状态：首屏固定回答发生了什么、影响、仍可用、数据安全和所需动作；
   Provider 未配置不误报故障，Pending 与 Recovery 分离，工程组件/原因码/日志/修复入口默认
   折叠。真实 Desktop 已验证正文核对注意状态与 Service unavailable 只读安全状态；
-- 当前继续 P0-H Service 产品化 capability spike，之后推进 P0-J/P0-K 与剩余宿主场景；
+- 当前完成 P0-H 剩余 Desktop Gate 的同时继续 P0-J/P0-K 与不依赖该视觉 Gate 的宿主场景；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

@@ -15,6 +15,7 @@
 | UX-D009 | V2 取代 V1、SQLite 唯一正式权威 | ADR | 不重开双写/双模式 |
 | UX-D010 | Project current interface 是 schema v12 单 aggregate | ADR-0006 | 不新增 Project side tables |
 | UX-D011 | LLM 只生成 Proposal | 现有架构 + 设计 | 不扩大写入权 |
+| UX-D012 | iframe 不持有子进程；独立 Launcher + LaunchAgent 管理 Graph Service | ADR-0008 + Desktop/SDK spike | 日常无需终端；只停 exact owned child；Graph hash 显式映射 |
 
 2026-07-24 实施补充：UX-D002 已在 P0-E 落地。主导航严格为“现在 / 待我确认 / 项目 /
 更多”；Objects/Project reentry 聚合到“项目”，Audit/Recovery/Diagnostics/Backup/Restore/
@@ -30,6 +31,12 @@ Candidate 噪声；Recovery 覆盖数字。Logseq 0.10.15 真实证明对同一 
 取回即时卡片。inverse Commit 折叠到原业务变化，专业 ID/checksum 只在折叠详情。真实
 Desktop 已证明跨 reload 的长期 Undo 和最终 Graph/SQLite 恢复。
 
+2026-07-24 实施补充：P0-H 已接受 ADR-0008。真实 Logseq iframe 与 SDK 均没有受支持的
+child-process API，因此不采用 Plugin shell-out。独立 Launcher 已完成 authenticated
+loopback、Graph-bound lease、heartbeat、最后租约/TTL shutdown、owner-PID orphan self-stop、
+LaunchAgent installer 和 crash restart；真实进程 Gate 证明 Launcher/Service crash 后使用新
+PID 恢复且 SQLite 对象不丢。Desktop reload/结束/退出/Graph switch 视觉 Gate仍保持 OPEN。
+
 ## 代码已回答的缺口
 
 | 问题 | 结论 | 证据 |
@@ -39,8 +46,8 @@ Desktop 已证明跨 reload 的长期 Undo 和最终 Graph/SQLite 恢复。
 | Block 右键 API | 类型存在，当前未注册 | `@logseq/libs` d.ts、bootstrap |
 | Page 菜单 API | 类型存在，当前未注册 | `@logseq/libs` d.ts、bootstrap |
 | 快捷/斜杠现状 | 5 个 command palette；1 个 slash open | `bootstrap-shell.ts` |
-| Service 生命周期 | 独立 Node20 进程；SIGINT/SIGTERM safe close；Plugin 不启动/停止 | `main.ts`、`beforeunload` |
-| descriptor | Service filesystem descriptor；Plugin private storage/Electron reader | runner、service-connection |
+| Service 生命周期 | 独立 Launcher/LaunchAgent 持有 Node20 Service；Plugin lease/heartbeat/unload release；Service owner-PID 自停 | ADR-0008、launcher、owner-monitor、真实进程 Gate |
+| descriptor | Launcher stable pairing descriptor 与 Service ephemeral descriptor 分离；均只进私有 0600 存储 | launcher/service-connection/installer |
 | accepted-not-applied | Proposal ACCEPTED 可持久，最终 Commit 独立 | Review/Commit code |
 | Undo | inverse SemanticCommit；后续变化拒绝覆盖 | ADR-0005、Commit code |
 | Graph identity | Graph-bound SQLite + descriptor/client/protocol revalidation | persistence/service |
@@ -53,7 +60,7 @@ Desktop 已证明跨 reload 的长期 Undo 和最终 Graph/SQLite 恢复。
 | UX-G001 | context menu 的实际排序、分组与 Query/引用 payload | isolated Desktop prototype | 正式 Block 的四项菜单排序、UUID、Focus 与 Condition 动作已通过；Query/引用仍待验收 |
 | UX-G002 | Page menu 对 Journal/namespace/Project Page 的 payload | Desktop probe | CONTROLLED：普通 Page、Project Page、Journal 主 Page 已按 UUID/Anchor 重验通过；Logseq 0.10.15 的 right-sidebar `…` 不暴露 Plugin Page menu item，secondary payload 仅自动覆盖；namespace 待专用样本 |
 | UX-G003 | Block renderer slot 的布局/性能 | test page + Light/Dark/100 blocks | 不先全局上线 |
-| UX-G004 | Plugin 能否启动 Node20 child process | isolated capability spike | 不用 shell 拼接硬做 |
+| UX-G004 | Plugin 能否启动 Node20 child process | isolated capability spike | CLOSED：iframe/SDK 不支持；已采用 ADR-0008 独立 Launcher |
 | UX-G005 | descriptor 写入 private FileStorage 的产品通道 | real Desktop | DONE：本地文件读取后校验，只写固定私有 key；设置不含 token/path；reload 自动 READY |
 | UX-G006 | Logseq exit shutdown 时间窗口 | process + Desktop fault Gate | beforeunload 不等于可等待任意时长 |
 | UX-G007 | 多 Block SemanticCommit scope 是否足以原位重构 | application prototype | 不先扩 Schema/恢复器 |
@@ -76,6 +83,12 @@ key→直接 refresh 的产品通道；真实 Desktop 导入和 reload 均 READY
 2026-07-24 P0-F 故障 Gate 再次证明：安全停服后 toolbar 能进入正式连接风险和 Diagnostics；
 同库 Service 重启会生成新 descriptor，仍需要外部校验并刷新 Plugin 私有 key。连接可见性已
 产品化，但 descriptor/进程的自动刷新、ownership 与退出仍属于本冲突，未因 P0-F 关闭。
+
+2026-07-24 P0-H 收口补充：独立 Launcher stable descriptor 已取代每日 ephemeral Service
+descriptor 投放，LaunchAgent 真实安装/更新/READY；最后租约释放、TTL、Service crash、
+Launcher crash/orphan self-stop 均有真实进程证据。插件已切换到私有 Launcher key，但本轮
+Computer Use 安全接口版本不匹配，不能完成 reload/退出/Graph switch 可视 Gate，因此冲突的
+实现部分已关闭、Desktop 验收部分仍 OPEN。
 
 ### UX-C002：设计要求约四项动态 Block 菜单，SDK 注册项固定
 

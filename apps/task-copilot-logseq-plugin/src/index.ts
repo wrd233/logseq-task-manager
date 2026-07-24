@@ -69,6 +69,7 @@ import { BlockConditionController, type BlockConditionDraft } from "./block-cond
 import { PageContextController, type PageContextSnapshot } from "./page-context-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
 import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-intervention.ts";
+import { managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -103,6 +104,8 @@ let serviceLifecycleHeartbeatTimer: ReturnType<typeof globalThis.setInterval> | 
 let serviceLifecycleHeartbeatBusy = false;
 let configuredServiceDescriptorPath: string | undefined;
 let currentGraphKey: string | undefined;
+let runtimeEndedByUser = false;
+let graphSwitchQueue: Promise<void> = Promise.resolve();
 const pluginInstanceId = `plugin-${globalThis.crypto.randomUUID()}`;
 const blockFocusController = new BlockFocusController(() => serviceRuntimeClient);
 const blockConditionController = new BlockConditionController(() => serviceRuntimeClient);
@@ -369,6 +372,11 @@ async function model(): Promise<UiModel> {
     ...(recentActionCommitId ? { recentActionCommitId } : {}),
     ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
     ...(pageContext ? { pageContext } : {}),
+    ...(serviceLifecycleSession
+      ? { v2ManagedRuntimeState: "RUNNING" as const }
+      : runtimeEndedByUser
+        ? { v2ManagedRuntimeState: "ENDED" as const }
+        : {}),
   };
 
 }
@@ -536,6 +544,7 @@ async function replaceServiceLifecycleSession(next: ServiceLifecycleSession | un
   stopServiceLifecycleHeartbeat();
   const previous = serviceLifecycleSession;
   serviceLifecycleSession = next;
+  if (next) runtimeEndedByUser = false;
   if (previous && previous !== next) {
     await previous.release().catch((error: unknown) => {
       operationalLogger.log("warn", "plugin-lifecycle", "previous_launcher_lease_release_failed", {
@@ -1144,6 +1153,64 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "runtime-diagnostics") {
     await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "end-task-copilot-open") {
+    if (!serviceLifecycleSession || !serviceRuntimeClient || serviceConnection.status !== "READY") {
+      message = "当前连接不是 Launcher 管理的运行环境，或已经结束；没有停止任何进程。";
+      await refresh();
+      return;
+    }
+    await openActionDialog("confirm-end-task-copilot", "current-graph");
+    return;
+  }
+  if (action === "submit-end-task-copilot") {
+    const client = serviceRuntimeClient;
+    if (!serviceLifecycleSession || !client || serviceConnection.status !== "READY") {
+      actionDialog = undefined;
+      message = "本地运行环境已经变化；没有停止任何进程。";
+      await refresh();
+      return;
+    }
+    const decision = managedRuntimeEndDecision({
+      commits: await client.listSemanticCommits(),
+      explicitSync: {
+        pending: explicitSyncState.pending,
+        reconciliationRequired: explicitSyncState.reconciliationRequired,
+      },
+    });
+    if (!decision.allowed) {
+      actionDialog = undefined;
+      workspace = "audit";
+      message = decision.reason === "UNFINISHED_COMMIT"
+        ? `发现 ${decision.count} 项尚未完成或需要恢复的修改；已转到“最近修改与恢复”，本地运行环境没有结束。`
+        : `仍有 ${decision.count} 项正文核对或范围核对未完成；已转到恢复视图，本地运行环境没有结束。`;
+      await refresh();
+      return;
+    }
+    await releaseServiceLifecycleSession();
+    runtimeEndedByUser = true;
+    actionDialog = undefined;
+    enterRestrictedServiceMode("SERVICE_ENDED_BY_USER", "本次 Task Copilot 已安全结束；Graph 正文仍可正常编辑。");
+    diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+    featureReady = false;
+    message = "本次 Task Copilot 已安全结束；当前 Graph 正文和 SQLite 历史保持不变。";
+    await refresh();
+    return;
+  }
+  if (action === "restart-task-copilot") {
+    if (!runtimeEndedByUser) {
+      message = "当前本地运行环境不需要重新启动。";
+      await refresh();
+      return;
+    }
+    await refreshServiceRuntime(configuredServiceDescriptorPath);
+    featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
+    diagnostics.setStoreStatus(featureReady ? "READY" : "READ_ONLY_SAFE_MODE");
+    message = featureReady
+      ? "当前 Graph 的 Task Copilot 已重新启动。"
+      : "本地运行环境尚未恢复；Graph 正文仍可编辑，请查看系统状态。";
+    await refresh();
     return;
   }
   if (action === "v2-open-primary-anchor" && value) {
@@ -2160,12 +2227,33 @@ async function environmentInfo(): Promise<void> {
     settleRuntimeBridgeCall(logseq.App.getCurrentGraph()).catch(() => null),
     settleRuntimeBridgeCall(logseq.App.getInfo("version")).catch(() => "unavailable"),
   ]);
-  const graphShape = graph as { name?: unknown; url?: unknown } | null;
+  const graphShape = graph as { name?: unknown; url?: unknown; path?: unknown } | null;
   const graphLabel = graphShape && typeof graphShape.name === "string" ? graphShape.name : "unavailable";
-  currentGraphKey = graphShape && typeof graphShape.url === "string"
-    ? await deriveLauncherGraphKey(graphShape.url).catch(() => undefined)
+  const graphIdentity = graphShape && typeof graphShape.path === "string"
+    ? graphShape.path
+    : graphShape?.url;
+  currentGraphKey = typeof graphIdentity === "string"
+    ? await deriveLauncherGraphKey(graphIdentity).catch(() => undefined)
     : undefined;
   diagnostics.setEnvironment(graphLabel || "available (identity shape unavailable)", typeof version === "string" ? version : JSON.stringify(version));
+}
+
+async function handleCurrentGraphChanged(): Promise<void> {
+  enterRestrictedServiceMode("GRAPH_SWITCH_IN_PROGRESS", "正在为新的 Graph 重新绑定本地运行环境；正式写入暂停。");
+  diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+  featureReady = false;
+  runtimeEndedByUser = false;
+  await releaseServiceLifecycleSession();
+  currentGraphKey = undefined;
+  await environmentInfo();
+  await refreshServiceRuntime(configuredServiceDescriptorPath);
+  featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
+  diagnostics.setStoreStatus(featureReady ? "READY" : "READ_ONLY_SAFE_MODE");
+  message = featureReady
+    ? "已为当前 Graph 重新绑定 Task Copilot；未复用上一 Graph 的数据库会话。"
+    : "当前 Graph 尚未配置 Task Copilot 本地数据库；正式写入保持关闭，Graph 正文仍可编辑。";
+  await refreshToolbarInterventionFacts();
+  if (logseq.isMainUIVisible) await refresh();
 }
 
 async function activateConnectedFeatureRuntime(): Promise<void> {
@@ -2218,6 +2306,17 @@ async function initializeFeatures(): Promise<void> {
   markReady("SERVICE_CONNECTION_READY", `V2 service ${serviceConnection.status.toLowerCase()}`);
   diagnostics.start("EVENTS_READY");
   initializeExplicitSync();
+  cleanupHooks.push(logseq.App.onCurrentGraphChanged(() => {
+    graphSwitchQueue = graphSwitchQueue
+      .then(handleCurrentGraphChanged)
+      .catch((error: unknown) => {
+        operationalLogger.log("error", "plugin-lifecycle", "graph_switch_rebind_failed", {
+          result: "restricted",
+          errorCode: error instanceof StructuredError ? error.code : "GRAPH_SWITCH_REBIND_FAILED",
+        });
+        enterRestrictedServiceMode("GRAPH_SWITCH_REBIND_FAILED", "当前 Graph 的本地运行环境无法安全绑定；正式写入保持关闭。");
+      });
+  }));
 
   if (typeof descriptorPath !== "string" || !descriptorPath.trim()) {
     firstRunMode = true;

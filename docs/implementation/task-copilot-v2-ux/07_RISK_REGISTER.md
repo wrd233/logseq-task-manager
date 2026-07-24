@@ -6,11 +6,11 @@
 | UX-R02 | accepted-not-applied 静默遗忘 | 工具栏/待我确认无持续入口 | 用户误以为已生效 | 低风险连续提交及错误后的明确刷新/恢复提示已完成；高影响 intervention projection 仍待 P0-E | PARTIAL |
 | UX-R03 | Block 右键无法真正动态 | SDK 注册项固定、payload 不稳定 | 菜单膨胀或语义错误 | 两项稳定意图 + 动作时解析已在正式 Block Desktop 通过；继续 Query/引用 Gate | CONTROLLED |
 | UX-R04 | Block UI 破坏 Logseq 阅读/编辑 | 大色块、光标遮挡、Query 噪声 | 正文体验退化 | prototype/feature flag/性能与主题 Gate | OPEN |
-| UX-R05 | Service productization 误管他人进程 | Plugin 关闭非 owned PID | 数据/其他 Graph 中断 | process ownership token、Graph binding、只停 owned process | OPEN |
-| UX-R06 | iframe 无法可靠启动 Node | child process API 不存在 | “自动启动”不可实现 | 先 spike；必要时独立受控 launcher | OPEN |
+| UX-R05 | Service productization 误管他人进程 | Plugin 关闭非 owned PID | 数据/其他 Graph 中断 | Launcher 只持有 spawn 返回的 exact child；租约只释放自身；最后租约/TTL/owner-PID 自动停机，自动与真实进程通过 | CONTROLLED |
+| UX-R06 | iframe 无法可靠启动 Node | child process API 不存在 | “自动启动”不可实现 | 已以 Desktop/SDK 证据选择独立 loopback Launcher + LaunchAgent；日常无需终端，真实安装通过 | CONTROLLED |
 | UX-R07 | descriptor 投放仍需开发者步骤 | filesystem path 被 renderer 拒绝 | 无法取得正式写入 client | 固定私有 key 的文件导入、校验、错误脱敏和 reload 已 Desktop 通过；进程生命周期由 UX-R05/R06/R08 跟踪 | CONTROLLED |
-| UX-R08 | Logseq 退出窗口不足 | shutdown 未完成或迟到 | orphan process/PENDING | fast safe endpoint、ledger first、下次恢复 | OPEN |
-| UX-R09 | 多 Graph 错配 | Graph switch 后复用旧 DB | 跨 Graph 正式写入 | 每次 switch 重验 Graph identity，失败停写 | OPEN |
+| UX-R08 | Logseq 退出窗口不足 | shutdown 未完成或迟到 | orphan process/PENDING | unload release + 15s lease expiry + Service owner-PID self-stop + ledger-first Recovery；crash 真实进程通过，Desktop quit 待验 | MITIGATED |
+| UX-R09 | 多 Graph 错配 | Graph switch 后复用旧 DB | 跨 Graph 正式写入 | path hash→显式 mapping；switch 先释放旧租约，unknown Graph fail closed；自动通过，Desktop switch 待验 | MITIGATED |
 | UX-R10 | attention signal 形成第二 Inbox | 信号长期堆积/需逐条归档 | 新认知负担 | 派生、失效、冷却、业务处置后消失 | OPEN |
 | UX-R11 | LLM 提醒噪声 | 频繁弱建议/垃圾下一步 | 信任下降 | 规则决定强显现；影子模式；eligibility | OPEN |
 | UX-R12 | 状态翻译隐藏关键信息 | 结论过度压缩 | 恢复风险不可见 | P0-I 已实现 Recovery/Pending/受限/Anchor/正文核对安全优先级；五问首屏，详情可展开 | MITIGATED |

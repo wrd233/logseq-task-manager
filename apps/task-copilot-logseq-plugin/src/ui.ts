@@ -56,7 +56,8 @@ export type ActionDialogKind =
   | "v2-area-edit"
   | "v2-project-structure-edit"
   | "v2-page-context"
-  | "v2-page-formal-items";
+  | "v2-page-formal-items"
+  | "confirm-end-task-copilot";
 
 export interface UiModel {
   workspace: Workspace;
@@ -121,6 +122,7 @@ export interface UiModel {
   v2MigrationRuns?: ServiceMigrationRun[];
   v2MigrationLoadError?: string;
   pageContext?: PageContextSnapshot;
+  v2ManagedRuntimeState?: "RUNNING" | "ENDED";
 }
 
 export function escapeHtml(value: unknown): string {
@@ -530,12 +532,18 @@ function sectionNavigation(model: UiModel): string {
   return "";
 }
 
-function renderMore(): string {
+function renderMore(model: UiModel): string {
+  const lifecycle = model.v2ManagedRuntimeState === "RUNNING"
+    ? `<article class="card"><h3>本地运行环境</h3><p>Launcher 正在为当前 Graph 管理正式 Service。结束前会检查未完成 Commit 与正文核对，不会关闭其他进程。</p>${button("结束本次 Task Copilot", "end-task-copilot-open", undefined, "danger")}</article>`
+    : model.v2ManagedRuntimeState === "ENDED"
+      ? `<article class="card"><h3>本地运行环境已结束</h3><p>Graph 正文仍可编辑，SQLite 历史保持安全；需要正式能力时可重新启动当前 Graph 的 Service。</p>${button("重新启动 Task Copilot", "restart-task-copilot", undefined, "primary")}</article>`
+      : "";
   return `<section><div class="eyebrow">高级与维护</div><h2>更多</h2><p class="muted">日常只需要“现在”“待我确认”和“项目”。这里保留系统状态、恢复、迁移与技术证据，不删除原有能力。</p><div class="cards more-hub">
     <article class="card"><h3>最近修改与恢复</h3><p>查看已经应用、尚未完成或需要恢复的变化，并按安全前置决定能否撤销。</p>${button("查看最近修改与恢复", "view", "audit", "primary")}</article>
     <article class="card"><h3>系统状态与技术诊断</h3><p>先说明哪些能力受影响、哪些仍可用和数据是否安全，再按需展开技术组件。</p>${button("检查系统状态与技术诊断", "runtime-diagnostics", undefined, "quiet")}</article>
     <article class="card"><h3>备份与恢复</h3><p>继续复用唯一 Local Service、Doctor、Backup 与固定确认的 Restore 安全链。</p>${button("查看备份与恢复说明", "view", "audit", "quiet")}</article>
     <article class="card"><h3>迁移现有内容</h3><p>查看手动、小批次、可验证、可恢复的 V1 → V2 迁移账本。</p>${button("查看迁移状态", "view", "migration", "quiet")}</article>
+    ${lifecycle}
   </div></section>`;
 }
 
@@ -543,6 +551,9 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "confirm-end-task-copilot") {
+    return `<section class="inbox-dialog action-dialog" aria-label="结束本次 Task Copilot"><h3>结束本次 Task Copilot？</h3><p>系统会再次检查未完成 Commit 与正文核对。安全时只释放当前插件租约并停止它拥有的 Service；Launcher、Graph 正文、SQLite 历史和其他进程不受影响。</p><div class="actions">${button("确认安全结束", "submit-end-task-copilot", undefined, "danger")}${cancel}</div></section>`;
+  }
   if (dialog.kind === "v2-page-context") {
     const context = model.pageContext;
     if (!context || context.pageUuid !== dialog.value) return "";
@@ -721,7 +732,7 @@ export function renderApp(model: UiModel): string {
             : model.workspace === "reentry"
               ? renderReentry(model)
               : model.workspace === "more"
-                ? renderMore()
+                ? renderMore(model)
               : model.workspace === "migration"
                 ? renderMigration(model)
                 : renderAudit(model);

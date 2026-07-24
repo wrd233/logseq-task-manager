@@ -33,21 +33,31 @@ interface SpawnerDependencies {
 async function prepareDescriptor(path: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   await chmod(dirname(path), 0o700);
+  let existing: ServiceDescriptor;
   try {
     const metadata = await lstat(path);
     if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error("LAUNCHER_RUNTIME_DESCRIPTOR_INSECURE");
-    const existing = validateServiceDescriptor(JSON.parse(await readFile(path, "utf8")));
+    existing = validateServiceDescriptor(JSON.parse(await readFile(path, "utf8")));
+  } catch (error) {
+    if (error instanceof Error && error.message === "LAUNCHER_RUNTIME_DESCRIPTOR_INSECURE") throw error;
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return;
+    await rm(path, { force: true });
+    return;
+  }
+  const deadline = Date.now() + 3_500;
+  while (Date.now() < deadline) {
     try {
       const health = await new LocalServiceClient(existing, 400).health();
-      if (health.status === "READY") throw new Error("LAUNCHER_UNOWNED_SERVICE_PRESENT");
-    } catch (error) {
-      if (error instanceof Error && error.message === "LAUNCHER_UNOWNED_SERVICE_PRESENT") throw error;
+      if (health.status === "READY") {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        continue;
+      }
+    } catch {
+      await rm(path, { force: true });
+      return;
     }
-    await rm(path);
-  } catch (error) {
-    if (error instanceof Error && (error.message === "LAUNCHER_RUNTIME_DESCRIPTOR_INSECURE" || error.message === "LAUNCHER_UNOWNED_SERVICE_PRESENT")) throw error;
-    if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") await rm(path, { force: true });
   }
+  throw new Error("LAUNCHER_UNOWNED_SERVICE_PRESENT");
 }
 
 async function waitForDescriptor(path: string, child: ChildProcessPort): Promise<ServiceDescriptor> {
@@ -118,6 +128,7 @@ export function createNodeServiceSpawner(dependencies: SpawnerDependencies = {})
       "--database", input.graph.databasePath,
       "--graph-id", input.graph.graphId,
       "--descriptor", input.descriptorPath,
+      "--owner-pid", String(process.pid),
     ], {
       shell: false,
       detached: false,

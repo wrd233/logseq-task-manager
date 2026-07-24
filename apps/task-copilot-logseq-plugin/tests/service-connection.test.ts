@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
 import type { LauncherDescriptor } from "@task-copilot/service-client/launcher";
+import { StructuredError } from "@task-copilot/shared";
 
 import {
   PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
@@ -379,6 +380,40 @@ test("launcher discovery fails closed without Graph identity and releases a leas
   assert.equal(unavailable.connection.status, "RESTRICTED");
   assert.deepEqual(released, ["lease-failed"]);
   assert.equal(unavailable.lifecycle, undefined);
+});
+
+test("an unconfigured Graph has a distinct restricted state and never receives a Service client", async () => {
+  const runtime = await discoverServiceRuntime(
+    PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
+    { read: async () => launcherDescriptor },
+    () => { throw new Error("service client must not be created"); },
+    {
+      graphKey: "graph-unknown",
+      clientInstanceId: "plugin-instance-1",
+      createLauncherClient: () => ({
+        health: async () => ({
+          status: "READY",
+          protocolVersion: 1,
+          capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+          configuredGraphs: 1,
+        }),
+        ensure: async () => {
+          throw new StructuredError({
+            code: "LAUNCHER_HTTP_ERROR",
+            message: "sanitized",
+            ruleRefs: ["D-216"],
+            details: { status: 409, remoteCode: "LAUNCHER_GRAPH_NOT_CONFIGURED" },
+          });
+        },
+        heartbeat: async () => undefined,
+        release: async () => undefined,
+      }),
+    },
+  );
+  assert.equal(runtime.connection.status, "RESTRICTED");
+  assert.equal(runtime.connection.status === "RESTRICTED" && runtime.connection.reasonCode, "LAUNCHER_GRAPH_NOT_CONFIGURED");
+  assert.match(runtime.connection.message, /当前 Graph/);
+  assert.equal(runtime.client, undefined);
 });
 
 test("invalid descriptor import performs no private write and storage failures redact the token", async () => {

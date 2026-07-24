@@ -16,6 +16,21 @@ test("Service runner requires explicit database, Graph identity, and descriptor 
   });
   assert.throws(() => parseServiceRunnerArgs(["--database", "/tmp/db"]), /Usage/);
   assert.throws(() => parseServiceRunnerArgs(["--unknown", "value", "--database", "/tmp/db", "--graph-id", "g", "--descriptor", "d"]), /Usage/);
+  assert.deepEqual(parseServiceRunnerArgs([
+    "--database", "/graph/.task-copilot/task-copilot.db",
+    "--graph-id", "graph-1",
+    "--descriptor", "/runtime/task-copilot/graph-1.json",
+    "--owner-pid", "1234",
+  ]), {
+    mode: "serve",
+    databasePath: "/graph/.task-copilot/task-copilot.db",
+    graphId: "graph-1",
+    descriptorPath: "/runtime/task-copilot/graph-1.json",
+    ownerPid: 1234,
+  });
+  assert.throws(() => parseServiceRunnerArgs([
+    "--database", "/tmp/db", "--graph-id", "g", "--descriptor", "d", "--owner-pid", "not-a-pid",
+  ]), /Usage/);
 });
 
 test("Schema migration runner is explicit and requires a new backup path", () => {

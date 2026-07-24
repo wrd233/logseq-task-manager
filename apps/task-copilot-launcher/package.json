@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "bin": {
-    "task-copilot-launcher": "dist/launcher.js"
+    "task-copilot-launcher": "dist/launcher.js",
+    "task-copilot-launcher-install": "dist/installer.js"
   },
   "engines": {
     "node": ">=20.19 <21"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "package:runtime": "node scripts/package-runtime.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
   },

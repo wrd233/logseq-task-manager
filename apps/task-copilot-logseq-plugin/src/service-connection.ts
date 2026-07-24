@@ -161,15 +161,7 @@ export async function importServiceDescriptorToPrivateStorage(
   return { storageKey };
 }
 
-export async function deriveLauncherGraphKey(graphUrl: unknown): Promise<string> {
-  if (typeof graphUrl !== "string" || !graphUrl.trim() || graphUrl.length > 4_096) {
-    throw connectionError("LAUNCHER_GRAPH_IDENTITY_REQUIRED", "当前 Graph 缺少可用于安全绑定的稳定身份。");
-  }
-  const normalized = graphUrl.trim().normalize("NFC").replace(/\/+$/, "");
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
-  const hex = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
-  return `graph-${hex}`;
-}
+export { deriveLauncherGraphKey } from "@task-copilot/service-client/launcher";
 
 export async function discoverServiceConnection(
   descriptorPath: string | undefined,
@@ -257,7 +249,14 @@ export async function discoverServiceRuntime(
     return { connection, client, lifecycle };
   } catch (error) {
     if (launcher && leaseId) await launcher.release(leaseId).catch(() => undefined);
-    const reasonCode = error instanceof StructuredError ? error.code : "SERVICE_DESCRIPTOR_READ_FAILED";
+    const remoteCode = error instanceof StructuredError && typeof error.details?.remoteCode === "string"
+      ? error.details.remoteCode
+      : undefined;
+    const reasonCode = error instanceof StructuredError
+      ? error.code === "LAUNCHER_HTTP_ERROR" && remoteCode === "LAUNCHER_GRAPH_NOT_CONFIGURED"
+        ? "LAUNCHER_GRAPH_NOT_CONFIGURED"
+        : error.code
+      : "SERVICE_DESCRIPTOR_READ_FAILED";
     const messages: Record<string, string> = {
       SERVICE_DESCRIPTOR_PATH_INVALID: "Local Service descriptor 路径无效。",
       SERVICE_DESCRIPTOR_INSECURE: "Local Service descriptor 权限或文件类型不安全。",
@@ -272,6 +271,7 @@ export async function discoverServiceRuntime(
       LAUNCHER_UNAUTHORIZED: "Task Copilot Launcher 配对认证失败。",
       LAUNCHER_RESPONSE_INVALID: "Task Copilot Launcher 返回了无效响应。",
       LAUNCHER_HTTP_ERROR: "Task Copilot Launcher 无法为当前 Graph 准备 Local Service。",
+      LAUNCHER_GRAPH_NOT_CONFIGURED: "当前 Graph 尚未绑定 Task Copilot 本地数据库；正式写入保持关闭。",
     };
     return { connection: restricted(reasonCode, messages[reasonCode] ?? "Task Copilot 本地运行环境无法安全连接。") };
   }
