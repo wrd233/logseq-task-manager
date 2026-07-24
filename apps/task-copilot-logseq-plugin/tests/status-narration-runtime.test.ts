@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { V2ManagedObject } from "@task-copilot/domain";
 
 import {
   projectPluginCommitNarration,
+  projectPluginObjectNarrations,
   projectPluginProposalNarration,
   projectPluginSystemNarration,
 } from "../src/status-narration-runtime.ts";
@@ -105,4 +107,60 @@ test("commit adapter does not infer Undo eligibility from a completed status", (
   assert.equal(narration.conclusion, "这次修改已经应用");
   assert.equal(narration.nextActionEligible, false);
   assert.match(narration.unknowns.join(""), /安全撤销条件/);
+});
+
+test("object adapter resolves exact blocker evidence and preserves version for UI revalidation", () => {
+  const blocker: V2ManagedObject = {
+    objectId: "task-blocker",
+    objectType: "TASK",
+    version: 4,
+    lifecycle: "COMPLETED",
+    condition: { kind: "ACTIONABLE" },
+    text: "恢复供应链",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  const blocked: V2ManagedObject = {
+    objectId: "task-blocked",
+    objectType: "TASK",
+    version: 7,
+    lifecycle: "OPEN",
+    condition: {
+      kind: "BLOCKED",
+      reason: "等待供应链恢复",
+      blockerObjectId: blocker.objectId,
+    },
+    text: "恢复发布",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  const projected = projectPluginObjectNarrations([blocked, blocker], observedAt);
+
+  assert.equal(projected["task-blocked"]?.objectVersion, 7);
+  assert.equal(projected["task-blocked"]?.narration.conclusion, "关联阻塞项已结束，需要重新判断是否可以继续");
+  assert.deepEqual(projected["task-blocked"]?.narration.nextAction, {
+    intent: "REVIEW_BLOCKER",
+    label: "确认阻塞是否已解除",
+    targetObjectId: "task-blocked",
+  });
+});
+
+test("object adapter rejects duplicate identity instead of selecting one version", () => {
+  const object: V2ManagedObject = {
+    objectId: "task-duplicate",
+    objectType: "TASK",
+    version: 1,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "重复",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  assert.throws(
+    () => projectPluginObjectNarrations([object, { ...object, version: 2 }], observedAt),
+    /Duplicate Object identity/,
+  );
 });

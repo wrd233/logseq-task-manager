@@ -6,6 +6,7 @@ import { checksum } from "@task-copilot/shared";
 
 import { renderApp, type UiModel } from "../src/ui.ts";
 import { projectPluginV2ProjectReentry } from "../src/reentry-runtime.ts";
+import { projectPluginObjectNarrations } from "../src/status-narration-runtime.ts";
 
 function model(): UiModel {
   return {
@@ -613,6 +614,90 @@ test("V2 Now Work renders only non-empty explainable regions without scores or b
   assert.match(html, /data-action="v2-open-primary-anchor" data-value="block-next"/);
   assert.match(html, /data-action="v2-focus-add" data-value="task-next\|2"/);
   assert.match(html, /data-action="v2-condition-open" data-value="task-next\|2"/);
+});
+
+test("V2 Now Work leads with version-matched Object narration and reuses the Condition handler", () => {
+  const value = model();
+  value.workspace = "now";
+  const observedAt = "2026-07-24T12:00:00.000Z";
+  const waiting = {
+    objectId: "task-waiting-review",
+    objectType: "TASK" as const,
+    version: 5,
+    lifecycle: "OPEN" as const,
+    condition: {
+      kind: "WAITING" as const,
+      waitingFor: "厂家",
+      expectedResult: "功耗参数",
+      reviewAt: "2026-07-24T09:00:00.000Z",
+    },
+    text: "完成资源测算",
+    sourceOrCreationEvent: "test",
+    createdAt: "2026-07-23T00:00:00.000Z",
+    updatedAt: "2026-07-24T09:00:00.000Z",
+  };
+  value.v2NowWork = {
+    generatedAt: observedAt,
+    focus: [],
+    next: [],
+    waitingReview: [{
+      objectId: waiting.objectId,
+      objectType: waiting.objectType,
+      version: waiting.version,
+      text: waiting.text,
+      condition: waiting.condition,
+      updatedAt: waiting.updatedAt,
+      reason: "等待复查",
+    }],
+    conditionOptions: [],
+  };
+  value.v2ObjectNarrations = projectPluginObjectNarrations([waiting], observedAt);
+
+  const html = renderApp(value);
+  assert.match(html, /该确认已到复查时间/);
+  assert.match(html, /等待厂家提供功耗参数/);
+  assert.match(html, /data-narration-rule="condition-waiting-review-due"/);
+  assert.match(html, /data-action="v2-condition-open" data-value="task-waiting-review\|5"[^>]*>确认是否已收到功耗参数/);
+  assert.doesNotMatch(html, /WAITING/);
+});
+
+test("V2 Now Work does not use a narration projected from another Object version", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = {
+    generatedAt: "2026-07-24T12:00:00.000Z",
+    focus: [],
+    next: [{
+      objectId: "task-stale-narration",
+      objectType: "TASK",
+      version: 3,
+      text: "核对版本",
+      condition: { kind: "ACTIONABLE" },
+      updatedAt: "2026-07-24T11:00:00.000Z",
+      reason: "Service 当前理由",
+    }],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  value.v2ObjectNarrations = {
+    "task-stale-narration": {
+      objectVersion: 2,
+      narration: {
+        conclusion: "不应显示的旧结论",
+        keyEvidence: [],
+        facts: [],
+        inferences: [],
+        unknowns: [],
+        nextActionEligible: false,
+        evidenceScope: { refs: ["object:task-stale-narration@v2"], observedAt: "2026-07-24T12:00:00.000Z" },
+        source: { kind: "DETERMINISTIC_RULE", ruleId: "stale", version: "1.0.0" },
+      },
+    },
+  };
+
+  const html = renderApp(value);
+  assert.match(html, /Service 当前理由/);
+  assert.doesNotMatch(html, /不应显示的旧结论|data-narration-rule="stale"/);
 });
 
 test("V2 Condition is edited in one in-context form with explicit Waiting evidence", () => {

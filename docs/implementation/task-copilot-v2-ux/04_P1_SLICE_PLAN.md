@@ -152,8 +152,8 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 ## P1-D：状态翻译层
 
 状态：`PARTIAL_UI_AUTOMATED` — Application 确定性 Object/Proposal/Commit/Anchor/System
-叙述契约已接入 Plugin System、Proposal Review 与 Recent Changes；Object/Anchor/Now
-consumer、Desktop Gate 与 LLM draft protocol 仍待扩展。
+叙述契约已接入 Plugin System、Proposal Review、Recent Changes 与 Now Work；
+Anchor repair consumer、Desktop Gate 与 LLM draft protocol 仍待扩展。
 
 Application/ViewModel 契约：
 
@@ -205,8 +205,14 @@ source
   与前置校验决定；完成状态不会凭叙述自动显示 Undo；
 - 用户首屏 notice 不再显示 SemanticCommit ID；技术身份、checksum、error code 仍只在折叠
   详情中可查；
-- Application tests 112/112、Plugin tests 204/204、0 skipped，typecheck/build PASS；
-- 当前未完成 Object/Anchor/Now consumer 与 Desktop 主题/窄栏/真实恢复对照，不能声明 P1-D 完成。
+- Now Work 用同一轮 `listObjects + nowWork` 只读结果投影 Object narration；重复 Object identity
+  fail closed，卡片只消费与 Now item 完全相同的 Object version；
+- 到期 WAITING/PAUSED 与已结束 blocker 的具体复查按钮只复用既有 `v2-condition-open`，
+  target identity 不匹配或资格不足时保持普通“更新状态”；
+- Now 卡片先显示结论、依据与 unknown，完整 facts 折叠；投影失败明确降级到 Local Service
+  既有 reason，不改变正式状态或动作资格；
+- Application tests 112/112、Plugin tests 208/208、0 skipped，typecheck/build PASS；
+- 当前未完成 Anchor repair consumer 与 Desktop 主题/窄栏/真实恢复对照，不能声明 P1-D 完成。
 
 ## P1-E：Block 轻标记原型
 

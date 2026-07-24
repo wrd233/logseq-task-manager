@@ -12,7 +12,10 @@ import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
 import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
 import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
-import { projectPluginProposalNarration } from "./status-narration-runtime.ts";
+import {
+  projectPluginProposalNarration,
+  type PluginObjectNarration,
+} from "./status-narration-runtime.ts";
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -111,6 +114,8 @@ export interface UiModel {
   v2NowWorkGrouping?: V2NowWorkGrouping;
   v2ProjectReentryCards?: PluginProjectReentryCard[];
   v2ReentryLoadError?: string;
+  v2ObjectNarrations?: Record<string, PluginObjectNarration>;
+  v2StatusNarrationLoadError?: string;
   v2CandidatePanel?: V2ExplicitCandidatePanelState;
   v2Candidates?: V2Candidate[];
   v2CandidateSourcePreviews?: Record<string, string>;
@@ -162,7 +167,25 @@ function renderNow(model: UiModel): string {
     const filtered = (values: ServiceNowWork["next"]) => filter === "ALL" ? values : values.filter((item) => item.objectType === filter);
     const orderingAvailable = filter === "ALL" && grouping === "mixed";
     const focusIds = new Set(model.v2NowWork.focus.map((item) => item.objectId));
-    const cards = (values: ServiceNowWork["next"], kind: "focus" | "candidate") => values.map((item, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(item.objectType)} · ${escapeHtml(item.condition.kind)}</div><h3>${escapeHtml(item.text)}</h3><p>${escapeHtml(item.reason)}</p>${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet")}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${kind === "focus" ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}</div></article>`).join("");
+    const cards = (values: ServiceNowWork["next"], kind: "focus" | "candidate") => values.map((item, index) => {
+      const projected = model.v2ObjectNarrations?.[item.objectId];
+      const narration = projected?.objectVersion === item.version ? projected.narration : undefined;
+      const nextAction = narration?.nextAction;
+      const statusAction = narration?.nextActionEligible
+        && nextAction
+        && (
+          nextAction.intent === "REVIEW_WAITING"
+          || nextAction.intent === "REVIEW_BLOCKER"
+          || nextAction.intent === "REVIEW_PAUSE"
+        )
+        && nextAction.targetObjectId === item.objectId
+        ? button(nextAction.label, "v2-condition-open", `${item.objectId}|${item.version}`, "primary")
+        : button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet");
+      const status = narration
+        ? `<p><strong>${escapeHtml(narration.conclusion)}</strong></p>${narration.keyEvidence.length ? `<p class="muted">${narration.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}${narration.unknowns.length ? `<p class="uncertain"><strong>尚不能确认：</strong>${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<details><summary>查看状态依据</summary><ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
+        : `<p>${escapeHtml(item.reason)}</p>`;
+      return `<article class="card compact"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(item.objectType)}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${statusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${kind === "focus" ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}</div></article>`;
+    }).join("");
     const section = (title: string, source: ServiceNowWork["next"], kind: "focus" | "candidate") => {
       const values = filtered(source);
       if (!values.length) return "";
@@ -173,7 +196,10 @@ function renderNow(model: UiModel): string {
     };
     const controls = `<section class="now-work-controls" aria-label="Now Work 筛选与分组"><div><strong>类型</strong><div class="actions wrap">${button("全部", "v2-now-filter", "ALL", filter === "ALL" ? "active" : "quiet")}${availableTypes.map((type) => button(typeLabels[type], "v2-now-filter", type, filter === type ? "active" : "quiet")).join("")}</div></div><div><strong>排列</strong><div class="actions">${button("混排", "v2-now-grouping", "mixed", grouping === "mixed" ? "active" : "quiet")}${button("按类型分组", "v2-now-grouping", "type", grouping === "type" ? "active" : "quiet")}</div></div>${orderingAvailable ? "" : "<p class=\"muted\">手动调整 Focus 顺序请切回“全部 · 混排”；筛选不会改变正式状态。</p>"}</section>`;
     const content = `${section("当前关注", model.v2NowWork.focus, "focus")}${section("接下来值得处理", model.v2NowWork.next, "candidate")}${section("等待与复查", model.v2NowWork.waitingReview, "candidate")}`;
-    return `${controls}${content || empty("当前筛选下没有事项", "普通 Waiting 保持安静；可切换类型查看当前投影。")}`;
+    const narrationError = model.v2StatusNarrationLoadError
+      ? `<div class="error"><strong>状态说明暂时不可用：</strong>${escapeHtml(model.v2StatusNarrationLoadError)}<span>继续显示 Local Service 的既有只读理由；没有改变正式状态或动作资格。</span></div>`
+      : "";
+    return `${controls}${narrationError}${content || empty("当前筛选下没有事项", "普通 Waiting 保持安静；可切换类型查看当前投影。")}`;
   }
   if (model.now.items.length === 0) return empty("当前没有需要推进的事项", "这里只显示 Actionable 与高价值注意项。");
   return `<div class="cards">${model.now.items

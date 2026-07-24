@@ -82,6 +82,10 @@ import {
   type DynamicNowShadowRuntimeSummary,
 } from "./attention-shadow-runtime.ts";
 import { projectPluginV2ProjectReentry, type PluginProjectReentryCard } from "./reentry-runtime.ts";
+import {
+  projectPluginObjectNarrations,
+  type PluginObjectNarration,
+} from "./status-narration-runtime.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -297,12 +301,14 @@ async function model(): Promise<UiModel> {
   let v2PrimaryOwnerships: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listPrimaryOwnerships"]>> = [];
   let v2PrimaryAnchors: V2Anchor[] = [];
   let v2ProjectReentryCards: PluginProjectReentryCard[] | undefined;
+  let v2ObjectNarrations: Record<string, PluginObjectNarration> | undefined;
   let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
   let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
   let v2ProposalLoadError: string | undefined;
   let v2AuditLoadError: string | undefined;
   let v2RelationLoadError: string | undefined;
   let v2ReentryLoadError: string | undefined;
+  let v2StatusNarrationLoadError: string | undefined;
   let v2MigrationLoadError: string | undefined;
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
     try {
@@ -362,6 +368,13 @@ async function model(): Promise<UiModel> {
         });
       } catch (error) {
         v2ReentryLoadError = explain(error);
+      }
+    }
+    if (v2NowWork && !v2ProposalLoadError) {
+      try {
+        v2ObjectNarrations = projectPluginObjectNarrations(v2Objects, v2NowWork.generatedAt);
+      } catch (error) {
+        v2StatusNarrationLoadError = explain(error);
       }
     }
     if (!v2ReentryLoadError && v2ProposalLoadError) v2ReentryLoadError = v2ProposalLoadError;
@@ -432,6 +445,8 @@ async function model(): Promise<UiModel> {
     v2NowWorkGrouping,
     ...(v2ProjectReentryCards !== undefined ? { v2ProjectReentryCards } : {}),
     ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
+    ...(v2ObjectNarrations !== undefined ? { v2ObjectNarrations } : {}),
+    ...(v2StatusNarrationLoadError ? { v2StatusNarrationLoadError } : {}),
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
     ...(v2AuditLoadError ? { v2AuditLoadError } : {}),
     ...(recentActionCommitId ? { recentActionCommitId } : {}),

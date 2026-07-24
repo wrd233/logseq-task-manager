@@ -1,15 +1,22 @@
 import {
   narrateV2CommitStatus,
+  narrateV2ObjectStatus,
   narrateV2ProposalStatus,
   narrateV2SystemStatus,
   type StatusNarration,
 } from "@task-copilot/application";
+import type { V2ManagedObject } from "@task-copilot/domain";
 import type {
   ServiceSemanticCommit,
   ServiceStoredProposal,
 } from "@task-copilot/service-client";
 
 import type { RuntimeDiagnosticsSnapshot } from "./runtime-diagnostics.ts";
+
+export interface PluginObjectNarration {
+  objectVersion: number;
+  narration: StatusNarration;
+}
 
 function availableCount(value: number | "unavailable" | undefined): number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
@@ -58,6 +65,33 @@ export function projectPluginCommitNarration(
     scene: "REVIEW",
     commit: commitFact(commit),
   });
+}
+
+export function projectPluginObjectNarrations(
+  objects: readonly V2ManagedObject[],
+  observedAt: string,
+): Record<string, PluginObjectNarration> {
+  const byId = new Map<string, V2ManagedObject>();
+  for (const object of objects) {
+    if (byId.has(object.objectId)) {
+      throw new Error("Duplicate Object identity in status narration projection.");
+    }
+    byId.set(object.objectId, object);
+  }
+  return Object.fromEntries(objects.map((object) => {
+    const blocker = object.condition.kind === "BLOCKED" && object.condition.blockerObjectId
+      ? byId.get(object.condition.blockerObjectId)
+      : undefined;
+    return [object.objectId, {
+      objectVersion: object.version,
+      narration: narrateV2ObjectStatus({
+        observedAt,
+        scene: "NOW",
+        object,
+        ...(blocker ? { blocker } : {}),
+      }),
+    }];
+  }));
 }
 
 export function projectPluginProposalNarration(

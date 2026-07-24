@@ -180,7 +180,13 @@ System 继续回答影响/可用能力/数据安全/用户动作五问，但 hea
 来自 Application；Proposal 与 Commit 卡片先显示结论和最多两条依据，unknown 明示，内部
 status、provider/model、Commit identity、checksum 与 error code 退到折叠详情。既有
 Commit/Undo/Recovery Handler 和前置校验没有转移到叙述层，完成状态不会自动获得 Undo。
-Object/Anchor/Now consumer 与真实 Desktop 信息密度对照仍未完成。
+此时 Object/Anchor/Now consumer 与真实 Desktop 信息密度对照仍未完成。
+
+同一 adapter 随后接入 Now Work Object 卡片：Object 列表重复 identity 会 fail closed，只有
+与 Now item 完全相同的 Object version 才能替换既有 reason；到期 WAITING/PAUSED 与已结束
+blocker 的 next action 只映射到既有 Condition 编辑 Handler。投影不完整时明确显示错误并
+保留 Service reason，不开放 Attention shadow，也不增加正式写入权限。Anchor repair 现场
+与 Desktop 信息密度对照仍待完成。
 
 ### P1-F Project/Task 重入纯投影
 
@@ -224,6 +230,7 @@ Association 不再展开为行动列表，完整 Objectives/Deliverables/对象�
 - P1-F 纯投影后 Application tests：112/112、0 skipped，typecheck PASS；
 - P1-F Plugin consumer 后 tests：200/200、0 skipped，typecheck/build PASS；
 - P1-D Plugin consumer 后 tests：204/204、0 skipped，typecheck/build PASS；
+- P1-D Object/Now consumer 后 tests：208/208、0 skipped，typecheck/build PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
