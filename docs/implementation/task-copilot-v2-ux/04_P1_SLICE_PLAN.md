@@ -109,7 +109,8 @@ Plugin 只读刷新链路；没有接入 UI、正式 Domain 或 SQLite schema。
 
 ## P1-C：“现在”动态编排
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_AUTOMATED_SHADOW` — 稳定三段骨架、正式事实 inclusion/exclusion、容量与
+Focus ownership 纯投影已完成；未替换现有 Service/UI，Copilot 建议关注仍保持空。
 
 稳定骨架：
 
@@ -128,6 +129,21 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 - 下一动作拒绝率；
 - 每屏信息量；
 - 用户找到正文和停留点的时间。
+
+2026-07-24 首轮自动结果：
+
+- 新增显式 `visibility: SHADOW` 的 `projectV2DynamicNowShadow`，不会被现有 Plugin UI 读取；
+- “继续处理”只来自未过期 Focus 中 ACTIONABLE 的 Task/MiniProject/Project，并保留用户排序；
+- “需要回看”按 blocker 已完成 > reviewAt 到期 > 七天内 due > Focus BLOCKED 排序，
+  一个对象只进入一次；
+- “保持等待”只包含 Focus 中尚未到期的 WAITING/PAUSED，普通非 Focus 等待保持安静；
+- 普通 OPEN、Area/Decision/Output、closed、expired Focus 和远期 due 不进入三段；
+- review/waiting 默认各 12、可配置 1..100，overflow 显式计数；Focus 继续项不截断；
+- Focus 超过 7 项只生成温和事实，不自动移出、不阻止加入、不重写选择；
+- `suggestedAttention` 首轮固定为空，未把近期更新或 SHADOW Signal 提升为 Copilot 建议；
+- duplicate Object/Focus identity、invalid timestamp 与 invalid bounds fail closed；
+- Application tests 98/98、0 skipped，typecheck 与根级 Gate PASS；
+- 当前不构成用户可见 Now 编排或 Desktop PASS。
 
 ## P1-D：状态翻译层
 

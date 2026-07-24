@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A/B model/detector/repository + Plugin session runtime、P1-D deterministic narration contract automated PASS；未展示、UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D deterministic narration contract automated PASS；未展示、UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -158,6 +158,12 @@ P1-D 首轮确定性对象状态翻译已建立统一契约：主结论、最多
 普通 ACTIONABLE、未来等待和 Project focus 不被机械变成下一步。首屏文本封顶但完整正式
 内容保留在 facts。当前未接 Plugin UI，不能声明用户体验或 Desktop PASS。
 
+P1-C 首轮 `SHADOW` 动态 Now 投影已建立稳定三段：可行动 Focus 才进入继续处理，确定性
+blocker/review/due/Focus blocked 进入需要回看，Focus 中未到期 WAITING/PAUSED 进入保持等待。
+普通 OPEN、普通非 Focus 等待、远期 due、closed 与非工作对象均排除；review/waiting 有界，
+Focus 不截断且超过 7 项只温和提示。Copilot 建议区固定为空，尚未把 Shadow Signal 或“近期
+更新”提升为建议，也未替换现有 Service/UI。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -184,6 +190,7 @@ P1-D 首轮确定性对象状态翻译已建立统一契约：主结论、最多
 - P1-A/B Application tests：82/82、0 skipped，typecheck/lint PASS；
 - P1-B Plugin runtime tests + 全量：196/196、0 skipped，typecheck/build PASS；
 - P1-D 后 Application tests：91/91、0 skipped，typecheck PASS；
+- P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -195,7 +202,7 @@ P1-D 首轮确定性对象状态翻译已建立统一契约：主结论、最多
 ## 下一步
 
 1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 继续 P1-C “现在”纯动态编排，并扩 P1-D Commit/Anchor/System narration；在 P0 Desktop
-   总 Gate 前不开放影子信号；
+2. 将 P1-C 投影接入 count-only runtime 对照并扩 P1-D Commit/Anchor/System narration；
+   在 P0 Desktop 总 Gate 前不替换现有 Now UI、不开放影子信号；
 3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

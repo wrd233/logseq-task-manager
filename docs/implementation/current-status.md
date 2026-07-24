@@ -55,7 +55,10 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P1-D 确定性状态翻译首轮契约已完成：主结论/依据/事实/推断/未知/下一动作资格/
   evidence scope/source 分离；仅 WAITING/PAUSED 到期与已完成 blocker 在相关现场有动作，
   普通 ACTIONABLE 与 Project focus 不猜下一步；Application 91/91 与根级 Gate 通过，未接 UI；
-- 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 状态翻译与 Now 编排；
+- P1-C `SHADOW` 动态 Now 首轮投影已完成：继续处理只来自可行动 Focus，需要回看按
+  blocker/review/due/Focus blocked 收敛，保持等待只含 Focus 中安静等待，普通 OPEN 不进入；
+  Copilot 建议固定为空，Application 98/98 与根级 Gate 通过，未接 Service/UI；
+- 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

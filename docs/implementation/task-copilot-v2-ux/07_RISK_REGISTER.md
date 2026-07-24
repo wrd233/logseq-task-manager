@@ -14,7 +14,7 @@
 | UX-R10 | attention signal 形成第二 Inbox | 信号长期堆积/需逐条归档 | 新认知负担 | P1-A Plugin session shadow 已实现派生、自动失效、512 容量、Graph switch clear、cooldown/disposition 与 count-only telemetry；UI/SQLite 未开放 | MITIGATED |
 | UX-R11 | LLM 提醒噪声 | 频繁弱建议/垃圾下一步 | 信任下降 | P1-B runtime 第一波只用确定性 facts 并一 subject 一主问题；所有输出仍 SHADOW/NONE；LLM/eligibility 未开放 | MITIGATED |
 | UX-R12 | 状态翻译隐藏关键信息 | 结论过度压缩 | 恢复风险不可见 | P0-I 五问首屏已上线；P1-D 主结论/依据封顶但 facts 保留完整证据，unknown 明示，下一动作需规则+现场资格；Commit/Anchor 扩展待做 | MITIGATED |
-| UX-R13 | “现在”退化为所有 OPEN | 首页几十条 | 传统任务列表压力 | stable skeleton + explicit inclusion rules | OPEN |
+| UX-R13 | “现在”退化为所有 OPEN | 首页几十条 | 传统任务列表压力 | P1-C SHADOW 只允许可行动 Focus、确定性回看、Focus 安静等待；普通 OPEN 排除，review/waiting 有界，Focus 不截断；runtime/UI Gate 待做 | MITIGATED |
 | UX-R14 | Project current interface 成为第二正文 | 每次编辑都要求更新 | 维护负担/事实冲突 | 正式 aggregate + 自动 facts + 关键变化才确认 | OPEN |
 | UX-R15 | Grill Me 固定问卷 | 每次都问同样字段 | 用户绕开 Project | evidence-first、自适应、stop conditions | OPEN |
 | UX-R16 | 原位重构丢失事实 | 预览与原子操作不完整 | 正文损坏 | zero-loss property test、待判断区、one Commit/Undo | OPEN |
