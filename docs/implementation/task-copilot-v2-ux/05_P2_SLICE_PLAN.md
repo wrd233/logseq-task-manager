@@ -47,7 +47,7 @@ Proposal Review、Commit/Undo、交互证据接线。
 
 ## P2-B：MiniProject 原位重构
 
-状态：`PARTIAL_STRUCTURAL_LEDGER_AUTOMATED`
+状态：`PARTIAL_EXECUTOR_DESKTOP_GATE`
 
 代码审计确认现有通用 Proposal Commit 只能执行一个 Block patch，正式 Adapter 也仍拒绝未完成
 Desktop Gate 的 move；因此不复用该路径伪装多 Block 原子性。Application 已新增 Preview→HIGH
@@ -60,7 +60,15 @@ HIGH Proposal。Plugin 提供 loading/error 的“进入变更审阅”并跳转
 Commit。专用 Application planner 与 Service ledger 已进一步完成：每项操作一个 GRAPH_WRITE step，
 完整来源/最终结构指纹，执行前位置与补偿回原位置分离，按序 verify、最终 APPLIED、失败进入同一
 RECOVERY_REQUIRED 账本并逆序补偿至 FAILED；stale、replay 和补偿前拒绝已有自动故障证据。
-通用 Commit 继续 fail closed；Plugin executor、完成态 Undo 与 Desktop identity Gate 尚未完成。
+防御性 Plugin executor 已接入真实 insert/move/remove：每次写前由 Service 判定当前计划/账本，
+写后仍由 Service 观察和 verify，重放不重复写，失败按 Service 返回的补偿计划逆序执行；四组
+Plugin 测试覆盖正常顺序、重放、move 失败补偿 create 与 UUID 不匹配进入人工恢复。
+
+隔离 Logseq Desktop 0.10.15 已真实通过 custom UUID 的 A/B/C → C/A/B → A/B/C move/restore，
+顺序、UUID 与语义正文守恒。Gate 同时发现 Page runtime UUID 跨 reload 会变化，且属性键由宿主
+以 camelCase 返回；Capability Lab 已按 namespace + owner + stable labPageId 有界识别并在 reload
+冲突时拒绝自动认领。通用 Commit 继续 fail closed；完成态 inverse Commit/Undo、正式 UI 接线和
+跨 reload Rebind 仍未完成，因此尚不开放用户正式应用按钮。
 
 默认保留原根 Block；原始事实零丢失；无法归类内容进入待判断/原始材料；结构只使用最小骨架和按需区块。
 

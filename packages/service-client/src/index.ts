@@ -220,7 +220,12 @@ export interface ServiceMiniProjectRestructurePreparation {
   replayed: boolean;
   formalGraphWritesExecuted: false;
 }
-export type ServiceMiniProjectRestructurePreparationResult = ServiceMiniProjectRestructurePreparation | ({ status: "STALE" } & ServiceProposalRevalidation);
+export type ServiceMiniProjectRestructurePreparationResult =
+  | ServiceMiniProjectRestructurePreparation
+  | ({ status: "STALE" } & ServiceProposalRevalidation)
+  | { status: "COMPLETED"; semanticCommitId: string; proposalId: string; record: ServiceStoredProposal; replayed: true }
+  | { status: "RECOVERY_REQUIRED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; plan: ServiceMiniProjectRestructurePlan; stepStatuses: Array<"PREPARED" | "APPLIED" | "VERIFIED" | "COMPENSATED" | "RECOVERY_REQUIRED">; failedStepIndex: number; errorCode: string; replayed: true; formalGraphWritesExecuted: false }
+  | { status: "FAILED_COMPENSATED"; semanticCommitId: string; proposalId: string; record: ServiceStoredProposal; replayed: true };
 export type ServiceMiniProjectRestructureStepVerification =
   | { status: "NOT_APPLIED" | "VERIFIED"; semanticCommitId: string; proposalId: string; stepIndex: number; stepStatus: "PREPARED" | "VERIFIED"; nextStepIndex?: number }
   | { status: "COMPLETED"; semanticCommitId: string; proposalId: string; record: ServiceStoredProposal; replayed: boolean }

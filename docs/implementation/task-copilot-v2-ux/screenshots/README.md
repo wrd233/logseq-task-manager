@@ -51,3 +51,5 @@
 | `original/p0-g-04-long-term-undo-completed.png` | 真实 Logseq Desktop 0.10.15 | 长期 Undo 完成后显示已撤销且不再提供重复 Undo |
 | `original/p0-i-01-attention-user-status.png` | 真实 Logseq Desktop 0.10.15 | Service READY 时存在一项正文核对，首屏按五个用户问题显示影响、可用能力、数据安全与所需动作；工程诊断默认折叠 |
 | `original/p0-i-02-service-unavailable-user-status.png` | 真实 Logseq Desktop 0.10.15 | 受控停服与 reload 后明确暂停正式写入/审阅/Undo/备份/恢复/迁移，正文与既有历史仍可用，连接失败未被当成空状态 |
+| `original/p2-b-01-uuid-move-restore-pass.png` | 真实 Logseq Desktop 0.10.15 Capability Lab | 同一会话内 custom UUID Block 完成 A/B/C → C/A/B → A/B/C，状态行显示 UUID/语义正文/顺序守恒 |
+| `original/p2-b-02-uuid-move-restore-structured-result.png` | 真实 Logseq Desktop 0.10.15 Capability Lab | 结构化 PASS 结果与真实 `move-blocks` 宿主事件；不代表正式 Review→Commit/Undo 已开放 |

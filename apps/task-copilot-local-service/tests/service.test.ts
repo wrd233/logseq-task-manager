@@ -609,6 +609,8 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
   assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === preparedCommit.semanticCommitId)?.status, "COMPLETED");
   const completedReplay = await client.verifyMiniProjectRestructureStep(accepted.proposal.proposalId, 1, { semanticCommitId: preparedCommit.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "mini-restructure-completed-replay" });
   assert.equal(completedReplay.status === "COMPLETED" && completedReplay.replayed, true);
+  const completedPrepareReplay = await client.prepareMiniProjectRestructure(accepted.proposal.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "mini-restructure-completed-prepare-replay" });
+  assert.equal(completedPrepareReplay.status === "COMPLETED" && completedPrepareReplay.replayed, true, "reload reuses the completed structural ledger without another Graph read");
 });
 
 test("MiniProject structure recovery compensates verified Graph steps in reverse and never marks a failed Proposal applied", async (t) => {
@@ -672,6 +674,9 @@ test("MiniProject structure recovery compensates verified Graph steps in reverse
   assert.equal(recovery.status, "COMPENSATION_REQUIRED");
   assert.deepEqual(recovery.status === "COMPENSATION_REQUIRED" ? recovery.compensations.map(({ stepIndex, step }) => [stepIndex, step.kind]) : [], [[0, "REMOVE_CREATED_BLOCK"]]);
   assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === prepared.semanticCommitId)?.status, "RECOVERY_REQUIRED");
+  const recoveryPrepareReplay = await client.prepareMiniProjectRestructure(ready.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "recovery-prepare-replay" });
+  assert.equal(recoveryPrepareReplay.status, "RECOVERY_REQUIRED");
+  assert.equal(recoveryPrepareReplay.status === "RECOVERY_REQUIRED" && recoveryPrepareReplay.failedStepIndex, 0, "reload resumes the existing recovery ledger without another Graph read");
 
   const notCompensatedBridge = bridgeSnapshot(afterCreateSnapshot);
   const notCompensatedPromise = client.verifyMiniProjectRestructureCompensation(ready.proposalId, 0, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "recovery-not-compensated" });
@@ -686,6 +691,8 @@ test("MiniProject structure recovery compensates verified Graph steps in reverse
   assert.equal((await client.getObject(materialized.object.objectId))?.version, materialized.object.version);
   const replay = await client.beginMiniProjectRestructureRecovery(ready.proposalId, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, failedStepIndex: 1, failureCode: "DESKTOP_DISCONNECTED", traceId: "recovery-replay" });
   assert.equal(replay.status === "FAILED_COMPENSATED" && replay.replayed, true);
+  const failedPrepareReplay = await client.prepareMiniProjectRestructure(ready.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "recovery-failed-prepare-replay" });
+  assert.equal(failedPrepareReplay.status === "FAILED_COMPENSATED" && failedPrepareReplay.replayed, true, "failed compensated terminal state remains idempotent after reload");
 });
 
 test("Local Service relays bounded Logseq Graph reads and exports page Context without formal writes", async (t) => {

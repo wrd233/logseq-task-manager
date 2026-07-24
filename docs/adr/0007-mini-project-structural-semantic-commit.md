@@ -23,8 +23,9 @@ VERIFIED 且最终结构指纹一致后才能完成 Commit 并标记 Proposal `A
 - Domain Proposal 原本支持多项 `textPatches`/`semanticOperations`，且已有 HIGH `MOVE_BLOCK`；
 - Application `planAcceptedV2ProposalCommit`、Local Service 通用 Commit route、Service Client 和
   Plugin executor 都明确只支持一个 Block patch；
-- `@logseq/libs` 暴露 `insertBlock(customUUID)`、`moveBlock` 和 `removeBlock`，但当前正式 Adapter
-  仍以 `MOVE_RUNTIME_UNVERIFIED` 拒绝移动，不能把 SDK 类型当 Desktop 证据；
+- `@logseq/libs` 暴露 `insertBlock(customUUID)`、`moveBlock` 和 `removeBlock`；官方宿主实现与
+  真实 Logseq Desktop 0.10.15 已共同证明：无 options 的 `moveBlock` 放到目标 sibling 之后，
+  `children: true` 放到目标首个 child，首个 child 插入使用 `sibling: false, before: true`；
 - 现有 SemanticCommit step ledger 已复用于多步骤结构状态；没有新增表、第二恢复器或 Graph
   权威副本。自动故障注入已覆盖 prepare replay、stale 零账本、逐步 verify、完整最终指纹、失败
   逆序补偿、补偿前拒绝、恢复后 FAILED、终态 replay 和对象版本不变。
@@ -32,6 +33,15 @@ VERIFIED 且最终结构指纹一致后才能完成 Commit 并标记 Proposal `A
 ## 后果
 
 现有单 Block Proposal/Commit/Undo 路径保持不变，通用 Commit planner 继续 fail closed。专用
-Service planner/ledger/verify/recovery 协议已经自动闭环，但 Plugin 尚未调用真实 Logseq
-insert/move/remove；正向完成后的产品级 Undo 也尚未开放。若 Desktop identity Gate 或补偿观察
-不匹配，保持 `RECOVERY_REQUIRED`，不得覆盖用户正文或伪报成功。
+Service planner/ledger/verify/recovery 与防御性 Plugin executor 已自动闭环；executor 在每次
+宿主写前后都由 Service 重读、核验账本与结构指纹，重放不会重复写入，失败按逆序补偿。
+
+真实 Desktop 的隔离 Capability Lab 已通过同一会话内 A/B/C → C/A/B → A/B/C 的 move/restore：
+三个 custom UUID 与语义正文保持不变，宿主只为 custom UUID Block 增加精确 `id::` 属性行。
+同时确认 File Graph 的 Page runtime UUID 即使存在 `id::` 也会在 reload 后变化，页面属性键还会
+从 kebab-case 暴露为 camelCase；因此跨 reload 不能把 Page runtime UUID 当稳定身份，必须经过
+独立 Rebind，且未知/冲突 registry 继续 fail closed。
+
+本 ADR 仍未关闭：正向完成后的产品级 inverse SemanticCommit/Undo、正式 Review→Commit UI 与
+跨 reload Rebind 尚未完成。若任何 identity、正文或补偿观察不匹配，保持
+`RECOVERY_REQUIRED`，不得覆盖用户正文或伪报成功。

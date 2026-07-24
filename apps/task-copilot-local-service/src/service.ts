@@ -1618,17 +1618,35 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const input = await readMiniProjectRestructurePrepareRequest(request);
       const stored = await proposalApplication.get(proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
-      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
       const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
       const existing = store.semanticCommit(semanticCommitId);
+      if (existing?.status === "FAILED") {
+        if (existing.proposalId !== proposalId) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构终态账本与 Proposal 不一致。");
+        const record = stored.proposal.status === "FAILED" ? stored : await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId, proposalId, record, replayed: true });
+        return;
+      }
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
       const expectedSteps = plan.steps.map((step, stepIndex) => ({ semanticCommitId, stepIndex, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId: step.operationId, beforeHash: step.beforeHash, afterHash: step.afterHash }));
       if (existing) {
         const steps = store.semanticCommitSteps(semanticCommitId);
-        const matches = existing.proposalId === proposalId && existing.status === "PENDING" && steps.length === expectedSteps.length && steps.every((step, index) => {
+        const matches = existing.proposalId === proposalId && steps.length === expectedSteps.length && steps.every((step, index) => {
           const expected = expectedSteps[index]!;
           return step.stepIndex === expected.stepIndex && step.stepKind === expected.stepKind && step.operationId === expected.operationId && step.beforeHash === expected.beforeHash && step.afterHash === expected.afterHash;
         });
         if (!matches) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构账本与已审阅结构计划不一致。");
+        if (existing.status === "COMPLETED") {
+          const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+          respond(response, 200, { status: "COMPLETED", semanticCommitId, proposalId, record, replayed: true });
+          return;
+        }
+        if (existing.status === "RECOVERY_REQUIRED") {
+          const failed = steps.find(({ status }) => status === "RECOVERY_REQUIRED");
+          if (!failed) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构恢复账本缺少待补偿 step。");
+          respond(response, 200, { status: "RECOVERY_REQUIRED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, plan, stepStatuses: steps.map(({ status }) => status), failedStepIndex: failed.stepIndex, errorCode: existing.errorCode ?? "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_REQUIRED", replayed: true, formalGraphWritesExecuted: false });
+          return;
+        }
+        if (existing.status !== "PENDING") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_LEDGER_CORRUPT", "MiniProject 原位重构账本处于不支持的状态。");
         respond(response, 200, { status: "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, plan, stepStatuses: steps.map(({ status }) => status), replayed: true, formalGraphWritesExecuted: false });
         return;
       }

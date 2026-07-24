@@ -9,6 +9,7 @@ import {
   isCapabilityLabContent,
   makeExperimentContent,
   makeLabPageProperties,
+  matchesContentWithHostIdentityProperty,
   normalizeSettings,
   parsePageReference,
   summarizeText,
@@ -49,6 +50,7 @@ interface RuntimeState {
   operationLog: string[];
   eventLog: string[];
   queryResults: Array<{ uuid: string; summary: string }>;
+  moveResult: unknown;
   storageResult: unknown;
   cleanupResult: unknown;
   lastError: string | null;
@@ -76,6 +78,7 @@ const state: RuntimeState = {
   operationLog: [],
   eventLog: [],
   queryResults: [],
+  moveResult: "尚未运行",
   storageResult: "尚未运行",
   cleanupResult: "尚未运行",
   lastError: null,
@@ -87,6 +90,7 @@ const state: RuntimeState = {
     { id: "context", name: "Current context", api: "App.getCurrentGraph / Editor.getCurrentPage / getCurrentBlock", status: "pending", detail: "Not read yet." },
     { id: "page", name: "Page operations", api: "Editor.getPage / createPage / App.pushState", status: "pending", detail: "Not run yet." },
     { id: "block", name: "Block CRUD", api: "Editor append/get/update/insert/remove", status: "pending", detail: "Not run yet." },
+    { id: "move", name: "Block UUID move", api: "Editor.insertBlock(customUUID) / moveBlock", status: "pending", detail: "Not run yet. Uses only registered blocks on the owned lab page." },
     { id: "uuid", name: "UUID reread", api: "Editor.getBlock(uuid)", status: "pending", detail: "Not run yet." },
     { id: "query", name: "Query", api: "DB.datascriptQuery", status: "pending", detail: "Not run yet." },
     { id: "ui", name: "Main UI", api: "showMainUI / hideMainUI", status: "manual", detail: "Visible panel confirms rendering; record manually." },
@@ -183,6 +187,7 @@ function render(): void {
         <button data-action="context">读取当前上下文</button>
         <button data-action="open-page">查找/创建/打开实验页</button>
         <button data-action="crud">运行 Block CRUD</button>
+        <button data-action="move">运行 UUID Move / Restore Gate</button>
         <button data-action="query">查询实验块</button>
         <button data-action="storage">写入并读取私有存储</button>
         <button class="danger" data-action="cleanup-blocks">清理已注册实验 Block</button>
@@ -194,6 +199,7 @@ function render(): void {
       <table class="capabilities"><thead><tr><th>能力</th><th>API</th><th>状态</th><th>详情</th></tr></thead><tbody>${rows}</tbody></table>
       <h2>当前上下文</h2><pre>${escapeHtml(json(state.context))}</pre>
       <h2>FileStorage 结果</h2><pre>${escapeHtml(json(state.storageResult))}</pre>
+      <h2>UUID Move / Restore 结果</h2><pre>${escapeHtml(json(state.moveResult))}</pre>
       <h2>最近清理结果</h2><pre>${escapeHtml(json(state.cleanupResult))}</pre>
       <h2>最近操作</h2><ol class="log">${operations}</ol>
       <h2>稳定 API 事件</h2><ol class="log">${events}</ol>
@@ -241,6 +247,35 @@ async function resolvePageEntity(reference: unknown): Promise<{
   return { page: null, resolution };
 }
 
+async function hydratePageProperties(page: Entity): Promise<Entity> {
+  const pageName = typeof page.name === "string" ? page.name : null;
+  const [blockProperties, rows] = await Promise.all([
+    page.uuid ? logseq.Editor.getBlockProperties(page.uuid) : Promise.resolve(null),
+    pageName ? logseq.DB.datascriptQuery<Array<[Entity]>>(`
+      [:find (pull ?page [:block/uuid :block/name :block/original-name :block/properties])
+       :in $ ?page-name
+       :where [?page :block/name ?page-name]]
+    `, pageName) : Promise.resolve([]),
+  ]);
+  const pulledPage = rows?.[0]?.[0];
+  const pulledMatches = !page.uuid || pulledPage?.uuid === page.uuid;
+  const properties = pulledMatches && pulledPage?.properties && typeof pulledPage.properties === "object" && !Array.isArray(pulledPage.properties)
+    ? pulledPage.properties
+    : blockProperties && typeof blockProperties === "object" && !Array.isArray(blockProperties)
+      ? blockProperties
+      : page.properties;
+  logOperation("Hydrated experiment page ownership properties", {
+    pageUuid: page.uuid,
+    entityPropertyKeys: Object.keys(page.properties ?? {}),
+    blockPropertyKeys: Object.keys(blockProperties ?? {}),
+    datascriptPropertyKeys: Object.keys(pulledPage?.properties ?? {}),
+    pulledMatches,
+  });
+  return pulledMatches && pulledPage
+    ? { ...page, ...pulledPage, properties }
+    : { ...page, properties };
+}
+
 async function ensureExperimentPage(): Promise<{ page: Entity; ownership: PageOwnershipDecision }> {
   const validation = validateExperimentPageName(state.settings.experimentPageName);
   if (!validation.valid) {
@@ -251,10 +286,11 @@ async function ensureExperimentPage(): Promise<{ page: Entity; ownership: PageOw
   const pageName = validation.pageName;
   let page = await logseq.Editor.getPage(pageName);
   if (!page) {
-    const labPageId = `lab-page-${await logseq.Editor.newBlockUUID()}`;
+    const persistentPageUuid = await logseq.Editor.newBlockUUID();
+    const labPageId = `lab-page-${persistentPageUuid}`;
     page = await logseq.Editor.createPage(
       pageName,
-      makeLabPageProperties(labPageId),
+      makeLabPageProperties(labPageId, persistentPageUuid),
       { redirect: false, createFirstBlock: false, format: "markdown" },
     );
     if (!page) throw new Error("Logseq did not return the newly created experiment page.");
@@ -263,7 +299,8 @@ async function ensureExperimentPage(): Promise<{ page: Entity; ownership: PageOw
   } else {
     logOperation("Found dedicated experiment page", { pageName, uuid: page.uuid });
   }
-  const ownership = checkPageOwnership(page);
+  const hydratedPage = await hydratePageProperties(page as Entity);
+  const ownership = checkPageOwnership(hydratedPage);
   if (!ownership.owned || !ownership.pageUuid || !ownership.labPageId) {
     updateCapability("page", "fail", `Refused page '${pageName}': ${ownership.reason}`);
     throw new Error(`Refused to use existing page '${pageName}': ${ownership.reason} Choose another page under Task Copilot Lab/.`);
@@ -284,7 +321,7 @@ async function ensureExperimentPage(): Promise<{ page: Entity; ownership: PageOw
   }, new Date().toISOString());
   await persistRegistry();
   updateCapability("page", "pass", `Owned lab page verified: ${pageName}; UUID ${ownership.pageUuid}; labPageId ${ownership.labPageId}.`);
-  return { page: page as Entity, ownership };
+  return { page: hydratedPage, ownership };
 }
 
 async function refreshContext(): Promise<void> {
@@ -389,6 +426,73 @@ async function runCrudExperiment(): Promise<void> {
     parentField: childByUuid.parent ?? "当前不可用",
     childrenField: parentWithChildren.children ?? "当前不可用",
   });
+}
+
+function directChildOrder(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Parent Block reread returned an invalid shape.");
+  const children = (value as { children?: unknown }).children;
+  if (!Array.isArray(children)) throw new Error("Parent Block reread did not return a children array.");
+  return children.map((child) => {
+    if (!child || typeof child !== "object" || Array.isArray(child) || typeof (child as { uuid?: unknown }).uuid !== "string") throw new Error("Child Block reread returned an invalid UUID shape.");
+    return (child as { uuid: string }).uuid;
+  });
+}
+
+async function runMoveExperiment(): Promise<void> {
+  if (!confirmWrite(`Create and move marked test blocks only on '${state.settings.experimentPageName}'?`)) return;
+  const { ownership } = await ensureExperimentPage();
+  if (!ownership.pageUuid) throw new Error("Owned experiment page has no UUID.");
+  const runId = `move-${Date.now()}`;
+  const createdAt = new Date().toISOString();
+  const parent = await logseq.Editor.appendBlockInPage(ownership.pageUuid, makeExperimentContent("P2-B UUID move parent", runId), {
+    properties: { "capability-lab": true, "capability-lab-owner": PLUGIN_ID, "capability-lab-run": runId },
+  });
+  if (!parent?.uuid) throw new Error("Move parent creation returned no UUID.");
+  const childUuids = await Promise.all([logseq.Editor.newBlockUUID(), logseq.Editor.newBlockUUID(), logseq.Editor.newBlockUUID()]);
+  const contents = ["P2-B child A", "P2-B child B", "P2-B child C"].map((label) => makeExperimentContent(label, runId));
+  const children = [] as Array<{ uuid: string }>;
+  for (const [index, customUUID] of childUuids.entries()) {
+    const target = index === 0 ? parent.uuid : childUuids[index - 1]!;
+    const inserted = await logseq.Editor.insertBlock(target, contents[index]!, index === 0
+      ? { sibling: false, before: true, customUUID }
+      : { sibling: true, customUUID });
+    if (inserted?.uuid !== customUUID) throw new Error(`Custom UUID insertion mismatch at child ${index + 1}.`);
+    children.push({ uuid: customUUID });
+  }
+  for (const blockUuid of [parent.uuid, ...childUuids]) {
+    state.registry = registerBlock(state.registry, { blockUuid, pageUuid: ownership.pageUuid, runId, createdAt }, new Date().toISOString());
+  }
+  await persistRegistry();
+  const initial = directChildOrder(await logseq.Editor.getBlock(parent.uuid, { includeChildren: true }));
+  if (initial.join(",") !== childUuids.join(",")) throw new Error("Initial custom UUID sibling order did not match A/B/C.");
+
+  await logseq.Editor.moveBlock(childUuids[2]!, parent.uuid, { children: true });
+  const firstChild = directChildOrder(await logseq.Editor.getBlock(parent.uuid, { includeChildren: true }));
+  const expectedFirst = [childUuids[2]!, childUuids[0]!, childUuids[1]!];
+  if (firstChild.join(",") !== expectedFirst.join(",")) throw new Error("children:true did not move C to the first-child position.");
+
+  await logseq.Editor.moveBlock(childUuids[2]!, childUuids[1]!);
+  const restored = directChildOrder(await logseq.Editor.getBlock(parent.uuid, { includeChildren: true }));
+  if (restored.join(",") !== childUuids.join(",")) throw new Error("Sibling-target move did not restore A/B/C order.");
+  const reread = await Promise.all(childUuids.map((uuid) => logseq.Editor.getBlock(uuid, { includeChildren: false })));
+  if (reread.some((block, index) => block?.uuid !== childUuids[index]
+    || !matchesContentWithHostIdentityProperty(block?.content, contents[index]!, childUuids[index]!))) {
+    throw new Error("Move changed a child UUID or changed content beyond Logseq's required id property.");
+  }
+  state.moveResult = {
+    status: "PASS",
+    runId,
+    parentUuid: parent.uuid,
+    childUuids,
+    initial,
+    firstChild,
+    restored,
+    semanticContentPreserved: true,
+    hostIdentityProperty: "Logseq appends exactly one id:: <customUUID> line",
+    cleanup: "registered",
+  };
+  updateCapability("move", "pass", "Desktop preserved all custom UUIDs and semantic text; Logseq added only its required id property, children:true moved C first, sibling target restored A/B/C.");
+  logOperation("Completed UUID move and restore Gate", state.moveResult);
 }
 
 async function runQueryExperiment(): Promise<void> {
@@ -557,6 +661,7 @@ function bindUi(): void {
       context: () => void guarded("read context", refreshContext),
       "open-page": () => void guarded("open experiment page", openExperimentPage),
       crud: () => void guarded("Block CRUD", runCrudExperiment),
+      move: () => void guarded("UUID move and restore", runMoveExperiment),
       query: () => void guarded("DataScript query", runQueryExperiment),
       storage: () => void guarded("FileStorage round trip", runStorageExperiment),
       "cleanup-blocks": () => void guarded("block cleanup", async () => { await cleanupRegisteredBlocks(); }),

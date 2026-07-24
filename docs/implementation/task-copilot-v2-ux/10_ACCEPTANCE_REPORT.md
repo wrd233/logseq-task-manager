@@ -10,7 +10,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H/J/K/Desktop host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_LEDGER_AUTOMATED | P2-A turn/preview + P2-B server-owned HIGH Proposal/Review + dedicated structure prepare/verify/recovery 自动 PASS；真实 DeepSeek turn 与 preview PASS | 未验；bridge 当前未连接 | exact-once/root/zero-delete、完整结构指纹、逐步 Commit 与逆序补偿已锁定；Plugin executor/完成态 Undo/Desktop identity 仍开放 |
+| P2 | IN_PROGRESS_EXECUTOR_DESKTOP_GATE | P2-A turn/preview + P2-B server-owned HIGH Proposal/Review + dedicated structure prepare/verify/recovery + Plugin executor 自动 PASS；真实 DeepSeek turn/preview PASS | 同会话 custom UUID move/restore PASS；完整正式链、reload Rebind 未验 | exact-once/root/zero-delete、完整结构指纹、逐步 Commit、重放与逆序补偿已锁定；完成态 Undo/正式 UI/Rebind 仍开放 |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -67,6 +67,8 @@
   仍未完成；
 - [ ] Project 所有创建入口经过自适应 Grill Me；
 - [ ] 原位重构零丢失；
+- [x] 原位结构宿主能力有界通过；同一会话内 custom UUID、语义正文与 A/B/C 顺序经过
+  move-first-child/restore-after-sibling 保持，Page runtime UUID 跨 reload 限制已明确转入 Rebind；
 - [ ] 预览为最终阅读效果；
 - [ ] 一次 Commit + Undo；
 - [ ] Closure 从证据起草；

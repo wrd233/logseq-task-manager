@@ -92,9 +92,11 @@ export function validateExperimentPageName(input: unknown): PageNameValidation {
   return { valid: true, pageName, reason: "Page is inside the fixed Capability Lab namespace." };
 }
 
-export function makeLabPageProperties(labPageId: string): Record<string, string | boolean> {
+export function makeLabPageProperties(labPageId: string, pageUuid: string): Record<string, string | boolean> {
   if (!labPageId.trim()) throw new Error("Lab page ID must not be empty.");
+  if (!pageUuid.trim()) throw new Error("Lab page UUID must not be empty.");
   return {
+    id: pageUuid,
     "capability-lab": true,
     "capability-lab-owner": PLUGIN_ID,
     "capability-lab-page-id": labPageId,
@@ -111,6 +113,10 @@ function isTrueProperty(value: unknown): boolean {
   return value === true || value === "true";
 }
 
+function readOwnershipProperty(properties: Record<string, unknown>, kebabKey: string, camelKey: string): unknown {
+  return properties[kebabKey] ?? properties[camelKey];
+}
+
 export function checkPageOwnership(page: PageLike | null | undefined): PageOwnershipDecision {
   if (!page) {
     return { owned: false, pageUuid: null, pageName: null, labPageId: null, reason: "Page is unavailable." };
@@ -120,8 +126,9 @@ export function checkPageOwnership(page: PageLike | null | undefined): PageOwner
     ? page.originalName
     : typeof page.name === "string" ? page.name : null;
   const properties = asPropertyRecord(page.properties);
-  const labPageId = typeof properties["capability-lab-page-id"] === "string"
-    ? properties["capability-lab-page-id"] as string
+  const rawLabPageId = readOwnershipProperty(properties, "capability-lab-page-id", "capabilityLabPageId");
+  const labPageId = typeof rawLabPageId === "string"
+    ? rawLabPageId
     : null;
   if (!pageUuid) {
     return { owned: false, pageUuid, pageName, labPageId, reason: "Page UUID is unavailable." };
@@ -130,10 +137,10 @@ export function checkPageOwnership(page: PageLike | null | undefined): PageOwner
   if (!namespace.valid) {
     return { owned: false, pageUuid, pageName, labPageId, reason: `Page is outside the fixed lab namespace: ${namespace.reason}` };
   }
-  if (!isTrueProperty(properties["capability-lab"])) {
+  if (!isTrueProperty(readOwnershipProperty(properties, "capability-lab", "capabilityLab"))) {
     return { owned: false, pageUuid, pageName, labPageId, reason: "Page lacks capability-lab ownership marker." };
   }
-  if (properties["capability-lab-owner"] !== PLUGIN_ID) {
+  if (readOwnershipProperty(properties, "capability-lab-owner", "capabilityLabOwner") !== PLUGIN_ID) {
     return { owned: false, pageUuid, pageName, labPageId, reason: "Page owner does not match this plugin." };
   }
   if (!labPageId?.trim()) {
@@ -177,6 +184,16 @@ export function isCapabilityLabContent(content: unknown): content is string {
   return typeof content === "string"
     && content.split("\n").includes(CAPABILITY_MARKER)
     && content.split("\n").includes(OWNER_MARKER);
+}
+
+export function matchesContentWithHostIdentityProperty(observed: unknown, expected: string, blockUuid: string): boolean {
+  if (observed === expected) return true;
+  if (typeof observed !== "string") return false;
+  const identityLine = `id:: ${blockUuid}`;
+  const lines = observed.split("\n");
+  const matchingIdentityLines = lines.filter((line) => line === identityLine);
+  return matchingIdentityLines.length === 1
+    && lines.filter((line) => line !== identityLine).join("\n") === expected;
 }
 
 export function canDeleteBlock(
