@@ -152,12 +152,17 @@ export interface ServiceMiniProjectGrillRequest {
   answers: Array<{ uncertaintyId: string; text: string }>;
 }
 
+export interface ServiceProjectCreationGrillRequest {
+  sourceKind: "BLANK";
+  answers: Array<{ uncertaintyId: string; text: string }>;
+}
+
 export interface ServiceGrillTurn {
   schemaVersion: "task-copilot-grill-turn-v1";
   understanding: string;
   facts: Array<{ text: string; sourceRefs: string[] }>;
   inferences: Array<{ text: string; evidenceRefs: string[] }>;
-  unknowns: Array<{ uncertaintyId: string; dimension: "OUTCOME" | "BOUNDARY" | "COMPLETION_EVIDENCE" | "UNCLASSIFIED_MATERIAL"; text: string }>;
+  unknowns: Array<{ uncertaintyId: string; dimension: "OUTCOME" | "BOUNDARY" | "COMPLETION_EVIDENCE" | "UNCLASSIFIED_MATERIAL" | "INTERNAL_CLOSURE" | "CURRENT_INTERFACE"; text: string }>;
   readiness: "CONTINUE" | "READY_FOR_PREVIEW";
   questionGroup?: { focusUncertaintyId: string; questions: Array<{ uncertaintyId: string; text: string }>; recommendation?: { text: string; evidenceRefs: string[]; tradeoffs: string[] } };
   evidenceScope: { refs: string[]; scopeHash: string; observedAt: string };
@@ -171,6 +176,7 @@ export interface ServiceMiniProjectGrillResult {
   promptBundleVersion: string;
   contextFingerprint: string;
 }
+export type ServiceProjectCreationGrillResult = ServiceMiniProjectGrillResult;
 
 export type ServiceMiniProjectGrillPreviewRequest = ServiceMiniProjectGrillRequest;
 export interface ServiceGrillPreviewClaim { text: string; evidenceRefs: string[] }
@@ -965,6 +971,14 @@ export class LocalServiceClient {
 
   grillMiniProject(input: ServiceMiniProjectGrillRequest): Promise<ServiceMiniProjectGrillResult> {
     return this.request<ServiceMiniProjectGrillResult>("/provider/grill/mini-project/turn", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 125_000);
+  }
+
+  grillProjectCreation(input: ServiceProjectCreationGrillRequest): Promise<ServiceProjectCreationGrillResult> {
+    return this.request<ServiceProjectCreationGrillResult>("/provider/grill/project-creation/turn", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

@@ -102,7 +102,7 @@ export function buildProjectCreationGrillGeneration(source: ProjectCreationGrill
   const facts: GrillFactAuthority[] = [{
     factId: "creation-entry",
     text: source.sourceKind === "BLANK" ? "用户从空白入口发起 Project 创建。" : `用户从 ${source.sourceKind} 材料发起 Project 创建。`,
-    sourceRefs: [],
+    sourceRefs: ["session:project-creation-entry"],
   }];
   for (const [index, material] of source.materials.entries()) {
     facts.push({ factId: `source-${index + 1}`, text: material.text.trim(), sourceRefs: [material.sourceRef] });

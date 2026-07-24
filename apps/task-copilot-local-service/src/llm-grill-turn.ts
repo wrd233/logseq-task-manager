@@ -106,14 +106,37 @@ export class LocalLlmGrillTurnGenerator {
       allowedOpenUncertaintyIds: openUncertainties.map(({ uncertaintyId }) => uncertaintyId),
       resolvedUncertaintyIds,
       allowedEvidenceRefs,
+      shape: machineReadiness === "CONTINUE"
+        ? {
+          schemaVersion: "task-copilot-grill-turn-v1",
+          understanding: "string",
+          factRefs: ["allowedFactId"],
+          inferences: [{ text: "string", evidenceRefs: ["allowedEvidenceRef"] }],
+          unknowns: [{ uncertaintyId: "allowedOpenUncertaintyId", text: "string" }],
+          readiness: "CONTINUE",
+          focusUncertaintyId: focus?.uncertaintyId,
+          questions: [{ uncertaintyId: "allowedOpenUncertaintyId", text: "string" }],
+          recommendation: { text: "string", evidenceRefs: ["allowedEvidenceRef"], tradeoffs: ["string"] },
+        }
+        : {
+          schemaVersion: "task-copilot-grill-turn-v1",
+          understanding: "string",
+          factRefs: ["allowedFactId"],
+          inferences: [{ text: "string", evidenceRefs: ["allowedEvidenceRef"] }],
+          unknowns: [],
+          readiness: "READY_FOR_PREVIEW",
+          questions: [],
+        },
       constraints: machineReadiness === "CONTINUE"
         ? [
+          "Top-level fields are limited to schemaVersion, understanding, factRefs, inferences, unknowns, readiness, focusUncertaintyId, questions, and recommendation; never emit format or any wrapper field.",
           "Copy machineReadiness into readiness exactly.",
           "Copy requiredFocusUncertaintyId into focusUncertaintyId and the first question exactly.",
           "Resolved uncertainty IDs are forbidden in unknowns and questions.",
           "Use only allowedFactIds, allowedOpenUncertaintyIds, and allowedEvidenceRefs.",
         ]
         : [
+          "Top-level fields are limited to schemaVersion, understanding, factRefs, inferences, unknowns, readiness, and questions; never emit format or any wrapper field.",
           "Copy machineReadiness into readiness exactly.",
           "Questions must be an empty array and unknowns must be an empty array; omit focusUncertaintyId and recommendation.",
           "Resolved uncertainty IDs are forbidden in unknowns and questions.",

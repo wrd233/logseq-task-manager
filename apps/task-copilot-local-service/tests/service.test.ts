@@ -392,6 +392,60 @@ test("Project context recovery fails closed for missing Provider, unsupported ty
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "UX_CONTEXT_RECOVERY_REQUEST_INVALID");
 });
 
+test("Blank Project Creation Grill crosses the authenticated Service route without creating formal state or accepting client material", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-creation-grill-"));
+  let providerCalls = 0;
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      providerCalls += 1;
+      return {
+        value: {
+          schemaVersion: "task-copilot-grill-turn-v1",
+          understanding: "用户已从空白入口发起 Project 创建，但持续结果仍未明确。",
+          factRefs: ["creation-entry"],
+          inferences: [],
+          unknowns: [{ uncertaintyId: "outcome", text: "这个 Project 要持续形成什么结果仍未知。" }],
+          readiness: "CONTINUE",
+          focusUncertaintyId: "outcome",
+          questions: [{ uncertaintyId: "outcome", text: "它需要持续形成什么可被使用或检验的结果？" }],
+          recommendation: {
+            text: "建议先确认持续结果，再决定边界和内部结构。",
+            evidenceRefs: ["session:project-creation-entry"],
+            tradeoffs: ["先不命名页面，会晚一步看到最终 Project 入口。"],
+          },
+        },
+        metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
+      };
+    },
+  };
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-creation-grill",
+    token: "project-creation-grill-token-at-least-24-chars",
+    grillTurnGenerator: new LocalLlmGrillTurnGenerator(provider),
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+
+  const result = await client.grillProjectCreation({ sourceKind: "BLANK", answers: [] });
+  assert.equal(result.output.questionGroup?.focusUncertaintyId, "outcome");
+  assert.equal(result.output.authorityBoundary, "SESSION_DRAFT_ONLY");
+  assert.equal(result.output.provenance.skillName, "project-creation-modeling");
+  assert.equal(providerCalls, 1);
+  assert.equal((await client.status()).objectCount, 0);
+
+  const injected = await fetch(new URL("provider/grill/project-creation/turn", service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ sourceKind: "BLANK", answers: [], materials: [{ text: "client-owned material" }] }),
+  });
+  assert.equal(injected.status, 400);
+  assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CREATION_GRILL_REQUEST_INVALID");
+  assert.equal(providerCalls, 1);
+});
+
 test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-mini-grill-"));
   let providerCalls = 0;

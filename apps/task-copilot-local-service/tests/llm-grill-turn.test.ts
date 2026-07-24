@@ -65,6 +65,8 @@ test("Grill generator materializes one machine-focused session draft and replace
   assert.match(captured[0]?.system ?? "", /largest open uncertainty/i);
   assert.match(captured[0]?.system ?? "", /never emit Proposal|不得输出 Proposal/i);
   assert.match(captured[0]?.user ?? "", /machine grillAuthority/);
+  assert.match(captured[0]?.user ?? "", /never emit format or any wrapper field/);
+  assert.match(captured[0]?.user ?? "", /"unknowns":\[\{"text":"string","uncertaintyId":"allowedOpenUncertaintyId"\}\]/);
 });
 
 test("Grill generator rejects invented evidence and operation authority as a zero-write validation error", async () => {

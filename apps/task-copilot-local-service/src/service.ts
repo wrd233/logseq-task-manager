@@ -26,6 +26,7 @@ import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts"
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
 import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
 import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, buildMiniProjectSourcePositions, type MiniProjectGrillAnswer, type MiniProjectGrillSource } from "./mini-project-grill.ts";
+import { buildProjectCreationGrillGeneration, type ProjectCreationGrillAnswer } from "./project-creation-grill.ts";
 import { GrillPreviewSessionStore } from "./grill-preview-session.ts";
 import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
@@ -248,6 +249,26 @@ async function readMiniProjectGrillRequest(request: IncomingMessage): Promise<{ 
   });
   if (new Set(answers.map(({ uncertaintyId }) => uncertaintyId)).size !== answers.length) throw serviceError("GRILL_REQUEST_INVALID", "MiniProject Grill 同一不确定性只能回答一次。");
   return { objectId: record.objectId, expectedVersion: Number(record.expectedVersion), answers };
+}
+
+async function readBlankProjectCreationGrillRequest(request: IncomingMessage): Promise<{ sourceKind: "BLANK"; answers: ProjectCreationGrillAnswer[] }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Project Creation Grill 请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "answers,sourceKind" || record.sourceKind !== "BLANK" || !Array.isArray(record.answers) || record.answers.length > 6) {
+    throw serviceError("PROJECT_CREATION_GRILL_REQUEST_INVALID", "当前 Project Creation Grill route 只接受空白入口与最多六个受控回答。");
+  }
+  const allowedUncertaintyIds = new Set(["outcome", "project-boundary", "completion-evidence", "internal-closure", "current-interface"]);
+  const answers = record.answers.map((value) => {
+    const answer = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    if (Object.keys(answer).sort().join(",") !== "text,uncertaintyId" || typeof answer.uncertaintyId !== "string" || !allowedUncertaintyIds.has(answer.uncertaintyId) || typeof answer.text !== "string" || !answer.text.trim() || answer.text.length > 2_000) {
+      throw serviceError("PROJECT_CREATION_GRILL_REQUEST_INVALID", "Project Creation Grill 回答必须引用一个开放的机器不确定性并保持有界。");
+    }
+    return { uncertaintyId: answer.uncertaintyId, text: answer.text.trim() };
+  });
+  if (new Set(answers.map(({ uncertaintyId }) => uncertaintyId)).size !== answers.length) throw serviceError("PROJECT_CREATION_GRILL_REQUEST_INVALID", "Project Creation Grill 同一不确定性只能回答一次。");
+  return { sourceKind: "BLANK", answers };
 }
 
 async function readMiniProjectGrillProposalRequest(request: IncomingMessage): Promise<{ objectId: string; expectedVersion: number; previewHandle: string }> {
@@ -1006,7 +1027,7 @@ function respondError(response: ServerResponse, error: unknown): void {
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
-    const uxInputError = ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID"].includes(error.code);
+    const uxInputError = ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID"].includes(error.code);
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
       : migrationInputError || proposalInputError || domainInputError || uxInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
@@ -1609,6 +1630,64 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         if (!latest || latest.version !== input.expectedVersion) {
           throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 在恢复草稿生成期间已变化；草稿已丢弃。");
         }
+        respond(response, 200, { ...generated, contextFingerprint });
+      } finally {
+        request.removeListener("aborted", abort);
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/provider/grill/project-creation/turn") {
+      const input = await readBlankProjectCreationGrillRequest(request);
+      if (!options.grillTurnGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Grill Provider；没有生成 Project 创建会话草稿。");
+      const [coreSkill, grillSkill] = await Promise.all([
+        readTaskCopilotSkill("task-copilot-core"),
+        readTaskCopilotSkill("project-creation-modeling"),
+      ]);
+      if (!coreSkill || !grillSkill) throw serviceError("PROJECT_CREATION_GRILL_SKILL_UNAVAILABLE", "Project Creation Grill 内置 Skill 不可用。");
+      const generatedAt = new Date().toISOString();
+      const files: Record<string, string> = {
+        "source.json": stableJson({ sourceKind: input.sourceKind, materials: [] }),
+        "workspace-semantics.md": "# Workspace Semantics\n\nStatus: NOT_CONFIGURED\n",
+        "writing-profile.md": "# Writing Profile\n\nStatus: NOT_CONFIGURED\n",
+        "versions.json": stableJson({
+          schemaVersion: 1,
+          databaseSchemaVersion: store.doctor().schemaVersion,
+          skills: [coreSkill, grillSkill].map(({ name, version, sha256 }) => ({ name, version, sha256 })),
+        }),
+      };
+      const contextPackage = {
+        manifest: {
+          schemaVersion: 1 as const,
+          generatedAt,
+          scope: { kind: "page" as const, id: "project-creation:blank" },
+          authority: "READ_ONLY_DERIVATIVE" as const,
+          formalFactsSource: "SQLITE" as const,
+          graphExcerptStatus: "NOT_INCLUDED" as const,
+          includedObjectCount: 0,
+          files: Object.entries(files).sort(([left], [right]) => left.localeCompare(right)).map(([path, content]) => ({
+            path,
+            sha256: createHash("sha256").update(content).digest("hex"),
+            bytes: Buffer.byteLength(content),
+          })),
+        },
+        files,
+      };
+      const contextFingerprint = contextPackageFingerprint(contextPackage);
+      const generation = buildProjectCreationGrillGeneration({
+        observedAt: generatedAt,
+        sourceKind: input.sourceKind,
+        materials: [],
+        contextPackage,
+        contextFingerprint,
+        coreSkill,
+        grillSkill,
+        answers: input.answers,
+      });
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        const generated = await options.grillTurnGenerator.generate({ ...generation, signal: controller.signal });
         respond(response, 200, { ...generated, contextFingerprint });
       } finally {
         request.removeListener("aborted", abort);
