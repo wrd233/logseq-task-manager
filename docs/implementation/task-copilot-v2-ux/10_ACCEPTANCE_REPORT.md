@@ -51,8 +51,9 @@
 - [ ] Project/Task 重入有效；
 - [ ] LLM 输出事实/推断/未知分离；机器 fact/action/provenance/risk/review 契约自动 PASS，
   真实 Provider 语义与 Plugin consumer OPEN；
-- [ ] 默认日志不含完整正文；P1-H 专用事件模型已用 strict allowlist 排除正文、身份、Prompt
-  和原始响应，但通用 StructuredLogger 全调用面审计仍开放；
+- [ ] 默认日志不含完整正文；P1-H 专用事件模型和正式 Plugin StructuredLogger/
+  Runtime Diagnostics 已用 strict allowlist 排除正文、Prompt、原始响应与异常
+  message/stack/cause，Local Service/CLI stderr 与显式研究 Gate 审计仍开放；
 - [ ] 噪声指标可接受。
 
 ## 4. P2 验收

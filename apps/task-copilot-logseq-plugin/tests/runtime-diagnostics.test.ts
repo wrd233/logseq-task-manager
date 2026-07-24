@@ -104,14 +104,35 @@ test("initialization failure retains all runtime stages and renders a diagnostic
   assert.equal(snapshot.runtime_status, "DEGRADED");
   assert.equal(snapshot.latest_error?.stage, "PERSISTENCE_READY");
   const html = renderRuntimeDiagnostics(snapshot, '<section data-test="diagnostics-extension">Primary Anchor repair</section>');
-  for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "V2 Local Service", "SERVICE_DESCRIPTOR_PATH_REQUIRED", "Review Center", "Now Work", "Projects", "Audit / Recovery", "damaged store"]) {
+  for (const label of ["Task Copilot", "Runtime Diagnostics", "Copy diagnostics", "V2 Local Service", "SERVICE_DESCRIPTOR_PATH_REQUIRED", "Review Center", "Now Work", "Projects", "Audit / Recovery", "UNCLASSIFIED_ERROR"]) {
     assert.match(html, new RegExp(label));
   }
+  assert.doesNotMatch(html, /damaged store/);
   assert.doesNotMatch(html, /data-action="recover-previous-slot"/);
   assert.doesNotMatch(html, /data-action="source-resolver-probe"/);
   assert.doesNotMatch(html, /data-action="inbox-action-probe"/);
   assert.match(html, /data-test="diagnostics-extension"[\s\S]*Primary Anchor repair/);
   assert.equal(snapshot.feature_flags.v2_formal_writes_available, false);
+});
+
+test("runtime diagnostics retains only structural error evidence in snapshots and rendered exports", () => {
+  const diagnostics = new RuntimeDiagnostics();
+  diagnostics.start("APPLICATION_READY");
+  const privateError = Object.assign(
+    new Error("private block body and provider response", { cause: new Error("private key") }),
+    { code: "APPLICATION_BOOT_FAILED" },
+  );
+  diagnostics.fail("APPLICATION_READY", privateError);
+
+  const snapshot = diagnostics.snapshot();
+  const serialized = JSON.stringify(snapshot);
+  const html = renderRuntimeDiagnostics(snapshot);
+  assert.equal(snapshot.latest_error?.error_name, "Error");
+  assert.equal(snapshot.latest_error?.error_code, "APPLICATION_BOOT_FAILED");
+  for (const privateValue of ["private block body", "provider response", "private key", "error_message", "stack"]) {
+    assert.doesNotMatch(serialized, new RegExp(privateValue));
+    assert.doesNotMatch(html, new RegExp(privateValue));
+  }
 });
 
 test("runtime diagnostics makes the bounded explicit-sync recovery state visible", () => {
@@ -290,7 +311,9 @@ test("bootstrap registrations survive a simulated feature initialization failure
   assert.equal(opened.at(-1), "page-head:project-page-head");
   fake.models[MODEL_PROJECT_REENTRY]?.();
   assert.equal(opened.at(-1), "project-reentry");
-  assert.match(renderRuntimeDiagnostics(diagnostics.snapshot()), /PERSISTENCE_READY[\s\S]*simulated persistence failure/);
+  const diagnosticHtml = renderRuntimeDiagnostics(diagnostics.snapshot());
+  assert.match(diagnosticHtml, /PERSISTENCE_READY[\s\S]*UNCLASSIFIED_ERROR/);
+  assert.doesNotMatch(diagnosticHtml, /simulated persistence failure/);
 });
 
 test("bootstrap registrar prevents duplicate registration and applies visible Main UI geometry", () => {

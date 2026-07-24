@@ -241,7 +241,14 @@ P1-G 生成器已记录三个结构事件：成功包含 evidence 数量和 next
 Validator 拒绝只含 `UX_OUTPUT_VALIDATION_FAILED`；Provider 失败只含
 `UX_OUTPUT_PROVIDER_FAILED`。证据 sink 采用 best-effort 隔离，自己的异常不能让已生成结果
 失败，也不能覆盖原始 Provider/Validator 错误。当前仍未接用户 disposition、噪声 dashboard
-或跨会话留存；通用 StructuredLogger 的完整调用面隐私审计也不能由此替代。
+或跨会话留存。
+
+随后完成 Plugin 通用诊断链审计：旧 StructuredLogger 会把任意 `Error.message`、stack 和
+cause 放入内存 ring、Console、复制诊断与 JSONL 导出，Runtime stage 也会复制这些字段。
+现在两个入口统一只保留错误名和 machine-token 错误码；logger 逐字段物化允许的结构字段，
+任意注入字段和自由文本形状的错误码直接丢弃。Plugin 初始化、global error 和 diagnostics
+fallback 不再绕过 logger 把 Error 对象写入 Console；Debug 开关也不提升数据权限。该结论只
+覆盖正式 Plugin 诊断链，Local Service/CLI stderr 与显式研究 Gate 仍需独立审计。
 
 ## 当前阻塞
 
@@ -280,6 +287,7 @@ Validator 拒绝只含 `UX_OUTPUT_VALIDATION_FAILED`；Provider 失败只含
 - P1-H focused tests：5/5；Application tests：121/121、Local Service tests：97/97，
   0 skipped；两包 typecheck PASS；根级 Gate PASS，145 条稳定规则，恢复演练
   `differences: []`；
+- P1-H Plugin diagnostics privacy tests + 全量：222/222、0 skipped，typecheck/build PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -292,8 +300,8 @@ Validator 拒绝只含 `UX_OUTPUT_VALIDATION_FAILED`；Provider 失败只含
 
 ## 下一步
 
-1. 审计通用 StructuredLogger 的默认字段、异常与 diagnostics export，确保 P1-H 之外也不会
-   默认保存完整正文、Provider 响应或 Key；
+1. 审计 Local Service/CLI stderr 与显式 Provider research Gate，区分日常默认进程输出和
+   用户主动、可删除的研究样本；
 2. 补 P1-H 用户 disposition/噪声指标的 session-only 路径，再以真实价值证据决定是否需要
    跨会话 derivative；
 3. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；

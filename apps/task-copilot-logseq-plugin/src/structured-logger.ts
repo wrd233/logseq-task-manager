@@ -1,7 +1,25 @@
 import { checksum } from "@task-copilot/shared";
 
+import { boundedMachineToken, privateErrorEvidence } from "./private-error-evidence.ts";
+
 export type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 export type LogCategory = "plugin-lifecycle" | "ui-action" | "capture" | "source-resolution" | "logseq-adapter" | "application-command" | "persistence" | "proposal" | "semantic-commit" | "query-refresh" | "runtime-shape" | "attention-shadow";
+
+const LOG_LEVELS: readonly LogLevel[] = ["error", "warn", "info", "debug", "trace"];
+const LOG_CATEGORIES: readonly LogCategory[] = [
+  "plugin-lifecycle",
+  "ui-action",
+  "capture",
+  "source-resolution",
+  "logseq-adapter",
+  "application-command",
+  "persistence",
+  "proposal",
+  "semantic-commit",
+  "query-refresh",
+  "runtime-shape",
+  "attention-shadow",
+];
 
 export interface StructuredLogEntry {
   timestamp: string;
@@ -21,9 +39,6 @@ export interface StructuredLogEntry {
   result?: string;
   errorCode?: string;
   errorName?: string;
-  errorMessage?: string;
-  stack?: string;
-  cause?: string;
   pluginVersion?: string;
   pluginCommit?: string;
   logseqVersion?: string;
@@ -54,34 +69,107 @@ export function privateContentEvidence(content: string): Pick<StructuredLogEntry
   return { contentLength: content.length, contentHash: checksum(content) };
 }
 
+const MACHINE_STRING_FIELDS = [
+  "correlationId",
+  "actionId",
+  "captureId",
+  "objectId",
+  "proposalId",
+  "commitId",
+  "blockUuid",
+  "pageRefShape",
+  "command",
+  "result",
+  "errorCode",
+  "pluginVersion",
+  "pluginCommit",
+  "logseqVersion",
+  "graphIdentity",
+  "contentHash",
+] as const satisfies readonly (keyof StructuredLogEntry)[];
+
+const COUNT_FIELDS = [
+  "contentLength",
+  "signalRawCount",
+  "signalMergedCount",
+  "signalCooledCount",
+  "signalActiveCount",
+  "signalInvalidatedCount",
+  "nowContinueCount",
+  "nowReviewCount",
+  "nowWaitingCount",
+  "nowSuggestionCount",
+  "nowSuppressedOpenCount",
+  "nowReviewOverflowCount",
+  "nowWaitingOverflowCount",
+] as const satisfies readonly (keyof StructuredLogEntry)[];
+
+function sanitizedFields(fields: Partial<StructuredLogEntry>): Partial<StructuredLogEntry> {
+  const input = fields as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const key of MACHINE_STRING_FIELDS) {
+    const value = boundedMachineToken(input[key]);
+    if (value !== undefined) result[key] = value;
+  }
+  for (const key of COUNT_FIELDS) {
+    const value = input[key];
+    if (Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= 10_000_000) {
+      result[key] = Number(value);
+    }
+  }
+  const durationMs = input.durationMs;
+  if (Number.isFinite(durationMs) && Number(durationMs) >= 0 && Number(durationMs) <= 3_600_000) {
+    result.durationMs = Number(durationMs);
+  }
+  if (typeof input.focusOverload === "boolean") result.focusOverload = input.focusOverload;
+  return result as Partial<StructuredLogEntry>;
+}
+
 export class StructuredLogger {
   private entries: StructuredLogEntry[] = [];
   private debugEnabled = false;
 
-  constructor(private readonly capacity = 200, private readonly base: Pick<StructuredLogEntry, "pluginVersion" | "pluginCommit"> = {}) {}
+  constructor(private readonly capacity = 200, private readonly base: Pick<StructuredLogEntry, "pluginVersion" | "pluginCommit"> = {}) {
+    if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 4096) {
+      throw new Error("Structured logger capacity must be between 1 and 4096.");
+    }
+  }
 
   setDebug(enabled: boolean): void { this.debugEnabled = enabled; }
   isDebugEnabled(): boolean { return this.debugEnabled; }
 
   log(level: LogLevel, category: LogCategory, event: string, fields: Partial<StructuredLogEntry> = {}, error?: unknown): StructuredLogEntry {
-    if ((level === "debug" || level === "trace") && !this.debugEnabled) return { timestamp: new Date().toISOString(), level, category, event, ...this.base, ...fields };
-    const errorFields: Partial<StructuredLogEntry> = {};
-    if (error instanceof Error) {
-      errorFields.errorName = error.name;
-      errorFields.errorMessage = error.message;
-      if (error.stack) errorFields.stack = error.stack;
-      if (error.cause !== undefined) errorFields.cause = error.cause instanceof Error ? `${error.cause.name}: ${error.cause.message}` : String(error.cause);
-      const code = (error as Error & { code?: unknown }).code;
-      if (typeof code === "string") errorFields.errorCode = code;
-    } else if (error !== undefined) {
-      errorFields.errorName = "UnknownError";
-      errorFields.errorMessage = String(error);
-    }
-    const entry: StructuredLogEntry = { timestamp: new Date().toISOString(), level, category, event, ...this.base, ...fields, ...errorFields };
+    const timestamp = new Date().toISOString();
+    const safeLevel = LOG_LEVELS.includes(level) ? level : "warn";
+    const safeCategory = LOG_CATEGORIES.includes(category) ? category : "plugin-lifecycle";
+    const safeEvent = boundedMachineToken(event) ?? "invalid_event";
+    const safeBase = sanitizedFields(this.base);
+    const safeFields = sanitizedFields(fields);
+    const errorFields = error === undefined
+      ? {}
+      : (() => {
+          const evidence = privateErrorEvidence(error);
+          return {
+            ...evidence,
+            errorCode: evidence.errorCode === "UNCLASSIFIED_ERROR" && safeFields.errorCode
+              ? safeFields.errorCode
+              : evidence.errorCode,
+          };
+        })();
+    const entry: StructuredLogEntry = {
+      timestamp,
+      level: safeLevel,
+      category: safeCategory,
+      event: safeEvent,
+      ...safeBase,
+      ...safeFields,
+      ...errorFields,
+    };
+    if ((safeLevel === "debug" || safeLevel === "trace") && !this.debugEnabled) return entry;
     this.entries.push(entry);
     if (this.entries.length > this.capacity) this.entries.splice(0, this.entries.length - this.capacity);
-    const method = level === "error" ? console.error : level === "warn" ? console.warn : console.info;
-    method(`[Task Copilot] ${event}`, entry);
+    const method = safeLevel === "error" ? console.error : safeLevel === "warn" ? console.warn : console.info;
+    method(`[Task Copilot] ${safeEvent}`, entry);
     return entry;
   }
 

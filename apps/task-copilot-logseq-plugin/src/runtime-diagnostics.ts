@@ -1,4 +1,5 @@
 import { escapeHtml } from "./ui.ts";
+import { privateErrorEvidence } from "./private-error-evidence.ts";
 import { deriveUserSystemStatus } from "./user-system-status.ts";
 
 export const PLUGIN_ID = "task-copilot-personal-mvp";
@@ -50,8 +51,7 @@ export interface RuntimeStageRecord {
   completed_at?: string;
   status: RuntimeStageStatus;
   error_name?: string;
-  error_message?: string;
-  stack?: string;
+  error_code?: string;
   recoverability: "RETRYABLE" | "READ_ONLY_SAFE_MODE" | "NOT_APPLICABLE";
 }
 
@@ -86,11 +86,12 @@ export interface RuntimeDiagnosticsSnapshot {
   recent_action_failure?: unknown;
 }
 
-function errorDetail(error: unknown): Pick<RuntimeStageRecord, "error_name" | "error_message" | "stack"> {
-  if (error instanceof Error) {
-    return { error_name: error.name, error_message: error.message, ...(error.stack ? { stack: error.stack } : {}) };
-  }
-  return { error_name: "UnknownError", error_message: String(error) };
+function errorDetail(error: unknown): Pick<RuntimeStageRecord, "error_name" | "error_code"> {
+  const evidence = privateErrorEvidence(error);
+  return {
+    error_name: evidence.errorName,
+    error_code: evidence.errorCode,
+  };
 }
 
 export class RuntimeDiagnostics {
@@ -208,7 +209,7 @@ export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot, e
   const userStatus = deriveUserSystemStatus(snapshot);
   const rows = snapshot.stages.map((record) => `<tr><td><code>${escapeHtml(record.stage)}</code></td><td>${escapeHtml(record.status)}</td><td>${escapeHtml(record.started_at ?? "-")}</td><td>${escapeHtml(record.completed_at ?? "-")}</td><td>${escapeHtml(record.recoverability)}</td></tr>`).join("");
   const latest = snapshot.latest_error
-    ? `<section class="diagnostic-error"><h2>最近错误</h2><p><strong>${escapeHtml(snapshot.latest_error.stage)}</strong> · ${escapeHtml(snapshot.latest_error.error_name ?? "Error")}: ${escapeHtml(snapshot.latest_error.error_message ?? "Unknown error")}</p><pre>${escapeHtml(snapshot.latest_error.stack ?? "No stack available")}</pre><p>下一步：复制诊断和 Console 中的 [Task Copilot] 日志；不要反复执行写入操作。当前保持只读安全模式。</p></section>`
+    ? `<section class="diagnostic-error"><h2>最近错误</h2><p><strong>${escapeHtml(snapshot.latest_error.stage)}</strong> · ${escapeHtml(snapshot.latest_error.error_name ?? "Error")} · <code>${escapeHtml(snapshot.latest_error.error_code ?? "UNCLASSIFIED_ERROR")}</code></p><p>默认诊断只保留结构化错误名和错误码，不保存异常正文、堆栈或 cause。</p><p>下一步：复制诊断和 Console 中的 [Task Copilot] 结构化日志；不要反复执行写入操作。当前保持只读安全模式。</p></section>`
     : `<section><h2>最近错误</h2><p>无。</p></section>`;
   return `<section class="app-shell diagnostics-shell" data-task-copilot-ui="${UI_NAMESPACE}">
     <header class="topbar"><div><div class="eyebrow">系统状态</div><h1>${escapeHtml(userStatus.headline)}</h1></div><button type="button" data-action="close" class="quiet">关闭</button></header>

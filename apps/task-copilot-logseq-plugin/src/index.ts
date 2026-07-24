@@ -2736,7 +2736,10 @@ async function main(): Promise<void> {
   } catch (error) {
     const failedStage = diagnostics.snapshot().stages.slice().reverse().find((stage) => stage.status === "RUNNING")?.stage ?? "BOOTSTRAP_STARTED";
     diagnostics.fail(failedStage, error);
-    console.error(`[Task Copilot] initialization failed at ${failedStage}`, error);
+    operationalLogger.log("error", "plugin-lifecycle", "bootstrap_shell_failed", {
+      result: "restricted",
+      errorCode: `${failedStage}_FAILED`,
+    }, error);
     return;
   }
 
@@ -2768,13 +2771,25 @@ async function main(): Promise<void> {
     featureReady = false;
     toolbarFacts = { proposals: [], semanticCommits: [], available: false };
     updateToolbarIntervention();
-    console.error(`[Task Copilot] initialization failed at ${failedStage}`, error);
+    operationalLogger.log("error", "plugin-lifecycle", "feature_initialization_failed", {
+      result: "restricted",
+      errorCode: `${failedStage}_FAILED`,
+    }, error);
     try {
       requireAppRoot().innerHTML = renderRuntimeDiagnostics(diagnostics.snapshot());
     } catch (renderError) {
-      console.error("[Task Copilot] diagnostic fallback render failed", renderError);
+      operationalLogger.log("error", "plugin-lifecycle", "diagnostic_fallback_render_failed", {
+        result: "restricted",
+        errorCode: "DIAGNOSTIC_FALLBACK_RENDER_FAILED",
+      }, renderError);
     }
   }
 }
 
-void logseq.ready().then(main).catch((error: unknown) => console.error("[Task Copilot] bootstrap failed before fallback UI became available", error));
+void logseq.ready().then(main).catch((error: unknown) => operationalLogger.log(
+  "error",
+  "plugin-lifecycle",
+  "bootstrap_before_fallback_failed",
+  { result: "restricted", errorCode: "BOOTSTRAP_BEFORE_FALLBACK_FAILED" },
+  error,
+));

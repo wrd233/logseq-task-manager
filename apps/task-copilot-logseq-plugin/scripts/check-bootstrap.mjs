@@ -16,7 +16,9 @@ assert.ok((await stat(entry)).isFile(), `package main does not exist: ${pkg.main
 assert.ok(!pkg.main.startsWith("/") && !pkg.main.includes(".."), "package main must be package-relative");
 assert.equal((bootstrap.match(/registerUIItem\("toolbar"/g) ?? []).length, 1, "formal plugin must define exactly one toolbar registration");
 assert.match(source, /registerToolbar\(host\)[\s\S]*registerCommands\(host[\s\S]*registerMainUi\(host[\s\S]*initializeFeatures\(\)/, "all bootstrap registrations must precede feature initialization");
-assert.match(source, /initialization failed at \$\{failedStage\}/, "feature initialization must expose its failed stage");
+assert.match(source, /"feature_initialization_failed"[\s\S]{0,180}errorCode: `\$\{failedStage\}_FAILED`/, "feature initialization must expose its failed stage as a structural error code");
+assert.match(source, /"bootstrap_shell_failed"[\s\S]{0,180}errorCode: `\$\{failedStage\}_FAILED`/, "bootstrap shell failure must expose its failed stage as a structural error code");
+assert.doesNotMatch(source, /console\.error\(/, "formal plugin errors must pass through the privacy-bounded structured logger");
 assert.match(source, /beforeunload[\s\S]*cleanupHooks/, "reload cleanup hook is required");
 assert.match(source, /featureReady = serviceConnection\.status === "READY" && Boolean\(serviceRuntimeClient\)/, "a READY V2 Local Service must unlock the V2 workspace");
 assert.doesNotMatch(source, /markReady\("EVENTS_READY"\);\s*featureReady = false/, "V2 startup must not deliberately strand the UI in Diagnostics");

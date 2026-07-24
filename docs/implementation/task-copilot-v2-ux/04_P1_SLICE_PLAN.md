@@ -347,9 +347,10 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
 
 ## P1-H：交互日志与版本
 
-状态：`PARTIAL_SESSION_AUTOMATED` — Application 已建立 session-only bounded
+状态：`PARTIAL_RUNTIME_PRIVACY_AUTOMATED` — Application 已建立 session-only bounded
 Interaction Evidence Buffer，P1-G 生成器已记录成功、Validator 拒绝和 Provider 失败；
-用户处置 UI、跨会话持久化/清理策略、噪声 dashboard 与通用日志隐私审计仍开放。
+Plugin StructuredLogger/Runtime Diagnostics 已去除自由文本异常；用户处置 UI、跨会话
+持久化/清理策略、噪声 dashboard 与 Local Service/CLI stderr 隐私审计仍开放。
 
 默认仅记录：
 
@@ -387,3 +388,8 @@ Prompt/Skill 演化仍必须走证据 → 候选 → 人工审阅 → 测试 →
 - 当前不自动持久化或上传；`snapshot/exportJsonl/clear` 只是显式 session API。完整正文
   即使显式授权也必须进入未来独立、可删除的研究样本流程，不能复用本默认事件模型。
 - Application tests 121/121、Local Service tests 97/97，0 skipped，typecheck PASS。
+- Plugin StructuredLogger 只挑选 machine-token/count/boolean allowlist 字段，调用者无法通过
+  任意 object 注入 error message、stack、cause 或 content；
+- Runtime stage failure、Plugin 启动、全局异常和 fallback Console 路径只保留错误名与机器
+  错误码；Debug 开关也不放宽这一隐私边界；
+- Plugin tests 222/222、0 skipped，typecheck/build PASS。
