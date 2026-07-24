@@ -8,7 +8,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H Desktop lifecycle OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process + P0-J/P0-K automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H/J/K Desktop Gate OPEN | 不得宣布 P0 完成 |
 | P1 | NOT_STARTED | — | — | — |
 | P2 | NOT_STARTED | — | — | — |
 | Final Release | NOT_STARTED | — | — | — |
@@ -32,7 +32,8 @@
   仍缺本轮真实 Desktop quit 证据
 - [x] 用户层系统状态；READY/协议/Graph/Pending/Recovery/Anchor/正文核对自动覆盖，
   真实 Desktop 注意状态与 Service unavailable 受限状态通过，技术诊断默认折叠；
-- [ ] 完成后回业务现场；
+- [ ] 完成后回业务现场；session-only Block/Page origin route 自动 Gate PASS，真实
+  main/sidebar/Query/reference Gate 仍开放；
 - [ ] Light/Dark/窄栏/Query/引用；
 - [ ] 自动与 Desktop 证据齐全。
 

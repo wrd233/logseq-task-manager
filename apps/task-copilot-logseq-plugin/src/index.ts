@@ -71,6 +71,7 @@ import { checksum, StructuredError } from "@task-copilot/shared";
 import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-intervention.ts";
 import { managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
 import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE_SYNTAX, type SlashCreateObjectType } from "./slash-create-command.ts";
+import { OriginRouteController, type OriginRouteToken } from "./origin-route-controller.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -115,7 +116,18 @@ const pageContextController = new PageContextController(() => serviceRuntimeClie
   getCurrentPage: () => logseq.Editor.getCurrentPage(),
   getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
 });
+const originRouteController = new OriginRouteController({
+  getCurrentPage: () => logseq.Editor.getCurrentPage(),
+  getPage: (identity) => logseq.Editor.getPage(identity as never),
+  getBlock: (uuid) => logseq.Editor.getBlock(uuid),
+  scrollToBlockInPage: async (page, blockUuid) => {
+    await logseq.Editor.scrollToBlockInPage(page, blockUuid);
+  },
+  pushState: (route, parameters) => logseq.App.pushState(route, parameters),
+  hideMainUI: () => logseq.hideMainUI(),
+});
 let pageContext: PageContextSnapshot | undefined;
+let originRoute: OriginRouteToken | undefined;
 let serviceDiscoveryGeneration = 0;
 let explicitSyncController: ExplicitSyncController | undefined;
 let explicitSyncState: ExplicitSyncState = {
@@ -371,6 +383,7 @@ async function model(): Promise<UiModel> {
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
     ...(v2AuditLoadError ? { v2AuditLoadError } : {}),
     ...(recentActionCommitId ? { recentActionCommitId } : {}),
+    ...(originRoute ? { originReturnLabel: originRoute.kind === "BLOCK" ? "返回原 Block" as const : "返回原 Page" as const } : {}),
     ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
     ...(pageContext ? { pageContext } : {}),
     ...(serviceLifecycleSession
@@ -1039,7 +1052,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "close") {
     recentActionCommitId = undefined;
-    logseq.hideMainUI();
+    await returnToBusinessOrigin();
     return;
   }
   if (action === "v2-page-context-back" && value) {
@@ -1316,7 +1329,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         objectId: result.objectId,
       });
       await showBlockContextMessage(result.message, "success");
-      logseq.hideMainUI();
+      await returnToBusinessOrigin();
     } catch (error) {
       latestError = explain(error);
       operationalLogger.log("error", "ui-action", "block_condition_change_failed", {
@@ -1431,6 +1444,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       workspace = "objects";
       message = `${result.pageName} 已创建并验证；Project 正式状态已写入 SQLite，可重试且不会重复。`;
       pageContext = undefined;
+      originRoute = undefined;
       actionDialog = undefined;
       logseq.App.pushState("page", { name: result.pageName });
       logseq.hideMainUI();
@@ -1964,12 +1978,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "cancel-action-dialog") {
-    const returnToPage = pageContext !== undefined;
+    const returnToOrigin = originRoute !== undefined;
     v2ClosureDraftInput = undefined;
     actionDialog = undefined;
     pageContext = undefined;
-    if (returnToPage) {
-      logseq.hideMainUI();
+    if (returnToOrigin) {
+      await returnToBusinessOrigin();
       return;
     }
     await refresh();
@@ -2004,7 +2018,13 @@ async function showTaskCopilot(): Promise<void> {
   await refresh();
 }
 
+async function showTaskCopilotFromGeneralEntry(): Promise<void> {
+  originRoute = undefined;
+  await showTaskCopilot();
+}
+
 async function openFromToolbar(): Promise<void> {
+  originRoute = undefined;
   if (toolbarIntervention.target === "diagnostics" || !featureReady) {
     await showRuntimeDiagnostics();
     return;
@@ -2018,9 +2038,34 @@ async function showRuntimeDiagnostics(): Promise<void> {
   requireAppRoot().innerHTML = renderDiagnostics(await fullDiagnosticsSnapshot());
 }
 
+async function showRuntimeDiagnosticsFromGeneralEntry(): Promise<void> {
+  originRoute = undefined;
+  await showRuntimeDiagnostics();
+}
+
 async function processCurrentBlockFromCommand(): Promise<void> {
+  const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
+  if (!block) throw new Error("请先选中一个有正文的 Logseq Block；没有调用 Provider。");
+  originRoute = await originRouteController.captureBlock(block.uuid);
   await showTaskCopilot();
   await handleAction("v2-provider-analyze-current-block");
+}
+
+async function returnToBusinessOrigin(): Promise<void> {
+  const token = originRoute;
+  originRoute = undefined;
+  if (!token) {
+    logseq.hideMainUI();
+    return;
+  }
+  const result = await originRouteController.returnTo(token);
+  operationalLogger.log(result.status === "RETURNED" ? "info" : "warn", "ui-action", "business_origin_returned", {
+    actionId: "return-business-origin",
+    result: result.status.toLowerCase(),
+  });
+  if (result.status === "SOURCE_UNAVAILABLE") {
+    await showBlockContextMessage(result.label, "warning");
+  }
 }
 
 async function insertExplicitObjectSyntax(objectType: SlashCreateObjectType): Promise<void> {
@@ -2172,7 +2217,9 @@ async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
     return;
   }
   try {
+    const capturedOrigin = await originRouteController.captureBlock(blockUuid);
     const prepared = await blockConditionController.prepare(blockUuid);
+    originRoute = capturedOrigin;
     actionDialog = {
       kind: "v2-block-condition-route",
       value: `${prepared.objectId}|${prepared.objectVersion}|${prepared.blockUuid}`,
@@ -2206,6 +2253,7 @@ async function undoBlockConditionFromContext(): Promise<void> {
 async function openPageContextFromMenu(page: string): Promise<void> {
   await guardedFeatureCommand(async () => {
     pageContext = await pageContextController.open(page);
+    originRoute = originRouteController.capturePage(pageContext);
     actionDialog = { kind: "v2-page-context", value: pageContext.pageUuid };
     latestError = undefined;
     operationalLogger.log("info", "ui-action", "page_context_opened", {
@@ -2229,13 +2277,19 @@ function registerBootstrapShell(): void {
 
   const host = logseq as unknown as BootstrapHost;
   const callbacks: BootstrapCallbacks = {
-    open: showTaskCopilot,
+    open: showTaskCopilotFromGeneralEntry,
     openToolbar: openFromToolbar,
     processCurrentBlock: () => guardedFeatureCommand(processCurrentBlockFromCommand),
-    openReview: () => guardedFeatureCommand(() => openWorkspace("review")),
-    openNowWork: () => guardedFeatureCommand(() => openWorkspace("now")),
+    openReview: () => {
+      originRoute = undefined;
+      return guardedFeatureCommand(() => openWorkspace("review"));
+    },
+    openNowWork: () => {
+      originRoute = undefined;
+      return guardedFeatureCommand(() => openWorkspace("now"));
+    },
     toggleCurrentBlockFocus: toggleCurrentBlockFocusFromCommand,
-    diagnostics: showRuntimeDiagnostics,
+    diagnostics: showRuntimeDiagnosticsFromGeneralEntry,
     createTask: () => insertExplicitObjectSyntax("TASK"),
     createMiniProject: () => insertExplicitObjectSyntax("MINI_PROJECT"),
     createDecision: () => insertExplicitObjectSyntax("DECISION"),
@@ -2282,6 +2336,7 @@ async function environmentInfo(): Promise<void> {
 }
 
 async function handleCurrentGraphChanged(): Promise<void> {
+  originRoute = undefined;
   enterRestrictedServiceMode("GRAPH_SWITCH_IN_PROGRESS", "正在为新的 Graph 重新绑定本地运行环境；正式写入暂停。");
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
   featureReady = false;

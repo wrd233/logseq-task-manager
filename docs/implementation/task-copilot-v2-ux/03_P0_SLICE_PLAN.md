@@ -429,3 +429,19 @@ OPEN，因此 P0-H 整体不得标记完成。
 
 仍需真实 Desktop 验证斜杠可发现性、光标与输入、命令面板、自定义 binding、受限态及主题/
 窄窗口；未以注册测试替代该 Gate。
+
+## P0-K：完成后返回业务现场
+
+状态：`PARTIAL`（自动 Gate PASS；Desktop main/sidebar/Query/reference Gate OPEN）
+
+- Block/Page 现场入口捕获 session-only 来源 token，不写入任何持久权威；
+- 成功、失败后的关闭、取消和 Block Condition 完成统一返回来源；
+- main Page 按稳定 UUID 重验与定位，Block 移动和 Page rename 后跟随当前身份；
+- secondary Page/右侧栏只关闭 overlay，不擅自改变 main Page；
+- 来源缺失时安全关闭并提示，不猜测替代目标或执行写入；
+- Project 创建成功进入新 Project Page，是明确的产品例外；
+- Plugin 187/187、typecheck、build、dist integrity PASS；
+- 自动证据见 `logs/p0-k-session-origin-route-automated-20260724.md`。
+
+仍需真实 Desktop 验证普通 Block、Query/引用、右侧栏、Page rename/删除、成功/失败/Undo 与
+主题/窄窗口；未以 Controller 测试替代宿主行为。

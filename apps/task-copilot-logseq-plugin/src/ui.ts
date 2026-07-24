@@ -119,6 +119,7 @@ export interface UiModel {
   v2ProposalLoadError?: string;
   v2AuditLoadError?: string;
   recentActionCommitId?: string;
+  originReturnLabel?: "返回原 Block" | "返回原 Page";
   v2MigrationRuns?: ServiceMigrationRun[];
   v2MigrationLoadError?: string;
   pageContext?: PageContextSnapshot;
@@ -739,7 +740,7 @@ export function renderApp(model: UiModel): string {
   return `<section class="app-shell">
     <header class="topbar">
       <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
-      <div class="top-actions">${button("整理当前页", "v2-candidate-open", undefined, "primary")}${button("关闭", "close", undefined, "quiet")}</div>
+      <div class="top-actions">${button("整理当前页", "v2-candidate-open", undefined, "primary")}${button(model.originReturnLabel ?? "关闭", "close", undefined, "quiet")}</div>
     </header>
     ${model.runtime ? `<div class="runtime-strip"><span>Plugin ${escapeHtml(model.runtime.pluginVersion)}</span><span>Runtime ${escapeHtml(model.runtime.runtimeStatus)}</span><span>Store ${escapeHtml(model.runtime.storeStatus)}</span><span>Graph ${escapeHtml(model.runtime.currentGraph)}</span></div>` : ""}
     <div class="agent-state ${model.agent.enabled ? "enabled" : "disabled"}">Agent ${model.agent.enabled ? `Demo · ${escapeHtml(model.agent.providerId)}` : "disabled · 基础事务系统可用"}</div>

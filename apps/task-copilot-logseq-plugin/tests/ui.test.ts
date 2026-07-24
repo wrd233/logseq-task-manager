@@ -211,6 +211,14 @@ test("immediate result resolves the same recent-change identity and keeps techni
   assert.match(html, /技术详情[\s\S]*proposal-commit:second/);
 });
 
+test("a session-only business origin changes Close into an explicit return action without exposing identity", () => {
+  const value = model();
+  value.originReturnLabel = "返回原 Block";
+  const html = renderApp(value);
+  assert.match(html, /data-action="close"[^>]*>返回原 Block</);
+  assert.doesNotMatch(html, /block-origin|page-origin|originRoute/);
+});
+
 test("V2 audit distinguishes a failed Service projection from an empty ledger", () => {
   const value = model();
   value.workspace = "audit";
@@ -1071,7 +1079,8 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /action === "recent-change-review"[\s\S]*workspace = "review";[\s\S]*reviewMode = "proposals";/);
   assert.match(source, /getCurrentPage\(\)/);
   assert.match(source, /pushState\("page", \{ name: result\.pageName \}\)/);
-  assert.match(source, /const returnToPage = pageContext !== undefined;[\s\S]*if \(returnToPage\) \{[\s\S]*logseq\.hideMainUI\(\);/);
+  assert.match(source, /const returnToOrigin = originRoute !== undefined;[\s\S]*if \(returnToOrigin\) \{[\s\S]*await returnToBusinessOrigin\(\);/);
+  assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*originRoute = undefined;[\s\S]*originRouteController\.returnTo\(token\)/);
 });
 
 test("formal V2 plugin entry excludes the writable V1 runtime", async () => {

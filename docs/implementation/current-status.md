@@ -38,7 +38,10 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P0-J 中文创建命令与快捷动作：四条 slash 只插入 canonical 显式正文语法，三条高频
   command palette 复用“现在”、Provider Proposal 与正式 Focus Controller；自动 Gate
   183/183 与根级检查通过，Desktop slash/palette/custom binding Gate 保持 OPEN；
-- 当前完成 P0-H/P0-J 剩余 Desktop Gate 的同时继续 P0-K 与不依赖视觉 Gate 的宿主场景；
+- P0-K 完成后路由：Block/Page 来源只保存在 session token；main Page 按 UUID 重验返回，
+  secondary Page 保持宿主现场，来源缺失安全关闭；自动 Gate 187/187 通过，Desktop
+  Query/引用/右侧栏 Gate 保持 OPEN；
+- 当前汇总 P0-H/P0-J/P0-K 剩余 Desktop Gate 与其他宿主场景；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。
