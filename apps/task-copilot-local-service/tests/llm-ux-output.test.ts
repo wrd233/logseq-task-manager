@@ -99,7 +99,7 @@ test("LLM UX generator returns only a validated machine-provenance draft without
   }]);
 });
 
-test("DO_NOT_REPEAT suppresses the same Skill and prompt for only the current evidence session", async () => {
+test("DO_NOT_REPEAT suppresses the same scene and Skill version for only the current evidence session", async () => {
   const evidence = new InteractionEvidenceBuffer();
   let providerCalls = 0;
   const provider: StructuredProposalProvider = {

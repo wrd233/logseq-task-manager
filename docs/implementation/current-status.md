@@ -47,7 +47,10 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P1-A shadow-only 已进入 Plugin 会话运行：Application Attention Signal 纯派生模型与
   bounded session repository 覆盖失效、cooldown、provenance、capacity、clear 和 metrics；
   只接受 `SHADOW/NONE` 与机器引用/checksum，Plugin 只读刷新链路运行，Graph switch 清空，
-  未接 UI/正式 Domain/SQLite；
+  未接 UI/正式 Domain/SQLite。fresh-session recompute 已证明 active identity、scope 与当前
+  count-only projection 可由正式 facts 等价重建；同证据刷新现在保留 session cooldown，
+  evidence/rule policy 变化才解除。当前 shadow 因没有 shown/disposition 入口，不建 SQLite
+  derivative；未来显现后的跨 reload 用户偏好价值仍需 Desktop 证据；
 - P1-B 第一波确定性纯函数覆盖 reviewAt/due、accepted-not-applied、Pending/Recovery、
   Anchor missing/conflict 与 Graph mismatch；按数据/恢复风险优先合并为一对象一主问题，
   CREATE Proposal/未挂对象 Commit 以自身 subjectRef 保持真实身份；已接入 session-only

@@ -109,6 +109,26 @@ test("a changed evidence scope clears cooldown but never promotes a shadow signa
   assert.equal(repository.metrics().evidenceChanged, 1);
 });
 
+test("the same evidence keeps a session cooldown across reconciliation while a rule policy change resets it", () => {
+  const repository = new AttentionShadowRepository();
+  const [first] = repository.reconcile("object:task-1", [candidate()], at);
+  repository.setCooldown(first!.signalId, "2026-07-25T03:00:00.000Z");
+
+  const [confirmed] = repository.reconcile("object:task-1", [candidate({
+    detectedAt: "2026-07-24T04:00:00.000Z",
+  })], "2026-07-24T04:00:00.000Z");
+  assert.deepEqual(confirmed?.cooldown, {
+    policy: "ELIGIBLE",
+    until: "2026-07-25T03:00:00.000Z",
+  });
+
+  const [nonCoolable] = repository.reconcile("object:task-1", [candidate({
+    detectedAt: "2026-07-24T05:00:00.000Z",
+    cooldown: { policy: "NEVER" },
+  })], "2026-07-24T05:00:00.000Z");
+  assert.deepEqual(nonCoolable?.cooldown, { policy: "NEVER" });
+});
+
 test("non-coolable recovery facts reject cooldown and shadow storage stays bounded and clearable", () => {
   const repository = new AttentionShadowRepository({ maxRecords: 2 });
   const [recovery] = repository.reconcile("object:task-1", [candidate({

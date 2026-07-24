@@ -143,7 +143,12 @@ Page、right sidebar、Query/引用、来源移动/重命名/删除以及成功/
 P1-A 已在不开放前台的边界内进入 Plugin session runtime：Attention Signal 纯派生字段、
 自动失效、证据变化解除 cooldown、Recovery 不可冷却、有界容量/清理/遥测均已完成。
 Plugin 只在 READY 且投影完整时读取 objects/proposals/commits/anchors；Graph switch 清空，
-没有 SQLite schema 或用户可见信号；跨 reload 存储位置仍按 UX-G008 保持开放。
+没有 SQLite schema 或用户可见信号。fresh-session recompute 对同一正式 snapshot 产生相同
+active signal identity、scope hash、merge/suppress counts 与 Dynamic Now current signature；
+firstDetected/cumulative counters 不参与当前投影。审计同时发现 reconcile 会清除已设置的
+session cooldown；现已改为同 scope + 同 policy 保留，evidence scope 或 rule policy 变化才
+解除。UX-G008 因此对当前未显现 shadow 得出“不持久化”的有界结论；未来用户 disposition/
+cooldown 是否跨 reload，仍须首批可见信号的 Desktop 减噪证据。
 
 P1-B 第一波纯函数已覆盖 reviewAt/due、accepted-not-applied、Pending/Recovery、
 Anchor missing/conflict 与 Graph mismatch，并按数据安全 > 已确认未完成 > reviewAt > due
@@ -343,6 +348,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   0 skipped、typecheck PASS；真实 DeepSeek/Service Gate PASS，正式对象零变化，owned shutdown；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
+- P1-A recompute/cooldown focused tests：13/13 PASS；fresh session current signature parity，
+  同证据 cooldown 保留、evidence/policy 变化解除；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -359,5 +366,5 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
 3. 完成 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-4. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
-   derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。
+4. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
+   shadow 决定不建 derivative，跨 reload 用户处置只在首批信号开放并证明减噪后重开。

@@ -218,6 +218,40 @@ test("current telemetry signature ignores timestamps and cumulative confirmation
   );
 });
 
+test("a fresh shadow session recomputes the same current projection without persisted history", () => {
+  const snapshot = buildAttentionDetectorSnapshot({
+    observedAt: now,
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [object()],
+    proposals: [proposal()],
+    commits: [],
+    anchors: [],
+  });
+  const currentSession = new AttentionShadowRepository();
+  const beforeReload = runAttentionShadowCycle(currentSession, snapshot);
+  const reloadedSession = new AttentionShadowRepository();
+  const recomputed = runAttentionShadowCycle(reloadedSession, {
+    ...snapshot,
+    observedAt: "2026-07-24T10:05:00.000Z",
+  });
+  const dynamicNow = summarizeDynamicNowShadow({
+    observedAt: now,
+    objects: [object()],
+    activeFocusObjectIds: [],
+  });
+
+  assert.equal(
+    attentionShadowCurrentSignature(beforeReload, dynamicNow),
+    attentionShadowCurrentSignature(recomputed, dynamicNow),
+  );
+  assert.deepEqual(
+    currentSession.list().map(({ signalId, signalType, evidenceScope }) => ({ signalId, signalType, scopeHash: evidenceScope.scopeHash })),
+    reloadedSession.list().map(({ signalId, signalType, evidenceScope }) => ({ signalId, signalType, scopeHash: evidenceScope.scopeHash })),
+    "signal identity and current evidence are recomputed from formal facts rather than persisted shadow state",
+  );
+});
+
 test("dynamic Now runtime summary contains only counts and preserves an empty suggestion surface", () => {
   const summary = summarizeDynamicNowShadow({
     observedAt: now,

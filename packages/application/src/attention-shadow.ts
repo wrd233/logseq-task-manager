@@ -290,13 +290,18 @@ export class AttentionShadowRepository {
         continue;
       }
       const changed = current.evidenceScope.scopeHash !== candidate.evidenceScope.scopeHash;
+      const cooldownPolicyChanged = current.cooldown.policy !== candidate.cooldown.policy;
       const next: AttentionSignalRecord = {
         ...current,
         ...candidate,
         sourceFacts: candidate.sourceFacts.map((fact) => ({ ...fact })),
         ...(candidate.sourceEvent ? { sourceEvent: { ...candidate.sourceEvent } } : {}),
         proposedDisplay: { ...candidate.proposedDisplay },
-        cooldown: changed ? { policy: candidate.cooldown.policy } : { ...candidate.cooldown },
+        cooldown: changed || cooldownPolicyChanged
+          ? { policy: candidate.cooldown.policy }
+          : current.cooldown.until
+            ? { ...current.cooldown }
+            : { ...candidate.cooldown },
         provenance: cloneRecordProvenance(candidate.provenance),
         evidenceScope: { ...candidate.evidenceScope, refs: [...candidate.evidenceScope.refs] },
         lastConfirmedAt: confirmedAt,

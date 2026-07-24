@@ -6,9 +6,10 @@
 
 ## P1-A：Attention Signal 纯模型与影子存储
 
-状态：`PARTIAL_RUNTIME_SHADOW` — 纯模型与有界 session shadow repository 已完成并接入
-Plugin 只读刷新链路；没有接入 UI、正式 Domain 或 SQLite schema。UX-G008 的跨 reload
-派生存储位置仍待 reload/recompute 证据。
+状态：`PARTIAL_RUNTIME_SHADOW / UX-G008_BOUNDED` — 纯模型与有界 session shadow
+repository 已完成并接入 Plugin 只读刷新链路；没有接入 UI、正式 Domain 或 SQLite schema。
+fresh-session recompute 自动证据已证明当前 active projection 不需要持久化；显现后的用户
+disposition/cooldown 是否需要跨 reload derivative，保留到 Desktop 真实反馈后再判断。
 
 最小内部字段：
 
@@ -54,6 +55,11 @@ Plugin 只读刷新链路；没有接入 UI、正式 Domain 或 SQLite schema。
   不记录正文或 object/proposal/commit/anchor identity；
 - Application tests 82/82、Plugin tests 196/196，typecheck/build 与根级 Gate PASS；
 - 当前仍不构成用户可见 P1 上线或 Desktop PASS。
+- fresh repository 对同一正式 snapshot 重算得到相同 signal identity、scope hash、merge/suppress
+  count 与 Dynamic Now signature；firstDetected/counters 等历史不参与当前投影；
+- 发现并修复同证据 refresh 会意外清除 session cooldown：现在同 scope + 同 policy 保留 until，
+  evidence scope 或 rule policy 变化才解除；当前 runtime 没有 markShown/setDisposition 用户入口，
+  因此不为未使用历史新增 SQLite authority。
 
 ## P1-B：确定性 detector、合并与失效
 
