@@ -1,6 +1,9 @@
 import { startLocalService } from "./service.ts";
+import { InteractionEvidenceBuffer } from "@task-copilot/application";
 import { V2SqliteStore } from "@task-copilot/persistence/node";
-import { loadProposalGeneratorFromEnvironment } from "./provider-runtime.ts";
+import { loadStructuredProviderFromEnvironment } from "./provider-runtime.ts";
+import { LocalLlmProposalGenerator } from "./llm-proposal.ts";
+import { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
 import { startOwnerMonitor } from "./owner-monitor.ts";
 import {
@@ -21,8 +24,12 @@ try {
     }
   } else {
   const { ownerPid, ...serviceOptions } = options;
-  const proposalGenerator = await loadProposalGeneratorFromEnvironment();
-  const service = await startLocalService({ ...serviceOptions, ...(proposalGenerator ? { proposalGenerator } : {}) });
+  const provider = await loadStructuredProviderFromEnvironment();
+  const providerOptions = provider ? {
+    proposalGenerator: new LocalLlmProposalGenerator(provider),
+    uxOutputGenerator: new LocalLlmUxOutputGenerator(provider, new InteractionEvidenceBuffer()),
+  } : {};
+  const service = await startLocalService({ ...serviceOptions, ...providerOptions });
   process.stdout.write(`${serviceReadyLine(process.pid, service.capabilities)}\n`);
   let closing = false;
   let ownerMonitor: ReturnType<typeof startOwnerMonitor> | undefined;

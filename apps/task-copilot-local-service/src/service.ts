@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type MaterializeExplicitObjectInput } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -19,8 +19,10 @@ import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/s
 import { StructuredError, checksum, createId, stableJson } from "@task-copilot/shared";
 
 import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
+import type { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
+import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
 import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
 import { readLegacyRecoveryBundle, scanLegacyRecoveryBundle } from "./migration-scan.ts";
@@ -42,6 +44,7 @@ export interface LocalServiceOptions {
   descriptorPath?: string;
   backupRoot?: string;
   proposalGenerator?: LocalLlmProposalGenerator;
+  uxOutputGenerator?: LocalLlmUxOutputGenerator;
   /** Test-only fault boundary; production callers must omit it. */
   faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void };
 }
@@ -175,6 +178,23 @@ async function readContextExportRequest(request: IncomingMessage): Promise<{ sco
     throw serviceError("CONTEXT_EXPORT_REQUEST_INVALID", "Context export 只接受 block/page/object/project 与匹配的受控目标。");
   }
   return { scope: record.scope as ContextExportScope, id: String(record.id) };
+}
+
+async function readProjectContextRecoveryRequest(request: IncomingMessage): Promise<{ objectId: string; expectedVersion: number }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Project context recovery 请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (
+    Object.keys(record).sort().join(",") !== "expectedVersion,objectId"
+    || typeof record.objectId !== "string"
+    || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.objectId)
+    || !Number.isSafeInteger(record.expectedVersion)
+    || Number(record.expectedVersion) < 1
+  ) {
+    throw serviceError("UX_CONTEXT_RECOVERY_REQUEST_INVALID", "Project context recovery 只接受受控 objectId 与正整数 expectedVersion。");
+  }
+  return { objectId: record.objectId, expectedVersion: Number(record.expectedVersion) };
 }
 
 async function readGraphQueryRequest(request: IncomingMessage) {
@@ -829,9 +849,10 @@ function respondError(response: ServerResponse, error: unknown): void {
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
+    const uxInputError = ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED"].includes(error.code);
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
-      : migrationInputError || proposalInputError || domainInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
+      : migrationInputError || proposalInputError || domainInputError || uxInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
         ? 400
           : migrationNotFound || error.code === "V2_OBJECT_NOT_FOUND" || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_NOT_FOUND" || error.code === "V2_CANDIDATE_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND"
           ? 404
@@ -1023,7 +1044,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       return proposalApplication.submit(proposal, at);
     });
   };
-  const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: options.proposalGenerator !== undefined };
+  const providerConfigured = options.proposalGenerator !== undefined;
+  const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: providerConfigured };
   const comprehensiveDoctor = async (): Promise<ServiceDoctor> => {
     const core = store.doctor();
     const operational = store.operationalDiagnostics();
@@ -1060,8 +1082,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       { component: "PROPOSAL", status: operational.staleProposalCount > 0 ? "WARN" : "PASS", code: operational.staleProposalCount > 0 ? "STALE_PROPOSAL_PRESENT" : "PROPOSAL_HEALTHY", count: operational.staleProposalCount },
       { component: "SEMANTIC_COMMIT", status: operational.recoveryRequiredCommitCount > 0 ? "FAIL" : operational.pendingCommitCount > 0 ? "WARN" : "PASS", code: operational.recoveryRequiredCommitCount > 0 ? "COMMIT_RECOVERY_REQUIRED" : operational.pendingCommitCount > 0 ? "COMMIT_PENDING" : "COMMIT_HEALTHY", count: operational.pendingCommitCount + operational.recoveryRequiredCommitCount },
       { component: "BACKUP", status: backupStatus, code: backupCode, count: backupCount },
-      { component: "KEY_REFERENCE", status: "PASS", code: options.proposalGenerator ? "KEY_RESOLVED_OUT_OF_BAND" : "KEY_NOT_REQUIRED" },
-      { component: "PROVIDER", status: "INFO", code: options.proposalGenerator ? "PROVIDER_CONFIGURED_NOT_PROBED" : "PROVIDER_DISABLED" },
+      { component: "KEY_REFERENCE", status: "PASS", code: providerConfigured ? "KEY_RESOLVED_OUT_OF_BAND" : "KEY_NOT_REQUIRED" },
+      { component: "PROVIDER", status: "INFO", code: providerConfigured ? "PROVIDER_CONFIGURED_NOT_PROBED" : "PROVIDER_DISABLED" },
       { component: "SKILL_PROFILE", status: skillCount === 3 ? "PASS" : "FAIL", code: skillCount === 3 ? "BUILTIN_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
       { component: "LOGGING", status: "INFO", code: "SERVICE_LOG_COLLECTION_NOT_CONFIGURED" },
       { component: "PROTOCOL", status: "PASS", code: "CLI_SERVICE_PROTOCOL_CURRENT" },
@@ -1308,6 +1330,79 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         databaseSchemaVersion: () => store.doctor().schemaVersion,
       }, skillDocuments, { kind: input.scope, id: input.id }, new Date(), graphSnapshot);
       respond(response, 200, { contextPackage, fingerprint: contextPackageFingerprint(contextPackage) });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/provider/ux/project-context-recovery") {
+      const input = await readProjectContextRecoveryRequest(request);
+      const project = store.getObject(input.objectId);
+      if (!project) throw serviceError("V2_OBJECT_NOT_FOUND", "Project context recovery 目标不存在。");
+      if (project.objectType !== "PROJECT") throw serviceError("UX_CONTEXT_PROJECT_REQUIRED", "Project context recovery 只接受正式 Project。");
+      if (project.version !== input.expectedVersion) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 已变化；没有调用 Provider。");
+      if (!options.uxOutputGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Unified UX Provider；没有生成恢复草稿。");
+      const skillDocuments = (await Promise.all([
+        readTaskCopilotSkill("task-copilot-core"),
+        readTaskCopilotSkill("recover-context"),
+      ]));
+      const coreSkill = skillDocuments[0];
+      const recoverySkill = skillDocuments[1];
+      if (!coreSkill || !recoverySkill) throw serviceError("UX_CONTEXT_SKILL_UNAVAILABLE", "Project context recovery 内置 Skill 不可用。");
+      const contextPackage = buildContextPackage({
+        getObject: (objectId) => store.getObject(objectId),
+        listObjects: () => store.listObjects(),
+        listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
+        listAssociations: () => store.listAssociations(),
+        getActivePrimaryAnchorByObject: (objectId) => store.getActivePrimaryAnchorByObject(objectId),
+        databaseSchemaVersion: () => store.doctor().schemaVersion,
+      }, [coreSkill, recoverySkill], { kind: "project", id: project.objectId }, new Date());
+      const contextFingerprint = contextPackageFingerprint(contextPackage);
+      const objects = store.listObjects();
+      const proposals = await proposalApplication.list();
+      const proposalTargets = new Map(proposals.map((record) => {
+        const objectIds = new Set<string>();
+        for (const target of record.proposal.scope.modify) if (target.kind === "OBJECT") objectIds.add(target.id);
+        for (const group of record.proposal.groups) {
+          for (const operation of group.semanticOperations) {
+            if (operation.target.kind === "OBJECT") objectIds.add(operation.target.id);
+          }
+        }
+        return [record.proposal.proposalId, [...objectIds].sort()] as const;
+      }));
+      const commits: V2ReentryCommitFact[] = store.listSemanticCommits().map((commit) => ({
+        semanticCommitId: commit.semanticCommitId,
+        status: commit.status,
+        objectIds: commit.proposalId ? proposalTargets.get(commit.proposalId) ?? [] : [],
+        updatedAt: commit.updatedAt,
+      }));
+      const generation = buildProjectContextRecoveryGeneration({
+        observedAt: contextPackage.manifest.generatedAt,
+        project,
+        objects,
+        ownerships: store.listPrimaryOwnerships(),
+        associations: store.listAssociations(),
+        focus: store.listFocusSelections(),
+        anchors: objects.map(({ objectId }) => store.getActivePrimaryAnchorByObject(objectId)).filter((anchor): anchor is V2Anchor => anchor !== undefined),
+        commits,
+        contextPackage,
+        contextFingerprint,
+        coreSkill,
+        recoverySkill,
+      });
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        const generated = await options.uxOutputGenerator.generate({
+          ...generation.request,
+          signal: controller.signal,
+        });
+        const latest = store.getObject(project.objectId);
+        if (!latest || latest.version !== input.expectedVersion) {
+          throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 在恢复草稿生成期间已变化；草稿已丢弃。");
+        }
+        respond(response, 200, { ...generated, contextFingerprint });
+      } finally {
+        request.removeListener("aborted", abort);
+      }
       return;
     }
     if (request.method === "POST" && url.pathname === "/migration/scan") {

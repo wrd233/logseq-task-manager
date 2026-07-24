@@ -72,8 +72,12 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P1-G 已建立 Provider-neutral unified UX output 深模块与 `recover-context@1.0.0`：
   模型只能引用机器 fact/action/evidence ID；正式事实文本、动作目标、scope hash、时间和
   Skill/Prompt/Provider/model provenance 由机器物化，模型不能降低 risk/review；
-  `DRAFT_PROPOSAL` 建议没有正式 operation/write authority，当前不持久化、不接用户 UI。
-  Application 120/120、Local Service 94/94 与 Skill 格式/Hash/Service catalog 自动 Gate 通过；
+  `DRAFT_PROPOSAL` 建议没有正式 operation/write authority。Local Service 已新增只接受
+  `objectId + expectedVersion` 的 Project context-recovery 路由：事实、关系、Focus、Anchor、
+  Commit、Context Package 和可打开动作均由服务端权威构造，客户端不能注入 fact/prompt/
+  action；Provider 期间版本变化会丢弃草稿，全程不持久化。Application 122/122、Local
+  Service 100/100、Service Client 12/12 与 Skill 格式/Hash/catalog 自动 Gate 通过；Plugin
+  用户界面和真实 Provider 语义 Gate 仍开放；
 - P1-H 已建立 session-only、bounded、strict-allowlist 的 Interaction Evidence：只记录
   scene/outcome、对象类型、规则/Signal/Skill/Prompt/model 版本、结构计数、用户处置、固定
   failure code 与时长；未知字段、正文、summary、对象/Block 身份、Prompt 和模型原始输出

@@ -98,6 +98,53 @@ export interface ServiceContextExportResult {
   fingerprint: string;
 }
 
+export interface ServiceUnifiedUxOutput {
+  schemaVersion: "task-copilot-ux-output-v1";
+  summary: string;
+  facts: Array<{ text: string; sourceRefs: string[] }>;
+  inferences: Array<{ text: string; evidenceRefs: string[] }>;
+  unknowns: string[];
+  suggestedChanges: Array<{
+    kind: "DRAFT_PROPOSAL";
+    summary: string;
+    evidenceRefs: string[];
+    riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
+  }>;
+  nextActionEligible: boolean;
+  nextAction?: {
+    intent: "OPEN_SOURCE" | "OPEN_REVIEW" | "ASK_USER";
+    label: string;
+    targetRef: string;
+  };
+  riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
+  requiresDiscussion: boolean;
+  requiresReview: boolean;
+  evidenceScope: { refs: string[]; observedAt: string; scopeHash: string };
+  provenance: {
+    kind: "LLM_DRAFT";
+    contractVersion: string;
+    promptVersion: string;
+    skillName: string;
+    skillVersion: string;
+    providerId: string;
+    providerVersion: string;
+    model: string;
+    generatedAt: string;
+  };
+}
+
+export interface ServiceProjectContextRecoveryRequest {
+  objectId: string;
+  expectedVersion: number;
+}
+
+export interface ServiceProjectContextRecoveryResult {
+  output: ServiceUnifiedUxOutput;
+  provider: ServiceProviderCompletionMetadata;
+  promptBundleVersion: string;
+  contextFingerprint: string;
+}
+
 export type ServiceGraphReadQuery =
   | { kind: "PAGE"; target: string; depth: number }
   | { kind: "BLOCK"; target: string; includeChildren: boolean; parents: number }
@@ -776,6 +823,14 @@ export class LocalServiceClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ scope, id }),
     }, scope === "block" || scope === "page" ? 12_000 : undefined);
+  }
+
+  recoverProjectContext(input: ServiceProjectContextRecoveryRequest): Promise<ServiceProjectContextRecoveryResult> {
+    return this.request<ServiceProjectContextRecoveryResult>("/provider/ux/project-context-recovery", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 125_000);
   }
 
   readGraph(query: ServiceGraphReadQuery): Promise<ServiceGraphSnapshot> {

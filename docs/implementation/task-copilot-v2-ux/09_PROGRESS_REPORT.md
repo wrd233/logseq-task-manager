@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract/recover-context Skill、P1-H session evidence contract automated PASS；Attention 未展示、Desktop、处置/噪声 dashboard 与 UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract + server-owned Project recovery route、P1-H session evidence contract automated PASS；Attention 未展示、LLM Plugin consumer/Desktop、处置/噪声 dashboard 与 UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -225,10 +225,13 @@ discussion/review/provenance。模型不提交 fact 文本或动作 target，只
 模型提供的 provenance 被实际 Provider metadata、Prompt bundle hash、Skill version 和时间替换。
 
 Local Service 新增无 persistence port 的 `LocalLlmUxOutputGenerator`，继续复用现有结构化
-Provider transport，但结果不会直接进入 Domain 或 UI。`recover-context@1.0.0` 已进入同一
-只读 Skill catalog 和 Context Package，固定逐层读到够用即停、信息不足明确承认、下一动作
-默认不生成。UX-G009 因此关闭为“不持久化派生 UX 草稿；正式修改仍进入 Proposal”，但真实
-Provider 语义质量、Plugin consumer 和 Desktop 仍开放。
+Provider transport。Project context-recovery 已形成第一个生产 Service 路由：客户端请求只含
+`objectId + expectedVersion`，SQLite Object/Ownership/Association/Focus/Anchor/Commit、
+Context Package、内置 `task-copilot-core`/`recover-context` 与只读动作白名单都由服务端构造；
+stale、错误类型和额外客户端字段在 Provider 前拒绝，生成后再次重验版本，结果不进入 Domain、
+Proposal 或持久化。`recover-context@1.0.0` 固定逐层读到够用即停、信息不足明确承认、下一
+动作默认不生成。UX-G009 因此关闭为“不持久化派生 UX 草稿；正式修改仍进入 Proposal”，但
+真实 Provider 语义质量、Plugin consumer 和 Desktop 仍开放。
 
 ### P1-H privacy-bounded interaction evidence
 
@@ -303,6 +306,9 @@ generated/rejected/error、rated、helpful、noise 与 do-not-repeat，并给出
 - P1-H Local Service process output：focused 1/1、Local Service 98/98、0 skipped，
   typecheck/build PASS；
 - P1-H version/noise summary：focused 2/2、Application 122/122、0 skipped，typecheck PASS；
+- P1-G Project recovery Service route：Local Service 100/100、Service Client 12/12，
+  typecheck PASS；成功、信息不足、只读动作、stale-before-provider、错误类型、额外字段、
+  Provider disabled 和零正式写入均覆盖；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -315,10 +321,12 @@ generated/rejected/error、rated、helpful、noise 与 do-not-repeat，并给出
 
 ## 下一步
 
-1. 把 P1-H 用户 disposition 接到统一 UX output 的可撤回 session 入口，并在 Desktop 中
+1. 把 P1-G Project recovery 草稿接入既有 Project 重入卡；必须保留确定性投影为基线，
+   明确 loading/error/stale，机器动作只能解析到现有只读 route；
+2. 把 P1-H 用户 disposition 接到统一 UX output 的可撤回 session 入口，并在 Desktop 中
    验证噪声指标是否足够有用，再决定是否需要跨会话 derivative；
-2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-3. 完成 P1-F Project workspace/Page Head 与 P1-D
+3. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
+4. 完成 P1-F Project workspace/Page Head 与 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-4. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
+5. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

@@ -13,6 +13,7 @@ import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
 import { LocalLlmProposalGenerator, type StructuredProposalProvider, type V2PromptBundle } from "../src/llm-proposal.ts";
+import { LocalLlmUxOutputGenerator } from "../src/llm-ux-output.ts";
 
 function clientFor(service: { url: string; token: string }): LocalServiceClient {
   const descriptor: ServiceDescriptor = {
@@ -218,6 +219,143 @@ test("Local Service exports a read-only Project Context Package without Graph sc
   assert.equal(JSON.parse(result.contextPackage.files["versions.json"] ?? "").databaseSchemaVersion, V2_DATABASE_SCHEMA_VERSION);
   assert.deepEqual(await client.status(), before, "Context export does not mutate formal state");
   await assert.rejects(() => client.exportContext("object", "missing"), /Context 根对象不存在/);
+});
+
+test("Project context recovery uses server-owned facts and a read-only action without formal writes", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-context-recovery-"));
+  let providerCalls = 0;
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async ({ system, user }) => {
+      providerCalls += 1;
+      assert.match(system, /recover-context/);
+      assert.match(system, /never write formal Graph or SQLite state directly/i);
+      assert.match(user, /READ_ONLY_DERIVATIVE/);
+      assert.match(user, /project-reentry-insufficient/);
+      return {
+        value: {
+          schemaVersion: "task-copilot-ux-output-v1",
+          factRefs: ["project-recovery-summary"],
+          inferences: [],
+          unknowns: ["尚未形成有证据支撑的 Project 当前边界或进入点"],
+          summary: "项目入口证据不足，应先回到项目原文补齐当前边界。",
+          suggestedChanges: [],
+          nextActionEligible: true,
+          nextActionId: "project-primary-action",
+          riskLevel: "NONE",
+          requiresDiscussion: false,
+          requiresReview: false,
+        },
+        metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
+      };
+    },
+  };
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-context-recovery",
+    token: "context-recovery-token-at-least-24-chars",
+    proposalGenerator: new LocalLlmProposalGenerator(provider),
+    uxOutputGenerator: new LocalLlmUxOutputGenerator(provider),
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const prepared = await client.prepareProject({ name: "发布治理", traceId: "context-recovery-prepare" });
+  const finalized = await client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "发布治理",
+    pageExternalId: "page-context-recovery",
+    pageContentHash: checksum(""),
+    traceId: "context-recovery-finalize",
+  });
+  const before = await client.status();
+
+  const result = await client.recoverProjectContext({
+    objectId: finalized.object.objectId,
+    expectedVersion: finalized.object.version,
+  });
+
+  assert.equal(result.output.summary, "项目入口证据不足，应先回到项目原文补齐当前边界。");
+  assert.deepEqual(result.output.facts, [{
+    text: `最近一次正式变化：${finalized.object.updatedAt}`,
+    sourceRefs: [`object:${finalized.object.objectId}@v${finalized.object.version}`],
+  }]);
+  assert.deepEqual(result.output.nextAction, {
+    intent: "OPEN_SOURCE",
+    label: "打开项目原文",
+    targetRef: `anchor:${finalized.anchor.anchorId}`,
+  });
+  assert.equal(result.output.provenance.skillName, "recover-context");
+  assert.match(result.contextFingerprint, /^[0-9a-f]{64}$/);
+  assert.deepEqual(await client.status(), before, "Context recovery does not mutate formal state");
+  assert.equal(providerCalls, 1);
+
+  await assert.rejects(
+    () => client.recoverProjectContext({ objectId: finalized.object.objectId, expectedVersion: finalized.object.version - 1 }),
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_VERSION_CONFLICT",
+  );
+  assert.equal(providerCalls, 1, "stale requests fail before Provider invocation");
+});
+
+test("Project context recovery fails closed for missing Provider, unsupported type, and client-owned fields", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-context-recovery-closed-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-context-recovery-closed",
+    token: "context-recovery-closed-token-24-chars",
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const project = await client.prepareProject({ name: "安全边界", traceId: "context-recovery-closed-prepare" });
+  const finalized = await client.finalizeProject({
+    semanticCommitId: project.semanticCommitId,
+    objectId: project.objectId,
+    name: "安全边界",
+    pageExternalId: "page-context-recovery-closed",
+    pageContentHash: checksum(""),
+    traceId: "context-recovery-closed-finalize",
+  });
+  await assert.rejects(
+    () => client.recoverProjectContext({ objectId: finalized.object.objectId, expectedVersion: finalized.object.version }),
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "LLM_PROVIDER_DISABLED",
+  );
+
+  const task = await client.materializeExplicitObject({
+    objectType: "TASK",
+    text: "不能走 Project 恢复入口",
+    externalId: "context-recovery-task",
+    inputVersion: "1",
+    contentHash: checksum("[任务] 不能走 Project 恢复入口"),
+    idempotencyKey: "context-recovery-task-unused",
+    traceId: "context-recovery-task",
+  });
+  const headers = {
+    authorization: `Bearer ${service.token}`,
+    "content-type": "application/json",
+  };
+  const crossType = await fetch(new URL("provider/ux/project-context-recovery", service.url), {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ objectId: task.object.objectId, expectedVersion: task.object.version }),
+  });
+  assert.equal(crossType.status, 400);
+  assert.equal((await crossType.json() as { error: { code: string } }).error.code, "UX_CONTEXT_PROJECT_REQUIRED");
+  const injected = await fetch(new URL("provider/ux/project-context-recovery", service.url), {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      objectId: finalized.object.objectId,
+      expectedVersion: finalized.object.version,
+      facts: [{ text: "client invented fact" }],
+    }),
+  });
+  assert.equal(injected.status, 400);
+  assert.equal((await injected.json() as { error: { code: string } }).error.code, "UX_CONTEXT_RECOVERY_REQUEST_INVALID");
 });
 
 test("Local Service relays bounded Logseq Graph reads and exports page Context without formal writes", async (t) => {
