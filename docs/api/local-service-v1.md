@@ -42,6 +42,8 @@
 | POST | `/proposals/submit` | 将 READY Proposal 提交至审阅队列 | Proposal + Group 单事务写入；不改正文/对象 |
 | POST | `/provider/proposals/generate` | 五层 Prompt → Structured Output → Validator → READY Proposal，或 `NO_PROPOSAL` 理由 | 仅校验成功的 Proposal + Group；不改 Graph/对象/Anchor/Lifecycle/Condition/Focus |
 | POST | `/provider/proposals/{id}/revise` | 对当前 local_llm Proposal 做同机器意图调整 | 原 proposal_id 原位修订并回到 READY；不改 Graph/对象/Anchor/Lifecycle/Condition/Focus |
+| POST | `/provider/ux/project-context-recovery` | 正式 Project Context → 统一恢复草稿 | 无；只返回受 Validator 约束的 session draft |
+| POST | `/provider/grill/mini-project/turn` | OPEN MiniProject 精确 Primary Anchor 子树 → 一轮自适应 Grill draft | 无；前后重验 Object/Anchor/subtree，永不生成 Proposal 或正式写入 |
 | GET | `/proposals` | 按创建顺序列出已提交 Proposal | 无 |
 | GET | `/proposals/{id}` | 读取单个 Proposal、两文件和 `updatedAt` | 无 |
 | POST | `/proposals/{id}/review` | 按语义组接受/拒绝/暂缓 | Proposal + Group 单事务写入；不改正文/对象 |
@@ -99,6 +101,14 @@ Provider 默认关闭；runner 只有在 `TASK_COPILOT_LLM_PROVIDER=deepseek` �
 Plugin Review Center 的“分析当前块”只发送当前选中 Block 的有界正文、UUID/hash 与五层 Prompt。Service 发放 proposal_id 并覆盖模型返回的 source/status/createdAt；text patch hash 由机器计算，Domain Validator 再检查 scope、group dependency、risk 和最终对象正文。普通记录允许返回有界 `NO_PROPOSAL` 理由且零持久化；非法、空、截断、超时、取消、认证、限流和网络响应都不能创建 Proposal 或正式写入。
 
 Review Center 的“调整建议”只适用于当前 `local_llm` 正式化 Proposal。Client 必须提交精确 `expectedUpdatedAt` 与有界五层 revision Prompt；Service 先重读当前唯一机器表示并阻止未完成 Commit，再要求模型输出完整 READY Proposal。Validator 通过后，Service 仍强制 proposal_id、createdAt、Block scope、group/risk/dependency、Patch target 和 operation identity 与原 Proposal 相同，随后复用现有 same-machine-intent 原位修订。`NO_PROPOSAL`、版本过期、target/scope 漂移或非法输出都保留原 Proposal，不产生第二表示或正式写入。
+
+MiniProject Grill route 只接受 `{ objectId, expectedVersion, answers }`；`answers` 最多四项，
+每项只能引用机器定义的 material-specific uncertainty。Service 通过已连接的 Logseq bridge
+读取 exact active Primary Anchor Block subtree，组合 SQLite Context Package，并在 Provider
+前后重验 Object version、Anchor identity 与新的 subtree `scopeHash`。输出固定为
+`task-copilot-grill-turn-v1 / SESSION_DRAFT_ONLY`；client 不能上传 facts、readiness、scope、
+question、Proposal 或 operation。用户回答是瞬态 session material，不写 Graph/SQLite；
+结构预览及正式变化必须另行进入既有 Proposal Review/Commit/Undo/Recovery 链。
 
 `GET /now-work` 的 `conditionOptions` 仅包含当前 OPEN 对象的 `objectId / objectType / text`，供插件以可读选择器设置可选 `BLOCKED.blockerObjectId`；它不是第二份对象状态。Application 拒绝不存在、已关闭或自引用的阻碍对象。若 Focus A 的 `blockerObjectId` 指向 B，则可行动 B 会以“阻碍当前关注”进入可解释排序；安静的 Waiting B 也会被唤醒进入“等待与复查”。
 

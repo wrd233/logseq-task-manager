@@ -23,7 +23,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_CONTRACT | P2-A 自适应 Grill Turn session contract 自动通过；尚无 Service/Provider、多轮 UI、结构预览或 Desktop 验证，不得视为 P2-A 完成 |
+| P2 | IN_PROGRESS_LIVE_PROVIDER | P2-A contract + Local Service 两轮 route 自动 PASS，真实 DeepSeek 两轮 Provider/Validator PASS；Graph bridge live route、Plugin UI、结构预览/Proposal/Commit 与 Desktop 仍开放 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -368,6 +368,14 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 - P2-A Grill Turn contract：focused 4/4、Application typecheck PASS；机器选择最大开放
   uncertainty/readiness，事实/推断/未知与 evidence scope 分离，越界/提前结束/额外字段
   fail closed；仅 session draft，无 Proposal/operation/正式写入；Service/Provider/UI/Desktop OPEN；
+- P2-A MiniProject Grill Service：`mini-project-modeling@1.0.0`、精确 Primary Anchor Block
+  子树、正式 Context Package、两轮 answer→focus、Provider 前后 Object/Anchor/scopeHash 重验、
+  source stale 丢弃与 client field fail-closed 自动 PASS；Local Service 108/108、Service Client
+  12/12，正式状态前后相同。真实 DeepSeek、Plugin UI、Structure Preview/Proposal/Desktop OPEN；
+- P2-A 真实 Provider：既有 Keychain reference + `deepseek-v4-flash` 两轮 PASS；第一轮
+  boundary、第二轮 outcome，facts/inferences/unknowns 与 recommendation/tradeoff 均通过严格
+  Validator，仍为 `SESSION_DRAFT_ONLY`。更新后完整 Service route 因当前 Logseq bridge 未连接
+  返回 `GRAPH_READ_BRIDGE_UNAVAILABLE`，未写 Graph/SQLite，故 Desktop/完整 live route 仍 OPEN；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -378,8 +386,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 将 P2-A 契约接入有限子树 Context Package、Service/Provider 与一次真实多轮 session，
-   保持输出仅为 session draft，完成结构预览后才进入既有 Proposal Review；
+1. 接入 Plugin 多轮 Grill UI 与 session answer state，恢复 Graph read bridge 后复跑完整
+   Service→DeepSeek 两轮 Gate；保持输出仅为 session draft，完成结构预览后才进入既有 Proposal Review；
 2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

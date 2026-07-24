@@ -17,6 +17,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
+    { name: "mini-project-modeling", version: "1.0.0" },
   ]);
   assert.equal(first.every(({ sha256 }) => /^[0-9a-f]{64}$/.test(sha256)), true);
 
@@ -33,6 +34,10 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   assert.match(recovery?.content ?? "", /factRefs/);
   assert.match(recovery?.content ?? "", /nextActionEligible.*false/is);
   assert.match(recovery?.content ?? "", /never write formal Graph or SQLite state directly/i);
+  const grill = await readTaskCopilotSkill("mini-project-modeling");
+  assert.match(grill?.content ?? "", /material, not a questionnaire/i);
+  assert.match(grill?.content ?? "", /task-copilot-grill-turn-v1/);
+  assert.match(grill?.content ?? "", /never a Proposal or a formal change/i);
   assert.equal(await readTaskCopilotSkill("../task-copilot-core"), undefined);
   assert.equal(await readTaskCopilotSkill("missing"), undefined);
 });

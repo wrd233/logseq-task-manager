@@ -4,6 +4,7 @@ import { V2SqliteStore } from "@task-copilot/persistence/node";
 import { loadStructuredProviderFromEnvironment } from "./provider-runtime.ts";
 import { LocalLlmProposalGenerator } from "./llm-proposal.ts";
 import { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
+import { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
 import { startOwnerMonitor } from "./owner-monitor.ts";
 import {
@@ -29,6 +30,7 @@ try {
   const providerOptions = provider ? {
     proposalGenerator: new LocalLlmProposalGenerator(provider),
     uxOutputGenerator: new LocalLlmUxOutputGenerator(provider, interactionEvidence),
+    grillTurnGenerator: new LocalLlmGrillTurnGenerator(provider),
     interactionEvidence,
   } : {};
   const service = await startLocalService({ ...serviceOptions, ...providerOptions });

@@ -14,6 +14,7 @@ import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
 import { LocalLlmProposalGenerator, type StructuredProposalProvider, type V2PromptBundle } from "../src/llm-proposal.ts";
 import { LocalLlmUxOutputGenerator } from "../src/llm-ux-output.ts";
+import { LocalLlmGrillTurnGenerator } from "../src/llm-grill-turn.ts";
 
 function clientFor(service: { url: string; token: string }): LocalServiceClient {
   const descriptor: ServiceDescriptor = {
@@ -192,6 +193,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
+    { name: "mini-project-modeling", version: "1.0.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
@@ -200,6 +202,9 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   const recovery = await client.getSkill("recover-context");
   assert.match(recovery?.content ?? "", /task-copilot-ux-output-v1/);
   assert.equal(recovery?.sha256, skills.find(({ name }) => name === "recover-context")?.sha256);
+  const grill = await client.getSkill("mini-project-modeling");
+  assert.match(grill?.content ?? "", /task-copilot-grill-turn-v1/);
+  assert.equal(grill?.sha256, skills.find(({ name }) => name === "mini-project-modeling")?.sha256);
   assert.equal(await client.getSkill("missing"), undefined);
   assert.equal((await client.status()).objectCount, 0, "Skill reads do not create formal state");
 });
@@ -380,6 +385,118 @@ test("Project context recovery fails closed for missing Provider, unsupported ty
   });
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "UX_CONTEXT_RECOVERY_REQUEST_INVALID");
+});
+
+test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-mini-grill-"));
+  let providerCalls = 0;
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      providerCalls += 1;
+      const focus = providerCalls === 2 ? "outcome" : "boundary";
+      return {
+        value: {
+          schemaVersion: "task-copilot-grill-turn-v1",
+          understanding: providerCalls === 1 ? "设备材料已存在，但边界尚未确认。" : "边界已封顶，预期成果仍待确认。",
+          factRefs: ["subject"],
+          inferences: [],
+          unknowns: [{ uncertaintyId: focus, text: focus === "boundary" ? "是否纳入后续新增设备仍未知。" : "最终要形成什么可用结果仍未知。" }],
+          readiness: "CONTINUE",
+          focusUncertaintyId: focus,
+          questions: [{ uncertaintyId: focus, text: focus === "boundary" ? "本次是否只覆盖当前清单？" : "完成后需要形成怎样的设备记录？" }],
+          recommendation: { text: "建议先解决当前最大不确定性。", evidenceRefs: ["object:mini-grill@v1"], tradeoffs: ["边界更清楚，但其他问题留到下一轮"] },
+        },
+        metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
+      };
+    },
+  };
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-mini-grill",
+    token: "mini-grill-token-at-least-24-chars",
+    grillTurnGenerator: new LocalLlmGrillTurnGenerator(provider),
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const created = await client.materializeExplicitObject({
+    objectType: "MINI_PROJECT",
+    text: "整理托管设备记录",
+    externalId: "block-mini-grill",
+    inputVersion: "1",
+    contentHash: checksum("[MiniProject] 整理托管设备记录"),
+    idempotencyKey: "mini-grill-create",
+    traceId: "mini-grill-create",
+  });
+  assert.equal(created.object.objectId.startsWith("obj_"), true);
+  const subjectRef = `object:${created.object.objectId}@v${created.object.version}`;
+  const originalProvider = provider.completeStructured;
+  provider.completeStructured = async (input) => {
+    const completion = await originalProvider(input);
+    const value = completion.value as Record<string, unknown>;
+    const recommendation = value.recommendation as Record<string, unknown>;
+    recommendation.evidenceRefs = [subjectRef];
+    return completion;
+  };
+  const resolved = { kind: "BLOCK" as const, id: "block-mini-grill" };
+  const blocks = [
+    { uuid: "block-mini-grill", content: "[MiniProject] 整理托管设备记录", contentHash: checksum("[MiniProject] 整理托管设备记录"), relation: "ROOT" as const, depth: 0 },
+    { uuid: "block-mini-loose", content: "厂家参数待归类", contentHash: checksum("厂家参数待归类"), relation: "CHILD" as const, depth: 1, parentUuid: "block-mini-grill" },
+  ];
+  const snapshot = {
+    kind: "BLOCK" as const,
+    requestedTarget: "block-mini-grill",
+    resolved,
+    blocks,
+    truncated: false,
+    readAt: "2026-07-24T14:00:00.000Z",
+    scopeHash: checksum({ kind: "BLOCK", resolved, blocks, truncated: false }),
+  };
+  const answerTwoReads = async (): Promise<void> => {
+    for (let index = 0; index < 2; index += 1) {
+      const pending = await client.claimGraphReadRequest();
+      assert.equal(pending?.kind, "BLOCK");
+      if (!pending) throw new Error("expected MiniProject Grill Graph read");
+      await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+    }
+  };
+  const before = await client.status();
+  const firstBridge = answerTwoReads();
+  const firstPromise = client.grillMiniProject({ objectId: created.object.objectId, expectedVersion: created.object.version, answers: [] });
+  const [, first] = await Promise.all([firstBridge, firstPromise]);
+  assert.equal(first.output.questionGroup?.focusUncertaintyId, "boundary");
+  assert.equal(first.output.authorityBoundary, "SESSION_DRAFT_ONLY");
+
+  const secondBridge = answerTwoReads();
+  const secondPromise = client.grillMiniProject({ objectId: created.object.objectId, expectedVersion: created.object.version, answers: [{ uncertaintyId: "boundary", text: "本次只覆盖当前设备清单。" }] });
+  const [, second] = await Promise.all([secondBridge, secondPromise]);
+  assert.equal(second.output.questionGroup?.focusUncertaintyId, "outcome");
+  assert.equal(providerCalls, 2);
+  assert.deepEqual(await client.status(), before, "Grill turns do not mutate formal state");
+
+  const changedBlocks = blocks.map((block) => block.uuid === "block-mini-loose" ? { ...block, content: "厂家参数已变化", contentHash: checksum("厂家参数已变化") } : block);
+  const changedSnapshot = { ...snapshot, blocks: changedBlocks, scopeHash: checksum({ kind: "BLOCK", resolved, blocks: changedBlocks, truncated: false }) };
+  const staleBridge = (async (): Promise<void> => {
+    const firstRead = await client.claimGraphReadRequest();
+    if (!firstRead) throw new Error("expected initial stale-check read");
+    await client.completeGraphReadRequest({ requestId: firstRead.requestId, status: "FOUND", snapshot });
+    const secondRead = await client.claimGraphReadRequest();
+    if (!secondRead) throw new Error("expected refreshed stale-check read");
+    await client.completeGraphReadRequest({ requestId: secondRead.requestId, status: "FOUND", snapshot: changedSnapshot });
+  })();
+  await assert.rejects(
+    () => client.grillMiniProject({ objectId: created.object.objectId, expectedVersion: created.object.version, answers: [] }),
+    (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "GRILL_SOURCE_STALE",
+  );
+  await staleBridge;
+  assert.equal(providerCalls, 3, "changed source is detected after generation and the draft is discarded");
+
+  await assert.rejects(
+    () => client.grillMiniProject({ objectId: created.object.objectId, expectedVersion: created.object.version, answers: [{ uncertaintyId: "title", text: "固定表单字段" }] }),
+    (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "GRILL_REQUEST_INVALID",
+  );
+  assert.equal(providerCalls, 3, "invalid client-owned uncertainty fails before Graph read and Provider");
 });
 
 test("Local Service relays bounded Logseq Graph reads and exports page Context without formal writes", async (t) => {

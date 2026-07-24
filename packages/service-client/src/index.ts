@@ -67,7 +67,7 @@ export interface ServiceBackupRestored {
 }
 
 export interface ServiceSkillSummary {
-  name: "task-copilot-core" | "design-project" | "recover-context";
+  name: "task-copilot-core" | "design-project" | "recover-context" | "mini-project-modeling";
   version: string;
   description: string;
   sha256: string;
@@ -144,6 +144,32 @@ export interface ServiceProjectContextRecoveryResult {
   promptBundleVersion: string;
   contextFingerprint: string;
   interactionId?: string;
+}
+
+export interface ServiceMiniProjectGrillRequest {
+  objectId: string;
+  expectedVersion: number;
+  answers: Array<{ uncertaintyId: string; text: string }>;
+}
+
+export interface ServiceGrillTurn {
+  schemaVersion: "task-copilot-grill-turn-v1";
+  understanding: string;
+  facts: Array<{ text: string; sourceRefs: string[] }>;
+  inferences: Array<{ text: string; evidenceRefs: string[] }>;
+  unknowns: Array<{ uncertaintyId: string; dimension: "OUTCOME" | "BOUNDARY" | "COMPLETION_EVIDENCE" | "UNCLASSIFIED_MATERIAL"; text: string }>;
+  readiness: "CONTINUE" | "READY_FOR_PREVIEW";
+  questionGroup?: { focusUncertaintyId: string; questions: Array<{ uncertaintyId: string; text: string }>; recommendation?: { text: string; evidenceRefs: string[]; tradeoffs: string[] } };
+  evidenceScope: { refs: string[]; scopeHash: string; observedAt: string };
+  authorityBoundary: "SESSION_DRAFT_ONLY";
+  provenance: { contractVersion: string; promptVersion: string; skillName: string; skillVersion: string; providerId: string; providerVersion: string; model: string; generatedAt: string };
+}
+
+export interface ServiceMiniProjectGrillResult {
+  output: ServiceGrillTurn;
+  provider: ServiceProviderCompletionMetadata;
+  promptBundleVersion: string;
+  contextFingerprint: string;
 }
 
 export type ServiceInteractionDisposition = "HELPFUL" | "NOT_NEEDED" | "INACCURATE" | "TOO_MUCH" | "DO_NOT_REPEAT";
@@ -839,6 +865,14 @@ export class LocalServiceClient {
 
   recoverProjectContext(input: ServiceProjectContextRecoveryRequest): Promise<ServiceProjectContextRecoveryResult> {
     return this.request<ServiceProjectContextRecoveryResult>("/provider/ux/project-context-recovery", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 125_000);
+  }
+
+  grillMiniProject(input: ServiceMiniProjectGrillRequest): Promise<ServiceMiniProjectGrillResult> {
+    return this.request<ServiceMiniProjectGrillResult>("/provider/grill/mini-project/turn", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

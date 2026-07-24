@@ -2,16 +2,25 @@
 
 ## P2-A：MiniProject Grill Me
 
-状态：`PARTIAL_CONTRACT_AUTOMATED`
+状态：`PARTIAL_LIVE_PROVIDER`
 
 已完成的有界部分：Application 已建立 session-only Grill Turn 契约。机器按当前材料中的
 critical、priority 与 evidence 选择最大开放不确定性，机器独占 readiness；四个维度和
 未分类材料未全部安全解决前不得进入结构预览。模型只能返回理解草稿、事实引用、推断、
 未知、最多三问和带取舍的建议，未知 ID、越界证据、固定字段外输出及提前结束均 fail closed。
 该契约没有 Proposal、operation 或正式对象写入能力，术语边界见根目录 `CONTEXT.md`。
+Local Service 已接入版本化 `mini-project-modeling@1.0.0`、精确 Primary Anchor 子树的
+Logseq read bridge、正式对象 Context Package、结构化 Provider、前后 Object/Anchor/子树
+stale 重验和两轮 answer→next-focus 自动闭环。回答只成为当前请求的 session fact；路由
+不写 SQLite/Graph，也不生成 Proposal。
 
-仍未完成：有限子树的正式 Context Package、Service/Provider prompt 与多轮会话编排、用户
-回答后的 authority 更新、最终阅读预览、Proposal Review、Commit/Undo 以及 Desktop 体验。
+真实 `deepseek-v4-flash` 已在 Keychain-only 配置下完成两轮 Provider→Validator Gate：第一轮
+聚焦 boundary，用户边界回答后第二轮转向 outcome，两轮均保留事实/推断/未知与带取舍建议。
+当前 Logseq read bridge 未连接，完整 Service live route 明确返回
+`GRAPH_READ_BRIDGE_UNAVAILABLE`，因此没有把 Provider 层 Gate 冒充 Desktop/Service live PASS。
+
+仍未完成：Plugin 多轮 UI/会话交互、Graph bridge 完整 live route、loading/error/reload、最终
+阅读预览、Proposal Review、Commit/Undo、交互证据接线以及 Desktop 体验。
 
 循环：
 

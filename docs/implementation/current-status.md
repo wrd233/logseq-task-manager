@@ -114,7 +114,7 @@ V2 v1.1 底座完成结论不变；当前继续按
 ## 当前 Slice
 
 V1 frozen / V2 E2E-01–24 complete / interaction optimization P1-G live-provider service+plugin partial /
-P1-H session disposition live-service pass and Desktop open / P2-A adaptive Grill Turn contract automated /
+P1-H session disposition live-service pass and Desktop open / P2-A adaptive MiniProject Grill live-provider pass /
 P1 and P2 remain in progress
 
 ## 当前阶段结论
