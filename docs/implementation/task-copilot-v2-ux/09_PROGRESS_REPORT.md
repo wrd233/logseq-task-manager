@@ -183,7 +183,12 @@ Application 已新增只读重入投影。Project 的恢复风险优先于业务
 只作为背景计数；只有 Focus 中、直属 Ownership、OPEN 且 active Primary Anchor 可定位的
 对象才成为最多三个进入点。初始化 Project 没有结构边界时明确显示“当前进入点不明确”。
 Task 不建立强制 current interface，只组合精确 Condition、带机器引用的父正文、Primary
-Owner 与 Anchor；信息不足时只打开原文。现有 Plugin 展开式 Project 页面尚未替换。
+Owner 与 Anchor；信息不足时只打开原文。
+
+Plugin 已把 Project workspace 切到该投影：一次 Primary Anchor 分页读取同时供 Attention
+shadow 与重入使用；每张卡只有一个结论、最多两个依据和最多三个可定位进入点。普通
+Association 不再展开为行动列表，完整 Objectives/Deliverables/对象树不再压过当前停留点。
+读取链任一部分失败会显示明确错误，不伪装成空项目。
 
 ## 当前阻塞
 
@@ -212,6 +217,7 @@ Owner 与 Anchor；信息不足时只打开原文。现有 Plugin 展开式 Proj
 - P1-B Plugin runtime tests + 全量：196/196、0 skipped，typecheck/build PASS；
 - P1-D 扩展后 Application tests：104/104、0 skipped，typecheck PASS；
 - P1-F 纯投影后 Application tests：112/112、0 skipped，typecheck PASS；
+- P1-F Plugin consumer 后 tests：200/200、0 skipped，typecheck/build PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -225,7 +231,7 @@ Owner 与 Anchor；信息不足时只打开原文。现有 Plugin 展开式 Proj
 ## 下一步
 
 1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 将 P1-F 重入投影接到现有 Project workspace 的只读 ViewModel，压缩当前展开式对象树；
-   同时让 P1-D 对照现有 System/Recent Changes 文案而不复制恢复状态机；
+2. 将同一 P1-F 投影接到 Project Page slot，并完成 Project workspace 的 Desktop 信息密度
+   对照；同时让 P1-D 对照现有 System/Recent Changes 文案而不复制恢复状态机；
 3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

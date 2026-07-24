@@ -11,6 +11,7 @@ import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelS
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
 import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
+import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -107,6 +108,8 @@ export interface UiModel {
   v2NowWork?: ServiceNowWork;
   v2NowWorkTypeFilter?: V2NowWorkTypeFilter;
   v2NowWorkGrouping?: V2NowWorkGrouping;
+  v2ProjectReentryCards?: PluginProjectReentryCard[];
+  v2ReentryLoadError?: string;
   v2CandidatePanel?: V2ExplicitCandidatePanelState;
   v2Candidates?: V2Candidate[];
   v2CandidateSourcePreviews?: Record<string, string>;
@@ -415,6 +418,41 @@ function renderReview(model: UiModel): string {
 }
 
 function renderReentry(model: UiModel): string {
+  if (model.v2ReentryLoadError) {
+    return `<section><h2>项目重入</h2><div class="error"><strong>重入上下文暂时不可用：</strong>${escapeHtml(model.v2ReentryLoadError)}<span>没有把读取失败显示成空项目，也没有生成猜测性进入点。</span></div></section>`;
+  }
+  if (model.v2ProjectReentryCards) {
+    if (!model.v2ProjectReentryCards.length) {
+      return empty("暂无 Project 可重入", "先创建 Project；这里会从同一正式投影恢复当前停留点。");
+    }
+    const cards = model.v2ProjectReentryCards.map((card) => {
+      const { project, projection } = card;
+      const evidence = projection.keyEvidence.length
+        ? `<p class="muted">${projection.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>`
+        : "";
+      const unknown = projection.unknowns.length
+        ? `<p class="muted">${escapeHtml(projection.unknowns.join("；"))}</p>`
+        : "";
+      const entryPoints = card.entryPointRoutes.length
+        ? `<section><h3>从这里继续</h3><div class="actions">${card.entryPointRoutes.map((route) => button(route.label, route.action, route.value, "quiet")).join("")}</div></section>`
+        : "";
+      const primary = card.primaryRoute
+        ? button(card.primaryRoute.label, card.primaryRoute.action, card.primaryRoute.value, projection.safetyState === "RECOVERY_REQUIRED" ? "danger" : "primary")
+        : "";
+      const shortcuts = projection.safetyState === "CLEAN" && project.lifecycle === "OPEN"
+        ? `${button("更新当前接口", "v2-project-structure-open", `${project.objectId}|${project.version}`, "quiet")}${!card.focused ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "quiet") : ""}`
+        : "";
+      return `<article class="card reentry" data-reentry-sufficiency="${projection.sufficiency}">
+        <div class="eyebrow">${projection.safetyState === "CLEAN" ? (projection.sufficiency === "SUFFICIENT" ? "当前停留点" : "需要恢复上下文") : "安全状态优先"} · ${escapeHtml(new Date(projection.lastFormalChangeAt).toLocaleString("zh-CN"))}</div>
+        <h2>${escapeHtml(projection.headline)}</h2>
+        <p class="lead">${escapeHtml(projection.summary)}</p>
+        ${evidence}${unknown}${entryPoints}
+        <div class="actions">${primary}${shortcuts}</div>
+        <details><summary>查看依据</summary><ul>${projection.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>${projection.relatedContextCount ? `<p class="muted">${projection.relatedContextCount} 个普通关联仅作为背景，未升级为进入点。</p>` : ""}</details>
+      </article>`;
+    }).join("");
+    return `<section><div class="eyebrow">同一正式投影 · 不保存第二摘要</div><h2>项目重入</h2><p class="muted">每个 Project 只显示一个当前结论、最多两个关键依据和最多三个可定位进入点；信息不足时直接打开原文。</p><div class="cards">${cards}</div></section>`;
+  }
   if (model.v2Objects) {
     const projects = model.v2Objects.filter((object) => object.objectType === "PROJECT");
     if (!projects.length) return empty("暂无 Project 可重入", "先在对象工作区创建 Project；这里会从同一 SQLite 投影恢复状态、关联和下一步。");

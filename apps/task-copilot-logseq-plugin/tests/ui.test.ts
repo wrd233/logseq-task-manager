@@ -5,6 +5,7 @@ import test from "node:test";
 import { checksum } from "@task-copilot/shared";
 
 import { renderApp, type UiModel } from "../src/ui.ts";
+import { projectPluginV2ProjectReentry } from "../src/reentry-runtime.ts";
 
 function model(): UiModel {
   return {
@@ -254,6 +255,64 @@ test("Project reentry is projected from V2 objects, ownership, associations, and
   assert.match(html, /相关对象[\s\S]*验收报告/);
   assert.match(html, /下一步：完成发布审计/);
   for (const action of ["v2-open-primary-anchor", "v2-condition-open", "v2-focus-add"]) assert.match(html, new RegExp(`data-action="${action}"`));
+});
+
+test("bounded Project reentry UI shows one conclusion and does not expand the full object tree", () => {
+  const value = model();
+  value.workspace = "reentry";
+  const project = {
+    objectId: "project-compact",
+    objectType: "PROJECT" as const,
+    version: 3,
+    lifecycle: "OPEN" as const,
+    condition: { kind: "ACTIONABLE" as const },
+    text: "设备托管",
+    projectStructure: {
+      objectives: [{ objectiveId: "objective-1", text: "完成设备托管方案", priority: "PRIMARY" as const, successEvidence: ["通过评审"] }],
+      deliverables: [{ deliverableId: "deliverable-1", text: "完整方案文档", acceptance: "可执行", status: "AVAILABLE" as const }],
+      workStages: [{ stageId: "stage-1", name: "资源测算", statusDescription: "等待参数" }],
+      currentSummary: "表格结构与业务字段已经完成。",
+      currentFocuses: ["等待厂家补充功耗参数"],
+      stageMappings: [],
+    },
+    createdAt: "2026-07-22T00:00:00.000Z",
+    updatedAt: "2026-07-24T09:00:00.000Z",
+    sourceOrCreationEvent: "test",
+  };
+  value.v2ProjectReentryCards = projectPluginV2ProjectReentry({
+    observedAt: "2026-07-24T12:00:00.000Z",
+    objects: [project],
+    ownerships: [],
+    associations: [],
+    anchors: [{
+      anchorId: "anchor-project",
+      objectId: "project-compact",
+      graphId: "graph-1",
+      externalId: "block-project",
+      role: "primary_text",
+      status: "active",
+      contentHash: "hash",
+      lastSeenAt: "2026-07-24T12:00:00.000Z",
+    }],
+    proposals: [],
+    commits: [],
+    nowWork: {
+      generatedAt: "2026-07-24T12:00:00.000Z",
+      focus: [],
+      next: [],
+      waitingReview: [],
+      conditionOptions: [],
+    },
+  });
+
+  const html = renderApp(value);
+  assert.match(html, /同一正式投影 · 不保存第二摘要/);
+  assert.match(html, /设备托管｜等待厂家补充功耗参数/);
+  assert.match(html, /表格结构与业务字段已经完成/);
+  assert.match(html, /data-action="v2-open-primary-anchor"/);
+  assert.doesNotMatch(html, /完整方案文档/);
+  assert.doesNotMatch(html, /<h3>Objectives<\/h3>/);
+  assert.doesNotMatch(html, /当前主归属对象/);
 });
 
 test("Project current interface is readable in reentry and editable only through a HIGH Proposal", () => {

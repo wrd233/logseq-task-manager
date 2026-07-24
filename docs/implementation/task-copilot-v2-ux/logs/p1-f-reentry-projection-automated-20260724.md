@@ -1,6 +1,6 @@
 # P1-F Project / Task Reentry Projection 自动证据（2026-07-24）
 
-结论：`PARTIAL_AUTOMATED_PASS / READ_ONLY_PROJECTION / PLUGIN_PAGE_SLOT_DESKTOP_OPEN`
+结论：`PARTIAL_UI_AUTOMATED_PASS / READ_ONLY_PROJECT_WORKSPACE / PAGE_SLOT_DESKTOP_OPEN`
 
 ## Project 契约
 
@@ -34,9 +34,21 @@
 - rule coverage：145；
 - acceptance rehearsal：PASS（恢复投影 differences 为空）。
 
+## Plugin consumer
+
+- `reentry-runtime.ts` 将 Service Proposal/Commit/Object/Focus/Ownership/Association/Anchor
+  结构化事实适配到 Application 投影；
+- Primary Anchor 分页只读结果由重入与 Attention shadow 共享，不按 Project 重复请求；
+- `RECOVERY_REQUIRED` 只路由既有 Audit，正文进入点只路由既有 Anchor open；
+- Project workspace 默认只显示一个结论、最多两个依据、最多三个进入点；
+- 完整 Objectives、Deliverables、阶段与对象树不再默认铺开；
+- 读取失败有显式错误，不显示伪空结果；
+- Plugin tests：200/200、0 skipped；
+- Plugin typecheck/build：PASS；
+- 根级 `./scripts/check.sh`：PASS（145 条稳定规则；恢复演练 differences 为空）。
+
 ## 尚未声明
 
-- 未替换现有 Plugin Project workspace；
 - 未接 Project Page slot 或 Task 原文/父 Block Desktop reader；
 - 未做 Light/Dark/窄栏/右侧栏/Zoom/Query/引用 Desktop Gate；
 - 未启用 LLM 上下文恢复。

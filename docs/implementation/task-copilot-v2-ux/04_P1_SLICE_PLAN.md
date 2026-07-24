@@ -232,8 +232,8 @@ source
 
 ## P1-F：Project/Task 重入
 
-状态：`PARTIAL_AUTOMATED` — Application 只读重入投影已完成，现有 Plugin 展开式 Project
-页面与 Page slot 尚未切换到该投影。
+状态：`PARTIAL_UI_AUTOMATED` — Application 只读重入投影已接入 Plugin Project workspace；
+Project Page slot 与 Desktop Gate 尚未完成。
 
 Project 顶部条只组合 schema v12、Condition、Focus、Anchor、最近 Audit 与未完成 Commit；不建立第二摘要权威。
 
@@ -260,7 +260,14 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
   ACTIONABLE 且没有正文上下文时只提供“打开原文”，不生成 current interface；
 - external Block identity 不进入投影，facts/inferences/unknowns/evidenceScope 分离；
 - duplicate identity、时间无效、Anchor/Object 不匹配与无机器引用的父正文 fail closed；
-- Application tests 112/112、0 skipped，typecheck 与根级 Gate PASS；Plugin consumer 仍待收口。
+- Plugin 一次分页读取 Primary Anchors，并同时供 Attention shadow 与重入投影使用，
+  没有为每个 Project 重复请求；
+- Project workspace 已改为一个结论、最多两个关键依据、最多三个可定位进入点；
+  完整 Objectives/Deliverables/对象树仅通过现有编辑/详情路径访问，不在重入卡片铺开；
+- Recovery route 只打开既有 Audit，Anchor route 只调用既有定位动作；
+- 任一 Object/Commit/Relation/Anchor 投影读取失败会显示显式错误，不伪装为空项目；
+- Application tests 112/112、Plugin tests 200/200、0 skipped，typecheck/build PASS；
+  根级 Gate PASS（145 条稳定规则、恢复演练 differences 为空）。
 
 ## P1-G：LLM 叙述与上下文恢复 Skill
 

@@ -81,6 +81,7 @@ import {
   type AttentionShadowCycleSummary,
   type DynamicNowShadowRuntimeSummary,
 } from "./attention-shadow-runtime.ts";
+import { projectPluginV2ProjectReentry, type PluginProjectReentryCard } from "./reentry-runtime.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -294,11 +295,14 @@ async function model(): Promise<UiModel> {
   let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
   let v2Associations: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listAssociations"]>> = [];
   let v2PrimaryOwnerships: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listPrimaryOwnerships"]>> = [];
+  let v2PrimaryAnchors: V2Anchor[] = [];
+  let v2ProjectReentryCards: PluginProjectReentryCard[] | undefined;
   let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
   let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
   let v2ProposalLoadError: string | undefined;
   let v2AuditLoadError: string | undefined;
   let v2RelationLoadError: string | undefined;
+  let v2ReentryLoadError: string | undefined;
   let v2MigrationLoadError: string | undefined;
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
     try {
@@ -325,20 +329,44 @@ async function model(): Promise<UiModel> {
       v2RelationLoadError = explain(error);
     }
     try {
+      v2PrimaryAnchors = await listAllPrimaryAnchors(serviceRuntimeClient);
+    } catch (error) {
+      v2ReentryLoadError = explain(error);
+    }
+    try {
       v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns();
     } catch (error) {
       v2MigrationLoadError = explain(error);
     }
-    if (currentGraphKey && v2NowWork && !v2ProposalLoadError && !v2AuditLoadError) {
+    if (currentGraphKey && v2NowWork && !v2ProposalLoadError && !v2AuditLoadError && !v2ReentryLoadError) {
       await refreshAttentionShadowRuntime({
-        client: serviceRuntimeClient,
         graphKey: currentGraphKey,
         objects: v2Objects,
         proposals: v2Proposals,
         commits: v2SemanticCommits,
+        anchors: v2PrimaryAnchors,
         activeFocusObjectIds: v2NowWork.focus.map((item) => item.objectId),
       });
     }
+    if (v2NowWork && !v2ProposalLoadError && !v2AuditLoadError && !v2RelationLoadError && !v2ReentryLoadError) {
+      try {
+        v2ProjectReentryCards = projectPluginV2ProjectReentry({
+          observedAt: v2NowWork.generatedAt,
+          objects: v2Objects,
+          ownerships: v2PrimaryOwnerships,
+          associations: v2Associations,
+          anchors: v2PrimaryAnchors,
+          proposals: v2Proposals,
+          commits: v2SemanticCommits,
+          nowWork: v2NowWork,
+        });
+      } catch (error) {
+        v2ReentryLoadError = explain(error);
+      }
+    }
+    if (!v2ReentryLoadError && v2ProposalLoadError) v2ReentryLoadError = v2ProposalLoadError;
+    if (!v2ReentryLoadError && v2AuditLoadError) v2ReentryLoadError = v2AuditLoadError;
+    if (!v2ReentryLoadError && v2RelationLoadError) v2ReentryLoadError = v2RelationLoadError;
   }
   const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
   toolbarFacts = {
@@ -402,6 +430,8 @@ async function model(): Promise<UiModel> {
     ...(v2NowWork ? { v2NowWork } : {}),
     v2NowWorkTypeFilter,
     v2NowWorkGrouping,
+    ...(v2ProjectReentryCards !== undefined ? { v2ProjectReentryCards } : {}),
+    ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
     ...(v2AuditLoadError ? { v2AuditLoadError } : {}),
     ...(recentActionCommitId ? { recentActionCommitId } : {}),
@@ -417,7 +447,7 @@ async function model(): Promise<UiModel> {
 
 }
 
-async function listAttentionShadowAnchors(client: ServiceRuntimeClient): Promise<V2Anchor[]> {
+async function listAllPrimaryAnchors(client: ServiceRuntimeClient): Promise<V2Anchor[]> {
   const anchors: V2Anchor[] = [];
   const visitedCursors = new Set<string>();
   let cursor: string | undefined;
@@ -425,23 +455,22 @@ async function listAttentionShadowAnchors(client: ServiceRuntimeClient): Promise
     const page = await client.listPrimaryAnchors(cursor, true);
     anchors.push(...page.anchors);
     cursor = page.nextCursor;
-    if (cursor && visitedCursors.has(cursor)) throw new Error("ATTENTION_SHADOW_ANCHOR_CURSOR_LOOP");
+    if (cursor && visitedCursors.has(cursor)) throw new Error("PRIMARY_ANCHOR_CURSOR_LOOP");
     if (cursor) visitedCursors.add(cursor);
   } while (cursor);
   return anchors;
 }
 
 async function refreshAttentionShadowRuntime(input: {
-  client: ServiceRuntimeClient;
   graphKey: string;
   objects: Awaited<ReturnType<ServiceRuntimeClient["listObjects"]>>;
   proposals: Awaited<ReturnType<ServiceRuntimeClient["listProposals"]>>;
   commits: Awaited<ReturnType<ServiceRuntimeClient["listSemanticCommits"]>>;
+  anchors: V2Anchor[];
   activeFocusObjectIds: string[];
 }): Promise<void> {
   try {
     const observedAt = new Date().toISOString();
-    const anchors = await listAttentionShadowAnchors(input.client);
     const summary = attentionShadowSession.run(
       buildAttentionDetectorSnapshot({
         observedAt,
@@ -450,7 +479,7 @@ async function refreshAttentionShadowRuntime(input: {
         objects: input.objects,
         proposals: input.proposals,
         commits: input.commits,
-        anchors,
+        anchors: input.anchors,
       }),
     );
     const dynamicNow = summarizeDynamicNowShadow({
