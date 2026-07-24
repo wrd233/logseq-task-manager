@@ -87,6 +87,23 @@ test("accepted-not-applied is derived from accepted groups and disappears after 
   assert.deepEqual(after, []);
 });
 
+test("a create Proposal without a formal object stays attached to its Proposal subject instead of inventing object identity", () => {
+  const [candidate] = detectDeterministicAttentionSignals(snapshot({
+    proposals: [{
+      proposalId: "proposal-create-1",
+      status: "ACCEPTED",
+      acceptedGroupCount: 1,
+      targetObjectIds: [],
+      updatedAt: "2026-07-24T07:30:00.000Z",
+    }],
+  }));
+
+  assert.equal(candidate?.signalType, "ACCEPTED_NOT_APPLIED");
+  assert.equal(candidate?.subjectRef, "proposal:proposal-create-1");
+  assert.equal(candidate?.objectId, undefined);
+  assert.equal(candidate?.mergeTarget, "proposal:proposal-create-1");
+});
+
 test("recovery and integrity facts outrank accepted work and can never be cooled down", () => {
   const candidates = detectDeterministicAttentionSignals(snapshot({
     proposals: [{
@@ -143,10 +160,12 @@ test("Graph mismatch is one system-level primary issue rather than one signal pe
   assert.deepEqual(candidates.map((candidate) => ({
     type: candidate.signalType,
     objectId: candidate.objectId,
+    subjectRef: candidate.subjectRef,
     policy: candidate.cooldown.policy,
   })), [{
     type: "GRAPH_MISMATCH",
-    objectId: "system-graph",
+    objectId: undefined,
+    subjectRef: "graph:test-graph",
     policy: "NEVER",
   }]);
 });

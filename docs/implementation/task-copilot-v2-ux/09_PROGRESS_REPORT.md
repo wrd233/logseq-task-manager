@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A model/repository + P1-B first deterministic detector/merge automated PASS；未展示、未接 runtime、UX-G008 OPEN |
+| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A/B model/detector/repository + Plugin session runtime automated PASS；未展示、UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -140,14 +140,17 @@ P0-J 自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 slash
 P0-K 与普通 Block 内容路由自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 main
 Page、right sidebar、Query/引用、来源移动/重命名/删除以及成功/失败/Undo 返回。
 
-P1-A 已在不开放前台的边界内启动：Attention Signal 纯派生字段、自动失效、证据变化解除
-cooldown、Recovery 不可冷却、有界容量/清理/遥测均已完成 Application 自动 Gate。当前没有
-runtime wiring、SQLite schema 或用户可见信号；跨 reload 存储位置仍按 UX-G008 保持开放。
+P1-A 已在不开放前台的边界内进入 Plugin session runtime：Attention Signal 纯派生字段、
+自动失效、证据变化解除 cooldown、Recovery 不可冷却、有界容量/清理/遥测均已完成。
+Plugin 只在 READY 且投影完整时读取 objects/proposals/commits/anchors；Graph switch 清空，
+没有 SQLite schema 或用户可见信号；跨 reload 存储位置仍按 UX-G008 保持开放。
 
 P1-B 第一波纯函数已覆盖 reviewAt/due、accepted-not-applied、Pending/Recovery、
 Anchor missing/conflict 与 Graph mismatch，并按数据安全 > 已确认未完成 > reviewAt > due
 合并为一对象一主问题。未来/closed/已应用事实自动不产出，Graph mismatch 不按对象放大；
-当前仍未接真实 runtime shadow。
+CREATE Proposal 与未挂对象 Commit 使用自身 subjectRef，避免把 Block UUID 或虚构 ID 当成
+正式 Object。Plugin adapter 不带正文，runtime cycle 的变化日志只含 raw/merged/cooled/
+active/invalidated 数量；失败不改变 UI 或正式写入可用性。
 
 ## 当前阻塞
 
@@ -172,8 +175,8 @@ Anchor missing/conflict 与 Graph mismatch，并按数据安全 > 已确认未�
 - P0-F 本地 commit：`53835b1`；
 - P0-G 本地 commit：`ff10b93`；
 - P0-A 普通 Block 路由 Plugin tests：191/191、0 skipped，typecheck/build PASS；
-- P1-A Application tests：75/75、0 skipped，typecheck PASS；
-- P1-B Application tests：81/81、0 skipped，typecheck/lint PASS；
+- P1-A/B Application tests：82/82、0 skipped，typecheck/lint PASS；
+- P1-B Plugin runtime tests + 全量：196/196、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -185,6 +188,6 @@ Anchor missing/conflict 与 Graph mismatch，并按数据安全 > 已确认未�
 ## 下一步
 
 1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 将 P1-B 第一波 detector 接入只读、session-only runtime shadow telemetry，不开放前台；
-3. 汇总 P0 剩余 Query/引用、Light/窄栏和 Service 生命周期到最少 Desktop Gate，再决定
-   P1 信号是否具备用户可见资格。
+2. 继续 P1-D 纯状态翻译契约与 P1-C “现在”编排，但在 P0 Desktop 总 Gate 前不开放信号；
+3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
+   derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

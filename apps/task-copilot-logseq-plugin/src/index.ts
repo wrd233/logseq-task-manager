@@ -1,6 +1,6 @@
 import "@logseq/libs";
 
-import type { V2Condition, V2MiniProjectClosure, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
+import type { V2Anchor, V2Condition, V2MiniProjectClosure, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
@@ -73,6 +73,12 @@ import { managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
 import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE_SYNTAX, type SlashCreateObjectType } from "./slash-create-command.ts";
 import { OriginRouteController, type OriginRouteToken } from "./origin-route-controller.ts";
 import { readSelectedBlockForAnalysis, SelectedBlockAnalysisTarget } from "./selected-block-analysis.ts";
+import {
+  AttentionShadowSession,
+  attentionShadowCurrentSignature,
+  buildAttentionDetectorSnapshot,
+  type AttentionShadowCycleSummary,
+} from "./attention-shadow-runtime.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -89,6 +95,8 @@ let latestError: string | undefined;
 let recentActionCommitId: string | undefined;
 let actionDialog: UiModel["actionDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
+const attentionShadowSession = new AttentionShadowSession();
+let lastAttentionShadowSummarySignature: string | undefined;
 const graphReadBridgeController = new GraphReadBridgeController({
   getPage: (target) => logseq.Editor.getPage(target as never),
   getPageBlocksTree: (target) => logseq.Editor.getPageBlocksTree(target as never),
@@ -319,6 +327,15 @@ async function model(): Promise<UiModel> {
     } catch (error) {
       v2MigrationLoadError = explain(error);
     }
+    if (currentGraphKey && !v2ProposalLoadError && !v2AuditLoadError) {
+      await refreshAttentionShadowRuntime({
+        client: serviceRuntimeClient,
+        graphKey: currentGraphKey,
+        objects: v2Objects,
+        proposals: v2Proposals,
+        commits: v2SemanticCommits,
+      });
+    }
   }
   const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
   toolbarFacts = {
@@ -395,6 +412,66 @@ async function model(): Promise<UiModel> {
         : {}),
   };
 
+}
+
+async function listAttentionShadowAnchors(client: ServiceRuntimeClient): Promise<V2Anchor[]> {
+  const anchors: V2Anchor[] = [];
+  const visitedCursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await client.listPrimaryAnchors(cursor, true);
+    anchors.push(...page.anchors);
+    cursor = page.nextCursor;
+    if (cursor && visitedCursors.has(cursor)) throw new Error("ATTENTION_SHADOW_ANCHOR_CURSOR_LOOP");
+    if (cursor) visitedCursors.add(cursor);
+  } while (cursor);
+  return anchors;
+}
+
+async function refreshAttentionShadowRuntime(input: {
+  client: ServiceRuntimeClient;
+  graphKey: string;
+  objects: Awaited<ReturnType<ServiceRuntimeClient["listObjects"]>>;
+  proposals: Awaited<ReturnType<ServiceRuntimeClient["listProposals"]>>;
+  commits: Awaited<ReturnType<ServiceRuntimeClient["listSemanticCommits"]>>;
+}): Promise<void> {
+  try {
+    const anchors = await listAttentionShadowAnchors(input.client);
+    const summary = attentionShadowSession.run(
+      buildAttentionDetectorSnapshot({
+        observedAt: new Date().toISOString(),
+        graphKey: input.graphKey,
+        graphBinding: "MATCH",
+        objects: input.objects,
+        proposals: input.proposals,
+        commits: input.commits,
+        anchors,
+      }),
+    );
+    logChangedAttentionShadowSummary(summary);
+  } catch (error) {
+    operationalLogger.log(
+      "warn",
+      "attention-shadow",
+      "attention_shadow_cycle_failed",
+      { result: "shadow_unchanged" },
+      error,
+    );
+  }
+}
+
+function logChangedAttentionShadowSummary(summary: AttentionShadowCycleSummary): void {
+  const signature = attentionShadowCurrentSignature(summary);
+  if (signature === lastAttentionShadowSummarySignature) return;
+  lastAttentionShadowSummarySignature = signature;
+  operationalLogger.log("info", "attention-shadow", "attention_shadow_cycle_changed", {
+    result: "session_only_no_formal_write",
+    signalRawCount: summary.rawCount,
+    signalMergedCount: summary.mergedCount,
+    signalCooledCount: summary.cooledCount,
+    signalActiveCount: summary.activeCount,
+    signalInvalidatedCount: summary.invalidatedCurrentCount,
+  });
 }
 
 async function refresh(): Promise<void> {
@@ -2368,6 +2445,8 @@ async function environmentInfo(): Promise<void> {
 async function handleCurrentGraphChanged(): Promise<void> {
   originRoute = undefined;
   v2ProviderTarget.clear();
+  attentionShadowSession.clear();
+  lastAttentionShadowSummarySignature = undefined;
   enterRestrictedServiceMode("GRAPH_SWITCH_IN_PROGRESS", "正在为新的 Graph 重新绑定本地运行环境；正式写入暂停。");
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
   featureReady = false;

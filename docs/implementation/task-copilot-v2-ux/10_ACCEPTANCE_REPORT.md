@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H/J/K/Desktop host Gate OPEN | 不得宣布 P0 完成 |
-| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A pure model + bounded session repository automated PASS | 无 runtime / 无用户可见 / 无 Desktop 声明 | 不得开放信号显示 |
+| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A/B pure model、detector、bounded repository 与 Plugin session runtime automated PASS | 无用户可见 / 无 Desktop telemetry 声明 | 不得开放信号显示 |
 | P2 | NOT_STARTED | — | — | — |
 | Final Release | NOT_STARTED | — | — | — |
 

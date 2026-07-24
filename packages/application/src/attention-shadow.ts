@@ -35,7 +35,7 @@ export interface AttentionSourceEventReference {
 }
 
 export interface AttentionEvidenceScope {
-  kind: "OBJECT" | "PROJECT" | "COMMIT" | "GRAPH";
+  kind: "OBJECT" | "PROJECT" | "PROPOSAL" | "COMMIT" | "GRAPH";
   refs: string[];
   scopeHash: string;
 }
@@ -49,7 +49,8 @@ export interface AttentionProvenance {
 
 export interface AttentionSignalCandidate {
   signalType: AttentionSignalType;
-  objectId: string;
+  subjectRef: string;
+  objectId?: string;
   evaluationKey: string;
   detectedAt: string;
   sourceFacts: AttentionFactReference[];
@@ -124,14 +125,15 @@ export function attentionSignalId(candidate: AttentionSignalCandidate): string {
   return `attention_${checksum(stableJson({
     evaluationKey: candidate.evaluationKey,
     mergeTarget: candidate.mergeTarget,
-    objectId: candidate.objectId,
+    subjectRef: candidate.subjectRef,
     signalType: candidate.signalType,
   })).slice(0, 24)}`;
 }
 
 function validateCandidate(candidate: AttentionSignalCandidate, evaluationKey: string): void {
   if (candidate.evaluationKey !== evaluationKey) throw new Error("Attention candidate evaluationKey does not match this reconciliation.");
-  requireIdentifier(candidate.objectId, "objectId");
+  requireReference(candidate.subjectRef, "subjectRef");
+  if (candidate.objectId) requireIdentifier(candidate.objectId, "objectId");
   requireReference(candidate.evaluationKey, "evaluationKey");
   requireReference(candidate.mergeTarget, "mergeTarget");
   requireTimestamp(candidate.detectedAt, "detectedAt");

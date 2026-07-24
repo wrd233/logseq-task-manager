@@ -64,7 +64,7 @@ PID 恢复且 SQLite 对象不丢。Desktop reload/结束/退出/Graph switch �
 | UX-G005 | descriptor 写入 private FileStorage 的产品通道 | real Desktop | DONE：本地文件读取后校验，只写固定私有 key；设置不含 token/path；reload 自动 READY |
 | UX-G006 | Logseq exit shutdown 时间窗口 | process + Desktop fault Gate | beforeunload 不等于可等待任意时长 |
 | UX-G007 | 多 Block SemanticCommit scope 是否足以原位重构 | application prototype | 不先扩 Schema/恢复器 |
-| UX-G008 | attention signal 持久化位置 | PARTIAL：Application bounded session cache 已证明字段/失效/容量/清理；下一步比较 SQLite derivative vs reload recompute | 不建第二正式权威；当前不改 schema、不接 runtime |
+| UX-G008 | attention signal 持久化位置 | PARTIAL_RUNTIME：Plugin 已接 bounded session cache、Graph switch clear 与 count-only telemetry；下一步用 reload/recompute Desktop 证据比较是否根本需要 SQLite derivative | 不建第二正式权威；当前不改 schema、不开放 UI |
 | UX-G009 | unified UX output 是否需要持久化 | LLM/Application contract spike | 不把 Provider 类型放进 Domain |
 
 ## 当前冲突

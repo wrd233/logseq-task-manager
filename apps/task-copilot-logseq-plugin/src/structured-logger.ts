@@ -1,7 +1,7 @@
 import { checksum } from "@task-copilot/shared";
 
 export type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
-export type LogCategory = "plugin-lifecycle" | "ui-action" | "capture" | "source-resolution" | "logseq-adapter" | "application-command" | "persistence" | "proposal" | "semantic-commit" | "query-refresh" | "runtime-shape";
+export type LogCategory = "plugin-lifecycle" | "ui-action" | "capture" | "source-resolution" | "logseq-adapter" | "application-command" | "persistence" | "proposal" | "semantic-commit" | "query-refresh" | "runtime-shape" | "attention-shadow";
 
 export interface StructuredLogEntry {
   timestamp: string;
@@ -30,6 +30,11 @@ export interface StructuredLogEntry {
   graphIdentity?: string;
   contentLength?: number;
   contentHash?: string;
+  signalRawCount?: number;
+  signalMergedCount?: number;
+  signalCooledCount?: number;
+  signalActiveCount?: number;
+  signalInvalidatedCount?: number;
 }
 
 export function createCorrelationId(now = new Date()): string {

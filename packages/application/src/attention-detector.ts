@@ -50,7 +50,8 @@ export interface AttentionDetectorSnapshot {
 }
 
 export interface AttentionPrimaryIssue {
-  objectId: string;
+  subjectRef: string;
+  objectId?: string;
   primary: AttentionSignalCandidate;
   suppressedSignalTypes: AttentionSignalType[];
 }
@@ -97,7 +98,7 @@ function combineCandidate(
   target: Map<string, AttentionSignalCandidate>,
   value: AttentionSignalCandidate,
 ): void {
-  const key = `${value.signalType}|${value.objectId}|${value.mergeTarget}`;
+  const key = `${value.signalType}|${value.subjectRef}|${value.mergeTarget}`;
   const existing = target.get(key);
   if (!existing) {
     target.set(key, value);
@@ -139,7 +140,7 @@ export function detectDeterministicAttentionSignals(
     const hash = factHash({ binding: snapshot.graph.binding, graphKey: snapshot.graph.graphKey });
     combineCandidate(result, candidate({
       signalType: "GRAPH_MISMATCH",
-      objectId: "system-graph",
+      subjectRef: sourceRef,
       evaluationKey: sourceRef,
       sourceFacts: [{ factCode: "GRAPH_BINDING_MISMATCH", sourceRef, observedAt: snapshot.observedAt, fingerprint: hash }],
       urgency: "CRITICAL",
@@ -169,6 +170,7 @@ export function detectDeterministicAttentionSignals(
       });
       combineCandidate(result, candidate({
         signalType: "REVIEW_DUE",
+        subjectRef: evaluationKey,
         objectId: object.objectId,
         evaluationKey,
         sourceFacts: [{
@@ -194,6 +196,7 @@ export function detectDeterministicAttentionSignals(
       });
       combineCandidate(result, candidate({
         signalType: "DUE",
+        subjectRef: evaluationKey,
         objectId: object.objectId,
         evaluationKey,
         sourceFacts: [{
@@ -224,9 +227,12 @@ export function detectDeterministicAttentionSignals(
       || proposal.acceptedGroupCount < 1
       || completedProposalIds.has(proposal.proposalId)
     ) continue;
-    for (const objectId of [...new Set(proposal.targetObjectIds)]) {
+    const objectIds: Array<string | undefined> = proposal.targetObjectIds.length
+      ? [...new Set(proposal.targetObjectIds)]
+      : [undefined];
+    for (const objectId of objectIds) {
       const sourceRef = `proposal:${proposal.proposalId}`;
-      const evaluationKey = objectRef(objectId);
+      const evaluationKey = objectId ? objectRef(objectId) : sourceRef;
       const hash = factHash({
         acceptedGroupCount: proposal.acceptedGroupCount,
         objectId,
@@ -236,7 +242,8 @@ export function detectDeterministicAttentionSignals(
       });
       combineCandidate(result, candidate({
         signalType: "ACCEPTED_NOT_APPLIED",
-        objectId,
+        subjectRef: evaluationKey,
+        ...(objectId ? { objectId } : {}),
         evaluationKey,
         sourceFacts: [{
           factCode: "PROPOSAL_ACCEPTED_NOT_APPLIED",
@@ -250,7 +257,7 @@ export function detectDeterministicAttentionSignals(
         mergeTarget: evaluationKey,
         cooldown: { policy: "ELIGIBLE" },
         provenance: { rule: { id: "proposal-accepted-not-applied", version: "1.0.0" } },
-        evidenceScope: { kind: "OBJECT", refs: [sourceRef, evaluationKey], scopeHash: hash },
+        evidenceScope: { kind: objectId ? "OBJECT" : "PROPOSAL", refs: [sourceRef, evaluationKey], scopeHash: hash },
       }, snapshot.observedAt));
     }
   }
@@ -260,9 +267,12 @@ export function detectDeterministicAttentionSignals(
     const signalType = commit.status === "RECOVERY_REQUIRED"
       ? "COMMIT_RECOVERY_REQUIRED"
       : "COMMIT_PENDING";
-    for (const objectId of [...new Set(commit.objectIds)]) {
+    const objectIds: Array<string | undefined> = commit.objectIds.length
+      ? [...new Set(commit.objectIds)]
+      : [undefined];
+    for (const objectId of objectIds) {
       const sourceRef = `commit:${commit.semanticCommitId}`;
-      const evaluationKey = objectRef(objectId);
+      const evaluationKey = objectId ? objectRef(objectId) : sourceRef;
       const hash = factHash({
         commitId: commit.semanticCommitId,
         objectId,
@@ -271,7 +281,8 @@ export function detectDeterministicAttentionSignals(
       });
       combineCandidate(result, candidate({
         signalType,
-        objectId,
+        subjectRef: evaluationKey,
+        ...(objectId ? { objectId } : {}),
         evaluationKey,
         sourceFacts: [{
           factCode: commit.status === "RECOVERY_REQUIRED" ? "SEMANTIC_COMMIT_RECOVERY_REQUIRED" : "SEMANTIC_COMMIT_PENDING",
@@ -302,6 +313,7 @@ export function detectDeterministicAttentionSignals(
     });
     combineCandidate(result, candidate({
       signalType: anchor.status === "conflict" ? "ANCHOR_CONFLICT" : "ANCHOR_MISSING",
+      subjectRef: evaluationKey,
       objectId: anchor.objectId,
       evaluationKey,
       sourceFacts: [{
@@ -321,7 +333,7 @@ export function detectDeterministicAttentionSignals(
   }
 
   return [...result.values()].sort((left, right) =>
-    left.objectId.localeCompare(right.objectId)
+    left.subjectRef.localeCompare(right.subjectRef)
     || PRIORITY[right.signalType] - PRIORITY[left.signalType]
     || left.signalType.localeCompare(right.signalType)
   );
@@ -349,24 +361,25 @@ export function mergeDeterministicAttentionSignals(
     }
     return true;
   });
-  const byObject = new Map<string, AttentionSignalCandidate[]>();
+  const bySubject = new Map<string, AttentionSignalCandidate[]>();
   for (const value of eligible) {
-    const values = byObject.get(value.objectId) ?? [];
+    const values = bySubject.get(value.mergeTarget) ?? [];
     values.push(value);
-    byObject.set(value.objectId, values);
+    bySubject.set(value.mergeTarget, values);
   }
-  const issues = [...byObject.entries()].map(([objectId, values]) => {
+  const issues = [...bySubject.entries()].map(([subjectRef, values]) => {
     const ordered = [...values].sort((left, right) =>
       PRIORITY[right.signalType] - PRIORITY[left.signalType]
       || left.signalType.localeCompare(right.signalType)
       || left.evidenceScope.scopeHash.localeCompare(right.evidenceScope.scopeHash)
     );
     return {
-      objectId,
+      subjectRef,
+      ...(ordered[0]?.objectId ? { objectId: ordered[0].objectId } : {}),
       primary: ordered[0]!,
       suppressedSignalTypes: ordered.slice(1).map((value) => value.signalType),
     };
-  }).sort((left, right) => left.objectId.localeCompare(right.objectId));
+  }).sort((left, right) => left.subjectRef.localeCompare(right.subjectRef));
   return {
     rawCount: candidates.length,
     mergedCount: issues.length,

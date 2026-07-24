@@ -6,13 +6,14 @@
 
 ## P1-A：Attention Signal 纯模型与影子存储
 
-状态：`PARTIAL_AUTOMATED` — 纯模型与有界 session shadow repository 已完成；没有接入 UI、
-正式 Domain 或 SQLite schema。UX-G008 的跨 reload 派生存储位置仍待 detector/cache spike。
+状态：`PARTIAL_RUNTIME_SHADOW` — 纯模型与有界 session shadow repository 已完成并接入
+Plugin 只读刷新链路；没有接入 UI、正式 Domain 或 SQLite schema。UX-G008 的跨 reload
+派生存储位置仍待 reload/recompute 证据。
 
 最小内部字段：
 
 - signal type；
-- object id；
+- subject ref；只有目标已是正式对象时才附带 object id；
 - source facts / source event；
 - first detected / last confirmed；
 - urgency / certainty / context relevance；
@@ -47,13 +48,17 @@
 - repository 容量 1..4096、默认 512；只淘汰已 invalidated 记录，绝不静默淘汰 active；
   支持显式 clear 与 active/invalidated/detected/confirmed/evidence-changed/pruned 遥测；
 - Application tests 75/75、0 skipped，typecheck PASS；
-- 当前只在测试中实例化，未进入 Plugin/Service runtime，因此不构成用户可见 P1 上线或
-  Desktop PASS。
+- Plugin READY 且 objects/proposals/commits/anchors 投影完整时运行 session-only cycle；
+  Graph 切换清空，单轮最多 512 candidates，Anchor 分页失败只记 bounded warning；
+- runtime telemetry 仅记录 raw/merged/cooled/active/invalidated 数量，数量未变化不重复记录；
+  不记录正文或 object/proposal/commit/anchor identity；
+- Application tests 82/82、Plugin tests 196/196，typecheck/build 与根级 Gate PASS；
+- 当前仍不构成用户可见 P1 上线或 Desktop PASS。
 
 ## P1-B：确定性 detector、合并与失效
 
-状态：`PARTIAL_AUTOMATED` — 第一波确定性 detector 与合并优先级已完成纯函数 Gate；尚未接
-runtime，blocker 变化、WAITING 过久、Project 静默与 LLM 跨对象仍未实现。
+状态：`PARTIAL_RUNTIME_SHADOW` — 第一波确定性 detector 与合并优先级已完成纯函数 Gate
+并接入 Plugin session shadow；blocker 变化、WAITING 过久、Project 静默与 LLM 跨对象仍未实现。
 
 开放顺序：
 
@@ -88,14 +93,19 @@ runtime，blocker 变化、WAITING 过久、Project 静默与 LLM 跨对象仍�
 - 已覆盖 reviewAt due、due、accepted-not-applied、PENDING、RECOVERY_REQUIRED、
   Anchor missing/conflict 与 Graph mismatch；
 - 非 OPEN 对象、未来 reviewAt/due 和已由 COMPLETED Commit 应用的 Proposal 不产生候选；
-- Graph mismatch 只生成一个 `system-graph` 问题，不按所有对象复制；
+- Graph mismatch 只生成一个 Graph subject 问题，不按所有对象复制；
 - 一对象一主问题优先级已锁定为 Graph/Recovery/Anchor/Pending 数据安全风险
   > accepted-not-applied > reviewAt > due；
 - 次要问题只进入本次 merge 的 suppressed metadata，不形成第二组可见卡片；
 - eligible cooldown 可抑制重复事实；scope checksum 变化经 repository 自动解除 cooldown；
   PENDING/RECOVERY/Anchor/Graph 风险使用 `NEVER` 且不允许冷却；
-- 输出继续强制 `SHADOW / NONE`，Application tests 81/81、0 skipped，typecheck/lint PASS；
-- 当前没有 runtime detector 调度或 UI，不能算影子运行数据与 Desktop PASS。
+- 输出继续强制 `SHADOW / NONE`；CREATE Proposal 与未挂对象 Commit 使用自身 `subjectRef`，
+  不把 Block UUID 或虚构 ID 当正式 Object；
+- Service 投影 adapter 不携带 Object/Proposal 正文，Plugin UI model refresh 已接入
+  session-only detector/reconcile/merge；失败不影响主 UI 或正式写入能力；
+- Application tests 82/82、Plugin tests 196/196、0 skipped，typecheck/build 与根级 Gate PASS；
+- 当前已有 runtime shadow 编排，但没有用户可见 UI 和真实 Desktop telemetry 读回，
+  因此不能算 P1-B 完成或 Desktop PASS。
 
 ## P1-C：“现在”动态编排
 

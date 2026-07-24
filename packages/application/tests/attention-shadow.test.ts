@@ -13,6 +13,7 @@ const at = "2026-07-24T03:00:00.000Z";
 function candidate(overrides: Partial<AttentionSignalCandidate> = {}): AttentionSignalCandidate {
   return {
     signalType: "REVIEW_DUE",
+    subjectRef: "object:task-1",
     objectId: "task-1",
     evaluationKey: "object:task-1",
     detectedAt: at,

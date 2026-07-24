@@ -11,14 +11,14 @@
 | UX-R07 | descriptor 投放仍需开发者步骤 | filesystem path 被 renderer 拒绝 | 无法取得正式写入 client | 固定私有 key 的文件导入、校验、错误脱敏和 reload 已 Desktop 通过；进程生命周期由 UX-R05/R06/R08 跟踪 | CONTROLLED |
 | UX-R08 | Logseq 退出窗口不足 | shutdown 未完成或迟到 | orphan process/PENDING | unload release + 15s lease expiry + Service owner-PID self-stop + ledger-first Recovery；crash 真实进程通过，Desktop quit 待验 | MITIGATED |
 | UX-R09 | 多 Graph 错配 | Graph switch 后复用旧 DB | 跨 Graph 正式写入 | path hash→显式 mapping；switch 先释放旧租约，unknown Graph fail closed；自动通过，Desktop switch 待验 | MITIGATED |
-| UX-R10 | attention signal 形成第二 Inbox | 信号长期堆积/需逐条归档 | 新认知负担 | P1-A session shadow 已实现派生、自动失效、容量、clear、cooldown/disposition 与 telemetry；runtime/persistence 未开放 | MITIGATED |
-| UX-R11 | LLM 提醒噪声 | 频繁弱建议/垃圾下一步 | 信任下降 | P1-B 第一波只用确定性 facts 并一对象一主问题；所有输出仍 SHADOW/NONE；LLM/eligibility 未开放 | MITIGATED |
+| UX-R10 | attention signal 形成第二 Inbox | 信号长期堆积/需逐条归档 | 新认知负担 | P1-A Plugin session shadow 已实现派生、自动失效、512 容量、Graph switch clear、cooldown/disposition 与 count-only telemetry；UI/SQLite 未开放 | MITIGATED |
+| UX-R11 | LLM 提醒噪声 | 频繁弱建议/垃圾下一步 | 信任下降 | P1-B runtime 第一波只用确定性 facts 并一 subject 一主问题；所有输出仍 SHADOW/NONE；LLM/eligibility 未开放 | MITIGATED |
 | UX-R12 | 状态翻译隐藏关键信息 | 结论过度压缩 | 恢复风险不可见 | P0-I 已实现 Recovery/Pending/受限/Anchor/正文核对安全优先级；五问首屏，详情可展开 | MITIGATED |
 | UX-R13 | “现在”退化为所有 OPEN | 首页几十条 | 传统任务列表压力 | stable skeleton + explicit inclusion rules | OPEN |
 | UX-R14 | Project current interface 成为第二正文 | 每次编辑都要求更新 | 维护负担/事实冲突 | 正式 aggregate + 自动 facts + 关键变化才确认 | OPEN |
 | UX-R15 | Grill Me 固定问卷 | 每次都问同样字段 | 用户绕开 Project | evidence-first、自适应、stop conditions | OPEN |
 | UX-R16 | 原位重构丢失事实 | 预览与原子操作不完整 | 正文损坏 | zero-loss property test、待判断区、one Commit/Undo | OPEN |
-| UX-R17 | default logs 保存私人正文 | log/Diagnostics 出现 Block 原文 | 隐私泄漏 | 结构化元数据、显式授权样本、secret scan | OPEN |
+| UX-R17 | default logs 保存私人正文 | log/Diagnostics 出现 Block 原文 | 隐私泄漏 | P1 shadow adapter 删除 Object/Proposal 正文，变化日志只含 5 个数量；其余运行日志继续做全资产 secret/private-text Gate | MITIGATED |
 | UX-R18 | API Key 进入持久产物 | Key 出现在 Graph/Git/log | 严重凭据泄漏 | Keychain/env reference；全资产 scan | CONTROLLED |
 | UX-R19 | 现有用户 dirty 被覆盖 | package/research/Graph 变化丢失 | 用户工作损坏 | 不 reset/stash/format；精确 stage | CONTROLLED |
 | UX-R20 | Node 默认 v25 被误当支持 | build/service 用错运行时 | 假运行证据 | 所有 Gate 显式 Node20 PATH | CONTROLLED |
