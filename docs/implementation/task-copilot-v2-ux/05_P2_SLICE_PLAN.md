@@ -102,7 +102,7 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 
 ## P2-C：Project 创建 Grill Me
 
-状态：`NOT_STARTED`
+状态：`IN_PROGRESS_CONTRACT_AUTOMATED`
 
 所有入口：
 
@@ -113,6 +113,13 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 都经过至少一轮自适应 Grill Me。材料充分时只确认一个关键边界；材料不足时继续到 Project 是什么、最终形成什么、边界、内部闭环、当前接口和页面/对象关系稳定。
 
 最终仍复用既有 Project prepare → Page create/verify → finalize 原子链。
+
+首个 Application 合同已完成：Grill subject 使用 `PROJECT_CREATION`，创建前没有 Object ID；
+Blank 不得声称来源证据，Page/MiniProject 必须携带有界 source ref。机器 readiness 除成果、
+边界、完成证据和未分类材料外，还必须解决 Project 特有的 internal closure 与 current
+interface；模型仍只有 `SESSION_DRAFT_ONLY`。Application 140/140、typecheck PASS。Context
+Package、Skill/Prompt、Provider、最终预览、server-owned create Proposal、Review 和既有原子
+创建接线仍 OPEN。
 
 ## P2-D：Project 结构操作路由
 

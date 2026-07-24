@@ -88,7 +88,9 @@ export class LocalLlmGrillTurnGenerator {
       ...authority.unclassifiedMaterialRefs,
     ])].sort();
     const grillAuthority = {
-      subject: { kind: authority.subject.kind, version: authority.subject.version },
+      subject: authority.subject.kind === "PROJECT_CREATION"
+        ? { kind: authority.subject.kind, sourceKind: authority.subject.sourceKind, sourceRefCount: authority.subject.sourceRefs.length }
+        : { kind: authority.subject.kind, version: authority.subject.version },
       sourceFingerprint: authority.sourceFingerprint,
       facts: authority.facts.map(({ factId, sourceRefs }) => ({ factId, sourceRefs })),
       openUncertainties: openUncertainties.map(({ uncertaintyId, dimension, priority, critical, evidenceRefs }) => ({ uncertaintyId, dimension, priority, critical, evidenceRefs })),

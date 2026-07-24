@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE | P2-A turn/preview + P2-B server-owned HIGH Proposal/Review + dedicated Commit/inverse Undo/recovery 自动 PASS | 一个隔离 MiniProject 的真实 DeepSeek→Review→Commit→Recovery→Undo→reload→根 Block 完整链 PASS | P2-A/B 当前纵向 Slice DONE；P2-C～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE | P2-A turn/preview + P2-B server-owned HIGH Proposal/Review + dedicated Commit/inverse Undo/recovery 自动 PASS；P2-C creation-subject/readiness contract PASS | 一个隔离 MiniProject 的真实 DeepSeek→Review→Commit→Recovery→Undo→reload→根 Block 完整链 PASS | P2-A/B 当前纵向 Slice DONE；P2-C vertical route、P2-D～G OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -68,7 +68,9 @@
 - [x] MiniProject Grill Me 当前纵向 Slice 非模板化；真实 DeepSeek 四轮按 boundary/outcome/
   completion/material disposition 自适应收敛，Validator rejection 可安全重试，5/5 canonical
   材料进入最终阅读预览并完成正式链；跨场景质量继续纳入后续验收；
-- [ ] Project 所有创建入口经过自适应 Grill Me；
+- [ ] Project 所有创建入口经过自适应 Grill Me；Blank/Page/MiniProject creation subject、
+  source evidence 边界及 internal closure/current interface readiness 自动合同 PASS，
+  Provider/Proposal/正式创建/Desktop 尚未接线；
 - [x] 原位重构当前纵向 Slice 零丢失；原 UUID/正文守恒、0 delete、Undo 后父级与顺序恢复；
 - [x] 原位结构宿主能力有界通过；同一会话内 custom UUID、语义正文与 A/B/C 顺序经过
   move-first-child/restore-after-sibling 保持，Page runtime UUID 跨 reload 限制已明确转入 Rebind；

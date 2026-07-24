@@ -2,8 +2,14 @@ import { checksum, stableJson } from "@task-copilot/shared";
 
 export const GRILL_TURN_SCHEMA_VERSION = "task-copilot-grill-turn-v1" as const;
 
-export type GrillSubjectKind = "MINI_PROJECT" | "PROJECT";
-export type GrillUncertaintyDimension = "OUTCOME" | "BOUNDARY" | "COMPLETION_EVIDENCE" | "UNCLASSIFIED_MATERIAL";
+export type GrillSubjectKind = "MINI_PROJECT" | "PROJECT" | "PROJECT_CREATION";
+export type GrillUncertaintyDimension =
+  | "OUTCOME"
+  | "BOUNDARY"
+  | "COMPLETION_EVIDENCE"
+  | "UNCLASSIFIED_MATERIAL"
+  | "INTERNAL_CLOSURE"
+  | "CURRENT_INTERFACE";
 
 export interface GrillFactAuthority {
   factId: string;
@@ -26,7 +32,9 @@ export interface GrillTurnAuthority {
   promptVersion: string;
   skill: { name: string; version: string };
   provider: { providerId: string; providerVersion: string; model: string };
-  subject: { kind: GrillSubjectKind; objectId: string; version: number };
+  subject:
+    | { kind: "MINI_PROJECT" | "PROJECT"; objectId: string; version: number }
+    | { kind: "PROJECT_CREATION"; sourceKind: "BLANK" | "PAGE" | "MINI_PROJECT"; sourceRefs: string[] };
   sourceFingerprint: string;
   facts: GrillFactAuthority[];
   uncertainties: GrillUncertaintyAuthority[];
@@ -71,7 +79,9 @@ interface GrillTurnDraft {
   recommendation?: { text: string; evidenceRefs: string[]; tradeoffs: string[] };
 }
 
-const DIMENSIONS: GrillUncertaintyDimension[] = ["OUTCOME", "BOUNDARY", "COMPLETION_EVIDENCE", "UNCLASSIFIED_MATERIAL"];
+const BASE_DIMENSIONS: GrillUncertaintyDimension[] = ["OUTCOME", "BOUNDARY", "COMPLETION_EVIDENCE", "UNCLASSIFIED_MATERIAL"];
+const PROJECT_CREATION_DIMENSIONS: GrillUncertaintyDimension[] = [...BASE_DIMENSIONS, "INTERNAL_CLOSURE", "CURRENT_INTERFACE"];
+const DIMENSIONS: GrillUncertaintyDimension[] = [...PROJECT_CREATION_DIMENSIONS];
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
 const REF = /^[a-z][a-z0-9_-]{0,31}:[^\s]{1,223}$/u;
 
@@ -169,9 +179,16 @@ function validateAuthority(authority: GrillTurnAuthority): void {
   token(authority.provider.providerId, "authority.provider.providerId");
   token(authority.provider.providerVersion, "authority.provider.providerVersion");
   token(authority.provider.model, "authority.provider.model");
-  if (authority.subject.kind !== "MINI_PROJECT" && authority.subject.kind !== "PROJECT") throw new Error("Grill authority subject kind is invalid.");
-  token(authority.subject.objectId, "authority.subject.objectId");
-  if (!Number.isSafeInteger(authority.subject.version) || authority.subject.version < 1) throw new Error("Grill authority subject version is invalid.");
+  if (authority.subject.kind === "PROJECT_CREATION") {
+    if (!["BLANK", "PAGE", "MINI_PROJECT"].includes(authority.subject.sourceKind)) throw new Error("Grill authority creation source kind is invalid.");
+    const sourceRefs = refs(authority.subject.sourceRefs, "authority.subject.sourceRefs", 16);
+    if (authority.subject.sourceKind !== "BLANK" && sourceRefs.length < 1) throw new Error("Project creation source must retain bounded source evidence.");
+    if (authority.subject.sourceKind === "BLANK" && sourceRefs.length > 0) throw new Error("Blank Project creation cannot claim source evidence.");
+  } else {
+    if (authority.subject.kind !== "MINI_PROJECT" && authority.subject.kind !== "PROJECT") throw new Error("Grill authority subject kind is invalid.");
+    token(authority.subject.objectId, "authority.subject.objectId");
+    if (!Number.isSafeInteger(authority.subject.version) || authority.subject.version < 1) throw new Error("Grill authority subject version is invalid.");
+  }
   if (!/^[a-f0-9]{64}$/.test(authority.sourceFingerprint)) throw new Error("Grill authority sourceFingerprint is invalid.");
   if (authority.facts.length < 1 || authority.facts.length > 64 || authority.uncertainties.length < 4 || authority.uncertainties.length > 64) throw new Error("Grill authority bounds are invalid.");
   const factIds = new Set<string>();
@@ -190,7 +207,8 @@ function validateAuthority(authority: GrillTurnAuthority): void {
     if (!Number.isSafeInteger(uncertainty.priority) || uncertainty.priority < 0 || uncertainty.priority > 1_000) throw new Error("Grill authority uncertainty priority is invalid.");
     refs(uncertainty.evidenceRefs, "authority.uncertainty.evidenceRefs");
   }
-  for (const dimension of DIMENSIONS) {
+  const requiredDimensions = authority.subject.kind === "PROJECT_CREATION" ? PROJECT_CREATION_DIMENSIONS : BASE_DIMENSIONS;
+  for (const dimension of requiredDimensions) {
     if (!authority.uncertainties.some((uncertainty) => uncertainty.dimension === dimension)) throw new Error(`Grill authority is missing ${dimension}.`);
   }
   refs(authority.unclassifiedMaterialRefs, "authority.unclassifiedMaterialRefs", 64);
@@ -205,7 +223,8 @@ export function requiredGrillFocus(authority: GrillTurnAuthority): GrillUncertai
 
 export function grillReadiness(authority: GrillTurnAuthority): "CONTINUE" | "READY_FOR_PREVIEW" {
   validateAuthority(authority);
-  const everyDimensionResolved = DIMENSIONS.every((dimension) =>
+  const requiredDimensions = authority.subject.kind === "PROJECT_CREATION" ? PROJECT_CREATION_DIMENSIONS : BASE_DIMENSIONS;
+  const everyDimensionResolved = requiredDimensions.every((dimension) =>
     authority.uncertainties.some((uncertainty) => uncertainty.dimension === dimension && uncertainty.status === "RESOLVED"));
   return everyDimensionResolved && authority.uncertainties.every((uncertainty) => uncertainty.status === "RESOLVED") && authority.unclassifiedMaterialRefs.length === 0
     ? "READY_FOR_PREVIEW"

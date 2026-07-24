@@ -90,3 +90,54 @@ test("model provenance and scope are replaced by machine authority without expos
   assert.equal("proposal" in output, false);
   assert.equal("operations" in output, false);
 });
+
+test("Project creation Grill supports blank, Page, and MiniProject sources without inventing an Object identity", () => {
+  const projectAuthority: GrillTurnAuthority = {
+    observedAt: "2026-07-25T04:30:00.000Z",
+    contractVersion: "1.1.0",
+    promptVersion: "project-create-v1",
+    skill: { name: "project-creation-modeling", version: "1.0.0" },
+    provider: { providerId: "deepseek", providerVersion: "chat-v1", model: "deepseek-v4-flash" },
+    subject: { kind: "PROJECT_CREATION", sourceKind: "PAGE", sourceRefs: ["page:page-1"] },
+    sourceFingerprint: "b".repeat(64),
+    facts: [{ factId: "page-material", text: "当前页记录了跨季度交付和多个可独立收口的工作包。", sourceRefs: ["page:page-1"] }],
+    uncertainties: [
+      { uncertaintyId: "u-outcome", dimension: "OUTCOME", status: "RESOLVED", priority: 20, critical: true, evidenceRefs: ["page:page-1"] },
+      { uncertaintyId: "u-boundary", dimension: "BOUNDARY", status: "RESOLVED", priority: 10, critical: true, evidenceRefs: ["page:page-1"] },
+      { uncertaintyId: "u-completion", dimension: "COMPLETION_EVIDENCE", status: "RESOLVED", priority: 30, critical: true, evidenceRefs: ["page:page-1"] },
+      { uncertaintyId: "u-material", dimension: "UNCLASSIFIED_MATERIAL", status: "RESOLVED", priority: 40, critical: false, evidenceRefs: ["page:page-1"] },
+      { uncertaintyId: "u-closure", dimension: "INTERNAL_CLOSURE", status: "OPEN", priority: 5, critical: true, evidenceRefs: ["page:page-1"] },
+      { uncertaintyId: "u-interface", dimension: "CURRENT_INTERFACE", status: "OPEN", priority: 15, critical: true, evidenceRefs: ["page:page-1"] },
+    ],
+    unclassifiedMaterialRefs: [],
+  };
+
+  assert.equal(grillReadiness(projectAuthority), "CONTINUE");
+  assert.equal(requiredGrillFocus(projectAuthority)?.uncertaintyId, "u-closure");
+  assert.equal("objectId" in projectAuthority.subject, false);
+
+  const readyAuthority: GrillTurnAuthority = {
+    ...projectAuthority,
+    uncertainties: projectAuthority.uncertainties.map((uncertainty) => ({ ...uncertainty, status: "RESOLVED" })),
+  };
+  assert.equal(grillReadiness(readyAuthority), "READY_FOR_PREVIEW");
+
+  for (const source of [
+    { kind: "PROJECT_CREATION" as const, sourceKind: "BLANK" as const, sourceRefs: [] },
+    { kind: "PROJECT_CREATION" as const, sourceKind: "MINI_PROJECT" as const, sourceRefs: ["object:mini-1@v3"] },
+  ]) {
+    assert.doesNotThrow(() => grillReadiness({ ...readyAuthority, subject: source }));
+  }
+  assert.throws(
+    () => grillReadiness({ ...readyAuthority, subject: { kind: "PROJECT_CREATION", sourceKind: "PAGE", sourceRefs: [] } }),
+    /retain bounded source evidence/,
+  );
+  assert.throws(
+    () => grillReadiness({ ...readyAuthority, subject: { kind: "PROJECT_CREATION", sourceKind: "BLANK", sourceRefs: ["page:invented"] } }),
+    /cannot claim source evidence/,
+  );
+  assert.throws(
+    () => grillReadiness({ ...readyAuthority, uncertainties: readyAuthority.uncertainties.filter((item) => item.dimension !== "CURRENT_INTERFACE") }),
+    /missing CURRENT_INTERFACE/,
+  );
+});

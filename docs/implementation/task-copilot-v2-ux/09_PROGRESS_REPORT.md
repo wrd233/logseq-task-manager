@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE | P2-A+B 一个隔离 MiniProject 已完成真实 DeepSeek Grill→canonical preview→HIGH Review→8-step Commit→reload→真实 Recovery→修正后 8-step Undo→reload→返回根 Block；P2-C～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE | P2-A+B 一个隔离 MiniProject 已完成真实 DeepSeek Grill→canonical preview→HIGH Review→8-step Commit→reload→真实 Recovery→修正后 8-step Undo→reload→返回根 Block；P2-C creation-subject/readiness contract automated，vertical route OPEN；P2-D～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -420,6 +420,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 - P0-H hidden reload：真实 Plugin reload 后不打开面板，等待 25 秒超过旧 lease 停止窗口，
   owned Service 仍由新 lease 保持；首次点击 `TC` 直接 Runtime/Store READY。Plugin 255/255、
   typecheck/build/dist PASS；Graph switch 视觉 Gate仍 OPEN；
+- P2-C 首个合同：Project 创建前不伪造 Object ID；Blank/Page/MiniProject 来源边界与
+  internal closure/current interface 额外 readiness 维度已自动锁定。Application 140/140、
+  typecheck PASS；Provider/Proposal/原子创建接线与 Desktop OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；

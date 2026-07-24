@@ -42,7 +42,9 @@ function source(answers: MiniProjectGrillSource["answers"] = []): MiniProjectGri
 
 test("MiniProject Grill authority comes from the exact Primary Anchor subtree and prioritizes its real loose material", () => {
   const generation = buildMiniProjectGrillGeneration(source());
-  assert.equal(generation.authority.subject.objectId, "mini-1");
+  const subject = generation.authority.subject;
+  if (subject.kind !== "MINI_PROJECT") assert.fail("MiniProject generation cannot become another Grill subject.");
+  assert.equal(subject.objectId, "mini-1");
   assert.equal(generation.authority.uncertainties.find(({ uncertaintyId }) => uncertaintyId === "boundary")?.priority, 5);
   assert.deepEqual(generation.authority.unclassifiedMaterialRefs, ["block:block-loose"]);
   assert.doesNotMatch(generation.runtimeContext.content, /Proposal|CHANGE_OWNERSHIP/);
