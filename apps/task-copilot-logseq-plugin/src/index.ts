@@ -2895,10 +2895,10 @@ function registerBootstrapShell(): void {
   diagnostics.ready("BOOTSTRAP_STARTED");
 }
 
-async function environmentInfo(): Promise<void> {
+async function environmentInfo(timeoutMs = 2_000): Promise<void> {
   const [graph, version] = await Promise.all([
-    settleRuntimeBridgeCall(logseq.App.getCurrentGraph()).catch(() => null),
-    settleRuntimeBridgeCall(logseq.App.getInfo("version")).catch(() => "unavailable"),
+    settleRuntimeBridgeCall(logseq.App.getCurrentGraph(), timeoutMs).catch(() => null),
+    settleRuntimeBridgeCall(logseq.App.getInfo("version"), timeoutMs).catch(() => "unavailable"),
   ]);
   const graphShape = graph as { name?: unknown; url?: unknown; path?: unknown } | null;
   const graphLabel = graphShape && typeof graphShape.name === "string" ? graphShape.name : "unavailable";
@@ -2909,6 +2909,36 @@ async function environmentInfo(): Promise<void> {
     ? await deriveLauncherGraphKey(graphIdentity).catch(() => undefined)
     : undefined;
   diagnostics.setEnvironment(graphLabel || "available (identity shape unavailable)", typeof version === "string" ? version : JSON.stringify(version));
+}
+
+async function recoverCurrentGraphIdentity(): Promise<boolean> {
+  if (currentGraphKey !== undefined) return true;
+  return recoverServiceRuntime({
+    refresh: () => environmentInfo(750),
+    ready: () => currentGraphKey !== undefined,
+    maximumAttempts: 4,
+  });
+}
+
+async function recoverCurrentGraphRuntime(successMessage: string): Promise<boolean> {
+  const identityReady = await recoverCurrentGraphIdentity();
+  if (!identityReady) {
+    enterRestrictedServiceMode("GRAPH_IDENTITY_UNAVAILABLE", "Logseq 尚未提供当前 Graph 身份；正式写入保持关闭。");
+    diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+    featureReady = false;
+    message = "Task Copilot 正在等待 Logseq 完成当前 Graph 初始化；正文仍可编辑，正式写入保持关闭。";
+    return false;
+  }
+  const recovered = await recoverConfiguredServiceRuntime(configuredServiceDescriptorPath);
+  featureReady = recovered;
+  diagnostics.setStoreStatus(recovered ? "READY" : "READ_ONLY_SAFE_MODE");
+  message = recovered
+    ? successMessage
+    : "当前 Graph 尚未配置 Task Copilot 本地数据库；正式写入保持关闭，Graph 正文仍可编辑。";
+  await refreshToolbarInterventionFacts();
+  await projectPageHeadActionController.refreshAll();
+  if (logseq.isMainUIVisible) await refresh();
+  return recovered;
 }
 
 async function handleCurrentGraphChanged(): Promise<void> {
@@ -2926,16 +2956,7 @@ async function handleCurrentGraphChanged(): Promise<void> {
   runtimeEndedByUser = false;
   await releaseServiceLifecycleSession();
   currentGraphKey = undefined;
-  await environmentInfo();
-  await refreshServiceRuntime(configuredServiceDescriptorPath);
-  featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
-  diagnostics.setStoreStatus(featureReady ? "READY" : "READ_ONLY_SAFE_MODE");
-  message = featureReady
-    ? "已为当前 Graph 重新绑定 Task Copilot；未复用上一 Graph 的数据库会话。"
-    : "当前 Graph 尚未配置 Task Copilot 本地数据库；正式写入保持关闭，Graph 正文仍可编辑。";
-  await refreshToolbarInterventionFacts();
-  await projectPageHeadActionController.refreshAll();
-  if (logseq.isMainUIVisible) await refresh();
+  await recoverCurrentGraphRuntime("已为当前 Graph 重新绑定 Task Copilot；未复用上一 Graph 的数据库会话。");
 }
 
 async function activateConnectedFeatureRuntime(): Promise<void> {
@@ -2994,7 +3015,8 @@ async function initializeFeatures(): Promise<void> {
   diagnostics.start("SERVICE_CONNECTION_READY");
   const descriptorPath = (logseq.settings as { serviceDescriptorPath?: unknown } | undefined)?.serviceDescriptorPath;
   let lastDescriptorSettingValue = descriptorPath;
-  await recoverConfiguredServiceRuntime(descriptorPath);
+  configuredServiceDescriptorPath = typeof descriptorPath === "string" ? descriptorPath : undefined;
+  enterRestrictedServiceMode("GRAPH_IDENTITY_PENDING", "正在等待 Logseq 提供当前 Graph 身份；正式写入暂停。");
   markReady("SERVICE_CONNECTION_READY", `V2 service ${serviceConnection.status.toLowerCase()}`);
   diagnostics.start("EVENTS_READY");
   initializeExplicitSync();
@@ -3009,6 +3031,16 @@ async function initializeFeatures(): Promise<void> {
         enterRestrictedServiceMode("GRAPH_SWITCH_REBIND_FAILED", "当前 Graph 的本地运行环境无法安全绑定；正式写入保持关闭。");
       });
   }));
+  const recoverAfterHostGraphReady = () => {
+    if (serviceConnection.status === "READY" && serviceRuntimeClient) return;
+    void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前 Graph；正式能力可以使用。")
+      .catch((error: unknown) => operationalLogger.log("warn", "plugin-lifecycle", "host_ready_runtime_recovery_failed", {
+        result: "restricted",
+        errorCode: error instanceof StructuredError ? error.code : "HOST_READY_RUNTIME_RECOVERY_FAILED",
+      }));
+  };
+  cleanupHooks.push(logseq.App.onGraphAfterIndexed(recoverAfterHostGraphReady));
+  cleanupHooks.push(logseq.App.onRouteChanged(recoverAfterHostGraphReady));
 
   if (typeof descriptorPath !== "string" || !descriptorPath.trim()) {
     firstRunMode = true;
@@ -3070,6 +3102,11 @@ async function initializeFeatures(): Promise<void> {
   featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
   await projectPageHeadActionController.refreshAll();
   markReady("PLUGIN_READY", "V2 Local Service runtime ready; V1 FileStorage is migration-only");
+  void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前 Graph；正式能力可以使用。")
+    .catch((error: unknown) => operationalLogger.log("warn", "plugin-lifecycle", "startup_runtime_recovery_failed", {
+      result: "restricted",
+      errorCode: error instanceof StructuredError ? error.code : "STARTUP_RUNTIME_RECOVERY_FAILED",
+    }));
 }
 
 async function main(): Promise<void> {
@@ -3104,7 +3141,6 @@ async function main(): Promise<void> {
   });
 
   try {
-    await environmentInfo();
     await initializeFeatures();
   } catch (error) {
     const failedStage = diagnostics.snapshot().stages.find((stage) => stage.status === "RUNNING")?.stage ?? "APPLICATION_READY";

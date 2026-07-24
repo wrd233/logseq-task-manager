@@ -1515,3 +1515,24 @@ test("formal V2 plugin entry excludes the writable V1 runtime", async () => {
   assert.match(source, /listSemanticCommits\(\)/);
   assert.match(source, /listPrimaryAnchors\(cursor, true\)/);
 });
+
+test("startup stays non-blocking while host-ready events and Graph switch recover exact Graph identity", async () => {
+  const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
+  assert.match(
+    source,
+    /async function recoverCurrentGraphIdentity\(\)[\s\S]*refresh: \(\) => environmentInfo\(750\)[\s\S]*ready: \(\) => currentGraphKey !== undefined/,
+  );
+  assert.match(
+    source,
+    /async function recoverCurrentGraphRuntime\([\s\S]*await recoverCurrentGraphIdentity\(\)[\s\S]*recoverConfiguredServiceRuntime\(configuredServiceDescriptorPath\)/,
+  );
+  assert.match(
+    source,
+    /async function handleCurrentGraphChanged\(\)[\s\S]*await recoverCurrentGraphRuntime\("已为当前 Graph 重新绑定 Task Copilot/,
+  );
+  assert.match(source, /onGraphAfterIndexed\(recoverAfterHostGraphReady\)/);
+  assert.match(source, /onRouteChanged\(recoverAfterHostGraphReady\)/);
+  const mainBody = source.slice(source.indexOf("async function main()"));
+  assert.doesNotMatch(mainBody, /await environmentInfo\(\)/);
+  assert.match(mainBody, /await initializeFeatures\(\)/);
+});

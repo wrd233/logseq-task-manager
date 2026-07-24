@@ -33,7 +33,10 @@ overall_goal: IN_PROGRESS
   TTL、Service/Launcher crash recovery、owner-PID orphan self-stop、显式结束前恢复检查与
   Graph switch fail-closed 已完成自动和真实独立进程 Gate。当前专用 LaunchAgent 已安装并
   READY；真实 Logseq reload 已证明面板重开后自动恢复 READY，真实 quit 后 owned Service 在
-  租约窗口内结束而 Launcher 保留；Graph switch 视觉 Gate 仍 OPEN；
+  租约窗口内结束而 Launcher 保留。Logseq 隐藏 iframe 的早期 Graph API/timer 停顿也已改为
+  non-blocking bootstrap + `onGraphAfterIndexed`/`onRouteChanged` 恢复；真实隐藏 reload 后
+  不打开面板等待 25 秒，owned Service 仍由新 lease 保持，首次打开即 READY。Graph switch
+  视觉 Gate 仍 OPEN；
 - P0-E 四项主导航：主入口已收束为“现在 / 待我确认 / 项目 / 更多”；Project
   列表/重入/当前接口/正式创建与 Audit/Recovery/Diagnostics/Backup/Restore/Migration
   均在二级入口继续可达，自动测试与真实 Desktop 下钻已通过；窄宽度和本轮键盘注入未虚报；

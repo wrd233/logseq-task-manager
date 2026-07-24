@@ -364,6 +364,12 @@ owned Service 结束均已有自动和 Desktop/进程证据；Launcher 保留以
 仍缺本轮完整视觉 Gate，因此 P0-H 保持 `IN_PROGRESS_DESKTOP_GRAPH_SWITCH_GATE`，不得把生命周期
 主链已完成误写成“仍需终端维护”，也不得提前宣布整个 P0 完成。
 
+Logseq 0.10.15 还证明隐藏 Plugin iframe 的早期 `getCurrentGraph()` 与 iframe timer 可能同时
+停顿；bootstrap 因此不得 await Graph identity。当前实现先完成只读 shell，再由
+`onGraphAfterIndexed`、`onRouteChanged` 或 Graph switch 事件恢复精确 identity 和对应 lease。
+隐藏 reload 后 25 秒不打开面板，owned Service 仍保持，首次打开直接 READY；证据见
+`logs/p0-h-hidden-reload-recovery-desktop-20260725.md`。
+
 先做受控 spike，再选择最小方案。必须回答：
 
 1. Logseq Plugin iframe 能否可靠启动和持有 Node 20 子进程；
