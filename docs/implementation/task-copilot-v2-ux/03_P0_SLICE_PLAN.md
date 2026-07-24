@@ -3,8 +3,9 @@
 ## P0-A：Block 现场路由与 Focus 纵向 Slice
 
 状态：`DONE_WITH_BOUNDED_DESKTOP_SCOPE` — 正式 Block 的 Focus 加入、移出、会话内 Undo、
-Local Service 读回与 reload 一致性已经完成自动和真实 Desktop 验收；普通 Block、Query/引用、
-右侧栏与 Light 主题仍在后续现场路由 Slice 中验证，不影响本纵向 Focus 闭环。
+Local Service 读回与 reload 一致性已经完成自动和真实 Desktop 验收；普通 Block
+“处理这条内容”的精确 UUID 路由已完成自动 Gate，Query/引用、右侧栏与 Light 主题仍待
+集中 Desktop 验证，不影响本纵向 Focus 闭环。
 
 ### 用户问题
 
@@ -103,6 +104,18 @@ Local Service 读回与 reload 一致性已经完成自动和真实 Desktop 验�
 - “撤销上一次关注变化”把该对象恢复到原关注位置，Local Service 再次读回；
 - 最终测试清理把 Focus 恢复为空，正文 Block 与页面位置保持不变；
 - 截图只含虚构测试内容，不含 descriptor、token、路径、终端历史或私人正文。
+
+2026-07-24 普通 Block 现场路由自动结果：
+
+- Block 右键新增单一“处理这条内容”入口；普通 Block 不再只能误走 Focus，也不猜测
+  Task/MiniProject 等正式类型；
+- context-menu payload 的精确 Block UUID 作为单次 intent 传入既有
+  Provider → Validator → Proposal 路径，不从主编辑区重新猜“当前 Block”；
+- 发起 Provider 前按同一 UUID 重读并校验；Block 不存在、宿主返回另一 Block 或正文为空时
+  fail closed，零模型请求、零正式写入；
+- Query/引用/右侧栏来源继续复用 P0-K session origin route；目标 UUID 在使用后、一般入口、
+  异常打开或 Graph switch 时清除，不能污染下一次分析；
+- Plugin 191/191 tests、0 skipped、typecheck/build PASS；Desktop Gate 仍按下述场景开放。
 
 ## P0-B：“暂时做不了”
 

@@ -72,6 +72,7 @@ import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-i
 import { managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
 import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE_SYNTAX, type SlashCreateObjectType } from "./slash-create-command.ts";
 import { OriginRouteController, type OriginRouteToken } from "./origin-route-controller.ts";
+import { readSelectedBlockForAnalysis, SelectedBlockAnalysisTarget } from "./selected-block-analysis.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -128,6 +129,7 @@ const originRouteController = new OriginRouteController({
 });
 let pageContext: PageContextSnapshot | undefined;
 let originRoute: OriginRouteToken | undefined;
+const v2ProviderTarget = new SelectedBlockAnalysisTarget();
 let serviceDiscoveryGeneration = 0;
 let explicitSyncController: ExplicitSyncController | undefined;
 let explicitSyncState: ExplicitSyncState = {
@@ -949,6 +951,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-provider-analyze-current-block") {
+    const targetBlockUuid = v2ProviderTarget.consume();
     workspace = "review";
     reviewMode = "candidates";
     const client = serviceRuntimeClient;
@@ -962,18 +965,25 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     const traceId = `v2-provider-${Date.now()}-${globalThis.crypto.randomUUID()}`;
     try {
-      const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
-      if (!block) throw new Error("请先选中一个有正文的 Logseq Block；没有调用 Provider。");
-      const text = stripLogseqBlockIdentityProperty(block.content, block.uuid).trim();
-      const result = await client.generateProposal(buildSelectedBlockProposalPrompt({ blockUuid: block.uuid, text }));
+      const selected = targetBlockUuid
+        ? await readSelectedBlockForAnalysis(logseq.Editor, targetBlockUuid)
+        : await (async () => {
+            const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
+            if (!block) throw new Error("请先选中一个有正文的 Logseq Block；没有调用 Provider。");
+            return {
+              blockUuid: block.uuid,
+              text: stripLogseqBlockIdentityProperty(block.content, block.uuid).trim(),
+            };
+          })();
+      const result = await client.generateProposal(buildSelectedBlockProposalPrompt(selected));
       if (result.generated.kind === "NO_PROPOSAL") {
         v2ProviderState = { status: "success", message: `未创建 Proposal：${result.generated.reason}` };
-        operationalLogger.log("info", "proposal", "v2_provider_no_proposal", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "no-proposal", blockUuid: block.uuid });
+        operationalLogger.log("info", "proposal", "v2_provider_no_proposal", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "no-proposal", blockUuid: selected.blockUuid });
       } else {
         if (!("record" in result)) throw new Error("Provider 返回缺少审阅记录；没有修改正式状态。");
         reviewMode = "proposals";
         v2ProviderState = { status: "success", message: `Proposal ${result.record.proposal.proposalId} 已进入待审阅；尚未修改正文或正式状态。` };
-        operationalLogger.log("info", "proposal", "v2_provider_proposal_ready", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "success", blockUuid: block.uuid, proposalId: result.record.proposal.proposalId });
+        operationalLogger.log("info", "proposal", "v2_provider_proposal_ready", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "success", blockUuid: selected.blockUuid, proposalId: result.record.proposal.proposalId });
       }
     } catch (error) {
       v2ProviderState = { status: "error", message: `${explain(error)} 正文和正式 Store 未改变。` };
@@ -2020,11 +2030,13 @@ async function showTaskCopilot(): Promise<void> {
 
 async function showTaskCopilotFromGeneralEntry(): Promise<void> {
   originRoute = undefined;
+  v2ProviderTarget.clear();
   await showTaskCopilot();
 }
 
 async function openFromToolbar(): Promise<void> {
   originRoute = undefined;
+  v2ProviderTarget.clear();
   if (toolbarIntervention.target === "diagnostics" || !featureReady) {
     await showRuntimeDiagnostics();
     return;
@@ -2040,6 +2052,7 @@ async function showRuntimeDiagnostics(): Promise<void> {
 
 async function showRuntimeDiagnosticsFromGeneralEntry(): Promise<void> {
   originRoute = undefined;
+  v2ProviderTarget.clear();
   await showRuntimeDiagnostics();
 }
 
@@ -2047,8 +2060,24 @@ async function processCurrentBlockFromCommand(): Promise<void> {
   const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
   if (!block) throw new Error("请先选中一个有正文的 Logseq Block；没有调用 Provider。");
   originRoute = await originRouteController.captureBlock(block.uuid);
-  await showTaskCopilot();
-  await handleAction("v2-provider-analyze-current-block");
+  v2ProviderTarget.bind(block.uuid);
+  try {
+    await showTaskCopilot();
+    await handleAction("v2-provider-analyze-current-block");
+  } finally {
+    v2ProviderTarget.clear();
+  }
+}
+
+async function processBlockFromContext(blockUuid: string): Promise<void> {
+  originRoute = await originRouteController.captureBlock(blockUuid);
+  v2ProviderTarget.bind(blockUuid);
+  try {
+    await showTaskCopilot();
+    await handleAction("v2-provider-analyze-current-block");
+  } finally {
+    v2ProviderTarget.clear();
+  }
 }
 
 async function returnToBusinessOrigin(): Promise<void> {
@@ -2294,6 +2323,7 @@ function registerBootstrapShell(): void {
     createMiniProject: () => insertExplicitObjectSyntax("MINI_PROJECT"),
     createDecision: () => insertExplicitObjectSyntax("DECISION"),
     createOutput: () => insertExplicitObjectSyntax("OUTPUT"),
+    processBlock: (blockUuid) => guardedFeatureCommand(() => processBlockFromContext(blockUuid)),
     toggleBlockFocus: toggleBlockFocusFromContext,
     undoBlockFocus: undoBlockFocusFromContext,
     openBlockCondition: openBlockConditionFromContext,
@@ -2337,6 +2367,7 @@ async function environmentInfo(): Promise<void> {
 
 async function handleCurrentGraphChanged(): Promise<void> {
   originRoute = undefined;
+  v2ProviderTarget.clear();
   enterRestrictedServiceMode("GRAPH_SWITCH_IN_PROGRESS", "正在为新的 Graph 重新绑定本地运行环境；正式写入暂停。");
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
   featureReady = false;

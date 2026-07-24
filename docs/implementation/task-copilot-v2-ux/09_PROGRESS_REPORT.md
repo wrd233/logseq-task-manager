@@ -6,8 +6,9 @@
 > descriptor 私有 handshake 已完成自动与适用 Desktop 验收；P0-H 独立 Launcher、
 > LaunchAgent、owned shutdown 与 crash/orphan recovery 已完成自动和真实进程 Gate，剩余
 > Desktop reload/退出/Graph switch 视觉 Gate；P0-J 中文命令自动 Gate 已完成，剩余
-> slash/palette/custom binding Desktop Gate；P0-K session origin route 自动 Gate 已完成，
-> 剩余 main/sidebar/Query/reference Desktop Gate 及其余 P0 仍未完成。
+> slash/palette/custom binding Desktop Gate；P0-K session origin route 与 P0-A 普通 Block
+> “处理这条内容”自动 Gate 已完成，剩余 main/sidebar/Query/reference Desktop Gate 及其余
+> P0 仍未完成。
 
 ## 总体状态
 
@@ -20,7 +21,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K automated DONE；H/J/K Desktop Gate OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -111,6 +112,12 @@
   Project Page；UI 只显示“返回原 Block/Page”，不暴露身份；
 - Plugin tests 187/187、0 skipped，typecheck/build/dist integrity PASS；Query/引用/
   right sidebar 等 Desktop Gate 未虚报完成。
+- 补齐 P0-A 普通 Block 右键“处理这条内容”：不猜正式类型，按 context-menu payload 的精确
+  UUID 单次绑定并在 Provider 前重读校验；
+- missing/mismatch/空正文 fail closed；Provider 不可用零请求、零写入；一般入口、异常和
+  Graph switch 清理旧目标，P0-K 继续保留 main/secondary 来源；
+- Plugin tests 191/191、0 skipped，typecheck/build PASS；Query/引用/right sidebar 的真实
+  SDK payload 与返回行为仍保留为 Desktop Gate。
 
 ## 当前进行
 
@@ -130,8 +137,8 @@ reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 P0-J 自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 slash 可发现性、中文输入与
 光标、命令面板、自定义 binding、受限态、主题和窄窗口。
 
-P0-K 自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 main Page、right sidebar、
-Query/引用、来源移动/重命名/删除以及成功/失败/Undo 返回。
+P0-K 与普通 Block 内容路由自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 main
+Page、right sidebar、Query/引用、来源移动/重命名/删除以及成功/失败/Undo 返回。
 
 ## 当前阻塞
 
@@ -155,7 +162,7 @@ Query/引用、来源移动/重命名/删除以及成功/失败/Undo 返回。
 - P0-E 本地 commit：`72cbbd4`；
 - P0-F 本地 commit：`53835b1`；
 - P0-G 本地 commit：`ff10b93`；
-- P0-K Plugin tests：187/187、0 skipped，typecheck/build/dist integrity PASS；
+- P0-A 普通 Block 路由 Plugin tests：191/191、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；

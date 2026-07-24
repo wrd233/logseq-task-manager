@@ -191,6 +191,7 @@ test("bootstrap registrations survive a simulated feature initialization failure
     createMiniProject: () => { opened.push("create-mini-project"); },
     createDecision: () => { opened.push("create-decision"); },
     createOutput: () => { opened.push("create-output"); },
+    processBlock: async (blockUuid) => { opened.push(`process-block:${blockUuid}`); },
     toggleBlockFocus: async (blockUuid) => { opened.push(`block-focus:${blockUuid}`); },
     undoBlockFocus: async () => { opened.push("block-focus-undo"); },
     openBlockCondition: async (blockUuid) => { opened.push(`block-condition:${blockUuid}`); },
@@ -220,10 +221,11 @@ test("bootstrap registrations survive a simulated feature initialization failure
   fake.commands.find((command) => command.label === "Task Copilot：处理当前 Block")?.action();
   fake.commands.find((command) => command.label === "Task Copilot：加入或移出当前关注")?.action();
   for (const slash of fake.slashCommands) slash.action();
-  await fake.blockContextMenus[0]?.action({ uuid: "block-ctx-1" });
-  await fake.blockContextMenus[1]?.action({ uuid: "block-ctx-2" });
-  await fake.blockContextMenus[2]?.action({ uuid: "ignored" });
+  await fake.blockContextMenus[0]?.action({ uuid: "ordinary-or-query-result" });
+  await fake.blockContextMenus[1]?.action({ uuid: "block-ctx-1" });
+  await fake.blockContextMenus[2]?.action({ uuid: "block-ctx-2" });
   await fake.blockContextMenus[3]?.action({ uuid: "ignored" });
+  await fake.blockContextMenus[4]?.action({ uuid: "ignored" });
   await fake.pageContextMenus[0]?.action({ page: "page-ctx-1" });
   assert.deepEqual(opened, [
     "open",
@@ -234,6 +236,7 @@ test("bootstrap registrations survive a simulated feature initialization failure
     "create-mini-project",
     "create-decision",
     "create-output",
+    "process-block:ordinary-or-query-result",
     "block-focus:block-ctx-1",
     "block-condition:block-ctx-2",
     "block-focus-undo",
@@ -250,7 +253,7 @@ test("bootstrap registrations survive a simulated feature initialization failure
     "创建决策",
     "创建成果",
   ]);
-  assert.equal(fake.blockContextMenus.length, 4);
+  assert.equal(fake.blockContextMenus.length, 5);
   assert.equal(fake.pageContextMenus.length, 1);
   assert.equal(typeof fake.models[MODEL_OPEN], "function");
   fake.models[MODEL_OPEN]?.();
@@ -273,6 +276,7 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
     createMiniProject: noop,
     createDecision: noop,
     createOutput: noop,
+    processBlock: async () => undefined,
     toggleBlockFocus: async () => undefined,
     undoBlockFocus: async () => undefined,
     openBlockCondition: async () => undefined,
@@ -299,6 +303,7 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
     "创建成果",
   ]);
   assert.deepEqual(fake.blockContextMenus.map(({ label }) => label), [
+    BLOCK_CONTEXT_LABELS.processContent,
     BLOCK_CONTEXT_LABELS.toggleFocus,
     BLOCK_CONTEXT_LABELS.blockCondition,
     BLOCK_CONTEXT_LABELS.undoFocus,

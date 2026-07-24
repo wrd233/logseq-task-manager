@@ -32,6 +32,7 @@ export interface BootstrapCallbacks {
   createMiniProject(): unknown;
   createDecision(): unknown;
   createOutput(): unknown;
+  processBlock(blockUuid: string): Promise<void>;
   toggleBlockFocus(blockUuid: string): Promise<void>;
   undoBlockFocus(): Promise<void>;
   openBlockCondition(blockUuid: string): Promise<void>;
@@ -49,6 +50,7 @@ export const COMMAND_KEYS = {
 } as const;
 
 export const BLOCK_CONTEXT_LABELS = {
+  processContent: "Task Copilot：处理这条内容",
   toggleFocus: "Task Copilot：加入／移出当前关注",
   blockCondition: "Task Copilot：暂时做不了",
   undoFocus: "Task Copilot：撤销上一次关注变化",
@@ -108,6 +110,9 @@ export class BootstrapRegistration {
 
   registerBlockContextMenus(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
     if (this.blockContextMenusRegistered) return false;
+    host.Editor.registerBlockContextMenuItem(BLOCK_CONTEXT_LABELS.processContent, async ({ uuid }) => {
+      await callbacks.processBlock(uuid);
+    });
     host.Editor.registerBlockContextMenuItem(BLOCK_CONTEXT_LABELS.toggleFocus, async ({ uuid }) => {
       await callbacks.toggleBlockFocus(uuid);
     });
