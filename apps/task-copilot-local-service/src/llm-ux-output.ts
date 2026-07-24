@@ -6,7 +6,7 @@ import {
   type UnifiedUxOutput,
   type UnifiedUxRiskLevel,
 } from "@task-copilot/application";
-import { checksum, stableJson } from "@task-copilot/shared";
+import { checksum, stableJson, StructuredError } from "@task-copilot/shared";
 
 import type { StructuredCompletionMetadata } from "./deepseek-provider.ts";
 import type { PromptLayer, StructuredProposalProvider } from "./llm-proposal.ts";
@@ -154,7 +154,12 @@ export class LocalLlmUxOutputGenerator {
         failureCode: "UX_OUTPUT_VALIDATION_FAILED",
         elapsedMs: completion.metadata.durationMs,
       });
-      throw error;
+      throw new StructuredError({
+        code: "UX_OUTPUT_VALIDATION_FAILED",
+        message: "Provider 输出未通过 Unified UX Validator；没有生成恢复草稿。",
+        ruleRefs: ["D-125", "D-127", "D-130", "D-139"],
+        details: { cause: error instanceof Error ? error.message : "unknown" },
+      });
     }
     this.recordEvidence({
       timestamp: request.observedAt,

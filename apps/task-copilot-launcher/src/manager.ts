@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
 
-import type { LauncherGraphConfig } from "./contracts.ts";
+import type { LauncherGraphConfig, LauncherProviderConfig } from "./contracts.ts";
 
 export interface ManagedChild {
   readonly pid: number;
@@ -15,6 +15,7 @@ export interface SpawnServiceInput {
   graph: LauncherGraphConfig;
   serviceEntryPath: string;
   descriptorPath: string;
+  provider?: LauncherProviderConfig;
 }
 
 export interface SpawnedService {
@@ -29,6 +30,7 @@ interface ManagerConfig {
   serviceEntryPath: string;
   runtimeRoot: string;
   leaseTtlMs: number;
+  provider?: LauncherProviderConfig;
 }
 
 interface Runtime {
@@ -84,6 +86,7 @@ export class GraphServiceManager {
         graph,
         serviceEntryPath: this.config.serviceEntryPath,
         descriptorPath: join(this.config.runtimeRoot, `${digest}.service.json`),
+        ...(this.config.provider ? { provider: this.config.provider } : {}),
       });
       runtime = { child: started.child, descriptor: started.descriptor, leaseIds: new Set() };
       this.runtimes.set(graph.graphKey, runtime);

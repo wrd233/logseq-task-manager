@@ -97,6 +97,8 @@ export function buildProjectContextRecoveryGeneration(
     source.contextPackage.files["workspace-semantics.md"],
     source.contextPackage.files["writing-profile.md"],
   ].filter((value): value is string => value !== undefined).join("\n");
+  const authorityFacts = facts(source.project, projection);
+  const authorityActions = nextAction(projection);
   return {
     projection,
     request: {
@@ -122,13 +124,17 @@ export function buildProjectContextRecoveryGeneration(
           manifest: source.contextPackage.manifest,
           files: packageFiles,
           deterministicProjection: projection,
+          uxAuthority: {
+            facts: authorityFacts.map(({ factId, sourceRefs }) => ({ factId, sourceRefs })),
+            allowedNextActions: authorityActions.map(({ actionId, intent, label, evidenceRefs }) => ({ actionId, intent, label, evidenceRefs })),
+          },
         }),
       },
       minimumRiskLevel: ["PENDING", "RECOVERY_REQUIRED"].includes(projection.safetyState) ? "HIGH" : "NONE",
       requiresDiscussion: projection.sufficiency === "INSUFFICIENT",
       requiresReview: false,
-      facts: facts(source.project, projection),
-      allowedNextActions: nextAction(projection),
+      facts: authorityFacts,
+      allowedNextActions: authorityActions,
     },
   };
 }

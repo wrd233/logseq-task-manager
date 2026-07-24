@@ -19,13 +19,19 @@ export interface TaskCopilotSkillDocument extends TaskCopilotSkillSummary {
   content: string;
 }
 
+export function skillRootForModuleUrl(moduleUrl: string): string {
+  const moduleDirectory = dirname(fileURLToPath(moduleUrl));
+  return ["dist", "bin"].includes(basename(moduleDirectory))
+    ? join(moduleDirectory, "skills")
+    : resolve(moduleDirectory, "../../../skills");
+}
+
 function skillError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-123", "D-132", "D-212"] });
 }
 
 export function defaultSkillRoot(): string {
-  const moduleDirectory = dirname(fileURLToPath(import.meta.url));
-  return basename(moduleDirectory) === "dist" ? join(moduleDirectory, "skills") : resolve(moduleDirectory, "../../../skills");
+  return skillRootForModuleUrl(import.meta.url);
 }
 
 export async function readTaskCopilotSkill(name: string, root = defaultSkillRoot()): Promise<TaskCopilotSkillDocument | undefined> {

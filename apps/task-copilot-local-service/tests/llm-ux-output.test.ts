@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { InteractionEvidenceBuffer } from "@task-copilot/application";
+import { StructuredError } from "@task-copilot/shared";
 
 import {
   LocalLlmUxOutputGenerator,
@@ -124,7 +125,10 @@ test("LLM UX validation failure records only structural rejection evidence", asy
 
   await assert.rejects(
     () => new LocalLlmUxOutputGenerator(provider, evidence).generate(request),
-    /unknown fact/,
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "UX_OUTPUT_VALIDATION_FAILED"
+      && error.message.includes("没有生成恢复草稿")
+      && error.details?.cause === "Unified UX output referenced an unknown fact.",
   );
   const [entry] = evidence.snapshot();
   assert.match(entry?.promptVersion ?? "", /^[0-9a-f]{8}$/);

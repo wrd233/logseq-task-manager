@@ -9,7 +9,7 @@ import {
 } from "../src/contracts.ts";
 
 const validConfig = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   listenPort: 19673,
   token: "a".repeat(48),
   serviceEntryPath: "/opt/task-copilot/service.js",
@@ -21,6 +21,14 @@ const validConfig = {
     graphId: "personal-graph",
     databasePath: "/Users/test/Library/Application Support/Task Copilot/personal.sqlite",
   }],
+  provider: {
+    providerId: "deepseek",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-chat",
+    apiKeyRef: "keychain:task-copilot/deepseek",
+    timeoutMs: 60_000,
+    maxOutputTokens: 4_096,
+  },
 };
 
 test("launcher config requires one explicit absolute Graph mapping and bounded lease settings", () => {
@@ -35,6 +43,21 @@ test("launcher config requires one explicit absolute Graph mapping and bounded l
     graphs: [...validConfig.graphs, { ...validConfig.graphs[0], databasePath: "/another.sqlite" }],
   }), /duplicate graphKey/);
   assert.throws(() => parseLauncherConfig({ ...validConfig, graphs: [{ ...validConfig.graphs[0], databasePath: "relative.sqlite" }] }), /databasePath/);
+  assert.throws(() => parseLauncherConfig({ ...validConfig, provider: { ...validConfig.provider, apiKeyRef: "env:DEEPSEEK_API_KEY" } }), /apiKeyRef/);
+  assert.throws(() => parseLauncherConfig({ ...validConfig, provider: { ...validConfig.provider, baseUrl: "https://user:pass@example.com" } }), /baseUrl/);
+  assert.throws(() => parseLauncherConfig({ ...validConfig, provider: { ...validConfig.provider, extra: "secret" } }), /provider/);
+  assert.throws(() => parseLauncherConfig({ ...validConfig, provider: { ...validConfig.provider, timeoutMs: 120_001 } }), /timeoutMs/);
+  assert.throws(() => parseLauncherConfig({ ...validConfig, provider: { ...validConfig.provider, maxOutputTokens: 128 } }), /maxOutputTokens/);
+});
+
+test("launcher config migrates schema v1 to a provider-disabled schema v2 result", () => {
+  const { provider, ...providerDisabled } = validConfig;
+  assert.equal(provider.providerId, "deepseek");
+  const legacy = { ...providerDisabled, schemaVersion: 1 };
+  assert.deepEqual(parseLauncherConfig(legacy), {
+    ...providerDisabled,
+    schemaVersion: 2,
+  });
 });
 
 test("launcher descriptor is a distinct stable management endpoint rather than an ephemeral Service descriptor", () => {

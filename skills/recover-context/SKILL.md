@@ -5,7 +5,7 @@ description: Recover a bounded Task Copilot V2 Task, MiniProject, or Project con
 
 # Recover Task Copilot Context
 
-Version: `1.0.0`
+Version: `1.1.0`
 
 Apply `task-copilot-core` first. Never write formal Graph or SQLite state directly.
 
@@ -36,6 +36,8 @@ the whole Graph by default.
 ## Return the unified UX draft
 
 Return exactly one JSON object with this shape. Use only machine-supplied fact and action IDs.
+Those exact IDs are listed under `uxAuthority.facts` and `uxAuthority.allowedNextActions` in the
+runtime context; do not derive IDs from prose, object IDs, or evidence references.
 Machine code resolves fact text and action targets, computes scope hash, raises minimum risk/review,
 and replaces all provenance.
 

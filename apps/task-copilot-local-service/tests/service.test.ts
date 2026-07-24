@@ -191,7 +191,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   assert.deepEqual(skills.map(({ name, version }) => ({ name, version })), [
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
-    { name: "recover-context", version: "1.0.0" },
+    { name: "recover-context", version: "1.1.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
@@ -233,6 +233,8 @@ test("Project context recovery uses server-owned facts and a read-only action wi
       assert.match(system, /never write formal Graph or SQLite state directly/i);
       assert.match(user, /READ_ONLY_DERIVATIVE/);
       assert.match(user, /project-reentry-insufficient/);
+      assert.match(user, /"factId":"project-recovery-summary"/);
+      assert.match(user, /"actionId":"project-primary-action"/);
       return {
         value: {
           schemaVersion: "task-copilot-ux-output-v1",

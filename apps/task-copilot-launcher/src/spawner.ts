@@ -20,7 +20,7 @@ export interface ChildProcessPort {
 export type SpawnPort = (
   command: string,
   args: readonly string[],
-  options: { shell: false; detached: false; stdio: "ignore"; cwd: string },
+  options: { shell: false; detached: false; stdio: "ignore"; cwd: string; env?: NodeJS.ProcessEnv },
 ) => ChildProcessPort;
 
 interface SpawnerDependencies {
@@ -123,6 +123,21 @@ export function createNodeServiceSpawner(dependencies: SpawnerDependencies = {})
   const wait = dependencies.waitForDescriptor ?? waitForDescriptor;
   return async (input) => {
     await prepare(input.descriptorPath);
+    const provider = input.provider;
+    const serviceEnvironment = { ...process.env };
+    for (const key of ["DEEPSEEK_API_KEY", "TASK_COPILOT_LLM_PROVIDER", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL", "TASK_COPILOT_DEEPSEEK_API_KEY_REF", "DEEPSEEK_TIMEOUT_MS", "DEEPSEEK_MAX_OUTPUT_TOKENS"]) {
+      delete serviceEnvironment[key];
+    }
+    if (provider) {
+      serviceEnvironment.TASK_COPILOT_LLM_PROVIDER = provider.providerId;
+      serviceEnvironment.DEEPSEEK_BASE_URL = provider.baseUrl;
+      serviceEnvironment.DEEPSEEK_MODEL = provider.model;
+      serviceEnvironment.TASK_COPILOT_DEEPSEEK_API_KEY_REF = provider.apiKeyRef;
+      if (provider.timeoutMs !== undefined) serviceEnvironment.DEEPSEEK_TIMEOUT_MS = String(provider.timeoutMs);
+      else delete serviceEnvironment.DEEPSEEK_TIMEOUT_MS;
+      if (provider.maxOutputTokens !== undefined) serviceEnvironment.DEEPSEEK_MAX_OUTPUT_TOKENS = String(provider.maxOutputTokens);
+      else delete serviceEnvironment.DEEPSEEK_MAX_OUTPUT_TOKENS;
+    }
     const childProcess = spawn(nodeExecutable, [
       input.serviceEntryPath,
       "--database", input.graph.databasePath,
@@ -134,6 +149,7 @@ export function createNodeServiceSpawner(dependencies: SpawnerDependencies = {})
       detached: false,
       stdio: "ignore",
       cwd: dirname(input.serviceEntryPath),
+      env: serviceEnvironment,
     });
     const child = managedChild(childProcess);
     try {

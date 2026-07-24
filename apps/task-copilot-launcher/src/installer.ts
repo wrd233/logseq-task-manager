@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { deriveLauncherGraphKey, LauncherClient, validateLauncherDescriptor } from "@task-copilot/service-client/launcher";
 
-import { parseLauncherConfig, type LauncherConfig } from "./contracts.ts";
+import { parseLauncherConfig, type LauncherConfig, type LauncherProviderConfig } from "./contracts.ts";
 
 export const LAUNCH_AGENT_LABEL = "com.task-copilot.launcher";
 
@@ -16,6 +16,7 @@ export interface InstallLauncherInput {
   graphPath: string;
   graphId: string;
   databasePath?: string;
+  provider?: LauncherProviderConfig;
 }
 
 export interface InstallLauncherResult {
@@ -222,7 +223,7 @@ export async function installLauncher(input: InstallLauncherInput, dependencies:
   if (mappingConflict) installError("LAUNCHER_INSTALL_GRAPH_MAPPING_CONFLICT");
   const existingGraphs = existing?.graphs.filter((graph) => graph.graphKey !== graphKey) ?? [];
   const config: LauncherConfig = parseLauncherConfig({
-    schemaVersion: 1,
+    schemaVersion: 2,
     listenPort: existing?.listenPort ?? await (dependencies.findPort ?? defaultFindPort)(),
     token: existing?.token ?? (dependencies.createToken ?? (() => randomBytes(32).toString("hex")))(),
     serviceEntryPath,
@@ -230,6 +231,7 @@ export async function installLauncher(input: InstallLauncherInput, dependencies:
     descriptorPath,
     leaseTtlMs: 15_000,
     graphs: [...existingGraphs, { graphKey, graphId, databasePath }],
+    ...(input.provider ? { provider: input.provider } : existing?.provider ? { provider: existing.provider } : {}),
   });
   await atomicWrite(configPath, `${JSON.stringify(config)}\n`, 0o600);
 

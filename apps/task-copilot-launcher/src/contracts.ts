@@ -12,8 +12,17 @@ export interface LauncherGraphConfig {
   databasePath: string;
 }
 
+export interface LauncherProviderConfig {
+  providerId: "deepseek";
+  baseUrl: string;
+  model: string;
+  apiKeyRef: string;
+  timeoutMs?: number;
+  maxOutputTokens?: number;
+}
+
 export interface LauncherConfig {
-  schemaVersion: 1;
+  schemaVersion: 2;
   listenPort: number;
   token: string;
   serviceEntryPath: string;
@@ -21,6 +30,7 @@ export interface LauncherConfig {
   descriptorPath: string;
   leaseTtlMs: number;
   graphs: LauncherGraphConfig[];
+  provider?: LauncherProviderConfig;
 }
 
 function fail(field: string, detail: string): never {
@@ -54,7 +64,7 @@ function identifier(value: unknown, field: string): string {
 
 export function parseLauncherConfig(value: unknown): LauncherConfig {
   const input = record(value, "config");
-  if (input.schemaVersion !== 1) fail("schemaVersion", "must equal 1");
+  if (input.schemaVersion !== 1 && input.schemaVersion !== 2) fail("schemaVersion", "must equal 1 or 2");
   const listenPort = input.listenPort;
   if (typeof listenPort !== "number" || !Number.isSafeInteger(listenPort) || listenPort < 1024 || listenPort > 65_535) {
     fail("listenPort", "must be an integer from 1024 through 65535");
@@ -85,7 +95,55 @@ export function parseLauncherConfig(value: unknown): LauncherConfig {
     databasePaths.add(databasePath);
     return { graphKey, graphId, databasePath };
   });
-  return { schemaVersion: 1, listenPort, token, serviceEntryPath, runtimeRoot, descriptorPath, leaseTtlMs, graphs };
+  let provider: LauncherProviderConfig | undefined;
+  if (input.provider !== undefined) {
+    const candidate = record(input.provider, "provider");
+    const extraKeys = Object.keys(candidate).filter((key) => !["providerId", "baseUrl", "model", "apiKeyRef", "timeoutMs", "maxOutputTokens"].includes(key));
+    if (extraKeys.length) fail("provider", "contains unsupported fields");
+    if (candidate.providerId !== "deepseek") fail("provider.providerId", "must equal deepseek");
+    const baseUrl = text(candidate.baseUrl, "provider.baseUrl", 2048).replace(/\/+$/, "");
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(baseUrl);
+    } catch {
+      fail("provider.baseUrl", "must be an absolute HTTP(S) URL");
+    }
+    if (!["http:", "https:"].includes(parsedUrl!.protocol) || parsedUrl!.username || parsedUrl!.password || parsedUrl!.search || parsedUrl!.hash) {
+      fail("provider.baseUrl", "must be an absolute credential-free HTTP(S) URL");
+    }
+    const model = identifier(candidate.model, "provider.model");
+    const apiKeyRef = text(candidate.apiKeyRef, "provider.apiKeyRef", 512);
+    if (!/^keychain:[A-Za-z0-9._@+ -]{1,128}\/[A-Za-z0-9._@+ -]{1,128}$/.test(apiKeyRef)) {
+      fail("provider.apiKeyRef", "must be a bounded Keychain reference");
+    }
+    const timeoutMs = candidate.timeoutMs === undefined ? undefined : Number(candidate.timeoutMs);
+    if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120_000)) {
+      fail("provider.timeoutMs", "must be an integer from 100 through 120000");
+    }
+    const maxOutputTokens = candidate.maxOutputTokens === undefined ? undefined : Number(candidate.maxOutputTokens);
+    if (maxOutputTokens !== undefined && (!Number.isSafeInteger(maxOutputTokens) || maxOutputTokens < 256 || maxOutputTokens > 8_192)) {
+      fail("provider.maxOutputTokens", "must be an integer from 256 through 8192");
+    }
+    provider = {
+      providerId: "deepseek",
+      baseUrl,
+      model,
+      apiKeyRef,
+      ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
+    };
+  }
+  return {
+    schemaVersion: 2,
+    listenPort,
+    token,
+    serviceEntryPath,
+    runtimeRoot,
+    descriptorPath,
+    leaseTtlMs,
+    graphs,
+    ...(provider ? { provider } : {}),
+  };
 }
 
 export function parseLauncherRunnerArgs(args: string[]): { configPath: string } {

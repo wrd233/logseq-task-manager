@@ -23,7 +23,7 @@ test("launcher config loader accepts only a private non-link file", async () => 
   const root = await mkdtemp(join(tmpdir(), "task-copilot-launcher-config-"));
   const path = join(root, "config.json");
   await writeFile(path, JSON.stringify(config(root)), { mode: 0o600 });
-  assert.deepEqual(await loadLauncherConfig(path), config(root));
+  assert.deepEqual(await loadLauncherConfig(path), { ...config(root), schemaVersion: 2 });
 
   await chmod(path, 0o644);
   await assert.rejects(() => loadLauncherConfig(path), /LAUNCHER_CONFIG_INSECURE/);

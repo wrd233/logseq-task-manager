@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { listTaskCopilotSkills, readTaskCopilotSkill } from "../src/skill-catalog.ts";
+import { listTaskCopilotSkills, readTaskCopilotSkill, skillRootForModuleUrl } from "../src/skill-catalog.ts";
+
+test("Skill root resolves beside both build and installed runtime bundles", () => {
+  assert.equal(skillRootForModuleUrl("file:///Applications/Task%20Copilot/dist/service.js"), "/Applications/Task Copilot/dist/skills");
+  assert.equal(skillRootForModuleUrl("file:///Applications/Task%20Copilot/bin/service.js"), "/Applications/Task Copilot/bin/skills");
+  assert.equal(skillRootForModuleUrl("file:///repo/apps/task-copilot-local-service/src/skill-catalog.ts"), "/repo/skills");
+});
 
 test("built-in external Agent Skills are concise, versioned, hashed, and authority-safe", async () => {
   const first = await listTaskCopilotSkills();
@@ -10,7 +16,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   assert.deepEqual(first.map(({ name, version }) => ({ name, version })), [
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
-    { name: "recover-context", version: "1.0.0" },
+    { name: "recover-context", version: "1.1.0" },
   ]);
   assert.equal(first.every(({ sha256 }) => /^[0-9a-f]{64}$/.test(sha256)), true);
 

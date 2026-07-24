@@ -230,8 +230,15 @@ Provider transport。Project context-recovery 已形成第一个生产 Service �
 Context Package、内置 `task-copilot-core`/`recover-context` 与只读动作白名单都由服务端构造；
 stale、错误类型和额外客户端字段在 Provider 前拒绝，生成后再次重验版本，结果不进入 Domain、
 Proposal 或持久化。`recover-context@1.0.0` 固定逐层读到够用即停、信息不足明确承认、下一
-动作默认不生成。UX-G009 因此关闭为“不持久化派生 UX 草稿；正式修改仍进入 Proposal”，但
-真实 Provider 语义质量和 Desktop 仍开放。
+动作默认不生成。`recover-context@1.1.0` 又把 prompt 中允许的 fact/action ID 固定放入
+`uxAuthority`，不再要求模型从 prose 猜 ID。UX-G009 因此关闭为“不持久化派生 UX 草稿；
+正式修改仍进入 Proposal”。
+
+真实 LaunchAgent/Keychain/DeepSeek V4 Flash Gate 已通过：安装态 `bin/skills`、15 文件
+Context Package、60 秒有界 timeout、4096 output-token 上限、lease heartbeat、strict
+Validator、事实/推断/未知和只读 next action 均实际运行；调用前后正式 Object 投影不变，
+release 后 owned Service 退出。此前的 20 秒 timeout 正确映射 504，Validator 拒绝正确映射
+422，未放宽合同。真实 Logseq Desktop 点击、loading、stale、主题和窄栏仍开放。
 
 Plugin 已把该路由作为 Project 重入卡内的可选显式动作接入，不在刷新、Page Head 或后台
 shadow 中自动调用 Provider。确定性重入结论始终位于上方；Copilot 草稿只在 session 内保存，

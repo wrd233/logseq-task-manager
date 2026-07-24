@@ -41,6 +41,14 @@ test("installer creates one private Graph-bound runtime and bootstraps the exact
     graphPath: "/Users/test/Task Graph",
     graphId: "logseq",
     databasePath: join(root, "existing.sqlite"),
+    provider: {
+      providerId: "deepseek",
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-chat",
+      apiKeyRef: "keychain:task-copilot/deepseek",
+      timeoutMs: 60_000,
+      maxOutputTokens: 4_096,
+    },
   }, {
     homeDirectory: home,
     userId: 501,
@@ -67,6 +75,15 @@ test("installer creates one private Graph-bound runtime and bootstraps the exact
   assert.equal(config.listenPort, 19_673);
   assert.equal(config.token, "private-installer-token-at-least-32-characters");
   assert.doesNotMatch(JSON.stringify(config.graphs), /Task Graph/);
+  assert.deepEqual(config.provider, {
+    providerId: "deepseek",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-chat",
+    apiKeyRef: "keychain:task-copilot/deepseek",
+    timeoutMs: 60_000,
+    maxOutputTokens: 4_096,
+  });
+  assert.doesNotMatch(JSON.stringify(config), /"apiKey"|env:DEEPSEEK_API_KEY/);
   const plistPath = join(launchAgents, `${LAUNCH_AGENT_LABEL}.plist`);
   assert.equal((await stat(plistPath)).mode & 0o777, 0o600);
   assert.doesNotMatch(await readFile(plistPath, "utf8"), /private-installer-token|Task Graph|existing\.sqlite/);
@@ -86,10 +103,11 @@ test("installer creates one private Graph-bound runtime and bootstraps the exact
     runLaunchctl: async (args, tolerateFailure) => { calls.push({ args, ...(tolerateFailure ? { tolerateFailure } : {}) }); },
     waitForReady: async () => undefined,
   });
-  const updated = JSON.parse(await readFile(configPath, "utf8")) as { token: string; listenPort: number; graphs: unknown[] };
+  const updated = JSON.parse(await readFile(configPath, "utf8")) as { token: string; listenPort: number; graphs: unknown[]; provider: unknown };
   assert.equal(updated.token, "private-installer-token-at-least-32-characters");
   assert.equal(updated.listenPort, 19_673);
   assert.equal(updated.graphs.length, 2);
+  assert.deepEqual(updated.provider, config.provider);
   assert.equal(calls.length, 4);
 });
 

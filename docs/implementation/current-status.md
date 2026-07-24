@@ -69,7 +69,7 @@ V2 v1.1 底座完成结论不变；当前继续按
   Page UUID、唯一 active Project Page Anchor 与 Object version，再只打开该 Project 的同一
   重入投影；Page Head hook 不提供页面 payload，因此右侧栏入口明确隐藏，不伪装成精确现场；
   Application 112/112、Plugin 219/219 通过，Desktop 视觉与点击 Gate 仍待验证；
-- P1-G 已建立 Provider-neutral unified UX output 深模块与 `recover-context@1.0.0`：
+- P1-G 已建立 Provider-neutral unified UX output 深模块与 `recover-context@1.1.0`：
   模型只能引用机器 fact/action/evidence ID；正式事实文本、动作目标、scope hash、时间和
   Skill/Prompt/Provider/model provenance 由机器物化，模型不能降低 risk/review；
   `DRAFT_PROPOSAL` 建议没有正式 operation/write authority。Local Service 已新增只接受
@@ -79,8 +79,10 @@ V2 v1.1 底座完成结论不变；当前继续按
   Service 100/100、Service Client 12/12 与 Skill 格式/Hash/catalog 自动 Gate 通过；
   Plugin Project 重入卡已接显式触发的 session-only consumer：确定性投影始终保留，
   loading/error/stale 独立显现，facts/inferences/unknowns 分区显示；下一动作必须再次匹配
-  当前投影与既有只读 route，伪造 target 不可点击，Plugin 225/225 通过；真实 Provider
-  语义和 Desktop Gate 仍开放；
+  当前投影与既有只读 route，伪造 target 不可点击，Plugin 225/225 通过。真实 LaunchAgent
+  路径又关闭 installed `bin/skills` 解析、Launcher schema v2 Provider allowlist、timeout/token
+  限幅和 prompt `uxAuthority` 缺口；DeepSeek V4 Flash 已真实通过 15 文件 Context Package、
+  strict Validator、事实/推断/未知/只读动作与零正式写入 Gate。Desktop 点击/渲染 Gate 仍开放；
 - P1-H 已建立 session-only、bounded、strict-allowlist 的 Interaction Evidence：只记录
   scene/outcome、对象类型、规则/Signal/Skill/Prompt/model 版本、结构计数、用户处置、固定
   failure code 与时长；未知字段、正文、summary、对象/Block 身份、Prompt 和模型原始输出
@@ -100,7 +102,7 @@ V2 v1.1 底座完成结论不变；当前继续按
 
 ## 当前 Slice
 
-V1 frozen / V2 E2E-01–24 complete / interaction optimization P1-G service+plugin automated partial /
+V1 frozen / V2 E2E-01–24 complete / interaction optimization P1-G live-provider service+plugin partial /
 P1-H interaction evidence contract partial / P1 Desktop remains in progress
 
 ## 当前阶段结论
