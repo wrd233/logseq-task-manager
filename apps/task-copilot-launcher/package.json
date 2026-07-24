@@ -1,0 +1,21 @@
+{
+  "name": "@task-copilot/launcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "task-copilot-launcher": "dist/launcher.js"
+  },
+  "engines": {
+    "node": ">=20.19 <21"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@task-copilot/service-client": "0.1.0",
+    "@task-copilot/shared": "0.1.0"
+  }
+}

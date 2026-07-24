@@ -22,8 +22,10 @@ import { StructuredLogger } from "./structured-logger.ts";
 import {
   createElectronDescriptorReader,
   createLogseqPrivateStorageDescriptorReader,
+  deriveLauncherGraphKey,
   discoverServiceRuntime,
   importServiceDescriptorToPrivateStorage,
+  type ServiceLifecycleSession,
   type ServiceRuntimeClient,
 } from "./service-connection.ts";
 import { renderFirstRunWelcome, type FirstRunAction, type FirstRunModel } from "./first-run.ts";
@@ -96,6 +98,12 @@ let firstRunDescriptorImport: FirstRunModel["descriptorImport"];
 let firstRunDescriptorImportBusy = false;
 let ignoredDescriptorSettingValue: string | undefined;
 let serviceRuntimeClient: ServiceRuntimeClient | undefined;
+let serviceLifecycleSession: ServiceLifecycleSession | undefined;
+let serviceLifecycleHeartbeatTimer: ReturnType<typeof globalThis.setInterval> | undefined;
+let serviceLifecycleHeartbeatBusy = false;
+let configuredServiceDescriptorPath: string | undefined;
+let currentGraphKey: string | undefined;
+const pluginInstanceId = `plugin-${globalThis.crypto.randomUUID()}`;
 const blockFocusController = new BlockFocusController(() => serviceRuntimeClient);
 const blockConditionController = new BlockConditionController(() => serviceRuntimeClient);
 const pageContextController = new PageContextController(() => serviceRuntimeClient, {
@@ -473,10 +481,18 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   const generation = ++serviceDiscoveryGeneration;
   enterRestrictedServiceMode("SERVICE_DISCOVERY_IN_PROGRESS", "Local Service 正在重新发现；正式写入暂停。");
   const configuredDescriptor = typeof descriptorPath === "string" ? descriptorPath : undefined;
+  configuredServiceDescriptorPath = configuredDescriptor;
   const descriptorReader = createElectronDescriptorReader()
     ?? createLogseqPrivateStorageDescriptorReader(logseq.FileStorage);
-  const runtime = await discoverServiceRuntime(configuredDescriptor, descriptorReader);
-  if (generation !== serviceDiscoveryGeneration) return;
+  const runtime = await discoverServiceRuntime(configuredDescriptor, descriptorReader, undefined, {
+    ...(currentGraphKey ? { graphKey: currentGraphKey } : {}),
+    clientInstanceId: pluginInstanceId,
+  });
+  if (generation !== serviceDiscoveryGeneration) {
+    await runtime.lifecycle?.release().catch(() => undefined);
+    return;
+  }
+  await replaceServiceLifecycleSession(runtime.lifecycle);
   serviceConnection = runtime.connection;
   serviceRuntimeClient = runtime.client;
   diagnostics.setServiceConnection(runtime.connection);
@@ -493,6 +509,75 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
       explicitSyncController.pause();
     }
   }
+}
+
+function stopServiceLifecycleHeartbeat(): void {
+  if (serviceLifecycleHeartbeatTimer !== undefined) {
+    globalThis.clearInterval(serviceLifecycleHeartbeatTimer);
+    serviceLifecycleHeartbeatTimer = undefined;
+  }
+  serviceLifecycleHeartbeatBusy = false;
+}
+
+async function releaseServiceLifecycleSession(): Promise<void> {
+  stopServiceLifecycleHeartbeat();
+  const session = serviceLifecycleSession;
+  serviceLifecycleSession = undefined;
+  if (!session) return;
+  await session.release().catch((error: unknown) => {
+    operationalLogger.log("warn", "plugin-lifecycle", "launcher_lease_release_failed", {
+      result: "lease_expiry_required",
+      errorCode: error instanceof StructuredError ? error.code : "LAUNCHER_RELEASE_FAILED",
+    });
+  });
+}
+
+async function replaceServiceLifecycleSession(next: ServiceLifecycleSession | undefined): Promise<void> {
+  stopServiceLifecycleHeartbeat();
+  const previous = serviceLifecycleSession;
+  serviceLifecycleSession = next;
+  if (previous && previous !== next) {
+    await previous.release().catch((error: unknown) => {
+      operationalLogger.log("warn", "plugin-lifecycle", "previous_launcher_lease_release_failed", {
+        result: "lease_expiry_required",
+        errorCode: error instanceof StructuredError ? error.code : "LAUNCHER_RELEASE_FAILED",
+      });
+    });
+  }
+  if (!next) return;
+  serviceLifecycleHeartbeatTimer = globalThis.setInterval(() => {
+    if (serviceLifecycleHeartbeatBusy || serviceLifecycleSession !== next) return;
+    serviceLifecycleHeartbeatBusy = true;
+    void next.heartbeat()
+      .catch((error: unknown) => {
+        if (serviceLifecycleSession !== next) return;
+        stopServiceLifecycleHeartbeat();
+        const errorCode = error instanceof StructuredError ? error.code : "LAUNCHER_HEARTBEAT_FAILED";
+        operationalLogger.log("warn", "plugin-lifecycle", "launcher_lease_heartbeat_failed", {
+          result: "rediscovering",
+          errorCode,
+        });
+        enterRestrictedServiceMode(errorCode, "本地运行环境正在自动恢复；Graph 正文仍可正常编辑。");
+        diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+        featureReady = false;
+        message = "Task Copilot 本地运行环境连接中断，正在自动恢复；正式写入暂时暂停。";
+        const descriptorPath = configuredServiceDescriptorPath;
+        void refreshServiceRuntime(descriptorPath)
+          .then(async () => {
+            featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
+            diagnostics.setStoreStatus(featureReady ? "READY" : "READ_ONLY_SAFE_MODE");
+            await refreshToolbarInterventionFacts();
+            if (logseq.isMainUIVisible) await refresh();
+          })
+          .catch((recoveryError: unknown) => operationalLogger.log("error", "plugin-lifecycle", "launcher_automatic_rediscovery_failed", {
+            result: "restricted",
+            errorCode: recoveryError instanceof StructuredError ? recoveryError.code : "LAUNCHER_REDISCOVERY_FAILED",
+          }));
+      })
+      .finally(() => {
+        serviceLifecycleHeartbeatBusy = false;
+      });
+  }, 2_000);
 }
 
 function initializeExplicitSync(): void {
@@ -2077,6 +2162,9 @@ async function environmentInfo(): Promise<void> {
   ]);
   const graphShape = graph as { name?: unknown; url?: unknown } | null;
   const graphLabel = graphShape && typeof graphShape.name === "string" ? graphShape.name : "unavailable";
+  currentGraphKey = graphShape && typeof graphShape.url === "string"
+    ? await deriveLauncherGraphKey(graphShape.url).catch(() => undefined)
+    : undefined;
   diagnostics.setEnvironment(graphLabel || "available (identity shape unavailable)", typeof version === "string" ? version : JSON.stringify(version));
 }
 
@@ -2117,8 +2205,8 @@ async function initializeFeatures(): Promise<void> {
     {
       key: "serviceDescriptorPath",
       type: "string",
-      title: "V2 Local Service descriptor 私有存储 key",
-      description: "仅填写 Service 写入 Task Copilot 私有 FileStorage 的文件名；token 不写入设置或 Graph，FileStorage 不作为领域状态源。",
+      title: "V2 本地运行环境 descriptor 私有存储 key",
+      description: "仅填写 Launcher 配对 descriptor（推荐）或兼容 Service descriptor 在 Task Copilot 私有 FileStorage 中的文件名；token 不写入设置、Graph 或日志。",
       default: "",
     },
   ]);
@@ -2197,6 +2285,7 @@ async function main(): Promise<void> {
 
   logseq.beforeunload(async () => {
     for (const off of cleanupHooks.splice(0).reverse()) off();
+    await releaseServiceLifecycleSession();
     featureReady = false;
     logseq.hideMainUI();
     operationalLogger.log("info", "plugin-lifecycle", "plugin_unloaded", { result: "success" });

@@ -21,11 +21,11 @@ function guidance(action: FirstRunAction | undefined, descriptorImport: FirstRun
   if (action === "start") {
     const loading = descriptorImport?.status === "loading";
     return `<section class="first-run-guidance" role="status"><h2>连接本地 Service</h2>
-      <p>选择本地 Service 启动时生成的 0600 descriptor 文件。Task Copilot 会先验证 loopback、协议和字段，再写入插件私有 FileStorage；token 不进入设置、Graph、日志或截图。</p>
-      <label>Service descriptor 文件<input type="file" accept="application/json,.json" data-field="serviceDescriptorFile"${loading ? " disabled" : ""}></label>
+      <p>选择 Task Copilot Launcher 的 0600 配对 descriptor（推荐），或兼容的 Local Service 0600 descriptor。Task Copilot 会先验证 loopback、协议和字段，再写入插件私有 FileStorage；token 不进入设置、Graph、日志或截图。</p>
+      <label>本地运行环境 descriptor 文件<input type="file" accept="application/json,.json" data-field="serviceDescriptorFile"${loading ? " disabled" : ""}></label>
       <button type="button" class="primary" data-action="first-run-import-descriptor"${loading ? ' disabled aria-busy="true"' : ""}>${loading ? "正在安全连接…" : "安全连接"}</button>
       ${descriptorImport?.status === "error" ? `<p class="diagnostic-error" role="alert">${escapeHtml(descriptorImport.message ?? "连接未完成；正式写入仍保持关闭。")}</p>` : ""}
-      <p>该私有文件只用于会话发现，不是领域状态源；本页不会扫描 Graph、迁移旧状态或调用模型。</p>
+      <p>Launcher 只接收当前 Graph 的不可逆稳定键，并只管理它亲自启动的 Service；该私有文件不是领域状态源。本页不会扫描 Graph、迁移旧状态或调用模型。</p>
     </section>`;
   }
   if (action === "migrate") {

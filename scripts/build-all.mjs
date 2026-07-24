@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 const workspaces = [
   "@wrd233/logseq-plugin-capability-lab",
   "@task-copilot/logseq-plugin",
+  "@task-copilot/launcher",
   "@task-copilot/local-service",
   "@task-copilot/cli",
 ];

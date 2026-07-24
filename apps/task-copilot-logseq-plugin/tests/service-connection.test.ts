@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
+import type { LauncherDescriptor } from "@task-copilot/service-client/launcher";
 
 import {
+  PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
   PRIVATE_SERVICE_DESCRIPTOR_KEY,
   createElectronDescriptorReader,
   createLogseqPrivateStorageDescriptorReader,
+  deriveLauncherGraphKey,
   discoverServiceConnection,
   discoverServiceRuntime,
   importServiceDescriptorToPrivateStorage,
@@ -20,6 +23,13 @@ const descriptor: ServiceDescriptor = {
   token: "plugin-test-session-token-24-characters",
   pid: 123,
   createdAt: "2026-07-20T09:00:00.000Z",
+};
+
+const launcherDescriptor: LauncherDescriptor = {
+  kind: "task-copilot-launcher",
+  protocolVersion: 1,
+  url: "http://127.0.0.1:19673/",
+  token: "launcher-plugin-test-token-at-least-32-characters",
 };
 
 test("missing descriptor configuration and unavailable Electron bridge are explicit restricted states", async () => {
@@ -260,6 +270,115 @@ test("descriptor import validates before writing only to the fixed private FileS
   assert.equal(writes[0]?.key, PRIVATE_SERVICE_DESCRIPTOR_KEY);
   assert.deepEqual(JSON.parse(writes[0]!.value), descriptor);
   assert.doesNotMatch(JSON.stringify(result), /plugin-test-session-token/);
+});
+
+test("launcher import uses a distinct fixed private key and Graph identity leaves only a stable digest", async () => {
+  const writes: Array<{ key: string; value: string }> = [];
+  const result = await importServiceDescriptorToPrivateStorage({
+    getItem: async () => undefined,
+    setItem: async (key, value) => { writes.push({ key, value }); },
+  }, JSON.stringify(launcherDescriptor));
+  assert.deepEqual(result, { storageKey: PRIVATE_LAUNCHER_DESCRIPTOR_KEY });
+  assert.equal(writes[0]?.key, PRIVATE_LAUNCHER_DESCRIPTOR_KEY);
+  assert.deepEqual(JSON.parse(writes[0]!.value), launcherDescriptor);
+
+  const graphUrl = "file:///Users/private/Graph Name/";
+  const graphKey = await deriveLauncherGraphKey(graphUrl);
+  assert.match(graphKey, /^graph-[a-f0-9]{64}$/);
+  assert.equal(graphKey, await deriveLauncherGraphKey("file:///Users/private/Graph Name"));
+  assert.doesNotMatch(graphKey, /Users|private|Graph/);
+  await assert.rejects(
+    () => deriveLauncherGraphKey(undefined),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "LAUNCHER_GRAPH_IDENTITY_REQUIRED",
+  );
+});
+
+test("launcher discovery binds one Graph lease, probes the returned Service, and releases exactly that lease", async () => {
+  const calls: string[] = [];
+  const runtime = await discoverServiceRuntime(
+    PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
+    { read: async () => launcherDescriptor },
+    () => ({
+      health: async () => ({
+        status: "READY",
+        protocolVersion: 1,
+        capabilities: { formalWrites: true, migration: true, provider: true, backup: true },
+      }),
+    }) as never,
+    {
+      graphKey: "graph-aabbcc",
+      clientInstanceId: "plugin-instance-1",
+      createLauncherClient: () => ({
+        health: async () => {
+          calls.push("health");
+          return {
+            status: "READY",
+            protocolVersion: 1,
+            capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+            configuredGraphs: 1,
+          };
+        },
+        ensure: async (graphKey, clientInstanceId) => {
+          calls.push(`ensure:${graphKey}:${clientInstanceId}`);
+          return { leaseId: "lease-1", serviceDescriptor: descriptor };
+        },
+        heartbeat: async (leaseId) => { calls.push(`heartbeat:${leaseId}`); },
+        release: async (leaseId) => { calls.push(`release:${leaseId}`); },
+      }),
+    },
+  );
+  assert.equal(runtime.connection.status, "READY");
+  assert.ok(runtime.client);
+  assert.equal(runtime.lifecycle?.kind, "LAUNCHER_LEASE");
+  await runtime.lifecycle?.heartbeat();
+  await runtime.lifecycle?.release();
+  await runtime.lifecycle?.release();
+  assert.deepEqual(calls, [
+    "health",
+    "ensure:graph-aabbcc:plugin-instance-1",
+    "heartbeat:lease-1",
+    "release:lease-1",
+  ]);
+});
+
+test("launcher discovery fails closed without Graph identity and releases a lease after Service probe failure", async () => {
+  let launcherCreated = 0;
+  const missingIdentity = await discoverServiceRuntime(
+    PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
+    { read: async () => launcherDescriptor },
+    () => ({ health: async () => { throw new Error("must not probe"); } }) as never,
+    { createLauncherClient: () => { launcherCreated += 1; throw new Error("must not create"); } },
+  );
+  assert.equal(missingIdentity.connection.status, "RESTRICTED");
+  assert.equal(missingIdentity.connection.status === "RESTRICTED" && missingIdentity.connection.reasonCode, "LAUNCHER_GRAPH_IDENTITY_REQUIRED");
+  assert.equal(launcherCreated, 0);
+
+  const released: string[] = [];
+  const unavailable = await discoverServiceRuntime(
+    PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
+    { read: async () => launcherDescriptor },
+    () => ({
+      health: async () => { throw new Error("service did not become ready"); },
+    }) as never,
+    {
+      graphKey: "graph-aabbcc",
+      clientInstanceId: "plugin-instance-1",
+      createLauncherClient: () => ({
+        health: async () => ({
+          status: "READY",
+          protocolVersion: 1,
+          capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+          configuredGraphs: 1,
+        }),
+        ensure: async () => ({ leaseId: "lease-failed", serviceDescriptor: descriptor }),
+        heartbeat: async () => undefined,
+        release: async (leaseId) => { released.push(leaseId); },
+      }),
+    },
+  );
+  assert.equal(unavailable.connection.status, "RESTRICTED");
+  assert.deepEqual(released, ["lease-failed"]);
+  assert.equal(unavailable.lifecycle, undefined);
 });
 
 test("invalid descriptor import performs no private write and storage failures redact the token", async () => {
