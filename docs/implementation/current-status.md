@@ -81,7 +81,9 @@ V2 v1.1 底座完成结论不变；当前继续按
   结果；Application 121/121、Local Service 97/97 通过；尚未接用户处置 UI、持久化或噪声
   dashboard；Plugin 通用 StructuredLogger/Runtime Diagnostics 已改为字段 allowlist 与仅
   `errorName/errorCode`，启动/全局/fallback 异常不再把 message/stack/cause 送入 Console
-  或导出，Plugin 222/222 通过；Local Service/CLI stderr 与显式研究 Gate 仍需分别审计；
+  或导出，Plugin 222/222 通过；Local Service READY/migration/stderr 也只输出无路径的结构
+  状态与错误码，Local Service 98/98 通过。CLI 属于用户主动前台反馈，live/golden runner
+  属于默认关闭的显式研究 Gate，均不归入自动留存日志；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

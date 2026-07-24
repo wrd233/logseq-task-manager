@@ -3,6 +3,11 @@ import { V2SqliteStore } from "@task-copilot/persistence/node";
 import { loadProposalGeneratorFromEnvironment } from "./provider-runtime.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
 import { startOwnerMonitor } from "./owner-monitor.ts";
+import {
+  serviceFailureLine,
+  serviceMigrationLine,
+  serviceReadyLine,
+} from "./process-output.ts";
 
 try {
   const options = parseServiceRunnerArgs(process.argv.slice(2));
@@ -10,7 +15,7 @@ try {
     const store = await V2SqliteStore.open(options.databasePath);
     try {
       const result = await store.migrateSchema(options.graphId, options.backupPath);
-      process.stdout.write(`${JSON.stringify({ status: result.migrated ? "MIGRATED" : "CURRENT", ...result })}\n`);
+      process.stdout.write(`${serviceMigrationLine(result)}\n`);
     } finally {
       store.close();
     }
@@ -18,12 +23,7 @@ try {
   const { ownerPid, ...serviceOptions } = options;
   const proposalGenerator = await loadProposalGeneratorFromEnvironment();
   const service = await startLocalService({ ...serviceOptions, ...(proposalGenerator ? { proposalGenerator } : {}) });
-  process.stdout.write(`${JSON.stringify({
-    status: "READY",
-    pid: process.pid,
-    descriptorPath: options.descriptorPath,
-    capabilities: service.capabilities,
-  })}\n`);
+  process.stdout.write(`${serviceReadyLine(process.pid, service.capabilities)}\n`);
   let closing = false;
   let ownerMonitor: ReturnType<typeof startOwnerMonitor> | undefined;
   const close = async (): Promise<void> => {
@@ -37,6 +37,6 @@ try {
   process.once("SIGTERM", () => void close().then(() => { process.exitCode = 0; }));
   }
 } catch (error) {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(`${serviceFailureLine(error)}\n`);
   process.exitCode = 2;
 }

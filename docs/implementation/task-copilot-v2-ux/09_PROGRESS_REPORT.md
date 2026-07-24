@@ -248,7 +248,14 @@ cause 放入内存 ring、Console、复制诊断与 JSONL 导出，Runtime stage
 现在两个入口统一只保留错误名和 machine-token 错误码；logger 逐字段物化允许的结构字段，
 任意注入字段和自由文本形状的错误码直接丢弃。Plugin 初始化、global error 和 diagnostics
 fallback 不再绕过 logger 把 Error 对象写入 Console；Debug 开关也不提升数据权限。该结论只
-覆盖正式 Plugin 诊断链，Local Service/CLI stderr 与显式研究 Gate 仍需独立审计。
+覆盖正式 Plugin 诊断链。
+
+跨进程审计随后发现 Local Service `main.ts` 会在 READY 输出 descriptor path、schema migration
+输出 backup path，并把未分类 Error message 直接写入 stderr。新增 `process-output.ts` 后，
+daemon READY 只返回 pid/capabilities，migration 只返回版本与 backupCreated，失败只返回
+machine code。Launcher 原本已使用同类结构码且忽略 Service 子进程 stdio。CLI stderr 被明确
+分类为用户主动命令的即时反馈，不是后台自动留存；live/golden runner 默认关闭并已有 bounded
+metadata、zero-write 与 structural failure 测试，不能混入日常交互日志。
 
 ## 当前阻塞
 
@@ -288,6 +295,8 @@ fallback 不再绕过 logger 把 Error 对象写入 Console；Debug 开关也不
   0 skipped；两包 typecheck PASS；根级 Gate PASS，145 条稳定规则，恢复演练
   `differences: []`；
 - P1-H Plugin diagnostics privacy tests + 全量：222/222、0 skipped，typecheck/build PASS；
+- P1-H Local Service process output：focused 1/1、Local Service 98/98、0 skipped，
+  typecheck/build PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -300,12 +309,10 @@ fallback 不再绕过 logger 把 Error 对象写入 Console；Debug 开关也不
 
 ## 下一步
 
-1. 审计 Local Service/CLI stderr 与显式 Provider research Gate，区分日常默认进程输出和
-   用户主动、可删除的研究样本；
-2. 补 P1-H 用户 disposition/噪声指标的 session-only 路径，再以真实价值证据决定是否需要
+1. 补 P1-H 用户 disposition/噪声指标的 session-only 路径，再以真实价值证据决定是否需要
    跨会话 derivative；
-3. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-4. 完成 P1-F Project workspace/Page Head 与 P1-D
+2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
+3. 完成 P1-F Project workspace/Page Head 与 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-5. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
+4. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

@@ -347,10 +347,10 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
 
 ## P1-H：交互日志与版本
 
-状态：`PARTIAL_RUNTIME_PRIVACY_AUTOMATED` — Application 已建立 session-only bounded
+状态：`PARTIAL_EVIDENCE_AUTOMATED` — Application 已建立 session-only bounded
 Interaction Evidence Buffer，P1-G 生成器已记录成功、Validator 拒绝和 Provider 失败；
-Plugin StructuredLogger/Runtime Diagnostics 已去除自由文本异常；用户处置 UI、跨会话
-持久化/清理策略、噪声 dashboard 与 Local Service/CLI stderr 隐私审计仍开放。
+Plugin StructuredLogger/Runtime Diagnostics 与 Local Service daemon output 已去除自由
+文本异常和本机路径；用户处置 UI、跨会话持久化/清理策略与噪声 dashboard 仍开放。
 
 默认仅记录：
 
@@ -393,3 +393,7 @@ Prompt/Skill 演化仍必须走证据 → 候选 → 人工审阅 → 测试 →
 - Runtime stage failure、Plugin 启动、全局异常和 fallback Console 路径只保留错误名与机器
   错误码；Debug 开关也不放宽这一隐私边界；
 - Plugin tests 222/222、0 skipped，typecheck/build PASS。
+- Local Service READY 输出不含 descriptor/database，schema migration 输出不含 backup path，
+  stderr 只返回 machine error code；Local Service tests 98/98、0 skipped，typecheck/build PASS；
+- CLI stderr 是用户显式调用的即时反馈而非自动留存日志；live/golden runner 默认关闭且已有
+  bounded metadata/zero-write/structural failure 测试，完整样本只能进入独立显式研究流程。
