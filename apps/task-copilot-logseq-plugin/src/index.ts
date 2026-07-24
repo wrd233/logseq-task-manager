@@ -77,7 +77,9 @@ import {
   AttentionShadowSession,
   attentionShadowCurrentSignature,
   buildAttentionDetectorSnapshot,
+  summarizeDynamicNowShadow,
   type AttentionShadowCycleSummary,
+  type DynamicNowShadowRuntimeSummary,
 } from "./attention-shadow-runtime.ts";
 
 let appRoot: HTMLElement | undefined;
@@ -327,13 +329,14 @@ async function model(): Promise<UiModel> {
     } catch (error) {
       v2MigrationLoadError = explain(error);
     }
-    if (currentGraphKey && !v2ProposalLoadError && !v2AuditLoadError) {
+    if (currentGraphKey && v2NowWork && !v2ProposalLoadError && !v2AuditLoadError) {
       await refreshAttentionShadowRuntime({
         client: serviceRuntimeClient,
         graphKey: currentGraphKey,
         objects: v2Objects,
         proposals: v2Proposals,
         commits: v2SemanticCommits,
+        activeFocusObjectIds: v2NowWork.focus.map((item) => item.objectId),
       });
     }
   }
@@ -434,12 +437,14 @@ async function refreshAttentionShadowRuntime(input: {
   objects: Awaited<ReturnType<ServiceRuntimeClient["listObjects"]>>;
   proposals: Awaited<ReturnType<ServiceRuntimeClient["listProposals"]>>;
   commits: Awaited<ReturnType<ServiceRuntimeClient["listSemanticCommits"]>>;
+  activeFocusObjectIds: string[];
 }): Promise<void> {
   try {
+    const observedAt = new Date().toISOString();
     const anchors = await listAttentionShadowAnchors(input.client);
     const summary = attentionShadowSession.run(
       buildAttentionDetectorSnapshot({
-        observedAt: new Date().toISOString(),
+        observedAt,
         graphKey: input.graphKey,
         graphBinding: "MATCH",
         objects: input.objects,
@@ -448,7 +453,12 @@ async function refreshAttentionShadowRuntime(input: {
         anchors,
       }),
     );
-    logChangedAttentionShadowSummary(summary);
+    const dynamicNow = summarizeDynamicNowShadow({
+      observedAt,
+      objects: input.objects,
+      activeFocusObjectIds: input.activeFocusObjectIds,
+    });
+    logChangedAttentionShadowSummary(summary, dynamicNow);
   } catch (error) {
     operationalLogger.log(
       "warn",
@@ -460,8 +470,11 @@ async function refreshAttentionShadowRuntime(input: {
   }
 }
 
-function logChangedAttentionShadowSummary(summary: AttentionShadowCycleSummary): void {
-  const signature = attentionShadowCurrentSignature(summary);
+function logChangedAttentionShadowSummary(
+  summary: AttentionShadowCycleSummary,
+  dynamicNow: DynamicNowShadowRuntimeSummary,
+): void {
+  const signature = attentionShadowCurrentSignature(summary, dynamicNow);
   if (signature === lastAttentionShadowSummarySignature) return;
   lastAttentionShadowSummarySignature = signature;
   operationalLogger.log("info", "attention-shadow", "attention_shadow_cycle_changed", {
@@ -471,6 +484,14 @@ function logChangedAttentionShadowSummary(summary: AttentionShadowCycleSummary):
     signalCooledCount: summary.cooledCount,
     signalActiveCount: summary.activeCount,
     signalInvalidatedCount: summary.invalidatedCurrentCount,
+    nowContinueCount: dynamicNow.continueCount,
+    nowReviewCount: dynamicNow.reviewCount,
+    nowWaitingCount: dynamicNow.waitingCount,
+    nowSuggestionCount: dynamicNow.suggestionCount,
+    nowSuppressedOpenCount: dynamicNow.suppressedOpenCount,
+    nowReviewOverflowCount: dynamicNow.reviewOverflowCount,
+    nowWaitingOverflowCount: dynamicNow.waitingOverflowCount,
+    focusOverload: dynamicNow.focusOverload,
   });
 }
 

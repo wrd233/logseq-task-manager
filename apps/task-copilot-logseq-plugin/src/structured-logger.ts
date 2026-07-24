@@ -35,6 +35,14 @@ export interface StructuredLogEntry {
   signalCooledCount?: number;
   signalActiveCount?: number;
   signalInvalidatedCount?: number;
+  nowContinueCount?: number;
+  nowReviewCount?: number;
+  nowWaitingCount?: number;
+  nowSuggestionCount?: number;
+  nowSuppressedOpenCount?: number;
+  nowReviewOverflowCount?: number;
+  nowWaitingOverflowCount?: number;
+  focusOverload?: boolean;
 }
 
 export function createCorrelationId(now = new Date()): string {

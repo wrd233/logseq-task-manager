@@ -9,6 +9,7 @@ import {
   attentionShadowCurrentSignature,
   buildAttentionDetectorSnapshot,
   runAttentionShadowCycle,
+  summarizeDynamicNowShadow,
 } from "../src/attention-shadow-runtime.ts";
 
 const now = "2026-07-24T10:00:00.000Z";
@@ -215,4 +216,40 @@ test("current telemetry signature ignores timestamps and cumulative confirmation
     attentionShadowCurrentSignature(first),
     attentionShadowCurrentSignature({ ...repeated, activeCount: repeated.activeCount + 1 }),
   );
+});
+
+test("dynamic Now runtime summary contains only counts and preserves an empty suggestion surface", () => {
+  const summary = summarizeDynamicNowShadow({
+    observedAt: now,
+    objects: [
+      object({ objectId: "focus-actionable", condition: { kind: "ACTIONABLE" } }),
+      object({
+        objectId: "waiting-due",
+        text: "这段正文不能进入 Now telemetry",
+        condition: {
+          kind: "WAITING",
+          waitingFor: "外部",
+          expectedResult: "答复",
+          reviewAt: "2026-07-24T09:00:00.000Z",
+        },
+      }),
+      object({ objectId: "ordinary-open", condition: { kind: "ACTIONABLE" } }),
+    ],
+    activeFocusObjectIds: ["focus-actionable"],
+  });
+
+  assert.deepEqual(summary, {
+    continueCount: 1,
+    reviewCount: 1,
+    waitingCount: 0,
+    suggestionCount: 0,
+    suppressedOpenCount: 1,
+    reviewOverflowCount: 0,
+    waitingOverflowCount: 0,
+    focusOverload: false,
+  });
+  const serialized = JSON.stringify(summary);
+  assert.equal(serialized.includes("focus-actionable"), false);
+  assert.equal(serialized.includes("waiting-due"), false);
+  assert.equal(serialized.includes("这段正文"), false);
 });

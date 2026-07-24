@@ -2,6 +2,7 @@ import {
   AttentionShadowRepository,
   detectDeterministicAttentionSignals,
   mergeDeterministicAttentionSignals,
+  projectV2DynamicNowShadow,
   type AttentionDetectorSnapshot,
   type AttentionSignalType,
 } from "@task-copilot/application";
@@ -31,6 +32,17 @@ export interface AttentionShadowCycleSummary {
   evidenceChangedTotal: number;
   primaryByType: Partial<Record<AttentionSignalType, number>>;
   suppressedByType: Partial<Record<AttentionSignalType, number>>;
+}
+
+export interface DynamicNowShadowRuntimeSummary {
+  continueCount: number;
+  reviewCount: number;
+  waitingCount: number;
+  suggestionCount: number;
+  suppressedOpenCount: number;
+  reviewOverflowCount: number;
+  waitingOverflowCount: number;
+  focusOverload: boolean;
 }
 
 function proposalTargetObjectIds(proposal: V2Proposal): string[] {
@@ -155,7 +167,36 @@ export class AttentionShadowSession {
   }
 }
 
-export function attentionShadowCurrentSignature(summary: AttentionShadowCycleSummary): string {
+export function summarizeDynamicNowShadow(input: {
+  observedAt: string;
+  objects: readonly V2ManagedObject[];
+  activeFocusObjectIds: readonly string[];
+}): DynamicNowShadowRuntimeSummary {
+  const projection = projectV2DynamicNowShadow({
+    observedAt: input.observedAt,
+    objects: input.objects,
+    focus: input.activeFocusObjectIds.map((objectId, rank) => ({
+      objectId,
+      rank,
+      selectedAt: input.observedAt,
+    })),
+  });
+  return {
+    continueCount: projection.continueProcessing.length,
+    reviewCount: projection.needsReview.length,
+    waitingCount: projection.keepWaiting.length,
+    suggestionCount: projection.suggestedAttention.length,
+    suppressedOpenCount: projection.metrics.suppressedOpenCount,
+    reviewOverflowCount: projection.metrics.reviewOverflowCount,
+    waitingOverflowCount: projection.metrics.waitingOverflowCount,
+    focusOverload: projection.metrics.focusOverload,
+  };
+}
+
+export function attentionShadowCurrentSignature(
+  summary: AttentionShadowCycleSummary,
+  dynamicNow?: DynamicNowShadowRuntimeSummary,
+): string {
   return JSON.stringify({
     rawCount: summary.rawCount,
     mergedCount: summary.mergedCount,
@@ -164,5 +205,6 @@ export function attentionShadowCurrentSignature(summary: AttentionShadowCycleSum
     invalidatedCurrentCount: summary.invalidatedCurrentCount,
     primaryByType: summary.primaryByType,
     suppressedByType: summary.suppressedByType,
+    ...(dynamicNow ? { dynamicNow } : {}),
   });
 }

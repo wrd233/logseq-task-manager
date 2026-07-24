@@ -109,8 +109,9 @@ Plugin 只读刷新链路；没有接入 UI、正式 Domain 或 SQLite schema。
 
 ## P1-C：“现在”动态编排
 
-状态：`PARTIAL_AUTOMATED_SHADOW` — 稳定三段骨架、正式事实 inclusion/exclusion、容量与
-Focus ownership 纯投影已完成；未替换现有 Service/UI，Copilot 建议关注仍保持空。
+状态：`PARTIAL_RUNTIME_SHADOW` — 稳定三段骨架、正式事实 inclusion/exclusion、容量与
+Focus ownership 纯投影已完成并进入 Plugin count-only runtime 对照；未替换现有 Service/UI，
+Copilot 建议关注仍保持空。
 
 稳定骨架：
 
@@ -142,7 +143,10 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 - Focus 超过 7 项只生成温和事实，不自动移出、不阻止加入、不重写选择；
 - `suggestedAttention` 首轮固定为空，未把近期更新或 SHADOW Signal 提升为 Copilot 建议；
 - duplicate Object/Focus identity、invalid timestamp 与 invalid bounds fail closed；
-- Application tests 98/98、0 skipped，typecheck 与根级 Gate PASS；
+- Plugin 从现有 `/now-work.focus` 只取过滤后的 object IDs 与顺序，不新增 Focus API；
+  每次 Attention session cycle 同步记录 continue/review/waiting/suggestion/suppressed/overflow
+  数量与 focus-overload，日志无正文和 identity；
+- Application tests 98/98、Plugin tests 197/197、0 skipped，typecheck/build 与根级 Gate PASS；
 - 当前不构成用户可见 Now 编排或 Desktop PASS。
 
 ## P1-D：状态翻译层
