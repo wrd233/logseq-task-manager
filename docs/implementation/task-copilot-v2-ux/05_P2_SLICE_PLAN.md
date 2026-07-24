@@ -9,7 +9,7 @@ critical、priority 与 evidence 选择最大开放不确定性，机器独占 r
 未分类材料未全部安全解决前不得进入结构预览。模型只能返回理解草稿、事实引用、推断、
 未知、最多三问和带取舍的建议，未知 ID、越界证据、固定字段外输出及提前结束均 fail closed。
 该契约没有 Proposal、operation 或正式对象写入能力，术语边界见根目录 `CONTEXT.md`。
-Local Service 已接入版本化 `mini-project-modeling@1.0.0`、精确 Primary Anchor 子树的
+Local Service 已接入版本化 `mini-project-modeling@1.1.0`、精确 Primary Anchor 子树的
 Logseq read bridge、正式对象 Context Package、结构化 Provider、前后 Object/Anchor/子树
 stale 重验和两轮 answer→next-focus 自动闭环。回答只成为当前请求的 session fact；路由
 不写 SQLite/Graph，也不生成 Proposal。
@@ -23,8 +23,12 @@ Plugin 已接入 Objects 卡片，并让既有“处理这条内容”在正式 
 身份路由 Grill，未增加固定宿主菜单项；提供 session-only 多轮
 理解/事实/推断/未知/建议/问题 UI。每轮前后重验对象，Provider error 保留上一轮，stale、
 duplicate、Graph switch/restricted/cleanup 清空与返回原 Block 均已有自动合同；UI 不暴露
-Proposal/Review/Commit 动作。仍未完成：Graph bridge 完整 live route、真实 Desktop 的
-loading/error/reload/返回原 Block、最终阅读预览、Proposal Review、Commit/Undo、交互证据接线。
+Proposal/Review/Commit 动作。独立最终阅读/结构预览也已接线：Application Validator 强制
+每项原材料恰好出现一次、root 保留、越界 evidence 拒绝、未归类原位保留和机器零删除；
+Service 前后重验同一 Object/Anchor/subtree；Plugin 展示阅读结果与 impact，但没有应用按钮。
+真实 `deepseek-v4-flash` 在两次 fail-closed 纠偏后已通过 3/3 材料守恒 Gate。仍未完成：
+Graph bridge 完整 live route、真实 Desktop 的 loading/error/reload/返回原 Block与预览，
+Proposal Review、Commit/Undo、交互证据接线。
 
 循环：
 

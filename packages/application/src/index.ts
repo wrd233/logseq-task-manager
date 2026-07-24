@@ -16,3 +16,4 @@ export * from "./dynamic-now-shadow.ts";
 export * from "./interaction-evidence.ts";
 export * from "./reentry-projection.ts";
 export * from "./grill-session.ts";
+export * from "./grill-preview.ts";

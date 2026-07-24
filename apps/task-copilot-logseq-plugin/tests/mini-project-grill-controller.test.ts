@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ServiceGrillTurn, ServiceMiniProjectGrillResult } from "@task-copilot/service-client";
+import type { ServiceGrillTurn, ServiceMiniProjectGrillPreviewResult, ServiceMiniProjectGrillResult } from "@task-copilot/service-client";
 
 import {
   MiniProjectGrillController,
@@ -33,6 +33,25 @@ function turn(focus = "boundary", readiness: ServiceGrillTurn["readiness"] = "CO
     contextFingerprint: "context-fingerprint",
   };
 }
+
+const preview: ServiceMiniProjectGrillPreviewResult = {
+  output: {
+    schemaVersion: "task-copilot-grill-preview-v1",
+    finalReading: {
+      title: { text: "整理托管设备", evidenceRefs: ["block:block-mini"] },
+      outcome: { text: "形成可复核记录", evidenceRefs: ["answer:outcome"] },
+      boundary: { included: [{ text: "当前设备", evidenceRefs: ["block:block-mini"] }], excluded: [] },
+      completionEvidence: [{ text: "记录可复核", evidenceRefs: ["answer:completion"] }],
+      sections: [{ sectionId: "root", heading: "入口", purpose: "保留入口", sourceMaterials: [{ materialId: "root", sourceRef: "block:block-mini", contentHash: "12345678", text: "[MiniProject] 整理托管设备", preservation: "UNCHANGED" }], derivedBlocks: [] }],
+    },
+    unclassified: [],
+    impact: { sourceMaterialCount: 1, movedMaterialCount: 0, addedDerivedBlockCount: 0, deletedMaterialCount: 0, unclassifiedMaterialCount: 0 },
+    evidenceScope: { refs: ["block:block-mini"], scopeHash: "scope-hash", observedAt: "2026-07-24T12:00:00.000Z" },
+    authorityBoundary: "SESSION_PREVIEW_ONLY",
+    provenance: { contractVersion: "1.0.0", promptVersion: "prompt-hash", skillName: "mini-project-modeling", skillVersion: "1.0.0", providerId: "deepseek", providerVersion: "chat-completions-v1", model: "deepseek-chat", generatedAt: "2026-07-24T12:00:00.000Z" },
+  },
+  provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "prompt-hash", contextFingerprint: "fingerprint",
+};
 
 test("runs a session-only multi-turn grill and validates the MiniProject before and after every turn", async () => {
   const calls: Array<{ objectId: string; expectedVersion: number; answers: Array<{ uncertaintyId: string; text: string }> }> = [];
@@ -126,4 +145,43 @@ test("fails before Provider for invalid or non-open MiniProject and rejects answ
   assert.equal(controller.snapshot()["mini-1"]?.status, "stale");
   await assert.rejects(() => controller.answer("answer"), /当前问题已失效/);
   await assert.rejects(() => controller.start("../bad", 0), /已失效/);
+});
+
+test("generates a zero-write preview only from a ready turn and retains the turn on preview failure", async () => {
+  let failPreview = false;
+  let previewCalls = 0;
+  const client = {
+    listObjects: async () => [{ objectId: "mini-1", objectType: "MINI_PROJECT", lifecycle: "OPEN", version: 2 }],
+    grillMiniProject: async () => turn("boundary", "READY_FOR_PREVIEW"),
+    previewMiniProjectGrill: async () => {
+      previewCalls += 1;
+      if (failPreview) throw new Error("preview provider timeout");
+      return preview;
+    },
+  };
+  const controller = new MiniProjectGrillController(() => ({ client, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.start("mini-1", 2);
+  await controller.generatePreview("mini-1");
+  let state = controller.snapshot()["mini-1"];
+  assert.equal(state?.status === "ready" ? state.preview?.status : undefined, "ready");
+  assert.equal(state?.status === "ready" && state.preview?.status === "ready" ? state.preview.result.output.impact.deletedMaterialCount : -1, 0);
+
+  failPreview = true;
+  await controller.generatePreview("mini-1");
+  state = controller.snapshot()["mini-1"];
+  assert.equal(state?.status, "ready");
+  assert.equal(state?.status === "ready" ? state.preview?.status : undefined, "error");
+  assert.equal(state?.status === "ready" ? state.result.output.readiness : undefined, "READY_FOR_PREVIEW");
+  assert.equal(previewCalls, 2);
+});
+
+test("classifies Service source-stale as a terminal stale session", async () => {
+  const stale = Object.assign(new Error("source changed"), { details: { remoteCode: "GRILL_SOURCE_STALE" } });
+  const client = {
+    listObjects: async () => [{ objectId: "mini-1", objectType: "MINI_PROJECT", lifecycle: "OPEN", version: 2 }],
+    grillMiniProject: async () => { throw stale; },
+  };
+  const controller = new MiniProjectGrillController(() => ({ client, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.start("mini-1", 2);
+  assert.equal(controller.snapshot()["mini-1"]?.status, "stale");
 });

@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 
-import type { GrillFactAuthority, GrillUncertaintyAuthority } from "@task-copilot/application";
+import { grillReadiness, type GrillFactAuthority, type GrillUncertaintyAuthority } from "@task-copilot/application";
 import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 import type { ServiceGraphSnapshot } from "@task-copilot/service-client";
 import { stableJson } from "@task-copilot/shared";
 
 import type { ServiceContextPackage } from "./context-package.ts";
 import type { GrillTurnGenerationRequest } from "./llm-grill-turn.ts";
+import type { GrillPreviewGenerationRequest } from "./llm-grill-preview.ts";
 import type { TaskCopilotSkillDocument } from "./skill-catalog.ts";
 
 export interface MiniProjectGrillAnswer {
@@ -103,6 +104,45 @@ export function buildMiniProjectGrillGeneration(source: MiniProjectGrillSource):
         answers: source.answers,
         uncertaintyReasons: Object.fromEntries(uncertaintyDefinitions.map(({ uncertaintyId, reason }) => [uncertaintyId, reason])),
       }),
+    },
+  };
+}
+
+export function buildMiniProjectGrillPreviewGeneration(source: MiniProjectGrillSource): GrillPreviewGenerationRequest {
+  const turn = buildMiniProjectGrillGeneration(source);
+  if (grillReadiness({
+    ...turn.authority,
+    contractVersion: "1.0.0",
+    promptVersion: "preview-readiness",
+    provider: { providerId: "machine", providerVersion: "machine", model: "machine" },
+  }) !== "READY_FOR_PREVIEW") throw new Error("MiniProject Grill is not ready for preview.");
+  if (source.graphSnapshot.truncated) throw new Error("MiniProject Grill preview refuses a truncated source subtree.");
+  const materialIdByUuid = new Map<string, string>();
+  for (const [index, block] of source.graphSnapshot.blocks.entries()) materialIdByUuid.set(block.uuid, block.relation === "ROOT" ? "root" : `material-${index + 1}`);
+  const materials = source.graphSnapshot.blocks.map((block) => ({
+    materialId: materialIdByUuid.get(block.uuid)!,
+    sourceRef: `block:${block.uuid}`,
+    contentHash: block.contentHash,
+    exactText: block.content,
+    currentSectionId: block.relation === "ROOT" ? "root" : block.parentUuid ? materialIdByUuid.get(block.parentUuid) ?? "root" : "root",
+    isRoot: block.relation === "ROOT",
+  }));
+  return {
+    authority: {
+      observedAt: turn.authority.observedAt,
+      skill: turn.authority.skill,
+      subject: { kind: "MINI_PROJECT", objectId: source.subject.objectId, version: source.subject.version },
+      sourceFingerprint: turn.authority.sourceFingerprint,
+      readiness: "READY_FOR_PREVIEW",
+      materials,
+      sessionFacts: turn.authority.facts.map((fact) => ({ factId: fact.factId, text: fact.text, sourceRefs: [...fact.sourceRefs] })),
+    },
+    core: turn.core,
+    skill: turn.skill,
+    userSemantics: turn.userSemantics,
+    runtimeContext: {
+      version: `preview:${turn.authority.sourceFingerprint}`,
+      content: stableJson({ authority: "SESSION_PREVIEW_ONLY", context: JSON.parse(turn.runtimeContext.content) as unknown, exactMaterials: materials, sessionFacts: turn.authority.facts }),
     },
   };
 }

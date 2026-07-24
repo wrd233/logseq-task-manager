@@ -15,6 +15,7 @@ import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/servic
 import { LocalLlmProposalGenerator, type StructuredProposalProvider, type V2PromptBundle } from "../src/llm-proposal.ts";
 import { LocalLlmUxOutputGenerator } from "../src/llm-ux-output.ts";
 import { LocalLlmGrillTurnGenerator } from "../src/llm-grill-turn.ts";
+import { LocalLlmGrillPreviewGenerator } from "../src/llm-grill-preview.ts";
 
 function clientFor(service: { url: string; token: string }): LocalServiceClient {
   const descriptor: ServiceDescriptor = {
@@ -193,7 +194,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
-    { name: "mini-project-modeling", version: "1.0.0" },
+    { name: "mini-project-modeling", version: "1.1.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
@@ -393,8 +394,26 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
   const provider: StructuredProposalProvider = {
     providerId: "deepseek",
     providerVersion: "chat-completions-v1",
-    completeStructured: async () => {
+    completeStructured: async (input) => {
       providerCalls += 1;
+      if (input.system.startsWith("Return exactly one task-copilot-grill-preview-v1")) {
+        const claim = (text: string, evidenceRefs: string[]) => ({ text, evidenceRefs });
+        return {
+          value: {
+            schemaVersion: "task-copilot-grill-preview-v1",
+            title: claim("整理托管设备记录", ["block:block-mini-grill"]),
+            outcome: claim("形成可复核的托管设备记录。", ["block:block-mini-loose"]),
+            boundary: { included: [claim("当前设备清单", ["block:block-mini-loose"])], excluded: [] },
+            completionEvidence: [claim("厂家参数已经归入设备记录", ["block:block-mini-loose"])],
+            sections: [
+              { sectionId: "root", heading: "入口", purpose: "保留原始入口", sourceMaterialIds: ["root"], derivedBlocks: [] },
+              { sectionId: "work", heading: "设备材料", purpose: "集中原始材料", sourceMaterialIds: ["material-2"], derivedBlocks: [] },
+            ],
+            unclassified: [],
+          },
+          metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
+        };
+      }
       const focus = providerCalls === 2 ? "outcome" : "boundary";
       return {
         value: {
@@ -417,6 +436,7 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
     graphId: "graph-mini-grill",
     token: "mini-grill-token-at-least-24-chars",
     grillTurnGenerator: new LocalLlmGrillTurnGenerator(provider),
+    grillPreviewGenerator: new LocalLlmGrillPreviewGenerator(provider),
   });
   t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
   const client = clientFor(service);
@@ -435,8 +455,8 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
   provider.completeStructured = async (input) => {
     const completion = await originalProvider(input);
     const value = completion.value as Record<string, unknown>;
-    const recommendation = value.recommendation as Record<string, unknown>;
-    recommendation.evidenceRefs = [subjectRef];
+    const recommendation = value.recommendation as Record<string, unknown> | undefined;
+    if (recommendation) recommendation.evidenceRefs = [subjectRef];
     return completion;
   };
   const resolved = { kind: "BLOCK" as const, id: "block-mini-grill" };
@@ -475,6 +495,20 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
   assert.equal(providerCalls, 2);
   assert.deepEqual(await client.status(), before, "Grill turns do not mutate formal state");
 
+  const previewBridge = answerTwoReads();
+  const previewPromise = client.previewMiniProjectGrill({ objectId: created.object.objectId, expectedVersion: created.object.version, answers: [
+    { uncertaintyId: "boundary", text: "本次只覆盖当前设备清单。" },
+    { uncertaintyId: "outcome", text: "形成可复核的托管设备记录。" },
+    { uncertaintyId: "completion-evidence", text: "厂家参数已经归入设备记录。" },
+    { uncertaintyId: "material-disposition", text: "厂家参数归入设备材料。" },
+  ] });
+  const [, preview] = await Promise.all([previewBridge, previewPromise]);
+  assert.equal(preview.output.authorityBoundary, "SESSION_PREVIEW_ONLY");
+  assert.equal(preview.output.impact.deletedMaterialCount, 0);
+  assert.equal(preview.output.impact.sourceMaterialCount, 2);
+  assert.equal(providerCalls, 3);
+  assert.deepEqual(await client.status(), before, "Grill preview does not mutate formal state");
+
   const changedBlocks = blocks.map((block) => block.uuid === "block-mini-loose" ? { ...block, content: "厂家参数已变化", contentHash: checksum("厂家参数已变化") } : block);
   const changedSnapshot = { ...snapshot, blocks: changedBlocks, scopeHash: checksum({ kind: "BLOCK", resolved, blocks: changedBlocks, truncated: false }) };
   const staleBridge = (async (): Promise<void> => {
@@ -490,13 +524,13 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
     (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "GRILL_SOURCE_STALE",
   );
   await staleBridge;
-  assert.equal(providerCalls, 3, "changed source is detected after generation and the draft is discarded");
+  assert.equal(providerCalls, 4, "changed source is detected after generation and the draft is discarded");
 
   await assert.rejects(
     () => client.grillMiniProject({ objectId: created.object.objectId, expectedVersion: created.object.version, answers: [{ uncertaintyId: "title", text: "固定表单字段" }] }),
     (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "GRILL_REQUEST_INVALID",
   );
-  assert.equal(providerCalls, 3, "invalid client-owned uncertainty fails before Graph read and Provider");
+  assert.equal(providerCalls, 4, "invalid client-owned uncertainty fails before Graph read and Provider");
 });
 
 test("Local Service relays bounded Logseq Graph reads and exports page Context without formal writes", async (t) => {

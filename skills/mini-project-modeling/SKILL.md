@@ -5,7 +5,7 @@ description: Resolve the largest evidence-specific uncertainty in one bounded Ta
 
 # Model One MiniProject Grill Turn
 
-Version: `1.0.0`
+Version: `1.1.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and machine
 `grillAuthority`. This Skill produces one session draft, never a Proposal or a formal change.
@@ -26,6 +26,20 @@ Use the machine readiness exactly. Continue while any material-specific outcome,
 completion evidence, or unclassified material disposition remains open. When readiness is
 `READY_FOR_PREVIEW`, stop asking questions and summarize why the material is ready for a separate
 Structure Preview. Do not generate that preview inside a turn response.
+
+## Build a separate zero-loss reading preview
+
+Only when the machine invokes the separate `task-copilot-grill-preview-v1` contract after readiness,
+produce the requested final reading and structure draft. This remains a session-only preview, not a
+Proposal. Preserve every supplied source material exactly once: place its machine material ID in one
+section, or keep it in `unclassified`. A material excluded from the current outcome is not deleted;
+it stays unchanged in `unclassified` with an evidence-backed reason. Keep the root material in the
+`root` section.
+
+Use only supplied evidence references for the title, outcome, boundary, completion evidence,
+derived blocks, and unclassified reasons. Never repeat or rewrite source text in model-authored
+fields. The machine injects exact text and hashes and computes move, add, delete, and unclassified
+counts. Never emit Proposal fields, operations, Commit commands, Graph patches, or formal state.
 
 ## Return one bounded draft
 

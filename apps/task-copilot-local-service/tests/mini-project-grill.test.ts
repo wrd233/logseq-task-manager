@@ -4,7 +4,7 @@ import test from "node:test";
 import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { buildMiniProjectGrillGeneration, type MiniProjectGrillSource } from "../src/mini-project-grill.ts";
+import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, type MiniProjectGrillSource } from "../src/mini-project-grill.ts";
 
 const subject: V2ManagedObject = {
   objectId: "mini-1", objectType: "MINI_PROJECT", version: 3, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" },
@@ -69,4 +69,22 @@ test("bounded user answers become session facts and resolve only their exact mac
 test("unknown, duplicate, oversized, or mismatched source material fails before Provider use", () => {
   assert.throws(() => buildMiniProjectGrillGeneration(source([{ uncertaintyId: "title", text: "固定表单字段" }])), /answer is invalid/);
   assert.throws(() => buildMiniProjectGrillGeneration({ ...source(), graphSnapshot: { ...source().graphSnapshot, resolved: { kind: "BLOCK", id: "another-block" } } }), /Primary Anchor/);
+});
+
+test("preview generation opens only after all uncertainties resolve and preserves exact subtree material authority", () => {
+  assert.throws(() => buildMiniProjectGrillPreviewGeneration(source()), /not ready/i);
+  const readySource = source([
+    { uncertaintyId: "boundary", text: "只覆盖当前设备清单。" },
+    { uncertaintyId: "outcome", text: "形成可维护的设备记录。" },
+    { uncertaintyId: "completion-evidence", text: "每台设备都有型号和参数来源。" },
+    { uncertaintyId: "material-disposition", text: "厂家参数归入对应设备记录。" },
+  ]);
+  const preview = buildMiniProjectGrillPreviewGeneration(readySource);
+  assert.equal(preview.authority.readiness, "READY_FOR_PREVIEW");
+  assert.deepEqual(preview.authority.materials.map(({ materialId, sourceRef, exactText, currentSectionId, isRoot }) => ({ materialId, sourceRef, exactText, currentSectionId, isRoot })), [
+    { materialId: "root", sourceRef: "block:block-root", exactText: "[MiniProject] 整理托管设备记录", currentSectionId: "root", isRoot: true },
+    { materialId: "material-2", sourceRef: "block:block-loose", exactText: "厂家参数尚未归类", currentSectionId: "root", isRoot: false },
+  ]);
+  assert.equal(preview.authority.sessionFacts.filter(({ factId }) => factId.startsWith("answer-")).length, 4);
+  assert.throws(() => buildMiniProjectGrillPreviewGeneration({ ...readySource, graphSnapshot: { ...readySource.graphSnapshot, truncated: true } }), /truncated/i);
 });

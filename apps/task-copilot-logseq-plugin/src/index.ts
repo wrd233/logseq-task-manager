@@ -551,6 +551,9 @@ async function model(): Promise<UiModel> {
     v2MiniProjectGrillAvailable: serviceConnection.status === "READY"
       && serviceConnection.capabilities.provider
       && Boolean(serviceRuntimeClient?.grillMiniProject),
+    v2MiniProjectGrillPreviewAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && Boolean(serviceRuntimeClient?.previewMiniProjectGrill),
     ...(v2ReentryTargetObjectId ? { v2ReentryTargetObjectId } : {}),
     ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
     ...(v2ObjectNarrations !== undefined ? { v2ObjectNarrations } : {}),
@@ -1290,6 +1293,17 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-mini-project-grill-retry" && value) {
     await miniProjectGrillController.retry(value);
+    return;
+  }
+  if (action === "v2-mini-project-grill-preview" && value) {
+    await miniProjectGrillController.generatePreview(value);
+    const state = miniProjectGrillController.snapshot()[value];
+    operationalLogger.log(
+      state?.status === "ready" && state.preview?.status === "ready" ? "info" : "warn",
+      "ui-action",
+      state?.status === "ready" && state.preview?.status === "ready" ? "mini_project_grill_preview_generated" : "mini_project_grill_preview_unavailable",
+      { actionId: "v2-mini-project-grill-preview", result: state?.status === "ready" ? state.preview?.status ?? "missing" : state?.status ?? "discarded" },
+    );
     return;
   }
   if (action === "v2-provider-analyze-current-block") {

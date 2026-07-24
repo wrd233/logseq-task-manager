@@ -21,10 +21,11 @@ import { StructuredError, checksum, createId, stableJson } from "@task-copilot/s
 import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
 import type { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import type { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
+import type { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
 import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
-import { buildMiniProjectGrillGeneration, type MiniProjectGrillAnswer } from "./mini-project-grill.ts";
+import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, type MiniProjectGrillAnswer, type MiniProjectGrillSource } from "./mini-project-grill.ts";
 import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
 import { readLegacyRecoveryBundle, scanLegacyRecoveryBundle } from "./migration-scan.ts";
@@ -48,6 +49,7 @@ export interface LocalServiceOptions {
   proposalGenerator?: LocalLlmProposalGenerator;
   uxOutputGenerator?: LocalLlmUxOutputGenerator;
   grillTurnGenerator?: LocalLlmGrillTurnGenerator;
+  grillPreviewGenerator?: LocalLlmGrillPreviewGenerator;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
   faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void };
@@ -1175,6 +1177,56 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }, at);
   };
 
+  const prepareMiniProjectGrillSource = async (input: { objectId: string; expectedVersion: number; answers: MiniProjectGrillAnswer[] }): Promise<{
+    source: MiniProjectGrillSource;
+    primaryAnchor: V2Anchor;
+  }> => {
+    const subject = store.getObject(input.objectId);
+    if (!subject) throw serviceError("V2_OBJECT_NOT_FOUND", "MiniProject Grill 目标不存在。");
+    if (subject.objectType !== "MINI_PROJECT" || subject.lifecycle !== "OPEN") throw serviceError("GRILL_OPEN_MINI_PROJECT_REQUIRED", "Grill 只接受 OPEN MiniProject。");
+    if (subject.version !== input.expectedVersion) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 已变化；没有读取子树或调用 Provider。");
+    const primaryAnchor = store.getActivePrimaryAnchorByObject(subject.objectId);
+    if (!primaryAnchor || primaryAnchor.role !== "primary_text") throw serviceError("GRILL_PRIMARY_ANCHOR_REQUIRED", "MiniProject 没有可用的正文入口；没有调用 Provider。");
+    const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: primaryAnchor.externalId, includeChildren: true, parents: 0 });
+    if (graphResult.status === "NOT_FOUND") throw serviceError("GRAPH_READ_NOT_FOUND", "Logseq Desktop 中未找到 MiniProject 正文。" );
+    if (graphResult.status === "ERROR") throw new StructuredError({ code: graphResult.errorCode, message: graphResult.message, ruleRefs: ["D-132", "D-135"] });
+    const [coreSkill, grillSkill] = await Promise.all([readTaskCopilotSkill("task-copilot-core"), readTaskCopilotSkill("mini-project-modeling")]);
+    if (!coreSkill || !grillSkill) throw serviceError("GRILL_SKILL_UNAVAILABLE", "MiniProject Grill 内置 Skill 不可用。");
+    const contextPackage = buildContextPackage({
+      getObject: (objectId) => store.getObject(objectId),
+      listObjects: () => store.listObjects(),
+      listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
+      listAssociations: () => store.listAssociations(),
+      getActivePrimaryAnchorByObject: (objectId) => store.getActivePrimaryAnchorByObject(objectId),
+      databaseSchemaVersion: () => store.doctor().schemaVersion,
+    }, [coreSkill, grillSkill], { kind: "project", id: subject.objectId }, new Date(), graphResult.snapshot);
+    const contextFingerprint = contextPackageFingerprint(contextPackage);
+    const scopedObjects = (JSON.parse(contextPackage.files["objects.json"] ?? "{}") as { formalFacts?: V2ManagedObject[] }).formalFacts ?? [];
+    const scopedAnchors = scopedObjects.map(({ objectId }) => store.getActivePrimaryAnchorByObject(objectId)).filter((anchor): anchor is V2Anchor => anchor !== undefined);
+    return {
+      primaryAnchor,
+      source: {
+        observedAt: contextPackage.manifest.generatedAt,
+        subject,
+        objects: scopedObjects,
+        anchors: scopedAnchors,
+        graphSnapshot: graphResult.snapshot,
+        contextPackage,
+        contextFingerprint,
+        coreSkill,
+        grillSkill,
+        answers: input.answers,
+      },
+    };
+  };
+  const revalidateMiniProjectGrillSource = async (input: { objectId: string; expectedVersion: number }, primaryAnchor: V2Anchor, scopeHash: string): Promise<void> => {
+    const latest = store.getObject(input.objectId);
+    const latestAnchor = store.getActivePrimaryAnchorByObject(input.objectId);
+    if (!latest || latest.version !== input.expectedVersion || !latestAnchor || latestAnchor.anchorId !== primaryAnchor.anchorId || latestAnchor.externalId !== primaryAnchor.externalId) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 或正文入口在生成期间已变化；草稿已丢弃。");
+    const refreshedGraph = await graphReadBroker.read({ kind: "BLOCK", target: primaryAnchor.externalId, includeChildren: true, parents: 0 });
+    if (refreshedGraph.status !== "FOUND" || refreshedGraph.snapshot.scopeHash !== scopeHash) throw serviceError("GRILL_SOURCE_STALE", "MiniProject 正文在生成期间已变化；草稿已丢弃。");
+  };
+
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (!authorized(request, token)) {
       respond(response, 401, { error: { code: "UNAUTHORIZED", message: "Local Service session token is required." } });
@@ -1453,52 +1505,38 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "POST" && url.pathname === "/provider/grill/mini-project/turn") {
       const input = await readMiniProjectGrillRequest(request);
-      const subject = store.getObject(input.objectId);
-      if (!subject) throw serviceError("V2_OBJECT_NOT_FOUND", "MiniProject Grill 目标不存在。");
-      if (subject.objectType !== "MINI_PROJECT" || subject.lifecycle !== "OPEN") throw serviceError("GRILL_OPEN_MINI_PROJECT_REQUIRED", "Grill 只接受 OPEN MiniProject。");
-      if (subject.version !== input.expectedVersion) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 已变化；没有读取子树或调用 Provider。");
       if (!options.grillTurnGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Grill Provider；没有生成会话草稿。");
-      const primaryAnchor = store.getActivePrimaryAnchorByObject(subject.objectId);
-      if (!primaryAnchor || primaryAnchor.role !== "primary_text") throw serviceError("GRILL_PRIMARY_ANCHOR_REQUIRED", "MiniProject 没有可用的正文入口；没有调用 Provider。");
-      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: primaryAnchor.externalId, includeChildren: true, parents: 0 });
-      if (graphResult.status === "NOT_FOUND") throw serviceError("GRAPH_READ_NOT_FOUND", "Logseq Desktop 中未找到 MiniProject 正文。" );
-      if (graphResult.status === "ERROR") throw new StructuredError({ code: graphResult.errorCode, message: graphResult.message, ruleRefs: ["D-132", "D-135"] });
-      const [coreSkill, grillSkill] = await Promise.all([readTaskCopilotSkill("task-copilot-core"), readTaskCopilotSkill("mini-project-modeling")]);
-      if (!coreSkill || !grillSkill) throw serviceError("GRILL_SKILL_UNAVAILABLE", "MiniProject Grill 内置 Skill 不可用。");
-      const contextPackage = buildContextPackage({
-        getObject: (objectId) => store.getObject(objectId),
-        listObjects: () => store.listObjects(),
-        listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
-        listAssociations: () => store.listAssociations(),
-        getActivePrimaryAnchorByObject: (objectId) => store.getActivePrimaryAnchorByObject(objectId),
-        databaseSchemaVersion: () => store.doctor().schemaVersion,
-      }, [coreSkill, grillSkill], { kind: "project", id: subject.objectId }, new Date(), graphResult.snapshot);
-      const contextFingerprint = contextPackageFingerprint(contextPackage);
-      const scopedObjects = (JSON.parse(contextPackage.files["objects.json"] ?? "{}") as { formalFacts?: V2ManagedObject[] }).formalFacts ?? [];
-      const scopedAnchors = scopedObjects.map(({ objectId }) => store.getActivePrimaryAnchorByObject(objectId)).filter((anchor): anchor is V2Anchor => anchor !== undefined);
-      const generation = buildMiniProjectGrillGeneration({
-        observedAt: contextPackage.manifest.generatedAt,
-        subject,
-        objects: scopedObjects,
-        anchors: scopedAnchors,
-        graphSnapshot: graphResult.snapshot,
-        contextPackage,
-        contextFingerprint,
-        coreSkill,
-        grillSkill,
-        answers: input.answers,
-      });
+      const prepared = await prepareMiniProjectGrillSource(input);
+      const generation = buildMiniProjectGrillGeneration(prepared.source);
       const controller = new AbortController();
       const abort = (): void => controller.abort("client-disconnected");
       request.once("aborted", abort);
       try {
         const generated = await options.grillTurnGenerator.generate({ ...generation, signal: controller.signal });
-        const latest = store.getObject(subject.objectId);
-        const latestAnchor = store.getActivePrimaryAnchorByObject(subject.objectId);
-        if (!latest || latest.version !== input.expectedVersion || !latestAnchor || latestAnchor.anchorId !== primaryAnchor.anchorId || latestAnchor.externalId !== primaryAnchor.externalId) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 或正文入口在生成期间已变化；草稿已丢弃。");
-        const refreshedGraph = await graphReadBroker.read({ kind: "BLOCK", target: primaryAnchor.externalId, includeChildren: true, parents: 0 });
-        if (refreshedGraph.status !== "FOUND" || refreshedGraph.snapshot.scopeHash !== graphResult.snapshot.scopeHash) throw serviceError("GRILL_SOURCE_STALE", "MiniProject 正文在生成期间已变化；草稿已丢弃。");
-        respond(response, 200, { ...generated, contextFingerprint });
+        await revalidateMiniProjectGrillSource(input, prepared.primaryAnchor, prepared.source.graphSnapshot.scopeHash);
+        respond(response, 200, { ...generated, contextFingerprint: prepared.source.contextFingerprint });
+      } finally {
+        request.removeListener("aborted", abort);
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/provider/grill/mini-project/preview") {
+      const input = await readMiniProjectGrillRequest(request);
+      if (!options.grillPreviewGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Grill Preview Provider；没有生成结构预览。");
+      const prepared = await prepareMiniProjectGrillSource(input);
+      let generation: ReturnType<typeof buildMiniProjectGrillPreviewGeneration>;
+      try {
+        generation = buildMiniProjectGrillPreviewGeneration(prepared.source);
+      } catch {
+        throw serviceError("GRILL_PREVIEW_NOT_READY", "MiniProject 的成果、边界、完成证据或材料去向尚未全部确认；没有调用 Preview Provider。");
+      }
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        const generated = await options.grillPreviewGenerator.generate({ ...generation, signal: controller.signal });
+        await revalidateMiniProjectGrillSource(input, prepared.primaryAnchor, prepared.source.graphSnapshot.scopeHash);
+        respond(response, 200, { ...generated, contextFingerprint: prepared.source.contextFingerprint });
       } finally {
         request.removeListener("aborted", abort);
       }

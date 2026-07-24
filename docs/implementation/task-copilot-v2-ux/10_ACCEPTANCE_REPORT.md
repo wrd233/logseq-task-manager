@@ -10,7 +10,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H/J/K/Desktop host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_UI_AUTOMATED | P2-A contract + Local Service 两轮 route 108/108 + Plugin session UI 236/236；真实 DeepSeek 两轮 Provider/Validator PASS | 未验；bridge 当前未连接 | 精确子树、answer→focus、Plugin error/stale/origin 与零写权限已锁定；完整 live route、预览/Proposal/Commit 仍开放 |
+| P2 | IN_PROGRESS_PREVIEW_UI_AUTOMATED | P2-A turn + 零丢失 preview contract/Service/Plugin 自动 PASS；真实 DeepSeek turn 与 preview Provider/Validator PASS | 未验；bridge 当前未连接 | 精确子树、answer→focus、exact-once/root/zero-delete、Plugin error/stale/origin 已锁定；完整 live route、Proposal/Commit 仍开放 |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -62,8 +62,9 @@
 ## 4. P2 验收
 
 - [ ] MiniProject Grill Me 非模板化；自适应 focus/readiness、精确子树、两轮 Service route、
-  Plugin 多轮 session UI、error 保留、stale/cleanup 与返回原 Block 已自动验证，真实 DeepSeek
-  两轮 Provider/Validator PASS；Desktop、完整 live route与结构预览仍未完成；
+  Plugin 多轮 session/零丢失预览 UI、error 保留、stale/cleanup 与返回原 Block 已自动验证；
+  真实 DeepSeek turn 与 preview Provider/Validator PASS；Desktop、完整 live route 与正式 Proposal
+  仍未完成；
 - [ ] Project 所有创建入口经过自适应 Grill Me；
 - [ ] 原位重构零丢失；
 - [ ] 预览为最终阅读效果；

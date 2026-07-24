@@ -5,6 +5,7 @@ import { loadStructuredProviderFromEnvironment } from "./provider-runtime.ts";
 import { LocalLlmProposalGenerator } from "./llm-proposal.ts";
 import { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
+import { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
 import { startOwnerMonitor } from "./owner-monitor.ts";
 import {
@@ -31,6 +32,7 @@ try {
     proposalGenerator: new LocalLlmProposalGenerator(provider),
     uxOutputGenerator: new LocalLlmUxOutputGenerator(provider, interactionEvidence),
     grillTurnGenerator: new LocalLlmGrillTurnGenerator(provider),
+    grillPreviewGenerator: new LocalLlmGrillPreviewGenerator(provider),
     interactionEvidence,
   } : {};
   const service = await startLocalService({ ...serviceOptions, ...providerOptions });

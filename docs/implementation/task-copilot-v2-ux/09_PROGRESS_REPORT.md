@@ -23,7 +23,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_UI_AUTOMATED | P2-A contract + Local Service 两轮 route + Plugin 多轮 session UI 自动 PASS，真实 DeepSeek 两轮 Provider/Validator PASS；Graph bridge live route、结构预览/Proposal/Commit 与 Desktop 仍开放 |
+| P2 | IN_PROGRESS_PREVIEW_UI_AUTOMATED | P2-A turn + 零丢失 preview contract/Service/Plugin 自动 PASS，真实 DeepSeek turn 与 preview Provider/Validator PASS；Graph bridge live route、Proposal/Commit 与 Desktop 仍开放 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -381,6 +381,13 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Provider error 保留上一轮、对象/Service stale、Graph switch/restricted/cleanup 清空和返回原
   Block 已完成；focused 4/4、Plugin 236/236、typecheck/build/package/bootstrap/dist PASS，UI
   不暴露 Proposal/Review/Commit；Desktop 与完整 Graph bridge live route 仍 OPEN；
+- P2-A 零丢失阅读预览：Application `task-copilot-grill-preview-v1`、Service preview route 与
+  Plugin session UI 已接通；材料 exact-once、root 留 root、原文/hash 机器注入、越界 evidence
+  拒绝、未归类原位保留和 `deletedMaterialCount=0` 均 fail closed。真实
+  `deepseek-v4-flash` 首两次分别因额外字段/材料遗漏被拒绝，收紧 schema 与集合守恒 Prompt 后
+  3/3 材料、1 unclassified、root preserved、SESSION_PREVIEW_ONLY PASS；没有 Proposal 或正式写入，
+  Application 132/132、Local Service 111/111、Plugin 238/238 与根级检查 PASS；Desktop/完整
+  Graph bridge route 与 Preview→Proposal/Commit/Undo 仍 OPEN；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -391,10 +398,11 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 恢复 Graph read bridge 后复跑 Plugin→Service→DeepSeek 两轮 Desktop Gate，覆盖 loading、
-   Provider failure retry、source stale、reload 清空与返回原 Block；保持输出仅为 session draft；
-2. 在通过完整 live Gate 后实现 MiniProject 最终阅读/结构预览，并把用户确认结果转换为
-   既有 Proposal Review 可接受的零丢失 scope；预览前绝不开放正式写入；
+1. 恢复 Graph read bridge 后复跑 Plugin→Service→DeepSeek turn + preview Desktop Gate，覆盖
+   loading、Provider failure retry、source stale、reload 清空与返回原 Block；保持输出仅为
+   session draft/session preview；
+2. 设计并实现 Preview→Proposal 的最小多 Block patch scope，先证明机器可表达 exact-once
+   before/after、单次 Commit、失败补偿与 Undo；在该合同通过前 Preview 不开放应用按钮；
 3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

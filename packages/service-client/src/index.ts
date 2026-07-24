@@ -172,6 +172,31 @@ export interface ServiceMiniProjectGrillResult {
   contextFingerprint: string;
 }
 
+export type ServiceMiniProjectGrillPreviewRequest = ServiceMiniProjectGrillRequest;
+export interface ServiceGrillPreviewClaim { text: string; evidenceRefs: string[] }
+export interface ServiceGrillPreviewMaterial { materialId: string; sourceRef: string; contentHash: string; text: string; preservation: "UNCHANGED" }
+export interface ServiceGrillPreview {
+  schemaVersion: "task-copilot-grill-preview-v1";
+  finalReading: {
+    title: ServiceGrillPreviewClaim;
+    outcome: ServiceGrillPreviewClaim;
+    boundary: { included: ServiceGrillPreviewClaim[]; excluded: ServiceGrillPreviewClaim[] };
+    completionEvidence: ServiceGrillPreviewClaim[];
+    sections: Array<{ sectionId: string; heading: string; purpose: string; sourceMaterials: ServiceGrillPreviewMaterial[]; derivedBlocks: ServiceGrillPreviewClaim[] }>;
+  };
+  unclassified: Array<{ materialId: string; sourceRef: string; contentHash: string; text: string; reason: string; evidenceRefs: string[]; preservation: "UNCHANGED_IN_PLACE" }>;
+  impact: { sourceMaterialCount: number; movedMaterialCount: number; addedDerivedBlockCount: number; deletedMaterialCount: 0; unclassifiedMaterialCount: number };
+  evidenceScope: { refs: string[]; scopeHash: string; observedAt: string };
+  authorityBoundary: "SESSION_PREVIEW_ONLY";
+  provenance: { contractVersion: string; promptVersion: string; skillName: string; skillVersion: string; providerId: string; providerVersion: string; model: string; generatedAt: string };
+}
+export interface ServiceMiniProjectGrillPreviewResult {
+  output: ServiceGrillPreview;
+  provider: ServiceProviderCompletionMetadata;
+  promptBundleVersion: string;
+  contextFingerprint: string;
+}
+
 export type ServiceInteractionDisposition = "HELPFUL" | "NOT_NEEDED" | "INACCURATE" | "TOO_MUCH" | "DO_NOT_REPEAT";
 export interface ServiceInteractionEvidenceSummary {
   total: number;
@@ -873,6 +898,14 @@ export class LocalServiceClient {
 
   grillMiniProject(input: ServiceMiniProjectGrillRequest): Promise<ServiceMiniProjectGrillResult> {
     return this.request<ServiceMiniProjectGrillResult>("/provider/grill/mini-project/turn", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 125_000);
+  }
+
+  previewMiniProjectGrill(input: ServiceMiniProjectGrillPreviewRequest): Promise<ServiceMiniProjectGrillPreviewResult> {
+    return this.request<ServiceMiniProjectGrillPreviewResult>("/provider/grill/mini-project/preview", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

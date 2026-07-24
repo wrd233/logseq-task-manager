@@ -122,6 +122,7 @@ export interface UiModel {
   v2ProjectContextRecovery?: Record<string, PluginProjectContextRecoveryState>;
   v2MiniProjectGrill?: Record<string, PluginMiniProjectGrillState>;
   v2MiniProjectGrillAvailable?: boolean;
+  v2MiniProjectGrillPreviewAvailable?: boolean;
   v2ReentryTargetObjectId?: string;
   v2ReentryLoadError?: string;
   v2ObjectNarrations?: Record<string, PluginObjectNarration>;
@@ -735,15 +736,19 @@ function renderActionDialog(model: UiModel): string {
       : "";
     const error = state.status === "error" || state.status === "stale" ? `<div class="notice error" role="alert">${escapeHtml(state.message)}</div>` : "";
     const loading = state.status === "loading" ? `<div class="notice" aria-live="polite">正在结合原 Block 子树和前序回答生成下一轮；正式对象与正文保持不变。</div>` : "";
-    const readyForPreview = output?.readiness === "READY_FOR_PREVIEW"
-      ? `<div class="notice"><strong>已具备结构预览条件。</strong><p>本轮只形成会话草稿；尚未生成 Proposal，也没有改动正文或 SQLite。下一步将在独立预览中审阅结构。</p></div>`
+    const previewState = state.status === "ready" ? state.preview : undefined;
+    const readyForPreview = output?.readiness === "READY_FOR_PREVIEW" && previewState?.status !== "ready"
+      ? `<div class="notice"><strong>已具备结构预览条件。</strong><p>结构预览仍是 session draft；不会生成 Proposal 或改动正文/SQLite。</p>${previewState?.status === "loading" ? "<p aria-live=\"polite\">正在生成零丢失阅读预览…</p>" : previewState?.status === "error" ? `<p class="error">${escapeHtml(previewState.message)}</p>${button("重试结构预览", "v2-mini-project-grill-preview", object.objectId, "quiet", model.v2MiniProjectGrillPreviewAvailable !== true)}` : button("生成结构预览", "v2-mini-project-grill-preview", object.objectId, "primary", model.v2MiniProjectGrillPreviewAvailable !== true)}</div>`
       : "";
+    const preview = previewState?.status === "ready" ? previewState.result.output : undefined;
+    const previewSections = preview ? preview.finalReading.sections.map((section) => `<section class="grill-preview-section"><h4>${escapeHtml(section.heading)}</h4><p class="muted">${escapeHtml(section.purpose)}</p>${section.sourceMaterials.length ? `<ul>${section.sourceMaterials.map((material) => `<li>${escapeHtml(material.text || "（空 Block，原位保留）")}</li>`).join("")}</ul>` : ""}${section.derivedBlocks.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}</section>`).join("") : "";
+    const previewHtml = preview ? `<section class="grill-preview" aria-label="MiniProject 最终阅读预览"><div class="eyebrow">零丢失阅读预览 · 尚未应用</div><h3>${escapeHtml(preview.finalReading.title.text)}</h3><p><strong>要得到：</strong>${escapeHtml(preview.finalReading.outcome.text)}</p><p><strong>范围内：</strong>${escapeHtml(preview.finalReading.boundary.included.map((item) => item.text).join("；"))}</p>${preview.finalReading.boundary.excluded.length ? `<p><strong>范围外：</strong>${escapeHtml(preview.finalReading.boundary.excluded.map((item) => item.text).join("；"))}</p>` : ""}<p><strong>完成证据：</strong>${escapeHtml(preview.finalReading.completionEvidence.map((item) => item.text).join("；"))}</p><div class="badges"><span>原材料 ${preview.impact.sourceMaterialCount}</span><span>移动 ${preview.impact.movedMaterialCount}</span><span>新增归纳 ${preview.impact.addedDerivedBlockCount}</span><span>删除 ${preview.impact.deletedMaterialCount}</span><span>未分类 ${preview.impact.unclassifiedMaterialCount}</span></div>${previewSections}${preview.unclassified.length ? `<section><h4>待判断／原始材料（原位保留）</h4>${preview.unclassified.map((item) => `<blockquote>${escapeHtml(item.text || "（空 Block）")}<small>${escapeHtml(item.reason)}</small></blockquote>`).join("")}</section>` : ""}<div class="notice">这是阅读预览，不是 Proposal；当前没有“应用”按钮。原始材料全部保留，删除数由机器固定为 0。</div></section>` : "";
     const question = state.status === "ready" && output?.readiness === "CONTINUE" && output.questionGroup
       ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2MiniProjectGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-mini-project-grill-answer", object.objectId, "primary")}</section>`
       : "";
     const retry = state.status === "error" ? button("重试本轮", "v2-mini-project-grill-retry", object.objectId, "quiet") : "";
     const closeLabel = model.originReturnLabel ?? "关闭讨论";
-    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理 MiniProject"><div class="eyebrow">MiniProject Grill Me · Session only</div><h3>${escapeHtml(object.text)}</h3><p class="muted">Copilot 只围绕当前材料中的真实不确定性追问。事实、推断和未知分开显示；回答不持久化，模型不能创建 Proposal 或正式操作。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${question}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
+    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理 MiniProject"><div class="eyebrow">MiniProject Grill Me · Session only</div><h3>${escapeHtml(object.text)}</h3><p class="muted">Copilot 只围绕当前材料中的真实不确定性追问。事实、推断和未知分开显示；回答不持久化，模型不能创建 Proposal 或正式操作。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
   }
   if (dialog.kind === "confirm-end-task-copilot") {
     return `<section class="inbox-dialog action-dialog" aria-label="结束本次 Task Copilot"><h3>结束本次 Task Copilot？</h3><p>系统会再次检查未完成 Commit 与正文核对。安全时只释放当前插件租约并停止它拥有的 Service；Launcher、Graph 正文、SQLite 历史和其他进程不受影响。</p><div class="actions">${button("确认安全结束", "submit-end-task-copilot", undefined, "danger")}${cancel}</div></section>`;

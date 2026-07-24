@@ -674,6 +674,36 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
   assert.match(html, /Provider 暂时不可用/);
   assert.match(html, /当前目标是交付一个可验证的发布结果/);
   assert.match(html, /data-action="v2-mini-project-grill-retry"/);
+
+  const { questionGroup: _questionGroup, ...readyOutput } = result.output;
+  void _questionGroup;
+  const readyResult = { ...result, output: { ...readyOutput, readiness: "READY_FOR_PREVIEW" as const, unknowns: [] } };
+  value.v2MiniProjectGrillPreviewAvailable = true;
+  value.v2MiniProjectGrill["mini-open"] = { status: "ready", expectedVersion: 4, answers: [], result: readyResult };
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-mini-project-grill-preview"/);
+  value.v2MiniProjectGrill["mini-open"] = { status: "ready", expectedVersion: 4, answers: [], result: readyResult, preview: { status: "ready", result: {
+    output: {
+      schemaVersion: "task-copilot-grill-preview-v1",
+      finalReading: {
+        title: { text: "发布边界梳理", evidenceRefs: ["block:block-mini"] }, outcome: { text: "形成可验收的发布结果", evidenceRefs: ["block:block-mini"] },
+        boundary: { included: [{ text: "本次发布", evidenceRefs: ["block:block-mini"] }], excluded: [{ text: "长期治理", evidenceRefs: ["answer:boundary"] }] },
+        completionEvidence: [{ text: "发布结果可复核", evidenceRefs: ["block:block-mini"] }],
+        sections: [{ sectionId: "root", heading: "原始入口", purpose: "保留原 Block", sourceMaterials: [{ materialId: "root", sourceRef: "block:block-mini", contentHash: "12345678", text: "[MiniProject] 发布边界梳理", preservation: "UNCHANGED" }], derivedBlocks: [] }],
+      },
+      unclassified: [{ materialId: "material-2", sourceRef: "block:block-loose", contentHash: "23456789", text: "待判断材料", reason: "去向尚未确认", evidenceRefs: ["block:block-loose"], preservation: "UNCHANGED_IN_PLACE" }],
+      impact: { sourceMaterialCount: 2, movedMaterialCount: 0, addedDerivedBlockCount: 0, deletedMaterialCount: 0, unclassifiedMaterialCount: 1 },
+      evidenceScope: { refs: ["block:block-mini", "block:block-loose"], scopeHash: "scope-hash", observedAt: "2026-07-24T12:00:00.000Z" }, authorityBoundary: "SESSION_PREVIEW_ONLY",
+      provenance: { contractVersion: "1.0.0", promptVersion: "preview-hash", skillName: "mini-project-modeling", skillVersion: "1.0.0", providerId: "deepseek", providerVersion: "chat-completions-v1", model: "deepseek-chat", generatedAt: "2026-07-24T12:00:00.000Z" },
+    }, provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "preview-hash", contextFingerprint: "fingerprint",
+  } } };
+  html = renderApp(value);
+  assert.match(html, /零丢失阅读预览 · 尚未应用/);
+  assert.match(html, /原材料 2/);
+  assert.match(html, /删除 0/);
+  assert.match(html, /待判断／原始材料（原位保留）/);
+  assert.match(html, /当前没有“应用”按钮/);
+  assert.doesNotMatch(html, /data-action="(?:submit-v2-proposal|v2-proposal-commit|submit-v2-review-accept)"/);
 });
 
 test("V2 objects and Review expose reasoned cancellation and explicit reopen without generic Commit", () => {

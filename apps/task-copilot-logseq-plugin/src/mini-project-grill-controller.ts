@@ -1,19 +1,25 @@
 import type {
   ServiceMiniProjectGrillRequest,
+  ServiceMiniProjectGrillPreviewResult,
   ServiceMiniProjectGrillResult,
 } from "@task-copilot/service-client";
 
 export type MiniProjectGrillAnswer = ServiceMiniProjectGrillRequest["answers"][number];
+export type PluginMiniProjectGrillPreviewState =
+  | { status: "loading" }
+  | { status: "ready"; result: ServiceMiniProjectGrillPreviewResult }
+  | { status: "error"; message: string };
 
 export type PluginMiniProjectGrillState =
   | { status: "loading"; expectedVersion: number; answers: MiniProjectGrillAnswer[]; previous?: ServiceMiniProjectGrillResult }
-  | { status: "ready"; expectedVersion: number; answers: MiniProjectGrillAnswer[]; result: ServiceMiniProjectGrillResult }
+  | { status: "ready"; expectedVersion: number; answers: MiniProjectGrillAnswer[]; result: ServiceMiniProjectGrillResult; preview?: PluginMiniProjectGrillPreviewState }
   | { status: "error"; expectedVersion: number; answers: MiniProjectGrillAnswer[]; retryAnswers?: MiniProjectGrillAnswer[]; message: string; previous?: ServiceMiniProjectGrillResult }
   | { status: "stale"; expectedVersion: number; message: string };
 
 export interface MiniProjectGrillClient {
   listObjects(): Promise<Array<{ objectId: string; objectType: string; lifecycle?: string; version: number }>>;
   grillMiniProject?(input: ServiceMiniProjectGrillRequest): Promise<ServiceMiniProjectGrillResult>;
+  previewMiniProjectGrill?(input: ServiceMiniProjectGrillRequest): Promise<ServiceMiniProjectGrillPreviewResult>;
 }
 
 export interface MiniProjectGrillRuntime {
@@ -47,6 +53,13 @@ function currentResult(state: PluginMiniProjectGrillState | undefined): ServiceM
   if (state?.status === "ready") return state.result;
   if (state?.status === "loading" || state?.status === "error") return state.previous;
   return undefined;
+}
+
+function staleServiceError(error: unknown): boolean {
+  const remoteCode = error && typeof error === "object" && "details" in error
+    ? (error as { details?: { remoteCode?: unknown } }).details?.remoteCode
+    : undefined;
+  return typeof remoteCode === "string" && ["V2_OBJECT_VERSION_CONFLICT", "GRILL_SOURCE_STALE", "GRILL_OPEN_MINI_PROJECT_REQUIRED", "V2_OBJECT_NOT_FOUND"].includes(remoteCode);
 }
 
 export class MiniProjectGrillController {
@@ -105,6 +118,45 @@ export class MiniProjectGrillController {
     await this.requestTurn(objectId, state.expectedVersion, state.status === "error" ? state.retryAnswers ?? state.answers : state.answers, previous, state.answers);
   }
 
+  async generatePreview(objectId: string): Promise<void> {
+    const state = this.states.get(objectId);
+    const started = this.runtime();
+    if (state?.status !== "ready" || state.result.output.readiness !== "READY_FOR_PREVIEW") throw new Error("MiniProject 尚未具备结构预览条件；没有调用 Provider。");
+    if (state.preview?.status === "loading") return;
+    const optionalClient = started.client;
+    const optionalPreview = optionalClient?.previewMiniProjectGrill;
+    if (!optionalClient || !optionalPreview || !started.providerAvailable) {
+      this.states.set(objectId, { ...state, preview: { status: "error", message: "Local Service Preview Provider 未启用或正在重连；没有生成结构预览。" } });
+      await this.onStateChange();
+      return;
+    }
+    const epoch = this.epoch;
+    const client = optionalClient;
+    const previewMiniProjectGrill = optionalPreview.bind(client);
+    this.states.set(objectId, { ...state, preview: { status: "loading" } });
+    await this.onStateChange();
+    try {
+      requireCurrentMiniProject(await client.listObjects(), objectId, state.expectedVersion);
+      const result = await previewMiniProjectGrill({ objectId, expectedVersion: state.expectedVersion, answers: state.answers });
+      const current = this.runtime();
+      if (epoch !== this.epoch) return;
+      if (current.client !== started.client || current.generation !== started.generation || !current.providerAvailable) throw new StaleGrillSessionError("Local Service 已在预览期间重连；旧结构预览已丢弃。");
+      requireCurrentMiniProject(await client.listObjects(), objectId, state.expectedVersion);
+      const latest = this.states.get(objectId);
+      if (latest?.status !== "ready") return;
+      this.states.set(objectId, { ...latest, preview: { status: "ready", result } });
+    } catch (error) {
+      if (epoch !== this.epoch) return;
+      if (error instanceof StaleGrillSessionError || staleServiceError(error)) {
+        this.states.set(objectId, { status: "stale", expectedVersion: state.expectedVersion, message: boundedMessage(error) });
+      } else {
+        const latest = this.states.get(objectId);
+        if (latest?.status === "ready") this.states.set(objectId, { ...latest, preview: { status: "error", message: boundedMessage(error) } });
+      }
+    }
+    await this.onStateChange();
+  }
+
   private async requestTurn(
     objectId: string,
     expectedVersion: number,
@@ -151,7 +203,7 @@ export class MiniProjectGrillController {
       this.states.set(objectId, { status: "ready", expectedVersion, answers: requestedAnswers, result });
     } catch (error) {
       if (epoch !== this.epoch) return;
-      if (error instanceof StaleGrillSessionError) {
+      if (error instanceof StaleGrillSessionError || staleServiceError(error)) {
         this.states.set(objectId, { status: "stale", expectedVersion, message: boundedMessage(error) });
       } else {
         this.states.set(objectId, {
