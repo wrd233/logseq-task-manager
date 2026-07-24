@@ -25,9 +25,11 @@ try {
   } else {
   const { ownerPid, ...serviceOptions } = options;
   const provider = await loadStructuredProviderFromEnvironment();
+  const interactionEvidence = new InteractionEvidenceBuffer();
   const providerOptions = provider ? {
     proposalGenerator: new LocalLlmProposalGenerator(provider),
-    uxOutputGenerator: new LocalLlmUxOutputGenerator(provider, new InteractionEvidenceBuffer()),
+    uxOutputGenerator: new LocalLlmUxOutputGenerator(provider, interactionEvidence),
+    interactionEvidence,
   } : {};
   const service = await startLocalService({ ...serviceOptions, ...providerOptions });
   process.stdout.write(`${serviceReadyLine(process.pid, service.capabilities)}\n`);

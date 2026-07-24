@@ -347,10 +347,12 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
 
 ## P1-H：交互日志与版本
 
-状态：`PARTIAL_EVIDENCE_AUTOMATED` — Application 已建立 session-only bounded
+状态：`PARTIAL_LIVE_SERVICE` — Application 已建立 session-only bounded
 Interaction Evidence Buffer，P1-G 生成器已记录成功、Validator 拒绝和 Provider 失败；
 Plugin StructuredLogger/Runtime Diagnostics 与 Local Service daemon output 已去除自由
-文本异常和本机路径；用户处置 UI、跨会话持久化/清理策略与噪声 dashboard 仍开放。
+文本异常和本机路径；Project recovery 五种可撤回处置、版本噪声汇总、同场景/Skill 版本
+`DO_NOT_REPEAT` 与真实 DeepSeek/Service Gate 已完成，Plugin UI 自动 Gate 完成；Desktop
+点击与跨会话持久化/清理策略、用户可见 dashboard 仍开放。
 
 默认仅记录：
 
@@ -393,6 +395,13 @@ Prompt/Skill 演化仍必须走证据 → 候选 → 人工审阅 → 测试 →
 - Runtime stage failure、Plugin 启动、全局异常和 fallback Console 路径只保留错误名与机器
   错误码；Debug 开关也不放宽这一隐私边界；
 - Plugin tests 222/222、0 skipped，typecheck/build PASS。
+- session handle 只用于当前 Service 内关联反馈，`snapshot/exportJsonl/summary` 均不暴露；
+  handle 过期或跨 session 返回 404，不会误绑定新草稿；
+- Project recovery 卡提供 HELPFUL/NOT_NEEDED/INACCURATE/TOO_MUCH/DO_NOT_REPEAT 与撤回；
+  `DO_NOT_REPEAT` 按同一 scene + Skill version 在 Provider 前抑制，避免动态 Context hash 绕过，
+  Service restart 或撤回即恢复，不写 SQLite/Graph；
+- Application 123/123、Local Service 102/102、Plugin 226/226；真实 LaunchAgent + Keychain
+  reference + DeepSeek Gate 验证评分变更、抑制、撤回、summary 脱敏、零正式写入和 owned shutdown。
 - Local Service READY 输出不含 descriptor/database，schema migration 输出不含 backup path，
   stderr 只返回 machine error code；Local Service tests 98/98、0 skipped，typecheck/build PASS；
 - CLI stderr 是用户显式调用的即时反馈而非自动留存日志；live/golden runner 默认关闭且已有

@@ -143,6 +143,18 @@ export interface ServiceProjectContextRecoveryResult {
   provider: ServiceProviderCompletionMetadata;
   promptBundleVersion: string;
   contextFingerprint: string;
+  interactionId?: string;
+}
+
+export type ServiceInteractionDisposition = "HELPFUL" | "NOT_NEEDED" | "INACCURATE" | "TOO_MUCH" | "DO_NOT_REPEAT";
+export interface ServiceInteractionEvidenceSummary {
+  total: number;
+  rated: number;
+  helpfulRate: number | null;
+  noiseRate: number | null;
+  dispositions: Record<ServiceInteractionDisposition, number>;
+  outcomes: Record<string, number>;
+  versions: Array<{ versionKey: string; total: number; generated: number; rejected: number; errors: number; rated: number; helpful: number; noise: number; doNotRepeat: number; helpfulRate: number | null; noiseRate: number | null }>;
 }
 
 export type ServiceGraphReadQuery =
@@ -831,6 +843,18 @@ export class LocalServiceClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
     }, 125_000);
+  }
+
+  setUxInteractionDisposition(interactionId: string, disposition?: ServiceInteractionDisposition): Promise<{ userDisposition: ServiceInteractionDisposition | null; summary: ServiceInteractionEvidenceSummary }> {
+    return this.request(`/provider/ux/interactions/${encodeURIComponent(interactionId)}/disposition`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ disposition: disposition ?? null }),
+    });
+  }
+
+  getUxInteractionSummary(): Promise<{ summary: ServiceInteractionEvidenceSummary }> {
+    return this.request("/provider/ux/interactions/summary");
   }
 
   readGraph(query: ServiceGraphReadQuery): Promise<ServiceGraphSnapshot> {

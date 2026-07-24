@@ -49,4 +49,5 @@ Provider ID、无凭据 Base URL、实际 Model ID、`keychain:` reference、60 
   bootstrap/dist、架构边界、145 条规则与恢复演练 `differences: []`；
 - 这是 Service/真实 Provider 证据，不是 Logseq Desktop 点击、loading、渲染、主题、窄栏、
   reload 或 stale 视觉证据；这些仍保持 OPEN；
-- P1-H 用户 disposition、噪声汇总和 persistence decision 尚未接入。
+- P1-H 用户 disposition、噪声汇总与 session suppression 已在后续 Gate 接入；跨会话
+  persistence decision 与 Desktop 反馈体验仍开放，见 `p1-h-session-disposition-live-20260724.md`。

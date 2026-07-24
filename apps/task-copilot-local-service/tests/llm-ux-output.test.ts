@@ -66,9 +66,11 @@ test("LLM UX generator returns only a validated machine-provenance draft without
   };
 
   const evidence = new InteractionEvidenceBuffer();
-  const result = await new LocalLlmUxOutputGenerator(provider, evidence).generate(request);
+  const result = await new LocalLlmUxOutputGenerator(provider, evidence, () => "uxi_1234567890abcdef").generate(request);
   assert.equal(result.output.summary, "项目正在等待关键参数。");
   assert.equal(result.output.provenance.model, "actual-model");
+  assert.equal(result.interactionId, "uxi_1234567890abcdef");
+  assert.doesNotMatch(evidence.exportJsonl(), /uxi_1234567890abcdef/);
   assert.equal(result.output.provenance.skillName, "recover-context");
   assert.equal(result.output.provenance.skillVersion, "1.0.0");
   assert.equal(result.output.provenance.generatedAt, request.observedAt);
@@ -95,6 +97,46 @@ test("LLM UX generator returns only a validated machine-provenance draft without
     },
     elapsedMs: 30,
   }]);
+});
+
+test("DO_NOT_REPEAT suppresses the same Skill and prompt for only the current evidence session", async () => {
+  const evidence = new InteractionEvidenceBuffer();
+  let providerCalls = 0;
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      providerCalls += 1;
+      return {
+        value: {
+          schemaVersion: "task-copilot-ux-output-v1",
+          factRefs: ["condition"],
+          inferences: [],
+          unknowns: [],
+          summary: "项目正在等待关键参数。",
+          suggestedChanges: [],
+          nextActionEligible: false,
+          riskLevel: "NONE",
+          requiresDiscussion: false,
+          requiresReview: false,
+        },
+        metadata: { model: "actual-model", durationMs: 20, attempts: 1 },
+      };
+    },
+  };
+  const generator = new LocalLlmUxOutputGenerator(provider, evidence, () => "uxi_1234567890abcdef");
+  const first = await generator.generate(request);
+  assert.equal(providerCalls, 1);
+  assert.equal(evidence.setDisposition(first.interactionId!, "DO_NOT_REPEAT")?.userDisposition, "DO_NOT_REPEAT");
+
+  await assert.rejects(
+    () => generator.generate(request),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "UX_OUTPUT_SESSION_SUPPRESSED"
+      && error.message.includes("当前 Service session"),
+  );
+  assert.equal(providerCalls, 1, "session suppression is checked before any Provider call");
+  assert.equal(evidence.snapshot().length, 1, "a suppressed repeat does not create noisy evidence");
 });
 
 test("LLM UX validation failure records only structural rejection evidence", async () => {

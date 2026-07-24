@@ -296,7 +296,7 @@ function summarize(entries: readonly InteractionEvidenceEntry[]): InteractionEvi
 }
 
 export class InteractionEvidenceBuffer {
-  private readonly entries: InteractionEvidenceEntry[] = [];
+  private readonly entries: Array<{ entry: InteractionEvidenceEntry; handle?: string }> = [];
 
   constructor(private readonly capacity = 500) {
     if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 4096) {
@@ -306,21 +306,49 @@ export class InteractionEvidenceBuffer {
 
   record(value: unknown): InteractionEvidenceEntry {
     const entry = parseEntry(value);
-    this.entries.push(entry);
+    this.entries.push({ entry });
     if (this.entries.length > this.capacity) this.entries.splice(0, this.entries.length - this.capacity);
     return structuredClone(entry);
   }
 
+  recordWithHandle(value: unknown, handle: string): InteractionEvidenceEntry {
+    if (!/^uxi_[A-Za-z0-9_-]{16,96}$/.test(handle) || this.entries.some((item) => item.handle === handle)) {
+      throw new Error("Interaction evidence handle is invalid or already used.");
+    }
+    const entry = parseEntry(value);
+    this.entries.push({ entry, handle });
+    if (this.entries.length > this.capacity) this.entries.splice(0, this.entries.length - this.capacity);
+    return structuredClone(entry);
+  }
+
+  setDisposition(handle: string, disposition?: NonNullable<InteractionEvidenceEntry["userDisposition"]>): InteractionEvidenceEntry | undefined {
+    const item = this.entries.find((candidate) => candidate.handle === handle);
+    if (!item) return undefined;
+    item.entry = parseEntry({ ...item.entry, ...(disposition ? { userDisposition: disposition } : { userDisposition: undefined }) });
+    return structuredClone(item.entry);
+  }
+
+  isSuppressed(input: {
+    scene: InteractionEvidenceScene;
+    skill: NonNullable<InteractionEvidenceEntry["skill"]>;
+  }): boolean {
+    return this.entries.some(({ entry }) =>
+      entry.scene === input.scene
+      && entry.skill?.name === input.skill.name
+      && entry.skill.version === input.skill.version
+      && entry.userDisposition === "DO_NOT_REPEAT");
+  }
+
   snapshot(): InteractionEvidenceEntry[] {
-    return structuredClone(this.entries);
+    return structuredClone(this.entries.map(({ entry }) => entry));
   }
 
   exportJsonl(): string {
-    return this.entries.map((entry) => JSON.stringify(entry)).join("\n");
+    return this.entries.map(({ entry }) => JSON.stringify(entry)).join("\n");
   }
 
   summary(): InteractionEvidenceSummary {
-    return structuredClone(summarize(this.entries));
+    return structuredClone(summarize(this.entries.map(({ entry }) => entry)));
   }
 
   clear(): void {

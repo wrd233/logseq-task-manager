@@ -7,7 +7,7 @@ import test from "node:test";
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persistence/node";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
-import { createEmptyState, V2Application } from "@task-copilot/application";
+import { createEmptyState, InteractionEvidenceBuffer, V2Application } from "@task-copilot/application";
 import { checksum } from "@task-copilot/shared";
 import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 
@@ -253,12 +253,14 @@ test("Project context recovery uses server-owned facts and a read-only action wi
       };
     },
   };
+  const interactionEvidence = new InteractionEvidenceBuffer();
   const service = await startLocalService({
     databasePath: join(root, "task-copilot.db"),
     graphId: "graph-context-recovery",
     token: "context-recovery-token-at-least-24-chars",
     proposalGenerator: new LocalLlmProposalGenerator(provider),
-    uxOutputGenerator: new LocalLlmUxOutputGenerator(provider),
+    uxOutputGenerator: new LocalLlmUxOutputGenerator(provider, interactionEvidence, () => "uxi_1234567890abcdef"),
+    interactionEvidence,
   });
   t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
   const client = clientFor(service);
@@ -289,9 +291,29 @@ test("Project context recovery uses server-owned facts and a read-only action wi
     targetRef: `anchor:${finalized.anchor.anchorId}`,
   });
   assert.equal(result.output.provenance.skillName, "recover-context");
+  assert.equal(result.interactionId, "uxi_1234567890abcdef");
   assert.match(result.contextFingerprint, /^[0-9a-f]{64}$/);
   assert.deepEqual(await client.status(), before, "Context recovery does not mutate formal state");
   assert.equal(providerCalls, 1);
+
+  const helpful = await client.setUxInteractionDisposition(result.interactionId!, "HELPFUL");
+  assert.equal(helpful.userDisposition, "HELPFUL");
+  assert.equal(helpful.summary.helpfulRate, 1);
+  const changed = await client.setUxInteractionDisposition(result.interactionId!, "TOO_MUCH");
+  assert.equal(changed.summary.noiseRate, 1);
+  const suppressed = await client.setUxInteractionDisposition(result.interactionId!, "DO_NOT_REPEAT");
+  assert.equal(suppressed.userDisposition, "DO_NOT_REPEAT");
+  await assert.rejects(
+    () => client.recoverProjectContext({ objectId: finalized.object.objectId, expectedVersion: finalized.object.version }),
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "UX_OUTPUT_SESSION_SUPPRESSED",
+  );
+  assert.equal(providerCalls, 1, "session suppression fails before Provider invocation");
+  const withdrawn = await client.setUxInteractionDisposition(result.interactionId!);
+  assert.equal(withdrawn.userDisposition, null);
+  assert.equal((await client.getUxInteractionSummary()).summary.rated, 0);
+  assert.doesNotMatch(interactionEvidence.exportJsonl(), /uxi_1234567890abcdef|发布治理/);
 
   await assert.rejects(
     () => client.recoverProjectContext({ objectId: finalized.object.objectId, expectedVersion: finalized.object.version - 1 }),

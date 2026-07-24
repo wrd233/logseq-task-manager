@@ -31,10 +31,16 @@ export interface GeneratedUnifiedUxOutput {
   output: UnifiedUxOutput;
   provider: StructuredCompletionMetadata;
   promptBundleVersion: string;
+  interactionId?: string;
 }
 
 export interface InteractionEvidenceSink {
   record(entry: InteractionEvidenceEntry): unknown;
+  recordWithHandle?(entry: InteractionEvidenceEntry, handle: string): unknown;
+  isSuppressed?(input: {
+    scene: InteractionEvidenceEntry["scene"];
+    skill: NonNullable<InteractionEvidenceEntry["skill"]>;
+  }): boolean;
 }
 
 function layer(value: PromptLayer, name: string): PromptLayer {
@@ -59,6 +65,7 @@ export class LocalLlmUxOutputGenerator {
   constructor(
     private readonly provider: StructuredProposalProvider,
     private readonly evidence?: InteractionEvidenceSink,
+    private readonly createInteractionId: () => string = () => `uxi_${randomBytes(18).toString("base64url")}`,
   ) {}
 
   private recordEvidence(entry: InteractionEvidenceEntry): void {
@@ -66,6 +73,20 @@ export class LocalLlmUxOutputGenerator {
       this.evidence?.record(entry);
     } catch {
       return;
+    }
+  }
+
+  private recordGeneratedEvidence(entry: InteractionEvidenceEntry): string | undefined {
+    try {
+      if (!this.evidence?.recordWithHandle) {
+        this.evidence?.record(entry);
+        return undefined;
+      }
+      const interactionId = this.createInteractionId();
+      this.evidence.recordWithHandle(entry, interactionId);
+      return interactionId;
+    } catch {
+      return undefined;
     }
   }
 
@@ -85,6 +106,16 @@ export class LocalLlmUxOutputGenerator {
       userSemantics,
       runtimeContext,
     }));
+    if (this.evidence?.isSuppressed?.({
+      scene: "CONTEXT_RECOVERY",
+      skill: { name: skill.name, version: skill.version },
+    })) {
+      throw new StructuredError({
+        code: "UX_OUTPUT_SESSION_SUPPRESSED",
+        message: "你已在当前 Service session 选择不再生成这类建议；撤回反馈或重启 Service 后可恢复。",
+        ruleRefs: ["D-134", "D-139"],
+      });
+    }
     const system = [
       "Return exactly one task-copilot-ux-output-v1 JSON draft. Use only supplied factRefs, evidenceRefs, and nextActionId values.",
       "facts are selected by factRefs; never rewrite a formal fact as an inference. Unknowns must remain explicit.",
@@ -161,7 +192,7 @@ export class LocalLlmUxOutputGenerator {
         details: { cause: error instanceof Error ? error.message : "unknown" },
       });
     }
-    this.recordEvidence({
+    const interactionId = this.recordGeneratedEvidence({
       timestamp: request.observedAt,
       scene: "CONTEXT_RECOVERY",
       outcome: "GENERATED",
@@ -186,6 +217,8 @@ export class LocalLlmUxOutputGenerator {
       output,
       provider: completion.metadata,
       promptBundleVersion,
+      ...(interactionId ? { interactionId } : {}),
     };
   }
 }
+import { randomBytes } from "node:crypto";

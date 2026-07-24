@@ -499,12 +499,32 @@ function renderProjectContextRecovery(
     output.requiresReview ? "正式变化需审阅" : undefined,
     output.riskLevel !== "NONE" ? `风险 ${output.riskLevel}` : undefined,
   ].filter((value): value is string => value !== undefined);
+  const interactionId = state.result.interactionId;
+  const feedback = interactionId ? [
+    ["有帮助", "HELPFUL"],
+    ["不需要", "NOT_NEEDED"],
+    ["不准确", "INACCURATE"],
+    ["太多了", "TOO_MUCH"],
+    ["本次会话不再这样建议", "DO_NOT_REPEAT"],
+  ].map(([label, disposition]) => button(
+    label!,
+    "v2-project-context-feedback",
+    `${card.project.objectId}|${interactionId}|${disposition}`,
+    state.userDisposition === disposition ? "primary" : "quiet",
+    state.feedbackBusy,
+  )).join("") : "";
+  const feedbackStatus = state.feedbackError
+    ? `<p class="muted">反馈未记录：${escapeHtml(state.feedbackError)}</p>`
+    : state.userDisposition
+      ? `<div class="actions"><span class="muted">反馈仅保留在当前 Service session。${state.userDisposition === "DO_NOT_REPEAT" ? "同版本建议已暂停。" : ""}</span>${button("撤回反馈", "v2-project-context-feedback", `${card.project.objectId}|${interactionId}|WITHDRAW`, "quiet", state.feedbackBusy)}</div>`
+      : "";
   return `<section class="restore" data-project-context-recovery="ready">
     <div class="eyebrow">Copilot 草稿 · 不保存第二摘要</div>
     <p class="lead">${escapeHtml(output.summary)}</p>
     ${facts}${inferences}${unknowns}${suggestions}
     ${policy.length ? `<p class="muted">${escapeHtml(policy.join(" · "))}</p>` : ""}
-    <div class="actions">${action}${model.v2ProviderAvailable ? button("重新生成", "v2-project-context-recovery", requestValue, "quiet") : ""}</div>
+    <div class="actions">${action}${model.v2ProviderAvailable ? button(state.userDisposition === "DO_NOT_REPEAT" ? "本次会话已暂停生成" : "重新生成", "v2-project-context-recovery", requestValue, "quiet", state.userDisposition === "DO_NOT_REPEAT") : ""}</div>
+    ${feedback ? `<details><summary>这次建议怎么样？</summary><div class="actions">${feedback}</div>${feedbackStatus}</details>` : ""}
     <details><summary>查看生成依据</summary><p class="muted">${escapeHtml(`${output.provenance.skillName}@${output.provenance.skillVersion} · ${output.provenance.model} · ${output.provenance.generatedAt}`)}</p></details>
   </section>`;
 }

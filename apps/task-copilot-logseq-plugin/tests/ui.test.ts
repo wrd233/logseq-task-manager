@@ -396,17 +396,30 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
         provider: { model: "deepseek-chat", durationMs: 15, attempts: 1 },
         promptBundleVersion: "prompt-hash",
         contextFingerprint: "context-fingerprint-private",
+        interactionId: "uxi_1234567890abcdef",
       },
     },
   };
   const withDraft = renderApp(value);
   assert.match(withDraft, /Copilot 草稿 · 不保存第二摘要/);
+  assert.match(withDraft, /这次建议怎么样？/);
+  assert.match(withDraft, /本次会话不再这样建议/);
+  assert.match(withDraft, /data-action="v2-project-context-feedback"/);
   assert.match(withDraft, /已确认事实[\s\S]*正式 Condition 正在等待厂家参数/);
   assert.match(withDraft, /Copilot 判断[\s\S]*参数到达后可继续资源测算/);
   assert.match(withDraft, /仍不知道[\s\S]*参数到达时间未知/);
   assert.match(withDraft, /可讨论建议[\s\S]*必须另建 Proposal 审阅/);
   assert.match(withDraft, /data-action="v2-open-primary-anchor" data-value="block-project"/);
   assert.doesNotMatch(withDraft, /context-fingerprint-private|scope-hash-private|anchor-project/);
+
+  const currentRecovery = value.v2ProjectContextRecovery["project-compact"];
+  if (!currentRecovery || currentRecovery.status !== "ready") throw new Error("expected ready recovery fixture");
+  value.v2ProjectContextRecovery["project-compact"] = { ...currentRecovery, userDisposition: "DO_NOT_REPEAT" };
+  const suppressedDraft = renderApp(value);
+  assert.match(suppressedDraft, /同版本建议已暂停/);
+  assert.match(suppressedDraft, /本次会话已暂停生成/);
+  assert.match(suppressedDraft, /disabled[^>]*>本次会话已暂停生成/);
+  value.v2ProjectContextRecovery["project-compact"] = currentRecovery;
 
   const readyRecovery = value.v2ProjectContextRecovery["project-compact"];
   assert.equal(readyRecovery?.status, "ready");

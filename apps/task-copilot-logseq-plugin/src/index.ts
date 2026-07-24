@@ -1174,6 +1174,20 @@ async function handleAction(action: string, value?: string): Promise<void> {
     );
     return;
   }
+  if (action === "v2-project-context-feedback" && value) {
+    const [objectId, interactionId, dispositionText] = value.split("|");
+    const dispositions = ["HELPFUL", "NOT_NEEDED", "INACCURATE", "TOO_MUCH", "DO_NOT_REPEAT"] as const;
+    const disposition = dispositions.find((candidate) => candidate === dispositionText);
+    if (!objectId || !interactionId || (dispositionText !== "WITHDRAW" && !disposition)) {
+      throw new Error("恢复草稿反馈已失效；没有记录处置。");
+    }
+    await projectContextRecoveryController.setDisposition(objectId, interactionId, disposition);
+    operationalLogger.log("info", "ui-action", "project_context_recovery_feedback", {
+      actionId: "v2-project-context-feedback",
+      result: disposition ?? "withdrawn",
+    });
+    return;
+  }
   if (action === "v2-provider-analyze-current-block") {
     const targetBlockUuid = v2ProviderTarget.consume();
     workspace = "review";

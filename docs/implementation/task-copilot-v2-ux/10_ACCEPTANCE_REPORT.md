@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H code/process + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/handshake PASS；P0-H/J/K/Desktop host Gate OPEN | 不得宣布 P0 完成 |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D System/Proposal/Recent Changes/Now/Anchor repair consumer + P1-F Project reentry workspace/main Page Head + P1-G unified UX contract/Skill/server-owned Project route/Plugin consumer/真实 LaunchAgent+DeepSeek+Validator Gate + P1-H session evidence contract | Page Head/LLM UX Desktop 未验；Attention 仍无用户显现；处置/噪声 dashboard 未接 | 不得开放信号显示 |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D System/Proposal/Recent Changes/Now/Anchor repair consumer + P1-F Project reentry workspace/main Page Head + P1-G unified UX contract/Skill/server-owned Project route/Plugin consumer/真实 LaunchAgent+DeepSeek+Validator Gate + P1-H session disposition/噪声汇总真实 Service Gate | Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示 |
 | P2 | NOT_STARTED | — | — | — |
 | Final Release | NOT_STARTED | — | — | — |
 
@@ -55,6 +55,8 @@
 - [x] 默认日志不含完整正文；P1-H 专用事件、Plugin StructuredLogger/Runtime Diagnostics
   与 Service daemon output 已用 strict allowlist 排除正文、Prompt、原始响应、路径与异常
   message/stack/cause；CLI 为主动前台反馈，live/golden 为默认关闭研究 Gate；
+- [x] session disposition 可撤回且不扩大权限；五种反馈、版本汇总、opaque handle 脱敏、
+  `DO_NOT_REPEAT` Provider 前抑制与零正式写入已通过自动及真实 DeepSeek/Service Gate；
 - [ ] 噪声指标可接受。
 
 ## 4. P2 验收

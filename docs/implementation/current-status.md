@@ -87,8 +87,11 @@ V2 v1.1 底座完成结论不变；当前继续按
   scene/outcome、对象类型、规则/Signal/Skill/Prompt/model 版本、结构计数、用户处置、固定
   failure code 与时长；未知字段、正文、summary、对象/Block 身份、Prompt 和模型原始输出
   无存储入口。P1-G 成功、Validator 拒绝与 Provider 失败已接入，证据 sink 故障不影响用户
-  结果；Application 121/121、Local Service 97/97 通过；尚未接用户处置 UI、持久化或噪声
-  dashboard；Plugin 通用 StructuredLogger/Runtime Diagnostics 已改为字段 allowlist 与仅
+  结果；Project 恢复草稿现提供五种可撤回 session disposition，opaque handle 不进入 export/
+  summary，`DO_NOT_REPEAT` 会在同一场景与 Skill 版本下、Provider 调用前暂停后续生成，撤回
+  立即恢复；Plugin 自动 UI、真实 LaunchAgent/DeepSeek/Service feedback 与零正式写入 Gate
+  均通过。Application 123/123、Local Service 102/102、Plugin 226/226 通过；持久化与跨会话
+  dashboard 仍未加入，Desktop 点击/主题/窄栏仍开放；Plugin 通用 StructuredLogger/Runtime Diagnostics 已改为字段 allowlist 与仅
   `errorName/errorCode`，启动/全局/fallback 异常不再把 message/stack/cause 送入 Console
   或导出，Plugin 222/222 通过；Local Service READY/migration/stderr 也只输出无路径的结构
   状态与错误码，Local Service 98/98 通过。CLI 属于用户主动前台反馈，live/golden runner
@@ -103,7 +106,7 @@ V2 v1.1 底座完成结论不变；当前继续按
 ## 当前 Slice
 
 V1 frozen / V2 E2E-01–24 complete / interaction optimization P1-G live-provider service+plugin partial /
-P1-H interaction evidence contract partial / P1 Desktop remains in progress
+P1-H session disposition live-service pass and Desktop open / P1 remains in progress
 
 ## 当前阶段结论
 

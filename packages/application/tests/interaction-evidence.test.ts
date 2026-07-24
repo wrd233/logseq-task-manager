@@ -114,3 +114,40 @@ test("interaction evidence summarizes versioned helpfulness and noise without ob
   }]);
   assert.doesNotMatch(JSON.stringify(summary), /objectId|blockUuid|summary|content/);
 });
+
+test("session handles bind reversible disposition without entering evidence exports", () => {
+  const log = new InteractionEvidenceBuffer(1);
+  const handle = "uxi_1234567890abcdef";
+  log.recordWithHandle({
+    timestamp: "2026-07-24T08:00:00.000Z",
+    scene: "CONTEXT_RECOVERY",
+    outcome: "GENERATED",
+    skill: { name: "recover-context", version: "1.1.0" },
+    promptVersion: "9537e029",
+    model: "deepseek-v4-flash",
+  }, handle);
+  assert.equal(log.setDisposition(handle, "HELPFUL")?.userDisposition, "HELPFUL");
+  assert.equal(log.summary().helpfulRate, 1);
+  assert.equal(log.setDisposition(handle, "TOO_MUCH")?.userDisposition, "TOO_MUCH");
+  assert.equal(log.summary().noiseRate, 1);
+  assert.equal(log.isSuppressed({
+    scene: "CONTEXT_RECOVERY",
+    skill: { name: "recover-context", version: "1.1.0" },
+  }), false);
+  assert.equal(log.setDisposition(handle, "DO_NOT_REPEAT")?.userDisposition, "DO_NOT_REPEAT");
+  assert.equal(log.isSuppressed({
+    scene: "CONTEXT_RECOVERY",
+    skill: { name: "recover-context", version: "1.1.0" },
+  }), true);
+  assert.equal(log.setDisposition(handle)?.userDisposition, undefined);
+  assert.equal(log.summary().rated, 0);
+  assert.equal(log.isSuppressed({
+    scene: "CONTEXT_RECOVERY",
+    skill: { name: "recover-context", version: "1.1.0" },
+  }), false, "withdrawing the disposition immediately re-enables the same prompt");
+  assert.doesNotMatch(log.exportJsonl(), /uxi_|1234567890abcdef/);
+
+  log.record({ timestamp: "2026-07-24T08:01:00.000Z", scene: "SYSTEM", outcome: "GENERATED" });
+  assert.equal(log.setDisposition(handle, "HELPFUL"), undefined, "evicted handles cannot rate another entry");
+  assert.throws(() => log.recordWithHandle({ timestamp: "2026-07-24T08:02:00.000Z", scene: "SYSTEM", outcome: "GENERATED" }, "bad"), /handle/);
+});

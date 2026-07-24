@@ -1,4 +1,6 @@
 import type {
+  ServiceInteractionDisposition,
+  ServiceInteractionEvidenceSummary,
   ServiceProjectContextRecoveryResult,
 } from "@task-copilot/service-client";
 
@@ -6,12 +8,13 @@ import type { PluginProjectReentryCard, PluginReentryRoute } from "./reentry-run
 
 export type PluginProjectContextRecoveryState =
   | { status: "loading"; expectedVersion: number }
-  | { status: "ready"; expectedVersion: number; result: ServiceProjectContextRecoveryResult }
+  | { status: "ready"; expectedVersion: number; result: ServiceProjectContextRecoveryResult; userDisposition?: ServiceInteractionDisposition | undefined; feedbackBusy?: boolean; feedbackError?: string | undefined; summary?: ServiceInteractionEvidenceSummary }
   | { status: "error"; expectedVersion: number; message: string };
 
 export interface ProjectContextRecoveryClient {
   listObjects(): Promise<Array<{ objectId: string; objectType: string; version: number }>>;
   recoverProjectContext?(input: { objectId: string; expectedVersion: number }): Promise<ServiceProjectContextRecoveryResult>;
+  setUxInteractionDisposition?(interactionId: string, disposition?: ServiceInteractionDisposition): Promise<{ userDisposition: ServiceInteractionDisposition | null; summary: ServiceInteractionEvidenceSummary }>;
 }
 
 export interface ProjectContextRecoveryRuntime {
@@ -97,6 +100,40 @@ export class ProjectContextRecoveryController {
     } catch (error) {
       if (epoch !== this.epoch) return;
       this.states.set(objectId, { status: "error", expectedVersion, message: message(error) });
+    }
+    await this.onStateChange();
+  }
+
+  async setDisposition(objectId: string, interactionId: string, disposition?: ServiceInteractionDisposition): Promise<void> {
+    const state = this.states.get(objectId);
+    const started = this.runtime();
+    if (state?.status !== "ready" || state.result.interactionId !== interactionId || !started.client?.setUxInteractionDisposition) {
+      throw new Error("这条恢复草稿反馈已失效；没有记录处置。");
+    }
+    if (state.feedbackBusy) return;
+    const epoch = this.epoch;
+    this.states.set(objectId, { ...state, feedbackBusy: true, feedbackError: undefined });
+    await this.onStateChange();
+    try {
+      const result = await started.client.setUxInteractionDisposition(interactionId, disposition);
+      const current = this.runtime();
+      if (epoch !== this.epoch) return;
+      if (current.client !== started.client || current.generation !== started.generation) throw new Error("Service 已重连；旧反馈 session 已失效。");
+      const latest = this.states.get(objectId);
+      if (latest?.status !== "ready" || latest.result.interactionId !== interactionId) return;
+      this.states.set(objectId, {
+        ...latest,
+        feedbackBusy: false,
+        feedbackError: undefined,
+        ...(result.userDisposition ? { userDisposition: result.userDisposition } : { userDisposition: undefined }),
+        summary: result.summary,
+      });
+    } catch (error) {
+      if (epoch !== this.epoch) return;
+      const latest = this.states.get(objectId);
+      if (latest?.status === "ready" && latest.result.interactionId === interactionId) {
+        this.states.set(objectId, { ...latest, feedbackBusy: false, feedbackError: message(error) });
+      }
     }
     await this.onStateChange();
   }

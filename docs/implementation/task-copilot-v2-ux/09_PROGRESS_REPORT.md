@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract + server-owned Project recovery + Plugin consumer、P1-H session evidence contract automated PASS；Attention 未展示、LLM 真实 Provider/Desktop、处置/噪声 dashboard 与 UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract + server-owned Project recovery + Plugin consumer + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；Attention 未展示，LLM/反馈 Desktop、跨会话 dashboard 与 UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -258,8 +258,7 @@ Application 新增 session-only `InteractionEvidenceBuffer`：exact-key allowlis
 P1-G 生成器已记录三个结构事件：成功包含 evidence 数量和 next-action eligibility；
 Validator 拒绝只含 `UX_OUTPUT_VALIDATION_FAILED`；Provider 失败只含
 `UX_OUTPUT_PROVIDER_FAILED`。证据 sink 采用 best-effort 隔离，自己的异常不能让已生成结果
-失败，也不能覆盖原始 Provider/Validator 错误。当前仍未接用户 disposition、噪声 dashboard
-或跨会话留存。
+失败，也不能覆盖原始 Provider/Validator 错误。
 
 随后完成 Plugin 通用诊断链审计：旧 StructuredLogger 会把任意 `Error.message`、stack 和
 cause 放入内存 ring、Console、复制诊断与 JSONL 导出，Runtime stage 也会复制这些字段。
@@ -278,7 +277,20 @@ metadata、zero-write 与 structural failure 测试，不能混入日常交互�
 Interaction Evidence 随后增加纯派生版本/噪声汇总：按 Skill/Prompt/model 版本分别统计
 generated/rejected/error、rated、helpful、noise 与 do-not-repeat，并给出 helpful/noise rate。
 未评分版本返回 null 而不是伪造 0% 噪声；summary 只读取已经通过 allowlist 的 session entry，
-不产生对象身份、正文、持久化或上传。用户 disposition 入口和真实可接受阈值仍未完成。
+不产生对象身份、正文、持久化或上传。
+
+Project recovery 随后补齐五种可撤回 session disposition。成功结果只向当前客户端返回 opaque
+handle，handle 不进入 snapshot/export/summary；过期或跨 session handle 返回 404。Plugin
+卡片显示 HELPFUL/NOT_NEEDED/INACCURATE/TOO_MUCH/DO_NOT_REPEAT，反馈期间禁重复提交，
+Graph switch、Service reconnect 与 stale generation 仍按既有 epoch 丢弃。`DO_NOT_REPEAT`
+按 scene + Skill version 在 Provider 调用前抑制；之所以不按完整 prompt hash，是因为真实
+Context Package 时间戳会让每次 hash 变化，按 hash 会静默绕过用户刚表达的 session 意图。
+撤回或 Service restart 立即恢复，不写 Graph/SQLite。
+
+真实 LaunchAgent/Keychain reference/DeepSeek Gate 已完成生成→HELPFUL→TOO_MUCH→
+DO_NOT_REPEAT→Provider 前 409→撤回→summary：正式 Object 投影不变，summary 不含 handle，
+release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可用；Desktop 反馈体验、
+真实噪声阈值与跨会话 derivative 价值仍未完成。
 
 ## 当前阻塞
 
@@ -327,6 +339,8 @@ generated/rejected/error、rated、helpful、noise 与 do-not-repeat，并给出
 - P1-G Plugin consumer：Plugin 225/225、0 skipped、typecheck PASS；覆盖显式触发、
   loading/ready/error、前后版本重验、重复点击、Graph/runtime 清空、facts/inferences/
   unknowns 分区、内部 fingerprint 不显示与伪造动作 target 不可点击；
+- P1-H session disposition：Application 123/123、Local Service 102/102、Plugin 226/226，
+  0 skipped、typecheck PASS；真实 DeepSeek/Service Gate PASS，正式对象零变化，owned shutdown；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -339,10 +353,11 @@ generated/rejected/error、rated、helpful、noise 与 do-not-repeat，并给出
 
 ## 下一步
 
-1. 把 P1-H 用户 disposition 接到统一 UX output 的可撤回 session 入口，并在 Desktop 中
-   验证噪声指标是否足够有用，再决定是否需要跨会话 derivative；
+1. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
+   feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
+   再决定是否需要跨会话 derivative；
 2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-3. 完成 P1-F Project workspace/Page Head、P1-G recovery draft 与 P1-D
+3. 完成 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
 4. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

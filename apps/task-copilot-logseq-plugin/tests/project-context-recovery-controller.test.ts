@@ -39,6 +39,7 @@ const result: ServiceProjectContextRecoveryResult = {
   provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
   promptBundleVersion: "prompt-hash",
   contextFingerprint: "context-fingerprint",
+  interactionId: "uxi_1234567890abcdef",
 };
 
 function card(): PluginProjectReentryCard {
@@ -178,4 +179,29 @@ test("controller fails before Provider for stale Project and verified route reso
   };
   assert.equal(resolveProjectContextRecoveryRoute(invented, card()), undefined);
   assert.equal(resolveProjectContextRecoveryRoute({ ...ready, expectedVersion: 2 }, card()), undefined);
+});
+
+test("controller records, changes, and withdraws feedback only for the current session draft", async () => {
+  const dispositions: Array<string | undefined> = [];
+  const client = {
+    listObjects: async () => [{ objectId: "project-1", objectType: "PROJECT", version: 3 }],
+    recoverProjectContext: async () => result,
+    setUxInteractionDisposition: async (_interactionId: string, disposition?: "HELPFUL" | "NOT_NEEDED" | "INACCURATE" | "TOO_MUCH" | "DO_NOT_REPEAT") => {
+      dispositions.push(disposition);
+      return {
+        userDisposition: disposition ?? null,
+        summary: { total: 1, rated: disposition ? 1 : 0, helpfulRate: disposition === "HELPFUL" ? 1 : disposition ? 0 : null, noiseRate: disposition && disposition !== "HELPFUL" ? 1 : disposition ? 0 : null, dispositions: { HELPFUL: disposition === "HELPFUL" ? 1 : 0, NOT_NEEDED: 0, INACCURATE: 0, TOO_MUCH: 0, DO_NOT_REPEAT: 0 }, outcomes: { GENERATED: 1 }, versions: [] },
+      };
+    },
+  };
+  const controller = new ProjectContextRecoveryController(() => ({ client, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.generate("project-1", 3);
+  await controller.setDisposition("project-1", result.interactionId!, "HELPFUL");
+  const helpfulState = controller.snapshot()["project-1"];
+  assert.equal(helpfulState?.status === "ready" ? helpfulState.userDisposition : undefined, "HELPFUL");
+  await controller.setDisposition("project-1", result.interactionId!);
+  assert.deepEqual(dispositions, ["HELPFUL", undefined]);
+  const withdrawnState = controller.snapshot()["project-1"];
+  assert.equal(withdrawnState?.status === "ready" ? withdrawnState.userDisposition : undefined, undefined);
+  await assert.rejects(() => controller.setDisposition("project-1", "uxi_wrongwrongwrong1", "HELPFUL"), /已失效/);
 });
