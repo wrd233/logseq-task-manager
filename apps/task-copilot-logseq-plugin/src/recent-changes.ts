@@ -1,4 +1,7 @@
 import type { ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { StatusNarration } from "@task-copilot/application";
+
+import { projectPluginCommitNarration } from "./status-narration-runtime.ts";
 
 export type RecentChangeStatus = "APPLIED" | "PENDING" | "RECOVERY_REQUIRED" | "FAILED" | "UNDONE";
 
@@ -16,6 +19,7 @@ export interface RecentChange {
   summary: string;
   status: RecentChangeStatus;
   statusLabel: string;
+  narration: StatusNarration;
   occurredAt: string;
   availability?: string;
   primaryAction?: RecentChangeAction;
@@ -166,6 +170,7 @@ export function projectRecentChanges(input: RecentChangesInput): RecentChange[] 
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
     .slice(0, input.limit ?? 20)
     .map((commit): RecentChange => {
+      const narration = projectPluginCommitNarration(commit);
       const record = commit.proposalId ? proposals.get(commit.proposalId) : undefined;
       const state = userState(commit);
       const inverse = inverseByOriginal.get(commit.semanticCommitId);
@@ -192,6 +197,7 @@ export function projectRecentChanges(input: RecentChangesInput): RecentChange[] 
         summary: record?.proposal.finalPreview ?? "这次正式修改的详细意图只在原始审阅记录中可用。",
         status: state.status,
         statusLabel: state.label,
+        narration,
         occurredAt: commit.updatedAt,
         ...(availability ? { availability } : {}),
         ...(primaryAction ? { primaryAction } : {}),

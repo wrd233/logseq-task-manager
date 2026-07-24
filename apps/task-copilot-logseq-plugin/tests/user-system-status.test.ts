@@ -34,6 +34,8 @@ test("healthy status answers the five user questions without treating an optiona
   const result = deriveUserSystemStatus(snapshot());
   assert.equal(result.level, "READY");
   assert.equal(result.headline, "Task Copilot 可以正常使用");
+  assert.deepEqual(result.keyEvidence, ["正式状态与当前 Graph 已连接"]);
+  assert.equal(result.narrationRuleId, "system-ready");
   assert.match(result.whatHappened, /正式状态与当前 Graph 已连接/);
   assert.match(result.affected, /Agent 分析未启用/);
   assert.match(result.stillAvailable, /正文编辑、Focus、Condition、Project、审阅、Undo、备份与迁移/);
@@ -58,6 +60,7 @@ test("unavailable Service pauses formal writes while keeping Graph editing and h
   }));
   assert.equal(result.level, "BLOCKED");
   assert.equal(result.headline, "正式服务暂时不可用");
+  assert.equal(result.narrationRuleId, "system-service-restricted");
   assert.match(result.affected, /正式写入、审阅提交、Undo、备份、恢复与迁移已暂停/);
   assert.match(result.stillAvailable, /Logseq 正文仍可编辑/);
   assert.match(result.dataSafety, /没有把连接失败当成空状态/);
@@ -100,6 +103,7 @@ test("unfinished and recovery-required commits take priority over ordinary readi
   }));
   assert.equal(recovery.level, "BLOCKED");
   assert.equal(recovery.headline, "有 1 项修改需要恢复");
+  assert.equal(recovery.narrationRuleId, "system-commit-recovery-required");
   assert.match(recovery.dataSafety, /已完成步骤保存在原 Commit/);
   assert.match(recovery.actionRequired, /同一恢复记录/);
 });

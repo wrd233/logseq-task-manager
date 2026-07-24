@@ -151,8 +151,9 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 
 ## P1-D：状态翻译层
 
-状态：`PARTIAL_AUTOMATED` — Application 确定性 Object/Proposal/Commit/Anchor/System
-叙述契约与下一动作资格 Gate 已完成；尚未接 Plugin ViewModel/UI，LLM draft protocol 仍待扩展。
+状态：`PARTIAL_UI_AUTOMATED` — Application 确定性 Object/Proposal/Commit/Anchor/System
+叙述契约已接入 Plugin System、Proposal Review 与 Recent Changes；Object/Anchor/Now
+consumer、Desktop Gate 与 LLM draft protocol 仍待扩展。
 
 Application/ViewModel 契约：
 
@@ -195,8 +196,17 @@ source
   并只打开受控修复入口；
 - System priority 固定为 Recovery > Pending > Service/Graph > Anchor > Explicit Sync > Ready；
   restricted 状态明确正文仍可编辑，Provider 未配置不降级基础事务能力；
-- Application tests 104/104、0 skipped，typecheck 与根级 Gate PASS；
-- 当前不构成用户可见状态翻译或 Desktop PASS。
+- Plugin adapter 只把 Service 结构化事实送入 Application，不把叙述结果作为正式状态；
+- System 五问首屏的 headline、最多两条依据与 rule provenance 来自同一契约，原有影响范围、
+  数据安全和用户动作说明继续保留；
+- Proposal Review 先显示确定性结论/依据/未知，`ACCEPTED/APPLIED`、Provider kind/model 和
+  rule id 退到折叠详情；accepted-not-applied 仍复用既有 Commit 按钮；
+- Recent Changes 先显示 Commit 结论和依据，Undo 资格仍由原有 operation-specific Handler
+  与前置校验决定；完成状态不会凭叙述自动显示 Undo；
+- 用户首屏 notice 不再显示 SemanticCommit ID；技术身份、checksum、error code 仍只在折叠
+  详情中可查；
+- Application tests 112/112、Plugin tests 204/204、0 skipped，typecheck/build PASS；
+- 当前未完成 Object/Anchor/Now consumer 与 Desktop 主题/窄栏/真实恢复对照，不能声明 P1-D 完成。
 
 ## P1-E：Block 轻标记原型
 

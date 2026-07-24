@@ -213,8 +213,9 @@ export function renderRuntimeDiagnostics(snapshot: RuntimeDiagnosticsSnapshot, e
   return `<section class="app-shell diagnostics-shell" data-task-copilot-ui="${UI_NAMESPACE}">
     <header class="topbar"><div><div class="eyebrow">系统状态</div><h1>${escapeHtml(userStatus.headline)}</h1></div><button type="button" data-action="close" class="quiet">关闭</button></header>
     <main class="workspace diagnostics-workspace">
-      <section class="user-system-status status-${userStatus.level.toLowerCase()}" aria-label="用户系统状态">
+      <section class="user-system-status status-${userStatus.level.toLowerCase()}" aria-label="用户系统状态" data-narration-rule="${escapeHtml(userStatus.narrationRuleId)}">
         <div class="eyebrow">${userStatus.level === "READY" ? "可以正常使用" : userStatus.level === "ATTENTION" ? "需要留意" : "部分能力已暂停"}</div>
+        ${userStatus.keyEvidence.length ? `<p class="muted">${userStatus.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}
         <dl>
           <div><dt>发生了什么</dt><dd>${escapeHtml(userStatus.whatHappened)}</dd></div>
           <div><dt>哪些能力受影响</dt><dd>${escapeHtml(userStatus.affected)}</dd></div>

@@ -12,6 +12,7 @@ import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
 import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
 import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
+import { projectPluginProposalNarration } from "./status-narration-runtime.ts";
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -324,6 +325,7 @@ function renderReview(model: UiModel): string {
   }
   const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
   const v2Cards = v2.map((record) => {
+    const statusNarration = projectPluginProposalNarration(record, model.v2SemanticCommits ?? []);
     const lowRiskApply = lowRiskApplyEligibility(record);
     const lowRiskApplyBusy = model.v2LowRiskApplyBusyProposalId === record.proposal.proposalId;
     const acceptedGroups = record.proposal.groups.filter((group) => group.disposition === "ACCEPTED");
@@ -366,9 +368,12 @@ function renderReview(model: UiModel): string {
     const canLifecycleUndo = isReasonedLifecycle && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && lifecycleUndoCommit?.status !== "FAILED" && lifecycleUndoCommit?.status !== "COMPLETED";
     const canUndo = !isProjectClosure && !isProjectStructure && !isMiniProjectClosure && !isReasonedLifecycle && !isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
     const canReviseWithProvider = model.v2ProviderAvailable === true && record.proposal.source.kind === "local_llm" && ["READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED"].includes(record.proposal.status);
-    return `<article class="card proposal v2-proposal">
-    <div class="eyebrow">V2 · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)} · ${escapeHtml(record.updatedAt)}</div>
-    <h3>${escapeHtml(record.proposal.title)}</h3>
+    return `<article class="card proposal v2-proposal" data-narration-rule="${escapeHtml(statusNarration.source.ruleId)}">
+    <div class="eyebrow">修改建议 · ${escapeHtml(record.updatedAt)}</div>
+    <h3>${escapeHtml(statusNarration.conclusion)}</h3>
+    ${statusNarration.keyEvidence.length ? `<p class="muted">${statusNarration.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}
+    ${statusNarration.unknowns.length ? `<p class="uncertain"><strong>尚不能确认：</strong>${escapeHtml(statusNarration.unknowns.join("；"))}</p>` : ""}
+    <p><strong>${escapeHtml(record.proposal.title)}</strong></p>
     <p><strong>当前上下文：</strong>${escapeHtml(record.proposal.context)}</p>
     <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
     <section class="suggestion"><h4>最终可读预览</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
@@ -381,7 +386,8 @@ function renderReview(model: UiModel): string {
     }).join("")}
     ${canReviseWithProvider ? `<div class="actions">${button(model.v2ProviderRevisionBusy ? "Agent 调整中…" : "调整建议", "v2-provider-revise-open", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet", model.v2ProviderRevisionBusy === true)}</div>` : ""}
     ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : isProjectStructure ? "确认更新当前接口" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消对象" : "确认重开对象") : isOwnershipChange ? "确认改变主归属" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : isProjectStructure ? "v2-project-structure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, "primary", (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true))}</div>` : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>` : canProjectStructureUndo ? `<div class="actions">${button("撤销当前接口更新", "v2-project-structure-undo", originalCommit.semanticCommitId, "danger")}</div>` : canLifecycleUndo ? `<div class="actions">${button(reasonedLifecycleOperation!.payload.action === "CANCEL" ? "撤销取消" : "撤销重开", "v2-lifecycle-undo", originalCommit.semanticCommitId, "danger", model.v2LifecycleCommitBusy === true)}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
-    <div class="notice">${canOwnershipUndo ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复到审阅前主归属，且不会移动正文。` : ownershipUndoCommit?.status === "FAILED" ? "对象或 Primary Ownership 已有后续变化；Undo 已安全终止且没有覆盖当前状态。" : canLifecycleUndo ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可恢复 Lifecycle${reasonedLifecycleOperation!.payload.action === "REOPEN" ? " 与 Closure 快照" : ""}，不改写正文。` : lifecycleUndoCommit?.status === "FAILED" ? "对象在 Lifecycle Commit 后已有变化；Undo 已安全终止且没有覆盖当前状态。" : canUndo ? `已正式生效 · Commit ${escapeHtml(originalCommit.semanticCommitId)}；可撤销且不会覆盖后续编辑。` : originalCommit?.status === "UNDONE" ? "原 Commit 已撤销；Audit 与逆向 Commit 历史均保留。" : isProjectClosure && record.proposal.status === "APPLIED" ? `Project Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Project 已退出活跃视图，页面保留。` : isProjectStructure && record.proposal.status === "APPLIED" ? `Project 当前接口已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；Graph、归属和位置未改变。` : hasAcceptedMiniProjectClosure && record.proposal.status === "APPLIED" ? `MiniProject 三问 Closure 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；${isMarkerDrivenMiniProjectClosure ? "移除 Marker 不会自动重开" : "本次对象级关闭未改写 Logseq 正文"}，重开必须显式命令与理由。` : isReasonedLifecycle && record.proposal.status === "APPLIED" ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；原因保留在已应用 Proposal，正文、Anchor、Condition 与 Focus 未改变。` : isOwnershipChange && record.proposal.status === "APPLIED" ? `Primary Ownership 已正式生效 · Commit ${escapeHtml(originalCommit?.semanticCommitId ?? "")}；位置、Anchor 与 Association 未改变。` : miniProjectClosureBlockedByOtherGroups ? "MiniProject Closure 已接受，但其余语义组仍未终结；请先拒绝这些组，或将其拆成独立 Proposal，再进行最终关闭。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : isProjectStructure ? "原子更新版本化 Project 当前接口，不改 Graph" : isMiniProjectClosure ? `原子记录 MiniProject 三问 Closure 与 Lifecycle${isMarkerDrivenMiniProjectClosure ? "，并保留 Anchor 证据" : "，且不改写 Graph"}` : isReasonedLifecycle ? "记录原因并改变 Lifecycle，不改写 Graph" : isOwnershipChange ? "原子改变唯一 Primary Ownership" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
+    <div class="notice">${canOwnershipUndo ? `Primary Ownership 已正式生效；可恢复到审阅前主归属，且不会移动正文。` : ownershipUndoCommit?.status === "FAILED" ? "对象或 Primary Ownership 已有后续变化；Undo 已安全终止且没有覆盖当前状态。" : canLifecycleUndo ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效；可恢复 Lifecycle${reasonedLifecycleOperation!.payload.action === "REOPEN" ? " 与 Closure 快照" : ""}，不改写正文。` : lifecycleUndoCommit?.status === "FAILED" ? "对象在 Lifecycle Commit 后已有变化；Undo 已安全终止且没有覆盖当前状态。" : canUndo ? "已正式生效；可撤销且不会覆盖后续编辑。" : originalCommit?.status === "UNDONE" ? "原修改已撤销；Audit 与逆向修改历史均保留。" : isProjectClosure && record.proposal.status === "APPLIED" ? "Project Closure 已正式生效；Project 已退出活跃视图，页面保留。" : isProjectStructure && record.proposal.status === "APPLIED" ? "Project 当前接口已正式生效；Graph、归属和位置未改变。" : hasAcceptedMiniProjectClosure && record.proposal.status === "APPLIED" ? `MiniProject 三问 Closure 已正式生效；${isMarkerDrivenMiniProjectClosure ? "移除 Marker 不会自动重开" : "本次对象级关闭未改写 Logseq 正文"}，重开必须显式命令与理由。` : isReasonedLifecycle && record.proposal.status === "APPLIED" ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效；原因保留在已应用 Proposal，正文、Anchor、Condition 与 Focus 未改变。` : isOwnershipChange && record.proposal.status === "APPLIED" ? "Primary Ownership 已正式生效；位置、Anchor 与 Association 未改变。" : miniProjectClosureBlockedByOtherGroups ? "MiniProject Closure 已接受，但其余语义组仍未终结；请先拒绝这些组，或将其拆成独立 Proposal，再进行最终关闭。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : isProjectStructure ? "原子更新版本化 Project 当前接口，不改 Graph" : isMiniProjectClosure ? `原子记录 MiniProject 三问 Closure 与 Lifecycle${isMarkerDrivenMiniProjectClosure ? "，并保留 Anchor 证据" : "，且不改写 Graph"}` : isReasonedLifecycle ? "记录原因并改变 Lifecycle，不改写 Graph" : isOwnershipChange ? "原子改变唯一 Primary Ownership" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
+    <details><summary>状态依据与技术信息</summary><ul>${statusNarration.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul><p class="muted">规则 ${escapeHtml(statusNarration.source.ruleId)} · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)}</p></details>
   </article>`;
   }).join("");
   if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "在待整理视图分析当前 Block，或从当前页 Candidate 生成 Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
@@ -503,7 +509,10 @@ function renderRecentChange(change: RecentChange, immediate = false): string {
   const technical = change.technical;
   return `<article class="card compact recent-change">
     <div class="eyebrow">${immediate ? "刚刚的结果 · " : ""}${escapeHtml(recentChangeTime(change.occurredAt))} · <strong>${escapeHtml(change.statusLabel)}</strong></div>
-    <h3>${escapeHtml(change.intent)}</h3>
+    <h3>${escapeHtml(change.narration.conclusion)}</h3>
+    ${change.narration.keyEvidence.length ? `<p class="muted">${change.narration.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}
+    ${change.narration.unknowns.length ? `<p class="uncertain"><strong>尚不能确认：</strong>${escapeHtml(change.narration.unknowns.join("；"))}</p>` : ""}
+    <p><strong>${escapeHtml(change.intent)}</strong></p>
     <p>${escapeHtml(change.summary)}</p>
     ${change.availability ? `<p class="${change.status === "FAILED" || change.status === "RECOVERY_REQUIRED" ? "error" : "muted"}">${escapeHtml(change.availability)}</p>` : ""}
     ${change.primaryAction || change.secondaryAction ? `<div class="actions">${change.secondaryAction ? action(change.secondaryAction) : ""}${change.primaryAction ? action(change.primaryAction) : ""}</div>` : ""}
@@ -511,6 +520,7 @@ function renderRecentChange(change: RecentChange, immediate = false): string {
       <p>SemanticCommit：<code>${escapeHtml(technical.semanticCommitId)}</code></p>
       ${technical.proposalId ? `<p>Proposal：<code>${escapeHtml(technical.proposalId)}</code></p>` : ""}
       <p>状态：<code>${escapeHtml(technical.status)}</code>${technical.errorCode ? ` · 错误：<code>${escapeHtml(technical.errorCode)}</code>` : ""}</p>
+      <p>叙述规则：<code>${escapeHtml(change.narration.source.ruleId)}</code></p>
       <p class="muted">before ${escapeHtml(technical.beforeStateChecksum.slice(0, 12))}${technical.afterStateChecksum ? ` · after ${escapeHtml(technical.afterStateChecksum.slice(0, 12))}` : ""}</p>
     </details>
   </article>`;

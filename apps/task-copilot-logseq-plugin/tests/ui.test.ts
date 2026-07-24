@@ -164,6 +164,9 @@ test("recent changes leads with user intent, application result, and existing Un
 
   const html = renderApp(value);
   const cardLead = html.match(/<article class="card compact recent-change">([\s\S]*?)<details/)?.[1] ?? "";
+  assert.match(cardLead, /这次修改已经应用/);
+  assert.match(cardLead, /正式 Commit 已完整完成/);
+  assert.match(cardLead, /尚不能确认.*当前证据不足以确认是否仍满足安全撤销条件/);
   assert.match(cardLead, /整理设备托管材料/);
   assert.match(cardLead, /把设备托管材料组织为 MiniProject/);
   assert.match(cardLead, /已应用/);
@@ -174,6 +177,59 @@ test("recent changes leads with user intent, application result, and existing Un
     assert.doesNotMatch(visibleLead, new RegExp(engineeringValue));
   }
   assert.match(html, /技术详情[\s\S]*proposal-commit:private-1[\s\S]*proposal-private-1/);
+  assert.match(html, /叙述规则：[\s\S]*commit-completed/);
+});
+
+test("V2 Proposal review leads with deterministic narration and keeps raw status in details", () => {
+  const value = model();
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  value.v2Proposals = [{
+    updatedAt: "2026-07-24T06:32:00.000Z",
+    files: { proposalMd: "# proposal", proposalJson: "{}" },
+    proposal: {
+      proposalId: "proposal-accepted-1",
+      schemaVersion: "v2",
+      title: "整理设备托管材料",
+      context: "当前材料仍是一条普通记录。",
+      understanding: "整理为可推进事项。",
+      objective: "建立正式事项。",
+      logic: "应用一个低风险修改。",
+      finalPreview: "把设备托管材料组织为 MiniProject。",
+      unresolvedQuestions: [],
+      source: { kind: "user" },
+      scope: { read: [], modify: [{ kind: "BLOCK", id: "block-1", version: 3 }] },
+      preconditions: [],
+      groups: [{
+        groupId: "group-accepted-1",
+        explanation: "一次独立修改。",
+        risk: "LOW",
+        independentlyAcceptable: true,
+        dependencies: [],
+        textPatches: [],
+        semanticOperations: [{
+          operationId: "rewrite-1",
+          kind: "REWRITE_BLOCK",
+          target: { kind: "BLOCK", id: "block-1", version: 3 },
+          summary: "整理正文",
+          payload: { text: "整理后的正文" },
+          preconditions: [],
+        }],
+        disposition: "ACCEPTED",
+      }],
+      status: "ACCEPTED",
+      createdAt: "2026-07-24T06:30:00.000Z",
+    },
+  }];
+  value.v2SemanticCommits = [];
+
+  const html = renderApp(value);
+  const cardLead = html.match(/<article class="card proposal v2-proposal"[^>]*>([\s\S]*?)<section class="suggestion">/)?.[1] ?? "";
+  assert.match(cardLead, /修改内容已经确认，尚未正式应用/);
+  assert.match(cardLead, /正式正文与对象尚未由完成 Commit 证明生效/);
+  assert.doesNotMatch(cardLead, />ACCEPTED</);
+  assert.match(html, /状态依据与技术信息[\s\S]*proposal-accepted-not-applied[\s\S]*ACCEPTED/);
+  assert.match(html, /data-action="v2-proposal-commit"/);
 });
 
 test("immediate result resolves the same recent-change identity and keeps technical ID in details", () => {
@@ -534,7 +590,7 @@ test("V2 objects and Review expose reasoned cancellation and explicit reopen wit
 
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
-  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:cancel", proposalId: "prop-cancel", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:cancel", proposalId: "prop-cancel", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-22T13:00:00.000Z", updatedAt: "2026-07-22T13:01:00.000Z" }];
   html = renderApp(value);
   assert.match(html, /data-action="v2-lifecycle-undo" data-value="proposal-commit:cancel"/);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
@@ -820,7 +876,7 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /data-action="v2-proposal-revalidate"/);
   assert.match(html, /data-action="v2-proposal-commit"/);
   value.v2Proposals[0]!.proposal.status = "APPLIED";
-  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:abc", proposalId: "prop_v2", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:abc", proposalId: "prop_v2", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-20T12:00:00.000Z", updatedAt: "2026-07-20T12:01:00.000Z" }];
   html = renderApp(value);
   assert.match(html, /data-action="v2-proposal-undo"/);
   assert.match(html, /已正式生效/);
@@ -868,7 +924,7 @@ test("Project current interface Review has dedicated Commit and version-safe Und
   assert.match(renderApp(value), /data-action="submit-v2-project-structure-commit"/);
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
-  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-structure", proposalId: "prop-project-structure", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-structure", proposalId: "prop-project-structure", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-22T13:00:00.000Z", updatedAt: "2026-07-22T13:01:00.000Z" }];
   html = renderApp(value);
   assert.match(html, /data-action="v2-project-structure-undo"/);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
@@ -921,7 +977,7 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   assert.match(html, /data-action="v2-mini-project-closure-commit"[^>]*disabled[^>]*aria-busy="true"/);
   value.v2LifecycleCommitBusy = false;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
-  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:mini", proposalId: "prop-mini-close", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:mini", proposalId: "prop-mini-close", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-22T08:00:00.000Z", updatedAt: "2026-07-22T08:01:00.000Z" }];
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
   assert.match(html, /移除 Marker 不会自动重开/);
@@ -931,8 +987,8 @@ test("MiniProject Closure waits until every other group is explicitly rejected",
   const value = model();
   value.workspace = "review";
   value.reviewMode = "proposals";
-  value.v2Proposals = [{ updatedAt: "now", files: { proposalMd: "# Closure", proposalJson: "{}" }, proposal: {
-    proposalId: "prop-mini-partial", schemaVersion: "v2", title: "完成 MiniProject", context: "对象级关闭。", understanding: "三问已确认。", objective: "完成 MiniProject。", logic: "独立提交。", finalPreview: "完成。", unresolvedQuestions: [], source: { kind: "external_agent" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "mini-partial", version: 2 }] }, preconditions: [], status: "PARTIALLY_ACCEPTED", createdAt: "now",
+  value.v2Proposals = [{ updatedAt: "2026-07-22T09:01:00.000Z", files: { proposalMd: "# Closure", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-mini-partial", schemaVersion: "v2", title: "完成 MiniProject", context: "对象级关闭。", understanding: "三问已确认。", objective: "完成 MiniProject。", logic: "独立提交。", finalPreview: "完成。", unresolvedQuestions: [], source: { kind: "external_agent" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "mini-partial", version: 2 }] }, preconditions: [], status: "PARTIALLY_ACCEPTED", createdAt: "2026-07-22T09:00:00.000Z",
     groups: [
       { groupId: "close", explanation: "关闭。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "close", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-partial", version: 2 }, summary: "完成", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", closure: { originalGoal: "目标", actualResult: "结果", remainingWork: "另行处理" } }, preconditions: [] }], disposition: "ACCEPTED" },
       { groupId: "remaining", explanation: "创建后续对象。", risk: "LOW", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [], disposition: "PENDING" },
@@ -964,7 +1020,7 @@ test("object-only MiniProject Closure explains version revalidation without clai
   assert.doesNotMatch(html, /重验 Block、Anchor/);
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
-  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:agent", proposalId: "prop-mini-agent", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:agent", proposalId: "prop-mini-agent", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-22T10:00:00.000Z", updatedAt: "2026-07-22T10:01:00.000Z" }];
   html = renderApp(value);
   assert.match(html, /本次对象级关闭未改写 Logseq 正文/);
 });
@@ -991,7 +1047,7 @@ test("HIGH Ownership Review uses a dedicated confirmation and never falls throug
   assert.match(html, /data-action="v2-ownership-commit"[^>]*disabled[^>]*aria-busy="true"/);
   value.v2OwnershipCommitBusy = false;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
-  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:owner", proposalId: "prop-owner", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "now", updatedAt: "now" }];
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:owner", proposalId: "prop-owner", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-21T13:00:00.000Z", updatedAt: "2026-07-21T13:01:00.000Z" }];
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
   assert.match(html, /data-action="v2-ownership-undo"/);
@@ -1001,7 +1057,7 @@ test("HIGH Ownership Review uses a dedicated confirmation and never falls throug
   assert.match(html, /恢复为未归属/);
   assert.match(html, /data-action="submit-v2-ownership-undo"/);
   delete value.actionDialog;
-  value.v2SemanticCommits.push({ semanticCommitId: "ownership-undo:proposal-commit:owner", proposalId: "prop-owner", status: "FAILED", beforeStateChecksum: "before", createdAt: "now", updatedAt: "now" });
+  value.v2SemanticCommits.push({ semanticCommitId: "ownership-undo:proposal-commit:owner", proposalId: "prop-owner", status: "FAILED", beforeStateChecksum: "before", createdAt: "2026-07-21T13:02:00.000Z", updatedAt: "2026-07-21T13:03:00.000Z" });
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-ownership-undo"/);
   assert.match(html, /后续变化；Undo 已安全终止/);
@@ -1009,7 +1065,7 @@ test("HIGH Ownership Review uses a dedicated confirmation and never falls throug
   value.v2SemanticCommits[0]!.status = "UNDONE";
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-ownership-undo"/);
-  assert.match(html, /原 Commit 已撤销/);
+  assert.match(html, /原修改已撤销/);
 });
 
 test("completed Project keeps its readable Closure in the formal object workspace", () => {

@@ -74,7 +74,12 @@ test("recent changes shows user intent and safe action while keeping technical i
   });
 
   assert.equal(changes.length, 1);
-  assert.deepEqual(changes[0], {
+  const { narration, ...change } = changes[0]!;
+  assert.equal(narration.conclusion, "这次修改已经应用");
+  assert.deepEqual(narration.keyEvidence, ["正式 Commit 已完整完成"]);
+  assert.deepEqual(narration.unknowns, ["当前证据不足以确认是否仍满足安全撤销条件"]);
+  assert.equal(narration.source.ruleId, "commit-completed");
+  assert.deepEqual(change, {
     commitIdentity: "proposal-commit:opaque-1",
     proposalIdentity: "proposal-1",
     intent: "整理设备托管材料",
@@ -111,6 +116,12 @@ test("pending, recovery, failure, and undone are translated without inventing a 
   });
 
   assert.deepEqual(changes.map(({ statusLabel }) => statusLabel), ["尚未完成", "需要恢复", "未能应用", "已撤销"]);
+  assert.deepEqual(changes.map(({ narration }) => narration.conclusion), [
+    "这次修改尚未完成",
+    "这次修改需要恢复",
+    "这次修改没有应用",
+    "这次修改已经撤销",
+  ]);
   assert.equal(changes[0]!.primaryAction, undefined);
   assert.equal(changes[0]!.availability, "已完成的步骤被安全记录；请继续原操作，不要重复提交。");
   assert.equal(changes[1]!.primaryAction, undefined);

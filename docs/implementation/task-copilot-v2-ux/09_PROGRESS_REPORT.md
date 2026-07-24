@@ -156,7 +156,7 @@ P1-D 首轮确定性对象状态翻译已建立统一契约：主结论、最多
 空的 deterministic inferences、明确 unknowns、结构化 next-action eligibility、evidence scope
 和规则版本相互分离。只有到期 WAITING/PAUSED 与已完成 blocker 在相关现场生成一个动作；
 普通 ACTIONABLE、未来等待和 Project focus 不被机械变成下一步。首屏文本封顶但完整正式
-内容保留在 facts。当前未接 Plugin UI，不能声明用户体验或 Desktop PASS。
+内容保留在 facts。
 
 P1-C 首轮 `SHADOW` 动态 Now 投影已建立稳定三段：可行动 Focus 才进入继续处理，确定性
 blocker/review/due/Focus blocked 进入需要回看，Focus 中未到期 WAITING/PAUSED 进入保持等待。
@@ -175,7 +175,12 @@ Proposal accepted-not-applied 会先排除完成 Commit；PENDING/RECOVERY_REQUI
 “最近修改与恢复”，Anchor 只路由受控 Rebind 预览，系统状态沿用
 Recovery > Pending > Service/Graph > Anchor > Explicit Sync > Ready 的用户风险优先级。
 用户叙述不暴露 Commit error code 或 Anchor external ID，也不会从完成状态猜测 Undo 仍安全。
-当前仍是纯契约，尚未替换现有 Plugin ViewModel/UI。
+Plugin 已用一个只读 adapter 把同一契约接到 System、Proposal Review 与 Recent Changes。
+System 继续回答影响/可用能力/数据安全/用户动作五问，但 headline、依据和规则 provenance
+来自 Application；Proposal 与 Commit 卡片先显示结论和最多两条依据，unknown 明示，内部
+status、provider/model、Commit identity、checksum 与 error code 退到折叠详情。既有
+Commit/Undo/Recovery Handler 和前置校验没有转移到叙述层，完成状态不会自动获得 Undo。
+Object/Anchor/Now consumer 与真实 Desktop 信息密度对照仍未完成。
 
 ### P1-F Project/Task 重入纯投影
 
@@ -218,6 +223,7 @@ Association 不再展开为行动列表，完整 Objectives/Deliverables/对象�
 - P1-D 扩展后 Application tests：104/104、0 skipped，typecheck PASS；
 - P1-F 纯投影后 Application tests：112/112、0 skipped，typecheck PASS；
 - P1-F Plugin consumer 后 tests：200/200、0 skipped，typecheck/build PASS；
+- P1-D Plugin consumer 后 tests：204/204、0 skipped，typecheck/build PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；

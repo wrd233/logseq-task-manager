@@ -1,8 +1,11 @@
 import type { RuntimeDiagnosticsSnapshot } from "./runtime-diagnostics.ts";
+import { projectPluginSystemNarration } from "./status-narration-runtime.ts";
 
 export interface UserSystemStatus {
   level: "READY" | "ATTENTION" | "BLOCKED";
   headline: string;
+  keyEvidence: string[];
+  narrationRuleId: string;
   whatHappened: string;
   affected: string;
   stillAvailable: string;
@@ -14,7 +17,9 @@ function count(value: number | "unavailable" | undefined): number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0;
 }
 
-function restrictedStatus(snapshot: RuntimeDiagnosticsSnapshot): UserSystemStatus {
+function restrictedStatus(
+  snapshot: RuntimeDiagnosticsSnapshot,
+): Omit<UserSystemStatus, "keyEvidence" | "narrationRuleId"> {
   const reason = snapshot.service_connection.reason_code ?? "SERVICE_RESTRICTED";
   const common = {
     level: "BLOCKED" as const,
@@ -55,11 +60,17 @@ function restrictedStatus(snapshot: RuntimeDiagnosticsSnapshot): UserSystemStatu
 }
 
 export function deriveUserSystemStatus(snapshot: RuntimeDiagnosticsSnapshot): UserSystemStatus {
+  const narration = projectPluginSystemNarration(snapshot);
+  const narrated = {
+    headline: narration.conclusion,
+    keyEvidence: narration.keyEvidence,
+    narrationRuleId: narration.source.ruleId,
+  };
   const recovery = count(snapshot.recovery_required_commits);
   if (recovery > 0) {
     return {
+      ...narrated,
       level: "BLOCKED",
-      headline: `有 ${recovery} 项修改需要恢复`,
       whatHappened: "上一次正式修改没有完成，系统已停止创建新的重复操作。",
       affected: "相关正式写入与 Undo 在恢复收口前不可继续；其他独立事项不受影响。",
       stillAvailable: "Logseq 正文、只读历史、诊断和不依赖该 Commit 的日常浏览仍可用。",
@@ -70,8 +81,8 @@ export function deriveUserSystemStatus(snapshot: RuntimeDiagnosticsSnapshot): Us
   const pending = count(snapshot.pending_semantic_commits);
   if (pending > 0) {
     return {
+      ...narrated,
       level: "ATTENTION",
-      headline: `有 ${pending} 项修改尚未完成`,
       whatHappened: "正式修改已经开始，但还没有得到完整的完成确认。",
       affected: "相关修改不能再次提交；其最终结果仍需核对。",
       stillAvailable: "Logseq 正文、其他独立事项、只读历史和诊断仍可用。",
@@ -84,13 +95,13 @@ export function deriveUserSystemStatus(snapshot: RuntimeDiagnosticsSnapshot): Us
     || !snapshot.service_connection.formal_writes_available
     || snapshot.store_status !== "READY"
   ) {
-    return restrictedStatus(snapshot);
+    return { ...restrictedStatus(snapshot), ...narrated };
   }
   const conflicts = count(snapshot.source_anchor_conflicts);
   if (conflicts > 0) {
     return {
+      ...narrated,
       level: "ATTENTION",
-      headline: `有 ${conflicts} 项正式事项与正文失去连接`,
       whatHappened: "正式对象仍在 SQLite，但其 Primary Anchor 缺失或存在冲突。",
       affected: "这些事项不能安全打开正文或执行依赖 Anchor 的修改。",
       stillAvailable: "其他连接正常的事项、Logseq 编辑、Focus、Condition、审阅与历史仍可用。",
@@ -100,10 +111,9 @@ export function deriveUserSystemStatus(snapshot: RuntimeDiagnosticsSnapshot): Us
   }
   const sync = snapshot.explicit_sync;
   if (sync?.reconciliationRequired || (sync?.pending ?? 0) > 0) {
-    const pendingChanges = Math.max(1, sync?.pending ?? 0);
     return {
+      ...narrated,
       level: "ATTENTION",
-      headline: `有 ${pendingChanges} 项正文变化需要核对`,
       whatHappened: "Logseq 正文变化尚未与正式对象投影完成一致性核对。",
       affected: "依赖这些 Anchor 的正式修改暂不应继续。",
       stillAvailable: "正文编辑、只读浏览和其他已连接事项仍可用。",
@@ -113,8 +123,8 @@ export function deriveUserSystemStatus(snapshot: RuntimeDiagnosticsSnapshot): Us
   }
   const providerAvailable = snapshot.service_connection.capabilities?.provider === true;
   return {
+    ...narrated,
     level: "READY",
-    headline: "Task Copilot 可以正常使用",
     whatHappened: "正式状态与当前 Graph 已连接，未发现未完成修改或 Anchor 冲突。",
     affected: providerAvailable ? "当前没有已知受影响能力。" : "Agent 分析未启用；确定性基础事务能力不受影响。",
     stillAvailable: "正文编辑、Focus、Condition、Project、审阅、Undo、备份与迁移均可用。",
