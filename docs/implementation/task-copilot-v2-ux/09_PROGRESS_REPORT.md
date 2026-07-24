@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract + server-owned Project recovery + Plugin consumer + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；Attention 未展示，LLM/反馈 Desktop、跨会话 dashboard 与 UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -172,6 +172,19 @@ Focus 不截断且超过 7 项只温和提示。Copilot 建议区固定为空，
 Plugin 已把该投影接到既有 Attention session cycle 的 count-only telemetry：复用
 `/now-work.focus` 已过滤的 object ID 顺序，不新增 Focus endpoint，不记录对象 ID 或正文；
 日志只增加三段/建议/suppressed/overflow 数量与 Focus overload。相同当前数量不重复写日志。
+
+### P1-E Block 轻标记隔离原型
+
+本地 SDK 与官方 API 证实 `onBlockRendererSlotted` 是指定 Block UUID 的 condition hook，
+`provideUI` 只能注入宿主提供的 slot。因此未采用会污染正文的 renderer macro，也未采用
+MutationObserver/DOM selector 全局扫描。Plugin 新增默认 off setting，只对 active primary
+Anchor 的精确 UUID 注册；LINE/DOT/ICON/TINT/PHRASE 五种 inert marker 只读取 Object
+Lifecycle/Condition 与 Focus。关闭、Service restricted、Graph switch、unload 会清除当前
+slots，Block 正文和 SQLite 均不变；只改 marker setting 不触发 Service rediscovery/lease churn。
+
+focused 4/4 与 100 Block registration/injection harness、Plugin 231/231、typecheck/build PASS。
+这是生产包内的隔离 prototype，不是发布：TODO/DONE、编辑光标、长文、父子、Query、引用、
+Linked References、sidebar、Zoom、Light/Dark、renderer reload 与真实性能仍须 Desktop。
 
 ### P1-D 确定性状态翻译扩展
 
@@ -350,6 +363,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P1-A recompute/cooldown focused tests：13/13 PASS；fresh session current signature parity，
   同证据 cooldown 保留、evidence/policy 变化解除；
+- P1-E Block marker prototype：focused 4/4、Plugin 231/231、typecheck/build PASS；默认 off、
+  exact UUID、100 Block harness、slot cleanup 与 no-Markdown-write；Desktop OPEN；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；

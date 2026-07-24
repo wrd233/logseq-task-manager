@@ -5,7 +5,7 @@
 | UX-R01 | “接受并应用”绕过高影响安全边界 | HIGH/Ownership/Closure 进入一键流程 | 静默正式写入 | READY/LOW/唯一单 Block 白名单 + accepted-plan Validator + 服务端重验 + 单一 Commit；自动与 Desktop 通过 | CONTROLLED |
 | UX-R02 | accepted-not-applied 静默遗忘 | 工具栏/待我确认无持续入口 | 用户误以为已生效 | 低风险连续提交及错误后的明确刷新/恢复提示已完成；高影响 intervention projection 仍待 P0-E | PARTIAL |
 | UX-R03 | Block 右键无法真正动态 | SDK 注册项固定、payload 不稳定 | 菜单膨胀或语义错误 | 两项稳定意图 + 动作时解析已在正式 Block Desktop 通过；继续 Query/引用 Gate | CONTROLLED |
-| UX-R04 | Block UI 破坏 Logseq 阅读/编辑 | 大色块、光标遮挡、Query 噪声 | 正文体验退化 | prototype/feature flag/性能与主题 Gate | OPEN |
+| UX-R04 | Block UI 破坏 Logseq 阅读/编辑 | 大色块、光标遮挡、Query 噪声 | 正文体验退化 | 默认 off 的 exact-UUID slot prototype 已实现五候选、无动作/无正文写入与 100 Block harness；性能/主题/编辑态/Query Desktop Gate 后才可选择并开放 | MITIGATED_PROTOTYPE_OPEN_DESKTOP |
 | UX-R05 | Service productization 误管他人进程 | Plugin 关闭非 owned PID | 数据/其他 Graph 中断 | Launcher 只持有 spawn 返回的 exact child；租约只释放自身；最后租约/TTL/owner-PID 自动停机，自动与真实进程通过 | CONTROLLED |
 | UX-R06 | iframe 无法可靠启动 Node | child process API 不存在 | “自动启动”不可实现 | 已以 Desktop/SDK 证据选择独立 loopback Launcher + LaunchAgent；日常无需终端，真实安装通过 | CONTROLLED |
 | UX-R07 | descriptor 投放仍需开发者步骤 | filesystem path 被 renderer 拒绝 | 无法取得正式写入 client | 固定私有 key 的文件导入、校验、错误脱敏和 reload 已 Desktop 通过；进程生命周期由 UX-R05/R06/R08 跟踪 | CONTROLLED |

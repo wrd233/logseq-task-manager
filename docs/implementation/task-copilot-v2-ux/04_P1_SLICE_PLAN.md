@@ -231,7 +231,8 @@ source
 
 ## P1-E：Block 轻标记原型
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_PROTOTYPE_AUTOMATED` — 默认关闭、精确 active primary Anchor UUID 注册、
+五种候选与 100 Block 自动 harness 已进入 Plugin 包；未完成 Desktop Gate，不全局发布。
 
 候选：
 
@@ -260,6 +261,24 @@ source
 - 性能预算。
 
 原型验证前不全局上线。
+
+2026-07-24 自动原型：
+
+- Logseq 官方 SDK `onBlockRendererSlotted(blockUuid, callback)` 是指定 UUID 的条件 slot hook，
+  `provideUI(slot)` 只能向宿主给出的 DOM slot 注入 HTML；不存在本轮使用的全局 Markdown
+  postprocessor。见 https://logseq.github.io/plugins/interfaces/IAppProxy.html 与
+  https://plugins-doc.logseq.com/logseq/provideUI；
+- setting 默认 `off`，可比较 line/dot/icon/tint/phrase；设置只变化视觉模式，不重启或重新
+  获取 Service lease；
+- 只注册 SQLite active primary Anchor 对应的精确 UUID，状态只来自 Object Lifecycle/
+  Condition 与正式 Focus；inactive/missing/conflict/无对象 Anchor 不注入；
+- marker 无 button/data-action，`pointer-events: none`、`user-select: none`，不写 Markdown、
+  不插入 renderer macro、不使用 MutationObserver/全局 DOM 扫描；
+- 同一 UUID 可同时拥有 main/query/reference 等多个宿主 slot，但实际宿主是否提供这些 slot
+  仍需 Desktop；identity mismatch、无效 slot、容量溢出、Service 受限、Graph switch、off 与
+  unload 均 fail closed/清理；
+- focused 4/4、Plugin 231/231、typecheck/build PASS；100 个正式 Block 的注册/注入结构 harness
+  PASS，但不是 Desktop 布局/帧率结论。
 
 ## P1-F：Project/Task 重入
 

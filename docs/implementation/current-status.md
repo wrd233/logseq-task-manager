@@ -66,6 +66,11 @@ V2 v1.1 底座完成结论不变；当前继续按
   blocker/review/due/Focus blocked 收敛，保持等待只含 Focus 中安静等待，普通 OPEN 不进入；
   复用 `/now-work.focus` 的过滤后顺序，不新增 API；Copilot 建议固定为空，Application
   98/98、Plugin 197/197 与根级 Gate 通过，未替换 Service/UI；
+- P1-E Block 轻标记已进入默认关闭的生产包内 prototype：只对 SQLite active primary Anchor
+  的精确 Block UUID 注册官方 `onBlockRendererSlotted`，通过宿主 slot 注入 LINE/DOT/ICON/
+  TINT/PHRASE 五种无动作标记；不写正文、不用 renderer 宏、不扫描 DOM，Service 受限、Graph
+  switch、设置关闭与 unload 均清理 slot。Plugin 231/231、100 Block harness PASS；真实编辑态、
+  TODO/DONE、Query/引用、sidebar、Zoom、Light/Dark 和性能 Desktop Gate 仍开放，未全局发布；
 - P1-F Project/Task 重入投影已接入 Project workspace：恢复风险优先，Project 只保留最多
   三个 Focus 直属进入点，普通 Association 不升级为动作；新 Project 与无正文 Task 会明确
   承认进入点不足；Project 主 Page 顶部新增一个只读“继续项目”宿主动作，点击时重验当前
