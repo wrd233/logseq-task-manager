@@ -65,7 +65,7 @@ import { commitV2Formalization, undoV2Formalization } from "./v2-proposal-commit
 import { applyLowRiskV2Proposal } from "./v2-low-risk-apply.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
-import { BlockFocusController } from "./block-focus-controller.ts";
+import { BlockFocusController, resolveBlockObject } from "./block-focus-controller.ts";
 import { BlockConditionController, type BlockConditionDraft } from "./block-condition-controller.ts";
 import { PageContextController, type PageContextSnapshot } from "./page-context-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
@@ -91,6 +91,7 @@ import {
 } from "./status-narration-runtime.ts";
 import { ProjectPageHeadActionController } from "./project-page-head-action.ts";
 import { ProjectContextRecoveryController } from "./project-context-recovery-controller.ts";
+import { MiniProjectGrillController } from "./mini-project-grill-controller.ts";
 import { BlockMarkerPrototypeController, type BlockMarkerPrototypeMode } from "./block-marker-prototype.ts";
 
 let appRoot: HTMLElement | undefined;
@@ -197,6 +198,16 @@ const projectContextRecoveryController = new ProjectContextRecoveryController(
     providerAvailable: serviceConnection.status === "READY"
       && serviceConnection.capabilities.provider
       && Boolean(serviceRuntimeClient?.recoverProjectContext),
+    generation: serviceDiscoveryGeneration,
+  }),
+  refresh,
+);
+const miniProjectGrillController = new MiniProjectGrillController(
+  () => ({
+    ...(serviceRuntimeClient ? { client: serviceRuntimeClient } : {}),
+    providerAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && Boolean(serviceRuntimeClient?.grillMiniProject),
     generation: serviceDiscoveryGeneration,
   }),
   refresh,
@@ -536,6 +547,10 @@ async function model(): Promise<UiModel> {
     v2NowWorkGrouping,
     ...(v2ProjectReentryCards !== undefined ? { v2ProjectReentryCards } : {}),
     v2ProjectContextRecovery: projectContextRecoveryController.snapshot(),
+    v2MiniProjectGrill: miniProjectGrillController.snapshot(),
+    v2MiniProjectGrillAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && Boolean(serviceRuntimeClient?.grillMiniProject),
     ...(v2ReentryTargetObjectId ? { v2ReentryTargetObjectId } : {}),
     ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
     ...(v2ObjectNarrations !== undefined ? { v2ObjectNarrations } : {}),
@@ -672,6 +687,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
   if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间中断；旧请求已取消或结果未知，请重启 Service 后刷新审阅队列。" };
   projectContextRecoveryController.clear();
+  miniProjectGrillController.clear();
   serviceRuntimeClient = undefined;
   serviceConnection = {
     status: "RESTRICTED",
@@ -1241,6 +1257,39 @@ async function handleAction(action: string, value?: string): Promise<void> {
       actionId: "v2-project-context-feedback",
       result: disposition ?? "withdrawn",
     });
+    return;
+  }
+  if (action === "v2-mini-project-grill-open" && value) {
+    const [objectId, versionText] = value.split("|");
+    const expectedVersion = Number(versionText);
+    if (!objectId || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+      throw new Error("MiniProject 讨论上下文已失效；没有调用 Provider。");
+    }
+    actionDialog = { kind: "v2-mini-project-grill", value: `${objectId}|${expectedVersion}` };
+    await miniProjectGrillController.start(objectId, expectedVersion);
+    const state = miniProjectGrillController.snapshot()[objectId];
+    operationalLogger.log(
+      state?.status === "ready" ? "info" : "warn",
+      "ui-action",
+      state?.status === "ready" ? "mini_project_grill_turn_generated" : "mini_project_grill_turn_unavailable",
+      { actionId: "v2-mini-project-grill-open", result: state?.status ?? "discarded" },
+    );
+    return;
+  }
+  if (action === "v2-mini-project-grill-answer" && value) {
+    const answer = dialogField("v2MiniProjectGrillAnswer");
+    await miniProjectGrillController.answer(answer);
+    const state = miniProjectGrillController.snapshot()[value];
+    operationalLogger.log(
+      state?.status === "ready" ? "info" : "warn",
+      "ui-action",
+      state?.status === "ready" ? "mini_project_grill_turn_generated" : "mini_project_grill_turn_unavailable",
+      { actionId: "v2-mini-project-grill-answer", result: state?.status ?? "discarded" },
+    );
+    return;
+  }
+  if (action === "v2-mini-project-grill-retry" && value) {
+    await miniProjectGrillController.retry(value);
     return;
   }
   if (action === "v2-provider-analyze-current-block") {
@@ -2283,6 +2332,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "cancel-action-dialog") {
     const returnToOrigin = originRoute !== undefined;
+    if (actionDialog?.kind === "v2-mini-project-grill") miniProjectGrillController.clear();
     v2ClosureDraftInput = undefined;
     actionDialog = undefined;
     pageContext = undefined;
@@ -2355,17 +2405,17 @@ async function showRuntimeDiagnosticsFromGeneralEntry(): Promise<void> {
 async function processCurrentBlockFromCommand(): Promise<void> {
   const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
   if (!block) throw new Error("请先选中一个有正文的 Logseq Block；没有调用 Provider。");
-  originRoute = await originRouteController.captureBlock(block.uuid);
-  v2ProviderTarget.bind(block.uuid);
-  try {
-    await showTaskCopilot();
-    await handleAction("v2-provider-analyze-current-block");
-  } finally {
-    v2ProviderTarget.clear();
-  }
+  await processBlockFromContext(block.uuid);
 }
 
 async function processBlockFromContext(blockUuid: string): Promise<void> {
+  if (serviceRuntimeClient) {
+    const resolved = await resolveBlockObject(serviceRuntimeClient, blockUuid, "").catch(() => undefined);
+    if (resolved?.object.objectType === "MINI_PROJECT") {
+      await openMiniProjectGrillFromContext(blockUuid);
+      return;
+    }
+  }
   originRoute = await originRouteController.captureBlock(blockUuid);
   v2ProviderTarget.bind(blockUuid);
   try {
@@ -2571,6 +2621,40 @@ async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
   }
 }
 
+async function openMiniProjectGrillFromContext(blockUuid: string): Promise<void> {
+  const correlationId = `TC-mini-project-grill-${Date.now()}`;
+  if (!featureReady || !serviceRuntimeClient) {
+    await showBlockContextMessage("Task Copilot 或 Grill Provider 尚未就绪；没有开始讨论，原 Block 保持原位。", "warning");
+    return;
+  }
+  try {
+    const { object } = await resolveBlockObject(serviceRuntimeClient, blockUuid, "没有开始讨论，原 Block 保持原位。");
+    if (object.objectType !== "MINI_PROJECT") {
+      throw new Error("当前 Block 对应的正式对象不是 MiniProject；没有开始讨论。");
+    }
+    const capturedOrigin = await originRouteController.captureBlock(blockUuid);
+    originRoute = capturedOrigin;
+    workspace = "objects";
+    actionDialog = { kind: "v2-mini-project-grill", value: `${object.objectId}|${object.version}` };
+    latestError = undefined;
+    await showTaskCopilot();
+    await miniProjectGrillController.start(object.objectId, object.version);
+    operationalLogger.log("info", "ui-action", "mini_project_grill_opened_from_block", {
+      correlationId,
+      actionId: "mini-project-grill-open",
+      result: miniProjectGrillController.snapshot()[object.objectId]?.status ?? "discarded",
+    });
+  } catch (error) {
+    operationalLogger.log("error", "ui-action", "mini_project_grill_open_failed", {
+      correlationId,
+      actionId: "mini-project-grill-open",
+      result: "error",
+      blockUuid,
+    }, error);
+    await showBlockContextMessage(`${explain(error)} 原 Block 保持原位。`, "error");
+  }
+}
+
 async function undoBlockConditionFromContext(): Promise<void> {
   await runBlockContextAction("block-condition-undo", () => blockConditionController.undoLast());
 }
@@ -2702,6 +2786,7 @@ async function handleCurrentGraphChanged(): Promise<void> {
   attentionShadowSession.clear();
   blockMarkerPrototypeController.clear();
   projectContextRecoveryController.clear();
+  miniProjectGrillController.clear();
   lastAttentionShadowSummarySignature = undefined;
   enterRestrictedServiceMode("GRAPH_SWITCH_IN_PROGRESS", "正在为新的 Graph 重新绑定本地运行环境；正式写入暂停。");
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");

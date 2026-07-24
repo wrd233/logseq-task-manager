@@ -2,7 +2,7 @@
 
 ## P2-A：MiniProject Grill Me
 
-状态：`PARTIAL_LIVE_PROVIDER`
+状态：`PARTIAL_UI_AUTOMATED`
 
 已完成的有界部分：Application 已建立 session-only Grill Turn 契约。机器按当前材料中的
 critical、priority 与 evidence 选择最大开放不确定性，机器独占 readiness；四个维度和
@@ -19,8 +19,12 @@ stale 重验和两轮 answer→next-focus 自动闭环。回答只成为当前�
 当前 Logseq read bridge 未连接，完整 Service live route 明确返回
 `GRAPH_READ_BRIDGE_UNAVAILABLE`，因此没有把 Provider 层 Gate 冒充 Desktop/Service live PASS。
 
-仍未完成：Plugin 多轮 UI/会话交互、Graph bridge 完整 live route、loading/error/reload、最终
-阅读预览、Proposal Review、Commit/Undo、交互证据接线以及 Desktop 体验。
+Plugin 已接入 Objects 卡片，并让既有“处理这条内容”在正式 MiniProject Block 上按点击时
+身份路由 Grill，未增加固定宿主菜单项；提供 session-only 多轮
+理解/事实/推断/未知/建议/问题 UI。每轮前后重验对象，Provider error 保留上一轮，stale、
+duplicate、Graph switch/restricted/cleanup 清空与返回原 Block 均已有自动合同；UI 不暴露
+Proposal/Review/Commit 动作。仍未完成：Graph bridge 完整 live route、真实 Desktop 的
+loading/error/reload/返回原 Block、最终阅读预览、Proposal Review、Commit/Undo、交互证据接线。
 
 循环：
 

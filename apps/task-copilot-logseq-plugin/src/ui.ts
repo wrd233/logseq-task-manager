@@ -12,6 +12,7 @@ import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
 import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
 import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
+import type { PluginMiniProjectGrillState } from "./mini-project-grill-controller.ts";
 import {
   resolveProjectContextRecoveryRoute,
   type PluginProjectContextRecoveryState,
@@ -64,6 +65,7 @@ export type ActionDialogKind =
   | "v2-candidate-update"
   | "v2-area-edit"
   | "v2-project-structure-edit"
+  | "v2-mini-project-grill"
   | "v2-page-context"
   | "v2-page-formal-items"
   | "confirm-end-task-copilot";
@@ -118,6 +120,8 @@ export interface UiModel {
   v2NowWorkGrouping?: V2NowWorkGrouping;
   v2ProjectReentryCards?: PluginProjectReentryCard[];
   v2ProjectContextRecovery?: Record<string, PluginProjectContextRecoveryState>;
+  v2MiniProjectGrill?: Record<string, PluginMiniProjectGrillState>;
+  v2MiniProjectGrillAvailable?: boolean;
   v2ReentryTargetObjectId?: string;
   v2ReentryLoadError?: string;
   v2ObjectNarrations?: Record<string, PluginObjectNarration>;
@@ -260,9 +264,10 @@ function renderObjects(model: UiModel): string {
           ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${object.objectType}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
           : "";
       const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成 MiniProject", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
+      const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理 MiniProject" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
       const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑 Area", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
       const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("更新 Project 当前接口", "v2-project-structure-open", `${object.objectId}|${object.version}`, "quiet") : "";
-      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction || areaAction || projectStructureAction ? `<div class="actions">${areaAction}${closureAction}${projectStructureAction}${lifecycleActions}</div>` : ""}${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</article>`;
+      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction || grillAction || areaAction || projectStructureAction ? `<div class="actions">${areaAction}${grillAction}${closureAction}${projectStructureAction}${lifecycleActions}</div>` : ""}${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</article>`;
     }).join("")}</div></section>`;
     return `${areaCreator}${projectCreator}${relationError}${associationCreator}${ownershipList}${associationList}${list}`;
   }
@@ -715,6 +720,31 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-mini-project-grill") {
+    const [objectId] = dialog.value.split("|");
+    const object = model.v2Objects?.find((candidate) => candidate.objectId === objectId && candidate.objectType === "MINI_PROJECT");
+    const state = objectId ? model.v2MiniProjectGrill?.[objectId] : undefined;
+    if (!object || !state) return "";
+    const result = state.status === "ready" ? state.result : state.status === "loading" || state.status === "error" ? state.previous : undefined;
+    const output = result?.output;
+    const facts = output?.facts.length ? `<section><h4>已确认事实</h4><ul>${output.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
+    const inferences = output?.inferences.length ? `<section><h4>当前推断</h4><ul>${output.inferences.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
+    const unknowns = output?.unknowns.length ? `<section><h4>仍待澄清</h4><ul>${output.unknowns.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
+    const recommendation = output?.questionGroup?.recommendation
+      ? `<aside class="notice"><strong>建议：</strong>${escapeHtml(output.questionGroup.recommendation.text)}${output.questionGroup.recommendation.tradeoffs.length ? `<p class="muted">取舍：${escapeHtml(output.questionGroup.recommendation.tradeoffs.join("；"))}</p>` : ""}</aside>`
+      : "";
+    const error = state.status === "error" || state.status === "stale" ? `<div class="notice error" role="alert">${escapeHtml(state.message)}</div>` : "";
+    const loading = state.status === "loading" ? `<div class="notice" aria-live="polite">正在结合原 Block 子树和前序回答生成下一轮；正式对象与正文保持不变。</div>` : "";
+    const readyForPreview = output?.readiness === "READY_FOR_PREVIEW"
+      ? `<div class="notice"><strong>已具备结构预览条件。</strong><p>本轮只形成会话草稿；尚未生成 Proposal，也没有改动正文或 SQLite。下一步将在独立预览中审阅结构。</p></div>`
+      : "";
+    const question = state.status === "ready" && output?.readiness === "CONTINUE" && output.questionGroup
+      ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2MiniProjectGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-mini-project-grill-answer", object.objectId, "primary")}</section>`
+      : "";
+    const retry = state.status === "error" ? button("重试本轮", "v2-mini-project-grill-retry", object.objectId, "quiet") : "";
+    const closeLabel = model.originReturnLabel ?? "关闭讨论";
+    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理 MiniProject"><div class="eyebrow">MiniProject Grill Me · Session only</div><h3>${escapeHtml(object.text)}</h3><p class="muted">Copilot 只围绕当前材料中的真实不确定性追问。事实、推断和未知分开显示；回答不持久化，模型不能创建 Proposal 或正式操作。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${question}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
+  }
   if (dialog.kind === "confirm-end-task-copilot") {
     return `<section class="inbox-dialog action-dialog" aria-label="结束本次 Task Copilot"><h3>结束本次 Task Copilot？</h3><p>系统会再次检查未完成 Commit 与正文核对。安全时只释放当前插件租约并停止它拥有的 Service；Launcher、Graph 正文、SQLite 历史和其他进程不受影响。</p><div class="actions">${button("确认安全结束", "submit-end-task-copilot", undefined, "danger")}${cancel}</div></section>`;
   }

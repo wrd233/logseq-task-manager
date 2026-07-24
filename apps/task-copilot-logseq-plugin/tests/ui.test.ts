@@ -636,6 +636,46 @@ test("OPEN MiniProject exposes one sidebar Closure Proposal entry and completed 
   assert.doesNotMatch(html, /data-action="v2-mini-project-closure-propose"/);
 });
 
+test("MiniProject Grill renders a session-only multi-turn boundary with loading, error recovery, and no formal action", () => {
+  const value = model();
+  value.v2Objects = [{ objectId: "mini-open", objectType: "MINI_PROJECT", version: 4, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "梳理发布边界", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" }];
+  value.v2MiniProjectGrillAvailable = true;
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-mini-project-grill-open" data-value="mini-open\|4"/);
+
+  const result = {
+    output: {
+      schemaVersion: "task-copilot-grill-turn-v1" as const,
+      understanding: "当前目标是交付一个可验证的发布结果。",
+      facts: [{ text: "原文列出两项交付", sourceRefs: ["block:block-mini"] }],
+      inferences: [{ text: "长期治理可能超出边界", evidenceRefs: ["block:block-mini"] }],
+      unknowns: [{ uncertaintyId: "boundary", dimension: "BOUNDARY" as const, text: "长期治理是否属于这次结果？" }],
+      readiness: "CONTINUE" as const,
+      questionGroup: { focusUncertaintyId: "boundary", questions: [{ uncertaintyId: "boundary", text: "哪些内容明确不属于本次交付？" }], recommendation: { text: "先排除长期治理。", evidenceRefs: ["block:block-mini"], tradeoffs: ["范围更窄但更可验收"] } },
+      evidenceScope: { refs: ["block:block-mini"], scopeHash: "scope-hash", observedAt: "2026-07-24T12:00:00.000Z" },
+      authorityBoundary: "SESSION_DRAFT_ONLY" as const,
+      provenance: { contractVersion: "1.0.0", promptVersion: "prompt-hash", skillName: "mini-project-modeling", skillVersion: "1.0.0", providerId: "deepseek", providerVersion: "chat-completions-v1", model: "deepseek-chat", generatedAt: "2026-07-24T12:00:00.000Z" },
+    },
+    provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "prompt-hash", contextFingerprint: "fingerprint",
+  };
+  value.actionDialog = { kind: "v2-mini-project-grill", value: "mini-open|4" };
+  value.originReturnLabel = "返回原 Block";
+  value.v2MiniProjectGrill = { "mini-open": { status: "ready", expectedVersion: 4, answers: [], result } };
+  html = renderApp(value);
+  assert.match(html, /事实、推断和未知分开显示/);
+  assert.match(html, /当前目标是交付一个可验证的发布结果/);
+  assert.match(html, /哪些内容明确不属于本次交付/);
+  assert.match(html, /data-field="v2MiniProjectGrillAnswer"/);
+  assert.match(html, /返回原 Block/);
+  assert.doesNotMatch(html, /data-action="(?:submit-v2-proposal|v2-proposal-commit|submit-v2-review-accept)"/);
+
+  value.v2MiniProjectGrill["mini-open"] = { status: "error", expectedVersion: 4, answers: [], previous: result, message: "Provider 暂时不可用" };
+  html = renderApp(value);
+  assert.match(html, /Provider 暂时不可用/);
+  assert.match(html, /当前目标是交付一个可验证的发布结果/);
+  assert.match(html, /data-action="v2-mini-project-grill-retry"/);
+});
+
 test("V2 objects and Review expose reasoned cancellation and explicit reopen without generic Commit", () => {
   const value = model();
   value.v2Objects = [

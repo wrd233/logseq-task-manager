@@ -16,7 +16,7 @@
 | UX-R12 | 状态翻译隐藏关键信息 | 结论过度压缩 | 恢复风险不可见 | P0-I 五问首屏已上线；P1-D System/Proposal/Recent Changes/Now/Anchor repair 已消费统一结论/依据/facts/unknown/provenance；Anchor 卡复用既有 Rebind 安全链且不暴露身份，技术状态折叠保留，Object version 与动作 target 必须匹配，Commit/Undo 资格未迁入叙述层；Desktop 待做 | MITIGATED |
 | UX-R13 | “现在”退化为所有 OPEN | 首页几十条 | 传统任务列表压力 | P1-C SHADOW 只允许可行动 Focus、确定性回看、Focus 安静等待；普通 OPEN 排除，review/waiting 有界，Focus 不截断；runtime/UI Gate 待做 | MITIGATED |
 | UX-R14 | Project current interface 成为第二正文 | 每次编辑都要求更新 | 维护负担/事实冲突 | 正式 aggregate + 自动 facts + 关键变化才确认 | OPEN |
-| UX-R15 | Grill Me 固定问卷 | 每次都问同样字段 | 用户绕开 Project | session contract + Service 两轮 route + 真实 DeepSeek 两轮已证明 boundary answer 后转向 outcome；真实 Plugin UI/长期材料差异仍需证明 | MITIGATED_LIVE_PROVIDER_OPEN_UI |
+| UX-R15 | Grill Me 固定问卷 | 每次都问同样字段 | 用户绕开 Project | session contract + Service 两轮 route + 真实 DeepSeek 两轮已证明 boundary answer 后转向 outcome；Plugin 已消费机器 focus/readiness 而不渲染固定字段，长期材料差异与 Desktop 仍需证明 | MITIGATED_UI_AUTOMATED_OPEN_DESKTOP |
 | UX-R16 | 原位重构丢失事实 | 预览与原子操作不完整 | 正文损坏 | zero-loss property test、待判断区、one Commit/Undo | OPEN |
 | UX-R17 | default logs 保存私人正文 | log/Diagnostics 出现 Block 原文 | 隐私泄漏 | P1 shadow/interaction evidence 只含结构字段；Plugin diagnostics/export 已移除 message/stack/cause 并阻止任意字段注入；Service daemon output 不含路径或自由文本异常；CLI 前台反馈与默认关闭 research runner 已分层 | MITIGATED_AUTOMATED |
 | UX-R18 | API Key 进入持久产物 | Key 出现在 Graph/Git/log | 严重凭据泄漏 | Keychain/env reference；全资产 scan | CONTROLLED |
