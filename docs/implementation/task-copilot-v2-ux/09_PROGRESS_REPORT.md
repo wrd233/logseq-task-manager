@@ -177,6 +177,14 @@ Recovery > Pending > Service/Graph > Anchor > Explicit Sync > Ready 的用户风
 用户叙述不暴露 Commit error code 或 Anchor external ID，也不会从完成状态猜测 Undo 仍安全。
 当前仍是纯契约，尚未替换现有 Plugin ViewModel/UI。
 
+### P1-F Project/Task 重入纯投影
+
+Application 已新增只读重入投影。Project 的恢复风险优先于业务上下文；普通 Association
+只作为背景计数；只有 Focus 中、直属 Ownership、OPEN 且 active Primary Anchor 可定位的
+对象才成为最多三个进入点。初始化 Project 没有结构边界时明确显示“当前进入点不明确”。
+Task 不建立强制 current interface，只组合精确 Condition、带机器引用的父正文、Primary
+Owner 与 Anchor；信息不足时只打开原文。现有 Plugin 展开式 Project 页面尚未替换。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -203,6 +211,7 @@ Recovery > Pending > Service/Graph > Anchor > Explicit Sync > Ready 的用户风
 - P1-A/B Application tests：82/82、0 skipped，typecheck/lint PASS；
 - P1-B Plugin runtime tests + 全量：196/196、0 skipped，typecheck/build PASS；
 - P1-D 扩展后 Application tests：104/104、0 skipped，typecheck PASS；
+- P1-F 纯投影后 Application tests：112/112、0 skipped，typecheck PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -216,7 +225,7 @@ Recovery > Pending > Service/Graph > Anchor > Explicit Sync > Ready 的用户风
 ## 下一步
 
 1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 将 P1-D 确定性叙述接到只读 ViewModel，对照现有 System/Recent Changes 文案但不复制
-   恢复状态机；并为 P1-C runtime 对照准备真实 reload 读回；
+2. 将 P1-F 重入投影接到现有 Project workspace 的只读 ViewModel，压缩当前展开式对象树；
+   同时让 P1-D 对照现有 System/Recent Changes 文案而不复制恢复状态机；
 3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

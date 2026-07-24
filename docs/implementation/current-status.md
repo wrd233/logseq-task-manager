@@ -60,6 +60,9 @@ V2 v1.1 底座完成结论不变；当前继续按
   blocker/review/due/Focus blocked 收敛，保持等待只含 Focus 中安静等待，普通 OPEN 不进入；
   复用 `/now-work.focus` 的过滤后顺序，不新增 API；Copilot 建议固定为空，Application
   98/98、Plugin 197/197 与根级 Gate 通过，未替换 Service/UI；
+- P1-F Project/Task 重入纯投影首轮完成：恢复风险优先，Project 只保留最多三个 Focus
+  直属进入点，普通 Association 不升级为动作；新 Project 与无正文 Task 会明确承认进入点不足；
+  Application 112/112 通过，尚未替换现有展开式 Project 页面；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

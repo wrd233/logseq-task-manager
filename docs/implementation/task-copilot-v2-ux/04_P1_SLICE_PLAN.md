@@ -232,7 +232,8 @@ source
 
 ## P1-F：Project/Task 重入
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_AUTOMATED` — Application 只读重入投影已完成，现有 Plugin 展开式 Project
+页面与 Page slot 尚未切换到该投影。
 
 Project 顶部条只组合 schema v12、Condition、Focus、Anchor、最近 Audit 与未完成 Commit；不建立第二摘要权威。
 
@@ -245,6 +246,21 @@ Project 顶部条只组合 schema v12、Condition、Focus、Anchor、最近 Audi
 > **当前进入点不明确**（最近一次正式变化时间）
 
 Task 不建立强制 current interface。依次使用正式状态、当前正文、父 Block、Condition、所属 Project 和最近变化；不足时只打开原文。
+
+2026-07-24 首轮自动结果：
+
+- Project Recovery/PENDING Commit 高于普通当前接口，且只路由既有 Audit/Recovery；
+- 结构化当前接口、精确 Condition 或 Focus 中的直属对象至少有一项时才声明上下文充分；
+- 默认新 Project 没有结构边界时显示“当前进入点不明确”，不把初始化占位摘要伪装成进度；
+- 只允许 Focus 中、Primary Ownership 属于该 Project、Lifecycle OPEN 且 active Primary
+  Anchor 存在的对象成为进入点，最多三个；
+- 普通 Association 只计入背景上下文，不成为动作；
+- closed Project 使用 Closure 实际结果，不能建议 Focus 或修改当前接口；
+- Task 依次使用精确 Condition、有 sourceRef 的父正文、Primary Owner 与 active Anchor；
+  ACTIONABLE 且没有正文上下文时只提供“打开原文”，不生成 current interface；
+- external Block identity 不进入投影，facts/inferences/unknowns/evidenceScope 分离；
+- duplicate identity、时间无效、Anchor/Object 不匹配与无机器引用的父正文 fail closed；
+- Application tests 112/112、0 skipped，typecheck 与根级 Gate PASS；Plugin consumer 仍待收口。
 
 ## P1-G：LLM 叙述与上下文恢复 Skill
 
