@@ -8,8 +8,8 @@
 
 P2-B 的专用结构 SemanticCommit 已从 Service ledger 推进到防御性 Plugin executor，并在真实
 Logseq Desktop 中证明同一会话内的 custom UUID Block 可以保留身份和语义正文完成移动与还原。
-这不是完整 P2-B 完成：正式 Review→Commit UI、完成态 inverse Commit/Undo 与跨 reload Rebind
-仍未完成，用户应用按钮继续关闭。
+这不是完整 P2-B 完成：完成态 inverse Commit/Undo 已在随后自动闭环，但正式
+Review→Commit/Undo UI、整条 Desktop Gate 与跨 reload Rebind 仍未完成，用户应用按钮继续关闭。
 
 ## 已实现路径
 
@@ -30,6 +30,9 @@ Logseq Desktop 中证明同一会话内的 custom UUID Block 可以保留身份�
 - Capability Lab 14/14：ownership alias、稳定 labPageId、exact host-added `id::` 与冲突拒绝；
 - Plugin、Local Service、Service Client typecheck，Capability Lab lint/build/package/bootstrap/dist
   均通过。
+- 后续 inverse Undo：Local Service 115/115、Plugin 246/246；覆盖结构已变化时零 inverse
+  ledger、成功后原 Commit `UNDONE`/inverse `COMPLETED`、reload 零重复写，以及 Undo 失败后
+  forward compensation 恢复原已应用结构并保持原 Commit `COMPLETED`。
 
 ## Desktop 协议与结果
 
@@ -70,7 +73,6 @@ Logseq Desktop 中证明同一会话内的 custom UUID Block 可以保留身份�
 
 ## 仍开放
 
-1. 完成态结构 Commit 的 immutable inverse SemanticCommit/Undo；
-2. 正式 Proposal Review 独立确认、Commit loading/error/recovery 与完成后回根 Block；
-3. reload 后 Page/registry Rebind；
-4. 整条 Grill→Preview→Proposal→Commit→reload→Undo→reload Desktop Gate。
+1. 正式 Proposal Review 独立确认、Commit/Undo loading/error/recovery 与完成后回根 Block；
+2. reload 后 Page/registry Rebind；
+3. 整条 Grill→Preview→Proposal→Commit→reload→Undo→reload Desktop Gate。

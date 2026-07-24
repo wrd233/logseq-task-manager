@@ -67,8 +67,12 @@ Plugin 测试覆盖正常顺序、重放、move 失败补偿 create 与 UUID 不
 隔离 Logseq Desktop 0.10.15 已真实通过 custom UUID 的 A/B/C → C/A/B → A/B/C move/restore，
 顺序、UUID 与语义正文守恒。Gate 同时发现 Page runtime UUID 跨 reload 会变化，且属性键由宿主
 以 camelCase 返回；Capability Lab 已按 namespace + owner + stable labPageId 有界识别并在 reload
-冲突时拒绝自动认领。通用 Commit 继续 fail closed；完成态 inverse Commit/Undo、正式 UI 接线和
-跨 reload Rebind 仍未完成，因此尚不开放用户正式应用按钮。
+冲突时拒绝自动认领。完成态 Undo 已进一步形成独立 inverse SemanticCommit：准备前要求当前
+完整子树仍为已应用结构，逆序移动/删除机器新增空 Block，每步由 Service 观察；失败会用原
+forward steps 恢复已应用结构，原 Commit 只有在 inverse 全部 VERIFIED 后才标记 UNDONE。
+Local Service 115/115、Plugin 246/246 通过 changed-state 零账本、成功、reload replay 与失败
+恢复。通用 Commit 继续 fail closed；正式 UI 接线、完整 Desktop Commit/Undo 与跨 reload
+Rebind 仍未完成，因此尚不开放用户正式应用按钮。
 
 默认保留原根 Block；原始事实零丢失；无法归类内容进入待判断/原始材料；结构只使用最小骨架和按需区块。
 

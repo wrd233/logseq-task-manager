@@ -23,7 +23,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_EXECUTOR_DESKTOP_GATE | P2-A turn + 零丢失 preview contract/Service/Plugin 自动 PASS，真实 DeepSeek turn 与 preview Provider/Validator PASS；P2-B 专用 ledger/recovery/Plugin executor 自动 PASS，同会话 UUID move/restore Desktop PASS；正向 Undo、正式 UI、Rebind 仍开放 |
+| P2 | IN_PROGRESS_EXECUTOR_DESKTOP_GATE | P2-A turn + 零丢失 preview contract/Service/Plugin 自动 PASS，真实 DeepSeek turn 与 preview Provider/Validator PASS；P2-B 专用 ledger/recovery、Plugin Commit 与 inverse Undo executor 自动 PASS，同会话 UUID move/restore Desktop PASS；正式 UI、完整 Desktop、Rebind 仍开放 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -401,8 +401,10 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   executor 已实现每步写前 Service 观察、写后 verify、重放跳过与逆序补偿，4/4 focused PASS。
   隔离 Desktop Capability Lab 又真实完成 A/B/C → C/A/B → A/B/C：custom UUID、顺序和语义正文
   守恒，宿主只追加精确 `id::` 行；同时确认 Page runtime UUID 跨 reload 不稳定、属性键 camelCase，
-  因而 registry 冲突保持 fail closed 并把跨 reload 归入 Rebind。完成态 Undo 与正式应用 UI 仍
-  OPEN，不能点击应用；
+  因而 registry 冲突保持 fail closed 并把跨 reload 归入 Rebind。完成态 Undo 已实现为独立
+  inverse SemanticCommit：changed-state 零账本拒绝、每步观察、成功收口 UNDONE、reload
+  replay 零重复写、失败用 forward step 恢复已应用结构；Local Service 115/115、Plugin
+  246/246 PASS。正式应用/Undo UI 与完整 Desktop Gate 仍 OPEN，不能点击应用；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -416,8 +418,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 1. 恢复 Graph read bridge 后复跑 Plugin→Service→DeepSeek turn + preview Desktop Gate，覆盖
    loading、Provider failure retry、source stale、reload 清空与返回原 Block；保持输出仅为
    session draft/session preview；
-2. 在已通过的结构 ledger、Plugin executor 与同会话 Desktop identity Gate 之上，实现完成态
-   inverse SemanticCommit/Undo；补齐正式 Review→Commit UI 与 reload Rebind 前不开放应用按钮；
+2. 在已通过的结构 Commit/inverse Undo executors 与同会话 Desktop identity Gate 之上，补齐
+   正式 Review→Commit/Undo UI、完成后回根 Block及完整 Desktop Gate；reload Rebind 前保持
+   fail closed；
 3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

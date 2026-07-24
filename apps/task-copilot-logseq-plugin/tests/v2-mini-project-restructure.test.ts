@@ -7,9 +7,12 @@ import type {
   ServiceMiniProjectRestructureRecoveryResult,
   ServiceMiniProjectRestructureStep,
   ServiceMiniProjectRestructureStepVerification,
+  ServiceMiniProjectRestructureUndoPreparation,
+  ServiceMiniProjectRestructureUndoRecoveryResult,
+  ServiceMiniProjectRestructureUndoStepVerification,
 } from "@task-copilot/service-client";
 
-import { commitMiniProjectRestructure, type MiniProjectRestructureGraphHost } from "../src/v2-mini-project-restructure.ts";
+import { commitMiniProjectRestructure, undoMiniProjectRestructure, type MiniProjectRestructureGraphHost } from "../src/v2-mini-project-restructure.ts";
 
 const created: ServiceMiniProjectRestructureStep = {
   operationId: "create-outcome",
@@ -187,4 +190,115 @@ test("an unverified custom UUID never advances and enters controlled recovery", 
   const result = await commitMiniProjectRestructure(client, unsafeHost, prepared.proposalId, prepared.expectedUpdatedAt, "trace-identity");
   assert.equal(result.status, "FAILED_COMPENSATED");
   assert.equal(recoveryCalled, true);
+});
+
+const moveBack: ServiceMiniProjectRestructureCompensationStep = {
+  operationId: "compensate:move-source",
+  kind: "MOVE_BLOCK",
+  blockUuid: moved.blockUuid,
+  contentHash: moved.contentHash,
+  fromParentBlockUuid: moved.toParentBlockUuid,
+  fromPreviousSiblingUuid: moved.toPreviousSiblingUuid,
+  toParentBlockUuid: moved.fromParentBlockUuid,
+  toPreviousSiblingUuid: moved.fromPreviousSiblingUuid,
+};
+const removeCreated: ServiceMiniProjectRestructureCompensationStep = {
+  operationId: "compensate:create-outcome",
+  kind: "REMOVE_CREATED_BLOCK",
+  blockUuid: created.blockUuid,
+  contentHash: created.contentHash,
+  expectedParentBlockUuid: created.parentBlockUuid,
+  expectedPreviousSiblingUuid: created.previousSiblingUuid,
+};
+
+function undoPreparation(): ServiceMiniProjectRestructureUndoPreparation {
+  return {
+    status: "PREPARED",
+    originalSemanticCommitId: "proposal-commit:restructure",
+    undoSemanticCommitId: "mini-project-restructure-undo:proposal-commit:restructure",
+    proposalId: "proposal-restructure",
+    sourceRootBlockUuid: "root",
+    sourceStructureHash: "before",
+    expectedStructureHash: "after",
+    steps: [
+      { stepIndex: 0, forwardStepIndex: 1, step: moveBack },
+      { stepIndex: 1, forwardStepIndex: 0, step: removeCreated },
+    ],
+    stepStatuses: ["PREPARED", "PREPARED"],
+    replayed: false,
+    formalGraphWritesExecuted: false,
+  };
+}
+
+test("completed structure Undo executes the Service-owned reverse plan and preserves the immutable original Commit", async () => {
+  const calls: string[] = [];
+  const prepared = undoPreparation();
+  const verifications: ServiceMiniProjectRestructureUndoStepVerification[] = [
+    { status: "NOT_APPLIED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex: 0, stepStatus: "PREPARED" },
+    { status: "VERIFIED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex: 0, stepStatus: "VERIFIED", nextStepIndex: 1 },
+    { status: "NOT_APPLIED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex: 1, stepStatus: "PREPARED" },
+    { status: "COMPLETED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, replayed: false },
+  ];
+  const client = {
+    async prepareMiniProjectRestructureUndo() { return prepared; },
+    async verifyMiniProjectRestructureUndoStep() { return verifications.shift()!; },
+    async beginMiniProjectRestructureUndoRecovery() { throw new Error("not expected"); },
+    async verifyMiniProjectRestructureUndoCompensation() { throw new Error("not expected"); },
+  };
+  const result = await undoMiniProjectRestructure(client, host(calls), prepared.originalSemanticCommitId, "trace-undo");
+  assert.deepEqual(result, { status: "COMPLETED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, replayed: false });
+  assert.deepEqual(calls, [
+    `move:source:root:${JSON.stringify({ children: true })}`,
+    `remove:${created.blockUuid}`,
+  ]);
+});
+
+test("structure Undo replay performs no duplicate Graph writes", async () => {
+  const calls: string[] = [];
+  const prepared = undoPreparation();
+  const client = {
+    async prepareMiniProjectRestructureUndo() { return { status: "COMPLETED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, replayed: true } as const; },
+    async verifyMiniProjectRestructureUndoStep() { throw new Error("not expected"); },
+    async beginMiniProjectRestructureUndoRecovery() { throw new Error("not expected"); },
+    async verifyMiniProjectRestructureUndoCompensation() { throw new Error("not expected"); },
+  };
+  const result = await undoMiniProjectRestructure(client, host(calls), prepared.originalSemanticCommitId, "trace-undo-replay");
+  assert.equal(result.status, "COMPLETED");
+  assert.deepEqual(calls, []);
+});
+
+test("failed structure Undo restores the applied structure through forward compensation", async () => {
+  const calls: string[] = [];
+  const prepared = undoPreparation();
+  const verifications: ServiceMiniProjectRestructureUndoStepVerification[] = [
+    { status: "NOT_APPLIED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex: 0, stepStatus: "PREPARED" },
+    { status: "VERIFIED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex: 0, stepStatus: "VERIFIED", nextStepIndex: 1 },
+    { status: "NOT_APPLIED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex: 1, stepStatus: "PREPARED" },
+  ];
+  let compensationVerification = 0;
+  const client = {
+    async prepareMiniProjectRestructureUndo() { return prepared; },
+    async verifyMiniProjectRestructureUndoStep() { return verifications.shift()!; },
+    async beginMiniProjectRestructureUndoRecovery(): Promise<ServiceMiniProjectRestructureUndoRecoveryResult> {
+      return { status: "COMPENSATION_REQUIRED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, compensations: [{ stepIndex: 0, forwardStepIndex: 1, step: moved }], replayed: false };
+    },
+    async verifyMiniProjectRestructureUndoCompensation(): Promise<ServiceMiniProjectRestructureUndoRecoveryResult> {
+      compensationVerification += 1;
+      return compensationVerification === 1
+        ? { status: "NOT_COMPENSATED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex: 0 }
+        : { status: "FAILED_COMPENSATED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, replayed: false };
+    },
+  };
+  const failingHost: MiniProjectRestructureGraphHost = {
+    async insertBlock(target, content, options) { calls.push(`insert:${target}:${content}:${JSON.stringify(options)}`); return { uuid: options.customUUID }; },
+    async moveBlock(source, target, options) { calls.push(`move:${source}:${target}:${JSON.stringify(options)}`); },
+    async removeBlock(uuid) { calls.push(`remove:${uuid}`); throw new Error("simulated remove failure"); },
+  };
+  const result = await undoMiniProjectRestructure(client, failingHost, prepared.originalSemanticCommitId, "trace-undo-failure");
+  assert.equal(result.status, "FAILED_COMPENSATED");
+  assert.deepEqual(calls, [
+    `move:source:root:${JSON.stringify({ children: true })}`,
+    `remove:${created.blockUuid}`,
+    `move:source:${created.blockUuid}:${JSON.stringify({ children: true })}`,
+  ]);
 });

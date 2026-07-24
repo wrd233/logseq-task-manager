@@ -236,6 +236,34 @@ export type ServiceMiniProjectRestructureRecoveryResult =
   | { status: "FAILED_COMPENSATED"; semanticCommitId: string; proposalId: string; record: ServiceStoredProposal; replayed: boolean }
   | { status: "MANUAL_RECOVERY_REQUIRED"; semanticCommitId: string; proposalId: string; stepIndex: number; errorCode: string };
 
+export interface ServiceMiniProjectRestructureUndoPreparation {
+  status: "PREPARED";
+  originalSemanticCommitId: string;
+  undoSemanticCommitId: string;
+  proposalId: string;
+  sourceRootBlockUuid: string;
+  sourceStructureHash: string;
+  expectedStructureHash: string;
+  steps: Array<{ stepIndex: number; forwardStepIndex: number; step: ServiceMiniProjectRestructureCompensationStep }>;
+  stepStatuses: Array<"PREPARED" | "APPLIED" | "VERIFIED" | "COMPENSATED" | "RECOVERY_REQUIRED">;
+  replayed: boolean;
+  formalGraphWritesExecuted: false;
+}
+export type ServiceMiniProjectRestructureUndoPreparationResult =
+  | ServiceMiniProjectRestructureUndoPreparation
+  | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; replayed: true }
+  | { status: "RECOVERY_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; sourceRootBlockUuid: string; sourceStructureHash: string; expectedStructureHash: string; steps: Array<{ stepIndex: number; forwardStepIndex: number; step: ServiceMiniProjectRestructureCompensationStep }>; stepStatuses: Array<"PREPARED" | "APPLIED" | "VERIFIED" | "COMPENSATED" | "RECOVERY_REQUIRED">; failedStepIndex: number; errorCode: string; replayed: true; formalGraphWritesExecuted: false }
+  | { status: "FAILED_COMPENSATED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; replayed: true };
+export type ServiceMiniProjectRestructureUndoStepVerification =
+  | { status: "NOT_APPLIED" | "VERIFIED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; stepIndex: number; stepStatus: "PREPARED" | "VERIFIED"; nextStepIndex?: number }
+  | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; replayed: boolean }
+  | { status: "RECOVERY_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; stepIndex: number; errorCode: string };
+export type ServiceMiniProjectRestructureUndoRecoveryResult =
+  | { status: "COMPENSATION_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; compensations: Array<{ stepIndex: number; forwardStepIndex: number; step: ServiceMiniProjectRestructureStep }>; replayed: boolean }
+  | { status: "NOT_COMPENSATED" | "COMPENSATED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; stepIndex: number; nextStepIndex?: number }
+  | { status: "FAILED_COMPENSATED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; replayed: boolean }
+  | { status: "MANUAL_RECOVERY_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; stepIndex: number; errorCode: string };
+
 export type ServiceInteractionDisposition = "HELPFUL" | "NOT_NEEDED" | "INACCURATE" | "TOO_MUCH" | "DO_NOT_REPEAT";
 export interface ServiceInteractionEvidenceSummary {
   total: number;
@@ -983,6 +1011,30 @@ export class LocalServiceClient {
 
   verifyMiniProjectRestructureCompensation(proposalId: string, stepIndex: number, input: { semanticCommitId: string; expectedUpdatedAt: string; traceId: string }): Promise<ServiceMiniProjectRestructureRecoveryResult> {
     return this.request<ServiceMiniProjectRestructureRecoveryResult>(`/proposals/${encodeURIComponent(proposalId)}/mini-project-restructure/commit/recovery/steps/${stepIndex}/verify`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  prepareMiniProjectRestructureUndo(originalSemanticCommitId: string, input: { confirmation: "UNDO_MINI_PROJECT_RESTRUCTURE"; traceId: string }): Promise<ServiceMiniProjectRestructureUndoPreparationResult> {
+    return this.request<ServiceMiniProjectRestructureUndoPreparationResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/mini-project-restructure/undo/prepare`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  verifyMiniProjectRestructureUndoStep(originalSemanticCommitId: string, stepIndex: number, input: { undoSemanticCommitId: string; traceId: string }): Promise<ServiceMiniProjectRestructureUndoStepVerification> {
+    return this.request<ServiceMiniProjectRestructureUndoStepVerification>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/mini-project-restructure/undo/steps/${stepIndex}/verify`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  beginMiniProjectRestructureUndoRecovery(originalSemanticCommitId: string, input: { undoSemanticCommitId: string; failedStepIndex: number; failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED"; traceId: string }): Promise<ServiceMiniProjectRestructureUndoRecoveryResult> {
+    return this.request<ServiceMiniProjectRestructureUndoRecoveryResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/mini-project-restructure/undo/recovery/begin`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  verifyMiniProjectRestructureUndoCompensation(originalSemanticCommitId: string, stepIndex: number, input: { undoSemanticCommitId: string; traceId: string }): Promise<ServiceMiniProjectRestructureUndoRecoveryResult> {
+    return this.request<ServiceMiniProjectRestructureUndoRecoveryResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/mini-project-restructure/undo/recovery/steps/${stepIndex}/verify`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     }, 15_000);
   }

@@ -42,6 +42,12 @@ Service planner/ledger/verify/recovery 与防御性 Plugin executor 已自动闭
 从 kebab-case 暴露为 camelCase；因此跨 reload 不能把 Page runtime UUID 当稳定身份，必须经过
 独立 Rebind，且未知/冲突 registry 继续 fail closed。
 
-本 ADR 仍未关闭：正向完成后的产品级 inverse SemanticCommit/Undo、正式 Review→Commit UI 与
-跨 reload Rebind 尚未完成。若任何 identity、正文或补偿观察不匹配，保持
+正向完成后的产品级 Undo 已实现为独立 inverse SemanticCommit：准备前要求当前完整子树仍等于
+已应用结构，按 forward compensation 的顺序逐步观察、移动和删除机器新增空 Block；失败时再按
+原 forward step 恢复已应用结构，原 Commit 保持 `COMPLETED`，只有 inverse Commit 全部
+`VERIFIED` 后才把原 Commit 标记 `UNDONE`。结构已变化时零 inverse ledger 拒绝，reload 重放
+不会重复写入。
+
+本 ADR 仍未关闭：正式 Review→Commit/Undo UI、整条真实 Desktop Commit→reload→Undo→reload
+与跨 reload Rebind 尚未完成。若任何 identity、正文或补偿观察不匹配，保持
 `RECOVERY_REQUIRED`，不得覆盖用户正文或伪报成功。

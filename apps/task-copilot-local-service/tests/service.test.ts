@@ -611,6 +611,59 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
   assert.equal(completedReplay.status === "COMPLETED" && completedReplay.replayed, true);
   const completedPrepareReplay = await client.prepareMiniProjectRestructure(accepted.proposal.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "mini-restructure-completed-prepare-replay" });
   assert.equal(completedPrepareReplay.status === "COMPLETED" && completedPrepareReplay.replayed, true, "reload reuses the completed structural ledger without another Graph read");
+
+  const changedAfterCommitBlocks = [...finalBlocks, { uuid: "later-user-block", content: "用户后续新增", contentHash: checksum("用户后续新增"), relation: "CHILD" as const, depth: 1, parentUuid: "block-mini-grill" }];
+  const changedAfterCommitSnapshot = { ...snapshot, blocks: changedAfterCommitBlocks, scopeHash: checksum({ kind: "BLOCK", resolved, blocks: changedAfterCommitBlocks, truncated: false }) };
+  const staleUndoBridge = (async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected changed structure Undo Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: changedAfterCommitSnapshot });
+  })();
+  await assert.rejects(
+    () => client.prepareMiniProjectRestructureUndo(preparedCommit.semanticCommitId, { confirmation: "UNDO_MINI_PROJECT_RESTRUCTURE", traceId: "mini-restructure-undo-changed" }),
+    (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_MINI_PROJECT_RESTRUCTURE_UNDO_STATE_CHANGED",
+  );
+  await staleUndoBridge;
+  assert.equal((await client.listSemanticCommits()).length, 1, "changed post-Commit structure creates no inverse ledger");
+
+  const undoPrepareBridge = (async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected MiniProject restructure Undo prepare Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: finalSnapshot });
+  })();
+  const undoPreparePromise = client.prepareMiniProjectRestructureUndo(preparedCommit.semanticCommitId, { confirmation: "UNDO_MINI_PROJECT_RESTRUCTURE", traceId: "mini-restructure-undo-prepare" });
+  const [, undoPrepared] = await Promise.all([undoPrepareBridge, undoPreparePromise]);
+  assert.equal(undoPrepared.status, "PREPARED");
+  if (undoPrepared.status !== "PREPARED") throw new Error("expected prepared MiniProject structure Undo");
+  assert.equal(undoPrepared.originalSemanticCommitId, preparedCommit.semanticCommitId);
+  assert.equal(undoPrepared.undoSemanticCommitId, `mini-project-restructure-undo:${preparedCommit.semanticCommitId}`);
+  assert.deepEqual(undoPrepared.steps.map(({ step }) => step.kind), ["MOVE_BLOCK", "REMOVE_CREATED_BLOCK"]);
+  assert.equal(undoPrepared.formalGraphWritesExecuted, false);
+
+  const afterUndoMoveBlocks = [blocks[0]!, blocks[1]!, { uuid: createStep.blockUuid, content: createStep.text, contentHash: createStep.contentHash, relation: "CHILD" as const, depth: 1, parentUuid: createStep.parentBlockUuid }];
+  const afterUndoMoveSnapshot = { ...snapshot, blocks: afterUndoMoveBlocks, scopeHash: checksum({ kind: "BLOCK", resolved, blocks: afterUndoMoveBlocks, truncated: false }) };
+  const undoMoveBridge = (async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected MiniProject restructure Undo move verification read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: afterUndoMoveSnapshot });
+  })();
+  const undoMovePromise = client.verifyMiniProjectRestructureUndoStep(preparedCommit.semanticCommitId, 0, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, traceId: "mini-restructure-undo-move" });
+  const [, undoMoveVerified] = await Promise.all([undoMoveBridge, undoMovePromise]);
+  assert.equal(undoMoveVerified.status, "VERIFIED");
+
+  const undoRemoveBridge = (async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected MiniProject restructure Undo remove verification read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+  })();
+  const undoRemovePromise = client.verifyMiniProjectRestructureUndoStep(preparedCommit.semanticCommitId, 1, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, traceId: "mini-restructure-undo-remove" });
+  const [, undoCompleted] = await Promise.all([undoRemoveBridge, undoRemovePromise]);
+  assert.equal(undoCompleted.status, "COMPLETED");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === preparedCommit.semanticCommitId)?.status, "UNDONE");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === undoPrepared.undoSemanticCommitId)?.status, "COMPLETED");
+  assert.equal((await client.getObject(created.object.objectId))?.version, created.object.version, "structure Undo preserves the formal MiniProject object authority");
+  const undoReplay = await client.prepareMiniProjectRestructureUndo(preparedCommit.semanticCommitId, { confirmation: "UNDO_MINI_PROJECT_RESTRUCTURE", traceId: "mini-restructure-undo-replay" });
+  assert.equal(undoReplay.status === "COMPLETED" && undoReplay.replayed, true, "reload reuses the completed inverse ledger without another Graph read");
 });
 
 test("MiniProject structure recovery compensates verified Graph steps in reverse and never marks a failed Proposal applied", async (t) => {
@@ -693,6 +746,96 @@ test("MiniProject structure recovery compensates verified Graph steps in reverse
   assert.equal(replay.status === "FAILED_COMPENSATED" && replay.replayed, true);
   const failedPrepareReplay = await client.prepareMiniProjectRestructure(ready.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "recovery-failed-prepare-replay" });
   assert.equal(failedPrepareReplay.status === "FAILED_COMPENSATED" && failedPrepareReplay.replayed, true, "failed compensated terminal state remains idempotent after reload");
+});
+
+test("MiniProject structure Undo failure restores the completed forward structure and leaves the original Commit active", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-mini-restructure-undo-recovery-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-mini-restructure-undo-recovery", token: "mini-restructure-undo-recovery-token" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const rootContent = "[MiniProject] Undo 恢复";
+  const sourceContent = "必须保留的材料";
+  const materialized = await client.synchronizeExplicitObject({ objectType: "MINI_PROJECT", text: "Undo 恢复", externalId: "root-undo-recovery", inputVersion: "1", contentHash: checksum(rootContent), idempotencyKey: "undo-recovery-object", traceId: "undo-recovery-object" });
+  const resolved = { kind: "BLOCK" as const, id: "root-undo-recovery" };
+  const originalBlocks = [
+    { uuid: "root-undo-recovery", content: rootContent, contentHash: checksum(rootContent), relation: "ROOT" as const, depth: 0 },
+    { uuid: "source-undo-recovery", content: sourceContent, contentHash: checksum(sourceContent), relation: "CHILD" as const, depth: 1, parentUuid: "root-undo-recovery" },
+  ];
+  const snapshotOf = (blocks: typeof originalBlocks) => ({ kind: "BLOCK" as const, requestedTarget: "root-undo-recovery", resolved, blocks, truncated: false, readAt: "2026-07-24T21:00:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved, blocks, truncated: false }) });
+  const originalSnapshot = snapshotOf(originalBlocks);
+  const preview: GrillPreview = {
+    schemaVersion: "task-copilot-grill-preview-v1",
+    finalReading: {
+      title: { text: "Undo 恢复", evidenceRefs: ["block:root-undo-recovery"] }, outcome: { text: "得到可恢复结构", evidenceRefs: ["answer:outcome"] },
+      boundary: { included: [{ text: "原材料", evidenceRefs: ["block:source-undo-recovery"] }], excluded: [] }, completionEvidence: [{ text: "结构可核验", evidenceRefs: ["block:source-undo-recovery"] }],
+      sections: [
+        { sectionId: "root", heading: "入口", purpose: "保留根", sourceMaterials: [{ materialId: "root", sourceRef: "block:root-undo-recovery", contentHash: checksum(rootContent), text: rootContent, preservation: "UNCHANGED" }], derivedBlocks: [] },
+        { sectionId: "work", heading: "材料", purpose: "归位", sourceMaterials: [{ materialId: "source", sourceRef: "block:source-undo-recovery", contentHash: checksum(sourceContent), text: sourceContent, preservation: "UNCHANGED" }], derivedBlocks: [] },
+      ],
+    },
+    unclassified: [], impact: { sourceMaterialCount: 2, movedMaterialCount: 1, addedDerivedBlockCount: 0, deletedMaterialCount: 0, unclassifiedMaterialCount: 0 },
+    evidenceScope: { refs: ["block:root-undo-recovery", "block:source-undo-recovery", "answer:outcome"], scopeHash: "22222222", observedAt: "2026-07-24T21:00:00.000Z" }, authorityBoundary: "SESSION_PREVIEW_ONLY",
+    provenance: { contractVersion: "1.0.0", promptVersion: "prompt-v1", skillName: "mini-project-modeling", skillVersion: "1.1.0", providerId: "deepseek", providerVersion: "chat-completions-v1", model: "test-model", generatedAt: "2026-07-24T21:00:00.000Z" },
+  };
+  const proposal = buildMiniProjectRestructureProposal({
+    proposalId: "proposal_mini_restructure_undo_recovery", createdAt: "2026-07-24T21:00:01.000Z", objectId: materialized.object.objectId, objectVersion: materialized.object.version, preview, sourceScopeHash: originalSnapshot.scopeHash,
+    sourcePositions: [
+      { materialId: "root", blockUuid: "root-undo-recovery", parentBlockUuid: null, previousSiblingUuid: null, exactText: rootContent, contentHash: checksum(rootContent), isRoot: true },
+      { materialId: "source", blockUuid: "source-undo-recovery", parentBlockUuid: "root-undo-recovery", previousSiblingUuid: null, exactText: sourceContent, contentHash: checksum(sourceContent), isRoot: false },
+    ],
+    createdBlockUuids: { "section:work": "44444444-4444-4444-8444-444444444444" },
+  });
+  const submitted = await client.submitProposal(proposal);
+  const accepted = await client.reviewProposal(proposal.proposalId, { "restructure-mini-project": { disposition: "ACCEPTED", highImpactConfirmed: true } }, submitted.record.updatedAt);
+  const answerRead = async (snapshot: typeof originalSnapshot): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected structure Undo recovery Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+  };
+  const prepareRead = answerRead(originalSnapshot);
+  const preparePromise = client.prepareMiniProjectRestructure(proposal.proposalId, { expectedUpdatedAt: accepted.updatedAt, confirmation: "APPLY_MINI_PROJECT_RESTRUCTURE", traceId: "undo-recovery-forward-prepare" });
+  const [, prepared] = await Promise.all([prepareRead, preparePromise]);
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared forward structure Commit");
+  const [createStep, moveStep] = prepared.plan.steps;
+  if (createStep?.kind !== "CREATE_BLOCK" || moveStep?.kind !== "MOVE_BLOCK") throw new Error("expected create and move forward plan");
+  const createdBlock = { uuid: createStep.blockUuid, content: createStep.text, contentHash: createStep.contentHash, relation: "CHILD" as const, depth: 1, parentUuid: createStep.parentBlockUuid };
+  const afterCreateBlocks = [originalBlocks[0]!, createdBlock, originalBlocks[1]!];
+  const afterCreateSnapshot = snapshotOf(afterCreateBlocks);
+  const verifyCreateRead = answerRead(afterCreateSnapshot);
+  const verifyCreatePromise = client.verifyMiniProjectRestructureStep(proposal.proposalId, 0, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "undo-recovery-forward-create" });
+  await Promise.all([verifyCreateRead, verifyCreatePromise]);
+  const finalBlocks = [originalBlocks[0]!, createdBlock, { uuid: "source-undo-recovery", content: sourceContent, contentHash: checksum(sourceContent), relation: "CHILD" as const, depth: 2, parentUuid: createStep.blockUuid }];
+  const finalSnapshot = snapshotOf(finalBlocks);
+  const verifyMoveRead = answerRead(finalSnapshot);
+  const verifyMovePromise = client.verifyMiniProjectRestructureStep(proposal.proposalId, 1, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, traceId: "undo-recovery-forward-move" });
+  const [, completed] = await Promise.all([verifyMoveRead, verifyMovePromise]);
+  assert.equal(completed.status, "COMPLETED");
+
+  const undoPrepareRead = answerRead(finalSnapshot);
+  const undoPreparePromise = client.prepareMiniProjectRestructureUndo(prepared.semanticCommitId, { confirmation: "UNDO_MINI_PROJECT_RESTRUCTURE", traceId: "undo-recovery-prepare" });
+  const [, undoPrepared] = await Promise.all([undoPrepareRead, undoPreparePromise]);
+  if (undoPrepared.status !== "PREPARED") throw new Error("expected prepared structure Undo");
+  const afterUndoMoveBlocks = [originalBlocks[0]!, originalBlocks[1]!, createdBlock];
+  const afterUndoMoveSnapshot = snapshotOf(afterUndoMoveBlocks);
+  const verifyUndoMoveRead = answerRead(afterUndoMoveSnapshot);
+  const verifyUndoMovePromise = client.verifyMiniProjectRestructureUndoStep(prepared.semanticCommitId, 0, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, traceId: "undo-recovery-move" });
+  const [, undoMove] = await Promise.all([verifyUndoMoveRead, verifyUndoMovePromise]);
+  assert.equal(undoMove.status, "VERIFIED");
+  const beginRecoveryRead = answerRead(afterUndoMoveSnapshot);
+  const beginRecoveryPromise = client.beginMiniProjectRestructureUndoRecovery(prepared.semanticCommitId, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, failedStepIndex: 1, failureCode: "GRAPH_WRITE_FAILED", traceId: "undo-recovery-begin" });
+  const [, recovery] = await Promise.all([beginRecoveryRead, beginRecoveryPromise]);
+  assert.equal(recovery.status, "COMPENSATION_REQUIRED");
+  assert.deepEqual(recovery.status === "COMPENSATION_REQUIRED" ? recovery.compensations.map(({ stepIndex, step }) => [stepIndex, step.kind]) : [], [[0, "MOVE_BLOCK"]]);
+  const notCompensatedRead = answerRead(afterUndoMoveSnapshot);
+  const notCompensatedPromise = client.verifyMiniProjectRestructureUndoCompensation(prepared.semanticCommitId, 0, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, traceId: "undo-recovery-not-compensated" });
+  const [, notCompensated] = await Promise.all([notCompensatedRead, notCompensatedPromise]);
+  assert.equal(notCompensated.status, "NOT_COMPENSATED");
+  const compensatedRead = answerRead(finalSnapshot);
+  const compensatedPromise = client.verifyMiniProjectRestructureUndoCompensation(prepared.semanticCommitId, 0, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, traceId: "undo-recovery-compensated" });
+  const [, compensated] = await Promise.all([compensatedRead, compensatedPromise]);
+  assert.equal(compensated.status, "FAILED_COMPENSATED");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === prepared.semanticCommitId)?.status, "COMPLETED");
+  assert.equal((await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === undoPrepared.undoSemanticCommitId)?.status, "FAILED");
 });
 
 test("Local Service relays bounded Logseq Graph reads and exports page Context without formal writes", async (t) => {

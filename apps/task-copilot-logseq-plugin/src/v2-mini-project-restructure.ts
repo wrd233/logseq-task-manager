@@ -5,6 +5,9 @@ import type {
   ServiceMiniProjectRestructureRecoveryResult,
   ServiceMiniProjectRestructureStep,
   ServiceMiniProjectRestructureStepVerification,
+  ServiceMiniProjectRestructureUndoPreparation,
+  ServiceMiniProjectRestructureUndoRecoveryResult,
+  ServiceMiniProjectRestructureUndoStepVerification,
 } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -15,6 +18,13 @@ type RestructureClient = Pick<LocalServiceClient,
   "verifyMiniProjectRestructureCompensation"
 >;
 type RestructurePreparationContext = Pick<ServiceMiniProjectRestructurePreparation, "semanticCommitId" | "proposalId" | "expectedUpdatedAt" | "plan">;
+type RestructureUndoClient = Pick<LocalServiceClient,
+  "prepareMiniProjectRestructureUndo" |
+  "verifyMiniProjectRestructureUndoStep" |
+  "beginMiniProjectRestructureUndoRecovery" |
+  "verifyMiniProjectRestructureUndoCompensation"
+>;
+type RestructureUndoPreparationContext = Pick<ServiceMiniProjectRestructureUndoPreparation, "originalSemanticCommitId" | "undoSemanticCommitId" | "proposalId" | "steps">;
 
 export interface MiniProjectRestructureGraphHost {
   insertBlock(
@@ -31,6 +41,11 @@ export type MiniProjectRestructureCommitResult =
   | { status: "STALE"; proposalId: string }
   | { status: "FAILED_COMPENSATED"; semanticCommitId: string; proposalId: string; replayed: boolean }
   | { status: "MANUAL_RECOVERY_REQUIRED"; semanticCommitId: string; proposalId: string; stepIndex: number; errorCode: string };
+
+export type MiniProjectRestructureUndoResult =
+  | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; replayed: boolean }
+  | { status: "FAILED_COMPENSATED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; replayed: boolean }
+  | { status: "MANUAL_RECOVERY_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; stepIndex: number; errorCode: string };
 
 function restructureError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-185", "D-188"], ...(details ? { details } : {}) });
@@ -186,4 +201,88 @@ export async function commitMiniProjectRestructure(
     return recover(client, host, preparation, verification.status === "RECOVERY_REQUIRED" ? verification.stepIndex : stepIndex, "GRAPH_VERIFY_FAILED", traceId);
   }
   throw restructureError("V2_MINI_PROJECT_RESTRUCTURE_COMMIT_PROTOCOL_INVALID", "所有结构 step 已核验，但 Service 没有返回 Commit 完成状态。");
+}
+
+function terminalUndoRecovery(result: ServiceMiniProjectRestructureUndoRecoveryResult): MiniProjectRestructureUndoResult | undefined {
+  if (result.status === "FAILED_COMPENSATED") return { status: "FAILED_COMPENSATED", originalSemanticCommitId: result.originalSemanticCommitId, undoSemanticCommitId: result.undoSemanticCommitId, proposalId: result.proposalId, replayed: result.replayed };
+  if (result.status === "MANUAL_RECOVERY_REQUIRED") return { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId: result.originalSemanticCommitId, undoSemanticCommitId: result.undoSemanticCommitId, proposalId: result.proposalId, stepIndex: result.stepIndex, errorCode: result.errorCode };
+  return undefined;
+}
+
+async function recoverUndo(
+  client: RestructureUndoClient,
+  host: MiniProjectRestructureGraphHost,
+  prepared: RestructureUndoPreparationContext,
+  failedStepIndex: number,
+  failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED",
+  traceId: string,
+): Promise<MiniProjectRestructureUndoResult> {
+  const input = { undoSemanticCommitId: prepared.undoSemanticCommitId, failedStepIndex, failureCode, traceId: `${traceId}:undo-recovery:begin` } as const;
+  const started = await client.beginMiniProjectRestructureUndoRecovery(prepared.originalSemanticCommitId, input);
+  const terminal = terminalUndoRecovery(started);
+  if (terminal) return terminal;
+  if (started.status !== "COMPENSATION_REQUIRED") throw restructureError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_PROTOCOL_INVALID", "结构 Undo 恢复没有返回正向补偿计划。", { status: started.status });
+  for (const { stepIndex, step } of started.compensations) {
+    const verifyInput = { undoSemanticCommitId: prepared.undoSemanticCommitId, traceId: `${traceId}:undo-recovery:${stepIndex}` };
+    let observed = await client.verifyMiniProjectRestructureUndoCompensation(prepared.originalSemanticCommitId, stepIndex, verifyInput);
+    const observedTerminal = terminalUndoRecovery(observed);
+    if (observedTerminal) return observedTerminal;
+    if (observed.status === "COMPENSATED") continue;
+    if (observed.status !== "NOT_COMPENSATED") throw restructureError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_PROTOCOL_INVALID", "结构 Undo 恢复核验没有返回可继续状态。", { status: observed.status, stepIndex });
+    try {
+      await applyStep(host, step);
+    } catch {
+      return { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_COMPENSATION_WRITE_FAILED" };
+    }
+    observed = await client.verifyMiniProjectRestructureUndoCompensation(prepared.originalSemanticCommitId, stepIndex, { ...verifyInput, traceId: `${verifyInput.traceId}:after` });
+    const afterTerminal = terminalUndoRecovery(observed);
+    if (afterTerminal) return afterTerminal;
+    if (observed.status !== "COMPENSATED") return { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId: prepared.originalSemanticCommitId, undoSemanticCommitId: prepared.undoSemanticCommitId, proposalId: prepared.proposalId, stepIndex, errorCode: observed.status === "MANUAL_RECOVERY_REQUIRED" ? observed.errorCode : "V2_MINI_PROJECT_RESTRUCTURE_UNDO_COMPENSATION_VERIFY_FAILED" };
+  }
+  throw restructureError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_PROTOCOL_INVALID", "正向补偿结束后 Service 没有关闭结构 Undo 恢复账本。");
+}
+
+function completedUndo(result: ServiceMiniProjectRestructureUndoStepVerification): MiniProjectRestructureUndoResult | undefined {
+  if (result.status !== "COMPLETED") return undefined;
+  return { status: "COMPLETED", originalSemanticCommitId: result.originalSemanticCommitId, undoSemanticCommitId: result.undoSemanticCommitId, proposalId: result.proposalId, replayed: result.replayed };
+}
+
+export async function undoMiniProjectRestructure(
+  client: RestructureUndoClient,
+  host: MiniProjectRestructureGraphHost,
+  originalSemanticCommitId: string,
+  traceId: string,
+): Promise<MiniProjectRestructureUndoResult> {
+  const preparation = await client.prepareMiniProjectRestructureUndo(originalSemanticCommitId, { confirmation: "UNDO_MINI_PROJECT_RESTRUCTURE", traceId: `${traceId}:undo-prepare` });
+  if (preparation.status === "COMPLETED") return { status: "COMPLETED", originalSemanticCommitId: preparation.originalSemanticCommitId, undoSemanticCommitId: preparation.undoSemanticCommitId, proposalId: preparation.proposalId, replayed: true };
+  if (preparation.status === "FAILED_COMPENSATED") return { status: "FAILED_COMPENSATED", originalSemanticCommitId: preparation.originalSemanticCommitId, undoSemanticCommitId: preparation.undoSemanticCommitId, proposalId: preparation.proposalId, replayed: true };
+  if (preparation.status === "RECOVERY_REQUIRED") return recoverUndo(client, host, preparation, preparation.failedStepIndex, "DESKTOP_DISCONNECTED", traceId);
+  for (const { stepIndex, step } of preparation.steps) {
+    const verifyInput = { undoSemanticCommitId: preparation.undoSemanticCommitId, traceId: `${traceId}:undo-step:${stepIndex}` };
+    let verification: ServiceMiniProjectRestructureUndoStepVerification;
+    try {
+      verification = await client.verifyMiniProjectRestructureUndoStep(originalSemanticCommitId, stepIndex, verifyInput);
+    } catch {
+      return recoverUndo(client, host, preparation, stepIndex, "DESKTOP_DISCONNECTED", traceId);
+    }
+    const alreadyCompleted = completedUndo(verification);
+    if (alreadyCompleted) return alreadyCompleted;
+    if (verification.status === "RECOVERY_REQUIRED") return recoverUndo(client, host, preparation, verification.stepIndex, "GRAPH_VERIFY_FAILED", traceId);
+    if (verification.status === "VERIFIED") continue;
+    try {
+      await applyCompensation(host, step);
+    } catch {
+      return recoverUndo(client, host, preparation, stepIndex, "GRAPH_WRITE_FAILED", traceId);
+    }
+    try {
+      verification = await client.verifyMiniProjectRestructureUndoStep(originalSemanticCommitId, stepIndex, { ...verifyInput, traceId: `${verifyInput.traceId}:after` });
+    } catch {
+      return recoverUndo(client, host, preparation, stepIndex, "GRAPH_VERIFY_FAILED", traceId);
+    }
+    const justCompleted = completedUndo(verification);
+    if (justCompleted) return justCompleted;
+    if (verification.status === "VERIFIED") continue;
+    return recoverUndo(client, host, preparation, verification.status === "RECOVERY_REQUIRED" ? verification.stepIndex : stepIndex, "GRAPH_VERIFY_FAILED", traceId);
+  }
+  throw restructureError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_PROTOCOL_INVALID", "所有结构 Undo step 已核验，但 Service 没有返回 inverse Commit 完成状态。");
 }

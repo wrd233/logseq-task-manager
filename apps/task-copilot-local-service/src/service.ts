@@ -658,6 +658,33 @@ async function readMiniProjectRestructureRecoveryRequest(request: IncomingMessag
   return record as unknown as { semanticCommitId: string; expectedUpdatedAt: string; failedStepIndex: number; failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED"; traceId: string };
 }
 
+async function readMiniProjectRestructureUndoPrepareRequest(request: IncomingMessage): Promise<{ traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "MiniProject 原位重构 Undo 准备请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "confirmation,traceId" || record.confirmation !== "UNDO_MINI_PROJECT_RESTRUCTURE" || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("MINI_PROJECT_RESTRUCTURE_UNDO_PREPARE_REQUEST_INVALID", "MiniProject 原位重构 Undo 需要 trace_id 和精确高影响确认。");
+  return { traceId: record.traceId };
+}
+
+async function readMiniProjectRestructureUndoVerifyRequest(request: IncomingMessage): Promise<{ undoSemanticCommitId: string; traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "MiniProject 原位重构 Undo 核验请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "traceId,undoSemanticCommitId" || typeof record.undoSemanticCommitId !== "string" || !record.undoSemanticCommitId.startsWith("mini-project-restructure-undo:proposal-commit:") || record.undoSemanticCommitId.length > 160 || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("MINI_PROJECT_RESTRUCTURE_UNDO_VERIFY_REQUEST_INVALID", "MiniProject 原位重构 Undo 核验请求缺少匹配账本或 trace_id。");
+  return record as unknown as { undoSemanticCommitId: string; traceId: string };
+}
+
+async function readMiniProjectRestructureUndoRecoveryRequest(request: IncomingMessage): Promise<{ undoSemanticCommitId: string; failedStepIndex: number; failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED"; traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "MiniProject 原位重构 Undo 恢复请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "failedStepIndex,failureCode,traceId,undoSemanticCommitId" || typeof record.undoSemanticCommitId !== "string" || !record.undoSemanticCommitId.startsWith("mini-project-restructure-undo:proposal-commit:") || record.undoSemanticCommitId.length > 160 || !Number.isSafeInteger(record.failedStepIndex) || Number(record.failedStepIndex) < 0 || Number(record.failedStepIndex) > 63 || !["GRAPH_WRITE_FAILED", "GRAPH_VERIFY_FAILED", "DESKTOP_DISCONNECTED"].includes(String(record.failureCode)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_REQUEST_INVALID", "MiniProject 原位重构 Undo 恢复请求缺少受控故障、账本或 step 证据。");
+  return record as unknown as { undoSemanticCommitId: string; failedStepIndex: number; failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED"; traceId: string };
+}
+
 async function readLifecycleCommitRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT"; observations: V2ProposalScopeObservation[]; traceId: string }> {
   const body = await readBody(request);
   let value: unknown;
@@ -790,6 +817,18 @@ function lifecycleUndoSemanticCommitId(originalSemanticCommitId: string): string
 
 function projectStructureUndoSemanticCommitId(originalSemanticCommitId: string): string {
   return `project-structure-undo:${originalSemanticCommitId}`;
+}
+
+function miniProjectRestructureUndoSemanticCommitId(originalSemanticCommitId: string): string {
+  return `mini-project-restructure-undo:${originalSemanticCommitId}`;
+}
+
+function miniProjectRestructureUndoPlan(plan: ReturnType<typeof planAcceptedMiniProjectRestructure>) {
+  return plan.compensationSteps.map((step, stepIndex) => {
+    const forwardStepIndex = plan.steps.length - 1 - stepIndex;
+    const forward = plan.steps[forwardStepIndex]!;
+    return { stepIndex, forwardStepIndex, step, operationId: `undo:${forward.operationId}`, beforeHash: forward.afterHash, afterHash: forward.beforeHash };
+  });
 }
 
 function projectSemanticCommitId(graphId: string, name: string): string {
@@ -1804,7 +1843,9 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const position = positions.find(({ blockUuid }) => blockUuid === currentPlanStep.blockUuid);
       const matches = (parentBlockUuid: string, previousSiblingUuid: string | null) => Boolean(position && position.contentHash === currentPlanStep.contentHash && position.parentBlockUuid === parentBlockUuid && position.previousSiblingUuid === previousSiblingUuid);
       const before = currentPlanStep.kind === "CREATE_BLOCK" ? position === undefined : matches(currentPlanStep.applyFromParentBlockUuid, currentPlanStep.applyFromPreviousSiblingUuid);
-      const after = currentPlanStep.kind === "CREATE_BLOCK" ? matches(currentPlanStep.parentBlockUuid, currentPlanStep.previousSiblingUuid) : matches(currentPlanStep.toParentBlockUuid, currentPlanStep.toPreviousSiblingUuid);
+      const after = currentPlanStep.kind === "CREATE_BLOCK"
+        ? Boolean(position && position.contentHash === currentPlanStep.contentHash && position.parentBlockUuid === currentPlanStep.parentBlockUuid && !positions.some(({ parentBlockUuid }) => parentBlockUuid === currentPlanStep.blockUuid))
+        : matches(currentPlanStep.toParentBlockUuid, currentPlanStep.toPreviousSiblingUuid);
       if (!before && !after) {
         markRecovery("V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_DIVERGED");
         respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex: input.failedStepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_RECOVERY_DIVERGED" });
@@ -1869,7 +1910,9 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const position = positions.find(({ blockUuid }) => blockUuid === planStep.blockUuid);
       const matches = (parentBlockUuid: string, previousSiblingUuid: string | null) => Boolean(position && position.contentHash === planStep.contentHash && position.parentBlockUuid === parentBlockUuid && position.previousSiblingUuid === previousSiblingUuid);
       const compensated = planStep.kind === "CREATE_BLOCK" ? position === undefined : matches(planStep.fromParentBlockUuid, planStep.fromPreviousSiblingUuid);
-      const stillApplied = planStep.kind === "CREATE_BLOCK" ? matches(planStep.parentBlockUuid, planStep.previousSiblingUuid) : matches(planStep.toParentBlockUuid, planStep.toPreviousSiblingUuid);
+      const stillApplied = planStep.kind === "CREATE_BLOCK"
+        ? Boolean(position && position.contentHash === planStep.contentHash && position.parentBlockUuid === planStep.parentBlockUuid && !positions.some(({ parentBlockUuid }) => parentBlockUuid === planStep.blockUuid))
+        : matches(planStep.toParentBlockUuid, planStep.toPreviousSiblingUuid);
       if (stillApplied) {
         respond(response, 200, { status: "NOT_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, stepIndex });
         return;
@@ -1893,6 +1936,281 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       store.finalizeSemanticCommit(input.semanticCommitId, "FAILED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_EXECUTION_FAILED");
       const record = await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt, new Date(now));
       respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: false });
+      return;
+    }
+    const miniProjectRestructureUndoPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/mini-project-restructure\/undo\/prepare$/) : null;
+    if (miniProjectRestructureUndoPrepareMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(miniProjectRestructureUndoPrepareMatch[1]);
+      await readMiniProjectRestructureUndoPrepareRequest(request);
+      const original = store.semanticCommit(originalSemanticCommitId);
+      if (!original?.proposalId || !["COMPLETED", "UNDONE"].includes(original.status)) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_NOT_AVAILABLE", "只有已完成的 MiniProject 结构 Commit 可以 Undo。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 找不到原 Proposal。");
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
+      const forwardSteps = store.semanticCommitSteps(originalSemanticCommitId);
+      if (forwardSteps.length !== plan.steps.length || forwardSteps.some((step, index) => step.status !== "VERIFIED" || step.stepKind !== "GRAPH_WRITE" || step.operationId !== plan.steps[index]!.operationId || step.beforeHash !== plan.steps[index]!.beforeHash || step.afterHash !== plan.steps[index]!.afterHash)) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 的正向账本与已审阅计划不一致。");
+      const undoSemanticCommitId = miniProjectRestructureUndoSemanticCommitId(originalSemanticCommitId);
+      const undoPlan = miniProjectRestructureUndoPlan(plan);
+      const expectedSteps = undoPlan.map(({ stepIndex, operationId, beforeHash, afterHash }) => ({ semanticCommitId: undoSemanticCommitId, stepIndex, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId, beforeHash, afterHash }));
+      const existing = store.semanticCommit(undoSemanticCommitId);
+      if (existing) {
+        const ledgerSteps = store.semanticCommitSteps(undoSemanticCommitId);
+        const matches = existing.proposalId === original.proposalId && ledgerSteps.length === expectedSteps.length && ledgerSteps.every((step, index) => {
+          const expected = expectedSteps[index]!;
+          return step.stepIndex === expected.stepIndex && step.stepKind === expected.stepKind && step.operationId === expected.operationId && step.beforeHash === expected.beforeHash && step.afterHash === expected.afterHash;
+        });
+        if (!matches) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 逆向账本与原 Commit 不一致。");
+        if (existing.status === "COMPLETED") {
+          if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+          respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, replayed: true });
+          return;
+        }
+        if (original.status === "UNDONE") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "已撤销结构 Commit 缺少完成的 inverse Commit。");
+        if (existing.status === "FAILED") {
+          respond(response, 200, { status: "FAILED_COMPENSATED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, replayed: true });
+          return;
+        }
+        if (existing.status === "RECOVERY_REQUIRED") {
+          const failed = ledgerSteps.find(({ status }) => status === "RECOVERY_REQUIRED");
+          if (!failed) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 恢复账本缺少待补偿 step。");
+          respond(response, 200, { status: "RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, sourceRootBlockUuid: plan.sourceRootBlockUuid, sourceStructureHash: plan.sourceStructureHash, expectedStructureHash: plan.expectedStructureHash, steps: undoPlan.map(({ stepIndex, forwardStepIndex, step }) => ({ stepIndex, forwardStepIndex, step })), stepStatuses: ledgerSteps.map(({ status }) => status), failedStepIndex: failed.stepIndex, errorCode: existing.errorCode ?? "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_REQUIRED", replayed: true, formalGraphWritesExecuted: false });
+          return;
+        }
+        if (existing.status !== "PENDING") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 账本处于不支持的状态。");
+        respond(response, 200, { status: "PREPARED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, sourceRootBlockUuid: plan.sourceRootBlockUuid, sourceStructureHash: plan.sourceStructureHash, expectedStructureHash: plan.expectedStructureHash, steps: undoPlan.map(({ stepIndex, forwardStepIndex, step }) => ({ stepIndex, forwardStepIndex, step })), stepStatuses: ledgerSteps.map(({ status }) => status), replayed: true, formalGraphWritesExecuted: false });
+        return;
+      }
+      if (original.status === "UNDONE") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "已撤销结构 Commit 缺少 inverse Commit。");
+      const subject = store.getObject(plan.objectId);
+      const anchor = store.getActivePrimaryAnchorByObject(plan.objectId);
+      if (!subject || subject.objectType !== "MINI_PROJECT" || subject.lifecycle !== "OPEN" || subject.version !== plan.expectedVersion || !anchor || anchor.externalId !== plan.sourceRootBlockUuid) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_STATE_CHANGED", "MiniProject 对象或正文入口在结构 Commit 后已有变化；Undo 没有写入。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
+      if (graphResult.status !== "FOUND" || graphResult.snapshot.kind !== "BLOCK" || graphResult.snapshot.resolved.id !== plan.sourceRootBlockUuid || graphResult.snapshot.truncated || miniProjectStructureHash(buildMiniProjectSourcePositions(graphResult.snapshot)) !== plan.expectedStructureHash) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_STATE_CHANGED", "MiniProject 子树在结构 Commit 后已有变化；Undo 没有写入。");
+      const now = new Date().toISOString();
+      store.prepareSemanticCommit({ semanticCommitId: undoSemanticCommitId, proposalId: original.proposalId, status: "PENDING", beforeStateChecksum: plan.expectedStructureHash, createdAt: now, updatedAt: now }, expectedSteps.map((step) => ({ ...step, updatedAt: now })));
+      respond(response, 201, { status: "PREPARED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, sourceRootBlockUuid: plan.sourceRootBlockUuid, sourceStructureHash: plan.sourceStructureHash, expectedStructureHash: plan.expectedStructureHash, steps: undoPlan.map(({ stepIndex, forwardStepIndex, step }) => ({ stepIndex, forwardStepIndex, step })), stepStatuses: expectedSteps.map(({ status }) => status), replayed: false, formalGraphWritesExecuted: false });
+      return;
+    }
+    const miniProjectRestructureUndoVerifyMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/mini-project-restructure\/undo\/steps\/(\d+)\/verify$/) : null;
+    if (miniProjectRestructureUndoVerifyMatch?.[1] && miniProjectRestructureUndoVerifyMatch[2]) {
+      const originalSemanticCommitId = decodeURIComponent(miniProjectRestructureUndoVerifyMatch[1]);
+      const stepIndex = Number(miniProjectRestructureUndoVerifyMatch[2]);
+      const input = await readMiniProjectRestructureUndoVerifyRequest(request);
+      const undoSemanticCommitId = miniProjectRestructureUndoSemanticCommitId(originalSemanticCommitId);
+      if (!Number.isSafeInteger(stepIndex) || stepIndex < 0 || stepIndex > 63 || input.undoSemanticCommitId !== undoSemanticCommitId) throw serviceError("MINI_PROJECT_RESTRUCTURE_UNDO_VERIFY_REQUEST_INVALID", "MiniProject 原位重构 Undo 核验目标与账本不匹配。");
+      const original = store.semanticCommit(originalSemanticCommitId);
+      const inverse = store.semanticCommit(undoSemanticCommitId);
+      if (!original?.proposalId || !inverse || inverse.proposalId !== original.proposalId) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 的正向与逆向账本不一致。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 找不到原 Proposal。");
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
+      const undoPlan = miniProjectRestructureUndoPlan(plan);
+      const undoStep = undoPlan[stepIndex];
+      const ledgerSteps = store.semanticCommitSteps(undoSemanticCommitId);
+      if (!undoStep || ledgerSteps.length !== undoPlan.length || ledgerSteps.some((step, index) => step.stepKind !== "GRAPH_WRITE" || step.operationId !== undoPlan[index]!.operationId || step.beforeHash !== undoPlan[index]!.beforeHash || step.afterHash !== undoPlan[index]!.afterHash)) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 账本与逆向计划不一致。");
+      if (inverse.status === "COMPLETED") {
+        if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, replayed: true });
+        return;
+      }
+      if (inverse.status === "RECOVERY_REQUIRED") {
+        const failed = ledgerSteps.find(({ status }) => status === "RECOVERY_REQUIRED");
+        respond(response, 200, { status: "RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex: failed?.stepIndex ?? stepIndex, errorCode: inverse.errorCode ?? "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_REQUIRED" });
+        return;
+      }
+      if (inverse.status !== "PENDING" || original.status !== "COMPLETED" || ledgerSteps.slice(0, stepIndex).some(({ status }) => status !== "VERIFIED") || ledgerSteps.slice(stepIndex + 1).some(({ status }) => status !== "PREPARED")) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_STEP_ORDER_INVALID", "MiniProject 原位重构 Undo 必须按逆向账本顺序核验。");
+      const currentLedgerStep = ledgerSteps[stepIndex]!;
+      if (currentLedgerStep.status === "VERIFIED") {
+        respond(response, 200, { status: "VERIFIED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, stepStatus: "VERIFIED", ...(stepIndex + 1 < undoPlan.length ? { nextStepIndex: stepIndex + 1 } : {}) });
+        return;
+      }
+      if (currentLedgerStep.status !== "PREPARED" && currentLedgerStep.status !== "APPLIED") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_STEP_ORDER_INVALID", "当前结构 Undo step 不能核验。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
+      if (graphResult.status !== "FOUND" || graphResult.snapshot.kind !== "BLOCK" || graphResult.snapshot.resolved.id !== plan.sourceRootBlockUuid || graphResult.snapshot.truncated) {
+        const now = new Date().toISOString();
+        store.advanceSemanticCommitStep(undoSemanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_GRAPH_UNREADABLE");
+        store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_GRAPH_UNREADABLE");
+        respond(response, 200, { status: "RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_GRAPH_UNREADABLE" });
+        return;
+      }
+      const positions = buildMiniProjectSourcePositions(graphResult.snapshot);
+      const position = positions.find(({ blockUuid }) => blockUuid === undoStep.step.blockUuid);
+      const matches = (parentBlockUuid: string, previousSiblingUuid: string | null) => Boolean(position && position.contentHash === undoStep.step.contentHash && position.parentBlockUuid === parentBlockUuid && position.previousSiblingUuid === previousSiblingUuid);
+      const before = undoStep.step.kind === "REMOVE_CREATED_BLOCK"
+        ? Boolean(position && position.contentHash === undoStep.step.contentHash && position.parentBlockUuid === undoStep.step.expectedParentBlockUuid)
+        : matches(undoStep.step.fromParentBlockUuid, undoStep.step.fromPreviousSiblingUuid);
+      const after = undoStep.step.kind === "REMOVE_CREATED_BLOCK" ? position === undefined : matches(undoStep.step.toParentBlockUuid, undoStep.step.toPreviousSiblingUuid);
+      const createdHasChildren = undoStep.step.kind === "REMOVE_CREATED_BLOCK" && positions.some(({ parentBlockUuid }) => parentBlockUuid === undoStep.step.blockUuid);
+      if (before && !createdHasChildren && currentLedgerStep.status === "PREPARED") {
+        respond(response, 200, { status: "NOT_APPLIED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, stepStatus: "PREPARED" });
+        return;
+      }
+      if (!after) {
+        const now = new Date().toISOString();
+        store.advanceSemanticCommitStep(undoSemanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_STEP_DIVERGED");
+        store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_STEP_DIVERGED");
+        respond(response, 200, { status: "RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_STEP_DIVERGED" });
+        return;
+      }
+      const now = new Date().toISOString();
+      if (currentLedgerStep.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, stepIndex, "APPLIED", now);
+      if (store.semanticCommitSteps(undoSemanticCommitId)[stepIndex]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, stepIndex, "VERIFIED", now);
+      if (stepIndex + 1 < undoPlan.length) {
+        respond(response, 200, { status: "VERIFIED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, stepStatus: "VERIFIED", nextStepIndex: stepIndex + 1 });
+        return;
+      }
+      if (miniProjectStructureHash(positions) !== plan.sourceStructureHash) {
+        store.advanceSemanticCommitStep(undoSemanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_FINAL_SHAPE_MISMATCH");
+        store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_FINAL_SHAPE_MISMATCH");
+        respond(response, 200, { status: "RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_FINAL_SHAPE_MISMATCH" });
+        return;
+      }
+      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now, plan.sourceStructureHash);
+      store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now);
+      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, replayed: false });
+      return;
+    }
+    const miniProjectRestructureUndoRecoveryBeginMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/mini-project-restructure\/undo\/recovery\/begin$/) : null;
+    if (miniProjectRestructureUndoRecoveryBeginMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(miniProjectRestructureUndoRecoveryBeginMatch[1]);
+      const input = await readMiniProjectRestructureUndoRecoveryRequest(request);
+      const undoSemanticCommitId = miniProjectRestructureUndoSemanticCommitId(originalSemanticCommitId);
+      if (input.undoSemanticCommitId !== undoSemanticCommitId) throw serviceError("MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_REQUEST_INVALID", "MiniProject 原位重构 Undo 恢复意图与账本不匹配。");
+      const original = store.semanticCommit(originalSemanticCommitId);
+      const inverse = store.semanticCommit(undoSemanticCommitId);
+      if (!original?.proposalId || !inverse || inverse.proposalId !== original.proposalId) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 恢复的正向与逆向账本不一致。");
+      if (inverse.status === "FAILED") {
+        respond(response, 200, { status: "FAILED_COMPENSATED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, replayed: true });
+        return;
+      }
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 恢复找不到原 Proposal。");
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
+      const undoPlan = miniProjectRestructureUndoPlan(plan);
+      const ledgerSteps = store.semanticCommitSteps(undoSemanticCommitId);
+      if (!undoPlan[input.failedStepIndex] || ledgerSteps.length !== undoPlan.length) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 恢复账本与逆向计划不一致。");
+      const compensationFor = (stepIndex: number) => {
+        const entry = undoPlan[stepIndex];
+        if (!entry) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 恢复缺少正向补偿计划。");
+        return { stepIndex, forwardStepIndex: entry.forwardStepIndex, step: plan.steps[entry.forwardStepIndex]! };
+      };
+      const remainingCompensations = () => store.semanticCommitSteps(undoSemanticCommitId).filter(({ status }) => status === "RECOVERY_REQUIRED").map(({ stepIndex }) => compensationFor(stepIndex)).sort((left, right) => right.stepIndex - left.stepIndex);
+      if (inverse.status === "RECOVERY_REQUIRED") {
+        const compensations = remainingCompensations();
+        if (compensations.length === 0) respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex: input.failedStepIndex, errorCode: inverse.errorCode ?? "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_REQUIRED" });
+        else respond(response, 200, { status: "COMPENSATION_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, compensations, replayed: true });
+        return;
+      }
+      if (inverse.status !== "PENDING" || original.status !== "COMPLETED" || ledgerSteps.slice(0, input.failedStepIndex).some(({ status }) => status !== "VERIFIED") || ledgerSteps.slice(input.failedStepIndex + 1).some(({ status }) => status !== "PREPARED") || !["PREPARED", "APPLIED"].includes(ledgerSteps[input.failedStepIndex]!.status)) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_STEP_ORDER_INVALID", "结构 Undo 恢复只能从第一个未完成 step 开始。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
+      const undoStep = undoPlan[input.failedStepIndex]!.step;
+      const markRecovery = (errorCode: string): void => {
+        const now = new Date().toISOString();
+        const status = store.semanticCommitSteps(undoSemanticCommitId)[input.failedStepIndex]!.status;
+        if (status === "PREPARED" || status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, input.failedStepIndex, "RECOVERY_REQUIRED", now, errorCode);
+        if (store.semanticCommit(undoSemanticCommitId)?.status === "PENDING") store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now, undefined, errorCode);
+      };
+      if (graphResult.status !== "FOUND" || graphResult.snapshot.kind !== "BLOCK" || graphResult.snapshot.resolved.id !== plan.sourceRootBlockUuid || graphResult.snapshot.truncated) {
+        markRecovery("V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_GRAPH_UNREADABLE");
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex: input.failedStepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_GRAPH_UNREADABLE" });
+        return;
+      }
+      const positions = buildMiniProjectSourcePositions(graphResult.snapshot);
+      const position = positions.find(({ blockUuid }) => blockUuid === undoStep.blockUuid);
+      const matches = (parentBlockUuid: string, previousSiblingUuid: string | null) => Boolean(position && position.contentHash === undoStep.contentHash && position.parentBlockUuid === parentBlockUuid && position.previousSiblingUuid === previousSiblingUuid);
+      const before = undoStep.kind === "REMOVE_CREATED_BLOCK"
+        ? Boolean(position && position.contentHash === undoStep.contentHash && position.parentBlockUuid === undoStep.expectedParentBlockUuid && !positions.some(({ parentBlockUuid }) => parentBlockUuid === undoStep.blockUuid))
+        : matches(undoStep.fromParentBlockUuid, undoStep.fromPreviousSiblingUuid);
+      const after = undoStep.kind === "REMOVE_CREATED_BLOCK" ? position === undefined : matches(undoStep.toParentBlockUuid, undoStep.toPreviousSiblingUuid);
+      if (!before && !after) {
+        markRecovery("V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_DIVERGED");
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex: input.failedStepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_DIVERGED" });
+        return;
+      }
+      const appliedIndexes = ledgerSteps.slice(0, input.failedStepIndex).map(({ stepIndex }) => stepIndex);
+      if (after) appliedIndexes.push(input.failedStepIndex);
+      const now = new Date().toISOString();
+      if (after && ledgerSteps[input.failedStepIndex]!.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, input.failedStepIndex, "APPLIED", now);
+      for (const stepIndex of [...appliedIndexes, ...(before ? [input.failedStepIndex] : [])]) {
+        const status = store.semanticCommitSteps(undoSemanticCommitId)[stepIndex]!.status;
+        if (status === "VERIFIED" || status === "APPLIED" || status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_EXECUTION_FAILED");
+      }
+      store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_EXECUTION_FAILED");
+      if (before) store.advanceSemanticCommitStep(undoSemanticCommitId, input.failedStepIndex, "COMPENSATED", now);
+      const compensations = remainingCompensations();
+      if (compensations.length === 0) {
+        if (miniProjectStructureHash(positions) !== plan.expectedStructureHash) {
+          respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex: input.failedStepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_SHAPE_MISMATCH" });
+          return;
+        }
+        store.finalizeSemanticCommit(undoSemanticCommitId, "FAILED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_EXECUTION_FAILED");
+        respond(response, 200, { status: "FAILED_COMPENSATED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, replayed: false });
+        return;
+      }
+      respond(response, 200, { status: "COMPENSATION_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, compensations, replayed: false });
+      return;
+    }
+    const miniProjectRestructureUndoCompensationVerifyMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/mini-project-restructure\/undo\/recovery\/steps\/(\d+)\/verify$/) : null;
+    if (miniProjectRestructureUndoCompensationVerifyMatch?.[1] && miniProjectRestructureUndoCompensationVerifyMatch[2]) {
+      const originalSemanticCommitId = decodeURIComponent(miniProjectRestructureUndoCompensationVerifyMatch[1]);
+      const stepIndex = Number(miniProjectRestructureUndoCompensationVerifyMatch[2]);
+      const input = await readMiniProjectRestructureUndoVerifyRequest(request);
+      const undoSemanticCommitId = miniProjectRestructureUndoSemanticCommitId(originalSemanticCommitId);
+      if (!Number.isSafeInteger(stepIndex) || stepIndex < 0 || stepIndex > 63 || input.undoSemanticCommitId !== undoSemanticCommitId) throw serviceError("MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_REQUEST_INVALID", "MiniProject 原位重构 Undo 补偿核验与账本不匹配。");
+      const original = store.semanticCommit(originalSemanticCommitId);
+      const inverse = store.semanticCommit(undoSemanticCommitId);
+      if (!original?.proposalId || !inverse || inverse.proposalId !== original.proposalId) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 补偿的正向与逆向账本不一致。");
+      if (inverse.status === "FAILED") {
+        respond(response, 200, { status: "FAILED_COMPENSATED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, replayed: true });
+        return;
+      }
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 补偿找不到原 Proposal。");
+      const plan = planAcceptedMiniProjectRestructure(stored.proposal);
+      const undoPlan = miniProjectRestructureUndoPlan(plan);
+      let ledgerSteps = store.semanticCommitSteps(undoSemanticCommitId);
+      const undoEntry = undoPlan[stepIndex];
+      if (!undoEntry || ledgerSteps.length !== undoPlan.length) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_LEDGER_CORRUPT", "结构 Undo 补偿账本与计划不一致。");
+      if (inverse.status !== "RECOVERY_REQUIRED" || ledgerSteps.slice(stepIndex + 1).some(({ status }) => status === "RECOVERY_REQUIRED")) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_COMPENSATION_ORDER_INVALID", "结构 Undo 必须按逆序恢复已应用 step。");
+      if (ledgerSteps[stepIndex]!.status === "COMPENSATED") {
+        const next = ledgerSteps.filter(({ status }) => status === "RECOVERY_REQUIRED").map(({ stepIndex: index }) => index).sort((a, b) => b - a)[0];
+        respond(response, 200, { status: "COMPENSATED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, ...(next !== undefined ? { nextStepIndex: next } : {}) });
+        return;
+      }
+      if (ledgerSteps[stepIndex]!.status !== "RECOVERY_REQUIRED") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_COMPENSATION_ORDER_INVALID", "当前结构 Undo step 不需要补偿。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
+      if (graphResult.status !== "FOUND" || graphResult.snapshot.kind !== "BLOCK" || graphResult.snapshot.resolved.id !== plan.sourceRootBlockUuid || graphResult.snapshot.truncated) {
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_GRAPH_UNREADABLE" });
+        return;
+      }
+      const positions = buildMiniProjectSourcePositions(graphResult.snapshot);
+      const forwardStep = plan.steps[undoEntry.forwardStepIndex]!;
+      const position = positions.find(({ blockUuid }) => blockUuid === forwardStep.blockUuid);
+      const matches = (parentBlockUuid: string, previousSiblingUuid: string | null) => Boolean(position && position.contentHash === forwardStep.contentHash && position.parentBlockUuid === parentBlockUuid && position.previousSiblingUuid === previousSiblingUuid);
+      const restored = forwardStep.kind === "CREATE_BLOCK" ? matches(forwardStep.parentBlockUuid, forwardStep.previousSiblingUuid) : matches(forwardStep.toParentBlockUuid, forwardStep.toPreviousSiblingUuid);
+      const stillUndone = forwardStep.kind === "CREATE_BLOCK" ? position === undefined : matches(forwardStep.fromParentBlockUuid, forwardStep.fromPreviousSiblingUuid);
+      if (stillUndone) {
+        respond(response, 200, { status: "NOT_COMPENSATED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex });
+        return;
+      }
+      if (!restored) {
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_COMPENSATION_DIVERGED" });
+        return;
+      }
+      const now = new Date().toISOString();
+      store.advanceSemanticCommitStep(undoSemanticCommitId, stepIndex, "COMPENSATED", now);
+      ledgerSteps = store.semanticCommitSteps(undoSemanticCommitId);
+      const next = ledgerSteps.filter(({ status }) => status === "RECOVERY_REQUIRED").map(({ stepIndex: index }) => index).sort((a, b) => b - a)[0];
+      if (next !== undefined) {
+        respond(response, 200, { status: "COMPENSATED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, nextStepIndex: next });
+        return;
+      }
+      if (miniProjectStructureHash(positions) !== plan.expectedStructureHash) {
+        respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex, errorCode: "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_SHAPE_MISMATCH" });
+        return;
+      }
+      store.finalizeSemanticCommit(undoSemanticCommitId, "FAILED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_EXECUTION_FAILED");
+      respond(response, 200, { status: "FAILED_COMPENSATED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, replayed: false });
       return;
     }
     const interactionDispositionMatch = request.method === "POST" ? url.pathname.match(/^\/provider\/ux\/interactions\/(uxi_[A-Za-z0-9_-]{16,96})\/disposition$/) : null;
