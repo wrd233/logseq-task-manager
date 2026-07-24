@@ -101,6 +101,17 @@
 #task-copilot-personal-mvp-root details ins, #task-copilot-personal-mvp-root .readable-diff ins { background: var(--accent-soft); color: var(--accent); }
 #task-copilot-personal-mvp-root pre { max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 #task-copilot-personal-mvp-root .diagnostics-workspace { min-height: min(680px, calc(100vh - 120px)); }
+#task-copilot-personal-mvp-root .user-system-status { padding: 18px; border: 1px solid var(--border); border-left: 5px solid var(--accent); border-radius: 14px; background: var(--surface); }
+#task-copilot-personal-mvp-root .user-system-status.status-attention { border-left-color: var(--warning); }
+#task-copilot-personal-mvp-root .user-system-status.status-blocked { border-left-color: var(--danger); }
+#task-copilot-personal-mvp-root .user-system-status dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; margin: 16px 0 0; }
+#task-copilot-personal-mvp-root .user-system-status dl > div:last-child { grid-column: 1 / -1; }
+#task-copilot-personal-mvp-root .user-system-status dt { color: var(--muted); font-size: 12px; font-weight: 700; }
+#task-copilot-personal-mvp-root .user-system-status dd { margin: 5px 0 0; line-height: 1.55; }
+#task-copilot-personal-mvp-root .technical-diagnostics { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+#task-copilot-personal-mvp-root .technical-diagnostics > summary { font-weight: 700; }
+#task-copilot-personal-mvp-root .technical-diagnostics-body { display: grid; gap: 14px; margin-top: 16px; }
+#task-copilot-personal-mvp-root .technical-diagnostics-body > .top-actions { flex-wrap: wrap; }
 #task-copilot-personal-mvp-root .diagnostic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 #task-copilot-personal-mvp-root .diagnostic-grid section, #task-copilot-personal-mvp-root .diagnostic-error { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 #task-copilot-personal-mvp-root .diagnostic-notice { margin-bottom: 14px; padding: 12px; border: 1px solid var(--warning); border-radius: 10px; background: var(--surface); }
@@ -122,6 +133,8 @@
   #task-copilot-personal-mvp-root .more-hub { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .drawer { position: static; }
   #task-copilot-personal-mvp-root .timeline li { grid-template-columns: 1fr; gap: 3px; }
+  #task-copilot-personal-mvp-root .user-system-status dl { grid-template-columns: 1fr; }
+  #task-copilot-personal-mvp-root .user-system-status dl > div:last-child { grid-column: auto; }
   #task-copilot-personal-mvp-root .diagnostic-grid { grid-template-columns: 1fr; }
 }
 

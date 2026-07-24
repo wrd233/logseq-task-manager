@@ -431,11 +431,13 @@ function restrictServiceRuntimeAfterTransportFailure(errorCode: string): void {
 async function fullDiagnosticsSnapshot() {
   const base = diagnostics.snapshot();
   let pendingSemanticCommits: number | "unavailable" = "unavailable";
+  let recoveryRequiredCommits: number | "unavailable" = "unavailable";
   let sourceAnchorConflicts: number | "unavailable" = "unavailable";
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
     try {
       const commits = await serviceRuntimeClient.listSemanticCommits();
-      pendingSemanticCommits = commits.filter((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED").length;
+      pendingSemanticCommits = commits.filter((commit) => commit.status === "PENDING").length;
+      recoveryRequiredCommits = commits.filter((commit) => commit.status === "RECOVERY_REQUIRED").length;
       let cursor: string | undefined;
       let conflicts = 0;
       const visitedCursors = new Set<string>();
@@ -458,6 +460,7 @@ async function fullDiagnosticsSnapshot() {
       ? "V2 SQLite via Local Service; V1 FileStorage inactive"
       : base.store_status === "NOT_STARTED" ? "not initialized" : "V2 SQLite via Local Service; connection restricted",
     pending_semantic_commits: pendingSemanticCommits,
+    recovery_required_commits: recoveryRequiredCommits,
     source_anchor_conflicts: sourceAnchorConflicts,
     event_listener_status: { rootClick: uiBound, settings: featureReady, explicitSync: explicitSyncController !== undefined, graphReadBridge: graphReadBridgeController.isActive(), unhandledRejection: true, globalError: true },
     explicit_sync: explicitSyncState,

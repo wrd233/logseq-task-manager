@@ -49,3 +49,5 @@
 | `original/p0-g-02-immediate-result-same-commit.png` | 真实 Logseq Desktop 0.10.15 | LOW 正式应用后的即时结果提供查看与撤销，并由实际 Commit identity 取回 |
 | `original/p0-g-03-long-term-undo-entry.png` | 真实 Logseq Desktop 0.10.15 | reload 后同一修改仍在长期入口显示已应用与撤销 |
 | `original/p0-g-04-long-term-undo-completed.png` | 真实 Logseq Desktop 0.10.15 | 长期 Undo 完成后显示已撤销且不再提供重复 Undo |
+| `original/p0-i-01-attention-user-status.png` | 真实 Logseq Desktop 0.10.15 | Service READY 时存在一项正文核对，首屏按五个用户问题显示影响、可用能力、数据安全与所需动作；工程诊断默认折叠 |
+| `original/p0-i-02-service-unavailable-user-status.png` | 真实 Logseq Desktop 0.10.15 | 受控停服与 reload 后明确暂停正式写入/审阅/Undo/备份/恢复/迁移，正文与既有历史仍可用，连接失败未被当成空状态 |

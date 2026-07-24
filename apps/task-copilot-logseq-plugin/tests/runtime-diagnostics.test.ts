@@ -110,6 +110,62 @@ test("runtime diagnostics makes the bounded explicit-sync recovery state visible
   assert.match(html, /&quot;reconciliationRequired&quot;:true/);
 });
 
+test("system status answers the five user questions before keeping engineering diagnostics collapsed", () => {
+  const diagnostics = new RuntimeDiagnostics();
+  diagnostics.setStoreStatus("READY");
+  diagnostics.setStoreSchema("v12");
+  diagnostics.setEnvironment("personal-graph", "0.10.15");
+  diagnostics.setServiceConnection({
+    status: "READY",
+    formalWritesAvailable: true,
+    graphEditingAvailable: true,
+    capabilities: { formalWrites: true, migration: true, provider: false, backup: true },
+  });
+  for (const stage of RUNTIME_STAGES) {
+    diagnostics.start(stage);
+    diagnostics.ready(stage);
+  }
+  const html = renderRuntimeDiagnostics({
+    ...diagnostics.snapshot(),
+    pending_semantic_commits: 0,
+    recovery_required_commits: 0,
+    source_anchor_conflicts: 0,
+    explicit_sync: { pending: 0, transportReady: true, reconciliationRequired: false },
+  });
+  const detailBoundary = html.indexOf('<details class="technical-diagnostics">');
+  assert.ok(detailBoundary > 0);
+  for (const label of ["发生了什么", "哪些能力受影响", "哪些仍可用", "数据是否安全", "是否需要我操作"]) {
+    const labelIndex = html.indexOf(label);
+    assert.ok(labelIndex >= 0 && labelIndex < detailBoundary, `${label} should be user-visible before technical diagnostics`);
+  }
+  assert.match(html.slice(0, detailBoundary), /Task Copilot 可以正常使用/);
+  assert.match(html.slice(0, detailBoundary), /Agent 分析未启用/);
+  assert.doesNotMatch(html.slice(0, detailBoundary), /READY|v12|personal-graph|Runtime Diagnostics|Copy diagnostics/);
+  assert.match(html.slice(detailBoundary), /Runtime Diagnostics[\s\S]*Copy diagnostics[\s\S]*v12[\s\S]*personal-graph/);
+});
+
+test("restricted system status explains safety before exposing reason codes on demand", () => {
+  const diagnostics = new RuntimeDiagnostics();
+  diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+  diagnostics.setServiceConnection({
+    status: "RESTRICTED",
+    reasonCode: "SERVICE_GRAPH_MISMATCH",
+    formalWritesAvailable: false,
+    graphEditingAvailable: true,
+  });
+  const html = renderRuntimeDiagnostics({
+    ...diagnostics.snapshot(),
+    pending_semantic_commits: "unavailable",
+    recovery_required_commits: "unavailable",
+    source_anchor_conflicts: "unavailable",
+  });
+  const detailBoundary = html.indexOf('<details class="technical-diagnostics">');
+  assert.match(html.slice(0, detailBoundary), /当前 Graph 与正式状态不匹配/);
+  assert.match(html.slice(0, detailBoundary), /Logseq 正文仍可编辑/);
+  assert.doesNotMatch(html.slice(0, detailBoundary), /SERVICE_GRAPH_MISMATCH|READ_ONLY_SAFE_MODE/);
+  assert.match(html.slice(detailBoundary), /SERVICE_GRAPH_MISMATCH/);
+});
+
 test("UI mount failure uses pure HTML diagnostics fallback", () => {
   const root = { innerHTML: "" };
   const result = mountWithDiagnosticFallback(root, () => { throw new Error("renderer failed"); }, () => "<h1>Runtime Diagnostics</h1>");

@@ -364,7 +364,7 @@ P0-H 整体不得标记完成。
 
 ## P0-I：系统状态
 
-状态：`NOT_STARTED`
+状态：`DONE` — 用户状态推导、默认折叠技术诊断、自动覆盖与真实 Desktop 注意/受限状态均已通过。
 
 用户层固定回答：
 
@@ -373,9 +373,26 @@ P0-H 整体不得标记完成。
 3. 哪些仍可用；
 4. 数据是否安全；
 5. 是否需要用户操作；
-6. 下一入口。
+所需动作直接写入第五项，不另造技术入口；需要原因时统一展开技术诊断。
 
 技术诊断仍保留 component/code/protocol/log/ID，但默认折叠。
+
+完成证据：
+
+- 新增纯 `deriveUserSystemStatus`，只读取既有 Diagnostics/Commit/Anchor/explicit-sync
+  投影，不建立第二状态源；
+- `RECOVERY_REQUIRED`、`PENDING`、Service/Store 受限、Anchor conflict、explicit-sync
+  核对和 READY 按安全优先级翻译；
+- Provider 未配置只影响 Agent 分析，不把确定性基础事务系统误报为故障；
+- 原 Runtime/Store/Service/Graph/版本/日志/ID、Anchor repair 与诊断导出动作完整保留在
+  默认关闭的“展开技术诊断”内；
+- Plugin 174/174、typecheck、build、dist integrity PASS；
+- 真实 Desktop 在 Service READY 但存在一项正文核对时显示“需要留意”，受控停服/reload
+  后显示“正式服务暂时不可用”，并明确正文和历史仍可用、数据安全、不得重复提交；
+- 健康 READY、协议不匹配、Graph identity 不匹配、Pending、Recovery、Anchor conflict
+  与正文核对均有纯测试；本轮没有制造虚假 Recovery 或清空真实队列；
+- 证据见 `logs/p0-i-user-system-status-desktop-20260724.md` 与
+  `screenshots/original/p0-i-*`。
 
 ## P0-J：中文创建命令与快捷动作
 

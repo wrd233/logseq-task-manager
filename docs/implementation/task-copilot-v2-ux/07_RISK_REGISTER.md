@@ -13,7 +13,7 @@
 | UX-R09 | 多 Graph 错配 | Graph switch 后复用旧 DB | 跨 Graph 正式写入 | 每次 switch 重验 Graph identity，失败停写 | OPEN |
 | UX-R10 | attention signal 形成第二 Inbox | 信号长期堆积/需逐条归档 | 新认知负担 | 派生、失效、冷却、业务处置后消失 | OPEN |
 | UX-R11 | LLM 提醒噪声 | 频繁弱建议/垃圾下一步 | 信任下降 | 规则决定强显现；影子模式；eligibility | OPEN |
-| UX-R12 | 状态翻译隐藏关键信息 | 结论过度压缩 | 恢复风险不可见 | 恢复优先级最高；详情可展开 | OPEN |
+| UX-R12 | 状态翻译隐藏关键信息 | 结论过度压缩 | 恢复风险不可见 | P0-I 已实现 Recovery/Pending/受限/Anchor/正文核对安全优先级；五问首屏，详情可展开 | MITIGATED |
 | UX-R13 | “现在”退化为所有 OPEN | 首页几十条 | 传统任务列表压力 | stable skeleton + explicit inclusion rules | OPEN |
 | UX-R14 | Project current interface 成为第二正文 | 每次编辑都要求更新 | 维护负担/事实冲突 | 正式 aggregate + 自动 facts + 关键变化才确认 | OPEN |
 | UX-R15 | Grill Me 固定问卷 | 每次都问同样字段 | 用户绕开 Project | evidence-first、自适应、stop conditions | OPEN |

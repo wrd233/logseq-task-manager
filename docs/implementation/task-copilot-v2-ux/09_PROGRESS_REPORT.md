@@ -102,9 +102,12 @@
 
 状态：`IN_PROGRESS`
 
-下一项以受控 capability spike 回答 Plugin-owned process、ownership、shutdown 与 descriptor
-刷新边界；并把既有 Diagnostics 投影成先回答影响、仍可用能力、数据安全和所需动作的用户层
-系统状态。
+P0-I 已完成：用户首屏固定回答发生了什么、影响能力、仍可用能力、数据安全与所需动作；
+工程组件、协议、日志、ID 与修复入口默认折叠。真实 Desktop 已验证 READY 连接下的正文核对
+注意状态，以及受控停服/reload 后的只读安全状态；没有把连接失败当空数据。
+
+当前继续 P0-H 受控 capability spike，回答 Plugin-owned process、ownership、shutdown、
+Graph binding 与 descriptor 刷新边界。
 
 ## 当前阻塞
 
@@ -128,11 +131,13 @@
 - P0-E 本地 commit：`72cbbd4`；
 - P0-F 本地 commit：`53835b1`；
 - P0-G 本地 commit：`ff10b93`；
+- P0-I Plugin tests：174/174、0 skipped，typecheck/build/dist integrity PASS；
+- P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮已归档 39 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
-  P0-D 9 张，P0-E 4 张，P0-F 2 张，P0-G 4 张；
+- 本轮已归档 41 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
+  P0-D 9 张，P0-E 4 张，P0-F 2 张，P0-G 4 张，P0-I 2 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
 ## 下一步
@@ -140,5 +145,6 @@
 1. 执行 P0-H Plugin-owned process capability spike，记录可证明与不可证明的宿主边界；
 2. 若宿主不可行，收束最小独立 launcher、ownership token、Graph binding、safe shutdown、
    crash/orphan 与 descriptor refresh 契约；
-3. 以 TDD 实现 P0-I 用户层系统状态，技术 Diagnostics 继续按需展开；
-4. 汇总 P0 剩余 Query/引用、Light/窄栏和 Service 生命周期到最少 Desktop Gate。
+3. 推进 P0-J 中文创建命令、P0-K 完成后路由和剩余宿主场景；
+4. 汇总 P0 剩余 Query/引用、Light/窄栏和 Service 生命周期到最少 Desktop Gate，随后进入
+   P1 影子模式。
