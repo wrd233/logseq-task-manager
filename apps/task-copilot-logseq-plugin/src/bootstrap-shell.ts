@@ -23,10 +23,15 @@ export interface BootstrapHost {
 export interface BootstrapCallbacks {
   open(): unknown;
   openToolbar(): unknown;
-  capture(): unknown;
+  processCurrentBlock(): unknown;
   openReview(): unknown;
   openNowWork(): unknown;
+  toggleCurrentBlockFocus(): unknown;
   diagnostics(): unknown;
+  createTask(): unknown;
+  createMiniProject(): unknown;
+  createDecision(): unknown;
+  createOutput(): unknown;
   toggleBlockFocus(blockUuid: string): Promise<void>;
   undoBlockFocus(): Promise<void>;
   openBlockCondition(blockUuid: string): Promise<void>;
@@ -36,9 +41,10 @@ export interface BootstrapCallbacks {
 
 export const COMMAND_KEYS = {
   open: "task-copilot-command-open",
-  capture: "task-copilot-command-capture-current-block",
+  processCurrentBlock: "task-copilot-command-process-current-block",
   review: "task-copilot-command-open-review",
   now: "task-copilot-command-open-now-work",
+  toggleCurrentBlockFocus: "task-copilot-command-toggle-current-block-focus",
   diagnostics: "task-copilot-command-runtime-diagnostics",
 } as const;
 
@@ -86,12 +92,16 @@ export class BootstrapRegistration {
 
   registerCommands(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
     if (this.commandsRegistered) return false;
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.open, label: "Task Copilot: Open" }, callbacks.open);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.capture, label: "Task Copilot: Review Current Page" }, callbacks.capture);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.review, label: "Task Copilot: Open Review Center" }, callbacks.openReview);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.now, label: "Task Copilot: Open Now Work" }, callbacks.openNowWork);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.diagnostics, label: "Task Copilot: Runtime Diagnostics" }, callbacks.diagnostics);
-    host.Editor.registerSlashCommand("Task Copilot: Open", callbacks.open);
+    host.App.registerCommandPalette({ key: COMMAND_KEYS.open, label: "Task Copilot：打开" }, callbacks.open);
+    host.App.registerCommandPalette({ key: COMMAND_KEYS.processCurrentBlock, label: "Task Copilot：处理当前 Block" }, callbacks.processCurrentBlock);
+    host.App.registerCommandPalette({ key: COMMAND_KEYS.review, label: "Task Copilot：打开待我确认" }, callbacks.openReview);
+    host.App.registerCommandPalette({ key: COMMAND_KEYS.now, label: "Task Copilot：打开“现在”" }, callbacks.openNowWork);
+    host.App.registerCommandPalette({ key: COMMAND_KEYS.toggleCurrentBlockFocus, label: "Task Copilot：加入或移出当前关注" }, callbacks.toggleCurrentBlockFocus);
+    host.App.registerCommandPalette({ key: COMMAND_KEYS.diagnostics, label: "Task Copilot：系统状态与技术诊断" }, callbacks.diagnostics);
+    host.Editor.registerSlashCommand("创建任务", callbacks.createTask);
+    host.Editor.registerSlashCommand("创建 MiniProject", callbacks.createMiniProject);
+    host.Editor.registerSlashCommand("创建决策", callbacks.createDecision);
+    host.Editor.registerSlashCommand("创建成果", callbacks.createOutput);
     this.commandsRegistered = true;
     return true;
   }

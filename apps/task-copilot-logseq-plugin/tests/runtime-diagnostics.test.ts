@@ -21,6 +21,7 @@ function fakeBootstrap(): {
   host: BootstrapHost;
   toolbar: Array<{ key: string; template: string }>;
   commands: Array<{ key: string; label: string; action: () => unknown }>;
+  slashCommands: Array<{ label: string; action: () => unknown }>;
   blockContextMenus: Array<{ label: string; action: (event: { uuid: string }) => Promise<void> }>;
   pageContextMenus: Array<{ label: string; action: (event: { page: string }) => Promise<void> }>;
   models: Record<string, (...args: unknown[]) => unknown>;
@@ -28,6 +29,7 @@ function fakeBootstrap(): {
 } {
   const toolbar: Array<{ key: string; template: string }> = [];
   const commands: Array<{ key: string; label: string; action: () => unknown }> = [];
+  const slashCommands: Array<{ label: string; action: () => unknown }> = [];
   const blockContextMenus: Array<{ label: string; action: (event: { uuid: string }) => Promise<void> }> = [];
   const pageContextMenus: Array<{ label: string; action: (event: { page: string }) => Promise<void> }> = [];
   const models: Record<string, (...args: unknown[]) => unknown> = {};
@@ -35,6 +37,7 @@ function fakeBootstrap(): {
   return {
     toolbar,
     commands,
+    slashCommands,
     blockContextMenus,
     pageContextMenus,
     models,
@@ -49,7 +52,7 @@ function fakeBootstrap(): {
         registerPageMenuItem: (label, action) => { pageContextMenus.push({ label, action }); },
       },
       Editor: {
-        registerSlashCommand: () => undefined,
+        registerSlashCommand: (label, action) => { slashCommands.push({ label, action }); },
         registerBlockContextMenuItem: (label, action) => { blockContextMenus.push({ label, action }); },
       },
     },
@@ -179,10 +182,15 @@ test("bootstrap registrations survive a simulated feature initialization failure
   const callbacks: BootstrapCallbacks = {
     open: () => { opened.push("open"); },
     openToolbar: () => { opened.push("toolbar"); },
-    capture: () => { opened.push("capture"); },
+    processCurrentBlock: () => { opened.push("process-current-block"); },
     openReview: () => { opened.push("review"); },
     openNowWork: () => { opened.push("now"); },
+    toggleCurrentBlockFocus: () => { opened.push("toggle-current-focus"); },
     diagnostics: () => { opened.push("diagnostics"); },
+    createTask: () => { opened.push("create-task"); },
+    createMiniProject: () => { opened.push("create-mini-project"); },
+    createDecision: () => { opened.push("create-decision"); },
+    createOutput: () => { opened.push("create-output"); },
     toggleBlockFocus: async (blockUuid) => { opened.push(`block-focus:${blockUuid}`); },
     undoBlockFocus: async () => { opened.push("block-focus-undo"); },
     openBlockCondition: async (blockUuid) => { opened.push(`block-condition:${blockUuid}`); },
@@ -207,18 +215,41 @@ test("bootstrap registrations survive a simulated feature initialization failure
   diagnostics.start("PERSISTENCE_READY");
   diagnostics.fail("PERSISTENCE_READY", new Error("simulated persistence failure"));
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
-  fake.commands.find((command) => command.label === "Task Copilot: Open")?.action();
-  fake.commands.find((command) => command.label === "Task Copilot: Runtime Diagnostics")?.action();
+  fake.commands.find((command) => command.label === "Task Copilot：打开")?.action();
+  fake.commands.find((command) => command.label === "Task Copilot：系统状态与技术诊断")?.action();
+  fake.commands.find((command) => command.label === "Task Copilot：处理当前 Block")?.action();
+  fake.commands.find((command) => command.label === "Task Copilot：加入或移出当前关注")?.action();
+  for (const slash of fake.slashCommands) slash.action();
   await fake.blockContextMenus[0]?.action({ uuid: "block-ctx-1" });
   await fake.blockContextMenus[1]?.action({ uuid: "block-ctx-2" });
   await fake.blockContextMenus[2]?.action({ uuid: "ignored" });
   await fake.blockContextMenus[3]?.action({ uuid: "ignored" });
   await fake.pageContextMenus[0]?.action({ page: "page-ctx-1" });
-  assert.deepEqual(opened, ["open", "diagnostics", "block-focus:block-ctx-1", "block-condition:block-ctx-2", "block-focus-undo", "block-condition-undo", "page-context:page-ctx-1"]);
+  assert.deepEqual(opened, [
+    "open",
+    "diagnostics",
+    "process-current-block",
+    "toggle-current-focus",
+    "create-task",
+    "create-mini-project",
+    "create-decision",
+    "create-output",
+    "block-focus:block-ctx-1",
+    "block-condition:block-ctx-2",
+    "block-focus-undo",
+    "block-condition-undo",
+    "page-context:page-ctx-1",
+  ]);
   assert.equal(fake.toolbar.length, 2);
   assert.match(fake.toolbar[0]!.template, /data-toolbar-mode="quiet"/);
   assert.match(fake.toolbar[1]!.template, /toolbar-badge[^>]*>③</);
-  assert.equal(fake.commands.length, 5);
+  assert.equal(fake.commands.length, 6);
+  assert.deepEqual(fake.slashCommands.map(({ label }) => label), [
+    "创建任务",
+    "创建 MiniProject",
+    "创建决策",
+    "创建成果",
+  ]);
   assert.equal(fake.blockContextMenus.length, 4);
   assert.equal(fake.pageContextMenus.length, 1);
   assert.equal(typeof fake.models[MODEL_OPEN], "function");
@@ -233,10 +264,15 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
   const callbacks: BootstrapCallbacks = {
     open: noop,
     openToolbar: noop,
-    capture: noop,
+    processCurrentBlock: noop,
     openReview: noop,
     openNowWork: noop,
+    toggleCurrentBlockFocus: noop,
     diagnostics: noop,
+    createTask: noop,
+    createMiniProject: noop,
+    createDecision: noop,
+    createOutput: noop,
     toggleBlockFocus: async () => undefined,
     undoBlockFocus: async () => undefined,
     openBlockCondition: async () => undefined,
@@ -255,7 +291,13 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
   assert.equal(registration.registerMainUi(fake.host, callbacks), true);
   assert.equal(registration.registerMainUi(fake.host, callbacks), false);
   assert.equal(fake.toolbar.length, 1);
-  assert.equal(fake.commands.length, 5);
+  assert.equal(fake.commands.length, 6);
+  assert.deepEqual(fake.slashCommands.map(({ label }) => label), [
+    "创建任务",
+    "创建 MiniProject",
+    "创建决策",
+    "创建成果",
+  ]);
   assert.deepEqual(fake.blockContextMenus.map(({ label }) => label), [
     BLOCK_CONTEXT_LABELS.toggleFocus,
     BLOCK_CONTEXT_LABELS.blockCondition,

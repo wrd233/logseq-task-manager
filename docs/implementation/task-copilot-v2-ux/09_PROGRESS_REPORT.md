@@ -5,7 +5,8 @@
 > P0-D Page 现场路由、P0-E 四项主导航、P0-F 工具栏介入摘要、P0-G 最近修改和 P0-H
 > descriptor 私有 handshake 已完成自动与适用 Desktop 验收；P0-H 独立 Launcher、
 > LaunchAgent、owned shutdown 与 crash/orphan recovery 已完成自动和真实进程 Gate，剩余
-> Desktop reload/退出/Graph switch 视觉 Gate 及其余 P0 仍未完成。
+> Desktop reload/退出/Graph switch 视觉 Gate；P0-J 中文命令自动 Gate 已完成，剩余
+> slash/palette/custom binding Desktop Gate 及其余 P0 仍未完成。
 
 ## 总体状态
 
@@ -18,7 +19,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE，Desktop lifecycle Gate OPEN |
+| P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J automated DONE；H/J Desktop Gate OPEN |
 | P1 | NOT_STARTED | 依赖 P0 |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -96,10 +97,17 @@
 - Plugin tests 167/167、0 skipped、typecheck 与 build PASS；
 - 真实 Desktop 完成 LOW 应用→即时结果→reload→长期 Undo→已撤销；最终 Graph 正文和对象
   恢复，正向 Commit UNDONE、逆向 Commit COMPLETED、Pending/Recovery 0。
+- 完成 P0-J 的四条中文 slash 与六条中文命令面板注册；
+- slash 仅插入 `[任务] / [MiniProject] / [决策] / [成果]` canonical 语法，正式化继续由
+  既有 parser、显式同步和 Local Service 单一路径负责；
+- “处理当前 Block”复用 Provider → Validator → Proposal，“加入或移出当前关注”复用
+  active Primary Anchor 与 `BlockFocusController`，没有新写路径；
+- Plugin tests 183/183、0 skipped，typecheck/build/bootstrap/dist integrity 与根级检查
+  PASS；Desktop slash/palette/custom binding Gate 未虚报完成。
 
 ## 当前进行
 
-### Slice P0-H / P0-I：Service 产品化与用户层系统状态
+### Slice P0-H / P0-J：Service 产品化与中文高频入口
 
 状态：`IN_PROGRESS`
 
@@ -112,6 +120,9 @@ Launcher/LaunchAgent、ownership、shutdown、Graph binding、descriptor 刷新�
 crash/orphan recovery 已由自动和真实进程证据闭合；当前等待不绕过桌面安全机制的集中
 reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 
+P0-J 自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 slash 可发现性、中文输入与
+光标、命令面板、自定义 binding、受限态、主题和窄窗口，同时继续 P0-K。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -121,7 +132,7 @@ reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 
 - SDK context menu 的正式 Block payload/排序及 Focus/Condition 动作已真实验证；Page menu
   的普通/Project/Journal 主 Page 已验证；Query/引用与 sidebar Page 扩展入口仍待宿主能力；
-- Service 产品化需要独立 runtime spike；
+- Service 产品化 Desktop lifecycle Gate 与中文命令 Desktop Gate 尚未集中闭合；
 - 默认 shell Node v25，不得用于受支持 Gate；
 - `@logseq/libs` 依赖告警继续公开保留。
 
@@ -134,7 +145,7 @@ reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 - P0-E 本地 commit：`72cbbd4`；
 - P0-F 本地 commit：`53835b1`；
 - P0-G 本地 commit：`ff10b93`；
-- P0-I Plugin tests：174/174、0 skipped，typecheck/build/dist integrity PASS；
+- P0-J Plugin tests：183/183、0 skipped，typecheck/build/bootstrap/dist integrity PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -145,9 +156,7 @@ reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 
 ## 下一步
 
-1. 执行 P0-H Plugin-owned process capability spike，记录可证明与不可证明的宿主边界；
-2. 若宿主不可行，收束最小独立 launcher、ownership token、Graph binding、safe shutdown、
-   crash/orphan 与 descriptor refresh 契约；
-3. 推进 P0-J 中文创建命令、P0-K 完成后路由和剩余宿主场景；
-4. 汇总 P0 剩余 Query/引用、Light/窄栏和 Service 生命周期到最少 Desktop Gate，随后进入
+1. 推进 P0-K 完成后路由和剩余宿主场景；
+2. 汇总 P0-H/P0-J 的 Desktop lifecycle、slash/palette/custom binding；
+3. 汇总 P0 剩余 Query/引用、Light/窄栏和 Service 生命周期到最少 Desktop Gate，随后进入
    P1 影子模式。

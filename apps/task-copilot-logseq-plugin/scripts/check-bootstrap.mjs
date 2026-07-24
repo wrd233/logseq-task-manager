@@ -32,7 +32,17 @@ for (const action of ["submit-v2-proposal-commit", "submit-v2-proposal-undo"]) {
   const branch = source.slice(source.indexOf(`action === "${action}"`), source.indexOf(`action === "${action}"`) + 2_000);
   assert.match(branch, /actionDialog = undefined;[\s\S]*workspace = "review";/, `${action} must close its confirmation after the operation settles`);
 }
-for (const label of ["Task Copilot: Open", "Task Copilot: Review Current Page", "Task Copilot: Open Review Center", "Task Copilot: Open Now Work", "Task Copilot: Runtime Diagnostics"]) assert.ok(bootstrap.includes(label), `missing command: ${label}`);
+for (const label of [
+  "Task Copilot：打开",
+  "Task Copilot：处理当前 Block",
+  "Task Copilot：打开待我确认",
+  "Task Copilot：打开“现在”",
+  "Task Copilot：加入或移出当前关注",
+  "Task Copilot：系统状态与技术诊断",
+]) assert.ok(bootstrap.includes(label), `missing command: ${label}`);
+for (const label of ["创建任务", "创建 MiniProject", "创建决策", "创建成果"]) {
+  assert.ok(bootstrap.includes(`registerSlashCommand("${label}"`), `missing slash command: ${label}`);
+}
 for (const stage of ["BOOTSTRAP_STARTED", "TOOLBAR_REGISTERED", "COMMANDS_REGISTERED", "MAIN_UI_REGISTERED", "SETTINGS_READY", "RUNTIME_ADAPTER_READY", "PERSISTENCE_READY", "MIGRATION_READY", "APPLICATION_READY", "EVENTS_READY", "PLUGIN_READY"]) assert.ok(diagnostics.includes(`"${stage}"`), `missing runtime stage: ${stage}`);
 
 const appsRoot = resolve(root, "..");

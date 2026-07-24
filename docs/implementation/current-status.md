@@ -35,7 +35,10 @@ V2 v1.1 底座完成结论不变；当前继续按
 - P0-I 用户层系统状态：首屏固定回答发生了什么、影响、仍可用、数据安全和所需动作；
   Provider 未配置不误报故障，Pending 与 Recovery 分离，工程组件/原因码/日志/修复入口默认
   折叠。真实 Desktop 已验证正文核对注意状态与 Service unavailable 只读安全状态；
-- 当前完成 P0-H 剩余 Desktop Gate 的同时继续 P0-J/P0-K 与不依赖该视觉 Gate 的宿主场景；
+- P0-J 中文创建命令与快捷动作：四条 slash 只插入 canonical 显式正文语法，三条高频
+  command palette 复用“现在”、Provider Proposal 与正式 Focus Controller；自动 Gate
+  183/183 与根级检查通过，Desktop slash/palette/custom binding Gate 保持 OPEN；
+- 当前完成 P0-H/P0-J 剩余 Desktop Gate 的同时继续 P0-K 与不依赖视觉 Gate 的宿主场景；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

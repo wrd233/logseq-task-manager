@@ -70,6 +70,7 @@ import { PageContextController, type PageContextSnapshot } from "./page-context-
 import { checksum, StructuredError } from "@task-copilot/shared";
 import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-intervention.ts";
 import { managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
+import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE_SYNTAX, type SlashCreateObjectType } from "./slash-create-command.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -2017,9 +2018,37 @@ async function showRuntimeDiagnostics(): Promise<void> {
   requireAppRoot().innerHTML = renderDiagnostics(await fullDiagnosticsSnapshot());
 }
 
-async function reviewCurrentPageFromCommand(): Promise<void> {
-  await handleAction("v2-candidate-open");
+async function processCurrentBlockFromCommand(): Promise<void> {
   await showTaskCopilot();
+  await handleAction("v2-provider-analyze-current-block");
+}
+
+async function insertExplicitObjectSyntax(objectType: SlashCreateObjectType): Promise<void> {
+  const syntax = SLASH_CREATE_SYNTAX[objectType];
+  let cancelSuppression: (() => void) | undefined;
+  try {
+    const [current, editingContent, cursor] = await Promise.all([
+      logseq.Editor.getCurrentBlock(),
+      logseq.Editor.getEditingBlockContent(),
+      logseq.Editor.getEditingCursorPosition(),
+    ]);
+    const block = RuntimeShapeAdapter.block(current);
+    if (!block || !cursor) throw new Error("当前编辑 Block 或光标不可用；没有插入对象语法。");
+    const intermediateContent = slashCreateContentAfterInsertion(editingContent, cursor.pos, objectType);
+    cancelSuppression = explicitSyncController?.suppressObservedContentWindow(
+      block.uuid,
+      checksum(stripLogseqBlockIdentityProperty(intermediateContent, block.uuid)),
+    );
+    await insertSlashCreateSyntax(logseq.Editor, objectType);
+  } catch (error) {
+    cancelSuppression?.();
+    operationalLogger.log("error", "ui-action", "slash_explicit_syntax_insert_failed", {
+      actionId: "slash-explicit-syntax-insert",
+      result: "error",
+      command: syntax,
+    }, error);
+    await showBlockContextMessage(`未能插入 ${syntax}；当前 Block 和正式状态均未改变。`, "error");
+  }
 }
 
 async function openWorkspace(target: Workspace): Promise<void> {
@@ -2113,6 +2142,15 @@ async function toggleBlockFocusFromContext(blockUuid: string): Promise<void> {
   await runBlockContextAction("block-focus-toggle", () => blockFocusController.toggle(blockUuid));
 }
 
+async function toggleCurrentBlockFocusFromCommand(): Promise<void> {
+  const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
+  if (!block) {
+    await showBlockContextMessage("请先选中一个已正式化的 Task 或 MiniProject；当前关注没有改变。", "warning");
+    return;
+  }
+  await toggleBlockFocusFromContext(block.uuid);
+}
+
 async function undoBlockFocusFromContext(): Promise<void> {
   await runBlockContextAction("block-focus-undo", () => blockFocusController.undoLast());
 }
@@ -2193,10 +2231,15 @@ function registerBootstrapShell(): void {
   const callbacks: BootstrapCallbacks = {
     open: showTaskCopilot,
     openToolbar: openFromToolbar,
-    capture: () => guardedFeatureCommand(reviewCurrentPageFromCommand),
+    processCurrentBlock: () => guardedFeatureCommand(processCurrentBlockFromCommand),
     openReview: () => guardedFeatureCommand(() => openWorkspace("review")),
     openNowWork: () => guardedFeatureCommand(() => openWorkspace("now")),
+    toggleCurrentBlockFocus: toggleCurrentBlockFocusFromCommand,
     diagnostics: showRuntimeDiagnostics,
+    createTask: () => insertExplicitObjectSyntax("TASK"),
+    createMiniProject: () => insertExplicitObjectSyntax("MINI_PROJECT"),
+    createDecision: () => insertExplicitObjectSyntax("DECISION"),
+    createOutput: () => insertExplicitObjectSyntax("OUTPUT"),
     toggleBlockFocus: toggleBlockFocusFromContext,
     undoBlockFocus: undoBlockFocusFromContext,
     openBlockCondition: openBlockConditionFromContext,

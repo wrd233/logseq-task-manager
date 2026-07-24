@@ -401,7 +401,7 @@ OPEN，因此 P0-H 整体不得标记完成。
 
 ## P0-J：中文创建命令与快捷动作
 
-状态：`NOT_STARTED`
+状态：`PARTIAL`（自动 Gate PASS；Desktop slash / palette / custom binding Gate OPEN）
 
 斜杠：
 
@@ -417,3 +417,15 @@ OPEN，因此 P0-H 整体不得标记完成。
 - 加入或移出当前关注。
 
 不为 WAITING/BLOCKED/PAUSED 分别占用默认快捷键。
+
+已完成：
+
+- 四条 slash 只插入 canonical 显式正文语法，不绕过 parser、Application Command 或
+  Local Service；
+- 命令面板已中文化，并提供稳定的“打开‘现在’ / 处理当前 Block / 加入或移出当前关注”；
+- 当前 Block 处理复用 Provider → Validator → Proposal，关注切换复用既有正式 Controller；
+- Plugin 183/183、typecheck、build、bootstrap/dist integrity 与根级检查 PASS；
+- 自动证据见 `logs/p0-j-chinese-commands-automated-20260724.md`。
+
+仍需真实 Desktop 验证斜杠可发现性、光标与输入、命令面板、自定义 binding、受限态及主题/
+窄窗口；未以注册测试替代该 Gate。
