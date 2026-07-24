@@ -11,5 +11,6 @@ export * from "./v2-candidate.ts";
 export * from "./attention-shadow.ts";
 export * from "./attention-detector.ts";
 export * from "./status-narration.ts";
+export * from "./unified-ux-output.ts";
 export * from "./dynamic-now-shadow.ts";
 export * from "./reentry-projection.ts";

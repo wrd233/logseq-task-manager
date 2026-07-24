@@ -1062,7 +1062,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       { component: "BACKUP", status: backupStatus, code: backupCode, count: backupCount },
       { component: "KEY_REFERENCE", status: "PASS", code: options.proposalGenerator ? "KEY_RESOLVED_OUT_OF_BAND" : "KEY_NOT_REQUIRED" },
       { component: "PROVIDER", status: "INFO", code: options.proposalGenerator ? "PROVIDER_CONFIGURED_NOT_PROBED" : "PROVIDER_DISABLED" },
-      { component: "SKILL_PROFILE", status: skillCount === 2 ? "PASS" : "FAIL", code: skillCount === 2 ? "BUILTIN_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
+      { component: "SKILL_PROFILE", status: skillCount === 3 ? "PASS" : "FAIL", code: skillCount === 3 ? "BUILTIN_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
       { component: "LOGGING", status: "INFO", code: "SERVICE_LOG_COLLECTION_NOT_CONFIGURED" },
       { component: "PROTOCOL", status: "PASS", code: "CLI_SERVICE_PROTOCOL_CURRENT" },
     ];

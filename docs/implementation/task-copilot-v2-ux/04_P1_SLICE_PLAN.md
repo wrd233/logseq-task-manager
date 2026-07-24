@@ -306,7 +306,9 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
 
 ## P1-G：LLM 叙述与上下文恢复 Skill
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_CONTRACT_AUTOMATED` — Provider-neutral unified UX output validator、
+Local Service 生成器和 `recover-context@1.0.0` 已完成；尚未接 Plugin 用户界面、真实
+Provider context-recovery Gate 或 Project current-interface Proposal。
 
 统一结构化输出至少包含：
 
@@ -323,6 +325,25 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
 - skill/prompt/model version。
 
 Service 必须机器覆盖 provenance、model id/version、时间和 scope hash。输出只可进入缓存/Proposal，不直接成为正式事实。
+
+2026-07-24 首轮自动结果：
+
+- Application 只暴露一个 `materializeUnifiedUxOutput(unknown, authority)` 深模块；
+- 模型使用 `factRefs` 选择机器 fact，正式事实文本不能由模型重写；
+- inference/suggested-change evidence 必须属于机器 allowlist，未知 fact/action、重复机器
+  identity、越界 ref、错误 schema 与超界文本全部 fail closed；
+- next action 只能选择机器给出的 action ID，label/intent/target 由机器物化；
+- risk 取机器 floor、模型声明和建议项的最高值；discussion/review 只能被提高，不能降低；
+- `DRAFT_PROPOSAL` 只有摘要、evidence 和 risk，没有 semantic operation 或持久化权；
+- contract/prompt/Skill/Provider/model/time 与 scope hash 全部由 Local Service 生成器回填，
+  模型伪造 provenance 被忽略；
+- `recover-context@1.0.0` 固定正式事实→当前正文→Project 当前接口→直接关系→宽检索的
+  够用即停阶梯，信息不足时要求明确承认，下一动作默认 false；
+- 新 Skill 通过 `quick_validate.py`、SHA-256 catalog、真实 Local Service `/skills` 读取和
+  Context Package 复用，不创建 Object/Proposal/Commit；
+- Application tests 120/120、Local Service tests 94/94、Service Client tests 12/12；
+- 当前未持久化 unified UX output，从而关闭 UX-G009 的“是否另建正式缓存”方向；若后续
+  性能证据需要缓存，只允许可失效派生 cache，任何修改建议仍必须转为正式 Proposal。
 
 ## P1-H：交互日志与版本
 

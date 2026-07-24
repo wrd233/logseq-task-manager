@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head action automated PASS；Attention 未展示、Desktop 与 UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D System/Proposal/Recent Changes/Now/Anchor consumer、P1-F Project workspace + main Page Head、P1-G unified UX contract/recover-context Skill automated PASS；Attention 未展示、Desktop 与 UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -216,6 +216,20 @@ Association 不再展开为行动列表，完整 Objectives/Deliverables/对象�
 payload 为 `nil`，不能识别 sidebar Page，因此 sidebar 中明确隐藏按钮，不假装支持精确
 secondary-page 重入；Desktop 仍需验证实际 slot 生命周期、主题、窄栏与点击链。
 
+### P1-G unified UX output 与上下文恢复 Skill
+
+Application 新增一个 Provider-neutral 深模块：输入是不可信 JSON 草稿和机器 authority，输出
+是统一 facts/inferences/unknowns/summary/evidenceScope/suggestedChanges/nextAction/risk/
+discussion/review/provenance。模型不提交 fact 文本或动作 target，只能选择机器 fact/action ID；
+越界 evidence、未知 ID、歧义 authority 和超界内容全部拒绝。机器 risk/review 只能升不能降，
+模型提供的 provenance 被实际 Provider metadata、Prompt bundle hash、Skill version 和时间替换。
+
+Local Service 新增无 persistence port 的 `LocalLlmUxOutputGenerator`，继续复用现有结构化
+Provider transport，但结果不会直接进入 Domain 或 UI。`recover-context@1.0.0` 已进入同一
+只读 Skill catalog 和 Context Package，固定逐层读到够用即停、信息不足明确承认、下一动作
+默认不生成。UX-G009 因此关闭为“不持久化派生 UX 草稿；正式修改仍进入 Proposal”，但真实
+Provider 语义质量、Plugin consumer 和 Desktop 仍开放。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -248,6 +262,8 @@ secondary-page 重入；Desktop 仍需验证实际 slot 生命周期、主题、
 - P1-D Object/Now consumer 后 tests：208/208、0 skipped，typecheck/build PASS；
 - P1-D Anchor repair consumer 后 tests：213/213、0 skipped，typecheck/build PASS；
 - P1-F Project Page Head consumer 后 tests：219/219、0 skipped，typecheck/build PASS；
+- P1-G contract 后 Application tests：120/120、Local Service tests：94/94、Service Client
+  tests：12/12；`recover-context` skill validator PASS；
 - P1-C 后 Application tests：98/98、0 skipped，typecheck PASS；
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
@@ -260,8 +276,10 @@ secondary-page 重入；Desktop 仍需验证实际 slot 生命周期、主题、
 
 ## 下一步
 
-1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 完成 P1-F Project workspace/Page Head 与 P1-D
+1. 完成 P1-H privacy-bounded interaction event/version contract，并把 P1-G 生成/拒绝结果
+   接入结构化证据，不记录正文或模型原始输出；
+2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
+3. 完成 P1-F Project workspace/Page Head 与 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
+4. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

@@ -28,7 +28,7 @@
 | P1-6 Block 轻标记 | 尚无；SDK 有 block renderer slot | Anchor/Object/attention projection | NEEDS_PROTOTYPE | 编辑态、Query/引用、主题、性能、正文污染 | 独立只读 UI prototype；先不全局上线；关闭 Plugin 后无 Markdown 残留 |
 | P1-7 Project 顶部重入条 | Application `reentry-projection.ts` + Plugin `reentry-runtime.ts` 已替换生产 Project workspace 的展开式卡片；`project-page-head-action.ts` 接入 main Page Head 单动作 | schema v12、Condition、Focus、Ownership、Anchor、Commit | UI_ORCHESTRATION | 与现有 Project workspace 产生不同事实；无 page payload 的 sidebar slot 误路由 | PARTIAL_UI_AUTOMATED：Recovery 优先、最多三个 Focus 直属进入点、Association 仅背景、上下文不足显式承认；主 Page 点击重验 Page/Anchor/Object 后只显示同一 Project，sidebar 隐藏；待 Desktop |
 | P1-8 Task 轻量恢复 | Application Task reentry 纯投影；现有 Now Work card + Anchor open 尚未接线 | title/parent evidence/Condition/Ownership/Anchor/Commit | UI_ORCHESTRATION | 强制生成垃圾摘要 | PARTIAL_AUTOMATED：精确 Condition/parent/owner 分层；ACTIONABLE 且无正文上下文时只打开原文 |
-| P1-9 LLM 状态叙述/当前接口 | DeepSeek Proposal provider、Project aggregate | Provider、Schema、Validator、Proposal Review | LLM_SKILL | 模型覆盖正式事实或写入 | 新 Skill 使用统一 UX 输出；模型只起草 Proposal；关键变化用户确认 |
+| P1-9 LLM 状态叙述/当前接口 | Application `unified-ux-output.ts`、Local Service `llm-ux-output.ts`、`recover-context@1.0.0`；尚未接 Plugin UI | Provider、Schema、Validator、Proposal Review、Context Package Skill catalog | LLM_SKILL | 模型覆盖正式事实或写入 | PARTIAL_CONTRACT_AUTOMATED：模型只引用机器 fact/action/evidence ID；机器覆盖 provenance/scope/risk/review；建议只为无 operation 的 `DRAFT_PROPOSAL`；待真实 Provider/Plugin consumer |
 | P1-10 交互日志与版本 | `structured-logger.ts`；Provider provenance | bounded logger、skill/prompt/model version | DERIVED_DATA | 保存私人正文或 Key | 记录场景/处置/版本/时长，完整正文只在显式授权样本中保存 |
 | P2-1 MiniProject Grill Me | 三问 Closure Agent；`design-project` Skill | Context Package、Provider、Proposal | LLM_SKILL | 固定问卷；超范围读取；自动写入 | 新 `mini-project-modeling` Skill，自适应对话状态只产生结构 Proposal |
 | P2-2 MiniProject 原位重构 | 单 Block formalization Commit；无多 Block重构产品流 | Graph patch ledger、SemanticCommit、Undo | DOMAIN_EXTENSION | 原始事实丢失、部分 Commit | 先 prototype 多 Block patch scope；若现有 Proposal op 不足，最小扩展正式操作并保持一次 Commit |
@@ -37,7 +37,7 @@
 | P2-5 Closure | Project/MiniProject Closure 已完成 | Closure Schema、Provider draft、Review/Commit | UI_ORCHESTRATION | 现有三问/字段仍像表单 | 先从证据起草并给阅读预览，用户只处理真实判断 |
 | P2-6 跨对象观察 | Context Package、Project relation projections | read-only scope、Proposal submit | LLM_SKILL | 弱候选泛滥、自动 Ownership | 影子模式先评估；候选数量上限；只进待我确认 |
 | P2-7 Recovery/Rebind/Restore/Migration 向导 | CLI/Diagnostics/独立 workspace | 既有安全链全部复用 | SERVICE_PRODUCTIZATION | 新向导形成第二恢复器；路径/UUID 暴露 | 只包装既有 API/ledger；统一用户语言；高风险确认不压缩 |
-| LLM 统一 UX 输出协议 | 当前 Proposal Schema 不等同 UX narration schema | Provider runtime、machine provenance | DOMAIN_EXTENSION | 在 Domain 中引入 Provider 语义 | 新协议放 Application/Service LLM 边界；正式 Domain 继续只认 Proposal |
+| LLM 统一 UX 输出协议 | `materializeUnifiedUxOutput` 深模块 + `LocalLlmUxOutputGenerator` | Provider runtime、machine provenance | LLM_SKILL | 在 Domain 中引入 Provider 语义 | DONE_CONTRACT：协议只在 Application/Service LLM seam；Domain 未改；自由模型 provenance 被替换、越界 ref/未知动作/歧义 authority fail closed，输出暂不持久化 |
 | 四级显现与一对象一主问题 | 当前 UI 可同时显示多 badges/字段 | Now Work facts、Doctor severity | DERIVED_DATA | 隐藏真正恢复风险 | 纯函数 merge/priority/invalidation，PENDING/RECOVERY 永不冷却 |
 | 用户 Focus 权威 | Focus 已是独立 Application command | 完整复用 | REUSE_AS_IS | Copilot 建议误调用 `selectFocus` | LLM/Signal 只提出建议，只有用户命令调用 Focus 写入 |
 | 正文权威与关闭后可读 | 当前成立 | Graph Adapter、SemanticCommit | REUSE_AS_IS | Block UI 写回 Markdown | 所有轻标记用注入 UI，不写正文 |

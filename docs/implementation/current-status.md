@@ -69,6 +69,11 @@ V2 v1.1 底座完成结论不变；当前继续按
   Page UUID、唯一 active Project Page Anchor 与 Object version，再只打开该 Project 的同一
   重入投影；Page Head hook 不提供页面 payload，因此右侧栏入口明确隐藏，不伪装成精确现场；
   Application 112/112、Plugin 219/219 通过，Desktop 视觉与点击 Gate 仍待验证；
+- P1-G 已建立 Provider-neutral unified UX output 深模块与 `recover-context@1.0.0`：
+  模型只能引用机器 fact/action/evidence ID；正式事实文本、动作目标、scope hash、时间和
+  Skill/Prompt/Provider/model provenance 由机器物化，模型不能降低 risk/review；
+  `DRAFT_PROPOSAL` 建议没有正式 operation/write authority，当前不持久化、不接用户 UI。
+  Application 120/120、Local Service 94/94 与 Skill 格式/Hash/Service catalog 自动 Gate 通过；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
@@ -76,7 +81,8 @@ V2 v1.1 底座完成结论不变；当前继续按
 
 ## 当前 Slice
 
-V1 frozen / V2 E2E-01–24 complete / Project current-interface Gate complete / release audit decisions closed
+V1 frozen / V2 E2E-01–24 complete / interaction optimization P1-G contract complete /
+P1 Desktop and P1-H interaction evidence remain in progress
 
 ## 当前阶段结论
 
@@ -87,6 +93,7 @@ V1_FROZEN_FOR_MIGRATION
 V2_MIGRATION_DESIGN_READY
 V2_REQUIREMENT_GATES_PASS
 V2_IMPLEMENTATION_COMPLETE
+V2_UX_PRODUCTIZATION_IN_PROGRESS
 ```
 
 `V1_MVP_PILOT_SUCCESS` 未达到：Capture 与 Task 通过；MiniProject/Project 的主归属、推进、聚合以及 Decision/Output/Closure 没有形成低摩擦闭环。V1 不再扩建长期能力，这些差距转入 V2。

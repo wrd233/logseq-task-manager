@@ -67,7 +67,7 @@ export interface ServiceBackupRestored {
 }
 
 export interface ServiceSkillSummary {
-  name: "task-copilot-core" | "design-project";
+  name: "task-copilot-core" | "design-project" | "recover-context";
   version: string;
   description: string;
   sha256: string;

@@ -190,11 +190,15 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   assert.deepEqual(skills.map(({ name, version }) => ({ name, version })), [
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
+    { name: "recover-context", version: "1.0.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
   assert.match(project?.content ?? "", /"schemaVersion": "v2"/);
   assert.equal(project?.sha256, skills.find(({ name }) => name === "design-project")?.sha256);
+  const recovery = await client.getSkill("recover-context");
+  assert.match(recovery?.content ?? "", /task-copilot-ux-output-v1/);
+  assert.equal(recovery?.sha256, skills.find(({ name }) => name === "recover-context")?.sha256);
   assert.equal(await client.getSkill("missing"), undefined);
   assert.equal((await client.status()).objectCount, 0, "Skill reads do not create formal state");
 });
