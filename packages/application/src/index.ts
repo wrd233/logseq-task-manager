@@ -8,3 +8,4 @@ export * from "./v2-proposal.ts";
 export * from "./v2-now-work.ts";
 export * from "./v2-migration.ts";
 export * from "./v2-candidate.ts";
+export * from "./attention-shadow.ts";

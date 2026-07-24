@@ -6,7 +6,8 @@
 
 ## P1-A：Attention Signal 纯模型与影子存储
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_AUTOMATED` — 纯模型与有界 session shadow repository 已完成；没有接入 UI、
+正式 Domain 或 SQLite schema。UX-G008 的跨 reload 派生存储位置仍待 detector/cache spike。
 
 最小内部字段：
 
@@ -31,6 +32,23 @@
 - 可重算、可失效、可清理；
 - PENDING、RECOVERY_REQUIRED、Graph mismatch 不允许冷却；
 - LLM 不能单独把信号升级为强提醒。
+
+2026-07-24 首轮自动结果：
+
+- 新增 Application 层纯派生 `AttentionSignalCandidate/Record`，覆盖 type、object/source facts、
+  first/last detected、urgency/certainty/context relevance、拟议显现、invalidation、
+  merge target、cooldown、shown/disposition、rule/Skill/Prompt/model provenance 与 evidence scope；
+- shadow repository 只接受 `SHADOW / NONE`，没有 UI、Focus/Ownership、正式 Object、
+  Proposal 或 SemanticCommit 端口；
+- source facts 只接受有界机器 code、opaque ref、timestamp 与 SHA-256 fingerprint，模型结构
+  没有 `text/content/summary` 字段；
+- 同一问题保留 first detection 并更新 last confirmation；事实不再出现时自动 invalidated；
+  scope hash 改变解除 cooldown，`NEVER` 策略拒绝对 Recovery 信号冷却；
+- repository 容量 1..4096、默认 512；只淘汰已 invalidated 记录，绝不静默淘汰 active；
+  支持显式 clear 与 active/invalidated/detected/confirmed/evidence-changed/pruned 遥测；
+- Application tests 75/75、0 skipped，typecheck PASS；
+- 当前只在测试中实例化，未进入 Plugin/Service runtime，因此不构成用户可见 P1 上线或
+  Desktop PASS。
 
 ## P1-B：确定性 detector、合并与失效
 
