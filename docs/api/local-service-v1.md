@@ -45,6 +45,7 @@
 | POST | `/provider/ux/project-context-recovery` | 正式 Project Context → 统一恢复草稿 | 无；只返回受 Validator 约束的 session draft |
 | POST | `/provider/grill/mini-project/turn` | OPEN MiniProject 精确 Primary Anchor 子树 → 一轮自适应 Grill draft | 无；前后重验 Object/Anchor/subtree，永不生成 Proposal 或正式写入 |
 | POST | `/provider/grill/mini-project/preview` | 已完成四项真实判断的 Grill session → 零丢失最终阅读/结构预览 | 无；每项原材料恰好出现一次、root 留在 root、删除数机器固定为 0；不生成 Proposal/operation |
+| POST | `/provider/grill/mini-project/proposal` | 当前 Service session preview handle → 一个 HIGH 结构 Proposal | 只写 Proposal + Group；重读并重验 Object/Anchor/subtree，不改 Graph/对象 |
 | GET | `/proposals` | 按创建顺序列出已提交 Proposal | 无 |
 | GET | `/proposals/{id}` | 读取单个 Proposal、两文件和 `updatedAt` | 无 |
 | POST | `/proposals/{id}/review` | 按语义组接受/拒绝/暂缓 | Proposal + Group 单事务写入；不改正文/对象 |
@@ -114,7 +115,11 @@ readiness 已到 `READY_FOR_PREVIEW`。Provider 只选择最终阅读、section�
 未归类理由；原文/hash、材料守恒、root 位置、evidence scope、provenance 与影响计数由机器
 注入或计算。被排除的材料也必须在 `unclassified` 原位保留，`deletedMaterialCount` 永远为 0。
 输出固定为 `task-copilot-grill-preview-v1 / SESSION_PREVIEW_ONLY`，Plugin 只提供阅读与重试，
-没有应用按钮。正式变化仍必须另行进入既有 Proposal Review/Commit/Undo/Recovery 链。
+没有应用按钮。成功预览另发一个 30 分钟、最多 64 项、Service 重启即失效的不透明 handle；
+client 不能回传或修改 preview。`/provider/grill/mini-project/proposal` 只接受 handle + object/version，
+Service 重新读取并重验完整来源后确定性建立一个 HIGH `CREATE_BLOCK/MOVE_BLOCK` Proposal；不会
+再次调用 Provider，也不改 Graph/对象。正式变化仍必须进入 Proposal Review，并等待专用结构
+Commit/Undo/Recovery 链完成验证；通用单 Block Commit 不接受该 Proposal。
 
 `GET /now-work` 的 `conditionOptions` 仅包含当前 OPEN 对象的 `objectId / objectType / text`，供插件以可读选择器设置可选 `BLOCKED.blockerObjectId`；它不是第二份对象状态。Application 拒绝不存在、已关闭或自引用的阻碍对象。若 Focus A 的 `blockerObjectId` 指向 B，则可行动 B 会以“阻碍当前关注”进入可解释排序；安静的 Waiting B 也会被唤醒进入“等待与复查”。
 

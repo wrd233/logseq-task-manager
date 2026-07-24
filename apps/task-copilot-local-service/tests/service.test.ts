@@ -509,6 +509,16 @@ test("MiniProject Grill reads the exact live subtree, advances by bounded answer
   assert.equal(providerCalls, 3);
   assert.deepEqual(await client.status(), before, "Grill preview does not mutate formal state");
 
+  const proposalBridge = answerTwoReads();
+  const proposalPromise = client.createMiniProjectRestructureProposal({ objectId: created.object.objectId, expectedVersion: created.object.version, previewHandle: preview.previewHandle });
+  const [, restructure] = await Promise.all([proposalBridge, proposalPromise]);
+  assert.equal(restructure.record.proposal.status, "READY");
+  assert.equal(restructure.record.proposal.groups[0]?.risk, "HIGH");
+  assert.deepEqual(restructure.record.proposal.groups[0]?.textPatches, []);
+  assert.deepEqual(restructure.record.proposal.groups[0]?.semanticOperations.map(({ kind }) => kind), ["CREATE_BLOCK", "MOVE_BLOCK"]);
+  assert.equal(providerCalls, 3, "Proposal is built from the server-owned preview without another Provider call");
+  assert.deepEqual(await client.status(), before, "creating a review Proposal does not mutate formal object state");
+
   const changedBlocks = blocks.map((block) => block.uuid === "block-mini-loose" ? { ...block, content: "厂家参数已变化", contentHash: checksum("厂家参数已变化") } : block);
   const changedSnapshot = { ...snapshot, blocks: changedBlocks, scopeHash: checksum({ kind: "BLOCK", resolved, blocks: changedBlocks, truncated: false }) };
   const staleBridge = (async (): Promise<void> => {

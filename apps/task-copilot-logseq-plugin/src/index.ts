@@ -554,6 +554,9 @@ async function model(): Promise<UiModel> {
     v2MiniProjectGrillPreviewAvailable: serviceConnection.status === "READY"
       && serviceConnection.capabilities.provider
       && Boolean(serviceRuntimeClient?.previewMiniProjectGrill),
+    v2MiniProjectGrillProposalAvailable: serviceConnection.status === "READY"
+      && serviceConnection.formalWritesAvailable
+      && Boolean(serviceRuntimeClient?.createMiniProjectRestructureProposal),
     ...(v2ReentryTargetObjectId ? { v2ReentryTargetObjectId } : {}),
     ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
     ...(v2ObjectNarrations !== undefined ? { v2ObjectNarrations } : {}),
@@ -1304,6 +1307,17 @@ async function handleAction(action: string, value?: string): Promise<void> {
       state?.status === "ready" && state.preview?.status === "ready" ? "mini_project_grill_preview_generated" : "mini_project_grill_preview_unavailable",
       { actionId: "v2-mini-project-grill-preview", result: state?.status === "ready" ? state.preview?.status ?? "missing" : state?.status ?? "discarded" },
     );
+    return;
+  }
+  if (action === "v2-mini-project-grill-proposal" && value) {
+    const result = await miniProjectGrillController.createProposal(value);
+    operationalLogger.log(result ? "info" : "warn", "ui-action", result ? "mini_project_restructure_proposal_created" : "mini_project_restructure_proposal_unavailable", { actionId: "v2-mini-project-grill-proposal", result: result ? (result.replayed ? "replayed" : "created") : "unavailable" });
+    if (result) {
+      actionDialog = undefined;
+      workspace = "review";
+      reviewMode = "proposals";
+      await refresh();
+    }
     return;
   }
   if (action === "v2-provider-analyze-current-block") {

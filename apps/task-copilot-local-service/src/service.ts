@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -25,7 +25,8 @@ import type { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
 import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
-import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, type MiniProjectGrillAnswer, type MiniProjectGrillSource } from "./mini-project-grill.ts";
+import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, buildMiniProjectSourcePositions, type MiniProjectGrillAnswer, type MiniProjectGrillSource } from "./mini-project-grill.ts";
+import { GrillPreviewSessionStore } from "./grill-preview-session.ts";
 import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
 import { readLegacyRecoveryBundle, scanLegacyRecoveryBundle } from "./migration-scan.ts";
@@ -219,6 +220,26 @@ async function readMiniProjectGrillRequest(request: IncomingMessage): Promise<{ 
   });
   if (new Set(answers.map(({ uncertaintyId }) => uncertaintyId)).size !== answers.length) throw serviceError("GRILL_REQUEST_INVALID", "MiniProject Grill 同一不确定性只能回答一次。");
   return { objectId: record.objectId, expectedVersion: Number(record.expectedVersion), answers };
+}
+
+async function readMiniProjectGrillProposalRequest(request: IncomingMessage): Promise<{ objectId: string; expectedVersion: number; previewHandle: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "MiniProject restructure Proposal 请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "expectedVersion,objectId,previewHandle" || typeof record.objectId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.objectId)
+    || !Number.isSafeInteger(record.expectedVersion) || Number(record.expectedVersion) < 1 || typeof record.previewHandle !== "string" || !/^grill_preview_[A-Za-z0-9_-]{24,96}$/.test(record.previewHandle)) {
+    throw serviceError("GRILL_PROPOSAL_REQUEST_INVALID", "MiniProject restructure Proposal 只接受对象版本与当前 Service session 的 preview handle。");
+  }
+  return { objectId: record.objectId, expectedVersion: Number(record.expectedVersion), previewHandle: record.previewHandle };
+}
+
+function deterministicBlockUuid(seed: string): string {
+  const chars = createHash("sha256").update(seed).digest("hex").slice(0, 32).split("");
+  chars[12] = "5";
+  chars[16] = ["8", "9", "a", "b"][Number.parseInt(chars[16]!, 16) % 4]!;
+  const hex = chars.join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 async function readGraphQueryRequest(request: IncomingMessage) {
@@ -930,6 +951,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const migrationApplication = new V2MigrationApplication(store);
   const proposalApplication = new V2ProposalApplication(store);
   const graphReadBroker = new GraphReadBroker();
+  const grillPreviewSessions = new GrillPreviewSessionStore<{ objectId: string; expectedVersion: number; answers: MiniProjectGrillAnswer[]; preview: GrillPreview; graphScopeHash: string }>();
   const serializedTails = new Map<string, Promise<void>>();
   const serializeByKey = async <T>(key: string, task: () => Promise<T>): Promise<T> => {
     const prior = serializedTails.get(key) ?? Promise.resolve();
@@ -1536,10 +1558,31 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       try {
         const generated = await options.grillPreviewGenerator.generate({ ...generation, signal: controller.signal });
         await revalidateMiniProjectGrillSource(input, prepared.primaryAnchor, prepared.source.graphSnapshot.scopeHash);
-        respond(response, 200, { ...generated, contextFingerprint: prepared.source.contextFingerprint });
+        const previewHandle = grillPreviewSessions.issue({ objectId: input.objectId, expectedVersion: input.expectedVersion, answers: [...input.answers], preview: generated.output, graphScopeHash: prepared.source.graphSnapshot.scopeHash });
+        respond(response, 200, { ...generated, contextFingerprint: prepared.source.contextFingerprint, previewHandle });
       } finally {
         request.removeListener("aborted", abort);
       }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/provider/grill/mini-project/proposal") {
+      const input = await readMiniProjectGrillProposalRequest(request);
+      const session = grillPreviewSessions.get(input.previewHandle);
+      if (!session || session.objectId !== input.objectId || session.expectedVersion !== input.expectedVersion) throw serviceError("GRILL_PREVIEW_SESSION_EXPIRED", "结构预览已过期或不属于当前 Service session；请重新生成预览。");
+      const prepared = await prepareMiniProjectGrillSource({ objectId: input.objectId, expectedVersion: input.expectedVersion, answers: session.answers });
+      buildMiniProjectGrillPreviewGeneration(prepared.source);
+      if (prepared.source.graphSnapshot.scopeHash !== session.graphScopeHash) throw serviceError("GRILL_SOURCE_STALE", "MiniProject 来源在预览后已变化；没有创建 Proposal。");
+      const identity = createHash("sha256").update(stableJson({ graphId: options.graphId, objectId: input.objectId, expectedVersion: input.expectedVersion, graphScopeHash: session.graphScopeHash, previewScopeHash: session.preview.evidenceScope.scopeHash })).digest("hex");
+      const proposalId = `proposal_mini_restructure_${identity.slice(0, 32)}`;
+      const createdBlockUuids: Record<string, string> = {};
+      for (const section of session.preview.finalReading.sections) {
+        if (section.sectionId !== "root") createdBlockUuids[`section:${section.sectionId}`] = deterministicBlockUuid(`${proposalId}:section:${section.sectionId}`);
+        section.derivedBlocks.forEach((_block, index) => { createdBlockUuids[`derived:${section.sectionId}:${index}`] = deterministicBlockUuid(`${proposalId}:derived:${section.sectionId}:${index}`); });
+      }
+      const proposal = buildMiniProjectRestructureProposal({ proposalId, createdAt: session.preview.provenance.generatedAt, objectId: input.objectId, objectVersion: input.expectedVersion, preview: session.preview, sourcePositions: buildMiniProjectSourcePositions(prepared.source.graphSnapshot), createdBlockUuids });
+      await revalidateMiniProjectGrillSource(input, prepared.primaryAnchor, prepared.source.graphSnapshot.scopeHash);
+      const submitted = await proposalApplication.submit(proposal, new Date(session.preview.provenance.generatedAt));
+      respond(response, submitted.replayed ? 200 : 201, submitted);
       return;
     }
     const interactionDispositionMatch = request.method === "POST" ? url.pathname.match(/^\/provider\/ux\/interactions\/(uxi_[A-Za-z0-9_-]{16,96})\/disposition$/) : null;
@@ -2921,6 +2964,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     token,
     capabilities,
     close: async () => {
+      grillPreviewSessions.clear();
       graphReadBroker.close();
       if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
       if (storeOpen) {

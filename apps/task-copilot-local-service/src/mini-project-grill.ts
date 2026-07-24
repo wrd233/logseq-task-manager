@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { grillReadiness, type GrillFactAuthority, type GrillUncertaintyAuthority } from "@task-copilot/application";
+import { grillReadiness, type GrillFactAuthority, type GrillUncertaintyAuthority, type MiniProjectSourcePosition } from "@task-copilot/application";
 import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 import type { ServiceGraphSnapshot } from "@task-copilot/service-client";
 import { stableJson } from "@task-copilot/shared";
@@ -26,6 +26,19 @@ export interface MiniProjectGrillSource {
   coreSkill: TaskCopilotSkillDocument;
   grillSkill: TaskCopilotSkillDocument;
   answers: readonly MiniProjectGrillAnswer[];
+}
+
+export function buildMiniProjectSourcePositions(snapshot: ServiceGraphSnapshot): MiniProjectSourcePosition[] {
+  if (snapshot.kind !== "BLOCK" || snapshot.blocks.length < 1) throw new Error("MiniProject restructure requires a Block subtree.");
+  const previousByParent = new Map<string, string>();
+  return snapshot.blocks.map((block, index) => {
+    const isRoot = block.relation === "ROOT";
+    const parentBlockUuid = isRoot ? null : block.parentUuid ?? null;
+    const parentKey = parentBlockUuid ?? "__root__";
+    const previousSiblingUuid = isRoot ? null : previousByParent.get(parentKey) ?? null;
+    if (!isRoot) previousByParent.set(parentKey, block.uuid);
+    return { materialId: isRoot ? "root" : `material-${index + 1}`, blockUuid: block.uuid, parentBlockUuid, previousSiblingUuid, exactText: block.content, contentHash: block.contentHash, isRoot };
+  });
 }
 
 const uncertaintyDefinitions = [

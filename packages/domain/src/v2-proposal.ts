@@ -193,6 +193,15 @@ export function validateV2Proposal(value: unknown): V2Proposal {
 export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
   const proposal = validateV2Proposal(value);
   let miniProjectCompletionCount = 0;
+  const createdBlockUuids = new Set<string>();
+  for (const operation of proposal.groups.flatMap((group) => group.semanticOperations)) {
+    if (operation.kind !== "CREATE_BLOCK") continue;
+    const newBlockUuid = operation.payload.newBlockUuid;
+    if (typeof newBlockUuid !== "string" || createdBlockUuids.has(newBlockUuid)) throw proposalError("V2_PROPOSAL_CREATE_BLOCK_IDENTITY_DUPLICATE", "CREATE_BLOCK 的机器 UUID 必须唯一。", { operationId: operation.operationId });
+    createdBlockUuids.add(newBlockUuid);
+  }
+  const knownBlockIds = new Set([...proposal.scope.read, ...proposal.scope.modify].filter((target) => target.kind === "BLOCK").map((target) => target.id));
+  for (const uuid of createdBlockUuids) knownBlockIds.add(uuid);
   for (const group of proposal.groups) {
     for (const operation of group.semanticOperations) {
       if (operation.kind === "CREATE_BLOCK") {
@@ -203,6 +212,7 @@ export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
           || typeof text !== "string" || !text.trim() || text.length > 8_192 || typeof contentHash !== "string" || contentHash !== checksum(text)) {
           throw proposalError("V2_PROPOSAL_CREATE_BLOCK_PAYLOAD_INVALID", "CREATE_BLOCK 必须绑定机器生成 UUID、父级/顺序前置与可校验正文。", { operationId: operation.operationId });
         }
+        if (!knownBlockIds.has(parentBlockUuid) || previousSiblingUuid !== null && !knownBlockIds.has(previousSiblingUuid)) throw proposalError("V2_PROPOSAL_CREATE_BLOCK_POSITION_UNSCOPED", "CREATE_BLOCK 父级或相邻位置超出已审阅结构 scope。", { operationId: operation.operationId });
       }
       if (operation.kind === "MOVE_BLOCK") {
         const { fromParentBlockUuid, fromPreviousSiblingUuid, toParentBlockUuid, toPreviousSiblingUuid, contentHash } = operation.payload;
@@ -212,6 +222,7 @@ export function validateV2ProposalForSubmission(value: unknown): V2Proposal {
           || !boundedBlockId(toParentBlockUuid) || !boundedSibling(toPreviousSiblingUuid) || fromParentBlockUuid === toParentBlockUuid && fromPreviousSiblingUuid === toPreviousSiblingUuid) {
           throw proposalError("V2_PROPOSAL_MOVE_BLOCK_PAYLOAD_INVALID", "MOVE_BLOCK 必须绑定原位置、目标位置和未改写正文 hash。", { operationId: operation.operationId });
         }
+        if (![fromParentBlockUuid, toParentBlockUuid, fromPreviousSiblingUuid, toPreviousSiblingUuid].filter((item): item is string => typeof item === "string").every((item) => knownBlockIds.has(item))) throw proposalError("V2_PROPOSAL_MOVE_BLOCK_POSITION_UNSCOPED", "MOVE_BLOCK 原位置或目标位置超出已审阅结构 scope。", { operationId: operation.operationId });
       }
       if (operation.kind === "CREATE_OBJECT" && (typeof operation.payload.objectType !== "string" || typeof operation.payload.text !== "string" || !operation.payload.text.trim())) {
         throw proposalError("V2_PROPOSAL_CREATE_OBJECT_PAYLOAD_INVALID", "CREATE_OBJECT 必须明确声明最终对象类型与正文，不能依赖 Graph 回声补全。");

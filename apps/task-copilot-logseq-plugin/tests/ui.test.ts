@@ -679,6 +679,7 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
   void _questionGroup;
   const readyResult = { ...result, output: { ...readyOutput, readiness: "READY_FOR_PREVIEW" as const, unknowns: [] } };
   value.v2MiniProjectGrillPreviewAvailable = true;
+  value.v2MiniProjectGrillProposalAvailable = true;
   value.v2MiniProjectGrill["mini-open"] = { status: "ready", expectedVersion: 4, answers: [], result: readyResult };
   html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-grill-preview"/);
@@ -695,14 +696,15 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
       impact: { sourceMaterialCount: 2, movedMaterialCount: 0, addedDerivedBlockCount: 0, deletedMaterialCount: 0, unclassifiedMaterialCount: 1 },
       evidenceScope: { refs: ["block:block-mini", "block:block-loose"], scopeHash: "scope-hash", observedAt: "2026-07-24T12:00:00.000Z" }, authorityBoundary: "SESSION_PREVIEW_ONLY",
       provenance: { contractVersion: "1.0.0", promptVersion: "preview-hash", skillName: "mini-project-modeling", skillVersion: "1.0.0", providerId: "deepseek", providerVersion: "chat-completions-v1", model: "deepseek-chat", generatedAt: "2026-07-24T12:00:00.000Z" },
-    }, provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "preview-hash", contextFingerprint: "fingerprint",
+    }, provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "preview-hash", contextFingerprint: "fingerprint", previewHandle: "grill_preview_aaaaaaaaaaaaaaaaaaaaaaaa",
   } } };
   html = renderApp(value);
   assert.match(html, /零丢失阅读预览 · 尚未应用/);
   assert.match(html, /原材料 2/);
   assert.match(html, /删除 0/);
   assert.match(html, /待判断／原始材料（原位保留）/);
-  assert.match(html, /当前没有“应用”按钮/);
+  assert.match(html, /data-action="v2-mini-project-grill-proposal"/);
+  assert.match(html, /专用结构 Commit 完成验证前不会出现应用入口/);
   assert.doesNotMatch(html, /data-action="(?:submit-v2-proposal|v2-proposal-commit|submit-v2-review-accept)"/);
 });
 

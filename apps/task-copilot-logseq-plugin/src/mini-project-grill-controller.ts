@@ -2,12 +2,13 @@ import type {
   ServiceMiniProjectGrillRequest,
   ServiceMiniProjectGrillPreviewResult,
   ServiceMiniProjectGrillResult,
+  ServiceMiniProjectGrillProposalResult,
 } from "@task-copilot/service-client";
 
 export type MiniProjectGrillAnswer = ServiceMiniProjectGrillRequest["answers"][number];
 export type PluginMiniProjectGrillPreviewState =
   | { status: "loading" }
-  | { status: "ready"; result: ServiceMiniProjectGrillPreviewResult }
+  | { status: "ready"; result: ServiceMiniProjectGrillPreviewResult; proposal?: { status: "loading" } | { status: "ready"; result: ServiceMiniProjectGrillProposalResult } | { status: "error"; message: string } }
   | { status: "error"; message: string };
 
 export type PluginMiniProjectGrillState =
@@ -20,6 +21,7 @@ export interface MiniProjectGrillClient {
   listObjects(): Promise<Array<{ objectId: string; objectType: string; lifecycle?: string; version: number }>>;
   grillMiniProject?(input: ServiceMiniProjectGrillRequest): Promise<ServiceMiniProjectGrillResult>;
   previewMiniProjectGrill?(input: ServiceMiniProjectGrillRequest): Promise<ServiceMiniProjectGrillPreviewResult>;
+  createMiniProjectRestructureProposal?(input: { objectId: string; expectedVersion: number; previewHandle: string }): Promise<ServiceMiniProjectGrillProposalResult>;
 }
 
 export interface MiniProjectGrillRuntime {
@@ -155,6 +157,46 @@ export class MiniProjectGrillController {
       }
     }
     await this.onStateChange();
+  }
+
+  async createProposal(objectId: string): Promise<ServiceMiniProjectGrillProposalResult | undefined> {
+    const state = this.states.get(objectId);
+    const preview = state?.status === "ready" && state.preview?.status === "ready" ? state.preview : undefined;
+    const started = this.runtime();
+    const optionalCreate = started.client?.createMiniProjectRestructureProposal;
+    if (!state || state.status !== "ready" || !preview) throw new Error("结构预览已失效；请重新生成后再进入审阅。");
+    if (preview.proposal?.status === "loading") return undefined;
+    if (!started.client || !optionalCreate) {
+      this.states.set(objectId, { ...state, preview: { ...preview, proposal: { status: "error", message: "Local Service 尚未提供结构 Proposal；没有写入审阅队列。" } } });
+      await this.onStateChange();
+      return undefined;
+    }
+    const epoch = this.epoch;
+    const client = started.client;
+    const create = optionalCreate.bind(client);
+    this.states.set(objectId, { ...state, preview: { ...preview, proposal: { status: "loading" } } });
+    await this.onStateChange();
+    try {
+      requireCurrentMiniProject(await client.listObjects(), objectId, state.expectedVersion);
+      const result = await create({ objectId, expectedVersion: state.expectedVersion, previewHandle: preview.result.previewHandle });
+      const current = this.runtime();
+      if (epoch !== this.epoch) return undefined;
+      if (current.client !== started.client || current.generation !== started.generation) throw new StaleGrillSessionError("Local Service 已在创建 Proposal 期间重连；请重新生成结构预览。");
+      requireCurrentMiniProject(await client.listObjects(), objectId, state.expectedVersion);
+      const latest = this.states.get(objectId);
+      if (latest?.status === "ready" && latest.preview?.status === "ready") this.states.set(objectId, { ...latest, preview: { ...latest.preview, proposal: { status: "ready", result } } });
+      await this.onStateChange();
+      return result;
+    } catch (error) {
+      if (epoch !== this.epoch) return undefined;
+      if (error instanceof StaleGrillSessionError || staleServiceError(error)) this.states.set(objectId, { status: "stale", expectedVersion: state.expectedVersion, message: boundedMessage(error) });
+      else {
+        const latest = this.states.get(objectId);
+        if (latest?.status === "ready" && latest.preview?.status === "ready") this.states.set(objectId, { ...latest, preview: { ...latest.preview, proposal: { status: "error", message: boundedMessage(error) } } });
+      }
+      await this.onStateChange();
+      return undefined;
+    }
   }
 
   private async requestTurn(

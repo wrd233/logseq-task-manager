@@ -195,7 +195,10 @@ export interface ServiceMiniProjectGrillPreviewResult {
   provider: ServiceProviderCompletionMetadata;
   promptBundleVersion: string;
   contextFingerprint: string;
+  previewHandle: string;
 }
+export interface ServiceMiniProjectGrillProposalRequest { objectId: string; expectedVersion: number; previewHandle: string }
+export interface ServiceMiniProjectGrillProposalResult { record: ServiceStoredProposal; replayed: boolean }
 
 export type ServiceInteractionDisposition = "HELPFUL" | "NOT_NEEDED" | "INACCURATE" | "TOO_MUCH" | "DO_NOT_REPEAT";
 export interface ServiceInteractionEvidenceSummary {
@@ -910,6 +913,14 @@ export class LocalServiceClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
     }, 125_000);
+  }
+
+  createMiniProjectRestructureProposal(input: ServiceMiniProjectGrillProposalRequest): Promise<ServiceMiniProjectGrillProposalResult> {
+    return this.request<ServiceMiniProjectGrillProposalResult>("/provider/grill/mini-project/proposal", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
   }
 
   setUxInteractionDisposition(interactionId: string, disposition?: ServiceInteractionDisposition): Promise<{ userDisposition: ServiceInteractionDisposition | null; summary: ServiceInteractionEvidenceSummary }> {

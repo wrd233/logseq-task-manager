@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ServiceGrillTurn, ServiceMiniProjectGrillPreviewResult, ServiceMiniProjectGrillResult } from "@task-copilot/service-client";
+import type { ServiceGrillTurn, ServiceMiniProjectGrillPreviewResult, ServiceMiniProjectGrillProposalResult, ServiceMiniProjectGrillResult } from "@task-copilot/service-client";
 
 import {
   MiniProjectGrillController,
@@ -50,7 +50,7 @@ const preview: ServiceMiniProjectGrillPreviewResult = {
     authorityBoundary: "SESSION_PREVIEW_ONLY",
     provenance: { contractVersion: "1.0.0", promptVersion: "prompt-hash", skillName: "mini-project-modeling", skillVersion: "1.0.0", providerId: "deepseek", providerVersion: "chat-completions-v1", model: "deepseek-chat", generatedAt: "2026-07-24T12:00:00.000Z" },
   },
-  provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "prompt-hash", contextFingerprint: "fingerprint",
+  provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "prompt-hash", contextFingerprint: "fingerprint", previewHandle: "grill_preview_aaaaaaaaaaaaaaaaaaaaaaaa",
 };
 
 test("runs a session-only multi-turn grill and validates the MiniProject before and after every turn", async () => {
@@ -173,6 +173,24 @@ test("generates a zero-write preview only from a ready turn and retains the turn
   assert.equal(state?.status === "ready" ? state.preview?.status : undefined, "error");
   assert.equal(state?.status === "ready" ? state.result.output.readiness : undefined, "READY_FOR_PREVIEW");
   assert.equal(previewCalls, 2);
+});
+
+test("creates one server-owned HIGH review Proposal from the current preview handle", async () => {
+  let proposalInput: unknown;
+  const proposalResult = { record: { proposal: { proposalId: "proposal-mini" } }, replayed: false } as ServiceMiniProjectGrillProposalResult;
+  const client = {
+    listObjects: async () => [{ objectId: "mini-1", objectType: "MINI_PROJECT", lifecycle: "OPEN", version: 2 }],
+    grillMiniProject: async () => turn("boundary", "READY_FOR_PREVIEW"),
+    previewMiniProjectGrill: async () => preview,
+    createMiniProjectRestructureProposal: async (input: unknown) => { proposalInput = input; return proposalResult; },
+  };
+  const controller = new MiniProjectGrillController(() => ({ client, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.start("mini-1", 2);
+  await controller.generatePreview("mini-1");
+  assert.equal(await controller.createProposal("mini-1"), proposalResult);
+  assert.deepEqual(proposalInput, { objectId: "mini-1", expectedVersion: 2, previewHandle: preview.previewHandle });
+  const state = controller.snapshot()["mini-1"];
+  assert.equal(state?.status === "ready" && state.preview?.status === "ready" ? state.preview.proposal?.status : undefined, "ready");
 });
 
 test("classifies Service source-stale as a terminal stale session", async () => {

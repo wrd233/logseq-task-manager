@@ -54,8 +54,10 @@ Desktop Gate 的 move；因此不复用该路径伪装多 Block 原子性。Appl
 Proposal 纯构建合同，Domain 新增受约束 `CREATE_BLOCK` 并收紧 `MOVE_BLOCK` payload：每项操作
 记录机器 UUID、正文 hash、原/目标父级与前一相邻位置；原材料不允许 rewrite/delete，未归类
 材料不移动，所有操作保持一个不可拆组。focused 13/13、Application 135/135、Domain 42/42 PASS。
-该 Proposal 当前只可审阅，通用 Commit 继续 fail closed；专用 ledger/Plugin executor/Desktop
-identity Gate 尚未完成。
+Service 已用 session-only preview handle 接通 server-owned Proposal route：handle 30 分钟过期、
+容量 64、重启清空；client 不能上传 preview，Service 重新读取 Object/Anchor/subtree 后构建同一
+HIGH Proposal。Plugin 提供 loading/error 的“进入变更审阅”并跳转待我确认，但不显示结构
+Commit。通用 Commit 继续 fail closed；专用 ledger/executor/Desktop identity Gate 尚未完成。
 
 默认保留原根 Block；原始事实零丢失；无法归类内容进入待判断/原始材料；结构只使用最小骨架和按需区块。
 
