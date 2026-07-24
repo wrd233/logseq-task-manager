@@ -2,7 +2,16 @@
 
 ## P2-A：MiniProject Grill Me
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_CONTRACT_AUTOMATED`
+
+已完成的有界部分：Application 已建立 session-only Grill Turn 契约。机器按当前材料中的
+critical、priority 与 evidence 选择最大开放不确定性，机器独占 readiness；四个维度和
+未分类材料未全部安全解决前不得进入结构预览。模型只能返回理解草稿、事实引用、推断、
+未知、最多三问和带取舍的建议，未知 ID、越界证据、固定字段外输出及提前结束均 fail closed。
+该契约没有 Proposal、operation 或正式对象写入能力，术语边界见根目录 `CONTEXT.md`。
+
+仍未完成：有限子树的正式 Context Package、Service/Provider prompt 与多轮会话编排、用户
+回答后的 authority 更新、最终阅读预览、Proposal Review、Commit/Undo 以及 Desktop 体验。
 
 循环：
 

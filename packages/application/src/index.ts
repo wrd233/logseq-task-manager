@@ -15,3 +15,4 @@ export * from "./unified-ux-output.ts";
 export * from "./dynamic-now-shadow.ts";
 export * from "./interaction-evidence.ts";
 export * from "./reentry-projection.ts";
+export * from "./grill-session.ts";

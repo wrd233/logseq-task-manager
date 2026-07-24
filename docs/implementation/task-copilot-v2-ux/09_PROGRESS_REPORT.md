@@ -23,7 +23,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | NOT_STARTED | 依赖 P1 |
+| P2 | IN_PROGRESS_CONTRACT | P2-A 自适应 Grill Turn session contract 自动通过；尚无 Service/Provider、多轮 UI、结构预览或 Desktop 验证，不得视为 P2-A 完成 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -365,6 +365,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   同证据 cooldown 保留、evidence/policy 变化解除；
 - P1-E Block marker prototype：focused 4/4、Plugin 231/231、typecheck/build PASS；默认 off、
   exact UUID、100 Block harness、slot cleanup 与 no-Markdown-write；Desktop OPEN；
+- P2-A Grill Turn contract：focused 4/4、Application typecheck PASS；机器选择最大开放
+  uncertainty/readiness，事实/推断/未知与 evidence scope 分离，越界/提前结束/额外字段
+  fail closed；仅 session draft，无 Proposal/operation/正式写入；Service/Provider/UI/Desktop OPEN；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -375,11 +378,13 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
+1. 将 P2-A 契约接入有限子树 Context Package、Service/Provider 与一次真实多轮 session，
+   保持输出仅为 session draft，完成结构预览后才进入既有 Proposal Review；
+2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；
-2. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-3. 完成 P1-D
+3. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
+4. 完成 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-4. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
+5. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
    shadow 决定不建 derivative，跨 reload 用户处置只在首批信号开放并证明减噪后重开。
