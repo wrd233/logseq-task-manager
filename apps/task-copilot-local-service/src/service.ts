@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 
 import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
-import { parseExplicitObjectSyntax } from "@task-copilot/logseq-adapter";
+import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
   LOCAL_SERVICE_PROTOCOL_VERSION,
@@ -23,10 +23,10 @@ import type { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import type { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
 import type { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
-import { buildContextPackage, contextPackageFingerprint, type ContextExportScope } from "./context-package.ts";
+import { buildContextPackage, contextPackageFingerprint, type ContextExportScope, type ServiceContextPackage } from "./context-package.ts";
 import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
 import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, buildMiniProjectSourcePositions, type MiniProjectGrillAnswer, type MiniProjectGrillSource } from "./mini-project-grill.ts";
-import { buildProjectCreationGrillGeneration, type ProjectCreationGrillAnswer } from "./project-creation-grill.ts";
+import { buildProjectCreationGrillGeneration, type ProjectCreationGrillAnswer, type ProjectCreationGrillMaterial } from "./project-creation-grill.ts";
 import { GrillPreviewSessionStore } from "./grill-preview-session.ts";
 import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
@@ -251,15 +251,27 @@ async function readMiniProjectGrillRequest(request: IncomingMessage): Promise<{ 
   return { objectId: record.objectId, expectedVersion: Number(record.expectedVersion), answers };
 }
 
-async function readBlankProjectCreationGrillRequest(request: IncomingMessage): Promise<{ sourceKind: "BLANK"; answers: ProjectCreationGrillAnswer[] }> {
+type ProjectCreationGrillRequest =
+  | { sourceKind: "BLANK"; answers: ProjectCreationGrillAnswer[] }
+  | { sourceKind: "PAGE"; pageId: string; answers: ProjectCreationGrillAnswer[] }
+  | { sourceKind: "MINI_PROJECT"; objectId: string; expectedVersion: number; answers: ProjectCreationGrillAnswer[] };
+
+async function readProjectCreationGrillRequest(request: IncomingMessage): Promise<ProjectCreationGrillRequest> {
   const body = await readBody(request);
   let value: unknown;
   try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Project Creation Grill 请求体必须是合法 JSON。"); }
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  if (Object.keys(record).sort().join(",") !== "answers,sourceKind" || record.sourceKind !== "BLANK" || !Array.isArray(record.answers) || record.answers.length > 6) {
-    throw serviceError("PROJECT_CREATION_GRILL_REQUEST_INVALID", "当前 Project Creation Grill route 只接受空白入口与最多六个受控回答。");
+  const sourceKind = record.sourceKind;
+  const expectedKeys = sourceKind === "BLANK" ? "answers,sourceKind"
+    : sourceKind === "PAGE" ? "answers,pageId,sourceKind"
+    : sourceKind === "MINI_PROJECT" ? "answers,expectedVersion,objectId,sourceKind"
+    : "";
+  if (Object.keys(record).sort().join(",") !== expectedKeys || !Array.isArray(record.answers) || record.answers.length > 6
+    || (sourceKind === "PAGE" && (typeof record.pageId !== "string" || !record.pageId.trim() || record.pageId.length > 512))
+    || (sourceKind === "MINI_PROJECT" && (typeof record.objectId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.objectId) || !Number.isSafeInteger(record.expectedVersion) || Number(record.expectedVersion) < 1))) {
+    throw serviceError("PROJECT_CREATION_GRILL_REQUEST_INVALID", "Project Creation Grill 只接受受控 Blank、Page identity 或 MiniProject object/version 来源。");
   }
-  const allowedUncertaintyIds = new Set(["outcome", "project-boundary", "completion-evidence", "internal-closure", "current-interface"]);
+  const allowedUncertaintyIds = new Set(["outcome", "project-boundary", "completion-evidence", "material-disposition", "internal-closure", "current-interface"]);
   const answers = record.answers.map((value) => {
     const answer = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
     if (Object.keys(answer).sort().join(",") !== "text,uncertaintyId" || typeof answer.uncertaintyId !== "string" || !allowedUncertaintyIds.has(answer.uncertaintyId) || typeof answer.text !== "string" || !answer.text.trim() || answer.text.length > 2_000) {
@@ -268,6 +280,8 @@ async function readBlankProjectCreationGrillRequest(request: IncomingMessage): P
     return { uncertaintyId: answer.uncertaintyId, text: answer.text.trim() };
   });
   if (new Set(answers.map(({ uncertaintyId }) => uncertaintyId)).size !== answers.length) throw serviceError("PROJECT_CREATION_GRILL_REQUEST_INVALID", "Project Creation Grill 同一不确定性只能回答一次。");
+  if (sourceKind === "PAGE") return { sourceKind, pageId: String(record.pageId).trim(), answers };
+  if (sourceKind === "MINI_PROJECT") return { sourceKind, objectId: String(record.objectId), expectedVersion: Number(record.expectedVersion), answers };
   return { sourceKind: "BLANK", answers };
 }
 
@@ -1637,7 +1651,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       return;
     }
     if (request.method === "POST" && url.pathname === "/provider/grill/project-creation/turn") {
-      const input = await readBlankProjectCreationGrillRequest(request);
+      const input = await readProjectCreationGrillRequest(request);
       if (!options.grillTurnGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Grill Provider；没有生成 Project 创建会话草稿。");
       const [coreSkill, grillSkill] = await Promise.all([
         readTaskCopilotSkill("task-copilot-core"),
@@ -1645,38 +1659,64 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       ]);
       if (!coreSkill || !grillSkill) throw serviceError("PROJECT_CREATION_GRILL_SKILL_UNAVAILABLE", "Project Creation Grill 内置 Skill 不可用。");
       const generatedAt = new Date().toISOString();
-      const files: Record<string, string> = {
-        "source.json": stableJson({ sourceKind: input.sourceKind, materials: [] }),
-        "workspace-semantics.md": "# Workspace Semantics\n\nStatus: NOT_CONFIGURED\n",
-        "writing-profile.md": "# Writing Profile\n\nStatus: NOT_CONFIGURED\n",
-        "versions.json": stableJson({
-          schemaVersion: 1,
-          databaseSchemaVersion: store.doctor().schemaVersion,
-          skills: [coreSkill, grillSkill].map(({ name, version, sha256 }) => ({ name, version, sha256 })),
-        }),
+      let contextPackage: ServiceContextPackage;
+      let materials: ProjectCreationGrillMaterial[] = [];
+      let revalidate = async (): Promise<void> => undefined;
+      const contextSource = {
+        getObject: (objectId: string) => store.getObject(objectId),
+        listObjects: () => store.listObjects(),
+        listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
+        listAssociations: () => store.listAssociations(),
+        getActivePrimaryAnchorByObject: (objectId: string) => store.getActivePrimaryAnchorByObject(objectId),
+        databaseSchemaVersion: () => store.doctor().schemaVersion,
       };
-      const contextPackage = {
-        manifest: {
-          schemaVersion: 1 as const,
-          generatedAt,
-          scope: { kind: "page" as const, id: "project-creation:blank" },
-          authority: "READ_ONLY_DERIVATIVE" as const,
-          formalFactsSource: "SQLITE" as const,
-          graphExcerptStatus: "NOT_INCLUDED" as const,
-          includedObjectCount: 0,
-          files: Object.entries(files).sort(([left], [right]) => left.localeCompare(right)).map(([path, content]) => ({
-            path,
-            sha256: createHash("sha256").update(content).digest("hex"),
-            bytes: Buffer.byteLength(content),
-          })),
-        },
-        files,
-      };
+      if (input.sourceKind === "BLANK") {
+        const files: Record<string, string> = {
+          "source.json": stableJson({ sourceKind: input.sourceKind, materials: [] }),
+          "workspace-semantics.md": "# Workspace Semantics\n\nStatus: NOT_CONFIGURED\n",
+          "writing-profile.md": "# Writing Profile\n\nStatus: NOT_CONFIGURED\n",
+          "versions.json": stableJson({ schemaVersion: 1, databaseSchemaVersion: store.doctor().schemaVersion, skills: [coreSkill, grillSkill].map(({ name, version, sha256 }) => ({ name, version, sha256 })) }),
+        };
+        contextPackage = {
+          manifest: {
+            schemaVersion: 1, generatedAt, scope: { kind: "page", id: "project-creation:blank" },
+            authority: "READ_ONLY_DERIVATIVE", formalFactsSource: "SQLITE", graphExcerptStatus: "NOT_INCLUDED", includedObjectCount: 0,
+            files: Object.entries(files).sort(([left], [right]) => left.localeCompare(right)).map(([path, content]) => ({ path, sha256: createHash("sha256").update(content).digest("hex"), bytes: Buffer.byteLength(content) })),
+          },
+          files,
+        };
+      } else if (input.sourceKind === "PAGE") {
+        const graphResult = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 6 });
+        if (graphResult.status !== "FOUND") throw serviceError("PROJECT_CREATION_SOURCE_UNAVAILABLE", "当前 Page 无法从 Logseq Desktop 完整读取；没有调用 Provider。");
+        if (graphResult.snapshot.truncated || graphResult.snapshot.blocks.length > 16) throw serviceError("PROJECT_CREATION_SOURCE_TOO_LARGE", "当前 Page 超过 Project Creation Grill 的 16 Block 安全范围；没有调用 Provider。");
+        materials = graphResult.snapshot.blocks.map((block) => ({ sourceRef: `block:${block.uuid}`, kind: "PAGE", text: stripLogseqBlockIdentityProperty(block.content, block.uuid), contentHash: block.contentHash }));
+        contextPackage = buildContextPackage(contextSource, [coreSkill, grillSkill], { kind: "page", id: input.pageId }, new Date(generatedAt), graphResult.snapshot);
+        revalidate = async () => {
+          const latest = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 6 });
+          if (latest.status !== "FOUND" || latest.snapshot.scopeHash !== graphResult.snapshot.scopeHash) throw serviceError("GRILL_SOURCE_STALE", "Page 在生成期间已变化；草稿已丢弃。");
+        };
+      } else {
+        const subject = store.getObject(input.objectId);
+        if (!subject || subject.objectType !== "MINI_PROJECT" || subject.lifecycle !== "OPEN" || subject.version !== input.expectedVersion) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 已变化或不可升级；没有调用 Provider。");
+        const anchor = store.getActivePrimaryAnchorByObject(subject.objectId);
+        if (!anchor || anchor.role !== "primary_text") throw serviceError("GRILL_PRIMARY_ANCHOR_REQUIRED", "MiniProject 没有可用正文入口；没有调用 Provider。");
+        const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: anchor.externalId, includeChildren: true, parents: 0 });
+        if (graphResult.status !== "FOUND") throw serviceError("PROJECT_CREATION_SOURCE_UNAVAILABLE", "MiniProject 正文无法从 Logseq Desktop 完整读取；没有调用 Provider。");
+        if (graphResult.snapshot.truncated || graphResult.snapshot.blocks.length > 16) throw serviceError("PROJECT_CREATION_SOURCE_TOO_LARGE", "MiniProject 超过 Project Creation Grill 的 16 Block 安全范围；没有调用 Provider。");
+        materials = graphResult.snapshot.blocks.map((block) => ({ sourceRef: `block:${block.uuid}`, kind: "MINI_PROJECT", text: stripLogseqBlockIdentityProperty(block.content, block.uuid), contentHash: block.contentHash }));
+        contextPackage = buildContextPackage(contextSource, [coreSkill, grillSkill], { kind: "project", id: subject.objectId }, new Date(generatedAt), graphResult.snapshot);
+        revalidate = async () => {
+          const latest = store.getObject(input.objectId);
+          const latestAnchor = store.getActivePrimaryAnchorByObject(input.objectId);
+          const latestGraph = await graphReadBroker.read({ kind: "BLOCK", target: anchor.externalId, includeChildren: true, parents: 0 });
+          if (!latest || latest.version !== input.expectedVersion || !latestAnchor || latestAnchor.anchorId !== anchor.anchorId || latestGraph.status !== "FOUND" || latestGraph.snapshot.scopeHash !== graphResult.snapshot.scopeHash) throw serviceError("GRILL_SOURCE_STALE", "MiniProject 在生成期间已变化；草稿已丢弃。");
+        };
+      }
       const contextFingerprint = contextPackageFingerprint(contextPackage);
       const generation = buildProjectCreationGrillGeneration({
         observedAt: generatedAt,
         sourceKind: input.sourceKind,
-        materials: [],
+        materials,
         contextPackage,
         contextFingerprint,
         coreSkill,
@@ -1688,6 +1728,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       request.once("aborted", abort);
       try {
         const generated = await options.grillTurnGenerator.generate({ ...generation, signal: controller.signal });
+        await revalidate();
         respond(response, 200, { ...generated, contextFingerprint });
       } finally {
         request.removeListener("aborted", abort);

@@ -424,7 +424,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   internal closure/current interface readiness、来源相关 focus builder 与
   `project-creation-modeling@1.0.0` 已自动锁定；Blank authenticated Service route 与真实
   `deepseek-v4-flash` Gate PASS（两次 invalid shape 先安全拒绝，最终 object count=0）；
-  Page/MiniProject route、Proposal/原子创建接线与 Desktop OPEN；
+  Page route 已通过 Service-owned Graph bridge 读取/生成后重读与零写自动 Gate；
+  MiniProject route 已实现待 bridge/stale 验证，Proposal/原子创建接线与 Desktop OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；

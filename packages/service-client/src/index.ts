@@ -152,10 +152,10 @@ export interface ServiceMiniProjectGrillRequest {
   answers: Array<{ uncertaintyId: string; text: string }>;
 }
 
-export interface ServiceProjectCreationGrillRequest {
-  sourceKind: "BLANK";
-  answers: Array<{ uncertaintyId: string; text: string }>;
-}
+export type ServiceProjectCreationGrillRequest =
+  | { sourceKind: "BLANK"; answers: Array<{ uncertaintyId: string; text: string }> }
+  | { sourceKind: "PAGE"; pageId: string; answers: Array<{ uncertaintyId: string; text: string }> }
+  | { sourceKind: "MINI_PROJECT"; objectId: string; expectedVersion: number; answers: Array<{ uncertaintyId: string; text: string }> };
 
 export interface ServiceGrillTurn {
   schemaVersion: "task-copilot-grill-turn-v1";

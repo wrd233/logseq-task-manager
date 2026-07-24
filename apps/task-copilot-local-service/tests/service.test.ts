@@ -392,7 +392,7 @@ test("Project context recovery fails closed for missing Provider, unsupported ty
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "UX_CONTEXT_RECOVERY_REQUEST_INVALID");
 });
 
-test("Blank Project Creation Grill crosses the authenticated Service route without creating formal state or accepting client material", async (t) => {
+test("Project Creation Grill uses Blank or server-read Page sources without creating formal state or accepting client material", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-creation-grill-"));
   let providerCalls = 0;
   const provider: StructuredProposalProvider = {
@@ -400,19 +400,22 @@ test("Blank Project Creation Grill crosses the authenticated Service route witho
     providerVersion: "chat-completions-v1",
     completeStructured: async () => {
       providerCalls += 1;
+      const pageTurn = providerCalls === 2;
+      const focus = pageTurn ? "material-disposition" : "outcome";
+      const evidenceRef = pageTurn ? "block:project-page-root" : "session:project-creation-entry";
       return {
         value: {
           schemaVersion: "task-copilot-grill-turn-v1",
-          understanding: "用户已从空白入口发起 Project 创建，但持续结果仍未明确。",
-          factRefs: ["creation-entry"],
+          understanding: pageTurn ? "Page 材料已读取，但尚未决定如何进入 Project。" : "用户已从空白入口发起 Project 创建，但持续结果仍未明确。",
+          factRefs: [pageTurn ? "source-1" : "creation-entry"],
           inferences: [],
-          unknowns: [{ uncertaintyId: "outcome", text: "这个 Project 要持续形成什么结果仍未知。" }],
+          unknowns: [{ uncertaintyId: focus, text: "当前最大不确定性仍未解决。" }],
           readiness: "CONTINUE",
-          focusUncertaintyId: "outcome",
-          questions: [{ uncertaintyId: "outcome", text: "它需要持续形成什么可被使用或检验的结果？" }],
+          focusUncertaintyId: focus,
+          questions: [{ uncertaintyId: focus, text: pageTurn ? "现有 Page 材料应如何进入新 Project？" : "它需要持续形成什么可被使用或检验的结果？" }],
           recommendation: {
-            text: "建议先确认持续结果，再决定边界和内部结构。",
-            evidenceRefs: ["session:project-creation-entry"],
+            text: "建议先解决当前最大不确定性。",
+            evidenceRefs: [evidenceRef],
             tradeoffs: ["先不命名页面，会晚一步看到最终 Project 入口。"],
           },
         },
@@ -436,6 +439,26 @@ test("Blank Project Creation Grill crosses the authenticated Service route witho
   assert.equal(providerCalls, 1);
   assert.equal((await client.status()).objectCount, 0);
 
+  const resolved = { kind: "PAGE" as const, id: "project-page", name: "Project Notes", version: 2, evidenceHash: checksum("project-page") };
+  const blocks = [
+    { uuid: "project-page-root", content: "项目资料", contentHash: checksum("项目资料"), relation: "ROOT" as const, depth: 0 },
+    { uuid: "project-page-child", content: "待整理记录", contentHash: checksum("待整理记录"), relation: "CHILD" as const, depth: 1, parentUuid: "project-page-root" },
+  ];
+  const snapshot = { kind: "PAGE" as const, requestedTarget: "Project Notes", resolved, blocks, truncated: false, readAt: "2026-07-25T13:00:00.000Z", scopeHash: checksum({ kind: "PAGE", resolved, blocks, truncated: false }) };
+  const bridge = (async () => {
+    for (let index = 0; index < 2; index += 1) {
+      const pending = await client.claimGraphReadRequest();
+      assert.equal(pending?.kind, "PAGE");
+      if (!pending) throw new Error("expected Project Creation Page read");
+      await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+    }
+  })();
+  const pagePromise = client.grillProjectCreation({ sourceKind: "PAGE", pageId: "Project Notes", answers: [] });
+  const [, pageResult] = await Promise.all([bridge, pagePromise]);
+  assert.equal(pageResult.output.questionGroup?.focusUncertaintyId, "material-disposition");
+  assert.equal(providerCalls, 2);
+  assert.equal((await client.status()).objectCount, 0);
+
   const injected = await fetch(new URL("provider/grill/project-creation/turn", service.url), {
     method: "POST",
     headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
@@ -443,7 +466,7 @@ test("Blank Project Creation Grill crosses the authenticated Service route witho
   });
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CREATION_GRILL_REQUEST_INVALID");
-  assert.equal(providerCalls, 1);
+  assert.equal(providerCalls, 2);
 });
 
 test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {

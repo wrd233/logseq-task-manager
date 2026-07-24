@@ -52,6 +52,8 @@ was not relaxed.
 
 - Blank Service + real Provider turn: PASS.
 - Blank Plugin/Desktop multi-turn UI: OPEN.
-- Page and MiniProject server-owned Graph-source routes: OPEN.
+- Page server-owned Graph-source route and post-Provider scope revalidation: AUTOMATED PASS.
+- MiniProject server-owned Object/Anchor/Graph-source route: IMPLEMENTED, dedicated bridge/stale
+  test OPEN.
 - final reading preview, Review, prepare/page/finalize, failure/recovery/Undo/reload/return: OPEN.
 - overall UX productization Goal: IN_PROGRESS.
