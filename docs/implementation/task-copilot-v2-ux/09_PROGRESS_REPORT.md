@@ -22,7 +22,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；H/J/K/Desktop host Gate OPEN |
-| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A/B model/detector/repository + Plugin session runtime automated PASS；未展示、UX-G008 persistence decision OPEN |
+| P1 | IN_PROGRESS_SHADOW_ONLY | P1-A/B model/detector/repository + Plugin session runtime、P1-D deterministic narration contract automated PASS；未展示、UX-G008 persistence decision OPEN |
 | P2 | NOT_STARTED | 依赖 P1 |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -152,6 +152,12 @@ CREATE Proposal 与未挂对象 Commit 使用自身 subjectRef，避免把 Block
 正式 Object。Plugin adapter 不带正文，runtime cycle 的变化日志只含 raw/merged/cooled/
 active/invalidated 数量；失败不改变 UI 或正式写入可用性。
 
+P1-D 首轮确定性对象状态翻译已建立统一契约：主结论、最多两条关键依据、完整 facts、
+空的 deterministic inferences、明确 unknowns、结构化 next-action eligibility、evidence scope
+和规则版本相互分离。只有到期 WAITING/PAUSED 与已完成 blocker 在相关现场生成一个动作；
+普通 ACTIONABLE、未来等待和 Project focus 不被机械变成下一步。首屏文本封顶但完整正式
+内容保留在 facts。当前未接 Plugin UI，不能声明用户体验或 Desktop PASS。
+
 ## 当前阻塞
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
@@ -177,6 +183,7 @@ active/invalidated 数量；失败不改变 UI 或正式写入可用性。
 - P0-A 普通 Block 路由 Plugin tests：191/191、0 skipped，typecheck/build PASS；
 - P1-A/B Application tests：82/82、0 skipped，typecheck/lint PASS；
 - P1-B Plugin runtime tests + 全量：196/196、0 skipped，typecheck/build PASS；
+- P1-D 后 Application tests：91/91、0 skipped，typecheck PASS；
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -188,6 +195,7 @@ active/invalidated 数量；失败不改变 UI 或正式写入可用性。
 ## 下一步
 
 1. 汇总 P0-H/P0-J/P0-K 的 Desktop lifecycle、slash/palette/custom binding 与 origin；
-2. 继续 P1-D 纯状态翻译契约与 P1-C “现在”编排，但在 P0 Desktop 总 Gate 前不开放信号；
+2. 继续 P1-C “现在”纯动态编排，并扩 P1-D Commit/Anchor/System narration；在 P0 Desktop
+   总 Gate 前不开放影子信号；
 3. 用一次真实 reload/recompute 读回 Shadow telemetry，回答 UX-G008 是否需要跨 reload
    derivative，再汇总 Query/引用、Light/窄栏和 Service 生命周期 Desktop Gate。

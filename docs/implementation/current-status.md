@@ -52,6 +52,9 @@ V2 v1.1 底座完成结论不变；当前继续按
   Anchor missing/conflict 与 Graph mismatch；按数据/恢复风险优先合并为一对象一主问题，
   CREATE Proposal/未挂对象 Commit 以自身 subjectRef 保持真实身份；已接入 session-only
   runtime count telemetry，Application 82/82、Plugin 196/196 与根级 Gate 通过，仍未接 UI；
+- P1-D 确定性状态翻译首轮契约已完成：主结论/依据/事实/推断/未知/下一动作资格/
+  evidence scope/source 分离；仅 WAITING/PAUSED 到期与已完成 blocker 在相关现场有动作，
+  普通 ACTIONABLE 与 Project focus 不猜下一步；Application 91/91 与根级 Gate 通过，未接 UI；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 状态翻译与 Now 编排；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

@@ -23,7 +23,7 @@
 | P1-1b 确定性 detector/merge | Application `attention-detector.ts` 第一波 pure detector + Plugin structured projection adapter | object/proposal/commit/anchor/Graph binding facts | DERIVED_DATA | 多问题轰炸、恢复风险被 due 遮住 | PARTIAL_RUNTIME_SHADOW：一 subject 一主问题、data risk priority、cooldown 与自动 exclusion PASS；尚无用户显现 |
 | P1-2 检查调度 | 显式同步事件、5 分钟 Anchor reconciliation、workspace query | 事件控制器与 Service query | DERIVED_DATA | 全 Graph 扫描、重复 LLM、编辑卡顿 | 局部事件检查 + 低频 timer + 现场刷新；宽检索独立后台 job |
 | P1-3 影子模式 | session repository 仅接受 SHADOW/NONE 与机器引用/checksum；Plugin READY refresh 已接只读 runtime | structured logger、规则/Prompt 版本 | DERIVED_DATA | 未展示数据却无限积累私人正文 | 512 容量/Graph switch clear/count-only telemetry 已实现；跨 reload 位置与 Desktop 读回仍待验证 |
-| P1-4 状态翻译层 | Now Work `reason` 与零散中文 message | Condition/due/review/blocker/Commit facts | UI_ORCHESTRATION | LLM 杜撰下一动作；字段式输出 | 建立纯 Application/ViewModel translator；确定性模板优先，LLM 只优化表达 |
+| P1-4 状态翻译层 | Application `status-narration.ts` 首轮确定性对象契约；现有 UI 仍用 Now Work `reason` 与零散 message | Condition/due/review/blocker/Project current interface facts | UI_ORCHESTRATION | LLM 杜撰下一动作；字段式输出 | PARTIAL_AUTOMATED：事实/推断/未知与 next-action eligibility 已锁定；待接 ViewModel 并扩 Commit/Anchor/System |
 | P1-5 “现在”动态编排 | Now Work 三段：Focus/Next/Waiting Review | `v2-now-work.ts`、Service query | UI_ORCHESTRATION | 退化为所有 OPEN 列表 | 改为继续处理/需要回看/保持等待；一对象一主问题；高质量建议动态插入 |
 | P1-6 Block 轻标记 | 尚无；SDK 有 block renderer slot | Anchor/Object/attention projection | NEEDS_PROTOTYPE | 编辑态、Query/引用、主题、性能、正文污染 | 独立只读 UI prototype；先不全局上线；关闭 Plugin 后无 Markdown 残留 |
 | P1-7 Project 顶部重入条 | 独立 Project 重入 workspace；schema v12 aggregate | Project current interface、Now Work、Anchor | UI_ORCHESTRATION | 与现有 Project workspace 产生不同事实 | Page slot 只读组合同一投影；上下文不足明确承认 |

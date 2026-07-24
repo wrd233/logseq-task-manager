@@ -131,7 +131,8 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 
 ## P1-D：状态翻译层
 
-状态：`NOT_STARTED`
+状态：`PARTIAL_AUTOMATED` — Application 确定性对象叙述契约与下一动作资格首轮 Gate 已完成；
+尚未接 Plugin ViewModel/UI，Commit/Anchor/System narration 与 LLM draft protocol 仍待扩展。
 
 Application/ViewModel 契约：
 
@@ -154,6 +155,21 @@ source
 详情再显示完整证据。确定性模板优先，LLM 只能在不改变事实的情况下起草或压缩表达。
 
 下一动作资格至少要求：信号强、上下文充分、动作具体、不依赖猜测、与对象直接相关、当前场景适合且减少判断成本。
+
+2026-07-24 首轮自动结果：
+
+- 新增 `StatusNarration` 纯契约，固定分离 `conclusion / keyEvidence / facts /
+  inferences / unknowns / nextActionEligible / nextAction / evidenceScope / source`；
+- 确定性模板的 `inferences` 恒为空；规则、版本和带对象版本的 evidence refs 可追溯；
+- WAITING 复查到期、已完成 blocker、PAUSED 复查到期只有在相关现场才具备一个结构化
+  next action；未来等待、普通 ACTIONABLE、Project current focus 与后台场景不生成动作；
+- 未读取 blocker 时明确输出 unknown；blocker identity 不匹配 fail closed；
+- Project current summary/focus 只作为正式事实，不把 focus 文本自动升级成动作；
+- 主结论和关键依据各封顶 160 字、next-action label 封顶 80 字；完整正式内容保留在 facts，
+  不以高密度为理由丢失证据；
+- 用户层文本不直接暴露 Lifecycle/Condition 字段名；
+- Application tests 91/91、0 skipped，typecheck 与根级 Gate PASS；
+- 当前不构成用户可见状态翻译或 Desktop PASS。
 
 ## P1-E：Block 轻标记原型
 
