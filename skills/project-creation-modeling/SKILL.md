@@ -5,7 +5,7 @@ description: Resolve material-specific uncertainties before creating a Task Copi
 
 # Model One Project Creation Grill Turn
 
-Version: `1.4.0`
+Version: `1.5.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and final machine
 `grillAuthority`. This Skill produces one session draft. It never creates an Object, Page, Proposal,
@@ -20,6 +20,10 @@ uncertainty from the actual entry:
 - Page conversion first resolves what happens to the supplied Page material.
 - MiniProject evolution first resolves why the bounded delivery has become a continuing Project,
   then what current interface and internal closure it needs.
+- For MiniProject evolution, `internal-closure` always means the new Project's recurring operating
+  and review loop. It never means closing, archiving, marking, notifying about, rewriting, or
+  otherwise changing the source MiniProject. Do not ask the user to choose any of those source
+  lifecycle actions.
 - Page entries separately resolve whether the current Page remains a source or becomes the one
   controlled Project Page. For a MiniProject entry this is not a question: the machine contract
   preserves the existing MiniProject Object, root Block, and subtree, and only allows a new
