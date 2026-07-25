@@ -558,7 +558,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   assert.deepEqual(blankPreview.output.sourceMaterials, [], "Blank Preview cannot invent source material");
   assert.deepEqual(blankPreview.output.formalImpact, { createsObject: false, createsPage: false, movesBlocks: 0, rewritesBlocks: 0, deletesBlocks: 0 });
   assert.deepEqual(await client.status(), beforeBlankPreview, "Blank Project Creation Preview remains zero-write");
-  assert.equal(providerCalls, 3);
+  assert.equal(providerCalls, 4, "one rejected Grill draft receives exactly one bounded Validator repair attempt");
   const blankProposal = await client.createProjectCreationProposal({ previewHandle: blankPreview.previewHandle });
   assert.equal(blankProposal.replayed, false);
   assert.equal(blankProposal.record.proposal.status, "READY");
@@ -626,7 +626,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   const pagePromise = client.grillProjectCreation({ sourceKind: "PAGE", pageId: "Project Notes", answers: [] });
   const [, pageResult] = await Promise.all([bridge, pagePromise]);
   assert.equal(pageResult.output.questionGroup?.focusUncertaintyId, "material-disposition");
-  assert.equal(providerCalls, 6);
+  assert.equal(providerCalls, 7);
   assert.equal((await client.status()).objectCount, 0);
 
   const notReadyPreviewBridge = (async () => {
@@ -641,7 +641,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
     assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "PROJECT_CREATION_PREVIEW_NOT_READY");
     return true;
   });
-  assert.equal(providerCalls, 6, "not-ready Preview never calls Provider");
+  assert.equal(providerCalls, 7, "not-ready Preview never calls Provider");
 
   providerReady = true;
   const pageAnswers = [
@@ -670,7 +670,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   const [, readyPage] = await Promise.all([readyPageBridge, readyPagePromise]);
   assert.equal(readyPage.output.readiness, "READY_FOR_PREVIEW");
   assert.equal(readyPage.output.questionGroup, undefined);
-  assert.equal(providerCalls, 7);
+  assert.equal(providerCalls, 8);
   providerReady = false;
 
   const changedPageBlocks = blocks.map((block) => block.uuid === "project-page-child"
@@ -920,7 +920,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   });
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CREATION_GRILL_REQUEST_INVALID");
-  assert.equal(providerCalls, 17);
+  assert.equal(providerCalls, 18);
 });
 
 test("accepted Project Creation Proposal prepares, creates one controlled Page binding, and atomically materializes the reviewed Project", async (t) => {

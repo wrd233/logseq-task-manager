@@ -172,24 +172,36 @@ export class LocalLlmGrillTurnGenerator {
         ruleRefs: ["D-127", "D-130", "D-139"],
       });
     }
-    const completion = await this.provider.completeStructured({
-      system,
-      user,
-      ...(request.signal ? { signal: request.signal } : {}),
-    });
-    try {
-      const output = materializeGrillTurn(withoutModelProvenance(completion.value), {
-        ...authority,
-        provider: { ...authority.provider, model: completion.metadata.model },
+    let validationCause: string | undefined;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const completion = await this.provider.completeStructured({
+        system,
+        user: validationCause
+          ? [
+            user,
+            "machine repair instruction",
+            "The previous draft failed the machine Validator. Return a completely new JSON draft that still follows the unchanged machine outputContract.",
+            `Validator feedback: ${validationCause}`,
+            "Do not repeat, quote, summarize, or otherwise reveal the rejected draft. Do not relax any evidence, identity, authority, readiness, or question constraint.",
+          ].join("\n\n")
+          : user,
+        ...(request.signal ? { signal: request.signal } : {}),
       });
-      return { output, provider: completion.metadata, promptBundleVersion };
-    } catch (error) {
-      throw new StructuredError({
-        code: "GRILL_TURN_VALIDATION_FAILED",
-        message: "Provider 输出未通过 Grill Turn Validator；没有进入结构预览或正式写入。",
-        ruleRefs: ["D-125", "D-127", "D-130", "D-139"],
-        details: { cause: error instanceof Error ? error.message : "unknown" },
-      });
+      try {
+        const output = materializeGrillTurn(withoutModelProvenance(completion.value), {
+          ...authority,
+          provider: { ...authority.provider, model: completion.metadata.model },
+        });
+        return { output, provider: completion.metadata, promptBundleVersion };
+      } catch (error) {
+        validationCause = error instanceof Error ? error.message : "unknown";
+      }
     }
+    throw new StructuredError({
+      code: "GRILL_TURN_VALIDATION_FAILED",
+      message: "Provider 输出未通过 Grill Turn Validator；没有进入结构预览或正式写入。",
+      ruleRefs: ["D-125", "D-127", "D-130", "D-139"],
+      details: { cause: validationCause ?? "unknown" },
+    });
   }
 }

@@ -129,6 +129,54 @@ test("Grill generator rejects internal identity leakage from otherwise valid pro
   );
 });
 
+test("Grill generator repairs one validator-rejected draft without exposing the rejected output", async () => {
+  const captured: StructuredChatRequest[] = [];
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async (input) => {
+      captured.push(input);
+      if (captured.length === 1) {
+        return {
+          value: {
+            schemaVersion: GRILL_TURN_SCHEMA_VERSION,
+            understanding: "当前 obj_7a21df934a63 的范围仍未明确。",
+            factRefs: ["material"],
+            inferences: [{ text: "可能只覆盖现有清单。", evidenceRefs: ["block:block-1"] }],
+            unknowns: [{ uncertaintyId: "scope-current-list", text: "后续新增设备是否纳入仍未知。" }],
+            readiness: "CONTINUE",
+            focusUncertaintyId: "scope-current-list",
+            questions: [{ uncertaintyId: "scope-current-list", text: "本次是否只覆盖现有清单？" }],
+            recommendation: { text: "建议先封顶当前清单。", evidenceRefs: ["block:block-1"], tradeoffs: ["边界清楚，但新增设备需另行补充"] },
+          },
+          metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
+        };
+      }
+      return {
+        value: {
+          schemaVersion: GRILL_TURN_SCHEMA_VERSION,
+          understanding: "现有清单已经形成，但本次覆盖范围仍待确认。",
+          factRefs: ["material"],
+          inferences: [{ text: "本次可能只覆盖当前已有设备。", evidenceRefs: ["block:block-1"] }],
+          unknowns: [{ uncertaintyId: "scope-current-list", text: "后续新增设备是否纳入仍未知。" }],
+          readiness: "CONTINUE",
+          focusUncertaintyId: "scope-current-list",
+          questions: [{ uncertaintyId: "scope-current-list", text: "本次是否只覆盖当前已有设备？" }],
+          recommendation: { text: "建议先封顶当前清单。", evidenceRefs: ["block:block-1"], tradeoffs: ["边界清楚，但新增设备需另行补充"] },
+        },
+        metadata: { model: "deepseek-chat", durationMs: 15, attempts: 1 },
+      };
+    },
+  };
+
+  const result = await new LocalLlmGrillTurnGenerator(provider).generate(request);
+  assert.equal(result.output.understanding, "现有清单已经形成，但本次覆盖范围仍待确认。");
+  assert.equal(captured.length, 2);
+  assert.match(captured[1]?.user ?? "", /previous draft failed the machine Validator/i);
+  assert.match(captured[1]?.user ?? "", /exposes a machine identity/i);
+  assert.doesNotMatch(captured[1]?.user ?? "", /obj_7a21df934a63/);
+});
+
 test("multi-turn prompt ends with a machine-owned output contract that excludes resolved uncertainties", async () => {
   const captured: StructuredChatRequest[] = [];
   const multiTurnAuthority = {
