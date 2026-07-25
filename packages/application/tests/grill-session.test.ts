@@ -117,6 +117,16 @@ test("user-visible Grill prose rejects opaque Object and Block identities while 
     }, authority()),
     /machine identity.*user-visible prose/i,
   );
+  assert.throws(
+    () => materializeGrillTurn({
+      ...draft(),
+      inferences: [{
+        text: "根据 answer-current-interface，用户只需要看到当前结论。",
+        evidenceRefs: ["block:block-1"],
+      }],
+    }, authority()),
+    /machine identity.*user-visible prose/i,
+  );
 });
 
 test("Project creation Grill supports blank, Page, and MiniProject sources without inventing an Object identity", () => {

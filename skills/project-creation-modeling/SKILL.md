@@ -5,7 +5,7 @@ description: Resolve material-specific uncertainties before creating a Task Copi
 
 # Model One Project Creation Grill Turn
 
-Version: `1.3.0`
+Version: `1.4.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and final machine
 `grillAuthority`. This Skill produces one session draft. It never creates an Object, Page, Proposal,
@@ -37,8 +37,8 @@ their original spelling, but do not return an English understanding, inference, 
 recommendation, or tradeoff.
 
 Machine identities belong only in structured fields. Never copy an Object ID, Block/Page UUID,
-sourceRef, hash, Proposal/Commit/Anchor ID, or another opaque machine token into user-visible
-prose.
+sourceRef, hash, Proposal/Commit/Anchor ID, machine fact key such as `answer-*` or `source-*`, or
+another opaque machine token into user-visible prose.
 
 ## Respect readiness and authority
 
