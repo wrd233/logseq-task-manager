@@ -328,7 +328,7 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
     async prepareProposalProjectCreation() { throw new Error("unused"); },
     async finalizeProposalProjectCreation() { throw new Error("unused"); },
     async prepareProposalProjectCreationUndo() {
-      return { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId: `project-creation-undo:${originalSemanticCommitId}`, proposalId: "proposal-reuse", pageExternalId: reusedPage.uuid, pagePreserved: true, replayed: false };
+      return { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId: `project-creation-undo:${originalSemanticCommitId}`, proposalId: "proposal-reuse", pageExternalId: reusedPage.uuid, pagePreserved: true, sourceReturnTarget: { kind: "PAGE", externalId: reusedPage.uuid }, replayed: false };
     },
     async finalizeProposalProjectCreationUndo() { throw new Error("reused Page Undo completes in Service"); },
   };
@@ -340,6 +340,7 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
   };
   const reused = await undoReviewedProjectCreation(reuseService, reuseHost, originalSemanticCommitId, "undo-reused-project");
   assert.equal(reused.pagePreserved, true);
+  assert.deepEqual(reused.sourceReturnTarget, { kind: "PAGE", externalId: reusedPage.uuid });
   assert.equal(deleteCalls, 0);
 
   const objectId = `obj_20260725150000000_${"2".repeat(32)}`;
@@ -381,7 +382,7 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
     async finalizeProposalProjectCreationUndo(_commitId, input) {
       finalizeCalls += 1;
       assert.equal(input.pageExists, false);
-      return { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId: input.undoSemanticCommitId, pagePreserved: false, replayed: false };
+      return { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId: input.undoSemanticCommitId, pagePreserved: false, sourceReturnTarget: { kind: "BLOCK", externalId: "mini-source-root" }, replayed: false };
     },
   };
   const dedicatedHost: ProjectPageHost = {
@@ -405,6 +406,7 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
   };
   const dedicated = await undoReviewedProjectCreation(dedicatedService, dedicatedHost, originalSemanticCommitId, "undo-dedicated-project");
   assert.equal(dedicated.pagePreserved, false);
+  assert.deepEqual(dedicated.sourceReturnTarget, { kind: "BLOCK", externalId: "mini-source-root" });
   assert.equal(prepareCalls, 2);
   assert.equal(finalizeCalls, 1);
   assert.equal(deleteCalls, 1);

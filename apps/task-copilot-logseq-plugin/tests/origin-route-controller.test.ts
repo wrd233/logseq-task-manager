@@ -75,3 +75,20 @@ test("main Page origin follows its stable UUID after a rename while a missing Bl
   });
   assert.deepEqual(fake.events, ["hide"]);
 });
+
+test("a persisted formal source target returns to the main Block even after the Project Page was deleted", async () => {
+  const fake = host({ currentPageUuid: "page-after-deletion", blockPageUuid: "page-mini-project" });
+  const controller = new OriginRouteController(fake.value);
+  assert.deepEqual(await controller.returnToMainTarget({ kind: "BLOCK", externalId: "mini-project-root" }), {
+    status: "RETURNED",
+    label: "已返回来源 Block。",
+  });
+  assert.deepEqual(fake.events, ["scroll:page-mini-project:mini-project-root", "hide"]);
+
+  fake.events.length = 0;
+  assert.deepEqual(await controller.returnToMainTarget({ kind: "PAGE", externalId: "page-origin" }), {
+    status: "RETURNED",
+    label: "已返回来源 Page。",
+  });
+  assert.deepEqual(fake.events, ["push:page:renamed-origin", "hide"]);
+});

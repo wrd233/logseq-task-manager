@@ -17,6 +17,10 @@ export type OriginRouteToken =
     pageName: string;
   };
 
+export type OriginReturnTarget =
+  | { kind: "BLOCK"; externalId: string }
+  | { kind: "PAGE"; externalId: string };
+
 export interface OriginRouteHost {
   getCurrentPage(): Promise<unknown>;
   getPage(identity: unknown): Promise<unknown>;
@@ -65,6 +69,41 @@ export class OriginRouteController {
       pageUuid: input.pageUuid,
       pageName: input.pageName,
     };
+  }
+
+  async returnToMainTarget(target: OriginReturnTarget): Promise<OriginReturnResult> {
+    try {
+      if (target.kind === "BLOCK") {
+        const token = await this.captureBlock(target.externalId);
+        const result = await this.returnTo({ ...token, surface: "MAIN_PAGE" });
+        return result.status === "RETURNED"
+          ? { ...result, label: "已返回来源 Block。" }
+          : result;
+      }
+      const page = await resolvePage(this.host, await this.host.getPage(target.externalId));
+      if (!page) {
+        this.host.hideMainUI();
+        return {
+          status: "SOURCE_UNAVAILABLE",
+          label: "来源 Page 已不可用；已关闭 Task Copilot，未执行其他导航。",
+        };
+      }
+      const result = await this.returnTo({
+        kind: "PAGE",
+        surface: "MAIN_PAGE",
+        pageUuid: page.pageUuid,
+        pageName: page.pageName,
+      });
+      return result.status === "RETURNED"
+        ? { ...result, label: "已返回来源 Page。" }
+        : result;
+    } catch {
+      this.host.hideMainUI();
+      return {
+        status: "SOURCE_UNAVAILABLE",
+        label: `来源${target.kind === "BLOCK" ? " Block" : " Page"} 暂时无法定位；已关闭 Task Copilot，未执行其他导航。`,
+      };
+    }
   }
 
   async returnTo(token: OriginRouteToken): Promise<OriginReturnResult> {

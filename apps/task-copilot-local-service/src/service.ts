@@ -14,6 +14,7 @@ import {
   type ServiceDoctor,
   type ServiceDoctorCheck,
   type ServiceGraphReadResult,
+  type ServiceProjectCreationSourceReturnTarget,
 } from "@task-copilot/service-client";
 import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
 import { StructuredError, checksum, createId, stableJson } from "@task-copilot/shared";
@@ -1017,6 +1018,22 @@ function miniProjectRestructureUndoSemanticCommitId(originalSemanticCommitId: st
 
 function projectCreationUndoSemanticCommitId(originalSemanticCommitId: string): string {
   return `project-creation-undo:${originalSemanticCommitId}`;
+}
+
+function projectCreationSourceReturnTarget(
+  store: V2SqliteStore,
+  plan: ReturnType<typeof planAcceptedV2ProjectCreation>,
+): ServiceProjectCreationSourceReturnTarget | undefined {
+  if (plan.sourceKind === "PAGE" && plan.sourcePageTarget) {
+    return { kind: "PAGE", externalId: plan.sourcePageTarget.id };
+  }
+  if (plan.sourceKind === "MINI_PROJECT" && plan.sourceMiniProjectTarget) {
+    const anchor = store.getActivePrimaryAnchorByObject(plan.sourceMiniProjectTarget.id);
+    if (anchor?.role === "primary_text" && anchor.status === "active") {
+      return { kind: "BLOCK", externalId: anchor.externalId };
+    }
+  }
+  return undefined;
 }
 
 function miniProjectRestructureUndoPlan(plan: ReturnType<typeof planAcceptedMiniProjectRestructure>) {
@@ -3926,6 +3943,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const stored = await proposalApplication.get(original.proposalId);
       if (!stored) throw serviceError("V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "原 Project 创建事务引用的 Proposal 不存在。");
       const plan = planAcceptedV2ProjectCreation(stored.proposal);
+      const sourceReturnTarget = projectCreationSourceReturnTarget(store, plan);
+      const sourceReturn = sourceReturnTarget ? { sourceReturnTarget } : {};
       const receipt = store.getCommandReceipt(`project-create-proposal:${originalSemanticCommitId}`);
       const forwardSteps = store.semanticCommitSteps(originalSemanticCommitId);
       if (
@@ -3938,7 +3957,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (original.status === "UNDONE" && existing?.status !== "COMPLETED") throw serviceError("V2_PROJECT_CREATION_UNDO_LEDGER_CORRUPT", "已撤销 Project 创建事务缺少完成的逆向账本。");
       if (existing?.status === "COMPLETED") {
         if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
-        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, pageExternalId: receipt.anchor.externalId, pagePreserved: reuse, replayed: true });
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, pageExternalId: receipt.anchor.externalId, pagePreserved: reuse, ...sourceReturn, replayed: true });
         return;
       }
       if (existing && !["PENDING", "RECOVERY_REQUIRED"].includes(existing.status)) throw serviceError("V2_PROJECT_CREATION_UNDO_NOT_AVAILABLE", "Project 创建 Undo 已终止，不能建立平行逆向事务。");
@@ -3952,6 +3971,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
           pageExternalId: receipt.anchor.externalId,
           objectId: receipt.object.objectId,
           pageContentHash: receipt.anchor.contentHash,
+          ...sourceReturn,
           replayed: existing !== undefined,
         });
         return;
@@ -3997,7 +4017,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (reuse) {
         store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum({ objectRemoved: receipt.object.objectId, anchorRemoved: receipt.anchor.anchorId, pagePreserved: true }));
         store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
-        respond(response, prepared.replayed ? 200 : 201, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, pageExternalId: receipt.anchor.externalId, pagePreserved: true, replayed: prepared.replayed });
+        respond(response, prepared.replayed ? 200 : 201, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, pageExternalId: receipt.anchor.externalId, pagePreserved: true, ...sourceReturn, replayed: prepared.replayed });
         return;
       }
       respond(response, prepared.replayed ? 200 : 201, {
@@ -4009,6 +4029,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         pageExternalId: receipt.anchor.externalId,
         objectId: receipt.object.objectId,
         pageContentHash: receipt.anchor.contentHash,
+        ...sourceReturn,
         replayed: prepared.replayed,
       });
       return;
@@ -4026,8 +4047,12 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (!original?.proposalId || !inverse || inverse.proposalId !== original.proposalId || receipt?.command !== "create_project_with_page" || steps.length !== 2) {
         throw serviceError("V2_PROJECT_CREATION_UNDO_LEDGER_CORRUPT", "Project 创建 Undo 账本或原回执不一致。");
       }
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "原 Project 创建事务引用的 Proposal 不存在。");
+      const sourceReturnTarget = projectCreationSourceReturnTarget(store, planAcceptedV2ProjectCreation(stored.proposal));
+      const sourceReturn = sourceReturnTarget ? { sourceReturnTarget } : {};
       if (inverse.status === "COMPLETED" && original.status === "UNDONE") {
-        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, pagePreserved: false, replayed: true });
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, pagePreserved: false, ...sourceReturn, replayed: true });
         return;
       }
       if (input.pageExternalId !== receipt.anchor.externalId || input.pageExists || steps[0]?.status !== "VERIFIED" || steps[1]?.operationId !== receipt.anchor.externalId) {
@@ -4038,7 +4063,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (store.semanticCommitSteps(undoSemanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "VERIFIED", now.toISOString());
       store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum({ objectRemoved: receipt.object.objectId, anchorRemoved: receipt.anchor.anchorId, pageRemoved: receipt.anchor.externalId }));
       store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
-      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, pagePreserved: false, replayed: false });
+      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, pagePreserved: false, ...sourceReturn, replayed: false });
       return;
     }
     if (request.method === "POST" && url.pathname === "/projects/prepare") {

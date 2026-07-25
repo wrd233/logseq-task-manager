@@ -77,6 +77,7 @@ import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-i
 import { managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
 import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE_SYNTAX, type SlashCreateObjectType } from "./slash-create-command.ts";
 import { OriginRouteController, type OriginRouteToken } from "./origin-route-controller.ts";
+import type { OriginReturnTarget } from "./origin-route-controller.ts";
 import { readSelectedBlockForAnalysis, SelectedBlockAnalysisTarget } from "./selected-block-analysis.ts";
 import {
   AttentionShadowSession,
@@ -2291,6 +2292,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (v2ProjectCreationCommitBusy) return;
     if (!dialogChecked("actionConfirmed")) { latestError = "请确认 Project 创建 Undo 的 Page 保留／删除边界。"; await refresh(); return; }
     v2ProjectCreationCommitBusy = true;
+    let sourceReturnTarget: OriginReturnTarget | undefined;
+    let undoResultMessage: string | undefined;
     try {
       await refresh();
       await run(async () => {
@@ -2309,15 +2312,30 @@ async function handleAction(action: string, value?: string): Promise<void> {
           getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
           deletePage: async (identity) => { await logseq.Editor.deletePage(identity); },
         }, value, `v2-project-creation-undo-ui-${Date.now()}`);
+        sourceReturnTarget = result.sourceReturnTarget;
         actionDialog = undefined;
         workspace = "review";
-        message = result.pagePreserved
+        undoResultMessage = result.pagePreserved
           ? "Project 与 Anchor 已撤销；复用的来源 Page 保持原样。"
           : "Project、Anchor 与本次事务拥有的空 Page 已安全撤销；Audit 与逆向 Commit 已保留。";
+        message = undoResultMessage;
       });
     } finally {
       v2ProjectCreationCommitBusy = false;
       await refresh();
+    }
+    if (sourceReturnTarget && !latestError) {
+      const returned = await originRouteController.returnToMainTarget(sourceReturnTarget);
+      operationalLogger.log(returned.status === "RETURNED" ? "info" : "warn", "source-resolution", "project_creation_undo_source_returned", {
+        actionId: "submit-v2-project-creation-undo",
+        result: returned.status.toLowerCase(),
+      });
+      await showBlockContextMessage(
+        returned.status === "RETURNED"
+          ? `${undoResultMessage ?? "Project 创建已撤销"} ${returned.label}`
+          : returned.label,
+        returned.status === "RETURNED" ? "success" : "warning",
+      );
     }
     return;
   }

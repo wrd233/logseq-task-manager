@@ -846,6 +846,70 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   assert.equal(miniProposal.record.proposal.groups[0]?.semanticOperations[0]?.payload.sourceKind, "MINI_PROJECT");
   assert.equal((await client.status()).objectCount, beforeMiniGrill.objectCount, "MiniProject Project Proposal remains zero formal Project write");
 
+  const miniAccepted = await client.reviewProposal(miniProposal.record.proposal.proposalId, {
+    "create-project": { disposition: "ACCEPTED", highImpactConfirmed: true },
+  }, miniProposal.record.updatedAt);
+  const miniCommitBridge = (async () => {
+    const sourceRead = await client.claimGraphReadRequest();
+    assert.equal(sourceRead?.kind, "BLOCK");
+    if (!sourceRead) throw new Error("expected MiniProject source revalidation before Project creation");
+    await client.completeGraphReadRequest({ requestId: sourceRead.requestId, status: "FOUND", snapshot: miniSnapshot });
+    const targetRead = await client.claimGraphReadRequest();
+    assert.equal(targetRead?.kind, "PAGE");
+    if (!targetRead) throw new Error("expected dedicated Project Page absence read");
+    await client.completeGraphReadRequest({ requestId: targetRead.requestId, status: "NOT_FOUND" });
+  })();
+  const miniPreparePromise = client.prepareProposalProjectCreation(miniProposal.record.proposal.proposalId, {
+    confirmation: "CREATE_PROJECT",
+    expectedUpdatedAt: miniAccepted.updatedAt,
+    traceId: "mini-project-evolution-prepare",
+  });
+  const [, miniPrepared] = await Promise.all([miniCommitBridge, miniPreparePromise]);
+  assert.equal(miniPrepared.status, "PREPARED");
+  if (miniPrepared.status !== "PREPARED") throw new Error("expected prepared MiniProject evolution");
+  const miniProjectPageExternalId = "mini-evolution-project-page";
+  const miniProjectPageHash = checksum({
+    pageName: miniPrepared.pageName,
+    pageExternalId: miniProjectPageExternalId,
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": miniPrepared.objectId,
+      "task-copilot-semantic-commit-id": miniPrepared.semanticCommitId,
+    },
+    emptyAtCreation: true,
+  });
+  const miniFinalized = await client.finalizeProposalProjectCreation(miniProposal.record.proposal.proposalId, {
+    expectedUpdatedAt: miniAccepted.updatedAt,
+    semanticCommitId: miniPrepared.semanticCommitId,
+    objectId: miniPrepared.objectId,
+    pageExternalId: miniProjectPageExternalId,
+    pageContentHash: miniProjectPageHash,
+    traceId: "mini-project-evolution-finalize",
+  });
+  assert.equal(miniFinalized.status, "COMPLETED");
+  const miniUndoPreflight = await client.prepareProposalProjectCreationUndo(miniPrepared.semanticCommitId, {
+    traceId: "mini-project-evolution-undo-preflight",
+  });
+  assert.equal(miniUndoPreflight.status, "PAGE_PREFLIGHT_REQUIRED");
+  assert.deepEqual(miniUndoPreflight.sourceReturnTarget, { kind: "BLOCK", externalId: "mini-evolution-root" });
+  const miniUndoPrepared = await client.prepareProposalProjectCreationUndo(miniPrepared.semanticCommitId, {
+    traceId: "mini-project-evolution-undo-prepare",
+    confirmedOwnedEmpty: true,
+    pageExternalId: miniProjectPageExternalId,
+  });
+  assert.equal(miniUndoPrepared.status, "PAGE_DELETION_REQUIRED");
+  if (miniUndoPrepared.status !== "PAGE_DELETION_REQUIRED") throw new Error("expected MiniProject Project Page deletion");
+  assert.deepEqual(miniUndoPrepared.sourceReturnTarget, { kind: "BLOCK", externalId: "mini-evolution-root" });
+  const miniUndoFinalized = await client.finalizeProposalProjectCreationUndo(miniPrepared.semanticCommitId, {
+    originalSemanticCommitId: miniPrepared.semanticCommitId,
+    undoSemanticCommitId: miniUndoPrepared.undoSemanticCommitId,
+    pageExternalId: miniProjectPageExternalId,
+    pageExists: false,
+    traceId: "mini-project-evolution-undo-finalize",
+  });
+  assert.deepEqual(miniUndoFinalized.sourceReturnTarget, { kind: "BLOCK", externalId: "mini-evolution-root" });
+  assert.equal((await client.status()).objectCount, beforeMiniGrill.objectCount, "MiniProject source remains after Project creation Undo");
+
   providerRelationshipMode = "REUSE_SOURCE_PAGE";
   const invalidMiniPreviewBridge = (async () => {
     const pending = await client.claimGraphReadRequest();

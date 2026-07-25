@@ -300,6 +300,9 @@ export interface ServiceProposalProjectCreationCompensation {
   record: ServiceStoredProposal;
   pagePreserved: boolean;
 }
+export type ServiceProjectCreationSourceReturnTarget =
+  | { kind: "BLOCK"; externalId: string }
+  | { kind: "PAGE"; externalId: string };
 export type ServiceProposalProjectCreationUndoPreparation =
   | {
       status: "PAGE_PREFLIGHT_REQUIRED";
@@ -310,6 +313,7 @@ export type ServiceProposalProjectCreationUndoPreparation =
       pageExternalId: string;
       objectId: string;
       pageContentHash: string;
+      sourceReturnTarget?: ServiceProjectCreationSourceReturnTarget;
       replayed: boolean;
     }
   | {
@@ -321,6 +325,7 @@ export type ServiceProposalProjectCreationUndoPreparation =
       pageExternalId: string;
       objectId: string;
       pageContentHash: string;
+      sourceReturnTarget?: ServiceProjectCreationSourceReturnTarget;
       replayed: boolean;
     }
   | {
@@ -330,6 +335,7 @@ export type ServiceProposalProjectCreationUndoPreparation =
       proposalId: string;
       pageExternalId: string;
       pagePreserved: boolean;
+      sourceReturnTarget?: ServiceProjectCreationSourceReturnTarget;
       replayed: boolean;
     };
 export interface ServiceProposalProjectCreationUndoFinalization {
@@ -337,6 +343,7 @@ export interface ServiceProposalProjectCreationUndoFinalization {
   originalSemanticCommitId: string;
   undoSemanticCommitId: string;
   pagePreserved: boolean;
+  sourceReturnTarget?: ServiceProjectCreationSourceReturnTarget;
   replayed: boolean;
 }
 
