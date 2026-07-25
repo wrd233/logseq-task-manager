@@ -392,7 +392,7 @@ test("Project context recovery fails closed for missing Provider, unsupported ty
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "UX_CONTEXT_RECOVERY_REQUEST_INVALID");
 });
 
-test("Project Creation Grill uses Blank or server-read Page sources without creating formal state or accepting client material", async (t) => {
+test("Project Creation Grill uses Blank, Page, or MiniProject sources and rejects stale Graph material without creating new formal state", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-creation-grill-"));
   let providerCalls = 0;
   const provider: StructuredProposalProvider = {
@@ -401,18 +401,19 @@ test("Project Creation Grill uses Blank or server-read Page sources without crea
     completeStructured: async () => {
       providerCalls += 1;
       const pageTurn = providerCalls === 2;
-      const focus = pageTurn ? "material-disposition" : "outcome";
-      const evidenceRef = pageTurn ? "block:project-page-root" : "session:project-creation-entry";
+      const miniProjectTurn = providerCalls >= 3;
+      const focus = pageTurn ? "material-disposition" : miniProjectTurn ? "project-boundary" : "outcome";
+      const evidenceRef = pageTurn ? "block:project-page-root" : miniProjectTurn ? "block:mini-evolution-root" : "session:project-creation-entry";
       return {
         value: {
           schemaVersion: "task-copilot-grill-turn-v1",
-          understanding: pageTurn ? "Page 材料已读取，但尚未决定如何进入 Project。" : "用户已从空白入口发起 Project 创建，但持续结果仍未明确。",
-          factRefs: [pageTurn ? "source-1" : "creation-entry"],
+          understanding: pageTurn ? "Page 材料已读取，但尚未决定如何进入 Project。" : miniProjectTurn ? "MiniProject 材料已读取，但升级边界仍未明确。" : "用户已从空白入口发起 Project 创建，但持续结果仍未明确。",
+          factRefs: [pageTurn || miniProjectTurn ? "source-1" : "creation-entry"],
           inferences: [],
           unknowns: [{ uncertaintyId: focus, text: "当前最大不确定性仍未解决。" }],
           readiness: "CONTINUE",
           focusUncertaintyId: focus,
-          questions: [{ uncertaintyId: focus, text: pageTurn ? "现有 Page 材料应如何进入新 Project？" : "它需要持续形成什么可被使用或检验的结果？" }],
+          questions: [{ uncertaintyId: focus, text: pageTurn ? "现有 Page 材料应如何进入新 Project？" : miniProjectTurn ? "为什么这项工作需要升级为持续 Project？" : "它需要持续形成什么可被使用或检验的结果？" }],
           recommendation: {
             text: "建议先解决当前最大不确定性。",
             evidenceRefs: [evidenceRef],
@@ -459,6 +460,47 @@ test("Project Creation Grill uses Blank or server-read Page sources without crea
   assert.equal(providerCalls, 2);
   assert.equal((await client.status()).objectCount, 0);
 
+  const created = await client.materializeExplicitObject({
+    objectType: "MINI_PROJECT",
+    text: "整理托管设备记录",
+    externalId: "mini-evolution-root",
+    inputVersion: "1",
+    contentHash: checksum("[MiniProject] 整理托管设备记录"),
+    idempotencyKey: "project-creation-mini-source",
+    traceId: "project-creation-mini-source",
+  });
+  const miniResolved = { kind: "BLOCK" as const, id: "mini-evolution-root" };
+  const miniBlocks = [
+    { uuid: "mini-evolution-root", content: "[MiniProject] 整理托管设备记录", contentHash: checksum("[MiniProject] 整理托管设备记录"), relation: "ROOT" as const, depth: 0 },
+    { uuid: "mini-evolution-child", content: "每月需要持续核验", contentHash: checksum("每月需要持续核验"), relation: "CHILD" as const, depth: 1, parentUuid: "mini-evolution-root" },
+  ];
+  const miniSnapshot = { kind: "BLOCK" as const, requestedTarget: "mini-evolution-root", resolved: miniResolved, blocks: miniBlocks, truncated: false, readAt: "2026-07-25T13:05:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved: miniResolved, blocks: miniBlocks, truncated: false }) };
+  const answerMiniReads = async (second = miniSnapshot): Promise<void> => {
+    for (const snapshot of [miniSnapshot, second]) {
+      const pending = await client.claimGraphReadRequest();
+      assert.equal(pending?.kind, "BLOCK");
+      if (!pending) throw new Error("expected Project Creation MiniProject read");
+      await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+    }
+  };
+  const beforeMiniGrill = await client.status();
+  const miniBridge = answerMiniReads();
+  const miniPromise = client.grillProjectCreation({ sourceKind: "MINI_PROJECT", objectId: created.object.objectId, expectedVersion: created.object.version, answers: [] });
+  const [, miniResult] = await Promise.all([miniBridge, miniPromise]);
+  assert.equal(miniResult.output.questionGroup?.focusUncertaintyId, "project-boundary");
+  assert.deepEqual(await client.status(), beforeMiniGrill, "MiniProject evolution Grill does not create a Project or mutate its source");
+
+  const changedMiniBlocks = miniBlocks.map((block) => block.uuid === "mini-evolution-child" ? { ...block, content: "用户在生成期间修改", contentHash: checksum("用户在生成期间修改") } : block);
+  const changedMiniSnapshot = { ...miniSnapshot, blocks: changedMiniBlocks, readAt: "2026-07-25T13:06:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved: miniResolved, blocks: changedMiniBlocks, truncated: false }) };
+  const staleBridge = answerMiniReads(changedMiniSnapshot);
+  const stalePromise = client.grillProjectCreation({ sourceKind: "MINI_PROJECT", objectId: created.object.objectId, expectedVersion: created.object.version, answers: [] });
+  await staleBridge;
+  await assert.rejects(stalePromise, (error: unknown) => {
+    assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "GRILL_SOURCE_STALE");
+    return true;
+  });
+  assert.deepEqual(await client.status(), beforeMiniGrill, "stale MiniProject generation remains zero-write");
+
   const injected = await fetch(new URL("provider/grill/project-creation/turn", service.url), {
     method: "POST",
     headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
@@ -466,7 +508,7 @@ test("Project Creation Grill uses Blank or server-read Page sources without crea
   });
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CREATION_GRILL_REQUEST_INVALID");
-  assert.equal(providerCalls, 2);
+  assert.equal(providerCalls, 4);
 });
 
 test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {
