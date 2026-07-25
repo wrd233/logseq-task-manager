@@ -102,6 +102,7 @@ test("Project creation preview generator rejects omitted material or unsupported
     () => new LocalLlmProjectCreationPreviewGenerator(provider).generate(request),
     (error: unknown) => error instanceof StructuredError
       && error.code === "PROJECT_CREATION_PREVIEW_VALIDATION_FAILED"
-      && error.message.includes("没有生成 Proposal"),
+      && error.message.includes("没有生成 Proposal")
+      && error.details?.validationCategory === "SOURCE_MATERIAL_COVERAGE",
   );
 });

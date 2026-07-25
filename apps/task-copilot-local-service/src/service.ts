@@ -1179,7 +1179,17 @@ function respondError(response: ServerResponse, error: unknown): void {
       : ["PROJECT_CREATION_PREVIEW_VALIDATION_FAILED", "PROJECT_CREATION_PROPOSAL_INVALID"].includes(error.code) ? 422
       : undefined;
     if (grillSourceStatus !== undefined) {
-      respond(response, grillSourceStatus, { error: { code: error.code, message: error.message } });
+      const validationCategory = error.code === "PROJECT_CREATION_PREVIEW_VALIDATION_FAILED"
+        && typeof error.details?.validationCategory === "string"
+        ? error.details.validationCategory
+        : undefined;
+      respond(response, grillSourceStatus, {
+        error: {
+          code: error.code,
+          message: error.message,
+          ...(validationCategory ? { validationCategory } : {}),
+        },
+      });
       return;
     }
     const providerStatus = error.code === "LLM_RATE_LIMITED" ? 429

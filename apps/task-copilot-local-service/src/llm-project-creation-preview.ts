@@ -23,6 +23,26 @@ export interface GeneratedProjectCreationPreview {
   promptBundleVersion: string;
 }
 
+type ProjectCreationPreviewValidationCategory =
+  | "EVIDENCE_REFERENCE"
+  | "FIELD_SHAPE"
+  | "NATURAL_CHINESE"
+  | "RELATIONSHIP_MODE"
+  | "SCHEMA_VERSION"
+  | "SOURCE_MATERIAL_COVERAGE"
+  | "VALUE_CONSTRAINT";
+
+function validationCategory(error: unknown): ProjectCreationPreviewValidationCategory {
+  const message = error instanceof Error ? error.message : "";
+  if (/source material|sourceMaterials|preserve every/i.test(message)) return "SOURCE_MATERIAL_COVERAGE";
+  if (/unsupported evidence|bounded reference|evidenceRefs/i.test(message)) return "EVIDENCE_REFERENCE";
+  if (/relationship mode|Page source|MiniProject source|Blank Project/i.test(message)) return "RELATIONSHIP_MODE";
+  if (/natural Chinese/i.test(message)) return "NATURAL_CHINESE";
+  if (/schemaVersion/i.test(message)) return "SCHEMA_VERSION";
+  if (/unsupported field|must be an object/i.test(message)) return "FIELD_SHAPE";
+  return "VALUE_CONSTRAINT";
+}
+
 function layer(value: PromptLayer, name: string): PromptLayer {
   if (!value || typeof value.version !== "string" || !value.version.trim() || value.version.length > 128 || typeof value.content !== "string" || !value.content.trim() || value.content.length > 80_000) {
     throw new StructuredError({
@@ -146,7 +166,7 @@ export class LocalLlmProjectCreationPreviewGenerator {
         code: "PROJECT_CREATION_PREVIEW_VALIDATION_FAILED",
         message: "Provider 输出未通过 Project Creation Preview Validator；没有生成 Proposal 或正式写入。",
         ruleRefs: ["D-125", "D-127", "D-130", "D-139"],
-        details: { cause: error instanceof Error ? error.message : "unknown" },
+        details: { validationCategory: validationCategory(error) },
       });
     }
   }
