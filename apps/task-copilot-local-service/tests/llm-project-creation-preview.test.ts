@@ -83,6 +83,8 @@ test("Project creation preview generator returns a machine-owned zero-write read
   assert.match(captured[0]?.system ?? "", /natural Simplified Chinese/i);
   assert.match(captured[0]?.user ?? "", /machine outputContract/);
   assert.match(captured[0]?.user ?? "", /allowedRelationshipModes/);
+  assert.match(captured[0]?.system ?? "", /"sourceMaterials":\[\{"materialId":"one listed materialId"/);
+  assert.doesNotMatch(captured[0]?.system ?? "", /"sourceMaterials":\[\]\}\./);
 });
 
 test("Project creation preview generator rejects omitted material or unsupported evidence", async () => {
