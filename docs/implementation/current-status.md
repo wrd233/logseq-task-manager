@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_BLANK_AND_PAGE_PRESERVE_DONE_OTHER_GATES_OPEN
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_BLANK_AND_BOTH_PAGE_RELATIONSHIPS_DONE_MINI_OPEN
 overall_goal: IN_PROGRESS
 ```
 
@@ -174,8 +174,12 @@ overall_goal: IN_PROGRESS
   validation 现作为 422 暴露并允许保留答案重试。Application 152/152、Local Service
   129/129、Plugin 269/269 PASS；CURRENT 截图与
   明细在 `current-ui/` 和 `logs/p2-c-project-creation-desktop-live-20260726.md`。
-  Page“升级当前 Page”、MiniProject 来源 Desktop、Light/窄栏、来源返回和全程同 commit
-  中间截图仍 OPEN；
+  Page“升级当前 Page”随后也完成真实 DeepSeek 七轮、Preview/HIGH Review、reuse create、
+  restart、Page-aware Undo 与再次 restart；原材料要求另建与用户明确 reuse 的冲突被保留，
+  用户决定形成 `REUSE_SOURCE_PAGE`。创建/重启/撤销全程 Page name/properties 与三段 Block
+  UUID/content/properties 逐字段等于创建前，正式变化只创建/撤销 SQLite Project 与
+  active Primary Page Anchor。MiniProject 来源 Desktop、Light/窄栏和缺失的 CURRENT 中间
+  截图仍 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -189,7 +193,7 @@ overall_goal: IN_PROGRESS
 V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 remaining host Desktop gates / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
-P2-C Blank DONE + Page preserve/dedicated bounded DONE, Page reuse/MiniProject/visual gates OPEN /
+P2-C Blank + Page dedicated + Page reuse DONE, MiniProject/visual gates OPEN /
 P2-D–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论

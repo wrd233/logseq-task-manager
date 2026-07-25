@@ -102,7 +102,7 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 
 ## P2-C：Project 创建 Grill Me
 
-状态：`IN_PROGRESS_BLANK_AND_PAGE_PRESERVE_DONE_PAGE_REUSE_MINI_VISUAL_GATES_OPEN`
+状态：`IN_PROGRESS_BLANK_AND_BOTH_PAGE_RELATIONSHIPS_DONE_MINI_VISUAL_GATES_OPEN`
 
 所有入口：
 
@@ -160,7 +160,8 @@ ownership/empty 预检，含用户正文时 fail closed；原 Commit、逆向 Co
 完成后路由已有 Plugin 自动证据。Blank 真实 Desktop 已完成 DeepSeek→Preview→Review、
 同一 Recovery Commit→正式创建→reload→专用 Undo→reload 与健康状态；Page“保留来源
 另建”也完成真实 Provider→Review→create→restart→跨 identity 漂移 Undo→restart 健康
-Gate。Page reuse、MiniProject、Light/窄栏和全程同 commit 中间截图仍 OPEN。
+Gate；Page reuse 随后也完成同强度链且证明零 Page write/delete。MiniProject、Light/窄栏
+和缺失的 CURRENT 中间截图仍 OPEN。
 
 第六个自动合同已完成：Plugin 的 Blank 主入口、普通 Page“将本页建立为 Project”和 OPEN
 MiniProject“演化为 Project”统一进入同一 Project Creation session；客户端只提交 source
@@ -192,6 +193,14 @@ Page“保留来源另建”Desktop Gate 进一步证明：真实 DeepSeek 七�
 且 owner/object/semantic-commit metadata 全部匹配时，才允许重新绑定并删除 metadata-only
 专用 Page。复用来源 Page 永不进入此回退。最终来源三段正文逐字保留，Project/Anchor/专用
 Page 撤销，再次 restart 后 Pending/Recovery/Source Conflict 为 0 且 reconciliation 收敛。
+
+Page“升级当前 Page”也已完成相同强度 Gate：真实 Provider 能保留“来源材料原要求另建”与
+“用户本轮明确要求 reuse”的冲突，并以用户明确决定形成 `REUSE_SOURCE_PAGE` Preview。
+正式创建、restart、inverse Undo、再次 restart 前后，复用 Page 的 name/properties 与三段
+Block UUID/content/properties 均逐字段等于创建前；正式变化只创建/撤销 SQLite Project 与
+active Primary Page Anchor，不写、不标记、不删除来源 Page。两次 Validator rejection
+安全保留答案后重试，未产生半成品；当前质量缺口是拒绝率、readiness 密度和重复“完成证据”
+标签，不降低安全结论。
 
 ## P2-D：Project 结构操作路由
 

@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_BLANK_AND_PAGE_PRESERVE_DONE | P2-A/B 完整自动链 PASS；P2-C 三来源用户入口、Grill/Preview/HIGH Review、Proposal-bound create、Recovery、inverse Undo 与 invalid Grill 422 PASS | P2-A/B 隔离链 PASS；P2-C Blank 全链 PASS；Page“保留来源另建”真实 DeepSeek→Review→create→restart→跨 identity 漂移 Undo→restart/健康 bounded PASS；Page reuse/MiniProject OPEN | P2-A/B、P2-C Blank 与 Page preserve/dedicated DONE；P2-C 其余 Gate、P2-D～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_BLANK_AND_BOTH_PAGE_RELATIONSHIPS_DONE | P2-A/B 完整自动链 PASS；P2-C 三来源用户入口、Grill/Preview/HIGH Review、Proposal-bound create、Recovery、inverse Undo 与 invalid Grill 422 PASS | P2-A/B 隔离链 PASS；P2-C Blank 全链 PASS；Page“保留来源另建”和“升级当前 Page”均真实 DeepSeek→Review→create→restart→Undo→restart/健康 PASS；MiniProject OPEN | P2-A/B、P2-C Blank 与两种 Page 关系 DONE；P2-C MiniProject/视觉 Gate、P2-D～G OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -72,7 +72,8 @@
   source evidence 边界及 internal closure/current interface readiness、Preview 与
   server-owned 单组 HIGH Proposal/Review 自动合同 PASS；Blank 真实 Provider turn/preview
   和完整正式 Desktop 链 PASS；Page preserve/dedicated 真实 Provider 与正式 Desktop 链
-  bounded PASS；Page reuse 与 MiniProject 真实 Provider、来源关系和 Desktop 尚未闭环；
+  bounded PASS；Page reuse 也完成真实 Provider 与正式 Desktop 链；MiniProject 真实
+  Provider、来源关系和 Desktop 尚未闭环；
 - [x] 原位重构当前纵向 Slice 零丢失；原 UUID/正文守恒、0 delete、Undo 后父级与顺序恢复；
 - [x] 原位结构宿主能力有界通过；同一会话内 custom UUID、语义正文与 A/B/C 顺序经过
   move-first-child/restore-after-sibling 保持，Page runtime UUID 跨 reload 限制已明确转入 Rebind；
@@ -91,8 +92,9 @@ P2-C 专项证据：Application 152/152、Local Service 129/129、Plugin 269/269
 properties Block、PENDING/Recovery、专用 Undo、Page name 删除与 reload 健康。Page
 preserve/dedicated 又验证三段来源正文守恒、完整 restart identity 漂移、Service 账本 +
 metadata-only 精确重绑、inverse Undo 与冷启动 reconciliation 收敛。CURRENT 截图
-`p2-c-18`～`p2-c-20` 对应 `913bbda4528f`；`p2-c-01`～`p2-c-17` 均按 commit 一致性登记为
-HISTORICAL/SUPERSEDED，不作为当前 UI 权威。
+`p2-c-18`～`p2-c-20` 对应 `913bbda4528f`。Page reuse 又验证零 Page write、restart 与
+Undo 前后 Page/Block 逐字段相同，CURRENT 截图 `p2-c-21`～`p2-c-24`；`p2-c-01`～
+`p2-c-17` 均按 commit 一致性登记为 HISTORICAL/SUPERSEDED，不作为当前 UI 权威。
 
 ## 5. 操作距离指标
 

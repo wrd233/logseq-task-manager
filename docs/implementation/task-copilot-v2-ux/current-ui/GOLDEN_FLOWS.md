@@ -2,7 +2,7 @@
 
 ## P2-C Blank Project Creation
 
-状态：`BLANK_DONE_PAGE_PRESERVE_DEDICATED_BOUNDED_DONE_MINI_AND_PAGE_REUSE_OPEN`
+状态：`BLANK_AND_BOTH_PAGE_RELATIONSHIPS_DONE_MINI_AND_VISUAL_GATES_OPEN`
 
 1. 项目 → 正式事项与创建 → 开始梳理 Project；
 2. Service 构造 Blank Context，真实 DeepSeek 每轮只处理一个机器选定的不确定性；
@@ -19,9 +19,11 @@
 当前真实结果：Blank Dark 主链 PASS。Page“保留来源另建”主链也 bounded PASS：真实
 DeepSeek 七轮收敛，来源三段正文逐字保留；完整 Logseq restart 后 runtime UUID 漂移，
 专用 Undo 只以 Service 原账本加精确 Page name/owner/object/commit metadata 安全重绑，
-随后移除 Project/Anchor/受控空 Page；再次 restart 后系统健康。Page“升级当前 Page”、
-MiniProject 来源、Light、窄栏和全程同一 commit 的中间截图仍 OPEN，因此 P2-C 不是完整
-Done。
+随后移除 Project/Anchor/受控空 Page；再次 restart 后系统健康。Page“升级当前 Page”也
+PASS：模型在原材料要求另建与用户明确 reuse 的冲突中保留两者并以用户决定收口，创建/
+restart/Undo/restart 全程 Page properties 和三段 Block UUID/content/properties 与创建前
+逐字段一致。MiniProject 来源、Light、窄栏和部分中间态 CURRENT 截图仍 OPEN，因此 P2-C
+不是完整 Done。
 
 ## 交互评估
 
@@ -32,5 +34,6 @@ Done。
   runtime UUID 漂移、mounted diagnostics 旧快照和 Grill validation 错误误报 500。
 - 待改进：Review 历史卡片密度偏高；“尚不能确认安全撤销条件”与可点击的预检式 Undo
   同屏时仍可能让用户困惑；真实 Provider 多次给出超出 Page 写入权限的建议，虽被 Validator
-  安全拒绝但增加重试负担。需要在既有 Skill 中降低拒绝率，并在后续状态翻译 Slice 中把
-  文案改成“撤销时会重新检查”。
+  安全拒绝但增加重试负担；reuse Preview 还有重复“完成证据”标签。需要在既有 Skill/
+  renderer 中降低拒绝率和重复标签，并在后续状态翻译 Slice 中把文案改成“撤销时会重新
+  检查”。
