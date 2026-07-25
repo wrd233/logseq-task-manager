@@ -350,6 +350,8 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
       taskCopilotSemanticCommitId: originalSemanticCommitId,
     },
   };
+  let deletionRequested = false;
+  let staleReadsAfterDeletion = 1;
   let finalizeCalls = 0;
   let prepareCalls = 0;
   const dedicatedService: ReviewedProjectCreationService = {
@@ -377,10 +379,17 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
     },
   };
   const dedicatedHost: ProjectPageHost = {
-    async getPage() { return dedicatedPage ?? null; },
+    async getPage() {
+      if (deletionRequested && staleReadsAfterDeletion > 0) {
+        staleReadsAfterDeletion -= 1;
+        return dedicatedPage ?? null;
+      }
+      if (deletionRequested) dedicatedPage = undefined;
+      return dedicatedPage ?? null;
+    },
     async createPage() { throw new Error("unused"); },
     async getPageBlocksTree() { return ownedMetadataBlock({ objectId, semanticCommitId: originalSemanticCommitId }); },
-    async deletePage() { dedicatedPage = undefined; deleteCalls += 1; },
+    async deletePage() { deletionRequested = true; deleteCalls += 1; },
   };
   const dedicated = await undoReviewedProjectCreation(dedicatedService, dedicatedHost, originalSemanticCommitId, "undo-dedicated-project");
   assert.equal(dedicated.pagePreserved, false);

@@ -119,6 +119,15 @@ function pageContainsOnlyOwnedMetadata(
     && Object.entries(expected).every(([key, value]) => properties.get(normalizedPropertyKey(key)) === value);
 }
 
+async function confirmPageAbsent(host: ProjectPageHost, pageExternalId: string): Promise<boolean> {
+  const delaysMs = [0, 50, 100, 200];
+  for (const delayMs of delaysMs) {
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (!await host.getPage(pageExternalId)) return true;
+  }
+  return false;
+}
+
 function assertOwnedPage(page: ProjectPageEntity, intent: Pick<ServiceProjectIntent, "objectId" | "semanticCommitId" | "pageName"> & { status?: string }): void {
   const actualName = page.originalName ?? page.name;
   if (
@@ -287,8 +296,7 @@ export async function compensateReviewedProjectCreation(
       if (!Array.isArray(blocks) || !pageContainsOnlyOwnedMetadata(blocks, intent)) throw projectError("V2_PROJECT_CREATION_COMPENSATION_PAGE_CHANGED", "受控 Project Page 已包含内容；系统不会删除它，请保留现场并人工恢复。");
       if (!host.deletePage) throw projectError("V2_PROJECT_CREATION_RECOVERY_UNAVAILABLE", "当前 Logseq Host 不支持安全删除受控 Page。");
       await host.deletePage(page.uuid);
-      const after = await host.getPage(page.uuid);
-      if (after) throw projectError("V2_PROJECT_CREATION_COMPENSATION_DELETE_UNCONFIRMED", "Logseq 尚未确认受控 Page 已移除；没有收口失败事务。");
+      if (!await confirmPageAbsent(host, page.uuid)) throw projectError("V2_PROJECT_CREATION_COMPENSATION_DELETE_UNCONFIRMED", "Logseq 尚未确认受控 Page 已移除；没有收口失败事务。");
     }
   }
   return service.compensateProposalProjectCreation(proposalId, {
@@ -345,7 +353,7 @@ export async function undoReviewedProjectCreation(
     if (!host.deletePage) throw projectError("V2_PROJECT_CREATION_UNDO_UNAVAILABLE", "当前 Logseq Host 不支持安全删除受控 Project Page。");
     await host.deletePage(page.uuid);
   }
-  if (await host.getPage(prepared.pageExternalId)) throw projectError("V2_PROJECT_CREATION_UNDO_DELETE_UNCONFIRMED", "Logseq 尚未确认 Project Page 已移除；Undo 没有收口。");
+  if (!await confirmPageAbsent(host, prepared.pageExternalId)) throw projectError("V2_PROJECT_CREATION_UNDO_DELETE_UNCONFIRMED", "Logseq 尚未确认 Project Page 已移除；Undo 没有收口。");
   const finalized = await service.finalizeProposalProjectCreationUndo(originalSemanticCommitId, {
     originalSemanticCommitId,
     undoSemanticCommitId: prepared.undoSemanticCommitId,
