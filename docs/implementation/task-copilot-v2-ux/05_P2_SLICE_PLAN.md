@@ -102,7 +102,7 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 
 ## P2-C：Project 创建 Grill Me
 
-状态：`IN_PROGRESS_FORMAL_CHAIN_AUTOMATED_DESKTOP_OPEN`
+状态：`IN_PROGRESS_BLANK_DESKTOP_CHAIN_DONE_SOURCE_GATES_OPEN`
 
 所有入口：
 
@@ -122,7 +122,8 @@ interface；模型仍只有 `SESSION_DRAFT_ONLY`。Context Package、Skill/Promp
 也已自动完成。
 
 第二个自动合同已完成：Local Service `project-creation-grill.ts` 将三种入口材料构造成
-有界 Context 和七维 machine uncertainty，`project-creation-modeling@1.1.0` 明确要求
+有界 Context 和七维 machine uncertainty，当前 `project-creation-modeling@1.2.0`
+（初始自动 Gate 为 `1.1.0`）明确要求
 跟随材料而非固定问卷，并将 Page/Object 关系与材料去向分开解决。Blank 由既有受控
 Project Page 合同自动解决关系，Page/MiniProject 必须显式回答；Blank 首问结果、Page
 首问材料去向、MiniProject 首问升级边界。
@@ -156,22 +157,32 @@ Object/Page/Commit 写入。
 Page UUID/hash 在 Graph step 执行前持久绑定，Domain failure 可跨 restart 补偿；专用
 空 Page 才可删除，复用来源 Page 永不删除。专用 inverse Undo 在 Domain 写入前先做 Page
 ownership/empty 预检，含用户正文时 fail closed；原 Commit、逆向 Commit 与 Audit 保留。
-完成后路由已有 Plugin 自动证据，真实 Desktop/reload/截图仍 OPEN。
+完成后路由已有 Plugin 自动证据。Blank 真实 Desktop 已完成 DeepSeek→Preview→Review、
+同一 Recovery Commit→正式创建→reload→专用 Undo→reload 与健康状态；Page/MiniProject
+来源 Desktop、Light/窄栏和全程同 commit 中间截图仍 OPEN。
 
 第六个自动合同已完成：Plugin 的 Blank 主入口、普通 Page“将本页建立为 Project”和 OPEN
 MiniProject“演化为 Project”统一进入同一 Project Creation session；客户端只提交 source
 identity/version 与回答，不上传事实或结构。前台分开显示 facts、Copilot 判断与 unknowns，
 每轮只保留一个真实分歧；loading/error/stale、零写入 Preview 和 HIGH Review 均有显式
 状态。旧“直接创建 Project”UI 与 action dispatch 已移除，不能绕过 Grill。Plugin
-267/267 与类型检查、生产构建 PASS。
+最终 269/269 与类型检查、生产构建 PASS。真实 Provider 发现并修复英文/双问题和固定关系
+示例冲突，Project Creation Skill 已升至 `1.2.0`，MiniProject 共享单问规则升至 `1.3.0`。
 
 Blank Preview 已使用真实
-`deepseek-v4-flash` 与 `project-creation-modeling@1.1.0` 通过独立 Service Gate：
+`deepseek-v4-flash` 与初始 `project-creation-modeling@1.1.0` 通过独立 Service Gate，
+当前真实 Desktop 使用 `1.2.0`：
 来源材料 0、关系仍为待 Review、formal impact 0、Object projection 前后均为 0。
 Proposal identity 进一步绑定 server-owned Preview handle：同一 handle 只幂等重放同一
 Proposal，独立生成但阅读内容相同的 Preview 也不会与不同 `createdAt` 的记录碰撞。
 semantic operation target 必须与 modify scope 的 existence/version/hash 证据完全一致；
 MiniProject Preview 后 Graph 或正式 Object version 变化均在产生新 Proposal 前 fail closed。
+
+Blank Desktop Gate 还证明 Logseq `createPage` 会把受控 Page properties 表现为 metadata
+Block，`deletePage` 接受 Page name 而不是 UUID。当前实现只接受精确 owner/object/commit
+三项 metadata、拒绝任何用户正文；删除前按 UUID/属性验权，删除时使用 name，并有 bounded
+absence 复核。第一次失败保持同一 PENDING/Recovery ledger，修复后继续同一事务，没有重复
+创建。证据见 `logs/p2-c-project-creation-desktop-live-20260726.md`。
 
 ## P2-D：Project 结构操作路由
 

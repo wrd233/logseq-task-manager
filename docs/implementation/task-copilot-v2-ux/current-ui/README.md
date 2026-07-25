@@ -10,11 +10,16 @@
 - `SUPERSEDED`：同一场景已有更新且更完整的证据；
 - `PROTOTYPE`：只证明视觉或宿主能力，不代表正式产品链。
 
-当前没有截图被迁移为 `CURRENT`。仓库既有截图继续保留为历史证据，直到对应场景用最新
-构建重新执行。P2-C 已有 Grill/Preview/HIGH Review、正式创建、失败补偿、重启恢复与
-专用 Undo 自动证据，以及 Blank 真实 Provider 证据；三来源最新 Plugin 用户入口也已自动
-接通并移除直建 bypass，但当前 commit 的 Desktop 操作链尚未执行，因此仍不制作伪“当前”
-截图。
+当前已有 P2-C Blank 主链的 CURRENT 入口、专用 Undo 完成态和 Undo 后 reload 健康态。
+同轮较早的 Grill、Preview、HIGH Review 与首次创建截图来自真实运行，但拍摄时包含尚未
+提交的 Validator 修复或随后被 Desktop 缺陷修复替代，因此明确登记为 `HISTORICAL` 或
+`SUPERSEDED`，不伪装成最新界面。
+
+P2-C 当前结论是 `BLANK_DESKTOP_CHAIN_DONE_SOURCE_GATES_OPEN`：Blank 已真实穿过
+DeepSeek、Preview、Review、同一 SemanticCommit 的恢复、正式创建、reload、专用 Undo、
+再次 reload 和健康状态；Page 与 MiniProject 来源的当前 Desktop 边界仍需单独验证，P2-D～G
+也仍开放。完整记录见
+`../logs/p2-c-project-creation-desktop-live-20260726.md`。
 
 ## 每次取证必须记录
 

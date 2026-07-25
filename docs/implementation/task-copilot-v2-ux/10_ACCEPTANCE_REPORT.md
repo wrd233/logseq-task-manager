@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_FORMAL_CHAIN_AUTOMATED | P2-A/B 完整自动链 PASS；P2-C 三来源用户入口、Grill/Preview/HIGH Review、Proposal-bound atomic create、restart Recovery、dedicated/reused Page safety 与 inverse Undo PASS；直建 bypass 已移除 | P2-A/B 隔离链 PASS；P2-C Blank real DeepSeek v4 flash turn/preview PASS；P2-C 当前正式链 Desktop 尚未执行 | P2-A/B 当前纵向 Slice DONE；P2-C 自动化从 Partial→Done，但 Desktop Gate OPEN；P2-D～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_BLANK_DESKTOP_DONE | P2-A/B 完整自动链 PASS；P2-C 三来源用户入口、Grill/Preview/HIGH Review、Proposal-bound create、Recovery 与 inverse Undo PASS | P2-A/B 隔离链 PASS；P2-C Blank 真实 DeepSeek→Preview→Review→同 Commit Recovery→create→reload→Undo→reload/健康 PASS；Page/MiniProject 来源 OPEN | P2-A/B 与 P2-C Blank 主链 DONE；P2-C 来源 Gate、P2-D～G OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -71,7 +71,7 @@
 - [ ] Project 所有创建入口经过自适应 Grill Me；Blank/Page/MiniProject creation subject、
   source evidence 边界及 internal closure/current interface readiness、Preview 与
   server-owned 单组 HIGH Proposal/Review 自动合同 PASS；Blank 真实 Provider turn/preview
-  PASS，Page/MiniProject 真实 Provider、正式创建/Recovery/Undo/Desktop 尚未闭环；
+  和完整正式 Desktop 链 PASS；Page/MiniProject 真实 Provider、来源关系与 Desktop 尚未闭环；
 - [x] 原位重构当前纵向 Slice 零丢失；原 UUID/正文守恒、0 delete、Undo 后父级与顺序恢复；
 - [x] 原位结构宿主能力有界通过；同一会话内 custom UUID、语义正文与 A/B/C 顺序经过
   move-first-child/restore-after-sibling 保持，Page runtime UUID 跨 reload 限制已明确转入 Rebind；
@@ -85,6 +85,11 @@
 - [ ] Rebind 不展示 UUID 列表；
 - [ ] Restore/Migration 复用唯一安全链；
 - [ ] 高影响流程全部可恢复。
+
+P2-C Blank 专项证据：Application 152/152、Local Service 129/129、Plugin 269/269；真实
+properties Block、PENDING/Recovery、专用 Undo、Page name 删除与 reload 健康状态已验证。
+CURRENT 截图 `p2-c-09`～`p2-c-11`；较早 `p2-c-01`～`p2-c-08` 已按 commit 一致性降为
+HISTORICAL/SUPERSEDED，不作为当前 UI 权威。
 
 ## 5. 操作距离指标
 

@@ -1,6 +1,6 @@
 # Current UI Map
 
-> 截至 2026-07-25：所有既有 Desktop 截图默认 `HISTORICAL`；下表的 `OPEN` 表示尚无
+> 截至 2026-07-26：所有未在本目录索引的既有 Desktop 截图默认 `HISTORICAL`；下表的 `OPEN` 表示尚无
 > 与当前代码 Commit 对齐的真实截图，不代表功能未实现。
 
 | 场景 | 最新实现状态 | 当前截图 | 下一次取证 Gate |
@@ -11,7 +11,7 @@
 | Project Page Head / Context Recovery | 已实现并有真实 Provider Gate | OPEN | loading/error/stale/feedback、主题与窄栏 |
 | Block Marker | 默认关闭 prototype | OPEN | 编辑/TODO/Query/sidebar/Zoom/主题/性能 |
 | MiniProject Grill / 原位重构 | 一个纵向链历史 Desktop 通过 | OPEN | 最新构建回归与多材料质量样本 |
-| Project Creation Grill | Preview→HIGH Review 自动完成 | OPEN | 正式 create/Recovery/Undo 完成后整链 |
+| Project Creation Grill | Blank 真实 Provider→Preview→HIGH Review→同 Commit Recovery→create→reload→Undo→reload PASS；Page/MiniProject 来源仍开放 | CURRENT：入口、Undo、健康态；中间态历史证据 | Page/MiniProject 来源边界、Light/窄栏与一条全程同 commit 证据 |
 | Recovery / Rebind / Restore / Migration | 底层能力存在，产品化未完成 | OPEN | P2-G 用户向导整链 |
 | Attention Signal | Shadow runtime | OPEN | 首批确定性 Signal 开放门通过后 |
 
