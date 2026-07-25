@@ -89,6 +89,15 @@ test("V2 Proposal validator refuses modify-scope escape, stale patch hashes, and
   const outside = proposal();
   outside.groups[0]!.textPatches[0]!.blockUuid = "block-outside";
   assert.throws(() => validateV2Proposal(outside), /modify scope/);
+  for (const target of [
+    { kind: "BLOCK" as const, id: "block-1", version: 8, hash: checksum("核对外部推送") },
+    { kind: "BLOCK" as const, id: "block-1", version: 7, hash: checksum("正文已变化") },
+    { kind: "BLOCK" as const, id: "block-1", expectedExistence: "PRESENT" as const, version: 7, hash: checksum("核对外部推送") },
+  ]) {
+    const mismatchedEvidence = proposal();
+    mismatchedEvidence.groups[0]!.semanticOperations[0]!.target = target;
+    assert.throws(() => validateV2Proposal(mismatchedEvidence), /证据完全一致/);
+  }
   const stale = proposal();
   stale.groups[0]!.textPatches[0]!.beforeText = "正文已变化";
   assert.throws(() => validateV2Proposal(stale), /hash/);
@@ -148,6 +157,27 @@ test("accepted Proposal revalidation checks read context and accepted modify tar
     { kind: "BLOCK", id: "block-1", exists: true, version: 7, hash: checksum("核对外部推送") },
   ]);
   assert.deepEqual(result, { status: "VALID", acceptedGroupIds: ["formalize-task"] });
+});
+
+test("accepted Proposal revalidation can require a create target to remain absent", () => {
+  const value = proposal();
+  const target = { kind: "PAGE" as const, id: "Project/New", expectedExistence: "ABSENT" as const };
+  value.scope.read = [];
+  value.scope.modify = [target];
+  value.groups[0]!.textPatches = [];
+  value.groups[0]!.semanticOperations = [{
+    operationId: "create-project-page",
+    kind: "CREATE_OBJECT",
+    target,
+    summary: "建立 Project",
+    payload: { objectType: "PROJECT", text: "New" },
+    preconditions: ["Project Page 仍不存在"],
+  }];
+  const accepted = reviewV2ProposalGroups(value, { "formalize-task": { disposition: "ACCEPTED" } });
+  assert.equal(revalidateAcceptedV2Proposal(accepted, [{ kind: "PAGE", id: "Project/New", exists: false }]).status, "VALID");
+  const present = revalidateAcceptedV2Proposal(accepted, [{ kind: "PAGE", id: "Project/New", exists: true, hash: checksum("existing") }]);
+  assert.equal(present.status, "STALE");
+  if (present.status === "STALE") assert.equal(present.issues[0]?.reason, "TARGET_PRESENT");
 });
 
 test("accepted Proposal revalidation reports stale and refuses unscoped or duplicate evidence", () => {

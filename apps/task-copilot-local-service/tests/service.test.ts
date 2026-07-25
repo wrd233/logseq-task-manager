@@ -398,6 +398,8 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   let providerCalls = 0;
   let providerSource: "BLANK" | "PAGE" | "MINI_PROJECT" = "BLANK";
   let providerReady = false;
+  let providerRelationshipMode: "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" | "REUSE_SOURCE_PAGE" = "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE";
+  let providerPreviewCurrentInterface = "先看本月待核验设备。";
   const provider: StructuredProposalProvider = {
     providerId: "deepseek",
     providerVersion: "chat-completions-v1",
@@ -405,7 +407,10 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
       providerCalls += 1;
       if (input.system.startsWith("Return exactly one task-copilot-project-creation-preview-v1")) {
         const blankPreview = input.user.includes("\"sourceKind\":\"BLANK\"");
-        const evidenceRefs = blankPreview ? ["session:project-creation-entry"] : ["block:project-page-root"];
+        const miniProjectPreview = input.user.includes("MINI_PROJECT");
+        const evidenceRefs = blankPreview
+          ? ["session:project-creation-entry"]
+          : [miniProjectPreview ? "block:mini-evolution-root" : "block:project-page-root"];
         const claim = (text: string) => ({ text, evidenceRefs });
         return {
           value: {
@@ -415,15 +420,15 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
             boundary: { included: [claim("托管设备治理。")], excluded: [] },
             completionEvidence: [claim("月度记录可追溯。")],
             internalClosure: claim("每月核验并处理差异。"),
-            currentInterface: claim("先看本月待核验设备。"),
+            currentInterface: claim(providerPreviewCurrentInterface),
             pageObjectRelationship: {
-              mode: blankPreview ? "CREATE_DEDICATED_PROJECT_PAGE" : "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE",
+              mode: blankPreview ? "CREATE_DEDICATED_PROJECT_PAGE" : providerRelationshipMode,
               rationale: blankPreview ? "空白入口创建受控 Project Page。" : "创建受控 Project Page 并连接原 Page。",
               evidenceRefs,
             },
             sourceMaterials: blankPreview ? [] : [
-              { materialId: "source-1", disposition: "LINK_AS_SOURCE", rationale: "保留 Page 根材料。", evidenceRefs: ["block:project-page-root"] },
-              { materialId: "source-2", disposition: "LINK_AS_SOURCE", rationale: "保留 Page 子材料。", evidenceRefs: ["block:project-page-child"] },
+              { materialId: "source-1", disposition: "LINK_AS_SOURCE", rationale: "保留来源根材料。", evidenceRefs: [miniProjectPreview ? "block:mini-evolution-root" : "block:project-page-root"] },
+              { materialId: "source-2", disposition: "LINK_AS_SOURCE", rationale: "保留来源子材料。", evidenceRefs: [miniProjectPreview ? "block:mini-evolution-child" : "block:project-page-child"] },
             ],
           },
           metadata: { model: "deepseek-chat", durationMs: 18, attempts: 1 },
@@ -490,6 +495,51 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   assert.deepEqual(blankPreview.output.formalImpact, { createsObject: false, createsPage: false, movesBlocks: 0, rewritesBlocks: 0, deletesBlocks: 0 });
   assert.deepEqual(await client.status(), beforeBlankPreview, "Blank Project Creation Preview remains zero-write");
   assert.equal(providerCalls, 2);
+  const blankProposal = await client.createProjectCreationProposal({ previewHandle: blankPreview.previewHandle });
+  assert.equal(blankProposal.replayed, false);
+  assert.equal(blankProposal.record.proposal.status, "READY");
+  assert.equal(blankProposal.record.proposal.groups[0]?.risk, "HIGH");
+  assert.equal(blankProposal.record.proposal.groups[0]?.semanticOperations[0]?.kind, "CREATE_OBJECT");
+  assert.equal(blankProposal.record.proposal.groups[0]?.semanticOperations[0]?.payload.relationshipMode, "CREATE_DEDICATED_PROJECT_PAGE");
+  assert.equal((await client.createProjectCreationProposal({ previewHandle: blankPreview.previewHandle })).replayed, true);
+  const acceptedBlankProposal = await client.reviewProposal(blankProposal.record.proposal.proposalId, {
+    "create-project": { disposition: "ACCEPTED", highImpactConfirmed: true },
+  }, blankProposal.record.updatedAt);
+  assert.equal(acceptedBlankProposal.proposal.status, "ACCEPTED");
+  assert.deepEqual(await client.status(), beforeBlankPreview, "accepting Project Creation Proposal remains zero formal object/page write");
+  providerPreviewCurrentInterface = "先处理本月核验差异。";
+  const regeneratedBlankPreview = await client.previewProjectCreation({
+    sourceKind: "BLANK",
+    answers: [
+      { uncertaintyId: "outcome", text: "持续形成可核验结果。" },
+      { uncertaintyId: "project-boundary", text: "只覆盖托管设备治理。" },
+      { uncertaintyId: "completion-evidence", text: "月度记录可追溯。" },
+      { uncertaintyId: "internal-closure", text: "每月核验并处理差异。" },
+      { uncertaintyId: "current-interface", text: "先看本月待核验设备。" },
+    ],
+  });
+  const regeneratedBlankProposal = await client.createProjectCreationProposal({ previewHandle: regeneratedBlankPreview.previewHandle });
+  assert.notEqual(regeneratedBlankProposal.record.proposal.proposalId, blankProposal.record.proposal.proposalId, "distinct server-owned Preview intent cannot collide on Proposal identity");
+  providerPreviewCurrentInterface = "先看本月待核验设备。";
+  const identicalBlankPreview = await client.previewProjectCreation({
+    sourceKind: "BLANK",
+    answers: [
+      { uncertaintyId: "outcome", text: "持续形成可核验结果。" },
+      { uncertaintyId: "project-boundary", text: "只覆盖托管设备治理。" },
+      { uncertaintyId: "completion-evidence", text: "月度记录可追溯。" },
+      { uncertaintyId: "internal-closure", text: "每月核验并处理差异。" },
+      { uncertaintyId: "current-interface", text: "先看本月待核验设备。" },
+    ],
+  });
+  const identicalBlankProposal = await client.createProjectCreationProposal({ previewHandle: identicalBlankPreview.previewHandle });
+  assert.notEqual(identicalBlankProposal.record.proposal.proposalId, blankProposal.record.proposal.proposalId, "a separately generated Preview owns a distinct Proposal identity even when its reading is identical");
+  await assert.rejects(
+    () => client.createProjectCreationProposal({ previewHandle: "grill_preview_AAAAAAAAAAAAAAAAAAAAAAAA" }),
+    (error: unknown) => {
+      assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "PROJECT_CREATION_PREVIEW_SESSION_EXPIRED");
+      return true;
+    },
+  );
   providerReady = false;
 
   const resolved = { kind: "PAGE" as const, id: "project-page", name: "Project Notes", version: 2, evidenceHash: checksum("project-page") };
@@ -512,7 +562,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   const pagePromise = client.grillProjectCreation({ sourceKind: "PAGE", pageId: "Project Notes", answers: [] });
   const [, pageResult] = await Promise.all([bridge, pagePromise]);
   assert.equal(pageResult.output.questionGroup?.focusUncertaintyId, "material-disposition");
-  assert.equal(providerCalls, 3);
+  assert.equal(providerCalls, 5);
   assert.equal((await client.status()).objectCount, 0);
 
   const notReadyPreviewBridge = (async () => {
@@ -527,7 +577,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
     assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "PROJECT_CREATION_PREVIEW_NOT_READY");
     return true;
   });
-  assert.equal(providerCalls, 3, "not-ready Preview never calls Provider");
+  assert.equal(providerCalls, 5, "not-ready Preview never calls Provider");
 
   providerReady = true;
   const pageAnswers = [
@@ -556,7 +606,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   const [, readyPage] = await Promise.all([readyPageBridge, readyPagePromise]);
   assert.equal(readyPage.output.readiness, "READY_FOR_PREVIEW");
   assert.equal(readyPage.output.questionGroup, undefined);
-  assert.equal(providerCalls, 4);
+  assert.equal(providerCalls, 6);
   providerReady = false;
 
   const changedPageBlocks = blocks.map((block) => block.uuid === "project-page-child"
@@ -579,6 +629,60 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   assert.equal(preview.output.pageObjectRelationship.authority, "PROPOSED_FOR_REVIEW");
   assert.deepEqual(preview.output.formalImpact, { createsObject: false, createsPage: false, movesBlocks: 0, rewritesBlocks: 0, deletesBlocks: 0 });
   assert.deepEqual(await client.status(), beforePreview, "Project Creation Preview remains zero-write");
+
+  const pageProposalBridge = (async () => {
+    for (let index = 0; index < 2; index += 1) {
+      const pending = await client.claimGraphReadRequest();
+      assert.equal(pending?.kind, "PAGE");
+      if (!pending) throw new Error("expected Project Creation Proposal Page revalidation");
+      await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+    }
+  })();
+  const pageProposalPromise = client.createProjectCreationProposal({ previewHandle: preview.previewHandle });
+  const [, pageProposal] = await Promise.all([pageProposalBridge, pageProposalPromise]);
+  assert.equal(pageProposal.record.proposal.groups[0]?.risk, "HIGH");
+  assert.deepEqual(pageProposal.record.proposal.scope.modify, [{ kind: "PAGE", id: "Project/Project Notes", expectedExistence: "ABSENT" }]);
+  assert.equal(pageProposal.record.proposal.groups[0]?.semanticOperations[0]?.payload.relationshipMode, "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE");
+  assert.equal((await client.status()).objectCount, beforePreview.objectCount, "Project Creation Proposal persists review authority but creates no Project");
+
+  const staleProposalBridge = (async () => {
+    const pending = await client.claimGraphReadRequest();
+    assert.equal(pending?.kind, "PAGE");
+    if (!pending) throw new Error("expected stale Project Creation Proposal Page read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: changedPageSnapshot });
+  })();
+  const staleProposalPromise = client.createProjectCreationProposal({ previewHandle: preview.previewHandle });
+  await staleProposalBridge;
+  await assert.rejects(staleProposalPromise, (error: unknown) => {
+    assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "GRILL_SOURCE_STALE");
+    return true;
+  });
+
+  providerRelationshipMode = "REUSE_SOURCE_PAGE";
+  const reusePreviewBridge = (async () => {
+    for (let index = 0; index < 2; index += 1) {
+      const pending = await client.claimGraphReadRequest();
+      assert.equal(pending?.kind, "PAGE");
+      if (!pending) throw new Error("expected existing Page upgrade Preview read");
+      await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+    }
+  })();
+  const reusePreviewPromise = client.previewProjectCreation({ sourceKind: "PAGE", pageId: "Project Notes", answers: pageAnswers });
+  const [, reusePreview] = await Promise.all([reusePreviewBridge, reusePreviewPromise]);
+  assert.equal(reusePreview.output.pageObjectRelationship.mode, "REUSE_SOURCE_PAGE");
+  const reuseProposalBridge = (async () => {
+    for (let index = 0; index < 2; index += 1) {
+      const pending = await client.claimGraphReadRequest();
+      assert.equal(pending?.kind, "PAGE");
+      if (!pending) throw new Error("expected existing Page upgrade Proposal revalidation");
+      await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+    }
+  })();
+  const reuseProposalPromise = client.createProjectCreationProposal({ previewHandle: reusePreview.previewHandle });
+  const [, reuseProposal] = await Promise.all([reuseProposalBridge, reuseProposalPromise]);
+  assert.deepEqual(reuseProposal.record.proposal.scope.modify, [{ kind: "PAGE", id: "project-page", expectedExistence: "PRESENT", version: 2, hash: checksum("project-page") }]);
+  assert.equal(reuseProposal.record.proposal.groups[0]?.semanticOperations[0]?.payload.relationshipMode, "REUSE_SOURCE_PAGE");
+  providerRelationshipMode = "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE";
 
   const stalePreviewBridge = (async () => {
     for (const next of [snapshot, changedPageSnapshot]) {
@@ -646,6 +750,55 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   assert.equal(miniResult.output.questionGroup?.focusUncertaintyId, "project-boundary");
   assert.deepEqual(await client.status(), beforeMiniGrill, "MiniProject evolution Grill does not create a Project or mutate its source");
 
+  const miniAnswers = [
+    { uncertaintyId: "project-boundary", text: "升级为持续治理托管设备的 Project。" },
+    { uncertaintyId: "page-object-relationship", text: "保留 MiniProject 原文并创建独立 Project Page。" },
+    { uncertaintyId: "current-interface", text: "先看本月待核验设备。" },
+    { uncertaintyId: "internal-closure", text: "每月核验并处理差异。" },
+    { uncertaintyId: "outcome", text: "持续形成可核验结果。" },
+    { uncertaintyId: "completion-evidence", text: "月度记录可追溯。" },
+    { uncertaintyId: "material-disposition", text: "原材料保留在原位并作为来源连接。" },
+  ];
+  providerReady = true;
+  const miniPreviewBridge = answerMiniReads();
+  const miniPreviewPromise = client.previewProjectCreation({
+    sourceKind: "MINI_PROJECT",
+    objectId: created.object.objectId,
+    expectedVersion: created.object.version,
+    answers: miniAnswers,
+  });
+  const [, miniPreview] = await Promise.all([miniPreviewBridge, miniPreviewPromise]);
+  assert.equal(miniPreview.output.pageObjectRelationship.mode, "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE");
+  const miniProposalBridge = answerMiniReads();
+  const miniProposalPromise = client.createProjectCreationProposal({ previewHandle: miniPreview.previewHandle });
+  const [, miniProposal] = await Promise.all([miniProposalBridge, miniProposalPromise]);
+  assert.equal(miniProposal.record.proposal.groups[0]?.risk, "HIGH");
+  assert.equal(miniProposal.record.proposal.groups[0]?.semanticOperations[0]?.payload.sourceKind, "MINI_PROJECT");
+  assert.equal((await client.status()).objectCount, beforeMiniGrill.objectCount, "MiniProject Project Proposal remains zero formal Project write");
+
+  providerRelationshipMode = "REUSE_SOURCE_PAGE";
+  const invalidMiniPreviewBridge = (async () => {
+    const pending = await client.claimGraphReadRequest();
+    assert.equal(pending?.kind, "BLOCK");
+    if (!pending) throw new Error("expected invalid MiniProject Preview source read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: miniSnapshot });
+  })();
+  const invalidMiniPreviewPromise = client.previewProjectCreation({
+    sourceKind: "MINI_PROJECT",
+    objectId: created.object.objectId,
+    expectedVersion: created.object.version,
+    answers: miniAnswers,
+  });
+  await Promise.all([
+    invalidMiniPreviewBridge,
+    assert.rejects(invalidMiniPreviewPromise, (error: unknown) => {
+      assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "PROJECT_CREATION_PREVIEW_VALIDATION_FAILED");
+      return true;
+    }),
+  ]);
+  providerRelationshipMode = "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE";
+  providerReady = false;
+
   const changedMiniBlocks = miniBlocks.map((block) => block.uuid === "mini-evolution-child" ? { ...block, content: "用户在生成期间修改", contentHash: checksum("用户在生成期间修改") } : block);
   const changedMiniSnapshot = { ...miniSnapshot, blocks: changedMiniBlocks, readAt: "2026-07-25T13:06:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved: miniResolved, blocks: changedMiniBlocks, truncated: false }) };
   const staleBridge = answerMiniReads(changedMiniSnapshot);
@@ -657,6 +810,45 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   });
   assert.deepEqual(await client.status(), beforeMiniGrill, "stale MiniProject generation remains zero-write");
 
+  providerReady = true;
+  const graphStaleMiniPreviewBridge = answerMiniReads();
+  const graphStaleMiniPreviewPromise = client.previewProjectCreation({
+    sourceKind: "MINI_PROJECT",
+    objectId: created.object.objectId,
+    expectedVersion: created.object.version,
+    answers: miniAnswers,
+  });
+  const [, graphStaleMiniPreview] = await Promise.all([graphStaleMiniPreviewBridge, graphStaleMiniPreviewPromise]);
+  const graphStaleMiniProposalBridge = (async () => {
+    const pending = await client.claimGraphReadRequest();
+    assert.equal(pending?.kind, "BLOCK");
+    if (!pending) throw new Error("expected stale MiniProject Proposal source read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: changedMiniSnapshot });
+  })();
+  const graphStaleMiniProposalPromise = client.createProjectCreationProposal({ previewHandle: graphStaleMiniPreview.previewHandle });
+  await graphStaleMiniProposalBridge;
+  await assert.rejects(graphStaleMiniProposalPromise, (error: unknown) => {
+    assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "GRILL_SOURCE_STALE");
+    return true;
+  });
+
+  const objectStaleMiniPreviewBridge = answerMiniReads();
+  const objectStaleMiniPreviewPromise = client.previewProjectCreation({
+    sourceKind: "MINI_PROJECT",
+    objectId: created.object.objectId,
+    expectedVersion: created.object.version,
+    answers: miniAnswers,
+  });
+  const [, objectStaleMiniPreview] = await Promise.all([objectStaleMiniPreviewBridge, objectStaleMiniPreviewPromise]);
+  await client.changeCondition(created.object.objectId, created.object.version, { kind: "PAUSED", reason: "验证 Preview 后正式对象变化" });
+  await assert.rejects(
+    () => client.createProjectCreationProposal({ previewHandle: objectStaleMiniPreview.previewHandle }),
+    (error: unknown) => {
+      assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "V2_OBJECT_VERSION_CONFLICT");
+      return true;
+    },
+  );
+
   const injected = await fetch(new URL("provider/grill/project-creation/turn", service.url), {
     method: "POST",
     headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
@@ -664,7 +856,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   });
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CREATION_GRILL_REQUEST_INVALID");
-  assert.equal(providerCalls, 9);
+  assert.equal(providerCalls, 16);
 });
 
 test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {

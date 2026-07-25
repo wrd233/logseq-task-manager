@@ -43,6 +43,9 @@
 | POST | `/provider/proposals/generate` | 五层 Prompt → Structured Output → Validator → READY Proposal，或 `NO_PROPOSAL` 理由 | 仅校验成功的 Proposal + Group；不改 Graph/对象/Anchor/Lifecycle/Condition/Focus |
 | POST | `/provider/proposals/{id}/revise` | 对当前 local_llm Proposal 做同机器意图调整 | 原 proposal_id 原位修订并回到 READY；不改 Graph/对象/Anchor/Lifecycle/Condition/Focus |
 | POST | `/provider/ux/project-context-recovery` | 正式 Project Context → 统一恢复草稿 | 无；只返回受 Validator 约束的 session draft |
+| POST | `/provider/grill/project-creation/turn` | Blank/Page/MiniProject 有界来源 → 一轮自适应 Project 创建 Grill draft | 无；创建前不分配 Object identity，Page/MiniProject 前后重验来源 |
+| POST | `/provider/grill/project-creation/preview` | machine-ready Grill session → 最终阅读预览与 session-only handle | 无；页面关系只是待 Review 提案，Service restart/过期/stale 后 handle 失效 |
+| POST | `/provider/grill/project-creation/proposal` | 当前 session preview handle → 一个 HIGH Project 创建 Proposal | 只写 Proposal + Group；重新读取来源并重验 fingerprint/scope，不创建 Page/Object/Commit |
 | POST | `/provider/grill/mini-project/turn` | OPEN MiniProject 精确 Primary Anchor 子树 → 一轮自适应 Grill draft | 无；前后重验 Object/Anchor/subtree，永不生成 Proposal 或正式写入 |
 | POST | `/provider/grill/mini-project/preview` | 已完成四项真实判断的 Grill session → 零丢失最终阅读/结构预览 | 无；每项原材料恰好出现一次、root 留在 root、删除数机器固定为 0；不生成 Proposal/operation |
 | POST | `/provider/grill/mini-project/proposal` | 当前 Service session preview handle → 一个 HIGH 结构 Proposal | 只写 Proposal + Group；重读并重验 Object/Anchor/subtree，不改 Graph/对象 |

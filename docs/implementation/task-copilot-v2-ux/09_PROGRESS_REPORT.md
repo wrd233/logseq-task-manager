@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE | P2-A+B 一个隔离 MiniProject 已完成真实 DeepSeek Grill→canonical preview→HIGH Review→8-step Commit→reload→真实 Recovery→修正后 8-step Undo→reload→返回根 Block；P2-C creation-subject/readiness contract automated，vertical route OPEN；P2-D～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE_P2C_HIGH_REVIEW_AUTOMATED | P2-A+B 一个隔离 MiniProject 已完成真实 DeepSeek Grill→canonical preview→HIGH Review→8-step Commit→reload→真实 Recovery→修正后 8-step Undo→reload→返回根 Block；P2-C 已到 Preview→server-owned HIGH Proposal/Review，正式 create vertical route OPEN；P2-D～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -437,7 +437,16 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Page 成功逐条保留非空材料；Page 未就绪不调用 Provider，生成期间变化 stale，全部保持
   Object/Page/Commit 零写入。Blank Preview 已用真实 `deepseek-v4-flash` +
   `project-creation-modeling@1.1.0` 验证合法 Schema、待 Review 关系、handle、零 formal
-  impact 与 Object 0→0。Preview→HIGH Proposal/Review、原子创建、Recovery/Undo、
+  impact 与 Object 0→0。Preview handle 的 server-owned HIGH Proposal/Review 已自动接通：
+  Service 消费前重新读取来源并校验覆盖稳定 Context facts 的 fingerprint 与 Graph scope，
+  server-owned Preview handle 与完整规范 Preview 共同决定 Proposal identity；同一 handle
+  幂等重放，独立生成但阅读内容相同的 Preview 也不会与不同 `createdAt` 的记录碰撞；
+  Blank 独立建页、Page 规范 identity/version/hash
+  下保留另建或升级当前 Page、MiniProject 保留另建的 Service 纵向链与关系白名单均 PASS，
+  新建/复用目标分别要求 `ABSENT`/`PRESENT`，operation target 与 modify scope 的
+  existence/version/hash 必须完全一致；未决关系、过期、Graph stale 和 MiniProject
+  Object version stale 均在新 Proposal 前 fail closed；
+  Review 接受后 Object/Page/Commit 仍为零。原子创建、Recovery/Undo、
   完成后路由和 Desktop 仍 OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
@@ -448,9 +457,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-C：让 session-only Project Creation Preview handle 进入 server-owned HIGH
-   Proposal/Review，并复用正式 Project prepare/page/finalize 原子链；随后补齐失败、
-   Recovery、Undo、reload 和返回来源；
+1. 继续 P2-C：让已接受的 Project Creation HIGH Proposal 进入正式
+   prepare/page/finalize 原子链，同时分别落实“新建独立 Project Page”和“升级当前 Page”
+   的 ownership/recovery 合同；随后补齐失败、Recovery、Undo、reload 和返回来源；
 2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

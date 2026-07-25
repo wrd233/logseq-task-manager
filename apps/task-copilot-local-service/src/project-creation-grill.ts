@@ -78,6 +78,22 @@ function sha256(value: unknown): string {
   return createHash("sha256").update(stableJson(value)).digest("hex");
 }
 
+function stableContextFile(content: string): unknown {
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    const stripTransportTime = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(stripTransportTime);
+      if (!value || typeof value !== "object") return value;
+      return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => !["generatedAt", "readAt", "contextFingerprint"].includes(key))
+        .map(([key, nested]) => [key, stripTransportTime(nested)]));
+    };
+    return stripTransportTime(parsed);
+  } catch {
+    return content;
+  }
+}
+
 function validateSource(source: ProjectCreationGrillSource): void {
   if (!Number.isFinite(Date.parse(source.observedAt))) throw new Error("Project creation observedAt is invalid.");
   if (!/^[a-f0-9]{64}$/.test(source.contextFingerprint)) throw new Error("Project creation context fingerprint is invalid.");
@@ -153,8 +169,24 @@ export function buildProjectCreationGrillGeneration(source: ProjectCreationGrill
   const sourceFingerprint = sha256({
     sourceKind: source.sourceKind,
     materials: source.materials.map(({ sourceRef, contentHash }) => ({ sourceRef, contentHash })),
-    contextFingerprint: source.contextFingerprint,
-    answers: [...source.answers],
+    contextAuthority: {
+      manifest: {
+        schemaVersion: source.contextPackage.manifest.schemaVersion,
+        scope: source.contextPackage.manifest.scope,
+        authority: source.contextPackage.manifest.authority,
+        formalFactsSource: source.contextPackage.manifest.formalFactsSource,
+        graphExcerptStatus: source.contextPackage.manifest.graphExcerptStatus,
+        includedObjectCount: source.contextPackage.manifest.includedObjectCount,
+      },
+      files: Object.fromEntries(Object.entries(packageFiles)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([path, content]) => [path, stableContextFile(content)])),
+    },
+    skills: [
+      { name: source.coreSkill.name, version: source.coreSkill.version, sha256: source.coreSkill.sha256 },
+      { name: source.grillSkill.name, version: source.grillSkill.version, sha256: source.grillSkill.sha256 },
+    ],
+    answers: [...source.answers].sort((left, right) => left.uncertaintyId.localeCompare(right.uncertaintyId)),
   });
 
   return {

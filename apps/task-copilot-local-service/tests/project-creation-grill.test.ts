@@ -88,6 +88,58 @@ test("answers resolve only their exact dimensions and change the machine-selecte
   assert.notEqual(second.authority.sourceFingerprint, first.authority.sourceFingerprint);
 });
 
+test("source fingerprint survives a fresh Context Package timestamp but changes with user semantics", () => {
+  const base = source("PAGE");
+  const firstSource = {
+    ...base,
+    contextPackage: {
+      ...base.contextPackage,
+      files: {
+        ...base.contextPackage.files,
+        "graph/page.json": JSON.stringify({ snapshot: { readAt: "2026-07-25T11:59:59.000Z", scopeHash: "12345678" } }),
+        "objects.json": JSON.stringify({ formalFacts: [{ objectId: "task-1", version: 3, lifecycle: "OPEN" }] }),
+      },
+    },
+  };
+  const secondSource = {
+    ...firstSource,
+    observedAt: "2026-07-25T12:05:00.000Z",
+    contextFingerprint: "d".repeat(64),
+    contextPackage: {
+      ...firstSource.contextPackage,
+      manifest: { ...firstSource.contextPackage.manifest, generatedAt: "2026-07-25T12:04:59.000Z" },
+      files: {
+        ...firstSource.contextPackage.files,
+        "graph/page.json": JSON.stringify({ snapshot: { readAt: "2026-07-25T12:04:59.000Z", scopeHash: "12345678" } }),
+      },
+    },
+  };
+  const first = buildProjectCreationGrillGeneration(firstSource);
+  const second = buildProjectCreationGrillGeneration(secondSource);
+  assert.equal(second.authority.sourceFingerprint, first.authority.sourceFingerprint);
+
+  const changed = buildProjectCreationGrillGeneration({
+    ...secondSource,
+    contextPackage: {
+      ...secondSource.contextPackage,
+      files: { ...secondSource.contextPackage.files, "workspace-semantics.md": "Project 必须形成独立长期交付。" },
+    },
+  });
+  assert.notEqual(changed.authority.sourceFingerprint, first.authority.sourceFingerprint);
+
+  const formalFactChanged = buildProjectCreationGrillGeneration({
+    ...secondSource,
+    contextPackage: {
+      ...secondSource.contextPackage,
+      files: {
+        ...secondSource.contextPackage.files,
+        "objects.json": JSON.stringify({ formalFacts: [{ objectId: "task-1", version: 4, lifecycle: "COMPLETED" }] }),
+      },
+    },
+  });
+  assert.notEqual(formalFactChanged.authority.sourceFingerprint, first.authority.sourceFingerprint);
+});
+
 test("all seven Project creation dimensions, including Page/Object relationship, must resolve before preview readiness", () => {
   const ready = buildProjectCreationGrillGeneration(source("PAGE", [
     { uncertaintyId: "material-disposition", text: "现有页面内容全部作为项目背景材料保留。" },

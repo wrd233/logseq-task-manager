@@ -217,6 +217,8 @@ export interface ServiceProjectCreationPreviewResult {
   contextFingerprint: string;
   previewHandle: string;
 }
+export interface ServiceProjectCreationProposalRequest { previewHandle: string }
+export interface ServiceProjectCreationProposalResult { record: ServiceStoredProposal; replayed: boolean }
 
 export type ServiceMiniProjectGrillPreviewRequest = ServiceMiniProjectGrillRequest;
 export interface ServiceGrillPreviewClaim { text: string; evidenceRefs: string[] }
@@ -1031,6 +1033,14 @@ export class LocalServiceClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
     }, 125_000);
+  }
+
+  createProjectCreationProposal(input: ServiceProjectCreationProposalRequest): Promise<ServiceProjectCreationProposalResult> {
+    return this.request<ServiceProjectCreationProposalResult>("/provider/grill/project-creation/proposal", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
   }
 
   previewMiniProjectGrill(input: ServiceMiniProjectGrillPreviewRequest): Promise<ServiceMiniProjectGrillPreviewResult> {

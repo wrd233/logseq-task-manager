@@ -102,7 +102,7 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 
 ## P2-C：Project 创建 Grill Me
 
-状态：`IN_PROGRESS_PREVIEW_SERVICE_AUTOMATED`
+状态：`IN_PROGRESS_HIGH_REVIEW_AUTOMATED`
 
 所有入口：
 
@@ -117,9 +117,8 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 首个 Application 合同已完成：Grill subject 使用 `PROJECT_CREATION`，创建前没有 Object ID；
 Blank 不得声称来源证据，Page/MiniProject 必须携带有界 source ref。机器 readiness 除成果、
 边界、完成证据和未分类材料外，还必须解决 Project 特有的 internal closure 与 current
-interface；模型仍只有 `SESSION_DRAFT_ONLY`。Application 140/140、typecheck PASS。Context
-Package、Skill/Prompt、Provider、最终预览、server-owned create Proposal、Review 和既有原子
-创建接线仍 OPEN。
+interface；模型仍只有 `SESSION_DRAFT_ONLY`。Context Package、Skill/Prompt、Provider、
+最终预览、server-owned create Proposal 与 Review 已接通；既有原子创建接线仍 OPEN。
 
 第二个自动合同已完成：Local Service `project-creation-grill.ts` 将三种入口材料构造成
 有界 Context 和七维 machine uncertainty，`project-creation-modeling@1.1.0` 明确要求
@@ -141,10 +140,22 @@ Page/MiniProject scope。Blank 不请求 Graph、不得产生来源材料；Page
 但仍按完整 snapshot scopeHash 重验。未就绪不调用 Provider，生成期间变化返回 stale，
 两者都不签发结果；成功只签发容量 64、30 分钟过期、Service restart 清空的 session-only
 opaque preview handle，正式 Object/Page/Graph/Audit/Commit 影响仍全部为零。现有自动证据
-覆盖 Blank/Page 成功、Page 未就绪和 stale；handle 的 HIGH Review 消费、正式 create
-接线、失败恢复、Undo、完成后路由与 Desktop 仍 OPEN。Blank Preview 已使用真实
+覆盖 Blank/Page 成功、Page 未就绪和 stale。
+
+第四个自动合同已完成：同一 Service session 内的 handle 可形成 server-owned 单组 HIGH
+Proposal；消费前重新构造来源、重算稳定 fingerprint 和 Graph scope，过期、未决关系或
+stale fail closed。稳定 fingerprint 覆盖实际可影响模型的 Context facts，Proposal identity
+覆盖完整规范 Preview。Blank 只允许独立受控 Project Page；Page 使用规范 Page
+identity/version/hash，可整体审阅“保留来源并另建”
+或“升级当前 Page”；MiniProject 只允许保留来源并另建。既有 Review 接受后仍没有
+Object/Page/Commit 写入。正式 create 接线、失败恢复、Undo、完成后路由与 Desktop 仍 OPEN。
+Blank Preview 已使用真实
 `deepseek-v4-flash` 与 `project-creation-modeling@1.1.0` 通过独立 Service Gate：
 来源材料 0、关系仍为待 Review、formal impact 0、Object projection 前后均为 0。
+Proposal identity 进一步绑定 server-owned Preview handle：同一 handle 只幂等重放同一
+Proposal，独立生成但阅读内容相同的 Preview 也不会与不同 `createdAt` 的记录碰撞。
+semantic operation target 必须与 modify scope 的 existence/version/hash 证据完全一致；
+MiniProject Preview 后 Graph 或正式 Object version 变化均在产生新 Proposal 前 fail closed。
 
 ## P2-D：Project 结构操作路由
 

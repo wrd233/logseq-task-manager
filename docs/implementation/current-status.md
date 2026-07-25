@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE
+p2_status: IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE_P2C_HIGH_REVIEW_AUTOMATED
 overall_goal: IN_PROGRESS
 ```
 
@@ -142,8 +142,18 @@ overall_goal: IN_PROGRESS
   来源逐条保留与关系仅为待 Review 提案；公开 Service Client 与 authenticated Preview
   route 已接通 Service-owned source rebuild、machine readiness、Provider 后 source
   revalidation 和 session-only opaque handle。Blank 成功无 Graph 读取/来源材料，Page 成功、
-  未就绪不调用 Provider及生成期间 stale 均有零写入自动证据；handle 消费、HIGH
-  Proposal/Review、既有原子 create 接线、Recovery/Undo/返回来源和 Desktop 仍 OPEN；
+  未就绪不调用 Provider及生成期间 stale 均有零写入自动证据；handle 现可由同一 Service
+  session 消费为 server-owned 单组 HIGH Proposal，Service 会重新读取来源、重算稳定
+  source fingerprint 与 Graph scope；fingerprint 覆盖实际送入模型的稳定 Context facts，
+  Proposal identity 覆盖 server-owned Preview handle 与完整规范 Preview，避免不同模型
+  阅读结果或分别生成的相同阅读结果因不同 `createdAt` 发生幂等碰撞。Page 使用
+  Graph bridge 解析后的规范 identity/version/hash，并显式区分目标必须存在或不存在；
+  operation target 与 modify scope 的 existence/version/hash 必须完全一致；关系未决、
+  过期、Graph stale 或 MiniProject Object version stale 均拒绝且不创建新 Proposal 或
+  Project。
+  Blank 只允许独立受控 Project Page，Page 可审阅“保留来源另建”或“升级当前 Page”，
+  MiniProject 只允许保留来源另建；HIGH Review 接受后仍保持 Object/Page/Commit 零写入。
+  既有原子 create 接线、Recovery/Undo/返回来源和 Desktop 仍 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   `project-creation-modeling@1.1.0` 通过 Gate：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -157,7 +167,8 @@ overall_goal: IN_PROGRESS
 V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 remaining host Desktop gates / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
-P2-C contract automated, vertical route OPEN / P2-D–G OPEN / overall Goal IN_PROGRESS
+P2-C Preview→HIGH Review automated, formal create vertical route OPEN /
+P2-D–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论
 

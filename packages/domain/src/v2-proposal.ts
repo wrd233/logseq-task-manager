@@ -10,6 +10,7 @@ export type V2ProposalOperationKind = "REWRITE_BLOCK" | "CREATE_BLOCK" | "CREATE
 export interface V2ProposalScopeTarget {
   kind: "BLOCK" | "PAGE" | "OBJECT";
   id: string;
+  expectedExistence?: "PRESENT" | "ABSENT";
   version?: number;
   hash?: string;
 }
@@ -72,7 +73,7 @@ export interface V2ProposalScopeObservation {
   hash?: string;
 }
 
-export type V2ProposalStaleReason = "EVIDENCE_UNSPECIFIED" | "OBSERVATION_MISSING" | "TARGET_MISSING" | "VERSION_CHANGED" | "HASH_CHANGED";
+export type V2ProposalStaleReason = "EVIDENCE_UNSPECIFIED" | "OBSERVATION_MISSING" | "TARGET_MISSING" | "TARGET_PRESENT" | "VERSION_CHANGED" | "HASH_CHANGED";
 export interface V2ProposalStaleIssue { kind: V2ProposalScopeTarget["kind"]; id: string; reason: V2ProposalStaleReason }
 export type V2ProposalRevalidationResult =
   | { status: "VALID"; acceptedGroupIds: string[] }
@@ -104,8 +105,10 @@ function scopeKey(target: V2ProposalScopeTarget): string { return `${target.kind
 
 function validateScopeTarget(target: V2ProposalScopeTarget): void {
   if (!target.id.trim() || target.id.length > 512) throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "Proposal scope target 无效。");
+  if (target.expectedExistence !== undefined && !["PRESENT", "ABSENT"].includes(target.expectedExistence)) throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "Proposal scope existence expectation 无效。");
   if (target.version !== undefined && (!Number.isSafeInteger(target.version) || target.version < 0)) throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "Proposal scope version 无效。");
   if (target.hash !== undefined && !/^[0-9a-f]{8}$/.test(target.hash)) throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "Proposal scope hash 无效。");
+  if (target.expectedExistence === "ABSENT" && (target.version !== undefined || target.hash !== undefined)) throw proposalError("V2_PROPOSAL_SCOPE_INVALID", "预期不存在的 Proposal target 不能同时声明版本或 hash。");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
@@ -148,6 +151,7 @@ export function validateV2Proposal(value: unknown): V2Proposal {
   const scope = [...proposal.scope.read, ...proposal.scope.modify];
   scope.forEach(validateScopeTarget);
   const modifyKeys = new Set(proposal.scope.modify.map(scopeKey));
+  const modifyTargets = new Map(proposal.scope.modify.map((target) => [scopeKey(target), target]));
   if (modifyKeys.size !== proposal.scope.modify.length) throw proposalError("V2_PROPOSAL_SCOPE_DUPLICATE", "Proposal modify scope 不能重复。");
   if (proposal.groups.length === 0 || proposal.groups.length > 64) throw proposalError("V2_PROPOSAL_GROUPS_INVALID", "Proposal 必须包含 1 到 64 个语义操作组。");
   const groupIds = new Set<string>();
@@ -168,6 +172,9 @@ export function validateV2Proposal(value: unknown): V2Proposal {
       operationIds.add(operation.operationId);
       validateScopeTarget(operation.target);
       if (!modifyKeys.has(scopeKey(operation.target))) throw proposalError("V2_PROPOSAL_SCOPE_VIOLATION", "语义操作超出 modify scope。", { groupId: group.groupId, operationId: operation.operationId });
+      if (stableJson(modifyTargets.get(scopeKey(operation.target))) !== stableJson(operation.target)) {
+        throw proposalError("V2_PROPOSAL_SCOPE_EVIDENCE_MISMATCH", "语义操作 target 必须与 modify scope 的 existence、version 和 hash 证据完全一致。", { groupId: group.groupId, operationId: operation.operationId });
+      }
       if (!operation.summary.trim()) throw proposalError("V2_PROPOSAL_OPERATION_INVALID", "语义操作必须包含人类可读说明。", { operationId: operation.operationId });
       if (highImpactOperations.has(operation.kind) && group.risk !== "HIGH") throw proposalError("V2_PROPOSAL_RISK_DOWNGRADE", "高影响语义操作不能降级风险。", { groupId: group.groupId, operationId: operation.operationId });
     }
@@ -367,13 +374,17 @@ export function revalidateAcceptedV2Proposal(
   const issues: V2ProposalStaleIssue[] = [];
   for (const target of requiredTargets) {
     const identity = { kind: target.kind, id: target.id };
-    if (target.version === undefined && target.hash === undefined) {
+    if (target.expectedExistence !== "ABSENT" && target.version === undefined && target.hash === undefined) {
       issues.push({ ...identity, reason: "EVIDENCE_UNSPECIFIED" });
       continue;
     }
     const observed = observationByKey.get(scopeKey(target));
     if (!observed) {
       issues.push({ ...identity, reason: "OBSERVATION_MISSING" });
+      continue;
+    }
+    if (target.expectedExistence === "ABSENT") {
+      if (observed.exists) issues.push({ ...identity, reason: "TARGET_PRESENT" });
       continue;
     }
     if (!observed.exists) {

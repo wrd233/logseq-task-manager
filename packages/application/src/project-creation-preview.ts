@@ -278,6 +278,12 @@ export function materializeProjectCreationPreview(value: unknown, authority: Pro
   if (authority.sourceKind === "BLANK" && draft.pageObjectRelationship.mode !== "CREATE_DEDICATED_PROJECT_PAGE") {
     throw new Error("Blank Project creation preview cannot claim an existing source page relationship.");
   }
+  if (authority.sourceKind === "PAGE" && !["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REUSE_SOURCE_PAGE", "REVIEW_REQUIRED"].includes(draft.pageObjectRelationship.mode)) {
+    throw new Error("Page source Project creation preview must preserve or explicitly upgrade the current Page.");
+  }
+  if (authority.sourceKind === "MINI_PROJECT" && !["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REVIEW_REQUIRED"].includes(draft.pageObjectRelationship.mode)) {
+    throw new Error("MiniProject source Project creation preview must preserve the source while creating a dedicated Project Page.");
+  }
   const allowedEvidence = new Set([
     "session:project-creation-entry",
     ...authority.materials.map(({ sourceRef }) => sourceRef),

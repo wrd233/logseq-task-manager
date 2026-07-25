@@ -11,7 +11,7 @@ function readyRecord(risk: "LOW" | "MEDIUM" | "HIGH" = "LOW"): ServiceStoredProp
   const after = "[任务] 核对告警";
   return { updatedAt: "2026-07-23T15:00:00.000Z", files: { proposalMd: "# 正式化", proposalJson: "{}" }, proposal: {
     proposalId: "prop-low-risk", schemaVersion: "v2", title: "正式化告警", context: "当前普通正文", understanding: "建议 Task", objective: "建立对象", logic: "单组提交", finalPreview: after, unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [{ kind: "BLOCK", id: "block-low-risk", version: 1, hash: checksum(before) }] }, preconditions: [],
-    groups: [{ groupId: "formalize", explanation: "单 Block 正式化", risk, independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-low-risk", beforeText: before, afterText: after, beforeHash: checksum(before), afterHash: checksum(after) }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-low-risk" }, summary: "创建 Task", payload: { objectType: "TASK", text: before }, preconditions: [] }], disposition: "PENDING" }],
+    groups: [{ groupId: "formalize", explanation: "单 Block 正式化", risk, independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "block-low-risk", beforeText: before, afterText: after, beforeHash: checksum(before), afterHash: checksum(after) }], semanticOperations: [{ operationId: "create", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "block-low-risk", version: 1, hash: checksum(before) }, summary: "创建 Task", payload: { objectType: "TASK", text: before }, preconditions: [] }], disposition: "PENDING" }],
     status: "READY", createdAt: "2026-07-23T14:59:00.000Z",
   } };
 }

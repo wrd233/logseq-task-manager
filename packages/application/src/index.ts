@@ -18,5 +18,6 @@ export * from "./reentry-projection.ts";
 export * from "./grill-session.ts";
 export * from "./grill-preview.ts";
 export * from "./project-creation-preview.ts";
+export * from "./project-creation-proposal.ts";
 export * from "./mini-project-restructure-proposal.ts";
 export * from "./mini-project-restructure-commit.ts";

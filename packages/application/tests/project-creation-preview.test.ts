@@ -91,6 +91,28 @@ test("Page and MiniProject previews preserve every bounded source exactly once a
   }
 });
 
+test("relationship modes stay inside their source-specific page authority", () => {
+  const page = draft("PAGE");
+  assert.equal(materializeProjectCreationPreview({
+    ...page,
+    pageObjectRelationship: { ...page.pageObjectRelationship, mode: "REUSE_SOURCE_PAGE" },
+  }, authority("PAGE")).pageObjectRelationship.mode, "REUSE_SOURCE_PAGE");
+  assert.throws(
+    () => materializeProjectCreationPreview({
+      ...draft("MINI_PROJECT"),
+      pageObjectRelationship: { ...draft("MINI_PROJECT").pageObjectRelationship, mode: "REUSE_SOURCE_PAGE" },
+    }, authority("MINI_PROJECT")),
+    /MiniProject source/i,
+  );
+  assert.throws(
+    () => materializeProjectCreationPreview({
+      ...page,
+      pageObjectRelationship: { ...page.pageObjectRelationship, mode: "CREATE_DEDICATED_PROJECT_PAGE" },
+    }, authority("PAGE")),
+    /Page source/i,
+  );
+});
+
 test("preview fails closed on missing, duplicated, or invented source material and unsupported evidence", () => {
   const base = draft("PAGE");
   assert.throws(
