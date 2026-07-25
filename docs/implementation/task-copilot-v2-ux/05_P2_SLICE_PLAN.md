@@ -142,7 +142,9 @@ Page/MiniProject scope。Blank 不请求 Graph、不得产生来源材料；Page
 两者都不签发结果；成功只签发容量 64、30 分钟过期、Service restart 清空的 session-only
 opaque preview handle，正式 Object/Page/Graph/Audit/Commit 影响仍全部为零。现有自动证据
 覆盖 Blank/Page 成功、Page 未就绪和 stale；handle 的 HIGH Review 消费、正式 create
-接线、失败恢复、Undo、完成后路由与 Desktop 仍 OPEN。
+接线、失败恢复、Undo、完成后路由与 Desktop 仍 OPEN。Blank Preview 已使用真实
+`deepseek-v4-flash` 与 `project-creation-modeling@1.1.0` 通过独立 Service Gate：
+来源材料 0、关系仍为待 Review、formal impact 0、Object projection 前后均为 0。
 
 ## P2-D：Project 结构操作路由
 

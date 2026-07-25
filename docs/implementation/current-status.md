@@ -132,8 +132,8 @@ overall_goal: IN_PROGRESS
   `project-creation-modeling@1.1.0`，Blank/Page/MiniProject 分别先处理结果、现有材料去向、
   升级边界，并要求 Project 特有的 internal closure/current interface 与独立 Page/Object
   关系；Blank 已通过认证
-  Service route 与真实 `deepseek-v4-flash` Validator Gate（证据生成时为 Skill `1.0.0`，
-  `1.1.0` 真实 Provider 重跑仍 OPEN），object count 保持 0；Page route
+  Service route 与真实 `deepseek-v4-flash` Validator Gate（首轮证据为 Skill `1.0.0`），
+  object count 保持 0；Page route
   已通过 Graph bridge 双读与零写自动 Gate；MiniProject route 也已通过 Object/version、
   Primary Anchor、Graph scope 双重重验及生成期间正文变化 stale/zero-write 自动 Gate；
   Page authenticated route 已用七项答案返回 machine `READY_FOR_PREVIEW`，公开 Service
@@ -144,6 +144,9 @@ overall_goal: IN_PROGRESS
   revalidation 和 session-only opaque handle。Blank 成功无 Graph 读取/来源材料，Page 成功、
   未就绪不调用 Provider及生成期间 stale 均有零写入自动证据；handle 消费、HIGH
   Proposal/Review、既有原子 create 接线、Recovery/Undo/返回来源和 Desktop 仍 OPEN；
+  Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
+  `project-creation-modeling@1.1.0` 通过 Gate：Schema/handle 合法、关系仍待 Review、
+  formal impact 0、Object 0→0；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

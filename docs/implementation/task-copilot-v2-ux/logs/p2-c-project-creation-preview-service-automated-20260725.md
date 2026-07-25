@@ -54,11 +54,24 @@ Recovery rehearsal differences []
 Repository boundary PASS
 ```
 
+## 真实 Provider Gate
+
+在全新隔离 SQLite、Blank 来源和既有 Keychain reference 下启动当前构建的 Local Service，
+调用真实 `deepseek-v4-flash`。Key、Prompt、原始响应、测试正文、descriptor 和 token
+均未输出或写入证据：
+
+```json
+{"status":"PASS","schemaVersion":"task-copilot-project-creation-preview-v1","authorityBoundary":"SESSION_PREVIEW_ONLY","sourceMaterialCount":0,"relationshipMode":"CREATE_DEDICATED_PROJECT_PAGE","relationshipAuthority":"PROPOSED_FOR_REVIEW","evidenceRefCount":6,"handleIssued":true,"model":"deepseek-v4-flash","skillVersion":"1.1.0","formalImpactZero":true,"formalObjectProjectionUnchanged":true}
+```
+
+首次启动尝试因 Gate 脚本使用了不存在的构建文件名而在 descriptor 前失败；没有发出
+Provider 请求。修正为 package 声明的 `dist/service.js` 后通过，隔离 Runtime 已删除。
+
 ## 仍开放
 
 - Preview handle 的 server-owned HIGH Proposal / Review 消费；
 - 正式 Project prepare → Page create/verify → finalize 接线；
 - 创建失败后的 Recovery、正式 Undo 与返回 Blank/Page/MiniProject 来源；
 - reload 后正式对象和页面验证；
-- `project-creation-modeling@1.1.0` 真实 DeepSeek 输出质量；
+- Page/MiniProject 来源的真实 DeepSeek 输出质量；
 - Logseq Desktop 的 loading/error/stale/review/commit/recovery/undo/route Gate。

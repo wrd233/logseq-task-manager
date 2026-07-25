@@ -1253,7 +1253,11 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       return proposalApplication.submit(proposal, at);
     });
   };
-  const providerConfigured = options.proposalGenerator !== undefined || options.uxOutputGenerator !== undefined || options.grillTurnGenerator !== undefined;
+  const providerConfigured = options.proposalGenerator !== undefined
+    || options.uxOutputGenerator !== undefined
+    || options.grillTurnGenerator !== undefined
+    || options.grillPreviewGenerator !== undefined
+    || options.projectCreationPreviewGenerator !== undefined;
   const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: providerConfigured };
   const comprehensiveDoctor = async (): Promise<ServiceDoctor> => {
     const core = store.doctor();
@@ -3818,6 +3822,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     capabilities,
     close: async () => {
       grillPreviewSessions.clear();
+      projectCreationPreviewSessions.clear();
       graphReadBroker.close();
       if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
       if (storeOpen) {

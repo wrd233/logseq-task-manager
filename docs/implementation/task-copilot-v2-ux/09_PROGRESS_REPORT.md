@@ -425,7 +425,7 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   `project-creation-modeling@1.1.0` 已自动锁定，Page/Object 关系成为独立 machine
   uncertainty；Blank authenticated Service route 与真实
   `deepseek-v4-flash` Gate PASS（证据为 Skill `1.0.0`，两次 invalid shape 先安全拒绝，
-  最终 object count=0；`1.1.0` 真实 Provider 重跑仍 OPEN）；
+  最终 object count=0）；
   Page route 已通过 Service-owned Graph bridge 读取/生成后重读与零写自动 Gate；
   MiniProject route 已通过 Object/version + Anchor + Graph 双重重验、stale 丢弃与零写自动
   Gate；Page depth 已收回 Graph Bridge 协议上限 5，Page stale 和两类空 Block 过滤已有
@@ -435,7 +435,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   authenticated Preview route 已接通 Service-owned source rebuild、machine readiness、
   Provider 后重读和 session-only opaque handle。Blank 成功不请求 Graph/不产生来源材料，
   Page 成功逐条保留非空材料；Page 未就绪不调用 Provider，生成期间变化 stale，全部保持
-  Object/Page/Commit 零写入。Preview→HIGH Proposal/Review、原子创建、Recovery/Undo、
+  Object/Page/Commit 零写入。Blank Preview 已用真实 `deepseek-v4-flash` +
+  `project-creation-modeling@1.1.0` 验证合法 Schema、待 Review 关系、handle、零 formal
+  impact 与 Object 0→0。Preview→HIGH Proposal/Review、原子创建、Recovery/Undo、
   完成后路由和 Desktop 仍 OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
