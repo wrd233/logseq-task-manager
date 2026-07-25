@@ -5,10 +5,12 @@ import type {
   GrillUncertaintyAuthority,
   GrillUncertaintyDimension,
 } from "@task-copilot/application";
+import { grillReadiness, type ProjectCreationDimension } from "@task-copilot/application";
 import { stableJson } from "@task-copilot/shared";
 
 import type { ServiceContextPackage } from "./context-package.ts";
 import type { GrillTurnGenerationRequest } from "./llm-grill-turn.ts";
+import type { ProjectCreationPreviewGenerationRequest } from "./llm-project-creation-preview.ts";
 import type { TaskCopilotSkillDocument } from "./skill-catalog.ts";
 
 export interface ProjectCreationGrillAnswer {
@@ -181,5 +183,61 @@ export function buildProjectCreationGrillGeneration(source: ProjectCreationGrill
         uncertaintyReasons: Object.fromEntries(definitions.map(({ uncertaintyId, reason }) => [uncertaintyId, reason])),
       }),
     },
+  };
+}
+
+export function buildProjectCreationPreviewGeneration(source: ProjectCreationGrillSource): ProjectCreationPreviewGenerationRequest {
+  const turn = buildProjectCreationGrillGeneration(source);
+  const readiness = grillReadiness({
+    ...turn.authority,
+    contractVersion: "project-creation-preview-readiness-1.0.0",
+    promptVersion: "project-creation-preview-readiness-1.0.0",
+    provider: { providerId: "machine", providerVersion: "1.0.0", model: "not-called" },
+  });
+  if (readiness !== "READY_FOR_PREVIEW") throw new Error("Project creation Grill is not ready for preview.");
+  const resolvedDimensions = turn.authority.uncertainties.map((uncertainty) => {
+    const answerFact = turn.authority.facts.find(({ factId }) => factId === `answer-${uncertainty.uncertaintyId}`);
+    if (answerFact) {
+      return {
+        dimension: uncertainty.dimension as ProjectCreationDimension,
+        text: answerFact.text,
+        evidenceRefs: [...answerFact.sourceRefs],
+      };
+    }
+    if (source.sourceKind === "BLANK" && uncertainty.dimension === "UNCLASSIFIED_MATERIAL") {
+      return {
+        dimension: uncertainty.dimension as ProjectCreationDimension,
+        text: "空白创建没有来源材料。",
+        evidenceRefs: ["session:project-creation-entry"],
+      };
+    }
+    if (source.sourceKind === "BLANK" && uncertainty.dimension === "PAGE_OBJECT_RELATIONSHIP") {
+      return {
+        dimension: uncertainty.dimension as ProjectCreationDimension,
+        text: "正式创建链绑定一个受控 Project Page 与一个正式 Project 对象。",
+        evidenceRefs: ["contract:project-page-creation-v1"],
+      };
+    }
+    throw new Error(`Project creation preview is missing resolved evidence for ${uncertainty.uncertaintyId}.`);
+  });
+  return {
+    authority: {
+      observedAt: source.observedAt,
+      skill: { name: source.grillSkill.name, version: source.grillSkill.version },
+      sourceKind: source.sourceKind,
+      sourceFingerprint: turn.authority.sourceFingerprint,
+      readiness,
+      materials: source.materials.map((material, index) => ({
+        materialId: `source-${index + 1}`,
+        sourceRef: material.sourceRef,
+        contentHash: material.contentHash,
+        exactText: material.text,
+      })),
+      resolvedDimensions,
+    },
+    core: turn.core,
+    skill: turn.skill,
+    userSemantics: turn.userSemantics,
+    runtimeContext: turn.runtimeContext,
   };
 }

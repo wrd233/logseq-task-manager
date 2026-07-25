@@ -431,8 +431,12 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Gate；Page depth 已收回 Graph Bridge 协议上限 5，Page stale 和两类空 Block 过滤已有
   自动证据，authenticated Page 七答案已真实穿过请求 parser 并返回 machine
   `READY_FOR_PREVIEW`；独立 Project Creation Preview Validator/Provider generator 已通过零材料
-  Blank、来源逐条保留、证据白名单、零 formal impact 自动 Gate；Preview route、Proposal/
-  原子创建接线与 Desktop OPEN；
+  Blank、来源逐条保留、证据白名单、零 formal impact 自动 Gate；公开 Service Client 与
+  authenticated Preview route 已接通 Service-owned source rebuild、machine readiness、
+  Provider 后重读和 session-only opaque handle。Blank 成功不请求 Graph/不产生来源材料，
+  Page 成功逐条保留非空材料；Page 未就绪不调用 Provider，生成期间变化 stale，全部保持
+  Object/Page/Commit 零写入。Preview→HIGH Proposal/Review、原子创建、Recovery/Undo、
+  完成后路由和 Desktop 仍 OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -442,8 +446,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 进入 P2-C：复用已证明的 adaptive Grill、Context Package、Validator 与正式 Project
-   prepare/page/finalize 原子链，先建立 Project 创建的纵向 Proposal/Review 边界；
+1. 继续 P2-C：让 session-only Project Creation Preview handle 进入 server-owned HIGH
+   Proposal/Review，并复用正式 Project prepare/page/finalize 原子链；随后补齐失败、
+   Recovery、Undo、reload 和返回来源；
 2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

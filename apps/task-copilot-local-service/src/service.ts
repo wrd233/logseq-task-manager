@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type V2ReentryCommitFact } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -22,11 +22,12 @@ import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.t
 import type { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import type { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
 import type { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
+import type { LocalLlmProjectCreationPreviewGenerator } from "./llm-project-creation-preview.ts";
 import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope, type ServiceContextPackage } from "./context-package.ts";
 import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
 import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, buildMiniProjectSourcePositions, type MiniProjectGrillAnswer, type MiniProjectGrillSource } from "./mini-project-grill.ts";
-import { buildProjectCreationGrillGeneration, type ProjectCreationGrillAnswer, type ProjectCreationGrillMaterial } from "./project-creation-grill.ts";
+import { buildProjectCreationGrillGeneration, buildProjectCreationPreviewGeneration, type ProjectCreationGrillAnswer, type ProjectCreationGrillMaterial, type ProjectCreationGrillSource } from "./project-creation-grill.ts";
 import { GrillPreviewSessionStore } from "./grill-preview-session.ts";
 import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
@@ -52,6 +53,7 @@ export interface LocalServiceOptions {
   uxOutputGenerator?: LocalLlmUxOutputGenerator;
   grillTurnGenerator?: LocalLlmGrillTurnGenerator;
   grillPreviewGenerator?: LocalLlmGrillPreviewGenerator;
+  projectCreationPreviewGenerator?: LocalLlmProjectCreationPreviewGenerator;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
   faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void };
@@ -1025,9 +1027,12 @@ function respondError(response: ServerResponse, error: unknown): void {
       respond(response, graphStatus, { error: { code: error.code, message: error.message } });
       return;
     }
-    const grillSourceStatus = error.code === "GRILL_SOURCE_STALE" ? 409
+    const grillSourceStatus = ["GRILL_SOURCE_STALE", "PROJECT_CREATION_PREVIEW_NOT_READY"].includes(error.code) ? 409
       : error.code === "PROJECT_CREATION_SOURCE_TOO_LARGE" ? 413
+      : error.code === "PROJECT_CREATION_PREVIEW_PROMPT_TOO_LARGE" ? 413
+      : error.code === "PROJECT_CREATION_PREVIEW_PROMPT_LAYER_INVALID" ? 400
       : ["PROJECT_CREATION_SOURCE_EMPTY", "PROJECT_CREATION_SOURCE_UNAVAILABLE", "GRILL_PRIMARY_ANCHOR_REQUIRED"].includes(error.code) ? 422
+      : error.code === "PROJECT_CREATION_PREVIEW_VALIDATION_FAILED" ? 422
       : undefined;
     if (grillSourceStatus !== undefined) {
       respond(response, grillSourceStatus, { error: { code: error.code, message: error.message } });
@@ -1085,6 +1090,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const proposalApplication = new V2ProposalApplication(store);
   const graphReadBroker = new GraphReadBroker();
   const grillPreviewSessions = new GrillPreviewSessionStore<{ objectId: string; expectedVersion: number; answers: MiniProjectGrillAnswer[]; preview: GrillPreview; graphScopeHash: string }>();
+  const projectCreationPreviewSessions = new GrillPreviewSessionStore<{ input: ProjectCreationGrillRequest; preview: ProjectCreationPreview; sourceFingerprint: string; graphScopeHash?: string }>();
   const serializedTails = new Map<string, Promise<void>>();
   const serializeByKey = async <T>(key: string, task: () => Promise<T>): Promise<T> => {
     const prior = serializedTails.get(key) ?? Promise.resolve();
@@ -1382,6 +1388,105 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (refreshedGraph.status !== "FOUND" || refreshedGraph.snapshot.scopeHash !== scopeHash) throw serviceError("GRILL_SOURCE_STALE", "MiniProject 正文在生成期间已变化；草稿已丢弃。");
   };
 
+  const prepareProjectCreationGrillSource = async (input: ProjectCreationGrillRequest): Promise<{
+    source: ProjectCreationGrillSource;
+    graphScopeHash?: string;
+    revalidate(): Promise<void>;
+  }> => {
+    const [coreSkill, grillSkill] = await Promise.all([
+      readTaskCopilotSkill("task-copilot-core"),
+      readTaskCopilotSkill("project-creation-modeling"),
+    ]);
+    if (!coreSkill || !grillSkill) throw serviceError("PROJECT_CREATION_GRILL_SKILL_UNAVAILABLE", "Project Creation Grill 内置 Skill 不可用。");
+    const generatedAt = new Date().toISOString();
+    const contextSource = {
+      getObject: (objectId: string) => store.getObject(objectId),
+      listObjects: () => store.listObjects(),
+      listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
+      listAssociations: () => store.listAssociations(),
+      getActivePrimaryAnchorByObject: (objectId: string) => store.getActivePrimaryAnchorByObject(objectId),
+      databaseSchemaVersion: () => store.doctor().schemaVersion,
+    };
+    let contextPackage: ServiceContextPackage;
+    let materials: ProjectCreationGrillMaterial[] = [];
+    let graphScopeHash: string | undefined;
+    let revalidate = async (): Promise<void> => undefined;
+    if (input.sourceKind === "BLANK") {
+      const files: Record<string, string> = {
+        "source.json": stableJson({ sourceKind: input.sourceKind, materials: [] }),
+        "workspace-semantics.md": "# Workspace Semantics\n\nStatus: NOT_CONFIGURED\n",
+        "writing-profile.md": "# Writing Profile\n\nStatus: NOT_CONFIGURED\n",
+        "versions.json": stableJson({ schemaVersion: 1, databaseSchemaVersion: store.doctor().schemaVersion, skills: [coreSkill, grillSkill].map(({ name, version, sha256 }) => ({ name, version, sha256 })) }),
+      };
+      contextPackage = {
+        manifest: {
+          schemaVersion: 1,
+          generatedAt,
+          scope: { kind: "page", id: "project-creation:blank" },
+          authority: "READ_ONLY_DERIVATIVE",
+          formalFactsSource: "SQLITE",
+          graphExcerptStatus: "NOT_INCLUDED",
+          includedObjectCount: 0,
+          files: Object.entries(files).sort(([left], [right]) => left.localeCompare(right)).map(([path, content]) => ({ path, sha256: createHash("sha256").update(content).digest("hex"), bytes: Buffer.byteLength(content) })),
+        },
+        files,
+      };
+    } else if (input.sourceKind === "PAGE") {
+      const graphResult = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 5 });
+      if (graphResult.status !== "FOUND") throw serviceError("PROJECT_CREATION_SOURCE_UNAVAILABLE", "当前 Page 无法从 Logseq Desktop 完整读取；没有调用 Provider。");
+      if (graphResult.snapshot.truncated || graphResult.snapshot.blocks.length > 16) throw serviceError("PROJECT_CREATION_SOURCE_TOO_LARGE", "当前 Page 超过 Project Creation Grill 的 16 Block 安全范围；没有调用 Provider。");
+      materials = graphResult.snapshot.blocks.flatMap((block) => {
+        const text = stripLogseqBlockIdentityProperty(block.content, block.uuid);
+        return text.trim() ? [{ sourceRef: `block:${block.uuid}`, kind: "PAGE" as const, text, contentHash: block.contentHash }] : [];
+      });
+      if (!materials.length) throw serviceError("PROJECT_CREATION_SOURCE_EMPTY", "当前 Page 没有可用于 Project Creation Grill 的语义材料；没有调用 Provider。");
+      contextPackage = buildContextPackage(contextSource, [coreSkill, grillSkill], { kind: "page", id: input.pageId }, new Date(generatedAt), graphResult.snapshot);
+      graphScopeHash = graphResult.snapshot.scopeHash;
+      revalidate = async () => {
+        const latest = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 5 });
+        if (latest.status !== "FOUND" || latest.snapshot.scopeHash !== graphResult.snapshot.scopeHash) throw serviceError("GRILL_SOURCE_STALE", "Page 在生成期间已变化；草稿已丢弃。");
+      };
+    } else {
+      const subject = store.getObject(input.objectId);
+      if (!subject || subject.objectType !== "MINI_PROJECT" || subject.lifecycle !== "OPEN" || subject.version !== input.expectedVersion) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 已变化或不可升级；没有调用 Provider。");
+      const anchor = store.getActivePrimaryAnchorByObject(subject.objectId);
+      if (!anchor || anchor.role !== "primary_text") throw serviceError("GRILL_PRIMARY_ANCHOR_REQUIRED", "MiniProject 没有可用正文入口；没有调用 Provider。");
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: anchor.externalId, includeChildren: true, parents: 0 });
+      if (graphResult.status !== "FOUND") throw serviceError("PROJECT_CREATION_SOURCE_UNAVAILABLE", "MiniProject 正文无法从 Logseq Desktop 完整读取；没有调用 Provider。");
+      if (graphResult.snapshot.truncated || graphResult.snapshot.blocks.length > 16) throw serviceError("PROJECT_CREATION_SOURCE_TOO_LARGE", "MiniProject 超过 Project Creation Grill 的 16 Block 安全范围；没有调用 Provider。");
+      materials = graphResult.snapshot.blocks.flatMap((block) => {
+        const text = stripLogseqBlockIdentityProperty(block.content, block.uuid);
+        return text.trim() ? [{ sourceRef: `block:${block.uuid}`, kind: "MINI_PROJECT" as const, text, contentHash: block.contentHash }] : [];
+      });
+      if (!materials.length) throw serviceError("PROJECT_CREATION_SOURCE_EMPTY", "MiniProject 没有可用于 Project Creation Grill 的语义材料；没有调用 Provider。");
+      contextPackage = buildContextPackage(contextSource, [coreSkill, grillSkill], { kind: "project", id: subject.objectId }, new Date(generatedAt), graphResult.snapshot);
+      graphScopeHash = graphResult.snapshot.scopeHash;
+      revalidate = async () => {
+        const latest = store.getObject(input.objectId);
+        const latestAnchor = store.getActivePrimaryAnchorByObject(input.objectId);
+        const latestGraph = await graphReadBroker.read({ kind: "BLOCK", target: anchor.externalId, includeChildren: true, parents: 0 });
+        if (!latest || latest.version !== input.expectedVersion || !latestAnchor || latestAnchor.anchorId !== anchor.anchorId || latestAnchor.externalId !== anchor.externalId || latestGraph.status !== "FOUND" || latestGraph.snapshot.scopeHash !== graphResult.snapshot.scopeHash) {
+          throw serviceError("GRILL_SOURCE_STALE", "MiniProject 在生成期间已变化；草稿已丢弃。");
+        }
+      };
+    }
+    const contextFingerprint = contextPackageFingerprint(contextPackage);
+    return {
+      source: {
+        observedAt: generatedAt,
+        sourceKind: input.sourceKind,
+        materials,
+        contextPackage,
+        contextFingerprint,
+        coreSkill,
+        grillSkill,
+        answers: input.answers,
+      },
+      ...(graphScopeHash ? { graphScopeHash } : {}),
+      revalidate,
+    };
+  };
+
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (!authorized(request, token)) {
       respond(response, 401, { error: { code: "UNAUTHORIZED", message: "Local Service session token is required." } });
@@ -1661,91 +1766,43 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (request.method === "POST" && url.pathname === "/provider/grill/project-creation/turn") {
       const input = await readProjectCreationGrillRequest(request);
       if (!options.grillTurnGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Grill Provider；没有生成 Project 创建会话草稿。");
-      const [coreSkill, grillSkill] = await Promise.all([
-        readTaskCopilotSkill("task-copilot-core"),
-        readTaskCopilotSkill("project-creation-modeling"),
-      ]);
-      if (!coreSkill || !grillSkill) throw serviceError("PROJECT_CREATION_GRILL_SKILL_UNAVAILABLE", "Project Creation Grill 内置 Skill 不可用。");
-      const generatedAt = new Date().toISOString();
-      let contextPackage: ServiceContextPackage;
-      let materials: ProjectCreationGrillMaterial[] = [];
-      let revalidate = async (): Promise<void> => undefined;
-      const contextSource = {
-        getObject: (objectId: string) => store.getObject(objectId),
-        listObjects: () => store.listObjects(),
-        listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
-        listAssociations: () => store.listAssociations(),
-        getActivePrimaryAnchorByObject: (objectId: string) => store.getActivePrimaryAnchorByObject(objectId),
-        databaseSchemaVersion: () => store.doctor().schemaVersion,
-      };
-      if (input.sourceKind === "BLANK") {
-        const files: Record<string, string> = {
-          "source.json": stableJson({ sourceKind: input.sourceKind, materials: [] }),
-          "workspace-semantics.md": "# Workspace Semantics\n\nStatus: NOT_CONFIGURED\n",
-          "writing-profile.md": "# Writing Profile\n\nStatus: NOT_CONFIGURED\n",
-          "versions.json": stableJson({ schemaVersion: 1, databaseSchemaVersion: store.doctor().schemaVersion, skills: [coreSkill, grillSkill].map(({ name, version, sha256 }) => ({ name, version, sha256 })) }),
-        };
-        contextPackage = {
-          manifest: {
-            schemaVersion: 1, generatedAt, scope: { kind: "page", id: "project-creation:blank" },
-            authority: "READ_ONLY_DERIVATIVE", formalFactsSource: "SQLITE", graphExcerptStatus: "NOT_INCLUDED", includedObjectCount: 0,
-            files: Object.entries(files).sort(([left], [right]) => left.localeCompare(right)).map(([path, content]) => ({ path, sha256: createHash("sha256").update(content).digest("hex"), bytes: Buffer.byteLength(content) })),
-          },
-          files,
-        };
-      } else if (input.sourceKind === "PAGE") {
-        const graphResult = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 5 });
-        if (graphResult.status !== "FOUND") throw serviceError("PROJECT_CREATION_SOURCE_UNAVAILABLE", "当前 Page 无法从 Logseq Desktop 完整读取；没有调用 Provider。");
-        if (graphResult.snapshot.truncated || graphResult.snapshot.blocks.length > 16) throw serviceError("PROJECT_CREATION_SOURCE_TOO_LARGE", "当前 Page 超过 Project Creation Grill 的 16 Block 安全范围；没有调用 Provider。");
-        materials = graphResult.snapshot.blocks.flatMap((block) => {
-          const text = stripLogseqBlockIdentityProperty(block.content, block.uuid);
-          return text.trim() ? [{ sourceRef: `block:${block.uuid}`, kind: "PAGE" as const, text, contentHash: block.contentHash }] : [];
-        });
-        if (!materials.length) throw serviceError("PROJECT_CREATION_SOURCE_EMPTY", "当前 Page 没有可用于 Project Creation Grill 的语义材料；没有调用 Provider。");
-        contextPackage = buildContextPackage(contextSource, [coreSkill, grillSkill], { kind: "page", id: input.pageId }, new Date(generatedAt), graphResult.snapshot);
-        revalidate = async () => {
-          const latest = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 5 });
-          if (latest.status !== "FOUND" || latest.snapshot.scopeHash !== graphResult.snapshot.scopeHash) throw serviceError("GRILL_SOURCE_STALE", "Page 在生成期间已变化；草稿已丢弃。");
-        };
-      } else {
-        const subject = store.getObject(input.objectId);
-        if (!subject || subject.objectType !== "MINI_PROJECT" || subject.lifecycle !== "OPEN" || subject.version !== input.expectedVersion) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "MiniProject 已变化或不可升级；没有调用 Provider。");
-        const anchor = store.getActivePrimaryAnchorByObject(subject.objectId);
-        if (!anchor || anchor.role !== "primary_text") throw serviceError("GRILL_PRIMARY_ANCHOR_REQUIRED", "MiniProject 没有可用正文入口；没有调用 Provider。");
-        const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: anchor.externalId, includeChildren: true, parents: 0 });
-        if (graphResult.status !== "FOUND") throw serviceError("PROJECT_CREATION_SOURCE_UNAVAILABLE", "MiniProject 正文无法从 Logseq Desktop 完整读取；没有调用 Provider。");
-        if (graphResult.snapshot.truncated || graphResult.snapshot.blocks.length > 16) throw serviceError("PROJECT_CREATION_SOURCE_TOO_LARGE", "MiniProject 超过 Project Creation Grill 的 16 Block 安全范围；没有调用 Provider。");
-        materials = graphResult.snapshot.blocks.flatMap((block) => {
-          const text = stripLogseqBlockIdentityProperty(block.content, block.uuid);
-          return text.trim() ? [{ sourceRef: `block:${block.uuid}`, kind: "MINI_PROJECT" as const, text, contentHash: block.contentHash }] : [];
-        });
-        if (!materials.length) throw serviceError("PROJECT_CREATION_SOURCE_EMPTY", "MiniProject 没有可用于 Project Creation Grill 的语义材料；没有调用 Provider。");
-        contextPackage = buildContextPackage(contextSource, [coreSkill, grillSkill], { kind: "project", id: subject.objectId }, new Date(generatedAt), graphResult.snapshot);
-        revalidate = async () => {
-          const latest = store.getObject(input.objectId);
-          const latestAnchor = store.getActivePrimaryAnchorByObject(input.objectId);
-          const latestGraph = await graphReadBroker.read({ kind: "BLOCK", target: anchor.externalId, includeChildren: true, parents: 0 });
-          if (!latest || latest.version !== input.expectedVersion || !latestAnchor || latestAnchor.anchorId !== anchor.anchorId || latestGraph.status !== "FOUND" || latestGraph.snapshot.scopeHash !== graphResult.snapshot.scopeHash) throw serviceError("GRILL_SOURCE_STALE", "MiniProject 在生成期间已变化；草稿已丢弃。");
-        };
-      }
-      const contextFingerprint = contextPackageFingerprint(contextPackage);
-      const generation = buildProjectCreationGrillGeneration({
-        observedAt: generatedAt,
-        sourceKind: input.sourceKind,
-        materials,
-        contextPackage,
-        contextFingerprint,
-        coreSkill,
-        grillSkill,
-        answers: input.answers,
-      });
+      const prepared = await prepareProjectCreationGrillSource(input);
+      const generation = buildProjectCreationGrillGeneration(prepared.source);
       const controller = new AbortController();
       const abort = (): void => controller.abort("client-disconnected");
       request.once("aborted", abort);
       try {
         const generated = await options.grillTurnGenerator.generate({ ...generation, signal: controller.signal });
-        await revalidate();
-        respond(response, 200, { ...generated, contextFingerprint });
+        await prepared.revalidate();
+        respond(response, 200, { ...generated, contextFingerprint: prepared.source.contextFingerprint });
+      } finally {
+        request.removeListener("aborted", abort);
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/provider/grill/project-creation/preview") {
+      const input = await readProjectCreationGrillRequest(request);
+      if (!options.projectCreationPreviewGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Project Creation Preview Provider；没有生成最终阅读预览。");
+      const prepared = await prepareProjectCreationGrillSource(input);
+      let generation: ReturnType<typeof buildProjectCreationPreviewGeneration>;
+      try {
+        generation = buildProjectCreationPreviewGeneration(prepared.source);
+      } catch {
+        throw serviceError("PROJECT_CREATION_PREVIEW_NOT_READY", "Project 创建的结果、边界、完成证据、材料去向、内部闭环、当前接口或页面关系尚未全部确认；没有调用 Preview Provider。");
+      }
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        const generated = await options.projectCreationPreviewGenerator.generate({ ...generation, signal: controller.signal });
+        await prepared.revalidate();
+        const previewHandle = projectCreationPreviewSessions.issue({
+          input,
+          preview: generated.output,
+          sourceFingerprint: generation.authority.sourceFingerprint,
+          ...(prepared.graphScopeHash ? { graphScopeHash: prepared.graphScopeHash } : {}),
+        });
+        respond(response, 200, { ...generated, contextFingerprint: prepared.source.contextFingerprint, previewHandle });
       } finally {
         request.removeListener("aborted", abort);
       }

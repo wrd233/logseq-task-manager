@@ -102,7 +102,7 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 
 ## P2-C：Project 创建 Grill Me
 
-状态：`IN_PROGRESS_CONTRACT_AUTOMATED`
+状态：`IN_PROGRESS_PREVIEW_SERVICE_AUTOMATED`
 
 所有入口：
 
@@ -132,8 +132,17 @@ Project Page 合同自动解决关系，Page/MiniProject 必须显式回答；Bl
 事实；生成期间正文变化返回 stale 且零写。独立
 `task-copilot-project-creation-preview-v1` Application Validator 与 Provider generator 已
 自动完成：Blank 可零材料，Page/MiniProject 必须逐条保留原文，Page/Object 关系仅为
-`PROPOSED_FOR_REVIEW`，formal impact 恒为零。Preview Service route、会话句柄、HIGH
-Review、正式 create 接线与 Desktop 仍 OPEN。
+`PROPOSED_FOR_REVIEW`，formal impact 恒为零。
+
+第三个自动合同已完成：公开 Service Client 与 authenticated
+`/provider/grill/project-creation/preview` route 只接收来源标识和有界回答，由 Service
+重新构造权威材料、执行 machine readiness、调用 Provider，并在返回结果前再次重读
+Page/MiniProject scope。Blank 不请求 Graph、不得产生来源材料；Page 过滤语义空 Block
+但仍按完整 snapshot scopeHash 重验。未就绪不调用 Provider，生成期间变化返回 stale，
+两者都不签发结果；成功只签发容量 64、30 分钟过期、Service restart 清空的 session-only
+opaque preview handle，正式 Object/Page/Graph/Audit/Commit 影响仍全部为零。现有自动证据
+覆盖 Blank/Page 成功、Page 未就绪和 stale；handle 的 HIGH Review 消费、正式 create
+接线、失败恢复、Undo、完成后路由与 Desktop 仍 OPEN。
 
 ## P2-D：Project 结构操作路由
 

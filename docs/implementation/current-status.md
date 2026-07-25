@@ -139,8 +139,11 @@ overall_goal: IN_PROGRESS
   Page authenticated route 已用七项答案返回 machine `READY_FOR_PREVIEW`，公开 Service
   Client 也已包含 `PAGE_OBJECT_RELATIONSHIP`；
   独立 Project Creation Preview Validator/Provider generator 已自动完成，锁定零正式写入、
-  来源逐条保留与关系仅为待 Review 提案；Preview route、Proposal/Review、既有原子 create
-  接线和 Desktop 仍 OPEN；
+  来源逐条保留与关系仅为待 Review 提案；公开 Service Client 与 authenticated Preview
+  route 已接通 Service-owned source rebuild、machine readiness、Provider 后 source
+  revalidation 和 session-only opaque handle。Blank 成功无 Graph 读取/来源材料，Page 成功、
+  未就绪不调用 Provider及生成期间 stale 均有零写入自动证据；handle 消费、HIGH
+  Proposal/Review、既有原子 create 接线、Recovery/Undo/返回来源和 Desktop 仍 OPEN；
 - 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

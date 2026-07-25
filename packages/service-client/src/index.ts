@@ -178,6 +178,46 @@ export interface ServiceMiniProjectGrillResult {
 }
 export type ServiceProjectCreationGrillResult = ServiceMiniProjectGrillResult;
 
+export type ServiceProjectCreationPreviewRequest = ServiceProjectCreationGrillRequest;
+export interface ServiceProjectCreationPreview {
+  schemaVersion: "task-copilot-project-creation-preview-v1";
+  finalReading: {
+    title: ServiceGrillPreviewClaim;
+    outcome: ServiceGrillPreviewClaim;
+    boundary: { included: ServiceGrillPreviewClaim[]; excluded: ServiceGrillPreviewClaim[] };
+    completionEvidence: ServiceGrillPreviewClaim[];
+    internalClosure: ServiceGrillPreviewClaim;
+    currentInterface: ServiceGrillPreviewClaim;
+  };
+  pageObjectRelationship: {
+    mode: "CREATE_DEDICATED_PROJECT_PAGE" | "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" | "REUSE_SOURCE_PAGE" | "REVIEW_REQUIRED";
+    rationale: string;
+    evidenceRefs: string[];
+    authority: "PROPOSED_FOR_REVIEW";
+  };
+  sourceMaterials: Array<{
+    materialId: string;
+    sourceRef: string;
+    contentHash: string;
+    text: string;
+    disposition: "KEEP_IN_PLACE" | "LINK_AS_SOURCE" | "REVIEW_FOR_MOVE";
+    rationale: string;
+    evidenceRefs: string[];
+    preservation: "UNCHANGED";
+  }>;
+  formalImpact: { createsObject: false; createsPage: false; movesBlocks: 0; rewritesBlocks: 0; deletesBlocks: 0 };
+  evidenceScope: { refs: string[]; scopeHash: string; observedAt: string };
+  authorityBoundary: "SESSION_PREVIEW_ONLY";
+  provenance: { contractVersion: string; promptVersion: string; skillName: string; skillVersion: string; providerId: string; providerVersion: string; model: string; generatedAt: string };
+}
+export interface ServiceProjectCreationPreviewResult {
+  output: ServiceProjectCreationPreview;
+  provider: ServiceProviderCompletionMetadata;
+  promptBundleVersion: string;
+  contextFingerprint: string;
+  previewHandle: string;
+}
+
 export type ServiceMiniProjectGrillPreviewRequest = ServiceMiniProjectGrillRequest;
 export interface ServiceGrillPreviewClaim { text: string; evidenceRefs: string[] }
 export interface ServiceGrillPreviewMaterial { materialId: string; sourceRef: string; contentHash: string; text: string; preservation: "UNCHANGED" }
@@ -979,6 +1019,14 @@ export class LocalServiceClient {
 
   grillProjectCreation(input: ServiceProjectCreationGrillRequest): Promise<ServiceProjectCreationGrillResult> {
     return this.request<ServiceProjectCreationGrillResult>("/provider/grill/project-creation/turn", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 125_000);
+  }
+
+  previewProjectCreation(input: ServiceProjectCreationPreviewRequest): Promise<ServiceProjectCreationPreviewResult> {
+    return this.request<ServiceProjectCreationPreviewResult>("/provider/grill/project-creation/preview", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

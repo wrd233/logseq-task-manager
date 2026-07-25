@@ -6,6 +6,7 @@ import { checksum } from "@task-copilot/shared";
 
 import {
   buildProjectCreationGrillGeneration,
+  buildProjectCreationPreviewGeneration,
   type ProjectCreationGrillSource,
 } from "../src/project-creation-grill.ts";
 
@@ -123,4 +124,42 @@ test("invalid source claims, duplicate answers, and unknown questionnaire fields
     ])),
     /answers are invalid/i,
   );
+});
+
+test("Project creation preview authority opens only after every source-specific uncertainty is resolved", () => {
+  const pageAnswers = [
+    { uncertaintyId: "material-disposition", text: "原 Page 保留为 Project 来源。" },
+    { uncertaintyId: "page-object-relationship", text: "创建受控 Project Page，并连接原 Page。" },
+    { uncertaintyId: "outcome", text: "持续形成可核验的治理结果。" },
+    { uncertaintyId: "project-boundary", text: "只覆盖托管设备登记、核验和更新。" },
+    { uncertaintyId: "completion-evidence", text: "每台设备都有负责人、状态和最后核验时间。" },
+    { uncertaintyId: "internal-closure", text: "每周核验差异并形成下一步。" },
+    { uncertaintyId: "current-interface", text: "先看本周待核验设备和阻塞。" },
+  ];
+  assert.throws(
+    () => buildProjectCreationPreviewGeneration(source("PAGE", pageAnswers.slice(0, 6))),
+    /not ready/i,
+  );
+
+  const page = buildProjectCreationPreviewGeneration(source("PAGE", pageAnswers));
+  assert.equal(page.authority.readiness, "READY_FOR_PREVIEW");
+  assert.equal(page.authority.sourceKind, "PAGE");
+  assert.equal(page.authority.materials.length, 1);
+  assert.equal(page.authority.materials[0]?.exactText, "项目资料：目标、相关人和待整理记录");
+  assert.equal(page.authority.resolvedDimensions.length, 7);
+  assert.deepEqual(
+    new Set(page.authority.resolvedDimensions.map(({ dimension }) => dimension)),
+    new Set(["OUTCOME", "BOUNDARY", "COMPLETION_EVIDENCE", "UNCLASSIFIED_MATERIAL", "INTERNAL_CLOSURE", "CURRENT_INTERFACE", "PAGE_OBJECT_RELATIONSHIP"]),
+  );
+
+  const blank = buildProjectCreationPreviewGeneration(source("BLANK", [
+    { uncertaintyId: "outcome", text: "持续形成可核验的治理结果。" },
+    { uncertaintyId: "project-boundary", text: "只覆盖托管设备登记、核验和更新。" },
+    { uncertaintyId: "completion-evidence", text: "每台设备都有最后核验时间。" },
+    { uncertaintyId: "internal-closure", text: "每周核验差异并形成下一步。" },
+    { uncertaintyId: "current-interface", text: "先看本周待核验设备。" },
+  ]));
+  assert.equal(blank.authority.materials.length, 0);
+  assert.equal(blank.authority.resolvedDimensions.find(({ dimension }) => dimension === "PAGE_OBJECT_RELATIONSHIP")?.evidenceRefs[0], "contract:project-page-creation-v1");
+  assert.equal(blank.authority.resolvedDimensions.find(({ dimension }) => dimension === "UNCLASSIFIED_MATERIAL")?.evidenceRefs[0], "session:project-creation-entry");
 });
