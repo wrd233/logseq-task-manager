@@ -1,9 +1,13 @@
 import type {
   ServiceFinalizeProjectResult,
+  ServiceCompensateProposalProjectCreationRequest,
   ServiceFinalizeProposalProjectCreationRequest,
   ServicePrepareProposalProjectCreationRequest,
+  ServiceProposalProjectCreationCompensation,
   ServiceProposalProjectCreationFinalization,
   ServiceProposalProjectCreationPreparation,
+  ServiceProposalProjectCreationUndoFinalization,
+  ServiceProposalProjectCreationUndoPreparation,
   ServiceProjectIntent,
 } from "@task-copilot/service-client";
 import { StructuredError, checksum } from "@task-copilot/shared";
@@ -26,6 +30,7 @@ export interface ProjectPageHost {
   getPage(pageName: string): Promise<ProjectPageEntity | null>;
   createPage(pageName: string, properties: Record<string, string>, options: { redirect: false; createFirstBlock: false; journal: false }): Promise<ProjectPageEntity | null>;
   getPageBlocksTree(pageName: string): Promise<unknown[] | null>;
+  deletePage?(pageName: string): Promise<void>;
 }
 
 export interface ProjectCreationService {
@@ -43,6 +48,15 @@ export interface ProjectCreationService {
 export interface ReviewedProjectCreationService {
   prepareProposalProjectCreation(proposalId: string, input: ServicePrepareProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationPreparation>;
   finalizeProposalProjectCreation(proposalId: string, input: ServiceFinalizeProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationFinalization>;
+  compensateProposalProjectCreation?(proposalId: string, input: ServiceCompensateProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationCompensation>;
+  prepareProposalProjectCreationUndo?(originalSemanticCommitId: string, input: { traceId: string; confirmedOwnedEmpty?: true; pageExternalId?: string }): Promise<ServiceProposalProjectCreationUndoPreparation>;
+  finalizeProposalProjectCreationUndo?(originalSemanticCommitId: string, input: {
+    originalSemanticCommitId: string;
+    undoSemanticCommitId: string;
+    pageExternalId: string;
+    pageExists: boolean;
+    traceId: string;
+  }): Promise<ServiceProposalProjectCreationUndoFinalization>;
 }
 
 export interface ProjectCreationResult extends ServiceFinalizeProjectResult {
@@ -50,9 +64,13 @@ export interface ProjectCreationResult extends ServiceFinalizeProjectResult {
   pageCreated: boolean;
 }
 
-export interface ReviewedProjectCreationResult extends ServiceProposalProjectCreationFinalization {
+export type ReviewedProjectCreationResult = Extract<ServiceProposalProjectCreationFinalization, { status: "COMPLETED" }> & {
   pageName: string;
   pageCreated: boolean;
+};
+
+export interface ReviewedProjectCreationUndoResult extends ServiceProposalProjectCreationUndoFinalization {
+  pageName: string;
 }
 
 function projectError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
@@ -120,6 +138,24 @@ export async function createReviewedProjectWithPage(
       pageCreated: false,
     };
   }
+  if (intent.status === "RECOVERY_REQUIRED") {
+    await compensateReviewedProjectCreation(service, host, proposalId, {
+      expectedUpdatedAt,
+      semanticCommitId: intent.semanticCommitId,
+      relationshipMode: intent.relationshipMode,
+      pageName: intent.pageName,
+      pageExternalId: intent.pageExternalId,
+      pageContentHash: intent.pageContentHash,
+      objectId: intent.objectId,
+    }, `${traceId}:resume-compensation`);
+    throw projectError(
+      "V2_PROJECT_CREATION_FAILED_COMPENSATED",
+      intent.relationshipMode === "REUSE_SOURCE_PAGE"
+        ? "上次 Project 创建失败已收口；来源 Page 保持原样。"
+        : "上次 Project 创建失败与其受控空 Page 已安全收口。",
+      { semanticCommitId: intent.semanticCommitId },
+    );
+  }
   let page: ProjectPageEntity | null;
   let pageCreated = false;
   let pageContentHash: string;
@@ -157,8 +193,9 @@ export async function createReviewedProjectWithPage(
       emptyAtCreation: true,
     });
   }
+  let finalized: ServiceProposalProjectCreationFinalization;
   try {
-    const finalized = await service.finalizeProposalProjectCreation(proposalId, {
+    finalized = await service.finalizeProposalProjectCreation(proposalId, {
       expectedUpdatedAt,
       semanticCommitId: intent.semanticCommitId,
       objectId: intent.objectId,
@@ -166,7 +203,6 @@ export async function createReviewedProjectWithPage(
       pageContentHash,
       traceId,
     });
-    return { ...finalized, pageName: page.originalName ?? intent.pageName, pageCreated };
   } catch {
     throw projectError(
       "V2_PROJECT_FINALIZE_RECOVERY_REQUIRED",
@@ -176,6 +212,125 @@ export async function createReviewedProjectWithPage(
       { semanticCommitId: intent.semanticCommitId },
     );
   }
+  if (finalized.status === "COMPENSATION_REQUIRED") {
+    await compensateReviewedProjectCreation(service, host, proposalId, {
+      expectedUpdatedAt,
+      semanticCommitId: intent.semanticCommitId,
+      relationshipMode: intent.relationshipMode,
+      pageName: intent.pageName,
+      pageExternalId: page.uuid,
+      pageContentHash,
+      objectId: intent.objectId,
+    }, `${traceId}:compensate`);
+    throw projectError(
+      "V2_PROJECT_CREATION_FAILED_COMPENSATED",
+      intent.relationshipMode === "REUSE_SOURCE_PAGE"
+        ? "Project 未创建，失败事务已收口；来源 Page 保持原样。"
+        : `Project 未创建，失败事务与本次受控空 Page 已安全收口。`,
+      { semanticCommitId: intent.semanticCommitId },
+    );
+  }
+  return { ...finalized, pageName: page.originalName ?? intent.pageName, pageCreated };
+}
+
+export async function compensateReviewedProjectCreation(
+  service: ReviewedProjectCreationService,
+  host: ProjectPageHost,
+  proposalId: string,
+  intent: {
+    expectedUpdatedAt: string;
+    semanticCommitId: string;
+    relationshipMode: "CREATE_DEDICATED_PROJECT_PAGE" | "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" | "REUSE_SOURCE_PAGE";
+    pageName: string;
+    pageExternalId: string;
+    pageContentHash: string;
+    objectId: string;
+  },
+  traceId: string,
+): Promise<ServiceProposalProjectCreationCompensation> {
+  if (!service.compensateProposalProjectCreation) throw projectError("V2_PROJECT_CREATION_RECOVERY_UNAVAILABLE", "当前 Service 不支持 Project 创建恢复。");
+  const reuse = intent.relationshipMode === "REUSE_SOURCE_PAGE";
+  const page = await host.getPage(intent.pageExternalId);
+  if (reuse) {
+    if (!page || page.uuid !== intent.pageExternalId || proposalPageEvidenceHash(page) !== intent.pageContentHash) {
+      throw projectError("V2_PROJECT_CREATION_COMPENSATION_PAGE_STALE", "来源 Page 已变化；系统不会删除或猜测补偿，请保留现场并查看恢复状态。");
+    }
+  } else {
+    if (!page) {
+      // A previous recovery attempt may already have removed the exact owned Page.
+    } else {
+      assertOwnedPage(page, { ...intent, status: "PENDING" });
+      const blocks = await host.getPageBlocksTree(page.uuid);
+      if (!Array.isArray(blocks) || blocks.length !== 0) throw projectError("V2_PROJECT_CREATION_COMPENSATION_PAGE_CHANGED", "受控 Project Page 已包含内容；系统不会删除它，请保留现场并人工恢复。");
+      if (!host.deletePage) throw projectError("V2_PROJECT_CREATION_RECOVERY_UNAVAILABLE", "当前 Logseq Host 不支持安全删除受控 Page。");
+      await host.deletePage(page.uuid);
+      const after = await host.getPage(page.uuid);
+      if (after) throw projectError("V2_PROJECT_CREATION_COMPENSATION_DELETE_UNCONFIRMED", "Logseq 尚未确认受控 Page 已移除；没有收口失败事务。");
+    }
+  }
+  return service.compensateProposalProjectCreation(proposalId, {
+    expectedUpdatedAt: intent.expectedUpdatedAt,
+    semanticCommitId: intent.semanticCommitId,
+    pageExternalId: intent.pageExternalId,
+    pageContentHash: intent.pageContentHash,
+    pageExists: reuse,
+    traceId,
+  });
+}
+
+export async function undoReviewedProjectCreation(
+  service: ReviewedProjectCreationService,
+  host: ProjectPageHost,
+  originalSemanticCommitId: string,
+  traceId: string,
+): Promise<ReviewedProjectCreationUndoResult | Extract<ServiceProposalProjectCreationUndoPreparation, { status: "COMPLETED" }>> {
+  if (!service.prepareProposalProjectCreationUndo || !service.finalizeProposalProjectCreationUndo) throw projectError("V2_PROJECT_CREATION_UNDO_UNAVAILABLE", "当前 Service 不支持 Project 创建 Undo。");
+  let prepared = await service.prepareProposalProjectCreationUndo(originalSemanticCommitId, { traceId });
+  if (prepared.status === "COMPLETED") {
+    const page = await host.getPage(prepared.pageExternalId);
+    return { ...prepared, pageName: page?.originalName ?? page?.name ?? prepared.pageExternalId };
+  }
+  if (prepared.status === "PAGE_PREFLIGHT_REQUIRED") {
+    const page = await host.getPage(prepared.pageExternalId);
+    if (!page) throw projectError("V2_PROJECT_CREATION_UNDO_PAGE_MISSING", "专用 Project Page 已不存在；系统没有先删除正式对象，请从恢复状态检查现场。");
+    assertOwnedPage(page, {
+      objectId: prepared.objectId,
+      semanticCommitId: originalSemanticCommitId,
+      pageName: prepared.pageName,
+      status: "PENDING",
+    });
+    const blocks = await host.getPageBlocksTree(page.uuid);
+    if (!Array.isArray(blocks) || blocks.length !== 0) throw projectError("V2_PROJECT_CREATION_UNDO_PAGE_CHANGED", "Project Page 已包含正文；系统不会删除用户内容，且尚未撤销 Project 正式对象。");
+    prepared = await service.prepareProposalProjectCreationUndo(originalSemanticCommitId, {
+      traceId: `${traceId}:confirmed-owned-empty`,
+      confirmedOwnedEmpty: true,
+      pageExternalId: page.uuid,
+    });
+    if (prepared.status === "COMPLETED") return { ...prepared, pageName: page.originalName ?? page.name };
+    if (prepared.status === "PAGE_PREFLIGHT_REQUIRED") throw projectError("V2_PROJECT_CREATION_UNDO_PREFLIGHT_NOT_ADVANCED", "Project 创建 Undo 未能从空 Page 预检进入正式撤销。");
+  }
+  const page = await host.getPage(prepared.pageExternalId);
+  if (page) {
+    assertOwnedPage(page, {
+      objectId: prepared.objectId,
+      semanticCommitId: originalSemanticCommitId,
+      pageName: prepared.pageName,
+      status: "PENDING",
+    });
+    const blocks = await host.getPageBlocksTree(page.uuid);
+    if (!Array.isArray(blocks) || blocks.length !== 0) throw projectError("V2_PROJECT_CREATION_UNDO_PAGE_CHANGED", "Project Page 已包含正文；系统不会删除用户内容，Project 创建 Undo 已停在可恢复状态。");
+    if (!host.deletePage) throw projectError("V2_PROJECT_CREATION_UNDO_UNAVAILABLE", "当前 Logseq Host 不支持安全删除受控 Project Page。");
+    await host.deletePage(page.uuid);
+  }
+  if (await host.getPage(prepared.pageExternalId)) throw projectError("V2_PROJECT_CREATION_UNDO_DELETE_UNCONFIRMED", "Logseq 尚未确认 Project Page 已移除；Undo 没有收口。");
+  const finalized = await service.finalizeProposalProjectCreationUndo(originalSemanticCommitId, {
+    originalSemanticCommitId,
+    undoSemanticCommitId: prepared.undoSemanticCommitId,
+    pageExternalId: prepared.pageExternalId,
+    pageExists: false,
+    traceId,
+  });
+  return { ...finalized, pageName: prepared.pageName };
 }
 
 export async function createProjectWithControlledPage(

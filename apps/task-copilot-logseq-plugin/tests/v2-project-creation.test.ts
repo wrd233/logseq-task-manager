@@ -5,8 +5,10 @@ import type { ServicePreparedProposalProjectCreation, ServiceProjectIntent, Serv
 import { checksum } from "@task-copilot/shared";
 
 import {
+  compensateReviewedProjectCreation,
   createReviewedProjectWithPage,
   createProjectWithControlledPage,
+  undoReviewedProjectCreation,
   type ProjectCreationService,
   type ProjectPageEntity,
   type ProjectPageHost,
@@ -146,7 +148,7 @@ function reviewedFinalized(intent: ServicePreparedProposalProjectCreation, pageE
     replayed: false,
     object: { objectId: intent.objectId, objectType: "PROJECT", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "设备治理", createdAt: "2026-07-25T15:00:00.000Z", updatedAt: "2026-07-25T15:00:00.000Z", sourceOrCreationEvent: `project_page:graph:${pageExternalId}` },
     anchor: { anchorId: `anc_20260725150000000_${"f".repeat(32)}`, objectId: intent.objectId, role: "primary_text", graphId: "graph", externalId: pageExternalId, status: "active", contentHash: pageContentHash, lastSeenAt: "2026-07-25T15:00:00.000Z" },
-    record: {} as ServiceProposalProjectCreationFinalization["record"],
+    record: {} as Extract<ServiceProposalProjectCreationFinalization, { status: "COMPLETED" }>["record"],
   };
 }
 
@@ -216,4 +218,127 @@ test("reviewed Page reuse never creates or marks a Page and rejects changed Page
     /最终提交前变化/,
   );
   assert.equal(finalizeCalls, 1);
+});
+
+test("reviewed Project creation recovery removes only its exact owned empty Page before terminal compensation", async () => {
+  const prepared = reviewedIntent("CREATE_DEDICATED_PROJECT_PAGE");
+  const pageContentHash = checksum({
+    pageName: prepared.pageName,
+    pageExternalId: "recovery-project-page",
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": prepared.objectId,
+      "task-copilot-semantic-commit-id": prepared.semanticCommitId,
+    },
+    emptyAtCreation: true,
+  });
+  let page: ProjectPageEntity | undefined = {
+    uuid: "recovery-project-page",
+    name: prepared.pageName.toLowerCase(),
+    originalName: prepared.pageName,
+    properties: {
+      taskCopilotOwner: "task-copilot-personal-mvp",
+      taskCopilotObjectId: prepared.objectId,
+      taskCopilotSemanticCommitId: prepared.semanticCommitId,
+    },
+  };
+  let compensationInput: Parameters<NonNullable<ReviewedProjectCreationService["compensateProposalProjectCreation"]>>[1] | undefined;
+  const service: ReviewedProjectCreationService = {
+    async prepareProposalProjectCreation() { return prepared; },
+    async finalizeProposalProjectCreation() { throw new Error("unused"); },
+    async compensateProposalProjectCreation(_proposalId, input) {
+      compensationInput = input;
+      return { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId: prepared.proposalId, record: {} as never, pagePreserved: false };
+    },
+  };
+  const host: ProjectPageHost = {
+    async getPage() { return page ?? null; },
+    async createPage() { throw new Error("recovery never creates a Page"); },
+    async getPageBlocksTree() { return []; },
+    async deletePage() { page = undefined; },
+  };
+  const result = await compensateReviewedProjectCreation(service, host, prepared.proposalId, {
+    expectedUpdatedAt: prepared.expectedUpdatedAt,
+    semanticCommitId: prepared.semanticCommitId,
+    relationshipMode: prepared.relationshipMode,
+    pageName: prepared.pageName,
+    pageExternalId: "recovery-project-page",
+    pageContentHash,
+    objectId: prepared.objectId,
+  }, "project-create-recovery");
+  assert.equal(result.status, "FAILED_COMPENSATED");
+  assert.equal(compensationInput?.pageExists, false);
+  assert.equal(page, undefined);
+});
+
+test("reviewed Project creation Undo preserves a reused source Page and deletes only an exact owned empty dedicated Page", async () => {
+  const originalSemanticCommitId = `proposal-commit:${"1".repeat(64)}`;
+  const reusedPage = { uuid: "reused-source-page", name: "设备治理材料", originalName: "设备治理材料", properties: {}, updatedAt: 9 };
+  let deleteCalls = 0;
+  const reuseService: ReviewedProjectCreationService = {
+    async prepareProposalProjectCreation() { throw new Error("unused"); },
+    async finalizeProposalProjectCreation() { throw new Error("unused"); },
+    async prepareProposalProjectCreationUndo() {
+      return { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId: `project-creation-undo:${originalSemanticCommitId}`, proposalId: "proposal-reuse", pageExternalId: reusedPage.uuid, pagePreserved: true, replayed: false };
+    },
+    async finalizeProposalProjectCreationUndo() { throw new Error("reused Page Undo completes in Service"); },
+  };
+  const reuseHost: ProjectPageHost = {
+    async getPage() { return reusedPage; },
+    async createPage() { throw new Error("unused"); },
+    async getPageBlocksTree() { throw new Error("reused Page must not be inspected or deleted"); },
+    async deletePage() { deleteCalls += 1; },
+  };
+  const reused = await undoReviewedProjectCreation(reuseService, reuseHost, originalSemanticCommitId, "undo-reused-project");
+  assert.equal(reused.pagePreserved, true);
+  assert.equal(deleteCalls, 0);
+
+  const objectId = `obj_20260725150000000_${"2".repeat(32)}`;
+  let dedicatedPage: ProjectPageEntity | undefined = {
+    uuid: "dedicated-project-page",
+    name: "project/设备治理",
+    originalName: "Project/设备治理",
+    properties: {
+      taskCopilotOwner: "task-copilot-personal-mvp",
+      taskCopilotObjectId: objectId,
+      taskCopilotSemanticCommitId: originalSemanticCommitId,
+    },
+  };
+  let finalizeCalls = 0;
+  let prepareCalls = 0;
+  const dedicatedService: ReviewedProjectCreationService = {
+    async prepareProposalProjectCreation() { throw new Error("unused"); },
+    async finalizeProposalProjectCreation() { throw new Error("unused"); },
+    async prepareProposalProjectCreationUndo(_commitId, input) {
+      prepareCalls += 1;
+      if (!input.confirmedOwnedEmpty) {
+        return {
+          status: "PAGE_PREFLIGHT_REQUIRED", originalSemanticCommitId, undoSemanticCommitId: `project-creation-undo:${originalSemanticCommitId}`,
+          proposalId: "proposal-dedicated", pageName: "Project/设备治理", pageExternalId: "dedicated-project-page", objectId,
+          pageContentHash: checksum("owned-empty-page"), replayed: false,
+        };
+      }
+      return {
+        status: "PAGE_DELETION_REQUIRED", originalSemanticCommitId, undoSemanticCommitId: `project-creation-undo:${originalSemanticCommitId}`,
+        proposalId: "proposal-dedicated", pageName: "Project/设备治理", pageExternalId: "dedicated-project-page", objectId,
+        pageContentHash: checksum("owned-empty-page"), replayed: false,
+      };
+    },
+    async finalizeProposalProjectCreationUndo(_commitId, input) {
+      finalizeCalls += 1;
+      assert.equal(input.pageExists, false);
+      return { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId: input.undoSemanticCommitId, pagePreserved: false, replayed: false };
+    },
+  };
+  const dedicatedHost: ProjectPageHost = {
+    async getPage() { return dedicatedPage ?? null; },
+    async createPage() { throw new Error("unused"); },
+    async getPageBlocksTree() { return []; },
+    async deletePage() { dedicatedPage = undefined; deleteCalls += 1; },
+  };
+  const dedicated = await undoReviewedProjectCreation(dedicatedService, dedicatedHost, originalSemanticCommitId, "undo-dedicated-project");
+  assert.equal(dedicated.pagePreserved, false);
+  assert.equal(prepareCalls, 2);
+  assert.equal(finalizeCalls, 1);
+  assert.equal(deleteCalls, 1);
 });

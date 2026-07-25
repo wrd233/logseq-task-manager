@@ -246,6 +246,12 @@ export interface ServicePreparedProposalProjectCreation {
 }
 export type ServiceProposalProjectCreationPreparation =
   | ServicePreparedProposalProjectCreation
+  | (Omit<ServicePreparedProposalProjectCreation, "status"> & {
+      status: "RECOVERY_REQUIRED";
+      pageExternalId: string;
+      pageContentHash: string;
+      replayed: true;
+    })
   | ({ status: "STALE" } & ServiceProposalRevalidation)
   | {
       status: "COMPLETED";
@@ -261,12 +267,76 @@ export type ServiceProposalProjectCreationPreparation =
       record: ServiceStoredProposal;
       replayed: true;
     };
-export interface ServiceProposalProjectCreationFinalization {
-  status: "COMPLETED";
+export type ServiceProposalProjectCreationFinalization =
+  | {
+      status: "COMPLETED";
+      semanticCommitId: string;
+      object: V2ManagedObject;
+      anchor: V2Anchor;
+      record: ServiceStoredProposal;
+      replayed: boolean;
+    }
+  | {
+      status: "COMPENSATION_REQUIRED";
+      semanticCommitId: string;
+      proposalId: string;
+      expectedUpdatedAt: string;
+      relationshipMode: ServicePreparedProposalProjectCreation["relationshipMode"];
+      pageExternalId: string;
+      pageContentHash: string;
+    };
+export interface ServiceCompensateProposalProjectCreationRequest {
+  expectedUpdatedAt: string;
   semanticCommitId: string;
-  object: V2ManagedObject;
-  anchor: V2Anchor;
+  pageExternalId: string;
+  pageContentHash: string;
+  pageExists: boolean;
+  traceId: string;
+}
+export interface ServiceProposalProjectCreationCompensation {
+  status: "FAILED_COMPENSATED";
+  semanticCommitId: string;
+  proposalId: string;
   record: ServiceStoredProposal;
+  pagePreserved: boolean;
+}
+export type ServiceProposalProjectCreationUndoPreparation =
+  | {
+      status: "PAGE_PREFLIGHT_REQUIRED";
+      originalSemanticCommitId: string;
+      undoSemanticCommitId: string;
+      proposalId: string;
+      pageName: string;
+      pageExternalId: string;
+      objectId: string;
+      pageContentHash: string;
+      replayed: boolean;
+    }
+  | {
+      status: "PAGE_DELETION_REQUIRED" | "RECOVERY_REQUIRED";
+      originalSemanticCommitId: string;
+      undoSemanticCommitId: string;
+      proposalId: string;
+      pageName: string;
+      pageExternalId: string;
+      objectId: string;
+      pageContentHash: string;
+      replayed: boolean;
+    }
+  | {
+      status: "COMPLETED";
+      originalSemanticCommitId: string;
+      undoSemanticCommitId: string;
+      proposalId: string;
+      pageExternalId: string;
+      pagePreserved: boolean;
+      replayed: boolean;
+    };
+export interface ServiceProposalProjectCreationUndoFinalization {
+  status: "COMPLETED";
+  originalSemanticCommitId: string;
+  undoSemanticCommitId: string;
+  pagePreserved: boolean;
   replayed: boolean;
 }
 
@@ -1103,6 +1173,36 @@ export class LocalServiceClient {
 
   finalizeProposalProjectCreation(proposalId: string, input: ServiceFinalizeProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationFinalization> {
     return this.request<ServiceProposalProjectCreationFinalization>(`/proposals/${encodeURIComponent(proposalId)}/project-creation/commit/finalize`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  compensateProposalProjectCreation(proposalId: string, input: ServiceCompensateProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationCompensation> {
+    return this.request<ServiceProposalProjectCreationCompensation>(`/proposals/${encodeURIComponent(proposalId)}/project-creation/commit/compensate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  prepareProposalProjectCreationUndo(originalSemanticCommitId: string, input: { traceId: string; confirmedOwnedEmpty?: true; pageExternalId?: string }): Promise<ServiceProposalProjectCreationUndoPreparation> {
+    return this.request<ServiceProposalProjectCreationUndoPreparation>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/project-creation/undo/prepare`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  finalizeProposalProjectCreationUndo(originalSemanticCommitId: string, input: {
+    originalSemanticCommitId: string;
+    undoSemanticCommitId: string;
+    pageExternalId: string;
+    pageExists: boolean;
+    traceId: string;
+  }): Promise<ServiceProposalProjectCreationUndoFinalization> {
+    return this.request<ServiceProposalProjectCreationUndoFinalization>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/project-creation/undo/finalize`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

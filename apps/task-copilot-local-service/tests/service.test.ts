@@ -992,6 +992,8 @@ test("accepted Project Creation Proposal prepares, creates one controlled Page b
     pageContentHash,
     traceId: "project-create-finalize-replay",
   });
+  assert.equal(replay.status, "COMPLETED");
+  if (replay.status !== "COMPLETED") throw new Error("expected completed Project creation replay");
   assert.equal(replay.replayed, true);
   assert.equal(replay.object.objectId, finalized.object.objectId);
   const completedPrepare = await client.prepareProposalProjectCreation(proposal.proposalId, {
@@ -1000,6 +1002,119 @@ test("accepted Project Creation Proposal prepares, creates one controlled Page b
     traceId: "project-create-prepare-replay",
   });
   assert.equal(completedPrepare.status, "COMPLETED");
+
+  const undoPreflight = await client.prepareProposalProjectCreationUndo(prepared.semanticCommitId, { traceId: "project-create-undo-preflight" });
+  assert.equal(undoPreflight.status, "PAGE_PREFLIGHT_REQUIRED");
+  assert.equal((await client.status()).objectCount, 1, "Page preflight never removes the formal Project");
+  const undoPrepared = await client.prepareProposalProjectCreationUndo(prepared.semanticCommitId, {
+    traceId: "project-create-undo-prepare",
+    confirmedOwnedEmpty: true,
+    pageExternalId,
+  });
+  assert.equal(undoPrepared.status, "PAGE_DELETION_REQUIRED");
+  if (undoPrepared.status !== "PAGE_DELETION_REQUIRED") throw new Error("expected dedicated Project Page deletion");
+  assert.equal((await client.status()).objectCount, 0, "domain Project and Anchor are removed before the exact owned empty Page");
+  const undoFinalized = await client.finalizeProposalProjectCreationUndo(prepared.semanticCommitId, {
+    originalSemanticCommitId: prepared.semanticCommitId,
+    undoSemanticCommitId: undoPrepared.undoSemanticCommitId,
+    pageExternalId,
+    pageExists: false,
+    traceId: "project-create-undo-finalize",
+  });
+  assert.equal(undoFinalized.status, "COMPLETED");
+  assert.equal(undoFinalized.pagePreserved, false);
+  const undoReplay = await client.prepareProposalProjectCreationUndo(prepared.semanticCommitId, { traceId: "project-create-undo-replay" });
+  assert.equal(undoReplay.status, "COMPLETED");
+});
+
+test("failed Project Creation Proposal domain write requires exact Page compensation and terminalizes the Proposal", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-creation-recovery-"));
+  let failDomain = true;
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-creation-recovery",
+    token: "project-creation-recovery-token-at-least-24-chars",
+    faults: { beforeProposalProjectCreationDomainWrite: () => { if (failDomain) throw new Error("injected Project domain failure"); } },
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const proposal = buildProjectCreationProposal({
+    proposalId: "proposal_project_creation_recovery",
+    preview: blankProjectCreationPreview(),
+    source: { sourceKind: "BLANK" },
+    sourceFingerprint: "b".repeat(64),
+  });
+  const submitted = await client.submitProposal(proposal);
+  const accepted = await client.reviewProposal(proposal.proposalId, {
+    "create-project": { disposition: "ACCEPTED", highImpactConfirmed: true },
+  }, submitted.record.updatedAt);
+  const absenceBridge = (async () => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected Project target absence read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "NOT_FOUND" });
+  })();
+  const preparePromise = client.prepareProposalProjectCreation(proposal.proposalId, {
+    confirmation: "CREATE_PROJECT",
+    expectedUpdatedAt: accepted.updatedAt,
+    traceId: "project-create-recovery-prepare",
+  });
+  const [, prepared] = await Promise.all([absenceBridge, preparePromise]);
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared Project creation");
+  const pageExternalId = "page-project-recovery";
+  const pageContentHash = checksum({
+    pageName: prepared.pageName,
+    pageExternalId,
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": prepared.objectId,
+      "task-copilot-semantic-commit-id": prepared.semanticCommitId,
+    },
+    emptyAtCreation: true,
+  });
+  const failed = await client.finalizeProposalProjectCreation(proposal.proposalId, {
+    expectedUpdatedAt: accepted.updatedAt,
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    pageExternalId,
+    pageContentHash,
+    traceId: "project-create-recovery-finalize",
+  });
+  assert.equal(failed.status, "COMPENSATION_REQUIRED");
+  assert.equal((await client.status()).objectCount, 0);
+  const recovered = await client.prepareProposalProjectCreation(proposal.proposalId, {
+    confirmation: "CREATE_PROJECT",
+    expectedUpdatedAt: accepted.updatedAt,
+    traceId: "project-create-recovery-resume",
+  });
+  assert.equal(recovered.status, "RECOVERY_REQUIRED");
+  if (recovered.status !== "RECOVERY_REQUIRED") throw new Error("expected restart-safe Project creation recovery");
+  assert.equal(recovered.pageExternalId, pageExternalId);
+  assert.equal(recovered.pageContentHash, pageContentHash);
+  await assert.rejects(
+    () => client.compensateProposalProjectCreation(proposal.proposalId, {
+      expectedUpdatedAt: accepted.updatedAt,
+      semanticCommitId: prepared.semanticCommitId,
+      pageExternalId,
+      pageContentHash,
+      pageExists: true,
+      traceId: "project-create-invalid-compensation",
+    }),
+    (error: unknown) => {
+      assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "V2_PROJECT_CREATION_COMPENSATION_EVIDENCE_MISMATCH");
+      return true;
+    },
+  );
+  failDomain = false;
+  const compensated = await client.compensateProposalProjectCreation(proposal.proposalId, {
+    expectedUpdatedAt: accepted.updatedAt,
+    semanticCommitId: prepared.semanticCommitId,
+    pageExternalId,
+    pageContentHash,
+    pageExists: false,
+    traceId: "project-create-compensated",
+  });
+  assert.equal(compensated.status, "FAILED_COMPENSATED");
+  assert.equal(compensated.record.proposal.status, "FAILED");
 });
 
 test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {

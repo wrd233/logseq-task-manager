@@ -550,6 +550,36 @@ test("SemanticCommit recovery cannot report FAILED until every applied step is c
   reopened.close();
 });
 
+test("a prepared SemanticCommit step can durably bind one actual Graph identity before execution", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-a");
+  const at = "2026-07-20T11:30:00.000Z";
+  const semanticCommitId = "commit-bind-graph-evidence";
+  store.prepareSemanticCommit({
+    semanticCommitId,
+    status: "PENDING",
+    beforeStateChecksum: "before",
+    createdAt: at,
+    updatedAt: at,
+  }, [{
+    semanticCommitId,
+    stepIndex: 0,
+    stepKind: "GRAPH_WRITE",
+    status: "PREPARED",
+    operationId: "Project/设备治理",
+    updatedAt: at,
+  }]);
+  const bound = store.recordPreparedSemanticCommitStepEvidence(semanticCommitId, 0, { operationId: "page-uuid", afterHash: "deadbeef" }, at);
+  assert.equal(bound.operationId, "page-uuid");
+  assert.equal(bound.afterHash, "deadbeef");
+  assert.deepEqual(store.recordPreparedSemanticCommitStepEvidence(semanticCommitId, 0, { operationId: "page-uuid", afterHash: "deadbeef" }, at), bound);
+  assert.throws(
+    () => store.recordPreparedSemanticCommitStepEvidence(semanticCommitId, 0, { operationId: "other-page", afterHash: "cafebabe" }, at),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_COMMIT_STEP_EVIDENCE_CONFLICT",
+  );
+});
+
 test("a verified Graph step can enter compensation when a later Domain step fails", async (t) => {
   const { root, store } = await fixture();
   t.after(async () => rm(root, { recursive: true, force: true }));

@@ -1254,6 +1254,29 @@ export class V2SqliteStore {
     return this.executeWrite(write);
   }
 
+  recordPreparedSemanticCommitStepEvidence(
+    semanticCommitId: string,
+    stepIndex: number,
+    evidence: { operationId: string; afterHash: string },
+    updatedAt: string,
+  ): V2SemanticCommitStepRecord {
+    const write = this.database.transaction(() => {
+      const commit = this.semanticCommit(semanticCommitId);
+      if (!commit || commit.status !== "PENDING") throw persistenceError("V2_SEMANTIC_COMMIT_NOT_PENDING", "只有 PENDING SemanticCommit 可记录执行证据。");
+      const current = this.semanticCommitSteps(semanticCommitId).find((step) => step.stepIndex === stepIndex);
+      if (!current || current.status !== "PREPARED") throw persistenceError("V2_COMMIT_STEP_EVIDENCE_NOT_PREPARED", "只有 PREPARED step 可绑定实际执行身份与结果 hash。");
+      if (current.afterHash !== undefined && (current.operationId !== evidence.operationId || current.afterHash !== evidence.afterHash)) {
+        throw persistenceError("V2_COMMIT_STEP_EVIDENCE_CONFLICT", "SemanticCommit step 已绑定不同的实际执行证据。");
+      }
+      this.database.prepare(`
+        UPDATE semantic_commit_steps SET operation_id = ?, after_hash = ?, updated_at = ?
+        WHERE semantic_commit_id = ? AND step_index = ?
+      `).run(evidence.operationId, evidence.afterHash, updatedAt, semanticCommitId, stepIndex);
+      return this.semanticCommitSteps(semanticCommitId).find((step) => step.stepIndex === stepIndex)!;
+    });
+    return this.executeWrite(write);
+  }
+
   finalizeSemanticCommit(
     semanticCommitId: string,
     status: "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED",

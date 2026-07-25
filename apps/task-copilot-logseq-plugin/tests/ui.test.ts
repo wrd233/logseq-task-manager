@@ -1202,8 +1202,13 @@ test("Project creation Review uses the proposal-bound Page creation confirmation
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-creation", proposalId: "prop-project-creation", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-25T15:00:00.000Z", updatedAt: "2026-07-25T15:01:00.000Z" }];
   html = renderApp(value);
-  assert.match(html, /当前接口来自已审阅内容/);
+  assert.match(html, /data-action="v2-project-creation-undo"/);
+  assert.match(html, /专用空 Page 仅在精确所有权与空内容校验后移除/);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
+  value.actionDialog = { kind: "confirm-v2-project-creation-undo", value: "proposal-commit:project-creation" };
+  html = renderApp(value);
+  assert.match(html, /复用来源 Page 会原样保留/);
+  assert.match(html, /data-action="submit-v2-project-creation-undo"/);
 });
 
 test("MiniProject restructure Review uses the recoverable Graph Commit and inverse Undo controls", () => {

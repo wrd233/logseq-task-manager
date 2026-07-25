@@ -58,7 +58,7 @@ import {
   updateExistingObjectFromV2Candidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
-import { createProjectWithControlledPage, createReviewedProjectWithPage } from "./v2-project-creation.ts";
+import { createProjectWithControlledPage, createReviewedProjectWithPage, undoReviewedProjectCreation } from "./v2-project-creation.ts";
 import { buildSelectedBlockProposalPrompt, buildSelectedBlockProposalRevisionPrompt } from "./v2-provider-analysis.ts";
 import { buildMiniProjectLegacyTransferProposal } from "./v2-mini-project-legacy-transfer.ts";
 import { submitV2Association, type V2AssociationSubmissionState } from "./v2-association-controller.ts";
@@ -2039,6 +2039,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
   if (action === "v2-project-creation-commit" && value) return openActionDialog("confirm-v2-project-creation", value);
+  if (action === "v2-project-creation-undo" && value) return openActionDialog("confirm-v2-project-creation-undo", value);
   if (action === "v2-project-structure-commit" && value) return openActionDialog("confirm-v2-project-structure", value);
   if (action === "v2-project-structure-undo" && value) return openActionDialog("confirm-v2-project-structure-undo", value);
   if (action === "v2-mini-project-restructure-commit" && value) return openActionDialog("confirm-v2-mini-project-restructure", value);
@@ -2159,16 +2160,18 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await refresh();
       await run(async () => {
         const client = serviceRuntimeClient;
-        if (!proposalId || !expectedUpdatedAt || !client?.prepareProposalProjectCreation || !client.finalizeProposalProjectCreation) {
+        if (!proposalId || !expectedUpdatedAt || !client?.prepareProposalProjectCreation || !client.finalizeProposalProjectCreation || !client.compensateProposalProjectCreation) {
           throw new Error("Project 创建上下文已失效；没有创建页面或正式对象。");
         }
         const result = await createReviewedProjectWithPage({
           prepareProposalProjectCreation: client.prepareProposalProjectCreation.bind(client),
           finalizeProposalProjectCreation: client.finalizeProposalProjectCreation.bind(client),
+          compensateProposalProjectCreation: client.compensateProposalProjectCreation.bind(client),
         }, {
           getPage: (identity) => logseq.Editor.getPage(identity),
           createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
           getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
+          deletePage: async (identity) => { await logseq.Editor.deletePage(identity); },
         }, proposalId, expectedUpdatedAt, `v2-project-creation-ui-${Date.now()}`);
         actionDialog = undefined;
         if (result.status === "STALE") {
@@ -2192,6 +2195,40 @@ async function handleAction(action: string, value?: string): Promise<void> {
       originRoute = undefined;
       await logseq.App.pushState("page", { name: openedPageName });
       logseq.hideMainUI();
+    }
+    return;
+  }
+  if (action === "submit-v2-project-creation-undo" && value) {
+    if (v2ProjectCreationCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认 Project 创建 Undo 的 Page 保留／删除边界。"; await refresh(); return; }
+    v2ProjectCreationCommitBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client?.prepareProposalProjectCreation || !client.finalizeProposalProjectCreation || !client.prepareProposalProjectCreationUndo || !client.finalizeProposalProjectCreationUndo) {
+          throw new Error("Project 创建 Undo 上下文已失效；没有删除 Page。");
+        }
+        const result = await undoReviewedProjectCreation({
+          prepareProposalProjectCreation: client.prepareProposalProjectCreation.bind(client),
+          finalizeProposalProjectCreation: client.finalizeProposalProjectCreation.bind(client),
+          prepareProposalProjectCreationUndo: client.prepareProposalProjectCreationUndo.bind(client),
+          finalizeProposalProjectCreationUndo: client.finalizeProposalProjectCreationUndo.bind(client),
+        }, {
+          getPage: (identity) => logseq.Editor.getPage(identity),
+          createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
+          getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
+          deletePage: async (identity) => { await logseq.Editor.deletePage(identity); },
+        }, value, `v2-project-creation-undo-ui-${Date.now()}`);
+        actionDialog = undefined;
+        workspace = "review";
+        message = result.pagePreserved
+          ? "Project 与 Anchor 已撤销；复用的来源 Page 保持原样。"
+          : "Project、Anchor 与本次事务拥有的空 Page 已安全撤销；Audit 与逆向 Commit 已保留。";
+      });
+    } finally {
+      v2ProjectCreationCommitBusy = false;
+      await refresh();
     }
     return;
   }
