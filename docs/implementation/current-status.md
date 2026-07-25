@@ -136,6 +136,8 @@ overall_goal: IN_PROGRESS
   `1.1.0` 真实 Provider 重跑仍 OPEN），object count 保持 0；Page route
   已通过 Graph bridge 双读与零写自动 Gate；MiniProject route 也已通过 Object/version、
   Primary Anchor、Graph scope 双重重验及生成期间正文变化 stale/zero-write 自动 Gate；
+  Page authenticated route 已用七项答案返回 machine `READY_FOR_PREVIEW`，公开 Service
+  Client 也已包含 `PAGE_OBJECT_RELATIONSHIP`；
   独立 Project Creation Preview Validator/Provider generator 已自动完成，锁定零正式写入、
   来源逐条保留与关系仅为待 Review 提案；Preview route、Proposal/Review、既有原子 create
   接线和 Desktop 仍 OPEN；

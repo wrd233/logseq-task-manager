@@ -266,12 +266,12 @@ async function readProjectCreationGrillRequest(request: IncomingMessage): Promis
     : sourceKind === "PAGE" ? "answers,pageId,sourceKind"
     : sourceKind === "MINI_PROJECT" ? "answers,expectedVersion,objectId,sourceKind"
     : "";
-  if (Object.keys(record).sort().join(",") !== expectedKeys || !Array.isArray(record.answers) || record.answers.length > 6
+  if (Object.keys(record).sort().join(",") !== expectedKeys || !Array.isArray(record.answers) || record.answers.length > 7
     || (sourceKind === "PAGE" && (typeof record.pageId !== "string" || !record.pageId.trim() || record.pageId.length > 512))
     || (sourceKind === "MINI_PROJECT" && (typeof record.objectId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.objectId) || !Number.isSafeInteger(record.expectedVersion) || Number(record.expectedVersion) < 1))) {
     throw serviceError("PROJECT_CREATION_GRILL_REQUEST_INVALID", "Project Creation Grill 只接受受控 Blank、Page identity 或 MiniProject object/version 来源。");
   }
-  const allowedUncertaintyIds = new Set(["outcome", "project-boundary", "completion-evidence", "material-disposition", "internal-closure", "current-interface"]);
+  const allowedUncertaintyIds = new Set(["outcome", "project-boundary", "completion-evidence", "material-disposition", "internal-closure", "current-interface", "page-object-relationship"]);
   const answers = record.answers.map((value) => {
     const answer = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
     if (Object.keys(answer).sort().join(",") !== "text,uncertaintyId" || typeof answer.uncertaintyId !== "string" || !allowedUncertaintyIds.has(answer.uncertaintyId) || typeof answer.text !== "string" || !answer.text.trim() || answer.text.length > 2_000) {

@@ -396,6 +396,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-creation-grill-"));
   let providerCalls = 0;
   let providerSource: "BLANK" | "PAGE" | "MINI_PROJECT" = "BLANK";
+  let providerReady = false;
   const provider: StructuredProposalProvider = {
     providerId: "deepseek",
     providerVersion: "chat-completions-v1",
@@ -408,18 +409,20 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
       return {
         value: {
           schemaVersion: "task-copilot-grill-turn-v1",
-          understanding: pageTurn ? "Page 材料已读取，但尚未决定如何进入 Project。" : miniProjectTurn ? "MiniProject 材料已读取，但升级边界仍未明确。" : "用户已从空白入口发起 Project 创建，但持续结果仍未明确。",
-          factRefs: [pageTurn || miniProjectTurn ? "source-1" : "creation-entry"],
+          understanding: providerReady ? "七项 Project 创建判断已经由用户回答，可以进入最终阅读预览。" : pageTurn ? "Page 材料已读取，但尚未决定如何进入 Project。" : miniProjectTurn ? "MiniProject 材料已读取，但升级边界仍未明确。" : "用户已从空白入口发起 Project 创建，但持续结果仍未明确。",
+          factRefs: [providerReady ? "answer-outcome" : pageTurn || miniProjectTurn ? "source-1" : "creation-entry"],
           inferences: [],
-          unknowns: [{ uncertaintyId: focus, text: "当前最大不确定性仍未解决。" }],
-          readiness: "CONTINUE",
-          focusUncertaintyId: focus,
-          questions: [{ uncertaintyId: focus, text: pageTurn ? "现有 Page 材料应如何进入新 Project？" : miniProjectTurn ? "为什么这项工作需要升级为持续 Project？" : "它需要持续形成什么可被使用或检验的结果？" }],
-          recommendation: {
-            text: "建议先解决当前最大不确定性。",
-            evidenceRefs: [evidenceRef],
-            tradeoffs: ["先不命名页面，会晚一步看到最终 Project 入口。"],
-          },
+          unknowns: providerReady ? [] : [{ uncertaintyId: focus, text: "当前最大不确定性仍未解决。" }],
+          readiness: providerReady ? "READY_FOR_PREVIEW" : "CONTINUE",
+          ...(providerReady ? { questions: [] } : {
+            focusUncertaintyId: focus,
+            questions: [{ uncertaintyId: focus, text: pageTurn ? "现有 Page 材料应如何进入新 Project？" : miniProjectTurn ? "为什么这项工作需要升级为持续 Project？" : "它需要持续形成什么可被使用或检验的结果？" }],
+            recommendation: {
+              text: "建议先解决当前最大不确定性。",
+              evidenceRefs: [evidenceRef],
+              tradeoffs: ["先不命名页面，会晚一步看到最终 Project 入口。"],
+            },
+          }),
         },
         metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
       };
@@ -463,6 +466,35 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   assert.equal(pageResult.output.questionGroup?.focusUncertaintyId, "material-disposition");
   assert.equal(providerCalls, 2);
   assert.equal((await client.status()).objectCount, 0);
+
+  providerReady = true;
+  const readyPageBridge = (async () => {
+    for (let index = 0; index < 2; index += 1) {
+      const pending = await client.claimGraphReadRequest();
+      assert.equal(pending?.kind, "PAGE");
+      if (pending?.kind === "PAGE") assert.equal(pending.depth, 5);
+      if (!pending) throw new Error("expected preview-ready Project Creation Page read");
+      await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
+    }
+  })();
+  const readyPagePromise = client.grillProjectCreation({
+    sourceKind: "PAGE",
+    pageId: "Project Notes",
+    answers: [
+      { uncertaintyId: "material-disposition", text: "原 Page 保留为来源。" },
+      { uncertaintyId: "page-object-relationship", text: "创建受控 Project Page 并连接原 Page。" },
+      { uncertaintyId: "outcome", text: "持续形成可核验结果。" },
+      { uncertaintyId: "project-boundary", text: "只覆盖托管设备治理。" },
+      { uncertaintyId: "completion-evidence", text: "月度记录可追溯。" },
+      { uncertaintyId: "internal-closure", text: "每月核验并处理差异。" },
+      { uncertaintyId: "current-interface", text: "先看本月待核验设备。" },
+    ],
+  });
+  const [, readyPage] = await Promise.all([readyPageBridge, readyPagePromise]);
+  assert.equal(readyPage.output.readiness, "READY_FOR_PREVIEW");
+  assert.equal(readyPage.output.questionGroup, undefined);
+  assert.equal(providerCalls, 3);
+  providerReady = false;
 
   const changedPageBlocks = blocks.map((block) => block.uuid === "project-page-child"
     ? { ...block, content: "生成期间修改的 Page 材料", contentHash: checksum("生成期间修改的 Page 材料") }
@@ -536,7 +568,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   });
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CREATION_GRILL_REQUEST_INVALID");
-  assert.equal(providerCalls, 5);
+  assert.equal(providerCalls, 6);
 });
 
 test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {

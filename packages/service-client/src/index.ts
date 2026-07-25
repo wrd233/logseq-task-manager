@@ -162,7 +162,7 @@ export interface ServiceGrillTurn {
   understanding: string;
   facts: Array<{ text: string; sourceRefs: string[] }>;
   inferences: Array<{ text: string; evidenceRefs: string[] }>;
-  unknowns: Array<{ uncertaintyId: string; dimension: "OUTCOME" | "BOUNDARY" | "COMPLETION_EVIDENCE" | "UNCLASSIFIED_MATERIAL" | "INTERNAL_CLOSURE" | "CURRENT_INTERFACE"; text: string }>;
+  unknowns: Array<{ uncertaintyId: string; dimension: "OUTCOME" | "BOUNDARY" | "COMPLETION_EVIDENCE" | "UNCLASSIFIED_MATERIAL" | "INTERNAL_CLOSURE" | "CURRENT_INTERFACE" | "PAGE_OBJECT_RELATIONSHIP"; text: string }>;
   readiness: "CONTINUE" | "READY_FOR_PREVIEW";
   questionGroup?: { focusUncertaintyId: string; questions: Array<{ uncertaintyId: string; text: string }>; recommendation?: { text: string; evidenceRefs: string[]; tradeoffs: string[] } };
   evidenceScope: { refs: string[]; scopeHash: string; observedAt: string };

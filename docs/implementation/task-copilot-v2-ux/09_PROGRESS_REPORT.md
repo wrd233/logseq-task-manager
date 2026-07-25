@@ -429,7 +429,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Page route 已通过 Service-owned Graph bridge 读取/生成后重读与零写自动 Gate；
   MiniProject route 已通过 Object/version + Anchor + Graph 双重重验、stale 丢弃与零写自动
   Gate；Page depth 已收回 Graph Bridge 协议上限 5，Page stale 和两类空 Block 过滤已有
-  自动证据；独立 Project Creation Preview Validator/Provider generator 已通过零材料
+  自动证据，authenticated Page 七答案已真实穿过请求 parser 并返回 machine
+  `READY_FOR_PREVIEW`；独立 Project Creation Preview Validator/Provider generator 已通过零材料
   Blank、来源逐条保留、证据白名单、零 formal impact 自动 Gate；Preview route、Proposal/
   原子创建接线与 Desktop OPEN；
 - 根级检查：PASS；
