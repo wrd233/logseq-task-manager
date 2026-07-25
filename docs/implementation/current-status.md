@@ -153,7 +153,15 @@ overall_goal: IN_PROGRESS
   Project。
   Blank 只允许独立受控 Project Page，Page 可审阅“保留来源另建”或“升级当前 Page”，
   MiniProject 只允许保留来源另建；HIGH Review 接受后仍保持 Object/Page/Commit 零写入。
-  既有原子 create 接线、Recovery/Undo/返回来源和 Desktop 仍 OPEN；
+  已接受 HIGH Proposal 的专用 create 接线、失败补偿、restart recovery、dedicated/reused
+  Page 安全差异、inverse Undo 与成功后进入 Project Page 已自动完成；实际 Page UUID/hash
+  会在 Graph step 执行前持久绑定，专用 Page Undo 先预检 ownership/empty，复用来源 Page
+  永不删除。Local Service 129/129、Plugin 260/260、Persistence 48/48 与根级 Gate PASS；
+  最新 Plugin 又把 Blank、普通 Page 与 OPEN MiniProject 三个用户入口统一接入同一个
+  session-only Project Creation Grill→Preview→HIGH Review 链，并移除日常 UI 和 action
+  dispatch 中绕过 Grill 的旧直建入口；facts/inferences/unknowns、单轮问题、
+  loading/error/stale 与正式影响为零均在前台可见。Plugin 267/267 PASS。当前 commit 的
+  Desktop/reload/failure/Recovery/Undo/CURRENT 截图仍 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   `project-creation-modeling@1.1.0` 通过 Gate：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -167,7 +175,7 @@ overall_goal: IN_PROGRESS
 V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 remaining host Desktop gates / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
-P2-C Preview→HIGH Review automated, formal create vertical route OPEN /
+P2-C formal create→Recovery→Undo automated, current Desktop gate OPEN /
 P2-D–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论

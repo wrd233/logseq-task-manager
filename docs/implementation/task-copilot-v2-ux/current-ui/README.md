@@ -11,8 +11,10 @@
 - `PROTOTYPE`：只证明视觉或宿主能力，不代表正式产品链。
 
 当前没有截图被迁移为 `CURRENT`。仓库既有截图继续保留为历史证据，直到对应场景用最新
-构建重新执行。P2-C 只有 Grill/Preview/HIGH Review 自动与 Blank 真实 Provider 证据，
-正式创建、Recovery、Undo 和 Desktop 尚未闭环，因此本轮不制作伪“当前”截图。
+构建重新执行。P2-C 已有 Grill/Preview/HIGH Review、正式创建、失败补偿、重启恢复与
+专用 Undo 自动证据，以及 Blank 真实 Provider 证据；三来源最新 Plugin 用户入口也已自动
+接通并移除直建 bypass，但当前 commit 的 Desktop 操作链尚未执行，因此仍不制作伪“当前”
+截图。
 
 ## 每次取证必须记录
 

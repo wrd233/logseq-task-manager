@@ -58,7 +58,8 @@ import {
   updateExistingObjectFromV2Candidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
-import { createProjectWithControlledPage, createReviewedProjectWithPage, undoReviewedProjectCreation } from "./v2-project-creation.ts";
+import { createReviewedProjectWithPage, undoReviewedProjectCreation } from "./v2-project-creation.ts";
+import { ProjectCreationGrillController, type ProjectCreationSource } from "./project-creation-grill-controller.ts";
 import { buildSelectedBlockProposalPrompt, buildSelectedBlockProposalRevisionPrompt } from "./v2-provider-analysis.ts";
 import { buildMiniProjectLegacyTransferProposal } from "./v2-mini-project-legacy-transfer.ts";
 import { submitV2Association, type V2AssociationSubmissionState } from "./v2-association-controller.ts";
@@ -211,6 +212,16 @@ const miniProjectGrillController = new MiniProjectGrillController(
     providerAvailable: serviceConnection.status === "READY"
       && serviceConnection.capabilities.provider
       && Boolean(serviceRuntimeClient?.grillMiniProject),
+    generation: serviceDiscoveryGeneration,
+  }),
+  refresh,
+);
+const projectCreationGrillController = new ProjectCreationGrillController(
+  () => ({
+    ...(serviceRuntimeClient ? { client: serviceRuntimeClient } : {}),
+    providerAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && Boolean(serviceRuntimeClient?.grillProjectCreation),
     generation: serviceDiscoveryGeneration,
   }),
   refresh,
@@ -517,7 +528,6 @@ async function model(): Promise<UiModel> {
       storeStatus: diagnostics.snapshot().store_status,
       currentGraph: diagnostics.snapshot().current_graph,
     },
-    v2ProjectCreationAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2AreaAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2AreaBusy,
     v2Objects,
@@ -564,6 +574,16 @@ async function model(): Promise<UiModel> {
     v2MiniProjectGrillProposalAvailable: serviceConnection.status === "READY"
       && serviceConnection.formalWritesAvailable
       && Boolean(serviceRuntimeClient?.createMiniProjectRestructureProposal),
+    v2ProjectCreationGrill: projectCreationGrillController.snapshot(),
+    v2ProjectCreationGrillAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && Boolean(serviceRuntimeClient?.grillProjectCreation),
+    v2ProjectCreationPreviewAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && Boolean(serviceRuntimeClient?.previewProjectCreation),
+    v2ProjectCreationProposalAvailable: serviceConnection.status === "READY"
+      && serviceConnection.formalWritesAvailable
+      && Boolean(serviceRuntimeClient?.createProjectCreationProposal),
     ...(v2ReentryTargetObjectId ? { v2ReentryTargetObjectId } : {}),
     ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
     ...(v2ObjectNarrations !== undefined ? { v2ObjectNarrations } : {}),
@@ -701,6 +721,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间中断；旧请求已取消或结果未知，请重启 Service 后刷新审阅队列。" };
   projectContextRecoveryController.clear();
   miniProjectGrillController.clear();
+  projectCreationGrillController.clear();
   serviceRuntimeClient = undefined;
   serviceConnection = {
     status: "RESTRICTED",
@@ -1337,6 +1358,95 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }
     return;
   }
+  if (action === "v2-project-creation-grill-open" && value) {
+    let source: ProjectCreationSource;
+    if (value === "BLANK") {
+      source = { sourceKind: "BLANK" };
+    } else if (value.startsWith("PAGE:") && value.length > "PAGE:".length) {
+      source = { sourceKind: "PAGE", pageId: value.slice("PAGE:".length) };
+    } else if (value.startsWith("MINI_PROJECT:")) {
+      const versionSeparator = value.lastIndexOf(":");
+      const objectId = value.slice("MINI_PROJECT:".length, versionSeparator);
+      const expectedVersion = Number(value.slice(versionSeparator + 1));
+      if (!objectId || versionSeparator <= "MINI_PROJECT:".length || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+        throw new Error("MiniProject 演化上下文已失效；没有发送分析请求。");
+      }
+      source = { sourceKind: "MINI_PROJECT", objectId, expectedVersion };
+    } else {
+      throw new Error("Project 创建来源已失效；没有发送分析请求。");
+    }
+    actionDialog = { kind: "v2-project-creation-grill", value };
+    await projectCreationGrillController.start(source);
+    const state = projectCreationGrillController.snapshot()[value];
+    operationalLogger.log(
+      state?.status === "ready" ? "info" : "warn",
+      "ui-action",
+      state?.status === "ready" ? "project_creation_grill_turn_generated" : "project_creation_grill_turn_unavailable",
+      { actionId: "v2-project-creation-grill-open", result: state?.status ?? "discarded" },
+    );
+    return;
+  }
+  if (action === "v2-project-creation-grill-answer" && value) {
+    await projectCreationGrillController.answer(value, dialogField("v2ProjectCreationGrillAnswer"));
+    const state = projectCreationGrillController.snapshot()[value];
+    operationalLogger.log(
+      state?.status === "ready" ? "info" : "warn",
+      "ui-action",
+      state?.status === "ready" ? "project_creation_grill_turn_generated" : "project_creation_grill_turn_unavailable",
+      { actionId: "v2-project-creation-grill-answer", result: state?.status ?? "discarded" },
+    );
+    return;
+  }
+  if (action === "v2-project-creation-grill-retry" && value) {
+    await projectCreationGrillController.retry(value);
+    return;
+  }
+  if (action === "v2-project-creation-grill-recheck" && value) {
+    const stale = projectCreationGrillController.snapshot()[value];
+    if (stale?.status !== "stale") throw new Error("Project 来源状态已变化；无需重新检查。");
+    let source = stale.source;
+    if (source.sourceKind === "MINI_PROJECT") {
+      const objectId = source.objectId;
+      const current = (await serviceRuntimeClient?.listObjects())?.find((object) => object.objectId === objectId);
+      if (!current || current.objectType !== "MINI_PROJECT" || current.lifecycle !== "OPEN") {
+        throw new Error("来源 MiniProject 已不再适合演化为 Project；没有发送分析请求。");
+      }
+      source = { sourceKind: "MINI_PROJECT", objectId: current.objectId, expectedVersion: current.version };
+    }
+    const nextKey = source.sourceKind === "BLANK" ? "BLANK"
+      : source.sourceKind === "PAGE" ? `PAGE:${source.pageId}`
+      : `MINI_PROJECT:${source.objectId}:${source.expectedVersion}`;
+    actionDialog = { kind: "v2-project-creation-grill", value: nextKey };
+    await projectCreationGrillController.recheck(value, source);
+    return;
+  }
+  if (action === "v2-project-creation-grill-preview" && value) {
+    await projectCreationGrillController.generatePreview(value);
+    const state = projectCreationGrillController.snapshot()[value];
+    operationalLogger.log(
+      state?.status === "ready" && state.preview?.status === "ready" ? "info" : "warn",
+      "ui-action",
+      state?.status === "ready" && state.preview?.status === "ready" ? "project_creation_preview_generated" : "project_creation_preview_unavailable",
+      { actionId: "v2-project-creation-grill-preview", result: state?.status === "ready" ? state.preview?.status ?? "missing" : state?.status ?? "discarded" },
+    );
+    return;
+  }
+  if (action === "v2-project-creation-grill-proposal" && value) {
+    const result = await projectCreationGrillController.createProposal(value);
+    operationalLogger.log(
+      result ? "info" : "warn",
+      "ui-action",
+      result ? "project_creation_proposal_created" : "project_creation_proposal_unavailable",
+      { actionId: "v2-project-creation-grill-proposal", result: result ? (result.replayed ? "replayed" : "created") : "unavailable" },
+    );
+    if (result) {
+      actionDialog = undefined;
+      workspace = "review";
+      reviewMode = "proposals";
+      await refresh();
+    }
+    return;
+  }
   if (action === "v2-provider-analyze-current-block") {
     const targetBlockUuid = v2ProviderTarget.consume();
     workspace = "review";
@@ -1476,10 +1586,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-page-project-create-route" && value) {
     const current = requirePageContext(value);
     await pageContextController.revalidate(current);
-    actionDialog = undefined;
-    workspace = "objects";
-    message = `已打开受控 Project 创建入口。P0 不直接转换“${current.pageName}”；创建成功后会进入新的 Project Page。`;
-    await refresh();
+    await handleAction("v2-project-creation-grill-open", `PAGE:${current.pageUuid}`);
     return;
   }
   if (action === "v2-page-project-update" && value) {
@@ -1823,30 +1930,6 @@ async function handleAction(action: string, value?: string): Promise<void> {
       v2LifecycleProposalBusy = false;
       await refresh();
     }
-    return;
-  }
-  if (action === "create-v2-project") {
-    const name = dialogField("v2ProjectName");
-    await run(async () => {
-      if (!name) throw new Error("Project 名称不能为空。");
-      const client = serviceRuntimeClient;
-      if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
-        throw new Error("V2 Local Service 未就绪；没有创建页面或 SQLite 对象。");
-      }
-      const traceId = `project-create-ui-${Date.now()}`;
-      const result = await createProjectWithControlledPage(client, {
-        getPage: (pageName) => logseq.Editor.getPage(pageName),
-        createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
-        getPageBlocksTree: (pageName) => logseq.Editor.getPageBlocksTree(pageName),
-      }, name, traceId);
-      workspace = "objects";
-      message = `${result.pageName} 已创建并验证；Project 正式状态已写入 SQLite，可重试且不会重复。`;
-      pageContext = undefined;
-      originRoute = undefined;
-      actionDialog = undefined;
-      logseq.App.pushState("page", { name: result.pageName });
-      logseq.hideMainUI();
-    });
     return;
   }
   if (action === "create-v2-area") {
@@ -2551,6 +2634,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "cancel-action-dialog") {
     const returnToOrigin = originRoute !== undefined;
     if (actionDialog?.kind === "v2-mini-project-grill") miniProjectGrillController.clear();
+    if (actionDialog?.kind === "v2-project-creation-grill") projectCreationGrillController.clear();
     v2ClosureDraftInput = undefined;
     actionDialog = undefined;
     pageContext = undefined;
@@ -3035,6 +3119,7 @@ async function handleCurrentGraphChanged(): Promise<void> {
   blockMarkerPrototypeController.clear();
   projectContextRecoveryController.clear();
   miniProjectGrillController.clear();
+  projectCreationGrillController.clear();
   lastAttentionShadowSummarySignature = undefined;
   enterRestrictedServiceMode("GRAPH_SWITCH_IN_PROGRESS", "正在为新的 Graph 重新绑定本地运行环境；正式写入暂停。");
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");

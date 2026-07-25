@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { checksum } from "@task-copilot/shared";
+import type { ServiceProjectCreationGrillResult, ServiceProjectCreationPreviewResult } from "@task-copilot/service-client";
 
 import { renderApp, type UiModel } from "../src/ui.ts";
 import { projectPluginV2ProjectReentry } from "../src/reentry-runtime.ts";
@@ -492,6 +493,8 @@ test("ordinary Page Context exposes three user intents and a page-scoped formal-
   for (const action of ["v2-page-organize", "v2-page-formal-items-open", "v2-page-project-create-route"]) {
     assert.match(route, new RegExp(`data-action="${action}"`));
   }
+  assert.match(route, /读取当前 Page 的有界材料/);
+  assert.match(route, /先 Grill Me 和零写入预览/);
   assert.match(route, /完成或取消后仍回到 Release Check/);
 
   value.actionDialog = { kind: "v2-page-formal-items", value: "page-1" };
@@ -499,6 +502,161 @@ test("ordinary Page Context exposes three user intents and a page-scoped formal-
   assert.match(items, /本页正式事项/);
   assert.match(items, /TASK · OPEN · v3/);
   assert.match(items, /核对发布结果/);
+});
+
+test("Project creation exposes one adaptive Grill entry across Blank, Page, and MiniProject sources", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2ProjectCreationGrillAvailable = true;
+  value.v2Objects = [{
+    objectId: "mini:release:1",
+    objectType: "MINI_PROJECT",
+    version: 4,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "发布核对",
+    createdAt: "now",
+    updatedAt: "now",
+    sourceOrCreationEvent: "test",
+  }];
+  const html = renderApp(value);
+  assert.match(html, /V2 · Project Grill Me/);
+  assert.match(html, /data-action="v2-project-creation-grill-open" data-value="BLANK"/);
+  assert.match(html, /开始梳理 Project/);
+  assert.match(html, /data-action="v2-project-creation-grill-open" data-value="MINI_PROJECT:mini:release:1:4"/);
+  assert.match(html, /演化为 Project/);
+  assert.doesNotMatch(html, /data-action="create-v2-project"|data-field="v2ProjectName"|直接创建/);
+});
+
+test("Project Creation Grill keeps facts, inference, unknown, one question, zero-write Preview, and HIGH Review visible", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2ProjectCreationGrillAvailable = true;
+  value.v2ProjectCreationPreviewAvailable = true;
+  value.v2ProjectCreationProposalAvailable = true;
+  const grillResult = {
+    output: {
+      schemaVersion: "task-copilot-grill-turn-v1",
+      understanding: "当前材料希望建立发布治理 Project。",
+      facts: [{ text: "已有发布核对材料", sourceRefs: ["page:page-1"] }],
+      inferences: [{ text: "长期运营可能不在当前边界", evidenceRefs: ["page:page-1"] }],
+      unknowns: [{ uncertaintyId: "outcome", dimension: "OUTCOME", text: "最终结果尚未确认" }],
+      readiness: "CONTINUE",
+      questionGroup: {
+        focusUncertaintyId: "outcome",
+        questions: [{ uncertaintyId: "outcome", text: "完成时最重要的可验收结果是什么？" }],
+        recommendation: { text: "先确认一个可验收结果。", evidenceRefs: ["page:page-1"], tradeoffs: [] },
+      },
+      evidenceScope: { refs: ["page:page-1"], scopeHash: "scope", observedAt: "2026-07-25T08:00:00.000Z" },
+      authorityBoundary: "SESSION_DRAFT_ONLY",
+      provenance: {
+        contractVersion: "1.0.0",
+        promptVersion: "prompt",
+        skillName: "project-creation-modeling",
+        skillVersion: "1.1.0",
+        providerId: "deepseek",
+        providerVersion: "chat-completions-v1",
+        model: "deepseek-v4-flash",
+        generatedAt: "2026-07-25T08:00:00.000Z",
+      },
+    },
+    provider: { model: "deepseek-v4-flash", durationMs: 10, attempts: 1 },
+    promptBundleVersion: "prompt",
+    contextFingerprint: "fingerprint",
+  } satisfies ServiceProjectCreationGrillResult;
+  value.actionDialog = { kind: "v2-project-creation-grill", value: "PAGE:page-1" };
+  value.v2ProjectCreationGrill = {
+    "PAGE:page-1": {
+      status: "ready",
+      source: { sourceKind: "PAGE", pageId: "page-1" },
+      answers: [],
+      result: grillResult,
+    },
+  };
+  let html = renderApp(value);
+  assert.match(html, /Project Grill Me · 基于当前 Page/);
+  assert.match(html, /已确认事实[\s\S]*已有发布核对材料/);
+  assert.match(html, /Copilot 判断[\s\S]*长期运营可能不在当前边界/);
+  assert.match(html, /仍待澄清[\s\S]*最终结果尚未确认/);
+  assert.match(html, /这一轮只确认一件事/);
+  assert.match(html, /data-field="v2ProjectCreationGrillAnswer"/);
+  assert.match(html, /data-action="v2-project-creation-grill-answer"/);
+
+  const readyOutput: ServiceProjectCreationGrillResult["output"] = { ...grillResult.output };
+  delete readyOutput.questionGroup;
+  readyOutput.readiness = "READY_FOR_PREVIEW";
+  const readyResult: ServiceProjectCreationGrillResult = {
+    ...grillResult,
+    output: readyOutput,
+  };
+  value.v2ProjectCreationGrill["PAGE:page-1"] = {
+    status: "ready",
+    source: { sourceKind: "PAGE", pageId: "page-1" },
+    answers: [],
+    result: readyResult,
+  };
+  html = renderApp(value);
+  assert.match(html, /已经可以生成最终阅读预览/);
+  assert.match(html, /data-action="v2-project-creation-grill-preview"/);
+
+  const preview = {
+    output: {
+      schemaVersion: "task-copilot-project-creation-preview-v1",
+      finalReading: {
+        title: { text: "发布治理", evidenceRefs: ["answer:outcome"] },
+        outcome: { text: "形成可复核发布流程", evidenceRefs: ["answer:outcome"] },
+        boundary: {
+          included: [{ text: "发布核对", evidenceRefs: ["page:page-1"] }],
+          excluded: [{ text: "长期运营", evidenceRefs: ["answer:boundary"] }],
+        },
+        completionEvidence: [{ text: "恢复演练通过", evidenceRefs: ["answer:completion"] }],
+        internalClosure: { text: "每轮发布形成证据", evidenceRefs: ["answer:closure"] },
+        currentInterface: { text: "从发布核对继续", evidenceRefs: ["answer:interface"] },
+      },
+      pageObjectRelationship: {
+        mode: "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE",
+        rationale: "保留来源 Page。",
+        evidenceRefs: ["page:page-1"],
+        authority: "PROPOSED_FOR_REVIEW",
+      },
+      sourceMaterials: [],
+      formalImpact: { createsObject: false, createsPage: false, movesBlocks: 0, rewritesBlocks: 0, deletesBlocks: 0 },
+      evidenceScope: { refs: ["page:page-1"], scopeHash: "scope", observedAt: "2026-07-25T08:00:00.000Z" },
+      authorityBoundary: "SESSION_PREVIEW_ONLY",
+      provenance: readyResult.output.provenance,
+    },
+    provider: { model: "deepseek-v4-flash", durationMs: 10, attempts: 1 },
+    promptBundleVersion: "prompt",
+    contextFingerprint: "fingerprint",
+    previewHandle: "project_creation_preview_aaaaaaaaaaaaaaaa",
+  } satisfies ServiceProjectCreationPreviewResult;
+  value.v2ProjectCreationGrill["PAGE:page-1"] = {
+    status: "ready",
+    source: { sourceKind: "PAGE", pageId: "page-1" },
+    answers: [],
+    result: readyResult,
+    preview: { status: "ready", result: preview },
+  };
+  html = renderApp(value);
+  assert.match(html, /Project 最终阅读预览/);
+  assert.match(html, /形成可复核发布流程/);
+  assert.match(html, /保留来源，创建独立 Project 页面/);
+  assert.doesNotMatch(html, /CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE/);
+  assert.match(html, /本预览不会改动页面或正式事项/);
+  assert.match(html, /data-action="v2-project-creation-grill-proposal"/);
+  assert.match(html, /进入待我确认/);
+  assert.doesNotMatch(html, /Session only|HIGH Review|Project Creation Proposal|Provider|Local Service/);
+
+  value.v2ProjectCreationGrill["PAGE:page-1"] = {
+    status: "stale",
+    source: { sourceKind: "PAGE", pageId: "page-1" },
+    answers: [{ uncertaintyId: "outcome", text: "形成可复核发布流程" }],
+    message: "来源已变化",
+  };
+  html = renderApp(value);
+  assert.match(html, /来源已变化/);
+  assert.match(html, /data-action="v2-project-creation-grill-recheck"/);
+  assert.match(html, /基于最新内容重新检查/);
 });
 
 test("Project Page Context routes current state, structure discussion, and project operations", () => {
@@ -544,17 +702,16 @@ test("Migration workspace projects the Service ledger without accepting bundle c
   assert.doesNotMatch(html, /textarea|type="file"|data-action="migration-(?:import|activate|undo)"/);
 });
 
-test("Project workspace exposes one in-context V2 creation form gated by Local Service readiness", () => {
+test("Project workspace requires adaptive Grill and exposes no direct-creation bypass", () => {
   const unavailable = renderApp(model());
-  assert.match(unavailable, /V2 · Project 原子创建/);
-  assert.match(unavailable, /data-field="v2ProjectName"[^>]*disabled/);
-  assert.match(unavailable, /data-action="create-v2-project"[^>]*disabled/);
+  assert.match(unavailable, /V2 · Project Grill Me/);
+  assert.match(unavailable, /data-action="v2-project-creation-grill-open"[^>]*disabled/);
   const available = model();
-  available.v2ProjectCreationAvailable = true;
+  available.v2ProjectCreationGrillAvailable = true;
   const html = renderApp(available);
-  assert.match(html, /data-field="v2ProjectName" placeholder="例如：告警推送治理">/);
-  assert.match(html, /data-action="create-v2-project"/);
-  assert.doesNotMatch(html, /data-action="create-v2-project"[^>]*disabled/);
+  assert.match(html, /data-action="v2-project-creation-grill-open" data-value="BLANK"/);
+  assert.doesNotMatch(html, /data-action="v2-project-creation-grill-open"[^>]*disabled/);
+  assert.doesNotMatch(html, /data-action="create-v2-project"|data-field="v2ProjectName"|直接创建/);
 });
 
 test("Area workspace exposes controlled creation and versioned edit without inventing a Graph page", () => {
@@ -585,7 +742,6 @@ test("Area workspace exposes controlled creation and versioned edit without inve
 
 test("V2 Project workspace reads formal objects without mapping Lifecycle back to V1 Phase", () => {
   const value = model();
-  value.v2ProjectCreationAvailable = true;
   value.v2AssociationAvailable = true;
   value.v2Associations = [{
     associationId: "rel-project-output", sourceObjectId: "project-1", targetObjectId: "output-1", associationKind: "RELATED", status: "ACTIVE",
@@ -1515,7 +1671,8 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /registerPageContextMenu/);
   assert.match(source, /action === "recent-change-review"[\s\S]*workspace = "review";[\s\S]*reviewMode = "proposals";/);
   assert.match(source, /getCurrentPage\(\)/);
-  assert.match(source, /pushState\("page", \{ name: result\.pageName \}\)/);
+  assert.match(source, /pushState\("page", \{ name: openedPageName \}\)/);
+  assert.doesNotMatch(source, /action === "create-v2-project"/);
   assert.match(source, /const returnToOrigin = originRoute !== undefined;[\s\S]*if \(returnToOrigin\) \{[\s\S]*await returnToBusinessOrigin\(\);/);
   assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*originRoute = undefined;[\s\S]*originRouteController\.returnTo\(token\)/);
 });

@@ -13,6 +13,7 @@ import type { PageContextSnapshot } from "./page-context-controller.ts";
 import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
 import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
 import type { PluginMiniProjectGrillState } from "./mini-project-grill-controller.ts";
+import type { PluginProjectCreationGrillState } from "./project-creation-grill-controller.ts";
 import {
   resolveProjectContextRecoveryRoute,
   type PluginProjectContextRecoveryState,
@@ -70,6 +71,7 @@ export type ActionDialogKind =
   | "v2-area-edit"
   | "v2-project-structure-edit"
   | "v2-mini-project-grill"
+  | "v2-project-creation-grill"
   | "v2-page-context"
   | "v2-page-formal-items"
   | "confirm-end-task-copilot";
@@ -99,7 +101,6 @@ export interface UiModel {
     currentGraph: string;
   };
   actionDialog?: { kind: ActionDialogKind; value: string };
-  v2ProjectCreationAvailable?: boolean;
   v2AreaAvailable?: boolean;
   v2AreaBusy?: boolean;
   v2Objects?: V2ManagedObject[];
@@ -130,6 +131,10 @@ export interface UiModel {
   v2MiniProjectGrillAvailable?: boolean;
   v2MiniProjectGrillPreviewAvailable?: boolean;
   v2MiniProjectGrillProposalAvailable?: boolean;
+  v2ProjectCreationGrill?: Record<string, PluginProjectCreationGrillState>;
+  v2ProjectCreationGrillAvailable?: boolean;
+  v2ProjectCreationPreviewAvailable?: boolean;
+  v2ProjectCreationProposalAvailable?: boolean;
   v2ReentryTargetObjectId?: string;
   v2ReentryLoadError?: string;
   v2ObjectNarrations?: Record<string, PluginObjectNarration>;
@@ -172,6 +177,13 @@ function button(label: string, action: string, value?: string, className = "", d
 
 function empty(title: string, detail: string): string {
   return `<div class="empty"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(detail)}</p></div>`;
+}
+
+function projectPageRelationshipLabel(mode: "CREATE_DEDICATED_PROJECT_PAGE" | "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" | "REUSE_SOURCE_PAGE" | "REVIEW_REQUIRED"): string {
+  if (mode === "CREATE_DEDICATED_PROJECT_PAGE") return "创建独立 Project 页面";
+  if (mode === "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE") return "保留来源，创建独立 Project 页面";
+  if (mode === "REUSE_SOURCE_PAGE") return "复用当前 Page 作为 Project 页面";
+  return "Page 关系仍需在审阅中确认";
 }
 
 function renderNow(model: UiModel): string {
@@ -255,7 +267,7 @@ function renderV2ProjectStructure(object: V2ManagedObject): string {
 
 function renderObjects(model: UiModel): string {
   const relationError = model.v2RelationLoadError ? `<section class="card error" role="alert"><strong>关系投影暂不可用</strong><p>${escapeHtml(model.v2RelationLoadError)}</p><p class="muted">正式对象与其他工作区仍可使用；没有执行关系写入。</p></section>` : "";
-  const projectCreator = `<section class="card project-creator" aria-label="创建 Project 页面"><div class="eyebrow">V2 · Project 原子创建</div><h3>新建 Project</h3><p class="muted">创建受控的 Project/&lt;名称&gt; 页面，并在页面验证后一次性写入 SQLite。</p><label>Project 名称<input data-field="v2ProjectName" placeholder="例如：告警推送治理"${model.v2ProjectCreationAvailable ? "" : " disabled"}></label>${button("创建 Project 与页面", "create-v2-project", undefined, "primary", !model.v2ProjectCreationAvailable)}</section>`;
+  const projectCreator = `<section class="card project-creator" aria-label="创建 Project 页面"><div class="eyebrow">V2 · Project Grill Me</div><h3>新建 Project</h3><p class="muted">先围绕真正缺失的结果、边界、完成证据、内部闭环、当前接口和 Page 关系讨论；确认最终阅读结果后再进入“待我确认”。</p>${button("开始梳理 Project", "v2-project-creation-grill-open", "BLANK", "primary", model.v2ProjectCreationGrillAvailable !== true)}</section>`;
   const areaCreator = `<section class="card area-creator" aria-label="创建 Area"><div class="eyebrow">V2 · Area 受控入口</div><h3>新建 Area</h3><p class="muted">记录长期责任边界并写入 SQLite；页面与 Anchor 为可选能力，此处不创建隐式 Graph 副本。</p><label>责任描述<input data-field="v2AreaText" placeholder="例如：维持稳定作息与健康检查"${model.v2AreaAvailable && !model.v2AreaBusy ? "" : " disabled"}></label>${button(model.v2AreaBusy ? "正在创建…" : "创建 Area", "create-v2-area", undefined, "primary", !model.v2AreaAvailable || model.v2AreaBusy === true)}</section>`;
   const associationCreator = model.v2Objects && model.v2Objects.length >= 2 ? `<section class="card association-creator" aria-label="添加普通 Association"><div class="eyebrow">V2 · 普通关联</div><h3>关联两个正式对象</h3><p class="muted">只表达“相关”，不会改变 Primary Ownership、位置、Lifecycle 或 Focus。</p><label>来源对象<select data-field="v2AssociationSource"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}" data-version="${object.version}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)} · v${object.version}</option>`).join("")}</select></label><label>目标对象<select data-field="v2AssociationTarget"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="v2AssociationConfirmed" value="yes">确认添加普通 Association，不改变归属</label>${button(model.v2AssociationBusy ? "正在添加…" : "添加 Association", "v2-association-add", undefined, "primary", !model.v2AssociationAvailable || model.v2AssociationBusy)}${model.v2Associations?.length ? `<p class="muted">当前已有 ${model.v2Associations.length} 条普通 Association。</p>` : ""}</section>` : "";
   if (model.v2Objects !== undefined) {
@@ -273,9 +285,10 @@ function renderObjects(model: UiModel): string {
           : "";
       const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成 MiniProject", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
       const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理 MiniProject" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
+      const evolveProjectAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ProjectCreationGrillAvailable ? "演化为 Project" : "演化暂不可用", "v2-project-creation-grill-open", `MINI_PROJECT:${object.objectId}:${object.version}`, "quiet", model.v2ProjectCreationGrillAvailable !== true) : "";
       const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑 Area", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
       const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("更新 Project 当前接口", "v2-project-structure-open", `${object.objectId}|${object.version}`, "quiet") : "";
-      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction || grillAction || areaAction || projectStructureAction ? `<div class="actions">${areaAction}${grillAction}${closureAction}${projectStructureAction}${lifecycleActions}</div>` : ""}${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</article>`;
+      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction || grillAction || evolveProjectAction || areaAction || projectStructureAction ? `<div class="actions">${areaAction}${grillAction}${evolveProjectAction}${closureAction}${projectStructureAction}${lifecycleActions}</div>` : ""}${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</article>`;
     }).join("")}</div></section>`;
     return `${areaCreator}${projectCreator}${relationError}${associationCreator}${ownershipList}${associationList}${list}`;
   }
@@ -744,6 +757,36 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-project-creation-grill") {
+    const state = model.v2ProjectCreationGrill?.[dialog.value];
+    if (!state) return "";
+    const result = state.status === "ready" ? state.result : state.status === "loading" || state.status === "error" ? state.previous : undefined;
+    const output = result?.output;
+    const sourceLabel = state.source.sourceKind === "BLANK" ? "从空白开始" : state.source.sourceKind === "PAGE" ? "基于当前 Page" : "由 MiniProject 演化";
+    const loading = state.status === "loading" ? `<div class="notice" aria-live="polite">正在读取有界来源并生成下一轮；没有创建页面、正式事项或待确认变更。</div>` : "";
+    const error = state.status === "error" || state.status === "stale" ? `<div class="notice error" role="alert">${escapeHtml(state.message)}</div>` : "";
+    const facts = output?.facts.length ? `<section><h4>已确认事实</h4><ul>${output.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
+    const inferences = output?.inferences.length ? `<section><h4>Copilot 判断</h4><ul>${output.inferences.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
+    const unknowns = output?.unknowns.length ? `<section><h4>仍待澄清</h4><ul>${output.unknowns.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
+    const recommendation = output?.questionGroup?.recommendation ? `<aside class="notice"><strong>建议：</strong>${escapeHtml(output.questionGroup.recommendation.text)}</aside>` : "";
+    const previewState = state.status === "ready" ? state.preview : undefined;
+    const readyForPreview = output?.readiness === "READY_FOR_PREVIEW" && previewState?.status !== "ready"
+      ? previewState?.status === "loading" ? `<p class="notice" aria-live="polite">正在生成最终阅读预览；正式状态保持不变。</p>`
+        : `<div class="notice"><strong>已经可以生成最终阅读预览。</strong><p>这一步不会改动页面或正式事项。</p>${previewState?.status === "error" ? `<p class="error">${escapeHtml(previewState.message)}</p>` : ""}${button("生成最终阅读预览", "v2-project-creation-grill-preview", dialog.value, "primary", model.v2ProjectCreationPreviewAvailable !== true)}</div>`
+      : "";
+    const preview = previewState?.status === "ready" ? previewState.result.output : undefined;
+    const proposal = previewState?.status === "ready" ? previewState.proposal : undefined;
+    const proposalCta = preview ? proposal?.status === "loading" ? `<p class="notice">正在核对最新来源并准备“待我确认”；正式状态仍未变化。</p>`
+      : proposal?.status === "error" ? `<div class="notice error">${escapeHtml(proposal.message)}</div>${button("重试进入待我确认", "v2-project-creation-grill-proposal", dialog.value, "quiet", model.v2ProjectCreationProposalAvailable !== true)}`
+      : proposal?.status === "ready" ? `<p class="notice">Project 创建建议已进入“待我确认”；尚未创建正式事项或页面。</p>`
+      : button("进入待我确认", "v2-project-creation-grill-proposal", dialog.value, "primary", model.v2ProjectCreationProposalAvailable !== true) : "";
+    const previewHtml = preview ? `<section class="grill-preview" aria-label="Project 最终阅读预览"><div class="eyebrow">最终阅读预览 · 尚未应用</div><h3>${escapeHtml(preview.finalReading.title.text)}</h3><p><strong>要得到：</strong>${escapeHtml(preview.finalReading.outcome.text)}</p><p><strong>范围内：</strong>${escapeHtml(preview.finalReading.boundary.included.map((item) => item.text).join("；"))}</p>${preview.finalReading.boundary.excluded.length ? `<p><strong>范围外：</strong>${escapeHtml(preview.finalReading.boundary.excluded.map((item) => item.text).join("；"))}</p>` : ""}<p><strong>完成证据：</strong>${escapeHtml(preview.finalReading.completionEvidence.map((item) => item.text).join("；"))}</p><p><strong>内部闭环：</strong>${escapeHtml(preview.finalReading.internalClosure.text)}</p><p><strong>当前接口：</strong>${escapeHtml(preview.finalReading.currentInterface.text)}</p><p><strong>Page 关系：</strong>${escapeHtml(projectPageRelationshipLabel(preview.pageObjectRelationship.mode))} · ${escapeHtml(preview.pageObjectRelationship.rationale)}</p><div class="notice">事实材料保持原样；本预览不会改动页面或正式事项。下一步只会建立一项待确认变更。</div>${proposalCta}</section>` : "";
+    const question = state.status === "ready" && output?.readiness === "CONTINUE" && output.questionGroup
+      ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2ProjectCreationGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-project-creation-grill-answer", dialog.value, "primary")}</section>` : "";
+    const retry = state.status === "error" ? button("重试本轮", "v2-project-creation-grill-retry", dialog.value, "quiet") : "";
+    const recheck = state.status === "stale" ? button("基于最新内容重新检查", "v2-project-creation-grill-recheck", dialog.value, "primary") : "";
+    return `<section class="inbox-dialog action-dialog project-creation-grill" aria-label="梳理 Project"><div class="eyebrow">Project Grill Me · ${escapeHtml(sourceLabel)} · 本次讨论不会保存</div><h3>先把 Project 说清楚</h3><p class="muted">后台可以读取有界来源；前台只保留核心理解、依据、一个真正分歧和一个主要动作。事实、推断、未知分开，智能分析无权创建正式事项。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${recheck}${cancel}</div></section>`;
+  }
   if (dialog.kind === "v2-mini-project-grill") {
     const [objectId] = dialog.value.split("|");
     const object = model.v2Objects?.find((candidate) => candidate.objectId === objectId && candidate.objectType === "MINI_PROJECT");
@@ -792,7 +835,7 @@ function renderActionDialog(model: UiModel): string {
       const unavailable = context.project.lifecycle !== "OPEN";
       return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="Project 页面操作"><div class="eyebrow">Project Page · ${escapeHtml(context.pageName)}</div><h3>${escapeHtml(context.project.objectText)}</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-project-update" data-value="${escapeHtml(context.pageUuid)}"${unavailable ? " disabled" : ""}><strong>更新项目当前状态</strong><span>打开既有受版本保护的 Project 当前接口</span></button><button type="button" data-action="v2-page-project-discuss" data-value="${escapeHtml(context.pageUuid)}"${unavailable ? " disabled" : ""}><strong>讨论项目结构</strong><span>P0 进入既有 HIGH Proposal 审阅闭环，不直接改正式状态</span></button><button type="button" data-action="v2-page-project-operations" data-value="${escapeHtml(context.pageUuid)}"><strong>项目操作</strong><span>进入正式对象工作区继续处理</span></button></div><div class="actions">${cancel}</div></section>`;
     }
-    return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="普通页面操作"><div class="eyebrow">Page · ${escapeHtml(context.pageName)}</div><h3>从当前页继续</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-organize" data-value="${escapeHtml(context.pageUuid)}"><strong>整理当前页</strong><span>扫描当前页显式候选；先预览，不直接改正文或正式状态</span></button><button type="button" data-action="v2-page-formal-items-open" data-value="${escapeHtml(context.pageUuid)}"><strong>查看本页正式事项</strong><span>${context.formalItems.length} 项由 active Primary Anchor 关联到本页</span></button><button type="button" data-action="v2-page-project-create-route" data-value="${escapeHtml(context.pageUuid)}"><strong>将本页建立为 Project</strong><span>P0 只打开既有受控 Project 创建入口，不直接转换当前页</span></button></div><div class="actions">${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="普通页面操作"><div class="eyebrow">Page · ${escapeHtml(context.pageName)}</div><h3>从当前页继续</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-organize" data-value="${escapeHtml(context.pageUuid)}"><strong>整理当前页</strong><span>扫描当前页显式候选；先预览，不直接改正文或正式状态</span></button><button type="button" data-action="v2-page-formal-items-open" data-value="${escapeHtml(context.pageUuid)}"><strong>查看本页正式事项</strong><span>${context.formalItems.length} 项由 active Primary Anchor 关联到本页</span></button><button type="button" data-action="v2-page-project-create-route" data-value="${escapeHtml(context.pageUuid)}"><strong>将本页建立为 Project</strong><span>读取当前 Page 的有界材料，先 Grill Me 和零写入预览，不直接转换当前页</span></button></div><div class="actions">${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-page-formal-items") {
     const context = model.pageContext;

@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_VERTICAL_SLICE_DONE_P2C_HIGH_REVIEW_AUTOMATED | P2-A turn/preview + P2-B server-owned HIGH Proposal/Review + dedicated Commit/inverse Undo/recovery 自动 PASS；P2-C 三来源 Grill/Preview + server-owned HIGH Proposal/Review + stale/expired/relationship/zero-write Gate PASS | P2-A/B 隔离链 PASS；P2-C Blank real DeepSeek v4 flash turn/preview PASS，非法 shape 安全拒绝且 object count=0 | P2-A/B 当前纵向 Slice DONE；P2-C 正式 create/Recovery/Undo/Desktop、P2-D～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_FORMAL_CHAIN_AUTOMATED | P2-A/B 完整自动链 PASS；P2-C 三来源用户入口、Grill/Preview/HIGH Review、Proposal-bound atomic create、restart Recovery、dedicated/reused Page safety 与 inverse Undo PASS；直建 bypass 已移除 | P2-A/B 隔离链 PASS；P2-C Blank real DeepSeek v4 flash turn/preview PASS；P2-C 当前正式链 Desktop 尚未执行 | P2-A/B 当前纵向 Slice DONE；P2-C 自动化从 Partial→Done，但 Desktop Gate OPEN；P2-D～G OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收

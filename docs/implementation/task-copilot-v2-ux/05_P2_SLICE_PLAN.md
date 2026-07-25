@@ -102,7 +102,7 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 
 ## P2-C：Project 创建 Grill Me
 
-状态：`IN_PROGRESS_HIGH_REVIEW_AUTOMATED`
+状态：`IN_PROGRESS_FORMAL_CHAIN_AUTOMATED_DESKTOP_OPEN`
 
 所有入口：
 
@@ -118,7 +118,8 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 Blank 不得声称来源证据，Page/MiniProject 必须携带有界 source ref。机器 readiness 除成果、
 边界、完成证据和未分类材料外，还必须解决 Project 特有的 internal closure 与 current
 interface；模型仍只有 `SESSION_DRAFT_ONLY`。Context Package、Skill/Prompt、Provider、
-最终预览、server-owned create Proposal 与 Review 已接通；既有原子创建接线仍 OPEN。
+最终预览、server-owned create Proposal 与 Review 已接通；Proposal-bound 原子创建接线
+也已自动完成。
 
 第二个自动合同已完成：Local Service `project-creation-grill.ts` 将三种入口材料构造成
 有界 Context 和七维 machine uncertainty，`project-creation-modeling@1.1.0` 明确要求
@@ -148,7 +149,22 @@ stale fail closed。稳定 fingerprint 覆盖实际可影响模型的 Context fa
 覆盖完整规范 Preview。Blank 只允许独立受控 Project Page；Page 使用规范 Page
 identity/version/hash，可整体审阅“保留来源并另建”
 或“升级当前 Page”；MiniProject 只允许保留来源并另建。既有 Review 接受后仍没有
-Object/Page/Commit 写入。正式 create 接线、失败恢复、Undo、完成后路由与 Desktop 仍 OPEN。
+Object/Page/Commit 写入。
+
+第五个自动合同已完成：已接受 HIGH Proposal 进入专用 prepare/finalize；新建 Page 使用
+精确 owner/object/commit 所有权，复用 Page 零标记并按已审阅 identity/hash 重验。实际
+Page UUID/hash 在 Graph step 执行前持久绑定，Domain failure 可跨 restart 补偿；专用
+空 Page 才可删除，复用来源 Page 永不删除。专用 inverse Undo 在 Domain 写入前先做 Page
+ownership/empty 预检，含用户正文时 fail closed；原 Commit、逆向 Commit 与 Audit 保留。
+完成后路由已有 Plugin 自动证据，真实 Desktop/reload/截图仍 OPEN。
+
+第六个自动合同已完成：Plugin 的 Blank 主入口、普通 Page“将本页建立为 Project”和 OPEN
+MiniProject“演化为 Project”统一进入同一 Project Creation session；客户端只提交 source
+identity/version 与回答，不上传事实或结构。前台分开显示 facts、Copilot 判断与 unknowns，
+每轮只保留一个真实分歧；loading/error/stale、零写入 Preview 和 HIGH Review 均有显式
+状态。旧“直接创建 Project”UI 与 action dispatch 已移除，不能绕过 Grill。Plugin
+267/267 与类型检查、生产构建 PASS。
+
 Blank Preview 已使用真实
 `deepseek-v4-flash` 与 `project-creation-modeling@1.1.0` 通过独立 Service Gate：
 来源材料 0、关系仍为待 Review、formal impact 0、Object projection 前后均为 0。
