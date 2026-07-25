@@ -1199,7 +1199,17 @@ function respondError(response: ServerResponse, error: unknown): void {
       : error.code.startsWith("LLM_") ? 502
       : undefined;
     if (providerStatus !== undefined) {
-      respond(response, providerStatus, { error: { code: error.code, message: error.message } });
+      const validationCategory = error.code === "GRILL_TURN_VALIDATION_FAILED"
+        && typeof error.details?.validationCategory === "string"
+        ? error.details.validationCategory
+        : undefined;
+      respond(response, providerStatus, {
+        error: {
+          code: error.code,
+          message: error.message,
+          ...(validationCategory ? { validationCategory } : {}),
+        },
+      });
       return;
     }
     const projectCreationConflictCodes = ["V2_PROJECT_CREATION_COMMIT_CONFLICT", "V2_PROJECT_CREATION_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CREATION_COMMIT_INTENT_MISMATCH", "V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "V2_PROJECT_CREATION_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROJECT_CREATION_SOURCE_ANCHOR_STALE"];

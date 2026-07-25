@@ -97,7 +97,8 @@ test("Grill generator rejects invented evidence and operation authority as a zer
     () => new LocalLlmGrillTurnGenerator(provider).generate(request),
     (error: unknown) => error instanceof StructuredError
       && error.code === "GRILL_TURN_VALIDATION_FAILED"
-      && error.message.includes("没有进入结构预览"),
+      && error.message.includes("没有进入结构预览")
+      && error.details?.validationCategory === "SHAPE",
   );
 });
 
@@ -125,7 +126,8 @@ test("Grill generator rejects internal identity leakage from otherwise valid pro
     () => new LocalLlmGrillTurnGenerator(provider).generate(request),
     (error: unknown) => error instanceof StructuredError
       && error.code === "GRILL_TURN_VALIDATION_FAILED"
-      && error.message.includes("没有进入结构预览"),
+      && error.message.includes("没有进入结构预览")
+      && error.details?.validationCategory === "IDENTITY_LEAK",
   );
 });
 

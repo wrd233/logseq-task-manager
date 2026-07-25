@@ -538,7 +538,13 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
     body: JSON.stringify({ sourceKind: "BLANK", answers: [] }),
   });
   assert.equal(invalidTurn.status, 422, "a schema-valid but authority-invalid Grill turn is a user-correctable validation response");
-  assert.equal((await invalidTurn.json() as { error: { code: string } }).error.code, "GRILL_TURN_VALIDATION_FAILED");
+  assert.deepEqual(await invalidTurn.json(), {
+    error: {
+      code: "GRILL_TURN_VALIDATION_FAILED",
+      message: "Provider 输出未通过 Grill Turn Validator；没有进入结构预览或正式写入。",
+      validationCategory: "SHAPE",
+    },
+  });
   providerInvalidTurn = false;
 
   providerReady = true;

@@ -51,6 +51,16 @@ function withoutModelProvenance(value: unknown): unknown {
   return draft;
 }
 
+function validationCategory(cause: string): "IDENTITY_LEAK" | "READINESS" | "FOCUS" | "EVIDENCE" | "SHAPE" | "LANGUAGE" | "UNKNOWN" {
+  if (/machine identity/i.test(cause)) return "IDENTITY_LEAK";
+  if (/readiness/i.test(cause)) return "READINESS";
+  if (/focus|question/i.test(cause)) return "FOCUS";
+  if (/evidence|reference|fact/i.test(cause)) return "EVIDENCE";
+  if (/natural Chinese/i.test(cause)) return "LANGUAGE";
+  if (/field|object|invalid|duplicate|schema/i.test(cause)) return "SHAPE";
+  return "UNKNOWN";
+}
+
 export class LocalLlmGrillTurnGenerator {
   constructor(private readonly provider: StructuredProposalProvider) {}
 
@@ -201,7 +211,10 @@ export class LocalLlmGrillTurnGenerator {
       code: "GRILL_TURN_VALIDATION_FAILED",
       message: "Provider 输出未通过 Grill Turn Validator；没有进入结构预览或正式写入。",
       ruleRefs: ["D-125", "D-127", "D-130", "D-139"],
-      details: { cause: validationCause ?? "unknown" },
+      details: {
+        cause: validationCause ?? "unknown",
+        validationCategory: validationCategory(validationCause ?? "unknown"),
+      },
     });
   }
 }
