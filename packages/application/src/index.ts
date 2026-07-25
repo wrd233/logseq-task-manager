@@ -21,3 +21,4 @@ export * from "./project-creation-preview.ts";
 export * from "./project-creation-proposal.ts";
 export * from "./mini-project-restructure-proposal.ts";
 export * from "./mini-project-restructure-commit.ts";
+export * from "./project-operation-router.ts";

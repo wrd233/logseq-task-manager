@@ -1603,7 +1603,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (!project || project.lifecycle !== "OPEN") {
       throw new Error("当前页已不再对应可编辑的 OPEN Project；没有创建 Proposal。");
     }
-    actionDialog = { kind: "v2-project-structure-edit", value: `${project.objectId}|${project.objectVersion}` };
+    actionDialog = { kind: "v2-project-operation-router", value: `${project.objectId}|${project.objectVersion}` };
     workspace = "objects";
     await refresh();
     return;
@@ -1959,6 +1959,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-area-edit-open" && value) return openActionDialog("v2-area-edit", value);
+  if (action === "v2-project-operation-router-open" && value) return openActionDialog("v2-project-operation-router", value);
+  if (action === "v2-project-operation-association" && value) {
+    actionDialog = undefined;
+    workspace = "objects";
+    message = "请在“关联两个正式对象”中选择目标；这里只建立普通 Association，不改变主归属、位置、Lifecycle 或 Focus。";
+    await refresh();
+    return;
+  }
   if (action === "v2-project-structure-open" && value) return openActionDialog("v2-project-structure-edit", value);
   if (action === "submit-v2-project-structure" && value) {
     const [objectId, rawVersion] = value.split("|");
