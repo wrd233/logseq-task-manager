@@ -208,3 +208,56 @@ test("high-impact Ownership uses its existing dedicated Undo handler", () => {
     tone: "danger",
   });
 });
+
+test("reviewed Project creation uses its Page-aware Undo and folds the inverse ledger", () => {
+  const createProject = {
+    operationId: "create-project",
+    kind: "CREATE_OBJECT" as const,
+    target: { kind: "PAGE" as const, id: "Project/Desktop Gate", expectedExistence: "ABSENT" as const },
+    summary: "建立 Project",
+    payload: {
+      objectType: "PROJECT" as const,
+      text: "Desktop Gate",
+      pageName: "Project/Desktop Gate",
+      sourceKind: "BLANK" as const,
+      relationshipMode: "CREATE_DEDICATED_PROJECT_PAGE" as const,
+      targetExpectation: "ABSENT" as const,
+      sourceFingerprint: "source-fingerprint",
+      previewScopeHash: "preview-scope-hash",
+      projectStructure: {
+        outcome: "完成 Desktop Gate",
+        boundary: { included: ["测试 Graph"], excluded: ["真实 Graph"] },
+        completionEvidence: ["reload 与 Undo"],
+        internalClosure: "记录验收证据",
+        currentInterface: "显示当前 Gate",
+        supportingEvidenceRefs: ["answer:outcome"],
+      },
+    },
+    preconditions: [],
+  };
+  const changes = projectRecentChanges({
+    proposals: [proposal("proposal-1", createProject)],
+    commits: [commit("proposal-commit:project", "COMPLETED")],
+  });
+
+  assert.deepEqual(changes[0]!.primaryAction, {
+    action: "v2-project-creation-undo",
+    label: "撤销",
+    value: "proposal-commit:project",
+    tone: "danger",
+  });
+
+  const undone = projectRecentChanges({
+    proposals: [proposal("proposal-1", createProject)],
+    commits: [
+      commit("proposal-commit:project", "UNDONE"),
+      commit("project-creation-undo:proposal-commit:project", "COMPLETED", {
+        updatedAt: "2026-07-24T06:36:00.000Z",
+      }),
+    ],
+  });
+  assert.equal(undone.length, 1);
+  assert.equal(undone[0]!.status, "UNDONE");
+  assert.equal(undone[0]!.primaryAction, undefined);
+  assert.equal(undone[0]!.availability, "撤销已经生效，历史证据仍保留。");
+});
