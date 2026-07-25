@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildProjectCreationProposal,
+  planAcceptedV2ProjectCreation,
   type ProjectCreationPreview,
 } from "../src/index.ts";
 import { checksum } from "@task-copilot/shared";
@@ -143,4 +144,41 @@ test("Project creation Proposal rejects relationship/source mismatches and chang
     source: { sourceKind: "PAGE", page: { id: "page-device-governance", name: "设备治理材料", hash: checksum("page evidence") } },
     sourceFingerprint: "a".repeat(64),
   }), /identity\/hash/);
+});
+
+test("accepted Project creation Proposal becomes one exact formal creation plan", () => {
+  const ready = buildProjectCreationProposal({
+    proposalId: "proposal_project_creation_plan",
+    preview: preview("REUSE_SOURCE_PAGE"),
+    source: { sourceKind: "PAGE", page: { id: "page-device-governance", name: "设备治理材料", version: 7, hash: checksum("page evidence") } },
+    sourceFingerprint: "a".repeat(64),
+  });
+  ready.status = "ACCEPTED";
+  ready.groups[0]!.disposition = "ACCEPTED";
+  const plan = planAcceptedV2ProjectCreation(ready);
+  assert.equal(plan.title, "设备治理");
+  assert.equal(plan.pageName, "设备治理材料");
+  assert.equal(plan.relationshipMode, "REUSE_SOURCE_PAGE");
+  assert.equal(plan.pageTarget.id, "page-device-governance");
+  assert.equal(plan.sourcePageTarget?.version, 7);
+  assert.deepEqual(plan.sourceBlockTargets, [{ kind: "BLOCK", id: "page-root", hash: checksum("设备治理材料") }]);
+  assert.equal(plan.projectStructure.currentFocuses[0], "先查看本月尚未核验的设备。");
+});
+
+test("Project creation planner refuses unresolved review, changed relationship, and incomplete source authority", () => {
+  const ready = buildProjectCreationProposal({
+    proposalId: "proposal_project_creation_plan_invalid",
+    preview: preview("CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE"),
+    source: { sourceKind: "MINI_PROJECT", objectId: "mini-source", objectVersion: 3 },
+    sourceFingerprint: "b".repeat(64),
+  });
+  assert.throws(() => planAcceptedV2ProjectCreation(ready), /唯一已接受/);
+  ready.status = "ACCEPTED";
+  ready.groups[0]!.disposition = "ACCEPTED";
+  ready.groups[0]!.semanticOperations[0]!.payload.relationshipMode = "REUSE_SOURCE_PAGE";
+  assert.throws(() => planAcceptedV2ProjectCreation(ready), /关系/);
+  const missingObject = structuredClone(ready);
+  missingObject.groups[0]!.semanticOperations[0]!.payload.relationshipMode = "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE";
+  missingObject.scope.read = missingObject.scope.read.filter((target) => target.kind !== "OBJECT");
+  assert.throws(() => planAcceptedV2ProjectCreation(missingObject), /来源证据/);
 });

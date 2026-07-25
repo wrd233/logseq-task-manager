@@ -219,6 +219,55 @@ export interface ServiceProjectCreationPreviewResult {
 }
 export interface ServiceProjectCreationProposalRequest { previewHandle: string }
 export interface ServiceProjectCreationProposalResult { record: ServiceStoredProposal; replayed: boolean }
+export interface ServicePrepareProposalProjectCreationRequest {
+  confirmation: "CREATE_PROJECT";
+  expectedUpdatedAt: string;
+  traceId: string;
+}
+export interface ServiceFinalizeProposalProjectCreationRequest {
+  expectedUpdatedAt: string;
+  semanticCommitId: string;
+  objectId: string;
+  pageExternalId: string;
+  pageContentHash: string;
+  traceId: string;
+}
+export interface ServicePreparedProposalProjectCreation {
+  status: "PREPARED";
+  semanticCommitId: string;
+  proposalId: string;
+  expectedUpdatedAt: string;
+  objectId: string;
+  pageName: string;
+  relationshipMode: "CREATE_DEDICATED_PROJECT_PAGE" | "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" | "REUSE_SOURCE_PAGE";
+  pageExternalId?: string;
+  replayed: boolean;
+}
+export type ServiceProposalProjectCreationPreparation =
+  | ServicePreparedProposalProjectCreation
+  | ({ status: "STALE" } & ServiceProposalRevalidation)
+  | {
+      status: "COMPLETED";
+      semanticCommitId: string;
+      proposalId: string;
+      expectedUpdatedAt: string;
+      objectId: string;
+      pageName: string;
+      relationshipMode: ServicePreparedProposalProjectCreation["relationshipMode"];
+      pageExternalId: string;
+      object: V2ManagedObject;
+      anchor: V2Anchor;
+      record: ServiceStoredProposal;
+      replayed: true;
+    };
+export interface ServiceProposalProjectCreationFinalization {
+  status: "COMPLETED";
+  semanticCommitId: string;
+  object: V2ManagedObject;
+  anchor: V2Anchor;
+  record: ServiceStoredProposal;
+  replayed: boolean;
+}
 
 export type ServiceMiniProjectGrillPreviewRequest = ServiceMiniProjectGrillRequest;
 export interface ServiceGrillPreviewClaim { text: string; evidenceRefs: string[] }
@@ -1037,6 +1086,22 @@ export class LocalServiceClient {
 
   createProjectCreationProposal(input: ServiceProjectCreationProposalRequest): Promise<ServiceProjectCreationProposalResult> {
     return this.request<ServiceProjectCreationProposalResult>("/provider/grill/project-creation/proposal", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  prepareProposalProjectCreation(proposalId: string, input: ServicePrepareProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationPreparation> {
+    return this.request<ServiceProposalProjectCreationPreparation>(`/proposals/${encodeURIComponent(proposalId)}/project-creation/commit/prepare`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 15_000);
+  }
+
+  finalizeProposalProjectCreation(proposalId: string, input: ServiceFinalizeProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationFinalization> {
+    return this.request<ServiceProposalProjectCreationFinalization>(`/proposals/${encodeURIComponent(proposalId)}/project-creation/commit/finalize`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

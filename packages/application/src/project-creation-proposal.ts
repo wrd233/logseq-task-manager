@@ -1,10 +1,12 @@
 import {
+  validateV2Proposal,
   validateV2ProjectStructure,
   validateV2ProposalForSubmission,
   type V2ProjectStructure,
   type V2Proposal,
   type V2ProposalScopeTarget,
 } from "@task-copilot/domain";
+import { StructuredError } from "@task-copilot/shared";
 
 import type { ProjectCreationPreview, ProjectCreationSourceKind } from "./project-creation-preview.ts";
 
@@ -18,6 +20,112 @@ export interface ProjectCreationProposalInput {
   preview: ProjectCreationPreview;
   source: ProjectCreationProposalSource;
   sourceFingerprint: string;
+}
+
+type ProjectCreationPageTarget = V2ProposalScopeTarget & { kind: "PAGE"; expectedExistence: "PRESENT" | "ABSENT" };
+type ProjectCreationPageSourceTarget = V2ProposalScopeTarget & { kind: "PAGE"; expectedExistence: "PRESENT" };
+type ProjectCreationMiniProjectSourceTarget = V2ProposalScopeTarget & { kind: "OBJECT"; version: number };
+type ProjectCreationBlockSourceTarget = V2ProposalScopeTarget & { kind: "BLOCK"; hash: string };
+
+export interface V2ProjectCreationPlan {
+  proposalId: string;
+  groupId: string;
+  title: string;
+  pageName: string;
+  relationshipMode: Exclude<ProjectCreationPreview["pageObjectRelationship"]["mode"], "REVIEW_REQUIRED">;
+  sourceKind: ProjectCreationSourceKind;
+  sourceFingerprint: string;
+  previewScopeHash: string;
+  projectStructure: V2ProjectStructure;
+  pageTarget: ProjectCreationPageTarget;
+  sourcePageTarget?: ProjectCreationPageSourceTarget;
+  sourceMiniProjectTarget?: ProjectCreationMiniProjectSourceTarget;
+  sourceBlockTargets: ProjectCreationBlockSourceTarget[];
+}
+
+function projectCreationPlanError(code: string, message: string): StructuredError {
+  return new StructuredError({ code, message, ruleRefs: ["D-094", "D-185", "D-220"] });
+}
+
+export function planAcceptedV2ProjectCreation(proposal: V2Proposal): V2ProjectCreationPlan {
+  validateV2Proposal(proposal);
+  const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
+  if (!["ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) {
+    throw projectCreationPlanError("V2_PROJECT_CREATION_COMMIT_SHAPE_INVALID", "Project 创建必须是唯一已接受的 HIGH 语义组。");
+  }
+  const group = accepted[0]!;
+  if (
+    proposal.groups.some((candidate) => candidate.groupId !== group.groupId && candidate.disposition !== "REJECTED")
+    || group.risk !== "HIGH"
+    || group.textPatches.length !== 0
+    || group.semanticOperations.length !== 1
+  ) {
+    throw projectCreationPlanError("V2_PROJECT_CREATION_COMMIT_OPERATION_INVALID", "Project 创建必须以独立 HIGH 组整体提交，其他组必须已拒绝。");
+  }
+  const operation = group.semanticOperations[0]!;
+  const payload = operation.payload;
+  const expectedPayloadKeys = ["objectType", "pageName", "previewScopeHash", "projectStructure", "relationshipMode", "sourceFingerprint", "sourceKind", "targetExpectation", "text"];
+  if (operation.kind !== "CREATE_OBJECT" || Object.keys(payload).sort().join(",") !== expectedPayloadKeys.sort().join(",")) {
+    throw projectCreationPlanError("V2_PROJECT_CREATION_COMMIT_PAYLOAD_INVALID", "Project 创建必须只包含机器生成的完整创建 payload。");
+  }
+  const title = typeof payload.text === "string" ? payload.text.trim() : "";
+  const pageName = typeof payload.pageName === "string" ? payload.pageName.trim() : "";
+  const relationshipMode = payload.relationshipMode;
+  const sourceKind = payload.sourceKind;
+  const sourceFingerprint = payload.sourceFingerprint;
+  const previewScopeHash = payload.previewScopeHash;
+  if (
+    payload.objectType !== "PROJECT"
+    || !title || title.includes("\n") || title.length > 512
+    || !pageName || pageName.includes("\n") || pageName.length > 512
+    || !["CREATE_DEDICATED_PROJECT_PAGE", "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REUSE_SOURCE_PAGE"].includes(String(relationshipMode))
+    || !["BLANK", "PAGE", "MINI_PROJECT"].includes(String(sourceKind))
+    || typeof sourceFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(sourceFingerprint)
+    || typeof previewScopeHash !== "string" || !/^[a-f0-9]{8}$/.test(previewScopeHash)
+    || !payload.projectStructure || typeof payload.projectStructure !== "object" || Array.isArray(payload.projectStructure)
+  ) {
+    throw projectCreationPlanError("V2_PROJECT_CREATION_COMMIT_PAYLOAD_INVALID", "Project 创建 payload 的名称、来源、关系或当前接口无效。");
+  }
+  if (operation.target.kind !== "PAGE" || !operation.target.expectedExistence || payload.targetExpectation !== operation.target.expectedExistence) {
+    throw projectCreationPlanError("V2_PROJECT_CREATION_COMMIT_TARGET_INVALID", "Project 创建必须绑定一个带存在性前置的 Page target。");
+  }
+  const pageTarget = operation.target as ProjectCreationPageTarget;
+  if (
+    (relationshipMode === "REUSE_SOURCE_PAGE" && (sourceKind !== "PAGE" || pageTarget.expectedExistence !== "PRESENT"))
+    || (relationshipMode === "CREATE_DEDICATED_PROJECT_PAGE" && (sourceKind !== "BLANK" || pageTarget.expectedExistence !== "ABSENT" || pageTarget.id !== pageName))
+    || (relationshipMode === "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" && (!["PAGE", "MINI_PROJECT"].includes(String(sourceKind)) || pageTarget.expectedExistence !== "ABSENT" || pageTarget.id !== pageName))
+  ) {
+    throw projectCreationPlanError("V2_PROJECT_CREATION_COMMIT_RELATIONSHIP_INVALID", "Project 创建来源、页面关系和 target 前置不一致。");
+  }
+  const pageSources = proposal.scope.read.filter((target): target is ProjectCreationPageSourceTarget => target.kind === "PAGE" && target.expectedExistence === "PRESENT");
+  const miniSources = proposal.scope.read.filter((target): target is ProjectCreationMiniProjectSourceTarget => target.kind === "OBJECT" && target.version !== undefined);
+  const blockSources = proposal.scope.read.filter((target): target is ProjectCreationBlockSourceTarget => target.kind === "BLOCK" && target.hash !== undefined);
+  if (
+    (sourceKind === "BLANK" && (proposal.scope.read.length !== 0 || pageSources.length !== 0 || miniSources.length !== 0 || blockSources.length !== 0))
+    || (sourceKind === "PAGE" && (pageSources.length !== 1 || miniSources.length !== 0))
+    || (sourceKind === "MINI_PROJECT" && (pageSources.length !== 0 || miniSources.length !== 1))
+    || blockSources.length !== proposal.scope.read.filter((target) => target.kind === "BLOCK").length
+  ) {
+    throw projectCreationPlanError("V2_PROJECT_CREATION_COMMIT_SOURCE_INVALID", "Project 创建 Proposal 的来源证据与 source kind 不一致。");
+  }
+  if (relationshipMode === "REUSE_SOURCE_PAGE" && pageSources[0]?.id !== pageTarget.id) {
+    throw projectCreationPlanError("V2_PROJECT_CREATION_COMMIT_RELATIONSHIP_INVALID", "复用当前 Page 必须把同一个规范 Page identity 作为来源和创建 target。");
+  }
+  return {
+    proposalId: proposal.proposalId,
+    groupId: group.groupId,
+    title,
+    pageName,
+    relationshipMode: relationshipMode as V2ProjectCreationPlan["relationshipMode"],
+    sourceKind: sourceKind as ProjectCreationSourceKind,
+    sourceFingerprint,
+    previewScopeHash,
+    projectStructure: validateV2ProjectStructure(payload.projectStructure as V2ProjectStructure),
+    pageTarget,
+    ...(pageSources[0] ? { sourcePageTarget: pageSources[0] } : {}),
+    ...(miniSources[0] ? { sourceMiniProjectTarget: miniSources[0] } : {}),
+    sourceBlockTargets: blockSources,
+  };
 }
 
 function projectStructure(preview: ProjectCreationPreview): V2ProjectStructure {

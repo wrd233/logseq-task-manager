@@ -7,7 +7,7 @@ import test from "node:test";
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persistence/node";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
-import { buildMiniProjectRestructureProposal, createEmptyState, InteractionEvidenceBuffer, V2Application, type GrillPreview } from "@task-copilot/application";
+import { buildMiniProjectRestructureProposal, buildProjectCreationProposal, createEmptyState, InteractionEvidenceBuffer, V2Application, type GrillPreview, type ProjectCreationPreview } from "@task-copilot/application";
 import { checksum } from "@task-copilot/shared";
 import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 
@@ -37,6 +37,41 @@ function validProposal(): V2Proposal {
     scope: { read: [], modify: [{ kind: "BLOCK", id: "proposal-block", version: 1, hash: checksum(beforeText) }] }, preconditions: ["hash unchanged"],
     groups: [{ groupId: "formalize", explanation: "一个不可拆的正式化组。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [{ blockUuid: "proposal-block", beforeText, afterText, beforeHash: checksum(beforeText), afterHash: checksum(afterText) }], semanticOperations: [{ operationId: "create-task", kind: "CREATE_OBJECT", target: { kind: "BLOCK", id: "proposal-block", version: 1, hash: checksum(beforeText) }, summary: "创建 Task 与 Anchor", payload: { objectType: "TASK", text: "普通正文" }, preconditions: [] }], disposition: "PENDING" }],
     status: "READY", createdAt: "2026-07-20T12:00:00.000Z",
+  };
+}
+
+function blankProjectCreationPreview(): ProjectCreationPreview {
+  const claim = (text: string, evidenceRefs = ["answer:outcome"]) => ({ text, evidenceRefs });
+  return {
+    schemaVersion: "task-copilot-project-creation-preview-v1",
+    finalReading: {
+      title: claim("设备治理"),
+      outcome: claim("持续形成可核验的设备治理结果。"),
+      boundary: { included: [claim("测试设备。")], excluded: [claim("生产设备。")] },
+      completionEvidence: [claim("每月核验记录可追溯。")],
+      internalClosure: claim("每月处理核验差异。"),
+      currentInterface: claim("先查看本月尚未核验的设备。"),
+    },
+    pageObjectRelationship: {
+      mode: "CREATE_DEDICATED_PROJECT_PAGE",
+      rationale: "创建独立受控 Project Page。",
+      evidenceRefs: ["answer:page-object-relationship"],
+      authority: "PROPOSED_FOR_REVIEW",
+    },
+    sourceMaterials: [],
+    formalImpact: { createsObject: false, createsPage: false, movesBlocks: 0, rewritesBlocks: 0, deletesBlocks: 0 },
+    evidenceScope: { refs: ["answer:outcome", "answer:page-object-relationship"], scopeHash: checksum("project-creation-scope"), observedAt: "2026-07-25T14:00:00.000Z" },
+    authorityBoundary: "SESSION_PREVIEW_ONLY",
+    provenance: {
+      contractVersion: "1.0.0",
+      promptVersion: "1.0.0",
+      skillName: "project-creation-modeling",
+      skillVersion: "1.1.0",
+      providerId: "deepseek",
+      providerVersion: "chat-completions-v1",
+      model: "deepseek-v4-flash",
+      generatedAt: "2026-07-25T14:00:00.000Z",
+    },
   };
 }
 
@@ -857,6 +892,114 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CREATION_GRILL_REQUEST_INVALID");
   assert.equal(providerCalls, 16);
+});
+
+test("accepted Project Creation Proposal prepares, creates one controlled Page binding, and atomically materializes the reviewed Project", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-creation-commit-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-creation-commit",
+    token: "project-creation-commit-token-at-least-24-chars",
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const proposal = buildProjectCreationProposal({
+    proposalId: "proposal_project_creation_commit",
+    preview: blankProjectCreationPreview(),
+    source: { sourceKind: "BLANK" },
+    sourceFingerprint: "a".repeat(64),
+  });
+  const submitted = await client.submitProposal(proposal);
+  const accepted = await client.reviewProposal(proposal.proposalId, {
+    "create-project": { disposition: "ACCEPTED", highImpactConfirmed: true },
+  }, submitted.record.updatedAt);
+
+  const missingConfirmation = await fetch(new URL(`proposals/${proposal.proposalId}/project-creation/commit/prepare`, service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ confirmation: "CREATE", expectedUpdatedAt: accepted.updatedAt, traceId: "project-create-invalid" }),
+  });
+  assert.equal(missingConfirmation.status, 400);
+  assert.equal((await missingConfirmation.json() as { error: { code: string } }).error.code, "V2_PROJECT_CREATION_COMMIT_REQUEST_INVALID");
+
+  const absenceBridge = (async () => {
+    const pending = await client.claimGraphReadRequest();
+    assert.equal(pending?.kind, "PAGE");
+    assert.equal(pending?.target, "Project/设备治理");
+    if (!pending) throw new Error("expected Project target absence read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "NOT_FOUND" });
+  })();
+  const preparePromise = client.prepareProposalProjectCreation(proposal.proposalId, {
+    confirmation: "CREATE_PROJECT",
+    expectedUpdatedAt: accepted.updatedAt,
+    traceId: "project-create-prepare",
+  });
+  const [, prepared] = await Promise.all([absenceBridge, preparePromise]);
+  assert.equal(prepared.status, "PREPARED");
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared Project creation");
+  assert.equal(prepared.pageName, "Project/设备治理");
+  assert.equal(prepared.relationshipMode, "CREATE_DEDICATED_PROJECT_PAGE");
+  assert.equal((await client.status()).objectCount, 0);
+
+  await assert.rejects(
+    () => client.finalizeProposalProjectCreation(proposal.proposalId, {
+      expectedUpdatedAt: accepted.updatedAt,
+      semanticCommitId: prepared.semanticCommitId,
+      objectId: prepared.objectId,
+      pageExternalId: "page-device-project",
+      pageContentHash: checksum("unowned page"),
+      traceId: "project-create-unowned",
+    }),
+    (error: unknown) => {
+      assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "V2_PROJECT_CREATION_COMMIT_GRAPH_EVIDENCE_MISMATCH");
+      return true;
+    },
+  );
+  assert.equal((await client.status()).objectCount, 0, "invalid controlled Page evidence leaves SQLite unchanged");
+
+  const pageExternalId = "page-device-project";
+  const pageContentHash = checksum({
+    pageName: prepared.pageName,
+    pageExternalId,
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": prepared.objectId,
+      "task-copilot-semantic-commit-id": prepared.semanticCommitId,
+    },
+    emptyAtCreation: true,
+  });
+  const finalized = await client.finalizeProposalProjectCreation(proposal.proposalId, {
+    expectedUpdatedAt: accepted.updatedAt,
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    pageExternalId,
+    pageContentHash,
+    traceId: "project-create-finalize",
+  });
+  assert.equal(finalized.status, "COMPLETED");
+  assert.equal(finalized.object.objectType, "PROJECT");
+  assert.equal(finalized.object.text, "设备治理");
+  assert.equal(finalized.object.projectStructure?.currentSummary, "每月处理核验差异。");
+  assert.equal(finalized.anchor.externalId, pageExternalId);
+  assert.equal(finalized.record.proposal.status, "APPLIED");
+  assert.equal((await client.status()).objectCount, 1);
+
+  const replay = await client.finalizeProposalProjectCreation(proposal.proposalId, {
+    expectedUpdatedAt: accepted.updatedAt,
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    pageExternalId,
+    pageContentHash,
+    traceId: "project-create-finalize-replay",
+  });
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.object.objectId, finalized.object.objectId);
+  const completedPrepare = await client.prepareProposalProjectCreation(proposal.proposalId, {
+    confirmation: "CREATE_PROJECT",
+    expectedUpdatedAt: accepted.updatedAt,
+    traceId: "project-create-prepare-replay",
+  });
+  assert.equal(completedPrepare.status, "COMPLETED");
 });
 
 test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {

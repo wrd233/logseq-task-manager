@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectCreationProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectCreationProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -494,6 +494,21 @@ interface FinalizeProjectRequest extends PrepareProjectRequest {
   pageContentHash: string;
 }
 
+interface PrepareProposalProjectCreationRequest {
+  confirmation: "CREATE_PROJECT";
+  expectedUpdatedAt: string;
+  traceId: string;
+}
+
+interface FinalizeProposalProjectCreationRequest {
+  expectedUpdatedAt: string;
+  semanticCommitId: string;
+  objectId: string;
+  pageExternalId: string;
+  pageContentHash: string;
+  traceId: string;
+}
+
 async function readFocusRequest(request: IncomingMessage, remove: boolean): Promise<{ expectedVersion: number; rank?: number }> {
   const body = await readBody(request);
   let value: unknown;
@@ -629,6 +644,37 @@ async function readProjectRequest(request: IncomingMessage, finalize: boolean): 
     ));
   if (!valid) throw serviceError("PROJECT_CREATION_REQUEST_INVALID", "Project 创建请求无效或包含未授权字段。");
   return { ...record, name } as unknown as PrepareProjectRequest | FinalizeProjectRequest;
+}
+
+async function readProposalProjectCreationPrepareRequest(request: IncomingMessage): Promise<PrepareProposalProjectCreationRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Project 创建准备请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (
+    Object.keys(record).sort().join(",") !== "confirmation,expectedUpdatedAt,traceId"
+    || record.confirmation !== "CREATE_PROJECT"
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+  ) throw serviceError("V2_PROJECT_CREATION_COMMIT_REQUEST_INVALID", "Project 创建需要当前 Proposal 版本、trace_id 和精确高影响确认。");
+  return record as unknown as PrepareProposalProjectCreationRequest;
+}
+
+async function readProposalProjectCreationFinalizeRequest(request: IncomingMessage): Promise<FinalizeProposalProjectCreationRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Project 创建收口请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (
+    Object.keys(record).sort().join(",") !== "expectedUpdatedAt,objectId,pageContentHash,pageExternalId,semanticCommitId,traceId"
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || typeof record.semanticCommitId !== "string" || !record.semanticCommitId.startsWith("proposal-commit:") || record.semanticCommitId.length > 96
+    || typeof record.objectId !== "string" || !/^obj_[0-9]{17}_[0-9a-f]{32}$/.test(record.objectId)
+    || typeof record.pageExternalId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.pageExternalId)
+    || typeof record.pageContentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.pageContentHash)
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+  ) throw serviceError("V2_PROJECT_CREATION_COMMIT_REQUEST_INVALID", "Project 创建收口证据无效或包含未授权字段。");
+  return record as unknown as FinalizeProposalProjectCreationRequest;
 }
 
 async function readProposalReviewRequest(request: IncomingMessage): Promise<{ decisions: Record<string, V2ProposalGroupDecision>; expectedUpdatedAt: string; miniProjectClosure?: V2MiniProjectClosure }> {
@@ -907,6 +953,19 @@ function projectSemanticCommitId(graphId: string, name: string): string {
   return `project-create:${createHash("sha256").update(JSON.stringify([graphId, normalizedProjectName(name).toLocaleLowerCase("zh-CN")])).digest("hex")}`;
 }
 
+function controlledProjectPageContentHash(input: { pageName: string; pageExternalId: string; objectId: string; semanticCommitId: string }): string {
+  return checksum({
+    pageName: input.pageName,
+    pageExternalId: input.pageExternalId,
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": input.objectId,
+      "task-copilot-semantic-commit-id": input.semanticCommitId,
+    },
+    emptyAtCreation: true,
+  });
+}
+
 async function readMaterializeRequest(request: IncomingMessage): Promise<MaterializeRequest> {
   const body = await readBody(request);
   let value: unknown;
@@ -1059,9 +1118,10 @@ function respondError(response: ServerResponse, error: unknown): void {
       respond(response, providerStatus, { error: { code: error.code, message: error.message } });
       return;
     }
-    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_TARGET_STALE", "V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "V2_LIFECYCLE_UNDO_NOT_AVAILABLE", "V2_LIFECYCLE_UNDO_LEDGER_CORRUPT", "V2_LIFECYCLE_UNDO_STATE_CHANGED", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED"];
+    const projectCreationConflictCodes = ["V2_PROJECT_CREATION_COMMIT_CONFLICT", "V2_PROJECT_CREATION_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CREATION_COMMIT_INTENT_MISMATCH", "V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "V2_PROJECT_CREATION_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROJECT_CREATION_SOURCE_ANCHOR_STALE"];
+    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_TARGET_STALE", "V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "V2_LIFECYCLE_UNDO_NOT_AVAILABLE", "V2_LIFECYCLE_UNDO_LEDGER_CORRUPT", "V2_LIFECYCLE_UNDO_STATE_CHANGED", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED", ...projectCreationConflictCodes];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
-    const domainInputError = ["AREA_REQUEST_INVALID", "V2_AREA_ONLY", "V2_AREA_TEXT_REQUIRED", "V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_PROPOSAL_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID", "LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "LIFECYCLE_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code));
+    const domainInputError = ["AREA_REQUEST_INVALID", "V2_AREA_ONLY", "V2_AREA_TEXT_REQUIRED", "V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_PROPOSAL_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID", "LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "LIFECYCLE_UNDO_REQUEST_INVALID", "V2_PROJECT_CREATION_COMMIT_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_PROJECT_CREATION_COMMIT_") && !projectCreationConflictCodes.includes(error.code));
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
@@ -1329,6 +1389,56 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         : { kind: "OBJECT" as const, id: target.id, exists: false };
     }),
   ];
+  const projectCreationGraphObservations = async (
+    plan: ReturnType<typeof planAcceptedV2ProjectCreation>,
+  ): Promise<V2ProposalScopeObservation[]> => {
+    const observations = new Map<string, V2ProposalScopeObservation>();
+    const observePage = async (target: typeof plan.pageTarget, includeBlocks: boolean): Promise<void> => {
+      const graphResult = await graphReadBroker.read({ kind: "PAGE", target: target.id, depth: includeBlocks ? 5 : 0 });
+      if (graphResult.status === "ERROR") throw serviceError("GRAPH_READ_PROJECT_CREATION_FAILED", "Logseq Desktop 无法读取 Project 创建所需 Page；没有准备正式事务。");
+      if (graphResult.status === "NOT_FOUND") {
+        observations.set(`PAGE:${target.id}`, { kind: "PAGE", id: target.id, exists: false });
+        return;
+      }
+      observations.set(`PAGE:${target.id}`, {
+        kind: "PAGE",
+        id: target.id,
+        exists: true,
+        ...(graphResult.snapshot.resolved.version !== undefined ? { version: graphResult.snapshot.resolved.version } : {}),
+        ...(graphResult.snapshot.resolved.evidenceHash ? { hash: graphResult.snapshot.resolved.evidenceHash } : {}),
+      });
+      if (includeBlocks) {
+        const byId = new Map(graphResult.snapshot.blocks.map((block) => [block.uuid, block]));
+        for (const source of plan.sourceBlockTargets) {
+          const block = byId.get(source.id);
+          observations.set(`BLOCK:${source.id}`, block
+            ? { kind: "BLOCK", id: source.id, exists: true, hash: block.contentHash }
+            : { kind: "BLOCK", id: source.id, exists: false });
+        }
+      }
+    };
+    if (plan.sourcePageTarget) {
+      await observePage(plan.sourcePageTarget, true);
+    } else if (plan.sourceMiniProjectTarget) {
+      const anchor = store.getActivePrimaryAnchorByObject(plan.sourceMiniProjectTarget.id);
+      if (!anchor || anchor.graphId !== options.graphId) {
+        throw serviceError("V2_PROJECT_CREATION_SOURCE_ANCHOR_STALE", "MiniProject 来源不再有当前 Graph 的 active Primary Anchor；没有准备正式事务。");
+      }
+      const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: anchor.externalId, includeChildren: true, parents: 0 });
+      if (graphResult.status === "ERROR") throw serviceError("GRAPH_READ_PROJECT_CREATION_FAILED", "Logseq Desktop 无法读取 MiniProject 来源；没有准备正式事务。");
+      const byId = new Map(graphResult.status === "FOUND" ? graphResult.snapshot.blocks.map((block) => [block.uuid, block]) : []);
+      for (const source of plan.sourceBlockTargets) {
+        const block = byId.get(source.id);
+        observations.set(`BLOCK:${source.id}`, block
+          ? { kind: "BLOCK", id: source.id, exists: true, hash: block.contentHash }
+          : { kind: "BLOCK", id: source.id, exists: false });
+      }
+    }
+    if (!plan.sourcePageTarget || plan.sourcePageTarget.id !== plan.pageTarget.id) {
+      await observePage(plan.pageTarget, false);
+    }
+    return [...observations.values()];
+  };
   const requireNoUnfinishedProposalCommit = (proposalId: string): void => {
     if (store.listSemanticCommits(proposalId).some((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED")) {
       throw serviceError("V2_PROPOSAL_COMMIT_IN_PROGRESS", "Proposal 已有未完成 Commit；请先恢复或完成该 Commit，审阅状态没有改变。");
@@ -3447,6 +3557,174 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (proposalReadMatch?.[1]) {
       const record = await proposalApplication.get(decodeURIComponent(proposalReadMatch[1]));
       respond(response, record ? 200 : 404, record ? { record } : { error: { code: "V2_PROPOSAL_NOT_FOUND" } });
+      return;
+    }
+    const proposalProjectCreationPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/project-creation\/commit\/prepare$/) : null;
+    if (proposalProjectCreationPrepareMatch?.[1]) {
+      const proposalId = decodeURIComponent(proposalProjectCreationPrepareMatch[1]);
+      const input = await readProposalProjectCreationPrepareRequest(request);
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Project 创建 Proposal 不存在。");
+      const plan = planAcceptedV2ProjectCreation(stored.proposal);
+      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
+      const existing = store.semanticCommit(semanticCommitId);
+      const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      const objectId = existingSteps[1]?.operationId;
+      const expectedPageOperationId = plan.pageTarget.id;
+      if (existing) {
+        if (
+          existing.proposalId !== proposalId || existingSteps.length !== 2
+          || existingSteps[0]?.stepKind !== "GRAPH_WRITE" || existingSteps[0]?.operationId !== expectedPageOperationId
+          || existingSteps[1]?.stepKind !== "DOMAIN_WRITE" || !objectId
+        ) throw serviceError("V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "Project 创建账本与已审阅计划不一致。");
+        if (existing.status === "COMPLETED") {
+          const receipt = store.getCommandReceipt(`project-create-proposal:${semanticCommitId}`);
+          if (receipt?.command !== "create_project_with_page" || receipt.object.objectId !== objectId) {
+            throw serviceError("V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "已完成 Project 创建事务缺少匹配领域回执。");
+          }
+          const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+          respond(response, 200, {
+            status: "COMPLETED",
+            semanticCommitId,
+            proposalId,
+            expectedUpdatedAt: input.expectedUpdatedAt,
+            objectId,
+            pageName: plan.pageName,
+            relationshipMode: plan.relationshipMode,
+            pageExternalId: receipt.anchor.externalId,
+            object: receipt.object,
+            anchor: receipt.anchor,
+            record,
+            replayed: true,
+          });
+          return;
+        }
+        if (stored.updatedAt !== input.expectedUpdatedAt) throw serviceError("V2_PROPOSAL_COMMIT_STALE", "Project 创建 Proposal 已变化；不能重放未完成事务。");
+        if (existing.status !== "PENDING") throw serviceError("V2_PROJECT_CREATION_COMMIT_RECOVERY_REQUIRED", "Project 创建事务需要先完成恢复，不能创建平行事务。");
+        respond(response, 200, {
+          status: "PREPARED",
+          semanticCommitId,
+          proposalId,
+          expectedUpdatedAt: input.expectedUpdatedAt,
+          objectId,
+          pageName: plan.pageName,
+          relationshipMode: plan.relationshipMode,
+          ...(plan.relationshipMode === "REUSE_SOURCE_PAGE" ? { pageExternalId: plan.pageTarget.id } : {}),
+          replayed: true,
+        });
+        return;
+      }
+      if (stored.updatedAt !== input.expectedUpdatedAt) throw serviceError("V2_PROPOSAL_COMMIT_STALE", "Project 创建 Proposal 已变化；没有准备正式事务。");
+      if (store.semanticCommit(projectSemanticCommitId(options.graphId, plan.pageName))) {
+        throw serviceError("V2_PROJECT_CREATION_COMMIT_CONFLICT", "同名 Project 已有旧创建事务；没有准备平行 Proposal 事务。");
+      }
+      const observations = await projectCreationGraphObservations(plan);
+      const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, observations), input.expectedUpdatedAt);
+      if (revalidation.result.status === "STALE") {
+        respond(response, 200, { status: "STALE", ...revalidation });
+        return;
+      }
+      const now = new Date();
+      const newObjectId = createId("obj", now);
+      store.prepareSemanticCommit({
+        semanticCommitId,
+        proposalId,
+        status: "PENDING",
+        beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, expectedUpdatedAt: input.expectedUpdatedAt, plan }),
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      }, [
+        {
+          semanticCommitId,
+          stepIndex: 0,
+          stepKind: "GRAPH_WRITE",
+          status: "PREPARED",
+          operationId: expectedPageOperationId,
+          ...(plan.pageTarget.hash ? { beforeHash: plan.pageTarget.hash } : {}),
+          updatedAt: now.toISOString(),
+        },
+        { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: newObjectId, updatedAt: now.toISOString() },
+      ]);
+      respond(response, 201, {
+        status: "PREPARED",
+        semanticCommitId,
+        proposalId,
+        expectedUpdatedAt: input.expectedUpdatedAt,
+        objectId: newObjectId,
+        pageName: plan.pageName,
+        relationshipMode: plan.relationshipMode,
+        ...(plan.relationshipMode === "REUSE_SOURCE_PAGE" ? { pageExternalId: plan.pageTarget.id } : {}),
+        replayed: false,
+      });
+      return;
+    }
+    const proposalProjectCreationFinalizeMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/project-creation\/commit\/finalize$/) : null;
+    if (proposalProjectCreationFinalizeMatch?.[1]) {
+      const proposalId = decodeURIComponent(proposalProjectCreationFinalizeMatch[1]);
+      const input = await readProposalProjectCreationFinalizeRequest(request);
+      if (input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) {
+        throw serviceError("V2_PROJECT_CREATION_COMMIT_INTENT_MISMATCH", "Project 创建收口意图与当前 Graph/Proposal 不一致。");
+      }
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Project 创建 Proposal 不存在。");
+      const plan = planAcceptedV2ProjectCreation(stored.proposal);
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const steps = store.semanticCommitSteps(input.semanticCommitId);
+      if (
+        !commit || commit.proposalId !== proposalId || steps.length !== 2
+        || steps[0]?.stepKind !== "GRAPH_WRITE" || steps[0]?.operationId !== plan.pageTarget.id
+        || steps[1]?.stepKind !== "DOMAIN_WRITE" || steps[1]?.operationId !== input.objectId
+      ) throw serviceError("V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "Project 创建账本与已审阅计划或页面证据不一致。");
+      const receiptKey = `project-create-proposal:${input.semanticCommitId}`;
+      if (commit.status === "COMPLETED") {
+        const receipt = store.getCommandReceipt(receiptKey);
+        if (receipt?.command !== "create_project_with_page" || receipt.object.objectId !== input.objectId || receipt.anchor.externalId !== input.pageExternalId) {
+          throw serviceError("V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "已完成 Project 创建事务缺少匹配领域回执。");
+        }
+        const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, object: receipt.object, anchor: receipt.anchor, record, replayed: true });
+        return;
+      }
+      if (stored.updatedAt !== input.expectedUpdatedAt) throw serviceError("V2_PROPOSAL_COMMIT_STALE", "Project 创建 Proposal 已变化；没有收口正式事务。");
+      if (commit.status !== "PENDING") throw serviceError("V2_PROJECT_CREATION_COMMIT_RECOVERY_REQUIRED", "Project 创建事务当前需要恢复，不能直接收口。");
+      if (
+        plan.relationshipMode === "REUSE_SOURCE_PAGE"
+        && (input.pageExternalId !== plan.pageTarget.id || input.pageContentHash !== plan.pageTarget.hash)
+      ) throw serviceError("V2_PROJECT_CREATION_COMMIT_GRAPH_EVIDENCE_MISMATCH", "复用 Page 的身份或版本证据已脱离已审阅计划。");
+      if (
+        plan.relationshipMode !== "REUSE_SOURCE_PAGE"
+        && input.pageContentHash !== controlledProjectPageContentHash({
+          pageName: plan.pageName,
+          pageExternalId: input.pageExternalId,
+          objectId: input.objectId,
+          semanticCommitId: input.semanticCommitId,
+        })
+      ) throw serviceError("V2_PROJECT_CREATION_COMMIT_GRAPH_EVIDENCE_MISMATCH", "新 Project Page 缺少与本次事务一致的受控所有权证据。");
+      const now = new Date();
+      const graphStep = store.semanticCommitSteps(input.semanticCommitId)[0];
+      if (graphStep?.status === "PREPARED") {
+        store.advanceSemanticCommitStep(input.semanticCommitId, 0, "APPLIED", now.toISOString());
+      }
+      if (store.semanticCommitSteps(input.semanticCommitId)[0]?.status === "APPLIED") {
+        store.advanceSemanticCommitStep(input.semanticCommitId, 0, "VERIFIED", now.toISOString());
+      }
+      const result = await application.createProjectWithPage({
+        objectId: input.objectId,
+        name: plan.title,
+        page: { graphId: options.graphId, externalId: input.pageExternalId, contentHash: input.pageContentHash },
+        projectStructure: plan.projectStructure,
+      }, {
+        actor: "proposal_commit",
+        expectedVersion: 0,
+        idempotencyKey: receiptKey,
+        traceId: input.traceId,
+      }, now);
+      const domainStep = store.semanticCommitSteps(input.semanticCommitId)[1];
+      if (domainStep?.status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, 1, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(input.semanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, 1, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(input.semanticCommitId, "COMPLETED", now.toISOString(), checksum({ object: result.object, anchor: result.anchor }));
+      const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 201, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, object: result.object, anchor: result.anchor, record, replayed: result.replayed });
       return;
     }
     if (request.method === "POST" && url.pathname === "/projects/prepare") {

@@ -19,6 +19,7 @@ import {
   synchronizeV2ExplicitObject,
   transitionV2Lifecycle,
   updateV2ProjectStructure,
+  validateV2ProjectStructure,
   type CreateV2ManagedObjectInput,
   type FocusSelection,
   type Lifecycle,
@@ -214,6 +215,7 @@ export interface CreateProjectWithPageInput {
   objectId?: string;
   name: string;
   page: Omit<V2Anchor, "anchorId" | "objectId" | "role" | "status" | "lastSeenAt"> & { anchorId?: string };
+  projectStructure?: V2ProjectStructure;
 }
 
 export interface SynchronizeExplicitObjectInput {
@@ -446,12 +448,15 @@ export class V2Application {
         ruleRefs: ["D-044", "D-220"],
       });
     }
-    const created = createV2ManagedObject({
+    const initial = createV2ManagedObject({
       ...(input.objectId ? { objectId: input.objectId } : {}),
       objectType: "PROJECT",
       text: name,
       sourceOrCreationEvent: `project_page:${input.page.graphId}:${input.page.externalId}`,
     }, at);
+    const created = input.projectStructure
+      ? { ...initial, projectStructure: validateV2ProjectStructure(input.projectStructure) }
+      : initial;
     const candidate = bindV2PrimaryAnchor(created, input.page, created.version, at);
     return this.objects.commitMaterialization({
       ...candidate,

@@ -428,11 +428,20 @@ test("Project creation binds the controlled Project page in one idempotent domai
     objectId: "project-1",
     name: "告警推送治理",
     page: { graphId: "graph-1", externalId: "page-uuid-1", contentHash: "page-hash-1" },
+    projectStructure: {
+      objectives: [{ objectiveId: "outcome", text: "形成可核验结果", priority: "PRIMARY", successEvidence: ["月度记录"] }],
+      deliverables: [],
+      workStages: [],
+      currentSummary: "按月核验",
+      currentFocuses: ["处理本月差异"],
+      stageMappings: [],
+    },
   }, envelope, new Date("2026-07-20T08:00:00Z"));
 
   assert.equal(created.object.objectType, "PROJECT");
   assert.equal(created.object.text, "告警推送治理");
   assert.equal(created.object.sourceOrCreationEvent, "project_page:graph-1:page-uuid-1");
+  assert.equal(created.object.projectStructure?.currentSummary, "按月核验");
   assert.equal(created.anchor.externalId, "page-uuid-1");
   assert.equal(created.anchor.role, "primary_text");
   assert.equal(repository.audit[0]?.command, "create_project_with_page");
