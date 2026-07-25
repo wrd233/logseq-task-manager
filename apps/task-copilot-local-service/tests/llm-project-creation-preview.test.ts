@@ -81,6 +81,7 @@ test("Project creation preview generator returns a machine-owned zero-write read
   assert.match(captured[0]?.system ?? "", /seven machine-resolved dimensions/i);
   assert.match(captured[0]?.system ?? "", /never emit Proposal|不得输出 Proposal/i);
   assert.match(captured[0]?.system ?? "", /natural Simplified Chinese/i);
+  assert.match(captured[0]?.system ?? "", /Never repeat an Object ID.*Block\/Page UUID/i);
   assert.match(captured[0]?.user ?? "", /machine outputContract/);
   assert.match(captured[0]?.user ?? "", /allowedRelationshipModes/);
   assert.match(captured[0]?.system ?? "", /"sourceMaterials":\[\{"materialId":"one listed materialId"/);
@@ -104,5 +105,24 @@ test("Project creation preview generator rejects omitted material or unsupported
       && error.code === "PROJECT_CREATION_PREVIEW_VALIDATION_FAILED"
       && error.message.includes("没有生成 Proposal")
       && error.details?.validationCategory === "SOURCE_MATERIAL_COVERAGE",
+  );
+});
+
+test("Project creation preview generator rejects internal identity leakage as a zero-write validation error", async () => {
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      const value = validDraft();
+      value.currentInterface.text = "先打开 obj_7a21df934a63 查看当前状态。";
+      return { value, metadata: { model: "deepseek-chat", durationMs: 10, attempts: 1 } };
+    },
+  };
+  await assert.rejects(
+    () => new LocalLlmProjectCreationPreviewGenerator(provider).generate(request),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "PROJECT_CREATION_PREVIEW_VALIDATION_FAILED"
+      && error.message.includes("没有生成 Proposal")
+      && error.details?.validationCategory === "VALUE_CONSTRAINT",
   );
 });

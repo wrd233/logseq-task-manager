@@ -84,7 +84,8 @@ test("answers resolve only their exact dimensions and change the machine-selecte
     { uncertaintyId: "project-boundary", text: "这是持续维护托管设备全生命周期的 Project。" },
   ]));
   assert.equal(second.authority.uncertainties.find(({ uncertaintyId }) => uncertaintyId === "project-boundary")?.status, "RESOLVED");
-  assert.equal(requiredGrillFocus({ ...second.authority, contractVersion: "1.0.0", promptVersion: "test", provider: { providerId: "test", providerVersion: "test", model: "test" } })?.uncertaintyId, "page-object-relationship");
+  assert.equal(second.authority.uncertainties.find(({ uncertaintyId }) => uncertaintyId === "page-object-relationship")?.status, "RESOLVED");
+  assert.equal(requiredGrillFocus({ ...second.authority, contractVersion: "1.0.0", promptVersion: "test", provider: { providerId: "test", providerVersion: "test", model: "test" } })?.uncertaintyId, "current-interface");
   assert.notEqual(second.authority.sourceFingerprint, first.authority.sourceFingerprint);
 });
 
@@ -214,4 +215,16 @@ test("Project creation preview authority opens only after every source-specific 
   assert.equal(blank.authority.materials.length, 0);
   assert.equal(blank.authority.resolvedDimensions.find(({ dimension }) => dimension === "PAGE_OBJECT_RELATIONSHIP")?.evidenceRefs[0], "contract:project-page-creation-v1");
   assert.equal(blank.authority.resolvedDimensions.find(({ dimension }) => dimension === "UNCLASSIFIED_MATERIAL")?.evidenceRefs[0], "session:project-creation-entry");
+
+  const miniProject = buildProjectCreationPreviewGeneration(source("MINI_PROJECT", [
+    { uncertaintyId: "project-boundary", text: "升级为持续维护托管设备全生命周期的 Project。" },
+    { uncertaintyId: "current-interface", text: "先看当前结论、风险与唯一下一步。" },
+    { uncertaintyId: "internal-closure", text: "每轮核验后更新结论与下一步。" },
+    { uncertaintyId: "outcome", text: "持续形成可复核的设备治理结果。" },
+    { uncertaintyId: "completion-evidence", text: "版本化结论、风险和证据均可读回。" },
+    { uncertaintyId: "material-disposition", text: "原 MiniProject 正文与正式对象保持原样，只作为来源。" },
+  ]));
+  assert.equal(miniProject.authority.readiness, "READY_FOR_PREVIEW");
+  assert.equal(miniProject.authority.resolvedDimensions.find(({ dimension }) => dimension === "PAGE_OBJECT_RELATIONSHIP")?.text.includes("只允许另建"), true);
+  assert.equal(miniProject.authority.resolvedDimensions.find(({ dimension }) => dimension === "PAGE_OBJECT_RELATIONSHIP")?.evidenceRefs[0], "contract:project-page-creation-v1");
 });

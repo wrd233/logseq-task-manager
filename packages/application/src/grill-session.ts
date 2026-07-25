@@ -1,5 +1,7 @@
 import { checksum, stableJson } from "@task-copilot/shared";
 
+import { assertFrontstageProse } from "./frontstage-prose.ts";
+
 export const GRILL_TURN_SCHEMA_VERSION = "task-copilot-grill-turn-v1" as const;
 
 export type GrillSubjectKind = "MINI_PROJECT" | "PROJECT" | "PROJECT_CREATION";
@@ -127,7 +129,7 @@ function texts(value: unknown, name: string, maximumItems: number, maximumLength
 
 function naturalChinese(value: string, name: string): string {
   if (!/\p{Script=Han}/u.test(value)) throw new Error(`Grill turn ${name} must use natural Chinese.`);
-  return value;
+  return assertFrontstageProse(value, `Grill turn ${name}`);
 }
 
 function parseDraft(value: unknown): GrillTurnDraft {

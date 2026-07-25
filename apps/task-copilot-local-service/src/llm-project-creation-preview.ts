@@ -105,7 +105,7 @@ export class LocalLlmProjectCreationPreviewGenerator {
       ? ["CREATE_DEDICATED_PROJECT_PAGE"]
       : authority.sourceKind === "PAGE"
         ? ["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REUSE_SOURCE_PAGE", "REVIEW_REQUIRED"]
-        : ["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REVIEW_REQUIRED"];
+        : ["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE"];
     const outputContract = {
       schemaVersion: "task-copilot-project-creation-preview-v1",
       sourceKind: authority.sourceKind,
@@ -113,7 +113,9 @@ export class LocalLlmProjectCreationPreviewGenerator {
       allowedEvidenceRefs,
       sourceMaterials: authority.materials.map(({ materialId }) => ({
         materialId,
-        allowedDispositions: ["KEEP_IN_PLACE", "LINK_AS_SOURCE", "REVIEW_FOR_MOVE"],
+        allowedDispositions: authority.sourceKind === "MINI_PROJECT"
+          ? ["KEEP_IN_PLACE", "LINK_AS_SOURCE"]
+          : ["KEEP_IN_PLACE", "LINK_AS_SOURCE", "REVIEW_FOR_MOVE"],
       })),
       constraints: [
         "Return every listed source material exactly once and no others.",
@@ -127,10 +129,11 @@ export class LocalLlmProjectCreationPreviewGenerator {
       "The seven machine-resolved dimensions are outcome, boundary, completion evidence, material disposition, internal closure, current interface, and Page/Object relationship.",
       "The only top-level fields are schemaVersion, title, outcome, boundary, completionEvidence, internalClosure, currentInterface, pageObjectRelationship, and sourceMaterials.",
       "Use this exact structural shape: {\"schemaVersion\":\"task-copilot-project-creation-preview-v1\",\"title\":{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"outcome\":{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"boundary\":{\"included\":[{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]}],\"excluded\":[]},\"completionEvidence\":[{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]}],\"internalClosure\":{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"currentInterface\":{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"pageObjectRelationship\":{\"mode\":\"one allowed relationship mode\",\"rationale\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"sourceMaterials\":[{\"materialId\":\"one listed materialId\",\"disposition\":\"one allowed disposition\",\"rationale\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]}]}.",
-      "For BLANK use CREATE_DEDICATED_PROJECT_PAGE and return sourceMaterials []. For PAGE use only CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE, REUSE_SOURCE_PAGE, or REVIEW_REQUIRED according to supplied resolved evidence. For MINI_PROJECT use only CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE or REVIEW_REQUIRED; never claim that a MiniProject source Page can be reused as the Project Page.",
+      "For BLANK use CREATE_DEDICATED_PROJECT_PAGE and return sourceMaterials []. For PAGE use only CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE, REUSE_SOURCE_PAGE, or REVIEW_REQUIRED according to supplied resolved evidence. For MINI_PROJECT use exactly CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE; the source MiniProject is preserved and reuse, rename, move, or migration is not a user choice.",
       "Preserve every supplied source material exactly once in sourceMaterials. Never copy, summarize, rewrite, move, or delete its exact text.",
       "Each claim, rationale, and disposition must cite only supplied sourceRef, answer ref, session ref, or contract ref evidence.",
       "All user-visible prose must use concise, natural Simplified Chinese. Proper names may retain their original spelling, but every prose field must contain Chinese.",
+      "Machine identities and evidence references belong only in their structured ID/ref fields. Never repeat an Object ID, Block/Page UUID, sourceRef, hash, Proposal/Commit/Anchor ID, or other opaque machine token in user-visible prose.",
       "The Page/Object relationship and every source disposition are proposals for later user Review, never formal authority.",
       "The machine owns exact source text, hashes, formal zero-write impact, evidence scope, provenance, and authority boundary.",
       "Never emit Proposal, operations, Commit, Object ID, Page UUID, Focus, Ownership, Lifecycle, Condition, Anchor, Graph writes, or SQLite writes. 不得输出 Proposal 或任何正式写入命令。",

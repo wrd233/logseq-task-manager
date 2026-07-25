@@ -65,6 +65,7 @@ test("Grill generator materializes one machine-focused session draft and replace
   assert.match(captured[0]?.system ?? "", /largest open uncertainty/i);
   assert.match(captured[0]?.system ?? "", /never emit Proposal|不得输出 Proposal/i);
   assert.match(captured[0]?.system ?? "", /natural Simplified Chinese/i);
+  assert.match(captured[0]?.system ?? "", /Never repeat an Object ID.*Block\/Page UUID/i);
   assert.match(captured[0]?.user ?? "", /machine grillAuthority/);
   assert.match(captured[0]?.user ?? "", /never emit format or any wrapper field/);
   assert.match(captured[0]?.user ?? "", /ask exactly one question/i);
@@ -87,6 +88,34 @@ test("Grill generator rejects invented evidence and operation authority as a zer
         questions: [{ uncertaintyId: "scope-current-list", text: "范围？" }],
         recommendation: { text: "建议", evidenceRefs: ["block:invented"], tradeoffs: ["取舍"] },
         operations: [{ kind: "CHANGE_OWNERSHIP" }],
+      },
+      metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
+    }),
+  };
+
+  await assert.rejects(
+    () => new LocalLlmGrillTurnGenerator(provider).generate(request),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "GRILL_TURN_VALIDATION_FAILED"
+      && error.message.includes("没有进入结构预览"),
+  );
+});
+
+test("Grill generator rejects internal identity leakage from otherwise valid provider prose", async () => {
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({
+      value: {
+        schemaVersion: GRILL_TURN_SCHEMA_VERSION,
+        understanding: "当前 obj_7a21df934a63 的范围仍未明确。",
+        factRefs: ["material"],
+        inferences: [{ text: "可能只覆盖现有清单。", evidenceRefs: ["block:block-1"] }],
+        unknowns: [{ uncertaintyId: "scope-current-list", text: "后续新增设备是否纳入仍未知。" }],
+        readiness: "CONTINUE",
+        focusUncertaintyId: "scope-current-list",
+        questions: [{ uncertaintyId: "scope-current-list", text: "本次是否只覆盖现有清单？" }],
+        recommendation: { text: "建议先封顶当前清单。", evidenceRefs: ["block:block-1"], tradeoffs: ["边界清楚，但新增设备需另行补充"] },
       },
       metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
     }),

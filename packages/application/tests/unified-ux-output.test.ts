@@ -135,6 +135,24 @@ test("unified UX output rejects unbounded model text before materialization", ()
   );
 });
 
+test("unified UX output rejects machine identities in frontstage prose", () => {
+  assert.throws(
+    () => materializeUnifiedUxOutput({
+      schemaVersion: "task-copilot-ux-output-v1",
+      factRefs: ["project-condition"],
+      inferences: [],
+      unknowns: [],
+      summary: "请回到 object:project-1@v4 继续处理。",
+      suggestedChanges: [],
+      nextActionEligible: false,
+      riskLevel: "NONE",
+      requiresDiscussion: false,
+      requiresReview: false,
+    }, authority),
+    /machine identity.*user-visible prose/i,
+  );
+});
+
 test("unified UX output rejects ambiguous machine fact and action identities", () => {
   const duplicateFacts = {
     ...authority,

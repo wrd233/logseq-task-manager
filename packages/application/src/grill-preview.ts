@@ -1,5 +1,7 @@
 import { checksum, stableJson } from "@task-copilot/shared";
 
+import { assertFrontstageProse } from "./frontstage-prose.ts";
+
 export const GRILL_PREVIEW_SCHEMA_VERSION = "task-copilot-grill-preview-v1" as const;
 
 export interface GrillPreviewMaterialAuthority {
@@ -87,6 +89,10 @@ function boundedText(value: unknown, name: string, maximum: number): string {
   return value.trim();
 }
 
+function frontstageText(value: unknown, name: string, maximum: number): string {
+  return assertFrontstageProse(boundedText(value, name, maximum), `Grill preview ${name}`);
+}
+
 function token(value: unknown, name: string): string {
   const result = boundedText(value, name, 128);
   if (!TOKEN.test(result)) throw new Error(`Grill preview ${name} must be a machine token.`);
@@ -114,7 +120,7 @@ function stringArray(value: unknown, name: string, maximum: number): string[] {
 function claim(value: unknown, name: string): GrillPreviewClaim {
   const input = record(value, name);
   exactKeys(input, ["text", "evidenceRefs"], name);
-  return { text: boundedText(input.text, `${name}.text`, 1_000), evidenceRefs: references(input.evidenceRefs, `${name}.evidenceRefs`) };
+  return { text: frontstageText(input.text, `${name}.text`, 1_000), evidenceRefs: references(input.evidenceRefs, `${name}.evidenceRefs`) };
 }
 
 function claims(value: unknown, name: string, minimum: number, maximum: number): GrillPreviewClaim[] {
@@ -134,8 +140,8 @@ function parseDraft(value: unknown): GrillPreviewDraft {
     exactKeys(section, ["sectionId", "heading", "purpose", "sourceMaterialIds", "derivedBlocks"], `sections[${index}]`);
     return {
       sectionId: token(section.sectionId, `sections[${index}].sectionId`),
-      heading: boundedText(section.heading, `sections[${index}].heading`, 160),
-      purpose: boundedText(section.purpose, `sections[${index}].purpose`, 500),
+      heading: frontstageText(section.heading, `sections[${index}].heading`, 160),
+      purpose: frontstageText(section.purpose, `sections[${index}].purpose`, 500),
       sourceMaterialIds: stringArray(section.sourceMaterialIds, `sections[${index}].sourceMaterialIds`, 128),
       derivedBlocks: claims(section.derivedBlocks, `sections[${index}].derivedBlocks`, 0, 8),
     };
@@ -145,7 +151,7 @@ function parseDraft(value: unknown): GrillPreviewDraft {
   const unclassified = input.unclassified.map((value, index) => {
     const item = record(value, `unclassified[${index}]`);
     exactKeys(item, ["materialId", "reason", "evidenceRefs"], `unclassified[${index}]`);
-    return { materialId: token(item.materialId, `unclassified[${index}].materialId`), reason: boundedText(item.reason, `unclassified[${index}].reason`, 600), evidenceRefs: references(item.evidenceRefs, `unclassified[${index}].evidenceRefs`) };
+    return { materialId: token(item.materialId, `unclassified[${index}].materialId`), reason: frontstageText(item.reason, `unclassified[${index}].reason`, 600), evidenceRefs: references(item.evidenceRefs, `unclassified[${index}].evidenceRefs`) };
   });
   return {
     schemaVersion: GRILL_PREVIEW_SCHEMA_VERSION,

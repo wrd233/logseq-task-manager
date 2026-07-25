@@ -1,5 +1,7 @@
 import { checksum, stableJson } from "@task-copilot/shared";
 
+import { assertFrontstageProse } from "./frontstage-prose.ts";
+
 export const UNIFIED_UX_OUTPUT_SCHEMA_VERSION = "task-copilot-ux-output-v1" as const;
 
 export type UnifiedUxRiskLevel = "NONE" | "LOW" | "MEDIUM" | "HIGH";
@@ -126,6 +128,19 @@ function boundedStringArray(value: unknown, name: string, maxItems: number, maxL
   return result;
 }
 
+function frontstageString(value: unknown, name: string, max: number): string {
+  return assertFrontstageProse(boundedString(value, name, max), `Unified UX output ${name}`);
+}
+
+function frontstageStringArray(value: unknown, name: string, maxItems: number, maxLength: number): string[] {
+  if (!Array.isArray(value) || value.length > maxItems) {
+    throw new Error(`Unified UX output ${name} must contain at most ${maxItems} items.`);
+  }
+  const result = value.map((item, index) => frontstageString(item, `${name}[${index}]`, maxLength));
+  if (new Set(result).size !== result.length) throw new Error(`Unified UX output ${name} must not contain duplicates.`);
+  return result;
+}
+
 function boolean(value: unknown, name: string): boolean {
   if (typeof value !== "boolean") throw new Error(`Unified UX output ${name} must be boolean.`);
   return value;
@@ -164,7 +179,7 @@ function parseDraft(value: unknown): UnifiedUxOutputDraft {
     const inference = record(item, `inferences[${index}]`);
     exactKeys(inference, ["text", "evidenceRefs"], `inferences[${index}]`);
     return {
-      text: boundedString(inference.text, `inferences[${index}].text`, 240),
+      text: frontstageString(inference.text, `inferences[${index}].text`, 240),
       evidenceRefs: boundedStringArray(inference.evidenceRefs, `inferences[${index}].evidenceRefs`, 16, 256),
     };
   });
@@ -179,7 +194,7 @@ function parseDraft(value: unknown): UnifiedUxOutputDraft {
     }
     return {
       kind: "DRAFT_PROPOSAL" as const,
-      summary: boundedString(suggestion.summary, `suggestedChanges[${index}].summary`, 240),
+      summary: frontstageString(suggestion.summary, `suggestedChanges[${index}].summary`, 240),
       evidenceRefs: boundedStringArray(suggestion.evidenceRefs, `suggestedChanges[${index}].evidenceRefs`, 16, 256),
       riskLevel: risk(suggestion.riskLevel, `suggestedChanges[${index}].riskLevel`),
     };
@@ -188,8 +203,8 @@ function parseDraft(value: unknown): UnifiedUxOutputDraft {
     schemaVersion: UNIFIED_UX_OUTPUT_SCHEMA_VERSION,
     factRefs: boundedStringArray(input.factRefs, "factRefs", 16, 128),
     inferences,
-    unknowns: boundedStringArray(input.unknowns, "unknowns", 8, 240),
-    summary: boundedString(input.summary, "summary", 400),
+    unknowns: frontstageStringArray(input.unknowns, "unknowns", 8, 240),
+    summary: frontstageString(input.summary, "summary", 400),
     suggestedChanges,
     nextActionEligible: boolean(input.nextActionEligible, "nextActionEligible"),
     ...(input.nextActionId === undefined ? {} : { nextActionId: boundedString(input.nextActionId, "nextActionId", 128) }),

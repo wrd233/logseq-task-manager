@@ -1,5 +1,7 @@
 import { checksum, stableJson } from "@task-copilot/shared";
 
+import { assertFrontstageProse } from "./frontstage-prose.ts";
+
 export const PROJECT_CREATION_PREVIEW_SCHEMA_VERSION = "task-copilot-project-creation-preview-v1" as const;
 
 export type ProjectCreationSourceKind = "BLANK" | "PAGE" | "MINI_PROJECT";
@@ -150,7 +152,7 @@ function boundedText(value: unknown, name: string, maximum: number): string {
 function naturalChinese(value: unknown, name: string, maximum: number): string {
   const result = boundedText(value, name, maximum);
   if (!/\p{Script=Han}/u.test(result)) throw new Error(`Project creation preview ${name} must use natural Chinese.`);
-  return result;
+  return assertFrontstageProse(result, `Project creation preview ${name}`);
 }
 
 function token(value: unknown, name: string): string {
@@ -287,8 +289,11 @@ export function materializeProjectCreationPreview(value: unknown, authority: Pro
   if (authority.sourceKind === "PAGE" && !["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REUSE_SOURCE_PAGE", "REVIEW_REQUIRED"].includes(draft.pageObjectRelationship.mode)) {
     throw new Error("Page source Project creation preview must preserve or explicitly upgrade the current Page.");
   }
-  if (authority.sourceKind === "MINI_PROJECT" && !["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REVIEW_REQUIRED"].includes(draft.pageObjectRelationship.mode)) {
+  if (authority.sourceKind === "MINI_PROJECT" && draft.pageObjectRelationship.mode !== "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE") {
     throw new Error("MiniProject source Project creation preview must preserve the source while creating a dedicated Project Page.");
+  }
+  if (authority.sourceKind === "MINI_PROJECT" && draft.sourceMaterials.some(({ disposition }) => disposition === "REVIEW_FOR_MOVE")) {
+    throw new Error("MiniProject source Project creation preview cannot propose moving preserved source material.");
   }
   const allowedEvidence = new Set([
     "session:project-creation-entry",

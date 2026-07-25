@@ -81,15 +81,8 @@ function requestRelationshipClarification(
   result: ServiceProjectCreationGrillResult,
   source: ProjectCreationSource,
 ): ServiceProjectCreationGrillResult {
+  if (source.sourceKind !== "PAGE") throw new Error("Only a Page source can require a user relationship decision.");
   const uncertaintyId = "page-object-relationship";
-  const question = source.sourceKind === "PAGE"
-    ? "当前 Page 应保留为来源并另建 Project 页面，还是直接作为 Project 页面继续使用？"
-    : source.sourceKind === "MINI_PROJECT"
-      ? "是否保留原 MiniProject 正文，并为 Project 创建独立页面？"
-      : "是否为这个 Project 创建独立页面？";
-  const recommendation = source.sourceKind === "PAGE"
-    ? "材料边界尚不稳定时，建议保留当前 Page 作为来源并另建 Project 页面；若当前 Page 已经就是唯一工作现场，再选择直接复用。"
-    : "建议保留现有正文，并创建独立 Project 页面，避免在创建阶段搬动或覆盖来源事实。";
   return {
     ...result,
     output: {
@@ -101,9 +94,9 @@ function requestRelationshipClarification(
       ],
       questionGroup: {
         focusUncertaintyId: uncertaintyId,
-        questions: [{ uncertaintyId, text: question }],
+        questions: [{ uncertaintyId, text: "当前 Page 应保留为来源并另建 Project 页面，还是直接作为 Project 页面继续使用？" }],
         recommendation: {
-          text: recommendation,
+          text: "材料边界尚不稳定时，建议保留当前 Page 作为来源并另建 Project 页面；若当前 Page 已经就是唯一工作现场，再选择直接复用。",
           evidenceRefs: [...result.output.evidenceScope.refs],
           tradeoffs: ["保留来源更安全；复用当前 Page 的操作距离更短"],
         },
@@ -239,12 +232,23 @@ export class ProjectCreationGrillController {
               message: "运行环境已恢复；请基于已确认答案重新生成最终阅读预览。",
             },
           });
-        } else if (relationshipReviewError(error)) {
+        } else if (relationshipReviewError(error) && latest.source.sourceKind === "PAGE") {
           this.states.set(key, {
             status: "ready",
             source: latest.source,
             answers: latest.answers,
             result: requestRelationshipClarification(latest.result, latest.source),
+          });
+        } else if (relationshipReviewError(error)) {
+          this.states.set(key, {
+            ...latest,
+            preview: {
+              ...latest.preview,
+              proposal: {
+                status: "error",
+                message: "最终阅读预览未遵守来源保护边界；原 MiniProject、页面和正式事项均未改变。请重新生成预览。",
+              },
+            },
           });
         } else if (staleError(error)) {
           this.states.set(key, {

@@ -243,6 +243,30 @@ test("invalidates expired or stale Preview authority and preserves answers for a
   }]);
 });
 
+test("a MiniProject relationship defect fails closed instead of asking an unsupported reuse or migration question", async () => {
+  const client = {
+    grillProjectCreation: async () => turn("READY_FOR_PREVIEW"),
+    previewProjectCreation: async () => preview,
+    createProjectCreationProposal: async () => {
+      throw Object.assign(new Error("relationship unresolved"), {
+        details: { remoteCode: "PROJECT_CREATION_RELATIONSHIP_REVIEW_REQUIRED" },
+      });
+    },
+  };
+  const controller = new ProjectCreationGrillController(
+    () => ({ client, providerAvailable: true, generation: 9 }),
+    async () => undefined,
+  );
+  const key = await controller.start({ sourceKind: "MINI_PROJECT", objectId: "mini-1", expectedVersion: 4 });
+  await controller.generatePreview(key);
+  await controller.createProposal(key);
+  const state = controller.snapshot()[key];
+  assert.equal(state?.status, "ready");
+  assert.equal(state?.status === "ready" ? state.result.output.questionGroup : undefined, undefined);
+  assert.equal(state?.status === "ready" && state.preview?.status === "ready" ? state.preview.proposal?.status : undefined, "error");
+  assert.match(state?.status === "ready" && state.preview?.status === "ready" && state.preview.proposal?.status === "error" ? state.preview.proposal.message : "", /来源保护边界/);
+});
+
 test("drops in-flight output after clear and rejects stale generation after Service reconnect", async () => {
   let resolveTurn!: (value: ServiceProjectCreationGrillResult) => void;
   let generation = 1;

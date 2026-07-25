@@ -65,7 +65,7 @@ const definitionsBySource: Record<ProjectCreationGrillSource["sourceKind"], read
   ],
   MINI_PROJECT: [
     { uncertaintyId: "project-boundary", dimension: "BOUNDARY", priority: 5, critical: true, reason: "尚未确认为何当前 MiniProject 应升级为持续治理的 Project。" },
-    { uncertaintyId: "page-object-relationship", dimension: "PAGE_OBJECT_RELATIONSHIP", priority: 6, critical: true, reason: "尚未确认原 MiniProject 正文与新 Project 页面和对象的关系。" },
+    { uncertaintyId: "page-object-relationship", dimension: "PAGE_OBJECT_RELATIONSHIP", priority: 6, critical: false, reason: "原 MiniProject 正文与正式对象保持原样；创建链只允许另建受控 Project Page 与正式 Project 对象。" },
     { uncertaintyId: "current-interface", dimension: "CURRENT_INTERFACE", priority: 10, critical: true, reason: "尚未确认升级后用户重入 Project 时首先需要看到什么。" },
     { uncertaintyId: "internal-closure", dimension: "INTERNAL_CLOSURE", priority: 20, critical: true, reason: "尚未确认升级后的内部推进与复盘闭环。" },
     { uncertaintyId: "outcome", dimension: "OUTCOME", priority: 30, critical: true, reason: "尚未确认升级后要持续形成的结果。" },
@@ -126,7 +126,9 @@ export function buildProjectCreationGrillGeneration(source: ProjectCreationGrill
     sourceRefs: ["session:project-creation-entry"],
   }, {
     factId: "project-page-contract",
-    text: "正式创建链只在 Review 接受后绑定一个受控 Project Page 与一个正式 Project 对象。",
+    text: source.sourceKind === "MINI_PROJECT"
+      ? "原 MiniProject 正文与正式对象保持原样；正式创建链只在 Review 接受后另建受控 Project Page 与正式 Project 对象。"
+      : "正式创建链只在 Review 接受后绑定一个受控 Project Page 与一个正式 Project 对象。",
     sourceRefs: ["contract:project-page-creation-v1"],
   }];
   for (const [index, material] of source.materials.entries()) {
@@ -146,7 +148,8 @@ export function buildProjectCreationGrillGeneration(source: ProjectCreationGrill
   const uncertainties: GrillUncertaintyAuthority[] = definitions.map((definition) => {
     const answer = answerById.get(definition.uncertaintyId);
     const machineResolved = source.sourceKind === "BLANK"
-      && (definition.dimension === "UNCLASSIFIED_MATERIAL" || definition.dimension === "PAGE_OBJECT_RELATIONSHIP");
+      ? definition.dimension === "UNCLASSIFIED_MATERIAL" || definition.dimension === "PAGE_OBJECT_RELATIONSHIP"
+      : source.sourceKind === "MINI_PROJECT" && definition.dimension === "PAGE_OBJECT_RELATIONSHIP";
     const answerRef = answer ? `answer:${sha256({ uncertaintyId: definition.uncertaintyId, answer }).slice(0, 16)}` : undefined;
     return {
       uncertaintyId: definition.uncertaintyId,
@@ -247,6 +250,13 @@ export function buildProjectCreationPreviewGeneration(source: ProjectCreationGri
       return {
         dimension: uncertainty.dimension as ProjectCreationDimension,
         text: "正式创建链绑定一个受控 Project Page 与一个正式 Project 对象。",
+        evidenceRefs: ["contract:project-page-creation-v1"],
+      };
+    }
+    if (source.sourceKind === "MINI_PROJECT" && uncertainty.dimension === "PAGE_OBJECT_RELATIONSHIP") {
+      return {
+        dimension: uncertainty.dimension as ProjectCreationDimension,
+        text: "原 MiniProject 正文与正式对象保持原样；正式创建链只允许另建受控 Project Page 与正式 Project 对象。",
         evidenceRefs: ["contract:project-page-creation-v1"],
       };
     }

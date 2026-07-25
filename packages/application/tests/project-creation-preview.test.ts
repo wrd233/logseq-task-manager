@@ -106,6 +106,23 @@ test("relationship modes stay inside their source-specific page authority", () =
   );
   assert.throws(
     () => materializeProjectCreationPreview({
+      ...draft("MINI_PROJECT"),
+      pageObjectRelationship: { ...draft("MINI_PROJECT").pageObjectRelationship, mode: "REVIEW_REQUIRED" },
+    }, authority("MINI_PROJECT")),
+    /MiniProject source/i,
+  );
+  assert.throws(
+    () => materializeProjectCreationPreview({
+      ...draft("MINI_PROJECT"),
+      sourceMaterials: [{
+        ...draft("MINI_PROJECT").sourceMaterials[0],
+        disposition: "REVIEW_FOR_MOVE",
+      }],
+    }, authority("MINI_PROJECT")),
+    /cannot propose moving/i,
+  );
+  assert.throws(
+    () => materializeProjectCreationPreview({
       ...page,
       pageObjectRelationship: { ...page.pageObjectRelationship, mode: "CREATE_DEDICATED_PROJECT_PAGE" },
     }, authority("PAGE")),
@@ -174,5 +191,19 @@ test("user-visible Project creation reading rejects non-Chinese model prose", ()
       title: { ...base.title, text: "Task Copilot acceptance package" },
     }, authority("BLANK")),
     /must use natural Chinese/,
+  );
+});
+
+test("user-visible Project creation reading rejects internal machine identities", () => {
+  const base = draft("MINI_PROJECT");
+  assert.throws(
+    () => materializeProjectCreationPreview({
+      ...base,
+      currentInterface: {
+        ...base.currentInterface,
+        text: "先打开根 Block 6a622050-1ee6-4ef0-95cb-92263be67408。",
+      },
+    }, authority("MINI_PROJECT")),
+    /machine identity.*user-visible prose/i,
   );
 });

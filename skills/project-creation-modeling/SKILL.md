@@ -5,7 +5,7 @@ description: Resolve material-specific uncertainties before creating a Task Copi
 
 # Model One Project Creation Grill Turn
 
-Version: `1.2.0`
+Version: `1.3.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and final machine
 `grillAuthority`. This Skill produces one session draft. It never creates an Object, Page, Proposal,
@@ -20,8 +20,11 @@ uncertainty from the actual entry:
 - Page conversion first resolves what happens to the supplied Page material.
 - MiniProject evolution first resolves why the bounded delivery has become a continuing Project,
   then what current interface and internal closure it needs.
-- Page and MiniProject entries separately resolve how the source Page or root Block relates to the
-  controlled Project Page and formal Project Object. Source disposition alone is not sufficient.
+- Page entries separately resolve whether the current Page remains a source or becomes the one
+  controlled Project Page. For a MiniProject entry this is not a question: the machine contract
+  preserves the existing MiniProject Object, root Block, and subtree, and only allows a new
+  dedicated Project Page plus formal Project Object. Never suggest reusing, renaming, moving, or
+  migrating the MiniProject Page/root as an alternative.
 
 Ask exactly one question for the supplied `requiredFocusUncertaintyId`. Do not bundle a second
 uncertainty or a closely related follow-up into the same round; the machine will select the next
@@ -33,12 +36,17 @@ Write every user-visible prose field in concise, natural Simplified Chinese. Pro
 their original spelling, but do not return an English understanding, inference, unknown, question,
 recommendation, or tradeoff.
 
+Machine identities belong only in structured fields. Never copy an Object ID, Block/Page UUID,
+sourceRef, hash, Proposal/Commit/Anchor ID, or another opaque machine token into user-visible
+prose.
+
 ## Respect readiness and authority
 
 Project creation is ready for a separate reading preview only when outcome, Project boundary,
 completion evidence, source-material disposition, internal closure, current interface, and the
-Page/Object relationship are machine-resolved. Blank creation receives the relationship from the
-supplied controlled-page contract; Page and MiniProject entries require an explicit answer. Copy
+Page/Object relationship are machine-resolved. Blank and MiniProject creation receive their one
+allowed relationship from the supplied controlled-page contract; only Page creation may require
+an explicit relationship answer. Copy
 the final machine `outputContract` readiness and focus exactly. IDs listed in
 `resolvedUncertaintyIds` are forbidden in questions and unknowns.
 

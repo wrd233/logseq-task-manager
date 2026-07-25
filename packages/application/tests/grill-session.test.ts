@@ -99,6 +99,26 @@ test("model provenance and scope are replaced by machine authority without expos
   assert.equal("operations" in output, false);
 });
 
+test("user-visible Grill prose rejects opaque Object and Block identities while structured refs remain available", () => {
+  assert.throws(
+    () => materializeGrillTurn({
+      ...draft(),
+      understanding: "当前材料属于 obj_7a21df934a63，但范围仍未明确。",
+    }, authority()),
+    /machine identity.*user-visible prose/i,
+  );
+  assert.throws(
+    () => materializeGrillTurn({
+      ...draft(),
+      questions: [{
+        uncertaintyId: "u-boundary",
+        text: "是否继续使用根 Block 6a622050-1ee6-4ef0-95cb-92263be67408？",
+      }],
+    }, authority()),
+    /machine identity.*user-visible prose/i,
+  );
+});
+
 test("Project creation Grill supports blank, Page, and MiniProject sources without inventing an Object identity", () => {
   const projectAuthority: GrillTurnAuthority = {
     observedAt: "2026-07-25T04:30:00.000Z",

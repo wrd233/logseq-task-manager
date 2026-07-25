@@ -152,6 +152,7 @@ export class LocalLlmGrillTurnGenerator {
       turnInstruction,
       "Use only supplied factId, uncertaintyId, sourceRef, and evidenceRef values. Keep facts, inferences, and unknowns separate.",
       "All user-visible prose must use concise, natural Simplified Chinese. Proper names may retain their original spelling, but every prose field must contain Chinese.",
+      "Machine identities and evidence references belong only in their structured ID/ref fields. Never repeat an Object ID, Block/Page UUID, sourceRef, hash, Proposal/Commit/Anchor ID, or other opaque machine token in user-visible prose.",
       "The final machine outputContract is authoritative. Copy its machineReadiness and requiredFocusUncertaintyId exactly. Resolved uncertainty IDs are forbidden in unknowns and questions.",
       "Machine code owns the largest open uncertainty, readiness, evidence scope, and provenance; model values cannot override them.",
       "Never emit Proposal, operations, Commit, Focus, Ownership, Lifecycle, Condition, Anchor, Graph writes, or SQLite writes. 不得输出 Proposal 或任何正式写入命令。",
