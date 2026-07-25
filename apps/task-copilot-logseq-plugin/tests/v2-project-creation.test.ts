@@ -301,7 +301,10 @@ test("reviewed Project creation recovery removes only its exact owned empty Page
     async getPage() { return page ?? null; },
     async createPage() { throw new Error("recovery never creates a Page"); },
     async getPageBlocksTree() { return ownedMetadataBlock(prepared); },
-    async deletePage() { page = undefined; },
+    async deletePage(pageName) {
+      assert.equal(pageName, prepared.pageName);
+      page = undefined;
+    },
   };
   const result = await compensateReviewedProjectCreation(service, host, prepared.proposalId, {
     expectedUpdatedAt: prepared.expectedUpdatedAt,
@@ -389,7 +392,11 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
     },
     async createPage() { throw new Error("unused"); },
     async getPageBlocksTree() { return ownedMetadataBlock({ objectId, semanticCommitId: originalSemanticCommitId }); },
-    async deletePage() { deletionRequested = true; deleteCalls += 1; },
+    async deletePage(pageName) {
+      assert.equal(pageName, "Project/设备治理");
+      deletionRequested = true;
+      deleteCalls += 1;
+    },
   };
   const dedicated = await undoReviewedProjectCreation(dedicatedService, dedicatedHost, originalSemanticCommitId, "undo-dedicated-project");
   assert.equal(dedicated.pagePreserved, false);
