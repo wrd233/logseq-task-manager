@@ -802,6 +802,12 @@ async function fullDiagnosticsHtml(): Promise<string> {
   return renderDiagnostics(snapshot, anchorIssueNarrations);
 }
 
+async function refreshMountedDiagnostics(): Promise<void> {
+  const root = appRoot ?? document.getElementById(MAIN_UI_ROOT_ID);
+  if (!root?.querySelector(".diagnostics-shell")) return;
+  root.innerHTML = await fullDiagnosticsHtml();
+}
+
 async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   const generation = ++serviceDiscoveryGeneration;
   enterRestrictedServiceMode("SERVICE_DISCOVERY_IN_PROGRESS", "Local Service 正在重新发现；正式写入暂停。");
@@ -3108,6 +3114,7 @@ async function recoverCurrentGraphRuntime(successMessage: string): Promise<boole
   await refreshToolbarInterventionFacts();
   await projectPageHeadActionController.refreshAll();
   if (logseq.isMainUIVisible) await refresh();
+  else await refreshMountedDiagnostics();
   return recovered;
 }
 
@@ -3241,6 +3248,7 @@ async function initializeFeatures(): Promise<void> {
     markReady("PLUGIN_READY", "first-run welcome ready; no Graph scan, migration, or model call performed");
     await refreshToolbarInterventionFacts();
     await projectPageHeadActionController.refreshAll();
+    await refreshMountedDiagnostics();
     return;
   }
 

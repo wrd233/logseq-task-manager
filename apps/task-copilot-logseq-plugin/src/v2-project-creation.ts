@@ -119,11 +119,13 @@ function pageContainsOnlyOwnedMetadata(
     && Object.entries(expected).every(([key, value]) => properties.get(normalizedPropertyKey(key)) === value);
 }
 
-async function confirmPageAbsent(host: ProjectPageHost, pageExternalId: string): Promise<boolean> {
+async function confirmPageAbsent(host: ProjectPageHost, ...identities: Array<string | undefined>): Promise<boolean> {
+  const exactIdentities = [...new Set(identities.filter((identity): identity is string => Boolean(identity)))];
   const delaysMs = [0, 50, 100, 200];
   for (const delayMs of delaysMs) {
     if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
-    if (!await host.getPage(pageExternalId)) return true;
+    const pages = await Promise.all(exactIdentities.map((identity) => host.getPage(identity)));
+    if (pages.every((page) => !page)) return true;
   }
   return false;
 }
@@ -142,6 +144,18 @@ function assertOwnedPage(page: ProjectPageEntity, intent: Pick<ServiceProjectInt
       { pageName: intent.pageName },
     );
   }
+}
+
+async function resolveOwnedDedicatedPage(
+  host: ProjectPageHost,
+  intent: Required<Pick<ServiceProjectIntent, "objectId" | "semanticCommitId" | "pageName" | "pageExternalId">>,
+): Promise<ProjectPageEntity | null> {
+  const exact = await host.getPage(intent.pageExternalId);
+  if (exact) return exact;
+  const rebound = await host.getPage(intent.pageName);
+  if (!rebound) return null;
+  assertOwnedPage(rebound, { ...intent, status: "PENDING" });
+  return rebound;
 }
 
 export async function createReviewedProjectWithPage(
@@ -282,7 +296,9 @@ export async function compensateReviewedProjectCreation(
 ): Promise<ServiceProposalProjectCreationCompensation> {
   if (!service.compensateProposalProjectCreation) throw projectError("V2_PROJECT_CREATION_RECOVERY_UNAVAILABLE", "当前 Service 不支持 Project 创建恢复。");
   const reuse = intent.relationshipMode === "REUSE_SOURCE_PAGE";
-  const page = await host.getPage(intent.pageExternalId);
+  const page = reuse
+    ? await host.getPage(intent.pageExternalId)
+    : await resolveOwnedDedicatedPage(host, intent);
   if (reuse) {
     if (!page || page.uuid !== intent.pageExternalId || proposalPageEvidenceHash(page) !== intent.pageContentHash) {
       throw projectError("V2_PROJECT_CREATION_COMPENSATION_PAGE_STALE", "来源 Page 已变化；系统不会删除或猜测补偿，请保留现场并查看恢复状态。");
@@ -296,7 +312,9 @@ export async function compensateReviewedProjectCreation(
       if (!Array.isArray(blocks) || !pageContainsOnlyOwnedMetadata(blocks, intent)) throw projectError("V2_PROJECT_CREATION_COMPENSATION_PAGE_CHANGED", "受控 Project Page 已包含内容；系统不会删除它，请保留现场并人工恢复。");
       if (!host.deletePage) throw projectError("V2_PROJECT_CREATION_RECOVERY_UNAVAILABLE", "当前 Logseq Host 不支持安全删除受控 Page。");
       await host.deletePage(page.originalName ?? page.name);
-      if (!await confirmPageAbsent(host, page.uuid)) throw projectError("V2_PROJECT_CREATION_COMPENSATION_DELETE_UNCONFIRMED", "Logseq 尚未确认受控 Page 已移除；没有收口失败事务。");
+      if (!await confirmPageAbsent(host, intent.pageExternalId, page.uuid, page.originalName ?? page.name)) {
+        throw projectError("V2_PROJECT_CREATION_COMPENSATION_DELETE_UNCONFIRMED", "Logseq 尚未确认受控 Page 已移除；没有收口失败事务。");
+      }
     }
   }
   return service.compensateProposalProjectCreation(proposalId, {
@@ -322,7 +340,12 @@ export async function undoReviewedProjectCreation(
     return { ...prepared, pageName: page?.originalName ?? page?.name ?? prepared.pageExternalId };
   }
   if (prepared.status === "PAGE_PREFLIGHT_REQUIRED") {
-    const page = await host.getPage(prepared.pageExternalId);
+    const page = await resolveOwnedDedicatedPage(host, {
+      objectId: prepared.objectId,
+      semanticCommitId: originalSemanticCommitId,
+      pageName: prepared.pageName,
+      pageExternalId: prepared.pageExternalId,
+    });
     if (!page) throw projectError("V2_PROJECT_CREATION_UNDO_PAGE_MISSING", "专用 Project Page 已不存在；系统没有先删除正式对象，请从恢复状态检查现场。");
     assertOwnedPage(page, {
       objectId: prepared.objectId,
@@ -335,12 +358,17 @@ export async function undoReviewedProjectCreation(
     prepared = await service.prepareProposalProjectCreationUndo(originalSemanticCommitId, {
       traceId: `${traceId}:confirmed-owned-empty`,
       confirmedOwnedEmpty: true,
-      pageExternalId: page.uuid,
+      pageExternalId: prepared.pageExternalId,
     });
     if (prepared.status === "COMPLETED") return { ...prepared, pageName: page.originalName ?? page.name };
     if (prepared.status === "PAGE_PREFLIGHT_REQUIRED") throw projectError("V2_PROJECT_CREATION_UNDO_PREFLIGHT_NOT_ADVANCED", "Project 创建 Undo 未能从空 Page 预检进入正式撤销。");
   }
-  const page = await host.getPage(prepared.pageExternalId);
+  const page = await resolveOwnedDedicatedPage(host, {
+    objectId: prepared.objectId,
+    semanticCommitId: originalSemanticCommitId,
+    pageName: prepared.pageName,
+    pageExternalId: prepared.pageExternalId,
+  });
   if (page) {
     assertOwnedPage(page, {
       objectId: prepared.objectId,
@@ -353,7 +381,9 @@ export async function undoReviewedProjectCreation(
     if (!host.deletePage) throw projectError("V2_PROJECT_CREATION_UNDO_UNAVAILABLE", "当前 Logseq Host 不支持安全删除受控 Project Page。");
     await host.deletePage(page.originalName ?? page.name);
   }
-  if (!await confirmPageAbsent(host, prepared.pageExternalId)) throw projectError("V2_PROJECT_CREATION_UNDO_DELETE_UNCONFIRMED", "Logseq 尚未确认 Project Page 已移除；Undo 没有收口。");
+  if (!await confirmPageAbsent(host, prepared.pageExternalId, page?.uuid, page?.originalName ?? page?.name ?? prepared.pageName)) {
+    throw projectError("V2_PROJECT_CREATION_UNDO_DELETE_UNCONFIRMED", "Logseq 尚未确认 Project Page 已移除；Undo 没有收口。");
+  }
   const finalized = await service.finalizeProposalProjectCreationUndo(originalSemanticCommitId, {
     originalSemanticCommitId,
     undoSemanticCommitId: prepared.undoSemanticCommitId,

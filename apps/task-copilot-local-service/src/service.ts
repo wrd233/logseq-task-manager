@@ -1195,7 +1195,7 @@ function respondError(response: ServerResponse, error: unknown): void {
     const providerStatus = error.code === "LLM_RATE_LIMITED" ? 429
       : error.code === "LLM_TIMEOUT" ? 504
       : error.code === "UX_OUTPUT_SESSION_SUPPRESSED" ? 409
-      : ["UX_OUTPUT_VALIDATION_FAILED", "LLM_OUTPUT_TRUNCATED", "LLM_RESPONSE_EMPTY", "LLM_RESPONSE_INVALID_JSON", "LLM_RESPONSE_SHAPE_INVALID", "LLM_RESPONSE_TOO_LARGE"].includes(error.code) ? 422
+      : ["UX_OUTPUT_VALIDATION_FAILED", "GRILL_TURN_VALIDATION_FAILED", "GRILL_PREVIEW_VALIDATION_FAILED", "LLM_OUTPUT_TRUNCATED", "LLM_RESPONSE_EMPTY", "LLM_RESPONSE_INVALID_JSON", "LLM_RESPONSE_SHAPE_INVALID", "LLM_RESPONSE_TOO_LARGE"].includes(error.code) ? 422
       : error.code.startsWith("LLM_") ? 502
       : undefined;
     if (providerStatus !== undefined) {

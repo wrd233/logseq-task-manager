@@ -343,8 +343,10 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
   assert.equal(deleteCalls, 0);
 
   const objectId = `obj_20260725150000000_${"2".repeat(32)}`;
+  const originalPageExternalId = "dedicated-project-page";
+  const reboundPageExternalId = "rebound-dedicated-project-page";
   let dedicatedPage: ProjectPageEntity | undefined = {
-    uuid: "dedicated-project-page",
+    uuid: reboundPageExternalId,
     name: "project/设备治理",
     originalName: "Project/设备治理",
     properties: {
@@ -365,13 +367,14 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
       if (!input.confirmedOwnedEmpty) {
         return {
           status: "PAGE_PREFLIGHT_REQUIRED", originalSemanticCommitId, undoSemanticCommitId: `project-creation-undo:${originalSemanticCommitId}`,
-          proposalId: "proposal-dedicated", pageName: "Project/设备治理", pageExternalId: "dedicated-project-page", objectId,
+          proposalId: "proposal-dedicated", pageName: "Project/设备治理", pageExternalId: originalPageExternalId, objectId,
           pageContentHash: checksum("owned-empty-page"), replayed: false,
         };
       }
+      assert.equal(input.pageExternalId, originalPageExternalId, "Service ledger identity remains authoritative across a host UUID rebound");
       return {
         status: "PAGE_DELETION_REQUIRED", originalSemanticCommitId, undoSemanticCommitId: `project-creation-undo:${originalSemanticCommitId}`,
-        proposalId: "proposal-dedicated", pageName: "Project/设备治理", pageExternalId: "dedicated-project-page", objectId,
+        proposalId: "proposal-dedicated", pageName: "Project/设备治理", pageExternalId: originalPageExternalId, objectId,
         pageContentHash: checksum("owned-empty-page"), replayed: false,
       };
     },
@@ -382,7 +385,9 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
     },
   };
   const dedicatedHost: ProjectPageHost = {
-    async getPage() {
+    async getPage(identity) {
+      if (identity === originalPageExternalId) return null;
+      if (identity !== reboundPageExternalId && identity.toLowerCase() !== "project/设备治理".toLowerCase()) return null;
       if (deletionRequested && staleReadsAfterDeletion > 0) {
         staleReadsAfterDeletion -= 1;
         return dedicatedPage ?? null;
