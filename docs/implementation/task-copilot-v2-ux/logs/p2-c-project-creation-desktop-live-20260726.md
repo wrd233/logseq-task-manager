@@ -129,7 +129,48 @@ Page reuse 使用同一份来源材料刻意制造“原材料要求另建、用
 
 - Page 来源：保留另建与升级当前 Page 两种关系均 bounded PASS；Review CURRENT 截图和
   Light/窄栏仍需补齐；
-- MiniProject 来源：Object/version + Primary Anchor + subtree 边界、只允许保留来源另建；
-- Light、窄栏和来源返回；
+- MiniProject 来源：功能链已 PASS；Light/窄栏仍需补齐；
+- Light、窄栏；
 - 一条全程同一 commit 的中间截图链；
 - Review 历史密度与预检式 Undo 文案一致性。
+
+## MiniProject 演化与来源返回补充 Gate
+
+MiniProject 演化首次真实链运行于 `7d4f5e4721f5`：Service 从正式
+MiniProject v14、active Primary Anchor 和五个精确 Block 构造有界 Context，真实
+`deepseek-v4-flash` 经自适应多轮 Grill 进入最终阅读。运行中先后暴露并修复 machine
+identity、`answer-*`/`source-*` fact key 泄漏、把内部闭环错误指向关闭来源 MiniProject
+以及 evidence repair 过宽等问题；`project-creation-modeling` 升至 `1.5.0`。最终
+Preview 把五项来源全部标为 `LINK_AS_SOURCE`，HIGH Review 接受时仍零正式写，最终
+Commit 才创建专用 Page、Project v2 与 active Primary Anchor。reload 后版本化 Project
+当前接口可重入；inverse Commit 删除本事务拥有的空 Page、Project 和 Anchor，原
+MiniProject 对象/Anchor/五个 Block 的 UUID、正文和顺序逐字段守恒。
+
+这轮同时发现一个真实完成后路由缺陷：旧构建的 Undo 安全完成，却回到 Journal 而不是
+来源根 Block。`7a7492a407ed` 让 Local Service 从已审阅且重新校验的创建计划返回
+`sourceReturnTarget`；Plugin 只接受正式 Page 或仍为 active Primary Anchor 的 Block
+目标，缺失时保持安全现场，不猜测。
+
+最新构建随后再次完整运行真实 DeepSeek→Preview→HIGH Review→Commit→reload→Undo：
+
+- 最终 Preview 前两次被 Validator 安全拒绝，均无 Proposal 或正式写入；第三次在相同答案
+  集上通过。该结果证明失败链安全，也表明真实 Preview 拒绝率和用户可理解诊断仍需继续
+  降低；
+- Commit 后自动进入 `Project/P0 Focus Gate 持续验证 Gate 状态`，reload 可读回同一正式
+  Project 与 Anchor；
+- Undo 后 URL 精确回到来源 Page 与根 Block anchor，用户结果明确“已返回来源 Block”；
+- 专用 Project Page 读回为不存在；SQLite 中目标 Project 与 active Anchor 均为 0；
+- 原根 UUID `6a622050-6f86-4811-847b-d6322328d30a` 及四个子 Block UUID、正文、顺序保持；
+- 再次 reload 后 Runtime/Store/Service READY，commit `7a7492a407ed`、Logseq `0.10.15`，
+  Pending/Recovery/Source Conflict `0/0/0`，reconciliation false。
+
+CURRENT 截图：
+
+- `p2-c-38-mini-evolution-undo-source-return-current-dark.png`：Undo 完成、原根 Block 可见、
+  成功结果明确返回来源；
+- `p2-c-39-mini-evolution-undo-reload-healthy-current-dark.png`：再次 reload 后用户系统
+  状态与展开诊断。
+
+`p2-c-36`/`p2-c-37` 降为 `SUPERSEDED`；它们仍记录真实历史行为，但不再代表当前路由。
+由此 P2-C Blank/Page/MiniProject 来源功能矩阵均为 DONE；Light、窄栏与集中宿主视觉
+Gate 仍开放，P2-D～G 和完整 Goal 继续 `IN_PROGRESS`。

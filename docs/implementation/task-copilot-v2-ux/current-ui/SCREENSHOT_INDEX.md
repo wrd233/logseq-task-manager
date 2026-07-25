@@ -14,6 +14,15 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `screenshots/p2-c-22-page-reuse-created-current-dark.png` | `913bbda4528f` | HIGH Review/Commit 完成后自动回到原 Page | 当前 Page 三段正文可见且无 ownership metadata；Graph 逐字段读回与创建前完全一致；Project/Anchor 已在正式投影 | 截图本身只显示返回现场，正式创建由 Audit/Graph 读回证明 |
 | `screenshots/p2-c-23-page-reuse-undo-current-dark.png` | `913bbda4528f` | restart 后从最近修改执行 Page-aware inverse Commit | 用户结果明确“Project 与 Anchor 已撤销；复用的来源 Page 保持原样” | 仍需 MiniProject 来源 |
 | `screenshots/p2-c-24-page-reuse-post-undo-restart-healthy-current-dark.png` | `913bbda4528f` | Page reuse Undo 后再次完整 restart | Runtime/Store/Service READY；`0/0/0`；reconciliation false；Project 不在投影，Page 逐字段等于创建前 | Light/窄栏与 MiniProject OPEN |
+| `screenshots/p2-c-29-mini-evolution-grill-ready-current-dark.png` | `7d4f5e4721f5` | 从 OPEN MiniProject 发起演化；七项自适应 Grill 已解决 | 前台只保留用户事实、少量判断和一个主动作；不含 object/root ID、fact key 或错误的来源关闭建议 | 已确认事实区仍偏长 |
+| `screenshots/p2-c-30-mini-evolution-preview-current-dark.png` | `7d4f5e4721f5` | 用户生成最终阅读 Preview | 专用 Project Page、持续成果/证据/内部闭环/当前接口完整；五个来源 Block 均为 `LINK_AS_SOURCE`，仍零正式写入 | 模型曾建议嵌入，但用户 link-only 决定与机器合同最终获胜 |
+| `screenshots/p2-c-31-mini-evolution-high-review-current-dark.png` | `7d4f5e4721f5` | 从 Preview 进入待我确认 | 单一 `create-project` HIGH 组为 PENDING；Project/Page/Object/Commit 尚未创建 | Review 长正文仍需压缩 |
+| `screenshots/p2-c-32-mini-evolution-accepted-high-current-dark.png` | `7d4f5e4721f5` | 勾选 HIGH 影响确认后只接受语义组 | 状态为 ACCEPTED；界面明确仍需提交前检查与最终创建 | “尚不能确认安全撤销条件”与可撤销动作的表达仍不一致 |
+| `screenshots/p2-c-33-mini-evolution-created-project-current-dark.png` | `7d4f5e4721f5` | 最终确认后原子创建并自动打开新 Project Page | 专用 Page、Project v2 与 active Primary Anchor 已读回；来源 MiniProject 子树逐字段不变 | 新 Page 首屏直接显示 ownership/object/commit properties，工程味过重 |
+| `screenshots/p2-c-34-mini-evolution-reload-reentry-current-dark.png` | `7d4f5e4721f5` | Logseq 页面 reload 后重新打开 Task Copilot 项目区 | 新 Project 的版本化当前接口可从正式投影重入；来源仍为 v14/OPEN | reload 初始核对提示会在同步后收敛 |
+| `screenshots/p2-c-35-mini-evolution-undo-confirm-current-dark.png` | `7d4f5e4721f5` | 从最近修改对最新 Project Creation 发起专用 Undo | 明确撤销 Project/Anchor；来源 Page 永不删除，专用空 Page 仅在仍属本事务时删除 | 历史卡片密度偏高 |
+| `screenshots/p2-c-38-mini-evolution-undo-source-return-current-dark.png` | `7a7492a407ed` | 最新构建重跑真实 DeepSeek→Preview→HIGH Review→Commit→reload 后执行专用 inverse Commit | Project、Anchor 与本事务拥有的空 Page 已撤销；路由精确返回原 MiniProject 根 Block并显示成功结果；来源四个子 Block 可见 | 右侧栏仍保留测试 Graph 旧页面，不属于本次正式变化 |
+| `screenshots/p2-c-39-mini-evolution-undo-reload-healthy-current-dark.png` | `7a7492a407ed` | Undo 返回来源后再次 reload，打开用户系统状态并展开诊断 | Runtime/Store/Service READY；commit 与 Logseq 版本可见；Pending/Recovery/Source Conflict `0/0/0`；reconciliation false | Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 
@@ -38,6 +47,12 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `p2-c-15-page-project-created-current-dark.png` | HISTORICAL | 同上 | Project/Anchor/受控 Page 正式创建 | 同上 |
 | `p2-c-16-page-reload-restricted-dark.png` | HISTORICAL | 同上 | raw reload 曾留下受限诊断现场 | 最终构建已修复 mounted diagnostics refresh |
 | `p2-c-17-page-restart-recovered-current-dark.png` | HISTORICAL | 同上 | 完整 restart 后 Service 恢复 | 随后发现 runtime UUID 漂移会阻断旧 Undo |
+| `p2-c-25-mini-evolution-identity-leak-historical-dark.png` | HISTORICAL | `7d4f5e4` 前的真实 MiniProject Grill build | Validator 曾让 object/root identity 和未授权替代方案进入前台 | identity 现在只能留在机器 Context，不得进入问题或建议 |
+| `p2-c-26-mini-evolution-safe-grill-current-dark.png` | SUPERSEDED | `7d4f5e4` 前的真实修复 build | 第一轮 identity 修复后能安全继续 Grill | 后续又发现 fact key 与 closure 对象问题，已由 `p2-c-29` 替代 |
+| `p2-c-27-mini-evolution-fact-key-leak-historical-dark.png` | HISTORICAL | `7d4f5e4` 前的真实 MiniProject Grill build | 模型曾复制 `answer-*` / `source-*` 机器键 | frontstage Validator 已拒绝机器 fact key |
+| `p2-c-28-mini-evolution-wrong-closure-target-historical-dark.png` | HISTORICAL | `7d4f5e4` 前的真实 MiniProject Grill build | 模型曾把 Project 内部闭环误解为关闭/归档来源 MiniProject | Skill 1.5.0 明确 closure 对象是新 Project 的运行/复盘闭环 |
+| `p2-c-36-mini-evolution-undo-complete-current-dark.png` | SUPERSEDED | `7d4f5e4721f5` | Project/Anchor/专用空 Page 的 inverse Commit 当时已安全完成 | 完成后误回 Journal；`p2-c-38` 已证明最新构建返回原 MiniProject 根 Block |
+| `p2-c-37-mini-evolution-undo-reload-healthy-current-dark.png` | SUPERSEDED | `7d4f5e4721f5` | 当时 reload 后 `0/0/0` | `p2-c-39` 使用含来源返回修复的 `7a7492a407ed` 重拍 |
 
 仓库其他目录中的既有截图也继续按历史证据处理，除非索引明确登记为 `CURRENT`。
 

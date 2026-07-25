@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_BLANK_AND_BOTH_PAGE_RELATIONSHIPS_DONE | P2-A+B 隔离 MiniProject Desktop 纵向链 DONE；P2-C 三来源自动链完成，Blank 全链 PASS，Page“保留来源另建”和“升级当前 Page”均真实 DeepSeek→Preview→Review→create→restart→Undo→restart PASS；MiniProject 与 P2-D～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_VISUAL_GATES_OPEN | P2-A+B 隔离 MiniProject Desktop 纵向链 DONE；P2-C Blank、Page 两种关系和 MiniProject 演化均真实 DeepSeek→Preview→Review→create→reload/restart→Undo→健康 PASS；Light/窄栏视觉 Gate 与 P2-D～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -491,6 +491,19 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   reconciliation false。`p2-c-21`～`p2-c-24` 为最终构建 CURRENT 证据。内容质量仍有
   readiness 过长、重复“完成证据”标签和真实 Validator 拒绝率问题，记为既有
   `project-creation-modeling@1.2.0`/renderer 改进候选，不新建平行 Skill；
+- P2-C MiniProject“演化为 Project”从 OPEN 收敛为功能 DONE：Service 有界读取正式
+  MiniProject v14、active Primary Anchor 与五个精确 Block，真实 DeepSeek 自适应 Grill
+  先后暴露 machine identity/fact key 泄漏、错误 closure 对象和 evidence repair 过宽，
+  修复并沉淀到 `project-creation-modeling@1.5.0`。最终 Preview 五项来源均为
+  `LINK_AS_SOURCE`，单组 HIGH Review 接受仍零写，最终 Commit 才创建专用 Page/Project/
+  Anchor；reload 后可重入，inverse Commit 恢复来源对象/Anchor/UUID/正文/顺序。首轮安全
+  Undo 误回 Journal，`7a7492a407ed` 改为只导航 Service 审阅并重验的正式 Page 或 active
+  Primary Anchor。最新构建完整重跑真实 Provider 链后精确返回来源根 Block，再次 reload
+  Runtime/Store/Service READY、`0/0/0`、reconciliation false。最终 Preview 前两次真实
+  Validator rejection 零 Proposal/零写，第三次同答案集通过；安全边界 PASS，拒绝率和用户
+  诊断继续作为 Skill/UX 质量项。CURRENT `p2-c-38`/`p2-c-39` 对应 `7a7492a407ed`，
+  旧 Journal 返回 `p2-c-36`/`p2-c-37` 已标为 SUPERSEDED。当前全量 Application
+  `155/155`、Local Service `133/133`、Plugin `271/271` 与根级检查 PASS；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -500,9 +513,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-C MiniProject 来源 Desktop Gate：Blank 与 Page 两种关系均已 PASS，不重复；
-   下一步覆盖 MiniProject Object/version + Primary Anchor/subtree、保留来源另建、
-   Review→create→restart→Undo→返回原根 Block；
+1. 启动 P2-D Project 结构操作路由：先复用现有 Focus/Condition/Association、Proposal/
+   SemanticCommit/Undo 能力建立轻/中/重判定与一条可体验纵向链，不绕过既有安全底座；
 2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

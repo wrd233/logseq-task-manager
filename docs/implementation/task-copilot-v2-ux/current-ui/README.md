@@ -10,17 +10,19 @@
 - `SUPERSEDED`：同一场景已有更新且更完整的证据；
 - `PROTOTYPE`：只证明视觉或宿主能力，不代表正式产品链。
 
-当前已有 P2-C Page 来源链在最终 `913bbda` 构建上的 CURRENT Undo 确认、Undo 完成态和
-完整 Logseq restart 后健康态；Page reuse 另有 CURRENT readiness/Preview、返回原 Page、
-Undo 与 restart 健康态。此前 Blank 与 Page dedicated 的 Grill、Preview、HIGH Review、
-创建和首次恢复截图来自真实运行，但早于最终 identity 漂移/diagnostics 修复，因此明确
-登记为 `HISTORICAL` 或 `SUPERSEDED`，不伪装成最新界面。
+当前已有 P2-C Page 来源链在 `913bbda` 构建上的 CURRENT Undo 确认、Undo 完成态和完整
+Logseq restart 后健康态；Page reuse 另有 CURRENT readiness/Preview、返回原 Page、Undo
+与 restart 健康态。MiniProject 演化链又在 `7d4f5e4` 最新构建上补齐 CURRENT Grill
+ready、最终阅读、HIGH Review、接受未应用、正式创建、reload 重入、Undo 与再次 reload
+健康态。`7a7492a` 又以最新构建重跑真实 DeepSeek→Preview→Review→Commit→reload→Undo，
+证明专用 Undo 会返回原 MiniProject 根 Block；旧的 Journal 返回截图已降为 `SUPERSEDED`。
+此前暴露 identity、fact key 和错误 closure 对象的截图只登记为真实 `HISTORICAL`
+失败样本；同场景旧安全截图登记为 `SUPERSEDED`。
 
-P2-C 当前结论是
-`BLANK_AND_BOTH_PAGE_RELATIONSHIPS_DONE_MINI_AND_VISUAL_GATES_OPEN`：Blank 已真实完成
-全链；Page“保留来源另建”和“升级当前 Page”两种关系也都完成真实 DeepSeek、Preview、
-Review、创建、restart、Page-aware Undo 与再次 restart 健康验证。MiniProject 来源、
-Light/窄栏与部分中间态 CURRENT 截图仍需验证，P2-D～G 也仍开放。完整记录见
+P2-C 当前结论是 `ALL_SOURCES_DONE_VISUAL_GATES_OPEN`：Blank、Page“保留来源另建”、
+Page“升级当前 Page”和 MiniProject“保留来源演化”均完成真实 DeepSeek、Preview、Review、
+创建、reload/restart、专用 Undo 与最终健康验证。Light/窄栏和部分宿主视觉 Gate 仍需在
+集中 Desktop Gate 完成，P2-D～G 继续开放。完整记录见
 `../logs/p2-c-project-creation-desktop-live-20260726.md`。
 
 ## 每次取证必须记录

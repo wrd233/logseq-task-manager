@@ -11,7 +11,7 @@
 | Project Page Head / Context Recovery | 已实现并有真实 Provider Gate | OPEN | loading/error/stale/feedback、主题与窄栏 |
 | Block Marker | 默认关闭 prototype | OPEN | 编辑/TODO/Query/sidebar/Zoom/主题/性能 |
 | MiniProject Grill / 原位重构 | 一个纵向链历史 Desktop 通过 | OPEN | 最新构建回归与多材料质量样本 |
-| Project Creation Grill | Blank 全链 PASS；Page“保留来源另建”与“升级当前 Page”均真实 Provider→Preview→HIGH Review→create→restart→Undo→restart PASS；MiniProject 开放 | CURRENT：Page dedicated Undo/健康、reuse readiness/Preview/返回现场/Undo/健康；dedicated Grill/Preview/Review/create 为历史真实证据 | MiniProject、Light/窄栏与缺失的 CURRENT 中间态 |
+| Project Creation Grill | Blank、Page 两种关系与 MiniProject 演化功能链均真实 Provider→Preview→HIGH Review→create→reload/restart→Undo→健康 PASS；`7a7492a407ed` 已复验 MiniProject Undo 精确返回来源根 Block | CURRENT：Page dedicated Undo/健康、reuse readiness/Preview/返回现场/Undo/健康；MiniProject Grill/Preview/Review/create/reload/来源返回/健康 | Light/窄栏与集中宿主视觉 Gate；Project 新页 ownership metadata 仍过于前台 |
 | Recovery / Rebind / Restore / Migration | 底层能力存在，产品化未完成 | OPEN | P2-G 用户向导整链 |
 | Attention Signal | Shadow runtime | OPEN | 首批确定性 Signal 开放门通过后 |
 

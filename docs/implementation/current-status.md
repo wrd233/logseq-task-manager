@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_BLANK_AND_BOTH_PAGE_RELATIONSHIPS_DONE_MINI_OPEN
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_VISUAL_GATES_OPEN
 overall_goal: IN_PROGRESS
 ```
 
@@ -129,7 +129,7 @@ overall_goal: IN_PROGRESS
   P2-C～P2-G、P1 和整体产品化 Goal 继续 IN_PROGRESS；
 - P2-C 已进入第二个自动合同：Grill session 支持不伪造 Object identity 的
   `PROJECT_CREATION` subject；Local Service 已有三来源自适应 generation builder 与
-  `project-creation-modeling@1.2.0`（初始自动 Gate 为 `1.1.0`），Blank/Page/MiniProject 分别先处理结果、现有材料去向、
+  `project-creation-modeling@1.5.0`（初始自动 Gate 为 `1.1.0`），Blank/Page/MiniProject 分别先处理结果、现有材料去向、
   升级边界，并要求 Project 特有的 internal closure/current interface 与独立 Page/Object
   关系；Blank 已通过认证
   Service route 与真实 `deepseek-v4-flash` Validator Gate（首轮证据为 Skill `1.0.0`），
@@ -178,8 +178,17 @@ overall_goal: IN_PROGRESS
   restart、Page-aware Undo 与再次 restart；原材料要求另建与用户明确 reuse 的冲突被保留，
   用户决定形成 `REUSE_SOURCE_PAGE`。创建/重启/撤销全程 Page name/properties 与三段 Block
   UUID/content/properties 逐字段等于创建前，正式变化只创建/撤销 SQLite Project 与
-  active Primary Page Anchor。MiniProject 来源 Desktop、Light/窄栏和缺失的 CURRENT 中间
-  截图仍 OPEN；
+  active Primary Page Anchor。MiniProject 来源随后也完成真实 DeepSeek 自适应 Grill、
+  Preview、HIGH Review、创建、reload、inverse Undo 与再次 reload；来源 Object v14/OPEN、
+  active Anchor、五个 Block UUID/正文/顺序逐字段守恒。首轮 Undo 安全完成但误回 Journal，
+  `7a7492a407ed` 改为只使用 Service 已审阅并重验的正式 Page/Primary Anchor
+  `sourceReturnTarget`，最新构建重跑全链后精确返回来源根 Block。最终 Preview 前两次真实
+  Validator rejection 均保持零 Proposal/零写入，第三次同答案集通过，说明安全 Gate
+  有效但真实拒绝率与用户诊断仍需继续改善。Undo 后专用 Page/目标 Project/Anchor 均不在
+  当前投影，再次 reload 为 READY、`0/0/0`、reconciliation false；CURRENT 截图为
+  `p2-c-38`～`p2-c-39`。P2-C 三来源功能矩阵至此 DONE，Light/窄栏和集中宿主视觉 Gate
+  仍 OPEN。当前全量 Application `155/155`、Local Service `133/133`、Plugin `271/271`
+  与根级 `./scripts/check.sh` PASS；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -193,7 +202,7 @@ overall_goal: IN_PROGRESS
 V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 remaining host Desktop gates / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
-P2-C Blank + Page dedicated + Page reuse DONE, MiniProject/visual gates OPEN /
+P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
 P2-D–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论
