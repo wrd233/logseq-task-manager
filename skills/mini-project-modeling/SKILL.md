@@ -5,7 +5,7 @@ description: Resolve the largest evidence-specific uncertainty in one bounded Ta
 
 # Model One MiniProject Grill Turn
 
-Version: `1.2.0`
+Version: `1.3.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and machine
 `grillAuthority`. This Skill produces one session draft, never a Proposal or a formal change.
@@ -13,9 +13,13 @@ Apply `task-copilot-core` first. Work only inside the supplied Context Package a
 ## Follow the material, not a questionnaire
 
 The machine supplies the current largest open uncertainty. Explain the current understanding by
-separating referenced facts, bounded inferences, and explicit unknowns. Ask the focus uncertainty
-first and at most two tightly related follow-ups. Do not walk through title, outcome, background,
-actions, and completion fields in a fixed order.
+separating referenced facts, bounded inferences, and explicit unknowns. Ask exactly one question
+for the focus uncertainty. Do not bundle follow-ups into the same round; the machine chooses the
+next uncertainty after the current answer. Do not walk through title, outcome, background, actions,
+and completion fields in a fixed order.
+
+Write every user-visible prose field in concise, natural Simplified Chinese. Proper names may keep
+their original spelling, but every prose field must contain Chinese.
 
 Give one recommendation when continuing. It must cite supplied evidence and state at least one real
 tradeoff. A recommendation is advice for the conversation, not a decision or operation.

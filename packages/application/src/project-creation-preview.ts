@@ -147,6 +147,12 @@ function boundedText(value: unknown, name: string, maximum: number): string {
   return value.trim();
 }
 
+function naturalChinese(value: unknown, name: string, maximum: number): string {
+  const result = boundedText(value, name, maximum);
+  if (!/\p{Script=Han}/u.test(result)) throw new Error(`Project creation preview ${name} must use natural Chinese.`);
+  return result;
+}
+
 function token(value: unknown, name: string): string {
   const result = boundedText(value, name, 128);
   if (!TOKEN.test(result)) throw new Error(`Project creation preview ${name} must be a machine token.`);
@@ -168,7 +174,7 @@ function claim(value: unknown, name: string): ProjectCreationPreviewClaim {
   const input = record(value, name);
   exactKeys(input, ["text", "evidenceRefs"], name);
   return {
-    text: boundedText(input.text, `${name}.text`, 1_000),
+    text: naturalChinese(input.text, `${name}.text`, 1_000),
     evidenceRefs: references(input.evidenceRefs, `${name}.evidenceRefs`),
   };
 }
@@ -205,7 +211,7 @@ function parseDraft(value: unknown): ProjectCreationPreviewDraft {
     return {
       materialId: token(material.materialId, `sourceMaterials[${index}].materialId`),
       disposition: material.disposition as typeof DISPOSITIONS[number],
-      rationale: boundedText(material.rationale, `sourceMaterials[${index}].rationale`, 600),
+      rationale: naturalChinese(material.rationale, `sourceMaterials[${index}].rationale`, 600),
       evidenceRefs: references(material.evidenceRefs, `sourceMaterials[${index}].evidenceRefs`),
     };
   });
@@ -222,7 +228,7 @@ function parseDraft(value: unknown): ProjectCreationPreviewDraft {
     currentInterface: claim(input.currentInterface, "currentInterface"),
     pageObjectRelationship: {
       mode: relationship.mode as ProjectPageObjectRelationshipMode,
-      rationale: boundedText(relationship.rationale, "pageObjectRelationship.rationale", 600),
+      rationale: naturalChinese(relationship.rationale, "pageObjectRelationship.rationale", 600),
       evidenceRefs: references(relationship.evidenceRefs, "pageObjectRelationship.evidenceRefs"),
     },
     sourceMaterials,

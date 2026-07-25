@@ -96,6 +96,29 @@ function expectedProperties(intent: Pick<ServiceProjectIntent, "objectId" | "sem
   };
 }
 
+function pageContainsOnlyOwnedMetadata(
+  blocks: unknown[],
+  intent: Pick<ServiceProjectIntent, "objectId" | "semanticCommitId">,
+): boolean {
+  if (blocks.length === 0) return true;
+  if (blocks.length !== 1) return false;
+  const block = blocks[0];
+  if (!block || typeof block !== "object" || Array.isArray(block)) return false;
+  const { content, children } = block as { content?: unknown; children?: unknown };
+  if (typeof content !== "string" || (Array.isArray(children) && children.length > 0)) return false;
+  const properties = new Map<string, string>();
+  for (const line of content.split("\n").map((item) => item.trim()).filter(Boolean)) {
+    const match = /^([^:\n]+)::\s*(.*)$/u.exec(line);
+    if (!match) return false;
+    const key = normalizedPropertyKey(match[1]!);
+    if (properties.has(key)) return false;
+    properties.set(key, match[2]!);
+  }
+  const expected = expectedProperties(intent);
+  return properties.size === Object.keys(expected).length
+    && Object.entries(expected).every(([key, value]) => properties.get(normalizedPropertyKey(key)) === value);
+}
+
 function assertOwnedPage(page: ProjectPageEntity, intent: Pick<ServiceProjectIntent, "objectId" | "semanticCommitId" | "pageName"> & { status?: string }): void {
   const actualName = page.originalName ?? page.name;
   if (
@@ -183,7 +206,7 @@ export async function createReviewedProjectWithPage(
       assertOwnedPage(page, intent);
     }
     const blocks = await host.getPageBlocksTree(page.uuid);
-    if (!Array.isArray(blocks) || blocks.length !== 0) {
+    if (!Array.isArray(blocks) || !pageContainsOnlyOwnedMetadata(blocks, intent)) {
       throw projectError("V2_PROJECT_PAGE_NOT_EMPTY", `${intent.pageName} 不再是本次事务创建的空页面；SQLite 尚未创建 Project，请先检查页面内容。`);
     }
     pageContentHash = checksum({
@@ -261,7 +284,7 @@ export async function compensateReviewedProjectCreation(
     } else {
       assertOwnedPage(page, { ...intent, status: "PENDING" });
       const blocks = await host.getPageBlocksTree(page.uuid);
-      if (!Array.isArray(blocks) || blocks.length !== 0) throw projectError("V2_PROJECT_CREATION_COMPENSATION_PAGE_CHANGED", "受控 Project Page 已包含内容；系统不会删除它，请保留现场并人工恢复。");
+      if (!Array.isArray(blocks) || !pageContainsOnlyOwnedMetadata(blocks, intent)) throw projectError("V2_PROJECT_CREATION_COMPENSATION_PAGE_CHANGED", "受控 Project Page 已包含内容；系统不会删除它，请保留现场并人工恢复。");
       if (!host.deletePage) throw projectError("V2_PROJECT_CREATION_RECOVERY_UNAVAILABLE", "当前 Logseq Host 不支持安全删除受控 Page。");
       await host.deletePage(page.uuid);
       const after = await host.getPage(page.uuid);
@@ -300,7 +323,7 @@ export async function undoReviewedProjectCreation(
       status: "PENDING",
     });
     const blocks = await host.getPageBlocksTree(page.uuid);
-    if (!Array.isArray(blocks) || blocks.length !== 0) throw projectError("V2_PROJECT_CREATION_UNDO_PAGE_CHANGED", "Project Page 已包含正文；系统不会删除用户内容，且尚未撤销 Project 正式对象。");
+    if (!Array.isArray(blocks) || !pageContainsOnlyOwnedMetadata(blocks, { objectId: prepared.objectId, semanticCommitId: originalSemanticCommitId })) throw projectError("V2_PROJECT_CREATION_UNDO_PAGE_CHANGED", "Project Page 已包含正文；系统不会删除用户内容，且尚未撤销 Project 正式对象。");
     prepared = await service.prepareProposalProjectCreationUndo(originalSemanticCommitId, {
       traceId: `${traceId}:confirmed-owned-empty`,
       confirmedOwnedEmpty: true,
@@ -318,7 +341,7 @@ export async function undoReviewedProjectCreation(
       status: "PENDING",
     });
     const blocks = await host.getPageBlocksTree(page.uuid);
-    if (!Array.isArray(blocks) || blocks.length !== 0) throw projectError("V2_PROJECT_CREATION_UNDO_PAGE_CHANGED", "Project Page 已包含正文；系统不会删除用户内容，Project 创建 Undo 已停在可恢复状态。");
+    if (!Array.isArray(blocks) || !pageContainsOnlyOwnedMetadata(blocks, { objectId: prepared.objectId, semanticCommitId: originalSemanticCommitId })) throw projectError("V2_PROJECT_CREATION_UNDO_PAGE_CHANGED", "Project Page 已包含正文；系统不会删除用户内容，Project 创建 Undo 已停在可恢复状态。");
     if (!host.deletePage) throw projectError("V2_PROJECT_CREATION_UNDO_UNAVAILABLE", "当前 Logseq Host 不支持安全删除受控 Project Page。");
     await host.deletePage(page.uuid);
   }
@@ -362,7 +385,7 @@ export async function createProjectWithControlledPage(
     pageName: intent.pageName,
     pageExternalId: page.uuid,
     properties: expectedProperties(intent),
-    emptyAtCreation: blocks.length === 0,
+    emptyAtCreation: pageContainsOnlyOwnedMetadata(blocks, intent),
   });
   try {
     const finalized = await service.finalizeProject({

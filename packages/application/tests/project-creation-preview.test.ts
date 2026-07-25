@@ -165,3 +165,14 @@ test("model cannot claim formal authority or smuggle write impact into the readi
     /unsupported field authority/,
   );
 });
+
+test("user-visible Project creation reading rejects non-Chinese model prose", () => {
+  const base = draft("BLANK");
+  assert.throws(
+    () => materializeProjectCreationPreview({
+      ...base,
+      title: { ...base.title, text: "Task Copilot acceptance package" },
+    }, authority("BLANK")),
+    /must use natural Chinese/,
+  );
+});

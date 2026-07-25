@@ -76,14 +76,41 @@ export class LocalLlmProjectCreationPreviewGenerator {
       materials: authority.materials.map(({ materialId, sourceRef, contentHash }) => ({ materialId, sourceRef, contentHash })),
       resolvedDimensions: authority.resolvedDimensions,
     };
+    const allowedEvidenceRefs = [...new Set([
+      "session:project-creation-entry",
+      ...authority.materials.map(({ sourceRef }) => sourceRef),
+      ...authority.resolvedDimensions.flatMap(({ evidenceRefs }) => evidenceRefs),
+    ])].sort();
+    const allowedRelationshipModes = authority.sourceKind === "BLANK"
+      ? ["CREATE_DEDICATED_PROJECT_PAGE"]
+      : authority.sourceKind === "PAGE"
+        ? ["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REUSE_SOURCE_PAGE", "REVIEW_REQUIRED"]
+        : ["CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE", "REVIEW_REQUIRED"];
+    const outputContract = {
+      schemaVersion: "task-copilot-project-creation-preview-v1",
+      sourceKind: authority.sourceKind,
+      allowedRelationshipModes,
+      allowedEvidenceRefs,
+      sourceMaterials: authority.materials.map(({ materialId }) => ({
+        materialId,
+        allowedDispositions: ["KEEP_IN_PLACE", "LINK_AS_SOURCE", "REVIEW_FOR_MOVE"],
+      })),
+      constraints: [
+        "Return every listed source material exactly once and no others.",
+        "For BLANK return sourceMaterials as an empty array and use CREATE_DEDICATED_PROJECT_PAGE.",
+        "Every evidenceRefs item must come from allowedEvidenceRefs.",
+        "All user-visible prose must use concise natural Simplified Chinese.",
+      ],
+    };
     const system = [
       "Return exactly one task-copilot-project-creation-preview-v1 JSON draft for a final Project creation reading preview.",
       "The seven machine-resolved dimensions are outcome, boundary, completion evidence, material disposition, internal closure, current interface, and Page/Object relationship.",
       "The only top-level fields are schemaVersion, title, outcome, boundary, completionEvidence, internalClosure, currentInterface, pageObjectRelationship, and sourceMaterials.",
-      "Use this exact shape: {\"schemaVersion\":\"task-copilot-project-creation-preview-v1\",\"title\":{\"text\":\"...\",\"evidenceRefs\":[\"answer:...\"]},\"outcome\":{\"text\":\"...\",\"evidenceRefs\":[\"answer:...\"]},\"boundary\":{\"included\":[{\"text\":\"...\",\"evidenceRefs\":[\"answer:...\"]}],\"excluded\":[]},\"completionEvidence\":[{\"text\":\"...\",\"evidenceRefs\":[\"answer:...\"]}],\"internalClosure\":{\"text\":\"...\",\"evidenceRefs\":[\"answer:...\"]},\"currentInterface\":{\"text\":\"...\",\"evidenceRefs\":[\"answer:...\"]},\"pageObjectRelationship\":{\"mode\":\"CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE\",\"rationale\":\"...\",\"evidenceRefs\":[\"answer:...\"]},\"sourceMaterials\":[{\"materialId\":\"source-1\",\"disposition\":\"LINK_AS_SOURCE\",\"rationale\":\"...\",\"evidenceRefs\":[\"answer:...\"]}]}.",
+      "Use this exact structural shape: {\"schemaVersion\":\"task-copilot-project-creation-preview-v1\",\"title\":{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"outcome\":{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"boundary\":{\"included\":[{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]}],\"excluded\":[]},\"completionEvidence\":[{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]}],\"internalClosure\":{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"currentInterface\":{\"text\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"pageObjectRelationship\":{\"mode\":\"one allowed relationship mode\",\"rationale\":\"...\",\"evidenceRefs\":[\"allowed evidence ref\"]},\"sourceMaterials\":[]}.",
       "For BLANK use CREATE_DEDICATED_PROJECT_PAGE and return sourceMaterials []. For PAGE use only CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE, REUSE_SOURCE_PAGE, or REVIEW_REQUIRED according to supplied resolved evidence. For MINI_PROJECT use only CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE or REVIEW_REQUIRED; never claim that a MiniProject source Page can be reused as the Project Page.",
       "Preserve every supplied source material exactly once in sourceMaterials. Never copy, summarize, rewrite, move, or delete its exact text.",
       "Each claim, rationale, and disposition must cite only supplied sourceRef, answer ref, session ref, or contract ref evidence.",
+      "All user-visible prose must use concise, natural Simplified Chinese. Proper names may retain their original spelling, but every prose field must contain Chinese.",
       "The Page/Object relationship and every source disposition are proposals for later user Review, never formal authority.",
       "The machine owns exact source text, hashes, formal zero-write impact, evidence scope, provenance, and authority boundary.",
       "Never emit Proposal, operations, Commit, Object ID, Page UUID, Focus, Ownership, Lifecycle, Condition, Anchor, Graph writes, or SQLite writes. 不得输出 Proposal 或任何正式写入命令。",
@@ -91,7 +118,11 @@ export class LocalLlmProjectCreationPreviewGenerator {
       `Skill [${skill.version}]\n${skill.content}`,
       `User Semantics [${userSemantics.version}]\n${userSemantics.content}`,
     ].join("\n\n");
-    const user = `Runtime Context [${runtimeContext.version}]\n${runtimeContext.content}\n\nmachine previewAuthority\n${stableJson(machineAuthority)}`;
+    const user = [
+      `Runtime Context [${runtimeContext.version}]\n${runtimeContext.content}`,
+      `machine previewAuthority\n${stableJson(machineAuthority)}`,
+      `machine outputContract (final authority for the JSON response)\n${stableJson(outputContract)}`,
+    ].join("\n\n");
     if (system.length + user.length > 240_000) {
       throw new StructuredError({
         code: "PROJECT_CREATION_PREVIEW_PROMPT_TOO_LARGE",

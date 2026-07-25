@@ -152,6 +152,18 @@ function reviewedFinalized(intent: ServicePreparedProposalProjectCreation, pageE
   };
 }
 
+function ownedMetadataBlock(intent: Pick<ServiceProjectIntent, "objectId" | "semanticCommitId">): unknown[] {
+  return [{
+    uuid: "logseq-property-block",
+    content: [
+      "task-copilot-owner:: task-copilot-personal-mvp",
+      `task-copilot-object-id:: ${intent.objectId}`,
+      `task-copilot-semantic-commit-id:: ${intent.semanticCommitId}`,
+    ].join("\n"),
+    children: [],
+  }];
+}
+
 test("reviewed Project creation creates only its controlled empty Page before the proposal-bound finalize", async () => {
   const prepared = reviewedIntent("CREATE_DEDICATED_PROJECT_PAGE");
   let page: ProjectPageEntity | undefined;
@@ -169,7 +181,7 @@ test("reviewed Project creation creates only its controlled empty Page before th
       page = { uuid: "reviewed-project-page", name: name.toLowerCase(), originalName: name, properties };
       return page;
     },
-    async getPageBlocksTree() { return []; },
+    async getPageBlocksTree() { return ownedMetadataBlock(prepared); },
   };
   const result = await createReviewedProjectWithPage(service, host, prepared.proposalId, prepared.expectedUpdatedAt, "reviewed-project-create");
   assert.equal(result.status, "COMPLETED");
@@ -187,6 +199,40 @@ test("reviewed Project creation creates only its controlled empty Page before th
     },
     emptyAtCreation: true,
   }));
+});
+
+test("reviewed Project creation treats Logseq's property block as empty but refuses any user content", async () => {
+  const prepared = reviewedIntent("CREATE_DEDICATED_PROJECT_PAGE");
+  const page: ProjectPageEntity = {
+    uuid: "reviewed-project-page-with-user-content",
+    name: prepared.pageName.toLowerCase(),
+    originalName: prepared.pageName,
+    properties: {
+      taskCopilotOwner: "task-copilot-personal-mvp",
+      taskCopilotObjectId: prepared.objectId,
+      taskCopilotSemanticCommitId: prepared.semanticCommitId,
+    },
+  };
+  let finalizeCalls = 0;
+  const service: ReviewedProjectCreationService = {
+    async prepareProposalProjectCreation() { return prepared; },
+    async finalizeProposalProjectCreation() {
+      finalizeCalls += 1;
+      throw new Error("must not finalize a Page containing user content");
+    },
+  };
+  const host: ProjectPageHost = {
+    async getPage() { return page; },
+    async createPage() { throw new Error("existing owned Page must be resumed"); },
+    async getPageBlocksTree() {
+      return [...ownedMetadataBlock(prepared), { uuid: "user-content", content: "用户已经写入的正文", children: [] }];
+    },
+  };
+  await assert.rejects(
+    () => createReviewedProjectWithPage(service, host, prepared.proposalId, prepared.expectedUpdatedAt, "reviewed-project-user-content"),
+    /不再是本次事务创建的空页面/,
+  );
+  assert.equal(finalizeCalls, 0);
 });
 
 test("reviewed Page reuse never creates or marks a Page and rejects changed Page evidence", async () => {
@@ -254,7 +300,7 @@ test("reviewed Project creation recovery removes only its exact owned empty Page
   const host: ProjectPageHost = {
     async getPage() { return page ?? null; },
     async createPage() { throw new Error("recovery never creates a Page"); },
-    async getPageBlocksTree() { return []; },
+    async getPageBlocksTree() { return ownedMetadataBlock(prepared); },
     async deletePage() { page = undefined; },
   };
   const result = await compensateReviewedProjectCreation(service, host, prepared.proposalId, {
@@ -333,7 +379,7 @@ test("reviewed Project creation Undo preserves a reused source Page and deletes 
   const dedicatedHost: ProjectPageHost = {
     async getPage() { return dedicatedPage ?? null; },
     async createPage() { throw new Error("unused"); },
-    async getPageBlocksTree() { return []; },
+    async getPageBlocksTree() { return ownedMetadataBlock({ objectId, semanticCommitId: originalSemanticCommitId }); },
     async deletePage() { dedicatedPage = undefined; deleteCalls += 1; },
   };
   const dedicated = await undoReviewedProjectCreation(dedicatedService, dedicatedHost, originalSemanticCommitId, "undo-dedicated-project");

@@ -125,6 +125,11 @@ function texts(value: unknown, name: string, maximumItems: number, maximumLength
   return result;
 }
 
+function naturalChinese(value: string, name: string): string {
+  if (!/\p{Script=Han}/u.test(value)) throw new Error(`Grill turn ${name} must use natural Chinese.`);
+  return value;
+}
+
 function parseDraft(value: unknown): GrillTurnDraft {
   const input = record(value, "draft");
   exactKeys(input, ["schemaVersion", "understanding", "factRefs", "inferences", "unknowns", "readiness", "focusUncertaintyId", "questions", "recommendation"], "draft");
@@ -133,34 +138,34 @@ function parseDraft(value: unknown): GrillTurnDraft {
   const inferences = input.inferences.map((value, index) => {
     const item = record(value, `inferences[${index}]`);
     exactKeys(item, ["text", "evidenceRefs"], `inferences[${index}]`);
-    return { text: text(item.text, `inferences[${index}].text`, 400), evidenceRefs: refs(item.evidenceRefs, `inferences[${index}].evidenceRefs`, 16) };
+    return { text: naturalChinese(text(item.text, `inferences[${index}].text`, 400), `inferences[${index}].text`), evidenceRefs: refs(item.evidenceRefs, `inferences[${index}].evidenceRefs`, 16) };
   });
   if (!Array.isArray(input.unknowns) || input.unknowns.length > 8) throw new Error("Grill turn unknowns are invalid.");
   const unknowns = input.unknowns.map((value, index) => {
     const item = record(value, `unknowns[${index}]`);
     exactKeys(item, ["uncertaintyId", "text"], `unknowns[${index}]`);
-    return { uncertaintyId: token(item.uncertaintyId, `unknowns[${index}].uncertaintyId`), text: text(item.text, `unknowns[${index}].text`, 400) };
+    return { uncertaintyId: token(item.uncertaintyId, `unknowns[${index}].uncertaintyId`), text: naturalChinese(text(item.text, `unknowns[${index}].text`, 400), `unknowns[${index}].text`) };
   });
-  if (!Array.isArray(input.questions) || input.questions.length > 3) throw new Error("Grill turn questions are invalid.");
+  if (!Array.isArray(input.questions) || input.questions.length > 1) throw new Error("Grill turn questions are invalid.");
   const questions = input.questions.map((value, index) => {
     const item = record(value, `questions[${index}]`);
     exactKeys(item, ["uncertaintyId", "text"], `questions[${index}]`);
-    return { uncertaintyId: token(item.uncertaintyId, `questions[${index}].uncertaintyId`), text: text(item.text, `questions[${index}].text`, 500) };
+    return { uncertaintyId: token(item.uncertaintyId, `questions[${index}].uncertaintyId`), text: naturalChinese(text(item.text, `questions[${index}].text`, 500), `questions[${index}].text`) };
   });
   let recommendation: GrillTurnDraft["recommendation"];
   if (input.recommendation !== undefined) {
     const item = record(input.recommendation, "recommendation");
     exactKeys(item, ["text", "evidenceRefs", "tradeoffs"], "recommendation");
     recommendation = {
-      text: text(item.text, "recommendation.text", 600),
+      text: naturalChinese(text(item.text, "recommendation.text", 600), "recommendation.text"),
       evidenceRefs: refs(item.evidenceRefs, "recommendation.evidenceRefs", 16),
-      tradeoffs: texts(item.tradeoffs, "recommendation.tradeoffs", 4, 300),
+      tradeoffs: texts(item.tradeoffs, "recommendation.tradeoffs", 4, 300).map((item, index) => naturalChinese(item, `recommendation.tradeoffs[${index}]`)),
     };
   }
   if (input.readiness !== "CONTINUE" && input.readiness !== "READY_FOR_PREVIEW") throw new Error("Grill turn readiness is invalid.");
   return {
     schemaVersion: GRILL_TURN_SCHEMA_VERSION,
-    understanding: text(input.understanding, "understanding", 1_200),
+    understanding: naturalChinese(text(input.understanding, "understanding", 1_200), "understanding"),
     factRefs: texts(input.factRefs, "factRefs", 32, 128).map((item) => token(item, "factRef")),
     inferences,
     unknowns,

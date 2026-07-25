@@ -5,7 +5,7 @@ description: Resolve material-specific uncertainties before creating a Task Copi
 
 # Model One Project Creation Grill Turn
 
-Version: `1.1.0`
+Version: `1.2.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and final machine
 `grillAuthority`. This Skill produces one session draft. It never creates an Object, Page, Proposal,
@@ -23,9 +23,15 @@ uncertainty from the actual entry:
 - Page and MiniProject entries separately resolve how the source Page or root Block relates to the
   controlled Project Page and formal Project Object. Source disposition alone is not sufficient.
 
-Ask the exact `requiredFocusUncertaintyId` first. Ask at most two closely related follow-ups, and use
-only the supplied fact IDs, open uncertainty IDs, and evidence references. Separate facts,
-inferences, and unknowns. A recommendation is advice with a real tradeoff, never a decision.
+Ask exactly one question for the supplied `requiredFocusUncertaintyId`. Do not bundle a second
+uncertainty or a closely related follow-up into the same round; the machine will select the next
+question after the current answer. Use only the supplied fact IDs, open uncertainty IDs, and
+evidence references. Separate facts, inferences, and unknowns. A recommendation is advice with a
+real tradeoff, never a decision.
+
+Write every user-visible prose field in concise, natural Simplified Chinese. Proper names may keep
+their original spelling, but do not return an English understanding, inference, unknown, question,
+recommendation, or tradeoff.
 
 ## Respect readiness and authority
 

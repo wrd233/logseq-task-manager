@@ -64,8 +64,10 @@ test("Grill generator materializes one machine-focused session draft and replace
   assert.match(result.promptBundleVersion, /^[a-f0-9]{8}$/);
   assert.match(captured[0]?.system ?? "", /largest open uncertainty/i);
   assert.match(captured[0]?.system ?? "", /never emit Proposal|不得输出 Proposal/i);
+  assert.match(captured[0]?.system ?? "", /natural Simplified Chinese/i);
   assert.match(captured[0]?.user ?? "", /machine grillAuthority/);
   assert.match(captured[0]?.user ?? "", /never emit format or any wrapper field/);
+  assert.match(captured[0]?.user ?? "", /ask exactly one question/i);
   assert.match(captured[0]?.user ?? "", /"unknowns":\[\{"text":"string","uncertaintyId":"allowedOpenUncertaintyId"\}\]/);
 });
 

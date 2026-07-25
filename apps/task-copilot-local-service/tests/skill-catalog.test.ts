@@ -17,8 +17,8 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
-    { name: "mini-project-modeling", version: "1.2.0" },
-    { name: "project-creation-modeling", version: "1.1.0" },
+    { name: "mini-project-modeling", version: "1.3.0" },
+    { name: "project-creation-modeling", version: "1.2.0" },
   ]);
   assert.equal(first.every(({ sha256 }) => /^[0-9a-f]{64}$/.test(sha256)), true);
 
@@ -38,6 +38,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   const grill = await readTaskCopilotSkill("mini-project-modeling");
   assert.match(grill?.content ?? "", /material, not a questionnaire/i);
   assert.match(grill?.content ?? "", /task-copilot-grill-turn-v1/);
+  assert.match(grill?.content ?? "", /exactly one question/i);
   assert.match(grill?.content ?? "", /task-copilot-grill-preview-v1/);
   assert.match(grill?.content ?? "", /every supplied source material exactly once/i);
   assert.match(grill?.content ?? "", /never a Proposal or a formal change/i);

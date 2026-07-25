@@ -132,6 +132,7 @@ export class LocalLlmGrillTurnGenerator {
           "Top-level fields are limited to schemaVersion, understanding, factRefs, inferences, unknowns, readiness, focusUncertaintyId, questions, and recommendation; never emit format or any wrapper field.",
           "Copy machineReadiness into readiness exactly.",
           "Copy requiredFocusUncertaintyId into focusUncertaintyId and the first question exactly.",
+          "Ask exactly one question, and it must use requiredFocusUncertaintyId.",
           "Resolved uncertainty IDs are forbidden in unknowns and questions.",
           "Use only allowedFactIds, allowedOpenUncertaintyIds, and allowedEvidenceRefs.",
         ]
@@ -150,6 +151,7 @@ export class LocalLlmGrillTurnGenerator {
       "Return exactly one task-copilot-grill-turn-v1 JSON draft for one bounded conversation turn.",
       turnInstruction,
       "Use only supplied factId, uncertaintyId, sourceRef, and evidenceRef values. Keep facts, inferences, and unknowns separate.",
+      "All user-visible prose must use concise, natural Simplified Chinese. Proper names may retain their original spelling, but every prose field must contain Chinese.",
       "The final machine outputContract is authoritative. Copy its machineReadiness and requiredFocusUncertaintyId exactly. Resolved uncertainty IDs are forbidden in unknowns and questions.",
       "Machine code owns the largest open uncertainty, readiness, evidence scope, and provenance; model values cannot override them.",
       "Never emit Proposal, operations, Commit, Focus, Ownership, Lifecycle, Condition, Anchor, Graph writes, or SQLite writes. 不得输出 Proposal 或任何正式写入命令。",

@@ -230,8 +230,8 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
-    { name: "mini-project-modeling", version: "1.2.0" },
-    { name: "project-creation-modeling", version: "1.1.0" },
+    { name: "mini-project-modeling", version: "1.3.0" },
+    { name: "project-creation-modeling", version: "1.2.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
@@ -242,6 +242,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   assert.equal(recovery?.sha256, skills.find(({ name }) => name === "recover-context")?.sha256);
   const grill = await client.getSkill("mini-project-modeling");
   assert.match(grill?.content ?? "", /task-copilot-grill-turn-v1/);
+  assert.match(grill?.content ?? "", /exactly one question/i);
   assert.equal(grill?.sha256, skills.find(({ name }) => name === "mini-project-modeling")?.sha256);
   const projectCreation = await client.getSkill("project-creation-modeling");
   assert.match(projectCreation?.content ?? "", /Do not ask a fixed/i);
@@ -450,7 +451,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
         return {
           value: {
             schemaVersion: "task-copilot-project-creation-preview-v1",
-            title: claim("Project Notes"),
+            title: claim("Project 验收记录"),
             outcome: claim("持续形成可核验结果。"),
             boundary: { included: [claim("托管设备治理。")], excluded: [] },
             completionEvidence: [claim("月度记录可追溯。")],
@@ -676,7 +677,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   const pageProposalPromise = client.createProjectCreationProposal({ previewHandle: preview.previewHandle });
   const [, pageProposal] = await Promise.all([pageProposalBridge, pageProposalPromise]);
   assert.equal(pageProposal.record.proposal.groups[0]?.risk, "HIGH");
-  assert.deepEqual(pageProposal.record.proposal.scope.modify, [{ kind: "PAGE", id: "Project/Project Notes", expectedExistence: "ABSENT" }]);
+  assert.deepEqual(pageProposal.record.proposal.scope.modify, [{ kind: "PAGE", id: "Project/Project 验收记录", expectedExistence: "ABSENT" }]);
   assert.equal(pageProposal.record.proposal.groups[0]?.semanticOperations[0]?.payload.relationshipMode, "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE");
   assert.equal((await client.status()).objectCount, beforePreview.objectCount, "Project Creation Proposal persists review authority but creates no Project");
 

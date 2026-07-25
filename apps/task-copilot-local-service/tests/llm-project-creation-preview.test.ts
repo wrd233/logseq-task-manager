@@ -80,6 +80,9 @@ test("Project creation preview generator returns a machine-owned zero-write read
   assert.equal(result.output.pageObjectRelationship.authority, "PROPOSED_FOR_REVIEW");
   assert.match(captured[0]?.system ?? "", /seven machine-resolved dimensions/i);
   assert.match(captured[0]?.system ?? "", /never emit Proposal|不得输出 Proposal/i);
+  assert.match(captured[0]?.system ?? "", /natural Simplified Chinese/i);
+  assert.match(captured[0]?.user ?? "", /machine outputContract/);
+  assert.match(captured[0]?.user ?? "", /allowedRelationshipModes/);
 });
 
 test("Project creation preview generator rejects omitted material or unsupported evidence", async () => {

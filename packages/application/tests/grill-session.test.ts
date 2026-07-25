@@ -78,6 +78,14 @@ test("unknown IDs, invented evidence, extra authority fields, and premature focu
   assert.throws(() => materializeGrillTurn({ ...draft(), factRefs: ["invented"] }, authority()), /unknown or duplicate fact/);
   assert.throws(() => materializeGrillTurn({ ...draft(), inferences: [{ text: "越界", evidenceRefs: ["block:invented"] }] }, authority()), /unsupported evidence/);
   assert.throws(() => materializeGrillTurn({ ...draft(), focusUncertaintyId: "u-outcome", questions: [{ uncertaintyId: "u-outcome", text: "先问成果？" }] }, authority()), /largest open uncertainty/);
+  assert.throws(() => materializeGrillTurn({
+    ...draft(),
+    questions: [
+      { uncertaintyId: "u-boundary", text: "这次范围只包含当前清单吗？" },
+      { uncertaintyId: "u-outcome", text: "最终成果是什么？" },
+    ],
+  }, authority()), /questions are invalid/);
+  assert.throws(() => materializeGrillTurn({ ...draft(), understanding: "The current boundary is unclear." }, authority()), /must use natural Chinese/);
   assert.throws(() => materializeGrillTurn({ ...draft(), recommendation: undefined }, authority()), /recommendation with tradeoffs/);
   assert.throws(() => materializeGrillTurn({ ...draft(), commit: true }, authority()), /unsupported field commit/);
 });
