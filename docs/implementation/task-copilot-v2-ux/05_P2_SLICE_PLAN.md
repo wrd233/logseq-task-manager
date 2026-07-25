@@ -102,7 +102,7 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 
 ## P2-C：Project 创建 Grill Me
 
-状态：`IN_PROGRESS_BLANK_DESKTOP_CHAIN_DONE_SOURCE_GATES_OPEN`
+状态：`IN_PROGRESS_BLANK_AND_PAGE_PRESERVE_DONE_PAGE_REUSE_MINI_VISUAL_GATES_OPEN`
 
 所有入口：
 
@@ -158,8 +158,9 @@ Page UUID/hash 在 Graph step 执行前持久绑定，Domain failure 可跨 rest
 空 Page 才可删除，复用来源 Page 永不删除。专用 inverse Undo 在 Domain 写入前先做 Page
 ownership/empty 预检，含用户正文时 fail closed；原 Commit、逆向 Commit 与 Audit 保留。
 完成后路由已有 Plugin 自动证据。Blank 真实 Desktop 已完成 DeepSeek→Preview→Review、
-同一 Recovery Commit→正式创建→reload→专用 Undo→reload 与健康状态；Page/MiniProject
-来源 Desktop、Light/窄栏和全程同 commit 中间截图仍 OPEN。
+同一 Recovery Commit→正式创建→reload→专用 Undo→reload 与健康状态；Page“保留来源
+另建”也完成真实 Provider→Review→create→restart→跨 identity 漂移 Undo→restart 健康
+Gate。Page reuse、MiniProject、Light/窄栏和全程同 commit 中间截图仍 OPEN。
 
 第六个自动合同已完成：Plugin 的 Blank 主入口、普通 Page“将本页建立为 Project”和 OPEN
 MiniProject“演化为 Project”统一进入同一 Project Creation session；客户端只提交 source
@@ -183,6 +184,14 @@ Block，`deletePage` 接受 Page name 而不是 UUID。当前实现只接受精�
 三项 metadata、拒绝任何用户正文；删除前按 UUID/属性验权，删除时使用 name，并有 bounded
 absence 复核。第一次失败保持同一 PENDING/Recovery ledger，修复后继续同一事务，没有重复
 创建。证据见 `logs/p2-c-project-creation-desktop-live-20260726.md`。
+
+Page“保留来源另建”Desktop Gate 进一步证明：真实 DeepSeek 七轮能依据三段 Page 材料
+自适应收敛；越权 Page 写入/回链建议均被 Validator 零写拒绝，最终 Preview 逐条保留来源。
+完整 Logseq restart 会重建 runtime Page/Block UUID，因此跨 restart 产品 identity 不能依赖
+宿主 UUID 不变。Undo 仍以 Service 原账本为权威；只有原 UUID 找不到、精确 Page name 命中
+且 owner/object/semantic-commit metadata 全部匹配时，才允许重新绑定并删除 metadata-only
+专用 Page。复用来源 Page 永不进入此回退。最终来源三段正文逐字保留，Project/Anchor/专用
+Page 撤销，再次 restart 后 Pending/Recovery/Source Conflict 为 0 且 reconciliation 收敛。
 
 ## P2-D：Project 结构操作路由
 

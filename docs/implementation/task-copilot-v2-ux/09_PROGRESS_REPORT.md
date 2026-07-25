@@ -1,6 +1,6 @@
 # 交互优化实施进度
 
-> 更新时间：2026-07-25
+> 更新时间：2026-07-26
 > 当前结论：`IN_PROGRESS` — `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；
 > `ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。P0-A Focus、
 > P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_BLANK_DESKTOP_DONE | P2-A+B 隔离 MiniProject Desktop 纵向链 DONE；P2-C 三来源自动链完成，Blank 真实 DeepSeek→Preview→Review→Recovery→create→reload→Undo→reload PASS；Page/MiniProject 来源 Desktop 与 P2-D～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_BLANK_AND_PAGE_PRESERVE_DONE | P2-A+B 隔离 MiniProject Desktop 纵向链 DONE；P2-C 三来源自动链完成，Blank 全链 PASS，Page“保留来源另建”真实 DeepSeek→Preview→Review→create→restart→跨 identity 漂移 Undo→restart PASS；Page reuse/MiniProject 与 P2-D～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -466,9 +466,23 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Undo 误路由、`deletePage` UUID/name 契约和删除读回延迟。所有失败均保持零误写或同一
   PENDING/Recovery ledger，修复后同一 Commit 完成创建，跨 reload 可读，再经专用 inverse
   Undo 删除仅事务拥有的空 Page、撤销 Project/Anchor、保留 Audit，第二次 reload 后系统
-  READY 且无未完成修改/Anchor 冲突。CURRENT 截图为 `p2-c-09`～`p2-c-11`，完整记录见
-  `logs/p2-c-project-creation-desktop-live-20260726.md`。该结论只关闭 Blank 主链，
-  Page/MiniProject 来源仍 OPEN；
+  READY 且无未完成修改/Anchor 冲突。当时截图 `p2-c-09`～`p2-c-11` 现已被最终 Page Gate
+  证据降为 HISTORICAL/SUPERSEDED，完整记录见
+  `logs/p2-c-project-creation-desktop-live-20260726.md`。该结论只关闭 Blank 主链；随后
+  Page preserve/dedicated 由下一项继续收口；
+- P2-C Page“保留来源另建”从 OPEN 收敛为 bounded DONE：三段专用测试材料经真实
+  `deepseek-v4-flash` 七轮自适应 Grill 形成最终阅读，Preview 逐条保留来源，单组 HIGH
+  Review 后原子创建 Project/Anchor/metadata-only 受控 Page。完整 Logseq restart 真实发现
+  runtime Page/Block UUID 漂移，旧 Undo 安全拒绝且未先删正式对象；最终构建保持 Service
+  原账本 identity，仅在精确 Page name 与 owner/object/semantic-commit metadata 全部匹配时
+  重新绑定受控专用 Page并完成 inverse Commit。来源三段正文逐字不变，专用 Page 与正式
+  Project/Anchor 移除；删除事件的短暂 reconciliation 经再次 restart 自动收敛为 false，
+  Pending/Recovery/Source Conflict 为 `0/0/0`。真实 Provider 多次提出越权 Page 写入/回链
+  建议，Validator 均零写拒绝；`GRILL_TURN_VALIDATION_FAILED` 与
+  `GRILL_PREVIEW_VALIDATION_FAILED` 现映射为 422，HTTP 集成测试覆盖非法 authority。
+  当前 `p2-c-18`～`p2-c-20` 对应 `913bbda4528f`；`p2-c-12`～`p2-c-17` 仅作真实历史过程，
+  不作为当前 UI 权威。Page reuse、MiniProject、来源返回、Light/窄栏与同 commit 中间截图
+  仍 OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -478,8 +492,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-C Page/MiniProject 来源 Desktop Gate：至少覆盖 dedicated/reused 两类关系、
-   来源不丢失、Review→create→reload→Recovery/Undo→返回现场；Blank 主链不再重复实现；
+1. 继续 P2-C Page reuse 与 MiniProject 来源 Desktop Gate：Page dedicated/preserve 已 bounded
+   PASS，不重复；下一步覆盖“升级当前 Page”、MiniProject Object/version + Anchor/subtree、
+   来源返回、Review→create→restart→Undo；
 2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

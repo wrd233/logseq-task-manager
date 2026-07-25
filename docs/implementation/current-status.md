@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_BLANK_DESKTOP_DONE_SOURCE_GATES_OPEN
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_BLANK_AND_PAGE_PRESERVE_DONE_OTHER_GATES_OPEN
 overall_goal: IN_PROGRESS
 ```
 
@@ -164,9 +164,18 @@ overall_goal: IN_PROGRESS
   DeepSeek 多轮 Grill、Preview、HIGH Review、Logseq properties Block 语义修复、同一
   Recovery Commit 正式创建、reload、专用 Undo、Page name 删除、再次 reload 与健康状态；
   最近修改的专用 Undo 分派、删除可见性延迟和 UUID/name 宿主契约均已从真实失败转为自动
-  回归。Application 152/152、Local Service 129/129、Plugin 269/269 PASS；CURRENT 截图与
+  回归。Page“保留来源另建”也已用三段真实测试材料穿过 DeepSeek 七轮 Grill、Preview、
+  HIGH Review、正式创建、完整 Logseq restart、跨 runtime UUID 漂移 Undo 与再次 restart；
+  来源正文逐字保留，专用 Page 与 Project/Anchor 移除，冷启动后
+  Pending/Recovery/Source Conflict `0/0/0` 且 reconciliation 收敛。runtime UUID 跨完整
+  restart 不作为稳定产品 identity；Service 原账本仍为权威，只有精确 Page name 加
+  owner/object/semantic-commit metadata 才允许重新绑定受控专用 Page，复用来源 Page 永不
+  使用删除回退。真实 Provider 多次越界 Page 写入建议均被 Validator 零写拒绝，Grill
+  validation 现作为 422 暴露并允许保留答案重试。Application 152/152、Local Service
+  129/129、Plugin 269/269 PASS；CURRENT 截图与
   明细在 `current-ui/` 和 `logs/p2-c-project-creation-desktop-live-20260726.md`。
-  Page/MiniProject 来源 Desktop、Light/窄栏和全程同 commit 中间截图仍 OPEN；
+  Page“升级当前 Page”、MiniProject 来源 Desktop、Light/窄栏、来源返回和全程同 commit
+  中间截图仍 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -180,7 +189,7 @@ overall_goal: IN_PROGRESS
 V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 remaining host Desktop gates / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
-P2-C Blank create→Recovery→reload→Undo→reload Desktop DONE, Page/MiniProject source gates OPEN /
+P2-C Blank DONE + Page preserve/dedicated bounded DONE, Page reuse/MiniProject/visual gates OPEN /
 P2-D–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论

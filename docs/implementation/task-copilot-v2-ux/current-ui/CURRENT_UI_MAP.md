@@ -7,11 +7,11 @@
 |---|---|---|---|
 | 工具栏 / 现在 / 待我确认 / 项目 / 更多 | 已实现，部分历史 Desktop 通过 | OPEN | 集中 P0/P1 Desktop Gate |
 | Block / Page 现场入口 | 已实现，宿主位置仍有开放项 | OPEN | main/sidebar/Query/reference/中文输入 |
-| Service 状态 / reload / quit | 已实现，历史 Desktop 通过 | OPEN | 最新构建 reload、quit、Graph switch |
+| Service 状态 / reload / quit | 最新构建 restart 后 mounted diagnostics 自动刷新 READY；历史 quit owned shutdown 通过 | CURRENT：P2-C Undo 后 restart 健康态 | Graph switch 与 raw reload 交互收口 |
 | Project Page Head / Context Recovery | 已实现并有真实 Provider Gate | OPEN | loading/error/stale/feedback、主题与窄栏 |
 | Block Marker | 默认关闭 prototype | OPEN | 编辑/TODO/Query/sidebar/Zoom/主题/性能 |
 | MiniProject Grill / 原位重构 | 一个纵向链历史 Desktop 通过 | OPEN | 最新构建回归与多材料质量样本 |
-| Project Creation Grill | Blank 真实 Provider→Preview→HIGH Review→同 Commit Recovery→create→reload→Undo→reload PASS；Page/MiniProject 来源仍开放 | CURRENT：入口、Undo、健康态；中间态历史证据 | Page/MiniProject 来源边界、Light/窄栏与一条全程同 commit 证据 |
+| Project Creation Grill | Blank 全链 PASS；Page“保留来源另建”真实 Provider→Preview→HIGH Review→create→restart→跨 identity 漂移 Undo→restart PASS；Page reuse/MiniProject 开放 | CURRENT：Page Undo 确认、完成、restart 健康；Grill/Preview/Review/create 为历史真实证据 | Page reuse、MiniProject、Light/窄栏、来源返回与一条全程同 commit 证据 |
 | Recovery / Rebind / Restore / Migration | 底层能力存在，产品化未完成 | OPEN | P2-G 用户向导整链 |
 | Attention Signal | Shadow runtime | OPEN | 首批确定性 Signal 开放门通过后 |
 
