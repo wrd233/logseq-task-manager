@@ -1180,6 +1180,32 @@ test("Project current interface Review has dedicated Commit and version-safe Und
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
 });
 
+test("Project creation Review uses the proposal-bound Page creation confirmation and never falls through to Block Commit", () => {
+  const value = model();
+  value.workspace = "review"; value.reviewMode = "proposals";
+  value.v2Proposals = [{ updatedAt: "2026-07-25T15:01:00.000Z", files: { proposalMd: "# Project creation", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-project-creation", schemaVersion: "v2", title: "创建设备治理 Project", context: "七项边界已完成 Grill。", understanding: "创建独立受控页面。", objective: "形成持续治理 Project。", logic: "最终阅读结果进入 HIGH Review。", finalPreview: "设备治理将形成每月可核验结果。", unresolvedQuestions: [], source: { kind: "local_llm" }, scope: { read: [], modify: [{ kind: "PAGE", id: "Project/设备治理", expectedExistence: "ABSENT" }] }, preconditions: [], groups: [{
+      groupId: "create-project", explanation: "创建关系必须整体审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{
+        operationId: "create-project", kind: "CREATE_OBJECT", target: { kind: "PAGE", id: "Project/设备治理", expectedExistence: "ABSENT" }, summary: "创建 Project 与主 Page", payload: { objectType: "PROJECT", text: "设备治理", relationshipMode: "CREATE_DEDICATED_PROJECT_PAGE" }, preconditions: [],
+      }], disposition: "ACCEPTED",
+    }], status: "ACCEPTED", createdAt: "2026-07-25T15:00:00.000Z",
+  } }];
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-project-creation-commit"/);
+  assert.match(html, /创建或复用主 Page/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  value.actionDialog = { kind: "confirm-v2-project-creation", value: "prop-project-creation|2026-07-25T15:01:00.000Z" };
+  html = renderApp(value);
+  assert.match(html, /最终阅读结果与 Page 关系/);
+  assert.match(html, /data-action="submit-v2-project-creation"/);
+  delete value.actionDialog;
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-creation", proposalId: "prop-project-creation", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-25T15:00:00.000Z", updatedAt: "2026-07-25T15:01:00.000Z" }];
+  html = renderApp(value);
+  assert.match(html, /当前接口来自已审阅内容/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
+});
+
 test("MiniProject restructure Review uses the recoverable Graph Commit and inverse Undo controls", () => {
   const value = model();
   value.workspace = "review";

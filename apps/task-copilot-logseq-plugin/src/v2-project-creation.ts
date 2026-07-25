@@ -1,8 +1,14 @@
 import type {
   ServiceFinalizeProjectResult,
+  ServiceFinalizeProposalProjectCreationRequest,
+  ServicePrepareProposalProjectCreationRequest,
+  ServiceProposalProjectCreationFinalization,
+  ServiceProposalProjectCreationPreparation,
   ServiceProjectIntent,
 } from "@task-copilot/service-client";
 import { StructuredError, checksum } from "@task-copilot/shared";
+
+import { proposalPageEvidenceHash } from "./v2-proposal-revalidation.ts";
 
 const projectPageOwner = "task-copilot-personal-mvp";
 const ownerProperty = "task-copilot-owner";
@@ -34,7 +40,17 @@ export interface ProjectCreationService {
   }): Promise<ServiceFinalizeProjectResult>;
 }
 
+export interface ReviewedProjectCreationService {
+  prepareProposalProjectCreation(proposalId: string, input: ServicePrepareProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationPreparation>;
+  finalizeProposalProjectCreation(proposalId: string, input: ServiceFinalizeProposalProjectCreationRequest): Promise<ServiceProposalProjectCreationFinalization>;
+}
+
 export interface ProjectCreationResult extends ServiceFinalizeProjectResult {
+  pageName: string;
+  pageCreated: boolean;
+}
+
+export interface ReviewedProjectCreationResult extends ServiceProposalProjectCreationFinalization {
   pageName: string;
   pageCreated: boolean;
 }
@@ -54,7 +70,7 @@ function property(properties: Record<string, unknown> | undefined, key: string):
   return typeof entry?.[1] === "string" ? entry[1] : undefined;
 }
 
-function expectedProperties(intent: ServiceProjectIntent): Record<string, string> {
+function expectedProperties(intent: Pick<ServiceProjectIntent, "objectId" | "semanticCommitId">): Record<string, string> {
   return {
     [ownerProperty]: projectPageOwner,
     [objectProperty]: intent.objectId,
@@ -62,7 +78,7 @@ function expectedProperties(intent: ServiceProjectIntent): Record<string, string
   };
 }
 
-function assertOwnedPage(page: ProjectPageEntity, intent: ServiceProjectIntent): void {
+function assertOwnedPage(page: ProjectPageEntity, intent: Pick<ServiceProjectIntent, "objectId" | "semanticCommitId" | "pageName"> & { status?: string }): void {
   const actualName = page.originalName ?? page.name;
   if (
     (intent.status !== "COMPLETED" && actualName.toLowerCase() !== intent.pageName.toLowerCase())
@@ -74,6 +90,90 @@ function assertOwnedPage(page: ProjectPageEntity, intent: ServiceProjectIntent):
       "V2_PROJECT_PAGE_OWNERSHIP_CONFLICT",
       `页面 ${intent.pageName} 已存在，但不是本次受控创建事务拥有的页面；未覆盖任何内容。`,
       { pageName: intent.pageName },
+    );
+  }
+}
+
+export async function createReviewedProjectWithPage(
+  service: ReviewedProjectCreationService,
+  host: ProjectPageHost,
+  proposalId: string,
+  expectedUpdatedAt: string,
+  traceId: string,
+): Promise<ReviewedProjectCreationResult | Extract<ServiceProposalProjectCreationPreparation, { status: "STALE" }>> {
+  const intent = await service.prepareProposalProjectCreation(proposalId, {
+    confirmation: "CREATE_PROJECT",
+    expectedUpdatedAt,
+    traceId,
+  });
+  if (intent.status === "STALE") return intent;
+  if (intent.status === "COMPLETED") {
+    const page = await host.getPage(intent.pageExternalId);
+    return {
+      status: "COMPLETED",
+      semanticCommitId: intent.semanticCommitId,
+      object: intent.object,
+      anchor: intent.anchor,
+      record: intent.record,
+      replayed: true,
+      pageName: page?.originalName ?? page?.name ?? intent.pageName,
+      pageCreated: false,
+    };
+  }
+  let page: ProjectPageEntity | null;
+  let pageCreated = false;
+  let pageContentHash: string;
+  if (intent.relationshipMode === "REUSE_SOURCE_PAGE") {
+    if (!intent.pageExternalId || !intent.pageContentHash) {
+      throw projectError("V2_PROJECT_PAGE_REUSE_EVIDENCE_MISSING", "复用当前 Page 的机器身份或版本证据缺失；没有创建 Project。");
+    }
+    page = await host.getPage(intent.pageExternalId);
+    if (!page || page.uuid !== intent.pageExternalId || proposalPageEvidenceHash(page) !== intent.pageContentHash) {
+      throw projectError("V2_PROJECT_PAGE_REUSE_STALE", "当前 Page 已在最终提交前变化；没有创建 Project 或改写页面。");
+    }
+    pageContentHash = intent.pageContentHash;
+  } else {
+    page = await host.getPage(intent.pageName);
+    if (page) {
+      assertOwnedPage(page, intent);
+    } else {
+      page = await host.createPage(intent.pageName, expectedProperties(intent), {
+        redirect: false,
+        createFirstBlock: false,
+        journal: false,
+      });
+      pageCreated = true;
+      if (!page) throw projectError("V2_PROJECT_PAGE_CREATE_FAILED", `Logseq 未能创建 ${intent.pageName}；SQLite 尚未创建 Project。`);
+      assertOwnedPage(page, intent);
+    }
+    const blocks = await host.getPageBlocksTree(page.uuid);
+    if (!Array.isArray(blocks) || blocks.length !== 0) {
+      throw projectError("V2_PROJECT_PAGE_NOT_EMPTY", `${intent.pageName} 不再是本次事务创建的空页面；SQLite 尚未创建 Project，请先检查页面内容。`);
+    }
+    pageContentHash = checksum({
+      pageName: intent.pageName,
+      pageExternalId: page.uuid,
+      properties: expectedProperties(intent),
+      emptyAtCreation: true,
+    });
+  }
+  try {
+    const finalized = await service.finalizeProposalProjectCreation(proposalId, {
+      expectedUpdatedAt,
+      semanticCommitId: intent.semanticCommitId,
+      objectId: intent.objectId,
+      pageExternalId: page.uuid,
+      pageContentHash,
+      traceId,
+    });
+    return { ...finalized, pageName: page.originalName ?? intent.pageName, pageCreated };
+  } catch {
+    throw projectError(
+      "V2_PROJECT_FINALIZE_RECOVERY_REQUIRED",
+      intent.relationshipMode === "REUSE_SOURCE_PAGE"
+        ? "当前 Page 未被改写，但 Project 正式创建结果尚未确认；请保留页面并从同一 Proposal 继续恢复。"
+        : `${intent.pageName} 已由本次事务安全标记，但 Project 正式创建结果尚未确认；请保留页面并从同一 Proposal 继续恢复。`,
+      { semanticCommitId: intent.semanticCommitId },
     );
   }
 }

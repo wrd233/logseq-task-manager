@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ServiceProjectIntent } from "@task-copilot/service-client";
+import type { ServicePreparedProposalProjectCreation, ServiceProjectIntent, ServiceProposalProjectCreationFinalization } from "@task-copilot/service-client";
+import { checksum } from "@task-copilot/shared";
 
 import {
+  createReviewedProjectWithPage,
   createProjectWithControlledPage,
   type ProjectCreationService,
   type ProjectPageEntity,
   type ProjectPageHost,
+  type ReviewedProjectCreationService,
 } from "../src/v2-project-creation.ts";
+import { proposalPageEvidenceHash } from "../src/v2-proposal-revalidation.ts";
 
 function intent(): ServiceProjectIntent {
   return {
@@ -120,4 +124,96 @@ test("a completed intent resolves its recorded page UUID after a user rename ins
   assert.equal(createCalls, 0);
   assert.equal(result.pageName, "Project/告警推送治理-已改名");
   assert.equal(result.object.objectId, prepared.objectId);
+});
+
+function reviewedIntent(mode: ServicePreparedProposalProjectCreation["relationshipMode"]): ServicePreparedProposalProjectCreation {
+  return {
+    status: "PREPARED",
+    semanticCommitId: `proposal-commit:${"d".repeat(64)}`,
+    proposalId: "proposal-project-create",
+    expectedUpdatedAt: "2026-07-25T15:00:00.000Z",
+    objectId: `obj_20260725150000000_${"e".repeat(32)}`,
+    pageName: mode === "REUSE_SOURCE_PAGE" ? "设备治理材料" : "Project/设备治理",
+    relationshipMode: mode,
+    replayed: false,
+  };
+}
+
+function reviewedFinalized(intent: ServicePreparedProposalProjectCreation, pageExternalId: string, pageContentHash: string): ServiceProposalProjectCreationFinalization {
+  return {
+    status: "COMPLETED",
+    semanticCommitId: intent.semanticCommitId,
+    replayed: false,
+    object: { objectId: intent.objectId, objectType: "PROJECT", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "设备治理", createdAt: "2026-07-25T15:00:00.000Z", updatedAt: "2026-07-25T15:00:00.000Z", sourceOrCreationEvent: `project_page:graph:${pageExternalId}` },
+    anchor: { anchorId: `anc_20260725150000000_${"f".repeat(32)}`, objectId: intent.objectId, role: "primary_text", graphId: "graph", externalId: pageExternalId, status: "active", contentHash: pageContentHash, lastSeenAt: "2026-07-25T15:00:00.000Z" },
+    record: {} as ServiceProposalProjectCreationFinalization["record"],
+  };
+}
+
+test("reviewed Project creation creates only its controlled empty Page before the proposal-bound finalize", async () => {
+  const prepared = reviewedIntent("CREATE_DEDICATED_PROJECT_PAGE");
+  let page: ProjectPageEntity | undefined;
+  let finalInput: Parameters<ReviewedProjectCreationService["finalizeProposalProjectCreation"]>[1] | undefined;
+  const service: ReviewedProjectCreationService = {
+    async prepareProposalProjectCreation() { return prepared; },
+    async finalizeProposalProjectCreation(_proposalId, input) {
+      finalInput = input;
+      return reviewedFinalized(prepared, input.pageExternalId, input.pageContentHash);
+    },
+  };
+  const host: ProjectPageHost = {
+    async getPage() { return page ?? null; },
+    async createPage(name, properties) {
+      page = { uuid: "reviewed-project-page", name: name.toLowerCase(), originalName: name, properties };
+      return page;
+    },
+    async getPageBlocksTree() { return []; },
+  };
+  const result = await createReviewedProjectWithPage(service, host, prepared.proposalId, prepared.expectedUpdatedAt, "reviewed-project-create");
+  assert.equal(result.status, "COMPLETED");
+  if (result.status !== "COMPLETED") throw new Error("expected reviewed Project creation");
+  assert.equal(result.pageCreated, true);
+  assert.equal(result.pageName, prepared.pageName);
+  assert.equal(finalInput?.pageExternalId, "reviewed-project-page");
+  assert.equal(finalInput?.pageContentHash, checksum({
+    pageName: prepared.pageName,
+    pageExternalId: "reviewed-project-page",
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": prepared.objectId,
+      "task-copilot-semantic-commit-id": prepared.semanticCommitId,
+    },
+    emptyAtCreation: true,
+  }));
+});
+
+test("reviewed Page reuse never creates or marks a Page and rejects changed Page evidence", async () => {
+  const prepared = reviewedIntent("REUSE_SOURCE_PAGE");
+  const page = { uuid: "source-page", name: "设备治理材料", originalName: "设备治理材料", properties: {}, updatedAt: 7 };
+  prepared.pageExternalId = page.uuid;
+  prepared.pageContentHash = proposalPageEvidenceHash(page);
+  let createCalls = 0;
+  let finalizeCalls = 0;
+  const service: ReviewedProjectCreationService = {
+    async prepareProposalProjectCreation() { return prepared; },
+    async finalizeProposalProjectCreation(_proposalId, input) {
+      finalizeCalls += 1;
+      return reviewedFinalized(prepared, input.pageExternalId, input.pageContentHash);
+    },
+  };
+  const host: ProjectPageHost = {
+    async getPage() { return page; },
+    async createPage() { createCalls += 1; return null; },
+    async getPageBlocksTree() { throw new Error("reuse must not require an empty tree"); },
+  };
+  const result = await createReviewedProjectWithPage(service, host, prepared.proposalId, prepared.expectedUpdatedAt, "reviewed-page-reuse");
+  assert.equal(result.status, "COMPLETED");
+  assert.equal(createCalls, 0);
+  assert.equal(finalizeCalls, 1);
+  page.updatedAt = 8;
+  await assert.rejects(
+    () => createReviewedProjectWithPage(service, host, prepared.proposalId, prepared.expectedUpdatedAt, "reviewed-page-stale"),
+    /最终提交前变化/,
+  );
+  assert.equal(finalizeCalls, 1);
 });

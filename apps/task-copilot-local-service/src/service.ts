@@ -3609,7 +3609,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
           objectId,
           pageName: plan.pageName,
           relationshipMode: plan.relationshipMode,
-          ...(plan.relationshipMode === "REUSE_SOURCE_PAGE" ? { pageExternalId: plan.pageTarget.id } : {}),
+          ...(plan.relationshipMode === "REUSE_SOURCE_PAGE" ? { pageExternalId: plan.pageTarget.id, pageContentHash: plan.pageTarget.hash } : {}),
           replayed: true,
         });
         return;
@@ -3653,7 +3653,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         objectId: newObjectId,
         pageName: plan.pageName,
         relationshipMode: plan.relationshipMode,
-        ...(plan.relationshipMode === "REUSE_SOURCE_PAGE" ? { pageExternalId: plan.pageTarget.id } : {}),
+        ...(plan.relationshipMode === "REUSE_SOURCE_PAGE" ? { pageExternalId: plan.pageTarget.id, pageContentHash: plan.pageTarget.hash } : {}),
         replayed: false,
       });
       return;

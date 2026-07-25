@@ -241,6 +241,7 @@ export interface ServicePreparedProposalProjectCreation {
   pageName: string;
   relationshipMode: "CREATE_DEDICATED_PROJECT_PAGE" | "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" | "REUSE_SOURCE_PAGE";
   pageExternalId?: string;
+  pageContentHash?: string;
   replayed: boolean;
 }
 export type ServiceProposalProjectCreationPreparation =

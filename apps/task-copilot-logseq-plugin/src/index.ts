@@ -58,7 +58,7 @@ import {
   updateExistingObjectFromV2Candidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
-import { createProjectWithControlledPage } from "./v2-project-creation.ts";
+import { createProjectWithControlledPage, createReviewedProjectWithPage } from "./v2-project-creation.ts";
 import { buildSelectedBlockProposalPrompt, buildSelectedBlockProposalRevisionPrompt } from "./v2-provider-analysis.ts";
 import { buildMiniProjectLegacyTransferProposal } from "./v2-mini-project-legacy-transfer.ts";
 import { submitV2Association, type V2AssociationSubmissionState } from "./v2-association-controller.ts";
@@ -221,6 +221,7 @@ let v2OwnershipCommitBusy = false;
 let v2BlockConditionBusy = false;
 let v2LifecycleCommitBusy = false;
 let v2StructureCommitBusy = false;
+let v2ProjectCreationCommitBusy = false;
 let v2ClosureProposalBusy = false;
 let v2LifecycleProposalBusy = false;
 let v2AreaBusy = false;
@@ -529,6 +530,7 @@ async function model(): Promise<UiModel> {
     v2BlockConditionBusy,
     v2LifecycleCommitBusy,
     v2StructureCommitBusy,
+    v2ProjectCreationCommitBusy,
     v2ClosureProposalBusy,
     v2LifecycleProposalBusy,
     v2ClosureDraftBusy,
@@ -2036,6 +2038,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
+  if (action === "v2-project-creation-commit" && value) return openActionDialog("confirm-v2-project-creation", value);
   if (action === "v2-project-structure-commit" && value) return openActionDialog("confirm-v2-project-structure", value);
   if (action === "v2-project-structure-undo" && value) return openActionDialog("confirm-v2-project-structure-undo", value);
   if (action === "v2-mini-project-restructure-commit" && value) return openActionDialog("confirm-v2-mini-project-restructure", value);
@@ -2144,6 +2147,52 @@ async function handleAction(action: string, value?: string): Promise<void> {
       if (result.status === "COMPLETED") recentActionCommitId = result.semanticCommitId;
       message = result.status === "COMPLETED" ? `Project Closure 已生效；${result.object.text} 已退出活跃视图，Logseq 页面保留。` : "Project 版本已变化；Proposal 已标记 STALE，没有完成对象。";
     });
+    return;
+  }
+  if (action === "submit-v2-project-creation" && value) {
+    if (v2ProjectCreationCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认最终阅读结果与 Project Page 关系。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    v2ProjectCreationCommitBusy = true;
+    let openedPageName: string | undefined;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!proposalId || !expectedUpdatedAt || !client?.prepareProposalProjectCreation || !client.finalizeProposalProjectCreation) {
+          throw new Error("Project 创建上下文已失效；没有创建页面或正式对象。");
+        }
+        const result = await createReviewedProjectWithPage({
+          prepareProposalProjectCreation: client.prepareProposalProjectCreation.bind(client),
+          finalizeProposalProjectCreation: client.finalizeProposalProjectCreation.bind(client),
+        }, {
+          getPage: (identity) => logseq.Editor.getPage(identity),
+          createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
+          getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
+        }, proposalId, expectedUpdatedAt, `v2-project-creation-ui-${Date.now()}`);
+        actionDialog = undefined;
+        if (result.status === "STALE") {
+          workspace = "review";
+          message = "Project 来源或目标 Page 已变化；Proposal 已标记 STALE，没有创建页面或正式对象。";
+          return;
+        }
+        recentActionCommitId = result.semanticCommitId;
+        workspace = "reentry";
+        openedPageName = result.pageName;
+        message = result.pageCreated
+          ? `Project ${result.object.text} 与受控主 Page 已创建；当前接口来自最终阅读预览。`
+          : `Project ${result.object.text} 已绑定审阅时的现有 Page；原 Page 内容未被改写。`;
+      });
+    } finally {
+      v2ProjectCreationCommitBusy = false;
+      await refresh();
+    }
+    if (openedPageName && !latestError) {
+      pageContext = undefined;
+      originRoute = undefined;
+      await logseq.App.pushState("page", { name: openedPageName });
+      logseq.hideMainUI();
+    }
     return;
   }
   if (action === "submit-v2-project-structure-commit" && value) {
