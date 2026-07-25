@@ -83,11 +83,11 @@ test("answers resolve only their exact dimensions and change the machine-selecte
     { uncertaintyId: "project-boundary", text: "这是持续维护托管设备全生命周期的 Project。" },
   ]));
   assert.equal(second.authority.uncertainties.find(({ uncertaintyId }) => uncertaintyId === "project-boundary")?.status, "RESOLVED");
-  assert.equal(requiredGrillFocus({ ...second.authority, contractVersion: "1.0.0", promptVersion: "test", provider: { providerId: "test", providerVersion: "test", model: "test" } })?.uncertaintyId, "current-interface");
+  assert.equal(requiredGrillFocus({ ...second.authority, contractVersion: "1.0.0", promptVersion: "test", provider: { providerId: "test", providerVersion: "test", model: "test" } })?.uncertaintyId, "page-object-relationship");
   assert.notEqual(second.authority.sourceFingerprint, first.authority.sourceFingerprint);
 });
 
-test("all six Project creation dimensions must resolve before preview readiness", () => {
+test("all seven Project creation dimensions, including Page/Object relationship, must resolve before preview readiness", () => {
   const ready = buildProjectCreationGrillGeneration(source("PAGE", [
     { uncertaintyId: "material-disposition", text: "现有页面内容全部作为项目背景材料保留。" },
     { uncertaintyId: "outcome", text: "形成可持续推进的托管设备治理结果。" },
@@ -95,9 +95,10 @@ test("all six Project creation dimensions must resolve before preview readiness"
     { uncertaintyId: "completion-evidence", text: "每台设备都有负责人、状态和最后核验时间。" },
     { uncertaintyId: "internal-closure", text: "每周核验未完成项并形成下一步。" },
     { uncertaintyId: "current-interface", text: "当前界面展示本周待核验设备和阻塞。" },
+    { uncertaintyId: "page-object-relationship", text: "创建受控 Project Page，原 Page 保留并作为来源连接。" },
   ]));
 
-  assert.equal(ready.authority.uncertainties.length, 6);
+  assert.equal(ready.authority.uncertainties.length, 7);
   assert.equal(ready.authority.uncertainties.every(({ status }) => status === "RESOLVED"), true);
   assert.deepEqual(ready.authority.unclassifiedMaterialRefs, []);
 });

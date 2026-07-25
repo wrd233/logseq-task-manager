@@ -1025,6 +1025,14 @@ function respondError(response: ServerResponse, error: unknown): void {
       respond(response, graphStatus, { error: { code: error.code, message: error.message } });
       return;
     }
+    const grillSourceStatus = error.code === "GRILL_SOURCE_STALE" ? 409
+      : error.code === "PROJECT_CREATION_SOURCE_TOO_LARGE" ? 413
+      : ["PROJECT_CREATION_SOURCE_EMPTY", "PROJECT_CREATION_SOURCE_UNAVAILABLE", "GRILL_PRIMARY_ANCHOR_REQUIRED"].includes(error.code) ? 422
+      : undefined;
+    if (grillSourceStatus !== undefined) {
+      respond(response, grillSourceStatus, { error: { code: error.code, message: error.message } });
+      return;
+    }
     const providerStatus = error.code === "LLM_RATE_LIMITED" ? 429
       : error.code === "LLM_TIMEOUT" ? 504
       : error.code === "UX_OUTPUT_SESSION_SUPPRESSED" ? 409
@@ -1686,13 +1694,17 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
           files,
         };
       } else if (input.sourceKind === "PAGE") {
-        const graphResult = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 6 });
+        const graphResult = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 5 });
         if (graphResult.status !== "FOUND") throw serviceError("PROJECT_CREATION_SOURCE_UNAVAILABLE", "当前 Page 无法从 Logseq Desktop 完整读取；没有调用 Provider。");
         if (graphResult.snapshot.truncated || graphResult.snapshot.blocks.length > 16) throw serviceError("PROJECT_CREATION_SOURCE_TOO_LARGE", "当前 Page 超过 Project Creation Grill 的 16 Block 安全范围；没有调用 Provider。");
-        materials = graphResult.snapshot.blocks.map((block) => ({ sourceRef: `block:${block.uuid}`, kind: "PAGE", text: stripLogseqBlockIdentityProperty(block.content, block.uuid), contentHash: block.contentHash }));
+        materials = graphResult.snapshot.blocks.flatMap((block) => {
+          const text = stripLogseqBlockIdentityProperty(block.content, block.uuid);
+          return text.trim() ? [{ sourceRef: `block:${block.uuid}`, kind: "PAGE" as const, text, contentHash: block.contentHash }] : [];
+        });
+        if (!materials.length) throw serviceError("PROJECT_CREATION_SOURCE_EMPTY", "当前 Page 没有可用于 Project Creation Grill 的语义材料；没有调用 Provider。");
         contextPackage = buildContextPackage(contextSource, [coreSkill, grillSkill], { kind: "page", id: input.pageId }, new Date(generatedAt), graphResult.snapshot);
         revalidate = async () => {
-          const latest = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 6 });
+          const latest = await graphReadBroker.read({ kind: "PAGE", target: input.pageId, depth: 5 });
           if (latest.status !== "FOUND" || latest.snapshot.scopeHash !== graphResult.snapshot.scopeHash) throw serviceError("GRILL_SOURCE_STALE", "Page 在生成期间已变化；草稿已丢弃。");
         };
       } else {
@@ -1703,7 +1715,11 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: anchor.externalId, includeChildren: true, parents: 0 });
         if (graphResult.status !== "FOUND") throw serviceError("PROJECT_CREATION_SOURCE_UNAVAILABLE", "MiniProject 正文无法从 Logseq Desktop 完整读取；没有调用 Provider。");
         if (graphResult.snapshot.truncated || graphResult.snapshot.blocks.length > 16) throw serviceError("PROJECT_CREATION_SOURCE_TOO_LARGE", "MiniProject 超过 Project Creation Grill 的 16 Block 安全范围；没有调用 Provider。");
-        materials = graphResult.snapshot.blocks.map((block) => ({ sourceRef: `block:${block.uuid}`, kind: "MINI_PROJECT", text: stripLogseqBlockIdentityProperty(block.content, block.uuid), contentHash: block.contentHash }));
+        materials = graphResult.snapshot.blocks.flatMap((block) => {
+          const text = stripLogseqBlockIdentityProperty(block.content, block.uuid);
+          return text.trim() ? [{ sourceRef: `block:${block.uuid}`, kind: "MINI_PROJECT" as const, text, contentHash: block.contentHash }] : [];
+        });
+        if (!materials.length) throw serviceError("PROJECT_CREATION_SOURCE_EMPTY", "MiniProject 没有可用于 Project Creation Grill 的语义材料；没有调用 Provider。");
         contextPackage = buildContextPackage(contextSource, [coreSkill, grillSkill], { kind: "project", id: subject.objectId }, new Date(generatedAt), graphResult.snapshot);
         revalidate = async () => {
           const latest = store.getObject(input.objectId);

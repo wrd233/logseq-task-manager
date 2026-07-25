@@ -422,11 +422,16 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   typecheck/build/dist PASS；Graph switch 视觉 Gate仍 OPEN；
 - P2-C 两层自动合同：Project 创建前不伪造 Object ID；Blank/Page/MiniProject 来源边界、
   internal closure/current interface readiness、来源相关 focus builder 与
-  `project-creation-modeling@1.0.0` 已自动锁定；Blank authenticated Service route 与真实
-  `deepseek-v4-flash` Gate PASS（两次 invalid shape 先安全拒绝，最终 object count=0）；
+  `project-creation-modeling@1.1.0` 已自动锁定，Page/Object 关系成为独立 machine
+  uncertainty；Blank authenticated Service route 与真实
+  `deepseek-v4-flash` Gate PASS（证据为 Skill `1.0.0`，两次 invalid shape 先安全拒绝，
+  最终 object count=0；`1.1.0` 真实 Provider 重跑仍 OPEN）；
   Page route 已通过 Service-owned Graph bridge 读取/生成后重读与零写自动 Gate；
   MiniProject route 已通过 Object/version + Anchor + Graph 双重重验、stale 丢弃与零写自动
-  Gate；Proposal/原子创建接线与 Desktop OPEN；
+  Gate；Page depth 已收回 Graph Bridge 协议上限 5，Page stale 和两类空 Block 过滤已有
+  自动证据；独立 Project Creation Preview Validator/Provider generator 已通过零材料
+  Blank、来源逐条保留、证据白名单、零 formal impact 自动 Gate；Preview route、Proposal/
+  原子创建接线与 Desktop OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；

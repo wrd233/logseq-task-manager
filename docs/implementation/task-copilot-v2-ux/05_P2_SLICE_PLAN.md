@@ -122,9 +122,18 @@ Package、Skill/Prompt、Provider、最终预览、server-owned create Proposal�
 创建接线仍 OPEN。
 
 第二个自动合同已完成：Local Service `project-creation-grill.ts` 将三种入口材料构造成
-有界 Context 和六维 machine uncertainty，`project-creation-modeling@1.0.0` 明确要求
-跟随材料而非固定问卷。Blank 首问结果、Page 首问材料去向、MiniProject 首问升级边界；
-此时仍未开放 route，也未创建 Object、Page 或 Proposal。
+有界 Context 和七维 machine uncertainty，`project-creation-modeling@1.1.0` 明确要求
+跟随材料而非固定问卷，并将 Page/Object 关系与材料去向分开解决。Blank 由既有受控
+Project Page 合同自动解决关系，Page/MiniProject 必须显式回答；Blank 首问结果、Page
+首问材料去向、MiniProject 首问升级边界。
+
+三种 authenticated route 已自动打通：Page/MiniProject 均由 Service 请求 Graph bridge、
+生成后按同一 scopeHash 重读，Page depth 保持协议上限 5，无语义空 Block 不作为 LLM
+事实；生成期间正文变化返回 stale 且零写。独立
+`task-copilot-project-creation-preview-v1` Application Validator 与 Provider generator 已
+自动完成：Blank 可零材料，Page/MiniProject 必须逐条保留原文，Page/Object 关系仅为
+`PROPOSED_FOR_REVIEW`，formal impact 恒为零。Preview Service route、会话句柄、HIGH
+Review、正式 create 接线与 Desktop 仍 OPEN。
 
 ## P2-D：Project 结构操作路由
 

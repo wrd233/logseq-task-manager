@@ -49,10 +49,12 @@ const definitionsBySource: Record<ProjectCreationGrillSource["sourceKind"], read
     { uncertaintyId: "completion-evidence", dimension: "COMPLETION_EVIDENCE", priority: 30, critical: true, reason: "尚未确认结果达成或阶段完成的证据。" },
     { uncertaintyId: "internal-closure", dimension: "INTERNAL_CLOSURE", priority: 40, critical: true, reason: "尚未确认 Project 内部如何形成持续闭环。" },
     { uncertaintyId: "current-interface", dimension: "CURRENT_INTERFACE", priority: 50, critical: true, reason: "尚未确认用户重入 Project 时首先需要看到什么。" },
+    { uncertaintyId: "page-object-relationship", dimension: "PAGE_OBJECT_RELATIONSHIP", priority: 55, critical: false, reason: "空白创建使用受控 Project Page 与正式对象的一对一关系。" },
     { uncertaintyId: "material-disposition", dimension: "UNCLASSIFIED_MATERIAL", priority: 60, critical: false, reason: "空白创建没有待归类来源材料。" },
   ],
   PAGE: [
     { uncertaintyId: "material-disposition", dimension: "UNCLASSIFIED_MATERIAL", priority: 5, critical: true, reason: "当前 Page 材料尚未确认如何进入 Project。" },
+    { uncertaintyId: "page-object-relationship", dimension: "PAGE_OBJECT_RELATIONSHIP", priority: 6, critical: true, reason: "尚未确认当前 Page 与新 Project 正式页面和对象的关系。" },
     { uncertaintyId: "outcome", dimension: "OUTCOME", priority: 10, critical: true, reason: "现有 Page 尚未明确 Project 要持续形成的结果。" },
     { uncertaintyId: "project-boundary", dimension: "BOUNDARY", priority: 20, critical: true, reason: "现有材料尚未划定 Project 边界。" },
     { uncertaintyId: "completion-evidence", dimension: "COMPLETION_EVIDENCE", priority: 30, critical: true, reason: "尚未确认结果达成或阶段完成的证据。" },
@@ -61,6 +63,7 @@ const definitionsBySource: Record<ProjectCreationGrillSource["sourceKind"], read
   ],
   MINI_PROJECT: [
     { uncertaintyId: "project-boundary", dimension: "BOUNDARY", priority: 5, critical: true, reason: "尚未确认为何当前 MiniProject 应升级为持续治理的 Project。" },
+    { uncertaintyId: "page-object-relationship", dimension: "PAGE_OBJECT_RELATIONSHIP", priority: 6, critical: true, reason: "尚未确认原 MiniProject 正文与新 Project 页面和对象的关系。" },
     { uncertaintyId: "current-interface", dimension: "CURRENT_INTERFACE", priority: 10, critical: true, reason: "尚未确认升级后用户重入 Project 时首先需要看到什么。" },
     { uncertaintyId: "internal-closure", dimension: "INTERNAL_CLOSURE", priority: 20, critical: true, reason: "尚未确认升级后的内部推进与复盘闭环。" },
     { uncertaintyId: "outcome", dimension: "OUTCOME", priority: 30, critical: true, reason: "尚未确认升级后要持续形成的结果。" },
@@ -86,7 +89,7 @@ function validateSource(source: ProjectCreationGrillSource): void {
     if (!material.text.trim() || material.text.length > 4_000 || !/^(?:[a-f0-9]{8}|[a-f0-9]{64})$/.test(material.contentHash)) throw new Error("Project creation source material is invalid.");
     refs.add(material.sourceRef);
   }
-  if (source.answers.length > 6 || new Set(source.answers.map(({ uncertaintyId }) => uncertaintyId)).size !== source.answers.length) throw new Error("Project creation Grill answers are invalid.");
+  if (source.answers.length > 7 || new Set(source.answers.map(({ uncertaintyId }) => uncertaintyId)).size !== source.answers.length) throw new Error("Project creation Grill answers are invalid.");
 }
 
 export function buildProjectCreationGrillGeneration(source: ProjectCreationGrillSource): GrillTurnGenerationRequest {
@@ -103,6 +106,10 @@ export function buildProjectCreationGrillGeneration(source: ProjectCreationGrill
     factId: "creation-entry",
     text: source.sourceKind === "BLANK" ? "用户从空白入口发起 Project 创建。" : `用户从 ${source.sourceKind} 材料发起 Project 创建。`,
     sourceRefs: ["session:project-creation-entry"],
+  }, {
+    factId: "project-page-contract",
+    text: "正式创建链只在 Review 接受后绑定一个受控 Project Page 与一个正式 Project 对象。",
+    sourceRefs: ["contract:project-page-creation-v1"],
   }];
   for (const [index, material] of source.materials.entries()) {
     facts.push({ factId: `source-${index + 1}`, text: material.text.trim(), sourceRefs: [material.sourceRef] });
@@ -120,15 +127,20 @@ export function buildProjectCreationGrillGeneration(source: ProjectCreationGrill
 
   const uncertainties: GrillUncertaintyAuthority[] = definitions.map((definition) => {
     const answer = answerById.get(definition.uncertaintyId);
-    const materiallyAbsent = source.sourceKind === "BLANK" && definition.dimension === "UNCLASSIFIED_MATERIAL";
+    const machineResolved = source.sourceKind === "BLANK"
+      && (definition.dimension === "UNCLASSIFIED_MATERIAL" || definition.dimension === "PAGE_OBJECT_RELATIONSHIP");
     const answerRef = answer ? `answer:${sha256({ uncertaintyId: definition.uncertaintyId, answer }).slice(0, 16)}` : undefined;
     return {
       uncertaintyId: definition.uncertaintyId,
       dimension: definition.dimension,
-      status: answer || materiallyAbsent ? "RESOLVED" : "OPEN",
+      status: answer || machineResolved ? "RESOLVED" : "OPEN",
       priority: definition.priority,
       critical: definition.critical,
-      evidenceRefs: answerRef ? [answerRef] : sourceRefs,
+      evidenceRefs: answerRef
+        ? [answerRef]
+        : definition.dimension === "PAGE_OBJECT_RELATIONSHIP"
+          ? ["contract:project-page-creation-v1"]
+          : sourceRefs,
     };
   });
   const unclassifiedMaterialRefs = answerById.has("material-disposition") || source.sourceKind === "BLANK" ? [] : sourceRefs;

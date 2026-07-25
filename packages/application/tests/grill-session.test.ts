@@ -108,6 +108,7 @@ test("Project creation Grill supports blank, Page, and MiniProject sources witho
       { uncertaintyId: "u-material", dimension: "UNCLASSIFIED_MATERIAL", status: "RESOLVED", priority: 40, critical: false, evidenceRefs: ["page:page-1"] },
       { uncertaintyId: "u-closure", dimension: "INTERNAL_CLOSURE", status: "OPEN", priority: 5, critical: true, evidenceRefs: ["page:page-1"] },
       { uncertaintyId: "u-interface", dimension: "CURRENT_INTERFACE", status: "OPEN", priority: 15, critical: true, evidenceRefs: ["page:page-1"] },
+      { uncertaintyId: "u-page-object", dimension: "PAGE_OBJECT_RELATIONSHIP", status: "OPEN", priority: 16, critical: true, evidenceRefs: ["page:page-1"] },
     ],
     unclassifiedMaterialRefs: [],
   };
@@ -139,5 +140,9 @@ test("Project creation Grill supports blank, Page, and MiniProject sources witho
   assert.throws(
     () => grillReadiness({ ...readyAuthority, uncertainties: readyAuthority.uncertainties.filter((item) => item.dimension !== "CURRENT_INTERFACE") }),
     /missing CURRENT_INTERFACE/,
+  );
+  assert.throws(
+    () => grillReadiness({ ...readyAuthority, uncertainties: readyAuthority.uncertainties.filter((item) => item.dimension !== "PAGE_OBJECT_RELATIONSHIP") }),
+    /missing PAGE_OBJECT_RELATIONSHIP/,
   );
 });

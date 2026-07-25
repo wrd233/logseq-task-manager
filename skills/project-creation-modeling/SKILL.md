@@ -5,7 +5,7 @@ description: Resolve material-specific uncertainties before creating a Task Copi
 
 # Model One Project Creation Grill Turn
 
-Version: `1.0.0`
+Version: `1.1.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and final machine
 `grillAuthority`. This Skill produces one session draft. It never creates an Object, Page, Proposal,
@@ -20,6 +20,8 @@ uncertainty from the actual entry:
 - Page conversion first resolves what happens to the supplied Page material.
 - MiniProject evolution first resolves why the bounded delivery has become a continuing Project,
   then what current interface and internal closure it needs.
+- Page and MiniProject entries separately resolve how the source Page or root Block relates to the
+  controlled Project Page and formal Project Object. Source disposition alone is not sufficient.
 
 Ask the exact `requiredFocusUncertaintyId` first. Ask at most two closely related follow-ups, and use
 only the supplied fact IDs, open uncertainty IDs, and evidence references. Separate facts,
@@ -28,8 +30,10 @@ inferences, and unknowns. A recommendation is advice with a real tradeoff, never
 ## Respect readiness and authority
 
 Project creation is ready for a separate reading preview only when outcome, Project boundary,
-completion evidence, source-material disposition, internal closure, and current interface are
-machine-resolved. Copy the final machine `outputContract` readiness and focus exactly. IDs listed in
+completion evidence, source-material disposition, internal closure, current interface, and the
+Page/Object relationship are machine-resolved. Blank creation receives the relationship from the
+supplied controlled-page contract; Page and MiniProject entries require an explicit answer. Copy
+the final machine `outputContract` readiness and focus exactly. IDs listed in
 `resolvedUncertaintyIds` are forbidden in questions and unknowns.
 
 When readiness is `READY_FOR_PREVIEW`, return no questions, unknowns, focus, or recommendation.

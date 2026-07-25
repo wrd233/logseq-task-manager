@@ -195,7 +195,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
     { name: "mini-project-modeling", version: "1.2.0" },
-    { name: "project-creation-modeling", version: "1.0.0" },
+    { name: "project-creation-modeling", version: "1.1.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
@@ -395,13 +395,14 @@ test("Project context recovery fails closed for missing Provider, unsupported ty
 test("Project Creation Grill uses Blank, Page, or MiniProject sources and rejects stale Graph material without creating new formal state", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-creation-grill-"));
   let providerCalls = 0;
+  let providerSource: "BLANK" | "PAGE" | "MINI_PROJECT" = "BLANK";
   const provider: StructuredProposalProvider = {
     providerId: "deepseek",
     providerVersion: "chat-completions-v1",
     completeStructured: async () => {
       providerCalls += 1;
-      const pageTurn = providerCalls === 2;
-      const miniProjectTurn = providerCalls >= 3;
+      const pageTurn = providerSource === "PAGE";
+      const miniProjectTurn = providerSource === "MINI_PROJECT";
       const focus = pageTurn ? "material-disposition" : miniProjectTurn ? "project-boundary" : "outcome";
       const evidenceRef = pageTurn ? "block:project-page-root" : miniProjectTurn ? "block:mini-evolution-root" : "session:project-creation-entry";
       return {
@@ -444,21 +445,46 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   const blocks = [
     { uuid: "project-page-root", content: "项目资料", contentHash: checksum("项目资料"), relation: "ROOT" as const, depth: 0 },
     { uuid: "project-page-child", content: "待整理记录", contentHash: checksum("待整理记录"), relation: "CHILD" as const, depth: 1, parentUuid: "project-page-root" },
+    { uuid: "project-page-empty", content: "", contentHash: checksum(""), relation: "CHILD" as const, depth: 1, parentUuid: "project-page-root" },
   ];
   const snapshot = { kind: "PAGE" as const, requestedTarget: "Project Notes", resolved, blocks, truncated: false, readAt: "2026-07-25T13:00:00.000Z", scopeHash: checksum({ kind: "PAGE", resolved, blocks, truncated: false }) };
   const bridge = (async () => {
     for (let index = 0; index < 2; index += 1) {
       const pending = await client.claimGraphReadRequest();
       assert.equal(pending?.kind, "PAGE");
+      if (pending?.kind === "PAGE") assert.equal(pending.depth, 5);
       if (!pending) throw new Error("expected Project Creation Page read");
       await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot });
     }
   })();
+  providerSource = "PAGE";
   const pagePromise = client.grillProjectCreation({ sourceKind: "PAGE", pageId: "Project Notes", answers: [] });
   const [, pageResult] = await Promise.all([bridge, pagePromise]);
   assert.equal(pageResult.output.questionGroup?.focusUncertaintyId, "material-disposition");
   assert.equal(providerCalls, 2);
   assert.equal((await client.status()).objectCount, 0);
+
+  const changedPageBlocks = blocks.map((block) => block.uuid === "project-page-child"
+    ? { ...block, content: "生成期间修改的 Page 材料", contentHash: checksum("生成期间修改的 Page 材料") }
+    : block);
+  const changedPageSnapshot = { ...snapshot, blocks: changedPageBlocks, readAt: "2026-07-25T13:01:00.000Z", scopeHash: checksum({ kind: "PAGE", resolved, blocks: changedPageBlocks, truncated: false }) };
+  const stalePageBridge = (async () => {
+    for (const next of [snapshot, changedPageSnapshot]) {
+      const pending = await client.claimGraphReadRequest();
+      assert.equal(pending?.kind, "PAGE");
+      if (pending?.kind === "PAGE") assert.equal(pending.depth, 5);
+      if (!pending) throw new Error("expected stale Project Creation Page read");
+      await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: next });
+    }
+  })();
+  const beforeStalePage = await client.status();
+  const stalePagePromise = client.grillProjectCreation({ sourceKind: "PAGE", pageId: "Project Notes", answers: [] });
+  await stalePageBridge;
+  await assert.rejects(stalePagePromise, (error: unknown) => {
+    assert.equal((error as { details?: { remoteCode?: string } }).details?.remoteCode, "GRILL_SOURCE_STALE");
+    return true;
+  });
+  assert.deepEqual(await client.status(), beforeStalePage, "stale Page generation remains zero-write");
 
   const created = await client.materializeExplicitObject({
     objectType: "MINI_PROJECT",
@@ -473,6 +499,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   const miniBlocks = [
     { uuid: "mini-evolution-root", content: "[MiniProject] 整理托管设备记录", contentHash: checksum("[MiniProject] 整理托管设备记录"), relation: "ROOT" as const, depth: 0 },
     { uuid: "mini-evolution-child", content: "每月需要持续核验", contentHash: checksum("每月需要持续核验"), relation: "CHILD" as const, depth: 1, parentUuid: "mini-evolution-root" },
+    { uuid: "mini-evolution-empty", content: "", contentHash: checksum(""), relation: "CHILD" as const, depth: 1, parentUuid: "mini-evolution-root" },
   ];
   const miniSnapshot = { kind: "BLOCK" as const, requestedTarget: "mini-evolution-root", resolved: miniResolved, blocks: miniBlocks, truncated: false, readAt: "2026-07-25T13:05:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved: miniResolved, blocks: miniBlocks, truncated: false }) };
   const answerMiniReads = async (second = miniSnapshot): Promise<void> => {
@@ -484,6 +511,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
     }
   };
   const beforeMiniGrill = await client.status();
+  providerSource = "MINI_PROJECT";
   const miniBridge = answerMiniReads();
   const miniPromise = client.grillProjectCreation({ sourceKind: "MINI_PROJECT", objectId: created.object.objectId, expectedVersion: created.object.version, answers: [] });
   const [, miniResult] = await Promise.all([miniBridge, miniPromise]);
@@ -508,7 +536,7 @@ test("Project Creation Grill uses Blank, Page, or MiniProject sources and reject
   });
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CREATION_GRILL_REQUEST_INVALID");
-  assert.equal(providerCalls, 4);
+  assert.equal(providerCalls, 5);
 });
 
 test("MiniProject Grill reads the exact live subtree, advances by bounded answers, and remains zero-write", async (t) => {

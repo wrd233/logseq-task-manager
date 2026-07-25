@@ -9,7 +9,8 @@ export type GrillUncertaintyDimension =
   | "COMPLETION_EVIDENCE"
   | "UNCLASSIFIED_MATERIAL"
   | "INTERNAL_CLOSURE"
-  | "CURRENT_INTERFACE";
+  | "CURRENT_INTERFACE"
+  | "PAGE_OBJECT_RELATIONSHIP";
 
 export interface GrillFactAuthority {
   factId: string;
@@ -80,7 +81,7 @@ interface GrillTurnDraft {
 }
 
 const BASE_DIMENSIONS: GrillUncertaintyDimension[] = ["OUTCOME", "BOUNDARY", "COMPLETION_EVIDENCE", "UNCLASSIFIED_MATERIAL"];
-const PROJECT_CREATION_DIMENSIONS: GrillUncertaintyDimension[] = [...BASE_DIMENSIONS, "INTERNAL_CLOSURE", "CURRENT_INTERFACE"];
+const PROJECT_CREATION_DIMENSIONS: GrillUncertaintyDimension[] = [...BASE_DIMENSIONS, "INTERNAL_CLOSURE", "CURRENT_INTERFACE", "PAGE_OBJECT_RELATIONSHIP"];
 const DIMENSIONS: GrillUncertaintyDimension[] = [...PROJECT_CREATION_DIMENSIONS];
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
 const REF = /^[a-z][a-z0-9_-]{0,31}:[^\s]{1,223}$/u;

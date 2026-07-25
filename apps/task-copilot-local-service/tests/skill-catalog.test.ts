@@ -18,7 +18,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
     { name: "design-project", version: "1.1.0" },
     { name: "recover-context", version: "1.1.0" },
     { name: "mini-project-modeling", version: "1.2.0" },
-    { name: "project-creation-modeling", version: "1.0.0" },
+    { name: "project-creation-modeling", version: "1.1.0" },
   ]);
   assert.equal(first.every(({ sha256 }) => /^[0-9a-f]{64}$/.test(sha256)), true);
 
