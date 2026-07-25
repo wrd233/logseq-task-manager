@@ -184,6 +184,19 @@ export class LocalLlmGrillTurnGenerator {
     }
     let validationCause: string | undefined;
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const repairFactId = authority.facts[0]?.factId;
+      const repairEvidenceRef = focus?.evidenceRefs[0] ?? allowedEvidenceRefs[0];
+      const evidenceRepair = validationCause
+        && /evidence|reference|fact/i.test(validationCause)
+        && machineReadiness === "CONTINUE"
+        && repairFactId
+        && repairEvidenceRef
+        ? [
+          `For this evidence repair, set factRefs exactly to ${stableJson([repairFactId])}.`,
+          "Set inferences exactly to [].",
+          `Set recommendation.evidenceRefs exactly to ${stableJson([repairEvidenceRef])}.`,
+        ].join(" ")
+        : undefined;
       const completion = await this.provider.completeStructured({
         system,
         user: validationCause
@@ -192,6 +205,7 @@ export class LocalLlmGrillTurnGenerator {
             "machine repair instruction",
             "The previous draft failed the machine Validator. Return a completely new JSON draft that still follows the unchanged machine outputContract.",
             `Validator feedback: ${validationCause}`,
+            ...(evidenceRepair ? [evidenceRepair] : []),
             "Do not repeat, quote, summarize, or otherwise reveal the rejected draft. Do not relax any evidence, identity, authority, readiness, or question constraint.",
           ].join("\n\n")
           : user,

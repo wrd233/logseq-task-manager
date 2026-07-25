@@ -179,6 +179,47 @@ test("Grill generator repairs one validator-rejected draft without exposing the 
   assert.doesNotMatch(captured[1]?.user ?? "", /obj_7a21df934a63/);
 });
 
+test("Grill evidence repair narrows the second draft to machine-selected fact and focus evidence", async () => {
+  const captured: StructuredChatRequest[] = [];
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async (input) => {
+      captured.push(input);
+      return {
+        value: captured.length === 1 ? {
+          ...draftWithEvidence("block:invented"),
+        } : {
+          ...draftWithEvidence("block:block-1"),
+          factRefs: ["material"],
+          inferences: [],
+        },
+        metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
+      };
+    },
+  };
+
+  function draftWithEvidence(evidenceRef: string) {
+    return {
+      schemaVersion: GRILL_TURN_SCHEMA_VERSION,
+      understanding: "已有设备清单，但本次范围仍待确认。",
+      factRefs: ["material"],
+      inferences: [{ text: "本次可能只覆盖现有清单。", evidenceRefs: [evidenceRef] }],
+      unknowns: [{ uncertaintyId: "scope-current-list", text: "后续新增设备是否纳入仍未知。" }],
+      readiness: "CONTINUE",
+      focusUncertaintyId: "scope-current-list",
+      questions: [{ uncertaintyId: "scope-current-list", text: "本次是否只覆盖现有清单？" }],
+      recommendation: { text: "建议先封顶当前清单。", evidenceRefs: [evidenceRef], tradeoffs: ["边界清楚，但新增设备需另行补充"] },
+    };
+  }
+
+  const result = await new LocalLlmGrillTurnGenerator(provider).generate(request);
+  assert.equal(result.output.inferences.length, 0);
+  assert.match(captured[1]?.user ?? "", /set factRefs exactly to \["material"\]/i);
+  assert.match(captured[1]?.user ?? "", /set inferences exactly to \[\]/i);
+  assert.match(captured[1]?.user ?? "", /recommendation\.evidenceRefs exactly to \["block:block-1"\]/i);
+});
+
 test("multi-turn prompt ends with a machine-owned output contract that excludes resolved uncertainties", async () => {
   const captured: StructuredChatRequest[] = [];
   const multiTurnAuthority = {
