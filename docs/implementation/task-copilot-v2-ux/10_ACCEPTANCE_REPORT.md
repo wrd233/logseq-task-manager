@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE | P2-A/B 与 P2-C PASS；P2-D 16 类路由、LIGHT Condition durable Undo、MEDIUM Provider 链及 HEAVY 完整接口安全链自动 PASS | P2-C 三来源 PASS；P2-D MEDIUM、LIGHT Condition 与 HEAVY 完整接口均完成 reload/正式 Undo/reload | P2-D 三条核心纵向链 DONE；Association/其余 LIGHT、其他 HEAVY 类型和 P2-E～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_EVIDENCE_MODEL | P2-A/B、P2-C、P2-D 三条核心链及 P2-E read-only evidence model automated PASS | P2-C 三来源与 P2-D 三条核心链有 Desktop；P2-E 无 Desktop | P2-D 仍 Partial；P2-E evidence foundation DONE、Provider/UI/正式链 OPEN；P2-F～G OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -80,7 +80,9 @@
 - [x] 预览为最终阅读效果；identity property 已从 canonical 用户材料剥离；
 - [x] 当前纵向 Slice 一次 Commit + Undo；8-step forward/inverse、真实 divergence Recovery、
   reload、recent-changes 折叠和返回根 Block Desktop PASS；
-- [ ] Closure 从证据起草；
+- [ ] Closure 从证据起草；只读 evidence model 已自动覆盖正式 Project interface、直接
+  Ownership、unknown 和用户判断边界，但 Service/Provider/Preview/Review/Commit/Desktop
+  尚未闭环；
 - [ ] 跨对象候选有证据和数量上限；
 - [ ] LLM 不改变 Ownership/Focus；
 - [ ] Recovery 继续原 Commit；

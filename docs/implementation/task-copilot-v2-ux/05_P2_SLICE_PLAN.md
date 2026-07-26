@@ -262,13 +262,22 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 
 ## P2-E：Closure 证据起草
 
-状态：`NOT_STARTED`
+状态：`IN_PROGRESS_AUTOMATED_EVIDENCE_MODEL`
 
 MiniProject 聚合：子树、DONE、Output、Decision、原状态和遗留。
 
 Project 聚合：原目标、Deliverables、Output、Decision、完成 MiniProject、未完成对象、等待/阻塞、遗留、future summary。
 
 用户只处理真实判断。信息不足必须保留 unknown，不杜撰成果。遗留可转 Task、连接已有事项或仅记录，但每项必须有明确去向。
+
+首个安全底座已实现：Application 的只读 evidence draft 只接受版本匹配的 OPEN Project、
+当前 Project interface、正式 Objects 与直接 Primary Ownership。Objective、已接受/可用
+Deliverable、owned Output/Decision、完成工作和未决工作会成为有来源引用的候选；Objective
+完成状态一律保持 `NEEDS_USER_JUDGMENT`，空材料明确输出 unknown。普通 Association、孙级
+对象和缺失 identity 不会被当成 Project 成果。focused `3/3`、Application `164/164` 与
+typecheck PASS。当前尚未接 Service、真实 Provider、Plugin Preview、Review/Commit/Recovery/
+Undo 或 Desktop，因此 P2-E 不得标为 DONE。自动记录见
+`logs/p2-e-project-closure-evidence-automated-20260726.md`。
 
 ## P2-F：跨对象观察
 

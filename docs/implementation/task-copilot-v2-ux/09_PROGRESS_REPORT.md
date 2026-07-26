@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 16 类影响路由、LIGHT Condition durable Undo、MEDIUM 真实 Provider 链与一条 HEAVY 完整接口 Commit/reload/Undo/reload PASS；Association/其余 LIGHT 和其他 HEAVY 纵向链仍 OPEN；P2-E～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_EVIDENCE_MODEL | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E 只读 evidence model automated PASS | P2-C/P2-D 已有对应 Desktop；P2-E 尚无 Provider/UI/Desktop | P2-D 仍 Partial；P2-E evidence foundation DONE、完整纵向链 OPEN；P2-F～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -524,6 +524,11 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Focus、Ownership 与正文守恒。普通 Association 因无 remove/inverse 已从正式路由禁用。
   CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。Application `161/161`、Local
   Service `135/135`、Plugin `275/275`、Persistence `49/49` 与根级检查 PASS；
+- P2-E 首个确定性底座完成：只读 Project Closure evidence draft 从 Project interface 与
+  直接 Primary Ownership 投影 Objective、Deliverable/Output、Decision、完成/未决工作；
+  Objective 完成状态、实际结果、遗留和未来总结均保留用户判断，Association 与孙级对象不
+  偷升格。stale/非 Project/非 OPEN/重复或缺失 Object 全部 fail closed。focused `3/3`、
+  Application `164/164`、typecheck PASS；Service、真实 Provider、Plugin、Desktop 仍 OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
