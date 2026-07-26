@@ -143,6 +143,8 @@ export class LocalLlmUxOutputGenerator {
     const system = [
       "Return exactly one task-copilot-ux-output-v1 JSON draft. Use only supplied factRefs, evidenceRefs, and nextActionId values.",
       "facts are selected by factRefs; never rewrite a formal fact as an inference. Unknowns must remain explicit.",
+      "Use the same language as the supplied user-visible facts unless User Semantics explicitly requests another language.",
+      "Never list a supplied formal fact as unknown or claim that its evidenced change has not happened.",
       "Opaque machine identities belong only in factRefs, evidenceRefs, and nextActionId. Never repeat an Object/Block/Page UUID, sourceRef, hash, Proposal/Commit/Anchor ID, or other machine token in summary, inference text, unknowns, or suggested-change prose.",
       "nextActionEligible must be false unless one supplied action is concrete, evidence-backed, and reduces decision cost.",
       "suggestedChanges may contain only DRAFT_PROPOSAL items. A suggestion is not a command or a completed change.",

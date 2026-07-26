@@ -101,6 +101,43 @@ test("Project reentry compresses formal current interface and Condition into one
   assert.equal(JSON.stringify(projection).includes("block-project-1"), false);
 });
 
+test("Project reentry collapses recent apply and Undo commits into bounded user facts", () => {
+  const projection = projectV2ProjectReentry({
+    observedAt,
+    project: object(),
+    objects: [],
+    ownerships: [],
+    associations: [],
+    focus: [],
+    anchors: [anchor("project-1")],
+    commits: [{
+      semanticCommitId: "closure-original",
+      status: "UNDONE",
+      objectIds: ["project-1"],
+      updatedAt: "2026-07-24T10:00:00.000Z",
+      title: "项目关闭：验证安全链",
+    }, {
+      semanticCommitId: "closure-undo",
+      status: "COMPLETED",
+      objectIds: ["project-1"],
+      updatedAt: "2026-07-24T10:00:00.000Z",
+      title: "项目关闭：验证安全链",
+    }, {
+      semanticCommitId: "interface-update",
+      status: "COMPLETED",
+      objectIds: ["project-1"],
+      updatedAt: "2026-07-24T09:00:00.000Z",
+      title: "更新当前接口",
+    }],
+  });
+
+  assert.deepEqual(projection.facts.slice(-2).map(({ text }) => text), [
+    "最近正式修改“项目关闭：验证安全链”已经撤销，历史证据仍保留",
+    "最近正式修改“更新当前接口”已经应用",
+  ]);
+  assert.equal(projection.facts.filter(({ text }) => text.includes("项目关闭：验证安全链")).length, 1);
+});
+
 test("new Project without a structural boundary admits that the current entry is unclear", () => {
   const projection = projectV2ProjectReentry({
     observedAt,

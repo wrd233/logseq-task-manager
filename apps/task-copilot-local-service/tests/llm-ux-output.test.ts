@@ -77,6 +77,8 @@ test("LLM UX generator returns only a validated machine-provenance draft without
   assert.match(result.promptBundleVersion, /^[0-9a-f]{8}$/);
   assert.match(captured[0]?.system ?? "", /factRefs/);
   assert.match(captured[0]?.system ?? "", /never write formal Graph or SQLite state directly/i);
+  assert.match(captured[0]?.system ?? "", /same language as the supplied user-visible facts/i);
+  assert.match(captured[0]?.system ?? "", /Never list a supplied formal fact as unknown/i);
   assert.match(captured[0]?.user ?? "", /只包含已导出的有界上下文/);
   assert.equal("application" in (result as object), false);
   assert.deepEqual(evidence.snapshot(), [{

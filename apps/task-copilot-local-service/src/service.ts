@@ -2101,14 +2101,21 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
             if (operation.target.kind === "OBJECT") objectIds.add(operation.target.id);
           }
         }
-        return [record.proposal.proposalId, [...objectIds].sort()] as const;
+        return [record.proposal.proposalId, {
+          objectIds: [...objectIds].sort(),
+          title: record.proposal.title,
+        }] as const;
       }));
-      const commits: V2ReentryCommitFact[] = store.listSemanticCommits().map((commit) => ({
-        semanticCommitId: commit.semanticCommitId,
-        status: commit.status,
-        objectIds: commit.proposalId ? proposalTargets.get(commit.proposalId) ?? [] : [],
-        updatedAt: commit.updatedAt,
-      }));
+      const commits: V2ReentryCommitFact[] = store.listSemanticCommits().map((commit) => {
+        const proposal = commit.proposalId ? proposalTargets.get(commit.proposalId) : undefined;
+        return {
+          semanticCommitId: commit.semanticCommitId,
+          status: commit.status,
+          objectIds: proposal?.objectIds ?? [],
+          updatedAt: commit.updatedAt,
+          ...(proposal?.title ? { title: proposal.title } : {}),
+        };
+      });
       const generation = buildProjectContextRecoveryGeneration({
         observedAt: contextPackage.manifest.generatedAt,
         project,

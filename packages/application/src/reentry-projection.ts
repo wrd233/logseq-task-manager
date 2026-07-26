@@ -11,6 +11,7 @@ export interface V2ReentryCommitFact {
   status: "PENDING" | "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED" | "UNDONE";
   objectIds: string[];
   updatedAt: string;
+  title?: string | undefined;
 }
 
 export interface V2ReentryFact {
@@ -152,6 +153,44 @@ function unfinishedCommit(
       - (left.status === "RECOVERY_REQUIRED" ? 1 : 0)
       || right.updatedAt.localeCompare(left.updatedAt)
     )[0];
+}
+
+function recentFormalChangeFacts(
+  commits: readonly V2ReentryCommitFact[],
+  objectId: string,
+): V2ReentryFact[] {
+  const grouped = new Map<string, {
+    title: string;
+    updatedAt: string;
+    undone: boolean;
+    sourceRefs: string[];
+  }>();
+  for (const commit of commits) {
+    if (
+      !commit.objectIds.includes(objectId)
+      || (commit.status !== "COMPLETED" && commit.status !== "UNDONE")
+    ) continue;
+    const title = compact(commit.title?.trim() || "正式修改", 80);
+    const key = `${commit.updatedAt}\u0000${title}`;
+    const current = grouped.get(key) ?? {
+      title,
+      updatedAt: commit.updatedAt,
+      undone: false,
+      sourceRefs: [],
+    };
+    current.undone ||= commit.status === "UNDONE";
+    current.sourceRefs.push(commitRef(commit));
+    grouped.set(key, current);
+  }
+  return [...grouped.values()]
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .slice(0, 2)
+    .map((change) => fact(
+      change.undone
+        ? `最近正式修改“${change.title}”已经撤销，历史证据仍保留`
+        : `最近正式修改“${change.title}”已经应用`,
+      ...change.sourceRefs,
+    ));
 }
 
 function result(input: {
@@ -399,6 +438,7 @@ export function projectV2ProjectReentry(input: V2ProjectReentryInput): V2Reentry
       ...(relatedContextCount
         ? [fact(`有 ${relatedContextCount} 个普通关联只作为背景上下文`, projectSource)]
         : []),
+      ...recentFormalChangeFacts(input.commits, input.project.objectId),
     ],
     unknowns: sufficient
       ? []
