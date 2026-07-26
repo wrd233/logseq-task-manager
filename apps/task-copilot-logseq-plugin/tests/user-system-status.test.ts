@@ -91,6 +91,25 @@ test("protocol and Graph mismatches have distinct user actions", () => {
   assert.match(graph.actionRequired, /不要切换数据库/);
 });
 
+test("Restore rollback failure keeps formal writes stopped and points to the retained recovery point", () => {
+  const result = deriveUserSystemStatus(snapshot({
+    runtime_status: "DEGRADED",
+    store_status: "READ_ONLY_SAFE_MODE",
+    service_connection: {
+      status: "RESTRICTED",
+      reason_code: "V2_RESTORE_ROLLBACK_FAILED",
+      formal_writes_available: false,
+      graph_editing_available: true,
+    },
+  }));
+  assert.equal(result.level, "BLOCKED");
+  assert.equal(result.headline, "Restore 需要人工恢复");
+  assert.match(result.whatHappened, /未能自动回滚/);
+  assert.match(result.stillAvailable, /Restore 前恢复点/);
+  assert.match(result.dataSafety, /没有继续启动不确定的 SQLite 状态/);
+  assert.match(result.actionRequired, /不要重复 Restore/);
+});
+
 test("unfinished and recovery-required commits take priority over ordinary readiness", () => {
   const pending = deriveUserSystemStatus(snapshot({ pending_semantic_commits: 2 }));
   assert.equal(pending.level, "ATTENTION");

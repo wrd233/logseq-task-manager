@@ -59,7 +59,7 @@ export interface LocalServiceOptions {
   projectCreationPreviewGenerator?: LocalLlmProjectCreationPreviewGenerator;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
-  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void };
+  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void; afterRestoreActivate?: () => void };
 }
 export interface LocalServiceHandle {
   url: string;
@@ -4673,7 +4673,13 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       try {
         store.close();
         storeOpen = false;
-        const restored = await V2SqliteStore.restoreOffline(options.databasePath, source, recoveryPath, options.graphId);
+        const restored = await V2SqliteStore.restoreOffline(
+          options.databasePath,
+          source,
+          recoveryPath,
+          options.graphId,
+          options.faults?.afterRestoreActivate ? { afterActivate: options.faults.afterRestoreActivate } : {},
+        );
         respond(response, 200, {
           status: "RESTORED_SERVICE_STOPPING",
           backupId,

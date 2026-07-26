@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BackupRestoreController, type BackupRestoreClient } from "../src/backup-restore-controller.ts";
+import { StructuredError } from "@task-copilot/shared";
+
+import { BackupRestoreController, backupRestoreFailureDisposition, type BackupRestoreClient } from "../src/backup-restore-controller.ts";
 
 function client(): BackupRestoreClient & { calls: string[] } {
   const calls: string[] = [];
@@ -86,4 +88,55 @@ test("creating a current snapshot reloads the bounded catalog and cancellation c
   controller.clear();
   assert.deepEqual(controller.snapshot(), { status: "idle", backups: [], total: 0, limited: false });
   await assert.rejects(() => controller.select(service, "snapshot:0"), /不可用/);
+});
+
+test("Restore failure disposition distinguishes fail-closed validation, safe rollback, and manual recovery", () => {
+  const remote = (remoteCode: string) => new StructuredError({
+    code: "SERVICE_HTTP_ERROR",
+    message: "remote restore failure",
+    ruleRefs: ["D-216"],
+    details: { status: 500, remoteCode },
+  });
+  assert.deepEqual(backupRestoreFailureDisposition(remote("V2_BACKUP_VALIDATION_FAILED")), {
+    kind: "PRE_SWITCH_REJECTED",
+    restartRuntime: false,
+    message: "恢复没有开始：所选快照在最终校验时已失效；当前正式状态和 Graph 正文均未改变。",
+  });
+  assert.deepEqual(backupRestoreFailureDisposition(remote("V2_RESTORE_FAILED")), {
+    kind: "ROLLED_BACK",
+    restartRuntime: true,
+    message: "恢复未完成；系统已恢复原正式状态并保留 Restore 前恢复点，正在重新连接当前 Graph。",
+  });
+  assert.deepEqual(backupRestoreFailureDisposition(remote("V2_RESTORE_ROLLBACK_FAILED")), {
+    kind: "RECOVERY_REQUIRED",
+    restartRuntime: false,
+    message: "恢复和自动回滚都未能完成；Restore 前恢复点仍保留。正式写入已暂停，请从系统状态进入人工恢复。",
+  });
+  assert.equal(backupRestoreFailureDisposition(new Error("connection reset")).kind, "OUTCOME_UNKNOWN");
+  assert.equal(backupRestoreFailureDisposition(new Error("connection reset")).restartRuntime, true);
+});
+
+test("Restore final validation transport failure never sends apply or restarts a still-valid runtime", async () => {
+  const controller = new BackupRestoreController();
+  const service = client();
+  await controller.load(service);
+  await controller.select(service, "snapshot:0");
+  service.validateBackup = async () => {
+    service.calls.push("validate-unavailable");
+    throw new StructuredError({
+      code: "SERVICE_UNAVAILABLE",
+      message: "Local Service 不可用。",
+      ruleRefs: ["D-216"],
+    });
+  };
+  const error = await controller.restore(service, "snapshot:0").catch((failure: unknown) => failure);
+  assert.ok(error instanceof StructuredError);
+  assert.equal(error.code, "BACKUP_RESTORE_PREFLIGHT_UNAVAILABLE");
+  assert.deepEqual(backupRestoreFailureDisposition(error), {
+    kind: "PRE_SWITCH_REJECTED",
+    restartRuntime: false,
+    message: "无法完成 Restore 最终校验；没有执行恢复，当前正式状态保持不变。",
+  });
+  assert.equal(service.calls.some((call) => call.startsWith("restore:")), false);
+  assert.equal(controller.snapshot().status, "error");
 });

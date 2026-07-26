@@ -664,27 +664,39 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
     || input.service.storeStatus !== "READY"
   ) {
     const reason = input.service.reasonCode ?? "SERVICE_RESTRICTED";
+    const restoreRecoveryRequired = reason === "V2_RESTORE_ROLLBACK_FAILED";
     const graphMismatch = reason.includes("GRAPH");
     const protocolMismatch = reason.includes("PROTOCOL");
     const notConfigured = reason.includes("DESCRIPTOR")
       || reason.includes("NOT_CONFIGURED")
       || reason.includes("PATH_REQUIRED");
     return result({
-      conclusion: graphMismatch
+      conclusion: restoreRecoveryRequired
+        ? "Restore 需要人工恢复"
+        : graphMismatch
         ? "当前 Graph 与正式状态不匹配"
         : protocolMismatch
           ? "Plugin 与正式服务版本不兼容"
           : notConfigured
             ? "Task Copilot 尚未连接正式服务"
             : "正式服务暂时不可用",
-      keyEvidence: ["正式写入已暂停", "Logseq 正文仍可编辑"],
+      keyEvidence: restoreRecoveryRequired
+        ? ["正式写入已暂停", "Restore 前恢复点仍保留"]
+        : ["正式写入已暂停", "Logseq 正文仍可编辑"],
       facts: [
         fact("正式写入、审阅提交、Undo、备份、恢复与迁移已暂停", sourceRef),
-        fact("Logseq 正文仍可编辑，系统没有把连接失败当成空状态", sourceRef),
+        fact(
+          restoreRecoveryRequired
+            ? "自动回滚未完成，系统没有继续启动不确定的 SQLite 状态"
+            : "Logseq 正文仍可编辑，系统没有把连接失败当成空状态",
+          sourceRef,
+        ),
       ],
       evidenceRefs: [sourceRef],
       observedAt: input.observedAt,
-      ruleId: graphMismatch
+      ruleId: restoreRecoveryRequired
+        ? "system-restore-recovery-required"
+        : graphMismatch
         ? "system-graph-mismatch"
         : protocolMismatch
           ? "system-protocol-mismatch"

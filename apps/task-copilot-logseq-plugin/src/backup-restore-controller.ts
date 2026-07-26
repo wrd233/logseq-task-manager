@@ -4,6 +4,7 @@ import type {
   ServiceBackupRestored,
   ServiceBackupValidation,
 } from "@task-copilot/service-client";
+import { StructuredError } from "@task-copilot/shared";
 
 export interface BackupRestoreClient {
   listBackups(): Promise<ServiceBackupCatalog>;
@@ -27,6 +28,51 @@ export interface PluginBackupRestoreState {
   limited: boolean;
   selectedToken?: string;
   message?: string;
+}
+
+export interface BackupRestoreFailureDisposition {
+  kind: "PRE_SWITCH_REJECTED" | "ROLLED_BACK" | "RECOVERY_REQUIRED" | "OUTCOME_UNKNOWN";
+  restartRuntime: boolean;
+  message: string;
+}
+
+export function backupRestoreFailureDisposition(error: unknown): BackupRestoreFailureDisposition {
+  if (error instanceof StructuredError && error.code.startsWith("BACKUP_RESTORE_PREFLIGHT_")) {
+    return {
+      kind: "PRE_SWITCH_REJECTED",
+      restartRuntime: false,
+      message: error.message,
+    };
+  }
+  const remoteCode = error instanceof StructuredError && typeof error.details?.remoteCode === "string"
+    ? error.details.remoteCode
+    : undefined;
+  if (remoteCode === "V2_BACKUP_VALIDATION_FAILED") {
+    return {
+      kind: "PRE_SWITCH_REJECTED",
+      restartRuntime: false,
+      message: "恢复没有开始：所选快照在最终校验时已失效；当前正式状态和 Graph 正文均未改变。",
+    };
+  }
+  if (remoteCode === "V2_RESTORE_FAILED") {
+    return {
+      kind: "ROLLED_BACK",
+      restartRuntime: true,
+      message: "恢复未完成；系统已恢复原正式状态并保留 Restore 前恢复点，正在重新连接当前 Graph。",
+    };
+  }
+  if (remoteCode === "V2_RESTORE_ROLLBACK_FAILED") {
+    return {
+      kind: "RECOVERY_REQUIRED",
+      restartRuntime: false,
+      message: "恢复和自动回滚都未能完成；Restore 前恢复点仍保留。正式写入已暂停，请从系统状态进入人工恢复。",
+    };
+  }
+  return {
+    kind: "OUTCOME_UNKNOWN",
+    restartRuntime: true,
+    message: "Restore 返回结果不确定；正式写入已暂停，正在重新连接并核验当前 Graph 的正式状态。",
+  };
 }
 
 export class BackupRestoreController {
@@ -114,11 +160,35 @@ export class BackupRestoreController {
 
   async restore(client: Pick<BackupRestoreClient, "validateBackup" | "restoreBackup">, token: string): Promise<ServiceBackupRestored> {
     const backupId = this.state.selectedToken === token ? this.backupIds.get(token) : undefined;
-    if (!backupId) throw new Error("恢复确认已过期；没有执行恢复。");
+    if (!backupId) {
+      throw new StructuredError({
+        code: "BACKUP_RESTORE_PREFLIGHT_STALE",
+        message: "恢复确认已过期；没有执行恢复。",
+        ruleRefs: ["D-192", "D-204"],
+      });
+    }
     this.state = { ...this.state, status: "restoring", message: "正在建立当前状态恢复点并切换正式快照…" };
     try {
       const validation = await client.validateBackup(backupId);
-      if (validation.validation.status !== "PASS") throw new Error("所选恢复快照已失效；没有执行恢复。");
+      if (validation.validation.status !== "PASS") {
+        throw new StructuredError({
+          code: "BACKUP_RESTORE_PREFLIGHT_INVALID",
+          message: "所选恢复快照已失效；没有执行恢复。",
+          ruleRefs: ["D-192", "D-204"],
+        });
+      }
+    } catch (error) {
+      const preflight = error instanceof StructuredError && error.code.startsWith("BACKUP_RESTORE_PREFLIGHT_")
+        ? error
+        : new StructuredError({
+          code: "BACKUP_RESTORE_PREFLIGHT_UNAVAILABLE",
+          message: "无法完成 Restore 最终校验；没有执行恢复，当前正式状态保持不变。",
+          ruleRefs: ["D-192", "D-204"],
+        });
+      this.fail(preflight);
+      throw preflight;
+    }
+    try {
       return await client.restoreBackup(backupId, "RESTORE_AND_STOP_SERVICE");
     } catch (error) {
       this.fail(error);

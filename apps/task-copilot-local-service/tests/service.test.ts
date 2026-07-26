@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,7 +8,7 @@ import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/servic
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persistence/node";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
 import { buildMiniProjectRestructureProposal, buildProjectCreationProposal, createEmptyState, InteractionEvidenceBuffer, V2Application, type GrillPreview, type ProjectCreationPreview } from "@task-copilot/application";
-import { checksum } from "@task-copilot/shared";
+import { checksum, StructuredError } from "@task-copilot/shared";
 import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
@@ -4001,4 +4001,96 @@ test("Restore Apply requires explicit confirmation, creates a recovery point, re
   assert.equal(active.getObject("post-snapshot"), undefined);
   assert.equal(active.doctor().status, "PASS");
   active.close();
+});
+
+test("Restore Apply rolls back a post-activation failure, retains the recovery point, and restarts cleanly", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-restore-failure-"));
+  const databasePath = join(root, ".task-copilot", "task-copilot.db");
+  const backupRoot = join(root, ".task-copilot", "backups");
+  const descriptorPath = join(root, "runtime", "service.json");
+  let service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-failure",
+    token: "restore-failure-first-token-24-chars",
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const snapshot = await clientFor(service).createBackup();
+  await service.close();
+
+  const changed = await V2SqliteStore.open(databasePath);
+  const occurredAt = "2026-07-20T14:00:00.000Z";
+  changed.commitObject({
+    object: {
+      objectId: "must-survive-restore-failure",
+      objectType: "TASK",
+      version: 1,
+      lifecycle: "OPEN",
+      condition: { kind: "ACTIONABLE" },
+      text: "Restore 失败后必须保留",
+      createdAt: occurredAt,
+      updatedAt: occurredAt,
+      sourceOrCreationEvent: "restore-failure-test",
+    },
+    expectedVersion: 0,
+    idempotencyKey: "must-survive-restore-failure",
+    audit: {
+      traceId: "must-survive-restore-failure",
+      actor: "test",
+      command: "create_object",
+      objectId: "must-survive-restore-failure",
+      beforeVersion: 0,
+      afterVersion: 1,
+      occurredAt,
+    },
+  });
+  changed.close();
+
+  service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-failure",
+    token: "restore-failure-second-token-24-chars",
+    faults: { afterRestoreActivate: () => { throw new Error("injected post-activate failure"); } },
+  });
+  await assert.rejects(
+    () => clientFor(service).restoreBackup(snapshot.backupId, "RESTORE_AND_STOP_SERVICE"),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "SERVICE_HTTP_ERROR"
+      && error.details?.remoteCode === "V2_RESTORE_FAILED",
+  );
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      await access(descriptorPath);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    } catch {
+      break;
+    }
+  }
+  await assert.rejects(access(descriptorPath));
+  await assert.rejects(() => clientFor(service).health());
+
+  const backupNames = (await readdir(backupRoot)).filter((name) => name.endsWith(".db"));
+  assert.equal(backupNames.length, 2, "the selected snapshot and pre-restore recovery point must both remain");
+  const recoveryName = backupNames.find((name) => name !== `${snapshot.backupId}.db`);
+  assert.ok(recoveryName);
+  assert.equal(V2SqliteStore.validateBackup(join(backupRoot, recoveryName), "graph-restore-failure").objectCount, 1);
+  const activeAfterFailure = await V2SqliteStore.open(databasePath);
+  assert.equal(activeAfterFailure.getObject("must-survive-restore-failure")?.text, "Restore 失败后必须保留");
+  assert.equal(activeAfterFailure.doctor().status, "PASS");
+  activeAfterFailure.close();
+
+  service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-failure",
+    token: "restore-failure-restarted-token-24",
+  });
+  assert.equal((await clientFor(service).listObjects()).some(({ objectId }) => objectId === "must-survive-restore-failure"), true);
 });

@@ -103,7 +103,7 @@ import { ProjectPageHeadActionController } from "./project-page-head-action.ts";
 import { ProjectContextRecoveryController } from "./project-context-recovery-controller.ts";
 import { MiniProjectGrillController } from "./mini-project-grill-controller.ts";
 import { BlockMarkerPrototypeController, type BlockMarkerPrototypeMode } from "./block-marker-prototype.ts";
-import { BackupRestoreController, type BackupRestoreClient } from "./backup-restore-controller.ts";
+import { BackupRestoreController, backupRestoreFailureDisposition, type BackupRestoreClient } from "./backup-restore-controller.ts";
 import {
   MIGRATION_BUNDLE_MAX_BYTES,
   MigrationScanController,
@@ -2260,9 +2260,50 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await refreshToolbarInterventionFacts();
       await projectPageHeadActionController.refreshAll();
     } catch (error) {
-      latestError = explain(error);
-      if (serviceConnection.status === "READY" && serviceRuntimeClient === client) {
-        await explicitSyncController?.resume(client).catch(() => undefined);
+      const disposition = backupRestoreFailureDisposition(error);
+      operationalLogger.log("error", "ui-action", "backup_restore_failed", {
+        result: disposition.kind.toLowerCase(),
+        errorCode: error instanceof StructuredError && typeof error.details?.remoteCode === "string"
+          ? error.details.remoteCode
+          : error instanceof StructuredError ? error.code : "RESTORE_RESULT_UNKNOWN",
+      });
+      latestError = disposition.message;
+      if (!disposition.restartRuntime) {
+        if (disposition.kind === "RECOVERY_REQUIRED") {
+          actionDialog = undefined;
+          enterRestrictedServiceMode("V2_RESTORE_ROLLBACK_FAILED", disposition.message);
+          diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+          featureReady = false;
+          message = disposition.message;
+          await releaseServiceLifecycleSession();
+        } else if (serviceConnection.status === "READY" && serviceRuntimeClient === client) {
+          await explicitSyncController?.resume(client).catch(() => undefined);
+        }
+      } else {
+        actionDialog = undefined;
+        enterRestrictedServiceMode(
+          disposition.kind === "ROLLED_BACK" ? "RESTORE_ROLLED_BACK_RESTARTING" : "RESTORE_OUTCOME_RECHECKING",
+          disposition.message,
+        );
+        diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+        featureReady = false;
+        message = disposition.message;
+        await releaseServiceLifecycleSession();
+        const recovered = await recoverConfiguredServiceRuntime(configuredServiceDescriptorPath);
+        featureReady = recovered;
+        diagnostics.setStoreStatus(recovered ? "READY" : "READ_ONLY_SAFE_MODE");
+        if (disposition.kind === "ROLLED_BACK") {
+          latestError = recovered
+            ? "恢复未完成；原正式状态已回滚并重新可用，Restore 前恢复点仍保留。"
+            : "恢复未完成；原正式状态已回滚并保留恢复点，但运行环境尚未自动重连。Graph 正文仍可编辑，请检查系统状态。";
+        } else {
+          latestError = recovered
+            ? "运行环境已重新连接且数据库校验通过；上次 Restore 的最终结果不确定，请先核对当前事项与最近修改。"
+            : "上次 Restore 的最终结果不确定，运行环境也尚未自动重连；正式写入保持暂停，请检查系统状态。";
+        }
+        message = latestError;
+        await refreshToolbarInterventionFacts();
+        await projectPageHeadActionController.refreshAll();
       }
     }
     await refresh();
