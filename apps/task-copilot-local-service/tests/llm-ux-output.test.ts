@@ -82,6 +82,35 @@ test("LLM UX generator rejects mixed-language frontstage prose as one zero-write
   assert.equal(evidence.snapshot()[0]?.failureCode, "UX_OUTPUT_VALIDATION_FAILED");
 });
 
+test("LLM UX language contract rejects short English prose after excluding an allowed product name", async () => {
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({
+      value: {
+        schemaVersion: "task-copilot-ux-output-v1",
+        factRefs: ["condition"],
+        inferences: [{ text: "Project blocked 项目等待。", evidenceRefs: ["object:project-1@v3"] }],
+        unknowns: [],
+        summary: "Project blocked 项目等待。",
+        suggestedChanges: [],
+        nextActionEligible: false,
+        riskLevel: "NONE",
+        requiresDiscussion: false,
+        requiresReview: false,
+      },
+      metadata: { model: "actual-model", durationMs: 20, attempts: 1 },
+    }),
+  };
+
+  await assert.rejects(
+    () => new LocalLlmUxOutputGenerator(provider).generate(request),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "UX_OUTPUT_VALIDATION_FAILED"
+      && error.details?.validationCategory === "FRONTSTAGE_PROSE",
+  );
+});
+
 test("LLM UX language contract allows product names inside Chinese-dominant prose", async () => {
   const provider: StructuredProposalProvider = {
     providerId: "deepseek",

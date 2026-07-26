@@ -35,6 +35,8 @@ class FrontstageLanguageMismatchError extends Error {
   }
 }
 
+const FRONTSTAGE_PRODUCT_WORDS = /\b(?:Task Copilot|MiniProject|Project|Closure|Desktop|Provider|Review|Logseq|API|SQLite|Graph|LLM|Agent|Focus|Proposal|Commit|Undo|Recovery|Anchor|Service|Launcher|DeepSeek|LOW|MEDIUM|HIGH|P0|P1|P2)\b/giu;
+
 function assertFrontstageLanguage(output: UnifiedUxOutput, language: UxOutputGenerationRequest["frontstageLanguage"]): void {
   if (language !== "zh-CN") return;
   const modelProse = [
@@ -44,11 +46,11 @@ function assertFrontstageLanguage(output: UnifiedUxOutput, language: UxOutputGen
     ...output.suggestedChanges.map(({ summary }) => summary),
   ];
   const isChineseDominant = (value: string): boolean => {
-    const characters = [...value.normalize("NFKC")];
+    const characters = [...value.normalize("NFKC").replace(FRONTSTAGE_PRODUCT_WORDS, "")];
     const han = characters.filter((character) => /\p{Script=Han}/u.test(character)).length;
     const latin = characters.filter((character) => /\p{Script=Latin}/u.test(character)).length;
     const hasKana = characters.some((character) => /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(character));
-    return !hasKana && han >= 2 && han / Math.max(1, han + latin) >= 0.2;
+    return !hasKana && han >= 2 && han / Math.max(1, han + latin) >= 0.5;
   };
   if (modelProse.some((value) => !isChineseDominant(value))) {
     throw new FrontstageLanguageMismatchError();
@@ -153,7 +155,7 @@ export class LocalLlmUxOutputGenerator {
     const runtimeContext = layer(request.runtimeContext, "Runtime Context");
     const promptBundleVersion = checksum(stableJson({
       contract: "task-copilot-ux-output-v1",
-      generatorPolicyVersion: "unified-ux-generator@1.1.0",
+      generatorPolicyVersion: "unified-ux-generator@1.2.0",
       frontstageLanguage: request.frontstageLanguage,
       core,
       skill,
