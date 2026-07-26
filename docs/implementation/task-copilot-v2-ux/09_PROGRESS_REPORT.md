@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_QUALITY_PASS | P2-A+B DONE；P2-C 三来源、P2-D 三条核心链、P2-E Closure/Undo PASS；P2-F bounded shadow contract + machine-owned Provider seam PASS | P2-C/P2-D/P2-E 正常主链有 Desktop；P2-F 真实 DeepSeek 5/5 质量 Gate PASS、无 Desktop/UI | P2-D Partial；P2-E failure/Recovery Desktop OPEN；P2-F repeat/stale/error/feedback/frontstage OPEN；P2-G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS | P2-A+B DONE；P2-C 三来源、P2-D 三条核心链、P2-E Closure/Undo PASS；P2-F bounded shadow contract + machine-owned Provider seam PASS | P2-C/P2-D/P2-E 正常主链有 Desktop；P2-F 真实 DeepSeek 三轮累计 15/15 case-runs PASS、无 Desktop/UI | P2-D Partial；P2-E failure/Recovery Desktop OPEN；P2-F real-context/stale/error/feedback/frontstage OPEN；P2-G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -582,7 +582,7 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 延伸 P2-F 已通过的首批真实 Provider Gate：增加重复运行、changed/stale、timeout/非法
+1. 延伸 P2-F 已通过的首批真实 Provider repeat Gate：增加真实业务 Context、changed/stale、timeout/非法
    输出、reload/recompute、disposition/cooldown 与用户反馈；以噪声和重复性证据决定是否
    升为正式 Skill 及进入待我确认，在此之前不开放前台、不持久化候选；
 2. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并

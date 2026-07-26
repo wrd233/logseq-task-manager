@@ -320,7 +320,7 @@ RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial�
 
 ## P2-F：跨对象观察
 
-状态：`IN_PROGRESS_SHADOW_PROVIDER_QUALITY_PASS_FRONTSTAGE_CLOSED`
+状态：`IN_PROGRESS_SHADOW_PROVIDER_REPEAT_PASS_FRONTSTAGE_CLOSED`
 
 只允许提出：
 
@@ -353,7 +353,8 @@ Application `168/168`、Plugin `280/280`、根级检查与恢复演练 PASS；�
 首批真实 Provider 质量门现已完成：Service 机器构造 2–8 Object、显式 scope 与 2–16
 evidence 的 bounded Context Package，模型只可选择 kind/subject/evidence 或
 `NO_OBSERVATION`。真实 `deepseek-v4-flash` 5/5 最终 PASS：三类 grounded observation 与
-两类 deliberate abstention 均命中，零 Graph/正式 Store 写入。探索中发现 confidence 不应
+两类 deliberate abstention 均命中；再复跑两轮后累计 `15/15` case-runs、9 observation、
+6 abstention，kind/evidence/abstention 一致且零 Graph/正式 Store 写入。探索中发现 confidence 不应
 由模型自授，已收回为机器 LOW/MEDIUM；模型不能产生 HIGH。该 Prompt 仍是
 `0.1.0-experimental` Skill candidate，不进入正式 catalog。重复运行、stale/error、
 reload/recompute、disposition/cooldown、用户反馈和待我确认 UI 仍 OPEN。

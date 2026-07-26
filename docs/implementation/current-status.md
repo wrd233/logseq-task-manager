@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_QUALITY_PASS
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS
 overall_goal: IN_PROGRESS
 ```
 
@@ -265,6 +265,8 @@ overall_goal: IN_PROGRESS
   action 或 write。真实 `deepseek-v4-flash` 最终 5/5 PASS：Task cluster、legacy handoff、
   stale interface 三类观察均保留必须证据，表面词汇相同和 Ownership 冲突两例均
   `NO_OBSERVATION`；5 attempts、约 28.6 秒、5478 tokens、Graph/正式 Store 写入 0。
+  同一 answer-free Gate 再完整复跑两轮并保持相同 kind/evidence/abstention；累计
+  `15/15` case-runs、9 observation、6 abstention、16,742 tokens，全部零写入。
   探索失败促使 confidence 从模型权限收回，由机器对 Association/Ownership 固定 LOW、
   其余固定 MEDIUM；失败只记录 case/结构码，不保存原始输出。P2-F 仍没有正式 Skill、
   Candidate/Proposal、反馈、reload/recompute 或 Desktop UI，前台继续 CLOSED。Local
@@ -287,7 +289,7 @@ P2-D router + MEDIUM narration + one HEAVY full-interface vertical DONE,
 remaining LIGHT/other-HEAVY/visual gates OPEN /
 P2-E normal Provider→Review→Commit→Undo→reload main chain Desktop DONE,
 failure/Recovery Desktop gate OPEN /
-P2-F shadow safety contract + first real Provider quality gate PASS, frontstage/feedback/reload gates OPEN /
+P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
 P2-G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论

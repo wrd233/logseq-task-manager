@@ -2,7 +2,7 @@
 
 ## Status
 
-`REAL_PROVIDER_QUALITY_GATE_PASS / SHADOW_ONLY / FRONTSTAGE_CLOSED / SKILL_CANDIDATE`
+`REAL_PROVIDER_REPEAT_QUALITY_GATE_PASS / SHADOW_ONLY / FRONTSTAGE_CLOSED / SKILL_CANDIDATE`
 
 This gate validates a bounded model seam and five sanitized golden scenarios. It does not claim
 that P2-F is complete, that the observations are ready for daily display, or that a formal Skill,
@@ -76,6 +76,19 @@ Final structural report:
 }
 ```
 
+Two complete reruns used the same answer-free contexts and production Validator:
+
+| Run | Cases | Observations | Abstentions | Duration | Tokens | Result |
+|---|---:|---:|---:|---:|---:|---|
+| A | 5 | 3 | 2 | 28,635 ms | 5,478 | PASS |
+| B | 5 | 3 | 2 | 36,678 ms | 6,743 | PASS |
+| C | 5 | 3 | 2 | 17,831 ms | 4,521 | PASS |
+
+Aggregate: `15/15` case-runs, 9 grounded observations, 6 deliberate abstentions, 83,144 ms
+Provider time and 16,742 tokens. Decision kind, required subjects/evidence and abstention behavior
+were identical in all three passing runs; output token usage varied but did not change the bounded
+result.
+
 ## Exploratory failures and improvement
 
 The real sequence intentionally kept the production Validator active:
@@ -100,9 +113,10 @@ Automated verification after the live run:
 
 ## Current conclusion
 
-This is enough to promote P2-F from “automated contract only” to “real Provider quality gate pass
-for the first bounded sample”. It is not enough to make a formal Skill or show observations to the
-user. The current Prompt/provenance remains `cross-object-observation-candidate@0.1.0-experimental`.
+This is enough to promote P2-F from “automated contract only” to “real Provider repeat quality gate
+pass for the first bounded sample”. It is not enough to make a formal Skill or show observations
+to the user. The current Prompt/provenance remains
+`cross-object-observation-candidate@0.1.0-experimental`.
 
 Before frontstage opening, the next evidence should add repeated runs, changed/stale context,
 Provider invalid/timeout, reload/recompute, disposition/cooldown and user feedback. A later formal
