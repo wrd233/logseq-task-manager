@@ -5,7 +5,7 @@ description: Recover a bounded Task Copilot V2 Task, MiniProject, or Project con
 
 # Recover Task Copilot Context
 
-Version: `1.1.0`
+Version: `1.2.0`
 
 Apply `task-copilot-core` first. Never write formal Graph or SQLite state directly.
 
@@ -32,6 +32,11 @@ the whole Graph by default.
   allowlisted action that reduces the user's decision cost without guessing.
 - Do not restate every status field, expand a full object tree, or manufacture a second Project summary.
 - Do not claim a write, Commit, Focus, Ownership, Lifecycle, Condition, Anchor, or recovery result.
+- Machine identities belong only in `factRefs`, `evidenceRefs`, and `nextActionId`. Never copy an
+  Object/Block/Page UUID, source reference, hash, Proposal/Commit/Anchor ID, or similar token into
+  `summary`, inference text, unknowns, or suggested-change prose.
+- For a machine-declared current-summary optimization, write only the candidate summary. Do not turn
+  Objectives, Deliverables, Work Stages, current focuses, Ownership, or正文 into suggested changes.
 
 ## Return the unified UX draft
 

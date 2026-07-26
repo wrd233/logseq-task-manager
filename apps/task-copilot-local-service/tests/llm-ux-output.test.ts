@@ -99,6 +99,35 @@ test("LLM UX generator returns only a validated machine-provenance draft without
   }]);
 });
 
+test("unified UX prompt keeps opaque identities out of every frontstage prose field", async () => {
+  let systemPrompt = "";
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async ({ system }) => {
+      systemPrompt = system;
+      return {
+        value: {
+          schemaVersion: "task-copilot-ux-output-v1",
+          factRefs: ["condition"],
+          inferences: [],
+          unknowns: [],
+          summary: "项目正在等待关键参数。",
+          suggestedChanges: [],
+          nextActionEligible: false,
+          riskLevel: "NONE",
+          requiresDiscussion: false,
+          requiresReview: false,
+        },
+        metadata: { model: "actual-model", durationMs: 1, attempts: 1 },
+      };
+    },
+  };
+  await new LocalLlmUxOutputGenerator(provider).generate(request);
+  assert.match(systemPrompt, /Opaque machine identities belong only in factRefs, evidenceRefs, and nextActionId/);
+  assert.match(systemPrompt, /Never repeat an Object\/Block\/Page UUID/);
+});
+
 test("DO_NOT_REPEAT suppresses the same scene and Skill version for only the current evidence session", async () => {
   const evidence = new InteractionEvidenceBuffer();
   let providerCalls = 0;

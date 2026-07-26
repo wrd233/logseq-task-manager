@@ -16,7 +16,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   assert.deepEqual(first.map(({ name, version }) => ({ name, version })), [
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.1.0" },
-    { name: "recover-context", version: "1.1.0" },
+    { name: "recover-context", version: "1.2.0" },
     { name: "mini-project-modeling", version: "1.3.0" },
     { name: "project-creation-modeling", version: "1.5.0" },
   ]);
@@ -34,6 +34,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   assert.match(recovery?.content ?? "", /formal facts.*current object.*Project current interface.*direct relations.*broad retrieval/is);
   assert.match(recovery?.content ?? "", /factRefs/);
   assert.match(recovery?.content ?? "", /nextActionEligible.*false/is);
+  assert.match(recovery?.content ?? "", /Machine identities belong only in `factRefs`/);
   assert.match(recovery?.content ?? "", /never write formal Graph or SQLite state directly/i);
   const grill = await readTaskCopilotSkill("mini-project-modeling");
   assert.match(grill?.content ?? "", /material, not a questionnaire/i);
