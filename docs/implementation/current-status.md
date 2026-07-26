@@ -331,9 +331,11 @@ overall_goal: IN_PROGRESS
   的 `MIGRATION_SNAPSHOT_CHANGED` 安全边界保持不变。真实链已完成恢复基线复用、
   `PREVIEWED→IMPORTING→VERIFIED→ACTIVATED`、缺确认零写入和完整 Logseq restart；
   objects `4→5`、Pending 0，旧 UNDONE 与新 VERIFIED batch 均保留，reload 后不再显示
-  Import/Undo/Activate 动作。Activation 正常主链从 Partial 变为 Done；import/verify/activate
-  失败注入、Service 中断续跑、完成后全局入口收敛和视觉 Gate 仍 OPEN，P2-G 与整体 Goal
-  继续 `IN_PROGRESS`；
+  Import/Undo/Activate 动作。Activation 正常主链从 Partial 变为 Done。`2beb1b5` 又把
+  ACTIVATED 页面收敛为只读交接历史：新 Bundle scan、Review、Import、Undo 与 Activate
+  全部退出，仅保留台账和 Backup/Restore 路由；完整 restart 的 CURRENT `p2-g-43`
+  仍为 ACTIVATED、objects 5、Pending 0。import/verify/activate 失败注入、Service 中断续跑
+  和视觉 Gate 仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；

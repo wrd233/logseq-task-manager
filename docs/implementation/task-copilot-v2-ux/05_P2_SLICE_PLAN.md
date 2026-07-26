@@ -462,8 +462,11 @@ commit `f42b62d` 的真实 Logseq 0.10.15 已完成恢复基线复用、
 `PREVIEWED→IMPORTING→VERIFIED→ACTIVATED`、Activation 缺确认零写和完整 restart。
 SQLite objects `4→5`、Pending 0，旧 UNDONE 与新 VERIFIED batch 都保留；reload 后计划
 明确 V2 已启用、V1 只读，不再提供 Import/Undo/Activate。CURRENT `p2-g-38`～`42`。
-Activation 正常主链从 Partial 变为 Done；失败注入、Service 中断/不确定恢复、完成后
-全局入口收敛与 Light/窄栏仍 OPEN，Migration/P2-G/整体 Goal 不关闭。
+Activation 正常主链从 Partial 变为 Done。`2beb1b5` 随后把 ACTIVATED 页面收敛为只读
+交接历史：新 Bundle scan、Review、Import、Undo 和 Activate 全部退出，仅保留台账与
+Backup/Restore 路由；完整 restart 的 CURRENT `p2-g-43` 已验证正式状态仍为
+`ACTIVATED`、objects 5、Pending 0。失败注入、Service 中断/不确定恢复与 Light/窄栏仍
+OPEN，Migration/P2-G/整体 Goal 不关闭。
 
 ## P2 完成否决条件
 

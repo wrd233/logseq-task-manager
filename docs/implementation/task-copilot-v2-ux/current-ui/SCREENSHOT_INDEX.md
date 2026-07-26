@@ -74,7 +74,7 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-39-migration-activation-review-current-dark.png` | `f42b62d` | 导入并验证后点击“准备启用 V2” | 独立 HIGH 交接明确 V1 只读、不建立双写；尚未改变 run | failure/interruption Gate OPEN |
 | `screenshots/p2-g-40-migration-activation-confirmation-required-current-dark.png` | `f42b62d` | 未勾选 V1 只读交接确认直接提交 | 用户层明确零变化；SQLite run 仍为 VERIFIED | 不保存内部 run/snapshot identity |
 | `screenshots/p2-g-41-migration-activated-current-dark.png` | `f42b62d` | 勾选并确认启用 | V2 已启用，V1 只作为只读历史与恢复证据；run ACTIVATED、objects 5、Pending 0 | 旧 UNDONE 与新 VERIFIED batch 保留 |
-| `screenshots/p2-g-42-migration-activated-reload-current-dark.png` | `f42b62d` | 完整退出并重启 Logseq 后重新进入迁移 | ACTIVATED 计划从正式 ledger 重建；无 Import/Undo/Activate 主动作 | 完成后全局入口收敛与 Light/窄栏仍 OPEN |
+| `screenshots/p2-g-43-migration-readonly-archive-current-dark.png` | `2beb1b5` | 完整退出并重启 Logseq，打开已完成迁移 | 一次性迁移只保留只读交接台账与 Backup/Restore 路由；无新 scan/Review/Import/Undo/Activate | Migration failure/interruption 与 Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 
@@ -82,6 +82,7 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 
 | 文件 | 状态 | 构建状态 | 仍可证明 | 被替代原因 |
 |---|---|---|---|---|
+| `p2-g-42-migration-activated-reload-current-dark.png` | SUPERSEDED | `f42b62d` | ACTIVATED ledger 跨完整 restart 保留 | 完成态仍显示新 Bundle scan；`p2-g-43` 已收敛为只读交接 |
 | `p2-c-01-project-creation-entry-dark.png` | SUPERSEDED | `c9c29b7` | 三来源入口曾真实可达 | `p2-c-11` 使用当前提交重拍 |
 | `p2-c-02-blank-grill-first-question-dark.png` | HISTORICAL | `c9c29b7` + 待提交 Validator 修复 | DeepSeek 中文单问通过 | 拍摄时源码并非可引用 commit |
 | `p2-c-03-blank-grill-answer-dark.png` | HISTORICAL | 同上 | 回答进入 session，不写正式状态 | 同上 |

@@ -37,6 +37,9 @@ Migration Run 错误新建了第二个导入前快照。`f42b62d` 保留既有�
 
 ## 仍未关闭
 
-这只关闭 Migration Activation 正常自动链。Service 停止时的导入/验证/启用恢复、
-正式失败注入、迁移完成后的全局入口收敛以及 Light/窄栏仍需 Gate；P2-G 与整体 Goal
-继续 `IN_PROGRESS`。
+`2beb1b5` 进一步关闭完成后退出日常迁移操作：ACTIVATED run 存在时，scan、session
+Review、execution state 和所有 batch/run 写动作都不渲染；只保留交接说明、只读 batch
+历史和 Backup/Restore 路由。Plugin 全套升至 `316/316`，根级检查再次 PASS。
+
+Service 停止时的导入/验证/启用恢复、正式失败注入以及 Light/窄栏仍需 Gate；P2-G 与
+整体 Goal 继续 `IN_PROGRESS`。

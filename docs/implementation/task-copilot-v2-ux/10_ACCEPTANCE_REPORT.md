@@ -124,8 +124,10 @@
   `f42b62d` 又真实完成计划原恢复基线复用、Import、Verify、独立 HIGH Activation、缺确认
   零写入与完整 Logseq restart；run=`ACTIVATED`、objects=5、Pending 0，旧 UNDONE 和新
   VERIFIED batch 保留，reload 后 V1 只读且无 Import/Undo/Activate。Activation 正常主链
-  DONE；失败注入、Service 中断/不确定恢复、完成后全局入口收敛和 Light/窄栏仍 OPEN；
-  Restore 失败注入及失败后的用户层 Recovery 仍 OPEN；
+  DONE；`2beb1b5` 又在完整 restart 后证明 ACTIVATED 页面只保留只读交接台账和
+  Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 全部退出。失败注入、
+  Service 中断/不确定恢复和 Light/窄栏仍 OPEN；Restore 失败注入及失败后的用户层
+  Recovery 仍 OPEN；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

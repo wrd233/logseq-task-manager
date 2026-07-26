@@ -603,6 +603,6 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
    Rebind 中验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
    Review/Preview、恢复点/Import/Verify/Undo 与 HIGH Activation 正常主链；真实运行先以
    `MIGRATION_SNAPSHOT_CHANGED` 证明单恢复基线边界，再修复为复用/重验计划原快照。
-   当前正式对象 5、run ACTIVATED、Pending 0，完整 restart 后台账仍明确 V1 只读且无危险
-   主动作。继续失败注入、Service 中断恢复、完成后全局入口收敛与视觉 Gate，不得加入第二
-   迁移或恢复状态源。
+   当前正式对象 5、run ACTIVATED、Pending 0，`2beb1b5` 完整 restart 后只保留只读交接
+   台账与 Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 均退出。继续失败注入、
+   Service 中断恢复与视觉 Gate，不得加入第二迁移或恢复状态源。

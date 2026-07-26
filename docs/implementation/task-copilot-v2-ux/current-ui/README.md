@@ -120,6 +120,11 @@ HIGH 交接、缺确认零写、ACTIVATED 结果和完整 Logseq restart。V1 �
 `../logs/p2-g-migration-activation-automated-20260726.md` 与
 `../logs/p2-g-migration-activation-desktop-live-20260726.md`。
 
+`2beb1b5` 继续关闭完成后退出日常操作的缺口：ACTIVATED 页面不再显示新 Bundle scan、
+Review、Import、Undo 或 Activate，只保留一次性交接的只读台账与 Backup/Restore 路由。
+完整 restart 的 CURRENT `p2-g-43` 取代 `p2-g-42` 中仍可见扫描入口的完成态布局；迁移
+失败/中断恢复与视觉 Gate 继续 OPEN。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；

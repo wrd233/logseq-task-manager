@@ -46,9 +46,15 @@
 - `p2-g-40-migration-activation-confirmation-required-current-dark.png`
 - `p2-g-41-migration-activated-current-dark.png`
 - `p2-g-42-migration-activated-reload-current-dark.png`
+- `p2-g-43-migration-readonly-archive-current-dark.png`
 
 这些截图替代“Migration Activate 尚无当前 Desktop 证据”的旧结论，但不替代
 Migration failure/interruption、Light/窄栏或 P2-G 其他维护向导的未完成 Gate。
+
+`2beb1b5` 又以完整 Logseq restart 重拍
+`p2-g-43-migration-readonly-archive-current-dark.png`：顶部新 Bundle scan 已消失，
+VERIFIED batch 不再提供 Undo，页面只保留 V2 已启用、V1 只读的交接结论、历史批次和
+Backup/Restore 路由。SQLite 仍为 `ACTIVATED / objects 5 / pending 0`。
 
 ## 交互评估
 
