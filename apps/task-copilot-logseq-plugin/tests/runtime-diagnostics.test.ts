@@ -21,7 +21,12 @@ import { MODEL_PROJECT_REENTRY, PROJECT_PAGE_HEAD_UI_KEY } from "../src/project-
 function fakeBootstrap(): {
   host: BootstrapHost;
   toolbar: Array<{ key: string; template: string }>;
-  commands: Array<{ key: string; label: string; action: () => unknown }>;
+  commands: Array<{
+    key: string;
+    label: string;
+    keybinding?: { mode?: "global" | "non-editing" | "editing"; binding: string | string[] };
+    action: () => unknown;
+  }>;
   slashCommands: Array<{ label: string; action: () => unknown }>;
   blockContextMenus: Array<{ label: string; action: (event: { uuid: string }) => Promise<void> }>;
   pageContextMenus: Array<{ label: string; action: (event: { page: string }) => Promise<void> }>;
@@ -31,7 +36,12 @@ function fakeBootstrap(): {
   providedUi: Array<{ key: string; slot: string; template: string | null }>;
 } {
   const toolbar: Array<{ key: string; template: string }> = [];
-  const commands: Array<{ key: string; label: string; action: () => unknown }> = [];
+  const commands: Array<{
+    key: string;
+    label: string;
+    keybinding?: { mode?: "global" | "non-editing" | "editing"; binding: string | string[] };
+    action: () => unknown;
+  }> = [];
   const slashCommands: Array<{ label: string; action: () => unknown }> = [];
   const blockContextMenus: Array<{ label: string; action: (event: { uuid: string }) => Promise<void> }> = [];
   const pageContextMenus: Array<{ label: string; action: (event: { page: string }) => Promise<void> }> = [];
@@ -355,6 +365,16 @@ test("bootstrap registrar prevents duplicate registration and applies visible Ma
   assert.equal(registration.registerProjectPageHeadAction(fake.host, callbacks), false);
   assert.equal(fake.toolbar.length, 1);
   assert.equal(fake.commands.length, 6);
+  assert.deepEqual(
+    fake.commands
+      .filter((command) => command.keybinding)
+      .map(({ key, keybinding }) => ({ key, keybinding })),
+    [
+      { key: COMMAND_KEYS.processCurrentBlock, keybinding: { mode: "global", binding: [] } },
+      { key: COMMAND_KEYS.now, keybinding: { mode: "global", binding: [] } },
+      { key: COMMAND_KEYS.toggleCurrentBlockFocus, keybinding: { mode: "global", binding: [] } },
+    ],
+  );
   assert.deepEqual(fake.slashCommands.map(({ label }) => label), [
     "创建任务",
     "创建 MiniProject",

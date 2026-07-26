@@ -16,7 +16,14 @@ export interface BootstrapHost {
   };
   App: {
     registerUIItem(type: "toolbar", options: { key: string; template: string }): void;
-    registerCommandPalette(options: { key: string; label: string }, action: () => unknown): void;
+    registerCommandPalette(options: {
+      key: string;
+      label: string;
+      keybinding?: {
+        mode?: "global" | "non-editing" | "editing";
+        binding: string | string[];
+      };
+    }, action: () => unknown): void;
     registerPageMenuItem(label: string, action: (event: { page: string }) => Promise<void>): void;
     onPageHeadActionsSlotted(callback: (event: { slot: string }) => void): void;
   };
@@ -104,10 +111,22 @@ export class BootstrapRegistration {
   registerCommands(host: BootstrapHost, callbacks: BootstrapCallbacks): boolean {
     if (this.commandsRegistered) return false;
     host.App.registerCommandPalette({ key: COMMAND_KEYS.open, label: "Task Copilot：打开" }, callbacks.open);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.processCurrentBlock, label: "Task Copilot：处理当前 Block" }, callbacks.processCurrentBlock);
+    host.App.registerCommandPalette({
+      key: COMMAND_KEYS.processCurrentBlock,
+      label: "Task Copilot：处理当前 Block",
+      keybinding: { mode: "global", binding: [] },
+    }, callbacks.processCurrentBlock);
     host.App.registerCommandPalette({ key: COMMAND_KEYS.review, label: "Task Copilot：打开待我确认" }, callbacks.openReview);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.now, label: "Task Copilot：打开“现在”" }, callbacks.openNowWork);
-    host.App.registerCommandPalette({ key: COMMAND_KEYS.toggleCurrentBlockFocus, label: "Task Copilot：加入或移出当前关注" }, callbacks.toggleCurrentBlockFocus);
+    host.App.registerCommandPalette({
+      key: COMMAND_KEYS.now,
+      label: "Task Copilot：打开“现在”",
+      keybinding: { mode: "global", binding: [] },
+    }, callbacks.openNowWork);
+    host.App.registerCommandPalette({
+      key: COMMAND_KEYS.toggleCurrentBlockFocus,
+      label: "Task Copilot：加入或移出当前关注",
+      keybinding: { mode: "global", binding: [] },
+    }, callbacks.toggleCurrentBlockFocus);
     host.App.registerCommandPalette({ key: COMMAND_KEYS.diagnostics, label: "Task Copilot：系统状态与技术诊断" }, callbacks.diagnostics);
     host.Editor.registerSlashCommand("创建任务", callbacks.createTask);
     host.Editor.registerSlashCommand("创建 MiniProject", callbacks.createMiniProject);
