@@ -192,7 +192,7 @@ test("backup Restore review uses session tokens, explicit impact confirmation, a
   assert.match(html, /恢复并自动重启/);
   assert.match(html, /当前正式状态会保留为恢复点/);
   assert.match(html, /data-value="snapshot:0"/);
-  assert.doesNotMatch(html, /backup_[0-9]|RESTORE_AND_STOP_SERVICE|\\.db|objectId|SQLite 路径/);
+  assert.doesNotMatch(html, /backup_[0-9]|RESTORE_AND_STOP_SERVICE|\\.db|objectId|SQLite|Doctor|数据库路径|内部快照标识/);
 });
 
 test("global action failure language remains accurate when an operation was rolled back after starting", () => {

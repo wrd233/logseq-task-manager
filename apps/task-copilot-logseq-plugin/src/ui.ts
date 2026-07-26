@@ -1041,7 +1041,7 @@ function renderActionDialog(model: UiModel): string {
       }).join("")
       : `<div class="empty"><strong>还没有可恢复快照</strong><p>可先创建当前正式状态快照；这不会修改 Logseq 正文。</p></div>`;
     const selection = state.selectedToken
-      ? `<section class="restore"><h4>最终影响</h4><p>所选快照会替换当前 SQLite 正式状态；Logseq 正文不会被改写。切换前系统会自动保存当前状态为恢复点，并重启当前 Graph 的 Task Copilot。</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已确认所选时间和事项数量，并理解当前正式状态会保留为恢复点</label><div class="actions">${button("恢复并自动重启", "submit-backup-restore", state.selectedToken, "danger")}</div></section>`
+      ? `<section class="restore"><h4>最终影响</h4><p>所选快照会替换当前正式状态；Logseq 正文不会被改写。切换前系统会自动保存当前状态为恢复点，并重启当前 Graph 的 Task Copilot。</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已确认所选时间和事项数量，并理解当前正式状态会保留为恢复点</label><div class="actions">${button("恢复并自动重启", "submit-backup-restore", state.selectedToken, "danger")}</div></section>`
       : "";
     const activity = state.status === "validating" || state.status === "restoring"
       ? `<div class="notice" aria-live="polite">${escapeHtml(state.message ?? "正在处理…")}</div>`

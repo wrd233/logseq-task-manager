@@ -2227,10 +2227,17 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await apply();
       restoreRecoveryPrepared = false;
       message = "已恢复 Restore 前的正式状态并通过完整性检查；正在重新连接当前 Graph。";
-      await refreshServiceRuntime(configuredServiceDescriptorPath);
-      if (serviceConnection.status !== "READY") {
+      const recovered = await recoverConfiguredServiceRuntime(configuredServiceDescriptorPath);
+      featureReady = recovered;
+      diagnostics.setStoreStatus(recovered ? "READY" : "READ_ONLY_SAFE_MODE");
+      message = recovered
+        ? "Restore 前的正式状态已恢复；当前 Graph 已重新连接。"
+        : "恢复已完成，但当前 Graph 尚未重新连接；Logseq 正文仍可编辑。";
+      if (!recovered) {
         latestError = "恢复已完成，但当前 Graph 尚未恢复连接；请重新核验系统状态。";
       }
+      await refreshToolbarInterventionFacts();
+      await projectPageHeadActionController.refreshAll();
     } catch (error) {
       latestError = explain(error);
       message = "恢复未完成；安全锁保持，Logseq 正文仍可编辑。";
