@@ -83,9 +83,10 @@
 - [ ] Closure 从证据起草；只读 evidence model、Service route、Plugin preview 及真实
   Desktop reload/recompute 已覆盖正式 Project interface、直接 Ownership、unknown 和用户
   判断边界，并证明零 Proposal/Commit；Provider preflight/exact scope/one HIGH group 已自动
-  PASS，脱敏 real Flash model-contract 也通过 machine grounding；公共 formal-only route
-  因 Decision/Output 不允许归属 Project 仍无合法 happy-path，用户确认 session、Plugin
-  HIGH Review/Commit/Recovery/Undo 尚未闭环；
+  PASS，脱敏 real Flash model-contract 也通过 machine grounding；公共 route 已支持版本
+  绑定的 session-only 用户判断并自动生成 PENDING/HIGH Proposal，同时保持零 Commit/正式写入；
+  更新后的真实 Flash Gate 不再伪造 Decision Ownership，用户确认内容逐字守恒。Plugin 用户
+  判断与最终阅读、HIGH Review/Commit/Recovery/Undo 尚未闭环；
 - [ ] 跨对象候选有证据和数量上限；
 - [ ] LLM 不改变 Ownership/Focus；
 - [ ] Recovery 继续原 Commit；

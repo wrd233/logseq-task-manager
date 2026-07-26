@@ -129,3 +129,9 @@ future summary；Provider 只压缩“正式候选 + 用户确认”，Proposal 
 该方向符合“用户只处理真实判断”和既有外部 Agent Closure 合同，不构成需要立即交回用户的
 新产品取舍。若未来要求 Decision/Output 成为 Project 层级成员，再单独提出 Ownership 模型
 扩张方案和迁移影响。
+
+2026-07-26 实现结论：公共 Service Proposal route 已按上述推荐增加一次请求内、版本绑定的
+用户判断合同；判断不会独立持久化，只有经过 Provider exact-copy Validator 的 PENDING/HIGH
+Proposal 可进入既有 Review。合法 Task Ownership 夹具与不含 Decision Ownership 的真实
+Flash Gate 均通过；formal-only 缺 Decision 证据仍在 Provider 前拒绝。该结论关闭
+`PUBLIC_ROUTE_GAP`，但不关闭 Plugin、Commit、Recovery、Undo 或 Desktop Gate。

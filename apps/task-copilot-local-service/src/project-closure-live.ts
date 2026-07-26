@@ -7,6 +7,7 @@ import { StructuredError } from "@task-copilot/shared";
 import { LocalLlmProposalGenerator, type StructuredProposalProvider } from "./llm-proposal.ts";
 import {
   buildProjectClosureProposalPrompt,
+  type ProjectClosureUserJudgments,
   validateGeneratedProjectClosureProposal,
 } from "./project-closure-provider.ts";
 import { loadStructuredProviderFromEnvironment } from "./provider-runtime.ts";
@@ -68,11 +69,7 @@ export function buildSanitizedProjectClosureEvidence(): ProjectClosureEvidenceDr
       sourceRefs: ["object:project-release-live@v4#project-structure/deliverables/runbook"],
       evidenceKind: "PROJECT_STRUCTURE",
     }],
-    decisionCandidates: [{
-      text: "保留人工回退开关直到历史回放完成",
-      sourceRefs: ["object:decision-rollback-live@v2"],
-      evidenceKind: "OWNED_OBJECT",
-    }],
+    decisionCandidates: [],
     completedWorkCandidates: [{
       text: "完成一次恢复演练并保留核对记录",
       sourceRefs: ["object:task-rehearsal-live@v3"],
@@ -108,9 +105,25 @@ export function buildSanitizedProjectClosureEvidence(): ProjectClosureEvidenceDr
     unknowns: [
       { code: "ACTUAL_RESULT_REQUIRES_CONFIRMATION", text: "实际结果仍需用户确认。" },
       { code: "OBJECTIVE_COMPLETION_NOT_INFERRED", text: "恢复演练证据不等于 Objective 已完成。" },
+      { code: "KEY_DECISION_EVIDENCE_MISSING", text: "没有直接归属 Decision 证据。" },
     ],
     evidenceScopeHash: "liveclosure1",
     authorityBoundary: "READ_ONLY_EVIDENCE_DRAFT",
+  };
+}
+
+export function buildSanitizedProjectClosureUserJudgments(): ProjectClosureUserJudgments {
+  return {
+    actualResult: "发布与回退操作手册已可用于演练；Objective 仍按本次确认保留为未完成。",
+    objectiveDispositions: [{
+      objectiveId: "objective-release",
+      disposition: "INCOMPLETE",
+      reason: "补齐历史发布事件回放尚未完成。",
+      nextStep: "取得可回放样本后完成补齐历史发布事件回放并重新核对 Objective。",
+    }],
+    legacyDisposition: "补齐历史发布事件回放继续作为明确遗留，不在关闭时丢弃。",
+    keyDecisions: ["继续保留人工回退开关直到历史回放完成"],
+    futureSummary: "未来重入时先核对补齐历史发布事件回放与人工回退开关。",
   };
 }
 
@@ -142,6 +155,7 @@ export async function runProjectClosureLiveGate(
     throw liveError("PROJECT_CLOSURE_LIVE_GATE_DISABLED", "未显式开启 Project Closure live gate；没有解析凭据或发起网络请求。");
   }
   const evidence = buildSanitizedProjectClosureEvidence();
+  const userJudgments = buildSanitizedProjectClosureUserJudgments();
   const [coreSkill, designProjectSkill] = await Promise.all([
     readTaskCopilotSkill("task-copilot-core"),
     readTaskCopilotSkill("design-project"),
@@ -151,18 +165,17 @@ export async function runProjectClosureLiveGate(
   const generated = await generator.generate({
     proposalId: "prop_project_closure_live",
     createdAt: "2026-07-26T08:00:00.000Z",
-    prompt: buildProjectClosureProposalPrompt({ evidence, coreSkill, designProjectSkill }),
+    prompt: buildProjectClosureProposalPrompt({ evidence, coreSkill, designProjectSkill, userJudgments }),
   });
   if (generated.kind !== "PROPOSAL") {
     throw liveError("PROJECT_CLOSURE_LIVE_EXPECTED_PROPOSAL", "脱敏充分证据没有产生可审阅 Closure Proposal。");
   }
-  validateGeneratedProjectClosureProposal(generated.proposal, evidence);
+  validateGeneratedProjectClosureProposal(generated.proposal, evidence, userJudgments);
   const group = generated.proposal.groups[0]!;
   const closure = group.semanticOperations[0]!.payload.closure as V2ProjectClosure;
   const visible = frontstageText(generated);
   const forbiddenIdentity = [
     evidence.project.objectId,
-    "decision-rollback-live",
     "task-rehearsal-live",
     "task-history-live",
     evidence.evidenceScopeHash,

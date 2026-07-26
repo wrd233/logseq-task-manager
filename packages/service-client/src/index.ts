@@ -634,6 +634,17 @@ export interface ServiceProjectClosureEvidenceDraft {
   authorityBoundary: "READ_ONLY_EVIDENCE_DRAFT";
 }
 
+export interface ServiceProjectClosureUserJudgments {
+  actualResult: string;
+  objectiveDispositions: Array<
+    | { objectiveId: string; disposition: "COMPLETED" }
+    | { objectiveId: string; disposition: "INCOMPLETE"; reason: string; nextStep: string }
+  >;
+  legacyDisposition: string;
+  keyDecisions: string[];
+  futureSummary: string;
+}
+
 export type ServiceProjectClosureProposalResult =
   | {
       kind: "NO_PROPOSAL";
@@ -1113,7 +1124,7 @@ export class LocalServiceClient {
     });
   }
 
-  createProjectClosureProposal(objectId: string, input: { expectedVersion: number }): Promise<ServiceProjectClosureProposalResult> {
+  createProjectClosureProposal(objectId: string, input: { expectedVersion: number; userJudgments?: ServiceProjectClosureUserJudgments }): Promise<ServiceProjectClosureProposalResult> {
     return this.request<ServiceProjectClosureProposalResult>(`/objects/${encodeURIComponent(objectId)}/project-closure/proposal`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     }, 125_000);

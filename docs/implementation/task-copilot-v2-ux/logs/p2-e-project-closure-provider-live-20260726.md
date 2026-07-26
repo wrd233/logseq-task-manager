@@ -2,10 +2,11 @@
 
 ## Status
 
-`REAL_PROVIDER_MODEL_CONTRACT_PASS / PUBLIC_SERVICE_HAPPY_PATH_OPEN`
+`REAL_PROVIDER_USER_CONFIRMED_MODEL_CONTRACT_PASS / PUBLIC_SERVICE_PROPOSAL_AUTOMATED`
 
-This is a sanitized, real-Provider quality gate. It is not Desktop evidence and does not claim a
-public Service happy-path, Proposal persistence, Review, Commit, Recovery or Undo.
+This is a sanitized, real-Provider quality gate. The public Service user-confirmed Proposal path is
+covered separately by automated integration evidence. This file is not Desktop evidence and does
+not claim Plugin UI, Review, Commit, Recovery or Undo.
 
 ## Input and privacy boundary
 
@@ -27,14 +28,18 @@ public Service happy-path, Proposal persistence, Review, Commit, Recovery or Und
 3. `design-project` was upgraded to `1.3.0`, and the runtime Prompt added a machine-readable
    `groundingContract`: exact original goal, allowed deliverables/Decisions, required incomplete
    Objectives and each exact legacy item. The third real response passed.
+4. The synthetic fixture was then corrected to match the frozen V2 ownership matrix: it contains
+   no directly Project-owned Decision. A bounded user-confirmation contract supplies the actual
+   result, Objective disposition, legacy handling, key Decision and future summary. The fourth real
+   response passed the same production Validator without changing any confirmed field.
 
 ## Passing result
 
 - Provider/model: `deepseek` / `deepseek-v4-flash`
 - Attempts: `1`
-- Provider duration: about `24.1 s`
-- Tokens: prompt `3278`, completion `2583`, total `5861`
-- Proposal: one HIGH group, zero text patches, four read targets, one Project modify target
+- Provider duration: about `22.6 s`
+- Tokens: prompt `3500`, completion `2148`, total `5648`
+- Proposal: one HIGH group, zero text patches, three read targets, one Project modify target
 - Operations: exactly `UPDATE_PROJECT_INTERFACE` + `TRANSITION_LIFECYCLE(COMPLETED)`
 - Objective completion not inferred: PASS
 - exact evidence grounding: PASS
@@ -44,22 +49,20 @@ public Service happy-path, Proposal persistence, Review, Commit, Recovery or Und
 - Graph writes: `0`
 - formal Store writes: `0`
 
-## Public-chain gap discovered
+## Public-chain conclusion
 
-The current deterministic evidence draft expects directly owned Decision/Output candidates, but
-the frozen V2 type matrix deliberately allows Primary Ownership only for work hierarchy objects:
-Decision and Output have no allowed Primary Owner. A legal public command chain therefore cannot
-produce the current Provider precondition.
+The frozen V2 type matrix deliberately allows Primary Ownership only for work hierarchy objects:
+Decision and Output have no allowed Primary Owner. Ownership was not widened. The formal-only route
+therefore still fails before the Provider when key Decision evidence is missing.
 
-The implementation must not widen Ownership merely to make this Gate pass. The next safe vertical
-slice is a session-only user-confirmed Closure draft. Formal evidence remains candidate material;
-the user confirms actual result, Objective disposition, legacy handling, key Decisions and future
-summary; the Provider compresses those bounded inputs; only the resulting HIGH Proposal may enter
-Review.
+The public route now supports a bounded, version-bound, session-only user confirmation. Formal
+evidence remains candidate material; the user confirms actual result, Objective disposition,
+legacy handling, key Decisions and future summary; the Provider must copy those judgments exactly;
+only the resulting HIGH Proposal may enter Review. Automated integration proves this route creates
+no Commit or formal Object mutation.
 
 ## Remaining
 
-- public Service/session contract for user-confirmed judgments;
 - Plugin loading/error/stale/NO_PROPOSAL and final reading;
 - HIGH Review, accepted-not-applied, final Commit;
 - injected failure, Recovery, reload and dedicated Undo;

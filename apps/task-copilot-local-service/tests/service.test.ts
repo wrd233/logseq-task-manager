@@ -123,6 +123,79 @@ const proposalPrompt: V2PromptBundle = {
   runtimeContext: { version: "block-v1", content: "普通正文" },
 };
 
+async function userConfirmedProjectClosureCompletion(
+  request: Parameters<StructuredProposalProvider["completeStructured"]>[0],
+): Promise<Awaited<ReturnType<StructuredProposalProvider["completeStructured"]>>> {
+  const runtime = JSON.parse(request.user.slice(request.user.indexOf("\n") + 1)) as {
+    exactReadScope: V2Proposal["scope"]["read"];
+    exactModifyScope: V2Proposal["scope"]["modify"];
+    userJudgments: {
+      actualResult: string;
+      objectiveDispositions: Array<{ objectiveId: string; disposition: string; reason?: string; nextStep?: string }>;
+      legacyDisposition: string;
+      keyDecisions: string[];
+      futureSummary: string;
+    };
+  };
+  const target = runtime.exactModifyScope[0]!;
+  const incomplete = runtime.userJudgments.objectiveDispositions.find(({ disposition }) => disposition === "INCOMPLETE")!;
+  return {
+    value: {
+      title: "审阅发布治理 Closure",
+      context: "正式证据与用户判断已准备好。",
+      understanding: "目标仍有明确遗留，关闭后继续承接。",
+      objective: "形成 Closure 并完成 Project。",
+      logic: "Closure 与 Lifecycle 在同一 HIGH 组审阅。",
+      finalPreview: "发布治理将按用户确认的结果与遗留进入最终审阅。",
+      unresolvedQuestions: [],
+      scope: { read: runtime.exactReadScope, modify: runtime.exactModifyScope },
+      preconditions: ["Project 仍为 OPEN，且证据范围未变化。"],
+      groups: [{
+        groupId: "close-project",
+        explanation: "Closure 与完成不可拆分。",
+        risk: "HIGH",
+        independentlyAcceptable: true,
+        dependencies: [],
+        textPatches: [],
+        semanticOperations: [
+          {
+            operationId: "record-closure",
+            kind: "UPDATE_PROJECT_INTERFACE",
+            target,
+            summary: "记录结构化 Closure",
+            payload: {
+              closure: {
+                originalGoal: "稳定发布",
+                actualResult: runtime.userJudgments.actualResult,
+                majorDeliverables: ["发布手册"],
+                incompleteObjectives: [{
+                  objective: "稳定发布",
+                  reason: incomplete.reason,
+                  nextStep: incomplete.nextStep,
+                }],
+                legacyDisposition: runtime.userJudgments.legacyDisposition,
+                keyDecisions: runtime.userJudgments.keyDecisions,
+                futureSummary: runtime.userJudgments.futureSummary,
+              },
+            },
+            preconditions: [],
+          },
+          {
+            operationId: "complete-project",
+            kind: "TRANSITION_LIFECYCLE",
+            target,
+            summary: "完成 Project",
+            payload: { lifecycle: "COMPLETED" },
+            preconditions: [],
+          },
+        ],
+        disposition: "PENDING",
+      }],
+    },
+    metadata: { requestId: "closure-user-confirmed", model: "test-model", finishReason: "stop", totalTokens: 321, durationMs: 9, attempts: 1 },
+  };
+}
+
 test("Local Service is loopback-only, authenticated, and reports one SQLite authority", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-"));
   let closed = false;
@@ -2677,7 +2750,7 @@ test("Project Closure Provider route refuses incomplete formal evidence before c
     completeStructured: async () => {
       providerCalls += 1;
       return {
-        value: { decision: "NO_PROPOSAL", reason: "should not be called" },
+        value: { decision: "NO_PROPOSAL", reason: "preflight should reject before Provider call" },
         metadata: { requestId: "unexpected", model: "test-model", finishReason: "stop", totalTokens: 1, durationMs: 1, attempts: 1 },
       };
     },
@@ -2717,12 +2790,9 @@ test("Project Closure Provider does not reinterpret legally owned work as missin
   const proposalGenerator = new LocalLlmProposalGenerator({
     providerId: "deepseek",
     providerVersion: "chat-completions-v1",
-    completeStructured: async () => {
+    completeStructured: async (request) => {
       providerCalls += 1;
-      return {
-        value: { decision: "NO_PROPOSAL", reason: "should not be called" },
-        metadata: { requestId: "unexpected", model: "test-model", finishReason: "stop", totalTokens: 1, durationMs: 1, attempts: 1 },
-      };
+      return userConfirmedProjectClosureCompletion(request);
     },
   });
   const service = await startLocalService({
@@ -2799,6 +2869,31 @@ test("Project Closure Provider does not reinterpret legally owned work as missin
   assert.deepEqual(await client.listProposals(), beforeProposals);
   assert.deepEqual(await client.getObject(structured.object.objectId), beforeProject);
   assert.equal(beforeProject?.lifecycle, "OPEN");
+
+  const beforeCommits = await client.listSemanticCommits();
+  const result = await client.createProjectClosureProposal(structured.object.objectId, {
+    expectedVersion: structured.object.version,
+    userJudgments: {
+      actualResult: "发布手册已可使用；Objective 是否完成仍按本次确认记录。",
+      objectiveDispositions: [{
+        objectiveId: "objective-release",
+        disposition: "INCOMPLETE",
+        reason: "核对回退开关仍未完成。",
+        nextStep: "关闭后继续完成核对回退开关。",
+      }],
+      legacyDisposition: "核对回退开关继续作为明确遗留，不在关闭时丢弃。",
+      keyDecisions: ["继续保留人工回退开关"],
+      futureSummary: "未来重入时先核对回退开关与发布手册使用情况。",
+    },
+  });
+  assert.equal(providerCalls, 1);
+  assert.equal(result.kind, "PROPOSAL");
+  if (result.kind !== "PROPOSAL") return;
+  assert.equal(result.record.proposal.source.kind, "local_llm");
+  assert.equal(result.record.proposal.groups[0]?.risk, "HIGH");
+  assert.equal(result.record.proposal.groups[0]?.disposition, "PENDING");
+  assert.deepEqual(await client.listSemanticCommits(), beforeCommits, "user-confirmed Provider draft still cannot create a Commit");
+  assert.deepEqual(await client.getObject(structured.object.objectId), beforeProject, "user-confirmed Provider draft cannot complete the Project");
 });
 
 test("reviewed Project current interface commits one versioned aggregate and rejects stale overwrite", async (t) => {

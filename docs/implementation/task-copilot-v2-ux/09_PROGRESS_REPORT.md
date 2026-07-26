@@ -545,10 +545,18 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   遗留项未逐字保留被安全拒绝；增加 runtime `groundingContract` 后第三轮 1 attempt、
   约 24.1 秒、5861 tokens PASS：唯一 HIGH 组、4 read/1 modify、固定 Closure +
   COMPLETED 两操作、前台无机器 identity、Graph/Store 写入 0。该结果明确标为
-  `MODEL_CONTRACT_ONLY`。公共 route 的正式 happy-path 仍不可达：领域矩阵禁止
-  Decision/Output → Project Primary Ownership，而当前 evidence draft 依赖这种关系。
-  下一步保留 Ownership 边界，新增 session-only 用户确认后再进入 Review。Local Service
-  `143/143`、typecheck 与根级 `./scripts/check.sh` PASS；
+  `MODEL_CONTRACT_ONLY`。领域矩阵禁止 Decision/Output → Project Primary Ownership，
+  所以 formal-only route 继续在网络前拒绝，不伪造直属 Decision；
+- P2-E session-only 用户判断已经进入公共 Service Proposal route：请求只接受同版本 Project
+  与严格有界的 actual result、逐 Objective disposition、legacy、key Decisions 和 future
+  summary；Service 从 SQLite 重建 evidence 后重验这些判断，Provider 只能逐字复制到唯一
+  PENDING/HIGH Closure Proposal。自动 public happy-path 已证明 Project 保持 OPEN、
+  SemanticCommit/Graph 写入为 0；缺用户判断的非法正式证据仍 `providerCalls=0`。更新后的
+  脱敏 real Flash Gate 不再构造 Decision Ownership，使用 3 read/1 modify，1 attempt、
+  约 22.6 秒、5648 tokens PASS，用户判断未被模型改写且前台无机器 identity。该证据仍是
+  `MODEL_CONTRACT_ONLY`，Plugin 最终阅读、loading/error/stale、HIGH Review/Commit、
+  Recovery/Undo 与当前 Desktop 未完成。Local Service `144/144`、Service Client `12/12`
+  与根级 `./scripts/check.sh` PASS；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -558,11 +566,10 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-E：把只读 evidence 的真实用户判断收敛为 session-only Closure draft，使
-   Key Decision、actual result、Objective disposition、遗留去向和 future summary 都有
-   用户确认来源；随后让 Provider 只压缩这些正式候选与确认，进入 HIGH Review，并闭环
-   Commit/reload/Recovery/Undo。不得通过扩张 Primary Ownership 或伪造直属 Decision
-   来制造 happy-path；
+1. 继续 P2-E：把已通过自动与真实模型 Gate 的 session-only 用户确认接入 Plugin，形成
+   evidence 阅读 → 真实判断 → loading/error/stale → 最终阅读 → PENDING/HIGH Review，
+   随后闭环 Commit/reload/Recovery/Undo 与来源返回；不得通过扩张 Primary Ownership 或
+   伪造直属 Decision 来制造 happy-path；
 2. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
    把 Ownership、正文移动、批量子对象与拆分合并的既有安全链逐项映射到当前影响路由；
 3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H

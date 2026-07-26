@@ -33,7 +33,7 @@ import { GrillPreviewSessionStore } from "./grill-preview-session.ts";
 import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
 import { readLegacyRecoveryBundle, scanLegacyRecoveryBundle } from "./migration-scan.ts";
-import { buildProjectClosureProposalPrompt, validateGeneratedProjectClosureProposal } from "./project-closure-provider.ts";
+import { buildProjectClosureProposalPrompt, validateGeneratedProjectClosureProposal, validateProjectClosureUserJudgments, type ProjectClosureUserJudgments } from "./project-closure-provider.ts";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
@@ -645,6 +645,27 @@ async function readProjectClosureEvidenceRequest(request: IncomingMessage): Prom
     throw serviceError("PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "Project Closure evidence 请求必须只引用当前对象版本。");
   }
   return { expectedVersion: Number(record.expectedVersion) };
+}
+
+async function readProjectClosureProposalRequest(request: IncomingMessage): Promise<{
+  expectedVersion: number;
+  userJudgments?: ProjectClosureUserJudgments;
+}> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const keys = Object.keys(record).sort().join(",");
+  if (!["expectedVersion", "expectedVersion,userJudgments"].includes(keys)
+    || !Number.isSafeInteger(record.expectedVersion)
+    || Number(record.expectedVersion) < 1
+    || (record.userJudgments !== undefined && (!record.userJudgments || typeof record.userJudgments !== "object" || Array.isArray(record.userJudgments)))) {
+    throw serviceError("PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "Project Closure Proposal 只接受对象版本与有界用户判断。");
+  }
+  return {
+    expectedVersion: Number(record.expectedVersion),
+    ...(record.userJudgments ? { userJudgments: record.userJudgments as ProjectClosureUserJudgments } : {}),
+  };
 }
 
 async function readReasonedLifecycleProposalRequest(request: IncomingMessage): Promise<{ expectedVersion: number; action: "CANCEL" | "REOPEN"; reason: string }> {
@@ -1276,7 +1297,7 @@ function respondError(response: ServerResponse, error: unknown): void {
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
-    const uxInputError = ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID"].includes(error.code)
+    const uxInputError = ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "PROJECT_CLOSURE_USER_JUDGMENTS_INVALID"].includes(error.code)
       || error.code.startsWith("V2_PROJECT_CLOSURE_EVIDENCE_")
       || error.code.startsWith("PROJECT_CLOSURE_PROVIDER_");
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
@@ -4596,7 +4617,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (!options.proposalGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Proposal Provider；没有创建 Closure Proposal。");
       const objectId = decodeURIComponent(projectClosureProviderMatch[1]);
       if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(objectId)) throw serviceError("PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "Project Closure 对象 ID 无效。");
-      const input = await readProjectClosureEvidenceRequest(request);
+      const input = await readProjectClosureProposalRequest(request);
       const project = store.getObject(objectId);
       if (!project) throw serviceError("V2_OBJECT_NOT_FOUND", "Project 不存在。");
       const evidence = buildProjectClosureEvidenceDraft({
@@ -4605,12 +4626,15 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         objects: store.listObjects(),
         ownerships: store.listPrimaryOwnerships(),
       });
+      const userJudgments = input.userJudgments
+        ? validateProjectClosureUserJudgments(input.userJudgments, evidence)
+        : undefined;
       const [coreSkill, designProjectSkill] = await Promise.all([
         readTaskCopilotSkill("task-copilot-core"),
         readTaskCopilotSkill("design-project"),
       ]);
       if (!coreSkill || !designProjectSkill) throw serviceError("PROJECT_CLOSURE_PROVIDER_SKILL_UNAVAILABLE", "Project Closure 内置 Skill 不可用；没有调用 Provider。");
-      const prompt = buildProjectClosureProposalPrompt({ evidence, coreSkill, designProjectSkill });
+      const prompt = buildProjectClosureProposalPrompt({ evidence, coreSkill, designProjectSkill, ...(userJudgments ? { userJudgments } : {}) });
       const controller = new AbortController();
       const abort = (): void => controller.abort("client-disconnected");
       request.once("aborted", abort);
@@ -4645,7 +4669,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
           });
           return;
         }
-        validateGeneratedProjectClosureProposal(generated.proposal, evidence);
+        validateGeneratedProjectClosureProposal(generated.proposal, evidence, userJudgments);
         const submitted = await submitReviewProposal(generated.proposal, new Date(createdAt));
         respond(response, submitted.replayed ? 200 : 201, {
           kind: "PROPOSAL",

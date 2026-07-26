@@ -7,7 +7,9 @@ import type { V2Proposal } from "@task-copilot/domain";
 import {
   buildProjectClosureProposalPrompt,
   projectClosureEvidenceScope,
+  validateProjectClosureUserJudgments,
   validateGeneratedProjectClosureProposal,
+  type ProjectClosureUserJudgments,
 } from "../src/project-closure-provider.ts";
 import type { TaskCopilotSkillDocument } from "../src/skill-catalog.ts";
 
@@ -157,6 +159,21 @@ function proposal(): V2Proposal {
   };
 }
 
+function userJudgments(): ProjectClosureUserJudgments {
+  return {
+    actualResult: "发布手册已可使用；Objective 是否完成仍按本次确认记录。",
+    objectiveDispositions: [{
+      objectiveId: "objective-release",
+      disposition: "INCOMPLETE",
+      reason: "历史回放尚未完成。",
+      nextStep: "补齐历史回放后再次核对。",
+    }],
+    legacyDisposition: "补齐历史回放继续作为明确遗留，不在关闭时丢弃。",
+    keyDecisions: ["继续保留人工回退开关"],
+    futureSummary: "未来重入时先核对补齐历史回放与人工回退开关。",
+  };
+}
+
 test("Closure Provider prompt is evidence-bounded and carries exact machine scope", () => {
   const value = evidence();
   const prompt = buildProjectClosureProposalPrompt({ evidence: value, coreSkill, designProjectSkill: designSkill });
@@ -283,5 +300,72 @@ test("Closure Provider grounds deliverables, decisions, and unresolved Objective
     (error: unknown) => error instanceof Error
       && "code" in error
       && error.code === "PROJECT_CLOSURE_PROVIDER_UNRESOLVED_WORK_DROPPED",
+  );
+});
+
+test("user-confirmed Closure judgments unlock a review draft without inventing Decision ownership", () => {
+  const value = evidence();
+  value.decisionCandidates = [];
+  value.unknowns.push({ code: "KEY_DECISION_EVIDENCE_MISSING", text: "没有直接归属 Decision 证据。" });
+  const judgments = validateProjectClosureUserJudgments(userJudgments(), value);
+  const prompt = buildProjectClosureProposalPrompt({
+    evidence: value,
+    coreSkill,
+    designProjectSkill: designSkill,
+    userJudgments: judgments,
+  });
+  const runtime = JSON.parse(prompt.runtimeContext.content) as {
+    authorityBoundary: string;
+    userJudgments: ProjectClosureUserJudgments & { authority: string };
+    groundingContract: {
+      actualResultMustEqual: string;
+      keyDecisionsMustEqualExact: string[];
+      legacyDispositionMustEqual: string;
+      futureSummaryMustEqual: string;
+      incompleteObjectivesMustContainExact: string[];
+    };
+  };
+  assert.equal(runtime.authorityBoundary, "PROPOSAL_ONLY_NO_FORMAL_WRITE");
+  assert.equal(runtime.userJudgments.authority, "USER_CONFIRMED_FOR_REVIEW");
+  assert.deepEqual({
+    actualResultMustEqual: runtime.groundingContract.actualResultMustEqual,
+    keyDecisionsMustEqualExact: runtime.groundingContract.keyDecisionsMustEqualExact,
+    legacyDispositionMustEqual: runtime.groundingContract.legacyDispositionMustEqual,
+    futureSummaryMustEqual: runtime.groundingContract.futureSummaryMustEqual,
+    incompleteObjectivesMustContainExact: runtime.groundingContract.incompleteObjectivesMustContainExact,
+  }, {
+    actualResultMustEqual: judgments.actualResult,
+    keyDecisionsMustEqualExact: judgments.keyDecisions,
+    legacyDispositionMustEqual: judgments.legacyDisposition,
+    futureSummaryMustEqual: judgments.futureSummary,
+    incompleteObjectivesMustContainExact: ["稳定发布"],
+  });
+
+  const generated = proposal();
+  const closure = generated.groups[0]!.semanticOperations[0]!.payload.closure as {
+    actualResult: string;
+    incompleteObjectives: Array<{ objective: string; reason: string; nextStep: string }>;
+    legacyDisposition: string;
+    keyDecisions: string[];
+    futureSummary: string;
+  };
+  closure.actualResult = judgments.actualResult;
+  closure.incompleteObjectives = [{
+    objective: "稳定发布",
+    reason: "历史回放尚未完成。",
+    nextStep: "补齐历史回放后再次核对。",
+  }];
+  closure.legacyDisposition = judgments.legacyDisposition;
+  closure.keyDecisions = judgments.keyDecisions;
+  closure.futureSummary = judgments.futureSummary;
+  generated.scope.read = projectClosureEvidenceScope(value);
+  assert.equal(validateGeneratedProjectClosureProposal(generated, value, judgments).proposalId, generated.proposalId);
+
+  closure.actualResult = "模型改写了用户确认的实际结果。";
+  assert.throws(
+    () => validateGeneratedProjectClosureProposal(generated, value, judgments),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "PROJECT_CLOSURE_PROVIDER_USER_JUDGMENT_CHANGED",
   );
 });
