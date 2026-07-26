@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectCreationProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectCreationProposal, buildProjectNarrationProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -2004,6 +2004,119 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
           throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 在恢复草稿生成期间已变化；草稿已丢弃。");
         }
         respond(response, 200, { ...generated, contextFingerprint });
+      } finally {
+        request.removeListener("aborted", abort);
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/provider/ux/project-narration-proposal") {
+      const input = await readProjectContextRecoveryRequest(request);
+      const project = store.getObject(input.objectId);
+      if (!project) throw serviceError("V2_OBJECT_NOT_FOUND", "Project 当前摘要目标不存在。");
+      if (project.objectType !== "PROJECT" || project.lifecycle !== "OPEN" || !project.projectStructure) {
+        throw serviceError("UX_CONTEXT_PROJECT_REQUIRED", "Project 当前摘要只接受带当前接口的 OPEN Project。");
+      }
+      if (project.version !== input.expectedVersion) throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 已变化；没有调用 Provider。");
+      if (!options.uxOutputGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Unified UX Provider；没有生成摘要 Proposal。");
+      const [coreSkill, recoverySkill] = await Promise.all([
+        readTaskCopilotSkill("task-copilot-core"),
+        readTaskCopilotSkill("recover-context"),
+      ]);
+      if (!coreSkill || !recoverySkill) throw serviceError("UX_CONTEXT_SKILL_UNAVAILABLE", "Project 当前摘要内置 Skill 不可用。");
+      const contextPackage = buildContextPackage({
+        getObject: (objectId) => store.getObject(objectId),
+        listObjects: () => store.listObjects(),
+        listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
+        listAssociations: () => store.listAssociations(),
+        getActivePrimaryAnchorByObject: (objectId) => store.getActivePrimaryAnchorByObject(objectId),
+        databaseSchemaVersion: () => store.doctor().schemaVersion,
+      }, [coreSkill, recoverySkill], { kind: "project", id: project.objectId }, new Date());
+      const contextFingerprint = contextPackageFingerprint(contextPackage);
+      const objects = store.listObjects();
+      const proposals = await proposalApplication.list();
+      const proposalTargets = new Map(proposals.map((record) => {
+        const objectIds = new Set<string>();
+        for (const target of record.proposal.scope.modify) if (target.kind === "OBJECT") objectIds.add(target.id);
+        for (const group of record.proposal.groups) for (const operation of group.semanticOperations) {
+          if (operation.target.kind === "OBJECT") objectIds.add(operation.target.id);
+        }
+        return [record.proposal.proposalId, [...objectIds].sort()] as const;
+      }));
+      const commits: V2ReentryCommitFact[] = store.listSemanticCommits().map((commit) => ({
+        semanticCommitId: commit.semanticCommitId,
+        status: commit.status,
+        objectIds: commit.proposalId ? proposalTargets.get(commit.proposalId) ?? [] : [],
+        updatedAt: commit.updatedAt,
+      }));
+      const generation = buildProjectContextRecoveryGeneration({
+        observedAt: contextPackage.manifest.generatedAt,
+        project,
+        objects,
+        ownerships: store.listPrimaryOwnerships(),
+        associations: store.listAssociations(),
+        focus: store.listFocusSelections(),
+        anchors: objects.map(({ objectId }) => store.getActivePrimaryAnchorByObject(objectId)).filter((anchor): anchor is V2Anchor => anchor !== undefined),
+        commits,
+        contextPackage,
+        contextFingerprint,
+        coreSkill,
+        recoverySkill,
+      });
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        const narrationRuntime = JSON.parse(generation.request.runtimeContext.content) as {
+          uxAuthority?: { allowedNextActions?: unknown };
+          [key: string]: unknown;
+        };
+        const narrationRuntimeContext = stableJson({
+          ...narrationRuntime,
+          machinePurpose: "OPTIMIZE_CURRENT_SUMMARY_ONLY",
+          constraints: [
+            "The output summary is a candidate replacement for Project currentSummary.",
+            "Keep it concise, factual, and useful for reentry.",
+            "Do not suggest structural changes.",
+          ],
+          uxAuthority: {
+            ...(narrationRuntime.uxAuthority ?? {}),
+            allowedNextActions: [],
+          },
+        });
+        const generated = await options.uxOutputGenerator.generate({
+          ...generation.request,
+          minimumRiskLevel: "MEDIUM",
+          requiresReview: true,
+          allowedNextActions: [],
+          runtimeContext: {
+            version: `${generation.request.runtimeContext.version}:project-narration-v1`,
+            content: narrationRuntimeContext,
+          },
+          signal: controller.signal,
+        });
+        const latest = store.getObject(project.objectId);
+        if (!latest || latest.version !== input.expectedVersion) {
+          throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 在摘要生成期间已变化；草稿已丢弃。");
+        }
+        let proposal: V2Proposal;
+        try {
+          proposal = buildProjectNarrationProposal({
+            project: latest,
+            output: generated.output,
+            createdAt: generated.output.provenance.generatedAt,
+          });
+        } catch (error) {
+          throw serviceError("PROJECT_NARRATION_PROPOSAL_INVALID", error instanceof Error ? error.message : "Project 当前摘要 Proposal 无效。");
+        }
+        const submitted = await submitReviewProposal(proposal, new Date(proposal.createdAt));
+        respond(response, 200, {
+          record: submitted.record,
+          replayed: submitted.replayed,
+          provider: generated.provider,
+          promptBundleVersion: generated.promptBundleVersion,
+          contextFingerprint,
+          ...(generated.interactionId ? { interactionId: generated.interactionId } : {}),
+        });
       } finally {
         request.removeListener("aborted", abort);
       }

@@ -429,6 +429,85 @@ test("Project context recovery fails closed for missing Provider, unsupported ty
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "UX_CONTEXT_RECOVERY_REQUEST_INVALID");
 });
 
+test("Project narration uses bounded Provider output then Review, Commit, and Undo without changing structure", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-narration-"));
+  let providerCalls = 0;
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async ({ system, user }) => {
+      providerCalls += 1;
+      assert.match(system, /recover-context/);
+      assert.match(user, /OPTIMIZE_CURRENT_SUMMARY_ONLY/);
+      assert.match(user, /"allowedNextActions":\[\]/);
+      return {
+        value: {
+          schemaVersion: "task-copilot-ux-output-v1",
+          factRefs: ["project-recovery-summary"],
+          inferences: [],
+          unknowns: ["尚不能确认最终发布时间"],
+          summary: "Project 已建立，当前需要先明确目标和下一步。",
+          suggestedChanges: [],
+          nextActionEligible: false,
+          riskLevel: "MEDIUM",
+          requiresDiscussion: false,
+          requiresReview: true,
+        },
+        metadata: { model: "deepseek-chat", durationMs: 18, attempts: 1 },
+      };
+    },
+  };
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-narration",
+    token: "project-narration-token-at-least-24",
+    uxOutputGenerator: new LocalLlmUxOutputGenerator(provider),
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const intent = await client.prepareProject({ name: "发布治理", traceId: "project-narration-create" });
+  const created = await client.finalizeProject({
+    semanticCommitId: intent.semanticCommitId,
+    objectId: intent.objectId,
+    name: "发布治理",
+    pageExternalId: "page-project-narration",
+    pageContentHash: checksum(""),
+    traceId: "project-narration-finalize",
+  });
+  const before = created.object.projectStructure!;
+
+  const generated = await client.createProjectNarrationProposal({
+    objectId: created.object.objectId,
+    expectedVersion: created.object.version,
+  });
+  assert.equal(providerCalls, 1);
+  assert.equal(generated.record.proposal.groups[0]?.risk, "MEDIUM");
+  assert.equal(generated.record.proposal.groups[0]?.semanticOperations[0]?.kind, "UPDATE_PROJECT_NARRATION");
+  assert.equal((await client.getObject(created.object.objectId))?.projectStructure?.currentSummary, before.currentSummary);
+
+  const reviewed = await client.reviewProposal(generated.record.proposal.proposalId, {
+    "update-project-narration": { disposition: "ACCEPTED" },
+  }, generated.record.updatedAt);
+  const committed = await client.commitProjectStructure(reviewed.proposal.proposalId, {
+    expectedUpdatedAt: reviewed.updatedAt,
+    confirmation: "UPDATE_PROJECT_INTERFACE",
+    observations: [],
+    traceId: "project-narration-commit",
+  });
+  assert.equal(committed.status, "COMPLETED");
+  if (committed.status !== "COMPLETED") return;
+  assert.equal(committed.object.projectStructure?.currentSummary, "Project 已建立，当前需要先明确目标和下一步。");
+  assert.deepEqual(committed.object.projectStructure?.currentFocuses, before.currentFocuses);
+  assert.deepEqual(committed.object.projectStructure?.objectives, before.objectives);
+
+  const undone = await client.undoProjectStructure(committed.semanticCommitId, {
+    confirmation: "UNDO_PROJECT_INTERFACE",
+    traceId: "project-narration-undo",
+  });
+  assert.equal(undone.object.projectStructure?.currentSummary, before.currentSummary);
+  assert.deepEqual(undone.object.projectStructure?.currentFocuses, before.currentFocuses);
+});
+
 test("Project Creation Grill uses Blank, Page, or MiniProject sources and rejects stale Graph material without creating new formal state", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-creation-grill-"));
   let providerCalls = 0;

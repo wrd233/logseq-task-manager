@@ -146,6 +146,15 @@ export interface ServiceProjectContextRecoveryResult {
   interactionId?: string;
 }
 
+export interface ServiceProjectNarrationProposalResult {
+  record: ServiceStoredProposal;
+  replayed: boolean;
+  provider: ServiceProviderCompletionMetadata;
+  promptBundleVersion: string;
+  contextFingerprint: string;
+  interactionId?: string;
+}
+
 export interface ServiceMiniProjectGrillRequest {
   objectId: string;
   expectedVersion: number;
@@ -1132,6 +1141,14 @@ export class LocalServiceClient {
 
   recoverProjectContext(input: ServiceProjectContextRecoveryRequest): Promise<ServiceProjectContextRecoveryResult> {
     return this.request<ServiceProjectContextRecoveryResult>("/provider/ux/project-context-recovery", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }, 125_000);
+  }
+
+  createProjectNarrationProposal(input: ServiceProjectContextRecoveryRequest): Promise<ServiceProjectNarrationProposalResult> {
+    return this.request<ServiceProjectNarrationProposalResult>("/provider/ux/project-narration-proposal", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

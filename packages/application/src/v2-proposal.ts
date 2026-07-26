@@ -16,7 +16,7 @@ import {
   validateV2MiniProjectClosure,
   validateV2ProjectStructure,
 } from "@task-copilot/domain";
-import { StructuredError } from "@task-copilot/shared";
+import { StructuredError, stableJson } from "@task-copilot/shared";
 
 export interface V2StoredProposalRecord {
   proposal: V2Proposal;
@@ -221,15 +221,31 @@ export function planAcceptedV2ProjectStructure(proposal: V2Proposal): V2ProjectS
   if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) throw proposalApplicationError("V2_PROJECT_STRUCTURE_COMMIT_SHAPE_INVALID", "Project 当前接口必须是唯一已接受的高影响语义组。");
   const group = accepted[0]!;
   if (proposal.groups.some((candidate) => candidate.groupId !== group.groupId && candidate.disposition !== "REJECTED")) throw proposalApplicationError("V2_PROJECT_STRUCTURE_OTHER_GROUPS_UNRESOLVED", "更新 Project 当前接口前必须拒绝其余未提交语义组。");
-  const updates = group.semanticOperations.filter((operation) => operation.kind === "UPDATE_PROJECT_INTERFACE");
-  if (group.risk !== "HIGH" || group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || updates.length !== 1) throw proposalApplicationError("V2_PROJECT_STRUCTURE_COMMIT_OPERATION_INVALID", "Project 当前接口必须是独立 HIGH 组中的单一领域变更。");
+  const updates = group.semanticOperations.filter((operation) => operation.kind === "UPDATE_PROJECT_INTERFACE" || operation.kind === "UPDATE_PROJECT_NARRATION");
+  if (group.textPatches.length !== 0 || group.semanticOperations.length !== 1 || updates.length !== 1) throw proposalApplicationError("V2_PROJECT_STRUCTURE_COMMIT_OPERATION_INVALID", "Project 当前接口必须是独立语义组中的单一领域变更。");
   const update = updates[0]!;
+  if (update.kind === "UPDATE_PROJECT_INTERFACE" && group.risk !== "HIGH") throw proposalApplicationError("V2_PROJECT_STRUCTURE_COMMIT_OPERATION_INVALID", "完整 Project 当前接口必须以 HIGH 独立审阅。");
+  if (update.kind === "UPDATE_PROJECT_NARRATION" && group.risk !== "MEDIUM") throw proposalApplicationError("V2_PROJECT_NARRATION_COMMIT_OPERATION_INVALID", "Project 当前叙述必须以 MEDIUM 独立审阅。");
   const objectTargets = proposal.scope.modify.filter((target) => target.kind === "OBJECT" && target.id === update.target.id && target.version !== undefined);
   if (update.target.kind !== "OBJECT" || update.target.version === undefined || objectTargets.length !== 1 || objectTargets[0]!.version !== update.target.version) throw proposalApplicationError("V2_PROJECT_STRUCTURE_COMMIT_TARGET_INVALID", "Project 当前接口必须指向同一个带版本 Project。");
   const structure = update.payload.projectStructure;
   const previousStructure = update.payload.previousProjectStructure;
   if (!structure || typeof structure !== "object" || Array.isArray(structure) || !previousStructure || typeof previousStructure !== "object" || Array.isArray(previousStructure)) throw proposalApplicationError("V2_PROJECT_STRUCTURE_PAYLOAD_INVALID", "Project 当前接口 payload 必须包含审阅前后的完整结构。");
-  return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: update.target.id, expectedVersion: update.target.version, structure: validateV2ProjectStructure(structure as unknown as V2ProjectStructure), previousStructure: validateV2ProjectStructure(previousStructure as unknown as V2ProjectStructure) };
+  const validatedStructure = validateV2ProjectStructure(structure as unknown as V2ProjectStructure);
+  const validatedPreviousStructure = validateV2ProjectStructure(previousStructure as unknown as V2ProjectStructure);
+  if (update.kind === "UPDATE_PROJECT_NARRATION") {
+    const structuralPart = ({ objectives, deliverables, workStages, stageMappings }: V2ProjectStructure) => ({ objectives, deliverables, workStages, stageMappings });
+    if (stableJson(structuralPart(validatedStructure)) !== stableJson(structuralPart(validatedPreviousStructure))) {
+      throw proposalApplicationError("V2_PROJECT_NARRATION_SCOPE_VIOLATION", "MEDIUM Project 叙述不能修改 Objectives、Deliverables、Work Stages 或映射。");
+    }
+    if (
+      validatedStructure.currentSummary === validatedPreviousStructure.currentSummary
+      && stableJson(validatedStructure.currentFocuses) === stableJson(validatedPreviousStructure.currentFocuses)
+    ) {
+      throw proposalApplicationError("V2_PROJECT_NARRATION_NO_CHANGE", "Project 当前叙述没有可应用变化。");
+    }
+  }
+  return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: update.target.id, expectedVersion: update.target.version, structure: validatedStructure, previousStructure: validatedPreviousStructure };
 }
 
 export function planAcceptedV2LifecycleTransition(proposal: V2Proposal): V2LifecycleTransitionPlan {

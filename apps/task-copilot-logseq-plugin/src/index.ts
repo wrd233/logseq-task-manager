@@ -197,6 +197,7 @@ let v2RebindPanel: V2RebindPanelState = { status: "idle" };
 let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
 let v2ProviderRevisionBusy = false;
+let v2ProjectNarrationBusy = false;
 const projectContextRecoveryController = new ProjectContextRecoveryController(
   () => ({
     ...(serviceRuntimeClient ? { client: serviceRuntimeClient } : {}),
@@ -558,6 +559,7 @@ async function model(): Promise<UiModel> {
     v2ProviderAvailable: serviceConnection.status === "READY" && serviceConnection.capabilities.provider && Boolean(serviceRuntimeClient),
     v2ProviderState,
     v2ProviderRevisionBusy,
+    v2ProjectNarrationBusy,
     ...(v2LowRiskApplyBusyProposalId ? { v2LowRiskApplyBusyProposalId } : {}),
     reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
@@ -1965,6 +1967,50 @@ async function handleAction(action: string, value?: string): Promise<void> {
     workspace = "objects";
     message = "请在“关联两个正式对象”中选择目标；这里只建立普通 Association，不改变主归属、位置、Lifecycle 或 Focus。";
     await refresh();
+    return;
+  }
+  if (action === "v2-project-narration-propose" && value) {
+    if (v2ProjectNarrationBusy) return;
+    const [objectId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    v2ProjectNarrationBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (
+          !client?.createProjectNarrationProposal
+          || serviceConnection.status !== "READY"
+          || !serviceConnection.formalWritesAvailable
+          || !serviceConnection.capabilities.provider
+          || !objectId
+          || !Number.isSafeInteger(expectedVersion)
+        ) {
+          throw new Error("Project 当前摘要 Provider 或正式审阅链未就绪；没有生成 Proposal。");
+        }
+        const current = (await client.listObjects()).find((object) => object.objectId === objectId);
+        if (
+          !current
+          || current.objectType !== "PROJECT"
+          || current.lifecycle !== "OPEN"
+          || current.version !== expectedVersion
+          || !current.projectStructure
+        ) {
+          actionDialog = undefined;
+          throw new Error("Project 已变化、关闭或不存在；没有调用 Provider。");
+        }
+        const result = await client.createProjectNarrationProposal({ objectId, expectedVersion });
+        actionDialog = undefined;
+        workspace = "review";
+        reviewMode = "proposals";
+        message = result.replayed
+          ? "已打开相同证据下的当前摘要 Proposal；正式 Project 未改变。"
+          : "Copilot 当前摘要建议已进入“待我确认”；结构和正文未改变，请审阅后再应用。";
+      });
+    } finally {
+      v2ProjectNarrationBusy = false;
+      await refresh();
+    }
     return;
   }
   if (action === "v2-project-structure-open" && value) return openActionDialog("v2-project-structure-edit", value);

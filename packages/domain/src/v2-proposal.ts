@@ -5,7 +5,7 @@ export type V2ProposalSourceKind = "local_llm" | "external_agent" | "user" | "mi
 export type V2ProposalRisk = "LOW" | "MEDIUM" | "HIGH";
 export type V2ProposalGroupDisposition = "PENDING" | "ACCEPTED" | "REJECTED" | "DEFERRED";
 export type V2ProposalStatus = "DRAFT" | "READY" | "IN_REVIEW" | "PARTIALLY_ACCEPTED" | "ACCEPTED" | "REJECTED" | "STALE" | "APPLIED" | "FAILED" | "SUPERSEDED";
-export type V2ProposalOperationKind = "REWRITE_BLOCK" | "CREATE_BLOCK" | "CREATE_OBJECT" | "CHANGE_OBJECT_TYPE" | "CHANGE_OWNERSHIP" | "CREATE_DECISION" | "CREATE_OUTPUT" | "MOVE_BLOCK" | "TRANSITION_LIFECYCLE" | "REBIND_ANCHOR" | "UPDATE_PROJECT_INTERFACE" | "DELETE_CONTENT";
+export type V2ProposalOperationKind = "REWRITE_BLOCK" | "CREATE_BLOCK" | "CREATE_OBJECT" | "CHANGE_OBJECT_TYPE" | "CHANGE_OWNERSHIP" | "CREATE_DECISION" | "CREATE_OUTPUT" | "MOVE_BLOCK" | "TRANSITION_LIFECYCLE" | "REBIND_ANCHOR" | "UPDATE_PROJECT_INTERFACE" | "UPDATE_PROJECT_NARRATION" | "DELETE_CONTENT";
 
 export interface V2ProposalScopeTarget {
   kind: "BLOCK" | "PAGE" | "OBJECT";
@@ -90,7 +90,7 @@ export type V2ProposalGroupDecision =
   | { disposition: "DEFERRED"; deferredUntil: string; reason: string };
 
 const highImpactOperations = new Set<V2ProposalOperationKind>(["CREATE_BLOCK", "CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "MOVE_BLOCK", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "DELETE_CONTENT"]);
-const proposalOperationKinds = new Set<V2ProposalOperationKind>(["REWRITE_BLOCK", "CREATE_BLOCK", "CREATE_OBJECT", "CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "CREATE_DECISION", "CREATE_OUTPUT", "MOVE_BLOCK", "TRANSITION_LIFECYCLE", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "DELETE_CONTENT"]);
+const proposalOperationKinds = new Set<V2ProposalOperationKind>(["REWRITE_BLOCK", "CREATE_BLOCK", "CREATE_OBJECT", "CHANGE_OBJECT_TYPE", "CHANGE_OWNERSHIP", "CREATE_DECISION", "CREATE_OUTPUT", "MOVE_BLOCK", "TRANSITION_LIFECYCLE", "REBIND_ANCHOR", "UPDATE_PROJECT_INTERFACE", "UPDATE_PROJECT_NARRATION", "DELETE_CONTENT"]);
 const proposalStatuses = new Set<V2ProposalStatus>(["DRAFT", "READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED", "REJECTED", "STALE", "APPLIED", "FAILED", "SUPERSEDED"]);
 
 function proposalError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
