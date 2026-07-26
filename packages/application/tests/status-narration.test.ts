@@ -495,6 +495,10 @@ test("system narration applies recovery, pending, connection, Anchor, sync, then
     assert.equal(restoreRecoveryRequired.conclusion, "Restore 需要人工恢复");
     assert.equal(restoreRecoveryRequired.source.ruleId, "system-restore-recovery-required");
     assert.match(restoreRecoveryRequired.keyEvidence.join(" "), /恢复点仍保留/);
+    assert.doesNotMatch(
+      restoreRecoveryRequired.facts.map((item) => item.text).join(" "),
+      /SQLite|数据库路径|内部快照标识|Doctor/,
+    );
   }
   const restoreRecoveryArmed = narrateV2SystemStatus({
     ...base,

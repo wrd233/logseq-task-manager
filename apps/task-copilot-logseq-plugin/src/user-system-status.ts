@@ -53,8 +53,8 @@ function restrictedStatus(
       headline: "Restore 需要人工恢复",
       whatHappened: "所选快照未能完成切换，原正式状态也未能自动回滚；Task Copilot 已停止正式写入。",
       stillAvailable: "Logseq 正文仍可编辑；Restore 前恢复点、原快照和技术诊断均已保留。",
-      dataSafety: "系统没有继续启动不确定的 SQLite 状态，也没有覆盖 Restore 前恢复点。",
-      actionRequired: "不要重复 Restore 或手动替换数据库。先导出诊断并保留当前恢复点，再按同一恢复记录完成 SQLite 人工恢复。",
+      dataSafety: "系统没有继续启用未确认的正式状态，也没有覆盖 Restore 前恢复点。",
+      actionRequired: "不要重复 Restore 或自行修改恢复材料。请在下方核验后继续恢复；恢复前 Logseq 正文仍可编辑。",
     };
   }
   if (reason.includes("PROTOCOL")) {

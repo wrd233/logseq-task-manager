@@ -1046,7 +1046,7 @@ function renderActionDialog(model: UiModel): string {
     const activity = state.status === "validating" || state.status === "restoring"
       ? `<div class="notice" aria-live="polite">${escapeHtml(state.message ?? "正在处理…")}</div>`
       : state.message ? `<div class="notice">${escapeHtml(state.message)}</div>` : "";
-    return `<section class="inbox-dialog action-dialog" aria-label="备份与恢复"><h3>备份与恢复</h3><p>只显示当前 Graph 由 Service 管理的最近快照，不需要复制数据库路径或内部标识。</p>${activity}<div class="cards">${choices}</div>${state.limited ? `<p class="muted">这里只显示最近 20 个快照。</p>` : ""}${selection}<div class="actions">${button("创建当前快照", "backup-restore-create", undefined, "primary", state.status !== "ready")}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="备份与恢复"><h3>备份与恢复</h3><p>只显示当前 Graph 的最近快照；选择要恢复的版本即可。</p>${activity}<div class="cards">${choices}</div>${state.limited ? `<p class="muted">这里只显示最近 20 个快照。</p>` : ""}${selection}<div class="actions">${button("创建当前快照", "backup-restore-create", undefined, "primary", state.status !== "ready")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-project-creation-grill") {
     const state = model.v2ProjectCreationGrill?.[dialog.value];

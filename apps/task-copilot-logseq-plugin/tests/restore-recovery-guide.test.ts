@@ -13,7 +13,7 @@ test("confirmed Restore recovery renders one bounded read-only guide without int
   assert.match(html, /准备恢复/);
   assert.match(html, /重新核验/);
   assert.match(html, /正式写入保持暂停/);
-  assert.doesNotMatch(html, /backup_|sqlite|database|路径：/i);
+  assert.doesNotMatch(html, /backup_|sqlite|database|数据库路径|内部快照标识|Doctor/i);
   assert.equal((html.match(/data-action="restore-recovery-prepare"/g) ?? []).length, 1);
 });
 
@@ -27,7 +27,7 @@ test("prepared Restore recovery shows one explicit HIGH impact confirmation and 
   assert.match(html, /restoreRecoveryConfirm/);
   assert.match(html, /data-action="restore-recovery-apply"/);
   assert.match(html, /Logseq 正文不会被改写/);
-  assert.doesNotMatch(html, /backup_|sqlite|database|object version/i);
+  assert.doesNotMatch(html, /backup_|sqlite|database|object version|Doctor/i);
 });
 
 test("ARMED and INVALID recovery guides never claim a confirmed recovery point", () => {

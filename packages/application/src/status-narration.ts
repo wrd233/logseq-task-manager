@@ -702,7 +702,7 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
             : restoreRecoveryArmed
             ? "系统没有把未验证文件描述成可用恢复点"
             : restoreRecoveryRequired
-            ? "自动回滚未完成，系统没有继续启动不确定的 SQLite 状态"
+            ? "自动回滚未完成，系统没有继续启用未确认的正式状态"
             : "Logseq 正文仍可编辑，系统没有把连接失败当成空状态",
           sourceRef,
         ),

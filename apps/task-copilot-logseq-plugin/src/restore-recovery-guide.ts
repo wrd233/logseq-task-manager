@@ -27,7 +27,7 @@ export function renderRestoreRecoveryGuide(
         <div class="eyebrow">高影响恢复 · 最终确认</div>
         <h2>恢复 Restore 前的正式状态</h2>
         <p>系统将使用已确认的恢复点替换当前不确定的正式状态；当前状态会先保存为新的安全快照。</p>
-        <ul><li>Logseq 正文不会被改写。</li><li>恢复点和当前 Graph 会在执行时重新校验。</li><li>只有 Doctor 通过后才会解除正式写入保护。</li></ul>
+        <ul><li>Logseq 正文不会被改写。</li><li>恢复点和当前 Graph 会在执行时重新校验。</li><li>只有正式状态完整性检查通过后才会解除写入保护。</li></ul>
         <label><input type="checkbox" data-field="restoreRecoveryConfirm"${options.busy ? " disabled" : ""}> 我确认恢复 Restore 前的正式状态</label>
         <div class="actions"><button type="button" data-action="restore-recovery-apply" class="danger"${options.busy || !options.applyAvailable ? " disabled" : ""}>${options.busy ? "恢复与校验中…" : "确认恢复"}</button>${options.busy ? "" : '<button type="button" data-action="restore-recovery-cancel">返回</button>'}</div>
       </section>`;
@@ -37,7 +37,7 @@ export function renderRestoreRecoveryGuide(
       <h2>Restore 前正式状态已记录</h2>
       <p>系统已确认本次 Restore 在切换前保存过恢复点；普通 reload 不会绕过安全锁。</p>
       <dl><div><dt>记录时间</dt><dd>${escapeHtml(recordedTime(status.recordedAt))}</dd></div><div><dt>当前保护</dt><dd>正式写入保持暂停，Logseq 正文仍可编辑。</dd></div></dl>
-      <p class="muted">恢复动作执行前仍会重新校验恢复点和当前 Graph；此处不显示数据库路径或内部快照标识。</p>
+      <p class="muted">恢复动作执行前仍会重新校验恢复点和当前 Graph。</p>
       <div class="actions"><button type="button" data-action="restore-recovery-prepare" class="primary"${options.applyAvailable ? "" : " disabled"}>准备恢复</button><button type="button" data-action="restore-recovery-refresh">重新核验</button></div>
     </section>`;
   }

@@ -107,8 +107,13 @@ test("Restore rollback failure keeps formal writes stopped and points to the ret
     assert.equal(result.headline, "Restore 需要人工恢复");
     assert.match(result.whatHappened, /未能自动回滚/);
     assert.match(result.stillAvailable, /Restore 前恢复点/);
-    assert.match(result.dataSafety, /没有继续启动不确定的 SQLite 状态/);
+    assert.match(result.dataSafety, /没有继续启用未确认的正式状态/);
     assert.match(result.actionRequired, /不要重复 Restore/);
+    assert.match(result.actionRequired, /下方核验后继续恢复/);
+    assert.doesNotMatch(
+      `${result.whatHappened} ${result.affected} ${result.stillAvailable} ${result.dataSafety} ${result.actionRequired}`,
+      /SQLite|数据库路径|内部快照标识|Doctor/,
+    );
   }
 });
 
