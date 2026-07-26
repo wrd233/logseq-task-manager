@@ -111,6 +111,15 @@ Service 中断恢复和视觉 Gate 仍 OPEN；完整记录见
 `../logs/p2-g-migration-execution-automated-20260726.md` 与
 `../logs/p2-g-migration-execution-desktop-live-20260726.md`。
 
+Migration Activation 正常主链随后在 `f42b62d` 当前构建完成。真实运行先暴露 Undo 后重做
+错误新建恢复点，Service 以 `MIGRATION_SNAPSHOT_CHANGED` 安全拒绝且零写；修复后 Plugin
+复用并重新校验同一计划的原始恢复基线。CURRENT `p2-g-38`～`42` 覆盖恢复基线复用、独立
+HIGH 交接、缺确认零写、ACTIVATED 结果和完整 Logseq restart。V1 只读、不双写，旧 UNDONE
+与新 VERIFIED batch 都保留；reload 后无 Import/Undo/Activate。失败/中断恢复、完成后全局
+入口收敛与视觉 Gate 仍 OPEN；完整记录见
+`../logs/p2-g-migration-activation-automated-20260726.md` 与
+`../logs/p2-g-migration-activation-desktop-live-20260726.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；

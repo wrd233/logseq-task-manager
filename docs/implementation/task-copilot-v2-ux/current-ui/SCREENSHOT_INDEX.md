@@ -70,6 +70,11 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-35-migration-undo-confirm-current-dark.png` | `593d14ac2c7` | 点击准备安全撤销 | HIGH Review 明确后续修改/引用保护，并保留 Review/Validation/Audit | 未确认时零请求 |
 | `screenshots/p2-g-36-migration-undone-current-dark.png` | `593d14ac2c7` | 勾选并确认撤销本批 | 正式对象 `5→4`，run 回 PREVIEWED，batch UNDONE，Pending 0 | 计划与证据保留 |
 | `screenshots/p2-g-37-migration-undone-reload-current-dark.png` | `593d14ac2c7` | 第二次完整退出并重启 Logseq | PREVIEWED 计划、UNDONE batch 和“准备下一批”跨 restart 可读；Runtime/Store/Graph READY | Activate、失败/中断恢复仍 OPEN |
+| `screenshots/p2-g-38-migration-baseline-reuse-current-dark.png` | `f42b62d` | Undo 后重做，重新选择同一脱敏 Bundle 与一项待导入范围 | 主动作明确为“校验本计划恢复基线”；复用原快照而不是创建第二恢复点，正式变化 0 | Dark 宿主内插件表面仍偏亮 |
+| `screenshots/p2-g-39-migration-activation-review-current-dark.png` | `f42b62d` | 导入并验证后点击“准备启用 V2” | 独立 HIGH 交接明确 V1 只读、不建立双写；尚未改变 run | failure/interruption Gate OPEN |
+| `screenshots/p2-g-40-migration-activation-confirmation-required-current-dark.png` | `f42b62d` | 未勾选 V1 只读交接确认直接提交 | 用户层明确零变化；SQLite run 仍为 VERIFIED | 不保存内部 run/snapshot identity |
+| `screenshots/p2-g-41-migration-activated-current-dark.png` | `f42b62d` | 勾选并确认启用 | V2 已启用，V1 只作为只读历史与恢复证据；run ACTIVATED、objects 5、Pending 0 | 旧 UNDONE 与新 VERIFIED batch 保留 |
+| `screenshots/p2-g-42-migration-activated-reload-current-dark.png` | `f42b62d` | 完整退出并重启 Logseq 后重新进入迁移 | ACTIVATED 计划从正式 ledger 重建；无 Import/Undo/Activate 主动作 | 完成后全局入口收敛与 Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 

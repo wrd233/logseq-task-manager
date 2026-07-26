@@ -306,7 +306,7 @@ overall_goal: IN_PROGRESS
   失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md`；
 - P2-G Migration 已进入
-  `MIGRATION_IMPORT_VERIFY_UNDO_MAIN_CHAIN_DESKTOP_DONE_ACTIVATION_FAILURE_GATES_OPEN`：
+  `MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_GATES_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、
   更新时间与批次计数；run ID、Bundle hash、Backup ID 和 CLI 命令不再进入日常 UI。没有
   run 时可由用户明确选择 2 B～8 MiB Recovery Bundle；内容仅在当前 Plugin session
@@ -325,8 +325,14 @@ overall_goal: IN_PROGRESS
   run/batch/object/backup identity 与幂等键不进入 UI/DOM。真实 Logseq 0.10.15 已完成
   `PREVIEWED → IMPORTING/IMPORTED → VERIFIED → 完整 restart → UNDONE → 再次 restart`；
   SQLite 正式对象 `4→5→4`、validation PASS、Pending 始终 0，reload 后 batch 与正确动作
-  都由 ledger 重建。Import/Verify/Undo 正常主链从 Partial 变为 Done；Activate、
-  import/verify/undo 失败注入、Service 中断续跑和视觉 Gate 仍 OPEN，P2-G 与整体 Goal
+  都由 ledger 重建。Import/Verify/Undo 正常主链从 Partial 变为 Done。随后
+  `dfb24eb`/`f42b62d` 开放独立 HIGH Activation，并在真实 Desktop 暴露和修复 Undo 后重做
+  错误新建恢复点的问题：同一计划现在固定一个导入前恢复基线，后续批次只重新校验，Service
+  的 `MIGRATION_SNAPSHOT_CHANGED` 安全边界保持不变。真实链已完成恢复基线复用、
+  `PREVIEWED→IMPORTING→VERIFIED→ACTIVATED`、缺确认零写入和完整 Logseq restart；
+  objects `4→5`、Pending 0，旧 UNDONE 与新 VERIFIED batch 均保留，reload 后不再显示
+  Import/Undo/Activate 动作。Activation 正常主链从 Partial 变为 Done；import/verify/activate
+  失败注入、Service 中断续跑、完成后全局入口收敛和视觉 Gate 仍 OPEN，P2-G 与整体 Goal
   继续 `IN_PROGRESS`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
@@ -351,8 +357,9 @@ P2-G Rebind identity-free capture main chain Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,
 Migration item Review/Preview Desktop DONE,
 Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
+Migration Activation normal main chain Desktop DONE,
 Rebind Recovery/Undo guidance AUTOMATED,
-Restore failure + Migration activate/failure/restart recovery gates OPEN /
+Restore failure + Migration failure/restart recovery/visual gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_IMPORT_VERIFY_UNDO_MAIN_CHAIN_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal roundtrip + Migration through Undo normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip 与 Migration through Undo current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + Restore failure + Migration Activate/failure/interruption recovery OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal roundtrip + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip 与 Migration Activation current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + Restore failure + Migration failure/interruption recovery/visual gates OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -120,9 +120,12 @@
   受保护 HIGH Undo 与第二次 restart。SQLite formal objects `4→5→4`、run
   `PREVIEWED→IMPORTING→VERIFIED→PREVIEWED`、batch
   `IMPORTED→VERIFIED→UNDONE`、Pending 始终 0；完整正文与 run/batch/object/backup
-  identity/hash/key 未进入 UI/DOM/日志。恢复点/Import/Verify/Undo 正常主链 DONE；
-  Activate、失败注入、Service 中断/不确定恢复和完成后退出日常 UI 仍 OPEN；Restore
-  失败注入及失败后的用户层 Recovery 仍 OPEN；
+  identity/hash/key 未进入 UI/DOM/日志。恢复点/Import/Verify/Undo 正常主链 DONE。
+  `f42b62d` 又真实完成计划原恢复基线复用、Import、Verify、独立 HIGH Activation、缺确认
+  零写入与完整 Logseq restart；run=`ACTIVATED`、objects=5、Pending 0，旧 UNDONE 和新
+  VERIFIED batch 保留，reload 后 V1 只读且无 Import/Undo/Activate。Activation 正常主链
+  DONE；失败注入、Service 中断/不确定恢复、完成后全局入口收敛和 Light/窄栏仍 OPEN；
+  Restore 失败注入及失败后的用户层 Recovery 仍 OPEN；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

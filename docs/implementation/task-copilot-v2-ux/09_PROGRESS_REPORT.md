@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_IMPORT_VERIFY_UNDO_MAIN_CHAIN_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链；P2-F shadow/provider；P2-G Rebind + Restore normal roundtrip + Migration through Undo normal main chain PASS | P2-C/P2-D/P2-E 正常主链有 Desktop；P2-F 无 UI；P2-G Migration `593d14a` 已完成恢复点、Import、Verify、两次完整 restart 与受保护 Undo；Activate、failure/interruption recovery OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链；P2-F shadow/provider；P2-G Rebind + Restore normal roundtrip + Migration through Activation normal main chain PASS | P2-C/P2-D/P2-E 正常主链有 Desktop；P2-F 无 UI；P2-G Migration `f42b62d` 已完成恢复基线复用、Import、Verify、HIGH Activation、缺确认零写入与完整 restart；failure/interruption recovery OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -601,6 +601,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 8. P2-G Rebind 与 Restore 正常往返已在当前构建完成真实 Desktop Gate；下一步注入一次
    Restore failure，验证原库保持、恢复点保留、用户层 Recovery 与 reload；在下一次可控
    Rebind 中验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
-   Review/Preview 和恢复点/Import/Verify/Undo 正常主链；正式对象 `4→5→4`，两次完整
-   restart 后 batch continuity 与下一动作均可恢复。继续 Activation、失败注入与 Service
-   中断恢复 Gate，不得加入第二迁移或恢复状态源。
+   Review/Preview、恢复点/Import/Verify/Undo 与 HIGH Activation 正常主链；真实运行先以
+   `MIGRATION_SNAPSHOT_CHANGED` 证明单恢复基线边界，再修复为复用/重验计划原快照。
+   当前正式对象 5、run ACTIVATED、Pending 0，完整 restart 后台账仍明确 V1 只读且无危险
+   主动作。继续失败注入、Service 中断恢复、完成后全局入口收敛与视觉 Gate，不得加入第二
+   迁移或恢复状态源。

@@ -212,6 +212,24 @@ Verify、Activate、failure resume 和 Undo 仍 OPEN，Migration/P2-G 不提前�
 `p2-g-30`～`37`。Activate、失败注入、Service 中断不确定恢复、完成后退出日常 UI 和
 Light/窄栏仍 OPEN，因此 Migration/P2-G/整体 Goal 不提前关闭。
 
+## P2-G Migration Activation
+
+状态：`ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_GATES_OPEN`
+
+1. Undo 后重做或后续批次重新选择同一 Recovery Bundle；
+2. 只读核对计划与 pending scope，复用并重新校验整项计划唯一导入前恢复基线；
+3. Import 后必须 Verify，run 达到 VERIFIED 才出现“准备启用 V2”；
+4. 独立 HIGH Review 明示 V1 只读、无双写；缺确认零请求；
+5. 固定确认经 Local Service/Application/SQLite 单一链启用；
+6. 完整 Logseq restart 后 run 仍为 ACTIVATED，V1 只读结论保留；
+7. 不再提供 Import、Undo 或重复 Activate。
+
+真实结果：`f42b62d`、Logseq 0.10.15、Dark 宿主、994×700。首次重做被
+`MIGRATION_SNAPSHOT_CHANGED` 安全拒绝，修复后 objects `4→5`、Pending 0，旧 UNDONE 与
+新 VERIFIED batch 均保留，run `PREVIEWED→IMPORTING→VERIFIED→ACTIVATED`。CURRENT
+`p2-g-38`～`42`。失败注入、Service 中断/不确定恢复、完成后全局入口收敛与 Light/窄栏
+仍 OPEN，因此 Migration/P2-G/整体 Goal 不提前关闭。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一

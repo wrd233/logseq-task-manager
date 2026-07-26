@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_IMPORT_VERIFY_UNDO_MAIN_CHAIN_DESKTOP_DONE`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE`
 
 ### Recovery
 
@@ -451,6 +451,19 @@ SQLite formal objects `4→5→4`、batch validation `PASS`、target evidence `1
 `p2-g-30`～`37`。因此恢复点/Import/Verify/Undo 正常主链从 Partial 变为 Done；Activate、
 正式失败注入、Service 中断/不确定恢复、完成后退出日常 UI 与 Light/窄栏仍 OPEN，
 Migration/P2-G/整体 Goal 不关闭。
+
+`dfb24eb`/`f42b62d` 又把 Activation 作为独立 HIGH 交接开放：只有整个 run 为 VERIFIED
+且全部计划导入项都有验证投影时才能启用；未确认零请求，响应丢失只允许同 run 幂等重试。
+真实 Desktop 首轮发现 Undo 后重做错误新建恢复点，Service 以
+`MIGRATION_SNAPSHOT_CHANGED` 零写拒绝；修复后同一计划固定一个导入前恢复基线，后续批次
+或 Undo 后重做只重新校验，不放宽 Service/SQLite 单基线约束。
+
+commit `f42b62d` 的真实 Logseq 0.10.15 已完成恢复基线复用、
+`PREVIEWED→IMPORTING→VERIFIED→ACTIVATED`、Activation 缺确认零写和完整 restart。
+SQLite objects `4→5`、Pending 0，旧 UNDONE 与新 VERIFIED batch 都保留；reload 后计划
+明确 V2 已启用、V1 只读，不再提供 Import/Undo/Activate。CURRENT `p2-g-38`～`42`。
+Activation 正常主链从 Partial 变为 Done；失败注入、Service 中断/不确定恢复、完成后
+全局入口收敛与 Light/窄栏仍 OPEN，Migration/P2-G/整体 Goal 不关闭。
 
 ## P2 完成否决条件
 
