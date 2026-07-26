@@ -3106,6 +3106,126 @@ test("Project Closure Provider does not reinterpret legally owned work as missin
   assert.deepEqual(await client.getObject(structured.object.objectId), beforeProject, "user-confirmed Provider draft cannot complete the Project");
 });
 
+test("Project Closure Provider error and generation stale preserve the baseline and allow one fresh retry", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-provider-failures-"));
+  let mode: "ERROR" | "STALE" | "SUCCESS" = "ERROR";
+  let mutateDuringGeneration: (() => Promise<void>) | undefined;
+  let providerCalls = 0;
+  const proposalGenerator = new LocalLlmProposalGenerator({
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async (request) => {
+      providerCalls += 1;
+      if (mode === "ERROR") {
+        throw new StructuredError({
+          code: "LLM_PROVIDER_TIMEOUT",
+          message: "injected bounded Provider timeout",
+          ruleRefs: ["D-127", "D-140"],
+        });
+      }
+      await mutateDuringGeneration?.();
+      return userConfirmedProjectClosureCompletion(request);
+    },
+  });
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-closure-provider-failures",
+    token: "project-closure-provider-failures-token",
+    proposalGenerator,
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+
+  const prepared = await client.prepareProject({ name: "Closure Failure Gate", traceId: "closure-failure-prepare" });
+  const created = await client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "Closure Failure Gate",
+    pageExternalId: "page-project-closure-provider-failures",
+    pageContentHash: checksum("Project/Closure Failure Gate"),
+    traceId: "closure-failure-finalize",
+  });
+  const structureSubmitted = await client.submitProposal(projectStructureProposal(created.object.objectId, created.object.version));
+  const structureReviewed = await client.reviewProposal(
+    structureSubmitted.record.proposal.proposalId,
+    { "update-project-interface": { disposition: "ACCEPTED", highImpactConfirmed: true } },
+    structureSubmitted.record.updatedAt,
+  );
+  const structured = await client.commitProjectStructure(structureReviewed.proposal.proposalId, {
+    expectedUpdatedAt: structureReviewed.updatedAt,
+    confirmation: "UPDATE_PROJECT_INTERFACE",
+    observations: [],
+    traceId: "closure-failure-structure",
+  });
+  assert.equal(structured.status, "COMPLETED");
+  if (structured.status !== "COMPLETED") return;
+
+  const judgments = {
+    actualResult: "发布手册已完成，并通过恢复演练核对。",
+    objectiveDispositions: [{
+      objectiveId: "objective-release",
+      disposition: "INCOMPLETE" as const,
+      reason: "仍需完成最终发布观察。",
+      nextStep: "关闭后继续记录发布观察。",
+    }],
+    legacyDisposition: "最终发布观察继续作为明确遗留，不在关闭时丢弃。",
+    keyDecisions: ["继续保留人工回退开关"],
+    futureSummary: "未来重入先核对最终发布观察和人工回退开关。",
+  };
+  const beforeProject = await client.getObject(structured.object.objectId);
+  const beforeProposals = await client.listProposals();
+  const beforeCommits = await client.listSemanticCommits();
+
+  await assert.rejects(
+    () => client.createProjectClosureProposal(structured.object.objectId, {
+      expectedVersion: structured.object.version,
+      userJudgments: judgments,
+    }),
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "LLM_PROVIDER_TIMEOUT",
+  );
+  assert.equal(providerCalls, 1);
+  assert.deepEqual(await client.getObject(structured.object.objectId), beforeProject);
+  assert.deepEqual(await client.listProposals(), beforeProposals);
+  assert.deepEqual(await client.listSemanticCommits(), beforeCommits);
+
+  mode = "STALE";
+  mutateDuringGeneration = async () => {
+    await client.changeCondition(structured.object.objectId, structured.object.version, {
+      kind: "PAUSED",
+      reason: "生成期间正式 Project 发生变化",
+    });
+  };
+  await assert.rejects(
+    () => client.createProjectClosureProposal(structured.object.objectId, {
+      expectedVersion: structured.object.version,
+      userJudgments: judgments,
+    }),
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_VERSION_CONFLICT",
+  );
+  mutateDuringGeneration = undefined;
+  assert.equal(providerCalls, 2);
+  assert.deepEqual(await client.listProposals(), beforeProposals, "stale generated draft never enters Review");
+  assert.deepEqual(await client.listSemanticCommits(), beforeCommits, "stale generation creates no Closure Commit");
+  const changed = await client.getObject(structured.object.objectId);
+  assert.equal(changed?.lifecycle, "OPEN");
+  assert.equal(changed?.condition.kind, "PAUSED");
+  assert.equal(changed?.version, structured.object.version + 1);
+
+  mode = "SUCCESS";
+  const retried = await client.createProjectClosureProposal(structured.object.objectId, {
+    expectedVersion: changed!.version,
+    userJudgments: judgments,
+  });
+  assert.equal(providerCalls, 3);
+  assert.equal(retried.kind, "PROPOSAL");
+  assert.equal((await client.getObject(structured.object.objectId))?.lifecycle, "OPEN");
+  assert.deepEqual(await client.listSemanticCommits(), beforeCommits, "fresh retry remains Proposal-only");
+});
+
 test("reviewed Project current interface commits one versioned aggregate and rejects stale overwrite", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-structure-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-project-structure", token: "project-structure-token-at-least-24" });
