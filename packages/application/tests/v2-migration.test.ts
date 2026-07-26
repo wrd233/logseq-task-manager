@@ -72,6 +72,12 @@ test("migration review is complete, deterministic, and replay-oriented", async (
     previews: [preview("legacy-1")],
     decisions: [],
   }, at), (error: unknown) => error instanceof Error && "code" in error && error.code === "MIGRATION_PREVIEW_DECISIONS_INCOMPLETE");
+  await assert.rejects(() => application.reviewPreview({
+    sourceBundleSha256: sourceHash,
+    sourceCreatedAt: "2026-07-20T08:00:00.000Z",
+    previews: [preview("legacy-1")],
+    decisions: [{ legacyObjectId: "legacy-1", action: "DEFER" }],
+  }, at), (error: unknown) => error instanceof Error && "code" in error && error.code === "MIGRATION_REVIEW_DECISION_INVALID" && /判断依据/.test(error.message));
 });
 
 test("migration import materializes only reviewed scope and validates graph evidence", async () => {

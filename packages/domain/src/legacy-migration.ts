@@ -91,7 +91,12 @@ function boundedMigrationCondition(condition: V2Condition): V2Condition {
 export function resolveLegacyMigrationDecision(preview: LegacyMigrationPreview, decision: LegacyMigrationReviewDecision): ResolvedLegacyMigrationDecision {
   if (decision.legacyObjectId !== preview.legacyObjectId) throw migrationDecisionError("MIGRATION_DECISION_IDENTITY_MISMATCH", "Migration decision identity does not match its preview.");
   const reviewNote = boundedMigrationText(decision.reviewNote, "判断依据");
-  if (decision.action !== "IMPORT") return { legacyObjectId: decision.legacyObjectId, action: decision.action, ...(reviewNote ? { reviewNote } : {}) };
+  if (decision.action !== "IMPORT") {
+    if (!reviewNote) {
+      throw migrationDecisionError("MIGRATION_REVIEW_NOTE_REQUIRED", "非直接迁移决定必须记录判断依据。");
+    }
+    return { legacyObjectId: decision.legacyObjectId, action: decision.action, ...(reviewNote ? { reviewNote } : {}) };
+  }
   if (preview.classification === "STRUCTURAL_ERROR") throw migrationDecisionError("MIGRATION_STRUCTURAL_CONFLICT", "Structural migration conflicts must be resolved at the source before import.");
   const objectType = decision.objectType ?? preview.suggestedObjectType;
   const lifecycle = decision.lifecycle ?? preview.suggestedLifecycle;

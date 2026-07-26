@@ -2096,6 +2096,10 @@ test("Local Service completes reviewed migration through validated backup, impor
     displayTitle: "迁移服务闭环",
     sourceObjectType: "TASK",
   }]);
+  await assert.rejects(
+    () => client.previewLegacyMigration(bundle, [{ legacyObjectId: "legacy-service-task", action: "DEFER" }]),
+    (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "MIGRATION_REVIEW_DECISION_INVALID",
+  );
   const previewed = await client.previewLegacyMigration(bundle, [{ legacyObjectId: "legacy-service-task", action: "IMPORT" }]);
   assert.equal(previewed.run.summary.import, 1);
   assert.deepEqual((await client.listMigrationRuns()).map(({ runId, status }) => ({ runId, status })), [{ runId: previewed.run.runId, status: "PREVIEWED" }]);

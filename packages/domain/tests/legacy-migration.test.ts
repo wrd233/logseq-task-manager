@@ -65,6 +65,10 @@ test("reviewed migration decisions require explicit resolution without inventing
   const uncertain = previewLegacyStateMigration({ ...base, phase: "ACTIVE", condition: { kind: "NONE" } });
   assert.throws(() => resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "IMPORT" }), /explicitly resolve/);
   assert.equal(resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "IMPORT", objectType: "TASK", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, reviewNote: "已人工确认下一步" }).action, "IMPORT");
+  assert.throws(() => resolveLegacyMigrationDecision(direct, { legacyObjectId: "legacy-1", action: "DEFER" }), /判断依据/);
+  assert.throws(() => resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "DEFER" }), /判断依据/);
+  const ordinary = previewLegacyStateMigration({ ...base, objectType: "RESOURCE", phase: "ACTIVE", condition: { kind: "ACTIONABLE" } });
+  assert.throws(() => resolveLegacyMigrationDecision(ordinary, { legacyObjectId: "legacy-1", action: "KEEP_ORDINARY" }), /判断依据/);
   assert.throws(
     () => resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "DEFER", reviewNote: "x".repeat(4_001) }),
     /不能超过 4000/,
@@ -82,4 +86,5 @@ test("reviewed migration decisions require explicit resolution without inventing
   );
   const conflict = previewLegacyStateMigration({ ...base, phase: "ACTIVE", condition: { kind: "ACTIONABLE" }, stateConflict: "conflict" });
   assert.throws(() => resolveLegacyMigrationDecision(conflict, { legacyObjectId: "legacy-1", action: "IMPORT", reviewNote: "ignore" }), /source before import/);
+  assert.throws(() => resolveLegacyMigrationDecision(conflict, { legacyObjectId: "legacy-1", action: "EXCLUDE" }), /判断依据/);
 });
