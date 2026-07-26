@@ -320,9 +320,15 @@ overall_goal: IN_PROGRESS
   per-Graph lifecycle gate，旧 Service 完成停止前不得生成替代 Service。`cb87d86` 最终
   将 interlock 读取也放入同一 mutation lock，关闭 absent→ARMED 的 TOCTOU；租约回收在
   lifecycle gate 内复验最新 heartbeat，避免排队期间已续租的健康 Service 被误停。最终
-  双轴复审无剩余阻断 finding。完整记录见
+  双轴复审无剩余阻断 finding。`23ae7bd` 又将现有互锁以严格、无路径/
+  Backup identity 的只读投影接入用户系统状态：只区分恢复点已确认、尚未确认
+  或记录无法安全读取，并只提供一个重新核验动作。该投影为 session-only
+  `AUTOMATED_ONLY`，不清锁、不恢复、不新增正式状态/导航/Recovery Kernel；Launcher
+  `25/25`、Service Client `13/13`、Plugin `327/327` 与根级检查 PASS。双重失败手工
+  恢复执行与 Desktop 证据仍 OPEN。完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
-  `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md`；
+  `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md` 以及
+  `logs/p2-g-restore-recovery-status-automated-20260726.md`；
 - P2-G Migration 已进入
   `MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_GATES_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、

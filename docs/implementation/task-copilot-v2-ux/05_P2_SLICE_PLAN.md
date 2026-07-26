@@ -424,7 +424,11 @@ reload 后系统状态恢复健康。Restore 激活失败→自动回滚→重�
 `cb87d86` 又让 interlock 读写共享同一 mutation lock，并在 lifecycle gate 内复验租约
 最新 heartbeat，关闭启动误放行和误收割健康 Service 的最后两个确定性竞态；最终双轴
 复审 PASS。
-`V2_RESTORE_ROLLBACK_FAILED` 的手工恢复向导和 Light/窄栏仍 OPEN。
+`23ae7bd` 已把同一互锁投影为用户系统状态内的只读手工恢复指引：只显示
+恢复点是否已确认、记录时间与一个重新核验动作，不返回路径/Backup identity，
+不执行恢复或清锁。Launcher `25/25`、Service Client `13/13`、Plugin `327/327` 和
+根级检查 PASS；该项只是 `AUTOMATED_ONLY`。`V2_RESTORE_ROLLBACK_FAILED` 的受控手工
+恢复执行、双重失败 Desktop 注入与 Light/窄栏仍 OPEN。
 
 ### Migration
 

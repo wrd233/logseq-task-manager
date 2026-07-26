@@ -136,7 +136,10 @@
   “先恢复匹配恢复点并 Doctor PASS、后清锁”的双重失败合同；该项仍缺真实双重失败 Desktop
   和用户化手工向导。`e418c87` 又关闭同目录多数据库互锁串扰与 Launcher
   last-release/ensure 双 Service 竞态；`cb87d86` 关闭 interlock read TOCTOU 与过期
-  lease 排队期间 heartbeat 误删，不据此升级 P2-G；
+  lease 排队期间 heartbeat 误删，不据此升级 P2-G；`23ae7bd` 只将现有互锁以
+  无路径/Backup identity 的严格响应投影到用户系统状态，并提供一个重新核验动作；
+  Launcher `25/25`、Service Client `13/13`、Plugin `327/327`、Shared `9/9` 和根级检查
+  PASS。该项为 `AUTOMATED_ONLY`，不是手工恢复执行或 Desktop 证据；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

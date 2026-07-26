@@ -593,7 +593,13 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   `cb87d86` 进一步让 interlock 读取进入同一 mutation lock，并在 gate 内复验过期候选的
   最新 heartbeat；absent-read/ARMED-writer 与 heartbeat-during-gate 两条竞争测试通过，
   最终双轴 review 无剩余阻断 finding。
-  这是自动安全底座，不把双重失败手工向导或 Desktop Gate 标为 DONE；
+  `23ae7bd` 又把该互锁的最小只读投影接入用户系统状态：严格 client 不允许
+  路径/Backup identity/额外字段，前台只显示一个主结论和一个重新核验操作。
+  Launcher `25/25`、Service Client `13/13`、Plugin `327/327`、Shared `9/9` 与根级检查
+  PASS。这仍是 `AUTOMATED_ONLY`，无新正式状态、导航或 Recovery Kernel，不把双重
+  失败手工恢复执行或 Desktop Gate 标为 DONE；
+- 新增 `11_COMPLEXITY_LEDGER.md`：将 Partial 堆积、Recovery 分裂、状态组合、Agent/Skill 重复、
+  Desktop 笛卡尔积、证据漂移和工程语义泄漏列为发布前显式 Gate；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；

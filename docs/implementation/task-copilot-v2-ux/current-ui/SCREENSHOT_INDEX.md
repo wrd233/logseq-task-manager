@@ -5,9 +5,10 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
 
-当前源码安全提交为 `cb87d86`；`2eb6df1`、`e418c87` 与 `cb87d86` 在 `0c4526d`
+当前源码安全提交为 `23ae7bd`；`2eb6df1`、`e418c87`、`cb87d86` 与 `23ae7bd` 在 `0c4526d`
 截图后增加自动-only Restore 互锁、数据库级多 Graph 隔离、完整 Launcher 生命周期
-串行化和读/heartbeat 竞态收口，不改变 `p2-g-44`～`46` 的自动回滚交互。没有截图被
+串行化、读/heartbeat 竞态收口和 session-only 只读恢复状态投影，不改变
+`p2-g-44`～`46` 的自动回滚交互。没有截图被
 冒充为“双重回滚失败手工恢复”证据。
 
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |

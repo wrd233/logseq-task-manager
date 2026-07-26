@@ -1,0 +1,27 @@
+# Task Copilot V2 复杂度台账
+
+> 状态：`ACTIVE`
+> 适用范围：UX 产品化 Goal P0 / P1 / P2 / Final Release
+> 原则：控制复杂度是交付完整 Goal 的方法，不是删减 Goal 的理由。
+
+## 当前发布阻断台账
+
+| 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
+|---|---|---|---|---|
+| Partial 长期堆积 | HIGH | P0 宿主 Gate、P1 前台化、P2-E 失败链、P2-G 双重 Restore/Migration 失败链仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
+| 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
+| Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
+| Skill/Prompt/Validator 补丁化 | MEDIUM | 已有多个版本和真实 Provider 失败样本，但尚缺单一生命周期台账 | 只保留 `EXPERIMENTAL/SHADOW/CANDIDATE/PRODUCTION/RETIRED`；晋升看固定样本、真实 Provider、拒绝/重试/abstain/helpful-noise/越权；旧版退休而非永久兼容 | 是 |
+| Desktop 验收笛卡尔积 | HIGH | 宿主、主题、宽度、错误和恢复组合已很多 | 三层代表矩阵：高频日常覆盖 Block/Page/sidebar/Query-reference/Light-Dark/窄栏/reload/Graph switch；复杂操作覆盖 Preview/HIGH/Commit/reload/Undo/stale/Recovery；低频高风险覆盖正常、一种失败、自动回滚、手工入口、restart | 是 |
+| 文档/代码/截图漂移 | HIGH | 历史 Desktop 证据多，最新安全提交可能没有新 UI | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；自动-only 安全修复不借用旧截图升级 Desktop 状态；每轮同步 status/progress/acceptance/plan/current-ui | 是 |
+| 后台工程概念泄漏 | MEDIUM | Review/Project Page/技术诊断仍可见 ID、英文枚举或冗长标签 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit | 是 |
+
+## 本轮变化（2026-07-26）
+
+- 新增正式状态：`0`。
+- 新增顶层导航：`0`。
+- 新增 Agent Runtime / Prompt 系统 / Recovery Kernel：`0`。
+- 复用：既有 Restore `ARMED/RECOVERY_REQUIRED/INVALID` 安全事实、Launcher per-Graph lifecycle gate、用户系统状态和同一个重新核验动作。
+- 新前台投影：只读、session-only、无路径/快照 ID/正文/正式写入权；状态仍为 `AUTOMATED_ONLY`。
+- 仍阻断 P2-G：受控手工恢复执行、双重失败 Desktop、Light/窄栏、Migration failure/interruption。
