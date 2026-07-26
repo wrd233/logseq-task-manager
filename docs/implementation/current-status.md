@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_FRONTSTAGE_AUTOMATED
 overall_goal: IN_PROGRESS
 ```
 
@@ -273,6 +273,13 @@ overall_goal: IN_PROGRESS
   Service 又增加机器权威 semantic Context fingerprint：仅 observedAt 刷新保持一致，
   Object 语义或 evidence fingerprint 变化以 `LLM_CROSS_OBJECT_CONTEXT_STALE` 拒绝旧草稿。
   focused `9/9`、Local Service `153/153` 与 typecheck PASS；
+- P2-G 已从 NOT_STARTED 进入 `IN_PROGRESS_REBIND_FRONTSTAGE_AUTOMATED`：既有 Rebind
+  事务、预览、确认、版本/hash 重验和 replaced 历史完全复用；Plugin 只改用户层选择。
+  ready preview 不再显示 Block UUID、Anchor/external ID、hash、raw `missing/replaced` 或
+  `Primary Anchor/object_id` 术语，改为事项名称/类型/翻译后的连接状态和正文阅读预览。
+  DOM select 也只存 session-local `candidate:<index>`，提交时映射回内存中已验证 Anchor；
+  成功反馈不再打印 Object/Block identity。focused `5/5`、Plugin `280/280`、typecheck
+  PASS；真实 Desktop Preview→Submit→reload 与 Restore/Migration 向导仍 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -292,7 +299,8 @@ remaining LIGHT/other-HEAVY/visual gates OPEN /
 P2-E normal Provider→Review→Commit→Undo→reload main chain Desktop DONE,
 failure/Recovery Desktop gate OPEN /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
-P2-G OPEN / overall Goal IN_PROGRESS
+P2-G Rebind identity-free frontstage AUTOMATED, Desktop/Restore/Migration gates OPEN /
+overall Goal IN_PROGRESS
 
 ## 当前阶段结论
 

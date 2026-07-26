@@ -45,10 +45,16 @@ test("rebind preview reads one known-Anchor page and renders explicit impact", a
   assert.equal(preview.moreAnchorsDeferred, true);
   const html = renderV2PrimaryAnchorRebindPanel({ status: "ready", preview, serviceGeneration: 1 }, true);
   assert.match(html, /新任务/);
-  assert.match(html, /missing/);
-  assert.match(html, /旧 Anchor 保留为 replaced/);
+  assert.match(html, /旧任务/);
+  assert.match(html, /原连接位置不可用/);
+  assert.match(html, /旧连接保留在历史中/);
   assert.match(html, /data-field="v2RebindConfirmed"/);
   assert.match(html, /data-action="v2-rebind-submit"/);
+  assert.match(html, /value="candidate:0"/);
+  for (const hidden of [targetUuid, "anchor-old", "block-old", "11111111"]) {
+    assert.doesNotMatch(html, new RegExp(hidden));
+  }
+  assert.doesNotMatch(html, /Primary Anchor|externalId|contentHash|missing|replaced/);
 });
 
 test("rebind submit requires confirmation, revalidates the selected Block, and sends no ownership authority", async () => {
@@ -56,12 +62,12 @@ test("rebind submit requires confirmation, revalidates the selected Block, and s
   const transport = client(received);
   const preview = await prepareV2PrimaryAnchorRebind(transport, async () => targetBlock);
   let ensured = 0;
-  await assert.rejects(() => submitV2PrimaryAnchorRebind(transport, preview, "anchor-old", false, async () => targetBlock, async () => { ensured += 1; }, "trace-no"), /确认/);
-  await assert.rejects(() => submitV2PrimaryAnchorRebind(transport, preview, "anchor-old", true, async () => ({ ...targetBlock, content: "[任务] 已变化" }), async () => { ensured += 1; }, "trace-stale"), /变化/);
+  await assert.rejects(() => submitV2PrimaryAnchorRebind(transport, preview, "candidate:0", false, async () => targetBlock, async () => { ensured += 1; }, "trace-no"), /确认/);
+  await assert.rejects(() => submitV2PrimaryAnchorRebind(transport, preview, "candidate:0", true, async () => ({ ...targetBlock, content: "[任务] 已变化" }), async () => { ensured += 1; }, "trace-stale"), /变化/);
   assert.equal(received.length, 0);
   assert.equal(ensured, 0, "confirmation and stale checks happen before Graph identity writes");
   let currentBlock = targetBlock;
-  await submitV2PrimaryAnchorRebind(transport, preview, "anchor-old", true, async () => currentBlock, async (externalId) => {
+  await submitV2PrimaryAnchorRebind(transport, preview, "candidate:0", true, async () => currentBlock, async (externalId) => {
     assert.equal(externalId, targetBlock.uuid);
     ensured += 1;
     currentBlock = { ...targetBlock, content: `${targetBlock.content}\nid:: ${targetBlock.uuid}`, "updated-at": 1003 };

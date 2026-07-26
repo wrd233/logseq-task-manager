@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS | P2-A+B DONE；P2-C 三来源、P2-D 三条核心链、P2-E Closure/Undo PASS；P2-F bounded shadow contract + machine-owned Provider seam PASS | P2-C/P2-D/P2-E 正常主链有 Desktop；P2-F 真实 DeepSeek 三轮累计 15/15 case-runs PASS、无 Desktop/UI | P2-D Partial；P2-E failure/Recovery Desktop OPEN；P2-F real-context/stale/error/feedback/frontstage OPEN；P2-G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_FRONTSTAGE_AUTOMATED | P2-A+B DONE；P2-C/P2-D/P2-E 核心链；P2-F shadow/provider；P2-G Rebind identity-free frontstage PASS | P2-C/P2-D/P2-E 正常主链有 Desktop；P2-F 无 UI；P2-G 新 Rebind UI Desktop OPEN | P2-D/P2-E remaining OPEN；P2-F real-context/feedback/frontstage OPEN；P2-G Rebind Desktop + Recovery/Restore/Migration OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -598,3 +598,5 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
 7. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
    shadow 决定不建 derivative，跨 reload 用户处置只在首批信号开放并证明减噪后重开。
+8. 用最新构建完成 P2-G Rebind 阅读预览→确认→reload Desktop Gate，再继续 Restore 与
+   Migration 的产品入口；不得把 test-only fault 或第二恢复状态源加入 Launcher。

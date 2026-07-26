@@ -1253,7 +1253,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const currentPanel = v2RebindPanel;
     if (currentPanel.status === "ready" && currentPanel.busy) return;
     if (currentPanel.status !== "ready") {
-      v2RebindPanel = { status: "error", message: "Primary Anchor 预览已过期或不存在；没有执行重新绑定。" };
+      v2RebindPanel = { status: "error", message: "正文连接预览已过期或不存在；没有执行重新绑定。" };
       await showRuntimeDiagnostics();
       return;
     }
@@ -1267,15 +1267,15 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await showRuntimeDiagnostics();
       return;
     }
-    const previousAnchorId = dialogField("v2RebindPreviousAnchorId");
+    const selectedCandidateToken = dialogField("v2RebindCandidateToken");
     const confirmed = dialogChecked("v2RebindConfirmed");
     v2RebindPanel = { ...currentPanel, busy: true };
     await showRuntimeDiagnostics();
     const traceId = `v2-rebind-${Date.now()}-${globalThis.crypto.randomUUID()}`;
     try {
-      const result = await submitV2PrimaryAnchorRebind(client, currentPanel.preview, previousAnchorId, confirmed, () => logseq.Editor.getCurrentBlock(), ensurePersistentBlockIdentity, traceId);
+      const result = await submitV2PrimaryAnchorRebind(client, currentPanel.preview, selectedCandidateToken, confirmed, () => logseq.Editor.getCurrentBlock(), ensurePersistentBlockIdentity, traceId);
       v2RebindPanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
-        ? { status: "success", message: `对象 ${result.object.objectId} 已绑定到 Block ${result.anchor.externalId}；旧 Anchor 保留为 replaced。` }
+        ? { status: "success", message: `“${result.object.text}”已重新连接到当前选中的正文；旧连接保留在历史中。` }
         : { status: "error", message: "Local Service 在提交期间重连；旧会话已返回成功，请先在 Audit/Doctor 核对，不要立即重试。" };
       operationalLogger.log("info", "ui-action", "v2_primary_anchor_rebound", { correlationId: traceId, actionId: "v2-rebind-submit", result: "success", blockUuid: result.anchor.externalId });
     } catch (error) {

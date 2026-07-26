@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`NOT_STARTED`
+状态：`IN_PROGRESS_REBIND_FRONTSTAGE_AUTOMATED_DESKTOP_OPEN`
 
 ### Recovery
 
@@ -372,6 +372,13 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 ### Rebind
 
 统一表达“重新连接正文”；候选显示阅读预览，不显示 UUID 列表；保留旧 Anchor 历史。
+
+当前自动 Gate 已完成：ready preview 和 success feedback 不再显示 Block UUID、Anchor ID、
+external ID、hash、`missing/replaced` 或 `Primary Anchor/object_id`；候选只显示事项名称、
+类型和翻译后的连接状态。DOM value 使用 session-local `candidate:<index>`，正式提交时才映射
+回内存中已验证的旧 Anchor。既有一页有界读取、确认、Block 持久身份、版本/hash 重验、
+Service Rebind 与旧 Anchor 历史均不变。focused `5/5`、Plugin `280/280`、typecheck PASS；
+真实 Desktop Preview→Submit→reload 仍 OPEN。
 
 ### Restore
 

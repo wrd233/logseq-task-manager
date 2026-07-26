@@ -62,7 +62,7 @@ export async function prepareV2PrimaryAnchorRebind(
     return [{ anchor: anchor as V2RebindCandidate["anchor"], object }];
   });
   if (candidates.length === 0) {
-    throw new Error("当前页没有与所选 Block 同类型、可重新绑定的 Primary Anchor；没有执行写入。");
+    throw new Error("当前页没有与所选 Block 同类型、可重新连接的正式事项；没有执行写入。");
   }
   return { target, candidates, moreAnchorsDeferred: Boolean(page.nextCursor) };
 }
@@ -70,15 +70,16 @@ export async function prepareV2PrimaryAnchorRebind(
 export async function submitV2PrimaryAnchorRebind(
   client: RebindClient,
   preview: V2RebindPreview,
-  previousAnchorId: string,
+  selectedCandidateToken: string,
   confirmed: boolean,
   readCurrentBlock: () => Promise<unknown>,
   ensurePersistentIdentity: (externalId: string) => Promise<void>,
   traceId: string,
 ): Promise<ServicePrimaryAnchorRebindResult> {
-  if (!confirmed) throw new Error("请单独确认 Primary Anchor 重新绑定；没有执行写入。");
-  const candidate = preview.candidates.find((value) => value.anchor.anchorId === previousAnchorId);
-  if (!candidate) throw new Error("请选择当前预览中的旧 Primary Anchor；没有执行写入。");
+  if (!confirmed) throw new Error("请单独确认把这个正式事项重新连接到当前正文；没有执行写入。");
+  const candidateIndex = selectedCandidateToken.match(/^candidate:([0-9]{1,2})$/)?.[1];
+  const candidate = candidateIndex === undefined ? undefined : preview.candidates[Number(candidateIndex)];
+  if (!candidate) throw new Error("请选择当前预览中的正式事项；没有执行写入。");
   const current = targetFromBlock(await readCurrentBlock());
   if (
     current.externalId !== preview.target.externalId ||
@@ -120,18 +121,22 @@ function escapeHtml(value: unknown): string {
 
 export function renderV2PrimaryAnchorRebindPanel(state: V2RebindPanelState, available: boolean): string {
   if (!available) return "";
-  if (state.status === "idle") return `<section class="diagnostic-notice"><h2>Primary Anchor 修复</h2><p>只读取当前选中 Block 与 Service 返回的一页已知 Anchor；不会扫描全 Graph。</p><button type="button" data-action="v2-rebind-open">预览重新绑定当前块</button></section>`;
-  if (state.status === "loading") return `<section class="diagnostic-notice" aria-busy="true"><h2>Primary Anchor 修复</h2><p>正在读取当前 Block 与已知 Anchor…</p></section>`;
-  if (state.status === "error") return `<section class="diagnostic-error"><h2>重新绑定未执行</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-rebind-open">重新预览</button><button type="button" data-action="v2-rebind-cancel">关闭</button></section>`;
-  if (state.status === "success") return `<section class="diagnostic-notice"><h2>Primary Anchor 已重新绑定</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-rebind-open">处理另一个</button><button type="button" data-action="v2-rebind-cancel">关闭</button></section>`;
+  if (state.status === "idle") return `<section class="diagnostic-notice"><h2>重新连接正文</h2><p>只读取当前选中 Block 与一页已知正文连接；不会扫描全 Graph。</p><button type="button" data-action="v2-rebind-open">预览重新连接当前块</button></section>`;
+  if (state.status === "loading") return `<section class="diagnostic-notice" aria-busy="true"><h2>重新连接正文</h2><p>正在读取当前 Block 与已知正文连接…</p></section>`;
+  if (state.status === "error") return `<section class="diagnostic-error"><h2>重新连接未执行</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-rebind-open">重新预览</button><button type="button" data-action="v2-rebind-cancel">关闭</button></section>`;
+  if (state.status === "success") return `<section class="diagnostic-notice"><h2>正文已重新连接</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-rebind-open">处理另一个</button><button type="button" data-action="v2-rebind-cancel">关闭</button></section>`;
   const { preview } = state;
-  return `<section class="diagnostic-notice" aria-label="重新绑定 Primary Anchor"><h2>预览 Primary Anchor 重新绑定</h2>
-    <p><strong>新主正文：</strong>${escapeHtml(preview.target.objectType)} · ${escapeHtml(preview.target.text)}</p>
-    <p><code>${escapeHtml(preview.target.externalId)}</code> · hash ${escapeHtml(preview.target.contentHash)}</p>
-    <label>选择要修复的对象与旧 Anchor<select data-field="v2RebindPreviousAnchorId"><option value="">请选择</option>${preview.candidates.map(({ anchor, object }) => `<option value="${escapeHtml(anchor.anchorId)}">${escapeHtml(object.text)} · ${escapeHtml(anchor.status)} · ${escapeHtml(anchor.externalId)}</option>`).join("")}</select></label>
+  const statusLabel = (status: V2RebindCandidate["anchor"]["status"]): string => status === "missing"
+    ? "原连接位置不可用"
+    : status === "conflict"
+      ? "原连接存在冲突"
+      : "原连接仍可读取";
+  return `<section class="diagnostic-notice" aria-label="重新连接正式事项正文"><h2>预览重新连接正文</h2>
+    <p><strong>当前选中的新正文：</strong>${escapeHtml(preview.target.objectType)} · ${escapeHtml(preview.target.text)}</p>
+    <label>选择要重新连接的正式事项<select data-field="v2RebindCandidateToken"><option value="">请选择</option>${preview.candidates.map(({ anchor, object }, index) => `<option value="candidate:${index}">${escapeHtml(object.text)} · ${escapeHtml(object.objectType)} · ${escapeHtml(statusLabel(anchor.status))}</option>`).join("")}</select></label>
     ${preview.moreAnchorsDeferred ? "<p class=\"muted\">候选超过当前有界页；未扫描后续页或全 Graph。</p>" : ""}
-    <p>提交后 object_id 与 Primary Ownership 不变；旧 Anchor 保留为 replaced，新 Block 成为唯一 active Primary Anchor。</p>
-    <label class="confirm-line"><input type="checkbox" data-field="v2RebindConfirmed">我单独确认这项高影响重新绑定</label>
+    <p>确认后，正式事项与主归属不变；旧连接保留在历史中，当前选中的 Block 成为唯一主正文。</p>
+    <label class="confirm-line"><input type="checkbox" data-field="v2RebindConfirmed">我确认把这个正式事项重新连接到当前选中的正文</label>
     <div class="actions"><button type="button" class="danger" data-action="v2-rebind-submit"${state.busy ? " disabled aria-busy=\"true\"" : ""}>${state.busy ? "提交中…" : "确认重新绑定"}</button>${state.busy ? "<span class=\"muted\">正式请求已提交，请等待明确结果。</span>" : '<button type="button" data-action="v2-rebind-cancel">取消</button>'}</div>
   </section>`;
 }
