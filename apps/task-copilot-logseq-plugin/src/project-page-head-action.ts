@@ -26,6 +26,9 @@ export class ProjectPageHeadActionController {
   private readonly slots = new Set<string>();
   private readonly generations = new Map<string, number>();
   private sharedResolution: Promise<ProjectPageHeadTarget | undefined> | undefined;
+  private refreshLoop: Promise<void> | undefined;
+  private refreshPending = false;
+  private refreshRevision = 0;
 
   constructor(
     private readonly host: ProjectPageHeadActionHost,
@@ -49,12 +52,16 @@ export class ProjectPageHeadActionController {
       this.slots.delete(oldest);
       this.generations.delete(oldest);
     }
-    void this.refreshSlot(slot);
+    void this.refreshAll();
   }
 
   async refreshAll(): Promise<void> {
-    this.sharedResolution = undefined;
-    await Promise.all([...this.slots].map((slot) => this.refreshSlot(slot)));
+    this.refreshPending = true;
+    this.refreshRevision += 1;
+    if (!this.refreshLoop) {
+      this.refreshLoop = Promise.resolve().then(() => this.runRefreshLoop());
+    }
+    await this.refreshLoop;
   }
 
   clear(): void {
@@ -64,6 +71,21 @@ export class ProjectPageHeadActionController {
     this.slots.clear();
     this.generations.clear();
     this.sharedResolution = undefined;
+    this.refreshPending = false;
+    this.refreshRevision += 1;
+  }
+
+  private async runRefreshLoop(): Promise<void> {
+    try {
+      while (this.refreshPending) {
+        this.refreshPending = false;
+        const revision = this.refreshRevision;
+        this.sharedResolution = undefined;
+        await Promise.all([...this.slots].map((slot) => this.refreshSlot(slot, revision)));
+      }
+    } finally {
+      this.refreshLoop = undefined;
+    }
   }
 
   private resolveShared(): Promise<ProjectPageHeadTarget | undefined> {
@@ -78,24 +100,26 @@ export class ProjectPageHeadActionController {
     return this.sharedResolution;
   }
 
-  private async refreshSlot(slot: string): Promise<void> {
+  private async refreshSlot(slot: string, revision: number): Promise<void> {
     const generation = (this.generations.get(slot) ?? 0) + 1;
     this.generations.set(slot, generation);
     try {
       if (!await this.host.checkSlotValid(slot)) {
-        this.slots.delete(slot);
-        this.generations.delete(slot);
         return;
       }
       const target = this.dependencies.available() ? await this.resolveShared() : undefined;
-      if (this.generations.get(slot) !== generation || !await this.host.checkSlotValid(slot)) return;
+      if (
+        revision !== this.refreshRevision
+        || this.generations.get(slot) !== generation
+        || !await this.host.checkSlotValid(slot)
+      ) return;
       this.host.provideUi({
         key: PROJECT_PAGE_HEAD_UI_KEY,
         slot,
         template: target ? renderProjectPageHeadAction(target) : null,
       });
     } catch (error) {
-      if (this.generations.get(slot) === generation) {
+      if (revision === this.refreshRevision && this.generations.get(slot) === generation) {
         this.clearSlot(slot);
       }
       this.dependencies.onIssue(error);

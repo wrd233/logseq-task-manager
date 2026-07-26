@@ -71,6 +71,62 @@ test("slot controller fails closed and never leaves an old action after resoluti
   assert.equal(issues.length, 1);
 });
 
+test("slot controller retains a host slot that becomes valid after the slotted callback", async () => {
+  const provided: Array<{ template: string | null }> = [];
+  let valid = false;
+  const controller = new ProjectPageHeadActionController({
+    checkSlotValid: async () => valid,
+    provideUi: (input) => { provided.push(input); },
+  }, {
+    available: () => true,
+    resolveCurrentProject: async () => ({ projectText: "Task Copilot V2" }),
+    onIssue: assert.fail,
+  });
+
+  controller.observe("main");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(provided.length, 0);
+
+  valid = true;
+  await controller.refreshAll();
+  assert.match(provided.at(-1)?.template ?? "", />继续项目</);
+});
+
+test("slot controller coalesces route bursts and only renders the latest resolution", async () => {
+  const provided: Array<{ template: string | null }> = [];
+  let releaseFirst: (() => void) | undefined;
+  let calls = 0;
+  let active = 0;
+  let maximumActive = 0;
+  const controller = new ProjectPageHeadActionController({
+    checkSlotValid: async () => true,
+    provideUi: (input) => { provided.push(input); },
+  }, {
+    available: () => true,
+    resolveCurrentProject: async () => {
+      calls += 1;
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      if (calls === 1) await new Promise<void>((resolve) => { releaseFirst = resolve; });
+      active -= 1;
+      return { projectText: calls === 1 ? "旧项目" : "最新项目" };
+    },
+    onIssue: assert.fail,
+  });
+
+  controller.observe("main");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const second = controller.refreshAll();
+  const third = controller.refreshAll();
+  releaseFirst?.();
+  await Promise.all([second, third]);
+
+  assert.equal(maximumActive, 1);
+  assert.equal(calls, 2);
+  assert.equal(provided.length, 1);
+  assert.match(provided[0]?.template ?? "", /最新项目/);
+});
+
 test("slot cleanup isolates invalid host slots so unload can continue", async () => {
   const cleared: string[] = [];
   const issues: unknown[] = [];
