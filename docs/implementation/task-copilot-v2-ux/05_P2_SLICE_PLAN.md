@@ -421,6 +421,9 @@ reload 后系统状态恢复健康。Restore 激活失败→自动回滚→重�
 `e418c87` 再把 sidecar/lock 按 resolved database path 摘要隔离并校验 Graph identity，
 同时把 Launcher ensure、last release、reap、close 纳入同一 per-Graph lifecycle gate，
 从而避免同目录多 Graph 互相阻断，以及旧 Service 尚在 stop 时新 Service 提前启动。
+`cb87d86` 又让 interlock 读写共享同一 mutation lock，并在 lifecycle gate 内复验租约
+最新 heartbeat，关闭启动误放行和误收割健康 Service 的最后两个确定性竞态；最终双轴
+复审 PASS。
 `V2_RESTORE_ROLLBACK_FAILED` 的手工恢复向导和 Light/窄栏仍 OPEN。
 
 ### Migration

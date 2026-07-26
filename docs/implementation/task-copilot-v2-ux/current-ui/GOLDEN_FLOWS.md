@@ -178,6 +178,9 @@ Desktop 截图，也未把手工 Recovery 向导升级为 DONE。
 和 close 完全串行，替代 Service 必须等待旧 Service 完成 stop。它同样没有新的 Desktop
 截图，不改变上述 CURRENT 界面结论。
 
+`cb87d86` 最后关闭互锁读取 TOCTOU 与租约回收 heartbeat 竞态；最终双轴 review PASS。
+这仍是自动-only 安全证据，没有产生新界面或改变手工 Recovery 向导的 OPEN 状态。
+
 ## P2-G Migration session-only 只读扫描
 
 状态：`READONLY_SCAN_DESKTOP_DONE_ITEM_REVIEW_AND_WRITE_OPEN`

@@ -317,7 +317,10 @@ overall_goal: IN_PROGRESS
   Desktop 注入证据，也不冒充已完成手工向导。`e418c87` 又关闭复审发现的两项隔离缺口：
   interlock/lock 以数据库绝对路径摘要分区并核对 Graph identity，同一数据目录内的多个
   Graph 互不阻断；Launcher 将 ensure、最后 lease release、reap 与 close 纳入同一
-  per-Graph lifecycle gate，旧 Service 完成停止前不得生成替代 Service。完整记录见
+  per-Graph lifecycle gate，旧 Service 完成停止前不得生成替代 Service。`cb87d86` 最终
+  将 interlock 读取也放入同一 mutation lock，关闭 absent→ARMED 的 TOCTOU；租约回收在
+  lifecycle gate 内复验最新 heartbeat，避免排队期间已续租的健康 Service 被误停。最终
+  双轴复审无剩余阻断 finding。完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
   `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md`；
 - P2-G Migration 已进入

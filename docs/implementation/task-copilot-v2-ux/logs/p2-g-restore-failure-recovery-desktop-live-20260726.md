@@ -136,7 +136,12 @@ Desktop 主链提交仍是 `0c4526d`。随后 `2eb6df1` 根据双轴 review 补�
 - Launcher 的 ensure、最后 lease release、reap 与 close 使用同一 per-Graph lifecycle
   gate；旧 child 完成 stop 前不能生成替代 child，close 也会等待已进入的 spawn 并收回它。
 
-Node 20 聚焦 Gate：Shared `8/8`、Launcher `23/23`、Restore 相关 Local Service `5/5`
+`cb87d86` 最后让 interlock 读取也持有同一 database-scoped mutation lock，writer 无法
+完整穿过 absent 读取窗口；Launcher reap 在 lifecycle gate 内按同一 cutoff 复验最新
+heartbeat，排队期间已续租的 lease 不会被旧快照误删。对应两条 deterministic race test
+均通过，最终双轴 review 无剩余阻断 finding。
+
+Node 20 聚焦 Gate：Shared `9/9`、Launcher `24/24`、Restore 相关 Local Service `5/5`
 通过；根级 `./scripts/check.sh` 全量 PASS，Local Service 全量 `158/158`，rule coverage
 145，acceptance rehearsal differences `[]`。人工恢复产品向导与真实双重失败 Desktop
 Gate 仍保持 OPEN。

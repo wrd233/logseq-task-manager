@@ -590,6 +590,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   `e418c87` 又按数据库绝对路径摘要隔离 sidecar/lock 并校验 Graph identity，同时用统一
   per-Graph lifecycle gate 串行化 Launcher ensure、最后 lease release、reap 与 close；
   同目录双数据库、last-release/ensure 和 close/in-flight-spawn 的确定性竞争测试均通过。
+  `cb87d86` 进一步让 interlock 读取进入同一 mutation lock，并在 gate 内复验过期候选的
+  最新 heartbeat；absent-read/ARMED-writer 与 heartbeat-during-gate 两条竞争测试通过，
+  最终双轴 review 无剩余阻断 finding。
   这是自动安全底座，不把双重失败手工向导或 Desktop Gate 标为 DONE；
 - 根级检查：PASS；
 - rule coverage：145；

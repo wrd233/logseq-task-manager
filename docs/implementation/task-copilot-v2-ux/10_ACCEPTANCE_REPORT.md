@@ -135,7 +135,8 @@
   mutation lock/no-clobber/compare-and-clear、损坏与权限异常独立 fail-closed 叙述，以及
   “先恢复匹配恢复点并 Doctor PASS、后清锁”的双重失败合同；该项仍缺真实双重失败 Desktop
   和用户化手工向导。`e418c87` 又关闭同目录多数据库互锁串扰与 Launcher
-  last-release/ensure 双 Service 竞态，不据此升级 P2-G；
+  last-release/ensure 双 Service 竞态；`cb87d86` 关闭 interlock read TOCTOU 与过期
+  lease 排队期间 heartbeat 误删，不据此升级 P2-G；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

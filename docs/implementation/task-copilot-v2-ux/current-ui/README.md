@@ -96,7 +96,8 @@ admission drain、`ARMED→RECOVERY_REQUIRED`、跨进程 mutation lock、no-clo
 清锁。它不改变 `p2-g-44`～`46` 所示自动回滚 UI，但尚未用 Desktop 注入“双重回滚失败”，
 因此这些截图继续只代表 `0c4526d` 的自动回滚主链，不能作为新手工恢复向导的证据。
 `e418c87` 再把互锁按数据库隔离、核对 Graph identity，并将 Launcher 的启动与最终停止
-纳入同一 per-Graph lifecycle gate；这仍是自动安全升级，不是新的 UI 证据。
+纳入同一 per-Graph lifecycle gate；`cb87d86` 又关闭互锁读取 TOCTOU 与过期租约在
+gate 等待期间被 heartbeat 刷新后仍误删的竞态。这些仍是自动安全升级，不是新的 UI 证据。
 
 P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
 Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、完整审阅计数和下一步。
