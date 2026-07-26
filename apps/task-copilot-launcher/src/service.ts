@@ -1,12 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
+import type { LauncherRestoreRecoveryStatus } from "@task-copilot/service-client/launcher";
+
 import type { EnsureServiceInput, EnsureServiceResult } from "./manager.ts";
 
 export interface LauncherManager {
   ensure(input: EnsureServiceInput): Promise<EnsureServiceResult>;
   heartbeat(leaseId: string): void;
   release(leaseId: string): Promise<void>;
+  restoreRecoveryStatus(graphKey: string): Promise<LauncherRestoreRecoveryStatus>;
   reapExpired(): Promise<void>;
   close(): Promise<void>;
 }
@@ -104,7 +107,12 @@ export async function startLauncherService(options: StartLauncherServiceOptions)
         respond(response, 200, {
           status: "READY",
           protocolVersion: 1,
-          capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+          capabilities: {
+            graphServiceLifecycle: true,
+            leaseHeartbeat: true,
+            ownedShutdown: true,
+            restoreRecoveryStatus: true,
+          },
           configuredGraphs: options.graphCount,
         });
         return;
@@ -128,6 +136,14 @@ export async function startLauncherService(options: StartLauncherServiceOptions)
         const input = await body(request);
         await options.manager.release(boundedIdentifier(input.leaseId, "leaseId"));
         respond(response, 204);
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/restore-recovery/status") {
+        const input = await body(request);
+        const result = await options.manager.restoreRecoveryStatus(
+          boundedIdentifier(input.graphKey, "graphKey"),
+        );
+        respond(response, 200, result);
         return;
       }
       throw new RequestError(404, "LAUNCHER_ROUTE_NOT_FOUND", "Launcher route does not exist.");

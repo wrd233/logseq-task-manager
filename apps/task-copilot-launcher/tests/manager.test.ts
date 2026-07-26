@@ -5,7 +5,11 @@ import { join } from "node:path";
 import test from "node:test";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
-import { restoreRecoveryInterlockPath } from "@task-copilot/shared/node";
+import {
+  armRestoreRecoveryInterlock,
+  clearRestoreRecoveryInterlock,
+  restoreRecoveryInterlockPath,
+} from "@task-copilot/shared/node";
 
 import { GraphServiceManager, type ManagedChild, type SpawnServiceInput } from "../src/manager.ts";
 
@@ -343,4 +347,39 @@ test("corrupt or insecure interlock metadata remains a distinct fail-closed Laun
     () => manager.ensure({ graphKey: localGraph.graphKey, clientInstanceId: "plugin-b" }),
     /LAUNCHER_RESTORE_RECOVERY_STATE_INVALID/,
   );
+});
+
+test("Launcher projects a bounded read-only Restore recovery status without paths or backup identity", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-launcher-recovery-status-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const databasePath = join(root, "task-copilot.sqlite");
+  await writeFile(databasePath, "placeholder", { mode: 0o600 });
+  const localGraph = { ...graph, databasePath };
+  const manager = new GraphServiceManager({
+    graphs: [localGraph],
+    serviceEntryPath: "/opt/task-copilot/service.js",
+    runtimeRoot: root,
+    leaseTtlMs: 15_000,
+  }, async () => { throw new Error("must not spawn"); });
+  const recovery = {
+    schemaVersion: 1 as const,
+    status: "RECOVERY_REQUIRED" as const,
+    graphId: localGraph.graphId,
+    recoveryBackupId: "backup_20260726174000000_dddddddddddddddddddddddddddddddd",
+    createdAt: "2026-07-26T17:40:00.000Z",
+  };
+
+  assert.deepEqual(await manager.restoreRecoveryStatus(localGraph.graphKey), {
+    state: "CLEAR",
+    recoveryPointConfirmed: false,
+  });
+  await armRestoreRecoveryInterlock(databasePath, recovery);
+  const status = await manager.restoreRecoveryStatus(localGraph.graphKey);
+  assert.deepEqual(status, {
+    state: "RECOVERY_REQUIRED",
+    recoveryPointConfirmed: true,
+    recordedAt: recovery.createdAt,
+  });
+  assert.doesNotMatch(JSON.stringify(status), /backup_|sqlite|Users/);
+  await clearRestoreRecoveryInterlock(databasePath, recovery);
 });

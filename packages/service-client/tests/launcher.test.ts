@@ -68,12 +68,24 @@ test("launcher client ensures, heartbeats, and releases one Graph-bound Service 
         response.end(JSON.stringify({
           status: "READY",
           protocolVersion: 1,
-          capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+          capabilities: {
+            graphServiceLifecycle: true,
+            leaseHeartbeat: true,
+            ownedShutdown: true,
+            restoreRecoveryStatus: true,
+          },
           configuredGraphs: 1,
         }));
       } else if (request.url === "/sessions/ensure") {
         response.writeHead(200, { "content-type": "application/json" });
         response.end(JSON.stringify({ leaseId: "lease_123", serviceDescriptor }));
+      } else if (request.url === "/restore-recovery/status") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({
+          state: "RECOVERY_REQUIRED",
+          recoveryPointConfirmed: true,
+          recordedAt: "2026-07-26T17:20:00.000Z",
+        }));
       } else {
         response.writeHead(204);
         response.end();
@@ -86,12 +98,39 @@ test("launcher client ensures, heartbeats, and releases one Graph-bound Service 
   assert.deepEqual(await client.ensure("graph-key", "plugin-instance"), { leaseId: "lease_123", serviceDescriptor });
   await client.heartbeat("lease_123");
   await client.release("lease_123");
+  assert.deepEqual(await client.restoreRecoveryStatus("graph-key"), {
+    state: "RECOVERY_REQUIRED",
+    recoveryPointConfirmed: true,
+    recordedAt: "2026-07-26T17:20:00.000Z",
+  });
   assert.deepEqual(requests, [
     { method: "GET", url: "/health", body: undefined },
     { method: "POST", url: "/sessions/ensure", body: { graphKey: "graph-key", clientInstanceId: "plugin-instance" } },
     { method: "POST", url: "/sessions/heartbeat", body: { leaseId: "lease_123" } },
     { method: "POST", url: "/sessions/release", body: { leaseId: "lease_123" } },
+    { method: "POST", url: "/restore-recovery/status", body: { graphKey: "graph-key" } },
   ]);
+});
+
+test("launcher recovery status rejects contradictory or identity-bearing response shapes", async (t) => {
+  for (const value of [
+    { state: "RECOVERY_REQUIRED", recoveryPointConfirmed: false, recordedAt: "2026-07-26T17:20:00.000Z" },
+    { state: "ARMED", recoveryPointConfirmed: false },
+    { state: "CLEAR", recoveryPointConfirmed: false, recordedAt: "2026-07-26T17:20:00.000Z" },
+    { state: "RECOVERY_REQUIRED", recoveryPointConfirmed: true, recordedAt: "invalid", recoveryBackupId: "must-not-pass" },
+  ]) {
+    const { server, url } = await listen((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(value));
+    });
+    t.after(() => server.close());
+    await assert.rejects(
+      () => new LauncherClient(launcherDescriptor(url)).restoreRecoveryStatus("graph-key"),
+      (error: unknown) => error instanceof Error
+        && "code" in error
+        && error.code === "LAUNCHER_RESPONSE_INVALID",
+    );
+  }
 });
 
 test("launcher client maps unavailable and unauthorized management endpoints without exposing response bodies", async (t) => {

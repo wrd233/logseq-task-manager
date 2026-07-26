@@ -18,6 +18,7 @@ export interface LauncherHealth {
     graphServiceLifecycle: true;
     leaseHeartbeat: true;
     ownedShutdown: true;
+    restoreRecoveryStatus?: true;
   };
   configuredGraphs: number;
 }
@@ -25,6 +26,12 @@ export interface LauncherHealth {
 export interface LauncherEnsureResult {
   leaseId: string;
   serviceDescriptor: ServiceDescriptor;
+}
+
+export interface LauncherRestoreRecoveryStatus {
+  state: "CLEAR" | "ARMED" | "RECOVERY_REQUIRED" | "INVALID";
+  recoveryPointConfirmed: boolean;
+  recordedAt?: string;
 }
 
 function launcherError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
@@ -190,5 +197,34 @@ export class LauncherClient {
       method: "POST",
       body: JSON.stringify({ leaseId: identifier(leaseId, "leaseId") }),
     });
+  }
+
+  async restoreRecoveryStatus(graphKey: string): Promise<LauncherRestoreRecoveryStatus> {
+    const value = record(await this.request("/restore-recovery/status", {
+      method: "POST",
+      body: JSON.stringify({ graphKey: identifier(graphKey, "graphKey") }),
+    }));
+    const states = new Set(["CLEAR", "ARMED", "RECOVERY_REQUIRED", "INVALID"]);
+    if (
+      !value
+      || Object.keys(value).some((key) => !["state", "recoveryPointConfirmed", "recordedAt"].includes(key))
+      || typeof value.state !== "string"
+      || !states.has(value.state)
+      || typeof value.recoveryPointConfirmed !== "boolean"
+      || (value.recordedAt !== undefined && (
+        typeof value.recordedAt !== "string"
+        || !Number.isFinite(Date.parse(value.recordedAt))
+      ))
+      || (value.state === "RECOVERY_REQUIRED") !== value.recoveryPointConfirmed
+      || (["ARMED", "RECOVERY_REQUIRED"].includes(value.state) && value.recordedAt === undefined)
+      || (["CLEAR", "INVALID"].includes(value.state) && value.recordedAt !== undefined)
+    ) {
+      throw launcherError("LAUNCHER_RESPONSE_INVALID", "Task Copilot Launcher 恢复状态响应无效。");
+    }
+    return {
+      state: value.state as LauncherRestoreRecoveryStatus["state"],
+      recoveryPointConfirmed: value.recoveryPointConfirmed,
+      ...(value.recordedAt !== undefined ? { recordedAt: value.recordedAt } : {}),
+    };
   }
 }

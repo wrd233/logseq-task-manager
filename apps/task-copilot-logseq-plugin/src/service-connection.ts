@@ -9,6 +9,7 @@ import {
   LauncherClient,
   validateLauncherDescriptor,
   type LauncherDescriptor,
+  type LauncherRestoreRecoveryStatus,
 } from "@task-copilot/service-client/launcher";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -52,13 +53,15 @@ type ServiceClientFactory = (descriptor: ServiceDescriptor) => ServiceProbeClien
 export type ServiceRuntimeClient = Pick<LocalServiceClient, "health" | "listAssociations" | "listPrimaryOwnerships" | "addAssociation" | "listCandidates" | "discoverCandidate" | "setCandidateDisposition" | "formalizeCandidate" | "updateCandidate" | "synchronizeExplicitObject" | "listObjects" | "createArea" | "editArea" | "createMiniProjectClosureProposal" | "createLifecycleProposal" | "draftMiniProjectClosure" | "listPrimaryAnchors" | "observePrimaryAnchor" | "rebindPrimaryAnchor" | "prepareProject" | "finalizeProject" | "nowWork" | "selectFocus" | "removeFocus" | "reorderFocus" | "changeCondition" | "prepareConditionUndo" | "undoCondition" | "changeDeadline" | "listProposals" | "getProposal" | "submitProposal" | "generateProposal" | "reviseGeneratedProposal" | "reviewProposal" | "revalidateProposal" | "prepareProposalCommit" | "finalizeProposalCommit" | "compensateProposalCommit" | "commitProjectClosure" | "commitProjectStructure" | "commitLifecycleTransition" | "commitPrimaryOwnership" | "undoPrimaryOwnership" | "undoLifecycle" | "undoProjectStructure" | "undoProjectClosure" | "listSemanticCommits" | "prepareProposalUndo" | "finalizeProposalUndo" | "compensateProposalUndo" | "listMigrationRuns">
   & Partial<Pick<LocalServiceClient, "scanLegacyMigration" | "previewLegacyMigration" | "getMigrationRun" | "importLegacyMigration" | "verifyLegacyMigrationBatch" | "undoLegacyMigrationBatch" | "activateLegacyMigration" | "listBackups" | "createBackup" | "validateBackup" | "restoreBackup" | "getProjectClosureEvidence" | "createProjectClosureProposal" | "recoverProjectContext" | "createProjectNarrationProposal" | "grillMiniProject" | "previewMiniProjectGrill" | "createMiniProjectRestructureProposal" | "grillProjectCreation" | "previewProjectCreation" | "createProjectCreationProposal" | "prepareMiniProjectRestructure" | "verifyMiniProjectRestructureStep" | "beginMiniProjectRestructureRecovery" | "verifyMiniProjectRestructureCompensation" | "prepareMiniProjectRestructureUndo" | "verifyMiniProjectRestructureUndoStep" | "beginMiniProjectRestructureUndoRecovery" | "verifyMiniProjectRestructureUndoCompensation" | "prepareProposalProjectCreation" | "finalizeProposalProjectCreation" | "compensateProposalProjectCreation" | "prepareProposalProjectCreationUndo" | "finalizeProposalProjectCreationUndo" | "claimGraphReadRequest" | "completeGraphReadRequest">>;
 type ServiceRuntimeClientFactory = (descriptor: ServiceDescriptor) => ServiceRuntimeClient;
-type LauncherRuntimeClient = Pick<LauncherClient, "health" | "ensure" | "heartbeat" | "release">;
+type LauncherRuntimeClient = Pick<LauncherClient, "health" | "ensure" | "heartbeat" | "release">
+  & Partial<Pick<LauncherClient, "restoreRecoveryStatus">>;
 type LauncherRuntimeClientFactory = (descriptor: LauncherDescriptor) => LauncherRuntimeClient;
 
 export interface DiscoveredServiceRuntime {
   connection: ServiceConnectionState;
   client?: ServiceRuntimeClient;
   lifecycle?: ServiceLifecycleSession;
+  restoreRecovery?: LauncherRestoreRecoveryStatus;
 }
 
 export interface ServiceLifecycleSession {
@@ -213,6 +216,7 @@ export async function discoverServiceRuntime(
     return { connection: restricted("SERVICE_DESCRIPTOR_READER_UNAVAILABLE", "Logseq 当前运行时不提供安全 descriptor 读取能力。") };
   }
   let launcher: LauncherRuntimeClient | undefined;
+  let launcherRestoreRecoveryStatusAvailable = false;
   let leaseId: string | undefined;
   try {
     const rawDescriptor = await reader.read(descriptorPath);
@@ -228,7 +232,8 @@ export async function discoverServiceRuntime(
     }
     const descriptor = validateLauncherDescriptor(rawDescriptor);
     launcher = (options.createLauncherClient ?? ((value) => new LauncherClient(value)))(descriptor);
-    await launcher.health();
+    const launcherHealth = await launcher.health();
+    launcherRestoreRecoveryStatusAvailable = launcherHealth.capabilities.restoreRecoveryStatus === true;
     const ensured = await launcher.ensure(options.graphKey, options.clientInstanceId);
     leaseId = ensured.leaseId;
     const client = createClient(ensured.serviceDescriptor);
@@ -257,6 +262,13 @@ export async function discoverServiceRuntime(
         ? remoteCode!
         : error.code
       : "SERVICE_DESCRIPTOR_READ_FAILED";
+    const restoreRecovery = launcher
+      && options.graphKey
+      && launcherRestoreRecoveryStatusAvailable
+      && launcher.restoreRecoveryStatus
+      && ["LAUNCHER_RESTORE_RECOVERY_ARMED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED", "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID"].includes(reasonCode)
+      ? await launcher.restoreRecoveryStatus(options.graphKey).catch(() => undefined)
+      : undefined;
     const messages: Record<string, string> = {
       SERVICE_DESCRIPTOR_PATH_INVALID: "Local Service descriptor 路径无效。",
       SERVICE_DESCRIPTOR_INSECURE: "Local Service descriptor 权限或文件类型不安全。",
@@ -276,6 +288,9 @@ export async function discoverServiceRuntime(
       LAUNCHER_RESTORE_RECOVERY_REQUIRED: "上次 Restore 的安全恢复记录仍需人工处理；普通 reload 或重连不会重新开放正式写入。",
       LAUNCHER_RESTORE_RECOVERY_STATE_INVALID: "上次 Restore 的恢复记录无法安全读取；恢复身份与完整性尚不确定，正式写入保持关闭。",
     };
-    return { connection: restricted(reasonCode, messages[reasonCode] ?? "Task Copilot 本地运行环境无法安全连接。") };
+    return {
+      connection: restricted(reasonCode, messages[reasonCode] ?? "Task Copilot 本地运行环境无法安全连接。"),
+      ...(restoreRecovery ? { restoreRecovery } : {}),
+    };
   }
 }

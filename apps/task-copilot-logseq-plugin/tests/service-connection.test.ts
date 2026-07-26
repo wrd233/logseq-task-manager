@@ -434,7 +434,12 @@ test("a Restore recovery interlock survives reload as a distinct restricted stat
         health: async () => ({
           status: "READY",
           protocolVersion: 1,
-          capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+          capabilities: {
+            graphServiceLifecycle: true,
+            leaseHeartbeat: true,
+            ownedShutdown: true,
+            restoreRecoveryStatus: true,
+          },
           configuredGraphs: 1,
         }),
         ensure: async () => {
@@ -447,6 +452,11 @@ test("a Restore recovery interlock survives reload as a distinct restricted stat
         },
         heartbeat: async () => undefined,
         release: async () => undefined,
+        restoreRecoveryStatus: async () => ({
+          state: "RECOVERY_REQUIRED",
+          recoveryPointConfirmed: true,
+          recordedAt: "2026-07-26T17:40:00.000Z",
+        }),
       }),
     },
   );
@@ -457,6 +467,11 @@ test("a Restore recovery interlock survives reload as a distinct restricted stat
   );
   assert.match(runtime.connection.message, /人工处理/);
   assert.equal(runtime.client, undefined);
+  assert.deepEqual(runtime.restoreRecovery, {
+    state: "RECOVERY_REQUIRED",
+    recoveryPointConfirmed: true,
+    recordedAt: "2026-07-26T17:40:00.000Z",
+  });
 });
 
 test("an interrupted Restore before recovery-point confirmation never claims that a recovery point exists", async () => {

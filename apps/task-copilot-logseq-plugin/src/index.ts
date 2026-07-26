@@ -40,6 +40,7 @@ import type {
   ServiceSemanticCommit,
   ServiceStoredProposal,
 } from "@task-copilot/service-client";
+import type { LauncherRestoreRecoveryStatus } from "@task-copilot/service-client/launcher";
 import {
   ensurePersistentBlockIdentity as ensurePersistentBlockIdentityWithoutEcho,
   ExplicitSyncController,
@@ -104,6 +105,7 @@ import { ProjectContextRecoveryController } from "./project-context-recovery-con
 import { MiniProjectGrillController } from "./mini-project-grill-controller.ts";
 import { BlockMarkerPrototypeController, type BlockMarkerPrototypeMode } from "./block-marker-prototype.ts";
 import { BackupRestoreController, backupRestoreFailureDisposition, type BackupRestoreClient } from "./backup-restore-controller.ts";
+import { renderRestoreRecoveryGuide } from "./restore-recovery-guide.ts";
 import {
   MIGRATION_BUNDLE_MAX_BYTES,
   MigrationScanController,
@@ -193,6 +195,7 @@ let firstRunDescriptorImportBusy = false;
 let ignoredDescriptorSettingValue: string | undefined;
 let serviceRuntimeClient: ServiceRuntimeClient | undefined;
 let serviceLifecycleSession: ServiceLifecycleSession | undefined;
+let restoreRecoveryStatus: LauncherRestoreRecoveryStatus | undefined;
 let serviceLifecycleHeartbeatTimer: ReturnType<typeof globalThis.setInterval> | undefined;
 let serviceLifecycleHeartbeatBusy = false;
 let configuredServiceDescriptorPath: string | undefined;
@@ -500,7 +503,8 @@ function renderDiagnostics(
   const available = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
   const anchorStatus = renderV2AnchorIssueStatus(anchorIssueNarrations, available);
   const rebindPanel = v2RebindPanel.status === "idle" ? "" : renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available);
-  return renderRuntimeDiagnostics(snapshot, "", `${anchorStatus}${rebindPanel}`);
+  const restoreRecoveryGuide = renderRestoreRecoveryGuide(restoreRecoveryStatus);
+  return renderRuntimeDiagnostics(snapshot, "", `${restoreRecoveryGuide}${anchorStatus}${rebindPanel}`);
 }
 
 async function model(): Promise<UiModel> {
@@ -965,6 +969,7 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   await replaceServiceLifecycleSession(runtime.lifecycle);
   serviceConnection = runtime.connection;
   serviceRuntimeClient = runtime.client;
+  restoreRecoveryStatus = runtime.restoreRecovery;
   diagnostics.setServiceConnection(runtime.connection);
   if (runtime.connection.status === "READY" && runtime.connection.capabilities.graphReadBridge === true && runtime.client?.claimGraphReadRequest && runtime.client.completeGraphReadRequest) {
     graphReadBridgeController.start({
@@ -2158,6 +2163,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "runtime-diagnostics") {
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "restore-recovery-refresh") {
+    latestError = undefined;
+    message = "正在重新核验 Restore 安全记录；不会读取 Logseq 正文或执行正式写入。";
+    await refreshServiceRuntime(configuredServiceDescriptorPath);
     await showRuntimeDiagnostics();
     return;
   }

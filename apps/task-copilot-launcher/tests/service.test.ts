@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
+import type { LauncherRestoreRecoveryStatus } from "@task-copilot/service-client/launcher";
 
 import type { EnsureServiceInput, EnsureServiceResult } from "../src/manager.ts";
 import { startLauncherService, type LauncherManager } from "../src/service.ts";
@@ -18,6 +19,7 @@ class FakeManager implements LauncherManager {
   ensured: EnsureServiceInput[] = [];
   heartbeats: string[] = [];
   releases: string[] = [];
+  recoveryChecks: string[] = [];
   closed = false;
 
   async ensure(input: EnsureServiceInput): Promise<EnsureServiceResult> {
@@ -31,6 +33,15 @@ class FakeManager implements LauncherManager {
 
   async release(leaseId: string): Promise<void> {
     this.releases.push(leaseId);
+  }
+
+  async restoreRecoveryStatus(graphKey: string): Promise<LauncherRestoreRecoveryStatus> {
+    this.recoveryChecks.push(graphKey);
+    return {
+      state: "RECOVERY_REQUIRED",
+      recoveryPointConfirmed: true,
+      recordedAt: "2026-07-26T17:20:00.000Z",
+    };
   }
 
   async reapExpired(): Promise<void> {}
@@ -59,7 +70,12 @@ test("launcher management API is authenticated, loopback-only, CORS-capable, and
     assert.deepEqual(await health.json(), {
       status: "READY",
       protocolVersion: 1,
-      capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+      capabilities: {
+        graphServiceLifecycle: true,
+        leaseHeartbeat: true,
+        ownedShutdown: true,
+        restoreRecoveryStatus: true,
+      },
       configuredGraphs: 1,
     });
 
@@ -87,6 +103,19 @@ test("launcher management API is authenticated, loopback-only, CORS-capable, and
     });
     assert.equal(released.status, 204);
     assert.deepEqual(manager.releases, ["lease_123"]);
+
+    const recovery = await fetch(new URL("/restore-recovery/status", launcher.url), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ graphKey: "graph-key" }),
+    });
+    assert.equal(recovery.status, 200);
+    assert.deepEqual(await recovery.json(), {
+      state: "RECOVERY_REQUIRED",
+      recoveryPointConfirmed: true,
+      recordedAt: "2026-07-26T17:20:00.000Z",
+    });
+    assert.deepEqual(manager.recoveryChecks, ["graph-key"]);
 
     const preflight = await fetch(new URL("/sessions/ensure", launcher.url), {
       method: "OPTIONS",

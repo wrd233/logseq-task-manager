@@ -2,7 +2,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { join } from "node:path";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
-import { assertRestoreRecoveryInterlockClear } from "@task-copilot/shared/node";
+import type { LauncherRestoreRecoveryStatus } from "@task-copilot/service-client/launcher";
+import {
+  assertRestoreRecoveryInterlockClear,
+  readRestoreRecoveryInterlock,
+} from "@task-copilot/shared/node";
 
 import type { LauncherGraphConfig, LauncherProviderConfig } from "./contracts.ts";
 
@@ -168,6 +172,26 @@ export class GraphServiceManager {
         await runtime.child.stop();
       });
     }
+  }
+
+  async restoreRecoveryStatus(graphKey: string): Promise<LauncherRestoreRecoveryStatus> {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(graphKey)) throw new Error("LAUNCHER_GRAPH_KEY_INVALID");
+    const graph = this.graphByKey.get(graphKey);
+    if (!graph) throw new Error("LAUNCHER_GRAPH_NOT_CONFIGURED");
+    return this.serializeGraphLifecycle(graphKey, async () => {
+      try {
+        const recovery = await readRestoreRecoveryInterlock(graph.databasePath);
+        if (!recovery) return { state: "CLEAR", recoveryPointConfirmed: false };
+        if (recovery.graphId !== graph.graphId) return { state: "INVALID", recoveryPointConfirmed: false };
+        return {
+          state: recovery.status,
+          recoveryPointConfirmed: recovery.status === "RECOVERY_REQUIRED",
+          recordedAt: recovery.createdAt,
+        };
+      } catch {
+        return { state: "INVALID", recoveryPointConfirmed: false };
+      }
+    });
   }
 
   async close(): Promise<void> {
