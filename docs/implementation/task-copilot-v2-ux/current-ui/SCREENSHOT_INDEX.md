@@ -25,6 +25,10 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `screenshots/p2-c-39-mini-evolution-undo-reload-healthy-current-dark.png` | `7a7492a407ed` | Undo 返回来源后再次 reload，打开用户系统状态并展开诊断 | Runtime/Store/Service READY；commit 与 Logseq 版本可见；Pending/Recovery/Source Conflict `0/0/0`；reconciliation false | Light/窄栏仍 OPEN |
 | `screenshots/p2-d-05-project-narration-undo-reload-current-dark.png` | `ae2395523798` | MEDIUM 当前摘要完成真实 Provider、Review、Commit、reload、最近修改专用 Undo，再次 reload 后查看最近修改 | 原修改显示“已撤销”，inverse Commit 与 Audit 保留；顶部正确显示“Copilot 可用 · 建议需审阅”；Project 原摘要和全部结构字段已读回 | Review 正文仍偏长；Light/窄栏 OPEN |
 | `screenshots/p2-d-06-project-impact-router-current-dark.png` | `ae2395523798` | 从正式 Project 点击“调整 Project” | 最新界面按低摩擦、审阅后应用、深度结构三层说明影响；MEDIUM 真实入口可用；Ownership/正文移动/Closure 不会降级 | LIGHT 可发现 Undo 与多类 HEAVY 纵向链仍 OPEN |
+| `screenshots/p2-d-07-heavy-interface-accepted-current-dark.png` | `ae2395523798` | 用户填写完整 Project interface，独立接受单组 HIGH Proposal | Objectives、Deliverables、Work Stages、摘要与三项 Focus 已在最终预览；仍未正式应用，需提交前重验和最终确认 | 语义组名与 operation code 仍偏工程化 |
+| `screenshots/p2-d-08-heavy-interface-reload-current-dark.png` | `ae2395523798` | 最终 Commit 后 reload，再打开“现在” | 新摘要和前两项 Focus 从 SQLite 正式投影可读；Provider 状态与 Runtime/Store READY | Now 卡只显示前两项 Focus，完整结构需下钻 |
+| `screenshots/p2-d-09-heavy-interface-undo-current-dark.png` | `ae2395523798` | 从最近修改执行 Project interface 专用 inverse Commit | HEAVY 修改显示“已撤销”，历史证据保留；Project 重入回到原“进入点不明确” | 最终健康需 reload 证据 |
+| `screenshots/p2-d-10-heavy-interface-undo-reload-healthy-current-dark.png` | `ae2395523798` | HEAVY Undo 后再次 reload，打开用户系统状态 | 系统首屏明确正常、能力可用、数据安全、无需操作；展开技术诊断可读 exact commit 与 `0/0/0` | Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 

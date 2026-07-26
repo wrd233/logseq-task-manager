@@ -214,7 +214,7 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 
 ## P2-D：Project 结构操作路由
 
-状态：`IN_PROGRESS_ROUTER_MEDIUM_VERTICAL_DONE`
+状态：`IN_PROGRESS_MEDIUM_AND_HEAVY_INTERFACE_VERTICAL_DONE`
 
 | 级别 | 示例 | 用户摩擦 |
 |---|---|---|
@@ -244,6 +244,13 @@ DeepSeek→MEDIUM Review→Commit→reload→最近修改→专用 Undo→reload
 只有摘要往返，current focuses 与全部结构字段守恒，Pending/Recovery/Conflict `0/0/0`。
 `p2-d-05`/`p2-d-06` 为 `ae2395523798` CURRENT。P2-D 仍为 Partial，因为 LIGHT 可发现
 Undo、HEAVY 多类链、Light/窄栏与集中宿主 Gate 尚未完成。
+
+同一构建又完成一条 HEAVY 完整当前接口真实链：用户填写摘要、三项 current focuses、
+一个 Objective、一个 Deliverable 与一个 Work Stage，只生成单组 HIGH
+`UPDATE_PROJECT_INTERFACE`；接受仍零写，最终 Commit 后 Project v4→v5，reload 可读回全部
+聚合字段；专用 inverse Commit v5→v6 精确恢复原摘要、单一 Focus 与空结构，再次 reload
+健康。CURRENT `p2-d-07`～`p2-d-10`。这只关闭完整当前接口这一条 HEAVY 核心链，不代表
+Ownership、正文移动、批量子对象、拆分合并或 Closure 已完成本轮 P2-D Desktop Gate。
 
 ## P2-E：Closure 证据起草
 

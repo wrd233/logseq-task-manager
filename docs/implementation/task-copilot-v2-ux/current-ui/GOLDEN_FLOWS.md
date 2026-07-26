@@ -54,6 +54,24 @@ source return target 传回 Plugin，并只在正式 Page 或 active Primary Anc
 长期 Undo 首次暴露通用 Block 路由错误，修复后 Object v2→v3→v4，摘要往返而全部结构字段
 守恒。P2-D 的 LIGHT/HEAVY 与视觉 Gate 仍开放。
 
+## P2-D HEAVY 完整 Project interface
+
+状态：`DONE_ONE_HEAVY_VERTICAL_P2D_STILL_IN_PROGRESS`
+
+1. 影响路由进入“完整当前接口与结构关系”；
+2. 用户在一屏内填写摘要、1–3 个当前推进、Objectives、Deliverables 与 Work Stages；
+3. 机器只生成唯一 HIGH `UPDATE_PROJECT_INTERFACE` Proposal；
+4. 用户独立接受 HIGH 语义组；正式状态仍不变；
+5. 提交前重验后再确认最终 Commit，SQLite 原子更新 Project aggregate，不改 Graph；
+6. reload 后“现在”和 Project 重入从同一正式投影读回；
+7. 最近修改进入 Project interface 专用 inverse Commit；
+8. Undo 后再次 reload，原 Project aggregate 精确恢复且系统健康。
+
+真实结果：Project v4→v5→v6。Commit 后一个 Objective、一个 Deliverable、一个 Work Stage、
+三项 Focus 与摘要完整读回；Undo 后恢复原摘要、单一 Focus 和空结构。Graph、Ownership、
+Lifecycle 与 Condition 不变，Pending/Recovery/Conflict `0/0/0`。Ownership、正文移动、
+批量子对象、拆分合并与 Closure 仍需各自安全链，不因本链完成而降级。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一

@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_MEDIUM_DONE | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 16 类影响路由与 MEDIUM 真实 DeepSeek→Review→Commit→reload→专用 Undo→reload PASS；LIGHT Undo 完整性和多类 HEAVY 纵向链仍 OPEN；P2-E～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_MEDIUM_HEAVY_CORE_DONE | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 16 类影响路由、MEDIUM 真实 Provider 链与一条 HEAVY 完整接口 Commit/reload/Undo/reload PASS；LIGHT Undo 完整性和其他 HEAVY 纵向链仍 OPEN；P2-E～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -517,7 +517,10 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   `f6d0429` 修复为 Project interface 专用 inverse 后通过。`ae2395523798` 修正旧
   `Agent disabled` 状态并保存 CURRENT `p2-d-05`/`p2-d-06`。Application `161/161`、
   Local Service `135/135`、Plugin `274/274` 与根级检查 PASS；LIGHT Undo 与 HEAVY 多类链
-  继续 OPEN；
+  继续 OPEN。同一 `ae2395523798` 构建又完成 HEAVY 完整当前接口：
+  Proposal→HIGH 接受→提交前重验→Commit→reload→专用 inverse→reload。Object v4→v5→v6，
+  Commit 后 Objective/Deliverable/Work Stage/三项 Focus 全部可读，Undo 后恢复原空结构与
+  单一 Focus；Graph 未改、`0/0/0`。CURRENT `p2-d-07`～`p2-d-10`；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -527,8 +530,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-D：补齐 LIGHT Condition/Association 的可发现 Undo，并验证一条 HEAVY 完整接口
-   Desktop Commit/Undo 链；之后进入 P2-E Closure 证据起草；
+1. 继续 P2-D：补齐 LIGHT Condition/Association 的可发现 Undo；把 Ownership、正文移动、
+   批量子对象、拆分合并与 Closure 的既有安全链逐项映射到当前影响路由，然后进入 P2-E
+   Closure 证据起草；
 2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

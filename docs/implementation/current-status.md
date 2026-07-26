@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_MEDIUM_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_MEDIUM_HEAVY_CORE_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -203,7 +203,11 @@ overall_goal: IN_PROGRESS
   暴露的通用 Block 路由错误已由 `f6d0429` 修复并复验，`ae2395523798` 又把误导的旧
   `Agent disabled` 改为“Copilot 可用 · 建议需审阅”。Application `161/161`、Local
   Service `135/135`、Plugin `274/274` 与根级检查 PASS；CURRENT `p2-d-05`/`p2-d-06`。
-  P2-D 仍未整体完成：LIGHT 可发现 Undo、HEAVY 多类操作、Light/窄栏与最终 Gate 继续 OPEN；
+  同一当前 Project 又完成一条 HEAVY 完整接口真实链：HIGH Proposal、独立接受、提交前重验、
+  最终 Commit、reload、专用 Undo 与二次 reload；Object v4→v5→v6，Objectives、
+  Deliverables、Work Stages 与三项 Focus 在 Commit 后完整可读，Undo 后精确恢复原空结构与
+  单一 Focus。CURRENT `p2-d-07`～`p2-d-10`。P2-D 仍未整体完成：LIGHT 可发现 Undo、
+  其他 HEAVY 类型、Light/窄栏与最终 Gate 继续 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -218,7 +222,8 @@ V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 remaining host Desktop gates / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
 P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
-P2-D router + MEDIUM narration vertical DONE, remaining LIGHT/HEAVY/visual gates OPEN /
+P2-D router + MEDIUM narration + one HEAVY full-interface vertical DONE,
+remaining LIGHT/other-HEAVY/visual gates OPEN /
 P2-E–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论

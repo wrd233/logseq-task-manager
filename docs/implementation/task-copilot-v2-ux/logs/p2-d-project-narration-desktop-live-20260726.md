@@ -2,10 +2,13 @@
 
 ## 结论
 
-状态：`DONE_MEDIUM_VERTICAL_P2D_STILL_IN_PROGRESS`
+状态：`DONE_MEDIUM_AND_ONE_HEAVY_VERTICAL_P2D_STILL_IN_PROGRESS`
 
 本 Gate 关闭 P2-D 的 MEDIUM“只压缩当前理解”纵向链，不关闭整个 P2-D、P2 或整体 Goal。
 LIGHT 可发现 Undo、HEAVY 多类操作、Light/窄栏和集中宿主 Gate 继续开放。
+
+同一构建随后也关闭一条 HEAVY“完整当前接口”核心纵向链；Ownership、正文移动、批量子对象、
+拆分合并和 Closure 仍按各自高影响安全链开放。
 
 ## 当前运行基线
 
@@ -73,6 +76,19 @@ V2 Provider READY 时顶部仍显示旧 V1 `Agent disabled`。`ae23955` 改为�
 - reload 后 Runtime/Store/Service READY；
 - Pending/Recovery/Source Conflict：`0/0/0`。
 
+## HEAVY 完整当前接口证据
+
+- 用户在一屏内填写摘要、三项 current focuses、一个 Objective、一个 Deliverable 与一个
+  Work Stage；
+- 只生成唯一 HIGH `UPDATE_PROJECT_INTERFACE` Proposal；
+- 独立接受仍为零正式写入；
+- 提交前版本/scope 重验后才执行最终 Commit；
+- Project v4→v5，reload 后全部 aggregate 字段从 SQLite 正式投影可读；
+- 最近修改只提供 Project interface 专用 inverse，不回落到通用 Block Undo；
+- Undo v5→v6 后恢复原摘要、单一 Focus 与空 Objectives/Deliverables/Work Stages/mappings；
+- Graph、Ownership、Lifecycle、Condition 和位置均未变化；
+- 再次 reload 后系统正常、Pending/Recovery/Conflict `0/0/0`。
+
 ## 自动证据
 
 - Application：`161/161`
@@ -89,6 +105,10 @@ CURRENT：
 
 - `../current-ui/screenshots/p2-d-05-project-narration-undo-reload-current-dark.png`
 - `../current-ui/screenshots/p2-d-06-project-impact-router-current-dark.png`
+- `../current-ui/screenshots/p2-d-07-heavy-interface-accepted-current-dark.png`
+- `../current-ui/screenshots/p2-d-08-heavy-interface-reload-current-dark.png`
+- `../current-ui/screenshots/p2-d-09-heavy-interface-undo-current-dark.png`
+- `../current-ui/screenshots/p2-d-10-heavy-interface-undo-reload-healthy-current-dark.png`
 
 HISTORICAL / SUPERSEDED 操作链证据：
 
@@ -118,7 +138,7 @@ HISTORICAL / SUPERSEDED 操作链证据：
 ## 下一步
 
 1. 完成 P2-D LIGHT Condition/Association 的可发现 Undo 与 reload；
-2. 复验一条 HEAVY 完整 Project interface Commit/Undo Desktop 链；
+2. 把 Ownership、正文移动、批量子对象、拆分合并与 Closure 的既有安全链映射到影响路由；
 3. 进入 P2-E Closure 证据起草；
 4. 在集中 P1 Gate 中验证 Project Context Recovery loading/error/stale/feedback、Light/Dark
    与窄栏，并把语言一致性纳入 Skill 质量指标。

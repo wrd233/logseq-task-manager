@@ -33,6 +33,11 @@ P2-D 的 MEDIUM 当前摘要链也已在当前真实环境闭环：真实 DeepSe
 `HISTORICAL`/`SUPERSEDED`。完整记录见
 `../logs/p2-d-project-narration-desktop-live-20260726.md`。
 
+同一 `ae2395523798` 构建又完成 HEAVY 完整当前接口链：一个 Objective、Deliverable、
+Work Stage、三项 Focus 与摘要进入单组 HIGH Review；最终 Commit 后 reload 可读，专用
+inverse Commit 精确恢复原空结构与单一 Focus，再次 reload 健康。CURRENT
+`p2-d-07`～`p2-d-10`。这不代表其他 HEAVY 类型或 P2-D 整体完成。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；
