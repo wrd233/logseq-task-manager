@@ -2379,6 +2379,15 @@ async function handleAction(action: string, value?: string): Promise<void> {
           featureReady = false;
           message = undefined;
           await releaseServiceLifecycleSession();
+          // The failed Service cannot expose its retained recovery point after
+          // shutdown. Rediscover through Launcher immediately so the same
+          // system-status surface can render the bounded manual-recovery
+          // controls without requiring a plugin reload.
+          const recovered = await recoverConfiguredServiceRuntime(configuredServiceDescriptorPath);
+          featureReady = recovered;
+          diagnostics.setStoreStatus(recovered ? "READY" : "READ_ONLY_SAFE_MODE");
+          await refreshToolbarInterventionFacts();
+          await projectPageHeadActionController.refreshAll();
         } else if (serviceConnection.status === "READY" && serviceRuntimeClient === client) {
           await explicitSyncController?.resume(client).catch(() => undefined);
         }
