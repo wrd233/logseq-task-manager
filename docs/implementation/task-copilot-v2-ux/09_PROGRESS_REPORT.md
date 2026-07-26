@@ -607,13 +607,18 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   真实界面修复工程术语泄漏、恢复成功后陈旧只读状态及健康页内部枚举泄漏。状态为
   `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`，没有新正式状态、导航、
   Prompt、Skill 或 Recovery Kernel；受控前置条件不标作真实双重失败证据；
+- `25ddac9` / `4dfe014` 关闭高频壳层工程语言 Partial：删除顶部 Runtime/Store/Graph 状态条，
+  把“更多”、启动、知识库切换和系统状态收敛为用户结论；恢复重连必须同时满足连接 READY、
+  client 存在和正式修改可用。exact build 真实 reload 后，普通用户层约定工程词扫描为 `0`，
+  CURRENT `p0-e-05`、`p0-h-08`、`p0-i-03`。没有新增正式状态、导航、Skill、Prompt、Validator
+  或 Recovery 分支；本 Slice 不调用 LLM，拒绝率/重试不适用；
 - 新增 `11_COMPLEXITY_LEDGER.md`：将 Partial 堆积、Recovery 分裂、状态组合、Agent/Skill 重复、
   Desktop 笛卡尔积、证据漂移和工程语义泄漏列为发布前显式 Gate；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮已归档 41 张脱敏 Desktop 截图：P0-A/P0-H 7 张，P0-B 8 张，P0-C 5 张，
-  P0-D 9 张，P0-E 4 张，P0-F 2 张，P0-G 4 张，P0-I 2 张；
+- 本轮已归档 44 张脱敏 Desktop 截图：P0-A/P0-H 8 张，P0-B 8 张，P0-C 5 张，
+  P0-D 9 张，P0-E 5 张，P0-F 2 张，P0-G 4 张，P0-I 3 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
 ## 下一步

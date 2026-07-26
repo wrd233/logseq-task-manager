@@ -209,13 +209,14 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 - [x] P0-D 普通/Project/Journal Page 路由、UUID/Anchor 重验、Project create/reentry 与
   sidebar 共存证据；
 - [x] P0-E 四项主导航、Project/Objects 与 More/Audit/Migration/Diagnostics 可达性及四张
-  脱敏 Desktop 截图；
+  脱敏 Desktop 截图；`4dfe014` 又以最新 Dark Desktop 证明高频壳层不再显示重复运行组件条；
 - [x] P0-F 介入计数/噪声排除/Recovery 优先级自动覆盖，以及安静态、正式连接风险 `TC ①`、
   诊断路由和恢复后安静态的两张脱敏 Desktop 截图；
 - [x] P0-G 用户层状态翻译、inverse 折叠、专用 Undo 路由、折叠技术详情，以及 LOW 应用→
   即时结果→跨 reload 长期 Undo→Graph/SQLite 恢复的四张脱敏 Desktop 截图；
 - [x] P0-I 五个用户问题、Provider 非故障降级、安全优先级、Pending/Recovery 分离和
-  默认折叠工程诊断，以及真实 Desktop 注意/停服受限状态的两张脱敏截图；
+  默认折叠工程诊断，以及真实 Desktop 注意/停服受限状态的两张脱敏截图；`4dfe014` 的健康
+  系统状态又证明用户层工程词扫描为 0、精确版本只在主动展开的技术诊断中；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

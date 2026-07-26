@@ -208,7 +208,7 @@ test("restricted system status explains safety before exposing reason codes on d
     source_anchor_conflicts: "unavailable",
   });
   const detailBoundary = html.indexOf('<details class="technical-diagnostics">');
-  assert.match(html.slice(0, detailBoundary), /当前 Graph 与正式状态不匹配/);
+  assert.match(html.slice(0, detailBoundary), /当前知识库与正式状态不匹配/);
   assert.match(html.slice(0, detailBoundary), /Logseq 正文仍可编辑/);
   assert.doesNotMatch(html.slice(0, detailBoundary), /SERVICE_GRAPH_MISMATCH|READ_ONLY_SAFE_MODE/);
   assert.match(html.slice(detailBoundary), /SERVICE_GRAPH_MISMATCH/);

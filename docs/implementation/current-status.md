@@ -36,10 +36,12 @@ overall_goal: IN_PROGRESS
   租约窗口内结束而 Launcher 保留。Logseq 隐藏 iframe 的早期 Graph API/timer 停顿也已改为
   non-blocking bootstrap + `onGraphAfterIndexed`/`onRouteChanged` 恢复；真实隐藏 reload 后
   不打开面板等待 25 秒，owned Service 仍由新 lease 保持，首次打开即 READY。Graph switch
-  视觉 Gate 仍 OPEN；
+  视觉 Gate 仍 OPEN；`4dfe014` 又在真实 Logseq reload 后验证“更多”只显示本次使用与
+  用户维护语义，不再向日常界面暴露 Launcher/Service/Commit/SQLite；
 - P0-E 四项主导航：主入口已收束为“现在 / 待我确认 / 项目 / 更多”；Project
   列表/重入/当前接口/正式创建与 Audit/Recovery/Diagnostics/Backup/Restore/Migration
-  均在二级入口继续可达，自动测试与真实 Desktop 下钻已通过；窄宽度和本轮键盘注入未虚报；
+  均在二级入口继续可达，自动测试与真实 Desktop 下钻已通过；`4dfe014` 当前 Desktop 已
+  移除高频壳层的 Runtime/Store/Graph 重复运行条；窄宽度和本轮键盘注入未虚报；
 - P0-F 工具栏介入摘要：只从既有 Now Work/Proposal/SemanticCommit/连接投影派生到期复查、
   待确认、HIGH 已接受未应用、Pending/Recovery 和正式连接风险；OPEN/Focus/普通 WAITING/
   Project/Candidate 不计数。真实 Desktop 已通过安静态、连接风险 `TC ①`、诊断路由与连接
@@ -51,6 +53,8 @@ overall_goal: IN_PROGRESS
 - P0-I 用户层系统状态：首屏固定回答发生了什么、影响、仍可用、数据安全和所需动作；
   Provider 未配置不误报故障，Pending 与 Recovery 分离，工程组件/原因码/日志/修复入口默认
   折叠。真实 Desktop 已验证正文核对注意状态与 Service unavailable 只读安全状态；
+  `4dfe014` 又以最新健康态确认启动、知识库切换与系统状态均使用用户语言，工程身份只在
+  主动展开的诊断层；恢复重连还必须确认正式修改可用，不能仅凭连接 READY 报告成功；
 - P0-J 中文创建命令与快捷动作：四条 slash 只插入 canonical 显式正文语法，三条高频
   command palette 复用“现在”、Provider Proposal 与正式 Focus Controller；自动 Gate
   183/183 与根级检查通过，Desktop slash/palette/custom binding Gate 保持 OPEN；
