@@ -49,6 +49,47 @@ test("shell exposes exactly four user-level primary destinations and no-agent de
   assert.doesNotMatch(html, /data-action="capture"/);
 });
 
+test("Project LIGHT router exposes durable Condition Undo and renders a bounded confirmation", () => {
+  const value = model();
+  value.v2Objects = [{
+    objectId: "project-condition-undo",
+    objectType: "PROJECT",
+    text: "可撤销状态项目",
+    sourceOrCreationEvent: "controlled_project_creation",
+    lifecycle: "OPEN",
+    condition: { kind: "PAUSED", reason: "等待窗口" },
+    version: 3,
+    createdAt: "2026-07-26T00:00:00.000Z",
+    updatedAt: "2026-07-26T00:01:00.000Z",
+    projectStructure: {
+      currentSummary: "等待窗口",
+      currentFocuses: ["确认窗口"],
+      objectives: [],
+      deliverables: [],
+      workStages: [],
+      stageMappings: [],
+    },
+  }];
+  value.actionDialog = { kind: "v2-project-operation-router", value: "project-condition-undo|3" };
+  assert.match(renderApp(value), /data-action="v2-condition-undo-open"/);
+
+  value.v2ConditionUndoPreparation = {
+    status: "PREPARED",
+    conditionChangeId: "a".repeat(64),
+    objectId: "project-condition-undo",
+    objectText: "可撤销状态项目",
+    expectedVersion: 3,
+    beforeCondition: { kind: "ACTIONABLE" },
+    afterCondition: { kind: "PAUSED", reason: "等待窗口" },
+    changedAt: "2026-07-26T00:01:00.000Z",
+  };
+  value.actionDialog = { kind: "confirm-v2-condition-undo", value: `project-condition-undo|${"a".repeat(64)}|3` };
+  const confirmation = renderApp(value);
+  assert.match(confirmation, /从“我先暂停”恢复为“可以行动”/);
+  assert.match(confirmation, /不会改变 Lifecycle、Focus、Ownership、正文或 Project 当前接口/);
+  assert.match(confirmation, /data-action="submit-v2-condition-undo"/);
+});
+
 test("shell reports the controlled V2 Provider instead of the legacy demo-agent flag", () => {
   const value = model();
   value.workspace = "now";
@@ -476,7 +517,8 @@ test("Project current interface is readable in reentry and editable only through
   const router = renderApp(value);
   assert.match(router, /选择这次要改变什么/);
   assert.match(router, /低摩擦[\s\S]*有界直接命令/);
-  assert.match(router, /只有具备对应 Undo 的动作才可通过最终 Gate/);
+  assert.match(router, /状态变化已有跨 reload 的版本化 Undo/);
+  assert.match(router, /普通关联尚未具备 inverse，因此仍是受限能力，不计入最终 Gate/);
   assert.match(router, /审阅后应用[\s\S]*不得改变 Ownership、Lifecycle、Objectives/);
   assert.match(router, /深度结构[\s\S]*讨论、最终阅读、Commit 与 Undo/);
   assert.match(router, /data-action="v2-condition-open"/);

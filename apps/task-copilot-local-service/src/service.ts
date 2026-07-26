@@ -587,6 +587,34 @@ async function readConditionRequest(request: IncomingMessage): Promise<{ expecte
   return { expectedVersion: Number(record.expectedVersion), condition: condition as unknown as V2Condition };
 }
 
+interface ConditionUndoRequest {
+  conditionChangeId: string;
+  expectedVersion: number;
+  confirmation: "UNDO_CONDITION";
+  traceId: string;
+}
+
+async function readConditionUndoRequest(request: IncomingMessage): Promise<ConditionUndoRequest> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (
+    Object.keys(record).sort().join(",") !== "conditionChangeId,confirmation,expectedVersion,traceId"
+    || typeof record.conditionChangeId !== "string" || !/^[0-9a-f]{64}$/.test(record.conditionChangeId)
+    || record.confirmation !== "UNDO_CONDITION"
+    || !Number.isSafeInteger(record.expectedVersion) || Number(record.expectedVersion) < 1
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+  ) {
+    throw serviceError("CONDITION_UNDO_REQUEST_INVALID", "Condition Undo 必须引用受控变化、当前对象版本和精确确认。");
+  }
+  return record as unknown as ConditionUndoRequest;
+}
+
+function conditionChangeId(idempotencyKey: string): string {
+  return createHash("sha256").update(idempotencyKey).digest("hex");
+}
+
 async function readDeadlineRequest(request: IncomingMessage): Promise<{ expectedVersion: number; dueAt?: string }> {
   const body = await readBody(request);
   let value: unknown;
@@ -1232,7 +1260,7 @@ function respondError(response: ServerResponse, error: unknown): void {
     const projectCreationConflictCodes = ["V2_PROJECT_CREATION_COMMIT_CONFLICT", "V2_PROJECT_CREATION_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CREATION_COMMIT_INTENT_MISMATCH", "V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "V2_PROJECT_CREATION_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROJECT_CREATION_SOURCE_ANCHOR_STALE"];
     const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_TARGET_STALE", "V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "V2_LIFECYCLE_UNDO_NOT_AVAILABLE", "V2_LIFECYCLE_UNDO_LEDGER_CORRUPT", "V2_LIFECYCLE_UNDO_STATE_CHANGED", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED", ...projectCreationConflictCodes];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
-    const domainInputError = ["AREA_REQUEST_INVALID", "V2_AREA_ONLY", "V2_AREA_TEXT_REQUIRED", "V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_PROPOSAL_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID", "LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "LIFECYCLE_UNDO_REQUEST_INVALID", "V2_PROJECT_CREATION_COMMIT_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_PROJECT_CREATION_COMMIT_") && !projectCreationConflictCodes.includes(error.code));
+    const domainInputError = ["AREA_REQUEST_INVALID", "V2_AREA_ONLY", "V2_AREA_TEXT_REQUIRED", "V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_PROPOSAL_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID", "LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "LIFECYCLE_UNDO_REQUEST_INVALID", "V2_PROJECT_CREATION_COMMIT_REQUEST_INVALID", "CONDITION_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_PROJECT_CREATION_COMMIT_") && !projectCreationConflictCodes.includes(error.code));
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
@@ -1241,13 +1269,13 @@ function respondError(response: ServerResponse, error: unknown): void {
       ? 413
       : migrationInputError || proposalInputError || domainInputError || uxInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
         ? 400
-          : migrationNotFound || error.code === "V2_OBJECT_NOT_FOUND" || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_NOT_FOUND" || error.code === "V2_CANDIDATE_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND" || error.code === "UX_INTERACTION_NOT_FOUND"
+          : migrationNotFound || error.code === "V2_OBJECT_NOT_FOUND" || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_NOT_FOUND" || error.code === "V2_CANDIDATE_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "V2_CONDITION_CHANGE_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND" || error.code === "UX_INTERACTION_NOT_FOUND"
           ? 404
           : error.code === "UX_INTERACTION_SESSION_UNAVAILABLE"
           ? 409
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : migrationConflict || error.code === "V2_AREA_CLOSED" || error.code === "V2_ASSOCIATION_EXISTS" || error.code === "V2_CANDIDATE_STALE" || error.code === "V2_CANDIDATE_UPDATE_TARGET_STALE" || error.code === "V2_OBJECT_UPDATE_TARGET_STALE" || error.code === "V2_CANDIDATE_ALREADY_RESOLVED" || error.code === "V2_CANDIDATE_NOT_ACTIONABLE" || error.code === "V2_CANDIDATE_PROPOSAL_EXISTS" || error.code === "V2_CANDIDATE_PROPOSAL_ACTIVE" || error.code === "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED" || error.code === "V2_MINI_PROJECT_CLOSURE_NOT_AVAILABLE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_ACTIVE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_AMBIGUOUS" || error.code === "V2_IDEMPOTENCY_KEY_CONFLICT" || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_PROJECT_CLOSURE_REQUIRED" || error.code === "V2_PROJECT_CLOSURE_PROJECT_ONLY" || error.code === "V2_PROJECT_CLOSURE_NOT_OPEN" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
+          : migrationConflict || error.code === "V2_AREA_CLOSED" || error.code === "V2_ASSOCIATION_EXISTS" || error.code === "V2_CANDIDATE_STALE" || error.code === "V2_CANDIDATE_UPDATE_TARGET_STALE" || error.code === "V2_OBJECT_UPDATE_TARGET_STALE" || error.code === "V2_CANDIDATE_ALREADY_RESOLVED" || error.code === "V2_CANDIDATE_NOT_ACTIONABLE" || error.code === "V2_CANDIDATE_PROPOSAL_EXISTS" || error.code === "V2_CANDIDATE_PROPOSAL_ACTIVE" || error.code === "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED" || error.code === "V2_MINI_PROJECT_CLOSURE_NOT_AVAILABLE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_ACTIVE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_AMBIGUOUS" || error.code === "V2_IDEMPOTENCY_KEY_CONFLICT" || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_CONDITION_UNDO_ALREADY_APPLIED" || error.code === "V2_CONDITION_UNDO_STALE" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_PROJECT_CLOSURE_REQUIRED" || error.code === "V2_PROJECT_CLOSURE_PROJECT_ONLY" || error.code === "V2_PROJECT_CLOSURE_NOT_OPEN" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -1286,6 +1314,21 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       release();
       if (serializedTails.get(key) === tail) serializedTails.delete(key);
     }
+  };
+  const resolveConditionChange = (objectId: string, requestedChangeId?: string) => {
+    const receipts = store.listConditionChangeReceipts(objectId);
+    const receipt = requestedChangeId
+      ? receipts.find((candidate) => conditionChangeId(candidate.idempotencyKey) === requestedChangeId)
+      : receipts[0];
+    if (!receipt) throw serviceError("V2_CONDITION_CHANGE_NOT_FOUND", "没有找到可核验的状态变化；旧版或未受控变化不会被猜测撤销。");
+    const resolvedChangeId = conditionChangeId(receipt.idempotencyKey);
+    const undoIdempotencyKey = `condition-undo:${resolvedChangeId}`;
+    return {
+      receipt,
+      conditionChangeId: resolvedChangeId,
+      undoIdempotencyKey,
+      undoReceipt: store.getCommandReceipt(undoIdempotencyKey),
+    };
   };
   const activeMiniProjectClosure = async (objectId: string) => {
     const matches = (await proposalApplication.list()).filter(({ proposal }) =>
@@ -4550,6 +4593,73 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const digest = createHash("sha256").update(JSON.stringify([options.graphId, objectId, input.expectedVersion, checksum(input.condition)])).digest("hex");
       const object = await application.changeCondition(objectId, input.condition, { actor: "user", expectedVersion: input.expectedVersion, idempotencyKey: `condition:${digest}`, traceId: `condition:${digest.slice(0, 16)}` });
       respond(response, 200, { object });
+      return;
+    }
+    const conditionUndoMatch = (request.method === "GET" || request.method === "POST")
+      ? url.pathname.match(/^\/objects\/([^/]+)\/condition\/undo$/)
+      : null;
+    if (conditionUndoMatch?.[1]) {
+      const objectId = decodeURIComponent(conditionUndoMatch[1]);
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(objectId)) throw serviceError("CONDITION_UNDO_REQUEST_INVALID", "Condition Undo 对象 ID 无效。");
+      if (request.method === "GET") {
+        await requireNoBody(request);
+        const resolved = resolveConditionChange(objectId);
+        if (resolved.undoReceipt) throw serviceError("V2_CONDITION_UNDO_ALREADY_APPLIED", "最近一次状态变化已经撤销；没有重复写入。");
+        const current = store.getObject(objectId);
+        if (
+          !current
+          || current.version !== resolved.receipt.object.version
+          || stableJson(current.condition) !== stableJson(resolved.receipt.object.condition)
+        ) {
+          throw serviceError("V2_CONDITION_UNDO_STALE", "对象已在该状态变化后继续改变；为避免覆盖较新状态，不能撤销。");
+        }
+        respond(response, 200, {
+          status: "PREPARED",
+          conditionChangeId: resolved.conditionChangeId,
+          objectId,
+          objectText: current.text,
+          expectedVersion: current.version,
+          beforeCondition: resolved.receipt.beforeCondition,
+          afterCondition: current.condition,
+          changedAt: resolved.receipt.createdAt,
+        });
+        return;
+      }
+      const input = await readConditionUndoRequest(request);
+      const result = await serializeByKey(`condition-undo:${objectId}`, async () => {
+        const resolved = resolveConditionChange(objectId, input.conditionChangeId);
+        if (resolved.undoReceipt?.command === "change_condition") {
+          return {
+            status: "COMPLETED" as const,
+            conditionChangeId: resolved.conditionChangeId,
+            object: resolved.undoReceipt.object,
+            replayed: true,
+          };
+        }
+        if (resolved.undoReceipt) throw serviceError("V2_IDEMPOTENCY_KEY_CONFLICT", "Condition Undo 回执类型冲突；没有重复写入。");
+        const current = store.getObject(objectId);
+        if (
+          !current
+          || current.version !== input.expectedVersion
+          || current.version !== resolved.receipt.object.version
+          || stableJson(current.condition) !== stableJson(resolved.receipt.object.condition)
+        ) {
+          throw serviceError("V2_CONDITION_UNDO_STALE", "对象或状态已在确认前变化；为避免覆盖较新状态，没有撤销。");
+        }
+        const object = await application.changeCondition(objectId, resolved.receipt.beforeCondition, {
+          actor: "user",
+          expectedVersion: current.version,
+          idempotencyKey: resolved.undoIdempotencyKey,
+          traceId: input.traceId,
+        });
+        return {
+          status: "COMPLETED" as const,
+          conditionChangeId: resolved.conditionChangeId,
+          object,
+          replayed: false,
+        };
+      });
+      respond(response, 200, result);
       return;
     }
     const deadlineMatch = request.method === "PATCH" ? url.pathname.match(/^\/objects\/([^/]+)\/deadline$/) : null;

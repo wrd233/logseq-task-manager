@@ -808,6 +808,28 @@ export interface ServiceNowWorkItem { objectId: string; objectType: V2ObjectType
 export interface ServiceNowWorkConditionOption { objectId: string; objectType: V2ObjectType; text: string }
 export interface ServiceNowWork { generatedAt: string; focus: ServiceNowWorkItem[]; next: ServiceNowWorkItem[]; waitingReview: ServiceNowWorkItem[]; conditionOptions: ServiceNowWorkConditionOption[] }
 export interface ServiceFocusSelection { objectId: string; selectedAt: string; rank: number; expiresAt?: string }
+export interface ServiceConditionUndoPreparation {
+  status: "PREPARED";
+  conditionChangeId: string;
+  objectId: string;
+  objectText: string;
+  expectedVersion: number;
+  beforeCondition: V2Condition;
+  afterCondition: V2Condition;
+  changedAt: string;
+}
+export interface ServiceConditionUndoRequest {
+  conditionChangeId: string;
+  expectedVersion: number;
+  confirmation: "UNDO_CONDITION";
+  traceId: string;
+}
+export interface ServiceConditionUndoResult {
+  status: "COMPLETED";
+  conditionChangeId: string;
+  object: V2ManagedObject;
+  replayed: boolean;
+}
 
 export interface ServiceCandidateDiscoveryRequest {
   sourceAnchorId: string;
@@ -1500,6 +1522,18 @@ export class LocalServiceClient {
 
   changeCondition(objectId: string, expectedVersion: number, condition: V2Condition): Promise<{ object: V2ManagedObject }> {
     return this.request<{ object: V2ManagedObject }>(`/objects/${encodeURIComponent(objectId)}/condition`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion, condition }) });
+  }
+
+  prepareConditionUndo(objectId: string): Promise<ServiceConditionUndoPreparation> {
+    return this.request<ServiceConditionUndoPreparation>(`/objects/${encodeURIComponent(objectId)}/condition/undo`);
+  }
+
+  undoCondition(objectId: string, input: ServiceConditionUndoRequest): Promise<ServiceConditionUndoResult> {
+    return this.request<ServiceConditionUndoResult>(`/objects/${encodeURIComponent(objectId)}/condition/undo`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
   }
 
   changeDeadline(objectId: string, expectedVersion: number, dueAt?: string): Promise<{ object: V2ManagedObject }> {

@@ -2241,15 +2241,52 @@ test("Now Work Focus is service-owned, manually ordered, and opens from Primary 
   assert.deepEqual((await client.nowWork()).focus.map((item) => item.objectId), [second.object.objectId]);
   const waiting = await client.changeCondition(second.object.objectId, second.object.version, { kind: "WAITING", waitingFor: "外部负责人", expectedResult: "确认窗口", reviewAt: "2026-07-20T00:00:00.000Z" });
   assert.equal(waiting.object.version, second.object.version + 1);
+  const waitingUndo = await client.prepareConditionUndo(second.object.objectId);
+  assert.equal(waitingUndo.status, "PREPARED");
+  assert.deepEqual(waitingUndo.beforeCondition, { kind: "ACTIONABLE" });
+  assert.deepEqual(waitingUndo.afterCondition, waiting.object.condition);
+  assert.equal(waitingUndo.expectedVersion, waiting.object.version);
+  const undoneWaiting = await client.undoCondition(second.object.objectId, {
+    conditionChangeId: waitingUndo.conditionChangeId,
+    expectedVersion: waitingUndo.expectedVersion,
+    confirmation: "UNDO_CONDITION",
+    traceId: "trace-condition-undo",
+  });
+  assert.equal(undoneWaiting.status, "COMPLETED");
+  assert.equal(undoneWaiting.object.condition.kind, "ACTIONABLE");
+  assert.equal(undoneWaiting.object.version, waiting.object.version + 1);
+  assert.equal((await client.undoCondition(second.object.objectId, {
+    conditionChangeId: waitingUndo.conditionChangeId,
+    expectedVersion: waitingUndo.expectedVersion,
+    confirmation: "UNDO_CONDITION",
+    traceId: "trace-condition-undo-replay",
+  })).replayed, true);
+  await assert.rejects(
+    () => client.prepareConditionUndo(second.object.objectId),
+    (error: unknown) => error instanceof Error && "details" in error
+      && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_CONDITION_UNDO_ALREADY_APPLIED",
+  );
+  const waitingAgain = await client.changeCondition(second.object.objectId, undoneWaiting.object.version, { kind: "WAITING", waitingFor: "外部负责人", expectedResult: "确认窗口", reviewAt: "2026-07-20T00:00:00.000Z" });
   now = await client.nowWork();
   assert.equal(now.focus.find((item) => item.objectId === second.object.objectId)?.condition.kind, "WAITING", "Focus survives an independent Condition change");
   assert.match(now.waitingReview.find((item) => item.objectId === second.object.objectId)?.reason ?? "", /复查已到/);
-  const blocked = await client.changeCondition(second.object.objectId, waiting.object.version, { kind: "BLOCKED", reason: "需先完成第一项", blockerObjectId: first.object.objectId });
+  const blocked = await client.changeCondition(second.object.objectId, waitingAgain.object.version, { kind: "BLOCKED", reason: "需先完成第一项", blockerObjectId: first.object.objectId });
   assert.equal(blocked.object.condition.kind, "BLOCKED");
   now = await client.nowWork();
   assert.match(now.next.find((item) => item.objectId === first.object.objectId)?.reason ?? "", /阻碍当前关注/);
   await assert.rejects(() => client.changeCondition(second.object.objectId, blocked.object.version, { kind: "BLOCKED", reason: "不存在", blockerObjectId: "missing-blocker" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 404 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_BLOCKER_OBJECT_NOT_FOUND");
   await assert.rejects(() => client.changeCondition(second.object.objectId, second.object.version, { kind: "ACTIONABLE" }), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_VERSION_CONFLICT");
+  await assert.rejects(
+    () => client.undoCondition(second.object.objectId, {
+      conditionChangeId: "0".repeat(64),
+      expectedVersion: blocked.object.version,
+      confirmation: "UNDO_CONDITION",
+      traceId: "trace-condition-undo-missing",
+    }),
+    (error: unknown) => error instanceof Error && "details" in error
+      && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 404,
+  );
   const invalid = await fetch(new URL(`focus/${encodeURIComponent(second.object.objectId)}`, service.url), { method: "POST", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: second.object.version, rank: -1 }) });
   assert.equal(invalid.status, 400);
   const invalidCondition = await fetch(new URL(`objects/${encodeURIComponent(second.object.objectId)}/condition`, service.url), { method: "PATCH", headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: waiting.object.version, condition: { kind: "WAITING", waitingFor: "人", expectedResult: "结果", reviewAt: "bad", hiddenAuthority: true } }) });

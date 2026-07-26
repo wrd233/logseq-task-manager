@@ -32,6 +32,7 @@ import {
 import { renderFirstRunWelcome, type FirstRunAction, type FirstRunModel } from "./first-run.ts";
 import type {
   ServiceConnectionState,
+  ServiceConditionUndoPreparation,
   LocalServiceClient,
   ServiceNowWork,
   ServiceSemanticCommit,
@@ -232,6 +233,8 @@ let v2LowRiskApplyBusyProposalId: string | undefined;
 const v2AssociationSubmission: V2AssociationSubmissionState = { busy: false };
 let v2OwnershipCommitBusy = false;
 let v2BlockConditionBusy = false;
+let v2ConditionUndoBusy = false;
+let v2ConditionUndoPreparation: ServiceConditionUndoPreparation | undefined;
 let v2LifecycleCommitBusy = false;
 let v2StructureCommitBusy = false;
 let v2ProjectCreationCommitBusy = false;
@@ -540,6 +543,8 @@ async function model(): Promise<UiModel> {
     v2AssociationBusy: v2AssociationSubmission.busy,
     v2OwnershipCommitBusy,
     v2BlockConditionBusy,
+    v2ConditionUndoBusy,
+    ...(v2ConditionUndoPreparation ? { v2ConditionUndoPreparation } : {}),
     v2LifecycleCommitBusy,
     v2StructureCommitBusy,
     v2ProjectCreationCommitBusy,
@@ -1962,6 +1967,75 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-area-edit-open" && value) return openActionDialog("v2-area-edit", value);
   if (action === "v2-project-operation-router-open" && value) return openActionDialog("v2-project-operation-router", value);
+  if (action === "v2-condition-undo-open" && value) {
+    if (v2ConditionUndoBusy) return;
+    v2ConditionUndoBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+          throw new Error("V2 Local Service 未就绪；没有准备状态撤销。");
+        }
+        const prepared = await client.prepareConditionUndo(value);
+        v2ConditionUndoPreparation = prepared;
+        actionDialog = {
+          kind: "confirm-v2-condition-undo",
+          value: `${prepared.objectId}|${prepared.conditionChangeId}|${prepared.expectedVersion}`,
+        };
+      });
+    } finally {
+      v2ConditionUndoBusy = false;
+      await refresh();
+    }
+    return;
+  }
+  if (action === "submit-v2-condition-undo" && value) {
+    if (v2ConditionUndoBusy) return;
+    const [objectId, conditionChangeId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    if (!dialogChecked("actionConfirmed")) {
+      latestError = "请确认恢复到这次状态变化之前。";
+      await refresh();
+      return;
+    }
+    v2ConditionUndoBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        const prepared = v2ConditionUndoPreparation;
+        if (
+          !client
+          || !objectId
+          || !conditionChangeId
+          || !Number.isSafeInteger(expectedVersion)
+          || !prepared
+          || prepared.objectId !== objectId
+          || prepared.conditionChangeId !== conditionChangeId
+          || prepared.expectedVersion !== expectedVersion
+        ) {
+          throw new Error("状态撤销上下文已失效；没有写入。");
+        }
+        const result = await client.undoCondition(objectId, {
+          conditionChangeId,
+          expectedVersion,
+          confirmation: "UNDO_CONDITION",
+          traceId: `condition-undo-ui-${Date.now()}`,
+        });
+        v2ConditionUndoPreparation = undefined;
+        actionDialog = undefined;
+        workspace = "now";
+        message = result.replayed
+          ? "最近状态变化此前已撤销；已刷新当前工作。"
+          : "最近状态变化已撤销；Lifecycle、Focus、Ownership、正文和 Project 当前接口均未改变。";
+      });
+    } finally {
+      v2ConditionUndoBusy = false;
+      await refresh();
+    }
+    return;
+  }
   if (action === "v2-project-operation-association" && value) {
     actionDialog = undefined;
     workspace = "objects";
@@ -3192,6 +3266,8 @@ async function recoverCurrentGraphRuntime(successMessage: string): Promise<boole
 
 async function handleCurrentGraphChanged(): Promise<void> {
   originRoute = undefined;
+  actionDialog = undefined;
+  v2ConditionUndoPreparation = undefined;
   v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   attentionShadowSession.clear();

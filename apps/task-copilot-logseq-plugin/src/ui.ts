@@ -6,8 +6,8 @@ import type {
   ProjectReentryView,
 } from "@task-copilot/application";
 import { routeProjectOperation } from "@task-copilot/application";
-import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
-import type { ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
+import type { ServiceConditionUndoPreparation, ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
@@ -59,6 +59,7 @@ export type ActionDialogKind =
   | "confirm-v2-lifecycle-undo"
   | "confirm-v2-ownership"
   | "confirm-v2-ownership-undo"
+  | "confirm-v2-condition-undo"
   | "confirm-v2-undo"
   | "v2-condition"
   | "v2-block-condition-route"
@@ -113,6 +114,8 @@ export interface UiModel {
   v2AssociationBusy?: boolean;
   v2OwnershipCommitBusy?: boolean;
   v2BlockConditionBusy?: boolean;
+  v2ConditionUndoBusy?: boolean;
+  v2ConditionUndoPreparation?: ServiceConditionUndoPreparation;
   v2LifecycleCommitBusy?: boolean;
   v2StructureCommitBusy?: boolean;
   v2ProjectCreationCommitBusy?: boolean;
@@ -871,7 +874,7 @@ function renderActionDialog(model: UiModel): string {
     const narration = routeProjectOperation("CURRENT_SUMMARY");
     const structure = routeProjectOperation("CURRENT_INTERFACE");
     return `<section class="inbox-dialog action-dialog project-operation-router" aria-label="选择 Project 调整方式"><h3>选择这次要改变什么</h3><p class="muted">先按实际影响给出合适摩擦；不会把 Ownership、正文移动或 Closure 降级成快捷修改。</p>
-      <article class="card compact"><div class="eyebrow">低摩擦 · 有界直接命令</div><h4>注意力、状态或普通关联</h4><p>${escapeHtml(attention.userOutcome)} ${escapeHtml(attention.safetyBoundary)}</p><div class="actions">${button("更新状态", "v2-condition-open", dialog.value, "quiet")}${button("添加普通关联", "v2-project-operation-association", dialog.value, "quiet")}</div><p class="muted">${escapeHtml(association.safetyBoundary)} 只有具备对应 Undo 的动作才可通过最终 Gate。</p></article>
+      <article class="card compact"><div class="eyebrow">低摩擦 · 有界直接命令</div><h4>注意力、状态或普通关联</h4><p>${escapeHtml(attention.userOutcome)} ${escapeHtml(attention.safetyBoundary)}</p><div class="actions">${button("更新状态", "v2-condition-open", dialog.value, "quiet")}${button("撤销最近状态", "v2-condition-undo-open", objectId, "quiet", model.v2ConditionUndoBusy === true)}${button("添加普通关联", "v2-project-operation-association", dialog.value, "quiet")}</div><p class="muted">${escapeHtml(association.safetyBoundary)} 状态变化已有跨 reload 的版本化 Undo；普通关联尚未具备 inverse，因此仍是受限能力，不计入最终 Gate。</p></article>
       <article class="card compact"><div class="eyebrow">审阅后应用</div><h4>只压缩当前理解</h4><p>${escapeHtml(narration.userOutcome)} ${escapeHtml(narration.safetyBoundary)}</p><div class="actions">${button(model.v2ProjectNarrationBusy ? "Copilot 正在整理…" : "生成当前摘要建议", "v2-project-narration-propose", dialog.value, "quiet", model.v2ProjectNarrationBusy === true || model.v2ProviderAvailable !== true)}</div><p class="muted">建议只替换当前摘要；当前推进、Objectives、Deliverables、Work Stages、Ownership、正文和位置保持不变。进入“待我确认”后仍需接受、应用，也可 Undo。</p></article>
       <article class="card compact"><div class="eyebrow">深度结构 · 讨论、最终阅读、Commit 与 Undo</div><h4>完整当前接口与结构关系</h4><p>${escapeHtml(structure.userOutcome)} ${escapeHtml(structure.safetyBoundary)}</p><div class="actions">${button("编辑完整当前接口", "v2-project-structure-open", dialog.value, "primary")}</div><p class="muted">主归属、批量子对象、正文移动、拆分合并和 Closure 继续使用各自 HIGH 安全链，不在这里合并成一个万能表单。</p></article>
       <div class="actions">${cancel}</div></section>`;
@@ -901,6 +904,21 @@ function renderActionDialog(model: UiModel): string {
     const blockerObjectId = current?.condition.kind === "BLOCKED" ? current.condition.blockerObjectId : undefined;
     const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}"${option.objectId === blockerObjectId ? " selected" : ""}>${escapeHtml(option.objectType)} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
     return `<section class="inbox-dialog action-dialog" aria-label="更新 V2 Condition"><h3>更新状态</h3><p class="muted">Condition 与 Lifecycle、Focus 分离；保存后立即影响 Now Work 投影。</p><label>状态<select data-field="v2ConditionKind"><option>ACTIONABLE</option><option>WAITING</option><option>BLOCKED</option><option>PAUSED</option></select></label><label>等待谁或什么<input data-field="v2WaitingFor"></label><label>期待结果<input data-field="v2ExpectedResult"></label><label>原因<input data-field="v2ConditionReason"></label><label>阻碍来源（Blocked 可选）<select data-field="v2BlockerObjectId"><option value="">仅记录原因</option>${blockers}</select></label><label>复查时间（Waiting 必填）<input type="datetime-local" data-field="v2ConditionReviewAt"></label><div class="actions">${button("保存状态", "submit-v2-condition", dialog.value, "primary")}${cancel}</div></section>`;
+  }
+  if (dialog.kind === "confirm-v2-condition-undo") {
+    const [objectId, changeId, rawVersion] = dialog.value.split("|");
+    const prepared = model.v2ConditionUndoPreparation;
+    if (
+      !prepared
+      || prepared.objectId !== objectId
+      || prepared.conditionChangeId !== changeId
+      || prepared.expectedVersion !== Number(rawVersion)
+    ) return "";
+    const label = (condition: V2Condition): string => condition.kind === "ACTIONABLE" ? "可以行动"
+      : condition.kind === "WAITING" ? "等待别人"
+      : condition.kind === "BLOCKED" ? "被问题卡住"
+      : "我先暂停";
+    return `<section class="inbox-dialog action-dialog" aria-label="撤销最近状态变化"><div class="eyebrow">低摩擦 · 版本保护 Undo</div><h3>撤销最近状态变化</h3><p>将“${escapeHtml(prepared.objectText)}”从“${escapeHtml(label(prepared.afterCondition))}”恢复为“${escapeHtml(label(prepared.beforeCondition))}”。</p><p class="muted">确认时会重新核对对象版本和当前 Condition；任何后续变化都会安全停止。不会改变 Lifecycle、Focus、Ownership、正文或 Project 当前接口。</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认恢复到这次状态变化之前</label><div class="actions">${button(model.v2ConditionUndoBusy ? "正在撤销…" : "确认撤销", "submit-v2-condition-undo", dialog.value, "danger", model.v2ConditionUndoBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-route") {
     const [objectId] = dialog.value.split("|");

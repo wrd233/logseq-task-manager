@@ -34,7 +34,7 @@ import type {
   V2OwnershipUndoResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
-import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
+import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
 export const V2_DATABASE_SCHEMA_VERSION = 12;
@@ -136,6 +136,13 @@ export interface V2SemanticCommitStepRecord {
   afterHash?: string;
   errorCode?: string;
   updatedAt: string;
+}
+
+export interface V2ConditionChangeReceipt {
+  idempotencyKey: string;
+  object: V2ManagedObject;
+  beforeCondition: V2Condition;
+  createdAt: string;
 }
 
 interface ObjectRow {
@@ -797,11 +804,19 @@ export class V2SqliteStore {
     this.requireIdempotencyKey(command.idempotencyKey);
     const write = this.database.transaction(() => {
       const receipt = this.receipt(command.idempotencyKey);
-      if (receipt) return { object: JSON.parse(receipt.result_json) as V2ManagedObject, replayed: true };
+      if (receipt) {
+        const stored = JSON.parse(receipt.result_json) as V2ManagedObject | { object: V2ManagedObject };
+        return { object: "object" in stored ? stored.object : stored, replayed: true };
+      }
       this.requireVersion(command.object.objectId, command.expectedVersion);
+      const before = command.audit.command === "change_condition" ? this.getObject(command.object.objectId) : undefined;
       this.writeObject(command.object);
       this.writeAudit(command.audit);
-      this.writeReceipt(command.idempotencyKey, command.audit, command.object);
+      this.writeReceipt(
+        command.idempotencyKey,
+        command.audit,
+        before ? { object: command.object, beforeCondition: before.condition } : command.object,
+      );
       return { object: command.object, replayed: false };
     });
     return this.executeWrite(write);
@@ -1159,8 +1174,14 @@ export class V2SqliteStore {
     if (!receipt) return undefined;
     const command = receipt.command_name as V2CommandReceipt["command"];
     const result = JSON.parse(receipt.result_json) as unknown;
-    if (command === "create_object" || command === "edit_area" || command === "transition_lifecycle" || command === "cancel_lifecycle" || command === "reopen_lifecycle" || command === "undo_lifecycle" || command === "complete_mini_project" || command === "complete_project" || command === "update_project_structure" || command === "change_condition" || command === "change_due_at") {
+    if (command === "create_object" || command === "edit_area" || command === "transition_lifecycle" || command === "cancel_lifecycle" || command === "reopen_lifecycle" || command === "undo_lifecycle" || command === "complete_mini_project" || command === "complete_project" || command === "update_project_structure" || command === "change_due_at") {
       return { command, object: result as V2ManagedObject };
+    }
+    if (command === "change_condition") {
+      const value = result as V2ManagedObject | { object: V2ManagedObject; beforeCondition?: V2Condition };
+      return "object" in value
+        ? { command, object: value.object, ...(value.beforeCondition ? { beforeCondition: value.beforeCondition } : {}) }
+        : { command, object: value };
     }
     if (command === "create_project_with_page" || command === "materialize_explicit_object" || command === "undo_materialization" || command === "synchronize_explicit_object" || command === "complete_mini_project_from_marker" || command === "observe_primary_anchor" || command === "bind_primary_anchor") {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
@@ -1333,6 +1354,26 @@ export class V2SqliteStore {
       ? this.database.prepare("SELECT * FROM semantic_commits WHERE proposal_id = ? ORDER BY created_at, semantic_commit_id").all(proposalId)
       : this.database.prepare("SELECT * FROM semantic_commits ORDER BY created_at, semantic_commit_id").all();
     return (rows as Record<string, unknown>[]).map((row) => this.mapSemanticCommit(row));
+  }
+
+  listConditionChangeReceipts(objectId: string): V2ConditionChangeReceipt[] {
+    const rows = this.database.prepare(`
+      SELECT idempotency_key, result_json, created_at
+      FROM command_receipts
+      WHERE command_name = 'change_condition'
+        AND idempotency_key NOT LIKE 'condition-undo:%'
+      ORDER BY created_at DESC, idempotency_key DESC
+    `).all() as Array<{ idempotency_key: string; result_json: string; created_at: string }>;
+    return rows.flatMap((row) => {
+      const value = JSON.parse(row.result_json) as V2ManagedObject | { object?: V2ManagedObject; beforeCondition?: V2Condition };
+      if (!("object" in value) || !value.object || !value.beforeCondition || value.object.objectId !== objectId) return [];
+      return [{
+        idempotencyKey: row.idempotency_key,
+        object: value.object,
+        beforeCondition: value.beforeCondition,
+        createdAt: row.created_at,
+      }];
+    });
   }
 
   listFocusSelections(): FocusSelection[] {

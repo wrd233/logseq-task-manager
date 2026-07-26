@@ -195,7 +195,8 @@ export interface V2MaterializationUndoResult {
 }
 
 export type V2CommandReceipt =
-  | { command: "create_object" | "edit_area" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_mini_project" | "complete_project" | "update_project_structure" | "change_condition" | "change_due_at"; object: V2ManagedObject }
+  | { command: "create_object" | "edit_area" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_mini_project" | "complete_project" | "update_project_structure" | "change_due_at"; object: V2ManagedObject }
+  | { command: "change_condition"; object: V2ManagedObject; beforeCondition?: V2Condition }
   | { command: "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "bind_primary_anchor"; object: V2ManagedObject; anchor: V2Anchor }
   | { command: "rebind_primary_anchor"; object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor }
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }

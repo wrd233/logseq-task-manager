@@ -31,6 +31,34 @@ test("SQLite initialization is Graph-bound and idempotent", async (t) => {
   reopened.close();
 });
 
+test("Condition command receipts retain a durable inverse without changing the object API", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-condition-receipt");
+  const application = new V2Application(store);
+  const created = await application.createObject(
+    { objectId: "condition-receipt-task", objectType: "TASK", text: "等待验收" },
+    { actor: "test", expectedVersion: 0, idempotencyKey: "create-condition-receipt", traceId: "trace-create-condition-receipt" },
+  );
+  const changed = await application.changeCondition(
+    created.objectId,
+    { kind: "PAUSED", reason: "等待测试环境" },
+    { actor: "test", expectedVersion: created.version, idempotencyKey: "condition:durable-forward", traceId: "trace-condition-forward" },
+  );
+  assert.equal(changed.condition.kind, "PAUSED");
+  assert.deepEqual(store.listConditionChangeReceipts(created.objectId), [{
+    idempotencyKey: "condition:durable-forward",
+    object: changed,
+    beforeCondition: { kind: "ACTIONABLE" },
+    createdAt: changed.updatedAt,
+  }]);
+  assert.deepEqual((await application.changeCondition(
+    created.objectId,
+    { kind: "PAUSED", reason: "等待测试环境" },
+    { actor: "test", expectedVersion: created.version, idempotencyKey: "condition:durable-forward", traceId: "trace-condition-replay" },
+  )), changed, "the public application replay remains the managed object");
+});
+
 async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   const database = new Database(path);
   database.exec("DROP TABLE candidates");
