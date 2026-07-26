@@ -1004,7 +1004,7 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
 async function recoverConfiguredServiceRuntime(descriptorPath: unknown): Promise<boolean> {
   return recoverServiceRuntime({
     refresh: () => refreshServiceRuntime(descriptorPath),
-    ready: () => serviceConnection.status === "READY" && Boolean(serviceRuntimeClient),
+    ready: () => serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
   });
 }
 

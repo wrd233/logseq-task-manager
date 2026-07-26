@@ -1006,15 +1006,15 @@ function sectionNavigation(model: UiModel): string {
 
 function renderMore(model: UiModel): string {
   const lifecycle = model.v2ManagedRuntimeState === "RUNNING"
-    ? `<article class="card"><h3>本地运行环境</h3><p>Launcher 正在为当前 Graph 管理正式 Service。结束前会检查未完成 Commit 与正文核对，不会关闭其他进程。</p>${button("结束本次 Task Copilot", "end-task-copilot-open", undefined, "danger")}</article>`
+    ? `<article class="card"><h3>本次使用</h3><p>Task Copilot 正在为当前知识库保持正式能力可用。结束前会检查未完成修改与正文核对，不会影响其他应用。</p>${button("结束本次 Task Copilot", "end-task-copilot-open", undefined, "danger")}</article>`
     : model.v2ManagedRuntimeState === "ENDED"
-      ? `<article class="card"><h3>本地运行环境已结束</h3><p>Graph 正文仍可编辑，SQLite 历史保持安全；需要正式能力时可重新启动当前 Graph 的 Service。</p>${button("重新启动 Task Copilot", "restart-task-copilot", undefined, "primary")}</article>`
+      ? `<article class="card"><h3>本次使用已结束</h3><p>Logseq 正文仍可编辑，历史与恢复信息保持安全；需要正式能力时可重新启动。</p>${button("重新启动 Task Copilot", "restart-task-copilot", undefined, "primary")}</article>`
       : "";
-  return `<section><div class="eyebrow">高级与维护</div><h2>更多</h2><p class="muted">日常只需要“现在”“待我确认”和“项目”。这里保留系统状态、恢复、迁移与技术证据，不删除原有能力。</p><div class="cards more-hub">
+  return `<section><div class="eyebrow">高级与维护</div><h2>更多</h2><p class="muted">日常只需要“现在”“待我确认”和“项目”。这里处理最近修改、系统维护、备份恢复和一次性迁移。</p><div class="cards more-hub">
     <article class="card"><h3>最近修改与恢复</h3><p>查看已经应用、尚未完成或需要恢复的变化，并按安全前置决定能否撤销。</p>${button("查看最近修改与恢复", "view", "audit", "primary")}</article>
-    <article class="card"><h3>系统状态与技术诊断</h3><p>先说明哪些能力受影响、哪些仍可用和数据是否安全，再按需展开技术组件。</p>${button("检查系统状态与技术诊断", "runtime-diagnostics", undefined, "quiet")}</article>
-    <article class="card"><h3>备份与恢复</h3><p>创建当前快照，或从已校验快照恢复；系统会先保留当前正式状态，再自动重启当前 Graph 的运行环境。</p>${button(model.v2BackupRestoreAvailable ? "打开备份与恢复" : "备份与恢复暂不可用", "backup-restore-open", undefined, "quiet", !model.v2BackupRestoreAvailable)}</article>
-    <article class="card"><h3>迁移现有内容</h3><p>查看手动、小批次、可验证、可恢复的 V1 → V2 迁移账本。</p>${button("查看迁移状态", "view", "migration", "quiet")}</article>
+    <article class="card"><h3>系统状态</h3><p>先说明哪些能力受影响、哪些仍可用和数据是否安全；需要时再展开技术详情。</p>${button("检查系统状态", "runtime-diagnostics", undefined, "quiet")}</article>
+    <article class="card"><h3>备份与恢复</h3><p>创建当前快照，或从已校验快照恢复；系统会先保留当前状态，再安全切换并自动重新连接。</p>${button(model.v2BackupRestoreAvailable ? "打开备份与恢复" : "备份与恢复暂不可用", "backup-restore-open", undefined, "quiet", !model.v2BackupRestoreAvailable)}</article>
+    <article class="card"><h3>迁移现有内容</h3><p>查看手动、小批次、可验证、可恢复的一次性迁移进度。</p>${button("查看迁移状态", "view", "migration", "quiet")}</article>
     ${lifecycle}
   </div></section>`;
 }
@@ -1116,7 +1116,7 @@ function renderActionDialog(model: UiModel): string {
     return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理 MiniProject"><div class="eyebrow">MiniProject Grill Me · Session only</div><h3>${escapeHtml(object.text)}</h3><p class="muted">Copilot 只围绕当前材料中的真实不确定性追问。事实、推断和未知分开显示；回答不持久化，模型不能创建 Proposal 或正式操作。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
   }
   if (dialog.kind === "confirm-end-task-copilot") {
-    return `<section class="inbox-dialog action-dialog" aria-label="结束本次 Task Copilot"><h3>结束本次 Task Copilot？</h3><p>系统会再次检查未完成 Commit 与正文核对。安全时只释放当前插件租约并停止它拥有的 Service；Launcher、Graph 正文、SQLite 历史和其他进程不受影响。</p><div class="actions">${button("确认安全结束", "submit-end-task-copilot", undefined, "danger")}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="结束本次 Task Copilot"><h3>结束本次 Task Copilot？</h3><p>系统会再次检查未完成修改与正文核对。安全时只结束当前知识库的 Task Copilot；Logseq 正文、历史记录和其他进程不受影响。</p><div class="actions">${button("确认安全结束", "submit-end-task-copilot", undefined, "danger")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-page-context") {
     const context = model.pageContext;
@@ -1398,7 +1398,6 @@ export function renderApp(model: UiModel): string {
       <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
       <div class="top-actions">${button("整理当前页", "v2-candidate-open", undefined, "primary")}${button(model.originReturnLabel ?? "关闭", "close", undefined, "quiet")}</div>
     </header>
-    ${model.runtime ? `<div class="runtime-strip"><span>Plugin ${escapeHtml(model.runtime.pluginVersion)}</span><span>Runtime ${escapeHtml(model.runtime.runtimeStatus)}</span><span>Store ${escapeHtml(model.runtime.storeStatus)}</span><span>Graph ${escapeHtml(model.runtime.currentGraph)}</span></div>` : ""}
     <div class="agent-state ${model.v2ProviderAvailable || model.agent.enabled ? "enabled" : "disabled"}">${copilotState}</div>
     ${model.message && !immediateResult ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${immediateResult}

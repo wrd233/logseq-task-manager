@@ -3,17 +3,17 @@ import test from "node:test";
 
 import { renderRestoreRecoveryGuide } from "../src/restore-recovery-guide.ts";
 
-test("confirmed Restore recovery renders one bounded read-only guide without internal identity", () => {
+test("confirmed Restore recovery renders one bounded user guide without internal identity or runtime vocabulary", () => {
   const html = renderRestoreRecoveryGuide({
     state: "RECOVERY_REQUIRED",
     recoveryPointConfirmed: true,
     recordedAt: "2026-07-26T17:40:00.000Z",
   });
-  assert.match(html, /Restore 前正式状态已记录/);
+  assert.match(html, /切换前的状态已安全保留/);
   assert.match(html, /准备恢复/);
   assert.match(html, /重新核验/);
-  assert.match(html, /正式写入保持暂停/);
-  assert.doesNotMatch(html, /backup_|sqlite|database|数据库路径|内部快照标识|Doctor/i);
+  assert.match(html, /暂时不能应用正式修改/);
+  assert.doesNotMatch(html.replaceAll(/<[^>]+>/g, " "), /backup_|sqlite|database|数据库路径|内部快照标识|Doctor|Restore|reload|Graph|正式写入|安全锁/i);
   assert.equal((html.match(/data-action="restore-recovery-prepare"/g) ?? []).length, 1);
 });
 
@@ -27,7 +27,7 @@ test("prepared Restore recovery shows one explicit HIGH impact confirmation and 
   assert.match(html, /restoreRecoveryConfirm/);
   assert.match(html, /data-action="restore-recovery-apply"/);
   assert.match(html, /Logseq 正文不会被改写/);
-  assert.doesNotMatch(html, /backup_|sqlite|database|object version|Doctor/i);
+  assert.doesNotMatch(html.replaceAll(/<[^>]+>/g, " "), /backup_|sqlite|database|object version|Doctor|Restore|reload|Graph|正式写入|安全锁/i);
 });
 
 test("ARMED and INVALID recovery guides never claim a confirmed recovery point", () => {

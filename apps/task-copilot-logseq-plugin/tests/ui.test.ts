@@ -29,6 +29,7 @@ function model(): UiModel {
 test("shell exposes exactly four user-level primary destinations and no-agent degradation", () => {
   const value = model();
   value.workspace = "now";
+  value.runtime = { pluginVersion: "0.1.0", runtimeStatus: "READY", storeStatus: "READY", currentGraph: "private-graph" };
   const html = renderApp(value);
   const primary = html.match(/<nav aria-label="主要工作区">([\s\S]*?)<\/nav>/)?.[1] ?? "";
   assert.deepEqual(
@@ -47,6 +48,7 @@ test("shell exposes exactly four user-level primary destinations and no-agent de
   assert.match(html, /整理当前页/);
   assert.match(html, /data-action="v2-candidate-open"/);
   assert.doesNotMatch(html.match(/<header class="topbar">([\s\S]*?)<\/header>/)?.[1] ?? "", /Diagnostics/);
+  assert.doesNotMatch(html, /Plugin 0\.1\.0|Runtime READY|Store READY|Graph private-graph/);
   assert.doesNotMatch(html, /data-action="capture"/);
 });
 
@@ -125,7 +127,7 @@ test("More is a user-facing hub and keeps maintenance capabilities reachable", (
   assert.match(html, /data-value="more" aria-current="page">更多</);
   assert.match(html, /最近修改与恢复/);
   assert.match(html, /data-value="audit"/);
-  assert.match(html, /系统状态与技术诊断/);
+  assert.match(html, /系统状态/);
   assert.match(html, /data-action="runtime-diagnostics"/);
   assert.match(html, /备份与恢复/);
   assert.match(html, /备份与恢复暂不可用/);
@@ -136,17 +138,20 @@ test("More is a user-facing hub and keeps maintenance capabilities reachable", (
   html = renderApp(value);
   assert.match(html, /结束本次 Task Copilot/);
   assert.match(html, /data-action="end-task-copilot-open"/);
+  assert.doesNotMatch(html, /Launcher|Service|Commit|SQLite|当前 Graph|迁移账本|技术证据/);
   value.actionDialog = { kind: "confirm-end-task-copilot", value: "current-graph" };
   html = renderApp(value);
   assert.match(html, /aria-label="结束本次 Task Copilot"/);
   assert.match(html, /data-action="submit-end-task-copilot"/);
   assert.match(html, /其他进程不受影响/);
+  assert.doesNotMatch(html, /Launcher|Service|Commit|SQLite|当前 Graph/);
 
   delete value.actionDialog;
   value.v2ManagedRuntimeState = "ENDED";
   html = renderApp(value);
   assert.match(html, /重新启动 Task Copilot/);
   assert.match(html, /data-action="restart-task-copilot"/);
+  assert.doesNotMatch(html, /Launcher|Service|Commit|SQLite|当前 Graph/);
 
   value.workspace = "audit";
   html = renderApp(value);
@@ -2201,6 +2206,11 @@ test("formal V2 plugin entry excludes the writable V1 runtime", async () => {
 
 test("startup stays non-blocking while host-ready events and Graph switch recover exact Graph identity", async () => {
   const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
+  const configuredRecovery = source.match(/async function recoverConfiguredServiceRuntime[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(
+    configuredRecovery,
+    /ready: \(\) => serviceConnection\.status === "READY" && serviceConnection\.formalWritesAvailable && Boolean\(serviceRuntimeClient\)/,
+  );
   assert.match(
     source,
     /async function recoverCurrentGraphIdentity\(\)[\s\S]*refresh: \(\) => environmentInfo\(750\)[\s\S]*ready: \(\) => currentGraphKey !== undefined/,
