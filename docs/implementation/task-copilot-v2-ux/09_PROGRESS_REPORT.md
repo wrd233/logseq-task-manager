@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_VISUAL_GATES_OPEN | P2-A+B 隔离 MiniProject Desktop 纵向链 DONE；P2-C Blank、Page 两种关系和 MiniProject 演化均真实 DeepSeek→Preview→Review→create→reload/restart→Undo→健康 PASS；Light/窄栏视觉 Gate 与 P2-D～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_ROUTER_PARTIAL | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 16 类影响路由、Plugin 选择层与真实 Desktop 入口 PASS，但 MEDIUM LLM 链、LIGHT Undo 完整性和多类 HEAVY 纵向链仍 OPEN；P2-E～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -504,6 +504,14 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   诊断继续作为 Skill/UX 质量项。CURRENT `p2-c-38`/`p2-c-39` 对应 `7a7492a407ed`，
   旧 Journal 返回 `p2-c-36`/`p2-c-37` 已标为 SUPERSEDED。当前全量 Application
   `155/155`、Local Service `133/133`、Plugin `271/271` 与根级检查 PASS；
+- P2-D 从 NOT_STARTED 进入 Partial：新增 16 类 Project operation intent 的确定性
+  LIGHT/MEDIUM/HEAVY router，自动锁死 Ownership、正文移动、完整结构、拆分合并、Closure
+  与 external Agent 不能降级。Project 重入、正式对象和 Page 更新入口统一先显示影响选择；
+  LIGHT 复用现有 Condition/Association，完整当前接口复用 HIGH Proposal/Commit/Undo；
+  MEDIUM 叙述专用入口未实现时明确显示未开放。router `4/4`、Application `159/159`、
+  Local Service `133/133`、Plugin `271/271` 与根级检查 PASS；`419c9e6de950`
+  已在真实 Logseq Desktop 打开入口并保存 CURRENT
+  `p2-d-01`。该证据不关闭 MEDIUM LLM、LIGHT Undo 或 HEAVY 多类正式链；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -513,8 +521,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 启动 P2-D Project 结构操作路由：先复用现有 Focus/Condition/Association、Proposal/
-   SemanticCommit/Undo 能力建立轻/中/重判定与一条可体验纵向链，不绕过既有安全底座；
+1. 继续 P2-D：完成 MEDIUM“当前理解/进入点”真实 Provider→Review→apply→Undo 链，并补齐
+   LIGHT Condition/Association 的可发现 Undo；随后验证一条 HEAVY 完整接口 Desktop 链；
 2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；

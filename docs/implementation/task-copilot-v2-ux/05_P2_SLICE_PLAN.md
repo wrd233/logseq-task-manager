@@ -214,7 +214,7 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 
 ## P2-D：Project 结构操作路由
 
-状态：`NOT_STARTED`
+状态：`IN_PROGRESS_ROUTER_AUTOMATED_DESKTOP_ENTRY`
 
 | 级别 | 示例 | 用户摩擦 |
 |---|---|---|
@@ -223,6 +223,21 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 | 重 | Ownership、批量子对象、MiniProject 拆建、移动正文、Objectives/Deliverables、拆分合并、Closure、外部 Agent | 讨论、预览、选择、正式应用、Undo |
 
 改变“怎么看项目”可以轻；改变“项目包含什么”必须重。
+
+当前第一步已落地：
+
+- Application 对 16 类 Project operation intent 给出唯一 LIGHT/MEDIUM/HEAVY 路由；
+- Ownership、正文移动、Objectives/Deliverables、Stage mapping、批量子对象、拆分合并、
+  Closure 与 external Agent 有自动测试保证永不降级；
+- Plugin 的 Project 重入、正式对象与 Project Page 更新入口先打开同一影响选择层；
+- LIGHT 只复用现有版本化 Condition/Association 路径；没有对应 Undo 的能力不得通过最终
+  Gate；
+- MEDIUM 当前理解/进入点专用 Review 链尚未实现，界面明确标注未开放，不伪装成保存动作；
+- HEAVY 完整当前接口继续复用既有 HIGH Proposal→Review→Commit→Undo，其他重操作仍保持
+  各自安全链，不合并成万能表单。
+
+自动证据为 router `4/4`、Application/Plugin 全量 PASS；Desktop `0.10.15` 已用
+`419c9e6de950` 打开真实路由入口并保存 `p2-d-01`。本状态仍为 Partial。
 
 ## P2-E：Closure 证据起草
 

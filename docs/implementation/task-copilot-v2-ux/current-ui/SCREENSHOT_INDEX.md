@@ -23,6 +23,7 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `screenshots/p2-c-35-mini-evolution-undo-confirm-current-dark.png` | `7d4f5e4721f5` | 从最近修改对最新 Project Creation 发起专用 Undo | 明确撤销 Project/Anchor；来源 Page 永不删除，专用空 Page 仅在仍属本事务时删除 | 历史卡片密度偏高 |
 | `screenshots/p2-c-38-mini-evolution-undo-source-return-current-dark.png` | `7a7492a407ed` | 最新构建重跑真实 DeepSeek→Preview→HIGH Review→Commit→reload 后执行专用 inverse Commit | Project、Anchor 与本事务拥有的空 Page 已撤销；路由精确返回原 MiniProject 根 Block并显示成功结果；来源四个子 Block 可见 | 右侧栏仍保留测试 Graph 旧页面，不属于本次正式变化 |
 | `screenshots/p2-c-39-mini-evolution-undo-reload-healthy-current-dark.png` | `7a7492a407ed` | Undo 返回来源后再次 reload，打开用户系统状态并展开诊断 | Runtime/Store/Service READY；commit 与 Logseq 版本可见；Pending/Recovery/Source Conflict `0/0/0`；reconciliation false | Light/窄栏仍 OPEN |
+| `screenshots/p2-d-01-project-impact-router-current-dark.png` | `419c9e6de950` | 从正式 Project 点击“调整 Project” | 真实界面按低摩擦、审阅后应用、深度结构三层说明影响；Ownership/正文移动/Closure 不会降级；MEDIUM 未实现时明确不可保存 | 仅证明入口与风险分流；各层完整纵向链仍 OPEN |
 
 ## HISTORICAL
 

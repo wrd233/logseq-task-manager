@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_VISUAL_GATES_OPEN
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_ROUTER_PARTIAL
 overall_goal: IN_PROGRESS
 ```
 
@@ -189,6 +189,17 @@ overall_goal: IN_PROGRESS
   `p2-c-38`～`p2-c-39`。P2-C 三来源功能矩阵至此 DONE，Light/窄栏和集中宿主视觉 Gate
   仍 OPEN。当前全量 Application `155/155`、Local Service `133/133`、Plugin `271/271`
   与根级 `./scripts/check.sh` PASS；
+- P2-D 已从 NOT_STARTED 进入 `IN_PROGRESS_ROUTER_AUTOMATED_DESKTOP_ENTRY`：Application
+  新增 16 类 Project operation intent 的纯路由合同，明确 LIGHT direct、MEDIUM
+  review-then-apply 与 HEAVY discuss→Preview→Commit→Undo/Recovery。Ownership、正文移动、
+  Objectives/Deliverables、Stage mapping、批量子对象、拆分合并、Closure 与 external
+  Agent 永远不能降级。Plugin 的 Project 重入、正式对象与 Project Page 更新入口先进入同一
+  影响选择层；现有 Condition/Association 继续走有界命令，完整当前接口继续走既有 HIGH
+  Proposal/Commit/Undo，中等叙述专用入口未实现时明确显示未开放。Application 新增 `4/4`
+  路由测试，Application `159/159`、Local Service `133/133`、Plugin `271/271`
+  与根级检查 PASS；Logseq Desktop
+  `0.10.15` 已在 `419c9e6de950` 打开真实路由界面并保存 CURRENT `p2-d-01`。这只证明入口和
+  风险分流，MEDIUM LLM 纵向链、LIGHT Undo 完整性、HEAVY 多类操作与最终 P2-D Gate 仍 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -203,7 +214,7 @@ V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 remaining host Desktop gates / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
 P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
-P2-D–G OPEN / overall Goal IN_PROGRESS
+P2-D router/entry PARTIAL, P2-E–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论
 
