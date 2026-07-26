@@ -2264,6 +2264,60 @@ test("Migration import survives a lost response after its atomic write and repla
   assert.equal((await client.listSemanticCommits()).filter(({ status }) => status === "PENDING" || status === "RECOVERY_REQUIRED").length, 0);
 });
 
+test("Migration verify and activate failures preserve one retryable ledger without partial transitions", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-migration-action-failures-"));
+  let failVerify = true;
+  let failActivate = true;
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    backupRoot: join(root, "backups"),
+    graphId: "graph-migration-action-failures",
+    token: "migration-action-failures-token-24-chars",
+    faults: {
+      beforeMigrationVerify() {
+        if (!failVerify) return;
+        failVerify = false;
+        throw new Error("injected failure before migration verify");
+      },
+      beforeMigrationActivate() {
+        if (!failActivate) return;
+        failActivate = false;
+        throw new Error("injected failure before migration activate");
+      },
+    },
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const legacy = createManagedObject({ objectId: "legacy-action-failure-task", objectType: "TASK", text: "迁移动作失败后续跑" }, new Date("2026-07-20T08:00:00.000Z"));
+  const bundle = exportRecoveryBundle({
+    ...createEmptyState(),
+    objects: [{ ...legacy, phase: "ACTIVE" as const, condition: { kind: "ACTIONABLE" as const } }],
+  }, new Date("2026-07-21T08:00:00.000Z"));
+  const previewed = await client.previewLegacyMigration(bundle, [{ legacyObjectId: legacy.objectId, action: "IMPORT" }]);
+  const snapshot = await client.createBackup();
+  const imported = await client.importLegacyMigration(previewed.run.runId, {
+    bundle,
+    backupId: snapshot.backupId,
+    objectIds: [legacy.objectId],
+    idempotencyKey: "migration-action-failure-batch",
+    confirmation: "IMPORT_REVIEWED_V1_BATCH",
+  });
+
+  await assert.rejects(() => client.verifyLegacyMigrationBatch(previewed.run.runId, imported.batch.batchId));
+  const afterVerifyFailure = await client.getMigrationRun(previewed.run.runId);
+  assert.equal(afterVerifyFailure.run.status, "IMPORTING");
+  assert.equal(afterVerifyFailure.batches[0]?.status, "IMPORTED");
+  assert.equal((await client.getObject(legacy.objectId))?.text, "迁移动作失败后续跑");
+  assert.equal((await client.verifyLegacyMigrationBatch(previewed.run.runId, imported.batch.batchId)).status, "VERIFIED");
+
+  await assert.rejects(() => client.activateLegacyMigration(previewed.run.runId, "ACTIVATE_V2_SQLITE"));
+  const afterActivateFailure = await client.getMigrationRun(previewed.run.runId);
+  assert.equal(afterActivateFailure.run.status, "VERIFIED");
+  assert.equal(afterActivateFailure.batches[0]?.status, "VERIFIED");
+  assert.equal((await client.activateLegacyMigration(previewed.run.runId, "ACTIVATE_V2_SQLITE")).status, "ACTIVATED");
+  assert.equal((await client.listSemanticCommits()).filter(({ status }) => status === "PENDING" || status === "RECOVERY_REQUIRED").length, 0);
+});
+
 test("Proposal validation, review, and scope revalidation never masquerade as a formal object write", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal", token: "proposal-service-token-at-least-24-chars" });

@@ -67,7 +67,7 @@ export interface LocalServiceOptions {
   projectCreationPreviewGenerator?: LocalLlmProjectCreationPreviewGenerator;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
-  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void; beforeAreaDomainWrite?: () => void | Promise<void>; afterMigrationImport?: () => void; beforeRestoreDrain?: () => void; beforeRestoreOffline?: () => void; afterRestoreActivate?: () => void; beforeRestoreRollback?: () => void };
+  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void; beforeAreaDomainWrite?: () => void | Promise<void>; afterMigrationImport?: () => void; beforeMigrationVerify?: () => void; beforeMigrationActivate?: () => void; beforeRestoreDrain?: () => void; beforeRestoreOffline?: () => void; afterRestoreActivate?: () => void; beforeRestoreRollback?: () => void };
 }
 export interface LocalServiceHandle {
   url: string;
@@ -3090,6 +3090,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const batchId = decodeURIComponent(migrationBatchActionMatch[2]);
       if (migrationBatchActionMatch[3] === "verify") {
         await requireNoBody(request);
+        options.faults?.beforeMigrationVerify?.();
         respond(response, 200, { batch: await migrationApplication.verifyBatch(runId, batchId) });
       } else {
         const input = await readMigrationJson(request);
@@ -3102,6 +3103,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (migrationActivateMatch?.[1]) {
       const input = await readMigrationJson(request);
       if (Object.keys(input).join(",") !== "confirmation" || input.confirmation !== "ACTIVATE_V2_SQLITE") throw serviceError("MIGRATION_ACTIVATION_CONFIRMATION_REQUIRED", "Migration Activate 需要精确确认。");
+      options.faults?.beforeMigrationActivate?.();
       respond(response, 200, { run: await migrationApplication.activate(decodeURIComponent(migrationActivateMatch[1]), "ACTIVATE_V2_SQLITE") });
       return;
     }
