@@ -25,6 +25,14 @@ Page“升级当前 Page”和 MiniProject“保留来源演化”均完成真�
 集中 Desktop Gate 完成，P2-D～G 继续开放。完整记录见
 `../logs/p2-c-project-creation-desktop-live-20260726.md`。
 
+P2-D 的 MEDIUM 当前摘要链也已在当前真实环境闭环：真实 DeepSeek 草稿先经过
+`recover-context@1.2.0` 与 Unified UX Validator，再进入单组 MEDIUM Review；正式 Commit
+只替换 Project `currentSummary`，reload 后可读，专用 Project interface inverse Commit
+恢复原摘要并再次 reload 健康。最终 CURRENT 为 `ae2395523798` 的 `p2-d-05`/`p2-d-06`；
+早期 Review/apply/Undo 截图因旧 Provider 状态文案或 Undo 路由已标为
+`HISTORICAL`/`SUPERSEDED`。完整记录见
+`../logs/p2-d-project-narration-desktop-live-20260726.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；

@@ -36,6 +36,24 @@ source return target 传回 Plugin，并只在正式 Page 或 active Primary Anc
 后 `0/0/0`。因此 P2-C 的来源功能矩阵已闭环；Light、窄栏与集中
 宿主视觉 Gate 继续 OPEN，不影响 P2-D 启动但仍属于最终验收。
 
+## P2-D MEDIUM Project 当前摘要
+
+状态：`DONE_MEDIUM_VERTICAL_P2D_STILL_IN_PROGRESS`
+
+1. Project → 调整 Project → 只压缩当前理解；
+2. Service 读取版本化 Project interface 并构造有界 Context Package；
+3. 真实 Provider 按 `recover-context@1.2.0` 输出 Unified UX 草稿；
+4. Validator 拒绝机器身份进入前台 prose，机器保留事实、风险、scope 和动作权威；
+5. Service 物化唯一 MEDIUM `UPDATE_PROJECT_NARRATION` Proposal；
+6. 用户接受、提交前重验并最终确认；只有 `currentSummary` 进入正式 Commit；
+7. reload 后“现在”读回新摘要，结构、Focus、Ownership 和 Graph 不变；
+8. 最近修改把该操作路由到 Project interface 专用 inverse Commit；
+9. Undo 恢复原摘要，再次 reload 后 READY、`0/0/0`。
+
+真实结果：Provider 前两次因 `FRONTSTAGE_PROSE` 安全拒绝且零写，Skill 1.2.0 后通过。
+长期 Undo 首次暴露通用 Block 路由错误，修复后 Object v2→v3→v4，摘要往返而全部结构字段
+守恒。P2-D 的 LIGHT/HEAVY 与视觉 Gate 仍开放。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一

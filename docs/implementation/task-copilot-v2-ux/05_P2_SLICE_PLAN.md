@@ -214,7 +214,7 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 
 ## P2-D：Project 结构操作路由
 
-状态：`IN_PROGRESS_ROUTER_AUTOMATED_DESKTOP_ENTRY`
+状态：`IN_PROGRESS_ROUTER_MEDIUM_VERTICAL_DONE`
 
 | 级别 | 示例 | 用户摩擦 |
 |---|---|---|
@@ -224,7 +224,7 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 
 改变“怎么看项目”可以轻；改变“项目包含什么”必须重。
 
-当前第一步已落地：
+当前已落地：
 
 - Application 对 16 类 Project operation intent 给出唯一 LIGHT/MEDIUM/HEAVY 路由；
 - Ownership、正文移动、Objectives/Deliverables、Stage mapping、批量子对象、拆分合并、
@@ -232,12 +232,18 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 - Plugin 的 Project 重入、正式对象与 Project Page 更新入口先打开同一影响选择层；
 - LIGHT 只复用现有版本化 Condition/Association 路径；没有对应 Undo 的能力不得通过最终
   Gate；
-- MEDIUM 当前理解/进入点专用 Review 链尚未实现，界面明确标注未开放，不伪装成保存动作；
+- MEDIUM 当前摘要通过 Service-owned Project Context Package、真实 Provider、Unified UX
+  Validator 与 `recover-context@1.2.0` 生成；只允许一个
+  `UPDATE_PROJECT_NARRATION`，Review/Commit/Undo 均复用正式 Project interface 安全链；
 - HEAVY 完整当前接口继续复用既有 HIGH Proposal→Review→Commit→Undo，其他重操作仍保持
   各自安全链，不合并成万能表单。
 
-自动证据为 router `4/4`、Application/Plugin 全量 PASS；Desktop `0.10.15` 已用
-`419c9e6de950` 打开真实路由入口并保存 `p2-d-01`。本状态仍为 Partial。
+自动证据为 router `4/4`、Application `161/161`、Local Service `135/135`、Plugin
+`274/274` 与根级检查 PASS。Desktop `0.10.15` 已完成真实
+DeepSeek→MEDIUM Review→Commit→reload→最近修改→专用 Undo→reload；Object v2→v3→v4，
+只有摘要往返，current focuses 与全部结构字段守恒，Pending/Recovery/Conflict `0/0/0`。
+`p2-d-05`/`p2-d-06` 为 `ae2395523798` CURRENT。P2-D 仍为 Partial，因为 LIGHT 可发现
+Undo、HEAVY 多类链、Light/窄栏与集中宿主 Gate 尚未完成。
 
 ## P2-E：Closure 证据起草
 

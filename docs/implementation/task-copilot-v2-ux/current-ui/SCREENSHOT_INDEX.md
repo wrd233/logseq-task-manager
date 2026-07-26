@@ -23,7 +23,8 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `screenshots/p2-c-35-mini-evolution-undo-confirm-current-dark.png` | `7d4f5e4721f5` | 从最近修改对最新 Project Creation 发起专用 Undo | 明确撤销 Project/Anchor；来源 Page 永不删除，专用空 Page 仅在仍属本事务时删除 | 历史卡片密度偏高 |
 | `screenshots/p2-c-38-mini-evolution-undo-source-return-current-dark.png` | `7a7492a407ed` | 最新构建重跑真实 DeepSeek→Preview→HIGH Review→Commit→reload 后执行专用 inverse Commit | Project、Anchor 与本事务拥有的空 Page 已撤销；路由精确返回原 MiniProject 根 Block并显示成功结果；来源四个子 Block 可见 | 右侧栏仍保留测试 Graph 旧页面，不属于本次正式变化 |
 | `screenshots/p2-c-39-mini-evolution-undo-reload-healthy-current-dark.png` | `7a7492a407ed` | Undo 返回来源后再次 reload，打开用户系统状态并展开诊断 | Runtime/Store/Service READY；commit 与 Logseq 版本可见；Pending/Recovery/Source Conflict `0/0/0`；reconciliation false | Light/窄栏仍 OPEN |
-| `screenshots/p2-d-01-project-impact-router-current-dark.png` | `419c9e6de950` | 从正式 Project 点击“调整 Project” | 真实界面按低摩擦、审阅后应用、深度结构三层说明影响；Ownership/正文移动/Closure 不会降级；MEDIUM 未实现时明确不可保存 | 仅证明入口与风险分流；各层完整纵向链仍 OPEN |
+| `screenshots/p2-d-05-project-narration-undo-reload-current-dark.png` | `ae2395523798` | MEDIUM 当前摘要完成真实 Provider、Review、Commit、reload、最近修改专用 Undo，再次 reload 后查看最近修改 | 原修改显示“已撤销”，inverse Commit 与 Audit 保留；顶部正确显示“Copilot 可用 · 建议需审阅”；Project 原摘要和全部结构字段已读回 | Review 正文仍偏长；Light/窄栏 OPEN |
+| `screenshots/p2-d-06-project-impact-router-current-dark.png` | `ae2395523798` | 从正式 Project 点击“调整 Project” | 最新界面按低摩擦、审阅后应用、深度结构三层说明影响；MEDIUM 真实入口可用；Ownership/正文移动/Closure 不会降级 | LIGHT 可发现 Undo 与多类 HEAVY 纵向链仍 OPEN |
 
 ## HISTORICAL
 
@@ -54,6 +55,10 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `p2-c-28-mini-evolution-wrong-closure-target-historical-dark.png` | HISTORICAL | `7d4f5e4` 前的真实 MiniProject Grill build | 模型曾把 Project 内部闭环误解为关闭/归档来源 MiniProject | Skill 1.5.0 明确 closure 对象是新 Project 的运行/复盘闭环 |
 | `p2-c-36-mini-evolution-undo-complete-current-dark.png` | SUPERSEDED | `7d4f5e4721f5` | Project/Anchor/专用空 Page 的 inverse Commit 当时已安全完成 | 完成后误回 Journal；`p2-c-38` 已证明最新构建返回原 MiniProject 根 Block |
 | `p2-c-37-mini-evolution-undo-reload-healthy-current-dark.png` | SUPERSEDED | `7d4f5e4721f5` | 当时 reload 后 `0/0/0` | `p2-c-39` 使用含来源返回修复的 `7a7492a407ed` 重拍 |
+| `p2-d-01-project-impact-router-current-dark.png` | SUPERSEDED | `419c9e6de950` | 16 类影响路由曾真实可达 | `p2-d-06` 使用 MEDIUM 链和 Copilot 状态修复后的当前提交重拍 |
+| `p2-d-02-project-narration-review-current-dark.png` | HISTORICAL | `eb1ff07424bd` | 真实 DeepSeek 草稿通过 Validator 后进入单组 MEDIUM Review，正式状态仍未改变 | 顶部仍使用误导的旧 V1 `Agent disabled` 文案；`ae23955` 已修正 |
+| `p2-d-03-project-narration-applied-current-dark.png` | HISTORICAL | `eb1ff07424bd` | Commit 后摘要可读，current focuses 与结构字段不变 | 当时尚未发现最近修改把 narration 错路由到通用 Block Undo |
+| `p2-d-04-project-narration-undo-current-dark.png` | SUPERSEDED | `f6d0429` | 专用 Project interface inverse Commit 已恢复原摘要 | `p2-d-05` 使用 Copilot 状态修复后的提交并包含 reload 后最近修改证据 |
 
 仓库其他目录中的既有截图也继续按历史证据处理，除非索引明确登记为 `CURRENT`。
 

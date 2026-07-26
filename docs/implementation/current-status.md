@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_ROUTER_PARTIAL
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_MEDIUM_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -93,7 +93,7 @@ overall_goal: IN_PROGRESS
   Page UUID、唯一 active Project Page Anchor 与 Object version，再只打开该 Project 的同一
   重入投影；Page Head hook 不提供页面 payload，因此右侧栏入口明确隐藏，不伪装成精确现场；
   Application 112/112、Plugin 219/219 通过，Desktop 视觉与点击 Gate 仍待验证；
-- P1-G 已建立 Provider-neutral unified UX output 深模块与 `recover-context@1.1.0`：
+- P1-G 已建立 Provider-neutral unified UX output 深模块与 `recover-context@1.2.0`：
   模型只能引用机器 fact/action/evidence ID；正式事实文本、动作目标、scope hash、时间和
   Skill/Prompt/Provider/model provenance 由机器物化，模型不能降低 risk/review；
   `DRAFT_PROPOSAL` 建议没有正式 operation/write authority。Local Service 已新增只接受
@@ -189,17 +189,21 @@ overall_goal: IN_PROGRESS
   `p2-c-38`～`p2-c-39`。P2-C 三来源功能矩阵至此 DONE，Light/窄栏和集中宿主视觉 Gate
   仍 OPEN。当前全量 Application `155/155`、Local Service `133/133`、Plugin `271/271`
   与根级 `./scripts/check.sh` PASS；
-- P2-D 已从 NOT_STARTED 进入 `IN_PROGRESS_ROUTER_AUTOMATED_DESKTOP_ENTRY`：Application
+- P2-D 已进入 `IN_PROGRESS_ROUTER_MEDIUM_VERTICAL_DONE`：Application
   新增 16 类 Project operation intent 的纯路由合同，明确 LIGHT direct、MEDIUM
   review-then-apply 与 HEAVY discuss→Preview→Commit→Undo/Recovery。Ownership、正文移动、
   Objectives/Deliverables、Stage mapping、批量子对象、拆分合并、Closure 与 external
   Agent 永远不能降级。Plugin 的 Project 重入、正式对象与 Project Page 更新入口先进入同一
-  影响选择层；现有 Condition/Association 继续走有界命令，完整当前接口继续走既有 HIGH
-  Proposal/Commit/Undo，中等叙述专用入口未实现时明确显示未开放。Application 新增 `4/4`
-  路由测试，Application `159/159`、Local Service `133/133`、Plugin `271/271`
-  与根级检查 PASS；Logseq Desktop
-  `0.10.15` 已在 `419c9e6de950` 打开真实路由界面并保存 CURRENT `p2-d-01`。这只证明入口和
-  风险分流，MEDIUM LLM 纵向链、LIGHT Undo 完整性、HEAVY 多类操作与最终 P2-D Gate 仍 OPEN；
+  影响选择层；LIGHT 复用已有 Condition/Association，HEAVY 完整当前接口复用既有 HIGH
+  Proposal/Commit/Undo。MEDIUM 当前摘要现由 Service 构造有界 Project Context Package，
+  真实 DeepSeek 经 `recover-context@1.2.0` 与 Unified UX Validator 只生成单组
+  `UPDATE_PROJECT_NARRATION` Proposal；正式 Review/Commit 只替换 `currentSummary`，
+  current focuses 与全部结构字段、Ownership、正文和位置保持不变。Desktop 已完成
+  Provider→Review→apply→reload→最近修改→专用 inverse Commit→reload；首次长期 Undo
+  暴露的通用 Block 路由错误已由 `f6d0429` 修复并复验，`ae2395523798` 又把误导的旧
+  `Agent disabled` 改为“Copilot 可用 · 建议需审阅”。Application `161/161`、Local
+  Service `135/135`、Plugin `274/274` 与根级检查 PASS；CURRENT `p2-d-05`/`p2-d-06`。
+  P2-D 仍未整体完成：LIGHT 可发现 Undo、HEAVY 多类操作、Light/窄栏与最终 Gate 继续 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -214,7 +218,8 @@ V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 remaining host Desktop gates / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
 P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
-P2-D router/entry PARTIAL, P2-E–G OPEN / overall Goal IN_PROGRESS
+P2-D router + MEDIUM narration vertical DONE, remaining LIGHT/HEAVY/visual gates OPEN /
+P2-E–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论
 

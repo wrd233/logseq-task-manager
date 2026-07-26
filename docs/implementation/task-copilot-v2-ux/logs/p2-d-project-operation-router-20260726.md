@@ -2,10 +2,14 @@
 
 ## 结论
 
-状态：`IN_PROGRESS_ROUTER_AUTOMATED_DESKTOP_ENTRY`
+状态：`HISTORICAL_ROUTER_ONLY_SUPERSEDED_BY_MEDIUM_VERTICAL`
 
 这轮只关闭 Project 操作进入错误安全链的风险，不宣布 P2-D 完成。Project 重入、正式对象和
 Project Page 更新入口现在先回答“这次要改变什么”，再按实际影响进入既有命令或安全链。
+
+> 历史记录：后续 MEDIUM 纵向链与当前截图见
+> `p2-d-project-narration-desktop-live-20260726.md`。本文件的 `p2-d-01` 已由
+> `ae2395523798` 的 `p2-d-06` 替代。
 
 ## 路由合同
 
