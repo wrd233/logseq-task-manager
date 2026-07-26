@@ -284,7 +284,11 @@ overall_goal: IN_PROGRESS
   typecheck 与根级检查 PASS；当前 commit `344c705ec446` 的真实 Logseq 0.10.15 已完成
   丢失 Anchor → 开始重新连接 → 新建并选择替代 Block → 阅读预览 → 确认 → Service
   Rebind → reload 后系统正常，且旧 Anchor 保留为 replaced、新 Anchor active。
-  专门的 Rebind Recovery/Undo 用户指引及 Restore/Migration 向导仍 OPEN；
+  Rebind Recovery/Undo 指引现已进入 `AUTOMATED_DESKTOP_OPEN`：receipt 虽保留旧/新
+  Anchor，但旧连接常因 missing/conflict 才被替换，机械 inverse 会把事项重新指回不可用
+  正文，因此不新增不安全通用 Undo。成功态把“选错正文”路由到新一轮 5 分钟受控 Rebind，
+  把“回退整个正式状态”路由到只读 Backup/Restore 目录；focused `10/10` 与 typecheck
+  PASS。新成功态 Desktop 与 Migration 向导仍 OPEN；
 - P2-G Restore 已进入
   `RESTORE_FRONTSTAGE_STATE_DELTA_ROUNDTRIP_DESKTOP_DONE_FAILURE_GATE_OPEN`：Local
   Service 新增
@@ -322,7 +326,7 @@ failure/Recovery Desktop gate OPEN /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
 P2-G Rebind identity-free capture main chain Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,
-dedicated Recovery/Undo guidance + Restore failure + Migration gates OPEN /
+Rebind Recovery/Undo guidance AUTOMATED + Restore failure + Migration gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

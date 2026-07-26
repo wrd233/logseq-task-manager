@@ -133,7 +133,11 @@ export function renderV2PrimaryAnchorRebindPanel(state: V2RebindPanelState, avai
   </section>`;
   if (state.status === "loading") return `<section class="diagnostic-notice" aria-busy="true"><h2>重新连接正文</h2><p>正在读取当前 Block 与已知正文连接…</p></section>`;
   if (state.status === "error") return `<section class="diagnostic-error"><h2>重新连接未执行</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-rebind-open">重新预览</button><button type="button" data-action="v2-rebind-cancel">关闭</button></section>`;
-  if (state.status === "success") return `<section class="diagnostic-notice"><h2>正文已重新连接</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-rebind-open">处理另一个</button><button type="button" data-action="v2-rebind-cancel">关闭</button></section>`;
+  if (state.status === "success") return `<section class="diagnostic-notice"><h2>正文已重新连接</h2>
+    <p>${escapeHtml(state.message)}</p>
+    <p class="muted">如果选错了正文，不要删除正式事项或旧连接历史：先选中正确 Block，再次进入受控重新连接。只有需要回退整个正式状态时，才使用备份与恢复。</p>
+    <div class="actions"><button type="button" data-action="v2-rebind-capture">重新选择正文</button><button type="button" data-action="backup-restore-open">查看完整恢复选项</button><button type="button" data-action="v2-rebind-cancel">关闭</button></div>
+  </section>`;
   const { preview } = state;
   const statusLabel = (status: V2RebindCandidate["anchor"]["status"]): string => status === "missing"
     ? "原连接位置不可用"

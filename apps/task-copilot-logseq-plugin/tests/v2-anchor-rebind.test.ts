@@ -169,3 +169,17 @@ test("Rebind capture panel explains bounded auto-sync pause without implementati
   assert.match(html, /data-action="v2-rebind-cancel"/);
   assert.doesNotMatch(html, /UUID|externalId|Primary Anchor|contentHash/);
 });
+
+test("Rebind success guides a safe correction instead of offering an unsafe generic inverse", () => {
+  const html = renderV2PrimaryAnchorRebindPanel({
+    status: "success",
+    message: "事项已重新连接；旧连接保留在历史中。",
+  }, true);
+
+  assert.match(html, /如果选错了正文/);
+  assert.match(html, /不要删除正式事项或旧连接历史/);
+  assert.match(html, /data-action="v2-rebind-capture"/);
+  assert.match(html, /data-action="backup-restore-open"/);
+  assert.doesNotMatch(html, /data-action="v2-rebind-open"/);
+  assert.doesNotMatch(html, /撤销重新连接|恢复旧连接为主正文/);
+});

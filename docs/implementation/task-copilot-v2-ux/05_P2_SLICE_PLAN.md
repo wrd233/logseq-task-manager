@@ -385,7 +385,10 @@ Service Rebind 与旧 Anchor 历史均不变。为避免替代 Block 被自动�
 当前 commit `344c705ec446` 的真实 Logseq 0.10.15 已完成：
 丢失 Anchor → 开始重新连接 → 新建并选择替代 Block → 阅读预览 → 确认 → Service
 Rebind → reload 后系统正常。Service 回读证明旧 Anchor 为 replaced、新 Anchor active，
-没有产生额外正式对象。Rebind 常规主链 Desktop DONE；专门的 Recovery/Undo 用户指引仍 OPEN。
+没有产生额外正式对象。Rebind 常规主链 Desktop DONE。Recovery/Undo 指引已完成自动 Gate：
+旧 Anchor 常因 missing/conflict 才被替换，不能仅凭 receipt 存在就机械恢复为 active；成功态
+把选错正文路由回 5 分钟受控 Rebind，把整库回退路由到 Backup/Restore 只读目录。focused
+`10/10` 与 typecheck PASS；新成功态 Desktop 仍 OPEN。
 
 ### Restore
 

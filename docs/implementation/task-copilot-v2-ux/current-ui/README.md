@@ -65,9 +65,10 @@ P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop G
 加入 5 分钟受控选择窗口，先 flush 再短时暂停显式物化。新替换 Block 在预览前的 Service
 回读为 0 个正式对象，确认 Rebind 后只产生一个正式对象、旧 Anchor `replaced`、新 Anchor
 唯一 `active`；恢复自动同步与 reload 后系统健康、`0/0/0`。CURRENT `p2-g-07`～`12`；
-早先 `p2-g-01`～`06` 只保留为真实历史发现/安全拒绝证据。Rebind 专用 Recovery/Undo
-引导仍 OPEN；Restore 状态差异/失败链和 Migration 也未完成，因此 P2-G 与整体 Goal
-不提前关闭。完整记录见
+早先 `p2-g-01`～`06` 只保留为真实历史发现/安全拒绝证据。Rebind 纠错指引已完成自动
+Gate：选错正文再次进入受控 Rebind，整库回退才进入 Backup/Restore，不提供会复活
+missing/conflict 旧 Anchor 的通用 Undo；新成功态 Desktop 仍 OPEN。Restore 失败链和
+Migration 也未完成，因此 P2-G 与整体 Goal 不提前关闭。完整记录见
 `../logs/p2-g-rebind-desktop-live-20260726.md`。
 
 P2-G Restore 产品入口的生命周期链已在 `6ae8f2fcebd0` 当前构建完成真实 Desktop
