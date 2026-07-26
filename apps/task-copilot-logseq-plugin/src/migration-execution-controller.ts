@@ -12,6 +12,7 @@ export interface MigrationExecutionClient {
   scanLegacyMigration(bundle: unknown): Promise<ServiceLegacyMigrationScanReport>;
   getMigrationRun(runId: string): Promise<ServiceMigrationRunDetails>;
   createBackup(): Promise<ServiceBackupCreated>;
+  validateBackup(backupId: string): Promise<{ backupId: string; validation: ServiceBackupCreated["validation"] }>;
   importLegacyMigration(runId: string, input: {
     bundle: unknown;
     backupId: string;
@@ -75,6 +76,7 @@ export interface PluginMigrationExecutionState {
   items?: PluginMigrationImportItem[];
   selectedCount?: number;
   recoveryPointReady?: boolean;
+  recoveryPointMode?: "CREATED" | "REUSED";
   importedCount?: number;
   message?: string;
 }
@@ -112,6 +114,7 @@ export class MigrationExecutionController {
   private selectedBundle: unknown;
   private selectedRunId: string | undefined;
   private selectedRunHash: string | undefined;
+  private selectedRunBackupId: string | undefined;
   private importItemIds = new Map<string, string>();
   private selectedObjectIds: string[] = [];
   private recoveryBackupId: string | undefined;
@@ -219,6 +222,7 @@ export class MigrationExecutionController {
       this.importItemIds = new Map(boundedIds.map((objectId, index) => [`migration-import-item:${index + 1}`, objectId]));
       this.selectedBundle = bundle;
       this.selectedRunHash = report.sourceBundleSha256;
+      this.selectedRunBackupId = detail.run.snapshotBackupId;
       this.state = {
         status: "material-ready",
         runToken,
@@ -232,6 +236,7 @@ export class MigrationExecutionController {
           };
         }),
         selectedCount: 0,
+        recoveryPointMode: detail.run.snapshotBackupId ? "REUSED" : "CREATED",
         message: pendingIds.length > 50
           ? "已核对材料；当前批最多选择前 50 项，其他项目留待下一批。"
           : "已核对材料；请选择本批要导入的项目，最多 50 项。",
@@ -251,7 +256,7 @@ export class MigrationExecutionController {
     }
   }
 
-  async createRecoveryPoint(client: Pick<MigrationExecutionClient, "createBackup">, itemTokens: readonly string[]): Promise<void> {
+  async createRecoveryPoint(client: Pick<MigrationExecutionClient, "createBackup" | "validateBackup">, itemTokens: readonly string[]): Promise<void> {
     const runToken = this.state.runToken;
     if (this.state.status !== "material-ready" || !runToken || this.selectedBundle === undefined || !this.selectedRunId || !this.selectedRunHash) {
       throw executionError("迁移材料已失效；请重新核对。");
@@ -267,10 +272,14 @@ export class MigrationExecutionController {
       ...this.state,
       status: "creating-recovery-point",
       selectedCount: uniqueTokens.length,
-      message: "正在创建并校验导入前恢复点…",
+      message: this.selectedRunBackupId
+        ? "正在重新校验本迁移计划固定的导入前恢复基线…"
+        : "正在创建并校验本迁移计划的导入前恢复基线…",
     };
     try {
-      const backup = await client.createBackup();
+      const backup = this.selectedRunBackupId
+        ? await client.validateBackup(this.selectedRunBackupId)
+        : await client.createBackup();
       if (generation !== this.generation) return;
       if (backup.validation.status !== "PASS" || !backup.backupId || backup.backupId.length > 128) {
         throw executionError("导入前恢复点没有通过完整性校验；没有导入正式对象。");
@@ -280,12 +289,16 @@ export class MigrationExecutionController {
       this.selectedObjectIds = objectIds as string[];
       this.recoveryBackupId = backup.backupId;
       this.idempotencyKey = idempotencyKey;
+      const recoveryPointMode = this.selectedRunBackupId ? "REUSED" : "CREATED";
       this.state = {
         status: "ready-to-import",
         runToken,
         selectedCount: objectIds.length,
         recoveryPointReady: true,
-        message: "恢复点已校验；请最后确认本批只会导入所选项目。",
+        recoveryPointMode,
+        message: recoveryPointMode === "REUSED"
+          ? "计划原始恢复基线已重新校验；请最后确认本批只会导入所选项目。"
+          : "计划原始恢复基线已创建并校验；请最后确认本批只会导入所选项目。",
       };
     } catch (error) {
       if (generation !== this.generation) return;
@@ -496,6 +509,7 @@ export class MigrationExecutionController {
   private releaseMaterial(clearRun = true): void {
     this.selectedBundle = undefined;
     this.selectedRunHash = undefined;
+    this.selectedRunBackupId = undefined;
     this.importItemIds.clear();
     this.selectedObjectIds = [];
     this.recoveryBackupId = undefined;

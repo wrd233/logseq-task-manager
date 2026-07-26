@@ -28,6 +28,13 @@ function run(status: ServiceMigrationRun["status"] = "PREVIEWED"): ServiceMigrat
   };
 }
 
+function runWithSnapshot(status: ServiceMigrationRun["status"] = "PREVIEWED"): ServiceMigrationRun {
+  return {
+    ...run(status),
+    snapshotBackupId: "backup_20260726110000000_22222222222222222222222222222222",
+  };
+}
+
 function batch(status: ServiceMigrationBatch["status"] = "IMPORTED"): ServiceMigrationBatch {
   return {
     batchId: "migration-batch:private",
@@ -131,6 +138,13 @@ function client(overrides: Partial<MigrationExecutionClient> = {}): MigrationExe
         validation: { status: "PASS", graphId: "graph", schemaVersion: 12, integrity: "ok", foreignKeyViolations: 0, objectCount: 4 },
       };
     },
+    async validateBackup(backupId) {
+      calls.push({ name: "validate-backup", args: [backupId] });
+      return {
+        backupId,
+        validation: { status: "PASS", graphId: "graph", schemaVersion: 12, integrity: "ok", foreignKeyViolations: 0, objectCount: 4 },
+      };
+    },
     async importLegacyMigration(id, input) {
       calls.push({ name: "import", args: [id, input] });
       return { batch: batch(), replayed: false };
@@ -193,6 +207,30 @@ test("matching material exposes bounded opaque pending items and creates only a 
   await controller.createRecoveryPoint(service, [itemToken]);
   assert.equal(controller.snapshot().status, "ready-to-import");
   assert.equal(controller.snapshot().recoveryPointReady, true);
+  assert.doesNotMatch(JSON.stringify(controller.snapshot()), /backup_|private|a{12,}|safe-key|正文/);
+});
+
+test("a later batch reuses and revalidates the migration run recovery baseline", async () => {
+  const controller = new MigrationExecutionController(() => "safe-key");
+  const service = client({
+    async getMigrationRun(id) {
+      service.calls.push({ name: "detail", args: [id] });
+      return { ...detail(), run: runWithSnapshot() };
+    },
+  });
+  const [view] = controller.bindRuns([runWithSnapshot()], [{ ...detail(), run: runWithSnapshot() }]);
+  controller.beginMaterial(view!.token);
+  await controller.loadMaterial(service, JSON.stringify({ privateBody: "正文" }));
+  const itemToken = controller.snapshot().items![0]!.token;
+  assert.equal(controller.snapshot().recoveryPointMode, "REUSED");
+  await controller.createRecoveryPoint(service, [itemToken]);
+  assert.equal(service.calls.some(({ name }) => name === "backup"), false);
+  assert.deepEqual(service.calls.filter(({ name }) => name === "validate-backup"), [{
+    name: "validate-backup",
+    args: ["backup_20260726110000000_22222222222222222222222222222222"],
+  }]);
+  assert.equal(controller.snapshot().status, "ready-to-import");
+  assert.equal(controller.snapshot().recoveryPointMode, "REUSED");
   assert.doesNotMatch(JSON.stringify(controller.snapshot()), /backup_|private|a{12,}|safe-key|正文/);
 });
 
