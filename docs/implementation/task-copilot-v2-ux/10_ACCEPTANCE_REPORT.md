@@ -93,7 +93,8 @@
   闭环，因此本项暂不勾选；
 - [ ] 跨对象候选有证据和数量上限；结构化 2–16 evidence、2–8 subject、每轮 8 条上限与
   exact scope/provenance 已自动 PASS；首批真实 DeepSeek 3 observation + 2 abstention 质量门
-  三轮累计 `15/15` case-runs PASS，但尚无真实业务 Context、Candidate、反馈或 Desktop 证据；
+  三轮累计 `15/15` case-runs PASS；semantic Context fingerprint 已证明时间刷新稳定、
+  语义/evidence 变化 stale，但尚无真实业务 Context、Candidate、反馈或 Desktop 证据；
 - [ ] LLM 不改变 Ownership/Focus；P2-F shadow 合同已拒绝 operation/自由文本并强制
   `INFERENCE/SHADOW/NONE`；Provider 不能生成 confidence，Association/Ownership 由机器
   固定 LOW，其他当前 kind 固定 MEDIUM，但用户确认链尚未建立；

@@ -34,6 +34,7 @@ export interface CrossObjectObservationGenerationResult {
   drafts: CrossObjectObservationDraft[];
   provider: StructuredCompletionMetadata;
   promptVersion: string;
+  contextFingerprint: string;
   graphWrites: 0;
   formalStoreWrites: 0;
 }
@@ -215,6 +216,41 @@ function validateContext(input: CrossObjectObservationContextPackage): CrossObje
   };
 }
 
+function crossObjectContextFingerprint(context: CrossObjectObservationContextPackage): string {
+  return checksum(stableJson({
+    schemaVersion: context.schemaVersion,
+    scope: context.scope,
+    objects: context.objects,
+    evidenceFacts: context.evidenceFacts.map(({
+      key,
+      factCode,
+      sourceRef,
+      fingerprint,
+      statement,
+    }) => ({
+      key,
+      factCode,
+      sourceRef,
+      fingerprint,
+      statement,
+    })),
+  }));
+}
+
+export function assertCrossObjectObservationContextCurrent(
+  expectedFingerprint: string,
+  input: CrossObjectObservationContextPackage,
+): string {
+  if (!CHECKSUM.test(expectedFingerprint)) {
+    throw observationError("LLM_CROSS_OBJECT_CONTEXT_FINGERPRINT_INVALID", "跨对象 Context fingerprint 无效；没有使用 Provider 草稿。");
+  }
+  const current = crossObjectContextFingerprint(validateContext(input));
+  if (current !== expectedFingerprint) {
+    throw observationError("LLM_CROSS_OBJECT_CONTEXT_STALE", "跨对象 Context 已变化；旧 Provider 草稿没有进入 Attention shadow。");
+  }
+  return current;
+}
+
 export function assembleCrossObjectObservationPrompt(
   input: CrossObjectObservationContextPackage,
 ): { system: string; user: string; promptVersion: string } {
@@ -382,6 +418,7 @@ export class LocalLlmCrossObjectObservationGenerator {
       drafts,
       provider: completion.metadata,
       promptVersion: prompt.promptVersion,
+      contextFingerprint: crossObjectContextFingerprint(context),
       graphWrites: 0,
       formalStoreWrites: 0,
     };

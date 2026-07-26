@@ -29,6 +29,12 @@ The Service constructs and validates:
 - Context Package timestamp and exact schema;
 - Skill-candidate, Prompt and actual Provider provenance.
 
+The generation result also carries a machine-owned semantic Context fingerprint. Refresh-only
+timestamps are excluded, while Object versions/summaries and evidence keys/codes/source
+fingerprints/statements are included. Revalidation therefore permits a fresh recompute of the same
+facts but rejects a draft after material or evidence changes with
+`LLM_CROSS_OBJECT_CONTEXT_STALE`.
+
 The model can only return:
 
 - `OBSERVATIONS` or `NO_OBSERVATION`;
@@ -104,8 +110,8 @@ structural error codes were printed. Raw failed outputs were not logged or commi
 
 Automated verification after the live run:
 
-- Provider seam and live evaluator focused tests: `8/8` PASS;
-- Local Service full suite: `152/152` PASS;
+- Provider seam, live evaluator and semantic stale tests: `9/9` PASS;
+- Local Service full suite: `153/153` PASS;
 - Local Service typecheck: PASS;
 - root `./scripts/check.sh`: PASS;
 - rule coverage: `145`;

@@ -270,7 +270,9 @@ overall_goal: IN_PROGRESS
   探索失败促使 confidence 从模型权限收回，由机器对 Association/Ownership 固定 LOW、
   其余固定 MEDIUM；失败只记录 case/结构码，不保存原始输出。P2-F 仍没有正式 Skill、
   Candidate/Proposal、反馈、reload/recompute 或 Desktop UI，前台继续 CLOSED。Local
-  Service `152/152` 与 typecheck PASS；
+  Service 又增加机器权威 semantic Context fingerprint：仅 observedAt 刷新保持一致，
+  Object 语义或 evidence fingerprint 变化以 `LLM_CROSS_OBJECT_CONTEXT_STALE` 拒绝旧草稿。
+  focused `9/9`、Local Service `153/153` 与 typecheck PASS；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；

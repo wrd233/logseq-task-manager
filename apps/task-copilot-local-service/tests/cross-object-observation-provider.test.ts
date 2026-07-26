@@ -5,6 +5,7 @@ import type { StructuredProposalProvider } from "../src/llm-proposal.ts";
 import {
   LocalLlmCrossObjectObservationGenerator,
   assembleCrossObjectObservationPrompt,
+  assertCrossObjectObservationContextCurrent,
   type CrossObjectObservationContextPackage,
 } from "../src/cross-object-observation-provider.ts";
 
@@ -187,4 +188,47 @@ test("cross-object prompt exposes a bounded no-write contract without leaking ev
   assert.match(prompt.user, /fact-shared-deliverable-a/);
   assert.doesNotMatch(serialized, /expected|正确答案|应当输出|golden/i);
   assert.ok(prompt.promptVersion.length >= 8);
+});
+
+test("cross-object context fingerprint survives timestamp refresh but rejects semantic or evidence changes", async () => {
+  const result = await new LocalLlmCrossObjectObservationGenerator(
+    provider({ decision: "NO_OBSERVATION", observations: [] }),
+  ).generate(context());
+  const refreshedAt = "2026-07-26T12:05:00.000Z";
+  const refreshed: CrossObjectObservationContextPackage = {
+    ...context(),
+    observedAt: refreshedAt,
+    evidenceFacts: context().evidenceFacts.map((fact) => ({ ...fact, observedAt: refreshedAt })),
+  };
+
+  assert.equal(
+    assertCrossObjectObservationContextCurrent(result.contextFingerprint, refreshed),
+    result.contextFingerprint,
+  );
+
+  const changedSummary: CrossObjectObservationContextPackage = {
+    ...refreshed,
+    objects: refreshed.objects.map((object, index) => index === 1
+      ? { ...object, summary: "整理已经改为另一份上线核对材料。" }
+      : object),
+  };
+  assert.throws(
+    () => assertCrossObjectObservationContextCurrent(result.contextFingerprint, changedSummary),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "LLM_CROSS_OBJECT_CONTEXT_STALE",
+  );
+
+  const changedEvidence: CrossObjectObservationContextPackage = {
+    ...refreshed,
+    evidenceFacts: refreshed.evidenceFacts.map((fact, index) => index === 0
+      ? { ...fact, fingerprint: "ffffffff" }
+      : fact),
+  };
+  assert.throws(
+    () => assertCrossObjectObservationContextCurrent(result.contextFingerprint, changedEvidence),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "LLM_CROSS_OBJECT_CONTEXT_STALE",
+  );
 });

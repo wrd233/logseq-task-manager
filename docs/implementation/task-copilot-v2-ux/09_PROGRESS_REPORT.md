@@ -582,8 +582,8 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 延伸 P2-F 已通过的首批真实 Provider repeat Gate：增加真实业务 Context、changed/stale、timeout/非法
-   输出、reload/recompute、disposition/cooldown 与用户反馈；以噪声和重复性证据决定是否
+1. 延伸 P2-F 已通过的首批真实 Provider repeat Gate：增加真实业务 Context、timeout/非法
+   输出、公共 runtime 的 semantic-stale/reload/recompute、disposition/cooldown 与用户反馈；以噪声和重复性证据决定是否
    升为正式 Skill 及进入待我确认，在此之前不开放前台、不持久化候选；
 2. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并
    注入一次 Commit failure，完成 RECOVERY_REQUIRED → 原 Commit resume → reload；不得

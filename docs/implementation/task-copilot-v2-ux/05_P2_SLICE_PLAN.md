@@ -358,6 +358,8 @@ evidence 的 bounded Context Package，模型只可选择 kind/subject/evidence 
 由模型自授，已收回为机器 LOW/MEDIUM；模型不能产生 HIGH。该 Prompt 仍是
 `0.1.0-experimental` Skill candidate，不进入正式 catalog。重复运行、stale/error、
 reload/recompute、disposition/cooldown、用户反馈和待我确认 UI 仍 OPEN。
+机器语义 Context fingerprint 已自动覆盖：刷新时间不制造 stale，Object 摘要或 evidence
+fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate→recompute 接线仍 OPEN。
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
