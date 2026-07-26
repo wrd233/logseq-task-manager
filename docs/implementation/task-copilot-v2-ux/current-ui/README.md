@@ -82,6 +82,13 @@ v5→PAUSED v6→ACTIONABLE v5` 的旧快照、自动恢复点反向 Restore 和
 因此 Restore/P2-G/整体 Goal 不提前关闭。完整记录见
 `../logs/p2-g-backup-restore-frontstage-automated-20260726.md`。
 
+P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
+Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、批次计数和下一步；空态明确
+说明插件内的新材料审阅尚未开放。本轮没有新截图，不能把历史 migration 画面当作当前 UI。
+受控材料选择、逐项 Review、正式 import/verify/activate、失败/重启/Undo 与 Desktop 证据
+继续 OPEN。自动记录见
+`../logs/p2-g-migration-ledger-translation-automated-20260726.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；

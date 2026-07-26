@@ -305,6 +305,12 @@ overall_goal: IN_PROGRESS
   正反往返，Local Service 每步逐字段读回，最终恢复 ACTIONABLE 基线并 reload 健康。
   失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md`；
+- P2-G Migration ledger 已进入 `MIGRATION_LEDGER_TRANSLATION_AUTOMATED_WIZARD_OPEN`：
+  现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、
+  更新时间与批次计数；run ID、Bundle hash、Backup ID 和 CLI 命令不再进入日常 UI。没有
+  run 时明确说明插件内新材料审阅入口尚未开放，不伪造文件选择、Preview、Import、
+  Activate 或 Undo。完整受控材料选择、逐项决定、正式状态机与当前构建 Desktop Gate
+  仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -326,7 +332,8 @@ failure/Recovery Desktop gate OPEN /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
 P2-G Rebind identity-free capture main chain Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,
-Rebind Recovery/Undo guidance AUTOMATED + Restore failure + Migration gates OPEN /
+Rebind Recovery/Undo guidance + Migration ledger translation AUTOMATED,
+Restore failure + Migration material/review/write/Desktop gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

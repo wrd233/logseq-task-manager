@@ -847,7 +847,7 @@ test("Project Page Context routes current state, structure discussion, and proje
   assert.doesNotMatch(html, /data-action="v2-page-project-create-route"/);
 });
 
-test("Migration workspace projects the Service ledger without accepting bundle content or direct writes", () => {
+test("Migration workspace translates the Service ledger without exposing identities or direct writes", () => {
   const value = model();
   value.workspace = "migration";
   value.v2MigrationRuns = [{
@@ -857,10 +857,12 @@ test("Migration workspace projects the Service ledger without accepting bundle c
   }];
   const html = renderApp(value);
   assert.match(html, /V1 → V2 迁移/);
-  assert.match(html, /IMPORTING/);
-  assert.match(html, /3 项已审阅 · 2 项导入 · 1 项暂缓/);
-  assert.match(html, /Service 重启后可继续/);
-  assert.match(html, /backup_20260721080000000/);
+  assert.match(html, /导入后待验证/);
+  assert.match(html, /迁移计划 1/);
+  assert.match(html, /3 项已审阅 · 2 项准备迁移 · 1 项暂缓/);
+  assert.match(html, /应用重启后仍可继续/);
+  assert.match(html, /Recovery Bundle 始终只读/);
+  assert.doesNotMatch(html, /migration-run:abc|backup_20260721080000000|a{12,}/);
   assert.doesNotMatch(html, /textarea|type="file"|data-action="migration-(?:import|activate|undo)"/);
 });
 

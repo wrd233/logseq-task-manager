@@ -730,9 +730,27 @@ function renderAudit(model: UiModel): string {
 function renderMigration(model: UiModel): string {
   if (model.v2MigrationLoadError) return `<section><h2>V1 → V2 迁移</h2><div class="error"><strong>迁移状态不可用：</strong>${escapeHtml(model.v2MigrationLoadError)}<span>没有执行扫描、导入或状态切换。</span></div></section>`;
   const runs = model.v2MigrationRuns ?? [];
-  const guidance = `<section class="card"><div class="eyebrow">手动 · 可恢复 · SQLite 单一权威</div><h2>V1 → V2 迁移</h2><p>Recovery Bundle 只由 CLI 显式读取；插件不保存正文副本，也不会自动扫描或迁移。</p><p class="muted">顺序：scan → preview → backup → import → verify → activate。导入前可用 show 查看 Run；未激活且未变化的批次可 Undo。</p></section>`;
-  if (!runs.length) return `${guidance}${empty("还没有迁移 Run", "先在终端执行 tc migration scan 与 tc migration preview；完成审阅前不会写入正式状态。")}`;
-  const cards = runs.map((run) => `<article class="card compact"><div class="eyebrow">${escapeHtml(run.status)} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>${escapeHtml(run.runId)}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项导入 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p class="muted">源：${escapeHtml(run.sourceBundleSha256.slice(0, 12))}…${run.snapshotBackupId ? ` · 恢复点：${escapeHtml(run.snapshotBackupId)}` : " · 尚未绑定恢复点"}</p><p>${run.status === "PREVIEWED" ? "下一步：创建并校验 Backup，再明确确认 Import。" : run.status === "IMPORTING" ? "下一步：验证已导入批次；Service 重启后可继续。" : run.status === "VERIFIED" ? "下一步：确认所有审阅结果后显式 Activate。" : run.status === "ACTIVATED" ? "V2 SQLite 已激活；V1 只保留为只读历史与恢复证据。" : "请使用 tc migration show 查看结构化错误与证据。"}</p></article>`).join("");
+  const guidance = `<section class="card"><div class="eyebrow">小批次 · 可验证 · 可恢复</div><h2>V1 → V2 迁移</h2><p>迁移只使用你明确提供的只读 Recovery Bundle；不会自动扫描 Graph，也不会让 V1 与 V2 双写。</p><p class="muted">每批都先审阅并创建恢复点，再导入、验证和启用。内部运行标识、文件摘要与恢复点编号只留在技术证据中。</p></section>`;
+  if (!runs.length) return `${guidance}${empty("还没有迁移计划", "插件内的新迁移材料审阅入口尚未开放；当前不会读取文件、创建计划或改变正式状态。")}`;
+  const statusLabel = (status: (typeof runs)[number]["status"]): string => status === "PREVIEWED"
+    ? "等待确认导入"
+    : status === "IMPORTING"
+      ? "导入后待验证"
+      : status === "VERIFIED"
+        ? "验证通过，等待启用"
+        : status === "ACTIVATED"
+          ? "迁移已完成"
+          : "需要检查";
+  const nextStep = (status: (typeof runs)[number]["status"]): string => status === "PREVIEWED"
+    ? "下一步：确认恢复点与本批范围后再导入。"
+    : status === "IMPORTING"
+      ? "下一步：验证本批结果；应用重启后仍可继续。"
+      : status === "VERIFIED"
+        ? "下一步：确认所有审阅决定后启用 V2。"
+        : status === "ACTIVATED"
+          ? "V2 已启用；V1 只保留为只读历史与恢复证据。"
+          : "当前计划需要检查；系统不会自动重试或跳过失败。";
+  const cards = runs.map((run, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(statusLabel(run.status))} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>迁移计划 ${index + 1}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项准备迁移 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p>${escapeHtml(nextStep(run.status))}</p><details><summary>查看安全边界</summary><p>Recovery Bundle 始终只读；正式状态只由 Local Service 写入。导入前必须有校验通过的恢复点，未启用且没有后续变化的批次才可安全撤销。</p></details></article>`).join("");
   return `${guidance}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;
 }
 
