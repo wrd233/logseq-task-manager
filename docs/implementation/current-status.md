@@ -9,7 +9,7 @@ V2 v1.1 底座完成结论不变；当前继续按
 base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
-p1_status: IN_PROGRESS_PARTIAL_UI
+p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
 p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN
 overall_goal: IN_PROGRESS
 ```
@@ -127,10 +127,12 @@ overall_goal: IN_PROGRESS
   Dark Desktop 完成 Project workspace→确定性基线→显式生成→loading→真实 Provider→
   Validator→分区渲染→反馈，reload 后 session 草稿清除；最近正式修改会折叠 forward/inverse
   为“已撤销”，中文前台合同由 `unified-ux-generator@1.2.0` 统一验证且不自动二次调用
-  Provider。最终样本仍把“当前真实 Provider Gate”误列为未知并被标记 `INACCURATE`，因此
-  内容质量、Provider error、validator rejection/stale、Light/窄栏仍开放，P1-G 不升级为 DONE；
-  该 1.3.0 变更当前只有 Skill catalog/Service prompt 自动 Gate，最新 Desktop 权威仍是
-  1.2.0 的 `894d14f`，必须重新通过真实 Provider 后才可替代；
+  Provider。`653875a` 已用 `recover-context@1.3.0` 重新完成真实 DeepSeek、真实业务 unknown、
+  Provider error、Validator rejection、generation stale、feedback、reload、Dark/Light 和
+  窄栏代表 Gate；反身 unknown 误判未复现，真实未知没有被过度过滤。stale 遥测现在替换同一
+  evidence outcome 为 `STALE`，不再误计 `GENERATED`。P1-G 状态升级为
+  `DONE_REPRESENTATIVE_DESKTOP_PROVIDER_GATES`；Skill 为
+  `CANDIDATE/DESKTOP_VERIFIED`，尚不因小样本直接晋升 Production；
 - P1-H 已建立 session-only、bounded、strict-allowlist 的 Interaction Evidence：只记录
   scene/outcome、对象类型、规则/Signal/Skill/Prompt/model 版本、结构计数、用户处置、固定
   failure code 与时长；未知字段、正文、summary、对象/Block 身份、Prompt 和模型原始输出

@@ -24,7 +24,28 @@ authority”此前缺少真实 Gate。
 - Launcher tests：`29/29` PASS；
 - 根级 `./scripts/check.sh`：PASS；145 条稳定规则与恢复演练差异为空。
 
+## 修复后真实无参数重装
+
+当前源码构建完成后，以同一测试 Graph、只提供 `graphPath + graphId` 的方式真实重装，
+没有传 `databasePath`：
+
+| 检查 | 重装前 | 重装后 |
+|---|---:|---:|
+| Graph mapping 数 | 1 | 1 |
+| graphKey digest | `1560878c9a97b680` | `1560878c9a97b680` |
+| databasePath digest | `56632d412d8d32ef` | `56632d412d8d32ef` |
+| database inode | `46601378` | `46601378` |
+| Objects / Commits / Proposals | `7 / 24 / 12` | `7 / 24 / 12` |
+| Provider model | `deepseek-v4-flash` | `deepseek-v4-flash` |
+
+随后为 Provider error、Validator rejection 和真实 DeepSeek 延迟 stale Gate 做的多次受控
+Launcher 重装，也都保持同一 graphKey、databasePath 与 inode；最后已恢复
+`https://api.deepseek.com` 和原 Keychain reference。Logseq Plugin 每次均在后台自动重连，
+Project 正式投影恢复可用，未要求用户从终端维护 Service。
+
 ## 状态
 
-`IMPLEMENTED_AUTOMATED`。真实运行已经暴露并恢复错误映射；修复后的再次真实无参数重装尚未
-执行，避免在提交前再次触碰当前后台 authority。该项不替代 P0-H Graph switch Desktop Gate。
+同 Graph 无参数重装 authority 子 Gate 从 `IMPLEMENTED_AUTOMATED` 升级为
+`DONE_DESKTOP_RUNTIME_AUTHORITY_PRESERVED`。没有发生静默替换，没有复制或删除数据库，
+测试结束后 Provider 与 Graph authority 均恢复原值。该结论不替代 P0-H 的真实 Graph switch
+和切回原 Graph Gate；P0-H 整体仍为 `PARTIAL`。

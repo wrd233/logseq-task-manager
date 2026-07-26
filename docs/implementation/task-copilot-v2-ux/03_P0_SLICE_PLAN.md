@@ -364,6 +364,12 @@ owned Service 结束均已有自动和 Desktop/进程证据；Launcher 保留以
 仍缺本轮完整视觉 Gate，因此 P0-H 保持 `IN_PROGRESS_DESKTOP_GRAPH_SWITCH_GATE`，不得把生命周期
 主链已完成误写成“仍需终端维护”，也不得提前宣布整个 P0 完成。
 
+`653875a` 前后的当前源码构建又完成同一 Graph 的真实无参数重装：graphKey 与 databasePath
+digest、database inode、7 Objects、24 Commits、12 Proposals 和 Provider 配置前后完全一致。
+随后三次受控 Provider Gate 重装也未改变 authority，最后已恢复真实 DeepSeek 配置并由 Plugin
+自动重连。该 authority 子 Gate 为 `DONE_DESKTOP_RUNTIME_AUTHORITY_PRESERVED`；Graph switch、
+切回原 Graph 与异常映射的真实视觉 Gate仍 OPEN。
+
 Logseq 0.10.15 还证明隐藏 Plugin iframe 的早期 `getCurrentGraph()` 与 iframe timer 可能同时
 停顿；bootstrap 因此不得 await Graph identity。当前实现先完成只读 shell，再由
 `onGraphAfterIndexed`、`onRouteChanged` 或 Graph switch 事件恢复精确 identity 和对应 lease。

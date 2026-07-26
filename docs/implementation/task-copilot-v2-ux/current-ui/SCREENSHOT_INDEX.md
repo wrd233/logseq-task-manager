@@ -3,12 +3,12 @@
 ## CURRENT
 
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
-Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
+主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
-最新 P1 Context Recovery Desktop 精确提交为 `894d14f`；`p1-g-06` 对应该精确构建，证明真实
-Provider、中文 Validator、分区渲染与 `INACCURATE` 反馈，但也记录一个仍未关闭的内容语义
-缺陷。源码 `recover-context@1.3.0` 当前为 `AUTOMATED_ONLY`，不得借这张 1.2.0 截图宣称
-最新 Skill 已 Desktop 验证。P0 命令宿主最近精确提交为 `a835f59bf1c4`。`p0-j-06`～`08` 对应该精确构建，证明三项快捷动作
+最新 P1 Context Recovery Desktop 精确提交为 `653875a`；`p1-g-07`～`13` 对应该精确构建，
+证明 `recover-context@1.3.0` 的内容、error/rejection/stale、Dark/Light/窄栏和 corrected
+Interaction Evidence。`p1-g-08-...before-fix` 是本轮发现主题缺陷的 `HISTORICAL`，不代表
+当前界面。P0 命令宿主最近精确提交为 `a835f59bf1c4`。`p0-j-06`～`08` 对应该精确构建，证明三项快捷动作
 可配置、临时 binding 可触发且清理后冷启动全部未设置；`p0-j-02`～`05` 对应
 `e8db32f1af6d`，证明冷启动 palette 和 Slash 当前行为。`p0-h-09`～`12` 对应
 `e8db32f1af6d`，证明安全结束、
@@ -21,7 +21,13 @@ Provider、中文 Validator、分区渲染与 `INACCURATE` 反馈，但也记录
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
 | `screenshots/p0-i-01-anchor-drift-user-status-current-dark.png` | runtime `1375f1b`（后续仅 Service 语言合同变化） | 在真实 Project Page UUID 与正式 active Page Anchor UUID 漂移时打开系统状态 | 首屏只显示“有 1 项正文变化需要核对”，不把 stale properties 猜成 Project；reconciliation 后日常能力恢复 | 精确 Rebind 仍属 P2-G；这是当前宿主边界证据，不代表 Anchor 已重新绑定 |
-| `screenshots/p1-g-06-context-recovery-final-provider-current-dark.png` | `894d14f` | 从 Project workspace 显式恢复上下文，等待真实 DeepSeek 后提交用户反馈 | 正式最近修改已接地并折叠“已撤销”；中文/事实/action Validator 通过；用户将“当前 Provider Gate 结果未知”的语义标记为 `INACCURATE`；正式 Commit 数不变 | 内容质量、Provider error/stale、Light/窄栏仍 OPEN；不能据此将 P1-G 标为 DONE |
+| `screenshots/p1-g-07-context-recovery-skill-1-3-provider-current-dark.png` | `653875a` | 从 Project workspace 用 1.3.0 调用真实 DeepSeek | 4 条机器事实接地；上一轮反身 unknown 不再出现；用户标记 `HELPFUL` | 持续扩大真实质量样本，但不阻断 P1-G |
+| `screenshots/p1-g-08-context-recovery-skill-1-3-current-light.png` | `653875a` | 切换 Logseq Light 后再次真实生成 | Plugin 跟随宿主主题，事实和判断在浅色表面可读 | before-fix 同名变体只保留历史 |
+| `screenshots/p1-g-09-context-recovery-skill-1-3-current-light-narrow.png` | `653875a` | 将真实 Logseq 窗口缩到约 720 px | 主结论、分区和主动作仍可读，无横向溢出 | 非完全宿主笛卡尔积 |
+| `screenshots/p1-g-10-context-recovery-provider-error-current-light.png` | `653875a` | 受控 Provider error | 用户知道没有写入，确定性重入卡仍可用，可显式重试 | `ERROR=1`，无自动重试 |
+| `screenshots/p1-g-11-context-recovery-validator-rejection-current-light.png` | `653875a` | 受控兼容 Provider 输出违反前台合同 | Unified UX Validator 拒绝，可靠基线不被覆盖 | `REJECTED=1`，无自动重试 |
+| `screenshots/p1-g-12-context-recovery-generation-stale-current-light.png` | `653875a` | Provider 期间正式 Project 版本变化 | 旧草稿不显示、不执行，用户可基于当前版本重试 | 用户层 stale 证据 |
+| `screenshots/p1-g-13-context-recovery-stale-telemetry-current-light.png` | `653875a` | 真实 DeepSeek 经本地无日志延迟转发，期间 Condition 正向+Undo | 同一 stale 用户结论；Service 摘要 `STALE=1 / GENERATED=0`，Project 最终 ACTIONABLE v19 | 当前 stale 遥测权威 |
 | `screenshots/p0-k-01-main-page-origin-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 普通主 Page 从宿主菜单进入 Task Copilot 页面操作 | 前台显示精确 Page 标题、执行前重验说明和“返回原 Page”主动作 | Query/reference 与来源变化 OPEN |
 | `screenshots/p0-k-02-main-page-return-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 点击“返回原 Page” | overlay 关闭，回到同一 Page URL 与正文现场 | 成功/失败/Undo 返回 OPEN |
 | `screenshots/p0-k-03-sidebar-menu-bounded-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 在 right-sidebar 页面打开专用 More | 宿主只提供 Close/Collapse/Open as page，无 Plugin Page item；插件不猜 identity | 这是宿主限制，不代表 sidebar 精确入口 DONE |
@@ -126,6 +132,8 @@ Provider、中文 Validator、分区渲染与 `INACCURATE` 反馈，但也记录
 | `p1-g-03-context-recovery-reload-cleared-current-dark.png` | HISTORICAL | `4e02226` 前后运行 build | Plugin reload 清除 session-only 草稿和 disposition，确定性重入卡保留 | 未在最终 `894d14f` 精确构建重复截图 |
 | `p1-g-04-context-recovery-grounded-provider-current-dark.png` | HISTORICAL | `4e02226` | 最近正式变化已接地且 forward/inverse 折叠正确 | 模型判断仍为英文，后续中文合同替代 |
 | `p1-g-05-context-recovery-language-validated-provider-current-dark.png` | SUPERSEDED | `2cf8bf2` | 真实中文输出与 `HELPFUL` disposition；一次 session `GENERATED=1 / HELPFUL=1` | 自动语言 repair/弱语言检查已由 `894d14f` 删除并收紧；只作为质量对照 |
+| `p1-g-06-context-recovery-final-provider-current-dark.png` | SUPERSEDED | `894d14f` | 真实 Provider 结果正确接地，但把当前草稿评价误列为业务未知 | `recover-context@1.3.0` 与 `p1-g-07` 已替代 |
+| `p1-g-08-context-recovery-skill-1-3-current-light-before-fix.png` | HISTORICAL | `653875a` 构建前的本轮运行 | 真实 Logseq Light 时 Plugin 仍显示 dark surface | 同一提交中的宿主 theme sync 修复后由 CURRENT `p1-g-08` 替代 |
 | `p0-j-01-command-palette-duplicate-historical-dark.png` | HISTORICAL | `e8db32f1af6d` 连续 Plugin reload 会话 | Logseq 0.10.15 reload 会话曾出现重复 palette 行 | 完整退出/重启恢复单组；`p0-j-02` 是冷启动当前权威，不新增持久去重状态 |
 | `p2-g-42-migration-activated-reload-current-dark.png` | SUPERSEDED | `f42b62d` | ACTIVATED ledger 跨完整 restart 保留 | 完成态仍显示新 Bundle scan；`p2-g-43` 已收敛为只读交接 |
 | `p2-c-01-project-creation-entry-dark.png` | SUPERSEDED | `c9c29b7` | 三来源入口曾真实可达 | `p2-c-11` 使用当前提交重拍 |

@@ -8,7 +8,7 @@
 | 工具栏 / 现在 / 待我确认 / 项目 / 更多 | 已实现，部分历史 Desktop 通过 | OPEN | 集中 P0/P1 Desktop Gate |
 | Block / Page 现场入口 | 已实现，宿主位置仍有开放项 | OPEN | main/sidebar/Query/reference/中文输入 |
 | Service 状态 / reload / quit | 最新构建 restart 后 mounted diagnostics 自动刷新 READY；历史 quit owned shutdown 通过 | CURRENT：P2-C Undo 后 restart 健康态 | Graph switch 与 raw reload 交互收口 |
-| Project Page Head / Context Recovery | 已实现并有真实 Provider Gate | OPEN | loading/error/stale/feedback、主题与窄栏 |
+| Project Page Head / Context Recovery | P1-G Context Recovery 代表链 DONE；File Graph Page Head 有界隐藏 | CURRENT：`p1-g-07`～`13` | P1-F DB Graph Page Head 宿主 Gate；1.3.0 持续质量样本不阻断当前 Slice |
 | Block Marker | 默认关闭 prototype | OPEN | 编辑/TODO/Query/sidebar/Zoom/主题/性能 |
 | MiniProject Grill / 原位重构 | 一个纵向链历史 Desktop 通过 | OPEN | 最新构建回归与多材料质量样本 |
 | Project Creation Grill | Blank、Page 两种关系与 MiniProject 演化功能链均真实 Provider→Preview→HIGH Review→create→reload/restart→Undo→健康 PASS；`7a7492a407ed` 已复验 MiniProject Undo 精确返回来源根 Block | CURRENT：Page dedicated Undo/健康、reuse readiness/Preview/返回现场/Undo/健康；MiniProject Grill/Preview/Review/create/reload/来源返回/健康 | Light/窄栏与集中宿主视觉 Gate；Project 新页 ownership metadata 仍过于前台 |

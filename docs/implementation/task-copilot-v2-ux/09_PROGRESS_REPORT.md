@@ -24,8 +24,8 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block 路由 automated DONE；Graph switch、中文 IME/受限视觉、K 多宿主 Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G Dark Desktop 真实 Provider/反馈/reload 主链 PASS 但内容质量与 error/stale/Light/窄栏 OPEN；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，跨会话 dashboard 仍 OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE，同 Graph 无参数重装 authority DONE；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；Graph switch、中文 IME/受限视觉、K 多宿主 Gate OPEN |
+| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart、Migration through Activation 正常主链已有真实 Desktop。真实双重故障注入、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -142,6 +142,11 @@ reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 运行映射已用原明确路径恢复；安装器现在复用同一 graphKey 的既有 databasePath，除非用户
 显式传入新绝对路径。回归覆盖首次安装→同 Graph 无参数重装→第二 Graph 安装，Launcher
 29/29 PASS；记录见 `logs/p0-h-launcher-reinstall-authority-automated-20260726.md`。
+
+修复后已用当前构建执行真实无参数重装：graphKey/databasePath digest、inode、7 Objects、
+24 Commits、12 Proposals 和 Provider model 前后完全一致；后续受控 Provider Gate 重装也未
+改变 authority，最终恢复真实 DeepSeek 并由 Plugin 自动重连。该子 Gate 已 DONE，Graph
+switch/切回原 Graph 仍 OPEN。
 
 P0-J 已从 `AUTOMATED_ONLY` 推进为代表性 Desktop partial：冷启动命令面板单组注册、Now/
 系统状态路由、四条 Slash 可发现、`[任务] ` 代表插入和自定义 binding 配置/触发/清理均已
@@ -285,17 +290,19 @@ Primary Anchor 或 Recovery Commit，并复用既有 `v2-open-primary-anchor` / 
 伪造或过期 target 只显示失效提示。Graph switch、Service reconnect/restricted 会清空草稿，
 并发重复点击只产生一个请求。
 
-真实内容质量没有被“Provider 成功”掩盖：`2cf8bf2` 的中文结果标记 `HELPFUL`；最终精确
+真实内容质量没有被“Provider 成功”掩盖：`2cf8bf2` 的中文结果标记 `HELPFUL`；精确
 `894d14f` 虽通过中文和权限 Validator，却把“当前真实 Provider Gate 的结果”列为未知，用户
-标记 `INACCURATE`。生成策略已收敛为 `unified-ux-generator@1.2.0`：不自动二次调用
-Provider，不双计 interaction，中文前台合同排除受控产品词后再检查自然语言。最新 session
-为 `GENERATED=1 / REJECTED=0 / INACCURATE=1`，正式 Commit 数保持 24。完整记录见
-`logs/p1-project-context-recovery-desktop-live-20260726.md`。
+标记 `INACCURATE`。`recover-context@1.3.0` 将其提升为通用反身边界后，`653875a` 的真实
+DeepSeek 原样本不再产生 false unknown，并有独立样本证明真实业务 unknown 仍被保留；均
+1 attempt。Provider error、Validator rejection、真实 DeepSeek 延迟 stale、reload、
+Dark/Light 与约 720 px 窄窗也已通过。正式 Commit 数保持 24。
 
-该失败随后没有进入 Validator 特例：`recover-context@1.3.0` 只增加一条可跨样本的反身边界，
-明确当前 recovery draft 及其 disposition 属评价通道，不得作为业务 unknown；仍需用户评价时
-由现有 feedback 收集。Skill catalog 与真实 Service prompt 自动 Gate 已通过，真实 Provider
-复验前保持 `CANDIDATE/AUTOMATED_ONLY`，不借用 1.2.0 截图升级状态。
+该失败没有进入 Validator 特例：当前 recovery draft 及其 disposition 属评价通道，不得作为
+业务 unknown；仍需用户评价时由现有 feedback 收集。1.2.0 已退休，1.3.0 现在为
+`CANDIDATE/DESKTOP_VERIFIED`，不因有限样本直接晋升 Production。stale Desktop 复验同时
+发现 Interaction Evidence 误计 GENERATED；现复用同一 entry 替换为
+`STALE / V2_OBJECT_VERSION_CONFLICT`，当前摘要 `STALE=1 / GENERATED=0`。完整记录见
+`logs/p1-g-context-recovery-1-3-desktop-live-20260726.md`。
 
 ### P1-H privacy-bounded interaction evidence
 

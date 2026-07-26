@@ -337,11 +337,11 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
 
 ## P1-G：LLM 叙述与上下文恢复 Skill
 
-状态：`PARTIAL_DESKTOP_DARK_MAIN_CHAIN_CONTENT_QUALITY_GATE_OPEN` — Provider-neutral
-unified UX output validator、Local Service 生成器、`recover-context@1.3.0` 与 Plugin
-session-only 用户界面已完成；Dark Desktop 的真实 Provider/反馈/reload 主链已通过。内容
-质量、error/stale/validator rejection、Light/窄栏与 Project current-interface Proposal
-仍开放。
+状态：`DONE_REPRESENTATIVE_DESKTOP_PROVIDER_GATES` — Provider-neutral unified UX
+output validator、Local Service 生成器、`recover-context@1.3.0` 与 Plugin session-only
+用户界面已完成；真实 Provider 内容、真实业务 unknown、error、stale、validator rejection、
+feedback、reload、Dark/Light 与窄栏代表 Gate 均已通过。Project current-interface 的正式
+修改继续归 P2-D Proposal/Commit 链，不扩张 P1-G 的只读写入权。
 
 统一结构化输出至少包含：
 
@@ -394,7 +394,15 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
   `logs/p1-project-context-recovery-desktop-live-20260726.md`。
 - `recover-context@1.3.0` 将上述失败提升为通用 Skill 规则：正在生成的 recovery draft 及其
   user disposition 属评价通道，不得作为业务 unknown；有待用户评价时省略反身结论，由既有
-  feedback 单独收集。当前已通过 catalog/Service prompt 自动 Gate，真实 Provider 复验仍 OPEN。
+  feedback 单独收集。`653875a` 已完成真实 DeepSeek 复验：信息充分样本不再产生反身 unknown，
+  独立样本仍正确保留“当前项目边界和目标尚未明确”的真实业务 unknown；均 1 attempt。
+- 同一构建已完成 Provider error、统一 Validator rejection、真实 DeepSeek 延迟 stale、reload、
+  Light 与约 720 px 窄窗。stale 现在把已记录的同一 Interaction Evidence 从
+  `GENERATED` 替换为 `STALE / V2_OBJECT_VERSION_CONFLICT`；当前运行摘要
+  `STALE=1 / GENERATED=0`，没有新事件或恢复状态。
+- `recover-context@1.2.0` 退休；1.3.0 晋升
+  `CANDIDATE/DESKTOP_VERIFIED`，真实 helpful/noise 样本仍不足以晋升 Production。完整证据见
+  `logs/p1-g-context-recovery-1-3-desktop-live-20260726.md`。
 
 ## P1-H：交互日志与版本
 

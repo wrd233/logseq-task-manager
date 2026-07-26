@@ -318,6 +318,14 @@ Closure absent，正向 Commit `UNDONE`、逆向 Commit `COMPLETED`，异常 Com
 RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial。完整记录见
 `logs/p2-e-project-closure-desktop-live-20260726.md`。
 
+`653875a` 进一步加严既有 post-domain interruption 自动 Gate：在
+`afterProjectClosureDomainWrite` 注入中断后，Project 已完成、Proposal 为 ACCEPTED，而同一
+receipt-backed SemanticCommit 保持 `PENDING`；Service restart 后只恢复这一个原 Commit，
+最终 `COMPLETED/APPLIED`，`PENDING/FAILED/RECOVERY_REQUIRED=0`。这证明可安全续跑的中断应
+继续翻译为“尚未完成，可以继续”，不应人为新建 `RECOVERY_REQUIRED` 或第二恢复工作流。
+该证据为 `AUTOMATED_ONLY`；Provider error/stale 与不能安全自动续跑的真实 Desktop 恢复链
+仍是 P2-E 的开放项。
+
 ## P2-F：跨对象观察
 
 状态：`IN_PROGRESS_SHADOW_PROVIDER_REPEAT_PASS_FRONTSTAGE_CLOSED`

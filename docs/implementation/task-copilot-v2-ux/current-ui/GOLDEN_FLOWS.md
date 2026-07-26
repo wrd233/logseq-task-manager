@@ -2,7 +2,7 @@
 
 ## P1 Project Context Recovery
 
-状态：`PARTIAL_DESKTOP_DARK_MAIN_CHAIN_CONTENT_QUALITY_GATE_OPEN`
+状态：`DONE_REPRESENTATIVE_DESKTOP_PROVIDER_GATES`
 
 1. 用户从 Project workspace 看到确定性重入结论、关键依据与当前可定位进入点；
 2. 只有用户显式点击“帮我恢复上下文”才调用 Provider，刷新/Page Head/shadow 不自动生成；
@@ -17,14 +17,14 @@
 8. reload/Service restart 清除草稿和反馈，重新从正式状态计算；生成和反馈均不创建
    Proposal/Commit。
 
-当前真实结果：Dark Project workspace、确定性基线、loading、DeepSeek V4 Flash、Validator、
-分区显示、`HELPFUL`/`INACCURATE` disposition、reload 清除与零正式写入均有真实证据。
-`894d14f` 精确样本正确理解最近 Closure 已撤销和当前接口已应用，但把“当前真实 Provider
-Gate 的结果”列为未知，已标记 `INACCURATE`，所以内容质量仍未过门。Provider error、
-validator rejection、generation stale、Light/窄栏仍 OPEN。Logseq 0.10.15 File Graph 不挂载
-Page Head slot，安全隐藏为有界宿主结论；DB Graph Page Head 仍 OPEN。CURRENT 权威截图为
-`p1-g-06`，完整记录见
-`../logs/p1-project-context-recovery-desktop-live-20260726.md`。
+当前真实结果：`653875a` 的 `recover-context@1.3.0` 已让上一轮反身 unknown 误判不再复现，
+并用独立真实 Provider 样本证明真正的业务 unknown 仍会保留；两个样本均 1 attempt。Provider
+error、统一 Validator rejection、真实 DeepSeek 延迟 stale、feedback、reload、Dark/Light
+和约 720 px 窄窗均有当前证据。stale 期间 Project v17→v18→Undo v19，最终
+`STALE=1 / GENERATED=0`、`PENDING=0 / RECOVERY_REQUIRED=0`。Logseq 0.10.15 File Graph
+不挂载 Page Head slot，安全隐藏为 P1-F 的有界宿主结论；DB Graph Page Head 仍 OPEN。
+CURRENT 权威截图为 `p1-g-07`～`13`，完整记录见
+`../logs/p1-g-context-recovery-1-3-desktop-live-20260726.md`。
 
 ## P2-C Blank Project Creation
 

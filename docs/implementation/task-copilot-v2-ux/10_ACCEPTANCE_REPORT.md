@@ -11,7 +11,7 @@
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；P0-J palette/Slash 代表链/custom binding PASS；Graph switch、中文 IME/受限视觉与 P0-K host Gate OPEN | 不得宣布 P0 完成 |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | Project workspace 与 Context Recovery Dark loading/Provider/反馈/reload Desktop PASS；File Graph Page Head bounded、DB Graph OPEN；Block marker、error/stale/Light/窄栏与内容质量 Gate OPEN；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值，也不得把一次 Provider 成功视为内容质量完成 |
+| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/manual recovery + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart 与 Migration Activation current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + real double-failure + Migration failure/interruption recovery/visual gates OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
@@ -209,7 +209,8 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 - [x] P0-H descriptor 私有导入、失败边界与 reload READY 证据；`e8db32f` 又完成最新用户语言的
   安全结束、立即只读、重新启动与健康读回，结束期间无知识库不匹配闪烁；Graph switch 仍 OPEN；
   同一 Graph 重装现默认保留既有 database authority，真实发现的静默路径替换已修复并由
-  Launcher 29/29 回归覆盖；显式数据库迁移仍必须由用户明确给出路径；
+  Launcher 29/29 回归覆盖；当前构建的真实无参数重装也已证明 graphKey/path/inode 与
+  `7/24/12` 正式计数保持；显式数据库迁移仍必须由用户明确给出路径；
 - [x] P0-B 三种 Condition、失败零写入、Focus 不变、Undo 和 reload 证据；
 - [x] P0-C LOW 白名单、连续 Review/revalidate/Commit、busy/stale/transport 与真实 Desktop Undo 证据；
 - [x] P0-D 普通/Project/Journal Page 路由、UUID/Anchor 重验、Project create/reentry 与
@@ -223,10 +224,11 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 - [x] P0-I 五个用户问题、Provider 非故障降级、安全优先级、Pending/Recovery 分离和
   默认折叠工程诊断，以及真实 Desktop 注意/停服受限状态的两张脱敏截图；`4dfe014` 的健康
   系统状态又证明用户层工程词扫描为 0、精确版本只在主动展开的技术诊断中；
-- [ ] P1-G Project Context Recovery：Dark Desktop 已验证确定性基线、loading、真实 DeepSeek、
-  Validator、事实/判断/未知分区、反馈、reload 清除和零正式写入；最新精确样本仍有一项
-  `INACCURATE` 语义，Provider error/stale/Light/窄栏及 DB Graph Page Head 未完成，故保持
-  Partial；
+- [x] P1-G Project Context Recovery：`653875a` 已验证确定性基线、真实 DeepSeek 内容、
+  真实业务 unknown、Provider error、Validator rejection、generation stale、分区显示、
+  feedback、reload、Dark/Light/窄栏和零越权写入；stale evidence 为
+  `STALE=1 / GENERATED=0`。`recover-context@1.3.0` 为
+  `CANDIDATE/DESKTOP_VERIFIED`，不等于 Production；DB Graph Page Head 属 P1-F 宿主矩阵；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P0 宿主 Gate、P1 前台化、P2-E 失败链、P2-G 双重 Restore/Migration 失败链仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G 已关闭，但 P0 宿主 Gate、P1 Attention/Marker、P2-E 失败链、P2-G 双重 Restore/Migration 失败链仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -29,15 +29,15 @@
 - `unified-ux-generator@1.2.0`：`CANDIDATE`。固定当前产品中文前台合同、权限/事实/action
   authority 和 abstain 边界；真实精确 build `GENERATED=1 / REJECTED=0 / INACCURATE=1`，
   无自动 retry。失败时保留确定性 Project 重入投影，由用户显式重试，不覆盖旧可靠内容。
-- `recover-context@1.3.0`：`CANDIDATE/AUTOMATED_ONLY`。把 1.2.0 真实失败提升为通用反身边界：
-  当前 recovery draft/disposition 不属于业务 unknown；只改现有 Skill，不新增 Validator 或
-  Runtime。1.2.0 最近两个精确真实 build 的拒绝率 `0/2`、处置
-  `HELPFUL=1 / INACCURATE=1`；1.3.0 真实 Provider 复验前不晋升。
+- `recover-context@1.3.0`：`CANDIDATE/DESKTOP_VERIFIED`。把 1.2.0 真实失败提升为通用反身
+  边界；原样本不再产生 false unknown，独立真实 Provider 样本仍保留业务 unknown，均
+  1 attempt。error/rejection/stale/Light/窄栏代表 Gate 已通过，但样本量不足以晋升 Production。
+- `recover-context@1.2.0`：`RETIRED`。运行态和 catalog 只使用 1.3.0，不保留平行 active 版本。
 - `unified-ux-generator@1.1.0`：`RETIRED`。原因是自动 repair 会放大 Provider 预算并把一次
   用户交互双计数，单汉字语言检查也可被混合英文绕过；不保留兼容运行分支。
 - 当前复杂度变化：平行 Runtime/写入权威/恢复入口均未增加；Prompt/Validator 的样本特例
-  已收敛为语言和 authority 的通用输出合同。全局 Skill 生命周期台账仍未覆盖其他 active
-  Skill，因此该风险仍为发布阻断。
+  已收敛为语言和 authority 的通用输出合同。stale 遥测只替换同一 evidence outcome，不
+  新建事件状态。P1-G 从 Partial 关闭；全局 Skill 生命周期台账仍未覆盖其他 active Skill。
 
 ### P0-H Launcher authority 收敛
 
@@ -46,7 +46,8 @@
 - 同一 graphKey 默认保留既有 databasePath；首次安装才使用默认路径，显式绝对路径仍可由
   用户主动替换。运行映射已恢复到原测试数据库，未删除或复制任何正式数据。
 - 新增正式状态/恢复入口/并行 authority：`0`；回归覆盖首次安装、无参数重装和第二 Graph，
-  Launcher `29/29` PASS。该缺陷从潜在 silent authority drift 收敛为自动 Gate。
+  Launcher `29/29` PASS。当前构建的真实无参数重装及后续多次受控 Provider 重装也保持
+  graphKey/path/inode 与正式计数不变；该 authority 子 Gate 已从自动升级为真实运行 DONE。
 
 - P0-J 从 `AUTOMATED_ONLY` 收敛为代表性 Desktop partial：共享同一 command/slash 注册内核，
   没有为四条 Slash、六条 palette 或三个 binding 创建场景状态；新正式状态、恢复分支、
