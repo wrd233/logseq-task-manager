@@ -13,6 +13,7 @@ import type { StructuredProposalProvider } from "../src/llm-proposal.ts";
 
 const request: UxOutputGenerationRequest = {
   observedAt: "2026-07-24T06:00:00.000Z",
+  frontstageLanguage: "zh-CN",
   core: { version: "core@1.0.0", content: "正式状态是事实，模型只生成草稿。" },
   skill: {
     name: "recover-context",
@@ -31,6 +32,53 @@ const request: UxOutputGenerationRequest = {
   }],
   allowedNextActions: [],
 };
+
+test("LLM UX generator repairs a frontstage language mismatch once before returning a draft", async () => {
+  let calls = 0;
+  const captured: StructuredChatRequest[] = [];
+  const evidence = new InteractionEvidenceBuffer();
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async (input) => {
+      captured.push(input);
+      calls += 1;
+      return {
+        value: {
+          schemaVersion: "task-copilot-ux-output-v1",
+          factRefs: ["condition"],
+          inferences: [{
+            text: calls === 1 ? "The project is waiting for a key parameter." : "项目正在等待关键参数。",
+            evidenceRefs: ["object:project-1@v3"],
+          }],
+          unknowns: [],
+          summary: calls === 1 ? "The project is waiting." : "项目正在等待。",
+          suggestedChanges: [],
+          nextActionEligible: false,
+          riskLevel: "NONE",
+          requiresDiscussion: false,
+          requiresReview: false,
+        },
+        metadata: {
+          model: "actual-model",
+          durationMs: 20,
+          attempts: 1,
+        },
+      };
+    },
+  };
+
+  const result = await new LocalLlmUxOutputGenerator(provider, evidence, () => "uxi_1234567890abcdef").generate(request);
+
+  assert.equal(calls, 2);
+  assert.equal(result.output.summary, "项目正在等待。");
+  assert.equal(result.provider.attempts, 2);
+  assert.match(captured[0]?.system ?? "", /zh-CN/);
+  assert.match(captured[1]?.system ?? "", /previous draft failed/i);
+  assert.equal(evidence.summary().outcomes.REJECTED, 1);
+  assert.equal(evidence.summary().outcomes.GENERATED, 1);
+  assert.equal(evidence.snapshot()[0]?.failureCode, "UX_OUTPUT_FRONTSTAGE_LANGUAGE_MISMATCH");
+});
 
 test("LLM UX generator returns only a validated machine-provenance draft without persistence authority", async () => {
   const captured: StructuredChatRequest[] = [];

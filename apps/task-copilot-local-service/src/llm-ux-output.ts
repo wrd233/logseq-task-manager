@@ -13,6 +13,7 @@ import type { PromptLayer, StructuredProposalProvider } from "./llm-proposal.ts"
 
 export interface UxOutputGenerationRequest {
   observedAt: string;
+  frontstageLanguage: "zh-CN";
   core: PromptLayer;
   skill: PromptLayer & {
     name: string;
@@ -25,6 +26,47 @@ export interface UxOutputGenerationRequest {
   facts: UnifiedUxFactAuthority[];
   allowedNextActions: UnifiedUxNextActionAuthority[];
   signal?: AbortSignal;
+}
+
+class FrontstageLanguageMismatchError extends Error {
+  constructor() {
+    super("Unified UX output frontstage language does not match zh-CN.");
+    this.name = "FrontstageLanguageMismatchError";
+  }
+}
+
+function assertFrontstageLanguage(output: UnifiedUxOutput, language: UxOutputGenerationRequest["frontstageLanguage"]): void {
+  if (language !== "zh-CN") return;
+  const modelProse = [
+    output.summary,
+    ...output.inferences.map(({ text }) => text),
+    ...output.unknowns,
+    ...output.suggestedChanges.map(({ summary }) => summary),
+  ];
+  if (modelProse.some((value) => !/\p{Script=Han}/u.test(value))) {
+    throw new FrontstageLanguageMismatchError();
+  }
+}
+
+function sumOptional(left: number | undefined, right: number | undefined): number | undefined {
+  return left === undefined && right === undefined ? undefined : (left ?? 0) + (right ?? 0);
+}
+
+function combineMetadata(
+  first: StructuredCompletionMetadata,
+  second: StructuredCompletionMetadata,
+): StructuredCompletionMetadata {
+  const promptTokens = sumOptional(first.promptTokens, second.promptTokens);
+  const completionTokens = sumOptional(first.completionTokens, second.completionTokens);
+  const totalTokens = sumOptional(first.totalTokens, second.totalTokens);
+  return {
+    ...second,
+    durationMs: first.durationMs + second.durationMs,
+    attempts: first.attempts + second.attempts,
+    ...(promptTokens === undefined ? {} : { promptTokens }),
+    ...(completionTokens === undefined ? {} : { completionTokens }),
+    ...(totalTokens === undefined ? {} : { totalTokens }),
+  };
 }
 
 export interface GeneratedUnifiedUxOutput {
@@ -125,6 +167,8 @@ export class LocalLlmUxOutputGenerator {
     const runtimeContext = layer(request.runtimeContext, "Runtime Context");
     const promptBundleVersion = checksum(stableJson({
       contract: "task-copilot-ux-output-v1",
+      generatorPolicyVersion: "unified-ux-generator@1.1.0",
+      frontstageLanguage: request.frontstageLanguage,
       core,
       skill,
       userSemantics,
@@ -142,6 +186,7 @@ export class LocalLlmUxOutputGenerator {
     }
     const system = [
       "Return exactly one task-copilot-ux-output-v1 JSON draft. Use only supplied factRefs, evidenceRefs, and nextActionId values.",
+      `Frontstage language is machine-owned: every model-authored summary, inference, unknown, and suggested-change summary MUST contain concise Simplified Chinese (${request.frontstageLanguage}). Product names may remain unchanged.`,
       "facts are selected by factRefs; never rewrite a formal fact as an inference. Unknowns must remain explicit.",
       "Use the same language as the supplied user-visible facts unless User Semantics explicitly requests another language.",
       "Never list a supplied formal fact as unknown or claim that its evidenced change has not happened.",
@@ -156,30 +201,30 @@ export class LocalLlmUxOutputGenerator {
     ].join("\n\n");
     const user = `Runtime Context [${runtimeContext.version}]\n${runtimeContext.content}`;
     if (system.length + user.length > 200_000) throw new Error("Unified UX prompt exceeds the bounded input size.");
-    let completion: Awaited<ReturnType<StructuredProposalProvider["completeStructured"]>>;
-    try {
-      completion = await this.provider.completeStructured({
-        system,
-        user,
-        ...(request.signal ? { signal: request.signal } : {}),
-      });
-    } catch (error) {
-      this.recordEvidence({
-        timestamp: request.observedAt,
-        scene: "CONTEXT_RECOVERY",
-        outcome: "ERROR",
-        skill: {
-          name: skill.name,
-          version: skill.version,
-        },
-        promptVersion: promptBundleVersion,
-        failureCode: "UX_OUTPUT_PROVIDER_FAILED",
-      });
-      throw error;
-    }
-    let output: UnifiedUxOutput;
-    try {
-      output = materializeUnifiedUxOutput(completion.value, {
+    const complete = async (completionSystem: string) => {
+      try {
+        return await this.provider.completeStructured({
+          system: completionSystem,
+          user,
+          ...(request.signal ? { signal: request.signal } : {}),
+        });
+      } catch (error) {
+        this.recordEvidence({
+          timestamp: request.observedAt,
+          scene: "CONTEXT_RECOVERY",
+          outcome: "ERROR",
+          skill: {
+            name: skill.name,
+            version: skill.version,
+          },
+          promptVersion: promptBundleVersion,
+          failureCode: "UX_OUTPUT_PROVIDER_FAILED",
+        });
+        throw error;
+      }
+    };
+    const materialize = (value: unknown, model: string): UnifiedUxOutput => {
+      const candidate = materializeUnifiedUxOutput(value, {
         observedAt: request.observedAt,
         contractVersion: "1.0.0",
         promptVersion: promptBundleVersion,
@@ -190,7 +235,7 @@ export class LocalLlmUxOutputGenerator {
         provider: {
           providerId: this.provider.providerId,
           providerVersion: this.provider.providerVersion,
-          model: completion.metadata.model,
+          model,
         },
         minimumRiskLevel: request.minimumRiskLevel,
         requiresDiscussion: request.requiresDiscussion,
@@ -198,7 +243,43 @@ export class LocalLlmUxOutputGenerator {
         facts: request.facts,
         allowedNextActions: request.allowedNextActions,
       });
+      assertFrontstageLanguage(candidate, request.frontstageLanguage);
+      return candidate;
+    };
+    let completion = await complete(system);
+    let output: UnifiedUxOutput | undefined;
+    let validationError: unknown;
+    try {
+      output = materialize(completion.value, completion.metadata.model);
     } catch (error) {
+      validationError = error;
+      if (error instanceof FrontstageLanguageMismatchError) {
+        this.recordEvidence({
+          timestamp: request.observedAt,
+          scene: "CONTEXT_RECOVERY",
+          outcome: "REJECTED",
+          skill: {
+            name: skill.name,
+            version: skill.version,
+          },
+          promptVersion: promptBundleVersion,
+          model: completion.metadata.model,
+          failureCode: "UX_OUTPUT_FRONTSTAGE_LANGUAGE_MISMATCH",
+          elapsedMs: completion.metadata.durationMs,
+        });
+        const repaired = await complete(`${system}\n\nThe previous draft failed the machine-owned ${request.frontstageLanguage} frontstage-language contract. Return a complete replacement JSON draft; do not explain the correction.`);
+        completion = {
+          value: repaired.value,
+          metadata: combineMetadata(completion.metadata, repaired.metadata),
+        };
+        try {
+          output = materialize(completion.value, completion.metadata.model);
+        } catch (repairedError) {
+          validationError = repairedError;
+        }
+      }
+    }
+    if (!output) {
       this.recordEvidence({
         timestamp: request.observedAt,
         scene: "CONTEXT_RECOVERY",
@@ -217,8 +298,8 @@ export class LocalLlmUxOutputGenerator {
         message: "Provider 输出未通过 Unified UX Validator；没有生成恢复草稿。",
         ruleRefs: ["D-125", "D-127", "D-130", "D-139"],
         details: {
-          cause: error instanceof Error ? error.message : "unknown",
-          validationCategory: validationCategory(error),
+          cause: validationError instanceof Error ? validationError.message : "unknown",
+          validationCategory: validationCategory(validationError),
         },
       });
     }

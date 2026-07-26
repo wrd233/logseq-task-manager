@@ -103,6 +103,7 @@ export function buildProjectContextRecoveryGeneration(
     projection,
     request: {
       observedAt: source.observedAt,
+      frontstageLanguage: "zh-CN",
       core: {
         version: source.coreSkill.version,
         content: source.coreSkill.content,
