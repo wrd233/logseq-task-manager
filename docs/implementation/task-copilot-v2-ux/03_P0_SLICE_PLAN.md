@@ -460,7 +460,8 @@ Provider 受限态、Light 与窄窗口也继续开放，未因代表链通过�
 
 ## P0-K：完成后返回业务现场
 
-状态：`PARTIAL`（自动 Gate PASS；Desktop main/sidebar/Query/reference Gate OPEN）
+状态：`PARTIAL`（自动 Gate PASS；Desktop main Page return PASS；sidebar bounded；
+Query/reference 与来源变化 Gate OPEN）
 
 - Block/Page 现场入口捕获 session-only 来源 token，不写入任何持久权威；
 - 成功、失败后的关闭、取消和 Block Condition 完成统一返回来源；
@@ -469,7 +470,10 @@ Provider 受限态、Light 与窄窗口也继续开放，未因代表链通过�
 - 来源缺失时安全关闭并提示，不猜测替代目标或执行写入；
 - Project 创建成功进入新 Project Page，是明确的产品例外；
 - Plugin 187/187、typecheck、build、dist integrity PASS；
-- 自动证据见 `logs/p0-k-session-origin-route-automated-20260724.md`。
+- 真实 Logseq 0.10.15 已验证主 Page 入口、来源说明与返回同一 Page；right-sidebar 的宿主
+  `More` 不提供 Plugin Page menu item，继续安全隐藏而不猜 identity；
+- 证据见 `logs/p0-k-session-origin-route-automated-20260724.md` 和
+  `logs/p0-k-host-origin-desktop-live-20260726.md`。
 
-仍需真实 Desktop 验证普通 Block、Query/引用、右侧栏、Page rename/删除、成功/失败/Undo 与
-主题/窄窗口；未以 Controller 测试替代宿主行为。
+仍需真实 Desktop 验证普通 Block、Query/引用、Page rename/删除、成功/失败/Undo 与主题/
+窄窗口；未把 main Page 与 sidebar 的代表结论扩张为所有宿主 DONE。

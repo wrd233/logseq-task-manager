@@ -143,8 +143,10 @@ P0-J 已从 `AUTOMATED_ONLY` 推进为代表性 Desktop partial：冷启动命�
 去重状态。Computer Use 不能可靠注入中文字符，因此原生中文 IME、受限态、Light 与窄窗口
 继续 OPEN；完整记录见 `logs/p0-j-host-commands-desktop-live-20260726.md`。
 
-P0-K 与普通 Block 内容路由自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 main
-Page、right sidebar、Query/引用、来源移动/重命名/删除以及成功/失败/Undo 返回。
+P0-K 已完成 main Page 入口→来源说明→返回同一 Page 的真实 Desktop 代表链；Logseq 0.10.15
+right-sidebar 专用菜单不提供 Plugin Page item，按 bounded host conclusion 安全隐藏，不猜测
+secondary identity。Query/引用、来源移动/重命名/删除以及成功/失败/Undo 返回仍 OPEN；记录
+见 `logs/p0-k-host-origin-desktop-live-20260726.md`。
 
 P1-A 已在不开放前台的边界内进入 Plugin session runtime：Attention Signal 纯派生字段、
 自动失效、证据变化解除 cooldown、Recovery 不可冷却、有界容量/清理/遥测均已完成。

@@ -25,6 +25,8 @@
 - 连续 reload 的 palette 重复只在宿主会话内出现，完整 restart 后消失；保留一张
   `HISTORICAL` 缺陷截图，不增加 Plugin 持久去重账本。中文 IME 与 Light/窄栏继续作为
   代表性 Gate，不扩张为全组合矩阵。
+- P0-K main Page 使用既有 session-only source token 通过返回 Gate；right-sidebar 不提供
+  Plugin Page item 时保持隐藏，没有为宿主缺失 identity 增加 fallback 状态或第二入口。
 - 新增正式状态：`0`。
 - 新增顶层导航：`0`。
 - 新增 Agent Runtime / Prompt 系统 / Recovery Kernel：`0`。

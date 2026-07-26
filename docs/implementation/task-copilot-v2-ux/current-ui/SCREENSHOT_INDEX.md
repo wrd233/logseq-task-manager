@@ -17,6 +17,9 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
+| `screenshots/p0-k-01-main-page-origin-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 普通主 Page 从宿主菜单进入 Task Copilot 页面操作 | 前台显示精确 Page 标题、执行前重验说明和“返回原 Page”主动作 | Query/reference 与来源变化 OPEN |
+| `screenshots/p0-k-02-main-page-return-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 点击“返回原 Page” | overlay 关闭，回到同一 Page URL 与正文现场 | 成功/失败/Undo 返回 OPEN |
+| `screenshots/p0-k-03-sidebar-menu-bounded-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 在 right-sidebar 页面打开专用 More | 宿主只提供 Close/Collapse/Open as page，无 Plugin Page item；插件不猜 identity | 这是宿主限制，不代表 sidebar 精确入口 DONE |
 | `screenshots/p0-j-02-command-palette-single-current-dark.png` | `e8db32f1af6d` | 完整冷启动后打开命令面板并检索 Task Copilot | 六条中文命令单组可见，无持久重复 | 连续 reload residue 见 HISTORICAL；受限态 OPEN |
 | `screenshots/p0-j-03-command-palette-open-now-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“打开‘现在’” | 当前 Now 工作面打开，无静默或错误 | Light/窄栏 OPEN |
 | `screenshots/p0-j-04-command-palette-system-status-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“系统状态与技术诊断” | 用户层健康结论可读，技术详情保持折叠 | 受限态代表链 OPEN |

@@ -64,8 +64,9 @@ overall_goal: IN_PROGRESS
   真实 Desktop 已验证冷启动单组 palette、四条 Slash 可发现、`[任务] ` 代表插入、临时
   chord 配置/触发/清理和冷启动复验。原生中文 IME、受限态、Light/窄栏仍 OPEN；
 - P0-K 完成后路由：Block/Page 来源只保存在 session token；main Page 按 UUID 重验返回，
-  secondary Page 保持宿主现场，来源缺失安全关闭；自动 Gate 187/187 通过，Desktop
-  Query/引用/右侧栏 Gate 保持 OPEN；
+  secondary Page 保持宿主现场，来源缺失安全关闭；自动 Gate 187/187 通过。真实 Desktop
+  已验证 main Page 入口与返回同一 Page；Logseq 0.10.15 right-sidebar 菜单不提供 Plugin
+  Page item，按宿主限制安全隐藏。Query/引用、来源变化和结果返回 Gate 保持 OPEN；
 - P0-A 普通 Block 内容路由：右键“处理这条内容”按 payload UUID 单次绑定，在 Provider 前
   重读同一 Block；missing/mismatch/空正文零请求、零写入；Plugin 191/191 自动 Gate 通过，
   Query/引用/右侧栏仍待 Desktop；

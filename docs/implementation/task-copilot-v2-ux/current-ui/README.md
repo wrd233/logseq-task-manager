@@ -20,6 +20,10 @@ P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_RESTRICTED_VISUA
 中文 IME、受限态、Light/窄栏继续开放。完整记录见
 `../logs/p0-j-host-commands-desktop-live-20260726.md`。
 
+P0-K 当前新增 `p0-k-01`～`03`：主 Page 入口与“返回原 Page”已通过；right-sidebar 的宿主
+菜单不提供 Plugin Page item，按 bounded conclusion 安全隐藏。Query/reference 与来源变化
+仍 OPEN；完整记录见 `../logs/p0-k-host-origin-desktop-live-20260726.md`。
+
 ## 状态
 
 - `CURRENT`：截图所记 commit 与待验收构建一致，场景和前置条件可复现；

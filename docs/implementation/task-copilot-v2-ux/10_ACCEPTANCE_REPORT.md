@@ -39,7 +39,8 @@
 - [x] 用户层系统状态；READY/协议/Graph/Pending/Recovery/Anchor/正文核对自动覆盖，
   真实 Desktop 注意状态与 Service unavailable 受限状态通过，技术诊断默认折叠；
 - [ ] 完成后回业务现场；session-only Block/Page origin route 自动 Gate PASS，真实
-  main/sidebar/Query/reference Gate 仍开放；
+  main Page 入口与返回同一 Page 已 PASS；right-sidebar 无 Plugin Page item 按宿主限制安全隐藏；
+  Query/reference、来源变化与成功/失败/Undo 返回仍开放；
 - [ ] Light/Dark/窄栏/Query/引用；
 - [ ] 自动与 Desktop 证据齐全。
 
