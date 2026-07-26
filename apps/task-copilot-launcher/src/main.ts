@@ -5,7 +5,7 @@ import { loadLauncherConfig } from "./config-loader.ts";
 import { LAUNCHER_PROTOCOL_VERSION, parseLauncherRunnerArgs, type LauncherDescriptor } from "./contracts.ts";
 import { GraphServiceManager } from "./manager.ts";
 import { startLauncherService } from "./service.ts";
-import { createNodeServiceSpawner } from "./spawner.ts";
+import { createNodeRestoreRecoverySpawner, createNodeServiceSpawner } from "./spawner.ts";
 
 async function writeDescriptor(path: string, descriptor: LauncherDescriptor): Promise<void> {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
@@ -20,7 +20,10 @@ try {
   const config = await loadLauncherConfig(configPath);
   await mkdir(config.runtimeRoot, { recursive: true, mode: 0o700 });
   await chmod(config.runtimeRoot, 0o700);
-  const manager = new GraphServiceManager(config, createNodeServiceSpawner());
+  const manager = new GraphServiceManager({
+    ...config,
+    recoverRestore: createNodeRestoreRecoverySpawner(),
+  }, createNodeServiceSpawner());
   const launcher = await startLauncherService({
     listenPort: config.listenPort,
     token: config.token,
@@ -38,7 +41,7 @@ try {
     status: "READY",
     pid: process.pid,
     listenPort: config.listenPort,
-    capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+    capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true, restoreRecoveryStatus: true, restoreRecoveryApply: true },
   })}\n`);
   let closing = false;
   const close = async (): Promise<void> => {

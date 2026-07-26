@@ -10,10 +10,24 @@ test("confirmed Restore recovery renders one bounded read-only guide without int
     recordedAt: "2026-07-26T17:40:00.000Z",
   });
   assert.match(html, /Restore 前正式状态已记录/);
-  assert.match(html, /重新核验恢复记录/);
+  assert.match(html, /准备恢复/);
+  assert.match(html, /重新核验/);
   assert.match(html, /正式写入保持暂停/);
   assert.doesNotMatch(html, /backup_|sqlite|database|路径：/i);
-  assert.equal((html.match(/data-action="restore-recovery-refresh"/g) ?? []).length, 1);
+  assert.equal((html.match(/data-action="restore-recovery-prepare"/g) ?? []).length, 1);
+});
+
+test("prepared Restore recovery shows one explicit HIGH impact confirmation and no internal identity", () => {
+  const html = renderRestoreRecoveryGuide({
+    state: "RECOVERY_REQUIRED",
+    recoveryPointConfirmed: true,
+    recordedAt: "2026-07-26T17:40:00.000Z",
+  }, { prepared: true, applyAvailable: true });
+  assert.match(html, /高影响恢复/);
+  assert.match(html, /restoreRecoveryConfirm/);
+  assert.match(html, /data-action="restore-recovery-apply"/);
+  assert.match(html, /Logseq 正文不会被改写/);
+  assert.doesNotMatch(html, /backup_|sqlite|database|object version/i);
 });
 
 test("ARMED and INVALID recovery guides never claim a confirmed recovery point", () => {

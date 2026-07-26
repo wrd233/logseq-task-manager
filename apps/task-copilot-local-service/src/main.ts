@@ -8,6 +8,7 @@ import { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
 import { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import { LocalLlmProjectCreationPreviewGenerator } from "./llm-project-creation-preview.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
+import { recoverRetainedRestoreState } from "./restore-recovery-maintenance.ts";
 import { startOwnerMonitor } from "./owner-monitor.ts";
 import {
   serviceFailureLine,
@@ -25,6 +26,9 @@ try {
     } finally {
       store.close();
     }
+  } else if (options.mode === "recover-restore") {
+    await recoverRetainedRestoreState(options);
+    process.stdout.write('{"event":"restore_recovery_completed","status":"PASS"}\n');
   } else {
   const { ownerPid, ...serviceOptions } = options;
   const provider = await loadStructuredProviderFromEnvironment();

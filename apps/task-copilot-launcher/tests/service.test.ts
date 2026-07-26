@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
-import type { LauncherRestoreRecoveryStatus } from "@task-copilot/service-client/launcher";
+import type {
+  LauncherRestoreRecoveryResult,
+  LauncherRestoreRecoveryStatus,
+} from "@task-copilot/service-client/launcher";
 
 import type { EnsureServiceInput, EnsureServiceResult } from "../src/manager.ts";
 import { startLauncherService, type LauncherManager } from "../src/service.ts";
@@ -20,6 +23,7 @@ class FakeManager implements LauncherManager {
   heartbeats: string[] = [];
   releases: string[] = [];
   recoveryChecks: string[] = [];
+  recoveryApplies: string[] = [];
   closed = false;
 
   async ensure(input: EnsureServiceInput): Promise<EnsureServiceResult> {
@@ -42,6 +46,11 @@ class FakeManager implements LauncherManager {
       recoveryPointConfirmed: true,
       recordedAt: "2026-07-26T17:20:00.000Z",
     };
+  }
+
+  async recoverRestore(graphKey: string): Promise<LauncherRestoreRecoveryResult> {
+    this.recoveryApplies.push(graphKey);
+    return { status: "RECOVERED" };
   }
 
   async reapExpired(): Promise<void> {}
@@ -75,6 +84,7 @@ test("launcher management API is authenticated, loopback-only, CORS-capable, and
         leaseHeartbeat: true,
         ownedShutdown: true,
         restoreRecoveryStatus: true,
+        restoreRecoveryApply: true,
       },
       configuredGraphs: 1,
     });
@@ -116,6 +126,26 @@ test("launcher management API is authenticated, loopback-only, CORS-capable, and
       recordedAt: "2026-07-26T17:20:00.000Z",
     });
     assert.deepEqual(manager.recoveryChecks, ["graph-key"]);
+
+    const recovered = await fetch(new URL("/restore-recovery/apply", launcher.url), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        graphKey: "graph-key",
+        confirmation: "RESTORE_RETAINED_FORMAL_STATE",
+      }),
+    });
+    assert.equal(recovered.status, 200);
+    assert.deepEqual(await recovered.json(), { status: "RECOVERED" });
+    assert.deepEqual(manager.recoveryApplies, ["graph-key"]);
+
+    const unconfirmedRecovery = await fetch(new URL("/restore-recovery/apply", launcher.url), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ graphKey: "graph-key", confirmation: "wrong" }),
+    });
+    assert.equal(unconfirmedRecovery.status, 400);
+    assert.deepEqual(manager.recoveryApplies, ["graph-key"]);
 
     const preflight = await fetch(new URL("/sessions/ensure", launcher.url), {
       method: "OPTIONS",

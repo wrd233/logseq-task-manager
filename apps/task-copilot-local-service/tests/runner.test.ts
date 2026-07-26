@@ -39,4 +39,9 @@ test("Schema migration runner is explicit and requires a new backup path", () =>
   ]), { mode: "migrate-schema", databasePath: "/tmp/task.db", graphId: "graph-a", backupPath: "/tmp/pre-v7.db" });
   assert.throws(() => parseServiceRunnerArgs(["migrate-schema", "--database", "/tmp/task.db", "--graph-id", "graph-a"]), /--backup/);
   assert.throws(() => parseServiceRunnerArgs(["migrate-schema", "--database", "/tmp/task.db", "--graph-id", "graph-a", "--backup", "/tmp/pre-v7.db", "--descriptor", "/tmp/service.json"]), /Usage/);
+  assert.deepEqual(parseServiceRunnerArgs([
+    "recover-restore", "--database", "/tmp/task.db", "--graph-id", "graph-a",
+  ]), { mode: "recover-restore", databasePath: "/tmp/task.db", graphId: "graph-a" });
+  assert.throws(() => parseServiceRunnerArgs(["recover-restore", "--database", "/tmp/task.db"]), /graph-id/);
+  assert.throws(() => parseServiceRunnerArgs(["recover-restore", "--database", "/tmp/task.db", "--graph-id", "graph-a", "--backup", "/tmp/unsafe.db"]), /Usage/);
 });

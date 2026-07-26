@@ -439,6 +439,7 @@ test("a Restore recovery interlock survives reload as a distinct restricted stat
             leaseHeartbeat: true,
             ownedShutdown: true,
             restoreRecoveryStatus: true,
+            restoreRecoveryApply: true,
           },
           configuredGraphs: 1,
         }),
@@ -457,6 +458,7 @@ test("a Restore recovery interlock survives reload as a distinct restricted stat
           recoveryPointConfirmed: true,
           recordedAt: "2026-07-26T17:40:00.000Z",
         }),
+        recoverRestore: async () => ({ status: "RECOVERED" }),
       }),
     },
   );
@@ -472,6 +474,8 @@ test("a Restore recovery interlock survives reload as a distinct restricted stat
     recoveryPointConfirmed: true,
     recordedAt: "2026-07-26T17:40:00.000Z",
   });
+  assert.ok(runtime.restoreRecoveryApply);
+  await runtime.restoreRecoveryApply?.();
 });
 
 test("an interrupted Restore before recovery-point confirmation never claims that a recovery point exists", async () => {

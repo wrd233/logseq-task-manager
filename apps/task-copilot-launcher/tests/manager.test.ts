@@ -8,6 +8,7 @@ import type { ServiceDescriptor } from "@task-copilot/service-client";
 import {
   armRestoreRecoveryInterlock,
   clearRestoreRecoveryInterlock,
+  readRestoreRecoveryInterlock,
   restoreRecoveryInterlockPath,
 } from "@task-copilot/shared/node";
 
@@ -382,4 +383,88 @@ test("Launcher projects a bounded read-only Restore recovery status without path
   });
   assert.doesNotMatch(JSON.stringify(status), /backup_|sqlite|Users/);
   await clearRestoreRecoveryInterlock(databasePath, recovery);
+});
+
+test("Launcher serializes one explicitly confirmed Restore recovery and keeps ordinary Service startup blocked until it clears", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-launcher-recovery-apply-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const databasePath = join(root, "task-copilot.sqlite");
+  await writeFile(databasePath, "placeholder", { mode: 0o600 });
+  const localGraph = { ...graph, databasePath };
+  const recovery = {
+    schemaVersion: 1 as const,
+    status: "RECOVERY_REQUIRED" as const,
+    graphId: localGraph.graphId,
+    recoveryBackupId: "backup_20260726174000000_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    createdAt: "2026-07-26T17:40:00.000Z",
+  };
+  await armRestoreRecoveryInterlock(databasePath, recovery);
+  let recoveries = 0;
+  const manager = new GraphServiceManager({
+    graphs: [localGraph],
+    serviceEntryPath: "/opt/task-copilot/service.js",
+    runtimeRoot: root,
+    leaseTtlMs: 15_000,
+    recoverRestore: async (input) => {
+      recoveries += 1;
+      assert.deepEqual(input.graph, localGraph);
+      assert.equal(input.serviceEntryPath, "/opt/task-copilot/service.js");
+      assert.deepEqual(await readRestoreRecoveryInterlock(databasePath), recovery);
+      await clearRestoreRecoveryInterlock(databasePath, recovery);
+    },
+  }, async () => { throw new Error("ordinary Service must not spawn during recovery"); });
+
+  await assert.rejects(
+    () => manager.recoverRestore(localGraph.graphKey, "wrong" as "RESTORE_RETAINED_FORMAL_STATE"),
+    /CONFIRMATION_REQUIRED/,
+  );
+  assert.equal(recoveries, 0);
+  assert.deepEqual(await manager.recoverRestore(localGraph.graphKey, "RESTORE_RETAINED_FORMAL_STATE"), {
+    status: "RECOVERED",
+  });
+  assert.equal(recoveries, 1);
+  assert.equal(await readRestoreRecoveryInterlock(databasePath), undefined);
+  await assert.rejects(
+    () => manager.recoverRestore(localGraph.graphKey, "RESTORE_RETAINED_FORMAL_STATE"),
+    /STATE_INVALID/,
+  );
+  assert.equal(recoveries, 1);
+});
+
+test("Launcher keeps the Restore interlock after a maintenance process failure so the same recovery remains retryable", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-launcher-recovery-retry-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const databasePath = join(root, "task-copilot.sqlite");
+  await writeFile(databasePath, "placeholder", { mode: 0o600 });
+  const localGraph = { ...graph, databasePath };
+  const recovery = {
+    schemaVersion: 1 as const,
+    status: "RECOVERY_REQUIRED" as const,
+    graphId: localGraph.graphId,
+    recoveryBackupId: "backup_20260726174000000_ffffffffffffffffffffffffffffffff",
+    createdAt: "2026-07-26T17:40:00.000Z",
+  };
+  await armRestoreRecoveryInterlock(databasePath, recovery);
+  let attempt = 0;
+  const manager = new GraphServiceManager({
+    graphs: [localGraph],
+    serviceEntryPath: "/opt/task-copilot/service.js",
+    runtimeRoot: root,
+    leaseTtlMs: 15_000,
+    recoverRestore: async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error("LAUNCHER_RESTORE_RECOVERY_PROCESS_FAILED");
+      await clearRestoreRecoveryInterlock(databasePath, recovery);
+    },
+  }, async () => { throw new Error("must not spawn"); });
+
+  await assert.rejects(
+    () => manager.recoverRestore(localGraph.graphKey, "RESTORE_RETAINED_FORMAL_STATE"),
+    /PROCESS_FAILED/,
+  );
+  assert.deepEqual(await readRestoreRecoveryInterlock(databasePath), recovery);
+  assert.deepEqual(await manager.recoverRestore(localGraph.graphKey, "RESTORE_RETAINED_FORMAL_STATE"), {
+    status: "RECOVERED",
+  });
+  assert.equal(attempt, 2);
 });

@@ -8,7 +8,7 @@ import {
   type ServiceDescriptor,
 } from "@task-copilot/service-client";
 
-import type { ManagedChild, ServiceSpawner } from "./manager.ts";
+import type { ManagedChild, RestoreRecoverySpawner, ServiceSpawner } from "./manager.ts";
 
 export interface ChildProcessPort {
   readonly pid?: number;
@@ -159,5 +159,37 @@ export function createNodeServiceSpawner(dependencies: SpawnerDependencies = {})
       await child.stop();
       throw error;
     }
+  };
+}
+
+export function createNodeRestoreRecoverySpawner(
+  dependencies: Pick<SpawnerDependencies, "nodeExecutable" | "spawn"> = {},
+): RestoreRecoverySpawner {
+  const nodeExecutable = dependencies.nodeExecutable ?? process.execPath;
+  const spawn = dependencies.spawn ?? (nodeSpawn as unknown as SpawnPort);
+  return async (input) => {
+    const child = spawn(nodeExecutable, [
+      input.serviceEntryPath,
+      "recover-restore",
+      "--database", input.graph.databasePath,
+      "--graph-id", input.graph.graphId,
+    ], {
+      shell: false,
+      detached: false,
+      stdio: "ignore",
+      cwd: dirname(input.serviceEntryPath),
+    });
+    await new Promise<void>((resolve, reject) => {
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        child.kill("SIGKILL");
+      }, 60_000);
+      child.once("exit", () => {
+        clearTimeout(timeout);
+        if (!timedOut && child.exitCode === 0) resolve();
+        else reject(new Error(timedOut ? "LAUNCHER_RESTORE_RECOVERY_PROCESS_TIMEOUT" : "LAUNCHER_RESTORE_RECOVERY_PROCESS_FAILED"));
+      });
+    });
   };
 }

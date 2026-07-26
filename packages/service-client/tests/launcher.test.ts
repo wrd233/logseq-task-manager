@@ -73,6 +73,7 @@ test("launcher client ensures, heartbeats, and releases one Graph-bound Service 
             leaseHeartbeat: true,
             ownedShutdown: true,
             restoreRecoveryStatus: true,
+            restoreRecoveryApply: true,
           },
           configuredGraphs: 1,
         }));
@@ -86,6 +87,9 @@ test("launcher client ensures, heartbeats, and releases one Graph-bound Service 
           recoveryPointConfirmed: true,
           recordedAt: "2026-07-26T17:20:00.000Z",
         }));
+      } else if (request.url === "/restore-recovery/apply") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ status: "RECOVERED" }));
       } else {
         response.writeHead(204);
         response.end();
@@ -103,12 +107,17 @@ test("launcher client ensures, heartbeats, and releases one Graph-bound Service 
     recoveryPointConfirmed: true,
     recordedAt: "2026-07-26T17:20:00.000Z",
   });
+  assert.deepEqual(
+    await client.recoverRestore("graph-key", "RESTORE_RETAINED_FORMAL_STATE"),
+    { status: "RECOVERED" },
+  );
   assert.deepEqual(requests, [
     { method: "GET", url: "/health", body: undefined },
     { method: "POST", url: "/sessions/ensure", body: { graphKey: "graph-key", clientInstanceId: "plugin-instance" } },
     { method: "POST", url: "/sessions/heartbeat", body: { leaseId: "lease_123" } },
     { method: "POST", url: "/sessions/release", body: { leaseId: "lease_123" } },
     { method: "POST", url: "/restore-recovery/status", body: { graphKey: "graph-key" } },
+    { method: "POST", url: "/restore-recovery/apply", body: { graphKey: "graph-key", confirmation: "RESTORE_RETAINED_FORMAL_STATE" } },
   ]);
 });
 

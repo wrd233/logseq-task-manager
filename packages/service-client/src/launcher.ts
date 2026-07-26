@@ -19,6 +19,7 @@ export interface LauncherHealth {
     leaseHeartbeat: true;
     ownedShutdown: true;
     restoreRecoveryStatus?: true;
+    restoreRecoveryApply?: true;
   };
   configuredGraphs: number;
 }
@@ -32,6 +33,10 @@ export interface LauncherRestoreRecoveryStatus {
   state: "CLEAR" | "ARMED" | "RECOVERY_REQUIRED" | "INVALID";
   recoveryPointConfirmed: boolean;
   recordedAt?: string;
+}
+
+export interface LauncherRestoreRecoveryResult {
+  status: "RECOVERED";
 }
 
 function launcherError(code: string, message: string, details?: Record<string, unknown>): StructuredError {
@@ -109,9 +114,9 @@ export class LauncherClient {
     this.descriptor = validateLauncherDescriptor(descriptor);
   }
 
-  private async request(path: string, init?: RequestInit): Promise<unknown> {
+  private async request(path: string, init?: RequestInit, timeoutMs = this.timeoutMs): Promise<unknown> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort("timeout"), this.timeoutMs);
+    const timeout = setTimeout(() => controller.abort("timeout"), timeoutMs);
     let response: Response;
     try {
       response = await fetch(`${this.descriptor.url}${path.slice(1)}`, {
@@ -226,5 +231,22 @@ export class LauncherClient {
       recoveryPointConfirmed: value.recoveryPointConfirmed,
       ...(value.recordedAt !== undefined ? { recordedAt: value.recordedAt } : {}),
     };
+  }
+
+  async recoverRestore(
+    graphKey: string,
+    confirmation: "RESTORE_RETAINED_FORMAL_STATE",
+  ): Promise<LauncherRestoreRecoveryResult> {
+    if (confirmation !== "RESTORE_RETAINED_FORMAL_STATE") {
+      throw launcherError("LAUNCHER_REQUEST_INVALID", "Restore 恢复确认无效。");
+    }
+    const value = record(await this.request("/restore-recovery/apply", {
+      method: "POST",
+      body: JSON.stringify({ graphKey: identifier(graphKey, "graphKey"), confirmation }),
+    }, 70_000));
+    if (!value || Object.keys(value).join(",") !== "status" || value.status !== "RECOVERED") {
+      throw launcherError("LAUNCHER_RESPONSE_INVALID", "Task Copilot Launcher 恢复结果无效。");
+    }
+    return { status: "RECOVERED" };
   }
 }

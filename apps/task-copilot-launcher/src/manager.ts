@@ -2,7 +2,10 @@ import { createHash, randomBytes } from "node:crypto";
 import { join } from "node:path";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
-import type { LauncherRestoreRecoveryStatus } from "@task-copilot/service-client/launcher";
+import type {
+  LauncherRestoreRecoveryResult,
+  LauncherRestoreRecoveryStatus,
+} from "@task-copilot/service-client/launcher";
 import {
   assertRestoreRecoveryInterlockClear,
   readRestoreRecoveryInterlock,
@@ -30,6 +33,13 @@ export interface SpawnedService {
 
 export type ServiceSpawner = (input: SpawnServiceInput) => Promise<SpawnedService>;
 
+export interface RecoverRestoreInput {
+  graph: LauncherGraphConfig;
+  serviceEntryPath: string;
+}
+
+export type RestoreRecoverySpawner = (input: RecoverRestoreInput) => Promise<void>;
+
 interface ManagerConfig {
   graphs: LauncherGraphConfig[];
   serviceEntryPath: string;
@@ -37,6 +47,7 @@ interface ManagerConfig {
   leaseTtlMs: number;
   provider?: LauncherProviderConfig;
   assertServiceStartAllowed?: (databasePath: string, graphId: string) => Promise<void>;
+  recoverRestore?: RestoreRecoverySpawner;
 }
 
 interface Runtime {
@@ -191,6 +202,39 @@ export class GraphServiceManager {
       } catch {
         return { state: "INVALID", recoveryPointConfirmed: false };
       }
+    });
+  }
+
+  async recoverRestore(
+    graphKey: string,
+    confirmation: "RESTORE_RETAINED_FORMAL_STATE",
+  ): Promise<LauncherRestoreRecoveryResult> {
+    if (this.closed) throw new Error("LAUNCHER_CLOSED");
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(graphKey)) throw new Error("LAUNCHER_GRAPH_KEY_INVALID");
+    if (confirmation !== "RESTORE_RETAINED_FORMAL_STATE") throw new Error("LAUNCHER_RESTORE_RECOVERY_CONFIRMATION_REQUIRED");
+    const graph = this.graphByKey.get(graphKey);
+    if (!graph) throw new Error("LAUNCHER_GRAPH_NOT_CONFIGURED");
+    return this.serializeGraphLifecycle(graphKey, async () => {
+      if (this.closed) throw new Error("LAUNCHER_CLOSED");
+      if (this.runtimes.has(graphKey) || [...this.leases.values()].some((lease) => lease.graphKey === graphKey)) {
+        throw new Error("LAUNCHER_RESTORE_RECOVERY_SERVICE_ACTIVE");
+      }
+      let recovery;
+      try {
+        recovery = await readRestoreRecoveryInterlock(graph.databasePath);
+      } catch {
+        throw new Error("LAUNCHER_RESTORE_RECOVERY_STATE_INVALID");
+      }
+      if (!recovery || recovery.graphId !== graph.graphId) throw new Error("LAUNCHER_RESTORE_RECOVERY_STATE_INVALID");
+      if (recovery.status !== "RECOVERY_REQUIRED") throw new Error("LAUNCHER_RESTORE_RECOVERY_POINT_UNCONFIRMED");
+      if (!this.config.recoverRestore) throw new Error("LAUNCHER_RESTORE_RECOVERY_UNAVAILABLE");
+      await this.config.recoverRestore({ graph, serviceEntryPath: this.config.serviceEntryPath });
+      try {
+        await assertRestoreRecoveryInterlockClear(graph.databasePath, graph.graphId);
+      } catch {
+        throw new Error("LAUNCHER_RESTORE_RECOVERY_INCOMPLETE");
+      }
+      return { status: "RECOVERED" };
     });
   }
 

@@ -54,7 +54,7 @@ export type ServiceRuntimeClient = Pick<LocalServiceClient, "health" | "listAsso
   & Partial<Pick<LocalServiceClient, "scanLegacyMigration" | "previewLegacyMigration" | "getMigrationRun" | "importLegacyMigration" | "verifyLegacyMigrationBatch" | "undoLegacyMigrationBatch" | "activateLegacyMigration" | "listBackups" | "createBackup" | "validateBackup" | "restoreBackup" | "getProjectClosureEvidence" | "createProjectClosureProposal" | "recoverProjectContext" | "createProjectNarrationProposal" | "grillMiniProject" | "previewMiniProjectGrill" | "createMiniProjectRestructureProposal" | "grillProjectCreation" | "previewProjectCreation" | "createProjectCreationProposal" | "prepareMiniProjectRestructure" | "verifyMiniProjectRestructureStep" | "beginMiniProjectRestructureRecovery" | "verifyMiniProjectRestructureCompensation" | "prepareMiniProjectRestructureUndo" | "verifyMiniProjectRestructureUndoStep" | "beginMiniProjectRestructureUndoRecovery" | "verifyMiniProjectRestructureUndoCompensation" | "prepareProposalProjectCreation" | "finalizeProposalProjectCreation" | "compensateProposalProjectCreation" | "prepareProposalProjectCreationUndo" | "finalizeProposalProjectCreationUndo" | "claimGraphReadRequest" | "completeGraphReadRequest">>;
 type ServiceRuntimeClientFactory = (descriptor: ServiceDescriptor) => ServiceRuntimeClient;
 type LauncherRuntimeClient = Pick<LauncherClient, "health" | "ensure" | "heartbeat" | "release">
-  & Partial<Pick<LauncherClient, "restoreRecoveryStatus">>;
+  & Partial<Pick<LauncherClient, "restoreRecoveryStatus" | "recoverRestore">>;
 type LauncherRuntimeClientFactory = (descriptor: LauncherDescriptor) => LauncherRuntimeClient;
 
 export interface DiscoveredServiceRuntime {
@@ -62,6 +62,7 @@ export interface DiscoveredServiceRuntime {
   client?: ServiceRuntimeClient;
   lifecycle?: ServiceLifecycleSession;
   restoreRecovery?: LauncherRestoreRecoveryStatus;
+  restoreRecoveryApply?: () => Promise<void>;
 }
 
 export interface ServiceLifecycleSession {
@@ -217,6 +218,7 @@ export async function discoverServiceRuntime(
   }
   let launcher: LauncherRuntimeClient | undefined;
   let launcherRestoreRecoveryStatusAvailable = false;
+  let launcherRestoreRecoveryApplyAvailable = false;
   let leaseId: string | undefined;
   try {
     const rawDescriptor = await reader.read(descriptorPath);
@@ -234,6 +236,7 @@ export async function discoverServiceRuntime(
     launcher = (options.createLauncherClient ?? ((value) => new LauncherClient(value)))(descriptor);
     const launcherHealth = await launcher.health();
     launcherRestoreRecoveryStatusAvailable = launcherHealth.capabilities.restoreRecoveryStatus === true;
+    launcherRestoreRecoveryApplyAvailable = launcherHealth.capabilities.restoreRecoveryApply === true;
     const ensured = await launcher.ensure(options.graphKey, options.clientInstanceId);
     leaseId = ensured.leaseId;
     const client = createClient(ensured.serviceDescriptor);
@@ -269,6 +272,15 @@ export async function discoverServiceRuntime(
       && ["LAUNCHER_RESTORE_RECOVERY_ARMED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED", "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID"].includes(reasonCode)
       ? await launcher.restoreRecoveryStatus(options.graphKey).catch(() => undefined)
       : undefined;
+    const restoreRecoveryApply = launcher
+      && options.graphKey
+      && launcherRestoreRecoveryApplyAvailable
+      && launcher.recoverRestore
+      && restoreRecovery?.state === "RECOVERY_REQUIRED"
+      ? async () => {
+        await launcher!.recoverRestore!(options.graphKey!, "RESTORE_RETAINED_FORMAL_STATE");
+      }
+      : undefined;
     const messages: Record<string, string> = {
       SERVICE_DESCRIPTOR_PATH_INVALID: "Local Service descriptor 路径无效。",
       SERVICE_DESCRIPTOR_INSECURE: "Local Service descriptor 权限或文件类型不安全。",
@@ -291,6 +303,7 @@ export async function discoverServiceRuntime(
     return {
       connection: restricted(reasonCode, messages[reasonCode] ?? "Task Copilot 本地运行环境无法安全连接。"),
       ...(restoreRecovery ? { restoreRecovery } : {}),
+      ...(restoreRecoveryApply ? { restoreRecoveryApply } : {}),
     };
   }
 }

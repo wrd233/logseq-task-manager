@@ -13,9 +13,19 @@ export interface SchemaMigrationRunnerOptions {
   backupPath: string;
 }
 
-export function parseServiceRunnerArgs(args: string[]): ServiceRunnerOptions | SchemaMigrationRunnerOptions {
-  const mode = args[0] === "migrate-schema" ? "migrate-schema" : "serve";
-  const commandArgs = mode === "migrate-schema" ? args.slice(1) : args;
+export interface RestoreRecoveryRunnerOptions {
+  mode: "recover-restore";
+  databasePath: string;
+  graphId: string;
+}
+
+export function parseServiceRunnerArgs(args: string[]): ServiceRunnerOptions | SchemaMigrationRunnerOptions | RestoreRecoveryRunnerOptions {
+  const mode = args[0] === "migrate-schema"
+    ? "migrate-schema"
+    : args[0] === "recover-restore"
+      ? "recover-restore"
+      : "serve";
+  const commandArgs = mode === "serve" ? args : args.slice(1);
   const values = new Map<string, string>();
   for (let index = 0; index < commandArgs.length; index += 1) {
     const key = commandArgs[index];
@@ -33,6 +43,12 @@ export function parseServiceRunnerArgs(args: string[]): ServiceRunnerOptions | S
       throw new Error("Usage: task-copilot-service migrate-schema --database <path> --graph-id <id> --backup <new-backup-path>");
     }
     return { mode, databasePath, graphId, backupPath };
+  }
+  if (mode === "recover-restore") {
+    if (!databasePath || !graphId || values.size !== 2) {
+      throw new Error("Usage: task-copilot-service recover-restore --database <path> --graph-id <id>");
+    }
+    return { mode, databasePath, graphId };
   }
   const descriptorPath = values.get("--descriptor");
   const ownerPidText = values.get("--owner-pid");

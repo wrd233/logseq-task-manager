@@ -1,7 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import type { LauncherRestoreRecoveryStatus } from "@task-copilot/service-client/launcher";
+import type {
+  LauncherRestoreRecoveryResult,
+  LauncherRestoreRecoveryStatus,
+} from "@task-copilot/service-client/launcher";
 
 import type { EnsureServiceInput, EnsureServiceResult } from "./manager.ts";
 
@@ -10,6 +13,7 @@ export interface LauncherManager {
   heartbeat(leaseId: string): void;
   release(leaseId: string): Promise<void>;
   restoreRecoveryStatus(graphKey: string): Promise<LauncherRestoreRecoveryStatus>;
+  recoverRestore(graphKey: string, confirmation: "RESTORE_RETAINED_FORMAL_STATE"): Promise<LauncherRestoreRecoveryResult>;
   reapExpired(): Promise<void>;
   close(): Promise<void>;
 }
@@ -112,6 +116,7 @@ export async function startLauncherService(options: StartLauncherServiceOptions)
             leaseHeartbeat: true,
             ownedShutdown: true,
             restoreRecoveryStatus: true,
+            restoreRecoveryApply: true,
           },
           configuredGraphs: options.graphCount,
         });
@@ -146,11 +151,23 @@ export async function startLauncherService(options: StartLauncherServiceOptions)
         respond(response, 200, result);
         return;
       }
+      if (request.method === "POST" && url.pathname === "/restore-recovery/apply") {
+        const input = await body(request);
+        if (input.confirmation !== "RESTORE_RETAINED_FORMAL_STATE") {
+          throw new RequestError(400, "LAUNCHER_RESTORE_RECOVERY_CONFIRMATION_REQUIRED", "Restore recovery confirmation is required.");
+        }
+        const result = await options.manager.recoverRestore(
+          boundedIdentifier(input.graphKey, "graphKey"),
+          input.confirmation,
+        );
+        respond(response, 200, result);
+        return;
+      }
       throw new RequestError(404, "LAUNCHER_ROUTE_NOT_FOUND", "Launcher route does not exist.");
     })().catch((error: unknown) => {
       const status = error instanceof RequestError
         ? error.status
-        : error instanceof Error && ["LAUNCHER_GRAPH_NOT_CONFIGURED", "LAUNCHER_RESTORE_RECOVERY_ARMED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED", "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID"].includes(error.message)
+        : error instanceof Error && ["LAUNCHER_GRAPH_NOT_CONFIGURED", "LAUNCHER_RESTORE_RECOVERY_ARMED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED", "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID", "LAUNCHER_RESTORE_RECOVERY_POINT_UNCONFIRMED", "LAUNCHER_RESTORE_RECOVERY_SERVICE_ACTIVE", "LAUNCHER_RESTORE_RECOVERY_INCOMPLETE"].includes(error.message)
           ? 409
           : 500;
       respond(response, status, { error: { code: errorCode(error), message: status >= 500 ? "Launcher could not complete the request." : error instanceof Error ? error.message : "Launcher request failed." } });

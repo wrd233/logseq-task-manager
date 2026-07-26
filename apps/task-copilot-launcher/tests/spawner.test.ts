@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
 
-import { createNodeServiceSpawner, type ChildProcessPort, type SpawnPort } from "../src/spawner.ts";
+import { createNodeRestoreRecoverySpawner, createNodeServiceSpawner, type ChildProcessPort, type SpawnPort } from "../src/spawner.ts";
 
 const descriptor: ServiceDescriptor = {
   protocolVersion: 1,
@@ -103,4 +103,44 @@ test("spawner exposes only validated provider metadata and a Keychain reference 
   assert.equal(env.DEEPSEEK_TIMEOUT_MS, "60000");
   assert.equal(env.DEEPSEEK_MAX_OUTPUT_TOKENS, "4096");
   assert.equal(env.DEEPSEEK_API_KEY, undefined);
+});
+
+test("Restore recovery spawner runs the one-shot Local Service maintenance mode without a shell or Provider environment", async () => {
+  let exitCode: number | null = null;
+  let exitListener: (() => void) | undefined;
+  const calls: Array<{ command: string; args: readonly string[]; options: Record<string, unknown> }> = [];
+  const child: ChildProcessPort = {
+    pid: 9753,
+    get exitCode() { return exitCode; },
+    once(event, listener) {
+      assert.equal(event, "exit");
+      exitListener = listener;
+    },
+    kill() { return true; },
+  };
+  const spawner = createNodeRestoreRecoverySpawner({
+    nodeExecutable: "/opt/homebrew/opt/node@20/bin/node",
+    spawn: (command, args, options) => {
+      calls.push({ command, args, options });
+      queueMicrotask(() => {
+        exitCode = 0;
+        exitListener?.();
+      });
+      return child;
+    },
+  });
+  await spawner({
+    graph: { graphKey: "graph-key", graphId: "graph-id", databasePath: "/Users/test/graph.sqlite" },
+    serviceEntryPath: "/Users/test/service.js",
+  });
+  assert.deepEqual(calls, [{
+    command: "/opt/homebrew/opt/node@20/bin/node",
+    args: [
+      "/Users/test/service.js",
+      "recover-restore",
+      "--database", "/Users/test/graph.sqlite",
+      "--graph-id", "graph-id",
+    ],
+    options: { shell: false, detached: false, stdio: "ignore", cwd: "/Users/test" },
+  }]);
 });

@@ -196,6 +196,9 @@ let ignoredDescriptorSettingValue: string | undefined;
 let serviceRuntimeClient: ServiceRuntimeClient | undefined;
 let serviceLifecycleSession: ServiceLifecycleSession | undefined;
 let restoreRecoveryStatus: LauncherRestoreRecoveryStatus | undefined;
+let restoreRecoveryApply: (() => Promise<void>) | undefined;
+let restoreRecoveryPrepared = false;
+let restoreRecoveryBusy = false;
 let serviceLifecycleHeartbeatTimer: ReturnType<typeof globalThis.setInterval> | undefined;
 let serviceLifecycleHeartbeatBusy = false;
 let configuredServiceDescriptorPath: string | undefined;
@@ -503,7 +506,11 @@ function renderDiagnostics(
   const available = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
   const anchorStatus = renderV2AnchorIssueStatus(anchorIssueNarrations, available);
   const rebindPanel = v2RebindPanel.status === "idle" ? "" : renderV2PrimaryAnchorRebindPanel(v2RebindPanel, available);
-  const restoreRecoveryGuide = renderRestoreRecoveryGuide(restoreRecoveryStatus);
+  const restoreRecoveryGuide = renderRestoreRecoveryGuide(restoreRecoveryStatus, {
+    prepared: restoreRecoveryPrepared,
+    busy: restoreRecoveryBusy,
+    applyAvailable: Boolean(restoreRecoveryApply),
+  });
   return renderRuntimeDiagnostics(snapshot, "", `${restoreRecoveryGuide}${anchorStatus}${rebindPanel}`);
 }
 
@@ -947,6 +954,9 @@ async function refreshMountedDiagnostics(): Promise<void> {
 
 async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   const generation = ++serviceDiscoveryGeneration;
+  restoreRecoveryStatus = undefined;
+  restoreRecoveryApply = undefined;
+  restoreRecoveryPrepared = false;
   enterRestrictedServiceMode("SERVICE_DISCOVERY_IN_PROGRESS", "Local Service 正在重新发现；正式写入暂停。");
   const configuredDescriptor = typeof descriptorPath === "string" ? descriptorPath : undefined;
   configuredServiceDescriptorPath = configuredDescriptor;
@@ -970,6 +980,11 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   serviceConnection = runtime.connection;
   serviceRuntimeClient = runtime.client;
   restoreRecoveryStatus = runtime.restoreRecovery;
+  restoreRecoveryApply = runtime.restoreRecoveryApply;
+  if (runtime.restoreRecovery?.state !== "RECOVERY_REQUIRED" || !runtime.restoreRecoveryApply) {
+    restoreRecoveryPrepared = false;
+    restoreRecoveryBusy = false;
+  }
   diagnostics.setServiceConnection(runtime.connection);
   if (runtime.connection.status === "READY" && runtime.connection.capabilities.graphReadBridge === true && runtime.client?.claimGraphReadRequest && runtime.client.completeGraphReadRequest) {
     graphReadBridgeController.start({
@@ -2170,6 +2185,59 @@ async function handleAction(action: string, value?: string): Promise<void> {
     latestError = undefined;
     message = "正在重新核验 Restore 安全记录；不会读取 Logseq 正文或执行正式写入。";
     await refreshServiceRuntime(configuredServiceDescriptorPath);
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "restore-recovery-prepare") {
+    latestError = undefined;
+    message = undefined;
+    if (restoreRecoveryStatus?.state !== "RECOVERY_REQUIRED" || !restoreRecoveryApply) {
+      message = "Restore 恢复记录已变化；请先重新核验。";
+    } else {
+      restoreRecoveryPrepared = true;
+    }
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "restore-recovery-cancel") {
+    restoreRecoveryPrepared = false;
+    latestError = undefined;
+    message = undefined;
+    await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "restore-recovery-apply") {
+    if (restoreRecoveryBusy) return;
+    latestError = undefined;
+    message = undefined;
+    const apply = restoreRecoveryApply;
+    if (!restoreRecoveryPrepared || !apply || restoreRecoveryStatus?.state !== "RECOVERY_REQUIRED") {
+      message = "Restore 恢复记录已变化；没有执行恢复。";
+      await showRuntimeDiagnostics();
+      return;
+    }
+    if (!dialogChecked("restoreRecoveryConfirm")) {
+      message = "请先确认恢复 Restore 前的正式状态；当前没有任何变化。";
+      await showRuntimeDiagnostics();
+      return;
+    }
+    restoreRecoveryBusy = true;
+    await showRuntimeDiagnostics();
+    try {
+      await apply();
+      restoreRecoveryPrepared = false;
+      message = "已恢复 Restore 前的正式状态并通过完整性检查；正在重新连接当前 Graph。";
+      await refreshServiceRuntime(configuredServiceDescriptorPath);
+      if (serviceConnection.status !== "READY") {
+        latestError = "恢复已完成，但当前 Graph 尚未恢复连接；请重新核验系统状态。";
+      }
+    } catch (error) {
+      latestError = explain(error);
+      message = "恢复未完成；安全锁保持，Logseq 正文仍可编辑。";
+      await refreshServiceRuntime(configuredServiceDescriptorPath);
+    } finally {
+      restoreRecoveryBusy = false;
+    }
     await showRuntimeDiagnostics();
     return;
   }
