@@ -43,6 +43,30 @@ export interface InteractionEvidenceSink {
   }): boolean;
 }
 
+type UnifiedUxValidationCategory =
+  | "ACTION_REFERENCE"
+  | "EVIDENCE_REFERENCE"
+  | "FACT_REFERENCE"
+  | "FIELD_SHAPE"
+  | "FRONTSTAGE_PROSE"
+  | "POLICY_MISMATCH"
+  | "PROVENANCE"
+  | "SCHEMA_VERSION"
+  | "VALUE_CONSTRAINT";
+
+function validationCategory(error: unknown): UnifiedUxValidationCategory {
+  const message = error instanceof Error ? error.message : "";
+  if (/unknown fact|fact identity/i.test(message)) return "FACT_REFERENCE";
+  if (/evidence outside|evidence scope/i.test(message)) return "EVIDENCE_REFERENCE";
+  if (/unknown next action|next-action eligibility|action identity/i.test(message)) return "ACTION_REFERENCE";
+  if (/risk|requiresDiscussion|requiresReview|machine policy/i.test(message)) return "POLICY_MISMATCH";
+  if (/provenance/i.test(message)) return "PROVENANCE";
+  if (/schemaVersion/i.test(message)) return "SCHEMA_VERSION";
+  if (/frontstage|machine identity|opaque|user-visible/i.test(message)) return "FRONTSTAGE_PROSE";
+  if (/unsupported field|must be an object|shape/i.test(message)) return "FIELD_SHAPE";
+  return "VALUE_CONSTRAINT";
+}
+
 function layer(value: PromptLayer, name: string): PromptLayer {
   if (
     !value
@@ -189,7 +213,10 @@ export class LocalLlmUxOutputGenerator {
         code: "UX_OUTPUT_VALIDATION_FAILED",
         message: "Provider 输出未通过 Unified UX Validator；没有生成恢复草稿。",
         ruleRefs: ["D-125", "D-127", "D-130", "D-139"],
-        details: { cause: error instanceof Error ? error.message : "unknown" },
+        details: {
+          cause: error instanceof Error ? error.message : "unknown",
+          validationCategory: validationCategory(error),
+        },
       });
     }
     const interactionId = this.recordGeneratedEvidence({

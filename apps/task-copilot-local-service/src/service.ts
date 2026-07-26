@@ -1216,7 +1216,7 @@ function respondError(response: ServerResponse, error: unknown): void {
       : error.code.startsWith("LLM_") ? 502
       : undefined;
     if (providerStatus !== undefined) {
-      const validationCategory = error.code === "GRILL_TURN_VALIDATION_FAILED"
+      const validationCategory = ["GRILL_TURN_VALIDATION_FAILED", "UX_OUTPUT_VALIDATION_FAILED"].includes(error.code)
         && typeof error.details?.validationCategory === "string"
         ? error.details.validationCategory
         : undefined;

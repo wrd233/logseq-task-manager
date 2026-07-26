@@ -170,7 +170,8 @@ test("LLM UX validation failure records only structural rejection evidence", asy
     (error: unknown) => error instanceof StructuredError
       && error.code === "UX_OUTPUT_VALIDATION_FAILED"
       && error.message.includes("没有生成恢复草稿")
-      && error.details?.cause === "Unified UX output referenced an unknown fact.",
+      && error.details?.cause === "Unified UX output referenced an unknown fact."
+      && error.details?.validationCategory === "FACT_REFERENCE",
   );
   const [entry] = evidence.snapshot();
   assert.match(entry?.promptVersion ?? "", /^[0-9a-f]{8}$/);
