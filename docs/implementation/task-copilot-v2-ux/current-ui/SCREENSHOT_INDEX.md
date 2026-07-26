@@ -52,6 +52,12 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-17-restore-build-diagnostics-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | reload 后打开系统状态并展开技术诊断 | Commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` 同屏 | 诊断只作为证据层 |
 | `screenshots/p2-g-18-restore-state-delta-actionable-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 测试 Task 已正式变为 PAUSED 后，从旧快照 Restore 并回到“现在” | Local Service 逐字段从 `PAUSED v6` 回到 `ACTIONABLE v5`；同一 Task 再次显示“当前可以继续推进” | 反向 Restore 的 PAUSED 读回由结构化 Service 证据承担 |
 | `screenshots/p2-g-19-restore-state-delta-roundtrip-health-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 再从自动恢复点反向恢复 PAUSED，最后恢复原 ACTIONABLE 基线并 reload | 正反往返均逐字段读回；最终 Runtime/Store/Service READY、`0/0/0`、reconciliation false | Restore failure 注入与 Light/窄栏仍 OPEN |
+| `screenshots/p2-g-20-migration-readonly-scan-entry-current-15b976d.jpeg` | `15b976d28ec3` | reload exact build 后进入“更多 → 迁移” | 入口只允许明确选择 Recovery Bundle 和只读检查；当前没有迁移计划 | Dark 宿主上的 Plugin 仍为浅色表面；主题 Gate OPEN |
+| `screenshots/p2-g-21-migration-readonly-scan-result-current-15b976d.jpeg` | `15b976d28ec3` | 原生文件选择器选取 2 KB 脱敏 Bundle 并点击只读检查 | 显示 2 项分类、正式变化 0、尚未创建计划；无 identity/hash/正文 | 逐项审阅入口尚未开放 |
+| `screenshots/p2-g-22-migration-readonly-scan-abandoned-current-15b976d.jpeg` | `15b976d28ec3` | 用户点击“放弃这份材料” | 文件选择与摘要清空，顶部明确当前会话不再保留内容 | 不代表正式 Migration Undo |
+| `screenshots/p2-g-23-migration-readonly-scan-reload-cleared-current-15b976d.jpeg` | `15b976d28ec3` | 再次扫描后直接 reload，重新进入迁移 | 回到未选择文件/没有计划，session 材料没有跨生命周期残留 | Graph switch 仍由自动 Gate 覆盖 |
+| `screenshots/p2-g-24-migration-readonly-scan-invalid-current-15b976d.jpeg` | `15b976d28ec3` | 选择非法 JSON 并只读检查 | 未发起 Service scan；用户层错误可重试且旧摘要不残留 | Service failure 注入仍 OPEN |
+| `screenshots/p2-g-25-migration-readonly-scan-build-health-current-15b976d.jpeg` | `15b976d28ec3` | 只读成功、放弃、reload 与非法输入后展开系统诊断 | exact commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` | 诊断只作为证据层 |
 
 ## HISTORICAL
 

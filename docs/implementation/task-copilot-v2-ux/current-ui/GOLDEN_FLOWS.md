@@ -157,6 +157,23 @@ ACTIONABLE 基线；每步都经真实 Desktop 发起和 Local Service 逐字段
 `p2-g-13`～`19`。失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，所以不关闭
 Restore 全部 Gate 或 P2-G。
 
+## P2-G Migration session-only 只读扫描
+
+状态：`READONLY_SCAN_DESKTOP_DONE_ITEM_REVIEW_AND_WRITE_OPEN`
+
+1. 更多 → 迁移；
+2. 用户通过原生文件选择器明确选择脱敏 Recovery Bundle；
+3. Plugin 在读文件前检查 2 B～8 MiB，并在本地解析 JSON；
+4. Local Service 对 Bundle 做完整只读校验，Plugin 只投影五类计数；
+5. 前台首先说明“正式变化 0”，不显示正文、identity、hash、内部文件或 run；
+6. 用户放弃后立即清空；再次扫描后 reload 也清空；
+7. 非法 JSON 不发起 Service scan，并保留可重试入口；
+8. 最终系统状态与 SQLite 回查证明 run/batch `0/0`、Pending/Recovery `0/0`。
+
+真实结果：`15b976d28ec3`、Logseq 0.10.15、Dark 宿主、994×700；CURRENT
+`p2-g-20`～`25`。此链只关闭材料选择与 read-only scan；逐项 Review、恢复点、Import、
+Verify、Activate、failure resume 和 Undo 仍 OPEN，Migration/P2-G 不提前关闭。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一

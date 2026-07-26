@@ -1,7 +1,7 @@
 # P2-G Migration 只读材料扫描自动 Gate
 
 日期：2026-07-26
-状态：`MIGRATION_READONLY_SCAN_AUTOMATED_REVIEW_AND_WRITE_OPEN`
+状态：`MIGRATION_READONLY_SCAN_AUTOMATED_AND_DESKTOP_DONE_REVIEW_AND_WRITE_OPEN`
 
 ## 用户纵向链
 
@@ -63,3 +63,7 @@ Migration 工作区
 
 因此只读 scan 从 `NOT_STARTED` 进入 `AUTOMATED_DONE`，Migration 向导、P2-G 与整体 Goal
 继续 `IN_PROGRESS`。
+
+后续 current build Desktop Gate 已完成，见
+`p2-g-migration-readonly-scan-desktop-live-20260726.md`；本文件继续作为自动证据，不用
+Desktop 结果覆盖其边界。

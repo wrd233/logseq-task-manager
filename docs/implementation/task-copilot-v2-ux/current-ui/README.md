@@ -85,11 +85,13 @@ v5→PAUSED v6→ACTIONABLE v5` 的旧快照、自动恢复点反向 Restore 和
 P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
 Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、完整审阅计数和下一步。
 新材料可由用户明确选择并做 session-only 只读 scan；前台只见五类计数，放弃、reload 或
-Graph switch 清空，不进入 Preview 或正式写入。本轮仍没有新截图，不能把历史 migration
-画面当作当前 UI。逐项 Review、正式 import/verify/activate、失败/重启/Undo 与 Desktop
-证据继续 OPEN。自动记录见
+Graph switch 清空，不进入 Preview 或正式写入。`15b976d28ec3` 已在真实 Logseq 0.10.15
+完成文件选择、2 项分类、放弃、reload 清空、非法 JSON 重试和最终系统健康；CURRENT
+`p2-g-20`～`25` 取代“Migration 新入口无当前截图”的旧结论。逐项 Review、正式
+import/verify/activate、失败/重启/Undo 继续 OPEN。记录见
 `../logs/p2-g-migration-ledger-translation-automated-20260726.md` 与
-`../logs/p2-g-migration-readonly-scan-automated-20260726.md`。
+`../logs/p2-g-migration-readonly-scan-automated-20260726.md`、
+`../logs/p2-g-migration-readonly-scan-desktop-live-20260726.md`。
 
 ## 每次取证必须记录
 

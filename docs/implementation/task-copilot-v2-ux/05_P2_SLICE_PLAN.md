@@ -419,7 +419,12 @@ Recovery 与 Light/窄栏仍 OPEN。
 Service 继续完成 checksum/readback、无损恢复、未完成 Commit 检查与 SQLite Doctor
 零变化断言。前台只暴露五类计数，clear/Graph switch/reload 清空，不显示对象/evidence/hash/
 正文。该自动 Gate 只关闭 ledger 表达与材料只读扫描，逐项决定、恢复点确认、
-import→verify→activate、失败/重启/Undo 和当前构建 Desktop 证据继续 OPEN。
+import→verify→activate、失败/重启/Undo 继续 OPEN。
+
+commit `15b976d28ec3` 的真实 Logseq 0.10.15 已完成当前文件选择、2 项脱敏 Bundle
+分类、显式放弃、reload 清空、非法 JSON 重试和最终 READY/`0/0/0`；SQLite 回查
+migration run/batch 仍为 `0/0` 且 integrity `ok`。因此只读 scan Desktop Gate DONE，
+但逐项 Review 与正式迁移状态机仍未开放。
 
 ## P2 完成否决条件
 

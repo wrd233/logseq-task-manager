@@ -306,15 +306,16 @@ overall_goal: IN_PROGRESS
   失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md`；
 - P2-G Migration 已进入
-  `MIGRATION_LEDGER_TRANSLATION_AND_READONLY_SCAN_AUTOMATED_REVIEW_WRITE_DESKTOP_OPEN`：
+  `MIGRATION_LEDGER_TRANSLATION_AND_READONLY_SCAN_DESKTOP_DONE_REVIEW_WRITE_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、
   更新时间与批次计数；run ID、Bundle hash、Backup ID 和 CLI 命令不再进入日常 UI。没有
   run 时可由用户明确选择 2 B～8 MiB Recovery Bundle；内容仅在当前 Plugin session
   内存与一次 `/migration/scan` 请求中存在，Service 继续执行 checksum/readback、无损恢复、
   未完成 Commit 检查和 SQLite Doctor 零变化断言。前台只显示五类计数，clear/Graph switch/
-  reload 清空，不暴露对象 identity、evidence、hash 或正文。逐项决定、Preview、恢复点、
-  Import/Verify/Activate/Undo 与当前构建 Desktop Gate 仍 OPEN，P2-G 与整体 Goal 继续
-  `IN_PROGRESS`；
+  reload 清空，不暴露对象 identity、evidence、hash 或正文。`15b976d28ec3` 的真实
+  Logseq 0.10.15 已完成文件选择、2 项分类、放弃、reload 清空、非法 JSON 和最终
+  READY/`0/0/0`；SQLite run/batch 仍为 `0/0`。逐项决定、Preview、恢复点、
+  Import/Verify/Activate/Undo 仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
