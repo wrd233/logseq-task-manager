@@ -901,6 +901,37 @@ test("Migration workspace gives all ledger states an accurate conclusion and sta
   }
 });
 
+test("an activated Migration becomes a read-only handoff archive with no second-run controls", () => {
+  const value = model();
+  value.workspace = "migration";
+  value.v2MigrationExecutionAvailable = true;
+  value.v2MigrationScanAvailable = true;
+  value.v2MigrationScan = {
+    status: "ready",
+    counts: { total: 1, directBind: 1, needsConfirmation: 0, keepOrdinary: 0, structuralError: 0 },
+    message: "private session material",
+  };
+  value.v2MigrationRuns = [{
+    token: "migration-plan:activated",
+    status: "ACTIVATED",
+    summary: { total: 2, import: 1, keepOrdinary: 1, defer: 0, exclude: 0 },
+    createdAt: "2026-07-21T08:00:00.000Z",
+    updatedAt: "2026-07-21T09:00:00.000Z",
+    batches: [{
+      token: "migration-batch:verified",
+      status: "VERIFIED",
+      importedCount: 1,
+      validationObjectCount: 1,
+      updatedAt: "2026-07-21T09:00:00.000Z",
+    }],
+  }];
+  const html = renderApp(value);
+  assert.match(html, /一次性迁移已完成 · 只读历史/);
+  assert.match(html, /不再接受新的扫描、导入、撤销或启用操作/);
+  assert.match(html, /更多 → 备份与恢复/);
+  assert.doesNotMatch(html, /type="file"|migration-scan-local|migration-import-open|migration-batch-undo-open|migration-activate-open|private session material/);
+});
+
 test("Migration execution renders reselect, bounded scope, recovery, import, verify, and undo as separate user decisions", () => {
   const base = model();
   base.workspace = "migration";

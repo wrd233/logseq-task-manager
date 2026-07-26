@@ -897,7 +897,10 @@ function renderMigrationExecution(model: UiModel): string {
 function renderMigration(model: UiModel): string {
   if (model.v2MigrationLoadError) return `<section><h2>V1 → V2 迁移</h2><div class="error"><strong>迁移状态不可用：</strong>${escapeHtml(model.v2MigrationLoadError)}<span>没有执行扫描、导入或状态切换。</span></div></section>`;
   const runs = model.v2MigrationRuns ?? [];
-  const guidance = `<section class="card"><div class="eyebrow">小批次 · 可验证 · 可恢复</div><h2>V1 → V2 迁移</h2><p>迁移只使用你明确选择的只读 Recovery Bundle；不会自动扫描知识库，也不会让 V1 与 V2 双写。</p><p class="muted">先只读检查材料，再逐项审阅；整项计划固定一个导入前恢复基线，每批导入前都重新校验它，之后才可导入、验证和启用。内部运行标识、文件摘要与恢复点编号只留在技术证据中。</p></section>`;
+  const activated = runs.some(({ status }) => status === "ACTIVATED");
+  const guidance = activated
+    ? `<section class="card"><div class="eyebrow">一次性迁移已完成 · 只读历史</div><h2>V2 已启用</h2><p>日常工作继续留在 Logseq；V1 只保留为只读历史与恢复证据，不再接受新的扫描、导入、撤销或启用操作。</p><p class="muted">下方台账仅用于说明这次交接发生了什么。需要整库回到旧快照时，请使用“更多 → 备份与恢复”。</p></section>`
+    : `<section class="card"><div class="eyebrow">小批次 · 可验证 · 可恢复</div><h2>V1 → V2 迁移</h2><p>迁移只使用你明确选择的只读 Recovery Bundle；不会自动扫描知识库，也不会让 V1 与 V2 双写。</p><p class="muted">先只读检查材料，再逐项审阅；整项计划固定一个导入前恢复基线，每批导入前都重新校验它，之后才可导入、验证和启用。内部运行标识、文件摘要与恢复点编号只留在技术证据中。</p></section>`;
   const scan = model.v2MigrationScan ?? { status: "idle" };
   const scanInput = `<label>选择 V1 Recovery Bundle<input type="file" accept="application/json,.json" data-field="migrationRecoveryBundleFile"${scan.status === "loading" || model.v2MigrationScanAvailable !== true ? " disabled" : ""}></label>`;
   const previewButtonLabel = scan.previewStatus === "loading"
@@ -912,14 +915,16 @@ function renderMigration(model: UiModel): string {
     : scan.items?.length
       ? "请先保存每一项判断；全部完成后才会出现创建迁移计划入口。"
       : "这份材料没有可审阅的正式对象，不需要创建迁移计划。";
-  const scanPanel = model.v2MigrationScanAvailable !== true
+  const scanPanel = activated
+    ? ""
+    : model.v2MigrationScanAvailable !== true
     ? `<section class="card"><h3>检查迁移材料</h3><p>当前知识库的本地运行环境尚未就绪；正文仍可正常编辑，没有读取任何文件。</p></section>`
     : scan.status === "loading"
       ? `<section class="card" aria-live="polite"><h3>正在检查迁移材料</h3><p>${escapeHtml(scan.message ?? "只读扫描进行中；正式状态不会变化。")}</p></section>`
       : scan.status === "ready" && scan.counts
         ? `<section class="card" aria-label="迁移材料只读扫描结果"><div class="eyebrow">只读扫描完成 · 正式变化 0</div><h3>这份材料包含 ${escapeHtml(scan.counts.total)} 项</h3><p>${escapeHtml(scan.counts.directBind)} 项初步可直接迁移 · ${escapeHtml(scan.counts.needsConfirmation)} 项需要确认 · ${escapeHtml(scan.counts.keepOrdinary)} 项建议保持普通内容 · ${escapeHtml(scan.counts.structuralError)} 项需先处理冲突</p><p aria-live="polite">${escapeHtml(scan.message ?? "尚未创建迁移计划。")}</p><p class="muted">材料仅保留在当前窗口会话内；重新载入、切换知识库或放弃都会清空。每项判断先留在当前会话，创建计划时系统会重新校验全部材料。</p>${scan.items?.length ? `<div class="cards migration-review-list">${scan.items.map((item) => renderMigrationReviewItem(item, scan.previewStatus !== "idle")).join("")}</div>` : ""}<div class="actions wrap">${button("放弃这份材料", "migration-scan-clear", undefined, "quiet", scan.previewStatus === "loading")}${scan.decisionsComplete ? button(previewButtonLabel, "migration-review-preview", undefined, "primary", scan.previewStatus === "loading") : ""}</div><p class="muted">${escapeHtml(reviewGuidance)}</p>${scan.previewStatus === "uncertain" ? `<p class="uncertain" role="status">无法确认迁移计划是否已写入台账；下方台账是当前权威。若没有新计划，可用相同判断重试，或放弃后重新检查。</p>` : ""}</section>`
         : `<section class="card"><h3>检查迁移材料</h3>${scan.status === "idle" && scan.message ? `<p class="action-feedback success" aria-live="polite">${escapeHtml(scan.message)}</p>` : ""}<p>这里只做只读校验与分类，不会创建迁移计划或改变正式事项。</p>${scanInput}${button(scan.status === "error" ? "重新检查" : "只读检查", "migration-scan-local", undefined, "primary")}${scan.status === "error" ? `<p class="diagnostic-error" role="alert">${escapeHtml(scan.message ?? "迁移材料暂时无法检查。")}</p>` : ""}</section>`;
-  const executionPanel = renderMigrationExecution(model);
+  const executionPanel = activated ? "" : renderMigrationExecution(model);
   if (!runs.length) return `${guidance}${scanPanel}${executionPanel}${empty("还没有迁移计划", "只读扫描不会创建计划；完成逐项审阅前不会写入正式状态。")}`;
   const statusLabel = (status: (typeof runs)[number]["status"]): string => {
     if (status === "PREVIEWED") return "等待确认导入";
@@ -953,7 +958,9 @@ function renderMigration(model: UiModel): string {
   const cards = runs.map((run, index) => {
     const batches = run.batches.length
       ? `<div class="cards">${run.batches.map((batch, batchIndex) => {
-        const action = batch.status === "IMPORTED"
+        const action = run.status === "ACTIVATED"
+          ? ""
+          : batch.status === "IMPORTED"
           ? button("验证本批", "migration-batch-verify", batch.token, "primary", model.v2MigrationExecutionAvailable !== true)
           : batch.status === "VERIFIED"
             ? button("准备安全撤销", "migration-batch-undo-open", batch.token, "quiet", model.v2MigrationExecutionAvailable !== true)
