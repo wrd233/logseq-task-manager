@@ -859,11 +859,40 @@ test("Migration workspace translates the Service ledger without exposing identit
   assert.match(html, /V1 → V2 迁移/);
   assert.match(html, /导入后待验证/);
   assert.match(html, /迁移计划 1/);
-  assert.match(html, /3 项已审阅 · 2 项准备迁移 · 1 项暂缓/);
+  assert.match(html, /3 项已审阅 · 2 项列入迁移 · 0 项保持普通内容 · 1 项暂缓/);
   assert.match(html, /应用重启后仍可继续/);
   assert.match(html, /Recovery Bundle 始终只读/);
   assert.doesNotMatch(html, /migration-run:abc|backup_20260721080000000|a{12,}/);
   assert.doesNotMatch(html, /textarea|type="file"|data-action="migration-(?:import|activate|undo)"/);
+});
+
+test("Migration workspace gives all ledger states an accurate conclusion and stage-aware counts", () => {
+  const cases = [
+    ["PREVIEWED", "等待确认导入", "2 项准备迁移"],
+    ["IMPORTING", "导入后待验证", "2 项列入迁移"],
+    ["VERIFIED", "验证通过，等待启用", "2 项已迁移并验证"],
+    ["ACTIVATED", "迁移已完成", "2 项已迁移并验证"],
+    ["FAILED", "迁移未完成", "系统不会自动重试，请先检查失败批次"],
+    ["CANCELLED", "迁移已取消", "现有正式状态保持不变"],
+  ] as const;
+  for (const [status, conclusion, detail] of cases) {
+    const value = model();
+    value.workspace = "migration";
+    value.v2MigrationRuns = [{
+      runId: `migration-run:${status}`,
+      sourceBundleSha256: "a".repeat(64),
+      sourceCreatedAt: "2026-07-21T08:00:00.000Z",
+      status,
+      summary: { total: 5, import: 2, keepOrdinary: 1, defer: 1, exclude: 1 },
+      createdAt: "2026-07-21T08:00:00.000Z",
+      updatedAt: "2026-07-21T09:00:00.000Z",
+    }];
+    const html = renderApp(value);
+    assert.match(html, new RegExp(conclusion));
+    assert.match(html, new RegExp(detail));
+    assert.match(html, /1 项保持普通内容/);
+    assert.doesNotMatch(html, /migration-run:|a{12,}/);
+  }
 });
 
 test("Project workspace requires adaptive Grill and exposes no direct-creation bypass", () => {
