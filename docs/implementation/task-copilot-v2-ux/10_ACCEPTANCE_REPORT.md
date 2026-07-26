@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal roundtrip + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip 与 Migration Activation current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + Restore failure + Migration failure/interruption recovery/visual gates OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_FAILURE_ROLLBACK_RELOAD_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚→reload 与 Migration Activation current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + Restore rollback-failure manual guide + Migration failure/interruption recovery/visual gates OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -125,9 +125,17 @@
   零写入与完整 Logseq restart；run=`ACTIVATED`、objects=5、Pending 0，旧 UNDONE 和新
   VERIFIED batch 保留，reload 后 V1 只读且无 Import/Undo/Activate。Activation 正常主链
   DONE；`2beb1b5` 又在完整 restart 后证明 ACTIVATED 页面只保留只读交接台账和
-  Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 全部退出。失败注入、
-  Service 中断/不确定恢复和 Light/窄栏仍 OPEN；Restore 失败注入及失败后的用户层
-  Recovery 仍 OPEN；
+  Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 全部退出。Restore 方面，
+  `94038e6`/`0c4526d` 又完成激活失败后的原库自动回滚、恢复点保留、单一用户层结论与
+  reload：真实文件级写入拒绝后 objects 仍为 5、版本 `[1,5,6,13,14]`，新增恢复点
+  schema 12 / integrity ok / foreign-key 0，Service PID `99248→99711`，Doctor PASS，
+  CURRENT `p2-g-44`～`46`。Restore 双重回滚失败手工向导、Migration
+  failure/interruption recovery 和 Light/窄栏仍 OPEN。`2eb6df1` 已以自动测试补齐
+  Restore admission drain、Launcher single-spawn、`ARMED→RECOVERY_REQUIRED`、
+  mutation lock/no-clobber/compare-and-clear、损坏与权限异常独立 fail-closed 叙述，以及
+  “先恢复匹配恢复点并 Doctor PASS、后清锁”的双重失败合同；该项仍缺真实双重失败 Desktop
+  和用户化手工向导。`e418c87` 又关闭同目录多数据库互锁串扰与 Launcher
+  last-release/ensure 双 Service 竞态，不据此升级 P2-G；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

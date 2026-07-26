@@ -5,6 +5,10 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
 
+当前源码安全提交为 `e418c87`；`2eb6df1` 与 `e418c87` 在 `0c4526d` 截图后增加
+自动-only Restore 互锁、数据库级多 Graph 隔离与完整 Launcher 生命周期串行化，不改变
+`p2-g-44`～`46` 的自动回滚交互。没有截图被冒充为“双重回滚失败手工恢复”证据。
+
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
 | `screenshots/p2-c-18-page-undo-confirm-current-dark.png` | `913bbda4528f` | Page 来源 Project 经完整 restart 后，从最近修改进入专用 Undo | 原账本 UUID 已漂移，但界面只要求撤销正式 Project/Anchor；明确复用来源 Page 保留、专用 Page 仅在仍属本事务且为空时删除 | Review 历史卡片仍偏长 |
@@ -51,7 +55,7 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-16-restore-reload-catalog-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | Plugin Manager reload 后再次打开快照目录 | 两个快照增至三个，恢复前恢复点跨 reload 可见且完整性 PASS | 反向 Restore 仍 OPEN |
 | `screenshots/p2-g-17-restore-build-diagnostics-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | reload 后打开系统状态并展开技术诊断 | Commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` 同屏 | 诊断只作为证据层 |
 | `screenshots/p2-g-18-restore-state-delta-actionable-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 测试 Task 已正式变为 PAUSED 后，从旧快照 Restore 并回到“现在” | Local Service 逐字段从 `PAUSED v6` 回到 `ACTIONABLE v5`；同一 Task 再次显示“当前可以继续推进” | 反向 Restore 的 PAUSED 读回由结构化 Service 证据承担 |
-| `screenshots/p2-g-19-restore-state-delta-roundtrip-health-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 再从自动恢复点反向恢复 PAUSED，最后恢复原 ACTIONABLE 基线并 reload | 正反往返均逐字段读回；最终 Runtime/Store/Service READY、`0/0/0`、reconciliation false | Restore failure 注入与 Light/窄栏仍 OPEN |
+| `screenshots/p2-g-19-restore-state-delta-roundtrip-health-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 再从自动恢复点反向恢复 PAUSED，最后恢复原 ACTIONABLE 基线并 reload | 正反往返均逐字段读回；最终 Runtime/Store/Service READY、`0/0/0`、reconciliation false | Restore failure 已由 `p2-g-44`～`46` 补齐；Light/窄栏仍 OPEN |
 | `screenshots/p2-g-20-migration-readonly-scan-entry-current-15b976d.jpeg` | `15b976d28ec3` | reload exact build 后进入“更多 → 迁移” | 入口只允许明确选择 Recovery Bundle 和只读检查；当前没有迁移计划 | Dark 宿主上的 Plugin 仍为浅色表面；主题 Gate OPEN |
 | `screenshots/p2-g-21-migration-readonly-scan-result-current-15b976d.jpeg` | `15b976d28ec3` | 原生文件选择器选取 2 KB 脱敏 Bundle 并点击只读检查 | 显示 2 项分类、正式变化 0、尚未创建计划；无 identity/hash/正文 | 逐项审阅入口尚未开放 |
 | `screenshots/p2-g-22-migration-readonly-scan-abandoned-current-15b976d.jpeg` | `15b976d28ec3` | 用户点击“放弃这份材料” | 文件选择与摘要清空，顶部明确当前会话不再保留内容 | 不代表正式 Migration Undo |
@@ -75,10 +79,13 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-40-migration-activation-confirmation-required-current-dark.png` | `f42b62d` | 未勾选 V1 只读交接确认直接提交 | 用户层明确零变化；SQLite run 仍为 VERIFIED | 不保存内部 run/snapshot identity |
 | `screenshots/p2-g-41-migration-activated-current-dark.png` | `f42b62d` | 勾选并确认启用 | V2 已启用，V1 只作为只读历史与恢复证据；run ACTIVATED、objects 5、Pending 0 | 旧 UNDONE 与新 VERIFIED batch 保留 |
 | `screenshots/p2-g-43-migration-readonly-archive-current-dark.png` | `2beb1b5` | 完整退出并重启 Logseq，打开已完成迁移 | 一次性迁移只保留只读交接台账与 Backup/Restore 路由；无新 scan/Review/Import/Undo/Activate | Migration failure/interruption 与 Light/窄栏仍 OPEN |
+| `screenshots/p2-g-44-restore-failure-review-current-dark.png` | `0c4526d` | 选择校验通过的旧快照并勾选独立 Restore 确认 | 前台明确 SQLite 会替换、正文不改写、当前正式状态保存为恢复点并自动重启 | 随后仅对隔离活动数据库注入文件级写入拒绝 |
+| `screenshots/p2-g-45-restore-rollback-recovery-current-dark.png` | `0c4526d` | 真实 atomic activation 失败后回到 Task Copilot | 只显示一次“恢复未完成”；原正式状态已回滚并重新可用，Restore 前恢复点保留 | 自动回滚失败的手工 Recovery 向导仍 OPEN |
+| `screenshots/p2-g-46-restore-rollback-reload-health-current-dark.png` | `0c4526d` | Plugin Manager reload 后打开系统状态 | 正式状态与 Graph 已连接，日常能力可用，数据安全，无需操作 | `2eb6df1`/`e418c87` 自动互锁无新 UI；双重失败手工向导、Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 
-以下文件都是真实 Logseq/DeepSeek 运行证据，但不代表当前 `913bbda` 界面：
+以下文件都是真实 Logseq/DeepSeek 运行证据，但不代表当前 `0c4526d` 界面：
 
 | 文件 | 状态 | 构建状态 | 仍可证明 | 被替代原因 |
 |---|---|---|---|---|

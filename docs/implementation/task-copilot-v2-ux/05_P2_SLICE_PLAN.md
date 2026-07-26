@@ -406,8 +406,22 @@ commit `6ae8f2fcebd0` 的真实 Logseq 0.10.15 已完成快照目录、再次校
 Plugin reload 后目录 `2→3` 与系统 READY/`0/0/0`。首轮成功/旧错误并列问题已修复。
 随后同一测试 Task 经真实 Now Work 和 Desktop Restore 完成
 `ACTIONABLE v5↔PAUSED v6` 旧快照/自动恢复点正反往返，Local Service 每步逐字段读回，
-最终恢复 ACTIONABLE 基线。Restore 正常往返 Desktop DONE；失败注入、失败后的用户层
-Recovery 与 Light/窄栏仍 OPEN。
+最终恢复 ACTIONABLE 基线。Restore 正常往返 Desktop DONE。
+
+`94038e6` 随后把失败结果明确分成 pre-switch rejection、原库已回滚、需要手工恢复和结果
+不确定，并补齐候选已激活后异常的自动回滚测试；`0c4526d` 保证回滚只显示一次失败结论，
+不再与绿色成功并列。当前构建在隔离测试 Graph 对活动 SQLite 注入真实文件级写入拒绝：
+atomic activation 失败后原正式对象仍为 5、版本 `[1,5,6,13,14]`，Restore 前恢复点
+schema 12 / integrity ok / foreign-key 0，owned Service PID `99248→99711`，Doctor PASS，
+reload 后系统状态恢复健康。Restore 激活失败→自动回滚→重连→reload 主链 Desktop DONE；
+`2eb6df1` 又以自动 Gate 建立 Service-owned 两阶段恢复互锁、Restore 请求排空、Launcher
+单 Graph 单 Service、跨进程 mutation lock、no-clobber、完整记录 compare-and-clear 与
+损坏/权限异常 fail-closed。双重回滚失败跨 reload 阻断，测试必须先恢复匹配的保留恢复点
+并通过 Doctor 才能清锁。该底座为 `AUTOMATED`，尚无双重失败 Desktop 注入和用户化操作；
+`e418c87` 再把 sidecar/lock 按 resolved database path 摘要隔离并校验 Graph identity，
+同时把 Launcher ensure、last release、reap、close 纳入同一 per-Graph lifecycle gate，
+从而避免同目录多 Graph 互相阻断，以及旧 Service 尚在 stop 时新 Service 提前启动。
+`V2_RESTORE_ROLLBACK_FAILED` 的手工恢复向导和 Light/窄栏仍 OPEN。
 
 ### Migration
 

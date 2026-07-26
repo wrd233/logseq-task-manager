@@ -68,7 +68,9 @@ P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop G
 早先 `p2-g-01`～`06` 只保留为真实历史发现/安全拒绝证据。Rebind 纠错指引已完成自动
 Gate：选错正文再次进入受控 Rebind，整库回退才进入 Backup/Restore，不提供会复活
 missing/conflict 旧 Anchor 的通用 Undo；新成功态 Desktop 仍 OPEN。Restore 失败链和
-Migration 也未完成，因此 P2-G 与整体 Goal 不提前关闭。完整记录见
+Migration 当时也未完成；Restore 失败链现已由后述 CURRENT `p2-g-44`～`46` 替代，
+但 Rebind 指引、Migration failure/recovery 与视觉 Gate 仍使 P2-G 和整体 Goal 保持
+`IN_PROGRESS`。完整记录见
 `../logs/p2-g-rebind-desktop-live-20260726.md`。
 
 P2-G Restore 产品入口的生命周期链已在 `6ae8f2fcebd0` 当前构建完成真实 Desktop
@@ -78,9 +80,23 @@ reload 后目录从两个变为三个校验 PASS 快照，系统状态为 READY�
 `6415dd14b568` 暴露成功态残留旧错误，已修复且该旧画面不列 CURRENT。CURRENT
 `p2-g-13`～`19`；同一测试 Task 又真实完成 `ACTIONABLE v5→PAUSED v6→ACTIONABLE
 v5→PAUSED v6→ACTIONABLE v5` 的旧快照、自动恢复点反向 Restore 和最终 cleanup，
-逐步经 Local Service 读回。失败注入、失败后的用户层 Recovery 和视觉 Gate 仍 OPEN，
-因此 Restore/P2-G/整体 Goal 不提前关闭。完整记录见
-`../logs/p2-g-backup-restore-frontstage-automated-20260726.md`。
+逐步经 Local Service 读回。
+
+Restore 失败主链随后在 `0c4526d4006f` 当前构建完成真实 Desktop Gate。隔离 Graph 对活动
+SQLite 注入真实文件级写入拒绝后，atomic activation 失败、原正式状态自动回滚，Restore
+前恢复点保留，Launcher 重建 owned Service；界面只显示一次“恢复未完成，原状态已回滚并
+重新可用”，Plugin Manager reload 后系统状态恢复正常。CURRENT `p2-g-44`～`46` 取代
+首轮成功/失败重复显示的诊断截图。自动回滚也失败时的手工 Recovery 向导和 Light/窄栏
+仍 OPEN，因此 Restore/P2-G/整体 Goal 不提前关闭。完整记录见
+`../logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
+`../logs/p2-g-restore-failure-recovery-desktop-live-20260726.md`。
+
+`2eb6df1` 在上述截图之后增加自动安全互锁：同 Graph Launcher 单实例启动、Restore
+admission drain、`ARMED→RECOVERY_REQUIRED`、跨进程 mutation lock、no-clobber 和匹配
+清锁。它不改变 `p2-g-44`～`46` 所示自动回滚 UI，但尚未用 Desktop 注入“双重回滚失败”，
+因此这些截图继续只代表 `0c4526d` 的自动回滚主链，不能作为新手工恢复向导的证据。
+`e418c87` 再把互锁按数据库隔离、核对 Graph identity，并将 Launcher 的启动与最终停止
+纳入同一 per-Graph lifecycle gate；这仍是自动安全升级，不是新的 UI 证据。
 
 P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
 Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、完整审阅计数和下一步。

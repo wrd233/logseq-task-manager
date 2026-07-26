@@ -136,7 +136,7 @@ Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证�
 
 ## P2-G Backup/Restore 产品入口
 
-状态：`FRONTSTAGE_STATE_DELTA_ROUNDTRIP_DESKTOP_DONE_FAILURE_GATE_OPEN`
+状态：`FRONTSTAGE_STATE_DELTA_ROUNDTRIP_AND_FAILURE_ROLLBACK_RELOAD_DESKTOP_DONE`
 
 1. 更多 → 备份与恢复只读取当前 Graph 的 Service-owned 最近快照；
 2. 前台只显示时间、正式事项数量与校验结果，DOM 不保存 Backup ID 或数据库路径；
@@ -146,7 +146,11 @@ Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证�
 6. 复用固定确认、恢复点、offline atomic Restore、descriptor 删除与 Service 自停；
 7. Launcher 为同一 Graph 重建 owned Service，Plugin 自动回到 READY；
 8. reload 后恢复前快照仍在目录中且完整性 PASS；
-9. 系统状态必须显示当前构建身份与 `0/0/0`。
+9. 若 atomic activation 失败但原库可回滚，界面只显示一次“恢复未完成”，明确原正式状态
+   已重新可用且恢复点保留；
+10. 失败后的 Launcher 重连与 Plugin Manager reload 必须清除陈旧错误，并由 Doctor 证明
+    当前正式状态健康；
+11. 系统状态必须显示当前构建身份与 `0/0/0`。
 
 真实结果：`6ae8f2fcebd0`、Logseq 0.10.15、Dark、994×700。首轮
 `6415dd14b568` 真实运行发现成功态残留未确认错误，因此不计 CURRENT；修复后重跑未确认
@@ -154,8 +158,25 @@ Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证�
 READY 且 `0/0/0`。随后真实 Now Work 把测试 Task `ACTIONABLE v5→PAUSED v6`，旧快照
 Restore 读回 `ACTIONABLE v5`，自动恢复点反向 Restore 又读回 `PAUSED v6`，最后恢复
 ACTIONABLE 基线；每步都经真实 Desktop 发起和 Local Service 逐字段读回。CURRENT
-`p2-g-13`～`19`。失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，所以不关闭
-Restore 全部 Gate 或 P2-G。
+`p2-g-13`～`19`。
+
+`0c4526d4006f` 当前构建又在隔离 Graph 对活动 SQLite 注入真实文件级写入拒绝。atomic
+activation 失败后，原正式 objects 5 与版本 `[1,5,6,13,14]` 完全保持，Restore 前恢复点
+schema 12 / integrity ok / foreign-key 0，owned Service PID `99248→99711`，Doctor PASS。
+前台只显示一次回滚结论，Plugin Manager reload 后系统状态恢复健康。CURRENT
+`p2-g-44`～`46`。这关闭激活失败→自动回滚→重连→reload 主链；自动回滚也失败时的手工
+Recovery 向导和 Light/窄栏仍 OPEN，所以不关闭 Restore 全部 Gate 或 P2-G。
+
+其后 `2eb6df1` 只升级自动安全边界：恢复先排空已进入请求；同 Graph Launcher 不会并发
+生成两个 Service；私有互锁只在恢复点校验通过后从 `ARMED` 升为
+`RECOVERY_REQUIRED`，所有创建/升级/清除均经跨进程 mutation lock，旧记录不能覆盖或删除
+新记录。双重失败的自动合同必须完成匹配恢复、Doctor PASS 后才清锁。此提交未产生新的
+Desktop 截图，也未把手工 Recovery 向导升级为 DONE。
+
+`e418c87` 继续修复自动-only 的多 Graph 与进程生命周期边界：interlock/lock 使用数据库
+绝对路径摘要隔离并校验 Graph identity；同一 Graph 的 ensure、最后 lease release、reap
+和 close 完全串行，替代 Service 必须等待旧 Service 完成 stop。它同样没有新的 Desktop
+截图，不改变上述 CURRENT 界面结论。
 
 ## P2-G Migration session-only 只读扫描
 

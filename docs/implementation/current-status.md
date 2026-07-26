@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_FAILURE_ROLLBACK_RELOAD_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -290,7 +290,7 @@ overall_goal: IN_PROGRESS
   把“回退整个正式状态”路由到只读 Backup/Restore 目录；focused `10/10` 与 typecheck
   PASS。新成功态 Desktop 与 Migration 向导仍 OPEN；
 - P2-G Restore 已进入
-  `RESTORE_FRONTSTAGE_STATE_DELTA_ROUNDTRIP_DESKTOP_DONE_FAILURE_GATE_OPEN`：Local
+  `RESTORE_FRONTSTAGE_STATE_DELTA_ROUNDTRIP_AND_FAILURE_ROLLBACK_RELOAD_DESKTOP_DONE`：Local
   Service 新增
   最近 20 个服务端快照的有界只读目录，只返回时间、校验状态、schema 与对象数量，不返回
   路径。Plugin 通过 session-local `snapshot:<index>` 隐藏 Backup ID，支持创建当前快照、
@@ -303,8 +303,23 @@ overall_goal: IN_PROGRESS
   READY/`0/0/0`；首轮成功/旧错误并列的缺陷已修复且旧画面不计 CURRENT。随后同一
   测试 Task 经真实 Now Work 和 Desktop Restore 完成 `ACTIONABLE v5↔PAUSED v6`
   正反往返，Local Service 每步逐字段读回，最终恢复 ACTIONABLE 基线并 reload 健康。
-  失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，完整记录见
-  `logs/p2-g-backup-restore-frontstage-automated-20260726.md`；
+  `94038e6` 又补齐激活后故障的原库回滚、恢复点保留、Service 停止与四种失败 disposition；
+  `0c4526d` 修复回滚后成功/失败重复显示。当前构建在隔离 Graph 对活动 SQLite 注入真实
+  文件级写入拒绝，atomic activation 失败后正式对象仍为 5、版本
+  `[1,5,6,13,14]`，新增恢复点 schema 12 / integrity ok / foreign-key 0，Service PID
+  `99248→99711`，Doctor PASS；reload 后陈旧错误清空且系统正常。自动回滚失败后的手工
+  Recovery 向导和 Light/窄栏仍 OPEN。`2eb6df1` 进一步完成自动安全底座：Restore
+  先独占 admission 并排空已进入请求，Launcher 同 Graph 并发 ensure 只启动一个 Service；
+  私有 sidecar 以 `ARMED→RECOVERY_REQUIRED` 区分“恢复点未确认/已确认”，用
+  0600、fsync、原子 rename、跨进程 mutation lock 和完整记录 compare-and-clear 保证
+  reload、另一客户端、损坏权限或竞态不能重新开放写入。双重回滚失败会跨 reload 阻断
+  Service；自动测试只有在选定保留恢复点、恢复并 Doctor PASS 后才允许清锁。该互锁尚无
+  Desktop 注入证据，也不冒充已完成手工向导。`e418c87` 又关闭复审发现的两项隔离缺口：
+  interlock/lock 以数据库绝对路径摘要分区并核对 Graph identity，同一数据目录内的多个
+  Graph 互不阻断；Launcher 将 ensure、最后 lease release、reap 与 close 纳入同一
+  per-Graph lifecycle gate，旧 Service 完成停止前不得生成替代 Service。完整记录见
+  `logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
+  `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md`；
 - P2-G Migration 已进入
   `MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_GATES_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、
@@ -357,11 +372,12 @@ failure/Recovery Desktop gate OPEN /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
 P2-G Rebind identity-free capture main chain Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,
+Restore activation-failure automatic rollback + recovery-point + reload Desktop DONE,
 Migration item Review/Preview Desktop DONE,
 Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
 Migration Activation normal main chain Desktop DONE,
 Rebind Recovery/Undo guidance AUTOMATED,
-Restore failure + Migration failure/restart recovery/visual gates OPEN /
+Restore rollback-failure manual guide + Migration failure/restart recovery/visual gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论
