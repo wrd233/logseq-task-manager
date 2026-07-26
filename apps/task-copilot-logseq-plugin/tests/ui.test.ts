@@ -2202,6 +2202,8 @@ test("formal V2 plugin entry excludes the writable V1 runtime", async () => {
   assert.match(source, /V2_UI_ACTION_UNSUPPORTED/);
   assert.match(source, /listSemanticCommits\(\)/);
   assert.match(source, /listPrimaryAnchors\(cursor, true\)/);
+  assert.match(source, /if \(!featureReady && !runtimeEndedByUser\)/);
+  assert.match(source, /featureReady = serviceConnection\.status === "READY" && serviceConnection\.formalWritesAvailable && Boolean\(serviceRuntimeClient\)/);
 });
 
 test("startup stays non-blocking while host-ready events and Graph switch recover exact Graph identity", async () => {

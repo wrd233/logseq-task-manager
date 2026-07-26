@@ -825,7 +825,7 @@ async function refresh(): Promise<void> {
     });
     return;
   }
-  if (!featureReady) {
+  if (!featureReady && !runtimeEndedByUser) {
     root.innerHTML = await fullDiagnosticsHtml();
     return;
   }
@@ -2437,11 +2437,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }
     await releaseServiceLifecycleSession();
     runtimeEndedByUser = true;
+    workspace = "more";
     actionDialog = undefined;
-    enterRestrictedServiceMode("SERVICE_ENDED_BY_USER", "本次 Task Copilot 已安全结束；Graph 正文仍可正常编辑。");
+    enterRestrictedServiceMode("SERVICE_ENDED_BY_USER", "本次 Task Copilot 已安全结束；Logseq 正文仍可正常编辑。");
     diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
     featureReady = false;
-    message = "本次 Task Copilot 已安全结束；当前 Graph 正文和 SQLite 历史保持不变。";
+    message = "本次 Task Copilot 已安全结束；当前知识库正文和正式历史保持不变。";
     await refresh();
     return;
   }
@@ -2452,11 +2453,11 @@ async function handleAction(action: string, value?: string): Promise<void> {
       return;
     }
     await refreshServiceRuntime(configuredServiceDescriptorPath);
-    featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
+    featureReady = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
     diagnostics.setStoreStatus(featureReady ? "READY" : "READ_ONLY_SAFE_MODE");
     message = featureReady
-      ? "当前 Graph 的 Task Copilot 已重新启动。"
-      : "本地运行环境尚未恢复；Graph 正文仍可编辑，请查看系统状态。";
+      ? "当前知识库的 Task Copilot 已重新启动。"
+      : "Task Copilot 尚未恢复；Logseq 正文仍可编辑，请查看系统状态。";
     await projectPageHeadActionController.refreshAll();
     await refresh();
     return;

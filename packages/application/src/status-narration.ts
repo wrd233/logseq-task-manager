@@ -668,13 +668,16 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
     const restoreRecoveryStateInvalid = reason === "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID";
     const restoreRecoveryRequired = reason === "V2_RESTORE_ROLLBACK_FAILED"
       || reason === "LAUNCHER_RESTORE_RECOVERY_REQUIRED";
+    const endedByUser = reason === "SERVICE_ENDED_BY_USER";
     const graphMismatch = reason.includes("GRAPH");
     const protocolMismatch = reason.includes("PROTOCOL");
     const notConfigured = reason.includes("DESCRIPTOR")
       || reason.includes("NOT_CONFIGURED")
       || reason.includes("PATH_REQUIRED");
     return result({
-      conclusion: restoreRecoveryStateInvalid
+      conclusion: endedByUser
+        ? "本次 Task Copilot 已结束"
+        : restoreRecoveryStateInvalid
         ? "恢复记录无法安全确认"
         : restoreRecoveryArmed
         ? "上次恢复中断，需要核验"
@@ -687,7 +690,9 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
           : notConfigured
             ? "Task Copilot 尚未连接当前知识库"
             : "正式能力暂时不可用",
-      keyEvidence: restoreRecoveryStateInvalid
+      keyEvidence: endedByUser
+        ? ["用户已明确结束本次使用", "Logseq 正文仍可编辑"]
+        : restoreRecoveryStateInvalid
         ? ["应用正式修改已暂停", "恢复记录与完整性未知"]
         : restoreRecoveryArmed
         ? ["应用正式修改已暂停", "恢复前状态尚未确认"]
@@ -697,7 +702,9 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
       facts: [
         fact("应用正式修改、审阅提交、撤销、备份、恢复与迁移已暂停", sourceRef),
         fact(
-          restoreRecoveryStateInvalid
+          endedByUser
+            ? "用户已明确结束本次使用；正式状态和历史没有被删除"
+            : restoreRecoveryStateInvalid
             ? "系统没有猜测回滚结果，也没有声称恢复点完整"
             : restoreRecoveryArmed
             ? "系统没有把未验证文件描述成可用恢复点"
@@ -714,7 +721,9 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
           : {}),
       evidenceRefs: [sourceRef],
       observedAt: input.observedAt,
-      ruleId: restoreRecoveryStateInvalid
+      ruleId: endedByUser
+        ? "system-service-ended-by-user"
+        : restoreRecoveryStateInvalid
         ? "system-restore-recovery-state-invalid"
         : restoreRecoveryArmed
         ? "system-restore-recovery-armed"

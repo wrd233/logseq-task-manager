@@ -96,6 +96,28 @@ test("protocol and Graph mismatches have distinct user actions", () => {
   assert.match(graph.actionRequired, /不要复用其他知识库的数据/);
 });
 
+test("an explicitly ended session remains a safe user choice instead of looking like a connection fault", () => {
+  const result = deriveUserSystemStatus(snapshot({
+    runtime_status: "DEGRADED",
+    store_status: "READ_ONLY_SAFE_MODE",
+    service_connection: {
+      status: "RESTRICTED",
+      reason_code: "SERVICE_ENDED_BY_USER",
+      formal_writes_available: false,
+      graph_editing_available: true,
+    },
+    pending_semantic_commits: "unavailable",
+    recovery_required_commits: "unavailable",
+    source_anchor_conflicts: "unavailable",
+  }));
+  assert.equal(result.level, "ATTENTION");
+  assert.equal(result.headline, "本次 Task Copilot 已结束");
+  assert.equal(result.narrationRuleId, "system-service-ended-by-user");
+  assert.match(result.whatHappened, /用户已明确结束本次使用/);
+  assert.match(result.actionRequired, /重新启动 Task Copilot/);
+  assert.doesNotMatch(`${result.headline} ${result.whatHappened} ${result.actionRequired}`, /Graph|Service|Plugin|SQLite|连接失败/);
+});
+
 test("Restore rollback failure keeps formal writes stopped and points to the retained recovery point", () => {
   for (const reason_code of ["V2_RESTORE_ROLLBACK_FAILED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED"]) {
     const result = deriveUserSystemStatus(snapshot({

@@ -27,6 +27,17 @@ function restrictedStatus(
     stillAvailable: "Logseq 正文仍可编辑；已保存的页面、正式历史和只读说明不受影响。",
     dataSafety: "系统保持安全保护，没有把连接失败当成空状态，也没有自动重试应用修改。",
   };
+  if (reason === "SERVICE_ENDED_BY_USER") {
+    return {
+      level: "ATTENTION",
+      headline: "本次 Task Copilot 已结束",
+      whatHappened: "用户已明确结束本次使用；系统已经停止当前知识库的正式能力。",
+      affected: "应用正式修改、审阅提交、撤销、备份、恢复与迁移已暂停。",
+      stillAvailable: "Logseq 正文仍可编辑；已保存的页面、正式历史和恢复信息保持不变。",
+      dataSafety: "本次结束没有删除正文、正式状态或历史，也没有影响其他应用。",
+      actionRequired: "需要正式能力时，重新启动 Task Copilot。",
+    };
+  }
   if (reason === "LAUNCHER_RESTORE_RECOVERY_ARMED") {
     return {
       ...common,

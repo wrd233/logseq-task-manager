@@ -475,12 +475,25 @@ test("system narration applies recovery, pending, connection, Anchor, sync, then
       reasonCode: "SERVICE_GRAPH_MISMATCH",
     },
   });
+  const endedByUser = narrateV2SystemStatus({
+    ...base,
+    service: {
+      ...base.service,
+      status: "RESTRICTED",
+      formalWritesAvailable: false,
+      storeStatus: "READ_ONLY_SAFE_MODE",
+      reasonCode: "SERVICE_ENDED_BY_USER",
+    },
+  });
   const ready = narrateV2SystemStatus(base);
 
   assert.equal(recovery.conclusion, "有 1 项修改需要恢复");
   assert.equal(recovery.source.ruleId, "system-commit-recovery-required");
   assert.equal(graphMismatch.conclusion, "当前知识库与正式状态不匹配");
   assert.match(graphMismatch.facts.map((item) => item.text).join(" "), /Logseq 正文仍可编辑/);
+  assert.equal(endedByUser.conclusion, "本次 Task Copilot 已结束");
+  assert.equal(endedByUser.source.ruleId, "system-service-ended-by-user");
+  assert.match(endedByUser.keyEvidence.join(" "), /用户已明确结束本次使用/);
   for (const reasonCode of ["V2_RESTORE_ROLLBACK_FAILED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED"]) {
     const restoreRecoveryRequired = narrateV2SystemStatus({
       ...base,
