@@ -137,6 +137,12 @@ Launcher/LaunchAgent、ownership、shutdown、Graph binding、descriptor 刷新�
 crash/orphan recovery 已由自动和真实进程证据闭合；当前等待不绕过桌面安全机制的集中
 reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 
+2026-07-26 的精确构建重装暴露一个真实 authority 漂移：同一 Graph 已显式绑定测试数据库，
+再次运行 installer 且省略 `--database` 时，旧实现会静默改用默认数据路径。没有文件被删除，
+运行映射已用原明确路径恢复；安装器现在复用同一 graphKey 的既有 databasePath，除非用户
+显式传入新绝对路径。回归覆盖首次安装→同 Graph 无参数重装→第二 Graph 安装，Launcher
+29/29 PASS；记录见 `logs/p0-h-launcher-reinstall-authority-automated-20260726.md`。
+
 P0-J 已从 `AUTOMATED_ONLY` 推进为代表性 Desktop partial：冷启动命令面板单组注册、Now/
 系统状态路由、四条 Slash 可发现、`[任务] ` 代表插入和自定义 binding 配置/触发/清理均已
 通过。连续 Plugin reload 的重复行经完整 restart 清除，按宿主 residue 记录而不增加第二

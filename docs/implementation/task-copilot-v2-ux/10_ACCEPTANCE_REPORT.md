@@ -208,6 +208,8 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 - [x] P0-A 自动测试、真实 Desktop Focus/Undo 与 Local Service 读回证据；
 - [x] P0-H descriptor 私有导入、失败边界与 reload READY 证据；`e8db32f` 又完成最新用户语言的
   安全结束、立即只读、重新启动与健康读回，结束期间无知识库不匹配闪烁；Graph switch 仍 OPEN；
+  同一 Graph 重装现默认保留既有 database authority，真实发现的静默路径替换已修复并由
+  Launcher 29/29 回归覆盖；显式数据库迁移仍必须由用户明确给出路径；
 - [x] P0-B 三种 Condition、失败零写入、Focus 不变、Undo 和 reload 证据；
 - [x] P0-C LOW 白名单、连续 Review/revalidate/Commit、busy/stale/transport 与真实 Desktop Undo 证据；
 - [x] P0-D 普通/Project/Journal Page 路由、UUID/Anchor 重验、Project create/reentry 与

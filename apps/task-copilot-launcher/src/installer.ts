@@ -214,10 +214,13 @@ export async function installLauncher(input: InstallLauncherInput, dependencies:
   await cp(join(payloadRoot, "node_modules"), join(binRoot, "node_modules"), { recursive: true, force: true });
 
   const graphKey = await deriveLauncherGraphKey(input.graphPath);
-  const databasePath = input.databasePath ?? join(dataRoot, `${graphKey.slice(6, 38)}.sqlite`);
   const configPath = join(appRoot, "launcher-config.json");
   const descriptorPath = join(pairingRoot, "task-copilot-v2-launcher-descriptor.json");
   const existing = await existingPrivateConfig(configPath);
+  const existingGraph = existing?.graphs.find((graph) => graph.graphKey === graphKey);
+  const databasePath = input.databasePath
+    ?? existingGraph?.databasePath
+    ?? join(dataRoot, `${graphKey.slice(6, 38)}.sqlite`);
   const mappingConflict = existing?.graphs.some((graph) => (
     graph.graphKey !== graphKey && (graph.graphId === graphId || graph.databasePath === databasePath)
   ));

@@ -39,6 +39,15 @@
   已收敛为语言和 authority 的通用输出合同。全局 Skill 生命周期台账仍未覆盖其他 active
   Skill，因此该风险仍为发布阻断。
 
+### P0-H Launcher authority 收敛
+
+- 真实后台重装发现同一 Graph 省略数据库参数会替换既有 database authority；没有新增状态或
+  migration 框架，直接修复唯一 Launcher config authority 的合并规则。
+- 同一 graphKey 默认保留既有 databasePath；首次安装才使用默认路径，显式绝对路径仍可由
+  用户主动替换。运行映射已恢复到原测试数据库，未删除或复制任何正式数据。
+- 新增正式状态/恢复入口/并行 authority：`0`；回归覆盖首次安装、无参数重装和第二 Graph，
+  Launcher `29/29` PASS。该缺陷从潜在 silent authority drift 收敛为自动 Gate。
+
 - P0-J 从 `AUTOMATED_ONLY` 收敛为代表性 Desktop partial：共享同一 command/slash 注册内核，
   没有为四条 Slash、六条 palette 或三个 binding 创建场景状态；新正式状态、恢复分支、
   Agent Runtime、Prompt、Skill 与 Validator 均为 `0`。

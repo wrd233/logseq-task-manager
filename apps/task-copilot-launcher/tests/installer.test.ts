@@ -89,6 +89,23 @@ test("installer creates one private Graph-bound runtime and bootstraps the exact
   assert.doesNotMatch(await readFile(plistPath, "utf8"), /private-installer-token|Task Graph|existing\.sqlite/);
 
   await installLauncher({
+    graphPath: "/Users/test/Task Graph",
+    graphId: "logseq",
+  }, {
+    homeDirectory: home,
+    userId: 501,
+    nodeExecutable: "/opt/node/bin/node",
+    payloadRoot,
+    launchAgentsRoot: launchAgents,
+    createToken: () => "must-not-replace-the-existing-token",
+    findPort: async () => 19_674,
+    runLaunchctl: async (args, tolerateFailure) => { calls.push({ args, ...(tolerateFailure ? { tolerateFailure } : {}) }); },
+    waitForReady: async () => undefined,
+  });
+  const reinstalled = JSON.parse(await readFile(configPath, "utf8")) as { graphs: Array<{ graphKey: string; graphId: string; databasePath: string }> };
+  assert.deepEqual(reinstalled.graphs, [{ graphId: "logseq", databasePath: join(root, "existing.sqlite"), graphKey: (config.graphs as Array<{ graphKey: string }>)[0]!.graphKey }]);
+
+  await installLauncher({
     graphPath: "/Users/test/Second Graph",
     graphId: "logseq-second",
     databasePath: join(root, "second.sqlite"),
@@ -108,7 +125,7 @@ test("installer creates one private Graph-bound runtime and bootstraps the exact
   assert.equal(updated.listenPort, 19_673);
   assert.equal(updated.graphs.length, 2);
   assert.deepEqual(updated.provider, config.provider);
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 6);
 });
 
 test("installer rejects relative authority paths before writing or invoking launchctl", async () => {

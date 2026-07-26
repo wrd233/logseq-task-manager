@@ -37,8 +37,11 @@ overall_goal: IN_PROGRESS
   non-blocking bootstrap + `onGraphAfterIndexed`/`onRouteChanged` 恢复；真实隐藏 reload 后
   不打开面板等待 25 秒，owned Service 仍由新 lease 保持，首次打开即 READY。Graph switch
   视觉 Gate 仍 OPEN；`4dfe014` 又在真实 Logseq reload 后验证“更多”只显示本次使用与
-  用户维护语义，不再向日常界面暴露 Launcher/Service/Commit/SQLite；`e8db32f` 进一步
-  用当前 Desktop 完成确认结束→安全只读→重新启动→系统健康链，修复主动结束误报知识库
+  用户维护语义，不再向日常界面暴露 Launcher/Service/Commit/SQLite。真实重装又发现同一
+  Graph 省略 `--database` 会把既有数据库 authority 静默换到默认路径；
+  运行映射已立即恢复，安装器现优先保留同一 graphKey 的既有 databasePath，只有首次安装或
+  用户显式给出新绝对路径才改变。Launcher 29/29 与根级 Gate 通过；`e8db32f` 进一步用当前
+  Desktop 完成确认结束→安全只读→重新启动→系统健康链，修复主动结束误报知识库
   不匹配和 lease release 窗口错误闪烁；结束态只有一个主结论与重新启动动作，重启后
   formal writes true、`0/0/0`；
 - P0-E 四项主导航：主入口已收束为“现在 / 待我确认 / 项目 / 更多”；Project
