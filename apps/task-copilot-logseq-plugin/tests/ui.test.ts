@@ -1350,6 +1350,29 @@ test("Project current interface Review has dedicated Commit and version-safe Und
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
 });
 
+test("MEDIUM Project narration uses the dedicated Project interface Commit and Undo controls", () => {
+  const value = model();
+  value.workspace = "review";
+  value.reviewMode = "proposals";
+  const previousStructure = { objectives: [], deliverables: [], workStages: [], currentSummary: "待明确目标。", currentFocuses: ["明确下一步"], stageMappings: [] };
+  const structure = { ...previousStructure, currentSummary: "目标仍待明确，当前先梳理下一步。" };
+  value.v2Proposals = [{ updatedAt: "2026-07-26T00:15:00.000Z", files: { proposalMd: "# Narration", proposalJson: "{}" }, proposal: {
+    proposalId: "prop-project-narration", schemaVersion: "v2", title: "更新 Project 当前摘要", context: "使用有界 Context Package。", understanding: "只压缩当前理解。", objective: "降低重入成本。", logic: "结构字段保持不变。", finalPreview: structure.currentSummary, unresolvedQuestions: [], source: { kind: "local_llm" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "project-1", version: 2 }] }, preconditions: [],
+    groups: [{ groupId: "update-project-narration", explanation: "只替换摘要。", risk: "MEDIUM", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{
+      operationId: "update-project-narration", kind: "UPDATE_PROJECT_NARRATION", target: { kind: "OBJECT", id: "project-1", version: 2 }, summary: "更新 Project 当前摘要", payload: { previousProjectStructure: previousStructure, projectStructure: structure }, preconditions: [],
+    }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-26T00:14:00.000Z",
+  } }];
+
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-project-structure-commit"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-narration", proposalId: "prop-project-narration", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-26T00:14:00.000Z", updatedAt: "2026-07-26T00:15:00.000Z" }];
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-project-structure-undo"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
+});
+
 test("Project creation Review uses the proposal-bound Page creation confirmation and never falls through to Block Commit", () => {
   const value = model();
   value.workspace = "review"; value.reviewMode = "proposals";

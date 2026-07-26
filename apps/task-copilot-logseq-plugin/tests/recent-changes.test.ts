@@ -261,3 +261,36 @@ test("reviewed Project creation uses its Page-aware Undo and folds the inverse l
   assert.equal(undone[0]!.primaryAction, undefined);
   assert.equal(undone[0]!.availability, "撤销已经生效，历史证据仍保留。");
 });
+
+test("applied Project narration routes to the Project interface inverse instead of generic Block Undo", () => {
+  const previousProjectStructure = {
+    objectives: [],
+    deliverables: [],
+    workStages: [],
+    currentSummary: "待明确目标。",
+    currentFocuses: ["明确目标与下一步"],
+    stageMappings: [],
+  };
+  const narration = {
+    operationId: "update-project-narration",
+    kind: "UPDATE_PROJECT_NARRATION" as const,
+    target: { kind: "OBJECT" as const, id: "project-1", version: 2 },
+    summary: "更新 Project 当前摘要",
+    payload: {
+      previousProjectStructure,
+      projectStructure: { ...previousProjectStructure, currentSummary: "目标仍待明确，当前先梳理下一步。" },
+    },
+    preconditions: [],
+  };
+  const changes = projectRecentChanges({
+    proposals: [proposal("proposal-1", narration)],
+    commits: [commit("proposal-commit:narration", "COMPLETED")],
+  });
+
+  assert.deepEqual(changes[0]!.primaryAction, {
+    action: "v2-project-structure-undo",
+    label: "撤销",
+    value: "proposal-commit:narration",
+    tone: "danger",
+  });
+});

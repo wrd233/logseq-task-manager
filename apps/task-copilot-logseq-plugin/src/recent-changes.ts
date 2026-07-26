@@ -122,7 +122,8 @@ function proposalUndoAction(
     return { action: "v2-project-creation-undo", label: "撤销", value: semanticCommitId, tone: "danger" };
   }
   if (acceptedOperations.some((operation) => (
-    operation.kind === "UPDATE_PROJECT_INTERFACE" && "projectStructure" in operation.payload
+    (operation.kind === "UPDATE_PROJECT_INTERFACE" || operation.kind === "UPDATE_PROJECT_NARRATION")
+    && "projectStructure" in operation.payload
   ))) {
     return { action: "v2-project-structure-undo", label: "撤销", value: semanticCommitId, tone: "danger" };
   }
