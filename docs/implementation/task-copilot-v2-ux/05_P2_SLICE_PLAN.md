@@ -262,7 +262,7 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 
 ## P2-E：Closure 证据起草
 
-状态：`IN_PROGRESS_USER_CONFIRMED_PROPOSAL_AUTOMATED_REAL_MODEL_PASS_PLUGIN_FORMAL_CHAIN_OPEN`
+状态：`IN_PROGRESS_PLUGIN_USER_CONFIRMED_DRAFT_AUTOMATED_REAL_MODEL_PASS_DESKTOP_FORMAL_CHAIN_OPEN`
 
 MiniProject 聚合：子树、DONE、Output、Decision、原状态和遗留。
 
@@ -300,8 +300,13 @@ SemanticCommit 为 0。更新后的脱敏 Flash Gate 又以不含直接归属 De
 `logs/p2-e-project-closure-user-confirmed-automated-20260726.md` 与
 `logs/p2-e-project-closure-provider-live-20260726.md`。Plugin
 loading/error/stale、最终阅读、HIGH Review/Commit/Recovery/Undo 与当前 Desktop
-仍 OPEN，因此 P2-E 仍为 Partial。Local Service `144/144`、Service Client `12/12`、
-typecheck 与根级 `./scripts/check.sh` PASS。
+仍 OPEN，因此 P2-E 仍为 Partial。Plugin 已进一步接入同一条公共 route：只读证据后按
+实际 Objective 数量动态收集用户判断，只有一个“整理为待确认的关闭建议”主动作；
+Provider unavailable、busy、NO_PROPOSAL、stale、Validator rejection 都在同一现场表达，
+失败后保留当前会话输入，成功后直接进入既有 HIGH Review。Plugin `278/278` 与 build PASS；
+该可见链尚未完成最新 Desktop Gate。Local Service `144/144`、Service Client `12/12`、
+typecheck 与根级 `./scripts/check.sh` PASS。见
+`logs/p2-e-project-closure-plugin-draft-automated-20260726.md`。
 
 ## P2-F：跨对象观察
 

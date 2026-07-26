@@ -563,8 +563,41 @@ test("Project current interface is readable in reentry and editable only through
   assert.match(closureEvidence, /每个目标仍需判断[\s\S]*恢复演练通过/);
   assert.match(closureEvidence, /尚未收口的工作[\s\S]*完成恢复验收/);
   assert.match(closureEvidence, /目前无法确认[\s\S]*没有直接归属 Decision 证据/);
-  assert.match(closureEvidence, /HIGH Review、最终确认、Commit 与恢复边界/);
+  assert.match(closureEvidence, /确认项目如何结束/);
+  assert.match(closureEvidence, /data-field="projectClosureActualResult"/);
+  assert.match(closureEvidence, /data-field="projectClosureObjectiveDisposition:0"/);
+  assert.match(closureEvidence, /data-field="projectClosureObjectiveReason:0"/);
+  assert.match(closureEvidence, /data-field="projectClosureObjectiveNextStep:0"/);
+  assert.match(closureEvidence, /data-field="projectClosureLegacyDisposition"/);
+  assert.match(closureEvidence, /data-field="projectClosureKeyDecisions"/);
+  assert.match(closureEvidence, /data-field="projectClosureFutureSummary"/);
+  assert.match(closureEvidence, /data-action="submit-v2-project-closure-draft"[^>]*disabled/);
   assert.doesNotMatch(closureEvidence, /data-action="v2-project-closure-commit"/);
+  value.v2ProjectClosureProposalAvailable = true;
+  const closureReady = renderApp(value);
+  assert.match(closureReady, /data-action="submit-v2-project-closure-draft"/);
+  assert.doesNotMatch(closureReady, /data-action="submit-v2-project-closure-draft"[^>]*disabled/);
+  assert.match(closureReady, /Copilot 只能压缩这些确认，不得替你改变判断/);
+  value.v2ProjectClosureProposalBusy = true;
+  const closureBusy = renderApp(value);
+  assert.match(closureBusy, /正在整理关闭建议/);
+  assert.match(closureBusy, /aria-live="polite"/);
+  value.v2ProjectClosureProposalBusy = false;
+  value.v2ProjectClosureProposalMessage = "Project 已变化；旧证据已作废。";
+  assert.match(renderApp(value), /role="alert"[\s\S]*旧证据已作废/);
+  value.v2ProjectClosureDraftFields = {
+    projectClosureActualResult: "已经填写的实际结果",
+    "projectClosureObjectiveDisposition:0": "INCOMPLETE",
+    "projectClosureObjectiveReason:0": "已经填写的未完成原因",
+    "projectClosureObjectiveNextStep:0": "已经填写的后续动作",
+    projectClosureLegacyDisposition: "完成恢复验收继续作为明确遗留。",
+    projectClosureKeyDecisions: "已经填写的关键决定",
+    projectClosureFutureSummary: "已经填写的未来摘要",
+  };
+  const preserved = renderApp(value);
+  for (const text of ["已经填写的实际结果", "已经填写的未完成原因", "已经填写的后续动作", "已经填写的关键决定", "已经填写的未来摘要"]) {
+    assert.match(preserved, new RegExp(text));
+  }
   value.actionDialog = { kind: "v2-project-structure-edit", value: "project-structure|2" };
   const dialog = renderApp(value);
   assert.match(dialog, /生成 HIGH Proposal/);

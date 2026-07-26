@@ -7,7 +7,7 @@ import type {
 } from "@task-copilot/application";
 import { routeProjectOperation } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
-import type { ServiceConditionUndoPreparation, ServiceMigrationRun, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceConditionUndoPreparation, ServiceMigrationRun, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
@@ -155,6 +155,11 @@ export interface UiModel {
   v2ProjectNarrationBusy?: boolean;
   v2ProjectClosureEvidenceBusy?: boolean;
   v2ProjectClosureEvidence?: ServiceProjectClosureEvidenceDraft;
+  v2ProjectClosureProposalAvailable?: boolean;
+  v2ProjectClosureProposalBusy?: boolean;
+  v2ProjectClosureProposalMessage?: string;
+  v2ProjectClosureUserJudgments?: ServiceProjectClosureUserJudgments;
+  v2ProjectClosureDraftFields?: Record<string, string>;
   v2LowRiskApplyBusyProposalId?: string;
   reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
@@ -897,6 +902,27 @@ function renderActionDialog(model: UiModel): string {
     const unknowns = evidence.unknowns.length
       ? `<section><h4>目前无法确认</h4><ul>${evidence.unknowns.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul></section>`
       : "";
+    const confirmed = model.v2ProjectClosureUserJudgments;
+    const draft = model.v2ProjectClosureDraftFields;
+    const objectiveInputs = evidence.objectiveJudgments.map(({ objective, evidence: objectiveEvidence }, index) => {
+      const disposition = confirmed?.objectiveDispositions.find((item) => item.objectiveId === objective.objectiveId);
+      const incomplete = disposition?.disposition === "INCOMPLETE" ? disposition : undefined;
+      const draftDisposition = draft?.[`projectClosureObjectiveDisposition:${index}`];
+      const selectedDisposition = draftDisposition === "COMPLETED" || draftDisposition === "INCOMPLETE"
+        ? draftDisposition
+        : disposition?.disposition ?? "INCOMPLETE";
+      return `<fieldset><legend>${escapeHtml(objective.text)}</legend><p class="muted">${objectiveEvidence.length ? `已有证据：${objectiveEvidence.map(({ text }) => escapeHtml(text)).join("；")}` : "当前没有声明成功证据；系统不会推断完成。"}</p><label>这项目标<select data-field="projectClosureObjectiveDisposition:${index}"><option value="INCOMPLETE"${selectedDisposition === "INCOMPLETE" ? " selected" : ""}>仍未完成</option><option value="COMPLETED"${selectedDisposition === "COMPLETED" ? " selected" : ""}>已经完成</option></select></label><label>若未完成，原因<textarea data-field="projectClosureObjectiveReason:${index}" placeholder="例如：历史回放样本仍未取得">${escapeHtml(draft?.[`projectClosureObjectiveReason:${index}`] ?? incomplete?.reason ?? "")}</textarea></label><label>若未完成，明确后续<textarea data-field="projectClosureObjectiveNextStep:${index}" placeholder="例如：取得样本后完成回放并重新核对">${escapeHtml(draft?.[`projectClosureObjectiveNextStep:${index}`] ?? incomplete?.nextStep ?? "")}</textarea></label></fieldset>`;
+    }).join("");
+    const legacyDefault = evidence.unresolvedWork.length
+      ? `${evidence.unresolvedWork.map(({ text }) => text).join("；")}继续作为明确遗留，不在关闭时丢弃。`
+      : "没有遗留工作。";
+    const decisionDefault = draft?.projectClosureKeyDecisions ?? confirmed?.keyDecisions.join("\n") ?? evidence.decisionCandidates.map(({ text }) => text).join("\n");
+    const proposalStatus = model.v2ProjectClosureProposalBusy
+      ? `<div class="notice" aria-live="polite">正在整理关闭建议；Project、正文和正式状态仍未改变。</div>`
+      : model.v2ProjectClosureProposalMessage
+        ? `<div class="notice error" role="alert">${escapeHtml(model.v2ProjectClosureProposalMessage)}</div>`
+        : "";
+    const proposalDisabled = model.v2ProjectClosureProposalAvailable !== true || model.v2ProjectClosureProposalBusy === true;
     return `<section class="inbox-dialog action-dialog project-closure-evidence" aria-label="Project Closure 证据预览"><div class="eyebrow">只读证据 · 尚未形成 Proposal</div><h3>先核对完成证据</h3><p>${escapeHtml(evidence.project.text)}</p><p class="muted">这里只展示正式 Project interface 与直接 Primary Ownership 的候选证据；不会把普通关联、孙级对象或模型判断当成成果。</p>
       ${list("原目标候选", evidence.goalCandidates, "当前没有 Objective，原目标仍未知。")}
       ${list("交付与 Output 候选", evidence.deliverableCandidates, "当前没有可用的正式交付证据。")}
@@ -904,8 +930,16 @@ function renderActionDialog(model: UiModel): string {
       ${list("已完成工作候选", evidence.completedWorkCandidates, "当前没有直接归属且已完成的 Task/MiniProject。")}
       ${objectiveJudgments}${unresolved}${unknowns}
       <section><h4>仍需你判断</h4><ul>${evidence.userJudgments.map(({ reason }) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></section>
-      <div class="notice">下一阶段才会让 Copilot 基于这些证据起草 Closure，并继续经过 HIGH Review、最终确认、Commit 与恢复边界。</div>
-      <div class="actions">${cancel}</div></section>`;
+      <section class="project-closure-judgments"><h3>确认项目如何结束</h3><p class="muted">只补证据无法决定的内容；这些判断只在当前会话用于建立待审建议。Copilot 只能压缩这些确认，不得替你改变判断。</p>
+        <label>实际结果<textarea data-field="projectClosureActualResult" placeholder="这次真正交付或改变了什么？">${escapeHtml(draft?.projectClosureActualResult ?? confirmed?.actualResult ?? "")}</textarea></label>
+        ${objectiveInputs}
+        <label>遗留如何承接<textarea data-field="projectClosureLegacyDisposition">${escapeHtml(draft?.projectClosureLegacyDisposition ?? confirmed?.legacyDisposition ?? legacyDefault)}</textarea></label>
+        <label>本次确认的关键决定（每行一项）<textarea data-field="projectClosureKeyDecisions" placeholder="即使没有正式 Decision 对象，也请记录关闭时必须保留的决定">${escapeHtml(decisionDefault)}</textarea></label>
+        <label>未来重入先看什么<textarea data-field="projectClosureFutureSummary" placeholder="用一小段话告诉未来的自己先核对什么">${escapeHtml(draft?.projectClosureFutureSummary ?? confirmed?.futureSummary ?? "")}</textarea></label>
+      </section>
+      ${proposalStatus}
+      ${model.v2ProjectClosureProposalAvailable === true ? "" : `<p class="muted">当前 Provider 或正式审阅链不可用；仍可阅读证据，但不能建立关闭建议。</p>`}
+      <div class="actions">${button(model.v2ProjectClosureProposalBusy ? "正在整理关闭建议…" : "整理为待确认的关闭建议", "submit-v2-project-closure-draft", dialog.value, "primary", proposalDisabled)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-project-structure-edit") {
     const [objectId] = dialog.value.split("|");

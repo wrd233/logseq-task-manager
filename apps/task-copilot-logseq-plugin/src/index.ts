@@ -36,6 +36,7 @@ import type {
   LocalServiceClient,
   ServiceNowWork,
   ServiceProjectClosureEvidenceDraft,
+  ServiceProjectClosureUserJudgments,
   ServiceSemanticCommit,
   ServiceStoredProposal,
 } from "@task-copilot/service-client";
@@ -78,6 +79,7 @@ import { checksum, StructuredError } from "@task-copilot/shared";
 import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-intervention.ts";
 import { managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
 import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE_SYNTAX, type SlashCreateObjectType } from "./slash-create-command.ts";
+import { projectClosureProposalFailure, readProjectClosureUserJudgments } from "./project-closure-input.ts";
 import { OriginRouteController, type OriginRouteToken } from "./origin-route-controller.ts";
 import type { OriginReturnTarget } from "./origin-route-controller.ts";
 import { readSelectedBlockForAnalysis, SelectedBlockAnalysisTarget } from "./selected-block-analysis.ts";
@@ -202,6 +204,10 @@ let v2ProviderRevisionBusy = false;
 let v2ProjectNarrationBusy = false;
 let v2ProjectClosureEvidenceBusy = false;
 let v2ProjectClosureEvidence: ServiceProjectClosureEvidenceDraft | undefined;
+let v2ProjectClosureProposalBusy = false;
+let v2ProjectClosureProposalMessage: string | undefined;
+let v2ProjectClosureUserJudgments: ServiceProjectClosureUserJudgments | undefined;
+let v2ProjectClosureDraftFields: Record<string, string> | undefined;
 const projectContextRecoveryController = new ProjectContextRecoveryController(
   () => ({
     ...(serviceRuntimeClient ? { client: serviceRuntimeClient } : {}),
@@ -570,6 +576,14 @@ async function model(): Promise<UiModel> {
     v2ProjectNarrationBusy,
     v2ProjectClosureEvidenceBusy,
     ...(v2ProjectClosureEvidence ? { v2ProjectClosureEvidence } : {}),
+    v2ProjectClosureProposalAvailable: serviceConnection.status === "READY"
+      && serviceConnection.formalWritesAvailable
+      && serviceConnection.capabilities.provider
+      && Boolean(serviceRuntimeClient?.createProjectClosureProposal),
+    v2ProjectClosureProposalBusy,
+    ...(v2ProjectClosureProposalMessage ? { v2ProjectClosureProposalMessage } : {}),
+    ...(v2ProjectClosureUserJudgments ? { v2ProjectClosureUserJudgments } : {}),
+    ...(v2ProjectClosureDraftFields ? { v2ProjectClosureDraftFields } : {}),
     ...(v2LowRiskApplyBusyProposalId ? { v2LowRiskApplyBusyProposalId } : {}),
     reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
@@ -733,6 +747,10 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
   if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间中断；旧请求已取消或结果未知，请重启 Service 后刷新审阅队列。" };
   v2ProjectClosureEvidence = undefined;
+  v2ProjectClosureProposalBusy = false;
+  v2ProjectClosureProposalMessage = undefined;
+  v2ProjectClosureUserJudgments = undefined;
+  v2ProjectClosureDraftFields = undefined;
   projectContextRecoveryController.clear();
   miniProjectGrillController.clear();
   projectCreationGrillController.clear();
@@ -1978,6 +1996,9 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const [objectId, rawVersion] = value.split("|");
     const expectedVersion = Number(rawVersion);
     v2ProjectClosureEvidenceBusy = true;
+    v2ProjectClosureProposalMessage = undefined;
+    v2ProjectClosureUserJudgments = undefined;
+    v2ProjectClosureDraftFields = undefined;
     try {
       await refresh();
       await run(async () => {
@@ -1990,6 +2011,93 @@ async function handleAction(action: string, value?: string): Promise<void> {
       });
     } finally {
       v2ProjectClosureEvidenceBusy = false;
+      await refresh();
+    }
+    return;
+  }
+  if (action === "submit-v2-project-closure-draft" && value) {
+    if (v2ProjectClosureProposalBusy) return;
+    const evidence = v2ProjectClosureEvidence;
+    const [objectId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    if (
+      !evidence
+      || evidence.project.objectId !== objectId
+      || evidence.project.version !== expectedVersion
+    ) {
+      v2ProjectClosureProposalMessage = "Closure 证据已失效；请重新整理证据。";
+      await refresh();
+      return;
+    }
+    const draftFieldNames = [
+      "projectClosureActualResult",
+      "projectClosureLegacyDisposition",
+      "projectClosureKeyDecisions",
+      "projectClosureFutureSummary",
+      ...evidence.objectiveJudgments.flatMap((_, index) => [
+        `projectClosureObjectiveDisposition:${index}`,
+        `projectClosureObjectiveReason:${index}`,
+        `projectClosureObjectiveNextStep:${index}`,
+      ]),
+    ];
+    v2ProjectClosureDraftFields = Object.fromEntries(draftFieldNames.map((name) => [name, dialogField(name)]));
+    let userJudgments;
+    try {
+      userJudgments = readProjectClosureUserJudgments(evidence, (name) => v2ProjectClosureDraftFields?.[name] ?? "");
+    } catch (error) {
+      v2ProjectClosureProposalMessage = explain(error);
+      await refresh();
+      return;
+    }
+    v2ProjectClosureUserJudgments = userJudgments;
+    v2ProjectClosureProposalBusy = true;
+    v2ProjectClosureProposalMessage = undefined;
+    await refresh();
+    try {
+      const client = serviceRuntimeClient;
+      if (
+        !client?.createProjectClosureProposal
+        || serviceConnection.status !== "READY"
+        || !serviceConnection.formalWritesAvailable
+        || !serviceConnection.capabilities.provider
+        || !objectId
+        || !Number.isSafeInteger(expectedVersion)
+      ) {
+        v2ProjectClosureProposalMessage = "Provider 或正式审阅链当前不可用；没有建立关闭建议。";
+        return;
+      }
+      const current = (await client.listObjects()).find((object) => object.objectId === objectId);
+      if (
+        !current
+        || current.objectType !== "PROJECT"
+        || current.lifecycle !== "OPEN"
+        || current.version !== expectedVersion
+      ) {
+        v2ProjectClosureProposalMessage = "Project 已变化、关闭或不存在；旧证据已作废，请重新整理证据。";
+        return;
+      }
+      const result = await client.createProjectClosureProposal(objectId, {
+        expectedVersion,
+        userJudgments,
+      });
+      if (result.kind === "NO_PROPOSAL") {
+        v2ProjectClosureProposalMessage = "Copilot 没有形成可审阅的关闭建议；请核对上述判断后重试。Project 和正文未改变。";
+        return;
+      }
+      v2ProjectClosureEvidence = undefined;
+      v2ProjectClosureProposalMessage = undefined;
+      v2ProjectClosureUserJudgments = undefined;
+      v2ProjectClosureDraftFields = undefined;
+      actionDialog = undefined;
+      workspace = "review";
+      reviewMode = "proposals";
+      message = result.replayed
+        ? "已打开同一证据与判断下的关闭建议；Project 和正文仍未改变。"
+        : "关闭建议已进入“待我确认”；请先阅读最终结果，再单独接受并完成 Project。";
+    } catch (error) {
+      v2ProjectClosureProposalMessage = projectClosureProposalFailure(error);
+    } finally {
+      v2ProjectClosureProposalBusy = false;
       await refresh();
     }
     return;
@@ -2815,6 +2923,9 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (actionDialog?.kind === "v2-mini-project-grill") miniProjectGrillController.clear();
     if (actionDialog?.kind === "v2-project-creation-grill") projectCreationGrillController.clear();
     if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureEvidence = undefined;
+    if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureProposalMessage = undefined;
+    if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureUserJudgments = undefined;
+    if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureDraftFields = undefined;
     v2ClosureDraftInput = undefined;
     actionDialog = undefined;
     pageContext = undefined;
@@ -3297,6 +3408,10 @@ async function handleCurrentGraphChanged(): Promise<void> {
   actionDialog = undefined;
   v2ConditionUndoPreparation = undefined;
   v2ProjectClosureEvidence = undefined;
+  v2ProjectClosureProposalBusy = false;
+  v2ProjectClosureProposalMessage = undefined;
+  v2ProjectClosureUserJudgments = undefined;
+  v2ProjectClosureDraftFields = undefined;
   v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   attentionShadowSession.clear();

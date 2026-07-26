@@ -555,8 +555,12 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   脱敏 real Flash Gate 不再构造 Decision Ownership，使用 3 read/1 modify，1 attempt、
   约 22.6 秒、5648 tokens PASS，用户判断未被模型改写且前台无机器 identity。该证据仍是
   `MODEL_CONTRACT_ONLY`，Plugin 最终阅读、loading/error/stale、HIGH Review/Commit、
-  Recovery/Undo 与当前 Desktop 未完成。Local Service `144/144`、Service Client `12/12`
-  与根级 `./scripts/check.sh` PASS；
+  Recovery/Undo 与当前 Desktop 未完成。Plugin 随后接入用户确认入口：证据与真实判断保持
+  同屏，Objective 输入按正式数量动态生成；唯一主动作建立待审 Closure，成功后进入现有
+  HIGH Review，失败、NO_PROPOSAL、stale 和 Provider unavailable 留在同一现场并保留已填
+  session 内容。UI 不展示 Objective ID、scope hash 或 Provider 原始错误。Plugin
+  `278/278`、build PASS；该 UI 仍需当前 commit 的真实 Desktop Gate。Local Service
+  `144/144`、Service Client `12/12` 与根级 `./scripts/check.sh` PASS；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -566,10 +570,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-E：把已通过自动与真实模型 Gate 的 session-only 用户确认接入 Plugin，形成
-   evidence 阅读 → 真实判断 → loading/error/stale → 最终阅读 → PENDING/HIGH Review，
-   随后闭环 Commit/reload/Recovery/Undo 与来源返回；不得通过扩张 Primary Ownership 或
-   伪造直属 Decision 来制造 happy-path；
+1. 继续 P2-E Desktop：验证已接入的 evidence 阅读 → 真实判断 → loading/error/stale →
+   最终阅读 → PENDING/HIGH Review，随后闭环 Commit/reload/Recovery/Undo 与来源返回；
+   不得通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
 2. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
    把 Ownership、正文移动、批量子对象与拆分合并的既有安全链逐项映射到当前影响路由；
 3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
