@@ -46,6 +46,7 @@ test("manager starts one shell-free Graph-bound Service and shares it across liv
     serviceEntryPath: "/opt/task-copilot/service.js",
     runtimeRoot: "/Users/test/Task Copilot/runtime",
     leaseTtlMs: 15_000,
+    assertServiceStartAllowed: async () => undefined,
   }, async (input) => {
     starts.push(input);
     const child = new FakeChild();
@@ -93,6 +94,7 @@ test("expired Plugin leases stop their owned Service while a heartbeat preserves
     serviceEntryPath: "/opt/task-copilot/service.js",
     runtimeRoot: "/Users/test/Task Copilot/runtime",
     leaseTtlMs: 5_000,
+    assertServiceStartAllowed: async () => undefined,
   }, async () => ({ child, descriptor }), () => now);
 
   const session = await manager.ensure({ graphKey: graph.graphKey, clientInstanceId: "plugin-a" });
@@ -103,6 +105,44 @@ test("expired Plugin leases stop their owned Service while a heartbeat preserves
   assert.equal(child.stopped, false);
   now = new Date("2026-07-24T00:00:10.000Z");
   await manager.reapExpired();
+  assert.equal(child.stopped, true);
+});
+
+test("reap rechecks a lease heartbeat after waiting for the Graph lifecycle gate", async () => {
+  let now = new Date("2026-07-24T00:00:00.000Z");
+  let checkCount = 0;
+  let releaseCheck!: () => void;
+  const checkGate = new Promise<void>((resolve) => { releaseCheck = resolve; });
+  let secondCheckEntered!: () => void;
+  const secondCheck = new Promise<void>((resolve) => { secondCheckEntered = resolve; });
+  const child = new FakeChild();
+  const manager = new GraphServiceManager({
+    graphs: [graph],
+    serviceEntryPath: "/opt/task-copilot/service.js",
+    runtimeRoot: "/Users/test/Task Copilot/runtime",
+    leaseTtlMs: 5_000,
+    assertServiceStartAllowed: async () => {
+      checkCount += 1;
+      if (checkCount !== 2) return;
+      secondCheckEntered();
+      await checkGate;
+    },
+  }, async () => ({ child, descriptor }), () => now);
+
+  const first = await manager.ensure({ graphKey: graph.graphKey, clientInstanceId: "plugin-a" });
+  now = new Date("2026-07-24T00:00:10.000Z");
+  const ensuringSecond = manager.ensure({ graphKey: graph.graphKey, clientInstanceId: "plugin-b" });
+  await secondCheck;
+  const reaping = manager.reapExpired();
+  manager.heartbeat(first.leaseId);
+  releaseCheck();
+  const second = await ensuringSecond;
+  await reaping;
+
+  assert.doesNotThrow(() => manager.heartbeat(first.leaseId));
+  assert.equal(child.stopped, false);
+  await manager.release(first.leaseId);
+  await manager.release(second.leaseId);
   assert.equal(child.stopped, true);
 });
 

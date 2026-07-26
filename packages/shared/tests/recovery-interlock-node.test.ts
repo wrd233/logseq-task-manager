@@ -118,6 +118,44 @@ test("mutation lock makes compare-and-replace exclusive and initial arm never cl
   await clearRestoreRecoveryInterlock(databasePath, required);
 });
 
+test("an absent read holds the mutation lock so an ARMED writer cannot slip through startup inspection", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-restore-interlock-read-race-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const databasePath = join(root, "task-copilot.sqlite");
+  await writeFile(databasePath, "placeholder", { mode: 0o600 });
+  const armed = {
+    schemaVersion: 1 as const,
+    status: "ARMED" as const,
+    graphId: "graph-read-race",
+    recoveryBackupId: "backup_20260726172000000_cccccccccccccccccccccccccccccccc",
+    createdAt: "2026-07-26T17:20:00.000Z",
+  };
+  let releaseRead!: () => void;
+  const readGate = new Promise<void>((resolve) => { releaseRead = resolve; });
+  let readLocked!: () => void;
+  const locked = new Promise<void>((resolve) => { readLocked = resolve; });
+  const reading = readRestoreRecoveryInterlock(databasePath, {
+    afterLock: async () => {
+      readLocked();
+      await readGate;
+    },
+  });
+
+  await locked;
+  await assert.rejects(
+    () => armRestoreRecoveryInterlock(databasePath, armed),
+    /RESTORE_RECOVERY_INTERLOCK_BUSY/,
+  );
+  releaseRead();
+  assert.equal(await reading, undefined);
+  await armRestoreRecoveryInterlock(databasePath, armed);
+  await assert.rejects(
+    () => assertRestoreRecoveryInterlockClear(databasePath, "graph-read-race"),
+    /RESTORE_RECOVERY_ARMED/,
+  );
+  await clearRestoreRecoveryInterlock(databasePath, armed);
+});
+
 test("Restore interlocks isolate two database files that share one data directory", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-restore-interlock-multi-db-"));
   t.after(() => rm(root, { recursive: true, force: true }));

@@ -56,16 +56,6 @@ function mutationLockPath(databasePath: string): string {
   return `${restoreRecoveryInterlockPath(databasePath)}.lock`;
 }
 
-async function assertMutationIdle(databasePath: string): Promise<void> {
-  try {
-    await lstat(mutationLockPath(databasePath));
-    throw interlockError("RESTORE_RECOVERY_INTERLOCK_BUSY");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return;
-    throw error;
-  }
-}
-
 async function readInterlockUnlocked(path: string): Promise<RestoreRecoveryInterlock | undefined> {
   try {
     const metadata = await lstat(path);
@@ -82,11 +72,12 @@ async function readInterlockUnlocked(path: string): Promise<RestoreRecoveryInter
 
 export async function readRestoreRecoveryInterlock(
   databasePath: string,
+  testOnly?: { afterLock?: () => void | Promise<void> },
 ): Promise<RestoreRecoveryInterlock | undefined> {
-  await assertMutationIdle(databasePath);
-  const record = await readInterlockUnlocked(restoreRecoveryInterlockPath(databasePath));
-  await assertMutationIdle(databasePath);
-  return record;
+  return withMutationLock(databasePath, async () => {
+    await testOnly?.afterLock?.();
+    return readInterlockUnlocked(restoreRecoveryInterlockPath(databasePath));
+  });
 }
 
 export async function assertRestoreRecoveryInterlockClear(

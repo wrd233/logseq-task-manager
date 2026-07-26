@@ -152,8 +152,22 @@ export class GraphServiceManager {
 
   async reapExpired(): Promise<void> {
     const cutoff = this.now().getTime() - this.config.leaseTtlMs;
-    const expired = [...this.leases.entries()].filter(([, lease]) => lease.heartbeatAt <= cutoff).map(([leaseId]) => leaseId);
-    for (const leaseId of expired) await this.release(leaseId);
+    const expired = [...this.leases.entries()]
+      .filter(([, lease]) => lease.heartbeatAt <= cutoff)
+      .map(([leaseId, lease]) => ({ leaseId, graphKey: lease.graphKey }));
+    for (const candidate of expired) {
+      await this.serializeGraphLifecycle(candidate.graphKey, async () => {
+        const lease = this.leases.get(candidate.leaseId);
+        if (!lease || lease.graphKey !== candidate.graphKey || lease.heartbeatAt > cutoff) return;
+        this.leases.delete(candidate.leaseId);
+        const runtime = this.runtimes.get(candidate.graphKey);
+        if (!runtime) return;
+        runtime.leaseIds.delete(candidate.leaseId);
+        if (runtime.leaseIds.size > 0) return;
+        this.runtimes.delete(candidate.graphKey);
+        await runtime.child.stop();
+      });
+    }
   }
 
   async close(): Promise<void> {
