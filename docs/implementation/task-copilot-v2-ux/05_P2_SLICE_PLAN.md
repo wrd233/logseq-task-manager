@@ -376,7 +376,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE`
 
 ### Recovery
 
@@ -523,6 +523,18 @@ Activation 正常主链从 Partial 变为 Done。`2beb1b5` 随后把 ACTIVATED �
 Backup/Restore 路由；完整 restart 的 CURRENT `p2-g-43` 已验证正式状态仍为
 `ACTIVATED`、objects 5、Pending 0。失败注入、Service 中断/不确定恢复与 Light/窄栏仍
 OPEN，Migration/P2-G/整体 Goal 不关闭。
+
+`f17f46a` 以既有 Local Service fault port 增加 test-only `afterMigrationImport` 钩子，
+自动证明 SQLite Import 原子提交后、HTTP 响应前故障时 ledger 已为 `IMPORTED`，相同
+idempotency replay 返回同一 batch，随后仍可 Verify，且无 PENDING/RECOVERY Commit。真实
+Logseq 0.10.15 又在专用 4 对象数据库克隆上完成同一 Gate：响应丢失后对象为 5，前台主结论
+要求“先以台账为准”，同屏 ledger 已给出唯一 Verify 动作；Plugin reload 后 session-only
+不确定态清除，正式 ledger 重建同一 `IMPORTED` batch；Verify 后 run/batch 均为
+`VERIFIED`，既有 HIGH Undo 后对象回到 4、run/batch 为 `PREVIEWED/UNDONE`。故障
+Launcher 停止后，正常 descriptor、LaunchAgent、7 对象原 authority 与用户系统状态 READY
+均恢复。CURRENT `p2-g-60`～`65`。该 post-write response-loss / Service interruption
+代表子 Gate 从 Partial 变为 Done；Verify failure、Activate failure 与 Light/窄栏仍 OPEN，
+Migration/P2-G/整体 Goal 不关闭。
 
 ## P2 完成否决条件
 

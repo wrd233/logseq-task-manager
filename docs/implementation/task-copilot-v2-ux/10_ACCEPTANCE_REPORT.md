@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash 代表链/custom binding PASS；中文 IME/受限视觉与 P0-K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-E 同一 receipt-backed Commit 中断→reload→续跑→reload→Undo→reload DONE；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚、真实连续双重失败→人工恢复→Doctor→清锁→正常 Launcher/reload 与 Migration Activation current build DONE | P2-D/E remaining；P2-E Provider error/stale；P2-F frontstage；P2-G Rebind guidance Desktop + Migration failure/interruption recovery/visual gates OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss PASS | P2-C/D/E 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo DONE；P2-G Restore 真实双失败人工恢复、Migration Activation 正常链及写后响应丢失→ledger reload→Verify→Undo DONE | P2-D/E remaining；P2-E Provider error/stale；P2-F frontstage；P2-G Rebind guidance、Migration Verify/Activate failure 与视觉 Gate OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -139,7 +139,8 @@
   真实连续双重故障又由 `fe0b590034ac` 的 `p2-g-55`～`59` 完成候选激活失败→自动回滚
   失败→无需 reload 出现人工恢复→HIGH 确认→Doctor/清锁→正常 Launcher/reload。活动库
   `7→6→7`，最终 Anchor conflict/Pending/Recovery `0/0/0`，database authority 未替换。
-  Migration failure/interruption recovery 和 Light/窄栏仍 OPEN。
+  Migration Import 写后响应丢失已由后述 `f17f46a` Gate 关闭；Verify/Activate failure
+  和 Light/窄栏仍 OPEN。
   `2eb6df1` 已以自动测试补齐
   Restore admission drain、Launcher single-spawn、`ARMED→RECOVERY_REQUIRED`、
   mutation lock/no-clobber/compare-and-clear、损坏与权限异常独立 fail-closed 叙述，以及
@@ -157,6 +158,13 @@
   `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`。`fe0b590034ac`
   随后用专用故障 Launcher 真实触发两段异常并关闭 no-reload 人工恢复入口缺口，最终
   `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`；没有新增恢复状态、入口或写入权威；
+- [x] Migration Import 写后响应丢失可从正式 ledger 续作：`f17f46a` 的 test-only
+  `afterMigrationImport` 自动证明原子写入、幂等 replay 和后续 Verify；真实 Desktop 又证明
+  UI 不猜测结果、要求“先以台账为准”，reload 后从同一 `IMPORTED` batch 重建 Verify，
+  Verify 后复用既有 HIGH Undo。隔离库 objects `4→5→4`，run/batch 最终
+  `PREVIEWED/UNDONE`，SemanticCommit `PENDING/RECOVERY_REQUIRED=0/0`；正常 7 对象
+  authority 与 LaunchAgent 已恢复。该勾选仅关闭 post-write response-loss / interruption
+  代表子 Gate，不代表 Migration Verify/Activate failure 或 P2-G 整体完成；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

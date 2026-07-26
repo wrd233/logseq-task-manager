@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -383,8 +383,8 @@ overall_goal: IN_PROGRESS
   bootstrap 正常 LaunchAgent 并 reload 后，Plugin exact build `fe0b590034ac`、Service
   formal writes、explicit sync 与系统状态均 READY；authority 仍指向原测试数据库，没有
   静默替换。真实 double-failure 子 Gate 因而升级为
-  `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`；Light/窄栏和 Migration failure/
-  interruption 仍 OPEN。完整记录见
+  `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`；Light/窄栏和 Migration
+  Verify/Activate failure 仍 OPEN，Import 写后响应丢失已由后述 Gate 关闭。完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
   `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md` 以及
   `logs/p2-g-restore-recovery-status-automated-20260726.md` 与
@@ -420,8 +420,14 @@ overall_goal: IN_PROGRESS
   Import/Undo/Activate 动作。Activation 正常主链从 Partial 变为 Done。`2beb1b5` 又把
   ACTIVATED 页面收敛为只读交接历史：新 Bundle scan、Review、Import、Undo 与 Activate
   全部退出，仅保留台账和 Backup/Restore 路由；完整 restart 的 CURRENT `p2-g-43`
-  仍为 ACTIVATED、objects 5、Pending 0。import/verify/activate 失败注入、Service 中断续跑
-  和视觉 Gate 仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
+  仍为 ACTIVATED、objects 5、Pending 0。`f17f46a` 随后关闭 Import 写后响应丢失代表 Gate：
+  专用测试库真实 `4→5` 后响应失败，前台不猜测结果而要求“先以台账为准”，同屏正式 ledger
+  已显示 `IMPORTED` 和唯一 Verify 动作；Plugin reload 后从 ledger 重建同一动作，Verify 后
+  run/batch 均为 `VERIFIED`，既有 HIGH Undo 又使对象 `5→4`、run/batch 回到
+  `PREVIEWED/UNDONE`，SemanticCommit Pending/Recovery 始终 `0/0`。故障运行时退出后，
+  正常 LaunchAgent、7 对象 authority 和用户系统状态 READY 均恢复。该
+  post-write response-loss / Service interruption 子 Gate 从 Partial 变为 Done；Verify
+  failure、Activate failure 和视觉 Gate 仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -447,8 +453,9 @@ Restore activation-failure automatic rollback + recovery-point + reload Desktop 
 Migration item Review/Preview Desktop DONE,
 Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
 Migration Activation normal main chain Desktop DONE,
+Migration post-write response-loss→ledger reload→Verify→Undo Desktop DONE,
 Rebind Recovery/Undo guidance AUTOMATED,
-Restore rollback-failure manual recovery chain AUTOMATED, Desktop + Migration failure/restart recovery/visual gates OPEN /
+Restore rollback-failure manual recovery chain Desktop DONE, Migration verify/activate failure and visual gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

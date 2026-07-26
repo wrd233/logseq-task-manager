@@ -19,6 +19,9 @@ Desktop 安全结束/重启证据；`p0-e-05`、`p0-h-08`、`p0-i-03` 是 `4dfe0
 `p2-g-55`～`59` 真实证明候选激活失败、自动回滚也失败、无需 Plugin reload 出现人工恢复、
 HIGH Review、Doctor/清锁、正常 Launcher 回切和 reload 健康。`p2-g-47`～`50` 降为
 `HISTORICAL` 受控前置条件证据，`p2-g-44`～`46` 仍只证明历史自动回滚阶段。
+P2-G Migration 写后响应丢失当前仓库证据为 `f17f46a`，Plugin artifact 为
+`757fac87d511`：`p2-g-60`～`65` 覆盖 HIGH Import、响应丢失后 ledger authority、
+Plugin reload 重建、Verify、安全 Undo 与正常 authority/Launcher 恢复。
 
 P0-H Graph switch 最新精确构建为 `ca50304e9aa2`。`p0-h-16`～`18` 分别证明未配置隔离
 Graph 首次显示时已安全受限、6 秒后仍不显示旧 Project，以及切回原 Graph 后约 3.75 秒
@@ -113,8 +116,9 @@ P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop G
 早先 `p2-g-01`～`06` 只保留为真实历史发现/安全拒绝证据。Rebind 纠错指引已完成自动
 Gate：选错正文再次进入受控 Rebind，整库回退才进入 Backup/Restore，不提供会复活
 missing/conflict 旧 Anchor 的通用 Undo；新成功态 Desktop 仍 OPEN。Restore 失败链和
-Migration 当时也未完成；Restore 失败链现已由后述 CURRENT `p2-g-44`～`46` 替代，
-但 Rebind 指引、Migration failure/recovery 与视觉 Gate 仍使 P2-G 和整体 Goal 保持
+Migration 当时也未完成；Restore 失败链现已由后述 CURRENT `p2-g-55`～`59` 替代，
+Migration Import 写后响应丢失也由 `p2-g-60`～`65` 关闭；但 Rebind 指引、
+Migration Verify/Activate failure 与视觉 Gate 仍使 P2-G 和整体 Goal 保持
 `IN_PROGRESS`。完整记录见
 `../logs/p2-g-rebind-desktop-live-20260726.md`。
 
@@ -210,6 +214,17 @@ HIGH 交接、缺确认零写、ACTIVATED 结果和完整 Logseq restart。V1 �
 Review、Import、Undo 或 Activate，只保留一次性交接的只读台账与 Backup/Restore 路由。
 完整 restart 的 CURRENT `p2-g-43` 取代 `p2-g-42` 中仍可见扫描入口的完成态布局；迁移
 失败/中断恢复与视觉 Gate 继续 OPEN。
+
+`f17f46a` 又关闭 Import 写后响应丢失 / Service interruption 的代表子 Gate。专用测试
+Launcher 让 SQLite 原子 Import 完成后、HTTP 响应返回前失败；界面没有猜测成成功或失败，
+而是显示“先以台账为准”，同屏正式 ledger 已给出“已导入，等待验证”和唯一 Verify。
+Plugin reload 后 session-only 不确定态消失，仍从同一 `IMPORTED` batch 重建 Verify；
+Verify 后复用既有 HIGH Undo，正式对象真实 `4→5→4`，run/batch 最终回到
+`PREVIEWED/UNDONE`，SemanticCommit Pending/Recovery 始终 `0/0`。故障 Launcher、
+descriptor 和隔离 Service 退出后，正常 LaunchAgent、原 7 对象 authority 与 READY
+用户系统状态均恢复。CURRENT `p2-g-60`～`65` 取代“Migration interruption 无当前
+Desktop 证据”的旧结论；Verify/Activate failure 与 Light/窄栏仍 OPEN。完整记录见
+`../logs/p2-g-migration-response-loss-desktop-live-20260727.md`。
 
 ## 每次取证必须记录
 

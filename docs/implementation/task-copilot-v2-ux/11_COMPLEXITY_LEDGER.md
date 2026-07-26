@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑和 P2-G 真实连续双重 Restore→人工恢复子 Gate 已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E Provider 失败链、P2-G Migration 失败链仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑、P2-G 真实连续双重 Restore→人工恢复及 Migration 写后响应丢失子 Gate 已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E Provider 失败链、P2-G Migration Verify/Activate failure 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -88,7 +88,26 @@
 - 删除/合并的重复机制：恢复成功后不再维护 Plugin 自己的陈旧只读结论，而是复用 bounded runtime recovery 刷新 `featureReady`、Store 与既有投影；健康/恢复页共用用户状态翻译，内部枚举只留技术详情。
 - 删除 reload 依赖：Restore failure catch 现在立即复用 `recoverConfiguredServiceRuntime` 重新发现既有 Launcher；无需为该场景增加状态或专用连接器。
 - 本轮真实界面问题推动通用合同修复，不增加样本特例、Prompt、Skill 或 Validator；LLM 未调用，拒绝率/重试不适用。
-- 仍阻断 P2-G：Light/窄栏、Migration failure/interruption；真实双重失败→HIGH Review→恢复→重连→reload 已关闭。
+- 仍阻断 P2-G：Light/窄栏、Migration Verify/Activate failure；真实双重失败→HIGH Review→恢复→重连→reload 已关闭，Migration Import 写后响应丢失由后述 Gate 关闭。
+
+### P2-G Migration 写后响应丢失收敛（2026-07-27）
+
+- 新增正式状态、顶层导航、Skill、Prompt、Validator、生产 Recovery 分支、平行 Runtime、
+  平行写入权威：均为 `0`。
+- 唯一新增合同是既有 Local Service fault port 的 test-only `afterMigrationImport`；生产
+  调用者不传，状态仍完全由既有 Migration run/batch ledger 表达。
+- Plugin 的 `import-uncertain` 保持 session-only；用户层只显示“结果待确认、先以台账为准”，
+  reload 后不持久化第二结果，而由正式 `IMPORTED` batch 重建唯一 Verify 动作。
+- 真实 Desktop 完成 Import response loss→ledger→reload→Verify→HIGH Undo；测试库
+  `4→5→4`，SemanticCommit Pending/Recovery `0/0`，正常 7 对象 authority 与 Launcher
+  已恢复。
+- 删除/合并的重复机制：不需要为“响应丢失”建立恢复页、状态表或独立 Undo；继续复用
+  Migration ledger、idempotency、Verify 和 Undo。
+- Partial 总量净下降 `1`：Migration post-write response-loss / Service-interruption
+  代表子 Gate `PARTIAL→DONE`；本轮没有新增 Partial。
+- 风险变化：Recovery 语义分裂未上升；Partial 堆积下降但仍为 HIGH，因 Verify/Activate
+  failure、P2-E Provider failure、P0/P1 宿主与视觉 Gate 仍阻断发布。
+- LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
 - `25ddac9` / `4dfe014` 关闭高频壳层发布阻断：删除主面板重复运行条，统一“更多”、启动、知识库切换和系统状态的用户语言；连接恢复只有在正式修改也可用时才报告成功。
 - exact build `4dfe014902a3` 已完成后台真实 Plugin reload、默认用户层工程词扫描 `0` 和三张 CURRENT Desktop 截图；工程概念泄漏由 HIGH 降为 MEDIUM，但高级 Review/Grill/Project/Migration/Restore 表面仍阻断发布。
 - `e8db32f1af6d` 又把主动结束从通用连接故障中分离：复用既有 reason/lease/状态翻译，不增加正式状态或恢复入口；结束面只保留一个结论与重新启动，100—2500 ms 采样无错误闪烁，重启仍要求正式修改可用。

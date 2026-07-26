@@ -133,6 +133,12 @@ Graph 首次显示即受限、6 秒稳定 fail-closed 和切回原 authority；`
 | `screenshots/p2-g-57-restore-manual-recovery-success-current-fe0b590.jpeg` | `fe0b590034ac` | 勾选并执行人工恢复 | 活动库 `6→7`，Doctor PASS、互锁清除，界面立即回到“可以正常使用” | 两个 `.previous-*` 测试安全副本保留，不是活动 authority |
 | `screenshots/p2-g-58-restore-normal-runtime-final-health-current-fe0b590.jpeg` | `fe0b590034ac` | 停止故障 Launcher、恢复原 descriptor、bootstrap 正常 LaunchAgent 并 reload Plugin | 系统状态 READY，正式状态与当前 Graph 已连接，无需用户操作 | 正常 Launcher 为 loopback `19673`；token 未进入截图 |
 | `screenshots/p2-g-59-restore-final-diagnostics-current-fe0b590.jpeg` | `fe0b590034ac` | 在最终健康状态主动展开技术诊断 | exact build `fe0b590034ac`、Local Service formal writes true、`0/0/0`、explicit sync clean | 技术信息默认折叠；Migration failure/interruption 和 Light/窄栏仍 OPEN |
+| `screenshots/p2-g-60-migration-high-confirmation-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 专用 4 对象数据库克隆、同一脱敏 Bundle 与原恢复基线校验后进入 HIGH Import | 只显示本批 1 项、恢复点通过和一次最终确认；未勾选不导入 | 下一步注入 Import 写后响应丢失 |
+| `screenshots/p2-g-61-migration-response-lost-ledger-authority-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | SQLite 原子 Import 完成后、HTTP 响应前故障 | 主结论“先以台账为准”；同屏 ledger 已显示已导入待验证和唯一 Verify，不静默重试 | objects=5，run/batch=`IMPORTING/IMPORTED`，Pending/Recovery=0/0 |
+| `screenshots/p2-g-62-migration-reload-ledger-rebuilt-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | Plugin Manager reload 后重新进入迁移 | session-only 不确定态已清除；正式 ledger 重建同一 IMPORTED batch 和 Verify | 证明 reload 不依赖内存恢复状态 |
+| `screenshots/p2-g-63-migration-verified-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 点击 Verify | 显示本批验证通过、尚未启用，并只给出安全撤销/启用动作 | run/batch 均 VERIFIED，objects=5 |
+| `screenshots/p2-g-64-migration-safe-undo-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 既有 HIGH Undo 最终确认后撤销测试批次 | 明确正式对象回到导入前范围，审阅和审计证据保留 | objects=4，run/batch=`PREVIEWED/UNDONE`，Pending/Recovery=0/0 |
+| `screenshots/p2-g-65-migration-normal-runtime-restored-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 停止故障 Launcher、恢复原 descriptor/LaunchAgent 并 reload Plugin | 用户系统状态 READY、当前无受影响能力、无需操作 | 原 authority 7 对象，loopback `19673`；故障 `19674` 已停止 |
 
 ## HISTORICAL
 

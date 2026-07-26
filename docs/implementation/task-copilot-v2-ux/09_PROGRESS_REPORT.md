@@ -1,6 +1,6 @@
 # 交互优化实施进度
 
-> 更新时间：2026-07-26
+> 更新时间：2026-07-27
 > 当前结论：`IN_PROGRESS` — `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；
 > `ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。P0-A Focus、
 > P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
@@ -27,7 +27,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；中文 IME/受限视觉、K 多宿主 Gate OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo 已 Desktop PASS，Provider error/stale 仍 OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚、真实连续双重失败→人工恢复→Doctor→清锁→正常 Launcher/reload，以及 Migration through Activation 正常主链均有真实 Desktop。Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo 已 Desktop PASS，Provider error/stale 仍 OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链和 Import 写后响应丢失→ledger reload→Verify→Undo 均有真实 Desktop。Migration Verify/Activate failure 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -666,6 +666,15 @@ derivative/dashboard 价值也仍未完成。
   explicit sync 和系统状态均 READY；database authority 未静默替换。CURRENT
   `p2-g-55`～`59`；新增正式状态、Skill、Prompt、Validator、恢复入口、平行 Runtime 和
   写入权威均为 `0`。本 Slice 不调用 Provider；
+- `f17f46a` 关闭 Migration 写后响应丢失代表子 Gate：新增的只是 Local Service 既有
+  fault port 上 test-only `afterMigrationImport`，生产调用不传。自动回归证明 Import 已
+  原子提交后响应丢失、同 idempotency replay 与后续 Verify；真实 Desktop 又证明前台
+  “先以台账为准”、同屏 `IMPORTED`/Verify、Plugin reload 后 ledger 重建、Verify 和既有
+  HIGH Undo。隔离库 objects `4→5→4`，run/batch
+  `PREVIEWED→IMPORTING/IMPORTED→VERIFIED→PREVIEWED/UNDONE`，SemanticCommit
+  Pending/Recovery 始终 `0/0`。故障 Launcher 退出后，正常 LaunchAgent、7 对象 authority
+  和 READY 用户状态恢复。CURRENT `p2-g-60`～`65`；新增正式状态、Skill、Prompt、
+  Validator、生产恢复分支、平行 Runtime 与写入权威均为 `0`，本 Slice 不调用 Provider；
 - `25ddac9` / `4dfe014` 关闭高频壳层工程语言 Partial：删除顶部 Runtime/Store/Graph 状态条，
   把“更多”、启动、知识库切换和系统状态收敛为用户结论；恢复重连必须同时满足连接 READY、
   client 存在和正式修改可用。exact build 真实 reload 后，普通用户层约定工程词扫描为 `0`，
@@ -697,7 +706,8 @@ derivative/dashboard 价值也仍未完成。
    Review/Preview、恢复点/Import/Verify/Undo 与 HIGH Activation 正常主链；真实运行先以
    `MIGRATION_SNAPSHOT_CHANGED` 证明单恢复基线边界，再修复为复用/重验计划原快照。
    当前正式对象 5、run ACTIVATED、Pending 0，`2beb1b5` 完整 restart 后只保留只读交接
-   台账与 Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 均退出。继续 Migration
-   failure/Service 中断恢复与 P2-G Light/窄栏视觉 Gate，不得加入第二迁移或恢复状态源。
+   台账与 Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 均退出。写后响应丢失
+   已完成真实 `ledger→reload→Verify→Undo`；继续 Migration Verify/Activate failure 与
+   P2-G Light/窄栏视觉 Gate，不得加入第二迁移或恢复状态源。
 3. 集中关闭 P0-J 中文 IME/受限视觉与 P0-K Query/reference/来源变化返回，并继续 P1-F
    DB Graph Page Head、P1 Attention 开放门和 Block Marker；P0-H 不再重复扩大宿主矩阵。
