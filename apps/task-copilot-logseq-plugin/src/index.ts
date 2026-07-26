@@ -2274,7 +2274,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
           enterRestrictedServiceMode("V2_RESTORE_ROLLBACK_FAILED", disposition.message);
           diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
           featureReady = false;
-          message = disposition.message;
+          message = undefined;
           await releaseServiceLifecycleSession();
         } else if (serviceConnection.status === "READY" && serviceRuntimeClient === client) {
           await explicitSyncController?.resume(client).catch(() => undefined);
@@ -2301,7 +2301,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
             ? "运行环境已重新连接且数据库校验通过；上次 Restore 的最终结果不确定，请先核对当前事项与最近修改。"
             : "上次 Restore 的最终结果不确定，运行环境也尚未自动重连；正式写入保持暂停，请检查系统状态。";
         }
-        message = latestError;
+        message = undefined;
         await refreshToolbarInterventionFacts();
         await projectPageHeadActionController.refreshAll();
       }

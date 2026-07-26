@@ -1402,7 +1402,7 @@ export function renderApp(model: UiModel): string {
     <div class="agent-state ${model.v2ProviderAvailable || model.agent.enabled ? "enabled" : "disabled"}">${copilotState}</div>
     ${model.message && !immediateResult ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${immediateResult}
-    ${model.error ? `<div class="error"><strong>未执行：</strong>${escapeHtml(model.error)}<span>请修正后重试；系统不会静默覆盖。</span></div>` : ""}
+    ${model.error ? `<div class="error"><strong>未完成：</strong>${escapeHtml(model.error)}<span>请按上方说明处理；系统不会静默覆盖或重复提交。</span></div>` : ""}
     <nav aria-label="主要工作区">${labels.map(([id, target, label]) => `<button class="${activePrimary === id ? "active" : ""}" data-action="view" data-value="${target}"${activePrimary === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}</nav>
     <main class="workspace" data-workspace="${model.workspace}">${renderActionDialog(model)}${sectionNavigation(model)}${body}</main>
   </section>`;

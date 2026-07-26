@@ -195,6 +195,16 @@ test("backup Restore review uses session tokens, explicit impact confirmation, a
   assert.doesNotMatch(html, /backup_[0-9]|RESTORE_AND_STOP_SERVICE|\\.db|objectId|SQLite 路径/);
 });
 
+test("global action failure language remains accurate when an operation was rolled back after starting", () => {
+  const value = model();
+  value.error = "恢复未完成；原正式状态已回滚并重新可用，Restore 前恢复点仍保留。";
+  const html = renderApp(value);
+  assert.match(html, /未完成：/);
+  assert.match(html, /原正式状态已回滚并重新可用/);
+  assert.match(html, /不会静默覆盖或重复提交/);
+  assert.doesNotMatch(html, /未执行：|请修正后重试/);
+});
+
 test("recent changes leads with user intent, application result, and existing Undo instead of engineering IDs", () => {
   const value = model();
   value.workspace = "audit";
