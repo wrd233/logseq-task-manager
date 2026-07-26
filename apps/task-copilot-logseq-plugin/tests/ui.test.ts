@@ -2233,6 +2233,13 @@ test("startup stays non-blocking while host-ready events and Graph switch recove
   );
   assert.match(source, /onGraphAfterIndexed\(recoverAfterHostGraphReady\)/);
   assert.match(source, /onRouteChanged\(recoverAfterHostGraphReady\)/);
+  const hostReadyHandler = source.match(/const recoverAfterHostGraphReady = \(\) => \{[\s\S]*?\n[ ]{2}\};/)?.[0] ?? "";
+  assert.match(hostReadyHandler, /projectPageHeadActionController\.refreshAll\(\)/);
+  assert.ok(
+    hostReadyHandler.indexOf("projectPageHeadActionController.refreshAll()")
+      < hostReadyHandler.indexOf('serviceConnection.status === "READY"'),
+    "route-ready handling must refresh the current Project Page Head before a healthy runtime returns early",
+  );
   const mainBody = source.slice(source.indexOf("async function main()"));
   assert.doesNotMatch(mainBody, /await environmentInfo\(\)/);
   assert.match(mainBody, /await initializeFeatures\(\)/);

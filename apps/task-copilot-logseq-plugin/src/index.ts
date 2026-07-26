@@ -4212,6 +4212,11 @@ async function initializeFeatures(): Promise<void> {
       });
   }));
   const recoverAfterHostGraphReady = () => {
+    void projectPageHeadActionController.refreshAll()
+      .catch((error: unknown) => operationalLogger.log("warn", "source-resolution", "project_page_head_refresh_failed", {
+        result: "hidden",
+        errorCode: explain(error),
+      }));
     if (serviceConnection.status === "READY" && serviceRuntimeClient) return;
     void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前知识库；正式能力可以使用。")
       .catch((error: unknown) => operationalLogger.log("warn", "plugin-lifecycle", "host_ready_runtime_recovery_failed", {
