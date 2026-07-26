@@ -6,7 +6,7 @@ import { projectPluginCommitNarration } from "./status-narration-runtime.ts";
 export type RecentChangeStatus = "APPLIED" | "PENDING" | "RECOVERY_REQUIRED" | "FAILED" | "UNDONE";
 
 export interface RecentChangeAction {
-  action: "recent-change-review" | "v2-proposal-undo" | "v2-ownership-undo" | "v2-lifecycle-undo" | "v2-project-creation-undo" | "v2-project-structure-undo" | "v2-mini-project-restructure-undo";
+  action: "recent-change-review" | "v2-proposal-undo" | "v2-ownership-undo" | "v2-lifecycle-undo" | "v2-project-creation-undo" | "v2-project-structure-undo" | "v2-project-closure-undo" | "v2-mini-project-restructure-undo";
   label: string;
   value: string;
   tone: "quiet" | "danger";
@@ -41,7 +41,7 @@ export interface RecentChangesInput {
 }
 
 function originalIdentity(commitId: string): string | undefined {
-  for (const prefix of ["mini-project-restructure-undo:", "project-creation-undo:", "project-structure-undo:", "ownership-undo:", "lifecycle-undo:", "undo:"]) {
+  for (const prefix of ["mini-project-restructure-undo:", "project-creation-undo:", "project-structure-undo:", "project-closure-undo:", "ownership-undo:", "lifecycle-undo:", "undo:"]) {
     if (commitId.startsWith(prefix)) return commitId.slice(prefix.length);
   }
   return undefined;
@@ -110,6 +110,14 @@ function proposalUndoAction(
   const acceptedOperations = record.proposal.groups
     .filter((group) => group.disposition === "ACCEPTED")
     .flatMap((group) => group.semanticOperations);
+  const isProjectClosure = acceptedOperations.some((operation) => (
+    operation.kind === "UPDATE_PROJECT_INTERFACE" && "closure" in operation.payload
+  )) && acceptedOperations.some((operation) => (
+    operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.lifecycle === "COMPLETED"
+  ));
+  if (isProjectClosure) {
+    return { action: "v2-project-closure-undo", label: "撤销", value: semanticCommitId, tone: "danger" };
+  }
   if (acceptedOperations.some((operation) => operation.kind === "CHANGE_OWNERSHIP")) {
     return { action: "v2-ownership-undo", label: "撤销", value: semanticCommitId, tone: "danger" };
   }

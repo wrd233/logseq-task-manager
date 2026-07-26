@@ -2391,6 +2391,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-proposal-commit" && value) return openActionDialog("confirm-v2-commit", value);
   if (action === "v2-project-closure-commit" && value) return openActionDialog("confirm-v2-project-closure", value);
+  if (action === "v2-project-closure-undo" && value) return openActionDialog("confirm-v2-project-closure-undo", value);
   if (action === "v2-project-creation-commit" && value) return openActionDialog("confirm-v2-project-creation", value);
   if (action === "v2-project-creation-undo" && value) return openActionDialog("confirm-v2-project-creation-undo", value);
   if (action === "v2-project-structure-commit" && value) return openActionDialog("confirm-v2-project-structure", value);
@@ -2616,6 +2617,19 @@ async function handleAction(action: string, value?: string): Promise<void> {
       workspace = result.status === "COMPLETED" ? "reentry" : "review";
       if (result.status === "COMPLETED") recentActionCommitId = result.semanticCommitId;
       message = result.status === "COMPLETED" ? `Project ${result.object.text} 当前接口已更新为 v${result.object.version}；Graph、位置与归属未改变。` : "Project 版本已变化；Proposal 已标记 STALE，没有更新当前接口。";
+    });
+    return;
+  }
+  if (action === "submit-v2-project-closure-undo" && value) {
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认恢复 OPEN 并移除本次 Project Closure。"; await refresh(); return; }
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      if (!client) throw new Error("Project Closure Undo 上下文已失效；没有写入。");
+      const result = await client.undoProjectClosure(value, { confirmation: "UNDO_PROJECT_CLOSURE", traceId: `v2-project-closure-undo-ui-${Date.now()}` });
+      actionDialog = undefined;
+      workspace = "reentry";
+      recentActionCommitId = result.originalSemanticCommitId;
+      message = `Project ${result.object.text} 已恢复 OPEN，本次 Closure 已移除；Logseq 页面和正文保持不变。`;
     });
     return;
   }

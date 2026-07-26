@@ -2689,6 +2689,14 @@ test("external Agent Project Closure Proposal completes with explicit unfinished
   const replay = await client.commitProjectClosure(reviewed.proposal.proposalId, { expectedUpdatedAt: reviewed.updatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: "trace-project-closure-replay" });
   assert.equal(replay.status, "COMPLETED");
   if (replay.status === "COMPLETED") assert.equal(replay.replayed, true);
+  const undone = await client.undoProjectClosure(completed.semanticCommitId, { confirmation: "UNDO_PROJECT_CLOSURE", traceId: "trace-project-closure-undo" });
+  assert.equal(undone.status, "COMPLETED");
+  assert.equal(undone.object.lifecycle, "OPEN");
+  assert.equal(undone.object.closure, undefined);
+  assert.equal((await client.listSemanticCommits()).find((commit) => commit.semanticCommitId === completed.semanticCommitId)?.status, "UNDONE");
+  const undoReplay = await client.undoProjectClosure(completed.semanticCommitId, { confirmation: "UNDO_PROJECT_CLOSURE", traceId: "trace-project-closure-undo-replay" });
+  assert.equal(undoReplay.replayed, true);
+  assert.equal(undoReplay.object.version, undone.object.version);
 });
 
 test("Project Closure evidence route is read-only, version-bound, and preserves unknowns", async (t) => {

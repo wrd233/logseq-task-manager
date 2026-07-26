@@ -174,6 +174,15 @@ test("reopening completed Project and MiniProject clears current Closure while U
   assert.deepEqual(restoreV2LifecycleFromUndo(reopenedProject, { lifecycle: "COMPLETED", closure: projectClosure }, 3).closure, projectClosure);
 });
 
+test("Project Closure Undo restores OPEN and removes the applied Closure snapshot", () => {
+  const closure = { originalGoal: "完成治理", actualResult: "已交付", majorDeliverables: ["报告"], incompleteObjectives: [], legacyDisposition: "无", keyDecisions: ["保留"], futureSummary: "按需重入" };
+  const completed = completeV2Project(createV2ManagedObject({ objectId: "project-closure-undo", objectType: "PROJECT", text: "治理" }), closure, 1);
+  const restored = restoreV2LifecycleFromUndo(completed, { lifecycle: "OPEN" }, completed.version);
+  assert.equal(restored.lifecycle, "OPEN");
+  assert.equal(restored.version, completed.version + 1);
+  assert.equal(restored.closure, undefined);
+});
+
 test("Project Closure records outcomes and explicit unfinished Objective dispositions before completion", () => {
   const project = createV2ManagedObject({ objectId: "project-closure", objectType: "PROJECT", text: "告警治理" });
   const closure = {

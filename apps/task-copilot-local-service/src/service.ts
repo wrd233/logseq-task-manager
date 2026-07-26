@@ -988,6 +988,15 @@ async function readProjectStructureUndoRequest(request: IncomingMessage): Promis
   return { traceId: record.traceId };
 }
 
+async function readProjectClosureUndoRequest(request: IncomingMessage): Promise<{ traceId: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "confirmation,traceId" || record.confirmation !== "UNDO_PROJECT_CLOSURE" || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("PROJECT_CLOSURE_UNDO_REQUEST_INVALID", "Project Closure Undo 必须有 trace_id 和精确确认词。");
+  return { traceId: record.traceId };
+}
+
 interface ProposalCommitEvidenceRequest {
   semanticCommitId: string;
   proposalId: string;
@@ -1071,6 +1080,10 @@ function lifecycleUndoSemanticCommitId(originalSemanticCommitId: string): string
 
 function projectStructureUndoSemanticCommitId(originalSemanticCommitId: string): string {
   return `project-structure-undo:${originalSemanticCommitId}`;
+}
+
+function projectClosureUndoSemanticCommitId(originalSemanticCommitId: string): string {
+  return `project-closure-undo:${originalSemanticCommitId}`;
 }
 
 function miniProjectRestructureUndoSemanticCommitId(originalSemanticCommitId: string): string {
@@ -3415,6 +3428,89 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       store.finalizeSemanticCommit(semanticCommitId, "COMPLETED", now.toISOString(), checksum(object));
       const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
       respond(response, 200, { status: "COMPLETED", semanticCommitId, object, record, replayed: false });
+      return;
+    }
+    const projectClosureUndoMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/project-closure\/undo$/) : null;
+    if (projectClosureUndoMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(projectClosureUndoMatch[1]);
+      const input = await readProjectClosureUndoRequest(request);
+      const original = store.semanticCommit(originalSemanticCommitId);
+      if (!original?.proposalId || !["COMPLETED", "UNDONE"].includes(original.status)) throw serviceError("V2_PROJECT_CLOSURE_UNDO_NOT_AVAILABLE", "只有已完成且保留审阅证据的 Project Closure Commit 可以 Undo。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("V2_PROJECT_CLOSURE_UNDO_LEDGER_CORRUPT", "原 Project Closure Commit 引用的 Proposal 不存在。");
+      const plan = planAcceptedV2ProjectClosure(stored.proposal);
+      const forwardSteps = store.semanticCommitSteps(originalSemanticCommitId);
+      const forwardReceipt = store.getCommandReceipt(`project-closure:${originalSemanticCommitId}`);
+      if (
+        forwardSteps.length !== 1
+        || forwardSteps[0]?.operationId !== plan.objectId
+        || forwardReceipt?.command !== "complete_project"
+        || forwardReceipt.object.objectId !== plan.objectId
+        || forwardReceipt.object.objectType !== "PROJECT"
+        || forwardReceipt.object.version !== plan.expectedVersion + 1
+        || forwardReceipt.object.lifecycle !== "COMPLETED"
+        || stableJson(forwardReceipt.object.closure) !== stableJson(plan.closure)
+      ) throw serviceError("V2_PROJECT_CLOSURE_UNDO_LEDGER_CORRUPT", "Project Closure Undo 的正向回执与已审阅计划不一致。");
+
+      const undoSemanticCommitId = projectClosureUndoSemanticCommitId(originalSemanticCommitId);
+      const receiptKey = `project-closure-undo:${undoSemanticCommitId}`;
+      const existing = store.semanticCommit(undoSemanticCommitId);
+      const steps = existing ? store.semanticCommitSteps(undoSemanticCommitId) : [];
+      if (original.status === "UNDONE" && existing?.status !== "COMPLETED") throw serviceError("V2_PROJECT_CLOSURE_UNDO_LEDGER_CORRUPT", "已撤销的 Project Closure Commit 缺少已完成逆向 Commit。");
+      if (existing?.status === "COMPLETED") {
+        const receipt = store.getCommandReceipt(receiptKey);
+        if (
+          existing.proposalId !== original.proposalId
+          || steps.length !== 1
+          || steps[0]?.operationId !== plan.objectId
+          || receipt?.command !== "undo_lifecycle"
+          || receipt.object.objectId !== plan.objectId
+          || receipt.object.objectType !== "PROJECT"
+          || receipt.object.version !== forwardReceipt.object.version + 1
+          || receipt.object.lifecycle !== "OPEN"
+          || receipt.object.closure !== undefined
+        ) throw serviceError("V2_PROJECT_CLOSURE_UNDO_LEDGER_CORRUPT", "已完成 Project Closure Undo 缺少一致的逆向回执。");
+        if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, object: receipt.object, replayed: true });
+        return;
+      }
+      if (existing && existing.status !== "PENDING") throw serviceError("V2_PROJECT_CLOSURE_UNDO_NOT_AVAILABLE", "Project Closure Undo 已安全终止，不能建立平行逆向事务。");
+      const priorUndoReceipt = store.getCommandReceipt(receiptKey);
+      if (priorUndoReceipt && (
+        priorUndoReceipt.command !== "undo_lifecycle"
+        || priorUndoReceipt.object.objectId !== plan.objectId
+        || priorUndoReceipt.object.objectType !== "PROJECT"
+        || priorUndoReceipt.object.version !== forwardReceipt.object.version + 1
+        || priorUndoReceipt.object.lifecycle !== "OPEN"
+        || priorUndoReceipt.object.closure !== undefined
+      )) throw serviceError("V2_PROJECT_CLOSURE_UNDO_LEDGER_CORRUPT", "Project Closure Undo 回执与已审阅计划不一致。");
+      const currentObject = store.getObject(plan.objectId);
+      if (!priorUndoReceipt && (!currentObject || checksum(currentObject) !== checksum(forwardReceipt.object))) throw serviceError("V2_PROJECT_CLOSURE_UNDO_STATE_CHANGED", "Project 在 Closure Commit 后已有变化；Undo 没有写入。");
+      if (!existing) {
+        const now = new Date();
+        store.prepareSemanticCommit({ semanticCommitId: undoSemanticCommitId, proposalId: original.proposalId, status: "PENDING", beforeStateChecksum: checksum({ object: forwardReceipt.object, previous: { lifecycle: "OPEN" } }), createdAt: now.toISOString(), updatedAt: now.toISOString() }, [
+          { semanticCommitId: undoSemanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: plan.objectId, updatedAt: now.toISOString() },
+        ]);
+      } else if (existing.proposalId !== original.proposalId || steps.length !== 1 || steps[0]?.operationId !== plan.objectId) {
+        throw serviceError("V2_PROJECT_CLOSURE_UNDO_LEDGER_CORRUPT", "Project Closure Undo 账本与已审阅计划不一致。");
+      }
+      const now = new Date();
+      let result: { object: V2ManagedObject; replayed: boolean };
+      try {
+        result = {
+          object: await application.undoLifecycle(plan.objectId, { lifecycle: "OPEN" }, { actor: "proposal_undo", expectedVersion: forwardReceipt.object.version, idempotencyKey: receiptKey, traceId: input.traceId }, now),
+          replayed: priorUndoReceipt !== undefined,
+        };
+      } catch (error) {
+        const terminalCodes = ["V2_OBJECT_VERSION_CONFLICT", "V2_OBJECT_NOT_FOUND", "V2_LIFECYCLE_UNDO_INVALID", "V2_LIFECYCLE_UNDO_SNAPSHOT_INVALID"];
+        if (error instanceof StructuredError && terminalCodes.includes(error.code) && !store.getCommandReceipt(receiptKey) && store.semanticCommit(undoSemanticCommitId)?.status === "PENDING") store.finalizeSemanticCommit(undoSemanticCommitId, "FAILED", now.toISOString(), undefined, error.code);
+        throw error;
+      }
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum(result.object));
+      store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
+      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, object: result.object, replayed: result.replayed });
       return;
     }
     const lifecycleCommitMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/lifecycle\/commit$/) : null;

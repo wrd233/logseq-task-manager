@@ -367,13 +367,16 @@ export function restoreV2LifecycleFromUndo(
 ): V2ManagedObject {
   requireExpectedVersion(object, expectedVersion);
   const validInverse = (object.lifecycle === "CANCELLED" && previous.lifecycle === "OPEN")
+    || (object.lifecycle === "COMPLETED" && previous.lifecycle === "OPEN")
     || (object.lifecycle === "OPEN" && (previous.lifecycle === "COMPLETED" || previous.lifecycle === "CANCELLED"));
   if (!validInverse) throw new StructuredError({ code: "V2_LIFECYCLE_UNDO_INVALID", message: `当前 ${object.lifecycle} 不能恢复为 ${previous.lifecycle}。`, ruleRefs: ["D-185", "D-220"] });
   let closure: V2ManagedObject["closure"];
   if (previous.lifecycle === "COMPLETED" && object.objectType === "PROJECT") closure = validateV2ProjectClosure(previous.closure as V2ProjectClosure);
   else if (previous.lifecycle === "COMPLETED" && object.objectType === "MINI_PROJECT") closure = validateV2MiniProjectClosure(previous.closure as V2MiniProjectClosure);
   else if (previous.closure !== undefined) throw new StructuredError({ code: "V2_LIFECYCLE_UNDO_SNAPSHOT_INVALID", message: "Lifecycle Undo 的 Closure 快照与对象类型或目标状态不一致。", ruleRefs: ["D-185", "D-220"] });
-  return { ...object, lifecycle: previous.lifecycle, version: object.version + 1, updatedAt: at.toISOString(), ...(closure ? { closure } : {}) };
+  const { closure: _currentClosure, ...withoutClosure } = object;
+  void _currentClosure;
+  return { ...withoutClosure, lifecycle: previous.lifecycle, version: object.version + 1, updatedAt: at.toISOString(), ...(closure ? { closure } : {}) };
 }
 
 function boundedClosureText(value: unknown, label: string): string {

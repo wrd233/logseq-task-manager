@@ -8,7 +8,9 @@ import { projectRecentChanges } from "../src/recent-changes.ts";
 function proposal(
   proposalId: string,
   operation: ServiceStoredProposal["proposal"]["groups"][number]["semanticOperations"][number],
+  ...additionalOperations: ServiceStoredProposal["proposal"]["groups"][number]["semanticOperations"]
 ): ServiceStoredProposal {
+  const operations = [operation, ...additionalOperations];
   return {
     updatedAt: "2026-07-24T06:32:00.000Z",
     files: { proposalMd: "# proposal", proposalJson: "{}" },
@@ -23,16 +25,16 @@ function proposal(
       finalPreview: "设备托管材料将整理为 MiniProject。",
       unresolvedQuestions: [],
       source: { kind: "user" },
-      scope: { read: [], modify: [operation.target] },
+      scope: { read: [], modify: operations.map((candidate) => candidate.target) },
       preconditions: [],
       groups: [{
         groupId: "group-1",
         explanation: "一次独立修改。",
-        risk: operation.kind === "CHANGE_OWNERSHIP" ? "HIGH" : "LOW",
+        risk: operations.some((candidate) => candidate.kind === "CHANGE_OWNERSHIP" || candidate.kind === "TRANSITION_LIFECYCLE") ? "HIGH" : "LOW",
         independentlyAcceptable: true,
         dependencies: [],
         textPatches: [],
-        semanticOperations: [operation],
+        semanticOperations: operations,
         disposition: "ACCEPTED",
       }],
       status: "APPLIED",
@@ -291,6 +293,43 @@ test("applied Project narration routes to the Project interface inverse instead 
     action: "v2-project-structure-undo",
     label: "撤销",
     value: "proposal-commit:narration",
+    tone: "danger",
+  });
+});
+
+test("applied Project Closure routes to its lifecycle inverse", () => {
+  const closure = {
+    originalGoal: "完成治理",
+    actualResult: "已交付",
+    majorDeliverables: ["报告"],
+    incompleteObjectives: [],
+    legacyDisposition: "无",
+    keyDecisions: ["保留回退"],
+    futureSummary: "按需重入",
+  };
+  const changes = projectRecentChanges({
+    proposals: [proposal("proposal-closure", {
+      operationId: "record-closure",
+      kind: "UPDATE_PROJECT_INTERFACE",
+      target: { kind: "OBJECT", id: "project-1", version: 4 },
+      summary: "记录 Closure",
+      payload: { closure },
+      preconditions: [],
+    }, {
+      operationId: "complete-project",
+      kind: "TRANSITION_LIFECYCLE",
+      target: { kind: "OBJECT", id: "project-1", version: 4 },
+      summary: "完成 Project",
+      payload: { lifecycle: "COMPLETED" },
+      preconditions: [],
+    })],
+    commits: [commit("proposal-commit:closure", "COMPLETED", { proposalId: "proposal-closure" })],
+  });
+
+  assert.deepEqual(changes[0]!.primaryAction, {
+    action: "v2-project-closure-undo",
+    label: "撤销",
+    value: "proposal-commit:closure",
     tone: "danger",
   });
 });

@@ -833,6 +833,7 @@ export type ServiceLifecycleUndoResult = {
   replayed: boolean;
 };
 export type ServiceProjectStructureUndoResult = ServiceLifecycleUndoResult;
+export type ServiceProjectClosureUndoResult = ServiceLifecycleUndoResult;
 
 export interface ServiceProposalCommitEvidence {
   semanticCommitId: string;
@@ -1568,6 +1569,10 @@ export class LocalServiceClient {
 
   undoProjectStructure(originalSemanticCommitId: string, input: { confirmation: "UNDO_PROJECT_INTERFACE"; traceId: string }): Promise<ServiceProjectStructureUndoResult> {
     return this.request<ServiceProjectStructureUndoResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/project-interface/undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  undoProjectClosure(originalSemanticCommitId: string, input: { confirmation: "UNDO_PROJECT_CLOSURE"; traceId: string }): Promise<ServiceProjectClosureUndoResult> {
+    return this.request<ServiceProjectClosureUndoResult>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/project-closure/undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
   }
 
   compensateProposalCommit(proposalId: string, evidence: ServiceProposalCommitEvidence): Promise<{ status: "FAILED_COMPENSATED"; semanticCommitId: string; record: ServiceStoredProposal }> {
