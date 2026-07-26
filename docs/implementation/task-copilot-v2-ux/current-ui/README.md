@@ -51,6 +51,15 @@ READY，同一 Project v10 可重新计算；正式计数保持 `2 Objects / 10 
 21 Commits`。CURRENT `p2-e-01`～`p2-e-04`。这只关闭 read-only preview，不代表真实
 Provider 或 Closure 正式链完成。
 
+P2-E 正常正式链随后完成：`1ec63ac` 的真实 DeepSeek 前向链覆盖用户判断、loading、
+HIGH Review 与 Commit；该真实运行也暴露完成态没有专用 Undo，故 `p2-e-09` 只登记为
+`SUPERSEDED` 缺陷证据。`06907f34b8d2` 最新构建补齐版本/checksum/receipt 绑定的 Closure
+inverse Commit，CURRENT `p2-e-10`～`p2-e-12` 证明 Undo 可发现、撤销后回到 Project 重入、
+reload 后 Project 再次进入 Now Work。正式回读为 `OPEN v13`、Closure absent、正向
+`UNDONE`、逆向 `COMPLETED`、异常 Commit `0/0/0`。当前构建的 error/stale 与
+RECOVERY_REQUIRED → resume Desktop Gate 仍 OPEN，所以 P2-E 仍是 Partial。完整记录见
+`../logs/p2-e-project-closure-desktop-live-20260726.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；

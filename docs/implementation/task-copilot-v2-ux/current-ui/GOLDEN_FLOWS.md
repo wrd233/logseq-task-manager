@@ -89,23 +89,30 @@ Lifecycle 与 Condition 不变，Pending/Recovery/Conflict `0/0/0`。Ownership�
 不进入正式路由。CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。该结论只关闭
 Condition 这一条 LIGHT 链；Focus/reviewAt、Association 和其他 HEAVY 类型仍开放。
 
-## P2-E Project Closure read-only evidence
+## P2-E Project Closure evidence → Provider → Commit → Undo
 
-状态：`DONE_READ_ONLY_PREVIEW_P2E_STILL_IN_PROGRESS`
+状态：`NORMAL_MAIN_CHAIN_DONE_FAILURE_RECOVERY_GATE_OPEN`
 
 1. Project → 调整 Project → 整理 Closure 证据；
-2. Plugin 只发送 `objectId + expectedVersion`，不能注入结果、处置或叙述；
-3. Service 从 SQLite 当前权威读取 OPEN Project、Project interface、正式 Objects 与直接
-   Primary Ownership；
-4. Preview 分开显示候选证据、未收口工作、显式 unknown 与仍需用户判断的内容；
-5. Association、孙级对象与 LLM 判断不升格为成果，Objective 完成状态不自动推断；
-6. Preview 唯一动作是取消，不生成 Proposal、Commit 或 Closure；
-7. reload 清除 session preview；Runtime/Store READY 后可从同一正式版本重新计算。
+2. Service 从 SQLite 当前权威读取 OPEN Project、Project interface、正式 Objects 与直接
+   Primary Ownership；Association、孙级对象与 LLM 判断不升格为成果；
+3. Preview 分开显示候选证据、未收口工作、显式 unknown 与仍需用户判断的内容；
+4. 用户逐项确认实际结果、Objective disposition、遗留、关键 Decision 与未来重入；
+5. 真实 Provider 只能逐字组织已确认判断；Validator 锁定 evidence、scope、版本和两项
+   Closure operation；
+6. 单组 HIGH Review 接受后仍零正式写；最终确认才通过一个 SemanticCommit 原子写入
+   Closure 与 `COMPLETED`；
+7. 专用 Undo 以 forward plan/steps/receipt、当前 version/checksum 和无后续变化重验，
+   原子恢复 `OPEN` 并移除本次 Closure，不改 Logseq Page；
+8. Undo 后直接返回 Project 重入；Plugin reload 后同一 Project 再次出现在 Now Work。
 
-真实结果：`ec1a70d848d6`，Logseq 0.10.15，Dark，`1567×1104`。空材料 Project 保持
-原目标、交付、Decision、已完成工作未知；reload 前后 Objects/Proposals/Commits 为
-`2/10/21`，Project 为 v10/OPEN/ACTIONABLE。CURRENT `p2-e-01`～`p2-e-04`。真实
-Provider、HIGH Proposal/Review/Commit/Recovery/Undo 尚未开始，因此 P2-E 仍是 Partial。
+真实结果：前向链 `1ec63ac`，当前 Undo/reload 构建 `06907f34b8d2`，Logseq 0.10.15，
+Dark，`994×700`。真实 `deepseek-v4-flash` 通过 production Validator；最终回读为
+Project `OPEN v13`、Closure absent、forward Commit `UNDONE`、inverse Commit
+`COMPLETED`、`PENDING/RECOVERY_REQUIRED/FAILED=0`。CURRENT `p2-e-10`～`p2-e-12`；
+`p2-e-05`～`p2-e-08` 为历史真实前向链，`p2-e-09` 是已修复的无 Undo 缺陷。当前构建的
+Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证据，因此 P2-E
+整体仍是 Partial。
 
 ## 交互评估
 

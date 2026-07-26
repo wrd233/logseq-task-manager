@@ -61,9 +61,15 @@ legacy handling, key Decisions and future summary; the Provider must copy those 
 only the resulting HIGH Proposal may enter Review. Automated integration proves this route creates
 no Commit or formal Object mutation.
 
-## Remaining
+## Subsequent closure
 
-- Plugin loading/error/stale/NO_PROPOSAL and final reading;
-- HIGH Review, accepted-not-applied, final Commit;
-- injected failure, Recovery, reload and dedicated Undo;
-- current Desktop screenshots on the commit that contains the visible Provider flow.
+The visible normal chain was subsequently completed in real Logseq Desktop: user judgments, real
+Provider loading, HIGH Review, final Commit, dedicated Closure Undo and Plugin reload. The current
+Undo/reload evidence and exact commit authority are recorded separately in
+`p2-e-project-closure-desktop-live-20260726.md`.
+
+Remaining for the full P2-E slice:
+
+- current-build Provider error/stale/NO_PROPOSAL Desktop evidence;
+- injected Commit failure into `RECOVERY_REQUIRED`, resume of the original Commit, and reload;
+- remaining Light/narrow visual gate.

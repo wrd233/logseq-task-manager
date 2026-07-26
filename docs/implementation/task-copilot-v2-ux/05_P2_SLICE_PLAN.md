@@ -262,7 +262,7 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 
 ## P2-E：Closure 证据起草
 
-状态：`IN_PROGRESS_PLUGIN_USER_CONFIRMED_DRAFT_AUTOMATED_REAL_MODEL_PASS_DESKTOP_FORMAL_CHAIN_OPEN`
+状态：`IN_PROGRESS_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_DESKTOP_OPEN`
 
 MiniProject 聚合：子树、DONE、Output、Decision、原状态和遗留。
 
@@ -307,6 +307,16 @@ Provider unavailable、busy、NO_PROPOSAL、stale、Validator rejection 都在�
 该可见链尚未完成最新 Desktop Gate。Local Service `144/144`、Service Client `12/12`、
 typecheck 与根级 `./scripts/check.sh` PASS。见
 `logs/p2-e-project-closure-plugin-draft-automated-20260726.md`。
+
+正常主链随后已在真实 Logseq Desktop 闭环：确定性 evidence → session-only 用户判断 →
+真实 `deepseek-v4-flash` loading → 单组 HIGH Review → 最终 Commit → Closure 专用 Undo →
+Plugin reload → Project 回到 Now Work。首轮真实完成态发现没有专用 Undo，保留
+`p2-e-09` 为 SUPERSEDED 失败证据；`06907f3` 增加 receipt/checksum/version 绑定的专用
+inverse Commit 后，`p2-e-10`～`p2-e-12` 为 CURRENT。回读为 Project `OPEN v13`、
+Closure absent，正向 Commit `UNDONE`、逆向 Commit `COMPLETED`，异常 Commit 计数为 0。
+正常主链 Gate 已 DONE，但当前构建的 Provider error/stale 和注入 Commit failure →
+RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial。完整记录见
+`logs/p2-e-project-closure-desktop-live-20260726.md`。
 
 ## P2-F：跨对象观察
 

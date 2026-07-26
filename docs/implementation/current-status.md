@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_PLUGIN_DRAFT_AUTOMATED_REAL_MODEL_PASS
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN
 overall_goal: IN_PROGRESS
 ```
 
@@ -240,8 +240,17 @@ overall_goal: IN_PROGRESS
   Store 写入均为 0。该结论不冒充公共 Service happy-path：正式 Ownership 矩阵禁止
   Decision/Output 以 Project 为 Primary Owner，而当前 evidence draft 仍把这条不可能关系
   当作 Provider 前置。下一步保持 Ownership 语义不变，增加“正式候选 + 用户确认”的
-  session-only Closure draft，再进入 Plugin HIGH Review/Commit/Recovery/Undo。P2-E
-  仍为 Partial。Local Service `143/143`、typecheck 与根级 `./scripts/check.sh` PASS；
+  session-only Closure draft，再进入 Plugin HIGH Review/Commit/Recovery/Undo。随后真实
+  Desktop 已完成确定性证据 → 用户逐项判断 → 真实 `deepseek-v4-flash` loading →
+  单组 HIGH Review → 最终 Commit → 专用 Closure Undo → Plugin reload → Project 重新进入
+  Now Work 的主链。首轮完成态暴露“Closure 已生效但没有专用 Undo”，保留为
+  `p2-e-09` SUPERSEDED 失败证据；`06907f3` 增加版本/checksum/receipt 绑定的专用 inverse
+  Commit 后，当前 `p2-e-10`～`p2-e-12` 证明入口、撤销结果与 reload 后 ACTIVE Project。
+  Service 回读为 Project `OPEN v13`、Closure absent；正向 Commit `UNDONE`、逆向 Commit
+  `COMPLETED`，`PENDING/RECOVERY_REQUIRED/FAILED=0`。P2-E 正常主链从 Partial 变为 DONE；
+  当前构建的 Provider error/stale 与注入 Commit failure → Recovery resume Desktop Gate
+  仍 OPEN，因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin `279/279`、
+  Domain `44/44`、typecheck 与根级 `./scripts/check.sh` PASS；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -258,7 +267,8 @@ P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→ro
 P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
 P2-D router + MEDIUM narration + one HEAVY full-interface vertical DONE,
 remaining LIGHT/other-HEAVY/visual gates OPEN /
-P2-E read-only preview automated + Desktop DONE, Provider/formal chain OPEN /
+P2-E normal Provider→Review→Commit→Undo→reload main chain Desktop DONE,
+failure/Recovery Desktop gate OPEN /
 P2-F–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论

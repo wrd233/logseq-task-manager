@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_PROVIDER_GATE_AUTOMATED | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E read-only preview + exact Provider gate automated PASS | P2-C/P2-D 已有对应 Desktop；P2-E 只读预览/reload/recompute Desktop PASS，尚无真实 Provider | P2-D 仍 Partial；P2-E Provider 安全门 DONE、真实质量与正式链 OPEN；P2-F～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E read-only、real Provider、正式 Closure 与专用 Undo 自动 PASS | P2-C/P2-D 已有对应 Desktop；P2-E 正常 Provider→Review→Commit→Undo→reload 主链 PASS | P2-D 仍 Partial；P2-E 当前构建 failure/Recovery Desktop Gate OPEN；P2-F～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -561,6 +561,18 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   session 内容。UI 不展示 Objective ID、scope hash 或 Provider 原始错误。Plugin
   `278/278`、build PASS；该 UI 仍需当前 commit 的真实 Desktop Gate。Local Service
   `144/144`、Service Client `12/12` 与根级 `./scripts/check.sh` PASS；
+- P2-E 正常正式主链已完成真实 Desktop Gate：`1ec63ac` 构建完成用户逐项判断、真实
+  `deepseek-v4-flash` loading、单组 HIGH Review 与最终 Closure Commit；完成态真实暴露
+  “没有专用 Undo”的产品缺口，`p2-e-09` 作为 SUPERSEDED 失败证据保留。`06907f3`
+  增加只允许 `COMPLETED → OPEN` 且精确移除本次 Closure 的专用 inverse Commit，Service
+  以正向 plan/steps/receipt、当前 version/checksum 和无后续变化共同重验；Plugin 提供独立
+  确认并在完成后回到 Project 重入。当前 `p2-e-10`～`p2-e-12` 证明 Undo 可发现、成功结果
+  和 reload 后 Project 回归 Now Work；CLI/SQLite 回读为 `OPEN v13`、Closure absent、
+  forward `UNDONE`、inverse `COMPLETED`、`0/0/0`。Domain `44/44`、Local Service
+  `144/144`、Plugin `279/279` 与根级检查 PASS。正常主链从 Partial 变为 DONE；当前构建
+  Provider error/stale 和注入 Commit failure → Recovery resume 的 Desktop Gate 仍 OPEN，
+  所以 P2-E 整体不提前关闭。完整记录见
+  `logs/p2-e-project-closure-desktop-live-20260726.md`；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -570,9 +582,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-E Desktop：验证已接入的 evidence 阅读 → 真实判断 → loading/error/stale →
-   最终阅读 → PENDING/HIGH Review，随后闭环 Commit/reload/Recovery/Undo 与来源返回；
-   不得通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
+1. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并
+   注入一次 Commit failure，完成 RECOVERY_REQUIRED → 原 Commit resume → reload；不得
+   通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
 2. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
    把 Ownership、正文移动、批量子对象与拆分合并的既有安全链逐项映射到当前影响路由；
 3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H

@@ -3,7 +3,7 @@
 ## CURRENT
 
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
-Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
+Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
 
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
@@ -36,6 +36,9 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `screenshots/p2-e-02-closure-evidence-empty-current-dark.png` | `ec1a70d848d6` | 用户打开空材料 Project 的 Closure 证据预览 | 原目标、交付、Decision、已完成工作均保持 unknown；不把模型、关联或孙级对象当成果 | 单屏高度不足以同时显示全部用户判断 |
 | `screenshots/p2-e-03-closure-evidence-reload-recompute-current-dark.png` | `ec1a70d848d6` | 预览打开时 reload Plugin，再次进入同一路径 | session preview 未持久化；Runtime/Store READY，并从同一正式 Project v10 重算；前后零 Proposal/Commit | 真实 Provider 与正式 Closure 链仍 OPEN |
 | `screenshots/p2-e-04-closure-evidence-judgments-current-dark.png` | `ec1a70d848d6` | 滚动到证据预览底部核对用户判断与操作 | 前台收敛为五项真正需要判断的内容；唯一按钮为“取消”，明确下一阶段才进入 HIGH Review/Commit | “Proposal/Primary Ownership/Commit”等工程词仍需状态翻译 |
+| `screenshots/p2-e-10-closure-undo-available-dark-994x701.jpg` | `06907f34b8d2` | 在最新构建中 reload 已完成的 Closure，进入待我确认 | 完成卡只提供一个专用“撤销 Project Closure”；说明恢复 OPEN、移除本次 Closure且不改 Logseq Page | 前向 Provider/Review 截图来自 `1ec63ac`，见 HISTORICAL |
+| `screenshots/p2-e-11-closure-undo-completed-dark-994x701.jpg` | `06907f34b8d2` | 勾选精确影响确认并执行 Closure inverse Commit | 即时结果明确“已撤销”，历史证据保留；自动返回 Project 重入，Project 再次可推进 | Review 历史列表信息密度仍高 |
+| `screenshots/p2-e-12-closure-undo-reload-active-project-dark-994x701.jpg` | `06907f34b8d2` | 从 Logseq Plugin Manager reload Task Copilot 后重新打开 | Runtime/Store READY；Now Work 重新显示同一 Project；CLI 回读 OPEN v13、Closure absent，异常 Commit 0/0/0 | 当前构建的 failure/Recovery Desktop Gate OPEN |
 
 ## HISTORICAL
 
@@ -70,6 +73,11 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `p2-d-02-project-narration-review-current-dark.png` | HISTORICAL | `eb1ff07424bd` | 真实 DeepSeek 草稿通过 Validator 后进入单组 MEDIUM Review，正式状态仍未改变 | 顶部仍使用误导的旧 V1 `Agent disabled` 文案；`ae23955` 已修正 |
 | `p2-d-03-project-narration-applied-current-dark.png` | HISTORICAL | `eb1ff07424bd` | Commit 后摘要可读，current focuses 与结构字段不变 | 当时尚未发现最近修改把 narration 错路由到通用 Block Undo |
 | `p2-d-04-project-narration-undo-current-dark.png` | SUPERSEDED | `f6d0429` | 专用 Project interface inverse Commit 已恢复原摘要 | `p2-d-05` 使用 Copilot 状态修复后的提交并包含 reload 后最近修改证据 |
+| `p2-e-05-closure-user-confirmation-dark-994x701.jpg` | HISTORICAL | `1ec63ac` | 确定性证据后只收集用户必须判断的 Closure 事实 | 后续 Undo 构建为 `06907f3`，未重拍同一步 |
+| `p2-e-06-closure-user-judgments-filled-dark-994x701.jpg` | HISTORICAL | `1ec63ac` | 实际结果、逐 Objective disposition、遗留、Decision 与未来重入已在前台确认 | 同上 |
+| `p2-e-07-closure-real-provider-loading-dark-994x701.jpg` | HISTORICAL | `1ec63ac` | 真实 DeepSeek loading 时确定性基线和用户输入仍保留 | 同上 |
+| `p2-e-08-closure-real-provider-high-review-dark-994x701.jpg` | HISTORICAL | `1ec63ac` | 真实 Provider 结果通过 Validator 后进入单组 HIGH Review，仍未正式写入 | 同上 |
+| `p2-e-09-closure-commit-completed-no-undo-dark-994x701.jpg` | SUPERSEDED | `1ec63ac` | 真实 Commit 已完成，同时暴露完成态没有专用 Undo 的产品缺陷 | `06907f3` 已补齐并由 `p2-e-10`～`p2-e-12` 替代 |
 
 仓库其他目录中的既有截图也继续按历史证据处理，除非索引明确登记为 `CURRENT`。
 
