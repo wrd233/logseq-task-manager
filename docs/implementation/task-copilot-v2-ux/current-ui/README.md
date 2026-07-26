@@ -3,8 +3,9 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
-当前源码安全提交为 `4dfe014902a3`。最新 `p0-e-05`、`p0-h-08`、`p0-i-03` 是该精确
-构建的真实 Logseq Desktop 高频壳层证据；它们替代旧截图对公共“现在”“更多”和健康
+当前源码安全提交为 `e8db32f1af6d`。最新 `p0-h-09`～`12` 是该精确构建的真实 Logseq
+Desktop 安全结束/重启证据；`p0-e-05`、`p0-h-08`、`p0-i-03` 是 `4dfe014902a3` 的高频
+壳层证据。它们共同替代旧截图对公共“现在”“更多”、结束/重启和健康
 系统状态界面的解释权。`p2-g-47`～`50` 仍是 `16bde9ad88a5` 的受控人工恢复场景证据，
 `p2-g-44`～`46` 仍只证明 `0c4526d` 的自动回滚交互。受控
 `RECOVERY_REQUIRED` 前置条件证明用户 HIGH Review、恢复、重连和 restart 产品链，但不冒充
@@ -118,6 +119,7 @@ Store 与 Service 均 READY，`0/0/0`。真实操作发现并修复三类通用�
 `p0-i-03`；高级 Review/Grill/Project/Migration/Restore 表面的压缩仍开放。完整记录见
 `../logs/p2-g-restore-manual-recovery-desktop-live-20260726.md`。
 壳层记录见 `../logs/p0-shell-system-language-desktop-live-20260726.md`。
+结束/重启记录见 `../logs/p0-h-runtime-end-restart-desktop-live-20260726.md`。
 
 P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
 Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、完整审阅计数和下一步。

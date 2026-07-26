@@ -612,12 +612,18 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   client 存在和正式修改可用。exact build 真实 reload 后，普通用户层约定工程词扫描为 `0`，
   CURRENT `p0-e-05`、`p0-h-08`、`p0-i-03`。没有新增正式状态、导航、Skill、Prompt、Validator
   或 Recovery 分支；本 Slice 不调用 LLM，拒绝率/重试不适用；
+- `e8db32f1af6d` 关闭 P0-H 当前语言的结束/重启 Partial：真实结束先发现主动结束被通用诊断
+  误报为知识库不匹配，又发现 ended shell 的“未配置”假结论和 lease release 短暂闪烁；最终
+  复用现有 `SERVICE_ENDED_BY_USER` 与 Launcher lease，先记录 session-only 用户意图、立即
+  关闭正式动作，再释放租约。100/400/1000/2500 ms 采样均无错误结论；重启后 exact commit、
+  formal writes true 和 `0/0/0` 读回通过。CURRENT `p0-h-09`～`12`；没有新增正式状态、
+  顶层导航、Skill、Prompt、Validator 或恢复分支；
 - 新增 `11_COMPLEXITY_LEDGER.md`：将 Partial 堆积、Recovery 分裂、状态组合、Agent/Skill 重复、
   Desktop 笛卡尔积、证据漂移和工程语义泄漏列为发布前显式 Gate；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
-- 本轮已归档 44 张脱敏 Desktop 截图：P0-A/P0-H 8 张，P0-B 8 张，P0-C 5 张，
+- 本轮已归档 48 张脱敏 Desktop 截图：P0-A/P0-H 12 张，P0-B 8 张，P0-C 5 张，
   P0-D 9 张，P0-E 5 张，P0-F 2 张，P0-G 4 张，P0-I 3 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 

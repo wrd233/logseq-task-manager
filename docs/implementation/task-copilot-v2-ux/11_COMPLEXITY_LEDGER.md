@@ -31,3 +31,4 @@
 - 仍阻断 P2-G：真实双重失败→HIGH Review→恢复→重连→reload、Light/窄栏、Migration failure/interruption。
 - `25ddac9` / `4dfe014` 关闭高频壳层发布阻断：删除主面板重复运行条，统一“更多”、启动、知识库切换和系统状态的用户语言；连接恢复只有在正式修改也可用时才报告成功。
 - exact build `4dfe014902a3` 已完成后台真实 Plugin reload、默认用户层工程词扫描 `0` 和三张 CURRENT Desktop 截图；工程概念泄漏由 HIGH 降为 MEDIUM，但高级 Review/Grill/Project/Migration/Restore 表面仍阻断发布。
+- `e8db32f1af6d` 又把主动结束从通用连接故障中分离：复用既有 reason/lease/状态翻译，不增加正式状态或恢复入口；结束面只保留一个结论与重新启动，100—2500 ms 采样无错误闪烁，重启仍要求正式修改可用。

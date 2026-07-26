@@ -5,7 +5,8 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
 
-当前源码安全提交为 `4dfe014902a3`。`p0-e-05`、`p0-h-08`、`p0-i-03` 对应该精确构建，
+当前源码安全提交为 `e8db32f1af6d`。`p0-h-09`～`12` 对应该精确构建，证明安全结束、
+无错误闪烁、重新启动和健康读回；`p0-e-05`、`p0-h-08`、`p0-i-03` 对应 `4dfe014902a3`，
 是公共“现在”“更多”和健康系统状态的当前权威；更早截图只在其专用纵向场景范围内提供
 历史运行证据。`p2-g-47`～`50` 对应 `16bde9ad88a5`，证明受控
 `RECOVERY_REQUIRED` 的 HIGH Review、人工恢复、重连和完整 restart；它们不冒充生产 Restore
@@ -16,6 +17,10 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p0-e-05-daily-shell-clean-current-dark.png` | `4dfe014902a3` | exact build 后台 reload 后打开“现在” | 启动结论使用“当前知识库”；无 Runtime/Store/Graph 状态条，保留四项主导航与真实任务动作 | Light/窄栏和高级卡片信息密度仍 OPEN |
 | `screenshots/p0-h-08-more-productized-current-dark.png` | `4dfe014902a3` | 从日常工作面进入“更多” | 维护能力收敛为最近修改、系统状态、备份恢复、迁移和结束本次使用；无 Launcher/Service/Commit/SQLite 工程词 | 结束/重启最新语言链仍可在集中 P0 Gate 复验 |
 | `screenshots/p0-i-03-system-status-translated-current-dark.png` | `4dfe014902a3` | 从“更多”检查健康系统状态，保持技术诊断折叠 | 首屏只回答发生、影响、可用、安全和操作；内部状态、精确 commit 与 `0/0/0` 仅在主动展开后可见 | 失败/恢复各类别仍需代表性当前复验 |
+| `screenshots/p0-h-09-end-session-confirm-current-dark.png` | `e8db32f1af6d` | 从“更多”请求结束本次使用 | 独立确认再次检查未完成修改与正文核对，并说明正文、历史和其他进程不受影响 | 未确认时不释放 lease |
+| `screenshots/p0-h-10-end-session-safe-current-dark.png` | `e8db32f1af6d` | 确认安全结束；100—2500 ms 多点采样 | 立即暂停正式动作，只保留“更多”、关闭和重新启动；无知识库不匹配或“未配置”假结论 | Graph switch 仍 OPEN |
+| `screenshots/p0-h-11-restart-session-ready-current-dark.png` | `e8db32f1af6d` | 点击“重新启动 Task Copilot” | 当前知识库重新启动；主导航和正式维护能力恢复 | 继续进入系统状态核验 |
+| `screenshots/p0-h-12-restart-session-health-current-dark.png` | `e8db32f1af6d` | 重启后检查系统状态 | 用户层正常；技术详情 exact commit、formal writes true、`0/0/0` | Light/窄栏与 Graph switch OPEN |
 | `screenshots/p2-c-18-page-undo-confirm-current-dark.png` | `913bbda4528f` | Page 来源 Project 经完整 restart 后，从最近修改进入专用 Undo | 原账本 UUID 已漂移，但界面只要求撤销正式 Project/Anchor；明确复用来源 Page 保留、专用 Page 仅在仍属本事务且为空时删除 | Review 历史卡片仍偏长 |
 | `screenshots/p2-c-19-page-undo-complete-current-dark.png` | `913bbda4528f` | 显式勾选并确认 Project Creation inverse Commit | Project、Anchor 与本事务拥有的空 Page 已安全撤销；Audit 与 inverse Commit 保留 | 删除事件会短暂触发一次正文核对，需冷启动收敛 |
 | `screenshots/p2-c-20-page-post-undo-restart-healthy-current-dark.png` | `913bbda4528f` | Undo 后完整退出并重开 Logseq，再进入系统状态 | Runtime/Store/Service READY；Pending/Recovery/Source Conflict `0/0/0`；`reconciliationRequired:false`；来源正文仍在、专用 Page/Project 不在 | MiniProject、Light/窄栏仍开放 |
@@ -94,7 +99,7 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 
 ## HISTORICAL
 
-以下文件都是真实 Logseq/DeepSeek 运行证据，但不代表当前 `4dfe014902a3` 公共界面：
+以下文件都是真实 Logseq/DeepSeek 运行证据，但不代表当前 `e8db32f1af6d` 公共界面：
 
 | 文件 | 状态 | 构建状态 | 仍可证明 | 被替代原因 |
 |---|---|---|---|---|
