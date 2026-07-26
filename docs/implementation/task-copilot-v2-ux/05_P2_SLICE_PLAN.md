@@ -320,7 +320,7 @@ RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial�
 
 ## P2-F：跨对象观察
 
-状态：`NOT_STARTED`
+状态：`IN_PROGRESS_SHADOW_CONTRACT_AUTOMATED_PROVIDER_GATE_OPEN`
 
 只允许提出：
 
@@ -337,6 +337,21 @@ RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial�
 - 明确是 Copilot 判断；
 - 不自动改变 Ownership/Focus；
 - 进入待我确认。
+
+当前已完成安全底座：
+
+- Application 只接收 exact-key、无自由文本的结构化 observation draft；
+- 2–8 个唯一版本化 subject、显式 Object/Project scope、2–16 条 evidence、每轮最多 8 条；
+- 只物化为 `LLM_CROSS_OBJECT / INFERENCE / SHADOW / NONE`，并复用既有失效与 cooldown；
+- 正式 due、Proposal、Commit、Anchor 与 Recovery 风险继续拥有更高优先级；
+- Plugin runtime 仅输出 count-only telemetry，不泄露 Object/ref/evidence；
+- 不持久化 Candidate，不创建 Proposal，不改变 Focus/Ownership，不开放前台。
+
+Application `168/168`、Plugin `280/280`、根级检查与恢复演练 PASS；非法 LLM 批次不会
+中断确定性 Attention 基线。当前没有真实 Provider
+质量证据、用户反馈或 Desktop UI；`cross-object-observation` 只是 Skill candidate。下一门
+先用脱敏黄金样本验证“应提出 / 应承认不确定 / 应不提出 / 非法输出拒绝”，再决定 Skill
+版本和进入待我确认的产品路径。
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 

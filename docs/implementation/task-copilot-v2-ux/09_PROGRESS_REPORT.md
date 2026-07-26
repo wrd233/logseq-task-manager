@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E read-only、real Provider、正式 Closure 与专用 Undo 自动 PASS | P2-C/P2-D 已有对应 Desktop；P2-E 正常 Provider→Review→Commit→Undo→reload 主链 PASS | P2-D 仍 Partial；P2-E 当前构建 failure/Recovery Desktop Gate OPEN；P2-F～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_CONTRACT_AUTOMATED | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E read-only/real Provider/正式 Closure/专用 Undo PASS；P2-F bounded shadow contract PASS | P2-C/P2-D 已有对应 Desktop；P2-E 正常 Provider→Review→Commit→Undo→reload 主链 PASS；P2-F 无 Desktop/UI | P2-D 仍 Partial；P2-E failure/Recovery Desktop Gate OPEN；P2-F real Provider quality/frontstage Gate OPEN；P2-G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -582,16 +582,19 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并
+1. 为 P2-F 建立脱敏真实 Provider 质量 Gate：覆盖有价值候选、信息不足、矛盾、应零输出、
+   越界/非法输出，并比较噪声、证据准确性和是否应进入待我确认；在真实结果前不创建正式
+   Skill、不开放前台、不持久化候选；
+2. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并
    注入一次 Commit failure，完成 RECOVERY_REQUIRED → 原 Commit resume → reload；不得
    通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
-2. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
+3. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
    把 Ownership、正文移动、批量子对象与拆分合并的既有安全链逐项映射到当前影响路由；
-3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
+4. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；
-4. 汇总 P0-H/P0-J/P0-K 的 Graph switch、slash/palette/custom binding 与多宿主 origin；
-5. 完成 P1-D
+5. 汇总 P0-H/P0-J/P0-K 的 Graph switch、slash/palette/custom binding 与多宿主 origin；
+6. 完成 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-6. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
+7. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
    shadow 决定不建 derivative，跨 reload 用户处置只在首批信号开放并证明减噪后重开。

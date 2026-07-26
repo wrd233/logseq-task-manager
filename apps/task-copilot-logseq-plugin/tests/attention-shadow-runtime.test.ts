@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AttentionShadowRepository } from "@task-copilot/application";
+import { AttentionShadowRepository, type CrossObjectObservationDraft } from "@task-copilot/application";
 import type { V2Anchor, V2ManagedObject, V2Proposal } from "@task-copilot/domain";
 import type { ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 
@@ -286,4 +286,49 @@ test("dynamic Now runtime summary contains only counts and preserves an empty su
   assert.equal(serialized.includes("focus-actionable"), false);
   assert.equal(serialized.includes("waiting-due"), false);
   assert.equal(serialized.includes("这段正文"), false);
+});
+
+test("bounded cross-object observations enter the existing session shadow as count-only telemetry", () => {
+  const crossObjectObservations: CrossObjectObservationDraft[] = [{
+    kind: "OWNERSHIP_CANDIDATE",
+    subjectRefs: ["object:task-1@v3", "object:mini-1@v2"],
+    scope: { kind: "OBJECT", rootRef: "object:task-1@v3" },
+    primaryObjectId: "task-1",
+    evidenceFacts: [{
+      factCode: "OWNERSHIP_MISSING",
+      sourceRef: "object:task-1@v3",
+      observedAt: now,
+      fingerprint: "aaaaaaaa",
+    }, {
+      factCode: "BOUNDED_CONTEXT_MATCH",
+      sourceRef: "object:mini-1@v2",
+      observedAt: now,
+      fingerprint: "bbbbbbbb",
+    }],
+    confidence: "MEDIUM",
+    provenance: {
+      skill: { id: "cross-object-observation", version: "0.1.0" },
+      prompt: { id: "cross-object-shadow", version: "0.1.0" },
+      model: { provider: "deepseek", id: "deepseek-v4-flash", version: "configured" },
+    },
+  }];
+  const snapshot = buildAttentionDetectorSnapshot({
+    observedAt: now,
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [],
+    proposals: [],
+    commits: [],
+    anchors: [],
+    crossObjectObservations,
+  });
+  const summary = runAttentionShadowCycle(new AttentionShadowRepository(), snapshot);
+
+  assert.equal(summary.rawCount, 1);
+  assert.equal(summary.mergedCount, 1);
+  assert.deepEqual(summary.primaryByType, { LLM_CROSS_OBJECT: 1 });
+  const serialized = JSON.stringify(summary);
+  for (const privateValue of ["task-1", "mini-1", "object:", "OWNERSHIP_MISSING"]) {
+    assert.equal(serialized.includes(privateValue), false);
+  }
 });

@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_CONTRACT_AUTOMATED
 overall_goal: IN_PROGRESS
 ```
 
@@ -251,6 +251,16 @@ overall_goal: IN_PROGRESS
   当前构建的 Provider error/stale 与注入 Commit failure → Recovery resume Desktop Gate
   仍 OPEN，因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin `279/279`、
   Domain `44/44`、typecheck 与根级 `./scripts/check.sh` PASS；
+- P2-F 已从 NOT_STARTED 进入 `IN_PROGRESS_SHADOW_CONTRACT_AUTOMATED`：Application 新增
+  严格、无自由文本的跨对象观察 draft，固定五类候选、2–8 个版本化 subject、显式有界
+  scope、2–16 条结构化 evidence、exact Skill/Prompt/model provenance 与每轮 8 条上限。
+  只有校验通过的 draft 才能进入既有 `LLM_CROSS_OBJECT` Attention shadow，且强制
+  `INFERENCE/SHADOW/NONE`、可 cooldown；正式 due/Proposal/Recovery 风险继续优先。
+  Plugin 只输出计数遥测，序列化结果不含 Object/ref/fact code。没有 Provider route、
+  Candidate/Proposal/Commit、Focus/Ownership 写入、用户显现或 Desktop 证据。Application
+  `168/168`、Plugin `280/280` 与根级检查 PASS；非法 LLM 批次整体 fail-closed，不能
+  中断确定性 Attention 基线。`cross-object-observation` 仅为待真实 Provider 样本比较后
+  再决定的 Skill candidate，不提前固化为 Skill；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -269,7 +279,8 @@ P2-D router + MEDIUM narration + one HEAVY full-interface vertical DONE,
 remaining LIGHT/other-HEAVY/visual gates OPEN /
 P2-E normal Provider→Review→Commit→Undo→reload main chain Desktop DONE,
 failure/Recovery Desktop gate OPEN /
-P2-F–G OPEN / overall Goal IN_PROGRESS
+P2-F shadow safety contract AUTOMATED, real Provider quality/frontstage gates OPEN /
+P2-G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论
 

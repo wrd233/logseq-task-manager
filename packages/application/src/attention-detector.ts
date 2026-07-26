@@ -6,6 +6,10 @@ import {
   type AttentionSignalRecord,
   type AttentionSignalType,
 } from "./attention-shadow.ts";
+import {
+  materializeCrossObjectShadowCandidates,
+  type CrossObjectObservationDraft,
+} from "./cross-object-shadow.ts";
 
 export interface AttentionObjectFact {
   objectId: string;
@@ -47,6 +51,7 @@ export interface AttentionDetectorSnapshot {
   proposals: AttentionProposalFact[];
   commits: AttentionCommitFact[];
   anchors: AttentionAnchorFact[];
+  crossObjectObservations?: CrossObjectObservationDraft[];
 }
 
 export interface AttentionPrimaryIssue {
@@ -330,6 +335,18 @@ export function detectDeterministicAttentionSignals(
       provenance: { rule: { id: "primary-anchor-state", version: "1.0.0" } },
       evidenceScope: { kind: "OBJECT", refs: [sourceRef, evaluationKey], scopeHash: hash },
     }, snapshot.observedAt));
+  }
+
+  try {
+    for (const observation of materializeCrossObjectShadowCandidates(
+      snapshot.crossObjectObservations ?? [],
+      snapshot.observedAt,
+    )) {
+      combineCandidate(result, observation);
+    }
+  } catch {
+    // Provider-derived observations are optional shadow input. An invalid batch must never
+    // suppress deterministic due, Proposal, Commit, Anchor, or recovery attention.
   }
 
   return [...result.values()].sort((left, right) =>

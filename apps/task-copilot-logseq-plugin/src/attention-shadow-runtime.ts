@@ -5,6 +5,7 @@ import {
   projectV2DynamicNowShadow,
   type AttentionDetectorSnapshot,
   type AttentionSignalType,
+  type CrossObjectObservationDraft,
 } from "@task-copilot/application";
 import type { V2Anchor, V2ManagedObject, V2Proposal } from "@task-copilot/domain";
 import type { ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
@@ -17,6 +18,7 @@ export interface AttentionRuntimeProjectionInput {
   proposals: readonly ServiceStoredProposal[];
   commits: readonly ServiceSemanticCommit[];
   anchors: readonly V2Anchor[];
+  crossObjectObservations?: readonly CrossObjectObservationDraft[];
 }
 
 export interface AttentionShadowCycleSummary {
@@ -115,6 +117,21 @@ export function buildAttentionDetectorSnapshot(
         status: anchor.status,
         observedAt: anchor.lastSeenAt,
       })),
+    ...(input.crossObjectObservations
+      ? {
+          crossObjectObservations: input.crossObjectObservations.map((observation) => ({
+            ...observation,
+            subjectRefs: [...observation.subjectRefs],
+            scope: { ...observation.scope },
+            evidenceFacts: observation.evidenceFacts.map((fact) => ({ ...fact })),
+            provenance: {
+              skill: { ...observation.provenance.skill },
+              prompt: { ...observation.provenance.prompt },
+              model: { ...observation.provenance.model },
+            },
+          })),
+        }
+      : {}),
   };
 }
 
