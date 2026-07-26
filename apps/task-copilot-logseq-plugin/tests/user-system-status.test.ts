@@ -38,8 +38,12 @@ test("healthy status answers the five user questions without treating an optiona
   assert.equal(result.narrationRuleId, "system-ready");
   assert.match(result.whatHappened, /正式状态与当前 Graph 已连接/);
   assert.match(result.affected, /Agent 分析未启用/);
-  assert.match(result.stillAvailable, /正文编辑、Focus、Condition、Project、审阅、Undo、备份与迁移/);
-  assert.match(result.dataSafety, /SQLite 仍是唯一正式状态源/);
+  assert.match(result.stillAvailable, /正文编辑、当前关注、暂时做不了、项目、审阅、撤销、备份与迁移/);
+  assert.match(result.dataSafety, /Logseq 正文仍是工作现场/);
+  assert.doesNotMatch(
+    `${result.whatHappened} ${result.affected} ${result.stillAvailable} ${result.dataSafety} ${result.actionRequired}`,
+    /SQLite|Primary Anchor|\bAnchor\b|\bFocus\b|\bCondition\b|\bProject\b|\bAudit\b|\bRebind\b|UUID|Doctor/,
+  );
   assert.equal(result.actionRequired, "无需操作；需要 Agent 分析时再配置 Provider。");
 });
 
@@ -174,6 +178,10 @@ test("Anchor conflicts and explicit-sync reconciliation state never claim everyt
   assert.equal(anchor.level, "ATTENTION");
   assert.equal(anchor.headline, "有 2 项正式事项与正文失去连接");
   assert.match(anchor.actionRequired, /逐项检查正文连接/);
+  assert.doesNotMatch(
+    `${anchor.whatHappened} ${anchor.affected} ${anchor.stillAvailable} ${anchor.dataSafety} ${anchor.actionRequired}`,
+    /SQLite|Primary Anchor|\bAnchor\b|\bFocus\b|\bCondition\b|\bAudit\b|\bRebind\b|UUID|Doctor/,
+  );
 
   const sync = deriveUserSystemStatus(snapshot({
     explicit_sync: { pending: 3, transportReady: true, reconciliationRequired: true },

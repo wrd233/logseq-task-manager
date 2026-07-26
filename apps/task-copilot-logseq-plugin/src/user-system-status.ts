@@ -132,11 +132,11 @@ export function deriveUserSystemStatus(snapshot: RuntimeDiagnosticsSnapshot): Us
     return {
       ...narrated,
       level: "ATTENTION",
-      whatHappened: "正式对象仍在 SQLite，但其 Primary Anchor 缺失或存在冲突。",
-      affected: "这些事项不能安全打开正文或执行依赖 Anchor 的修改。",
-      stillAvailable: "其他连接正常的事项、Logseq 编辑、Focus、Condition、审阅与历史仍可用。",
-      dataSafety: "对象与 Audit 仍在 SQLite；系统没有猜测新位置，也没有自动 Rebind。",
-      actionRequired: "逐项检查正文连接并明确 Rebind；不要从 UUID 列表盲选目标。",
+      whatHappened: "正式事项仍被保留，但有正文连接缺失或指向多个位置。",
+      affected: "这些事项暂时不能安全打开原文或执行依赖正文位置的修改。",
+      stillAvailable: "其他连接正常的事项、Logseq 编辑、当前关注、暂时做不了、审阅与历史仍可用。",
+      dataSafety: "正式事项和修改历史仍被保留；系统没有猜测新的正文位置。",
+      actionRequired: "逐项检查正文连接并明确重新连接；不要从技术标识列表盲选目标。",
     };
   }
   const sync = snapshot.explicit_sync;
@@ -145,7 +145,7 @@ export function deriveUserSystemStatus(snapshot: RuntimeDiagnosticsSnapshot): Us
       ...narrated,
       level: "ATTENTION",
       whatHappened: "Logseq 正文变化尚未与正式对象投影完成一致性核对。",
-      affected: "依赖这些 Anchor 的正式修改暂不应继续。",
+      affected: "依赖这些正文连接的正式修改暂不应继续。",
       stillAvailable: "正文编辑、只读浏览和其他已连接事项仍可用。",
       dataSafety: "正文仍由 Logseq 权威保存；同步只做有界重验，没有建立第二个正式状态源。",
       actionRequired: "保持 Service 连接并完成核对；若连接中断，先恢复连接而不是重复编辑。",
@@ -155,10 +155,10 @@ export function deriveUserSystemStatus(snapshot: RuntimeDiagnosticsSnapshot): Us
   return {
     ...narrated,
     level: "READY",
-    whatHappened: "正式状态与当前 Graph 已连接，未发现未完成修改或 Anchor 冲突。",
+    whatHappened: "正式状态与当前 Graph 已连接，未发现未完成修改或正文连接冲突。",
     affected: providerAvailable ? "当前没有已知受影响能力。" : "Agent 分析未启用；确定性基础事务能力不受影响。",
-    stillAvailable: "正文编辑、Focus、Condition、Project、审阅、Undo、备份与迁移均可用。",
-    dataSafety: "Logseq 仍是正文权威，SQLite 仍是唯一正式状态源；所有正式变化继续经过既有安全链。",
+    stillAvailable: "正文编辑、当前关注、暂时做不了、项目、审阅、撤销、备份与迁移均可用。",
+    dataSafety: "Logseq 正文仍是工作现场；所有正式变化继续经过审阅、应用与可恢复安全链。",
     actionRequired: providerAvailable ? "无需操作。" : "无需操作；需要 Agent 分析时再配置 Provider。",
   };
 }
