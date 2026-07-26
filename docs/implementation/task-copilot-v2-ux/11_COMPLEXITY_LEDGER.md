@@ -108,6 +108,26 @@
 - 风险变化：Recovery 语义分裂未上升；Partial 堆积下降但仍为 HIGH，因 Verify/Activate
   failure、P2-E Provider failure、P0/P1 宿主与视觉 Gate 仍阻断发布。
 - LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
+
+### P2-G Migration Verify / Activate 自动失败重试收敛（2026-07-27）
+
+- 新增正式状态、顶层导航、Skill、Prompt、Validator、生产 Recovery 分支、平行 Runtime、
+  平行写入权威：均为 `0`。
+- 仅复用 Local Service 现有 test-only fault port，加入事务前 Verify/Activate hook；
+  production caller 不传。失败结果继续完全由既有 run/batch ledger 表达。
+- 自动回归证明 Verify failure 保持 `IMPORTING/IMPORTED`，Activate failure 保持
+  `VERIFIED/VERIFIED`，同一账本重试成功，SemanticCommit Pending/Recovery `0/0`。
+- 删除/合并的重复机制：没有为两个失败动作创建恢复状态、恢复页、第二次导入或独立 Undo；
+  继续使用既有幂等 Verify/Activate。
+- Partial 总量不变：自动子 Gate 从 `AUTOMATED_ONLY_PARTIAL` 前移为
+  `AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`，Desktop Partial 未被伪装关闭；
+  新增 Partial 为 `0`。
+- Desktop 到达会写入插件私有 FileStorage 的最终 Launcher 配对按钮后停下；正常
+  descriptor、LaunchAgent、Service、原 authority 和 READY 状态已恢复。没有新增
+  CURRENT 截图。
+- 风险变化：状态/Recovery/Runtime 分裂未上升；Partial 堆积仍为 HIGH，等待一次有确认的
+  隔离 Desktop failure→retry→reload Gate。
+- LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
 - `25ddac9` / `4dfe014` 关闭高频壳层发布阻断：删除主面板重复运行条，统一“更多”、启动、知识库切换和系统状态的用户语言；连接恢复只有在正式修改也可用时才报告成功。
 - exact build `4dfe014902a3` 已完成后台真实 Plugin reload、默认用户层工程词扫描 `0` 和三张 CURRENT Desktop 截图；工程概念泄漏由 HIGH 降为 MEDIUM，但高级 Review/Grill/Project/Migration/Restore 表面仍阻断发布。
 - `e8db32f1af6d` 又把主动结束从通用连接故障中分离：复用既有 reason/lease/状态翻译，不增加正式状态或恢复入口；结束面只保留一个结论与重新启动，100—2500 ms 采样无错误闪烁，重启仍要求正式修改可用。

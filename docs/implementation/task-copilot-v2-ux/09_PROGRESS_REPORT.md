@@ -675,6 +675,15 @@ derivative/dashboard 价值也仍未完成。
   Pending/Recovery 始终 `0/0`。故障 Launcher 退出后，正常 LaunchAgent、7 对象 authority
   和 READY 用户状态恢复。CURRENT `p2-g-60`～`65`；新增正式状态、Skill、Prompt、
   Validator、生产恢复分支、平行 Runtime 与写入权威均为 `0`，本 Slice 不调用 Provider；
+- `df5d2ea` 关闭 Migration Verify/Activate 的自动失败原子性与重试子 Gate：test-only
+  `beforeMigrationVerify` / `beforeMigrationActivate` 分别证明失败后保持
+  `IMPORTING/IMPORTED` 与 `VERIFIED/VERIFIED`，同一正式 ledger 可重试至 `VERIFIED`
+  与 `ACTIVATED`，SemanticCommit Pending/Recovery 始终 `0/0`。根级检查、145 条稳定规则
+  与恢复演练均 PASS。真实 Logseq 已到隔离 Launcher 最终“安全连接”边界；该动作会把 token
+  写入插件私有 FileStorage，故未在缺少发生时确认时执行。正常 descriptor、LaunchAgent、
+  原 database authority 与 READY 状态已恢复。该项为
+  `AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`，不关闭 Migration failure Desktop Gate；
+  新增正式状态、Skill、Prompt、Validator、生产恢复分支、平行 Runtime 和写入权威均为 `0`；
 - `25ddac9` / `4dfe014` 关闭高频壳层工程语言 Partial：删除顶部 Runtime/Store/Graph 状态条，
   把“更多”、启动、知识库切换和系统状态收敛为用户结论；恢复重连必须同时满足连接 READY、
   client 存在和正式修改可用。exact build 真实 reload 后，普通用户层约定工程词扫描为 `0`，

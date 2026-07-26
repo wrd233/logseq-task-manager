@@ -165,6 +165,12 @@
   `PREVIEWED/UNDONE`，SemanticCommit `PENDING/RECOVERY_REQUIRED=0/0`；正常 7 对象
   authority 与 LaunchAgent 已恢复。该勾选仅关闭 post-write response-loss / interruption
   代表子 Gate，不代表 Migration Verify/Activate failure 或 P2-G 整体完成；
+- [ ] Migration Verify/Activate 失败链完成 Desktop Gate：`df5d2ea` 已自动证明事务前失败
+  不产生半状态，并在同一正式 ledger 上完成 Verify/Activate 重试，Pending/Recovery
+  `0/0`；根级检查 PASS。真实 Logseq 已到隔离 Launcher 的最终安全连接边界，但该持久
+  token 配对动作尚未获得发生时确认，因此状态严格保持
+  `AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`。正常 Launcher、Service 和原 authority
+  已恢复；不得据此勾选 Desktop Gate；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

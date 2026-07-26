@@ -426,8 +426,15 @@ overall_goal: IN_PROGRESS
   run/batch 均为 `VERIFIED`，既有 HIGH Undo 又使对象 `5→4`、run/batch 回到
   `PREVIEWED/UNDONE`，SemanticCommit Pending/Recovery 始终 `0/0`。故障运行时退出后，
   正常 LaunchAgent、7 对象 authority 和用户系统状态 READY 均恢复。该
-  post-write response-loss / Service interruption 子 Gate 从 Partial 变为 Done；Verify
-  failure、Activate failure 和视觉 Gate 仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
+  post-write response-loss / Service interruption 子 Gate 从 Partial 变为 Done。`df5d2ea`
+  又以两个 test-only transaction-before fault hook 自动证明 Verify 失败保持
+  `IMPORTING/IMPORTED`、Activate 失败保持 `VERIFIED/VERIFIED`，并可在同一 ledger 上
+  分别重试到 `VERIFIED` 与 `ACTIVATED`，SemanticCommit Pending/Recovery 为 `0/0`。
+  未新增正式状态、生产恢复分支或第二权威。真实 Desktop 已到隔离 Launcher 的最终
+  “安全连接”边界；因该动作会将 token 写入插件私有 FileStorage，本轮没有越过发生时确认，
+  也没有伪报 Desktop PASS。正常 descriptor、LaunchAgent、原 authority 与 Logseq READY
+  已恢复。因此该子 Gate 为 `AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`；视觉 Gate
+  仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -454,6 +461,7 @@ Migration item Review/Preview Desktop DONE,
 Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
 Migration Activation normal main chain Desktop DONE,
 Migration post-write response-loss→ledger reload→Verify→Undo Desktop DONE,
+Migration Verify/Activate failure atomicity+retry AUTOMATED DONE, Desktop confirmation required,
 Rebind Recovery/Undo guidance AUTOMATED,
 Restore rollback-failure manual recovery chain Desktop DONE, Migration verify/activate failure and visual gates OPEN /
 overall Goal IN_PROGRESS
