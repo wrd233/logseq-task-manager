@@ -22,8 +22,22 @@ Local Service Backup/Restore 安全链接到插件“更多 → 备份与恢复�
 → Launcher 自动重建同一 Graph Service
 ```
 
-当前只关闭自动 Gate。尚未在最新构建上执行真实 Restore，因此
-`P2-G` 和完整 Goal 继续 `IN_PROGRESS`。
+当前只关闭自动 Gate。首轮真实 Restore 暴露用户层 feedback 清理缺陷，修复后的完整
+Desktop 重跑尚未完成，因此 `P2-G` 和完整 Goal 继续 `IN_PROGRESS`。
+
+## 首轮 Desktop 反馈（修复中，不计 DONE）
+
+commit `6415dd14b568` 的首轮真实运行已证明：
+
+- 最新入口可在 Logseq 0.10.15 到达并创建 4 项正式事项的校验 PASS 快照；
+- 未勾选最终确认时 Backup 数保持 1、Service PID 不变；
+- 正确确认后 Backup 数变为 2，说明恢复前恢复点已建立；
+- owned Service PID 从 `45082` 变为 `45196`，Plugin 自动回到
+  `Runtime READY / Store READY`。
+
+但首轮成功画面仍保留上一次“请先单独确认”的错误提示，形成成功与失败并列的矛盾表达。
+该画面不进入 CURRENT 截图，也不能用于关闭 Desktop Gate。当前修复在每个
+Backup/Restore 用户动作开始时清理上一动作 feedback；必须重建并完整重跑后再判定。
 
 ## 复用与新增边界
 

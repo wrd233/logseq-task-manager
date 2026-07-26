@@ -1790,6 +1790,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "backup-restore-open" || action === "backup-restore-reload") {
+    latestError = undefined;
+    message = undefined;
     const client = serviceRuntimeClient;
     if (!isBackupRestoreClient(client) || !serviceLifecycleSession || serviceConnection.status !== "READY") {
       message = "备份与恢复需要 Launcher 管理的当前 Graph 运行环境；没有读取或修改任何快照。";
@@ -1806,6 +1808,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "backup-restore-create") {
+    latestError = undefined;
+    message = undefined;
     const client = serviceRuntimeClient;
     if (!isBackupRestoreClient(client) || !serviceLifecycleSession || serviceConnection.status !== "READY") {
       message = "当前 Graph 的受管运行环境已变化；没有创建快照。";
@@ -1821,6 +1825,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "backup-restore-select" && value) {
+    latestError = undefined;
+    message = undefined;
     const client = serviceRuntimeClient;
     if (!isBackupRestoreClient(client) || !serviceLifecycleSession || serviceConnection.status !== "READY") {
       message = "当前 Graph 的受管运行环境已变化；没有选择快照。";
@@ -1848,6 +1854,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await refresh();
       return;
     }
+    latestError = undefined;
+    message = undefined;
     await explicitSyncController?.flush();
     const decision = managedRuntimeEndDecision({
       commits: await client.listSemanticCommits(),
