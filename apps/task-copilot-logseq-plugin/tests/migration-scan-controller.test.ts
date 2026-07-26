@@ -93,11 +93,15 @@ test("clear invalidates an in-flight scan so a late result cannot cross Graph or
   assert.deepEqual(controller.snapshot(), { status: "idle" });
 });
 
-test("Service rejection is user-visible, retryable, and never preserves a prior ready summary", async () => {
+test("Service rejection is user-visible, retryable, never preserves a prior summary, and never exposes remote detail", async () => {
   let fail = false;
   const client: MigrationScanClient = {
     async scanLegacyMigration() {
-      if (fail) throw new Error("Recovery Bundle 校验失败；扫描已停止。");
+      if (fail) {
+        const error = new Error("objects.jsonl checksum mismatch for private-object-id and aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") as Error & { code: string };
+        error.code = "SERVICE_HTTP_ERROR";
+        throw error;
+      }
       return report();
     },
   };
@@ -105,9 +109,32 @@ test("Service rejection is user-visible, retryable, and never preserves a prior 
   const raw = JSON.stringify({ bundleVersion: 1 });
   await controller.scan(client, raw);
   fail = true;
-  await assert.rejects(() => controller.scan(client, raw), /校验失败/);
+  await assert.rejects(() => controller.scan(client, raw), /暂时无法完成安全检查/);
   assert.deepEqual(controller.snapshot(), {
     status: "error",
-    message: "Recovery Bundle 校验失败；扫描已停止。",
+    message: "迁移材料暂时无法完成安全检查；没有保存材料，也没有改变正式状态。",
   });
+  assert.doesNotMatch(JSON.stringify(controller.snapshot()), /objects\.jsonl|checksum|private-object-id|a{12,}/);
+});
+
+test("known transport failures map to bounded user recovery messages", async () => {
+  for (const [code, expected] of [
+    ["SERVICE_TIMEOUT", "等待时间过长"],
+    ["SERVICE_UNAVAILABLE", "本地运行环境暂时不可用"],
+    ["SERVICE_UNAUTHORIZED", "当前本地连接已失效"],
+    ["SERVICE_PROTOCOL_MISMATCH", "暂不兼容"],
+    ["SERVICE_RESPONSE_INVALID", "暂不兼容"],
+  ] as const) {
+    const client: MigrationScanClient = {
+      async scanLegacyMigration() {
+        const error = new Error("private remote response") as Error & { code: string };
+        error.code = code;
+        throw error;
+      },
+    };
+    const controller = new MigrationScanController();
+    await assert.rejects(() => controller.scan(client, JSON.stringify({ bundleVersion: 1 })), new RegExp(expected));
+    assert.match(controller.snapshot().message ?? "", new RegExp(expected));
+    assert.doesNotMatch(controller.snapshot().message ?? "", /private remote response/);
+  }
 });

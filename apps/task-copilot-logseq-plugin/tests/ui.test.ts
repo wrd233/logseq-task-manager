@@ -5,6 +5,7 @@ import test from "node:test";
 import { checksum } from "@task-copilot/shared";
 import type { ServiceProjectCreationGrillResult, ServiceProjectCreationPreviewResult } from "@task-copilot/service-client";
 
+import { MigrationScanController } from "../src/migration-scan-controller.ts";
 import { renderApp, type UiModel } from "../src/ui.ts";
 import { projectPluginV2ProjectReentry } from "../src/reentry-runtime.ts";
 import { projectPluginObjectNarrations } from "../src/status-narration-runtime.ts";
@@ -924,6 +925,25 @@ test("Migration workspace opens only a session-only read scan and keeps review a
   assert.match(readyHtml, /data-action="migration-scan-clear"/);
   assert.doesNotMatch(readyHtml, /data-action="migration-(?:preview|import|verify|activate|undo)"/);
   assert.doesNotMatch(readyHtml, /legacyObjectId|sourceBundleSha256|private-object-id|run_id|backup_/);
+});
+
+test("Migration workspace renders only the controller's bounded failure and not remote bundle internals", async () => {
+  const controller = new MigrationScanController();
+  const error = new Error("objects.jsonl checksum mismatch: private-object-id aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") as Error & { code: string };
+  error.code = "SERVICE_HTTP_ERROR";
+  await assert.rejects(() => controller.scan({
+    async scanLegacyMigration() {
+      throw error;
+    },
+  }, JSON.stringify({ bundleVersion: 1 })));
+  const value = model();
+  value.workspace = "migration";
+  value.v2MigrationRuns = [];
+  value.v2MigrationScanAvailable = true;
+  value.v2MigrationScan = controller.snapshot();
+  const html = renderApp(value);
+  assert.match(html, /迁移材料暂时无法完成安全检查/);
+  assert.doesNotMatch(html, /objects\.jsonl|checksum|private-object-id|a{12,}/);
 });
 
 test("Project workspace requires adaptive Grill and exposes no direct-creation bypass", () => {

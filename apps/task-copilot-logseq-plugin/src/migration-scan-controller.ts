@@ -1,5 +1,7 @@
 import type { ServiceLegacyMigrationScanReport } from "@task-copilot/service-client";
 
+import { privateErrorEvidence } from "./private-error-evidence.ts";
+
 export const MIGRATION_BUNDLE_MAX_BYTES = 8 * 1024 * 1024;
 
 export interface MigrationScanClient {
@@ -15,6 +17,23 @@ export interface PluginMigrationScanState {
 
 function migrationScanError(message: string): Error {
   return new Error(message);
+}
+
+function migrationScanFailureMessage(error: unknown): string {
+  const { errorCode } = privateErrorEvidence(error);
+  if (errorCode === "SERVICE_TIMEOUT") {
+    return "迁移材料检查等待时间过长；正式状态没有变化，可以稍后重试。";
+  }
+  if (errorCode === "SERVICE_UNAVAILABLE") {
+    return "本地运行环境暂时不可用；没有保存材料，也没有改变正式状态。";
+  }
+  if (errorCode === "SERVICE_UNAUTHORIZED") {
+    return "当前本地连接已失效；没有保存材料，请在系统恢复后重试。";
+  }
+  if (errorCode === "SERVICE_PROTOCOL_MISMATCH" || errorCode === "SERVICE_RESPONSE_INVALID") {
+    return "本地运行环境与当前插件暂不兼容；没有保存材料，也没有改变正式状态。";
+  }
+  return "迁移材料暂时无法完成安全检查；没有保存材料，也没有改变正式状态。";
 }
 
 export class MigrationScanController {
@@ -73,11 +92,12 @@ export class MigrationScanController {
     } catch (error) {
       if (generation !== this.generation) return;
       this.selectedBundle = undefined;
+      const message = migrationScanFailureMessage(error);
       this.state = {
         status: "error",
-        message: error instanceof Error ? error.message : "迁移材料暂时无法检查；正式状态没有变化。",
+        message,
       };
-      throw error;
+      throw migrationScanError(message);
     }
   }
 }

@@ -26,17 +26,30 @@ Migration 工作区
   不暴露 `legacyObjectId`、evidence ref、reason code、Bundle hash 或正文；
 - Service 继续作为只读校验权威：Recovery Bundle 结构/checksum、round-trip、PENDING/
   RECOVERY_REQUIRED 检查，以及 SQLite Doctor 前后零变化；
-- 成功只说明“尚未创建迁移计划、正式变化 0”；失败保留可重试入口，不复用旧摘要；
+- 成功只说明“尚未创建迁移计划、正式变化 0”；失败只按受控 transport 类别显示少量
+  用户层说明，不复用旧摘要，也不透传 Service message、内部 Bundle 文件名、hash 或 identity；
 - 用户可以显式“放弃这份材料”；Plugin reload 自然清空内存，Graph switch/restricted
   也显式 clear。
 
 ## 自动证据
 
-- `migration-scan-controller.test.ts`：4/4 PASS；
-- Migration workspace focused UI：3/3 PASS；
+- `migration-scan-controller.test.ts`：6/6 PASS；
+- Migration workspace focused UI：4/4 PASS；
 - Plugin typecheck：PASS；
 - snapshot identity/privacy assertions：PASS；
+- 恶意远端 message（内部文件名、checksum、identity、hash）到 controller snapshot 与最终 HTML
+  均为 0 泄漏；
 - Preview、decisions、Backup、Import、Verify、Activate、Undo action：均未开放。
+
+## 双轴审查
+
+- Standards：PASS。只读 Service 权威、session 生命周期、Graph switch/受限模式清空、
+  identity-free projection 与不双写边界均保持；
+- Spec：首次审查指出失败态透传远端 `error.message` 会泄漏内部恢复包结构；
+- 修复：按 `SERVICE_TIMEOUT`、`SERVICE_UNAVAILABLE`、`SERVICE_UNAUTHORIZED`、
+  protocol/response incompatibility 与 generic failure 映射受控文案；原始远端 message 不进入
+  snapshot 或 HTML；
+- 修复后 focused tests 与 typecheck：PASS。
 
 ## 仍开放
 
