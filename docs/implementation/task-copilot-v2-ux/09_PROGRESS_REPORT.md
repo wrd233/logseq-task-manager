@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_READ_ONLY_PREVIEW | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E 只读 evidence model、Service route 与 Plugin preview automated PASS | P2-C/P2-D 已有对应 Desktop；P2-E 尚无 Provider/Desktop | P2-D 仍 Partial；P2-E 只读预览 DONE、正式纵向链 OPEN；P2-F～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_READ_ONLY_PREVIEW_DESKTOP | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E 只读 evidence model、Service route 与 Plugin preview automated PASS | P2-C/P2-D 已有对应 Desktop；P2-E 入口/只读预览/reload/recompute Desktop PASS，尚无 Provider | P2-D 仍 Partial；P2-E 只读预览 DONE、正式纵向链 OPEN；P2-F～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -531,7 +531,11 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Application `164/164`；Local Service 只接受 `objectId + expectedVersion`，其
   `136/136` PASS；Plugin 在 Project 影响路由提供无 Proposal/Commit 权限的压缩预览，显式
   区分候选、unknown 与用户判断，`275/275` PASS；Service Client `12/12` 与 typecheck
-  PASS。真实 Provider、HIGH Proposal/Review/Commit/Recovery/Undo、Desktop 仍 OPEN；
+  PASS。`ec1a70d848d6` 最新构建已在 Logseq 0.10.15 / Dark / `1567×1104` 完成
+  Project 影响路由→只读预览；空证据场景仅有“取消”，reload 后 draft 消失、READY 并可
+  重新计算，Objects/Proposals/Commits 保持 `2/10/21`，Project 保持 v10/OPEN/ACTIONABLE。
+  CURRENT `p2-e-01`～`p2-e-04`。真实 Provider、HIGH
+  Proposal/Review/Commit/Recovery/Undo 仍 OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；

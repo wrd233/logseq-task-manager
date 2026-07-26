@@ -89,6 +89,24 @@ Lifecycle 与 Condition 不变，Pending/Recovery/Conflict `0/0/0`。Ownership�
 不进入正式路由。CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。该结论只关闭
 Condition 这一条 LIGHT 链；Focus/reviewAt、Association 和其他 HEAVY 类型仍开放。
 
+## P2-E Project Closure read-only evidence
+
+状态：`DONE_READ_ONLY_PREVIEW_P2E_STILL_IN_PROGRESS`
+
+1. Project → 调整 Project → 整理 Closure 证据；
+2. Plugin 只发送 `objectId + expectedVersion`，不能注入结果、处置或叙述；
+3. Service 从 SQLite 当前权威读取 OPEN Project、Project interface、正式 Objects 与直接
+   Primary Ownership；
+4. Preview 分开显示候选证据、未收口工作、显式 unknown 与仍需用户判断的内容；
+5. Association、孙级对象与 LLM 判断不升格为成果，Objective 完成状态不自动推断；
+6. Preview 唯一动作是取消，不生成 Proposal、Commit 或 Closure；
+7. reload 清除 session preview；Runtime/Store READY 后可从同一正式版本重新计算。
+
+真实结果：`ec1a70d848d6`，Logseq 0.10.15，Dark，`1567×1104`。空材料 Project 保持
+原目标、交付、Decision、已完成工作未知；reload 前后 Objects/Proposals/Commits 为
+`2/10/21`，Project 为 v10/OPEN/ACTIONABLE。CURRENT `p2-e-01`～`p2-e-04`。真实
+Provider、HIGH Proposal/Review/Commit/Recovery/Undo 尚未开始，因此 P2-E 仍是 Partial。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一

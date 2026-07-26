@@ -262,7 +262,7 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 
 ## P2-E：Closure 证据起草
 
-状态：`IN_PROGRESS_AUTOMATED_READ_ONLY_PREVIEW`
+状态：`IN_PROGRESS_READ_ONLY_PREVIEW_DESKTOP`
 
 MiniProject 聚合：子树、DONE、Output、Decision、原状态和遗留。
 
@@ -278,8 +278,10 @@ Deliverable、owned Output/Decision、完成工作和未决工作会成为有来
 `objectId + expectedVersion` 的只读路由；Plugin 的 Project 影响路由已能展示候选证据、
 未决工作、显式 unknown 与仍需用户判断的部分，且没有 Proposal/Commit 权限。
 focused `3/3`、Application `164/164`、Local Service `136/136`、Plugin `275/275`、
-Service Client `12/12` 与 typecheck PASS。当前尚未接真实 Provider、正式
-Review/Commit/Recovery/Undo 或 Desktop，因此 P2-E 不得标为 DONE。自动记录见
+Service Client `12/12` 与 typecheck PASS。`ec1a70d848d6` 最新构建已在真实 Logseq
+Desktop 完成入口、空证据预览、零写入、reload 清空 session draft 与重新计算 Gate；
+CURRENT `p2-e-01`～`p2-e-04`。当前尚未接真实 Provider、正式
+Review/Commit/Recovery/Undo，因此 P2-E 不得标为 DONE。自动记录见
 `logs/p2-e-project-closure-evidence-automated-20260726.md`。
 
 ## P2-F：跨对象观察

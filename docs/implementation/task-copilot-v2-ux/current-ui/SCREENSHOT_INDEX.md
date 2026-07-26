@@ -32,6 +32,10 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `screenshots/p2-d-11-light-condition-router-current-dark.png` | `58bf6306d04d` | 从 Project 重入进入影响路由 | Condition 与正式 Undo 可操作；无 inverse 的普通 Association 明确禁用，不计入最终 Gate | 路由较高；英文领域术语与 Light/窄栏仍需收口 |
 | `screenshots/p2-d-12-light-condition-undo-after-reload-current-dark.png` | `58bf6306d04d` | Project PAUSED 后 reload，再从影响路由进入“撤销最近状态” | 明确“我先暂停”恢复为“可以行动”；确认时重验版本/Condition，不改变其他正式边界 | Condition 表单应更明确显示目标标题 |
 | `screenshots/p2-d-13-light-condition-undo-reload-current-dark.png` | `58bf6306d04d` | 正式 inverse 完成后再次 reload，打开 Project 重入 | Project 回到 ACTIONABLE 的确定性基线；最终 v10，原摘要/Focus/空结构逐字段守恒 | 进入点本身仍不足，Context Recovery 属 P1 后续 |
+| `screenshots/p2-e-01-closure-evidence-entry-current-dark.png` | `ec1a70d848d6` | 从 Project 重入进入影响路由 | Closure 只提供“整理证据”，明确不会生成 Proposal 或完成 Project | 路由仍有较多英文领域词；Light/窄栏 OPEN |
+| `screenshots/p2-e-02-closure-evidence-empty-current-dark.png` | `ec1a70d848d6` | 用户打开空材料 Project 的 Closure 证据预览 | 原目标、交付、Decision、已完成工作均保持 unknown；不把模型、关联或孙级对象当成果 | 单屏高度不足以同时显示全部用户判断 |
+| `screenshots/p2-e-03-closure-evidence-reload-recompute-current-dark.png` | `ec1a70d848d6` | 预览打开时 reload Plugin，再次进入同一路径 | session preview 未持久化；Runtime/Store READY，并从同一正式 Project v10 重算；前后零 Proposal/Commit | 真实 Provider 与正式 Closure 链仍 OPEN |
+| `screenshots/p2-e-04-closure-evidence-judgments-current-dark.png` | `ec1a70d848d6` | 滚动到证据预览底部核对用户判断与操作 | 前台收敛为五项真正需要判断的内容；唯一按钮为“取消”，明确下一阶段才进入 HIGH Review/Commit | “Proposal/Primary Ownership/Commit”等工程词仍需状态翻译 |
 
 ## HISTORICAL
 

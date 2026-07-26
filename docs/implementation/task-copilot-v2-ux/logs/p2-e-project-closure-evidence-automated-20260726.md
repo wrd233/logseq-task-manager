@@ -2,12 +2,11 @@
 
 ## Status
 
-`IN_PROGRESS_AUTOMATED_READ_ONLY_PREVIEW`
+`IN_PROGRESS_READ_ONLY_PREVIEW_DESKTOP`
 
-This increment does not claim a Provider result, formal Closure flow or Desktop acceptance. It
-closes the first user-facing prerequisite in automated evidence: Closure starts from a bounded,
-deterministic projection and can be reviewed as a read-only preview instead of an empty form or
-model-authored facts.
+This increment does not claim a Provider result or formal Closure flow. The automated read-only
+preview and its current Desktop gate are complete: Closure starts from a bounded, deterministic
+projection that the user can inspect before any model-authored draft or formal action exists.
 
 ## Implemented
 
@@ -71,10 +70,11 @@ Cases include:
 
 ## Next vertical steps
 
-1. install the current build and record the Project impact route plus read-only evidence preview in
-   current Logseq Desktop;
-2. reuse and version `design-project` rather than create a parallel prompt system;
-3. call the real Provider only after the evidence preview is visible, then validate one exact HIGH
+1. reuse and version `design-project` rather than create a parallel prompt system;
+2. call the real Provider only after the evidence preview is visible, then validate one exact HIGH
    Project Closure Proposal;
-4. continue through Review, Commit, reload, Recovery and the existing lifecycle Undo boundary before
+3. continue through Review, Commit, reload, Recovery and the existing lifecycle Undo boundary before
    P2-E can be DONE.
+
+Current Desktop evidence is recorded separately in
+`p2-e-project-closure-evidence-desktop-live-20260726.md`.

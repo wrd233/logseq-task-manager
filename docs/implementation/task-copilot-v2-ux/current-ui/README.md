@@ -44,6 +44,13 @@ ACTIONABLE v8→PAUSED v9，reload 后由 Service receipt 准备 server-owned in
 正式影响路由中禁用。CURRENT `p2-d-11`～`p2-d-13`；完整记录见
 `../logs/p2-d-light-condition-undo-desktop-live-20260726.md`。
 
+P2-E 的确定性 Closure 证据入口已在 `ec1a70d848d6` 最新构建上通过当前 Desktop Gate：
+Project 影响路由明确先整理证据，不生成 Proposal 或完成 Project；空证据预览把候选、
+unknown 和用户判断分开，且只有“取消”。reload 后 session preview 不残留，Runtime/Store
+READY，同一 Project v10 可重新计算；正式计数保持 `2 Objects / 10 Proposals /
+21 Commits`。CURRENT `p2-e-01`～`p2-e-04`。这只关闭 read-only preview，不代表真实
+Provider 或 Closure 正式链完成。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；
