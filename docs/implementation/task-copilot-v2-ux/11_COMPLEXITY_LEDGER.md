@@ -19,6 +19,12 @@
 
 ## 本轮变化（2026-07-26）
 
+- P0-J 从 `AUTOMATED_ONLY` 收敛为代表性 Desktop partial：共享同一 command/slash 注册内核，
+  没有为四条 Slash、六条 palette 或三个 binding 创建场景状态；新正式状态、恢复分支、
+  Agent Runtime、Prompt、Skill 与 Validator 均为 `0`。
+- 连续 reload 的 palette 重复只在宿主会话内出现，完整 restart 后消失；保留一张
+  `HISTORICAL` 缺陷截图，不增加 Plugin 持久去重账本。中文 IME 与 Light/窄栏继续作为
+  代表性 Gate，不扩张为全组合矩阵。
 - 新增正式状态：`0`。
 - 新增顶层导航：`0`。
 - 新增 Agent Runtime / Prompt 系统 / Recovery Kernel：`0`。

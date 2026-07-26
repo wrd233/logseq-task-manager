@@ -59,8 +59,10 @@ overall_goal: IN_PROGRESS
   `4dfe014` 又以最新健康态确认启动、知识库切换与系统状态均使用用户语言，工程身份只在
   主动展开的诊断层；恢复重连还必须确认正式修改可用，不能仅凭连接 READY 报告成功；
 - P0-J 中文创建命令与快捷动作：四条 slash 只插入 canonical 显式正文语法，三条高频
-  command palette 复用“现在”、Provider Proposal 与正式 Focus Controller；自动 Gate
-  183/183 与根级检查通过，Desktop slash/palette/custom binding Gate 保持 OPEN；
+  command palette 复用“现在”、Provider Proposal 与正式 Focus Controller；`a835f59`
+  让这三项进入 Logseq 原生可配置快捷键但不设默认键。Plugin 329/329 与根级检查通过；
+  真实 Desktop 已验证冷启动单组 palette、四条 Slash 可发现、`[任务] ` 代表插入、临时
+  chord 配置/触发/清理和冷启动复验。原生中文 IME、受限态、Light/窄栏仍 OPEN；
 - P0-K 完成后路由：Block/Page 来源只保存在 session token；main Page 按 UUID 重验返回，
   secondary Page 保持宿主现场，来源缺失安全关闭；自动 Gate 187/187 通过，Desktop
   Query/引用/右侧栏 Gate 保持 OPEN；

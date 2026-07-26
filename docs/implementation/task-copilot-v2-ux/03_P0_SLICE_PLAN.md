@@ -424,7 +424,8 @@ Logseq 0.10.15 还证明隐藏 Plugin iframe 的早期 `getCurrentGraph()` 与 i
 
 ## P0-J：中文创建命令与快捷动作
 
-状态：`PARTIAL`（自动 Gate PASS；Desktop slash / palette / custom binding Gate OPEN）
+状态：`PARTIAL`（自动 Gate PASS；Desktop palette / Slash 可发现与代表插入 / custom binding
+PASS；中文 IME、受限态、Light / 窄栏 OPEN）
 
 斜杠：
 
@@ -447,11 +448,15 @@ Logseq 0.10.15 还证明隐藏 Plugin iframe 的早期 `getCurrentGraph()` 与 i
   Local Service；
 - 命令面板已中文化，并提供稳定的“打开‘现在’ / 处理当前 Block / 加入或移出当前关注”；
 - 当前 Block 处理复用 Provider → Validator → Proposal，关注切换复用既有正式 Controller；
-- Plugin 183/183、typecheck、build、bootstrap/dist integrity 与根级检查 PASS；
-- 自动证据见 `logs/p0-j-chinese-commands-automated-20260724.md`。
+- 三条高频动作以空 global binding 进入 Logseq 原生快捷键设置，不抢占默认按键；
+- Plugin 329/329、typecheck、build、bootstrap/dist integrity 与根级检查 PASS；
+- 真实 Logseq 0.10.15 已验证冷启动单组 palette、Now/系统状态路由、四条 Slash 可发现、
+  `[任务] ` 代表插入、临时 chord 配置与触发、清理后完整冷启动仍为三条未设置；
+- 自动与 Desktop 证据见 `logs/p0-j-chinese-commands-automated-20260724.md` 和
+  `logs/p0-j-host-commands-desktop-live-20260726.md`。
 
-仍需真实 Desktop 验证斜杠可发现性、光标与输入、命令面板、自定义 binding、受限态及主题/
-窄窗口；未以注册测试替代该 Gate。
+Computer Use 当前不能可靠注入中文字符，因此原生中文 IME 与光标体验仍需真实验证；Service/
+Provider 受限态、Light 与窄窗口也继续开放，未因代表链通过而把 P0-J 提前标为 DONE。
 
 ## P0-K：完成后返回业务现场
 

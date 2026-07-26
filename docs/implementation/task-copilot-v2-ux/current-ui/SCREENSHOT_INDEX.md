@@ -5,7 +5,10 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
 
-当前源码安全提交为 `e8db32f1af6d`。`p0-h-09`～`12` 对应该精确构建，证明安全结束、
+当前源码安全提交为 `a835f59bf1c4`。`p0-j-06`～`08` 对应该精确构建，证明三项快捷动作
+可配置、临时 binding 可触发且清理后冷启动全部未设置；`p0-j-02`～`05` 对应
+`e8db32f1af6d`，证明冷启动 palette 和 Slash 当前行为。`p0-h-09`～`12` 对应
+`e8db32f1af6d`，证明安全结束、
 无错误闪烁、重新启动和健康读回；`p0-e-05`、`p0-h-08`、`p0-i-03` 对应 `4dfe014902a3`，
 是公共“现在”“更多”和健康系统状态的当前权威；更早截图只在其专用纵向场景范围内提供
 历史运行证据。`p2-g-47`～`50` 对应 `16bde9ad88a5`，证明受控
@@ -14,6 +17,13 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
+| `screenshots/p0-j-02-command-palette-single-current-dark.png` | `e8db32f1af6d` | 完整冷启动后打开命令面板并检索 Task Copilot | 六条中文命令单组可见，无持久重复 | 连续 reload residue 见 HISTORICAL；受限态 OPEN |
+| `screenshots/p0-j-03-command-palette-open-now-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“打开‘现在’” | 当前 Now 工作面打开，无静默或错误 | Light/窄栏 OPEN |
+| `screenshots/p0-j-04-command-palette-system-status-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“系统状态与技术诊断” | 用户层健康结论可读，技术详情保持折叠 | 受限态代表链 OPEN |
+| `screenshots/p0-j-05-slash-command-current-dark.png` | `e8db32f1af6d` | 空白 Block 打开 Slash，选择创建任务并继续输入 ASCII 测试标题 | 四条中文 Slash 可发现；精确插入 `[任务] ` 并保留同一 Block | Computer Use 不能替代原生中文 IME Gate |
+| `screenshots/p0-j-06-custom-binding-current-dark.png` | `a835f59bf1c4` | 设置页为“打开‘现在’”配置临时两段 chord | 仅三项高频动作可配置；没有默认键 | 测试后已清理本机配置 |
+| `screenshots/p0-j-07-custom-binding-open-now-current-dark.png` | `a835f59bf1c4` | 关闭设置后触发临时 chord | Now 正确打开 | 不保留测试 binding |
+| `screenshots/p0-j-08-cold-start-configurable-shortcuts-current-dark.png` | `a835f59bf1c4` | 清理配置并完整退出/重启 Logseq，重新检索 Task Copilot | 恰好 3 条可配置命令，全部未设置 | 中文 IME、受限态、Light/窄栏 OPEN |
 | `screenshots/p0-e-05-daily-shell-clean-current-dark.png` | `4dfe014902a3` | exact build 后台 reload 后打开“现在” | 启动结论使用“当前知识库”；无 Runtime/Store/Graph 状态条，保留四项主导航与真实任务动作 | Light/窄栏和高级卡片信息密度仍 OPEN |
 | `screenshots/p0-h-08-more-productized-current-dark.png` | `4dfe014902a3` | 从日常工作面进入“更多” | 维护能力收敛为最近修改、系统状态、备份恢复、迁移和结束本次使用；无 Launcher/Service/Commit/SQLite 工程词 | 结束/重启最新语言链仍可在集中 P0 Gate 复验 |
 | `screenshots/p0-i-03-system-status-translated-current-dark.png` | `4dfe014902a3` | 从“更多”检查健康系统状态，保持技术诊断折叠 | 首屏只回答发生、影响、可用、安全和操作；内部状态、精确 commit 与 `0/0/0` 仅在主动展开后可见 | 失败/恢复各类别仍需代表性当前复验 |
@@ -103,6 +113,7 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 
 | 文件 | 状态 | 构建状态 | 仍可证明 | 被替代原因 |
 |---|---|---|---|---|
+| `p0-j-01-command-palette-duplicate-historical-dark.png` | HISTORICAL | `e8db32f1af6d` 连续 Plugin reload 会话 | Logseq 0.10.15 reload 会话曾出现重复 palette 行 | 完整退出/重启恢复单组；`p0-j-02` 是冷启动当前权威，不新增持久去重状态 |
 | `p2-g-42-migration-activated-reload-current-dark.png` | SUPERSEDED | `f42b62d` | ACTIVATED ledger 跨完整 restart 保留 | 完成态仍显示新 Bundle scan；`p2-g-43` 已收敛为只读交接 |
 | `p2-c-01-project-creation-entry-dark.png` | SUPERSEDED | `c9c29b7` | 三来源入口曾真实可达 | `p2-c-11` 使用当前提交重拍 |
 | `p2-c-02-blank-grill-first-question-dark.png` | HISTORICAL | `c9c29b7` + 待提交 Validator 修复 | DeepSeek 中文单问通过 | 拍摄时源码并非可引用 commit |

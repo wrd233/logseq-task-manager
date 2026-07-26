@@ -3,13 +3,22 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
-当前源码安全提交为 `e8db32f1af6d`。最新 `p0-h-09`～`12` 是该精确构建的真实 Logseq
+当前源码安全提交为 `a835f59bf1c4`。`p0-j-06`～`08` 是该精确构建的可配置快捷键、触发和
+清理后冷启动证据；`p0-j-02`～`05` 是 `e8db32f1af6d` 的命令面板和 Slash 当前行为证据，
+`p0-j-01` 明确降为连续 reload residue 的 `HISTORICAL`。最新 `p0-h-09`～`12` 是
+`e8db32f1af6d` 的真实 Logseq
 Desktop 安全结束/重启证据；`p0-e-05`、`p0-h-08`、`p0-i-03` 是 `4dfe014902a3` 的高频
 壳层证据。它们共同替代旧截图对公共“现在”“更多”、结束/重启和健康
 系统状态界面的解释权。`p2-g-47`～`50` 仍是 `16bde9ad88a5` 的受控人工恢复场景证据，
 `p2-g-44`～`46` 仍只证明 `0c4526d` 的自动回滚交互。受控
 `RECOVERY_REQUIRED` 前置条件证明用户 HIGH Review、恢复、重连和 restart 产品链，但不冒充
 生产 Restore 连续双重故障注入，后者仍 OPEN。
+
+P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_RESTRICTED_VISUAL_OPEN`：
+冷启动 palette、Now/系统状态路由、四条 Slash 可发现、任务语法代表插入和 custom binding
+配置/触发/清理已在 Logseq 0.10.15 通过。Computer Use 不能可靠注入中文字符，因此原生
+中文 IME、受限态、Light/窄栏继续开放。完整记录见
+`../logs/p0-j-host-commands-desktop-live-20260726.md`。
 
 ## 状态
 

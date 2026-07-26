@@ -24,7 +24,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block 路由 automated DONE；Graph switch、中文 IME/受限视觉、K 多宿主 Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart、Migration through Activation 正常主链已有真实 Desktop。真实双重故障注入、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -137,8 +137,11 @@ Launcher/LaunchAgent、ownership、shutdown、Graph binding、descriptor 刷新�
 crash/orphan recovery 已由自动和真实进程证据闭合；当前等待不绕过桌面安全机制的集中
 reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 
-P0-J 自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 slash 可发现性、中文输入与
-光标、命令面板、自定义 binding、受限态、主题和窄窗口。
+P0-J 已从 `AUTOMATED_ONLY` 推进为代表性 Desktop partial：冷启动命令面板单组注册、Now/
+系统状态路由、四条 Slash 可发现、`[任务] ` 代表插入和自定义 binding 配置/触发/清理均已
+通过。连续 Plugin reload 的重复行经完整 restart 清除，按宿主 residue 记录而不增加第二
+去重状态。Computer Use 不能可靠注入中文字符，因此原生中文 IME、受限态、Light 与窄窗口
+继续 OPEN；完整记录见 `logs/p0-j-host-commands-desktop-live-20260726.md`。
 
 P0-K 与普通 Block 内容路由自动 Gate 已完成；当前等待同一集中 Desktop 轮次验证 main
 Page、right sidebar、Query/引用、来源移动/重命名/删除以及成功/失败/Undo 返回。
