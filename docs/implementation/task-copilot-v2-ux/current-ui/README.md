@@ -15,10 +15,10 @@ P0 命令宿主最近精确构建为 `a835f59bf1c4`。`p0-j-06`～`08` 是该精
 `e8db32f1af6d` 的真实 Logseq
 Desktop 安全结束/重启证据；`p0-e-05`、`p0-h-08`、`p0-i-03` 是 `4dfe014902a3` 的高频
 壳层证据。它们共同替代旧截图对公共“现在”“更多”、结束/重启和健康
-系统状态界面的解释权。`p2-g-47`～`50` 仍是 `16bde9ad88a5` 的受控人工恢复场景证据，
-`p2-g-44`～`46` 仍只证明 `0c4526d` 的自动回滚交互。受控
-`RECOVERY_REQUIRED` 前置条件证明用户 HIGH Review、恢复、重连和 restart 产品链，但不冒充
-生产 Restore 连续双重故障注入，后者仍 OPEN。
+系统状态界面的解释权。P2-G Restore 当前精确构建已更新为 `fe0b590034ac`：
+`p2-g-55`～`59` 真实证明候选激活失败、自动回滚也失败、无需 Plugin reload 出现人工恢复、
+HIGH Review、Doctor/清锁、正常 Launcher 回切和 reload 健康。`p2-g-47`～`50` 降为
+`HISTORICAL` 受控前置条件证据，`p2-g-44`～`46` 仍只证明历史自动回滚阶段。
 
 P0-H Graph switch 最新精确构建为 `ca50304e9aa2`。`p0-h-16`～`18` 分别证明未配置隔离
 Graph 首次显示时已安全受限、6 秒后仍不显示旧 Project，以及切回原 Graph 后约 3.75 秒
@@ -157,6 +157,16 @@ Store 与 Service 均 READY，`0/0/0`。真实操作发现并修复三类通用�
 `../logs/p2-g-restore-manual-recovery-desktop-live-20260726.md`。
 壳层记录见 `../logs/p0-shell-system-language-desktop-live-20260726.md`。
 结束/重启记录见 `../logs/p0-h-runtime-end-restart-desktop-live-20260726.md`。
+
+`fe0b590034ac` 又把 Restore 手工恢复从“受控前置条件”推进为真实连续双重故障。
+专用测试 Launcher 在候选激活后与自动回滚前分别失败；活动库暂时 `7→6`，切换前
+7 对象正式库和 `RECOVERY_REQUIRED` 互锁保留。首轮 `da080d2` 真实暴露恢复控件依赖
+Plugin reload，`p2-g-53` / `54` 只作为 `HISTORICAL` 缺陷证据。修复后同一故障无需 reload
+即出现唯一“准备恢复”，用户完成 HIGH 确认后恢复 `6→7`，Doctor PASS、互锁清除，
+Anchor conflict/Pending/Recovery `0/0/0`。停止故障 Launcher、恢复原 descriptor 与正常
+LaunchAgent、Plugin reload 后 exact build、formal writes 与 explicit sync 均 READY，
+原 database authority 未被替换。CURRENT `p2-g-55`～`59` 取代旧手工恢复图的当前解释权。
+完整记录见 `../logs/p2-g-restore-double-failure-desktop-live-20260727.md`。
 
 P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
 Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、完整审阅计数和下一步。

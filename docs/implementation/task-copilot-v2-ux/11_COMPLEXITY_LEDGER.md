@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H 已关闭，P2-E receipt-backed Commit 中断续跑子 Gate 也已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E Provider 失败链、P2-G 双重 Restore/Migration 失败链仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑和 P2-G 真实连续双重 Restore→人工恢复子 Gate 已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E Provider 失败链、P2-G Migration 失败链仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -75,16 +75,20 @@
   代表性 Gate，不扩张为全组合矩阵。
 - P0-K main Page 使用既有 session-only source token 通过返回 Gate；right-sidebar 不提供
   Plugin Page item 时保持隐藏，没有为宿主缺失 identity 增加 fallback 状态或第二入口。
+
+### P2-G Restore 真实连续双重失败收敛（2026-07-27）
+
 - 新增正式状态：`0`。
 - 新增顶层导航：`0`。
 - 新增 Agent Runtime / Prompt 系统 / Recovery Kernel：`0`。
 - 复用：既有 Restore `ARMED/RECOVERY_REQUIRED/INVALID` 安全事实、Launcher per-Graph lifecycle gate、Local Service 离线 Restore/Doctor、用户系统状态与同一个恢复入口。
 - 新前台状态仍为 `0`：准备/忙碌是 session-only UI 事实；固定确认只用于现有恢复命令，不进入 Domain。
 - 恢复执行没有新增路径/快照 ID/SQLite 权限：Launcher 只编排进程，Local Service 从私有互锁推导唯一恢复点；失败保持同一安全锁和同一重试入口。
-- 受控 `RECOVERY_REQUIRED` 已升级为 `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`：复用同一互锁、HIGH Review、离线 Restore、Doctor、清锁和重连，没有新增恢复页面或第二 Undo 逻辑。
+- 受控 `RECOVERY_REQUIRED` 先升级为 `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`；`fe0b590034ac` 又用真实候选激活失败和自动回滚失败关闭连续双重故障子 Gate。两轮都复用同一互锁、HIGH Review、离线 Restore、Doctor、清锁和重连，没有新增恢复页面或第二 Undo 逻辑。
 - 删除/合并的重复机制：恢复成功后不再维护 Plugin 自己的陈旧只读结论，而是复用 bounded runtime recovery 刷新 `featureReady`、Store 与既有投影；健康/恢复页共用用户状态翻译，内部枚举只留技术详情。
+- 删除 reload 依赖：Restore failure catch 现在立即复用 `recoverConfiguredServiceRuntime` 重新发现既有 Launcher；无需为该场景增加状态或专用连接器。
 - 本轮真实界面问题推动通用合同修复，不增加样本特例、Prompt、Skill 或 Validator；LLM 未调用，拒绝率/重试不适用。
-- 仍阻断 P2-G：真实双重失败→HIGH Review→恢复→重连→reload、Light/窄栏、Migration failure/interruption。
+- 仍阻断 P2-G：Light/窄栏、Migration failure/interruption；真实双重失败→HIGH Review→恢复→重连→reload 已关闭。
 - `25ddac9` / `4dfe014` 关闭高频壳层发布阻断：删除主面板重复运行条，统一“更多”、启动、知识库切换和系统状态的用户语言；连接恢复只有在正式修改也可用时才报告成功。
 - exact build `4dfe014902a3` 已完成后台真实 Plugin reload、默认用户层工程词扫描 `0` 和三张 CURRENT Desktop 截图；工程概念泄漏由 HIGH 降为 MEDIUM，但高级 Review/Grill/Project/Migration/Restore 表面仍阻断发布。
 - `e8db32f1af6d` 又把主动结束从通用连接故障中分离：复用既有 reason/lease/状态翻译，不增加正式状态或恢复入口；结束面只保留一个结论与重新启动，100—2500 ms 采样无错误闪烁，重启仍要求正式修改可用。

@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -344,13 +344,13 @@ overall_goal: IN_PROGRESS
   文件级写入拒绝，atomic activation 失败后正式对象仍为 5、版本
   `[1,5,6,13,14]`，新增恢复点 schema 12 / integrity ok / foreign-key 0，Service PID
   `99248→99711`，Doctor PASS；reload 后陈旧错误清空且系统正常。自动回滚失败后的手工
-  Recovery 向导和 Light/窄栏仍 OPEN。`2eb6df1` 进一步完成自动安全底座：Restore
+  Recovery 向导在该阶段仍 OPEN，Light/窄栏也未验证。`2eb6df1` 进一步完成自动安全底座：Restore
   先独占 admission 并排空已进入请求，Launcher 同 Graph 并发 ensure 只启动一个 Service；
   私有 sidecar 以 `ARMED→RECOVERY_REQUIRED` 区分“恢复点未确认/已确认”，用
   0600、fsync、原子 rename、跨进程 mutation lock 和完整记录 compare-and-clear 保证
   reload、另一客户端、损坏权限或竞态不能重新开放写入。双重回滚失败会跨 reload 阻断
-  Service；自动测试只有在选定保留恢复点、恢复并 Doctor PASS 后才允许清锁。该互锁尚无
-  Desktop 注入证据，也不冒充已完成手工向导。`e418c87` 又关闭复审发现的两项隔离缺口：
+  Service；自动测试只有在选定保留恢复点、恢复并 Doctor PASS 后才允许清锁。该互锁在当时
+  尚无 Desktop 注入证据，也不冒充已完成手工向导。`e418c87` 又关闭复审发现的两项隔离缺口：
   interlock/lock 以数据库绝对路径摘要分区并核对 Graph identity，同一数据目录内的多个
   Graph 互不阻断；Launcher 将 ensure、最后 lease release、reap 与 close 纳入同一
   per-Graph lifecycle gate，旧 Service 完成停止前不得生成替代 Service。`cb87d86` 最终
@@ -372,14 +372,25 @@ overall_goal: IN_PROGRESS
   恢复保留基线→Doctor→清锁→Service 重连→完整退出/restart。恢复后正式对象回到 5，
   合成歧义对象不在活动库而仍保留于新安全快照，互锁清除，系统状态和 Service 均 READY，
   Pending/Recovery/Source Conflict 为 `0/0/0`。真实操作同时发现并修复数据库/诊断术语泄漏、
-  恢复后陈旧只读状态和健康页内部枚举泄漏。该链升级为
-  `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`；受控前置条件不是安全注入
-  的真实双重失败，所以真实 double-failure、Light/窄栏仍 OPEN。完整记录见
+  恢复后陈旧只读状态和健康页内部枚举泄漏。该受控链当时升级为
+  `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`。`fe0b590034ac`
+  现已用专用故障 Launcher 真实触发候选激活后失败和自动回滚再次失败：活动库暂时切到
+  6 个对象，切换前 7 对象正式库与 `RECOVERY_REQUIRED` 互锁均被保留。首轮暴露 Plugin
+  只有 reload 后才重新发现 Launcher、因而恢复说明与按钮不一致；修复后第二轮在不 reload
+  的情况下直接显示唯一“准备恢复”动作。独立 HIGH 确认后复用同一 one-shot Restore、
+  Doctor、exact clear 和 bounded runtime recovery，正式对象恢复为 7，互锁清除，
+  Anchor conflict / Pending / Recovery 均为 0。停止故障 Launcher、恢复原 descriptor、
+  bootstrap 正常 LaunchAgent 并 reload 后，Plugin exact build `fe0b590034ac`、Service
+  formal writes、explicit sync 与系统状态均 READY；authority 仍指向原测试数据库，没有
+  静默替换。真实 double-failure 子 Gate 因而升级为
+  `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`；Light/窄栏和 Migration failure/
+  interruption 仍 OPEN。完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
   `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md` 以及
   `logs/p2-g-restore-recovery-status-automated-20260726.md` 与
   `logs/p2-g-restore-manual-recovery-automated-20260726.md` 与
-  `logs/p2-g-restore-manual-recovery-desktop-live-20260726.md`；
+  `logs/p2-g-restore-manual-recovery-desktop-live-20260726.md` 与
+  `logs/p2-g-restore-double-failure-desktop-live-20260727.md`；
 - P2-G Migration 已进入
   `MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_GATES_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、

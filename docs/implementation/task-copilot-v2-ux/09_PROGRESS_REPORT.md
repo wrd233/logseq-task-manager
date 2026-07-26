@@ -27,7 +27,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；中文 IME/受限视觉、K 多宿主 Gate OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo 已 Desktop PASS，Provider error/stale 仍 OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart、Migration through Activation 正常主链已有真实 Desktop。真实双重故障注入、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo 已 Desktop PASS，Provider error/stale 仍 OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚、真实连续双重失败→人工恢复→Doctor→清锁→正常 Launcher/reload，以及 Migration through Activation 正常主链均有真实 Desktop。Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -655,6 +655,17 @@ derivative/dashboard 价值也仍未完成。
   真实界面修复工程术语泄漏、恢复成功后陈旧只读状态及健康页内部枚举泄漏。状态为
   `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`，没有新正式状态、导航、
   Prompt、Skill 或 Recovery Kernel；受控前置条件不标作真实双重失败证据；
+- `fe0b590034ac` 将上述受控前置条件推进为真实连续双重失败 Desktop Gate：专用测试
+  Launcher 分别在候选激活后和自动回滚前抛错，活动库暂为 6 个对象，切换前 7 对象正式库
+  与 `RECOVERY_REQUIRED` 互锁均保留。首轮暴露失败 catch 释放 Service 后未重新发现
+  Launcher，导致人工恢复入口依赖 reload；修复复用既有
+  `recoverConfiguredServiceRuntime`，第二轮无需 reload 即显示唯一“准备恢复”动作。
+  独立 HIGH 确认后复用原 one-shot Restore、Doctor、exact clear 和 bounded runtime
+  recovery，正式对象恢复为 7，Anchor conflict/Pending/Recovery `0/0/0`。故障 Launcher
+  停止、正常 descriptor/LaunchAgent 恢复，Plugin reload 后 exact build、formal writes、
+  explicit sync 和系统状态均 READY；database authority 未静默替换。CURRENT
+  `p2-g-55`～`59`；新增正式状态、Skill、Prompt、Validator、恢复入口、平行 Runtime 和
+  写入权威均为 `0`。本 Slice 不调用 Provider；
 - `25ddac9` / `4dfe014` 关闭高频壳层工程语言 Partial：删除顶部 Runtime/Store/Graph 状态条，
   把“更多”、启动、知识库切换和系统状态收敛为用户结论；恢复重连必须同时满足连接 READY、
   client 存在和正式修改可用。exact build 真实 reload 后，普通用户层约定工程词扫描为 `0`，
@@ -680,10 +691,9 @@ derivative/dashboard 价值也仍未完成。
 1. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并
    注入一次 Commit failure，完成 RECOVERY_REQUIRED → 原 Commit resume → reload；不得
    通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
-2. P2-G Rebind、Restore 正常往返和 Restore 激活失败→自动回滚→重连→reload 已在当前
-   构建完成真实 Desktop Gate；自动回滚也失败时的有界手工 Recovery 已完成受控
-   Launcher→one-shot Local Service→Doctor→清锁自动链，下一步用最新构建完成真实双重失败、
-   HIGH Review、恢复、Service 重连和 reload Gate，同时在下一次可控 Rebind 中验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
+2. P2-G Rebind、Restore 正常往返、激活失败→自动回滚以及真实连续双重失败→HIGH Review→
+   人工恢复→Doctor→清锁→正常 Launcher/reload 均已完成真实 Desktop Gate；下一次可控
+   Rebind 仍需验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
    Review/Preview、恢复点/Import/Verify/Undo 与 HIGH Activation 正常主链；真实运行先以
    `MIGRATION_SNAPSHOT_CHANGED` 证明单恢复基线边界，再修复为复用/重验计划原快照。
    当前正式对象 5、run ACTIVATED、Pending 0，`2beb1b5` 完整 restart 后只保留只读交接

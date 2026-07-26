@@ -126,12 +126,13 @@ Graph 首次显示即受限、6 秒稳定 fail-closed 和切回原 authority；`
 | `screenshots/p2-g-41-migration-activated-current-dark.png` | `f42b62d` | 勾选并确认启用 | V2 已启用，V1 只作为只读历史与恢复证据；run ACTIVATED、objects 5、Pending 0 | 旧 UNDONE 与新 VERIFIED batch 保留 |
 | `screenshots/p2-g-43-migration-readonly-archive-current-dark.png` | `2beb1b5` | 完整退出并重启 Logseq，打开已完成迁移 | 一次性迁移只保留只读交接台账与 Backup/Restore 路由；无新 scan/Review/Import/Undo/Activate | Migration failure/interruption 与 Light/窄栏仍 OPEN |
 | `screenshots/p2-g-44-restore-failure-review-current-dark.png` | `0c4526d` | 选择校验通过的旧快照并勾选独立 Restore 确认 | 前台明确 SQLite 会替换、正文不改写、当前正式状态保存为恢复点并自动重启 | 随后仅对隔离活动数据库注入文件级写入拒绝 |
-| `screenshots/p2-g-45-restore-rollback-recovery-current-dark.png` | `0c4526d` | 真实 atomic activation 失败后回到 Task Copilot | 只显示一次“恢复未完成”；原正式状态已回滚并重新可用，Restore 前恢复点保留 | 自动回滚失败的手工 Recovery 向导仍 OPEN |
+| `screenshots/p2-g-45-restore-rollback-recovery-current-dark.png` | `0c4526d` | 真实 atomic activation 失败后回到 Task Copilot | 只显示一次“恢复未完成”；原正式状态已回滚并重新可用，Restore 前恢复点保留 | 该 commit 的手工 Recovery 仍 OPEN；现由 `p2-g-55`～`59` 替代 |
 | `screenshots/p2-g-46-restore-rollback-reload-health-current-dark.png` | `0c4526d` | Plugin Manager reload 后打开系统状态 | 正式状态与 Graph 已连接，日常能力可用，数据安全，无需操作 | 后续互锁/手工恢复自动链无新 UI 证据；双重失败 Desktop、Light/窄栏仍 OPEN |
-| `screenshots/p2-g-47-restore-recovery-controlled-entry-current-dark.png` | `16bde9ad88a5` | 隔离测试库建立受控 `RECOVERY_REQUIRED` 后，从“更多 → 系统状态”进入 | 首屏只说明正式能力暂时受限、原正文安全和唯一“准备恢复”动作；用户层无数据库路径、Backup identity 或诊断命令 | 这是受控前置条件，不是生产连续双重故障注入 |
-| `screenshots/p2-g-48-restore-recovery-high-review-current-dark.png` | `16bde9ad88a5` | 用户准备人工恢复并进入独立 HIGH Review | 明确先保存当前歧义状态、恢复已确认基线、检查通过后重新连接；未勾选时零执行 | Light/窄栏仍 OPEN |
-| `screenshots/p2-g-49-restore-recovery-success-current-dark.png` | `16bde9ad88a5` | 勾选确认并执行恢复 | 0.8 秒内完成安全快照、恢复、Doctor、清锁与重连；系统状态、Store、Service READY，`0/0/0`，用户页无内部枚举 | 主面板壳层工程词另列复杂度 Gate |
-| `screenshots/p2-g-50-restore-recovery-restart-health-current-dark.png` | `16bde9ad88a5` | 完整退出并重启 Logseq，再打开系统状态 | owned Service 随退出停止并由 Launcher 重建；系统仍正常，正式写可用，`0/0/0`，精确构建身份在折叠技术详情 | 真实 double-failure、Light/窄栏与 Migration failure/interruption 仍 OPEN |
+| `screenshots/p2-g-55-restore-no-reload-manual-recovery-current-fe0b590.jpeg` | `fe0b590034ac` | 专用故障 Launcher 真实触发候选激活失败且自动回滚也失败；未 reload Plugin | 用户状态直接显示“需要人工恢复”和唯一“准备恢复”；切换前恢复点保留，正文仍可编辑 | 关闭旧实现依赖 reload 才出现恢复控件的缺口 |
+| `screenshots/p2-g-56-restore-final-confirmation-current-fe0b590.jpeg` | `fe0b590034ac` | 点击准备恢复，进入独立 HIGH 最终确认 | 明确正文不改写、执行时重新核验、只有完整性检查通过才恢复；未勾选时不执行 | 复用既有确认合同，没有新增恢复状态 |
+| `screenshots/p2-g-57-restore-manual-recovery-success-current-fe0b590.jpeg` | `fe0b590034ac` | 勾选并执行人工恢复 | 活动库 `6→7`，Doctor PASS、互锁清除，界面立即回到“可以正常使用” | 两个 `.previous-*` 测试安全副本保留，不是活动 authority |
+| `screenshots/p2-g-58-restore-normal-runtime-final-health-current-fe0b590.jpeg` | `fe0b590034ac` | 停止故障 Launcher、恢复原 descriptor、bootstrap 正常 LaunchAgent 并 reload Plugin | 系统状态 READY，正式状态与当前 Graph 已连接，无需用户操作 | 正常 Launcher 为 loopback `19673`；token 未进入截图 |
+| `screenshots/p2-g-59-restore-final-diagnostics-current-fe0b590.jpeg` | `fe0b590034ac` | 在最终健康状态主动展开技术诊断 | exact build `fe0b590034ac`、Local Service formal writes true、`0/0/0`、explicit sync clean | 技术信息默认折叠；Migration failure/interruption 和 Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 
@@ -148,6 +149,11 @@ Graph 首次显示即受限、6 秒稳定 fail-closed 和切回原 authority；`
 | `p1-g-08-context-recovery-skill-1-3-current-light-before-fix.png` | HISTORICAL | `653875a` 构建前的本轮运行 | 真实 Logseq Light 时 Plugin 仍显示 dark surface | 同一提交中的宿主 theme sync 修复后由 CURRENT `p1-g-08` 替代 |
 | `p0-j-01-command-palette-duplicate-historical-dark.png` | HISTORICAL | `e8db32f1af6d` 连续 Plugin reload 会话 | Logseq 0.10.15 reload 会话曾出现重复 palette 行 | 完整退出/重启恢复单组；`p0-j-02` 是冷启动当前权威，不新增持久去重状态 |
 | `p0-h-13-graph-switch-old-authority-leak-historical-dark.png` | HISTORICAL | `ca50304` 前的真实 Graph switch build | 新隔离 Graph 已显示，但旧 Graph 的 Project 卡与“Copilot 可用”仍短暂留在前台 | `ca50304` 把旧 key 清除和受限 UI 刷新移到 lease release 之前；`p0-h-16` 替代 |
+| `p2-g-47-restore-recovery-controlled-entry-current-dark.png`～`p2-g-50-restore-recovery-restart-health-current-dark.png` | HISTORICAL | `16bde9ad88a5` | 受控 `RECOVERY_REQUIRED` 的用户状态、HIGH Review、恢复、重连与完整 restart | 不是由真实连续双重故障产生；当前恢复实现由 `p2-g-55`～`59` 替代 |
+| `p2-g-51-rebind-success-stale-reconciliation-historical-59c2c24.jpeg` | HISTORICAL | `59c2c24` | Rebind 正式成功后旧 reconciliation 风险仍黏住用户状态 | `da080d2` 让已修复 Anchor 风险可清除 |
+| `p2-g-52-rebind-reload-ready-current-da080d2.jpeg` | SUPERSEDED | `da080d2` | 修复后 reload 的系统 READY 和 `0/0/0` | 后续当前 exact build 已为 `fe0b590`；Rebind 事实仍由专项日志保留 |
+| `p2-g-53-restore-double-failure-manual-recovery-current-da080d2.jpeg` | HISTORICAL | `da080d2` | 真实连续双重故障已进入“需要人工恢复”，但下方没有恢复控件 | `fe0b590` 修复 failure catch 的 Launcher rediscovery；`p2-g-55` 替代 |
+| `p2-g-54-restore-recovery-diagnostics-current-da080d2.jpeg` | HISTORICAL | `da080d2` | 折叠诊断中的 `V2_RESTORE_ROLLBACK_FAILED` 与正式写受限 | 当前用户链由 `p2-g-55`～`59` 替代，错误码只留技术诊断 |
 | `p0-h-14-graph-switch-restricted-current-dark.png` | SUPERSEDED | `ca50304` 前的真实 Graph switch build | 旧实现最终仍会安全进入 Graph mismatch | 只证明延迟收敛，不能证明首帧无旧 authority；`p0-h-16`/`17` 替代 |
 | `p0-h-15-graph-switch-return-ready-current-dark.png` | SUPERSEDED | `ca50304` 前的真实 Graph switch build | 旧实现切回原 Graph 后可恢复 Project | `p0-h-18` 使用精确修复提交并记录恢复时延与 mapping 不变 |
 | `p2-g-42-migration-activated-reload-current-dark.png` | SUPERSEDED | `f42b62d` | ACTIVATED ledger 跨完整 restart 保留 | 完成态仍显示新 Bundle scan；`p2-g-43` 已收敛为只读交接 |

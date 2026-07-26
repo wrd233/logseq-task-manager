@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash 代表链/custom binding PASS；中文 IME/受限视觉与 P0-K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/manual recovery + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-E 同一 receipt-backed Commit 中断→reload→续跑→reload→Undo→reload DONE；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart 与 Migration Activation current build DONE | P2-D/E remaining；P2-E Provider error/stale；P2-F frontstage；P2-G Rebind guidance Desktop + real double-failure + Migration failure/interruption recovery/visual gates OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-E 同一 receipt-backed Commit 中断→reload→续跑→reload→Undo→reload DONE；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚、真实连续双重失败→人工恢复→Doctor→清锁→正常 Launcher/reload 与 Migration Activation current build DONE | P2-D/E remaining；P2-E Provider error/stale；P2-F frontstage；P2-G Rebind guidance Desktop + Migration failure/interruption recovery/visual gates OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -136,7 +136,10 @@
   reload：真实文件级写入拒绝后 objects 仍为 5、版本 `[1,5,6,13,14]`，新增恢复点
   schema 12 / integrity ok / foreign-key 0，Service PID `99248→99711`，Doctor PASS，
   CURRENT `p2-g-44`～`46`。受控人工恢复 Desktop 已由后述 `p2-g-47`～`50` 补齐；
-  真实连续双重故障注入、Migration failure/interruption recovery 和 Light/窄栏仍 OPEN。
+  真实连续双重故障又由 `fe0b590034ac` 的 `p2-g-55`～`59` 完成候选激活失败→自动回滚
+  失败→无需 reload 出现人工恢复→HIGH 确认→Doctor/清锁→正常 Launcher/reload。活动库
+  `7→6→7`，最终 Anchor conflict/Pending/Recovery `0/0/0`，database authority 未替换。
+  Migration failure/interruption recovery 和 Light/窄栏仍 OPEN。
   `2eb6df1` 已以自动测试补齐
   Restore admission drain、Launcher single-spawn、`ARMED→RECOVERY_REQUIRED`、
   mutation lock/no-clobber/compare-and-clear、损坏与权限异常独立 fail-closed 叙述，以及
@@ -150,9 +153,10 @@
   Launcher `29/29`、Local Service `160/160`、Service Client `13/13`、Plugin `328/328`、
   Shared `9/9` 和根级检查 PASS。`16bde9ad88a5` 又以受控 `RECOVERY_REQUIRED` 前置条件完成
   用户状态、独立 HIGH Review、恢复、Doctor、清锁、Service 重连与完整 Logseq restart；
-  正式基线、安全快照和 `READY/0/0/0` 均有结构化读回。该项为
-  `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`；受控前置条件不是生产
-  Restore 连续双重故障注入，故真实 double-failure Gate 仍 OPEN；
+  正式基线、安全快照和 `READY/0/0/0` 均有结构化读回。该项当时为
+  `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`。`fe0b590034ac`
+  随后用专用故障 Launcher 真实触发两段异常并关闭 no-reload 人工恢复入口缺口，最终
+  `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`；没有新增恢复状态、入口或写入权威；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

@@ -376,7 +376,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE`
 
 ### Recovery
 
@@ -452,7 +452,18 @@ exact clear、Service 重连、完整 Logseq quit/restart 与最终 `READY/0/0/0
 修复恢复界面工程术语、成功后陈旧只读状态和健康页内部枚举泄漏。活动库恢复为 5 个基线
 对象，合成歧义对象只保留在新安全快照。状态升级为
 `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`；该受控前置条件不冒充
-真实双重故障注入，后者与 Light/窄栏仍 OPEN。
+真实双重故障注入；后者在该 commit 尚 OPEN，Light/窄栏也未验证。
+
+commit `fe0b590034ac` 已进一步关闭真实连续双重故障子 Gate。专用测试 Launcher 在候选
+激活后和自动回滚前分别注入异常，活动库暂时切到旧快照的 6 个对象，切换前 7 对象正式库与
+`RECOVERY_REQUIRED` 互锁均保留。首轮真实运行暴露失败 catch 释放 Service 后没有重新发现
+Launcher，导致“请在下方核验”直到 reload 才出现恢复控件；修复后第二轮无需 reload 即显示
+唯一“准备恢复”动作。用户经独立 HIGH 确认后复用同一 one-shot maintenance、离线 Restore、
+Doctor、exact clear 与 bounded runtime recovery，活动库恢复为 7 个对象，冲突/Pending/
+Recovery 均为 0。故障 Launcher 停止、原 descriptor 和正常 LaunchAgent 恢复，Plugin reload
+后 exact build、formal writes 和 explicit sync 均 READY；原 database authority 未被替换。
+该子 Gate 状态为 `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`。Migration 失败/
+中断恢复和 Restore Light/窄栏仍 OPEN，P2-G 不关闭。
 
 ### Migration
 

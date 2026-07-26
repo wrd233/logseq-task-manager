@@ -2,7 +2,12 @@
 
 ## 结论
 
-状态：`MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`
+历史状态：`MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`
+
+当前状态：真实连续双重故障已由 `fe0b590034ac` 的
+`p2-g-restore-double-failure-desktop-live-20260727.md` 关闭为
+`REAL_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`。本文只保留受控前置条件的历史证据，
+不再代表当前 Restore 恢复实现。
 
 本 Gate 在隔离测试 Graph 中建立符合生产互锁格式的受控 `RECOVERY_REQUIRED` 前置条件，
 完整验证用户层状态、独立 HIGH Review、保存当前歧义状态、恢复保留基线、健康检查、清锁、
@@ -82,18 +87,18 @@ Validator 特例。
 
 本 Slice 不调用 LLM/Provider；Validator 拒绝率与模型重试次数不适用。
 
-## CURRENT 截图
+## HISTORICAL 截图
 
 - `../current-ui/screenshots/p2-g-47-restore-recovery-controlled-entry-current-dark.png`
 - `../current-ui/screenshots/p2-g-48-restore-recovery-high-review-current-dark.png`
 - `../current-ui/screenshots/p2-g-49-restore-recovery-success-current-dark.png`
 - `../current-ui/screenshots/p2-g-50-restore-recovery-restart-health-current-dark.png`
 
-四张均为 commit `16bde9ad88a5` 的真实 Logseq Desktop 截图。没有旧截图被升级为当前证据。
+四张均为 commit `16bde9ad88a5` 的真实 Logseq Desktop 截图，现已由 `fe0b590034ac` 的
+真实连续双重故障 `p2-g-55`～`59` 替代为当前证据。
 
 ## 仍开放
 
-- 安全、可恢复的真实 Restore 连续双重故障注入；
 - Restore Light / 窄栏代表性视觉 Gate；
 - Migration failure / interruption / resume；
 - 主面板顶栏和“更多”维护卡的 Runtime/Store/Graph/Launcher/Service/Commit 工程词压缩。
