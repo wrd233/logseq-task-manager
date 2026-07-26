@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CHAIN_AUTOMATED_DESKTOP_OPEN_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE`
 
 ### Recovery
 
@@ -425,10 +425,16 @@ reload 后系统状态恢复健康。Restore 激活失败→自动回滚→重�
 最新 heartbeat，关闭启动误放行和误收割健康 Service 的最后两个确定性竞态；最终双轴
 复审 PASS。
 `23ae7bd` 已把同一互锁投影为用户系统状态内的只读手工恢复指引：只显示
-恢复点是否已确认、记录时间与一个重新核验动作，不返回路径/Backup identity，
-不执行恢复或清锁。Launcher `25/25`、Service Client `13/13`、Plugin `327/327` 和
-根级检查 PASS；该项只是 `AUTOMATED_ONLY`。`V2_RESTORE_ROLLBACK_FAILED` 的受控手工
-恢复执行、双重失败 Desktop 注入与 Light/窄栏仍 OPEN。
+恢复点是否已确认、记录时间与一个重新核验动作，不返回路径/Backup identity。
+`4c71af1` 在不增加正式状态、顶层导航、Agent Runtime 或第二 Recovery Kernel 的前提下，
+把该入口接到现有 Launcher 与 Local Service：session-only 准备页要求独立 HIGH 确认；
+Launcher 在同一 per-Graph lifecycle gate 内拒绝活动 Service/lease 并重新核对
+`RECOVERY_REQUIRED`；one-shot maintenance 只从私有互锁推导恢复点，先备份当前歧义状态，
+复用 `restoreOffline`，Doctor PASS 后才 exact clear。超时、子进程失败、无效恢复点、Graph
+变化和 Doctor 失败均保留互锁并允许同入口重试。Launcher `29/29`、Local Service
+`160/160`、Service Client `13/13`、Plugin `328/328`、Shared `9/9` 与根级检查 PASS。
+这把实现状态升级为 `MANUAL_RECOVERY_CHAIN_AUTOMATED_DONE_DESKTOP_OPEN`；真实双重失败
+Desktop 注入、恢复后 Service 重连/reload、Light/窄栏仍 OPEN。
 
 ### Migration
 

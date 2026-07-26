@@ -22,6 +22,8 @@
 - 新增正式状态：`0`。
 - 新增顶层导航：`0`。
 - 新增 Agent Runtime / Prompt 系统 / Recovery Kernel：`0`。
-- 复用：既有 Restore `ARMED/RECOVERY_REQUIRED/INVALID` 安全事实、Launcher per-Graph lifecycle gate、用户系统状态和同一个重新核验动作。
-- 新前台投影：只读、session-only、无路径/快照 ID/正文/正式写入权；状态仍为 `AUTOMATED_ONLY`。
-- 仍阻断 P2-G：受控手工恢复执行、双重失败 Desktop、Light/窄栏、Migration failure/interruption。
+- 复用：既有 Restore `ARMED/RECOVERY_REQUIRED/INVALID` 安全事实、Launcher per-Graph lifecycle gate、Local Service 离线 Restore/Doctor、用户系统状态与同一个恢复入口。
+- 新前台状态仍为 `0`：准备/忙碌是 session-only UI 事实；固定确认只用于现有恢复命令，不进入 Domain。
+- 恢复执行没有新增路径/快照 ID/SQLite 权限：Launcher 只编排进程，Local Service 从私有互锁推导唯一恢复点；失败保持同一安全锁和同一重试入口。
+- `AUTOMATED_ONLY` 只读投影已升级为 `MANUAL_RECOVERY_CHAIN_AUTOMATED_DONE_DESKTOP_OPEN`，降低 Recovery 语义分裂风险，但不降低 Desktop 证据 Gate。
+- 仍阻断 P2-G：真实双重失败→HIGH Review→恢复→重连→reload、Light/窄栏、Migration failure/interruption。

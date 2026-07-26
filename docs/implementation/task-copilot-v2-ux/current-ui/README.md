@@ -3,9 +3,10 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
-当前源码安全提交为 `23ae7bd`。最新只读 Restore 恢复状态投影只有自动证据，
-尚无 Desktop 截图；因此 `p2-g-44`～`46` 仍只证明 `0c4526d` 的自动回滚交互，
-不得用来宣称双重回滚失败手工恢复已 Desktop 验证。
+当前源码安全提交为 `c70088a`（恢复主链 `4c71af1`，超时失败边界 `c70088a`）。最新
+Restore 手工恢复链只有自动证据，尚无 Desktop
+截图；因此 `p2-g-44`～`46` 仍只证明 `0c4526d` 的自动回滚交互，不得用来宣称双重
+回滚失败的 HIGH Review、手工恢复、重连或 reload 已 Desktop 验证。
 
 ## 状态
 
@@ -101,7 +102,10 @@ admission drain、`ARMED→RECOVERY_REQUIRED`、跨进程 mutation lock、no-clo
 因此这些截图继续只代表 `0c4526d` 的自动回滚主链，不能作为新手工恢复向导的证据。
 `e418c87` 再把互锁按数据库隔离、核对 Graph identity，并将 Launcher 的启动与最终停止
 纳入同一 per-Graph lifecycle gate；`cb87d86` 又关闭互锁读取 TOCTOU 与过期租约在
-gate 等待期间被 heartbeat 刷新后仍误删的竞态。这些仍是自动安全升级，不是新的 UI 证据。
+gate 等待期间被 heartbeat 刷新后仍误删的竞态。`23ae7bd` 只增加严格只读状态投影，
+`4c71af1` 则复用同一 Launcher/Local Service/Doctor/互锁打通受控手工恢复自动链；`c70088a`
+补齐子进程超时强制终止回归。失败保持锁，恢复和 Doctor 全通过后才清锁。这些仍不是新的
+Desktop UI 证据。
 
 P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
 Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、完整审阅计数和下一步。

@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_FAILURE_ROLLBACK_RELOAD_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CHAIN_AUTOMATED_DESKTOP_OPEN
 overall_goal: IN_PROGRESS
 ```
 
@@ -323,12 +323,20 @@ overall_goal: IN_PROGRESS
   双轴复审无剩余阻断 finding。`23ae7bd` 又将现有互锁以严格、无路径/
   Backup identity 的只读投影接入用户系统状态：只区分恢复点已确认、尚未确认
   或记录无法安全读取，并只提供一个重新核验动作。该投影为 session-only
-  `AUTOMATED_ONLY`，不清锁、不恢复、不新增正式状态/导航/Recovery Kernel；Launcher
-  `25/25`、Service Client `13/13`、Plugin `327/327` 与根级检查 PASS。双重失败手工
-  恢复执行与 Desktop 证据仍 OPEN。完整记录见
+  `AUTOMATED_ONLY`，不清锁、不恢复、不新增正式状态/导航/Recovery Kernel。`4c71af1`
+  继续复用该互锁、Launcher per-Graph lifecycle gate、既有离线 Restore 与用户系统状态，
+  打通受控手工恢复执行：只有 `RECOVERY_REQUIRED`、精确 Graph、已确认的服务端恢复点、
+  无活动 Service/lease 和独立 HIGH 确认同时成立才启动 Local Service one-shot maintenance；
+  maintenance 先保存当前歧义状态，再恢复保留恢复点并完成 Doctor，最后才 exact clear 互锁。
+  进程失败、超时、恢复点无效、Graph 变化或 Doctor 失败都保留安全锁，可从同一入口重试；
+  Plugin 不接收数据库路径、Backup identity 或 SQLite 操作权。Launcher `29/29`、Local
+  Service `160/160`、Service Client `13/13`、Plugin `328/328`、Shared `9/9` 与根级检查
+  PASS。该链从只读指引升级为 `MANUAL_RECOVERY_CHAIN_AUTOMATED_DONE_DESKTOP_OPEN`，但真实
+  双重失败→HIGH Review→恢复→重连→reload 和 Light/窄栏证据仍 OPEN。完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
   `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md` 以及
-  `logs/p2-g-restore-recovery-status-automated-20260726.md`；
+  `logs/p2-g-restore-recovery-status-automated-20260726.md` 与
+  `logs/p2-g-restore-manual-recovery-automated-20260726.md`；
 - P2-G Migration 已进入
   `MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_GATES_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、
@@ -386,7 +394,7 @@ Migration item Review/Preview Desktop DONE,
 Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
 Migration Activation normal main chain Desktop DONE,
 Rebind Recovery/Undo guidance AUTOMATED,
-Restore rollback-failure manual guide + Migration failure/restart recovery/visual gates OPEN /
+Restore rollback-failure manual recovery chain AUTOMATED, Desktop + Migration failure/restart recovery/visual gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

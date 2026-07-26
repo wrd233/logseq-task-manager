@@ -5,9 +5,10 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
 
-当前源码安全提交为 `23ae7bd`；`2eb6df1`、`e418c87`、`cb87d86` 与 `23ae7bd` 在 `0c4526d`
+当前源码安全提交为 `c70088a`；`2eb6df1`、`e418c87`、`cb87d86`、`23ae7bd`、`4c71af1`
+与 `c70088a` 在 `0c4526d`
 截图后增加自动-only Restore 互锁、数据库级多 Graph 隔离、完整 Launcher 生命周期
-串行化、读/heartbeat 竞态收口和 session-only 只读恢复状态投影，不改变
+串行化、读/heartbeat 竞态收口、session-only 状态投影和受控手工恢复自动链，不改变
 `p2-g-44`～`46` 的自动回滚交互。没有截图被
 冒充为“双重回滚失败手工恢复”证据。
 
@@ -83,7 +84,7 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-43-migration-readonly-archive-current-dark.png` | `2beb1b5` | 完整退出并重启 Logseq，打开已完成迁移 | 一次性迁移只保留只读交接台账与 Backup/Restore 路由；无新 scan/Review/Import/Undo/Activate | Migration failure/interruption 与 Light/窄栏仍 OPEN |
 | `screenshots/p2-g-44-restore-failure-review-current-dark.png` | `0c4526d` | 选择校验通过的旧快照并勾选独立 Restore 确认 | 前台明确 SQLite 会替换、正文不改写、当前正式状态保存为恢复点并自动重启 | 随后仅对隔离活动数据库注入文件级写入拒绝 |
 | `screenshots/p2-g-45-restore-rollback-recovery-current-dark.png` | `0c4526d` | 真实 atomic activation 失败后回到 Task Copilot | 只显示一次“恢复未完成”；原正式状态已回滚并重新可用，Restore 前恢复点保留 | 自动回滚失败的手工 Recovery 向导仍 OPEN |
-| `screenshots/p2-g-46-restore-rollback-reload-health-current-dark.png` | `0c4526d` | Plugin Manager reload 后打开系统状态 | 正式状态与 Graph 已连接，日常能力可用，数据安全，无需操作 | `2eb6df1`/`e418c87`/`cb87d86` 自动互锁无新 UI；双重失败手工向导、Light/窄栏仍 OPEN |
+| `screenshots/p2-g-46-restore-rollback-reload-health-current-dark.png` | `0c4526d` | Plugin Manager reload 后打开系统状态 | 正式状态与 Graph 已连接，日常能力可用，数据安全，无需操作 | 后续互锁/手工恢复自动链无新 UI 证据；双重失败 Desktop、Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 

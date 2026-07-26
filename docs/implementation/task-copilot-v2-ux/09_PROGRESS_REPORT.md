@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_FAILURE_ROLLBACK_RELOAD_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→重连→reload、Migration through Activation 正常主链已有真实 Desktop。Restore 双重回滚失败手工向导、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CHAIN_AUTOMATED_DESKTOP_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→重连→reload、Migration through Activation 正常主链已有真实 Desktop。Restore 双重回滚失败手工恢复链已自动闭环，真实 Desktop、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -578,7 +578,7 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   成功/失败重复显示。隔离 Graph 中对活动 SQLite 注入真实文件级写入拒绝后，正式对象仍为
   5、版本 `[1,5,6,13,14]`，新增恢复点 schema 12 / integrity ok / foreign-key 0，
   owned Service PID `99248→99711`，Doctor PASS；Plugin Manager reload 后错误清空并显示
-  系统正常。CURRENT `p2-g-44`～`46`。自动回滚失败后的手工 Recovery 向导与
+  系统正常。CURRENT `p2-g-44`～`46`。自动回滚失败后的手工 Recovery Desktop 与
   Light/窄栏仍 OPEN，故 P2-G 不提前关闭。完整记录见
   `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md`；
 - `2eb6df1` 关闭 Restore failure Gate 的自动并发/重启绕过风险：Restore 认证后独占入口、
@@ -596,8 +596,13 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   `23ae7bd` 又把该互锁的最小只读投影接入用户系统状态：严格 client 不允许
   路径/Backup identity/额外字段，前台只显示一个主结论和一个重新核验操作。
   Launcher `25/25`、Service Client `13/13`、Plugin `327/327`、Shared `9/9` 与根级检查
-  PASS。这仍是 `AUTOMATED_ONLY`，无新正式状态、导航或 Recovery Kernel，不把双重
-  失败手工恢复执行或 Desktop Gate 标为 DONE；
+  PASS。`4c71af1` 进一步用同一 per-Graph lifecycle gate 启动 Local Service one-shot
+  maintenance，只从互锁推导保留恢复点，先备份当前歧义状态，复用 offline Restore，
+  Doctor PASS 后才 exact clear；失败保持锁并可从同一用户入口重试。Plugin 只增加
+  session-only HIGH 确认，不获得路径/Backup identity/SQLite 权限。Launcher `29/29`、
+  Local Service `160/160`、Service Client `13/13`、Plugin `328/328`、Shared `9/9` 与
+  根级检查 PASS。状态为 `MANUAL_RECOVERY_CHAIN_AUTOMATED_DONE_DESKTOP_OPEN`，没有新正式
+  状态、导航或 Recovery Kernel，也不把真实双重失败 Desktop Gate 标为 DONE；
 - 新增 `11_COMPLEXITY_LEDGER.md`：将 Partial 堆积、Recovery 分裂、状态组合、Agent/Skill 重复、
   Desktop 笛卡尔积、证据漂移和工程语义泄漏列为发布前显式 Gate；
 - 根级检查：PASS；
@@ -626,8 +631,9 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 7. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
    shadow 决定不建 derivative，跨 reload 用户处置只在首批信号开放并证明减噪后重开。
 8. P2-G Rebind、Restore 正常往返和 Restore 激活失败→自动回滚→重连→reload 已在当前
-   构建完成真实 Desktop Gate；下一步实现并验证自动回滚也失败时的有界手工 Recovery
-   向导，同时在下一次可控 Rebind 中验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
+   构建完成真实 Desktop Gate；自动回滚也失败时的有界手工 Recovery 已完成受控
+   Launcher→one-shot Local Service→Doctor→清锁自动链，下一步用最新构建完成真实双重失败、
+   HIGH Review、恢复、Service 重连和 reload Gate，同时在下一次可控 Rebind 中验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
    Review/Preview、恢复点/Import/Verify/Undo 与 HIGH Activation 正常主链；真实运行先以
    `MIGRATION_SNAPSHOT_CHANGED` 证明单恢复基线边界，再修复为复用/重验计划原快照。
    当前正式对象 5、run ACTIVATED、Pending 0，`2beb1b5` 完整 restart 后只保留只读交接
