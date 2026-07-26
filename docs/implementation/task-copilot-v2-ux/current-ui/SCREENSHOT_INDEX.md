@@ -29,6 +29,9 @@ Dark，viewport `1567×1104`，真实 Plugin/Launcher/Service；无 API Key、to
 | `screenshots/p2-d-08-heavy-interface-reload-current-dark.png` | `ae2395523798` | 最终 Commit 后 reload，再打开“现在” | 新摘要和前两项 Focus 从 SQLite 正式投影可读；Provider 状态与 Runtime/Store READY | Now 卡只显示前两项 Focus，完整结构需下钻 |
 | `screenshots/p2-d-09-heavy-interface-undo-current-dark.png` | `ae2395523798` | 从最近修改执行 Project interface 专用 inverse Commit | HEAVY 修改显示“已撤销”，历史证据保留；Project 重入回到原“进入点不明确” | 最终健康需 reload 证据 |
 | `screenshots/p2-d-10-heavy-interface-undo-reload-healthy-current-dark.png` | `ae2395523798` | HEAVY Undo 后再次 reload，打开用户系统状态 | 系统首屏明确正常、能力可用、数据安全、无需操作；展开技术诊断可读 exact commit 与 `0/0/0` | Light/窄栏仍 OPEN |
+| `screenshots/p2-d-11-light-condition-router-current-dark.png` | `58bf6306d04d` | 从 Project 重入进入影响路由 | Condition 与正式 Undo 可操作；无 inverse 的普通 Association 明确禁用，不计入最终 Gate | 路由较高；英文领域术语与 Light/窄栏仍需收口 |
+| `screenshots/p2-d-12-light-condition-undo-after-reload-current-dark.png` | `58bf6306d04d` | Project PAUSED 后 reload，再从影响路由进入“撤销最近状态” | 明确“我先暂停”恢复为“可以行动”；确认时重验版本/Condition，不改变其他正式边界 | Condition 表单应更明确显示目标标题 |
+| `screenshots/p2-d-13-light-condition-undo-reload-current-dark.png` | `58bf6306d04d` | 正式 inverse 完成后再次 reload，打开 Project 重入 | Project 回到 ACTIONABLE 的确定性基线；最终 v10，原摘要/Focus/空结构逐字段守恒 | 进入点本身仍不足，Context Recovery 属 P1 后续 |
 
 ## HISTORICAL
 

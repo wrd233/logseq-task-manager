@@ -38,6 +38,12 @@ Work Stage、三项 Focus 与摘要进入单组 HIGH Review；最终 Commit 后 
 inverse Commit 精确恢复原空结构与单一 Focus，再次 reload 健康。CURRENT
 `p2-d-07`～`p2-d-10`。这不代表其他 HEAVY 类型或 P2-D 整体完成。
 
+LIGHT Condition 又在 `58bf6306d04d` 最新构建上完成正式跨 reload Undo：Project
+ACTIONABLE v8→PAUSED v9，reload 后由 Service receipt 准备 server-owned inverse，确认后
+恢复 ACTIONABLE v10，再次 reload 读回原确定性投影。普通 Association 因尚无 inverse 已在
+正式影响路由中禁用。CURRENT `p2-d-11`～`p2-d-13`；完整记录见
+`../logs/p2-d-light-condition-undo-desktop-live-20260726.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；

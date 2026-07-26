@@ -12,7 +12,7 @@
 | Block Marker | 默认关闭 prototype | OPEN | 编辑/TODO/Query/sidebar/Zoom/主题/性能 |
 | MiniProject Grill / 原位重构 | 一个纵向链历史 Desktop 通过 | OPEN | 最新构建回归与多材料质量样本 |
 | Project Creation Grill | Blank、Page 两种关系与 MiniProject 演化功能链均真实 Provider→Preview→HIGH Review→create→reload/restart→Undo→健康 PASS；`7a7492a407ed` 已复验 MiniProject Undo 精确返回来源根 Block | CURRENT：Page dedicated Undo/健康、reuse readiness/Preview/返回现场/Undo/健康；MiniProject Grill/Preview/Review/create/reload/来源返回/健康 | Light/窄栏与集中宿主视觉 Gate；Project 新页 ownership metadata 仍过于前台 |
-| Project 结构操作路由 | `ae2395523798` 已实现 16 类分类；MEDIUM 当前摘要与 HEAVY 完整当前接口均完成 Review→Commit→reload→专用 Undo→reload，顶部显示当前受控 Copilot 可用性 | CURRENT：`p2-d-05`/`06` MEDIUM 与路由；`p2-d-07`～`10` HEAVY 完整接口 | LIGHT Undo、其他 HEAVY 类型与 Light/窄栏 |
+| Project 结构操作路由 | 16 类分类；MEDIUM 当前摘要、LIGHT Condition 与 HEAVY 完整当前接口均完成正式链；无 inverse 的 Association 安全禁用 | CURRENT：`p2-d-05`/`06` MEDIUM；`p2-d-07`～`10` HEAVY；`p2-d-11`～`13` LIGHT Condition | Association/其余 LIGHT、其他 HEAVY 类型与 Light/窄栏 |
 | Recovery / Rebind / Restore / Migration | 底层能力存在，产品化未完成 | OPEN | P2-G 用户向导整链 |
 | Attention Signal | Shadow runtime | OPEN | 首批确定性 Signal 开放门通过后 |
 

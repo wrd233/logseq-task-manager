@@ -214,7 +214,7 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 
 ## P2-D：Project 结构操作路由
 
-状态：`IN_PROGRESS_MEDIUM_AND_HEAVY_INTERFACE_VERTICAL_DONE`
+状态：`IN_PROGRESS_LIGHT_CONDITION_MEDIUM_AND_HEAVY_INTERFACE_VERTICAL_DONE`
 
 | 级别 | 示例 | 用户摩擦 |
 |---|---|---|
@@ -239,11 +239,10 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
   各自安全链，不合并成万能表单。
 
 自动证据为 router `4/4`、Application `161/161`、Local Service `135/135`、Plugin
-`274/274` 与根级检查 PASS。Desktop `0.10.15` 已完成真实
+`275/275`、Persistence `49/49` 与根级检查 PASS。Desktop `0.10.15` 已完成真实
 DeepSeek→MEDIUM Review→Commit→reload→最近修改→专用 Undo→reload；Object v2→v3→v4，
 只有摘要往返，current focuses 与全部结构字段守恒，Pending/Recovery/Conflict `0/0/0`。
-`p2-d-05`/`p2-d-06` 为 `ae2395523798` CURRENT。P2-D 仍为 Partial，因为 LIGHT 可发现
-Undo、HEAVY 多类链、Light/窄栏与集中宿主 Gate 尚未完成。
+`p2-d-05`/`p2-d-06` 为 `ae2395523798` CURRENT。
 
 同一构建又完成一条 HEAVY 完整当前接口真实链：用户填写摘要、三项 current focuses、
 一个 Objective、一个 Deliverable 与一个 Work Stage，只生成单组 HIGH
@@ -251,6 +250,15 @@ Undo、HEAVY 多类链、Light/窄栏与集中宿主 Gate 尚未完成。
 聚合字段；专用 inverse Commit v5→v6 精确恢复原摘要、单一 Focus 与空结构，再次 reload
 健康。CURRENT `p2-d-07`～`p2-d-10`。这只关闭完整当前接口这一条 HEAVY 核心链，不代表
 Ownership、正文移动、批量子对象、拆分合并或 Closure 已完成本轮 P2-D Desktop Gate。
+
+LIGHT Condition 现已补齐跨 reload 的正式 Undo：Persistence receipt 保存变更前 Condition，
+Service 只按历史 receipt 准备 server-owned inverse，确认时重验当前 Object version 与
+Condition；旧 receipt 缺少证据时不猜测。Desktop 以 Project v8→PAUSED v9→reload→Undo
+ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus、Ownership 与正文均
+守恒。没有 remove/inverse 的普通 Association 已在正式路由中禁用，避免把不可撤销的写入
+算作 LIGHT 完成。CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`，完整记录见
+`logs/p2-d-light-condition-undo-desktop-live-20260726.md`。P2-D 仍为 Partial：Focus/reviewAt
+的完整 Undo 结论、Association inverse、其他 HEAVY 类型、Light/窄栏与集中宿主 Gate 开放。
 
 ## P2-E：Closure 证据起草
 

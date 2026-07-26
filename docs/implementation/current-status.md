@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_MEDIUM_HEAVY_CORE_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -189,7 +189,7 @@ overall_goal: IN_PROGRESS
   `p2-c-38`～`p2-c-39`。P2-C 三来源功能矩阵至此 DONE，Light/窄栏和集中宿主视觉 Gate
   仍 OPEN。当前全量 Application `155/155`、Local Service `133/133`、Plugin `271/271`
   与根级 `./scripts/check.sh` PASS；
-- P2-D 已进入 `IN_PROGRESS_ROUTER_MEDIUM_VERTICAL_DONE`：Application
+- P2-D 已进入 `IN_PROGRESS_LIGHT_CONDITION_MEDIUM_AND_HEAVY_INTERFACE_VERTICAL_DONE`：Application
   新增 16 类 Project operation intent 的纯路由合同，明确 LIGHT direct、MEDIUM
   review-then-apply 与 HEAVY discuss→Preview→Commit→Undo/Recovery。Ownership、正文移动、
   Objectives/Deliverables、Stage mapping、批量子对象、拆分合并、Closure 与 external
@@ -206,8 +206,15 @@ overall_goal: IN_PROGRESS
   同一当前 Project 又完成一条 HEAVY 完整接口真实链：HIGH Proposal、独立接受、提交前重验、
   最终 Commit、reload、专用 Undo 与二次 reload；Object v4→v5→v6，Objectives、
   Deliverables、Work Stages 与三项 Focus 在 Commit 后完整可读，Undo 后精确恢复原空结构与
-  单一 Focus。CURRENT `p2-d-07`～`p2-d-10`。P2-D 仍未整体完成：LIGHT 可发现 Undo、
-  其他 HEAVY 类型、Light/窄栏与最终 Gate 继续 OPEN；
+  单一 Focus。CURRENT `p2-d-07`～`p2-d-10`。
+  LIGHT Condition 随后补齐 Service receipt 持久 inverse、prepare/confirm 版本重验和
+  跨 reload 可发现 Undo；真实 Desktop 以 Project v8→PAUSED v9→reload→Undo
+  ACTIONABLE v10→reload 闭环，Project 当前接口、Lifecycle、Focus、Ownership 与正文守恒。
+  没有 remove/inverse 的普通 Association 已从正式路由禁用，不以“可创建”伪装安全完成；
+  CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。Application `161/161`、Local
+  Service `135/135`、Plugin `275/275`、Persistence `49/49` 与根级检查 PASS。P2-D 仍未
+  整体完成：Focus/reviewAt 的完整 Undo 结论、Association inverse、其他 HEAVY 类型、
+  Light/窄栏与最终 Gate 继续 OPEN；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；

@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_MEDIUM_HEAVY_CORE_DONE | P2-A/B 与 P2-C PASS；P2-D 16 类路由、MEDIUM Provider 链及 HEAVY 完整接口安全链自动 PASS | P2-C 三来源 PASS；P2-D `ae2395523798` MEDIUM 与 HEAVY 完整接口 Review/Commit/reload/Undo/reload PASS | P2-D 两条核心纵向链 DONE；LIGHT Undo、其他 HEAVY 类型和 P2-E～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE | P2-A/B 与 P2-C PASS；P2-D 16 类路由、LIGHT Condition durable Undo、MEDIUM Provider 链及 HEAVY 完整接口安全链自动 PASS | P2-C 三来源 PASS；P2-D MEDIUM、LIGHT Condition 与 HEAVY 完整接口均完成 reload/正式 Undo/reload | P2-D 三条核心纵向链 DONE；Association/其余 LIGHT、其他 HEAVY 类型和 P2-E～G OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -87,9 +87,10 @@
 - [ ] Rebind 不展示 UUID 列表；
 - [ ] Restore/Migration 复用唯一安全链；
 - [ ] 高影响流程全部可恢复。
-- [ ] Project 结构操作按影响给摩擦；16 类 router 与 MEDIUM 当前摘要完整 Desktop 纵向链
-  与一条 HEAVY 完整当前接口 Desktop 链已 PASS，Ownership/Closure 不降级已有自动证据，
-  但 LIGHT 可发现 Undo 与其他 HEAVY 类型尚未全部闭环；
+- [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
+  MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，
+  Ownership/Closure 不降级已有自动证据；Association 因无 inverse 已安全禁用，但其他
+  LIGHT/HEAVY 类型尚未全部闭环；
 
 P2-C 专项证据：Application `155/155`、Local Service `133/133`、Plugin `271/271` 与根级
 `./scripts/check.sh` PASS。Blank 已验证

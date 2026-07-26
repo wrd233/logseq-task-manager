@@ -72,6 +72,23 @@ source return target 传回 Plugin，并只在正式 Page 或 active Primary Anc
 Lifecycle 与 Condition 不变，Pending/Recovery/Conflict `0/0/0`。Ownership、正文移动、
 批量子对象、拆分合并与 Closure 仍需各自安全链，不因本链完成而降级。
 
+## P2-D LIGHT Condition durable Undo
+
+状态：`DONE_LIGHT_CONDITION_VERTICAL_P2D_STILL_IN_PROGRESS`
+
+1. Project → 调整 Project → 更新状态；
+2. 版本化 direct command 只改变 Condition；
+3. receipt 持久保存变更前 Condition，Plugin session 不充当 Undo 权威；
+4. reload 后 Project 投影读回 PAUSED 状态与原因；
+5. 用户选择撤销最近状态，Service 准备 server-owned inverse；
+6. 确认时重验当前 Object version 与 Condition；有任何后续变化即安全停止；
+7. inverse command 恢复 ACTIONABLE，再次 reload 读回原确定性投影；
+8. Lifecycle、Focus、Ownership、正文与 Project 当前接口保持不变。
+
+真实结果：Project v8→v9→v10，最终结构逐字段恢复。普通 Association 因没有 remove/inverse
+不进入正式路由。CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。该结论只关闭
+Condition 这一条 LIGHT 链；Focus/reviewAt、Association 和其他 HEAVY 类型仍开放。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一
@@ -87,5 +104,6 @@ Lifecycle 与 Condition 不变，Pending/Recovery/Conflict `0/0/0`。Ownership�
   在同一答案集上通过，说明分类虽安全但真实拒绝率与用户诊断仍需降低；reuse Preview 还有
   重复“完成证据”标签；新 Project Page
   首屏仍直接露出 ownership/object/commit properties，虽不泄密但工程味过重。需要在既有
-  Skill/renderer/Page Head 中继续压缩，并在后续状态翻译 Slice 中把撤销文案改成“撤销时
+  Skill/renderer/Page Head 中继续压缩；Condition 表单也应在标题中显示目标对象，避免用户
+  把 blocker 候选误读为当前修改目标。后续状态翻译 Slice 还需把剩余撤销文案统一为“撤销时
   会重新检查”。
