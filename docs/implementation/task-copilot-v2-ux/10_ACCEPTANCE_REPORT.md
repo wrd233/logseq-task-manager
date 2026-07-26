@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_RESTORE_MIGRATION_SCAN_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal roundtrip + Migration ledger/read-only scan PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip 与 Migration read-only scan current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + Restore failure + Migration item Review/write OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_REVIEW_PREVIEW_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal roundtrip + Migration Review/Preview PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip 与 Migration Review/Preview current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + Restore failure + Migration Import/Verify/Activate/Undo OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -114,8 +114,11 @@
   原基线。Migration ledger 已把内部状态翻译为用户阶段并隐藏 run/hash/backup identity；
   受控文件选择与 session-only `/migration/scan` 也已自动 PASS，前台只见五类计数。
   `15b976d28ec3` 已真实 Desktop 证明文件选择、2 项分类、放弃、reload 清空、非法 JSON
-  重试及最终 READY/`0/0/0`；SQLite migration run/batch 仍为 `0/0`。逐项 Review 与正式
-  状态机尚未实现；Restore 失败注入及失败后的用户层 Recovery 仍 OPEN；
+  重试及最终 READY/`0/0/0`；其后 `c660f2d` 又完成逐项有界阅读、两项决定、
+  正式 Validator、PREVIEWED 计划创建与 reload。SQLite 回查 run/batch `1/0`、正式对象
+  仍为 4、Pending 0；完整正文/identity/hash 未进入 snapshot、账本或日志。恢复点确认、
+  Import/Verify/Activate、失败续跑和 Undo 尚未开放；Restore 失败注入及失败后的用户层
+  Recovery 仍 OPEN；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

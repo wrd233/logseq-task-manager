@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_LEDGER_AND_READONLY_SCAN_AUTOMATED`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_REVIEW_PREVIEW_DESKTOP_DONE`
 
 ### Recovery
 
@@ -424,7 +424,19 @@ import→verify→activate、失败/重启/Undo 继续 OPEN。
 commit `15b976d28ec3` 的真实 Logseq 0.10.15 已完成当前文件选择、2 项脱敏 Bundle
 分类、显式放弃、reload 清空、非法 JSON 重试和最终 READY/`0/0/0`；SQLite 回查
 migration run/batch 仍为 `0/0` 且 integrity `ok`。因此只读 scan Desktop Gate DONE，
-但逐项 Review 与正式迁移状态机仍未开放。
+但不单凭这条只读证据宣称迁移可写。
+
+在此基础上，`3103df3`/`c660f2d` 已开放 session-only 逐项 Review 与 PREVIEWED 计划创建：
+用户主动选择的材料只显示规范化的一行 160 字符摘录和来源类型；完整正文、内部 identity、
+evidence/hash 不进入 UI snapshot、账本或日志。机器建议缺失时保持空选择，结构冲突不可
+导入；所有非导入决定在 Plugin 与正式 Domain Validator 都要求有界判断依据。响应丢失进入
+不确定态并只允许同决定幂等重试。计划创建只写审阅账本，不创建正式对象、batch 或恢复点。
+
+commit `c660f2d00be5` 的真实 Logseq 0.10.15 已完成 2 项脱敏材料逐项决定、计划创建和
+reload；SQLite 只读回查为 `PREVIEWED`、summary `2/1/1/0/0`、run/batch `1/0`、正式对象
+仍为 4、Pending 0。CURRENT `p2-g-26`～`29`。因此 Migration Review/Preview 纵向
+Slice 从 Partial 变为 Done；恢复点确认、import→verify→activate、失败/重启/Undo 继续 OPEN，
+Migration/P2-G/整体 Goal 不关闭。
 
 ## P2 完成否决条件
 

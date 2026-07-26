@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_REVIEW_PREVIEW_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -306,7 +306,7 @@ overall_goal: IN_PROGRESS
   失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md`；
 - P2-G Migration 已进入
-  `MIGRATION_LEDGER_TRANSLATION_AND_READONLY_SCAN_DESKTOP_DONE_REVIEW_WRITE_OPEN`：
+  `MIGRATION_ITEM_REVIEW_AND_PREVIEW_DESKTOP_DONE_IMPORT_GATE_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、
   更新时间与批次计数；run ID、Bundle hash、Backup ID 和 CLI 命令不再进入日常 UI。没有
   run 时可由用户明确选择 2 B～8 MiB Recovery Bundle；内容仅在当前 Plugin session
@@ -314,8 +314,13 @@ overall_goal: IN_PROGRESS
   未完成 Commit 检查和 SQLite Doctor 零变化断言。前台只显示五类计数，clear/Graph switch/
   reload 清空，不暴露对象 identity、evidence、hash 或正文。`15b976d28ec3` 的真实
   Logseq 0.10.15 已完成文件选择、2 项分类、放弃、reload 清空、非法 JSON 和最终
-  READY/`0/0/0`；SQLite run/batch 仍为 `0/0`。逐项决定、Preview、恢复点、
-  Import/Verify/Activate/Undo 仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
+  READY/`0/0/0`；SQLite run/batch 仍为 `0/0`。随后 `3103df3`/`c660f2d` 开放
+  session-only 逐项 Review 与 PREVIEWED 计划创建：当前材料只显示规范化 160 字符单行
+  摘录和来源类型；完整正文、内部 identity、evidence/hash 不进入 UI snapshot、账本或
+  日志。所有非导入决定在 Plugin 与正式 Domain Validator 都要求有界判断依据。真实
+  Desktop 已完成两项决定、计划创建与 reload；SQLite 回查为 `PREVIEWED`、run/batch
+  `1/0`、正式对象保持 4、Pending 0。恢复点、Import/Verify/Activate/Undo 仍 OPEN，
+  P2-G 与整体 Goal 继续 `IN_PROGRESS`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -337,8 +342,9 @@ failure/Recovery Desktop gate OPEN /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
 P2-G Rebind identity-free capture main chain Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,
-Rebind Recovery/Undo guidance + Migration ledger translation/read-only scan AUTOMATED,
-Restore failure + Migration material/review/write/Desktop gates OPEN /
+Migration item Review/Preview Desktop DONE,
+Rebind Recovery/Undo guidance AUTOMATED,
+Restore failure + Migration recovery-point/import/verify/activate/undo gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

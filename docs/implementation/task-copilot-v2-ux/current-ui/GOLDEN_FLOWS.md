@@ -174,6 +174,23 @@ Restore 全部 Gate 或 P2-G。
 `p2-g-20`～`25`。此链只关闭材料选择与 read-only scan；逐项 Review、恢复点、Import、
 Verify、Activate、failure resume 和 Undo 仍 OPEN，Migration/P2-G 不提前关闭。
 
+## P2-G Migration 逐项 Review 与 PREVIEWED 计划
+
+状态：`ITEM_REVIEW_AND_PREVIEW_DESKTOP_DONE_IMPORT_GATE_OPEN`
+
+1. 用户明确选择脱敏 Bundle 并完成既有只读 scan；
+2. 每项只显示 session-only 规范化单行摘录、来源类型、旧状态和机器建议；
+3. 缺少机器建议时保持空选择；结构冲突不可导入；非导入决定必须写判断依据；
+4. 每项先独立保存，全部完成后才出现唯一主动作“保存审阅并创建迁移计划”；
+5. Service 重新读取同一 Bundle，并由 Application/Domain 正式 Validator 解析全部决定；
+6. 只创建 `PREVIEWED` review ledger，不创建正式对象、batch 或恢复点；
+7. reload 后 Bundle、摘录、identity map 和决定释放；计划卡持久保留；
+8. SQLite 回查 run/batch `1/0`、formal objects 4、Pending 0。
+
+真实结果：`c660f2d00be5`、Logseq 0.10.15、Dark 宿主、994×700；CURRENT
+`p2-g-26`～`29`。一行摘录只用于当前脱敏测试会话，不推翻“不持久化/不记录完整正文”的
+隐私边界。恢复点、Import、Verify、Activate、failure resume 和 Undo 仍 OPEN。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一

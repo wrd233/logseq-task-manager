@@ -93,6 +93,15 @@ import/verify/activate、失败/重启/Undo 继续 OPEN。记录见
 `../logs/p2-g-migration-readonly-scan-automated-20260726.md`、
 `../logs/p2-g-migration-readonly-scan-desktop-live-20260726.md`。
 
+Migration 逐项 Review/Preview 又在 `c660f2d00be5` 当前构建形成下一条完整纵向链。
+前台不再只有计数，而是显示用户主动选择材料的 session-only、规范化 160 字符单行摘录；
+完整正文、内部 identity、evidence/hash 仍不进入 snapshot、账本或日志。两项决定全部
+保存后才可创建 PREVIEWED 计划，reload 后材料释放而计划保留。CURRENT `p2-g-26`～`29`
+取代“逐项 Review 未开放”的旧结论。正式恢复点、Import/Verify/Activate、失败续跑与 Undo
+仍 OPEN；完整记录见
+`../logs/p2-g-migration-item-review-automated-20260726.md` 与
+`../logs/p2-g-migration-item-review-desktop-live-20260726.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；

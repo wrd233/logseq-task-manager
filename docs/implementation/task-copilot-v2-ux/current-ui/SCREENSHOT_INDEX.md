@@ -58,6 +58,10 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-23-migration-readonly-scan-reload-cleared-current-15b976d.jpeg` | `15b976d28ec3` | 再次扫描后直接 reload，重新进入迁移 | 回到未选择文件/没有计划，session 材料没有跨生命周期残留 | Graph switch 仍由自动 Gate 覆盖 |
 | `screenshots/p2-g-24-migration-readonly-scan-invalid-current-15b976d.jpeg` | `15b976d28ec3` | 选择非法 JSON 并只读检查 | 未发起 Service scan；用户层错误可重试且旧摘要不残留 | Service failure 注入仍 OPEN |
 | `screenshots/p2-g-25-migration-readonly-scan-build-health-current-15b976d.jpeg` | `15b976d28ec3` | 只读成功、放弃、reload 与非法输入后展开系统诊断 | exact commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` | 诊断只作为证据层 |
+| `screenshots/p2-g-26-migration-item-review-current-dark.png` | `c660f2d00be5` | 选择脱敏 2 项 Bundle 并完成只读 scan | 逐项显示 session-only 单行摘录、来源类型、旧状态、机器建议与决定；完整正文/identity/hash 不入账本或日志 | Dark 宿主内插件卡片仍偏亮 |
+| `screenshots/p2-g-27-migration-decisions-complete-current-dark.png` | `c660f2d00be5` | 普通内容项填写依据，直接迁移项保持机器建议，两项分别保存 | 全部决定完成后才出现唯一计划创建动作 | 恢复点尚未选择 |
+| `screenshots/p2-g-28-migration-plan-created-current-dark.png` | `c660f2d00be5` | 点击“保存审阅并创建迁移计划” | PREVIEWED 计划：2 项审阅、1 项准备迁移、1 项保持普通内容；无正式对象导入 | Import/Verify/Activate/Undo OPEN |
+| `screenshots/p2-g-29-migration-plan-reload-current-dark.png` | `c660f2d00be5` | 创建后 Plugin reload 并重新进入迁移 | Bundle/session 摘录和决定已释放；迁移计划 1 持久显示 | 失败/重启续跑仍需 Desktop Gate |
 
 ## HISTORICAL
 
