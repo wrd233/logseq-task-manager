@@ -8,7 +8,8 @@
 > descriptor 私有 handshake 已完成自动与适用 Desktop 验收；P0-H 独立 Launcher、
 > LaunchAgent、owned shutdown 与 crash/orphan recovery 已完成自动和真实进程 Gate，reload
 > 与真实 Logseq quit 已补 Desktop 证据；隐藏 iframe reload 也已通过 non-blocking bootstrap
-> 与宿主 ready 事件自动恢复，Graph switch 视觉 Gate 仍开放；P0-J 中文命令自动 Gate 已完成，剩余
+> 与宿主 ready 事件自动恢复；`ca50304` 又关闭 Graph switch 旧 authority 隐藏、受限保持与
+> 切回原 Graph Gate，P0-H 已为 DONE；P0-J 中文命令自动 Gate 已完成，剩余
 > slash/palette/custom binding Desktop Gate；P0-K session origin route 与 P0-A 普通 Block
 > “处理这条内容”自动 Gate 已完成，剩余 main/sidebar/Query/reference Desktop Gate 及其余
 > P0 仍未完成。
@@ -24,7 +25,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE，同 Graph 无参数重装 authority DONE；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；Graph switch、中文 IME/受限视觉、K 多宿主 Gate OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；中文 IME/受限视觉、K 多宿主 Gate OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart、Migration through Activation 正常主链已有真实 Desktop。真实双重故障注入、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -134,8 +135,8 @@ P0-I 已完成：用户首屏固定回答发生了什么、影响能力、仍可
 
 P0-H capability spike 已得出结论：iframe 不支持可靠 child process，采用独立 Launcher。
 Launcher/LaunchAgent、ownership、shutdown、Graph binding、descriptor 刷新、TTL 与
-crash/orphan recovery 已由自动和真实进程证据闭合；当前等待不绕过桌面安全机制的集中
-reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
+crash/orphan recovery 已由自动和真实进程证据闭合；reload、退出和 Graph switch 的代表性
+Desktop Gate 现也已闭合。
 
 2026-07-26 的精确构建重装暴露一个真实 authority 漂移：同一 Graph 已显式绑定测试数据库，
 再次运行 installer 且省略 `--database` 时，旧实现会静默改用默认数据路径。没有文件被删除，
@@ -145,8 +146,16 @@ reload/退出/Graph switch Gate，同时继续其他独立 P0 项。
 
 修复后已用当前构建执行真实无参数重装：graphKey/databasePath digest、inode、7 Objects、
 24 Commits、12 Proposals 和 Provider model 前后完全一致；后续受控 Provider Gate 重装也未
-改变 authority，最终恢复真实 DeepSeek 并由 Plugin 自动重连。该子 Gate 已 DONE，Graph
-switch/切回原 Graph 仍 OPEN。
+改变 authority，最终恢复真实 DeepSeek 并由 Plugin 自动重连。该子 Gate 已 DONE。
+
+`ca50304e9aa2` 又完成真实 Graph switch。首次运行先发现新 Graph 已显示而旧 Project 卡仍
+短暂保留，故未把最终受限态冒充通过；修复后清除旧 graph key 和受限 UI 均发生在 lease
+release 之前。当前构建切到未配置隔离 Graph 后，宿主首次显示新 Graph 的约 2481 ms 取样
+已为“知识库不匹配 / 正式修改暂停”，旧 Project 不可见，6 秒后仍 fail-closed；切回原 Graph
+约 3752 ms 恢复 READY、同一 Project 与“不复用上一知识库数据”结论。Launcher 仍
+`configuredGraphs=1`，graphKey/path digest 和 database inode 不变。P0-H 从 Partial 关闭为
+`DONE_DESKTOP_REPRESENTATIVE`；记录见
+`logs/p0-h-graph-switch-desktop-live-20260727.md`。
 
 P0-J 已从 `AUTOMATED_ONLY` 推进为代表性 Desktop partial：冷启动命令面板单组注册、Now/
 系统状态路由、四条 Slash 可发现、`[任务] ` 代表插入和自定义 binding 配置/触发/清理均已
@@ -455,7 +464,7 @@ derivative/dashboard 价值也仍未完成。
 - P0-I Desktop：正文核对注意状态与 Service unavailable 受限状态 PASS；
 - P0-H hidden reload：真实 Plugin reload 后不打开面板，等待 25 秒超过旧 lease 停止窗口，
   owned Service 仍由新 lease 保持；首次点击 `TC` 直接 Runtime/Store READY。Plugin 255/255、
-  typecheck/build/dist PASS；Graph switch 视觉 Gate仍 OPEN；
+  typecheck/build/dist PASS；后续 `ca50304` 已关闭 Graph switch 视觉与 authority Gate；
 - P2-C 两层自动合同：Project 创建前不伪造 Object ID；Blank/Page/MiniProject 来源边界、
   internal closure/current interface readiness、来源相关 focus builder 与
   `project-creation-modeling@1.1.0` 已自动锁定，Page/Object 关系成为独立 machine
@@ -665,24 +674,10 @@ derivative/dashboard 价值也仍未完成。
 
 ## 下一步
 
-1. 延伸 P2-F 已通过的首批真实 Provider repeat Gate：增加真实业务 Context、timeout/非法
-   输出、公共 runtime 的 semantic-stale/reload/recompute、disposition/cooldown 与用户反馈；以噪声和重复性证据决定是否
-   升为正式 Skill 及进入待我确认，在此之前不开放前台、不持久化候选；
-2. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并
+1. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并
    注入一次 Commit failure，完成 RECOVERY_REQUIRED → 原 Commit resume → reload；不得
    通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
-3. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
-   把 Ownership、正文移动、批量子对象与拆分合并的既有安全链逐项映射到当前影响路由；
-4. 继续 P1-F/G/H 代表性 Desktop Gate：Project workspace、Dark loading/Provider/feedback/
-   reload 已完成；File Graph Page Head 已有界关闭，DB Graph Page Head、Provider error、
-   validator rejection、generation stale、Light/窄栏与“当前生成 vs 已完成正式 Gate”语义
-   边界仍需关闭；用更多真实反馈判断噪声指标是否足够有用，再决定是否需要跨会话 derivative；
-5. 汇总 P0-H/P0-J/P0-K 的 Graph switch、slash/palette/custom binding 与多宿主 origin；
-6. 完成 P1-D
-   System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-7. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
-   shadow 决定不建 derivative，跨 reload 用户处置只在首批信号开放并证明减噪后重开。
-8. P2-G Rebind、Restore 正常往返和 Restore 激活失败→自动回滚→重连→reload 已在当前
+2. P2-G Rebind、Restore 正常往返和 Restore 激活失败→自动回滚→重连→reload 已在当前
    构建完成真实 Desktop Gate；自动回滚也失败时的有界手工 Recovery 已完成受控
    Launcher→one-shot Local Service→Doctor→清锁自动链，下一步用最新构建完成真实双重失败、
    HIGH Review、恢复、Service 重连和 reload Gate，同时在下一次可控 Rebind 中验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
@@ -691,3 +686,5 @@ derivative/dashboard 价值也仍未完成。
    当前正式对象 5、run ACTIVATED、Pending 0，`2beb1b5` 完整 restart 后只保留只读交接
    台账与 Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 均退出。继续 Migration
    failure/Service 中断恢复与 P2-G Light/窄栏视觉 Gate，不得加入第二迁移或恢复状态源。
+3. 集中关闭 P0-J 中文 IME/受限视觉与 P0-K Query/reference/来源变化返回，并继续 P1-F
+   DB Graph Page Head、P1 Attention 开放门和 Block Marker；P0-H 不再重复扩大宿主矩阵。

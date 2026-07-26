@@ -35,8 +35,12 @@ overall_goal: IN_PROGRESS
   READY；真实 Logseq reload 已证明面板重开后自动恢复 READY，真实 quit 后 owned Service 在
   租约窗口内结束而 Launcher 保留。Logseq 隐藏 iframe 的早期 Graph API/timer 停顿也已改为
   non-blocking bootstrap + `onGraphAfterIndexed`/`onRouteChanged` 恢复；真实隐藏 reload 后
-  不打开面板等待 25 秒，owned Service 仍由新 lease 保持，首次打开即 READY。Graph switch
-  视觉 Gate 仍 OPEN；`4dfe014` 又在真实 Logseq reload 后验证“更多”只显示本次使用与
+  不打开面板等待 25 秒，owned Service 仍由新 lease 保持，首次打开即 READY。`ca50304`
+  又关闭 Graph switch 视觉与 authority Gate：真实未配置 Graph 首次出现时即为安全受限，
+  6 秒后仍未显示旧 Project 或选择新数据库；切回原 Graph 约 3.75 秒恢复同一 Project 和
+  明确的“不复用上一知识库数据”结论。Launcher 仍只有原 `logseq` 映射，graphKey/path
+  digest 与 database inode 不变。P0-H 因而为 `DONE_DESKTOP_REPRESENTATIVE`；`4dfe014`
+  又在真实 Logseq reload 后验证“更多”只显示本次使用与
   用户维护语义，不再向日常界面暴露 Launcher/Service/Commit/SQLite。真实重装又发现同一
   Graph 省略 `--database` 会把既有数据库 authority 静默换到默认路径；
   运行映射已立即恢复，安装器现优先保留同一 graphKey 的既有 databasePath，只有首次安装或

@@ -20,6 +20,13 @@ Desktop 安全结束/重启证据；`p0-e-05`、`p0-h-08`、`p0-i-03` 是 `4dfe0
 `RECOVERY_REQUIRED` 前置条件证明用户 HIGH Review、恢复、重连和 restart 产品链，但不冒充
 生产 Restore 连续双重故障注入，后者仍 OPEN。
 
+P0-H Graph switch 最新精确构建为 `ca50304e9aa2`。`p0-h-16`～`18` 分别证明未配置隔离
+Graph 首次显示时已安全受限、6 秒后仍不显示旧 Project，以及切回原 Graph 后约 3.75 秒
+恢复同一正式投影；Launcher mapping、graphKey/path digest 和 database inode 未变。
+`p0-h-13` 保留为真实旧 authority 短暂泄漏的 `HISTORICAL`，`p0-h-14`/`15` 已
+`SUPERSEDED`。P0-H 已关闭为代表性 Desktop DONE，不代表 P0-J/P0-K 或整体 P0 完成。
+完整记录见 `../logs/p0-h-graph-switch-desktop-live-20260727.md`。
+
 P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_RESTRICTED_VISUAL_OPEN`：
 冷启动 palette、Now/系统状态路由、四条 Slash 可发现、任务语法代表插入和 custom binding
 配置/触发/清理已在 Logseq 0.10.15 通过。Computer Use 不能可靠注入中文字符，因此原生

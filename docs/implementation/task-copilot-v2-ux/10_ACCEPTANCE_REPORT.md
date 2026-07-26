@@ -10,7 +10,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；P0-J palette/Slash 代表链/custom binding PASS；Graph switch、中文 IME/受限视觉与 P0-K host Gate OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash 代表链/custom binding PASS；中文 IME/受限视觉与 P0-K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/manual recovery + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart 与 Migration Activation current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + real double-failure + Migration failure/interruption recovery/visual gates OPEN |
 | Final Release | NOT_STARTED | — | — | — |
@@ -207,7 +207,8 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 - [x] 设计到代码映射；
 - [x] P0-A 自动测试、真实 Desktop Focus/Undo 与 Local Service 读回证据；
 - [x] P0-H descriptor 私有导入、失败边界与 reload READY 证据；`e8db32f` 又完成最新用户语言的
-  安全结束、立即只读、重新启动与健康读回，结束期间无知识库不匹配闪烁；Graph switch 仍 OPEN；
+  安全结束、立即只读、重新启动与健康读回，结束期间无知识库不匹配闪烁；`ca50304`
+  又关闭未配置 Graph 立即受限、旧 Project 不可见、6 秒保持和切回原 authority Gate；
   同一 Graph 重装现默认保留既有 database authority，真实发现的静默路径替换已修复并由
   Launcher 29/29 回归覆盖；当前构建的真实无参数重装也已证明 graphKey/path/inode 与
   `7/24/12` 正式计数保持；显式数据库迁移仍必须由用户明确给出路径；

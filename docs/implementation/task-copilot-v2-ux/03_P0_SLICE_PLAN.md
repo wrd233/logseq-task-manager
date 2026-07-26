@@ -354,21 +354,24 @@ Logseq Desktop 0.10.15 的用户层历史、折叠技术详情、查看原 Propo
 
 ## P0-H：Service 产品化
 
-状态：`IN_PROGRESS_DESKTOP_GRAPH_SWITCH_GATE` — descriptor 私有导入/重连 handshake 已完成
+状态：`DONE_DESKTOP_REPRESENTATIVE` — descriptor 私有导入/重连 handshake 已完成
 既有 Desktop 闭环；独立 Launcher/LaunchAgent、Graph-bound lease、owned shutdown、TTL、
 Service/Launcher crash recovery、owner-PID orphan self-stop、显式结束恢复前置与 Graph switch
 fail-closed 已完成自动及真实独立进程 Gate。
 
 Graph-bound Launcher、lease、crash/orphan recovery、reload 自动恢复与真实 Logseq quit 后
-owned Service 结束均已有自动和 Desktop/进程证据；Launcher 保留以服务后续会话。Graph switch
-仍缺本轮完整视觉 Gate，因此 P0-H 保持 `IN_PROGRESS_DESKTOP_GRAPH_SWITCH_GATE`，不得把生命周期
-主链已完成误写成“仍需终端维护”，也不得提前宣布整个 P0 完成。
+owned Service 结束均已有自动和 Desktop/进程证据；Launcher 保留以服务后续会话。`ca50304`
+又用未配置隔离 Graph 完成真实切换：宿主首次显示新 Graph 时旧 Project 已不可见，正式能力
+立即受限，6 秒后仍不猜数据库；切回原 Graph 后约 3.75 秒恢复同一正式投影。对应
+graphKey/path digest、database inode 与唯一 Launcher mapping 均未改变。P0-H 因而关闭，
+但 P0-J/P0-K 的其余宿主 Gate 仍使整个 P0 保持进行中。
 
 `653875a` 前后的当前源码构建又完成同一 Graph 的真实无参数重装：graphKey 与 databasePath
 digest、database inode、7 Objects、24 Commits、12 Proposals 和 Provider 配置前后完全一致。
 随后三次受控 Provider Gate 重装也未改变 authority，最后已恢复真实 DeepSeek 配置并由 Plugin
-自动重连。该 authority 子 Gate 为 `DONE_DESKTOP_RUNTIME_AUTHORITY_PRESERVED`；Graph switch、
-切回原 Graph 与异常映射的真实视觉 Gate仍 OPEN。
+自动重连。该 authority 子 Gate 为 `DONE_DESKTOP_RUNTIME_AUTHORITY_PRESERVED`；异常映射
+真实 fail-closed、切回原 Graph 和旧投影不可见又由
+`logs/p0-h-graph-switch-desktop-live-20260727.md` 关闭。
 
 Logseq 0.10.15 还证明隐藏 Plugin iframe 的早期 `getCurrentGraph()` 与 iframe timer 可能同时
 停顿；bootstrap 因此不得 await Graph identity。当前实现先完成只读 shell，再由

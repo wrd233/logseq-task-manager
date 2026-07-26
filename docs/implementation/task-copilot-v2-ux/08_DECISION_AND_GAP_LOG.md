@@ -37,6 +37,12 @@ loopback、Graph-bound lease、heartbeat、最后租约/TTL shutdown、owner-PID
 LaunchAgent installer 和 crash restart；真实进程 Gate 证明 Launcher/Service crash 后使用新
 PID 恢复且 SQLite 对象不丢。Desktop reload/结束/退出/Graph switch 视觉 Gate仍保持 OPEN。
 
+2026-07-27 Gate 补充：上述 P0-H Desktop 项现已关闭。`ca50304` 用真实未配置隔离 Graph
+发现并修复“宿主已切换但旧 Project DOM 仍短暂可见”：旧 Graph key 清除与现有受限 UI
+刷新现在先于 lease release/recovery。修复后新 Graph 首次可见即 fail-closed，6 秒保持，
+切回原 Graph 约 3.75 秒恢复同一 authority；Launcher mapping、database path 与 inode
+不变。没有增加 Graph switch 状态机或第二数据库权威。
+
 ## 代码已回答的缺口
 
 | 问题 | 结论 | 证据 |

@@ -48,6 +48,10 @@
 - 新增正式状态/恢复入口/并行 authority：`0`；回归覆盖首次安装、无参数重装和第二 Graph，
   Launcher `29/29` PASS。当前构建的真实无参数重装及后续多次受控 Provider 重装也保持
   graphKey/path/inode 与正式计数不变；该 authority 子 Gate 已从自动升级为真实运行 DONE。
+- `ca50304` 没有新增 Graph switch 状态机：只调整既有 restricted projection、Graph key、
+  discovery generation 与 lease release 的顺序。真实失败样本进入回归，修复后新 Graph
+  首帧不再显示旧 Project，切回恢复同一 authority。P0-H Partial 已关闭；新增正式状态、
+  recovery 分支、Skill、Prompt、Validator 和平行 Runtime 均为 `0`。
 
 - P0-J 从 `AUTOMATED_ONLY` 收敛为代表性 Desktop partial：共享同一 command/slash 注册内核，
   没有为四条 Slash、六条 palette 或三个 binding 创建场景状态；新正式状态、恢复分支、

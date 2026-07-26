@@ -12,7 +12,10 @@ Interaction Evidence。`p1-g-08-...before-fix` 是本轮发现主题缺陷的 `H
 可配置、临时 binding 可触发且清理后冷启动全部未设置；`p0-j-02`～`05` 对应
 `e8db32f1af6d`，证明冷启动 palette 和 Slash 当前行为。`p0-h-09`～`12` 对应
 `e8db32f1af6d`，证明安全结束、
-无错误闪烁、重新启动和健康读回；`p0-e-05`、`p0-h-08`、`p0-i-03` 对应 `4dfe014902a3`，
+无错误闪烁、重新启动和健康读回；`p0-h-16`～`18` 对应 `ca50304e9aa2`，证明未配置
+Graph 首次显示即受限、6 秒稳定 fail-closed 和切回原 authority；`p0-h-13` 是促成修复的
+真实旧投影泄漏历史证据，`p0-h-14`/`15` 已由当前精确构建替代。`p0-e-05`、`p0-h-08`、
+`p0-i-03` 对应 `4dfe014902a3`，
 是公共“现在”“更多”和健康系统状态的当前权威；更早截图只在其专用纵向场景范围内提供
 历史运行证据。`p2-g-47`～`50` 对应 `16bde9ad88a5`，证明受控
 `RECOVERY_REQUIRED` 的 HIGH Review、人工恢复、重连和完整 restart；它们不冒充生产 Restore
@@ -42,9 +45,12 @@ Interaction Evidence。`p1-g-08-...before-fix` 是本轮发现主题缺陷的 `H
 | `screenshots/p0-h-08-more-productized-current-dark.png` | `4dfe014902a3` | 从日常工作面进入“更多” | 维护能力收敛为最近修改、系统状态、备份恢复、迁移和结束本次使用；无 Launcher/Service/Commit/SQLite 工程词 | 结束/重启最新语言链仍可在集中 P0 Gate 复验 |
 | `screenshots/p0-i-03-system-status-translated-current-dark.png` | `4dfe014902a3` | 从“更多”检查健康系统状态，保持技术诊断折叠 | 首屏只回答发生、影响、可用、安全和操作；内部状态、精确 commit 与 `0/0/0` 仅在主动展开后可见 | 失败/恢复各类别仍需代表性当前复验 |
 | `screenshots/p0-h-09-end-session-confirm-current-dark.png` | `e8db32f1af6d` | 从“更多”请求结束本次使用 | 独立确认再次检查未完成修改与正文核对，并说明正文、历史和其他进程不受影响 | 未确认时不释放 lease |
-| `screenshots/p0-h-10-end-session-safe-current-dark.png` | `e8db32f1af6d` | 确认安全结束；100—2500 ms 多点采样 | 立即暂停正式动作，只保留“更多”、关闭和重新启动；无知识库不匹配或“未配置”假结论 | Graph switch 仍 OPEN |
+| `screenshots/p0-h-10-end-session-safe-current-dark.png` | `e8db32f1af6d` | 确认安全结束；100—2500 ms 多点采样 | 立即暂停正式动作，只保留“更多”、关闭和重新启动；无知识库不匹配或“未配置”假结论 | Graph switch 后由 `p0-h-16`～`18` 关闭 |
 | `screenshots/p0-h-11-restart-session-ready-current-dark.png` | `e8db32f1af6d` | 点击“重新启动 Task Copilot” | 当前知识库重新启动；主导航和正式维护能力恢复 | 继续进入系统状态核验 |
-| `screenshots/p0-h-12-restart-session-health-current-dark.png` | `e8db32f1af6d` | 重启后检查系统状态 | 用户层正常；技术详情 exact commit、formal writes true、`0/0/0` | Light/窄栏与 Graph switch OPEN |
+| `screenshots/p0-h-12-restart-session-health-current-dark.png` | `e8db32f1af6d` | 重启后检查系统状态 | 用户层正常；技术详情 exact commit、formal writes true、`0/0/0` | Graph switch 后由 `p0-h-16`～`18` 关闭 |
+| `screenshots/p0-h-16-graph-switch-immediate-restricted-current-dark.png` | `ca50304e9aa2` | 从已配置测试 Graph 切到未加入 Launcher mapping 的隔离 Graph；捕获宿主首次显示新 Graph | 首帧已为“知识库不匹配 / 正式修改暂停”，旧 Project 卡不可见，正文仍可编辑 | 未配置 Graph 不提供连接或猜测数据库动作 |
+| `screenshots/p0-h-17-graph-switch-settled-restricted-current-dark.png` | `ca50304e9aa2` | 在隔离 Graph 再等待 6 秒 | 保持同一受限结论；旧正式投影仍不可见，没有自动创建或替换 authority | 配置到配置的隔离由 Launcher 自动合同覆盖 |
+| `screenshots/p0-h-18-graph-switch-return-ready-current-dark.png` | `ca50304e9aa2` | 切回原 Graph 并等待自动恢复 | 约 3.75 秒恢复 Copilot 可用、原 Project 和“没有复用上一知识库的数据”；mapping/path/inode 不变 | P0-H 代表性 Desktop Gate 关闭 |
 | `screenshots/p2-c-18-page-undo-confirm-current-dark.png` | `913bbda4528f` | Page 来源 Project 经完整 restart 后，从最近修改进入专用 Undo | 原账本 UUID 已漂移，但界面只要求撤销正式 Project/Anchor；明确复用来源 Page 保留、专用 Page 仅在仍属本事务且为空时删除 | Review 历史卡片仍偏长 |
 | `screenshots/p2-c-19-page-undo-complete-current-dark.png` | `913bbda4528f` | 显式勾选并确认 Project Creation inverse Commit | Project、Anchor 与本事务拥有的空 Page 已安全撤销；Audit 与 inverse Commit 保留 | 删除事件会短暂触发一次正文核对，需冷启动收敛 |
 | `screenshots/p2-c-20-page-post-undo-restart-healthy-current-dark.png` | `913bbda4528f` | Undo 后完整退出并重开 Logseq，再进入系统状态 | Runtime/Store/Service READY；Pending/Recovery/Source Conflict `0/0/0`；`reconciliationRequired:false`；来源正文仍在、专用 Page/Project 不在 | MiniProject、Light/窄栏仍开放 |
@@ -135,6 +141,9 @@ Interaction Evidence。`p1-g-08-...before-fix` 是本轮发现主题缺陷的 `H
 | `p1-g-06-context-recovery-final-provider-current-dark.png` | SUPERSEDED | `894d14f` | 真实 Provider 结果正确接地，但把当前草稿评价误列为业务未知 | `recover-context@1.3.0` 与 `p1-g-07` 已替代 |
 | `p1-g-08-context-recovery-skill-1-3-current-light-before-fix.png` | HISTORICAL | `653875a` 构建前的本轮运行 | 真实 Logseq Light 时 Plugin 仍显示 dark surface | 同一提交中的宿主 theme sync 修复后由 CURRENT `p1-g-08` 替代 |
 | `p0-j-01-command-palette-duplicate-historical-dark.png` | HISTORICAL | `e8db32f1af6d` 连续 Plugin reload 会话 | Logseq 0.10.15 reload 会话曾出现重复 palette 行 | 完整退出/重启恢复单组；`p0-j-02` 是冷启动当前权威，不新增持久去重状态 |
+| `p0-h-13-graph-switch-old-authority-leak-historical-dark.png` | HISTORICAL | `ca50304` 前的真实 Graph switch build | 新隔离 Graph 已显示，但旧 Graph 的 Project 卡与“Copilot 可用”仍短暂留在前台 | `ca50304` 把旧 key 清除和受限 UI 刷新移到 lease release 之前；`p0-h-16` 替代 |
+| `p0-h-14-graph-switch-restricted-current-dark.png` | SUPERSEDED | `ca50304` 前的真实 Graph switch build | 旧实现最终仍会安全进入 Graph mismatch | 只证明延迟收敛，不能证明首帧无旧 authority；`p0-h-16`/`17` 替代 |
+| `p0-h-15-graph-switch-return-ready-current-dark.png` | SUPERSEDED | `ca50304` 前的真实 Graph switch build | 旧实现切回原 Graph 后可恢复 Project | `p0-h-18` 使用精确修复提交并记录恢复时延与 mapping 不变 |
 | `p2-g-42-migration-activated-reload-current-dark.png` | SUPERSEDED | `f42b62d` | ACTIVATED ledger 跨完整 restart 保留 | 完成态仍显示新 Bundle scan；`p2-g-43` 已收敛为只读交接 |
 | `p2-c-01-project-creation-entry-dark.png` | SUPERSEDED | `c9c29b7` | 三来源入口曾真实可达 | `p2-c-11` 使用当前提交重拍 |
 | `p2-c-02-blank-grill-first-question-dark.png` | HISTORICAL | `c9c29b7` + 待提交 Validator 修复 | DeepSeek 中文单问通过 | 拍摄时源码并非可引用 commit |
