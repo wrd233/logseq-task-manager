@@ -163,10 +163,11 @@ export function createNodeServiceSpawner(dependencies: SpawnerDependencies = {})
 }
 
 export function createNodeRestoreRecoverySpawner(
-  dependencies: Pick<SpawnerDependencies, "nodeExecutable" | "spawn"> = {},
+  dependencies: Pick<SpawnerDependencies, "nodeExecutable" | "spawn"> & { timeoutMs?: number } = {},
 ): RestoreRecoverySpawner {
   const nodeExecutable = dependencies.nodeExecutable ?? process.execPath;
   const spawn = dependencies.spawn ?? (nodeSpawn as unknown as SpawnPort);
+  const timeoutMs = dependencies.timeoutMs ?? 60_000;
   return async (input) => {
     const child = spawn(nodeExecutable, [
       input.serviceEntryPath,
@@ -184,7 +185,7 @@ export function createNodeRestoreRecoverySpawner(
       const timeout = setTimeout(() => {
         timedOut = true;
         child.kill("SIGKILL");
-      }, 60_000);
+      }, timeoutMs);
       child.once("exit", () => {
         clearTimeout(timeout);
         if (!timedOut && child.exitCode === 0) resolve();

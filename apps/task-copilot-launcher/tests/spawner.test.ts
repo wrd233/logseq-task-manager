@@ -144,3 +144,30 @@ test("Restore recovery spawner runs the one-shot Local Service maintenance mode 
     options: { shell: false, detached: false, stdio: "ignore", cwd: "/Users/test" },
   }]);
 });
+
+test("Restore recovery spawner kills a timed-out maintenance process instead of reporting ambiguous success", async () => {
+  let exitListener: (() => void) | undefined;
+  let killedWith: NodeJS.Signals | undefined;
+  const child: ChildProcessPort = {
+    pid: 9754,
+    exitCode: null,
+    once(event, listener) {
+      assert.equal(event, "exit");
+      exitListener = listener;
+    },
+    kill(signal) {
+      killedWith = signal;
+      queueMicrotask(() => exitListener?.());
+      return true;
+    },
+  };
+  const spawner = createNodeRestoreRecoverySpawner({
+    timeoutMs: 5,
+    spawn: () => child,
+  });
+  await assert.rejects(() => spawner({
+    graph: { graphKey: "graph-key", graphId: "graph-id", databasePath: "/Users/test/graph.sqlite" },
+    serviceEntryPath: "/Users/test/service.js",
+  }), /LAUNCHER_RESTORE_RECOVERY_PROCESS_TIMEOUT/);
+  assert.equal(killedWith, "SIGKILL");
+});
