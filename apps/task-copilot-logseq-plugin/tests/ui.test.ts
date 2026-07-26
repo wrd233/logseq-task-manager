@@ -895,6 +895,37 @@ test("Migration workspace gives all ledger states an accurate conclusion and sta
   }
 });
 
+test("Migration workspace opens only a session-only read scan and keeps review and writes closed", () => {
+  const idle = model();
+  idle.workspace = "migration";
+  idle.v2MigrationRuns = [];
+  idle.v2MigrationScanAvailable = true;
+  idle.v2MigrationScan = { status: "idle" };
+  const idleHtml = renderApp(idle);
+  assert.match(idleHtml, /选择 V1 Recovery Bundle/);
+  assert.match(idleHtml, /type="file"/);
+  assert.match(idleHtml, /data-action="migration-scan-local"/);
+  assert.match(idleHtml, /这里只做只读校验与分类/);
+
+  const ready = model();
+  ready.workspace = "migration";
+  ready.v2MigrationRuns = [];
+  ready.v2MigrationScanAvailable = true;
+  ready.v2MigrationScan = {
+    status: "ready",
+    counts: { total: 5, directBind: 2, needsConfirmation: 1, keepOrdinary: 1, structuralError: 1 },
+    sourceCreatedAt: "2026-07-20T08:00:00.000Z",
+    message: "只读扫描完成；尚未创建迁移计划，也没有改变正式状态。",
+  };
+  const readyHtml = renderApp(ready);
+  assert.match(readyHtml, /只读扫描完成 · 正式变化 0/);
+  assert.match(readyHtml, /2 项初步可直接迁移 · 1 项需要确认 · 1 项建议保持普通内容 · 1 项需先处理冲突/);
+  assert.match(readyHtml, /当前插件会话内/);
+  assert.match(readyHtml, /data-action="migration-scan-clear"/);
+  assert.doesNotMatch(readyHtml, /data-action="migration-(?:preview|import|verify|activate|undo)"/);
+  assert.doesNotMatch(readyHtml, /legacyObjectId|sourceBundleSha256|private-object-id|run_id|backup_/);
+});
+
 test("Project workspace requires adaptive Grill and exposes no direct-creation bypass", () => {
   const unavailable = renderApp(model());
   assert.match(unavailable, /V2 · Project Grill Me/);

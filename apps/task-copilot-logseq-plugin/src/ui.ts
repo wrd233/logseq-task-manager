@@ -16,6 +16,7 @@ import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
 import type { PluginMiniProjectGrillState } from "./mini-project-grill-controller.ts";
 import type { PluginProjectCreationGrillState } from "./project-creation-grill-controller.ts";
 import type { PluginBackupRestoreState } from "./backup-restore-controller.ts";
+import type { PluginMigrationScanState } from "./migration-scan-controller.ts";
 import {
   resolveProjectContextRecoveryRoute,
   type PluginProjectContextRecoveryState,
@@ -171,6 +172,8 @@ export interface UiModel {
   originReturnLabel?: "返回原 Block" | "返回原 Page";
   v2MigrationRuns?: ServiceMigrationRun[];
   v2MigrationLoadError?: string;
+  v2MigrationScan?: PluginMigrationScanState;
+  v2MigrationScanAvailable?: boolean;
   v2BackupRestore?: PluginBackupRestoreState;
   v2BackupRestoreAvailable?: boolean;
   pageContext?: PageContextSnapshot;
@@ -730,8 +733,17 @@ function renderAudit(model: UiModel): string {
 function renderMigration(model: UiModel): string {
   if (model.v2MigrationLoadError) return `<section><h2>V1 → V2 迁移</h2><div class="error"><strong>迁移状态不可用：</strong>${escapeHtml(model.v2MigrationLoadError)}<span>没有执行扫描、导入或状态切换。</span></div></section>`;
   const runs = model.v2MigrationRuns ?? [];
-  const guidance = `<section class="card"><div class="eyebrow">小批次 · 可验证 · 可恢复</div><h2>V1 → V2 迁移</h2><p>迁移只使用你明确提供的只读 Recovery Bundle；不会自动扫描 Graph，也不会让 V1 与 V2 双写。</p><p class="muted">每批都先审阅并创建恢复点，再导入、验证和启用。内部运行标识、文件摘要与恢复点编号只留在技术证据中。</p></section>`;
-  if (!runs.length) return `${guidance}${empty("还没有迁移计划", "插件内的新迁移材料审阅入口尚未开放；当前不会读取文件、创建计划或改变正式状态。")}`;
+  const guidance = `<section class="card"><div class="eyebrow">小批次 · 可验证 · 可恢复</div><h2>V1 → V2 迁移</h2><p>迁移只使用你明确选择的只读 Recovery Bundle；不会自动扫描 Graph，也不会让 V1 与 V2 双写。</p><p class="muted">先只读检查材料，再逐项审阅；每批都要创建恢复点，之后才可导入、验证和启用。内部运行标识、文件摘要与恢复点编号只留在技术证据中。</p></section>`;
+  const scan = model.v2MigrationScan ?? { status: "idle" };
+  const scanInput = `<label>选择 V1 Recovery Bundle<input type="file" accept="application/json,.json" data-field="migrationRecoveryBundleFile"${scan.status === "loading" || model.v2MigrationScanAvailable !== true ? " disabled" : ""}></label>`;
+  const scanPanel = model.v2MigrationScanAvailable !== true
+    ? `<section class="card"><h3>检查迁移材料</h3><p>需要先连接当前 Graph 的 Local Service；正文仍可正常编辑，没有读取任何文件。</p></section>`
+    : scan.status === "loading"
+      ? `<section class="card" aria-live="polite"><h3>正在检查迁移材料</h3><p>${escapeHtml(scan.message ?? "只读扫描进行中；正式状态不会变化。")}</p></section>`
+      : scan.status === "ready" && scan.counts
+        ? `<section class="card" aria-label="迁移材料只读扫描结果"><div class="eyebrow">只读扫描完成 · 正式变化 0</div><h3>这份材料包含 ${escapeHtml(scan.counts.total)} 项</h3><p>${escapeHtml(scan.counts.directBind)} 项初步可直接迁移 · ${escapeHtml(scan.counts.needsConfirmation)} 项需要确认 · ${escapeHtml(scan.counts.keepOrdinary)} 项建议保持普通内容 · ${escapeHtml(scan.counts.structuralError)} 项需先处理冲突</p><p>${escapeHtml(scan.message ?? "尚未创建迁移计划。")}</p><p class="muted">材料仅保留在当前插件会话内；reload、切换 Graph 或放弃都会清空。逐项审阅入口尚未开放。</p>${button("放弃这份材料", "migration-scan-clear", undefined, "quiet")}</section>`
+        : `<section class="card"><h3>检查迁移材料</h3><p>这里只做只读校验与分类，不会创建迁移计划或改变 SQLite 正式状态。</p>${scanInput}${button(scan.status === "error" ? "重新检查" : "只读检查", "migration-scan-local", undefined, "primary")}${scan.status === "error" ? `<p class="diagnostic-error" role="alert">${escapeHtml(scan.message ?? "迁移材料暂时无法检查。")}</p>` : ""}</section>`;
+  if (!runs.length) return `${guidance}${scanPanel}${empty("还没有迁移计划", "只读扫描不会创建计划；完成逐项审阅前不会写入正式状态。")}`;
   const statusLabel = (status: (typeof runs)[number]["status"]): string => {
     if (status === "PREVIEWED") return "等待确认导入";
     if (status === "IMPORTING") return "导入后待验证";
@@ -755,7 +767,7 @@ function renderMigration(model: UiModel): string {
     return "列入迁移";
   };
   const cards = runs.map((run, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(statusLabel(run.status))} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>迁移计划 ${index + 1}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项${escapeHtml(importCountLabel(run.status))} · ${escapeHtml(run.summary.keepOrdinary)} 项保持普通内容 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p>${escapeHtml(nextStep(run.status))}</p><details><summary>查看安全边界</summary><p>Recovery Bundle 始终只读；正式状态只由 Local Service 写入。导入前必须有校验通过的恢复点，未启用且没有后续变化的批次才可安全撤销。</p></details></article>`).join("");
-  return `${guidance}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;
+  return `${guidance}${scanPanel}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;
 }
 
 function primaryWorkspace(workspace: Workspace): PrimaryWorkspace {

@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal roundtrip PASS；Migration ledger translation automated PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind 与 Restore roundtrip current build DONE；Migration translation 未 Desktop | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + Restore failure + Migration material/review/write/Desktop OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal roundtrip PASS；Migration ledger translation + read-only scan automated PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind 与 Restore roundtrip current build DONE；Migration 新入口未 Desktop | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + Restore failure + Migration item Review/write/Desktop OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -111,9 +111,10 @@
   Launcher 重连接线，Plugin `288/288` PASS；`6ae8f2fcebd0` 已真实 Desktop 证明未确认
   零请求、恢复点、owned Service 重启、reload 目录 `2→3`、READY/`0/0/0` 和无陈旧错误；
   同一 Task 又完成 `ACTIONABLE v5↔PAUSED v6` 的旧快照/自动恢复点正反往返并最终恢复
-  原基线。Migration ledger 已把内部状态翻译为用户阶段并隐藏 run/hash/backup identity，
-  focused UI Gate PASS；材料选择、逐项 Review、正式状态机与 Desktop 尚未实现。Restore
-  失败注入及失败后的用户层 Recovery 仍 OPEN；
+  原基线。Migration ledger 已把内部状态翻译为用户阶段并隐藏 run/hash/backup identity；
+  受控文件选择与 session-only `/migration/scan` 也已自动 PASS，前台只见五类计数，
+  clear/Graph switch/reload 清空且正式变化为 0。逐项 Review、正式状态机与 Desktop 尚未
+  实现；Restore 失败注入及失败后的用户层 Recovery 仍 OPEN；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

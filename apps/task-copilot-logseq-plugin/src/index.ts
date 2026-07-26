@@ -104,6 +104,11 @@ import { ProjectContextRecoveryController } from "./project-context-recovery-con
 import { MiniProjectGrillController } from "./mini-project-grill-controller.ts";
 import { BlockMarkerPrototypeController, type BlockMarkerPrototypeMode } from "./block-marker-prototype.ts";
 import { BackupRestoreController, type BackupRestoreClient } from "./backup-restore-controller.ts";
+import {
+  MIGRATION_BUNDLE_MAX_BYTES,
+  MigrationScanController,
+  type MigrationScanClient,
+} from "./migration-scan-controller.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -122,6 +127,7 @@ let actionDialog: UiModel["actionDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 const attentionShadowSession = new AttentionShadowSession();
 const backupRestoreController = new BackupRestoreController();
+const migrationScanController = new MigrationScanController();
 
 function isBackupRestoreClient(client: ServiceRuntimeClient | undefined): client is ServiceRuntimeClient & BackupRestoreClient {
   return Boolean(
@@ -131,6 +137,10 @@ function isBackupRestoreClient(client: ServiceRuntimeClient | undefined): client
     && typeof client.validateBackup === "function"
     && typeof client.restoreBackup === "function",
   );
+}
+
+function isMigrationScanClient(client: ServiceRuntimeClient | undefined): client is ServiceRuntimeClient & MigrationScanClient {
+  return Boolean(client && typeof client.scanLegacyMigration === "function");
 }
 let lastAttentionShadowSummarySignature: string | undefined;
 const blockMarkerPrototypeController = new BlockMarkerPrototypeController({
@@ -612,6 +622,10 @@ async function model(): Promise<UiModel> {
     v2Candidates,
     v2CandidateSourcePreviews,
     v2MigrationRuns,
+    v2MigrationScan: migrationScanController.snapshot(),
+    v2MigrationScanAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.migration
+      && isMigrationScanClient(serviceRuntimeClient),
     v2BackupRestore: backupRestoreController.snapshot(),
     v2BackupRestoreAvailable: serviceConnection.status === "READY"
       && serviceConnection.formalWritesAvailable
@@ -806,6 +820,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   miniProjectGrillController.clear();
   projectCreationGrillController.clear();
   backupRestoreController.clear();
+  migrationScanController.clear();
   serviceRuntimeClient = undefined;
   serviceConnection = {
     status: "RESTRICTED",
@@ -1141,6 +1156,49 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "first-run-status") {
     await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "migration-scan-local") {
+    if (migrationScanController.snapshot().status === "loading") return;
+    latestError = undefined;
+    message = undefined;
+    const client = serviceRuntimeClient;
+    if (!isMigrationScanClient(client) || serviceConnection.status !== "READY" || !serviceConnection.capabilities.migration) {
+      migrationScanController.rejectInput("当前 Graph 的迁移检查暂不可用；没有读取或保存任何文件。");
+      await refresh();
+      return;
+    }
+    const input = requireAppRoot().querySelector<HTMLInputElement>('[data-field="migrationRecoveryBundleFile"]');
+    const file = input?.files?.[0];
+    if (!file) {
+      migrationScanController.rejectInput("请选择 V1 Recovery Bundle JSON 文件；没有读取或保存。");
+      await refresh();
+      return;
+    }
+    if (file.size < 2 || file.size > MIGRATION_BUNDLE_MAX_BYTES) {
+      migrationScanController.rejectInput("所选 Recovery Bundle 大小不在安全范围内；没有读取或保存。");
+      await refresh();
+      return;
+    }
+    let rawBundle: string;
+    try {
+      rawBundle = await file.text();
+    } catch {
+      migrationScanController.rejectInput("所选 Recovery Bundle 无法读取；没有保存任何内容。");
+      await refresh();
+      return;
+    }
+    const scanning = migrationScanController.scan(client, rawBundle);
+    await refresh();
+    await scanning.catch(() => undefined);
+    await refresh();
+    return;
+  }
+  if (action === "migration-scan-clear") {
+    migrationScanController.clear();
+    message = "已放弃本次迁移材料；当前会话不再保留其内容。";
+    latestError = undefined;
+    await refresh();
     return;
   }
   if (action === "v2-candidate-open") {

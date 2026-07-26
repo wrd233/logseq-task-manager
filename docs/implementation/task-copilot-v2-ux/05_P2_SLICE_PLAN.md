@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_LEDGER_TRANSLATION_AUTOMATED`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_LEDGER_AND_READONLY_SCAN_AUTOMATED`
 
 ### Recovery
 
@@ -414,9 +414,11 @@ Recovery 与 Light/窄栏仍 OPEN。
 一次性出现：scan → preview → decisions → backup → import → verify → activate；完成后退出日常 UI，不恢复双写。
 
 当前只读 ledger 已完成用户层状态翻译：日常卡片不再显示 run ID、Bundle hash、Backup ID、
-原始状态枚举或 CLI 命令，只显示计划序号、更新时间、批次计数与下一步。无计划时明确说明
-插件内新迁移材料审阅尚未开放；没有新增 file input、Bundle 留存、Import/Activate/Undo
-按钮或写入路径。该自动 Gate 只关闭 ledger 表达，受控材料选择、逐项决定、恢复点确认、
+原始状态枚举或 CLI 命令，只显示计划序号、更新时间、批次计数与下一步。新材料现可由用户
+明确选择 2 B～8 MiB Recovery Bundle 并执行 session-only 只读 scan；客户端先限界，
+Service 继续完成 checksum/readback、无损恢复、未完成 Commit 检查与 SQLite Doctor
+零变化断言。前台只暴露五类计数，clear/Graph switch/reload 清空，不显示对象/evidence/hash/
+正文。该自动 Gate 只关闭 ledger 表达与材料只读扫描，逐项决定、恢复点确认、
 import→verify→activate、失败/重启/Undo 和当前构建 Desktop 证据继续 OPEN。
 
 ## P2 完成否决条件
