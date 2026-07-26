@@ -59,6 +59,20 @@ export interface ServiceBackupValidation {
   validation: ServiceDoctor;
 }
 
+export interface ServiceBackupSummary {
+  backupId: string;
+  createdAt: string;
+  status: "VALID" | "INVALID";
+  schemaVersion?: number;
+  objectCount?: number;
+}
+
+export interface ServiceBackupCatalog {
+  backups: ServiceBackupSummary[];
+  total: number;
+  limited: boolean;
+}
+
 export interface ServiceBackupRestored {
   status: "RESTORED_SERVICE_STOPPING";
   backupId: string;
@@ -1063,6 +1077,10 @@ export class LocalServiceClient {
 
   createBackup(): Promise<ServiceBackupCreated> {
     return this.request<ServiceBackupCreated>("/backup/create", { method: "POST" });
+  }
+
+  listBackups(): Promise<ServiceBackupCatalog> {
+    return this.request<ServiceBackupCatalog>("/backups");
   }
 
   validateBackup(backupId: string): Promise<ServiceBackupValidation> {

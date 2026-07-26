@@ -103,6 +103,7 @@ import { ProjectPageHeadActionController } from "./project-page-head-action.ts";
 import { ProjectContextRecoveryController } from "./project-context-recovery-controller.ts";
 import { MiniProjectGrillController } from "./mini-project-grill-controller.ts";
 import { BlockMarkerPrototypeController, type BlockMarkerPrototypeMode } from "./block-marker-prototype.ts";
+import { BackupRestoreController, type BackupRestoreClient } from "./backup-restore-controller.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -120,6 +121,17 @@ let recentActionCommitId: string | undefined;
 let actionDialog: UiModel["actionDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 const attentionShadowSession = new AttentionShadowSession();
+const backupRestoreController = new BackupRestoreController();
+
+function isBackupRestoreClient(client: ServiceRuntimeClient | undefined): client is ServiceRuntimeClient & BackupRestoreClient {
+  return Boolean(
+    client
+    && typeof client.listBackups === "function"
+    && typeof client.createBackup === "function"
+    && typeof client.validateBackup === "function"
+    && typeof client.restoreBackup === "function",
+  );
+}
 let lastAttentionShadowSummarySignature: string | undefined;
 const blockMarkerPrototypeController = new BlockMarkerPrototypeController({
   registerBlockSlot: (blockUuid, callback) => {
@@ -600,6 +612,11 @@ async function model(): Promise<UiModel> {
     v2Candidates,
     v2CandidateSourcePreviews,
     v2MigrationRuns,
+    v2BackupRestore: backupRestoreController.snapshot(),
+    v2BackupRestoreAvailable: serviceConnection.status === "READY"
+      && serviceConnection.formalWritesAvailable
+      && Boolean(serviceLifecycleSession)
+      && isBackupRestoreClient(serviceRuntimeClient),
     v2SemanticCommits,
     v2CandidatePanel,
     v2CandidateAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
@@ -788,6 +805,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   projectContextRecoveryController.clear();
   miniProjectGrillController.clear();
   projectCreationGrillController.clear();
+  backupRestoreController.clear();
   serviceRuntimeClient = undefined;
   serviceConnection = {
     status: "RESTRICTED",
@@ -1769,6 +1787,111 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "runtime-diagnostics") {
     await showRuntimeDiagnostics();
+    return;
+  }
+  if (action === "backup-restore-open" || action === "backup-restore-reload") {
+    const client = serviceRuntimeClient;
+    if (!isBackupRestoreClient(client) || !serviceLifecycleSession || serviceConnection.status !== "READY") {
+      message = "备份与恢复需要 Launcher 管理的当前 Graph 运行环境；没有读取或修改任何快照。";
+      await refresh();
+      return;
+    }
+    actionDialog = { kind: "v2-backup-restore", value: "current-graph" };
+    const loading = backupRestoreController.load(client);
+    await refresh();
+    await loading.catch((error: unknown) => {
+      latestError = explain(error);
+    });
+    await refresh();
+    return;
+  }
+  if (action === "backup-restore-create") {
+    const client = serviceRuntimeClient;
+    if (!isBackupRestoreClient(client) || !serviceLifecycleSession || serviceConnection.status !== "READY") {
+      message = "当前 Graph 的受管运行环境已变化；没有创建快照。";
+      await refresh();
+      return;
+    }
+    const creating = backupRestoreController.create(client);
+    await refresh();
+    await creating.catch((error: unknown) => {
+      latestError = explain(error);
+    });
+    await refresh();
+    return;
+  }
+  if (action === "backup-restore-select" && value) {
+    const client = serviceRuntimeClient;
+    if (!isBackupRestoreClient(client) || !serviceLifecycleSession || serviceConnection.status !== "READY") {
+      message = "当前 Graph 的受管运行环境已变化；没有选择快照。";
+      await refresh();
+      return;
+    }
+    const selecting = backupRestoreController.select(client, value);
+    await refresh();
+    await selecting.catch((error: unknown) => {
+      latestError = explain(error);
+    });
+    await refresh();
+    return;
+  }
+  if (action === "submit-backup-restore" && value) {
+    const client = serviceRuntimeClient;
+    if (!dialogChecked("actionConfirmed")) {
+      latestError = "请先单独确认 Restore 的最终影响。";
+      await refresh();
+      return;
+    }
+    if (!isBackupRestoreClient(client) || !serviceLifecycleSession || serviceConnection.status !== "READY") {
+      actionDialog = undefined;
+      message = "当前 Graph 的受管运行环境已变化；没有执行恢复。";
+      await refresh();
+      return;
+    }
+    await explicitSyncController?.flush();
+    const decision = managedRuntimeEndDecision({
+      commits: await client.listSemanticCommits(),
+      explicitSync: {
+        pending: explicitSyncState.pending,
+        reconciliationRequired: explicitSyncState.reconciliationRequired,
+      },
+    });
+    if (!decision.allowed) {
+      actionDialog = undefined;
+      workspace = "audit";
+      message = decision.reason === "UNFINISHED_COMMIT"
+        ? `发现 ${decision.count} 项尚未完成或需要恢复的修改；已转到“最近修改与恢复”，Restore 没有开始。`
+        : `仍有 ${decision.count} 项正文核对或范围核对未完成；已转到恢复视图，Restore 没有开始。`;
+      await refresh();
+      return;
+    }
+    explicitSyncController?.pause();
+    const restoring = backupRestoreController.restore(client, value);
+    await refresh();
+    try {
+      await restoring;
+      actionDialog = undefined;
+      enterRestrictedServiceMode("RESTORE_RESTARTING", "正式状态已从快照恢复；正在重启当前 Graph 的运行环境。");
+      diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+      featureReady = false;
+      message = "恢复已完成，恢复前状态已自动保留；正在重新连接当前 Graph。";
+      await releaseServiceLifecycleSession();
+      const recovered = await recoverConfiguredServiceRuntime(configuredServiceDescriptorPath);
+      featureReady = recovered;
+      diagnostics.setStoreStatus(recovered ? "READY" : "READ_ONLY_SAFE_MODE");
+      message = recovered
+        ? "恢复完成；当前 Graph 的 Task Copilot 已自动重启，恢复前状态仍保留为可恢复快照。"
+        : "恢复完成，但运行环境尚未自动重连；Graph 正文仍可编辑，请检查系统状态。";
+      backupRestoreController.clear();
+      await refreshToolbarInterventionFacts();
+      await projectPageHeadActionController.refreshAll();
+    } catch (error) {
+      latestError = explain(error);
+      if (serviceConnection.status === "READY" && serviceRuntimeClient === client) {
+        await explicitSyncController?.resume(client).catch(() => undefined);
+      }
+    }
+    await refresh();
     return;
   }
   if (action === "end-task-copilot-open") {
@@ -3000,6 +3123,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureProposalMessage = undefined;
     if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureUserJudgments = undefined;
     if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureDraftFields = undefined;
+    if (actionDialog?.kind === "v2-backup-restore") backupRestoreController.clear();
     v2ClosureDraftInput = undefined;
     actionDialog = undefined;
     pageContext = undefined;

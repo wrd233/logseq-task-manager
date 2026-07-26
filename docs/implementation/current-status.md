@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_MAIN_CHAIN_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_DESKTOP_RESTORE_FRONTSTAGE_AUTOMATED
 overall_goal: IN_PROGRESS
 ```
 
@@ -285,6 +285,14 @@ overall_goal: IN_PROGRESS
   丢失 Anchor → 开始重新连接 → 新建并选择替代 Block → 阅读预览 → 确认 → Service
   Rebind → reload 后系统正常，且旧 Anchor 保留为 replaced、新 Anchor active。
   专门的 Rebind Recovery/Undo 用户指引及 Restore/Migration 向导仍 OPEN；
+- P2-G Restore 已进入 `RESTORE_FRONTSTAGE_AUTOMATED_DESKTOP_OPEN`：Local Service 新增
+  最近 20 个服务端快照的有界只读目录，只返回时间、校验状态、schema 与对象数量，不返回
+  路径。Plugin 通过 session-local `snapshot:<index>` 隐藏 Backup ID，支持创建当前快照、
+  选择、再次校验、单独确认和正式 Restore；执行前 flush 正文同步并复用 owned shutdown
+  policy 拒绝 PENDING、RECOVERY_REQUIRED 与 reconciliation。正式切换仍完全复用既有
+  recovery point、原子 Restore、Service 自停与 Launcher 重连。Plugin `288/288`、
+  Local Service 全套测试和三工作区 typecheck PASS；真实 Desktop Restore/restart/reload
+  仍 OPEN，完整记录见 `logs/p2-g-backup-restore-frontstage-automated-20260726.md`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -305,7 +313,8 @@ P2-E normal Provider→Review→Commit→Undo→reload main chain Desktop DONE,
 failure/Recovery Desktop gate OPEN /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
 P2-G Rebind identity-free capture main chain Desktop DONE,
-dedicated Recovery/Undo guidance and Restore/Migration gates OPEN /
+Restore frontstage AUTOMATED,
+dedicated Recovery/Undo guidance + Restore Desktop + Migration gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

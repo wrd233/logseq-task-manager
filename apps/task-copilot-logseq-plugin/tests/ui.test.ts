@@ -127,6 +127,7 @@ test("More is a user-facing hub and keeps maintenance capabilities reachable", (
   assert.match(html, /系统状态与技术诊断/);
   assert.match(html, /data-action="runtime-diagnostics"/);
   assert.match(html, /备份与恢复/);
+  assert.match(html, /备份与恢复暂不可用/);
   assert.match(html, /data-value="migration"/);
   assert.doesNotMatch(html, /结束本次 Task Copilot/);
 
@@ -154,17 +155,43 @@ test("More is a user-facing hub and keeps maintenance capabilities reachable", (
   assert.match(html, /data-value="migration"[\s\S]*迁移/);
 });
 
-test("V2 audit is read-only and delegates recovery to the Local Service CLI", () => {
+test("V2 audit is read-only and points maintenance to the productized backup entry", () => {
   const value = model();
   value.workspace = "audit";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:v2", proposalId: "proposal:v2", status: "RECOVERY_REQUIRED", beforeStateChecksum: "before-checksum", createdAt: "2026-07-22T08:00:00.000Z", updatedAt: "2026-07-22T08:01:00.000Z", errorCode: "VERIFY_FAILED" }];
   const html = renderApp(value);
   assert.match(html, /SQLite 单一权威/);
-  assert.match(html, /tc backup/);
+  assert.match(html, /更多 → 备份与恢复/);
+  assert.doesNotMatch(html, /tc backup|backup_id|数据库路径/);
   assert.match(html, /需要恢复/);
   assert.match(html, /上一次修改尚未完成/);
   assert.match(html, /技术详情[\s\S]*RECOVERY_REQUIRED[\s\S]*VERIFY_FAILED/);
   for (const action of ["export-backup", "verify-backup", "recover-pending", "scan-anchors"]) assert.doesNotMatch(html, new RegExp(`data-action="${action}"`));
+});
+
+test("backup Restore review uses session tokens, explicit impact confirmation, and no internal identity", () => {
+  const value = model();
+  value.workspace = "more";
+  value.v2BackupRestoreAvailable = true;
+  value.v2BackupRestore = {
+    status: "ready",
+    backups: [
+      { token: "snapshot:0", createdAt: "2026-07-26T12:00:00.000Z", status: "VALID", schemaVersion: 12, objectCount: 4 },
+      { token: "snapshot:1", createdAt: "2026-07-25T12:00:00.000Z", status: "INVALID" },
+    ],
+    total: 2,
+    limited: false,
+    selectedToken: "snapshot:0",
+    message: "快照已通过完整性校验；请审阅最终影响。",
+  };
+  value.actionDialog = { kind: "v2-backup-restore", value: "current-graph" };
+  const html = renderApp(value);
+  assert.match(html, /4 项正式事项 · 完整性校验通过/);
+  assert.match(html, /完整性校验未通过 · 不可选择/);
+  assert.match(html, /恢复并自动重启/);
+  assert.match(html, /当前正式状态会保留为恢复点/);
+  assert.match(html, /data-value="snapshot:0"/);
+  assert.doesNotMatch(html, /backup_[0-9]|RESTORE_AND_STOP_SERVICE|\\.db|objectId|SQLite 路径/);
 });
 
 test("recent changes leads with user intent, application result, and existing Undo instead of engineering IDs", () => {

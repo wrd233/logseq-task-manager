@@ -13,6 +13,7 @@ import {
   type ServiceDescriptor,
   type ServiceDoctor,
   type ServiceDoctorCheck,
+  type ServiceBackupCatalog,
   type ServiceGraphReadResult,
   type ServiceProjectCreationSourceReturnTarget,
 } from "@task-copilot/service-client";
@@ -83,6 +84,12 @@ function authorized(request: IncomingMessage, token: string): boolean {
 
 const maximumRequestBodyBytes = 16 * 1024;
 const backupIdPattern = /^backup_[0-9]{17}_[0-9a-f]{32}$/;
+const BACKUP_CATALOG_LIMIT = 20;
+
+function backupCreatedAt(backupId: string): string {
+  const timestamp = backupId.slice("backup_".length, "backup_".length + 17);
+  return `${timestamp.slice(0, 4)}-${timestamp.slice(4, 6)}-${timestamp.slice(6, 8)}T${timestamp.slice(8, 10)}:${timestamp.slice(10, 12)}:${timestamp.slice(12, 14)}.${timestamp.slice(14, 17)}Z`;
+}
 
 function serviceError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-192", "D-204"] });
@@ -4621,6 +4628,30 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const validation = V2SqliteStore.validateBackup(destination, options.graphId);
       if (validation.status !== "PASS") throw serviceError("V2_BACKUP_VALIDATION_FAILED", "Backup 创建后未通过完整性校验。");
       respond(response, 201, { backupId, createdAt: createdAt.toISOString(), validation });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/backups") {
+      const names = (await readdir(backupRoot))
+        .filter((name) => name.endsWith(".db") && backupIdPattern.test(name.slice(0, -3)))
+        .sort()
+        .reverse();
+      const backups: ServiceBackupCatalog["backups"] = names.slice(0, BACKUP_CATALOG_LIMIT).map((name) => {
+        const backupId = name.slice(0, -3);
+        try {
+          const validation = V2SqliteStore.validateBackup(join(backupRoot, name), options.graphId);
+          if (validation.status !== "PASS") return { backupId, createdAt: backupCreatedAt(backupId), status: "INVALID" as const };
+          return {
+            backupId,
+            createdAt: backupCreatedAt(backupId),
+            status: "VALID" as const,
+            schemaVersion: validation.schemaVersion,
+            objectCount: validation.objectCount,
+          };
+        } catch {
+          return { backupId, createdAt: backupCreatedAt(backupId), status: "INVALID" as const };
+        }
+      });
+      respond(response, 200, { backups, total: names.length, limited: names.length > BACKUP_CATALOG_LIMIT });
       return;
     }
     if (request.method === "POST" && url.pathname === "/backup/restore/validate") {

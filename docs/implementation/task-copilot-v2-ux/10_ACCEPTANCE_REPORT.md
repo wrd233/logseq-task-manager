@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_MAIN_CHAIN_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind identity-free bounded capture PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G current build capture→Preview→Submit→reload DONE | P2-D/E remaining；P2-F frontstage；P2-G dedicated Recovery/Undo guidance + Restore/Migration OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_DESKTOP_RESTORE_FRONTSTAGE_AUTOMATED | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind bounded capture + Restore product entry PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind current build DONE，Restore Desktop OPEN | P2-D/E remaining；P2-F frontstage；P2-G Recovery/Undo guidance + Restore Desktop + Migration OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -103,7 +103,9 @@
   identity-free，5 分钟有界捕获窗口解决自动 materialization 竞态；既有正式 Rebind 安全链
   保持。当前 commit `344c705ec446` 已真实 Desktop 完成 capture→Preview→Submit→reload，
   Service 回读旧 Anchor replaced、新 Anchor active，正式对象没有重复创建；
-- [ ] Restore/Migration 复用唯一安全链；
+- [ ] Restore/Migration 复用唯一安全链；Restore 已自动证明服务端有界目录、session token、
+  再校验、单独确认、PENDING/reconciliation preflight、既有原子 Restore/Service 自停/
+  Launcher 重连接线，Plugin `288/288` PASS；真实 Desktop 与 Migration 产品入口仍 OPEN；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，

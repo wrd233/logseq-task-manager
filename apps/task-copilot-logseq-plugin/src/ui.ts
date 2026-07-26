@@ -15,6 +15,7 @@ import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
 import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
 import type { PluginMiniProjectGrillState } from "./mini-project-grill-controller.ts";
 import type { PluginProjectCreationGrillState } from "./project-creation-grill-controller.ts";
+import type { PluginBackupRestoreState } from "./backup-restore-controller.ts";
 import {
   resolveProjectContextRecoveryRoute,
   type PluginProjectContextRecoveryState,
@@ -79,6 +80,7 @@ export type ActionDialogKind =
   | "v2-project-creation-grill"
   | "v2-page-context"
   | "v2-page-formal-items"
+  | "v2-backup-restore"
   | "confirm-end-task-copilot";
 
 export interface UiModel {
@@ -169,6 +171,8 @@ export interface UiModel {
   originReturnLabel?: "返回原 Block" | "返回原 Page";
   v2MigrationRuns?: ServiceMigrationRun[];
   v2MigrationLoadError?: string;
+  v2BackupRestore?: PluginBackupRestoreState;
+  v2BackupRestoreAvailable?: boolean;
   pageContext?: PageContextSnapshot;
   v2ManagedRuntimeState?: "RUNNING" | "ENDED";
 }
@@ -718,7 +722,7 @@ function renderImmediateResult(model: UiModel, changes: readonly RecentChange[])
 function renderAudit(model: UiModel): string {
   if (model.v2AuditLoadError) return `<section><h2>最近修改与恢复</h2><div class="error"><strong>正式修改历史暂时不可用：</strong>${escapeHtml(model.v2AuditLoadError)}<span>没有把查询失败显示为空历史，也没有执行恢复或写入。</span></div></section>`;
   const changes = recentChanges(model);
-  const guidance = `<section class="card"><div class="eyebrow">SQLite 单一权威 · Local Service 单一写入口</div><h2>最近修改与恢复</h2><p>这里按用户意图显示已经应用、尚未完成、需要恢复或已撤销的正式修改；记录来自既有 Audit、Receipt 与 SemanticCommit，不是第二份状态。</p><details><summary>维护与恢复说明</summary><p>备份、校验、Doctor 与 Restore 继续使用同一 Local Service 的 <code>tc backup</code>、<code>tc doctor</code> 和 <code>tc backup restore</code>；恢复必须继续原 Commit，不新建重复操作。</p><p class="muted">V1 Recovery Bundle 只用于只读迁移和历史兼容。</p></details></section>`;
+  const guidance = `<section class="card"><div class="eyebrow">SQLite 单一权威 · Local Service 单一写入口</div><h2>最近修改与恢复</h2><p>这里按用户意图显示已经应用、尚未完成、需要恢复或已撤销的正式修改；记录来自既有 Audit、Receipt 与 SemanticCommit，不是第二份状态。</p><details><summary>维护与恢复说明</summary><p>备份、完整性校验、恢复点和 Restore 继续使用同一 Local Service 安全链；产品入口位于“更多 → 备份与恢复”。恢复必须继续原 Commit，不新建重复操作。</p><p class="muted">V1 Recovery Bundle 只用于只读迁移和历史兼容。</p></details></section>`;
   if (!changes.length) return `${guidance}${empty("还没有正式修改", "确认修改内容不等于已经应用；只有正式应用后才会出现在这里。")}`;
   return `${guidance}<section><h2>最近修改</h2><div class="cards">${changes.map((change) => renderRecentChange(change)).join("")}</div></section>`;
 }
@@ -766,7 +770,7 @@ function renderMore(model: UiModel): string {
   return `<section><div class="eyebrow">高级与维护</div><h2>更多</h2><p class="muted">日常只需要“现在”“待我确认”和“项目”。这里保留系统状态、恢复、迁移与技术证据，不删除原有能力。</p><div class="cards more-hub">
     <article class="card"><h3>最近修改与恢复</h3><p>查看已经应用、尚未完成或需要恢复的变化，并按安全前置决定能否撤销。</p>${button("查看最近修改与恢复", "view", "audit", "primary")}</article>
     <article class="card"><h3>系统状态与技术诊断</h3><p>先说明哪些能力受影响、哪些仍可用和数据是否安全，再按需展开技术组件。</p>${button("检查系统状态与技术诊断", "runtime-diagnostics", undefined, "quiet")}</article>
-    <article class="card"><h3>备份与恢复</h3><p>继续复用唯一 Local Service、Doctor、Backup 与固定确认的 Restore 安全链。</p>${button("查看备份与恢复说明", "view", "audit", "quiet")}</article>
+    <article class="card"><h3>备份与恢复</h3><p>创建当前快照，或从已校验快照恢复；系统会先保留当前正式状态，再自动重启当前 Graph 的运行环境。</p>${button(model.v2BackupRestoreAvailable ? "打开备份与恢复" : "备份与恢复暂不可用", "backup-restore-open", undefined, "quiet", !model.v2BackupRestoreAvailable)}</article>
     <article class="card"><h3>迁移现有内容</h3><p>查看手动、小批次、可验证、可恢复的 V1 → V2 迁移账本。</p>${button("查看迁移状态", "view", "migration", "quiet")}</article>
     ${lifecycle}
   </div></section>`;
@@ -776,6 +780,31 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-backup-restore") {
+    const state = model.v2BackupRestore;
+    if (!state || state.status === "idle" || state.status === "loading") {
+      return `<section class="inbox-dialog action-dialog" aria-label="备份与恢复"><h3>备份与恢复</h3><div class="notice" aria-live="polite">${escapeHtml(state?.message ?? "正在读取当前 Graph 的可恢复快照…")}</div><div class="actions">${cancel}</div></section>`;
+    }
+    if (state.status === "error") {
+      return `<section class="inbox-dialog action-dialog" aria-label="备份与恢复"><h3>备份与恢复</h3><div class="notice error" role="alert">${escapeHtml(state.message ?? "备份与恢复暂不可用。")}</div><p>没有切换正式状态；Graph 正文仍由 Logseq 持有。</p><div class="actions">${button("重新读取", "backup-restore-reload", undefined, "quiet")}${cancel}</div></section>`;
+    }
+    const choices = state.backups.length
+      ? state.backups.map((backup) => {
+        const when = new Date(backup.createdAt).toLocaleString("zh-CN");
+        const summary = backup.status === "VALID"
+          ? `${backup.objectCount ?? 0} 项正式事项 · 完整性校验通过`
+          : "完整性校验未通过 · 不可选择";
+        return `<article class="card compact"><div class="eyebrow">${escapeHtml(when)}</div><h4>${escapeHtml(summary)}</h4>${backup.status === "VALID" ? button(state.selectedToken === backup.token ? "已选择" : "选择并检查", "backup-restore-select", backup.token, "quiet", state.selectedToken === backup.token) : ""}</article>`;
+      }).join("")
+      : `<div class="empty"><strong>还没有可恢复快照</strong><p>可先创建当前正式状态快照；这不会修改 Logseq 正文。</p></div>`;
+    const selection = state.selectedToken
+      ? `<section class="restore"><h4>最终影响</h4><p>所选快照会替换当前 SQLite 正式状态；Logseq 正文不会被改写。切换前系统会自动保存当前状态为恢复点，并重启当前 Graph 的 Task Copilot。</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已确认所选时间和事项数量，并理解当前正式状态会保留为恢复点</label><div class="actions">${button("恢复并自动重启", "submit-backup-restore", state.selectedToken, "danger")}</div></section>`
+      : "";
+    const activity = state.status === "validating" || state.status === "restoring"
+      ? `<div class="notice" aria-live="polite">${escapeHtml(state.message ?? "正在处理…")}</div>`
+      : state.message ? `<div class="notice">${escapeHtml(state.message)}</div>` : "";
+    return `<section class="inbox-dialog action-dialog" aria-label="备份与恢复"><h3>备份与恢复</h3><p>只显示当前 Graph 由 Service 管理的最近快照，不需要复制数据库路径或内部标识。</p>${activity}<div class="cards">${choices}</div>${state.limited ? `<p class="muted">这里只显示最近 20 个快照。</p>` : ""}${selection}<div class="actions">${button("创建当前快照", "backup-restore-create", undefined, "primary", state.status !== "ready")}${cancel}</div></section>`;
+  }
   if (dialog.kind === "v2-project-creation-grill") {
     const state = model.v2ProjectCreationGrill?.[dialog.value];
     if (!state) return "";

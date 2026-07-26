@@ -3812,6 +3812,17 @@ test("Backup API creates a private server-named snapshot and validates it read-o
   const created = await client.createBackup();
   assert.match(created.backupId, /^backup_[0-9]{17}_[0-9a-f]{32}$/);
   assert.equal(created.validation.status, "PASS");
+  assert.deepEqual(await client.listBackups(), {
+    backups: [{
+      backupId: created.backupId,
+      createdAt: created.createdAt,
+      status: "VALID",
+      schemaVersion: created.validation.schemaVersion,
+      objectCount: created.validation.objectCount,
+    }],
+    total: 1,
+    limited: false,
+  });
   const backupPath = join(backupRoot, `${created.backupId}.db`);
   assert.equal((await stat(backupRoot)).mode & 0o777, 0o700);
   assert.equal((await stat(backupPath)).mode & 0o777, 0o600);
@@ -3872,6 +3883,21 @@ test("Backup API rejects request paths, traversal IDs, and corrupt snapshots wit
 
   const corruptId = "backup_20260720060000000_00000000000000000000000000000000";
   await writeFile(join(backupRoot, `${corruptId}.db`), "not sqlite");
+  assert.deepEqual(await new LocalServiceClient({
+    protocolVersion: 1,
+    url: service.url,
+    token: service.token,
+    pid: 1,
+    createdAt: "2026-07-20T06:00:00.000Z",
+  }).listBackups(), {
+    backups: [{
+      backupId: corruptId,
+      createdAt: "2026-07-20T06:00:00.000Z",
+      status: "INVALID",
+    }],
+    total: 1,
+    limited: false,
+  });
   const corrupt = await fetch(new URL("backup/restore/validate", service.url), {
     method: "POST",
     headers,
