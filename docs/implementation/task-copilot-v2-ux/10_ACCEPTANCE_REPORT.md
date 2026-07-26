@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；Graph switch/J/K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_CONTRACT_AUTOMATED | P2-A/B、P2-C、P2-D 三条核心链、P2-E read-only/real Provider/正式 Closure/专用 Undo、P2-F bounded shadow contract PASS | P2-C 三来源、P2-D 三条核心链、P2-E 正常 Provider→Review→Commit→Undo→reload 主链有 Desktop；P2-F 无 UI/Desktop | P2-D 仍 Partial；P2-E failure/Recovery Desktop Gate OPEN；P2-F real Provider quality/frontstage OPEN；P2-G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_QUALITY_PASS | P2-A/B、P2-C、P2-D 三条核心链、P2-E Closure/Undo、P2-F shadow contract + machine-owned Provider seam PASS | P2-C/P2-D/P2-E 正常主链有 Desktop；P2-F 真实 DeepSeek 5/5 quality Gate、无 UI/Desktop | P2-D Partial；P2-E failure/Recovery Desktop OPEN；P2-F repeat/stale/error/feedback/frontstage OPEN；P2-G OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -92,9 +92,11 @@
   当前构建的 Provider error/stale 与注入 Commit failure → Recovery resume Desktop 仍未
   闭环，因此本项暂不勾选；
 - [ ] 跨对象候选有证据和数量上限；结构化 2–16 evidence、2–8 subject、每轮 8 条上限与
-  exact scope/provenance 已自动 PASS，但尚无真实 Provider 质量、Candidate 或 Desktop 证据；
+  exact scope/provenance 已自动 PASS；首批真实 DeepSeek 3 observation + 2 abstention 质量门
+  PASS，但尚无重复性、Candidate、反馈或 Desktop 证据；
 - [ ] LLM 不改变 Ownership/Focus；P2-F shadow 合同已拒绝 operation/自由文本并强制
-  `INFERENCE/SHADOW/NONE`，但正式 Provider/用户确认链尚未建立；
+  `INFERENCE/SHADOW/NONE`；Provider 不能生成 confidence，Association/Ownership 由机器
+  固定 LOW，其他当前 kind 固定 MEDIUM，但用户确认链尚未建立；
 - [ ] Recovery 继续原 Commit；
 - [ ] Rebind 不展示 UUID 列表；
 - [ ] Restore/Migration 复用唯一安全链；

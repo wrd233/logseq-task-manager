@@ -320,7 +320,7 @@ RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial�
 
 ## P2-F：跨对象观察
 
-状态：`IN_PROGRESS_SHADOW_CONTRACT_AUTOMATED_PROVIDER_GATE_OPEN`
+状态：`IN_PROGRESS_SHADOW_PROVIDER_QUALITY_PASS_FRONTSTAGE_CLOSED`
 
 只允许提出：
 
@@ -348,10 +348,15 @@ RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial�
 - 不持久化 Candidate，不创建 Proposal，不改变 Focus/Ownership，不开放前台。
 
 Application `168/168`、Plugin `280/280`、根级检查与恢复演练 PASS；非法 LLM 批次不会
-中断确定性 Attention 基线。当前没有真实 Provider
-质量证据、用户反馈或 Desktop UI；`cross-object-observation` 只是 Skill candidate。下一门
-先用脱敏黄金样本验证“应提出 / 应承认不确定 / 应不提出 / 非法输出拒绝”，再决定 Skill
-版本和进入待我确认的产品路径。
+中断确定性 Attention 基线。
+
+首批真实 Provider 质量门现已完成：Service 机器构造 2–8 Object、显式 scope 与 2–16
+evidence 的 bounded Context Package，模型只可选择 kind/subject/evidence 或
+`NO_OBSERVATION`。真实 `deepseek-v4-flash` 5/5 最终 PASS：三类 grounded observation 与
+两类 deliberate abstention 均命中，零 Graph/正式 Store 写入。探索中发现 confidence 不应
+由模型自授，已收回为机器 LOW/MEDIUM；模型不能产生 HIGH。该 Prompt 仍是
+`0.1.0-experimental` Skill candidate，不进入正式 catalog。重复运行、stale/error、
+reload/recompute、disposition/cooldown、用户反馈和待我确认 UI 仍 OPEN。
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
