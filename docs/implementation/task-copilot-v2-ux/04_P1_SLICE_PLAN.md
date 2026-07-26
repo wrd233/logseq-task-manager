@@ -282,8 +282,10 @@ source
 
 ## P1-F：Project/Task 重入
 
-状态：`PARTIAL_UI_AUTOMATED` — Application 只读重入投影已接入 Plugin Project workspace
-与 Project 主 Page 的 Page Head 单动作；Desktop Gate 尚未完成。
+状态：`PARTIAL_DESKTOP_WORKSPACE_FILE_GRAPH_PAGE_HEAD_BOUNDED` — Application 只读重入投影
+已接入 Plugin Project workspace 与 Project 主 Page 的 Page Head 单动作；Project workspace
+真实 Desktop 已通过。Logseq 0.10.15 File Graph 不挂载 Page Head slot，安全隐藏为有界宿主
+结论；DB Graph Page Head 与视觉 Gate 尚未完成。
 
 Project 顶部条只组合 schema v12、Condition、Focus、Anchor、最近 Audit 与未完成 Commit；不建立第二摘要权威。
 
@@ -328,12 +330,18 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
 - 任一 Object/Commit/Relation/Anchor 投影读取失败会显示显式错误，不伪装为空项目；
 - Application tests 112/112、Plugin tests 219/219、0 skipped，typecheck/build PASS；
   根级 Gate PASS（145 条稳定规则、恢复演练 differences 为空）。
+- 2026-07-26 真实 Logseq 0.10.15 File Graph 源码与运行双重确认：
+  `page-head-actions-slotted` 只在 DB Graph/LSP 分支挂载，File Graph 不能显示该动作；没有
+  使用 DOM 注入、页面标题或 stale properties 猜身份。Project workspace 的确定性重入卡与
+  Context Recovery 入口可用，DB Graph Page Head 继续 OPEN。
 
 ## P1-G：LLM 叙述与上下文恢复 Skill
 
-状态：`PARTIAL_CONTRACT_AUTOMATED` — Provider-neutral unified UX output validator、
-Local Service 生成器和 `recover-context@1.0.0` 已完成；尚未接 Plugin 用户界面、真实
-Provider context-recovery Gate 或 Project current-interface Proposal。
+状态：`PARTIAL_DESKTOP_DARK_MAIN_CHAIN_CONTENT_QUALITY_GATE_OPEN` — Provider-neutral
+unified UX output validator、Local Service 生成器、`recover-context@1.2.0` 与 Plugin
+session-only 用户界面已完成；Dark Desktop 的真实 Provider/反馈/reload 主链已通过。内容
+质量、error/stale/validator rejection、Light/窄栏与 Project current-interface Proposal
+仍开放。
 
 统一结构化输出至少包含：
 
@@ -369,6 +377,21 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
 - Application tests 120/120、Local Service tests 94/94、Service Client tests 12/12；
 - 当前未持久化 unified UX output，从而关闭 UX-G009 的“是否另建正式缓存”方向；若后续
   性能证据需要缓存，只允许可失效派生 cache，任何修改建议仍必须转为正式 Proposal。
+
+2026-07-26 Desktop / Provider 结果：
+
+- `4e02226` 将最近正式 Commit 纳入机器事实，并把同一 Proposal 的 forward/inverse 折叠为
+  “已撤销”；模型不再把已完成/已撤销变化写成未知；
+- `unified-ux-generator@1.2.0` 固定当前产品的中文前台合同：受控产品词不参与语言比例，
+  剩余自然语言需以中文为主且不得混入日文假名；Validator 失败只返回固定
+  `UX_OUTPUT_VALIDATION_FAILED`，不自动发起第二次 Provider 调用；
+- 真实 Project workspace→确定性重入卡→显式恢复→loading→DeepSeek V4 Flash→Validator→
+  facts/inference/unknown 分区→feedback 已通过，reload 后草稿与 disposition 清除；
+- 最新精确构建 `894d14f` 的事实和语言边界正确，但把“当前真实 Provider Gate 的结果”列为
+  未知，用户标记 `INACCURATE`；这是真实质量失败回归，不作为 P1-G 完成证据；
+- 生成/反馈前后 `semantic_commits=24` 且最新正式时间不变，证明该链零 Proposal/Commit；
+- 代表性截图与日志见 `current-ui/SCREENSHOT_INDEX.md` 和
+  `logs/p1-project-context-recovery-desktop-live-20260726.md`。
 
 ## P1-H：交互日志与版本
 
@@ -435,3 +458,6 @@ Prompt/Skill 演化仍必须走证据 → 候选 → 人工审阅 → 测试 →
   helpful/noise/do-not-repeat 与有界 rate；未评分时 rate 为 null，不用“无反馈”伪装满意；
 - summary 只消费已验证 session entry，不含对象/Block identity 或正文；Application tests
   122/122、0 skipped，typecheck PASS。
+- Dark Desktop 已真实提交 `HELPFUL` 与 `INACCURATE`；最终精确 build session 为
+  `GENERATED=1 / REJECTED=0 / INACCURATE=1`，一次用户生成只记录一个 event，未发生自动
+  Provider retry。跨会话 disposition/dashboard 仍未加入，也没有把派生反馈升级为正式状态。

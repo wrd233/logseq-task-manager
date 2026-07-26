@@ -1,5 +1,31 @@
 # Current Golden Flows
 
+## P1 Project Context Recovery
+
+状态：`PARTIAL_DESKTOP_DARK_MAIN_CHAIN_CONTENT_QUALITY_GATE_OPEN`
+
+1. 用户从 Project workspace 看到确定性重入结论、关键依据与当前可定位进入点；
+2. 只有用户显式点击“帮我恢复上下文”才调用 Provider，刷新/Page Head/shadow 不自动生成；
+3. Service 以 `objectId + expectedVersion` 读取正式 Project、关系、Focus、Anchor、最近 Commit，
+   构造 server-owned Context Package、fact/action allowlist 与 fingerprint；
+4. loading 期间保留确定性基线，重复点击不产生第二请求；
+5. 真实 Provider JSON 进入 Unified UX Validator；模型只能选择机器 fact/action/evidence ID，
+   中文前台自然语言由 `unified-ux-generator@1.2.0` 统一检查；
+6. 前台只显示核心理解、已确认事实、少量判断和仍不知道；建议动作仍是只读 route；
+7. 用户可提交可撤回 session disposition；一次生成只形成一个 Provider call 和一个 evidence
+   event，不保存正文、对象 identity、Prompt、原始响应或 Key；
+8. reload/Service restart 清除草稿和反馈，重新从正式状态计算；生成和反馈均不创建
+   Proposal/Commit。
+
+当前真实结果：Dark Project workspace、确定性基线、loading、DeepSeek V4 Flash、Validator、
+分区显示、`HELPFUL`/`INACCURATE` disposition、reload 清除与零正式写入均有真实证据。
+`894d14f` 精确样本正确理解最近 Closure 已撤销和当前接口已应用，但把“当前真实 Provider
+Gate 的结果”列为未知，已标记 `INACCURATE`，所以内容质量仍未过门。Provider error、
+validator rejection、generation stale、Light/窄栏仍 OPEN。Logseq 0.10.15 File Graph 不挂载
+Page Head slot，安全隐藏为有界宿主结论；DB Graph Page Head 仍 OPEN。CURRENT 权威截图为
+`p1-g-06`，完整记录见
+`../logs/p1-project-context-recovery-desktop-live-20260726.md`。
+
 ## P2-C Blank Project Creation
 
 状态：`ALL_SOURCES_DONE_VISUAL_GATES_OPEN`

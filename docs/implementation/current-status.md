@@ -102,7 +102,10 @@ overall_goal: IN_PROGRESS
   承认进入点不足；Project 主 Page 顶部新增一个只读“继续项目”宿主动作，点击时重验当前
   Page UUID、唯一 active Project Page Anchor 与 Object version，再只打开该 Project 的同一
   重入投影；Page Head hook 不提供页面 payload，因此右侧栏入口明确隐藏，不伪装成精确现场；
-  Application 112/112、Plugin 219/219 通过，Desktop 视觉与点击 Gate 仍待验证；
+  真实 Logseq 0.10.15 File Graph 又确认 host 只在 DB Graph/LSP 分支挂载
+  `page-head-actions-slotted`，所以 File Graph Page Head 安全隐藏属于 `BOUNDED_HOST_LIMIT`，
+  Project workspace 的真实进入与点击链已通过；DB Graph Page Head、Light/窄栏仍待验证；
+  Application 112/112、Plugin 219/219 通过；
 - P1-G 已建立 Provider-neutral unified UX output 深模块与 `recover-context@1.2.0`：
   模型只能引用机器 fact/action/evidence ID；正式事实文本、动作目标、scope hash、时间和
   Skill/Prompt/Provider/model provenance 由机器物化，模型不能降低 risk/review；
@@ -116,7 +119,12 @@ overall_goal: IN_PROGRESS
   当前投影与既有只读 route，伪造 target 不可点击，Plugin 225/225 通过。真实 LaunchAgent
   路径又关闭 installed `bin/skills` 解析、Launcher schema v2 Provider allowlist、timeout/token
   限幅和 prompt `uxAuthority` 缺口；DeepSeek V4 Flash 已真实通过 15 文件 Context Package、
-  strict Validator、事实/推断/未知/只读动作与零正式写入 Gate。Desktop 点击/渲染 Gate 仍开放；
+  strict Validator、事实/推断/未知/只读动作与零正式写入 Gate。`894d14f` 的精确构建又在
+  Dark Desktop 完成 Project workspace→确定性基线→显式生成→loading→真实 Provider→
+  Validator→分区渲染→反馈，reload 后 session 草稿清除；最近正式修改会折叠 forward/inverse
+  为“已撤销”，中文前台合同由 `unified-ux-generator@1.2.0` 统一验证且不自动二次调用
+  Provider。最终样本仍把“当前真实 Provider Gate”误列为未知并被标记 `INACCURATE`，因此
+  内容质量、Provider error、validator rejection/stale、Light/窄栏仍开放，P1-G 不升级为 DONE；
 - P1-H 已建立 session-only、bounded、strict-allowlist 的 Interaction Evidence：只记录
   scene/outcome、对象类型、规则/Signal/Skill/Prompt/model 版本、结构计数、用户处置、固定
   failure code 与时长；未知字段、正文、summary、对象/Block 身份、Prompt 和模型原始输出
@@ -124,8 +132,10 @@ overall_goal: IN_PROGRESS
   结果；Project 恢复草稿现提供五种可撤回 session disposition，opaque handle 不进入 export/
   summary，`DO_NOT_REPEAT` 会在同一场景与 Skill 版本下、Provider 调用前暂停后续生成，撤回
   立即恢复；Plugin 自动 UI、真实 LaunchAgent/DeepSeek/Service feedback 与零正式写入 Gate
-  均通过。Application 123/123、Local Service 102/102、Plugin 226/226 通过；持久化与跨会话
-  dashboard 仍未加入，Desktop 点击/主题/窄栏仍开放；Plugin 通用 StructuredLogger/Runtime Diagnostics 已改为字段 allowlist 与仅
+  均通过。Desktop 已真实提交 `HELPFUL` 与 `INACCURATE` disposition；最终精确 session 为
+  `GENERATED=1 / REJECTED=0 / INACCURATE=1`，一次交互只有一次 Provider 调用和一个 evidence
+  entry。Application 123/123、Local Service 102/102、Plugin 226/226 通过；持久化与跨会话
+  dashboard 仍未加入，主题/窄栏仍开放；Plugin 通用 StructuredLogger/Runtime Diagnostics 已改为字段 allowlist 与仅
   `errorName/errorCode`，启动/全局/fallback 异常不再把 message/stack/cause 送入 Console
   或导出，Plugin 222/222 通过；Local Service READY/migration/stderr 也只输出无路径的结构
   状态与错误码，Local Service 98/98 通过。CLI 属于用户主动前台反馈，live/golden runner

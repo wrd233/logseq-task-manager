@@ -25,7 +25,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block 路由 automated DONE；Graph switch、中文 IME/受限视觉、K 多宿主 Gate OPEN |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G Dark Desktop 真实 Provider/反馈/reload 主链 PASS 但内容质量与 error/stale/Light/窄栏 OPEN；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart、Migration through Activation 正常主链已有真实 Desktop。真实双重故障注入、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -240,7 +240,9 @@ Association 不再展开为行动列表，完整 Objectives/Deliverables/对象�
 再走既有 Page Context 完整重验 Page、Project object/version，并只显示目标 Project 的
 重入卡。被动检测不读取 Page Block tree。SDK 类型与 0.10.15 host 源码均显示该 hook 的
 payload 为 `nil`，不能识别 sidebar Page，因此 sidebar 中明确隐藏按钮，不假装支持精确
-secondary-page 重入；Desktop 仍需验证实际 slot 生命周期、主题、窄栏与点击链。
+secondary-page 重入。2026-07-26 的真实 File Graph 又确认 host 根本不挂载
+`page-head-actions-slotted`；这一路径按 `BOUNDED_HOST_LIMIT` 安全隐藏。Project workspace
+点击链已真实通过；DB Graph Page Head、主题和窄栏继续 OPEN。
 
 ### P1-G unified UX output 与上下文恢复 Skill
 
@@ -264,7 +266,10 @@ Proposal 或持久化。`recover-context@1.0.0` 固定逐层读到够用即停�
 Context Package、60 秒有界 timeout、4096 output-token 上限、lease heartbeat、strict
 Validator、事实/推断/未知和只读 next action 均实际运行；调用前后正式 Object 投影不变，
 release 后 owned Service 退出。此前的 20 秒 timeout 正确映射 504，Validator 拒绝正确映射
-422，未放宽合同。真实 Logseq Desktop 点击、loading、stale、主题和窄栏仍开放。
+422，未放宽合同。真实 Logseq Desktop 主链随后完成：Project workspace 保留确定性重入
+基线，显式生成进入 loading，DeepSeek V4 Flash 经 Unified UX Validator 后按事实/判断/未知
+分区显示，feedback 可提交，reload 清除 session 草稿；全链没有 Proposal/Commit。最近正式
+Commit 已进入 Context Package 并将 forward/inverse 折叠为“已撤销”。
 
 Plugin 已把该路由作为 Project 重入卡内的可选显式动作接入，不在刷新、Page Head 或后台
 shadow 中自动调用 Provider。确定性重入结论始终位于上方；Copilot 草稿只在 session 内保存，
@@ -273,6 +278,13 @@ version stale 均不伪装为空。模型动作还必须匹配当前 determinist
 Primary Anchor 或 Recovery Commit，并复用既有 `v2-open-primary-anchor` / Audit route；
 伪造或过期 target 只显示失效提示。Graph switch、Service reconnect/restricted 会清空草稿，
 并发重复点击只产生一个请求。
+
+真实内容质量没有被“Provider 成功”掩盖：`2cf8bf2` 的中文结果标记 `HELPFUL`；最终精确
+`894d14f` 虽通过中文和权限 Validator，却把“当前真实 Provider Gate 的结果”列为未知，用户
+标记 `INACCURATE`。生成策略已收敛为 `unified-ux-generator@1.2.0`：不自动二次调用
+Provider，不双计 interaction，中文前台合同排除受控产品词后再检查自然语言。最新 session
+为 `GENERATED=1 / REJECTED=0 / INACCURATE=1`，正式 Commit 数保持 24。完整记录见
+`logs/p1-project-context-recovery-desktop-live-20260726.md`。
 
 ### P1-H privacy-bounded interaction evidence
 
@@ -315,8 +327,9 @@ Context Package 时间戳会让每次 hash 变化，按 hash 会静默绕过用�
 
 真实 LaunchAgent/Keychain reference/DeepSeek Gate 已完成生成→HELPFUL→TOO_MUCH→
 DO_NOT_REPEAT→Provider 前 409→撤回→summary：正式 Object 投影不变，summary 不含 handle，
-release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可用；Desktop 反馈体验、
-真实噪声阈值与跨会话 derivative 价值仍未完成。
+release 后 owned Service 0、Launcher 1。Desktop 又真实提交 `HELPFUL` 与 `INACCURATE`，
+证明处置入口与单 interaction 计数可用；样本量仍不足以建立真实噪声阈值，跨会话
+derivative/dashboard 价值也仍未完成。
 
 ## 当前阻塞
 
@@ -642,9 +655,10 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
    通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
 3. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
    把 Ownership、正文移动、批量子对象与拆分合并的既有安全链逐项映射到当前影响路由；
-4. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
-   feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
-   再决定是否需要跨会话 derivative；
+4. 继续 P1-F/G/H 代表性 Desktop Gate：Project workspace、Dark loading/Provider/feedback/
+   reload 已完成；File Graph Page Head 已有界关闭，DB Graph Page Head、Provider error、
+   validator rejection、generation stale、Light/窄栏与“当前生成 vs 已完成正式 Gate”语义
+   边界仍需关闭；用更多真实反馈判断噪声指标是否足够有用，再决定是否需要跨会话 derivative；
 5. 汇总 P0-H/P0-J/P0-K 的 Graph switch、slash/palette/custom binding 与多宿主 origin；
 6. 完成 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；

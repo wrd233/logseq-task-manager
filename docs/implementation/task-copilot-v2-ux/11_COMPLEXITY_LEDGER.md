@@ -12,12 +12,30 @@
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
-| Skill/Prompt/Validator 补丁化 | MEDIUM | 已有多个版本和真实 Provider 失败样本，但尚缺单一生命周期台账 | 只保留 `EXPERIMENTAL/SHADOW/CANDIDATE/PRODUCTION/RETIRED`；晋升看固定样本、真实 Provider、拒绝/重试/abstain/helpful-noise/越权；旧版退休而非永久兼容 | 是 |
+| Skill/Prompt/Validator 补丁化 | MEDIUM | `unified-ux-generator`/`recover-context` 已建立首组 CANDIDATE/RETIRED 台账与真实 Provider 指标；其他 active Skill 仍需统一收敛 | 只保留 `EXPERIMENTAL/SHADOW/CANDIDATE/PRODUCTION/RETIRED`；晋升看固定样本、真实 Provider、拒绝/重试/abstain/helpful-noise/越权；旧版退休而非永久兼容 | 是 |
 | Desktop 验收笛卡尔积 | HIGH | 宿主、主题、宽度、错误和恢复组合已很多 | 三层代表矩阵：高频日常覆盖 Block/Page/sidebar/Query-reference/Light-Dark/窄栏/reload/Graph switch；复杂操作覆盖 Preview/HIGH/Commit/reload/Undo/stale/Recovery；低频高风险覆盖正常、一种失败、自动回滚、手工入口、restart | 是 |
 | 文档/代码/截图漂移 | HIGH | 历史 Desktop 证据多，最新安全提交可能没有新 UI | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；自动-only 安全修复不借用旧截图升级 Desktop 状态；每轮同步 status/progress/acceptance/plan/current-ui | 是 |
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
 ## 本轮变化（2026-07-26）
+
+### P1 Context Recovery 收敛
+
+- 新增正式状态、顶层导航、Agent Runtime、Recovery Kernel：`0`；只增加机器所有的瞬时
+  `frontstageLanguage` 请求合同与统一 Validator 策略，不进入 Domain、SQLite 或 Graph。
+- 删除重复机制：取消语言失败后的自动二次 Provider 调用，恢复“一次用户生成 = 一次
+  Provider 调用 = 一个 Interaction Evidence event”；Validator failure 继续复用固定
+  `UX_OUTPUT_VALIDATION_FAILED`，没有为语言错误新建恢复分支。
+- `unified-ux-generator@1.2.0`：`CANDIDATE`。固定当前产品中文前台合同、权限/事实/action
+  authority 和 abstain 边界；真实精确 build `GENERATED=1 / REJECTED=0 / INACCURATE=1`，
+  无自动 retry。失败时保留确定性 Project 重入投影，由用户显式重试，不覆盖旧可靠内容。
+- `recover-context@1.2.0`：`CANDIDATE`。最近两个精确真实 build 的 Validator 拒绝率 `0/2`，
+  处置为 `HELPFUL=1 / INACCURATE=1`；样本不足、内容语义仍有失败，不晋升 PRODUCTION。
+- `unified-ux-generator@1.1.0`：`RETIRED`。原因是自动 repair 会放大 Provider 预算并把一次
+  用户交互双计数，单汉字语言检查也可被混合英文绕过；不保留兼容运行分支。
+- 当前复杂度变化：平行 Runtime/写入权威/恢复入口均未增加；Prompt/Validator 的样本特例
+  已收敛为语言和 authority 的通用输出合同。全局 Skill 生命周期台账仍未覆盖其他 active
+  Skill，因此该风险仍为发布阻断。
 
 - P0-J 从 `AUTOMATED_ONLY` 收敛为代表性 Desktop partial：共享同一 command/slash 注册内核，
   没有为四条 Slash、六条 palette 或三个 binding 创建场景状态；新正式状态、恢复分支、

@@ -3,7 +3,12 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
-当前源码安全提交为 `a835f59bf1c4`。`p0-j-06`～`08` 是该精确构建的可配置快捷键、触发和
+最新 P1 Context Recovery 精确构建为 `894d14f`；`p1-g-06` 是该构建的真实 DeepSeek、
+Validator、分区渲染和用户 `INACCURATE` 反馈证据，不能把 Provider 成功误写为内容质量
+完成。`p1-g-05` 是早一版 `2cf8bf2` 的 HELPFUL 对照，现标为 `SUPERSEDED`。完整记录见
+`../logs/p1-project-context-recovery-desktop-live-20260726.md`。
+
+P0 命令宿主最近精确构建为 `a835f59bf1c4`。`p0-j-06`～`08` 是该精确构建的可配置快捷键、触发和
 清理后冷启动证据；`p0-j-02`～`05` 是 `e8db32f1af6d` 的命令面板和 Slash 当前行为证据，
 `p0-j-01` 明确降为连续 reload residue 的 `HISTORICAL`。最新 `p0-h-09`～`12` 是
 `e8db32f1af6d` 的真实 Logseq
@@ -23,6 +28,12 @@ P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_RESTRICTED_VISUA
 P0-K 当前新增 `p0-k-01`～`03`：主 Page 入口与“返回原 Page”已通过；right-sidebar 的宿主
 菜单不提供 Plugin Page item，按 bounded conclusion 安全隐藏。Query/reference 与来源变化
 仍 OPEN；完整记录见 `../logs/p0-k-host-origin-desktop-live-20260726.md`。
+
+P1-F/G 当前新增 `p0-i-01` 与 `p1-g-01`～`06`。真实 File Graph 暴露 active Page Anchor
+UUID 漂移，系统安全显示“正文变化需要核对”且不猜 Project；Logseq 0.10.15 的 File Graph
+不挂载 Page Head slot，因此该入口为 `BOUNDED_HOST_LIMIT`，DB Graph 仍 OPEN。Project
+workspace 的确定性基线、loading、真实 Provider、反馈与 reload 已有 Desktop 证据；最终
+精确样本内容仍被标记 `INACCURATE`，error/stale/Light/窄栏也继续 OPEN。
 
 ## 状态
 

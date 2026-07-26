@@ -11,7 +11,7 @@
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I + P0-H lifecycle + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status/hidden reload auto recovery/Logseq quit owned shutdown PASS；P0-J palette/Slash 代表链/custom binding PASS；Graph switch、中文 IME/受限视觉与 P0-K host Gate OPEN | 不得宣布 P0 完成 |
-| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总真实 Service Gate | Block marker/Page Head/LLM UX/反馈 Desktop 未验；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值 |
+| P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | Project workspace 与 Context Recovery Dark loading/Provider/反馈/reload Desktop PASS；File Graph Page Head bounded、DB Graph OPEN；Block marker、error/stale/Light/窄栏与内容质量 Gate OPEN；Attention 仍无用户显现；跨会话 dashboard 未决 | 不得开放信号显示或 marker 默认值，也不得把一次 Provider 成功视为内容质量完成 |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/manual recovery + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart 与 Migration Activation current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + real double-failure + Migration failure/interruption recovery/visual gates OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
@@ -178,7 +178,7 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 | 暂时做不了 | Now Work→状态表单→选择字段 | 2 个决定 | Desktop PASS：Block 右键→三选一→最小字段；保存后回原 Block |
 | 普通 Block 整理 | 当前页 Candidate→Review→接受→Commit | 现场建议 + 1 次接受应用 | 右键“处理这条内容”按精确 UUID 进入既有 Provider→Proposal，自动 Gate PASS；LOW 单击应用/Undo Desktop PASS；普通/Query/引用现场入口仍待 Desktop |
 | 打开正文 | Now Work/Project 找卡片 | 1 个动作 | 待测 |
-| Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | 既有 Page menu Desktop PASS；新增 main Page Head 单动作仅 automated PASS、Desktop OPEN；current-interface 复用 HIGH Proposal |
+| Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | Project workspace + Context Recovery Dark 主链 Desktop PASS；Logseq 0.10.15 File Graph 不挂载 Page Head slot，安全隐藏为 bounded；DB Graph Page Head OPEN；current-interface 复用 HIGH Proposal |
 | Service 恢复 | 终端 + descriptor + reload | 1 个产品入口 | descriptor 文件一次导入与 reload READY PASS；进程启动/停止待做 |
 
 ## 6. 发布否决条件
@@ -221,6 +221,10 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 - [x] P0-I 五个用户问题、Provider 非故障降级、安全优先级、Pending/Recovery 分离和
   默认折叠工程诊断，以及真实 Desktop 注意/停服受限状态的两张脱敏截图；`4dfe014` 的健康
   系统状态又证明用户层工程词扫描为 0、精确版本只在主动展开的技术诊断中；
+- [ ] P1-G Project Context Recovery：Dark Desktop 已验证确定性基线、loading、真实 DeepSeek、
+  Validator、事实/判断/未知分区、反馈、reload 清除和零正式写入；最新精确样本仍有一项
+  `INACCURATE` 语义，Provider error/stale/Light/窄栏及 DB Graph Page Head 未完成，故保持
+  Partial；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；
