@@ -151,6 +151,8 @@ test("More is a user-facing hub and keeps maintenance capabilities reachable", (
   html = renderApp(value);
   assert.match(html, /重新启动 Task Copilot/);
   assert.match(html, /data-action="restart-task-copilot"/);
+  assert.match(html, /本次使用已结束 · 正文仍可编辑/);
+  assert.doesNotMatch(html, /整理当前页|data-value="now"|data-value="review"|data-value="reentry"/);
   assert.doesNotMatch(html, /Launcher|Service|Commit|SQLite|当前 Graph/);
 
   value.workspace = "audit";

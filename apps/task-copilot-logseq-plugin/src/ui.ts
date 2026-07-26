@@ -1365,16 +1365,21 @@ function renderActionDialog(model: UiModel): string {
 }
 
 export function renderApp(model: UiModel): string {
-  const labels: Array<[PrimaryWorkspace, Workspace, string]> = [
-    ["now", "now", "现在"],
-    ["review", "review", "待我确认"],
-    ["projects", "reentry", "项目"],
-    ["more", "more", "更多"],
-  ];
+  const sessionEnded = model.v2ManagedRuntimeState === "ENDED";
+  const labels: Array<[PrimaryWorkspace, Workspace, string]> = sessionEnded
+    ? [["more", "more", "更多"]]
+    : [
+        ["now", "now", "现在"],
+        ["review", "review", "待我确认"],
+        ["projects", "reentry", "项目"],
+        ["more", "more", "更多"],
+      ];
   const activePrimary = primaryWorkspace(model.workspace);
   const changes = recentChanges(model);
   const immediateResult = renderImmediateResult(model, changes);
-  const copilotState = model.v2ProviderAvailable
+  const copilotState = sessionEnded
+    ? "本次使用已结束 · 正文仍可编辑"
+    : model.v2ProviderAvailable
     ? "Copilot 可用 · 建议需审阅"
     : model.agent.enabled
       ? `Agent Demo · ${escapeHtml(model.agent.providerId)}`
@@ -1396,9 +1401,9 @@ export function renderApp(model: UiModel): string {
   return `<section class="app-shell">
     <header class="topbar">
       <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
-      <div class="top-actions">${button("整理当前页", "v2-candidate-open", undefined, "primary")}${button(model.originReturnLabel ?? "关闭", "close", undefined, "quiet")}</div>
+      <div class="top-actions">${sessionEnded ? "" : button("整理当前页", "v2-candidate-open", undefined, "primary")}${button(model.originReturnLabel ?? "关闭", "close", undefined, "quiet")}</div>
     </header>
-    <div class="agent-state ${model.v2ProviderAvailable || model.agent.enabled ? "enabled" : "disabled"}">${copilotState}</div>
+    <div class="agent-state ${!sessionEnded && (model.v2ProviderAvailable || model.agent.enabled) ? "enabled" : "disabled"}">${copilotState}</div>
     ${model.message && !immediateResult ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${immediateResult}
     ${model.error ? `<div class="error"><strong>未完成：</strong>${escapeHtml(model.error)}<span>请按上方说明处理；系统不会静默覆盖或重复提交。</span></div>` : ""}
