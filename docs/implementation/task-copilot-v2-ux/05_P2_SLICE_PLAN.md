@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CHAIN_AUTOMATED_DESKTOP_OPEN_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE`
 
 ### Recovery
 
@@ -433,8 +433,13 @@ Launcher 在同一 per-Graph lifecycle gate 内拒绝活动 Service/lease 并重
 复用 `restoreOffline`，Doctor PASS 后才 exact clear。超时、子进程失败、无效恢复点、Graph
 变化和 Doctor 失败均保留互锁并允许同入口重试。Launcher `29/29`、Local Service
 `160/160`、Service Client `13/13`、Plugin `328/328`、Shared `9/9` 与根级检查 PASS。
-这把实现状态升级为 `MANUAL_RECOVERY_CHAIN_AUTOMATED_DONE_DESKTOP_OPEN`；真实双重失败
-Desktop 注入、恢复后 Service 重连/reload、Light/窄栏仍 OPEN。
+commit `16bde9ad88a5` 已用隔离测试库中的受控 `RECOVERY_REQUIRED` 前置条件完成真实 Desktop
+纵向链：用户系统状态、独立 HIGH Review、当前歧义状态安全快照、保留基线恢复、Doctor、
+exact clear、Service 重连、完整 Logseq quit/restart 与最终 `READY/0/0/0`。过程中发现并
+修复恢复界面工程术语、成功后陈旧只读状态和健康页内部枚举泄漏。活动库恢复为 5 个基线
+对象，合成歧义对象只保留在新安全快照。状态升级为
+`MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`；该受控前置条件不冒充
+真实双重故障注入，后者与 Light/窄栏仍 OPEN。
 
 ### Migration
 

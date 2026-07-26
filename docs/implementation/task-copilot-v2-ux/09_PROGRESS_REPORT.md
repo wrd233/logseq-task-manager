@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CHAIN_AUTOMATED_DESKTOP_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→重连→reload、Migration through Activation 正常主链已有真实 Desktop。Restore 双重回滚失败手工恢复链已自动闭环，真实 Desktop、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart、Migration through Activation 正常主链已有真实 Desktop。真实双重故障注入、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -601,8 +601,12 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Doctor PASS 后才 exact clear；失败保持锁并可从同一用户入口重试。Plugin 只增加
   session-only HIGH 确认，不获得路径/Backup identity/SQLite 权限。Launcher `29/29`、
   Local Service `160/160`、Service Client `13/13`、Plugin `328/328`、Shared `9/9` 与
-  根级检查 PASS。状态为 `MANUAL_RECOVERY_CHAIN_AUTOMATED_DONE_DESKTOP_OPEN`，没有新正式
-  状态、导航或 Recovery Kernel，也不把真实双重失败 Desktop Gate 标为 DONE；
+  根级检查 PASS。`16bde9ad88a5` 随后用受控 `RECOVERY_REQUIRED` 前置条件完成真实 Desktop
+  用户状态→HIGH Review→恢复→Doctor→清锁→重连→完整 Logseq restart；活动库恢复为 5 个
+  基线对象，合成歧义对象只留在新安全快照，最终系统与 Service READY、`0/0/0`。本轮依据
+  真实界面修复工程术语泄漏、恢复成功后陈旧只读状态及健康页内部枚举泄漏。状态为
+  `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`，没有新正式状态、导航、
+  Prompt、Skill 或 Recovery Kernel；受控前置条件不标作真实双重失败证据；
 - 新增 `11_COMPLEXITY_LEDGER.md`：将 Partial 堆积、Recovery 分裂、状态组合、Agent/Skill 重复、
   Desktop 笛卡尔积、证据漂移和工程语义泄漏列为发布前显式 Gate；
 - 根级检查：PASS；

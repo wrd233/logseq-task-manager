@@ -181,6 +181,18 @@ Desktop 截图，也未把手工 Recovery 向导升级为 DONE。
 `cb87d86` 最后关闭互锁读取 TOCTOU 与租约回收 heartbeat 竞态；最终双轴 review PASS。
 这仍是自动-only 安全证据，没有产生新界面或改变手工 Recovery 向导的 OPEN 状态。
 
+`16bde9ad88a5` 又用隔离测试库的受控 `RECOVERY_REQUIRED` 前置条件完成真实 Desktop
+用户状态→HIGH Review→保存当前歧义状态→恢复保留基线→Doctor→exact clear→Service
+重连→完整 Logseq quit/restart。活动库从 6 个对象恢复为 5 个基线对象，合成歧义对象只保留
+于新安全快照；最终系统、Store、Service READY，Pending/Recovery/Source Conflict 为
+`0/0/0`。CURRENT `p2-g-47`～`50`。该链关闭“人工恢复用户纵向链”的受控 Desktop Gate，
+但不把人为建立前置状态冒充真实 Restore 连续双重故障；真实 double-failure 与 Light/窄栏
+继续 OPEN。
+
+本轮 Desktop 发现的三项通用缺陷均在重跑前修复：用户恢复页不再显示数据库/诊断术语，
+恢复成功后复用同一 runtime recovery 刷新正式能力而不残留只读误报，健康页内部枚举只留
+折叠技术详情。主面板壳层和“更多”页仍有工程词，作为下一高频复杂度 Gate 处理。
+
 ## P2-G Migration session-only 只读扫描
 
 状态：`READONLY_SCAN_DESKTOP_DONE_ITEM_REVIEW_AND_WRITE_OPEN`

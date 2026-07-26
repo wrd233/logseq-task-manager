@@ -15,7 +15,7 @@
 | Skill/Prompt/Validator 补丁化 | MEDIUM | 已有多个版本和真实 Provider 失败样本，但尚缺单一生命周期台账 | 只保留 `EXPERIMENTAL/SHADOW/CANDIDATE/PRODUCTION/RETIRED`；晋升看固定样本、真实 Provider、拒绝/重试/abstain/helpful-noise/越权；旧版退休而非永久兼容 | 是 |
 | Desktop 验收笛卡尔积 | HIGH | 宿主、主题、宽度、错误和恢复组合已很多 | 三层代表矩阵：高频日常覆盖 Block/Page/sidebar/Query-reference/Light-Dark/窄栏/reload/Graph switch；复杂操作覆盖 Preview/HIGH/Commit/reload/Undo/stale/Recovery；低频高风险覆盖正常、一种失败、自动回滚、手工入口、restart | 是 |
 | 文档/代码/截图漂移 | HIGH | 历史 Desktop 证据多，最新安全提交可能没有新 UI | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；自动-only 安全修复不借用旧截图升级 Desktop 状态；每轮同步 status/progress/acceptance/plan/current-ui | 是 |
-| 后台工程概念泄漏 | MEDIUM | Review/Project Page/技术诊断仍可见 ID、英文枚举或冗长标签 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit | 是 |
+| 后台工程概念泄漏 | HIGH | 真实恢复 Gate 暴露 SQLite/Doctor 与陈旧只读状态；修复后健康/恢复页已清零，但主面板顶栏仍显示 Runtime/Store/Graph，更多页仍显示 Launcher/Service/Commit 等工程词 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；下一 Slice 压缩高频壳层和维护卡 | 是 |
 
 ## 本轮变化（2026-07-26）
 
@@ -25,5 +25,8 @@
 - 复用：既有 Restore `ARMED/RECOVERY_REQUIRED/INVALID` 安全事实、Launcher per-Graph lifecycle gate、Local Service 离线 Restore/Doctor、用户系统状态与同一个恢复入口。
 - 新前台状态仍为 `0`：准备/忙碌是 session-only UI 事实；固定确认只用于现有恢复命令，不进入 Domain。
 - 恢复执行没有新增路径/快照 ID/SQLite 权限：Launcher 只编排进程，Local Service 从私有互锁推导唯一恢复点；失败保持同一安全锁和同一重试入口。
-- `AUTOMATED_ONLY` 只读投影已升级为 `MANUAL_RECOVERY_CHAIN_AUTOMATED_DONE_DESKTOP_OPEN`，降低 Recovery 语义分裂风险，但不降低 Desktop 证据 Gate。
+- 受控 `RECOVERY_REQUIRED` 已升级为 `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`：复用同一互锁、HIGH Review、离线 Restore、Doctor、清锁和重连，没有新增恢复页面或第二 Undo 逻辑。
+- 删除/合并的重复机制：恢复成功后不再维护 Plugin 自己的陈旧只读结论，而是复用 bounded runtime recovery 刷新 `featureReady`、Store 与既有投影；健康/恢复页共用用户状态翻译，内部枚举只留技术详情。
+- 本轮真实界面问题推动通用合同修复，不增加样本特例、Prompt、Skill 或 Validator；LLM 未调用，拒绝率/重试不适用。
 - 仍阻断 P2-G：真实双重失败→HIGH Review→恢复→重连→reload、Light/窄栏、Migration failure/interruption。
+- 新发现的高频发布阻断：主面板顶栏和“更多”维护卡仍泄漏 Runtime/Store/Graph/Launcher/Service/Commit；下一安全 Slice 优先压缩，不通过增加说明文字解决。

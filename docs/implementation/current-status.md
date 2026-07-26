@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CHAIN_AUTOMATED_DESKTOP_OPEN
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN
 overall_goal: IN_PROGRESS
 ```
 
@@ -331,12 +331,19 @@ overall_goal: IN_PROGRESS
   进程失败、超时、恢复点无效、Graph 变化或 Doctor 失败都保留安全锁，可从同一入口重试；
   Plugin 不接收数据库路径、Backup identity 或 SQLite 操作权。Launcher `29/29`、Local
   Service `160/160`、Service Client `13/13`、Plugin `328/328`、Shared `9/9` 与根级检查
-  PASS。该链从只读指引升级为 `MANUAL_RECOVERY_CHAIN_AUTOMATED_DONE_DESKTOP_OPEN`，但真实
-  双重失败→HIGH Review→恢复→重连→reload 和 Light/窄栏证据仍 OPEN。完整记录见
+  PASS。commit `16bde9ad88a5` 又在隔离测试 Graph 中建立受控 `RECOVERY_REQUIRED`
+  前置条件，并通过真实 Logseq 0.10.15 完成用户状态→独立 HIGH Review→保存当前歧义状态→
+  恢复保留基线→Doctor→清锁→Service 重连→完整退出/restart。恢复后正式对象回到 5，
+  合成歧义对象不在活动库而仍保留于新安全快照，互锁清除，系统状态和 Service 均 READY，
+  Pending/Recovery/Source Conflict 为 `0/0/0`。真实操作同时发现并修复数据库/诊断术语泄漏、
+  恢复后陈旧只读状态和健康页内部枚举泄漏。该链升级为
+  `MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN`；受控前置条件不是安全注入
+  的真实双重失败，所以真实 double-failure、Light/窄栏仍 OPEN。完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
   `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md` 以及
   `logs/p2-g-restore-recovery-status-automated-20260726.md` 与
-  `logs/p2-g-restore-manual-recovery-automated-20260726.md`；
+  `logs/p2-g-restore-manual-recovery-automated-20260726.md` 与
+  `logs/p2-g-restore-manual-recovery-desktop-live-20260726.md`；
 - P2-G Migration 已进入
   `MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_GATES_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、

@@ -3,10 +3,10 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
-当前源码安全提交为 `c70088a`（恢复主链 `4c71af1`，超时失败边界 `c70088a`）。最新
-Restore 手工恢复链只有自动证据，尚无 Desktop
-截图；因此 `p2-g-44`～`46` 仍只证明 `0c4526d` 的自动回滚交互，不得用来宣称双重
-回滚失败的 HIGH Review、手工恢复、重连或 reload 已 Desktop 验证。
+当前源码安全提交为 `16bde9ad88a5`。最新 `p2-g-47`～`50` 是该精确构建的真实 Logseq
+Desktop 受控人工恢复证据；`p2-g-44`～`46` 仍只证明 `0c4526d` 的自动回滚交互。受控
+`RECOVERY_REQUIRED` 前置条件证明用户 HIGH Review、恢复、重连和 restart 产品链，但不冒充
+生产 Restore 连续双重故障注入，后者仍 OPEN。
 
 ## 状态
 
@@ -96,7 +96,7 @@ SQLite 注入真实文件级写入拒绝后，atomic activation 失败、原正�
 `../logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
 `../logs/p2-g-restore-failure-recovery-desktop-live-20260726.md`。
 
-`2eb6df1` 在上述截图之后增加自动安全互锁：同 Graph Launcher 单实例启动、Restore
+`2eb6df1` 在上述自动回滚截图之后增加自动安全互锁：同 Graph Launcher 单实例启动、Restore
 admission drain、`ARMED→RECOVERY_REQUIRED`、跨进程 mutation lock、no-clobber 和匹配
 清锁。它不改变 `p2-g-44`～`46` 所示自动回滚 UI，但尚未用 Desktop 注入“双重回滚失败”，
 因此这些截图继续只代表 `0c4526d` 的自动回滚主链，不能作为新手工恢复向导的证据。
@@ -104,8 +104,16 @@ admission drain、`ARMED→RECOVERY_REQUIRED`、跨进程 mutation lock、no-clo
 纳入同一 per-Graph lifecycle gate；`cb87d86` 又关闭互锁读取 TOCTOU 与过期租约在
 gate 等待期间被 heartbeat 刷新后仍误删的竞态。`23ae7bd` 只增加严格只读状态投影，
 `4c71af1` 则复用同一 Launcher/Local Service/Doctor/互锁打通受控手工恢复自动链；`c70088a`
-补齐子进程超时强制终止回归。失败保持锁，恢复和 Doctor 全通过后才清锁。这些仍不是新的
-Desktop UI 证据。
+补齐子进程超时强制终止回归。失败保持锁，恢复和 Doctor 全通过后才清锁。
+
+`16bde9ad88a5` 随后用隔离测试库的受控 `RECOVERY_REQUIRED` 前置条件完成真实 Desktop
+用户状态→HIGH Review→保存歧义状态→恢复保留基线→清锁→Service 重连→完整 Logseq
+quit/restart。活动库恢复为 5 个基线对象，合成歧义对象只保留于新安全快照，最终系统状态、
+Store 与 Service 均 READY，`0/0/0`。真实操作发现并修复三类通用问题：恢复页泄漏数据库/
+诊断术语、恢复成功后陈旧只读状态、健康页内部枚举泄漏。CURRENT `p2-g-47`～`50`；主面板
+顶栏和“更多”维护卡仍有 Runtime/Store/Graph/Launcher/Service/Commit 等工程词，已进入
+复杂度台账，不能据此宣称交互压缩完成。完整记录见
+`../logs/p2-g-restore-manual-recovery-desktop-live-20260726.md`。
 
 P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
 Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、完整审阅计数和下一步。

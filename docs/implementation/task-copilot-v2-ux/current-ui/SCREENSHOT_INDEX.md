@@ -5,12 +5,9 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
 
-当前源码安全提交为 `c70088a`；`2eb6df1`、`e418c87`、`cb87d86`、`23ae7bd`、`4c71af1`
-与 `c70088a` 在 `0c4526d`
-截图后增加自动-only Restore 互锁、数据库级多 Graph 隔离、完整 Launcher 生命周期
-串行化、读/heartbeat 竞态收口、session-only 状态投影和受控手工恢复自动链，不改变
-`p2-g-44`～`46` 的自动回滚交互。没有截图被
-冒充为“双重回滚失败手工恢复”证据。
+当前源码安全提交为 `16bde9ad88a5`。`p2-g-47`～`50` 对应这一精确构建，证明受控
+`RECOVERY_REQUIRED` 的 HIGH Review、人工恢复、重连和完整 restart；它们不冒充生产 Restore
+连续双重故障注入。`p2-g-44`～`46` 继续只证明 `0c4526d` 的自动回滚交互。
 
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
@@ -85,10 +82,14 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-44-restore-failure-review-current-dark.png` | `0c4526d` | 选择校验通过的旧快照并勾选独立 Restore 确认 | 前台明确 SQLite 会替换、正文不改写、当前正式状态保存为恢复点并自动重启 | 随后仅对隔离活动数据库注入文件级写入拒绝 |
 | `screenshots/p2-g-45-restore-rollback-recovery-current-dark.png` | `0c4526d` | 真实 atomic activation 失败后回到 Task Copilot | 只显示一次“恢复未完成”；原正式状态已回滚并重新可用，Restore 前恢复点保留 | 自动回滚失败的手工 Recovery 向导仍 OPEN |
 | `screenshots/p2-g-46-restore-rollback-reload-health-current-dark.png` | `0c4526d` | Plugin Manager reload 后打开系统状态 | 正式状态与 Graph 已连接，日常能力可用，数据安全，无需操作 | 后续互锁/手工恢复自动链无新 UI 证据；双重失败 Desktop、Light/窄栏仍 OPEN |
+| `screenshots/p2-g-47-restore-recovery-controlled-entry-current-dark.png` | `16bde9ad88a5` | 隔离测试库建立受控 `RECOVERY_REQUIRED` 后，从“更多 → 系统状态”进入 | 首屏只说明正式能力暂时受限、原正文安全和唯一“准备恢复”动作；用户层无数据库路径、Backup identity 或诊断命令 | 这是受控前置条件，不是生产连续双重故障注入 |
+| `screenshots/p2-g-48-restore-recovery-high-review-current-dark.png` | `16bde9ad88a5` | 用户准备人工恢复并进入独立 HIGH Review | 明确先保存当前歧义状态、恢复已确认基线、检查通过后重新连接；未勾选时零执行 | Light/窄栏仍 OPEN |
+| `screenshots/p2-g-49-restore-recovery-success-current-dark.png` | `16bde9ad88a5` | 勾选确认并执行恢复 | 0.8 秒内完成安全快照、恢复、Doctor、清锁与重连；系统状态、Store、Service READY，`0/0/0`，用户页无内部枚举 | 主面板壳层工程词另列复杂度 Gate |
+| `screenshots/p2-g-50-restore-recovery-restart-health-current-dark.png` | `16bde9ad88a5` | 完整退出并重启 Logseq，再打开系统状态 | owned Service 随退出停止并由 Launcher 重建；系统仍正常，正式写可用，`0/0/0`，精确构建身份在折叠技术详情 | 真实 double-failure、Light/窄栏与 Migration failure/interruption 仍 OPEN |
 
 ## HISTORICAL
 
-以下文件都是真实 Logseq/DeepSeek 运行证据，但不代表当前 `0c4526d` 界面：
+以下文件都是真实 Logseq/DeepSeek 运行证据，但不代表当前 `16bde9ad88a5` 界面：
 
 | 文件 | 状态 | 构建状态 | 仍可证明 | 被替代原因 |
 |---|---|---|---|---|
