@@ -262,7 +262,7 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 
 ## P2-E：Closure 证据起草
 
-状态：`IN_PROGRESS_READ_ONLY_PREVIEW_DESKTOP`
+状态：`IN_PROGRESS_PROVIDER_GATE_AUTOMATED`
 
 MiniProject 聚合：子树、DONE、Output、Decision、原状态和遗留。
 
@@ -283,6 +283,14 @@ Desktop 完成入口、空证据预览、零写入、reload 清空 session draft
 CURRENT `p2-e-01`～`p2-e-04`。当前尚未接真实 Provider、正式
 Review/Commit/Recovery/Undo，因此 P2-E 不得标为 DONE。自动记录见
 `logs/p2-e-project-closure-evidence-automated-20260726.md`。
+
+下一安全门也已自动完成：专用 Provider route 复用现有五层 Proposal generator；
+`design-project@1.2.0` 明确 evidence 候选、NO_PROPOSAL、exact scope 和前台 identity
+隔离。缺原目标、主要交付或关键 Decision 时 Provider 调用次数必须为 0；模型草稿即使
+Schema 合法，也必须保持唯一 HIGH 组和同版本两操作才能进入 Review。Local Service
+`140/140` 与根级 Gate PASS。真实 DeepSeek、Plugin loading/error/stale、Review/Commit/
+Recovery/Undo 继续 OPEN，见
+`logs/p2-e-project-closure-provider-automated-20260726.md`。
 
 ## P2-F：跨对象观察
 

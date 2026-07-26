@@ -33,6 +33,7 @@ import { GrillPreviewSessionStore } from "./grill-preview-session.ts";
 import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
 import { readLegacyRecoveryBundle, scanLegacyRecoveryBundle } from "./migration-scan.ts";
+import { buildProjectClosureProposalPrompt, validateGeneratedProjectClosureProposal } from "./project-closure-provider.ts";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
@@ -1276,7 +1277,8 @@ function respondError(response: ServerResponse, error: unknown): void {
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
     const uxInputError = ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID"].includes(error.code)
-      || error.code.startsWith("V2_PROJECT_CLOSURE_EVIDENCE_");
+      || error.code.startsWith("V2_PROJECT_CLOSURE_EVIDENCE_")
+      || error.code.startsWith("PROJECT_CLOSURE_PROVIDER_");
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
       : migrationInputError || proposalInputError || domainInputError || uxInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
@@ -4587,6 +4589,75 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         ownerships: store.listPrimaryOwnerships(),
       });
       respond(response, 200, evidence);
+      return;
+    }
+    const projectClosureProviderMatch = request.method === "POST" ? url.pathname.match(/^\/objects\/([^/]+)\/project-closure\/proposal$/) : null;
+    if (projectClosureProviderMatch?.[1]) {
+      if (!options.proposalGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Proposal Provider；没有创建 Closure Proposal。");
+      const objectId = decodeURIComponent(projectClosureProviderMatch[1]);
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(objectId)) throw serviceError("PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "Project Closure 对象 ID 无效。");
+      const input = await readProjectClosureEvidenceRequest(request);
+      const project = store.getObject(objectId);
+      if (!project) throw serviceError("V2_OBJECT_NOT_FOUND", "Project 不存在。");
+      const evidence = buildProjectClosureEvidenceDraft({
+        project,
+        expectedVersion: input.expectedVersion,
+        objects: store.listObjects(),
+        ownerships: store.listPrimaryOwnerships(),
+      });
+      const [coreSkill, designProjectSkill] = await Promise.all([
+        readTaskCopilotSkill("task-copilot-core"),
+        readTaskCopilotSkill("design-project"),
+      ]);
+      if (!coreSkill || !designProjectSkill) throw serviceError("PROJECT_CLOSURE_PROVIDER_SKILL_UNAVAILABLE", "Project Closure 内置 Skill 不可用；没有调用 Provider。");
+      const prompt = buildProjectClosureProposalPrompt({ evidence, coreSkill, designProjectSkill });
+      const controller = new AbortController();
+      const abort = (): void => controller.abort("client-disconnected");
+      request.once("aborted", abort);
+      try {
+        const createdAt = new Date().toISOString();
+        const generated = await options.proposalGenerator.generate({
+          proposalId: createId("prop"),
+          createdAt,
+          prompt,
+          signal: controller.signal,
+        });
+        const latest = store.getObject(objectId);
+        if (!latest || latest.version !== input.expectedVersion) {
+          throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 在 Closure 草拟期间已变化；草稿已丢弃。");
+        }
+        const latestEvidence = buildProjectClosureEvidenceDraft({
+          project: latest,
+          expectedVersion: input.expectedVersion,
+          objects: store.listObjects(),
+          ownerships: store.listPrimaryOwnerships(),
+        });
+        if (latestEvidence.evidenceScopeHash !== evidence.evidenceScopeHash) {
+          throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project Closure 证据范围在草拟期间已变化；草稿已丢弃。");
+        }
+        if (generated.kind === "NO_PROPOSAL") {
+          respond(response, 200, {
+            kind: generated.kind,
+            reason: generated.reason,
+            provider: generated.provider,
+            promptBundleVersion: generated.promptBundleVersion,
+            replayed: false,
+          });
+          return;
+        }
+        validateGeneratedProjectClosureProposal(generated.proposal, evidence);
+        const submitted = await submitReviewProposal(generated.proposal, new Date(createdAt));
+        respond(response, submitted.replayed ? 200 : 201, {
+          kind: "PROPOSAL",
+          record: submitted.record,
+          replayed: submitted.replayed,
+          provider: generated.provider,
+          promptBundleVersion: generated.promptBundleVersion,
+          evidenceScopeHash: evidence.evidenceScopeHash,
+        });
+      } finally {
+        request.removeListener("aborted", abort);
+      }
       return;
     }
     const miniProjectClosureProposalMatch = request.method === "POST" ? url.pathname.match(/^\/objects\/([^/]+)\/closure\/proposal$/) : null;

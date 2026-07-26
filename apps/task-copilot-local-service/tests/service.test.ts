@@ -228,7 +228,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   const skills = await client.listSkills();
   assert.deepEqual(skills.map(({ name, version }) => ({ name, version })), [
     { name: "task-copilot-core", version: "1.0.0" },
-    { name: "design-project", version: "1.1.0" },
+    { name: "design-project", version: "1.2.0" },
     { name: "recover-context", version: "1.2.0" },
     { name: "mini-project-modeling", version: "1.3.0" },
     { name: "project-creation-modeling", version: "1.5.0" },
@@ -2666,6 +2666,49 @@ test("Project Closure evidence route is read-only, version-bound, and preserves 
   });
   assert.equal(injected.status, 400);
   assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID");
+});
+
+test("Project Closure Provider route refuses incomplete formal evidence before charging the model", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-provider-preflight-"));
+  let providerCalls = 0;
+  const proposalGenerator = new LocalLlmProposalGenerator({
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      providerCalls += 1;
+      return {
+        value: { decision: "NO_PROPOSAL", reason: "should not be called" },
+        metadata: { requestId: "unexpected", model: "test-model", finishReason: "stop", totalTokens: 1, durationMs: 1, attempts: 1 },
+      };
+    },
+  });
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-closure-provider-preflight",
+    token: "project-closure-provider-preflight-token",
+    proposalGenerator,
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const prepared = await client.prepareProject({ name: "Closure Preflight", traceId: "closure-preflight-prepare" });
+  const created = await client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "Closure Preflight",
+    pageExternalId: "page-project-closure-preflight",
+    pageContentHash: checksum(""),
+    traceId: "closure-preflight-finalize",
+  });
+  const before = await client.listProposals();
+  await assert.rejects(
+    () => client.createProjectClosureProposal(created.object.objectId, { expectedVersion: created.object.version }),
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "PROJECT_CLOSURE_PROVIDER_EVIDENCE_INSUFFICIENT",
+  );
+  assert.equal(providerCalls, 0);
+  assert.deepEqual(await client.listProposals(), before);
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN");
 });
 
 test("reviewed Project current interface commits one versioned aggregate and rejects stale overwrite", async (t) => {

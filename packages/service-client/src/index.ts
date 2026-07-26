@@ -634,6 +634,23 @@ export interface ServiceProjectClosureEvidenceDraft {
   authorityBoundary: "READ_ONLY_EVIDENCE_DRAFT";
 }
 
+export type ServiceProjectClosureProposalResult =
+  | {
+      kind: "NO_PROPOSAL";
+      reason: string;
+      provider: { requestId: string; model: string; finishReason: string; totalTokens: number; durationMs: number; attempts: number };
+      promptBundleVersion: string;
+      replayed: false;
+    }
+  | {
+      kind: "PROPOSAL";
+      record: ServiceStoredProposal;
+      replayed: boolean;
+      provider: { requestId: string; model: string; finishReason: string; totalTokens: number; durationMs: number; attempts: number };
+      promptBundleVersion: string;
+      evidenceScopeHash: string;
+    };
+
 export interface ServiceMaterializeExplicitObjectRequest {
   objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
@@ -1094,6 +1111,12 @@ export class LocalServiceClient {
     return this.request<ServiceProjectClosureEvidenceDraft>(`/objects/${encodeURIComponent(objectId)}/project-closure/evidence`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });
+  }
+
+  createProjectClosureProposal(objectId: string, input: { expectedVersion: number }): Promise<ServiceProjectClosureProposalResult> {
+    return this.request<ServiceProjectClosureProposalResult>(`/objects/${encodeURIComponent(objectId)}/project-closure/proposal`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    }, 125_000);
   }
 
   createLifecycleProposal(objectId: string, input: { expectedVersion: number; action: "CANCEL" | "REOPEN"; reason: string }): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {

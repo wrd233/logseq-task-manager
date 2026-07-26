@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_READ_ONLY_PREVIEW_DESKTOP
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_PROVIDER_GATE_AUTOMATED
 overall_goal: IN_PROGRESS
 ```
 
@@ -229,7 +229,12 @@ overall_goal: IN_PROGRESS
   场景显式区分候选、unknown 与用户判断，唯一按钮为“取消”。reload 后 session preview
   不残留、Runtime/Store READY，并从同一 Project v10 重新计算；Objects/Proposals/Commits
   前后保持 `2/10/21`。CURRENT `p2-e-01`～`p2-e-04`。真实 Provider、正式
-  Proposal/Review/Commit/Recovery/Undo 尚未接入，P2-E 仍为 Partial；
+  Proposal/Review/Commit/Recovery/Undo 尚未闭环。下一安全门已自动实现：Service 复用五层
+  `LocalLlmProposalGenerator` 与 `design-project@1.2.0`；缺原目标、主要交付或关键
+  Decision 时在网络调用前拒绝，证据充分时也只允许精确 read/modify scope 和一个 HIGH
+  Closure 组（同版本 `UPDATE_PROJECT_INTERFACE + TRANSITION_LIFECYCLE`）进入审阅队列。
+  Local Service `140/140`、根级 Gate PASS；真实 Provider 输出质量、Plugin 入口与正式链
+  仍 OPEN，P2-E 仍为 Partial；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -292,7 +297,7 @@ V2_UX_PRODUCTIZATION_IN_PROGRESS
 - CLI 已提供 `backup create/validate/restore`；Restore 缺少精确 `--confirm RESTORE_AND_STOP_SERVICE` 时在加载 Service 前退出。独立进程冒烟已证明 CLI create → restore → Service exit/descriptor cleanup → restart → Doctor PASS。
 - `tc doctor` 已从 SQLite 完整性扩展为结构化组件报告：直接检查 Schema、Anchor missing/conflict/多 Primary、标识、Stale Proposal、Pending/Recovery Commit、最新 Backup、Key 引用边界、Provider 配置、内置 Skills 和 CLI/Service 协议；FAIL 仍以 HTTP 200 返回可诊断报告，CLI 用稳定退出码 7 表示不健康。`tc doctor --export <diagnostics.zip>` 生成 0600、防覆盖、带 SHA-256 清单的脱敏 ZIP，已由真实 Service/CLI 进程与 `unzip -t` 证明可读。Graph/Desktop 事件、Provider 在线健康和 Service 日志采集仍明确标记为专用 Gate，不伪装成已检查。
 - CLI Proposal 纵向入口已复用同一 Local Service：`proposal list/show/validate/submit` 支持固定 JSON envelope 与退出码，外部文件限制为 1 MiB UTF-8 JSON；validate 零持久化，submit 只进入 Plugin 共用审阅队列并显式返回 `formalWritesExecuted: false`，不存在 `proposal apply/commit`。真实 Service 集成已证明固定提案提交后 Proposal=1、Object=0、SemanticCommit=0；真实 DeepSeek 外部 Agent 又从 Desktop Page Context Package 生成原始候选，经 CLI validate/submit 和 Plugin Review 接受后仍为 Object 0 / Commit 0，E2E-13 已 `DONE`。E2E-20 的隔离 Project Closure Proposal Desktop Completion 已另行通过。
-- 外部 Agent Skills 已版本化：`task-copilot-core@1.0.0` 固定 scope/事实分层/Proposal-only/submit≠commit 边界，`design-project@1.1.0` 覆盖 Project 设计、重入、分组与 Closure，并在真实 Agent 首次 Schema 错误后补入精确机器模板与 read-scope 要求；两者经 Skill 结构校验、SHA-256 标识并随 Service 构建复制。Local Service `GET /skills[/{name}]` 与 CLI `skill list/show` 返回同一只读资产，读取后 Object 仍为 0；没有新增表或可编辑副本，Context Package 复用同一资产。
+- 外部 Agent Skills 已版本化：`task-copilot-core@1.0.0` 固定 scope/事实分层/Proposal-only/submit≠commit 边界；`design-project` 从外部 Agent 验证的 `1.1.0` 升至 `1.2.0`，增加 in-product Closure evidence、NO_PROPOSAL、exact scope/operation 与前台 identity 隔离规则。两者经 Skill 结构校验、SHA-256 标识并随 Service 构建复制。Local Service `GET /skills[/{name}]` 与 CLI `skill list/show` 返回同一只读资产，读取后 Object 仍为 0；没有新增表或可编辑副本，Context Package 复用同一资产。
 - Context Package 已开放设计既定的 block/page/object/project 四种范围：object/project 继续从 SQLite 导出最多 256 个正式对象及 Primary Anchor/Ownership、Decision/Output 子集；block/page 通过 Plugin 的瞬态 Logseq API 只读桥接取得实时有界 excerpt，再只纳入 excerpt 中锚定的 SQLite 正式对象。Page depth 0..5、Block parents 0..8、总计最多 256 Blocks / 1 MiB；Service 重验请求/结果 shape、UUID、Block 去身份语义 hash、Page revalidation hash 和 scope hash。CLI 先验证完整文件集/bytes/hash，创建 0700/0600 新目录并最后写 manifest，已有目录、路径穿越或 hash 不匹配均拒绝并清理新产物。真实 Logseq Desktop 已完成 Page/Block/resolve、reload 后 UUID 变化、Page parent entity shape 修复、Context Package→DeepSeek 外部 Agent→CLI validate/submit→Plugin Review；接受组后仍为 Object 0 / Proposal 1 / Commit 0，E2E-13 `DONE`。桥接请求和正文只在内存中存在，无新表、缓存、扫描器、Graph 写路径或第二权威；详见 `docs/runtime/V2_E2E13_GRAPH_CONTEXT_DESKTOP_REPORT.md`。
 - V1→V2 迁移已完成自动与 copied-data Desktop 纵向闭环：Scan → 人工逐项审阅 → 服务端快照校验 → ≤50 项 batch → SQLite 原子导入 → Verify → 精确 Undo → 新幂等键重试 → Activate。纯 Domain 覆盖全部旧 Phase/Condition/Signal，ACTIVE 不自动 Focus，结构冲突拒绝导入，非直接或人工改映射必须记录审阅说明；批次只物化既定 Object/Anchor/Ownership，不复制正文到迁移账本。真实 V1 Pilot 后 0600 Recovery Bundle 在 Logseq Desktop 0.10.15 中完成 8 项 Scan、完整 Decisions、Backup、缺确认零请求、Import 重放、IMPORTING 时 Service 中断/重启续作、Verify、单批 Undo、重试与 Activate。首轮导入的当前 Graph 缺失 Anchor 被既有 reconciliation 更新后，Verify 安全拒绝且未 Activate；最终只导入当前 Anchor 仍可解析的范围，Run 为 ACTIVATED、Doctor 12 PASS/0 WARN。Plugin 只读迁移工作区真实显示 PREVIEWED/IMPORTING/VERIFIED/ACTIVATED、计数、恢复点和下一步，无可编辑控件、不接收 Bundle。E2E-14 `DONE`，详见 `docs/runtime/V2_MIGRATION_COPIED_DATA_DESKTOP_REPORT.md`。
 - SQLite Restore Desktop Gate 已完成：隔离 Task v2 快照后修改为 v3，缺确认零请求；Restore 原子恢复 v2 并把 v3 保存为恢复点。第一次实测发现 Plugin 陈旧 READY 与 Graph bridge 重试风暴，现复用既有 restricted state 与 explicit-sync pause，在首次传输失败后停止 bridge。重跑中 descriptor 删除、Service 在 Desktop 保持打开时退出、Plugin 自动显示 `READ_ONLY_SAFE_MODE / RESTRICTED / formal writes false`，同库重启后恢复 READY、Task v2、Graph bridge 与 Doctor 12 PASS/0 WARN。E2E-17 `DONE`，详见 `docs/runtime/V2_SQLITE_RESTORE_DESKTOP_REPORT.md`。

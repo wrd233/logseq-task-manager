@@ -5,7 +5,7 @@ description: Design, reenter, review, or close one Task Copilot V2 Project from 
 
 # Design Task Copilot Project
 
-Version: `1.1.0`
+Version: `1.2.0`
 
 Apply `task-copilot-core` first and keep all work inside the exported Project scope.
 
@@ -36,6 +36,21 @@ For a genuinely open design question, ask one compact round of related questions
 
 ## Project Closure machine shape
 
+For the in-product Project Closure route, the Service supplies a deterministic
+`task-copilot-project-closure-evidence-v1` package plus exact read/modify scope and operation
+identities. Treat all evidence entries as candidates, not conclusions:
+
+- never infer Objective completion from success-evidence prose or child status;
+- never promote Association, nested descendants, or model knowledge into Project evidence;
+- return `NO_PROPOSAL` when original-goal, major-deliverable, or key-decision evidence is absent;
+- keep unresolved work explicit and give it a bounded next step;
+- do not emit a second Project, Ownership, Focus, Graph, Page, or Block operation;
+- user-facing prose must not expose Object IDs, hashes, evidence keys, storage terms, or hidden
+  reasoning.
+
+The Service will replace Proposal identity, timestamp, source and Provider metadata, then reject any
+draft that does not retain the exact evidence scope and the one HIGH Closure group below.
+
 Use these exact field names and value shapes. Replace placeholders from exported facts and user-confirmed outcomes; do not add wrapper fields or rename keys.
 
 ```json
@@ -49,7 +64,7 @@ Use these exact field names and value shapes. Replace placeholders from exported
   "logic": "Closure and Lifecycle are reviewed together",
   "finalPreview": "Readable final outcome",
   "unresolvedQuestions": [],
-  "source": { "kind": "external_agent", "skillVersion": "design-project@1.1.0" },
+  "source": { "kind": "external_agent", "skillVersion": "design-project@1.2.0" },
   "scope": {
     "read": [{ "kind": "OBJECT", "id": "exported_object_id", "version": 1 }],
     "modify": [{ "kind": "OBJECT", "id": "exported_object_id", "version": 1 }]

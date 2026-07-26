@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS_READ_ONLY_PREVIEW_DESKTOP`
+`IN_PROGRESS_PROVIDER_GATE_AUTOMATED`
 
 This increment does not claim a Provider result or formal Closure flow. The automated read-only
 preview and its current Desktop gate are complete: Closure starts from a bounded, deterministic
@@ -78,3 +78,5 @@ Cases include:
 
 Current Desktop evidence is recorded separately in
 `p2-e-project-closure-evidence-desktop-live-20260726.md`.
+The subsequent automated Provider gate is recorded in
+`p2-e-project-closure-provider-automated-20260726.md`.
