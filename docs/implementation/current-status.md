@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_RESTORE_LIFECYCLE_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -286,7 +286,8 @@ overall_goal: IN_PROGRESS
   Rebind → reload 后系统正常，且旧 Anchor 保留为 replaced、新 Anchor active。
   专门的 Rebind Recovery/Undo 用户指引及 Restore/Migration 向导仍 OPEN；
 - P2-G Restore 已进入
-  `RESTORE_FRONTSTAGE_LIFECYCLE_DESKTOP_DONE_STATE_DELTA_GATE_OPEN`：Local Service 新增
+  `RESTORE_FRONTSTAGE_STATE_DELTA_ROUNDTRIP_DESKTOP_DONE_FAILURE_GATE_OPEN`：Local
+  Service 新增
   最近 20 个服务端快照的有界只读目录，只返回时间、校验状态、schema 与对象数量，不返回
   路径。Plugin 通过 session-local `snapshot:<index>` 隐藏 Backup ID，支持创建当前快照、
   选择、再次校验、单独确认和正式 Restore；执行前 flush 正文同步并复用 owned shutdown
@@ -295,8 +296,10 @@ overall_goal: IN_PROGRESS
   Local Service 全套测试、typecheck 和根级检查 PASS。commit `6ae8f2fcebd0` 的真实
   Logseq 0.10.15 已完成未确认零请求、正式 Restore、owned Service PID
   `47467→47600`、Launcher 同 Graph 重连、Plugin reload 后目录 `2→3` 以及系统
-  READY/`0/0/0`；首轮成功/旧错误并列的缺陷已修复且旧画面不计 CURRENT。当前产品 UI
-  的可辨认状态差异读回、反向 Restore、失败注入和 Light/窄栏仍 OPEN，完整记录见
+  READY/`0/0/0`；首轮成功/旧错误并列的缺陷已修复且旧画面不计 CURRENT。随后同一
+  测试 Task 经真实 Now Work 和 Desktop Restore 完成 `ACTIONABLE v5↔PAUSED v6`
+  正反往返，Local Service 每步逐字段读回，最终恢复 ACTIONABLE 基线并 reload 健康。
+  失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
@@ -318,8 +321,8 @@ P2-E normal Provider→Review→Commit→Undo→reload main chain Desktop DONE,
 failure/Recovery Desktop gate OPEN /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
 P2-G Rebind identity-free capture main chain Desktop DONE,
-Restore frontstage lifecycle Desktop DONE,
-dedicated Recovery/Undo guidance + Restore state-delta/failure + Migration gates OPEN /
+Restore frontstage state-delta roundtrip Desktop DONE,
+dedicated Recovery/Undo guidance + Restore failure + Migration gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

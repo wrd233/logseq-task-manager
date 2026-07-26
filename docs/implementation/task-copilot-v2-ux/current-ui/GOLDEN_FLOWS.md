@@ -136,7 +136,7 @@ Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证�
 
 ## P2-G Backup/Restore 产品入口
 
-状态：`FRONTSTAGE_LIFECYCLE_DESKTOP_DONE_STATE_DELTA_GATE_OPEN`
+状态：`FRONTSTAGE_STATE_DELTA_ROUNDTRIP_DESKTOP_DONE_FAILURE_GATE_OPEN`
 
 1. 更多 → 备份与恢复只读取当前 Graph 的 Service-owned 最近快照；
 2. 前台只显示时间、正式事项数量与校验结果，DOM 不保存 Backup ID 或数据库路径；
@@ -151,8 +151,10 @@ Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证�
 真实结果：`6ae8f2fcebd0`、Logseq 0.10.15、Dark、994×700。首轮
 `6415dd14b568` 真实运行发现成功态残留未确认错误，因此不计 CURRENT；修复后重跑未确认
 零请求，owned Service PID `47467→47600`，目录 `2→3`，reload 后 Runtime/Store/Service
-READY 且 `0/0/0`。CURRENT `p2-g-13`～`17`。本轮恢复同一份四项正式状态；当前产品 UI
-下的可辨认状态差异读回、反向 Restore、失败注入和 Light/窄栏仍 OPEN，所以不关闭
+READY 且 `0/0/0`。随后真实 Now Work 把测试 Task `ACTIONABLE v5→PAUSED v6`，旧快照
+Restore 读回 `ACTIONABLE v5`，自动恢复点反向 Restore 又读回 `PAUSED v6`，最后恢复
+ACTIONABLE 基线；每步都经真实 Desktop 发起和 Local Service 逐字段读回。CURRENT
+`p2-g-13`～`19`。失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，所以不关闭
 Restore 全部 Gate 或 P2-G。
 
 ## 交互评估

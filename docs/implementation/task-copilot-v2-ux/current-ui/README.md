@@ -75,8 +75,10 @@ Gate。Service-owned 目录不显示路径/ID，选择后再次校验并单独�
 确认后创建恢复点、owned Service 自停，Launcher 自动重建同一 Graph Service。Plugin
 reload 后目录从两个变为三个校验 PASS 快照，系统状态为 READY、`0/0/0`。首轮
 `6415dd14b568` 暴露成功态残留旧错误，已修复且该旧画面不列 CURRENT。CURRENT
-`p2-g-13`～`17`；当前产品 UI 的状态差异往返、失败注入、反向 Restore 和视觉 Gate
-仍 OPEN，因此 Restore/P2-G/整体 Goal 不提前关闭。完整记录见
+`p2-g-13`～`19`；同一测试 Task 又真实完成 `ACTIONABLE v5→PAUSED v6→ACTIONABLE
+v5→PAUSED v6→ACTIONABLE v5` 的旧快照、自动恢复点反向 Restore 和最终 cleanup，
+逐步经 Local Service 读回。失败注入、失败后的用户层 Recovery 和视觉 Gate 仍 OPEN，
+因此 Restore/P2-G/整体 Goal 不提前关闭。完整记录见
 `../logs/p2-g-backup-restore-frontstage-automated-20260726.md`。
 
 ## 每次取证必须记录

@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_LIFECYCLE_DESKTOP_DONE_MIGRATION_OPEN`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_OPEN`
 
 ### Recovery
 
@@ -400,9 +400,11 @@ Local Service 全套测试、typecheck 与根级检查 PASS。
 
 commit `6ae8f2fcebd0` 的真实 Logseq 0.10.15 已完成快照目录、再次校验、未确认零请求、
 正式 Restore、恢复点创建、owned Service PID `47467→47600`、Launcher 同 Graph 重连、
-Plugin reload 后目录 `2→3` 与系统 READY/`0/0/0`。首轮成功/旧错误并列问题已修复，
-Restore frontstage 生命周期 Desktop DONE。当前产品 UI 下的可辨认状态差异读回、恢复点
-反向 Restore、失败注入与 Light/窄栏仍 OPEN。
+Plugin reload 后目录 `2→3` 与系统 READY/`0/0/0`。首轮成功/旧错误并列问题已修复。
+随后同一测试 Task 经真实 Now Work 和 Desktop Restore 完成
+`ACTIONABLE v5↔PAUSED v6` 旧快照/自动恢复点正反往返，Local Service 每步逐字段读回，
+最终恢复 ACTIONABLE 基线。Restore 正常往返 Desktop DONE；失败注入、失败后的用户层
+Recovery 与 Light/窄栏仍 OPEN。
 
 ### Migration
 

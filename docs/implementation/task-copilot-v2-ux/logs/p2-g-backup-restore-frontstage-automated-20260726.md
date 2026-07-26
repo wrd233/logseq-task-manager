@@ -1,7 +1,7 @@
 # P2-G Backup/Restore 产品入口自动 Gate
 
 日期：2026-07-26
-状态：`RESTORE_FRONTSTAGE_LIFECYCLE_DESKTOP_DONE_STATE_DELTA_GATE_OPEN`
+状态：`RESTORE_FRONTSTAGE_STATE_DELTA_ROUNDTRIP_DESKTOP_DONE_FAILURE_GATE_OPEN`
 
 ## 结论
 
@@ -22,11 +22,10 @@ Local Service Backup/Restore 安全链接到插件“更多 → 备份与恢复�
 → Launcher 自动重建同一 Graph Service
 ```
 
-当前构建已经关闭 Restore 产品入口的真实 Desktop 生命周期 Gate：目录、二次校验、未确认
-零请求、正式 Restore、恢复点、Service 自停、Launcher 同 Graph 重连、reload 与构建身份
-都已在最新 Logseq 中通过。当前前台运行恢复的是同一份四项正式状态快照；基础 E2E-17 已
-证明状态差异 Restore，但当前产品 UI 的“可辨认状态变化 → 旧快照 → 内容读回”仍需重跑，
-故 `P2-G` 和完整 Goal 继续 `IN_PROGRESS`。
+当前构建已经关闭 Restore 产品入口的真实 Desktop 正常往返 Gate：目录、二次校验、未确认
+零请求、可辨认状态变化、旧快照逐字段读回、恢复点反向 Restore、Service 自停、Launcher
+同 Graph 重连、reload 与构建身份都已在最新 Logseq 中通过。失败注入、恢复失败后的用户层
+Recovery、Light/窄栏和 Migration 仍未完成，故 `P2-G` 和完整 Goal 继续 `IN_PROGRESS`。
 
 ## 首轮 Desktop 反馈（历史缺陷，不计 DONE）
 
@@ -70,6 +69,27 @@ Backup/Restore 用户动作开始时清理上一动作 feedback，并已完成�
    `Pending / Recovery / Source Conflict = 0/0/0`。
 
 CURRENT 截图为 `p2-g-13`～`p2-g-17`。首轮矛盾成功画面未保存为 CURRENT。
+
+## 状态差异与反向 Restore Desktop 证据
+
+在同一测试 Graph、同一构建继续执行：
+
+1. 通过真实 Now Work“更新状态”把测试 Task 从 `ACTIONABLE v5` 正式更新为
+   `PAUSED v6`，原因只使用脱敏测试文本；
+2. CLI 经 Local Service 有界搜索读回 `OPEN / PAUSED v6`，证明差异已经进入 SQLite
+   单一正式权威；
+3. 在 Desktop 选择 `12:19:22` 的变化前快照并正式 Restore；Service 重启后逐字段读回
+   `OPEN / ACTIONABLE v5`，Now Work 同一 Task 再次显示“当前可以继续推进”；
+4. Restore 自动产生的 `12:30:01` 恢复点保存了 `PAUSED v6`；在 Desktop 选择该恢复点
+   反向 Restore 后逐字段读回 `OPEN / PAUSED v6` 和原测试原因；
+5. 为不把测试 Graph 留在人工暂停态，选择反向过程自动保存的 `12:31:04` 恢复点再次
+   Restore，最终逐字段回到 `OPEN / ACTIONABLE v5`；
+6. 最终 owned Service PID 为 `50907`，Plugin Manager reload 后系统状态
+   READY、`0/0/0`、`reconciliationRequired:false`。
+
+CURRENT `p2-g-18` 显示旧快照恢复后同一 Task 回到 Now Work；`p2-g-19` 显示完整往返及
+最终 cleanup 后的当前构建与健康态。状态读回只记录 title/type/version/lifecycle/condition，
+不把 Object/Anchor identity、数据库路径或正文写入报告。
 
 ## 复用与新增边界
 
@@ -122,12 +142,17 @@ Proposal 类型或 test-only fault。
 - [x] 成功/失败 feedback 不并列；
 - [x] Key、token、路径和私人正文不进入截图。
 
+新增关闭：
+
+- [x] 在当前产品 UI 下制造可辨认、可撤销的正式状态变化，再 Restore 旧快照并逐字段
+  读回状态差异；
+- [x] 对自动恢复点执行反向 Restore，证明 `ACTIONABLE v5 ↔ PAUSED v6` 正反往返；
+- [x] 最终恢复测试环境原基线并 reload，系统健康 `0/0/0`。
+
 仍开放：
 
-- [ ] 在当前产品 UI 下先制造一项可辨认、可撤销的正式状态变化，再 Restore 旧快照并
-  逐字段读回状态差异；
-- [ ] 对该恢复点执行反向 Restore，证明前向/反向往返；
 - [ ] 注入 Restore 失败并验证原库保持、恢复点保留和用户层 Recovery；
 - [ ] Light、窄栏与必要主题视觉。
 
-因此只标记 `RESTORE_FRONTSTAGE_LIFECYCLE_DESKTOP_DONE`，不宣称 Restore 全部验收完成。
+因此标记 `RESTORE_FRONTSTAGE_STATE_DELTA_ROUNDTRIP_DESKTOP_DONE`，仍不宣称 Restore
+失败链、P2-G 或整体 Goal 完成。

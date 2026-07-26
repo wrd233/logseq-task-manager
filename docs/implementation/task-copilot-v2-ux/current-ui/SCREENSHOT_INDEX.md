@@ -50,6 +50,8 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-15-restore-success-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 先验证未确认零请求，再勾选并正式 Restore | Service 自停并由 Launcher 重建；Plugin 自动回到 READY；成功态不再残留旧错误 | 即时重连过程很短，截图捕获最终稳定态 |
 | `screenshots/p2-g-16-restore-reload-catalog-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | Plugin Manager reload 后再次打开快照目录 | 两个快照增至三个，恢复前恢复点跨 reload 可见且完整性 PASS | 反向 Restore 仍 OPEN |
 | `screenshots/p2-g-17-restore-build-diagnostics-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | reload 后打开系统状态并展开技术诊断 | Commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` 同屏 | 诊断只作为证据层 |
+| `screenshots/p2-g-18-restore-state-delta-actionable-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 测试 Task 已正式变为 PAUSED 后，从旧快照 Restore 并回到“现在” | Local Service 逐字段从 `PAUSED v6` 回到 `ACTIONABLE v5`；同一 Task 再次显示“当前可以继续推进” | 反向 Restore 的 PAUSED 读回由结构化 Service 证据承担 |
+| `screenshots/p2-g-19-restore-state-delta-roundtrip-health-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 再从自动恢复点反向恢复 PAUSED，最后恢复原 ACTIONABLE 基线并 reload | 正反往返均逐字段读回；最终 Runtime/Store/Service READY、`0/0/0`、reconciliation false | Restore failure 注入与 Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 
