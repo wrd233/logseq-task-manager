@@ -162,7 +162,8 @@ function isMigrationExecutionClient(client: ServiceRuntimeClient | undefined): c
     && typeof client.createBackup === "function"
     && typeof client.importLegacyMigration === "function"
     && typeof client.verifyLegacyMigrationBatch === "function"
-    && typeof client.undoLegacyMigrationBatch === "function",
+    && typeof client.undoLegacyMigrationBatch === "function"
+    && typeof client.activateLegacyMigration === "function",
   );
 }
 let lastAttentionShadowSummarySignature: string | undefined;
@@ -1408,6 +1409,40 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     await undoing.catch(() => {
       latestError = migrationExecutionController.snapshot().message ?? "撤销结果尚未确认；请刷新台账。";
+    });
+    await refresh();
+    return;
+  }
+  if (action === "migration-activate-open" && value) {
+    latestError = undefined;
+    message = undefined;
+    try {
+      migrationExecutionController.prepareActivation(value);
+    } catch (error) {
+      latestError = explain(error);
+    }
+    await refresh();
+    return;
+  }
+  if (action === "migration-activate") {
+    latestError = undefined;
+    message = undefined;
+    const confirmed = requireAppRoot().querySelector<HTMLInputElement>('[data-field="migrationActivateConfirm"]')?.checked === true;
+    if (!confirmed) {
+      latestError = "请先确认 V1 的只读交接边界；没有改变迁移状态。";
+      await refresh();
+      return;
+    }
+    const client = serviceRuntimeClient;
+    if (!isMigrationExecutionClient(client) || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      latestError = "当前知识库暂时无法安全启用 V2；没有提交新请求。";
+      await refresh();
+      return;
+    }
+    const activating = migrationExecutionController.activate(client);
+    await refresh();
+    await activating.catch(() => {
+      latestError = migrationExecutionController.snapshot().message ?? "启用结果尚未确认；请刷新台账。";
     });
     await refresh();
     return;

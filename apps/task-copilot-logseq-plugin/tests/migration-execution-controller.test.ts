@@ -143,6 +143,10 @@ function client(overrides: Partial<MigrationExecutionClient> = {}): MigrationExe
       calls.push({ name: "undo", args: [id, batchId, confirmation] });
       return batch("UNDONE");
     },
+    async activateLegacyMigration(id, confirmation) {
+      calls.push({ name: "activate", args: [id, confirmation] });
+      return { ...run("ACTIVATED"), runId: id };
+    },
     ...overrides,
   };
 }
@@ -251,4 +255,29 @@ test("clear invalidates late material reads and releases all session-private mat
   await loading;
   assert.deepEqual(controller.snapshot(), { status: "idle" });
   await assert.rejects(() => controller.createRecoveryPoint(service, ["migration-import-item:1"]), /失效/);
+});
+
+test("activation requires a ledger token, exact confirmation, and safely retries an uncertain response", async () => {
+  let attempt = 0;
+  const service = client({
+    async activateLegacyMigration(id, confirmation) {
+      service.calls.push({ name: "activate", args: [id, confirmation] });
+      attempt += 1;
+      if (attempt === 1) throw new Error("private response lost");
+      return { ...run("ACTIVATED"), runId: id };
+    },
+  });
+  const controller = new MigrationExecutionController(() => "safe-key");
+  const [view] = controller.bindRuns([run("VERIFIED")], [detail("VERIFIED", [batch("VERIFIED")])]);
+  controller.prepareActivation(view!.token);
+  assert.equal(controller.snapshot().status, "activation-confirm");
+  await assert.rejects(() => controller.activate(service), /结果尚未确认/);
+  assert.equal(controller.snapshot().status, "activation-uncertain");
+  await controller.activate(service);
+  assert.equal(controller.snapshot().status, "activated");
+  assert.deepEqual(service.calls.filter(({ name }) => name === "activate"), [
+    { name: "activate", args: [runId, "ACTIVATE_V2_SQLITE"] },
+    { name: "activate", args: [runId, "ACTIVATE_V2_SQLITE"] },
+  ]);
+  assert.doesNotMatch(JSON.stringify(controller.snapshot()), /private|migration-run:|a{12,}/);
 });

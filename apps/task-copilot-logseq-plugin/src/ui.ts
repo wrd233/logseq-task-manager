@@ -858,8 +858,8 @@ function renderMigrationExecution(model: UiModel): string {
   if (state.status === "selecting-material" || (state.status === "error" && !state.batchToken)) {
     return `<section class="card" aria-label="准备迁移批次"><div class="eyebrow">只读重新核对 · 正式变化 0</div><h3>重新选择本计划的材料</h3>${message}<label>选择同一份 Recovery Bundle<input type="file" accept="application/json,.json" data-field="migrationImportBundleFile"${available ? "" : " disabled"}></label><div class="actions">${button("放弃本批准备", "migration-import-clear", undefined, "quiet")}${button(state.status === "error" ? "重新核对材料" : "核对材料与待导入范围", "migration-import-material", undefined, "primary", !available)}</div></section>`;
   }
-  if (state.status === "loading-material" || state.status === "creating-recovery-point" || state.status === "importing" || state.status === "verifying" || state.status === "undoing") {
-    return `<section class="card" aria-live="polite"><div class="eyebrow">安全操作进行中</div><h3>${state.status === "loading-material" ? "核对迁移材料" : state.status === "creating-recovery-point" ? "创建并校验恢复点" : state.status === "importing" ? "导入本批" : state.status === "verifying" ? "验证本批" : "撤销本批"}</h3>${message}</section>`;
+  if (state.status === "loading-material" || state.status === "creating-recovery-point" || state.status === "importing" || state.status === "verifying" || state.status === "undoing" || state.status === "activating") {
+    return `<section class="card" aria-live="polite"><div class="eyebrow">安全操作进行中</div><h3>${state.status === "loading-material" ? "核对迁移材料" : state.status === "creating-recovery-point" ? "创建并校验恢复点" : state.status === "importing" ? "导入本批" : state.status === "verifying" ? "验证本批" : state.status === "undoing" ? "撤销本批" : "启用 V2"}</h3>${message}</section>`;
   }
   if (state.status === "material-ready") {
     const items = state.items ?? [];
@@ -883,6 +883,13 @@ function renderMigrationExecution(model: UiModel): string {
   }
   if (state.status === "undo-uncertain") {
     return `<section class="card"><div class="eyebrow">撤销结果待确认</div><h3>请先刷新迁移台账</h3>${message}<p class="muted">不要重复撤销或创建新批次；迁移台账会在重新载入后显示正式结论。</p></section>`;
+  }
+  if (state.status === "activation-confirm" || state.status === "activation-uncertain") {
+    const uncertain = state.status === "activation-uncertain";
+    return `<section class="card"><div class="eyebrow">${uncertain ? "启用结果待确认" : "迁移最终切换 · HIGH"}</div><h3>${uncertain ? "先以迁移台账为准" : "启用 V2 并结束 V1 日常运行"}</h3>${message}<label><input type="checkbox" data-field="migrationActivateConfirm"${available ? "" : " disabled"}> 我确认所有计划导入项都已验证；启用后 V1 只保留为只读历史与恢复证据，不建立双写。</label>${button(uncertain ? "对同一计划安全重试" : "确认启用 V2", "migration-activate", undefined, "danger", !available)}</section>`;
+  }
+  if (state.status === "activated") {
+    return `<section class="card"><div class="eyebrow">迁移已完成</div><h3>V2 已启用</h3>${message}<p class="muted">日常工作继续留在 Logseq；旧 V1 状态不再作为当前运行权威。</p></section>`;
   }
   return `<section class="card"><div class="eyebrow">本批需要检查</div><h3>以迁移台账为准</h3>${message}</section>`;
 }
@@ -957,7 +964,9 @@ function renderMigration(model: UiModel): string {
       : "";
     const prepare = run.status === "PREVIEWED"
       ? button("准备下一批", "migration-import-open", run.token, "primary", model.v2MigrationExecutionAvailable !== true)
-      : "";
+      : run.status === "VERIFIED"
+        ? button("准备启用 V2", "migration-activate-open", run.token, "danger", model.v2MigrationExecutionAvailable !== true)
+        : "";
     return `<article class="card compact"><div class="eyebrow">${escapeHtml(statusLabel(run.status))} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>迁移计划 ${index + 1}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项${escapeHtml(importCountLabel(run.status))} · ${escapeHtml(run.summary.keepOrdinary)} 项保持普通内容 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p>${escapeHtml(nextStep(run.status))}</p><div class="actions">${prepare}</div>${batches}<details><summary>查看安全边界</summary><p>Recovery Bundle 始终只读；正式状态只走系统的唯一安全写入链。导入前必须有校验通过的恢复点，未启用且没有后续变化的批次才可安全撤销。</p></details></article>`;
   }).join("");
   return `${guidance}${scanPanel}${executionPanel}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;

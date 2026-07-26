@@ -984,7 +984,26 @@ test("Migration verified ledger survives reload and exposes safe verify or undo 
   assert.match(html, /批次 1 · 验证通过/);
   assert.match(html, /1 项已核对/);
   assert.match(html, /data-action="migration-batch-undo-open"/);
+  assert.match(html, /data-action="migration-activate-open"/);
   assert.doesNotMatch(html, /migration-run:private|migration-batch:private|backup_|a{12,}|legacy-private/);
+});
+
+test("Migration activation is a separate HIGH handoff that forbids V1/V2 dual write", () => {
+  const value = model();
+  value.workspace = "migration";
+  value.v2MigrationExecutionAvailable = true;
+  value.v2MigrationRuns = [];
+  value.v2MigrationExecution = {
+    status: "activation-confirm",
+    runToken: "migration-plan:1",
+    message: "最终一致性检查。",
+  };
+  const html = renderApp(value);
+  assert.match(html, /迁移最终切换 · HIGH/);
+  assert.match(html, /data-field="migrationActivateConfirm"/);
+  assert.match(html, /data-action="migration-activate"/);
+  assert.match(html, /V1 只保留为只读历史与恢复证据，不建立双写/);
+  assert.doesNotMatch(html, /runId|batchId|backup_|a{12,}/);
 });
 
 test("Migration workspace opens a session-only scan, bounded per-item review, and no direct formal write", () => {

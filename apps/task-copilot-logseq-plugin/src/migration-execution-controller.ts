@@ -21,6 +21,7 @@ export interface MigrationExecutionClient {
   }): Promise<{ batch: ServiceMigrationBatch; replayed: boolean }>;
   verifyLegacyMigrationBatch(runId: string, batchId: string): Promise<ServiceMigrationBatch>;
   undoLegacyMigrationBatch(runId: string, batchId: string, confirmation: "UNDO_MIGRATION_BATCH"): Promise<ServiceMigrationBatch>;
+  activateLegacyMigration(runId: string, confirmation: "ACTIVATE_V2_SQLITE"): Promise<ServiceMigrationRun>;
 }
 
 export interface PluginMigrationBatchView {
@@ -64,6 +65,10 @@ export interface PluginMigrationExecutionState {
     | "undoing"
     | "undo-uncertain"
     | "undone"
+    | "activation-confirm"
+    | "activating"
+    | "activation-uncertain"
+    | "activated"
     | "error";
   runToken?: string;
   batchToken?: string;
@@ -424,6 +429,50 @@ export class MigrationExecutionController {
         message: "无法确认撤销是否完成；下方台账是权威，请刷新后再决定下一步。",
       };
       throw executionError("撤销结果尚未确认；不要重复创建新批次。");
+    }
+  }
+
+  prepareActivation(runToken: string): void {
+    const runId = this.runIds.get(runToken);
+    if (!runId) throw executionError("迁移计划已更新；请刷新后重试。");
+    this.generation += 1;
+    this.releaseMaterial();
+    this.selectedRunId = runId;
+    this.state = {
+      status: "activation-confirm",
+      runToken,
+      message: "启用前会再次确认所有待迁移项目都有验证通过的正式投影；启用后 V1 只保留为只读历史与恢复证据。",
+    };
+  }
+
+  async activate(client: Pick<MigrationExecutionClient, "activateLegacyMigration">): Promise<void> {
+    const { runToken } = this.state;
+    const runId = runToken ? this.runIds.get(runToken) : undefined;
+    if (!["activation-confirm", "activation-uncertain"].includes(this.state.status) || !runToken || !runId || runId !== this.selectedRunId) {
+      throw executionError("启用确认已失效；没有改变迁移状态。");
+    }
+    const generation = ++this.generation;
+    this.state = { status: "activating", runToken, message: "正在完成最终一致性检查并启用 V2…" };
+    try {
+      const run = await client.activateLegacyMigration(runId, "ACTIVATE_V2_SQLITE");
+      if (generation !== this.generation) return;
+      if (run.runId !== runId || run.status !== "ACTIVATED") {
+        throw executionError("迁移计划没有返回完整启用证据。");
+      }
+      this.releaseMaterial();
+      this.state = {
+        status: "activated",
+        runToken,
+        message: "V2 已启用；V1 现在只作为只读历史与恢复证据保留。",
+      };
+    } catch {
+      if (generation !== this.generation) return;
+      this.state = {
+        status: "activation-uncertain",
+        runToken,
+        message: "无法确认 V2 是否已经启用；请刷新迁移台账。若仍显示等待启用，可对同一计划安全重试。",
+      };
+      throw executionError("启用结果尚未确认；请先刷新台账，不要创建新的迁移计划。");
     }
   }
 
