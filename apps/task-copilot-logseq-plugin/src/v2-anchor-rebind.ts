@@ -25,6 +25,7 @@ export interface V2RebindPreview {
 
 export type V2RebindPanelState =
   | { status: "idle" }
+  | { status: "capturing" }
   | { status: "loading" }
   | { status: "ready"; preview: V2RebindPreview; serviceGeneration: number; busy?: boolean }
   | { status: "success"; message: string }
@@ -55,6 +56,9 @@ export async function prepareV2PrimaryAnchorRebind(
 ): Promise<V2RebindPreview> {
   const target = targetFromBlock(await readCurrentBlock());
   const [page, objects] = await Promise.all([client.listPrimaryAnchors(), client.listObjects()]);
+  if (page.anchors.some((anchor) => anchor.externalId === target.externalId && anchor.status !== "replaced")) {
+    throw new Error("当前 Block 已经连接到另一个正式事项；没有进入确认，也没有执行写入。请取消本次选择，再从“开始重新连接”进入受控窗口后新建或选择替换正文。");
+  }
   const objectsById = new Map(objects.map((object) => [object.objectId, object]));
   const candidates = page.anchors.flatMap((anchor) => {
     const object = objectsById.get(anchor.objectId);
@@ -122,6 +126,11 @@ function escapeHtml(value: unknown): string {
 export function renderV2PrimaryAnchorRebindPanel(state: V2RebindPanelState, available: boolean): string {
   if (!available) return "";
   if (state.status === "idle") return `<section class="diagnostic-notice"><h2>重新连接正文</h2><p>只读取当前选中 Block 与一页已知正文连接；不会扫描全 Graph。</p><button type="button" data-action="v2-rebind-open">预览重新连接当前块</button></section>`;
+  if (state.status === "capturing") return `<section class="diagnostic-notice" aria-label="选择替换正文"><h2>选择替换正文</h2>
+    <p>本次受控窗口会暂缓自动创建新的正式事项，最多持续 5 分钟。请回到 Logseq，新建或选中一个带有明确类型标识的替换 Block，再回来预览影响。</p>
+    <p class="muted">窗口结束、取消或提交后会恢复自动同步；其他正式状态不会在这里改变。</p>
+    <div class="actions"><button type="button" data-action="v2-rebind-open">预览当前选中的正文</button><button type="button" data-action="v2-rebind-cancel">取消并恢复自动同步</button></div>
+  </section>`;
   if (state.status === "loading") return `<section class="diagnostic-notice" aria-busy="true"><h2>重新连接正文</h2><p>正在读取当前 Block 与已知正文连接…</p></section>`;
   if (state.status === "error") return `<section class="diagnostic-error"><h2>重新连接未执行</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-rebind-open">重新预览</button><button type="button" data-action="v2-rebind-cancel">关闭</button></section>`;
   if (state.status === "success") return `<section class="diagnostic-notice"><h2>正文已重新连接</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-rebind-open">处理另一个</button><button type="button" data-action="v2-rebind-cancel">关闭</button></section>`;
@@ -148,7 +157,6 @@ export function renderV2AnchorIssueStatus(
   if (issues === undefined || issues === "unavailable" || issues.length === 0) return "";
   const visible = issues.slice(0, 5);
   const actionable = issues.some((issue) => issue.nextActionEligible);
-  const actionLabel = issues.find((issue) => issue.nextActionLabel)?.nextActionLabel ?? "检查正文连接";
   return `<section class="anchor-issue-status" aria-label="正文连接待处理">
     <div class="eyebrow">正文连接</div>
     <h2>有 ${issues.length} 个正式事项需要重新确认正文</h2>
@@ -161,7 +169,7 @@ export function renderV2AnchorIssueStatus(
     </article>`).join("")}</div>
     ${issues.length > visible.length ? `<p class="muted">另有 ${issues.length - visible.length} 项；修复后刷新可继续处理。</p>` : ""}
     ${available && actionable
-      ? `<p>先在 Logseq 中选中要作为新正文的明确对象 Block，再预览影响并单独确认。</p><button type="button" data-action="v2-rebind-open">${escapeHtml(actionLabel)}</button>`
+      ? `<p>先进入受控选择窗口，再在 Logseq 中新建或选中替换正文；预览前不会自动创建另一个正式事项。</p><button type="button" data-action="v2-rebind-capture">开始重新连接</button>`
       : `<p class="muted">当前正式写入已暂停；恢复 Local Service 后再处理正文连接。</p>`}
   </section>`;
 }

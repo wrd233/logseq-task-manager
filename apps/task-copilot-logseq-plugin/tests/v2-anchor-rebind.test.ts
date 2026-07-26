@@ -57,6 +57,28 @@ test("rebind preview reads one known-Anchor page and renders explicit impact", a
   assert.doesNotMatch(html, /Primary Anchor|externalId|contentHash|missing|replaced/);
 });
 
+test("rebind preview rejects a target that already belongs to another formal object before confirmation", async () => {
+  await assert.rejects(() => prepareV2PrimaryAnchorRebind({
+    ...client([]),
+    listPrimaryAnchors: async () => ({
+      anchors: [
+        anchor,
+        {
+          ...anchor,
+          anchorId: "anchor-target",
+          objectId: "task-target",
+          externalId: targetUuid,
+          status: "active" as const,
+        },
+      ],
+    }),
+    listObjects: async () => [
+      object,
+      { ...object, objectId: "task-target", text: "另一个正式事项" },
+    ],
+  }, async () => targetBlock), /已经连接到另一个正式事项/);
+});
+
 test("rebind submit requires confirmation, revalidates the selected Block, and sends no ownership authority", async () => {
   const received: ServicePrimaryAnchorRebindRequest[] = [];
   const transport = client(received);
@@ -118,8 +140,8 @@ test("Anchor issue status stays user-readable, bounded, and routes only to exist
 
   assert.match(html, /有 6 个正式事项需要重新确认正文/);
   assert.match(html, /正式事项仍保留/);
-  assert.match(html, /先在 Logseq 中选中/);
-  assert.match(html, /data-action="v2-rebind-open"/);
+  assert.match(html, /先进入受控选择窗口/);
+  assert.match(html, /data-action="v2-rebind-capture"/);
   assert.match(html, /另有 1 项/);
   assert.doesNotMatch(html, /事项 6/);
   assert.doesNotMatch(html, /anchorId|externalId|objectId|contentHash|Primary Anchor/);
@@ -136,5 +158,14 @@ test("Anchor issue status suppresses repair action while formal writes are unava
   }], false);
 
   assert.match(html, /正式写入已暂停/);
-  assert.doesNotMatch(html, /data-action="v2-rebind-open"/);
+  assert.doesNotMatch(html, /data-action="v2-rebind-capture"/);
+});
+
+test("Rebind capture panel explains bounded auto-sync pause without implementation identity", () => {
+  const html = renderV2PrimaryAnchorRebindPanel({ status: "capturing" }, true);
+  assert.match(html, /选择替换正文/);
+  assert.match(html, /5 分钟/);
+  assert.match(html, /data-action="v2-rebind-open"/);
+  assert.match(html, /data-action="v2-rebind-cancel"/);
+  assert.doesNotMatch(html, /UUID|externalId|Primary Anchor|contentHash/);
 });

@@ -54,6 +54,7 @@ import {
   submitV2PrimaryAnchorRebind,
   type V2RebindPanelState,
 } from "./v2-anchor-rebind.ts";
+import { V2RebindCaptureController } from "./v2-rebind-capture.ts";
 import {
   formalizeV2Candidate,
   persistV2ExplicitCandidateDiscovery,
@@ -218,6 +219,38 @@ const projectContextRecoveryController = new ProjectContextRecoveryController(
   }),
   refresh,
 );
+
+function abandonV2RebindCaptureWithoutResume(): void {
+  v2RebindCaptureController.abandon();
+}
+
+async function finishV2RebindCapture(): Promise<void> {
+  const transport = serviceRuntimeClient
+    && serviceConnection.status === "READY"
+    && serviceConnection.formalWritesAvailable
+    ? serviceRuntimeClient
+    : undefined;
+  await v2RebindCaptureController.finish(explicitSyncController, transport);
+}
+
+async function expireV2RebindCapture(): Promise<void> {
+  try {
+    await finishV2RebindCapture();
+    v2RebindPanel = {
+      status: "error",
+      message: "受控选择窗口已在 5 分钟后结束，自动同步已经恢复；没有执行重新绑定。请重新开始后再选择替换正文。",
+    };
+    if (logseq.isMainUIVisible) await showRuntimeDiagnostics();
+  } catch (error) {
+    operationalLogger.log("error", "ui-action", "v2_primary_anchor_capture_expiry_failed", {
+      actionId: "v2-rebind-capture",
+      result: "error",
+      errorCode: explain(error),
+    });
+  }
+}
+
+const v2RebindCaptureController = new V2RebindCaptureController(expireV2RebindCapture);
 const miniProjectGrillController = new MiniProjectGrillController(
   () => ({
     ...(serviceRuntimeClient ? { client: serviceRuntimeClient } : {}),
@@ -743,6 +776,7 @@ async function refresh(): Promise<void> {
 
 function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: string): void {
   graphReadBridgeController.stop();
+  abandonV2RebindCaptureWithoutResume();
   if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
   if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
   if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间中断；旧请求已取消或结果未知，请重启 Service 后刷新审阅队列。" };
@@ -979,6 +1013,7 @@ function initializeExplicitSync(): void {
   cleanupHooks.push(() => globalThis.clearInterval(reconciliationTimer));
   cleanupHooks.push(() => {
     graphReadBridgeController.stop();
+    abandonV2RebindCaptureWithoutResume();
     explicitSyncController?.dispose();
     explicitSyncController = undefined;
     serviceRuntimeClient = undefined;
@@ -1220,6 +1255,29 @@ async function handleAction(action: string, value?: string): Promise<void> {
     });
     return;
   }
+  if (action === "v2-rebind-capture") {
+    const client = serviceRuntimeClient;
+    const controller = explicitSyncController;
+    const generation = serviceDiscoveryGeneration;
+    if (!client || !controller || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      v2RebindPanel = { status: "error", message: "Local Service 未处于可正式写入的 READY 状态；没有开始重新连接。" };
+      await showRuntimeDiagnostics();
+      return;
+    }
+    if (!v2RebindCaptureController.active) {
+      await controller.flush();
+      if (generation !== serviceDiscoveryGeneration || client !== serviceRuntimeClient) {
+        v2RebindPanel = { status: "error", message: "Local Service 在准备期间重连；没有开始重新连接，请刷新后重试。" };
+        await showRuntimeDiagnostics();
+        return;
+      }
+    }
+    v2RebindCaptureController.begin(controller);
+    v2RebindPanel = { status: "capturing" };
+    await showRuntimeDiagnostics();
+    logseq.hideMainUI();
+    return;
+  }
   if (action === "v2-rebind-open") {
     const client = serviceRuntimeClient;
     const generation = serviceDiscoveryGeneration;
@@ -1244,6 +1302,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-rebind-cancel") {
     if (v2RebindPanel.status === "ready" && v2RebindPanel.busy) return;
+    await finishV2RebindCapture();
     v2RebindPanel = { status: "idle" };
     await showRuntimeDiagnostics();
     return;
@@ -1284,6 +1343,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         : { status: "error", message: "Local Service 在提交期间重连；旧会话结果不确定，请先在 Audit/Doctor 核对，不要立即重试。" };
       operationalLogger.log("error", "ui-action", "v2_primary_anchor_rebind_failed", { correlationId: traceId, actionId: "v2-rebind-submit", result: "error" }, error);
     }
+    await finishV2RebindCapture();
     await showRuntimeDiagnostics();
     return;
   }
