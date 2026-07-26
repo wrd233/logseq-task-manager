@@ -1683,6 +1683,19 @@ export class V2SqliteStore {
     };
   }
 
+  listMigrationBatches(runId: string, limit = 100): V2MigrationBatch[] {
+    if (!runId.trim() || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw persistenceError("MIGRATION_BATCH_QUERY_INVALID", "Migration batch 查询需要有效计划与 1 到 100 的上限。");
+    }
+    const ids = this.database.prepare(`
+      SELECT batch_id FROM migration_batches
+      WHERE run_id = ?
+      ORDER BY created_at ASC, batch_id ASC
+      LIMIT ?
+    `).pluck().all(runId, limit) as string[];
+    return ids.map((batchId) => this.migrationBatch(runId, batchId)!);
+  }
+
   commitMigrationBatch(command: V2MigrationBatchCommand): { batch: V2MigrationBatch; replayed: boolean } {
     const commandChecksum = checksum({
       runId: command.batch.runId,

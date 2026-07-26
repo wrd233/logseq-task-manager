@@ -540,6 +540,7 @@ export interface ServiceMigrationBatch {
 export interface ServiceMigrationRunDetails {
   run: ServiceMigrationRun;
   evidence: Array<{ legacyObjectId: string; decision: LegacyMigrationReviewDecision; targetObjectId?: string; [key: string]: unknown }>;
+  batches: ServiceMigrationBatch[];
 }
 
 export interface ServicePromptLayer {

@@ -73,6 +73,10 @@ test("reviewed migration batch is atomic, idempotent, verifiable, restart-safe, 
   const { run } = await reviewed(migration);
   const imported = await migration.importBatch(importInput(run.runId), new Date("2026-07-21T09:00:00.000Z"));
   assert.equal(imported.batch.status, "IMPORTED");
+  assert.deepEqual(store.listMigrationBatches(run.runId).map(({ batchId, status }) => ({ batchId, status })), [{
+    batchId: imported.batch.batchId,
+    status: "IMPORTED",
+  }]);
   assert.equal(store.getObject("legacy-task-1")?.text, "迁移 Task");
   assert.equal(store.auditEventCount(), 1);
   const replay = await migration.importBatch(importInput(run.runId), new Date("2026-07-21T09:30:00.000Z"));

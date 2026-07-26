@@ -2105,16 +2105,23 @@ test("Local Service completes reviewed migration through validated backup, impor
   assert.deepEqual((await client.listMigrationRuns()).map(({ runId, status }) => ({ runId, status })), [{ runId: previewed.run.runId, status: "PREVIEWED" }]);
   assert.doesNotMatch(JSON.stringify(await client.listMigrationRuns()), /迁移服务闭环/);
   assert.equal((await client.getMigrationRun(previewed.run.runId)).evidence[0]?.targetObjectId, undefined);
+  assert.deepEqual((await client.getMigrationRun(previewed.run.runId)).batches, []);
   const snapshot = await client.createBackup();
   const imported = await client.importLegacyMigration(previewed.run.runId, {
     bundle, backupId: snapshot.backupId, objectIds: ["legacy-service-task"], idempotencyKey: "service-batch-1", confirmation: "IMPORT_REVIEWED_V1_BATCH",
   });
   assert.equal(imported.batch.status, "IMPORTED");
+  assert.deepEqual((await client.getMigrationRun(previewed.run.runId)).batches.map(({ batchId, status }) => ({ batchId, status })), [{
+    batchId: imported.batch.batchId,
+    status: "IMPORTED",
+  }]);
   assert.equal((await client.importLegacyMigration(previewed.run.runId, {
     bundle, backupId: snapshot.backupId, objectIds: ["legacy-service-task"], idempotencyKey: "service-batch-1", confirmation: "IMPORT_REVIEWED_V1_BATCH",
   })).replayed, true);
   assert.equal((await client.verifyLegacyMigrationBatch(previewed.run.runId, imported.batch.batchId)).status, "VERIFIED");
+  assert.equal((await client.getMigrationRun(previewed.run.runId)).batches[0]?.status, "VERIFIED");
   assert.equal((await client.undoLegacyMigrationBatch(previewed.run.runId, imported.batch.batchId, "UNDO_MIGRATION_BATCH")).status, "UNDONE");
+  assert.equal((await client.getMigrationRun(previewed.run.runId)).batches[0]?.status, "UNDONE");
   assert.equal(await client.getObject("legacy-service-task"), undefined);
   const retried = await client.importLegacyMigration(previewed.run.runId, {
     bundle, backupId: snapshot.backupId, objectIds: ["legacy-service-task"], idempotencyKey: "service-batch-2", confirmation: "IMPORT_REVIEWED_V1_BATCH",

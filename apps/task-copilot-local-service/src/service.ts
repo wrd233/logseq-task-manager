@@ -3002,7 +3002,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const runId = decodeURIComponent(migrationRunMatch[1]);
       const run = store.migrationRun(runId);
       if (!run) throw serviceError("MIGRATION_RUN_NOT_FOUND", "找不到 Migration Run。");
-      respond(response, 200, { run, evidence: store.migrationEvidence(runId) });
+      respond(response, 200, { run, evidence: store.migrationEvidence(runId), batches: store.listMigrationBatches(runId) });
       return;
     }
     const migrationImportMatch = request.method === "POST" ? url.pathname.match(/^\/migration\/runs\/([^/]+)\/batches\/import$/) : null;
