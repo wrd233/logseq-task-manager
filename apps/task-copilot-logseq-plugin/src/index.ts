@@ -79,7 +79,7 @@ import { BlockConditionController, type BlockConditionDraft } from "./block-cond
 import { PageContextController, type PageContextSnapshot } from "./page-context-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
 import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-intervention.ts";
-import { managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
+import { managedRuntimeBlockedPresentation, managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
 import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE_SYNTAX, type SlashCreateObjectType } from "./slash-create-command.ts";
 import { projectClosureProposalFailure, readProjectClosureUserJudgments } from "./project-closure-input.ts";
 import { OriginRouteController, type OriginRouteToken } from "./origin-route-controller.ts";
@@ -2332,10 +2332,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
     });
     if (!decision.allowed) {
       actionDialog = undefined;
+      const blocked = managedRuntimeBlockedPresentation(decision, "RESTORE");
+      message = blocked.message;
+      if (blocked.surface === "SYSTEM_STATUS") {
+        await showRuntimeDiagnostics();
+        return;
+      }
       workspace = "audit";
-      message = decision.reason === "UNFINISHED_COMMIT"
-        ? `发现 ${decision.count} 项尚未完成或需要恢复的修改；已转到“最近修改与恢复”，Restore 没有开始。`
-        : `仍有 ${decision.count} 项正文核对或范围核对未完成；已转到恢复视图，Restore 没有开始。`;
       await refresh();
       return;
     }
@@ -2435,10 +2438,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
     });
     if (!decision.allowed) {
       actionDialog = undefined;
+      const blocked = managedRuntimeBlockedPresentation(decision, "END_RUNTIME");
+      message = blocked.message;
+      if (blocked.surface === "SYSTEM_STATUS") {
+        await showRuntimeDiagnostics();
+        return;
+      }
       workspace = "audit";
-      message = decision.reason === "UNFINISHED_COMMIT"
-        ? `发现 ${decision.count} 项尚未完成或需要恢复的修改；已转到“最近修改与恢复”，本地运行环境没有结束。`
-        : `仍有 ${decision.count} 项正文核对或范围核对未完成；已转到恢复视图，本地运行环境没有结束。`;
       await refresh();
       return;
     }

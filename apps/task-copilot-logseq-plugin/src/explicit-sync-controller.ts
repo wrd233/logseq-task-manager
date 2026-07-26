@@ -232,7 +232,10 @@ export class ExplicitSyncController {
   private resumeReconciliationTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   private reconciliationCursor: string | undefined;
   private disposed = false;
-  private needsReconciliation = false;
+  private broadReconciliationRequired = false;
+  private anchorReconciliationRequired = false;
+  private anchorReconciliationIssueRevision = 0;
+  private anchorReconciliationCycleStartRevision: number | undefined;
 
   constructor(private readonly options: ExplicitSyncControllerOptions = {}) {
     this.maximumPending = options.maximumPending ?? 256;
@@ -249,7 +252,7 @@ export class ExplicitSyncController {
       ...(options.clock ? { clock: options.clock } : {}),
       deliver: async (batch) => this.acceptBatch(batch),
       onError: (error, batch) => {
-        this.needsReconciliation = true;
+        this.broadReconciliationRequired = true;
         this.issue(errorCode(error), "显式对象事件批次处理失败；需要一致性检查。", batch[0]?.externalId);
         this.emitState();
       },
@@ -329,7 +332,7 @@ export class ExplicitSyncController {
 
   onSubtreeTraversalIssue(code: string, message: string): void {
     if (this.disposed) return;
-    this.needsReconciliation = true;
+    this.broadReconciliationRequired = true;
     this.issue(code, message);
     this.emitState();
   }
@@ -369,7 +372,7 @@ export class ExplicitSyncController {
     return {
       pending: this.pending.size,
       transportReady: this.transport !== undefined,
-      reconciliationRequired: this.needsReconciliation,
+      reconciliationRequired: this.broadReconciliationRequired || this.anchorReconciliationRequired,
     };
   }
 
@@ -400,7 +403,7 @@ export class ExplicitSyncController {
       const contentHash = checksum(stripLogseqBlockIdentityProperty(change.content, change.externalId));
       if (this.isObservedContentSuppressed(change.externalId, contentHash)) continue;
       if (change.parsed.kind === "INVALID") {
-        this.needsReconciliation = true;
+        this.broadReconciliationRequired = true;
         this.issue(change.parsed.code, "显式对象标识存在结构异常；正文未被修改。", change.externalId);
         continue;
       }
@@ -409,7 +412,7 @@ export class ExplicitSyncController {
       try {
         identityPersisted = await this.options.ensurePersistentIdentity?.(change.externalId) === true;
       } catch {
-        this.needsReconciliation = true;
+        this.broadReconciliationRequired = true;
         this.issue("EXPLICIT_SYNC_BLOCK_IDENTITY_PERSIST_FAILED", "Block 持久身份写入或复核失败；没有创建正式对象。", change.externalId);
         continue;
       }
@@ -424,7 +427,7 @@ export class ExplicitSyncController {
         traceId: this.createTraceId(),
       };
       if (!this.pending.has(change.externalId) && this.pending.size >= this.maximumPending) {
-        this.needsReconciliation = true;
+        this.broadReconciliationRequired = true;
         this.issue("EXPLICIT_SYNC_QUEUE_CAPACITY_EXCEEDED", "显式同步待恢复队列已达上限；正文保持不变，需要一致性检查。", change.externalId);
         continue;
       }
@@ -458,7 +461,7 @@ export class ExplicitSyncController {
       } catch (error) {
         if (this.disposed) return;
         const code = errorCode(error);
-        this.needsReconciliation = true;
+        this.broadReconciliationRequired = true;
         if (code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL") {
           if (this.pending.get(externalId) === pending) this.pending.delete(externalId);
           this.issue(code, "显式类型变化未提交；需要在 Proposal 管道中审阅。", externalId);
@@ -491,13 +494,16 @@ export class ExplicitSyncController {
     const listPrimaryAnchors = transport?.listPrimaryAnchors;
     const readBlock = this.options.readBlock;
     if (!transport || !listPrimaryAnchors || !readBlock) return;
+    if (this.reconciliationCursor === undefined) {
+      this.anchorReconciliationCycleStartRevision = this.anchorReconciliationIssueRevision;
+    }
     let page: ServicePrimaryAnchorPage;
     try {
       page = await listPrimaryAnchors.call(transport, this.reconciliationCursor);
     } catch (error) {
       if (this.disposed) return;
       this.transport = undefined;
-      this.needsReconciliation = true;
+      this.markAnchorReconciliationRequired();
       this.issue(errorCode(error), "Primary Anchor 清单读取失败；未执行全 Graph 扫描。", undefined);
       return;
     }
@@ -509,7 +515,7 @@ export class ExplicitSyncController {
         objects = await transport.listObjects();
       } catch (error) {
         if (this.disposed) return;
-        this.needsReconciliation = true;
+        this.markAnchorReconciliationRequired();
         this.issue(errorCode(error), "显式 Block 对象范围读取失败；本轮未观察任何 Anchor。", undefined);
         return;
       }
@@ -520,7 +526,7 @@ export class ExplicitSyncController {
       anchors = anchors.filter(({ objectId }) => blockObjectIds.has(objectId));
     }
     if (page.nextCursor) {
-      this.needsReconciliation = true;
+      this.anchorReconciliationRequired = true;
       this.issue("EXPLICIT_SYNC_RECONCILIATION_PAGE_DEFERRED", "已知 Primary Anchor 将在下一轮继续分页检查；未执行全 Graph 扫描。");
     }
     for (const anchor of anchors) {
@@ -530,20 +536,20 @@ export class ExplicitSyncController {
         value = await readBlock(anchor.externalId);
       } catch (error) {
         if (this.disposed) return;
-        this.needsReconciliation = true;
+        this.markAnchorReconciliationRequired();
         this.issue(errorCode(error), "Primary Anchor 对应 Block 读取失败；其余已知 Anchor 继续检查。", anchor.externalId);
         continue;
       }
       if (this.disposed) return;
       if (!value || typeof value !== "object" || Array.isArray(value)) {
-        this.needsReconciliation = true;
+        this.markAnchorReconciliationRequired();
         this.issue("EXPLICIT_SYNC_PRIMARY_ANCHOR_MISSING", "Primary Anchor 对应 Block 不可用；对象未删除。", anchor.externalId);
         await this.persistAnchorObservation(transport, anchor, "missing");
         continue;
       }
       const block = value as { uuid?: unknown; content?: unknown };
       if (block.uuid !== anchor.externalId || typeof block.content !== "string") {
-        this.needsReconciliation = true;
+        this.markAnchorReconciliationRequired();
         this.issue("EXPLICIT_SYNC_PRIMARY_ANCHOR_CONFLICT", "Primary Anchor 返回了不一致的 Block 形态；对象保留并记录冲突。", anchor.externalId);
         await this.persistAnchorObservation(transport, anchor, "conflict");
         continue;
@@ -554,7 +560,7 @@ export class ExplicitSyncController {
       }
       const parsed = parseExplicitObjectSyntax(block.content);
       if (parsed.kind !== "OBJECT") {
-        this.needsReconciliation = true;
+        this.markAnchorReconciliationRequired();
         this.issue(parsed.kind === "INVALID" ? parsed.code : "EXPLICIT_SYNC_MARKER_REMOVED", "已绑定 Block 的显式对象语法已改变；需要审阅。", anchor.externalId);
         await this.persistAnchorObservation(transport, anchor, "conflict");
         continue;
@@ -565,6 +571,15 @@ export class ExplicitSyncController {
     if (this.disposed) return;
     await this.debouncer.flush();
     await this.drain();
+    if (
+      page.nextCursor === undefined
+      && this.anchorReconciliationCycleStartRevision !== undefined
+    ) {
+      if (this.anchorReconciliationIssueRevision === this.anchorReconciliationCycleStartRevision) {
+        this.anchorReconciliationRequired = false;
+      }
+      this.anchorReconciliationCycleStartRevision = undefined;
+    }
   }
 
   private async persistAnchorObservation(
@@ -574,7 +589,7 @@ export class ExplicitSyncController {
   ): Promise<void> {
     if (anchor.status === status) return;
     if (!transport.observePrimaryAnchor) {
-      this.needsReconciliation = true;
+      this.markAnchorReconciliationRequired();
       this.issue("EXPLICIT_SYNC_ANCHOR_OBSERVATION_UNAVAILABLE", "Local Service 不支持 Anchor 观察写入；对象保持不变。", anchor.externalId);
       return;
     }
@@ -582,9 +597,14 @@ export class ExplicitSyncController {
       await transport.observePrimaryAnchor({ anchorId: anchor.anchorId, status, traceId: this.createTraceId() });
     } catch (error) {
       if (this.disposed) return;
-      this.needsReconciliation = true;
+      this.markAnchorReconciliationRequired();
       this.issue(errorCode(error), "Primary Anchor 观察未持久化；对象保持不变，后续将重试。", anchor.externalId);
     }
+  }
+
+  private markAnchorReconciliationRequired(): void {
+    this.anchorReconciliationRequired = true;
+    this.anchorReconciliationIssueRevision += 1;
   }
 
   private issue(code: string, message: string, externalId?: string): void {

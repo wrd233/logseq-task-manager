@@ -723,6 +723,52 @@ test("service recovery reconciles only known Anchors and reports missing or remo
   assert.deepEqual(controller.snapshot(), { pending: 0, transportReady: true, reconciliationRequired: true });
 });
 
+test("a complete clean Anchor reconciliation clears a repaired Anchor risk without clearing broad sync risks", async () => {
+  const at = "2026-07-20T08:00:00.000Z";
+  const content = "[任务] 已恢复连接";
+  let readable = false;
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    readBlock: async (externalId) => readable
+      ? { uuid: externalId, content, "updated-at": 2002 }
+      : null,
+  });
+  const transport: ExplicitSyncTransport = {
+    async listPrimaryAnchors() {
+      return { anchors: [{
+        anchorId: "a-repaired",
+        objectId: "o-repaired",
+        graphId: "graph",
+        externalId: "block-repaired",
+        role: "primary_text",
+        status: readable ? "active" : "missing",
+        contentHash: checksum(content),
+        lastSeenAt: at,
+      }] };
+    },
+    async listObjects() {
+      return [{ objectId: "o-repaired", objectType: "TASK" }];
+    },
+    async synchronizeExplicitObject() {
+      throw new Error("matching restored content must not synchronize");
+    },
+    async observePrimaryAnchor() {
+      return {};
+    },
+  };
+  await controller.resume(transport);
+  assert.equal(controller.snapshot().reconciliationRequired, true);
+
+  readable = true;
+  await controller.reconcileKnownAnchors();
+  assert.equal(controller.snapshot().reconciliationRequired, false);
+
+  controller.onSubtreeTraversalIssue("EXPLICIT_SYNC_SUBTREE_READ_FAILED", "有界子树读取失败。");
+  assert.equal(controller.snapshot().reconciliationRequired, true);
+  await controller.reconcileKnownAnchors();
+  assert.equal(controller.snapshot().reconciliationRequired, true);
+});
+
 test("cold-start reconciliation waits for Logseq indexing before declaring a persisted Anchor missing", async () => {
   let graphReadable = false;
   const issues: string[] = [];
