@@ -32,7 +32,7 @@ interface ManagerConfig {
   runtimeRoot: string;
   leaseTtlMs: number;
   provider?: LauncherProviderConfig;
-  assertServiceStartAllowed?: (databasePath: string) => Promise<void>;
+  assertServiceStartAllowed?: (databasePath: string, graphId: string) => Promise<void>;
 }
 
 interface Runtime {
@@ -65,7 +65,7 @@ export class GraphServiceManager {
   private readonly graphByKey: Map<string, LauncherGraphConfig>;
   private readonly runtimes = new Map<string, Runtime>();
   private readonly leases = new Map<string, Lease>();
-  private readonly ensureTails = new Map<string, Promise<void>>();
+  private readonly lifecycleTails = new Map<string, Promise<void>>();
   private closed = false;
 
   constructor(
@@ -82,10 +82,13 @@ export class GraphServiceManager {
     if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(input.clientInstanceId)) throw new Error("LAUNCHER_CLIENT_INSTANCE_INVALID");
     const graph = this.graphByKey.get(input.graphKey);
     if (!graph) throw new Error("LAUNCHER_GRAPH_NOT_CONFIGURED");
-    return this.serializeEnsure(graph.graphKey, async () => {
+    return this.serializeGraphLifecycle(graph.graphKey, async () => {
       if (this.closed) throw new Error("LAUNCHER_CLOSED");
       try {
-        await (this.config.assertServiceStartAllowed ?? assertRestoreRecoveryInterlockClear)(graph.databasePath);
+        await (this.config.assertServiceStartAllowed ?? assertRestoreRecoveryInterlockClear)(
+          graph.databasePath,
+          graph.graphId,
+        );
       } catch (error) {
         throw new Error(
           error instanceof Error && error.message === "RESTORE_RECOVERY_ARMED"
@@ -132,15 +135,19 @@ export class GraphServiceManager {
   }
 
   async release(leaseId: string): Promise<void> {
-    const lease = this.leases.get(leaseId);
-    if (!lease) return;
-    this.leases.delete(leaseId);
-    const runtime = this.runtimes.get(lease.graphKey);
-    if (!runtime) return;
-    runtime.leaseIds.delete(leaseId);
-    if (runtime.leaseIds.size > 0) return;
-    this.runtimes.delete(lease.graphKey);
-    await runtime.child.stop();
+    const observedLease = this.leases.get(leaseId);
+    if (!observedLease) return;
+    await this.serializeGraphLifecycle(observedLease.graphKey, async () => {
+      const lease = this.leases.get(leaseId);
+      if (!lease || lease.graphKey !== observedLease.graphKey) return;
+      this.leases.delete(leaseId);
+      const runtime = this.runtimes.get(lease.graphKey);
+      if (!runtime) return;
+      runtime.leaseIds.delete(leaseId);
+      if (runtime.leaseIds.size > 0) return;
+      this.runtimes.delete(lease.graphKey);
+      await runtime.child.stop();
+    });
   }
 
   async reapExpired(): Promise<void> {
@@ -152,10 +159,16 @@ export class GraphServiceManager {
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
-    const runtimes = [...this.runtimes.values()];
-    this.runtimes.clear();
+    await Promise.all([...this.graphByKey.keys()].map((graphKey) => (
+      this.serializeGraphLifecycle(graphKey, async () => {
+        const runtime = this.runtimes.get(graphKey);
+        if (!runtime) return;
+        this.runtimes.delete(graphKey);
+        for (const leaseId of runtime.leaseIds) this.leases.delete(leaseId);
+        await runtime.child.stop();
+      })
+    )));
     this.leases.clear();
-    await Promise.all(runtimes.map((runtime) => runtime.child.stop()));
   }
 
   private forgetExitedRuntime(graphKey: string, runtime: Runtime): void {
@@ -164,18 +177,18 @@ export class GraphServiceManager {
     for (const leaseId of runtime.leaseIds) this.leases.delete(leaseId);
   }
 
-  private async serializeEnsure<T>(graphKey: string, task: () => Promise<T>): Promise<T> {
-    const prior = this.ensureTails.get(graphKey) ?? Promise.resolve();
+  private async serializeGraphLifecycle<T>(graphKey: string, task: () => Promise<T>): Promise<T> {
+    const prior = this.lifecycleTails.get(graphKey) ?? Promise.resolve();
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     const tail = prior.then(() => gate);
-    this.ensureTails.set(graphKey, tail);
+    this.lifecycleTails.set(graphKey, tail);
     await prior;
     try {
       return await task();
     } finally {
       release();
-      if (this.ensureTails.get(graphKey) === tail) this.ensureTails.delete(graphKey);
+      if (this.lifecycleTails.get(graphKey) === tail) this.lifecycleTails.delete(graphKey);
     }
   }
 }

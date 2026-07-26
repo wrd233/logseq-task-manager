@@ -179,6 +179,79 @@ test("concurrent ensure calls coalesce one Graph spawn and attach both leases to
   assert.equal(child.stopped, true);
 });
 
+test("a replacement Service cannot spawn until the last owned child finishes stopping", async () => {
+  let releaseStop!: () => void;
+  const stopGate = new Promise<void>((resolve) => { releaseStop = resolve; });
+  let stopEntered!: () => void;
+  const stopping = new Promise<void>((resolve) => { stopEntered = resolve; });
+  const firstChild = new FakeChild();
+  firstChild.stop = async () => {
+    firstChild.stopped = true;
+    stopEntered();
+    await stopGate;
+  };
+  const secondChild = new FakeChild();
+  const children = [firstChild, secondChild];
+  let starts = 0;
+  const manager = new GraphServiceManager({
+    graphs: [graph],
+    serviceEntryPath: "/opt/task-copilot/service.js",
+    runtimeRoot: "/Users/test/Task Copilot/runtime",
+    leaseTtlMs: 15_000,
+    assertServiceStartAllowed: async () => undefined,
+  }, async () => {
+    const child = children[starts];
+    starts += 1;
+    if (!child) throw new Error("unexpected spawn");
+    return { child, descriptor: { ...descriptor, pid: child.pid + starts } };
+  });
+
+  const first = await manager.ensure({ graphKey: graph.graphKey, clientInstanceId: "plugin-a" });
+  const releasing = manager.release(first.leaseId);
+  await stopping;
+  const replacementPromise = manager.ensure({ graphKey: graph.graphKey, clientInstanceId: "plugin-b" });
+  await Promise.resolve();
+  assert.equal(starts, 1);
+  releaseStop();
+  await releasing;
+  const replacement = await replacementPromise;
+  assert.equal(starts, 2);
+  assert.equal(replacement.serviceDescriptor.pid, secondChild.pid + 2);
+  await manager.release(replacement.leaseId);
+  assert.equal(secondChild.stopped, true);
+});
+
+test("close waits for an in-flight spawn and leaves no owned child running", async () => {
+  let releaseSpawn!: () => void;
+  const spawnGate = new Promise<void>((resolve) => { releaseSpawn = resolve; });
+  let spawnEntered!: () => void;
+  const entered = new Promise<void>((resolve) => { spawnEntered = resolve; });
+  const child = new FakeChild();
+  const manager = new GraphServiceManager({
+    graphs: [graph],
+    serviceEntryPath: "/opt/task-copilot/service.js",
+    runtimeRoot: "/Users/test/Task Copilot/runtime",
+    leaseTtlMs: 15_000,
+    assertServiceStartAllowed: async () => undefined,
+  }, async () => {
+    spawnEntered();
+    await spawnGate;
+    return { child, descriptor };
+  });
+
+  const ensuring = manager.ensure({ graphKey: graph.graphKey, clientInstanceId: "plugin-a" });
+  await entered;
+  const closing = manager.close();
+  releaseSpawn();
+  await assert.rejects(ensuring, /LAUNCHER_CLOSED/);
+  await closing;
+  assert.equal(child.stopped, true);
+  await assert.rejects(
+    () => manager.ensure({ graphKey: graph.graphKey, clientInstanceId: "plugin-b" }),
+    /LAUNCHER_CLOSED/,
+  );
+});
+
 test("Launcher preserves the distinction between an unconfirmed Restore arm and a confirmed recovery point", async () => {
   for (const [interlockError, launcherError] of [
     ["RESTORE_RECOVERY_ARMED", "LAUNCHER_RESTORE_RECOVERY_ARMED"],

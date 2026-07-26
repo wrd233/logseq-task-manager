@@ -1353,7 +1353,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const backupRoot = resolve(options.backupRoot ?? join(dirname(resolve(options.databasePath)), "backups"));
   await mkdir(backupRoot, { recursive: true, mode: 0o700 });
   await chmod(backupRoot, 0o700);
-  await assertRestoreRecoveryInterlockClear(options.databasePath);
+  await assertRestoreRecoveryInterlockClear(options.databasePath, options.graphId);
   const store = await V2SqliteStore.open(options.databasePath);
   let storeOpen = true;
   let stopping = false;

@@ -29,17 +29,18 @@ test("Restore recovery interlock is private, read-back verified, and blocks unti
   await armRestoreRecoveryInterlock(databasePath, record);
   assert.deepEqual(await readRestoreRecoveryInterlock(databasePath), record);
   assert.equal((await readFile(restoreRecoveryInterlockPath(databasePath), "utf8")).includes(databasePath), false);
-  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath), /RESTORE_RECOVERY_ARMED/);
+  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath, "graph-a"), /RESTORE_RECOVERY_ARMED/);
 
   const recoveryRequired = { ...record, status: "RECOVERY_REQUIRED" as const };
   await replaceRestoreRecoveryInterlock(databasePath, record, recoveryRequired);
-  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath), /RESTORE_RECOVERY_REQUIRED/);
+  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath, "graph-a"), /RESTORE_RECOVERY_REQUIRED/);
+  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath, "graph-b"), /RESTORE_RECOVERY_STATE_INVALID/);
   await assert.rejects(
     () => clearRestoreRecoveryInterlock(databasePath, record),
     /RESTORE_RECOVERY_INTERLOCK_STALE/,
   );
   await clearRestoreRecoveryInterlock(databasePath, recoveryRequired);
-  await assertRestoreRecoveryInterlockClear(databasePath);
+  await assertRestoreRecoveryInterlockClear(databasePath, "graph-a");
 });
 
 test("corrupt or insecure Restore interlock fails closed", async (t) => {
@@ -49,7 +50,7 @@ test("corrupt or insecure Restore interlock fails closed", async (t) => {
   const path = restoreRecoveryInterlockPath(databasePath);
   await writeFile(path, "{not-json", { mode: 0o600 });
   await assert.rejects(() => readRestoreRecoveryInterlock(databasePath), /RESTORE_RECOVERY_INTERLOCK_INVALID/);
-  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath), /RESTORE_RECOVERY_STATE_INVALID/);
+  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath, "graph-a"), /RESTORE_RECOVERY_STATE_INVALID/);
   await writeFile(path, JSON.stringify({
     schemaVersion: 1,
     status: "RECOVERY_REQUIRED",
@@ -59,7 +60,7 @@ test("corrupt or insecure Restore interlock fails closed", async (t) => {
   }));
   await chmod(path, 0o644);
   await assert.rejects(() => readRestoreRecoveryInterlock(databasePath), /RESTORE_RECOVERY_INTERLOCK_INSECURE/);
-  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath), /RESTORE_RECOVERY_STATE_INVALID/);
+  await assert.rejects(() => assertRestoreRecoveryInterlockClear(databasePath, "graph-a"), /RESTORE_RECOVERY_STATE_INVALID/);
 });
 
 test("mutation lock makes compare-and-replace exclusive and initial arm never clobbers a newer record", async (t) => {
@@ -115,4 +116,37 @@ test("mutation lock makes compare-and-replace exclusive and initial arm never cl
   );
   assert.deepEqual(await readRestoreRecoveryInterlock(databasePath), required);
   await clearRestoreRecoveryInterlock(databasePath, required);
+});
+
+test("Restore interlocks isolate two database files that share one data directory", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-restore-interlock-multi-db-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const databaseA = join(root, "graph-a.sqlite");
+  const databaseB = join(root, "graph-b.sqlite");
+  await writeFile(databaseA, "placeholder", { mode: 0o600 });
+  await writeFile(databaseB, "placeholder", { mode: 0o600 });
+  const recordA = {
+    schemaVersion: 1 as const,
+    status: "RECOVERY_REQUIRED" as const,
+    graphId: "graph-a",
+    recoveryBackupId: "backup_20260726173000000_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    createdAt: "2026-07-26T17:30:00.000Z",
+  };
+  const recordB = {
+    schemaVersion: 1 as const,
+    status: "ARMED" as const,
+    graphId: "graph-b",
+    recoveryBackupId: "backup_20260726173100000_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    createdAt: "2026-07-26T17:31:00.000Z",
+  };
+
+  assert.notEqual(restoreRecoveryInterlockPath(databaseA), restoreRecoveryInterlockPath(databaseB));
+  await armRestoreRecoveryInterlock(databaseA, recordA);
+  await assertRestoreRecoveryInterlockClear(databaseB, "graph-b");
+  await armRestoreRecoveryInterlock(databaseB, recordB);
+  assert.deepEqual(await readRestoreRecoveryInterlock(databaseA), recordA);
+  assert.deepEqual(await readRestoreRecoveryInterlock(databaseB), recordB);
+  await clearRestoreRecoveryInterlock(databaseA, recordA);
+  assert.deepEqual(await readRestoreRecoveryInterlock(databaseB), recordB);
+  await clearRestoreRecoveryInterlock(databaseB, recordB);
 });

@@ -1,9 +1,8 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, open, readFile, rename, rm, rmdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 export const RESTORE_RECOVERY_INTERLOCK_FILE = ".task-copilot-restore-recovery.json";
-const RESTORE_RECOVERY_INTERLOCK_LOCK = `${RESTORE_RECOVERY_INTERLOCK_FILE}.lock`;
 
 export interface RestoreRecoveryInterlock {
   schemaVersion: 1;
@@ -49,11 +48,12 @@ function validRecord(value: unknown): RestoreRecoveryInterlock {
 
 export function restoreRecoveryInterlockPath(databasePath: string): string {
   const database = resolve(databasePath);
-  return join(dirname(database), RESTORE_RECOVERY_INTERLOCK_FILE);
+  const digest = createHash("sha256").update(database).digest("hex");
+  return join(dirname(database), `.task-copilot-restore-recovery.${digest}.json`);
 }
 
 function mutationLockPath(databasePath: string): string {
-  return join(dirname(resolve(databasePath)), RESTORE_RECOVERY_INTERLOCK_LOCK);
+  return `${restoreRecoveryInterlockPath(databasePath)}.lock`;
 }
 
 async function assertMutationIdle(databasePath: string): Promise<void> {
@@ -89,7 +89,11 @@ export async function readRestoreRecoveryInterlock(
   return record;
 }
 
-export async function assertRestoreRecoveryInterlockClear(databasePath: string): Promise<void> {
+export async function assertRestoreRecoveryInterlockClear(
+  databasePath: string,
+  expectedGraphId: string,
+): Promise<void> {
+  const graphId = boundedIdentifier(expectedGraphId, "graph");
   let record: RestoreRecoveryInterlock | undefined;
   try {
     record = await readRestoreRecoveryInterlock(databasePath);
@@ -97,6 +101,7 @@ export async function assertRestoreRecoveryInterlockClear(databasePath: string):
     throw interlockError("RESTORE_RECOVERY_STATE_INVALID");
   }
   if (!record) return;
+  if (record.graphId !== graphId) throw interlockError("RESTORE_RECOVERY_STATE_INVALID");
   throw interlockError(record.status === "ARMED" ? "RESTORE_RECOVERY_ARMED" : "RESTORE_RECOVERY_REQUIRED");
 }
 
