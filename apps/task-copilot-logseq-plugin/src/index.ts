@@ -2435,13 +2435,16 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await refresh();
       return;
     }
-    await releaseServiceLifecycleSession();
     runtimeEndedByUser = true;
     workspace = "more";
     actionDialog = undefined;
+    const releaseLifecycleSession = releaseServiceLifecycleSession();
     enterRestrictedServiceMode("SERVICE_ENDED_BY_USER", "本次 Task Copilot 已安全结束；Logseq 正文仍可正常编辑。");
     diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
     featureReady = false;
+    message = "正在安全结束本次 Task Copilot；正式修改已暂停，Logseq 正文仍可编辑。";
+    await refresh();
+    await releaseLifecycleSession;
     message = "本次 Task Copilot 已安全结束；当前知识库正文和正式历史保持不变。";
     await refresh();
     return;

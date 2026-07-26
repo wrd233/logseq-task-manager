@@ -2206,6 +2206,10 @@ test("formal V2 plugin entry excludes the writable V1 runtime", async () => {
   assert.match(source, /listPrimaryAnchors\(cursor, true\)/);
   assert.match(source, /if \(!featureReady && !runtimeEndedByUser\)/);
   assert.match(source, /featureReady = serviceConnection\.status === "READY" && serviceConnection\.formalWritesAvailable && Boolean\(serviceRuntimeClient\)/);
+  assert.match(
+    source,
+    /runtimeEndedByUser = true;[\s\S]*const releaseLifecycleSession = releaseServiceLifecycleSession\(\);[\s\S]*enterRestrictedServiceMode\("SERVICE_ENDED_BY_USER"[\s\S]*await refresh\(\);[\s\S]*await releaseLifecycleSession;/,
+  );
 });
 
 test("startup stays non-blocking while host-ready events and Graph switch recover exact Graph identity", async () => {
