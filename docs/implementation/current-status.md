@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_PROVIDER_GATE_AUTOMATED
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MODEL_GATE_REAL_PROVIDER_PASS_PUBLIC_ROUTE_GAP
 overall_goal: IN_PROGRESS
 ```
 
@@ -230,11 +230,18 @@ overall_goal: IN_PROGRESS
   不残留、Runtime/Store READY，并从同一 Project v10 重新计算；Objects/Proposals/Commits
   前后保持 `2/10/21`。CURRENT `p2-e-01`～`p2-e-04`。真实 Provider、正式
   Proposal/Review/Commit/Recovery/Undo 尚未闭环。下一安全门已自动实现：Service 复用五层
-  `LocalLlmProposalGenerator` 与 `design-project@1.2.0`；缺原目标、主要交付或关键
+  `LocalLlmProposalGenerator` 与 `design-project@1.3.0`；缺原目标、主要交付或关键
   Decision 时在网络调用前拒绝，证据充分时也只允许精确 read/modify scope 和一个 HIGH
   Closure 组（同版本 `UPDATE_PROJECT_INTERFACE + TRANSITION_LIFECYCLE`）进入审阅队列。
-  Local Service `140/140`、根级 Gate PASS；真实 Provider 输出质量、Plugin 入口与正式链
-  仍 OPEN，P2-E 仍为 Partial；
+  新增生产 grounding contract 后，目标、交付、Decision、所有未确认 Objective 与逐项遗留
+  都必须回到机器证据；真实 `deepseek-v4-flash` 前两轮因遗漏逐字遗留被零写入拒绝，
+  runtime grounding contract 补齐后第三轮 `MODEL_CONTRACT_ONLY` PASS：1 attempt、
+  约 24.1 秒、5861 tokens、唯一 HIGH 组、4 read/1 modify、两项固定 operation，Graph/
+  Store 写入均为 0。该结论不冒充公共 Service happy-path：正式 Ownership 矩阵禁止
+  Decision/Output 以 Project 为 Primary Owner，而当前 evidence draft 仍把这条不可能关系
+  当作 Provider 前置。下一步保持 Ownership 语义不变，增加“正式候选 + 用户确认”的
+  session-only Closure draft，再进入 Plugin HIGH Review/Commit/Recovery/Undo。P2-E
+  仍为 Partial。Local Service `143/143`、typecheck 与根级 `./scripts/check.sh` PASS；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；

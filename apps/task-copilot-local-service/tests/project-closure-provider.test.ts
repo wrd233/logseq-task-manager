@@ -20,7 +20,7 @@ const coreSkill: TaskCopilotSkillDocument = {
 };
 const designSkill: TaskCopilotSkillDocument = {
   name: "design-project",
-  version: "1.2.0",
+  version: "1.3.0",
   description: "project",
   sha256: "b".repeat(64),
   content: "Closure remains review-only.",
@@ -109,7 +109,7 @@ function proposal(): V2Proposal {
       kind: "local_llm",
       provider: "deepseek",
       model: "deepseek-v4-flash",
-      skillVersion: "design-project@1.2.0",
+      skillVersion: "design-project@1.3.0",
       writingProfileVersion: "project-closure-user-semantics-v1",
       promptBundleVersion: "12345678",
     },
@@ -133,8 +133,8 @@ function proposal(): V2Proposal {
               originalGoal: "稳定发布",
               actualResult: "主要链路和恢复演练已完成。",
               majorDeliverables: ["发布手册"],
-              incompleteObjectives: [{ objective: "历史回放", reason: "数据未齐", nextStep: "转入后续事项" }],
-              legacyDisposition: "历史回放由后续事项承接。",
+              incompleteObjectives: [{ objective: "稳定发布", reason: "Objective 完成仍需用户确认", nextStep: "在 HIGH Review 中确认 disposition" }],
+              legacyDisposition: "补齐历史回放由后续事项承接。",
               keyDecisions: ["保留回退开关"],
               futureSummary: "重入时先检查历史数据是否到齐。",
             },
@@ -160,13 +160,20 @@ function proposal(): V2Proposal {
 test("Closure Provider prompt is evidence-bounded and carries exact machine scope", () => {
   const value = evidence();
   const prompt = buildProjectClosureProposalPrompt({ evidence: value, coreSkill, designProjectSkill: designSkill });
-  assert.equal(prompt.skill.version, "design-project@1.2.0");
+  assert.equal(prompt.skill.version, "design-project@1.3.0");
   assert.match(prompt.domain.content, /NO_PROPOSAL/);
   assert.match(prompt.userSemantics.content, /Do not expose object IDs/);
   const runtime = JSON.parse(prompt.runtimeContext.content) as {
     authorityBoundary: string;
     exactReadScope: Array<{ id: string; version: number }>;
     exactModifyScope: Array<{ id: string; version: number }>;
+    groundingContract: {
+      originalGoalMustEqualOneOf: string[];
+      majorDeliverablesMayOnlyUseExact: string[];
+      keyDecisionsMayOnlyUseExact: string[];
+      incompleteObjectivesMustContainExact: string[];
+      legacyDispositionMustContainEachExact: string[];
+    };
   };
   assert.equal(runtime.authorityBoundary, "PROPOSAL_ONLY_NO_FORMAL_WRITE");
   assert.deepEqual(runtime.exactReadScope.map(({ id, version }) => `${id}@${version}`), [
@@ -176,6 +183,13 @@ test("Closure Provider prompt is evidence-bounded and carries exact machine scop
     "task-rehearsal@3",
   ]);
   assert.deepEqual(runtime.exactModifyScope, [{ kind: "OBJECT", id: "project-closure", version: 4 }]);
+  assert.deepEqual(runtime.groundingContract, {
+    originalGoalMustEqualOneOf: ["稳定发布"],
+    majorDeliverablesMayOnlyUseExact: ["发布手册"],
+    keyDecisionsMayOnlyUseExact: ["保留回退开关"],
+    incompleteObjectivesMustContainExact: ["稳定发布"],
+    legacyDispositionMustContainEachExact: ["补齐历史回放"],
+  });
 });
 
 test("Closure Provider refuses missing required evidence before a model call can be assembled", () => {
@@ -210,5 +224,64 @@ test("Closure Provider accepts only the exact HIGH two-operation Project shape",
   assert.throws(
     () => validateGeneratedProjectClosureProposal(extraOperation, value),
     (error: unknown) => error instanceof Error && "code" in error && error.code === "PROJECT_CLOSURE_PROVIDER_SHAPE_INVALID",
+  );
+});
+
+test("Closure Provider grounds deliverables, decisions, and unresolved Objective dispositions in machine evidence", () => {
+  const value = evidence();
+  const inventedDecision = proposal();
+  const inventedDecisionClosure = inventedDecision.groups[0]!.semanticOperations[0]!.payload.closure as {
+    keyDecisions: string[];
+  };
+  inventedDecisionClosure.keyDecisions = ["模型补写的决定"];
+  assert.throws(
+    () => validateGeneratedProjectClosureProposal(inventedDecision, value),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "PROJECT_CLOSURE_PROVIDER_DECISION_UNGROUNDED",
+  );
+
+  const inventedDeliverable = proposal();
+  const inventedDeliverableClosure = inventedDeliverable.groups[0]!.semanticOperations[0]!.payload.closure as {
+    majorDeliverables: string[];
+  };
+  inventedDeliverableClosure.majorDeliverables = ["模型补写的交付物"];
+  assert.throws(
+    () => validateGeneratedProjectClosureProposal(inventedDeliverable, value),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "PROJECT_CLOSURE_PROVIDER_DELIVERABLE_UNGROUNDED",
+  );
+
+  const inferredObjectiveCompletion = proposal();
+  const inferredObjectiveClosure = inferredObjectiveCompletion.groups[0]!.semanticOperations[0]!.payload.closure as {
+    incompleteObjectives: unknown[];
+  };
+  inferredObjectiveClosure.incompleteObjectives = [];
+  assert.throws(
+    () => validateGeneratedProjectClosureProposal(inferredObjectiveCompletion, value),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "PROJECT_CLOSURE_PROVIDER_OBJECTIVE_DISPOSITION_MISSING",
+  );
+
+  const droppedUnresolvedWork = proposal();
+  const droppedUnresolvedClosure = droppedUnresolvedWork.groups[0]!.semanticOperations[0]!.payload.closure as {
+    incompleteObjectives: Array<{ objective: string; reason: string; nextStep: string }>;
+    legacyDisposition: string;
+    futureSummary: string;
+  };
+  droppedUnresolvedClosure.incompleteObjectives = [{
+    objective: "稳定发布",
+    reason: "Objective 完成仍需用户确认",
+    nextStep: "在 HIGH Review 中确认 disposition",
+  }];
+  droppedUnresolvedClosure.legacyDisposition = "没有遗留事项。";
+  droppedUnresolvedClosure.futureSummary = "重入时核对发布状态。";
+  assert.throws(
+    () => validateGeneratedProjectClosureProposal(droppedUnresolvedWork, value),
+    (error: unknown) => error instanceof Error
+      && "code" in error
+      && error.code === "PROJECT_CLOSURE_PROVIDER_UNRESOLVED_WORK_DROPPED",
   );
 });

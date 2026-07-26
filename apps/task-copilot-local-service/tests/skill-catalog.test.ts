@@ -15,7 +15,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   assert.deepEqual(first, second);
   assert.deepEqual(first.map(({ name, version }) => ({ name, version })), [
     { name: "task-copilot-core", version: "1.0.0" },
-    { name: "design-project", version: "1.2.0" },
+    { name: "design-project", version: "1.3.0" },
     { name: "recover-context", version: "1.2.0" },
     { name: "mini-project-modeling", version: "1.3.0" },
     { name: "project-creation-modeling", version: "1.5.0" },

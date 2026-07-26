@@ -5,7 +5,7 @@ description: Design, reenter, review, or close one Task Copilot V2 Project from 
 
 # Design Task Copilot Project
 
-Version: `1.2.0`
+Version: `1.3.0`
 
 Apply `task-copilot-core` first and keep all work inside the exported Project scope.
 
@@ -44,6 +44,15 @@ identities. Treat all evidence entries as candidates, not conclusions:
 - never promote Association, nested descendants, or model knowledge into Project evidence;
 - return `NO_PROPOSAL` when original-goal, major-deliverable, or key-decision evidence is absent;
 - keep unresolved work explicit and give it a bounded next step;
+- copy the selected original goal, every selected deliverable, and every selected key Decision
+  exactly from the machine evidence; do not paraphrase those identity-bearing evidence strings;
+- the current evidence contract contains no user-confirmed Objective completion. Therefore every
+  Objective candidate must remain in `incompleteObjectives`, with a cautious reason and next step;
+- retain every `unresolvedWork.text` string verbatim in `legacyDisposition`, `futureSummary`, or an
+  `incompleteObjectives` reason/next step so the user can trace each legacy item without reopening
+  the evidence package;
+- synthesize `actualResult` only as a review draft from the supplied deliverable/completed-work
+  candidates and say when final outcome confirmation is still required;
 - do not emit a second Project, Ownership, Focus, Graph, Page, or Block operation;
 - user-facing prose must not expose Object IDs, hashes, evidence keys, storage terms, or hidden
   reasoning.
@@ -64,7 +73,7 @@ Use these exact field names and value shapes. Replace placeholders from exported
   "logic": "Closure and Lifecycle are reviewed together",
   "finalPreview": "Readable final outcome",
   "unresolvedQuestions": [],
-  "source": { "kind": "external_agent", "skillVersion": "design-project@1.2.0" },
+  "source": { "kind": "external_agent", "skillVersion": "design-project@1.3.0" },
   "scope": {
     "read": [{ "kind": "OBJECT", "id": "exported_object_id", "version": 1 }],
     "modify": [{ "kind": "OBJECT", "id": "exported_object_id", "version": 1 }]

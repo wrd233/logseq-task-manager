@@ -112,3 +112,20 @@ HIGH、Ownership、Closure、Lifecycle、Project structure、批量与跨对象�
 ## 尚不需要用户决定
 
 当前所有首批 P0 选择都可由设计文档、代码与原型回答。没有需要立即向用户提出的产品语义问题。
+
+### UX-C004：Closure evidence 假设了领域层禁止的 Decision/Output Primary Ownership
+
+分类：`DOMAIN_EXTENSION` / `LLM_SKILL`
+
+2026-07-26 实证：公共 Service tracer 通过正式 Project、Project interface、Task 与
+Ownership 命令构造候选时，缺关键 Decision 会在 Provider 前安全拒绝；尝试把正式 Decision
+归属 Project 则由 `V2_PRIMARY_OWNERSHIP_NOT_ALLOWED` 拒绝。Application 早期测试使用了
+持久层不可能产生的 Decision/Output Ownership fixture，因此“证据充分 route”只在合成层成立。
+
+当前推荐不扩大 Ownership：Decision/Output 是证据对象，不应为了 Closure 改成工作层级子项；
+普通 Association 也只表达“相关”，不能自动升级为成果或关键决定。下一纵向链应让用户在
+session-only Closure draft 中确认实际结果、Objective disposition、遗留、关键 Decision 与
+future summary；Provider 只压缩“正式候选 + 用户确认”，Proposal Review 仍是正式写入边界。
+该方向符合“用户只处理真实判断”和既有外部 Agent Closure 合同，不构成需要立即交回用户的
+新产品取舍。若未来要求 Decision/Output 成为 Project 层级成员，再单独提出 Ownership 模型
+扩张方案和迁移影响。

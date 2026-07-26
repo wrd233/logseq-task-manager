@@ -228,7 +228,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   const skills = await client.listSkills();
   assert.deepEqual(skills.map(({ name, version }) => ({ name, version })), [
     { name: "task-copilot-core", version: "1.0.0" },
-    { name: "design-project", version: "1.2.0" },
+    { name: "design-project", version: "1.3.0" },
     { name: "recover-context", version: "1.2.0" },
     { name: "mini-project-modeling", version: "1.3.0" },
     { name: "project-creation-modeling", version: "1.5.0" },
@@ -2709,6 +2709,96 @@ test("Project Closure Provider route refuses incomplete formal evidence before c
   assert.equal(providerCalls, 0);
   assert.deepEqual(await client.listProposals(), before);
   assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "OPEN");
+});
+
+test("Project Closure Provider does not reinterpret legally owned work as missing Decision evidence", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-provider-bounded-"));
+  let providerCalls = 0;
+  const proposalGenerator = new LocalLlmProposalGenerator({
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      providerCalls += 1;
+      return {
+        value: { decision: "NO_PROPOSAL", reason: "should not be called" },
+        metadata: { requestId: "unexpected", model: "test-model", finishReason: "stop", totalTokens: 1, durationMs: 1, attempts: 1 },
+      };
+    },
+  });
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-closure-provider-bounded",
+    token: "project-closure-provider-bounded-token",
+    proposalGenerator,
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+
+  const prepared = await client.prepareProject({ name: "发布治理", traceId: "closure-bounded-project-prepare" });
+  const created = await client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "发布治理",
+    pageExternalId: "page-project-closure-provider-bounded",
+    pageContentHash: checksum("Project/发布治理"),
+    traceId: "closure-bounded-project-finalize",
+  });
+  const structureSubmitted = await client.submitProposal(projectStructureProposal(created.object.objectId, created.object.version));
+  const structureReviewed = await client.reviewProposal(
+    structureSubmitted.record.proposal.proposalId,
+    { "update-project-interface": { disposition: "ACCEPTED", highImpactConfirmed: true } },
+    structureSubmitted.record.updatedAt,
+  );
+  const structured = await client.commitProjectStructure(structureReviewed.proposal.proposalId, {
+    expectedUpdatedAt: structureReviewed.updatedAt,
+    confirmation: "UPDATE_PROJECT_INTERFACE",
+    observations: [],
+    traceId: "closure-bounded-project-structure",
+  });
+  assert.equal(structured.status, "COMPLETED");
+  if (structured.status !== "COMPLETED") return;
+
+  const task = await client.materializeExplicitObject({
+    objectType: "TASK",
+    text: "核对回退开关",
+    externalId: "block-closure-bounded-task",
+    inputVersion: "1",
+    contentHash: checksum("[任务] 核对回退开关"),
+    idempotencyKey: "closure-bounded-task",
+    traceId: "closure-bounded-task",
+  });
+  const ownershipSubmitted = await client.submitProposal(ownershipProposal(
+    task.object.objectId,
+    task.object.version,
+    structured.object.objectId,
+    structured.object.version,
+    undefined,
+    "prop_closure_bounded_owner",
+  ));
+  const ownershipReviewed = await client.reviewProposal(
+    ownershipSubmitted.record.proposal.proposalId,
+    { "change-owner": { disposition: "ACCEPTED", highImpactConfirmed: true } },
+    ownershipSubmitted.record.updatedAt,
+  );
+  assert.equal((await client.commitPrimaryOwnership(ownershipReviewed.proposal.proposalId, {
+    expectedUpdatedAt: ownershipReviewed.updatedAt,
+    confirmation: "CHANGE_PRIMARY_OWNERSHIP",
+    observations: [],
+    traceId: "closure-bounded-owner-commit",
+  })).status, "COMPLETED");
+
+  const beforeProject = await client.getObject(structured.object.objectId);
+  const beforeProposals = await client.listProposals();
+  await assert.rejects(
+    () => client.createProjectClosureProposal(structured.object.objectId, { expectedVersion: structured.object.version }),
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "PROJECT_CLOSURE_PROVIDER_EVIDENCE_INSUFFICIENT",
+  );
+  assert.equal(providerCalls, 0);
+  assert.deepEqual(await client.listProposals(), beforeProposals);
+  assert.deepEqual(await client.getObject(structured.object.objectId), beforeProject);
+  assert.equal(beforeProject?.lifecycle, "OPEN");
 });
 
 test("reviewed Project current interface commits one versioned aggregate and rejects stale overwrite", async (t) => {

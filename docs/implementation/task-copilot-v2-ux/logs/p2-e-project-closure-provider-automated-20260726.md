@@ -1,5 +1,9 @@
 # P2-E Project Closure Provider gate — automated
 
+> HISTORICAL FOUNDATION: this records the initial `design-project@1.2.0` shape gate. The current
+> grounding contract and real-Provider conclusion use `design-project@1.3.0`; see
+> `p2-e-project-closure-provider-live-20260726.md`.
+
 ## Status
 
 `IN_PROGRESS_PROVIDER_GATE_AUTOMATED`

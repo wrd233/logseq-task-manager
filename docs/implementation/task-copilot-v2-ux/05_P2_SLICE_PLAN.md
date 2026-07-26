@@ -262,7 +262,7 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 
 ## P2-E：Closure 证据起草
 
-状态：`IN_PROGRESS_PROVIDER_GATE_AUTOMATED`
+状态：`IN_PROGRESS_MODEL_GATE_REAL_PROVIDER_PASS_PUBLIC_ROUTE_GAP`
 
 MiniProject 聚合：子树、DONE、Output、Decision、原状态和遗留。
 
@@ -285,12 +285,17 @@ Review/Commit/Recovery/Undo，因此 P2-E 不得标为 DONE。自动记录见
 `logs/p2-e-project-closure-evidence-automated-20260726.md`。
 
 下一安全门也已自动完成：专用 Provider route 复用现有五层 Proposal generator；
-`design-project@1.2.0` 明确 evidence 候选、NO_PROPOSAL、exact scope 和前台 identity
+`design-project@1.3.0` 明确 evidence 候选、NO_PROPOSAL、exact scope、前台 identity
 隔离。缺原目标、主要交付或关键 Decision 时 Provider 调用次数必须为 0；模型草稿即使
 Schema 合法，也必须保持唯一 HIGH 组和同版本两操作才能进入 Review。Local Service
-`140/140` 与根级 Gate PASS。真实 DeepSeek、Plugin loading/error/stale、Review/Commit/
-Recovery/Undo 继续 OPEN，见
-`logs/p2-e-project-closure-provider-automated-20260726.md`。
+自动 Gate PASS。真实 Flash 的脱敏 model-contract Gate 已经通过 machine grounding、
+Objective 保守 disposition、逐项遗留保留和前台 identity 隔离；前两轮失败均由 Validator
+零写入挡住，第三轮 1 attempt PASS。该 Gate 没有掩盖公共链缺口：V2 Ownership 矩阵禁止
+Decision/Output 归属 Project，因此当前 formal-only route 无法合法满足 key Decision
+preflight。下一步不扩张 Ownership，而是增加 session-only 用户确认，随后再接 Plugin
+loading/error/stale、HIGH Review/Commit/Recovery/Undo。见
+`logs/p2-e-project-closure-provider-live-20260726.md`。Local Service `143/143`、
+typecheck 与根级 `./scripts/check.sh` PASS。
 
 ## P2-F：跨对象观察
 

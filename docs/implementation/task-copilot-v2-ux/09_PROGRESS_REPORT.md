@@ -536,12 +536,19 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   重新计算，Objects/Proposals/Commits 保持 `2/10/21`，Project 保持 v10/OPEN/ACTIONABLE。
   CURRENT `p2-e-01`～`p2-e-04`。真实 Provider、HIGH
   Proposal/Review/Commit/Recovery/Undo 仍 OPEN；
-- P2-E Provider 自动安全门完成：复用既有五层 Proposal generator；`design-project@1.2.0`
+- P2-E Provider model contract 已完成真实 Flash Gate：复用既有五层 Proposal generator；
+  `design-project@1.3.0`
   新增 evidence candidate、NO_PROPOSAL、exact scope/operation 和前台 identity 隔离。
   缺原目标、主要交付或关键 Decision 时在网络调用前拒绝，`providerCalls=0`、Proposal
-  队列不变、Project 仍 OPEN。模型草稿还必须精确保持唯一 HIGH 组、零正文 patch、同版本
-  Closure + COMPLETED 两操作。Local Service `140/140`、Service Client `12/12`、根级
-  Gate PASS；尚未声称真实 DeepSeek 质量或 Plugin 纵向链；
+  队列不变、Project 仍 OPEN。生产 Validator 现在还逐项锁定 original goal、Deliverable、
+  Decision、所有未确认 Objective 与 unresolved work。真实 `deepseek-v4-flash` 前两轮因
+  遗留项未逐字保留被安全拒绝；增加 runtime `groundingContract` 后第三轮 1 attempt、
+  约 24.1 秒、5861 tokens PASS：唯一 HIGH 组、4 read/1 modify、固定 Closure +
+  COMPLETED 两操作、前台无机器 identity、Graph/Store 写入 0。该结果明确标为
+  `MODEL_CONTRACT_ONLY`。公共 route 的正式 happy-path 仍不可达：领域矩阵禁止
+  Decision/Output → Project Primary Ownership，而当前 evidence draft 依赖这种关系。
+  下一步保留 Ownership 边界，新增 session-only 用户确认后再进入 Review。Local Service
+  `143/143`、typecheck 与根级 `./scripts/check.sh` PASS；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -551,9 +558,11 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-E：用现有 `design-project` Skill 基于只读 evidence package 起草一份受统一
-   Validator 约束的 HIGH Closure Proposal，并闭环 Review/Commit/reload/Recovery/Undo；
-   安装最新构建后先做 evidence preview Desktop Gate，不能把自动渲染当成当前界面证据；
+1. 继续 P2-E：把只读 evidence 的真实用户判断收敛为 session-only Closure draft，使
+   Key Decision、actual result、Objective disposition、遗留去向和 future summary 都有
+   用户确认来源；随后让 Provider 只压缩这些正式候选与确认，进入 HIGH Review，并闭环
+   Commit/reload/Recovery/Undo。不得通过扩张 Primary Ownership 或伪造直属 Decision
+   来制造 happy-path；
 2. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
    把 Ownership、正文移动、批量子对象与拆分合并的既有安全链逐项映射到当前影响路由；
 3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H

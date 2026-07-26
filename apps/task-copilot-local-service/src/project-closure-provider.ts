@@ -1,5 +1,5 @@
 import type { ProjectClosureEvidenceDraft } from "@task-copilot/application";
-import type { V2Proposal, V2ProposalScopeTarget } from "@task-copilot/domain";
+import type { V2ProjectClosure, V2Proposal, V2ProposalScopeTarget } from "@task-copilot/domain";
 import { StructuredError, stableJson } from "@task-copilot/shared";
 
 import type { V2PromptBundle } from "./llm-proposal.ts";
@@ -60,7 +60,7 @@ export function buildProjectClosureProposalPrompt(input: {
   return {
     core: { version: `${input.coreSkill.name}@${input.coreSkill.version}`, content: input.coreSkill.content },
     domain: {
-      version: "project-closure-provider-domain-v1",
+      version: "project-closure-provider-domain-v3",
       content: [
         "Only draft one Project Closure Proposal for review.",
         "Return exactly one HIGH group with no text patches.",
@@ -68,6 +68,7 @@ export function buildProjectClosureProposalPrompt(input: {
         "Both operations target the exact Project Object version supplied by the machine.",
         "Do not create, move, rewrite, own, focus, close, or infer any other Object.",
         "Objective completion is never inferred from success-evidence text. Put every not-explicitly-complete Objective in incompleteObjectives with a cautious reason and next step.",
+        "The runtime groundingContract is machine-enforced: copy its exact strings into the named Closure fields and include every required legacy string verbatim.",
         "If the evidence cannot support a truthful Closure, return NO_PROPOSAL.",
       ].join("\n"),
     },
@@ -87,6 +88,13 @@ export function buildProjectClosureProposalPrompt(input: {
           { operationId: "record-closure", kind: "UPDATE_PROJECT_INTERFACE", target: exactModifyScope[0] },
           { operationId: "complete-project", kind: "TRANSITION_LIFECYCLE", target: exactModifyScope[0], payload: { lifecycle: "COMPLETED" } },
         ],
+        groundingContract: {
+          originalGoalMustEqualOneOf: evidence.goalCandidates.map(({ text }) => text),
+          majorDeliverablesMayOnlyUseExact: evidence.deliverableCandidates.map(({ text }) => text),
+          keyDecisionsMayOnlyUseExact: evidence.decisionCandidates.map(({ text }) => text),
+          incompleteObjectivesMustContainExact: evidence.objectiveJudgments.map(({ objective }) => objective.text),
+          legacyDispositionMustContainEachExact: evidence.unresolvedWork.map(({ text }) => text),
+        },
         evidence,
       }),
     },
@@ -130,6 +138,46 @@ export function validateGeneratedProjectClosureProposal(
     || !exactTarget(completeProject.target)
     || completeProject.payload.lifecycle !== "COMPLETED") {
     throw closureProviderError("PROJECT_CLOSURE_PROVIDER_SHAPE_INVALID", "Copilot 草稿没有保持唯一、不可拆的 Project Closure 安全形状；没有进入审阅队列。");
+  }
+  const closure = recordClosure.payload.closure as V2ProjectClosure;
+  const goalCandidates = new Set(evidence.goalCandidates.map(({ text }) => text));
+  const deliverableCandidates = new Set(evidence.deliverableCandidates.map(({ text }) => text));
+  const decisionCandidates = new Set(evidence.decisionCandidates.map(({ text }) => text));
+  const unresolvedObjectives = new Set(closure.incompleteObjectives.map(({ objective }) => objective));
+  if (!goalCandidates.has(closure.originalGoal)) {
+    throw closureProviderError(
+      "PROJECT_CLOSURE_PROVIDER_GOAL_UNGROUNDED",
+      "Copilot Closure 改写或补写了原目标；没有进入审阅队列。",
+    );
+  }
+  if (closure.majorDeliverables.some((text) => !deliverableCandidates.has(text))) {
+    throw closureProviderError(
+      "PROJECT_CLOSURE_PROVIDER_DELIVERABLE_UNGROUNDED",
+      "Copilot Closure 改写或补写了主要交付；没有进入审阅队列。",
+    );
+  }
+  if (closure.keyDecisions.some((text) => !decisionCandidates.has(text))) {
+    throw closureProviderError(
+      "PROJECT_CLOSURE_PROVIDER_DECISION_UNGROUNDED",
+      "Copilot Closure 改写或补写了关键 Decision；没有进入审阅队列。",
+    );
+  }
+  if ([...goalCandidates].some((text) => !unresolvedObjectives.has(text))) {
+    throw closureProviderError(
+      "PROJECT_CLOSURE_PROVIDER_OBJECTIVE_DISPOSITION_MISSING",
+      "Copilot Closure 把尚未由用户确认完成的 Objective 静默移出了未完成清单；没有进入审阅队列。",
+    );
+  }
+  const unresolvedDispositionText = [
+    closure.legacyDisposition,
+    closure.futureSummary,
+    ...closure.incompleteObjectives.flatMap(({ objective, reason, nextStep }) => [objective, reason, nextStep]),
+  ].join("\n");
+  if (evidence.unresolvedWork.some(({ text }) => !unresolvedDispositionText.includes(text))) {
+    throw closureProviderError(
+      "PROJECT_CLOSURE_PROVIDER_UNRESOLVED_WORK_DROPPED",
+      "Copilot Closure 没有逐项保留正式未决工作及其承接；没有进入审阅队列。",
+    );
   }
   return proposal;
 }
