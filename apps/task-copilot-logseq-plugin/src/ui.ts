@@ -1018,6 +1018,11 @@ export function renderApp(model: UiModel): string {
   const activePrimary = primaryWorkspace(model.workspace);
   const changes = recentChanges(model);
   const immediateResult = renderImmediateResult(model, changes);
+  const copilotState = model.v2ProviderAvailable
+    ? "Copilot 可用 · 建议需审阅"
+    : model.agent.enabled
+      ? `Agent Demo · ${escapeHtml(model.agent.providerId)}`
+      : "Copilot 未配置 · 基础事务系统可用";
   const body =
     model.workspace === "now"
         ? renderNow(model)
@@ -1038,7 +1043,7 @@ export function renderApp(model: UiModel): string {
       <div class="top-actions">${button("整理当前页", "v2-candidate-open", undefined, "primary")}${button(model.originReturnLabel ?? "关闭", "close", undefined, "quiet")}</div>
     </header>
     ${model.runtime ? `<div class="runtime-strip"><span>Plugin ${escapeHtml(model.runtime.pluginVersion)}</span><span>Runtime ${escapeHtml(model.runtime.runtimeStatus)}</span><span>Store ${escapeHtml(model.runtime.storeStatus)}</span><span>Graph ${escapeHtml(model.runtime.currentGraph)}</span></div>` : ""}
-    <div class="agent-state ${model.agent.enabled ? "enabled" : "disabled"}">Agent ${model.agent.enabled ? `Demo · ${escapeHtml(model.agent.providerId)}` : "disabled · 基础事务系统可用"}</div>
+    <div class="agent-state ${model.v2ProviderAvailable || model.agent.enabled ? "enabled" : "disabled"}">${copilotState}</div>
     ${model.message && !immediateResult ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${immediateResult}
     ${model.error ? `<div class="error"><strong>未执行：</strong>${escapeHtml(model.error)}<span>请修正后重试；系统不会静默覆盖。</span></div>` : ""}

@@ -39,7 +39,7 @@ test("shell exposes exactly four user-level primary destinations and no-agent de
     assert.doesNotMatch(primary, new RegExp(engineeringLabel));
   }
   assert.doesNotMatch(html, /data-value="inbox"/);
-  assert.match(html, /Agent disabled/);
+  assert.match(html, /Copilot 未配置/);
   assert.match(html, /基础事务系统可用/);
   assert.match(html, /<nav aria-label="主要工作区">/);
   assert.match(primary, /data-value="now" aria-current="page"/);
@@ -47,6 +47,15 @@ test("shell exposes exactly four user-level primary destinations and no-agent de
   assert.match(html, /data-action="v2-candidate-open"/);
   assert.doesNotMatch(html.match(/<header class="topbar">([\s\S]*?)<\/header>/)?.[1] ?? "", /Diagnostics/);
   assert.doesNotMatch(html, /data-action="capture"/);
+});
+
+test("shell reports the controlled V2 Provider instead of the legacy demo-agent flag", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2ProviderAvailable = true;
+  const html = renderApp(value);
+  assert.match(html, /Copilot 可用 · 建议需审阅/);
+  assert.doesNotMatch(html, /Agent disabled/);
 });
 
 test("Project primary destination keeps reentry and formal-object capabilities reachable", () => {
