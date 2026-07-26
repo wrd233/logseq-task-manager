@@ -34,15 +34,15 @@ test("healthy status answers the five user questions without treating an optiona
   const result = deriveUserSystemStatus(snapshot());
   assert.equal(result.level, "READY");
   assert.equal(result.headline, "Task Copilot 可以正常使用");
-  assert.deepEqual(result.keyEvidence, ["正式状态与当前 Graph 已连接"]);
+  assert.deepEqual(result.keyEvidence, ["正式状态与当前知识库已连接"]);
   assert.equal(result.narrationRuleId, "system-ready");
-  assert.match(result.whatHappened, /正式状态与当前 Graph 已连接/);
+  assert.match(result.whatHappened, /正式状态与当前知识库已连接/);
   assert.match(result.affected, /Agent 分析未启用/);
   assert.match(result.stillAvailable, /正文编辑、当前关注、暂时做不了、项目、审阅、撤销、备份与迁移/);
   assert.match(result.dataSafety, /Logseq 正文仍是工作现场/);
   assert.doesNotMatch(
     `${result.whatHappened} ${result.affected} ${result.stillAvailable} ${result.dataSafety} ${result.actionRequired}`,
-    /SQLite|Primary Anchor|\bAnchor\b|\bFocus\b|\bCondition\b|\bProject\b|\bAudit\b|\bRebind\b|UUID|Doctor/,
+    /SQLite|Primary Anchor|\bAnchor\b|\bFocus\b|\bCondition\b|\bProject\b|\bAudit\b|\bRebind\b|UUID|Doctor|Graph|Service|Plugin|descriptor|protocol|Restore|Commit|Undo/,
   );
   assert.equal(result.actionRequired, "无需操作；需要 Agent 分析时再配置 Provider。");
 });
@@ -63,12 +63,13 @@ test("unavailable Service pauses formal writes while keeping Graph editing and h
     explicit_sync: { pending: 0, transportReady: false, reconciliationRequired: true },
   }));
   assert.equal(result.level, "BLOCKED");
-  assert.equal(result.headline, "正式服务暂时不可用");
+  assert.equal(result.headline, "正式能力暂时不可用");
   assert.equal(result.narrationRuleId, "system-service-restricted");
-  assert.match(result.affected, /正式写入、审阅提交、Undo、备份、恢复与迁移已暂停/);
+  assert.match(result.affected, /应用正式修改、审阅提交、撤销、备份、恢复与迁移已暂停/);
   assert.match(result.stillAvailable, /Logseq 正文仍可编辑/);
   assert.match(result.dataSafety, /没有把连接失败当成空状态/);
-  assert.match(result.actionRequired, /重新连接同一 Graph 的 Service/);
+  assert.match(result.actionRequired, /重新连接当前知识库/);
+  assert.doesNotMatch(`${result.headline} ${result.whatHappened} ${result.affected} ${result.actionRequired}`, /Graph|Service|Plugin|descriptor|protocol|Restore|Commit|Undo|SQLite/);
 });
 
 test("protocol and Graph mismatches have distinct user actions", () => {
@@ -80,8 +81,8 @@ test("protocol and Graph mismatches have distinct user actions", () => {
       graph_editing_available: true,
     },
   }));
-  assert.equal(protocol.headline, "Plugin 与正式服务版本不兼容");
-  assert.match(protocol.actionRequired, /匹配版本/);
+  assert.equal(protocol.headline, "Task Copilot 版本不兼容");
+  assert.match(protocol.actionRequired, /同一版本/);
 
   const graph = deriveUserSystemStatus(snapshot({
     service_connection: {
@@ -91,8 +92,8 @@ test("protocol and Graph mismatches have distinct user actions", () => {
       graph_editing_available: true,
     },
   }));
-  assert.equal(graph.headline, "当前 Graph 与正式状态不匹配");
-  assert.match(graph.actionRequired, /不要切换数据库/);
+  assert.equal(graph.headline, "当前知识库与正式状态不匹配");
+  assert.match(graph.actionRequired, /不要复用其他知识库的数据/);
 });
 
 test("Restore rollback failure keeps formal writes stopped and points to the retained recovery point", () => {
@@ -108,15 +109,15 @@ test("Restore rollback failure keeps formal writes stopped and points to the ret
       },
     }));
     assert.equal(result.level, "BLOCKED");
-    assert.equal(result.headline, "Restore 需要人工恢复");
+    assert.equal(result.headline, "需要人工恢复");
     assert.match(result.whatHappened, /未能自动回滚/);
-    assert.match(result.stillAvailable, /Restore 前恢复点/);
+    assert.match(result.stillAvailable, /切换前恢复点/);
     assert.match(result.dataSafety, /没有继续启用未确认的正式状态/);
-    assert.match(result.actionRequired, /不要重复 Restore/);
+    assert.match(result.actionRequired, /不要重复尝试恢复/);
     assert.match(result.actionRequired, /下方核验后继续恢复/);
     assert.doesNotMatch(
       `${result.whatHappened} ${result.affected} ${result.stillAvailable} ${result.dataSafety} ${result.actionRequired}`,
-      /SQLite|数据库路径|内部快照标识|Doctor/,
+      /SQLite|数据库路径|内部快照标识|Doctor|Graph|Service|Plugin|descriptor|protocol|Restore|Commit|Undo/,
     );
   }
 });
@@ -133,9 +134,9 @@ test("an armed Restore interlock keeps writes stopped without inventing a recove
     },
   }));
   assert.equal(result.level, "BLOCKED");
-  assert.equal(result.headline, "Restore 中断，需要核验");
-  assert.match(result.whatHappened, /确认.*恢复前状态已保存.*之前中断/);
-  assert.match(result.dataSafety, /未验证的文件/);
+  assert.equal(result.headline, "上次恢复中断，需要核验");
+  assert.match(result.whatHappened, /确认.*切换前状态已保存.*之前中断/);
+  assert.match(result.dataSafety, /未经核验的内容/);
   assert.doesNotMatch(`${result.whatHappened} ${result.stillAvailable}`, /恢复点.*保留/);
 });
 
@@ -150,8 +151,8 @@ test("invalid Restore recovery metadata keeps every recovery fact unknown", () =
       graph_editing_available: true,
     },
   }));
-  assert.equal(result.headline, "Restore 恢复记录无法核验");
-  assert.match(result.whatHappened, /无法确认恢复身份/);
+  assert.equal(result.headline, "恢复记录无法安全确认");
+  assert.match(result.whatHappened, /无法确认当前恢复记录是否可信/);
   assert.match(result.dataSafety, /没有猜测回滚结果/);
   assert.doesNotMatch(`${result.whatHappened} ${result.stillAvailable}`, /恢复点.*保留/);
 });
@@ -169,7 +170,7 @@ test("unfinished and recovery-required commits take priority over ordinary readi
   assert.equal(recovery.level, "BLOCKED");
   assert.equal(recovery.headline, "有 1 项修改需要恢复");
   assert.equal(recovery.narrationRuleId, "system-commit-recovery-required");
-  assert.match(recovery.dataSafety, /已完成步骤保存在原 Commit/);
+  assert.match(recovery.dataSafety, /已完成步骤保存在原操作记录/);
   assert.match(recovery.actionRequired, /同一恢复记录/);
 });
 

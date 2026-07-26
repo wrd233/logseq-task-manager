@@ -2221,7 +2221,7 @@ test("startup stays non-blocking while host-ready events and Graph switch recove
   );
   assert.match(
     source,
-    /async function handleCurrentGraphChanged\(\)[\s\S]*await recoverCurrentGraphRuntime\("已为当前 Graph 重新绑定 Task Copilot/,
+    /async function handleCurrentGraphChanged\(\)[\s\S]*await recoverCurrentGraphRuntime\("已为当前知识库重新建立连接/,
   );
   assert.match(source, /onGraphAfterIndexed\(recoverAfterHostGraphReady\)/);
   assert.match(source, /onRouteChanged\(recoverAfterHostGraphReady\)/);

@@ -479,7 +479,7 @@ test("system narration applies recovery, pending, connection, Anchor, sync, then
 
   assert.equal(recovery.conclusion, "有 1 项修改需要恢复");
   assert.equal(recovery.source.ruleId, "system-commit-recovery-required");
-  assert.equal(graphMismatch.conclusion, "当前 Graph 与正式状态不匹配");
+  assert.equal(graphMismatch.conclusion, "当前知识库与正式状态不匹配");
   assert.match(graphMismatch.facts.map((item) => item.text).join(" "), /Logseq 正文仍可编辑/);
   for (const reasonCode of ["V2_RESTORE_ROLLBACK_FAILED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED"]) {
     const restoreRecoveryRequired = narrateV2SystemStatus({
@@ -492,7 +492,7 @@ test("system narration applies recovery, pending, connection, Anchor, sync, then
         reasonCode,
       },
     });
-    assert.equal(restoreRecoveryRequired.conclusion, "Restore 需要人工恢复");
+    assert.equal(restoreRecoveryRequired.conclusion, "需要人工恢复");
     assert.equal(restoreRecoveryRequired.source.ruleId, "system-restore-recovery-required");
     assert.match(restoreRecoveryRequired.keyEvidence.join(" "), /恢复点仍保留/);
     assert.doesNotMatch(
@@ -510,7 +510,7 @@ test("system narration applies recovery, pending, connection, Anchor, sync, then
       reasonCode: "LAUNCHER_RESTORE_RECOVERY_ARMED",
     },
   });
-  assert.equal(restoreRecoveryArmed.conclusion, "Restore 中断，需要核验");
+  assert.equal(restoreRecoveryArmed.conclusion, "上次恢复中断，需要核验");
   assert.equal(restoreRecoveryArmed.source.ruleId, "system-restore-recovery-armed");
   assert.match(restoreRecoveryArmed.unknowns.join(" "), /恢复前快照是否完整/);
   assert.doesNotMatch(restoreRecoveryArmed.keyEvidence.join(" "), /仍保留/);
@@ -524,11 +524,12 @@ test("system narration applies recovery, pending, connection, Anchor, sync, then
       reasonCode: "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID",
     },
   });
-  assert.equal(restoreRecoveryStateInvalid.conclusion, "Restore 恢复记录无法核验");
+  assert.equal(restoreRecoveryStateInvalid.conclusion, "恢复记录无法安全确认");
   assert.equal(restoreRecoveryStateInvalid.source.ruleId, "system-restore-recovery-state-invalid");
-  assert.match(restoreRecoveryStateInvalid.unknowns.join(" "), /恢复记录身份/);
+  assert.match(restoreRecoveryStateInvalid.unknowns.join(" "), /恢复记录/);
   assert.doesNotMatch(restoreRecoveryStateInvalid.keyEvidence.join(" "), /仍保留/);
   assert.equal(ready.conclusion, "Task Copilot 可以正常使用");
+  assert.deepEqual(ready.keyEvidence, ["正式状态与当前知识库已连接"]);
   assert.deepEqual(ready.unknowns, []);
   assert.match(ready.facts.map((item) => item.text).join(" "), /Agent 分析未启用/);
 });

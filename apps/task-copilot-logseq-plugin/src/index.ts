@@ -4132,7 +4132,7 @@ async function handleCurrentGraphChanged(): Promise<void> {
   runtimeEndedByUser = false;
   await releaseServiceLifecycleSession();
   currentGraphKey = undefined;
-  await recoverCurrentGraphRuntime("已为当前 Graph 重新绑定 Task Copilot；未复用上一 Graph 的数据库会话。");
+  await recoverCurrentGraphRuntime("已为当前知识库重新建立连接；没有复用上一知识库的数据。");
 }
 
 async function activateConnectedFeatureRuntime(): Promise<void> {
@@ -4209,7 +4209,7 @@ async function initializeFeatures(): Promise<void> {
   }));
   const recoverAfterHostGraphReady = () => {
     if (serviceConnection.status === "READY" && serviceRuntimeClient) return;
-    void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前 Graph；正式能力可以使用。")
+    void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前知识库；正式能力可以使用。")
       .catch((error: unknown) => operationalLogger.log("warn", "plugin-lifecycle", "host_ready_runtime_recovery_failed", {
         result: "restricted",
         errorCode: error instanceof StructuredError ? error.code : "HOST_READY_RUNTIME_RECOVERY_FAILED",
@@ -4279,7 +4279,7 @@ async function initializeFeatures(): Promise<void> {
   featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
   await projectPageHeadActionController.refreshAll();
   markReady("PLUGIN_READY", "V2 Local Service runtime ready; V1 FileStorage is migration-only");
-  void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前 Graph；正式能力可以使用。")
+  void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前知识库；正式能力可以使用。")
     .catch((error: unknown) => operationalLogger.log("warn", "plugin-lifecycle", "startup_runtime_recovery_failed", {
       result: "restricted",
       errorCode: error instanceof StructuredError ? error.code : "STARTUP_RUNTIME_RECOVERY_FAILED",

@@ -651,7 +651,7 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
       keyEvidence: ["相关修改不能重复提交"],
       facts: [
         fact(`检测到 ${input.pendingCommitCount} 项尚未完成的正式修改`, sourceRef),
-        fact("已完成步骤保存在原 Commit 中", sourceRef),
+        fact("已完成步骤保存在原操作记录中", sourceRef),
       ],
       evidenceRefs: [sourceRef],
       observedAt: input.observedAt,
@@ -675,27 +675,27 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
       || reason.includes("PATH_REQUIRED");
     return result({
       conclusion: restoreRecoveryStateInvalid
-        ? "Restore 恢复记录无法核验"
+        ? "恢复记录无法安全确认"
         : restoreRecoveryArmed
-        ? "Restore 中断，需要核验"
+        ? "上次恢复中断，需要核验"
         : restoreRecoveryRequired
-        ? "Restore 需要人工恢复"
+        ? "需要人工恢复"
         : graphMismatch
-        ? "当前 Graph 与正式状态不匹配"
+        ? "当前知识库与正式状态不匹配"
         : protocolMismatch
-          ? "Plugin 与正式服务版本不兼容"
+          ? "Task Copilot 版本不兼容"
           : notConfigured
-            ? "Task Copilot 尚未连接正式服务"
-            : "正式服务暂时不可用",
+            ? "Task Copilot 尚未连接当前知识库"
+            : "正式能力暂时不可用",
       keyEvidence: restoreRecoveryStateInvalid
-        ? ["正式写入已暂停", "恢复身份与完整性未知"]
+        ? ["应用正式修改已暂停", "恢复记录与完整性未知"]
         : restoreRecoveryArmed
-        ? ["正式写入已暂停", "恢复前状态尚未被机器确认"]
+        ? ["应用正式修改已暂停", "恢复前状态尚未确认"]
         : restoreRecoveryRequired
-        ? ["正式写入已暂停", "Restore 前恢复点仍保留"]
-        : ["正式写入已暂停", "Logseq 正文仍可编辑"],
+        ? ["应用正式修改已暂停", "切换前恢复点仍保留"]
+        : ["应用正式修改已暂停", "Logseq 正文仍可编辑"],
       facts: [
-        fact("正式写入、审阅提交、Undo、备份、恢复与迁移已暂停", sourceRef),
+        fact("应用正式修改、审阅提交、撤销、备份、恢复与迁移已暂停", sourceRef),
         fact(
           restoreRecoveryStateInvalid
             ? "系统没有猜测回滚结果，也没有声称恢复点完整"
@@ -708,7 +708,7 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
         ),
       ],
       ...(restoreRecoveryStateInvalid
-        ? { unknowns: ["恢复记录身份、恢复点完整性和当前 SQLite 选择均需人工核验"] }
+        ? { unknowns: ["恢复记录、恢复点完整性和当前正式状态均需人工核验"] }
         : restoreRecoveryArmed
           ? { unknowns: ["恢复前快照是否完整仍需人工核验"] }
           : {}),
@@ -758,9 +758,9 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
   }
   return result({
     conclusion: "Task Copilot 可以正常使用",
-    keyEvidence: ["正式状态与当前 Graph 已连接"],
+    keyEvidence: ["正式状态与当前知识库已连接"],
     facts: [
-      fact("正式状态与当前 Graph 已连接", sourceRef),
+      fact("正式状态与当前知识库已连接", sourceRef),
       fact(
         input.service.providerAvailable
           ? "Agent 分析与确定性基础能力均可用"
