@@ -131,8 +131,29 @@ Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证�
 
 真实结果：`344c705ec446`、Logseq 0.10.15、Dark、994×700。受控窗口中新建目标在正式
 提交前 `matching_objects=0`；提交后仅一个正式对象，旧 Anchor `replaced`、新 Anchor
-唯一 `active`。CURRENT `p2-g-07`～`12`。专用 Recovery/Undo 引导和
-Restore/Migration 仍 OPEN，故只关闭 Rebind 正常主链，不关闭 P2-G。
+唯一 `active`。CURRENT `p2-g-07`～`12`。专用 Recovery/Undo 引导仍 OPEN；Restore
+状态差异/失败链和 Migration 也未完成，故只关闭 Rebind 正常主链，不关闭 P2-G。
+
+## P2-G Backup/Restore 产品入口
+
+状态：`FRONTSTAGE_LIFECYCLE_DESKTOP_DONE_STATE_DELTA_GATE_OPEN`
+
+1. 更多 → 备份与恢复只读取当前 Graph 的 Service-owned 最近快照；
+2. 前台只显示时间、正式事项数量与校验结果，DOM 不保存 Backup ID 或数据库路径；
+3. 选择后由 Service 再校验，并说明 SQLite、Logseq 正文、恢复点与自动重启的最终影响；
+4. 未勾选单独确认时不发送 Restore；
+5. 确认后先 flush 正文同步并检查 PENDING、RECOVERY_REQUIRED 与 reconciliation；
+6. 复用固定确认、恢复点、offline atomic Restore、descriptor 删除与 Service 自停；
+7. Launcher 为同一 Graph 重建 owned Service，Plugin 自动回到 READY；
+8. reload 后恢复前快照仍在目录中且完整性 PASS；
+9. 系统状态必须显示当前构建身份与 `0/0/0`。
+
+真实结果：`6ae8f2fcebd0`、Logseq 0.10.15、Dark、994×700。首轮
+`6415dd14b568` 真实运行发现成功态残留未确认错误，因此不计 CURRENT；修复后重跑未确认
+零请求，owned Service PID `47467→47600`，目录 `2→3`，reload 后 Runtime/Store/Service
+READY 且 `0/0/0`。CURRENT `p2-g-13`～`17`。本轮恢复同一份四项正式状态；当前产品 UI
+下的可辨认状态差异读回、反向 Restore、失败注入和 Light/窄栏仍 OPEN，所以不关闭
+Restore 全部 Gate 或 P2-G。
 
 ## 交互评估
 

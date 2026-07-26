@@ -45,6 +45,11 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-10-rebind-capture-success-dark-994x700.jpg` | `344c705ec446` | 用户勾选单独确认并提交正式 Rebind | 新正文连接成功、旧连接保留历史；恢复自动同步后匹配正式对象仍为 1 | 页面标题在即时窗口仍短暂显示正文核对，reload 后收敛 |
 | `screenshots/p2-g-11-rebind-capture-reload-clean-dark-994x700.jpg` | `344c705ec446` | Plugin Manager reload 后打开用户系统状态 | Task Copilot 可以正常使用、数据安全、无需操作；Anchor issue 已消失 | Restore/Migration 与 Rebind Undo 引导仍 OPEN |
 | `screenshots/p2-g-12-rebind-capture-build-identity-dark-994x700.jpg` | `344c705ec446` | reload 健康后展开技术诊断 | Plugin commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` 与 explicit sync healthy 同屏 | 诊断属于证据层，不是日常必读 UI |
+| `screenshots/p2-g-13-backup-catalog-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | reload 最新构建后进入“更多 → 备份与恢复” | 两个 Service 管理快照只显示时间、四项正式事项与完整性 PASS；无 ID/路径 | 当前产品 UI 的状态差异读回仍 OPEN |
+| `screenshots/p2-g-14-restore-impact-review-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 选择快照并由 Service 再校验 | 最终影响明确 SQLite 替换、Logseq 正文不改写、当前状态先保留恢复点；单独确认未勾选 | failure 注入仍 OPEN |
+| `screenshots/p2-g-15-restore-success-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 先验证未确认零请求，再勾选并正式 Restore | Service 自停并由 Launcher 重建；Plugin 自动回到 READY；成功态不再残留旧错误 | 即时重连过程很短，截图捕获最终稳定态 |
+| `screenshots/p2-g-16-restore-reload-catalog-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | Plugin Manager reload 后再次打开快照目录 | 两个快照增至三个，恢复前恢复点跨 reload 可见且完整性 PASS | 反向 Restore 仍 OPEN |
+| `screenshots/p2-g-17-restore-build-diagnostics-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | reload 后打开系统状态并展开技术诊断 | Commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` 同屏 | 诊断只作为证据层 |
 
 ## HISTORICAL
 

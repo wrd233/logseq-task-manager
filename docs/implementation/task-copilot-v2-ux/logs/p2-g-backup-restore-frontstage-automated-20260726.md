@@ -1,7 +1,7 @@
 # P2-G Backup/Restore 产品入口自动 Gate
 
 日期：2026-07-26
-状态：`RESTORE_FRONTSTAGE_AUTOMATED_DESKTOP_OPEN`
+状态：`RESTORE_FRONTSTAGE_LIFECYCLE_DESKTOP_DONE_STATE_DELTA_GATE_OPEN`
 
 ## 结论
 
@@ -22,10 +22,13 @@ Local Service Backup/Restore 安全链接到插件“更多 → 备份与恢复�
 → Launcher 自动重建同一 Graph Service
 ```
 
-当前只关闭自动 Gate。首轮真实 Restore 暴露用户层 feedback 清理缺陷，修复后的完整
-Desktop 重跑尚未完成，因此 `P2-G` 和完整 Goal 继续 `IN_PROGRESS`。
+当前构建已经关闭 Restore 产品入口的真实 Desktop 生命周期 Gate：目录、二次校验、未确认
+零请求、正式 Restore、恢复点、Service 自停、Launcher 同 Graph 重连、reload 与构建身份
+都已在最新 Logseq 中通过。当前前台运行恢复的是同一份四项正式状态快照；基础 E2E-17 已
+证明状态差异 Restore，但当前产品 UI 的“可辨认状态变化 → 旧快照 → 内容读回”仍需重跑，
+故 `P2-G` 和完整 Goal 继续 `IN_PROGRESS`。
 
-## 首轮 Desktop 反馈（修复中，不计 DONE）
+## 首轮 Desktop 反馈（历史缺陷，不计 DONE）
 
 commit `6415dd14b568` 的首轮真实运行已证明：
 
@@ -36,8 +39,37 @@ commit `6415dd14b568` 的首轮真实运行已证明：
   `Runtime READY / Store READY`。
 
 但首轮成功画面仍保留上一次“请先单独确认”的错误提示，形成成功与失败并列的矛盾表达。
-该画面不进入 CURRENT 截图，也不能用于关闭 Desktop Gate。当前修复在每个
-Backup/Restore 用户动作开始时清理上一动作 feedback；必须重建并完整重跑后再判定。
+该画面不进入 CURRENT 截图，也不能用于关闭 Desktop Gate。`6ae8f2fcebd0` 在每个
+Backup/Restore 用户动作开始时清理上一动作 feedback，并已完成下面的最新构建重跑。
+
+## 最新 Desktop 证据
+
+环境：
+
+- branch `feature/task-copilot-mvp`；
+- commit / Plugin build `6ae8f2fcebd0`；
+- Plugin build time `2026-07-26T12:16:56+0800`；Plugin / Service / Launcher
+  version 均为 `0.1.0`；
+- Logseq Desktop `0.10.15`，测试 Graph `logseq`，Dark，`994×700`；
+- Launcher PID `44964`；Restore 前 owned Service PID `47467`，Restore 后 `47600`；
+- 使用专用 SQLite 测试库；无 Provider/LLM 调用，无 Key、token、路径或私人正文进入截图。
+
+真实操作与结果：
+
+1. reload 后进入“更多 → 备份与恢复”，读到两个四项正式事项、完整性校验通过的快照；
+2. 选择最新快照，Service 再校验并显示最终影响：SQLite 正式状态会被替换、Logseq 正文
+   不改写、当前状态先保存为恢复点；
+3. 未勾选单独确认时界面只显示“未执行”，Service PID 与目录保持不变；
+4. 勾选后正式 Restore，Plugin 自动回到 `Runtime READY / Store READY`，成功提示中不再
+   残留上一动作错误；
+5. owned Service PID `47467 → 47600`，证明原 Service 自停、Launcher 为同一 Graph
+   重建受管 Service；
+6. Plugin Manager reload 后目录从两个变为三个校验通过快照，证明恢复前恢复点跨 reload
+   可读；
+7. 系统状态显示 `Commit 6ae8f2fcebd0 / Logseq 0.10.15`，
+   `Pending / Recovery / Source Conflict = 0/0/0`。
+
+CURRENT 截图为 `p2-g-13`～`p2-g-17`。首轮矛盾成功画面未保存为 CURRENT。
 
 ## 复用与新增边界
 
@@ -75,21 +107,27 @@ Proposal 类型或 test-only fault。
   - 最终影响、自动恢复点和自动重启明确；
   - 无 `backup_*`、`.db`、`objectId` 或固定确认短语泄漏。
 
-## Desktop Gate（仍 OPEN）
+## Desktop Gate
 
 必须使用专用测试数据库与当前最新 Logseq 构建完成：
 
-1. 创建当前快照并在 UI 中出现；
-2. 快照后产生一项可辨认、可恢复的正式状态变化；
-3. 选择旧快照并完成二次校验；
-4. 未勾选确认时零 Restore 请求；
-5. 正确确认后自动创建恢复点、Service 自停；
-6. Plugin 显示受限/重连状态而非陈旧 READY；
-7. Launcher 自动重启同一 Graph Service；
-8. reload 后读回旧快照状态；
-9. 恢复前状态作为新快照仍可见且校验 PASS；
-10. Graph 正文没有被 Restore 改写；
-11. Provider/Key/私人正文没有进入日志或截图。
+已关闭：
 
-失败注入、恢复点反向 Restore 和窄栏/Light 视觉可在主链通过后集中验证；在此之前
-不得把 Restore 标记为 Desktop DONE。
+- [x] 创建/读取当前快照目录；
+- [x] 选择快照并二次校验；
+- [x] 未勾选确认时零 Restore 请求；
+- [x] 正确确认后自动创建恢复点、Service 自停；
+- [x] Launcher 自动重启同一 Graph Service；
+- [x] reload 后恢复前状态快照仍可见且校验 PASS；
+- [x] 成功/失败 feedback 不并列；
+- [x] Key、token、路径和私人正文不进入截图。
+
+仍开放：
+
+- [ ] 在当前产品 UI 下先制造一项可辨认、可撤销的正式状态变化，再 Restore 旧快照并
+  逐字段读回状态差异；
+- [ ] 对该恢复点执行反向 Restore，证明前向/反向往返；
+- [ ] 注入 Restore 失败并验证原库保持、恢复点保留和用户层 Recovery；
+- [ ] Light、窄栏与必要主题视觉。
+
+因此只标记 `RESTORE_FRONTSTAGE_LIFECYCLE_DESKTOP_DONE`，不宣称 Restore 全部验收完成。

@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_MAIN_CHAIN_DESKTOP_DONE_RESTORE_FRONTSTAGE_AUTOMATED_MIGRATION_OPEN`
+状态：`IN_PROGRESS_REBIND_RESTORE_LIFECYCLE_DESKTOP_DONE_MIGRATION_OPEN`
 
 ### Recovery
 
@@ -391,13 +391,18 @@ Rebind → reload 后系统正常。Service 回读证明旧 Anchor 为 replaced�
 
 复用既有校验、恢复点、停写、原子切换、Doctor、descriptor 清理和 Service 停止。向导不得另建恢复流程。
 
-当前自动 Gate 已完成：Service 只读列出最近 20 个服务端快照，Plugin 只显示时间、事项数量
+自动 Gate 已完成：Service 只读列出最近 20 个服务端快照，Plugin 只显示时间、事项数量
 和完整性状态；DOM 只持有 session-local `snapshot:<index>`，不接收路径或 Backup ID。
 用户可以创建当前快照、选择旧快照、触发再次校验并单独确认最终影响。提交前 flush 显式同步，
 并复用 owned shutdown policy 拒绝未完成 Commit 和 reconciliation；正式执行仍调用唯一
 Restore API，随后由 Service 自停和 Launcher 同 Graph 重连收口。Plugin `288/288`、
-Local Service 全套测试与三工作区 typecheck PASS。真实 Desktop
-Restore→restricted/restarting→READY→reload 与恢复点反向验证仍 OPEN。
+Local Service 全套测试、typecheck 与根级检查 PASS。
+
+commit `6ae8f2fcebd0` 的真实 Logseq 0.10.15 已完成快照目录、再次校验、未确认零请求、
+正式 Restore、恢复点创建、owned Service PID `47467→47600`、Launcher 同 Graph 重连、
+Plugin reload 后目录 `2→3` 与系统 READY/`0/0/0`。首轮成功/旧错误并列问题已修复，
+Restore frontstage 生命周期 Desktop DONE。当前产品 UI 下的可辨认状态差异读回、恢复点
+反向 Restore、失败注入与 Light/窄栏仍 OPEN。
 
 ### Migration
 
