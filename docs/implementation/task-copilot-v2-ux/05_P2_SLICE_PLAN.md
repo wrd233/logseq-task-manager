@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_FRONTSTAGE_AUTOMATED_DESKTOP_OPEN`
+状态：`IN_PROGRESS_REBIND_MAIN_CHAIN_DESKTOP_DONE_RESTORE_MIGRATION_OPEN`
 
 ### Recovery
 
@@ -377,8 +377,15 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 external ID、hash、`missing/replaced` 或 `Primary Anchor/object_id`；候选只显示事项名称、
 类型和翻译后的连接状态。DOM value 使用 session-local `candidate:<index>`，正式提交时才映射
 回内存中已验证的旧 Anchor。既有一页有界读取、确认、Block 持久身份、版本/hash 重验、
-Service Rebind 与旧 Anchor 历史均不变。focused `5/5`、Plugin `280/280`、typecheck PASS；
-真实 Desktop Preview→Submit→reload 仍 OPEN。
+Service Rebind 与旧 Anchor 历史均不变。为避免替代 Block 被自动显式同步抢先创建正式对象，
+用户主动发起 5 分钟有界捕获窗口：开始时 flush 已有队列并暂停 materialization，取消、超时
+或提交后只恢复一次；其他正式正文不受影响。focused `9/9`、Plugin `284/284`、typecheck
+与根级检查 PASS。
+
+当前 commit `344c705ec446` 的真实 Logseq 0.10.15 已完成：
+丢失 Anchor → 开始重新连接 → 新建并选择替代 Block → 阅读预览 → 确认 → Service
+Rebind → reload 后系统正常。Service 回读证明旧 Anchor 为 replaced、新 Anchor active，
+没有产生额外正式对象。Rebind 常规主链 Desktop DONE；专门的 Recovery/Undo 用户指引仍 OPEN。
 
 ### Restore
 

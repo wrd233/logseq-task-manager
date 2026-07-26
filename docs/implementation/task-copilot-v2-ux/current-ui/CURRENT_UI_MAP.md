@@ -14,7 +14,7 @@
 | Project Creation Grill | Blank、Page 两种关系与 MiniProject 演化功能链均真实 Provider→Preview→HIGH Review→create→reload/restart→Undo→健康 PASS；`7a7492a407ed` 已复验 MiniProject Undo 精确返回来源根 Block | CURRENT：Page dedicated Undo/健康、reuse readiness/Preview/返回现场/Undo/健康；MiniProject Grill/Preview/Review/create/reload/来源返回/健康 | Light/窄栏与集中宿主视觉 Gate；Project 新页 ownership metadata 仍过于前台 |
 | Project 结构操作路由 | 16 类分类；MEDIUM 当前摘要、LIGHT Condition 与 HEAVY 完整当前接口均完成正式链；无 inverse 的 Association 安全禁用 | CURRENT：`p2-d-05`/`06` MEDIUM；`p2-d-07`～`10` HEAVY；`p2-d-11`～`13` LIGHT Condition | Association/其余 LIGHT、其他 HEAVY 类型与 Light/窄栏 |
 | Project Closure 证据 | 确定性 Application→Service→Plugin 只读预览；候选、unknown 与用户判断分离；reload 后重算 | CURRENT：`p2-e-01`～`04`，`ec1a70d848d6` | 真实 Provider→HIGH Proposal→Review→Commit→Recovery/Undo |
-| Recovery / Rebind / Restore / Migration | 底层能力存在，产品化未完成 | OPEN | P2-G 用户向导整链 |
+| Recovery / Rebind / Restore / Migration | Rebind 已有受控选择窗口、identity-free Preview、确认、正式提交、自动同步恢复与 reload 健康主链；Recovery/Undo 引导、Restore/Migration 仍未完成 | CURRENT：`p2-g-07`～`12`，`344c705ec446` | Rebind 专用恢复/Undo 引导；Restore/Migration 用户向导整链 |
 | Attention Signal | Shadow runtime | OPEN | 首批确定性 Signal 开放门通过后 |
 
 权威进度仍以 `current-status.md`、`09_PROGRESS_REPORT.md` 和

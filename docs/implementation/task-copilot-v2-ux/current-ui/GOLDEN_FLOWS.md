@@ -114,6 +114,26 @@ Project `OPEN v13`、Closure absent、forward Commit `UNDONE`、inverse Commit
 Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证据，因此 P2-E
 整体仍是 Partial。
 
+## P2-G Rebind 受控正文恢复
+
+状态：`NORMAL_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_UNDO_GUIDANCE_OPEN`
+
+1. reload 后 reconciliation 只检查已知 Anchor，并将不可读旧正文标为 missing；
+2. 用户系统状态先说明正式事项仍在、受影响能力、数据安全和唯一主动作；
+3. 用户点击“开始重新连接”，Plugin flush 既有显式同步后打开最长 5 分钟的受控选择窗口；
+4. 用户回到 Logseq 新建或选择显式替换 Block；窗口内暂缓自动物化，避免创建第二个正式事项；
+5. 预览只显示目标标题/类型、候选事项和翻译后的连接状态，不显示任何机器身份；
+6. 已经连接到另一正式事项的目标在确认前拒绝，Service 安全规则不放宽；
+7. 用户选择候选并单独确认；提交前重读 Block version/hash 和候选 Object/Anchor 证据；
+8. Service 原子 Rebind，旧 Anchor 保留为 `replaced`，新 Anchor 成为唯一 `active`；
+9. Plugin 恢复显式同步并排空捕获窗口内 pending change；
+10. reload 后用户系统状态健康，`0/0/0` 且 reconciliation false。
+
+真实结果：`344c705ec446`、Logseq 0.10.15、Dark、994×700。受控窗口中新建目标在正式
+提交前 `matching_objects=0`；提交后仅一个正式对象，旧 Anchor `replaced`、新 Anchor
+唯一 `active`。CURRENT `p2-g-07`～`12`。专用 Recovery/Undo 引导和
+Restore/Migration 仍 OPEN，故只关闭 Rebind 正常主链，不关闭 P2-G。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一

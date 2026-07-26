@@ -39,6 +39,12 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-e-10-closure-undo-available-dark-994x701.jpg` | `06907f34b8d2` | 在最新构建中 reload 已完成的 Closure，进入待我确认 | 完成卡只提供一个专用“撤销 Project Closure”；说明恢复 OPEN、移除本次 Closure且不改 Logseq Page | 前向 Provider/Review 截图来自 `1ec63ac`，见 HISTORICAL |
 | `screenshots/p2-e-11-closure-undo-completed-dark-994x701.jpg` | `06907f34b8d2` | 勾选精确影响确认并执行 Closure inverse Commit | 即时结果明确“已撤销”，历史证据保留；自动返回 Project 重入，Project 再次可推进 | Review 历史列表信息密度仍高 |
 | `screenshots/p2-e-12-closure-undo-reload-active-project-dark-994x701.jpg` | `06907f34b8d2` | 从 Logseq Plugin Manager reload Task Copilot 后重新打开 | Runtime/Store READY；Now Work 重新显示同一 Project；CLI 回读 OPEN v13、Closure absent，异常 Commit 0/0/0 | 当前构建的 failure/Recovery Desktop Gate OPEN |
+| `screenshots/p2-g-07-rebind-capture-entry-dark-994x700.jpg` | `344c705ec446` | reload 发现一个合成正式事项的旧正文不可用，用户进入系统状态 | 前台只说明正式事项仍保留、受影响能力和数据安全；唯一主动作是“开始重新连接” | Rebind 专用 Undo 引导仍 OPEN |
+| `screenshots/p2-g-08-rebind-capture-window-dark-994x700.jpg` | `344c705ec446` | 用户启动受控选择并回到 Logseq 新建替换 Block，再打开 Task Copilot | 明确 5 分钟上限、暂缓自动物化、取消/提交后恢复；Service 此时匹配正式对象数为 0 | 窗口期间其他显式编辑也会排队，故必须保持短时且用户主动 |
+| `screenshots/p2-g-09-rebind-capture-preview-dark-994x700.jpg` | `344c705ec446` | 用户预览新正文并选择原连接不可用的事项 | 只显示标题、类型和翻译状态；无 UUID/Anchor ID/hash，正式事项与主归属保持说明可读 | 当前截图在勾选最终影响确认前 |
+| `screenshots/p2-g-10-rebind-capture-success-dark-994x700.jpg` | `344c705ec446` | 用户勾选单独确认并提交正式 Rebind | 新正文连接成功、旧连接保留历史；恢复自动同步后匹配正式对象仍为 1 | 页面标题在即时窗口仍短暂显示正文核对，reload 后收敛 |
+| `screenshots/p2-g-11-rebind-capture-reload-clean-dark-994x700.jpg` | `344c705ec446` | Plugin Manager reload 后打开用户系统状态 | Task Copilot 可以正常使用、数据安全、无需操作；Anchor issue 已消失 | Restore/Migration 与 Rebind Undo 引导仍 OPEN |
+| `screenshots/p2-g-12-rebind-capture-build-identity-dark-994x700.jpg` | `344c705ec446` | reload 健康后展开技术诊断 | Plugin commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` 与 explicit sync healthy 同屏 | 诊断属于证据层，不是日常必读 UI |
 
 ## HISTORICAL
 
@@ -78,6 +84,12 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `p2-e-07-closure-real-provider-loading-dark-994x701.jpg` | HISTORICAL | `1ec63ac` | 真实 DeepSeek loading 时确定性基线和用户输入仍保留 | 同上 |
 | `p2-e-08-closure-real-provider-high-review-dark-994x701.jpg` | HISTORICAL | `1ec63ac` | 真实 Provider 结果通过 Validator 后进入单组 HIGH Review，仍未正式写入 | 同上 |
 | `p2-e-09-closure-commit-completed-no-undo-dark-994x701.jpg` | SUPERSEDED | `1ec63ac` | 真实 Commit 已完成，同时暴露完成态没有专用 Undo 的产品缺陷 | `06907f3` 已补齐并由 `p2-e-10`～`p2-e-12` 替代 |
+| `p2-g-01-anchor-missing-dark-994x700.jpg` | SUPERSEDED | `46b45c3f11e1` | 真实 missing Anchor 用户状态与阅读卡 | `p2-g-07` 使用受控捕获构建替代 |
+| `p2-g-02-rebind-reading-preview-dark-994x700.jpg` | SUPERSEDED | `46b45c3f11e1` | identity-free Preview 与候选翻译真实可达 | `p2-g-09` 使用当前构建与无竞态目标替代 |
+| `p2-g-03-rebind-confirmed-dark-994x700.jpg` | HISTORICAL | `46b45c3f11e1` | 单独确认和候选选择未泄露机器身份 | 同一新 Block 已被普通同步先物化，随后安全拒绝 |
+| `p2-g-04-rebind-target-already-owned-rejected-dark-994x700.jpg` | HISTORICAL | `46b45c3f11e1` | Service 对已有正式连接目标零写入拒绝 | 当前 `344c705` 已把同类拒绝提前到确认前，并加入捕获窗口 |
+| `p2-g-05-rebind-success-dark-994x700.jpg` | SUPERSEDED | `46b45c3f11e1` | 使用既有未物化测试 Block 的正式 Rebind 成功 | `p2-g-10` 证明用户可新建替换 Block 且无竞态 |
+| `p2-g-06-rebind-reload-clean-dark-994x700.jpg` | SUPERSEDED | `46b45c3f11e1` | 旧链 reload 后系统健康 | `p2-g-11`/`12` 使用当前构建替代 |
 
 仓库其他目录中的既有截图也继续按历史证据处理，除非索引明确登记为 `CURRENT`。
 

@@ -60,6 +60,15 @@ reload 后 Project 再次进入 Now Work。正式回读为 `OPEN v13`、Closure 
 RECOVERY_REQUIRED → resume Desktop Gate 仍 OPEN，所以 P2-E 仍是 Partial。完整记录见
 `../logs/p2-e-project-closure-desktop-live-20260726.md`。
 
+P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop Gate。首轮真实运行
+发现“新建显式替换 Block 会先被自动物化”的竞态，Service 正确拒绝且零写入；当前实现
+加入 5 分钟受控选择窗口，先 flush 再短时暂停显式物化。新替换 Block 在预览前的 Service
+回读为 0 个正式对象，确认 Rebind 后只产生一个正式对象、旧 Anchor `replaced`、新 Anchor
+唯一 `active`；恢复自动同步与 reload 后系统健康、`0/0/0`。CURRENT `p2-g-07`～`12`；
+早先 `p2-g-01`～`06` 只保留为真实历史发现/安全拒绝证据。Rebind 专用 Recovery/Undo
+引导、Restore/Migration 仍 OPEN，因此 P2-G 与整体 Goal 不提前关闭。完整记录见
+`../logs/p2-g-rebind-desktop-live-20260726.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；
