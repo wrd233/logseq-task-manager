@@ -71,7 +71,10 @@ test("Project LIGHT router exposes durable Condition Undo and renders a bounded 
     },
   }];
   value.actionDialog = { kind: "v2-project-operation-router", value: "project-condition-undo|3" };
-  assert.match(renderApp(value), /data-action="v2-condition-undo-open"/);
+  const router = renderApp(value);
+  assert.match(router, /data-action="v2-condition-undo-open"/);
+  assert.match(router, /普通关联（需先补 Undo）/);
+  assert.doesNotMatch(router, /data-action="v2-project-operation-association"/);
 
   value.v2ConditionUndoPreparation = {
     status: "PREPARED",
@@ -518,11 +521,12 @@ test("Project current interface is readable in reentry and editable only through
   assert.match(router, /选择这次要改变什么/);
   assert.match(router, /低摩擦[\s\S]*有界直接命令/);
   assert.match(router, /状态变化已有跨 reload 的版本化 Undo/);
-  assert.match(router, /普通关联尚未具备 inverse，因此仍是受限能力，不计入最终 Gate/);
+  assert.match(router, /普通关联尚未具备 inverse，因此在这个正式路由中保持关闭，不计入最终 Gate/);
   assert.match(router, /审阅后应用[\s\S]*不得改变 Ownership、Lifecycle、Objectives/);
   assert.match(router, /深度结构[\s\S]*讨论、最终阅读、Commit 与 Undo/);
   assert.match(router, /data-action="v2-condition-open"/);
-  assert.match(router, /data-action="v2-project-operation-association"/);
+  assert.match(router, /普通关联（需先补 Undo）/);
+  assert.doesNotMatch(router, /data-action="v2-project-operation-association"/);
   assert.match(router, /data-action="v2-project-narration-propose"/);
   assert.match(router, /建议只替换当前摘要/);
   assert.match(router, /也可 Undo/);
