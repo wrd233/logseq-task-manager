@@ -2216,6 +2216,54 @@ test("Local Service completes reviewed migration through validated backup, impor
   assert.equal(scanned.sourceBundleSha256, previewed.run.sourceBundleSha256);
 });
 
+test("Migration import survives a lost response after its atomic write and replays the same batch", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-migration-response-loss-"));
+  let failResponse = true;
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    backupRoot: join(root, "backups"),
+    graphId: "graph-migration-response-loss",
+    token: "migration-response-loss-token-24-chars",
+    faults: {
+      afterMigrationImport() {
+        if (!failResponse) return;
+        failResponse = false;
+        throw new Error("injected response loss after migration import");
+      },
+    },
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const legacy = createManagedObject({ objectId: "legacy-response-loss-task", objectType: "TASK", text: "迁移响应丢失" }, new Date("2026-07-20T08:00:00.000Z"));
+  const bundle = exportRecoveryBundle({
+    ...createEmptyState(),
+    objects: [{ ...legacy, phase: "ACTIVE" as const, condition: { kind: "ACTIONABLE" as const } }],
+  }, new Date("2026-07-21T08:00:00.000Z"));
+  const previewed = await client.previewLegacyMigration(bundle, [{ legacyObjectId: legacy.objectId, action: "IMPORT" }]);
+  const snapshot = await client.createBackup();
+  const input = {
+    bundle,
+    backupId: snapshot.backupId,
+    objectIds: [legacy.objectId],
+    idempotencyKey: "migration-response-loss-batch",
+    confirmation: "IMPORT_REVIEWED_V1_BATCH" as const,
+  };
+
+  await assert.rejects(() => client.importLegacyMigration(previewed.run.runId, input));
+  const afterLoss = await client.getMigrationRun(previewed.run.runId);
+  assert.deepEqual(afterLoss.batches.map(({ status, objectIds }) => ({ status, objectIds })), [{
+    status: "IMPORTED",
+    objectIds: [legacy.objectId],
+  }]);
+  assert.equal((await client.getObject(legacy.objectId))?.text, "迁移响应丢失");
+
+  const replayed = await client.importLegacyMigration(previewed.run.runId, input);
+  assert.equal(replayed.replayed, true);
+  assert.equal(replayed.batch.batchId, afterLoss.batches[0]?.batchId);
+  assert.equal((await client.verifyLegacyMigrationBatch(previewed.run.runId, replayed.batch.batchId)).status, "VERIFIED");
+  assert.equal((await client.listSemanticCommits()).filter(({ status }) => status === "PENDING" || status === "RECOVERY_REQUIRED").length, 0);
+});
+
 test("Proposal validation, review, and scope revalidation never masquerade as a formal object write", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-proposal-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-proposal", token: "proposal-service-token-at-least-24-chars" });
