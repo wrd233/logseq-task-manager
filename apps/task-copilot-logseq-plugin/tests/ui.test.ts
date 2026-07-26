@@ -2231,10 +2231,23 @@ test("startup stays non-blocking while host-ready events and Graph switch recove
     source,
     /async function handleCurrentGraphChanged\(\)[\s\S]*await recoverCurrentGraphRuntime\("已为当前知识库重新建立连接/,
   );
+  const graphSwitchHandler = source.match(/async function handleCurrentGraphChanged\(\)[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(graphSwitchHandler, /await refreshRestrictedGraphSwitchSurface\(\)/);
+  assert.ok(
+    graphSwitchHandler.indexOf("await refreshRestrictedGraphSwitchSurface()")
+      < graphSwitchHandler.indexOf("await releaseServiceLifecycleSession()"),
+    "Graph switch must replace the old Graph projection with a restricted surface before waiting for lease release",
+  );
+  assert.ok(
+    graphSwitchHandler.indexOf("currentGraphKey = undefined")
+      < graphSwitchHandler.indexOf("await refreshRestrictedGraphSwitchSurface()"),
+    "Graph switch must invalidate the previous Graph identity before rendering or recovering",
+  );
   assert.match(source, /onGraphAfterIndexed\(recoverAfterHostGraphReady\)/);
   assert.match(source, /onRouteChanged\(recoverAfterHostGraphReady\)/);
   const hostReadyHandler = source.match(/const recoverAfterHostGraphReady = \(\) => \{[\s\S]*?\n[ ]{2}\};/)?.[0] ?? "";
   assert.match(hostReadyHandler, /projectPageHeadActionController\.refreshAll\(\)/);
+  assert.match(hostReadyHandler, /currentGraphKey = undefined;[\s\S]*recoverCurrentGraphRuntime/);
   assert.ok(
     hostReadyHandler.indexOf("projectPageHeadActionController.refreshAll()")
       < hostReadyHandler.indexOf('serviceConnection.status === "READY"'),
