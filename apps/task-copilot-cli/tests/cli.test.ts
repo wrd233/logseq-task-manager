@@ -53,7 +53,7 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
       },
       scanLegacyMigration: async () => ({ schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 0, directBind: 0, needsConfirmation: 0, keepOrdinary: 0, structuralError: 0 }, previews: [], reviewItems: [] }),
       previewLegacyMigration: async () => ({ run: migrationRun, replayed: false }),
-      getMigrationRun: async () => ({ run: migrationRun, evidence: [] }),
+      getMigrationRun: async () => ({ run: migrationRun, evidence: [], batches: [] }),
       importLegacyMigration: async () => ({ batch: migrationBatch, replayed: false }),
       verifyLegacyMigrationBatch: async () => ({ ...migrationBatch, status: "VERIFIED", validation: { status: "PASS", objectCount: 1, checksum: "12345678" } }),
       undoLegacyMigrationBatch: async () => ({ ...migrationBatch, status: "UNDONE" }),
