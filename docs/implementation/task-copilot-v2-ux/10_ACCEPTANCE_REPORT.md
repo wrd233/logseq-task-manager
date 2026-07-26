@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash 代表链/custom binding PASS；中文 IME/受限视觉与 P0-K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/manual recovery + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart 与 Migration Activation current build DONE | P2-D/E remaining；P2-F frontstage；P2-G Rebind guidance Desktop + real double-failure + Migration failure/interruption recovery/visual gates OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/manual recovery + Migration through Activation normal main chain PASS | P2-C/D/E 正常主链有 Desktop；P2-E 同一 receipt-backed Commit 中断→reload→续跑→reload→Undo→reload DONE；P2-F 无 UI；P2-G Rebind、Restore roundtrip、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart 与 Migration Activation current build DONE | P2-D/E remaining；P2-E Provider error/stale；P2-F frontstage；P2-G Rebind guidance Desktop + real double-failure + Migration failure/interruption recovery/visual gates OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -91,9 +91,11 @@
   更新后的真实 Flash Gate 不再伪造 Decision Ownership，用户确认内容逐字守恒。Plugin 用户
   判断入口、busy/error/stale 保留输入和进入既有 HIGH Review 已自动覆盖；正常主链已用
   真实 DeepSeek 完成用户判断、loading、HIGH Review、正式 Commit、专用 Undo、reload 与
-  Project 重入，回读 `OPEN v13`、Closure absent、forward UNDONE、inverse COMPLETED；
-  当前构建的 Provider error/stale 与注入 Commit failure → Recovery resume Desktop 仍未
-  闭环，因此本项暂不勾选；
+  Project 重入，回读 `OPEN v13`、Closure absent、forward UNDONE、inverse COMPLETED。
+  `6f7f9a857be9` 又完成 receipt-backed post-domain 中断：HTTP 500 后同一 Commit
+  `PENDING`，reload 后只继续原 Commit，完成后 Project 仍为 v20；专用 Undo 与再次 reload
+  回到 `OPEN v21`、Closure absent、forward UNDONE、inverse COMPLETED、异常 Commit
+  `0/0/0`。Provider error/stale Desktop 仍未闭环，因此本项暂不勾选；
 - [ ] 跨对象候选有证据和数量上限；结构化 2–16 evidence、2–8 subject、每轮 8 条上限与
   exact scope/provenance 已自动 PASS；首批真实 DeepSeek 3 observation + 2 abstention 质量门
   三轮累计 `15/15` case-runs PASS；semantic Context fingerprint 已证明时间刷新稳定、
@@ -101,7 +103,8 @@
 - [ ] LLM 不改变 Ownership/Focus；P2-F shadow 合同已拒绝 operation/自由文本并强制
   `INFERENCE/SHADOW/NONE`；Provider 不能生成 confidence，Association/Ownership 由机器
   固定 LOW，其他当前 kind 固定 MEDIUM，但用户确认链尚未建立；
-- [ ] Recovery 继续原 Commit；
+- [x] Recovery 继续原 Commit；Project Closure receipt-backed 中断在 Desktop 上保持同一
+  `PENDING` Commit，reload 后从原 Review 续跑，不重复 Domain 写入、不创建平行 Commit；
 - [x] Rebind 常规主链不展示 UUID 列表；ready preview/success HTML 与 select value 已
   identity-free，5 分钟有界捕获窗口解决自动 materialization 竞态；既有正式 Rebind 安全链
   保持。当前 commit `344c705ec446` 已真实 Desktop 完成 capture→Preview→Submit→reload，

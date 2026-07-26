@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_ACTIVATION_MAIN_CHAIN_DESKTOP_DONE_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN
 overall_goal: IN_PROGRESS
 ```
 
@@ -279,10 +279,14 @@ overall_goal: IN_PROGRESS
   `p2-e-09` SUPERSEDED 失败证据；`06907f3` 增加版本/checksum/receipt 绑定的专用 inverse
   Commit 后，当前 `p2-e-10`～`p2-e-12` 证明入口、撤销结果与 reload 后 ACTIVE Project。
   Service 回读为 Project `OPEN v13`、Closure absent；正向 Commit `UNDONE`、逆向 Commit
-  `COMPLETED`，`PENDING/RECOVERY_REQUIRED/FAILED=0`。P2-E 正常主链从 Partial 变为 DONE；
-  当前构建的 Provider error/stale 与注入 Commit failure → Recovery resume Desktop Gate
-  仍 OPEN，因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin `279/279`、
-  Domain `44/44`、typecheck 与根级 `./scripts/check.sh` PASS；
+  `COMPLETED`，`PENDING/RECOVERY_REQUIRED/FAILED=0`。P2-E 正常主链从 Partial 变为 DONE。
+  `6f7f9a857be9` 当前构建又用隔离测试库完成真实 post-domain HTTP 500：同一 receipt-backed
+  Commit 保持 `PENDING`，reload 后由原 Review 继续，收口为 `COMPLETED/APPLIED` 且 Project
+  不重复增版；再经 reload、Closure 专用 Undo 和再次 reload 回到 `OPEN v21`、Closure
+  absent、正向 `UNDONE`、逆向 `COMPLETED`、异常 Commit `0/0/0`。该 Gate 复用同一
+  SemanticCommit/Receipt/最近修改入口，没有新增恢复状态或第二写路径。Provider error/stale
+  Desktop Gate 仍 OPEN，因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin
+  `279/279`、Domain `44/44`、typecheck 与根级 `./scripts/check.sh` PASS；
 - P2-F 已从 NOT_STARTED 进入 `IN_PROGRESS_SHADOW_PROVIDER_QUALITY_PASS`：Application 新增
   严格、无自由文本的跨对象观察 draft，固定五类候选、2–8 个版本化 subject、显式有界
   scope、2–16 条结构化 evidence、exact Skill/Prompt/model provenance 与每轮 8 条上限。

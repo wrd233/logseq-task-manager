@@ -262,7 +262,7 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 
 ## P2-E：Closure 证据起草
 
-状态：`IN_PROGRESS_MAIN_CHAIN_DESKTOP_DONE_FAILURE_RECOVERY_DESKTOP_OPEN`
+状态：`IN_PROGRESS_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_DESKTOP_OPEN`
 
 MiniProject 聚合：子树、DONE、Output、Decision、原状态和遗留。
 
@@ -314,8 +314,12 @@ Plugin reload → Project 回到 Now Work。首轮真实完成态发现没有专
 `p2-e-09` 为 SUPERSEDED 失败证据；`06907f3` 增加 receipt/checksum/version 绑定的专用
 inverse Commit 后，`p2-e-10`～`p2-e-12` 为 CURRENT。回读为 Project `OPEN v13`、
 Closure absent，正向 Commit `UNDONE`、逆向 Commit `COMPLETED`，异常 Commit 计数为 0。
-正常主链 Gate 已 DONE，但当前构建的 Provider error/stale 和注入 Commit failure →
-RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial。完整记录见
+正常主链 Gate 已 DONE。`6f7f9a857be9` 当前构建又在隔离测试库完成真实 post-domain
+中断：HTTP 500 后同一 receipt-backed Commit 保持 `PENDING`，reload 显示“尚未完成，可以
+继续”，再次确认只收口原 Commit；随后 reload、专用 Undo 与再次 reload 均通过。Project
+最终 `OPEN v21`、Closure absent、正向 Commit `UNDONE`、逆向 `COMPLETED`、异常 Commit
+`0/0/0`。当前构建的 Provider error/stale Desktop 证据仍 OPEN，因此 P2-E 整体保持 Partial。
+完整记录见
 `logs/p2-e-project-closure-desktop-live-20260726.md`。
 
 `653875a` 进一步加严既有 post-domain interruption 自动 Gate：在
@@ -323,8 +327,9 @@ RECOVERY_REQUIRED → resume 仍需 Desktop 证据，P2-E 整体保持 Partial�
 receipt-backed SemanticCommit 保持 `PENDING`；Service restart 后只恢复这一个原 Commit，
 最终 `COMPLETED/APPLIED`，`PENDING/FAILED/RECOVERY_REQUIRED=0`。这证明可安全续跑的中断应
 继续翻译为“尚未完成，可以继续”，不应人为新建 `RECOVERY_REQUIRED` 或第二恢复工作流。
-该证据为 `AUTOMATED_ONLY`；Provider error/stale 与不能安全自动续跑的真实 Desktop 恢复链
-仍是 P2-E 的开放项。
+该 receipt-backed 续跑合同现已从 `AUTOMATED_ONLY` 升为代表性 Desktop DONE；没有新增
+正式状态、恢复入口或第二 Commit。Provider error/stale 与不能安全自动续跑的真正
+`RECOVERY_REQUIRED` 情形仍是 P2-E 的开放项。
 
 ## P2-F：跨对象观察
 

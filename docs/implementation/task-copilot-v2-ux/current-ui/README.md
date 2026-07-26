@@ -97,8 +97,12 @@ HIGH Review 与 Commit；该真实运行也暴露完成态没有专用 Undo，�
 `SUPERSEDED` 缺陷证据。`06907f34b8d2` 最新构建补齐版本/checksum/receipt 绑定的 Closure
 inverse Commit，CURRENT `p2-e-10`～`p2-e-12` 证明 Undo 可发现、撤销后回到 Project 重入、
 reload 后 Project 再次进入 Now Work。正式回读为 `OPEN v13`、Closure absent、正向
-`UNDONE`、逆向 `COMPLETED`、异常 Commit `0/0/0`。当前构建的 error/stale 与
-RECOVERY_REQUIRED → resume Desktop Gate 仍 OPEN，所以 P2-E 仍是 Partial。完整记录见
+`UNDONE`、逆向 `COMPLETED`、异常 Commit `0/0/0`。`6f7f9a857be9` 当前构建进一步用
+隔离测试库完成真实 post-domain HTTP 500：同一 receipt-backed Commit 保持 `PENDING`，
+reload 后显示“尚未完成，可以继续”，再次确认只收口原 Commit；随后 reload、专用 Undo
+与再次 reload 均通过。CURRENT `p2-e-13`～`18`，最终 `OPEN v21`、Closure absent、异常
+Commit `0/0/0`。Provider error/stale 与真正不能安全续跑的 `RECOVERY_REQUIRED` 代表链仍
+OPEN，所以 P2-E 仍是 Partial。完整记录见
 `../logs/p2-e-project-closure-desktop-live-20260726.md`。
 
 P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop Gate。首轮真实运行

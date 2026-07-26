@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G 已关闭，但 P0 宿主 Gate、P1 Attention/Marker、P2-E 失败链、P2-G 双重 Restore/Migration 失败链仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H 已关闭，P2-E receipt-backed Commit 中断续跑子 Gate 也已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E Provider 失败链、P2-G 双重 Restore/Migration 失败链仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -52,6 +52,20 @@
   discovery generation 与 lease release 的顺序。真实失败样本进入回归，修复后新 Graph
   首帧不再显示旧 Project，切回恢复同一 authority。P0-H Partial 已关闭；新增正式状态、
   recovery 分支、Skill、Prompt、Validator 和平行 Runtime 均为 `0`。
+
+### P2-E Closure Commit 中断收敛
+
+- 新增正式状态、恢复入口、Agent Runtime、Skill、Prompt、Validator、平行写入权威：`0`。
+- 受控 post-domain HTTP 500 继续复用既有 Proposal、command receipt、SemanticCommit、
+  最近修改与原 Review；可安全续跑时保持原 Commit `PENDING`，不为了场景命名而新建
+  `RECOVERY_REQUIRED` 或第二恢复页。
+- reload 后用户层只表达“尚未完成，可以继续”和“不要重复提交”；再次确认收口同一 Commit，
+  Project 版本没有重复增长。随后继续复用现有 Closure inverse 完成 Undo 与再次 reload。
+- 删除/合并的重复机制：`0` 个新机制；本轮把自动 post-domain recovery 证据升级为真实
+  Desktop 代表 Gate。P2-E Partial 未整体关闭，仅剩 Provider error/stale 与真正不能安全
+  续跑的恢复代表链。
+- 真实 Provider：1 attempt，Validator 接受，重试 `0`；输出准确但偏短，未新增 Skill 补丁。
+  故障与恢复测试不把 Provider 成功等同于 Slice 完成。
 
 - P0-J 从 `AUTOMATED_ONLY` 收敛为代表性 Desktop partial：共享同一 command/slash 注册内核，
   没有为四条 Slash、六条 palette 或三个 binding 创建场景状态；新正式状态、恢复分支、

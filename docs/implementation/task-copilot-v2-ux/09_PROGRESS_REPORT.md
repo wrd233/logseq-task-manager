@@ -27,7 +27,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；中文 IME/受限视觉、K 多宿主 Gate OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart、Migration through Activation 正常主链已有真实 Desktop。真实双重故障注入、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_RESTORE_MANUAL_RECOVERY_CONTROLLED_DESKTOP_DONE_REAL_DOUBLE_FAILURE_OPEN | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo 已 Desktop PASS，Provider error/stale 仍 OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、Restore 激活失败→自动回滚→reload、受控人工恢复→重连→完整 restart、Migration through Activation 正常主链已有真实 Desktop。真实双重故障注入、Migration failure/interruption recovery 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -614,9 +614,12 @@ derivative/dashboard 价值也仍未完成。
   确认并在完成后回到 Project 重入。当前 `p2-e-10`～`p2-e-12` 证明 Undo 可发现、成功结果
   和 reload 后 Project 回归 Now Work；CLI/SQLite 回读为 `OPEN v13`、Closure absent、
   forward `UNDONE`、inverse `COMPLETED`、`0/0/0`。Domain `44/44`、Local Service
-  `144/144`、Plugin `279/279` 与根级检查 PASS。正常主链从 Partial 变为 DONE；当前构建
-  Provider error/stale 和注入 Commit failure → Recovery resume 的 Desktop Gate 仍 OPEN，
-  所以 P2-E 整体不提前关闭。完整记录见
+  `144/144`、Plugin `279/279` 与根级检查 PASS。正常主链从 Partial 变为 DONE。
+  `6f7f9a857be9` 又完成受控 post-domain HTTP 500 → 原 `PENDING` Commit → reload →
+  同 Commit receipt replay → reload → Closure Undo → reload；Project 最终 `OPEN v21`，
+  Closure absent、forward `UNDONE`、inverse `COMPLETED`、异常 Commit `0/0/0`。该子 Gate
+  从 `AUTOMATED_ONLY` 变为 Desktop DONE，且没有新增状态或恢复入口。Provider error/stale
+  Desktop 仍 OPEN，所以 P2-E 整体不提前关闭。完整记录见
   `logs/p2-e-project-closure-desktop-live-20260726.md`；
 - P2-G Restore 激活失败主链已完成真实 Desktop Gate：`94038e6` 补齐候选激活后故障的
   原库回滚、恢复点保留、Service 停止与用户层失败 disposition；`0c4526d` 修复回滚后
