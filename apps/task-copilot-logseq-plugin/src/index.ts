@@ -110,6 +110,11 @@ import {
   type PluginMigrationDecisionInput,
   type MigrationScanClient,
 } from "./migration-scan-controller.ts";
+import {
+  MigrationExecutionController,
+  type MigrationExecutionClient,
+  type PluginMigrationRunView,
+} from "./migration-execution-controller.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -129,6 +134,7 @@ const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pl
 const attentionShadowSession = new AttentionShadowSession();
 const backupRestoreController = new BackupRestoreController();
 const migrationScanController = new MigrationScanController();
+const migrationExecutionController = new MigrationExecutionController();
 
 function isBackupRestoreClient(client: ServiceRuntimeClient | undefined): client is ServiceRuntimeClient & BackupRestoreClient {
   return Boolean(
@@ -145,6 +151,18 @@ function isMigrationScanClient(client: ServiceRuntimeClient | undefined): client
     client
     && typeof client.scanLegacyMigration === "function"
     && typeof client.previewLegacyMigration === "function",
+  );
+}
+
+function isMigrationExecutionClient(client: ServiceRuntimeClient | undefined): client is ServiceRuntimeClient & MigrationExecutionClient {
+  return Boolean(
+    client
+    && typeof client.scanLegacyMigration === "function"
+    && typeof client.getMigrationRun === "function"
+    && typeof client.createBackup === "function"
+    && typeof client.importLegacyMigration === "function"
+    && typeof client.verifyLegacyMigrationBatch === "function"
+    && typeof client.undoLegacyMigrationBatch === "function",
   );
 }
 let lastAttentionShadowSummarySignature: string | undefined;
@@ -494,7 +512,7 @@ async function model(): Promise<UiModel> {
   let v2PrimaryAnchors: V2Anchor[] = [];
   let v2ProjectReentryCards: PluginProjectReentryCard[] | undefined;
   let v2ObjectNarrations: Record<string, PluginObjectNarration> | undefined;
-  let v2MigrationRuns: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listMigrationRuns"]>> = [];
+  let v2MigrationRuns: PluginMigrationRunView[] = [];
   let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
   let v2ProposalLoadError: string | undefined;
   let v2AuditLoadError: string | undefined;
@@ -532,7 +550,11 @@ async function model(): Promise<UiModel> {
       v2ReentryLoadError = explain(error);
     }
     try {
-      v2MigrationRuns = await serviceRuntimeClient.listMigrationRuns();
+      const rawMigrationRuns = await serviceRuntimeClient.listMigrationRuns();
+      const migrationDetails = typeof serviceRuntimeClient.getMigrationRun === "function"
+        ? await Promise.all(rawMigrationRuns.map(({ runId }) => serviceRuntimeClient!.getMigrationRun!(runId)))
+        : [];
+      v2MigrationRuns = migrationExecutionController.bindRuns(rawMigrationRuns, migrationDetails);
     } catch (error) {
       v2MigrationLoadError = explain(error);
     }
@@ -631,6 +653,11 @@ async function model(): Promise<UiModel> {
     v2MigrationScanAvailable: serviceConnection.status === "READY"
       && serviceConnection.capabilities.migration
       && isMigrationScanClient(serviceRuntimeClient),
+    v2MigrationExecution: migrationExecutionController.snapshot(),
+    v2MigrationExecutionAvailable: serviceConnection.status === "READY"
+      && serviceConnection.formalWritesAvailable
+      && serviceConnection.capabilities.migration
+      && isMigrationExecutionClient(serviceRuntimeClient),
     v2BackupRestore: backupRestoreController.snapshot(),
     v2BackupRestoreAvailable: serviceConnection.status === "READY"
       && serviceConnection.formalWritesAvailable
@@ -826,6 +853,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   projectCreationGrillController.clear();
   backupRestoreController.clear();
   migrationScanController.clear();
+  migrationExecutionController.clear();
   serviceRuntimeClient = undefined;
   serviceConnection = {
     status: "RESTRICTED",
@@ -1233,6 +1261,154 @@ async function handleAction(action: string, value?: string): Promise<void> {
     migrationScanController.clear();
     message = "已放弃本次迁移材料；当前会话不再保留其内容。";
     latestError = undefined;
+    await refresh();
+    return;
+  }
+  if (action === "migration-import-open" && value) {
+    latestError = undefined;
+    message = undefined;
+    try {
+      migrationExecutionController.beginMaterial(value);
+    } catch (error) {
+      latestError = explain(error);
+    }
+    await refresh();
+    return;
+  }
+  if (action === "migration-import-clear") {
+    migrationExecutionController.clear();
+    latestError = undefined;
+    message = "已放弃本次批次准备；当前会话不再保留材料、范围或恢复点引用。";
+    await refresh();
+    return;
+  }
+  if (action === "migration-import-material") {
+    latestError = undefined;
+    message = undefined;
+    const client = serviceRuntimeClient;
+    if (!isMigrationExecutionClient(client) || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable || !serviceConnection.capabilities.migration) {
+      latestError = "当前知识库的迁移执行环境尚未就绪；没有读取材料、创建恢复点或导入正式对象。";
+      await refresh();
+      return;
+    }
+    const input = requireAppRoot().querySelector<HTMLInputElement>('[data-field="migrationImportBundleFile"]');
+    const file = input?.files?.[0];
+    if (!file) {
+      latestError = "请选择创建这项计划时使用的 Recovery Bundle JSON；没有读取或保存。";
+      await refresh();
+      return;
+    }
+    if (file.size < 2 || file.size > MIGRATION_BUNDLE_MAX_BYTES) {
+      latestError = "所选 Recovery Bundle 大小不在安全范围内；没有创建恢复点或导入正式对象。";
+      await refresh();
+      return;
+    }
+    let rawBundle: string;
+    try {
+      rawBundle = await file.text();
+    } catch {
+      latestError = "所选 Recovery Bundle 无法读取；没有创建恢复点或导入正式对象。";
+      await refresh();
+      return;
+    }
+    const loading = migrationExecutionController.loadMaterial(client, rawBundle);
+    await refresh();
+    await loading.catch(() => {
+      latestError = migrationExecutionController.snapshot().message ?? "迁移材料暂时无法核对；没有导入正式对象。";
+    });
+    await refresh();
+    return;
+  }
+  if (action === "migration-import-recovery") {
+    latestError = undefined;
+    message = undefined;
+    const client = serviceRuntimeClient;
+    if (!isMigrationExecutionClient(client) || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      latestError = "当前知识库的恢复点服务尚未就绪；没有导入正式对象。";
+      await refresh();
+      return;
+    }
+    const itemTokens = Array.from(requireAppRoot().querySelectorAll<HTMLInputElement>('[data-field^="migrationImportItem:"]:checked'))
+      .map((input) => input.value);
+    const creating = migrationExecutionController.createRecoveryPoint(client, itemTokens);
+    await refresh();
+    await creating.catch(() => {
+      latestError = migrationExecutionController.snapshot().message ?? "恢复点暂时无法创建；没有导入正式对象。";
+    });
+    await refresh();
+    return;
+  }
+  if (action === "migration-import-commit") {
+    latestError = undefined;
+    message = undefined;
+    const confirmed = requireAppRoot().querySelector<HTMLInputElement>('[data-field="migrationImportConfirm"]')?.checked === true;
+    if (!confirmed) {
+      latestError = "请先确认本批范围和恢复点；没有导入正式对象。";
+      await refresh();
+      return;
+    }
+    const client = serviceRuntimeClient;
+    if (!isMigrationExecutionClient(client) || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      latestError = "当前知识库的迁移执行环境尚未就绪；没有提交新请求。";
+      await refresh();
+      return;
+    }
+    const importing = migrationExecutionController.importBatch(client);
+    await refresh();
+    await importing.catch(() => {
+      latestError = migrationExecutionController.snapshot().message ?? "本批结果尚未确认；请刷新台账。";
+    });
+    await refresh();
+    return;
+  }
+  if (action === "migration-batch-verify" && value) {
+    latestError = undefined;
+    message = undefined;
+    const client = serviceRuntimeClient;
+    if (!isMigrationExecutionClient(client) || serviceConnection.status !== "READY") {
+      latestError = "当前知识库暂时无法验证迁移批次；正式状态保持不变。";
+      await refresh();
+      return;
+    }
+    const verifying = migrationExecutionController.verify(client, value);
+    await refresh();
+    await verifying.catch(() => {
+      latestError = migrationExecutionController.snapshot().message ?? "本批验证未能确认；请刷新台账。";
+    });
+    await refresh();
+    return;
+  }
+  if (action === "migration-batch-undo-open" && value) {
+    latestError = undefined;
+    message = undefined;
+    try {
+      migrationExecutionController.prepareUndo(value);
+    } catch (error) {
+      latestError = explain(error);
+    }
+    await refresh();
+    return;
+  }
+  if (action === "migration-batch-undo") {
+    latestError = undefined;
+    message = undefined;
+    const confirmed = requireAppRoot().querySelector<HTMLInputElement>('[data-field="migrationUndoConfirm"]')?.checked === true;
+    if (!confirmed) {
+      latestError = "请先确认撤销边界；没有改变正式状态。";
+      await refresh();
+      return;
+    }
+    const client = serviceRuntimeClient;
+    if (!isMigrationExecutionClient(client) || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
+      latestError = "当前知识库暂时无法安全撤销迁移批次；没有提交新请求。";
+      await refresh();
+      return;
+    }
+    const undoing = migrationExecutionController.undo(client);
+    await refresh();
+    await undoing.catch(() => {
+      latestError = migrationExecutionController.snapshot().message ?? "撤销结果尚未确认；请刷新台账。";
+    });
     await refresh();
     return;
   }

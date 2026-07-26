@@ -848,13 +848,18 @@ test("Project Page Context routes current state, structure discussion, and proje
   assert.doesNotMatch(html, /data-action="v2-page-project-create-route"/);
 });
 
-test("Migration workspace translates the Service ledger without exposing identities or direct writes", () => {
+test("Migration workspace translates the Service ledger without exposing identities and offers only bounded batch actions", () => {
   const value = model();
   value.workspace = "migration";
+  value.v2MigrationExecutionAvailable = true;
   value.v2MigrationRuns = [{
-    runId: "migration-run:abc", sourceBundleSha256: "a".repeat(64), sourceCreatedAt: "2026-07-20T08:00:00.000Z",
-    status: "IMPORTING", summary: { total: 3, import: 2, keepOrdinary: 0, defer: 1, exclude: 0 }, snapshotBackupId: "backup_20260721080000000_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    token: "migration-plan:1",
+    status: "IMPORTING", summary: { total: 3, import: 2, keepOrdinary: 0, defer: 1, exclude: 0 },
     createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T09:00:00.000Z",
+    batches: [{
+      token: "migration-batch:1", status: "IMPORTED", importedCount: 2,
+      updatedAt: "2026-07-21T09:00:00.000Z",
+    }],
   }];
   const html = renderApp(value);
   assert.match(html, /V1 → V2 迁移/);
@@ -863,8 +868,9 @@ test("Migration workspace translates the Service ledger without exposing identit
   assert.match(html, /3 项已审阅 · 2 项列入迁移 · 0 项保持普通内容 · 1 项暂缓/);
   assert.match(html, /应用重启后仍可继续/);
   assert.match(html, /Recovery Bundle 始终只读/);
+  assert.match(html, /data-action="migration-batch-verify"/);
   assert.doesNotMatch(html, /migration-run:abc|backup_20260721080000000|a{12,}/);
-  assert.doesNotMatch(html, /textarea|type="file"|data-action="migration-(?:import|activate|undo)"/);
+  assert.doesNotMatch(html, /textarea|data-action="migration-activate"/);
 });
 
 test("Migration workspace gives all ledger states an accurate conclusion and stage-aware counts", () => {
@@ -880,13 +886,12 @@ test("Migration workspace gives all ledger states an accurate conclusion and sta
     const value = model();
     value.workspace = "migration";
     value.v2MigrationRuns = [{
-      runId: `migration-run:${status}`,
-      sourceBundleSha256: "a".repeat(64),
-      sourceCreatedAt: "2026-07-21T08:00:00.000Z",
+      token: `migration-plan:${status}`,
       status,
       summary: { total: 5, import: 2, keepOrdinary: 1, defer: 1, exclude: 1 },
       createdAt: "2026-07-21T08:00:00.000Z",
       updatedAt: "2026-07-21T09:00:00.000Z",
+      batches: [],
     }];
     const html = renderApp(value);
     assert.match(html, new RegExp(conclusion));
@@ -894,6 +899,92 @@ test("Migration workspace gives all ledger states an accurate conclusion and sta
     assert.match(html, /1 项保持普通内容/);
     assert.doesNotMatch(html, /migration-run:|a{12,}/);
   }
+});
+
+test("Migration execution renders reselect, bounded scope, recovery, import, verify, and undo as separate user decisions", () => {
+  const base = model();
+  base.workspace = "migration";
+  base.v2MigrationExecutionAvailable = true;
+  base.v2MigrationRuns = [{
+    token: "migration-plan:1",
+    status: "PREVIEWED",
+    summary: { total: 2, import: 1, keepOrdinary: 1, defer: 0, exclude: 0 },
+    createdAt: "2026-07-26T08:00:00.000Z",
+    updatedAt: "2026-07-26T09:00:00.000Z",
+    batches: [],
+  }];
+
+  base.v2MigrationExecution = {
+    status: "selecting-material",
+    runToken: "migration-plan:1",
+    message: "重新选择同一份材料。",
+  };
+  const selecting = renderApp(base);
+  assert.match(selecting, /data-field="migrationImportBundleFile"/);
+  assert.match(selecting, /data-action="migration-import-material"/);
+  assert.match(selecting, /data-action="migration-import-open"/);
+  assert.match(selecting, /data-action="migration-import-clear"/);
+
+  base.v2MigrationExecution = {
+    status: "material-ready",
+    runToken: "migration-plan:1",
+    items: [{ token: "migration-import-item:1", title: "准备导入的任务", titleTruncated: false, sourceObjectType: "TASK" }],
+    selectedCount: 0,
+    message: "请选择本批。",
+  };
+  const scope = renderApp(base);
+  assert.match(scope, /data-field="migrationImportItem:migration-import-item:1"/);
+  assert.match(scope, /data-action="migration-import-recovery"/);
+  assert.doesNotMatch(scope, /migration-run:|backup_|a{12,}|legacy-private/);
+
+  base.v2MigrationExecution = {
+    status: "ready-to-import",
+    runToken: "migration-plan:1",
+    selectedCount: 1,
+    recoveryPointReady: true,
+    message: "恢复点已校验。",
+  };
+  const confirm = renderApp(base);
+  assert.match(confirm, /data-field="migrationImportConfirm"/);
+  assert.match(confirm, /data-action="migration-import-commit"/);
+  assert.match(confirm, /尚不会启用 V2/);
+
+  base.v2MigrationExecution = {
+    status: "undo-confirm",
+    runToken: "migration-plan:1",
+    batchToken: "migration-batch:1",
+    message: "只撤销未变化对象。",
+  };
+  const undo = renderApp(base);
+  assert.match(undo, /data-field="migrationUndoConfirm"/);
+  assert.match(undo, /data-action="migration-batch-undo"/);
+  assert.match(undo, /审阅、验证与审计证据保留/);
+});
+
+test("Migration verified ledger survives reload and exposes safe verify or undo actions without formal identity", () => {
+  const value = model();
+  value.workspace = "migration";
+  value.v2MigrationExecutionAvailable = true;
+  value.v2MigrationExecution = { status: "idle" };
+  value.v2MigrationRuns = [{
+    token: "migration-plan:1",
+    status: "VERIFIED",
+    summary: { total: 2, import: 1, keepOrdinary: 1, defer: 0, exclude: 0 },
+    createdAt: "2026-07-26T08:00:00.000Z",
+    updatedAt: "2026-07-26T09:00:00.000Z",
+    batches: [{
+      token: "migration-batch:1",
+      status: "VERIFIED",
+      importedCount: 1,
+      validationObjectCount: 1,
+      updatedAt: "2026-07-26T09:00:00.000Z",
+    }],
+  }];
+  const html = renderApp(value);
+  assert.match(html, /批次 1 · 验证通过/);
+  assert.match(html, /1 项已核对/);
+  assert.match(html, /data-action="migration-batch-undo-open"/);
+  assert.doesNotMatch(html, /migration-run:private|migration-batch:private|backup_|a{12,}|legacy-private/);
 });
 
 test("Migration workspace opens a session-only scan, bounded per-item review, and no direct formal write", () => {

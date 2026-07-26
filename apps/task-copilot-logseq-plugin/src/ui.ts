@@ -7,7 +7,7 @@ import type {
 } from "@task-copilot/application";
 import { routeProjectOperation } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
-import type { ServiceConditionUndoPreparation, ServiceMigrationRun, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceConditionUndoPreparation, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
@@ -17,6 +17,7 @@ import type { PluginMiniProjectGrillState } from "./mini-project-grill-controlle
 import type { PluginProjectCreationGrillState } from "./project-creation-grill-controller.ts";
 import type { PluginBackupRestoreState } from "./backup-restore-controller.ts";
 import type { PluginMigrationReviewItem, PluginMigrationScanState } from "./migration-scan-controller.ts";
+import type { PluginMigrationExecutionState, PluginMigrationRunView } from "./migration-execution-controller.ts";
 import {
   resolveProjectContextRecoveryRoute,
   type PluginProjectContextRecoveryState,
@@ -170,10 +171,12 @@ export interface UiModel {
   v2AuditLoadError?: string;
   recentActionCommitId?: string;
   originReturnLabel?: "返回原 Block" | "返回原 Page";
-  v2MigrationRuns?: ServiceMigrationRun[];
+  v2MigrationRuns?: PluginMigrationRunView[];
   v2MigrationLoadError?: string;
   v2MigrationScan?: PluginMigrationScanState;
   v2MigrationScanAvailable?: boolean;
+  v2MigrationExecution?: PluginMigrationExecutionState;
+  v2MigrationExecutionAvailable?: boolean;
   v2BackupRestore?: PluginBackupRestoreState;
   v2BackupRestoreAvailable?: boolean;
   pageContext?: PageContextSnapshot;
@@ -847,6 +850,43 @@ function renderMigrationReviewItem(item: PluginMigrationReviewItem, busy: boolea
   </article>`;
 }
 
+function renderMigrationExecution(model: UiModel): string {
+  const state = model.v2MigrationExecution ?? { status: "idle" };
+  if (state.status === "idle") return "";
+  const available = model.v2MigrationExecutionAvailable === true;
+  const message = state.message ? `<p aria-live="polite">${escapeHtml(state.message)}</p>` : "";
+  if (state.status === "selecting-material" || (state.status === "error" && !state.batchToken)) {
+    return `<section class="card" aria-label="准备迁移批次"><div class="eyebrow">只读重新核对 · 正式变化 0</div><h3>重新选择本计划的材料</h3>${message}<label>选择同一份 Recovery Bundle<input type="file" accept="application/json,.json" data-field="migrationImportBundleFile"${available ? "" : " disabled"}></label><div class="actions">${button("放弃本批准备", "migration-import-clear", undefined, "quiet")}${button(state.status === "error" ? "重新核对材料" : "核对材料与待导入范围", "migration-import-material", undefined, "primary", !available)}</div></section>`;
+  }
+  if (state.status === "loading-material" || state.status === "creating-recovery-point" || state.status === "importing" || state.status === "verifying" || state.status === "undoing") {
+    return `<section class="card" aria-live="polite"><div class="eyebrow">安全操作进行中</div><h3>${state.status === "loading-material" ? "核对迁移材料" : state.status === "creating-recovery-point" ? "创建并校验恢复点" : state.status === "importing" ? "导入本批" : state.status === "verifying" ? "验证本批" : "撤销本批"}</h3>${message}</section>`;
+  }
+  if (state.status === "material-ready") {
+    const items = state.items ?? [];
+    return `<section class="card" aria-label="选择迁移批次"><div class="eyebrow">材料与计划一致 · 正式变化 0</div><h3>选择本批范围</h3>${message}<div class="cards">${items.map((item) => `<label class="card compact"><input type="checkbox" data-field="migrationImportItem:${escapeHtml(item.token)}" value="${escapeHtml(item.token)}"${available ? "" : " disabled"}><span><strong>${escapeHtml(item.title)}${item.titleTruncated ? "…" : ""}</strong><br><span class="muted">来源是${escapeHtml(migrationObjectTypeLabel(item.sourceObjectType))}</span></span></label>`).join("")}</div><p class="muted">只有选中项会进入本批；恢复点校验通过前不会创建正式对象。</p><div class="actions">${button("放弃本批准备", "migration-import-clear", undefined, "quiet")}${button("为所选项目创建恢复点", "migration-import-recovery", undefined, "primary", !available || !items.length)}</div></section>`;
+  }
+  if (state.status === "ready-to-import" || state.status === "import-uncertain") {
+    const uncertain = state.status === "import-uncertain";
+    return `<section class="card" aria-label="最终确认迁移批次"><div class="eyebrow">${uncertain ? "结果待确认 · 相同批次重试" : "恢复点校验通过 · HIGH"}</div><h3>${uncertain ? "先以台账为准" : `确认导入 ${escapeHtml(state.selectedCount ?? 0)} 项`}</h3>${message}<label><input type="checkbox" data-field="migrationImportConfirm"${available ? "" : " disabled"}> 我确认只导入上述已审阅范围；导入后仍需逐项验证，尚不会启用 V2。</label><div class="actions">${uncertain ? "" : button("放弃本批准备", "migration-import-clear", undefined, "quiet")}${button(uncertain ? "用相同批次安全重试" : "导入本批", "migration-import-commit", undefined, "danger", !available)}</div></section>`;
+  }
+  if (state.status === "imported") {
+    return `<section class="card"><div class="eyebrow">本批已导入 · 尚未验证</div><h3>${escapeHtml(state.importedCount ?? 0)} 项等待验证</h3>${message}${state.batchToken ? button("验证本批", "migration-batch-verify", state.batchToken, "primary", !available) : ""}</section>`;
+  }
+  if (state.status === "verified") {
+    return `<section class="card"><div class="eyebrow">本批验证通过 · 尚未启用</div><h3>${escapeHtml(state.importedCount ?? 0)} 项投影完整</h3>${message}${state.batchToken ? button("准备安全撤销", "migration-batch-undo-open", state.batchToken, "quiet", !available) : ""}</section>`;
+  }
+  if (state.status === "undo-confirm") {
+    return `<section class="card"><div class="eyebrow">撤销前最终确认 · HIGH</div><h3>安全撤销本批</h3>${message}<label><input type="checkbox" data-field="migrationUndoConfirm"${available ? "" : " disabled"}> 我确认只撤销本批未被后续修改或引用的对象；审阅、验证与审计证据保留。</label>${button("确认撤销本批", "migration-batch-undo", undefined, "danger", !available)}</section>`;
+  }
+  if (state.status === "undone") {
+    return `<section class="card"><div class="eyebrow">本批已安全撤销</div><h3>正式对象已回到导入前范围</h3>${message}</section>`;
+  }
+  if (state.status === "undo-uncertain") {
+    return `<section class="card"><div class="eyebrow">撤销结果待确认</div><h3>请先刷新迁移台账</h3>${message}<p class="muted">不要重复撤销或创建新批次；迁移台账会在重新载入后显示正式结论。</p></section>`;
+  }
+  return `<section class="card"><div class="eyebrow">本批需要检查</div><h3>以迁移台账为准</h3>${message}</section>`;
+}
+
 function renderMigration(model: UiModel): string {
   if (model.v2MigrationLoadError) return `<section><h2>V1 → V2 迁移</h2><div class="error"><strong>迁移状态不可用：</strong>${escapeHtml(model.v2MigrationLoadError)}<span>没有执行扫描、导入或状态切换。</span></div></section>`;
   const runs = model.v2MigrationRuns ?? [];
@@ -872,7 +912,8 @@ function renderMigration(model: UiModel): string {
       : scan.status === "ready" && scan.counts
         ? `<section class="card" aria-label="迁移材料只读扫描结果"><div class="eyebrow">只读扫描完成 · 正式变化 0</div><h3>这份材料包含 ${escapeHtml(scan.counts.total)} 项</h3><p>${escapeHtml(scan.counts.directBind)} 项初步可直接迁移 · ${escapeHtml(scan.counts.needsConfirmation)} 项需要确认 · ${escapeHtml(scan.counts.keepOrdinary)} 项建议保持普通内容 · ${escapeHtml(scan.counts.structuralError)} 项需先处理冲突</p><p aria-live="polite">${escapeHtml(scan.message ?? "尚未创建迁移计划。")}</p><p class="muted">材料仅保留在当前窗口会话内；重新载入、切换知识库或放弃都会清空。每项判断先留在当前会话，创建计划时系统会重新校验全部材料。</p>${scan.items?.length ? `<div class="cards migration-review-list">${scan.items.map((item) => renderMigrationReviewItem(item, scan.previewStatus !== "idle")).join("")}</div>` : ""}<div class="actions wrap">${button("放弃这份材料", "migration-scan-clear", undefined, "quiet", scan.previewStatus === "loading")}${scan.decisionsComplete ? button(previewButtonLabel, "migration-review-preview", undefined, "primary", scan.previewStatus === "loading") : ""}</div><p class="muted">${escapeHtml(reviewGuidance)}</p>${scan.previewStatus === "uncertain" ? `<p class="uncertain" role="status">无法确认迁移计划是否已写入台账；下方台账是当前权威。若没有新计划，可用相同判断重试，或放弃后重新检查。</p>` : ""}</section>`
         : `<section class="card"><h3>检查迁移材料</h3>${scan.status === "idle" && scan.message ? `<p class="action-feedback success" aria-live="polite">${escapeHtml(scan.message)}</p>` : ""}<p>这里只做只读校验与分类，不会创建迁移计划或改变正式事项。</p>${scanInput}${button(scan.status === "error" ? "重新检查" : "只读检查", "migration-scan-local", undefined, "primary")}${scan.status === "error" ? `<p class="diagnostic-error" role="alert">${escapeHtml(scan.message ?? "迁移材料暂时无法检查。")}</p>` : ""}</section>`;
-  if (!runs.length) return `${guidance}${scanPanel}${empty("还没有迁移计划", "只读扫描不会创建计划；完成逐项审阅前不会写入正式状态。")}`;
+  const executionPanel = renderMigrationExecution(model);
+  if (!runs.length) return `${guidance}${scanPanel}${executionPanel}${empty("还没有迁移计划", "只读扫描不会创建计划；完成逐项审阅前不会写入正式状态。")}`;
   const statusLabel = (status: (typeof runs)[number]["status"]): string => {
     if (status === "PREVIEWED") return "等待确认导入";
     if (status === "IMPORTING") return "导入后待验证";
@@ -895,8 +936,31 @@ function renderMigration(model: UiModel): string {
     if (status === "CANCELLED") return "原计划迁移";
     return "列入迁移";
   };
-  const cards = runs.map((run, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(statusLabel(run.status))} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>迁移计划 ${index + 1}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项${escapeHtml(importCountLabel(run.status))} · ${escapeHtml(run.summary.keepOrdinary)} 项保持普通内容 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p>${escapeHtml(nextStep(run.status))}</p><details><summary>查看安全边界</summary><p>Recovery Bundle 始终只读；正式状态只走系统的唯一安全写入链。导入前必须有校验通过的恢复点，未启用且没有后续变化的批次才可安全撤销。</p></details></article>`).join("");
-  return `${guidance}${scanPanel}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;
+  const batchStatusLabel = (status: PluginMigrationRunView["batches"][number]["status"]): string => {
+    if (status === "PREPARED") return "恢复点已建立";
+    if (status === "IMPORTED") return "已导入，等待验证";
+    if (status === "VERIFIED") return "验证通过";
+    if (status === "UNDONE") return "已安全撤销";
+    return "本批未完成";
+  };
+  const cards = runs.map((run, index) => {
+    const batches = run.batches.length
+      ? `<div class="cards">${run.batches.map((batch, batchIndex) => {
+        const action = batch.status === "IMPORTED"
+          ? button("验证本批", "migration-batch-verify", batch.token, "primary", model.v2MigrationExecutionAvailable !== true)
+          : batch.status === "VERIFIED"
+            ? button("准备安全撤销", "migration-batch-undo-open", batch.token, "quiet", model.v2MigrationExecutionAvailable !== true)
+            : "";
+        const validation = batch.validationObjectCount !== undefined ? ` · ${escapeHtml(batch.validationObjectCount)} 项已核对` : "";
+        return `<article class="card compact"><div class="eyebrow">批次 ${batchIndex + 1} · ${escapeHtml(batchStatusLabel(batch.status))}</div><p>${escapeHtml(batch.importedCount)} 项${validation}</p><div class="actions">${action}</div></article>`;
+      }).join("")}</div>`
+      : "";
+    const prepare = run.status === "PREVIEWED"
+      ? button("准备下一批", "migration-import-open", run.token, "primary", model.v2MigrationExecutionAvailable !== true)
+      : "";
+    return `<article class="card compact"><div class="eyebrow">${escapeHtml(statusLabel(run.status))} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>迁移计划 ${index + 1}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项${escapeHtml(importCountLabel(run.status))} · ${escapeHtml(run.summary.keepOrdinary)} 项保持普通内容 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p>${escapeHtml(nextStep(run.status))}</p><div class="actions">${prepare}</div>${batches}<details><summary>查看安全边界</summary><p>Recovery Bundle 始终只读；正式状态只走系统的唯一安全写入链。导入前必须有校验通过的恢复点，未启用且没有后续变化的批次才可安全撤销。</p></details></article>`;
+  }).join("");
+  return `${guidance}${scanPanel}${executionPanel}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;
 }
 
 function primaryWorkspace(workspace: Workspace): PrimaryWorkspace {
