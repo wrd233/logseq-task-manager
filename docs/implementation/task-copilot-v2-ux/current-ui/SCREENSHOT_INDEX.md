@@ -5,9 +5,10 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 API Key、token 或私人正文。
 
-最新 P1 Context Recovery 精确提交为 `894d14f`；`p1-g-06` 对应该精确构建，证明真实
+最新 P1 Context Recovery Desktop 精确提交为 `894d14f`；`p1-g-06` 对应该精确构建，证明真实
 Provider、中文 Validator、分区渲染与 `INACCURATE` 反馈，但也记录一个仍未关闭的内容语义
-缺陷。P0 命令宿主最近精确提交为 `a835f59bf1c4`。`p0-j-06`～`08` 对应该精确构建，证明三项快捷动作
+缺陷。源码 `recover-context@1.3.0` 当前为 `AUTOMATED_ONLY`，不得借这张 1.2.0 截图宣称
+最新 Skill 已 Desktop 验证。P0 命令宿主最近精确提交为 `a835f59bf1c4`。`p0-j-06`～`08` 对应该精确构建，证明三项快捷动作
 可配置、临时 binding 可触发且清理后冷启动全部未设置；`p0-j-02`～`05` 对应
 `e8db32f1af6d`，证明冷启动 palette 和 Slash 当前行为。`p0-h-09`～`12` 对应
 `e8db32f1af6d`，证明安全结束、

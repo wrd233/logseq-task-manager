@@ -3,9 +3,10 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
-最新 P1 Context Recovery 精确构建为 `894d14f`；`p1-g-06` 是该构建的真实 DeepSeek、
+最新 P1 Context Recovery Desktop 精确构建为 `894d14f`；`p1-g-06` 是该构建的真实 DeepSeek、
 Validator、分区渲染和用户 `INACCURATE` 反馈证据，不能把 Provider 成功误写为内容质量
-完成。`p1-g-05` 是早一版 `2cf8bf2` 的 HELPFUL 对照，现标为 `SUPERSEDED`。完整记录见
+完成。源码中的 `recover-context@1.3.0` 目前只有自动 Gate，尚未替代这张 1.2.0 Desktop
+权威；`p1-g-05` 是早一版 `2cf8bf2` 的 HELPFUL 对照，现标为 `SUPERSEDED`。完整记录见
 `../logs/p1-project-context-recovery-desktop-live-20260726.md`。
 
 P0 命令宿主最近精确构建为 `a835f59bf1c4`。`p0-j-06`～`08` 是该精确构建的可配置快捷键、触发和

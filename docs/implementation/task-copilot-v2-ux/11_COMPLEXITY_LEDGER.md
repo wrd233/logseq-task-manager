@@ -29,8 +29,10 @@
 - `unified-ux-generator@1.2.0`：`CANDIDATE`。固定当前产品中文前台合同、权限/事实/action
   authority 和 abstain 边界；真实精确 build `GENERATED=1 / REJECTED=0 / INACCURATE=1`，
   无自动 retry。失败时保留确定性 Project 重入投影，由用户显式重试，不覆盖旧可靠内容。
-- `recover-context@1.2.0`：`CANDIDATE`。最近两个精确真实 build 的 Validator 拒绝率 `0/2`，
-  处置为 `HELPFUL=1 / INACCURATE=1`；样本不足、内容语义仍有失败，不晋升 PRODUCTION。
+- `recover-context@1.3.0`：`CANDIDATE/AUTOMATED_ONLY`。把 1.2.0 真实失败提升为通用反身边界：
+  当前 recovery draft/disposition 不属于业务 unknown；只改现有 Skill，不新增 Validator 或
+  Runtime。1.2.0 最近两个精确真实 build 的拒绝率 `0/2`、处置
+  `HELPFUL=1 / INACCURATE=1`；1.3.0 真实 Provider 复验前不晋升。
 - `unified-ux-generator@1.1.0`：`RETIRED`。原因是自动 repair 会放大 Provider 预算并把一次
   用户交互双计数，单汉字语言检查也可被混合英文绕过；不保留兼容运行分支。
 - 当前复杂度变化：平行 Runtime/写入权威/恢复入口均未增加；Prompt/Validator 的样本特例

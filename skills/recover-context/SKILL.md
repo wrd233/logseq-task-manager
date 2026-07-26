@@ -5,7 +5,7 @@ description: Recover a bounded Task Copilot V2 Task, MiniProject, or Project con
 
 # Recover Task Copilot Context
 
-Version: `1.2.0`
+Version: `1.3.0`
 
 Apply `task-copilot-core` first. Never write formal Graph or SQLite state directly.
 
@@ -28,6 +28,10 @@ the whole Graph by default.
 - Lead with one compact summary grounded in the supplied formal facts.
 - Put interpretations in `inferences`, never in `factRefs`.
 - Put missing information in `unknowns`; say that the entry point is unclear when it is unclear.
+- The current recovery draft and its user disposition are evaluation artifacts, not business-context
+  unknowns. Do not report whether this draft or the current Provider/quality Gate is successful as an
+  unknown. If user evaluation is still needed, omit that reflexive claim and let the product collect
+  disposition separately.
 - Do not force a next action. Set `nextActionEligible` to `false` unless the runtime supplied one exact
   allowlisted action that reduces the user's decision cost without guessing.
 - Do not restate every status field, expand a full object tree, or manufacture a second Project summary.

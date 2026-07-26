@@ -338,7 +338,7 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
 ## P1-G：LLM 叙述与上下文恢复 Skill
 
 状态：`PARTIAL_DESKTOP_DARK_MAIN_CHAIN_CONTENT_QUALITY_GATE_OPEN` — Provider-neutral
-unified UX output validator、Local Service 生成器、`recover-context@1.2.0` 与 Plugin
+unified UX output validator、Local Service 生成器、`recover-context@1.3.0` 与 Plugin
 session-only 用户界面已完成；Dark Desktop 的真实 Provider/反馈/reload 主链已通过。内容
 质量、error/stale/validator rejection、Light/窄栏与 Project current-interface Proposal
 仍开放。
@@ -392,6 +392,9 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
 - 生成/反馈前后 `semantic_commits=24` 且最新正式时间不变，证明该链零 Proposal/Commit；
 - 代表性截图与日志见 `current-ui/SCREENSHOT_INDEX.md` 和
   `logs/p1-project-context-recovery-desktop-live-20260726.md`。
+- `recover-context@1.3.0` 将上述失败提升为通用 Skill 规则：正在生成的 recovery draft 及其
+  user disposition 属评价通道，不得作为业务 unknown；有待用户评价时省略反身结论，由既有
+  feedback 单独收集。当前已通过 catalog/Service prompt 自动 Gate，真实 Provider 复验仍 OPEN。
 
 ## P1-H：交互日志与版本
 

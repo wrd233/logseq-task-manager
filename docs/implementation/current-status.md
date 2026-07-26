@@ -106,7 +106,8 @@ overall_goal: IN_PROGRESS
   `page-head-actions-slotted`，所以 File Graph Page Head 安全隐藏属于 `BOUNDED_HOST_LIMIT`，
   Project workspace 的真实进入与点击链已通过；DB Graph Page Head、Light/窄栏仍待验证；
   Application 112/112、Plugin 219/219 通过；
-- P1-G 已建立 Provider-neutral unified UX output 深模块与 `recover-context@1.2.0`：
+- P1-G 已建立 Provider-neutral unified UX output 深模块；`recover-context@1.3.0` 已从最新真实
+  `INACCURATE` 样本沉淀“当前草稿及其用户评价不是业务上下文未知”的反身边界：
   模型只能引用机器 fact/action/evidence ID；正式事实文本、动作目标、scope hash、时间和
   Skill/Prompt/Provider/model provenance 由机器物化，模型不能降低 risk/review；
   `DRAFT_PROPOSAL` 建议没有正式 operation/write authority。Local Service 已新增只接受
@@ -125,6 +126,8 @@ overall_goal: IN_PROGRESS
   为“已撤销”，中文前台合同由 `unified-ux-generator@1.2.0` 统一验证且不自动二次调用
   Provider。最终样本仍把“当前真实 Provider Gate”误列为未知并被标记 `INACCURATE`，因此
   内容质量、Provider error、validator rejection/stale、Light/窄栏仍开放，P1-G 不升级为 DONE；
+  该 1.3.0 变更当前只有 Skill catalog/Service prompt 自动 Gate，最新 Desktop 权威仍是
+  1.2.0 的 `894d14f`，必须重新通过真实 Provider 后才可替代；
 - P1-H 已建立 session-only、bounded、strict-allowlist 的 Interaction Evidence：只记录
   scene/outcome、对象类型、规则/Signal/Skill/Prompt/model 版本、结构计数、用户处置、固定
   failure code 与时长；未知字段、正文、summary、对象/Block 身份、Prompt 和模型原始输出

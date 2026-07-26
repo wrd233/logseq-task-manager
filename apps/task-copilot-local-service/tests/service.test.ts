@@ -307,7 +307,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   assert.deepEqual(skills.map(({ name, version }) => ({ name, version })), [
     { name: "task-copilot-core", version: "1.0.0" },
     { name: "design-project", version: "1.3.0" },
-    { name: "recover-context", version: "1.2.0" },
+    { name: "recover-context", version: "1.3.0" },
     { name: "mini-project-modeling", version: "1.3.0" },
     { name: "project-creation-modeling", version: "1.5.0" },
   ]);
@@ -356,6 +356,7 @@ test("Project context recovery uses server-owned facts and a read-only action wi
       providerCalls += 1;
       assert.match(system, /recover-context/);
       assert.match(system, /never write formal Graph or SQLite state directly/i);
+      assert.match(system, /current recovery draft.*user disposition.*not.*business-context\s+unknowns/is);
       assert.match(user, /READ_ONLY_DERIVATIVE/);
       assert.match(user, /project-reentry-insufficient/);
       assert.match(user, /"factId":"project-recovery-summary"/);

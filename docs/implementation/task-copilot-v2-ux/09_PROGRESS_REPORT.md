@@ -286,6 +286,11 @@ Provider，不双计 interaction，中文前台合同排除受控产品词后再
 为 `GENERATED=1 / REJECTED=0 / INACCURATE=1`，正式 Commit 数保持 24。完整记录见
 `logs/p1-project-context-recovery-desktop-live-20260726.md`。
 
+该失败随后没有进入 Validator 特例：`recover-context@1.3.0` 只增加一条可跨样本的反身边界，
+明确当前 recovery draft 及其 disposition 属评价通道，不得作为业务 unknown；仍需用户评价时
+由现有 feedback 收集。Skill catalog 与真实 Service prompt 自动 Gate 已通过，真实 Provider
+复验前保持 `CANDIDATE/AUTOMATED_ONLY`，不借用 1.2.0 截图升级状态。
+
 ### P1-H privacy-bounded interaction evidence
 
 Application 新增 session-only `InteractionEvidenceBuffer`：exact-key allowlist 从结构上排除
