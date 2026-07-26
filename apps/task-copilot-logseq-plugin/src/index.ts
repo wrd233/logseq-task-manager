@@ -117,6 +117,7 @@ import {
   type MigrationExecutionClient,
   type PluginMigrationRunView,
 } from "./migration-execution-controller.ts";
+import { registerHostThemeModeSync } from "./theme-mode.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -4314,6 +4315,13 @@ async function main(): Promise<void> {
   globalThis.addEventListener("error", onGlobalError);
   cleanupHooks.push(() => globalThis.removeEventListener("unhandledrejection", onUnhandledRejection));
   cleanupHooks.push(() => globalThis.removeEventListener("error", onGlobalError));
+  cleanupHooks.push(await registerHostThemeModeSync(
+    logseq.App,
+    requireAppRoot(),
+    (error) => operationalLogger.log("warn", "plugin-lifecycle", "theme_mode_initial_read_failed", {
+      result: "css_fallback",
+    }, error),
+  ));
   operationalLogger.log("info", "plugin-lifecycle", "event_listeners_registered", { result: "success" });
 
   logseq.beforeunload(async () => {

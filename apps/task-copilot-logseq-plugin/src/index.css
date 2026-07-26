@@ -145,12 +145,14 @@
   #task-copilot-personal-mvp-root .diagnostic-grid { grid-template-columns: 1fr; }
 }
 
+#task-copilot-personal-mvp-root[data-theme-mode="dark"] { --bg: #17201c; --surface: #202c27; --surface-2: #293831; --text: #edf4ef; --muted: #a4b2aa; --border: #3b4b43; --accent: #6dd8ac; --accent-soft: #214536; --shadow: 0 20px 55px rgb(0 0 0 / 45%); }
+#task-copilot-personal-mvp-root[data-theme-mode="dark"] button.primary { color: #10251d; }
+#task-copilot-personal-mvp-root[data-theme-mode="dark"] .agent-state.disabled { background: #302f29; color: #cbc3ad; }
+#task-copilot-personal-mvp-root[data-theme-mode="dark"] .error { background: #4a2927; color: #ffd2ce; }
+#task-copilot-personal-mvp-root[data-theme-mode="dark"] .report { background: #28314a; }
+#task-copilot-personal-mvp-root[data-theme-mode="dark"] .badges .signal { background: #51411c; }
+#task-copilot-personal-mvp-root[data-theme-mode="dark"] details del, #task-copilot-personal-mvp-root[data-theme-mode="dark"] .readable-diff del { background: #4a2927; color: #ffd2ce; }
+
 @media (prefers-color-scheme: dark) {
-  #task-copilot-personal-mvp-root { --bg: #17201c; --surface: #202c27; --surface-2: #293831; --text: #edf4ef; --muted: #a4b2aa; --border: #3b4b43; --accent: #6dd8ac; --accent-soft: #214536; --shadow: 0 20px 55px rgb(0 0 0 / 45%); }
-  #task-copilot-personal-mvp-root button.primary { color: #10251d; }
-  #task-copilot-personal-mvp-root .agent-state.disabled { background: #302f29; color: #cbc3ad; }
-  #task-copilot-personal-mvp-root .error { background: #4a2927; color: #ffd2ce; }
-  #task-copilot-personal-mvp-root .report { background: #28314a; }
-  #task-copilot-personal-mvp-root .badges .signal { background: #51411c; }
-  #task-copilot-personal-mvp-root details del, #task-copilot-personal-mvp-root .readable-diff del { background: #4a2927; color: #ffd2ce; }
+  #task-copilot-personal-mvp-root:not([data-theme-mode]) { --bg: #17201c; --surface: #202c27; --surface-2: #293831; --text: #edf4ef; --muted: #a4b2aa; --border: #3b4b43; --accent: #6dd8ac; --accent-soft: #214536; --shadow: 0 20px 55px rgb(0 0 0 / 45%); }
 }

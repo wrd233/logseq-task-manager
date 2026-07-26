@@ -145,6 +145,10 @@ test("session handles bind reversible disposition without entering evidence expo
     scene: "CONTEXT_RECOVERY",
     skill: { name: "recover-context", version: "1.1.0" },
   }), false, "withdrawing the disposition immediately re-enables the same prompt");
+  assert.equal(log.setOutcome(handle, "STALE", "V2_OBJECT_VERSION_CONFLICT")?.outcome, "STALE");
+  assert.equal(log.summary().outcomes.GENERATED, 0);
+  assert.equal(log.summary().outcomes.STALE, 1);
+  assert.match(log.exportJsonl(), /V2_OBJECT_VERSION_CONFLICT/);
   assert.doesNotMatch(log.exportJsonl(), /uxi_|1234567890abcdef/);
 
   log.record({ timestamp: "2026-07-24T08:01:00.000Z", scene: "SYSTEM", outcome: "GENERATED" });

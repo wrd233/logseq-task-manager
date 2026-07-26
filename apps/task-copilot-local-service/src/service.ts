@@ -2140,6 +2140,9 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         });
         const latest = store.getObject(project.objectId);
         if (!latest || latest.version !== input.expectedVersion) {
+          if (generated.interactionId) {
+            options.interactionEvidence?.setOutcome(generated.interactionId, "STALE", "V2_OBJECT_VERSION_CONFLICT");
+          }
           throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 在恢复草稿生成期间已变化；草稿已丢弃。");
         }
         respond(response, 200, { ...generated, contextFingerprint });
@@ -2235,6 +2238,9 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         });
         const latest = store.getObject(project.objectId);
         if (!latest || latest.version !== input.expectedVersion) {
+          if (generated.interactionId) {
+            options.interactionEvidence?.setOutcome(generated.interactionId, "STALE", "V2_OBJECT_VERSION_CONFLICT");
+          }
           throw serviceError("V2_OBJECT_VERSION_CONFLICT", "Project 在摘要生成期间已变化；草稿已丢弃。");
         }
         let proposal: V2Proposal;

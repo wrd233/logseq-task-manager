@@ -328,6 +328,21 @@ export class InteractionEvidenceBuffer {
     return structuredClone(item.entry);
   }
 
+  setOutcome(
+    handle: string,
+    outcome: InteractionEvidenceOutcome,
+    failureCode?: string,
+  ): InteractionEvidenceEntry | undefined {
+    const item = this.entries.find((candidate) => candidate.handle === handle);
+    if (!item) return undefined;
+    item.entry = parseEntry({
+      ...item.entry,
+      outcome,
+      ...(failureCode ? { failureCode } : { failureCode: undefined }),
+    });
+    return structuredClone(item.entry);
+  }
+
   isSuppressed(input: {
     scene: InteractionEvidenceScene;
     skill: NonNullable<InteractionEvidenceEntry["skill"]>;

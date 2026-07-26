@@ -450,6 +450,84 @@ test("Project context recovery uses server-owned facts and a read-only action wi
   assert.equal(providerCalls, 1, "stale requests fail before Provider invocation");
 });
 
+test("Project context recovery replaces generated telemetry with STALE after post-Provider version conflict", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-context-recovery-stale-"));
+  let releaseProvider!: () => void;
+  let markProviderStarted!: () => void;
+  const providerStarted = new Promise<void>((resolve) => {
+    markProviderStarted = resolve;
+  });
+  const providerRelease = new Promise<void>((resolve) => {
+    releaseProvider = resolve;
+  });
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      markProviderStarted();
+      await providerRelease;
+      return {
+        value: {
+          schemaVersion: "task-copilot-ux-output-v1",
+          factRefs: ["project-recovery-summary"],
+          inferences: [],
+          unknowns: ["当前进入点仍需确认"],
+          summary: "当前 Project 需要从正式入口重新确认。",
+          suggestedChanges: [],
+          nextActionEligible: true,
+          nextActionId: "project-primary-action",
+          riskLevel: "NONE",
+          requiresDiscussion: true,
+          requiresReview: false,
+        },
+        metadata: { model: "deepseek-chat", durationMs: 12, attempts: 1 },
+      };
+    },
+  };
+  const interactionEvidence = new InteractionEvidenceBuffer();
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-context-recovery-stale",
+    token: "context-recovery-stale-token-24-chars",
+    uxOutputGenerator: new LocalLlmUxOutputGenerator(provider, interactionEvidence, () => "uxi_stale12345678901"),
+    interactionEvidence,
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const prepared = await client.prepareProject({ name: "版本冲突验证", traceId: "context-recovery-stale-prepare" });
+  const finalized = await client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "版本冲突验证",
+    pageExternalId: "page-context-recovery-stale",
+    pageContentHash: checksum(""),
+    traceId: "context-recovery-stale-finalize",
+  });
+
+  const recovery = client.recoverProjectContext({
+    objectId: finalized.object.objectId,
+    expectedVersion: finalized.object.version,
+  });
+  await providerStarted;
+  await client.changeCondition(finalized.object.objectId, finalized.object.version, {
+    kind: "PAUSED",
+    reason: "受控并发变化",
+  });
+  releaseProvider();
+
+  await assert.rejects(
+    () => recovery,
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_OBJECT_VERSION_CONFLICT",
+  );
+  const summary = interactionEvidence.summary();
+  assert.equal(summary.outcomes.GENERATED, 0);
+  assert.equal(summary.outcomes.STALE, 1);
+  assert.match(interactionEvidence.exportJsonl(), /"failureCode":"V2_OBJECT_VERSION_CONFLICT"/);
+  assert.doesNotMatch(interactionEvidence.exportJsonl(), /版本冲突验证|受控并发变化|uxi_stale12345678901/);
+});
+
 test("Project context recovery fails closed for missing Provider, unsupported type, and client-owned fields", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-context-recovery-closed-"));
   const service = await startLocalService({
@@ -3225,6 +3303,8 @@ test("Project Closure resumes from its receipt after interruption before Commit 
   assert.equal(interrupted.status, 500);
   assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "COMPLETED", "Domain receipt committed before the interruption");
   assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "ACCEPTED");
+  const pending = (await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId);
+  assert.equal(pending?.status, "PENDING", "a receipt-backed interruption remains the same resumable Commit instead of opening a parallel recovery workflow");
   await service.close();
   service = await startLocalService({ databasePath, graphId: "graph-project-closure-recovery", token: "project-closure-recovery-resume-24-chars" });
   client = clientFor(service);
@@ -3237,6 +3317,9 @@ test("Project Closure resumes from its receipt after interruption before Commit 
     assert.equal(resumed.record.proposal.status, "APPLIED");
     assert.equal(resumed.object.version, created.object.version + 1);
   }
+  const completed = (await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId);
+  assert.equal(completed?.status, "COMPLETED");
+  assert.equal((await client.listSemanticCommits()).filter(({ status }) => ["PENDING", "FAILED", "RECOVERY_REQUIRED"].includes(status)).length, 0);
 });
 
 test("Local Service maps Task Marker to Lifecycle without changing Condition", async (t) => {
