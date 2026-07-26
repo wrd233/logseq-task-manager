@@ -132,7 +132,11 @@ export async function startLauncherService(options: StartLauncherServiceOptions)
       }
       throw new RequestError(404, "LAUNCHER_ROUTE_NOT_FOUND", "Launcher route does not exist.");
     })().catch((error: unknown) => {
-      const status = error instanceof RequestError ? error.status : error instanceof Error && error.message === "LAUNCHER_GRAPH_NOT_CONFIGURED" ? 409 : 500;
+      const status = error instanceof RequestError
+        ? error.status
+        : error instanceof Error && ["LAUNCHER_GRAPH_NOT_CONFIGURED", "LAUNCHER_RESTORE_RECOVERY_ARMED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED", "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID"].includes(error.message)
+          ? 409
+          : 500;
       respond(response, status, { error: { code: errorCode(error), message: status >= 500 ? "Launcher could not complete the request." : error instanceof Error ? error.message : "Launcher request failed." } });
     });
   });

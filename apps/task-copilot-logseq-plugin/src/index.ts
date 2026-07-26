@@ -946,6 +946,12 @@ async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
   enterRestrictedServiceMode("SERVICE_DISCOVERY_IN_PROGRESS", "Local Service 正在重新发现；正式写入暂停。");
   const configuredDescriptor = typeof descriptorPath === "string" ? descriptorPath : undefined;
   configuredServiceDescriptorPath = configuredDescriptor;
+  if (!currentGraphKey) {
+    enterRestrictedServiceMode("GRAPH_IDENTITY_PENDING", "Logseq 尚未提供当前 Graph 身份；正式写入保持关闭。");
+    diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+    featureReady = false;
+    return;
+  }
   const descriptorReader = createElectronDescriptorReader()
     ?? createLogseqPrivateStorageDescriptorReader(logseq.FileStorage);
   const runtime = await discoverServiceRuntime(configuredDescriptor, descriptorReader, undefined, {

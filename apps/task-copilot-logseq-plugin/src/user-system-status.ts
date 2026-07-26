@@ -27,7 +27,27 @@ function restrictedStatus(
     stillAvailable: "Logseq 正文仍可编辑；已保存的页面、正式历史和只读说明不受影响。",
     dataSafety: "系统保持只读安全模式，没有把连接失败当成空状态，也没有自动重试正式写入。",
   };
-  if (reason === "V2_RESTORE_ROLLBACK_FAILED") {
+  if (reason === "LAUNCHER_RESTORE_RECOVERY_ARMED") {
+    return {
+      ...common,
+      headline: "Restore 中断，需要核验",
+      whatHappened: "上次 Restore 在确认“恢复前状态已保存”之前中断；系统不会猜测恢复点是否完整。",
+      stillAvailable: "Logseq 正文仍可编辑；现有页面和只读历史不受影响。",
+      dataSafety: "正式写入保持关闭，也没有把一个未验证的文件描述成可用恢复点。",
+      actionRequired: "不要重复 Restore；请从系统维护进入人工核验。",
+    };
+  }
+  if (reason === "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID") {
+    return {
+      ...common,
+      headline: "Restore 恢复记录无法核验",
+      whatHappened: "上次 Restore 的安全记录损坏、权限异常或仍被另一个恢复操作占用；系统无法确认恢复身份。",
+      stillAvailable: "Logseq 正文仍可编辑；现有页面和只读历史不受影响。",
+      dataSafety: "正式写入保持关闭；系统没有猜测回滚结果，也没有声称恢复点完整。",
+      actionRequired: "不要重复 Restore 或手动删除记录；请从系统维护导出诊断并人工核验。",
+    };
+  }
+  if (reason === "V2_RESTORE_ROLLBACK_FAILED" || reason === "LAUNCHER_RESTORE_RECOVERY_REQUIRED") {
     return {
       ...common,
       headline: "Restore 需要人工恢复",

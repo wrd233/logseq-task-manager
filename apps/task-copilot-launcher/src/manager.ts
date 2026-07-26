@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { join } from "node:path";
 
 import type { ServiceDescriptor } from "@task-copilot/service-client";
+import { assertRestoreRecoveryInterlockClear } from "@task-copilot/shared/node";
 
 import type { LauncherGraphConfig, LauncherProviderConfig } from "./contracts.ts";
 
@@ -31,6 +32,7 @@ interface ManagerConfig {
   runtimeRoot: string;
   leaseTtlMs: number;
   provider?: LauncherProviderConfig;
+  assertServiceStartAllowed?: (databasePath: string) => Promise<void>;
 }
 
 interface Runtime {
@@ -63,6 +65,7 @@ export class GraphServiceManager {
   private readonly graphByKey: Map<string, LauncherGraphConfig>;
   private readonly runtimes = new Map<string, Runtime>();
   private readonly leases = new Map<string, Lease>();
+  private readonly ensureTails = new Map<string, Promise<void>>();
   private closed = false;
 
   constructor(
@@ -79,28 +82,47 @@ export class GraphServiceManager {
     if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(input.clientInstanceId)) throw new Error("LAUNCHER_CLIENT_INSTANCE_INVALID");
     const graph = this.graphByKey.get(input.graphKey);
     if (!graph) throw new Error("LAUNCHER_GRAPH_NOT_CONFIGURED");
-    let runtime = this.runtimes.get(graph.graphKey);
-    if (!runtime) {
-      const digest = createHash("sha256").update(graph.graphKey).digest("hex").slice(0, 32);
-      const started = await this.spawnService({
-        graph,
-        serviceEntryPath: this.config.serviceEntryPath,
-        descriptorPath: join(this.config.runtimeRoot, `${digest}.service.json`),
-        ...(this.config.provider ? { provider: this.config.provider } : {}),
+    return this.serializeEnsure(graph.graphKey, async () => {
+      if (this.closed) throw new Error("LAUNCHER_CLOSED");
+      try {
+        await (this.config.assertServiceStartAllowed ?? assertRestoreRecoveryInterlockClear)(graph.databasePath);
+      } catch (error) {
+        throw new Error(
+          error instanceof Error && error.message === "RESTORE_RECOVERY_ARMED"
+            ? "LAUNCHER_RESTORE_RECOVERY_ARMED"
+            : error instanceof Error && error.message === "RESTORE_RECOVERY_STATE_INVALID"
+              ? "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID"
+            : "LAUNCHER_RESTORE_RECOVERY_REQUIRED",
+          { cause: error },
+        );
+      }
+      let runtime = this.runtimes.get(graph.graphKey);
+      if (!runtime) {
+        const digest = createHash("sha256").update(graph.graphKey).digest("hex").slice(0, 32);
+        const started = await this.spawnService({
+          graph,
+          serviceEntryPath: this.config.serviceEntryPath,
+          descriptorPath: join(this.config.runtimeRoot, `${digest}.service.json`),
+          ...(this.config.provider ? { provider: this.config.provider } : {}),
+        });
+        if (this.closed) {
+          await started.child.stop();
+          throw new Error("LAUNCHER_CLOSED");
+        }
+        runtime = { child: started.child, descriptor: started.descriptor, leaseIds: new Set() };
+        this.runtimes.set(graph.graphKey, runtime);
+        const ownedRuntime = runtime;
+        started.child.onExit(() => this.forgetExitedRuntime(graph.graphKey, ownedRuntime));
+      }
+      const leaseId = id("lease");
+      runtime.leaseIds.add(leaseId);
+      this.leases.set(leaseId, {
+        graphKey: graph.graphKey,
+        clientInstanceId: input.clientInstanceId,
+        heartbeatAt: this.now().getTime(),
       });
-      runtime = { child: started.child, descriptor: started.descriptor, leaseIds: new Set() };
-      this.runtimes.set(graph.graphKey, runtime);
-      const ownedRuntime = runtime;
-      started.child.onExit(() => this.forgetExitedRuntime(graph.graphKey, ownedRuntime));
-    }
-    const leaseId = id("lease");
-    runtime.leaseIds.add(leaseId);
-    this.leases.set(leaseId, {
-      graphKey: graph.graphKey,
-      clientInstanceId: input.clientInstanceId,
-      heartbeatAt: this.now().getTime(),
+      return { leaseId, serviceDescriptor: runtime.descriptor };
     });
-    return { leaseId, serviceDescriptor: runtime.descriptor };
   }
 
   heartbeat(leaseId: string): void {
@@ -140,5 +162,20 @@ export class GraphServiceManager {
     if (this.runtimes.get(graphKey) !== runtime) return;
     this.runtimes.delete(graphKey);
     for (const leaseId of runtime.leaseIds) this.leases.delete(leaseId);
+  }
+
+  private async serializeEnsure<T>(graphKey: string, task: () => Promise<T>): Promise<T> {
+    const prior = this.ensureTails.get(graphKey) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const tail = prior.then(() => gate);
+    this.ensureTails.set(graphKey, tail);
+    await prior;
+    try {
+      return await task();
+    } finally {
+      release();
+      if (this.ensureTails.get(graphKey) === tail) this.ensureTails.delete(graphKey);
+    }
   }
 }

@@ -90,7 +90,7 @@ test("creating a current snapshot reloads the bounded catalog and cancellation c
   await assert.rejects(() => controller.select(service, "snapshot:0"), /不可用/);
 });
 
-test("Restore failure disposition distinguishes fail-closed validation, safe rollback, and manual recovery", () => {
+test("Restore failure disposition distinguishes preflight, ambiguous apply validation, safe rollback, and manual recovery", () => {
   const remote = (remoteCode: string) => new StructuredError({
     code: "SERVICE_HTTP_ERROR",
     message: "remote restore failure",
@@ -98,9 +98,9 @@ test("Restore failure disposition distinguishes fail-closed validation, safe rol
     details: { status: 500, remoteCode },
   });
   assert.deepEqual(backupRestoreFailureDisposition(remote("V2_BACKUP_VALIDATION_FAILED")), {
-    kind: "PRE_SWITCH_REJECTED",
-    restartRuntime: false,
-    message: "恢复没有开始：所选快照在最终校验时已失效；当前正式状态和 Graph 正文均未改变。",
+    kind: "OUTCOME_UNKNOWN",
+    restartRuntime: true,
+    message: "Restore Apply 阶段的快照校验未通过；尚不能假定原 Service 仍在运行，正在重新连接并核验当前正式状态。",
   });
   assert.deepEqual(backupRestoreFailureDisposition(remote("V2_RESTORE_FAILED")), {
     kind: "ROLLED_BACK",

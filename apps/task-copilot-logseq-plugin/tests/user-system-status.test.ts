@@ -92,22 +92,59 @@ test("protocol and Graph mismatches have distinct user actions", () => {
 });
 
 test("Restore rollback failure keeps formal writes stopped and points to the retained recovery point", () => {
+  for (const reason_code of ["V2_RESTORE_ROLLBACK_FAILED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED"]) {
+    const result = deriveUserSystemStatus(snapshot({
+      runtime_status: "DEGRADED",
+      store_status: "READ_ONLY_SAFE_MODE",
+      service_connection: {
+        status: "RESTRICTED",
+        reason_code,
+        formal_writes_available: false,
+        graph_editing_available: true,
+      },
+    }));
+    assert.equal(result.level, "BLOCKED");
+    assert.equal(result.headline, "Restore 需要人工恢复");
+    assert.match(result.whatHappened, /未能自动回滚/);
+    assert.match(result.stillAvailable, /Restore 前恢复点/);
+    assert.match(result.dataSafety, /没有继续启动不确定的 SQLite 状态/);
+    assert.match(result.actionRequired, /不要重复 Restore/);
+  }
+});
+
+test("an armed Restore interlock keeps writes stopped without inventing a recovery point", () => {
   const result = deriveUserSystemStatus(snapshot({
     runtime_status: "DEGRADED",
     store_status: "READ_ONLY_SAFE_MODE",
     service_connection: {
       status: "RESTRICTED",
-      reason_code: "V2_RESTORE_ROLLBACK_FAILED",
+      reason_code: "LAUNCHER_RESTORE_RECOVERY_ARMED",
       formal_writes_available: false,
       graph_editing_available: true,
     },
   }));
   assert.equal(result.level, "BLOCKED");
-  assert.equal(result.headline, "Restore 需要人工恢复");
-  assert.match(result.whatHappened, /未能自动回滚/);
-  assert.match(result.stillAvailable, /Restore 前恢复点/);
-  assert.match(result.dataSafety, /没有继续启动不确定的 SQLite 状态/);
-  assert.match(result.actionRequired, /不要重复 Restore/);
+  assert.equal(result.headline, "Restore 中断，需要核验");
+  assert.match(result.whatHappened, /确认.*恢复前状态已保存.*之前中断/);
+  assert.match(result.dataSafety, /未验证的文件/);
+  assert.doesNotMatch(`${result.whatHappened} ${result.stillAvailable}`, /恢复点.*保留/);
+});
+
+test("invalid Restore recovery metadata keeps every recovery fact unknown", () => {
+  const result = deriveUserSystemStatus(snapshot({
+    runtime_status: "DEGRADED",
+    store_status: "READ_ONLY_SAFE_MODE",
+    service_connection: {
+      status: "RESTRICTED",
+      reason_code: "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID",
+      formal_writes_available: false,
+      graph_editing_available: true,
+    },
+  }));
+  assert.equal(result.headline, "Restore 恢复记录无法核验");
+  assert.match(result.whatHappened, /无法确认恢复身份/);
+  assert.match(result.dataSafety, /没有猜测回滚结果/);
+  assert.doesNotMatch(`${result.whatHappened} ${result.stillAvailable}`, /恢复点.*保留/);
 });
 
 test("unfinished and recovery-required commits take priority over ordinary readiness", () => {

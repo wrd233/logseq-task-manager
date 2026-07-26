@@ -253,8 +253,8 @@ export async function discoverServiceRuntime(
       ? error.details.remoteCode
       : undefined;
     const reasonCode = error instanceof StructuredError
-      ? error.code === "LAUNCHER_HTTP_ERROR" && remoteCode === "LAUNCHER_GRAPH_NOT_CONFIGURED"
-        ? "LAUNCHER_GRAPH_NOT_CONFIGURED"
+      ? error.code === "LAUNCHER_HTTP_ERROR" && ["LAUNCHER_GRAPH_NOT_CONFIGURED", "LAUNCHER_RESTORE_RECOVERY_ARMED", "LAUNCHER_RESTORE_RECOVERY_REQUIRED", "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID"].includes(remoteCode ?? "")
+        ? remoteCode!
         : error.code
       : "SERVICE_DESCRIPTOR_READ_FAILED";
     const messages: Record<string, string> = {
@@ -272,6 +272,9 @@ export async function discoverServiceRuntime(
       LAUNCHER_RESPONSE_INVALID: "Task Copilot Launcher 返回了无效响应。",
       LAUNCHER_HTTP_ERROR: "Task Copilot Launcher 无法为当前 Graph 准备 Local Service。",
       LAUNCHER_GRAPH_NOT_CONFIGURED: "当前 Graph 尚未绑定 Task Copilot 本地数据库；正式写入保持关闭。",
+      LAUNCHER_RESTORE_RECOVERY_ARMED: "上次 Restore 在恢复点确认前中断；普通 reload 或重连不会重新开放正式写入。",
+      LAUNCHER_RESTORE_RECOVERY_REQUIRED: "上次 Restore 的安全恢复记录仍需人工处理；普通 reload 或重连不会重新开放正式写入。",
+      LAUNCHER_RESTORE_RECOVERY_STATE_INVALID: "上次 Restore 的恢复记录无法安全读取；恢复身份与完整性尚不确定，正式写入保持关闭。",
     };
     return { connection: restricted(reasonCode, messages[reasonCode] ?? "Task Copilot 本地运行环境无法安全连接。") };
   }

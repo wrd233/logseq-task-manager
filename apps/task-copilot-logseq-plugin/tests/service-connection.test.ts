@@ -422,6 +422,118 @@ test("an unconfigured Graph has a distinct restricted state and never receives a
   assert.equal(runtime.client, undefined);
 });
 
+test("a Restore recovery interlock survives reload as a distinct restricted state", async () => {
+  const runtime = await discoverServiceRuntime(
+    PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
+    { read: async () => launcherDescriptor },
+    () => { throw new Error("service client must not be created"); },
+    {
+      graphKey: "graph-aabbcc",
+      clientInstanceId: "plugin-instance-1",
+      createLauncherClient: () => ({
+        health: async () => ({
+          status: "READY",
+          protocolVersion: 1,
+          capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+          configuredGraphs: 1,
+        }),
+        ensure: async () => {
+          throw new StructuredError({
+            code: "LAUNCHER_HTTP_ERROR",
+            message: "sanitized",
+            ruleRefs: ["D-216"],
+            details: { status: 409, remoteCode: "LAUNCHER_RESTORE_RECOVERY_REQUIRED" },
+          });
+        },
+        heartbeat: async () => undefined,
+        release: async () => undefined,
+      }),
+    },
+  );
+  assert.equal(runtime.connection.status, "RESTRICTED");
+  assert.equal(
+    runtime.connection.status === "RESTRICTED" && runtime.connection.reasonCode,
+    "LAUNCHER_RESTORE_RECOVERY_REQUIRED",
+  );
+  assert.match(runtime.connection.message, /人工处理/);
+  assert.equal(runtime.client, undefined);
+});
+
+test("an interrupted Restore before recovery-point confirmation never claims that a recovery point exists", async () => {
+  const runtime = await discoverServiceRuntime(
+    PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
+    { read: async () => launcherDescriptor },
+    () => { throw new Error("service client must not be created"); },
+    {
+      graphKey: "graph-aabbcc",
+      clientInstanceId: "plugin-instance-1",
+      createLauncherClient: () => ({
+        health: async () => ({
+          status: "READY",
+          protocolVersion: 1,
+          capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+          configuredGraphs: 1,
+        }),
+        ensure: async () => {
+          throw new StructuredError({
+            code: "LAUNCHER_HTTP_ERROR",
+            message: "sanitized",
+            ruleRefs: ["D-216"],
+            details: { status: 409, remoteCode: "LAUNCHER_RESTORE_RECOVERY_ARMED" },
+          });
+        },
+        heartbeat: async () => undefined,
+        release: async () => undefined,
+      }),
+    },
+  );
+  assert.equal(runtime.connection.status, "RESTRICTED");
+  assert.equal(
+    runtime.connection.status === "RESTRICTED" && runtime.connection.reasonCode,
+    "LAUNCHER_RESTORE_RECOVERY_ARMED",
+  );
+  assert.match(runtime.connection.message, /恢复点确认前中断/);
+  assert.doesNotMatch(runtime.connection.message, /仍保留/);
+  assert.equal(runtime.client, undefined);
+});
+
+test("invalid Restore recovery metadata stays fail-closed without inventing rollback evidence", async () => {
+  const runtime = await discoverServiceRuntime(
+    PRIVATE_LAUNCHER_DESCRIPTOR_KEY,
+    { read: async () => launcherDescriptor },
+    () => { throw new Error("service client must not be created"); },
+    {
+      graphKey: "graph-aabbcc",
+      clientInstanceId: "plugin-instance-1",
+      createLauncherClient: () => ({
+        health: async () => ({
+          status: "READY",
+          protocolVersion: 1,
+          capabilities: { graphServiceLifecycle: true, leaseHeartbeat: true, ownedShutdown: true },
+          configuredGraphs: 1,
+        }),
+        ensure: async () => {
+          throw new StructuredError({
+            code: "LAUNCHER_HTTP_ERROR",
+            message: "sanitized",
+            ruleRefs: ["D-216"],
+            details: { status: 409, remoteCode: "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID" },
+          });
+        },
+        heartbeat: async () => undefined,
+        release: async () => undefined,
+      }),
+    },
+  );
+  assert.equal(runtime.connection.status, "RESTRICTED");
+  assert.equal(
+    runtime.connection.status === "RESTRICTED" && runtime.connection.reasonCode,
+    "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID",
+  );
+  assert.match(runtime.connection.message, /身份与完整性尚不确定/);
+  assert.doesNotMatch(runtime.connection.message, /回滚|仍保留/);
+});
+
 test("invalid descriptor import performs no private write and storage failures redact the token", async () => {
   let writes = 0;
   const storage = {

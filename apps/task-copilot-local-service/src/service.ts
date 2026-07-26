@@ -19,6 +19,14 @@ import {
 } from "@task-copilot/service-client";
 import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
 import { StructuredError, checksum, createId, stableJson } from "@task-copilot/shared";
+import {
+  armRestoreRecoveryInterlock,
+  assertRestoreRecoveryInterlockClear,
+  clearRestoreRecoveryInterlock,
+  readRestoreRecoveryInterlock,
+  replaceRestoreRecoveryInterlock,
+  type RestoreRecoveryInterlock,
+} from "@task-copilot/shared/node";
 
 import type { LocalLlmProposalGenerator, V2PromptBundle } from "./llm-proposal.ts";
 import type { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
@@ -59,7 +67,7 @@ export interface LocalServiceOptions {
   projectCreationPreviewGenerator?: LocalLlmProjectCreationPreviewGenerator;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
-  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void; afterRestoreActivate?: () => void };
+  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void; beforeAreaDomainWrite?: () => void | Promise<void>; beforeRestoreDrain?: () => void; beforeRestoreOffline?: () => void; afterRestoreActivate?: () => void; beforeRestoreRollback?: () => void };
 }
 export interface LocalServiceHandle {
   url: string;
@@ -1345,9 +1353,23 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const backupRoot = resolve(options.backupRoot ?? join(dirname(resolve(options.databasePath)), "backups"));
   await mkdir(backupRoot, { recursive: true, mode: 0o700 });
   await chmod(backupRoot, 0o700);
+  await assertRestoreRecoveryInterlockClear(options.databasePath);
   const store = await V2SqliteStore.open(options.databasePath);
   let storeOpen = true;
   let stopping = false;
+  let restoreClaimed = false;
+  let activeRequestCount = 0;
+  const activeRequestDrainWaiters = new Set<() => void>();
+  const waitForActiveRequests = async (): Promise<void> => {
+    if (activeRequestCount === 0) return;
+    await new Promise<void>((resolve) => activeRequestDrainWaiters.add(resolve));
+  };
+  const leaveActiveRequest = (): void => {
+    activeRequestCount -= 1;
+    if (activeRequestCount !== 0) return;
+    for (const resolve of activeRequestDrainWaiters) resolve();
+    activeRequestDrainWaiters.clear();
+  };
   store.initialize(options.graphId);
   const application = new V2Application(store);
   const candidateApplication = new V2CandidateApplication(store);
@@ -1837,10 +1859,22 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       return;
     }
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    if (stopping) {
+    const restoreRequest = request.method === "POST" && url.pathname === "/backup/restore/apply";
+    let admitted = false;
+    if (restoreRequest) {
+      if (stopping || restoreClaimed) {
+        respond(response, 503, { error: { code: "SERVICE_STOPPING", message: "Local Service 正在执行受控恢复并停止。" } });
+        return;
+      }
+      restoreClaimed = true;
+    } else if (stopping || restoreClaimed) {
       respond(response, 503, { error: { code: "SERVICE_STOPPING", message: "Local Service 正在执行受控恢复并停止。" } });
       return;
+    } else {
+      activeRequestCount += 1;
+      admitted = true;
     }
+    try {
     if (request.method === "GET" && url.pathname === "/health") {
       respond(response, 200, { status: "READY", protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION, capabilities });
       return;
@@ -4666,26 +4700,92 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const source = join(backupRoot, `${backupId}.db`);
       const validation = V2SqliteStore.validateBackup(source, options.graphId);
       if (validation.status !== "PASS") throw serviceError("V2_BACKUP_VALIDATION_FAILED", "Backup 未通过完整性校验。");
+      options.faults?.beforeRestoreDrain?.();
+      await waitForActiveRequests();
       stopping = true;
       const createdAt = new Date();
       const recoveryBackupId = createId("backup", createdAt);
       const recoveryPath = join(backupRoot, `${recoveryBackupId}.db`);
+      const armedInterlock: RestoreRecoveryInterlock = {
+        schemaVersion: 1,
+        status: "ARMED",
+        graphId: options.graphId,
+        recoveryBackupId,
+        createdAt: createdAt.toISOString(),
+      };
+      let restoreInterlock = armedInterlock;
+      try {
+        await armRestoreRecoveryInterlock(options.databasePath, armedInterlock);
+      } catch {
+        let interlockAbsentOrCleared = false;
+        try {
+          const current = await readRestoreRecoveryInterlock(options.databasePath);
+          if (!current) {
+            interlockAbsentOrCleared = true;
+          } else if (stableJson(current) === stableJson(armedInterlock)) {
+            await clearRestoreRecoveryInterlock(options.databasePath, armedInterlock);
+            interlockAbsentOrCleared = true;
+          }
+        } catch {
+          // Fall through to the fail-closed shutdown below.
+        }
+        if (interlockAbsentOrCleared) {
+          stopping = false;
+          throw serviceError("V2_RESTORE_INTERLOCK_FAILED", "Restore 安全锁无法建立；没有开始切换正式状态。");
+        }
+        store.close();
+        storeOpen = false;
+        try {
+          if (options.descriptorPath) await removeServiceDescriptor(options.descriptorPath);
+        } finally {
+          graphReadBroker.close();
+          server.close();
+        }
+        throw serviceError("V2_RESTORE_INTERLOCK_CLEAR_FAILED", "Restore 没有开始切换，但安全锁状态无法确认；正式写入保持暂停，必须人工核验。");
+      }
       try {
         store.close();
         storeOpen = false;
+        options.faults?.beforeRestoreOffline?.();
         const restored = await V2SqliteStore.restoreOffline(
           options.databasePath,
           source,
           recoveryPath,
           options.graphId,
-          options.faults?.afterRestoreActivate ? { afterActivate: options.faults.afterRestoreActivate } : {},
+          {
+            afterRecoveryPoint: async () => {
+              const recoveryRequired: RestoreRecoveryInterlock = {
+                ...armedInterlock,
+                status: "RECOVERY_REQUIRED",
+              };
+              await replaceRestoreRecoveryInterlock(options.databasePath, armedInterlock, recoveryRequired);
+              restoreInterlock = recoveryRequired;
+            },
+            ...(options.faults?.afterRestoreActivate ? { afterActivate: options.faults.afterRestoreActivate } : {}),
+            ...(options.faults?.beforeRestoreRollback ? { beforeRollback: options.faults.beforeRestoreRollback } : {}),
+          },
         );
+        try {
+          await clearRestoreRecoveryInterlock(options.databasePath, restoreInterlock);
+        } catch {
+          throw serviceError("V2_RESTORE_INTERLOCK_CLEAR_FAILED", "Restore 已完成，但安全锁无法清除；正式写入保持暂停，必须人工核验。");
+        }
         respond(response, 200, {
           status: "RESTORED_SERVICE_STOPPING",
           backupId,
           recoveryBackupId,
           validation: restored.validation,
         });
+      } catch (error) {
+        const rollbackFailed = error instanceof StructuredError && error.code === "V2_RESTORE_ROLLBACK_FAILED";
+        if (!rollbackFailed) {
+          try {
+            await clearRestoreRecoveryInterlock(options.databasePath, restoreInterlock);
+          } catch {
+            throw serviceError("V2_RESTORE_INTERLOCK_CLEAR_FAILED", "Restore 结果可恢复，但安全锁无法清除；正式写入保持暂停，必须人工核验。");
+          }
+        }
+        throw error;
       } finally {
         try {
           if (options.descriptorPath) await removeServiceDescriptor(options.descriptorPath);
@@ -4703,6 +4803,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const idempotencyKey = `area-create:${digest}`;
       const receipt = store.getCommandReceipt(idempotencyKey);
       if (receipt && receipt.command !== "create_object") throw serviceError("V2_IDEMPOTENCY_KEY_REUSED", "Area 创建命令的 idempotency key 已被其他命令使用。");
+      await options.faults?.beforeAreaDomainWrite?.();
       const object = await application.createObject({ objectType: "AREA", text, sourceOrCreationEvent: "controlled_area_entry" }, {
         actor: "logseq-plugin", expectedVersion: 0, idempotencyKey, traceId: input.traceId,
       });
@@ -4952,6 +5053,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       return;
     }
     respond(response, 404, { error: { code: "ROUTE_NOT_FOUND" } });
+    } finally {
+      if (admitted) leaveActiveRequest();
+      if (restoreRequest && !stopping) restoreClaimed = false;
+    }
   };
 
   const server = createServer((request, response) => {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { writeFileSync } from "node:fs";
 import { access, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +10,10 @@ import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persist
 import { exportRecoveryBundle } from "@task-copilot/persistence";
 import { buildMiniProjectRestructureProposal, buildProjectCreationProposal, createEmptyState, InteractionEvidenceBuffer, V2Application, type GrillPreview, type ProjectCreationPreview } from "@task-copilot/application";
 import { checksum, StructuredError } from "@task-copilot/shared";
+import {
+  clearRestoreRecoveryInterlock,
+  readRestoreRecoveryInterlock,
+} from "@task-copilot/shared/node";
 import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
@@ -4093,4 +4098,283 @@ test("Restore Apply rolls back a post-activation failure, retains the recovery p
     token: "restore-failure-restarted-token-24",
   });
   assert.equal((await clientFor(service).listObjects()).some(({ objectId }) => objectId === "must-survive-restore-failure"), true);
+});
+
+test("Restore Apply final validation race stops Service and preserves the unchanged active database", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-restore-validation-race-"));
+  const databasePath = join(root, ".task-copilot", "task-copilot.db");
+  const backupRoot = join(root, ".task-copilot", "backups");
+  const descriptorPath = join(root, "runtime", "service.json");
+  let service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-validation-race",
+    token: "restore-validation-race-first-token",
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const snapshot = await clientFor(service).createBackup();
+  await service.close();
+
+  const active = await V2SqliteStore.open(databasePath);
+  const occurredAt = "2026-07-20T15:00:00.000Z";
+  active.commitObject({
+    object: {
+      objectId: "must-survive-restore-validation-race",
+      objectType: "TASK",
+      version: 1,
+      lifecycle: "OPEN",
+      condition: { kind: "ACTIONABLE" },
+      text: "最终校验竞态后仍保留",
+      createdAt: occurredAt,
+      updatedAt: occurredAt,
+      sourceOrCreationEvent: "restore-validation-race-test",
+    },
+    expectedVersion: 0,
+    idempotencyKey: "must-survive-restore-validation-race",
+    audit: {
+      traceId: "must-survive-restore-validation-race",
+      actor: "test",
+      command: "create_object",
+      objectId: "must-survive-restore-validation-race",
+      beforeVersion: 0,
+      afterVersion: 1,
+      occurredAt,
+    },
+  });
+  active.close();
+
+  const snapshotPath = join(backupRoot, `${snapshot.backupId}.db`);
+  service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-validation-race",
+    token: "restore-validation-race-second-token",
+    faults: {
+      beforeRestoreOffline: () => writeFileSync(snapshotPath, "corrupt after outer validation", { mode: 0o600 }),
+    },
+  });
+  await assert.rejects(
+    () => clientFor(service).restoreBackup(snapshot.backupId, "RESTORE_AND_STOP_SERVICE"),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "SERVICE_HTTP_ERROR"
+      && error.details?.remoteCode === "V2_BACKUP_VALIDATION_FAILED",
+  );
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      await access(descriptorPath);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    } catch {
+      break;
+    }
+  }
+  await assert.rejects(access(descriptorPath));
+  await assert.rejects(() => clientFor(service).health());
+  assert.equal((await readdir(backupRoot)).filter((name) => name.endsWith(".db")).length, 1);
+
+  service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-validation-race",
+    token: "restore-validation-race-restarted-token",
+  });
+  const objects = await clientFor(service).listObjects();
+  assert.equal(objects.some(({ objectId }) => objectId === "must-survive-restore-validation-race"), true);
+  assert.equal((await clientFor(service).doctor()).status, "PASS");
+});
+
+test("Restore admission drains an acknowledged formal write into the recovery point and rejects later requests", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-restore-drain-"));
+  const databasePath = join(root, ".task-copilot", "task-copilot.db");
+  const backupRoot = join(root, ".task-copilot", "backups");
+  const descriptorPath = join(root, "runtime", "service.json");
+  let releaseWrite!: () => void;
+  const writeGate = new Promise<void>((resolve) => { releaseWrite = resolve; });
+  let writeEntered!: () => void;
+  const writeAdmission = new Promise<void>((resolve) => { writeEntered = resolve; });
+  let restoreEntered!: () => void;
+  const restoreAdmission = new Promise<void>((resolve) => { restoreEntered = resolve; });
+  const service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-drain",
+    token: "restore-drain-token-with-bounds",
+    faults: {
+      beforeAreaDomainWrite: async () => {
+        writeEntered();
+        await writeGate;
+      },
+      beforeRestoreDrain: () => restoreEntered(),
+    },
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const client = clientFor(service);
+  const snapshot = await client.createBackup();
+
+  const admittedWrite = client.createArea({ text: "Restore 前已确认写入", traceId: "restore-drain-write" });
+  await writeAdmission;
+  const restore = client.restoreBackup(snapshot.backupId, "RESTORE_AND_STOP_SERVICE");
+  await restoreAdmission;
+  await assert.rejects(
+    () => client.createArea({ text: "Restore 后到达", traceId: "restore-drain-late-write" }),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "SERVICE_HTTP_ERROR"
+      && error.details?.remoteCode === "SERVICE_STOPPING",
+  );
+
+  releaseWrite();
+  assert.equal((await admittedWrite).object.text, "Restore 前已确认写入");
+  const restored = await restore;
+  assert.equal(restored.status, "RESTORED_SERVICE_STOPPING");
+  assert.equal(
+    V2SqliteStore.validateBackup(
+      join(backupRoot, `${restored.recoveryBackupId}.db`),
+      "graph-restore-drain",
+    ).objectCount,
+    1,
+  );
+  const active = await V2SqliteStore.open(databasePath);
+  assert.equal(active.listObjects().length, 0);
+  assert.equal(active.doctor().status, "PASS");
+  active.close();
+});
+
+test("Restore double failure keeps a durable interlock that blocks every restart until explicit recovery", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-restore-double-failure-"));
+  const databasePath = join(root, ".task-copilot", "task-copilot.db");
+  const backupRoot = join(root, ".task-copilot", "backups");
+  const descriptorPath = join(root, "runtime", "service.json");
+  let service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-double-failure",
+    token: "restore-double-failure-first-token",
+  });
+  t.after(async () => {
+    await service.close();
+    const remaining = await readRestoreRecoveryInterlock(databasePath).catch(() => undefined);
+    if (remaining) await clearRestoreRecoveryInterlock(databasePath, remaining).catch(() => undefined);
+    await rm(root, { recursive: true, force: true });
+  });
+  const snapshot = await clientFor(service).createBackup();
+  await service.close();
+
+  const changed = await V2SqliteStore.open(databasePath);
+  const occurredAt = "2026-07-20T16:00:00.000Z";
+  changed.commitObject({
+    object: {
+      objectId: "retained-in-recovery-point",
+      objectType: "TASK",
+      version: 1,
+      lifecycle: "OPEN",
+      condition: { kind: "ACTIONABLE" },
+      text: "双重失败前的正式状态",
+      createdAt: occurredAt,
+      updatedAt: occurredAt,
+      sourceOrCreationEvent: "restore-double-failure-test",
+    },
+    expectedVersion: 0,
+    idempotencyKey: "retained-in-recovery-point",
+    audit: {
+      traceId: "retained-in-recovery-point",
+      actor: "test",
+      command: "create_object",
+      objectId: "retained-in-recovery-point",
+      beforeVersion: 0,
+      afterVersion: 1,
+      occurredAt,
+    },
+  });
+  changed.close();
+
+  service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-double-failure",
+    token: "restore-double-failure-second-token",
+    faults: {
+      afterRestoreActivate: () => { throw new Error("injected activation failure"); },
+      beforeRestoreRollback: () => { throw new Error("injected rollback failure"); },
+    },
+  });
+  await assert.rejects(
+    () => clientFor(service).restoreBackup(snapshot.backupId, "RESTORE_AND_STOP_SERVICE"),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "SERVICE_HTTP_ERROR"
+      && error.details?.remoteCode === "V2_RESTORE_ROLLBACK_FAILED",
+  );
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      await access(descriptorPath);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    } catch {
+      break;
+    }
+  }
+  await assert.rejects(access(descriptorPath));
+  await assert.rejects(() => clientFor(service).health());
+
+  const interlock = await readRestoreRecoveryInterlock(databasePath);
+  assert.ok(interlock);
+  assert.equal(interlock?.status, "RECOVERY_REQUIRED");
+  assert.equal(interlock?.graphId, "graph-restore-double-failure");
+  assert.match(interlock?.recoveryBackupId ?? "", /^backup_[0-9]{17}_[0-9a-f]{32}$/);
+  assert.equal(
+    V2SqliteStore.validateBackup(
+      join(backupRoot, `${interlock?.recoveryBackupId}.db`),
+      "graph-restore-double-failure",
+    ).objectCount,
+    1,
+  );
+
+  await assert.rejects(
+    () => startLocalService({
+      databasePath,
+      backupRoot,
+      descriptorPath,
+      graphId: "graph-restore-double-failure",
+      token: "restore-double-failure-blocked-token",
+    }),
+    /RESTORE_RECOVERY_REQUIRED/,
+  );
+  await assert.rejects(access(descriptorPath));
+
+  const recoveryPath = join(backupRoot, `${interlock.recoveryBackupId}.db`);
+  const manualSafetyPath = join(backupRoot, "manual-recovery-safety.db");
+  const recovered = await V2SqliteStore.restoreOffline(
+    databasePath,
+    recoveryPath,
+    manualSafetyPath,
+    "graph-restore-double-failure",
+  );
+  assert.equal(recovered.validation.status, "PASS");
+  const manuallyRecovered = await V2SqliteStore.open(databasePath);
+  assert.equal(manuallyRecovered.getObject("retained-in-recovery-point")?.text, "双重失败前的正式状态");
+  assert.equal(manuallyRecovered.doctor().status, "PASS");
+  manuallyRecovered.close();
+  await clearRestoreRecoveryInterlock(databasePath, interlock);
+  service = await startLocalService({
+    databasePath,
+    backupRoot,
+    descriptorPath,
+    graphId: "graph-restore-double-failure",
+    token: "restore-double-failure-recovered-token",
+  });
+  assert.equal((await clientFor(service).doctor()).status, "PASS");
+  assert.equal(
+    (await clientFor(service).listObjects()).some(({ objectId }) => objectId === "retained-in-recovery-point"),
+    true,
+    "the interlock clears only after the retained recovery point has been selected, restored, and passed Doctor",
+  );
 });

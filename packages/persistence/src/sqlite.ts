@@ -107,8 +107,12 @@ export interface SqliteRestoreResult {
 }
 
 export interface SqliteRestoreOptions {
+  /** Called only after the pre-Restore recovery point passes validation and before the active database is displaced. */
+  afterRecoveryPoint?: () => void | Promise<void>;
   /** Test-only fault boundary; production callers must omit it. */
   afterActivate?: () => void;
+  /** Test-only fault boundary; production callers must omit it. */
+  beforeRollback?: () => void;
 }
 
 export type V2SemanticCommitStatus = "PENDING" | "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED" | "UNDONE";
@@ -2224,6 +2228,7 @@ export class V2SqliteStore {
     }
     const recoveryValidation = V2SqliteStore.validateBackup(recovery, expectedGraphId);
     if (recoveryValidation.status !== "PASS") throw persistenceError("V2_RESTORE_RECOVERY_POINT_INVALID", "Restore 前恢复点未通过 Doctor。");
+    await options.afterRecoveryPoint?.();
 
     const staged = `${active}.restore-${process.pid}-${randomUUID()}`;
     const displaced = `${active}.previous-${process.pid}-${randomUUID()}`;
@@ -2246,6 +2251,7 @@ export class V2SqliteStore {
     } catch (error) {
       if (displacedActive) {
         try {
+          options.beforeRollback?.();
           await rm(active, { force: true });
           await rename(displaced, active);
           displacedActive = false;

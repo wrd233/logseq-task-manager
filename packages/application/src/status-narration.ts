@@ -664,14 +664,21 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
     || input.service.storeStatus !== "READY"
   ) {
     const reason = input.service.reasonCode ?? "SERVICE_RESTRICTED";
-    const restoreRecoveryRequired = reason === "V2_RESTORE_ROLLBACK_FAILED";
+    const restoreRecoveryArmed = reason === "LAUNCHER_RESTORE_RECOVERY_ARMED";
+    const restoreRecoveryStateInvalid = reason === "LAUNCHER_RESTORE_RECOVERY_STATE_INVALID";
+    const restoreRecoveryRequired = reason === "V2_RESTORE_ROLLBACK_FAILED"
+      || reason === "LAUNCHER_RESTORE_RECOVERY_REQUIRED";
     const graphMismatch = reason.includes("GRAPH");
     const protocolMismatch = reason.includes("PROTOCOL");
     const notConfigured = reason.includes("DESCRIPTOR")
       || reason.includes("NOT_CONFIGURED")
       || reason.includes("PATH_REQUIRED");
     return result({
-      conclusion: restoreRecoveryRequired
+      conclusion: restoreRecoveryStateInvalid
+        ? "Restore 恢复记录无法核验"
+        : restoreRecoveryArmed
+        ? "Restore 中断，需要核验"
+        : restoreRecoveryRequired
         ? "Restore 需要人工恢复"
         : graphMismatch
         ? "当前 Graph 与正式状态不匹配"
@@ -680,21 +687,38 @@ export function narrateV2SystemStatus(input: V2SystemStatusNarrationInput): Stat
           : notConfigured
             ? "Task Copilot 尚未连接正式服务"
             : "正式服务暂时不可用",
-      keyEvidence: restoreRecoveryRequired
+      keyEvidence: restoreRecoveryStateInvalid
+        ? ["正式写入已暂停", "恢复身份与完整性未知"]
+        : restoreRecoveryArmed
+        ? ["正式写入已暂停", "恢复前状态尚未被机器确认"]
+        : restoreRecoveryRequired
         ? ["正式写入已暂停", "Restore 前恢复点仍保留"]
         : ["正式写入已暂停", "Logseq 正文仍可编辑"],
       facts: [
         fact("正式写入、审阅提交、Undo、备份、恢复与迁移已暂停", sourceRef),
         fact(
-          restoreRecoveryRequired
+          restoreRecoveryStateInvalid
+            ? "系统没有猜测回滚结果，也没有声称恢复点完整"
+            : restoreRecoveryArmed
+            ? "系统没有把未验证文件描述成可用恢复点"
+            : restoreRecoveryRequired
             ? "自动回滚未完成，系统没有继续启动不确定的 SQLite 状态"
             : "Logseq 正文仍可编辑，系统没有把连接失败当成空状态",
           sourceRef,
         ),
       ],
+      ...(restoreRecoveryStateInvalid
+        ? { unknowns: ["恢复记录身份、恢复点完整性和当前 SQLite 选择均需人工核验"] }
+        : restoreRecoveryArmed
+          ? { unknowns: ["恢复前快照是否完整仍需人工核验"] }
+          : {}),
       evidenceRefs: [sourceRef],
       observedAt: input.observedAt,
-      ruleId: restoreRecoveryRequired
+      ruleId: restoreRecoveryStateInvalid
+        ? "system-restore-recovery-state-invalid"
+        : restoreRecoveryArmed
+        ? "system-restore-recovery-armed"
+        : restoreRecoveryRequired
         ? "system-restore-recovery-required"
         : graphMismatch
         ? "system-graph-mismatch"

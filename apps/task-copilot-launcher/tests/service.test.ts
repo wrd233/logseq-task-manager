@@ -127,3 +127,36 @@ test("launcher rejects oversized, malformed, or unknown management requests with
     await launcher.close();
   }
 });
+
+test("launcher exposes Restore recovery interlock as a bounded 409 without a Service descriptor", async () => {
+  const manager = new FakeManager();
+  manager.ensure = async () => {
+    throw new Error("LAUNCHER_RESTORE_RECOVERY_REQUIRED");
+  };
+  const launcher = await startLauncherService({
+    listenPort: 0,
+    token: "h".repeat(48),
+    leaseTtlMs: 15_000,
+    graphCount: 1,
+    manager,
+  });
+  try {
+    const response = await fetch(new URL("/sessions/ensure", launcher.url), {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${"h".repeat(48)}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ graphKey: "graph-key", clientInstanceId: "plugin-a" }),
+    });
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), {
+      error: {
+        code: "LAUNCHER_RESTORE_RECOVERY_REQUIRED",
+        message: "LAUNCHER_RESTORE_RECOVERY_REQUIRED",
+      },
+    });
+  } finally {
+    await launcher.close();
+  }
+});
