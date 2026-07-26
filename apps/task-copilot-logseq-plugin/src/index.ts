@@ -35,6 +35,7 @@ import type {
   ServiceConditionUndoPreparation,
   LocalServiceClient,
   ServiceNowWork,
+  ServiceProjectClosureEvidenceDraft,
   ServiceSemanticCommit,
   ServiceStoredProposal,
 } from "@task-copilot/service-client";
@@ -199,6 +200,8 @@ let v2CandidatePanel: V2ExplicitCandidatePanelState = { status: "idle" };
 let v2ProviderState: NonNullable<UiModel["v2ProviderState"]> = { status: "idle" };
 let v2ProviderRevisionBusy = false;
 let v2ProjectNarrationBusy = false;
+let v2ProjectClosureEvidenceBusy = false;
+let v2ProjectClosureEvidence: ServiceProjectClosureEvidenceDraft | undefined;
 const projectContextRecoveryController = new ProjectContextRecoveryController(
   () => ({
     ...(serviceRuntimeClient ? { client: serviceRuntimeClient } : {}),
@@ -565,6 +568,8 @@ async function model(): Promise<UiModel> {
     v2ProviderState,
     v2ProviderRevisionBusy,
     v2ProjectNarrationBusy,
+    v2ProjectClosureEvidenceBusy,
+    ...(v2ProjectClosureEvidence ? { v2ProjectClosureEvidence } : {}),
     ...(v2LowRiskApplyBusyProposalId ? { v2LowRiskApplyBusyProposalId } : {}),
     reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
@@ -727,6 +732,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
   if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
   if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间中断；旧请求已取消或结果未知，请重启 Service 后刷新审阅队列。" };
+  v2ProjectClosureEvidence = undefined;
   projectContextRecoveryController.clear();
   miniProjectGrillController.clear();
   projectCreationGrillController.clear();
@@ -1967,6 +1973,27 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-area-edit-open" && value) return openActionDialog("v2-area-edit", value);
   if (action === "v2-project-operation-router-open" && value) return openActionDialog("v2-project-operation-router", value);
+  if (action === "v2-project-closure-evidence-open" && value) {
+    if (v2ProjectClosureEvidenceBusy) return;
+    const [objectId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    v2ProjectClosureEvidenceBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client?.getProjectClosureEvidence || !objectId || !Number.isSafeInteger(expectedVersion)) {
+          throw new Error("Project Closure 证据上下文已失效；没有生成证据预览。");
+        }
+        v2ProjectClosureEvidence = await client.getProjectClosureEvidence(objectId, { expectedVersion });
+        actionDialog = { kind: "v2-project-closure-evidence", value };
+      });
+    } finally {
+      v2ProjectClosureEvidenceBusy = false;
+      await refresh();
+    }
+    return;
+  }
   if (action === "v2-condition-undo-open" && value) {
     if (v2ConditionUndoBusy) return;
     v2ConditionUndoBusy = true;
@@ -2787,6 +2814,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const returnToOrigin = originRoute !== undefined;
     if (actionDialog?.kind === "v2-mini-project-grill") miniProjectGrillController.clear();
     if (actionDialog?.kind === "v2-project-creation-grill") projectCreationGrillController.clear();
+    if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureEvidence = undefined;
     v2ClosureDraftInput = undefined;
     actionDialog = undefined;
     pageContext = undefined;
@@ -3268,6 +3296,7 @@ async function handleCurrentGraphChanged(): Promise<void> {
   originRoute = undefined;
   actionDialog = undefined;
   v2ConditionUndoPreparation = undefined;
+  v2ProjectClosureEvidence = undefined;
   v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   attentionShadowSession.clear();

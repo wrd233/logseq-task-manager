@@ -531,7 +531,40 @@ test("Project current interface is readable in reentry and editable only through
   assert.match(router, /建议只替换当前摘要/);
   assert.match(router, /也可 Undo/);
   assert.match(router, /data-action="v2-project-structure-open"/);
+  assert.match(router, /data-action="v2-project-closure-evidence-open"/);
+  assert.match(router, /先只整理正式证据，不会生成 Proposal 或完成 Project/);
   assert.doesNotMatch(router, /直接修改主归属/);
+  value.v2ProjectClosureEvidence = {
+    schemaVersion: "task-copilot-project-closure-evidence-v1",
+    project: { objectId: "project-structure", version: 2, text: "发布治理", currentSummary: "核心链路已完成。", sourceRefs: ["object:project-structure@v2"] },
+    goalCandidates: [{ text: "稳定发布", sourceRefs: ["objective:1"], evidenceKind: "PROJECT_STRUCTURE" }],
+    deliverableCandidates: [{ text: "发布手册", sourceRefs: ["deliverable:1"], evidenceKind: "PROJECT_STRUCTURE" }],
+    decisionCandidates: [],
+    completedWorkCandidates: [],
+    unresolvedWork: [{ text: "完成恢复验收", condition: "可以行动", lifecycle: "OPEN", sourceRefs: ["object:task-1@v1"], evidenceKind: "OWNED_OBJECT" }],
+    objectiveJudgments: [{ objective: { objectiveId: "objective-1", text: "稳定发布", priority: "PRIMARY", sourceRefs: ["objective:1"] }, evidence: [{ text: "恢复演练通过", sourceRefs: ["objective-evidence:1"], evidenceKind: "PROJECT_STRUCTURE" }], disposition: "NEEDS_USER_JUDGMENT" }],
+    userJudgments: [
+      { judgment: "ACTUAL_RESULT", reason: "需要确认哪些候选证据真正构成实际结果。" },
+      { judgment: "OBJECTIVE_DISPOSITIONS", reason: "每个 Objective 都需要明确完成或未完成及其后续。" },
+      { judgment: "LEGACY_DISPOSITION", reason: "所有遗留工作需要明确去向。" },
+      { judgment: "KEY_DECISIONS", reason: "Closure 至少需要一个经确认的关键 Decision。" },
+      { judgment: "FUTURE_SUMMARY", reason: "需要写出未来重入时真正有用的一段总结。" },
+    ],
+    unknowns: [{ code: "KEY_DECISION_EVIDENCE_MISSING", text: "没有直接归属 Decision 证据。" }],
+    evidenceScopeHash: "12345678",
+    authorityBoundary: "READ_ONLY_EVIDENCE_DRAFT",
+  };
+  value.actionDialog = { kind: "v2-project-closure-evidence", value: "project-structure|2" };
+  const closureEvidence = renderApp(value);
+  assert.match(closureEvidence, /只读证据 · 尚未形成 Proposal/);
+  assert.match(closureEvidence, /原目标候选[\s\S]*稳定发布/);
+  assert.match(closureEvidence, /交付与 Output 候选[\s\S]*发布手册/);
+  assert.match(closureEvidence, /关键 Decision 候选[\s\S]*没有直接归属的 Decision 证据/);
+  assert.match(closureEvidence, /每个目标仍需判断[\s\S]*恢复演练通过/);
+  assert.match(closureEvidence, /尚未收口的工作[\s\S]*完成恢复验收/);
+  assert.match(closureEvidence, /目前无法确认[\s\S]*没有直接归属 Decision 证据/);
+  assert.match(closureEvidence, /HIGH Review、最终确认、Commit 与恢复边界/);
+  assert.doesNotMatch(closureEvidence, /data-action="v2-project-closure-commit"/);
   value.actionDialog = { kind: "v2-project-structure-edit", value: "project-structure|2" };
   const dialog = renderApp(value);
   assert.match(dialog, /生成 HIGH Proposal/);

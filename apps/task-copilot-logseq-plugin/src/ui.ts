@@ -7,7 +7,7 @@ import type {
 } from "@task-copilot/application";
 import { routeProjectOperation } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
-import type { ServiceConditionUndoPreparation, ServiceMigrationRun, ServiceNowWork, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceConditionUndoPreparation, ServiceMigrationRun, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
@@ -73,6 +73,7 @@ export type ActionDialogKind =
   | "v2-area-edit"
   | "v2-project-operation-router"
   | "v2-project-structure-edit"
+  | "v2-project-closure-evidence"
   | "v2-mini-project-grill"
   | "v2-project-creation-grill"
   | "v2-page-context"
@@ -152,6 +153,8 @@ export interface UiModel {
   v2ProviderState?: { status: "idle" | "loading" | "success" | "error"; message?: string };
   v2ProviderRevisionBusy?: boolean;
   v2ProjectNarrationBusy?: boolean;
+  v2ProjectClosureEvidenceBusy?: boolean;
+  v2ProjectClosureEvidence?: ServiceProjectClosureEvidenceDraft;
   v2LowRiskApplyBusyProposalId?: string;
   reviewMode?: "candidates" | "proposals";
   v2ProposalLoadError?: string;
@@ -876,7 +879,32 @@ function renderActionDialog(model: UiModel): string {
     return `<section class="inbox-dialog action-dialog project-operation-router" aria-label="选择 Project 调整方式"><h3>选择这次要改变什么</h3><p class="muted">先按实际影响给出合适摩擦；不会把 Ownership、正文移动或 Closure 降级成快捷修改。</p>
       <article class="card compact"><div class="eyebrow">低摩擦 · 有界直接命令</div><h4>注意力、状态或普通关联</h4><p>${escapeHtml(attention.userOutcome)} ${escapeHtml(attention.safetyBoundary)}</p><div class="actions">${button("更新状态", "v2-condition-open", dialog.value, "quiet")}${button("撤销最近状态", "v2-condition-undo-open", objectId, "quiet", model.v2ConditionUndoBusy === true)}<button type="button" class="quiet" disabled aria-disabled="true">普通关联（需先补 Undo）</button></div><p class="muted">${escapeHtml(association.safetyBoundary)} 状态变化已有跨 reload 的版本化 Undo；普通关联尚未具备 inverse，因此在这个正式路由中保持关闭，不计入最终 Gate。</p></article>
       <article class="card compact"><div class="eyebrow">审阅后应用</div><h4>只压缩当前理解</h4><p>${escapeHtml(narration.userOutcome)} ${escapeHtml(narration.safetyBoundary)}</p><div class="actions">${button(model.v2ProjectNarrationBusy ? "Copilot 正在整理…" : "生成当前摘要建议", "v2-project-narration-propose", dialog.value, "quiet", model.v2ProjectNarrationBusy === true || model.v2ProviderAvailable !== true)}</div><p class="muted">建议只替换当前摘要；当前推进、Objectives、Deliverables、Work Stages、Ownership、正文和位置保持不变。进入“待我确认”后仍需接受、应用，也可 Undo。</p></article>
-      <article class="card compact"><div class="eyebrow">深度结构 · 讨论、最终阅读、Commit 与 Undo</div><h4>完整当前接口与结构关系</h4><p>${escapeHtml(structure.userOutcome)} ${escapeHtml(structure.safetyBoundary)}</p><div class="actions">${button("编辑完整当前接口", "v2-project-structure-open", dialog.value, "primary")}</div><p class="muted">主归属、批量子对象、正文移动、拆分合并和 Closure 继续使用各自 HIGH 安全链，不在这里合并成一个万能表单。</p></article>
+      <article class="card compact"><div class="eyebrow">深度结构 · 讨论、最终阅读、Commit 与 Undo</div><h4>完整当前接口与结构关系</h4><p>${escapeHtml(structure.userOutcome)} ${escapeHtml(structure.safetyBoundary)}</p><div class="actions">${button("编辑完整当前接口", "v2-project-structure-open", dialog.value, "primary")}${button(model.v2ProjectClosureEvidenceBusy ? "正在整理证据…" : "整理 Closure 证据", "v2-project-closure-evidence-open", dialog.value, "quiet", model.v2ProjectClosureEvidenceBusy === true)}</div><p class="muted">主归属、批量子对象、正文移动、拆分合并和 Closure 继续使用各自 HIGH 安全链，不在这里合并成一个万能表单。Closure 先只整理正式证据，不会生成 Proposal 或完成 Project。</p></article>
+      <div class="actions">${cancel}</div></section>`;
+  }
+  if (dialog.kind === "v2-project-closure-evidence") {
+    const evidence = model.v2ProjectClosureEvidence;
+    const [objectId, rawVersion] = dialog.value.split("|");
+    if (!evidence || evidence.project.objectId !== objectId || evidence.project.version !== Number(rawVersion)) return "";
+    const list = (title: string, items: readonly { text: string }[], emptyText: string): string =>
+      `<section><h4>${escapeHtml(title)}</h4>${items.length ? `<ul>${items.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul>` : `<p class="muted">${escapeHtml(emptyText)}</p>`}</section>`;
+    const objectiveJudgments = evidence.objectiveJudgments.length
+      ? `<section><h4>每个目标仍需判断</h4><ul>${evidence.objectiveJudgments.map(({ objective, evidence: objectiveEvidence }) => `<li><strong>${escapeHtml(objective.text)}</strong>${objectiveEvidence.length ? ` · 声明过的成功证据：${objectiveEvidence.map(({ text }) => escapeHtml(text)).join("；")}` : " · 没有声明成功证据"}</li>`).join("")}</ul></section>`
+      : "";
+    const unresolved = evidence.unresolvedWork.length
+      ? `<section><h4>尚未收口的工作</h4><ul>${evidence.unresolvedWork.map(({ text, condition }) => `<li>${escapeHtml(text)} · ${escapeHtml(condition)}</li>`).join("")}</ul></section>`
+      : "";
+    const unknowns = evidence.unknowns.length
+      ? `<section><h4>目前无法确认</h4><ul>${evidence.unknowns.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul></section>`
+      : "";
+    return `<section class="inbox-dialog action-dialog project-closure-evidence" aria-label="Project Closure 证据预览"><div class="eyebrow">只读证据 · 尚未形成 Proposal</div><h3>先核对完成证据</h3><p>${escapeHtml(evidence.project.text)}</p><p class="muted">这里只展示正式 Project interface 与直接 Primary Ownership 的候选证据；不会把普通关联、孙级对象或模型判断当成成果。</p>
+      ${list("原目标候选", evidence.goalCandidates, "当前没有 Objective，原目标仍未知。")}
+      ${list("交付与 Output 候选", evidence.deliverableCandidates, "当前没有可用的正式交付证据。")}
+      ${list("关键 Decision 候选", evidence.decisionCandidates, "当前没有直接归属的 Decision 证据。")}
+      ${list("已完成工作候选", evidence.completedWorkCandidates, "当前没有直接归属且已完成的 Task/MiniProject。")}
+      ${objectiveJudgments}${unresolved}${unknowns}
+      <section><h4>仍需你判断</h4><ul>${evidence.userJudgments.map(({ reason }) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></section>
+      <div class="notice">下一阶段才会让 Copilot 基于这些证据起草 Closure，并继续经过 HIGH Review、最终确认、Commit 与恢复边界。</div>
       <div class="actions">${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-project-structure-edit") {

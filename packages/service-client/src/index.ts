@@ -592,6 +592,48 @@ export interface ServiceMiniProjectClosureDraftResult {
   promptBundleVersion: string;
 }
 
+export interface ServiceProjectClosureEvidenceItem {
+  text: string;
+  sourceRefs: string[];
+  evidenceKind: "PROJECT_STRUCTURE" | "OWNED_OBJECT";
+}
+
+export interface ServiceProjectClosureEvidenceDraft {
+  schemaVersion: "task-copilot-project-closure-evidence-v1";
+  project: {
+    objectId: string;
+    version: number;
+    text: string;
+    currentSummary: string;
+    sourceRefs: string[];
+  };
+  goalCandidates: ServiceProjectClosureEvidenceItem[];
+  deliverableCandidates: ServiceProjectClosureEvidenceItem[];
+  decisionCandidates: ServiceProjectClosureEvidenceItem[];
+  completedWorkCandidates: ServiceProjectClosureEvidenceItem[];
+  unresolvedWork: Array<ServiceProjectClosureEvidenceItem & { condition: string; lifecycle: V2ManagedObject["lifecycle"] }>;
+  objectiveJudgments: Array<{
+    objective: {
+      objectiveId: string;
+      text: string;
+      priority: "PRIMARY" | "SECONDARY";
+      sourceRefs: string[];
+    };
+    evidence: ServiceProjectClosureEvidenceItem[];
+    disposition: "NEEDS_USER_JUDGMENT";
+  }>;
+  userJudgments: Array<{
+    judgment: "ORIGINAL_GOAL" | "ACTUAL_RESULT" | "OBJECTIVE_DISPOSITIONS" | "LEGACY_DISPOSITION" | "KEY_DECISIONS" | "FUTURE_SUMMARY";
+    reason: string;
+  }>;
+  unknowns: Array<{
+    code: "ORIGINAL_GOAL_UNKNOWN" | "DELIVERABLE_EVIDENCE_MISSING" | "KEY_DECISION_EVIDENCE_MISSING" | "OBJECTIVE_COMPLETION_NOT_INFERRED" | "ACTUAL_RESULT_REQUIRES_CONFIRMATION";
+    text: string;
+  }>;
+  evidenceScopeHash: string;
+  authorityBoundary: "READ_ONLY_EVIDENCE_DRAFT";
+}
+
 export interface ServiceMaterializeExplicitObjectRequest {
   objectType: Extract<V2ObjectType, "TASK" | "MINI_PROJECT" | "DECISION" | "OUTPUT">;
   text: string;
@@ -1044,6 +1086,12 @@ export class LocalServiceClient {
 
   createMiniProjectClosureProposal(objectId: string, input: { expectedVersion: number }): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {
     return this.request<{ record: ServiceStoredProposal; replayed: boolean }>(`/objects/${encodeURIComponent(objectId)}/closure/proposal`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+    });
+  }
+
+  getProjectClosureEvidence(objectId: string, input: { expectedVersion: number }): Promise<ServiceProjectClosureEvidenceDraft> {
+    return this.request<ServiceProjectClosureEvidenceDraft>(`/objects/${encodeURIComponent(objectId)}/project-closure/evidence`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });
   }

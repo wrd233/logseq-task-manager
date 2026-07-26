@@ -2618,6 +2618,56 @@ test("external Agent Project Closure Proposal completes with explicit unfinished
   if (replay.status === "COMPLETED") assert.equal(replay.replayed, true);
 });
 
+test("Project Closure evidence route is read-only, version-bound, and preserves unknowns", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-evidence-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-project-closure-evidence",
+    token: "project-closure-evidence-token-at-least-24-chars",
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const prepared = await client.prepareProject({ name: "Closure Evidence", traceId: "closure-evidence-prepare" });
+  const created = await client.finalizeProject({
+    semanticCommitId: prepared.semanticCommitId,
+    objectId: prepared.objectId,
+    name: "Closure Evidence",
+    pageExternalId: "page-project-closure-evidence",
+    pageContentHash: checksum(""),
+    traceId: "closure-evidence-finalize",
+  });
+  const beforeStatus = await client.status();
+  const beforeObject = await client.getObject(created.object.objectId);
+
+  const evidence = await client.getProjectClosureEvidence(created.object.objectId, {
+    expectedVersion: created.object.version,
+  });
+
+  assert.equal(evidence.authorityBoundary, "READ_ONLY_EVIDENCE_DRAFT");
+  assert.equal(evidence.project.objectId, created.object.objectId);
+  assert.equal(evidence.unknowns.some(({ code }) => code === "ORIGINAL_GOAL_UNKNOWN"), true);
+  assert.equal(evidence.userJudgments.some(({ judgment }) => judgment === "ACTUAL_RESULT"), true);
+  assert.deepEqual(await client.status(), beforeStatus);
+  assert.deepEqual(await client.getObject(created.object.objectId), beforeObject);
+
+  await assert.rejects(
+    () => client.getProjectClosureEvidence(created.object.objectId, { expectedVersion: created.object.version - 1 }),
+    (error: unknown) => error instanceof Error
+      && "details" in error
+      && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_PROJECT_CLOSURE_EVIDENCE_STALE",
+  );
+  const injected = await fetch(new URL(`objects/${created.object.objectId}/project-closure/evidence`, service.url), {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${service.token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ expectedVersion: created.object.version, actualResult: "client invented" }),
+  });
+  assert.equal(injected.status, 400);
+  assert.equal((await injected.json() as { error: { code: string } }).error.code, "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID");
+});
+
 test("reviewed Project current interface commits one versioned aggregate and rejects stale overwrite", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-structure-"));
   const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-project-structure", token: "project-structure-token-at-least-24" });

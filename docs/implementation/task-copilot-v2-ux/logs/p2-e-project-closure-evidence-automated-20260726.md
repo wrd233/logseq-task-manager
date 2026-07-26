@@ -2,11 +2,12 @@
 
 ## Status
 
-`IN_PROGRESS_AUTOMATED_EVIDENCE_MODEL`
+`IN_PROGRESS_AUTOMATED_READ_ONLY_PREVIEW`
 
-This increment does not claim a user-visible Closure flow, a Provider result or Desktop acceptance.
-It closes the first safety prerequisite: Closure must start from a bounded, deterministic evidence
-projection instead of an empty form or model-authored facts.
+This increment does not claim a Provider result, formal Closure flow or Desktop acceptance. It
+closes the first user-facing prerequisite in automated evidence: Closure starts from a bounded,
+deterministic projection and can be reviewed as a read-only preview instead of an empty form or
+model-authored facts.
 
 ## Implemented
 
@@ -39,11 +40,27 @@ It projects:
   Closure.
 - No Graph or SQLite write path was added.
 
+## Service and Plugin preview
+
+- Local Service exposes `POST /objects/:id/project-closure/evidence`.
+- The request accepts exactly `expectedVersion`; the client cannot inject a result, disposition,
+  legacy plan or narrative.
+- The route re-reads current SQLite authority and returns the Application-owned draft.
+- The Project impact router exposes `整理 Closure 证据`.
+- The preview separates source-backed candidates, unresolved work, per-Objective judgment,
+  explicit unknowns and the remaining user decisions.
+- The preview has no Proposal, accept, Commit or lifecycle-completion action. Cancellation clears
+  the session-only package; Graph switch and restricted Service state also clear it.
+
 ## Automated evidence
 
 - focused evidence tests: `3/3`
 - Application full suite: `164/164`
 - Application typecheck: PASS
+- Local Service full suite: `136/136`
+- Plugin full suite: `275/275`
+- Plugin typecheck: PASS
+- Service Client full suite: `12/12`
 
 Cases include:
 
@@ -54,10 +71,10 @@ Cases include:
 
 ## Next vertical steps
 
-1. expose the read-only evidence package through Local Service using only `objectId + expectedVersion`;
-2. render one compressed user-facing evidence preview from the Project impact route;
-3. reuse and version `design-project` rather than create a parallel prompt system;
-4. call the real Provider only after the evidence preview is visible, then validate one exact HIGH
+1. install the current build and record the Project impact route plus read-only evidence preview in
+   current Logseq Desktop;
+2. reuse and version `design-project` rather than create a parallel prompt system;
+3. call the real Provider only after the evidence preview is visible, then validate one exact HIGH
    Project Closure Proposal;
-5. continue through Review, Commit, reload, Recovery and the existing lifecycle Undo boundary before
+4. continue through Review, Commit, reload, Recovery and the existing lifecycle Undo boundary before
    P2-E can be DONE.

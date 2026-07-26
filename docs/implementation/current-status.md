@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_PARTIAL_UI
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_EVIDENCE_MODEL
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_READ_ONLY_PREVIEW
 overall_goal: IN_PROGRESS
 ```
 
@@ -215,13 +215,17 @@ overall_goal: IN_PROGRESS
   Service `135/135`、Plugin `275/275`、Persistence `49/49` 与根级检查 PASS。P2-D 仍未
   整体完成：Focus/reviewAt 的完整 Undo 结论、Association inverse、其他 HEAVY 类型、
   Light/窄栏与最终 Gate 继续 OPEN；
-- P2-E 已进入 `IN_PROGRESS_AUTOMATED_EVIDENCE_MODEL`：Application 新增只读 Closure evidence
+- P2-E 已进入 `IN_PROGRESS_AUTOMATED_READ_ONLY_PREVIEW`：Application 新增只读 Closure evidence
   draft，只读取版本匹配的 OPEN Project、Project interface、正式 Objects 与直接 Primary
   Ownership。它把 Objective、AVAILABLE/ACCEPTED Deliverable、owned Output/Decision、
   完成工作和未决工作投影为候选证据；所有 Objective 仍标为需要用户判断，不从 success
   evidence 或子对象状态推断完成。Association、孙级对象、缺失 Object、重复 identity 与
-  stale version 均不能被静默提升或猜测。focused `3/3`、Application `164/164` 和 typecheck
-  PASS；Service/Provider/Plugin/Desktop 尚未接入，P2-E 仍为 Partial；
+  stale version 均不能被静默提升或猜测。Local Service 只接受
+  `objectId + expectedVersion`，并把同一只读包暴露给 Project 影响路由；Plugin 明确分区显示
+  候选、未决工作、用户判断与未知项，不提供 Proposal/Commit 按钮。focused `3/3`、
+  Application `164/164`、Local Service `136/136`、Plugin `275/275`、Service Client
+  `12/12` 和 typecheck PASS；真实 Provider、正式 Proposal/Review/Commit/Recovery/Undo
+  与 Desktop 尚未接入，P2-E 仍为 Partial；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -238,7 +242,8 @@ P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→ro
 P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
 P2-D router + MEDIUM narration + one HEAVY full-interface vertical DONE,
 remaining LIGHT/other-HEAVY/visual gates OPEN /
-P2-E–G OPEN / overall Goal IN_PROGRESS
+P2-E read-only preview automated, Provider/formal/Desktop chain OPEN /
+P2-F–G OPEN / overall Goal IN_PROGRESS
 
 ## 当前阶段结论
 

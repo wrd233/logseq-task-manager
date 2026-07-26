@@ -26,7 +26,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-I bounded scope DONE；P0-H code/process + hidden reload auto recovery + Logseq quit owned shutdown Desktop DONE；P0-J/P0-K 与普通 Block 路由 automated DONE；Graph switch/J/K/Desktop host Gate OPEN |
 | P1 | IN_PROGRESS_PARTIAL_UI | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype、P1-F Project workspace/Page Head、P1-G unified UX + 真实 Provider、P1-H session disposition/噪声汇总真实 Service PASS；UX-G008 当前 shadow 不持久化已 bounded；Attention 未展示，marker/LLM/反馈 Desktop 与跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_EVIDENCE_MODEL | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E 只读 evidence model automated PASS | P2-C/P2-D 已有对应 Desktop；P2-E 尚无 Provider/UI/Desktop | P2-D 仍 Partial；P2-E evidence foundation DONE、完整纵向链 OPEN；P2-F～G OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_READ_ONLY_PREVIEW | P2-A+B DONE；P2-C 三来源功能链 PASS；P2-D 三条核心链 PASS；P2-E 只读 evidence model、Service route 与 Plugin preview automated PASS | P2-C/P2-D 已有对应 Desktop；P2-E 尚无 Provider/Desktop | P2-D 仍 Partial；P2-E 只读预览 DONE、正式纵向链 OPEN；P2-F～G OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -524,11 +524,14 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
   Focus、Ownership 与正文守恒。普通 Association 因无 remove/inverse 已从正式路由禁用。
   CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。Application `161/161`、Local
   Service `135/135`、Plugin `275/275`、Persistence `49/49` 与根级检查 PASS；
-- P2-E 首个确定性底座完成：只读 Project Closure evidence draft 从 Project interface 与
+- P2-E 首条只读预览链完成自动 Gate：Project Closure evidence draft 从 Project interface 与
   直接 Primary Ownership 投影 Objective、Deliverable/Output、Decision、完成/未决工作；
   Objective 完成状态、实际结果、遗留和未来总结均保留用户判断，Association 与孙级对象不
   偷升格。stale/非 Project/非 OPEN/重复或缺失 Object 全部 fail closed。focused `3/3`、
-  Application `164/164`、typecheck PASS；Service、真实 Provider、Plugin、Desktop 仍 OPEN；
+  Application `164/164`；Local Service 只接受 `objectId + expectedVersion`，其
+  `136/136` PASS；Plugin 在 Project 影响路由提供无 Proposal/Commit 权限的压缩预览，显式
+  区分候选、unknown 与用户判断，`275/275` PASS；Service Client `12/12` 与 typecheck
+  PASS。真实 Provider、HIGH Proposal/Review/Commit/Recovery/Undo、Desktop 仍 OPEN；
 - 根级检查：PASS；
 - rule coverage：145；
 - recovery rehearsal：differences `[]`；
@@ -538,14 +541,16 @@ release 后 owned Service 0、Launcher 1。当前只证明 Service 指标链可�
 
 ## 下一步
 
-1. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
-   把 Ownership、正文移动、批量子对象、拆分合并与 Closure 的既有安全链逐项映射到当前
-   影响路由，然后进入 P2-E Closure 证据起草；
-2. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
+1. 继续 P2-E：用现有 `design-project` Skill 基于只读 evidence package 起草一份受统一
+   Validator 约束的 HIGH Closure Proposal，并闭环 Review/Commit/reload/Recovery/Undo；
+   安装最新构建后先做 evidence preview Desktop Gate，不能把自动渲染当成当前界面证据；
+2. 继续 P2-D：为 Focus/reviewAt 给出完整 Undo 结论，并先补 Association inverse 再重新开放；
+   把 Ownership、正文移动、批量子对象与拆分合并的既有安全链逐项映射到当前影响路由；
+3. 在 Desktop 中集中验证 P1-F Project workspace/Page Head、P1-G recovery draft、P1-H
    feedback 的 loading/error/stale、Light/Dark 与窄栏；用真实反馈判断噪声指标是否足够有用，
    再决定是否需要跨会话 derivative；
-3. 汇总 P0-H/P0-J/P0-K 的 Graph switch、slash/palette/custom binding 与多宿主 origin；
-4. 完成 P1-D
+4. 汇总 P0-H/P0-J/P0-K 的 Graph switch、slash/palette/custom binding 与多宿主 origin；
+5. 完成 P1-D
    System/Proposal/Recent Changes/Now/Anchor repair 的 Desktop 信息密度与恢复对照；
-5. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
+6. Desktop reload 时确认 fresh recompute 与当前 telemetry 视觉一致；UX-G008 已对未显现
    shadow 决定不建 derivative，跨 reload 用户处置只在首批信号开放并证明减噪后重开。
