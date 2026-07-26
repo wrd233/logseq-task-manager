@@ -896,7 +896,7 @@ test("Migration workspace gives all ledger states an accurate conclusion and sta
   }
 });
 
-test("Migration workspace opens only a session-only read scan and keeps review and writes closed", () => {
+test("Migration workspace opens a session-only scan, bounded per-item review, and no direct formal write", () => {
   const idle = model();
   idle.workspace = "migration";
   idle.v2MigrationRuns = [];
@@ -914,17 +914,81 @@ test("Migration workspace opens only a session-only read scan and keeps review a
   ready.v2MigrationScanAvailable = true;
   ready.v2MigrationScan = {
     status: "ready",
-    counts: { total: 5, directBind: 2, needsConfirmation: 1, keepOrdinary: 1, structuralError: 1 },
+    counts: { total: 2, directBind: 1, needsConfirmation: 0, keepOrdinary: 0, structuralError: 1 },
     sourceCreatedAt: "2026-07-20T08:00:00.000Z",
-    message: "只读扫描完成；尚未创建迁移计划，也没有改变正式状态。",
+    items: [{
+      token: "migration-item:1",
+      title: "整理发布前检查",
+      titleTruncated: false,
+      sourceObjectType: "TASK",
+      classification: "DIRECT_BIND",
+      oldPhase: "ACTIVE",
+      oldConditionKind: "ACTIONABLE",
+      suggestedObjectType: "TASK",
+      suggestedLifecycle: "OPEN",
+      suggestedCondition: { kind: "ACTIONABLE" },
+    }, {
+      token: "migration-item:2",
+      title: "边界冲突材料",
+      titleTruncated: false,
+      sourceObjectType: "RESOURCE",
+      classification: "STRUCTURAL_ERROR",
+      oldPhase: "ARCHIVED",
+      oldConditionKind: "NONE",
+    }],
+    previewStatus: "idle",
+    decisionsComplete: false,
+    message: "只读扫描完成；请逐项确认，尚未创建迁移计划。",
   };
   const readyHtml = renderApp(ready);
   assert.match(readyHtml, /只读扫描完成 · 正式变化 0/);
-  assert.match(readyHtml, /2 项初步可直接迁移 · 1 项需要确认 · 1 项建议保持普通内容 · 1 项需先处理冲突/);
-  assert.match(readyHtml, /当前插件会话内/);
+  assert.match(readyHtml, /1 项初步可直接迁移 · 0 项需要确认 · 0 项建议保持普通内容 · 1 项需先处理冲突/);
+  assert.match(readyHtml, /当前窗口会话内/);
+  assert.match(readyHtml, /整理发布前检查/);
+  assert.match(readyHtml, /可以按现有事实迁移 · 来源是任务/);
+  assert.match(readyHtml, /请先处理材料冲突 · 来源是资料/);
+  assert.match(readyHtml, /data-field="migrationDecisionAction:migration-item:1"/);
+  assert.match(readyHtml, /data-action="migration-review-save" data-value="migration-item:2"/);
+  assert.match(readyHtml, /data-field="migrationDecisionObjectType:migration-item:2"><option value="" selected>/);
+  assert.match(readyHtml, /data-field="migrationDecisionLifecycle:migration-item:2"><option value="" selected>/);
+  assert.match(readyHtml, /data-field="migrationDecisionCondition:migration-item:2"><option value="" selected>/);
   assert.match(readyHtml, /data-action="migration-scan-clear"/);
-  assert.doesNotMatch(readyHtml, /data-action="migration-(?:preview|import|verify|activate|undo)"/);
-  assert.doesNotMatch(readyHtml, /legacyObjectId|sourceBundleSha256|private-object-id|run_id|backup_/);
+  assert.doesNotMatch(readyHtml, /data-action="migration-review-preview"/);
+  assert.doesNotMatch(readyHtml, /data-action="migration-(?:import|verify|activate|undo)"/);
+  assert.doesNotMatch(readyHtml, /DIRECT_BIND|STRUCTURAL_ERROR|legacyObjectId|sourceBundleSha256|private-object-id|run_id|backup_/);
+  assert.doesNotMatch(readyHtml, /Local Service|SQLite|reload|Graph/);
+
+  const completedItems = ready.v2MigrationScan.items ?? [];
+  ready.v2MigrationScan = {
+    ...ready.v2MigrationScan,
+    items: completedItems.map((item) => item.token === "migration-item:1"
+      ? { ...item, decision: { action: "IMPORT", objectType: "TASK", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" } } }
+      : { ...item, decision: { action: "DEFER", reviewNote: "先修复来源材料冲突" } }),
+    decisionsComplete: true,
+  };
+  const completeHtml = renderApp(ready);
+  assert.match(completeHtml, /本项判断已保存/);
+  assert.match(completeHtml, /保存审阅并创建迁移计划/);
+  assert.match(completeHtml, /data-action="migration-review-preview"/);
+  assert.match(completeHtml, /会写入逐项审阅与迁移台账，但不会导入正式对象/);
+  assert.doesNotMatch(completeHtml, /data-action="migration-(?:import|verify|activate|undo)"/);
+
+  ready.v2MigrationScan = {
+    ...ready.v2MigrationScan,
+    previewStatus: "uncertain",
+    message: "本次请求结果无法确认；请先看下方迁移台账。",
+  };
+  const uncertainHtml = renderApp(ready);
+  assert.match(uncertainHtml, /用相同判断重试创建计划/);
+  assert.match(uncertainHtml, /下方台账是当前权威/);
+  assert.match(uncertainHtml, /data-action="migration-review-save"[^>]*disabled/);
+  assert.doesNotMatch(uncertainHtml, /尚未保存到迁移台账/);
+
+  ready.v2MigrationScan = {
+    status: "idle",
+    message: "迁移计划已创建：2 项完成审阅，1 项准备迁移；尚未导入正式对象。",
+  };
+  assert.match(renderApp(ready), /迁移计划已创建：2 项完成审阅，1 项准备迁移；尚未导入正式对象/);
 });
 
 test("Migration workspace renders only the controller's bounded failure and not remote bundle internals", async () => {

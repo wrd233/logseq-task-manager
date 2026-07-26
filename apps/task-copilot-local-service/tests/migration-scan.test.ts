@@ -12,7 +12,7 @@ const legacyTask: ManagedObject = {
   objectId: "legacy-task-1", objectType: "TASK", version: 3, phase: "ACTIVE", condition: { kind: "WAITING", waitingFor: "审批", expectedResult: "批准", reviewAt: "2026-07-22T08:00:00.000Z", startedAt: "2026-07-20T08:00:00.000Z" }, text: "等待审批", createdAt: "2026-07-20T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z", sourceOrCreationEvent: "pilot", lastMeaningfulEventAt: "2026-07-21T08:00:00.000Z",
 };
 
-test("verified V1 Recovery Bundle scan returns review records without source text or write authority", () => {
+test("verified V1 Recovery Bundle scan returns bounded review excerpts without unbounded source body or write authority", () => {
   const state = createEmptyState();
   state.objects.push(legacyTask, { ...legacyTask, objectId: "legacy-resource-1", objectType: "RESOURCE", phase: "IDEA", condition: { kind: "NONE" }, text: "参考资料" });
   const bundle = exportRecoveryBundle(state, new Date("2026-07-21T09:00:00.000Z"));
@@ -23,7 +23,21 @@ test("verified V1 Recovery Bundle scan returns review records without source tex
   assert.equal(first.zeroFormalWrites, true);
   assert.deepEqual(first.counts, { total: 2, directBind: 1, needsConfirmation: 0, keepOrdinary: 1, structuralError: 0 });
   assert.equal(first.previews.some((preview) => "text" in preview), false);
+  assert.deepEqual(first.reviewItems.map(({ displayTitle, sourceObjectType }) => ({ displayTitle, sourceObjectType })), [
+    { displayTitle: "参考资料", sourceObjectType: "RESOURCE" },
+    { displayTitle: "等待审批", sourceObjectType: "TASK" },
+  ]);
   assert.equal(first.previews.find(({ legacyObjectId }) => legacyObjectId === "legacy-task-1")?.suggestedFocus, null);
+});
+
+test("review display titles are whitespace-normalized and bounded without changing migration evidence", () => {
+  const state = createEmptyState();
+  state.objects.push({ ...legacyTask, text: `  标题\n${"很长".repeat(100)}  ` });
+  const report = scanLegacyRecoveryBundle(exportRecoveryBundle(state));
+  assert.equal(report.reviewItems[0]?.displayTitle.includes("\n"), false);
+  assert.equal([...(report.reviewItems[0]?.displayTitle ?? "")].length, 160);
+  assert.equal(report.reviewItems[0]?.titleTruncated, true);
+  assert.equal(report.previews[0]?.legacyObjectId, "legacy-task-1");
 });
 
 test("corrupt bundles and unfinished Commit evidence stop migration scanning", () => {

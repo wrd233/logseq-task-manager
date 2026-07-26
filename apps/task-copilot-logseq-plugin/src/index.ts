@@ -1,6 +1,6 @@
 import "@logseq/libs";
 
-import type { V2Anchor, V2Condition, V2MiniProjectClosure, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
+import type { Lifecycle, V2Anchor, V2Condition, V2MiniProjectClosure, V2ObjectType, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
@@ -107,6 +107,7 @@ import { BackupRestoreController, type BackupRestoreClient } from "./backup-rest
 import {
   MIGRATION_BUNDLE_MAX_BYTES,
   MigrationScanController,
+  type PluginMigrationDecisionInput,
   type MigrationScanClient,
 } from "./migration-scan-controller.ts";
 
@@ -140,7 +141,11 @@ function isBackupRestoreClient(client: ServiceRuntimeClient | undefined): client
 }
 
 function isMigrationScanClient(client: ServiceRuntimeClient | undefined): client is ServiceRuntimeClient & MigrationScanClient {
-  return Boolean(client && typeof client.scanLegacyMigration === "function");
+  return Boolean(
+    client
+    && typeof client.scanLegacyMigration === "function"
+    && typeof client.previewLegacyMigration === "function",
+  );
 }
 let lastAttentionShadowSummarySignature: string | undefined;
 const blockMarkerPrototypeController = new BlockMarkerPrototypeController({
@@ -1078,6 +1083,36 @@ function dialogSelectedVersion(name: string): number | undefined {
   return Number.isSafeInteger(version) && version > 0 ? version : undefined;
 }
 
+function migrationReviewDate(value: string, label: string): string {
+  const date = new Date(value);
+  if (!value || !Number.isFinite(date.getTime())) throw new Error(`请填写有效的${label}。`);
+  return date.toISOString();
+}
+
+function migrationReviewCondition(token: string): V2Condition {
+  const kind = dialogField(`migrationDecisionCondition:${token}`);
+  if (kind === "ACTIONABLE") return { kind: "ACTIONABLE" };
+  if (kind === "WAITING") {
+    const waitingFor = dialogField(`migrationDecisionWaitingFor:${token}`);
+    const expectedResult = dialogField(`migrationDecisionExpectedResult:${token}`);
+    const reviewAt = dialogField(`migrationDecisionReviewAt:${token}`);
+    if (!waitingFor || !expectedResult) throw new Error("等待状态需要填写等待对象和期待结果。");
+    return { kind: "WAITING", waitingFor, expectedResult, reviewAt: migrationReviewDate(reviewAt, "复查时间") };
+  }
+  if (kind === "BLOCKED") {
+    const reason = dialogField(`migrationDecisionReason:${token}`);
+    if (!reason) throw new Error("被问题卡住时需要填写具体原因。");
+    return { kind: "BLOCKED", reason };
+  }
+  if (kind === "PAUSED") {
+    const reason = dialogField(`migrationDecisionReason:${token}`);
+    const reviewAt = dialogField(`migrationDecisionReviewAt:${token}`);
+    if (!reason) throw new Error("主动暂停时需要填写具体原因。");
+    return { kind: "PAUSED", reason, ...(reviewAt ? { reviewAt: migrationReviewDate(reviewAt, "复查时间") } : {}) };
+  }
+  throw new Error("请选择迁移后的当前状态。");
+}
+
 async function run(action: () => Promise<void>, success?: string): Promise<void> {
   latestError = undefined;
   message = undefined;
@@ -1164,7 +1199,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     message = undefined;
     const client = serviceRuntimeClient;
     if (!isMigrationScanClient(client) || serviceConnection.status !== "READY" || !serviceConnection.capabilities.migration) {
-      migrationScanController.rejectInput("当前 Graph 的迁移检查暂不可用；没有读取或保存任何文件。");
+      migrationScanController.rejectInput("当前知识库的迁移检查暂不可用；没有读取或保存任何文件。");
       await refresh();
       return;
     }
@@ -1198,6 +1233,68 @@ async function handleAction(action: string, value?: string): Promise<void> {
     migrationScanController.clear();
     message = "已放弃本次迁移材料；当前会话不再保留其内容。";
     latestError = undefined;
+    await refresh();
+    return;
+  }
+  if (action === "migration-review-save" && value) {
+    latestError = undefined;
+    message = undefined;
+    try {
+      const selectedAction = dialogField(`migrationDecisionAction:${value}`);
+      if (!["IMPORT", "KEEP_ORDINARY", "DEFER", "EXCLUDE"].includes(selectedAction)) {
+        throw new Error("请选择这项材料的处理方式。");
+      }
+      const reviewNote = dialogField(`migrationDecisionNote:${value}`);
+      let input: PluginMigrationDecisionInput;
+      if (selectedAction === "IMPORT") {
+        const objectType = dialogField(`migrationDecisionObjectType:${value}`);
+        const lifecycle = dialogField(`migrationDecisionLifecycle:${value}`);
+        if (!["AREA", "PROJECT", "MINI_PROJECT", "TASK", "DECISION", "OUTPUT"].includes(objectType)) {
+          throw new Error("请选择迁移后的对象类型。");
+        }
+        if (!["OPEN", "COMPLETED", "CANCELLED", "ARCHIVED"].includes(lifecycle)) {
+          throw new Error("请选择迁移后的生命周期。");
+        }
+        input = {
+          action: "IMPORT",
+          objectType: objectType as V2ObjectType,
+          lifecycle: lifecycle as Lifecycle,
+          condition: migrationReviewCondition(value),
+          ...(reviewNote ? { reviewNote } : {}),
+        };
+      } else {
+        input = {
+          action: selectedAction as Exclude<PluginMigrationDecisionInput["action"], "IMPORT">,
+          ...(reviewNote ? { reviewNote } : {}),
+        };
+      }
+      migrationScanController.saveDecision(value, input);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      latestError = /^(请|等待状态|被问题卡住|主动暂停|这项|找不到|迁移材料|迁移计划|正在)/.test(detail)
+        ? detail
+        : "这项判断还不完整；请核对处理方式、迁移状态和判断依据。";
+    }
+    await refresh();
+    return;
+  }
+  if (action === "migration-review-preview") {
+    if (migrationScanController.snapshot().previewStatus === "loading") return;
+    latestError = undefined;
+    message = undefined;
+    const client = serviceRuntimeClient;
+    if (!isMigrationScanClient(client) || serviceConnection.status !== "READY" || !serviceConnection.capabilities.migration) {
+      latestError = "当前知识库的迁移计划审阅暂不可用；没有导入正式对象。";
+      await refresh();
+      return;
+    }
+    const previewing = migrationScanController.createPreview(client);
+    await refresh();
+    await previewing.catch((error) => {
+      if (migrationScanController.snapshot().previewStatus !== "uncertain") {
+        latestError = error instanceof Error ? error.message : "迁移计划暂时无法创建；没有导入正式对象。";
+      }
+    });
     await refresh();
     return;
   }

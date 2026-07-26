@@ -1,4 +1,4 @@
-import type { LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -510,17 +510,7 @@ export type ServiceGraphReadResult =
   | { requestId: string; status: "NOT_FOUND" }
   | { requestId: string; status: "ERROR"; errorCode: string; message: string };
 
-export interface ServiceLegacyMigrationPreview {
-  legacyObjectId: string;
-  sourceBundleSha256: string;
-  classification: "DIRECT_BIND" | "NEEDS_CONFIRMATION" | "KEEP_ORDINARY" | "STRUCTURAL_ERROR";
-  reasonCodes: string[];
-  evidenceRefs: string[];
-  informationLoss: string[];
-  conflicts: string[];
-  decision: "PENDING_REVIEW";
-  [key: string]: unknown;
-}
+export type ServiceLegacyMigrationPreview = LegacyMigrationPreview;
 
 export interface ServiceLegacyMigrationScanReport {
   schemaVersion: 1;
@@ -530,6 +520,7 @@ export interface ServiceLegacyMigrationScanReport {
   zeroFormalWrites: true;
   counts: { total: number; directBind: number; needsConfirmation: number; keepOrdinary: number; structuralError: number };
   previews: ServiceLegacyMigrationPreview[];
+  reviewItems: Array<{ legacyObjectId: string; displayTitle: string; titleTruncated: boolean; sourceObjectType: string }>;
 }
 
 export interface ServiceMigrationRun {

@@ -2074,6 +2074,7 @@ test("Local Service migration scan validates an explicit Recovery Bundle and lea
   assert.equal(report.status, "SCANNED");
   assert.equal(report.zeroFormalWrites, true);
   assert.equal(report.counts.total, 0);
+  assert.deepEqual(report.reviewItems, []);
   assert.deepEqual(await client.status(), before);
   await assert.rejects(
     () => client.scanLegacyMigration(null),
@@ -2091,6 +2092,10 @@ test("Local Service completes reviewed migration through validated backup, impor
   const state = { ...createEmptyState(), objects: [{ ...legacy, phase: "ACTIVE" as const, condition: { kind: "ACTIONABLE" as const } }] };
   const bundle = exportRecoveryBundle(state, new Date("2026-07-21T08:00:00.000Z"));
   const scanned = await client.scanLegacyMigration(bundle);
+  assert.deepEqual(scanned.reviewItems.map(({ displayTitle, sourceObjectType }) => ({ displayTitle, sourceObjectType })), [{
+    displayTitle: "迁移服务闭环",
+    sourceObjectType: "TASK",
+  }]);
   const previewed = await client.previewLegacyMigration(bundle, [{ legacyObjectId: "legacy-service-task", action: "IMPORT" }]);
   assert.equal(previewed.run.summary.import, 1);
   assert.deepEqual((await client.listMigrationRuns()).map(({ runId, status }) => ({ runId, status })), [{ runId: previewed.run.runId, status: "PREVIEWED" }]);

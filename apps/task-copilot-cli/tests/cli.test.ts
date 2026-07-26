@@ -51,7 +51,7 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
         const id = query.kind === "RESOLVE" ? "block-resolved" : query.target;
         return { kind, requestedTarget: query.target, resolved: { kind, id, ...(kind === "PAGE" ? { name: query.target } : {}) }, blocks: [], truncated: false, readAt: "2026-07-22T10:00:00.000Z", scopeHash: "11111111" };
       },
-      scanLegacyMigration: async () => ({ schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 1, directBind: 0, needsConfirmation: 1, keepOrdinary: 0, structuralError: 0 }, previews: [] }),
+      scanLegacyMigration: async () => ({ schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 0, directBind: 0, needsConfirmation: 0, keepOrdinary: 0, structuralError: 0 }, previews: [], reviewItems: [] }),
       previewLegacyMigration: async () => ({ run: migrationRun, replayed: false }),
       getMigrationRun: async () => ({ run: migrationRun, evidence: [] }),
       importLegacyMigration: async () => ({ batch: migrationBatch, replayed: false }),
@@ -300,7 +300,7 @@ test("CLI migration scan is explicit and migration writes require exact prefligh
   let received: unknown;
   value.service.scanLegacyMigration = async (bundle) => {
     received = bundle;
-    return { schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 1, directBind: 0, needsConfirmation: 1, keepOrdinary: 0, structuralError: 0 }, previews: [] };
+    return { schemaVersion: 1, sourceBundleSha256: "b".repeat(64), sourceCreatedAt: "2026-07-21T08:00:00.000Z", status: "SCANNED", zeroFormalWrites: true, counts: { total: 0, directBind: 0, needsConfirmation: 0, keepOrdinary: 0, structuralError: 0 }, previews: [], reviewItems: [] };
   };
   const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service, loadMigrationBundle: async () => ({ bundleVersion: 1 }) };
   assert.equal(await runCli(["--json", "migration", "scan", "/tmp/v1-bundle.json"], dependencies, value.io), 0);

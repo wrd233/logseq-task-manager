@@ -16,7 +16,7 @@ import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
 import type { PluginMiniProjectGrillState } from "./mini-project-grill-controller.ts";
 import type { PluginProjectCreationGrillState } from "./project-creation-grill-controller.ts";
 import type { PluginBackupRestoreState } from "./backup-restore-controller.ts";
-import type { PluginMigrationScanState } from "./migration-scan-controller.ts";
+import type { PluginMigrationReviewItem, PluginMigrationScanState } from "./migration-scan-controller.ts";
 import {
   resolveProjectContextRecoveryRoute,
   type PluginProjectContextRecoveryState,
@@ -730,19 +730,148 @@ function renderAudit(model: UiModel): string {
   return `${guidance}<section><h2>最近修改</h2><div class="cards">${changes.map((change) => renderRecentChange(change)).join("")}</div></section>`;
 }
 
+function migrationObjectTypeLabel(value: string): string {
+  return ({
+    AREA: "领域",
+    PROJECT: "项目",
+    MINI_PROJECT: "小项目",
+    TASK: "任务",
+    DECISION: "决定",
+    OUTPUT: "产出",
+    RESOURCE: "资料",
+  } as Record<string, string>)[value] ?? "普通内容";
+}
+
+function migrationPhaseLabel(value: string): string {
+  return ({
+    IDEA: "想法",
+    DEFINING: "定义中",
+    CLARIFY: "待澄清",
+    PLANNED: "已计划",
+    READY: "可开始",
+    ACTIVE: "进行中",
+    CLOSING: "收尾中",
+    DORMANT: "暂不推进",
+    COMPLETED: "已完成",
+    CANCELLED: "已取消",
+    ARCHIVED: "已归档",
+    RETIRED: "已结束",
+  } as Record<string, string>)[value] ?? "未明确";
+}
+
+function migrationLifecycleLabel(value: string): string {
+  return ({
+    OPEN: "开放",
+    COMPLETED: "已完成",
+    CANCELLED: "已取消",
+    ARCHIVED: "已归档",
+  } as Record<string, string>)[value] ?? "开放";
+}
+
+function migrationConditionLabel(value: string): string {
+  return ({
+    ACTIONABLE: "现在可行动",
+    WAITING: "等待外部结果",
+    BLOCKED: "被问题卡住",
+    PAUSED: "主动暂停",
+    NONE: "旧材料未明确",
+  } as Record<string, string>)[value] ?? "旧材料未明确";
+}
+
+function migrationClassificationLabel(value: PluginMigrationReviewItem["classification"]): string {
+  if (value === "DIRECT_BIND") return "可以按现有事实迁移";
+  if (value === "NEEDS_CONFIRMATION") return "需要你补一项判断";
+  if (value === "KEEP_ORDINARY") return "建议保持普通内容";
+  return "请先处理材料冲突";
+}
+
+function migrationDateTimeLocal(value: string | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function renderMigrationReviewItem(item: PluginMigrationReviewItem, busy: boolean): string {
+  const decision = item.decision;
+  const action = decision?.action
+    ?? (item.classification === "DIRECT_BIND" ? "IMPORT" : item.classification === "KEEP_ORDINARY" ? "KEEP_ORDINARY" : "DEFER");
+  const objectType = decision?.action === "IMPORT" ? decision.objectType ?? item.suggestedObjectType : item.suggestedObjectType;
+  const lifecycle = decision?.action === "IMPORT" ? decision.lifecycle ?? item.suggestedLifecycle : item.suggestedLifecycle;
+  const condition = decision?.action === "IMPORT" ? decision.condition ?? item.suggestedCondition : item.suggestedCondition;
+  const conditionKind = condition?.kind ?? "";
+  const reviewNote = decision?.reviewNote ?? "";
+  const token = escapeHtml(item.token);
+  const option = (value: string, label: string, selected: string) => `<option value="${value}"${selected === value ? " selected" : ""}>${label}</option>`;
+  const actionOptions = `${item.classification === "STRUCTURAL_ERROR" ? "" : option("IMPORT", "迁移为正式对象", action)}${option("KEEP_ORDINARY", "保持普通内容", action)}${option("DEFER", "暂缓判断", action)}${option("EXCLUDE", "排除这项", action)}`;
+  const objectTypeOptions = `<option value=""${objectType ? "" : " selected"}>请选择对象类型</option>${["TASK", "MINI_PROJECT", "PROJECT", "AREA", "DECISION", "OUTPUT"]
+    .map((value) => option(value, migrationObjectTypeLabel(value), objectType ?? "")).join("")}`;
+  const lifecycleOptions = ["OPEN", "COMPLETED", "CANCELLED", "ARCHIVED"]
+    .map((value) => option(value, migrationLifecycleLabel(value), lifecycle ?? "")).join("");
+  const lifecycleSelectOptions = `<option value=""${lifecycle ? "" : " selected"}>请选择生命周期</option>${lifecycleOptions}`;
+  const conditionOptions = `<option value=""${conditionKind ? "" : " selected"}>请选择当前状态</option>${["ACTIONABLE", "WAITING", "BLOCKED", "PAUSED"]
+    .map((value) => option(value, migrationConditionLabel(value), conditionKind)).join("")}`;
+  const waiting = condition?.kind === "WAITING" ? condition : undefined;
+  const blocked = condition?.kind === "BLOCKED" ? condition : undefined;
+  const paused = condition?.kind === "PAUSED" ? condition : undefined;
+  const structuralGuidance = item.classification === "STRUCTURAL_ERROR"
+    ? `<p class="uncertain">这项材料存在结构冲突，不能直接迁移；可先暂缓、排除或保持普通内容，源材料修复后再重新检查。</p>`
+    : "";
+  return `<article class="card migration-review-item" aria-label="迁移材料 ${token}">
+    <div class="eyebrow">${escapeHtml(migrationClassificationLabel(item.classification))} · 来源是${escapeHtml(migrationObjectTypeLabel(item.sourceObjectType))}</div>
+    <h3>${escapeHtml(item.title)}${item.titleTruncated ? "…" : ""}</h3>
+    <p class="muted">旧材料记录为：${escapeHtml(migrationPhaseLabel(item.oldPhase))} · ${escapeHtml(migrationConditionLabel(item.oldConditionKind))}</p>
+    ${structuralGuidance}
+    <div class="inbox-dialog">
+      <label>这项如何处理<select data-field="migrationDecisionAction:${token}"${busy ? " disabled" : ""}>${actionOptions}</select></label>
+      <details>
+        <summary>迁移后的正式状态</summary>
+        <p class="muted">仅在“迁移为正式对象”时使用；这里不会修改原 Recovery Bundle。</p>
+        <label>对象类型<select data-field="migrationDecisionObjectType:${token}"${busy ? " disabled" : ""}>${objectTypeOptions}</select></label>
+        <label>生命周期<select data-field="migrationDecisionLifecycle:${token}"${busy ? " disabled" : ""}>${lifecycleSelectOptions}</select></label>
+        <label>当前状态<select data-field="migrationDecisionCondition:${token}"${busy ? " disabled" : ""}>${conditionOptions}</select></label>
+        <details><summary>等待状态需要的细节</summary>
+          <label>等待谁或什么<input data-field="migrationDecisionWaitingFor:${token}" maxlength="4000" value="${escapeHtml(waiting?.waitingFor ?? "")}"${busy ? " disabled" : ""}></label>
+          <label>期待结果<input data-field="migrationDecisionExpectedResult:${token}" maxlength="4000" value="${escapeHtml(waiting?.expectedResult ?? "")}"${busy ? " disabled" : ""}></label>
+        </details>
+        <details><summary>卡住或暂停需要的细节</summary>
+          <label>具体原因<input data-field="migrationDecisionReason:${token}" maxlength="4000" value="${escapeHtml(blocked?.reason ?? paused?.reason ?? "")}"${busy ? " disabled" : ""}></label>
+        </details>
+        <label>复查时间（等待必填，暂停可选）<input type="datetime-local" data-field="migrationDecisionReviewAt:${token}" value="${escapeHtml(migrationDateTimeLocal(waiting?.reviewAt ?? paused?.reviewAt))}"${busy ? " disabled" : ""}></label>
+      </details>
+      <label>判断依据${item.classification === "DIRECT_BIND" ? "（完整沿用全部建议时可不填；改映射必填）" : "（必填）"}<textarea data-field="migrationDecisionNote:${token}" maxlength="4000" placeholder="用一句话说明为什么这样处理"${busy ? " disabled" : ""}>${escapeHtml(reviewNote)}</textarea></label>
+      <div class="actions">${button(decision ? "更新本项判断" : "保存本项判断", "migration-review-save", item.token, "quiet", busy)}</div>
+      ${decision ? `<p class="action-feedback success">本项判断已保存；还没有创建迁移计划。</p>` : ""}
+    </div>
+  </article>`;
+}
+
 function renderMigration(model: UiModel): string {
   if (model.v2MigrationLoadError) return `<section><h2>V1 → V2 迁移</h2><div class="error"><strong>迁移状态不可用：</strong>${escapeHtml(model.v2MigrationLoadError)}<span>没有执行扫描、导入或状态切换。</span></div></section>`;
   const runs = model.v2MigrationRuns ?? [];
-  const guidance = `<section class="card"><div class="eyebrow">小批次 · 可验证 · 可恢复</div><h2>V1 → V2 迁移</h2><p>迁移只使用你明确选择的只读 Recovery Bundle；不会自动扫描 Graph，也不会让 V1 与 V2 双写。</p><p class="muted">先只读检查材料，再逐项审阅；每批都要创建恢复点，之后才可导入、验证和启用。内部运行标识、文件摘要与恢复点编号只留在技术证据中。</p></section>`;
+  const guidance = `<section class="card"><div class="eyebrow">小批次 · 可验证 · 可恢复</div><h2>V1 → V2 迁移</h2><p>迁移只使用你明确选择的只读 Recovery Bundle；不会自动扫描知识库，也不会让 V1 与 V2 双写。</p><p class="muted">先只读检查材料，再逐项审阅；每批都要创建恢复点，之后才可导入、验证和启用。内部运行标识、文件摘要与恢复点编号只留在技术证据中。</p></section>`;
   const scan = model.v2MigrationScan ?? { status: "idle" };
   const scanInput = `<label>选择 V1 Recovery Bundle<input type="file" accept="application/json,.json" data-field="migrationRecoveryBundleFile"${scan.status === "loading" || model.v2MigrationScanAvailable !== true ? " disabled" : ""}></label>`;
+  const previewButtonLabel = scan.previewStatus === "loading"
+    ? "正在创建迁移计划…"
+    : scan.previewStatus === "uncertain"
+      ? "用相同判断重试创建计划"
+      : "保存审阅并创建迁移计划";
+  const reviewGuidance = scan.decisionsComplete
+    ? scan.previewStatus === "uncertain"
+      ? "上次请求结果尚未确认；如果下方已经出现新计划，无需重试。"
+      : "创建计划会写入逐项审阅与迁移台账，但不会导入正式对象；导入仍需下一次明确确认和恢复点。"
+    : scan.items?.length
+      ? "请先保存每一项判断；全部完成后才会出现创建迁移计划入口。"
+      : "这份材料没有可审阅的正式对象，不需要创建迁移计划。";
   const scanPanel = model.v2MigrationScanAvailable !== true
-    ? `<section class="card"><h3>检查迁移材料</h3><p>需要先连接当前 Graph 的 Local Service；正文仍可正常编辑，没有读取任何文件。</p></section>`
+    ? `<section class="card"><h3>检查迁移材料</h3><p>当前知识库的本地运行环境尚未就绪；正文仍可正常编辑，没有读取任何文件。</p></section>`
     : scan.status === "loading"
       ? `<section class="card" aria-live="polite"><h3>正在检查迁移材料</h3><p>${escapeHtml(scan.message ?? "只读扫描进行中；正式状态不会变化。")}</p></section>`
       : scan.status === "ready" && scan.counts
-        ? `<section class="card" aria-label="迁移材料只读扫描结果"><div class="eyebrow">只读扫描完成 · 正式变化 0</div><h3>这份材料包含 ${escapeHtml(scan.counts.total)} 项</h3><p>${escapeHtml(scan.counts.directBind)} 项初步可直接迁移 · ${escapeHtml(scan.counts.needsConfirmation)} 项需要确认 · ${escapeHtml(scan.counts.keepOrdinary)} 项建议保持普通内容 · ${escapeHtml(scan.counts.structuralError)} 项需先处理冲突</p><p>${escapeHtml(scan.message ?? "尚未创建迁移计划。")}</p><p class="muted">材料仅保留在当前插件会话内；reload、切换 Graph 或放弃都会清空。逐项审阅入口尚未开放。</p>${button("放弃这份材料", "migration-scan-clear", undefined, "quiet")}</section>`
-        : `<section class="card"><h3>检查迁移材料</h3><p>这里只做只读校验与分类，不会创建迁移计划或改变 SQLite 正式状态。</p>${scanInput}${button(scan.status === "error" ? "重新检查" : "只读检查", "migration-scan-local", undefined, "primary")}${scan.status === "error" ? `<p class="diagnostic-error" role="alert">${escapeHtml(scan.message ?? "迁移材料暂时无法检查。")}</p>` : ""}</section>`;
+        ? `<section class="card" aria-label="迁移材料只读扫描结果"><div class="eyebrow">只读扫描完成 · 正式变化 0</div><h3>这份材料包含 ${escapeHtml(scan.counts.total)} 项</h3><p>${escapeHtml(scan.counts.directBind)} 项初步可直接迁移 · ${escapeHtml(scan.counts.needsConfirmation)} 项需要确认 · ${escapeHtml(scan.counts.keepOrdinary)} 项建议保持普通内容 · ${escapeHtml(scan.counts.structuralError)} 项需先处理冲突</p><p aria-live="polite">${escapeHtml(scan.message ?? "尚未创建迁移计划。")}</p><p class="muted">材料仅保留在当前窗口会话内；重新载入、切换知识库或放弃都会清空。每项判断先留在当前会话，创建计划时系统会重新校验全部材料。</p>${scan.items?.length ? `<div class="cards migration-review-list">${scan.items.map((item) => renderMigrationReviewItem(item, scan.previewStatus !== "idle")).join("")}</div>` : ""}<div class="actions wrap">${button("放弃这份材料", "migration-scan-clear", undefined, "quiet", scan.previewStatus === "loading")}${scan.decisionsComplete ? button(previewButtonLabel, "migration-review-preview", undefined, "primary", scan.previewStatus === "loading") : ""}</div><p class="muted">${escapeHtml(reviewGuidance)}</p>${scan.previewStatus === "uncertain" ? `<p class="uncertain" role="status">无法确认迁移计划是否已写入台账；下方台账是当前权威。若没有新计划，可用相同判断重试，或放弃后重新检查。</p>` : ""}</section>`
+        : `<section class="card"><h3>检查迁移材料</h3>${scan.status === "idle" && scan.message ? `<p class="action-feedback success" aria-live="polite">${escapeHtml(scan.message)}</p>` : ""}<p>这里只做只读校验与分类，不会创建迁移计划或改变正式事项。</p>${scanInput}${button(scan.status === "error" ? "重新检查" : "只读检查", "migration-scan-local", undefined, "primary")}${scan.status === "error" ? `<p class="diagnostic-error" role="alert">${escapeHtml(scan.message ?? "迁移材料暂时无法检查。")}</p>` : ""}</section>`;
   if (!runs.length) return `${guidance}${scanPanel}${empty("还没有迁移计划", "只读扫描不会创建计划；完成逐项审阅前不会写入正式状态。")}`;
   const statusLabel = (status: (typeof runs)[number]["status"]): string => {
     if (status === "PREVIEWED") return "等待确认导入";
@@ -766,7 +895,7 @@ function renderMigration(model: UiModel): string {
     if (status === "CANCELLED") return "原计划迁移";
     return "列入迁移";
   };
-  const cards = runs.map((run, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(statusLabel(run.status))} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>迁移计划 ${index + 1}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项${escapeHtml(importCountLabel(run.status))} · ${escapeHtml(run.summary.keepOrdinary)} 项保持普通内容 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p>${escapeHtml(nextStep(run.status))}</p><details><summary>查看安全边界</summary><p>Recovery Bundle 始终只读；正式状态只由 Local Service 写入。导入前必须有校验通过的恢复点，未启用且没有后续变化的批次才可安全撤销。</p></details></article>`).join("");
+  const cards = runs.map((run, index) => `<article class="card compact"><div class="eyebrow">${escapeHtml(statusLabel(run.status))} · ${escapeHtml(new Date(run.updatedAt).toLocaleString("zh-CN"))}</div><h3>迁移计划 ${index + 1}</h3><p>${escapeHtml(run.summary.total)} 项已审阅 · ${escapeHtml(run.summary.import)} 项${escapeHtml(importCountLabel(run.status))} · ${escapeHtml(run.summary.keepOrdinary)} 项保持普通内容 · ${escapeHtml(run.summary.defer)} 项暂缓 · ${escapeHtml(run.summary.exclude)} 项排除</p><p>${escapeHtml(nextStep(run.status))}</p><details><summary>查看安全边界</summary><p>Recovery Bundle 始终只读；正式状态只走系统的唯一安全写入链。导入前必须有校验通过的恢复点，未启用且没有后续变化的批次才可安全撤销。</p></details></article>`).join("");
   return `${guidance}${scanPanel}<section><h2>最近迁移</h2><div class="cards">${cards}</div></section>`;
 }
 

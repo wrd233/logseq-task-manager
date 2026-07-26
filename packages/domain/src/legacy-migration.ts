@@ -57,18 +57,50 @@ function migrationDecisionError(code: string, message: string): StructuredError 
   return new StructuredError({ code, message, ruleRefs: ["D-189", "D-190", "D-193", "D-208"] });
 }
 
+function boundedMigrationText(value: string | undefined, label: string): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  if (normalized.length > 4_000) {
+    throw migrationDecisionError("MIGRATION_REVIEW_TEXT_TOO_LONG", `迁移审阅中的${label}不能超过 4000 个字符。`);
+  }
+  return normalized;
+}
+
+function boundedMigrationCondition(condition: V2Condition): V2Condition {
+  const validated = validateV2Condition(condition);
+  if (validated.kind === "ACTIONABLE") return validated;
+  if (validated.kind === "WAITING") {
+    const waitingFor = boundedMigrationText(validated.waitingFor, "等待对象");
+    const expectedResult = boundedMigrationText(validated.expectedResult, "期待结果");
+    if (!waitingFor || !expectedResult) throw migrationDecisionError("MIGRATION_REVIEW_CONDITION_INVALID", "迁移审阅的等待状态不完整。");
+    return { kind: "WAITING", waitingFor, expectedResult, reviewAt: validated.reviewAt };
+  }
+  if (validated.kind === "BLOCKED") {
+    const reason = boundedMigrationText(validated.reason, "卡住原因");
+    if (!reason) throw migrationDecisionError("MIGRATION_REVIEW_CONDITION_INVALID", "迁移审阅的卡住原因不完整。");
+    if (validated.blockerObjectId && validated.blockerObjectId.length > 512) {
+      throw migrationDecisionError("MIGRATION_REVIEW_CONDITION_INVALID", "迁移审阅的阻碍来源无效。");
+    }
+    return { kind: "BLOCKED", reason, ...(validated.blockerObjectId ? { blockerObjectId: validated.blockerObjectId } : {}) };
+  }
+  const reason = boundedMigrationText(validated.reason, "暂停原因");
+  if (!reason) throw migrationDecisionError("MIGRATION_REVIEW_CONDITION_INVALID", "迁移审阅的暂停原因不完整。");
+  return { kind: "PAUSED", reason, ...(validated.reviewAt ? { reviewAt: validated.reviewAt } : {}) };
+}
+
 export function resolveLegacyMigrationDecision(preview: LegacyMigrationPreview, decision: LegacyMigrationReviewDecision): ResolvedLegacyMigrationDecision {
   if (decision.legacyObjectId !== preview.legacyObjectId) throw migrationDecisionError("MIGRATION_DECISION_IDENTITY_MISMATCH", "Migration decision identity does not match its preview.");
-  const reviewNote = decision.reviewNote?.trim();
+  const reviewNote = boundedMigrationText(decision.reviewNote, "判断依据");
   if (decision.action !== "IMPORT") return { legacyObjectId: decision.legacyObjectId, action: decision.action, ...(reviewNote ? { reviewNote } : {}) };
   if (preview.classification === "STRUCTURAL_ERROR") throw migrationDecisionError("MIGRATION_STRUCTURAL_CONFLICT", "Structural migration conflicts must be resolved at the source before import.");
   const objectType = decision.objectType ?? preview.suggestedObjectType;
   const lifecycle = decision.lifecycle ?? preview.suggestedLifecycle;
   const condition = decision.condition ?? preview.suggestedCondition;
   if (!objectType || !lifecycle || !condition) throw migrationDecisionError("MIGRATION_MAPPING_INCOMPLETE", "Import decisions must explicitly resolve Object Type, Lifecycle, and Condition.");
-  const adjusted = objectType !== preview.suggestedObjectType || lifecycle !== preview.suggestedLifecycle || JSON.stringify(condition) !== JSON.stringify(preview.suggestedCondition);
+  const boundedCondition = boundedMigrationCondition(condition);
+  const adjusted = objectType !== preview.suggestedObjectType || lifecycle !== preview.suggestedLifecycle || JSON.stringify(boundedCondition) !== JSON.stringify(preview.suggestedCondition);
   if ((preview.classification !== "DIRECT_BIND" || adjusted) && !reviewNote) throw migrationDecisionError("MIGRATION_REVIEW_NOTE_REQUIRED", "Non-direct or adjusted migration decisions require a review note.");
-  return { legacyObjectId: decision.legacyObjectId, action: "IMPORT", objectType, lifecycle, condition: validateV2Condition(condition), ...(reviewNote ? { reviewNote } : {}) };
+  return { legacyObjectId: decision.legacyObjectId, action: "IMPORT", objectType, lifecycle, condition: boundedCondition, ...(reviewNote ? { reviewNote } : {}) };
 }
 
 export function materializeReviewedLegacyObject(

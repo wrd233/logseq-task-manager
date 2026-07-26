@@ -12,6 +12,12 @@ export interface LegacyMigrationScanReport {
   zeroFormalWrites: true;
   counts: { total: number; directBind: number; needsConfirmation: number; keepOrdinary: number; structuralError: number };
   previews: LegacyMigrationPreview[];
+  reviewItems: Array<{
+    legacyObjectId: string;
+    displayTitle: string;
+    titleTruncated: boolean;
+    sourceObjectType: string;
+  }>;
 }
 
 export interface ValidatedLegacyRecoveryBundle {
@@ -45,6 +51,13 @@ function requireRecoveryBundle(value: unknown): RecoveryBundle {
   return candidate as RecoveryBundle;
 }
 
+function reviewTitle(value: string): { displayTitle: string; titleTruncated: boolean } {
+  const normalized = value.replace(/\s+/g, " ").trim() || "未命名内容";
+  const characters = [...normalized];
+  const displayTitle = characters.slice(0, 160).join("");
+  return { displayTitle, titleTruncated: characters.length > 160 };
+}
+
 export function readLegacyRecoveryBundle(input: unknown): ValidatedLegacyRecoveryBundle {
   const bundle = requireRecoveryBundle(input);
   let restored: ReturnType<typeof restoreRecoveryBundle>;
@@ -57,13 +70,13 @@ export function readLegacyRecoveryBundle(input: unknown): ValidatedLegacyRecover
   if (restored.differences.length > 0) throw migrationError("MIGRATION_BUNDLE_ROUND_TRIP_MISMATCH", "V1 Recovery Bundle 无法无损只读恢复。");
   if (restored.state.commits.some(({ status }) => status === "PENDING" || status === "RECOVERY_REQUIRED")) throw migrationError("MIGRATION_SOURCE_RECOVERY_REQUIRED", "V1 Recovery Bundle 含未完成或待恢复 Commit；扫描已停止。");
   const sourceBundleSha256 = createHash("sha256").update(stableJson(bundle)).digest("hex");
-  const previews = restored.state.objects.map((object) => {
+  const reviewRecords = restored.state.objects.map((object) => {
     const anchors = restored.state.anchors.filter(({ objectId }) => objectId === object.objectId);
     const events = restored.state.events.filter(({ objectId }) => objectId === object.objectId);
     const commits = restored.state.commits.filter(({ domainChanges }) => domainChanges.some(({ entityType, entityId }) => entityType === "OBJECT" && entityId === object.objectId));
     const conflicts = [object.conflict?.message, ...anchors.filter(({ status }) => status === "conflict").map(({ anchorId }) => `Anchor conflict: ${anchorId}`)].filter((value): value is string => Boolean(value));
     const operations = events.map(({ operationType }) => operationType.toLowerCase());
-    return previewLegacyStateMigration({
+    const preview = previewLegacyStateMigration({
       legacyObjectId: object.objectId,
       sourceBundleSha256,
       objectType: object.objectType,
@@ -76,7 +89,17 @@ export function readLegacyRecoveryBundle(input: unknown): ValidatedLegacyRecover
       ...(object.phase === "ARCHIVED" ? { archiveEvidence: operations.some((name) => name.includes("archive")) } : {}),
       ...(conflicts.length > 0 ? { stateConflict: conflicts.join("; ") } : {}),
     });
-  }).sort((left, right) => left.legacyObjectId.localeCompare(right.legacyObjectId));
+    return {
+      preview,
+      reviewItem: {
+        legacyObjectId: object.objectId,
+        ...reviewTitle(object.text),
+        sourceObjectType: object.objectType,
+      },
+    };
+  }).sort((left, right) => left.preview.legacyObjectId.localeCompare(right.preview.legacyObjectId));
+  const previews = reviewRecords.map(({ preview }) => preview);
+  const reviewItems = reviewRecords.map(({ reviewItem }) => reviewItem);
   const count = (classification: LegacyMigrationPreview["classification"]): number => previews.filter((preview) => preview.classification === classification).length;
   const report: LegacyMigrationScanReport = {
     schemaVersion: 1,
@@ -86,6 +109,7 @@ export function readLegacyRecoveryBundle(input: unknown): ValidatedLegacyRecover
     zeroFormalWrites: true,
     counts: { total: previews.length, directBind: count("DIRECT_BIND"), needsConfirmation: count("NEEDS_CONFIRMATION"), keepOrdinary: count("KEEP_ORDINARY"), structuralError: count("STRUCTURAL_ERROR") },
     previews,
+    reviewItems,
   };
   return { report, state: restored.state };
 }

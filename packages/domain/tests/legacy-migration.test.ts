@@ -65,6 +65,21 @@ test("reviewed migration decisions require explicit resolution without inventing
   const uncertain = previewLegacyStateMigration({ ...base, phase: "ACTIVE", condition: { kind: "NONE" } });
   assert.throws(() => resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "IMPORT" }), /explicitly resolve/);
   assert.equal(resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "IMPORT", objectType: "TASK", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, reviewNote: "已人工确认下一步" }).action, "IMPORT");
+  assert.throws(
+    () => resolveLegacyMigrationDecision(uncertain, { legacyObjectId: "legacy-1", action: "DEFER", reviewNote: "x".repeat(4_001) }),
+    /不能超过 4000/,
+  );
+  assert.throws(
+    () => resolveLegacyMigrationDecision(uncertain, {
+      legacyObjectId: "legacy-1",
+      action: "IMPORT",
+      objectType: "TASK",
+      lifecycle: "OPEN",
+      condition: { kind: "BLOCKED", reason: "x".repeat(4_001) },
+      reviewNote: "人工判断",
+    }),
+    /不能超过 4000/,
+  );
   const conflict = previewLegacyStateMigration({ ...base, phase: "ACTIVE", condition: { kind: "ACTIONABLE" }, stateConflict: "conflict" });
   assert.throws(() => resolveLegacyMigrationDecision(conflict, { legacyObjectId: "legacy-1", action: "IMPORT", reviewNote: "ignore" }), /source before import/);
 });
