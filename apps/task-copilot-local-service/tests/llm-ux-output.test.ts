@@ -33,7 +33,7 @@ const request: UxOutputGenerationRequest = {
   allowedNextActions: [],
 };
 
-test("LLM UX generator repairs a frontstage language mismatch once before returning a draft", async () => {
+test("LLM UX generator rejects mixed-language frontstage prose as one zero-write validation outcome", async () => {
   let calls = 0;
   const captured: StructuredChatRequest[] = [];
   const evidence = new InteractionEvidenceBuffer();
@@ -48,11 +48,11 @@ test("LLM UX generator repairs a frontstage language mismatch once before return
           schemaVersion: "task-copilot-ux-output-v1",
           factRefs: ["condition"],
           inferences: [{
-            text: calls === 1 ? "The project is waiting for a key parameter." : "项目正在等待关键参数。",
+            text: "The project is waiting for a key parameter（项目）.",
             evidenceRefs: ["object:project-1@v3"],
           }],
           unknowns: [],
-          summary: calls === 1 ? "The project is waiting." : "项目正在等待。",
+          summary: "The project is waiting（项目）.",
           suggestedChanges: [],
           nextActionEligible: false,
           riskLevel: "NONE",
@@ -68,16 +68,72 @@ test("LLM UX generator repairs a frontstage language mismatch once before return
     },
   };
 
-  const result = await new LocalLlmUxOutputGenerator(provider, evidence, () => "uxi_1234567890abcdef").generate(request);
+  await assert.rejects(
+    () => new LocalLlmUxOutputGenerator(provider, evidence, () => "uxi_1234567890abcdef").generate(request),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "UX_OUTPUT_VALIDATION_FAILED"
+      && error.details?.validationCategory === "FRONTSTAGE_PROSE",
+  );
 
-  assert.equal(calls, 2);
-  assert.equal(result.output.summary, "项目正在等待。");
-  assert.equal(result.provider.attempts, 2);
+  assert.equal(calls, 1);
   assert.match(captured[0]?.system ?? "", /zh-CN/);
-  assert.match(captured[1]?.system ?? "", /previous draft failed/i);
   assert.equal(evidence.summary().outcomes.REJECTED, 1);
-  assert.equal(evidence.summary().outcomes.GENERATED, 1);
-  assert.equal(evidence.snapshot()[0]?.failureCode, "UX_OUTPUT_FRONTSTAGE_LANGUAGE_MISMATCH");
+  assert.equal(evidence.summary().outcomes.GENERATED, 0);
+  assert.equal(evidence.snapshot()[0]?.failureCode, "UX_OUTPUT_VALIDATION_FAILED");
+});
+
+test("LLM UX language contract allows product names inside Chinese-dominant prose", async () => {
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({
+      value: {
+        schemaVersion: "task-copilot-ux-output-v1",
+        factRefs: ["condition"],
+        inferences: [{ text: "Project 当前正在等待 API 参数。", evidenceRefs: ["object:project-1@v3"] }],
+        unknowns: [],
+        summary: "当前 Project 需要等待参数。",
+        suggestedChanges: [],
+        nextActionEligible: false,
+        riskLevel: "NONE",
+        requiresDiscussion: false,
+        requiresReview: false,
+      },
+      metadata: { model: "actual-model", durationMs: 20, attempts: 1 },
+    }),
+  };
+
+  const result = await new LocalLlmUxOutputGenerator(provider).generate(request);
+  assert.equal(result.output.inferences[0]?.text, "Project 当前正在等待 API 参数。");
+});
+
+test("LLM UX language contract rejects Japanese kana instead of treating shared Han characters as Chinese", async () => {
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek",
+    providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({
+      value: {
+        schemaVersion: "task-copilot-ux-output-v1",
+        factRefs: ["condition"],
+        inferences: [{ text: "項目は重要なパラメータを待っています。", evidenceRefs: ["object:project-1@v3"] }],
+        unknowns: [],
+        summary: "項目は待機中です。",
+        suggestedChanges: [],
+        nextActionEligible: false,
+        riskLevel: "NONE",
+        requiresDiscussion: false,
+        requiresReview: false,
+      },
+      metadata: { model: "actual-model", durationMs: 20, attempts: 1 },
+    }),
+  };
+
+  await assert.rejects(
+    () => new LocalLlmUxOutputGenerator(provider).generate(request),
+    (error: unknown) => error instanceof StructuredError
+      && error.code === "UX_OUTPUT_VALIDATION_FAILED"
+      && error.details?.validationCategory === "FRONTSTAGE_PROSE",
+  );
 });
 
 test("LLM UX generator returns only a validated machine-provenance draft without persistence authority", async () => {
@@ -125,7 +181,7 @@ test("LLM UX generator returns only a validated machine-provenance draft without
   assert.match(result.promptBundleVersion, /^[0-9a-f]{8}$/);
   assert.match(captured[0]?.system ?? "", /factRefs/);
   assert.match(captured[0]?.system ?? "", /never write formal Graph or SQLite state directly/i);
-  assert.match(captured[0]?.system ?? "", /same language as the supplied user-visible facts/i);
+  assert.match(captured[0]?.system ?? "", /current product frontstage is zh-CN/i);
   assert.match(captured[0]?.system ?? "", /Never list a supplied formal fact as unknown/i);
   assert.match(captured[0]?.user ?? "", /只包含已导出的有界上下文/);
   assert.equal("application" in (result as object), false);
