@@ -102,6 +102,15 @@ Migration 逐项 Review/Preview 又在 `c660f2d00be5` 当前构建形成下一�
 `../logs/p2-g-migration-item-review-automated-20260726.md` 与
 `../logs/p2-g-migration-item-review-desktop-live-20260726.md`。
 
+Migration 恢复点/Import/Verify/Undo 正常主链又在 `593d14ac2c7` 当前构建完成。用户重新
+选择同一 Bundle 后，系统只读核对计划和待导入范围；恢复点 PASS 后才开放独立 HIGH Import。
+正式对象真实 `4→5`，batch 验证 PASS；完整 Logseq restart 后台账恢复同一 Undo 入口，
+安全撤销后对象 `5→4`，第二次 restart 后计划、UNDONE batch 与下一批入口仍可读。CURRENT
+`p2-g-30`～`37` 取代“恢复点/Import/Verify/Undo 未开放”的旧结论。Activate、正式失败注入、
+Service 中断恢复和视觉 Gate 仍 OPEN；完整记录见
+`../logs/p2-g-migration-execution-automated-20260726.md` 与
+`../logs/p2-g-migration-execution-desktop-live-20260726.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；

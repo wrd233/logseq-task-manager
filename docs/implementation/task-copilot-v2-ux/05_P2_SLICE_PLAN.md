@@ -363,7 +363,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_REVIEW_PREVIEW_DESKTOP_DONE`
+状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_MIGRATION_IMPORT_VERIFY_UNDO_MAIN_CHAIN_DESKTOP_DONE`
 
 ### Recovery
 
@@ -436,6 +436,20 @@ commit `c660f2d00be5` 的真实 Logseq 0.10.15 已完成 2 项脱敏材料逐项
 reload；SQLite 只读回查为 `PREVIEWED`、summary `2/1/1/0/0`、run/batch `1/0`、正式对象
 仍为 4、Pending 0。CURRENT `p2-g-26`～`29`。因此 Migration Review/Preview 纵向
 Slice 从 Partial 变为 Done；恢复点确认、import→verify→activate、失败/重启/Undo 继续 OPEN，
+Migration/P2-G/整体 Goal 不关闭。
+
+`e8044bd`/`593d14a` 继续复用既有迁移安全底座开放恢复点、Import、Verify 与受保护 Undo。
+Plugin 对外只使用 session token；Bundle、run/batch/object/backup identity、hash 与幂等键
+保留在私有控制器和正式 Service 中。重新选择材料时必须重新只读核对 source hash、计划状态
+与尚未导入的 Review scope；恢复点 Doctor PASS 后才出现独立 HIGH Import 确认。响应不确定
+只允许同材料、同范围、同恢复点、同幂等键重试，reload 后以正式 batch ledger 为权威。
+
+commit `593d14ac2c7` 的真实 Logseq 0.10.15 已完成
+`PREVIEWED → IMPORTING/IMPORTED → VERIFIED → 完整 restart → UNDONE → 再次 restart`。
+SQLite formal objects `4→5→4`、batch validation `PASS`、target evidence `1→0`、Pending
+始终 0；两次 restart 后 batch 与下一正确动作均从 Service ledger 重建。CURRENT
+`p2-g-30`～`37`。因此恢复点/Import/Verify/Undo 正常主链从 Partial 变为 Done；Activate、
+正式失败注入、Service 中断/不确定恢复、完成后退出日常 UI 与 Light/窄栏仍 OPEN，
 Migration/P2-G/整体 Goal 不关闭。
 
 ## P2 完成否决条件

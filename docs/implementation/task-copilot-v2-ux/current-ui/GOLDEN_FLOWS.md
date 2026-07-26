@@ -191,6 +191,27 @@ Verify、Activate、failure resume 和 Undo 仍 OPEN，Migration/P2-G 不提前�
 `p2-g-26`～`29`。一行摘录只用于当前脱敏测试会话，不推翻“不持久化/不记录完整正文”的
 隐私边界。恢复点、Import、Verify、Activate、failure resume 和 Undo 仍 OPEN。
 
+## P2-G Migration 恢复点、Import、Verify 与 Undo
+
+状态：`IMPORT_VERIFY_UNDO_MAIN_CHAIN_DESKTOP_DONE_ACTIVATION_FAILURE_GATES_OPEN`
+
+1. 从 reload 后仍可见的 `PREVIEWED` 计划点击“准备下一批”；
+2. 重新选择同一 Recovery Bundle，系统只读核对 source、计划和未导入 Review scope；
+3. 用户选择 1～50 项本批范围；未选择或 identity 失效时零恢复点、零正式写；
+4. 创建服务端恢复点并要求 Doctor PASS，随后才显示独立 HIGH 最终确认；
+5. 明确确认后经唯一 Migration Application/SQLite transaction 导入；
+6. 导入成功只显示“等待验证”，不能直接 Activate；
+7. Verify 逐项检查正式投影，PASS 后才显示受保护 Undo；
+8. 完整 Logseq restart 后 Bundle/backup ref 释放，batch 与 Undo 从正式 ledger 重建；
+9. HIGH Undo 只删除本批未被后续修改/引用的对象，保留 Review/Validation/Audit；
+10. 第二次 restart 后 `UNDONE` batch 和下一批入口仍可读。
+
+真实结果：`593d14ac2c7`、Logseq 0.10.15、Dark 宿主、994×700。SQLite formal objects
+`4→5→4`、run `PREVIEWED→IMPORTING→VERIFIED→PREVIEWED`、batch
+`IMPORTED→VERIFIED→UNDONE`、validation PASS、Pending 始终 0。CURRENT
+`p2-g-30`～`37`。Activate、失败注入、Service 中断不确定恢复、完成后退出日常 UI 和
+Light/窄栏仍 OPEN，因此 Migration/P2-G/整体 Goal 不提前关闭。
+
 ## 交互评估
 
 - 优点：用户只需一次回答一个问题；确定性基线和正式安全链未被 LLM 覆盖；恢复复用同一

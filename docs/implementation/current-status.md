@@ -306,7 +306,7 @@ overall_goal: IN_PROGRESS
   失败注入、失败后的用户层 Recovery 和 Light/窄栏仍 OPEN，完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md`；
 - P2-G Migration 已进入
-  `MIGRATION_ITEM_REVIEW_AND_PREVIEW_DESKTOP_DONE_IMPORT_GATE_OPEN`：
+  `MIGRATION_IMPORT_VERIFY_UNDO_MAIN_CHAIN_DESKTOP_DONE_ACTIVATION_FAILURE_GATES_OPEN`：
   现有只读 run 投影把原始状态翻译为用户可理解的审阅、验证和启用阶段，只显示计划序号、
   更新时间与批次计数；run ID、Bundle hash、Backup ID 和 CLI 命令不再进入日常 UI。没有
   run 时可由用户明确选择 2 B～8 MiB Recovery Bundle；内容仅在当前 Plugin session
@@ -319,8 +319,15 @@ overall_goal: IN_PROGRESS
   摘录和来源类型；完整正文、内部 identity、evidence/hash 不进入 UI snapshot、账本或
   日志。所有非导入决定在 Plugin 与正式 Domain Validator 都要求有界判断依据。真实
   Desktop 已完成两项决定、计划创建与 reload；SQLite 回查为 `PREVIEWED`、run/batch
-  `1/0`、正式对象保持 4、Pending 0。恢复点、Import/Verify/Activate/Undo 仍 OPEN，
-  P2-G 与整体 Goal 继续 `IN_PROGRESS`；
+  `1/0`、正式对象保持 4、Pending 0。随后 `e8044bd`/`593d14a` 把同一正式 batch ledger
+  接入 session-private 执行控制器：用户重新选择同一 Bundle、只读核对计划与未导入范围、
+  选择 1～50 项、创建并校验恢复点、独立 HIGH 确认 Import、Verify 和受保护 Undo；
+  run/batch/object/backup identity 与幂等键不进入 UI/DOM。真实 Logseq 0.10.15 已完成
+  `PREVIEWED → IMPORTING/IMPORTED → VERIFIED → 完整 restart → UNDONE → 再次 restart`；
+  SQLite 正式对象 `4→5→4`、validation PASS、Pending 始终 0，reload 后 batch 与正确动作
+  都由 ledger 重建。Import/Verify/Undo 正常主链从 Partial 变为 Done；Activate、
+  import/verify/undo 失败注入、Service 中断续跑和视觉 Gate 仍 OPEN，P2-G 与整体 Goal
+  继续 `IN_PROGRESS`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -343,8 +350,9 @@ P2-F shadow safety contract + first real Provider repeat quality gate PASS, fron
 P2-G Rebind identity-free capture main chain Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,
 Migration item Review/Preview Desktop DONE,
+Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
 Rebind Recovery/Undo guidance AUTOMATED,
-Restore failure + Migration recovery-point/import/verify/activate/undo gates OPEN /
+Restore failure + Migration activate/failure/restart recovery gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

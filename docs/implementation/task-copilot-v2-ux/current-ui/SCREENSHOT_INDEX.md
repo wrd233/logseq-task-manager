@@ -62,6 +62,14 @@ Dark，真实 Plugin/Launcher/Service；viewport 以各场景记录为准；无 
 | `screenshots/p2-g-27-migration-decisions-complete-current-dark.png` | `c660f2d00be5` | 普通内容项填写依据，直接迁移项保持机器建议，两项分别保存 | 全部决定完成后才出现唯一计划创建动作 | 恢复点尚未选择 |
 | `screenshots/p2-g-28-migration-plan-created-current-dark.png` | `c660f2d00be5` | 点击“保存审阅并创建迁移计划” | PREVIEWED 计划：2 项审阅、1 项准备迁移、1 项保持普通内容；无正式对象导入 | Import/Verify/Activate/Undo OPEN |
 | `screenshots/p2-g-29-migration-plan-reload-current-dark.png` | `c660f2d00be5` | 创建后 Plugin reload 并重新进入迁移 | Bundle/session 摘录和决定已释放；迁移计划 1 持久显示 | 失败/重启续跑仍需 Desktop Gate |
+| `screenshots/p2-g-30-migration-batch-scope-current-dark.png` | `593d14ac2c7` | PREVIEWED 计划重新选择同一脱敏 Bundle 并只读核对 | 只显示一项已审阅待导入范围；正式变化 0，无内部 identity/hash | Dark 宿主内插件表面仍偏亮 |
+| `screenshots/p2-g-31-migration-recovery-review-current-dark.png` | `593d14ac2c7` | 选择一项并创建恢复点 | 恢复点完整性 PASS 后才出现独立 HIGH 导入确认；batch 仍为 0 | Backup identity 不进入 UI |
+| `screenshots/p2-g-32-migration-imported-current-dark.png` | `593d14ac2c7` | 勾选最终确认并导入一项 | 明确“1 项等待验证、尚未启用”；SQLite objects `4→5`、batch IMPORTED | Verify 是唯一下一动作 |
+| `screenshots/p2-g-33-migration-verified-current-dark.png` | `593d14ac2c7` | 点击验证本批 | 一项正式投影验证 PASS，仍未启用 V2，可准备安全撤销 | Activate 未开放 |
+| `screenshots/p2-g-34-migration-verified-reload-current-dark.png` | `593d14ac2c7` | 完整退出并重启 Logseq 后重新进入迁移 | Bundle/session 恢复点引用释放；VERIFIED batch 与 Undo 从正式 ledger 重建 | 需滚动查看完整 batch 卡 |
+| `screenshots/p2-g-35-migration-undo-confirm-current-dark.png` | `593d14ac2c7` | 点击准备安全撤销 | HIGH Review 明确后续修改/引用保护，并保留 Review/Validation/Audit | 未确认时零请求 |
+| `screenshots/p2-g-36-migration-undone-current-dark.png` | `593d14ac2c7` | 勾选并确认撤销本批 | 正式对象 `5→4`，run 回 PREVIEWED，batch UNDONE，Pending 0 | 计划与证据保留 |
+| `screenshots/p2-g-37-migration-undone-reload-current-dark.png` | `593d14ac2c7` | 第二次完整退出并重启 Logseq | PREVIEWED 计划、UNDONE batch 和“准备下一批”跨 restart 可读；Runtime/Store/Graph READY | Activate、失败/中断恢复仍 OPEN |
 
 ## HISTORICAL
 
