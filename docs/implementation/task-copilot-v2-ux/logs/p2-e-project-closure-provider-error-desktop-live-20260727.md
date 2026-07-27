@@ -2,9 +2,9 @@
 
 ## 结论
 
-本轮关闭 `Project Closure Provider error Desktop` 子 Gate，并根据随后真实 Provider
-输出压缩 Review 首屏。P2-E 整体仍为 `PARTIAL`：generation stale 和真正不能自动安全
-续跑的 `RECOVERY_REQUIRED` 代表链仍未关闭。
+本轮关闭 `Project Closure Provider error Desktop` 和 `generation stale Desktop` 两个
+子 Gate，并根据真实 Provider 输出压缩 Review 首屏。P2-E 整体仍为 `PARTIAL`：真正不能
+自动安全续跑的 `RECOVERY_REQUIRED` 代表链仍未关闭。
 
 ## 当前环境
 
@@ -83,9 +83,35 @@ Validator 的结构化 Closure 结果生成：
 Logseq 丢弃同版本 iframe 缓存，Desktop Gate 使用 Plugin 关闭/启用，而不是把缓存旧界面
 误登记为当前证据。
 
+### 4. generation stale
+
+1. 将同一 Launcher 的 Provider base URL 临时改为本地 127.0.0.1 无日志转发器；
+2. 转发器只延迟 8 秒后把请求原样送到真实 DeepSeek，不记录 headers、body 或 response；
+3. Closure 进入“正在整理关闭方案”后，使用正式 Condition Application Command 将 Project
+   从 `ACTIONABLE v21` 改为 `PAUSED v22`；
+4. 真实 Provider 返回后，Service 对当前 Project version 重验失败；
+5. Plugin 丢弃旧草稿，显示“项目内容已经变化，刚才的关闭材料不再适用”；
+6. 原提交动作被“重新检查关闭条件”替代，目标是当前 version，不会把旧 version 再次送入
+   同一 stale 循环；
+7. 使用现有正式 Condition Undo 恢复 `ACTIONABLE v23`；
+8. 恢复 `https://api.deepseek.com`、原 model、Keychain reference 和同一 database
+   authority，终止转发器；
+9. Plugin reload 后回到健康“现在”，同一 Project 再次可推进。
+
+正式读回：
+
+- Project：`OPEN / ACTIONABLE v23`
+- Proposal：`APPLIED 13 / REJECTED 1`；stale 没有创建第 15 个 Proposal
+- SemanticCommit：`COMPLETED 14 / UNDONE 12`，与 stale 前相同
+- Launcher graphKey、Graph ID 与 database path：与 Gate 前相同
+- Provider：恢复 `deepseek-v4-flash`
+- 本地延迟转发进程：已结束
+
 ## 自动证据
 
 - `@task-copilot/logseq-plugin`：339/339 PASS，0 skipped
+- targeted Local Service stale contract：1/1 PASS（65 项因 test-name filter 未运行，不计为
+  全套 skipped 状态）
 - 根级 `./scripts/check.sh`：PASS
 - stable rules：145
 - build / package / bootstrap / dist integrity：PASS
@@ -101,6 +127,8 @@ Logseq 丢弃同版本 iframe 缓存，Desktop Gate 使用 Plugin 关闭/启用�
 |---|---|---|---|
 | `current-ui/screenshots/p2-e-closure-provider-error-current-light-7727770.png` | CURRENT | `77277704d901` | 失败零写入、输入保留、一个重试动作 |
 | `current-ui/screenshots/p2-e-closure-review-current-dark-662246a.png` | CURRENT | `662246a298ac` | 真实 Provider Review 首屏压缩，长依据折叠 |
+| `current-ui/screenshots/p2-e-closure-stale-current-dark-662246a.png` | CURRENT | `662246a298ac` | 真实 Provider stale 丢弃旧草稿，重新检查当前条件 |
+| `current-ui/screenshots/p2-e-closure-stale-reload-restored-dark-662246a.png` | CURRENT | `662246a298ac` | Condition Undo、Provider/authority 恢复和 reload 健康 |
 | `current-ui/screenshots/p2-e-closure-provider-error-superseded-f4acf77.png` | SUPERSEDED | `f4acf77` | 旧错误态暴露 Provider/Proposal 工程词 |
 
 ## 复杂度变化
@@ -111,13 +139,12 @@ Logseq 丢弃同版本 iframe 缓存，Desktop Gate 使用 Plugin 关闭/启用�
 - 新增恢复分支：0
 - 新增写入权威：0
 - 新增 Partial：0
-- 关闭 Partial：1（P2-E Provider error Desktop）
+- 关闭 Partial：2（P2-E Provider error Desktop、generation stale Desktop）
 
 错误翻译继续复用统一 generation result；Review 压缩继续复用同一结构化 Proposal，没有
 建立平行 LLM 小系统或前台状态机。
 
 ## 仍开放
 
-1. generation stale 的当前 Desktop 证据；
-2. 真正不能自动安全续跑的 `RECOVERY_REQUIRED → 原 Commit resume → reload`；
-3. Closure 其余集中视觉组合不扩张为笛卡尔积，只在上述高风险链需要时取代表证据。
+1. 真正不能自动安全续跑的 `RECOVERY_REQUIRED → 原 Commit resume → reload`；
+2. Closure 其余集中视觉组合不扩张为笛卡尔积，只在上述高风险链需要时取代表证据。

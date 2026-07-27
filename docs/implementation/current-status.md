@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_AND_PROVIDER_ERROR_DESKTOP_DONE_STALE_RECOVERY_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -295,8 +295,10 @@ Project 用户意图路由、Closure 首屏安全结论，以及 1000×720 Light
   不重复增版；再经 reload、Closure 专用 Undo 和再次 reload 回到 `OPEN v21`、Closure
   absent、正向 `UNDONE`、逆向 `COMPLETED`、异常 Commit `0/0/0`。该 Gate 复用同一
   SemanticCommit/Receipt/最近修改入口，没有新增恢复状态或第二写路径。Provider error
-  Desktop Gate 已由 `7727770` 关闭；generation stale 与真正 `RECOVERY_REQUIRED` 仍 OPEN，
-  因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin
+  Desktop Gate 已由 `7727770` 关闭；`662246a` 当前构建又用真实 DeepSeek 无日志延迟、
+  Project Condition 正向+Undo 完成 generation stale Desktop Gate，旧草稿零 Proposal、
+  界面改为“重新检查关闭条件”，reload 后恢复 ACTIONABLE。只剩真正
+  `RECOVERY_REQUIRED` 仍 OPEN，因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin
   `279/279`、Domain `44/44`、typecheck 与根级 `./scripts/check.sh` PASS；
 - P2-F 已从 NOT_STARTED 进入 `IN_PROGRESS_SHADOW_PROVIDER_QUALITY_PASS`：Application 新增
   严格、无自由文本的跨对象观察 draft，固定五类候选、2–8 个版本化 subject、显式有界

@@ -54,6 +54,8 @@ Proposal，Project 保持 `OPEN v21`。
 |---|---|---|---|---|
 | `screenshots/p2-e-closure-provider-error-current-light-7727770.png` | CURRENT | Light / 1000×720 | 保存 Closure 判断并请求整理；Provider 受控失败 | 本次没有完成，项目和正文未变化；输入保留；唯一动作“重新整理关闭方案” |
 | `screenshots/p2-e-closure-review-current-dark-662246a.png` | CURRENT | Dark / 1000×720 | 恢复真实 DeepSeek 后生成 Proposal，reload exact build 并打开待审阅 | 首屏只显示一句结构化结果、2 项影响、2 项不改变；完整模型说明在折叠依据；下一步“审阅方案” |
+| `screenshots/p2-e-closure-stale-current-dark-662246a.png` | CURRENT | Dark / 1000×720 | 真实 DeepSeek 经无日志 8 秒延迟转发，期间 Project Condition `v21→v22` | 旧草稿没有进入 Review；只说明材料不再适用、本次未修改项目或正文；唯一动作“重新检查关闭条件” |
+| `screenshots/p2-e-closure-stale-reload-restored-dark-662246a.png` | CURRENT | Dark / 1000×720 | 正式 Condition Undo 到 `ACTIONABLE v23`，恢复原 Provider 与 authority，Plugin reload | “现在”重新显示可推进 Project；Service READY；Proposal/Commit 无异常增量 |
 | `screenshots/p2-e-closure-provider-error-superseded-f4acf77.png` | SUPERSEDED | Light / 1000×720 | 同一故障的旧构建 | 曾暴露 Provider/Proposal 工程语义；由 `7727770` 用户语言替代 |
 
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |

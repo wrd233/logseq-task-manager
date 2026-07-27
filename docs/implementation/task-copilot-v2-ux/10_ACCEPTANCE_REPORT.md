@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash 代表链/custom binding PASS；中文 IME/受限视觉与 P0-K host Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_AND_PROVIDER_ERROR_DESKTOP_DONE_STALE_RECOVERY_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss PASS | P2-C/D/E 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo 与 Provider error 零写入/重试 DONE；P2-G Restore 真实双失败人工恢复、Migration Activation 正常链及写后响应丢失→ledger reload→Verify→Undo DONE | P2-D/E remaining；P2-E stale/真正 RECOVERY_REQUIRED；P2-F frontstage；P2-G Rebind guidance、Migration Verify/Activate failure 与视觉 Gate OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss PASS | P2-C/D/E 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error 与 generation stale 零 Closure 写入 DONE；P2-G Restore 真实双失败人工恢复、Migration Activation 正常链及写后响应丢失→ledger reload→Verify→Undo DONE | P2-D/E remaining；P2-E 真正 RECOVERY_REQUIRED；P2-F frontstage；P2-G Rebind guidance、Migration Verify/Activate failure 与视觉 Gate OPEN |
 | Final Release | NOT_STARTED | — | — | — |
 
 ## 2. P0 验收
@@ -96,7 +96,8 @@
   `PENDING`，reload 后只继续原 Commit，完成后 Project 仍为 v20；专用 Undo 与再次 reload
   回到 `OPEN v21`、Closure absent、forward UNDONE、inverse COMPLETED、异常 Commit
   `0/0/0`。`7727770` 又完成 Provider error 保留判断/零写入/单一重试 Desktop Gate；
-  generation stale 与真正 `RECOVERY_REQUIRED` 仍未闭环，因此本项暂不勾选；
+  `662246a` 随后完成真实 DeepSeek 延迟 generation stale、Condition Undo 与 reload 健康
+  Gate。真正 `RECOVERY_REQUIRED` 仍未闭环，因此本项暂不勾选；
 - [ ] 跨对象候选有证据和数量上限；结构化 2–16 evidence、2–8 subject、每轮 8 条上限与
   exact scope/provenance 已自动 PASS；首批真实 DeepSeek 3 observation + 2 abstention 质量门
   三轮累计 `15/15` case-runs PASS；semantic Context fingerprint 已证明时间刷新稳定、
@@ -204,8 +205,9 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 | Closure Provider error | 高 | 高 | 高→低 | Provider/Proposal/Commit 不出普通错误态 | DESKTOP_VERIFIED Light 1000×720 |
 | Closure HIGH Review | 高 | 高 | 高→中低 | 模型长说明折叠；首屏只显示结构化结论、影响和安全边界 | DESKTOP_VERIFIED Dark 1000×720 |
 
-验收边界：本表只关闭当前信息架构和代表性主题/宽度 Gate，不关闭 P2-E Provider
-stale/RECOVERY_REQUIRED，也不把 P0/P1/P2 或 Final Release 标为 DONE。
+验收边界：本表只关闭当前信息架构和代表性主题/宽度 Gate；generation stale 由独立真实
+运行闭环，但真正 `RECOVERY_REQUIRED` 仍 OPEN。不得把 P0/P1/P2 或 Final Release 标为
+DONE。
 
 ## 5. 操作距离指标
 

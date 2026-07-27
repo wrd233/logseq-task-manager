@@ -111,8 +111,9 @@ reload 后 Project 再次进入 Now Work。正式回读为 `OPEN v13`、Closure 
 隔离测试库完成真实 post-domain HTTP 500：同一 receipt-backed Commit 保持 `PENDING`，
 reload 后显示“尚未完成，可以继续”，再次确认只收口原 Commit；随后 reload、专用 Undo
 与再次 reload 均通过。CURRENT `p2-e-13`～`18`，最终 `OPEN v21`、Closure absent、异常
-Commit `0/0/0`。Provider error 随后由 `7727770` 关闭；generation stale 与真正不能安全
-续跑的 `RECOVERY_REQUIRED` 代表链仍 OPEN，所以 P2-E 仍是 Partial。完整记录见
+Commit `0/0/0`。Provider error 随后由 `7727770` 关闭，generation stale 又由
+`662246a` 当前构建关闭；真正不能安全续跑的 `RECOVERY_REQUIRED` 代表链仍 OPEN，所以
+P2-E 仍是 Partial。完整记录见
 `../logs/p2-e-project-closure-desktop-live-20260726.md`。
 
 `77277704d901` 又关闭 Provider error Desktop 子 Gate：真实 Logseq 0.10.15、File Graph、
@@ -123,8 +124,12 @@ Proposal/Commit 计数没有变化，异常 Commit 为 `0`。恢复 `deepseek-v4
 真实输出进一步把 Review 的模型长报告移入折叠依据，首屏只显示结构化结果、影响与安全
 边界。CURRENT 为 `p2-e-closure-provider-error-current-light-7727770.png` 和
 `p2-e-closure-review-current-dark-662246a.png`；旧错误页
-`p2-e-closure-provider-error-superseded-f4acf77.png` 只保留为修复原因。generation stale
-与真正 `RECOVERY_REQUIRED` 仍 OPEN，不能据此关闭整个 P2-E。完整记录见
+`p2-e-closure-provider-error-superseded-f4acf77.png` 只保留为修复原因。随后同一
+`662246a` 构建用真实 DeepSeek 无日志延迟完成 generation stale：旧草稿没有进入 Review，
+唯一动作改为“重新检查关闭条件”；Condition Undo 恢复 ACTIONABLE，reload 回到健康 Now。
+CURRENT `p2-e-closure-stale-current-dark-662246a.png` 与
+`p2-e-closure-stale-reload-restored-dark-662246a.png`。真正 `RECOVERY_REQUIRED` 仍
+OPEN，不能据此关闭整个 P2-E。完整记录见
 `../logs/p2-e-project-closure-provider-error-desktop-live-20260727.md`。
 
 P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop Gate。首轮真实运行
