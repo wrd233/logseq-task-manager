@@ -190,6 +190,8 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p2-g-migration-final-current-narrow-720-7fcdcf5.png` | repo `7fcdcf5` / Plugin `e2361599fbc9` | 同一 ACTIVATED ledger 在当前构建完整 Reload 后把 Logseq 窗口缩至 722×720 | 主结论、计划摘要、旧 UNDONE 与新 VERIFIED batch、折叠安全边界和关闭动作均可读，无横向溢出 | `CURRENT`；窄栏子 Gate DONE，Light host Gate OPEN |
 | `screenshots/p2-g-light-mode-selected-host-remains-dark-bounded-7fcdcf5.png` | repo `7fcdcf5` / Logseq `0.10.15` | File Graph 设置页选择“浅色模式”，随后完整 View→Reload | 设置页显示浅色模式已选中；加载页短暂为浅色，但 Graph 就绪后仍恢复深色宿主 | `CURRENT_BOUNDED_HOST_ISSUE`；不是 Plugin Light PASS，不用加载页冒充当前 UI |
 | `screenshots/p2-g-light-mode-full-restart-remains-dark-bounded-1364235.png` | repo `1364235` / Logseq `0.10.15` | 浅色模式已选中后完整 quit；旧 Service 按 lease 停止，再由 Computer Use 重新打开 Logseq | File Graph 就绪后仍为深色宿主；同一 Launcher 启动新 Service，Task Copilot 自动重连 | `CURRENT_BOUNDED_HOST_ISSUE`；完整生命周期仍不能证明 Light，Light Gate 保持 OPEN |
+| `screenshots/ui-theme-dark-current-d7526f4.png` | `d7526f43e798` | File Graph custom.css 强制深色、官方信号仍为浅色；在 Task Copilot 配置中明确选择深色，完整 reload 后再次打开 | 插件壳层、导航、提示、卡片、按钮和滚动区与深色宿主一致；主结论和每卡主动作清晰 | `CURRENT`；1001×720；只改变插件显示，不写正式状态 |
+| `screenshots/ui-theme-dark-current-narrow-d7526f4.png` | `d7526f43e798` | 同一 reload 后会话把 Logseq 收窄到 723×720 | 主导航、筛选、主结论、卡片和唯一主动作仍可见；无横向溢出 | `CURRENT`；接管旧白底截图的主题表达权，Logseq 自身 Light bounded host issue 仍 OPEN |
 
 ## HISTORICAL
 

@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑、Provider error 和 generation stale、P2-G 真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry 与窄栏子 Gate 已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E 真正 RECOVERY_REQUIRED、P2-G Light host Gate 与 Rebind 指引仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑、Provider error 和 generation stale、P2-G 真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏与通用深色表面已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E 真正 RECOVERY_REQUIRED、File Graph Light host issue 与 Rebind 指引仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -163,6 +163,20 @@
   新增 Partial `0`。
 - 风险变化：Recovery/状态/Runtime 分裂未上升；Partial 堆积仍为 HIGH，但阻断项已收敛为
   P0/P1 宿主与视觉 Gate、P2-E 真正 RECOVERY_REQUIRED、P2-G Light host Gate 及 Rebind 指引。
+- LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
+
+### 通用深色表面与自定义主题边界（2026-07-27，`d7526f4`）
+
+- 关闭 1 个 UI Partial：深色 Logseq 工作现场中的 Task Copilot 白底。新增功能 Partial `0`。
+- 新增正式状态、Runtime、Skill、Prompt、Validator、Recovery 分支、写入权威：均为 `0`。
+- 没有创建第二主题 Runtime；继续复用 `theme-mode.ts` 和同一 CSS token 集。只在现有 Logseq
+  插件设置增加默认 `auto` 的显示偏好，明确覆盖不进入 Domain、SQLite 或 Graph。
+- 真实 Desktop 证明可见宿主读取在 iframe 隔离 + custom.css 强制色时不可用；没有堆叠
+  DOM selector、读取 Graph CSS 或猜测颜色，改用用户可解释的一次性显示选择。
+- 1001×720、完整 reload、723×720 均 PASS；CURRENT 两张。旧流程截图的业务证据继续有效，
+  但其白底不再代表当前主题表达。
+- File Graph 自身 Light bounded host issue 仍 OPEN；因此 Partial 总量净下降 `1`，而不是
+  把 Light Gate 一并伪装关闭。
 - LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
 - `25ddac9` / `4dfe014` 关闭高频壳层发布阻断：删除主面板重复运行条，统一“更多”、启动、知识库切换和系统状态的用户语言；连接恢复只有在正式修改也可用时才报告成功。
 - exact build `4dfe014902a3` 已完成后台真实 Plugin reload、默认用户层工程词扫描 `0` 和三张 CURRENT Desktop 截图；工程概念泄漏由 HIGH 降为 MEDIUM，但高级 Review/Grill/Project/Migration/Restore 表面仍阻断发布。

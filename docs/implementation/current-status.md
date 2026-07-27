@@ -497,7 +497,8 @@ Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
 Migration Activation normal main chain Desktop DONE,
 Migration post-write response-loss→ledger reload→Verify→Undo Desktop DONE,
 Migration Verify/Activate failure→same-ledger retry→reload Desktop DONE,
-Migration final read-only narrow Desktop DONE, Light host Gate OPEN,
+Migration final read-only narrow Desktop DONE,
+Task Copilot dark surface + reload + 723px narrow Desktop DONE；File Graph 自身 Light host Gate OPEN,
 Rebind Recovery/Undo guidance AUTOMATED,
 Restore rollback-failure manual recovery chain Desktop DONE /
 overall Goal IN_PROGRESS

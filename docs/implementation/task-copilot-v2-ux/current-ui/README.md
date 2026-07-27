@@ -277,6 +277,15 @@ Gate 仍 OPEN。完整记录见
 `../logs/p2-g-migration-response-loss-desktop-live-20260727.md` 与
 `../logs/p2-g-migration-verify-activate-failure-desktop-live-20260727.md`。
 
+`d7526f43e798` 关闭“深色 Logseq 宿主中 Task Copilot 保持刺眼白底”的 UI Partial。
+真实复验先证明 `59dcf93` 的可见宿主优先规则在 iframe 隔离 + File Graph `custom.css`
+强制深色 + 官方浅色信号的组合中仍不足，因此没有把自动测试冒充 Desktop PASS。
+当前设置新增默认 `auto` 的“界面外观”；只有 custom.css 与官方信号分离时才需明确选一次
+浅色或深色。选择深色后 1001×720、完整 reload 和 723×720 窄栏均保持同一信息层级，
+CURRENT `ui-theme-dark-*` 接管此前白底截图的主题表达权；旧截图的业务流程事实不因此失效。
+Logseq File Graph 自身不能稳定切到真实浅色仍是 bounded host issue。完整记录见
+`../logs/ui-theme-dark-override-desktop-live-20260727.md`。
+
 ## 每次取证必须记录
 
 1. branch、commit、插件构建时间、Service/Launcher 版本和测试 Graph；
