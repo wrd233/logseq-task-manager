@@ -464,8 +464,10 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
   `MIGRATION_VERIFY_ACTIVATE_FAILURE_RETRY_DESKTOP_DONE`。当前 `7fcdcf5` 又在
   `722×720` 窗口完成只读完成态窄栏 Gate：主结论、两批历史、唯一返回路径和折叠技术详情
   均可读，无横向溢出或新写入动作。Logseq 0.10.15 File Graph 的“浅色模式”虽已在设置中
-  选中，完整 Reload 后仍恢复深色宿主；该结果记录为 bounded host issue，不伪报 Light
-  PASS。Migration 窄栏从 Partial 变为 Done，Light 仍 OPEN，
+  选中，完整 Reload 及完整 quit/reopen 后仍恢复深色宿主；该结果记录为 bounded host
+  issue，不伪报 Light PASS。完整退出后旧 Service 子进程按 lease 停止，重新打开后同一
+  Launcher 启动新 Service 并自动恢复正式能力。Migration 窄栏从 Partial 变为 Done，
+  Light 仍 OPEN，
   P2-G 与整体 Goal 继续 `IN_PROGRESS`。完整记录见
   `logs/p2-g-migration-verify-activate-failure-desktop-live-20260727.md`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与

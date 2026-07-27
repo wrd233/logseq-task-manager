@@ -116,13 +116,16 @@
 - 当前 `7fcdcf5` / Plugin `e2361599fbc9` 在 `722×720` 真实显示 Migration
   只读完成态：主结论、计划摘要、两个 batch、折叠安全边界和关闭动作均可达，无横向溢出。
 - 窄栏子 Gate `PARTIAL→DONE`；新增 Partial `0`，Partial 总量净下降 `1`。
-- Logseq 0.10.15 File Graph 的设置页真实选中“浅色模式”，随后执行完整 View→Reload；
-  加载页为浅色，但 Graph 就绪后恢复深色宿主。该结果保持 `BOUNDED_HOST_ISSUE/OPEN`，
-  不借设置页或加载页伪报 Light PASS。
+- Logseq 0.10.15 File Graph 的设置页真实选中“浅色模式”，随后执行完整 View→Reload
+  和完整 quit/reopen；两条链都在 Graph 就绪后恢复深色宿主。该结果保持
+  `BOUNDED_HOST_ISSUE/OPEN`，不借设置页或加载页伪报 Light PASS。
 - Desktop 矩阵没有扩展为全组合：只验证高风险流程的最终只读态、一个窄栏尺寸和一个 Light
   宿主切换边界。
 - 隔离故障 Launcher 退出后，正常 LaunchAgent、Service、原 database authority、1000px
   窗口与深色工作现场均已恢复；用户系统状态读回“可以正常使用”“无需操作”。
+- 完整退出后旧 Service PID `49323` 在 lease 到期后停止，Launcher 保持；重新打开后由
+  同一 Launcher 启动新 Service PID `52080`，Plugin 自动读回正式能力可用。该证据复核
+  P0-H owned shutdown/reconnect，但不重复扩大其完成状态。
 - LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
 
 ### P2-G Migration Verify / Activate 自动失败重试收敛（2026-07-27）

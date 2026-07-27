@@ -790,8 +790,9 @@ derivative/dashboard 价值也仍未完成。
    台账与 Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 均退出。写后响应丢失
    已完成真实 `ledger→reload→Verify→Undo`，Verify/Activate 失败也已完成同 ledger
    重试和当前构建 reload；`7fcdcf5` 又完成 722×720 窄栏代表 Gate。Light 设置在
-   Logseq 0.10.15 File Graph 完整 Reload 后仍回到深色宿主，继续作为 bounded host issue
-   复核；并继续 Rebind 最新指引，不得加入
+   Logseq 0.10.15 File Graph 完整 Reload 和完整 quit/reopen 后均回到深色宿主，继续作为
+   bounded host issue；退出后旧 Service PID 按 lease 停止，重开后同一 Launcher 启动新
+   Service 并自动恢复正式能力。继续 Rebind 最新指引，不得加入
    第二迁移或恢复状态源。
 3. 集中关闭 P0-J 中文 IME/受限视觉与 P0-K Query/reference/来源变化返回，并继续 P1-F
    DB Graph Page Head、P1 Attention 开放门和 Block Marker；P0-H 不再重复扩大宿主矩阵。

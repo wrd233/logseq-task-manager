@@ -189,6 +189,7 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p2-g-migration-verify-activate-retry-current-dark-e236159.png` | `e2361599fbc9` | 隔离库完成 Verify failure→同 ledger retry→Activate failure→同 ledger retry；重新构建并 reload 当前 Plugin | “一次性迁移已完成 · 只读历史”“V2 已启用”；旧 UNDONE 与新 VERIFIED 批次可读，无 scan/Review/Import/Undo/Activate | Logseq 0.10.15、File Graph、Dark、1000×720；中间故障动作使用 migration 路径未变化的 `2148f42b00cb` artifact，CURRENT 只记录精确当前构建 reload；Light host Gate 仍 OPEN |
 | `screenshots/p2-g-migration-final-current-narrow-720-7fcdcf5.png` | repo `7fcdcf5` / Plugin `e2361599fbc9` | 同一 ACTIVATED ledger 在当前构建完整 Reload 后把 Logseq 窗口缩至 722×720 | 主结论、计划摘要、旧 UNDONE 与新 VERIFIED batch、折叠安全边界和关闭动作均可读，无横向溢出 | `CURRENT`；窄栏子 Gate DONE，Light host Gate OPEN |
 | `screenshots/p2-g-light-mode-selected-host-remains-dark-bounded-7fcdcf5.png` | repo `7fcdcf5` / Logseq `0.10.15` | File Graph 设置页选择“浅色模式”，随后完整 View→Reload | 设置页显示浅色模式已选中；加载页短暂为浅色，但 Graph 就绪后仍恢复深色宿主 | `CURRENT_BOUNDED_HOST_ISSUE`；不是 Plugin Light PASS，不用加载页冒充当前 UI |
+| `screenshots/p2-g-light-mode-full-restart-remains-dark-bounded-1364235.png` | repo `1364235` / Logseq `0.10.15` | 浅色模式已选中后完整 quit；旧 Service 按 lease 停止，再由 Computer Use 重新打开 Logseq | File Graph 就绪后仍为深色宿主；同一 Launcher 启动新 Service，Task Copilot 自动重连 | `CURRENT_BOUNDED_HOST_ISSUE`；完整生命周期仍不能证明 Light，Light Gate 保持 OPEN |
 
 ## HISTORICAL
 

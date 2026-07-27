@@ -42,9 +42,11 @@ P2-G Migration Verify/Activate 失败重试又在当前 `e2361599fbc9` 完成真
 只有自动证据”的旧结论。
 当前 `7fcdcf5` 又补充 `p2-g-migration-final-current-narrow-720-7fcdcf5.png`：在
 `722×720` 下主结论、两批历史和折叠安全边界均可读，窄栏子 Gate 已关闭。Logseq
-0.10.15 File Graph 的浅色模式设置与完整 Reload 未能改变 Graph 就绪后的深色宿主，
+0.10.15 File Graph 的浅色模式设置、完整 Reload 和完整 quit/reopen 均未能改变 Graph
+就绪后的深色宿主，
 `p2-g-light-mode-selected-host-remains-dark-bounded-7fcdcf5.png` 只记录宿主边界，
-不代表 Light PASS。
+`p2-g-light-mode-full-restart-remains-dark-bounded-1364235.png` 又补充完整生命周期结果；
+两者都不代表 Light PASS。
 
 P0-H Graph switch 最新精确构建为 `ca50304e9aa2`。`p0-h-16`～`18` 分别证明未配置隔离
 Graph 首次显示时已安全受限、6 秒后仍不显示旧 Project，以及切回原 Graph 后约 3.75 秒

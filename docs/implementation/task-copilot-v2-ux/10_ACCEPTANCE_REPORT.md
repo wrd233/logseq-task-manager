@@ -175,8 +175,9 @@
   `0/0`。当前 `e2361599fbc9` 精确构建 reload 后只显示“V2 已启用”和只读历史；
   正常 Launcher、Service 与原 authority 已恢复。该勾选只关闭失败→原 ledger 重试
   Desktop 子 Gate；`7fcdcf5` 又在 `722×720` 完成只读完成态窄栏 Gate。浅色模式在
-  Logseq 0.10.15 File Graph 完整 Reload 后仍恢复深色宿主，Light 继续 OPEN；Rebind
-  指引也仍开放；
+  Logseq 0.10.15 File Graph 完整 Reload 和完整 quit/reopen 后仍恢复深色宿主，Light
+  继续 OPEN；退出后旧 Service 按 lease 停止，重开后同一 Launcher 启动新 Service 且
+  正式能力自动恢复。Rebind 指引也仍开放；
 - [ ] 高影响流程全部可恢复。
 - [ ] Project 结构操作按影响给摩擦；16 类 router、LIGHT Condition durable Undo、
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，
