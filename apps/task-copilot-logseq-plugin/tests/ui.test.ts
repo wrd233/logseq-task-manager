@@ -1778,6 +1778,8 @@ test("Project Closure Review shows the external Agent outcome and uses a dedicat
     ], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-21T12:00:00.000Z",
   } }];
   let html = renderApp(value);
+  assert.match(html, /系统理解[\s\S]*将结束这个项目，并保存结果：新链路上线 1 项未完成目标会保留明确后续/);
+  assert.doesNotMatch(html.match(/<section class="review-impact"[\s\S]*?<\/section>\s*<\/section>/)?.[0] ?? "", /历史回放转移/);
   assert.match(html, /external_agent/);
   assert.match(html, /历史回放转移/);
   assert.match(html, /data-action="v2-project-closure-commit"/);

@@ -203,6 +203,11 @@ function empty(title: string, detail: string): string {
   return `<div class="empty"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(detail)}</p></div>`;
 }
 
+function compactReviewText(value: string, maximum = 120): string {
+  const text = value.trim().replace(/\s+/g, " ");
+  return text.length <= maximum ? text : `${text.slice(0, maximum - 1)}…`;
+}
+
 function projectPageRelationshipLabel(mode: "CREATE_DEDICATED_PROJECT_PAGE" | "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" | "REUSE_SOURCE_PAGE" | "REVIEW_REQUIRED"): string {
   if (mode === "CREATE_DEDICATED_PROJECT_PAGE") return "创建独立 Project 页面";
   if (mode === "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE") return "保留来源，创建独立 Project 页面";
@@ -510,6 +515,14 @@ function renderReview(model: UiModel): string {
     const applied = record.proposal.status === "APPLIED";
     const reviewStage = applied ? "已正式应用" : canCommit ? "方案已审阅，等待确认应用" : "请审阅这项方案";
     const operationKinds = new Set(record.proposal.groups.filter((group) => group.disposition !== "REJECTED").flatMap((group) => group.semanticOperations.map((operation) => operation.kind)));
+    const projectClosureOperation = record.proposal.groups
+      .filter((group) => group.disposition !== "REJECTED")
+      .flatMap((group) => group.semanticOperations)
+      .find((operation) => operation.kind === "UPDATE_PROJECT_INTERFACE" && "closure" in operation.payload);
+    const projectClosure = projectClosureOperation?.payload.closure as V2ProjectClosure | undefined;
+    const systemUnderstanding = projectClosure
+      ? `将结束这个项目，并保存结果：${compactReviewText(projectClosure.actualResult)}${projectClosure.incompleteObjectives.length ? ` ${projectClosure.incompleteObjectives.length} 项未完成目标会保留明确后续。` : ""}`
+      : record.proposal.finalPreview;
     const scopeBoundary = (isProjectClosure || (operationKinds.has("UPDATE_PROJECT_INTERFACE") && operationKinds.has("TRANSITION_LIFECYCLE")))
       ? "项目页面和正文不会被删除或改写。"
       : (isProjectCreation || operationKinds.has("CREATE_OBJECT"))
@@ -562,7 +575,7 @@ function renderReview(model: UiModel): string {
       <h3>${escapeHtml(reviewStage)}</h3>
       <p class="lead"><strong>${escapeHtml(record.proposal.title)}</strong></p>
       <section class="review-impact" aria-label="方案影响">
-        <section><h4>系统理解</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
+        <section><h4>系统理解</h4><p>${escapeHtml(systemUnderstanding)}</p></section>
         <section><h4>本次会改变什么</h4>${changes.length ? `<ul>${changes.map((change) => `<li>${escapeHtml(change)}</li>`).join("")}</ul>` : "<p>不会产生正式变化。</p>"}</section>
         <section><h4>本次不会改变什么</h4><ul>${safetyItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
       </section>
