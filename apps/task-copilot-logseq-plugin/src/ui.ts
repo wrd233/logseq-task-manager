@@ -1282,12 +1282,31 @@ function renderActionDialog(model: UiModel): string {
       ? `${evidence.unresolvedWork.map(({ text }) => text).join("；")}继续作为明确遗留，不在关闭时丢弃。`
       : "没有遗留工作。";
     const decisionDefault = draft?.projectClosureKeyDecisions ?? confirmed?.keyDecisions.join("\n") ?? evidence.decisionCandidates.map(({ text }) => text).join("\n");
+    const currentProject = model.v2Objects?.find((candidate) =>
+      candidate.objectId === objectId
+      && candidate.objectType === "PROJECT"
+      && candidate.lifecycle === "OPEN"
+    );
+    const evidenceNeedsRefresh = currentProject !== undefined && currentProject.version !== evidence.project.version;
     const proposalStatus = model.v2ProjectClosureProposalBusy
-      ? `<div class="notice" aria-live="polite">正在整理关闭建议；Project、正文和正式状态仍未改变。</div>`
+      ? `<div class="notice" aria-live="polite">正在整理关闭方案；项目和正文尚未改变。</div>`
       : model.v2ProjectClosureProposalMessage
         ? `<div class="notice error" role="alert">${escapeHtml(model.v2ProjectClosureProposalMessage)}</div>`
         : "";
     const proposalDisabled = model.v2ProjectClosureProposalAvailable !== true || model.v2ProjectClosureProposalBusy === true;
+    const proposalAction = evidenceNeedsRefresh
+      ? button("重新检查关闭条件", "v2-project-closure-evidence-open", `${objectId}|${currentProject.version}`, "primary", model.v2ProjectClosureEvidenceBusy === true)
+      : button(
+        model.v2ProjectClosureProposalBusy
+          ? "正在整理关闭方案…"
+          : model.v2ProjectClosureProposalMessage
+            ? "重新整理关闭方案"
+            : "审阅关闭方案",
+        "submit-v2-project-closure-draft",
+        dialog.value,
+        "primary",
+        proposalDisabled,
+      );
     return `<section class="inbox-dialog action-dialog project-closure-evidence" aria-label="准备结束项目"><header class="decision-header"><div class="eyebrow">第 1 步 · 检查关闭条件</div><h3>还有 ${escapeHtml(evidence.userJudgments.length)} 项需要你判断</h3><p class="lead">${escapeHtml(evidence.project.text)}</p><p class="safety-note"><strong>尚未正式应用。</strong>现在退出不会修改项目、正文或当前关注。</p></header>
       <section class="project-closure-judgments"><h3>确认项目如何结束</h3><p class="muted">只补充现有材料无法决定的内容。下一步会先生成一份可阅读的关闭方案，仍不会直接结束项目。</p>
         <label>实际结果<textarea data-field="projectClosureActualResult" placeholder="这次真正交付或改变了什么？">${escapeHtml(draft?.projectClosureActualResult ?? confirmed?.actualResult ?? "")}</textarea></label>
@@ -1307,7 +1326,7 @@ function renderActionDialog(model: UiModel): string {
       </details>
       ${proposalStatus}
       ${model.v2ProjectClosureProposalAvailable === true ? "" : `<p class="muted">关闭建议暂时无法整理；你仍可阅读依据，项目和正文没有变化。</p>`}
-      <div class="actions decision-actions">${button(model.v2ProjectClosureProposalBusy ? "正在整理关闭方案…" : "审阅关闭方案", "submit-v2-project-closure-draft", dialog.value, "primary", proposalDisabled)}${cancel}</div></section>`;
+      <div class="actions decision-actions">${proposalAction}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-project-structure-edit") {
     const [objectId] = dialog.value.split("|");

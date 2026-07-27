@@ -105,17 +105,20 @@ test("Closure input refuses missing real judgments before the Provider can be ca
 
 test("Closure Provider failures become bounded user messages without remote detail leakage", () => {
   const stale = projectClosureProposalFailure({ details: { remoteCode: "V2_OBJECT_VERSION_CONFLICT" } });
-  assert.match(stale, /旧证据已作废/);
+  assert.match(stale, /关闭材料不再适用/);
+  assert.doesNotMatch(stale, /Project|证据|正式状态/);
   const provider = projectClosureProposalFailure({
     message: "secret raw response",
     details: { remoteCode: "PROJECT_CLOSURE_PROVIDER_USER_JUDGMENT_CHANGED" },
   });
-  assert.match(provider, /事实与权限校验/);
+  assert.match(provider, /无法安全使用/);
+  assert.doesNotMatch(provider, /Provider|Proposal|Validator|正式状态/);
   assert.doesNotMatch(provider, /secret|USER_JUDGMENT_CHANGED/);
   const transport = projectClosureProposalFailure({
     message: "private transport path",
     details: { remoteCode: "LLM_PROVIDER_TIMEOUT" },
   });
-  assert.match(transport, /智能分析暂不可用/);
+  assert.match(transport, /关闭方案没有整理完成/);
+  assert.doesNotMatch(transport, /Provider|Proposal|LLM|正式状态/);
   assert.doesNotMatch(transport, /private|TIMEOUT/);
 });

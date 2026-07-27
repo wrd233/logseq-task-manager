@@ -59,13 +59,13 @@ export function projectClosureProposalFailure(error: unknown): string {
   if (
     ["V2_PROJECT_CLOSURE_EVIDENCE_STALE", "V2_OBJECT_VERSION_CONFLICT", "V2_OBJECT_NOT_FOUND"].includes(code)
   ) {
-    return "Project 已变化、关闭或不存在；旧证据已作废，请重新整理证据。";
+    return "项目内容已经变化，刚才的关闭材料不再适用。这次操作没有修改项目或正文，请重新检查关闭条件。";
   }
   if (code.startsWith("LLM_")) {
-    return "智能分析暂不可用；请稍后重试。证据、Project、正文和正式状态均未改变。";
+    return "这次关闭方案没有整理完成。项目和正文没有变化，你可以稍后重试。";
   }
   if (code.startsWith("PROJECT_CLOSURE_PROVIDER_")) {
-    return "Copilot 草稿没有通过事实与权限校验；请重试。证据、Project、正文和正式状态均未改变。";
+    return "这份关闭方案无法安全使用。项目和正文没有变化，请核对判断后重试。";
   }
-  return "关闭建议没有建立；请检查当前判断后重试。Project、正文和正式状态均未改变。";
+  return "关闭方案没有建立。项目和正文没有变化，请检查当前判断后重试。";
 }

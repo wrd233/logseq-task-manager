@@ -625,11 +625,19 @@ test("Project current interface is readable in reentry and editable only through
   assert.match(closureReady, /下一步会先生成一份可阅读的关闭方案，仍不会直接结束项目/);
   value.v2ProjectClosureProposalBusy = true;
   const closureBusy = renderApp(value);
-  assert.match(closureBusy, /正在整理关闭建议/);
+  assert.match(closureBusy, /正在整理关闭方案/);
   assert.match(closureBusy, /aria-live="polite"/);
   value.v2ProjectClosureProposalBusy = false;
-  value.v2ProjectClosureProposalMessage = "Project 已变化；旧证据已作废。";
-  assert.match(renderApp(value), /role="alert"[\s\S]*旧证据已作废/);
+  value.v2ProjectClosureProposalMessage = "这次关闭方案没有整理完成。项目和正文没有变化，你可以稍后重试。";
+  const closureFailure = renderApp(value);
+  assert.match(closureFailure, /role="alert"[\s\S]*关闭方案没有整理完成/);
+  assert.match(closureFailure, /data-action="submit-v2-project-closure-draft"[\s\S]*重新整理关闭方案/);
+  assert.doesNotMatch(closureFailure, /Provider|Proposal|Validator|正式状态/);
+  value.v2Objects![0]!.version = 3;
+  const closureStale = renderApp(value);
+  assert.match(closureStale, /data-action="v2-project-closure-evidence-open" data-value="project-structure\|3"[\s\S]*重新检查关闭条件/);
+  assert.doesNotMatch(closureStale, /data-action="submit-v2-project-closure-draft"/);
+  value.v2Objects![0]!.version = 2;
   value.v2ProjectClosureDraftFields = {
     projectClosureActualResult: "已经填写的实际结果",
     "projectClosureObjectiveDisposition:0": "INCOMPLETE",
