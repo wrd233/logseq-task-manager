@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyHostThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync, type ThemeModeRoot, type VisibleThemeDocument } from "../src/theme-mode.ts";
+import { applyHostThemeMode, configuredThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync, type ThemeModeRoot, type VisibleThemeDocument } from "../src/theme-mode.ts";
 
 function root(): ThemeModeRoot {
   return { dataset: {}, style: { colorScheme: "" } };
@@ -14,6 +14,14 @@ test("applies only an explicit Logseq light or dark theme mode", () => {
   assert.deepEqual(value, { dataset: { themeMode: "dark" }, style: { colorScheme: "dark" } });
   assert.equal(applyHostThemeMode(value, "system"), false);
   assert.equal(value.dataset.themeMode, "dark");
+});
+
+test("theme setting is an explicit light or dark override and auto keeps host detection", () => {
+  assert.equal(configuredThemeMode("light"), "light");
+  assert.equal(configuredThemeMode("dark"), "dark");
+  assert.equal(configuredThemeMode("auto"), undefined);
+  assert.equal(configuredThemeMode(undefined), undefined);
+  assert.equal(configuredThemeMode("system"), undefined);
 });
 
 test("subscribes before reading the initial theme and follows later host changes", async () => {

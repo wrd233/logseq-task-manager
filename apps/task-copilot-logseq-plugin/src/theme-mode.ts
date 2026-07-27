@@ -14,6 +14,10 @@ export interface ThemeModeHost {
 
 export type VisibleThemeModeReader = () => HostThemeMode | undefined;
 
+export function configuredThemeMode(value: unknown): HostThemeMode | undefined {
+  return value === "light" || value === "dark" ? value : undefined;
+}
+
 export interface VisibleThemeDocument {
   documentElement?: {
     className?: unknown;

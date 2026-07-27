@@ -117,7 +117,7 @@ import {
   type MigrationExecutionClient,
   type PluginMigrationRunView,
 } from "./migration-execution-controller.ts";
-import { detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
+import { applyHostThemeMode, configuredThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -4226,6 +4226,15 @@ async function initializeFeatures(): Promise<void> {
       enumChoices: ["off", "line", "dot", "icon", "tint", "phrase"],
       enumPicker: "select",
     },
+    {
+      key: "appearance",
+      type: "enum",
+      title: "界面外观",
+      description: "默认跟随 Logseq。若知识库的 custom.css 强制了另一种外观，可在这里明确选择浅色或深色；只影响 Task Copilot 显示。",
+      default: "auto",
+      enumChoices: ["auto", "light", "dark"],
+      enumPicker: "radio",
+    },
   ]);
   markReady("SETTINGS_READY");
 
@@ -4356,6 +4365,8 @@ async function main(): Promise<void> {
   cleanupHooks.push(() => globalThis.removeEventListener("error", onGlobalError));
   const themeRoot = requireAppRoot();
   const readVisibleThemeMode = () => {
+    const explicitMode = configuredThemeMode((logseq.settings as { appearance?: unknown } | undefined)?.appearance);
+    if (explicitMode) return explicitMode;
     try {
       const visibleHostDocument = globalThis.parent?.document ?? globalThis.document;
       return detectVisibleThemeMode(visibleHostDocument)
@@ -4372,6 +4383,10 @@ async function main(): Promise<void> {
     }, error),
     readVisibleThemeMode,
   ));
+  cleanupHooks.push(logseq.onSettingsChanged(() => {
+    const mode = readVisibleThemeMode();
+    if (mode) applyHostThemeMode(themeRoot, mode);
+  }));
   operationalLogger.log("info", "plugin-lifecycle", "event_listeners_registered", { result: "success" });
 
   logseq.beforeunload(async () => {
