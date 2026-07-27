@@ -59,6 +59,15 @@ Proposal，Project 保持 `OPEN v21`。
 | `screenshots/p2-e-closure-stale-reload-restored-dark-662246a.png` | CURRENT | Dark / 1000×720 | 正式 Condition Undo 到 `ACTIONABLE v23`，恢复原 Provider 与 authority，Plugin reload | “现在”重新显示可推进 Project；Service READY；Proposal/Commit 无异常增量 |
 | `screenshots/p2-e-closure-provider-error-superseded-f4acf77.png` | SUPERSEDED | Light / 1000×720 | 同一故障的旧构建 | 曾暴露 Provider/Proposal 工程语义；由 `7727770` 用户语言替代 |
 
+### Review empty state — exact build `cd59228`
+
+Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
+“待我确认 → 待审阅”。无当前 Proposal，15 条历史默认折叠。
+
+| 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|---|
+| `screenshots/review-empty-current-dark-cd59228.png` | CURRENT | Dark / 1000×720 | 拒绝测试 Proposal、reload 最新构建并打开待审阅 | 不再错误显示“Agent 已关闭”；当前无待审阅方案，可整理当前页或回待整理 |
+
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
 | `screenshots/p0-i-01-anchor-drift-user-status-current-dark.png` | runtime `1375f1b`（后续仅 Service 语言合同变化） | 在真实 Project Page UUID 与正式 active Page Anchor UUID 漂移时打开系统状态 | 首屏只显示“有 1 项正文变化需要核对”，不把 stale properties 猜成 Project；reconciliation 后日常能力恢复 | 精确 Rebind 仍属 P2-G；这是当前宿主边界证据，不代表 Anchor 已重新绑定 |

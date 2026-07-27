@@ -177,3 +177,7 @@
   `PENDING`。前向 resume 若要支持，必须明确改变 Recovery Kernel 的安全合同；用户决定前
   不增加第三种恢复入口、临时状态或 SQLite 注入 Gate。风险仍为 HIGH，且继续阻塞 P2-E
   整体 DONE。
+- `cd59228` 删除一条把 legacy demo-agent flag 当成 V2 Copilot 可用性的平行前台判断；
+  待审阅空态复用既有 `v2ProviderAvailable`，没有新增 capability 状态。前台错误结论减少，
+  状态组合数不变；新增正式状态、Runtime、Skill、Prompt、Validator、恢复分支和 Partial
+  均为 `0`。

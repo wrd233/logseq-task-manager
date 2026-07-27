@@ -768,6 +768,12 @@ derivative/dashboard 价值也仍未完成。
   “RECOVERY_REQUIRED → 原 Commit resume”不是当前生产安全合同，不能用 SQLite 注入制造
   假 Desktop Gate。是否只把真正恢复态定义为人工补偿，或扩张 Kernel 支持精确 receipt
   校验后的前向恢复，属于需要用户决定的安全边界；决定前不新增状态或恢复分支。
+- 同一真实流程在拒绝方案后暴露待审阅空态错误显示“Agent 已关闭”，尽管受控 V2 Provider
+  刚刚成功。`cd59228` 删除这条由 legacy demo-agent flag 推导的错误用户结论：Provider
+  可用时只提示“可以整理当前页或从待整理继续”，不可用时也只说明基础功能仍可使用。
+  Plugin `339/339`、0 skipped 与根级检查 PASS；Logseq 0.10.15、File Graph、Dark
+  1000×720 reload 后空态和 15 条折叠历史均正确。该修复不新增正式状态、Runtime、Skill、
+  Prompt、Validator、恢复分支或 Partial。
 
 ## 下一步
 

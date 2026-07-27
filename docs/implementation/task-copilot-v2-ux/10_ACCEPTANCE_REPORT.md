@@ -199,7 +199,7 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 |---|---:|---:|---:|---:|---|
 | 现在 | 高 | 高 | 中→低 | 测试 Project 正文仍可含工程词；系统控件已折叠 | DESKTOP_VERIFIED Light/Dark |
 | 待整理 | 高 | 高 | 低 | 普通控件 0；完整技术事实未显示 | DESKTOP_VERIFIED 751×720 |
-| 待审阅 | 高 | 高 | 高→低 | 当前问题与 13 条历史分离 | DESKTOP_VERIFIED 751×720 |
+| 待审阅 | 高 | 高 | 高→低 | 当前问题与历史分离；空态不再把 legacy Agent flag 误写成 Copilot 不可用 | DESKTOP_VERIFIED 751×720 + Dark 1000×720 (`cd59228`) |
 | Project 意图路由 | 高 | 高 | 高→中 | LIGHT/MEDIUM/HEAVY 不出首屏 | DESKTOP_VERIFIED 751×720 |
 | Closure Step 1 | 高 | 高 | 高→中 | 逐目标原始依据与完整依据默认折叠 | DESKTOP_VERIFIED Light/Dark/窄栏 |
 | Closure Provider error | 高 | 高 | 高→低 | Provider/Proposal/Commit 不出普通错误态 | DESKTOP_VERIFIED Light 1000×720 |

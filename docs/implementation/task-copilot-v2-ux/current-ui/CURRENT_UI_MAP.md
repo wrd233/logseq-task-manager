@@ -5,7 +5,7 @@
 
 | 场景 | 最新实现状态 | 当前截图 | 下一次取证 Gate |
 |---|---|---|---|
-| 工具栏 / 现在 / 待我确认 / 项目 / 更多 | “现在”卡片单一主动作；待审阅当前问题与历史记录分离；候选区普通路径去除 Provider/Proposal/SQLite | CURRENT：`ui-compression-01`～`04`、`07`（`f4acf77`） | “更多”及异常态继续沿用各自最新证据；集中 P0/P1 宿主 Gate |
+| 工具栏 / 现在 / 待我确认 / 项目 / 更多 | “现在”卡片单一主动作；待审阅当前问题与历史记录分离；空态使用真实 Provider 能力而非 legacy Agent flag；候选区普通路径去除 Provider/Proposal/SQLite | CURRENT：`ui-compression-01`～`04`、`07`（`f4acf77`）+ `review-empty-current-dark-cd59228.png` | “更多”及异常态继续沿用各自最新证据；集中 P0/P1 宿主 Gate |
 | Block / Page 现场入口 | 已实现，宿主位置仍有开放项 | OPEN | main/sidebar/Query/reference/中文输入 |
 | Service 状态 / reload / quit / Graph switch | reload/quit/owned shutdown 已通过；`ca50304` 又完成未配置 Graph 立即受限、稳定 fail-closed 和切回原 authority | CURRENT：`p0-h-16`～`18` + P2-C restart 健康态 | P0-H 已关闭；只在未来宿主能力变化时重开非代表性组合 |
 | Project Page Head / Context Recovery | P1-G Context Recovery 代表链 DONE；File Graph Page Head 有界隐藏 | CURRENT：`p1-g-07`～`13` | P1-F DB Graph Page Head 宿主 Gate；1.3.0 持续质量样本不阻断当前 Slice |

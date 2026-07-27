@@ -18,15 +18,17 @@ overall_goal: IN_PROGRESS
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
 最新公共 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`；
-Closure 异常、Review 压缩与普通用户标题的增量证据分别基于 `77277704d901`、
-`662246a298ac` 和 `cda4f95`：
+Closure 异常、Review 压缩、普通用户标题与审阅空态的增量证据分别基于
+`77277704d901`、`662246a298ac`、`cda4f95` 和 `cd59228`：
 真实 Logseq 0.10.15 已验证“现在”卡片单一主动作、当前待审阅与 13 条历史记录分离、
 Project 用户意图路由、Closure 首屏安全结论，以及 1000×720 Light/Dark 和 751×720
 窄栏。Closure 的逐目标原始依据默认折叠；Provider error 只显示“没有完成、项目和正文
 未变化、稍后重试”，并保留用户输入；真实 Provider 成功后的 Review 不再把模型长报告
 复制到首屏，而从已验证结构生成一句结果与未完成目标数量；`cda4f95` 又把
 `Closure Proposal` 标题收敛为“结束项目”。完整依据仍可展开，事实本身未改写。该 UI
-Gate 没有新增正式状态、Runtime、Skill、Validator、写入路径或恢复分支，
+Gate 后真实拒绝 Proposal 又暴露空态错误声称“Agent 已关闭”；`cd59228` 改为按实际
+Provider 可用性显示“可以整理当前页或从待整理继续”，不再把 legacy demo-agent flag
+误写成 Copilot 状态。没有新增正式状态、Runtime、Skill、Validator、写入路径或恢复分支，
 也不关闭 P0/P1/P2 的其余 Partial。
 
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、

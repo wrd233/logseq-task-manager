@@ -10,6 +10,12 @@ Logseq 0.10.15 File Graph，覆盖 Light/Dark、1000×720 与 751×720：Now 卡
 “尚未正式应用/退出安全”以及逐目标依据默认折叠。它们是这些表面的最新 `CURRENT`
 解释权；更早同表面截图继续作为其原纵向链的历史运行证据，不再代表当前信息架构。
 
+`cd59228` 又修复真实 Closure 流程结束后的审阅空态：旧实现把固定为 false 的 legacy
+demo-agent flag 翻译成“Agent 已关闭”，与刚刚成功的 V2 Provider 相矛盾。当前
+`review-empty-current-dark-cd59228.png` 证明 reload 后只显示“当前没有需要审阅的方案”，
+并给出“整理当前页 / 待整理”两个既有入口；15 条历史仍默认折叠。该截图只替代空态用户
+结论，不替代 Closure Review 或正式链证据。
+
 最新 P1 Context Recovery Desktop 精确构建为 `653875a`；`p1-g-07`～`13` 是
 `recover-context@1.3.0` 的真实 DeepSeek 内容、Provider error、Validator rejection、
 generation stale、Dark/Light、窄栏和 corrected STALE telemetry 证据。`p1-g-08-...before-fix`
