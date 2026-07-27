@@ -65,7 +65,11 @@ import {
 } from "./v2-explicit-candidate-discovery.ts";
 import { createReviewedProjectWithPage, undoReviewedProjectCreation } from "./v2-project-creation.ts";
 import { ProjectCreationGrillController, type ProjectCreationSource } from "./project-creation-grill-controller.ts";
-import { buildSelectedBlockProposalPrompt, buildSelectedBlockProposalRevisionPrompt } from "./v2-provider-analysis.ts";
+import {
+  buildSelectedBlockProposalPrompt,
+  buildSelectedBlockProposalRevisionPrompt,
+  presentSelectedBlockAnalysisNotice,
+} from "./v2-provider-analysis.ts";
 import { buildMiniProjectLegacyTransferProposal } from "./v2-mini-project-legacy-transfer.ts";
 import { submitV2Association, type V2AssociationSubmissionState } from "./v2-association-controller.ts";
 import { collectV2ProposalGraphObservations } from "./v2-proposal-revalidation.ts";
@@ -855,7 +859,12 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   abandonV2RebindCaptureWithoutResume();
   if (v2RebindPanel.status !== "idle") v2RebindPanel = { status: "idle" };
   if (v2CandidatePanel.status !== "idle") v2CandidatePanel = { status: "idle" };
-  if (v2ProviderState.status === "loading") v2ProviderState = { status: "error", message: "Local Service 在分析期间中断；旧请求已取消或结果未知，请重启 Service 后刷新审阅队列。" };
+  if (v2ProviderState.status === "loading") {
+    v2ProviderState = {
+      status: "error",
+      message: "这次整理被连接中断。正文和正式状态没有变化，你可以在连接恢复后重试。",
+    };
+  }
   v2ProjectClosureEvidence = undefined;
   v2ProjectClosureProposalBusy = false;
   v2ProjectClosureProposalMessage = undefined;
@@ -1969,7 +1978,10 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const client = serviceRuntimeClient;
     if (v2ProviderState.status === "loading") return;
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.capabilities.provider) {
-      v2ProviderState = { status: "error", message: "Local Service Provider 未启用或正在重连；没有发起模型请求，也没有写入。" };
+      v2ProviderState = {
+        status: "error",
+        message: "智能整理暂时不可用。没有发起分析，正文和正式状态没有变化。",
+      };
       await refresh();
       return;
     }
@@ -1989,16 +2001,25 @@ async function handleAction(action: string, value?: string): Promise<void> {
           })();
       const result = await client.generateProposal(buildSelectedBlockProposalPrompt(selected));
       if (result.generated.kind === "NO_PROPOSAL") {
-        v2ProviderState = { status: "success", message: `未创建 Proposal：${result.generated.reason}` };
+        v2ProviderState = {
+          status: "success",
+          message: presentSelectedBlockAnalysisNotice(result.generated),
+        };
         operationalLogger.log("info", "proposal", "v2_provider_no_proposal", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "no-proposal", blockUuid: selected.blockUuid });
       } else {
         if (!("record" in result)) throw new Error("Provider 返回缺少审阅记录；没有修改正式状态。");
         reviewMode = "proposals";
-        v2ProviderState = { status: "success", message: `Proposal ${result.record.proposal.proposalId} 已进入待审阅；尚未修改正文或正式状态。` };
+        v2ProviderState = {
+          status: "success",
+          message: presentSelectedBlockAnalysisNotice({ kind: "PROPOSAL_READY" }),
+        };
         operationalLogger.log("info", "proposal", "v2_provider_proposal_ready", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "success", blockUuid: selected.blockUuid, proposalId: result.record.proposal.proposalId });
       }
     } catch (error) {
-      v2ProviderState = { status: "error", message: `${explain(error)} 正文和正式 Store 未改变。` };
+      v2ProviderState = {
+        status: "error",
+        message: "这次整理没有完成。正文和正式状态没有变化，你可以稍后重试。",
+      };
       operationalLogger.log("error", "proposal", "v2_provider_analysis_failed", { correlationId: traceId, actionId: "v2-provider-analyze-current-block", result: "error" }, error);
     }
     await refresh();

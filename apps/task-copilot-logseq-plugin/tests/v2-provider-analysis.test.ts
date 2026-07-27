@@ -4,7 +4,28 @@ import test from "node:test";
 import { checksum } from "@task-copilot/shared";
 import type { V2Proposal } from "@task-copilot/domain";
 
-import { buildSelectedBlockProposalPrompt, buildSelectedBlockProposalRevisionPrompt } from "../src/v2-provider-analysis.ts";
+import {
+  buildSelectedBlockProposalPrompt,
+  buildSelectedBlockProposalRevisionPrompt,
+  presentSelectedBlockAnalysisNotice,
+} from "../src/v2-provider-analysis.ts";
+
+test("selected Block analysis notices keep pipeline terms out of the ordinary user path", () => {
+  const noProposal = presentSelectedBlockAnalysisNotice({
+    kind: "NO_PROPOSAL",
+    reason: "NO_PROPOSAL：Provider未形成Proposal；没有Commit或Store变化。",
+  });
+  assert.equal(noProposal, "这条内容暂时不需要整理。暂不整理：智能整理未形成建议；没有正式应用或正式状态变化。");
+  assert.doesNotMatch(noProposal, /NO_PROPOSAL|Provider|Proposal|Commit|Store/);
+  assert.equal(
+    presentSelectedBlockAnalysisNotice({ kind: "NO_PROPOSAL", reason: " " }),
+    "这条内容暂时不需要整理。当前材料还没有形成明确的任务、决定或成果。",
+  );
+
+  const ready = presentSelectedBlockAnalysisNotice({ kind: "PROPOSAL_READY" });
+  assert.equal(ready, "整理建议已放入“待我确认”。当前正文和正式状态还没有变化。");
+  assert.doesNotMatch(ready, /Proposal|Commit|Store/);
+});
 
 test("selected Block prompt is bounded, five-layered, and carries exact machine evidence", () => {
   const prompt = buildSelectedBlockProposalPrompt({ blockUuid: "block-provider-1", text: "明天确认发布范围。", version: 17 });

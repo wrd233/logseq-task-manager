@@ -8,6 +8,26 @@ export interface SelectedBlockAnalysisInput {
   version?: number;
 }
 
+export function presentSelectedBlockAnalysisNotice(
+  result: { kind: "NO_PROPOSAL"; reason: string } | { kind: "PROPOSAL_READY" },
+): string {
+  if (result.kind === "PROPOSAL_READY") {
+    return "整理建议已放入“待我确认”。当前正文和正式状态还没有变化。";
+  }
+  const reason = result.reason
+    .replace(/\bNO_PROPOSAL\b/gi, "暂不整理")
+    .replace(/\bProposal\b/gi, "建议")
+    .replace(/\bProvider\b/gi, "智能整理")
+    .replace(/\bCommit\b/gi, "正式应用")
+    .replace(/\bStore\b/gi, "正式状态")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+  return reason
+    ? `这条内容暂时不需要整理。${reason}`
+    : "这条内容暂时不需要整理。当前材料还没有形成明确的任务、决定或成果。";
+}
+
 export function buildSelectedBlockProposalPrompt(input: SelectedBlockAnalysisInput): ServiceProposalPromptBundle {
   const blockUuid = input.blockUuid.trim();
   const text = input.text.trim();
