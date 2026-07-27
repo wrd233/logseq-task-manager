@@ -111,9 +111,21 @@ reload 后 Project 再次进入 Now Work。正式回读为 `OPEN v13`、Closure 
 隔离测试库完成真实 post-domain HTTP 500：同一 receipt-backed Commit 保持 `PENDING`，
 reload 后显示“尚未完成，可以继续”，再次确认只收口原 Commit；随后 reload、专用 Undo
 与再次 reload 均通过。CURRENT `p2-e-13`～`18`，最终 `OPEN v21`、Closure absent、异常
-Commit `0/0/0`。Provider error/stale 与真正不能安全续跑的 `RECOVERY_REQUIRED` 代表链仍
-OPEN，所以 P2-E 仍是 Partial。完整记录见
+Commit `0/0/0`。Provider error 随后由 `7727770` 关闭；generation stale 与真正不能安全
+续跑的 `RECOVERY_REQUIRED` 代表链仍 OPEN，所以 P2-E 仍是 Partial。完整记录见
 `../logs/p2-e-project-closure-desktop-live-20260726.md`。
+
+`77277704d901` 又关闭 Provider error Desktop 子 Gate：真实 Logseq 0.10.15、File Graph、
+Light 1000×720 使用受控无效模型完成失败，用户判断保留，普通首屏只说明“没有完成、项目
+和正文未变化、稍后重试”，并提供唯一“重新整理关闭方案”。Project 保持 `OPEN v21`，
+Proposal/Commit 计数没有变化，异常 Commit 为 `0`。恢复 `deepseek-v4-flash` 后同一材料
+真实生成 `design-project@1.3.0` Proposal 并一次通过 Validator；`662246a298ac` 根据这次
+真实输出进一步把 Review 的模型长报告移入折叠依据，首屏只显示结构化结果、影响与安全
+边界。CURRENT 为 `p2-e-closure-provider-error-current-light-7727770.png` 和
+`p2-e-closure-review-current-dark-662246a.png`；旧错误页
+`p2-e-closure-provider-error-superseded-f4acf77.png` 只保留为修复原因。generation stale
+与真正 `RECOVERY_REQUIRED` 仍 OPEN，不能据此关闭整个 P2-E。完整记录见
+`../logs/p2-e-project-closure-provider-error-desktop-live-20260727.md`。
 
 P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop Gate。首轮真实运行
 发现“新建显式替换 Block 会先被自动物化”的竞态，Service 正确拒绝且零写入；当前实现

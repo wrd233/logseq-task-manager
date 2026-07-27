@@ -42,6 +42,20 @@ Plugin build：`2026-07-27 19:42:41 +0800`；Logseq `0.10.15`；File Graph
 对 Project 入口语言，以及 `p2-e-01`～`08` 对 Closure 当前首屏信息架构的解释权；
 旧图仍保留其 commit 上正式链历史证据，不删除。
 
+### P2-E Closure failure and Review — exact builds `77277704d901` / `662246a298ac`
+
+Logseq `0.10.15`；File Graph
+`/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；真实 Plugin/Launcher/Service；
+1000×720。error Gate 使用受控无效模型且未保存/显示凭据，随后已恢复
+`deepseek-v4-flash`；Review 来自恢复后的真实 Provider Proposal。两步均未接受或应用
+Proposal，Project 保持 `OPEN v21`。
+
+| 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|---|
+| `screenshots/p2-e-closure-provider-error-current-light-7727770.png` | CURRENT | Light / 1000×720 | 保存 Closure 判断并请求整理；Provider 受控失败 | 本次没有完成，项目和正文未变化；输入保留；唯一动作“重新整理关闭方案” |
+| `screenshots/p2-e-closure-review-current-dark-662246a.png` | CURRENT | Dark / 1000×720 | 恢复真实 DeepSeek 后生成 Proposal，reload exact build 并打开待审阅 | 首屏只显示一句结构化结果、2 项影响、2 项不改变；完整模型说明在折叠依据；下一步“审阅方案” |
+| `screenshots/p2-e-closure-provider-error-superseded-f4acf77.png` | SUPERSEDED | Light / 1000×720 | 同一故障的旧构建 | 曾暴露 Provider/Proposal 工程语义；由 `7727770` 用户语言替代 |
+
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
 | `screenshots/p0-i-01-anchor-drift-user-status-current-dark.png` | runtime `1375f1b`（后续仅 Service 语言合同变化） | 在真实 Project Page UUID 与正式 active Page Anchor UUID 漂移时打开系统状态 | 首屏只显示“有 1 项正文变化需要核对”，不把 stale properties 猜成 Project；reconciliation 后日常能力恢复 | 精确 Rebind 仍属 P2-G；这是当前宿主边界证据，不代表 Anchor 已重新绑定 |

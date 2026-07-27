@@ -27,7 +27,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；中文 IME/受限视觉、K 多宿主 Gate OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo 已 Desktop PASS，Provider error/stale 仍 OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链和 Import 写后响应丢失→ledger reload→Verify→Undo 均有真实 Desktop。Migration Verify/Activate failure 与视觉 Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_AND_PROVIDER_ERROR_DESKTOP_DONE_STALE_RECOVERY_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo 及 Provider error 零写入/重试已 Desktop PASS，stale 与真正 `RECOVERY_REQUIRED` 仍 OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链和 Import 写后响应丢失→ledger reload→Verify→Undo 均有真实 Desktop。Migration Verify/Activate failure 与视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -618,8 +618,9 @@ derivative/dashboard 价值也仍未完成。
   `6f7f9a857be9` 又完成受控 post-domain HTTP 500 → 原 `PENDING` Commit → reload →
   同 Commit receipt replay → reload → Closure Undo → reload；Project 最终 `OPEN v21`，
   Closure absent、forward `UNDONE`、inverse `COMPLETED`、异常 Commit `0/0/0`。该子 Gate
-  从 `AUTOMATED_ONLY` 变为 Desktop DONE，且没有新增状态或恢复入口。Provider error/stale
-  Desktop 仍 OPEN，所以 P2-E 整体不提前关闭。完整记录见
+  从 `AUTOMATED_ONLY` 变为 Desktop DONE，且没有新增状态或恢复入口。Provider error
+  Desktop 已由 `7727770` 关闭；generation stale 与真正 `RECOVERY_REQUIRED` 仍 OPEN，
+  所以 P2-E 整体不提前关闭。完整记录见
   `logs/p2-e-project-closure-desktop-live-20260726.md`；
 - P2-G Restore 激活失败主链已完成真实 Desktop Gate：`94038e6` 补齐候选激活后故障的
   原库回滚、恢复点保留、Service 停止与用户层失败 disposition；`0c4526d` 修复回滚后
@@ -718,15 +719,36 @@ derivative/dashboard 价值也仍未完成。
   `ui-compression-01`～`08` CURRENT。取证后恢复 Light、1000×720 和普通文档模式。
 - 本轮关闭的是“Review 历史淹没当前问题”和“Closure 逐目标证据首屏工程词泄漏”两个 UI
   Partial；新增 Partial、正式状态、Skill、Prompt、Validator、Runtime、恢复分支与写入权威
-  均为 `0`。P2-E Provider error/stale/RECOVERY_REQUIRED、P1 Attention/Marker、
+  均为 `0`。P2-E stale/RECOVERY_REQUIRED、P1 Attention/Marker、
   P0 宿主剩余 Gate 和 P2-G Migration failure Desktop 仍 OPEN。
 - 本轮没有重新调用 Provider；既有 `recover-context@1.3.0`、真实 DeepSeek 质量和
   Validator 指标保持原证据，不能把 UI Gate 写成新的 Provider 验证。
 
+## 2026-07-27 P2-E Provider error 与 Review 压缩 Gate
+
+- `77277704d901` 统一 Closure generation 的 provider/validator/stale 用户语言；Provider
+  error 不再暴露 Provider、Proposal 或机器状态，只说明本次没有完成、项目和正文未变化，
+  并提供唯一“重新整理关闭方案”。若 generation 期间 Project 版本变化，旧提交按钮被
+  “重新检查关闭条件”替代，直接使用当前版本，避免 stale 重试循环。
+- 真实 Logseq 0.10.15、File Graph、Light 1000×720 通过受控 Provider error：用户逐项判断
+  保留，Project 保持 `OPEN v21`，Proposal 仍为 13，SemanticCommit 只有
+  `COMPLETED 14 / UNDONE 12`，没有 `PENDING/RECOVERY_REQUIRED`。恢复真实
+  `deepseek-v4-flash` 后，同一材料成功生成第 14 个 `READY` Proposal；
+  `design-project@1.3.0` 经现有 Validator 一次接受，没有正式 Project 写入。
+- 真实成功暴露 Review 首屏仍复述模型长报告。`662246a298ac` 不修改 Prompt/Skill/Validator，
+  而从已通过验证的结构化 Closure 结果生成一句“将结束项目并保存结果”与未完成目标数量；
+  完整模型说明继续留在折叠依据。Dark 1000×720 reload 后 CURRENT 证据显示唯一主判断、
+  影响与安全边界均在首屏，Project 仍 `OPEN v21`、Proposal `READY`、异常 Commit 为 `0`。
+- 自动证据：Plugin `339/339`、0 skipped；根级 `./scripts/check.sh`、145 条稳定规则、
+  build/dist integrity、恢复演练 `differences=[]` 全部 PASS。
+- 本轮关闭 P2-E `Provider error Desktop` 子 Gate，Partial 净下降 `1`；stale Desktop 与
+  真正不能安全续跑的 `RECOVERY_REQUIRED` 代表链仍 OPEN。新增正式状态、Runtime、Skill、
+  Prompt、Validator、恢复分支、写入权威与新 Partial 均为 `0`。
+
 ## 下一步
 
-1. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并
-   注入一次 Commit failure，完成 RECOVERY_REQUIRED → 原 Commit resume → reload；不得
+1. 继续 P2-E 当前构建异常 Gate：完成真实 generation stale，并注入一次真正不能自动安全
+   续跑的 Commit failure，验证 `RECOVERY_REQUIRED → 原 Commit resume → reload`；不得
    通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
 2. P2-G Rebind、Restore 正常往返、激活失败→自动回滚以及真实连续双重失败→HIGH Review→
    人工恢复→Doctor→清锁→正常 Launcher/reload 均已完成真实 Desktop Gate；下一次可控

@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑、P2-G 真实连续双重 Restore→人工恢复及 Migration 写后响应丢失子 Gate 已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E Provider 失败链、P2-G Migration Verify/Activate failure 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑和 Provider error、P2-G 真实连续双重 Restore→人工恢复及 Migration 写后响应丢失子 Gate 已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E stale/真正 RECOVERY_REQUIRED、P2-G Migration Verify/Activate failure 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -62,8 +62,8 @@
 - reload 后用户层只表达“尚未完成，可以继续”和“不要重复提交”；再次确认收口同一 Commit，
   Project 版本没有重复增长。随后继续复用现有 Closure inverse 完成 Undo 与再次 reload。
 - 删除/合并的重复机制：`0` 个新机制；本轮把自动 post-domain recovery 证据升级为真实
-  Desktop 代表 Gate。P2-E Partial 未整体关闭，仅剩 Provider error/stale 与真正不能安全
-  续跑的恢复代表链。
+  Desktop 代表 Gate。该阶段之后 P2-E 尚余 Provider error/stale 与真正不能安全续跑的恢复
+  代表链；Provider error 后续由 `7727770` 关闭，当前只剩 stale 与真正恢复代表链。
 - 真实 Provider：1 attempt，Validator 接受，重试 `0`；输出准确但偏短，未新增 Skill 补丁。
   故障与恢复测试不把 Provider 成功等同于 Slice 完成。
 
@@ -144,3 +144,19 @@
 - Partial 总量净下降 `2`（均为 UI 表达 Partial），P0/P1/P2 功能 Partial 不伪装关闭。
 - 当前风险：后台工程概念泄漏由 MEDIUM 降为 MEDIUM-LOW；Desktop 笛卡尔积仍为 HIGH，但
   本轮只取 Now/Review/Project/Closure 的 Light/Dark/751px 代表矩阵，没有扩张全组合。
+
+### P2-E Provider error 与 Review 压缩（2026-07-27，`7727770` / `662246a`）
+
+- 新增正式状态、Runtime、Skill、Prompt、Validator、恢复分支、写入权威与新 Partial：均为
+  `0`。Provider error、validator rejection 和 stale 继续复用同一 generation result 合同；
+  UI 只翻译为“未完成、原内容不变、重试/重新检查”。
+- 删除一个重复前台机制：Closure Review 不再把模型 `finalPreview` 再复制为首屏报告；普通
+  首屏从已经通过 Validator 的 Closure 结构生成一句结果与未完成目标数量，完整模型材料
+  仍保留在同一“查看完整依据”，没有丢失 Audit/Proposal 事实。
+- 真实 Provider 仍使用现有 `design-project@1.3.0` 和统一 Validator；本轮成功 Proposal
+  一次通过、Validator 拒绝 `0`、模型重试 `0`。没有为单一样本追加 Skill 或 Validator
+  补丁；改动属于通用前台压缩规则。
+- Partial 总量净下降 `1`：P2-E Provider error 从 Desktop Partial 变为 DONE；stale 与真正
+  `RECOVERY_REQUIRED` 仍按现状保留，不以自动或普通 PENDING 证据冒充关闭。
+- 风险变化：前台工程词泄漏保持 MEDIUM-LOW；Partial 堆积仍为 HIGH，但没有上升；Desktop
+  矩阵只增加 Light error 与 Dark Review 两个代表场景，没有扩成完整笛卡尔积。

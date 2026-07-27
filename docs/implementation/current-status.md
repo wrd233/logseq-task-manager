@@ -10,19 +10,22 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_AND_PROVIDER_ERROR_DESKTOP_DONE_STALE_RECOVERY_GATES_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
-最新 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`：
+最新公共 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`；
+Closure 异常与 Review 的增量证据分别基于 `77277704d901` 和 `662246a298ac`：
 真实 Logseq 0.10.15 已验证“现在”卡片单一主动作、当前待审阅与 13 条历史记录分离、
 Project 用户意图路由、Closure 首屏安全结论，以及 1000×720 Light/Dark 和 751×720
-窄栏。Closure 的逐目标原始依据默认折叠，避免测试材料中的 Provider/Proposal/Commit
-词汇占据普通首屏；事实本身未改写。该 UI Gate 没有新增正式状态、Runtime、Skill、
-Validator、写入路径或恢复分支，也不关闭 P0/P1/P2 的其余 Partial。
+窄栏。Closure 的逐目标原始依据默认折叠；Provider error 只显示“没有完成、项目和正文
+未变化、稍后重试”，并保留用户输入；真实 Provider 成功后的 Review 不再把模型长报告
+复制到首屏，而从已验证结构生成一句结果与未完成目标数量。完整依据仍可展开，事实本身
+未改写。该 UI Gate 没有新增正式状态、Runtime、Skill、Validator、写入路径或恢复分支，
+也不关闭 P0/P1/P2 的其余 Partial。
 
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
   Local Service 读回均已通过；
@@ -291,8 +294,9 @@ Validator、写入路径或恢复分支，也不关闭 P0/P1/P2 的其余 Partia
   Commit 保持 `PENDING`，reload 后由原 Review 继续，收口为 `COMPLETED/APPLIED` 且 Project
   不重复增版；再经 reload、Closure 专用 Undo 和再次 reload 回到 `OPEN v21`、Closure
   absent、正向 `UNDONE`、逆向 `COMPLETED`、异常 Commit `0/0/0`。该 Gate 复用同一
-  SemanticCommit/Receipt/最近修改入口，没有新增恢复状态或第二写路径。Provider error/stale
-  Desktop Gate 仍 OPEN，因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin
+  SemanticCommit/Receipt/最近修改入口，没有新增恢复状态或第二写路径。Provider error
+  Desktop Gate 已由 `7727770` 关闭；generation stale 与真正 `RECOVERY_REQUIRED` 仍 OPEN，
+  因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin
   `279/279`、Domain `44/44`、typecheck 与根级 `./scripts/check.sh` PASS；
 - P2-F 已从 NOT_STARTED 进入 `IN_PROGRESS_SHADOW_PROVIDER_QUALITY_PASS`：Application 新增
   严格、无自由文本的跨对象观察 draft，固定五类候选、2–8 个版本化 subject、显式有界
