@@ -146,7 +146,7 @@
 - 当前风险：后台工程概念泄漏由 MEDIUM 降为 MEDIUM-LOW；Desktop 笛卡尔积仍为 HIGH，但
   本轮只取 Now/Review/Project/Closure 的 Light/Dark/751px 代表矩阵，没有扩张全组合。
 
-### P2-E Provider error 与 Review 压缩（2026-07-27，`7727770` / `662246a`）
+### P2-E Provider error 与 Review 压缩（2026-07-27，`7727770` / `662246a` / `cda4f95`）
 
 - 新增正式状态、Runtime、Skill、Prompt、Validator、恢复分支、写入权威与新 Partial：均为
   `0`。Provider error、validator rejection 和 stale 继续复用同一 generation result 合同；
@@ -168,3 +168,12 @@
   Commit，reload 后状态健康。
 - generation stale 再使 Partial 净下降 `1`；新增正式状态、Runtime、Skill、Prompt、
   Validator、Recovery 分支和新 Partial仍为 `0`。本轮合计关闭 P2-E 两个 Desktop Partial。
+- `cda4f95` 只删除普通标题中的 `Closure Proposal` 工程词；同一
+  `design-project@1.3.0`、Context、Validator、Proposal 与 Review Runtime 全部复用。真实
+  Provider 一次通过、重试 `0`；没有新增 Skill 版本或样本补丁。当前标题证据由
+  `p2-e-closure-review-current-dark-cda4f95.png` 取代旧图。
+- Recovery 复杂度没有为“补一张截图”而扩张：代码事实表明真正
+  `RECOVERY_REQUIRED` 只允许补偿收口，现有 Closure 自动续跑发生在 receipt-backed
+  `PENDING`。前向 resume 若要支持，必须明确改变 Recovery Kernel 的安全合同；用户决定前
+  不增加第三种恢复入口、临时状态或 SQLite 注入 Gate。风险仍为 HIGH，且继续阻塞 P2-E
+  整体 DONE。

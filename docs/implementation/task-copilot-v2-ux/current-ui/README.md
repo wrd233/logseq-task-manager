@@ -122,14 +122,18 @@ Light 1000×720 使用受控无效模型完成失败，用户判断保留，普�
 Proposal/Commit 计数没有变化，异常 Commit 为 `0`。恢复 `deepseek-v4-flash` 后同一材料
 真实生成 `design-project@1.3.0` Proposal 并一次通过 Validator；`662246a298ac` 根据这次
 真实输出进一步把 Review 的模型长报告移入折叠依据，首屏只显示结构化结果、影响与安全
-边界。CURRENT 为 `p2-e-closure-provider-error-current-light-7727770.png` 和
-`p2-e-closure-review-current-dark-662246a.png`；旧错误页
+边界。`cda4f95` 又把 Review 普通标题从 `Closure Proposal` 收敛为“结束项目”，并以新的
+真实 Provider Proposal 复验。CURRENT 为
+`p2-e-closure-provider-error-current-light-7727770.png` 和
+`p2-e-closure-review-current-dark-cda4f95.png`；旧 Review 图
+`p2-e-closure-review-current-dark-662246a.png` 与旧错误页
 `p2-e-closure-provider-error-superseded-f4acf77.png` 只保留为修复原因。随后同一
 `662246a` 构建用真实 DeepSeek 无日志延迟完成 generation stale：旧草稿没有进入 Review，
 唯一动作改为“重新检查关闭条件”；Condition Undo 恢复 ACTIONABLE，reload 回到健康 Now。
 CURRENT `p2-e-closure-stale-current-dark-662246a.png` 与
 `p2-e-closure-stale-reload-restored-dark-662246a.png`。真正 `RECOVERY_REQUIRED` 仍
-OPEN，不能据此关闭整个 P2-E。完整记录见
+OPEN；当前 Kernel 只允许该状态补偿收口，不允许 Closure 前向 resume，不能用数据库注入
+冒充证据。不能据此关闭整个 P2-E。完整记录见
 `../logs/p2-e-project-closure-provider-error-desktop-live-20260727.md`。
 
 P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop Gate。首轮真实运行

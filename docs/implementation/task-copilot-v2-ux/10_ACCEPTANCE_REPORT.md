@@ -193,7 +193,7 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 `7a7492a407ed`，证明精确返回原根 Block及再次 reload 后 READY、`0/0/0`。旧的 Journal
 返回截图已标为 SUPERSEDED。Light/窄栏仍属 P2-C/最终集中视觉 Gate，不能据此宣布 P2 完成。
 
-## 4.1 当前 UI 压缩验收（`f4acf77` / `7727770` / `662246a`）
+## 4.1 当前 UI 压缩验收（`f4acf77` / `7727770` / `662246a` / `cda4f95`）
 
 | 页面 | 主结论清晰度 | 主操作清晰度 | 心智负担 | 工程词泄漏 | 当前状态 |
 |---|---:|---:|---:|---:|---|
@@ -203,11 +203,12 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 | Project 意图路由 | 高 | 高 | 高→中 | LIGHT/MEDIUM/HEAVY 不出首屏 | DESKTOP_VERIFIED 751×720 |
 | Closure Step 1 | 高 | 高 | 高→中 | 逐目标原始依据与完整依据默认折叠 | DESKTOP_VERIFIED Light/Dark/窄栏 |
 | Closure Provider error | 高 | 高 | 高→低 | Provider/Proposal/Commit 不出普通错误态 | DESKTOP_VERIFIED Light 1000×720 |
-| Closure HIGH Review | 高 | 高 | 高→中低 | 模型长说明折叠；首屏只显示结构化结论、影响和安全边界 | DESKTOP_VERIFIED Dark 1000×720 |
+| Closure HIGH Review | 高 | 高 | 高→中低 | `Closure Proposal` 已移出普通标题；模型长说明折叠；首屏只显示结构化结论、影响和安全边界 | DESKTOP_VERIFIED Dark 1000×720 (`cda4f95`) |
 
 验收边界：本表只关闭当前信息架构和代表性主题/宽度 Gate；generation stale 由独立真实
-运行闭环，但真正 `RECOVERY_REQUIRED` 仍 OPEN。不得把 P0/P1/P2 或 Final Release 标为
-DONE。
+运行闭环，但真正 `RECOVERY_REQUIRED` 仍 OPEN。代码审计确认当前 Kernel 只允许该状态
+补偿收口，不允许 Closure 前向 resume；在用户决定安全语义前不得伪造该 Gate，也不得把
+P0/P1/P2 或 Final Release 标为 DONE。
 
 ## 5. 操作距离指标
 

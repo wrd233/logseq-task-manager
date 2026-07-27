@@ -18,13 +18,15 @@ overall_goal: IN_PROGRESS
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
 最新公共 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`；
-Closure 异常与 Review 的增量证据分别基于 `77277704d901` 和 `662246a298ac`：
+Closure 异常、Review 压缩与普通用户标题的增量证据分别基于 `77277704d901`、
+`662246a298ac` 和 `cda4f95`：
 真实 Logseq 0.10.15 已验证“现在”卡片单一主动作、当前待审阅与 13 条历史记录分离、
 Project 用户意图路由、Closure 首屏安全结论，以及 1000×720 Light/Dark 和 751×720
 窄栏。Closure 的逐目标原始依据默认折叠；Provider error 只显示“没有完成、项目和正文
 未变化、稍后重试”，并保留用户输入；真实 Provider 成功后的 Review 不再把模型长报告
-复制到首屏，而从已验证结构生成一句结果与未完成目标数量。完整依据仍可展开，事实本身
-未改写。该 UI Gate 没有新增正式状态、Runtime、Skill、Validator、写入路径或恢复分支，
+复制到首屏，而从已验证结构生成一句结果与未完成目标数量；`cda4f95` 又把
+`Closure Proposal` 标题收敛为“结束项目”。完整依据仍可展开，事实本身未改写。该 UI
+Gate 没有新增正式状态、Runtime、Skill、Validator、写入路径或恢复分支，
 也不关闭 P0/P1/P2 的其余 Partial。
 
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
@@ -298,7 +300,14 @@ Project 用户意图路由、Closure 首屏安全结论，以及 1000×720 Light
   Desktop Gate 已由 `7727770` 关闭；`662246a` 当前构建又用真实 DeepSeek 无日志延迟、
   Project Condition 正向+Undo 完成 generation stale Desktop Gate，旧草稿零 Proposal、
   界面改为“重新检查关闭条件”，reload 后恢复 ACTIONABLE。只剩真正
-  `RECOVERY_REQUIRED` 仍 OPEN，因此 P2-E 整体仍为 Partial。Local Service `144/144`、Plugin
+  `RECOVERY_REQUIRED` 仍 OPEN。`cda4f95` 最新构建又以真实 `deepseek-v4-flash` 生成并
+  拒绝一份测试方案，Review 标题已为“结束项目”，Project 保持 `OPEN/ACTIONABLE v23`，
+  Proposal 为 `13 APPLIED + 2 REJECTED`，SemanticCommit 仍为
+  `14 COMPLETED + 12 UNDONE`。代码审计同时确认：Closure 的 receipt-backed 中断只允许
+  `PENDING` 原 Commit 续跑；当前 Recovery Kernel 的真正 `RECOVERY_REQUIRED` 只允许
+  补偿收口，不允许前向恢复到 `COMPLETED`。因此不能用数据库篡改伪造
+  “RECOVERY_REQUIRED → resume”证据；是否扩张该安全语义属于待用户决定的产品/安全分支。
+  P2-E 整体仍为 Partial。Local Service `144/144`、Plugin
   `279/279`、Domain `44/44`、typecheck 与根级 `./scripts/check.sh` PASS；
 - P2-F 已从 NOT_STARTED 进入 `IN_PROGRESS_SHADOW_PROVIDER_QUALITY_PASS`：Application 新增
   严格、无自由文本的跨对象观察 draft，固定五类候选、2–8 个版本化 subject、显式有界

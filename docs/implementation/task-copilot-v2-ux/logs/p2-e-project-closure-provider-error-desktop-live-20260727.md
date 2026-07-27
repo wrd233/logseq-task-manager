@@ -126,7 +126,8 @@ Logseq 丢弃同版本 iframe 缓存，Desktop Gate 使用 Plugin 关闭/启用�
 | 文件 | 状态 | commit | 结论 |
 |---|---|---|---|
 | `current-ui/screenshots/p2-e-closure-provider-error-current-light-7727770.png` | CURRENT | `77277704d901` | 失败零写入、输入保留、一个重试动作 |
-| `current-ui/screenshots/p2-e-closure-review-current-dark-662246a.png` | CURRENT | `662246a298ac` | 真实 Provider Review 首屏压缩，长依据折叠 |
+| `current-ui/screenshots/p2-e-closure-review-current-dark-cda4f95.png` | CURRENT | `cda4f95` | 最新真实 Provider Review 使用“结束项目”标题，首屏压缩，长依据折叠 |
+| `current-ui/screenshots/p2-e-closure-review-current-dark-662246a.png` | SUPERSEDED | `662246a298ac` | 首屏已压缩但标题仍含 `Closure Proposal`；由 `cda4f95` 替代 |
 | `current-ui/screenshots/p2-e-closure-stale-current-dark-662246a.png` | CURRENT | `662246a298ac` | 真实 Provider stale 丢弃旧草稿，重新检查当前条件 |
 | `current-ui/screenshots/p2-e-closure-stale-reload-restored-dark-662246a.png` | CURRENT | `662246a298ac` | Condition Undo、Provider/authority 恢复和 reload 健康 |
 | `current-ui/screenshots/p2-e-closure-provider-error-superseded-f4acf77.png` | SUPERSEDED | `f4acf77` | 旧错误态暴露 Provider/Proposal 工程词 |
@@ -144,7 +145,15 @@ Logseq 丢弃同版本 iframe 缓存，Desktop Gate 使用 Plugin 关闭/启用�
 错误翻译继续复用统一 generation result；Review 压缩继续复用同一结构化 Proposal，没有
 建立平行 LLM 小系统或前台状态机。
 
+`cda4f95` 精确构建又完成一次真实 `deepseek-v4-flash` 生成：
+`design-project@1.3.0`、prompt bundle `633a4ed6`，现有 Validator 一次通过、模型重试
+`0`。用户层标题为“结束项目：P0 Page Route Gate 20260723”；测试方案随后被拒绝。
+数据库最终回读为 Project `OPEN/ACTIONABLE v23`、Proposal
+`13 APPLIED + 2 REJECTED`、SemanticCommit `14 COMPLETED + 12 UNDONE`，没有异常 Commit。
+
 ## 仍开放
 
-1. 真正不能自动安全续跑的 `RECOVERY_REQUIRED → 原 Commit resume → reload`；
+1. 真正 `RECOVERY_REQUIRED` 的产品/安全语义：代码审计确认当前 Closure 的自动恢复只在
+   receipt-backed `PENDING` 前向续跑；Recovery Kernel 对真正恢复态只允许补偿收口，不允许
+   原 Commit 前向 resume。不得用数据库注入冒充生产 Gate；是否扩张安全合同需用户决定；
 2. Closure 其余集中视觉组合不扩张为笛卡尔积，只在上述高风险链需要时取代表证据。

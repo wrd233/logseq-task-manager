@@ -753,12 +753,26 @@ derivative/dashboard 价值也仍未完成。
   保持 `13 APPLIED + 1 REJECTED`，SemanticCommit 保持 `14 COMPLETED + 12 UNDONE`。
   延迟代理、临时 base URL 和测试 Condition 均已撤销，原 DeepSeek 与 database authority
   已恢复。该子 Gate 又使 Partial 净下降 `1`，不新增任何正式状态或恢复分支。
+- `cda4f95` 进一步移除 Review 标题中的 `Closure Proposal` 工程语言。最新构建在真实
+  Logseq 0.10.15、File Graph、Dark 1000×720 中重新调用
+  `deepseek-v4-flash`；`design-project@1.3.0` 经现有 Validator 一次通过、模型重试 `0`，
+  Review 首屏显示“结束项目：P0 Page Route Gate 20260723”，方案随后被拒绝。数据库回读
+  Project 仍为 `OPEN/ACTIONABLE v23`，Proposal 为 `13 APPLIED + 2 REJECTED`，
+  SemanticCommit 为 `14 COMPLETED + 12 UNDONE`，没有 PENDING、RECOVERY_REQUIRED 或
+  FAILED 增量。`p2-e-closure-review-current-dark-cda4f95.png` 取代
+  `p2-e-closure-review-current-dark-662246a.png` 对当前标题和普通路径语言的解释权。
+- 代码审计给出有界结论：Closure post-domain 中断使用 receipt-backed `PENDING` 原 Commit
+  续跑，已经 Desktop DONE；Closure 路由不会把自身 Commit 推入 `RECOVERY_REQUIRED`。
+  持久化状态机只允许 `RECOVERY_REQUIRED` step 补偿、Commit 收口为 `FAILED`，不允许前向
+  恢复到 `VERIFIED/COMPLETED`。因此原计划的
+  “RECOVERY_REQUIRED → 原 Commit resume”不是当前生产安全合同，不能用 SQLite 注入制造
+  假 Desktop Gate。是否只把真正恢复态定义为人工补偿，或扩张 Kernel 支持精确 receipt
+  校验后的前向恢复，属于需要用户决定的安全边界；决定前不新增状态或恢复分支。
 
 ## 下一步
 
-1. 继续 P2-E 当前构建异常 Gate：注入一次真正不能自动安全续跑的 Commit failure，验证
-   `RECOVERY_REQUIRED → 原 Commit resume → reload`；不得
-   通过扩张 Primary Ownership 或伪造直属 Decision 来制造 happy-path；
+1. 等待确认 P2-E 真正 `RECOVERY_REQUIRED` 的安全语义；决定前保留现有
+   `PENDING` receipt resume 与人工补偿边界，不制造假恢复证据；
 2. P2-G Rebind、Restore 正常往返、激活失败→自动回滚以及真实连续双重失败→HIGH Review→
    人工恢复→Doctor→清锁→正常 Launcher/reload 均已完成真实 Desktop Gate；下一次可控
    Rebind 仍需验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
