@@ -1761,8 +1761,15 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /当前没有需要审阅的方案/);
   assert.match(html, /<details class="review-history"><summary>历史记录（1）<\/summary>/);
   assert.doesNotMatch(html, /<details class="review-history"[^>]*\sopen/);
+  assert.doesNotMatch(html, /Agent 已关闭/);
+  assert.match(html, /基础功能仍可使用/);
   assert.match(html, /data-action="v2-proposal-undo"/);
   assert.match(html, /已正式应用/);
+
+  value.v2ProviderAvailable = true;
+  html = renderApp(value);
+  assert.match(html, /你可以整理当前页，或从“待整理”继续处理/);
+  assert.doesNotMatch(html, /Agent 已关闭/);
 });
 
 test("Project Closure Review shows the external Agent outcome and uses a dedicated completion confirmation", () => {

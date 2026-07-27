@@ -603,7 +603,12 @@ function renderReview(model: UiModel): string {
   const historicalV2Cards = historicalV2.length
     ? `<details class="review-history"><summary>历史记录（${historicalV2.length}）</summary><p class="muted">已应用、已撤销或不再采用的方案保留在这里，不影响当前判断。</p><div class="cards">${historicalV2.map(renderV2Card).join("")}</div></details>`
     : "";
-  const emptyCurrentReview = empty("当前没有需要审阅的方案", model.agent.enabled ? "历史记录已收起；可在“待整理”中分析当前 Block，或从当前页候选生成新方案。" : "Agent 已关闭；基础事务系统仍可使用。");
+  const emptyCurrentReview = empty(
+    "当前没有需要审阅的方案",
+    model.v2ProviderAvailable || model.agent.enabled
+      ? "历史记录已收起；你可以整理当前页，或从“待整理”继续处理。"
+      : "当前没有需要处理的方案；状态、期限和恢复等基础功能仍可使用。",
+  );
   if (open.length === 0 && currentV2.length === 0 && !v2LoadError) return `${tabs}${emptyCurrentReview}${historicalV2Cards}`;
   return `${tabs}${v2LoadError}<div class="cards">${currentV2Cards}${open
     .map(
