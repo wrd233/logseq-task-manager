@@ -61,9 +61,11 @@ P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_RESTRICTED_VISUA
 中文 IME、受限态、Light/窄栏继续开放。完整记录见
 `../logs/p0-j-host-commands-desktop-live-20260726.md`。
 
-P0-K 当前新增 `p0-k-01`～`03`：主 Page 入口与“返回原 Page”已通过；right-sidebar 的宿主
-菜单不提供 Plugin Page item，按 bounded conclusion 安全隐藏。Query/reference 与来源变化
-仍 OPEN；完整记录见 `../logs/p0-k-host-origin-desktop-live-20260726.md`。
+P0-K 当前使用 `p0-k-01`～`06`：主 Page 入口与“返回原 Page”已通过；right-sidebar、
+Query 页面预览和 Block reference 专用菜单均不提供可靠 Plugin identity，按 bounded
+conclusion 安全隐藏并要求先打开来源。来源变化及成功/失败/Undo 返回仍 OPEN；完整记录见
+`../logs/p0-k-host-origin-desktop-live-20260726.md` 与
+`../logs/p0-k-query-reference-host-bounded-desktop-live-20260727.md`。
 
 P1-F/G 当前使用 `p0-i-01` 与 `p1-g-07`～`13`。真实 File Graph 暴露 active Page Anchor
 UUID 漂移，系统安全显示“正文变化需要核对”且不猜 Project；Logseq 0.10.15 的 File Graph

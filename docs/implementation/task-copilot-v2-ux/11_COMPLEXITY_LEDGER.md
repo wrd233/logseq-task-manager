@@ -76,6 +76,8 @@
   代表性 Gate，不扩张为全组合矩阵。
 - P0-K main Page 使用既有 session-only source token 通过返回 Gate；right-sidebar 不提供
   Plugin Page item 时保持隐藏，没有为宿主缺失 identity 增加 fallback 状态或第二入口。
+- P0-K Query / Block reference 在脱敏 Desktop 页确认由宿主接管预览或引用专用菜单；
+  继续要求先打开来源 Block，没有增加投影 identity、DOM hack、正式状态或第三套入口。
 
 ### P2-G Restore 真实连续双重失败收敛（2026-07-27）
 

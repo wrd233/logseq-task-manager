@@ -165,8 +165,11 @@ P0-J 已从 `AUTOMATED_ONLY` 推进为代表性 Desktop partial：冷启动命�
 
 P0-K 已完成 main Page 入口→来源说明→返回同一 Page 的真实 Desktop 代表链；Logseq 0.10.15
 right-sidebar 专用菜单不提供 Plugin Page item，按 bounded host conclusion 安全隐藏，不猜测
-secondary identity。Query/引用、来源移动/重命名/删除以及成功/失败/Undo 返回仍 OPEN；记录
-见 `logs/p0-k-host-origin-desktop-live-20260726.md`。
+secondary identity。`73fea9a` 又用脱敏 live query / block reference 页面确认：Query 投影
+由宿主接管为页面预览，reference 只出现引用专用菜单，均不提供可靠 Plugin Block item；
+因此安全隐藏并让用户先打开来源 Block，不增加 DOM hack 或投影身份状态。来源移动/删除以及
+成功/失败/Undo 返回仍 OPEN；记录见 `logs/p0-k-host-origin-desktop-live-20260726.md` 与
+`logs/p0-k-query-reference-host-bounded-desktop-live-20260727.md`。
 
 P1-A 已在不开放前台的边界内进入 Plugin session runtime：Attention Signal 纯派生字段、
 自动失效、证据变化解除 cooldown、Recovery 不可冷却、有界容量/清理/遥测均已完成。

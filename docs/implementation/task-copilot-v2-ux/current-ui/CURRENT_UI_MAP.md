@@ -7,7 +7,7 @@
 |---|---|---|---|
 | 工具栏 / 现在 / 待我确认 / 项目 / 更多 | “现在”卡片单一主动作；待审阅当前问题与历史记录分离；空态使用真实 Provider 能力而非 legacy Agent flag；候选区普通路径去除 Provider/Proposal/SQLite | CURRENT：`ui-compression-01`～`04`、`07`（`f4acf77`）+ `review-empty-current-dark-cd59228.png` | “更多”及异常态继续沿用各自最新证据；集中 P0/P1 宿主 Gate |
 | 插件外观 / Dark / 窄栏 | 自动模式优先可读宿主；custom.css 与官方信号分离时可显式选择浅色或深色。Dark 1001×720 与 723×720、reload 持久性已通过 | CURRENT：`ui-theme-dark-current-d7526f4.png`、`ui-theme-dark-current-narrow-d7526f4.png` | Logseq File Graph 自身 Light bounded host issue 仍 OPEN；不把深色覆盖冒充 Light PASS |
-| Block / Page 现场入口 | 已实现，宿主位置仍有开放项 | OPEN | main/sidebar/Query/reference/中文输入 |
+| Block / Page 现场入口 | main Page 与普通 Block 可用；right-sidebar、Query 与 Block reference 在 Logseq 0.10.15 File Graph 均无可靠 Plugin identity，安全隐藏并要求先打开来源 | CURRENT：`p0-k-01`～`06` | 来源移动/删除及成功/失败/Undo 返回；中文 IME；未来 DB Graph 宿主差异 |
 | Service 状态 / reload / quit / Graph switch | reload/quit/owned shutdown 已通过；`ca50304` 又完成未配置 Graph 立即受限、稳定 fail-closed 和切回原 authority | CURRENT：`p0-h-16`～`18` + P2-C restart 健康态 | P0-H 已关闭；只在未来宿主能力变化时重开非代表性组合 |
 | Project Page Head / Context Recovery | P1-G Context Recovery 代表链 DONE；File Graph Page Head 有界隐藏 | CURRENT：`p1-g-07`～`13` | P1-F DB Graph Page Head 宿主 Gate；1.3.0 持续质量样本不阻断当前 Slice |
 | Block Marker | 默认关闭 prototype | OPEN | 编辑/TODO/Query/sidebar/Zoom/主题/性能 |

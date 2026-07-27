@@ -87,10 +87,13 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
 - P0-K 完成后路由：Block/Page 来源只保存在 session token；main Page 按 UUID 重验返回，
   secondary Page 保持宿主现场，来源缺失安全关闭；自动 Gate 187/187 通过。真实 Desktop
   已验证 main Page 入口与返回同一 Page；Logseq 0.10.15 right-sidebar 菜单不提供 Plugin
-  Page item，按宿主限制安全隐藏。Query/引用、来源变化和结果返回 Gate 保持 OPEN；
+  Page item，按宿主限制安全隐藏。`73fea9a` 又在脱敏专用页面确认 Query 投影只进入宿主
+  页面预览、Block reference 只提供引用专用菜单，两者均无可靠 Plugin Block identity，
+  因而安全隐藏并引导先打开来源 Block。来源变化和成功/失败/Undo 返回 Gate 保持 OPEN；
 - P0-A 普通 Block 内容路由：右键“处理这条内容”按 payload UUID 单次绑定，在 Provider 前
   重读同一 Block；missing/mismatch/空正文零请求、零写入；Plugin 191/191 自动 Gate 通过，
-  Query/引用/右侧栏仍待 Desktop；
+  普通 Block 已有自动 Gate；Query/引用/right-sidebar 的原地入口按当前 File Graph 宿主
+  能力有界隐藏，不冒充精确支持；
 - P1-A shadow-only 已进入 Plugin 会话运行：Application Attention Signal 纯派生模型与
   bounded session repository 覆盖失效、cooldown、provenance、capacity、clear 和 metrics；
   只接受 `SHADOW/NONE` 与机器引用/checksum，Plugin 只读刷新链路运行，Graph switch 清空，
