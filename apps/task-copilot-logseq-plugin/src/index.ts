@@ -117,7 +117,7 @@ import {
   type MigrationExecutionClient,
   type PluginMigrationRunView,
 } from "./migration-execution-controller.ts";
-import { applyHostThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
+import { detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -4355,31 +4355,23 @@ async function main(): Promise<void> {
   cleanupHooks.push(() => globalThis.removeEventListener("unhandledrejection", onUnhandledRejection));
   cleanupHooks.push(() => globalThis.removeEventListener("error", onGlobalError));
   const themeRoot = requireAppRoot();
+  const readVisibleThemeMode = () => {
+    try {
+      const visibleHostDocument = globalThis.parent?.document ?? globalThis.document;
+      return detectVisibleThemeMode(visibleHostDocument)
+        ?? detectSystemThemeMode(globalThis.matchMedia?.bind(globalThis));
+    } catch {
+      return detectSystemThemeMode(globalThis.matchMedia?.bind(globalThis));
+    }
+  };
   cleanupHooks.push(await registerHostThemeModeSync(
     logseq.App,
     themeRoot,
     (error) => operationalLogger.log("warn", "plugin-lifecycle", "theme_mode_initial_read_failed", {
       result: "css_fallback",
     }, error),
+    readVisibleThemeMode,
   ));
-  try {
-    const visibleHostDocument = globalThis.parent?.document ?? globalThis.document;
-    const visibleMode = detectVisibleThemeMode(visibleHostDocument)
-      ?? detectSystemThemeMode(globalThis.matchMedia?.bind(globalThis));
-    if (visibleMode) applyHostThemeMode(themeRoot, visibleMode);
-  } catch (error) {
-    const systemMode = detectSystemThemeMode(globalThis.matchMedia?.bind(globalThis));
-    if (systemMode) {
-      applyHostThemeMode(themeRoot, systemMode);
-      operationalLogger.log("info", "plugin-lifecycle", "visible_theme_detection_failed", {
-        result: "system_theme_fallback",
-      });
-    } else {
-      operationalLogger.log("warn", "plugin-lifecycle", "visible_theme_detection_failed", {
-        result: "api_theme_retained",
-      }, error);
-    }
-  }
   operationalLogger.log("info", "plugin-lifecycle", "event_listeners_registered", { result: "success" });
 
   logseq.beforeunload(async () => {

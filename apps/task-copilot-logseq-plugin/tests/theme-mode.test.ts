@@ -39,6 +39,49 @@ test("subscribes before reading the initial theme and follows later host changes
   assert.equal(disposed, true);
 });
 
+test("keeps the visible Logseq surface authoritative over a stale saved preference", async () => {
+  const value = root();
+  let listener: ((event: { mode?: unknown }) => void) | undefined;
+  let visibleMode: "light" | "dark" = "dark";
+  await registerHostThemeModeSync({
+    async getUserConfigs() {
+      return { preferredThemeMode: "light" };
+    },
+    onThemeModeChanged(callback) {
+      listener = callback;
+      return () => undefined;
+    },
+  }, value, (error) => assert.fail(error instanceof Error ? error : new Error("unexpected initial theme read failure")), () => visibleMode);
+
+  assert.equal(value.dataset.themeMode, "dark");
+  listener?.({ mode: "light" });
+  assert.equal(value.dataset.themeMode, "dark");
+
+  visibleMode = "light";
+  listener?.({ mode: "dark" });
+  assert.equal(value.dataset.themeMode, "light");
+});
+
+test("falls back to the official theme event when the visible host is isolated", async () => {
+  const value = root();
+  let listener: ((event: { mode?: unknown }) => void) | undefined;
+  await registerHostThemeModeSync({
+    async getUserConfigs() {
+      return { preferredThemeMode: "light" };
+    },
+    onThemeModeChanged(callback) {
+      listener = callback;
+      return () => undefined;
+    },
+  }, value, (error) => assert.fail(error instanceof Error ? error : new Error("unexpected initial theme read failure")), () => {
+    throw new Error("cross-origin parent");
+  });
+
+  assert.equal(value.dataset.themeMode, "light");
+  listener?.({ mode: "dark" });
+  assert.equal(value.dataset.themeMode, "dark");
+});
+
 test("keeps the CSS fallback when the initial host config cannot be read", async () => {
   const value = root();
   const errors: unknown[] = [];

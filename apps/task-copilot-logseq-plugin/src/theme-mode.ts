@@ -12,6 +12,8 @@ export interface ThemeModeHost {
   onThemeModeChanged(callback: (event: { mode?: unknown }) => void): () => void;
 }
 
+export type VisibleThemeModeReader = () => HostThemeMode | undefined;
+
 export interface VisibleThemeDocument {
   documentElement?: {
     className?: unknown;
@@ -94,13 +96,24 @@ export async function registerHostThemeModeSync(
   host: ThemeModeHost,
   root: ThemeModeRoot,
   onInitialReadError: (error: unknown) => void,
+  readVisibleMode?: VisibleThemeModeReader,
 ): Promise<() => void> {
+  const applyCurrentMode = (apiMode: unknown): boolean => {
+    try {
+      const visibleMode = readVisibleMode?.();
+      if (visibleMode) return applyHostThemeMode(root, visibleMode);
+    } catch {
+      // The Logseq parent document can be isolated. The official API remains
+      // the safe fallback and the caller records initial read failures.
+    }
+    return applyHostThemeMode(root, apiMode);
+  };
   const off = host.onThemeModeChanged((event) => {
-    applyHostThemeMode(root, event.mode);
+    applyCurrentMode(event.mode);
   });
   try {
     const config = await host.getUserConfigs();
-    applyHostThemeMode(root, config.preferredThemeMode);
+    applyCurrentMode(config.preferredThemeMode);
   } catch (error) {
     onInitialReadError(error);
   }

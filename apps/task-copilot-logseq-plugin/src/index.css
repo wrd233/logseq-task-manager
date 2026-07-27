@@ -9,8 +9,15 @@
   --border: #d8dfda;
   --accent: #176b50;
   --accent-soft: #dff3e9;
+  --primary-text: #ffffff;
   --warning: #976300;
+  --warning-soft: #fff1cd;
   --danger: #a33e3e;
+  --danger-text: #7f2929;
+  --danger-soft: #ffe9e7;
+  --info-soft: #eef2ff;
+  --disabled-bg: #f2f0ea;
+  --disabled-text: #746d5c;
   --shadow: 0 18px 45px rgb(20 48 37 / 18%);
 }
 
@@ -19,7 +26,7 @@
 #task-copilot-personal-mvp-root button, #task-copilot-personal-mvp-root input, #task-copilot-personal-mvp-root textarea, #task-copilot-personal-mvp-root select { font: inherit; }
 #task-copilot-personal-mvp-root button { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); padding: 8px 12px; cursor: pointer; }
 #task-copilot-personal-mvp-root button:hover, #task-copilot-personal-mvp-root button:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-soft); }
-#task-copilot-personal-mvp-root button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+#task-copilot-personal-mvp-root button.primary { background: var(--accent); color: var(--primary-text); border-color: var(--accent); }
 #task-copilot-personal-mvp-root button.quiet { background: transparent; }
 #task-copilot-personal-mvp-root button.danger { color: var(--danger); }
 #task-copilot-personal-mvp-root button:disabled { opacity: .58; cursor: wait; }
@@ -32,7 +39,7 @@
 #task-copilot-personal-mvp-root .actions.wrap { flex-wrap: wrap; }
 #task-copilot-personal-mvp-root .agent-state { padding: 7px 22px; font-size: 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 #task-copilot-personal-mvp-root .agent-state.enabled { background: var(--accent-soft); color: var(--accent); }
-#task-copilot-personal-mvp-root .agent-state.disabled { background: #f2f0ea; color: #746d5c; }
+#task-copilot-personal-mvp-root .agent-state.disabled { background: var(--disabled-bg); color: var(--disabled-text); }
 #task-copilot-personal-mvp-root .runtime-strip { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 7px 22px; border-bottom: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-size: 12px; }
 #task-copilot-personal-mvp-root .first-run-shell { max-width: 760px; }
 #task-copilot-personal-mvp-root .first-run-workspace { padding: 28px; }
@@ -40,8 +47,8 @@
 #task-copilot-personal-mvp-root .first-run-guidance { margin-top: 20px; padding: 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 #task-copilot-personal-mvp-root .notice, #task-copilot-personal-mvp-root .error, #task-copilot-personal-mvp-root .report { margin: 12px 20px 0; padding: 10px 12px; border-radius: 10px; }
 #task-copilot-personal-mvp-root .notice { background: var(--accent-soft); }
-#task-copilot-personal-mvp-root .error { display: flex; gap: 6px; flex-direction: column; background: #ffe9e7; color: #7f2929; }
-#task-copilot-personal-mvp-root .report { white-space: pre-wrap; background: #eef2ff; }
+#task-copilot-personal-mvp-root .error { display: flex; gap: 6px; flex-direction: column; background: var(--danger-soft); color: var(--danger-text); }
+#task-copilot-personal-mvp-root .report { white-space: pre-wrap; background: var(--info-soft); }
 #task-copilot-personal-mvp-root nav { display: flex; gap: 3px; padding: 10px 18px; overflow-x: auto; background: var(--surface); border-bottom: 1px solid var(--border); }
 #task-copilot-personal-mvp-root nav button { white-space: nowrap; border-color: transparent; background: transparent; }
 #task-copilot-personal-mvp-root nav button.active { background: var(--surface-2); color: var(--accent); }
@@ -85,12 +92,12 @@
 #task-copilot-personal-mvp-root .decision-actions { position: sticky; bottom: -14px; z-index: 2; margin: 0 -14px -14px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--surface-2); }
 #task-copilot-personal-mvp-root .action-feedback { display: grid; gap: 4px; margin-top: 10px; padding: 9px 11px; border-radius: 9px; background: var(--surface-2); }
 #task-copilot-personal-mvp-root .action-feedback.success { background: var(--accent-soft); }
-#task-copilot-personal-mvp-root .action-feedback.error, #task-copilot-personal-mvp-root .action-error { color: var(--danger); background: #ffe9e7; }
+#task-copilot-personal-mvp-root .action-feedback.error, #task-copilot-personal-mvp-root .action-error { color: var(--danger-text); background: var(--danger-soft); }
 #task-copilot-personal-mvp-root .natural-text, #task-copilot-personal-mvp-root .lead { font-size: 16px; line-height: 1.65; }
 #task-copilot-personal-mvp-root .muted, #task-copilot-personal-mvp-root small { color: var(--muted); }
 #task-copilot-personal-mvp-root .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 #task-copilot-personal-mvp-root .badges span { padding: 3px 7px; border-radius: 999px; background: var(--surface-2); font-size: 11px; font-weight: 700; }
-#task-copilot-personal-mvp-root .badges .signal { color: var(--warning); background: #fff1cd; }
+#task-copilot-personal-mvp-root .badges .signal { color: var(--warning); background: var(--warning-soft); }
 #task-copilot-personal-mvp-root .empty { min-height: 220px; display: grid; place-content: center; text-align: center; color: var(--muted); }
 #task-copilot-personal-mvp-root .empty strong { color: var(--text); font-size: 18px; }
 #task-copilot-personal-mvp-root .split { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.2fr); gap: 14px; }
@@ -129,7 +136,7 @@
 #task-copilot-personal-mvp-root details { margin-top: 10px; }
 #task-copilot-personal-mvp-root details summary { cursor: pointer; color: var(--muted); }
 #task-copilot-personal-mvp-root details del, #task-copilot-personal-mvp-root details ins, #task-copilot-personal-mvp-root .readable-diff del, #task-copilot-personal-mvp-root .readable-diff ins { display: block; margin-top: 7px; padding: 9px; border-radius: 8px; white-space: pre-wrap; text-decoration: none; }
-#task-copilot-personal-mvp-root details del, #task-copilot-personal-mvp-root .readable-diff del { background: #ffe9e7; color: #7f2929; }
+#task-copilot-personal-mvp-root details del, #task-copilot-personal-mvp-root .readable-diff del { background: var(--danger-soft); color: var(--danger-text); }
 #task-copilot-personal-mvp-root details ins, #task-copilot-personal-mvp-root .readable-diff ins { background: var(--accent-soft); color: var(--accent); }
 #task-copilot-personal-mvp-root pre { max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 #task-copilot-personal-mvp-root .diagnostics-workspace { min-height: min(680px, calc(100vh - 120px)); }
@@ -178,14 +185,46 @@
   #task-copilot-personal-mvp-root .diagnostic-grid { grid-template-columns: 1fr; }
 }
 
-#task-copilot-personal-mvp-root[data-theme-mode="dark"] { --bg: #17201c; --surface: #202c27; --surface-2: #293831; --text: #edf4ef; --muted: #a4b2aa; --border: #3b4b43; --accent: #6dd8ac; --accent-soft: #214536; --shadow: 0 20px 55px rgb(0 0 0 / 45%); }
-#task-copilot-personal-mvp-root[data-theme-mode="dark"] button.primary { color: #10251d; }
-#task-copilot-personal-mvp-root[data-theme-mode="dark"] .agent-state.disabled { background: #302f29; color: #cbc3ad; }
-#task-copilot-personal-mvp-root[data-theme-mode="dark"] .error { background: #4a2927; color: #ffd2ce; }
-#task-copilot-personal-mvp-root[data-theme-mode="dark"] .report { background: #28314a; }
-#task-copilot-personal-mvp-root[data-theme-mode="dark"] .badges .signal { background: #51411c; }
-#task-copilot-personal-mvp-root[data-theme-mode="dark"] details del, #task-copilot-personal-mvp-root[data-theme-mode="dark"] .readable-diff del { background: #4a2927; color: #ffd2ce; }
+#task-copilot-personal-mvp-root[data-theme-mode="dark"] {
+  --bg: #17201c;
+  --surface: #202c27;
+  --surface-2: #293831;
+  --text: #edf4ef;
+  --muted: #a4b2aa;
+  --border: #3b4b43;
+  --accent: #6dd8ac;
+  --accent-soft: #214536;
+  --primary-text: #10251d;
+  --warning: #f0c66d;
+  --warning-soft: #51411c;
+  --danger: #ff9d95;
+  --danger-text: #ffd2ce;
+  --danger-soft: #4a2927;
+  --info-soft: #28314a;
+  --disabled-bg: #302f29;
+  --disabled-text: #cbc3ad;
+  --shadow: 0 20px 55px rgb(0 0 0 / 45%);
+}
 
 @media (prefers-color-scheme: dark) {
-  #task-copilot-personal-mvp-root:not([data-theme-mode]) { --bg: #17201c; --surface: #202c27; --surface-2: #293831; --text: #edf4ef; --muted: #a4b2aa; --border: #3b4b43; --accent: #6dd8ac; --accent-soft: #214536; --shadow: 0 20px 55px rgb(0 0 0 / 45%); }
+  #task-copilot-personal-mvp-root:not([data-theme-mode]) {
+    --bg: #17201c;
+    --surface: #202c27;
+    --surface-2: #293831;
+    --text: #edf4ef;
+    --muted: #a4b2aa;
+    --border: #3b4b43;
+    --accent: #6dd8ac;
+    --accent-soft: #214536;
+    --primary-text: #10251d;
+    --warning: #f0c66d;
+    --warning-soft: #51411c;
+    --danger: #ff9d95;
+    --danger-text: #ffd2ce;
+    --danger-soft: #4a2927;
+    --info-soft: #28314a;
+    --disabled-bg: #302f29;
+    --disabled-text: #cbc3ad;
+    --shadow: 0 20px 55px rgb(0 0 0 / 45%);
+  }
 }
