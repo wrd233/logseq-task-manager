@@ -78,6 +78,10 @@
   Plugin Page item 时保持隐藏，没有为宿主缺失 identity 增加 fallback 状态或第二入口。
 - P0-K Query / Block reference 在脱敏 Desktop 页确认由宿主接管预览或引用专用菜单；
   继续要求先打开来源 Block，没有增加投影 identity、DOM hack、正式状态或第三套入口。
+- P0-K 来源变化继续复用同一 session-only UUID token 和 `OriginRouteController`：移动后按
+  UUID 返回新位置，删除后关闭并提示未导航；没有增加位置缓存、同名搜索、投影 fallback、
+  正式状态或恢复页面。两次真实 Provider 均为单次 `NO_PROPOSAL`，没有为测试样本增加
+  Skill/Prompt/Validator 规则。P0-K 关闭两个 Desktop 子 Gate，未新增 Partial。
 
 ### P2-G Restore 真实连续双重失败收敛（2026-07-27）
 

@@ -9,10 +9,10 @@
 > LaunchAgent、owned shutdown 与 crash/orphan recovery 已完成自动和真实进程 Gate，reload
 > 与真实 Logseq quit 已补 Desktop 证据；隐藏 iframe reload 也已通过 non-blocking bootstrap
 > 与宿主 ready 事件自动恢复；`ca50304` 又关闭 Graph switch 旧 authority 隐藏、受限保持与
-> 切回原 Graph Gate，P0-H 已为 DONE；P0-J 中文命令自动 Gate 已完成，剩余
-> slash/palette/custom binding Desktop Gate；P0-K session origin route 与 P0-A 普通 Block
-> “处理这条内容”自动 Gate 已完成，剩余 main/sidebar/Query/reference Desktop Gate 及其余
-> P0 仍未完成。
+> 切回原 Graph Gate，P0-H 已为 DONE；P0-J 中文命令已补齐 slash/palette/custom binding
+> 代表性 Desktop；P0-K session origin route 与 P0-A 普通 Block“处理这条内容”自动 Gate
+> 已完成，main Page 返回、来源移动/删除和 Query/reference/right-sidebar 有界结论已有真实
+> Desktop；成功、失败、Undo 返回及其余 P0 仍未完成。
 
 ## 总体状态
 
@@ -25,7 +25,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；中文 IME/受限视觉、K 多宿主 Gate OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K main Page、来源移动/删除与 Query/reference/right-sidebar bounded Gate PASS；中文 IME/受限视觉及成功/失败/Undo 返回 OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面、reload 与 723px 窄栏已补 CURRENT；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
