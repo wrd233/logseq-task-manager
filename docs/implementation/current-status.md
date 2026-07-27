@@ -461,7 +461,11 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
   最终同一 run 进入 `ACTIVATED`，SemanticCommit Pending/Recovery 始终 `0/0`。当前
   `e2361599fbc9` 精确构建 reload 后只显示“V2 已启用”和只读历史。故障运行时退出后，
   正常 LaunchAgent、原 authority 与 Logseq READY 已恢复。该子 Gate 升级为
-  `MIGRATION_VERIFY_ACTIVATE_FAILURE_RETRY_DESKTOP_DONE`；Light/窄栏视觉 Gate 仍 OPEN，
+  `MIGRATION_VERIFY_ACTIVATE_FAILURE_RETRY_DESKTOP_DONE`。当前 `7fcdcf5` 又在
+  `722×720` 窗口完成只读完成态窄栏 Gate：主结论、两批历史、唯一返回路径和折叠技术详情
+  均可读，无横向溢出或新写入动作。Logseq 0.10.15 File Graph 的“浅色模式”虽已在设置中
+  选中，完整 Reload 后仍恢复深色宿主；该结果记录为 bounded host issue，不伪报 Light
+  PASS。Migration 窄栏从 Partial 变为 Done，Light 仍 OPEN，
   P2-G 与整体 Goal 继续 `IN_PROGRESS`。完整记录见
   `logs/p2-g-migration-verify-activate-failure-desktop-live-20260727.md`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
@@ -491,8 +495,9 @@ Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
 Migration Activation normal main chain Desktop DONE,
 Migration post-write response-loss→ledger reload→Verify→Undo Desktop DONE,
 Migration Verify/Activate failure→same-ledger retry→reload Desktop DONE,
+Migration final read-only narrow Desktop DONE, Light host Gate OPEN,
 Rebind Recovery/Undo guidance AUTOMATED,
-Restore rollback-failure manual recovery chain Desktop DONE, Migration visual gates OPEN /
+Restore rollback-failure manual recovery chain Desktop DONE /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

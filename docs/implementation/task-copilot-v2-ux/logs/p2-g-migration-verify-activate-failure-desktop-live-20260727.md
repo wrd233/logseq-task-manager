@@ -17,8 +17,8 @@
 - SemanticCommit `Pending/Recovery` 全程为 `0/0`；
 - 完成页只保留只读迁移历史，没有再次开放 scan、Review、Import、Undo 或 Activate。
 
-P2-G 与完整 Goal 仍为 `IN_PROGRESS`：Migration 的 Light／窄栏代表性视觉 Gate、Rebind
-最新纠错／整库恢复指引及其余 Final Release 项仍开放。
+P2-G 与完整 Goal 仍为 `IN_PROGRESS`：Migration 的 Light host Gate、Rebind 最新纠错／
+整库恢复指引及其余 Final Release 项仍开放；窄栏代表性 Gate 后续已由本文末尾补充关闭。
 
 ## 运行边界
 
@@ -129,6 +129,23 @@ Application command。没有为 Verify 或 Activate 发明专用恢复状态、�
 
 ## 仍开放
 
-1. Migration Light／窄栏代表性视觉 Gate；
+1. Migration Light 代表性宿主 Gate；
 2. P2-G Rebind 最新纠错／整库恢复指引 Desktop；
 3. P2-G 其余发布验收与完整 Goal。
+
+## 后续视觉代表 Gate
+
+同日当前 repo `7fcdcf5` / Plugin `e2361599fbc9` 又完成：
+
+- `722×720` 窄栏：只读完成态的主结论、计划摘要、两个 batch、折叠安全边界和关闭动作
+  均可读，无横向溢出；该子 Gate `PARTIAL→DONE`；
+- Light：Logseq 0.10.15 File Graph 设置页已选中“浅色模式”，随后执行完整
+  `View → Reload`。加载页短暂为浅色，但 Graph 就绪后仍恢复深色宿主；严格记录为
+  `BOUNDED_HOST_ISSUE/OPEN`，没有用设置页或加载页冒充 Plugin Light PASS；
+- 环境恢复：窗口恢复约 1000px、故障 Launcher 停止、正常 LaunchAgent/Service 与原
+  database authority 恢复，用户系统状态显示“可以正常使用”“无需操作”。
+
+CURRENT 证据：
+
+- `../current-ui/screenshots/p2-g-migration-final-current-narrow-720-7fcdcf5.png`
+- `../current-ui/screenshots/p2-g-light-mode-selected-host-remains-dark-bounded-7fcdcf5.png`

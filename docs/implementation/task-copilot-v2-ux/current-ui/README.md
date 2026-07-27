@@ -40,6 +40,11 @@ P2-G Migration Verify/Activate 失败重试又在当前 `e2361599fbc9` 完成真
 正式 ledger 上重试；最终当前构建 reload 只显示“V2 已启用”和只读历史。CURRENT
 截图 `p2-g-migration-verify-activate-retry-current-dark-e236159.png` 取代“该失败链
 只有自动证据”的旧结论。
+当前 `7fcdcf5` 又补充 `p2-g-migration-final-current-narrow-720-7fcdcf5.png`：在
+`722×720` 下主结论、两批历史和折叠安全边界均可读，窄栏子 Gate 已关闭。Logseq
+0.10.15 File Graph 的浅色模式设置与完整 Reload 未能改变 Graph 就绪后的深色宿主，
+`p2-g-light-mode-selected-host-remains-dark-bounded-7fcdcf5.png` 只记录宿主边界，
+不代表 Light PASS。
 
 P0-H Graph switch 最新精确构建为 `ca50304e9aa2`。`p0-h-16`～`18` 分别证明未配置隔离
 Graph 首次显示时已安全受限、6 秒后仍不显示旧 Project，以及切回原 Graph 后约 3.75 秒
@@ -157,7 +162,7 @@ Gate：选错正文再次进入受控 Rebind，整库回退才进入 Backup/Rest
 missing/conflict 旧 Anchor 的通用 Undo；新成功态 Desktop 仍 OPEN。Restore 失败链和
 Migration 当时也未完成；Restore 失败链现已由后述 CURRENT `p2-g-55`～`59` 替代，
 Migration Import 写后响应丢失也由 `p2-g-60`～`65` 关闭；但 Rebind 指引、
-Migration Light/窄栏视觉 Gate 仍使 P2-G 和整体 Goal 保持
+Migration Light host Gate 仍使 P2-G 和整体 Goal 保持
 `IN_PROGRESS`。完整记录见
 `../logs/p2-g-rebind-desktop-live-20260726.md`。
 
@@ -265,7 +270,8 @@ descriptor 和隔离 Service 退出后，正常 LaunchAgent、原 7 对象 autho
 Desktop 证据”的旧结论。Verify/Activate failure 随后也由
 `p2-g-migration-verify-activate-retry-current-dark-e236159.png` 关闭：失败继续由既有
 run/batch ledger 表达，同一计划重试，最终当前精确构建 reload 进入只读完成态；正常
-Launcher 和原 authority 已恢复。Light/窄栏仍 OPEN。完整记录见
+Launcher 和原 authority 已恢复。窄栏现已由后述 `7fcdcf5` CURRENT 关闭，Light host
+Gate 仍 OPEN。完整记录见
 `../logs/p2-g-migration-response-loss-desktop-live-20260727.md` 与
 `../logs/p2-g-migration-verify-activate-failure-desktop-live-20260727.md`。
 
