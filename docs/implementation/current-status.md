@@ -92,7 +92,9 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
   因而安全隐藏并引导先打开来源 Block。`66850e6` 后的真实 Desktop 又验证同一 UUID
   移动后精确返回新位置，来源删除后关闭 Task Copilot、明确提示且不猜测其他目标；两次
   真实 Provider 均为一次请求的 `NO_PROPOSAL`，未产生正式写入。成功/失败/Undo 返回 Gate
-  保持 OPEN；
+  保持 OPEN；`06b8762` 随后把普通 Block 分析的 abstain、成功、不可用、中断和失败提示
+  压缩为用户语言，真实 Provider abstain 复验不再显示 Proposal/Provider/Commit/Store，
+  仍为一次请求、零正式写入；
 - P0-A 普通 Block 内容路由：右键“处理这条内容”按 payload UUID 单次绑定，在 Provider 前
   重读同一 Block；missing/mismatch/空正文零请求、零写入；Plugin 191/191 自动 Gate 通过，
   普通 Block 已有自动 Gate；Query/引用/right-sidebar 的原地入口按当前 File Graph 宿主

@@ -57,6 +57,9 @@
 - 每种状态写入均保持 Lifecycle OPEN、Focus 空，Undo 后恢复 ACTIONABLE；
 - 真实 WAITING Undo 发现 JSON key 顺序假 stale，改用 `stableJson` 并补回归后复测通过；
 - 最终 force reload 读回 version 10 / ACTIONABLE / Focus 空。
+- P0-K 最新真实 Provider abstain 暴露“未创建 Proposal”工程词后，`06b8762` 将普通 Block
+  分析的无需整理、建议已生成、不可用、中断和失败全部翻译为用户结论；Plugin 343/343、
+  根级检查、真实 Dark Desktop 与单次 Provider 复验均 PASS，零正式写入、零自动重试。
 - 完成 P0-C LOW 单组单 Block 白名单，`CREATE_OBJECT`/`REWRITE_BLOCK` 之外及 HIGH 组均拒绝；
 - 连续编排复用既有 Review→Graph/版本重验→SemanticCommit→verify，不新增写路径或恢复器；
 - busy 禁用同卡片审阅动作；stale 显示未写入；接受请求不确定时零自动重试并要求刷新；

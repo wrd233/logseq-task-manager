@@ -86,6 +86,7 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p0-k-06-query-preview-bounded-current-dark-73fea9a.png` | runtime `d7526f4` / docs `73fea9a` | Query 结果使用宿主投影交互 | 宿主打开来源页面预览，不提供可靠 Plugin Block item | 不用 DOM hack 猜 UUID |
 | `screenshots/p0-k-07-moved-source-return-current-dark-66850e6.png` | runtime `d7526f4` / docs `66850e6` | Task Copilot 打开期间把来源 Block 移到页面底部并修改可见文字，再点击“返回原 Block” | 按稳定 UUID 返回移动后的新位置，Query/reference 投影同步更新 | `CURRENT`；Dark / 1000×720；未依赖旧位置 |
 | `screenshots/p0-k-08-deleted-source-safe-return-current-dark-66850e6.png` | runtime `d7526f4` / docs `66850e6` | Task Copilot 打开期间删除来源 UUID，再点击“返回原 Block” | 面板关闭并提示“原 Block 已不可用；未执行其他导航”，没有猜测 Query/reference 或同名内容 | `CURRENT`；Dark / 1000×720；fixture 截图后恢复 |
+| `screenshots/p0-k-09-analysis-no-proposal-user-language-current-dark-06b8762.png` | `06b8762933f8` | 完整 Force Reload 后从脱敏普通来源 Block 发起真实智能整理 | 一次 Provider abstain 显示“这条内容暂时不需要整理”和一条理由，不显示 Proposal/Provider/Commit/Store | `CURRENT`；Dark / 1000×720；0 retry、0 formal write |
 | `screenshots/p0-j-02-command-palette-single-current-dark.png` | `e8db32f1af6d` | 完整冷启动后打开命令面板并检索 Task Copilot | 六条中文命令单组可见，无持久重复 | 连续 reload residue 见 HISTORICAL；受限态 OPEN |
 | `screenshots/p0-j-03-command-palette-open-now-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“打开‘现在’” | 当前 Now 工作面打开，无静默或错误 | Light/窄栏 OPEN |
 | `screenshots/p0-j-04-command-palette-system-status-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“系统状态与技术诊断” | 用户层健康结论可读，技术详情保持折叠 | 受限态代表链 OPEN |

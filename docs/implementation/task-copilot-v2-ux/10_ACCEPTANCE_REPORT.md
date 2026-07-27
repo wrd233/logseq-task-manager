@@ -19,7 +19,8 @@
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
 - [ ] Block/Page 就近入口；Block Focus/Condition、普通 Block 精确 UUID 内容路由与 Page
-  普通/Project/Journal 路由已完成自动 Gate，普通 Block、Query/引用现场仍待 Desktop 验证
+  普通/Project/Journal 路由已完成自动 Gate；普通 Block 真实 Provider abstain 已使用用户
+  语言且零写入，Query/引用/right-sidebar 按宿主有界隐藏；其他返回现场组合仍待 Desktop
 - [ ] 高频动作 1—2 个明确决定；
 - [x] 暂时做不了统一入口；三种意图、最小字段和版本保护 Undo 已通过
 - [x] 低风险一次接受并应用；LOW 单组单 Block CREATE/REWRITE 自动覆盖，真实 Desktop REWRITE 通过

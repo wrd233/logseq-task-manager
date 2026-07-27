@@ -82,6 +82,10 @@
   UUID 返回新位置，删除后关闭并提示未导航；没有增加位置缓存、同名搜索、投影 fallback、
   正式状态或恢复页面。两次真实 Provider 均为单次 `NO_PROPOSAL`，没有为测试样本增加
   Skill/Prompt/Validator 规则。P0-K 关闭两个 Desktop 子 Gate，未新增 Partial。
+- `06b8762` 没有为了前台文案建立新状态或第二消息系统：只在既有 selected Block
+  analysis presenter 中统一无需整理/待确认/不可用/中断/失败语言，内部 logger 继续记录
+  结构化结果。正式状态、Runtime、Recovery、Skill、Prompt、Validator 与 Partial 增量均为
+  `0`；普通路径减少 5 组工程词。
 
 ### P2-G Restore 真实连续双重失败收敛（2026-07-27）
 
