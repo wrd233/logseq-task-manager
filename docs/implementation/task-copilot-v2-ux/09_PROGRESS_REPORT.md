@@ -704,6 +704,25 @@ derivative/dashboard 价值也仍未完成。
   P0-D 9 张，P0-E 5 张，P0-F 2 张，P0-G 4 张，P0-I 3 张；
 - 历史 V2：39/39 traceability DONE、E2E-01–24 DONE、真实 DeepSeek/Desktop/恢复均完成。
 
+## 2026-07-27 UI 压缩与当前 Desktop Gate
+
+- `460b414` 完成 Preview/HIGH Review 三段影响叙述、两阶段“审阅方案/确认应用”语言、
+  Project 用户意图路由、Now 单一主动作、Context Recovery 增量压缩和 Closure Step 1；
+  `773405a` 再把当前待审阅与 APPLIED/REJECTED 历史分离，并收敛候选区用户语言。
+- `f4acf77346b19aa2f096ff2c169bfa7323546062` 根据真实 Desktop 暴露的工程词，把 Closure
+  每个目标的原始依据默认折叠；不改写事实，不改变 Proposal/Commit/Recovery/Undo。
+- 自动证据：Plugin `339/339`、0 skipped，build/dist integrity、145 stable rules、恢复演练
+  `differences=[]`、根级 `./scripts/check.sh` 全部 PASS。
+- Desktop 证据：Logseq 0.10.15、真实 File Graph、精确构建，Light/Dark 1000×720 与
+  751×720 窄栏；Now、候选区、待审阅历史、Project 意图与 Closure 均已存为
+  `ui-compression-01`～`08` CURRENT。取证后恢复 Light、1000×720 和普通文档模式。
+- 本轮关闭的是“Review 历史淹没当前问题”和“Closure 逐目标证据首屏工程词泄漏”两个 UI
+  Partial；新增 Partial、正式状态、Skill、Prompt、Validator、Runtime、恢复分支与写入权威
+  均为 `0`。P2-E Provider error/stale/RECOVERY_REQUIRED、P1 Attention/Marker、
+  P0 宿主剩余 Gate 和 P2-G Migration failure Desktop 仍 OPEN。
+- 本轮没有重新调用 Provider；既有 `recover-context@1.3.0`、真实 DeepSeek 质量和
+  Validator 指标保持原证据，不能把 UI Gate 写成新的 Provider 验证。
+
 ## 下一步
 
 1. 继续 P2-E 当前构建异常 Gate：验证 Provider error/stale 保留确定性基线与用户输入，并

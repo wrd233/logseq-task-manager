@@ -17,6 +17,13 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+最新 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`：
+真实 Logseq 0.10.15 已验证“现在”卡片单一主动作、当前待审阅与 13 条历史记录分离、
+Project 用户意图路由、Closure 首屏安全结论，以及 1000×720 Light/Dark 和 751×720
+窄栏。Closure 的逐目标原始依据默认折叠，避免测试材料中的 Provider/Proposal/Commit
+词汇占据普通首屏；事实本身未改写。该 UI Gate 没有新增正式状态、Runtime、Skill、
+Validator、写入路径或恢复分支，也不关闭 P0/P1/P2 的其余 Partial。
+
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
   Local Service 读回均已通过；
 - P0-B“暂时做不了”：三种用户意图、最小字段、失败零写入、Focus/Lifecycle 不变、会话内

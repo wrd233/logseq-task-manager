@@ -131,3 +131,16 @@
 - `25ddac9` / `4dfe014` 关闭高频壳层发布阻断：删除主面板重复运行条，统一“更多”、启动、知识库切换和系统状态的用户语言；连接恢复只有在正式修改也可用时才报告成功。
 - exact build `4dfe014902a3` 已完成后台真实 Plugin reload、默认用户层工程词扫描 `0` 和三张 CURRENT Desktop 截图；工程概念泄漏由 HIGH 降为 MEDIUM，但高级 Review/Grill/Project/Migration/Restore 表面仍阻断发布。
 - `e8db32f1af6d` 又把主动结束从通用连接故障中分离：复用既有 reason/lease/状态翻译，不增加正式状态或恢复入口；结束面只保留一个结论与重新启动，100—2500 ms 采样无错误闪烁，重启仍要求正式修改可用。
+
+### UI 信息架构压缩（2026-07-27，`f4acf77`）
+
+- 关闭两个 UI Partial：Review 历史卡淹没当前问题；Closure 逐目标证据把测试材料中的
+  Provider/Proposal/Commit 带入普通首屏。当前记录独立显示，历史默认折叠；逐目标证据只在
+  用户主动展开后出现，原事实没有被改写或丢弃。
+- 合并/删除重复前台机制：Now 每卡一个主动作，Project 入口统一为用户意图，Closure 先显示
+  一个安全结论与一个主动作；审阅方案与确认应用在文案上明确分层，内部事务链保持原样。
+- 新增正式状态 `0`；新增 Runtime `0`；新增 Skill/Prompt/Validator `0`；新增恢复分支 `0`；
+  新增写入权威 `0`；新增 Partial `0`。
+- Partial 总量净下降 `2`（均为 UI 表达 Partial），P0/P1/P2 功能 Partial 不伪装关闭。
+- 当前风险：后台工程概念泄漏由 MEDIUM 降为 MEDIUM-LOW；Desktop 笛卡尔积仍为 HIGH，但
+  本轮只取 Now/Review/Project/Closure 的 Light/Dark/751px 代表矩阵，没有扩张全组合。

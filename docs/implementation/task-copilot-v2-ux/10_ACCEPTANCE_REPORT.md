@@ -191,6 +191,19 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 `7a7492a407ed`，证明精确返回原根 Block及再次 reload 后 READY、`0/0/0`。旧的 Journal
 返回截图已标为 SUPERSEDED。Light/窄栏仍属 P2-C/最终集中视觉 Gate，不能据此宣布 P2 完成。
 
+## 4.1 当前 UI 压缩验收（`f4acf77`）
+
+| 页面 | 主结论清晰度 | 主操作清晰度 | 心智负担 | 工程词泄漏 | 当前状态 |
+|---|---:|---:|---:|---:|---|
+| 现在 | 高 | 高 | 中→低 | 测试 Project 正文仍可含工程词；系统控件已折叠 | DESKTOP_VERIFIED Light/Dark |
+| 待整理 | 高 | 高 | 低 | 普通控件 0；完整技术事实未显示 | DESKTOP_VERIFIED 751×720 |
+| 待审阅 | 高 | 高 | 高→低 | 当前问题与 13 条历史分离 | DESKTOP_VERIFIED 751×720 |
+| Project 意图路由 | 高 | 高 | 高→中 | LIGHT/MEDIUM/HEAVY 不出首屏 | DESKTOP_VERIFIED 751×720 |
+| Closure Step 1 | 高 | 高 | 高→中 | 逐目标原始依据与完整依据默认折叠 | DESKTOP_VERIFIED Light/Dark/窄栏 |
+
+验收边界：本表只关闭当前信息架构和代表性主题/宽度 Gate，不关闭 P2-E Provider
+error/stale/RECOVERY_REQUIRED，也不把 P0/P1/P2 或 Final Release 标为 DONE。
+
 ## 5. 操作距离指标
 
 | 场景 | 基线 | 目标 | 实测 |
