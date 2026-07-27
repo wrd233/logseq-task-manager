@@ -1771,13 +1771,15 @@ test("Project Closure Review shows the external Agent outcome and uses a dedicat
   value.reviewMode = "proposals";
   const closure = { originalGoal: "推送可控", actualResult: "新链路上线", majorDeliverables: ["推送服务"], incompleteObjectives: [{ objective: "历史回放", reason: "数据未齐", nextStep: "转入数据治理" }], legacyDisposition: "新 Project 承接", keyDecisions: ["保留回退"], futureSummary: "重入先查数据" };
   value.v2Proposals = [{ updatedAt: "2026-07-21T12:01:00.000Z", files: { proposalMd: "# Closure", proposalJson: "{}" }, proposal: {
-    proposalId: "prop-closure", schemaVersion: "v2", title: "关闭告警治理", context: "主要交付已完成。", understanding: "历史回放转移。", objective: "完成 Project。", logic: "Closure 与 Lifecycle 同时生效。", finalPreview: "新链路上线；历史回放转移。", unresolvedQuestions: [], source: { kind: "external_agent", skillVersion: "design-project@1" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "project-1", version: 4 }] }, preconditions: [],
+    proposalId: "prop-closure", schemaVersion: "v2", title: "Closure Proposal: 告警治理", context: "主要交付已完成。", understanding: "历史回放转移。", objective: "完成 Project。", logic: "Closure 与 Lifecycle 同时生效。", finalPreview: "新链路上线；历史回放转移。", unresolvedQuestions: [], source: { kind: "external_agent", skillVersion: "design-project@1" }, scope: { read: [], modify: [{ kind: "OBJECT", id: "project-1", version: 4 }] }, preconditions: [],
     groups: [{ groupId: "close", explanation: "不可拆分。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [
       { operationId: "closure", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: "project-1", version: 4 }, summary: "记录 Closure", payload: { closure }, preconditions: [] },
       { operationId: "complete", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "project-1", version: 4 }, summary: "完成 Project", payload: { lifecycle: "COMPLETED" }, preconditions: [] },
     ], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-21T12:00:00.000Z",
   } }];
   let html = renderApp(value);
+  assert.match(html, /结束项目：告警治理/);
+  assert.doesNotMatch(html, /Closure Proposal/);
   assert.match(html, /系统理解[\s\S]*将结束这个项目，并保存结果：新链路上线 1 项未完成目标会保留明确后续/);
   assert.doesNotMatch(html.match(/<section class="review-impact"[\s\S]*?<\/section>\s*<\/section>/)?.[0] ?? "", /历史回放转移/);
   assert.match(html, /external_agent/);

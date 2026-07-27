@@ -523,6 +523,9 @@ function renderReview(model: UiModel): string {
     const systemUnderstanding = projectClosure
       ? `将结束这个项目，并保存结果：${compactReviewText(projectClosure.actualResult)}${projectClosure.incompleteObjectives.length ? ` ${projectClosure.incompleteObjectives.length} 项未完成目标会保留明确后续。` : ""}`
       : record.proposal.finalPreview;
+    const reviewTitle = projectClosure
+      ? `结束项目：${record.proposal.title.replace(/^Closure Proposal:\s*/iu, "")}`
+      : record.proposal.title;
     const scopeBoundary = (isProjectClosure || (operationKinds.has("UPDATE_PROJECT_INTERFACE") && operationKinds.has("TRANSITION_LIFECYCLE")))
       ? "项目页面和正文不会被删除或改写。"
       : (isProjectCreation || operationKinds.has("CREATE_OBJECT"))
@@ -573,7 +576,7 @@ function renderReview(model: UiModel): string {
     return `<article class="card proposal v2-proposal" data-narration-rule="${escapeHtml(statusNarration.source.ruleId)}">
       <div class="eyebrow">待我确认 · ${escapeHtml(record.updatedAt)}</div>
       <h3>${escapeHtml(reviewStage)}</h3>
-      <p class="lead"><strong>${escapeHtml(record.proposal.title)}</strong></p>
+      <p class="lead"><strong>${escapeHtml(reviewTitle)}</strong></p>
       <section class="review-impact" aria-label="方案影响">
         <section><h4>系统理解</h4><p>${escapeHtml(systemUnderstanding)}</p></section>
         <section><h4>本次会改变什么</h4>${changes.length ? `<ul>${changes.map((change) => `<li>${escapeHtml(change)}</li>`).join("")}</ul>` : "<p>不会产生正式变化。</p>"}</section>
