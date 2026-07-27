@@ -600,6 +600,8 @@ test("Project current interface is readable in reentry and editable only through
   assert.match(closureEvidence, /第 1 步 · 检查关闭条件/);
   assert.match(closureEvidence, /还有 5 项需要你判断/);
   assert.match(closureEvidence, /尚未正式应用[\s\S]*现在退出不会修改项目、正文或当前关注/);
+  assert.match(closureEvidence, /<details class="objective-evidence-details"><summary>查看现有依据（1）<\/summary><p class="muted">恢复演练通过<\/p><\/details>/);
+  assert.doesNotMatch(closureEvidence, /<p class="muted">已有证据：恢复演练通过<\/p>/);
   assert.match(closureEvidence, /查看完整依据[\s\S]*原目标[\s\S]*稳定发布/);
   assert.match(closureEvidence, /交付与成果[\s\S]*发布手册/);
   assert.match(closureEvidence, /关键决定[\s\S]*没有直接归属 Decision 证据/);
