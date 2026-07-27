@@ -35,6 +35,11 @@ HIGH Review、Doctor/清锁、正常 Launcher 回切和 reload 健康。`p2-g-47
 P2-G Migration 写后响应丢失当前仓库证据为 `f17f46a`，Plugin artifact 为
 `757fac87d511`：`p2-g-60`～`65` 覆盖 HIGH Import、响应丢失后 ledger authority、
 Plugin reload 重建、Verify、安全 Undo 与正常 authority/Launcher 恢复。
+P2-G Migration Verify/Activate 失败重试又在当前 `e2361599fbc9` 完成真实 Desktop
+收口：隔离库复用既有私有配对凭据，先后触发 Verify 与 Activate 的事务前失败并在同一
+正式 ledger 上重试；最终当前构建 reload 只显示“V2 已启用”和只读历史。CURRENT
+截图 `p2-g-migration-verify-activate-retry-current-dark-e236159.png` 取代“该失败链
+只有自动证据”的旧结论。
 
 P0-H Graph switch 最新精确构建为 `ca50304e9aa2`。`p0-h-16`～`18` 分别证明未配置隔离
 Graph 首次显示时已安全受限、6 秒后仍不显示旧 Project，以及切回原 Graph 后约 3.75 秒
@@ -152,7 +157,7 @@ Gate：选错正文再次进入受控 Rebind，整库回退才进入 Backup/Rest
 missing/conflict 旧 Anchor 的通用 Undo；新成功态 Desktop 仍 OPEN。Restore 失败链和
 Migration 当时也未完成；Restore 失败链现已由后述 CURRENT `p2-g-55`～`59` 替代，
 Migration Import 写后响应丢失也由 `p2-g-60`～`65` 关闭；但 Rebind 指引、
-Migration Verify/Activate failure 与视觉 Gate 仍使 P2-G 和整体 Goal 保持
+Migration Light/窄栏视觉 Gate 仍使 P2-G 和整体 Goal 保持
 `IN_PROGRESS`。完整记录见
 `../logs/p2-g-rebind-desktop-live-20260726.md`。
 
@@ -257,8 +262,12 @@ Verify 后复用既有 HIGH Undo，正式对象真实 `4→5→4`，run/batch �
 `PREVIEWED/UNDONE`，SemanticCommit Pending/Recovery 始终 `0/0`。故障 Launcher、
 descriptor 和隔离 Service 退出后，正常 LaunchAgent、原 7 对象 authority 与 READY
 用户系统状态均恢复。CURRENT `p2-g-60`～`65` 取代“Migration interruption 无当前
-Desktop 证据”的旧结论；Verify/Activate failure 与 Light/窄栏仍 OPEN。完整记录见
-`../logs/p2-g-migration-response-loss-desktop-live-20260727.md`。
+Desktop 证据”的旧结论。Verify/Activate failure 随后也由
+`p2-g-migration-verify-activate-retry-current-dark-e236159.png` 关闭：失败继续由既有
+run/batch ledger 表达，同一计划重试，最终当前精确构建 reload 进入只读完成态；正常
+Launcher 和原 authority 已恢复。Light/窄栏仍 OPEN。完整记录见
+`../logs/p2-g-migration-response-loss-desktop-live-20260727.md` 与
+`../logs/p2-g-migration-verify-activate-failure-desktop-live-20260727.md`。
 
 ## 每次取证必须记录
 

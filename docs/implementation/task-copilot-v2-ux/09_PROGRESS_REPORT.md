@@ -27,7 +27,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K 与普通 Block route automated DONE；中文 IME/受限视觉、K 多宿主 Gate OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链和 Import 写后响应丢失→ledger reload→Verify→Undo 均有真实 Desktop。Migration Verify/Activate failure 与视觉 Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失与 Verify/Activate failure→same-ledger retry 均有真实 Desktop。Migration 视觉 Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ## 已完成
@@ -676,15 +676,17 @@ derivative/dashboard 价值也仍未完成。
   Pending/Recovery 始终 `0/0`。故障 Launcher 退出后，正常 LaunchAgent、7 对象 authority
   和 READY 用户状态恢复。CURRENT `p2-g-60`～`65`；新增正式状态、Skill、Prompt、
   Validator、生产恢复分支、平行 Runtime 与写入权威均为 `0`，本 Slice 不调用 Provider；
-- `df5d2ea` 关闭 Migration Verify/Activate 的自动失败原子性与重试子 Gate：test-only
+- `df5d2ea` 先关闭 Migration Verify/Activate 的自动失败原子性与重试子 Gate：test-only
   `beforeMigrationVerify` / `beforeMigrationActivate` 分别证明失败后保持
   `IMPORTING/IMPORTED` 与 `VERIFIED/VERIFIED`，同一正式 ledger 可重试至 `VERIFIED`
-  与 `ACTIVATED`，SemanticCommit Pending/Recovery 始终 `0/0`。根级检查、145 条稳定规则
-  与恢复演练均 PASS。真实 Logseq 已到隔离 Launcher 最终“安全连接”边界；该动作会把 token
-  写入插件私有 FileStorage，故未在缺少发生时确认时执行。正常 descriptor、LaunchAgent、
-  原 database authority 与 READY 状态已恢复。该项为
-  `AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`，不关闭 Migration failure Desktop Gate；
-  新增正式状态、Skill、Prompt、Validator、生产恢复分支、平行 Runtime 和写入权威均为 `0`；
+  与 `ACTIVATED`，SemanticCommit Pending/Recovery 始终 `0/0`。后续真实 Logseq 0.10.15
+  复用既有私有配对凭据，没有再次写入 FileStorage，在隔离测试数据库上完成
+  `Verify failure → 原 ledger 重试 → Activate failure → 原 ledger 重试 → reload`。
+  最终 run `ACTIVATED`、新 batch `VERIFIED`、objects `5`、Pending/Recovery `0/0`。
+  `e2361599fbc9` 精确当前构建 reload 后只显示“V2 已启用”和只读历史；正常 LaunchAgent、
+  原 database authority 与 READY 状态已恢复。该 Desktop Partial 从 OPEN 变为 DONE；
+  新增正式状态、Skill、Prompt、Validator、生产恢复分支、平行 Runtime 和写入权威均为 `0`，
+  Partial 总量净下降 `1`；
 - `25ddac9` / `4dfe014` 关闭高频壳层工程语言 Partial：删除顶部 Runtime/Store/Graph 状态条，
   把“更多”、启动、知识库切换和系统状态收敛为用户结论；恢复重连必须同时满足连接 READY、
   client 存在和正式修改可用。exact build 真实 reload 后，普通用户层约定工程词扫描为 `0`，
@@ -721,7 +723,7 @@ derivative/dashboard 价值也仍未完成。
   Partial；新增 Partial、正式状态、Skill、Prompt、Validator、Runtime、恢复分支与写入权威
   均为 `0`。P2-E stale 后续已由 `662246a` 当前构建关闭；当前只剩真正
   `RECOVERY_REQUIRED`。P1 Attention/Marker、
-  P0 宿主剩余 Gate 和 P2-G Migration failure Desktop 仍 OPEN。
+  P0 宿主剩余 Gate 和 P2-G Migration Light/窄栏视觉 Gate 仍 OPEN。
 - 本轮没有重新调用 Provider；既有 `recover-context@1.3.0`、真实 DeepSeek 质量和
   Validator 指标保持原证据，不能把 UI Gate 写成新的 Provider 验证。
 
@@ -786,7 +788,8 @@ derivative/dashboard 价值也仍未完成。
    `MIGRATION_SNAPSHOT_CHANGED` 证明单恢复基线边界，再修复为复用/重验计划原快照。
    当前正式对象 5、run ACTIVATED、Pending 0，`2beb1b5` 完整 restart 后只保留只读交接
    台账与 Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 均退出。写后响应丢失
-   已完成真实 `ledger→reload→Verify→Undo`；继续 Migration Verify/Activate failure 与
-   P2-G Light/窄栏视觉 Gate，不得加入第二迁移或恢复状态源。
+   已完成真实 `ledger→reload→Verify→Undo`，Verify/Activate 失败也已完成同 ledger
+   重试和当前构建 reload；继续 P2-G Light/窄栏视觉 Gate 与 Rebind 最新指引，不得加入
+   第二迁移或恢复状态源。
 3. 集中关闭 P0-J 中文 IME/受限视觉与 P0-K Query/reference/来源变化返回，并继续 P1-F
    DB Graph Page Head、P1 Attention 开放门和 Block Marker；P0-H 不再重复扩大宿主矩阵。

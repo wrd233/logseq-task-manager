@@ -407,8 +407,8 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
   bootstrap 正常 LaunchAgent 并 reload 后，Plugin exact build `fe0b590034ac`、Service
   formal writes、explicit sync 与系统状态均 READY；authority 仍指向原测试数据库，没有
   静默替换。真实 double-failure 子 Gate 因而升级为
-  `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`；Light/窄栏和 Migration
-  Verify/Activate failure 仍 OPEN，Import 写后响应丢失已由后述 Gate 关闭。完整记录见
+  `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`；Light/窄栏仍 OPEN，Migration
+  Verify/Activate failure 与 Import 写后响应丢失已由后述 Gate 关闭。完整记录见
   `logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
   `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md` 以及
   `logs/p2-g-restore-recovery-status-automated-20260726.md` 与
@@ -454,11 +454,16 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
   又以两个 test-only transaction-before fault hook 自动证明 Verify 失败保持
   `IMPORTING/IMPORTED`、Activate 失败保持 `VERIFIED/VERIFIED`，并可在同一 ledger 上
   分别重试到 `VERIFIED` 与 `ACTIVATED`，SemanticCommit Pending/Recovery 为 `0/0`。
-  未新增正式状态、生产恢复分支或第二权威。真实 Desktop 已到隔离 Launcher 的最终
-  “安全连接”边界；因该动作会将 token 写入插件私有 FileStorage，本轮没有越过发生时确认，
-  也没有伪报 Desktop PASS。正常 descriptor、LaunchAgent、原 authority 与 Logseq READY
-  已恢复。因此该子 Gate 为 `AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`；视觉 Gate
-  仍 OPEN，P2-G 与整体 Goal 继续 `IN_PROGRESS`；
+  未新增正式状态、生产恢复分支或第二权威。随后真实 Logseq 0.10.15 在隔离测试数据库上
+  复用既有私有配对凭据，没有再次写入 FileStorage 或建立新持久访问权，完成
+  `Verify failure → 原 ledger 重试 → Activate failure → 原 ledger 重试 → reload`。
+  Verify 失败保持 `IMPORTING/IMPORTED`，Activate 失败保持 `VERIFIED/VERIFIED`；
+  最终同一 run 进入 `ACTIVATED`，SemanticCommit Pending/Recovery 始终 `0/0`。当前
+  `e2361599fbc9` 精确构建 reload 后只显示“V2 已启用”和只读历史。故障运行时退出后，
+  正常 LaunchAgent、原 authority 与 Logseq READY 已恢复。该子 Gate 升级为
+  `MIGRATION_VERIFY_ACTIVATE_FAILURE_RETRY_DESKTOP_DONE`；Light/窄栏视觉 Gate 仍 OPEN，
+  P2-G 与整体 Goal 继续 `IN_PROGRESS`。完整记录见
+  `logs/p2-g-migration-verify-activate-failure-desktop-live-20260727.md`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
@@ -485,9 +490,9 @@ Migration item Review/Preview Desktop DONE,
 Migration recovery-point/Import/Verify/Undo normal main chain Desktop DONE,
 Migration Activation normal main chain Desktop DONE,
 Migration post-write response-loss→ledger reload→Verify→Undo Desktop DONE,
-Migration Verify/Activate failure atomicity+retry AUTOMATED DONE, Desktop confirmation required,
+Migration Verify/Activate failure→same-ledger retry→reload Desktop DONE,
 Rebind Recovery/Undo guidance AUTOMATED,
-Restore rollback-failure manual recovery chain Desktop DONE, Migration verify/activate failure and visual gates OPEN /
+Restore rollback-failure manual recovery chain Desktop DONE, Migration visual gates OPEN /
 overall Goal IN_PROGRESS
 
 ## 当前阶段结论

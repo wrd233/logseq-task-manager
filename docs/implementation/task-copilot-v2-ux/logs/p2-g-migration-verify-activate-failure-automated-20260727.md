@@ -79,3 +79,11 @@ FileStorage，属于发生时必须确认的持久访问动作，因此本轮停
 
 并覆盖代表性用户文案与最终健康读回。完成后恢复正常 descriptor、LaunchAgent、
 Service 和原 database authority；Light/窄栏另按代表性矩阵验证。
+
+## 后续 Desktop 收口
+
+同日后续 Gate 复用了安装态中已经存在的同一私有配对凭据，没有再次写入 Plugin
+FileStorage，也没有创建新的持久访问权。隔离测试数据库已真实完成
+`Verify failure → 原 ledger 重试 → Activate failure → 原 ledger 重试 → reload`，
+本文件记录的 `OPEN` 历史状态已由
+`p2-g-migration-verify-activate-failure-desktop-live-20260727.md` 取代。

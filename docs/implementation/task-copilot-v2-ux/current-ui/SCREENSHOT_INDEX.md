@@ -186,6 +186,7 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p2-g-63-migration-verified-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 点击 Verify | 显示本批验证通过、尚未启用，并只给出安全撤销/启用动作 | run/batch 均 VERIFIED，objects=5 |
 | `screenshots/p2-g-64-migration-safe-undo-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 既有 HIGH Undo 最终确认后撤销测试批次 | 明确正式对象回到导入前范围，审阅和审计证据保留 | objects=4，run/batch=`PREVIEWED/UNDONE`，Pending/Recovery=0/0 |
 | `screenshots/p2-g-65-migration-normal-runtime-restored-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 停止故障 Launcher、恢复原 descriptor/LaunchAgent 并 reload Plugin | 用户系统状态 READY、当前无受影响能力、无需操作 | 原 authority 7 对象，loopback `19673`；故障 `19674` 已停止 |
+| `screenshots/p2-g-migration-verify-activate-retry-current-dark-e236159.png` | `e2361599fbc9` | 隔离库完成 Verify failure→同 ledger retry→Activate failure→同 ledger retry；重新构建并 reload 当前 Plugin | “一次性迁移已完成 · 只读历史”“V2 已启用”；旧 UNDONE 与新 VERIFIED 批次可读，无 scan/Review/Import/Undo/Activate | Logseq 0.10.15、File Graph、Dark、1000×720；中间故障动作使用 migration 路径未变化的 `2148f42b00cb` artifact，CURRENT 只记录精确当前构建 reload；Light/窄栏仍 OPEN |
 
 ## HISTORICAL
 

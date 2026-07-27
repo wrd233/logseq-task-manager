@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑、Provider error 和 generation stale、P2-G 真实连续双重 Restore→人工恢复及 Migration 写后响应丢失子 Gate 已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E 真正 RECOVERY_REQUIRED、P2-G Migration Verify/Activate failure 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑、Provider error 和 generation stale、P2-G 真实连续双重 Restore→人工恢复、Migration 写后响应丢失及 Verify/Activate failure retry 子 Gate 已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E 真正 RECOVERY_REQUIRED、P2-G 视觉与 Rebind 指引仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -128,6 +128,23 @@
   CURRENT 截图。
 - 风险变化：状态/Recovery/Runtime 分裂未上升；Partial 堆积仍为 HIGH，等待一次有确认的
   隔离 Desktop failure→retry→reload Gate。
+- LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
+
+### P2-G Migration Verify / Activate Desktop 失败重试收敛（2026-07-27）
+
+- 新增正式状态、顶层导航、Skill、Prompt、Validator、生产 Recovery 分支、平行 Runtime、
+  平行写入权威：均为 `0`。
+- 真实 Logseq 0.10.15 复用安装态中已经存在的私有配对凭据，没有再次写入 FileStorage；
+  隔离库完成 Verify failure→原 ledger 重试→Activate failure→原 ledger 重试→reload。
+- Verify 失败仍由 `IMPORTING/IMPORTED` 表达，Activate 失败仍由
+  `VERIFIED/VERIFIED` 表达；没有创建恢复状态、恢复页、第二批导入或独立 Undo。
+- 最终 run `ACTIVATED`、新 batch `VERIFIED`、objects `5`、SemanticCommit
+  Pending/Recovery `0/0`；当前 `e2361599fbc9` 构建 reload 后只保留只读历史。
+- 正常 LaunchAgent、Service 与原 database authority 已恢复；没有静默替换。
+- Partial 总量净下降 `1`：Migration Verify/Activate failure Desktop `OPEN→DONE`；
+  新增 Partial `0`。
+- 风险变化：Recovery/状态/Runtime 分裂未上升；Partial 堆积仍为 HIGH，但阻断项已收敛为
+  P0/P1 宿主与视觉 Gate、P2-E 真正 RECOVERY_REQUIRED、P2-G Light/窄栏及 Rebind 指引。
 - LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
 - `25ddac9` / `4dfe014` 关闭高频壳层发布阻断：删除主面板重复运行条，统一“更多”、启动、知识库切换和系统状态的用户语言；连接恢复只有在正式修改也可用时才报告成功。
 - exact build `4dfe014902a3` 已完成后台真实 Plugin reload、默认用户层工程词扫描 `0` 和三张 CURRENT Desktop 截图；工程概念泄漏由 HIGH 降为 MEDIUM，但高级 Review/Grill/Project/Migration/Restore 表面仍阻断发布。
