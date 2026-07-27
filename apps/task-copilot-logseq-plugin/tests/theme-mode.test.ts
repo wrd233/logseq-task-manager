@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyHostThemeMode, detectVisibleThemeMode, registerHostThemeModeSync, type ThemeModeRoot, type VisibleThemeDocument } from "../src/theme-mode.ts";
+import { applyHostThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync, type ThemeModeRoot, type VisibleThemeDocument } from "../src/theme-mode.ts";
 
 function root(): ThemeModeRoot {
   return { dataset: {}, style: { colorScheme: "" } };
@@ -87,4 +87,13 @@ test("infers the visible theme from Logseq background tokens when no theme marke
 
   assert.equal(detectVisibleThemeMode(document("#10231b")), "dark");
   assert.equal(detectVisibleThemeMode(document("rgb(246, 247, 244)")), "light");
+});
+
+test("uses the operating-system color scheme only when the host document is isolated", () => {
+  assert.equal(detectSystemThemeMode((query) => ({ matches: query.includes("dark") })), "dark");
+  assert.equal(detectSystemThemeMode((query) => ({ matches: query.includes("light") })), "light");
+  assert.equal(detectSystemThemeMode(() => ({ matches: false })), undefined);
+  assert.equal(detectSystemThemeMode(() => {
+    throw new Error("unavailable");
+  }), undefined);
 });

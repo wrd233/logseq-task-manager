@@ -112,6 +112,9 @@
 #task-copilot-personal-mvp-root .review-choice > p { margin: 0 0 10px; }
 #task-copilot-personal-mvp-root .review-primary-action { margin-top: 14px; }
 #task-copilot-personal-mvp-root .review-evidence-details { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+#task-copilot-personal-mvp-root .review-history { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+#task-copilot-personal-mvp-root .review-history > summary { font-weight: 700; color: var(--text); }
+#task-copilot-personal-mvp-root .review-history > .cards { margin-top: 12px; }
 #task-copilot-personal-mvp-root .uncertain { color: var(--warning); }
 #task-copilot-personal-mvp-root .reentry { max-width: 780px; margin: 0 auto; }
 #task-copilot-personal-mvp-root .restore { padding: 13px; border-radius: 10px; background: var(--accent-soft); }

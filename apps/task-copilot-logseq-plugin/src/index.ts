@@ -117,7 +117,7 @@ import {
   type MigrationExecutionClient,
   type PluginMigrationRunView,
 } from "./migration-execution-controller.ts";
-import { applyHostThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
+import { applyHostThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -4364,12 +4364,21 @@ async function main(): Promise<void> {
   ));
   try {
     const visibleHostDocument = globalThis.parent?.document ?? globalThis.document;
-    const visibleMode = detectVisibleThemeMode(visibleHostDocument);
+    const visibleMode = detectVisibleThemeMode(visibleHostDocument)
+      ?? detectSystemThemeMode(globalThis.matchMedia?.bind(globalThis));
     if (visibleMode) applyHostThemeMode(themeRoot, visibleMode);
   } catch (error) {
-    operationalLogger.log("warn", "plugin-lifecycle", "visible_theme_detection_failed", {
-      result: "api_theme_retained",
-    }, error);
+    const systemMode = detectSystemThemeMode(globalThis.matchMedia?.bind(globalThis));
+    if (systemMode) {
+      applyHostThemeMode(themeRoot, systemMode);
+      operationalLogger.log("info", "plugin-lifecycle", "visible_theme_detection_failed", {
+        result: "system_theme_fallback",
+      });
+    } else {
+      operationalLogger.log("warn", "plugin-lifecycle", "visible_theme_detection_failed", {
+        result: "api_theme_retained",
+      }, error);
+    }
   }
   operationalLogger.log("info", "plugin-lifecycle", "event_listeners_registered", { result: "success" });
 

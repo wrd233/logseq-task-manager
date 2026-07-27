@@ -1565,10 +1565,9 @@ test("Review Center owns manual current-page candidate discovery instead of Diag
   value.v2CandidatePanel = { status: "idle" };
   value.v2CandidateAvailable = true;
   const html = renderApp(value);
-  assert.match(html, /待整理 · 当前页/);
-  assert.match(html, /显式对象候选/);
+  assert.match(html, /从当前页发现待整理内容/);
   assert.match(html, /data-action="v2-candidate-open"/);
-  assert.match(html, /不扫描全 Graph/);
+  assert.match(html, /不扫描整个知识库/);
   assert.match(html, /data-action="review-mode" data-value="candidates"/);
   assert.match(html, /data-action="review-mode" data-value="proposals"/);
   assert.match(html, /role="group" aria-label="审阅中心视图"/);
@@ -1589,7 +1588,7 @@ test("Review Center renders persisted Candidate decisions and Proposal generatio
   for (const action of ["v2-candidate-formalize", "v2-candidate-update", "v2-candidate-later", "v2-candidate-dismiss", "v2-candidate-no-more"]) assert.match(html, new RegExp(`data-action="${action}"`));
   assert.match(html, /保持普通内容/);
   assert.match(html, /以后不再提示/);
-  assert.match(html, /扫描只保存 Candidate，不创建正式对象/);
+  assert.match(html, /只进入待整理列表，不会创建正式事项/);
   assert.ok(html.indexOf("核对真实原文") < html.indexOf("显式标识") && html.indexOf("显式标识") < html.indexOf("生成 Task Proposal"), "original content precedes reason and Agent suggestion");
 });
 
@@ -1620,9 +1619,9 @@ test("Review Center exposes Provider analysis only when capability is enabled an
   available.v2ProviderAvailable = true;
   available.v2ProviderState = { status: "loading", message: "正在分析当前选中 Block；Logseq 正文仍可编辑。" };
   const html = renderApp(available);
-  assert.match(html, /局部语义 · DeepSeek Provider/);
+  assert.match(html, /AI 辅助 · 只读分析/);
   assert.match(html, /data-action="v2-provider-analyze-current-block"[^>]*disabled aria-busy="true"/);
-  assert.match(html, /只生成可审阅 Proposal/);
+  assert.match(html, /只生成一份可审阅方案/);
   assert.match(html, /正文仍可编辑/);
 });
 
@@ -1749,6 +1748,9 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:abc", proposalId: "prop_v2", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-20T12:00:00.000Z", updatedAt: "2026-07-20T12:01:00.000Z" }];
   html = renderApp(value);
+  assert.match(html, /当前没有需要审阅的方案/);
+  assert.match(html, /<details class="review-history"><summary>历史记录（1）<\/summary>/);
+  assert.doesNotMatch(html, /<details class="review-history"[^>]*\sopen/);
   assert.match(html, /data-action="v2-proposal-undo"/);
   assert.match(html, /已正式应用/);
 });

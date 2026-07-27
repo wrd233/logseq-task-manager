@@ -47,12 +47,11 @@ test("manual candidate discovery traverses only the current page within explicit
   assert.equal(preview.truncated, true, "the seventh current-page block is not processed into the candidate set");
   assert.equal(preview.invalidExplicitBlocks, 1);
   const html = renderV2ExplicitCandidateDiscoveryPanel({ status: "ready", preview, serviceGeneration: 3 }, true);
-  assert.match(html, /只扫描当前页/);
-  assert.match(html, /不扫描全 Graph/);
+  assert.match(html, /只检查当前页/);
   assert.match(html, /candidate-task/);
   assert.doesNotMatch(html, /known-task/);
   assert.doesNotMatch(html, /historical-task/);
-  assert.match(html, /整批保存为 Candidate/);
+  assert.match(html, /只加入待整理列表/);
   const busyHtml = renderV2ExplicitCandidateDiscoveryPanel({ status: "ready", preview, serviceGeneration: 3, busy: true }, true);
   assert.match(busyHtml, /保存中/);
   assert.doesNotMatch(busyHtml, /data-action="v2-candidate-cancel"/);

@@ -29,6 +29,12 @@ export interface VisibleThemeDocument {
   } | null;
 }
 
+export interface ThemeMediaQuery {
+  matches: boolean;
+}
+
+export type ThemeMediaQueryReader = (query: string) => ThemeMediaQuery;
+
 export function applyHostThemeMode(root: ThemeModeRoot, mode: unknown): boolean {
   if (mode !== "light" && mode !== "dark") return false;
   root.dataset.themeMode = mode;
@@ -71,6 +77,17 @@ export function detectVisibleThemeMode(document: VisibleThemeDocument | undefine
   const background = style.getPropertyValue("--ls-primary-background-color") || style.backgroundColor || "";
   const luminance = colorLuminance(background);
   return luminance === undefined ? undefined : luminance < 0.45 ? "dark" : "light";
+}
+
+export function detectSystemThemeMode(matchMedia: ThemeMediaQueryReader | undefined): HostThemeMode | undefined {
+  if (!matchMedia) return undefined;
+  try {
+    if (matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+    if (matchMedia("(prefers-color-scheme: light)").matches) return "light";
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 export async function registerHostThemeModeSync(

@@ -439,12 +439,12 @@ function renderReview(model: UiModel): string {
   if (reviewMode === "candidates") {
     const providerState = model.v2ProviderState ?? { status: "idle" as const };
     const providerPanel = model.v2ProviderAvailable
-      ? `<section class="card compact"><div class="eyebrow">局部语义 · DeepSeek Provider</div><h3>分析当前选中 Block</h3><p>只生成可审阅 Proposal；普通记录会返回理由且零写入。不会自动扫描页面或修改正式状态。</p><div class="actions">${button(providerState.status === "loading" ? "分析中…" : "分析当前块", "v2-provider-analyze-current-block", undefined, "primary", providerState.status === "loading")}</div>${providerState.message ? `<div class="${providerState.status === "error" ? "error" : "notice"}">${escapeHtml(providerState.message)}</div>` : ""}</section>`
+      ? `<section class="card compact"><div class="eyebrow">AI 辅助 · 只读分析</div><h3>理解当前选中内容</h3><p>只生成一份可审阅方案；普通记录会说明为什么暂不整理。不会自动扫描页面或修改正式状态。</p><div class="actions">${button(providerState.status === "loading" ? "分析中…" : "分析当前内容", "v2-provider-analyze-current-block", undefined, "primary", providerState.status === "loading")}</div>${providerState.message ? `<div class="${providerState.status === "error" ? "error" : "notice"}">${escapeHtml(providerState.message)}</div>` : ""}</section>`
       : "";
-    return `${tabs}${providerPanel}${candidatePanel || empty("当前不可扫描候选", "Local Service 就绪后，可手动扫描当前页；不会自动扫描全 Graph。")}`;
+    return `${tabs}${providerPanel}${candidatePanel || empty("当前无法读取待整理内容", "连接恢复后可手动检查当前页；系统不会自动扫描整个知识库。")}`;
   }
-  const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>V2 审阅队列未加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>没有修改任何 Proposal 或正式状态。</span></div>` : "";
-  const v2Cards = v2.map((record) => {
+  const v2LoadError = model.v2ProposalLoadError ? `<div class="error"><strong>审阅列表暂时没有加载：</strong>${escapeHtml(model.v2ProposalLoadError)}<span>现有内容和正式状态没有变化。</span></div>` : "";
+  const renderV2Card = (record: ServiceStoredProposal): string => {
     const statusNarration = projectPluginProposalNarration(record, model.v2SemanticCommits ?? []);
     const lowRiskApply = lowRiskApplyEligibility(record);
     const lowRiskApplyBusy = model.v2LowRiskApplyBusyProposalId === record.proposal.proposalId;
@@ -580,9 +580,16 @@ function renderReview(model: UiModel): string {
         <p class="muted">规则 ${escapeHtml(statusNarration.source.ruleId)} · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)}</p>
       </details>
     </article>`;
-  }).join("");
-  if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "在待整理视图分析当前 Block，或从当前页 Candidate 生成 Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
-  return `${tabs}${v2LoadError}<div class="cards">${v2Cards}${open
+  };
+  const currentV2 = v2.filter((record) => !["APPLIED", "REJECTED"].includes(record.proposal.status));
+  const historicalV2 = v2.filter((record) => ["APPLIED", "REJECTED"].includes(record.proposal.status));
+  const currentV2Cards = currentV2.map(renderV2Card).join("");
+  const historicalV2Cards = historicalV2.length
+    ? `<details class="review-history"><summary>历史记录（${historicalV2.length}）</summary><p class="muted">已应用、已撤销或不再采用的方案保留在这里，不影响当前判断。</p><div class="cards">${historicalV2.map(renderV2Card).join("")}</div></details>`
+    : "";
+  const emptyCurrentReview = empty("当前没有需要审阅的方案", model.agent.enabled ? "历史记录已收起；可在“待整理”中分析当前 Block，或从当前页候选生成新方案。" : "Agent 已关闭；基础事务系统仍可使用。");
+  if (open.length === 0 && currentV2.length === 0 && !v2LoadError) return `${tabs}${emptyCurrentReview}${historicalV2Cards}`;
+  return `${tabs}${v2LoadError}<div class="cards">${currentV2Cards}${open
     .map(
       (proposal) => `<article class="card proposal">
         <div class="eyebrow">${escapeHtml(proposal.providerId)} · ${escapeHtml(proposal.generatedAt)}</div>
@@ -611,7 +618,7 @@ function renderReview(model: UiModel): string {
         <div class="actions">${model.proposalImpacts[proposal.proposalId]?.commitReady ? button("提交已确认操作", "commit-proposal", proposal.proposalId, "primary") : ""}${button("全部拒绝", "reject-proposal", proposal.proposalId, "danger")}</div>
       </article>`,
     )
-    .join("")}</div>`;
+    .join("")}</div>${historicalV2Cards}`;
 }
 
 function renderProjectContextRecovery(
