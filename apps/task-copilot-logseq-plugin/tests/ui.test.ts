@@ -76,7 +76,7 @@ test("Project LIGHT router exposes durable Condition Undo and renders a bounded 
   value.actionDialog = { kind: "v2-project-operation-router", value: "project-condition-undo|3" };
   const router = renderApp(value);
   assert.match(router, /data-action="v2-condition-undo-open"/);
-  assert.match(router, /普通关联（需先补 Undo）/);
+  assert.match(router, /处理归属或关联（安全撤销补齐后开放）/);
   assert.doesNotMatch(router, /data-action="v2-project-operation-association"/);
 
   value.v2ConditionUndoPreparation = {
@@ -92,7 +92,7 @@ test("Project LIGHT router exposes durable Condition Undo and renders a bounded 
   value.actionDialog = { kind: "confirm-v2-condition-undo", value: `project-condition-undo|${"a".repeat(64)}|3` };
   const confirmation = renderApp(value);
   assert.match(confirmation, /从“我先暂停”恢复为“可以行动”/);
-  assert.match(confirmation, /不会改变 Lifecycle、Focus、Ownership、正文或 Project 当前接口/);
+  assert.match(confirmation, /不会改变正文、是否完成、当前关注或归属/);
   assert.match(confirmation, /data-action="submit-v2-condition-undo"/);
 });
 
@@ -324,11 +324,11 @@ test("V2 Proposal review leads with deterministic narration and keeps raw status
   value.v2SemanticCommits = [];
 
   const html = renderApp(value);
-  const cardLead = html.match(/<article class="card proposal v2-proposal"[^>]*>([\s\S]*?)<section class="suggestion">/)?.[1] ?? "";
-  assert.match(cardLead, /修改内容已经确认，尚未正式应用/);
-  assert.match(cardLead, /正式正文与对象尚未由完成 Commit 证明生效/);
+  const cardLead = html.match(/<article class="card proposal v2-proposal"[^>]*>([\s\S]*?)<details class="review-evidence-details">/)?.[1] ?? "";
+  assert.match(cardLead, /方案已审阅，等待确认应用/);
+  assert.match(cardLead, /上一步只是确认方案/);
   assert.doesNotMatch(cardLead, />ACCEPTED</);
-  assert.match(html, /状态依据与技术信息[\s\S]*proposal-accepted-not-applied[\s\S]*ACCEPTED/);
+  assert.match(html, /查看完整依据[\s\S]*proposal-accepted-not-applied[\s\S]*ACCEPTED/);
   assert.match(html, /data-action="v2-proposal-commit"/);
 });
 
@@ -500,14 +500,13 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
     },
   };
   const withDraft = renderApp(value);
-  assert.match(withDraft, /Copilot 草稿 · 不保存第二摘要/);
+  assert.match(withDraft, /上下文恢复 · 不改变项目/);
   assert.match(withDraft, /这次建议怎么样？/);
-  assert.match(withDraft, /本次会话不再这样建议/);
   assert.match(withDraft, /data-action="v2-project-context-feedback"/);
   assert.match(withDraft, /已确认事实[\s\S]*正式 Condition 正在等待厂家参数/);
-  assert.match(withDraft, /Copilot 判断[\s\S]*参数到达后可继续资源测算/);
-  assert.match(withDraft, /仍不知道[\s\S]*参数到达时间未知/);
-  assert.match(withDraft, /可讨论建议[\s\S]*必须另建 Proposal 审阅/);
+  assert.match(withDraft, /值得留意[\s\S]*参数到达后可继续资源测算/);
+  assert.match(withDraft, /继续前仍需确认[\s\S]*参数到达时间未知/);
+  assert.match(withDraft, /可选调整[\s\S]*如需修改，会先单独审阅/);
   assert.match(withDraft, /data-action="v2-open-primary-anchor" data-value="block-project"/);
   assert.doesNotMatch(withDraft, /context-fingerprint-private|scope-hash-private|anchor-project/);
 
@@ -563,22 +562,19 @@ test("Project current interface is readable in reentry and editable only through
   assert.match(html, /data-action="v2-project-operation-router-open"/);
   value.actionDialog = { kind: "v2-project-operation-router", value: "project-structure|2" };
   const router = renderApp(value);
-  assert.match(router, /选择这次要改变什么/);
-  assert.match(router, /低摩擦[\s\S]*有界直接命令/);
-  assert.match(router, /状态变化已有跨 reload 的版本化 Undo/);
-  assert.match(router, /普通关联尚未具备 inverse，因此在这个正式路由中保持关闭，不计入最终 Gate/);
-  assert.match(router, /审阅后应用[\s\S]*不得改变 Ownership、Lifecycle、Objectives/);
-  assert.match(router, /深度结构[\s\S]*讨论、最终阅读、Commit 与 Undo/);
+  assert.match(router, /你想让这个项目发生什么变化/);
+  assert.match(router, /更新当前状态[\s\S]*保存后可以撤销/);
+  assert.match(router, /整理项目摘要[\s\S]*不改变目标、成果、正文或归属/);
+  assert.match(router, /调整目标、成果和推进结构[\s\S]*未确认前不会写入/);
+  assert.match(router, /结束这个项目[\s\S]*不会直接结束项目/);
   assert.match(router, /data-action="v2-condition-open"/);
-  assert.match(router, /普通关联（需先补 Undo）/);
+  assert.match(router, /处理归属或关联（安全撤销补齐后开放）/);
   assert.doesNotMatch(router, /data-action="v2-project-operation-association"/);
   assert.match(router, /data-action="v2-project-narration-propose"/);
-  assert.match(router, /建议只替换当前摘要/);
-  assert.match(router, /也可 Undo/);
   assert.match(router, /data-action="v2-project-structure-open"/);
   assert.match(router, /data-action="v2-project-closure-evidence-open"/);
-  assert.match(router, /先只整理正式证据，不会生成 Proposal 或完成 Project/);
-  assert.doesNotMatch(router, /直接修改主归属/);
+  const routerDialog = router.match(/<section class="inbox-dialog action-dialog project-operation-router"[\s\S]*?<\/section>/)?.[0] ?? "";
+  assert.doesNotMatch(routerDialog, /低摩擦|审阅后应用|深度结构|Ownership|Lifecycle|Objectives|Commit/);
   value.v2ProjectClosureEvidence = {
     schemaVersion: "task-copilot-project-closure-evidence-v1",
     project: { objectId: "project-structure", version: 2, text: "发布治理", currentSummary: "核心链路已完成。", sourceRefs: ["object:project-structure@v2"] },
@@ -601,10 +597,12 @@ test("Project current interface is readable in reentry and editable only through
   };
   value.actionDialog = { kind: "v2-project-closure-evidence", value: "project-structure|2" };
   const closureEvidence = renderApp(value);
-  assert.match(closureEvidence, /只读证据 · 尚未形成 Proposal/);
-  assert.match(closureEvidence, /原目标候选[\s\S]*稳定发布/);
-  assert.match(closureEvidence, /交付与 Output 候选[\s\S]*发布手册/);
-  assert.match(closureEvidence, /关键 Decision 候选[\s\S]*没有直接归属的 Decision 证据/);
+  assert.match(closureEvidence, /第 1 步 · 检查关闭条件/);
+  assert.match(closureEvidence, /还有 5 项需要你判断/);
+  assert.match(closureEvidence, /尚未正式应用[\s\S]*现在退出不会修改项目、正文或当前关注/);
+  assert.match(closureEvidence, /查看完整依据[\s\S]*原目标[\s\S]*稳定发布/);
+  assert.match(closureEvidence, /交付与成果[\s\S]*发布手册/);
+  assert.match(closureEvidence, /关键决定[\s\S]*没有直接归属 Decision 证据/);
   assert.match(closureEvidence, /每个目标仍需判断[\s\S]*恢复演练通过/);
   assert.match(closureEvidence, /尚未收口的工作[\s\S]*完成恢复验收/);
   assert.match(closureEvidence, /目前无法确认[\s\S]*没有直接归属 Decision 证据/);
@@ -622,7 +620,7 @@ test("Project current interface is readable in reentry and editable only through
   const closureReady = renderApp(value);
   assert.match(closureReady, /data-action="submit-v2-project-closure-draft"/);
   assert.doesNotMatch(closureReady, /data-action="submit-v2-project-closure-draft"[^>]*disabled/);
-  assert.match(closureReady, /Copilot 只能压缩这些确认，不得替你改变判断/);
+  assert.match(closureReady, /下一步会先生成一份可阅读的关闭方案，仍不会直接结束项目/);
   value.v2ProjectClosureProposalBusy = true;
   const closureBusy = renderApp(value);
   assert.match(closureBusy, /正在整理关闭建议/);
@@ -645,7 +643,7 @@ test("Project current interface is readable in reentry and editable only through
   }
   value.actionDialog = { kind: "v2-project-structure-edit", value: "project-structure|2" };
   const dialog = renderApp(value);
-  assert.match(dialog, /生成 HIGH Proposal/);
+  assert.match(dialog, /审阅更新方案/);
   assert.match(dialog, /data-action="submit-v2-project-structure"/);
   assert.doesNotMatch(dialog, /直接保存正式状态/);
 });
@@ -1370,11 +1368,11 @@ test("V2 objects and Review expose reasoned cancellation and explicit reopen wit
   html = renderApp(value);
   assert.match(html, /data-action="v2-reasoned-lifecycle-commit"/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
-  assert.match(html, /记录原因并改变 Lifecycle，不改写 Graph/);
+  assert.match(html, /正文、当前关注、归属和位置保持不变/);
   value.actionDialog = { kind: "confirm-v2-reasoned-lifecycle", value: "prop-cancel|2026-07-22T13:00:01.000Z|CANCEL" };
   html = renderApp(value);
   assert.match(html, /data-action="submit-v2-reasoned-lifecycle"/);
-  assert.match(html, /单一 Domain Commit/);
+  assert.match(html, /只改变是否继续，不改写正文/);
 
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
@@ -1492,7 +1490,7 @@ test("V2 Condition is edited in one in-context form with explicit Waiting eviden
   value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], next: [], waitingReview: [], conditionOptions: [{ objectId: "blocker-task", objectType: "TASK", text: "恢复真实事件" }] };
   value.actionDialog = { kind: "v2-condition", value: "task-next|2" };
   const html = renderApp(value);
-  assert.match(html, /Condition 与 Lifecycle、Focus 分离/);
+  assert.match(html, /只记录眼下是否能继续，不会改变是否完成、当前关注或归属/);
   for (const field of ["v2ConditionKind", "v2WaitingFor", "v2ExpectedResult", "v2ConditionReason", "v2BlockerObjectId", "v2ConditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
   assert.match(html, /TASK · 恢复真实事件/);
   assert.match(html, /data-action="submit-v2-condition" data-value="task-next\|2"/);
@@ -1714,18 +1712,19 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
     },
   }];
   let html = renderApp(value);
-  assert.match(html, /最终可读预览/);
-  assert.match(html, /语义 Diff/);
+  assert.match(html, /系统理解[\s\S]*\[任务\] 告警/);
+  assert.match(html, /本次会改变什么[\s\S]*更新 1 处正文/);
+  assert.match(html, /查看完整依据[\s\S]*语义变化/);
   assert.doesNotMatch(html, /data-action="v2-low-risk-apply"/);
   for (const action of ["v2-review-accept", "v2-review-reject", "v2-review-defer"]) assert.match(html, new RegExp(`data-action="${action}"`));
-  assert.match(html, /审阅决定只更新 Proposal；尚未修改正式正文或对象/);
+  assert.match(html, /审阅方案只记录你的选择，尚未修改正式内容/);
   value.v2Proposals[0]!.proposal.groups[0]!.risk = "LOW";
   html = renderApp(value);
-  assert.match(html, /接受并应用/);
+  assert.match(html, /确认并应用/);
   assert.match(html, /data-action="v2-low-risk-apply"/);
   value.v2LowRiskApplyBusyProposalId = "prop_v2";
   html = renderApp(value);
-  assert.match(html, /正在接受并应用…/);
+  assert.match(html, /正在应用…/);
   assert.match(html, /data-action="v2-low-risk-apply"[^>]*disabled/);
   delete value.v2LowRiskApplyBusyProposalId;
   value.v2Proposals[0]!.proposal.groups[0]!.risk = "MEDIUM";
@@ -1743,15 +1742,15 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   value.v2Proposals[0]!.proposal.status = "ACCEPTED";
   value.v2Proposals[0]!.proposal.groups[0]!.disposition = "ACCEPTED";
   html = renderApp(value);
-  assert.match(html, /已接受的语义组尚未正式生效/);
-  assert.match(html, /显示 Undo/);
-  assert.match(html, /data-action="v2-proposal-revalidate"/);
+  assert.match(html, /方案已审阅，等待确认应用/);
+  assert.match(html, /上一步只是确认方案/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-revalidate"/);
   assert.match(html, /data-action="v2-proposal-commit"/);
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:abc", proposalId: "prop_v2", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-20T12:00:00.000Z", updatedAt: "2026-07-20T12:01:00.000Z" }];
   html = renderApp(value);
   assert.match(html, /data-action="v2-proposal-undo"/);
-  assert.match(html, /已正式生效/);
+  assert.match(html, /已正式应用/);
 });
 
 test("Project Closure Review shows the external Agent outcome and uses a dedicated completion confirmation", () => {
@@ -1773,14 +1772,14 @@ test("Project Closure Review shows the external Agent outcome and uses a dedicat
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
   value.actionDialog = { kind: "confirm-v2-project-closure", value: "prop-closure|2026-07-21T12:01:00.000Z" };
   html = renderApp(value);
-  assert.match(html, /未完成 Objective 的原因与去向/);
+  assert.match(html, /未完成目标的原因与去向/);
   assert.match(html, /data-action="submit-v2-project-closure"/);
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-closure", proposalId: "prop-closure", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-21T12:00:00.000Z", updatedAt: "2026-07-21T12:01:00.000Z" }];
   html = renderApp(value);
   assert.match(html, /data-action="v2-project-closure-undo"/);
-  assert.match(html, /原子恢复 OPEN 并移除当前 Closure/);
+  assert.match(html, /没有后续冲突时，可以从这里撤销本次应用/);
   assert.doesNotMatch(html, /当前证据不足以确认是否仍满足安全撤销条件/);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
   value.actionDialog = { kind: "confirm-v2-project-closure-undo", value: "proposal-commit:project-closure" };
@@ -1850,22 +1849,23 @@ test("Project creation Review uses the proposal-bound Page creation confirmation
   } }];
   let html = renderApp(value);
   assert.match(html, /data-action="v2-project-creation-commit"/);
-  assert.match(html, /创建或复用主 Page/);
+  assert.match(html, /创建一个新项目及其主页面/);
+  assert.match(html, /来源页面和原始材料会保留/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
   value.actionDialog = { kind: "confirm-v2-project-creation", value: "prop-project-creation|2026-07-25T15:01:00.000Z" };
   html = renderApp(value);
-  assert.match(html, /最终阅读结果与 Page 关系/);
+  assert.match(html, /最终阅读结果与页面关系/);
   assert.match(html, /data-action="submit-v2-project-creation"/);
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-creation", proposalId: "prop-project-creation", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-25T15:00:00.000Z", updatedAt: "2026-07-25T15:01:00.000Z" }];
   html = renderApp(value);
   assert.match(html, /data-action="v2-project-creation-undo"/);
-  assert.match(html, /专用空 Page 仅在精确所有权与空内容校验后移除/);
+  assert.match(html, /没有后续冲突时，可以从这里撤销本次应用/);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
   value.actionDialog = { kind: "confirm-v2-project-creation-undo", value: "proposal-commit:project-creation" };
   html = renderApp(value);
-  assert.match(html, /复用来源 Page 会原样保留/);
+  assert.match(html, /复用的来源页面会原样保留/);
   assert.match(html, /data-action="submit-v2-project-creation-undo"/);
 });
 
@@ -1882,11 +1882,11 @@ test("MiniProject restructure Review uses the recoverable Graph Commit and inver
 
   let html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-restructure-commit"/);
-  assert.match(html, /原位移动材料、保留 UUID 与正文/);
+  assert.match(html, /不会删除原材料；已有内容会保留原来的身份/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
   value.actionDialog = { kind: "confirm-v2-mini-project-restructure", value: "prop-mini-restructure|2026-07-24T15:01:00.000Z" };
   html = renderApp(value);
-  assert.match(html, /删除内容为 0/);
+  assert.match(html, /零删除边界/);
   assert.match(html, /data-action="submit-v2-mini-project-restructure"/);
   delete value.actionDialog;
   value.v2StructureCommitBusy = true;
@@ -1897,17 +1897,17 @@ test("MiniProject restructure Review uses the recoverable Graph Commit and inver
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:mini-restructure", proposalId: "prop-mini-restructure", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-24T15:00:00.000Z", updatedAt: "2026-07-24T15:01:00.000Z" }];
   html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-restructure-undo"/);
-  assert.match(html, /任何后续变化都会停止覆盖/);
+  assert.match(html, /没有后续冲突时，可以从这里撤销本次应用/);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
   value.actionDialog = { kind: "confirm-v2-mini-project-restructure-undo", value: "proposal-commit:mini-restructure" };
   html = renderApp(value);
-  assert.match(html, /独立 inverse Commit 留痕/);
+  assert.match(html, /只有全部材料仍等于已应用结果时才会开始/);
   assert.match(html, /data-action="submit-v2-mini-project-restructure-undo"/);
   delete value.actionDialog;
   value.v2SemanticCommits.push({ semanticCommitId: "mini-project-restructure-undo:proposal-commit:mini-restructure", proposalId: "prop-mini-restructure", status: "FAILED", beforeStateChecksum: "undo-before", createdAt: "2026-07-24T15:02:00.000Z", updatedAt: "2026-07-24T15:03:00.000Z" });
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-mini-project-restructure-undo"/);
-  assert.match(html, /原 Commit 仍有效/);
+  assert.match(html, /撤销因后续变化已安全停止/);
 });
 
 test("MiniProject DONE Review uses a dedicated final confirmation and does not expose generic Undo", () => {
@@ -1920,7 +1920,7 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   } }];
   let html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-closure-commit"/);
-  assert.match(html, /原子记录 MiniProject 三问 Closure 与 Lifecycle，并保留 Anchor 证据/);
+  assert.match(html, /正文、当前关注、归属和位置保持不变/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
   value.actionDialog = { kind: "v2-mini-project-closure-review", value: "prop-mini-close|complete-mini-project|2026-07-22T08:01:00.000Z|HIGH" };
   value.v2ProviderAvailable = true;
@@ -1931,14 +1931,14 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   assert.match(html, /data-field="miniClosureRemainingWork"/);
   assert.match(html, /<textarea data-field="miniClosureActualResult">收尾完成<\/textarea>/);
   assert.match(html, /data-action="v2-mini-project-closure-draft"/);
-  assert.match(html, /Agent 只生成可编辑草稿，不会接受或提交/);
+  assert.match(html, /Copilot 只帮助整理文字，最终判断仍由你确认/);
   assert.match(html, /data-field="miniClosureLegacyObjectType"/);
   assert.match(html, /data-action="v2-mini-project-legacy-transfer"/);
   assert.match(html, /新建并选中一个空 Block/);
-  assert.match(html, /保存三问并接受/);
+  assert.match(html, /确认这份方案/);
   value.v2ClosureDraftBusy = true;
   html = renderApp(value);
-  assert.match(html, /Agent 正在草拟…/);
+  assert.match(html, /Copilot 正在整理…/);
   assert.match(html, /data-action="v2-mini-project-closure-draft"[^>]*disabled[^>]*aria-busy="true"/);
   assert.match(html, /data-action="submit-v2-review-accept"[^>]*disabled[^>]*aria-busy="true"/);
   value.v2ClosureDraftBusy = false;
@@ -1949,7 +1949,7 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   value.v2ClosureReviewBusy = false;
   value.actionDialog = { kind: "confirm-v2-mini-project-closure", value: "prop-mini-close|2026-07-22T08:01:00.000Z" };
   html = renderApp(value);
-  assert.match(html, /原目标、实际结果和遗留三问/);
+  assert.match(html, /原目标、实际结果和遗留事项/);
   assert.match(html, /data-action="submit-v2-mini-project-closure"/);
   delete value.actionDialog;
   value.v2LifecycleCommitBusy = true;
@@ -1960,7 +1960,7 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:mini", proposalId: "prop-mini-close", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-22T08:00:00.000Z", updatedAt: "2026-07-22T08:01:00.000Z" }];
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
-  assert.match(html, /移除 Marker 不会自动重开/);
+  assert.match(html, /本次修改已正式应用/);
 });
 
 test("MiniProject Closure waits until every other group is explicitly rejected", () => {
@@ -1977,7 +1977,7 @@ test("MiniProject Closure waits until every other group is explicitly rejected",
   let html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-mini-project-closure-commit"/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
-  assert.match(html, /请先拒绝这些组，或将其拆成独立 Proposal/);
+  assert.match(html, /还有其他修改没有决定/);
   value.v2Proposals[0]!.proposal.groups[1]!.disposition = "REJECTED";
   html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-closure-commit"/);
@@ -1993,16 +1993,16 @@ test("object-only MiniProject Closure explains version revalidation without clai
     groups: [{ groupId: "complete-mini-project", explanation: "高影响关闭。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "complete-mini", kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: "mini-agent", version: 2 }, summary: "完成", payload: { lifecycle: "COMPLETED", objectType: "MINI_PROJECT", closure: { originalGoal: "外部交付", actualResult: "已完成", remainingWork: "无遗留" } }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-07-22T10:00:00.000Z",
   } }];
   let html = renderApp(value);
-  assert.match(html, /且不改写 Graph/);
+  assert.match(html, /正文、当前关注、归属和位置保持不变/);
   value.actionDialog = { kind: "confirm-v2-mini-project-closure", value: "prop-mini-agent|2026-07-22T10:01:00.000Z" };
   html = renderApp(value);
-  assert.match(html, /重验对象版本且不会改写 Logseq 正文/);
+  assert.match(html, /重新检查事项版本，且不会改写 Logseq 正文/);
   assert.doesNotMatch(html, /重验 Block、Anchor/);
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:agent", proposalId: "prop-mini-agent", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-22T10:00:00.000Z", updatedAt: "2026-07-22T10:01:00.000Z" }];
   html = renderApp(value);
-  assert.match(html, /本次对象级关闭未改写 Logseq 正文/);
+  assert.match(html, /正文、当前关注、归属和位置保持不变/);
 });
 
 test("HIGH Ownership Review uses a dedicated confirmation and never falls through to generic formalization", () => {
@@ -2015,11 +2015,11 @@ test("HIGH Ownership Review uses a dedicated confirmation and never falls throug
   } }];
   let html = renderApp(value);
   assert.match(html, /data-action="v2-ownership-commit"/);
-  assert.match(html, /确认改变主归属/);
+  assert.match(html, /确认调整主归属/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
   value.actionDialog = { kind: "confirm-v2-ownership", value: "prop-owner|2026-07-21T13:01:00.000Z" };
   html = renderApp(value);
-  assert.match(html, /位置、Anchor 和 Association 不会改变/);
+  assert.match(html, /正文、位置和普通关联不会改变/);
   assert.match(html, /data-action="submit-v2-ownership"/);
   value.v2OwnershipCommitBusy = true;
   delete value.actionDialog;
@@ -2031,7 +2031,7 @@ test("HIGH Ownership Review uses a dedicated confirmation and never falls throug
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-proposal-undo"/);
   assert.match(html, /data-action="v2-ownership-undo"/);
-  assert.match(html, /可恢复到审阅前主归属/);
+  assert.match(html, /没有后续冲突时，可以从这里撤销本次应用/);
   value.actionDialog = { kind: "confirm-v2-ownership-undo", value: "proposal-commit:owner" };
   html = renderApp(value);
   assert.match(html, /恢复为未归属/);
@@ -2040,12 +2040,12 @@ test("HIGH Ownership Review uses a dedicated confirmation and never falls throug
   value.v2SemanticCommits.push({ semanticCommitId: "ownership-undo:proposal-commit:owner", proposalId: "prop-owner", status: "FAILED", beforeStateChecksum: "before", createdAt: "2026-07-21T13:02:00.000Z", updatedAt: "2026-07-21T13:03:00.000Z" });
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-ownership-undo"/);
-  assert.match(html, /后续变化；Undo 已安全终止/);
+  assert.match(html, /撤销因后续变化已安全停止/);
   value.v2SemanticCommits.pop();
   value.v2SemanticCommits[0]!.status = "UNDONE";
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-ownership-undo"/);
-  assert.match(html, /原修改已撤销/);
+  assert.match(html, /本次修改已经撤销/);
 });
 
 test("completed Project keeps its readable Closure in the formal object workspace", () => {

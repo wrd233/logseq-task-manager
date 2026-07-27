@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyHostThemeMode, registerHostThemeModeSync, type ThemeModeRoot } from "../src/theme-mode.ts";
+import { applyHostThemeMode, detectVisibleThemeMode, registerHostThemeModeSync, type ThemeModeRoot, type VisibleThemeDocument } from "../src/theme-mode.ts";
 
 function root(): ThemeModeRoot {
   return { dataset: {}, style: { colorScheme: "" } };
@@ -54,4 +54,37 @@ test("keeps the CSS fallback when the initial host config cannot be read", async
   assert.equal(value.dataset.themeMode, undefined);
   assert.equal(errors.length, 1);
   off();
+});
+
+test("prefers the visible Logseq theme over a stale saved preference", () => {
+  const element = (className: string, attributes: Record<string, string> = {}) => ({
+    className,
+    getAttribute: (name: string) => attributes[name] ?? null,
+  });
+
+  assert.equal(detectVisibleThemeMode({
+    documentElement: element("is-electron dark-theme"),
+    body: element(""),
+  }), "dark");
+  assert.equal(detectVisibleThemeMode({
+    documentElement: element("", { "data-theme": "light" }),
+    body: element(""),
+  }), "light");
+});
+
+test("infers the visible theme from Logseq background tokens when no theme marker exists", () => {
+  const element = { className: "", getAttribute: () => null };
+  const document = (background: string): VisibleThemeDocument => ({
+    documentElement: element,
+    body: element,
+    defaultView: {
+      getComputedStyle: () => ({
+        backgroundColor: "",
+        getPropertyValue: (name: string) => name === "--ls-primary-background-color" ? background : "",
+      }),
+    },
+  });
+
+  assert.equal(detectVisibleThemeMode(document("#10231b")), "dark");
+  assert.equal(detectVisibleThemeMode(document("rgb(246, 247, 244)")), "light");
 });

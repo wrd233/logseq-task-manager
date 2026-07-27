@@ -5,7 +5,6 @@ import type {
   ProposalImpactView,
   ProjectReentryView,
 } from "@task-copilot/application";
-import { routeProjectOperation } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
 import type { ServiceConditionUndoPreparation, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
@@ -226,7 +225,7 @@ function renderNow(model: UiModel): string {
       const projected = model.v2ObjectNarrations?.[item.objectId];
       const narration = projected?.objectVersion === item.version ? projected.narration : undefined;
       const nextAction = narration?.nextAction;
-      const statusAction = narration?.nextActionEligible
+      const guidedStatusAction = narration?.nextActionEligible
         && nextAction
         && (
           nextAction.intent === "REVIEW_WAITING"
@@ -235,11 +234,18 @@ function renderNow(model: UiModel): string {
         )
         && nextAction.targetObjectId === item.objectId
         ? button(nextAction.label, "v2-condition-open", `${item.objectId}|${item.version}`, "primary")
-        : button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet");
+        : "";
+      const openLabel = item.objectType === "PROJECT" ? "打开项目" : kind === "focus" ? "继续处理" : "打开正文";
+      const primaryAction = guidedStatusAction
+        || (item.primaryAnchorExternalId
+          ? button(openLabel, "v2-open-primary-anchor", item.primaryAnchorExternalId, "primary")
+          : button("更新当前状态", "v2-condition-open", `${item.objectId}|${item.version}`, "primary"));
       const status = narration
-        ? `<p><strong>${escapeHtml(narration.conclusion)}</strong></p>${narration.keyEvidence.length ? `<p class="muted">${narration.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}${narration.unknowns.length ? `<p class="uncertain"><strong>尚不能确认：</strong>${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<details><summary>查看状态依据</summary><ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
+        ? `<p><strong>${escapeHtml(narration.conclusion)}</strong></p>${narration.keyEvidence.length ? `<p class="muted">${escapeHtml(narration.keyEvidence[0]!)}</p>` : ""}<details><summary>查看依据</summary>${narration.unknowns.length ? `<p class="muted">${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
         : `<p>${escapeHtml(item.reason)}</p>`;
-      return `<article class="card compact"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(item.objectType)}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${statusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${kind === "focus" ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}</div></article>`;
+      const secondaryStatusAction = !guidedStatusAction && !item.primaryAnchorExternalId ? "" : button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet");
+      const secondaryActions = `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${kind === "focus" ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}`;
+      return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(item.objectType)}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${primaryAction}</div><details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details></article>`;
     }).join("");
     const section = (title: string, source: ServiceNowWork["next"], kind: "focus" | "candidate") => {
       const values = filtered(source);
@@ -390,6 +396,37 @@ function renderFinalImpact(impact: ProposalImpactView | undefined): string {
   ].join("\n");
 }
 
+function userFacingSemanticOperation(operation: ServiceStoredProposal["proposal"]["groups"][number]["semanticOperations"][number]): string {
+  switch (operation.kind) {
+    case "CREATE_OBJECT":
+      return operation.payload.objectType === "PROJECT" ? "创建一个新项目及其主页面" : `创建新的 ${operation.payload.objectType}`;
+    case "UPDATE_PROJECT_NARRATION":
+      return "更新项目摘要";
+    case "UPDATE_PROJECT_INTERFACE":
+      return "更新项目的目标、成果和当前推进";
+    case "TRANSITION_LIFECYCLE":
+      return operation.payload.lifecycle === "COMPLETED" ? "将事项标记为已完成" : operation.payload.lifecycle === "CANCELLED" ? "取消这个事项" : "重新打开这个事项";
+    case "CHANGE_OWNERSHIP":
+      return "调整事项的主归属";
+    case "CREATE_BLOCK":
+      return "在原位置新增整理结构";
+    case "MOVE_BLOCK":
+      return "移动已有内容到审阅后的结构";
+    default:
+      return operation.summary;
+  }
+}
+
+function v2ReviewChanges(record: ServiceStoredProposal): string[] {
+  const visibleGroups = record.proposal.groups.filter((group) => group.disposition !== "REJECTED");
+  const textPatchCount = visibleGroups.reduce((total, group) => total + group.textPatches.length, 0);
+  const changes = [
+    ...(textPatchCount ? [`更新 ${textPatchCount} 处正文`] : []),
+    ...visibleGroups.flatMap((group) => group.semanticOperations.map(userFacingSemanticOperation)),
+  ];
+  return [...new Set(changes)];
+}
+
 function renderReview(model: UiModel): string {
   const open = model.proposals.filter((proposal) => proposal.status === "OPEN");
   const v2 = model.v2Proposals ?? [];
@@ -453,8 +490,6 @@ function renderReview(model: UiModel): string {
       ? acceptedGroups[0]!.semanticOperations[0]
       : undefined;
     const isReasonedLifecycle = reasonedLifecycleOperation?.kind === "TRANSITION_LIFECYCLE" && (reasonedLifecycleOperation.payload.action === "CANCEL" || reasonedLifecycleOperation.payload.action === "REOPEN");
-    const miniProjectClosureOperation = hasAcceptedMiniProjectClosure ? miniProjectClosureGroup!.semanticOperations[0] : undefined;
-    const isMarkerDrivenMiniProjectClosure = miniProjectClosureOperation?.payload.marker === "DONE";
     const originalCommit = model.v2SemanticCommits?.find((commit) => commit.proposalId === record.proposal.proposalId && commit.semanticCommitId.startsWith("proposal-commit:"));
     const ownershipUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `ownership-undo:${originalCommit.semanticCommitId}`) : undefined;
     const projectStructureUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `project-structure-undo:${originalCommit.semanticCommitId}`) : undefined;
@@ -471,27 +506,80 @@ function renderReview(model: UiModel): string {
     const canLifecycleUndo = isReasonedLifecycle && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && lifecycleUndoCommit?.status !== "FAILED" && lifecycleUndoCommit?.status !== "COMPLETED";
     const canUndo = !isProjectClosure && !isProjectStructure && !isProjectCreation && !isMiniProjectRestructure && !isMiniProjectClosure && !isReasonedLifecycle && !isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
     const canReviseWithProvider = model.v2ProviderAvailable === true && record.proposal.source.kind === "local_llm" && ["READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED"].includes(record.proposal.status);
-    return `<article class="card proposal v2-proposal" data-narration-rule="${escapeHtml(statusNarration.source.ruleId)}">
-    <div class="eyebrow">修改建议 · ${escapeHtml(record.updatedAt)}</div>
-    <h3>${escapeHtml(statusNarration.conclusion)}</h3>
-    ${statusNarration.keyEvidence.length ? `<p class="muted">${statusNarration.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}
-    ${statusNarration.unknowns.length && !canProjectClosureUndo ? `<p class="uncertain"><strong>尚不能确认：</strong>${escapeHtml(statusNarration.unknowns.join("；"))}</p>` : ""}
-    <p><strong>${escapeHtml(record.proposal.title)}</strong></p>
-    <p><strong>当前上下文：</strong>${escapeHtml(record.proposal.context)}</p>
-    <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
-    <section class="suggestion"><h4>最终可读预览</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
-    ${record.proposal.groups.map((group) => {
+    const changes = v2ReviewChanges(record);
+    const applied = record.proposal.status === "APPLIED";
+    const reviewStage = applied ? "已正式应用" : canCommit ? "方案已审阅，等待确认应用" : "请审阅这项方案";
+    const operationKinds = new Set(record.proposal.groups.filter((group) => group.disposition !== "REJECTED").flatMap((group) => group.semanticOperations.map((operation) => operation.kind)));
+    const scopeBoundary = (isProjectClosure || (operationKinds.has("UPDATE_PROJECT_INTERFACE") && operationKinds.has("TRANSITION_LIFECYCLE")))
+      ? "项目页面和正文不会被删除或改写。"
+      : (isProjectCreation || operationKinds.has("CREATE_OBJECT"))
+        ? "来源页面和原始材料会保留；不会静默删除已有内容。"
+        : (isMiniProjectRestructure || operationKinds.has("MOVE_BLOCK"))
+          ? "不会删除原材料；已有内容会保留原来的身份。"
+          : (isOwnershipChange || operationKinds.has("CHANGE_OWNERSHIP"))
+            ? "只调整主归属；正文、位置和普通关联保持不变。"
+            : (isReasonedLifecycle || operationKinds.has("TRANSITION_LIFECYCLE"))
+              ? "正文、当前关注、归属和位置保持不变。"
+              : "未在方案中的正文、状态和关系不会改变。";
+    const safetyItems = applied
+      ? [scopeBoundary, "没有后续冲突时，可以从这里撤销本次应用。"]
+      : [scopeBoundary, "现在退出是安全的；只有“确认应用”后才会正式生效。"];
+    const currentChoices = record.proposal.groups.filter((group) => group.disposition === "PENDING" || group.disposition === "DEFERRED").map((group) => {
       const reviewKind = group.semanticOperations.some((operation) => operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.objectType === "MINI_PROJECT" && operation.payload.lifecycle === "COMPLETED") ? "MINI_PROJECT_CLOSURE" : "ORDINARY";
       const deferral = group.disposition === "DEFERRED" && group.deferredUntil
         ? `<p class="muted">暂缓至 ${escapeHtml(new Date(group.deferredUntil).toLocaleString("zh-CN"))}${group.deferReason ? ` · ${escapeHtml(group.deferReason)}` : ""}</p>`
         : "";
-      return `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${deferral}${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义 Diff</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div>${group.disposition === "PENDING" || group.disposition === "DEFERRED" ? `<div class="actions">${lowRiskApply.eligible ? button(lowRiskApplyBusy ? "正在接受并应用…" : "接受并应用", "v2-low-risk-apply", `${record.proposal.proposalId}|${record.updatedAt}`, "primary", lowRiskApplyBusy) : ""}${button("仅接受，稍后应用", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}|${reviewKind}`, "quiet", lowRiskApplyBusy)}${button("拒绝", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet", lowRiskApplyBusy)}${button("暂缓", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet", lowRiskApplyBusy)}</div>` : ""}</section>`;
-    }).join("")}
-    ${canReviseWithProvider ? `<div class="actions">${button(model.v2ProviderRevisionBusy ? "Agent 调整中…" : "调整建议", "v2-provider-revise-open", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet", model.v2ProviderRevisionBusy === true)}</div>` : ""}
-    ${canCommit ? `<div class="actions">${button("提交前检查", "v2-proposal-revalidate", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet")}${button(isProjectClosure ? "确认完成 Project" : isProjectStructure ? "确认更新当前接口" : isProjectCreation ? "确认创建 Project" : isMiniProjectRestructure ? "确认原位重构" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消对象" : "确认重开对象") : isOwnershipChange ? "确认改变主归属" : "确认最终提交", isProjectClosure ? "v2-project-closure-commit" : isProjectStructure ? "v2-project-structure-commit" : isProjectCreation ? "v2-project-creation-commit" : isMiniProjectRestructure ? "v2-mini-project-restructure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit", `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, "primary", (isProjectCreation && model.v2ProjectCreationCommitBusy === true) || (isMiniProjectRestructure && model.v2StructureCommitBusy === true) || (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true))}</div>` : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>` : canProjectCreationUndo ? `<div class="actions">${button(model.v2ProjectCreationCommitBusy ? "正在安全撤销…" : "撤销 Project 创建", "v2-project-creation-undo", originalCommit.semanticCommitId, "danger", model.v2ProjectCreationCommitBusy === true)}</div>` : canProjectClosureUndo ? `<div class="actions">${button("撤销 Project Closure", "v2-project-closure-undo", originalCommit.semanticCommitId, "danger")}</div>` : canProjectStructureUndo ? `<div class="actions">${button("撤销当前接口更新", "v2-project-structure-undo", originalCommit.semanticCommitId, "danger")}</div>` : canMiniProjectRestructureUndo ? `<div class="actions">${button(model.v2StructureCommitBusy ? "正在安全撤销…" : "撤销原位重构", "v2-mini-project-restructure-undo", originalCommit.semanticCommitId, "danger", model.v2StructureCommitBusy === true)}</div>` : canLifecycleUndo ? `<div class="actions">${button(reasonedLifecycleOperation!.payload.action === "CANCEL" ? "撤销取消" : "撤销重开", "v2-lifecycle-undo", originalCommit.semanticCommitId, "danger", model.v2LifecycleCommitBusy === true)}</div>` : canUndo ? `<div class="actions">${button("撤销本次生效", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>` : ""}
-    <div class="notice">${canOwnershipUndo ? `Primary Ownership 已正式生效；可恢复到审阅前主归属，且不会移动正文。` : ownershipUndoCommit?.status === "FAILED" ? "对象或 Primary Ownership 已有后续变化；Undo 已安全终止且没有覆盖当前状态。" : canProjectCreationUndo ? "Project 创建已生效；复用来源 Page 时只撤销对象与 Anchor，专用空 Page 仅在精确所有权与空内容校验后移除。" : projectCreationUndoCommit?.status === "RECOVERY_REQUIRED" ? "Project 创建 Undo 已停在可恢复状态；用户内容没有被删除。" : canProjectClosureUndo ? "Project Closure 已正式生效；Undo 会在版本未变化时原子恢复 OPEN 并移除当前 Closure，不改 Logseq 页面。" : projectClosureUndoCommit?.status === "FAILED" ? "Project 在 Closure 后已有正式变化；Undo 已安全终止且没有覆盖当前状态。" : canMiniProjectRestructureUndo ? "MiniProject 已按预览原位重构；撤销前会重验整棵子树，任何后续变化都会停止覆盖。" : miniProjectRestructureUndoCommit?.status === "FAILED" ? "结构撤销未完成，但已恢复到撤销前的已应用结构；原 Commit 仍有效。" : canLifecycleUndo ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效；可恢复 Lifecycle${reasonedLifecycleOperation!.payload.action === "REOPEN" ? " 与 Closure 快照" : ""}，不改写正文。` : lifecycleUndoCommit?.status === "FAILED" ? "对象在 Lifecycle Commit 后已有变化；Undo 已安全终止且没有覆盖当前状态。" : canUndo ? "已正式生效；可撤销且不会覆盖后续编辑。" : originalCommit?.status === "UNDONE" ? "原修改已撤销；Audit 与逆向修改历史均保留。" : isProjectClosure && record.proposal.status === "APPLIED" ? "Project Closure 已正式生效；Project 已退出活跃视图，页面保留。" : isProjectStructure && record.proposal.status === "APPLIED" ? "Project 当前接口已正式生效；Graph、归属和位置未改变。" : isProjectCreation && record.proposal.status === "APPLIED" ? "Project 与主页面已按最终阅读结果创建；当前接口来自已审阅内容。" : hasAcceptedMiniProjectClosure && record.proposal.status === "APPLIED" ? `MiniProject 三问 Closure 已正式生效；${isMarkerDrivenMiniProjectClosure ? "移除 Marker 不会自动重开" : "本次对象级关闭未改写 Logseq 正文"}，重开必须显式命令与理由。` : isReasonedLifecycle && record.proposal.status === "APPLIED" ? `${reasonedLifecycleOperation!.payload.action === "CANCEL" ? "取消" : "重开"}已正式生效；原因保留在已应用 Proposal，正文、Anchor、Condition 与 Focus 未改变。` : isOwnershipChange && record.proposal.status === "APPLIED" ? "Primary Ownership 已正式生效；位置、Anchor 与 Association 未改变。" : miniProjectClosureBlockedByOtherGroups ? "MiniProject Closure 已接受，但其余语义组仍未终结；请先拒绝这些组，或将其拆成独立 Proposal，再进行最终关闭。" : hasAcceptedGroup ? `已接受的语义组尚未正式生效；最终确认会在同一流程中重验并${isProjectClosure ? "原子记录 Closure 与完成状态" : isProjectStructure ? "原子更新版本化 Project 当前接口，不改 Graph" : isProjectCreation ? "按审阅关系创建或复用主 Page，并原子创建 Project 与 Anchor" : isMiniProjectRestructure ? "按逐步账本原位移动材料、保留 UUID 与正文，并提供独立 inverse Undo" : isMiniProjectClosure ? `原子记录 MiniProject 三问 Closure 与 Lifecycle${isMarkerDrivenMiniProjectClosure ? "，并保留 Anchor 证据" : "，且不改写 Graph"}` : isReasonedLifecycle ? "记录原因并改变 Lifecycle，不改写 Graph" : isOwnershipChange ? "原子改变唯一 Primary Ownership" : "写入并显示 Undo"}。` : "审阅决定只更新 Proposal；尚未修改正式正文或对象。"}</div>
-    <details><summary>状态依据与技术信息</summary><ul>${statusNarration.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul><p class="muted">规则 ${escapeHtml(statusNarration.source.ruleId)} · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)}</p></details>
-  </article>`;
+      return `<section class="review-choice"><p><strong>${escapeHtml(group.explanation)}</strong></p>${deferral}<div class="actions wrap">${lowRiskApply.eligible ? button(lowRiskApplyBusy ? "正在应用…" : "确认并应用", "v2-low-risk-apply", `${record.proposal.proposalId}|${record.updatedAt}`, "primary", lowRiskApplyBusy) : button("审阅方案", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}|${reviewKind}`, "primary", lowRiskApplyBusy)}${button("不采用", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet", lowRiskApplyBusy)}${button("稍后处理", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet", lowRiskApplyBusy)}</div></section>`;
+    }).join("");
+    const commitLabel = isProjectClosure ? "确认结束项目" : isProjectStructure ? "确认更新项目" : isProjectCreation ? "确认创建项目" : isMiniProjectRestructure ? "确认整理结构" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消事项" : "确认重新打开") : isOwnershipChange ? "确认调整主归属" : "确认应用";
+    const commitAction = isProjectClosure ? "v2-project-closure-commit" : isProjectStructure ? "v2-project-structure-commit" : isProjectCreation ? "v2-project-creation-commit" : isMiniProjectRestructure ? "v2-mini-project-restructure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit";
+    const commitBusy = (isProjectCreation && model.v2ProjectCreationCommitBusy === true) || (isMiniProjectRestructure && model.v2StructureCommitBusy === true) || (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true);
+    const primaryResolution = canCommit
+      ? `<div class="actions review-primary-action">${button(commitLabel, commitAction, `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, "primary", commitBusy)}</div>`
+      : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>`
+      : canProjectCreationUndo ? `<div class="actions">${button(model.v2ProjectCreationCommitBusy ? "正在安全撤销…" : "撤销项目创建", "v2-project-creation-undo", originalCommit.semanticCommitId, "danger", model.v2ProjectCreationCommitBusy === true)}</div>`
+      : canProjectClosureUndo ? `<div class="actions">${button("撤销结束项目", "v2-project-closure-undo", originalCommit.semanticCommitId, "danger")}</div>`
+      : canProjectStructureUndo ? `<div class="actions">${button("撤销项目更新", "v2-project-structure-undo", originalCommit.semanticCommitId, "danger")}</div>`
+      : canMiniProjectRestructureUndo ? `<div class="actions">${button(model.v2StructureCommitBusy ? "正在安全撤销…" : "撤销结构整理", "v2-mini-project-restructure-undo", originalCommit.semanticCommitId, "danger", model.v2StructureCommitBusy === true)}</div>`
+      : canLifecycleUndo ? `<div class="actions">${button(reasonedLifecycleOperation!.payload.action === "CANCEL" ? "撤销取消" : "撤销重新打开", "v2-lifecycle-undo", originalCommit.semanticCommitId, "danger", model.v2LifecycleCommitBusy === true)}</div>`
+      : canUndo ? `<div class="actions">${button("撤销本次应用", "v2-proposal-undo", originalCommit.semanticCommitId, "danger")}</div>`
+      : "";
+    const stateNotice = miniProjectClosureBlockedByOtherGroups
+      ? "还有其他修改没有决定；请先逐项选择审阅、不采用或稍后处理，再完成这个 MiniProject。"
+      : projectCreationUndoCommit?.status === "RECOVERY_REQUIRED"
+      ? "自动撤销没有完成；用户内容未被删除，请从恢复入口继续。"
+      : [ownershipUndoCommit, projectClosureUndoCommit, projectStructureUndoCommit, miniProjectRestructureUndoCommit, lifecycleUndoCommit].some((commit) => commit?.status === "FAILED")
+        ? "撤销因后续变化已安全停止，没有覆盖当前内容。"
+        : originalCommit?.status === "UNDONE"
+          ? "本次修改已经撤销；历史记录仍然保留。"
+          : canCommit
+            ? "上一步只是确认方案。点击下方按钮后才会重新检查并正式应用。"
+            : applied
+              ? "本次修改已正式应用。"
+              : "审阅方案只记录你的选择，尚未修改正式内容。";
+    return `<article class="card proposal v2-proposal" data-narration-rule="${escapeHtml(statusNarration.source.ruleId)}">
+      <div class="eyebrow">待我确认 · ${escapeHtml(record.updatedAt)}</div>
+      <h3>${escapeHtml(reviewStage)}</h3>
+      <p class="lead"><strong>${escapeHtml(record.proposal.title)}</strong></p>
+      <section class="review-impact" aria-label="方案影响">
+        <section><h4>系统理解</h4><p>${escapeHtml(record.proposal.finalPreview)}</p></section>
+        <section><h4>本次会改变什么</h4>${changes.length ? `<ul>${changes.map((change) => `<li>${escapeHtml(change)}</li>`).join("")}</ul>` : "<p>不会产生正式变化。</p>"}</section>
+        <section><h4>本次不会改变什么</h4><ul>${safetyItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
+      </section>
+      ${currentChoices}
+      ${canReviseWithProvider ? `<div class="actions">${button(model.v2ProviderRevisionBusy ? "正在调整…" : "返回调整方案", "v2-provider-revise-open", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet", model.v2ProviderRevisionBusy === true)}</div>` : ""}
+      ${primaryResolution}
+      <div class="notice">${escapeHtml(stateNotice)}</div>
+      <details class="review-evidence-details"><summary>查看完整依据</summary>
+        <p><strong>当前上下文：</strong>${escapeHtml(record.proposal.context)}</p>
+        <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
+        ${statusNarration.keyEvidence.length ? `<p class="muted">${statusNarration.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}
+        ${statusNarration.unknowns.length && !canProjectClosureUndo ? `<p class="uncertain">${escapeHtml(statusNarration.unknowns.join("；"))}</p>` : ""}
+        ${record.proposal.groups.map((group) => `<section class="operation risk-${group.risk.toLowerCase()}"><div><code>${escapeHtml(group.groupId)}</code><span>${escapeHtml(group.disposition)} · ${escapeHtml(group.risk)}</span></div><p>${escapeHtml(group.explanation)}</p>${group.textPatches.map((patch) => `<div class="readable-diff"><del>${escapeHtml(patch.beforeText)}</del><ins>${escapeHtml(patch.afterText)}</ins></div>`).join("")}<div class="report"><strong>语义变化</strong>${group.semanticOperations.map((operation) => `<p>${escapeHtml(operation.kind)}：${escapeHtml(operation.summary)}</p>`).join("") || "<p>无</p>"}</div></section>`).join("")}
+        <ul>${statusNarration.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>
+        <p class="muted">规则 ${escapeHtml(statusNarration.source.ruleId)} · ${escapeHtml(record.proposal.source.kind)}${record.proposal.source.model ? ` · ${escapeHtml(record.proposal.source.model)}` : ""} · ${escapeHtml(record.proposal.status)}</p>
+      </details>
+    </article>`;
   }).join("");
   if (open.length === 0 && v2.length === 0 && !v2LoadError) return `${tabs}${empty("没有待审查 Proposal", model.agent.enabled ? "在待整理视图分析当前 Block，或从当前页 Candidate 生成 Proposal。" : "Agent 已关闭；基础事务系统仍可使用。")}`;
   return `${tabs}${v2LoadError}<div class="cards">${v2Cards}${open
@@ -541,23 +629,23 @@ function renderProjectContextRecovery(
     return `<section class="restore"><div class="error"><strong>Copilot 草稿已过期。</strong><span>Project 正式版本已变化；旧草稿没有继续显示或执行动作。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("基于当前版本重新生成", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}</section>`;
   }
   if (state.status === "loading") {
-    return `<section class="restore" aria-live="polite"><div class="eyebrow">Copilot 正在整理 · 正式状态未改变</div><p>正在从当前受限 Context Package 生成恢复草稿…</p><div class="actions">${button("正在生成", "v2-project-context-recovery", requestValue, "quiet", true)}</div></section>`;
+    return `<section class="restore" aria-live="polite"><div class="eyebrow">正在整理项目上下文</div><p>正在提炼这次继续工作真正需要的信息。项目和正文不会因此改变。</p><div class="actions">${button("正在整理…", "v2-project-context-recovery", requestValue, "quiet", true)}</div></section>`;
   }
   if (state.status === "error") {
-    return `<section class="restore"><div class="error"><strong>Copilot 恢复草稿暂不可用。</strong><span>${escapeHtml(state.message)}</span><span>上方确定性重入卡仍可使用；没有修改正式状态。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("重试", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}</section>`;
+    return `<section class="restore"><div class="error"><strong>这次上下文整理没有完成。</strong><span>现有项目状态没有变化，你仍可使用上方入口继续工作或稍后重试。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("重新整理", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}<details><summary>查看错误详情</summary><p class="muted">${escapeHtml(state.message)}</p></details></section>`;
   }
   const output = state.result.output;
   const facts = output.facts.length
-    ? `<section><h4>已确认事实</h4><ul>${output.facts.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul></section>`
+    ? `<section><h4>已确认事实</h4><ul>${output.facts.slice(0, 4).map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul></section>`
     : "";
   const inferences = output.inferences.length
-    ? `<section><h4>Copilot 判断</h4><ul>${output.inferences.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul></section>`
+    ? `<section><h4>值得留意</h4><ul>${output.inferences.slice(0, 2).map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul></section>`
     : "";
   const unknowns = output.unknowns.length
-    ? `<section><h4>仍不知道</h4><ul>${output.unknowns.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul></section>`
+    ? `<section><h4>继续前仍需确认</h4><ul>${output.unknowns.slice(0, 2).map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul></section>`
     : "";
   const suggestions = output.suggestedChanges.length
-    ? `<section><h4>可讨论建议</h4><ul>${output.suggestedChanges.map(({ summary, riskLevel }) => `<li>${escapeHtml(summary)} <small>${escapeHtml(riskLevel)} · 必须另建 Proposal 审阅</small></li>`).join("")}</ul></section>`
+    ? `<section><h4>可选调整</h4><ul>${output.suggestedChanges.map(({ summary }) => `<li>${escapeHtml(summary)} <small>如需修改，会先单独审阅</small></li>`).join("")}</ul></section>`
     : "";
   const route = resolveProjectContextRecoveryRoute(state, card);
   const action = route
@@ -565,18 +653,11 @@ function renderProjectContextRecovery(
     : output.nextActionEligible
       ? "<span class=\"muted\">建议动作已失效；请基于上方当前正式状态操作。</span>"
       : "";
-  const policy = [
-    output.requiresDiscussion ? "需要讨论" : undefined,
-    output.requiresReview ? "正式变化需审阅" : undefined,
-    output.riskLevel !== "NONE" ? `风险 ${output.riskLevel}` : undefined,
-  ].filter((value): value is string => value !== undefined);
   const interactionId = state.result.interactionId;
   const feedback = interactionId ? [
     ["有帮助", "HELPFUL"],
-    ["不需要", "NOT_NEEDED"],
     ["不准确", "INACCURATE"],
     ["太多了", "TOO_MUCH"],
-    ["本次会话不再这样建议", "DO_NOT_REPEAT"],
   ].map(([label, disposition]) => button(
     label!,
     "v2-project-context-feedback",
@@ -590,13 +671,12 @@ function renderProjectContextRecovery(
       ? `<div class="actions"><span class="muted">反馈仅保留在当前 Service session。${state.userDisposition === "DO_NOT_REPEAT" ? "同版本建议已暂停。" : ""}</span>${button("撤回反馈", "v2-project-context-feedback", `${card.project.objectId}|${interactionId}|WITHDRAW`, "quiet", state.feedbackBusy)}</div>`
       : "";
   return `<section class="restore" data-project-context-recovery="ready">
-    <div class="eyebrow">Copilot 草稿 · 不保存第二摘要</div>
+    <div class="eyebrow">上下文恢复 · 不改变项目</div>
     <p class="lead">${escapeHtml(output.summary)}</p>
-    ${facts}${inferences}${unknowns}${suggestions}
-    ${policy.length ? `<p class="muted">${escapeHtml(policy.join(" · "))}</p>` : ""}
+    ${inferences}${unknowns}
     <div class="actions">${action}${model.v2ProviderAvailable ? button(state.userDisposition === "DO_NOT_REPEAT" ? "本次会话已暂停生成" : "重新生成", "v2-project-context-recovery", requestValue, "quiet", state.userDisposition === "DO_NOT_REPEAT") : ""}</div>
     ${feedback ? `<details><summary>这次建议怎么样？</summary><div class="actions">${feedback}</div>${feedbackStatus}</details>` : ""}
-    <details><summary>查看生成依据</summary><p class="muted">${escapeHtml(`${output.provenance.skillName}@${output.provenance.skillVersion} · ${output.provenance.model} · ${output.provenance.generatedAt}`)}</p></details>
+    <details><summary>查看依据与可选调整</summary>${facts}${suggestions}<p class="muted">${escapeHtml(`${output.provenance.generatedAt}`)}</p></details>
   </section>`;
 }
 
@@ -1152,14 +1232,14 @@ function renderActionDialog(model: UiModel): string {
     const [objectId, rawVersion] = dialog.value.split("|");
     const project = model.v2Objects?.find((candidate) => candidate.objectId === objectId && candidate.objectType === "PROJECT" && candidate.lifecycle === "OPEN" && candidate.version === Number(rawVersion));
     if (!project) return "";
-    const attention = routeProjectOperation("CONDITION");
-    const association = routeProjectOperation("ASSOCIATION");
-    const narration = routeProjectOperation("CURRENT_SUMMARY");
-    const structure = routeProjectOperation("CURRENT_INTERFACE");
-    return `<section class="inbox-dialog action-dialog project-operation-router" aria-label="选择 Project 调整方式"><h3>选择这次要改变什么</h3><p class="muted">先按实际影响给出合适摩擦；不会把 Ownership、正文移动或 Closure 降级成快捷修改。</p>
-      <article class="card compact"><div class="eyebrow">低摩擦 · 有界直接命令</div><h4>注意力、状态或普通关联</h4><p>${escapeHtml(attention.userOutcome)} ${escapeHtml(attention.safetyBoundary)}</p><div class="actions">${button("更新状态", "v2-condition-open", dialog.value, "quiet")}${button("撤销最近状态", "v2-condition-undo-open", objectId, "quiet", model.v2ConditionUndoBusy === true)}<button type="button" class="quiet" disabled aria-disabled="true">普通关联（需先补 Undo）</button></div><p class="muted">${escapeHtml(association.safetyBoundary)} 状态变化已有跨 reload 的版本化 Undo；普通关联尚未具备 inverse，因此在这个正式路由中保持关闭，不计入最终 Gate。</p></article>
-      <article class="card compact"><div class="eyebrow">审阅后应用</div><h4>只压缩当前理解</h4><p>${escapeHtml(narration.userOutcome)} ${escapeHtml(narration.safetyBoundary)}</p><div class="actions">${button(model.v2ProjectNarrationBusy ? "Copilot 正在整理…" : "生成当前摘要建议", "v2-project-narration-propose", dialog.value, "quiet", model.v2ProjectNarrationBusy === true || model.v2ProviderAvailable !== true)}</div><p class="muted">建议只替换当前摘要；当前推进、Objectives、Deliverables、Work Stages、Ownership、正文和位置保持不变。进入“待我确认”后仍需接受、应用，也可 Undo。</p></article>
-      <article class="card compact"><div class="eyebrow">深度结构 · 讨论、最终阅读、Commit 与 Undo</div><h4>完整当前接口与结构关系</h4><p>${escapeHtml(structure.userOutcome)} ${escapeHtml(structure.safetyBoundary)}</p><div class="actions">${button("编辑完整当前接口", "v2-project-structure-open", dialog.value, "primary")}${button(model.v2ProjectClosureEvidenceBusy ? "正在整理证据…" : "整理 Closure 证据", "v2-project-closure-evidence-open", dialog.value, "quiet", model.v2ProjectClosureEvidenceBusy === true)}</div><p class="muted">主归属、批量子对象、正文移动、拆分合并和 Closure 继续使用各自 HIGH 安全链，不在这里合并成一个万能表单。Closure 先只整理正式证据，不会生成 Proposal 或完成 Project。</p></article>
+    return `<section class="inbox-dialog action-dialog project-operation-router" aria-label="调整项目"><div class="eyebrow">调整项目</div><h3>你想让这个项目发生什么变化？</h3><p class="muted">选择你的目的即可。Task Copilot 会在后台决定是否需要审阅；这里的选择本身不会修改项目或正文。</p>
+      <div class="intent-list">
+        <button type="button" class="intent-card" data-action="v2-condition-open" data-value="${escapeHtml(dialog.value)}"><strong>更新当前状态</strong><span>记录可以行动、等待、受阻或暂停；保存后可以撤销。</span></button>
+        <button type="button" class="intent-card" data-action="v2-project-narration-propose" data-value="${escapeHtml(dialog.value)}"${model.v2ProjectNarrationBusy === true || model.v2ProviderAvailable !== true ? " disabled aria-busy=\"true\"" : ""}><strong>${model.v2ProjectNarrationBusy ? "正在整理项目摘要…" : "整理项目摘要"}</strong><span>只更新项目的当前理解，不改变目标、成果、正文或归属。</span></button>
+        <button type="button" class="intent-card primary-intent" data-action="v2-project-structure-open" data-value="${escapeHtml(dialog.value)}"><strong>调整目标、成果和推进结构</strong><span>先阅读完整结果，再决定是否正式应用；未确认前不会写入。</span></button>
+        <button type="button" class="intent-card" data-action="v2-project-closure-evidence-open" data-value="${escapeHtml(dialog.value)}"${model.v2ProjectClosureEvidenceBusy ? " disabled aria-busy=\"true\"" : ""}><strong>${model.v2ProjectClosureEvidenceBusy ? "正在检查关闭条件…" : "结束这个项目"}</strong><span>先检查完成证据和遗留事项；不会直接结束项目。</span></button>
+      </div>
+      <details><summary>更多项目操作</summary><div class="actions wrap">${button("撤销最近状态", "v2-condition-undo-open", objectId, "quiet", model.v2ConditionUndoBusy === true)}<button type="button" class="quiet" disabled aria-disabled="true">处理归属或关联（安全撤销补齐后开放）</button></div><p class="muted">正文移动、拆分合并和归属变化仍走各自的安全审阅流程，不会被降级为快捷修改。</p></details>
       <div class="actions">${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-project-closure-evidence") {
@@ -1198,36 +1278,46 @@ function renderActionDialog(model: UiModel): string {
         ? `<div class="notice error" role="alert">${escapeHtml(model.v2ProjectClosureProposalMessage)}</div>`
         : "";
     const proposalDisabled = model.v2ProjectClosureProposalAvailable !== true || model.v2ProjectClosureProposalBusy === true;
-    return `<section class="inbox-dialog action-dialog project-closure-evidence" aria-label="Project Closure 证据预览"><div class="eyebrow">只读证据 · 尚未形成 Proposal</div><h3>先核对完成证据</h3><p>${escapeHtml(evidence.project.text)}</p><p class="muted">这里只展示正式 Project interface 与直接 Primary Ownership 的候选证据；不会把普通关联、孙级对象或模型判断当成成果。</p>
-      ${list("原目标候选", evidence.goalCandidates, "当前没有 Objective，原目标仍未知。")}
-      ${list("交付与 Output 候选", evidence.deliverableCandidates, "当前没有可用的正式交付证据。")}
-      ${list("关键 Decision 候选", evidence.decisionCandidates, "当前没有直接归属的 Decision 证据。")}
-      ${list("已完成工作候选", evidence.completedWorkCandidates, "当前没有直接归属且已完成的 Task/MiniProject。")}
-      ${objectiveJudgments}${unresolved}${unknowns}
-      <section><h4>仍需你判断</h4><ul>${evidence.userJudgments.map(({ reason }) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></section>
-      <section class="project-closure-judgments"><h3>确认项目如何结束</h3><p class="muted">只补证据无法决定的内容；这些判断只在当前会话用于建立待审建议。Copilot 只能压缩这些确认，不得替你改变判断。</p>
+    return `<section class="inbox-dialog action-dialog project-closure-evidence" aria-label="准备结束项目"><header class="decision-header"><div class="eyebrow">第 1 步 · 检查关闭条件</div><h3>还有 ${escapeHtml(evidence.userJudgments.length)} 项需要你判断</h3><p class="lead">${escapeHtml(evidence.project.text)}</p><p class="safety-note"><strong>尚未正式应用。</strong>现在退出不会修改项目、正文或当前关注。</p></header>
+      <section class="project-closure-judgments"><h3>确认项目如何结束</h3><p class="muted">只补充现有材料无法决定的内容。下一步会先生成一份可阅读的关闭方案，仍不会直接结束项目。</p>
         <label>实际结果<textarea data-field="projectClosureActualResult" placeholder="这次真正交付或改变了什么？">${escapeHtml(draft?.projectClosureActualResult ?? confirmed?.actualResult ?? "")}</textarea></label>
         ${objectiveInputs}
         <label>遗留如何承接<textarea data-field="projectClosureLegacyDisposition">${escapeHtml(draft?.projectClosureLegacyDisposition ?? confirmed?.legacyDisposition ?? legacyDefault)}</textarea></label>
-        <label>本次确认的关键决定（每行一项）<textarea data-field="projectClosureKeyDecisions" placeholder="即使没有正式 Decision 对象，也请记录关闭时必须保留的决定">${escapeHtml(decisionDefault)}</textarea></label>
+        <label>本次确认的关键决定（每行一项）<textarea data-field="projectClosureKeyDecisions" placeholder="记录未来仍需保留的关键决定">${escapeHtml(decisionDefault)}</textarea></label>
         <label>未来重入先看什么<textarea data-field="projectClosureFutureSummary" placeholder="用一小段话告诉未来的自己先核对什么">${escapeHtml(draft?.projectClosureFutureSummary ?? confirmed?.futureSummary ?? "")}</textarea></label>
       </section>
+      <details class="closure-evidence-details"><summary>查看完整依据</summary>
+        <p class="muted">只使用项目当前结构和直接归属事项；普通关联、更深层事项和模型判断不会被当成完成事实。</p>
+        ${list("原目标", evidence.goalCandidates, "当前没有明确目标，原目标仍未知。")}
+        ${list("交付与成果", evidence.deliverableCandidates, "当前没有可用的正式交付证据。")}
+        ${list("关键决定", evidence.decisionCandidates, "当前没有直接归属的决定证据。")}
+        ${list("已完成工作", evidence.completedWorkCandidates, "当前没有直接归属且已完成的工作。")}
+        ${objectiveJudgments}${unresolved}${unknowns}
+        <section><h4>为什么需要你判断</h4><ul>${evidence.userJudgments.map(({ reason }) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></section>
+      </details>
       ${proposalStatus}
-      ${model.v2ProjectClosureProposalAvailable === true ? "" : `<p class="muted">当前 Provider 或正式审阅链不可用；仍可阅读证据，但不能建立关闭建议。</p>`}
-      <div class="actions">${button(model.v2ProjectClosureProposalBusy ? "正在整理关闭建议…" : "整理为待确认的关闭建议", "submit-v2-project-closure-draft", dialog.value, "primary", proposalDisabled)}${cancel}</div></section>`;
+      ${model.v2ProjectClosureProposalAvailable === true ? "" : `<p class="muted">关闭建议暂时无法整理；你仍可阅读依据，项目和正文没有变化。</p>`}
+      <div class="actions decision-actions">${button(model.v2ProjectClosureProposalBusy ? "正在整理关闭方案…" : "审阅关闭方案", "submit-v2-project-closure-draft", dialog.value, "primary", proposalDisabled)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-project-structure-edit") {
     const [objectId] = dialog.value.split("|");
     const project = model.v2Objects?.find((candidate) => candidate.objectId === objectId && candidate.objectType === "PROJECT");
     if (!project?.projectStructure) return "";
     const structure = project.projectStructure;
-    const objectives = structure.objectives.map((item) => `${item.priority}｜${item.text}｜${item.successEvidence.join("；")}`).join("\n");
-    const deliverables = structure.deliverables.map((item) => `${item.status}｜${item.text}｜${item.acceptance}`).join("\n");
+    const priorityLabel = (value: "PRIMARY" | "SECONDARY"): string => value === "PRIMARY" ? "主要" : "次要";
+    const deliverableStatusLabel = (value: "PLANNED" | "AVAILABLE" | "ACCEPTED" | "SUPERSEDED"): string => ({
+      PLANNED: "计划中",
+      AVAILABLE: "可用",
+      ACCEPTED: "已接受",
+      SUPERSEDED: "已替代",
+    })[value];
+    const objectives = structure.objectives.map((item) => `${priorityLabel(item.priority)}｜${item.text}｜${item.successEvidence.join("；")}`).join("\n");
+    const deliverables = structure.deliverables.map((item) => `${deliverableStatusLabel(item.status)}｜${item.text}｜${item.acceptance}`).join("\n");
     const stages = structure.workStages.map((item) => `${item.name}｜${item.statusDescription}`).join("\n");
     const children = (model.v2PrimaryOwnerships ?? []).filter((ownership) => ownership.ownerObjectId === project.objectId).map((ownership) => model.v2Objects?.find((candidate) => candidate.objectId === ownership.childObjectId)).filter((candidate): candidate is V2ManagedObject => candidate !== undefined && (candidate.objectType === "TASK" || candidate.objectType === "MINI_PROJECT"));
     const mappingByObject = new Map(structure.stageMappings.map((mapping) => [mapping.objectId, mapping.stageId]));
-    const mappings = children.length && structure.workStages.length ? `<fieldset><legend>工作对象的主 Work Stage（可选）</legend>${children.map((child) => `<label>${escapeHtml(child.objectType)} · ${escapeHtml(child.text)}<select data-field="v2ProjectStageMapping:${escapeHtml(child.objectId)}"><option value="">不指定</option>${structure.workStages.map((stage) => `<option value="${escapeHtml(stage.stageId)}"${mappingByObject.get(child.objectId) === stage.stageId ? " selected" : ""}>${escapeHtml(stage.name)}</option>`).join("")}</select></label>`).join("")}</fieldset>` : "";
-    return `<section class="inbox-dialog action-dialog project-structure-editor" aria-label="更新 Project 当前接口"><h3>更新 Project 当前接口</h3><p class="muted">这里保存一屏重入所需的信息。点击生成后只会进入 HIGH Proposal；接受和最终 Commit 前不会改正式状态。每项一行，使用全角分隔符 ｜。</p><label>当前摘要<textarea data-field="v2ProjectCurrentSummary">${escapeHtml(structure.currentSummary)}</textarea></label><label>当前推进（1–3 行）<textarea data-field="v2ProjectCurrentFocuses">${escapeHtml(structure.currentFocuses.join("\n"))}</textarea></label><label>Objectives：PRIMARY/SECONDARY｜目标｜成功证据（证据用；分隔）<textarea data-field="v2ProjectObjectives" placeholder="PRIMARY｜稳定发布｜恢复演练通过；无静默覆盖">${escapeHtml(objectives)}</textarea></label><label>Deliverables：PLANNED/AVAILABLE/ACCEPTED/SUPERSEDED｜交付物｜自然验收说明<textarea data-field="v2ProjectDeliverables" placeholder="PLANNED｜发布手册｜值班同学可独立执行">${escapeHtml(deliverables)}</textarea></label><label>Work Stages：阶段名｜自然语言状态<textarea data-field="v2ProjectStages" placeholder="验收｜正在验证恢复路径">${escapeHtml(stages)}</textarea></label>${mappings}<label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认这是要进入审阅的完整当前接口</label><div class="actions">${button("生成 HIGH Proposal", "submit-v2-project-structure", dialog.value, "primary")}${cancel}</div></section>`;
+    const mappings = children.length && structure.workStages.length ? `<fieldset><legend>这些事项主要属于哪个推进阶段（可选）</legend>${children.map((child) => `<label>${escapeHtml(child.objectType)} · ${escapeHtml(child.text)}<select data-field="v2ProjectStageMapping:${escapeHtml(child.objectId)}"><option value="">不指定</option>${structure.workStages.map((stage) => `<option value="${escapeHtml(stage.stageId)}"${mappingByObject.get(child.objectId) === stage.stageId ? " selected" : ""}>${escapeHtml(stage.name)}</option>`).join("")}</select></label>`).join("")}</fieldset>` : "";
+    return `<section class="inbox-dialog action-dialog project-structure-editor" aria-label="调整项目目标与结构"><div class="eyebrow">调整项目</div><h3>目标、成果和当前推进</h3><p class="muted">把未来重回项目时真正需要的信息集中在这里。下一步先审阅完整结果；确认应用前不会修改项目或正文。每项一行，使用全角分隔符 ｜。</p><label>项目摘要<textarea data-field="v2ProjectCurrentSummary">${escapeHtml(structure.currentSummary)}</textarea></label><label>现在先推进什么（1–3 行）<textarea data-field="v2ProjectCurrentFocuses">${escapeHtml(structure.currentFocuses.join("\n"))}</textarea></label><label>目标：主要/次要｜目标｜完成证据（证据用；分隔）<textarea data-field="v2ProjectObjectives" placeholder="主要｜稳定发布｜恢复演练通过；无静默覆盖">${escapeHtml(objectives)}</textarea></label><label>预期成果：计划中/可用/已接受/已替代｜成果｜验收说明<textarea data-field="v2ProjectDeliverables" placeholder="计划中｜发布手册｜值班同学可独立执行">${escapeHtml(deliverables)}</textarea></label><label>推进阶段：阶段名｜当前状态<textarea data-field="v2ProjectStages" placeholder="验收｜正在验证恢复路径">${escapeHtml(stages)}</textarea></label>${mappings}<label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已核对以上内容，准备进入方案审阅</label><div class="actions">${button("审阅更新方案", "submit-v2-project-structure", dialog.value, "primary")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-area-edit") {
     const [objectId] = dialog.value.split("|");
@@ -1240,7 +1330,7 @@ function renderActionDialog(model: UiModel): string {
     const current = model.v2NowWork ? [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview].find((item) => item.objectId === objectId) : undefined;
     const blockerObjectId = current?.condition.kind === "BLOCKED" ? current.condition.blockerObjectId : undefined;
     const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}"${option.objectId === blockerObjectId ? " selected" : ""}>${escapeHtml(option.objectType)} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
-    return `<section class="inbox-dialog action-dialog" aria-label="更新 V2 Condition"><h3>更新状态</h3><p class="muted">Condition 与 Lifecycle、Focus 分离；保存后立即影响 Now Work 投影。</p><label>状态<select data-field="v2ConditionKind"><option>ACTIONABLE</option><option>WAITING</option><option>BLOCKED</option><option>PAUSED</option></select></label><label>等待谁或什么<input data-field="v2WaitingFor"></label><label>期待结果<input data-field="v2ExpectedResult"></label><label>原因<input data-field="v2ConditionReason"></label><label>阻碍来源（Blocked 可选）<select data-field="v2BlockerObjectId"><option value="">仅记录原因</option>${blockers}</select></label><label>复查时间（Waiting 必填）<input type="datetime-local" data-field="v2ConditionReviewAt"></label><div class="actions">${button("保存状态", "submit-v2-condition", dialog.value, "primary")}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="更新当前状态"><h3>更新当前状态</h3><p class="muted">只记录眼下是否能继续，不会改变是否完成、当前关注或归属。</p><label>当前状态<select data-field="v2ConditionKind"><option value="ACTIONABLE">可以行动</option><option value="WAITING">等待别人</option><option value="BLOCKED">被问题卡住</option><option value="PAUSED">我先暂停</option></select></label><label>等待谁或什么<input data-field="v2WaitingFor"></label><label>期待结果<input data-field="v2ExpectedResult"></label><label>原因<input data-field="v2ConditionReason"></label><label>阻碍来源（可选）<select data-field="v2BlockerObjectId"><option value="">仅记录原因</option>${blockers}</select></label><label>复查时间（等待时必填）<input type="datetime-local" data-field="v2ConditionReviewAt"></label><div class="actions">${button("保存状态", "submit-v2-condition", dialog.value, "primary")}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-condition-undo") {
     const [objectId, changeId, rawVersion] = dialog.value.split("|");
@@ -1255,7 +1345,7 @@ function renderActionDialog(model: UiModel): string {
       : condition.kind === "WAITING" ? "等待别人"
       : condition.kind === "BLOCKED" ? "被问题卡住"
       : "我先暂停";
-    return `<section class="inbox-dialog action-dialog" aria-label="撤销最近状态变化"><div class="eyebrow">低摩擦 · 版本保护 Undo</div><h3>撤销最近状态变化</h3><p>将“${escapeHtml(prepared.objectText)}”从“${escapeHtml(label(prepared.afterCondition))}”恢复为“${escapeHtml(label(prepared.beforeCondition))}”。</p><p class="muted">确认时会重新核对对象版本和当前 Condition；任何后续变化都会安全停止。不会改变 Lifecycle、Focus、Ownership、正文或 Project 当前接口。</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认恢复到这次状态变化之前</label><div class="actions">${button(model.v2ConditionUndoBusy ? "正在撤销…" : "确认撤销", "submit-v2-condition-undo", dialog.value, "danger", model.v2ConditionUndoBusy === true)}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="撤销最近状态变化"><div class="eyebrow">可撤销</div><h3>撤销最近状态变化</h3><p>将“${escapeHtml(prepared.objectText)}”从“${escapeHtml(label(prepared.afterCondition))}”恢复为“${escapeHtml(label(prepared.beforeCondition))}”。</p><p class="muted">确认时会重新检查当前状态；如果后来已有变化，会安全停止。不会改变正文、是否完成、当前关注或归属。</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认恢复到这次状态变化之前</label><div class="actions">${button(model.v2ConditionUndoBusy ? "正在撤销…" : "确认撤销", "submit-v2-condition-undo", dialog.value, "danger", model.v2ConditionUndoBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-route") {
     const [objectId] = dialog.value.split("|");
@@ -1321,20 +1411,20 @@ function renderActionDialog(model: UiModel): string {
     const storedClosure = operation?.payload.closure && typeof operation.payload.closure === "object" ? operation.payload.closure as unknown as V2MiniProjectClosure : undefined;
     const closure = model.v2ClosureDraftInput ?? storedClosure ?? { originalGoal: String(operation?.payload.text ?? objectText ?? ""), actualResult: "", remainingWork: "" };
     const draftDisabled = model.v2ClosureDraftBusy === true || model.v2ProviderAvailable !== true;
-    const draftLabel = model.v2ClosureDraftBusy ? "Agent 正在草拟…" : model.v2ProviderAvailable ? "Agent 草拟三问" : "Agent 草拟不可用";
+    const draftLabel = model.v2ClosureDraftBusy ? "Copilot 正在整理…" : model.v2ProviderAvailable ? "让 Copilot 帮我整理" : "智能整理暂不可用";
     const transferDisabled = model.v2LegacyTransferBusy === true || model.v2CandidateAvailable !== true;
-    return `<section class="inbox-dialog action-dialog" aria-label="填写 MiniProject Closure 三问"><h3>确认 MiniProject Closure</h3><p class="muted">三问会进入唯一 Proposal，并随完成状态原子写入 SQLite。Agent 只生成可编辑草稿，不会接受或提交。</p><label>原本要得到什么<textarea data-field="miniClosureOriginalGoal">${escapeHtml(closure.originalGoal)}</textarea></label><label>实际得到了什么<textarea data-field="miniClosureActualResult">${escapeHtml(closure.actualResult)}</textarea></label><label>有什么遗留或需要转移<textarea data-field="miniClosureRemainingWork" placeholder="没有遗留时请明确写“无遗留”">${escapeHtml(closure.remainingWork)}</textarea></label><div class="legacy-transfer"><p class="muted">如需承接遗留：先在 Logseq 新建并选中一个空 Block，再创建独立 Proposal；不选择则只保留上方说明。</p><label>承接对象类型<select data-field="miniClosureLegacyObjectType"><option value="TASK">Task</option><option value="MINI_PROJECT">MiniProject</option><option value="DECISION">Decision</option><option value="OUTPUT">Output</option></select></label>${button(model.v2LegacyTransferBusy ? "正在创建独立 Proposal…" : "将遗留转为新对象 Proposal", "v2-mini-project-legacy-transfer", dialog.value, "quiet", transferDisabled)}</div><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认三问内容和当前 HIGH 关闭语义组</label><div class="actions">${button(draftLabel, "v2-mini-project-closure-draft", dialog.value, "quiet", draftDisabled)}${button(model.v2ClosureReviewBusy ? "正在保存…" : "保存三问并接受", "submit-v2-review-accept", dialog.value, "danger", model.v2ClosureReviewBusy === true || model.v2ClosureDraftBusy === true || model.v2LegacyTransferBusy === true)}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="审阅 MiniProject 完成回顾"><div class="eyebrow">审阅方案 · 尚未应用</div><h3>MiniProject 完成回顾</h3><p class="muted">Copilot 只帮助整理文字，最终判断仍由你确认。这一步不会完成 MiniProject；确认应用前正式状态不会改变。</p><label>原本要得到什么<textarea data-field="miniClosureOriginalGoal">${escapeHtml(closure.originalGoal)}</textarea></label><label>实际得到了什么<textarea data-field="miniClosureActualResult">${escapeHtml(closure.actualResult)}</textarea></label><label>有什么遗留或需要转移<textarea data-field="miniClosureRemainingWork" placeholder="没有遗留时请明确写“无遗留”">${escapeHtml(closure.remainingWork)}</textarea></label><details class="legacy-transfer"><summary>把遗留整理为新事项</summary><p class="muted">先在 Logseq 新建并选中一个空 Block；不创建新事项也会保留上方遗留说明。</p><label>承接事项类型<select data-field="miniClosureLegacyObjectType"><option value="TASK">任务</option><option value="MINI_PROJECT">MiniProject</option><option value="DECISION">决定</option><option value="OUTPUT">成果</option></select></label>${button(model.v2LegacyTransferBusy ? "正在准备新事项…" : "准备新事项", "v2-mini-project-legacy-transfer", dialog.value, "quiet", transferDisabled)}</details><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已核对这份完成回顾，准备确认方案</label><div class="actions">${button(draftLabel, "v2-mini-project-closure-draft", dialog.value, "quiet", draftDisabled)}${button(model.v2ClosureReviewBusy ? "正在保存…" : "确认这份方案", "submit-v2-review-accept", dialog.value, "primary", model.v2ClosureReviewBusy === true || model.v2ClosureDraftBusy === true || model.v2LegacyTransferBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-mini-project-closure") {
     const proposalId = dialog.value.split("|")[0];
     const operation = model.v2Proposals?.find((candidate) => candidate.proposal.proposalId === proposalId)?.proposal.groups.flatMap(({ semanticOperations }) => semanticOperations).find((candidate) => candidate.kind === "TRANSITION_LIFECYCLE" && candidate.payload.objectType === "MINI_PROJECT" && candidate.payload.lifecycle === "COMPLETED");
-    const evidence = operation?.payload.marker === "DONE" ? "系统将重验 Block、Anchor 和对象版本" : "系统将重验对象版本且不会改写 Logseq 正文";
-    return `<section class="inbox-dialog action-dialog" aria-label="确认完成 MiniProject"><h3>确认完成 MiniProject</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(`我已审阅原目标、实际结果和遗留三问；${evidence}，然后原子记录 Closure 并完成 MiniProject`)}</label><div class="actions">${button("确认继续", "submit-v2-mini-project-closure", dialog.value, "danger")}${cancel}</div></section>`;
+    const evidence = operation?.payload.marker === "DONE" ? "系统会重新检查当前正文和事项版本" : "系统会重新检查事项版本，且不会改写 Logseq 正文";
+    return `<section class="inbox-dialog action-dialog" aria-label="确认完成 MiniProject"><div class="eyebrow">确认应用 · 点击后正式生效</div><h3>完成这个 MiniProject</h3><p class="safety-note">现在退出不会修改正式状态。应用成功后可从历史记录中查看结果。</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(`我已审阅原目标、实际结果和遗留事项；${evidence}，然后完成这个 MiniProject`)}</label><div class="actions">${button("确认完成", "submit-v2-mini-project-closure", dialog.value, "danger")}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-reasoned-lifecycle") {
     const action = dialog.value.split("|")[2];
     const verb = action === "CANCEL" ? "取消" : "重开";
-    return `<section class="inbox-dialog action-dialog" aria-label="确认${verb}对象"><h3>确认${verb}对象</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已审阅${verb}原因；系统将重验对象版本并通过单一 Domain Commit 改变 Lifecycle，不改写 Graph</label><div class="actions">${button("确认继续", "submit-v2-reasoned-lifecycle", dialog.value, "danger")}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="确认${verb}事项"><div class="eyebrow">确认应用 · 点击后正式生效</div><h3>确认${verb}事项</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已审阅${verb}原因；系统会重新检查当前版本，只改变是否继续，不改写正文</label><div class="actions">${button(`确认${verb}`, "submit-v2-reasoned-lifecycle", dialog.value, "danger")}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-lifecycle-undo") {
     return `<section class="inbox-dialog action-dialog" aria-label="撤销 Lifecycle 变化"><h3>撤销 Lifecycle 变化</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认只恢复对象的 Lifecycle 与必要的 Closure 快照；系统会校验当前对象版本，不改写正文、Anchor、Condition、Focus 或 Ownership</label><div class="actions">${button("确认继续", "submit-v2-lifecycle-undo", dialog.value, "danger")}${cancel}</div></section>`;
@@ -1344,22 +1434,27 @@ function renderActionDialog(model: UiModel): string {
     "confirm-phase": ["确认完成 Project", "我已检查目标达成、下层对象、等待项、成果和归档入口", "submit-phase"],
     "confirm-rebind": ["重新绑定主正文 Anchor", "我确认将当前选中 Block 设为新的主正文 Anchor；旧 Anchor 保留为 replaced", "submit-rebind-anchor"],
     "confirm-undo": ["撤销 SemanticCommit", "我确认撤销；系统会先校验正文没有被二次编辑，并创建逆向 Commit", "submit-undo-commit"],
-    "confirm-v2-review-accept": ["接受高影响语义组", "我确认接受当前高影响语义组；这仍不会绕过最终版本重验和 Commit", "submit-v2-review-accept"],
-    "confirm-v2-commit": ["确认最终提交", "我已查看最终预览与 Diff；系统将再次重验后写入正文和 SQLite，并在成功后提供 Undo", "submit-v2-proposal-commit"],
-    "confirm-v2-project-closure": ["确认完成 Project", "我已检查原始目标、实际结果、未完成 Objective 的原因与去向；系统将重验后原子记录 Closure 并完成 Project", "submit-v2-project-closure"],
-    "confirm-v2-project-closure-undo": ["撤销 Project Closure", "我确认恢复为 OPEN 并移除本次 Closure；只有 Project 在完成后没有后续正式变化时才会生效，Logseq 页面与正文不会改变", "submit-v2-project-closure-undo"],
-    "confirm-v2-project-creation": ["确认创建 Project", "我已检查最终阅读结果与 Page 关系；系统将重验来源，只创建或复用已审阅的主 Page，并原子写入 Project 与 Anchor", "submit-v2-project-creation"],
-    "confirm-v2-project-creation-undo": ["撤销 Project 创建", "我确认撤销正式 Project 与 Anchor；复用来源 Page 会原样保留，专用 Page 只有仍属于本次事务且保持为空时才会删除", "submit-v2-project-creation-undo"],
-    "confirm-v2-project-structure": ["确认更新 Project 当前接口", "我已检查 Objectives、Deliverables、Work Stages、当前摘要与 1–3 个当前推进；系统将重验版本后原子更新 SQLite，不改写 Graph", "submit-v2-project-structure-commit"],
-    "confirm-v2-project-structure-undo": ["撤销 Project 当前接口更新", "我确认恢复审阅前的完整当前接口；只有 Project 没有后续正式变化时才会生效，Graph、归属和位置不会改变", "submit-v2-project-structure-undo"],
-    "confirm-v2-mini-project-restructure": ["确认 MiniProject 原位重构", "我已检查最终阅读预览、移动数量与删除内容为 0；系统将重验整棵子树，逐步保留 UUID 和正文执行，并在失败时恢复", "submit-v2-mini-project-restructure"],
-    "confirm-v2-mini-project-restructure-undo": ["撤销 MiniProject 原位重构", "我确认恢复原材料结构；只有整棵子树仍等于已应用结果时才会开始，并以独立 inverse Commit 留痕", "submit-v2-mini-project-restructure-undo"],
-    "confirm-v2-ownership": ["确认改变 Primary Ownership", "我已确认新的主归属；系统将重验子对象、新 Owner 与当前归属版本，位置、Anchor 和 Association 不会改变", "submit-v2-ownership"],
-    "confirm-v2-ownership-undo": ["撤销 Primary Ownership 变化", "我确认恢复审阅前的主归属（或恢复为未归属）；只有对象和当前归属未被后续修改时才会生效，正文、Anchor 与 Association 不会改变", "submit-v2-ownership-undo"],
-    "confirm-v2-undo": ["撤销本次生效", "我确认创建逆向 Commit；只有正文、对象和 Anchor 均未被后续修改时才会生效", "submit-v2-proposal-undo"],
+    "confirm-v2-review-accept": ["确认这项方案", "这一步只确认系统理解与计划正确，不会正式应用；应用前仍会重新检查当前内容", "submit-v2-review-accept"],
+    "confirm-v2-commit": ["确认应用", "我已查看最终结果和影响；点击后才会正式写入，成功后可以撤销", "submit-v2-proposal-commit"],
+    "confirm-v2-project-closure": ["确认结束项目", "我已检查原始目标、实际结果、未完成目标的原因与去向；点击后系统会重新检查并结束项目", "submit-v2-project-closure"],
+    "confirm-v2-project-closure-undo": ["撤销结束项目", "我确认恢复为进行中并移除本次完成回顾；只有项目结束后没有新变化时才会生效，页面与正文不会改变", "submit-v2-project-closure-undo"],
+    "confirm-v2-project-creation": ["确认创建项目", "我已检查最终阅读结果与页面关系；系统会重新检查来源，只创建或复用已审阅的主页面", "submit-v2-project-creation"],
+    "confirm-v2-project-creation-undo": ["撤销项目创建", "我确认撤销正式项目；复用的来源页面会原样保留，专用页面只有仍属于本次操作且保持为空时才会删除", "submit-v2-project-creation-undo"],
+    "confirm-v2-project-structure": ["确认更新项目", "我已检查目标、成果、推进阶段、项目摘要和当前推进；系统会重新检查版本，不改写 Logseq 正文", "submit-v2-project-structure-commit"],
+    "confirm-v2-project-structure-undo": ["撤销项目更新", "我确认恢复审阅前的完整项目信息；只有项目没有后续正式变化时才会生效，归属和位置不会改变", "submit-v2-project-structure-undo"],
+    "confirm-v2-mini-project-restructure": ["确认整理 MiniProject", "我已检查最终阅读结果、移动数量和零删除边界；系统会重新检查全部材料，保留已有内容身份，并在失败时恢复", "submit-v2-mini-project-restructure"],
+    "confirm-v2-mini-project-restructure-undo": ["撤销 MiniProject 整理", "我确认恢复原材料结构；只有全部材料仍等于已应用结果时才会开始", "submit-v2-mini-project-restructure-undo"],
+    "confirm-v2-ownership": ["确认调整主归属", "我已确认新的主归属；系统会重新检查相关事项，正文、位置和普通关联不会改变", "submit-v2-ownership"],
+    "confirm-v2-ownership-undo": ["撤销主归属变化", "我确认恢复审阅前的主归属（或恢复为未归属）；只有当前归属没有后续修改时才会生效，正文和位置不会改变", "submit-v2-ownership-undo"],
+    "confirm-v2-undo": ["撤销本次应用", "我确认撤销；只有正文和事项均未被后续修改时才会生效", "submit-v2-proposal-undo"],
   };
   const confirmation = confirmations[dialog.kind];
-  if (confirmation) return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(confirmation[0])}"><h3>${escapeHtml(confirmation[0])}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(confirmation[1])}</label><div class="actions">${button("确认继续", confirmation[2], dialog.value, "danger")}${cancel}</div></section>`;
+  if (confirmation) {
+    const isReviewOnly = dialog.kind === "confirm-v2-review-accept";
+    const isUndo = dialog.kind.includes("undo");
+    const actionLabel = isReviewOnly ? "确认方案" : isUndo ? "确认撤销" : "确认应用";
+    return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(confirmation[0])}"><div class="eyebrow">${isReviewOnly ? "审阅方案 · 尚未应用" : isUndo ? "撤销操作" : "确认应用 · 点击后正式生效"}</div><h3>${escapeHtml(confirmation[0])}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(confirmation[1])}</label><div class="actions">${button(actionLabel, confirmation[2], dialog.value, isReviewOnly ? "primary" : "danger")}${cancel}</div></section>`;
+  }
   if (dialog.kind === "v2-review-defer") return `<section class="inbox-dialog action-dialog" aria-label="暂缓 V2 语义组"><h3>暂缓语义组</h3><label>复查时间<input type="datetime-local" data-field="v2DeferredUntil"></label><label>原因<input data-field="v2DeferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-v2-review-defer", dialog.value, "primary")}${cancel}</div></section>`;
   return "";
 }

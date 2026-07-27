@@ -117,7 +117,7 @@ import {
   type MigrationExecutionClient,
   type PluginMigrationRunView,
 } from "./migration-execution-controller.ts";
-import { registerHostThemeModeSync } from "./theme-mode.ts";
+import { applyHostThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -2780,7 +2780,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         || !objectId
         || !Number.isSafeInteger(expectedVersion)
       ) {
-        v2ProjectClosureProposalMessage = "Provider 或正式审阅链当前不可用；没有建立关闭建议。";
+        v2ProjectClosureProposalMessage = "智能整理暂时不可用；关闭方案没有建立，项目和正文没有变化。";
         return;
       }
       const current = (await client.listObjects()).find((object) => object.objectId === objectId);
@@ -2960,16 +2960,29 @@ async function handleAction(action: string, value?: string): Promise<void> {
       const deliverableLines = lines("v2ProjectDeliverables");
       const stageLines = lines("v2ProjectStages");
       const objectives = objectiveLines.map((line, index) => {
-        const [priority, text, evidence] = parts(line, 3, "Objective") as [string, string, string];
-        if (priority !== "PRIMARY" && priority !== "SECONDARY") throw new Error("Objective 优先级必须是 PRIMARY 或 SECONDARY。");
+        const [rawPriority, text, evidence] = parts(line, 3, "目标") as [string, string, string];
+        const priority: V2ProjectStructure["objectives"][number]["priority"] | undefined = rawPriority === "主要" || rawPriority === "PRIMARY" ? "PRIMARY"
+          : rawPriority === "次要" || rawPriority === "SECONDARY" ? "SECONDARY"
+          : undefined;
+        if (!priority) throw new Error("目标优先级必须是“主要”或“次要”。");
         const existing = current.projectStructure!.objectives.find((item) => item.text === text) ?? current.projectStructure!.objectives[index];
-        return { objectiveId: existing?.objectiveId ?? `objective-ui-${stamp}-${index + 1}`, text, priority: priority as "PRIMARY" | "SECONDARY", successEvidence: evidence.split("；").map((item) => item.trim()).filter(Boolean) };
+        return { objectiveId: existing?.objectiveId ?? `objective-ui-${stamp}-${index + 1}`, text, priority, successEvidence: evidence.split("；").map((item) => item.trim()).filter(Boolean) };
       });
       const deliverables = deliverableLines.map((line, index) => {
-        const [status, text, acceptance] = parts(line, 3, "Deliverable") as [string, string, string];
-        if (!["PLANNED", "AVAILABLE", "ACCEPTED", "SUPERSEDED"].includes(status)) throw new Error("Deliverable 状态必须是 PLANNED、AVAILABLE、ACCEPTED 或 SUPERSEDED。");
+        const [rawStatus, text, acceptance] = parts(line, 3, "预期成果") as [string, string, string];
+        const status = ({
+          "计划中": "PLANNED",
+          "可用": "AVAILABLE",
+          "已接受": "ACCEPTED",
+          "已替代": "SUPERSEDED",
+          PLANNED: "PLANNED",
+          AVAILABLE: "AVAILABLE",
+          ACCEPTED: "ACCEPTED",
+          SUPERSEDED: "SUPERSEDED",
+        } as const)[rawStatus as "计划中" | "可用" | "已接受" | "已替代" | "PLANNED" | "AVAILABLE" | "ACCEPTED" | "SUPERSEDED"];
+        if (!status) throw new Error("预期成果状态必须是“计划中”“可用”“已接受”或“已替代”。");
         const existing = current.projectStructure!.deliverables.find((item) => item.text === text) ?? current.projectStructure!.deliverables[index];
-        return { deliverableId: existing?.deliverableId ?? `deliverable-ui-${stamp}-${index + 1}`, text, acceptance, status: status as "PLANNED" | "AVAILABLE" | "ACCEPTED" | "SUPERSEDED" };
+        return { deliverableId: existing?.deliverableId ?? `deliverable-ui-${stamp}-${index + 1}`, text, acceptance, status };
       });
       const workStages = stageLines.map((line, index) => {
         const [name, statusDescription] = parts(line, 2, "Work Stage") as [string, string];
@@ -4341,13 +4354,23 @@ async function main(): Promise<void> {
   globalThis.addEventListener("error", onGlobalError);
   cleanupHooks.push(() => globalThis.removeEventListener("unhandledrejection", onUnhandledRejection));
   cleanupHooks.push(() => globalThis.removeEventListener("error", onGlobalError));
+  const themeRoot = requireAppRoot();
   cleanupHooks.push(await registerHostThemeModeSync(
     logseq.App,
-    requireAppRoot(),
+    themeRoot,
     (error) => operationalLogger.log("warn", "plugin-lifecycle", "theme_mode_initial_read_failed", {
       result: "css_fallback",
     }, error),
   ));
+  try {
+    const visibleHostDocument = globalThis.parent?.document ?? globalThis.document;
+    const visibleMode = detectVisibleThemeMode(visibleHostDocument);
+    if (visibleMode) applyHostThemeMode(themeRoot, visibleMode);
+  } catch (error) {
+    operationalLogger.log("warn", "plugin-lifecycle", "visible_theme_detection_failed", {
+      result: "api_theme_retained",
+    }, error);
+  }
   operationalLogger.log("info", "plugin-lifecycle", "event_listeners_registered", { result: "success" });
 
   logseq.beforeunload(async () => {
