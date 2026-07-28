@@ -812,7 +812,12 @@ function renderReentry(model: UiModel): string {
         ? `<p class="muted">${escapeHtml(projection.unknowns.join("；"))}</p>`
         : "";
       const primary = card.primaryRoute
-        ? button(card.primaryRoute.label, card.primaryRoute.action, card.primaryRoute.value, projection.safetyState === "RECOVERY_REQUIRED" ? "danger" : "primary")
+        ? projection.safetyState === "CLEAN"
+          && project.lifecycle === "OPEN"
+          && project.objectType === "PROJECT"
+          && project.projectStructure
+          ? button("打开项目", "v2-project-landing-open", `${project.objectId}|${project.version}`, "primary")
+          : button(card.primaryRoute.label, card.primaryRoute.action, card.primaryRoute.value, projection.safetyState === "RECOVERY_REQUIRED" ? "danger" : "primary")
         : "";
       const shortcuts = projection.safetyState === "CLEAN" && project.lifecycle === "OPEN"
         ? `${button("调整项目", "v2-project-operation-router-open", `${project.objectId}|${project.version}`, "quiet")}${!card.focused ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "quiet") : ""}`

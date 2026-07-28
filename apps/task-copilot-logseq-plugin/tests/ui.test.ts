@@ -468,7 +468,8 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
   assert.match(html, /先看当前状态和最值得继续的入口/);
   assert.match(html, /设备托管｜等待厂家补充功耗参数/);
   assert.match(html, /表格结构与业务字段已经完成/);
-  assert.match(html, /data-action="v2-open-primary-anchor"/);
+  assert.match(html, /data-action="v2-project-landing-open" data-value="project-compact\|3"/);
+  assert.doesNotMatch(html, /data-action="v2-open-primary-anchor" data-value="block-project">打开当前项目/);
   assert.match(html, /<details><summary>更多操作<\/summary>[\s\S]*data-action="v2-project-operation-router-open"/);
   assert.doesNotMatch(html, /同一正式投影|不保存第二摘要|每个 Project|可选 Copilot|调整 Project/);
   assert.doesNotMatch(html, /完整方案文档/);
@@ -2237,6 +2238,7 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /action === "recent-change-review"[\s\S]*workspace = "review";[\s\S]*reviewMode = "proposals";/);
   assert.match(source, /getCurrentPage\(\)/);
   assert.match(source, /pushState\("page", \{ name: openedPageName \}\)/);
+  assert.match(source, /action === "v2-project-landing-open"[\s\S]*current\.version !== expectedVersion[\s\S]*v2ReentryTargetObjectId = current\.objectId;[\s\S]*workspace = "reentry";/);
   assert.match(projectCreationSubmit, /v2ReentryTargetObjectId = result\.object\.objectId/);
   assert.doesNotMatch(projectCreationSubmit, /logseq\.hideMainUI\(\)/);
   assert.doesNotMatch(source, /action === "create-v2-project"/);

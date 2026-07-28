@@ -1794,6 +1794,31 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     return;
   }
+  if (action === "v2-project-landing-open" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    const client = serviceRuntimeClient;
+    if (!client || !objectId || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+      throw new Error("当前项目入口已失效；没有打开其他项目。");
+    }
+    const current = (await client.listObjects()).find((object) => object.objectId === objectId);
+    if (
+      !current
+      || current.objectType !== "PROJECT"
+      || current.lifecycle !== "OPEN"
+      || !current.projectStructure
+      || current.version !== expectedVersion
+    ) {
+      throw new Error("当前项目已经变化；请刷新后重新打开。");
+    }
+    v2ReentryTargetObjectId = current.objectId;
+    workspace = "reentry";
+    actionDialog = undefined;
+    latestError = undefined;
+    message = undefined;
+    await refresh();
+    return;
+  }
   if (action === "v2-project-context-recovery" && value) {
     const [objectId, versionText] = value.split("|");
     const expectedVersion = Number(versionText);
