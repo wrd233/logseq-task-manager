@@ -126,6 +126,19 @@
 #task-copilot-personal-mvp-root .review-history { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 #task-copilot-personal-mvp-root .review-history > summary { font-weight: 700; color: var(--text); }
 #task-copilot-personal-mvp-root .review-history > .cards { margin-top: 12px; }
+#task-copilot-personal-mvp-root .project-preview-summary { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+#task-copilot-personal-mvp-root .project-preview-summary > h3 { margin: 0; }
+#task-copilot-personal-mvp-root .project-preview-summary > section { padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+#task-copilot-personal-mvp-root .project-preview-summary > section h4 { margin: 0 0 7px; font-size: 13px; }
+#task-copilot-personal-mvp-root .project-preview-summary > section p, #task-copilot-personal-mvp-root .project-preview-summary > section ul { margin: 0; line-height: 1.55; }
+#task-copilot-personal-mvp-root .project-preview-summary > section ul { padding-left: 18px; }
+#task-copilot-personal-mvp-root .project-preview-summary .project-preview-actions { border-color: color-mix(in srgb, var(--info) 32%, var(--border)); background: var(--info-soft); }
+#task-copilot-personal-mvp-root .project-preview-summary .project-preview-actions .notice { margin-top: 9px; }
+#task-copilot-personal-mvp-root .project-preview-evidence { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+#task-copilot-personal-mvp-root .project-preview-evidence > summary { font-weight: 700; }
+#task-copilot-personal-mvp-root .project-preview-evidence-body { display: grid; gap: 8px; margin-top: 10px; }
+#task-copilot-personal-mvp-root .project-preview-evidence-body p, #task-copilot-personal-mvp-root .project-preview-evidence-body section { margin: 0; }
+#task-copilot-personal-mvp-root .project-preview-evidence-body h4 { margin: 0 0 6px; font-size: 13px; }
 #task-copilot-personal-mvp-root .uncertain { color: var(--warning); }
 #task-copilot-personal-mvp-root .reentry { max-width: 780px; margin: 0 auto; }
 #task-copilot-personal-mvp-root .restore { padding: 13px; border-radius: 10px; background: var(--accent-soft); }

@@ -769,7 +769,7 @@ test("Project Creation Grill keeps facts, inference, unknown, one question, zero
     },
   };
   let html = renderApp(value);
-  assert.match(html, /Project Grill Me · 基于当前 Page/);
+  assert.match(html, /Project Grill Me · 基于当前页面/);
   assert.match(html, /已确认事实[\s\S]*已有发布核对材料/);
   assert.match(html, /Copilot 判断[\s\S]*长期运营可能不在当前边界/);
   assert.match(html, /仍待澄清[\s\S]*最终结果尚未确认/);
@@ -833,14 +833,17 @@ test("Project Creation Grill keeps facts, inference, unknown, one question, zero
     preview: { status: "ready", result: preview },
   };
   html = renderApp(value);
-  assert.match(html, /Project 最终阅读预览/);
-  assert.match(html, /形成可复核发布流程/);
-  assert.match(html, /保留来源，创建独立 Project 页面/);
+  assert.match(html, /项目最终阅读预览/);
+  assert.match(html, /系统理解[\s\S]*形成可复核发布流程/);
+  assert.match(html, /如果确认应用[\s\S]*创建一个新项目[\s\S]*保留来源，创建独立项目页面/);
+  assert.match(html, /不会改变[\s\S]*来源页面和原始材料保持不变[\s\S]*尚未创建页面或正式事项/);
+  assert.match(html, /下一步[\s\S]*进入待我确认/);
+  assert.match(html, /查看完整依据[\s\S]*完成证据[\s\S]*内部闭环[\s\S]*当前接口/);
+  assert.doesNotMatch(html, /<details class="project-preview-evidence"[^>]*\sopen/);
   assert.doesNotMatch(html, /CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE/);
-  assert.match(html, /本预览不会改动页面或正式事项/);
   assert.match(html, /data-action="v2-project-creation-grill-proposal"/);
   assert.match(html, /进入待我确认/);
-  assert.doesNotMatch(html, /Session only|HIGH Review|Project Creation Proposal|Provider|Local Service/);
+  assert.doesNotMatch(html, /Session only|HIGH Review|Project Creation Proposal|Provider|Local Service|正式变化 0/);
 
   value.v2ProjectCreationGrill["PAGE:page-1"] = {
     status: "stale",
@@ -1885,6 +1888,10 @@ test("Project creation Review uses the proposal-bound Page creation confirmation
   assert.match(html, /创建一个新项目及其主页面/);
   assert.match(html, /来源页面和原始材料会保留/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  const impact = html.match(/<section class="review-impact"[\s\S]*?<\/section>\s*<\/section>/)?.[0] ?? "";
+  assert.ok(impact.indexOf("本次会改变什么") < impact.indexOf("本次不会改变什么"));
+  assert.ok(impact.indexOf("本次不会改变什么") < impact.indexOf("系统理解"));
+  assert.ok(html.indexOf("上一步只是确认方案") < html.indexOf('data-action="v2-project-creation-commit"'));
   value.actionDialog = { kind: "confirm-v2-project-creation", value: "prop-project-creation|2026-07-25T15:01:00.000Z" };
   html = renderApp(value);
   assert.match(html, /最终阅读结果与页面关系/);

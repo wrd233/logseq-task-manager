@@ -6,7 +6,7 @@ import type {
   ProjectReentryView,
 } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
-import type { ServiceConditionUndoPreparation, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import type { ServiceConditionUndoPreparation, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceProjectCreationPreview, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
@@ -209,10 +209,21 @@ function compactReviewText(value: string, maximum = 120): string {
 }
 
 function projectPageRelationshipLabel(mode: "CREATE_DEDICATED_PROJECT_PAGE" | "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE" | "REUSE_SOURCE_PAGE" | "REVIEW_REQUIRED"): string {
-  if (mode === "CREATE_DEDICATED_PROJECT_PAGE") return "创建独立 Project 页面";
-  if (mode === "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE") return "保留来源，创建独立 Project 页面";
-  if (mode === "REUSE_SOURCE_PAGE") return "复用当前 Page 作为 Project 页面";
-  return "Page 关系仍需在审阅中确认";
+  if (mode === "CREATE_DEDICATED_PROJECT_PAGE") return "创建独立项目页面";
+  if (mode === "CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE") return "保留来源，创建独立项目页面";
+  if (mode === "REUSE_SOURCE_PAGE") return "使用当前页面作为项目页面";
+  return "项目页面的使用方式仍需确认";
+}
+
+function projectCreationPreviewChanges(preview: ServiceProjectCreationPreview): string[] {
+  const linkedSources = preview.sourceMaterials.filter((material) => material.disposition === "LINK_AS_SOURCE").length;
+  const reviewForMove = preview.sourceMaterials.filter((material) => material.disposition === "REVIEW_FOR_MOVE").length;
+  return [
+    "创建一个新项目",
+    projectPageRelationshipLabel(preview.pageObjectRelationship.mode),
+    ...(linkedSources ? [`连接 ${linkedSources} 项来源材料`] : []),
+    ...(reviewForMove ? [`审阅 ${reviewForMove} 项材料的去向后再决定是否移动`] : []),
+  ];
 }
 
 function renderNow(model: UiModel): string {
@@ -514,7 +525,9 @@ function renderReview(model: UiModel): string {
     const changes = v2ReviewChanges(record);
     const applied = record.proposal.status === "APPLIED";
     const reviewStage = applied ? "已正式应用" : canCommit ? "方案已审阅，等待确认应用" : "请审阅这项方案";
-    const operationKinds = new Set(record.proposal.groups.filter((group) => group.disposition !== "REJECTED").flatMap((group) => group.semanticOperations.map((operation) => operation.kind)));
+    const visibleGroups = record.proposal.groups.filter((group) => group.disposition !== "REJECTED");
+    const highImpact = visibleGroups.some((group) => group.risk === "HIGH");
+    const operationKinds = new Set(visibleGroups.flatMap((group) => group.semanticOperations.map((operation) => operation.kind)));
     const projectClosureOperation = record.proposal.groups
       .filter((group) => group.disposition !== "REJECTED")
       .flatMap((group) => group.semanticOperations)
@@ -540,6 +553,12 @@ function renderReview(model: UiModel): string {
     const safetyItems = applied
       ? [scopeBoundary, "没有后续冲突时，可以从这里撤销本次应用。"]
       : [scopeBoundary, "现在退出是安全的；只有“确认应用”后才会正式生效。"];
+    const understandingSection = `<section><h4>系统理解</h4><p>${escapeHtml(systemUnderstanding)}</p></section>`;
+    const changesSection = `<section><h4>本次会改变什么</h4>${changes.length ? `<ul>${changes.map((change) => `<li>${escapeHtml(change)}</li>`).join("")}</ul>` : "<p>不会产生正式变化。</p>"}</section>`;
+    const safetySection = `<section><h4>本次不会改变什么</h4><ul>${safetyItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`;
+    const impactSections = highImpact
+      ? `${changesSection}${safetySection}${understandingSection}`
+      : `${understandingSection}${changesSection}${safetySection}`;
     const currentChoices = record.proposal.groups.filter((group) => group.disposition === "PENDING" || group.disposition === "DEFERRED").map((group) => {
       const reviewKind = group.semanticOperations.some((operation) => operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.objectType === "MINI_PROJECT" && operation.payload.lifecycle === "COMPLETED") ? "MINI_PROJECT_CLOSURE" : "ORDINARY";
       const deferral = group.disposition === "DEFERRED" && group.deferredUntil
@@ -578,14 +597,12 @@ function renderReview(model: UiModel): string {
       <h3>${escapeHtml(reviewStage)}</h3>
       <p class="lead"><strong>${escapeHtml(reviewTitle)}</strong></p>
       <section class="review-impact" aria-label="方案影响">
-        <section><h4>系统理解</h4><p>${escapeHtml(systemUnderstanding)}</p></section>
-        <section><h4>本次会改变什么</h4>${changes.length ? `<ul>${changes.map((change) => `<li>${escapeHtml(change)}</li>`).join("")}</ul>` : "<p>不会产生正式变化。</p>"}</section>
-        <section><h4>本次不会改变什么</h4><ul>${safetyItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
+        ${impactSections}
       </section>
+      <div class="notice">${escapeHtml(stateNotice)}</div>
       ${currentChoices}
       ${canReviseWithProvider ? `<div class="actions">${button(model.v2ProviderRevisionBusy ? "正在调整…" : "返回调整方案", "v2-provider-revise-open", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet", model.v2ProviderRevisionBusy === true)}</div>` : ""}
       ${primaryResolution}
-      <div class="notice">${escapeHtml(stateNotice)}</div>
       <details class="review-evidence-details"><summary>查看完整依据</summary>
         <p><strong>当前上下文：</strong>${escapeHtml(record.proposal.context)}</p>
         <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
@@ -1167,7 +1184,7 @@ function renderActionDialog(model: UiModel): string {
     if (!state) return "";
     const result = state.status === "ready" ? state.result : state.status === "loading" || state.status === "error" ? state.previous : undefined;
     const output = result?.output;
-    const sourceLabel = state.source.sourceKind === "BLANK" ? "从空白开始" : state.source.sourceKind === "PAGE" ? "基于当前 Page" : "由 MiniProject 演化";
+    const sourceLabel = state.source.sourceKind === "BLANK" ? "从空白开始" : state.source.sourceKind === "PAGE" ? "基于当前页面" : "由 MiniProject 演化";
     const loading = state.status === "loading" ? `<div class="notice" aria-live="polite">正在读取有界来源并生成下一轮；没有创建页面、正式事项或待确认变更。</div>` : "";
     const error = state.status === "error" || state.status === "stale" ? `<div class="notice error" role="alert">${escapeHtml(state.message)}</div>` : "";
     const facts = output?.facts.length ? `<section><h4>已确认事实</h4><ul>${output.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
@@ -1183,14 +1200,46 @@ function renderActionDialog(model: UiModel): string {
     const proposal = previewState?.status === "ready" ? previewState.proposal : undefined;
     const proposalCta = preview ? proposal?.status === "loading" ? `<p class="notice">正在核对最新来源并准备“待我确认”；正式状态仍未变化。</p>`
       : proposal?.status === "error" ? `<div class="notice error">${escapeHtml(proposal.message)}</div>${button("重试进入待我确认", "v2-project-creation-grill-proposal", dialog.value, "quiet", model.v2ProjectCreationProposalAvailable !== true)}`
-      : proposal?.status === "ready" ? `<p class="notice">Project 创建建议已进入“待我确认”；尚未创建正式事项或页面。</p>`
+      : proposal?.status === "ready" ? `<p class="notice">项目创建方案已进入“待我确认”；尚未创建正式事项或页面。</p>`
       : button("进入待我确认", "v2-project-creation-grill-proposal", dialog.value, "primary", model.v2ProjectCreationProposalAvailable !== true) : "";
-    const previewHtml = preview ? `<section class="grill-preview" aria-label="Project 最终阅读预览"><div class="eyebrow">最终阅读预览 · 尚未应用</div><h3>${escapeHtml(preview.finalReading.title.text)}</h3><p><strong>要得到：</strong>${escapeHtml(preview.finalReading.outcome.text)}</p><p><strong>范围内：</strong>${escapeHtml(preview.finalReading.boundary.included.map((item) => item.text).join("；"))}</p>${preview.finalReading.boundary.excluded.length ? `<p><strong>范围外：</strong>${escapeHtml(preview.finalReading.boundary.excluded.map((item) => item.text).join("；"))}</p>` : ""}<p><strong>完成证据：</strong>${escapeHtml(preview.finalReading.completionEvidence.map((item) => item.text).join("；"))}</p><p><strong>内部闭环：</strong>${escapeHtml(preview.finalReading.internalClosure.text)}</p><p><strong>当前接口：</strong>${escapeHtml(preview.finalReading.currentInterface.text)}</p><p><strong>Page 关系：</strong>${escapeHtml(projectPageRelationshipLabel(preview.pageObjectRelationship.mode))} · ${escapeHtml(preview.pageObjectRelationship.rationale)}</p><div class="notice">事实材料保持原样；本预览不会改动页面或正式事项。下一步只会建立一项待确认变更。</div>${proposalCta}</section>` : "";
+    const previewHtml = preview ? (() => {
+      const changeItems = projectCreationPreviewChanges(preview);
+      const sourceSafety = state.source.sourceKind === "BLANK"
+        ? "这是从空白开始，不会虚构或改写来源材料。"
+        : "来源页面和原始材料保持不变。";
+      const safetyItems = [
+        sourceSafety,
+        "现有事项的当前关注和主归属不会改变。",
+        "当前只是阅读预览，尚未创建页面或正式事项。",
+      ];
+      const sourceMaterials = preview.sourceMaterials.length
+        ? `<ul>${preview.sourceMaterials.map((material) => `<li>${escapeHtml(material.text || "（空内容）")} · ${escapeHtml(material.rationale)}</li>`).join("")}</ul>`
+        : "<p>没有额外来源材料。</p>";
+      return `<section class="grill-preview project-preview-summary" aria-label="项目最终阅读预览">
+        <div class="eyebrow">阅读预览 · 尚未应用</div>
+        <h3>准备创建：${escapeHtml(preview.finalReading.title.text)}</h3>
+        <section class="project-preview-conclusion"><h4>系统理解</h4><p>目标是${escapeHtml(preview.finalReading.outcome.text)}；当前先从${escapeHtml(preview.finalReading.currentInterface.text)}继续。</p></section>
+        <section class="project-preview-impact"><h4>如果确认应用</h4><ul>${changeItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
+        <section class="project-preview-safety"><h4>不会改变</h4><ul>${safetyItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
+        <section class="project-preview-actions"><h4>下一步</h4><p>进入“待我确认”只会建立一份可审阅方案；正式应用前仍可返回。</p>${proposalCta}</section>
+        <details class="project-preview-evidence"><summary>查看完整依据</summary>
+          <div class="project-preview-evidence-body">
+            <p><strong>范围内：</strong>${escapeHtml(preview.finalReading.boundary.included.map((item) => item.text).join("；"))}</p>
+            ${preview.finalReading.boundary.excluded.length ? `<p><strong>范围外：</strong>${escapeHtml(preview.finalReading.boundary.excluded.map((item) => item.text).join("；"))}</p>` : ""}
+            <p><strong>完成证据：</strong>${escapeHtml(preview.finalReading.completionEvidence.map((item) => item.text).join("；"))}</p>
+            <p><strong>内部闭环：</strong>${escapeHtml(preview.finalReading.internalClosure.text)}</p>
+            <p><strong>当前接口：</strong>${escapeHtml(preview.finalReading.currentInterface.text)}</p>
+            <p><strong>页面关系：</strong>${escapeHtml(projectPageRelationshipLabel(preview.pageObjectRelationship.mode))} · ${escapeHtml(preview.pageObjectRelationship.rationale)}</p>
+            <section><h4>来源材料</h4>${sourceMaterials}</section>
+          </div>
+        </details>
+      </section>`;
+    })() : "";
     const question = state.status === "ready" && output?.readiness === "CONTINUE" && output.questionGroup
       ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2ProjectCreationGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-project-creation-grill-answer", dialog.value, "primary")}</section>` : "";
     const retry = state.status === "error" ? button("重试本轮", "v2-project-creation-grill-retry", dialog.value, "quiet") : "";
     const recheck = state.status === "stale" ? button("基于最新内容重新检查", "v2-project-creation-grill-recheck", dialog.value, "primary") : "";
-    return `<section class="inbox-dialog action-dialog project-creation-grill" aria-label="梳理 Project"><div class="eyebrow">Project Grill Me · ${escapeHtml(sourceLabel)} · 本次讨论不会保存</div><h3>先把 Project 说清楚</h3><p class="muted">后台可以读取有界来源；前台只保留核心理解、依据、一个真正分歧和一个主要动作。事实、推断、未知分开，智能分析无权创建正式事项。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${recheck}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog project-creation-grill" aria-label="梳理项目"><div class="eyebrow">Project Grill Me · ${escapeHtml(sourceLabel)} · 本次讨论不会保存</div><h3>先把项目说清楚</h3><p class="muted">后台可以读取有界来源；前台只保留核心理解、依据、一个真正分歧和一个主要动作。事实、推断、未知分开，智能分析无权创建正式事项。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${recheck}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-mini-project-grill") {
     const [objectId] = dialog.value.split("|");
