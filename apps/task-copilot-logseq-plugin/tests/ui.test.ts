@@ -1559,7 +1559,7 @@ test("V2 Now Work type filtering and grouping stay view-only and protect full Fo
   value.v2NowWorkTypeFilter = "TASK";
   value.v2NowWorkGrouping = "type";
   const html = renderApp(value);
-  assert.match(html, /aria-label="Now Work 筛选与分组"/);
+  assert.match(html, /aria-label="现在：筛选与分组"/);
   assert.match(html, /data-action="v2-now-filter" data-value="TASK"/);
   assert.match(html, /data-action="v2-now-grouping" data-value="type"/);
   assert.match(html, /<h3>任务<\/h3>/);
@@ -1568,7 +1568,8 @@ test("V2 Now Work type filtering and grouping stay view-only and protect full Fo
   assert.match(html, /核对事件/);
   assert.doesNotMatch(html, /治理告警/);
   assert.doesNotMatch(html, /data-action="v2-focus-(?:up|down)"/);
-  assert.match(html, /筛选不会改变正式状态/);
+  assert.match(html, /手动调整“当前关注”顺序/);
+  assert.doesNotMatch(html, /Now Work|Focus/);
 });
 
 test("Review Center owns manual current-page candidate discovery instead of Diagnostics", () => {
