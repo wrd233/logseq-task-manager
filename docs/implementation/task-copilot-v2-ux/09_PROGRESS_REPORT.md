@@ -30,6 +30,27 @@
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面、reload 与 723px 窄栏已补 CURRENT；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
+### 2026-07-28 Page / Project Page 现场操作压缩
+
+- `f007cb8` 把普通 Page 与 Project Page 的入口说明改为用户语言：正式事项显示“任务 /
+  进行中”，不再显示 `TASK / OPEN / vN / SQLite / Graph / Primary Anchor`；Project Page
+  不再显示 `HIGH Proposal` 或“正式对象工作区”。
+- 首次最新 Desktop 复验发现既有受控 Project Page 被错误识别为普通 Page。`6462f64`
+  复用 Project 创建页既有 owner/object metadata，在 File Graph UUID 漂移时仍要求正式
+  Project 存在、类型正确且只有一个 active Primary Anchor；精确 Anchor 与 metadata
+  不一致继续 fail closed。
+- `869127f` 依据真实截图继续压缩视觉判断：普通 Page 的“整理当前页”和 Project Page 的
+  “打开项目工作区”分别成为唯一突出主操作，其余意图降为次级；没有合并或绕过 Review /
+  Commit。
+- 自动：Plugin `347/347`、0 skipped；根级 `./scripts/check.sh`、145 条稳定规则、build/
+  dist integrity、恢复演练 `differences=[]` 全部 PASS。
+- Desktop：exact build `869127f`，Logseq 0.10.15 File Graph，Plugin Dark / host Light，
+  1001×720；普通 Page 与 Project Page 两张 CURRENT，取证后回到原 P0-K Page。
+- Provider/Skill：未调用 Provider；Validator 拒绝率、模型重试不适用；Skill/Prompt 版本
+  无变化。
+- 状态：关闭 Page Context 用户语言与受控 Project Page 识别的一个代表性 UI Partial；
+  新增正式状态、Runtime、恢复分支、Skill/Prompt/Validator、写入权威和新 Partial 均为 0。
+
 ### 2026-07-28 Project 创建后落地与返回工作现场
 
 - `b4de474`～`bfabf40` 把创建后和项目列表的 Project 入口统一到 session-only 落地页：

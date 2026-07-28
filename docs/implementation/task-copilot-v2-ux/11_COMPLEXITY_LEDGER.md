@@ -337,3 +337,16 @@
   待审阅空态复用既有 `v2ProviderAvailable`，没有新增 capability 状态。前台错误结论减少，
   状态组合数不变；新增正式状态、Runtime、Skill、Prompt、Validator、恢复分支和 Partial
   均为 `0`。
+
+### Page Context 用户语言与 File Graph Project identity（2026-07-28，`869127f`）
+
+- 关闭一个代表性 UI Partial；新增正式状态、Runtime、Skill、Prompt、Validator、恢复分支、
+  写入权威和新 Partial均为 `0`。
+- 没有创建第二套 Page identity：Page Context 复用 Project 创建/工作现场已有的受控
+  owner/object metadata，并与唯一 active Primary Anchor、正式对象类型和冲突拒绝共同使用。
+- 删除重复前台机制：普通 Page 与 Project Page 都从三个同权按钮收敛为一个突出主操作和
+  两个次级意图；内部动作、版本重验和安全链不变。
+- 工程词泄漏风险下降：普通路径删除 `Page / HIGH Proposal / SQLite / Graph /
+  Primary Anchor / OPEN / vN`；技术事实仍保留在日志、Audit 与诊断中。
+- Desktop 矩阵只增加普通 Page 与受控 Project Page 两个高频代表场景，没有扩成主题/
+  viewport/宿主笛卡尔积。Partial 堆积仍为 HIGH，但本轮净下降 `1`。

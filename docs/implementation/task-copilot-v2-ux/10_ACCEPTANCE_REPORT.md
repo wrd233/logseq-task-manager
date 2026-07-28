@@ -231,6 +231,8 @@ Light/窄栏代表证据；新 Project Page 和其他集中宿主视觉 Gate 仍
 
 | 页面 | 主结论清晰度 | 主操作清晰度 | 心智负担 | 工程词泄漏 | 当前状态 |
 |---|---:|---:|---:|---:|---|
+| 普通 Page 操作 | 高 | 高 | 中→低 | Anchor/SQLite/Graph/版本枚举移出普通路径 | DESKTOP_VERIFIED Dark 1001×720 (`869127f`) |
+| Project Page 操作 | 高 | 高 | 中→低 | Page/HIGH Proposal/正式对象工作区移出普通路径；受控身份冲突 fail closed | DESKTOP_VERIFIED Dark 1001×720 (`869127f`) |
 | 现在 | 高 | 高 | 中→低 | 测试 Project 正文仍可含工程词；系统控件已折叠 | DESKTOP_VERIFIED Light/Dark |
 | 待整理 | 高 | 高 | 低 | 普通控件 0；完整技术事实未显示 | DESKTOP_VERIFIED 751×720 |
 | 待审阅 | 高 | 高 | 高→低 | 当前问题与历史分离；空态不再把 legacy Agent flag 误写成 Copilot 不可用 | DESKTOP_VERIFIED 751×720 + Dark 1000×720 (`cd59228`) |

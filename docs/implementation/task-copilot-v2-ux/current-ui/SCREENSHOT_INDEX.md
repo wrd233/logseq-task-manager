@@ -5,6 +5,22 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### Page / Project Page 用户语言 — exact build `869127f`
+
+Logseq `0.10.15`；File Graph
+`/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；Plugin Dark / host Light；
+1001×720；真实 Plugin/Launcher/Service；只读打开并取消，无 Provider 或正式写入。
+
+| 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|---|
+| `screenshots/ui-page-context-user-language-current-869127f.jpg` | CURRENT | Plugin Dark / host Light / 1001×720 | 普通 Page 菜单→Task Copilot 页面操作 | “整理当前页”为唯一突出主操作；正式事项和建立项目为次级；普通路径无 Anchor/SQLite/Graph/版本枚举 |
+| `screenshots/ui-project-page-context-user-language-current-869127f.jpg` | CURRENT | Plugin Dark / host Light / 1001×720 | 受控 Project Page 菜单→Task Copilot 页面操作 | “打开项目工作区”为唯一突出主操作；更新状态、讨论结构为次级；明确审阅方案后、确认应用才修改 |
+
+真实运行先发现受控 Project Page 被错误降级为普通 Page；`6462f64` 复用创建页既有
+owner/object metadata，并继续要求正式 Project 与唯一 active Primary Anchor 一致。
+`869127f` 再把主操作视觉层级收敛。中间截图未登记为 CURRENT；完整记录见
+`../logs/ui-page-context-language-desktop-live-20260728.md`。
+
 ### Project 创建后落地与返回工作现场 — exact build `bfabf4025f60`
 
 Logseq `0.10.15`；File Graph

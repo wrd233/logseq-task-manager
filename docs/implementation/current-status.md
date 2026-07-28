@@ -653,6 +653,15 @@ V2_UX_PRODUCTIZATION_IN_PROGRESS
 - 2026-07-22 OD-008 release spike：npm 建议的 `@logseq/libs` 0.3.4 仍固定 DOMPurify 3.3.3 与 lodash-es 4.17.23，均落在当前 advisory 影响范围，因此 major upgrade 不能消除既有 2 high / 1 critical。隔离 0.3.4 在把 nullable Page Block tree 明确转成零写入失败后通过 typecheck、129 tests、build/bootstrap/dist；但把 SDK 改为纯类型依赖后，真实 Logseq 0.10.15 只有 `__LSP__HOST__`、不会自行建立 `window.logseq`，Plugin Frame 无法加载。该方案已拒绝并恢复；当前继续固定 0.0.17 runtime、保留 audit 风险，等待上游提供实质更安全构建后再走同一兼容 Gate。无 shim、fork、双 SDK 或隐藏 audit override；证据见 `docs/testing/logseq-libs-od008-spike-2026-07-22.json` 与 ADR 0007。
 - 2026-07-22 最终 clean audit：追踪矩阵 39/39 `DONE`，开放 `ADR_REQUIRED` 0，skipped/only 测试 0，可执行 FIXME/stub 0；UI 的 HTML `placeholder` 均为真实输入提示，不是实现占位。当前代码的根级 typecheck/lint/全部测试（Plugin 130）、build、Plugin/架构边界、145 rules、acceptance rehearsal 与仓库边界全部 PASS，临时 Store 恢复 `differences: []`。Silent Overwrite、Pending/Recovery、Feature Flag、插件受限/关闭后正文可读和外层 Git 均复核；仅保留用户已有且从未暂存的 `apps/task-copilot-local-service/package.json` 改动。结论与证据见 `docs/runtime/V2_FINAL_CLEAN_AUDIT_REPORT.md`。
 
+## 2026-07-28 交互产品化增量
+
+`base_v2_status=IMPLEMENTATION_COMPLETE` 仍只表示底层领域、事务、安全、迁移、Provider 与
+恢复能力完成；`ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。
+最新 `869127f` 已在真实 Logseq 0.10.15 File Graph 关闭 Page Context 用户语言与受控
+Project Page UUID 漂移识别的代表性 UI Partial：一个突出主操作、工程词折叠、冲突
+fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Final Release
+继续开放，不能由旧 `V2_IMPLEMENTATION_COMPLETE` 标记替代。
+
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；

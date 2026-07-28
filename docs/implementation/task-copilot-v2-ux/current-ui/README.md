@@ -3,6 +3,16 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
+最新 Page / Project Page 操作精确构建为 `869127f`。真实 Logseq 0.10.15 File Graph
+证明普通 Page 首屏只保留“整理当前页”主操作与两个次级意图；Project Page 首屏以“打开项目
+工作区”为唯一突出主操作，状态更新和结构讨论保持次级。普通路径不再显示 Page/Anchor/
+SQLite/HIGH Proposal/对象版本等工程语言。真实运行还暴露并修复 File Graph reload 后 Page
+UUID 漂移导致受控 Project Page 被降级为普通 Page：当前复用创建页既有 owner/object
+metadata，但仍要求正式 Project 与唯一 active Primary Anchor 一致，冲突继续 fail closed。
+CURRENT 为 `ui-page-context-user-language-current-869127f.jpg` 与
+`ui-project-page-context-user-language-current-869127f.jpg`。完整记录见
+`../logs/ui-page-context-language-desktop-live-20260728.md`。
+
 最新 Project 创建后落地页精确构建为 `bfabf4025f60`。真实 Logseq 0.10.15 File Graph
 从“项目 → 打开项目”进入同一正式 Project 后，首屏只显示当前状态、一个当前推进、预期
 成果、来源背景和一个“开始当前推进”主操作；完整结构默认折叠。点击主操作会再次重验
