@@ -675,7 +675,7 @@ function renderProjectContextRecovery(
   const requestValue = `${card.project.objectId}|${card.project.version}`;
   if (!state) {
     return model.v2ProviderAvailable
-      ? `<section class="copilot-context"><div class="actions">${button("帮我恢复上下文", "v2-project-context-recovery", requestValue, "quiet")}</div></section>`
+      ? `<section class="copilot-context"><div class="actions">${button("恢复上下文", "v2-project-context-recovery", requestValue, "quiet")}</div></section>`
       : "";
   }
   if (state.expectedVersion !== card.project.version) {
@@ -733,6 +733,55 @@ function renderProjectContextRecovery(
   </section>`;
 }
 
+function renderTargetedProjectLanding(
+  model: UiModel,
+  card: PluginProjectReentryCard,
+  recoveryState: PluginProjectContextRecoveryState | undefined,
+): string {
+  const { project, projection } = card;
+  const structure = project.objectType === "PROJECT" ? project.projectStructure : undefined;
+  if (!structure) return "";
+  const focuses = structure.currentFocuses.slice(0, 3);
+  const outcomes = structure.objectives
+    .filter(({ priority }) => priority === "PRIMARY")
+    .concat(structure.objectives.filter(({ priority }) => priority !== "PRIMARY"))
+    .slice(0, 3);
+  const currentFocus = focuses.length
+    ? `<ol>${focuses.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ol>`
+    : "<p>暂未确定；可以先恢复上下文或调整项目。</p>";
+  const expectedOutcomes = outcomes.length
+    ? `<ul>${outcomes.map((item) => `<li><strong>${escapeHtml(item.text)}</strong>${item.successEvidence.length ? `<span class="muted">完成时可核对：${escapeHtml(item.successEvidence.slice(0, 2).join("；"))}</span>` : ""}</li>`).join("")}</ul>`
+    : "<p>尚未明确；可以在调整项目时补充。</p>";
+  const primary = card.primaryRoute
+    ? button("开始当前推进", card.primaryRoute.action, card.primaryRoute.value, "primary")
+    : "";
+  const recovery = renderProjectContextRecovery(model, card, recoveryState);
+  const detailedObjectives = structure.objectives.length
+    ? `<section><h4>目标和完成证据</h4><ul>${structure.objectives.map((item) => `<li>${escapeHtml(item.text)}${item.successEvidence.length ? ` · ${escapeHtml(item.successEvidence.join("；"))}` : ""}</li>`).join("")}</ul></section>`
+    : "";
+  const detailedDeliverables = structure.deliverables.length
+    ? `<section><h4>成果与验收</h4><ul>${structure.deliverables.map((item) => `<li>${escapeHtml(item.text)} · ${escapeHtml(item.acceptance)}</li>`).join("")}</ul></section>`
+    : "";
+  const detailedStages = structure.workStages.length
+    ? `<section><h4>推进阶段</h4><ul>${structure.workStages.map((item) => `<li>${escapeHtml(item.name)}：${escapeHtml(item.statusDescription)}</li>`).join("")}</ul></section>`
+    : "";
+  return `<article class="card reentry project-landing" data-project-landing="${escapeHtml(project.objectId)}">
+    <div class="eyebrow">项目已就绪 · ${escapeHtml(new Date(projection.lastFormalChangeAt).toLocaleString("zh-CN"))}</div>
+    <h2>${escapeHtml(project.text)}</h2>
+    <section class="project-landing-status"><h3>当前状态</h3><p class="lead">${escapeHtml(structure.currentSummary || projection.summary)}</p></section>
+    <div class="project-landing-grid">
+      <section><h3>现在先做什么</h3>${currentFocus}</section>
+      <section><h3>预期成果</h3>${expectedOutcomes}</section>
+    </div>
+    <section class="project-landing-origin"><h3>来源与背景</h3><p>本次创建没有移动或改写来源正文；项目结构来自你刚刚确认的最终阅读结果。</p></section>
+    <section class="project-landing-actions"><h3>Task Copilot</h3><p class="muted">需要时恢复上下文、调整项目，或查看完整结构；这些入口不会绕过审阅和撤销边界。</p>
+      <div class="actions">${primary}${project.lifecycle === "OPEN" ? button("调整项目", "v2-project-operation-router-open", `${project.objectId}|${project.version}`, "quiet") : ""}</div>
+      ${recovery}
+      <details class="project-landing-structure"><summary>查看完整结构</summary>${detailedObjectives}${detailedDeliverables}${detailedStages}</details>
+    </section>
+  </article>`;
+}
+
 function renderReentry(model: UiModel): string {
   if (model.v2ReentryLoadError) {
     return `<section><h2>继续项目</h2><div class="error"><strong>暂时无法读取项目现状。</strong><span>没有把读取失败显示成空项目，也没有生成猜测性的下一步。</span><details><summary>查看错误详情</summary><p class="muted">${escapeHtml(model.v2ReentryLoadError)}</p></details></div></section>`;
@@ -750,6 +799,12 @@ function renderReentry(model: UiModel): string {
     const cards = visibleCards.map((card) => {
       const { project, projection } = card;
       const recoveryState = model.v2ProjectContextRecovery?.[project.objectId];
+      const targetedLanding = model.v2ReentryTargetObjectId === project.objectId
+        && projection.safetyState === "CLEAN"
+        && project.lifecycle === "OPEN"
+        && project.objectType === "PROJECT"
+        && project.projectStructure;
+      if (targetedLanding) return renderTargetedProjectLanding(model, card, recoveryState);
       const evidence = projection.keyEvidence.length
         ? `<p class="muted">${projection.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>`
         : "";

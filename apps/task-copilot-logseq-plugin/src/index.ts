@@ -3286,10 +3286,11 @@ async function handleAction(action: string, value?: string): Promise<void> {
         }
         recentActionCommitId = result.semanticCommitId;
         workspace = "reentry";
+        v2ReentryTargetObjectId = result.object.objectId;
         openedPageName = result.pageName;
         message = result.pageCreated
-          ? `Project ${result.object.text} 与受控主 Page 已创建；当前接口来自最终阅读预览。`
-          : `Project ${result.object.text} 已绑定审阅时的现有 Page；原 Page 内容未被改写。`;
+          ? `${result.object.text} 已创建；下面先显示当前状态和最值得继续的入口。`
+          : `${result.object.text} 已建立；原页面内容保持不变，下面先显示项目当前状态。`;
       });
     } finally {
       v2ProjectCreationCommitBusy = false;
@@ -3299,7 +3300,6 @@ async function handleAction(action: string, value?: string): Promise<void> {
       pageContext = undefined;
       originRoute = undefined;
       await logseq.App.pushState("page", { name: openedPageName });
-      logseq.hideMainUI();
     }
     return;
   }

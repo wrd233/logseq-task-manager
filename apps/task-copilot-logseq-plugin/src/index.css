@@ -143,6 +143,27 @@
 #task-copilot-personal-mvp-root .project-preview-evidence-body h4 { margin: 0 0 6px; font-size: 13px; }
 #task-copilot-personal-mvp-root .uncertain { color: var(--warning); }
 #task-copilot-personal-mvp-root .reentry { max-width: 780px; margin: 0 auto; }
+#task-copilot-personal-mvp-root .project-landing { display: grid; gap: 14px; max-width: 860px; }
+#task-copilot-personal-mvp-root .project-landing > h2 { margin-bottom: 0; font-size: 24px; }
+#task-copilot-personal-mvp-root .project-landing > section,
+#task-copilot-personal-mvp-root .project-landing-grid > section { margin: 0; padding: 13px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); }
+#task-copilot-personal-mvp-root .project-landing section h3 { margin: 0 0 7px; color: var(--muted); font-size: 13px; }
+#task-copilot-personal-mvp-root .project-landing section p,
+#task-copilot-personal-mvp-root .project-landing section ul,
+#task-copilot-personal-mvp-root .project-landing section ol { margin: 0; line-height: 1.55; }
+#task-copilot-personal-mvp-root .project-landing section ul,
+#task-copilot-personal-mvp-root .project-landing section ol { padding-left: 20px; }
+#task-copilot-personal-mvp-root .project-landing li + li { margin-top: 6px; }
+#task-copilot-personal-mvp-root .project-landing li > .muted { display: block; margin-top: 2px; font-size: 12px; }
+#task-copilot-personal-mvp-root .project-landing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+#task-copilot-personal-mvp-root .project-landing .project-landing-status { border-color: color-mix(in srgb, var(--accent) 36%, var(--border)); background: var(--accent-soft); }
+#task-copilot-personal-mvp-root .project-landing .project-landing-origin { color: var(--muted); }
+#task-copilot-personal-mvp-root .project-landing .project-landing-actions { border-color: color-mix(in srgb, var(--info) 32%, var(--border)); background: var(--info-soft); }
+#task-copilot-personal-mvp-root .project-landing-actions > .actions { margin-top: 11px; flex-wrap: wrap; }
+#task-copilot-personal-mvp-root .project-landing-actions > .copilot-context { margin-top: 10px; background: color-mix(in srgb, var(--info-soft) 72%, var(--surface)); }
+#task-copilot-personal-mvp-root .project-landing-structure { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--info) 30%, var(--border)); border-radius: 9px; background: var(--surface); }
+#task-copilot-personal-mvp-root .project-landing-structure > summary { font-weight: 700; }
+#task-copilot-personal-mvp-root .project-landing-structure > section { margin-top: 12px; padding: 0; border: 0; background: transparent; }
 #task-copilot-personal-mvp-root .restore { padding: 13px; border-radius: 10px; background: var(--accent-soft); }
 #task-copilot-personal-mvp-root .copilot-context { padding: 13px; border: 1px solid color-mix(in srgb, var(--info) 32%, var(--border)); border-radius: 10px; background: var(--info-soft); }
 #task-copilot-personal-mvp-root .copilot-context > .actions:first-child { margin: 0; }
@@ -194,6 +215,7 @@
   #task-copilot-personal-mvp-root .top-actions { flex-direction: column; align-items: stretch; }
   #task-copilot-personal-mvp-root .workspace { max-height: calc(100vh - 210px); padding: 14px; }
   #task-copilot-personal-mvp-root .split { grid-template-columns: 1fr; }
+  #task-copilot-personal-mvp-root .project-landing-grid { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .intent-list { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .review-impact { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .more-hub { grid-template-columns: 1fr; }

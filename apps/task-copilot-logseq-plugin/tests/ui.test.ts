@@ -545,7 +545,14 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
 
   value.v2ReentryTargetObjectId = "project-compact";
   const targeted = renderApp(value);
-  assert.match(targeted, /设备托管｜等待厂家补充功耗参数/);
+  assert.match(targeted, /data-project-landing="project-compact"/);
+  assert.match(targeted, /当前状态[\s\S]*表格结构与业务字段已经完成/);
+  assert.match(targeted, /现在先做什么[\s\S]*等待厂家补充功耗参数/);
+  assert.match(targeted, /预期成果[\s\S]*完成设备托管方案[\s\S]*通过评审/);
+  assert.match(targeted, /来源与背景[\s\S]*没有移动或改写来源正文/);
+  assert.match(targeted, /Task Copilot[\s\S]*恢复上下文[\s\S]*调整项目[\s\S]*查看完整结构/);
+  assert.doesNotMatch(targeted, /object ID|Anchor|Commit|checksum|Ownership|Lifecycle/);
+  assert.match(targeted, /<h2>设备托管<\/h2>/);
   assert.match(targeted, /data-action="v2-reentry-show-all"/);
 
   value.v2ReentryTargetObjectId = "project-stale";
@@ -2219,6 +2226,7 @@ test("relation projection failure is explicit without hiding formal objects", ()
 test("formal plugin entry does not regress to host browser prompts", async () => {
   const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
   const openPrimaryText = source.match(/async function openV2PrimaryAnchor[\s\S]*?\n\}/)?.[0] ?? "";
+  const projectCreationSubmit = source.match(/if \(action === "submit-v2-project-creation"[\s\S]*?if \(action === "submit-v2-project-creation-undo"/)?.[0] ?? "";
   assert.doesNotMatch(source, /window\.(?:prompt|confirm)\s*\(/);
   assert.match(openPrimaryText, /原正文连接已不可用；没有修改正式事项。请在系统状态中检查并重新连接正文/);
   assert.doesNotMatch(openPrimaryText, /\bAnchor\b|运行时|对象/);
@@ -2229,6 +2237,8 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /action === "recent-change-review"[\s\S]*workspace = "review";[\s\S]*reviewMode = "proposals";/);
   assert.match(source, /getCurrentPage\(\)/);
   assert.match(source, /pushState\("page", \{ name: openedPageName \}\)/);
+  assert.match(projectCreationSubmit, /v2ReentryTargetObjectId = result\.object\.objectId/);
+  assert.doesNotMatch(projectCreationSubmit, /logseq\.hideMainUI\(\)/);
   assert.doesNotMatch(source, /action === "create-v2-project"/);
   assert.match(source, /const returnToOrigin = originRoute !== undefined;[\s\S]*if \(returnToOrigin\) \{[\s\S]*await returnToBusinessOrigin\(\);/);
   assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*originRoute = undefined;[\s\S]*originRouteController\.returnTo\(token\)/);
