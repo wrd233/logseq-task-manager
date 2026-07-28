@@ -2240,7 +2240,7 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /getCurrentPage\(\)/);
   assert.match(source, /pushState\("page", \{ name: openedPageName \}\)/);
   assert.match(source, /action === "v2-project-landing-open"[\s\S]*current\.version !== expectedVersion[\s\S]*v2ReentryTargetObjectId = current\.objectId;[\s\S]*workspace = "reentry";/);
-  assert.match(source, /async function openV2ProjectWorksite[\s\S]*listAllPrimaryAnchors\(client\)[\s\S]*Editor\.getPage\(primaryAnchor\.externalId\)[\s\S]*pushState\("page"[\s\S]*openV2PrimaryAnchor\(primaryAnchor\.externalId\)[\s\S]*hideMainUI\(\)/);
+  assert.match(source, /async function openV2ProjectWorksite[\s\S]*listAllPrimaryAnchors\(client\)[\s\S]*Editor\.getCurrentPage\(\)[\s\S]*Editor\.getPage\(primaryAnchor\.externalId\)[\s\S]*Editor\.getPage\(`Project\/\$\{current\.text\}`\)[\s\S]*identity\.pageUuid === primaryAnchor\.externalId[\s\S]*pushState\("page"[\s\S]*openV2PrimaryAnchor\(primaryAnchor\.externalId\)[\s\S]*hideMainUI\(\)/);
   assert.match(source, /action === "v2-open-primary-anchor"[\s\S]*openV2PrimaryAnchor\(value\);[\s\S]*logseq\.hideMainUI\(\)/);
   assert.match(projectCreationSubmit, /v2ReentryTargetObjectId = result\.object\.objectId/);
   assert.doesNotMatch(projectCreationSubmit, /logseq\.hideMainUI\(\)/);

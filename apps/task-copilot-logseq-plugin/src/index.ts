@@ -481,9 +481,21 @@ async function openV2ProjectWorksite(objectId: string, expectedVersion: number):
   if (!current || current.objectType !== "PROJECT" || current.version !== expectedVersion || !primaryAnchor) {
     throw new Error("当前项目或工作现场已经变化；请刷新后重新打开。");
   }
-  const page = await logseq.Editor.getPage(primaryAnchor.externalId);
-  if (page) {
-    const pageName = RuntimeShapeAdapter.pageRef(page);
+  const candidatePages = [
+    await logseq.Editor.getCurrentPage(),
+    await logseq.Editor.getPage(primaryAnchor.externalId),
+    await logseq.Editor.getPage(`Project/${current.text}`),
+  ];
+  let pageName: string | undefined;
+  for (const candidate of candidatePages) {
+    if (!candidate) continue;
+    const identity = await resolveLogseqPageReference(candidate, logseq.Editor.getPage?.bind(logseq.Editor));
+    if (identity.pageUuid === primaryAnchor.externalId) {
+      pageName = identity.pageName ?? identity.displayName.replace(" · Journal", "");
+      break;
+    }
+  }
+  if (pageName) {
     await logseq.App.pushState("page", { name: pageName });
   } else {
     await openV2PrimaryAnchor(primaryAnchor.externalId);
