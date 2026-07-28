@@ -19,6 +19,24 @@
 
 ## 本轮变化（2026-07-28）
 
+### Project 失联正文的前台翻译
+
+- 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、恢复分支和平行写入
+  权威：均为 `0`。
+- 删除或合并恢复机制：`0`；继续复用既有 Anchor fail-closed、系统状态和 Rebind 入口，只
+  替换普通错误层的用户表达。
+- 前台工程词减少：该失败路径不再显示 `Anchor / 对象 / 运行时`，只显示原正文连接、正式
+  事项是否变化和唯一恢复入口；完整连接事实仍保留在系统状态与诊断层。
+- 自动证据：Plugin `343/343`、typecheck/build、145 条稳定规则与根级恢复演练
+  `differences=[]` 全部通过。
+- Desktop：exact build `971c6db268f7` 在真实 Logseq 0.10.15 reload 后，于 Plugin Dark /
+  host Light、1001×720 复现失联测试 Project；点击“打开项目”后零正式写入且用户提示与
+  当前代码一致。
+- Partial 总量变化：新增 `0`、关闭 `0`。关闭的是一个当前 UI 术语缺陷，不把 Project
+  重入、Rebind、P1 或 P2 的开放 Gate 冒充为 DONE；后台工程概念泄漏风险仍为 `MEDIUM`，
+  但该代表失败链已缓解。
+- LLM/Provider：本 Slice 不调用模型；Validator 拒绝率、模型重试和 Skill 版本变化不适用。
+
 ### “现在”标签与状态叙述收敛
 
 - 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、恢复分支和平行写入

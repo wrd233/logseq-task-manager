@@ -39,6 +39,14 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
 均通过。该变化没有新增正式状态、Runtime、Skill、Validator、恢复分支或写入路径，也没有
 把仍开放的 Attention/Block Marker/宿主 Gate 伪装为完成。
 
+`971c6db268f7` 又沿真实 Project 重入失败链压缩连接术语：当 Project 的原正文已无法解析时，
+既有 fail-closed 行为、零正式写入和系统状态中的重新连接入口保持不变，普通错误不再暴露
+`Anchor`、对象或 Logseq 运行时，而明确说明“原正文连接已不可用、正式事项未修改、请在系统
+状态中重新连接正文”。Plugin 343/343、typecheck/build 和根级检查通过；真实 Logseq 0.10.15
+在 1001×720、Plugin Dark / host Light 下 reload 后复现同一失联测试 Project，并确认当前
+提示与代码一致。该 Gate 只关闭这条前台术语缺陷，不把 Project 重入、Rebind 或 P1/P2 其余
+Partial 升级为 DONE。
+
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
   Local Service 读回均已通过；
 - P0-B“暂时做不了”：三种用户意图、最小字段、失败零写入、Focus/Lifecycle 不变、会话内

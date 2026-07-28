@@ -13,6 +13,13 @@
 724×720；筛选只改变 session view，未改正文或正式状态。`ui-compression-01/07` 因仍显示
 旧英文类型而降为 `SUPERSEDED`。
 
+最新 Project 失联正文用户语言精确构建为 `971c6db268f7`（Plugin build
+`2026-07-28 13:08:20 +0800`）。真实 Logseq 0.10.15 reload 后，专用测试 Project 点击
+“打开项目”继续安全失败且没有正式写入；首屏只说明原正文连接不可用、正式事项未修改，
+并指向系统状态中的重新连接入口，不再暴露 `Anchor / 对象 / 运行时`。CURRENT
+`ui-project-missing-source-user-language-current-971c6db.jpg`。该截图只接管 Project
+“打开正文失败”表面的当前解释权，不替代 Rebind 正常链证据，也不表示 Project 重入整体完成。
+
 最新 UI 压缩精确构建为 `f4acf77346b19aa2f096ff2c169bfa7323546062`
 （Plugin build `2026-07-27 19:42:41 +0800`）。`ui-compression-01`～`08` 使用真实
 Logseq 0.10.15 File Graph，覆盖 Light/Dark、1000×720 与 751×720：Now 卡片单一主动作、

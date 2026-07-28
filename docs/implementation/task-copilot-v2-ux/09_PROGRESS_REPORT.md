@@ -69,6 +69,12 @@
   Plugin 343/343、根级检查及真实 Logseq 0.10.15 reload、1000×720、724×720 Gate PASS。
   本轮关闭 2 个当前 UI 缺陷，但没有把 P1 Attention/Marker 或 P0 宿主 Partial 升级为 DONE；
   Partial 总量 `0` 新增、`0` 减少。
+- `971c6db` 继续沿真实 Project 重入失败链去除普通路径中的 `Anchor / 对象 / 运行时`
+  术语。失联正文仍由既有安全边界阻止打开且零正式写入，用户只需知道原连接不可用、正式
+  事项未修改，并从系统状态重新连接正文。Plugin 343/343、typecheck/build、根级检查和
+  Logseq 0.10.15 exact-build reload Desktop Gate 均通过；未新增状态、Runtime、Skill、
+  Validator、写入或 Recovery 分支。该 UI 缺陷关闭不改变 P1/P2 Slice 状态，Partial 总量
+  `0` 新增、`0` 减少。
 - 完成 P0-C LOW 单组单 Block 白名单，`CREATE_OBJECT`/`REWRITE_BLOCK` 之外及 HIGH 组均拒绝；
 - 连续编排复用既有 Review→Graph/版本重验→SemanticCommit→verify，不新增写路径或恢复器；
 - busy 禁用同卡片审阅动作；stale 显示未写入；接受请求不确定时零自动重试并要求刷新；

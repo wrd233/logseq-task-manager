@@ -21,6 +21,21 @@ Graph 首次显示即受限、6 秒稳定 fail-closed 和切回原 authority；`
 `RECOVERY_REQUIRED` 的 HIGH Review、人工恢复、重连和完整 restart；它们不冒充生产 Restore
 连续双重故障注入。`p2-g-44`～`46` 继续只证明 `0c4526d` 的自动回滚交互。
 
+### Project 失联正文用户语言 — exact build `971c6db268f7`
+
+Plugin build：`2026-07-28 13:08:20 +0800`；Logseq `0.10.15`；File Graph
+`/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；Plugin Dark / host Light；
+1001×720；真实 Plugin/Launcher/Service；专用测试 Project。点击只尝试只读定位正文，
+没有 Proposal、Commit、Graph 或 SQLite 正式写入。
+
+| 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|---|
+| `screenshots/ui-project-missing-source-user-language-current-971c6db.jpg` | CURRENT | Plugin Dark / host Light / 1001×720 | reload exact build，打开“现在”，筛选“项目”，点击“打开项目” | 原正文连接不可用；正式事项未修改；去系统状态重新连接。普通路径不显示 Anchor、对象或运行时 |
+
+该图只替代旧实现对“Project 原正文失联时如何表达”的解释权；Rebind 与 Project 正常打开
+仍分别由各自证据负责。完整操作记录见
+`../logs/ui-project-missing-source-language-desktop-live-20260728.md`。
+
 ### Now 中文标签与单一结论 — exact build `f1d0e1f1cee9`
 
 Plugin build：`2026-07-28 13:03:00 +0800`；Logseq `0.10.15`；File Graph

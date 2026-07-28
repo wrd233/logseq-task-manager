@@ -64,6 +64,9 @@
 - [ ] 下一动作资格有效；
 - [ ] Block 标记不干扰阅读/编辑；
 - [ ] Project/Task 重入有效；
+- [x] Project 重入的失联正文失败态使用用户语言；真实 reload 后明确“正式事项未修改”和
+  “去系统状态重新连接”，普通路径不暴露 `Anchor / 对象 / 运行时`，且没有执行正式写入；
+  此项只验收失败态表达，不代表 Project/Task 重入整体完成；
 - [ ] LLM 输出事实/推断/未知分离；机器 fact/action/provenance/risk/review 契约、
   server-owned Project recovery、Plugin 分区显示/只读动作重验自动 PASS；真实
   LaunchAgent→Context Package→DeepSeek→Validator 已 PASS 且零正式写入，Desktop OPEN；
