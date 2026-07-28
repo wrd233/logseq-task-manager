@@ -19,8 +19,9 @@
 > Project→Context Recovery→reload→Undo 代表链；`19de8de0f47c` 已用第三组真实 Provider
 > 复验 current-interface 通用合同与最终 UI；`1c18e9b0ff63` 又关闭 Day 6
 > Waiting→Actionable→返回现场→Now 重排→reload 代表链；同一精确 Plugin 构建又关闭
-> Day 7 MiniProject moved/renamed→explicit sync→reload→Now→原 UUID 返回代表链。完整
-> Day 7 duplicate/missing 与 Day 8—10 Pilot、P1
+> Day 7 MiniProject moved/renamed→explicit sync→reload→Now→原 UUID 返回代表链；
+> `318baab` 又关闭 Day 8 候选前台压缩与 disposition/cooldown 代表 Gate。完整
+> Day 7 duplicate/missing 与 Day 9—10 Pilot、P1
 > 前台和整体 Goal 仍未完成。
 
 ## 总体状态
@@ -86,6 +87,22 @@
   UUID moved/renamed 代表子 Gate，不覆盖复制相似项、真正 missing/conflict 或 Rebind 指引。
 - Provider/Skill/Prompt/Validator 调用或变化 `0`；新增正式状态、Runtime、Recovery 分支、
   正式写入和长期 Partial `0`；关闭代表子 Partial `1`，净变化 `-1`。
+
+### 2026-07-28 连续使用 Pilot Day 8 disposition/cooldown
+
+- 真实 Page 中的任务、成果、小项目候选依次使用“7 天后再看 / 保持普通内容 /
+  以后不再提示”；队列立即归零，真实 Plugin reload 后保持，当前 Proposal 仍为 0，
+  21 条历史默认折叠。
+- 真实 Desktop 发现并在同一 Candidate 内核关闭四类噪声：UUID/type 泄漏、五按钮墙、
+  Candidate/Proposal 管线词、处置后 Preview 虚报新增数量。最终 `318baab` 重算直接显示
+  “没有新增需要整理的内容”，不再提供误导提交按钮。
+- 自动：Plugin `354/354`、typecheck/build PASS；根级检查见本轮最终 Gate。Desktop：
+  Logseq 0.10.15 File Graph、host Light、约 1000×720，精确构建 reload 与系统健康通过。
+- Provider `0`；Validator rejection/retry/abstention `0/0/0`；新增 Skill/Prompt/
+  Validator、正式状态、Runtime、Recovery 分支、Proposal/Commit/正式对象写入均为 `0`。
+- 关闭代表性 Partial `2`：候选普通前台压缩、disposition/cooldown reload/recompute；
+  新增长期 Partial `0`，净变化 `-2`。Attention 仍未前台展示，不能用主动 Candidate 数据
+  代替 Signal helpful/noise Gate。
 
 ### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
 

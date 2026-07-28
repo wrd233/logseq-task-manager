@@ -1,7 +1,7 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_7_MOVE_RENAME_DONE`
-> 当前精确构建：`1c18e9b0ff63`
+> 状态：`IN_PROGRESS_DAY_8_DISPOSITION_DONE`
+> 当前精确构建：`318baab`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
 > Graph：File Graph `logseq`（专用测试 Graph）
@@ -36,7 +36,8 @@ Proposal / Commit / Undo / Recovery。
 | Day 5 | DONE_REPRESENTATIVE_WITH_UX_DEBT | 三组各 5 轮真实 Grill + 1 次 Preview；最终组完成 HIGH/Create/reload/Context Recovery/反馈清除/Undo/健康复核 | 1.6.0 保留业务未知并生成真实当前推进；AI 增量准确但对新 Project 价值有限；结果墙和重复确认仍阻断发布 |
 | Day 6 | PARTIAL_WAITING_RESUME_DONE | 使用 Day 3 的真实 Waiting Task；原 Block 恢复为可行动→返回现场→Now 重排→真实 plugin reload→健康复核 | Waiting 可以自然回到行动；现有 Now 会把它排到“接下来值得处理”第一项，但整体列表仍偏长，Dynamic Now 对照继续开放 |
 | Day 7 | PARTIAL_MOVE_RENAME_DONE | 在 Logseq 中把真实 MiniProject 整棵子树 Cut/Paste 到新 Page，并改名；explicit sync→真实 plugin reload→Now→打开正文→健康复核 | 同一 UUID 移动和改名后 Primary Anchor 保持 active，Now 能打开到新位置；不应误触发 Rebind |
-| Day 8—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
+| Day 8 | DONE_REPRESENTATIVE | 在真实 Page 发现 3 项显式候选；分别执行 7 天后再看、保持普通内容、不再提示；reload、修改被抑制来源、重算与健康复核 | 当前队列与当前 Proposal 均为 0；三种处置保持，历史 21 条默认折叠；重算不再把已处置内容冒充新增 |
+| Day 9—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
 
 ## Provider 与安全计数
 
@@ -52,7 +53,8 @@ Proposal / Commit / Undo / Recovery。
   Day 5 创建 Project 后完成真实 reload、Context Recovery 零写入和完整 Undo；Day 6
   复用同一 `changeCondition` 权威把该 Task 从 Waiting 恢复为 Actionable；Day 7 的移动
   和改名是用户在 Logseq 工作现场的普通正文编辑，随后由既有 explicit sync 核对正式对象，
-  没有 Proposal、Commit 或 Recovery
+  没有 Proposal、Commit 或 Recovery；Day 8 只写既有 Candidate disposition，不生成
+  Proposal、正式对象、Commit 或 Recovery
 - Key 泄漏、正文进入普通日志、绕过 Service、手改 SQLite：`0`
 
 Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务歧义；Day 2 补充说明后，
@@ -107,6 +109,17 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
     保持，Primary Anchor 仍为 active；真实 reload 后 Now 能定位新标题，点击“打开正文”
     精确进入新 Page 的同一 Block。系统没有把稳定移动误报成失联，也没有要求用户理解
     UUID、hash 或 Anchor。复制相似 Block、真正 missing/conflict 与 Rebind 纠错仍待后续。
+19. Day 8 首次真实候选预览暴露三类前台噪声：UUID/type 枚举泄漏、五按钮墙和
+    Candidate/Proposal 管线词；`f5ce698` 与 `6135820` 复用同一 Candidate 运行时，把类型、
+    原因和建议翻译为用户语言，首屏只保留“整理为正式事项 / 7 天后再看”，其余处置折叠。
+20. 三项候选分别暂缓、保持普通内容和“不再提示”后，队列立即归零，reload 后仍为零；
+    修改“不再提示”的来源再检查时，Service 仍正确抑制，但旧 Preview 曾错误显示“3 项已
+    加入”。`318baab` 让 Preview 在提交前复用已加载的正式 Candidate disposition：
+    同版本暂缓/普通内容保持安静，“不再提示”跨普通编辑保持，页面只显示“没有新增需要
+    整理的内容”，不再给误导提交按钮。
+21. 当前 Proposal 队列保持 `0`，21 条历史默认折叠；Day 8 没有开放 Attention，
+    Candidate 是用户主动扫描的既有审阅入口。该证据支持 disposition/cooldown 的低噪声
+    用户合同，不支持把 Waiting 过久、Project 静默或跨对象观察前台化。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -123,12 +136,15 @@ File Graph `logseq`、host Light、约 1000×720。Day 6 使用真正内嵌
 `1c18e9b0ff63` 的产物完成 Waiting 恢复、返回现场、Now 重排、reload 和健康复核。
 Day 7 继续使用同一精确 Plugin 构建完成 MiniProject 移动、改名、explicit sync、
 reload、从 Now 打开新位置和健康复核；仓库文档 HEAD 在取证前为 `793cc46a5001`，
-没有用后续文档提交冒充 Plugin 构建。
+没有用后续文档提交冒充 Plugin 构建。Day 8 的输入画面来自 `793cc46`，候选压缩的中间
+CURRENT 分别来自 `f5ce698` 与 `6135820`；最终 disposition 重算和健康画面使用真正内嵌
+`318baab` 的精确产物。早期 identity/pipeline/错误计数截图明确标为
+`HISTORICAL_DEFECT`，不代表当前界面。
 详细结论见 `OBSERVATION_LOG.md`。
 
 ## 下一段
 
-1. 继续 Day 7 的 duplicate/missing 变体，只在真实 identity 丢失时进入既有 Rebind；
-2. 推进 Day 8 “待我确认”的已处理/暂缓/不相关/不再提醒与 cooldown，取得
-   helpful/noise，而不新增 Attention 类型；
-3. 推进 Day 9 Closure 的完成、Undo 与 `RECOVERY_REQUIRED` 用户语义代表链。
+1. 推进 Day 9 Closure 的完成、Undo 与 `RECOVERY_REQUIRED` 用户语义代表链；
+2. 继续 Day 7 的 duplicate/missing 变体，只在真实 identity 丢失时进入既有 Rebind；
+3. 用 Day 10 的 Now/Review/Project/More/restart/Graph switch 回顾决定第一批 Attention
+   与 Block Marker 是否具备有界 Pilot 条件。

@@ -134,12 +134,15 @@ P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_OPEN`：
 
 连续使用 Pilot `PILOT-2026W31-A` 当前在 `pilot-2026w31/`：Logseq 0.10.15 File Graph，
 已完成 Day 1—2、Day 3 Waiting、Day 4 MiniProject/Project、Day 5 Project/Context
-Recovery 与 Day 6 Waiting 恢复代表链。Day 6 精确构建 `1c18e9b0ff63` 证明同一 Waiting
+Recovery、Day 6 Waiting 恢复、Day 7 稳定移动和 Day 8 disposition/cooldown 代表链。
+Day 6 精确构建 `1c18e9b0ff63` 证明同一 Waiting
 Task 可在原 Block 恢复为行动、返回现场、成为 Now 第一项并在真实 plugin reload 后保持；
 系统健康。Day 7 继续用同一精确 Plugin 构建把真实 MiniProject 移动到新 Page 并改名；
 explicit sync 后同一 UUID/identity 与 active Primary Anchor 保持，reload 后 Now 能准确
-打开新位置，系统无正文连接冲突，故没有误触发 Rebind。累计 32 次真实 DeepSeek；
-Day 6—7 不调用 Provider。Day 7 duplicate/missing/Rebind 变体与 Day 8—10 仍 OPEN。
+打开新位置，系统无正文连接冲突，故没有误触发 Rebind。Day 8 的三项真实 Candidate
+分别暂缓、保持普通内容和不再提示；`318baab` 已让 reload/recompute 后的 Preview 直接
+显示无新增，不泄漏 UUID/type/Candidate/Proposal，不提供误导提交。累计 32 次真实
+DeepSeek；Day 6—8 不调用 Provider。Day 7 duplicate/missing/Rebind 变体与 Day 9—10 仍 OPEN。
 该目录中的截图按 exact commit 登记为 CURRENT，不替代其他宿主/主题证据，也不把七日进度
 写成完整 Pilot。
 

@@ -70,6 +70,20 @@ Plugin reload 后新标题成为“接下来值得处理”第一项，点击“
 该结论只覆盖同一 UUID 的移动/改名，不覆盖复制相似项、真正 missing/conflict 或 Rebind
 纠错；新增正式状态、Runtime、Recovery、Skill/Prompt/Validator 和正式写入均为 `0`。
 
+Day 8 又关闭既有 Candidate disposition/cooldown 的前台代表 Gate：真实当前页的三项候选
+分别执行“7 天后再看 / 保持普通内容 / 以后不再提示”，队列立即归零，真实 Plugin reload
+后保持；给“不再提示”的来源增加普通编辑并重算时，Service 仍保持抑制。真实 Desktop
+先后暴露 UUID/type、按钮墙、Candidate/Proposal 管线词与“实际 0 项却声称加入 3 项”的
+错误结论。`f5ce698`、`6135820`、`318baab` 只复用既有 Candidate/disposition：
+普通首屏保留一个主操作与一个暂缓动作，其余折叠；类型、理由和建议使用用户语言；
+Preview 在提交前排除当前版本已处置项，并让 `NO_MORE_LIKE_THIS` 跨普通编辑保持。
+精确构建 `318baab` reload 后显示“没有新增需要整理的内容”且无提交按钮，系统无未完成
+修改或正文连接冲突。Plugin `354/354`、typecheck/build PASS；Provider、Skill/Prompt/
+Validator、新正式状态、Runtime、Recovery、Proposal、Commit 与正式对象写入均为 `0`。
+该证据关闭候选前台压缩和 disposition/cooldown 两个代表子 Partial，不把主动 Candidate
+处置误写为 Attention Signal helpful/noise，也不开放 Waiting 过久、Project 静默或跨对象
+观察。
+
 此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
@@ -81,7 +95,7 @@ Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源
 Project Undo 成功消息；`19de8de0f47c` 已完成真实 Undo 复验。精确构建系统
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。创建完成卡仍显示
 “正式 Commit 已完整完成”并复制较长最终阅读，重复确认、结果/历史墙仍
-阻断 Final Release。Day 6 其余行为与 Day 7 duplicate/missing、Day 8—10、Dynamic Now、Attention helpful/noise、
+阻断 Final Release。Day 6 其余行为与 Day 7 duplicate/missing、Day 9—10、Dynamic Now、Attention helpful/noise、
 P2-D 完成边界与 P2-E/P2-G 尾项继续 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
 
 最新 P0-K 精确构建 `73dc1e26f610` 完成正式 Block “暂时做不了”的当前 Desktop 返回现场

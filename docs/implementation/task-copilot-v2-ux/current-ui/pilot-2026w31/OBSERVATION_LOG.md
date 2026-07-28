@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| runtime commit | Day 1—3 `bc79ffd1ce6a`；Day 5 `19de8de0f47c`；当前精确构建 `1c18e9b0ff63` |
+| runtime commit | Day 1—3 `bc79ffd1ce6a`；Day 5 `19de8de0f47c`；Day 6—7 `1c18e9b0ff63`；当前精确构建 `318baab` |
 | Logseq | `0.10.15` |
 | Graph | File Graph `logseq` |
 | 主题 / 尺寸 | host Light / 约 1000×720 |
@@ -247,3 +247,60 @@ Block、真正 missing/conflict、候选解释、Rebind 成功与纠错指引仍
 | 新 active Skill / Runtime / Recovery | 0 / 0 / 0；既有 Skill 1.5.0→1.6.0，旧版退休 |
 | Day 6 Partial 净变化 | -1（Waiting→行动原地恢复链） |
 | Day 7 Partial 净变化 | -1（同 UUID moved/renamed→reload→重入代表链） |
+
+## Day 8：待我确认、disposition 与 cooldown
+
+用户在真实测试 Page `Pilot Day 8 Review Backlog` 保留三条自然候选：听云性能对比、
+RHCSA 重启验证清单和 Zabbix 重复告警核对。候选使用既有显式标识和当前页有界扫描，
+不是全 Graph 自动发现，也不是 Attention Signal。测试依次执行：
+
+1. 小项目候选选择“7 天后再看”；
+2. 任务候选选择“保持普通内容”；
+3. 成果候选选择“以后不再提示”；
+4. 真实 reload；
+5. 给“不再提示”的成果来源增加普通编辑，再次检查当前页；
+6. 打开系统状态核对正式安全。
+
+| 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
+|---|---|---|---|---|
+| `screenshots/day-08-review-material-current-light-793cc46.jpg` | 在真实 Page 准备少量混合候选 | 三条材料保持自然可读，可由批次定位 | 主动检查当前页 | CURRENT_AT_793CC46 |
+| `screenshots/day-08-candidate-preview-identity-leak-defect-light-793cc46.jpg` | 首次预览候选 | 旧界面泄漏 `MINI_PROJECT` 和 UUID | 由 `f5ce698` 替代 | HISTORICAL_DEFECT |
+| `screenshots/day-08-candidate-preview-current-light-f5ce698.jpg` | 复验预览压缩 | 显示“小项目”与自然标题，不显示 UUID | 加入待整理 | CURRENT_AT_F5CE698 |
+| `screenshots/day-08-candidate-card-pipeline-language-defect-light-f5ce698.jpg` | 查看候选卡 | 旧卡仍泄漏 Candidate/Proposal 管线词 | 由 `6135820` 替代 | HISTORICAL_DEFECT |
+| `screenshots/day-08-candidate-card-current-light-6135820.jpg` | 复验候选首屏 | 一句来源结论、一个主动作、一个暂缓动作；更多处置折叠 | 分别处置三项 | CURRENT_AT_6135820 |
+| `screenshots/day-08-candidate-deferred-current-light-6135820.jpg` | 暂缓一项 | 队列立即归零，明确 7 天后复查 | reload | CURRENT_AT_6135820 |
+| `screenshots/day-08-candidate-deferred-reload-current-light-6135820.jpg` | reload 后核对暂缓 | 到期前保持安静 | 处理其余候选 | CURRENT_AT_6135820 |
+| `screenshots/day-08-review-history-folded-current-light-6135820.jpg` | 查看审阅积压 | 当前 Proposal 为 0；21 条历史默认折叠 | 返回待整理 | CURRENT_AT_6135820 |
+| `screenshots/day-08-candidates-disposed-current-light-6135820.jpg` | 分别保留普通内容与不再提示 | 当前队列为 0；两种处置均有用户层反馈 | 修改来源并重算 | CURRENT_AT_6135820 |
+| `screenshots/day-08-disposition-rescan-current-light-6135820.jpg` | 修改被抑制来源后重算 | Service 实际保持 0，但旧 Preview 错称 3 项已加入 | 由 `318baab` 修复 | HISTORICAL_DEFECT |
+| `screenshots/day-08-disposition-rescan-current-light-318baab.jpg` | 精确构建再次重算 | 直接显示“没有新增需要整理的内容”；无误导提交按钮 | 检查系统状态 | CURRENT |
+| `screenshots/day-08-candidate-disposition-health-current-light-318baab.jpg` | 核对正式安全 | 无未完成修改或正文连接冲突；正式链均可用 | 进入 Day 9 | CURRENT |
+
+观察：
+
+- 实际候选 `3`，处置为 `LATER / DISMISSED / NO_MORE_LIKE_THIS = 1 / 1 / 1`；
+  处置后、reload 后和来源普通编辑后的当前队列均为 `0`。
+- 当前 Proposal `0`；历史 `21` 条默认折叠，没有淹没当前问题。Day 8 正式对象、
+  Proposal、SemanticCommit、Recovery 和正文自动写入均为 `0`。
+- `f5ce698`、`6135820`、`318baab` 没有新增状态机或 Runtime：分别只压缩候选类型/身份、
+  翻译既有 reason/suggestion、让 Preview 复用同一 Candidate disposition。
+- `NO_MORE_LIKE_THIS` 跨普通来源编辑保持；`LATER` 和 `DISMISSED` 在同一正文版本保持，
+  真正内容变化可按既有规则重开，避免把真实变化永久吞掉。
+- 本日没有 Provider 调用，Validator rejection/retry/abstention 均为 `0/0/0`，没有新增
+  Skill/Prompt/Validator 版本。
+- helpful/noise：三种处置均帮助用户在一个入口清空当前队列；真实暴露的前台噪声为
+  identity/type、按钮墙、管线术语和错误重算结论，均已在现有内核内修复。Attention
+  前台展示仍为 `0`，不能把主动 Candidate 处置数据冒充 Attention 噪声门。
+
+## 轻量指标（截至 Day 8）
+
+| 指标 | 结果 |
+|---|---:|
+| 真实 Provider | 32 次累计；Day 8 为 0 |
+| Validator rejection / retry / abstention | 0 / 0 / 0 |
+| Candidate disposition | LATER 1 / DISMISSED 1 / NO_MORE 1 |
+| 当前 Candidate / Proposal | 0 / 0 |
+| Attention 前台展示 | 0 |
+| 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
+| 新 Skill / Prompt / Validator | 0 / 0 / 0 |
+| Day 8 Partial 净变化 | -2（候选前台压缩；disposition/cooldown 代表 Gate） |

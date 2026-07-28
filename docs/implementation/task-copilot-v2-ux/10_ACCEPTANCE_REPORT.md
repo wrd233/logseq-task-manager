@@ -57,6 +57,12 @@ Anchor `active`；真实 Plugin reload 后 Now 能准确打开新位置，系统
 没有错误要求 Rebind。该项只验收稳定移动，不把 duplicate/missing/conflict 或 Rebind
 纠错写成完成。
 
+连续使用 Day 8 已通过 Candidate disposition/cooldown 的代表性前台 Gate：三项真实候选
+分别暂缓、保持普通内容和不再提示，当前队列归零，reload 后保持；修改“不再提示”来源
+再检查仍保持安静。精确构建 `318baab` 不再把已处置内容列作新增或提供提交按钮，系统状态
+无未完成修改与正文连接冲突。该项验收主动候选审阅的低噪声合同，不等于 Attention
+前台开放；Provider/Skill/正式对象/Proposal/Commit/Recovery 均未变化。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据

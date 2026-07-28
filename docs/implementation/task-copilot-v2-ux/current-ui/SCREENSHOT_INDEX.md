@@ -64,6 +64,26 @@ Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 | `pilot-2026w31/screenshots/day-07-miniproject-anchor-open-current-light-1c18e9b.jpg` | CURRENT | 从 Now 打开移动后的 MiniProject | 精确进入新 Page 的原 UUID 根 Block |
 | `pilot-2026w31/screenshots/day-07-miniproject-move-health-current-light-1c18e9b.jpg` | CURRENT | 打开系统状态 | 无未完成修改或正文连接冲突；无需 Rebind |
 
+### 连续使用 Pilot Day 8 — exact final build `318baab`
+
+Logseq `0.10.15`、File Graph `logseq`、host Light、1001×720。中间截图保留精确构建，
+缺陷证据不代表当前界面；最终重算与健康截图来自真正内嵌 `318baab` 的产物。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-08-review-material-current-light-793cc46.jpg` | CURRENT_AT_793CC46 | 准备三项混合候选 | 自然材料存在当前测试 Page，可按 Pilot 批次定位 |
+| `pilot-2026w31/screenshots/day-08-candidate-preview-identity-leak-defect-light-793cc46.jpg` | HISTORICAL_DEFECT | 首次检查当前页 | 旧 Preview 泄漏 type enum 与 UUID；由 `f5ce698` 替代 |
+| `pilot-2026w31/screenshots/day-08-candidate-preview-current-light-f5ce698.jpg` | CURRENT_AT_F5CE698 | 重载后再次预览 | 类型和标题使用用户语言，无 UUID |
+| `pilot-2026w31/screenshots/day-08-candidate-card-pipeline-language-defect-light-f5ce698.jpg` | HISTORICAL_DEFECT | 查看新候选卡 | 旧卡泄漏 Candidate/Proposal 管线词；由 `6135820` 替代 |
+| `pilot-2026w31/screenshots/day-08-candidate-card-current-light-6135820.jpg` | CURRENT_AT_6135820 | 查看压缩后的候选 | 一个主操作、一个暂缓动作；其余处置折叠 |
+| `pilot-2026w31/screenshots/day-08-candidate-deferred-current-light-6135820.jpg` | CURRENT_AT_6135820 | 选择 7 天后再看 | 当前队列归零，显示到期复查结论 |
+| `pilot-2026w31/screenshots/day-08-candidate-deferred-reload-current-light-6135820.jpg` | CURRENT_AT_6135820 | 真实 reload | 暂缓项到期前保持安静 |
+| `pilot-2026w31/screenshots/day-08-review-history-folded-current-light-6135820.jpg` | CURRENT_AT_6135820 | 查看待审阅 | 当前 Proposal 为 0；21 条历史默认折叠 |
+| `pilot-2026w31/screenshots/day-08-candidates-disposed-current-light-6135820.jpg` | CURRENT_AT_6135820 | 保持普通内容与不再提示 | 当前候选归零，两种反馈清楚 |
+| `pilot-2026w31/screenshots/day-08-disposition-rescan-current-light-6135820.jpg` | HISTORICAL_DEFECT | 修改被抑制来源后重算 | 实际队列为 0，但旧 Preview 虚报 3 项；由 `318baab` 替代 |
+| `pilot-2026w31/screenshots/day-08-disposition-rescan-current-light-318baab.jpg` | CURRENT | 精确构建重算 | 无新增内容且无提交按钮；三种处置仍有效 |
+| `pilot-2026w31/screenshots/day-08-candidate-disposition-health-current-light-318baab.jpg` | CURRENT | 查看系统状态 | 无未完成修改或正文连接冲突；进入 Day 9 |
+
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
 Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌

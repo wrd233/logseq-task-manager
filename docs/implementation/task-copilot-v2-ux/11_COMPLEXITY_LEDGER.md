@@ -19,6 +19,22 @@
 
 ## 本轮变化（2026-07-28）
 
+### Day 8 Candidate disposition/cooldown
+
+- 新增正式状态、顶层导航、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和
+  新长期 Partial：均为 `0`。
+- 合并前台机制：候选卡继续使用唯一 Candidate/disposition 权威；普通首屏由五个并列动作
+  压缩为一个主操作、一个暂缓动作和折叠的更多处置；没有新建提醒规则或第二审阅中心。
+- 删除工程表达：UUID、原始 type enum、Candidate/Proposal 管线词从普通路径移除；
+  完整 source identity 仍在既有技术权威中，操作时照常重验。
+- `318baab` 让 Preview 复用已加载的同一 Candidate disposition，而不是扫描后再次制造
+  临时 UI 状态。`NO_MORE_LIKE_THIS` 跨普通编辑保持，其他处置按正文版本匹配，避免永久
+  吞掉真实变化。
+- 自动 `354/354`、typecheck/build PASS；真实 Desktop 完成三种处置、reload、来源普通
+  编辑、recompute 与健康复核。Partial 净变化 `-2`，新增 `0`。
+- 风险变化：后台工程词泄漏继续下降；Partial 堆积略降；Attention、状态组合和 Recovery
+  分裂风险不变。Candidate 主动审阅数据没有被伪装成 Attention helpful/noise。
+
 ### Day 7 稳定移动、改名与 Anchor 重入
 
 - 新增正式状态、顶层导航、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威与
