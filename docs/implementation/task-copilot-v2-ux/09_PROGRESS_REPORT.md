@@ -20,8 +20,9 @@
 > 复验 current-interface 通用合同与最终 UI；`1c18e9b0ff63` 又关闭 Day 6
 > Waiting→Actionable→返回现场→Now 重排→reload 代表链；同一精确 Plugin 构建又关闭
 > Day 7 MiniProject moved/renamed→explicit sync→reload→Now→原 UUID 返回代表链；
-> `318baab` 又关闭 Day 8 候选前台压缩与 disposition/cooldown 代表 Gate。完整
-> Day 7 duplicate/missing 与 Day 9—10 Pilot、P1
+> `318baab` 又关闭 Day 8 候选前台压缩与 disposition/cooldown 代表 Gate；
+> `7fe762d` 又关闭 Day 9 Closure 正常链、reload、专用 Undo 与共享前台表达代表 Gate。完整
+> Day 7 duplicate/missing 与 Day 10 Pilot、P1
 > 前台和整体 Goal 仍未完成。
 
 ## 总体状态
@@ -103,6 +104,27 @@
 - 关闭代表性 Partial `2`：候选普通前台压缩、disposition/cooldown reload/recompute；
   新增长期 Partial `0`，净变化 `-2`。Attention 仍未前台展示，不能用主动 Candidate 数据
   代替 Signal helpful/noise Gate。
+
+### 2026-07-28 连续使用 Pilot Day 9 Closure
+
+- 使用已有正式 Project 完成用户判断→真实 DeepSeek→HIGH Review→审阅方案→确认应用→
+  reload→专用 inverse Undo→再次 reload→系统健康；不是新造的 isolated demo。
+- Day 9 Provider `1` 次、累计 `33`；Validator rejection/retry/abstention `0/0/0`。模型
+  保留“正式性能对比报告未完成”的真实未知，没有杜撰性能结论，也没有新增 Skill/Prompt/
+  Validator 版本。
+- `f80fda4` 明确“方案已审阅，尚未应用”；`8a6e37a` 把 Commit/Lifecycle 从普通结果卡
+  移出，并为 Closure 给出业务完成结论；`f18cc72` 把 SQLite/Local Service/Audit 等从
+  最近修改首屏折叠；`7fe762d` 把专用 Undo 结论翻译为项目恢复进行中、完成回顾已移除。
+- 自动证据：Application `170/170`、Plugin `354/354`、UI targeted `69/69` 与 recent
+  changes targeted `10/10` 已通过，typecheck/build PASS；本轮文档提交前继续运行根级检查。
+- Desktop 证据：Logseq 0.10.15 File Graph、host Light、约 1000×720；各步骤按精确
+  `aad478c` / `f80fda4` / `f18cc72` / `7fe762d` 登记。应用后旧工程词图为
+  `HISTORICAL_DEFECT`，不代表当前界面。
+- Partial 净变化 `-1`：关闭最新连续使用 Closure 正常链与前台表达代表 Gate；真正
+  `RECOVERY_REQUIRED` 未注入，继续阻断 P2-E DONE。安全语义固定为 PENDING 续跑原修改、
+  RECOVERY_REQUIRED 只恢复一致性、恢复后重新发起业务操作。
+- 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和新长期
+  Partial：均为 `0`。
 
 ### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
 

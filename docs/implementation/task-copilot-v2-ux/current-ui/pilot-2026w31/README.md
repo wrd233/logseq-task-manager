@@ -1,7 +1,7 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_8_DISPOSITION_DONE`
-> 当前精确构建：`318baab`
+> 状态：`IN_PROGRESS_DAY_9_CLOSURE_DONE`
+> 当前精确构建：`7fe762d`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
 > Graph：File Graph `logseq`（专用测试 Graph）
@@ -37,11 +37,12 @@ Proposal / Commit / Undo / Recovery。
 | Day 6 | PARTIAL_WAITING_RESUME_DONE | 使用 Day 3 的真实 Waiting Task；原 Block 恢复为可行动→返回现场→Now 重排→真实 plugin reload→健康复核 | Waiting 可以自然回到行动；现有 Now 会把它排到“接下来值得处理”第一项，但整体列表仍偏长，Dynamic Now 对照继续开放 |
 | Day 7 | PARTIAL_MOVE_RENAME_DONE | 在 Logseq 中把真实 MiniProject 整棵子树 Cut/Paste 到新 Page，并改名；explicit sync→真实 plugin reload→Now→打开正文→健康复核 | 同一 UUID 移动和改名后 Primary Anchor 保持 active，Now 能打开到新位置；不应误触发 Rebind |
 | Day 8 | DONE_REPRESENTATIVE | 在真实 Page 发现 3 项显式候选；分别执行 7 天后再看、保持普通内容、不再提示；reload、修改被抑制来源、重算与健康复核 | 当前队列与当前 Proposal 均为 0；三种处置保持，历史 21 条默认折叠；重算不再把已处置内容冒充新增 |
-| Day 9—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
+| Day 9 | DONE_REPRESENTATIVE_CLOSURE | 既有 Project→Closure 判断→真实 DeepSeek→HIGH Review→审阅方案→确认应用→reload→专用 Undo→再次 reload→健康复核 | 正常关闭链可验收；PENDING 可继续原操作、RECOVERY_REQUIRED 只恢复一致性；真正故障注入仍 OPEN |
+| Day 10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
 
 ## Provider 与安全计数
 
-- 真实 Provider 调用：`32`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
+- 真实 Provider 调用：`33`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
   Grill/Preview 为 7；Day 5 三组重建 Project Grill/Preview 各 6；Page 来源超限在 Provider 前拒绝）
 - Validator rejection：`0`
 - 自动 retry：`0`
@@ -54,7 +55,8 @@ Proposal / Commit / Undo / Recovery。
   复用同一 `changeCondition` 权威把该 Task 从 Waiting 恢复为 Actionable；Day 7 的移动
   和改名是用户在 Logseq 工作现场的普通正文编辑，随后由既有 explicit sync 核对正式对象，
   没有 Proposal、Commit 或 Recovery；Day 8 只写既有 Candidate disposition，不生成
-  Proposal、正式对象、Commit 或 Recovery
+  Proposal、正式对象、Commit 或 Recovery；Day 9 只通过既有 Closure Proposal/Commit/
+  inverse Undo 正式链改变并恢复 Project，最终回到 `OPEN`
 - Key 泄漏、正文进入普通日志、绕过 Service、手改 SQLite：`0`
 
 Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务歧义；Day 2 补充说明后，
@@ -120,6 +122,14 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
 21. 当前 Proposal 队列保持 `0`，21 条历史默认折叠；Day 8 没有开放 Attention，
     Candidate 是用户主动扫描的既有审阅入口。该证据支持 disposition/cooldown 的低噪声
     用户合同，不支持把 Waiting 过久、Project 静默或跨对象观察前台化。
+22. Day 9 真实 Closure 的 Provider 一次通过且没有杜撰性能结论；审阅阶段零正式写入，
+    应用后 Project 正确完成，reload 保持，专用 Undo 后恢复 `OPEN` 并移除本次 Closure。
+23. 同一链依次暴露“已接受”等于完成、结果卡泄漏 Commit/Lifecycle、最近修改首屏泄漏
+    SQLite/Service/Audit，以及 Closure Undo 仍使用通用“撤销完成”四类前台问题；均在
+    共享 Review/结果/最近修改内核内收敛，没有新增状态、Runtime 或恢复入口。
+24. Day 9 没有制造真正 `RECOVERY_REQUIRED`。当前产品语义固定为：`PENDING` 可以继续
+    同一项正式修改；`RECOVERY_REQUIRED` 只恢复安全一致性，完成恢复后由用户重新发起
+    Closure。该结论避免为勾选 Gate 扩展前向恢复 Kernel，但真正故障代表链仍阻断 P2-E DONE。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -139,12 +149,15 @@ reload、从 Now 打开新位置和健康复核；仓库文档 HEAD 在取证前
 没有用后续文档提交冒充 Plugin 构建。Day 8 的输入画面来自 `793cc46`，候选压缩的中间
 CURRENT 分别来自 `f5ce698` 与 `6135820`；最终 disposition 重算和健康画面使用真正内嵌
 `318baab` 的精确产物。早期 identity/pipeline/错误计数截图明确标为
-`HISTORICAL_DEFECT`，不代表当前界面。
+`HISTORICAL_DEFECT`，不代表当前界面。Day 9 的 Review、Accepted、Applied 与 Undo
+分别记录其真实精确构建 `aad478c`、`f80fda4`、`f18cc72` 与 `7fe762d`；其中
+`f80fda4` 的应用工程词画面只保留为 `HISTORICAL_DEFECT`，当前链以 `f18cc72` 应用态、
+`7fe762d` Undo 与健康态为准。
 详细结论见 `OBSERVATION_LOG.md`。
 
 ## 下一段
 
-1. 推进 Day 9 Closure 的完成、Undo 与 `RECOVERY_REQUIRED` 用户语义代表链；
-2. 继续 Day 7 的 duplicate/missing 变体，只在真实 identity 丢失时进入既有 Rebind；
-3. 用 Day 10 的 Now/Review/Project/More/restart/Graph switch 回顾决定第一批 Attention
+1. 用 Day 10 的 Now/Review/Project/More/restart/Graph switch 回顾决定第一批 Attention
    与 Block Marker 是否具备有界 Pilot 条件。
+2. 继续 Day 7 的 duplicate/missing 变体，只在真实 identity 丢失时进入既有 Rebind；
+3. 用受控故障而非普通成功链验证 P2-E `RECOVERY_REQUIRED` 的“只恢复一致性”用户语义。

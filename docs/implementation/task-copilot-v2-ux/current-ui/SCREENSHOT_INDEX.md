@@ -84,6 +84,20 @@ Logseq `0.10.15`、File Graph `logseq`、host Light、1001×720。中间截图�
 | `pilot-2026w31/screenshots/day-08-disposition-rescan-current-light-318baab.jpg` | CURRENT | 精确构建重算 | 无新增内容且无提交按钮；三种处置仍有效 |
 | `pilot-2026w31/screenshots/day-08-candidate-disposition-health-current-light-318baab.jpg` | CURRENT | 查看系统状态 | 无未完成修改或正文连接冲突；进入 Day 9 |
 
+### 连续使用 Pilot Day 9 — exact step builds through `7fe762d`
+
+Logseq `0.10.15`、File Graph `logseq`、host Light、约 1000×720。每一步按真正加载的
+Plugin build 登记；`f80fda4` 的旧应用结果只作为缺陷证据，不冒充当前界面。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-09-closure-review-current-light-aad478c.jpg` | CURRENT_AT_AAD478C | 真实 DeepSeek 生成后打开 HIGH Review | 影响与不改变优先；完整依据折叠；审阅方案 |
+| `pilot-2026w31/screenshots/day-09-closure-accepted-current-light-f80fda4.jpg` | CURRENT_AT_F80FDA4 | 接受方案 | 明确尚未应用；退出不修改正式内容；下一步确认应用 |
+| `pilot-2026w31/screenshots/day-09-closure-applied-engineering-terms-historical-f80fda4.jpg` | HISTORICAL_DEFECT | 首次正式应用 | 旧结果泄漏 Commit/Lifecycle；由 `f18cc72` 替代 |
+| `pilot-2026w31/screenshots/day-09-closure-applied-reload-current-light-f18cc72.jpg` | CURRENT_AT_F18CC72 | 正式应用并真实 reload | 项目已结束；结果、遗留和后续说明已保存；页面与正文不变 |
+| `pilot-2026w31/screenshots/day-09-closure-undo-reload-current-light-7fe762d.jpg` | CURRENT | 专用 Undo 并再次 reload | 项目恢复进行中；本次完成回顾已移除 |
+| `pilot-2026w31/screenshots/day-09-closure-final-health-current-light-7fe762d.jpg` | CURRENT | 打开系统状态 | 正式能力和当前 Graph 已连接；无未完成修改或正文连接冲突 |
+
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
 Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌

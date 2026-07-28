@@ -63,6 +63,13 @@ Anchor `active`；真实 Plugin reload 后 Now 能准确打开新位置，系统
 无未完成修改与正文连接冲突。该项验收主动候选审阅的低噪声合同，不等于 Attention
 前台开放；Provider/Skill/正式对象/Proposal/Commit/Recovery 均未变化。
 
+连续使用 Day 9 已通过 Closure 正常连续使用与前台表达代表 Gate：已有正式 Project 的
+用户判断经真实 DeepSeek 一次通过 Validator，审阅阶段零正式写入；确认应用后完成并经
+reload 保持，专用 Undo 后恢复 `OPEN`、移除本次 Closure，再次 reload 后系统健康。
+普通路径已明确“审阅方案不等于正式应用”，不再暴露 Commit/Lifecycle/SQLite/Service/
+Audit，Undo 使用业务结论。该项不等于 P2-E 完成：真正 `RECOVERY_REQUIRED` 没有注入，
+当前合同仍是 `PENDING` 可继续原操作、恢复状态只收口一致性、恢复后重新发起 Closure。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
@@ -283,6 +290,7 @@ Light/窄栏代表证据；新 Project Page 和其他集中宿主视觉 Gate 仍
 | Closure Step 1 | 高 | 高 | 高→中 | 逐目标原始依据与完整依据默认折叠 | DESKTOP_VERIFIED Light/Dark/窄栏 |
 | Closure Provider error | 高 | 高 | 高→低 | Provider/Proposal/Commit 不出普通错误态 | DESKTOP_VERIFIED Light 1000×720 |
 | Closure HIGH Review | 高 | 高 | 高→中低 | `Closure Proposal` 已移出普通标题；模型长说明折叠；首屏只显示结构化结论、影响和安全边界 | DESKTOP_VERIFIED Dark 1000×720 (`cda4f95`) |
+| Closure 应用 / reload / Undo | 高 | 高 | 高→低 | 审阅与应用分层；结果卡、最近修改和 Undo 使用业务结论，工程词折叠 | DESKTOP_VERIFIED Light 1000×720 (`f18cc72` / `7fe762d`) |
 | 通用插件壳层 | 高 | 高 | 中→低 | Dark 语义 token 完整；custom.css 不一致时只暴露“界面外观”，不暴露主题探测机制 | DESKTOP_VERIFIED Dark 1001×720 + 723×720 + reload (`d7526f4`) |
 
 验收边界：本表只关闭当前信息架构和代表性主题/宽度 Gate；generation stale 由独立真实
@@ -341,7 +349,7 @@ P0/P1/P2 或 Final Release 标为 DONE。
 - [x] P0-F 介入计数/噪声排除/Recovery 优先级自动覆盖，以及安静态、正式连接风险 `TC ①`、
   诊断路由和恢复后安静态的两张脱敏 Desktop 截图；
 - [ ] P2-D Release 边界已完成证据化分类，但 Focus/reviewAt 完整长期 Undo、Association
-  inverse、外部 Agent 结构操作产品链和 Day 7/9 Pilot 仍需收口；
+  inverse、外部 Agent 结构操作产品链和 Day 7 duplicate/missing 仍需收口；
 - [x] P0-G 用户层状态翻译、inverse 折叠、专用 Undo 路由、折叠技术详情，以及 LOW 应用→
   即时结果→跨 reload 长期 Undo→Graph/SQLite 恢复的四张脱敏 Desktop 截图；
 - [x] P0-I 五个用户问题、Provider 非故障降级、安全优先级、Pending/Recovery 分离和
@@ -357,13 +365,15 @@ P0/P1/P2 或 Final Release 标为 DONE。
   `currentInterface` 把页面显示要求误作业务推进的通用合同缺陷，并在 Preview 取消、
   零 Proposal/零正式写入。第二组 1.6.0 真实复验又用 6 次调用保留业务未知并生成可行动
   当前推进；第三组 6 次调用在 `19de8de0f47c` 完成最终 Preview、HIGH Review、Create、
-  reload、Context Recovery、feedback clear、Undo 与健康复核；Pilot 累计 32 次真实
+  reload、Context Recovery、feedback clear、Undo 与健康复核；Day 6 Waiting 恢复、
+  Day 7 稳定移动、Day 8 disposition/cooldown 与 Day 9 Closure 正常链也完成代表 Gate；
+  Pilot 累计 33 次真实
   DeepSeek。普通笔记未被
   自动正式化，Now 未立即洪水，Page 来源超预算已安全解释，Project Undo 后精确构建
   0/0/0 且 explicit sync clean。`project-creation-modeling@1.6.0` 已达
-  `CANDIDATE/DESKTOP_VERIFIED`。完整 Day 3、Day 6 的优先级变化与 Day 7—10、
-  Dynamic Now 对照、Attention helpful/noise、disposition/cooldown 和 P2-D 边界仍开放；
-  Day 6 已关闭真实 Waiting→Actionable→原 Block→Now→reload 子链，但不冒充当日全部完成；
+  `CANDIDATE/DESKTOP_VERIFIED`。Day 7 duplicate/missing/Rebind、Day 10、
+  Dynamic Now 对照、Attention helpful/noise 与真正 Closure `RECOVERY_REQUIRED`
+  仍开放；已关闭的代表链不冒充完整 Pilot 完成；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

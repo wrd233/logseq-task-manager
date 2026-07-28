@@ -19,6 +19,21 @@
 
 ## 本轮变化（2026-07-28）
 
+### Day 9 Closure 正常链与共享前台收敛
+
+- 新增正式状态、顶层导航、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和
+  新长期 Partial：均为 `0`。
+- 合并重复表达：Closure 继续复用共享 HIGH Review、结果卡、最近修改和 inverse Undo，
+  没有建立 Closure 专用第二结果页或恢复器；审阅态统一说明“尚未应用”。
+- 删除普通路径工程词：Commit/Lifecycle/SQLite/Local Service/Audit 不再出现在应用结果
+  与最近修改首屏；技术事实仍留在折叠详情和正式审计。
+- 真实 DeepSeek `1` 次一次通过，Validator rejection/retry/abstention `0/0/0`；没有以
+  单一成功样本升级 Skill 或增加 Validator 分支。
+- Partial 净变化 `-1`：Closure 最新正常链与前台表达代表 Gate 关闭；真正
+  `RECOVERY_REQUIRED` 继续保留在同一个 P2-E Partial，不拆成新的长期状态组合。
+- Recovery 语义风险略降：`PENDING` 继续原操作，`RECOVERY_REQUIRED` 只恢复安全一致性，
+  恢复后重新发起业务操作。没有为了前向 resume 扩展 Recovery Kernel。
+
 ### Day 8 Candidate disposition/cooldown
 
 - 新增正式状态、顶层导航、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和

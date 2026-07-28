@@ -84,6 +84,18 @@ Validator、新正式状态、Runtime、Recovery、Proposal、Commit 与正式�
 处置误写为 Attention Signal helpful/noise，也不开放 Waiting 过久、Project 静默或跨对象
 观察。
 
+Day 9 又用既有正式 Project 完成最新 Closure 连续使用代表链：真实 DeepSeek 一次生成
+通过 Validator 的 HIGH 方案，没有杜撰性能结论；审阅阶段零正式写入，确认应用后 Project
+完成并经真实 plugin reload 保持，专用 inverse Undo 随后恢复 `OPEN`、移除本次 Closure，
+再次 reload 后正式能力、当前 Graph、Pending/Recovery/正文连接均健康。`f80fda4`、
+`8a6e37a`、`f18cc72`、`7fe762d` 在共享 Review、结果卡和最近修改内核内依次明确“已审阅
+尚未应用”、移除 Commit/Lifecycle/SQLite/Service/Audit 普通路径工程词，并把 Closure
+Undo 翻译为“项目恢复为进行中；完成回顾已移除”。没有新增状态、Runtime、Recovery、
+Skill/Prompt/Validator 或写入权威；Pilot 累计真实 Provider `33`，Validator rejection/
+retry/abstention 仍为 `0/0/0`。本次只关闭正常 Closure 连续使用与前台表达代表 Partial：
+receipt-backed `PENDING` 可以继续同一修改，真正 `RECOVERY_REQUIRED` 只恢复安全一致性，
+恢复后重新发起 Closure；该故障注入仍 OPEN，所以 P2-E 与整体 Goal 继续进行。
+
 此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
@@ -95,7 +107,7 @@ Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源
 Project Undo 成功消息；`19de8de0f47c` 已完成真实 Undo 复验。精确构建系统
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。创建完成卡仍显示
 “正式 Commit 已完整完成”并复制较长最终阅读，重复确认、结果/历史墙仍
-阻断 Final Release。Day 6 其余行为与 Day 7 duplicate/missing、Day 9—10、Dynamic Now、Attention helpful/noise、
+阻断 Final Release。Day 6 其余行为与 Day 7 duplicate/missing、Day 10、Dynamic Now、Attention helpful/noise、
 P2-D 完成边界与 P2-E/P2-G 尾项继续 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
 
 最新 P0-K 精确构建 `73dc1e26f610` 完成正式 Block “暂时做不了”的当前 Desktop 返回现场

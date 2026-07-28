@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| runtime commit | Day 1—3 `bc79ffd1ce6a`；Day 5 `19de8de0f47c`；Day 6—7 `1c18e9b0ff63`；当前精确构建 `318baab` |
+| runtime commit | Day 1—3 `bc79ffd1ce6a`；Day 5 `19de8de0f47c`；Day 6—7 `1c18e9b0ff63`；Day 8 `318baab`；当前精确构建 `7fe762d` |
 | Logseq | `0.10.15` |
 | Graph | File Graph `logseq` |
 | 主题 / 尺寸 | host Light / 约 1000×720 |
@@ -304,3 +304,48 @@ RHCSA 重启验证清单和 Zabbix 重复告警核对。候选使用既有显式
 | 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
 | 新 Skill / Prompt / Validator | 0 / 0 / 0 |
 | Day 8 Partial 净变化 | -2（候选前台压缩；disposition/cooldown 代表 Gate） |
+
+## Day 9：Project Closure、reload 与专用 Undo
+
+直接使用已有正式 Project `P0 Page Route Gate 20260723`，它的当前工作明确要求完成
+Closure 的真实 Provider、HIGH Review、正式应用、reload 和撤销。用户补充了已完成结果、
+逐 Objective disposition、遗留事项、关键 Decision 与未来重入摘要，再调用真实 DeepSeek。
+
+Provider 一次返回通过 Validator 的 HIGH 方案，没有把“暂未完成正式性能对比”改写成性能
+已达标，也没有制造正式事实。审阅方案阶段 Project 与正文均未变化；确认应用后 Project
+进入完成态，reload 保持。专用 Undo 随后恢复 `OPEN`、移除本次 Closure，并恢复原当前
+接口；再次 reload 后系统状态显示正式能力和当前 Graph 已连接，没有未完成修改或正文
+连接冲突。
+
+| 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
+|---|---|---|---|---|
+| `screenshots/day-09-closure-review-current-light-aad478c.jpg` | 审阅真实 Provider 关闭方案 | 先显示变化、不变与撤销边界；完整依据折叠 | 审阅方案 | CURRENT_AT_AAD478C |
+| `screenshots/day-09-closure-accepted-current-light-f80fda4.jpg` | 区分审阅与正式应用 | 明确“方案已审阅，尚未应用”；退出不修改正式内容 | 确认应用 | CURRENT_AT_F80FDA4 |
+| `screenshots/day-09-closure-applied-engineering-terms-historical-f80fda4.jpg` | 记录应用后旧表达缺陷 | 旧结果泄漏 Commit/Lifecycle 等工程词 | 由 `f18cc72` 替代 | HISTORICAL_DEFECT |
+| `screenshots/day-09-closure-applied-reload-current-light-f18cc72.jpg` | reload 后核对正式完成 | 项目已结束；结果、遗留和后续说明已保存；页面与正文保持不变 | 查看最近修改或撤销 | CURRENT_AT_F18CC72 |
+| `screenshots/day-09-closure-undo-reload-current-light-7fe762d.jpg` | 专用 Undo 后核对项目恢复 | 项目已恢复为进行中；本次完成回顾已移除 | 检查系统健康 | CURRENT |
+| `screenshots/day-09-closure-final-health-current-light-7fe762d.jpg` | 核对最终安全状态 | 正式能力与当前 Graph 已连接；无未完成修改或正文连接冲突 | 进入 Day 10 | CURRENT |
+
+本日推动四项共享前台规则，而没有创建 Closure 专用第二套结果模型：
+
+- 已审阅只表示方案通过，明确“尚未应用”；
+- 完成/失败/撤销结果卡使用用户结论，Commit、Lifecycle 等进入技术详情；
+- “最近修改”首屏只说明正式修改与恢复，SQLite/Local Service/Audit 等折叠；
+- Closure Undo 使用“项目恢复为进行中、完成回顾已移除”的业务结论。
+
+P2-E 恢复语义同时固定为最小合同：receipt-backed `PENDING` 可继续同一正式修改；
+`RECOVERY_REQUIRED` 只允许恢复安全一致性，恢复后重新发起 Closure。Day 9 未注入真正
+`RECOVERY_REQUIRED`，所以它关闭正常连续使用与前台表达代表 Partial，不关闭该高风险
+故障 Gate。
+
+## 轻量指标（截至 Day 9）
+
+| 指标 | 结果 |
+|---|---:|
+| 真实 Provider | 33 次累计；Day 9 为 1 |
+| Validator rejection / retry / abstention | 0 / 0 / 0 |
+| Day 9 最终 Lifecycle / Closure | OPEN / absent（专用 Undo 后） |
+| 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
+| 新 Skill / Prompt / Validator | 0 / 0 / 0 |
+| Day 9 Partial 净变化 | -1（Closure 最新连续使用与前台表达代表 Gate） |
+| 仍开放 | 真正 RECOVERY_REQUIRED；Day 10；duplicate/missing/Rebind 变体 |
