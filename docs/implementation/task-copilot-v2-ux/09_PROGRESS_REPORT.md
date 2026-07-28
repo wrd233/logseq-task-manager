@@ -60,6 +60,9 @@
 - P0-K 最新真实 Provider abstain 暴露“未创建 Proposal”工程词后，`06b8762` 将普通 Block
   分析的无需整理、建议已生成、不可用、中断和失败全部翻译为用户结论；Plugin 343/343、
   根级检查、真实 Dark Desktop 与单次 Provider 复验均 PASS，零正式写入、零自动重试。
+- `eba1c54` 继续删除正常连接首屏的重复成功横幅，只保留一个持久 Copilot 状态；Graph
+  switch 的 authority 隔离反馈不被静默删除。精确构建 reload 与真实 Provider abstain
+  再次 PASS，`p0-k-10` 接管当前画面。
 - 完成 P0-C LOW 单组单 Block 白名单，`CREATE_OBJECT`/`REWRITE_BLOCK` 之外及 HIGH 组均拒绝；
 - 连续编排复用既有 Review→Graph/版本重验→SemanticCommit→verify，不新增写路径或恢复器；
 - busy 禁用同卡片审阅动作；stale 显示未写入；接受请求不确定时零自动重试并要求刷新；

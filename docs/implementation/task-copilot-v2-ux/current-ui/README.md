@@ -61,15 +61,17 @@ P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_RESTRICTED_VISUA
 中文 IME、受限态、Light/窄栏继续开放。完整记录见
 `../logs/p0-j-host-commands-desktop-live-20260726.md`。
 
-P0-K 当前使用 `p0-k-01`～`08`：主 Page 入口与“返回原 Page”已通过；right-sidebar、
+P0-K 当前使用 `p0-k-01`～`08` 与 `p0-k-10`：主 Page 入口与“返回原 Page”已通过；right-sidebar、
 Query 页面预览和 Block reference 专用菜单均不提供可靠 Plugin identity，按 bounded
 conclusion 安全隐藏并要求先打开来源。同一 UUID 移动后可返回新位置，来源删除后安全关闭、
 明确说明未导航；普通来源的真实 Provider abstain 也已改为“暂时不需要整理”的用户语言，
-不显示 Proposal/Provider/Commit/Store。成功/失败/Undo 返回仍 OPEN。完整记录见
+不显示 Proposal/Provider/Commit/Store；正常连接首屏只保留一个持久 Copilot 状态。
+`p0-k-09` 因仍含重复成功横幅已标为 `SUPERSEDED`。成功/失败/Undo 返回仍 OPEN。完整记录见
 `../logs/p0-k-host-origin-desktop-live-20260726.md` 与
 `../logs/p0-k-query-reference-host-bounded-desktop-live-20260727.md`、
 `../logs/p0-k-source-move-delete-return-desktop-live-20260727.md`、
-`../logs/p0-k-block-analysis-frontstage-language-desktop-live-20260727.md`。
+`../logs/p0-k-block-analysis-frontstage-language-desktop-live-20260727.md`、
+`../logs/ui-routine-connection-dedup-desktop-live-20260728.md`。
 
 P1-F/G 当前使用 `p0-i-01` 与 `p1-g-07`～`13`。真实 File Graph 暴露 active Page Anchor
 UUID 漂移，系统安全显示“正文变化需要核对”且不猜 Project；Logseq 0.10.15 的 File Graph

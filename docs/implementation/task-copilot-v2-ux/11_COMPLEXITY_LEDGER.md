@@ -86,6 +86,9 @@
   analysis presenter 中统一无需整理/待确认/不可用/中断/失败语言，内部 logger 继续记录
   结构化结果。正式状态、Runtime、Recovery、Skill、Prompt、Validator 与 Partial 增量均为
   `0`；普通路径减少 5 组工程词。
+- `eba1c54` 让正常启动/host-ready 恢复依赖既有持久 Copilot 状态，不再另外建立一次性
+  “已自动连接”横幅；Graph switch 的 authority 隔离结论保留。删除重复前台结论 `1`，
+  正式状态、Runtime、Recovery、Skill/Prompt/Validator 与 Partial 增量继续为 `0`。
 
 ### P2-G Restore 真实连续双重失败收敛（2026-07-27）
 

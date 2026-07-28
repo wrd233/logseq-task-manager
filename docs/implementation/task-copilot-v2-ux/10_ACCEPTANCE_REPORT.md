@@ -22,6 +22,8 @@
   普通/Project/Journal 路由已完成自动 Gate；普通 Block 真实 Provider abstain 已使用用户
   语言且零写入，Query/引用/right-sidebar 按宿主有界隐藏；其他返回现场组合仍待 Desktop
 - [ ] 高频动作 1—2 个明确决定；
+- [x] 正常连接首屏只有一个 Copilot 状态；启动/host-ready 不再重复成功横幅，Graph switch
+  仍明确说明没有复用上一知识库数据；
 - [x] 暂时做不了统一入口；三种意图、最小字段和版本保护 Undo 已通过
 - [x] 低风险一次接受并应用；LOW 单组单 Block CREATE/REWRITE 自动覆盖，真实 Desktop REWRITE 通过
 - [ ] accepted-not-applied 不静默；

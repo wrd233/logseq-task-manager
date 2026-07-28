@@ -94,7 +94,8 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
   真实 Provider 均为一次请求的 `NO_PROPOSAL`，未产生正式写入。成功/失败/Undo 返回 Gate
   保持 OPEN；`06b8762` 随后把普通 Block 分析的 abstain、成功、不可用、中断和失败提示
   压缩为用户语言，真实 Provider abstain 复验不再显示 Proposal/Provider/Commit/Store，
-  仍为一次请求、零正式写入；
+  仍为一次请求、零正式写入；`eba1c54` 又删除正常启动/host-ready 恢复的重复成功横幅，
+  只保留持久 Copilot 状态；Graph switch 的 authority 隔离反馈继续保留；
 - P0-A 普通 Block 内容路由：右键“处理这条内容”按 payload UUID 单次绑定，在 Provider 前
   重读同一 Block；missing/mismatch/空正文零请求、零写入；Plugin 191/191 自动 Gate 通过，
   普通 Block 已有自动 Gate；Query/引用/right-sidebar 的原地入口按当前 File Graph 宿主
