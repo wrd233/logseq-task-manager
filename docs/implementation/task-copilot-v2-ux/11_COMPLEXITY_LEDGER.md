@@ -19,6 +19,21 @@
 
 ## 本轮变化（2026-07-28）
 
+### Day 10 十日回顾与 P1 前台边界
+
+- 十日连续使用 Pilot `OPEN→DONE_REPRESENTATIVE_WITH_OPEN_VARIANTS`，Partial 净变化
+  `-1`；新增长期 Partial `0`。
+- 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和 Attention
+  类型均为 `0`。
+- 真实数据把复杂度风险定位到正式 Now 的 `Focus 1 / Next 10`，而不是 Review backlog：
+  Candidate/当前 Proposal 为 `0/0`，22 条历史折叠，Project 只有 2 张卡。
+- 没有用第二套 Dynamic Now Runtime 解决列表：现有 Shadow 遗漏刚恢复事项，继续保持
+  Partial；后续只在既有投影中研究连续性保护与普通 Next 上限。
+- 没有复制确定性风险入口：Graph mismatch、Pending、Recovery、accepted-not-applied
+  继续由工具栏/系统状态/Review 承接，不再生成同义 Attention 卡。Block Marker 默认关闭。
+- Desktop 矩阵未扩成笛卡尔积：本轮只取日常四页、一次真实 reload、一次隔离 Graph
+  fail-closed/return。状态/Recovery/Agent Runtime 风险不升；Partial 堆积仍为 HIGH。
+
 ### Day 9 Closure 正常链与共享前台收敛
 
 - 新增正式状态、顶层导航、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和

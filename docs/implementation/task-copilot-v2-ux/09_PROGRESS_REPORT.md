@@ -21,8 +21,10 @@
 > Waiting→Actionable→返回现场→Now 重排→reload 代表链；同一精确 Plugin 构建又关闭
 > Day 7 MiniProject moved/renamed→explicit sync→reload→Now→原 UUID 返回代表链；
 > `318baab` 又关闭 Day 8 候选前台压缩与 disposition/cooldown 代表 Gate；
-> `7fe762d` 又关闭 Day 9 Closure 正常链、reload、专用 Undo 与共享前台表达代表 Gate。完整
-> Day 7 duplicate/missing 与 Day 10 Pilot、P1
+> `7fe762d` 又关闭 Day 9 Closure 正常链、reload、专用 Undo 与共享前台表达代表 Gate；
+> 同一精确 Plugin 构建完成 Day 10 四页回顾、reload 与 Graph switch，十日代表 Pilot
+> 已关闭。完整
+> Day 7 duplicate/missing、P1
 > 前台和整体 Goal 仍未完成。
 
 ## 总体状态
@@ -125,6 +127,24 @@
   RECOVERY_REQUIRED 只恢复一致性、恢复后重新发起业务操作。
 - 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和新长期
   Partial：均为 `0`。
+
+### 2026-07-28 连续使用 Pilot Day 10 回顾与 Graph switch
+
+- 完成 Now→待整理→待审阅→项目→更多→真实 Plugin reload→隔离 Graph 安全受限→切回
+  原 Graph→恢复原 Pilot Page 的真实 Desktop 链。
+- Review 没有积压：Candidate/current Proposal `0/0`，22 条历史默认折叠；Project 区只有
+  2 个可继续 Project；恢复、迁移和系统状态保持二级。
+- 跨日噪声集中在 Now：`Focus 1 / Next 10`。现有 Dynamic Now Shadow 虽更少，但会抑制
+  刚从 Waiting 恢复且未 Focus 的真实 Task，所以不能直接前台替换。
+- Attention 前台 `0`；本轮不开放新类型。Graph mismatch、Pending、Recovery、
+  accepted-not-applied 继续由已有持续入口承接；reviewAt 等真实到期样本后再评估。
+  Waiting 过久、Project 静默和跨对象观察继续 Shadow；Block Marker 保持默认关闭。
+- P2-D 日用边界得到连续使用支持：Focus/Condition/current interface/create/Closure/
+  Rebind 是实际使用面；Association、Project due 和批量拆分合并继续使用既定禁用或
+  external Agent 边界，不扩成内置工作台。
+- 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和长期
+  Partial `0`。十日代表性 Pilot Partial `OPEN→DONE`，净变化 `-1`；开放变体仍留在原
+  P1/P2/P0 Partial，不拆成新体系。
 
 ### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
 

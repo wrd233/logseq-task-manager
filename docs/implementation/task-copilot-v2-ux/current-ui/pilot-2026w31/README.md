@@ -1,6 +1,6 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_9_CLOSURE_DONE`
+> 状态：`DONE_REPRESENTATIVE_10_DAY_WITH_OPEN_VARIANTS`
 > 当前精确构建：`7fe762d`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
@@ -38,7 +38,7 @@ Proposal / Commit / Undo / Recovery。
 | Day 7 | PARTIAL_MOVE_RENAME_DONE | 在 Logseq 中把真实 MiniProject 整棵子树 Cut/Paste 到新 Page，并改名；explicit sync→真实 plugin reload→Now→打开正文→健康复核 | 同一 UUID 移动和改名后 Primary Anchor 保持 active，Now 能打开到新位置；不应误触发 Rebind |
 | Day 8 | DONE_REPRESENTATIVE | 在真实 Page 发现 3 项显式候选；分别执行 7 天后再看、保持普通内容、不再提示；reload、修改被抑制来源、重算与健康复核 | 当前队列与当前 Proposal 均为 0；三种处置保持，历史 21 条默认折叠；重算不再把已处置内容冒充新增 |
 | Day 9 | DONE_REPRESENTATIVE_CLOSURE | 既有 Project→Closure 判断→真实 DeepSeek→HIGH Review→审阅方案→确认应用→reload→专用 Undo→再次 reload→健康复核 | 正常关闭链可验收；PENDING 可继续原操作、RECOVERY_REQUIRED 只恢复一致性；真正故障注入仍 OPEN |
-| Day 10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
+| Day 10 | DONE_REPRESENTATIVE_REVIEW | Now/待整理/待审阅/项目/更多；真实 Plugin reload；切到失效隔离 Graph→安全受限→切回原 Graph；恢复原工作现场 | Review 无积压、项目区克制、维护能力在二级；Now 的 1 Focus + 10 Next 是主要跨日噪声，Dynamic Now Shadow 仍不可直接替换 |
 
 ## Provider 与安全计数
 
@@ -130,6 +130,16 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
 24. Day 9 没有制造真正 `RECOVERY_REQUIRED`。当前产品语义固定为：`PENDING` 可以继续
     同一项正式修改；`RECOVERY_REQUIRED` 只恢复安全一致性，完成恢复后由用户重新发起
     Closure。该结论避免为勾选 Gate 扩展前向恢复 Kernel，但真正故障代表链仍阻断 P2-E DONE。
+25. Day 10 待整理与当前待审阅均为 `0`，22 条历史折叠；Project 区只有 2 个可继续项目，
+    “更多”把恢复和迁移保留在二级。连续使用没有形成 Review backlog 或维护入口噪声。
+26. 同一时刻 Now 为 `Focus 1 + Next 10`，仍混入大量历史 Gate 对象；这是真实跨日负担。
+    既有 Shadow 会把刚恢复但未 Focus 的 Task 一并抑制，故不能直接取代正式 Now。
+27. 本轮不开放新 Attention：确定性 Graph mismatch 已由系统状态/工具栏正确承接，
+    当前无 Pending/Recovery/accepted-not-applied/reviewAt 到期样本；Waiting 过久、Project
+    静默和跨对象观察继续 Shadow。Block Marker 继续默认关闭，避免把后台治理铺满正文。
+28. 切到已失效的隔离 Graph 时，Logseq 自身报告目录缺失；Task Copilot 独立进入
+    “当前知识库与正式状态不匹配”，暂停正式修改且不复用原 authority。切回原 Graph 后
+    同一 Now 投影恢复。最终又回到原 Pilot Page 并关闭侧栏。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -152,12 +162,13 @@ CURRENT 分别来自 `f5ce698` 与 `6135820`；最终 disposition 重算和健�
 `HISTORICAL_DEFECT`，不代表当前界面。Day 9 的 Review、Accepted、Applied 与 Undo
 分别记录其真实精确构建 `aad478c`、`f80fda4`、`f18cc72` 与 `7fe762d`；其中
 `f80fda4` 的应用工程词画面只保留为 `HISTORICAL_DEFECT`，当前链以 `f18cc72` 应用态、
-`7fe762d` Undo 与健康态为准。
+`7fe762d` Undo 与健康态为准。Day 10 继续使用精确 Plugin `7fe762d`，仓库文档 HEAD 为
+`f738f59`；Now、Review、Project、More、reload 与 Graph switch 的截图分别记录两者，
+没有用文档提交冒充 Plugin 构建。
 详细结论见 `OBSERVATION_LOG.md`。
 
 ## 下一段
 
-1. 用 Day 10 的 Now/Review/Project/More/restart/Graph switch 回顾决定第一批 Attention
-   与 Block Marker 是否具备有界 Pilot 条件。
+1. 收敛 P1 Dynamic Now：保留刚恢复事项连续性，同时给普通 Next 设置可解释上限；
 2. 继续 Day 7 的 duplicate/missing 变体，只在真实 identity 丢失时进入既有 Rebind；
 3. 用受控故障而非普通成功链验证 P2-E `RECOVERY_REQUIRED` 的“只恢复一致性”用户语义。

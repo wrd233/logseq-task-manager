@@ -349,3 +349,54 @@ P2-E 恢复语义同时固定为最小合同：receipt-backed `PENDING` 可继�
 | 新 Skill / Prompt / Validator | 0 / 0 / 0 |
 | Day 9 Partial 净变化 | -1（Closure 最新连续使用与前台表达代表 Gate） |
 | 仍开放 | 真正 RECOVERY_REQUIRED；Day 10；duplicate/missing/Rebind 变体 |
+
+## Day 10：跨日回顾、reload 与 Graph switch
+
+在没有新增模拟对象的前提下，依次查看“现在”“待整理”“待审阅”“项目”“更多”，随后
+通过 Logseq 插件管理执行真实 Task Copilot reload，再切到此前用于 Graph switch Gate、
+但目录已经被清理的隔离 File Graph，最后切回原测试 Graph并恢复原 Pilot Page。
+
+| 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
+|---|---|---|---|---|
+| `screenshots/day-10-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | 回顾跨日当前事项 | 1 个当前关注；10 个“接下来值得处理”形成主要噪声 | 检查 Review 是否积压 | CURRENT |
+| `screenshots/day-10-review-empty-history-folded-current-light-plugin-7fe762d-docs-f738f59.jpg` | 检查待确认积压 | 待整理 0、待审阅 0；历史 22 条折叠 | 查看项目 | CURRENT |
+| `screenshots/day-10-projects-current-light-plugin-7fe762d-docs-f738f59.jpg` | 检查 Project 重入面 | 只有 2 个可继续 Project；各自一个主操作和一个上下文恢复入口 | 查看维护入口 | CURRENT |
+| `screenshots/day-10-more-current-light-plugin-7fe762d-docs-f738f59.jpg` | 检查低频能力是否干扰日常 | 最近修改、系统状态、备份恢复和迁移留在二级 | 真实 reload | CURRENT |
+| `screenshots/day-10-now-after-plugin-reload-current-light-plugin-7fe762d-docs-f738f59.jpg` | 验证 reload 连续性 | reload 后 Now 数量、顺序和用户 Focus 保持 | Graph switch | CURRENT |
+| `screenshots/day-10-graph-switch-restricted-current-light-plugin-7fe762d-docs-f738f59.jpg` | 切到无可用 authority 的隔离 Graph | 正式修改暂停；正文安全；未复用原 Graph 数据 | 切回原 Graph | CURRENT |
+| `screenshots/day-10-graph-switch-return-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | 切回并检查恢复 | 正式能力恢复，同一 Now 投影返回 | 恢复原工作现场 | CURRENT |
+
+### 十日产品结论
+
+- 用户不必每天打开“待我确认”：主动候选处置后队列保持空，历史不会淹没当前问题。
+- “项目”与 Context Recovery 是高价值入口；对刚创建 Project，AI 增量有限，但对离开数日
+  的 Project 能把当前推进压缩成一个入口。真实 Provider 没有获得写入权。
+- 用户确实需要一个日常 Now，但当前 `1 Focus + 10 Next` 仍偏长；测试 Gate 对象长期
+  混入普通 Next，说明“所有可行动项”不是可交付的注意力合同。
+- 不能直接用现有 Dynamic Now Shadow 替代：Day 6 已证明它会把刚从 Waiting 恢复、但未
+  加入 Focus 的真实事项一起抑制。下一步应在既有投影中加入会话派生的连续性保护和普通
+  Next 上限，不新增正式状态或第二 Now Runtime。
+- 第一批 Attention 本轮不扩大。Graph mismatch、Pending、Recovery 与 accepted-not-applied
+  已有工具栏/系统状态/Review 持续入口；没有必要再复制成卡片。到期 reviewAt 可在获得
+  真实样本后有界前台化；Waiting 过久、Project 静默和跨对象观察继续 Shadow。
+- Block Marker 继续默认关闭：Now 已经偏长，正文再铺治理标记只会把复杂度泄漏到工作现场。
+- P2-D 实际使用集中在 Focus、Condition、当前接口、创建、Closure 和 Rebind 边界；
+  Association、Project due、批量拆分合并没有真实日用价值或安全 inverse 证据，维持既定
+  外部 Agent/禁用边界。
+- P2-E 保持简单语义：PENDING 续跑同一修改；RECOVERY_REQUIRED 只恢复一致性，恢复后
+  重新发起业务操作。Day 10 没有把 Graph mismatch 冒充 Commit Recovery。
+
+## 轻量指标（十日代表性 Pilot）
+
+| 指标 | 结果 |
+|---|---:|
+| 真实 Provider | 33 次 |
+| Validator rejection / retry / abstention | 0 / 0 / 0 |
+| Day 10 Now | Focus 1 / Next 10 |
+| Day 10 Candidate / current Proposal / history | 0 / 0 / 22 folded |
+| Day 10 Project cards | 2 |
+| Attention 前台展示 | 0；不据此开放新类型 |
+| 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
+| 新 Skill / Prompt / Validator | 0 / 0 / 0 |
+| Day 10 Partial 净变化 | -1（十日连续使用代表 Pilot） |
+| 开放变体 | duplicate/missing/Rebind；真正 RECOVERY_REQUIRED；P0 中文 IME |

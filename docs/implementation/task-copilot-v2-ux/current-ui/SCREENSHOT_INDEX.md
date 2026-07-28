@@ -98,6 +98,21 @@ Plugin build 登记；`f80fda4` 的旧应用结果只作为缺陷证据，不冒
 | `pilot-2026w31/screenshots/day-09-closure-undo-reload-current-light-7fe762d.jpg` | CURRENT | 专用 Undo 并再次 reload | 项目恢复进行中；本次完成回顾已移除 |
 | `pilot-2026w31/screenshots/day-09-closure-final-health-current-light-7fe762d.jpg` | CURRENT | 打开系统状态 | 正式能力和当前 Graph 已连接；无未完成修改或正文连接冲突 |
 
+### 连续使用 Pilot Day 10 — Plugin `7fe762d`, docs `f738f59`
+
+Logseq `0.10.15`、File Graph、host Light、约 1000×720。日常四页、真实 Plugin reload、
+无可用 authority 的隔离 Graph fail-closed 与切回原 Graph 均来自同一次真实操作链。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-10-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 打开“现在” | Focus 1；Next 10，跨日主要噪声在普通可行动列表 |
+| `pilot-2026w31/screenshots/day-10-review-empty-history-folded-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 查看待审阅 | 当前 Candidate/Proposal 0/0；22 条历史折叠 |
+| `pilot-2026w31/screenshots/day-10-projects-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 打开“项目” | 2 个可继续 Project；一个主操作与上下文恢复入口 |
+| `pilot-2026w31/screenshots/day-10-more-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 打开“更多” | 恢复、迁移与系统维护留在二级 |
+| `pilot-2026w31/screenshots/day-10-now-after-plugin-reload-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 从插件管理真实 reload 后重开 | Now 数量、顺序与 Focus 保持 |
+| `pilot-2026w31/screenshots/day-10-graph-switch-restricted-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 切到已失效隔离 Graph | 正式修改暂停；正文安全；不复用原 authority |
+| `pilot-2026w31/screenshots/day-10-graph-switch-return-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 切回原 Graph | 正式能力和同一 Now 投影恢复 |
+
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
 Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌

@@ -70,6 +70,13 @@ reload 保持，专用 Undo 后恢复 `OPEN`、移除本次 Closure，再次 rel
 Audit，Undo 使用业务结论。该项不等于 P2-E 完成：真正 `RECOVERY_REQUIRED` 没有注入，
 当前合同仍是 `PENDING` 可继续原操作、恢复状态只收口一致性、恢复后重新发起 Closure。
 
+连续使用 Day 10 已通过十日代表 Pilot 回顾 Gate：当前待整理/待审阅 `0/0`，22 条历史
+折叠，Project 区 2 张卡，维护能力保持二级；真实 Plugin reload 后连续性不变。切换到
+无可用 authority 的隔离 Graph 时正式修改安全暂停，切回后原 Now 恢复。该 Gate 关闭
+连续使用 Pilot 本身，但明确否决现有 Dynamic Now Shadow 直接前台化：正式 Now 的
+`Focus 1 / Next 10` 偏长，而 Shadow 会遗漏刚恢复事项。Attention 和 Block Marker
+继续开放，不以“没有展示 Signal”冒充低噪声门通过。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
@@ -360,7 +367,8 @@ P0/P1/P2 或 Final Release 标为 DONE。
   feedback、reload、Dark/Light/窄栏和零越权写入；stale evidence 为
   `STALE=1 / GENERATED=0`。`recover-context@1.3.0` 为
   `CANDIDATE/DESKTOP_VERIFIED`，不等于 Production；DB Graph Page Head 属 P1-F 宿主矩阵；
-- [ ] 连续使用 Pilot：`PILOT-2026W31-A` 已真实完成 Day 1—2、Day 3 Waiting 子链与
+- [x] 连续使用 Pilot：`PILOT-2026W31-A` 已真实完成 Day 1—10 代表链；Day 1—2、
+  Day 3 Waiting 子链与
   Day 4 MiniProject/Project create→reload→Undo；Day 5 又用 6 次真实 DeepSeek 暴露
   `currentInterface` 把页面显示要求误作业务推进的通用合同缺陷，并在 Preview 取消、
   零 Proposal/零正式写入。第二组 1.6.0 真实复验又用 6 次调用保留业务未知并生成可行动
@@ -371,9 +379,10 @@ P0/P1/P2 或 Final Release 标为 DONE。
   DeepSeek。普通笔记未被
   自动正式化，Now 未立即洪水，Page 来源超预算已安全解释，Project Undo 后精确构建
   0/0/0 且 explicit sync clean。`project-creation-modeling@1.6.0` 已达
-  `CANDIDATE/DESKTOP_VERIFIED`。Day 7 duplicate/missing/Rebind、Day 10、
-  Dynamic Now 对照、Attention helpful/noise 与真正 Closure `RECOVERY_REQUIRED`
-  仍开放；已关闭的代表链不冒充完整 Pilot 完成；
+  `CANDIDATE/DESKTOP_VERIFIED`。Day 10 已证明 Review 无积压、Now 仍偏长、Graph switch
+  fail closed/return 正常。Day 7 duplicate/missing/Rebind、Dynamic Now 前台、
+  Attention helpful/noise 与真正 Closure `RECOVERY_REQUIRED` 仍开放；这些明确变体留在
+  对应 P1/P2 Gate，不反向打开十日代表 Pilot；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

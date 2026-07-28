@@ -45,7 +45,7 @@ Day 6 又用 Day 3 的同一正式 Waiting Task 暴露并关闭“回复到达�
 返回同一 Block，Task 立即成为“接下来值得处理”第一项；真实插件 reload 后保持，系统状态
 未发现 Pending/Recovery/Source Conflict。Plugin `353/353`、typecheck/build PASS，
 Provider/Skill/Prompt/Validator 变化为 `0`。该子 Partial `OPEN→DONE_DESKTOP_REPRESENTATIVE`，
-但完整 Day 6 的优先级变化、Dynamic Now 对照与 Day 8—10 仍 OPEN。
+但完整 Day 6 的优先级变化、Dynamic Now 对照在后续 Day 6—10 证据前仍 OPEN。
 
 同一 Day 6 正式事实的只读 Service 对照已经关闭 Dynamic Now 的“可直接前台替换”假设：
 正式 Now 为 `Focus 1 / Next 10 / Waiting 0`，Shadow 为
@@ -96,6 +96,18 @@ retry/abstention 仍为 `0/0/0`。本次只关闭正常 Closure 连续使用与�
 receipt-backed `PENDING` 可以继续同一修改，真正 `RECOVERY_REQUIRED` 只恢复安全一致性，
 恢复后重新发起 Closure；该故障注入仍 OPEN，所以 P2-E 与整体 Goal 继续进行。
 
+Day 10 已关闭十日连续使用代表 Pilot 本身：当前待整理/待审阅为 `0/0`，22 条历史折叠，
+Project 区只有 2 个可继续项目，“更多”保持低频维护二级可达；真实 Plugin reload 后投影
+稳定。切到已清理的隔离 Graph 时，Task Copilot 独立 fail closed 为“当前知识库与正式
+状态不匹配”，没有复用原 Graph authority；切回原 Graph 后相同 Now 投影恢复并返回原
+Pilot Page。跨日主要 UX 风险不是 Review backlog，而是正式 Now 的
+`Focus 1 / Next 10`；既有 Dynamic Now Shadow 又会抑制 Day 6 刚恢复但未 Focus 的 Task，
+因此 P1-C 继续 Partial，不直接替换前台。本轮不开放新 Attention，Block Marker 继续默认
+关闭；确定性 Graph/Pending/Recovery/accepted-not-applied 风险继续使用既有工具栏、
+系统状态和 Review 入口。十日 Pilot `OPEN→DONE_REPRESENTATIVE_WITH_OPEN_VARIANTS`，
+Partial 净变化 `-1`；duplicate/missing/Rebind、真正 `RECOVERY_REQUIRED`、P0 中文 IME
+和完整 Goal 继续 OPEN。
+
 此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
@@ -107,7 +119,7 @@ Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源
 Project Undo 成功消息；`19de8de0f47c` 已完成真实 Undo 复验。精确构建系统
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。创建完成卡仍显示
 “正式 Commit 已完整完成”并复制较长最终阅读，重复确认、结果/历史墙仍
-阻断 Final Release。Day 6 其余行为与 Day 7 duplicate/missing、Day 10、Dynamic Now、Attention helpful/noise、
+阻断 Final Release。Day 6 其余行为与 Day 7 duplicate/missing、Dynamic Now、Attention helpful/noise、
 P2-D 完成边界与 P2-E/P2-G 尾项继续 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
 
 最新 P0-K 精确构建 `73dc1e26f610` 完成正式 Block “暂时做不了”的当前 Desktop 返回现场
