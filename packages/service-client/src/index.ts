@@ -813,8 +813,11 @@ export type ServiceProposalCommitFinalization =
 
 export type ServiceProjectClosureCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; record: ServiceStoredProposal; replayed: boolean }
+  | ({ status: "STALE" } & ServiceProposalRevalidation)
+  | { status: "FAILED"; semanticCommitId: string; record: ServiceStoredProposal; errorCode: string; replayed: boolean };
+export type ServiceProjectStructureCommitResult =
+  | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation);
-export type ServiceProjectStructureCommitResult = ServiceProjectClosureCommitResult;
 export type ServiceLifecycleTransitionCommitResult =
   | { status: "COMPLETED"; semanticCommitId: string; object: V2ManagedObject; anchor?: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
   | ({ status: "STALE" } & ServiceProposalRevalidation);

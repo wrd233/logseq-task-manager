@@ -8,13 +8,13 @@ import test from "node:test";
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persistence/node";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
-import { buildMiniProjectRestructureProposal, buildProjectCreationProposal, createEmptyState, InteractionEvidenceBuffer, V2Application, type GrillPreview, type ProjectCreationPreview } from "@task-copilot/application";
+import { buildMiniProjectRestructureProposal, buildProjectCreationProposal, createEmptyState, InteractionEvidenceBuffer, planAcceptedV2ProjectClosure, V2Application, type GrillPreview, type ProjectCreationPreview } from "@task-copilot/application";
 import { checksum, StructuredError } from "@task-copilot/shared";
 import {
   clearRestoreRecoveryInterlock,
   readRestoreRecoveryInterlock,
 } from "@task-copilot/shared/node";
-import { createManagedObject, type V2Proposal } from "@task-copilot/domain";
+import { createManagedObject, type V2ManagedObject, type V2Proposal } from "@task-copilot/domain";
 
 import { LOCAL_SERVICE_PROTOCOL_VERSION, startLocalService } from "../src/service.ts";
 import { LocalLlmProposalGenerator, type StructuredProposalProvider, type V2PromptBundle } from "../src/llm-proposal.ts";
@@ -3542,6 +3542,293 @@ test("Project Closure resumes from its receipt after interruption before Commit 
   const completed = (await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId);
   assert.equal(completed?.status, "COMPLETED");
   assert.equal((await client.listSemanticCommits()).filter(({ status }) => ["PENDING", "FAILED", "RECOVERY_REQUIRED"].includes(status)).length, 0);
+});
+
+test("Project Closure terminalizes a pre-write failure and can be re-initiated after restart", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-prewrite-failure-"));
+  const databasePath = join(root, "task-copilot.db");
+  let failOnce = true;
+  let service = await startLocalService({
+    databasePath,
+    graphId: "graph-project-closure-prewrite-failure",
+    token: "project-closure-prewrite-failure-token-24-chars",
+    faults: {
+      beforeProjectClosureDomainWrite: () => {
+        if (failOnce) {
+          failOnce = false;
+          throw new Error("simulated pre-write failure");
+        }
+      },
+    },
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  let client = clientFor(service);
+  const intent = await client.prepareProject({ name: "Closure Pre-write Failure", traceId: "trace-project-closure-prewrite-create" });
+  const created = await client.finalizeProject({
+    semanticCommitId: intent.semanticCommitId,
+    objectId: intent.objectId,
+    name: "Closure Pre-write Failure",
+    pageExternalId: "page-project-closure-prewrite-failure",
+    pageContentHash: checksum("Project/Closure Pre-write Failure"),
+    traceId: "trace-project-closure-prewrite-finalize",
+  });
+  const submitted = await client.submitProposal(projectClosureProposal(created.object.objectId, created.object.version));
+  const reviewed = await client.reviewProposal(
+    submitted.record.proposal.proposalId,
+    { "close-project": { disposition: "ACCEPTED", highImpactConfirmed: true } },
+    submitted.record.updatedAt,
+  );
+  const observations = [{ kind: "PAGE" as const, id: "Project/告警推送治理", exists: true, hash: checksum("project-closure-context") }];
+  const failed = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/closure/commit`, service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      expectedUpdatedAt: reviewed.updatedAt,
+      confirmation: "COMPLETE_PROJECT_WITH_CLOSURE",
+      observations,
+      traceId: "trace-project-closure-prewrite-failed",
+    }),
+  });
+  assert.equal(failed.status, 500);
+  const unchanged = await client.getObject(created.object.objectId);
+  assert.equal(unchanged?.lifecycle, "OPEN");
+  assert.equal(unchanged?.version, created.object.version);
+  assert.equal(unchanged?.closure, undefined);
+  const failedProposal = (await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId);
+  assert.equal(failedProposal?.proposal.status, "FAILED");
+  const failedCommit = (await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId);
+  assert.equal(failedCommit?.status, "FAILED");
+  assert.equal(failedCommit?.errorCode, "V2_PROJECT_CLOSURE_DOMAIN_WRITE_FAILED");
+  assert.equal((await client.listSemanticCommits()).filter(({ status }) => ["PENDING", "RECOVERY_REQUIRED"].includes(status)).length, 0);
+
+  await service.close();
+  service = await startLocalService({
+    databasePath,
+    graphId: "graph-project-closure-prewrite-failure",
+    token: "project-closure-prewrite-restart-token-24-chars",
+  });
+  client = clientFor(service);
+  const replay = await client.commitProjectClosure(reviewed.proposal.proposalId, {
+    expectedUpdatedAt: reviewed.updatedAt,
+    confirmation: "COMPLETE_PROJECT_WITH_CLOSURE",
+    observations,
+    traceId: "trace-project-closure-prewrite-replay",
+  });
+  assert.equal(replay.status, "FAILED");
+  if (replay.status === "FAILED") {
+    assert.equal(replay.replayed, true);
+    assert.equal(replay.errorCode, "V2_PROJECT_CLOSURE_DOMAIN_WRITE_FAILED");
+    assert.equal(replay.record.proposal.status, "FAILED");
+  }
+
+  const retryProposal = {
+    ...projectClosureProposal(created.object.objectId, created.object.version),
+    proposalId: "prop_project_closure_after_prewrite_failure",
+  };
+  const retrySubmitted = await client.submitProposal(retryProposal);
+  const retryReviewed = await client.reviewProposal(
+    retrySubmitted.record.proposal.proposalId,
+    { "close-project": { disposition: "ACCEPTED", highImpactConfirmed: true } },
+    retrySubmitted.record.updatedAt,
+  );
+  const completed = await client.commitProjectClosure(retryReviewed.proposal.proposalId, {
+    expectedUpdatedAt: retryReviewed.updatedAt,
+    confirmation: "COMPLETE_PROJECT_WITH_CLOSURE",
+    observations,
+    traceId: "trace-project-closure-prewrite-reinitiated",
+  });
+  assert.equal(completed.status, "COMPLETED");
+  if (completed.status === "COMPLETED") {
+    assert.equal(completed.object.lifecycle, "COMPLETED");
+    assert.equal(completed.object.version, created.object.version + 1);
+    assert.equal(completed.record.proposal.status, "APPLIED");
+  }
+  const commits = await client.listSemanticCommits();
+  assert.equal(commits.filter(({ status }) => status === "FAILED").length, 1);
+  assert.equal(commits.filter(({ status }) => ["PENDING", "RECOVERY_REQUIRED"].includes(status)).length, 0);
+});
+
+test("Project Closure surfaces a pre-write version race as stale while terminalizing the Commit", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-prewrite-stale-"));
+  const databasePath = join(root, "task-copilot.db");
+  const graphId = "graph-project-closure-prewrite-stale";
+  let concurrentStore: V2SqliteStore | undefined;
+  let concurrentObject: V2ManagedObject | undefined;
+  let service = await startLocalService({
+    databasePath,
+    graphId,
+    token: "project-closure-prewrite-stale-token-24-chars",
+    faults: {
+      beforeProjectClosureDomainWrite: () => {
+        if (!concurrentStore || !concurrentObject) return;
+        const at = "2026-07-28T10:00:00.000Z";
+        concurrentStore.commitObject({
+          object: { ...concurrentObject, version: concurrentObject.version + 1, text: `${concurrentObject.text}（并发更新）`, updatedAt: at },
+          expectedVersion: concurrentObject.version,
+          idempotencyKey: "project-closure-prewrite-concurrent-edit",
+          audit: {
+            traceId: "project-closure-prewrite-concurrent-edit",
+            actor: "test",
+            command: "update_project_structure",
+            objectId: concurrentObject.objectId,
+            beforeVersion: concurrentObject.version,
+            afterVersion: concurrentObject.version + 1,
+            occurredAt: at,
+          },
+        });
+        concurrentObject = undefined;
+      },
+    },
+  });
+  t.after(async () => {
+    concurrentStore?.close();
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const client = clientFor(service);
+  const intent = await client.prepareProject({ name: "Closure Pre-write Stale", traceId: "trace-project-closure-prewrite-stale-create" });
+  const created = await client.finalizeProject({
+    semanticCommitId: intent.semanticCommitId,
+    objectId: intent.objectId,
+    name: "Closure Pre-write Stale",
+    pageExternalId: "page-project-closure-prewrite-stale",
+    pageContentHash: checksum("Project/Closure Pre-write Stale"),
+    traceId: "trace-project-closure-prewrite-stale-finalize",
+  });
+  concurrentStore = await V2SqliteStore.open(databasePath);
+  concurrentStore.initialize(graphId);
+  concurrentObject = created.object;
+  const submitted = await client.submitProposal(projectClosureProposal(created.object.objectId, created.object.version));
+  const reviewed = await client.reviewProposal(
+    submitted.record.proposal.proposalId,
+    { "close-project": { disposition: "ACCEPTED", highImpactConfirmed: true } },
+    submitted.record.updatedAt,
+  );
+  const observations = [{ kind: "PAGE" as const, id: "Project/告警推送治理", exists: true, hash: checksum("project-closure-context") }];
+  const stale = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/closure/commit`, service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      expectedUpdatedAt: reviewed.updatedAt,
+      confirmation: "COMPLETE_PROJECT_WITH_CLOSURE",
+      observations,
+      traceId: "trace-project-closure-prewrite-stale-commit",
+    }),
+  });
+  const staleBody = await stale.json() as { error: { code: string } };
+  assert.equal(stale.status, 409, JSON.stringify(staleBody));
+  assert.equal(staleBody.error.code, "V2_PROJECT_CLOSURE_COMMIT_STALE_RECOVERED");
+  const current = await client.getObject(created.object.objectId);
+  assert.equal(current?.lifecycle, "OPEN");
+  assert.equal(current?.version, created.object.version + 1);
+  assert.equal(current?.closure, undefined);
+  assert.equal((await client.listProposals()).find(({ proposal }) => proposal.proposalId === reviewed.proposal.proposalId)?.proposal.status, "STALE");
+  assert.equal((await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId)?.status, "FAILED");
+  assert.equal((await client.listSemanticCommits()).filter(({ status }) => ["PENDING", "RECOVERY_REQUIRED"].includes(status)).length, 0);
+
+  concurrentStore.close();
+  concurrentStore = undefined;
+  await service.close();
+  service = await startLocalService({
+    databasePath,
+    graphId,
+    token: "project-closure-prewrite-stale-restart-token-24-chars",
+  });
+  const replay = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/closure/commit`, service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      expectedUpdatedAt: reviewed.updatedAt,
+      confirmation: "COMPLETE_PROJECT_WITH_CLOSURE",
+      observations,
+      traceId: "trace-project-closure-prewrite-stale-replay",
+    }),
+  });
+  assert.equal(replay.status, 409);
+  assert.equal((await replay.json() as { error: { code: string } }).error.code, "V2_PROJECT_CLOSURE_COMMIT_STALE_RECOVERED");
+});
+
+test("Project Closure failed replay rejects a contradictory atomic receipt", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-service-project-closure-failed-receipt-"));
+  const databasePath = join(root, "task-copilot.db");
+  const graphId = "graph-project-closure-failed-receipt";
+  let service = await startLocalService({
+    databasePath,
+    graphId,
+    token: "project-closure-failed-receipt-token-24-chars",
+    faults: { beforeProjectClosureDomainWrite: () => { throw new Error("simulated pre-write failure"); } },
+  });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  let client = clientFor(service);
+  const intent = await client.prepareProject({ name: "Closure Failed Receipt", traceId: "trace-project-closure-failed-receipt-create" });
+  const created = await client.finalizeProject({
+    semanticCommitId: intent.semanticCommitId,
+    objectId: intent.objectId,
+    name: "Closure Failed Receipt",
+    pageExternalId: "page-project-closure-failed-receipt",
+    pageContentHash: checksum("Project/Closure Failed Receipt"),
+    traceId: "trace-project-closure-failed-receipt-finalize",
+  });
+  const proposal = projectClosureProposal(created.object.objectId, created.object.version);
+  const plan = planAcceptedV2ProjectClosure({ ...proposal, groups: proposal.groups.map((group) => ({ ...group, disposition: "ACCEPTED" })), status: "ACCEPTED" });
+  const submitted = await client.submitProposal(proposal);
+  const reviewed = await client.reviewProposal(
+    submitted.record.proposal.proposalId,
+    { "close-project": { disposition: "ACCEPTED", highImpactConfirmed: true } },
+    submitted.record.updatedAt,
+  );
+  const observations = [{ kind: "PAGE" as const, id: "Project/告警推送治理", exists: true, hash: checksum("project-closure-context") }];
+  const failed = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/closure/commit`, service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      expectedUpdatedAt: reviewed.updatedAt,
+      confirmation: "COMPLETE_PROJECT_WITH_CLOSURE",
+      observations,
+      traceId: "trace-project-closure-failed-receipt-first",
+    }),
+  });
+  assert.equal(failed.status, 500);
+  const failedCommit = (await client.listSemanticCommits()).find(({ proposalId }) => proposalId === reviewed.proposal.proposalId);
+  assert.equal(failedCommit?.status, "FAILED");
+  assert.ok(failedCommit);
+  await service.close();
+
+  const maintenanceStore = await V2SqliteStore.open(databasePath);
+  maintenanceStore.initialize(graphId);
+  await new V2Application(maintenanceStore).completeProject(plan.objectId, plan.closure, {
+    actor: "test",
+    expectedVersion: plan.expectedVersion,
+    idempotencyKey: `project-closure:${failedCommit.semanticCommitId}`,
+    traceId: "trace-project-closure-contradictory-receipt",
+  });
+  maintenanceStore.close();
+
+  service = await startLocalService({
+    databasePath,
+    graphId,
+    token: "project-closure-failed-receipt-restart-token-24-chars",
+  });
+  client = clientFor(service);
+  const refused = await fetch(new URL(`proposals/${reviewed.proposal.proposalId}/closure/commit`, service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      expectedUpdatedAt: reviewed.updatedAt,
+      confirmation: "COMPLETE_PROJECT_WITH_CLOSURE",
+      observations,
+      traceId: "trace-project-closure-failed-receipt-replay",
+    }),
+  });
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json() as { error: { code: string } }).error.code, "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT");
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "COMPLETED", "the contradictory receipt remains visible as a formal write and is never described as unchanged");
 });
 
 test("Local Service maps Task Marker to Lifecycle without changing Condition", async (t) => {

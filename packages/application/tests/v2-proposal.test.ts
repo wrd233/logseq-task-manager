@@ -4,7 +4,7 @@ import test from "node:test";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { V2ProposalApplication, planAcceptedV2Formalization, planAcceptedV2LifecycleTransition, planAcceptedV2ObjectUpdate, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
+import { V2ProposalApplication, inspectReviewedV2ProjectClosure, planAcceptedV2Formalization, planAcceptedV2LifecycleTransition, planAcceptedV2ObjectUpdate, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, type V2ProposalRepository, type V2StoredProposalRecord } from "../src/index.ts";
 
 function proposal(): V2Proposal {
   const beforeText = "普通正文";
@@ -120,6 +120,10 @@ test("accepted Project Closure plan couples structured Closure and COMPLETED lif
     { operationId: "optional-note", kind: "UPDATE_PROJECT_INTERFACE", target: { kind: "OBJECT", id: "project-closure", version: 4 }, summary: "可选说明", payload: { note: "不采纳" }, preconditions: [] },
   ], disposition: "REJECTED" });
   assert.equal(planAcceptedV2ProjectClosure(partiallyAccepted).objectId, "project-closure");
+  const failedAfterAcceptance = structuredClone(accepted);
+  failedAfterAcceptance.status = "FAILED";
+  assert.throws(() => planAcceptedV2ProjectClosure(failedAfterAcceptance), /已接受且尚可核对/);
+  assert.equal(inspectReviewedV2ProjectClosure(failedAfterAcceptance).objectId, "project-closure");
   const split = structuredClone(accepted);
   split.groups[0]!.semanticOperations.pop();
   assert.throws(() => planAcceptedV2ProjectClosure(split), /Closure 和 COMPLETED/);

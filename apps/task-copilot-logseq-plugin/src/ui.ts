@@ -537,7 +537,9 @@ function renderReview(model: UiModel): string {
     const canReviseWithProvider = model.v2ProviderAvailable === true && record.proposal.source.kind === "local_llm" && ["READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED"].includes(record.proposal.status);
     const changes = v2ReviewChanges(record);
     const applied = record.proposal.status === "APPLIED";
-    const reviewStage = applied ? "已正式应用" : canCommit ? "方案已审阅，等待确认应用" : "请审阅这项方案";
+    const failed = record.proposal.status === "FAILED";
+    const stale = record.proposal.status === "STALE";
+    const reviewStage = applied ? "已正式应用" : failed ? "这次应用没有完成" : stale ? "方案已变化，需要重新检查" : canCommit ? "方案已审阅，等待确认应用" : "请审阅这项方案";
     const visibleGroups = record.proposal.groups.filter((group) => group.disposition !== "REJECTED");
     const highImpact = visibleGroups.some((group) => group.risk === "HIGH");
     const operationKinds = new Set(visibleGroups.flatMap((group) => group.semanticOperations.map((operation) => operation.kind)));
@@ -608,6 +610,14 @@ function renderReview(model: UiModel): string {
             ? "上一步只是确认方案。点击下方按钮后才会重新检查并正式应用。"
             : applied
               ? "本次修改已正式应用。"
+              : failed
+                ? isProjectClosure
+                  ? "项目和正文没有变化；如需继续，请重新发起结束项目。"
+                  : "正式内容没有变化；如需继续，请重新发起这项操作。"
+                : stale
+                  ? isProjectClosure
+                    ? "项目当前状态已经变化；这次没有结束项目。请重新发起结束项目。"
+                    : "当前内容已经变化；这次没有应用。请重新检查后再发起。"
               : "审阅方案只记录你的选择，尚未修改正式内容。";
     return `<article class="card proposal v2-proposal" data-narration-rule="${escapeHtml(statusNarration.source.ruleId)}">
       <div class="eyebrow">待我确认 · ${escapeHtml(record.updatedAt)}</div>

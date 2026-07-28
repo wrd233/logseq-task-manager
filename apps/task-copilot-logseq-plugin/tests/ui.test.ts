@@ -1895,6 +1895,20 @@ test("Project Closure Review shows the external Agent outcome and uses a dedicat
   assert.doesNotMatch(closureFrontstage, /Closure 和 Lifecycle 转换不可分割/);
   assert.doesNotMatch(closureFrontstage, /HIGH 组/);
   assert.match(html, /查看完整依据[\s\S]*Closure 和 Lifecycle 转换不可分割/);
+  value.v2Proposals[0]!.proposal.status = "FAILED";
+  value.v2Proposals[0]!.proposal.groups[0]!.disposition = "ACCEPTED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-closure", proposalId: "prop-closure", status: "FAILED", beforeStateChecksum: "before", errorCode: "V2_PROJECT_CLOSURE_DOMAIN_WRITE_FAILED", createdAt: "2026-07-21T12:00:00.000Z", updatedAt: "2026-07-21T12:01:00.000Z" }];
+  html = renderApp(value);
+  assert.match(html, /这次应用没有完成/);
+  assert.match(html, /项目和正文没有变化；如需继续，请重新发起结束项目/);
+  assert.doesNotMatch(html, /data-action="v2-project-closure-commit"/);
+  const failedClosureFrontstage = html.split('<details class="review-evidence-details">')[0]!;
+  assert.doesNotMatch(failedClosureFrontstage, /V2_PROJECT_CLOSURE_DOMAIN_WRITE_FAILED|Proposal|Commit|RECOVERY_REQUIRED/);
+  value.v2Proposals[0]!.proposal.status = "STALE";
+  html = renderApp(value);
+  assert.match(html, /方案已变化，需要重新检查/);
+  assert.match(html, /项目当前状态已经变化；这次没有结束项目。请重新发起结束项目/);
+  assert.doesNotMatch(html, /data-action="v2-project-closure-commit"/);
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2Proposals[0]!.proposal.groups[0]!.disposition = "ACCEPTED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:project-closure", proposalId: "prop-closure", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-21T12:00:00.000Z", updatedAt: "2026-07-21T12:01:00.000Z" }];
@@ -2318,6 +2332,7 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
   const openPrimaryText = source.match(/async function openV2PrimaryAnchor[\s\S]*?\n\}/)?.[0] ?? "";
   const projectCreationSubmit = source.match(/if \(action === "submit-v2-project-creation"[\s\S]*?if \(action === "submit-v2-project-creation-undo"/)?.[0] ?? "";
+  const projectClosureSubmit = source.match(/if \(action === "submit-v2-project-closure"[\s\S]*?if \(action === "submit-v2-project-creation"/)?.[0] ?? "";
   assert.doesNotMatch(source, /window\.(?:prompt|confirm)\s*\(/);
   assert.match(openPrimaryText, /原正文连接已不可用；没有修改正式事项。请在系统状态中检查并重新连接正文/);
   assert.doesNotMatch(openPrimaryText, /\bAnchor\b|运行时|对象/);
@@ -2334,6 +2349,9 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /action === "v2-open-primary-anchor"[\s\S]*openV2PrimaryAnchor\(value\)[\s\S]*if \(!latestError\) await logseq\.hideMainUI\(\)/);
   assert.match(projectCreationSubmit, /v2ReentryTargetObjectId = result\.object\.objectId/);
   assert.doesNotMatch(projectCreationSubmit, /logseq\.hideMainUI\(\)/);
+  assert.match(projectClosureSubmit, /actionDialog = undefined;\s*workspace = "review";\s*await run\(/);
+  assert.match(projectClosureSubmit, /result\.status === "FAILED"[\s\S]*项目和正文没有变化/);
+  assert.doesNotMatch(projectClosureSubmit, /"[^"\n]*(?:Project Closure|Objective|Proposal)[^"\n]*"/);
   assert.doesNotMatch(source, /action === "create-v2-project"/);
   assert.match(source, /const returnToOrigin = originRoute !== undefined;[\s\S]*if \(returnToOrigin\) \{[\s\S]*await returnToBusinessOrigin\(\);/);
   assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*originRoute = undefined;[\s\S]*originRouteController\.returnTo\(token\)/);

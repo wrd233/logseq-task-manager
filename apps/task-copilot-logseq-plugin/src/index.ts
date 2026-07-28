@@ -3345,22 +3345,28 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "submit-v2-project-closure" && value) {
-    if (!dialogChecked("actionConfirmed")) { latestError = "请确认 Project Closure 与未完成 Objective 的后续去向。"; await refresh(); return; }
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认结束项目及未完成目标的后续去向。"; await refresh(); return; }
     const [proposalId, expectedUpdatedAt] = value.split("|");
+    actionDialog = undefined;
+    workspace = "review";
     await run(async () => {
       const client = serviceRuntimeClient;
-      if (!proposalId || !expectedUpdatedAt || !client) throw new Error("Project Closure 上下文已失效；没有写入。");
+      if (!proposalId || !expectedUpdatedAt || !client) throw new Error("结束项目的当前信息已失效；没有写入。");
       const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
-      if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查 Project Closure。");
+      if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("方案已变化；请刷新后重新检查结束项目。");
       const observations = await collectV2ProposalGraphObservations(stored.proposal, {
         getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }),
         getPage: (id) => logseq.Editor.getPage(id),
       });
       const result = await client.commitProjectClosure(proposalId, { expectedUpdatedAt, confirmation: "COMPLETE_PROJECT_WITH_CLOSURE", observations, traceId: `v2-project-closure-ui-${Date.now()}` });
-      actionDialog = undefined;
-      workspace = "review";
-      if (result.status === "COMPLETED") recentActionCommitId = result.semanticCommitId;
-      message = result.status === "COMPLETED" ? `Project Closure 已生效；${result.object.text} 已退出活跃视图，Logseq 页面保留。` : "Project 版本已变化；Proposal 已标记 STALE，没有完成对象。";
+      if (result.status === "COMPLETED") {
+        recentActionCommitId = result.semanticCommitId;
+        message = `项目已结束；${result.object.text} 已退出活跃视图，Logseq 页面保留。`;
+      } else if (result.status === "FAILED") {
+        message = "这次没有结束项目；项目和正文没有变化。如需继续，请重新发起结束项目。";
+      } else {
+        message = "项目版本已变化；这次没有结束项目，请重新检查后再发起。";
+      }
     });
     return;
   }

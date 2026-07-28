@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
+import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -67,7 +67,7 @@ export interface LocalServiceOptions {
   projectCreationPreviewGenerator?: LocalLlmProjectCreationPreviewGenerator;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
-  faults?: { afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void; beforeAreaDomainWrite?: () => void | Promise<void>; afterMigrationImport?: () => void; beforeMigrationVerify?: () => void; beforeMigrationActivate?: () => void; beforeRestoreDrain?: () => void; beforeRestoreOffline?: () => void; afterRestoreActivate?: () => void; beforeRestoreRollback?: () => void };
+  faults?: { beforeProjectClosureDomainWrite?: () => void; afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void; beforeAreaDomainWrite?: () => void | Promise<void>; afterMigrationImport?: () => void; beforeMigrationVerify?: () => void; beforeMigrationActivate?: () => void; beforeRestoreDrain?: () => void; beforeRestoreOffline?: () => void; afterRestoreActivate?: () => void; beforeRestoreRollback?: () => void };
 }
 export interface LocalServiceHandle {
   url: string;
@@ -1319,7 +1319,7 @@ function respondError(response: ServerResponse, error: unknown): void {
       return;
     }
     const projectCreationConflictCodes = ["V2_PROJECT_CREATION_COMMIT_CONFLICT", "V2_PROJECT_CREATION_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CREATION_COMMIT_INTENT_MISMATCH", "V2_PROJECT_CREATION_COMMIT_LEDGER_CORRUPT", "V2_PROJECT_CREATION_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROJECT_CREATION_SOURCE_ANCHOR_STALE"];
-    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_TARGET_STALE", "V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "V2_LIFECYCLE_UNDO_NOT_AVAILABLE", "V2_LIFECYCLE_UNDO_LEDGER_CORRUPT", "V2_LIFECYCLE_UNDO_STATE_CHANGED", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED", ...projectCreationConflictCodes];
+    const proposalConflictCodes = ["V2_PROPOSAL_REVIEW_STALE", "V2_PROPOSAL_REVALIDATION_STALE", "V2_PROPOSAL_COMMIT_STALE", "V2_PROPOSAL_NOT_ACCEPTED", "V2_PROPOSAL_ID_CONFLICT", "V2_PROPOSAL_COMMIT_IN_PROGRESS", "V2_PROPOSAL_COMMIT_RECOVERY_REQUIRED", "V2_PROPOSAL_COMMIT_INTENT_MISMATCH", "V2_PROPOSAL_COMMIT_LEDGER_CORRUPT", "V2_PROPOSAL_COMMIT_GRAPH_EVIDENCE_MISMATCH", "V2_PROPOSAL_COMPENSATION_EVIDENCE_MISMATCH", "V2_PROJECT_CLOSURE_COMMIT_RECOVERY_REQUIRED", "V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "V2_PROJECT_CLOSURE_COMMIT_STALE_RECOVERED", "V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "V2_LIFECYCLE_COMMIT_RECOVERY_REQUIRED", "V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "V2_LIFECYCLE_COMMIT_TARGET_STALE", "V2_LIFECYCLE_COMMIT_OTHER_GROUPS_UNRESOLVED", "V2_LIFECYCLE_UNDO_NOT_AVAILABLE", "V2_LIFECYCLE_UNDO_LEDGER_CORRUPT", "V2_LIFECYCLE_UNDO_STATE_CHANGED", "V2_OWNERSHIP_COMMIT_RECOVERY_REQUIRED", "V2_OWNERSHIP_COMMIT_LEDGER_CORRUPT", "V2_OWNERSHIP_UNDO_NOT_AVAILABLE", "V2_OWNERSHIP_UNDO_LEDGER_CORRUPT", "V2_PRIMARY_OWNER_STALE", "V2_PRIMARY_OWNER_UNDO_STALE", "V2_PRIMARY_OWNER_UNCHANGED", "V2_PRIMARY_OWNERSHIP_NOT_ALLOWED", ...projectCreationConflictCodes];
     const proposalInputError = error.code.startsWith("V2_PROPOSAL_") && error.code !== "V2_PROPOSAL_NOT_FOUND" && !proposalConflictCodes.includes(error.code);
     const domainInputError = ["AREA_REQUEST_INVALID", "V2_AREA_ONLY", "V2_AREA_TEXT_REQUIRED", "V2_ASSOCIATION_REQUEST_INVALID", "V2_ASSOCIATION_SELF_REFERENCE", "V2_CANDIDATE_DISCOVERY_REQUEST_INVALID", "V2_CANDIDATE_DISPOSITION_REQUEST_INVALID", "V2_CANDIDATE_FORMALIZATION_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_REQUEST_INVALID", "V2_CANDIDATE_UPDATE_TARGET_INVALID", "V2_CANDIDATE_UPDATE_TARGET_UNSUPPORTED", "V2_CANDIDATE_COMMAND_INVALID", "V2_CANDIDATE_KIND_INVALID", "V2_CANDIDATE_SOURCE_INVALID", "V2_CANDIDATE_REASON_REQUIRED", "V2_CANDIDATE_SUGGESTION_REQUIRED", "V2_CANDIDATE_DEFERRAL_INVALID", "V2_CANDIDATE_DISPOSITION_REASON_REQUIRED", "MINI_PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "MINI_PROJECT_CLOSURE_DRAFT_REQUEST_INVALID", "OWNERSHIP_COMMIT_REQUEST_INVALID", "OWNERSHIP_UNDO_REQUEST_INVALID", "LIFECYCLE_PROPOSAL_REQUEST_INVALID", "LIFECYCLE_COMMIT_REQUEST_INVALID", "LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "LIFECYCLE_UNDO_REQUEST_INVALID", "V2_PROJECT_CREATION_COMMIT_REQUEST_INVALID", "CONDITION_UNDO_REQUEST_INVALID"].includes(error.code) || (error.code.startsWith("V2_OWNERSHIP_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_LIFECYCLE_COMMIT_") && !proposalConflictCodes.includes(error.code)) || (error.code.startsWith("V2_PROJECT_CREATION_COMMIT_") && !projectCreationConflictCodes.includes(error.code));
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
@@ -3441,11 +3441,52 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const input = await readProjectClosureCommitRequest(request);
       const stored = await proposalApplication.get(proposalId);
       if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
-      const plan = planAcceptedV2ProjectClosure(stored.proposal);
       const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
       const receiptKey = `project-closure:${semanticCommitId}`;
       const existing = store.semanticCommit(semanticCommitId);
       const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      const terminalizeFailedClosureProposal = async (at: Date) => {
+        const latest = await proposalApplication.get(proposalId);
+        if (!latest) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Proposal 不存在。");
+        if (latest.proposal.status === "FAILED") return latest;
+        if (latest.proposal.status === "STALE") {
+          throw serviceError("V2_PROJECT_CLOSURE_COMMIT_STALE_RECOVERED", "项目状态已经变化；失败的结束操作已安全收口，请重新发起。");
+        }
+        if (latest.proposal.status !== "ACCEPTED" && latest.proposal.status !== "PARTIALLY_ACCEPTED") {
+          throw serviceError("V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "失败的 Project Closure Commit 与 Proposal 终态不一致。");
+        }
+        const revalidation = await proposalApplication.revalidate(
+          proposalId,
+          completeProposalObservations(latest.proposal, input.observations),
+          latest.updatedAt,
+          at,
+        );
+        if (revalidation.result.status === "STALE") {
+          throw serviceError("V2_PROJECT_CLOSURE_COMMIT_STALE_RECOVERED", "项目状态已经变化；失败的结束操作已安全收口，请重新发起。");
+        }
+        return proposalApplication.markFailed(proposalId, latest.updatedAt, at);
+      };
+      if (existing?.status === "FAILED") {
+        const failedPlan = inspectReviewedV2ProjectClosure(stored.proposal);
+        if (
+          existing.proposalId !== proposalId
+          || existingSteps.length !== 1
+          || existingSteps[0]?.operationId !== failedPlan.objectId
+          || existingSteps[0]?.status !== "PREPARED"
+          || !existing.errorCode
+          || store.getCommandReceipt(receiptKey)
+        ) throw serviceError("V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "失败的 Project Closure Commit 缺少可恢复终态证据。");
+        const record = await terminalizeFailedClosureProposal(new Date());
+        respond(response, 200, {
+          status: "FAILED",
+          semanticCommitId,
+          record,
+          errorCode: existing.errorCode,
+          replayed: true,
+        });
+        return;
+      }
+      const plan = planAcceptedV2ProjectClosure(stored.proposal);
       if (existing?.status === "COMPLETED") {
         const receipt = store.getCommandReceipt(receiptKey);
         if (existingSteps.length !== 1 || existingSteps[0]?.operationId !== plan.objectId || receipt?.command !== "complete_project") throw serviceError("V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "Project Closure Commit 账本与预览不一致。");
@@ -3473,12 +3514,27 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         throw serviceError("V2_PROJECT_CLOSURE_COMMIT_LEDGER_CORRUPT", "Project Closure Commit 账本与预览不一致。");
       }
       const now = new Date();
-      const object = await application.completeProject(plan.objectId, plan.closure, {
-        actor: "proposal_commit",
-        expectedVersion: plan.expectedVersion,
-        idempotencyKey: receiptKey,
-        traceId: input.traceId,
-      }, now);
+      let object: V2ManagedObject;
+      try {
+        options.faults?.beforeProjectClosureDomainWrite?.();
+        object = await application.completeProject(plan.objectId, plan.closure, {
+          actor: "proposal_commit",
+          expectedVersion: plan.expectedVersion,
+          idempotencyKey: receiptKey,
+          traceId: input.traceId,
+        }, now);
+      } catch (error) {
+        if (
+          !store.getCommandReceipt(receiptKey)
+          && store.semanticCommit(semanticCommitId)?.status === "PENDING"
+          && store.semanticCommitSteps(semanticCommitId).every((step) => step.status === "PREPARED")
+        ) {
+          const errorCode = error instanceof StructuredError ? error.code : "V2_PROJECT_CLOSURE_DOMAIN_WRITE_FAILED";
+          store.finalizeSemanticCommit(semanticCommitId, "FAILED", now.toISOString(), undefined, errorCode);
+          await terminalizeFailedClosureProposal(now);
+        }
+        throw error;
+      }
       options.faults?.afterProjectClosureDomainWrite?.();
       if (store.semanticCommitSteps(semanticCommitId)[0]?.status === "PREPARED") store.advanceSemanticCommitStep(semanticCommitId, 0, "APPLIED", now.toISOString());
       if (store.semanticCommitSteps(semanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(semanticCommitId, 0, "VERIFIED", now.toISOString());

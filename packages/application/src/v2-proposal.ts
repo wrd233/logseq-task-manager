@@ -195,10 +195,10 @@ export function planAcceptedV2ProposalCommit(proposal: V2Proposal): V2ProposalCo
   return planAcceptedV2ObjectUpdate(proposal);
 }
 
-export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClosurePlan {
+export function inspectReviewedV2ProjectClosure(proposal: V2Proposal): V2ProjectClosurePlan {
   validateV2Proposal(proposal);
   const accepted = proposal.groups.filter((group) => group.disposition === "ACCEPTED");
-  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status) || accepted.length !== 1) throw proposalApplicationError("V2_PROJECT_CLOSURE_COMMIT_SHAPE_INVALID", "Project Closure 必须是唯一已接受的高影响语义组。");
+  if (accepted.length !== 1) throw proposalApplicationError("V2_PROJECT_CLOSURE_COMMIT_SHAPE_INVALID", "Project Closure 必须保留唯一已接受的高影响语义组证据。");
   const group = accepted[0]!;
   const updates = group.semanticOperations.filter((operation) => operation.kind === "UPDATE_PROJECT_INTERFACE");
   const transitions = group.semanticOperations.filter((operation) => operation.kind === "TRANSITION_LIFECYCLE");
@@ -213,6 +213,13 @@ export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClo
   const closure = update.payload.closure;
   if (!closure || typeof closure !== "object" || Array.isArray(closure)) throw proposalApplicationError("V2_PROJECT_CLOSURE_PAYLOAD_INVALID", "Project Closure payload 缺失。");
   return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: update.target.id, expectedVersion: update.target.version, closure: validateV2ProjectClosure(closure as unknown as V2ProjectClosure) };
+}
+
+export function planAcceptedV2ProjectClosure(proposal: V2Proposal): V2ProjectClosurePlan {
+  if (!["ACCEPTED", "PARTIALLY_ACCEPTED", "APPLIED"].includes(proposal.status)) {
+    throw proposalApplicationError("V2_PROJECT_CLOSURE_COMMIT_SHAPE_INVALID", "Project Closure 必须是已接受且尚可核对的高影响方案。");
+  }
+  return inspectReviewedV2ProjectClosure(proposal);
 }
 
 export function planAcceptedV2ProjectStructure(proposal: V2Proposal): V2ProjectStructurePlan {
