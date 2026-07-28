@@ -123,6 +123,8 @@ Blank 没有虚构来源；原测试 Page 和听云 MiniProject 都保留。Undo
 | `screenshots/day-04-undo-guidance-current-light-7a0b444.jpg` | 用真正内嵌 `7a0b444821b7` 的产物查看最近修改 | 存在真实撤销入口时明确“可以发起撤销；执行时重新检查”，不再与按钮矛盾 | 重建 Day 5 Project | CURRENT |
 | `screenshots/day-04-undo-guidance-health-current-light-7a0b444.jpg` | 同一精确构建展开系统诊断 | Pending/Recovery/Conflict 0/0/0；explicit sync clean | 继续 Day 5 | CURRENT |
 | `screenshots/day-05-project-preview-current-interface-misclassified-defect-light-plugin-7a0b444.jpg` | 重建 Graylog Project，5 轮真实 Grill 后生成 Preview | 页面显示要求被误列为业务当前推进；旧 Validator 未拒绝 | Preview 取消，零 Proposal/正式写入；用 1.6.0 重跑 | HISTORICAL_DEFECT |
+| `screenshots/day-05-project-grill-actionable-ready-current-light-f7a5252.jpg` | 1.6.0 重跑到 readiness | 五类事实保留；当前推进是采集第一条真实 syslog | 生成 Preview | CURRENT_AT_F7A5252 |
+| `screenshots/day-05-project-preview-actionable-grammar-defect-light-f7a5252.jpg` | 生成 1.6.0 Preview | 业务动作正确；固定句式出现“当前先从先确认” | 改为目标/当前推进两行后重跑 | HISTORICAL_UI_DEFECT |
 
 观察：
 
@@ -157,8 +159,8 @@ Blank 没有虚构来源；原测试 Page 和听云 MiniProject 都保留。Undo
 Proposal、Commit、正式对象变化与 Recovery 均为 `0`。
 
 这次失败促使 `project-creation-modeling@1.6.0` 将该维度统一定义为“一项可继续的真实
-工作”，而非界面、布局、仪表盘或首屏字段。真实 Provider 复验前，本段保持
-`PARTIAL_PROVIDER_DEFECT_FIXED_AUTOMATED`，截图保持 `HISTORICAL_DEFECT`。
+工作”，而非界面、布局、仪表盘或首屏字段。第二组真实 Provider 保留所有业务未知并把
+当前推进正确落到采集第一条真实 syslog；固定渲染句式暴露的重复前台文字已单独修复。
 
 ## 轻量指标（截至 Day 5 前半链）
 
@@ -166,7 +168,7 @@ Proposal、Commit、正式对象变化与 Recovery 均为 `0`。
 |---|---:|
 | 自然输入 | 20+ 条与 Day 4 两组自然子树 |
 | 正式对象净变化 | MiniProject +1；Graylog Project 创建后已 Undo，净 0 |
-| 真实 Provider | 20 次累计 |
+| 真实 Provider | 26 次累计 |
 | Validator rejection / retry | 0 / 0 |
 | 模型无依据建议 | 2 类（量化门槛、周会/看板） |
 | Attention 前台展示 | 0 |

@@ -24,15 +24,17 @@ Graylog 材料重新运行 5 轮真实 DeepSeek Grill 与 1 次 Preview 时，�
 本次 Preview 在进入 Proposal 前取消，正式写入、Proposal 与恢复分支均为 `0`。该失败推动
 `project-creation-modeling@1.6.0` 将 `current-interface` 统一定义为一项可继续的真实工作，
 Grill uncertainty、Provider 输出合同与 Application Validator 共用同一语义；1.5.0 退休，
-不保留平行 active 版本。自动回归已经通过，真实 Provider 与 Desktop 复验仍 OPEN，因此
-不能把 Day 5 或该质量 Gate 标为 DONE。
+不保留平行 active 版本。`f7a5252` 已用第二组 5 轮真实 Grill + 1 次 Preview 证明业务未知
+仍被保留，当前推进正确落到“采集第一条华为 iBMC 原始 syslog”；同时真实 Preview 暴露
+固定渲染句式的“当前先从先确认……继续”重复，已用目标/当前推进两行替代，最新 UI
+构建复验仍 OPEN，因此 Day 5 仍不能标为 DONE。
 
 此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源超过有界预算
 时的用户表达已修复为可行动范围说明，不再伪装 Provider 失败或提供无效 Retry。该轮累计
-真实 Provider 14 次；加上 Day 5 的 6 次失败驱动复验，Pilot 累计 20 次，并暴露重复确认、
+真实 Provider 14 次；加上 Day 5 两组各 6 次失败驱动复验，Pilot 累计 26 次，并暴露重复确认、
 无依据模型建议、结果/历史墙、Undo 资格矛盾及成功
 消息工程词。`7a0b444821b7` 已在最新 Desktop 关闭撤销资格/按钮矛盾，并自动压缩
 Project Undo 成功消息；后者仍需下一次真实 Undo 复验。精确构建系统

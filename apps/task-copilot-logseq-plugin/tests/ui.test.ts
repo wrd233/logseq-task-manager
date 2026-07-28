@@ -852,6 +852,8 @@ test("Project Creation Grill keeps facts, inference, unknown, one question, zero
   html = renderApp(value);
   assert.match(html, /项目最终阅读预览/);
   assert.match(html, /系统理解[\s\S]*形成可复核发布流程/);
+  assert.match(html, /<strong>目标：<\/strong>[\s\S]*<strong>当前推进：<\/strong>/);
+  assert.doesNotMatch(html, /当前先从/);
   assert.match(html, /如果确认应用[\s\S]*创建一个新项目[\s\S]*保留来源，创建独立项目页面/);
   assert.match(html, /不会改变[\s\S]*来源页面和原始材料保持不变[\s\S]*尚未创建页面或正式事项/);
   assert.match(html, /下一步[\s\S]*进入待我确认/);

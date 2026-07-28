@@ -117,6 +117,11 @@
 - Pilot 累计真实 Provider `20`，运行时 Validator rejection `0`、retry `0`、abstention
   `0`；这里的 `0 rejection` 是缺陷证据，不是质量成功。Partial 净变化 `0`：增加的是
   已有 P2-C 质量 Gate 的明确阻断，未增加长期产品范围。
+- `f7a5252` 随后用独立的 5 轮 Grill + 1 次 Preview 真实复验 1.6.0：原五类业务事实保留，
+  `currentInterface` 变成采集第一条华为 iBMC syslog 的真实动作，没有把真实未知一起
+  过滤。运行时 Validator rejection/retry 仍为 `0/0`。该 Preview 又暴露前台固定句式
+  “当前先从先确认……继续”，现改为“目标 / 当前推进”两行；Plugin `352/352`、
+  typecheck/build PASS，最新构建 Desktop 复验仍 OPEN。Pilot 累计 Provider 更新为 `26`。
 
 ### 2026-07-28 P0-K Block Condition 返回现场收口
 

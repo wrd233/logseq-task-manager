@@ -31,6 +31,8 @@ Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
 | `pilot-2026w31/screenshots/day-05-project-preview-current-interface-misclassified-defect-light-plugin-7a0b444.jpg` | HISTORICAL_DEFECT | 5 轮真实 Grill 后生成 Project Preview | 页面显示要求被误作业务当前推进；在 Preview 取消，零 Proposal/正式写入；由 `project-creation-modeling@1.6.0` 自动合同替代，待真实 Provider/Desktop 复验 |
+| `pilot-2026w31/screenshots/day-05-project-grill-actionable-ready-current-light-f7a5252.jpg` | CURRENT_AT_F7A5252 | 1.6.0 完成第二组真实 Grill | 真实未知均保留；当前推进是采集第一条真实 syslog |
+| `pilot-2026w31/screenshots/day-05-project-preview-actionable-grammar-defect-light-f7a5252.jpg` | HISTORICAL_UI_DEFECT | 生成业务语义正确的 Preview | 固定句式重复“当前先从先确认”；由目标/当前推进两行替代 |
 
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 

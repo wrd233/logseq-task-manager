@@ -320,7 +320,8 @@ P0/P1/P2 或 Final Release 标为 DONE。
 - [ ] 连续使用 Pilot：`PILOT-2026W31-A` 已真实完成 Day 1—2、Day 3 Waiting 子链与
   Day 4 MiniProject/Project create→reload→Undo；Day 5 又用 6 次真实 DeepSeek 暴露
   `currentInterface` 把页面显示要求误作业务推进的通用合同缺陷，并在 Preview 取消、
-  零 Proposal/零正式写入。Pilot 累计 20 次真实 DeepSeek；普通笔记未被
+  零 Proposal/零正式写入。第二组 1.6.0 真实复验又用 6 次调用保留业务未知并生成可行动
+  当前推进；Pilot 累计 26 次真实 DeepSeek。普通笔记未被
   自动正式化，Now 未立即洪水，Page 来源超预算已安全解释，Project Undo 后精确构建
   0/0/0 且 explicit sync clean。`project-creation-modeling@1.6.0` 的自动 Gate 已通过，
   真实 Provider/Desktop 复验仍开放。完整 Day 3、Day 5—10、

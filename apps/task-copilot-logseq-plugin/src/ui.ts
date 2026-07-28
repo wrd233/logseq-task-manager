@@ -1295,7 +1295,7 @@ function renderActionDialog(model: UiModel): string {
       return `<section class="grill-preview project-preview-summary" aria-label="项目最终阅读预览">
         <div class="eyebrow">阅读预览 · 尚未应用</div>
         <h3>准备创建：${escapeHtml(preview.finalReading.title.text)}</h3>
-        <section class="project-preview-conclusion"><h4>系统理解</h4><p>目标是${escapeHtml(preview.finalReading.outcome.text)}；当前先从${escapeHtml(preview.finalReading.currentInterface.text)}继续。</p></section>
+        <section class="project-preview-conclusion"><h4>系统理解</h4><p><strong>目标：</strong>${escapeHtml(preview.finalReading.outcome.text)}</p><p><strong>当前推进：</strong>${escapeHtml(preview.finalReading.currentInterface.text)}</p></section>
         <section class="project-preview-impact"><h4>如果确认应用</h4><ul>${changeItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
         <section class="project-preview-safety"><h4>不会改变</h4><ul>${safetyItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
         <section class="project-preview-actions"><h4>下一步</h4><p>进入“待我确认”只会建立一份可审阅方案；正式应用前仍可返回。</p>${proposalCta}</section>

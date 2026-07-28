@@ -33,13 +33,13 @@ Proposal / Commit / Undo / Recovery。
 | Day 2 | DONE_REPRESENTATIVE | 7 条纠正/补充；Undo 错误 Task；改原文；真实 DeepSeek 重新正式化；reload | 正式写入可恢复，但纠正路径过长 |
 | Day 3 | PARTIAL_WAITING_SUBCHAIN_DONE | 6 条自然输入；一个正式 Task 设为等待网络组并设置 reviewAt；reload/DB 读回 | Waiting 不再占用“继续处理”，但前台缺少安静的“保持等待”确认 |
 | Day 4 | DONE_REPRESENTATIVE_WITH_UX_BLOCKERS | 自然材料形成 MiniProject；真实 DeepSeek 自适应 Grill；Page 来源超限 fail-closed；Blank Project 经 Preview/HIGH/Create/reload/Undo；精确构建健康复核 | 正式链安全，但确认重复、推荐越界、结果墙和工程词仍阻断发布 |
-| Day 5 | PARTIAL_PROVIDER_DEFECT_FIXED_AUTOMATED | 5 轮真实 Grill + 1 次 Preview；在 Preview 取消，零 Proposal/正式写入 | 页面显示要求曾被误作业务当前推进；1.6.0 自动修复完成，待新构建 Provider/Desktop 复验 |
+| Day 5 | PARTIAL_PROVIDER_FIX_VERIFIED_UI_RERUN_OPEN | 两组各 5 轮真实 Grill + 1 次 Preview；均在 Preview/Review 前保持零正式写入 | 1.6.0 保留业务未知并生成真实当前推进；最新渲染压缩待 Desktop 复验和正式创建 |
 | Day 6—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
 
 ## Provider 与安全计数
 
-- 真实 Provider 调用：`20`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
-  Grill/Preview 为 7；Day 5 重建 Project Grill/Preview 为 6；Page 来源超限在 Provider 前拒绝）
+- 真实 Provider 调用：`26`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
+  Grill/Preview 为 7；Day 5 两组重建 Project Grill/Preview 各 6；Page 来源超限在 Provider 前拒绝）
 - Validator rejection：`0`
 - 自动 retry：`0`
 - abstention：`0`
@@ -83,7 +83,9 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
 12. Day 5 真实 Preview 将“重入页显示一句状态、一个推进和材料入口”误作业务当前推进。
     这不是一条文案缺陷，而是 `CURRENT_INTERFACE` 混合了产品界面和业务动作。用户在
     Preview 取消，零 Proposal/正式写入；1.6.0 已统一 Grill、Prompt 和 Validator，
-    仍须真实 Provider/Desktop 复验。
+    第二组真实 Provider/Desktop 已证明真实未知和行动均保留。
+13. 第二组 Preview 的业务语义正确，但固定渲染产生“当前先从先确认……继续”。这不是
+    Skill 问题；前台已改为独立“目标 / 当前推进”两行，最新构建复验仍开放。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
