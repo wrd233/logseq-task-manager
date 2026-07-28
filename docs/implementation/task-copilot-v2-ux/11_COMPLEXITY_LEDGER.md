@@ -33,6 +33,9 @@
   前台分区、保持等待可见性、Attention helpful/noise 与 Day 7—10 保持开放。
 - 复杂度风险：状态/Recovery 分裂不变；Partial 堆积略降。Now 仍列出较多历史测试对象，
   作为既有 P1 Dynamic Now 前台收敛证据，不新增 Attention 或 Marker。
+- 只读实数对照又证明不能直接用 Shadow 替换正式 Now：`Next 10` 虽偏长，但
+  `Suppressed 10` 会连同刚恢复 Task 一起隐藏。P1-C 继续保持现有 Partial，不新增
+  “recently reactivated”状态、跨会话历史或第二 Now Runtime。
 
 ### Day 5 Project / Context Recovery 完整代表链
 

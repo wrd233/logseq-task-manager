@@ -198,6 +198,10 @@ Runtime 或 Recovery，而是让既有 `BlockConditionController` 和 `changeCon
   均明确；完成后立即回到正文。
 - Now 真实重排正确，但它仍同时列出较多历史测试对象。该证据支持 Dynamic Now 需要
   前台分区/上限，不支持新增 Attention 类型或默认打开 Block Marker。
+- 正式 Local Service 同时刻对照为 `Focus 1 / Next 10 / Waiting 0`；现有 Dynamic Now
+  Shadow 为 `Continue 1 / Review 0 / Keep waiting 0 / Suggested 0 / Suppressed 10`，
+  并隐藏刚恢复 Task。当前不是“Shadow 已可发布”，而是现有 Now 偏长、Shadow 过稀；
+  详细计数见 `../../logs/p1-dynamic-now-pilot-comparison-20260728.md`。
 - Provider 调用 `0`；没有 Skill/Prompt/Validator 变化。正式写入只有既有 Condition，
   Focus、Lifecycle、正文、Anchor、Proposal 和 Commit 均未改变。
 

@@ -96,6 +96,10 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
     原 Block 回到行动。`1c18e9b` 在同一入口增加“恢复为可以行动”，只更新既有
     Condition，并在确认页明确不完成事项、不移动正文、不改变当前关注。应用后返回同一
     Block，Task 立即成为“接下来值得处理”第一项，真实 plugin reload 后保持，系统健康。
+17. 同一时刻的正式 Service 对照显示 Now 为 `Focus 1 / Next 10 / Waiting 0`，Dynamic
+    Now Shadow 为 `Continue 1 / Review 0 / Keep waiting 0 / Suggested 0 / Suppressed 10`。
+    Shadow 会隐藏刚恢复但未加入 Focus 的 Task，故继续保持 Shadow；不能用“更少卡片”
+    交换事务连续性。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -115,7 +119,7 @@ File Graph `logseq`、host Light、约 1000×720。Day 6 使用真正内嵌
 ## 下一段
 
 1. 用 Day 1—6 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
-   前台分区，不先增加新的 Attention 类型或 Block Marker；
+   前台分区；当前对照 Gate 已失败，不先增加新的 Attention 类型或 Block Marker；
 2. 继续 Day 6 的优先级变化和 Dynamic Now 对照，并推进 Day 7 moved/renamed/duplicate
    Anchor 与 Rebind；
 3. 收敛创建完成卡的工程词与长结果墙，同时保持 Audit/Commit 证据在折叠详情中。

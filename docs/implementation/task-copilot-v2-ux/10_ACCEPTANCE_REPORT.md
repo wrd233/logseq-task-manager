@@ -41,6 +41,11 @@ explicit sync clean。创建完成卡仍泄漏“正式 Commit 已完整完成�
 冲突。它复用既有 Condition/Service/version/Undo，不新增状态或恢复分支，也不代表
 Dynamic Now、Attention 或完整 Pilot 完成。
 
+同一正式事实的 Dynamic Now 对照 Gate 未通过：正式 Now 为
+`Focus 1 / Next 10 / Waiting 0`，Shadow 为
+`Continue 1 / Review 0 / Keep waiting 0 / Suggested 0 / Suppressed 10`，且后者隐藏
+Day 6 刚恢复 Task。因此 P1-C 保持 Shadow；没有把低卡片数误作低负担，也没有开放 UI。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
@@ -86,6 +91,8 @@ Dynamic Now、Attention 或完整 Pilot 完成。
 - [ ] 规则决定强显现；
 - [ ] 一对象一主问题；
 - [ ] “现在”不显示所有 OPEN；
+- [ ] Dynamic Now 前台 Gate；Day 6 真实对照证明正式 Now 偏长而 Shadow 会隐藏刚恢复
+  非 Focus Task，当前不得直接替换
 - [ ] 状态叙述先结论；
 - [x] “现在”日常表面不暴露对象枚举、`Project/MiniProject/Task`、`Focus/Now Work`；
   通用可推进卡片首屏只有一个状态结论，完整正式事实仍可展开；真实 reload 与

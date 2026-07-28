@@ -55,6 +55,10 @@
   写入权威和长期 Partial 均为 `0`；关闭代表性 Partial `1`，净变化 `-1`。
 - P1 结论：现有 Now 的状态响应正确，但仍显示较多历史对象。该证据进入既有 Dynamic Now
   “继续处理 / 需要回看 / 保持等待”前台收敛，不据此新增 Attention 类型或默认 Block Marker。
+- 正式 Service 同时刻只读对照：Now `Focus 1 / Next 10 / Waiting 0`；Dynamic Shadow
+  `Continue 1 / Review 0 / Keep waiting 0 / Suggested 0 / Suppressed 10`，并隐藏刚恢复
+  Task。P1-C 继续 `PARTIAL_RUNTIME_SHADOW`，前台 Gate 未通过；没有为了减少卡片静默
+  牺牲事务连续性。证据见 `logs/p1-dynamic-now-pilot-comparison-20260728.md`。
 
 ### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
 

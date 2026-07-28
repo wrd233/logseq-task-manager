@@ -47,6 +47,13 @@ Day 6 又用 Day 3 的同一正式 Waiting Task 暴露并关闭“回复到达�
 Provider/Skill/Prompt/Validator 变化为 `0`。该子 Partial `OPEN→DONE_DESKTOP_REPRESENTATIVE`，
 但完整 Day 6 的优先级变化、Dynamic Now 对照与 Day 7—10 仍 OPEN。
 
+同一 Day 6 正式事实的只读 Service 对照已经关闭 Dynamic Now 的“可直接前台替换”假设：
+正式 Now 为 `Focus 1 / Next 10 / Waiting 0`，Shadow 为
+`Continue 1 / Review 0 / Keep waiting 0 / Suggested 0 / Suppressed 10`。Shadow 会隐藏
+刚恢复但未加入 Focus 的 Task，因此继续保持 `PARTIAL_RUNTIME_SHADOW`；这不是宿主阻塞，
+而是产品质量门未通过。当前不新增 Attention 类型、“刚恢复”正式状态或 Block Marker，
+后续用 Day 6 优先级变化与 Day 8 disposition/cooldown 决定有界前台规则。
+
 此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
