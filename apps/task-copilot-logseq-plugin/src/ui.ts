@@ -204,7 +204,14 @@ function empty(title: string, detail: string): string {
 }
 
 function compactReviewText(value: string, maximum = 120): string {
-  const text = value.trim().replace(/\s+/g, " ");
+  const structuralLabels = /^(?:成果|包含|不包含|完成证据|内部闭环|当前可进入工作|页面关系|来源材料)$/u;
+  const text = value
+    .split(/\r?\n/u)
+    .map((line) => line.trim().replace(/^#{1,6}\s*/u, "").replace(/^[-*+]\s+/u, ""))
+    .filter((line) => line.length > 0 && !structuralLabels.test(line))
+    .slice(0, 2)
+    .join("。")
+    .replace(/\s+/g, " ");
   return text.length <= maximum ? text : `${text.slice(0, maximum - 1)}…`;
 }
 
@@ -535,7 +542,7 @@ function renderReview(model: UiModel): string {
     const projectClosure = projectClosureOperation?.payload.closure as V2ProjectClosure | undefined;
     const systemUnderstanding = projectClosure
       ? `将结束这个项目，并保存结果：${compactReviewText(projectClosure.actualResult)}${projectClosure.incompleteObjectives.length ? ` ${projectClosure.incompleteObjectives.length} 项未完成目标会保留明确后续。` : ""}`
-      : record.proposal.finalPreview;
+      : compactReviewText(record.proposal.finalPreview);
     const reviewTitle = projectClosure
       ? `结束项目：${record.proposal.title.replace(/^Closure Proposal:\s*/iu, "")}`
       : record.proposal.title;
@@ -604,6 +611,7 @@ function renderReview(model: UiModel): string {
       ${canReviseWithProvider ? `<div class="actions">${button(model.v2ProviderRevisionBusy ? "正在调整…" : "返回调整方案", "v2-provider-revise-open", `${record.proposal.proposalId}|${record.updatedAt}`, "quiet", model.v2ProviderRevisionBusy === true)}</div>` : ""}
       ${primaryResolution}
       <details class="review-evidence-details"><summary>查看完整依据</summary>
+        <p><strong>完整方案：</strong>${escapeHtml(record.proposal.finalPreview)}</p>
         <p><strong>当前上下文：</strong>${escapeHtml(record.proposal.context)}</p>
         <p><strong>理解与逻辑：</strong>${escapeHtml(record.proposal.understanding)} · ${escapeHtml(record.proposal.logic)}</p>
         ${statusNarration.keyEvidence.length ? `<p class="muted">${statusNarration.keyEvidence.map((value) => escapeHtml(value)).join(" · ")}</p>` : ""}

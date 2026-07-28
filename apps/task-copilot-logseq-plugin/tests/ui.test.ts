@@ -1877,7 +1877,7 @@ test("Project creation Review uses the proposal-bound Page creation confirmation
   const value = model();
   value.workspace = "review"; value.reviewMode = "proposals";
   value.v2Proposals = [{ updatedAt: "2026-07-25T15:01:00.000Z", files: { proposalMd: "# Project creation", proposalJson: "{}" }, proposal: {
-    proposalId: "prop-project-creation", schemaVersion: "v2", title: "创建设备治理 Project", context: "七项边界已完成 Grill。", understanding: "创建独立受控页面。", objective: "形成持续治理 Project。", logic: "最终阅读结果进入 HIGH Review。", finalPreview: "设备治理将形成每月可核验结果。", unresolvedQuestions: [], source: { kind: "local_llm" }, scope: { read: [], modify: [{ kind: "PAGE", id: "Project/设备治理", expectedExistence: "ABSENT" }] }, preconditions: [], groups: [{
+    proposalId: "prop-project-creation", schemaVersion: "v2", title: "创建设备治理 Project", context: "七项边界已完成 Grill。", understanding: "创建独立受控页面。", objective: "形成持续治理 Project。", logic: "最终阅读结果进入 HIGH Review。", finalPreview: "# 设备治理\n## 成果\n每月形成可核验结果。\n## 包含\n- 发布检查\n## 来源材料\n仅技术详情显示的完整材料说明。", unresolvedQuestions: [], source: { kind: "local_llm" }, scope: { read: [], modify: [{ kind: "PAGE", id: "Project/设备治理", expectedExistence: "ABSENT" }] }, preconditions: [], groups: [{
       groupId: "create-project", explanation: "创建关系必须整体审阅。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{
         operationId: "create-project", kind: "CREATE_OBJECT", target: { kind: "PAGE", id: "Project/设备治理", expectedExistence: "ABSENT" }, summary: "创建 Project 与主 Page", payload: { objectType: "PROJECT", text: "设备治理", relationshipMode: "CREATE_DEDICATED_PROJECT_PAGE" }, preconditions: [],
       }], disposition: "ACCEPTED",
@@ -1892,6 +1892,9 @@ test("Project creation Review uses the proposal-bound Page creation confirmation
   assert.match(impact, /data-impact-level="high"/);
   assert.ok(impact.indexOf("本次会改变什么") < impact.indexOf("本次不会改变什么"));
   assert.ok(impact.indexOf("本次不会改变什么") < impact.indexOf("系统理解"));
+  assert.match(impact, /系统理解[\s\S]*设备治理。每月形成可核验结果/);
+  assert.doesNotMatch(impact, /##|仅技术详情显示的完整材料说明/);
+  assert.match(html, /查看完整依据[\s\S]*完整方案：[\s\S]*仅技术详情显示的完整材料说明/);
   assert.ok(html.indexOf("上一步只是确认方案") < html.indexOf('data-action="v2-project-creation-commit"'));
   value.actionDialog = { kind: "confirm-v2-project-creation", value: "prop-project-creation|2026-07-25T15:01:00.000Z" };
   html = renderApp(value);
