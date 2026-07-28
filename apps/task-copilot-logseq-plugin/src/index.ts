@@ -83,7 +83,12 @@ import { BlockConditionController, type BlockConditionDraft } from "./block-cond
 import { PageContextController, type PageContextSnapshot } from "./page-context-controller.ts";
 import { checksum, StructuredError } from "@task-copilot/shared";
 import { deriveToolbarIntervention, type ToolbarIntervention } from "./toolbar-intervention.ts";
-import { managedRuntimeBlockedPresentation, managedRuntimeEndDecision } from "./service-lifecycle-policy.ts";
+import {
+  managedRuntimeBlockedPresentation,
+  managedRuntimeEndDecision,
+  managedRuntimeAllowsAutomaticRecovery,
+  managedRuntimeFormalActionAvailability,
+} from "./service-lifecycle-policy.ts";
 import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE_SYNTAX, type SlashCreateObjectType } from "./slash-create-command.ts";
 import { projectClosureProposalFailure, readProjectClosureUserJudgments } from "./project-closure-input.ts";
 import { OriginRouteController, type OriginRouteToken } from "./origin-route-controller.ts";
@@ -211,8 +216,8 @@ let currentGraphKey: string | undefined;
 let runtimeEndedByUser = false;
 let graphSwitchQueue: Promise<void> = Promise.resolve();
 const pluginInstanceId = `plugin-${globalThis.crypto.randomUUID()}`;
-const blockFocusController = new BlockFocusController(() => serviceRuntimeClient);
-const blockConditionController = new BlockConditionController(() => serviceRuntimeClient);
+const blockFocusController = new BlockFocusController(() => formalActionRuntimeClient());
+const blockConditionController = new BlockConditionController(() => formalActionRuntimeClient());
 const pageContextController = new PageContextController(() => serviceRuntimeClient, {
   getPage: (identity) => logseq.Editor.getPage(identity),
   getCurrentPage: () => logseq.Editor.getCurrentPage(),
@@ -224,7 +229,7 @@ const projectPageHeadActionController = new ProjectPageHeadActionController({
     logseq.provideUI(input);
   },
 }, {
-  available: () => featureReady && serviceConnection.status === "READY" && Boolean(serviceRuntimeClient),
+  available: () => formalActionAvailability().available,
   resolveCurrentProject: async () => {
     const current = await pageContextController.resolveCurrentProject();
     return current ? { projectText: current.project.objectText } : undefined;
@@ -366,6 +371,20 @@ let toolbarIntervention: ToolbarIntervention = deriveToolbarIntervention({
   semanticCommits: [],
   formalConnectionRisk: false,
 });
+
+function formalActionAvailability() {
+  return managedRuntimeFormalActionAvailability({
+    runtimeEndedByUser,
+    featureReady,
+    connectionStatus: serviceConnection.status,
+    formalWritesAvailable: serviceConnection.formalWritesAvailable,
+    hasClient: Boolean(serviceRuntimeClient),
+  });
+}
+
+function formalActionRuntimeClient(): ServiceRuntimeClient | undefined {
+  return formalActionAvailability().available ? serviceRuntimeClient : undefined;
+}
 
 function requireAppRoot(): HTMLElement {
   const root = appRoot ?? document.getElementById(MAIN_UI_ROOT_ID);
@@ -1006,6 +1025,12 @@ async function refreshMountedDiagnostics(): Promise<void> {
 }
 
 async function refreshServiceRuntime(descriptorPath: unknown): Promise<void> {
+  if (runtimeEndedByUser) {
+    enterRestrictedServiceMode("SERVICE_ENDED_BY_USER", "本次 Task Copilot 已安全结束；Logseq 正文仍可正常编辑。");
+    diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+    featureReady = false;
+    return;
+  }
   const generation = ++serviceDiscoveryGeneration;
   restoreRecoveryStatus = undefined;
   restoreRecoveryApply = undefined;
@@ -1085,6 +1110,10 @@ async function releaseServiceLifecycleSession(): Promise<void> {
 async function replaceServiceLifecycleSession(next: ServiceLifecycleSession | undefined): Promise<void> {
   stopServiceLifecycleHeartbeat();
   const previous = serviceLifecycleSession;
+  if (next && !managedRuntimeAllowsAutomaticRecovery({ runtimeEndedByUser })) {
+    await next.release().catch(() => undefined);
+    return;
+  }
   serviceLifecycleSession = next;
   if (next) runtimeEndedByUser = false;
   if (previous && previous !== next) {
@@ -2551,6 +2580,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       return;
     }
     runtimeEndedByUser = true;
+    serviceDiscoveryGeneration += 1;
     workspace = "more";
     actionDialog = undefined;
     const releaseLifecycleSession = releaseServiceLifecycleSession();
@@ -2570,6 +2600,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await refresh();
       return;
     }
+    runtimeEndedByUser = false;
     await refreshServiceRuntime(configuredServiceDescriptorPath);
     featureReady = serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient);
     diagnostics.setStoreStatus(featureReady ? "READY" : "READ_ONLY_SAFE_MODE");
@@ -3913,7 +3944,17 @@ async function openWorkspace(target: Workspace): Promise<void> {
 }
 
 async function guardedFeatureCommand(action: () => Promise<void>): Promise<void> {
-  if (!featureReady) {
+  const availability = formalActionAvailability();
+  if (!availability.available) {
+    if (availability.reason === "ENDED_BY_USER") {
+      diagnostics.setNotice({
+        code: "SERVICE_ENDED_BY_USER",
+        message: "本次 Task Copilot 已结束；命令未执行，正式内容没有变化。",
+        next_step: "需要正式能力时，请先重新启动 Task Copilot。",
+      });
+      await showTaskCopilot();
+      return;
+    }
     console.warn("[Task Copilot] feature command unavailable; opening Runtime Diagnostics");
     diagnostics.setNotice({
       code: "FEATURE_NOT_READY",
@@ -3955,14 +3996,29 @@ interface BlockContextActionResult {
 
 async function runBlockContextAction(actionId: string, action: () => Promise<BlockContextActionResult>): Promise<void> {
   const correlationId = `TC-block-${Date.now()}`;
-  if (!featureReady) {
+  const availability = formalActionAvailability();
+  if (!availability.available) {
+    const ended = availability.reason === "ENDED_BY_USER";
     diagnostics.setNotice({
-      code: "FEATURE_NOT_READY",
-      message: "Task Copilot 功能尚未就绪；Block 右键操作未执行。",
-      next_step: "请打开 Task Copilot 查看系统状态和失败阶段。",
+      code: ended ? "SERVICE_ENDED_BY_USER" : "FEATURE_NOT_READY",
+      message: ended
+        ? "本次 Task Copilot 已结束；Block 右键操作未执行。"
+        : "Task Copilot 功能尚未就绪；Block 右键操作未执行。",
+      next_step: ended
+        ? "需要正式能力时，请先重新启动 Task Copilot。"
+        : "请打开 Task Copilot 查看系统状态和失败阶段。",
     });
-    operationalLogger.log("warn", "ui-action", "block_context_action_unavailable", { correlationId, actionId, result: "feature-not-ready" });
-    await showBlockContextMessage("Task Copilot 尚未就绪；当前关注没有改变。请打开 Task Copilot 查看系统状态。", "warning");
+    operationalLogger.log("warn", "ui-action", "block_context_action_unavailable", {
+      correlationId,
+      actionId,
+      result: ended ? "ended-by-user" : "feature-not-ready",
+    });
+    await showBlockContextMessage(
+      ended
+        ? "本次 Task Copilot 已结束；正式状态没有改变。需要正式能力时，请先重新启动 Task Copilot。"
+        : "Task Copilot 尚未就绪；正式状态没有改变。请打开 Task Copilot 查看系统状态。",
+      "warning",
+    );
     return;
   }
   try {
@@ -4009,18 +4065,29 @@ async function undoBlockFocusFromContext(): Promise<void> {
 
 async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
   const correlationId = `TC-block-condition-${Date.now()}`;
-  if (!featureReady) {
+  const availability = formalActionAvailability();
+  if (!availability.available) {
+    const ended = availability.reason === "ENDED_BY_USER";
     diagnostics.setNotice({
-      code: "FEATURE_NOT_READY",
-      message: "Task Copilot 功能尚未就绪；Block 状态未改变。",
-      next_step: "请打开 Task Copilot 查看系统状态和失败阶段。",
+      code: ended ? "SERVICE_ENDED_BY_USER" : "FEATURE_NOT_READY",
+      message: ended
+        ? "本次 Task Copilot 已结束；Block 状态未改变。"
+        : "Task Copilot 功能尚未就绪；Block 状态未改变。",
+      next_step: ended
+        ? "需要正式能力时，请先重新启动 Task Copilot。"
+        : "请打开 Task Copilot 查看系统状态和失败阶段。",
     });
     operationalLogger.log("warn", "ui-action", "block_condition_open_unavailable", {
       correlationId,
       actionId: "block-condition-open",
-      result: "feature-not-ready",
+      result: ended ? "ended-by-user" : "feature-not-ready",
     });
-    await showBlockContextMessage("Task Copilot 尚未就绪；原状态未改变。请打开 Task Copilot 查看系统状态。", "warning");
+    await showBlockContextMessage(
+      ended
+        ? "本次 Task Copilot 已结束；原状态未改变。需要正式能力时，请先重新启动 Task Copilot。"
+        : "Task Copilot 尚未就绪；原状态未改变。请打开 Task Copilot 查看系统状态。",
+      "warning",
+    );
     return;
   }
   try {
@@ -4055,7 +4122,7 @@ async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
 
 async function openMiniProjectGrillFromContext(blockUuid: string): Promise<void> {
   const correlationId = `TC-mini-project-grill-${Date.now()}`;
-  if (!featureReady || !serviceRuntimeClient) {
+  if (!formalActionAvailability().available || !serviceRuntimeClient) {
     await showBlockContextMessage("智能梳理暂时不可用；没有开始讨论，原内容保持原位。", "warning");
     return;
   }
@@ -4229,6 +4296,17 @@ async function recoverCurrentGraphRuntime(successMessage?: string): Promise<bool
     message = "Task Copilot 正在等待 Logseq 完成当前 Graph 初始化；正文仍可编辑，正式写入保持关闭。";
     return false;
   }
+  if (runtimeEndedByUser) {
+    enterRestrictedServiceMode("SERVICE_ENDED_BY_USER", "本次 Task Copilot 已安全结束；Logseq 正文仍可正常编辑。");
+    diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
+    featureReady = false;
+    message = "本次 Task Copilot 已安全结束；切换页面或知识库不会自动重新启动。";
+    await refreshToolbarInterventionFacts();
+    await projectPageHeadActionController.refreshAll();
+    if (logseq.isMainUIVisible) await refresh();
+    else await refreshMountedDiagnostics();
+    return false;
+  }
   const recovered = await recoverConfiguredServiceRuntime(configuredServiceDescriptorPath);
   featureReady = recovered;
   diagnostics.setStoreStatus(recovered ? "READY" : "READ_ONLY_SAFE_MODE");
@@ -4262,7 +4340,6 @@ async function handleCurrentGraphChanged(): Promise<void> {
   enterRestrictedServiceMode("GRAPH_SWITCH_IN_PROGRESS", "正在为新的 Graph 重新绑定本地运行环境；正式写入暂停。");
   diagnostics.setStoreStatus("READ_ONLY_SAFE_MODE");
   featureReady = false;
-  runtimeEndedByUser = false;
   serviceDiscoveryGeneration += 1;
   currentGraphKey = undefined;
   await refreshRestrictedGraphSwitchSurface();

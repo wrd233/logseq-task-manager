@@ -1,7 +1,51 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { managedRuntimeBlockedPresentation, managedRuntimeEndDecision } from "../src/service-lifecycle-policy.ts";
+import {
+  managedRuntimeBlockedPresentation,
+  managedRuntimeEndDecision,
+  managedRuntimeAllowsAutomaticRecovery,
+  managedRuntimeFormalActionAvailability,
+} from "../src/service-lifecycle-policy.ts";
+
+test("explicitly ended runtime blocks formal actions even when stale ready facts remain", () => {
+  assert.deepEqual(managedRuntimeFormalActionAvailability({
+    runtimeEndedByUser: true,
+    featureReady: true,
+    connectionStatus: "READY",
+    formalWritesAvailable: true,
+    hasClient: true,
+  }), { available: false, reason: "ENDED_BY_USER" });
+});
+
+test("formal actions require the complete ready authority boundary", () => {
+  assert.deepEqual(managedRuntimeFormalActionAvailability({
+    runtimeEndedByUser: false,
+    featureReady: true,
+    connectionStatus: "READY",
+    formalWritesAvailable: true,
+    hasClient: true,
+  }), { available: true });
+  assert.deepEqual(managedRuntimeFormalActionAvailability({
+    runtimeEndedByUser: false,
+    featureReady: true,
+    connectionStatus: "READY",
+    formalWritesAvailable: false,
+    hasClient: true,
+  }), { available: false, reason: "NOT_READY" });
+  assert.deepEqual(managedRuntimeFormalActionAvailability({
+    runtimeEndedByUser: false,
+    featureReady: true,
+    connectionStatus: "READY",
+    formalWritesAvailable: true,
+    hasClient: false,
+  }), { available: false, reason: "NOT_READY" });
+});
+
+test("an explicitly ended runtime cannot be reacquired by host or settings callbacks", () => {
+  assert.equal(managedRuntimeAllowsAutomaticRecovery({ runtimeEndedByUser: true }), false);
+  assert.equal(managedRuntimeAllowsAutomaticRecovery({ runtimeEndedByUser: false }), true);
+});
 
 test("managed runtime can end only with no unfinished Commit or Graph reconciliation", () => {
   assert.deepEqual(managedRuntimeEndDecision({

@@ -9,6 +9,35 @@ export type ManagedRuntimeBlockedPresentation = {
   message: string;
 };
 
+export type ManagedRuntimeFormalActionAvailability =
+  | { available: true }
+  | { available: false; reason: "ENDED_BY_USER" | "NOT_READY" };
+
+export function managedRuntimeFormalActionAvailability(input: {
+  runtimeEndedByUser: boolean;
+  featureReady: boolean;
+  connectionStatus: "READY" | "RESTRICTED";
+  formalWritesAvailable: boolean;
+  hasClient: boolean;
+}): ManagedRuntimeFormalActionAvailability {
+  if (input.runtimeEndedByUser) return { available: false, reason: "ENDED_BY_USER" };
+  if (
+    !input.featureReady
+    || input.connectionStatus !== "READY"
+    || !input.formalWritesAvailable
+    || !input.hasClient
+  ) {
+    return { available: false, reason: "NOT_READY" };
+  }
+  return { available: true };
+}
+
+export function managedRuntimeAllowsAutomaticRecovery(input: {
+  runtimeEndedByUser: boolean;
+}): boolean {
+  return !input.runtimeEndedByUser;
+}
+
 export function managedRuntimeEndDecision(input: {
   commits: ServiceSemanticCommit[];
   explicitSync: { pending: number; reconciliationRequired: boolean };
