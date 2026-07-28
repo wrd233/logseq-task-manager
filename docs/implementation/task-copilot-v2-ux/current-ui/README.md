@@ -3,6 +3,15 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
+最新 Project Preview / HIGH Review 证据分别基于 `2adfc354041b` 与
+`e33a3989dab9`（最终 Plugin build `2026-07-28 13:40:37 +0800`）。真实 Logseq 0.10.15
+Page 来源链证明 Preview 已收敛为系统理解、应用影响、安全边界、下一步和折叠完整依据；
+进入待我确认仍只创建 Proposal。HIGH Review 首屏先显示“会改变 / 不会改变”，标准宽度为
+两列影响 + 全宽理解，840px 以下改为单列。CURRENT 覆盖 Dark 1000×720、Dark 762×720、
+Light 1000×720；`ui-high-review-three-column-defect-historical-2adfc35.jpg` 只保留为
+促成修复的 `HISTORICAL`。完整记录见
+`../logs/ui-project-preview-high-review-compression-desktop-live-20260728.md`。
+
 最新“现在”精确构建为 `f1d0e1f1cee9`（Plugin build
 `2026-07-28 13:03:00 +0800`）。真实 Logseq 0.10.15 reload 后，对象类型筛选、分组标题和
 卡片 eyebrow 已统一为“项目 / 小项目 / 任务”等中文产品语言；通用可推进状态不再把
@@ -124,7 +133,8 @@ ready、最终阅读、HIGH Review、接受未应用、正式创建、reload 重
 
 P2-C 当前结论是 `ALL_SOURCES_DONE_VISUAL_GATES_OPEN`：Blank、Page“保留来源另建”、
 Page“升级当前 Page”和 MiniProject“保留来源演化”均完成真实 DeepSeek、Preview、Review、
-创建、reload/restart、专用 Undo 与最终健康验证。Light/窄栏和部分宿主视觉 Gate 仍需在
+创建、reload/restart、专用 Undo 与最终健康验证。Preview / HIGH Review 的代表性
+Light/窄栏已由 `2adfc35` / `e33a398` 关闭；新 Project Page 与其他宿主视觉 Gate 仍需在
 集中 Desktop Gate 完成，P2-D～G 继续开放。完整记录见
 `../logs/p2-c-project-creation-desktop-live-20260726.md`。
 

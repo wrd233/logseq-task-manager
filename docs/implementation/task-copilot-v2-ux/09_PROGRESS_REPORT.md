@@ -30,6 +30,21 @@
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面、reload 与 723px 窄栏已补 CURRENT；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
+### 2026-07-28 Project Preview / HIGH Review 交互压缩
+
+- `2adfc35` 把 Page 来源 Project Preview 压缩为四区首屏，完整材料边界和审计依据默认折叠；
+  “进入待我确认”明确只建立可审阅方案，正式应用前仍可返回。
+- `e33a398` 把 HIGH Review 固定为变化 / 不变 / 系统理解的顺序；真实 762px 缺陷驱动布局
+  改为标准宽度两列影响 + 全宽理解、840px 以下单列。
+- 自动：新增断言先红 2 项，修复后定向 2/2；Plugin 全量 343/343；最终响应式增量 1/1、
+  typecheck/build PASS。
+- Desktop：Logseq 0.10.15、File Graph、Dark 1000×720、Dark 762×720、Light 1000×720；
+  reload 后同一 HIGH Proposal 可重建，来源正文和正式 Project 均未改变。
+- Provider：9 次流程显式调用、Validator 拒绝 0、自动重试 0；出现 1 次已回答 Page 关系
+  的重复提问，登记为质量债，不新增 Skill/Prompt/Validator 特例。
+- 状态：Preview 与 HIGH Review UI Partial 各关闭 1 项；阶段级 Partial 新增 0，
+  P2-C 与完整 Goal 仍保持原 `IN_PROGRESS` 口径。
+
 ## 已完成
 
 - 明确当前仓库不是 V2 底座缺失，而是用户交互仍工程化；

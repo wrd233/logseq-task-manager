@@ -19,6 +19,22 @@
 
 ## 本轮变化（2026-07-28）
 
+### Project Preview / HIGH Review 前台压缩
+
+- 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、Recovery 分支和平行
+  写入权威：均为 `0`。
+- 删除或合并重复机制：没有删除后台审计；Preview 的散落字段合并为四区，Review 历史继续
+  与当前问题分离，内部状态和完整依据只保留在折叠层。
+- Desktop 驱动通用修复：真实 762px 发现三列不可读后，只增加派生
+  `data-impact-level` 与一个共享响应式断点，没有建立新 UI 状态。
+- LLM：9 次显式 Provider 流程调用、Validator rejection `0`、自动 retry `0`；
+  `QUALITY_DEBT_REPEAT_QUESTION=1`。不为该单一样本创建新 Skill 版本或 Prompt 特例，
+  后续先研究 answer evidence 与已解决 uncertainty 的通用合同。
+- Partial 总量：阶段级新增 `0`；关闭 Preview 与 HIGH Review 两个 UI Partial。P2-C、
+  P2-D～G 和 Final Release 的开放项不变。
+- 风险变化：后台工程概念泄漏 `MEDIUM → MEDIUM`（代表复杂链明显缓解，但系统理解正文仍
+  偏长）；Desktop 矩阵风险保持 `HIGH`，本轮只采用标准 / 窄栏 / Light 三个代表组合。
+
 ### Project 继续工作首屏压缩
 
 - 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、恢复分支和平行写入

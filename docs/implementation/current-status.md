@@ -56,6 +56,17 @@ Project 重入”等实现说明；每张卡首屏只保留“打开当前项目
 正式写入或新增状态、Runtime、Skill、Validator、恢复分支。该 Gate 关闭 Project 重入首屏
 按钮墙与工程说明缺陷，不把 P1/P2 其余 Partial 升级为 DONE。
 
+`2adfc354041b` / `e33a3989dab9` 又关闭 Project Creation Preview 与 HIGH Review 的代表性
+UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生成 Preview；普通首屏只保留
+系统理解、应用影响、安全边界、下一步和折叠完整依据。进入“待我确认”只创建可审阅方案，
+未创建 Project Page 或正式 Project；Review 首屏先显示变化与不变，再显示系统理解。
+真实 762×720 首轮发现三列布局把系统理解压成窄长文本，`e33a398` 改为 HIGH 标准宽度两列
+影响 + 全宽理解、840px 以下单列，并在 Dark 1000×720、Dark 762×720、Light 1000×720
+通过 reload 后 Desktop 复验。真实 Provider 共 9 次显式流程调用、Validator 拒绝 0、
+自动重试 0；发现一次已明确 Page 关系仍被重复提问，登记为既有 Skill 的质量债，不新增
+样本 Prompt、Skill 版本或 Validator 分支。P2-C 整体仍为
+`ALL_SOURCES_DONE_VISUAL_GATES_OPEN`，完整 Goal 仍为 `IN_PROGRESS`。
+
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
   Local Service 读回均已通过；
 - P0-B“暂时做不了”：三种用户意图、最小字段、失败零写入、Focus/Lifecycle 不变、会话内
@@ -266,8 +277,9 @@ Project 重入”等实现说明；每张卡首屏只保留“打开当前项目
   Validator rejection 均保持零 Proposal/零写入，第三次同答案集通过，说明安全 Gate
   有效但真实拒绝率与用户诊断仍需继续改善。Undo 后专用 Page/目标 Project/Anchor 均不在
   当前投影，再次 reload 为 READY、`0/0/0`、reconciliation false；CURRENT 截图为
-  `p2-c-38`～`p2-c-39`。P2-C 三来源功能矩阵至此 DONE，Light/窄栏和集中宿主视觉 Gate
-  仍 OPEN。当前全量 Application `155/155`、Local Service `133/133`、Plugin `271/271`
+  `p2-c-38`～`p2-c-39`。P2-C 三来源功能矩阵至此 DONE；`2adfc35` / `e33a398` 又关闭
+  Preview / HIGH Review 的代表性 Light/窄栏 Gate，新 Project Page 和其余集中宿主视觉
+  Gate 仍 OPEN。当前全量 Application `155/155`、Local Service `133/133`、Plugin `271/271`
   与根级 `./scripts/check.sh` PASS；
 - P2-D 已进入 `IN_PROGRESS_LIGHT_CONDITION_MEDIUM_AND_HEAVY_INTERFACE_VERTICAL_DONE`：Application
   新增 16 类 Project operation intent 的纯路由合同，明确 LIGHT direct、MEDIUM

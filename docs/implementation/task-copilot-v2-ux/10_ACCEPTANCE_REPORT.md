@@ -15,6 +15,12 @@
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D/E 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error 与 generation stale 零 Closure 写入 DONE；P2-G Restore 真实双失败人工恢复、Migration Activation 正常链、写后响应丢失→ledger reload→Verify→Undo、Verify/Activate failure→same-ledger retry 及 722px 窄栏 DONE；通用 Task Copilot 深色表面/reload/723px DONE | P2-D/E remaining；P2-E 真正 RECOVERY_REQUIRED；P2-F frontstage；P2-G Rebind guidance；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
 
+`2adfc35` / `e33a398` 已通过 Project Preview 与 HIGH Review 代表性 UI Gate：真实 Page
+来源、真实 Provider、零正式写入 Preview、Proposal-only Review、reload、Dark/Light 和
+1000/762px 均有当前证据。HIGH Review 的 762px 三列缺陷已在同轮修复并重取证。该 Gate
+只关闭两个 UI Partial，不替代 Project 创建正式 Commit/Undo 的既有证据，也不关闭 P2-C
+其余视觉项、P2-D～G 或最终发布。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
@@ -210,9 +216,11 @@ MiniProject 演化使用 `project-creation-modeling@1.5.0` 验证来源 Object/A
 五项 `LINK_AS_SOURCE`、HIGH Review、专用 Page 创建、reload 重入和 inverse Undo。来源
 UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/`p2-c-39` 对应
 `7a7492a407ed`，证明精确返回原根 Block及再次 reload 后 READY、`0/0/0`。旧的 Journal
-返回截图已标为 SUPERSEDED。Light/窄栏仍属 P2-C/最终集中视觉 Gate，不能据此宣布 P2 完成。
+返回截图已标为 SUPERSEDED。`2adfc35` / `e33a398` 已补 Preview / HIGH Review 的
+Light/窄栏代表证据；新 Project Page 和其他集中宿主视觉 Gate 仍属 P2-C/最终验收，
+不能据此宣布 P2 完成。
 
-## 4.1 当前 UI 压缩验收（`f4acf77` / `7727770` / `662246a` / `cda4f95`）
+## 4.1 当前 UI 压缩验收（`f4acf77` / `7727770` / `662246a` / `cda4f95` / `2adfc35` / `e33a398`）
 
 | 页面 | 主结论清晰度 | 主操作清晰度 | 心智负担 | 工程词泄漏 | 当前状态 |
 |---|---:|---:|---:|---:|---|
@@ -220,6 +228,8 @@ UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/
 | 待整理 | 高 | 高 | 低 | 普通控件 0；完整技术事实未显示 | DESKTOP_VERIFIED 751×720 |
 | 待审阅 | 高 | 高 | 高→低 | 当前问题与历史分离；空态不再把 legacy Agent flag 误写成 Copilot 不可用 | DESKTOP_VERIFIED 751×720 + Dark 1000×720 (`cd59228`) |
 | Project 意图路由 | 高 | 高 | 高→中 | LIGHT/MEDIUM/HEAVY 不出首屏 | DESKTOP_VERIFIED 751×720 |
+| Project Creation Preview | 高 | 高 | 高→中低 | 四区首屏；来源材料、机器依据和内部分类折叠 | DESKTOP_VERIFIED Dark 1000×720 + 762×720 |
+| Project Creation HIGH Review | 高 | 高 | 高→中 | 影响和安全边界优先；系统理解在标准宽度全宽、窄栏单列；内部状态折叠 | DESKTOP_VERIFIED Dark/Light 1000×720 + Dark 762×720 |
 | Closure Step 1 | 高 | 高 | 高→中 | 逐目标原始依据与完整依据默认折叠 | DESKTOP_VERIFIED Light/Dark/窄栏 |
 | Closure Provider error | 高 | 高 | 高→低 | Provider/Proposal/Commit 不出普通错误态 | DESKTOP_VERIFIED Light 1000×720 |
 | Closure HIGH Review | 高 | 高 | 高→中低 | `Closure Proposal` 已移出普通标题；模型长说明折叠；首屏只显示结构化结论、影响和安全边界 | DESKTOP_VERIFIED Dark 1000×720 (`cda4f95`) |

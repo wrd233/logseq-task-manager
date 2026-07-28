@@ -5,6 +5,24 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### Project Preview / HIGH Review — exact builds `2adfc354041b` / `e33a3989dab9`
+
+最终 Plugin build：`2026-07-28 13:40:37 +0800`；Logseq `0.10.15`；File Graph
+`/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；真实 Provider、Plugin、
+Launcher、Service。Preview session-only；进入 Review 后只创建一份 Proposal，未创建
+Project Page 或正式 Project 对象。
+
+| 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|---|
+| `screenshots/ui-project-creation-preview-compressed-dark-current-2adfc35.jpg` | CURRENT | Plugin Dark / host Light，1000×720 | Page 来源完成 Grill 后生成最终阅读 Preview | 四区首屏只显示系统理解、应用影响、安全边界与下一步；完整依据折叠 |
+| `screenshots/ui-project-creation-preview-compressed-dark-narrow-current-2adfc35.jpg` | CURRENT | Plugin Dark / host Light，762×720 | 同一 Preview 收窄窗口 | 主结论、唯一主操作和退出入口保持可见，无横向溢出 |
+| `screenshots/ui-high-review-impact-first-dark-current-e33a398.jpg` | CURRENT | Plugin Dark / host Light，1000×720 | Preview 进入待我确认；reload 当前构建 | 变化 / 不变先显示，系统理解全宽在后；“审阅方案”明确尚未应用 |
+| `screenshots/ui-high-review-impact-first-dark-narrow-current-e33a398.jpg` | CURRENT | Plugin Dark / host Light，762×720 | 同一 Proposal 收窄窗口 | 变化、不变、理解按单列阅读，主动作和折叠依据可达 |
+| `screenshots/ui-high-review-impact-first-light-current-e33a398.jpg` | CURRENT | Plugin Light / host Light，1000×720 | 临时切换 Plugin 外观后重开同一 Proposal | 与 Dark 保持相同信息层级；取证后已恢复用户原 Dark 设置 |
+
+`screenshots/ui-high-review-three-column-defect-historical-2adfc35.jpg` 为 `HISTORICAL`：
+762×720 下旧三列把系统理解压成窄长文本，促成 `e33a398` 响应式修复，不能作为成功证据。
+
 最新 P1 Context Recovery Desktop 精确提交为 `653875a`；`p1-g-07`～`13` 对应该精确构建，
 证明 `recover-context@1.3.0` 的内容、error/rejection/stale、Dark/Light/窄栏和 corrected
 Interaction Evidence。`p1-g-08-...before-fix` 是本轮发现主题缺陷的 `HISTORICAL`，不代表
@@ -155,13 +173,13 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p2-c-18-page-undo-confirm-current-dark.png` | `913bbda4528f` | Page 来源 Project 经完整 restart 后，从最近修改进入专用 Undo | 原账本 UUID 已漂移，但界面只要求撤销正式 Project/Anchor；明确复用来源 Page 保留、专用 Page 仅在仍属本事务且为空时删除 | Review 历史卡片仍偏长 |
 | `screenshots/p2-c-19-page-undo-complete-current-dark.png` | `913bbda4528f` | 显式勾选并确认 Project Creation inverse Commit | Project、Anchor 与本事务拥有的空 Page 已安全撤销；Audit 与 inverse Commit 保留 | 删除事件会短暂触发一次正文核对，需冷启动收敛 |
 | `screenshots/p2-c-20-page-post-undo-restart-healthy-current-dark.png` | `913bbda4528f` | Undo 后完整退出并重开 Logseq，再进入系统状态 | Runtime/Store/Service READY；Pending/Recovery/Source Conflict `0/0/0`；`reconciliationRequired:false`；来源正文仍在、专用 Page/Project 不在 | MiniProject、Light/窄栏仍开放 |
-| `screenshots/p2-c-21-page-reuse-preview-current-dark.png` | `913bbda4528f` | 同一 Page 来源明确覆盖原“另建”材料，选择升级当前 Page；七项答案就绪并生成最终阅读 Preview | 关系为复用当前 Page；Project Object 仅以 Anchor 关联，不写 Page 属性/正文；仍为零正式写入 | readiness 事实区偏长，Preview 有重复“完成证据”标签 |
+| `screenshots/p2-c-21-page-reuse-preview-current-dark.png` | `913bbda4528f` | 同一 Page 来源明确覆盖原“另建”材料，选择升级当前 Page；七项答案就绪并生成最终阅读 Preview | 关系为复用当前 Page；Project Object 仅以 Anchor 关联，不写 Page 属性/正文；仍为零正式写入 | `SUPERSEDED_UI`：原链证据保留；当前 Preview 信息架构由 `ui-project-creation-preview-compressed-*` 接管 |
 | `screenshots/p2-c-22-page-reuse-created-current-dark.png` | `913bbda4528f` | HIGH Review/Commit 完成后自动回到原 Page | 当前 Page 三段正文可见且无 ownership metadata；Graph 逐字段读回与创建前完全一致；Project/Anchor 已在正式投影 | 截图本身只显示返回现场，正式创建由 Audit/Graph 读回证明 |
 | `screenshots/p2-c-23-page-reuse-undo-current-dark.png` | `913bbda4528f` | restart 后从最近修改执行 Page-aware inverse Commit | 用户结果明确“Project 与 Anchor 已撤销；复用的来源 Page 保持原样” | 仍需 MiniProject 来源 |
 | `screenshots/p2-c-24-page-reuse-post-undo-restart-healthy-current-dark.png` | `913bbda4528f` | Page reuse Undo 后再次完整 restart | Runtime/Store/Service READY；`0/0/0`；reconciliation false；Project 不在投影，Page 逐字段等于创建前 | Light/窄栏与 MiniProject OPEN |
 | `screenshots/p2-c-29-mini-evolution-grill-ready-current-dark.png` | `7d4f5e4721f5` | 从 OPEN MiniProject 发起演化；七项自适应 Grill 已解决 | 前台只保留用户事实、少量判断和一个主动作；不含 object/root ID、fact key 或错误的来源关闭建议 | 已确认事实区仍偏长 |
-| `screenshots/p2-c-30-mini-evolution-preview-current-dark.png` | `7d4f5e4721f5` | 用户生成最终阅读 Preview | 专用 Project Page、持续成果/证据/内部闭环/当前接口完整；五个来源 Block 均为 `LINK_AS_SOURCE`，仍零正式写入 | 模型曾建议嵌入，但用户 link-only 决定与机器合同最终获胜 |
-| `screenshots/p2-c-31-mini-evolution-high-review-current-dark.png` | `7d4f5e4721f5` | 从 Preview 进入待我确认 | 单一 `create-project` HIGH 组为 PENDING；Project/Page/Object/Commit 尚未创建 | Review 长正文仍需压缩 |
+| `screenshots/p2-c-30-mini-evolution-preview-current-dark.png` | `7d4f5e4721f5` | 用户生成最终阅读 Preview | 专用 Project Page、持续成果/证据/内部闭环/当前接口完整；五个来源 Block 均为 `LINK_AS_SOURCE`，仍零正式写入 | `SUPERSEDED_UI`：link-only 决策链仍有效；当前 Preview 信息架构由 `ui-project-creation-preview-compressed-*` 接管 |
+| `screenshots/p2-c-31-mini-evolution-high-review-current-dark.png` | `7d4f5e4721f5` | 从 Preview 进入待我确认 | 单一 `create-project` HIGH 组为 PENDING；Project/Page/Object/Commit 尚未创建 | `SUPERSEDED_UI`：PENDING 链证据保留；当前影响优先 Review 由 `ui-high-review-impact-first-*` 接管 |
 | `screenshots/p2-c-32-mini-evolution-accepted-high-current-dark.png` | `7d4f5e4721f5` | 勾选 HIGH 影响确认后只接受语义组 | 状态为 ACCEPTED；界面明确仍需提交前检查与最终创建 | “尚不能确认安全撤销条件”与可撤销动作的表达仍不一致 |
 | `screenshots/p2-c-33-mini-evolution-created-project-current-dark.png` | `7d4f5e4721f5` | 最终确认后原子创建并自动打开新 Project Page | 专用 Page、Project v2 与 active Primary Anchor 已读回；来源 MiniProject 子树逐字段不变 | 新 Page 首屏直接显示 ownership/object/commit properties，工程味过重 |
 | `screenshots/p2-c-34-mini-evolution-reload-reentry-current-dark.png` | `7d4f5e4721f5` | Logseq 页面 reload 后重新打开 Task Copilot 项目区 | 新 Project 的版本化当前接口可从正式投影重入；来源仍为 v14/OPEN | reload 初始核对提示会在同步后收敛 |
