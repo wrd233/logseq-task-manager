@@ -1,5 +1,6 @@
 import {
   ExplicitObjectChangeDebouncer,
+  normalizeExplicitObjectBlock,
   parseExplicitObjectSyntax,
   readBoundedExplicitSubtrees,
   stripLogseqBlockIdentityProperty,
@@ -347,6 +348,8 @@ export class ExplicitSyncController {
     if (this.disposed) return;
     if (this.resumeReconciliationTimer !== undefined) globalThis.clearTimeout(this.resumeReconciliationTimer);
     this.resumeReconciliationTimer = undefined;
+    if (!await this.revalidatePendingBeforeResume()) return;
+    if (this.disposed) return;
     this.transport = transport;
     this.emitState();
     await this.drain();
@@ -400,23 +403,38 @@ export class ExplicitSyncController {
 
   private async acceptBatch(batch: ExplicitObjectBlockChange[]): Promise<void> {
     for (const change of batch) {
-      const contentHash = checksum(stripLogseqBlockIdentityProperty(change.content, change.externalId));
-      if (this.isObservedContentSuppressed(change.externalId, contentHash)) continue;
-      if (change.parsed.kind === "INVALID") {
+      const pending = await this.preparePending(change);
+      if (!pending) continue;
+      if (!this.pending.has(change.externalId) && this.pending.size >= this.maximumPending) {
         this.broadReconciliationRequired = true;
-        this.issue(change.parsed.code, "显式对象标识存在结构异常；正文未被修改。", change.externalId);
+        this.issue("EXPLICIT_SYNC_QUEUE_CAPACITY_EXCEEDED", "显式同步待恢复队列已达上限；正文保持不变，需要一致性检查。", change.externalId);
         continue;
       }
-      if (change.parsed.kind === "NONE") continue;
-      let identityPersisted: boolean;
-      try {
-        identityPersisted = await this.options.ensurePersistentIdentity?.(change.externalId) === true;
-      } catch {
-        this.broadReconciliationRequired = true;
-        this.issue("EXPLICIT_SYNC_BLOCK_IDENTITY_PERSIST_FAILED", "Block 持久身份写入或复核失败；没有创建正式对象。", change.externalId);
-        continue;
-      }
-      const request: ServiceMaterializeExplicitObjectRequest = {
+      this.pending.set(change.externalId, pending);
+    }
+    this.emitState();
+    await this.drain();
+  }
+
+  private async preparePending(change: ExplicitObjectBlockChange): Promise<PendingSync | undefined> {
+    const contentHash = checksum(stripLogseqBlockIdentityProperty(change.content, change.externalId));
+    if (this.isObservedContentSuppressed(change.externalId, contentHash)) return undefined;
+    if (change.parsed.kind === "INVALID") {
+      this.broadReconciliationRequired = true;
+      this.issue(change.parsed.code, "显式对象标识存在结构异常；正文未被修改。", change.externalId);
+      return undefined;
+    }
+    if (change.parsed.kind === "NONE") return undefined;
+    let identityPersisted: boolean;
+    try {
+      identityPersisted = await this.options.ensurePersistentIdentity?.(change.externalId) === true;
+    } catch {
+      this.broadReconciliationRequired = true;
+      this.issue("EXPLICIT_SYNC_BLOCK_IDENTITY_PERSIST_FAILED", "Block 持久身份写入或复核失败；没有创建正式对象。", change.externalId);
+      return undefined;
+    }
+    return {
+      request: {
         objectType: change.parsed.objectType,
         text: change.parsed.title,
         ...(change.parsed.marker ? { marker: change.parsed.marker } : {}),
@@ -425,16 +443,65 @@ export class ExplicitSyncController {
         contentHash,
         idempotencyKey: `explicit-sync:${change.externalId}:${change.inputVersion}:${checksum(`${change.parsed.objectType}\0${change.parsed.marker ? `${change.parsed.marker}\0` : ""}${change.parsed.title.normalize("NFKC").replace(/\s+/gu, " ")}`)}`,
         traceId: this.createTraceId(),
-      };
-      if (!this.pending.has(change.externalId) && this.pending.size >= this.maximumPending) {
+      },
+      allowSuppressedOrigin: identityPersisted,
+    };
+  }
+
+  private async revalidatePendingBeforeResume(): Promise<boolean> {
+    const readBlock = this.options.readBlock;
+    if (!readBlock || this.pending.size === 0) return true;
+    for (const [externalId, queued] of [...this.pending]) {
+      let value: unknown;
+      try {
+        value = await readBlock(externalId);
+      } catch (error) {
+        if (this.disposed) return false;
         this.broadReconciliationRequired = true;
-        this.issue("EXPLICIT_SYNC_QUEUE_CAPACITY_EXCEEDED", "显式同步待恢复队列已达上限；正文保持不变，需要一致性检查。", change.externalId);
+        this.issue(
+          errorCode(error) === "EXPLICIT_SYNC_DELIVERY_FAILED" ? "EXPLICIT_SYNC_PENDING_REVALIDATION_FAILED" : errorCode(error),
+          "恢复连接前无法确认最新正文；旧的待同步内容没有写入，将在正文可读取后重试。",
+          externalId,
+        );
+        this.emitState();
+        return false;
+      }
+      if (this.disposed) return false;
+      if (this.pending.get(externalId) !== queued) continue;
+      const latest = normalizeExplicitObjectBlock(value);
+      if (!latest || latest.externalId !== externalId) {
+        this.pending.delete(externalId);
         continue;
       }
-      this.pending.set(change.externalId, { request, allowSuppressedOrigin: identityPersisted });
+      if (latest.parsed.kind === "INVALID") {
+        this.pending.delete(externalId);
+        this.broadReconciliationRequired = true;
+        this.issue(latest.parsed.code, "恢复连接时正文的显式对象标识存在结构异常；旧的待同步内容没有写入。", externalId);
+        continue;
+      }
+      if (latest.parsed.kind === "NONE") {
+        this.pending.delete(externalId);
+        continue;
+      }
+      const contentHash = checksum(stripLogseqBlockIdentityProperty(latest.content, externalId));
+      const request = queued.request;
+      if (
+        request.inputVersion === latest.inputVersion
+        && request.contentHash === contentHash
+        && request.objectType === latest.parsed.objectType
+        && request.text === latest.parsed.title
+        && request.marker === latest.parsed.marker
+      ) {
+        continue;
+      }
+      const refreshed = await this.preparePending(latest);
+      if (this.disposed) return false;
+      if (this.pending.get(externalId) !== queued) continue;
+      if (refreshed) this.pending.set(externalId, refreshed);
+      else this.pending.delete(externalId);
     }
     this.emitState();
-    await this.drain();
+    return true;
   }
 
   private drain(): Promise<void> {

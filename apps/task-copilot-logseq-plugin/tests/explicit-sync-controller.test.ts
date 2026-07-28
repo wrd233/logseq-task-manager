@@ -53,6 +53,85 @@ test("Service outage keeps a bounded latest-per-UUID recovery queue and resumes 
   assert.ok(states.some((state) => state.pending === 1 && !state.transportReady));
 });
 
+test("resume drops a queued explicit candidate that no longer exists instead of materializing stale content", async () => {
+  let current: unknown = { uuid: "deleted-candidate", content: "[任务] 已取消的临时候选", "updated-at": 1001 };
+  const requests: string[] = [];
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    createTraceId: () => "trace-deleted-before-resume",
+    readBlock: async () => current,
+  });
+
+  controller.onBlocksChanged([current]);
+  await controller.flush();
+  assert.equal(controller.snapshot().pending, 1);
+
+  current = null;
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.text);
+      return success("must-not-exist", 2);
+    },
+  });
+
+  assert.deepEqual(requests, []);
+  assert.deepEqual(controller.snapshot(), { pending: 0, transportReady: true, reconciliationRequired: false });
+});
+
+test("resume replaces stale queued explicit content with the latest readable Block", async () => {
+  let current: unknown = { uuid: "changed-candidate", content: "[任务] 排队时旧标题", "updated-at": 1001 };
+  const requests: Array<{ text: string; inputVersion: string; contentHash: string }> = [];
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    createTraceId: () => "trace-changed-before-resume",
+    readBlock: async () => current,
+  });
+
+  controller.onBlocksChanged([current]);
+  await controller.flush();
+  current = { uuid: "changed-candidate", content: "[任务] 恢复前新标题", "updated-at": 1002 };
+
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push({ text: input.text, inputVersion: input.inputVersion, contentHash: input.contentHash });
+      return success("latest-object", 2);
+    },
+  });
+
+  assert.deepEqual(requests, [{
+    text: "恢复前新标题",
+    inputVersion: "1002",
+    contentHash: checksum("[任务] 恢复前新标题"),
+  }]);
+  assert.equal(controller.snapshot().pending, 0);
+});
+
+test("resume fails closed when queued content cannot be reread", async () => {
+  const issues: string[] = [];
+  let writes = 0;
+  const controller = new ExplicitSyncController({
+    delayMs: 0,
+    createTraceId: () => "trace-read-failure-before-resume",
+    readBlock: async () => {
+      throw new Error("Logseq is still unavailable");
+    },
+    onIssue: (issue) => issues.push(issue.code),
+  });
+
+  controller.onBlocksChanged([{ uuid: "unreadable-candidate", content: "[任务] 不得使用旧快照", "updated-at": 1001 }]);
+  await controller.flush();
+  await controller.resume({
+    async synchronizeExplicitObject() {
+      writes += 1;
+      return success("must-not-write", 2);
+    },
+  });
+
+  assert.equal(writes, 0);
+  assert.deepEqual(controller.snapshot(), { pending: 1, transportReady: false, reconciliationRequired: true });
+  assert.deepEqual(issues, ["EXPLICIT_SYNC_PENDING_REVALIDATION_FAILED"]);
+});
+
 test("delivery failure remains pending, type conflicts surface, and a later resume retries", async () => {
   const issues: string[] = [];
   const controller = new ExplicitSyncController({
