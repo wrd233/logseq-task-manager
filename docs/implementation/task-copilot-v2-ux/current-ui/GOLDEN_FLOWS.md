@@ -130,7 +130,7 @@ Condition 这一条 LIGHT 链；Focus/reviewAt、Association 和其他 HEAVY 类
 
 ## P2-E Project Closure evidence → Provider → Commit → Undo
 
-状态：`NORMAL_MAIN_CHAIN_DONE_FAILURE_RECOVERY_GATE_OPEN`
+状态：`DONE_BOUNDED_RECOVERY_CONCLUSION`
 
 1. Project → 调整 Project → 整理 Closure 证据；
 2. Service 从 SQLite 当前权威读取 OPEN Project、Project interface、正式 Objects 与直接
@@ -149,9 +149,12 @@ Condition 这一条 LIGHT 链；Focus/reviewAt、Association 和其他 HEAVY 类
 Dark，`994×700`。真实 `deepseek-v4-flash` 通过 production Validator；最终回读为
 Project `OPEN v13`、Closure absent、forward Commit `UNDONE`、inverse Commit
 `COMPLETED`、`PENDING/RECOVERY_REQUIRED/FAILED=0`。CURRENT `p2-e-10`～`p2-e-12`；
-`p2-e-05`～`p2-e-08` 为历史真实前向链，`p2-e-09` 是已修复的无 Undo 缺陷。当前构建的
-Provider error/stale 与 Commit failure → Recovery resume 仍需 Desktop 证据，因此 P2-E
-整体仍是 Partial。
+`p2-e-05`～`p2-e-08` 为历史真实前向链，`p2-e-09` 是已修复的无 Undo 缺陷。Provider
+error/stale 与 receipt-backed Commit interruption 已有真实 Desktop 证据。`98df827`
+又用自动故障注入证明写入前 failure→FAILED→restart→re-initiate、version race→STALE、
+矛盾 receipt fail closed；精确构建真实 reload 后待审阅为 0、历史折叠。Closure 只有
+一个原子 Domain step：PENDING 有 receipt 才继续原 Commit，写入前失败重新发起，
+不人为制造 `RECOVERY_REQUIRED`。P2-E 以有界 Kernel 结论关闭。
 
 ## P2-G Rebind 受控正文恢复
 

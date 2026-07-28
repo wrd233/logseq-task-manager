@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E receipt-backed Commit 中断续跑、Provider error 和 generation stale、P2-G 真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏与通用深色表面已关闭；P0 其余宿主 Gate、P1 Attention/Marker、P2-E 真正 RECOVERY_REQUIRED、File Graph Light host issue 与 Rebind 指引仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E 全链及有界恢复合同、P2-G 真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏与通用深色表面已关闭；P0 其余宿主 Gate、P1 Attention/Marker、File Graph Light host issue 与 Rebind 指引仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -18,6 +18,19 @@
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
 ## 本轮变化（2026-07-28）
+
+### P2-E 单步失败合同收口（2026-07-29，`98df827`）
+
+- Partial 净变化 `-1`：P2-E 从 recovery gate OPEN 变为
+  `DONE_BOUNDED_RECOVERY_CONCLUSION`；新增长期 Partial `0`。
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator `0`、
+  Provider 调用 `0`。既有 FAILED/STALE/PENDING 与统一 Recovery Kernel 未扩张。
+- 只增加一个共享的只读 Proposal shape inspector，使终态重放能验证已审阅 Closure 的
+  唯一 step、错误码和 receipt；它不是第二 planner 或第二写入权威。
+- 用户层继续收敛为三句合同：没有应用，项目和正文不变；项目状态已变化，需要重新检查；
+  已有收据的修改尚未完成，可以继续。内部错误码不进入普通卡片。
+- Desktop 矩阵只取精确构建的 Dark/reload/空审阅代表证据；生产入口无法安全制造的
+  FAILED/STALE 卡保持 AUTOMATED_ONLY，没有为了形式扩大故障入口或笛卡尔矩阵。
 
 ### P1 “现在”前台上限
 
@@ -29,7 +42,7 @@
 - Desktop 代表矩阵只覆盖 Light 标准宽度、折叠/展开和两次真实 reload；没有扩成主题、
   宿主和窗口的笛卡尔积。前台阅读量下降，后台状态组合不变。
 - 风险变化：前台工程概念泄漏与 Now 列表噪声下降；Partial 堆积仍为 `HIGH`，P1-C
-  Dynamic Now、Attention/Block Marker、P2-E 真正 Recovery 和 P0 中文 IME 仍阻断发布。
+  Dynamic Now、Attention/Block Marker 和 P0 中文 IME 仍阻断发布。
 
 ### Day 10 十日回顾与 P1 前台边界
 
@@ -56,8 +69,8 @@
   与最近修改首屏；技术事实仍留在折叠详情和正式审计。
 - 真实 DeepSeek `1` 次一次通过，Validator rejection/retry/abstention `0/0/0`；没有以
   单一成功样本升级 Skill 或增加 Validator 分支。
-- Partial 净变化 `-1`：Closure 最新正常链与前台表达代表 Gate 关闭；真正
-  `RECOVERY_REQUIRED` 继续保留在同一个 P2-E Partial，不拆成新的长期状态组合。
+- Partial 净变化 `-1`：Closure 最新正常链与前台表达代表 Gate 关闭；该时点 recovery
+  仍保留在同一个 P2-E Partial，随后由 `98df827` 的有界合同关闭。
 - Recovery 语义风险略降：`PENDING` 继续原操作，`RECOVERY_REQUIRED` 只恢复安全一致性，
   恢复后重新发起业务操作。没有为了前向 resume 扩展 Recovery Kernel。
 
@@ -454,8 +467,9 @@
 - 正常 LaunchAgent、Service 与原 database authority 已恢复；没有静默替换。
 - Partial 总量净下降 `1`：Migration Verify/Activate failure Desktop `OPEN→DONE`；
   新增 Partial `0`。
-- 风险变化：Recovery/状态/Runtime 分裂未上升；Partial 堆积仍为 HIGH，但阻断项已收敛为
-  P0/P1 宿主与视觉 Gate、P2-E 真正 RECOVERY_REQUIRED、P2-G Light host Gate 及 Rebind 指引。
+- 风险变化：Recovery/状态/Runtime 分裂未上升；Partial 堆积仍为 HIGH。该时点阻断项包含
+  P2-E recovery，随后已由 `98df827` 的有界 Kernel 结论关闭；当前仍有 P0/P1 宿主与
+  视觉 Gate、P2-G Light host Gate 及 Rebind 指引。
 - LLM/Provider 未调用；Validator 拒绝率与模型重试不适用。
 
 ### 通用深色表面与自定义主题边界（2026-07-27，`d7526f4`）
@@ -514,11 +528,10 @@
   `design-project@1.3.0`、Context、Validator、Proposal 与 Review Runtime 全部复用。真实
   Provider 一次通过、重试 `0`；没有新增 Skill 版本或样本补丁。当前标题证据由
   `p2-e-closure-review-current-dark-cda4f95.png` 取代旧图。
-- Recovery 复杂度没有为“补一张截图”而扩张：代码事实表明真正
-  `RECOVERY_REQUIRED` 只允许补偿收口，现有 Closure 自动续跑发生在 receipt-backed
-  `PENDING`。前向 resume 若要支持，必须明确改变 Recovery Kernel 的安全合同；用户决定前
-  不增加第三种恢复入口、临时状态或 SQLite 注入 Gate。风险仍为 HIGH，且继续阻塞 P2-E
-  整体 DONE。
+- Recovery 复杂度没有为“补一张截图”而扩张：`98df827` 固定了 Closure 单步事务的
+  有界语义——receipt-backed `PENDING` 续跑原操作；写入前失败终止并重新发起；状态竞争
+  转为 stale。`RECOVERY_REQUIRED` 仍只允许多步骤补偿收口。没有第三种恢复入口、临时
+  状态、SQLite 注入 Gate 或前向 resume；P2-E 因而关闭一个 Partial，恢复分支净增 `0`。
 - `cd59228` 删除一条把 legacy demo-agent flag 当成 V2 Copilot 可用性的平行前台判断；
   待审阅空态复用既有 `v2ProviderAvailable`，没有新增 capability 状态。前台错误结论减少，
   状态组合数不变；新增正式状态、Runtime、Skill、Prompt、Validator、恢复分支和 Partial

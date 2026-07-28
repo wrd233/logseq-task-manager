@@ -40,7 +40,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding 及 ended→formal-action fail-closed→显式重启 PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面、reload 与 723px 窄栏已补 CURRENT；File Graph 自身 Light host Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ### 2026-07-28 连续使用 Pilot Day 6 Waiting 恢复
@@ -1125,11 +1125,34 @@ derivative/dashboard 价值也仍未完成。
   1000×720 reload 后空态和 15 条折叠历史均正确。该修复不新增正式状态、Runtime、Skill、
   Prompt、Validator、恢复分支或 Partial。
 
+## 2026-07-29 P2-E 写入前失败与有界恢复结论
+
+- `98df827` 在既有 Project Closure route 内加入测试专用写入前故障点，不增加生产入口。
+  无 Domain receipt 且唯一 step 仍为 `PREPARED` 时，Commit 终止为 `FAILED`；若重验发现
+  Project 已变化，Proposal 同时转为 `STALE`。两类结果都明确零 Closure 写入，用户重新
+  发起业务操作，不把失败伪装成可继续的原 Commit。
+- receipt-backed post-write 中断保持既有 `PENDING` 原 Commit 续跑；FAILED 重放只读检查
+  唯一 step、错误码和 receipt。矛盾 receipt 或 step 状态按账本损坏 fail closed，不会
+  因重启重做 Domain 写入。
+- 前台在请求前关闭最终确认对话框并回到审阅工作区。FAILED 只显示“没有完成、项目和正文
+  没有变化、重新发起”；STALE 只显示“项目状态已变化、重新检查”。二者都不提供“确认应用”
+  按钮，也不暴露内部错误码。
+- 自动证据覆盖 generic failure→restart→re-initiate、version race→409 stale、contradictory
+  receipt、FAILED/STALE UI 与 accepted planner 拒绝 FAILED；根级 `./scripts/check.sh`
+  PASS。Logseq 0.10.15 File Graph、Dark、约 1000×730 在精确 commit `98df827` 完成
+  插件管理器真实 reload；“待审阅”为 0、22 条历史默认折叠。生产入口无法安全制造
+  FAILED/STALE，因此专用卡片仍标为 AUTOMATED_ONLY，不借截图升级。
+- 有界结论：Closure 只有一个原子 Domain step。`PENDING` 只表示已有 receipt 的原操作
+  可收口；写入前失败终止后重新发起；`RECOVERY_REQUIRED` 继续只用于有已应用步骤需要
+  补偿的多步骤操作。无需扩张 Recovery Kernel。P2-E
+  `PARTIAL→DONE_BOUNDED_RECOVERY_CONCLUSION`，Partial 净变化 `-1`。
+- 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator 和 Provider 调用均为
+  `0`；只增加一个共享的只读 Proposal shape inspector，未形成第二规划/写入权威。
+
 ## 下一步
 
-1. 等待确认 P2-E 真正 `RECOVERY_REQUIRED` 的安全语义；决定前保留现有
-   `PENDING` receipt resume 与人工补偿边界，不制造假恢复证据；
-2. P2-G Rebind、Restore 正常往返、激活失败→自动回滚以及真实连续双重失败→HIGH Review→
+1. 关闭 P2-G Rebind 最新成功态与纠错/整库恢复指引 Desktop Gate；
+2. P2-G Restore 正常往返、激活失败→自动回滚以及真实连续双重失败→HIGH Review→
    人工恢复→Doctor→清锁→正常 Launcher/reload 均已完成真实 Desktop Gate；下一次可控
    Rebind 仍需验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
    Review/Preview、恢复点/Import/Verify/Undo 与 HIGH Activation 正常主链；真实运行先以
@@ -1142,6 +1165,6 @@ derivative/dashboard 价值也仍未完成。
    bounded host issue；退出后旧 Service PID 按 lease 停止，重开后同一 Launcher 启动新
    Service 并自动恢复正式能力。继续 Rebind 最新指引，不得加入
    第二迁移或恢复状态源。
-3. 继续 `PILOT-2026W31-A`：推进 Day 6 Waiting 恢复、优先级变化和 Dynamic Now 对照，
-   用跨日证据收口第一批 Attention / disposition / cooldown / Block Marker；同时保留
-   P0-J 原生中文 IME 与 P1-F DB Graph Page Head 的明确开放口径。
+3. 以已完成的 `PILOT-2026W31-A` 数据收口第一批确定性 Attention / Dynamic Now 前台
+   边界，并完成 P0-J 原生中文 IME；Block Marker 保持默认关闭，P1-F DB Graph Page Head
+   保留明确开放口径。

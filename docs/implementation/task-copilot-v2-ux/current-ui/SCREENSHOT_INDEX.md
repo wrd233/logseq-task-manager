@@ -326,11 +326,11 @@ Plugin build：`2026-07-27 19:42:41 +0800`；Logseq `0.10.15`；File Graph
 对 Project 入口语言，以及 `p2-e-01`～`08` 对 Closure 当前首屏信息架构的解释权；
 旧图仍保留其 commit 上正式链历史证据，不删除。
 
-### P2-E Closure failure and Review — exact builds `77277704d901` / `662246a298ac` / `cda4f95`
+### P2-E Closure failure and Review — exact builds `77277704d901` / `662246a298ac` / `cda4f95` / `98df827`
 
 Logseq `0.10.15`；File Graph
 `/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；真实 Plugin/Launcher/Service；
-1000×720。error Gate 使用受控无效模型且未保存/显示凭据，随后已恢复
+1000×720（`98df827` reload 图为约 1000×730）。error Gate 使用受控无效模型且未保存/显示凭据，随后已恢复
 `deepseek-v4-flash`；Review 来自恢复后的真实 Provider Proposal。两步均未接受或应用
 Proposal，Project 保持 `OPEN v21`。
 
@@ -342,6 +342,7 @@ Proposal，Project 保持 `OPEN v21`。
 | `screenshots/p2-e-closure-stale-current-dark-662246a.png` | CURRENT | Dark / 1000×720 | 真实 DeepSeek 经无日志 8 秒延迟转发，期间 Project Condition `v21→v22` | 旧草稿没有进入 Review；只说明材料不再适用、本次未修改项目或正文；唯一动作“重新检查关闭条件” |
 | `screenshots/p2-e-closure-stale-reload-restored-dark-662246a.png` | CURRENT | Dark / 1000×720 | 正式 Condition Undo 到 `ACTIONABLE v23`，恢复原 Provider 与 authority，Plugin reload | “现在”重新显示可推进 Project；Service READY；Proposal/Commit 无异常增量 |
 | `screenshots/p2-e-closure-provider-error-superseded-f4acf77.png` | SUPERSEDED | Light / 1000×720 | 同一故障的旧构建 | 曾暴露 Provider/Proposal 工程语义；由 `7727770` 用户语言替代 |
+| `screenshots/p2-e-closure-review-clean-after-reload-dark-98df827.jpeg` | CURRENT | Dark / 1000×730 | 精确 commit `98df827`，从插件管理器真实重载后打开“待我确认 → 待审阅” | 当前待审阅为 0，22 条历史默认折叠；证明最新构建可加载且失败不会以未完成确认悬挂。FAILED/STALE 专用卡只由自动故障注入验证，本图不冒充生产故障 |
 
 ### Review empty state — exact build `cd59228`
 

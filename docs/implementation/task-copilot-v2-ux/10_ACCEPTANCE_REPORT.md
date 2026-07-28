@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash/custom binding 与 ended formal boundary PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D/E 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error 与 generation stale 零 Closure 写入 DONE；P2-G Restore 真实双失败人工恢复、Migration Activation 正常链、写后响应丢失→ledger reload→Verify→Undo、Verify/Activate failure→same-ledger retry 及 722px 窄栏 DONE；通用 Task Copilot 深色表面/reload/723px DONE | P2-D/E remaining；P2-E 真正 RECOVERY_REQUIRED；P2-F frontstage；P2-G Rebind guidance；File Graph 自身 Light bounded host issue |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A/B、P2-C/D、P2-E 全链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error、generation stale、写入前失败与重放安全合同 DONE；精确 `98df827` 完成真实 reload/当前空审阅证据，FAILED/STALE 卡为自动故障注入证据；P2-G Restore 真实双失败人工恢复、Migration Activation/失败重试/窄栏 DONE | P2-D remaining；P2-F frontstage；P2-G Rebind guidance；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
 
 `bfabf40` 已通过 Project 创建后落地与返回现场的代表性 UI Gate：真实 Logseq 0.10.15
@@ -67,8 +67,9 @@ Anchor `active`；真实 Plugin reload 后 Now 能准确打开新位置，系统
 用户判断经真实 DeepSeek 一次通过 Validator，审阅阶段零正式写入；确认应用后完成并经
 reload 保持，专用 Undo 后恢复 `OPEN`、移除本次 Closure，再次 reload 后系统健康。
 普通路径已明确“审阅方案不等于正式应用”，不再暴露 Commit/Lifecycle/SQLite/Service/
-Audit，Undo 使用业务结论。该项不等于 P2-E 完成：真正 `RECOVERY_REQUIRED` 没有注入，
-当前合同仍是 `PENDING` 可继续原操作、恢复状态只收口一致性、恢复后重新发起 Closure。
+Audit，Undo 使用业务结论。该 Day 9 证据当时不等于 P2-E 完成；随后 `98df827` 已用自动
+故障注入固定最终合同：receipt-backed `PENDING` 可继续原操作，写入前失败终止并重新发起，
+`RECOVERY_REQUIRED` 只收口多步骤一致性。P2-E 现按有界 Kernel 结论关闭。
 
 连续使用 Day 10 已通过十日代表 Pilot 回顾 Gate：当前待整理/待审阅 `0/0`，22 条历史
 折叠，Project 区 2 张卡，维护能力保持二级；真实 Plugin reload 后连续性不变。切换到
@@ -172,7 +173,7 @@ Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
 - [x] 预览为最终阅读效果；identity property 已从 canonical 用户材料剥离；
 - [x] 当前纵向 Slice 一次 Commit + Undo；8-step forward/inverse、真实 divergence Recovery、
   reload、recent-changes 折叠和返回根 Block Desktop PASS；
-- [ ] Closure 从证据起草；只读 evidence model、Service route、Plugin preview 及真实
+- [x] Closure 从证据起草；只读 evidence model、Service route、Plugin preview 及真实
   Desktop reload/recompute 已覆盖正式 Project interface、直接 Ownership、unknown 和用户
   判断边界，并证明零 Proposal/Commit；Provider preflight/exact scope/one HIGH group 已自动
   PASS，脱敏 real Flash model-contract 也通过 machine grounding；公共 route 已支持版本
@@ -186,7 +187,11 @@ Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
   回到 `OPEN v21`、Closure absent、forward UNDONE、inverse COMPLETED、异常 Commit
   `0/0/0`。`7727770` 又完成 Provider error 保留判断/零写入/单一重试 Desktop Gate；
   `662246a` 随后完成真实 DeepSeek 延迟 generation stale、Condition Undo 与 reload 健康
-  Gate。真正 `RECOVERY_REQUIRED` 仍未闭环，因此本项暂不勾选；
+  Gate。`98df827` 又覆盖写入前 generic failure→FAILED→restart→re-initiate、version
+  race→STALE、矛盾 receipt fail closed 和 FAILED/STALE 用户卡。Closure 唯一 Domain
+  step 在写入前失败时没有需补偿步骤，因此不人为进入 `RECOVERY_REQUIRED`；PENDING
+  receipt resume 与多步骤 Recovery Kernel 保持原合同。本项按
+  `DONE_BOUNDED_RECOVERY_CONCLUSION` 勾选，FAILED/STALE 卡不冒充 Desktop 故障注入；
 - [ ] 跨对象候选有证据和数量上限；结构化 2–16 evidence、2–8 subject、每轮 8 条上限与
   exact scope/provenance 已自动 PASS；首批真实 DeepSeek 3 observation + 2 abstention 质量门
   三轮累计 `15/15` case-runs PASS；semantic Context fingerprint 已证明时间刷新稳定、
@@ -308,8 +313,9 @@ Light/窄栏代表证据；新 Project Page 和其他集中宿主视觉 Gate 仍
 | 通用插件壳层 | 高 | 高 | 中→低 | Dark 语义 token 完整；custom.css 不一致时只暴露“界面外观”，不暴露主题探测机制 | DESKTOP_VERIFIED Dark 1001×720 + 723×720 + reload (`d7526f4`) |
 
 验收边界：本表只关闭当前信息架构和代表性主题/宽度 Gate；generation stale 由独立真实
-运行闭环，但真正 `RECOVERY_REQUIRED` 仍 OPEN。代码审计确认当前 Kernel 只允许该状态
-补偿收口，不允许 Closure 前向 resume；在用户决定安全语义前不得伪造该 Gate，也不得把
+运行闭环。`98df827` 的自动故障注入证明写入前失败零正式变化并终止、receipt-backed
+PENDING 继续原 Commit；Closure 单一原子 Domain step 不制造 `RECOVERY_REQUIRED`。
+该状态仍只用于多步骤操作补偿收口。P2-E 因而以有界 Kernel 结论关闭，但不得据此把
 P0/P1/P2 或 Final Release 标为 DONE。
 
 ## 5. 操作距离指标
@@ -387,9 +393,9 @@ P0/P1/P2 或 Final Release 标为 DONE。
   自动正式化，Now 未立即洪水，Page 来源超预算已安全解释，Project Undo 后精确构建
   0/0/0 且 explicit sync clean。`project-creation-modeling@1.6.0` 已达
   `CANDIDATE/DESKTOP_VERIFIED`。Day 10 已证明 Review 无积压、Now 仍偏长、Graph switch
-  fail closed/return 正常。Day 7 duplicate/missing/Rebind、Dynamic Now 前台、
-  Attention helpful/noise 与真正 Closure `RECOVERY_REQUIRED` 仍开放；这些明确变体留在
-  对应 P1/P2 Gate，不反向打开十日代表 Pilot；
+  fail closed/return 正常。Day 7 duplicate/missing/Rebind、Dynamic Now 前台和
+  Attention helpful/noise 仍开放；Closure 的有界失败合同随后由 `98df827` 关闭。这些
+  明确变体留在对应 P1/P2 Gate，不反向打开十日代表 Pilot；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

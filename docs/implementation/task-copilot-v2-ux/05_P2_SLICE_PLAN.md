@@ -280,7 +280,7 @@ Preview/Commit/Recovery；`ASSOCIATION` 因 inverse 未齐、`DUE_AT` 因 Projec
 
 ## P2-E：Closure 证据起草
 
-状态：`IN_PROGRESS_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_DESKTOP_OPEN`
+状态：`DONE_BOUNDED_RECOVERY_CONCLUSION`
 
 MiniProject 聚合：子树、DONE、Output、Decision、原状态和遗留。
 
@@ -318,7 +318,7 @@ SemanticCommit 为 0。更新后的脱敏 Flash Gate 又以不含直接归属 De
 `logs/p2-e-project-closure-user-confirmed-automated-20260726.md` 与
 `logs/p2-e-project-closure-provider-live-20260726.md`。Plugin
 loading/error/stale、最终阅读、HIGH Review/Commit/Recovery/Undo 与当前 Desktop
-仍 OPEN，因此 P2-E 仍为 Partial。Plugin 已进一步接入同一条公共 route：只读证据后按
+在该时点仍 OPEN，因此当时 P2-E 仍为 Partial。Plugin 已进一步接入同一条公共 route：只读证据后按
 实际 Objective 数量动态收集用户判断，只有一个“整理为待确认的关闭建议”主动作；
 Provider unavailable、busy、NO_PROPOSAL、stale、Validator rejection 都在同一现场表达，
 失败后保留当前会话输入，成功后直接进入既有 HIGH Review。Plugin `278/278` 与 build PASS；
@@ -336,7 +336,7 @@ Closure absent，正向 Commit `UNDONE`、逆向 Commit `COMPLETED`，异常 Com
 中断：HTTP 500 后同一 receipt-backed Commit 保持 `PENDING`，reload 显示“尚未完成，可以
 继续”，再次确认只收口原 Commit；随后 reload、专用 Undo 与再次 reload 均通过。Project
 最终 `OPEN v21`、Closure absent、正向 Commit `UNDONE`、逆向 `COMPLETED`、异常 Commit
-`0/0/0`。当前构建的 Provider error/stale Desktop 证据仍 OPEN，因此 P2-E 整体保持 Partial。
+`0/0/0`。Provider error/stale Desktop 随后已经关闭；该段只记录当时的主链 Gate。
 完整记录见
 `logs/p2-e-project-closure-desktop-live-20260726.md`。
 
@@ -346,8 +346,12 @@ receipt-backed SemanticCommit 保持 `PENDING`；Service restart 后只恢复这
 最终 `COMPLETED/APPLIED`，`PENDING/FAILED/RECOVERY_REQUIRED=0`。这证明可安全续跑的中断应
 继续翻译为“尚未完成，可以继续”，不应人为新建 `RECOVERY_REQUIRED` 或第二恢复工作流。
 该 receipt-backed 续跑合同现已从 `AUTOMATED_ONLY` 升为代表性 Desktop DONE；没有新增
-正式状态、恢复入口或第二 Commit。Provider error/stale 与不能安全自动续跑的真正
-`RECOVERY_REQUIRED` 情形仍是 P2-E 的开放项。
+正式状态、恢复入口或第二 Commit。Provider error/stale 随后已有真实 Desktop 证据。
+`98df827` 又补齐写入前 failure、restart replay、version race 与矛盾 receipt：写入前
+无正式变化时 Commit 终止为 FAILED，用户重新发起；版本竞争使 Proposal 转为 STALE；
+receipt-backed PENDING 仍只续跑原 Commit。Closure 只有一个原子 Domain step，不人为
+进入 `RECOVERY_REQUIRED`；该状态继续用于已有应用步骤的多步骤补偿。P2-E 按有界 Kernel
+结论关闭，不新增恢复框架或前向 resume。
 
 ## P2-F：跨对象观察
 

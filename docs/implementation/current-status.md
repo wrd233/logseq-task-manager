@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -92,9 +92,12 @@ Day 9 又用既有正式 Project 完成最新 Closure 连续使用代表链：�
 尚未应用”、移除 Commit/Lifecycle/SQLite/Service/Audit 普通路径工程词，并把 Closure
 Undo 翻译为“项目恢复为进行中；完成回顾已移除”。没有新增状态、Runtime、Recovery、
 Skill/Prompt/Validator 或写入权威；Pilot 累计真实 Provider `33`，Validator rejection/
-retry/abstention 仍为 `0/0/0`。本次只关闭正常 Closure 连续使用与前台表达代表 Partial：
-receipt-backed `PENDING` 可以继续同一修改，真正 `RECOVERY_REQUIRED` 只恢复安全一致性，
-恢复后重新发起 Closure；该故障注入仍 OPEN，所以 P2-E 与整体 Goal 继续进行。
+retry/abstention 仍为 `0/0/0`。本次先关闭正常 Closure 连续使用与前台表达代表 Partial。
+随后 `98df827` 补齐写入前失败、重启重放、状态竞争和矛盾 receipt 防护：
+receipt-backed `PENDING` 继续同一修改；写入前失败没有正式变化并终止为 `FAILED`，用户
+重新发起；版本竞争使前台方案转为 `STALE`，重新检查后再发起。Closure 的单一原子领域
+写入不人为进入 `RECOVERY_REQUIRED`，该状态仍只服务于多步骤操作的一致性恢复。P2-E
+因而以有界 Kernel 结论关闭，整体 Goal 继续进行。
 
 Day 10 已关闭十日连续使用代表 Pilot 本身：当前待整理/待审阅为 `0/0`，22 条历史折叠，
 Project 区只有 2 个可继续项目，“更多”保持低频维护二级可达；真实 Plugin reload 后投影
@@ -105,7 +108,7 @@ Pilot Page。跨日主要 UX 风险不是 Review backlog，而是正式 Now 的
 因此 P1-C 继续 Partial，不直接替换前台。本轮不开放新 Attention，Block Marker 继续默认
 关闭；确定性 Graph/Pending/Recovery/accepted-not-applied 风险继续使用既有工具栏、
 系统状态和 Review 入口。十日 Pilot `OPEN→DONE_REPRESENTATIVE_WITH_OPEN_VARIANTS`，
-Partial 净变化 `-1`；duplicate/missing/Rebind、真正 `RECOVERY_REQUIRED`、P0 中文 IME
+Partial 净变化 `-1`；duplicate/missing/Rebind、P0 中文 IME
 和完整 Goal 继续 OPEN。
 
 `df6469f` 随后关闭 Day 10 发现的“现在首屏一次展开全部 10 个普通 Next”前台子
@@ -130,8 +133,9 @@ Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源
 Project Undo 成功消息；`19de8de0f47c` 已完成真实 Undo 复验。精确构建系统
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。创建完成卡仍显示
 “正式 Commit 已完整完成”并复制较长最终阅读，重复确认、结果/历史墙仍
-阻断 Final Release。Day 6 其余行为与 Day 7 duplicate/missing、Dynamic Now、Attention helpful/noise、
-P2-D 完成边界与 P2-E/P2-G 尾项继续 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
+阻断 Final Release。随后 Day 6—10 与 P2-E 有界失败合同已经推进；当前仍有
+duplicate/missing/Rebind、Dynamic Now、Attention helpful/noise、P2-D 完成边界与 P2-G
+尾项 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
 
 最新 P0-K 精确构建 `73dc1e26f610` 完成正式 Block “暂时做不了”的当前 Desktop 返回现场
 Gate：Query 投影无可靠正式身份时安全停止且只显示用户语言；正式测试任务完成三意图入口、
@@ -477,16 +481,19 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   SemanticCommit/Receipt/最近修改入口，没有新增恢复状态或第二写路径。Provider error
   Desktop Gate 已由 `7727770` 关闭；`662246a` 当前构建又用真实 DeepSeek 无日志延迟、
   Project Condition 正向+Undo 完成 generation stale Desktop Gate，旧草稿零 Proposal、
-  界面改为“重新检查关闭条件”，reload 后恢复 ACTIONABLE。只剩真正
-  `RECOVERY_REQUIRED` 仍 OPEN。`cda4f95` 最新构建又以真实 `deepseek-v4-flash` 生成并
+  界面改为“重新检查关闭条件”，reload 后恢复 ACTIONABLE。`cda4f95` 最新构建又以真实
+  `deepseek-v4-flash` 生成并
   拒绝一份测试方案，Review 标题已为“结束项目”，Project 保持 `OPEN/ACTIONABLE v23`，
   Proposal 为 `13 APPLIED + 2 REJECTED`，SemanticCommit 仍为
   `14 COMPLETED + 12 UNDONE`。代码审计同时确认：Closure 的 receipt-backed 中断只允许
-  `PENDING` 原 Commit 续跑；当前 Recovery Kernel 的真正 `RECOVERY_REQUIRED` 只允许
-  补偿收口，不允许前向恢复到 `COMPLETED`。因此不能用数据库篡改伪造
-  “RECOVERY_REQUIRED → resume”证据；是否扩张该安全语义属于待用户决定的产品/安全分支。
-  P2-E 整体仍为 Partial。Local Service `144/144`、Plugin
-  `279/279`、Domain `44/44`、typecheck 与根级 `./scripts/check.sh` PASS；
+  `PENDING` 原 Commit 续跑；`98df827` 又证明写入前失败零正式变化并终止为 `FAILED`，
+  重启重放稳定，版本竞争把前台方案转为 `STALE`，矛盾 receipt fail closed。Closure
+  只有一个原子 Domain step，不能安全续跑的写入前失败由用户重新发起，不需要也不应
+  人为进入 `RECOVERY_REQUIRED`；后者继续只允许多步骤操作补偿收口。P2-E 以
+  `DONE_BOUNDED_RECOVERY_CONCLUSION` 关闭，不扩张 Kernel。根级 `./scripts/check.sh`
+  PASS；最新 Logseq 0.10.15 Dark reload 证据对应 `98df827`，FAILED/STALE 专用卡仍以
+  自动故障注入为权威，不冒充 Desktop 注入。记录见
+  `task-copilot-v2-ux/logs/p2-e-project-closure-prewrite-failure-automated-20260729.md`；
 - P2-F 已从 NOT_STARTED 进入 `IN_PROGRESS_SHADOW_PROVIDER_QUALITY_PASS`：Application 新增
   严格、无自由文本的跨对象观察 draft，固定五类候选、2–8 个版本化 subject、显式有界
   scope、2–16 条结构化 evidence、exact Skill/Prompt/model provenance 与每轮 8 条上限。
@@ -662,8 +669,8 @@ P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→ro
 P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
 P2-D router + MEDIUM narration + one HEAVY full-interface vertical DONE,
 remaining LIGHT/other-HEAVY/visual gates OPEN /
-P2-E normal Provider→Review→Commit→Undo→reload main chain Desktop DONE,
-failure/Recovery Desktop gate OPEN /
+P2-E Provider→Review→Commit→Undo→reload + receipt resume + Provider error/stale Desktop DONE,
+pre-write failure/replay/stale bounded recovery contract DONE_AUTOMATED; no artificial RECOVERY_REQUIRED /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
 P2-G Rebind identity-free capture main chain Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,

@@ -145,8 +145,8 @@ explicit sync 后同一 UUID/identity 与 active Primary Anchor 保持，reload 
 分别暂缓、保持普通内容和不再提示；`318baab` 已让 reload/recompute 后的 Preview 直接
 显示无新增，不泄漏 UUID/type/Candidate/Proposal，不提供误导提交。Day 8 结束时累计
 32 次真实 DeepSeek；Day 9 又调用一次，累计 `33`，并以 `f18cc72` / `7fe762d`
-记录 Closure 应用/reload/Undo 与最终健康。Day 7 duplicate/missing/Rebind 变体与真正
-Closure `RECOVERY_REQUIRED` 仍 OPEN。Day 10 证明 Review 无积压、Project/More 克制，
+记录 Closure 应用/reload/Undo 与最终健康。Day 7 duplicate/missing/Rebind 变体仍 OPEN；
+Closure 有界失败合同随后由 `98df827` 关闭。Day 10 证明 Review 无积压、Project/More 克制，
 但原 Now 的 `Focus 1 + Next 10` 偏长，现有 Dynamic Now Shadow 又会遗漏刚恢复事项。
 `df6469f` 已在不替换正式投影的前提下，把 Next 压为首屏 4 项 + 6 项折叠，并完成
 折叠、展开和再次 reload 的当前 Desktop Gate；Dynamic Now/Attention 本身仍 OPEN。
@@ -236,8 +236,9 @@ reload 后 Project 再次进入 Now Work。正式回读为 `OPEN v13`、Closure 
 reload 后显示“尚未完成，可以继续”，再次确认只收口原 Commit；随后 reload、专用 Undo
 与再次 reload 均通过。CURRENT `p2-e-13`～`18`，最终 `OPEN v21`、Closure absent、异常
 Commit `0/0/0`。Provider error 随后由 `7727770` 关闭，generation stale 又由
-`662246a` 当前构建关闭；真正不能安全续跑的 `RECOVERY_REQUIRED` 代表链仍 OPEN，所以
-P2-E 仍是 Partial。完整记录见
+`662246a` 当前构建关闭。`98df827` 又固定单步失败语义：写入前失败终止并重新发起，
+receipt-backed PENDING 只续跑原 Commit，版本竞争转为 stale；不人为制造
+`RECOVERY_REQUIRED`。P2-E 以有界 Kernel 结论关闭。完整记录见
 `../logs/p2-e-project-closure-desktop-live-20260726.md`。
 
 `77277704d901` 又关闭 Provider error Desktop 子 Gate：真实 Logseq 0.10.15、File Graph、
@@ -255,9 +256,12 @@ Proposal/Commit 计数没有变化，异常 Commit 为 `0`。恢复 `deepseek-v4
 `662246a` 构建用真实 DeepSeek 无日志延迟完成 generation stale：旧草稿没有进入 Review，
 唯一动作改为“重新检查关闭条件”；Condition Undo 恢复 ACTIONABLE，reload 回到健康 Now。
 CURRENT `p2-e-closure-stale-current-dark-662246a.png` 与
-`p2-e-closure-stale-reload-restored-dark-662246a.png`。真正 `RECOVERY_REQUIRED` 仍
-OPEN；当前 Kernel 只允许该状态补偿收口，不允许 Closure 前向 resume，不能用数据库注入
-冒充证据。不能据此关闭整个 P2-E。完整记录见
+`p2-e-closure-stale-reload-restored-dark-662246a.png`。`98df827` 的自动故障注入随后
+覆盖 FAILED/STALE 专用卡、重启重放和矛盾 receipt；当前 Kernel 的
+`RECOVERY_REQUIRED` 继续只做多步骤补偿，不用于 Closure 单步写入前失败。精确构建的真实
+reload/空审阅证据为
+`p2-e-closure-review-clean-after-reload-dark-98df827.jpeg`；专用故障卡仍按
+AUTOMATED_ONLY 登记，不冒充 Desktop 注入。完整记录见
 `../logs/p2-e-project-closure-provider-error-desktop-live-20260727.md`。
 
 P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop Gate。首轮真实运行
