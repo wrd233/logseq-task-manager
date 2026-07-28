@@ -8,6 +8,7 @@ import {
   compensateReviewedProjectCreation,
   createReviewedProjectWithPage,
   createProjectWithControlledPage,
+  ownedProjectPageObjectId,
   undoReviewedProjectCreation,
   type ProjectCreationService,
   type ProjectPageEntity,
@@ -25,6 +26,22 @@ function intent(): ServiceProjectIntent {
     replayed: false,
   };
 }
+
+test("owned Project Page identity is readable without accepting an ordinary same-name Page", () => {
+  assert.equal(ownedProjectPageObjectId({
+    uuid: "project-page",
+    name: "project/example",
+    properties: {
+      taskCopilotOwner: "task-copilot-personal-mvp",
+      taskCopilotObjectId: "project-object",
+    },
+  }), "project-object");
+  assert.equal(ownedProjectPageObjectId({
+    uuid: "ordinary-page",
+    name: "project/example",
+    properties: { taskCopilotObjectId: "project-object" },
+  }), undefined);
+});
 
 function fixture(existing?: ProjectPageEntity) {
   const prepared = intent();

@@ -88,6 +88,15 @@ function property(properties: Record<string, unknown> | undefined, key: string):
   return typeof entry?.[1] === "string" ? entry[1] : undefined;
 }
 
+export function ownedProjectPageObjectId(value: unknown): string | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const properties = (value as { properties?: unknown }).properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return undefined;
+  const record = properties as Record<string, unknown>;
+  if (property(record, ownerProperty) !== projectPageOwner) return undefined;
+  return property(record, objectProperty);
+}
+
 function expectedProperties(intent: Pick<ServiceProjectIntent, "objectId" | "semanticCommitId">): Record<string, string> {
   return {
     [ownerProperty]: projectPageOwner,

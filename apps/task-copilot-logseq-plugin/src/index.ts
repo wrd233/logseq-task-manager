@@ -63,7 +63,7 @@ import {
   updateExistingObjectFromV2Candidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
-import { createReviewedProjectWithPage, undoReviewedProjectCreation } from "./v2-project-creation.ts";
+import { createReviewedProjectWithPage, ownedProjectPageObjectId, undoReviewedProjectCreation } from "./v2-project-creation.ts";
 import { ProjectCreationGrillController, type ProjectCreationSource } from "./project-creation-grill-controller.ts";
 import {
   buildSelectedBlockProposalPrompt,
@@ -490,7 +490,10 @@ async function openV2ProjectWorksite(objectId: string, expectedVersion: number):
   for (const candidate of candidatePages) {
     if (!candidate) continue;
     const identity = await resolveLogseqPageReference(candidate, logseq.Editor.getPage?.bind(logseq.Editor));
-    if (identity.pageUuid === primaryAnchor.externalId) {
+    if (
+      identity.pageUuid === primaryAnchor.externalId
+      || ownedProjectPageObjectId(candidate) === current.objectId
+    ) {
       pageName = identity.pageName ?? identity.displayName.replace(" · Journal", "");
       break;
     }
