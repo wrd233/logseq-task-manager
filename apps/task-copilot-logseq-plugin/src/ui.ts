@@ -25,6 +25,7 @@ import {
   projectPluginProposalNarration,
   type PluginObjectNarration,
 } from "./status-narration-runtime.ts";
+import { projectNowFrontstageSections, type NowFrontstageItem } from "./now-frontstage.ts";
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -238,14 +239,18 @@ function renderNow(model: UiModel): string {
   if (model.v2NowWork) {
     const filter = model.v2NowWorkTypeFilter ?? "ALL";
     const grouping = model.v2NowWorkGrouping ?? "mixed";
-    const allItems = [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview];
+    const frontstage = projectNowFrontstageSections(model.v2NowWork);
+    const allItems = [...frontstage.continueProcessing, ...frontstage.needsReview, ...frontstage.keepWaiting]
+      .map(({ item }) => item);
     const typeOrder: Array<Exclude<V2NowWorkTypeFilter, "ALL">> = ["PROJECT", "MINI_PROJECT", "TASK", "AREA", "DECISION", "OUTPUT"];
     const typeLabels = Object.fromEntries(typeOrder.map((type) => [type, objectTypeLabel(type)])) as Record<Exclude<V2NowWorkTypeFilter, "ALL">, string>;
     const availableTypes = typeOrder.filter((type) => allItems.some((item) => item.objectType === type));
-    const filtered = (values: ServiceNowWork["next"]) => filter === "ALL" ? values : values.filter((item) => item.objectType === filter);
+    const filtered = (values: NowFrontstageItem[]) => filter === "ALL"
+      ? values
+      : values.filter(({ item }) => item.objectType === filter);
     const orderingAvailable = filter === "ALL" && grouping === "mixed";
     const focusIds = new Set(model.v2NowWork.focus.map((item) => item.objectId));
-    const cards = (values: ServiceNowWork["next"], kind: "focus" | "candidate") => values.map((item, index) => {
+    const cards = (values: NowFrontstageItem[]) => values.map(({ item, focused, focusRank }) => {
       const projected = model.v2ObjectNarrations?.[item.objectId];
       const narration = projected?.objectVersion === item.version ? projected.narration : undefined;
       const nextAction = narration?.nextAction;
@@ -259,7 +264,7 @@ function renderNow(model: UiModel): string {
         && nextAction.targetObjectId === item.objectId
         ? button(nextAction.label, "v2-condition-open", `${item.objectId}|${item.version}`, "primary")
         : "";
-      const openLabel = item.objectType === "PROJECT" ? "打开项目" : kind === "focus" ? "继续处理" : "打开正文";
+      const openLabel = item.objectType === "PROJECT" ? "打开项目" : focused ? "继续处理" : "打开正文";
       const primaryAction = guidedStatusAction
         || (item.primaryAnchorExternalId
           ? button(openLabel, "v2-open-primary-anchor", item.primaryAnchorExternalId, "primary")
@@ -268,24 +273,32 @@ function renderNow(model: UiModel): string {
         ? `<p><strong>${escapeHtml(narration.conclusion)}</strong></p>${narration.keyEvidence.length ? `<p class="muted">${escapeHtml(narration.keyEvidence[0]!)}</p>` : ""}<details><summary>查看依据</summary>${narration.unknowns.length ? `<p class="muted">${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
         : `<p>${escapeHtml(item.reason)}</p>`;
       const secondaryStatusAction = !guidedStatusAction && !item.primaryAnchorExternalId ? "" : button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet");
-      const secondaryActions = `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${kind === "focus" ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}`;
-      return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${primaryAction}</div><details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details></article>`;
+      const secondaryActions = `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${focused ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", focusRank === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", focusRank === model.v2NowWork!.focus.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}`;
+      const sourceLabel = focused ? " · 来自当前关注" : "";
+      return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${primaryAction}</div><details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details></article>`;
     }).join("");
-    const section = (title: string, source: ServiceNowWork["next"], kind: "focus" | "candidate", frontstageLimit?: number) => {
+    const section = (title: string, source: NowFrontstageItem[], frontstageLimit?: number) => {
       const values = filtered(source);
       if (!values.length) return "";
-      const renderValues = (current: ServiceNowWork["next"]) => grouping === "type"
-        ? typeOrder.filter((type) => current.some((item) => item.objectType === type)).map((type) => `<div class="now-work-group"><h3>${escapeHtml(typeLabels[type])}</h3><div class="cards">${cards(current.filter((item) => item.objectType === type), kind)}</div></div>`).join("")
-        : `<div class="cards">${cards(current, kind)}</div>`;
-      const visible = frontstageLimit === undefined ? values : values.slice(0, frontstageLimit);
-      const remaining = frontstageLimit === undefined ? [] : values.slice(frontstageLimit);
+      const renderValues = (current: NowFrontstageItem[]) => grouping === "type"
+        ? typeOrder.filter((type) => current.some(({ item }) => item.objectType === type)).map((type) => `<div class="now-work-group"><h3>${escapeHtml(typeLabels[type])}</h3><div class="cards">${cards(current.filter(({ item }) => item.objectType === type))}</div></div>`).join("")
+        : `<div class="cards">${cards(current)}</div>`;
+      const visible = frontstageLimit === undefined
+        ? values
+        : [
+            ...values.filter(({ focused }) => focused),
+            ...values.filter(({ focused }) => !focused).slice(0, frontstageLimit),
+          ];
+      const remaining = frontstageLimit === undefined
+        ? []
+        : values.filter(({ focused }) => !focused).slice(frontstageLimit);
       const overflow = remaining.length
         ? `<details class="now-work-overflow"><summary>查看其余 ${remaining.length} 项</summary>${renderValues(remaining)}</details>`
         : "";
       return `<section><h2>${escapeHtml(title)}</h2>${renderValues(visible)}${overflow}</section>`;
     };
     const controls = `<section class="now-work-controls" aria-label="现在：筛选与分组"><div><strong>类型</strong><div class="actions wrap">${button("全部", "v2-now-filter", "ALL", filter === "ALL" ? "active" : "quiet")}${availableTypes.map((type) => button(typeLabels[type], "v2-now-filter", type, filter === type ? "active" : "quiet")).join("")}</div></div><div><strong>排列</strong><div class="actions">${button("混排", "v2-now-grouping", "mixed", grouping === "mixed" ? "active" : "quiet")}${button("按类型分组", "v2-now-grouping", "type", grouping === "type" ? "active" : "quiet")}</div></div>${orderingAvailable ? "" : "<p class=\"muted\">手动调整“当前关注”顺序请切回“全部 · 混排”；筛选不会改变正式状态。</p>"}</section>`;
-    const content = `${section("当前关注", model.v2NowWork.focus, "focus")}${section("接下来值得处理", model.v2NowWork.next, "candidate", 4)}${section("等待与复查", model.v2NowWork.waitingReview, "candidate")}`;
+    const content = `${section("继续处理", frontstage.continueProcessing, 4)}${section("需要回看", frontstage.needsReview)}${section("保持等待", frontstage.keepWaiting)}`;
     const narrationError = model.v2StatusNarrationLoadError
       ? `<div class="error"><strong>状态说明暂时不可用：</strong>${escapeHtml(model.v2StatusNarrationLoadError)}<span>继续显示 Local Service 的既有只读理由；没有改变正式状态或动作资格。</span></div>`
       : "";

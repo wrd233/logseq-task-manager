@@ -1450,10 +1450,11 @@ test("V2 Now Work renders only non-empty explainable regions without scores or b
   value.workspace = "now";
   value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], waitingReview: [], conditionOptions: [], next: [{ objectId: "task-next", objectType: "TASK", version: 2, text: "核对告警", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T11:00:00.000Z", reason: "近期建立，可直接推进", primaryAnchorExternalId: "block-next" }] };
   const html = renderApp(value);
-  assert.match(html, /接下来值得处理/);
+  assert.match(html, /继续处理/);
   assert.match(html, /近期建立，可直接推进/);
-  assert.doesNotMatch(html, /当前关注/);
-  assert.doesNotMatch(html, /等待与复查/);
+  assert.doesNotMatch(html, /来自当前关注/);
+  assert.doesNotMatch(html, /需要回看/);
+  assert.doesNotMatch(html, /保持等待/);
   assert.doesNotMatch(html, /score|健康分|风险分/);
   assert.match(html, /data-action="v2-open-primary-anchor" data-value="block-next"/);
   assert.match(html, /data-action="v2-focus-add" data-value="task-next\|2"/);
@@ -1485,6 +1486,42 @@ test("V2 Now Work keeps the first four next items visible and folds the rest wit
   assert.ok(html.indexOf("连续事项 4") < html.indexOf("now-work-overflow"));
   assert.ok(html.indexOf("连续事项 5") > html.indexOf("now-work-overflow"));
   for (let index = 1; index <= 6; index += 1) assert.match(html, new RegExp(`连续事项 ${index}`));
+});
+
+test("V2 Now Work never folds explicit Focus behind the ordinary continuation limit", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = {
+    generatedAt: "2026-07-28T12:00:00.000Z",
+    waitingReview: [],
+    conditionOptions: [],
+    focus: Array.from({ length: 6 }, (_, index) => ({
+      objectId: `focus-${index + 1}`,
+      objectType: "TASK" as const,
+      version: 1,
+      text: `用户关注 ${index + 1}`,
+      condition: { kind: "ACTIONABLE" as const },
+      updatedAt: `2026-07-${String(28 - index).padStart(2, "0")}T12:00:00.000Z`,
+      reason: "来自用户明确关注",
+      primaryAnchorExternalId: `focus-block-${index + 1}`,
+    })),
+    next: Array.from({ length: 6 }, (_, index) => ({
+      objectId: `next-${index + 1}`,
+      objectType: "TASK" as const,
+      version: 1,
+      text: `普通推进 ${index + 1}`,
+      condition: { kind: "ACTIONABLE" as const },
+      updatedAt: `2026-07-${String(20 - index).padStart(2, "0")}T12:00:00.000Z`,
+      reason: "当前可以继续推进",
+      primaryAnchorExternalId: `next-block-${index + 1}`,
+    })),
+  };
+
+  const html = renderApp(value);
+  assert.ok(html.indexOf("用户关注 6") < html.indexOf("now-work-overflow"));
+  assert.ok(html.indexOf("普通推进 4") < html.indexOf("now-work-overflow"));
+  assert.ok(html.indexOf("普通推进 5") > html.indexOf("now-work-overflow"));
+  assert.match(html, /查看其余 2 项/);
 });
 
 test("V2 Now Work leads with version-matched Object narration and reuses the Condition handler", () => {
@@ -1620,7 +1657,9 @@ test("a Waiting projection already in Focus does not offer a duplicate Focus act
   const item = { objectId: "task-wait", objectType: "TASK" as const, version: 2, text: "等待样本", condition: { kind: "WAITING" as const, waitingFor: "外部事件", expectedResult: "样本", reviewAt: "2026-07-21T01:00:00.000Z" }, updatedAt: "2026-07-20T10:00:00.000Z", reason: "当前关注正在等待 · 外部事件" };
   value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [item], next: [], waitingReview: [item], conditionOptions: [] };
   const html = renderApp(value);
-  assert.match(html, /已在当前关注/);
+  assert.match(html, /保持等待/);
+  assert.match(html, /来自当前关注/);
+  assert.equal((html.match(/等待样本/g) ?? []).length, 1);
   assert.doesNotMatch(html, /data-action="v2-focus-add"/);
 });
 
