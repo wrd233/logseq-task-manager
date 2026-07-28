@@ -221,7 +221,7 @@ function renderNow(model: UiModel): string {
     const grouping = model.v2NowWorkGrouping ?? "mixed";
     const allItems = [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview];
     const typeOrder: Array<Exclude<V2NowWorkTypeFilter, "ALL">> = ["PROJECT", "MINI_PROJECT", "TASK", "AREA", "DECISION", "OUTPUT"];
-    const typeLabels: Record<Exclude<V2NowWorkTypeFilter, "ALL">, string> = { PROJECT: "Project", MINI_PROJECT: "MiniProject", TASK: "Task", AREA: "Area", DECISION: "Decision", OUTPUT: "Output" };
+    const typeLabels = Object.fromEntries(typeOrder.map((type) => [type, objectTypeLabel(type)])) as Record<Exclude<V2NowWorkTypeFilter, "ALL">, string>;
     const availableTypes = typeOrder.filter((type) => allItems.some((item) => item.objectType === type));
     const filtered = (values: ServiceNowWork["next"]) => filter === "ALL" ? values : values.filter((item) => item.objectType === filter);
     const orderingAvailable = filter === "ALL" && grouping === "mixed";
@@ -250,7 +250,7 @@ function renderNow(model: UiModel): string {
         : `<p>${escapeHtml(item.reason)}</p>`;
       const secondaryStatusAction = !guidedStatusAction && !item.primaryAnchorExternalId ? "" : button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet");
       const secondaryActions = `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${kind === "focus" ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}`;
-      return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(item.objectType)}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${primaryAction}</div><details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details></article>`;
+      return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${primaryAction}</div><details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details></article>`;
     }).join("");
     const section = (title: string, source: ServiceNowWork["next"], kind: "focus" | "candidate") => {
       const values = filtered(source);
@@ -841,14 +841,14 @@ function renderAudit(model: UiModel): string {
   return `${guidance}<section><h2>最近修改</h2><div class="cards">${changes.map((change) => renderRecentChange(change)).join("")}</div></section>`;
 }
 
-function migrationObjectTypeLabel(value: string): string {
+function objectTypeLabel(value: string): string {
   return ({
     AREA: "领域",
     PROJECT: "项目",
     MINI_PROJECT: "小项目",
     TASK: "任务",
     DECISION: "决定",
-    OUTPUT: "产出",
+    OUTPUT: "成果",
     RESOURCE: "资料",
   } as Record<string, string>)[value] ?? "普通内容";
 }
@@ -917,7 +917,7 @@ function renderMigrationReviewItem(item: PluginMigrationReviewItem, busy: boolea
   const option = (value: string, label: string, selected: string) => `<option value="${value}"${selected === value ? " selected" : ""}>${label}</option>`;
   const actionOptions = `${item.classification === "STRUCTURAL_ERROR" ? "" : option("IMPORT", "迁移为正式对象", action)}${option("KEEP_ORDINARY", "保持普通内容", action)}${option("DEFER", "暂缓判断", action)}${option("EXCLUDE", "排除这项", action)}`;
   const objectTypeOptions = `<option value=""${objectType ? "" : " selected"}>请选择对象类型</option>${["TASK", "MINI_PROJECT", "PROJECT", "AREA", "DECISION", "OUTPUT"]
-    .map((value) => option(value, migrationObjectTypeLabel(value), objectType ?? "")).join("")}`;
+    .map((value) => option(value, objectTypeLabel(value), objectType ?? "")).join("")}`;
   const lifecycleOptions = ["OPEN", "COMPLETED", "CANCELLED", "ARCHIVED"]
     .map((value) => option(value, migrationLifecycleLabel(value), lifecycle ?? "")).join("");
   const lifecycleSelectOptions = `<option value=""${lifecycle ? "" : " selected"}>请选择生命周期</option>${lifecycleOptions}`;
@@ -930,7 +930,7 @@ function renderMigrationReviewItem(item: PluginMigrationReviewItem, busy: boolea
     ? `<p class="uncertain">这项材料存在结构冲突，不能直接迁移；可先暂缓、排除或保持普通内容，源材料修复后再重新检查。</p>`
     : "";
   return `<article class="card migration-review-item" aria-label="迁移材料 ${token}">
-    <div class="eyebrow">${escapeHtml(migrationClassificationLabel(item.classification))} · 来源是${escapeHtml(migrationObjectTypeLabel(item.sourceObjectType))}</div>
+    <div class="eyebrow">${escapeHtml(migrationClassificationLabel(item.classification))} · 来源是${escapeHtml(objectTypeLabel(item.sourceObjectType))}</div>
     <h3>${escapeHtml(item.title)}${item.titleTruncated ? "…" : ""}</h3>
     <p class="muted">旧材料记录为：${escapeHtml(migrationPhaseLabel(item.oldPhase))} · ${escapeHtml(migrationConditionLabel(item.oldConditionKind))}</p>
     ${structuralGuidance}
@@ -971,7 +971,7 @@ function renderMigrationExecution(model: UiModel): string {
   }
   if (state.status === "material-ready") {
     const items = state.items ?? [];
-    return `<section class="card" aria-label="选择迁移批次"><div class="eyebrow">材料与计划一致 · 正式变化 0</div><h3>选择本批范围</h3>${message}<div class="cards">${items.map((item) => `<label class="card compact"><input type="checkbox" data-field="migrationImportItem:${escapeHtml(item.token)}" value="${escapeHtml(item.token)}"${available ? "" : " disabled"}><span><strong>${escapeHtml(item.title)}${item.titleTruncated ? "…" : ""}</strong><br><span class="muted">来源是${escapeHtml(migrationObjectTypeLabel(item.sourceObjectType))}</span></span></label>`).join("")}</div><p class="muted">只有选中项会进入本批；计划恢复基线校验通过前不会创建正式对象。</p><div class="actions">${button("放弃本批准备", "migration-import-clear", undefined, "quiet")}${button(state.recoveryPointMode === "REUSED" ? "校验本计划恢复基线" : "创建本计划恢复基线", "migration-import-recovery", undefined, "primary", !available || !items.length)}</div></section>`;
+    return `<section class="card" aria-label="选择迁移批次"><div class="eyebrow">材料与计划一致 · 正式变化 0</div><h3>选择本批范围</h3>${message}<div class="cards">${items.map((item) => `<label class="card compact"><input type="checkbox" data-field="migrationImportItem:${escapeHtml(item.token)}" value="${escapeHtml(item.token)}"${available ? "" : " disabled"}><span><strong>${escapeHtml(item.title)}${item.titleTruncated ? "…" : ""}</strong><br><span class="muted">来源是${escapeHtml(objectTypeLabel(item.sourceObjectType))}</span></span></label>`).join("")}</div><p class="muted">只有选中项会进入本批；计划恢复基线校验通过前不会创建正式对象。</p><div class="actions">${button("放弃本批准备", "migration-import-clear", undefined, "quiet")}${button(state.recoveryPointMode === "REUSED" ? "校验本计划恢复基线" : "创建本计划恢复基线", "migration-import-recovery", undefined, "primary", !available || !items.length)}</div></section>`;
   }
   if (state.status === "ready-to-import" || state.status === "import-uncertain") {
     const uncertain = state.status === "import-uncertain";

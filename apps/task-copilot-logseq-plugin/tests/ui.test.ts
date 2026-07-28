@@ -1562,7 +1562,9 @@ test("V2 Now Work type filtering and grouping stay view-only and protect full Fo
   assert.match(html, /aria-label="Now Work 筛选与分组"/);
   assert.match(html, /data-action="v2-now-filter" data-value="TASK"/);
   assert.match(html, /data-action="v2-now-grouping" data-value="type"/);
-  assert.match(html, /<h3>Task<\/h3>/);
+  assert.match(html, /<h3>任务<\/h3>/);
+  assert.match(html, /<div class="eyebrow">任务<\/div>/);
+  assert.doesNotMatch(html, /<div class="eyebrow">(?:PROJECT|MINI_PROJECT|TASK|AREA|DECISION|OUTPUT)<\/div>/);
   assert.match(html, /核对事件/);
   assert.doesNotMatch(html, /治理告警/);
   assert.doesNotMatch(html, /data-action="v2-focus-(?:up|down)"/);
