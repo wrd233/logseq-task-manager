@@ -2377,8 +2377,8 @@ test("formal V2 plugin entry excludes the writable V1 runtime", async () => {
   }
   assert.match(source, /function enterRestrictedServiceMode[\s\S]*serviceRuntimeClient = undefined;[\s\S]*explicitSyncController\?\.pause\(\)/);
   assert.match(source, /enterRestrictedServiceMode\("SERVICE_DISCOVERY_IN_PROGRESS"/);
-  assert.match(source, /Local Service 正在重连或已不可写；旧预览已作废/);
-  assert.match(source, /正文连接预览已过期或不存在；没有执行重新绑定/);
+  assert.match(source, /Task Copilot 服务正在重新连接或暂时不能应用修改；旧预览已作废/);
+  assert.match(source, /正文连接预览已过期或不存在；没有执行重新连接/);
   assert.match(source, /V2_UI_ACTION_UNSUPPORTED/);
   assert.match(source, /listSemanticCommits\(\)/);
   assert.match(source, /listPrimaryAnchors\(cursor, true\)/);

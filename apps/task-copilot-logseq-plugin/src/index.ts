@@ -300,7 +300,7 @@ async function expireV2RebindCapture(): Promise<void> {
     await finishV2RebindCapture();
     v2RebindPanel = {
       status: "error",
-      message: "受控选择窗口已在 5 分钟后结束，自动同步已经恢复；没有执行重新绑定。请重新开始后再选择替换正文。",
+      message: "受控选择窗口已在 5 分钟后结束，自动同步已经恢复；没有执行重新连接。请重新开始后再选择替换正文。",
     };
     if (logseq.isMainUIVisible) await showRuntimeDiagnostics();
   } catch (error) {
@@ -1752,20 +1752,20 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const controller = explicitSyncController;
     const generation = serviceDiscoveryGeneration;
     if (!client || !controller || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
-      v2RebindPanel = { status: "error", message: "Local Service 未处于可正式写入的 READY 状态；没有开始重新连接。" };
+      v2RebindPanel = { status: "error", message: "Task Copilot 服务当前不能安全应用正式修改；没有开始重新连接。" };
       await showRuntimeDiagnostics();
       return;
     }
     if (!v2RebindCaptureController.active) {
       await controller.flush();
       if (generation !== serviceDiscoveryGeneration || client !== serviceRuntimeClient) {
-        v2RebindPanel = { status: "error", message: "Local Service 在准备期间重连；没有开始重新连接，请刷新后重试。" };
+        v2RebindPanel = { status: "error", message: "Task Copilot 服务在准备期间重新连接；本次操作没有开始，请刷新后重试。" };
         await showRuntimeDiagnostics();
         return;
       }
     }
     v2RebindCaptureController.begin(controller);
-    v2RebindPanel = { status: "capturing" };
+    v2RebindPanel = value ? { status: "capturing", candidateObjectId: value } : { status: "capturing" };
     await showRuntimeDiagnostics();
     logseq.hideMainUI();
     return;
@@ -1773,21 +1773,22 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-rebind-open") {
     const client = serviceRuntimeClient;
     const generation = serviceDiscoveryGeneration;
+    const candidateObjectId = "candidateObjectId" in v2RebindPanel ? v2RebindPanel.candidateObjectId : undefined;
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
-      v2RebindPanel = { status: "error", message: "Local Service 未处于可正式写入的 READY 状态；没有执行重新绑定。" };
+      v2RebindPanel = { status: "error", message: "Task Copilot 服务当前不能安全应用正式修改；没有执行重新连接。", ...(candidateObjectId ? { candidateObjectId } : {}) };
       await showRuntimeDiagnostics();
       return;
     }
-    v2RebindPanel = { status: "loading" };
+    v2RebindPanel = candidateObjectId ? { status: "loading", candidateObjectId } : { status: "loading" };
     await showRuntimeDiagnostics();
     try {
-      const preview = await prepareV2PrimaryAnchorRebind(client, () => logseq.Editor.getCurrentBlock());
+      const preview = await prepareV2PrimaryAnchorRebind(client, () => logseq.Editor.getCurrentBlock(), candidateObjectId);
       if (generation !== serviceDiscoveryGeneration || client !== serviceRuntimeClient) {
-        throw new Error("Local Service 已在预览期间重连；旧预览已作废，没有执行写入。");
+        throw new Error("Task Copilot 服务已在预览期间重新连接；旧预览已作废，没有执行写入。");
       }
       v2RebindPanel = { status: "ready", preview, serviceGeneration: generation };
     } catch (error) {
-      v2RebindPanel = { status: "error", message: explain(error) };
+      v2RebindPanel = { status: "error", message: explain(error), ...(candidateObjectId ? { candidateObjectId } : {}) };
     }
     await showRuntimeDiagnostics();
     return;
@@ -1804,17 +1805,17 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const currentPanel = v2RebindPanel;
     if (currentPanel.status === "ready" && currentPanel.busy) return;
     if (currentPanel.status !== "ready") {
-      v2RebindPanel = { status: "error", message: "正文连接预览已过期或不存在；没有执行重新绑定。" };
+      v2RebindPanel = { status: "error", message: "正文连接预览已过期或不存在；没有执行重新连接。" };
       await showRuntimeDiagnostics();
       return;
     }
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
-      v2RebindPanel = { status: "error", message: "Local Service 正在重连或已不可写；旧预览已作废，没有执行重新绑定。" };
+      v2RebindPanel = { status: "error", message: "Task Copilot 服务正在重新连接或暂时不能应用修改；旧预览已作废，没有执行重新连接。" };
       await showRuntimeDiagnostics();
       return;
     }
     if (currentPanel.serviceGeneration !== serviceDiscoveryGeneration) {
-      v2RebindPanel = { status: "error", message: "Local Service 已在预览后重连；旧预览已作废，没有执行写入。" };
+      v2RebindPanel = { status: "error", message: "Task Copilot 服务已在预览后重新连接；旧预览已作废，没有执行写入。" };
       await showRuntimeDiagnostics();
       return;
     }
@@ -1826,13 +1827,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
     try {
       const result = await submitV2PrimaryAnchorRebind(client, currentPanel.preview, selectedCandidateToken, confirmed, () => logseq.Editor.getCurrentBlock(), ensurePersistentBlockIdentity, traceId);
       v2RebindPanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
-        ? { status: "success", message: `“${result.object.text}”已重新连接到当前选中的正文；旧连接保留在历史中。` }
-        : { status: "error", message: "Local Service 在提交期间重连；旧会话已返回成功，请先在 Audit/Doctor 核对，不要立即重试。" };
+        ? { status: "success", message: `“${result.object.text}”已重新连接到当前选中的正文；旧连接保留在历史中。`, candidateObjectId: result.object.objectId }
+        : { status: "error", message: "Task Copilot 服务在应用期间重新连接；旧会话已返回成功，请先在系统状态中核对，不要立即重试。" };
       operationalLogger.log("info", "ui-action", "v2_primary_anchor_rebound", { correlationId: traceId, actionId: "v2-rebind-submit", result: "success", blockUuid: result.anchor.externalId });
     } catch (error) {
       v2RebindPanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
         ? { status: "error", message: explain(error) }
-        : { status: "error", message: "Local Service 在提交期间重连；旧会话结果不确定，请先在 Audit/Doctor 核对，不要立即重试。" };
+        : { status: "error", message: "Task Copilot 服务在应用期间重新连接；旧会话结果不确定，请先在系统状态中核对，不要立即重试。" };
       operationalLogger.log("error", "ui-action", "v2_primary_anchor_rebind_failed", { correlationId: traceId, actionId: "v2-rebind-submit", result: "error" }, error);
     }
     await finishV2RebindCapture();

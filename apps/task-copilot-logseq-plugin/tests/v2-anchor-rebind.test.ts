@@ -51,10 +51,37 @@ test("rebind preview reads one known-Anchor page and renders explicit impact", a
   assert.match(html, /data-field="v2RebindConfirmed"/);
   assert.match(html, /data-action="v2-rebind-submit"/);
   assert.match(html, /value="candidate:0"/);
+  assert.match(html, /任务 · 新任务/);
   for (const hidden of [targetUuid, "anchor-old", "block-old", "11111111"]) {
     assert.doesNotMatch(html, new RegExp(hidden));
   }
-  assert.doesNotMatch(html, /Primary Anchor|externalId|contentHash|missing|replaced/);
+  assert.doesNotMatch(html, /Primary Anchor|externalId|contentHash|missing|replaced|TASK|Block|重新绑定/);
+});
+
+test("rebind preview defaults to broken connections and only includes a healthy connection for explicit correction", async () => {
+  const healthyObject = { ...object, objectId: "task-healthy", text: "连接正常的任务" };
+  const healthyAnchor = {
+    ...anchor,
+    anchorId: "anchor-healthy",
+    objectId: healthyObject.objectId,
+    externalId: "block-healthy",
+    status: "active" as const,
+  };
+  const transport = {
+    ...client([]),
+    listObjects: async () => [object, healthyObject],
+    listPrimaryAnchors: async () => ({ anchors: [anchor, healthyAnchor] }),
+  };
+
+  const repairPreview = await prepareV2PrimaryAnchorRebind(transport, async () => targetBlock);
+  assert.deepEqual(repairPreview.candidates.map(({ object: candidate }) => candidate.objectId), [object.objectId]);
+
+  const correctionPreview = await prepareV2PrimaryAnchorRebind(
+    transport,
+    async () => targetBlock,
+    healthyObject.objectId,
+  );
+  assert.deepEqual(correctionPreview.candidates.map(({ object: candidate }) => candidate.objectId), [healthyObject.objectId]);
 });
 
 test("rebind preview rejects a target that already belongs to another formal object before confirmation", async () => {
@@ -157,7 +184,7 @@ test("Anchor issue status suppresses repair action while formal writes are unava
     narrationRuleId: "anchor-conflict",
   }], false);
 
-  assert.match(html, /正式写入已暂停/);
+  assert.match(html, /正式修改已暂停/);
   assert.doesNotMatch(html, /data-action="v2-rebind-capture"/);
 });
 
@@ -167,19 +194,20 @@ test("Rebind capture panel explains bounded auto-sync pause without implementati
   assert.match(html, /5 分钟/);
   assert.match(html, /data-action="v2-rebind-open"/);
   assert.match(html, /data-action="v2-rebind-cancel"/);
-  assert.doesNotMatch(html, /UUID|externalId|Primary Anchor|contentHash/);
+  assert.doesNotMatch(html, /UUID|externalId|Primary Anchor|contentHash|Block|Graph/);
 });
 
 test("Rebind success guides a safe correction instead of offering an unsafe generic inverse", () => {
   const html = renderV2PrimaryAnchorRebindPanel({
     status: "success",
     message: "事项已重新连接；旧连接保留在历史中。",
+    candidateObjectId: object.objectId,
   }, true);
 
   assert.match(html, /如果选错了正文/);
   assert.match(html, /不要删除正式事项或旧连接历史/);
-  assert.match(html, /data-action="v2-rebind-capture"/);
+  assert.match(html, new RegExp(`data-action="v2-rebind-capture" data-value="${object.objectId}"`));
   assert.match(html, /data-action="backup-restore-open"/);
   assert.doesNotMatch(html, /data-action="v2-rebind-open"/);
-  assert.doesNotMatch(html, /撤销重新连接|恢复旧连接为主正文/);
+  assert.doesNotMatch(html, /撤销重新连接|恢复旧连接为主正文|Block|重新绑定/);
 });
