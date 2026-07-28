@@ -120,6 +120,84 @@ test("Page Context recognizes a Project only from its active page Primary Anchor
   assert.deepEqual(result.formalItems.map(({ objectId }) => objectId), ["project-1", "task-1"]);
 });
 
+test("Page Context reuses controlled Project page ownership when File Graph changes the Page UUID", async () => {
+  const project = object({
+    objectId: "project-1",
+    objectType: "PROJECT",
+    text: "发布 Task Copilot",
+    version: 7,
+  });
+  const page = {
+    uuid: "file-graph-page",
+    name: "project/release",
+    originalName: "Project/Release",
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": project.objectId,
+    },
+  };
+  const controller = new PageContextController(
+    () => client({
+      async listObjects() { return [project]; },
+      async listPrimaryAnchors() {
+        return {
+          anchors: [anchor({
+            anchorId: "project-anchor",
+            objectId: project.objectId,
+            externalId: "page-uuid-before-reload",
+          })],
+        };
+      },
+    }),
+    host({
+      async getPage() { return page; },
+      async getCurrentPage() { return page; },
+      async getPageBlocksTree() { return []; },
+    }),
+  );
+
+  const result = await controller.open(page);
+  assert.equal(result.kind, "PROJECT");
+  assert.equal(result.project?.objectId, project.objectId);
+  assert.deepEqual(result.formalItems.map(({ objectId }) => objectId), [project.objectId]);
+  assert.equal((await controller.resolveCurrentProject())?.project.objectId, project.objectId);
+});
+
+test("controlled Project page ownership cannot override a conflicting exact Page Anchor", async () => {
+  const exactProject = object({ objectId: "project-exact", objectType: "PROJECT", text: "Exact" });
+  const ownedProject = object({ objectId: "project-owned", objectType: "PROJECT", text: "Owned" });
+  const page = {
+    uuid: "page-1",
+    name: "project/conflict",
+    originalName: "Project/Conflict",
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": ownedProject.objectId,
+    },
+  };
+  const controller = new PageContextController(
+    () => client({
+      async listObjects() { return [exactProject, ownedProject]; },
+      async listPrimaryAnchors() {
+        return {
+          anchors: [
+            anchor({ anchorId: "exact", objectId: exactProject.objectId, externalId: page.uuid }),
+            anchor({ anchorId: "owned", objectId: ownedProject.objectId, externalId: "old-page-uuid" }),
+          ],
+        };
+      },
+    }),
+    host({
+      async getPage() { return page; },
+      async getCurrentPage() { return page; },
+      async getPageBlocksTree() { return []; },
+    }),
+  );
+
+  await assert.rejects(() => controller.open(page), /身份与 active Primary Anchor 不一致/);
+  await assert.rejects(() => controller.resolveCurrentProject(), /身份与 active Primary Anchor 不一致/);
+});
+
 test("current Project resolver uses only the exact active Page Anchor and revalidates the main Page", async () => {
   const project = object({
     objectId: "project-1",

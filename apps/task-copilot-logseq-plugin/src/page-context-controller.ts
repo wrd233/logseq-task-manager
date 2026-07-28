@@ -2,6 +2,7 @@ import type { V2ManagedObject } from "@task-copilot/domain";
 import { RuntimeShapeAdapter } from "@task-copilot/logseq-adapter";
 
 import type { ServiceRuntimeClient } from "./service-connection.ts";
+import { ownedProjectPageObjectId } from "./v2-project-creation.ts";
 
 export type PageContextClient = Pick<ServiceRuntimeClient, "listObjects" | "listPrimaryAnchors">;
 
@@ -95,7 +96,8 @@ export class PageContextController {
     const client = this.getClient();
     if (!client) throw new Error("V2 Local Service 未就绪；没有打开页面操作。");
     const payloadRef = RuntimeShapeAdapter.pageRef(payload);
-    const selected = pageIdentity(await this.host.getPage(payloadRef));
+    const selectedEntity = await this.host.getPage(payloadRef);
+    const selected = pageIdentity(selectedEntity);
     const current = pageIdentity(await this.host.getCurrentPage());
 
     const [objects, blocks, anchors] = await Promise.all([
@@ -127,7 +129,29 @@ export class PageContextController {
     if (projectAnchors.length > 1) {
       throw new Error("当前页对应多个 active Project Primary Anchor；请先修复 Anchor 冲突，没有打开项目操作。");
     }
-    const projectObject = projectAnchors[0] ? objectsById.get(projectAnchors[0].objectId) : undefined;
+    const ownedObjectId = ownedProjectPageObjectId(selectedEntity);
+    const ownedObject = ownedObjectId ? objectsById.get(ownedObjectId) : undefined;
+    const ownedAnchors = ownedObject?.objectType === "PROJECT"
+      ? anchors.filter((value) => (
+        value.objectId === ownedObject.objectId
+        && value.role === "primary_text"
+        && value.status === "active"
+      ))
+      : [];
+    if (ownedAnchors.length > 1) {
+      throw new Error("当前页声明的 Project 对应多个 active Primary Anchor；请先修复 Anchor 冲突，没有打开项目操作。");
+    }
+    if (projectAnchors[0] && ownedObjectId && projectAnchors[0].objectId !== ownedObjectId) {
+      throw new Error("当前页的 Project 身份与 active Primary Anchor 不一致；没有打开项目操作。");
+    }
+    const projectObject = projectAnchors[0]
+      ? objectsById.get(projectAnchors[0].objectId)
+      : ownedAnchors[0]
+        ? ownedObject
+        : undefined;
+    if (projectObject && !formalItems.some(({ objectId }) => objectId === projectObject.objectId)) {
+      formalItems.unshift(formalItem(projectObject));
+    }
     const project = projectObject ? {
       objectId: projectObject.objectId,
       objectText: projectObject.text,
@@ -156,7 +180,8 @@ export class PageContextController {
   async resolveCurrentProject(): Promise<CurrentProjectPage | undefined> {
     const client = this.getClient();
     if (!client) return undefined;
-    const current = pageIdentity(await this.host.getCurrentPage());
+    const currentEntity = await this.host.getCurrentPage();
+    const current = pageIdentity(currentEntity);
     const [objects, anchors] = await Promise.all([
       client.listObjects(),
       this.loadAnchors(client),
@@ -178,7 +203,26 @@ export class PageContextController {
     if (matches.length > 1) {
       throw new Error("当前页对应多个 active Project Primary Anchor；顶部项目入口保持隐藏。");
     }
-    const object = matches[0] ? objectsById.get(matches[0].objectId) : undefined;
+    const ownedObjectId = ownedProjectPageObjectId(currentEntity);
+    const ownedObject = ownedObjectId ? objectsById.get(ownedObjectId) : undefined;
+    const ownedAnchors = ownedObject?.objectType === "PROJECT"
+      ? anchors.filter((anchor) => (
+        anchor.objectId === ownedObject.objectId
+        && anchor.role === "primary_text"
+        && anchor.status === "active"
+      ))
+      : [];
+    if (ownedAnchors.length > 1) {
+      throw new Error("当前页声明的 Project 对应多个 active Primary Anchor；顶部项目入口保持隐藏。");
+    }
+    if (matches[0] && ownedObjectId && matches[0].objectId !== ownedObjectId) {
+      throw new Error("当前页的 Project 身份与 active Primary Anchor 不一致；顶部项目入口保持隐藏。");
+    }
+    const object = matches[0]
+      ? objectsById.get(matches[0].objectId)
+      : ownedAnchors[0]
+        ? ownedObject
+        : undefined;
     if (!object) return undefined;
     return {
       pageUuid: current.uuid,
