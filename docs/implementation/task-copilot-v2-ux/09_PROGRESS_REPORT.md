@@ -75,6 +75,13 @@
   Logseq 0.10.15 exact-build reload Desktop Gate 均通过；未新增状态、Runtime、Skill、
   Validator、写入或 Recovery 分支。该 UI 缺陷关闭不改变 P1/P2 Slice 状态，Partial 总量
   `0` 新增、`0` 减少。
+- `7da1a0a` 将 Project 首屏从“项目重入”改为“继续项目”，去除实现说明，并把 4 个并列
+  动作收敛为一个主操作、一个 Context Recovery 次操作和折叠的“更多操作”；`b605e18`
+  又把 Context Recovery 从绿色恢复/成功表面分离为蓝色 Copilot 信息表面。Plugin
+  343/343、typecheck/build、根级检查及 Logseq 0.10.15 exact-build reload、1001×720、
+  726×720 Gate PASS。没有 Provider 调用或正式写入；新增正式状态、Runtime、Skill、
+  Validator、恢复分支和平行权威均为 0。关闭一个 Project 首屏 UI Partial，但阶段级
+  Partial 总量 `0` 新增、`0` 减少。
 - 完成 P0-C LOW 单组单 Block 白名单，`CREATE_OBJECT`/`REWRITE_BLOCK` 之外及 HIGH 组均拒绝；
 - 连续编排复用既有 Review→Graph/版本重验→SemanticCommit→verify，不新增写路径或恢复器；
 - busy 禁用同卡片审阅动作；stale 显示未写入；接受请求不确定时零自动重试并要求刷新；

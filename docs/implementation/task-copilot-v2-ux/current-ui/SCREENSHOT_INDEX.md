@@ -21,6 +21,21 @@ Graph 首次显示即受限、6 秒稳定 fail-closed 和切回原 authority；`
 `RECOVERY_REQUIRED` 的 HIGH Review、人工恢复、重连和完整 restart；它们不冒充生产 Restore
 连续双重故障注入。`p2-g-44`～`46` 继续只证明 `0c4526d` 的自动回滚交互。
 
+### Project 继续工作首屏 — exact build `b605e18c21ce`
+
+Plugin build：`2026-07-28 13:18:06 +0800`；Logseq `0.10.15`；File Graph
+`/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；Plugin Dark / host Light；
+真实 Plugin/Launcher/Service；只读打开工作区，没有 Provider 调用或正式写入。
+
+| 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|---|
+| `screenshots/ui-project-continuation-compressed-current-b605e18.jpg` | CURRENT | Plugin Dark / host Light / 1001×720 | reload exact build，打开“项目” | 标题和子导航均为“继续项目”；首屏一个主操作、一个蓝色 Copilot 次操作；调整项目、加入关注和其他入口折叠 |
+| `screenshots/ui-project-continuation-compressed-current-narrow-b605e18.jpg` | CURRENT | Plugin Dark / host Light / 726×720 | 同一会话缩到 726 px | 标题、当前结论、主操作、Copilot 次操作与两个折叠入口均可达，无横向溢出 |
+
+两图接管此前 Project 重入默认首屏的当前解释权；P1-G Context Recovery 的 loading、生成、
+error、rejection、stale 和反馈仍由 `p1-g-07`～`13` 负责。完整操作记录见
+`../logs/ui-project-continuation-compression-desktop-live-20260728.md`。
+
 ### Project 失联正文用户语言 — exact build `971c6db268f7`
 
 Plugin build：`2026-07-28 13:08:20 +0800`；Logseq `0.10.15`；File Graph

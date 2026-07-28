@@ -47,6 +47,15 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
 提示与代码一致。该 Gate 只关闭这条前台术语缺陷，不把 Project 重入、Rebind 或 P1/P2 其余
 Partial 升级为 DONE。
 
+`b605e18c21ce` 在不改变 Project 投影、Context Recovery、Proposal 或写入权威的前提下，
+继续压缩 Project 首屏：用户入口改为“继续项目”，删除“同一正式投影 / 不保存第二摘要 /
+Project 重入”等实现说明；每张卡首屏只保留“打开当前项目”主操作和“帮我恢复上下文”次
+操作，调整项目、加入当前关注及其他进入点折叠到“更多操作”。Context Recovery 使用蓝色
+信息语义，不再与绿色完成/安全语义混用。Plugin 343/343、typecheck/build、根级检查和
+1001×720 / 726×720 真实 Logseq 0.10.15 reload Gate 均通过；没有调用 Provider、执行
+正式写入或新增状态、Runtime、Skill、Validator、恢复分支。该 Gate 关闭 Project 重入首屏
+按钮墙与工程说明缺陷，不把 P1/P2 其余 Partial 升级为 DONE。
+
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
   Local Service 读回均已通过；
 - P0-B“暂时做不了”：三种用户意图、最小字段、失败零写入、Focus/Lifecycle 不变、会话内

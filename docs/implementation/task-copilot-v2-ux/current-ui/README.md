@@ -20,6 +20,15 @@
 `ui-project-missing-source-user-language-current-971c6db.jpg`。该截图只接管 Project
 “打开正文失败”表面的当前解释权，不替代 Rebind 正常链证据，也不表示 Project 重入整体完成。
 
+最新 Project 继续工作首屏精确构建为 `b605e18c21ce`（Plugin build
+`2026-07-28 13:18:06 +0800`）。真实 Logseq 0.10.15 reload 后，入口和标题统一为“继续
+项目”；首屏只保留“打开当前项目”主操作与“帮我恢复上下文”次操作，其余入口折叠。
+Context Recovery 使用蓝色信息语义，与绿色主操作/完成语义分离。CURRENT
+`ui-project-continuation-compressed-current-b605e18.jpg` 和
+`ui-project-continuation-compressed-current-narrow-b605e18.jpg` 覆盖 1001×720 与
+726×720。它们接管此前 Project 重入默认首屏的当前解释权；P1-G 生成态/error/stale 仍由
+各自 CURRENT 证据负责。
+
 最新 UI 压缩精确构建为 `f4acf77346b19aa2f096ff2c169bfa7323546062`
 （Plugin build `2026-07-27 19:42:41 +0800`）。`ui-compression-01`～`08` 使用真实
 Logseq 0.10.15 File Graph，覆盖 Light/Dark、1000×720 与 751×720：Now 卡片单一主动作、

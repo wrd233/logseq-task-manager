@@ -19,6 +19,26 @@
 
 ## 本轮变化（2026-07-28）
 
+### Project 继续工作首屏压缩
+
+- 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、恢复分支和平行写入
+  权威：均为 `0`。
+- 删除或合并重复机制：没有删除后台权威；把原先首屏分散的 Project primary route、
+  entry points、调整项目与 Focus 快捷入口合并为“一个主操作 + 一个 Copilot 次操作 +
+  更多操作”这一套渐进披露。
+- 前台工程词减少：删除“项目重入 / 同一正式投影 / 不保存第二摘要 / 每个 Project /
+  可选 Copilot”等实现说明；读取失败和 stale 也改为用户结果，原始错误只在详情中。
+- 语义颜色：Context Recovery 使用独立蓝色信息 token，不再借用绿色恢复/成功表面；没有
+  新增状态或改变操作权限。
+- 自动证据：Plugin `343/343`、typecheck/build、145 条稳定规则和根级恢复演练
+  `differences=[]` 全部通过。
+- Desktop：exact build `b605e18c21ce` 在真实 Logseq 0.10.15 reload 后，于 Plugin Dark /
+  host Light 的 1001×720 和 726×720 均保持主操作、次操作和折叠入口可达，无横向溢出。
+- Partial 总量变化：阶段级新增 `0`、关闭 `0`；关闭一个 Project 首屏 UI Partial，但不把
+  Project 重入、P1 或 P2 的开放验收项升级为 DONE。后台工程概念泄漏风险保持 `MEDIUM`，
+  当前代表首屏进一步缓解。
+- LLM/Provider：本 Slice 不调用模型；Validator 拒绝率、模型重试和 Skill 版本变化不适用。
+
 ### Project 失联正文的前台翻译
 
 - 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、恢复分支和平行写入
