@@ -76,7 +76,8 @@
 观察：
 
 - 正向：Waiting 不再冒充当前可行动项；reload 后正式状态保持。
-- 缺口：没有低打扰的“保持等待”分区，用户无法在 Now 中确认系统仍记得它。
+- 当时缺口：没有低打扰的“保持等待”分区。该 UI 缺口已由 `3d63d5a` 的正式 Focus
+  Paused Desktop 代表链关闭；Day 3 其他未完成行为不因此自动完成。
 - 未完成：安装账号 Waiting、Graylog Paused、724 DONE、RHCSA Focus/reviewAt。
 
 ## 轻量指标（截至 Day 3）
@@ -421,3 +422,13 @@ Day 6 刚从 Waiting 恢复、尚未加入 Focus 的真实 Task 一并隐藏。`
   均为 `0`。
 - Partial 净变化：`-1`（Now 首屏过载）；P1-C Dynamic Now、Attention helpful/noise 与
   Block Marker 继续 OPEN。
+
+### 2026-07-29 Now 三段正式状态补证
+
+- 同一正式测试 Task 先加入 Focus，再设为 Blocked；Now 只在“需要回看”显示一次，普通
+  非 Focus Blocked 保持安静。
+- 恢复后把同一 Task 设为 Paused，并填写未来 reviewAt；Now 只在“保持等待”显示一次。
+- 结束后恢复 Actionable、移出临时 Focus，系统状态无未完成修改或正文冲突。
+- 新增正式状态、Runtime、Attention 类型、Recovery 分支和 Skill/Prompt/Validator：`0`。
+- 关闭两个既有 Desktop 子 Partial；P1-C 的 Attention helpful/noise、disposition/cooldown
+  前台 Pilot 与 Block Marker 决策继续 OPEN。

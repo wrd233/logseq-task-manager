@@ -23,9 +23,12 @@ overall_goal: IN_PROGRESS
 一次，明确 Focus 始终保留在首屏，普通可推进项才按 4 项折叠；卡片用“来自当前关注”
 说明用户权威，仍保持一个主操作和折叠低频动作。Plugin `366/366`、typecheck/build 与
 根级检查 PASS。真实 Logseq 0.10.15 File Graph 在精确构建 reload 后完成 Plugin Dark
-1001×720 与 733×720 代表 Gate，系统状态为健康；尝试构造未来 Waiting 时因原生日期控件
-无法被 Computer Use 可靠写入而在保存前取消，零正式写入，因此“需要回看 / 保持等待”
-只登记自动证据，不伪装 Desktop PASS。该项 Partial 净变化 `-1`；没有新增正式状态、
+1001×720 与 733×720 “继续处理”代表 Gate；随后用同一正式 Task 依次执行
+Actionable→Focus→Blocked→Actionable→Paused（未来 reviewAt）→Actionable→移出 Focus，
+证明 Focus Blocked 只进入“需要回看”、Focus Paused 只进入“保持等待”，普通非 Focus
+Blocked 不被提升为前台提醒。全部状态与 Focus 变化均通过既有 Block 菜单、Condition
+Controller 和 Local Service；结束后恢复原 Condition/Focus，系统状态健康且无需操作。
+该项新增关闭两个 Desktop 子 Partial，累计 Partial 净变化 `-3`；没有新增正式状态、
 Runtime、Recovery 分支、Attention 类型、Skill/Prompt/Validator 或写入权威。P1-C 的
 Attention helpful/noise、disposition/cooldown 前台 Pilot 与 Block Marker 仍开放，整体
 Goal 继续 `IN_PROGRESS`。

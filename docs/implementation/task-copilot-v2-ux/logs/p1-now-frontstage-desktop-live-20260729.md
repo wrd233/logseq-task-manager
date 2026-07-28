@@ -33,27 +33,43 @@
 - 主题：Logseq host shell light / Plugin dark；
 - 标准宽度：1001×720；
 - 窄栏：733×720；
+- 正式状态补证窗口：754×720；
 - 系统状态：可以正常使用；未发现未完成修改或正文连接冲突；无需操作。
 
 截图：
 
 - `current-ui/screenshots/p1-now-frontstage-continue-dark-standard-3d63d5a.png`
 - `current-ui/screenshots/p1-now-frontstage-continue-dark-narrow-3d63d5a.png`
+- `current-ui/screenshots/p1-now-frontstage-needs-review-dark-754x720-3d63d5a.png`
+- `current-ui/screenshots/p1-now-frontstage-keep-waiting-dark-754x720-3d63d5a.png`
+- `current-ui/screenshots/p1-now-frontstage-restored-healthy-dark-754x720-3d63d5a.png`
 
 真实首屏显示一个 Focus Task（“来自当前关注”）和前 4 个普通推进项；其余 8 项保持一个
 折叠入口。标准宽度和窄栏都只显示一个主操作，依据和低频动作默认折叠。
 
-## 有界未覆盖
+## 正式状态补证
 
-当前正式 Graph 的 `/now-work` 为 Waiting 0，未自然产生“需要回看 / 保持等待”区域。
-通过正常 Condition 表单构造未来 Waiting 时，Computer Use 无法可靠写入 Logseq 原生
-datetime-local 控件；在“保存状态”前取消，正式状态、Proposal、Commit、Recovery 与
-正文写入均为 0。因此：
+同一精确构建中复用已有测试 Task
+“P2-G Rebind 纠错候选（缺陷证据，已修复）”，全部操作均通过 Block 右键菜单、
+Condition Controller 和 Local Service：
+
+1. Actionable Task 临时加入 Focus；
+2. 设为 Blocked，填写“P1 Now 需要回看代表验证；完成后立即恢复”；
+3. Now 只在“需要回看”显示一次；此前非 Focus Blocked 不进入前台，证明低噪声边界；
+4. 恢复 Actionable；
+5. 设为 Paused，填写“P1 Now 保持等待代表验证；完成后立即恢复”和未来 reviewAt；
+6. Now 只在“保持等待”显示一次；
+7. 恢复 Actionable并移出临时 Focus；
+8. 系统状态显示没有未完成修改或正文连接冲突、无需操作。
+
+因此：
 
 - 三段分类：AUTOMATED PASS；
 - “继续处理”：DESKTOP VERIFIED，标准宽度 + 窄栏；
-- “需要回看 / 保持等待”：DESKTOP OPEN，等待已有正式场景出现时补代表 Gate；
-- 不使用 Unicode 注入、SQLite 改写或静态原型伪造证据。
+- “需要回看”：DESKTOP VERIFIED，Focus Blocked 代表链；
+- “保持等待”：DESKTOP VERIFIED，Focus Paused 代表链；
+- 非 Focus Blocked 保持安静：DESKTOP VERIFIED；
+- 没有直接操作 SQLite、没有静态原型、没有遗留测试 Condition/Focus。
 
 ## 复杂度
 
@@ -63,5 +79,5 @@ datetime-local 控件；在“保存状态”前取消，正式状态、Proposal
 - 新增 Attention 类型：0；
 - 新增 Skill/Prompt/Validator：0；
 - Provider 调用：0；
-- Partial 净变化：-1；
+- Partial 累计净变化：-3；
 - P1-C 与完整 Goal：仍为 IN_PROGRESS。

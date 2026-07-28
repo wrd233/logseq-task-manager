@@ -39,7 +39,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding 及 ended→formal-action fail-closed→显式重启 PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN |
-| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生与“继续处理”Dark 标准/窄栏 Desktop 代表 Gate，Dynamic Shadow 不替换 authority、Attention 建议/质量门仍 OPEN；P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
+| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；Dynamic Shadow 不替换 authority、Attention 建议/质量门仍 OPEN；P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -172,10 +172,12 @@
 - Desktop：Logseq 0.10.15 File Graph，精确构建 plugin reload；Plugin Dark
   1001×720 与 733×720 均保持一个主动作、折叠依据/低频操作和 Focus 来源。系统状态为
   “可以正常使用”，无需操作。
-- 当前 Graph 没有 due/waiting 投影；构造未来 Waiting 时原生日期控件无法被 Computer Use
-  可靠输入，保存前取消、零正式写入。因而“需要回看/保持等待”是自动完成、Desktop
-  仍待自然代表场景，不使用伪造截图。
-- 关闭来源分区重复与 Focus 容量风险子 Partial `1`，新增长期 Partial `0`。P1-C 仍因
+- 追加 Desktop 代表链通过同一正式 Task 执行 Focus→Blocked→恢复→Paused（未来
+  reviewAt）→恢复→移出 Focus；“需要回看”只显示 Focus Blocked，“保持等待”只显示
+  Focus Paused，普通非 Focus Blocked 不被抬到前台。所有改变都走现有正式 Condition/Focus
+  命令，完成后恢复基线并再次确认系统健康。
+- 累计关闭来源分区重复、Focus 容量风险、“需要回看”与“保持等待”Desktop 子
+  Partial `3`，新增长期 Partial `0`。P1-C 仍因
   Attention helpful/noise、disposition/cooldown 前台 Pilot、建议关注为空和 Block Marker
   决策保持 Partial。
 

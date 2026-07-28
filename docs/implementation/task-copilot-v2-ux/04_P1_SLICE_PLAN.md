@@ -169,10 +169,12 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 - focused `5/5` + Plugin `366/366`、typecheck/build、根级 `./scripts/check.sh` PASS；
 - 精确构建 `3d63d5aee0a7` 在 Logseq 0.10.15 File Graph 完成真实 plugin reload，
   Plugin Dark 1001×720 与 733×720 显示同一信息层级；系统状态健康、无需操作；
-- 当前正式 Graph 没有 due/waiting 投影。通过正常 Condition 表单构造未来 Waiting 时，
-  原生日期控件不能被 Computer Use 可靠写入，已在保存前取消、零正式写入；因此这两段
-  只记自动证据，后续在已有正式 Waiting/due 场景出现时补代表 Desktop，不扩笛卡尔矩阵；
-- 关闭“来源分区重复/Focus 被容量折叠风险”子 Partial `1`。P1-C 仍因 Attention
+- 同一精确构建又以正式测试 Task 完成 Focus→Blocked→恢复→Paused（未来 reviewAt）→
+  恢复→移出 Focus；“需要回看 / 保持等待”分别出现且一对象只显示一个主问题。非 Focus
+  Blocked 保持安静，符合低噪声边界；
+- 结束后 Condition 与 Focus 均恢复到测试前基线，系统状态显示没有未完成修改或正文冲突；
+- 累计关闭“来源分区重复/Focus 被容量折叠风险”“需要回看 Desktop”“保持等待 Desktop”
+  子 Partial `3`。P1-C 仍因 Attention
   helpful/noise、disposition/cooldown 前台 Pilot 和建议关注为空而保持 Partial。
 
 ## P1-D：状态翻译层

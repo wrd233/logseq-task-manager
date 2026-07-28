@@ -128,16 +128,19 @@ Logseq `0.10.15`、File Graph、host Light / Plugin Dark、约 1000×720。`7fe7
 ### P1 Now 三段前台 — exact build `3d63d5aee0a7`
 
 Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit 后重新 build，
-通过 More → Plugins → Task Copilot → 重载。当前正式 Graph 没有 waiting/due 投影，
-因此截图只证明“继续处理”；三段分类其余状态由自动测试承担，不伪造 Desktop 数据。
+通过 More → Plugins → Task Copilot → 重载。“继续处理”使用既有正式 Now；另外两个
+分区复用同一正式测试 Task，经正常 Focus/Condition UI 构造并在取证后恢复。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
 | `screenshots/p1-now-frontstage-continue-dark-standard-3d63d5a.png` | CURRENT | 1001×720 精确构建 reload 后打开“现在” | Focus 标为“来自当前关注”且首屏保留；普通推进前 4 项可见，其余 8 项折叠；每卡一个主操作 |
 | `screenshots/p1-now-frontstage-continue-dark-narrow-3d63d5a.png` | CURRENT | 把 Logseq 窗口缩至 733×720 | 同一信息层级、主操作与折叠在窄栏可读；未增加工程词或按钮墙 |
+| `screenshots/p1-now-frontstage-needs-review-dark-754x720-3d63d5a.png` | CURRENT | 754×720；正式 Task 临时加入 Focus 后设为 Blocked | 一对象只进入“需要回看”；显示用户卡点与一个主操作；非 Focus Blocked 不抬升 |
+| `screenshots/p1-now-frontstage-keep-waiting-dark-754x720-3d63d5a.png` | CURRENT | 754×720；同一 Task 恢复后设为 Paused，并填写未来 reviewAt | 一对象只进入“保持等待”；暂停原因可见但不制造警告墙 |
+| `screenshots/p1-now-frontstage-restored-healthy-dark-754x720-3d63d5a.png` | CURRENT | 754×720；恢复 Actionable、移出临时 Focus，再检查系统状态 | 无未完成修改或正文冲突；正式能力均可用，无需操作 |
 
-系统状态随后显示“可以正常使用”、无需操作。正常 Condition 表单的未来 Waiting 测试因
-原生日期控件无法被 Computer Use 可靠写入，在保存前取消，零正式写入。
+测试结束后 Condition/Focus 均恢复到开始前基线；没有直接操作 SQLite、没有留下长期
+测试状态，也没有新增 Attention 或恢复分支。
 
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 

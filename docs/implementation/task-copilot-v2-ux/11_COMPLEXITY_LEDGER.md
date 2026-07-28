@@ -21,8 +21,9 @@
 
 ### P1 Now 三段前台与 Focus 权威（`3d63d5a`）
 
-- Partial 净变化 `-1`：关闭来源分区重复、focused Waiting 重复与 Focus 可能被普通容量
-  折叠的同一个前台子 Partial；新增长期 Partial `0`。
+- Partial 累计净变化 `-3`：关闭来源分区重复、focused Waiting 重复与 Focus 可能被普通容量
+  折叠的前台子 Partial，以及“需要回看 / 保持等待”两个 Desktop 代表 Gate；新增长期
+  Partial `0`。
 - 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Attention 类型 `0`、
   Skill/Prompt/Validator `0`、Provider 调用 `0`、写入权威 `0`。
 - 删除重复机制：不再分别渲染 Focus/next/waitingReview 三组近义区域；一个纯派生按 object
@@ -30,9 +31,10 @@
   现有 Dynamic Now Shadow 仍仅作质量对照。
 - Focus 全部显示且标为“来自当前关注”；普通 next 才保留 4 项首屏上限。用户权威不被
   UI 容量规则覆盖，一对象只出现一个主问题。
-- 自动为纯投影 `5/5`、Plugin `366/366`、根级检查 PASS；Desktop 采用代表矩阵，仅覆盖
-  当前真实“继续处理”的 Dark 1001×720/733×720 与系统健康。原生日期控件自动化失败时
-  保存前取消，不为截图制造正式数据，也不把另外两段伪装为 Desktop DONE。
+- 自动为纯投影 `5/5`、Plugin `366/366`、根级检查 PASS；Desktop 采用代表矩阵：
+  “继续处理”覆盖 Dark 1001×720/733×720，“需要回看”覆盖 Focus Blocked，“保持等待”
+  覆盖 Focus Paused。测试只复用一个正式 Task，结束后恢复 Condition/Focus 并确认系统
+  健康，没有为截图增加长期测试对象、状态或恢复分支。
 - 风险变化：Now 列表噪声与状态组合前台泄漏下降；Partial 堆积仍为 `HIGH`，P1
   Attention helpful/noise、disposition/cooldown 前台 Pilot、Block Marker、P0 原生中文
   IME 与 Final Release 仍阻断发布。

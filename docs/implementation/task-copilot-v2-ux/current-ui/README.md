@@ -63,8 +63,13 @@ Manager 重载后，既有正式 Now 已收敛为“继续处理 / 需要回看 
 继续默认折叠。CURRENT
 `p1-now-frontstage-continue-dark-standard-3d63d5a.png` 与
 `p1-now-frontstage-continue-dark-narrow-3d63d5a.png` 覆盖 Plugin Dark 1001×720 和
-733×720，系统状态健康。当前 Graph 没有 due/waiting 投影，所以另外两段只有自动证据；
-原生日期控件不能被 Computer Use 可靠输入时已在保存前取消，零正式写入。此前
+733×720。“需要回看”与“保持等待”随后复用同一正式测试 Task，依次通过 Focus
+Blocked 与 Focus Paused（未来 reviewAt）构造，分别由
+`p1-now-frontstage-needs-review-dark-754x720-3d63d5a.png` 和
+`p1-now-frontstage-keep-waiting-dark-754x720-3d63d5a.png` 证明；非 Focus Blocked
+保持安静。测试结束后恢复 Actionable、移出临时 Focus，
+`p1-now-frontstage-restored-healthy-dark-754x720-3d63d5a.png` 证明系统无未完成修改或正文冲突。
+此前
 `f1d0e1f` 的中文类型/单一结论证据和 `df6469f` 的 4 项上限证据保留为历史实现依据，
 但不再代表当前 Now 信息架构。完整记录见
 `../logs/p1-now-frontstage-desktop-live-20260729.md`。
