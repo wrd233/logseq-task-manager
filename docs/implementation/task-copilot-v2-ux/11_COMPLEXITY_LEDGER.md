@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E 全链及有界恢复合同、P2-G 真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏与通用深色表面已关闭；P0 其余宿主 Gate、P1 Attention/Marker、File Graph Light host issue 与 Rebind 指引仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E 全链及有界恢复合同、P2-G Rebind 纠错/捕获取消安全、真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏与通用深色表面已关闭；P0 原生中文 IME、P1 Attention/Marker、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -18,6 +18,24 @@
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
 ## 本轮变化（2026-07-28）
+
+### P2-G Rebind 纠错与显式同步取消安全（2026-07-29，`3a47cf9` / `075e031`）
+
+- Partial 净变化 `-2`：Rebind 最新成功态/纠错指引和显式同步捕获取消安全从 OPEN
+  变为 Desktop DONE；新增长期 Partial `0`。
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator `0`、
+  Provider 调用 `0`、平行写入权威 `0`。
+- 复用既有 missing/conflict 过滤、受控 Rebind、Backup/Restore、Logseq `readBlock`、
+  显式 Block normalizer 和 Local Service 正式写入。没有实现会机械复活旧 Anchor 的
+  generic inverse。
+- 捕获取消前重新读取当前 Block：删除/NONE 丢弃、修改只发最新内容、读取失败 fail
+  closed。真实取消与 reload 后 Service 查询均为零对象，关闭 silent materialization 风险。
+- 显式正式化缺少通用用户层删除/Undo 被登记为既有产品合同核对项，不为本次缺陷新增快捷
+  删除或第二恢复入口。
+- Desktop 只覆盖 Dark 1001×720 的风险代表链、reload 和最终系统诊断；不扩成主题/宿主
+  笛卡尔积。旧 `3a47cf9` 图降为历史，精确 `075e031` 五张图成为 CURRENT。
+- 风险变化：Recovery 语义分裂不增加；Silent overwrite 风险下降；Partial 堆积保持 HIGH，
+  因 P0 原生中文 IME、P1 Attention/Dynamic Now/Marker 与 Final Release 仍开放。
 
 ### P2-E 单步失败合同收口（2026-07-29，`98df827`）
 

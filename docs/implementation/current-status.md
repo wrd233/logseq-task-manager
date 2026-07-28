@@ -10,12 +10,24 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: IN_PROGRESS_DESKTOP_GATES
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
+
+`075e031d98ca` 又关闭 Rebind 捕获取消时的显式同步旧快照风险：transport 恢复前逐条
+重读当前 Block；已删除/已取消显式语义的候选被丢弃，已修改候选只同步最新内容，读取失败
+保持 fail closed。新增 focused `3/3`、Plugin `360/360`、typecheck/build 与根级检查
+均 PASS。真实 Logseq 0.10.15 Dark 1001×720 创建、预览、删除测试显式 Task 后取消捕获，
+Service 在取消后和真实插件 reload 后两次查询均为 `objects=[]`。同一精确构建又完成
+missing → 有界 Preview → 正式 Rebind → 成功纠错指引 → reload → 系统健康：
+Pending/Recovery/Source Conflict `0/0/0`，explicit sync clean，Doctor
+`12 PASS / 0 WARN / 0 FAIL`。Rebind 纠错不机械复活旧 missing/conflict Anchor；选错正文
+重新走受控 Rebind，整库回退进入 Backup/Restore。该项关闭两个既有 Partial，没有新增
+正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator 或写入权威；P2-G 和完整 Goal
+仍继续 `IN_PROGRESS`。
 
 连续使用 Pilot `PILOT-2026W31-A` 已推进到 Day 5 完整代表链：Day 1—4 的自然捕获、
 Waiting、MiniProject 与 Project create→reload→Undo 证据保持；Day 5 使用同一 Graylog
@@ -527,11 +539,13 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   typecheck 与根级检查 PASS；当前 commit `344c705ec446` 的真实 Logseq 0.10.15 已完成
   丢失 Anchor → 开始重新连接 → 新建并选择替代 Block → 阅读预览 → 确认 → Service
   Rebind → reload 后系统正常，且旧 Anchor 保留为 replaced、新 Anchor active。
-  Rebind Recovery/Undo 指引现已进入 `AUTOMATED_DESKTOP_OPEN`：receipt 虽保留旧/新
+  Rebind Recovery/Undo 指引现已进入 `DESKTOP_DONE_BOUNDED_NO_GENERIC_INVERSE`：receipt
+  虽保留旧/新
   Anchor，但旧连接常因 missing/conflict 才被替换，机械 inverse 会把事项重新指回不可用
   正文，因此不新增不安全通用 Undo。成功态把“选错正文”路由到新一轮 5 分钟受控 Rebind，
-  把“回退整个正式状态”路由到只读 Backup/Restore 目录；focused `10/10` 与 typecheck
-  PASS。新成功态 Desktop 与 Migration 向导仍 OPEN；
+  把“回退整个正式状态”路由到只读 Backup/Restore 目录；`075e031` 又完成真实成功态、
+  reload 健康与捕获取消零旧快照写入，focused 新增 `3/3`、Plugin `360/360`、root PASS。
+  显式正式化的等价撤销入口仍需 Release 合同核对，但不以不安全通用 inverse 关闭；
 - P2-G Restore 已进入
   `RESTORE_FRONTSTAGE_STATE_DELTA_ROUNDTRIP_AND_FAILURE_ROLLBACK_RELOAD_DESKTOP_DONE`：Local
   Service 新增
@@ -672,7 +686,7 @@ remaining LIGHT/other-HEAVY/visual gates OPEN /
 P2-E Provider→Review→Commit→Undo→reload + receipt resume + Provider error/stale Desktop DONE,
 pre-write failure/replay/stale bounded recovery contract DONE_AUTOMATED; no artificial RECOVERY_REQUIRED /
 P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
-P2-G Rebind identity-free capture main chain Desktop DONE,
+P2-G Rebind identity-free capture + bounded correction guidance + cancel safety Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,
 Restore activation-failure automatic rollback + recovery-point + reload Desktop DONE,
 Migration item Review/Preview Desktop DONE,

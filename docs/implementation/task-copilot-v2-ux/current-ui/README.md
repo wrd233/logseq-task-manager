@@ -3,6 +3,17 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
+最新 Rebind 与显式同步取消安全精确构建为 `075e031d98ca`（Plugin build
+`2026-07-29 01:05:14 +0800`）。真实 Logseq 0.10.15 File Graph、Dark 1001×720
+证明：已删除显式候选在取消捕获后与真实 plugin reload 后都没有形成正式对象；Rebind
+Preview 只显示有界候选，成功态把选错正文路由到重新选择、整库回退路由到完整恢复选项。
+reload 后系统状态为“Task Copilot 可以正常使用”，Pending/Recovery/Source Conflict
+`0/0/0`、explicit sync clean、Doctor `12 PASS / 0 WARN / 0 FAIL`。CURRENT 为
+`p0-explicit-sync-cancel-reload-dark-075e031.png` 与
+`p2-g-rebind-*-075e031.png` 五张；`3a47cf9` 中间图保留为
+`HISTORICAL/SUPERSEDED`。完整记录见
+`../logs/p2-g-rebind-guidance-and-cancel-safety-desktop-live-20260729.md`。
+
 最新 P0-K Block Condition 精确构建为 `73dc1e26f610`（Plugin build
 `2026-07-28 15:33:54 +0800`）。真实 Logseq 0.10.15 File Graph 在 999×720、host Light /
 Plugin Dark 下完成两条链，并补 727×720 窄栏：Query 投影没有可靠正式身份时只显示“尚未由 Task Copilot
@@ -145,7 +156,8 @@ explicit sync 后同一 UUID/identity 与 active Primary Anchor 保持，reload 
 分别暂缓、保持普通内容和不再提示；`318baab` 已让 reload/recompute 后的 Preview 直接
 显示无新增，不泄漏 UUID/type/Candidate/Proposal，不提供误导提交。Day 8 结束时累计
 32 次真实 DeepSeek；Day 9 又调用一次，累计 `33`，并以 `f18cc72` / `7fe762d`
-记录 Closure 应用/reload/Undo 与最终健康。Day 7 duplicate/missing/Rebind 变体仍 OPEN；
+记录 Closure 应用/reload/Undo 与最终健康。Day 7 duplicate/missing 的 Rebind 变体随后
+已由 `075e031` 的最新纠错/取消安全代表链关闭；
 Closure 有界失败合同随后由 `98df827` 关闭。Day 10 证明 Review 无积压、Project/More 克制，
 但原 Now 的 `Focus 1 + Next 10` 偏长，现有 Dynamic Now Shadow 又会遗漏刚恢复事项。
 `df6469f` 已在不替换正式投影的前提下，把 Next 压为首屏 4 项 + 6 项折叠，并完成
@@ -269,14 +281,15 @@ P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop G
 加入 5 分钟受控选择窗口，先 flush 再短时暂停显式物化。新替换 Block 在预览前的 Service
 回读为 0 个正式对象，确认 Rebind 后只产生一个正式对象、旧 Anchor `replaced`、新 Anchor
 唯一 `active`；恢复自动同步与 reload 后系统健康、`0/0/0`。CURRENT `p2-g-07`～`12`；
-早先 `p2-g-01`～`06` 只保留为真实历史发现/安全拒绝证据。Rebind 纠错指引已完成自动
-Gate：选错正文再次进入受控 Rebind，整库回退才进入 Backup/Restore，不提供会复活
-missing/conflict 旧 Anchor 的通用 Undo；新成功态 Desktop 仍 OPEN。Restore 失败链和
-Migration 当时也未完成；Restore 失败链现已由后述 CURRENT `p2-g-55`～`59` 替代，
-Migration Import 写后响应丢失也由 `p2-g-60`～`65` 关闭；但 Rebind 指引、
-Migration Light host Gate 仍使 P2-G 和整体 Goal 保持
+早先 `p2-g-01`～`06` 只保留为真实历史发现/安全拒绝证据。Rebind 纠错指引继续坚持：
+选错正文再次进入受控 Rebind，整库回退才进入 Backup/Restore，不提供会复活
+missing/conflict 旧 Anchor 的通用 Undo。精确 `075e031` 已完成最新成功态、reload、
+最终健康诊断和捕获取消零旧快照写入，见本文件开头 CURRENT。Restore 失败链现已由后述
+CURRENT `p2-g-55`～`59` 替代，Migration Import 写后响应丢失也由 `p2-g-60`～`65`
+关闭；File Graph Light host Gate 与其他 Release 项仍使 P2-G 和整体 Goal 保持
 `IN_PROGRESS`。完整记录见
-`../logs/p2-g-rebind-desktop-live-20260726.md`。
+`../logs/p2-g-rebind-desktop-live-20260726.md` 与
+`../logs/p2-g-rebind-guidance-and-cancel-safety-desktop-live-20260729.md`。
 
 P2-G Restore 产品入口的生命周期链已在 `6ae8f2fcebd0` 当前构建完成真实 Desktop
 Gate。Service-owned 目录不显示路径/ID，选择后再次校验并单独确认；未确认保持零请求，

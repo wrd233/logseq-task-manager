@@ -1,6 +1,6 @@
 # 交互优化实施进度
 
-> 更新时间：2026-07-28
+> 更新时间：2026-07-29
 > 当前结论：`IN_PROGRESS` — `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；
 > `ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。P0-A Focus、
 > P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
@@ -40,7 +40,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding 及 ended→formal-action fail-closed→显式重启 PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ### 2026-07-28 连续使用 Pilot Day 6 Waiting 恢复
@@ -1151,7 +1151,8 @@ derivative/dashboard 价值也仍未完成。
 
 ## 下一步
 
-1. 关闭 P2-G Rebind 最新成功态与纠错/整库恢复指引 Desktop Gate；
+1. Rebind 最新成功态、纠错/整库恢复指引与捕获取消安全已在 `075e031` 关闭；继续核对
+   显式正式化是否已有等价用户撤销入口，但不得绕过 Application/Service 增加快捷删除；
 2. P2-G Restore 正常往返、激活失败→自动回滚以及真实连续双重失败→HIGH Review→
    人工恢复→Doctor→清锁→正常 Launcher/reload 均已完成真实 Desktop Gate；下一次可控
    Rebind 仍需验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
@@ -1163,7 +1164,7 @@ derivative/dashboard 价值也仍未完成。
    重试和当前构建 reload；`7fcdcf5` 又完成 722×720 窄栏代表 Gate。Light 设置在
    Logseq 0.10.15 File Graph 完整 Reload 和完整 quit/reopen 后均回到深色宿主，继续作为
    bounded host issue；退出后旧 Service PID 按 lease 停止，重开后同一 Launcher 启动新
-   Service 并自动恢复正式能力。继续 Rebind 最新指引，不得加入
+   Service 并自动恢复正式能力。继续 Final Release 代表矩阵，不得加入
    第二迁移或恢复状态源。
 3. 以已完成的 `PILOT-2026W31-A` 数据收口第一批确定性 Attention / Dynamic Now 前台
    边界，并完成 P0-J 原生中文 IME；Block Marker 保持默认关闭，P1-F DB Graph Page Head

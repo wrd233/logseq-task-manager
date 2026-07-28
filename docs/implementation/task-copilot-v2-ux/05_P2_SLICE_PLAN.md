@@ -398,7 +398,7 @@ fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate�
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_RESTORE_ROUNDTRIP_DESKTOP_DONE_RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE_MIGRATION_RESPONSE_LOSS_RECOVERY_DESKTOP_DONE`
+状态：`IN_PROGRESS_REBIND_GUIDANCE_RESTORE_MIGRATION_HIGH_RISK_DESKTOP_DONE`
 
 ### Recovery
 
@@ -423,7 +423,18 @@ Rebind → reload 后系统正常。Service 回读证明旧 Anchor 为 replaced�
 没有产生额外正式对象。Rebind 常规主链 Desktop DONE。Recovery/Undo 指引已完成自动 Gate：
 旧 Anchor 常因 missing/conflict 才被替换，不能仅凭 receipt 存在就机械恢复为 active；成功态
 把选错正文路由回 5 分钟受控 Rebind，把整库回退路由到 Backup/Restore 只读目录。focused
-`10/10` 与 typecheck PASS；新成功态 Desktop 仍 OPEN。
+`10/10` 与 typecheck PASS。
+
+`3a47cf9` 先把普通 Rebind 候选收窄为 missing/conflict，并让成功态只把“选错正文”路由
+回受控 Rebind、把整库回退路由到 Backup/Restore。真实 Desktop 随后发现捕获取消恢复
+transport 时会直接发送旧内存请求：用户已删除的显式候选仍可能被物化。`075e031` 在恢复
+前逐条重读当前 Block；删除/NONE 丢弃、修改只发送最新内容、读取失败 fail closed。
+focused 新增 `3/3`，Plugin `360/360`、typecheck/build 与根级检查 PASS。真实
+Logseq 0.10.15 在精确 `075e031` 下证明取消候选在取消后及 reload 后均为零正式对象；
+同一构建又完成 Rebind Preview→Commit→纠错指引→reload，最终
+Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean、Doctor
+`12 PASS / 0 WARN / 0 FAIL`。Rebind 新成功态/纠错指引与捕获取消安全 Desktop Gate
+均 DONE；不新增会复活旧失效正文的通用 inverse。
 
 ### Restore
 

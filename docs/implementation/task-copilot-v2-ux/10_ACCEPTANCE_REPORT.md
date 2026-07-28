@@ -12,7 +12,7 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash/custom binding 与 ended formal boundary PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A/B、P2-C/D、P2-E 全链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error、generation stale、写入前失败与重放安全合同 DONE；精确 `98df827` 完成真实 reload/当前空审阅证据，FAILED/STALE 卡为自动故障注入证据；P2-G Restore 真实双失败人工恢复、Migration Activation/失败重试/窄栏 DONE | P2-D remaining；P2-F frontstage；P2-G Rebind guidance；File Graph 自身 Light bounded host issue |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A/B、P2-C/D、P2-E 全链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error、generation stale、写入前失败与重放安全合同 DONE；精确 `98df827` 完成真实 reload/当前空审阅证据，FAILED/STALE 卡为自动故障注入证据；P2-G Rebind 最新纠错指引/捕获取消安全、Restore 真实双失败人工恢复、Migration Activation/失败重试/窄栏 DONE | P2-D remaining；P2-F frontstage；显式正式化等价撤销入口核对；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
 
 `bfabf40` 已通过 Project 创建后落地与返回现场的代表性 UI Gate：真实 Logseq 0.10.15
@@ -205,9 +205,12 @@ Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
   identity-free，5 分钟有界捕获窗口解决自动 materialization 竞态；既有正式 Rebind 安全链
   保持。当前 commit `344c705ec446` 已真实 Desktop 完成 capture→Preview→Submit→reload，
   Service 回读旧 Anchor replaced、新 Anchor active，正式对象没有重复创建；
-- [ ] Rebind 纠错/Undo 指引不复活 missing/conflict 旧 Anchor：自动 Gate 已把选错正文路由
+- [x] Rebind 纠错/Undo 指引不复活 missing/conflict 旧 Anchor：自动 Gate 已把选错正文路由
   到新一轮受控 Rebind，把整库回退路由到 Backup/Restore，并明确不删除事项或旧历史；
-  focused `10/10` PASS，最新成功态 Desktop 仍 OPEN；
+  `075e031` 真实 Desktop 完成有界 Preview→正式 Rebind→成功指引→reload→健康；同一
+  构建还证明取消捕获会在恢复前重读当前 Block，已删除候选在取消后与 reload 后均为
+  零正式对象。focused 新增 `3/3`、Plugin `360/360`、root PASS，最终
+  Pending/Recovery/Source Conflict `0/0/0`；
 - [ ] Restore/Migration 复用唯一安全链；Restore 已自动证明服务端有界目录、session token、
   再校验、单独确认、PENDING/reconciliation preflight、既有原子 Restore/Service 自停/
   Launcher 重连接线，Plugin `288/288` PASS；`6ae8f2fcebd0` 已真实 Desktop 证明未确认

@@ -428,12 +428,22 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p2-e-16-closure-completed-after-reload-current-dark.jpeg` | `6f7f9a857be9` | recovered Commit 完成后再次 reload，打开最近修改 | 完成态跨 reload 可读，提供同一个 Closure Undo；异常 Commit 0/0/0 | Provider error/stale Desktop 仍 OPEN |
 | `screenshots/p2-e-17-closure-undo-restored-project-current-dark.jpeg` | `6f7f9a857be9` | 对 recovered Commit 执行专用 Closure inverse | 即时结果为“已撤销”，自动返回 Project 重入；Project OPEN v21、Closure absent | 不修改 Logseq Page/正文 |
 | `screenshots/p2-e-18-closure-undo-after-reload-current-dark.jpeg` | `6f7f9a857be9` | recovered Commit Undo 后再次 reload | Now Work 重新显示同一 Project；Runtime/Store READY，原 Commit UNDONE、inverse COMPLETED、异常 Commit 0/0/0 | 当前只代表 Dark 标准宽度 |
-| `screenshots/p2-g-07-rebind-capture-entry-dark-994x700.jpg` | `344c705ec446` | reload 发现一个合成正式事项的旧正文不可用，用户进入系统状态 | 前台只说明正式事项仍保留、受影响能力和数据安全；唯一主动作是“开始重新连接” | Rebind 专用 Undo 引导仍 OPEN |
+| `screenshots/p2-g-07-rebind-capture-entry-dark-994x700.jpg` | `344c705ec446` | reload 发现一个合成正式事项的旧正文不可用，用户进入系统状态 | 前台只说明正式事项仍保留、受影响能力和数据安全；唯一主动作是“开始重新连接” | `HISTORICAL`；当时 Rebind 指引仍 OPEN，现由 `075e031` CURRENT 替代 |
 | `screenshots/p2-g-08-rebind-capture-window-dark-994x700.jpg` | `344c705ec446` | 用户启动受控选择并回到 Logseq 新建替换 Block，再打开 Task Copilot | 明确 5 分钟上限、暂缓自动物化、取消/提交后恢复；Service 此时匹配正式对象数为 0 | 窗口期间其他显式编辑也会排队，故必须保持短时且用户主动 |
 | `screenshots/p2-g-09-rebind-capture-preview-dark-994x700.jpg` | `344c705ec446` | 用户预览新正文并选择原连接不可用的事项 | 只显示标题、类型和翻译状态；无 UUID/Anchor ID/hash，正式事项与主归属保持说明可读 | 当前截图在勾选最终影响确认前 |
 | `screenshots/p2-g-10-rebind-capture-success-dark-994x700.jpg` | `344c705ec446` | 用户勾选单独确认并提交正式 Rebind | 新正文连接成功、旧连接保留历史；恢复自动同步后匹配正式对象仍为 1 | 页面标题在即时窗口仍短暂显示正文核对，reload 后收敛 |
-| `screenshots/p2-g-11-rebind-capture-reload-clean-dark-994x700.jpg` | `344c705ec446` | Plugin Manager reload 后打开用户系统状态 | Task Copilot 可以正常使用、数据安全、无需操作；Anchor issue 已消失 | Restore/Migration 与 Rebind Undo 引导仍 OPEN |
+| `screenshots/p2-g-11-rebind-capture-reload-clean-dark-994x700.jpg` | `344c705ec446` | Plugin Manager reload 后打开用户系统状态 | Task Copilot 可以正常使用、数据安全、无需操作；Anchor issue 已消失 | `HISTORICAL`；当前纠错指引与取消安全由 `075e031` CURRENT 替代 |
 | `screenshots/p2-g-12-rebind-capture-build-identity-dark-994x700.jpg` | `344c705ec446` | reload 健康后展开技术诊断 | Plugin commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` 与 explicit sync healthy 同屏 | 诊断属于证据层，不是日常必读 UI |
+| `screenshots/p2-g-rebind-anchor-missing-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | 修复前测试对象正文失联 | 促成候选收窄与纠错链 | `HISTORICAL`；早于捕获取消安全修复，不代表当前完整构建 |
+| `screenshots/p2-g-rebind-correction-targeted-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | 成功态只提供重新选择正文与完整恢复 | 用户语义有效 | `HISTORICAL`；由精确 `075e031` 成功态替代 |
+| `screenshots/p2-g-rebind-preview-bounded-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | missing/conflict 候选收窄 Preview | 候选范围有界 | `SUPERSEDED`；由 `p2-g-rebind-preview-bounded-dark-075e031.png` 替代 |
+| `screenshots/p2-g-rebind-success-guidance-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | Rebind 成功纠错指引 | 选错/整库回退分流 | `SUPERSEDED`；由精确 `075e031` 同场景替代 |
+| `screenshots/p2-g-rebind-reload-healthy-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | Rebind 后 reload 健康 | 系统不再报告失联 | `SUPERSEDED`；由精确 `075e031` 同场景替代 |
+| `screenshots/p0-explicit-sync-cancel-reload-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 捕获期间创建并删除显式候选，取消后真实 reload | Now 不含测试候选；Service 取消后和 reload 后均查询为 `objects=[]` | `CURRENT`；原内容已删除且没有静默正式化 |
+| `screenshots/p2-g-rebind-preview-bounded-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 选择正文失联测试事项并阅读 Preview | 只显示标题、类型与“原连接位置不可用” | `CURRENT`；当前未应用、退出安全 |
+| `screenshots/p2-g-rebind-success-guidance-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 单独确认后完成正式 Rebind | 主结论“正文已重新连接”；选错走“重新选择正文”，整库回退走“查看完整恢复选项” | `CURRENT` |
+| `screenshots/p2-g-rebind-reload-healthy-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | Plugin Manager 真实 reload 后打开“现在” | 纠错后的事项可继续，正文连接警告消失；取消回归候选未出现 | `CURRENT` |
+| `screenshots/p2-g-rebind-final-system-healthy-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | reload 后打开用户系统状态并展开诊断 | “Task Copilot 可以正常使用”；`0/0/0`、explicit sync clean、最近错误无 | `CURRENT`；技术信息默认折叠 |
 | `screenshots/p2-g-13-backup-catalog-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | reload 最新构建后进入“更多 → 备份与恢复” | 两个 Service 管理快照只显示时间、四项正式事项与完整性 PASS；无 ID/路径 | 当前产品 UI 的状态差异读回仍 OPEN |
 | `screenshots/p2-g-14-restore-impact-review-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 选择快照并由 Service 再校验 | 最终影响明确 SQLite 替换、Logseq 正文不改写、当前状态先保留恢复点；单独确认未勾选 | failure 注入仍 OPEN |
 | `screenshots/p2-g-15-restore-success-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 先验证未确认零请求，再勾选并正式 Restore | Service 自停并由 Launcher 重建；Plugin 自动回到 READY；成功态不再残留旧错误 | 即时重连过程很短，截图捕获最终稳定态 |
