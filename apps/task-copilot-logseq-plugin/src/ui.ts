@@ -1314,7 +1314,7 @@ function renderActionDialog(model: UiModel): string {
     })() : "";
     const question = state.status === "ready" && output?.readiness === "CONTINUE" && output.questionGroup
       ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2ProjectCreationGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-project-creation-grill-answer", dialog.value, "primary")}</section>` : "";
-    const retry = state.status === "error" ? button("重试本轮", "v2-project-creation-grill-retry", dialog.value, "quiet") : "";
+    const retry = state.status === "error" && state.retryable ? button("重试本轮", "v2-project-creation-grill-retry", dialog.value, "quiet") : "";
     const recheck = state.status === "stale" ? button("基于最新内容重新检查", "v2-project-creation-grill-recheck", dialog.value, "primary") : "";
     return `<section class="inbox-dialog action-dialog project-creation-grill" aria-label="梳理项目"><div class="eyebrow">Project Grill Me · ${escapeHtml(sourceLabel)} · 本次讨论不会保存</div><h3>先把项目说清楚</h3><p class="muted">后台可以读取有界来源；前台只保留核心理解、依据、一个真正分歧和一个主要动作。事实、推断、未知分开，智能分析无权创建正式事项。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${recheck}${cancel}</div></section>`;
   }

@@ -871,6 +871,18 @@ test("Project Creation Grill keeps facts, inference, unknown, one question, zero
   assert.match(html, /来源已变化/);
   assert.match(html, /data-action="v2-project-creation-grill-recheck"/);
   assert.match(html, /基于最新内容重新检查/);
+
+  value.v2ProjectCreationGrill["PAGE:page-1"] = {
+    status: "error",
+    source: { sourceKind: "PAGE", pageId: "page-1" },
+    answers: [],
+    retryable: false,
+    message: "当前来源内容较多，无法完整梳理。请返回并从较小页面或空白 Project 入口继续。",
+  };
+  html = renderApp(value);
+  assert.match(html, /当前来源内容较多/);
+  assert.doesNotMatch(html, /data-action="v2-project-creation-grill-retry"/);
+  assert.match(html, /data-action="cancel-action-dialog"/);
 });
 
 test("Project Page Context routes current state, structure discussion, and project operations", () => {

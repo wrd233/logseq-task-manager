@@ -19,7 +19,7 @@ export type PluginProjectCreationPreviewState =
 export type PluginProjectCreationGrillState =
   | { status: "loading"; source: ProjectCreationSource; answers: ProjectCreationAnswer[]; previous?: ServiceProjectCreationGrillResult }
   | { status: "ready"; source: ProjectCreationSource; answers: ProjectCreationAnswer[]; result: ServiceProjectCreationGrillResult; preview?: PluginProjectCreationPreviewState }
-  | { status: "error"; source: ProjectCreationSource; answers: ProjectCreationAnswer[]; retryAnswers?: ProjectCreationAnswer[]; message: string; previous?: ServiceProjectCreationGrillResult }
+  | { status: "error"; source: ProjectCreationSource; answers: ProjectCreationAnswer[]; retryAnswers?: ProjectCreationAnswer[]; message: string; retryable: boolean; previous?: ServiceProjectCreationGrillResult }
   | { status: "stale"; source: ProjectCreationSource; answers: ProjectCreationAnswer[]; message: string };
 
 export interface ProjectCreationGrillClient {
@@ -75,6 +75,23 @@ function userFailure(error: unknown, phase: "TURN" | "PREVIEW" | "REVIEW"): stri
   if (phase === "TURN") return "这轮讨论没有完成；回答没有保存，也没有创建正式事项。请重试。";
   if (phase === "PREVIEW") return "最终阅读预览没有生成；页面和正式事项均未改变。请重试。";
   return "待确认建议没有建立；页面和正式事项均未改变。请重试。";
+}
+
+function turnFailure(error: unknown): { message: string; retryable: boolean } {
+  const code = serviceErrorCode(error);
+  if (code === "PROJECT_CREATION_SOURCE_TOO_LARGE") {
+    return {
+      message: "当前来源内容较多，无法完整梳理。页面、回答和正式事项均未改变。请返回并从较小页面或空白 Project 入口继续。",
+      retryable: false,
+    };
+  }
+  if (code === "PROJECT_CREATION_SOURCE_EMPTY") {
+    return {
+      message: "当前来源没有足够的可读材料。页面、回答和正式事项均未改变。请返回补充材料，或从空白 Project 入口继续。",
+      retryable: false,
+    };
+  }
+  return { message: userFailure(error, "TURN"), retryable: true };
 }
 
 function requestRelationshipClarification(
@@ -151,7 +168,7 @@ export class ProjectCreationGrillController {
 
   async retry(key: string): Promise<void> {
     const state = this.states.get(key);
-    if (!state || state.status === "loading" || state.status === "stale") throw new Error("当前 Project 讨论无法重试；请重新开始。");
+    if (!state || state.status === "loading" || state.status === "stale" || (state.status === "error" && !state.retryable)) throw new Error("当前 Project 讨论无法重试；请重新开始。");
     const previous = state.status === "ready" ? state.result : state.previous;
     await this.requestTurn(key, state.source, state.status === "error" ? state.retryAnswers ?? state.answers : state.answers, previous, state.answers);
   }
@@ -277,7 +294,7 @@ export class ProjectCreationGrillController {
     const client = started.client;
     const grill = client?.grillProjectCreation;
     if (!client || !grill || !started.providerAvailable) {
-      this.states.set(key, { status: "error", source, answers: confirmedAnswers, retryAnswers: requestedAnswers, message: "智能分析暂不可用或正在恢复；没有生成讨论。", ...(previous ? { previous } : {}) });
+      this.states.set(key, { status: "error", source, answers: confirmedAnswers, retryAnswers: requestedAnswers, message: "智能分析暂不可用或正在恢复；没有生成讨论。", retryable: true, ...(previous ? { previous } : {}) });
       await this.onStateChange();
       return;
     }
@@ -293,7 +310,18 @@ export class ProjectCreationGrillController {
     } catch (error) {
       if (epoch !== this.epoch) return;
       if (staleError(error)) this.states.set(key, { status: "stale", source, answers: confirmedAnswers, message: staleMessage(error) });
-      else this.states.set(key, { status: "error", source, answers: confirmedAnswers, retryAnswers: requestedAnswers, message: userFailure(error, "TURN"), ...(previous ? { previous } : {}) });
+      else {
+        const failure = turnFailure(error);
+        this.states.set(key, {
+          status: "error",
+          source,
+          answers: confirmedAnswers,
+          retryAnswers: requestedAnswers,
+          message: failure.message,
+          retryable: failure.retryable,
+          ...(previous ? { previous } : {}),
+        });
+      }
     }
     await this.onStateChange();
   }

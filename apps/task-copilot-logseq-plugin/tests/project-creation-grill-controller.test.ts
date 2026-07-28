@@ -156,6 +156,36 @@ test("retains the last verified turn for retry and classifies authoritative sour
   assert.equal(controller.snapshot()["PAGE:page-1"]?.status, "stale");
 });
 
+test("explains an oversized bounded source without offering a futile retry", async () => {
+  let calls = 0;
+  const client = {
+    grillProjectCreation: async () => {
+      calls += 1;
+      throw Object.assign(new Error("source is outside the bounded read scope"), {
+        details: { remoteCode: "PROJECT_CREATION_SOURCE_TOO_LARGE" },
+      });
+    },
+  };
+  const controller = new ProjectCreationGrillController(
+    () => ({ client, providerAvailable: true, generation: 1 }),
+    async () => undefined,
+  );
+
+  const key = await controller.start({ sourceKind: "PAGE", pageId: "page-large" });
+  const state = controller.snapshot()[key];
+  assert.equal(calls, 1);
+  assert.equal(state?.status, "error");
+  assert.equal(state?.status === "error" ? state.retryable : undefined, false);
+  assert.match(state?.status === "error" ? state.message : "", /当前来源内容较多/);
+  assert.match(state?.status === "error" ? state.message : "", /较小页面|空白 Project/);
+  assert.doesNotMatch(state?.status === "error" ? state.message : "", /Provider|Block|16|安全范围|重试/i);
+  await assert.rejects(
+    () => controller.retry(key),
+    /无法重试/,
+  );
+  assert.equal(calls, 1);
+});
+
 test("generates zero-write Preview then creates only a server-owned HIGH Review Proposal", async () => {
   let previewInput: ServiceProjectCreationGrillRequest | undefined;
   let proposalInput: unknown;
