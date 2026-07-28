@@ -17,7 +17,25 @@
 | 文档/代码/截图漂移 | HIGH | 历史 Desktop 证据多，最新安全提交可能没有新 UI | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；自动-only 安全修复不借用旧截图升级 Desktop 状态；每轮同步 status/progress/acceptance/plan/current-ui | 是 |
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
-## 本轮变化（2026-07-28）
+## 本轮变化（2026-07-29）
+
+### P1 Now 三段前台与 Focus 权威（`3d63d5a`）
+
+- Partial 净变化 `-1`：关闭来源分区重复、focused Waiting 重复与 Focus 可能被普通容量
+  折叠的同一个前台子 Partial；新增长期 Partial `0`。
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Attention 类型 `0`、
+  Skill/Prompt/Validator `0`、Provider 调用 `0`、写入权威 `0`。
+- 删除重复机制：不再分别渲染 Focus/next/waitingReview 三组近义区域；一个纯派生按 object
+  identity 去重并收敛为“继续处理 / 需要回看 / 保持等待”。没有建立第二 Now Runtime，
+  现有 Dynamic Now Shadow 仍仅作质量对照。
+- Focus 全部显示且标为“来自当前关注”；普通 next 才保留 4 项首屏上限。用户权威不被
+  UI 容量规则覆盖，一对象只出现一个主问题。
+- 自动为纯投影 `5/5`、Plugin `366/366`、根级检查 PASS；Desktop 采用代表矩阵，仅覆盖
+  当前真实“继续处理”的 Dark 1001×720/733×720 与系统健康。原生日期控件自动化失败时
+  保存前取消，不为截图制造正式数据，也不把另外两段伪装为 Desktop DONE。
+- 风险变化：Now 列表噪声与状态组合前台泄漏下降；Partial 堆积仍为 `HIGH`，P1
+  Attention helpful/noise、disposition/cooldown 前台 Pilot、Block Marker、P0 原生中文
+  IME 与 Final Release 仍阻断发布。
 
 ### P2-G Rebind 纠错与显式同步取消安全（2026-07-29，`3a47cf9` / `075e031`）
 

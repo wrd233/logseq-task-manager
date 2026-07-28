@@ -115,9 +115,10 @@ disposition/cooldown 是否需要跨 reload derivative，保留到 Desktop 真�
 
 ## P1-C：“现在”动态编排
 
-状态：`PARTIAL_RUNTIME_SHADOW` — 稳定三段骨架、正式事实 inclusion/exclusion、容量与
-Focus ownership 纯投影已完成并进入 Plugin count-only runtime 对照；未替换现有 Service/UI，
-Copilot 建议关注仍保持空。
+状态：`PARTIAL_DESKTOP_FRONTSTAGE_SHADOW_SUGGESTIONS_OPEN` — 稳定三段骨架、正式事实
+inclusion/exclusion、容量与 Focus ownership 已完成纯投影；`3d63d5a` 已让既有正式
+Service Now 在用户层按同一三段展示并完成“继续处理”标准宽度/窄栏 Desktop 代表 Gate。
+Dynamic Now Shadow 仍只作对照，Copilot 建议关注仍为空，Attention 前台质量门未通过。
 
 稳定骨架：
 
@@ -153,7 +154,26 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
   每次 Attention session cycle 同步记录 continue/review/waiting/suggestion/suppressed/overflow
   数量与 focus-overload，日志无正文和 identity；
 - Application tests 98/98、Plugin tests 197/197、0 skipped，typecheck/build 与根级 Gate PASS；
-- 当前不构成用户可见 Now 编排或 Desktop PASS。
+- 该首轮 Shadow 本身不构成用户可见 Now 编排或 Desktop PASS。
+
+2026-07-29 前台收口结果：
+
+- 新增纯 UI 派生 `projectNowFrontstageSections`，只读取既有 `ServiceNowWork`，不新增
+  Domain、SQLite、Signal、Runtime 或写入路径；
+- 同一 object identity 在 Focus / next / waitingReview 之间去重；ACTIONABLE 进入
+  “继续处理”，到期 Waiting/Paused、Blocked 与逾期 next 进入“需要回看”，未来
+  Waiting/Paused 进入“保持等待”；
+- Focus 来源显式显示“来自当前关注”；无论 Focus 数量多少都不进入普通 4 项折叠，
+  用户权威不被系统容量规则隐藏；
+- focused Waiting 只在“保持等待”出现一次，不再同时占据“当前关注”和“等待与复查”；
+- focused `5/5` + Plugin `366/366`、typecheck/build、根级 `./scripts/check.sh` PASS；
+- 精确构建 `3d63d5aee0a7` 在 Logseq 0.10.15 File Graph 完成真实 plugin reload，
+  Plugin Dark 1001×720 与 733×720 显示同一信息层级；系统状态健康、无需操作；
+- 当前正式 Graph 没有 due/waiting 投影。通过正常 Condition 表单构造未来 Waiting 时，
+  原生日期控件不能被 Computer Use 可靠写入，已在保存前取消、零正式写入；因此这两段
+  只记自动证据，后续在已有正式 Waiting/due 场景出现时补代表 Desktop，不扩笛卡尔矩阵；
+- 关闭“来源分区重复/Focus 被容量折叠风险”子 Partial `1`。P1-C 仍因 Attention
+  helpful/noise、disposition/cooldown 前台 Pilot 和建议关注为空而保持 Partial。
 
 ## P1-D：状态翻译层
 

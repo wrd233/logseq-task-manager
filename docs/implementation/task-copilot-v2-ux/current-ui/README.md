@@ -57,15 +57,17 @@ Page 来源链证明 Preview 已收敛为系统理解、应用影响、安全边
 `HISTORICAL`，`e33a398` 截图已由最终构建替代。完整记录见
 `../logs/ui-project-preview-high-review-compression-desktop-live-20260728.md`。
 
-最新“现在”精确构建为 `f1d0e1f1cee9`（Plugin build
-`2026-07-28 13:03:00 +0800`）。真实 Logseq 0.10.15 reload 后，对象类型筛选、分组标题和
-卡片 eyebrow 已统一为“项目 / 小项目 / 任务”等中文产品语言；通用可推进状态不再把
-“正式状态允许继续推进”作为第二条首屏依据重复结论，完整正式事实仍在“查看依据”中。
-筛选说明也从 `Focus / Now Work` 收敛为“当前关注 / 现在”。CURRENT
-`ui-now-chinese-single-conclusion-current-f1d0e1f.png` 与
-`ui-now-chinese-single-conclusion-current-narrow-f1d0e1f.png` 分别覆盖 1000×720 和
-724×720；筛选只改变 session view，未改正文或正式状态。`ui-compression-01/07` 因仍显示
-旧英文类型而降为 `SUPERSEDED`。
+最新“现在”精确构建为 `3d63d5aee0a7`。真实 Logseq 0.10.15 File Graph 经过 Plugin
+Manager 重载后，既有正式 Now 已收敛为“继续处理 / 需要回看 / 保持等待”；同一对象只
+出现一次，用户 Focus 显示“来自当前关注”且永不被普通 4 项上限折叠，依据和低频操作
+继续默认折叠。CURRENT
+`p1-now-frontstage-continue-dark-standard-3d63d5a.png` 与
+`p1-now-frontstage-continue-dark-narrow-3d63d5a.png` 覆盖 Plugin Dark 1001×720 和
+733×720，系统状态健康。当前 Graph 没有 due/waiting 投影，所以另外两段只有自动证据；
+原生日期控件不能被 Computer Use 可靠输入时已在保存前取消，零正式写入。此前
+`f1d0e1f` 的中文类型/单一结论证据和 `df6469f` 的 4 项上限证据保留为历史实现依据，
+但不再代表当前 Now 信息架构。完整记录见
+`../logs/p1-now-frontstage-desktop-live-20260729.md`。
 
 最新 Project 失联正文用户语言精确构建为 `971c6db268f7`（Plugin build
 `2026-07-28 13:08:20 +0800`）。真实 Logseq 0.10.15 reload 后，专用测试 Project 点击

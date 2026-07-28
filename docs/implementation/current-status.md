@@ -17,6 +17,19 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+`3d63d5aee0a7` 关闭十日 Pilot 暴露的“正式 Now 仍按来源分组、Focus 中 Waiting 会重复”
+前台子 Partial：不启用会遗漏刚恢复事项的 Dynamic Now Shadow，也不改变 Service 排序；
+只把同一正式 `/now-work` 投影派生为“继续处理 / 需要回看 / 保持等待”。同一对象只出现
+一次，明确 Focus 始终保留在首屏，普通可推进项才按 4 项折叠；卡片用“来自当前关注”
+说明用户权威，仍保持一个主操作和折叠低频动作。Plugin `366/366`、typecheck/build 与
+根级检查 PASS。真实 Logseq 0.10.15 File Graph 在精确构建 reload 后完成 Plugin Dark
+1001×720 与 733×720 代表 Gate，系统状态为健康；尝试构造未来 Waiting 时因原生日期控件
+无法被 Computer Use 可靠写入而在保存前取消，零正式写入，因此“需要回看 / 保持等待”
+只登记自动证据，不伪装 Desktop PASS。该项 Partial 净变化 `-1`；没有新增正式状态、
+Runtime、Recovery 分支、Attention 类型、Skill/Prompt/Validator 或写入权威。P1-C 的
+Attention helpful/noise、disposition/cooldown 前台 Pilot 与 Block Marker 仍开放，整体
+Goal 继续 `IN_PROGRESS`。
+
 `075e031d98ca` 又关闭 Rebind 捕获取消时的显式同步旧快照风险：transport 恢复前逐条
 重读当前 Block；已删除/已取消显式语义的候选被丢弃，已修改候选只同步最新内容，读取失败
 保持 fail closed。新增 focused `3/3`、Plugin `360/360`、typecheck/build 与根级检查

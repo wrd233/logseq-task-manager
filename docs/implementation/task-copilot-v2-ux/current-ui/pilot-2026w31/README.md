@@ -168,11 +168,12 @@ CURRENT 分别来自 `f5ce698` 与 `6135820`；最终 disposition 重算和健�
 `7fe762d` Undo 与健康态为准。Day 10 继续使用精确 Plugin `7fe762d`，仓库文档 HEAD 为
 `f738f59`；Now、Review、Project、More、reload 与 Graph switch 的截图分别记录两者，
 没有用文档提交冒充 Plugin 构建。Day 10 的 Now 前台上限另由真正内嵌
-`df6469f` 的产物完成折叠、展开与第二次 reload；三张 PNG 是当前 Now 表达，
-`7fe762d` 的长列表截图保留为修复前历史证据。
+`df6469f` 的产物完成折叠、展开与第二次 reload；三张 PNG 保留为 4 项上限的历史交互
+证据。当前 Now 表达已由 `3d63d5a` 的三段前台标准宽度/窄栏截图接管；
+`7fe762d` 的长列表截图继续作为修复前历史证据。
 详细结论见 `OBSERVATION_LOG.md`。
 
-## 下一段
+## 当时下一段（HISTORICAL）
 
 1. 继续 Day 7 的 duplicate/missing 变体，只在真实 identity 丢失时进入既有 Rebind；
 2. 用受控故障而非普通成功链验证 P2-E `RECOVERY_REQUIRED` 的“只恢复一致性”用户语义；

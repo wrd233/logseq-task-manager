@@ -115,14 +115,29 @@ Logseq `0.10.15`、File Graph、host Light、约 1000×720。日常四页、真�
 
 ### 连续使用 Pilot Day 10 Now 前台上限 — exact build `df6469f`
 
-Logseq `0.10.15`、File Graph、host Light / Plugin Dark、约 1000×720。`7fe762d` 的完整 10 项展开截图
-保留为修复前历史证据；下列三张图是当前 Now 表达。
+Logseq `0.10.15`、File Graph、host Light / Plugin Dark、约 1000×720。`7fe762d` 的完整
+10 项展开截图保留为修复前历史证据；下列三张图是 4 项上限的历史交互证据，当前 Now
+表达由后续 `3d63d5a` 三段前台接管。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/day-10-now-capped-current-light-df6469f.png` | CURRENT | 精确构建真实 reload 后打开“现在” | Focus 全部保留；Next 首屏 4 项；其余 6 项单一折叠 |
-| `pilot-2026w31/screenshots/day-10-now-capped-expanded-current-light-df6469f.png` | CURRENT | 展开“查看其余 6 项” | 全部原对象和操作仍可达；没有创建新提醒或正式写入 |
-| `pilot-2026w31/screenshots/day-10-now-capped-after-reload-current-light-df6469f.png` | CURRENT | 再次真实插件 reload 后重开 | 折叠首屏恢复；Focus 与前 4 项保持 |
+| `pilot-2026w31/screenshots/day-10-now-capped-current-light-df6469f.png` | SUPERSEDED_BY_3D63D5A | 精确构建真实 reload 后打开“现在” | 4 项上限历史证据仍有效；旧来源分区不代表当前信息架构 |
+| `pilot-2026w31/screenshots/day-10-now-capped-expanded-current-light-df6469f.png` | HISTORICAL_INTERACTION | 展开“查看其余 6 项” | 全部原对象和操作可达的历史证据；当前三段仍复用相同折叠 |
+| `pilot-2026w31/screenshots/day-10-now-capped-after-reload-current-light-df6469f.png` | SUPERSEDED_BY_3D63D5A | 再次真实插件 reload 后重开 | reload 恢复折叠的历史证据；当前布局由 `3d63d5a` 接管 |
+
+### P1 Now 三段前台 — exact build `3d63d5aee0a7`
+
+Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit 后重新 build，
+通过 More → Plugins → Task Copilot → 重载。当前正式 Graph 没有 waiting/due 投影，
+因此截图只证明“继续处理”；三段分类其余状态由自动测试承担，不伪造 Desktop 数据。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p1-now-frontstage-continue-dark-standard-3d63d5a.png` | CURRENT | 1001×720 精确构建 reload 后打开“现在” | Focus 标为“来自当前关注”且首屏保留；普通推进前 4 项可见，其余 8 项折叠；每卡一个主操作 |
+| `screenshots/p1-now-frontstage-continue-dark-narrow-3d63d5a.png` | CURRENT | 把 Logseq 窗口缩至 733×720 | 同一信息层级、主操作与折叠在窄栏可读；未增加工程词或按钮墙 |
+
+系统状态随后显示“可以正常使用”、无需操作。正常 Condition 表单的未来 Waiting 测试因
+原生日期控件无法被 Computer Use 可靠写入，在保存前取消，零正式写入。
 
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
