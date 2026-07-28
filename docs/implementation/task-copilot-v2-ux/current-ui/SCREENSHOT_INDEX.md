@@ -41,6 +41,17 @@ Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 | `pilot-2026w31/screenshots/day-05-project-undo-return-current-light-19de8de.jpg` | CURRENT | 从最近修改撤销创建 | 专用空白页移除，返回 Logseq，成功消息无工程词 |
 | `pilot-2026w31/screenshots/day-05-project-undo-health-current-light-19de8de.jpg` | CURRENT | Undo 后真实重载并展开诊断 | Pending/Recovery/Conflict 0/0/0；explicit sync clean |
 
+### 连续使用 Pilot Day 6 — exact build `1c18e9b0ff63`
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-06-waiting-resume-entry-current-light-1c18e9b.jpg` | CURRENT | 从真实 Waiting Task 的原 Block 打开状态入口 | 回复到达后可选择“恢复为可以行动” |
+| `pilot-2026w31/screenshots/day-06-waiting-resume-confirm-current-light-1c18e9b.jpg` | CURRENT | 查看恢复确认 | 只改能否继续；不完成、不移动、不改变当前关注 |
+| `pilot-2026w31/screenshots/day-06-waiting-resumed-return-current-light-1c18e9b.jpg` | CURRENT | 正式确认恢复 | 返回同一 Block；明确可以撤销本次状态变化 |
+| `pilot-2026w31/screenshots/day-06-now-after-waiting-resume-current-light-1c18e9b.jpg` | CURRENT | 打开“现在” | Task 成为“接下来值得处理”第一项 |
+| `pilot-2026w31/screenshots/day-06-now-after-waiting-resume-reload-current-light-1c18e9b.jpg` | CURRENT | 真实重载插件后再开“现在” | ACTIONABLE 正式状态保持，session 消息清除 |
+| `pilot-2026w31/screenshots/day-06-waiting-resume-health-current-light-1c18e9b.jpg` | CURRENT | 打开系统状态 | 无未完成修改或正文连接冲突；无需操作 |
+
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
 Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌

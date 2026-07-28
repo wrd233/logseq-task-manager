@@ -19,6 +19,21 @@
 
 ## 本轮变化（2026-07-28）
 
+### Day 6 Waiting 恢复与 Now 重排
+
+- 新增正式状态、顶层导航、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和
+  新 Partial：均为 `0`。`ACTIONABLE` 是既有 Condition，不进入新状态模型。
+- 合并重复机制：回复到达后的恢复继续复用同一 `BlockConditionController`、
+  `changeCondition`、对象版本重验、会话 Undo 和 Block origin route；没有建立独立
+  Waiting Recovery。
+- 精确构建 `1c18e9b0ff63` 已在 Logseq 0.10.15 File Graph / host Light / 约 1000×720
+  完成入口→确认→正式更新→返回同一 Block→Now 重排→真实 plugin reload→系统健康。
+  Plugin `353/353` 通过。
+- Partial 净变化 `-1`：关闭 Waiting 回复到达后无法原地回到行动的代表链；Dynamic Now
+  前台分区、保持等待可见性、Attention helpful/noise 与 Day 7—10 保持开放。
+- 复杂度风险：状态/Recovery 分裂不变；Partial 堆积略降。Now 仍列出较多历史测试对象，
+  作为既有 P1 Dynamic Now 前台收敛证据，不新增 Attention 或 Marker。
+
 ### Day 5 Project / Context Recovery 完整代表链
 
 - 新增正式状态、顶层导航、Agent Runtime、Recovery 分支、平行写入权威和新 active Skill：

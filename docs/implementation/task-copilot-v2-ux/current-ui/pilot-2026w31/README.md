@@ -1,7 +1,7 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_5_REPRESENTATIVE_DONE`
-> 当前精确构建：`19de8de0f47c`
+> 状态：`IN_PROGRESS_DAY_6_WAITING_RESUME_DONE`
+> 当前精确构建：`1c18e9b0ff63`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
 > Graph：File Graph `logseq`（专用测试 Graph）
@@ -34,7 +34,8 @@ Proposal / Commit / Undo / Recovery。
 | Day 3 | PARTIAL_WAITING_SUBCHAIN_DONE | 6 条自然输入；一个正式 Task 设为等待网络组并设置 reviewAt；reload/DB 读回 | Waiting 不再占用“继续处理”，但前台缺少安静的“保持等待”确认 |
 | Day 4 | DONE_REPRESENTATIVE_WITH_UX_BLOCKERS | 自然材料形成 MiniProject；真实 DeepSeek 自适应 Grill；Page 来源超限 fail-closed；Blank Project 经 Preview/HIGH/Create/reload/Undo；精确构建健康复核 | 正式链安全，但确认重复、推荐越界、结果墙和工程词仍阻断发布 |
 | Day 5 | DONE_REPRESENTATIVE_WITH_UX_DEBT | 三组各 5 轮真实 Grill + 1 次 Preview；最终组完成 HIGH/Create/reload/Context Recovery/反馈清除/Undo/健康复核 | 1.6.0 保留业务未知并生成真实当前推进；AI 增量准确但对新 Project 价值有限；结果墙和重复确认仍阻断发布 |
-| Day 6—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
+| Day 6 | PARTIAL_WAITING_RESUME_DONE | 使用 Day 3 的真实 Waiting Task；原 Block 恢复为可行动→返回现场→Now 重排→真实 plugin reload→健康复核 | Waiting 可以自然回到行动；现有 Now 会把它排到“接下来值得处理”第一项，但整体列表仍偏长，Dynamic Now 对照继续开放 |
+| Day 7—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
 
 ## Provider 与安全计数
 
@@ -47,7 +48,8 @@ Proposal / Commit / Undo / Recovery。
   1.5.0 退休
 - 正式写入：Day 1 创建 Task；Day 2 先精确 Undo 再以纠正来源创建 Task；Day 3 仅修改
   该 Task 的 Condition；Day 4 创建 MiniProject，并创建后完整 Undo Graylog Project；
-  Day 5 创建 Project 后完成真实 reload、Context Recovery 零写入和完整 Undo
+  Day 5 创建 Project 后完成真实 reload、Context Recovery 零写入和完整 Undo；Day 6
+  复用同一 `changeCondition` 权威把该 Task 从 Waiting 恢复为 Actionable
 - Key 泄漏、正文进入普通日志、绕过 Service、手改 SQLite：`0`
 
 Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务歧义；Day 2 补充说明后，
@@ -90,6 +92,10 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
     AI 增量准确但有限。该结果仍可减少一次全文重读，但不能据此声称所有重入场景高价值。
 15. 创建完成卡仍泄漏“正式 Commit 已完整完成”，并复制较长最终阅读；该既有结果墙问题
     继续阻断 Final Release，不新增第二结果模型。
+16. Day 6 首次真实验证发现 Waiting 只有“等待 / 被卡住 / 暂停”入口，回复到达后无法在
+    原 Block 回到行动。`1c18e9b` 在同一入口增加“恢复为可以行动”，只更新既有
+    Condition，并在确认页明确不完成事项、不移动正文、不改变当前关注。应用后返回同一
+    Block，Task 立即成为“接下来值得处理”第一项，真实 plugin reload 后保持，系统健康。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -102,11 +108,14 @@ working-tree build 上运行，但产物内嵌 commit 仍为 `fbd14eb`，因此�
 内嵌 `42e6a91309ba` 的当前产物重载复核；撤销资格卡又由真正内嵌
 `7a0b444821b7` 的产物重载复验并登记为 `CURRENT`。Day 5 最终链使用真正内嵌
 `19de8de0f47c` 的产物完成 Preview、Create、reload、Context Recovery 与 Undo。共同宿主为 Logseq 0.10.15、
-File Graph `logseq`、host Light、约 1000×720。详细结论见 `OBSERVATION_LOG.md`。
+File Graph `logseq`、host Light、约 1000×720。Day 6 使用真正内嵌
+`1c18e9b0ff63` 的产物完成 Waiting 恢复、返回现场、Now 重排、reload 和健康复核。
+详细结论见 `OBSERVATION_LOG.md`。
 
 ## 下一段
 
-1. 用 Day 1—5 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
+1. 用 Day 1—6 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
    前台分区，不先增加新的 Attention 类型或 Block Marker；
-2. 推进 Day 6 Waiting 恢复与优先级变化，观察 Now 是否自动调整且不重复提醒；
+2. 继续 Day 6 的优先级变化和 Dynamic Now 对照，并推进 Day 7 moved/renamed/duplicate
+   Anchor 与 Rebind；
 3. 收敛创建完成卡的工程词与长结果墙，同时保持 Audit/Commit 证据在折叠详情中。

@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| runtime commit | Day 1—3 `bc79ffd1ce6a`;当前精确构建 `42e6a91309ba` |
+| runtime commit | Day 1—3 `bc79ffd1ce6a`；Day 5 `19de8de0f47c`；当前精确构建 `1c18e9b0ff63` |
 | Logseq | `0.10.15` |
 | Graph | File Graph `logseq` |
 | 主题 / 尺寸 | host Light / 约 1000×720 |
@@ -175,7 +175,33 @@ plugin reload、Context Recovery、反馈、再次 reload、Undo 和系统健康
 结构压缩为一个当前动作，准确但增量有限。创建完成卡仍显示“正式 Commit 已完整完成”并
 复制长最终阅读，登记为既有结果墙发布阻断。
 
-## 轻量指标（截至 Day 5 代表链）
+## Day 6：等待回复后自然恢复行动
+
+直接复用 Day 3 的正式 Waiting Task。首次真实操作发现原 Block 入口只能再次选择等待、
+被卡住或暂停，回复已经到达时没有安全回到行动的路径。`1c18e9b0ff63` 没有新增正式状态、
+Runtime 或 Recovery，而是让既有 `BlockConditionController` 和 `changeCondition` 接受
+既有 `ACTIONABLE` Condition。入口只在当前非 Actionable 时显示，并继续用对象版本重验、
+会话 Undo 和原业务来源返回。
+
+| 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
+|---|---|---|---|---|
+| `screenshots/day-06-waiting-resume-entry-current-light-1c18e9b.jpg` | 回复到达后从原 Block 恢复 | 一个明确的“恢复为可以行动”入口；等待/阻塞/暂停仍可选 | 查看正式影响 |
+| `screenshots/day-06-waiting-resume-confirm-current-light-1c18e9b.jpg` | 确认本次变化边界 | 只更新能否继续；不完成、不移动正文、不改变当前关注 | 确认恢复 |
+| `screenshots/day-06-waiting-resumed-return-current-light-1c18e9b.jpg` | 正式应用并返回工作现场 | 状态恢复成功；自动回到同一 Block；可以撤销本次状态变化 | 打开“现在” |
+| `screenshots/day-06-now-after-waiting-resume-current-light-1c18e9b.jpg` | 检查 Now 是否响应 | 该 Task 成为“接下来值得处理”第一项；Waiting 不再残留 | 真实 plugin reload |
+| `screenshots/day-06-now-after-waiting-resume-reload-current-light-1c18e9b.jpg` | reload 后检查连续性 | Task 仍是可行动项；session 成功消息已清除 | 检查系统健康 |
+| `screenshots/day-06-waiting-resume-health-current-light-1c18e9b.jpg` | 检查正式状态安全 | 未发现未完成修改或正文连接冲突；无需操作 | 继续 Dynamic Now 对照 |
+
+观察：
+
+- 用户动作是“原 Block 右键 → 暂时做不了 → 恢复为可以行动 → 确认”，主结论和主操作
+  均明确；完成后立即回到正文。
+- Now 真实重排正确，但它仍同时列出较多历史测试对象。该证据支持 Dynamic Now 需要
+  前台分区/上限，不支持新增 Attention 类型或默认打开 Block Marker。
+- Provider 调用 `0`；没有 Skill/Prompt/Validator 变化。正式写入只有既有 Condition，
+  Focus、Lifecycle、正文、Anchor、Proposal 和 Commit 均未改变。
+
+## 轻量指标（截至 Day 6 Waiting 恢复链）
 
 | 指标 | 结果 |
 |---|---:|
@@ -187,3 +213,4 @@ plugin reload、Context Recovery、反馈、再次 reload、Undo 和系统健康
 | Attention 前台展示 | 0 |
 | 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
 | 新 active Skill / Runtime / Recovery | 0 / 0 / 0；既有 Skill 1.5.0→1.6.0，旧版退休 |
+| Day 6 Partial 净变化 | -1（Waiting→行动原地恢复链） |

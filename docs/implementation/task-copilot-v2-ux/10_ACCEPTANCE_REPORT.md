@@ -35,6 +35,12 @@ File Graph、约 1000×720 的精确构建完成真实 Project 创建→reload�
 explicit sync clean。创建完成卡仍泄漏“正式 Commit 已完整完成”并复制长最终阅读，
 因此只关闭 Undo 成功表达 Gate，不宣布 P2-C 或 Final Release 完成。
 
+`1c18e9b` 已关闭连续使用 Day 6 的 Waiting 回复到达后原地恢复子 Gate：同一正式 Task
+在原 Block 进入“恢复为可以行动”，确认页明确只改能否继续，应用后返回原 Block并成为
+“接下来值得处理”第一项；真实 plugin reload 后保持，系统状态无未完成修改或正文连接
+冲突。它复用既有 Condition/Service/version/Undo，不新增状态或恢复分支，也不代表
+Dynamic Now、Attention 或完整 Pilot 完成。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
@@ -46,6 +52,8 @@ explicit sync clean。创建完成卡仍泄漏“正式 Commit 已完整完成�
 - [x] 正常连接首屏只有一个 Copilot 状态；启动/host-ready 不再重复成功横幅，Graph switch
   仍明确说明没有复用上一知识库数据；
 - [x] 暂时做不了统一入口；三种意图、最小字段和版本保护 Undo 已通过
+- [x] Waiting/Blocked/Paused 回复或卡点解除后可在同一 Block 恢复为可行动；只更新既有
+  Condition，返回原现场，Now 立即重排且真实 plugin reload 后保持
 - [x] 低风险一次接受并应用；LOW 单组单 Block CREATE/REWRITE 自动覆盖，真实 Desktop REWRITE 通过
 - [ ] accepted-not-applied 不静默；
 - [ ] 成功/失败/PENDING/Recovery 清楚；
@@ -327,8 +335,9 @@ P0/P1/P2 或 Final Release 标为 DONE。
   DeepSeek。普通笔记未被
   自动正式化，Now 未立即洪水，Page 来源超预算已安全解释，Project Undo 后精确构建
   0/0/0 且 explicit sync clean。`project-creation-modeling@1.6.0` 已达
-  `CANDIDATE/DESKTOP_VERIFIED`。完整 Day 3、Day 6—10、
+  `CANDIDATE/DESKTOP_VERIFIED`。完整 Day 3、Day 6 的优先级变化与 Day 7—10、
   Dynamic Now 对照、Attention helpful/noise、disposition/cooldown 和 P2-D 边界仍开放；
+  Day 6 已关闭真实 Waiting→Actionable→原 Block→Now→reload 子链，但不冒充当日全部完成；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

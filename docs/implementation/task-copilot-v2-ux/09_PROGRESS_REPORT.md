@@ -17,7 +17,8 @@
 > 中文 IME 仍 OPEN。连续使用 Pilot `PILOT-2026W31-A` 已完成 Day 1—2、Day 3 Waiting
 > 代表子链、Day 4 MiniProject/Project create→reload→Undo 与 Day 5
 > Project→Context Recovery→reload→Undo 代表链；`19de8de0f47c` 已用第三组真实 Provider
-> 复验 current-interface 通用合同与最终 UI。完整
+> 复验 current-interface 通用合同与最终 UI；`1c18e9b0ff63` 又关闭 Day 6
+> Waiting→Actionable→返回现场→Now 重排→reload 代表链。完整
 > 7—10 日 Pilot、P1
 > 前台和整体 Goal 仍未完成。
 
@@ -36,6 +37,24 @@
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面、reload 与 723px 窄栏已补 CURRENT；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
+
+### 2026-07-28 连续使用 Pilot Day 6 Waiting 恢复
+
+- 真实起点是 Day 3 的正式 Waiting Task，而不是新造的干净样本。首次 Desktop 操作发现
+  原 Block 的“暂时做不了”只有等待、被卡住和暂停，回复到达后没有自然恢复行动的入口。
+- `1c18e9b0ff63` 让既有 Condition 控制器接受既有 `ACTIONABLE`，入口仅在当前
+  Condition 非 Actionable 时显示；确认页说明只更新能否继续，不完成事项、不移动正文、
+  不改变当前关注。正式命令仍经过 Local Service、对象版本重验和会话 Undo。
+- Desktop：Logseq 0.10.15 File Graph，host Light，约 1000×720。真实链为原 Block
+  →恢复入口→确认→正式更新→返回同一 Block→打开 Now。该 Task 立即成为“接下来值得处理”
+  第一项；真实 plugin reload 后保持，session 成功消息清除；系统状态无未完成修改或正文
+  连接冲突。
+- 自动：Plugin `353/353`、typecheck/build PASS；新增的 controller/UI 回归覆盖
+  ACTIONABLE 构造、Waiting→Actionable 和 Actionable 时隐藏重复恢复入口。
+- Provider `0`；新增 Skill/Prompt/Validator `0`。新增正式状态、Runtime、Recovery 分支、
+  写入权威和长期 Partial 均为 `0`；关闭代表性 Partial `1`，净变化 `-1`。
+- P1 结论：现有 Now 的状态响应正确，但仍显示较多历史对象。该证据进入既有 Dynamic Now
+  “继续处理 / 需要回看 / 保持等待”前台收敛，不据此新增 Attention 类型或默认 Block Marker。
 
 ### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
 

@@ -132,11 +132,13 @@ P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_OPEN`：
 `../logs/p0-j-host-commands-desktop-live-20260726.md` 与
 `../logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`。
 
-连续使用 Pilot `PILOT-2026W31-A` 当前在 `pilot-2026w31/`：精确构建 `bc79ffd`，
-Logseq 0.10.15 File Graph，已完成 Day 1—2 和 Day 3 Waiting 代表子链。20 条自然输入、
-2 次真实 DeepSeek、Task 创建/Undo/纠正/重建与 WAITING/reviewAt/reload 都直接发生在
-测试 Graph；完整 Day 3 与 Day 4—10 仍 OPEN。该目录中的截图为本次 Pilot 的 CURRENT，
-不替代其他宿主/主题证据，也不把三天进度写成完整 Pilot。
+连续使用 Pilot `PILOT-2026W31-A` 当前在 `pilot-2026w31/`：Logseq 0.10.15 File Graph，
+已完成 Day 1—2、Day 3 Waiting、Day 4 MiniProject/Project、Day 5 Project/Context
+Recovery 与 Day 6 Waiting 恢复代表链。Day 6 精确构建 `1c18e9b0ff63` 证明同一 Waiting
+Task 可在原 Block 恢复为行动、返回现场、成为 Now 第一项并在真实 plugin reload 后保持；
+系统健康。累计 32 次真实 DeepSeek；Day 6 不调用 Provider。完整 Day 6 的优先级变化与
+Day 7—10 仍 OPEN。该目录中的截图按 exact commit 登记为 CURRENT，不替代其他宿主/主题
+证据，也不把六日进度写成完整 Pilot。
 
 P0-K 当前使用 `p0-k-01`～`08`、`p0-k-10` 与 `p0-k-condition-*`：
 主 Page 入口与“返回原 Page”已通过；right-sidebar、

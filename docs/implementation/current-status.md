@@ -37,6 +37,16 @@ explicit sync clean。Pilot 累计真实 Provider `32` 次，Validator rejection
 仍为 `0/0/0`。`project-creation-modeling@1.6.0` 可标记
 `CANDIDATE/DESKTOP_VERIFIED`，不能因单条成功升为 Production。
 
+Day 6 又用 Day 3 的同一正式 Waiting Task 暴露并关闭“回复到达后无法在原 Block 回到行动”
+的代表性 Partial。`1c18e9b0ff63` 只扩展既有 Block Condition 用户入口，继续经过同一
+`BlockConditionController`、Local Service `changeCondition`、对象版本重验和会话 Undo，
+没有新增正式状态、Runtime、Recovery 或写入权威。真实 Logseq 0.10.15 File Graph 证明：
+入口只在非 Actionable 时显示；确认页明确不完成、不移动正文、不改变 Focus；正式应用后
+返回同一 Block，Task 立即成为“接下来值得处理”第一项；真实插件 reload 后保持，系统状态
+未发现 Pending/Recovery/Source Conflict。Plugin `353/353`、typecheck/build PASS，
+Provider/Skill/Prompt/Validator 变化为 `0`。该子 Partial `OPEN→DONE_DESKTOP_REPRESENTATIVE`，
+但完整 Day 6 的优先级变化、Dynamic Now 对照与 Day 7—10 仍 OPEN。
+
 此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
@@ -48,7 +58,7 @@ Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源
 Project Undo 成功消息；`19de8de0f47c` 已完成真实 Undo 复验。精确构建系统
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。创建完成卡仍显示
 “正式 Commit 已完整完成”并复制较长最终阅读，重复确认、结果/历史墙仍
-阻断 Final Release。Day 5—10、Dynamic Now、Attention helpful/noise、
+阻断 Final Release。Day 6 其余行为与 Day 7—10、Dynamic Now、Attention helpful/noise、
 P2-D 完成边界与 P2-E/P2-G 尾项继续 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
 
 最新 P0-K 精确构建 `73dc1e26f610` 完成正式 Block “暂时做不了”的当前 Desktop 返回现场
