@@ -4147,7 +4147,7 @@ async function recoverCurrentGraphIdentity(): Promise<boolean> {
   });
 }
 
-async function recoverCurrentGraphRuntime(successMessage: string): Promise<boolean> {
+async function recoverCurrentGraphRuntime(successMessage?: string): Promise<boolean> {
   const identityReady = await recoverCurrentGraphIdentity();
   if (!identityReady) {
     enterRestrictedServiceMode("GRAPH_IDENTITY_UNAVAILABLE", "Logseq 尚未提供当前 Graph 身份；正式写入保持关闭。");
@@ -4286,7 +4286,7 @@ async function initializeFeatures(): Promise<void> {
       }));
     if (serviceConnection.status === "READY" && serviceRuntimeClient) return;
     currentGraphKey = undefined;
-    void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前知识库；正式能力可以使用。")
+    void recoverCurrentGraphRuntime()
       .catch((error: unknown) => {
         operationalLogger.log("warn", "plugin-lifecycle", "host_ready_runtime_recovery_failed", {
           result: "restricted",
@@ -4358,7 +4358,7 @@ async function initializeFeatures(): Promise<void> {
   featureReady = serviceConnection.status === "READY" && Boolean(serviceRuntimeClient);
   await projectPageHeadActionController.refreshAll();
   markReady("PLUGIN_READY", "V2 Local Service runtime ready; V1 FileStorage is migration-only");
-  void recoverCurrentGraphRuntime("Task Copilot 已自动连接当前知识库；正式能力可以使用。")
+  void recoverCurrentGraphRuntime()
     .catch((error: unknown) => operationalLogger.log("warn", "plugin-lifecycle", "startup_runtime_recovery_failed", {
       result: "restricted",
       errorCode: error instanceof StructuredError ? error.code : "STARTUP_RUNTIME_RECOVERY_FAILED",

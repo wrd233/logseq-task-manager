@@ -2254,6 +2254,11 @@ test("startup stays non-blocking while host-ready events and Graph switch recove
     source,
     /async function handleCurrentGraphChanged\(\)[\s\S]*await recoverCurrentGraphRuntime\("已为当前知识库重新建立连接/,
   );
+  assert.doesNotMatch(source, /Task Copilot 已自动连接当前知识库；正式能力可以使用/);
+  assert.ok(
+    (source.match(/recoverCurrentGraphRuntime\(\)/g) ?? []).length >= 2,
+    "routine startup and host-ready recovery should rely on the single persistent Copilot state instead of a duplicate success banner",
+  );
   const graphSwitchHandler = source.match(/async function handleCurrentGraphChanged\(\)[\s\S]*?\n\}/)?.[0] ?? "";
   assert.match(graphSwitchHandler, /await refreshRestrictedGraphSwitchSurface\(\)/);
   assert.ok(
