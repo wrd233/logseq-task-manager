@@ -68,6 +68,13 @@ answer-evidence 质量债，不新增样本补丁。因此 P2-C 的来源功能�
 Review 代表性 Light/窄栏已关闭；新 Project Page、其他宿主位置和集中视觉 Gate 继续 OPEN，
 不影响 P2-D 启动但仍属于最终验收。
 
+`bfabf4025f60` 又关闭创建后价值落地的代表性 UI Gate：既有正式 Project 从项目列表进入
+专用落地页，首屏只保留当前状态、一个当前推进、预期成果、来源背景和一个主操作；完整结构
+折叠。用户点击“开始当前推进”时，Plugin 先按当前版本和唯一 active Primary Anchor 重验，
+再解析受控 Project Page；成功后关闭面板并停留在同一 Logseq Page。真实 Desktop 覆盖
+Dark/Light 1000×720 和 Light 723×720。该 Gate 没有 Provider 调用或正式写入，也没有替代
+旧 create/reload/Undo 链；最新构建重新执行整条 create→Undo 仍属于集中回归。
+
 ## P2-D MEDIUM Project 当前摘要
 
 状态：`DONE_MEDIUM_VERTICAL_P2D_STILL_IN_PROGRESS`

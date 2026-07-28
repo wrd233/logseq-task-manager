@@ -3,6 +3,19 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
+最新 Project 创建后落地页精确构建为 `bfabf4025f60`。真实 Logseq 0.10.15 File Graph
+从“项目 → 打开项目”进入同一正式 Project 后，首屏只显示当前状态、一个当前推进、预期
+成果、来源背景和一个“开始当前推进”主操作；完整结构默认折叠。点击主操作会再次重验
+Project 与受控 Page identity，成功后关闭 Task Copilot 并留在同一 Logseq Project Page。
+普通同名 Page 不会被猜测为正式工作现场。CURRENT
+`ui-project-landing-dark-current-bfabf40.jpg`、
+`ui-project-landing-light-current-bfabf40.jpg` 与
+`ui-project-landing-light-narrow-current-bfabf40.jpg` 覆盖 Plugin Dark/Light 的
+1000×720 和 Light 723×720；旧 `p2-c-33` 仅保留正式创建事实，已降为
+`SUPERSEDED_UI`。这关闭“新 Project Page 价值落地”的代表性视觉 Gate，不替代最新构建
+再次执行 create/Undo 的纵向证据，也不关闭 P2-C 的全部集中宿主矩阵。完整记录见
+`../logs/ui-project-landing-worksite-desktop-live-20260728.md`。
+
 最新 Project Preview / HIGH Review 证据分别基于 `2adfc354041b` 与
 `efb3864c53af`（最终 Plugin build `2026-07-28 14:03:53 +0800`）。真实 Logseq 0.10.15
 Page 来源链证明 Preview 已收敛为系统理解、应用影响、安全边界、下一步和折叠完整依据；
@@ -135,8 +148,9 @@ ready、最终阅读、HIGH Review、接受未应用、正式创建、reload 重
 P2-C 当前结论是 `ALL_SOURCES_DONE_VISUAL_GATES_OPEN`：Blank、Page“保留来源另建”、
 Page“升级当前 Page”和 MiniProject“保留来源演化”均完成真实 DeepSeek、Preview、Review、
 创建、reload/restart、专用 Undo 与最终健康验证。Preview / HIGH Review 的代表性
-Light/窄栏已由 `2adfc35` / `efb3864` 关闭；新 Project Page 与其他宿主视觉 Gate 仍需在
-集中 Desktop Gate 完成，P2-D～G 继续开放。完整记录见
+Light/窄栏已由 `2adfc35` / `efb3864` 关闭；新 Project 落地页与返回 Logseq 工作现场的
+Dark/Light/窄栏代表 Gate 又由 `bfabf40` 关闭。最新构建 create→reload→Undo 的重复取证和
+其他宿主视觉组合仍需集中 Desktop Gate 完成，P2-D～G 继续开放。完整记录见
 `../logs/p2-c-project-creation-desktop-live-20260726.md`。
 
 P2-D 的 MEDIUM 当前摘要链也已在当前真实环境闭环：真实 DeepSeek 草稿先经过

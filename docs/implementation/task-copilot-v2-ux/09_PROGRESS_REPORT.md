@@ -30,6 +30,26 @@
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面、reload 与 723px 窄栏已补 CURRENT；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
+### 2026-07-28 Project 创建后落地与返回工作现场
+
+- `b4de474`～`bfabf40` 把创建后和项目列表的 Project 入口统一到 session-only 落地页：
+  当前状态、一个推进、预期成果、来源背景和一个主操作进入首屏，完整结构折叠；工程
+  metadata 只留在受控 Logseq Page 与技术层。
+- “开始当前推进”和 Context Recovery 的返回动作复用同一只读定位器：重验对象版本、
+  唯一 active Primary Anchor 与 Page owner/object metadata；普通同名 Page fail closed。
+  File Graph runtime UUID 漂移不再让合法受控 Project Page 无法打开。
+- 自动：Plugin `345/345`、0 skipped；新增回归证明受控 metadata Page 可用、普通同名 Page
+  拒绝；最终根级 `./scripts/check.sh`、145 条稳定规则、恢复演练
+  `differences=[]` 全部 PASS。
+- Desktop：exact build `bfabf4025f60`，Logseq 0.10.15 File Graph；Dark/Light
+  1000×720 与 Light 723×720 CURRENT。点击“开始当前推进”后面板关闭并留在同一 Project
+  Page，正式状态没有变化。
+- Provider/Skill：本 Slice 没有 Provider 调用；Validator 拒绝率、模型重试与 Skill 版本
+  变化不适用。新增正式状态、Runtime、Recovery 分支、Prompt/Validator 和写入权威均为 0。
+- 状态：关闭“新 Project Page 价值落地”的一个代表性 UI Partial；阶段级 Partial 新增 0，
+  P2-C 仍保持 `ALL_SOURCES_DONE_VISUAL_GATES_OPEN`，最新构建整条 create→Undo 和其他宿主
+  组合仍 OPEN。
+
 ### 2026-07-28 Project Preview / HIGH Review 交互压缩
 
 - `2adfc35` 把 Page 来源 Project Preview 压缩为四区首屏，完整材料边界和审计依据默认折叠；

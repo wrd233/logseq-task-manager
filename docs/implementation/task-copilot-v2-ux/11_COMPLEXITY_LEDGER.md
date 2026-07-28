@@ -19,6 +19,23 @@
 
 ## 本轮变化（2026-07-28）
 
+### Project 创建后落地与工作现场路由
+
+- 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、Recovery 分支与平行
+  写入权威：均为 `0`；新增仅为两个 session-only UI route。
+- 合并重复机制：项目列表、创建完成后落地和 Context Recovery 下一步共用 Project
+  worksite resolver；Page ownership 复用既有创建 Kernel 的同一 metadata 合同，没有建立
+  第二套 identity。
+- 前台压缩：Project 首屏从空 Page/工程 properties 改为当前状态、一个推进、成果、来源和
+  一个主操作；完整结构折叠。物理 Page metadata 仍保留为单一权威和安全 Undo 边界，不在
+  Plugin 首屏重复展示。
+- 自动证据：Plugin `345/345`、0 skipped；根级检查、145 条稳定规则、恢复演练 PASS。
+  Desktop exact build `bfabf4025f60` 覆盖 Dark/Light 1000×720 与 Light 723×720。
+- LLM：无 Provider 调用；拒绝率、重试、Skill/Prompt 版本变化不适用。
+- Partial：新增 `0`，关闭一个 Project 落地 UI Partial；P2-C 阶段状态与其他开放 Gate
+  不变。后台工程概念泄漏进一步缓解，文档/代码/截图漂移风险因 exact-build CURRENT
+  证据下降，但仍阻断 Final Release。
+
 ### Project Preview / HIGH Review 前台压缩
 
 - 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、Recovery 分支和平行

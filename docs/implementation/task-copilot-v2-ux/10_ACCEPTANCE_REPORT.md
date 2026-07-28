@@ -15,6 +15,12 @@
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D/E 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error 与 generation stale 零 Closure 写入 DONE；P2-G Restore 真实双失败人工恢复、Migration Activation 正常链、写后响应丢失→ledger reload→Verify→Undo、Verify/Activate failure→same-ledger retry 及 722px 窄栏 DONE；通用 Task Copilot 深色表面/reload/723px DONE | P2-D/E remaining；P2-E 真正 RECOVERY_REQUIRED；P2-F frontstage；P2-G Rebind guidance；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
 
+`bfabf40` 已通过 Project 创建后落地与返回现场的代表性 UI Gate：真实 Logseq 0.10.15
+File Graph、Dark/Light 1000×720、Light 723×720 均显示当前状态、一个推进、预期成果、
+来源与一个主操作；完整结构折叠。点击“开始当前推进”会重验正式 Project 与受控 Page，
+随后关闭面板并留在同一 Logseq Project Page，零正式写入。该 Gate 关闭一个 UI Partial，
+但不替代最新构建完整 create/reload/Undo，也不关闭 P2-C 或 Final Release。
+
 `2adfc35` / `efb3864` 已通过 Project Preview 与 HIGH Review 代表性 UI Gate：真实 Page
 来源、真实 Provider、零正式写入 Preview、Proposal-only Review、reload、Dark/Light 和
 1000/762px 均有当前证据。HIGH Review 的 762px 三列缺陷和首屏完整 Markdown 方案均已在

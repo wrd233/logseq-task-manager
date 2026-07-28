@@ -164,7 +164,8 @@ Gate；Page reuse 随后也完成同强度链且证明零 Page write/delete。Mi
 完成真实 DeepSeek→Preview→HIGH Review→create→reload→Undo→reload；来源 Object、
 active Anchor 与五个 Block 逐字段守恒。首轮 Undo 误回 Journal，`7a7492a407ed` 改为只用
 Service 已审阅并重验的 source return target，最新构建重跑后精确返回来源根 Block且系统
-`0/0/0`。三来源功能矩阵至此 DONE；Light/窄栏与集中宿主视觉 Gate 仍 OPEN。
+`0/0/0`。三来源功能矩阵至此 DONE；Preview/Review 与 Project 创建后落地页的代表性
+Dark/Light/窄栏 Gate 已关闭，最新构建完整 create→Undo 与其余集中宿主视觉组合仍 OPEN。
 
 第六个自动合同已完成：Plugin 的 Blank 主入口、普通 Page“将本页建立为 Project”和 OPEN
 MiniProject“演化为 Project”统一进入同一 Project Creation session；客户端只提交 source

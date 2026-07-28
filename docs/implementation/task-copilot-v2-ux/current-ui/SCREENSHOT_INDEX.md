@@ -5,6 +5,27 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### Project 创建后落地与返回工作现场 — exact build `bfabf4025f60`
+
+Logseq `0.10.15`；File Graph
+`/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；真实
+Plugin/Launcher/Service；复用既有正式测试 Project，没有 Provider 调用或正式写入。
+
+| 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|---|
+| `screenshots/ui-project-landing-dark-current-bfabf40.jpg` | CURRENT | Plugin Dark / host Light / 1000×720 | 打开“项目”，进入既有正式 Project | 首屏显示当前状态、一个推进、成果、来源；一个主操作，完整结构折叠 |
+| `screenshots/ui-project-landing-light-current-bfabf40.jpg` | CURRENT | Plugin Light / host Light / 1000×720 | 临时切换插件外观后进入同一 Project | 与 Dark 保持同一信息层级和操作优先级；普通路径无 object/commit/anchor 字段 |
+| `screenshots/ui-project-landing-light-narrow-current-bfabf40.jpg` | CURRENT | Plugin Light / host Light / 723×720 | 同一会话缩窄窗口 | 当前状态、推进、成果、来源和“开始当前推进”均可达，无横向溢出 |
+
+同一 exact build 点击“开始当前推进”后，插件面板关闭，Logseq 保留在
+`Project/P2-C Page 来源边界可复用检查单`；正式状态没有变化。受控 Page identity 既可按
+anchor UUID 命中，也可在 File Graph runtime identity 漂移时按精确 owner/object metadata
+匹配；普通同名 Page 被回归测试拒绝。旧
+`p2-c-33-mini-evolution-created-project-current-dark.png` 降为 `SUPERSEDED_UI`：
+它继续证明当时的正式创建事实，但不再代表当前 Project 首屏。取证后插件外观恢复 Dark、
+窗口恢复 1000×720。完整记录见
+`../logs/ui-project-landing-worksite-desktop-live-20260728.md`。
+
 ### Project Preview / HIGH Review — exact builds `2adfc354041b` / `efb3864c53af`
 
 最终 Plugin build：`2026-07-28 14:03:53 +0800`；Logseq `0.10.15`；File Graph
