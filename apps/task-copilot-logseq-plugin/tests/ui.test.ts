@@ -265,7 +265,7 @@ test("recent changes leads with user intent, application result, and existing Un
   const html = renderApp(value);
   const cardLead = html.match(/<article class="card compact recent-change">([\s\S]*?)<details/)?.[1] ?? "";
   assert.match(cardLead, /这次修改已经应用/);
-  assert.match(cardLead, /正式 Commit 已完整完成/);
+  assert.match(cardLead, /所有步骤都已完成/);
   assert.doesNotMatch(cardLead, /尚不能确认.*当前证据不足以确认是否仍满足安全撤销条件/);
   assert.match(cardLead, /可以发起撤销.*执行时会重新检查当前内容.*不会覆盖/);
   assert.match(cardLead, /整理设备托管材料/);

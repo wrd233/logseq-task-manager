@@ -367,9 +367,9 @@ export function narrateV2CommitStatus(input: V2CommitStatusNarrationInput): Stat
       : undefined;
     return result({
       conclusion: "这次修改尚未完成",
-      keyEvidence: ["已完成的步骤保存在原 Commit 中", "不要重复提交相同修改"],
+      keyEvidence: ["已完成的步骤已经安全保存", "不要重复提交相同修改"],
       facts: [
-        fact("已完成的步骤保存在原 Commit 中", sourceRef),
+        fact("已完成的步骤已经安全保存", sourceRef),
         fact("正式应用尚未得到完整完成确认", sourceRef),
       ],
       ...(nextAction ? { nextAction } : {}),
@@ -391,7 +391,7 @@ export function narrateV2CommitStatus(input: V2CommitStatusNarrationInput): Stat
       keyEvidence: ["相关正式写入已停止继续写入", "必须沿用同一恢复记录"],
       facts: [
         fact("相关正式写入已停止继续写入", sourceRef),
-        fact("已完成步骤与恢复状态保存在原 Commit 中", sourceRef),
+        fact("已完成步骤与恢复状态已经安全保存", sourceRef),
       ],
       ...(nextAction ? { nextAction } : {}),
       evidenceRefs: [sourceRef],
@@ -404,7 +404,7 @@ export function narrateV2CommitStatus(input: V2CommitStatusNarrationInput): Stat
       conclusion: "这次修改没有应用",
       keyEvidence: ["写入链已经安全终止"],
       facts: [
-        fact("正式 Commit 已记录为未能应用", sourceRef),
+        fact("这次正式修改已记录为未能应用", sourceRef),
         fact(failedCommitSafety(input.commit.errorCode), sourceRef),
       ],
       evidenceRefs: [sourceRef],
@@ -417,7 +417,7 @@ export function narrateV2CommitStatus(input: V2CommitStatusNarrationInput): Stat
       conclusion: "这次修改已经撤销",
       keyEvidence: ["逆向修改已经完成", "历史证据仍保留"],
       facts: [
-        fact("正式 Commit 已记录为撤销", sourceRef),
+        fact("这次正式修改已记录为撤销", sourceRef),
         fact("原修改与逆向修改的历史证据仍保留", sourceRef),
       ],
       evidenceRefs: [sourceRef],
@@ -427,8 +427,8 @@ export function narrateV2CommitStatus(input: V2CommitStatusNarrationInput): Stat
   }
   return result({
     conclusion: "这次修改已经应用",
-    keyEvidence: ["正式 Commit 已完整完成"],
-    facts: [fact("正式 Commit 已记录为完整完成", sourceRef)],
+    keyEvidence: ["所有步骤都已完成"],
+    facts: [fact("这次正式修改已完整完成", sourceRef)],
     unknowns: ["当前证据不足以确认是否仍满足安全撤销条件"],
     evidenceRefs: [sourceRef],
     observedAt: input.observedAt,

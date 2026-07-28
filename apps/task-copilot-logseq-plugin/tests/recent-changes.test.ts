@@ -78,7 +78,7 @@ test("recent changes shows user intent and safe action while keeping technical i
   assert.equal(changes.length, 1);
   const { narration, ...change } = changes[0]!;
   assert.equal(narration.conclusion, "这次修改已经应用");
-  assert.deepEqual(narration.keyEvidence, ["正式 Commit 已完整完成"]);
+  assert.deepEqual(narration.keyEvidence, ["所有步骤都已完成"]);
   assert.deepEqual(narration.unknowns, []);
   assert.equal(narration.source.ruleId, "commit-completed");
   assert.deepEqual(change, {
@@ -333,4 +333,9 @@ test("applied Project Closure routes to its lifecycle inverse", () => {
     value: "proposal-commit:closure",
     tone: "danger",
   });
+  assert.equal(
+    changes[0]!.summary,
+    "项目已结束；结果、遗留和后续说明已经保存，项目页面与正文保持不变。",
+  );
+  assert.doesNotMatch(changes[0]!.summary, /Lifecycle|COMPLETED|Commit|Proposal/);
 });

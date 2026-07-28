@@ -371,7 +371,8 @@ test("unfinished Commit routes to recovery evidence without inventing a recovery
   });
 
   assert.equal(pending.conclusion, "这次修改尚未完成");
-  assert.match(pending.facts[0]!.text, /原 Commit/);
+  assert.equal(pending.facts[0]!.text, "已完成的步骤已经安全保存");
+  assert.doesNotMatch(pending.facts.map((fact) => fact.text).join(" "), /Commit|Proposal/);
   assert.deepEqual(pending.nextAction, {
     intent: "OPEN_RECOVERY_DETAILS",
     label: "查看并继续原修改",

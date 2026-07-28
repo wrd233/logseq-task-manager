@@ -173,6 +173,22 @@ function completedWithoutUndoExplanation(record: ServiceStoredProposal | undefin
     : undefined;
 }
 
+function userSummary(record: ServiceStoredProposal | undefined): string {
+  if (!record) return "这次正式修改的详细意图只在原始审阅记录中可用。";
+  const acceptedOperations = record.proposal.groups
+    .filter((group) => group.disposition === "ACCEPTED")
+    .flatMap((group) => group.semanticOperations);
+  const isProjectClosure = acceptedOperations.some((operation) => (
+    operation.kind === "UPDATE_PROJECT_INTERFACE" && "closure" in operation.payload
+  )) && acceptedOperations.some((operation) => (
+    operation.kind === "TRANSITION_LIFECYCLE" && operation.payload.lifecycle === "COMPLETED"
+  ));
+  if (isProjectClosure) {
+    return "项目已结束；结果、遗留和后续说明已经保存，项目页面与正文保持不变。";
+  }
+  return record.proposal.finalPreview;
+}
+
 function inverseAvailability(inverse: ServiceSemanticCommit): string {
   if (inverse.status === "FAILED") return changedStateExplanation(inverse.errorCode);
   if (inverse.status === "PENDING") return "撤销尚未完成；已完成的步骤被安全记录，请不要重复提交。";
@@ -227,7 +243,7 @@ export function projectRecentChanges(input: RecentChangesInput): RecentChange[] 
         commitIdentity: commit.semanticCommitId,
         ...(commit.proposalId ? { proposalIdentity: commit.proposalId } : {}),
         intent: record?.proposal.title ?? "正式修改",
-        summary: record?.proposal.finalPreview ?? "这次正式修改的详细意图只在原始审阅记录中可用。",
+        summary: userSummary(record),
         status: state.status,
         statusLabel: state.label,
         narration: projectedNarration,
