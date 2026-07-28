@@ -79,7 +79,7 @@ test("recent changes shows user intent and safe action while keeping technical i
   const { narration, ...change } = changes[0]!;
   assert.equal(narration.conclusion, "这次修改已经应用");
   assert.deepEqual(narration.keyEvidence, ["正式 Commit 已完整完成"]);
-  assert.deepEqual(narration.unknowns, ["当前证据不足以确认是否仍满足安全撤销条件"]);
+  assert.deepEqual(narration.unknowns, []);
   assert.equal(narration.source.ruleId, "commit-completed");
   assert.deepEqual(change, {
     commitIdentity: "proposal-commit:opaque-1",
@@ -89,6 +89,7 @@ test("recent changes shows user intent and safe action while keeping technical i
     status: "APPLIED",
     statusLabel: "已应用",
     occurredAt: "2026-07-24T06:32:00.000Z",
+    availability: "可以发起撤销；执行时会重新检查当前内容，若之后发生变化则不会覆盖。",
     primaryAction: {
       action: "v2-proposal-undo",
       label: "撤销",

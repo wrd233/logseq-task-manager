@@ -63,7 +63,7 @@ import {
   updateExistingObjectFromV2Candidate,
   type V2ExplicitCandidatePanelState,
 } from "./v2-explicit-candidate-discovery.ts";
-import { createReviewedProjectWithPage, ownedProjectPageObjectId, undoReviewedProjectCreation } from "./v2-project-creation.ts";
+import { createReviewedProjectWithPage, ownedProjectPageObjectId, projectCreationUndoMessage, undoReviewedProjectCreation } from "./v2-project-creation.ts";
 import { ProjectCreationGrillController, type ProjectCreationSource } from "./project-creation-grill-controller.ts";
 import {
   buildSelectedBlockProposalPrompt,
@@ -3434,9 +3434,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         sourceReturnTarget = result.sourceReturnTarget;
         actionDialog = undefined;
         workspace = "review";
-        undoResultMessage = result.pagePreserved
-          ? "Project 与 Anchor 已撤销；复用的来源 Page 保持原样。"
-          : "Project、Anchor 与本次事务拥有的空 Page 已安全撤销；Audit 与逆向 Commit 已保留。";
+        undoResultMessage = projectCreationUndoMessage(result.pagePreserved);
         message = undoResultMessage;
       });
     } finally {

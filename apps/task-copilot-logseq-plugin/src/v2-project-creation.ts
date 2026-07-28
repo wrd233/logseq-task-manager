@@ -97,6 +97,12 @@ export function ownedProjectPageObjectId(value: unknown): string | undefined {
   return property(record, objectProperty);
 }
 
+export function projectCreationUndoMessage(pagePreserved: boolean): string {
+  return pagePreserved
+    ? "项目创建已撤销；复用的来源页面保持原样，历史记录仍会保留。"
+    : "项目创建已撤销；本次新建的空白项目页面已移除，历史记录仍会保留。";
+}
+
 function expectedProperties(intent: Pick<ServiceProjectIntent, "objectId" | "semanticCommitId">): Record<string, string> {
   return {
     [ownerProperty]: projectPageOwner,

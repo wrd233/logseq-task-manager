@@ -200,10 +200,20 @@ export function projectRecentChanges(input: RecentChangesInput): RecentChange[] 
       const primaryAction = commit.status === "COMPLETED" && !inverse
         ? proposalUndoAction(record, commit.semanticCommitId)
         : undefined;
+      const projectedNarration = primaryAction
+        ? {
+            ...narration,
+            unknowns: narration.unknowns.filter(
+              (unknown) => unknown !== "当前证据不足以确认是否仍满足安全撤销条件",
+            ),
+          }
+        : narration;
       const availability = inverse
         ? inverseAvailability(inverse)
-        : state.availability ?? (commit.status === "COMPLETED" && !primaryAction
-          ? completedWithoutUndoExplanation(record)
+        : state.availability ?? (commit.status === "COMPLETED"
+          ? primaryAction
+            ? "可以发起撤销；执行时会重新检查当前内容，若之后发生变化则不会覆盖。"
+            : completedWithoutUndoExplanation(record)
           : undefined);
       const technical: RecentChange["technical"] = {
         semanticCommitId: commit.semanticCommitId,
@@ -220,7 +230,7 @@ export function projectRecentChanges(input: RecentChangesInput): RecentChange[] 
         summary: record?.proposal.finalPreview ?? "这次正式修改的详细意图只在原始审阅记录中可用。",
         status: state.status,
         statusLabel: state.label,
-        narration,
+        narration: projectedNarration,
         occurredAt: commit.updatedAt,
         ...(availability ? { availability } : {}),
         ...(primaryAction ? { primaryAction } : {}),

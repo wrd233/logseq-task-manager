@@ -9,6 +9,7 @@ import {
   createReviewedProjectWithPage,
   createProjectWithControlledPage,
   ownedProjectPageObjectId,
+  projectCreationUndoMessage,
   undoReviewedProjectCreation,
   type ProjectCreationService,
   type ProjectPageEntity,
@@ -16,6 +17,20 @@ import {
   type ReviewedProjectCreationService,
 } from "../src/v2-project-creation.ts";
 import { proposalPageEvidenceHash } from "../src/v2-proposal-revalidation.ts";
+
+test("Project creation Undo result uses user language for both reused and owned pages", () => {
+  assert.equal(
+    projectCreationUndoMessage(true),
+    "项目创建已撤销；复用的来源页面保持原样，历史记录仍会保留。",
+  );
+  assert.equal(
+    projectCreationUndoMessage(false),
+    "项目创建已撤销；本次新建的空白项目页面已移除，历史记录仍会保留。",
+  );
+  for (const message of [projectCreationUndoMessage(true), projectCreationUndoMessage(false)]) {
+    assert.doesNotMatch(message, /Project|Anchor|Audit|Commit/);
+  }
+});
 
 function intent(): ServiceProjectIntent {
   return {
