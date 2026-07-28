@@ -207,3 +207,27 @@ test("user-visible Project creation reading rejects internal machine identities"
     /machine identity.*user-visible prose/i,
   );
 });
+
+test("current Project entry rejects UI composition requirements instead of formalizing them as current work", () => {
+  const base = draft("BLANK");
+  assert.throws(
+    () => materializeProjectCreationPreview({
+      ...base,
+      currentInterface: {
+        text: "重入时先看到一句当前状态、一个当前推进和字段映射入口；不需要额外仪表盘。",
+        evidenceRefs: ["answer:interface"],
+      },
+    }, authority("BLANK")),
+    /concrete business action/i,
+  );
+  assert.equal(
+    materializeProjectCreationPreview({
+      ...base,
+      currentInterface: {
+        text: "先接入一条华为真实告警并核对字段映射。",
+        evidenceRefs: ["answer:interface"],
+      },
+    }, authority("BLANK")).finalReading.currentInterface.text,
+    "先接入一条华为真实告警并核对字段映射。",
+  );
+});

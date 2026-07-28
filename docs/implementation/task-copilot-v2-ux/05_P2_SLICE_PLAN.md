@@ -122,7 +122,7 @@ interface；模型仍只有 `SESSION_DRAFT_ONLY`。Context Package、Skill/Promp
 也已自动完成。
 
 第二个自动合同已完成：Local Service `project-creation-grill.ts` 将三种入口材料构造成
-有界 Context 和七维 machine uncertainty，当前 `project-creation-modeling@1.5.0`
+有界 Context 和七维 machine uncertainty，当前 `project-creation-modeling@1.6.0`
 （初始自动 Gate 为 `1.1.0`）明确要求
 跟随材料而非固定问卷，并将 Page/Object 关系与材料去向分开解决。Blank 由既有受控
 Project Page 合同自动解决关系，Page/MiniProject 必须显式回答；Blank 首问结果、Page
@@ -206,7 +206,10 @@ active Primary Page Anchor，不写、不标记、不删除来源 Page。两次 
 安全保留答案后重试，未产生半成品；当前质量缺口是拒绝率、readiness 密度和重复“完成证据”
 标签，不降低安全结论。
 
-MiniProject“演化为 Project”最终使用 `project-creation-modeling@1.5.0`。真实测试先后把
+MiniProject“演化为 Project”最终使用 `project-creation-modeling@1.6.0`。1.5.0 的真实
+Day 5 样本曾把“重入页显示什么”误收为业务当前推进；1.6.0 将 `current-interface`
+统一收窄为可继续的真实工作，并在 Grill、Prompt 和 Validator 三层拒绝页面布局要求。
+此前真实测试先后把
 machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和 evidence repair 过宽
 暴露为失败样本并关闭。当前 Preview 的五项来源均为 `LINK_AS_SOURCE`，模型提出的嵌入
 建议没有越过用户决定与机器关系白名单。最新重跑中最终 Preview 前两次被 Validator 安全

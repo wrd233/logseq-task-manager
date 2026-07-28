@@ -122,6 +122,7 @@ export class LocalLlmProjectCreationPreviewGenerator {
         "For BLANK return sourceMaterials as an empty array and use CREATE_DEDICATED_PROJECT_PAGE.",
         "Every evidenceRefs item must come from allowedEvidenceRefs.",
         "All user-visible prose must use concise natural Simplified Chinese.",
+        "currentInterface.text must be one concrete business action the user can resume now, not a UI layout, dashboard, page composition, or description of what should be displayed.",
       ],
     };
     const system = [
@@ -133,6 +134,7 @@ export class LocalLlmProjectCreationPreviewGenerator {
       "Preserve every supplied source material exactly once in sourceMaterials. Never copy, summarize, rewrite, move, or delete its exact text.",
       "Each claim, rationale, and disposition must cite only supplied sourceRef, answer ref, session ref, or contract ref evidence.",
       "All user-visible prose must use concise, natural Simplified Chinese. Proper names may retain their original spelling, but every prose field must contain Chinese.",
+      "currentInterface.text must be exactly one concrete business action the user can resume now. It may say what to inspect, connect, verify, or complete; it must not describe a page, interface, dashboard, layout, entry placement, or what the UI should display. currentInterface 是一项可继续的真实工作，不是界面设计要求。",
       "Machine identities and evidence references belong only in their structured ID/ref fields. Never repeat an Object ID, Block/Page UUID, sourceRef, hash, Proposal/Commit/Anchor ID, or other opaque machine token in user-visible prose.",
       "The Page/Object relationship and every source disposition are proposals for later user Review, never formal authority.",
       "The machine owns exact source text, hashes, formal zero-write impact, evidence scope, provenance, and authority boundary.",

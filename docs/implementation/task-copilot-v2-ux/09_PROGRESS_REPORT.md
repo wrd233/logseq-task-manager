@@ -15,7 +15,9 @@
 > Desktop；`73dc1e2` 又关闭正式 Block 的失败、成功、Undo 与 reload 返回链，P0-K 已为
 > DONE_DESKTOP_REPRESENTATIVE；`bc79ffd` 已关闭 P0-J 结束运行后的正式动作边界，原生
 > 中文 IME 仍 OPEN。连续使用 Pilot `PILOT-2026W31-A` 已完成 Day 1—2、Day 3 Waiting
-> 代表子链与 Day 4 MiniProject/Project create→reload→Undo；完整 7—10 日 Pilot、P1
+> 代表子链与 Day 4 MiniProject/Project create→reload→Undo；Day 5 Project 重建的真实
+> Provider 失败样本已经进入通用合同修复，但尚待新构建 Provider/Desktop 复验。完整
+> 7—10 日 Pilot、P1
 > 前台和整体 Goal 仍未完成。
 
 ## 总体状态
@@ -95,6 +97,26 @@
   explicit sync clean。
 - 关闭撤销资格/按钮矛盾这个 UI Partial；新增长期 Partial、正式状态、Runtime、Recovery
   分支、Skill/Prompt/Validator 与写入权威均为 `0`。
+
+### 2026-07-28 Day 5 Project 当前推进语义失败与通用修复
+
+- 为重建 Graylog Project 运行 5 轮真实 DeepSeek Grill 和 1 次 Preview。模型把用户对
+  “Project 重入时希望看到什么”的回答写入 `currentInterface`，Preview 因而把页面信息
+  结构误列成“当前先从这里继续”；旧 Validator 接受了该结果。
+- 用户在 Preview 阶段取消，没有进入 HIGH Review、Proposal 或正式写入；本次
+  Proposal/Commit/Recovery/Undo 均为 `0`，可靠的正式状态没有被错误草稿覆盖。
+- 根因不是单条输出措辞，而是 `CURRENT_INTERFACE` 的 machine uncertainty、Prompt 和
+  Application draft contract 都允许“界面要求”与“业务当前推进”混用。修复统一为：
+  `currentInterface` 必须是一项可继续的真实工作；页面布局、仪表盘、首屏字段或“应显示
+  什么”保持 uncertainty 未解决并被 Validator 拒绝。
+- `project-creation-modeling@1.6.0` 取代 1.5.0；没有新建 Skill、Agent Runtime、正式状态、
+  恢复分支或写入权威。真实失败样本和独立业务动作反例均进入自动测试。
+- 自动证据：Application `170/170`、Local Service `169/169`、Plugin `352/352`、
+  targeted `26/26`、三包 typecheck 与根级 `./scripts/check.sh` PASS；新构建真实
+  Provider/Desktop 复验仍是本子 Gate 的剩余条件。
+- Pilot 累计真实 Provider `20`，运行时 Validator rejection `0`、retry `0`、abstention
+  `0`；这里的 `0 rejection` 是缺陷证据，不是质量成功。Partial 净变化 `0`：增加的是
+  已有 P2-C 质量 Gate 的明确阻断，未增加长期产品范围。
 
 ### 2026-07-28 P0-K Block Condition 返回现场收口
 

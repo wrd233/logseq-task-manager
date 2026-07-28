@@ -196,6 +196,11 @@
 - `recover-context@1.2.0`：`RETIRED`。运行态和 catalog 只使用 1.3.0，不保留平行 active 版本。
 - `unified-ux-generator@1.1.0`：`RETIRED`。原因是自动 repair 会放大 Provider 预算并把一次
   用户交互双计数，单汉字语言检查也可被混合英文绕过；不保留兼容运行分支。
+- `project-creation-modeling@1.6.0`：`CANDIDATE/AUTOMATED_ONLY`。真实 Day 5 Provider
+  样本证明 1.5.0 会把页面显示要求收作业务当前推进；1.6.0 用同一通用合同约束 Grill
+  uncertainty、Provider output 和 Application Validator，不引入平行 Runtime。
+- `project-creation-modeling@1.5.0`：`RETIRED`。运行态与 catalog 只保留 1.6.0；真实
+  Provider/Desktop 复验通过前不晋升 `PROVIDER_VERIFIED`。
 - 当前复杂度变化：平行 Runtime/写入权威/恢复入口均未增加；Prompt/Validator 的样本特例
   已收敛为语言和 authority 的通用输出合同。stale 遥测只替换同一 evidence outcome，不
   新建事件状态。P1-G 从 Partial 关闭；全局 Skill 生命周期台账仍未覆盖其他 active Skill。

@@ -5,7 +5,7 @@ description: Resolve material-specific uncertainties before creating a Task Copi
 
 # Model One Project Creation Grill Turn
 
-Version: `1.5.0`
+Version: `1.6.0`
 
 Apply `task-copilot-core` first. Work only inside the supplied Context Package and final machine
 `grillAuthority`. This Skill produces one session draft. It never creates an Object, Page, Proposal,
@@ -24,6 +24,11 @@ uncertainty from the actual entry:
   and review loop. It never means closing, archiving, marking, notifying about, rewriting, or
   otherwise changing the source MiniProject. Do not ask the user to choose any of those source
   lifecycle actions.
+- `current-interface` means one concrete business action the user can resume when reentering the
+  Project. Ask what real work should be continued first. It is not a request for a page layout,
+  dashboard, card composition, information architecture, or a description of what the UI should
+  display. If the answer only describes presentation, keep this uncertainty open and ask for the
+  actual next business action.
 - Page entries separately resolve whether the current Page remains a source or becomes the one
   controlled Project Page. For a MiniProject entry this is not a question: the machine contract
   preserves the existing MiniProject Object, root Block, and subtree, and only allows a new

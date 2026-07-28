@@ -74,6 +74,10 @@ test("Blank, Page, and MiniProject entries expose different evidence-bounded fir
   assert.equal(requiredGrillFocus({ ...page.authority, contractVersion: "1.0.0", promptVersion: "test", provider: { providerId: "test", providerVersion: "test", model: "test" } })?.uncertaintyId, "material-disposition");
   assert.equal(requiredGrillFocus({ ...miniProject.authority, contractVersion: "1.0.0", promptVersion: "test", provider: { providerId: "test", providerVersion: "test", model: "test" } })?.uncertaintyId, "project-boundary");
   assert.doesNotMatch(JSON.stringify([blank, page, miniProject]), /objectId|Proposal|semanticOperations/);
+  assert.match(
+    blank.runtimeContext.content,
+    /current-interface.*实际继续.*工作.*不是页面布局.*仪表盘/s,
+  );
 });
 
 test("answers resolve only their exact dimensions and change the machine-selected focus", () => {

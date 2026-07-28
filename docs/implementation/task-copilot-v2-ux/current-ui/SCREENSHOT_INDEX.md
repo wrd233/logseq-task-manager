@@ -26,6 +26,12 @@ Logseq `0.10.15`；File Graph `logseq`；host Light；约 1000×720。测试正�
 
 Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 
+### 连续使用 Pilot Day 5 — historical defect at Plugin `7a0b444`
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-05-project-preview-current-interface-misclassified-defect-light-plugin-7a0b444.jpg` | HISTORICAL_DEFECT | 5 轮真实 Grill 后生成 Project Preview | 页面显示要求被误作业务当前推进；在 Preview 取消，零 Proposal/正式写入；由 `project-creation-modeling@1.6.0` 自动合同替代，待真实 Provider/Desktop 复验 |
+
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
 Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌

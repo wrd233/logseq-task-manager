@@ -155,6 +155,16 @@ function naturalChinese(value: unknown, name: string, maximum: number): string {
   return assertFrontstageProse(result, `Project creation preview ${name}`);
 }
 
+function currentProjectEntry(value: unknown): string {
+  const result = naturalChinese(value, "currentInterface.text", 1_000);
+  const describesUiComposition = /(?:重入(?:时|后)|界面|页面|首屏|布局|仪表盘).{0,80}(?:显示|展示|看到|放置|包含|入口|不需要)|(?:一句当前状态|一个当前推进)/u.test(result);
+  const hasConcreteAction = /(?:查看|看|接入|核对|验证|整理|分析|确认|获取|记录|处理|打开|收集|导入|连接|测试|补充|对比|排查|完成|制作|推进|继续)/u.test(result);
+  if (describesUiComposition || !hasConcreteAction) {
+    throw new Error("Project creation preview currentInterface must be one concrete business action, not a UI composition requirement.");
+  }
+  return result;
+}
+
 function token(value: unknown, name: string): string {
   const result = boundedText(value, name, 128);
   if (!TOKEN.test(result)) throw new Error(`Project creation preview ${name} must be a machine token.`);
@@ -227,7 +237,10 @@ function parseDraft(value: unknown): ProjectCreationPreviewDraft {
     },
     completionEvidence: claims(input.completionEvidence, "completionEvidence", 1, 12),
     internalClosure: claim(input.internalClosure, "internalClosure"),
-    currentInterface: claim(input.currentInterface, "currentInterface"),
+    currentInterface: (() => {
+      const currentInterface = claim(input.currentInterface, "currentInterface");
+      return { ...currentInterface, text: currentProjectEntry(currentInterface.text) };
+    })(),
     pageObjectRelationship: {
       mode: relationship.mode as ProjectPageObjectRelationshipMode,
       rationale: naturalChinese(relationship.rationale, "pageObjectRelationship.rationale", 600),

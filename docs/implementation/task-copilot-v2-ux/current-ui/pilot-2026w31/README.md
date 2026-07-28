@@ -1,6 +1,6 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_4_UNDO_GUIDANCE_FIXED`
+> 状态：`IN_PROGRESS_DAY_5_CURRENT_INTERFACE_FIX_AUTOMATED`
 > 当前精确构建：`7a0b444821b7`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
@@ -33,16 +33,18 @@ Proposal / Commit / Undo / Recovery。
 | Day 2 | DONE_REPRESENTATIVE | 7 条纠正/补充；Undo 错误 Task；改原文；真实 DeepSeek 重新正式化；reload | 正式写入可恢复，但纠正路径过长 |
 | Day 3 | PARTIAL_WAITING_SUBCHAIN_DONE | 6 条自然输入；一个正式 Task 设为等待网络组并设置 reviewAt；reload/DB 读回 | Waiting 不再占用“继续处理”，但前台缺少安静的“保持等待”确认 |
 | Day 4 | DONE_REPRESENTATIVE_WITH_UX_BLOCKERS | 自然材料形成 MiniProject；真实 DeepSeek 自适应 Grill；Page 来源超限 fail-closed；Blank Project 经 Preview/HIGH/Create/reload/Undo；精确构建健康复核 | 正式链安全，但确认重复、推荐越界、结果墙和工程词仍阻断发布 |
-| Day 5—10 | OPEN | 尚未运行 | Day 5 前需重新建立 Graylog Project；不用历史截图或单点 Golden Flow 代替 |
+| Day 5 | PARTIAL_PROVIDER_DEFECT_FIXED_AUTOMATED | 5 轮真实 Grill + 1 次 Preview；在 Preview 取消，零 Proposal/正式写入 | 页面显示要求曾被误作业务当前推进；1.6.0 自动修复完成，待新构建 Provider/Desktop 复验 |
+| Day 6—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
 
 ## Provider 与安全计数
 
-- 真实 Provider 调用：`14`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
-  Grill/Preview 为 7；Page 来源超限在 Provider 前拒绝）
+- 真实 Provider 调用：`20`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
+  Grill/Preview 为 7；Day 5 重建 Project Grill/Preview 为 6；Page 来源超限在 Provider 前拒绝）
 - Validator rejection：`0`
 - 自动 retry：`0`
 - abstention：`0`
-- 新 Skill / Prompt / Validator 版本：`0`
+- 新 active Skill 数量：`0`；`project-creation-modeling` 从 1.5.0 升至 1.6.0，
+  1.5.0 退休
 - 正式写入：Day 1 创建 Task；Day 2 先精确 Undo 再以纠正来源创建 Task；Day 3 仅修改
   该 Task 的 Condition；Day 4 创建 MiniProject，并创建后完整 Undo Graylog Project
 - Key 泄漏、正文进入普通日志、绕过 Service、手改 SQLite：`0`
@@ -78,6 +80,10 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
     `7a0b444` 已自动收敛成功消息，不再泄漏 `Project / Anchor / Audit / Commit`；该新
     成功消息尚未重新执行一次真实 Project Undo，不能借历史截图升级为 Desktop DONE。
     精确 `7a0b444` reload 后 Pending/Recovery/Conflict `0/0/0`、explicit sync clean。
+12. Day 5 真实 Preview 将“重入页显示一句状态、一个推进和材料入口”误作业务当前推进。
+    这不是一条文案缺陷，而是 `CURRENT_INTERFACE` 混合了产品界面和业务动作。用户在
+    Preview 取消，零 Proposal/正式写入；1.6.0 已统一 Grill、Prompt 和 Validator，
+    仍须真实 Provider/Desktop 复验。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -93,7 +99,8 @@ File Graph `logseq`、host Light、约 1000×720。详细结论见 `OBSERVATION_
 
 ## 下一段
 
-1. 重新建立 Graylog Project，进入 Day 5 Context Recovery 连续使用，并在后续真实
-   Project Undo 时复验新的成功消息；
+1. 安装 `project-creation-modeling@1.6.0` 的最新构建，重新建立 Graylog Project，
+   证明当前推进是可行动工作，再进入 Day 5 Context Recovery；在后续真实 Project Undo
+   时复验新的成功消息；
 2. 用 Day 1—5 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
    前台分区，不先增加新的 Attention 类型或 Block Marker。

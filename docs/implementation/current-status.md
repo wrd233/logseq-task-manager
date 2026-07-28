@@ -17,12 +17,23 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
-连续使用 Pilot `PILOT-2026W31-A` 已推进到 Day 4 代表链：自然材料形成听云 MiniProject，
+连续使用 Pilot `PILOT-2026W31-A` 已推进到 Day 5 Project 重建前半链：Day 1—4 的自然
+捕获、Waiting、MiniProject 与 Project create→reload→Undo 证据保持；Day 5 使用同一
+Graylog 材料重新运行 5 轮真实 DeepSeek Grill 与 1 次 Preview 时，发现
+`current-interface` 被误解释为“重入页面应显示什么”，并被 Validator 接受为业务当前推进。
+本次 Preview 在进入 Proposal 前取消，正式写入、Proposal 与恢复分支均为 `0`。该失败推动
+`project-creation-modeling@1.6.0` 将 `current-interface` 统一定义为一项可继续的真实工作，
+Grill uncertainty、Provider 输出合同与 Application Validator 共用同一语义；1.5.0 退休，
+不保留平行 active 版本。自动回归已经通过，真实 Provider 与 Desktop 复验仍 OPEN，因此
+不能把 Day 5 或该质量 Gate 标为 DONE。
+
+此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源超过有界预算
 时的用户表达已修复为可行动范围说明，不再伪装 Provider 失败或提供无效 Retry。该轮累计
-真实 Provider 14 次，并暴露重复确认、无依据模型建议、结果/历史墙、Undo 资格矛盾及成功
+真实 Provider 14 次；加上 Day 5 的 6 次失败驱动复验，Pilot 累计 20 次，并暴露重复确认、
+无依据模型建议、结果/历史墙、Undo 资格矛盾及成功
 消息工程词。`7a0b444821b7` 已在最新 Desktop 关闭撤销资格/按钮矛盾，并自动压缩
 Project Undo 成功消息；后者仍需下一次真实 Undo 复验。精确构建系统
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。重复确认、结果/历史墙仍
@@ -246,7 +257,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   P2-C～P2-G、P1 和整体产品化 Goal 继续 IN_PROGRESS；
 - P2-C 已进入第二个自动合同：Grill session 支持不伪造 Object identity 的
   `PROJECT_CREATION` subject；Local Service 已有三来源自适应 generation builder 与
-  `project-creation-modeling@1.5.0`（初始自动 Gate 为 `1.1.0`），Blank/Page/MiniProject 分别先处理结果、现有材料去向、
+  `project-creation-modeling@1.6.0`（初始自动 Gate 为 `1.1.0`；1.5.0 已退休），Blank/Page/MiniProject 分别先处理结果、现有材料去向、
   升级边界，并要求 Project 特有的 internal closure/current interface 与独立 Page/Object
   关系；Blank 已通过认证
   Service route 与真实 `deepseek-v4-flash` Validator Gate（首轮证据为 Skill `1.0.0`），
