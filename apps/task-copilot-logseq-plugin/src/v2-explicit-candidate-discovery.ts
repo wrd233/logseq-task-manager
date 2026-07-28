@@ -318,11 +318,21 @@ export function renderV2ExplicitCandidateDiscoveryPanel(state: V2ExplicitCandida
   if (state.status === "error") return `<section class="diagnostic-error"><h2>这次检查没有完成</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-candidate-open">重新检查</button><button type="button" data-action="v2-candidate-cancel">关闭</button></section>`;
   if (state.status === "success") return `${queue}<section class="diagnostic-notice"><h2>待整理内容已更新</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-candidate-open">再次检查</button><button type="button" data-action="v2-candidate-cancel">关闭</button></section>`;
   const { preview } = state;
+  const candidates = preview.candidates.filter((candidate) => {
+    const kind = candidateKindForExplicitObject(candidate.objectType);
+    const existing = persistedCandidates.find(({ sourceAnchorId, candidateKind }) => sourceAnchorId === candidate.externalId && candidateKind === kind);
+    if (!existing) return true;
+    if (existing.disposition === "NO_MORE_LIKE_THIS") return false;
+    return !existing.sourceVersion.endsWith(`:${candidate.contentHash}`);
+  });
+  if (candidates.length === 0) {
+    return `${queue}<section class="card candidate-review"><div class="eyebrow">当前页</div><h2>没有新增需要整理的内容</h2><p>已经暂缓、保留为普通内容或不再提示的处置仍然有效；正式事项没有变化。</p><div class="actions"><button type="button" data-action="v2-candidate-open">重新检查</button><button type="button" data-action="v2-candidate-cancel">关闭</button></div></section>`;
+  }
   return `<section class="card candidate-review" aria-label="当前页待整理内容"><div class="eyebrow">当前页</div><h2>预览待整理内容</h2>
-    <p>只检查当前页：已读取前 ${preview.scannedBlocks} 条内容，发现 ${preview.candidates.length} 项可能需要整理。确认后只加入待整理列表，不创建正式事项。</p>
+    <p>只检查当前页：已读取前 ${preview.scannedBlocks} 条内容，发现 ${candidates.length} 项新增内容可能需要整理。确认后只加入待整理列表，不创建正式事项。</p>
     ${preview.truncated ? '<p class="muted">当前页快照超过本次处理预算；超出部分未进入候选分析。</p>' : ""}
     ${preview.invalidExplicitBlocks ? `<p class="muted">${preview.invalidExplicitBlocks} 个显式标识存在冲突或缺少标题，未列为可写候选。</p>` : ""}
-    <ul>${preview.candidates.map((candidate) => `<li>${escapeHtml(candidateObjectLabel(candidate.objectType))} · ${escapeHtml(candidate.text)}</li>`).join("")}</ul>
+    <ul>${candidates.map((candidate) => `<li>${escapeHtml(candidateObjectLabel(candidate.objectType))} · ${escapeHtml(candidate.text)}</li>`).join("")}</ul>
     <div class="actions"><button type="button" class="primary" data-action="v2-candidate-submit"${state.busy ? ' disabled aria-busy="true"' : ""}>${state.busy ? "保存中…" : "加入待整理"}</button>${state.busy ? '<span class="muted">请求已提交；失败后可安全重试。</span>' : '<button type="button" data-action="v2-candidate-cancel">取消</button>'}</div>
   </section>`;
 }

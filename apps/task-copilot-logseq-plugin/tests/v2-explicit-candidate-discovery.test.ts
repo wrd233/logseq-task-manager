@@ -173,6 +173,33 @@ test("Candidate queue renders only the same bounded set whose source text was hy
   assert.doesNotMatch(html, /正在等待来源重读/);
 });
 
+test("candidate preview keeps current dispositions and no-more cooldown quiet", () => {
+  const preview = {
+    candidates: [
+      { externalId: "later-source", inputVersion: "1", contentHash: "hash-later", objectType: "TASK" as const, text: "稍后处理" },
+      { externalId: "dismissed-source", inputVersion: "1", contentHash: "hash-dismissed", objectType: "OUTPUT" as const, text: "保持普通内容" },
+      { externalId: "suppressed-source", inputVersion: "2", contentHash: "hash-changed", objectType: "MINI_PROJECT" as const, text: "不再提示" },
+      { externalId: "new-source", inputVersion: "1", contentHash: "hash-new", objectType: "TASK" as const, text: "新的任务" },
+    ],
+    scannedBlocks: 4,
+    invalidExplicitBlocks: 0,
+    truncated: false,
+  };
+  const persisted = [
+    { candidateId: "later", sourceAnchorId: "later-source", sourceVersion: "1:hash-later", candidateKind: "WORK_ITEM" as const, reason: "原因", suggestion: "建议", disposition: "LATER" as const, deferredUntil: "2099-07-28T00:00:00.000Z", lastAnalyzedAt: "2026-07-28T00:00:00.000Z", createdAt: "2026-07-28T00:00:00.000Z", updatedAt: "2026-07-28T00:00:00.000Z" },
+    { candidateId: "dismissed", sourceAnchorId: "dismissed-source", sourceVersion: "1:hash-dismissed", candidateKind: "OUTPUT" as const, reason: "原因", suggestion: "建议", disposition: "DISMISSED" as const, lastAnalyzedAt: "2026-07-28T00:00:00.000Z", createdAt: "2026-07-28T00:00:00.000Z", updatedAt: "2026-07-28T00:00:00.000Z" },
+    { candidateId: "suppressed", sourceAnchorId: "suppressed-source", sourceVersion: "1:hash-before-edit", candidateKind: "WORK_ITEM" as const, reason: "原因", suggestion: "建议", disposition: "NO_MORE_LIKE_THIS" as const, lastAnalyzedAt: "2026-07-28T00:00:00.000Z", createdAt: "2026-07-28T00:00:00.000Z", updatedAt: "2026-07-28T00:00:00.000Z" },
+  ];
+  const html = renderV2ExplicitCandidateDiscoveryPanel({ status: "ready", preview, serviceGeneration: 1 }, true, persisted);
+  assert.match(html, /发现 1 项新增内容/);
+  assert.match(html, /任务 · 新的任务/);
+  assert.doesNotMatch(html, /稍后处理|保持普通内容|不再提示/);
+
+  const quiet = renderV2ExplicitCandidateDiscoveryPanel({ status: "ready", preview: { ...preview, candidates: preview.candidates.slice(0, 3) }, serviceGeneration: 1 }, true, persisted);
+  assert.match(quiet, /没有新增需要整理的内容/);
+  assert.doesNotMatch(quiet, /data-action="v2-candidate-submit"/);
+});
+
 test("candidate discovery refuses incomplete Anchor coverage and non-page shapes", async () => {
   const received: ServiceCandidateDiscoveryRequest[] = [];
   await assert.rejects(() => prepareV2ExplicitCandidateDiscovery({
