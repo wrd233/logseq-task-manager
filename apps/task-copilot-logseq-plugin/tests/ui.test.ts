@@ -697,15 +697,21 @@ test("ordinary Page Context exposes three user intents and a page-scoped formal-
   for (const action of ["v2-page-organize", "v2-page-formal-items-open", "v2-page-project-create-route"]) {
     assert.match(route, new RegExp(`data-action="${action}"`));
   }
-  assert.match(route, /读取当前 Page 的有界材料/);
-  assert.match(route, /先 Grill Me 和零写入预览/);
+  assert.match(route, /当前页面 · Release Check/);
+  assert.match(route, /1 项由 Task Copilot 关联到当前页/);
+  assert.match(route, /读取当前页的相关材料/);
+  assert.match(route, /先梳理并预览/);
   assert.match(route, /完成或取消后仍回到 Release Check/);
+  const routeDialog = route.match(/<section class="inbox-dialog action-dialog page-context-dialog"[\s\S]*?<\/section>/)?.[0] ?? "";
+  assert.doesNotMatch(routeDialog, /Page ·|active Primary Anchor|Grill Me|零写入/);
 
   value.actionDialog = { kind: "v2-page-formal-items", value: "page-1" };
   const items = renderApp(value);
   assert.match(items, /本页正式事项/);
-  assert.match(items, /TASK · OPEN · v3/);
+  assert.match(items, /任务 · 进行中/);
   assert.match(items, /核对发布结果/);
+  const itemsDialog = items.match(/<section class="inbox-dialog action-dialog page-context-dialog"[\s\S]*?<\/section>/)?.[0] ?? "";
+  assert.doesNotMatch(itemsDialog, /TASK|OPEN|v3|SQLite|Graph|Primary Anchor/);
 });
 
 test("Project creation exposes one adaptive Grill entry across Blank, Page, and MiniProject sources", () => {
@@ -883,12 +889,16 @@ test("Project Page Context routes current state, structure discussion, and proje
   };
   value.actionDialog = { kind: "v2-page-context", value: "page-project" };
   const html = renderApp(value);
-  for (const label of ["更新项目当前状态", "讨论项目结构", "项目操作"]) {
+  for (const label of ["更新项目当前状态", "讨论项目结构", "打开项目工作区"]) {
     assert.match(html, new RegExp(label));
   }
   for (const action of ["v2-page-project-update", "v2-page-project-discuss", "v2-page-project-operations"]) {
     assert.match(html, new RegExp(`data-action="${action}"`));
   }
+  assert.match(html, /项目页面 · Project\/Task Copilot/);
+  assert.match(html, /先审阅方案，确认应用后才会修改/);
+  const projectDialog = html.match(/<section class="inbox-dialog action-dialog page-context-dialog"[\s\S]*?<\/section>/)?.[0] ?? "";
+  assert.doesNotMatch(projectDialog, /Project Page|Project 当前接口|P0|HIGH Proposal|正式对象工作区/);
   assert.doesNotMatch(html, /data-action="v2-page-project-create-route"/);
 });
 

@@ -944,6 +944,15 @@ function objectTypeLabel(value: string): string {
   } as Record<string, string>)[value] ?? "普通内容";
 }
 
+function objectLifecycleLabel(value: string): string {
+  return ({
+    OPEN: "进行中",
+    COMPLETED: "已完成",
+    CANCELLED: "已取消",
+    ARCHIVED: "已归档",
+  } as Record<string, string>)[value] ?? "状态待确认";
+}
+
 function migrationPhaseLabel(value: string): string {
   return ({
     IDEA: "想法",
@@ -1355,17 +1364,17 @@ function renderActionDialog(model: UiModel): string {
     const origin = `<p class="muted">执行前会再次核对当前页身份；完成或取消后仍回到 ${escapeHtml(context.pageName)}。</p>`;
     if (context.kind === "PROJECT" && context.project) {
       const unavailable = context.project.lifecycle !== "OPEN";
-      return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="Project 页面操作"><div class="eyebrow">Project Page · ${escapeHtml(context.pageName)}</div><h3>${escapeHtml(context.project.objectText)}</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-project-update" data-value="${escapeHtml(context.pageUuid)}"${unavailable ? " disabled" : ""}><strong>更新项目当前状态</strong><span>打开既有受版本保护的 Project 当前接口</span></button><button type="button" data-action="v2-page-project-discuss" data-value="${escapeHtml(context.pageUuid)}"${unavailable ? " disabled" : ""}><strong>讨论项目结构</strong><span>P0 进入既有 HIGH Proposal 审阅闭环，不直接改正式状态</span></button><button type="button" data-action="v2-page-project-operations" data-value="${escapeHtml(context.pageUuid)}"><strong>项目操作</strong><span>进入正式对象工作区继续处理</span></button></div><div class="actions">${cancel}</div></section>`;
+      return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="项目页面操作"><div class="eyebrow">项目页面 · ${escapeHtml(context.pageName)}</div><h3>${escapeHtml(context.project.objectText)}</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-project-update" data-value="${escapeHtml(context.pageUuid)}"${unavailable ? " disabled" : ""}><strong>更新项目当前状态</strong><span>查看现有摘要并提出受保护的更新</span></button><button type="button" data-action="v2-page-project-discuss" data-value="${escapeHtml(context.pageUuid)}"${unavailable ? " disabled" : ""}><strong>讨论项目结构</strong><span>先审阅方案，确认应用后才会修改</span></button><button type="button" data-action="v2-page-project-operations" data-value="${escapeHtml(context.pageUuid)}"><strong>打开项目工作区</strong><span>查看当前推进、上下文和其他项目操作</span></button></div><div class="actions">${cancel}</div></section>`;
     }
-    return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="普通页面操作"><div class="eyebrow">Page · ${escapeHtml(context.pageName)}</div><h3>从当前页继续</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-organize" data-value="${escapeHtml(context.pageUuid)}"><strong>整理当前页</strong><span>扫描当前页显式候选；先预览，不直接改正文或正式状态</span></button><button type="button" data-action="v2-page-formal-items-open" data-value="${escapeHtml(context.pageUuid)}"><strong>查看本页正式事项</strong><span>${context.formalItems.length} 项由 active Primary Anchor 关联到本页</span></button><button type="button" data-action="v2-page-project-create-route" data-value="${escapeHtml(context.pageUuid)}"><strong>将本页建立为 Project</strong><span>读取当前 Page 的有界材料，先 Grill Me 和零写入预览，不直接转换当前页</span></button></div><div class="actions">${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="普通页面操作"><div class="eyebrow">当前页面 · ${escapeHtml(context.pageName)}</div><h3>从当前页继续</h3>${origin}<div class="cards compact"><button type="button" data-action="v2-page-organize" data-value="${escapeHtml(context.pageUuid)}"><strong>整理当前页</strong><span>先查看候选和预览，不直接修改正文或正式事项</span></button><button type="button" data-action="v2-page-formal-items-open" data-value="${escapeHtml(context.pageUuid)}"><strong>查看本页正式事项</strong><span>${context.formalItems.length} 项由 Task Copilot 关联到当前页</span></button><button type="button" data-action="v2-page-project-create-route" data-value="${escapeHtml(context.pageUuid)}"><strong>将本页建立为 Project</strong><span>读取当前页的相关材料，先梳理并预览，不直接转换当前页</span></button></div><div class="actions">${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-page-formal-items") {
     const context = model.pageContext;
     if (!context || context.pageUuid !== dialog.value) return "";
     const items = context.formalItems.length
-      ? `<div class="object-list">${context.formalItems.map((item) => `<article class="object-row"><span>${escapeHtml(item.objectText)}</span><small>${escapeHtml(item.objectType)} · ${escapeHtml(item.lifecycle)} · v${escapeHtml(item.objectVersion)}</small></article>`).join("")}</div>`
-      : empty("本页没有正式事项", "这里只统计 active Primary Anchor 指向当前 Page 或当前页 Block 的正式对象。");
-    return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="本页正式事项"><div class="eyebrow">Page · ${escapeHtml(context.pageName)}</div><h3>本页正式事项</h3><p class="muted">这是 SQLite 正式对象与 Graph Primary Anchor 的只读投影；不会把页面位置当成归属。</p>${items}<div class="actions">${button("返回页面操作", "v2-page-context-back", context.pageUuid, "quiet")}${cancel}</div></section>`;
+      ? `<div class="object-list">${context.formalItems.map((item) => `<article class="object-row"><span>${escapeHtml(item.objectText)}</span><small>${escapeHtml(objectTypeLabel(item.objectType))} · ${escapeHtml(objectLifecycleLabel(item.lifecycle))}</small></article>`).join("")}</div>`
+      : empty("本页没有正式事项", "这里只显示由 Task Copilot 明确连接到当前页或页内 Block 的事项。");
+    return `<section class="inbox-dialog action-dialog page-context-dialog" aria-label="本页正式事项"><div class="eyebrow">当前页面 · ${escapeHtml(context.pageName)}</div><h3>本页正式事项</h3><p class="muted">这里只读显示与当前页明确连接的事项；页面位置本身不会改变事项归属。</p>${items}<div class="actions">${button("返回页面操作", "v2-page-context-back", context.pageUuid, "quiet")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-provider-revise") {
     const [proposalId] = dialog.value.split("|");
