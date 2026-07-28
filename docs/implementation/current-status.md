@@ -111,7 +111,8 @@ Partial 净变化 `-1`；duplicate/missing/Rebind、真正 `RECOVERY_REQUIRED`�
 `df6469f` 随后关闭 Day 10 发现的“现在首屏一次展开全部 10 个普通 Next”前台子
 Partial。它不启用现有 Dynamic Now Shadow，也不改变 Service 排序：当前关注仍全部展示，
 普通“接下来值得处理”保留原排序前 4 项，其余 6 项进入一个原生“查看其余 6 项”折叠，
-展开后全部原对象与原操作仍在。精确构建在 Logseq 0.10.15 File Graph、Light、
+展开后全部原对象与原操作仍在。精确构建在 Logseq 0.10.15 File Graph、host Light /
+Plugin Dark、
 约 1000×720 中完成真实插件 reload、折叠、展开和再次 reload；第二次 reload 后仍以
 折叠首屏出现，用户 Focus 和前 4 项保持。Plugin `356/356`、typecheck/build PASS；
 新增正式状态、Runtime、Attention、Recovery、Skill/Prompt/Validator 与正式写入均为

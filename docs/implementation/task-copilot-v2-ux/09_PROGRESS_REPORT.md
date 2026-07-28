@@ -153,7 +153,7 @@
 - 当前关注仍全部展示；“接下来值得处理”只在首屏展示原排序前 4 项，其余 6 项进入一个
   原生折叠。用户展开后仍可读取和操作全部 10 项；筛选与分组仍是纯视图行为。
 - 自动证据：Plugin `356/356`、0 skipped，针对性 Now 用例、typecheck 和 build PASS。
-- Desktop：Logseq 0.10.15、File Graph、Light、约 1000×720；精确构建完成真实插件
+- Desktop：Logseq 0.10.15、File Graph、host Light / Plugin Dark、约 1000×720；精确构建完成真实插件
   reload→首屏折叠→展开全部→再次真实 reload→恢复折叠。Focus 和前 4 项保持，零正式
   写入。
 - 新增正式状态、Runtime、Attention 类型、Recovery 分支、Skill/Prompt/Validator、

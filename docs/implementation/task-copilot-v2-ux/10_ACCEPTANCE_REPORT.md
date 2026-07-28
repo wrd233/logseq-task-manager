@@ -79,7 +79,7 @@ Audit，Undo 使用业务结论。该项不等于 P2-E 完成：真正 `RECOVERY
 
 精确构建 `df6469f` 已关闭上述 Now 首屏过载子 Gate：正式 Now 仍保留原 Service 顺序和
 全部对象，当前关注全部显示，普通 Next 首屏只显示前 4 项，其余 6 项由一个原生折叠承接。
-Logseq 0.10.15 File Graph、Light、约 1000×720 已完成真实插件 reload、展开和第二次
+Logseq 0.10.15 File Graph、host Light / Plugin Dark、约 1000×720 已完成真实插件 reload、展开和第二次
 reload；第二次 reload 后首屏重新折叠，Focus 与原前 4 项保持。Plugin `356/356`、
 typecheck/build PASS，零正式写入。该项可标为 `DONE_DESKTOP_REPRESENTATIVE`，但不等于
 Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。

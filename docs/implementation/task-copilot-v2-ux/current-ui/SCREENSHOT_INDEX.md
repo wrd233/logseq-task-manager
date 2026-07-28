@@ -115,7 +115,7 @@ Logseq `0.10.15`、File Graph、host Light、约 1000×720。日常四页、真�
 
 ### 连续使用 Pilot Day 10 Now 前台上限 — exact build `df6469f`
 
-Logseq `0.10.15`、File Graph、host Light、约 1000×720。`7fe762d` 的完整 10 项展开截图
+Logseq `0.10.15`、File Graph、host Light / Plugin Dark、约 1000×720。`7fe762d` 的完整 10 项展开截图
 保留为修复前历史证据；下列三张图是当前 Now 表达。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |

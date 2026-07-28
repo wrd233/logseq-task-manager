@@ -414,7 +414,7 @@ Day 6 刚从 Waiting 恢复、尚未加入 Focus 的真实 Task 一并隐藏。`
 | `screenshots/day-10-now-capped-expanded-current-light-df6469f.png` | 确认没有静默丢项 | 展开后全部 10 个 Next 及原操作仍可达 | 关闭或 reload | CURRENT |
 | `screenshots/day-10-now-capped-after-reload-current-light-df6469f.png` | 确认 reload 连续性 | 第二次真实插件 reload 后重新折叠；Focus 与前 4 项保持 | 返回工作现场 | CURRENT |
 
-- 宿主：Logseq 0.10.15、File Graph `logseq`、host Light、约 1000×720。
+- 宿主：Logseq 0.10.15、File Graph `logseq`、host Light / Plugin Dark、约 1000×720。
 - 自动：Plugin `356/356`、针对性 Now 用例、typecheck/build PASS。
 - 真实 Provider / Validator rejection / retry / abstention：`0 / 0 / 0 / 0`。
 - 正式写入、Attention 展示、新正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator：
