@@ -3222,7 +3222,9 @@ async function handleAction(action: string, value?: string): Promise<void> {
       if (!client) throw new Error("V2 Local Service 未就绪；审阅决定未保存。");
       await client.reviewProposal(proposalId, { [groupId]: { disposition: action === "v2-review-accept" ? "ACCEPTED" : "REJECTED" } }, expectedUpdatedAt);
       workspace = "review";
-    }, action === "v2-review-accept" ? "语义组已接受，但尚未正式生效；最终 Commit 仍需版本重验。" : "语义组已拒绝；没有修改正式状态。");
+    }, action === "v2-review-accept"
+      ? "方案已审阅，尚未应用；确认应用前系统会重新检查当前内容。"
+      : "方案未采用；正式内容没有变化。");
     return;
   }
   if (action === "v2-review-defer" && value) return openActionDialog("v2-review-defer", value);
@@ -3697,7 +3699,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       if (miniProjectClosure) v2ClosureDraftInput = undefined;
       actionDialog = undefined;
       workspace = "review";
-    }, "高影响语义组已接受，但尚未正式生效；最终 Commit 仍需版本重验。");
+    }, "方案已审阅，尚未应用；确认应用前系统会重新检查当前内容。");
     if (!miniProjectClosure) await submitReview();
     else {
       v2ClosureReviewBusy = true;
