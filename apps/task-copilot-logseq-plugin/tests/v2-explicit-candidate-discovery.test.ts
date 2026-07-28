@@ -48,7 +48,10 @@ test("manual candidate discovery traverses only the current page within explicit
   assert.equal(preview.invalidExplicitBlocks, 1);
   const html = renderV2ExplicitCandidateDiscoveryPanel({ status: "ready", preview, serviceGeneration: 3 }, true);
   assert.match(html, /只检查当前页/);
-  assert.match(html, /candidate-task/);
+  assert.match(html, /任务 · 核对候选/);
+  assert.match(html, /小项目 · 收敛候选/);
+  assert.doesNotMatch(html, /candidate-task/);
+  assert.doesNotMatch(html, /candidate-mini/);
   assert.doesNotMatch(html, /known-task/);
   assert.doesNotMatch(html, /historical-task/);
   assert.match(html, /只加入待整理列表/);
@@ -160,8 +163,10 @@ test("Candidate queue renders only the same bounded set whose source text was hy
   const previews = Object.fromEntries(candidates.slice(0, 50).map(({ candidateId }, index) => [candidateId, `原文 ${index}`]));
   const html = renderV2ExplicitCandidateDiscoveryPanel({ status: "idle" }, true, candidates, previews);
   assert.match(html, /当前显示前 50 项/);
-  assert.match(html, /block-49/);
+  assert.match(html, /原文 49/);
+  assert.match(html, /<summary>更多处置<\/summary>/);
   assert.doesNotMatch(html, /block-50/);
+  assert.doesNotMatch(html, /来源位置：block-49/);
   assert.doesNotMatch(html, /正在等待来源重读/);
 });
 

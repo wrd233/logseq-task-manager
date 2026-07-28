@@ -1623,7 +1623,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const client = serviceRuntimeClient;
     const generation = serviceDiscoveryGeneration;
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
-      v2CandidatePanel = { status: "error", message: "Local Service 未处于可正式写入的 READY 状态；没有扫描或写入。" };
+      v2CandidatePanel = { status: "error", message: "Task Copilot 当前未连接到这个知识库；没有检查或修改任何内容。" };
       await refresh();
       return;
     }
@@ -1640,7 +1640,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         (blockId) => logseq.Editor.getBlock(blockId, { includeChildren: true }),
       );
       if (generation !== serviceDiscoveryGeneration || client !== serviceRuntimeClient) {
-        throw new Error("Local Service 已在扫描期间重连；旧候选已作废，没有执行写入。");
+        throw new Error("Task Copilot 在检查期间重新连接；本次结果已丢弃，没有修改任何内容。");
       }
       v2CandidatePanel = { status: "ready", preview, serviceGeneration: generation };
     } catch (error) {
@@ -1661,19 +1661,19 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const currentPanel = v2CandidatePanel;
     if (currentPanel.status === "ready" && currentPanel.busy) return;
     if (currentPanel.status !== "ready") {
-      v2CandidatePanel = { status: "error", message: "当前页候选预览已过期或不存在；没有保存 Candidate。" };
+      v2CandidatePanel = { status: "error", message: "当前预览已经失效；没有加入待整理，也没有修改正式事项。" };
       workspace = "review";
       await refresh();
       return;
     }
     if (!client || serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable) {
-      v2CandidatePanel = { status: "error", message: "Local Service 正在重连或已不可写；旧候选已作废，没有保存 Candidate。" };
+      v2CandidatePanel = { status: "error", message: "Task Copilot 正在重新连接；当前预览已失效，没有加入待整理。" };
       workspace = "review";
       await refresh();
       return;
     }
     if (currentPanel.serviceGeneration !== serviceDiscoveryGeneration) {
-      v2CandidatePanel = { status: "error", message: "Local Service 已在扫描后重连；旧候选已作废，没有执行写入。" };
+      v2CandidatePanel = { status: "error", message: "Task Copilot 已重新连接；当前预览已失效，没有修改任何内容。" };
       workspace = "review";
       await refresh();
       return;
@@ -1685,13 +1685,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
     try {
       const result = await persistV2ExplicitCandidateDiscovery(client, currentPanel.preview, (blockId) => logseq.Editor.getBlock(blockId), traceId);
       v2CandidatePanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
-        ? { status: "success", message: `${result.candidates.length} 个 Candidate 已保存（${result.replayed} 个为幂等重放）；没有创建正式对象。` }
-        : { status: "error", message: "Local Service 在提交期间重连；旧会话已返回成功，请先在 Audit/Doctor 核对，不要立即重试。" };
+        ? { status: "success", message: `${result.candidates.length} 项已加入待整理；没有创建或修改正式事项。` }
+        : { status: "error", message: "Task Copilot 在保存期间重新连接；请先检查系统状态，不要立即重复提交。" };
       operationalLogger.log("info", "ui-action", "v2_candidates_persisted", { correlationId: traceId, actionId: "v2-candidate-submit", result: `success:${result.candidates.length}:replayed:${result.replayed}` });
     } catch (error) {
       v2CandidatePanel = currentPanel.serviceGeneration === serviceDiscoveryGeneration
         ? { status: "error", message: explain(error) }
-        : { status: "error", message: "Local Service 在提交期间重连；旧会话结果不确定，请先在 Audit/Doctor 核对，不要立即重试。" };
+        : { status: "error", message: "Task Copilot 在保存期间重新连接；结果尚不能确认，请先检查系统状态，不要立即重试。" };
       operationalLogger.log("error", "ui-action", "v2_candidate_persistence_failed", { correlationId: traceId, actionId: "v2-candidate-submit", result: "error" }, error);
     }
     await refresh();
@@ -1701,7 +1701,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const [candidateId, expectedUpdatedAt] = value.split("|");
     await run(async () => {
       const client = serviceRuntimeClient;
-      if (!client || !candidateId || !expectedUpdatedAt) throw new Error("Candidate 审阅上下文已失效；没有保存决定。");
+      if (!client || !candidateId || !expectedUpdatedAt) throw new Error("这条待整理内容已经变化；没有保存本次处置。");
       const traceId = `v2-candidate-disposition-${Date.now()}-${globalThis.crypto.randomUUID()}`;
       const disposition = action === "v2-candidate-later" ? "LATER" : action === "v2-candidate-dismiss" ? "DISMISSED" : "NO_MORE_LIKE_THIS";
       const reason = action === "v2-candidate-later" ? "用户选择稍后复查" : action === "v2-candidate-dismiss" ? "用户选择保持普通内容" : "用户选择以后不再对该来源提出此类建议";
@@ -1714,7 +1714,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       });
       workspace = "review";
       reviewMode = "candidates";
-    }, action === "v2-candidate-later" ? "Candidate 已安排 7 天后复查。" : action === "v2-candidate-dismiss" ? "Candidate 已保留为普通内容；没有正式写入。" : "偏好已保存；该来源的同类建议不会因普通编辑再次出现。");
+    }, action === "v2-candidate-later" ? "已安排 7 天后复查。" : action === "v2-candidate-dismiss" ? "已保留为普通内容；没有修改正式事项。" : "已记住你的选择；这段原文的同类建议不会因普通编辑再次出现。");
     return;
   }
   if (action === "v2-candidate-update" && value) return openActionDialog("v2-candidate-update", value);
