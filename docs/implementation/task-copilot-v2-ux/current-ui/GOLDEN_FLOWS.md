@@ -59,9 +59,10 @@ Page/Object/Anchor，原 MiniProject v14/OPEN、Primary Anchor、五个 Block UU
 逐字段不变。首轮真实运行发现 Undo 只回到 Journal；`7a7492a407ed` 将 Service 审阅过的
 source return target 传回 Plugin，并只在正式 Page 或 active Primary Anchor 可重验时导航。
 最新构建再次跑通真实 DeepSeek 全链，Undo 精确返回原 MiniProject 根 Block，再次 reload
-后 `0/0/0`。`2adfc35` / `e33a398` 又用 Page 来源真实 Provider 链关闭 Preview / HIGH
-Review 的代表性视觉 Gate：Preview 固定为四区，Review 先显示影响与安全边界，Dark
-1000/762px 和 Light 1000px 均有当前截图。该样本 9 次显式 Provider 请求、0 rejection、
+后 `0/0/0`。`2adfc35` / `efb3864` 又用 Page 来源真实 Provider 链关闭 Preview / HIGH
+Review 的代表性视觉 Gate：Preview 固定为四区，Review 先显示影响与安全边界，系统理解
+只保留两句而完整方案折叠；Dark 1000/762px 和 Light 1000px 均有当前截图。该样本 9 次
+显式 Provider 请求、0 rejection、
 0 retry，但出现一次已回答 Page 关系的重复提问；继续作为既有 Skill 的通用
 answer-evidence 质量债，不新增样本补丁。因此 P2-C 的来源功能矩阵已闭环，Preview /
 Review 代表性 Light/窄栏已关闭；新 Project Page、其他宿主位置和集中视觉 Gate 继续 OPEN，

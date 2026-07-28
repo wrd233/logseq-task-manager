@@ -5,9 +5,9 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
-### Project Preview / HIGH Review — exact builds `2adfc354041b` / `e33a3989dab9`
+### Project Preview / HIGH Review — exact builds `2adfc354041b` / `efb3864c53af`
 
-最终 Plugin build：`2026-07-28 13:40:37 +0800`；Logseq `0.10.15`；File Graph
+最终 Plugin build：`2026-07-28 14:03:53 +0800`；Logseq `0.10.15`；File Graph
 `/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；真实 Provider、Plugin、
 Launcher、Service。Preview session-only；进入 Review 后只创建一份 Proposal，未创建
 Project Page 或正式 Project 对象。
@@ -16,12 +16,14 @@ Project Page 或正式 Project 对象。
 |---|---|---|---|---|
 | `screenshots/ui-project-creation-preview-compressed-dark-current-2adfc35.jpg` | CURRENT | Plugin Dark / host Light，1000×720 | Page 来源完成 Grill 后生成最终阅读 Preview | 四区首屏只显示系统理解、应用影响、安全边界与下一步；完整依据折叠 |
 | `screenshots/ui-project-creation-preview-compressed-dark-narrow-current-2adfc35.jpg` | CURRENT | Plugin Dark / host Light，762×720 | 同一 Preview 收窄窗口 | 主结论、唯一主操作和退出入口保持可见，无横向溢出 |
-| `screenshots/ui-high-review-impact-first-dark-current-e33a398.jpg` | CURRENT | Plugin Dark / host Light，1000×720 | Preview 进入待我确认；reload 当前构建 | 变化 / 不变先显示，系统理解全宽在后；“审阅方案”明确尚未应用 |
-| `screenshots/ui-high-review-impact-first-dark-narrow-current-e33a398.jpg` | CURRENT | Plugin Dark / host Light，762×720 | 同一 Proposal 收窄窗口 | 变化、不变、理解按单列阅读，主动作和折叠依据可达 |
-| `screenshots/ui-high-review-impact-first-light-current-e33a398.jpg` | CURRENT | Plugin Light / host Light，1000×720 | 临时切换 Plugin 外观后重开同一 Proposal | 与 Dark 保持相同信息层级；取证后已恢复用户原 Dark 设置 |
+| `screenshots/ui-high-review-concise-understanding-dark-current-efb3864.jpg` | CURRENT | Plugin Dark / host Light，1000×720 | reload 最终构建并打开同一 Proposal | 变化 / 不变先显示，系统理解只保留两句；完整方案折叠；“审阅方案”明确尚未应用 |
+| `screenshots/ui-high-review-concise-understanding-dark-narrow-current-efb3864.jpg` | CURRENT | Plugin Dark / host Light，762×720 | 同一 Proposal 收窄窗口 | 变化、不变、理解稳定单列，主操作与折叠依据沿纵向可达 |
+| `screenshots/ui-high-review-concise-understanding-light-current-efb3864.jpg` | CURRENT | Plugin Light / host Light，1000×720 | 临时切换 Plugin 外观后重开同一 Proposal | 与 Dark 保持同一信息层级；取证后已恢复用户原 Dark 设置 |
 
 `screenshots/ui-high-review-three-column-defect-historical-2adfc35.jpg` 为 `HISTORICAL`：
-762×720 下旧三列把系统理解压成窄长文本，促成 `e33a398` 响应式修复，不能作为成功证据。
+762×720 下旧三列把系统理解压成窄长文本，促成后续响应式修复，不能作为成功证据。
+`ui-high-review-impact-first-*-e33a398.jpg` 为 `SUPERSEDED_UI`：它们保留影响优先的历史
+运行事实，但最终当前界面由 `efb3864` 的三张截图接管。
 
 最新 P1 Context Recovery Desktop 精确提交为 `653875a`；`p1-g-07`～`13` 对应该精确构建，
 证明 `recover-context@1.3.0` 的内容、error/rejection/stale、Dark/Light/窄栏和 corrected

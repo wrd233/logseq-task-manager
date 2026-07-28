@@ -6,8 +6,8 @@
 - 完整 Goal：仍为 `IN_PROGRESS`
 - 分支：`feature/task-copilot-mvp`
 - Preview 精确构建：`2adfc354041b2a7823ad0612590692240c3bd9af`
-- HIGH Review 最终精确构建：`e33a3989dab91f248d64b4f0c0afecab7620a6d9`
-- 最终 Plugin build：`2026-07-28 13:40:37 +0800`
+- HIGH Review 最终精确构建：`efb3864c53af7f7a60a30d5207d9a7b0ff4f65d3`
+- 最终 Plugin build：`2026-07-28 14:03:53 +0800`
 - Logseq：`0.10.15`
 - Graph：File Graph `logseq`
 - Service / Launcher：真实本地运行环境，既有 authority 未改变
@@ -15,8 +15,9 @@
 本 Gate 把 Project 最终阅读 Preview 从完整报告压缩为“系统理解 / 如果确认应用 /
 不会改变 / 下一步”四区，把完整材料边界、引用和审计依据折叠到“查看完整依据”。
 HIGH Review 把“本次会改变什么 / 本次不会改变什么”放在系统理解之前，并明确“审阅方案”
-尚未应用、“确认应用”才正式生效。它没有改变 Proposal、SemanticCommit、Recovery、
-Undo、Anchor 或正式写入权威。
+尚未应用、“确认应用”才正式生效。系统理解只显示两句可读结论，完整 Markdown 方案进入
+既有“查看完整依据”。它没有改变 Proposal、SemanticCommit、Recovery、Undo、Anchor
+或正式写入权威。
 
 ## 真实操作链
 
@@ -49,11 +50,13 @@ Undo、Anchor 或正式写入权威。
 ## Desktop 发现与修复
 
 `2adfc35` 的约 762px 真实 Review 首次显示仍为三列，系统理解被压成窄长文本。
-这不是成功证据。`e33a398` 复用同一 Review 合同，只新增派生
-`data-impact-level` 和响应式布局：
+这不是成功证据。`e33a398` 先复用同一 Review 合同增加派生 `data-impact-level`；
+`7bd7811` 再把首屏系统理解压缩为两句，并把完整方案移入既有折叠依据。最新 Desktop
+复验又证明 840px 和 1080px CSS 断点在当前 Logseq 缩放下都不会由约 762px 原生窗口触发。
+最终 `efb3864` 只校准同一共享断点到 1280 CSS px：
 
 - HIGH 标准宽度：变化 / 不变为两列，系统理解在下一行全宽；
-- 小于等于 840px：三段按变化、不变、理解单列排列；
+- 约 762px 真实 Logseq 窄窗：三段按变化、不变、理解单列排列；
 - 不新增正式状态、Runtime、恢复分支、Skill、Prompt、Validator 或写入路径。
 
 ## 截图
@@ -63,19 +66,22 @@ Undo、Anchor 或正式写入权威。
 | `ui-project-creation-preview-compressed-dark-current-2adfc35.jpg` | CURRENT | Dark，1000×720；四区 Preview 与折叠完整依据 |
 | `ui-project-creation-preview-compressed-dark-narrow-current-2adfc35.jpg` | CURRENT | Dark，762×720；主结论和唯一主操作可见 |
 | `ui-high-review-three-column-defect-historical-2adfc35.jpg` | HISTORICAL | 762×720 三列缺陷，促成响应式修复 |
-| `ui-high-review-impact-first-dark-current-e33a398.jpg` | CURRENT | Dark，1000×720；影响和安全边界优先 |
-| `ui-high-review-impact-first-dark-narrow-current-e33a398.jpg` | CURRENT | Dark，762×720；单列响应式 Review |
-| `ui-high-review-impact-first-light-current-e33a398.jpg` | CURRENT | Light，1000×720；与 Dark 保持同一信息层级 |
+| `ui-high-review-impact-first-dark-current-e33a398.jpg` | SUPERSEDED_UI | Dark，1000×720；影响优先的历史真实实现 |
+| `ui-high-review-impact-first-dark-narrow-current-e33a398.jpg` | SUPERSEDED_UI | Dark，762×720；由最终断点重新取证替代 |
+| `ui-high-review-impact-first-light-current-e33a398.jpg` | SUPERSEDED_UI | Light，1000×720；由最终文本压缩取证替代 |
+| `ui-high-review-concise-understanding-dark-current-efb3864.jpg` | CURRENT | Dark，1000×720；影响优先、两句理解、完整方案折叠 |
+| `ui-high-review-concise-understanding-dark-narrow-current-efb3864.jpg` | CURRENT | Dark，762×720；三段单列 |
+| `ui-high-review-concise-understanding-light-current-efb3864.jpg` | CURRENT | Light，1000×720；与 Dark 相同信息层级 |
 
-Preview 截图对应 `2adfc35`；后续 `e33a398` 只修改 Review 的响应式标记和 CSS，没有修改
-Preview 结构或文案，因此这两张 Preview 图仍是该表面的当前真实证据。
+Preview 截图对应 `2adfc35`；后续提交只修改 Review，没有修改 Preview 结构或文案，因此
+这两张 Preview 图仍是该表面的当前真实证据。
 
 ## 自动证据
 
 - 先以旧实现运行新增断言，Project Preview 与 HIGH Review 顺序共 2 项失败。
 - 修复后定向测试 2/2 通过。
-- Plugin 全量测试 343/343 通过。
-- 最终响应式增量测试 1/1、typecheck、build 通过。
+- Plugin 全量测试 344/344 通过。
+- 最终文本压缩与响应式增量测试、typecheck、build 通过。
 - 最终响应式增量与文档完成后再次运行根级 `./scripts/check.sh`：全工作区 typecheck /
   lint / test / build / package / boundary、145 条稳定规则与恢复演练
   `differences=[]` 全部通过。
