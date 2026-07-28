@@ -311,9 +311,10 @@ P0/P1/P2 或 Final Release 标为 DONE。
   feedback、reload、Dark/Light/窄栏和零越权写入；stale evidence 为
   `STALE=1 / GENERATED=0`。`recover-context@1.3.0` 为
   `CANDIDATE/DESKTOP_VERIFIED`，不等于 Production；DB Graph Page Head 属 P1-F 宿主矩阵；
-- [ ] 连续使用 Pilot：`PILOT-2026W31-A` 已真实完成 Day 1—2 与 Day 3 Waiting 子链，
-  覆盖 20 条自然输入、2 次真实 DeepSeek、Task 创建/Undo/纠正/重建、WAITING/reviewAt/
-  reload；普通笔记未被自动正式化，Now 未立即洪水。完整 Day 3、Day 4—10、
+- [ ] 连续使用 Pilot：`PILOT-2026W31-A` 已真实完成 Day 1—2、Day 3 Waiting 子链与
+  Day 4 MiniProject/Project create→reload→Undo，累计 14 次真实 DeepSeek；普通笔记未被
+  自动正式化，Now 未立即洪水，Page 来源超预算已安全解释，Project Undo 后精确构建
+  0/0/0 且 explicit sync clean。完整 Day 3、Day 5—10、
   Dynamic Now 对照、Attention helpful/noise、disposition/cooldown 和 P2-D 边界仍开放；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；

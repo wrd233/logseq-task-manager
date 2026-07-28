@@ -17,6 +17,15 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+连续使用 Pilot `PILOT-2026W31-A` 已推进到 Day 4 代表链：自然材料形成听云 MiniProject，
+Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
+Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
+Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源超过有界预算
+时的用户表达已修复为可行动范围说明，不再伪装 Provider 失败或提供无效 Retry。该轮累计
+真实 Provider 14 次，并暴露重复确认、无依据模型建议、结果/历史墙、Undo 资格矛盾及成功
+消息工程词；这些仍阻断 Final Release。Day 5—10、Dynamic Now、Attention helpful/noise、
+P2-D 完成边界与 P2-E/P2-G 尾项继续 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
+
 最新 P0-K 精确构建 `73dc1e26f610` 完成正式 Block “暂时做不了”的当前 Desktop 返回现场
 Gate：Query 投影无可靠正式身份时安全停止且只显示用户语言；正式测试任务完成三意图入口、
 空原因失败零写入、保存后返回同一 Block、会话 Undo、reload 后恢复“可以行动”。真实运行

@@ -24,7 +24,27 @@ Logseq `0.10.15`；File Graph `logseq`；host Light；约 1000×720。测试正�
 | `pilot-2026w31/screenshots/day-03-waiting-now-current-light-bc79ffd.jpg` | CURRENT | 把端口 Task 设为等待网络组 | Task 退出“继续处理”；前台缺少“保持等待”确认 |
 | `pilot-2026w31/screenshots/day-03-waiting-after-reload-current-light-bc79ffd.jpg` | CURRENT | reload 后读回 | WAITING/reviewAt 保持，未重新制造行动噪声 |
 
-Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链；Day 4—10 尚未运行。
+Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
+
+### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
+
+Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌
+`fbd14ebc87ef`，所以这些过程图只登记为 `HISTORICAL_SOURCE_EQUIVALENT`，不冒充精确
+当前构建。最后一张健康图来自真正内嵌 `42e6a91309ba` 的 reload 产物。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-04-project-material-current-light-bc79ffd.jpg` | CURRENT_AT_BC79FFD | 输入自然 MiniProject/Project 材料 | 原文保留，进入真实 Grill |
+| `pilot-2026w31/screenshots/day-04-mini-project-no-change-preview-current-light-bc79ffd.jpg` | CURRENT_AT_BC79FFD | MiniProject Grill 5 次真实 Provider | 当前结构无需正式修改，零 Proposal |
+| `pilot-2026w31/screenshots/day-04-project-page-too-large-defect-historical-light-bc79ffd.jpg` | HISTORICAL_DEFECT | 长 Page 发起 Project 创建 | 旧 UI 错误翻译确定性范围；由 `42e6a91` 自动合同替代 |
+| `pilot-2026w31/screenshots/day-04-project-grill-ready-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | Blank Project 六轮 Grill | readiness 达成；用户纠正两类无依据建议 |
+| `pilot-2026w31/screenshots/day-04-project-preview-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | 生成最终阅读预览 | 影响边界清楚，理解句仍需压缩 |
+| `pilot-2026w31/screenshots/day-04-project-high-review-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | 进入 HIGH Review | 创建/不改变/未应用清楚；确认仍重复 |
+| `pilot-2026w31/screenshots/day-04-project-created-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | 正式创建 | Project/Page 已创建；结果墙和 Undo 资格矛盾 |
+| `pilot-2026w31/screenshots/day-04-project-after-reload-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | reload 后重入 | Project Page 与页面内入口保持 |
+| `pilot-2026w31/screenshots/day-04-project-undo-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | 正式 Undo | Project/Page 消失，来源保留；成功消息泄漏工程词 |
+| `pilot-2026w31/screenshots/day-04-project-undo-reload-absence-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | reload 后看项目列表 | Graylog Project 不再存在 |
+| `pilot-2026w31/screenshots/day-04-project-undo-reload-health-current-light-42e6a91.jpg` | CURRENT | 精确构建 reload 后展开诊断 | Plugin `42e6a91309ba`；0/0/0；explicit sync clean |
 
 ### P0-J ended formal boundary — exact build `bc79ffd`
 

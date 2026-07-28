@@ -19,6 +19,25 @@
 
 ## 本轮变化（2026-07-28）
 
+### 连续使用 Pilot Day 4 与 Project 创建真实链
+
+- 新增正式状态、顶层导航、Agent Runtime、Recovery 分支、Skill、Prompt、Validator：
+  `0`。新增的 `retryable` 只是 Project Grill session error 的派生 UI 标记，不进入 Domain、
+  SQLite 或长期模型。
+- 关闭一个真实 UX Partial：Page 来源超预算不再被翻译成 Provider 失败，也不再提供必然
+  失败的 Retry；保持既有 16 Block Context 边界。
+- 新暴露发布阻断：Project/Blank 仍需四个近义确认；完成卡的 Undo 资格与按钮矛盾；
+  创建结果/历史墙过长；Undo 成功消息泄漏 Project/Anchor/Audit/Commit；Preview 理解句
+  过长；首次 reload 发生一次 `EXPLICIT_SYNC_SUBTREE_READ_FAILED` 的 session 核对风险。
+- Provider 累计增至 `14`；Day 4 模型给出两类无依据建议，但用户纠正后未成为正式事实。
+  Validator rejection/retry `0/0`；没有以单样本新增 Skill，先把它登记为“过度处方化”
+  的独立复验候选。
+- Undo 后精确构建 `42e6a91309ba` 的系统状态为 0/0/0、explicit sync clean。过程图因早期
+  build 内嵌 commit 仍为 `fbd14eb`，已降为 `HISTORICAL_SOURCE_EQUIVALENT`；文档漂移风险
+  没有用误标 CURRENT 掩盖。
+- Partial 净变化：关闭 `1`（来源预算错误表达），新增长期 Partial `0`；新发现项进入既有
+  UI/P0 可靠性发布阻断，不新增第二状态机或恢复器。
+
 ### 连续使用 Pilot Day 1—3 与 P0-J ended boundary
 
 - 新增正式状态、顶层导航、Agent Runtime、写入权威、Recovery 分支、Skill、Prompt、

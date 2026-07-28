@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| runtime commit | `bc79ffd1ce6a091186cc54ee0a32bcb6a1c8b24b` |
+| runtime commit | Day 1—3 `bc79ffd1ce6a`;当前精确构建 `42e6a91309ba` |
 | Logseq | `0.10.15` |
 | Graph | File Graph `logseq` |
 | 主题 / 尺寸 | host Light / 约 1000×720 |
@@ -89,5 +89,61 @@
 | Validator rejection / retry | 0 / 0 |
 | Attention 前台展示 | 0 |
 | disposition / cooldown | 尚未进入 Day 8，不提前宣称 |
+| 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
+| 新 Skill / Prompt / Validator | 0 / 0 / 0 |
+
+## Day 4：形成 MiniProject 与 Project
+
+先把自然输入扩成听云探针部署子树和 Graylog 项目意图，没有一次导入规范化对象。
+听云材料经真实 DeepSeek 5 次自适应 Grill 后形成 MiniProject；已有材料已经覆盖当前
+结构时，最终预览诚实返回“无需修改”，没有为了完成流程制造 Proposal。
+
+Graylog Page 来源因测试页超过 16 Block 的有界读取预算而在 Provider 前 fail-closed。
+真实失败证明旧界面误称“讨论失败”并给出必然再次失败的 Retry。`42e6a91` 将这两类
+确定性错误改为范围解释，并为非重试错误隐藏 Retry；没有放宽 Page 读取边界。
+
+随后从 Blank 来源运行完整 Project 创建：6 次自适应 Grill + 1 次最终预览、HIGH Review、
+正式创建、reload、进入新 Project Page、最近修改、Undo、再次 reload 与健康检查。
+Blank 没有虚构来源；原测试 Page 和听云 MiniProject 都保留。Undo 后 Graylog Project
+和本次拥有的空 Project Page 均消失。
+
+| 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
+|---|---|---|---|---|
+| `screenshots/day-04-project-material-current-light-bc79ffd.jpg` | 在自然材料中形成两类治理意图 | 原始正文仍可读，听云子树与 Graylog 意图共存 | 先验证 MiniProject | CURRENT_AT_BC79FFD |
+| `screenshots/day-04-mini-project-no-change-preview-current-light-bc79ffd.jpg` | 真实 Grill 后审阅 MiniProject | 系统认为当前结构无需正式变化，零 Proposal | 转入 Project 创建 | CURRENT_AT_BC79FFD |
+| `screenshots/day-04-project-page-too-large-defect-historical-light-bc79ffd.jpg` | 从较长 Page 发起 Project 创建 | 旧 UI 把确定性来源预算误称为讨论失败 | 由 `42e6a91` 自动合同替代 | HISTORICAL_DEFECT |
+| `screenshots/day-04-project-grill-ready-source-equivalent-light-runtime-fbd14eb.jpg` | 完成 Blank 自适应 Grill | readiness 达成；用户纠正了无依据量化与流程建议 | 生成最终阅读预览 | HISTORICAL_SOURCE_EQUIVALENT |
+| `screenshots/day-04-project-preview-source-equivalent-light-runtime-fbd14eb.jpg` | 审阅最终阅读效果 | 影响/不影响边界存在，但理解句过长且标点重复 | 进入 HIGH Review | HISTORICAL_SOURCE_EQUIVALENT |
+| `screenshots/day-04-project-high-review-source-equivalent-light-runtime-fbd14eb.jpg` | 审阅正式影响 | 首屏明确创建 Project/Page、原文保留与尚未应用 | 确认应用 | HISTORICAL_SOURCE_EQUIVALENT |
+| `screenshots/day-04-project-created-source-equivalent-light-runtime-fbd14eb.jpg` | 查看创建结果 | 正式 Project 和 Page 已创建；结果墙与 Undo 资格矛盾 | reload | HISTORICAL_SOURCE_EQUIVALENT |
+| `screenshots/day-04-project-after-reload-source-equivalent-light-runtime-fbd14eb.jpg` | reload 后重入 | Project Page 和页面内继续入口保持 | 执行 Undo | HISTORICAL_SOURCE_EQUIVALENT |
+| `screenshots/day-04-project-undo-source-equivalent-light-runtime-fbd14eb.jpg` | 撤销 Project 创建 | Project/Page 已撤销，来源保留；成功消息泄漏工程词 | reload 核对 | HISTORICAL_SOURCE_EQUIVALENT |
+| `screenshots/day-04-project-undo-reload-absence-source-equivalent-light-runtime-fbd14eb.jpg` | reload 后检查项目列表 | Graylog Project 不再存在 | 精确构建健康复核 | HISTORICAL_SOURCE_EQUIVALENT |
+| `screenshots/day-04-project-undo-reload-health-current-light-42e6a91.jpg` | 用真正内嵌 `42e6a91309ba` 的产物重载 | 系统正常；0/0/0；explicit sync clean | 关闭 UX 矛盾后重建 Day 5 Project | CURRENT |
+
+观察：
+
+- Grill 是自适应的，但模型推荐曾虚构 7 天/95% 量化门槛和周会/看板流程。用户纠正后
+  最终材料没有保留这些建议；没有正式越权写入，也没有 Validator rejection 或 retry。
+- Page 来源预算错误是确定性的 Context 边界，不是 Provider error；修复选择解释并改用
+  MiniProject/Blank，而不是扩大上下文或增加第二读取器。
+- HIGH 首屏比历史版本更清楚，但用户层仍有四个近义确认动作。
+- 新 Project Page 能立即给出状态、当前推进和成果；当前状态/成果过长，近期结果和历史墙
+  仍然压过主结论。
+- Undo 安全链通过；首次普通 reload 曾因
+  `EXPLICIT_SYNC_SUBTREE_READ_FAILED` 显示一次 session 级核对风险。重新构建并 reload
+  当前精确产物后 clean，证明它不是 Pending/Recovery/Anchor conflict，但该有界子树读取
+  失败仍作为 P0 可靠性观察保留。
+
+## 轻量指标（截至 Day 4）
+
+| 指标 | 结果 |
+|---|---:|
+| 自然输入 | 20+ 条与 Day 4 两组自然子树 |
+| 正式对象净变化 | MiniProject +1；Graylog Project 创建后已 Undo，净 0 |
+| 真实 Provider | 14 次累计 |
+| Validator rejection / retry | 0 / 0 |
+| 模型无依据建议 | 2 类（量化门槛、周会/看板） |
+| Attention 前台展示 | 0 |
 | 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
 | 新 Skill / Prompt / Validator | 0 / 0 / 0 |

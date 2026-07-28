@@ -14,8 +14,9 @@
 > 已完成，main Page 返回、来源移动/删除和 Query/reference/right-sidebar 有界结论已有真实
 > Desktop；`73dc1e2` 又关闭正式 Block 的失败、成功、Undo 与 reload 返回链，P0-K 已为
 > DONE_DESKTOP_REPRESENTATIVE；`bc79ffd` 已关闭 P0-J 结束运行后的正式动作边界，原生
-> 中文 IME 仍 OPEN。连续使用 Pilot `PILOT-2026W31-A` 已完成 Day 1—2 和 Day 3 Waiting
-> 代表子链；完整 7—10 日 Pilot、P1 前台和整体 Goal 仍未完成。
+> 中文 IME 仍 OPEN。连续使用 Pilot `PILOT-2026W31-A` 已完成 Day 1—2、Day 3 Waiting
+> 代表子链与 Day 4 MiniProject/Project create→reload→Undo；完整 7—10 日 Pilot、P1
+> 前台和整体 Goal 仍未完成。
 
 ## 总体状态
 
@@ -61,6 +62,26 @@
   分类，不创建新的平行状态机。
 - 当前证据见 `current-ui/pilot-2026w31/`、
   `logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`。
+
+### 2026-07-28 连续使用 Pilot Day 4
+
+- 自然材料直接存在测试 Graph；听云子树经 5 次真实 DeepSeek 形成 MiniProject，并在当前
+  结构已满足时诚实返回 no-change Preview，零 Proposal。
+- 长 Page 来源先真实触发 Provider 前 `PROJECT_CREATION_SOURCE_TOO_LARGE`。`42e6a91`
+  保持有界读取，改为可行动的用户解释并隐藏无效 Retry；Plugin 351/351、typecheck/build
+  通过。
+- Blank Graylog Project 经 6 轮自适应 Grill + 1 次 Preview、HIGH Review、正式 Create、
+  reload、Project Page 重入和 Undo。专用 Page 与正式 Project 均撤销，来源 Page 和
+  MiniProject 保留；精确构建 reload 后 0/0/0、explicit sync clean。
+- 真实 Provider 累计 `14`，Validator rejection/retry `0/0`。模型曾建议无证据的量化门槛
+  及周会/看板，用户纠正后未成为正式事实；本轮不增加 Skill 版本。
+- 过程 build 的源码等价于 `42e6a91`，但产物内嵌 commit 为 `fbd14eb`，故过程截图降为
+  `HISTORICAL_SOURCE_EQUIVALENT`；只有重新构建后内嵌 `42e6a91309ba` 的健康图是 CURRENT。
+- 新发现：创建仍有四个近义确认、结果/历史墙过长、Undo 资格与按钮矛盾、Undo 成功消息
+  工程词泄漏；首次普通 reload 还出现一次有界子树读取失败的 session 核对风险。以上进入
+  现有发布阻断，不新增 Runtime、正式状态或恢复分支。
+- Partial 净变化 `-1`：来源预算错误表达关闭；Day 5 Context Recovery、Dynamic Now、
+  Attention、P2-D 边界和其余 Final Release Gate 保持 OPEN。
 
 ### 2026-07-28 P0-K Block Condition 返回现场收口
 
@@ -950,6 +971,6 @@ derivative/dashboard 价值也仍未完成。
    bounded host issue；退出后旧 Service PID 按 lease 停止，重开后同一 Launcher 启动新
    Service 并自动恢复正式能力。继续 Rebind 最新指引，不得加入
    第二迁移或恢复状态源。
-3. 继续 `PILOT-2026W31-A`：先完成 Day 3 其余状态，再进入 Day 4 Project 形成与 Day 5
-   Context Recovery；用跨日证据收口 Dynamic Now / 第一批 Attention / Block Marker，
+3. 继续 `PILOT-2026W31-A`：先关闭 Day 4 撤销资格/按钮和成功消息矛盾，重建 Graylog
+   Project 后进入 Day 5 Context Recovery；用跨日证据收口 Dynamic Now / 第一批 Attention / Block Marker，
    同时保留 P0-J 原生中文 IME 与 P1-F DB Graph Page Head 的明确开放口径。

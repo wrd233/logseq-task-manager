@@ -1,7 +1,7 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_3_WAITING_SUBCHAIN_DONE`
-> 当前构建：`bc79ffd1ce6a091186cc54ee0a32bcb6a1c8b24b`
+> 状态：`IN_PROGRESS_DAY_4_CREATE_RELOAD_UNDO_DONE`
+> 当前精确构建：`42e6a91309ba`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
 > Graph：File Graph `logseq`（专用测试 Graph）
@@ -32,17 +32,19 @@ Proposal / Commit / Undo / Recovery。
 | Day 1 | DONE_REPRESENTATIVE | 7 条自然捕获；明确 TODO 经真实 DeepSeek → Review → Commit；reload | 普通笔记没有被自动正式化；Now 未被全部捕获淹没 |
 | Day 2 | DONE_REPRESENTATIVE | 7 条纠正/补充；Undo 错误 Task；改原文；真实 DeepSeek 重新正式化；reload | 正式写入可恢复，但纠正路径过长 |
 | Day 3 | PARTIAL_WAITING_SUBCHAIN_DONE | 6 条自然输入；一个正式 Task 设为等待网络组并设置 reviewAt；reload/DB 读回 | Waiting 不再占用“继续处理”，但前台缺少安静的“保持等待”确认 |
-| Day 4—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow代替 |
+| Day 4 | DONE_REPRESENTATIVE_WITH_UX_BLOCKERS | 自然材料形成 MiniProject；真实 DeepSeek 自适应 Grill；Page 来源超限 fail-closed；Blank Project 经 Preview/HIGH/Create/reload/Undo；精确构建健康复核 | 正式链安全，但确认重复、推荐越界、结果墙和工程词仍阻断发布 |
+| Day 5—10 | OPEN | 尚未运行 | Day 5 前需重新建立 Graylog Project；不用历史截图或单点 Golden Flow 代替 |
 
 ## Provider 与安全计数
 
-- 真实 Provider 调用：`2`
+- 真实 Provider 调用：`14`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
+  Grill/Preview 为 7；Page 来源超限在 Provider 前拒绝）
 - Validator rejection：`0`
 - 自动 retry：`0`
 - abstention：`0`
 - 新 Skill / Prompt / Validator 版本：`0`
 - 正式写入：Day 1 创建 Task；Day 2 先精确 Undo 再以纠正来源创建 Task；Day 3 仅修改
-  该 Task 的 Condition
+  该 Task 的 Condition；Day 4 创建 MiniProject，并创建后完整 Undo Graylog Project
 - Key 泄漏、正文进入普通日志、绕过 Service、手改 SQLite：`0`
 
 Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务歧义；Day 2 补充说明后，
@@ -65,18 +67,30 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
 6. File Graph reload 后约 5 秒出现空 Page，随后正文恢复；当前证据指向宿主索引延迟，
    不是数据丢失。
 7. 原生 `datetime-local` 键盘输入在 Desktop 自动化中负担高；不新增状态，先作为可用性债。
+8. Page 来源超过有界读取预算时，旧界面把确定性范围错误翻译成 Provider 失败并提供无效
+   重试；`42e6a91` 已改为解释“当前页面内容太多、请选 MiniProject 或 Blank”，且不显示重试。
+9. Blank Project 的自适应 Grill 能利用用户纠正，但模型两次给出没有证据的量化门槛或
+   周会/看板建议；它们没有成为正式事实，本轮不据单样本升级 Skill。
+10. Project 创建链仍有“审阅方案 → 勾选确认方案 → 确认创建 → 勾选确认应用”的重复
+    判断；创建结果和历史页形成长墙，并同时显示“不确定能否撤销”与可点击撤销。
+11. Project Undo 本身通过：专用空 Page 和正式 Project 消失，来源与 MiniProject 保留；
+    但成功消息泄漏 `Project / Anchor / Audit / Commit`。精确 `42e6a91` reload 后
+    Pending/Recovery/Conflict `0/0/0`、explicit sync clean。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
 
 ## CURRENT 截图
 
-全部截图来自 `bc79ffd`、Logseq 0.10.15、File Graph `logseq`、host Light、约
-1000×720；文件名含模拟日与用户目标。详细结论见 `OBSERVATION_LOG.md`。
+Day 1—3 和 Day 4 自然材料来自 `bc79ffd`；Day 4 创建主链是在与 `42e6a91` 源码等价的
+working-tree build 上运行，但产物内嵌 commit 仍为 `fbd14eb`，因此只登记为
+`HISTORICAL_SOURCE_EQUIVALENT`，不冒充 exact-build CURRENT。Undo 后健康画面已用真正
+内嵌 `42e6a91309ba` 的当前产物重载复核并登记为 `CURRENT`。共同宿主为 Logseq 0.10.15、
+File Graph `logseq`、host Light、约 1000×720。详细结论见 `OBSERVATION_LOG.md`。
 
 ## 下一段
 
-1. 完成 Day 3 其余代表行为：第二个 Waiting、Paused、DONE 与用户 Focus/reviewAt；
-2. 进入 Day 4，在真实杂乱材料上形成听云 MiniProject 与 Graylog Project；
-3. 用 Day 1—4 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
+1. 关闭 Day 4 暴露的撤销资格结论/按钮矛盾与 Undo 成功消息工程词；
+2. 重新建立 Graylog Project，进入 Day 5 Context Recovery 连续使用；
+3. 用 Day 1—5 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
    前台分区，不先增加新的 Attention 类型或 Block Marker。
