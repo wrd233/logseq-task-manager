@@ -596,7 +596,7 @@ function renderReview(model: UiModel): string {
       <div class="eyebrow">待我确认 · ${escapeHtml(record.updatedAt)}</div>
       <h3>${escapeHtml(reviewStage)}</h3>
       <p class="lead"><strong>${escapeHtml(reviewTitle)}</strong></p>
-      <section class="review-impact" aria-label="方案影响">
+      <section class="review-impact" data-impact-level="${highImpact ? "high" : "standard"}" aria-label="方案影响">
         ${impactSections}
       </section>
       <div class="notice">${escapeHtml(stateNotice)}</div>

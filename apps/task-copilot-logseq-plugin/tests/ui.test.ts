@@ -1889,6 +1889,7 @@ test("Project creation Review uses the proposal-bound Page creation confirmation
   assert.match(html, /来源页面和原始材料会保留/);
   assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
   const impact = html.match(/<section class="review-impact"[\s\S]*?<\/section>\s*<\/section>/)?.[0] ?? "";
+  assert.match(impact, /data-impact-level="high"/);
   assert.ok(impact.indexOf("本次会改变什么") < impact.indexOf("本次不会改变什么"));
   assert.ok(impact.indexOf("本次不会改变什么") < impact.indexOf("系统理解"));
   assert.ok(html.indexOf("上一步只是确认方案") < html.indexOf('data-action="v2-project-creation-commit"'));

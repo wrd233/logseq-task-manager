@@ -115,6 +115,8 @@
 #task-copilot-personal-mvp-root .operation > div:first-child { display: flex; justify-content: space-between; gap: 10px; }
 #task-copilot-personal-mvp-root .operation p { margin: 7px 0; }
 #task-copilot-personal-mvp-root .review-impact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+#task-copilot-personal-mvp-root .review-impact[data-impact-level="high"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#task-copilot-personal-mvp-root .review-impact[data-impact-level="high"] > section:last-child { grid-column: 1 / -1; }
 #task-copilot-personal-mvp-root .review-impact > section { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
 #task-copilot-personal-mvp-root .review-impact h4 { margin: 0 0 7px; font-size: 13px; }
 #task-copilot-personal-mvp-root .review-impact p, #task-copilot-personal-mvp-root .review-impact ul { margin: 0; line-height: 1.55; }
@@ -200,6 +202,12 @@
   #task-copilot-personal-mvp-root .user-system-status dl { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .user-system-status dl > div:last-child { grid-column: auto; }
   #task-copilot-personal-mvp-root .diagnostic-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 840px) {
+  #task-copilot-personal-mvp-root .review-impact,
+  #task-copilot-personal-mvp-root .review-impact[data-impact-level="high"] { grid-template-columns: 1fr; }
+  #task-copilot-personal-mvp-root .review-impact[data-impact-level="high"] > section:last-child { grid-column: auto; }
 }
 
 #task-copilot-personal-mvp-root[data-theme-mode="dark"] {
