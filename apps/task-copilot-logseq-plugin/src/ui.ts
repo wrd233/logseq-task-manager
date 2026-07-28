@@ -66,6 +66,7 @@ export type ActionDialogKind =
   | "confirm-v2-undo"
   | "v2-condition"
   | "v2-block-condition-route"
+  | "v2-block-condition-actionable"
   | "v2-block-condition-waiting"
   | "v2-block-condition-blocked"
   | "v2-block-condition-paused"
@@ -1532,7 +1533,15 @@ function renderActionDialog(model: UiModel): string {
   if (dialog.kind === "v2-block-condition-route") {
     const [objectId] = dialog.value.split("|");
     const object = model.v2Objects?.find((candidate) => candidate.objectId === objectId);
-    return `<section class="inbox-dialog action-dialog" aria-label="暂时做不了"><div class="eyebrow">当前内容 · ${escapeHtml(objectTypeLabel(object?.objectType ?? ""))}</div><h3>暂时做不了：${escapeHtml(object?.text ?? "当前事项")}</h3><p class="muted">选择眼下真正的原因。这里只记录为什么暂时无法推进，不会完成事项、移动正文或改变当前关注。</p><div class="cards compact"><button type="button" data-action="v2-block-condition-intent" data-value="WAITING|${escapeHtml(dialog.value)}"><strong>等待别人</strong><span>在等谁或什么结果，并约定复查时间</span></button><button type="button" data-action="v2-block-condition-intent" data-value="BLOCKED|${escapeHtml(dialog.value)}"><strong>被问题卡住</strong><span>记录具体卡点，可选关联阻碍事项</span></button><button type="button" data-action="v2-block-condition-intent" data-value="PAUSED|${escapeHtml(dialog.value)}"><strong>我先暂停</strong><span>记录原因和重新判断时间</span></button></div><div class="actions">${cancel}</div></section>`;
+    const resume = object && object.condition.kind !== "ACTIONABLE"
+      ? `<button type="button" data-action="v2-block-condition-intent" data-value="ACTIONABLE|${escapeHtml(dialog.value)}"><strong>恢复为可以行动</strong><span>回复已到或卡点已解除，重新进入可推进状态</span></button>`
+      : "";
+    return `<section class="inbox-dialog action-dialog" aria-label="暂时做不了"><div class="eyebrow">当前内容 · ${escapeHtml(objectTypeLabel(object?.objectType ?? ""))}</div><h3>暂时做不了：${escapeHtml(object?.text ?? "当前事项")}</h3><p class="muted">选择眼下真正的原因。这里只记录为什么暂时无法推进，不会完成事项、移动正文或改变当前关注。</p><div class="cards compact">${resume}<button type="button" data-action="v2-block-condition-intent" data-value="WAITING|${escapeHtml(dialog.value)}"><strong>等待别人</strong><span>在等谁或什么结果，并约定复查时间</span></button><button type="button" data-action="v2-block-condition-intent" data-value="BLOCKED|${escapeHtml(dialog.value)}"><strong>被问题卡住</strong><span>记录具体卡点，可选关联阻碍事项</span></button><button type="button" data-action="v2-block-condition-intent" data-value="PAUSED|${escapeHtml(dialog.value)}"><strong>我先暂停</strong><span>记录原因和重新判断时间</span></button></div><div class="actions">${cancel}</div></section>`;
+  }
+  if (dialog.kind === "v2-block-condition-actionable") {
+    const [objectId] = dialog.value.split("|");
+    const object = model.v2Objects?.find((candidate) => candidate.objectId === objectId);
+    return `<section class="inbox-dialog action-dialog" aria-label="恢复为可以行动"><div class="eyebrow">当前状态将更新</div><h3>恢复为可以行动</h3><p>“${escapeHtml(object?.text ?? "当前事项")}”将重新出现在可推进事项中。</p><p class="muted">只更新眼下是否能继续；不会完成事项、移动正文或改变当前关注。保存时会重验当前版本。</p><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "确认恢复", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-waiting") {
     return `<section class="inbox-dialog action-dialog" aria-label="等待别人"><h3>等待别人</h3><p class="muted">用一个短语说明在等谁或什么结果；到点后会回到“需要回看”。当前关注不会自动改变。</p><label>在等谁或什么结果<input data-field="v2BlockWaitingSummary" placeholder="例如：等评审人确认恢复结果"></label><label>复查时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为等待别人", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;

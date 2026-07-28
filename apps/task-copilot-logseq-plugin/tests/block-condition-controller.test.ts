@@ -50,6 +50,9 @@ function client(overrides: Partial<BlockConditionClient> = {}): BlockConditionCl
 }
 
 test("condition intent builder exposes only the minimum user fields", () => {
+  assert.deepEqual(buildBlockCondition({ intent: "ACTIONABLE" }), {
+    kind: "ACTIONABLE",
+  });
   assert.deepEqual(buildBlockCondition({
     intent: "WAITING",
     summary: " 等评审人确认恢复结果 ",
@@ -148,6 +151,38 @@ test("apply changes only Condition and session Undo restores the exact prior Con
     { kind: "ACTIONABLE" },
   ]);
   assert.equal(controller.hasUndo(), false);
+});
+
+test("a later reply restores Waiting to actionable through the same controller", async () => {
+  let current = object({
+    condition: {
+      kind: "WAITING",
+      waitingFor: "网络组回复",
+      expectedResult: "确认端口权限",
+      reviewAt: "2026-07-29T02:00:00.000Z",
+    },
+  });
+  const controller = new BlockConditionController(() => client({
+    async listObjects() { return [current]; },
+    async changeCondition(objectId, expectedVersion, condition) {
+      assert.equal(objectId, current.objectId);
+      assert.equal(expectedVersion, current.version);
+      current = { ...current, version: current.version + 1, condition };
+      return { object: current };
+    },
+  }));
+
+  const result = await controller.apply({
+    blockUuid: "block-1",
+    objectId: "task-1",
+    expectedVersion: 3,
+    draft: { intent: "ACTIONABLE" },
+  });
+
+  assert.equal(result.status, "ACTIONABLE");
+  assert.deepEqual(current.condition, { kind: "ACTIONABLE" });
+  assert.match(result.message, /已恢复为“可以行动”.*当前关注保持不变/);
+  assert.doesNotMatch(result.message, /\bACTIONABLE\b|\bFocus\b|Local Service|Condition/);
 });
 
 test("duplicate submission is rejected while the first Condition command is in flight", async () => {

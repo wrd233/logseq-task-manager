@@ -2658,11 +2658,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-condition-open" && value) return openActionDialog("v2-condition", value);
   if (action === "v2-block-condition-intent" && value) {
     const [intent, ...context] = value.split("|");
-    if (typeof intent !== "string" || !["WAITING", "BLOCKED", "PAUSED"].includes(intent) || context.length !== 3) {
+    if (typeof intent !== "string" || !["ACTIONABLE", "WAITING", "BLOCKED", "PAUSED"].includes(intent) || context.length !== 3) {
       throw new Error("状态意图上下文无效；没有保存，原状态未改变。");
     }
     actionDialog = {
-      kind: intent === "WAITING" ? "v2-block-condition-waiting"
+      kind: intent === "ACTIONABLE" ? "v2-block-condition-actionable"
+        : intent === "WAITING" ? "v2-block-condition-waiting"
         : intent === "BLOCKED" ? "v2-block-condition-blocked"
         : "v2-block-condition-paused",
       value: context.join("|"),
@@ -2679,11 +2680,13 @@ async function handleAction(action: string, value?: string): Promise<void> {
       !objectId
       || !blockUuid
       || !Number.isSafeInteger(expectedVersion)
-      || !["v2-block-condition-waiting", "v2-block-condition-blocked", "v2-block-condition-paused"].includes(dialogKind ?? "")
+      || !["v2-block-condition-actionable", "v2-block-condition-waiting", "v2-block-condition-blocked", "v2-block-condition-paused"].includes(dialogKind ?? "")
     ) {
       throw new Error("状态表单上下文无效；没有保存，原状态未改变。");
     }
-    const draft: BlockConditionDraft = dialogKind === "v2-block-condition-waiting"
+    const draft: BlockConditionDraft = dialogKind === "v2-block-condition-actionable"
+      ? { intent: "ACTIONABLE" }
+      : dialogKind === "v2-block-condition-waiting"
       ? {
         intent: "WAITING",
         summary: dialogField("v2BlockWaitingSummary"),

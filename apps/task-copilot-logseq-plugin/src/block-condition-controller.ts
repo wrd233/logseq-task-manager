@@ -5,9 +5,10 @@ import { resolveBlockObject } from "./block-focus-controller.ts";
 import type { ServiceRuntimeClient } from "./service-connection.ts";
 
 export type BlockConditionClient = Pick<ServiceRuntimeClient, "listObjects" | "listPrimaryAnchors" | "changeCondition">;
-export type BlockConditionIntent = "WAITING" | "BLOCKED" | "PAUSED";
+export type BlockConditionIntent = "ACTIONABLE" | "WAITING" | "BLOCKED" | "PAUSED";
 
 export type BlockConditionDraft =
+  | { intent: "ACTIONABLE" }
   | { intent: "WAITING"; summary: string; reviewAt: string }
   | { intent: "BLOCKED"; reason: string; blockerObjectId?: string }
   | { intent: "PAUSED"; reason: string; reviewAt: string };
@@ -66,6 +67,7 @@ function requiredReviewAt(value: string, message: string): string {
 }
 
 export function buildBlockCondition(draft: BlockConditionDraft): V2Condition {
+  if (draft.intent === "ACTIONABLE") return { kind: "ACTIONABLE" };
   if (draft.intent === "WAITING") {
     if (!draft.summary.trim() || !draft.reviewAt.trim()) {
       throw new Error("请填写在等谁或什么结果，以及复查时间；没有保存，原状态未改变。");
@@ -143,7 +145,8 @@ export class BlockConditionController {
         afterCondition: condition,
         afterVersion: result.object.version,
       };
-      const label = input.draft.intent === "WAITING" ? "等待别人"
+      const label = input.draft.intent === "ACTIONABLE" ? "可以行动"
+        : input.draft.intent === "WAITING" ? "等待别人"
         : input.draft.intent === "BLOCKED" ? "被问题卡住"
         : "我先暂停";
       return {
@@ -152,7 +155,9 @@ export class BlockConditionController {
         objectId: object.objectId,
         objectText: object.text,
         objectVersion: result.object.version,
-        message: `已设为“${label}”：${object.text}。当前关注保持不变；可以撤销刚才的状态变化。`,
+        message: input.draft.intent === "ACTIONABLE"
+          ? `已恢复为“${label}”：${object.text}。当前关注保持不变；可以撤销刚才的状态变化。`
+          : `已设为“${label}”：${object.text}。当前关注保持不变；可以撤销刚才的状态变化。`,
       };
     });
   }

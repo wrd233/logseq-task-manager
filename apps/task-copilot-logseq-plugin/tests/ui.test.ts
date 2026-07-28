@@ -2185,7 +2185,7 @@ test("object and high-impact actions render in-plugin forms instead of browser m
   assert.match(html, /data-action="submit-review-accept"/);
 });
 
-test("Block Condition router shows three user intents and only their necessary fields", () => {
+test("Block Condition router shows a bounded resume action only for non-actionable work", () => {
   const value = model();
   value.v2Objects = [{
     objectId: "task-block", objectType: "TASK", version: 3, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" },
@@ -2207,9 +2207,24 @@ test("Block Condition router shows three user intents and only their necessary f
     assert.match(html, new RegExp(`data-action="v2-block-condition-intent" data-value="${intent}\\|task-block\\|3\\|block-1"`));
   }
   for (const label of ["等待别人", "被问题卡住", "我先暂停"]) assert.match(html, new RegExp(label));
+  assert.doesNotMatch(html, /data-value="ACTIONABLE\|task-block\|3\|block-1"/);
   assert.match(html, /当前内容 · 任务/);
   assert.match(html, /不会完成事项、移动正文或改变当前关注/);
   assert.doesNotMatch(html, /\bBlock\b|\bCondition\b|\bLifecycle\b|\bOwnership\b|\bFocus\b|Local Service/);
+
+  value.v2Objects[0] = {
+    ...value.v2Objects[0]!,
+    condition: {
+      kind: "WAITING",
+      waitingFor: "网络组回复",
+      expectedResult: "端口权限确认",
+      reviewAt: "2026-07-29T02:00:00.000Z",
+    },
+  };
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-block-condition-intent" data-value="ACTIONABLE\|task-block\|3\|block-1"/);
+  assert.match(html, /恢复为可以行动/);
+  assert.match(html, /回复已到或卡点已解除/);
 
   value.actionDialog = { kind: "v2-block-condition-waiting", value: "task-block|3|block-1" };
   html = renderApp(value);
