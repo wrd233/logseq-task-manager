@@ -23,7 +23,10 @@ Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源超过有界预算
 时的用户表达已修复为可行动范围说明，不再伪装 Provider 失败或提供无效 Retry。该轮累计
 真实 Provider 14 次，并暴露重复确认、无依据模型建议、结果/历史墙、Undo 资格矛盾及成功
-消息工程词；这些仍阻断 Final Release。Day 5—10、Dynamic Now、Attention helpful/noise、
+消息工程词。`7a0b444821b7` 已在最新 Desktop 关闭撤销资格/按钮矛盾，并自动压缩
+Project Undo 成功消息；后者仍需下一次真实 Undo 复验。精确构建系统
+Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。重复确认、结果/历史墙仍
+阻断 Final Release。Day 5—10、Dynamic Now、Attention helpful/noise、
 P2-D 完成边界与 P2-E/P2-G 尾项继续 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
 
 最新 P0-K 精确构建 `73dc1e26f610` 完成正式 Block “暂时做不了”的当前 Desktop 返回现场

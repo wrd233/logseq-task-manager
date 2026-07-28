@@ -28,6 +28,12 @@ File Graph、Dark/Light 1000×720、Light 723×720 均显示当前状态、一�
 只关闭两个 UI Partial，不替代 Project 创建正式 Commit/Undo 的既有证据，也不关闭 P2-C
 其余视觉项、P2-D～G 或最终发布。
 
+`7a0b444` 已关闭最近修改卡的撤销资格/按钮矛盾：最新 Logseq 0.10.15 File Graph、
+Light、约 1000×720 的精确构建显示“可以发起撤销，执行时重新检查”，同时系统
+Pending/Recovery/Conflict `0/0/0`、explicit sync clean。Project 创建 Undo 的成功消息
+工程词压缩仅为 `AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`，不能借 `fbd14eb`
+历史 Undo 截图升级为 Desktop DONE。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据

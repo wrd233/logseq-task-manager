@@ -120,6 +120,8 @@ Blank 没有虚构来源；原测试 Page 和听云 MiniProject 都保留。Undo
 | `screenshots/day-04-project-undo-source-equivalent-light-runtime-fbd14eb.jpg` | 撤销 Project 创建 | Project/Page 已撤销，来源保留；成功消息泄漏工程词 | reload 核对 | HISTORICAL_SOURCE_EQUIVALENT |
 | `screenshots/day-04-project-undo-reload-absence-source-equivalent-light-runtime-fbd14eb.jpg` | reload 后检查项目列表 | Graylog Project 不再存在 | 精确构建健康复核 | HISTORICAL_SOURCE_EQUIVALENT |
 | `screenshots/day-04-project-undo-reload-health-current-light-42e6a91.jpg` | 用真正内嵌 `42e6a91309ba` 的产物重载 | 系统正常；0/0/0；explicit sync clean | 关闭 UX 矛盾后重建 Day 5 Project | CURRENT |
+| `screenshots/day-04-undo-guidance-current-light-7a0b444.jpg` | 用真正内嵌 `7a0b444821b7` 的产物查看最近修改 | 存在真实撤销入口时明确“可以发起撤销；执行时重新检查”，不再与按钮矛盾 | 重建 Day 5 Project | CURRENT |
+| `screenshots/day-04-undo-guidance-health-current-light-7a0b444.jpg` | 同一精确构建展开系统诊断 | Pending/Recovery/Conflict 0/0/0；explicit sync clean | 继续 Day 5 | CURRENT |
 
 观察：
 
@@ -134,6 +136,17 @@ Blank 没有虚构来源；原测试 Page 和听云 MiniProject 都保留。Undo
   `EXPLICIT_SYNC_SUBTREE_READ_FAILED` 显示一次 session 级核对风险。重新构建并 reload
   当前精确产物后 clean，证明它不是 Pending/Recovery/Anchor conflict，但该有界子树读取
   失败仍作为 P0 可靠性观察保留。
+
+### Day 4 后续：撤销前台结论收敛
+
+`7a0b444` 没有改变 Application 的保守资格判断或 Undo 安全检查，只在 Plugin 已经有真实
+撤销动作时使用与动作一致的用户结论。最新 Logseq Desktop 已证明历史卡不再显示矛盾的
+“证据不足”，且精确构建健康。Project 创建 Undo 的成功消息也已自动改为“新建空白页已
+移除”或“复用来源页保持原样”，但尚未在新构建上再执行一次真实 Project Undo，因此保持
+`AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`。
+
+自动证据：Plugin `352/352`、typecheck/build、根级 `./scripts/check.sh` PASS，0 skipped。
+新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator：`0/0/0/0`。
 
 ## 轻量指标（截至 Day 4）
 

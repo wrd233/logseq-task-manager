@@ -46,6 +46,16 @@ Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初
 | `pilot-2026w31/screenshots/day-04-project-undo-reload-absence-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | reload 后看项目列表 | Graylog Project 不再存在 |
 | `pilot-2026w31/screenshots/day-04-project-undo-reload-health-current-light-42e6a91.jpg` | CURRENT | 精确构建 reload 后展开诊断 | Plugin `42e6a91309ba`；0/0/0；explicit sync clean |
 
+### 连续使用 Pilot Day 4 Undo 结论收敛 — exact build `7a0b444821b7`
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-04-undo-guidance-current-light-7a0b444.jpg` | CURRENT | reload 后打开最近修改 | 存在真实撤销入口时明确可以发起撤销且执行时重验，不再显示相反结论 |
+| `pilot-2026w31/screenshots/day-04-undo-guidance-health-current-light-7a0b444.jpg` | CURRENT | 打开系统状态并展开诊断 | Plugin `7a0b444821b7`；0/0/0；explicit sync clean |
+
+Project 创建 Undo 的新成功消息只完成自动验证；旧 `fbd14eb` 的成功截图继续保留为历史
+缺陷证据，不升级为当前 Desktop 证据。
+
 ### P0-J ended formal boundary — exact build `bc79ffd`
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |

@@ -19,6 +19,17 @@
 
 ## 本轮变化（2026-07-28）
 
+### Day 4 Undo 前台结论收敛
+
+- 删除一个重复且相互矛盾的用户结论：当同一卡已有真实撤销入口时，不再显示“无法确认
+  撤销资格”，而说明执行时会重验。Application 和 inverse 安全边界未放宽。
+- Project 创建 Undo 成功消息不再暴露 Project/Anchor/Audit/Commit；技术证据仍由历史与
+  折叠详情保留，不新增第二套结果模型。
+- 新增正式状态、Runtime、Recovery 分支、Skill、Prompt、Validator、写入权威和新 Partial：
+  均为 `0`。关闭 UI Partial `1`；Partial 净变化 `-1`。
+- 自动证据 `352/352`、根级检查 PASS；Desktop exact build `7a0b444821b7` 已验证撤销资格
+  结论和健康，成功消息待下一次真实 Project Undo 复验。
+
 ### 连续使用 Pilot Day 4 与 Project 创建真实链
 
 - 新增正式状态、顶层导航、Agent Runtime、Recovery 分支、Skill、Prompt、Validator：

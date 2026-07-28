@@ -83,6 +83,19 @@
 - Partial 净变化 `-1`：来源预算错误表达关闭；Day 5 Context Recovery、Dynamic Now、
   Attention、P2-D 边界和其余 Final Release Gate 保持 OPEN。
 
+### 2026-07-28 Day 4 Undo 前台结论收敛
+
+- `7a0b444` 在不改变 Undo 资格算法、Application 保守叙述或正式 inverse 的前提下，让
+  Plugin 已提供真实撤销动作时显示一致结论：可以发起撤销，执行时重验当前内容。
+- Project 创建 Undo 成功结果不再泄漏 Project/Anchor/Audit/Commit，按“复用来源页保留”
+  或“本次新建空白页移除”表达；该结果文案已自动验证，真实 Project Undo 重跑仍待 Day 5
+  后续链，未冒充 Desktop 完成。
+- 自动证据：Plugin `352/352`、typecheck/build、根级检查 PASS、0 skipped。Desktop 精确
+  `7a0b444821b7` 已复验最近修改卡和系统健康：Pending/Recovery/Conflict `0/0/0`，
+  explicit sync clean。
+- 关闭撤销资格/按钮矛盾这个 UI Partial；新增长期 Partial、正式状态、Runtime、Recovery
+  分支、Skill/Prompt/Validator 与写入权威均为 `0`。
+
 ### 2026-07-28 P0-K Block Condition 返回现场收口
 
 - `0a9a170` 将正式 Block “暂时做不了”首屏压缩为一个安全结论和“等待别人 / 被问题

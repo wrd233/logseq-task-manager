@@ -1,7 +1,7 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_4_CREATE_RELOAD_UNDO_DONE`
-> 当前精确构建：`42e6a91309ba`
+> 状态：`IN_PROGRESS_DAY_4_UNDO_GUIDANCE_FIXED`
+> 当前精确构建：`7a0b444821b7`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
 > Graph：File Graph `logseq`（专用测试 Graph）
@@ -57,7 +57,8 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
 
 1. 单一 Task 的正式化在普通用户层经历“审阅方案 → 确认应用 → 勾选 → 再次确认应用”，
    实际为三次确认；安全记录有价值，但用户判断重复。
-2. 成功卡同时显示“不能确认是否可撤销”和可点击“撤销”，结论与能力冲突。
+2. 成功卡曾同时显示“不能确认是否可撤销”和可点击“撤销”；`7a0b444` 已让存在真实
+   撤销入口的卡片明确说明“可以发起撤销，执行时会重新检查”，最新 Desktop 已复验。
 3. “最近修改与恢复”首屏泄漏 `SQLITE / LOCAL SERVICE` 等工程概念，并让历史卡淹没
    当前问题。
 4. 修正一个事实需要 Undo → 修改来源 → 再次 Provider / Review / Confirm，安全但日常
@@ -72,10 +73,11 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
 9. Blank Project 的自适应 Grill 能利用用户纠正，但模型两次给出没有证据的量化门槛或
    周会/看板建议；它们没有成为正式事实，本轮不据单样本升级 Skill。
 10. Project 创建链仍有“审阅方案 → 勾选确认方案 → 确认创建 → 勾选确认应用”的重复
-    判断；创建结果和历史页形成长墙，并同时显示“不确定能否撤销”与可点击撤销。
+    判断；创建结果和历史页仍形成长墙。撤销资格矛盾已由 `7a0b444` 关闭。
 11. Project Undo 本身通过：专用空 Page 和正式 Project 消失，来源与 MiniProject 保留；
-    但成功消息泄漏 `Project / Anchor / Audit / Commit`。精确 `42e6a91` reload 后
-    Pending/Recovery/Conflict `0/0/0`、explicit sync clean。
+    `7a0b444` 已自动收敛成功消息，不再泄漏 `Project / Anchor / Audit / Commit`；该新
+    成功消息尚未重新执行一次真实 Project Undo，不能借历史截图升级为 Desktop DONE。
+    精确 `7a0b444` reload 后 Pending/Recovery/Conflict `0/0/0`、explicit sync clean。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -85,12 +87,13 @@ Dynamic Now 和用户状态翻译内核。
 Day 1—3 和 Day 4 自然材料来自 `bc79ffd`；Day 4 创建主链是在与 `42e6a91` 源码等价的
 working-tree build 上运行，但产物内嵌 commit 仍为 `fbd14eb`，因此只登记为
 `HISTORICAL_SOURCE_EQUIVALENT`，不冒充 exact-build CURRENT。Undo 后健康画面已用真正
-内嵌 `42e6a91309ba` 的当前产物重载复核并登记为 `CURRENT`。共同宿主为 Logseq 0.10.15、
+内嵌 `42e6a91309ba` 的当前产物重载复核；撤销资格卡又由真正内嵌
+`7a0b444821b7` 的产物重载复验并登记为 `CURRENT`。共同宿主为 Logseq 0.10.15、
 File Graph `logseq`、host Light、约 1000×720。详细结论见 `OBSERVATION_LOG.md`。
 
 ## 下一段
 
-1. 关闭 Day 4 暴露的撤销资格结论/按钮矛盾与 Undo 成功消息工程词；
-2. 重新建立 Graylog Project，进入 Day 5 Context Recovery 连续使用；
-3. 用 Day 1—5 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
+1. 重新建立 Graylog Project，进入 Day 5 Context Recovery 连续使用，并在后续真实
+   Project Undo 时复验新的成功消息；
+2. 用 Day 1—5 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
    前台分区，不先增加新的 Attention 类型或 Block Marker。
