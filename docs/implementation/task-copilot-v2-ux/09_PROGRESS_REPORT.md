@@ -41,9 +41,10 @@
   结果，并用 fail-closed 零写入测试固定该边界。
 - 自动：Plugin `347/347`、0 skipped，typecheck/build PASS；产物内嵌
   `73dc1e26f610`。
-- Desktop：Logseq 0.10.15 File Graph，host Light / Plugin Dark，999×720。Query 投影安全
+- Desktop：Logseq 0.10.15 File Graph，host Light / Plugin Dark，999×720 与 727×720。Query 投影安全
   停止；正式测试任务完成入口→空原因失败→正式保存→返回同一 Block→Undo→reload 后
-  “当前可以继续推进”。五张 CURRENT 截图对应 exact build `73dc1e2`。
+  “当前可以继续推进”；窄栏保持主结论、三个意图和取消可见。六张 CURRENT 截图对应
+  exact build `73dc1e2`。
 - Provider/Skill：没有调用 Provider；Validator 拒绝率与模型重试不适用；没有新增或修改
   Skill/Prompt。
 - 复杂度：新增正式状态、Runtime、恢复分支、Validator、写入权威和新 Partial 均为 `0`；

@@ -8,7 +8,7 @@
 - Plugin 构建时间：`2026-07-28 15:33:54 +0800`
 - Logseq：`0.10.15`
 - Graph：File Graph `logseq`，专用测试内容
-- 窗口：`999×720`
+- 窗口：`999×720` 标准宽度；`727×720` 窄栏
 - 主题：Logseq host Light / Plugin Dark
 - Service / Launcher：真实本地运行
 - Provider：本 Gate 不调用
@@ -31,6 +31,8 @@
    “可以行动”，当前关注保持不变。
 7. 重载 Logseq 后打开“现在”，同一任务仍显示“当前可以继续推进”。测试环境已恢复到操作前
    的业务状态。
+8. 在同一精确构建把窗口缩到 `727×720`，重新进入三意图首屏。主结论、三个选择、取消和
+   返回原内容均可见，无横向溢出；取消后恢复标准窗口。
 
 ## Desktop 驱动修复
 
@@ -53,6 +55,7 @@ Runtime、Skill、Validator、恢复分支或写入路径。
 |---|---|
 | `p0-k-query-safe-degrade-current-73dc1e2.jpg` | Query 无可靠正式身份时安全停止，用户语言、零猜测 |
 | `p0-k-condition-route-current-73dc1e2.jpg` | 三个用户意图；主结论和安全边界在首屏 |
+| `p0-k-condition-route-current-narrow-73dc1e2.jpg` | 727×720 窄栏保持同一信息层级和主操作 |
 | `p0-k-condition-validation-current-73dc1e2.jpg` | 空原因没有保存，原状态不变 |
 | `p0-k-condition-success-worksite-current-73dc1e2.jpg` | 保存后返回同一原文，关注不变、可撤销 |
 | `p0-k-condition-undo-worksite-current-73dc1e2.jpg` | 撤销后返回同一原文并恢复“可以行动” |

@@ -31,7 +31,7 @@
   内部 Anchor 判定和安全拒绝不变。该规则覆盖一类身份失败，不是单样本文案补丁。
 - 自动证据：Plugin `347/347`、0 skipped、typecheck/build PASS；精确产物内嵌
   `73dc1e26f610`。Desktop exact build 在 Logseq 0.10.15 完成 Query 安全降级和正式测试
-  任务的失败→保存→返回→Undo→reload。
+  任务的失败→保存→返回→Undo→reload，并以 727×720 关闭该入口窄栏代表 Gate。
 - LLM：未调用 Provider；Validator rejection、retry、Skill/Prompt 版本变化不适用。
 - Partial 总量净下降 `1`：P0-K 返回现场代表 Gate `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`；
   P0-J 中文 IME/受限视觉、P1 Attention/Marker 和 P2 恢复项保持 OPEN。后台工程概念泄漏

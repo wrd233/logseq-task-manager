@@ -5,11 +5,11 @@
 
 最新 P0-K Block Condition 精确构建为 `73dc1e26f610`（Plugin build
 `2026-07-28 15:33:54 +0800`）。真实 Logseq 0.10.15 File Graph 在 999×720、host Light /
-Plugin Dark 下完成两条链：Query 投影没有可靠正式身份时只显示“尚未由 Task Copilot
+Plugin Dark 下完成两条链，并补 727×720 窄栏：Query 投影没有可靠正式身份时只显示“尚未由 Task Copilot
 管理、原状态未改变、原内容保持原位”；正式测试任务从原文右键进入三意图，空原因失败不
 保存，成功后返回同一 Block，Undo 后恢复“可以行动”，reload 读回仍可推进。CURRENT
 `p0-k-query-safe-degrade-current-73dc1e2.jpg` 与
-`p0-k-condition-*-current-73dc1e2.jpg` 共五张。首次运行暴露的
+`p0-k-condition-*-current-73dc1e2.jpg` 共六张。首次运行暴露的
 `Block / active Primary Anchor` 提示已由同一构建替代。完整记录见
 `../logs/p0-k-block-condition-worksite-desktop-live-20260728.md`。
 

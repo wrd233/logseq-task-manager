@@ -21,7 +21,8 @@ overall_goal: IN_PROGRESS
 Gate：Query 投影无可靠正式身份时安全停止且只显示用户语言；正式测试任务完成三意图入口、
 空原因失败零写入、保存后返回同一 Block、会话 Undo、reload 后恢复“可以行动”。真实运行
 首次发现旧错误仍泄漏 `Block / active Primary Anchor`，同轮将所有 Block identity 失败
-翻译为用户结果并加入回归。Plugin `347/347`、typecheck/build PASS；没有新增正式状态、
+翻译为用户结果并加入回归；同一入口在 727×720 窄栏保持主结论和三个意图可见。Plugin
+`347/347`、typecheck/build PASS；没有新增正式状态、
 Runtime、Skill、Validator、恢复分支或写入路径。该证据与既有 main Page、来源移动/删除、
 Query/reference/right-sidebar bounded Gate 合并后，P0-K 升为
 `DONE_DESKTOP_REPRESENTATIVE`；P0-J 中文 IME/受限视觉仍使 P0 保持进行中。

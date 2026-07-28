@@ -9,13 +9,14 @@
 
 Logseq `0.10.15`；File Graph
 `/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；host Light / Plugin Dark；
-999×720；真实 Plugin/Launcher/Service；不调用 Provider。测试任务最终经 Undo 和 reload
-恢复为“可以行动”。
+999×720 标准宽度与 727×720 窄栏；真实 Plugin/Launcher/Service；不调用 Provider。
+测试任务最终经 Undo 和 reload 恢复为“可以行动”。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
 | `screenshots/p0-k-query-safe-degrade-current-73dc1e2.jpg` | CURRENT | Query 投影右键→暂时做不了 | 无可靠正式身份时安全停止；原状态不变、原内容原位；没有 Block/Anchor 工程词 |
 | `screenshots/p0-k-condition-route-current-73dc1e2.jpg` | CURRENT | 正式任务原文右键→暂时做不了 | 一句安全边界；等待别人/被问题卡住/我先暂停三个互斥意图 |
+| `screenshots/p0-k-condition-route-current-narrow-73dc1e2.jpg` | CURRENT | 同一入口缩至 727×720 | 主结论、三个意图、取消和返回原内容可见，无横向溢出 |
 | `screenshots/p0-k-condition-validation-current-73dc1e2.jpg` | CURRENT | 被问题卡住→空原因保存 | 没有保存、原状态不变；补充具体卡点是唯一下一步 |
 | `screenshots/p0-k-condition-success-worksite-current-73dc1e2.jpg` | CURRENT | 填写脱敏原因并保存 | 返回同一原文；已设为被问题卡住；当前关注不变；可撤销 |
 | `screenshots/p0-k-condition-undo-worksite-current-73dc1e2.jpg` | CURRENT | 同一原文右键→撤销上一次状态变化 | 返回同一原文；恢复“可以行动”；当前关注不变 |
