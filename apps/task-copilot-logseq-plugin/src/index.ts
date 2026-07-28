@@ -461,10 +461,10 @@ async function refreshToolbarInterventionFacts(): Promise<void> {
 
 async function openV2PrimaryAnchor(externalId: string): Promise<void> {
   const block = RuntimeShapeAdapter.block(await logseq.Editor.getBlock(externalId, { includeChildren: false }));
-  if (!block) throw new Error("主 Anchor 已失联；没有修改对象，请进入 Anchor 修复流程。");
-  if (!logseq.Editor.scrollToBlockInPage || block.page === undefined) throw new Error("当前 Logseq 运行时无法安全定位主 Anchor。");
+  if (!block) throw new Error("原正文连接已不可用；没有修改正式事项。请在系统状态中检查并重新连接正文。");
+  if (!logseq.Editor.scrollToBlockInPage || block.page === undefined) throw new Error("当前 Logseq 无法安全打开这条正文；没有修改正式事项。");
   const page = await resolveLogseqPageReference(block.page, logseq.Editor.getPage?.bind(logseq.Editor));
-  if (page.displayName === "无法解析的 Logseq 页面") throw new Error("主 Anchor 所在页面无法解析；没有修改对象。");
+  if (page.displayName === "无法解析的 Logseq 页面") throw new Error("正文所在页面当前无法确认；没有修改正式事项。请从系统状态检查正文连接。");
   await logseq.Editor.scrollToBlockInPage(page.pageUuid ?? page.pageName ?? page.displayName.replace(" · Journal", ""), externalId);
 }
 

@@ -2192,7 +2192,10 @@ test("relation projection failure is explicit without hiding formal objects", ()
 
 test("formal plugin entry does not regress to host browser prompts", async () => {
   const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
+  const openPrimaryText = source.match(/async function openV2PrimaryAnchor[\s\S]*?\n\}/)?.[0] ?? "";
   assert.doesNotMatch(source, /window\.(?:prompt|confirm)\s*\(/);
+  assert.match(openPrimaryText, /原正文连接已不可用；没有修改正式事项。请在系统状态中检查并重新连接正文/);
+  assert.doesNotMatch(openPrimaryText, /\bAnchor\b|运行时|对象/);
   for (const kind of ["v2-candidate-update", "confirm-v2-commit", "confirm-v2-undo", "v2-condition", "v2-deadline"]) {
     assert.match(source, new RegExp(`openActionDialog\\("${kind}"`));
   }
