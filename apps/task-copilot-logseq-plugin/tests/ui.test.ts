@@ -1648,7 +1648,8 @@ test("Review Center renders persisted Candidate decisions and Proposal generatio
   assert.match(html, /保持普通内容/);
   assert.match(html, /以后不再提示/);
   assert.match(html, /只进入待整理列表，不会创建正式事项/);
-  assert.ok(html.indexOf("核对真实原文") < html.indexOf("显式标识") && html.indexOf("显式标识") < html.indexOf("生成 Task Proposal"), "original content precedes reason and Agent suggestion");
+  assert.ok(html.indexOf("核对真实原文") < html.indexOf("明确标记") && html.indexOf("明确标记") < html.indexOf("生成 任务 可审阅方案"), "original content precedes translated reason and suggestion");
+  assert.doesNotMatch(html, /Proposal|Candidate/);
 });
 
 test("Candidate update dialog selects one existing Block object and explains Proposal-only behavior", () => {

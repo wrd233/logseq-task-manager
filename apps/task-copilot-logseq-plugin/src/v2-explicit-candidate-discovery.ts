@@ -280,11 +280,39 @@ function candidateObjectLabel(objectType: V2ExplicitCandidate["objectType"]): st
   return "领域";
 }
 
+function frontstageCandidateText(value: string): string {
+  const exactReason = /^(AREA|PROJECT|MINI_PROJECT|TASK|DECISION|OUTPUT) 显式标识尚未绑定正式对象。$/.exec(value);
+  if (exactReason?.[1]) {
+    return `这段内容已经标为${candidateObjectLabel(exactReason[1] as V2ExplicitCandidate["objectType"])}，但还没有进入正式事项。`;
+  }
+  const exactSuggestion = /^生成 (AREA|PROJECT|MINI_PROJECT|TASK|DECISION|OUTPUT) 正式化 Proposal。$/.exec(value);
+  if (exactSuggestion?.[1]) {
+    return `审阅后把它整理为正式${candidateObjectLabel(exactSuggestion[1] as V2ExplicitCandidate["objectType"])}。`;
+  }
+  return value
+    .replaceAll("MINI_PROJECT", "小项目")
+    .replaceAll("PROJECT", "项目")
+    .replaceAll("TASK", "任务")
+    .replaceAll("DECISION", "决定")
+    .replaceAll("OUTPUT", "成果")
+    .replaceAll("AREA", "领域")
+    .replaceAll("MiniProject", "小项目")
+    .replaceAll("Project", "项目")
+    .replaceAll("Task", "任务")
+    .replaceAll("Decision", "决定")
+    .replaceAll("Output", "成果")
+    .replaceAll("Area", "领域")
+    .replaceAll("Candidate", "待整理内容")
+    .replaceAll("Proposal", "可审阅方案")
+    .replaceAll("正式对象", "正式事项")
+    .replaceAll("显式标识", "明确标记");
+}
+
 export function renderV2ExplicitCandidateDiscoveryPanel(state: V2ExplicitCandidatePanelState, available: boolean, persistedCandidates: readonly V2Candidate[] = [], sourcePreviews: Readonly<Record<string, string>> = {}): string {
   if (!available) return "";
   const actionable = persistedCandidates.filter(({ disposition, deferredUntil }) => disposition === "PENDING" || (disposition === "LATER" && deferredUntil !== undefined && Date.parse(deferredUntil) <= Date.now()));
   const visible = actionable.slice(0, 50);
-  const queue = visible.length ? `<section aria-label="待整理内容"><div class="eyebrow">待整理</div><h2>可能需要整理</h2>${actionable.length > visible.length ? `<p class="muted">当前显示前 ${visible.length} 项；处理后刷新即可继续查看其余 ${actionable.length - visible.length} 项。</p>` : ""}${visible.map((candidate) => `<article class="card compact"><div class="eyebrow">待确认的整理建议</div><h3>原始内容</h3><blockquote>${escapeHtml(sourcePreviews[candidate.candidateId] ?? "原文暂不可读；请先打开来源检查。")}</blockquote><p><strong>为什么出现在这里：</strong>${escapeHtml(candidate.reason)}</p><p><strong>建议：</strong>${escapeHtml(candidate.suggestion)}</p><p class="muted">${candidate.deferredUntil ? `计划复查：${escapeHtml(new Date(candidate.deferredUntil).toLocaleString("zh-CN"))}` : "操作时会重新核对原文位置。"}</p>${candidate.activeProposalId ? `<div class="actions"><button type="button" class="primary" data-action="review-mode" data-value="proposals">审阅已有方案</button><button type="button" data-action="v2-open-primary-anchor" data-value="${escapeHtml(candidate.sourceAnchorId)}">打开原文</button></div>` : `<div class="actions"><button type="button" class="primary" data-action="v2-candidate-formalize" data-value="${escapeHtml(candidate.candidateId)}">整理为正式事项</button><button type="button" data-action="v2-candidate-later" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">7 天后再看</button></div><details><summary>更多处置</summary><div class="actions wrap"><button type="button" data-action="v2-open-primary-anchor" data-value="${escapeHtml(candidate.sourceAnchorId)}">打开原文</button><button type="button" data-action="v2-candidate-update" data-value="${escapeHtml(candidate.candidateId)}">更新已有事项</button><button type="button" data-action="v2-candidate-dismiss" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">保持普通内容</button><button type="button" data-action="v2-candidate-no-more" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">以后不再提示</button></div></details>`}</article>`).join("")}</section>` : `<section class="card compact"><div class="eyebrow">待整理</div><h2>可能需要整理</h2><p>当前没有需要处理或到期复看的内容。</p></section>`;
+  const queue = visible.length ? `<section aria-label="待整理内容"><div class="eyebrow">待整理</div><h2>可能需要整理</h2>${actionable.length > visible.length ? `<p class="muted">当前显示前 ${visible.length} 项；处理后刷新即可继续查看其余 ${actionable.length - visible.length} 项。</p>` : ""}${visible.map((candidate) => `<article class="card compact"><div class="eyebrow">待确认的整理建议</div><h3>原始内容</h3><blockquote>${escapeHtml(sourcePreviews[candidate.candidateId] ?? "原文暂不可读；请先打开来源检查。")}</blockquote><p><strong>为什么出现在这里：</strong>${escapeHtml(frontstageCandidateText(candidate.reason))}</p><p><strong>建议：</strong>${escapeHtml(frontstageCandidateText(candidate.suggestion))}</p><p class="muted">${candidate.deferredUntil ? `计划复查：${escapeHtml(new Date(candidate.deferredUntil).toLocaleString("zh-CN"))}` : "操作时会重新核对原文位置。"}</p>${candidate.activeProposalId ? `<div class="actions"><button type="button" class="primary" data-action="review-mode" data-value="proposals">审阅已有方案</button><button type="button" data-action="v2-open-primary-anchor" data-value="${escapeHtml(candidate.sourceAnchorId)}">打开原文</button></div>` : `<div class="actions"><button type="button" class="primary" data-action="v2-candidate-formalize" data-value="${escapeHtml(candidate.candidateId)}">整理为正式事项</button><button type="button" data-action="v2-candidate-later" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">7 天后再看</button></div><details><summary>更多处置</summary><div class="actions wrap"><button type="button" data-action="v2-open-primary-anchor" data-value="${escapeHtml(candidate.sourceAnchorId)}">打开原文</button><button type="button" data-action="v2-candidate-update" data-value="${escapeHtml(candidate.candidateId)}">更新已有事项</button><button type="button" data-action="v2-candidate-dismiss" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">保持普通内容</button><button type="button" data-action="v2-candidate-no-more" data-value="${escapeHtml(`${candidate.candidateId}|${candidate.updatedAt}`)}">以后不再提示</button></div></details>`}</article>`).join("")}</section>` : `<section class="card compact"><div class="eyebrow">待整理</div><h2>可能需要整理</h2><p>当前没有需要处理或到期复看的内容。</p></section>`;
   if (state.status === "idle") return `${queue}<section class="card candidate-review"><div class="eyebrow">当前页</div><h2>从当前页发现待整理内容</h2><p>只检查当前页，不扫描整个知识库；本次最多读取前 256 条内容。检查结果只进入待整理列表，不会创建正式事项。</p><button type="button" data-action="v2-candidate-open">检查当前页</button></section>`;
   if (state.status === "loading") return `<section class="card candidate-review" aria-busy="true"><div class="eyebrow">当前页</div><h2>正在查找待整理内容</h2><p>正在读取当前页，并核对哪些内容已经属于正式事项…</p></section>`;
   if (state.status === "error") return `<section class="diagnostic-error"><h2>这次检查没有完成</h2><p>${escapeHtml(state.message)}</p><button type="button" data-action="v2-candidate-open">重新检查</button><button type="button" data-action="v2-candidate-cancel">关闭</button></section>`;

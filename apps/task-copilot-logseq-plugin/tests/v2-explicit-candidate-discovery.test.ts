@@ -159,11 +159,14 @@ test("Candidate update refreshes an identity-only Logseq version change before c
 });
 
 test("Candidate queue renders only the same bounded set whose source text was hydrated", () => {
-  const candidates = Array.from({ length: 51 }, (_, index) => ({ candidateId: `candidate-${index}`, sourceAnchorId: `block-${index}`, sourceVersion: `1:hash-${index}`, candidateKind: "WORK_ITEM" as const, reason: "原因", suggestion: "建议", disposition: "PENDING" as const, lastAnalyzedAt: "2026-07-21T00:00:00.000Z", createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:00:00.000Z" }));
+  const candidates = Array.from({ length: 51 }, (_, index) => ({ candidateId: `candidate-${index}`, sourceAnchorId: `block-${index}`, sourceVersion: `1:hash-${index}`, candidateKind: "WORK_ITEM" as const, reason: index === 0 ? "MINI_PROJECT 显式标识尚未绑定正式对象。" : "原因", suggestion: index === 0 ? "生成 MINI_PROJECT 正式化 Proposal。" : "建议", disposition: "PENDING" as const, lastAnalyzedAt: "2026-07-21T00:00:00.000Z", createdAt: "2026-07-21T00:00:00.000Z", updatedAt: "2026-07-21T00:00:00.000Z" }));
   const previews = Object.fromEntries(candidates.slice(0, 50).map(({ candidateId }, index) => [candidateId, `原文 ${index}`]));
   const html = renderV2ExplicitCandidateDiscoveryPanel({ status: "idle" }, true, candidates, previews);
   assert.match(html, /当前显示前 50 项/);
   assert.match(html, /原文 49/);
+  assert.match(html, /这段内容已经标为小项目/);
+  assert.match(html, /审阅后把它整理为正式小项目/);
+  assert.doesNotMatch(html, /MINI_PROJECT|Proposal/);
   assert.match(html, /<summary>更多处置<\/summary>/);
   assert.doesNotMatch(html, /block-50/);
   assert.doesNotMatch(html, /来源位置：block-49/);
