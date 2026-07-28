@@ -500,7 +500,6 @@ async function openV2ProjectWorksite(objectId: string, expectedVersion: number):
   } else {
     await openV2PrimaryAnchor(primaryAnchor.externalId);
   }
-  logseq.hideMainUI();
 }
 
 async function updateBlockWithoutExplicitSyncEcho(externalId: string, content: string): Promise<unknown> {
@@ -1861,6 +1860,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
       throw new Error("当前项目入口已失效；项目和正文没有变化。");
     }
     await run(async () => openV2ProjectWorksite(objectId, expectedVersion), "已回到项目工作现场；正式状态没有变化。");
+    if (!latestError) await logseq.hideMainUI();
     return;
   }
   if (action === "v2-project-context-recovery" && value) {
@@ -2578,10 +2578,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-open-primary-anchor" && value) {
-    await run(async () => {
-      await openV2PrimaryAnchor(value);
-      logseq.hideMainUI();
-    }, "已定位到主正文；Now Work 和正式状态未改变。");
+    await run(async () => openV2PrimaryAnchor(value), "已定位到主正文；Now Work 和正式状态未改变。");
+    if (!latestError) await logseq.hideMainUI();
     return;
   }
   if (action === "v2-focus-add" && value) {
