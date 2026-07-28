@@ -168,7 +168,10 @@ test("V2 audit is read-only and points maintenance to the productized backup ent
   value.workspace = "audit";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:v2", proposalId: "proposal:v2", status: "RECOVERY_REQUIRED", beforeStateChecksum: "before-checksum", createdAt: "2026-07-22T08:00:00.000Z", updatedAt: "2026-07-22T08:01:00.000Z", errorCode: "VERIFY_FAILED" }];
   const html = renderApp(value);
-  assert.match(html, /SQLite 单一权威/);
+  const frontstage = html.split("<details>")[0] ?? "";
+  assert.match(frontstage, /正式修改与恢复/);
+  assert.doesNotMatch(frontstage, /SQLite|Local Service|Audit|Receipt|SemanticCommit/);
+  assert.match(html, /维护与恢复说明[\s\S]*SQLite 单一状态源/);
   assert.match(html, /更多 → 备份与恢复/);
   assert.doesNotMatch(html, /tc backup|backup_id|数据库路径/);
   assert.match(html, /需要恢复/);

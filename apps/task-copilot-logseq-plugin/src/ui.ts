@@ -932,7 +932,7 @@ function renderImmediateResult(model: UiModel, changes: readonly RecentChange[])
 function renderAudit(model: UiModel): string {
   if (model.v2AuditLoadError) return `<section><h2>最近修改与恢复</h2><div class="error"><strong>正式修改历史暂时不可用：</strong>${escapeHtml(model.v2AuditLoadError)}<span>没有把查询失败显示为空历史，也没有执行恢复或写入。</span></div></section>`;
   const changes = recentChanges(model);
-  const guidance = `<section class="card"><div class="eyebrow">SQLite 单一权威 · Local Service 单一写入口</div><h2>最近修改与恢复</h2><p>这里按用户意图显示已经应用、尚未完成、需要恢复或已撤销的正式修改；记录来自既有 Audit、Receipt 与 SemanticCommit，不是第二份状态。</p><details><summary>维护与恢复说明</summary><p>备份、完整性校验、恢复点和 Restore 继续使用同一 Local Service 安全链；产品入口位于“更多 → 备份与恢复”。恢复必须继续原 Commit，不新建重复操作。</p><p class="muted">V1 Recovery Bundle 只用于只读迁移和历史兼容。</p></details></section>`;
+  const guidance = `<section class="card"><div class="eyebrow">正式修改与恢复</div><h2>最近修改与恢复</h2><p>这里按你的操作显示已经应用、尚未完成、需要恢复或已撤销的修改。</p><details><summary>维护与恢复说明</summary><p>备份、完整性校验和恢复点共用同一安全写入链；产品入口位于“更多 → 备份与恢复”。尚未完成的修改必须沿用原恢复记录，不能新建重复操作。</p><p class="muted">技术权威：SQLite 单一状态源，Local Service 单一写入口；Audit、Receipt 与 SemanticCommit 只保留为诊断和审计证据。V1 Recovery Bundle 只用于只读迁移和历史兼容。</p></details></section>`;
   if (!changes.length) return `${guidance}${empty("还没有正式修改", "确认修改内容不等于已经应用；只有正式应用后才会出现在这里。")}`;
   return `${guidance}<section><h2>最近修改</h2><div class="cards">${changes.map((change) => renderRecentChange(change)).join("")}</div></section>`;
 }
