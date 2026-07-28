@@ -469,8 +469,8 @@ Provider 受限态、Light 与窄窗口也继续开放，未因代表链通过�
 
 ## P0-K：完成后返回业务现场
 
-状态：`PARTIAL`（自动 Gate PASS；Desktop main Page return PASS；sidebar bounded；
-Query/reference 与来源变化 Gate OPEN）
+状态：`DONE_DESKTOP_REPRESENTATIVE`（自动 Gate PASS；Desktop main Page、来源移动/删除、
+正式 Block 成功/失败/Undo/reload PASS；sidebar/Query/reference bounded）
 
 - Block/Page 现场入口捕获 session-only 来源 token，不写入任何持久权威；
 - 成功、失败后的关闭、取消和 Block Condition 完成统一返回来源；
@@ -481,8 +481,12 @@ Query/reference 与来源变化 Gate OPEN）
 - Plugin 187/187、typecheck、build、dist integrity PASS；
 - 真实 Logseq 0.10.15 已验证主 Page 入口、来源说明与返回同一 Page；right-sidebar 的宿主
   `More` 不提供 Plugin Page menu item，继续安全隐藏而不猜 identity；
+- `73dc1e2` 的当前 Desktop 又完成正式测试任务的右键入口、三意图、空原因失败、保存后返回
+  同一 Block、会话 Undo 和 reload 后 `ACTIONABLE` 读回；Query 投影无正式身份时安全停止，
+  前台不再显示 Block/Anchor 工程词；
 - 证据见 `logs/p0-k-session-origin-route-automated-20260724.md` 和
-  `logs/p0-k-host-origin-desktop-live-20260726.md`。
+  `logs/p0-k-host-origin-desktop-live-20260726.md`、
+  `logs/p0-k-block-condition-worksite-desktop-live-20260728.md`。
 
-仍需真实 Desktop 验证普通 Block、Query/引用、Page rename/删除、成功/失败/Undo 与主题/
-窄窗口；未把 main Page 与 sidebar 的代表结论扩张为所有宿主 DONE。
+该状态是代表性宿主完成，不宣称 Logseq 所有位置、主题与宽度的完全笛卡尔积；未来宿主能力
+变化时重开对应 bounded 结论。P0-J 中文 IME/受限视觉仍保持 OPEN，P0 未完成。

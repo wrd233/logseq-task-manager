@@ -5,6 +5,24 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### P0-K Block Condition 返回现场 — exact build `73dc1e26f610`
+
+Logseq `0.10.15`；File Graph
+`/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；host Light / Plugin Dark；
+999×720；真实 Plugin/Launcher/Service；不调用 Provider。测试任务最终经 Undo 和 reload
+恢复为“可以行动”。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p0-k-query-safe-degrade-current-73dc1e2.jpg` | CURRENT | Query 投影右键→暂时做不了 | 无可靠正式身份时安全停止；原状态不变、原内容原位；没有 Block/Anchor 工程词 |
+| `screenshots/p0-k-condition-route-current-73dc1e2.jpg` | CURRENT | 正式任务原文右键→暂时做不了 | 一句安全边界；等待别人/被问题卡住/我先暂停三个互斥意图 |
+| `screenshots/p0-k-condition-validation-current-73dc1e2.jpg` | CURRENT | 被问题卡住→空原因保存 | 没有保存、原状态不变；补充具体卡点是唯一下一步 |
+| `screenshots/p0-k-condition-success-worksite-current-73dc1e2.jpg` | CURRENT | 填写脱敏原因并保存 | 返回同一原文；已设为被问题卡住；当前关注不变；可撤销 |
+| `screenshots/p0-k-condition-undo-worksite-current-73dc1e2.jpg` | CURRENT | 同一原文右键→撤销上一次状态变化 | 返回同一原文；恢复“可以行动”；当前关注不变 |
+
+这些截图与此前 `p0-k-01`～`10` 的 Page、来源移动/删除和 bounded host 证据共同关闭
+P0-K 代表性 Gate；不替代 P0-J 中文 IME/受限视觉或完整 P0。
+
 ### Page / Project Page 用户语言 — exact build `869127f`
 
 Logseq `0.10.15`；File Graph
@@ -182,8 +200,8 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p1-g-11-context-recovery-validator-rejection-current-light.png` | `653875a` | 受控兼容 Provider 输出违反前台合同 | Unified UX Validator 拒绝，可靠基线不被覆盖 | `REJECTED=1`，无自动重试 |
 | `screenshots/p1-g-12-context-recovery-generation-stale-current-light.png` | `653875a` | Provider 期间正式 Project 版本变化 | 旧草稿不显示、不执行，用户可基于当前版本重试 | 用户层 stale 证据 |
 | `screenshots/p1-g-13-context-recovery-stale-telemetry-current-light.png` | `653875a` | 真实 DeepSeek 经本地无日志延迟转发，期间 Condition 正向+Undo | 同一 stale 用户结论；Service 摘要 `STALE=1 / GENERATED=0`，Project 最终 ACTIONABLE v19 | 当前 stale 遥测权威 |
-| `screenshots/p0-k-01-main-page-origin-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 普通主 Page 从宿主菜单进入 Task Copilot 页面操作 | 前台显示精确 Page 标题、执行前重验说明和“返回原 Page”主动作 | Query/reference 与来源变化 OPEN |
-| `screenshots/p0-k-02-main-page-return-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 点击“返回原 Page” | overlay 关闭，回到同一 Page URL 与正文现场 | 成功/失败/Undo 返回 OPEN |
+| `screenshots/p0-k-01-main-page-origin-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 普通主 Page 从宿主菜单进入 Task Copilot 页面操作 | 前台显示精确 Page 标题、执行前重验说明和“返回原 Page”主动作 | Query/reference 与来源变化已由后续 CURRENT 补齐 |
+| `screenshots/p0-k-02-main-page-return-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 点击“返回原 Page” | overlay 关闭，回到同一 Page URL 与正文现场 | 正式 Block 成功/失败/Undo 返回已由 `73dc1e2` CURRENT 补齐 |
 | `screenshots/p0-k-03-sidebar-menu-bounded-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 在 right-sidebar 页面打开专用 More | 宿主只提供 Close/Collapse/Open as page，无 Plugin Page item；插件不猜 identity | 这是宿主限制，不代表 sidebar 精确入口 DONE |
 | `screenshots/p0-k-04-query-reference-synthetic-current-dark-73fea9a.png` | runtime `d7526f4` / docs `73fea9a` | 脱敏专用页同时显示 live query 与 block reference | 两种投影均真实解析，未包含个人正文 | 原地精确入口按宿主能力有界 |
 | `screenshots/p0-k-05-reference-native-menu-bounded-current-dark-73fea9a.png` | runtime `d7526f4` / docs `73fea9a` | Block reference 投影打开宿主菜单 | 仅有打开/复制/删除/替换引用，没有 Plugin Block item | 安全隐藏；先打开来源 Block |

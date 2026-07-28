@@ -3,6 +3,16 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
+最新 P0-K Block Condition 精确构建为 `73dc1e26f610`（Plugin build
+`2026-07-28 15:33:54 +0800`）。真实 Logseq 0.10.15 File Graph 在 999×720、host Light /
+Plugin Dark 下完成两条链：Query 投影没有可靠正式身份时只显示“尚未由 Task Copilot
+管理、原状态未改变、原内容保持原位”；正式测试任务从原文右键进入三意图，空原因失败不
+保存，成功后返回同一 Block，Undo 后恢复“可以行动”，reload 读回仍可推进。CURRENT
+`p0-k-query-safe-degrade-current-73dc1e2.jpg` 与
+`p0-k-condition-*-current-73dc1e2.jpg` 共五张。首次运行暴露的
+`Block / active Primary Anchor` 提示已由同一构建替代。完整记录见
+`../logs/p0-k-block-condition-worksite-desktop-live-20260728.md`。
+
 最新 Page / Project Page 操作精确构建为 `869127f`。真实 Logseq 0.10.15 File Graph
 证明普通 Page 首屏只保留“整理当前页”主操作与两个次级意图；Project Page 首屏以“打开项目
 工作区”为唯一突出主操作，状态更新和结构讨论保持次级。普通路径不再显示 Page/Anchor/
@@ -120,17 +130,21 @@ P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_RESTRICTED_VISUA
 中文 IME、受限态、Light/窄栏继续开放。完整记录见
 `../logs/p0-j-host-commands-desktop-live-20260726.md`。
 
-P0-K 当前使用 `p0-k-01`～`08` 与 `p0-k-10`：主 Page 入口与“返回原 Page”已通过；right-sidebar、
+P0-K 当前使用 `p0-k-01`～`08`、`p0-k-10` 与 `p0-k-condition-*`：
+主 Page 入口与“返回原 Page”已通过；right-sidebar、
 Query 页面预览和 Block reference 专用菜单均不提供可靠 Plugin identity，按 bounded
 conclusion 安全隐藏并要求先打开来源。同一 UUID 移动后可返回新位置，来源删除后安全关闭、
 明确说明未导航；普通来源的真实 Provider abstain 也已改为“暂时不需要整理”的用户语言，
 不显示 Proposal/Provider/Commit/Store；正常连接首屏只保留一个持久 Copilot 状态。
-`p0-k-09` 因仍含重复成功横幅已标为 `SUPERSEDED`。成功/失败/Undo 返回仍 OPEN。完整记录见
+`p0-k-09` 因仍含重复成功横幅已标为 `SUPERSEDED`。`73dc1e2` 又关闭正式 Block 的失败、
+成功、Undo 和 reload 返回代表链，Query 无正式身份时使用用户语言安全停止；P0-K 已为
+`DONE_DESKTOP_REPRESENTATIVE`。完整记录见
 `../logs/p0-k-host-origin-desktop-live-20260726.md` 与
 `../logs/p0-k-query-reference-host-bounded-desktop-live-20260727.md`、
 `../logs/p0-k-source-move-delete-return-desktop-live-20260727.md`、
 `../logs/p0-k-block-analysis-frontstage-language-desktop-live-20260727.md`、
-`../logs/ui-routine-connection-dedup-desktop-live-20260728.md`。
+`../logs/ui-routine-connection-dedup-desktop-live-20260728.md` 与
+`../logs/p0-k-block-condition-worksite-desktop-live-20260728.md`。
 
 P1-F/G 当前使用 `p0-i-01` 与 `p1-g-07`～`13`。真实 File Graph 暴露 active Page Anchor
 UUID 漂移，系统安全显示“正文变化需要核对”且不猜 Project；Logseq 0.10.15 的 File Graph

@@ -12,7 +12,8 @@
 > 切回原 Graph Gate，P0-H 已为 DONE；P0-J 中文命令已补齐 slash/palette/custom binding
 > 代表性 Desktop；P0-K session origin route 与 P0-A 普通 Block“处理这条内容”自动 Gate
 > 已完成，main Page 返回、来源移动/删除和 Query/reference/right-sidebar 有界结论已有真实
-> Desktop；成功、失败、Undo 返回及其余 P0 仍未完成。
+> Desktop；`73dc1e2` 又关闭正式 Block 的失败、成功、Undo 与 reload 返回链，P0-K 已为
+> DONE_DESKTOP_REPRESENTATIVE；P0-J 中文 IME/受限视觉及其余 P0 仍未完成。
 
 ## 总体状态
 
@@ -25,10 +26,29 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K main Page、来源移动/删除与 Query/reference/right-sidebar bounded Gate PASS；中文 IME/受限视觉及成功/失败/Undo 返回 OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；中文 IME/受限视觉 OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面、reload 与 723px 窄栏已补 CURRENT；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
+
+### 2026-07-28 P0-K Block Condition 返回现场收口
+
+- `0a9a170` 将正式 Block “暂时做不了”首屏压缩为一个安全结论和“等待别人 / 被问题
+  卡住 / 我先暂停”三个用户意图，取消普通路径中的 Condition/Lifecycle/Ownership/Focus/
+  Local Service 等工程语言；成功和 Undo 使用“被问题卡住 / 可以行动”用户状态。
+- 最新 Query Desktop 首次发现无可靠身份时仍显示 `Block / active Primary Anchor`。
+  `73dc1e2` 将空身份、未管理、关联冲突、对象缺失、已结束和正式能力不可用统一翻译为用户
+  结果，并用 fail-closed 零写入测试固定该边界。
+- 自动：Plugin `347/347`、0 skipped，typecheck/build PASS；产物内嵌
+  `73dc1e26f610`。
+- Desktop：Logseq 0.10.15 File Graph，host Light / Plugin Dark，999×720。Query 投影安全
+  停止；正式测试任务完成入口→空原因失败→正式保存→返回同一 Block→Undo→reload 后
+  “当前可以继续推进”。五张 CURRENT 截图对应 exact build `73dc1e2`。
+- Provider/Skill：没有调用 Provider；Validator 拒绝率与模型重试不适用；没有新增或修改
+  Skill/Prompt。
+- 复杂度：新增正式状态、Runtime、恢复分支、Validator、写入权威和新 Partial 均为 `0`；
+  关闭 P0-K 最后一个代表性返回现场 Partial，Partial 净下降 `1`。P0-K 升为
+  `DONE_DESKTOP_REPRESENTATIVE`，但 P0-J 中文 IME/受限视觉仍使 P0 保持进行中。
 
 ### 2026-07-28 Page / Project Page 现场操作压缩
 
@@ -250,8 +270,10 @@ right-sidebar 专用菜单不提供 Plugin Page item，按 bounded host conclusi
 secondary identity。`73fea9a` 又用脱敏 live query / block reference 页面确认：Query 投影
 由宿主接管为页面预览，reference 只出现引用专用菜单，均不提供可靠 Plugin Block item；
 因此安全隐藏并让用户先打开来源 Block，不增加 DOM hack 或投影身份状态。来源移动/删除以及
-成功/失败/Undo 返回仍 OPEN；记录见 `logs/p0-k-host-origin-desktop-live-20260726.md` 与
-`logs/p0-k-query-reference-host-bounded-desktop-live-20260727.md`。
+成功/失败/Undo 返回随后由 `73dc1e2` 当前构建关闭；P0-K 已为
+`DONE_DESKTOP_REPRESENTATIVE`。记录见 `logs/p0-k-host-origin-desktop-live-20260726.md`、
+`logs/p0-k-query-reference-host-bounded-desktop-live-20260727.md` 与
+`logs/p0-k-block-condition-worksite-desktop-live-20260728.md`。
 
 P1-A 已在不开放前台的边界内进入 Plugin session runtime：Attention Signal 纯派生字段、
 自动失效、证据变化解除 cooldown、Recovery 不可冷却、有界容量/清理/遥测均已完成。

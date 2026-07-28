@@ -1,13 +1,13 @@
 # Current UI Map
 
-> 截至 2026-07-27：所有未在本目录索引的既有 Desktop 截图默认 `HISTORICAL`；下表的 `OPEN` 表示尚无
+> 截至 2026-07-28：所有未在本目录索引的既有 Desktop 截图默认 `HISTORICAL`；下表的 `OPEN` 表示尚无
 > 与当前代码 Commit 对齐的真实截图，不代表功能未实现。
 
 | 场景 | 最新实现状态 | 当前截图 | 下一次取证 Gate |
 |---|---|---|---|
 | 工具栏 / 现在 / 待我确认 / 项目 / 更多 | “现在”对象筛选、分组和卡片类型统一为中文；通用可推进卡片首屏只显示一个结论，完整事实折叠；卡片保持单一主动作；待审阅当前问题与历史记录分离；空态使用真实 Provider 能力而非 legacy Agent flag；候选区普通路径去除 Provider/Proposal/SQLite | CURRENT Now：`ui-now-chinese-single-conclusion-current-*`（`f1d0e1f`，1000/724 px）；其他 CURRENT：`ui-compression-02`～`06`、`08` + `review-empty-current-dark-cd59228.png` | Now Light 宿主代表图；“更多”及异常态继续沿用各自最新证据；集中 P0/P1 宿主 Gate |
 | 插件外观 / Dark / 窄栏 | 自动模式优先可读宿主；custom.css 与官方信号分离时可显式选择浅色或深色。Dark 1001×720 与 723×720、reload 持久性已通过 | CURRENT：`ui-theme-dark-current-d7526f4.png`、`ui-theme-dark-current-narrow-d7526f4.png` | Logseq File Graph 自身 Light bounded host issue 仍 OPEN；不把深色覆盖冒充 Light PASS |
-| Block / Page 现场入口 | main Page 与普通 Block 可用；Page 操作已压缩为一个突出主操作和两个次级意图，普通路径移除 Page/Anchor/SQLite/版本枚举；同一 UUID 移动后精确返回新位置，来源删除后安全关闭且不猜测；right-sidebar、Query 与 Block reference 在 Logseq 0.10.15 File Graph 均无可靠 Plugin identity，安全隐藏并要求先打开来源 | CURRENT：`ui-page-context-user-language-current-869127f.jpg` + `p0-k-01`～`08`、`10` | 成功/失败/Undo 返回；中文 IME；未来 DB Graph 宿主差异 |
+| Block / Page 现场入口 | main Page 与普通 Block 可用；Page 操作已压缩为一个突出主操作和两个次级意图；正式 Block“暂时做不了”只显示三种用户原因，空原因不保存，成功/Undo 返回同一原文并经 reload 恢复；同一 UUID 移动后精确返回新位置，来源删除后安全关闭；right-sidebar、Query 与 Block reference 无可靠正式 identity 时安全隐藏或用用户语言停止，不猜测目标 | CURRENT：`ui-page-context-user-language-current-869127f.jpg` + `p0-k-01`～`08`、`10` + `p0-k-condition-*-73dc1e2.jpg` | P0-K 已为代表性 DONE；中文 IME；未来 DB Graph 宿主差异 |
 | Service 状态 / reload / quit / Graph switch | reload/quit/owned shutdown 已通过；`ca50304` 又完成未配置 Graph 立即受限、稳定 fail-closed 和切回原 authority | CURRENT：`p0-h-16`～`18` + P2-C restart 健康态 | P0-H 已关闭；只在未来宿主能力变化时重开非代表性组合 |
 | Project Page Head / Context Recovery | Project Page 菜单能在 File Graph UUID 漂移后按受控 metadata + 正式对象 + 唯一 active Anchor 识别，并以“打开项目工作区”为突出主操作；Project 默认首屏为“继续项目”，一个主操作 + 一个 Copilot 次操作，其余折叠；P1-G Context Recovery 代表链 DONE；File Graph Page Head 有界隐藏 | CURRENT Page 菜单：`ui-project-page-context-user-language-current-869127f.jpg`；默认首屏：`ui-project-continuation-compressed-current-*`（`b605e18`）；生成与异常：`p1-g-07`～`13` | P1-F DB Graph Page Head 宿主 Gate；1.3.0 持续质量样本不阻断当前 Slice |
 | Block Marker | 默认关闭 prototype | OPEN | 编辑/TODO/Query/sidebar/Zoom/主题/性能 |

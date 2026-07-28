@@ -17,6 +17,15 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+最新 P0-K 精确构建 `73dc1e26f610` 完成正式 Block “暂时做不了”的当前 Desktop 返回现场
+Gate：Query 投影无可靠正式身份时安全停止且只显示用户语言；正式测试任务完成三意图入口、
+空原因失败零写入、保存后返回同一 Block、会话 Undo、reload 后恢复“可以行动”。真实运行
+首次发现旧错误仍泄漏 `Block / active Primary Anchor`，同轮将所有 Block identity 失败
+翻译为用户结果并加入回归。Plugin `347/347`、typecheck/build PASS；没有新增正式状态、
+Runtime、Skill、Validator、恢复分支或写入路径。该证据与既有 main Page、来源移动/删除、
+Query/reference/right-sidebar bounded Gate 合并后，P0-K 升为
+`DONE_DESKTOP_REPRESENTATIVE`；P0-J 中文 IME/受限视觉仍使 P0 保持进行中。
+
 最新公共 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`；
 Closure 异常、Review 压缩、普通用户标题与审阅空态的增量证据分别基于
 `77277704d901`、`662246a298ac`、`cda4f95` 和 `cd59228`：
@@ -129,8 +138,10 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   页面预览、Block reference 只提供引用专用菜单，两者均无可靠 Plugin Block identity，
   因而安全隐藏并引导先打开来源 Block。`66850e6` 后的真实 Desktop 又验证同一 UUID
   移动后精确返回新位置，来源删除后关闭 Task Copilot、明确提示且不猜测其他目标；两次
-  真实 Provider 均为一次请求的 `NO_PROPOSAL`，未产生正式写入。成功/失败/Undo 返回 Gate
-  保持 OPEN；`06b8762` 随后把普通 Block 分析的 abstain、成功、不可用、中断和失败提示
+  真实 Provider 均为一次请求的 `NO_PROPOSAL`，未产生正式写入。`73dc1e2` 又完成正式
+  Block 三意图入口、空原因失败、保存、返回原 Block、Undo 与 reload 代表链；Query 无
+  正式 identity 时安全降级且不再泄漏 Block/Anchor 工程词。P0-K 因而为
+  `DONE_DESKTOP_REPRESENTATIVE`；`06b8762` 随后把普通 Block 分析的 abstain、成功、不可用、中断和失败提示
   压缩为用户语言，真实 Provider abstain 复验不再显示 Proposal/Provider/Commit/Store，
   仍为一次请求、零正式写入；`eba1c54` 又删除正常启动/host-ready 恢复的重复成功横幅，
   只保留持久 Copilot 状态；Graph switch 的 authority 隔离反馈继续保留；

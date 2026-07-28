@@ -19,6 +19,24 @@
 
 ## 本轮变化（2026-07-28）
 
+### P0-K Block Condition 返回现场与身份失败翻译
+
+- 新增正式状态、顶层导航、Runtime、Skill、Prompt、Validator、Recovery 分支、写入权威和
+  新 Partial：均为 `0`。
+- 删除重复前台机制：正式 Block 的三种 Condition 继续复用同一
+  `BlockConditionController`、唯一正式 `changeCondition` 和同一会话 Undo；没有为 Query
+  降级创建第二身份模型或恢复入口。
+- Desktop 驱动通用修复：Query 投影 fail-closed 时暴露 `Block / active Primary Anchor`。
+  当前把空身份、未管理、关联不唯一、状态缺失、已结束与正式能力不可用统一翻译为用户结果；
+  内部 Anchor 判定和安全拒绝不变。该规则覆盖一类身份失败，不是单样本文案补丁。
+- 自动证据：Plugin `347/347`、0 skipped、typecheck/build PASS；精确产物内嵌
+  `73dc1e26f610`。Desktop exact build 在 Logseq 0.10.15 完成 Query 安全降级和正式测试
+  任务的失败→保存→返回→Undo→reload。
+- LLM：未调用 Provider；Validator rejection、retry、Skill/Prompt 版本变化不适用。
+- Partial 总量净下降 `1`：P0-K 返回现场代表 Gate `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`；
+  P0-J 中文 IME/受限视觉、P1 Attention/Marker 和 P2 恢复项保持 OPEN。后台工程概念泄漏
+  进一步下降，未通过增加说明层掩盖复杂度。
+
 ### Project 创建后落地与工作现场路由
 
 - 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、Recovery 分支与平行
