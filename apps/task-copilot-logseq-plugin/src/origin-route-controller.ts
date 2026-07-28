@@ -77,7 +77,7 @@ export class OriginRouteController {
         const token = await this.captureBlock(target.externalId);
         const result = await this.returnTo({ ...token, surface: "MAIN_PAGE" });
         return result.status === "RETURNED"
-          ? { ...result, label: "已返回来源 Block。" }
+          ? { ...result, label: "已回到来源内容。" }
           : result;
       }
       const page = await resolvePage(this.host, await this.host.getPage(target.externalId));
@@ -85,7 +85,7 @@ export class OriginRouteController {
         this.host.hideMainUI();
         return {
           status: "SOURCE_UNAVAILABLE",
-          label: "来源 Page 已不可用；已关闭 Task Copilot，未执行其他导航。",
+          label: "来源页面已不可用；已关闭 Task Copilot，没有跳到其他位置。",
         };
       }
       const result = await this.returnTo({
@@ -95,13 +95,13 @@ export class OriginRouteController {
         pageName: page.pageName,
       });
       return result.status === "RETURNED"
-        ? { ...result, label: "已返回来源 Page。" }
+        ? { ...result, label: "已回到来源页面。" }
         : result;
     } catch {
       this.host.hideMainUI();
       return {
         status: "SOURCE_UNAVAILABLE",
-        label: `来源${target.kind === "BLOCK" ? " Block" : " Page"} 暂时无法定位；已关闭 Task Copilot，未执行其他导航。`,
+        label: `来源${target.kind === "BLOCK" ? "内容" : "页面"}暂时无法定位；已关闭 Task Copilot，没有跳到其他位置。`,
       };
     }
   }
@@ -113,44 +113,44 @@ export class OriginRouteController {
         if (!block || block.uuid !== token.blockUuid || block.page === undefined) {
           return {
             status: "SOURCE_UNAVAILABLE",
-            label: "原 Block 已不可用；已关闭 Task Copilot，未执行其他导航。",
+            label: "原内容已不可用；已关闭 Task Copilot，没有跳到其他位置。",
           };
         }
         const currentBlockPage = await resolvePage(this.host, block.page);
         if (!currentBlockPage) {
           return {
             status: "SOURCE_UNAVAILABLE",
-            label: "原 Block 所在 Page 已不可用；已关闭 Task Copilot，未执行其他导航。",
+            label: "原内容所在页面已不可用；已关闭 Task Copilot，没有跳到其他位置。",
           };
         }
         if (token.surface === "MAIN_PAGE") {
           if (!this.host.scrollToBlockInPage) {
             return {
               status: "SOURCE_UNAVAILABLE",
-              label: "当前 Logseq 不能定位原 Block；已关闭 Task Copilot，未执行其他导航。",
+              label: "当前 Logseq 不能定位原内容；已关闭 Task Copilot，没有跳到其他位置。",
             };
           }
           await this.host.scrollToBlockInPage(currentBlockPage.pageUuid, token.blockUuid);
         }
-        return { status: "RETURNED", label: "已返回原 Block。" };
+        return { status: "RETURNED", label: "已回到原内容。" };
       }
 
       const page = await resolvePage(this.host, await this.host.getPage(token.pageUuid));
       if (!page || page.pageUuid !== token.pageUuid) {
         return {
           status: "SOURCE_UNAVAILABLE",
-          label: "原 Page 已不可用；已关闭 Task Copilot，未执行其他导航。",
+          label: "原页面已不可用；已关闭 Task Copilot，没有跳到其他位置。",
         };
       }
       if (token.surface === "MAIN_PAGE") {
         const currentPage = await resolvePage(this.host, await this.host.getCurrentPage());
         if (currentPage?.pageUuid !== token.pageUuid) this.host.pushState("page", { name: page.pageName });
       }
-      return { status: "RETURNED", label: "已返回原 Page。" };
+      return { status: "RETURNED", label: "已回到原页面。" };
     } catch {
       return {
         status: "SOURCE_UNAVAILABLE",
-        label: `原${token.kind === "BLOCK" ? " Block" : " Page"} 暂时无法定位；已关闭 Task Copilot，未执行其他导航。`,
+        label: `原${token.kind === "BLOCK" ? "内容" : "页面"}暂时无法定位；已关闭 Task Copilot，没有跳到其他位置。`,
       };
     } finally {
       this.host.hideMainUI();

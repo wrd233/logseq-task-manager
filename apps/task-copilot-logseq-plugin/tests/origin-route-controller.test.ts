@@ -36,7 +36,7 @@ test("main-page Block origin revalidates its UUID, scrolls to the current page i
     pageUuid: "page-main",
     pageName: "page-main",
   });
-  assert.deepEqual(await controller.returnTo(token), { status: "RETURNED", label: "已返回原 Block。" });
+  assert.deepEqual(await controller.returnTo(token), { status: "RETURNED", label: "已回到原内容。" });
   assert.deepEqual(fake.events, ["scroll:page-main:block-origin", "hide"]);
 });
 
@@ -45,7 +45,7 @@ test("secondary-page Block origin preserves the sidebar instead of navigating th
   const controller = new OriginRouteController(fake.value);
   const token = await controller.captureBlock("block-sidebar");
   assert.equal(token.surface, "SECONDARY_PAGE");
-  assert.deepEqual(await controller.returnTo(token), { status: "RETURNED", label: "已返回原 Block。" });
+  assert.deepEqual(await controller.returnTo(token), { status: "RETURNED", label: "已回到原内容。" });
   assert.deepEqual(fake.events, ["hide"]);
 });
 
@@ -58,7 +58,7 @@ test("main Page origin follows its stable UUID after a rename while a missing Bl
     pageUuid: "page-origin",
     pageName: "old-origin",
   };
-  assert.deepEqual(await controller.returnTo(pageToken), { status: "RETURNED", label: "已返回原 Page。" });
+  assert.deepEqual(await controller.returnTo(pageToken), { status: "RETURNED", label: "已回到原页面。" });
   assert.deepEqual(fake.events, ["push:page:renamed-origin", "hide"]);
 
   fake.events.length = 0;
@@ -71,7 +71,7 @@ test("main Page origin follows its stable UUID after a rename while a missing Bl
   };
   assert.deepEqual(await controller.returnTo(missing), {
     status: "SOURCE_UNAVAILABLE",
-    label: "原 Block 已不可用；已关闭 Task Copilot，未执行其他导航。",
+    label: "原内容已不可用；已关闭 Task Copilot，没有跳到其他位置。",
   });
   assert.deepEqual(fake.events, ["hide"]);
 });
@@ -81,14 +81,14 @@ test("a persisted formal source target returns to the main Block even after the 
   const controller = new OriginRouteController(fake.value);
   assert.deepEqual(await controller.returnToMainTarget({ kind: "BLOCK", externalId: "mini-project-root" }), {
     status: "RETURNED",
-    label: "已返回来源 Block。",
+    label: "已回到来源内容。",
   });
   assert.deepEqual(fake.events, ["scroll:page-mini-project:mini-project-root", "hide"]);
 
   fake.events.length = 0;
   assert.deepEqual(await controller.returnToMainTarget({ kind: "PAGE", externalId: "page-origin" }), {
     status: "RETURNED",
-    label: "已返回来源 Page。",
+    label: "已回到来源页面。",
   });
   assert.deepEqual(fake.events, ["push:page:renamed-origin", "hide"]);
 });

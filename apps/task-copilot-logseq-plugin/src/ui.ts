@@ -169,7 +169,7 @@ export interface UiModel {
   v2ProposalLoadError?: string;
   v2AuditLoadError?: string;
   recentActionCommitId?: string;
-  originReturnLabel?: "返回原 Block" | "返回原 Page";
+  originReturnLabel?: "返回原内容" | "返回原页面";
   v2MigrationRuns?: PluginMigrationRunView[];
   v2MigrationLoadError?: string;
   v2MigrationScan?: PluginMigrationScanState;
@@ -1532,18 +1532,18 @@ function renderActionDialog(model: UiModel): string {
   if (dialog.kind === "v2-block-condition-route") {
     const [objectId] = dialog.value.split("|");
     const object = model.v2Objects?.find((candidate) => candidate.objectId === objectId);
-    return `<section class="inbox-dialog action-dialog" aria-label="暂时做不了"><div class="eyebrow">当前 Block · ${escapeHtml(object?.objectType ?? "正式对象")}</div><h3>暂时做不了：${escapeHtml(object?.text ?? "当前对象")}</h3><p class="muted">先选择真实原因。Condition 与 Lifecycle、Ownership、Focus 分离；这里只会走一个受版本保护的状态命令。</p><div class="cards compact"><button type="button" data-action="v2-block-condition-intent" data-value="WAITING|${escapeHtml(dialog.value)}"><strong>等待别人</strong><span>在等谁或什么结果，并约定复查时间</span></button><button type="button" data-action="v2-block-condition-intent" data-value="BLOCKED|${escapeHtml(dialog.value)}"><strong>被问题卡住</strong><span>记录具体卡点，可选关联阻碍对象</span></button><button type="button" data-action="v2-block-condition-intent" data-value="PAUSED|${escapeHtml(dialog.value)}"><strong>我先暂停</strong><span>记录原因和重新判断时间</span></button></div><div class="actions">${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="暂时做不了"><div class="eyebrow">当前内容 · ${escapeHtml(objectTypeLabel(object?.objectType ?? ""))}</div><h3>暂时做不了：${escapeHtml(object?.text ?? "当前事项")}</h3><p class="muted">选择眼下真正的原因。这里只记录为什么暂时无法推进，不会完成事项、移动正文或改变当前关注。</p><div class="cards compact"><button type="button" data-action="v2-block-condition-intent" data-value="WAITING|${escapeHtml(dialog.value)}"><strong>等待别人</strong><span>在等谁或什么结果，并约定复查时间</span></button><button type="button" data-action="v2-block-condition-intent" data-value="BLOCKED|${escapeHtml(dialog.value)}"><strong>被问题卡住</strong><span>记录具体卡点，可选关联阻碍事项</span></button><button type="button" data-action="v2-block-condition-intent" data-value="PAUSED|${escapeHtml(dialog.value)}"><strong>我先暂停</strong><span>记录原因和重新判断时间</span></button></div><div class="actions">${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-waiting") {
-    return `<section class="inbox-dialog action-dialog" aria-label="等待别人"><h3>等待别人</h3><p class="muted">用一个短语说明在等谁/什么以及期待结果；到点后回到“需要回看”。Focus 不会自动改变。</p><label>在等谁或什么结果<input data-field="v2BlockWaitingSummary" placeholder="例如：等评审人确认恢复结果"></label><label>复查时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为等待别人", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="等待别人"><h3>等待别人</h3><p class="muted">用一个短语说明在等谁或什么结果；到点后会回到“需要回看”。当前关注不会自动改变。</p><label>在等谁或什么结果<input data-field="v2BlockWaitingSummary" placeholder="例如：等评审人确认恢复结果"></label><label>复查时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为等待别人", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-blocked") {
     const [objectId] = dialog.value.split("|");
     const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}">${escapeHtml(option.objectType)} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
-    return `<section class="inbox-dialog action-dialog" aria-label="被问题卡住"><h3>被问题卡住</h3><p class="muted">只记录当前卡点；不会改变 Lifecycle、Ownership 或 Focus。</p><label>具体卡点<textarea data-field="v2BlockConditionReason" placeholder="例如：测试环境暂不可用"></textarea></label><label>阻碍来源（可选）<select data-field="v2BlockerObjectId"><option value="">只记录卡点</option>${blockers}</select></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为被问题卡住", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="被问题卡住"><h3>被问题卡住</h3><p class="muted">只记录当前卡点；不会完成事项、移动正文、改变归属或当前关注。</p><label>具体卡点<textarea data-field="v2BlockConditionReason" placeholder="例如：测试环境暂不可用"></textarea></label><label>阻碍事项（可选）<select data-field="v2BlockerObjectId"><option value="">只记录卡点</option>${blockers}</select></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为被问题卡住", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-paused") {
-    return `<section class="inbox-dialog action-dialog" aria-label="我先暂停"><h3>我先暂停</h3><p class="muted">暂停不是完成；到重新判断时间后再决定是否恢复。Focus 不会自动改变。</p><label>暂停原因<textarea data-field="v2BlockConditionReason" placeholder="例如：先完成本周发布"></textarea></label><label>重新判断时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为我先暂停", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="我先暂停"><h3>我先暂停</h3><p class="muted">暂停不是完成；到重新判断时间后再决定是否恢复。当前关注不会自动改变。</p><label>暂停原因<textarea data-field="v2BlockConditionReason" placeholder="例如：先完成本周发布"></textarea></label><label>重新判断时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为我先暂停", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-deadline") {
     const current = dialog.value.split("|")[2];

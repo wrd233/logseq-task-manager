@@ -370,9 +370,9 @@ test("immediate result resolves the same recent-change identity and keeps techni
 
 test("a session-only business origin changes Close into an explicit return action without exposing identity", () => {
   const value = model();
-  value.originReturnLabel = "返回原 Block";
+  value.originReturnLabel = "返回原内容";
   const html = renderApp(value);
-  assert.match(html, /data-action="close"[^>]*>返回原 Block</);
+  assert.match(html, /data-action="close"[^>]*>返回原内容</);
   assert.doesNotMatch(html, /block-origin|page-origin|originRoute/);
 });
 
@@ -1320,14 +1320,14 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
     provider: { model: "deepseek-chat", durationMs: 12, attempts: 1 }, promptBundleVersion: "prompt-hash", contextFingerprint: "fingerprint",
   };
   value.actionDialog = { kind: "v2-mini-project-grill", value: "mini-open|4" };
-  value.originReturnLabel = "返回原 Block";
+  value.originReturnLabel = "返回原内容";
   value.v2MiniProjectGrill = { "mini-open": { status: "ready", expectedVersion: 4, answers: [], result } };
   html = renderApp(value);
   assert.match(html, /事实、推断和未知分开显示/);
   assert.match(html, /当前目标是交付一个可验证的发布结果/);
   assert.match(html, /哪些内容明确不属于本次交付/);
   assert.match(html, /data-field="v2MiniProjectGrillAnswer"/);
-  assert.match(html, /返回原 Block/);
+  assert.match(html, /返回原内容/);
   assert.doesNotMatch(html, /data-action="(?:submit-v2-proposal|v2-proposal-commit|submit-v2-review-accept)"/);
 
   value.v2MiniProjectGrill["mini-open"] = { status: "error", expectedVersion: 4, answers: [], previous: result, message: "Provider 暂时不可用" };
@@ -2192,6 +2192,9 @@ test("Block Condition router shows three user intents and only their necessary f
     assert.match(html, new RegExp(`data-action="v2-block-condition-intent" data-value="${intent}\\|task-block\\|3\\|block-1"`));
   }
   for (const label of ["等待别人", "被问题卡住", "我先暂停"]) assert.match(html, new RegExp(label));
+  assert.match(html, /当前内容 · 任务/);
+  assert.match(html, /不会完成事项、移动正文或改变当前关注/);
+  assert.doesNotMatch(html, /\bBlock\b|\bCondition\b|\bLifecycle\b|\bOwnership\b|\bFocus\b|Local Service/);
 
   value.actionDialog = { kind: "v2-block-condition-waiting", value: "task-block|3|block-1" };
   html = renderApp(value);

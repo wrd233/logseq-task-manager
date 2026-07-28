@@ -768,7 +768,7 @@ async function model(): Promise<UiModel> {
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
     ...(v2AuditLoadError ? { v2AuditLoadError } : {}),
     ...(recentActionCommitId ? { recentActionCommitId } : {}),
-    ...(originRoute ? { originReturnLabel: originRoute.kind === "BLOCK" ? "返回原 Block" as const : "返回原 Page" as const } : {}),
+    ...(originRoute ? { originReturnLabel: originRoute.kind === "BLOCK" ? "返回原内容" as const : "返回原页面" as const } : {}),
     ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
     ...(pageContext ? { pageContext } : {}),
     ...(serviceLifecycleSession
@@ -3986,7 +3986,7 @@ async function runBlockContextAction(actionId: string, action: () => Promise<Blo
       actionId,
       result: "error",
     }, error);
-    await showBlockContextMessage(`${explanation} 原 Block 保持原位。`, "error");
+    await showBlockContextMessage(`${explanation} 原内容保持原位。`, "error");
   }
 }
 
@@ -4049,18 +4049,18 @@ async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
       result: "error",
       blockUuid,
     }, error);
-    await showBlockContextMessage(`${explanation} 原 Block 保持原位。`, "error");
+    await showBlockContextMessage(`${explanation} 原内容保持原位。`, "error");
   }
 }
 
 async function openMiniProjectGrillFromContext(blockUuid: string): Promise<void> {
   const correlationId = `TC-mini-project-grill-${Date.now()}`;
   if (!featureReady || !serviceRuntimeClient) {
-    await showBlockContextMessage("Task Copilot 或 Grill Provider 尚未就绪；没有开始讨论，原 Block 保持原位。", "warning");
+    await showBlockContextMessage("智能梳理暂时不可用；没有开始讨论，原内容保持原位。", "warning");
     return;
   }
   try {
-    const { object } = await resolveBlockObject(serviceRuntimeClient, blockUuid, "没有开始讨论，原 Block 保持原位。");
+    const { object } = await resolveBlockObject(serviceRuntimeClient, blockUuid, "没有开始讨论，原内容保持原位。");
     if (object.objectType !== "MINI_PROJECT") {
       throw new Error("当前 Block 对应的正式对象不是 MiniProject；没有开始讨论。");
     }
@@ -4083,7 +4083,7 @@ async function openMiniProjectGrillFromContext(blockUuid: string): Promise<void>
       result: "error",
       blockUuid,
     }, error);
-    await showBlockContextMessage(`${explain(error)} 原 Block 保持原位。`, "error");
+    await showBlockContextMessage(`${explain(error)} 原内容保持原位。`, "error");
   }
 }
 

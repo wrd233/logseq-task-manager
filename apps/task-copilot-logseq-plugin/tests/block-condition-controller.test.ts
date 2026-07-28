@@ -129,6 +129,8 @@ test("apply changes only Condition and session Undo restores the exact prior Con
   });
   assert.equal(result.status, "BLOCKED");
   assert.equal(result.objectVersion, 4);
+  assert.match(result.message, /当前关注保持不变.*可以撤销刚才的状态变化/);
+  assert.doesNotMatch(result.message, /\bFocus\b|Local Service|Condition/);
   assert.deepEqual(current.condition, { kind: "BLOCKED", reason: "缺少测试环境", blockerObjectId: "project-2" });
   assert.equal(controller.hasUndo(), true);
 
@@ -138,6 +140,8 @@ test("apply changes only Condition and session Undo restores the exact prior Con
   };
   const undone = await controller.undoLast();
   assert.equal(undone.status, "UNDONE");
+  assert.match(undone.message, /恢复为“可以行动”.*当前关注保持不变/);
+  assert.doesNotMatch(undone.message, /\bACTIONABLE\b|\bFocus\b|Local Service|Condition/);
   assert.deepEqual(current.condition, { kind: "ACTIONABLE" });
   assert.deepEqual(changes, [
     { kind: "BLOCKED", reason: "缺少测试环境", blockerObjectId: "project-2" },

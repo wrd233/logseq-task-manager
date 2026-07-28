@@ -36,6 +36,13 @@ export interface BlockConditionResult {
   message: string;
 }
 
+function conditionLabel(condition: V2Condition): string {
+  if (condition.kind === "ACTIONABLE") return "可以行动";
+  if (condition.kind === "WAITING") return "等待别人";
+  if (condition.kind === "BLOCKED") return "被问题卡住";
+  return "我先暂停";
+}
+
 interface ConditionMutation {
   blockUuid: string;
   objectId: string;
@@ -100,7 +107,7 @@ export class BlockConditionController {
 
   async prepare(blockUuid: string): Promise<PreparedBlockCondition> {
     const client = this.getClient();
-    if (!client) throw new Error("V2 Local Service 未就绪；原状态未改变。");
+    if (!client) throw new Error("正式功能暂时不可用；原状态未改变。");
     const { object } = await resolveBlockObject(client, blockUuid, "原状态未改变。");
     return {
       blockUuid,
@@ -114,7 +121,7 @@ export class BlockConditionController {
   async apply(input: BlockConditionApplyInput): Promise<BlockConditionResult> {
     return this.runExclusive(async () => {
       const client = this.getClient();
-      if (!client) throw new Error("V2 Local Service 未就绪；没有保存，原状态未改变。");
+      if (!client) throw new Error("正式功能暂时不可用；没有保存，原状态未改变。");
       const { object } = await resolveBlockObject(client, input.blockUuid, "没有保存，原状态未改变。");
       if (object.objectId !== input.objectId || object.version !== input.expectedVersion) {
         throw new Error("对象已在打开表单后变化；没有保存，原状态未改变。");
@@ -145,7 +152,7 @@ export class BlockConditionController {
         objectId: object.objectId,
         objectText: object.text,
         objectVersion: result.object.version,
-        message: `已设为“${label}”：${object.text}。Focus 未改变；可用“撤销上一次状态变化”恢复。`,
+        message: `已设为“${label}”：${object.text}。当前关注保持不变；可以撤销刚才的状态变化。`,
       };
     });
   }
@@ -155,7 +162,7 @@ export class BlockConditionController {
       const mutation = this.lastMutation;
       if (!mutation) throw new Error("没有可撤销的状态变化。");
       const client = this.getClient();
-      if (!client) throw new Error("V2 Local Service 未就绪；上一次状态变化尚未撤销。");
+      if (!client) throw new Error("正式功能暂时不可用；上一次状态变化尚未撤销。");
       const { object } = await resolveBlockObject(client, mutation.blockUuid, "没有执行撤销。");
       if (
         object.objectId !== mutation.objectId
@@ -179,7 +186,7 @@ export class BlockConditionController {
         objectId: mutation.objectId,
         objectText: mutation.objectText,
         objectVersion: result.object.version,
-        message: `已撤销：${mutation.objectText}已恢复为${mutation.beforeCondition.kind}；Focus 未改变。`,
+        message: `已撤销：${mutation.objectText}已恢复为“${conditionLabel(mutation.beforeCondition)}”；当前关注保持不变。`,
       };
     });
   }
