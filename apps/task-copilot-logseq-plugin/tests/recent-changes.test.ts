@@ -339,3 +339,46 @@ test("applied Project Closure routes to its lifecycle inverse", () => {
   );
   assert.doesNotMatch(changes[0]!.summary, /Lifecycle|COMPLETED|Commit|Proposal/);
 });
+
+test("undone Project Closure says the Project is open again instead of repeating the applied result", () => {
+  const closure = {
+    originalGoal: "完成治理",
+    actualResult: "已交付",
+    majorDeliverables: ["报告"],
+    incompleteObjectives: [],
+    legacyDisposition: "无",
+    keyDecisions: ["保留回退"],
+    futureSummary: "按需重入",
+  };
+  const records = [proposal("proposal-closure", {
+    operationId: "record-closure",
+    kind: "UPDATE_PROJECT_INTERFACE",
+    target: { kind: "OBJECT", id: "project-1", version: 4 },
+    summary: "记录 Closure",
+    payload: { closure },
+    preconditions: [],
+  }, {
+    operationId: "complete-project",
+    kind: "TRANSITION_LIFECYCLE",
+    target: { kind: "OBJECT", id: "project-1", version: 4 },
+    summary: "完成 Project",
+    payload: { lifecycle: "COMPLETED" },
+    preconditions: [],
+  })];
+  const changes = projectRecentChanges({
+    proposals: records,
+    commits: [
+      commit("proposal-commit:closure", "UNDONE", { proposalId: "proposal-closure" }),
+      commit("project-closure-undo:proposal-commit:closure", "COMPLETED", {
+        proposalId: "proposal-closure",
+        updatedAt: "2026-07-24T06:36:00.000Z",
+      }),
+    ],
+  });
+
+  assert.equal(
+    changes[0]!.summary,
+    "项目已恢复为进行中；本次完成回顾已移除，项目页面与正文保持不变。",
+  );
+  assert.doesNotMatch(changes[0]!.summary, /已结束|Lifecycle|COMPLETED|Commit|Proposal/);
+});
