@@ -19,6 +19,18 @@
 
 ## 本轮变化（2026-07-28）
 
+### P1 “现在”前台上限
+
+- 关闭 Day 10 的 Now 首屏过载子 Partial `1`；新增长期 Partial `0`。
+- 没有新增正式状态、Runtime、Recovery 分支、Attention 类型、Skill/Prompt/Validator
+  或写入权威；只在既有正式 Now 投影的渲染层保留前 4 项并折叠其余项。
+- 没有用更少但会遗漏刚恢复事项的 Shadow 替代正式投影；Service 原排序、Focus 权威、
+  全部对象与操作能力保持。
+- Desktop 代表矩阵只覆盖 Light 标准宽度、折叠/展开和两次真实 reload；没有扩成主题、
+  宿主和窗口的笛卡尔积。前台阅读量下降，后台状态组合不变。
+- 风险变化：前台工程概念泄漏与 Now 列表噪声下降；Partial 堆积仍为 `HIGH`，P1-C
+  Dynamic Now、Attention/Block Marker、P2-E 真正 Recovery 和 P0 中文 IME 仍阻断发布。
+
 ### Day 10 十日回顾与 P1 前台边界
 
 - 十日连续使用 Pilot `OPEN→DONE_REPRESENTATIVE_WITH_OPEN_VARIANTS`，Partial 净变化

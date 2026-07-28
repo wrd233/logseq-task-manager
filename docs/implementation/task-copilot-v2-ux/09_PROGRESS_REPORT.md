@@ -146,6 +146,20 @@
   Partial `0`。十日代表性 Pilot Partial `OPEN→DONE`，净变化 `-1`；开放变体仍留在原
   P1/P2/P0 Partial，不拆成新体系。
 
+### 2026-07-28 P1 “现在”首屏有界收敛
+
+- `df6469f` 直接修复 Day 10 的 `Focus 1 / Next 10` 前台过载：不采用会遗漏刚恢复事项的
+  Dynamic Now Shadow，不改变 Service 排序，也不删除或重新分类正式对象。
+- 当前关注仍全部展示；“接下来值得处理”只在首屏展示原排序前 4 项，其余 6 项进入一个
+  原生折叠。用户展开后仍可读取和操作全部 10 项；筛选与分组仍是纯视图行为。
+- 自动证据：Plugin `356/356`、0 skipped，针对性 Now 用例、typecheck 和 build PASS。
+- Desktop：Logseq 0.10.15、File Graph、Light、约 1000×720；精确构建完成真实插件
+  reload→首屏折叠→展开全部→再次真实 reload→恢复折叠。Focus 和前 4 项保持，零正式
+  写入。
+- 新增正式状态、Runtime、Attention 类型、Recovery 分支、Skill/Prompt/Validator、
+  写入权威和长期 Partial均为 `0`；关闭 Now 前台过载子 Partial `1`，净变化 `-1`。
+  P1-C 仍为 `PARTIAL_RUNTIME_SHADOW`，Attention 和 Block Marker 仍未开放。
+
 ### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
 
 - Pilot 基线：`PILOT-2026W31-A` 直接使用 File Graph `logseq`，建立产品恢复快照并验证

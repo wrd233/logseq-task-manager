@@ -358,13 +358,13 @@ P2-E 恢复语义同时固定为最小合同：receipt-backed `PENDING` 可继�
 
 | 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
 |---|---|---|---|---|
-| `screenshots/day-10-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | 回顾跨日当前事项 | 1 个当前关注；10 个“接下来值得处理”形成主要噪声 | 检查 Review 是否积压 | CURRENT |
+| `screenshots/day-10-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | 回顾跨日当前事项 | 1 个当前关注；10 个“接下来值得处理”形成主要噪声 | 检查 Review 是否积压 | SUPERSEDED_BY_DF6469F |
 | `screenshots/day-10-review-empty-history-folded-current-light-plugin-7fe762d-docs-f738f59.jpg` | 检查待确认积压 | 待整理 0、待审阅 0；历史 22 条折叠 | 查看项目 | CURRENT |
 | `screenshots/day-10-projects-current-light-plugin-7fe762d-docs-f738f59.jpg` | 检查 Project 重入面 | 只有 2 个可继续 Project；各自一个主操作和一个上下文恢复入口 | 查看维护入口 | CURRENT |
 | `screenshots/day-10-more-current-light-plugin-7fe762d-docs-f738f59.jpg` | 检查低频能力是否干扰日常 | 最近修改、系统状态、备份恢复和迁移留在二级 | 真实 reload | CURRENT |
-| `screenshots/day-10-now-after-plugin-reload-current-light-plugin-7fe762d-docs-f738f59.jpg` | 验证 reload 连续性 | reload 后 Now 数量、顺序和用户 Focus 保持 | Graph switch | CURRENT |
+| `screenshots/day-10-now-after-plugin-reload-current-light-plugin-7fe762d-docs-f738f59.jpg` | 验证 reload 连续性 | reload 后 Now 数量、顺序和用户 Focus 保持 | Graph switch | SUPERSEDED_BY_DF6469F |
 | `screenshots/day-10-graph-switch-restricted-current-light-plugin-7fe762d-docs-f738f59.jpg` | 切到无可用 authority 的隔离 Graph | 正式修改暂停；正文安全；未复用原 Graph 数据 | 切回原 Graph | CURRENT |
-| `screenshots/day-10-graph-switch-return-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | 切回并检查恢复 | 正式能力恢复，同一 Now 投影返回 | 恢复原工作现场 | CURRENT |
+| `screenshots/day-10-graph-switch-return-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | 切回并检查恢复 | 正式能力恢复，同一 Now 投影返回 | 恢复原工作现场 | HISTORICAL_GRAPH_SWITCH |
 
 ### 十日产品结论
 
@@ -400,3 +400,24 @@ P2-E 恢复语义同时固定为最小合同：receipt-backed `PENDING` 可继�
 | 新 Skill / Prompt / Validator | 0 / 0 / 0 |
 | Day 10 Partial 净变化 | -1（十日连续使用代表 Pilot） |
 | 开放变体 | duplicate/missing/Rebind；真正 RECOVERY_REQUIRED；P0 中文 IME |
+
+## Day 10 补充：正式 Now 前台上限
+
+Day 10 已证明正式 Now 的 `Focus 1 / Next 10` 过长，但现有 Dynamic Now Shadow 会把
+Day 6 刚从 Waiting 恢复、尚未加入 Focus 的真实 Task 一并隐藏。`df6469f` 因此没有替换
+数据源或排序，只在既有正式 Now 渲染中保留全部 Focus、展示原排序前 4 个 Next，并将
+其余 6 项放入一个原生折叠。
+
+| 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
+|---|---|---|---|---|
+| `screenshots/day-10-now-capped-current-light-df6469f.png` | 减少首屏跨日阅读 | 1 个 Focus 与原排序前 4 个 Next 可见；其余 6 项单一折叠 | 需要时展开 | CURRENT |
+| `screenshots/day-10-now-capped-expanded-current-light-df6469f.png` | 确认没有静默丢项 | 展开后全部 10 个 Next 及原操作仍可达 | 关闭或 reload | CURRENT |
+| `screenshots/day-10-now-capped-after-reload-current-light-df6469f.png` | 确认 reload 连续性 | 第二次真实插件 reload 后重新折叠；Focus 与前 4 项保持 | 返回工作现场 | CURRENT |
+
+- 宿主：Logseq 0.10.15、File Graph `logseq`、host Light、约 1000×720。
+- 自动：Plugin `356/356`、针对性 Now 用例、typecheck/build PASS。
+- 真实 Provider / Validator rejection / retry / abstention：`0 / 0 / 0 / 0`。
+- 正式写入、Attention 展示、新正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator：
+  均为 `0`。
+- Partial 净变化：`-1`（Now 首屏过载）；P1-C Dynamic Now、Attention helpful/noise 与
+  Block Marker 继续 OPEN。

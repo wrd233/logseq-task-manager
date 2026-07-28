@@ -105,13 +105,24 @@ Logseq `0.10.15`、File Graph、host Light、约 1000×720。日常四页、真�
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/day-10-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 打开“现在” | Focus 1；Next 10，跨日主要噪声在普通可行动列表 |
+| `pilot-2026w31/screenshots/day-10-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | SUPERSEDED_BY_DF6469F | 打开“现在” | 修复前 Focus 1 / Next 10 过载证据；不再代表当前 Now |
 | `pilot-2026w31/screenshots/day-10-review-empty-history-folded-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 查看待审阅 | 当前 Candidate/Proposal 0/0；22 条历史折叠 |
 | `pilot-2026w31/screenshots/day-10-projects-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 打开“项目” | 2 个可继续 Project；一个主操作与上下文恢复入口 |
 | `pilot-2026w31/screenshots/day-10-more-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 打开“更多” | 恢复、迁移与系统维护留在二级 |
-| `pilot-2026w31/screenshots/day-10-now-after-plugin-reload-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 从插件管理真实 reload 后重开 | Now 数量、顺序与 Focus 保持 |
+| `pilot-2026w31/screenshots/day-10-now-after-plugin-reload-current-light-plugin-7fe762d-docs-f738f59.jpg` | SUPERSEDED_BY_DF6469F | 从插件管理真实 reload 后重开 | 修复前完整列表 reload 证据；由精确构建折叠 Gate 取代 |
 | `pilot-2026w31/screenshots/day-10-graph-switch-restricted-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 切到已失效隔离 Graph | 正式修改暂停；正文安全；不复用原 authority |
-| `pilot-2026w31/screenshots/day-10-graph-switch-return-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 切回原 Graph | 正式能力和同一 Now 投影恢复 |
+| `pilot-2026w31/screenshots/day-10-graph-switch-return-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | HISTORICAL_GRAPH_SWITCH | 切回原 Graph | Graph authority 恢复证据仍有效；其中旧 Now 布局不代表当前界面 |
+
+### 连续使用 Pilot Day 10 Now 前台上限 — exact build `df6469f`
+
+Logseq `0.10.15`、File Graph、host Light、约 1000×720。`7fe762d` 的完整 10 项展开截图
+保留为修复前历史证据；下列三张图是当前 Now 表达。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-10-now-capped-current-light-df6469f.png` | CURRENT | 精确构建真实 reload 后打开“现在” | Focus 全部保留；Next 首屏 4 项；其余 6 项单一折叠 |
+| `pilot-2026w31/screenshots/day-10-now-capped-expanded-current-light-df6469f.png` | CURRENT | 展开“查看其余 6 项” | 全部原对象和操作仍可达；没有创建新提醒或正式写入 |
+| `pilot-2026w31/screenshots/day-10-now-capped-after-reload-current-light-df6469f.png` | CURRENT | 再次真实插件 reload 后重开 | 折叠首屏恢复；Focus 与前 4 项保持 |
 
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 

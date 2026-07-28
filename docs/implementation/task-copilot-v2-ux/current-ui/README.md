@@ -147,7 +147,9 @@ explicit sync 后同一 UUID/identity 与 active Primary Anchor 保持，reload 
 32 次真实 DeepSeek；Day 9 又调用一次，累计 `33`，并以 `f18cc72` / `7fe762d`
 记录 Closure 应用/reload/Undo 与最终健康。Day 7 duplicate/missing/Rebind 变体与真正
 Closure `RECOVERY_REQUIRED` 仍 OPEN。Day 10 证明 Review 无积压、Project/More 克制，
-但 Now 的 `Focus 1 + Next 10` 偏长，现有 Dynamic Now Shadow 又会遗漏刚恢复事项。
+但原 Now 的 `Focus 1 + Next 10` 偏长，现有 Dynamic Now Shadow 又会遗漏刚恢复事项。
+`df6469f` 已在不替换正式投影的前提下，把 Next 压为首屏 4 项 + 6 项折叠，并完成
+折叠、展开和再次 reload 的当前 Desktop Gate；Dynamic Now/Attention 本身仍 OPEN。
 该目录中的截图按 exact Plugin/docs commit 登记为 CURRENT，不替代其他宿主/主题证据，
 也不把十日代表 Pilot 写成 P0/P1/P2 或完整 Goal 完成。
 
