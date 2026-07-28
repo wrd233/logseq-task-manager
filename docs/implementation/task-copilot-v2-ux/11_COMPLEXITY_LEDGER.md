@@ -19,6 +19,25 @@
 
 ## 本轮变化（2026-07-28）
 
+### 连续使用 Pilot Day 1—3 与 P0-J ended boundary
+
+- 新增正式状态、顶层导航、Agent Runtime、写入权威、Recovery 分支、Skill、Prompt、
+  Validator：均为 `0`。Pilot 只复用现有 Logseq Graph、Context/Provider、Proposal、
+  Commit、Undo、Condition 和 current-ui。
+- P0-J ended boundary `OPEN→DONE_DESKTOP_REPRESENTATIVE`；原生中文 IME 保持 OPEN。
+  子 Gate 净下降 `1`，没有为 Desktop 模拟创建长期 Partial。
+- 真实 Provider `2` 次，Validator rejection/retry/abstention `0/0/0`；事实纠正属于
+  用户新增业务证据，不创建单样本 Skill 补丁。
+- 新暴露的 release blockers：Undo 资格结论与按钮矛盾；最近修改首屏工程词和历史墙；
+  单 Task 三次近义确认；事实纠正路径过长。统一缓解方向是复用 Review/Undo/用户状态翻译，
+  不是新增 Correction Runtime 或 Recovery 状态。
+- UX debt：WAITING 从可行动区退出正确，但缺少安静的“保持等待”确认；datetime-local
+  键盘负担高。bounded host issue：File Graph reload 后约 5 秒索引空白再恢复，正文和正式
+  DB 均未丢失。
+- 风险变化：Partial 堆积仍为 `HIGH` 但净下降；后台工程词泄漏由此前代表页面改善后再次
+  被“最近修改与恢复”证明仍为发布阻断；Desktop 矩阵没有扩张为笛卡尔积，本次只固定
+  Light/标准宽度/reload 和一条 Waiting 代表链。
+
 ### P0-K Block Condition 返回现场与身份失败翻译
 
 - 新增正式状态、顶层导航、Runtime、Skill、Prompt、Validator、Recovery 分支、写入权威和

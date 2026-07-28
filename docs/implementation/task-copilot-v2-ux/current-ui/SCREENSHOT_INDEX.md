@@ -5,6 +5,39 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### 连续使用 Pilot `PILOT-2026W31-A` — exact build `bc79ffd`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light；约 1000×720。测试正文直接存在当前
+测试 Graph；正式变化走真实 Service/Proposal/Commit/Undo/Condition。完整说明与逐图
+用户目标见 `pilot-2026w31/README.md` 和 `pilot-2026w31/OBSERVATION_LOG.md`。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/baseline-recovery-snapshot-current-light-bc79ffd.jpg` | CURRENT | Pilot 前创建产品恢复点 | 快照已验证；初始 Pending/Recovery/Conflict 0/0/0 |
+| `pilot-2026w31/screenshots/day-01-capture-worksite-current-light-bc79ffd.jpg` | CURRENT | 连续输入 7 条自然捕获 | 普通笔记和显式 TODO 共存，不要求先结构化 |
+| `pilot-2026w31/screenshots/day-01-now-after-capture-current-light-bc79ffd.jpg` | CURRENT | 捕获后打开 Now | 普通笔记没有自动正式化或灌入 Now |
+| `pilot-2026w31/screenshots/day-01-selected-todo-provider-review-current-light-bc79ffd.jpg` | CURRENT | 选中 TODO 调用真实 DeepSeek | 一项 Task 建议进入 Review，尚未正式写入 |
+| `pilot-2026w31/screenshots/day-01-task-applied-current-light-bc79ffd.jpg` | CURRENT | 完成正式应用 | Task 已提交；Undo 资格文字与按钮出现矛盾 |
+| `pilot-2026w31/screenshots/day-01-now-after-reload-current-light-bc79ffd.jpg` | CURRENT | reload 后打开 Now | 正式 Task 回来，普通笔记仍未制造列表洪水 |
+| `pilot-2026w31/screenshots/day-02-corrections-worksite-current-light-bc79ffd.jpg` | CURRENT | 输入 7 条补充和纠正 | 新证据明确 83/84 是听云服务器 |
+| `pilot-2026w31/screenshots/day-02-corrected-task-applied-current-light-bc79ffd.jpg` | CURRENT | Undo 错误 Task、改来源、重新 Review/Commit | 旧错误 Task 消失，纠正 Task 正式存在 |
+| `pilot-2026w31/screenshots/day-03-waiting-now-current-light-bc79ffd.jpg` | CURRENT | 把端口 Task 设为等待网络组 | Task 退出“继续处理”；前台缺少“保持等待”确认 |
+| `pilot-2026w31/screenshots/day-03-waiting-after-reload-current-light-bc79ffd.jpg` | CURRENT | reload 后读回 | WAITING/reviewAt 保持，未重新制造行动噪声 |
+
+Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链；Day 4—10 尚未运行。
+
+### P0-J ended formal boundary — exact build `bc79ffd`
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p0-j-restricted-ended-current-dark-bc79ffd.jpg` | CURRENT | 显式结束 Task Copilot | 只读路由不会静默重启 |
+| `screenshots/p0-j-restricted-formal-action-blocked-current-light-bc79ffd.jpg` | CURRENT | 受限期间尝试正式动作 | 本次未修改正式事项或正文；需显式重启 |
+| `screenshots/p0-j-restricted-slash-current-light-bc79ffd.jpg` | CURRENT | 受限期间调用 Slash | 仅插入本地显式正文，不获得正式写入权 |
+| `screenshots/p0-j-restricted-restarted-current-light-bc79ffd.jpg` | CURRENT | 显式重新启动 | 正式能力恢复，受限期间零写入 |
+
+旧 `73dc1e2` 的 P0-J 受限截图没有精确包含最终边界修复，标为 `SUPERSEDED` 并从当前
+证据目录移除；P0-J 原生中文 IME 仍 OPEN。
+
 ### P0-K Block Condition 返回现场 — exact build `73dc1e26f610`
 
 Logseq `0.10.15`；File Graph

@@ -10,7 +10,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash 代表链/custom binding PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS，已为 DONE_DESKTOP_REPRESENTATIVE；中文 IME/受限视觉 OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash/custom binding 与 ended formal boundary PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C dynamic Now count-only runtime + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-G Project workspace Context Recovery 的内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A/B、P2-C/D/E 核心链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D/E 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error 与 generation stale 零 Closure 写入 DONE；P2-G Restore 真实双失败人工恢复、Migration Activation 正常链、写后响应丢失→ledger reload→Verify→Undo、Verify/Activate failure→same-ledger retry 及 722px 窄栏 DONE；通用 Task Copilot 深色表面/reload/723px DONE | P2-D/E remaining；P2-E 真正 RECOVERY_REQUIRED；P2-F frontstage；P2-G Rebind guidance；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
@@ -52,7 +52,8 @@ File Graph、Dark/Light 1000×720、Light 723×720 均显示当前状态、一�
 - [x] Logseq 退出安全结束 owned Service；自动 unload/TTL/owner-PID 与真实 Desktop quit 后
   租约窗口内 owned Service 结束、Launcher 保留均通过
 - [ ] 中文命令与快捷动作；真实 Desktop 已完成冷启动 palette 单组、四条 Slash 可发现、
-  `[任务] ` 代表插入和 custom binding 配置/触发/清理；原生中文 IME、受限态、Light/窄栏开放
+  `[任务] ` 代表插入和 custom binding 配置/触发/清理；`bc79ffd` 又关闭显式结束后的
+  正式动作 fail-closed、零写入和显式重启代表链；原生中文 IME 仍开放
 - [x] 用户层系统状态；READY/协议/Graph/Pending/Recovery/Anchor/正文核对自动覆盖，
   真实 Desktop 注意状态与 Service unavailable 受限状态通过，技术诊断默认折叠；
 - [ ] 完成后回业务现场；session-only Block/Page origin route 自动 Gate PASS，真实
@@ -310,6 +311,10 @@ P0/P1/P2 或 Final Release 标为 DONE。
   feedback、reload、Dark/Light/窄栏和零越权写入；stale evidence 为
   `STALE=1 / GENERATED=0`。`recover-context@1.3.0` 为
   `CANDIDATE/DESKTOP_VERIFIED`，不等于 Production；DB Graph Page Head 属 P1-F 宿主矩阵；
+- [ ] 连续使用 Pilot：`PILOT-2026W31-A` 已真实完成 Day 1—2 与 Day 3 Waiting 子链，
+  覆盖 20 条自然输入、2 次真实 DeepSeek、Task 创建/Undo/纠正/重建、WAITING/reviewAt/
+  reload；普通笔记未被自动正式化，Now 未立即洪水。完整 Day 3、Day 4—10、
+  Dynamic Now 对照、Attention helpful/noise、disposition/cooldown 和 P2-D 边界仍开放；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；
 - [ ] 恢复和升级说明；

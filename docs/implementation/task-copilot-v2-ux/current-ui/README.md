@@ -124,11 +124,19 @@ Graph 首次显示时已安全受限、6 秒后仍不显示旧 Project，以及�
 `SUPERSEDED`。P0-H 已关闭为代表性 Desktop DONE，不代表 P0-J/P0-K 或整体 P0 完成。
 完整记录见 `../logs/p0-h-graph-switch-desktop-live-20260727.md`。
 
-P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_RESTRICTED_VISUAL_OPEN`：
+P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_OPEN`：
 冷启动 palette、Now/系统状态路由、四条 Slash 可发现、任务语法代表插入和 custom binding
-配置/触发/清理已在 Logseq 0.10.15 通过。Computer Use 不能可靠注入中文字符，因此原生
-中文 IME、受限态、Light/窄栏继续开放。完整记录见
-`../logs/p0-j-host-commands-desktop-live-20260726.md`。
+配置/触发/清理已在 Logseq 0.10.15 通过。`bc79ffd` 又证明显式结束后切换路由不重启、
+正式动作 fail closed、Slash 只插入本地正文、显式重启恢复且受限期间零写入。Computer Use
+不能证明真实中文输入法候选/组词/光标，因此原生中文 IME 继续开放。完整记录见
+`../logs/p0-j-host-commands-desktop-live-20260726.md` 与
+`../logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`。
+
+连续使用 Pilot `PILOT-2026W31-A` 当前在 `pilot-2026w31/`：精确构建 `bc79ffd`，
+Logseq 0.10.15 File Graph，已完成 Day 1—2 和 Day 3 Waiting 代表子链。20 条自然输入、
+2 次真实 DeepSeek、Task 创建/Undo/纠正/重建与 WAITING/reviewAt/reload 都直接发生在
+测试 Graph；完整 Day 3 与 Day 4—10 仍 OPEN。该目录中的截图为本次 Pilot 的 CURRENT，
+不替代其他宿主/主题证据，也不把三天进度写成完整 Pilot。
 
 P0-K 当前使用 `p0-k-01`～`08`、`p0-k-10` 与 `p0-k-condition-*`：
 主 Page 入口与“返回原 Page”已通过；right-sidebar、

@@ -13,7 +13,9 @@
 > 代表性 Desktop；P0-K session origin route 与 P0-A 普通 Block“处理这条内容”自动 Gate
 > 已完成，main Page 返回、来源移动/删除和 Query/reference/right-sidebar 有界结论已有真实
 > Desktop；`73dc1e2` 又关闭正式 Block 的失败、成功、Undo 与 reload 返回链，P0-K 已为
-> DONE_DESKTOP_REPRESENTATIVE；P0-J 中文 IME/受限视觉及其余 P0 仍未完成。
+> DONE_DESKTOP_REPRESENTATIVE；`bc79ffd` 已关闭 P0-J 结束运行后的正式动作边界，原生
+> 中文 IME 仍 OPEN。连续使用 Pilot `PILOT-2026W31-A` 已完成 Day 1—2 和 Day 3 Waiting
+> 代表子链；完整 7—10 日 Pilot、P1 前台和整体 Goal 仍未完成。
 
 ## 总体状态
 
@@ -26,10 +28,39 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash 代表链/custom binding Desktop PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；中文 IME/受限视觉 OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding 及 ended→formal-action fail-closed→显式重启 PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow、P1-C dynamic Now shadow、P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；Attention 未展示，跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_MAIN_CHAIN_COMMIT_RESUME_PROVIDER_ERROR_AND_STALE_DESKTOP_DONE_RECOVERY_GATE_OPEN_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_MIGRATION_FAILURE_RETRY_NARROW_AND_RESTORE_DOUBLE_FAILURE_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D/P2-E 核心链有 Desktop；P2-E receipt-backed Commit 中断→同 Commit 续跑→reload→Undo、Provider error 及 generation stale 零 Closure 写入均已 Desktop PASS，只剩真正 `RECOVERY_REQUIRED` OPEN；P2-F shadow/provider 无 UI；P2-G Rebind、Restore 正常往返、真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面、reload 与 723px 窄栏已补 CURRENT；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
+
+### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
+
+- Pilot 基线：`PILOT-2026W31-A` 直接使用 File Graph `logseq`，建立产品恢复快照并验证
+  Pending/Recovery/Anchor conflict `0/0/0`；测试入口为
+  `模拟使用/2026-W31/PILOT-2026W31-A`，正文用 `#TaskCopilotPilot` 可追踪。
+- Day 1：输入 7 条自然捕获；普通笔记未被自动正式化，只有显式 TODO 由用户发起真实
+  DeepSeek → Review → Commit。reload 后 Task 进入 Now，普通研究笔记没有制造列表洪水。
+- Day 2：输入 7 条补充与事实纠正；精确 Undo 错误 Task、修改恢复来源、再次真实
+  DeepSeek 和正式 Commit。旧错误事项消失，纠正后的端口权限 Task 存在。
+- Day 3：输入 6 条 Waiting/Paused/DONE/Focus 混合材料；先完成一个正式 Task 的
+  WAITING→reviewAt→reload 代表子链。该 Task 正确退出“继续处理”，但前台尚无安静的
+  “保持等待”确认；其余 Day 3 行为仍 OPEN，不冒充整日完成。
+- Provider：真实调用 `2`，Validator rejection `0`，retry `0`，abstention `0`；没有新增
+  Skill/Prompt/Validator。Day 1 的错误理解由原文业务歧义造成，Day 2 证据纠正后模型正常，
+  不据单样本补丁化 Skill。
+- UX 发现：单 Task 应用存在三次近义确认；成功卡的 Undo 资格文字与可点击按钮矛盾；
+  “最近修改与恢复”泄漏 SQLite/Local Service 且历史墙过重；事实纠正需
+  Undo→改来源→再次完整 Review；WAITING 降噪正确但缺少低打扰可见性；File Graph reload
+  约 5 秒索引空白后恢复。
+- P0-J：`bc79ffd` 的 350/350、typecheck/build/dist PASS；真实 Desktop 证明显式结束后
+  路由不会重启，Focus/Condition/Undo fail closed，Slash 只写本地显式正文，显式重启后
+  正式能力恢复且受限期间零写入。该子 Gate `OPEN→DONE_DESKTOP_REPRESENTATIVE`；原生
+  中文 IME 仍 OPEN。
+- 复杂度：新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator 均为 `0`；
+  P0-J 子 Gate 净关闭 `1`，Pilot 发现按 release blocker / UX debt / bounded host issue
+  分类，不创建新的平行状态机。
+- 当前证据见 `current-ui/pilot-2026w31/`、
+  `logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`。
 
 ### 2026-07-28 P0-K Block Condition 返回现场收口
 
@@ -919,5 +950,6 @@ derivative/dashboard 价值也仍未完成。
    bounded host issue；退出后旧 Service PID 按 lease 停止，重开后同一 Launcher 启动新
    Service 并自动恢复正式能力。继续 Rebind 最新指引，不得加入
    第二迁移或恢复状态源。
-3. 集中关闭 P0-J 中文 IME/受限视觉与 P0-K Query/reference/来源变化返回，并继续 P1-F
-   DB Graph Page Head、P1 Attention 开放门和 Block Marker；P0-H 不再重复扩大宿主矩阵。
+3. 继续 `PILOT-2026W31-A`：先完成 Day 3 其余状态，再进入 Day 4 Project 形成与 Day 5
+   Context Recovery；用跨日证据收口 Dynamic Now / 第一批 Attention / Block Marker，
+   同时保留 P0-J 原生中文 IME 与 P1-F DB Graph Page Head 的明确开放口径。

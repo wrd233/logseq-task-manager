@@ -434,7 +434,7 @@ Logseq 0.10.15 还证明隐藏 Plugin iframe 的早期 `getCurrentGraph()` 与 i
 ## P0-J：中文创建命令与快捷动作
 
 状态：`PARTIAL`（自动 Gate PASS；Desktop palette / Slash 可发现与代表插入 / custom binding
-PASS；中文 IME、受限态、Light / 窄栏 OPEN）
+PASS；结束运行后的正式动作 fail-closed 与显式重启 PASS；原生中文 IME OPEN）
 
 斜杠：
 
@@ -461,11 +461,15 @@ PASS；中文 IME、受限态、Light / 窄栏 OPEN）
 - Plugin 329/329、typecheck、build、bootstrap/dist integrity 与根级检查 PASS；
 - 真实 Logseq 0.10.15 已验证冷启动单组 palette、Now/系统状态路由、四条 Slash 可发现、
   `[任务] ` 代表插入、临时 chord 配置与触发、清理后完整冷启动仍为三条未设置；
+- `bc79ffd` 又验证显式结束后切换路由不会静默重启，Focus/Condition/Undo 等正式动作
+  fail closed 且零写入；Slash 只保留本地正文插入；显式重新启动后正式能力与 Now 恢复；
 - 自动与 Desktop 证据见 `logs/p0-j-chinese-commands-automated-20260724.md` 和
-  `logs/p0-j-host-commands-desktop-live-20260726.md`。
+  `logs/p0-j-host-commands-desktop-live-20260726.md`、
+  `logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`。
 
-Computer Use 当前不能可靠注入中文字符，因此原生中文 IME 与光标体验仍需真实验证；Service/
-Provider 受限态、Light 与窄窗口也继续开放，未因代表链通过而把 P0-J 提前标为 DONE。
+Computer Use 当前不能可靠证明真实中文输入法候选、组词与光标体验，因此原生中文 IME
+仍需人工输入 Gate；不能用 Slash 的程序化中文插入替代。该开放项继续使 P0-J 保持
+`PARTIAL`，但受限态正式写入边界不再重复列为 OPEN。
 
 ## P0-K：完成后返回业务现场
 
