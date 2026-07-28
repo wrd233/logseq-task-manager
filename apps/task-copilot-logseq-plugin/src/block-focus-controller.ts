@@ -31,7 +31,7 @@ export async function resolveBlockObject(
   blockUuid: string,
   failureSuffix = "当前关注没有改变。",
 ): Promise<ResolvedBlockObject> {
-  if (!blockUuid.trim()) throw new Error(`当前 Block 身份无效；${failureSuffix}`);
+  if (!blockUuid.trim()) throw new Error(`当前内容缺少可识别位置；${failureSuffix}`);
   const objectsPromise = client.listObjects();
   const matches: V2Anchor[] = [];
   const seenCursors = new Set<string>();
@@ -44,20 +44,20 @@ export async function resolveBlockObject(
       && value.status === "active"
     )));
     cursor = page.nextCursor;
-    if (cursor && seenCursors.has(cursor)) throw new Error(`Primary Anchor 分页状态异常；${failureSuffix}`);
+    if (cursor && seenCursors.has(cursor)) throw new Error(`暂时无法确认这条内容对应的事项；${failureSuffix}`);
     if (cursor) seenCursors.add(cursor);
   } while (cursor);
   const objects = await objectsPromise;
   if (matches.length === 0) {
-    throw new Error(`当前 Block 不是已管理对象的 active Primary Anchor；${failureSuffix}`);
+    throw new Error(`这条内容尚未由 Task Copilot 管理；${failureSuffix}`);
   }
   if (matches.length !== 1) {
-    throw new Error(`当前 Block 对应多个 active Primary Anchor；请先修复 Anchor 冲突，${failureSuffix}`);
+    throw new Error(`这条内容的关联不唯一；为避免改错，${failureSuffix}`);
   }
   const anchor = matches[0]!;
   const object = objects.find((value) => value.objectId === anchor.objectId);
-  if (!object) throw new Error(`当前 Block 的对象状态不可用；${failureSuffix}`);
-  if (object.lifecycle !== "OPEN") throw new Error(`当前 Block 对应的对象已关闭；${failureSuffix}`);
+  if (!object) throw new Error(`这条内容的事项状态暂时不可用；${failureSuffix}`);
+  if (object.lifecycle !== "OPEN") throw new Error(`这条内容对应的事项已经结束；${failureSuffix}`);
   return { anchor, object };
 }
 
@@ -73,7 +73,7 @@ export class BlockFocusController {
 
   private async toggleOnce(blockUuid: string): Promise<BlockFocusResult> {
     const client = this.getClient();
-    if (!client) throw new Error("V2 Local Service 未就绪；当前关注没有改变。");
+    if (!client) throw new Error("正式功能暂时不可用；当前关注没有改变。");
     const [{ object }, current] = await Promise.all([
       resolveBlockObject(client, blockUuid),
       client.nowWork(),
@@ -110,7 +110,7 @@ export class BlockFocusController {
     const mutation = this.lastMutation;
     if (!mutation) throw new Error("没有可撤销的当前关注变化。");
     const client = this.getClient();
-    if (!client) throw new Error("V2 Local Service 未就绪；上一次关注变化尚未撤销。");
+    if (!client) throw new Error("正式功能暂时不可用；上一次关注变化尚未撤销。");
     const [objects, current] = await Promise.all([client.listObjects(), client.nowWork()]);
     const object = objects.find((value) => value.objectId === mutation.objectId);
     if (!object || object.lifecycle !== "OPEN" || object.version !== mutation.objectVersion) {

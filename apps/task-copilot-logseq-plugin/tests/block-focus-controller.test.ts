@@ -189,7 +189,12 @@ test("an unmanaged or stale Block fails closed before any Focus write", async ()
 
   await assert.rejects(
     () => new BlockFocusController(() => client).toggle("block-1"),
-    /不是已管理对象的 active Primary Anchor/,
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /尚未由 Task Copilot 管理/);
+      assert.doesNotMatch(error.message, /Block|Anchor|active|Primary|Local Service|V2/u);
+      return true;
+    },
   );
   assert.equal(writes, 0);
 });

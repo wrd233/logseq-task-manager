@@ -96,13 +96,13 @@ test("prepare accepts only one open object bound through an active Primary Ancho
     () => new BlockConditionController(() => client({
       async listPrimaryAnchors() { return { anchors: [] }; },
     })).prepare("block-1"),
-    /active Primary Anchor.*原状态未改变/,
+    /尚未由 Task Copilot 管理.*原状态未改变/,
   );
   await assert.rejects(
     () => new BlockConditionController(() => client({
       async listObjects() { return [object({ lifecycle: "COMPLETED" })]; },
     })).prepare("block-1"),
-    /对象已关闭.*原状态未改变/,
+    /事项已经结束.*原状态未改变/,
   );
 });
 
