@@ -60,6 +60,20 @@
   Task。P1-C 继续 `PARTIAL_RUNTIME_SHADOW`，前台 Gate 未通过；没有为了减少卡片静默
   牺牲事务连续性。证据见 `logs/p1-dynamic-now-pilot-comparison-20260728.md`。
 
+### 2026-07-28 P2-D Release 边界
+
+- 结合 Day 1—6 实际使用和现有 inverse/Recovery 证据，明确 16 类 Project intent 是后台
+  安全穷举，不是 16 个用户菜单；当前四个前台意图保持不变。
+- A 内置日常：Focus、Condition，reviewAt 合并进 Condition。B 内置审阅：
+  current summary/focuses 共用 MEDIUM，interface/objectives/deliverables/stages 共用 HIGH，
+  Ownership/Closure 保持专用高影响链。
+- C 外部 Agent：bulk children、move content、split/merge、external Agent；Agent 只准备
+  Context/Proposal，正式写入仍归 Task Copilot。D 暂不开放：Association 缺 inverse，
+  Project due 缺稳定语义和跨 reload inverse。
+- 没有新增 intent、用户入口、正式状态、Runtime、Recovery、Skill/Prompt/Validator；
+  没有把待外部 Agent 的能力改成 Out of Scope。P2-D 仍 Partial，Day 7/9 继续验证边界。
+- 详细矩阵：`logs/p2-d-release-boundary-pilot-20260728.md`。
+
 ### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
 
 - Pilot 基线：`PILOT-2026W31-A` 直接使用 File Graph `logseq`，建立产品恢复快照并验证

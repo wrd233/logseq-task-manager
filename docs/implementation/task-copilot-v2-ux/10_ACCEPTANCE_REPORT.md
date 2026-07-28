@@ -46,6 +46,11 @@ Dynamic Now、Attention 或完整 Pilot 完成。
 `Continue 1 / Review 0 / Keep waiting 0 / Suggested 0 / Suppressed 10`，且后者隐藏
 Day 6 刚恢复 Task。因此 P1-C 保持 Shadow；没有把低卡片数误作低负担，也没有开放 UI。
 
+P2-D 当前 Release 边界已明确但整体仍 Partial：16 类 internal intent 只做安全路由，普通
+前台维持四个用户意图；Focus/Condition 内置，摘要与完整结构分 MEDIUM/HIGH，
+Ownership/Closure 保持专用链，批量/移动/拆分合并路由外部 Agent，Association 与 Project
+due 在 inverse/语义未齐前禁用。该结论不把未实现能力写成 Out of Scope。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
@@ -323,6 +328,8 @@ P0/P1/P2 或 Final Release 标为 DONE。
   脱敏 Desktop 截图；`4dfe014` 又以最新 Dark Desktop 证明高频壳层不再显示重复运行组件条；
 - [x] P0-F 介入计数/噪声排除/Recovery 优先级自动覆盖，以及安静态、正式连接风险 `TC ①`、
   诊断路由和恢复后安静态的两张脱敏 Desktop 截图；
+- [ ] P2-D Release 边界已完成证据化分类，但 Focus/reviewAt 完整长期 Undo、Association
+  inverse、外部 Agent 结构操作产品链和 Day 7/9 Pilot 仍需收口；
 - [x] P0-G 用户层状态翻译、inverse 折叠、专用 Undo 路由、折叠技术详情，以及 LOW 应用→
   即时结果→跨 reload 长期 Undo→Graph/SQLite 恢复的四张脱敏 Desktop 截图；
 - [x] P0-I 五个用户问题、Provider 非故障降级、安全优先级、Pending/Recovery 分离和

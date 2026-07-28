@@ -267,6 +267,17 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 `logs/p2-d-light-condition-undo-desktop-live-20260726.md`。P2-D 仍为 Partial：Focus/reviewAt
 的完整 Undo 结论、Association inverse、其他 HEAVY 类型、Light/窄栏与集中宿主 Gate 开放。
 
+2026-07-28 连续使用 Pilot 已给出当前 Release 边界：16 类 intent 继续只作为后台安全穷举，
+前台保持“更新状态 / 整理摘要 / 调整目标成果结构 / 结束项目”四个用户意图。
+`FOCUS_VISIBILITY/CONDITION/REVIEW_AT` 合并进既有日常入口；
+`CURRENT_SUMMARY/CURRENT_FOCUSES` 共用 MEDIUM 叙述链；
+`CURRENT_INTERFACE/OBJECTIVES_DELIVERABLES/STAGE_MAPPING` 共用 HIGH 完整结构链；
+`OWNERSHIP/CLOSURE` 保持专用高影响流程；
+`BULK_CHILDREN/MOVE_CONTENT/SPLIT_MERGE/EXTERNAL_AGENT` 路由外部 Agent 后仍回正式
+Preview/Commit/Recovery；`ASSOCIATION` 因 inverse 未齐、`DUE_AT` 因 Project 级语义与
+长期 Undo 未齐而暂不从 Project Router 开放。完整矩阵见
+`logs/p2-d-release-boundary-pilot-20260728.md`。该结论控制前台复杂度，不删除完整 Goal。
+
 ## P2-E：Closure 证据起草
 
 状态：`IN_PROGRESS_MAIN_CHAIN_AND_COMMIT_RESUME_DESKTOP_DONE_PROVIDER_FAILURE_DESKTOP_OPEN`

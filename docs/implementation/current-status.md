@@ -54,6 +54,14 @@ Provider/Skill/Prompt/Validator 变化为 `0`。该子 Partial `OPEN→DONE_DESK
 而是产品质量门未通过。当前不新增 Attention 类型、“刚恢复”正式状态或 Block Marker，
 后续用 Day 6 优先级变化与 Day 8 disposition/cooldown 决定有界前台规则。
 
+P2-D Release 边界也已依据 Day 1—6 固定：16 类 internal intent 不转成 16 个用户入口。
+Release 内置日常边界是 Focus 与 Condition（reviewAt 合并进 Condition）；摘要/current
+focus 共用 MEDIUM Review；当前接口、目标、成果与阶段映射共用 HIGH 结构链；Ownership
+与 Closure 保持专用高影响流程；批量子对象、正文移动、拆分合并和 external Agent 走
+Agent 准备 Context/Proposal、Task Copilot 最终 Commit/Recovery；Association 因 inverse
+未齐、Project Due 因语义和长期 Undo 未齐继续禁用。没有删除 P2-D 目标，也没有新建
+Router、状态或恢复体系；Day 7/9 将继续验证 moved/Rebind 与 Closure 边界。
+
 此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后

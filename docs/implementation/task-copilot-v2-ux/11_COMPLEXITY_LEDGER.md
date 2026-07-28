@@ -37,6 +37,18 @@
   `Suppressed 10` 会连同刚恢复 Task 一起隐藏。P1-C 继续保持现有 Partial，不新增
   “recently reactivated”状态、跨会话历史或第二 Now Runtime。
 
+### P2-D Release 边界
+
+- 删除“16 类 internal intent 都要形成 16 个前台工作台”的隐含复杂度；代码中的 16 类继续
+  作为唯一安全 Router，用户仍只看到四个意图。
+- 合并重复用户语义 3 组：reviewAt→Condition、current focuses→summary、stage mapping→
+  完整结构。没有删除后台事实或安全检查。
+- 批量子对象、正文移动、拆分合并与 external Agent 不建独立 UI/Runtime；由外部 Agent
+  处理高上下文调查，Task Copilot 保留 Context/Proposal/Commit/Undo/Recovery 权威。
+- Association 和 Project due 保持禁用而不是为了完整率开放无 inverse 的轻操作。
+- 新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、用户一级操作：均为 `0`。
+  P2-D Partial 数量未假装下降，但完成边界从模糊变为可验收。
+
 ### Day 5 Project / Context Recovery 完整代表链
 
 - 新增正式状态、顶层导航、Agent Runtime、Recovery 分支、平行写入权威和新 active Skill：
