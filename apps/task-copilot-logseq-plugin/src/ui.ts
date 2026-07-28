@@ -271,16 +271,21 @@ function renderNow(model: UiModel): string {
       const secondaryActions = `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${kind === "focus" ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", index === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", index === values.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}`;
       return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${primaryAction}</div><details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details></article>`;
     }).join("");
-    const section = (title: string, source: ServiceNowWork["next"], kind: "focus" | "candidate") => {
+    const section = (title: string, source: ServiceNowWork["next"], kind: "focus" | "candidate", frontstageLimit?: number) => {
       const values = filtered(source);
       if (!values.length) return "";
-      const content = grouping === "type"
-        ? typeOrder.filter((type) => values.some((item) => item.objectType === type)).map((type) => `<div class="now-work-group"><h3>${escapeHtml(typeLabels[type])}</h3><div class="cards">${cards(values.filter((item) => item.objectType === type), kind)}</div></div>`).join("")
-        : `<div class="cards">${cards(values, kind)}</div>`;
-      return `<section><h2>${escapeHtml(title)}</h2>${content}</section>`;
+      const renderValues = (current: ServiceNowWork["next"]) => grouping === "type"
+        ? typeOrder.filter((type) => current.some((item) => item.objectType === type)).map((type) => `<div class="now-work-group"><h3>${escapeHtml(typeLabels[type])}</h3><div class="cards">${cards(current.filter((item) => item.objectType === type), kind)}</div></div>`).join("")
+        : `<div class="cards">${cards(current, kind)}</div>`;
+      const visible = frontstageLimit === undefined ? values : values.slice(0, frontstageLimit);
+      const remaining = frontstageLimit === undefined ? [] : values.slice(frontstageLimit);
+      const overflow = remaining.length
+        ? `<details class="now-work-overflow"><summary>查看其余 ${remaining.length} 项</summary>${renderValues(remaining)}</details>`
+        : "";
+      return `<section><h2>${escapeHtml(title)}</h2>${renderValues(visible)}${overflow}</section>`;
     };
     const controls = `<section class="now-work-controls" aria-label="现在：筛选与分组"><div><strong>类型</strong><div class="actions wrap">${button("全部", "v2-now-filter", "ALL", filter === "ALL" ? "active" : "quiet")}${availableTypes.map((type) => button(typeLabels[type], "v2-now-filter", type, filter === type ? "active" : "quiet")).join("")}</div></div><div><strong>排列</strong><div class="actions">${button("混排", "v2-now-grouping", "mixed", grouping === "mixed" ? "active" : "quiet")}${button("按类型分组", "v2-now-grouping", "type", grouping === "type" ? "active" : "quiet")}</div></div>${orderingAvailable ? "" : "<p class=\"muted\">手动调整“当前关注”顺序请切回“全部 · 混排”；筛选不会改变正式状态。</p>"}</section>`;
-    const content = `${section("当前关注", model.v2NowWork.focus, "focus")}${section("接下来值得处理", model.v2NowWork.next, "candidate")}${section("等待与复查", model.v2NowWork.waitingReview, "candidate")}`;
+    const content = `${section("当前关注", model.v2NowWork.focus, "focus")}${section("接下来值得处理", model.v2NowWork.next, "candidate", 4)}${section("等待与复查", model.v2NowWork.waitingReview, "candidate")}`;
     const narrationError = model.v2StatusNarrationLoadError
       ? `<div class="error"><strong>状态说明暂时不可用：</strong>${escapeHtml(model.v2StatusNarrationLoadError)}<span>继续显示 Local Service 的既有只读理由；没有改变正式状态或动作资格。</span></div>`
       : "";

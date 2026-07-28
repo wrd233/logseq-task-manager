@@ -1460,6 +1460,33 @@ test("V2 Now Work renders only non-empty explainable regions without scores or b
   assert.match(html, /data-action="v2-condition-open" data-value="task-next\|2"/);
 });
 
+test("V2 Now Work keeps the first four next items visible and folds the rest without losing them", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = {
+    generatedAt: "2026-07-28T12:00:00.000Z",
+    focus: [],
+    waitingReview: [],
+    conditionOptions: [],
+    next: Array.from({ length: 6 }, (_, index) => ({
+      objectId: `task-${index + 1}`,
+      objectType: "TASK" as const,
+      version: 1,
+      text: `连续事项 ${index + 1}`,
+      condition: { kind: "ACTIONABLE" as const },
+      updatedAt: `2026-07-${String(28 - index).padStart(2, "0")}T12:00:00.000Z`,
+      reason: "当前可以继续推进",
+      primaryAnchorExternalId: `block-${index + 1}`,
+    })),
+  };
+
+  const html = renderApp(value);
+  assert.match(html, /查看其余 2 项/);
+  assert.ok(html.indexOf("连续事项 4") < html.indexOf("now-work-overflow"));
+  assert.ok(html.indexOf("连续事项 5") > html.indexOf("now-work-overflow"));
+  for (let index = 1; index <= 6; index += 1) assert.match(html, new RegExp(`连续事项 ${index}`));
+});
+
 test("V2 Now Work leads with version-matched Object narration and reuses the Condition handler", () => {
   const value = model();
   value.workspace = "now";

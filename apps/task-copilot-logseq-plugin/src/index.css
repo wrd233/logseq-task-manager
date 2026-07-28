@@ -63,6 +63,9 @@
 #task-copilot-personal-mvp-root .now-work-controls strong { display: block; margin-bottom: 6px; }
 #task-copilot-personal-mvp-root .now-work-controls .muted { flex-basis: 100%; margin: 0; }
 #task-copilot-personal-mvp-root .now-work-group + .now-work-group { margin-top: 16px; }
+#task-copilot-personal-mvp-root .now-work-overflow { margin-top: 12px; }
+#task-copilot-personal-mvp-root .now-work-overflow > summary { color: var(--tc-text-muted); }
+#task-copilot-personal-mvp-root .now-work-overflow[open] > summary { margin-bottom: 12px; }
 #task-copilot-personal-mvp-root .now-card > .actions { margin-top: 12px; }
 #task-copilot-personal-mvp-root .now-card .more-actions { margin-top: 8px; }
 #task-copilot-personal-mvp-root .now-card .more-actions .actions { margin-top: 8px; }
