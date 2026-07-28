@@ -753,7 +753,7 @@ function renderTargetedProjectLanding(
     ? `<ul>${outcomes.map((item) => `<li><strong>${escapeHtml(item.text)}</strong>${item.successEvidence.length ? `<span class="muted">完成时可核对：${escapeHtml(item.successEvidence.slice(0, 2).join("；"))}</span>` : ""}</li>`).join("")}</ul>`
     : "<p>尚未明确；可以在调整项目时补充。</p>";
   const primary = card.primaryRoute
-    ? button("开始当前推进", card.primaryRoute.action, card.primaryRoute.value, "primary")
+    ? button("开始当前推进", "v2-project-worksite-open", `${project.objectId}|${project.version}`, "primary")
     : "";
   const recovery = renderProjectContextRecovery(model, card, recoveryState);
   const detailedObjectives = structure.objectives.length

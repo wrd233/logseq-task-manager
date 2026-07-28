@@ -468,6 +468,29 @@ async function openV2PrimaryAnchor(externalId: string): Promise<void> {
   await logseq.Editor.scrollToBlockInPage(page.pageUuid ?? page.pageName ?? page.displayName.replace(" · Journal", ""), externalId);
 }
 
+async function openV2ProjectWorksite(objectId: string, expectedVersion: number): Promise<void> {
+  const client = serviceRuntimeClient;
+  if (!client) throw new Error("当前项目入口暂不可用；项目和正文没有变化。");
+  const [objects, anchors] = await Promise.all([client.listObjects(), listAllPrimaryAnchors(client)]);
+  const current = objects.find((object) => object.objectId === objectId);
+  const primaryAnchor = anchors.find((anchor) =>
+    anchor.objectId === objectId
+    && anchor.role === "primary_text"
+    && anchor.status === "active"
+  );
+  if (!current || current.objectType !== "PROJECT" || current.version !== expectedVersion || !primaryAnchor) {
+    throw new Error("当前项目或工作现场已经变化；请刷新后重新打开。");
+  }
+  const page = await logseq.Editor.getPage(primaryAnchor.externalId);
+  if (page) {
+    const pageName = RuntimeShapeAdapter.pageRef(page);
+    await logseq.App.pushState("page", { name: pageName });
+  } else {
+    await openV2PrimaryAnchor(primaryAnchor.externalId);
+  }
+  logseq.hideMainUI();
+}
+
 async function updateBlockWithoutExplicitSyncEcho(externalId: string, content: string): Promise<unknown> {
   const cancelSuppression = explicitSyncController?.suppressObservedContentWindow(externalId, checksum(stripLogseqBlockIdentityProperty(content, externalId)));
   try {
@@ -1819,6 +1842,15 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     return;
   }
+  if (action === "v2-project-worksite-open" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    const expectedVersion = Number(rawVersion);
+    if (!objectId || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+      throw new Error("当前项目入口已失效；项目和正文没有变化。");
+    }
+    await run(async () => openV2ProjectWorksite(objectId, expectedVersion), "已回到项目工作现场；正式状态没有变化。");
+    return;
+  }
   if (action === "v2-project-context-recovery" && value) {
     const [objectId, versionText] = value.split("|");
     const expectedVersion = Number(versionText);
@@ -2534,7 +2566,10 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-open-primary-anchor" && value) {
-    await run(async () => openV2PrimaryAnchor(value), "已定位到主正文；Now Work 和正式状态未改变。");
+    await run(async () => {
+      await openV2PrimaryAnchor(value);
+      logseq.hideMainUI();
+    }, "已定位到主正文；Now Work 和正式状态未改变。");
     return;
   }
   if (action === "v2-focus-add" && value) {

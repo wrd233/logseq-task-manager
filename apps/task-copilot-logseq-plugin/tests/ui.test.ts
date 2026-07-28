@@ -515,7 +515,7 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
   assert.match(withDraft, /值得留意[\s\S]*参数到达后可继续资源测算/);
   assert.match(withDraft, /继续前仍需确认[\s\S]*参数到达时间未知/);
   assert.match(withDraft, /可选调整[\s\S]*如需修改，会先单独审阅/);
-  assert.match(withDraft, /data-action="v2-open-primary-anchor" data-value="block-project"/);
+  assert.match(withDraft, /data-action="v2-project-worksite-open" data-value="project-compact\|3"/);
   assert.doesNotMatch(withDraft, /context-fingerprint-private|scope-hash-private|anchor-project/);
 
   const currentRecovery = value.v2ProjectContextRecovery["project-compact"];
@@ -552,6 +552,7 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
   assert.match(targeted, /预期成果[\s\S]*完成设备托管方案[\s\S]*通过评审/);
   assert.match(targeted, /来源与背景[\s\S]*没有移动或改写来源正文/);
   assert.match(targeted, /Task Copilot[\s\S]*恢复上下文[\s\S]*调整项目[\s\S]*查看完整结构/);
+  assert.match(targeted, /data-action="v2-project-worksite-open" data-value="project-compact\|3"/);
   assert.doesNotMatch(targeted, /object ID|Anchor|Commit|checksum|Ownership|Lifecycle/);
   assert.match(targeted, /<h2>设备托管<\/h2>/);
   assert.match(targeted, /data-action="v2-reentry-show-all"/);
@@ -2239,6 +2240,8 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /getCurrentPage\(\)/);
   assert.match(source, /pushState\("page", \{ name: openedPageName \}\)/);
   assert.match(source, /action === "v2-project-landing-open"[\s\S]*current\.version !== expectedVersion[\s\S]*v2ReentryTargetObjectId = current\.objectId;[\s\S]*workspace = "reentry";/);
+  assert.match(source, /async function openV2ProjectWorksite[\s\S]*listAllPrimaryAnchors\(client\)[\s\S]*Editor\.getPage\(primaryAnchor\.externalId\)[\s\S]*pushState\("page"[\s\S]*openV2PrimaryAnchor\(primaryAnchor\.externalId\)[\s\S]*hideMainUI\(\)/);
+  assert.match(source, /action === "v2-open-primary-anchor"[\s\S]*openV2PrimaryAnchor\(value\);[\s\S]*logseq\.hideMainUI\(\)/);
   assert.match(projectCreationSubmit, /v2ReentryTargetObjectId = result\.object\.objectId/);
   assert.doesNotMatch(projectCreationSubmit, /logseq\.hideMainUI\(\)/);
   assert.doesNotMatch(source, /action === "create-v2-project"/);

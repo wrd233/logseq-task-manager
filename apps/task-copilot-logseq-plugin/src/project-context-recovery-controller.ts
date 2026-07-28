@@ -157,7 +157,13 @@ export function resolveProjectContextRecoveryRoute(
     && projectionAction?.intent === "OPEN_PRIMARY_ANCHOR"
     && nextAction.targetRef === `anchor:${projectionAction.targetAnchorId}`
     && card.primaryRoute.action === "v2-open-primary-anchor"
-  ) return card.primaryRoute;
+  ) {
+    return {
+      action: "v2-project-worksite-open",
+      value: `${card.project.objectId}|${card.project.version}`,
+      label: card.primaryRoute.label,
+    };
+  }
   if (
     nextAction.intent === "OPEN_REVIEW"
     && projectionAction?.intent === "OPEN_RECOVERY_DETAILS"

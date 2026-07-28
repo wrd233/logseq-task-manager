@@ -16,7 +16,7 @@ import type {
 } from "@task-copilot/service-client";
 
 export interface PluginReentryRoute {
-  action: "v2-open-primary-anchor" | "view";
+  action: "v2-open-primary-anchor" | "v2-project-worksite-open" | "view";
   value: string;
   label: string;
 }

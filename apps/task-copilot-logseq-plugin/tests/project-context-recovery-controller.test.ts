@@ -166,7 +166,11 @@ test("controller fails before Provider for stale Project and verified route reso
   assert.match(staleState?.status === "error" ? staleState.message : "", /已变化/);
 
   const ready = { status: "ready" as const, expectedVersion: 3, result };
-  assert.deepEqual(resolveProjectContextRecoveryRoute(ready, card()), card().primaryRoute);
+  assert.deepEqual(resolveProjectContextRecoveryRoute(ready, card()), {
+    action: "v2-project-worksite-open",
+    value: "project-1|3",
+    label: "打开项目原文",
+  });
   const invented = {
     ...ready,
     result: {
