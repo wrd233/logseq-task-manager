@@ -650,17 +650,17 @@ function renderProjectContextRecovery(
   const requestValue = `${card.project.objectId}|${card.project.version}`;
   if (!state) {
     return model.v2ProviderAvailable
-      ? `<section class="restore"><div class="actions">${button("帮我恢复上下文", "v2-project-context-recovery", requestValue, "quiet")}</div></section>`
+      ? `<section class="copilot-context"><div class="actions">${button("帮我恢复上下文", "v2-project-context-recovery", requestValue, "quiet")}</div></section>`
       : "";
   }
   if (state.expectedVersion !== card.project.version) {
-    return `<section class="restore"><div class="error"><strong>这份整理结果已过期。</strong><span>项目内容已经变化；旧结果没有继续显示或执行动作。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("根据当前内容重新整理", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}</section>`;
+    return `<section class="copilot-context"><div class="error"><strong>这份整理结果已过期。</strong><span>项目内容已经变化；旧结果没有继续显示或执行动作。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("根据当前内容重新整理", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}</section>`;
   }
   if (state.status === "loading") {
-    return `<section class="restore" aria-live="polite"><div class="eyebrow">正在整理项目上下文</div><p>正在提炼这次继续工作真正需要的信息。项目和正文不会因此改变。</p><div class="actions">${button("正在整理…", "v2-project-context-recovery", requestValue, "quiet", true)}</div></section>`;
+    return `<section class="copilot-context" aria-live="polite"><div class="eyebrow">正在整理项目上下文</div><p>正在提炼这次继续工作真正需要的信息。项目和正文不会因此改变。</p><div class="actions">${button("正在整理…", "v2-project-context-recovery", requestValue, "quiet", true)}</div></section>`;
   }
   if (state.status === "error") {
-    return `<section class="restore"><div class="error"><strong>这次上下文整理没有完成。</strong><span>现有项目状态没有变化，你仍可使用上方入口继续工作或稍后重试。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("重新整理", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}<details><summary>查看错误详情</summary><p class="muted">${escapeHtml(state.message)}</p></details></section>`;
+    return `<section class="copilot-context"><div class="error"><strong>这次上下文整理没有完成。</strong><span>现有项目状态没有变化，你仍可使用上方入口继续工作或稍后重试。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("重新整理", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}<details><summary>查看错误详情</summary><p class="muted">${escapeHtml(state.message)}</p></details></section>`;
   }
   const output = state.result.output;
   const facts = output.facts.length
@@ -698,7 +698,7 @@ function renderProjectContextRecovery(
     : state.userDisposition
       ? `<div class="actions"><span class="muted">反馈仅保留在当前 Service session。${state.userDisposition === "DO_NOT_REPEAT" ? "同版本建议已暂停。" : ""}</span>${button("撤回反馈", "v2-project-context-feedback", `${card.project.objectId}|${interactionId}|WITHDRAW`, "quiet", state.feedbackBusy)}</div>`
       : "";
-  return `<section class="restore" data-project-context-recovery="ready">
+  return `<section class="copilot-context" data-project-context-recovery="ready">
     <div class="eyebrow">上下文恢复 · 不改变项目</div>
     <p class="lead">${escapeHtml(output.summary)}</p>
     ${inferences}${unknowns}

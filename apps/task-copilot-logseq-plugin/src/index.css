@@ -15,6 +15,7 @@
   --danger: #a33e3e;
   --danger-text: #7f2929;
   --danger-soft: #ffe9e7;
+  --info: #395bb6;
   --info-soft: #eef2ff;
   --disabled-bg: #f2f0ea;
   --disabled-text: #746d5c;
@@ -128,6 +129,9 @@
 #task-copilot-personal-mvp-root .uncertain { color: var(--warning); }
 #task-copilot-personal-mvp-root .reentry { max-width: 780px; margin: 0 auto; }
 #task-copilot-personal-mvp-root .restore { padding: 13px; border-radius: 10px; background: var(--accent-soft); }
+#task-copilot-personal-mvp-root .copilot-context { padding: 13px; border: 1px solid color-mix(in srgb, var(--info) 32%, var(--border)); border-radius: 10px; background: var(--info-soft); }
+#task-copilot-personal-mvp-root .copilot-context > .actions:first-child { margin: 0; }
+#task-copilot-personal-mvp-root .copilot-context button.quiet { border-color: color-mix(in srgb, var(--info) 42%, var(--border)); color: var(--info); }
 #task-copilot-personal-mvp-root .audit-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
 #task-copilot-personal-mvp-root .timeline { list-style: none; padding: 0; }
 #task-copilot-personal-mvp-root .timeline li { display: grid; grid-template-columns: 180px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -200,6 +204,7 @@
   --danger: #ff9d95;
   --danger-text: #ffd2ce;
   --danger-soft: #4a2927;
+  --info: #aebfff;
   --info-soft: #28314a;
   --disabled-bg: #302f29;
   --disabled-text: #cbc3ad;
@@ -222,6 +227,7 @@
     --danger: #ff9d95;
     --danger-text: #ffd2ce;
     --danger-soft: #4a2927;
+    --info: #aebfff;
     --info-soft: #28314a;
     --disabled-bg: #302f29;
     --disabled-text: #cbc3ad;

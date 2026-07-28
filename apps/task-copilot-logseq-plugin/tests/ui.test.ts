@@ -476,7 +476,9 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
   assert.doesNotMatch(html, /当前主归属对象/);
 
   value.v2ProviderAvailable = true;
-  assert.match(renderApp(value), /data-action="v2-project-context-recovery"/);
+  const recoveryEntry = renderApp(value);
+  assert.match(recoveryEntry, /class="copilot-context"[\s\S]*data-action="v2-project-context-recovery"/);
+  assert.doesNotMatch(recoveryEntry, /class="restore"[\s\S]*data-action="v2-project-context-recovery"/);
   value.v2ProjectContextRecovery = {
     "project-compact": {
       status: "ready",
