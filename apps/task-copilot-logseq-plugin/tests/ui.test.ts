@@ -111,7 +111,7 @@ test("Project primary destination keeps reentry and formal-object capabilities r
   let html = renderApp(value);
   assert.match(html, /data-value="reentry" aria-current="page">项目</);
   assert.match(html, /aria-label="项目区域"/);
-  assert.match(html, /data-value="reentry"[\s\S]*项目列表与重入/);
+  assert.match(html, /data-value="reentry"[\s\S]*继续项目/);
   assert.match(html, /data-value="objects"[\s\S]*正式事项与创建/);
 
   value.workspace = "objects";
@@ -405,12 +405,14 @@ test("Project reentry is projected from V2 objects, ownership, associations, and
     conditionOptions: [],
   };
   const html = renderApp(value);
-  assert.match(html, /V2 SQLite 实时投影/);
+  assert.match(html, /<h2>继续项目<\/h2>/);
+  assert.doesNotMatch(html, /V2 SQLite|Local Service|OPEN · ACTIONABLE|调整 Project/);
   assert.match(html, /发布 V2/);
-  assert.match(html, /当前主归属对象[\s\S]*完成发布审计/);
-  assert.match(html, /相关对象[\s\S]*验收报告/);
+  assert.match(html, /当前主归属事项[\s\S]*完成发布审计/);
+  assert.match(html, /相关事项[\s\S]*验收报告/);
   assert.match(html, /下一步：完成发布审计/);
   for (const action of ["v2-open-primary-anchor", "v2-condition-open", "v2-focus-add"]) assert.match(html, new RegExp(`data-action="${action}"`));
+  assert.match(html, /<details><summary>更多操作<\/summary>[\s\S]*data-action="v2-condition-open"/);
 });
 
 test("bounded Project reentry UI shows one conclusion and does not expand the full object tree", () => {
@@ -462,10 +464,13 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
   });
 
   const html = renderApp(value);
-  assert.match(html, /同一正式投影 · 不保存第二摘要/);
+  assert.match(html, /<h2>继续项目<\/h2>/);
+  assert.match(html, /先看当前状态和最值得继续的入口/);
   assert.match(html, /设备托管｜等待厂家补充功耗参数/);
   assert.match(html, /表格结构与业务字段已经完成/);
   assert.match(html, /data-action="v2-open-primary-anchor"/);
+  assert.match(html, /<details><summary>更多操作<\/summary>[\s\S]*data-action="v2-project-operation-router-open"/);
+  assert.doesNotMatch(html, /同一正式投影|不保存第二摘要|每个 Project|可选 Copilot|调整 Project/);
   assert.doesNotMatch(html, /完整方案文档/);
   assert.doesNotMatch(html, /<h3>Objectives<\/h3>/);
   assert.doesNotMatch(html, /当前主归属对象/);
@@ -543,7 +548,7 @@ test("bounded Project reentry UI shows one conclusion and does not expand the fu
 
   value.v2ReentryTargetObjectId = "project-stale";
   const stale = renderApp(value);
-  assert.match(stale, /当前 Project 重入上下文已变化/);
+  assert.match(stale, /当前项目的进入信息已经变化/);
   assert.doesNotMatch(stale, /设备托管｜等待厂家补充功耗参数/);
 });
 

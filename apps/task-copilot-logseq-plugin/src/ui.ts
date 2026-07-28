@@ -323,7 +323,7 @@ function renderObjects(model: UiModel): string {
       const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理 MiniProject" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
       const evolveProjectAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ProjectCreationGrillAvailable ? "演化为 Project" : "演化暂不可用", "v2-project-creation-grill-open", `MINI_PROJECT:${object.objectId}:${object.version}`, "quiet", model.v2ProjectCreationGrillAvailable !== true) : "";
       const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑 Area", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
-      const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("调整 Project", "v2-project-operation-router-open", `${object.objectId}|${object.version}`, "quiet") : "";
+      const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("调整项目", "v2-project-operation-router-open", `${object.objectId}|${object.version}`, "quiet") : "";
       return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction || grillAction || evolveProjectAction || areaAction || projectStructureAction ? `<div class="actions">${areaAction}${grillAction}${evolveProjectAction}${closureAction}${projectStructureAction}${lifecycleActions}</div>` : ""}${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</article>`;
     }).join("")}</div></section>`;
     return `${areaCreator}${projectCreator}${relationError}${associationCreator}${ownershipList}${associationList}${list}`;
@@ -650,11 +650,11 @@ function renderProjectContextRecovery(
   const requestValue = `${card.project.objectId}|${card.project.version}`;
   if (!state) {
     return model.v2ProviderAvailable
-      ? `<section class="restore"><div class="eyebrow">可选 Copilot · 不修改正式状态</div>${button("帮我恢复上下文", "v2-project-context-recovery", requestValue, "quiet")}</section>`
+      ? `<section class="restore"><div class="actions">${button("帮我恢复上下文", "v2-project-context-recovery", requestValue, "quiet")}</div></section>`
       : "";
   }
   if (state.expectedVersion !== card.project.version) {
-    return `<section class="restore"><div class="error"><strong>Copilot 草稿已过期。</strong><span>Project 正式版本已变化；旧草稿没有继续显示或执行动作。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("基于当前版本重新生成", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}</section>`;
+    return `<section class="restore"><div class="error"><strong>这份整理结果已过期。</strong><span>项目内容已经变化；旧结果没有继续显示或执行动作。</span></div>${model.v2ProviderAvailable ? `<div class="actions">${button("根据当前内容重新整理", "v2-project-context-recovery", requestValue, "quiet")}</div>` : ""}</section>`;
   }
   if (state.status === "loading") {
     return `<section class="restore" aria-live="polite"><div class="eyebrow">正在整理项目上下文</div><p>正在提炼这次继续工作真正需要的信息。项目和正文不会因此改变。</p><div class="actions">${button("正在整理…", "v2-project-context-recovery", requestValue, "quiet", true)}</div></section>`;
@@ -710,17 +710,17 @@ function renderProjectContextRecovery(
 
 function renderReentry(model: UiModel): string {
   if (model.v2ReentryLoadError) {
-    return `<section><h2>项目重入</h2><div class="error"><strong>重入上下文暂时不可用：</strong>${escapeHtml(model.v2ReentryLoadError)}<span>没有把读取失败显示成空项目，也没有生成猜测性进入点。</span></div></section>`;
+    return `<section><h2>继续项目</h2><div class="error"><strong>暂时无法读取项目现状。</strong><span>没有把读取失败显示成空项目，也没有生成猜测性的下一步。</span><details><summary>查看错误详情</summary><p class="muted">${escapeHtml(model.v2ReentryLoadError)}</p></details></div></section>`;
   }
   if (model.v2ProjectReentryCards) {
     if (!model.v2ProjectReentryCards.length) {
-      return empty("暂无 Project 可重入", "先创建 Project；这里会从同一正式投影恢复当前停留点。");
+      return empty("暂无可继续的项目", "先创建项目；这里会显示当前状态和最值得继续的入口。");
     }
     const visibleCards = model.v2ReentryTargetObjectId
       ? model.v2ProjectReentryCards.filter(({ project }) => project.objectId === model.v2ReentryTargetObjectId)
       : model.v2ProjectReentryCards;
     if (model.v2ReentryTargetObjectId && visibleCards.length === 0) {
-      return `<section><h2>项目重入</h2><div class="error"><strong>当前 Project 重入上下文已变化。</strong><span>没有回退到另一个项目；请返回当前 Page 重新打开。</span></div><div class="actions">${button("查看全部项目", "v2-reentry-show-all", undefined, "quiet")}</div></section>`;
+      return `<section><h2>继续项目</h2><div class="error"><strong>当前项目的进入信息已经变化。</strong><span>没有自动切换到其他项目；请返回项目页面重新打开。</span></div><div class="actions">${button("查看全部项目", "v2-reentry-show-all", undefined, "quiet")}</div></section>`;
     }
     const cards = visibleCards.map((card) => {
       const { project, projection } = card;
@@ -731,31 +731,30 @@ function renderReentry(model: UiModel): string {
       const unknown = projection.unknowns.length
         ? `<p class="muted">${escapeHtml(projection.unknowns.join("；"))}</p>`
         : "";
-      const entryPoints = card.entryPointRoutes.length
-        ? `<section><h3>从这里继续</h3><div class="actions">${card.entryPointRoutes.map((route) => button(route.label, route.action, route.value, "quiet")).join("")}</div></section>`
-        : "";
       const primary = card.primaryRoute
         ? button(card.primaryRoute.label, card.primaryRoute.action, card.primaryRoute.value, projection.safetyState === "RECOVERY_REQUIRED" ? "danger" : "primary")
         : "";
       const shortcuts = projection.safetyState === "CLEAN" && project.lifecycle === "OPEN"
-        ? `${button("调整 Project", "v2-project-operation-router-open", `${project.objectId}|${project.version}`, "quiet")}${!card.focused ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "quiet") : ""}`
+        ? `${button("调整项目", "v2-project-operation-router-open", `${project.objectId}|${project.version}`, "quiet")}${!card.focused ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "quiet") : ""}`
         : "";
+      const moreActions = `${card.entryPointRoutes.map((route) => button(route.label, route.action, route.value, "quiet")).join("")}${shortcuts}`;
       const recoveryDraft = renderProjectContextRecovery(model, card, recoveryState);
       return `<article class="card reentry" data-reentry-sufficiency="${projection.sufficiency}">
         <div class="eyebrow">${projection.safetyState === "CLEAN" ? (projection.sufficiency === "SUFFICIENT" ? "当前停留点" : "需要恢复上下文") : "安全状态优先"} · ${escapeHtml(new Date(projection.lastFormalChangeAt).toLocaleString("zh-CN"))}</div>
         <h2>${escapeHtml(projection.headline)}</h2>
         <p class="lead">${escapeHtml(projection.summary)}</p>
-        ${evidence}${unknown}${entryPoints}
-        <div class="actions">${primary}${shortcuts}</div>
+        ${evidence}${unknown}
+        <div class="actions">${primary}</div>
         ${recoveryDraft}
+        ${moreActions ? `<details><summary>更多操作</summary><div class="actions">${moreActions}</div></details>` : ""}
         <details><summary>查看依据</summary><ul>${projection.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>${projection.relatedContextCount ? `<p class="muted">${projection.relatedContextCount} 个普通关联仅作为背景，未升级为进入点。</p>` : ""}</details>
       </article>`;
     }).join("");
-    return `<section><div class="eyebrow">同一正式投影 · 不保存第二摘要</div><h2>项目重入</h2><p class="muted">每个 Project 只显示一个当前结论、最多两个关键依据和最多三个可定位进入点；信息不足时直接打开原文。</p>${model.v2ReentryTargetObjectId ? `<div class="actions">${button("查看全部项目", "v2-reentry-show-all", undefined, "quiet")}</div>` : ""}<div class="cards">${cards}</div></section>`;
+    return `<section><h2>继续项目</h2><p class="muted">先看当前状态和最值得继续的入口；需要时再展开其他操作和依据。</p>${model.v2ReentryTargetObjectId ? `<div class="actions">${button("查看全部项目", "v2-reentry-show-all", undefined, "quiet")}</div>` : ""}<div class="cards">${cards}</div></section>`;
   }
   if (model.v2Objects) {
     const projects = model.v2Objects.filter((object) => object.objectType === "PROJECT");
-    if (!projects.length) return empty("暂无 Project 可重入", "先在对象工作区创建 Project；这里会从同一 SQLite 投影恢复状态、关联和下一步。");
+    if (!projects.length) return empty("暂无可继续的项目", "先创建项目；这里会显示当前状态、关联和下一步。");
     const objectById = new Map(model.v2Objects.map((object) => [object.objectId, object]));
     const nowItems = model.v2NowWork ? [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview] : [];
     const focused = new Set(model.v2NowWork?.focus.map((item) => item.objectId) ?? []);
@@ -764,12 +763,19 @@ function renderReentry(model: UiModel): string {
       const related = (model.v2Associations ?? []).filter((association) => association.sourceObjectId === project.objectId || association.targetObjectId === project.objectId).map((association) => objectById.get(association.sourceObjectId === project.objectId ? association.targetObjectId : association.sourceObjectId)).filter((object): object is V2ManagedObject => object !== undefined);
       const nowItem = nowItems.find((item) => item.objectId === project.objectId);
       const condition = project.condition.kind === "ACTIONABLE" ? "可行动" : project.condition.kind === "WAITING" ? `等待：${project.condition.waitingFor}；期待 ${project.condition.expectedResult}` : project.condition.kind === "BLOCKED" ? `阻塞：${project.condition.reason}` : `暂停：${project.condition.reason}`;
+      const lifecycle = project.lifecycle === "OPEN" ? "进行中" : project.lifecycle === "COMPLETED" ? "已完成" : "已取消";
       const closure = project.closure && "actualResult" in project.closure ? `<section><h3>完成回顾</h3><p>${escapeHtml(project.closure.actualResult)}</p></section>` : "";
-      return `<article class="card reentry"><div class="eyebrow">${escapeHtml(project.lifecycle)} · ${escapeHtml(project.condition.kind)} · v${escapeHtml(project.version)}</div><h2>${escapeHtml(project.text)}</h2><p class="lead">${escapeHtml(condition)}</p>${renderV2ProjectStructure(project)}${children.length ? `<section><h3>当前主归属对象</h3><ul>${children.map((child) => `<li>${escapeHtml(child.objectType)} · ${escapeHtml(child.text)} · ${escapeHtml(child.lifecycle)}</li>`).join("")}</ul></section>` : ""}${related.length ? `<section><h3>相关对象</h3><ul>${related.map((object) => `<li>${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</li>`).join("")}</ul></section>` : ""}${closure}<section class="restore"><h3>建议恢复动作</h3><p>${escapeHtml(nowItem?.reason ?? (project.lifecycle === "OPEN" ? "检查 Project 当前推进、Condition 与主归属对象，明确下一步后加入当前关注。" : "查看完成回顾与关联成果；需要继续时走显式重开 Proposal。"))}</p></section><div class="actions">${nowItem?.primaryAnchorExternalId ? button("打开 Project 正文", "v2-open-primary-anchor", nowItem.primaryAnchorExternalId, "quiet") : ""}${project.lifecycle === "OPEN" ? button("调整 Project", "v2-project-operation-router-open", `${project.objectId}|${project.version}`, "quiet") : ""}${project.lifecycle === "OPEN" ? button("更新状态", "v2-condition-open", `${project.objectId}|${project.version}`, "quiet") : ""}${project.lifecycle === "OPEN" && !focused.has(project.objectId) ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "primary") : ""}</div></article>`;
+      const primary = nowItem?.primaryAnchorExternalId
+        ? button("打开项目", "v2-open-primary-anchor", nowItem.primaryAnchorExternalId, "primary")
+        : project.lifecycle === "OPEN" && !focused.has(project.objectId)
+          ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "primary")
+          : "";
+      const moreActions = `${project.lifecycle === "OPEN" ? button("调整项目", "v2-project-operation-router-open", `${project.objectId}|${project.version}`, "quiet") : ""}${project.lifecycle === "OPEN" ? button("更新状态", "v2-condition-open", `${project.objectId}|${project.version}`, "quiet") : ""}${project.lifecycle === "OPEN" && !focused.has(project.objectId) && nowItem?.primaryAnchorExternalId ? button("加入当前关注", "v2-focus-add", `${project.objectId}|${project.version}`, "quiet") : ""}`;
+      return `<article class="card reentry"><div class="eyebrow">${escapeHtml(lifecycle)}</div><h2>${escapeHtml(project.text)}</h2><p class="lead">${escapeHtml(condition)}</p>${renderV2ProjectStructure(project)}${children.length ? `<section><h3>当前主归属事项</h3><ul>${children.map((child) => `<li>${escapeHtml(objectTypeLabel(child.objectType))} · ${escapeHtml(child.text)}</li>`).join("")}</ul></section>` : ""}${related.length ? `<section><h3>相关事项</h3><ul>${related.map((object) => `<li>${escapeHtml(objectTypeLabel(object.objectType))} · ${escapeHtml(object.text)}</li>`).join("")}</ul></section>` : ""}${closure}<section class="restore"><h3>建议从这里继续</h3><p>${escapeHtml(nowItem?.reason ?? (project.lifecycle === "OPEN" ? "查看当前推进和相关事项，明确下一步后再决定是否加入当前关注。" : "查看完成回顾与关联成果；需要继续时先审阅重开影响。"))}</p></section><div class="actions">${primary}</div>${moreActions ? `<details><summary>更多操作</summary><div class="actions">${moreActions}</div></details>` : ""}</article>`;
     }).join("");
-    return `<section><div class="eyebrow">V2 SQLite 实时投影</div><h2>Project 重入</h2><p class="muted">状态、主归属、普通关联和 Now Work 理由均来自同一 Local Service；此页不保存恢复包副本。</p><div class="cards">${cards}</div></section>`;
+    return `<section><h2>继续项目</h2><p class="muted">先看当前状态和最值得继续的入口；需要时再展开其他操作和依据。</p><div class="cards">${cards}</div></section>`;
   }
-  if (!model.reentry) return empty("暂无 Project 可重入", "创建 Project 后，这里会生成行动导向的恢复包。");
+  if (!model.reentry) return empty("暂无可继续的项目", "创建项目后，这里会显示当前状态和最值得继续的入口。");
   const reentry = model.reentry;
   const selector = `<div class="object-list">${model.reentryProjects.map((project) => `<button class="object-row ${project.objectId === model.selectedReentryProjectId ? "active" : ""}" data-action="select-reentry-project" data-value="${escapeHtml(project.objectId)}"><span>${escapeHtml(project.text)}</span><small>${escapeHtml(project.phase)}</small></button>`).join("")}</div>`;
   return `<div class="split">${selector}<article class="reentry">
@@ -1096,7 +1102,7 @@ function primaryWorkspace(workspace: Workspace): PrimaryWorkspace {
 function sectionNavigation(model: UiModel): string {
   if (model.workspace === "objects" || model.workspace === "reentry") {
     const entries: Array<[Workspace, string]> = [
-      ["reentry", "项目列表与重入"],
+      ["reentry", "继续项目"],
       ["objects", "正式事项与创建"],
     ];
     return `<nav class="section-nav" aria-label="项目区域">${entries.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}" aria-pressed="${model.workspace === id}">${label}</button>`).join("")}</nav>`;
