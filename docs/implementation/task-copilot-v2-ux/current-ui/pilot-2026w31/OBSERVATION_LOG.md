@@ -205,7 +205,35 @@ Runtime 或 Recovery，而是让既有 `BlockConditionController` 和 `changeCon
 - Provider 调用 `0`；没有 Skill/Prompt/Validator 变化。正式写入只有既有 Condition，
   Focus、Lifecycle、正文、Anchor、Proposal 和 Commit 均未改变。
 
-## 轻量指标（截至 Day 6 Waiting 恢复链）
+## Day 7：正文移动、改名与稳定身份
+
+直接使用 Day 4 创建的真实 MiniProject。用户在 Logseq 工作现场把整棵子树 Cut/Paste 到
+`模拟使用/2026-W31/PILOT-2026W31-A/Day 7 移动目标`，再把根 Block 改为
+`[MiniProject] Tingyun deployment and validation`。这不是 Task Copilot 的批量正文迁移
+命令，而是普通 Logseq 编辑；Task Copilot 只通过既有 explicit sync 和 Anchor 观察核对
+正式对象，没有绕过 Service 写正式语义。
+
+| 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
+|---|---|---|---|---|
+| `screenshots/day-07-miniproject-moved-renamed-current-light-1c18e9b.jpg` | 在新 Page 查看移动并改名后的完整子树 | 根 Block 与 8 个子项保持层级；正文可继续正常编辑 | explicit sync 并 reload |
+| `screenshots/day-07-miniproject-after-reload-now-current-light-1c18e9b.jpg` | reload 后检查事务连续性 | 新标题出现在“接下来值得处理”第一项；当前仍可行动 | 打开正文 |
+| `screenshots/day-07-miniproject-anchor-open-current-light-1c18e9b.jpg` | 从 Now 返回移动后的业务现场 | 精确进入新 Page 的同一根 Block；URL anchor 仍是原 UUID | 检查系统健康 |
+| `screenshots/day-07-miniproject-move-health-current-light-1c18e9b.jpg` | 核对移动后是否产生连接或恢复风险 | 未发现未完成修改或正文连接冲突；无需操作 | 继续 duplicate/missing 变体 |
+
+只读 Service 前后核对：
+
+- Object version `3→5`（移动和改名各经一次既有 explicit sync）；
+- external identity/Block UUID `6a688951-0545-4c44-b350-df53c204ae21` 不变；
+- 正文标题已更新，Primary Anchor 保持 `active`；
+- Proposal、Commit、Recovery、正式 Condition/Focus/Lifecycle 变化均为 `0`；
+- 真实 plugin reload 后定位正确；没有错误提供 Rebind。
+
+该链关闭“同一 UUID moved + renamed 后仍可重入”的代表性 Anchor 子 Gate。复制出的相似
+Block、真正 missing/conflict、候选解释、Rebind 成功与纠错指引仍开放，不能把本次稳定
+移动写成 P2-G Rebind 完成。Computer Use 无法提交中文输入法候选，故本次用 ASCII 标题；
+这不替代 P0-J 原生中文 IME Gate。
+
+## 轻量指标（截至 Day 7 moved/renamed 链）
 
 | 指标 | 结果 |
 |---|---:|
@@ -218,3 +246,4 @@ Runtime 或 Recovery，而是让既有 `BlockConditionController` 和 `changeCon
 | 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
 | 新 active Skill / Runtime / Recovery | 0 / 0 / 0；既有 Skill 1.5.0→1.6.0，旧版退休 |
 | Day 6 Partial 净变化 | -1（Waiting→行动原地恢复链） |
+| Day 7 Partial 净变化 | -1（同 UUID moved/renamed→reload→重入代表链） |

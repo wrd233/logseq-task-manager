@@ -136,9 +136,12 @@ P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_OPEN`：
 已完成 Day 1—2、Day 3 Waiting、Day 4 MiniProject/Project、Day 5 Project/Context
 Recovery 与 Day 6 Waiting 恢复代表链。Day 6 精确构建 `1c18e9b0ff63` 证明同一 Waiting
 Task 可在原 Block 恢复为行动、返回现场、成为 Now 第一项并在真实 plugin reload 后保持；
-系统健康。累计 32 次真实 DeepSeek；Day 6 不调用 Provider。完整 Day 6 的优先级变化与
-Day 7—10 仍 OPEN。该目录中的截图按 exact commit 登记为 CURRENT，不替代其他宿主/主题
-证据，也不把六日进度写成完整 Pilot。
+系统健康。Day 7 继续用同一精确 Plugin 构建把真实 MiniProject 移动到新 Page 并改名；
+explicit sync 后同一 UUID/identity 与 active Primary Anchor 保持，reload 后 Now 能准确
+打开新位置，系统无正文连接冲突，故没有误触发 Rebind。累计 32 次真实 DeepSeek；
+Day 6—7 不调用 Provider。Day 7 duplicate/missing/Rebind 变体与 Day 8—10 仍 OPEN。
+该目录中的截图按 exact commit 登记为 CURRENT，不替代其他宿主/主题证据，也不把七日进度
+写成完整 Pilot。
 
 P0-K 当前使用 `p0-k-01`～`08`、`p0-k-10` 与 `p0-k-condition-*`：
 主 Page 入口与“返回原 Page”已通过；right-sidebar、

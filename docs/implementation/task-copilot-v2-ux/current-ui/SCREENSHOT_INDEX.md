@@ -52,6 +52,18 @@ Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 | `pilot-2026w31/screenshots/day-06-now-after-waiting-resume-reload-current-light-1c18e9b.jpg` | CURRENT | 真实重载插件后再开“现在” | ACTIONABLE 正式状态保持，session 消息清除 |
 | `pilot-2026w31/screenshots/day-06-waiting-resume-health-current-light-1c18e9b.jpg` | CURRENT | 打开系统状态 | 无未完成修改或正文连接冲突；无需操作 |
 
+### 连续使用 Pilot Day 7 — exact Plugin build `1c18e9b0ff63`
+
+仓库文档 HEAD 在取证前为 `793cc46a5001`；Plugin 源码和产物仍是精确
+`1c18e9b0ff63`。Logseq `0.10.15`、File Graph `logseq`、host Light、1001×720。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `pilot-2026w31/screenshots/day-07-miniproject-moved-renamed-current-light-1c18e9b.jpg` | CURRENT | 在 Logseq 把真实 MiniProject 子树移动到新 Page 并改名 | 层级和正文保留；进入 explicit sync/reload |
+| `pilot-2026w31/screenshots/day-07-miniproject-after-reload-now-current-light-1c18e9b.jpg` | CURRENT | 真实重载 Plugin 后打开“现在” | 新标题成为“接下来值得处理”第一项；打开正文 |
+| `pilot-2026w31/screenshots/day-07-miniproject-anchor-open-current-light-1c18e9b.jpg` | CURRENT | 从 Now 打开移动后的 MiniProject | 精确进入新 Page 的原 UUID 根 Block |
+| `pilot-2026w31/screenshots/day-07-miniproject-move-health-current-light-1c18e9b.jpg` | CURRENT | 打开系统状态 | 无未完成修改或正文连接冲突；无需 Rebind |
+
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
 Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌

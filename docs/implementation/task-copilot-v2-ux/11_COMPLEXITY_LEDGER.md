@@ -19,6 +19,19 @@
 
 ## 本轮变化（2026-07-28）
 
+### Day 7 稳定移动、改名与 Anchor 重入
+
+- 新增正式状态、顶层导航、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威与
+  新长期 Partial：均为 `0`。
+- 复用既有机制：普通 Logseq Cut/Paste/rename、explicit sync、原 UUID identity、Primary
+  Anchor、Now worksite route 与系统状态；没有为“移动过”增加正式状态或独立 Rebind 流程。
+- 精确 Plugin 构建 `1c18e9b0ff63` 在 Logseq 0.10.15 File Graph / host Light /
+  1001×720 完成移动→改名→sync→reload→Now→打开新位置→系统健康。
+- Partial 净变化 `-1`：关闭同一 UUID moved/renamed 代表子 Gate；duplicate/missing/
+  conflict 与 Rebind 纠错仍在既有 P2-G Partial 内，没有拆成多个长期 Partial。
+- 风险变化：状态膨胀、Recovery 分裂和 Agent Runtime 风险不变；Anchor 复杂度继续留在
+  后台，前台只显示“打开正文”和“无需操作”。
+
 ### Day 6 Waiting 恢复与 Now 重排
 
 - 新增正式状态、顶层导航、Runtime、Recovery 分支、Skill/Prompt/Validator、写入权威和

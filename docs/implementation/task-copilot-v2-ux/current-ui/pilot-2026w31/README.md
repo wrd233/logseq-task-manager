@@ -1,6 +1,6 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_6_WAITING_RESUME_DONE`
+> 状态：`IN_PROGRESS_DAY_7_MOVE_RENAME_DONE`
 > 当前精确构建：`1c18e9b0ff63`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
@@ -35,7 +35,8 @@ Proposal / Commit / Undo / Recovery。
 | Day 4 | DONE_REPRESENTATIVE_WITH_UX_BLOCKERS | 自然材料形成 MiniProject；真实 DeepSeek 自适应 Grill；Page 来源超限 fail-closed；Blank Project 经 Preview/HIGH/Create/reload/Undo；精确构建健康复核 | 正式链安全，但确认重复、推荐越界、结果墙和工程词仍阻断发布 |
 | Day 5 | DONE_REPRESENTATIVE_WITH_UX_DEBT | 三组各 5 轮真实 Grill + 1 次 Preview；最终组完成 HIGH/Create/reload/Context Recovery/反馈清除/Undo/健康复核 | 1.6.0 保留业务未知并生成真实当前推进；AI 增量准确但对新 Project 价值有限；结果墙和重复确认仍阻断发布 |
 | Day 6 | PARTIAL_WAITING_RESUME_DONE | 使用 Day 3 的真实 Waiting Task；原 Block 恢复为可行动→返回现场→Now 重排→真实 plugin reload→健康复核 | Waiting 可以自然回到行动；现有 Now 会把它排到“接下来值得处理”第一项，但整体列表仍偏长，Dynamic Now 对照继续开放 |
-| Day 7—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
+| Day 7 | PARTIAL_MOVE_RENAME_DONE | 在 Logseq 中把真实 MiniProject 整棵子树 Cut/Paste 到新 Page，并改名；explicit sync→真实 plugin reload→Now→打开正文→健康复核 | 同一 UUID 移动和改名后 Primary Anchor 保持 active，Now 能打开到新位置；不应误触发 Rebind |
+| Day 8—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
 
 ## Provider 与安全计数
 
@@ -49,7 +50,9 @@ Proposal / Commit / Undo / Recovery。
 - 正式写入：Day 1 创建 Task；Day 2 先精确 Undo 再以纠正来源创建 Task；Day 3 仅修改
   该 Task 的 Condition；Day 4 创建 MiniProject，并创建后完整 Undo Graylog Project；
   Day 5 创建 Project 后完成真实 reload、Context Recovery 零写入和完整 Undo；Day 6
-  复用同一 `changeCondition` 权威把该 Task 从 Waiting 恢复为 Actionable
+  复用同一 `changeCondition` 权威把该 Task 从 Waiting 恢复为 Actionable；Day 7 的移动
+  和改名是用户在 Logseq 工作现场的普通正文编辑，随后由既有 explicit sync 核对正式对象，
+  没有 Proposal、Commit 或 Recovery
 - Key 泄漏、正文进入普通日志、绕过 Service、手改 SQLite：`0`
 
 Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务歧义；Day 2 补充说明后，
@@ -100,6 +103,10 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
     Now Shadow 为 `Continue 1 / Review 0 / Keep waiting 0 / Suggested 0 / Suppressed 10`。
     Shadow 会隐藏刚恢复但未加入 Focus 的 Task，故继续保持 Shadow；不能用“更少卡片”
     交换事务连续性。
+18. Day 7 将 MiniProject 移动到新 Page 并改名后，同一 Logseq UUID 和 external identity
+    保持，Primary Anchor 仍为 active；真实 reload 后 Now 能定位新标题，点击“打开正文”
+    精确进入新 Page 的同一 Block。系统没有把稳定移动误报成失联，也没有要求用户理解
+    UUID、hash 或 Anchor。复制相似 Block、真正 missing/conflict 与 Rebind 纠错仍待后续。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -114,12 +121,14 @@ working-tree build 上运行，但产物内嵌 commit 仍为 `fbd14eb`，因此�
 `19de8de0f47c` 的产物完成 Preview、Create、reload、Context Recovery 与 Undo。共同宿主为 Logseq 0.10.15、
 File Graph `logseq`、host Light、约 1000×720。Day 6 使用真正内嵌
 `1c18e9b0ff63` 的产物完成 Waiting 恢复、返回现场、Now 重排、reload 和健康复核。
+Day 7 继续使用同一精确 Plugin 构建完成 MiniProject 移动、改名、explicit sync、
+reload、从 Now 打开新位置和健康复核；仓库文档 HEAD 在取证前为 `793cc46a5001`，
+没有用后续文档提交冒充 Plugin 构建。
 详细结论见 `OBSERVATION_LOG.md`。
 
 ## 下一段
 
-1. 用 Day 1—6 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
-   前台分区；当前对照 Gate 已失败，不先增加新的 Attention 类型或 Block Marker；
-2. 继续 Day 6 的优先级变化和 Dynamic Now 对照，并推进 Day 7 moved/renamed/duplicate
-   Anchor 与 Rebind；
-3. 收敛创建完成卡的工程词与长结果墙，同时保持 Audit/Commit 证据在折叠详情中。
+1. 继续 Day 7 的 duplicate/missing 变体，只在真实 identity 丢失时进入既有 Rebind；
+2. 推进 Day 8 “待我确认”的已处理/暂缓/不相关/不再提醒与 cooldown，取得
+   helpful/noise，而不新增 Attention 类型；
+3. 推进 Day 9 Closure 的完成、Undo 与 `RECOVERY_REQUIRED` 用户语义代表链。

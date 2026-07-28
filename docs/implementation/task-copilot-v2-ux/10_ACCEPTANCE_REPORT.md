@@ -51,6 +51,12 @@ P2-D 当前 Release 边界已明确但整体仍 Partial：16 类 internal intent
 Ownership/Closure 保持专用链，批量/移动/拆分合并路由外部 Agent，Association 与 Project
 due 在 inverse/语义未齐前禁用。该结论不把未实现能力写成 Out of Scope。
 
+连续使用 Day 7 已通过同一 UUID moved/renamed 的代表性 Anchor Gate：真实 MiniProject
+子树在 Logseq 工作现场移动到新 Page 并改名，explicit sync 后 identity 保持且 Primary
+Anchor `active`；真实 Plugin reload 后 Now 能准确打开新位置，系统无正文连接冲突，也
+没有错误要求 Rebind。该项只验收稳定移动，不把 duplicate/missing/conflict 或 Rebind
+纠错写成完成。
+
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据

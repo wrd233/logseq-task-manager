@@ -18,8 +18,9 @@
 > 代表子链、Day 4 MiniProject/Project create→reload→Undo 与 Day 5
 > Project→Context Recovery→reload→Undo 代表链；`19de8de0f47c` 已用第三组真实 Provider
 > 复验 current-interface 通用合同与最终 UI；`1c18e9b0ff63` 又关闭 Day 6
-> Waiting→Actionable→返回现场→Now 重排→reload 代表链。完整
-> 7—10 日 Pilot、P1
+> Waiting→Actionable→返回现场→Now 重排→reload 代表链；同一精确 Plugin 构建又关闭
+> Day 7 MiniProject moved/renamed→explicit sync→reload→Now→原 UUID 返回代表链。完整
+> Day 7 duplicate/missing 与 Day 8—10 Pilot、P1
 > 前台和整体 Goal 仍未完成。
 
 ## 总体状态
@@ -73,6 +74,18 @@
 - 没有新增 intent、用户入口、正式状态、Runtime、Recovery、Skill/Prompt/Validator；
   没有把待外部 Agent 的能力改成 Out of Scope。P2-D 仍 Partial，Day 7/9 继续验证边界。
 - 详细矩阵：`logs/p2-d-release-boundary-pilot-20260728.md`。
+
+### 2026-07-28 连续使用 Pilot Day 7 稳定移动
+
+- 在当前测试 Graph 中把 Day 4 真实 MiniProject 子树 Cut/Paste 到新 Page 并改名；这是
+  Logseq 工作现场的普通正文编辑，不是绕过 Proposal/Commit 的正式语义写入。
+- 既有 explicit sync 将 Object version `3→5`；原 Block UUID/external identity 不变，
+  Primary Anchor 保持 `active`。真实 Plugin reload 后新标题出现在 Now 第一项，并可精确
+  打开到新 Page 的同一 Block。
+- 系统状态为“未发现未完成修改或正文连接冲突”；Rebind 正确地没有出现。该证据关闭同一
+  UUID moved/renamed 代表子 Gate，不覆盖复制相似项、真正 missing/conflict 或 Rebind 指引。
+- Provider/Skill/Prompt/Validator 调用或变化 `0`；新增正式状态、Runtime、Recovery 分支、
+  正式写入和长期 Partial `0`；关闭代表子 Partial `1`，净变化 `-1`。
 
 ### 2026-07-28 连续使用 Pilot Day 1—3 与 P0-J 正式边界
 
