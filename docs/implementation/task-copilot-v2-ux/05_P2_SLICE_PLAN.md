@@ -209,6 +209,9 @@ active Primary Page Anchor，不写、不标记、不删除来源 Page。两次 
 MiniProject“演化为 Project”最终使用 `project-creation-modeling@1.6.0`。1.5.0 的真实
 Day 5 样本曾把“重入页显示什么”误收为业务当前推进；1.6.0 将 `current-interface`
 统一收窄为可继续的真实工作，并在 Grill、Prompt 和 Validator 三层拒绝页面布局要求。
+`19de8de0f47c` 已用第三组真实 5 轮 Grill + Preview 证明该语义和“目标 / 当前推进”
+前台渲染均成立，并继续完成 HIGH Review、正式创建、reload、Context Recovery、Undo 与
+0/0/0 健康复核。1.6.0 当前为 `CANDIDATE/DESKTOP_VERIFIED`，不因一次成功晋升 Production。
 此前真实测试先后把
 machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和 evidence repair 过宽
 暴露为失败样本并关闭。当前 Preview 的五项来源均为 `LINK_AS_SOURCE`，模型提出的嵌入

@@ -28,11 +28,12 @@ File Graph、Dark/Light 1000×720、Light 723×720 均显示当前状态、一�
 只关闭两个 UI Partial，不替代 Project 创建正式 Commit/Undo 的既有证据，也不关闭 P2-C
 其余视觉项、P2-D～G 或最终发布。
 
-`7a0b444` 已关闭最近修改卡的撤销资格/按钮矛盾：最新 Logseq 0.10.15 File Graph、
-Light、约 1000×720 的精确构建显示“可以发起撤销，执行时重新检查”，同时系统
-Pending/Recovery/Conflict `0/0/0`、explicit sync clean。Project 创建 Undo 的成功消息
-工程词压缩仅为 `AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`，不能借 `fbd14eb`
-历史 Undo 截图升级为 Desktop DONE。
+`7a0b444` 已关闭最近修改卡的撤销资格/按钮矛盾；`19de8de` 又在最新 Logseq 0.10.15
+File Graph、约 1000×720 的精确构建完成真实 Project 创建→reload→Context Recovery→
+反馈→reload→Undo。Undo 成功消息不再泄漏 Project/Anchor/Audit/Commit，专用空白 Page
+被移除并返回 Logseq；再次真实插件 reload 后 Pending/Recovery/Conflict `0/0/0`、
+explicit sync clean。创建完成卡仍泄漏“正式 Commit 已完整完成”并复制长最终阅读，
+因此只关闭 Undo 成功表达 Gate，不宣布 P2-C 或 Final Release 完成。
 
 ## 2. P0 验收
 
@@ -321,10 +322,12 @@ P0/P1/P2 或 Final Release 标为 DONE。
   Day 4 MiniProject/Project create→reload→Undo；Day 5 又用 6 次真实 DeepSeek 暴露
   `currentInterface` 把页面显示要求误作业务推进的通用合同缺陷，并在 Preview 取消、
   零 Proposal/零正式写入。第二组 1.6.0 真实复验又用 6 次调用保留业务未知并生成可行动
-  当前推进；Pilot 累计 26 次真实 DeepSeek。普通笔记未被
+  当前推进；第三组 6 次调用在 `19de8de0f47c` 完成最终 Preview、HIGH Review、Create、
+  reload、Context Recovery、feedback clear、Undo 与健康复核；Pilot 累计 32 次真实
+  DeepSeek。普通笔记未被
   自动正式化，Now 未立即洪水，Page 来源超预算已安全解释，Project Undo 后精确构建
-  0/0/0 且 explicit sync clean。`project-creation-modeling@1.6.0` 的自动 Gate 已通过，
-  真实 Provider/Desktop 复验仍开放。完整 Day 3、Day 5—10、
+  0/0/0 且 explicit sync clean。`project-creation-modeling@1.6.0` 已达
+  `CANDIDATE/DESKTOP_VERIFIED`。完整 Day 3、Day 6—10、
   Dynamic Now 对照、Attention helpful/noise、disposition/cooldown 和 P2-D 边界仍开放；
 - [ ] P0/P1/P2 完成报告；
 - [ ] 已知限制；

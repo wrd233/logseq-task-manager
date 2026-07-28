@@ -26,13 +26,20 @@ Logseq `0.10.15`；File Graph `logseq`；host Light；约 1000×720。测试正�
 
 Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 
-### 连续使用 Pilot Day 5 — historical defect at Plugin `7a0b444`
+### 连续使用 Pilot Day 5 — exact build `19de8de0f47c`
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
 | `pilot-2026w31/screenshots/day-05-project-preview-current-interface-misclassified-defect-light-plugin-7a0b444.jpg` | HISTORICAL_DEFECT | 5 轮真实 Grill 后生成 Project Preview | 页面显示要求被误作业务当前推进；在 Preview 取消，零 Proposal/正式写入；由 `project-creation-modeling@1.6.0` 自动合同替代，待真实 Provider/Desktop 复验 |
 | `pilot-2026w31/screenshots/day-05-project-grill-actionable-ready-current-light-f7a5252.jpg` | CURRENT_AT_F7A5252 | 1.6.0 完成第二组真实 Grill | 真实未知均保留；当前推进是采集第一条真实 syslog |
 | `pilot-2026w31/screenshots/day-05-project-preview-actionable-grammar-defect-light-f7a5252.jpg` | HISTORICAL_UI_DEFECT | 生成业务语义正确的 Preview | 固定句式重复“当前先从先确认”；由目标/当前推进两行替代 |
+| `pilot-2026w31/screenshots/day-05-project-preview-actionable-current-light-19de8de.jpg` | CURRENT | 第三组真实 Grill 后生成 Preview | 目标与当前推进分行；真实动作保留，进入 HIGH Review |
+| `pilot-2026w31/screenshots/day-05-project-created-current-light-19de8de.jpg` | CURRENT_WITH_UX_DEBT | 审阅方案并确认应用 | Project/Page 正式创建；落地页有一个当前动作，但完成卡仍泄漏 Commit 与长结果 |
+| `pilot-2026w31/screenshots/day-05-project-after-reload-current-light-19de8de.jpg` | CURRENT | 真实重载插件后重入 | Project 保持；可恢复上下文；旧 session 草稿不持久化 |
+| `pilot-2026w31/screenshots/day-05-context-recovery-loading-current-light-19de8de.jpg` | CURRENT | 发起 Context Recovery | loading 明确零正式变化 |
+| `pilot-2026w31/screenshots/day-05-context-recovery-success-current-light-19de8de.jpg` | CURRENT | 真实 DeepSeek 返回并展开依据 | 无草稿/反馈伪未知；一个可行动入口；AI 增量准确但有限 |
+| `pilot-2026w31/screenshots/day-05-project-undo-return-current-light-19de8de.jpg` | CURRENT | 从最近修改撤销创建 | 专用空白页移除，返回 Logseq，成功消息无工程词 |
+| `pilot-2026w31/screenshots/day-05-project-undo-health-current-light-19de8de.jpg` | CURRENT | Undo 后真实重载并展开诊断 | Pending/Recovery/Conflict 0/0/0；explicit sync clean |
 
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
@@ -61,8 +68,8 @@ Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初
 | `pilot-2026w31/screenshots/day-04-undo-guidance-current-light-7a0b444.jpg` | CURRENT | reload 后打开最近修改 | 存在真实撤销入口时明确可以发起撤销且执行时重验，不再显示相反结论 |
 | `pilot-2026w31/screenshots/day-04-undo-guidance-health-current-light-7a0b444.jpg` | CURRENT | 打开系统状态并展开诊断 | Plugin `7a0b444821b7`；0/0/0；explicit sync clean |
 
-Project 创建 Undo 的新成功消息只完成自动验证；旧 `fbd14eb` 的成功截图继续保留为历史
-缺陷证据，不升级为当前 Desktop 证据。
+Project 创建 Undo 的新成功消息已经由 Day 5 exact build `19de8de0f47c` 完成真实验证；
+旧 `fbd14eb` 的成功截图继续保留为历史缺陷证据。
 
 ### P0-J ended formal boundary — exact build `bc79ffd`
 

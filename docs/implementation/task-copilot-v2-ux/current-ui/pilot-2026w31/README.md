@@ -1,7 +1,7 @@
 # Task Copilot 连续使用 Pilot：PILOT-2026W31-A
 
-> 状态：`IN_PROGRESS_DAY_5_CURRENT_INTERFACE_FIX_AUTOMATED`
-> 当前精确构建：`7a0b444821b7`
+> 状态：`IN_PROGRESS_DAY_5_REPRESENTATIVE_DONE`
+> 当前精确构建：`19de8de0f47c`
 > 分支：`feature/task-copilot-mvp`
 > Logseq：`0.10.15`
 > Graph：File Graph `logseq`（专用测试 Graph）
@@ -33,20 +33,21 @@ Proposal / Commit / Undo / Recovery。
 | Day 2 | DONE_REPRESENTATIVE | 7 条纠正/补充；Undo 错误 Task；改原文；真实 DeepSeek 重新正式化；reload | 正式写入可恢复，但纠正路径过长 |
 | Day 3 | PARTIAL_WAITING_SUBCHAIN_DONE | 6 条自然输入；一个正式 Task 设为等待网络组并设置 reviewAt；reload/DB 读回 | Waiting 不再占用“继续处理”，但前台缺少安静的“保持等待”确认 |
 | Day 4 | DONE_REPRESENTATIVE_WITH_UX_BLOCKERS | 自然材料形成 MiniProject；真实 DeepSeek 自适应 Grill；Page 来源超限 fail-closed；Blank Project 经 Preview/HIGH/Create/reload/Undo；精确构建健康复核 | 正式链安全，但确认重复、推荐越界、结果墙和工程词仍阻断发布 |
-| Day 5 | PARTIAL_PROVIDER_FIX_VERIFIED_UI_RERUN_OPEN | 两组各 5 轮真实 Grill + 1 次 Preview；均在 Preview/Review 前保持零正式写入 | 1.6.0 保留业务未知并生成真实当前推进；最新渲染压缩待 Desktop 复验和正式创建 |
+| Day 5 | DONE_REPRESENTATIVE_WITH_UX_DEBT | 三组各 5 轮真实 Grill + 1 次 Preview；最终组完成 HIGH/Create/reload/Context Recovery/反馈清除/Undo/健康复核 | 1.6.0 保留业务未知并生成真实当前推进；AI 增量准确但对新 Project 价值有限；结果墙和重复确认仍阻断发布 |
 | Day 6—10 | OPEN | 尚未运行 | 不用历史截图或单点 Golden Flow 代替 |
 
 ## Provider 与安全计数
 
-- 真实 Provider 调用：`26`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
-  Grill/Preview 为 7；Day 5 两组重建 Project Grill/Preview 各 6；Page 来源超限在 Provider 前拒绝）
+- 真实 Provider 调用：`32`（Day 1—2 为 2；Day 4 MiniProject 为 5；Blank Project
+  Grill/Preview 为 7；Day 5 三组重建 Project Grill/Preview 各 6；Page 来源超限在 Provider 前拒绝）
 - Validator rejection：`0`
 - 自动 retry：`0`
 - abstention：`0`
 - 新 active Skill 数量：`0`；`project-creation-modeling` 从 1.5.0 升至 1.6.0，
   1.5.0 退休
 - 正式写入：Day 1 创建 Task；Day 2 先精确 Undo 再以纠正来源创建 Task；Day 3 仅修改
-  该 Task 的 Condition；Day 4 创建 MiniProject，并创建后完整 Undo Graylog Project
+  该 Task 的 Condition；Day 4 创建 MiniProject，并创建后完整 Undo Graylog Project；
+  Day 5 创建 Project 后完成真实 reload、Context Recovery 零写入和完整 Undo
 - Key 泄漏、正文进入普通日志、绕过 Service、手改 SQLite：`0`
 
 Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务歧义；Day 2 补充说明后，
@@ -77,15 +78,18 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
 10. Project 创建链仍有“审阅方案 → 勾选确认方案 → 确认创建 → 勾选确认应用”的重复
     判断；创建结果和历史页仍形成长墙。撤销资格矛盾已由 `7a0b444` 关闭。
 11. Project Undo 本身通过：专用空 Page 和正式 Project 消失，来源与 MiniProject 保留；
-    `7a0b444` 已自动收敛成功消息，不再泄漏 `Project / Anchor / Audit / Commit`；该新
-    成功消息尚未重新执行一次真实 Project Undo，不能借历史截图升级为 Desktop DONE。
-    精确 `7a0b444` reload 后 Pending/Recovery/Conflict `0/0/0`、explicit sync clean。
+    `19de8de` 已真实验证新成功消息不再泄漏 `Project / Anchor / Audit / Commit`。再次真实
+    plugin reload 后 Project 不回现，Pending/Recovery/Conflict `0/0/0`、explicit sync clean。
 12. Day 5 真实 Preview 将“重入页显示一句状态、一个推进和材料入口”误作业务当前推进。
     这不是一条文案缺陷，而是 `CURRENT_INTERFACE` 混合了产品界面和业务动作。用户在
     Preview 取消，零 Proposal/正式写入；1.6.0 已统一 Grill、Prompt 和 Validator，
     第二组真实 Provider/Desktop 已证明真实未知和行动均保留。
 13. 第二组 Preview 的业务语义正确，但固定渲染产生“当前先从先确认……继续”。这不是
-    Skill 问题；前台已改为独立“目标 / 当前推进”两行，最新构建复验仍开放。
+    Skill 问题；`19de8de` 已用第三组真实 Provider 证明独立“目标 / 当前推进”两行正确。
+14. 新 Project 的 Context Recovery 没有伪造未知或正式写入；因项目刚创建、历史证据很少，
+    AI 增量准确但有限。该结果仍可减少一次全文重读，但不能据此声称所有重入场景高价值。
+15. 创建完成卡仍泄漏“正式 Commit 已完整完成”，并复制较长最终阅读；该既有结果墙问题
+    继续阻断 Final Release，不新增第二结果模型。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -96,13 +100,13 @@ Day 1—3 和 Day 4 自然材料来自 `bc79ffd`；Day 4 创建主链是在与 `
 working-tree build 上运行，但产物内嵌 commit 仍为 `fbd14eb`，因此只登记为
 `HISTORICAL_SOURCE_EQUIVALENT`，不冒充 exact-build CURRENT。Undo 后健康画面已用真正
 内嵌 `42e6a91309ba` 的当前产物重载复核；撤销资格卡又由真正内嵌
-`7a0b444821b7` 的产物重载复验并登记为 `CURRENT`。共同宿主为 Logseq 0.10.15、
+`7a0b444821b7` 的产物重载复验并登记为 `CURRENT`。Day 5 最终链使用真正内嵌
+`19de8de0f47c` 的产物完成 Preview、Create、reload、Context Recovery 与 Undo。共同宿主为 Logseq 0.10.15、
 File Graph `logseq`、host Light、约 1000×720。详细结论见 `OBSERVATION_LOG.md`。
 
 ## 下一段
 
-1. 安装 `project-creation-modeling@1.6.0` 的最新构建，重新建立 Graylog Project，
-   证明当前推进是可行动工作，再进入 Day 5 Context Recovery；在后续真实 Project Undo
-   时复验新的成功消息；
-2. 用 Day 1—5 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
-   前台分区，不先增加新的 Attention 类型或 Block Marker。
+1. 用 Day 1—5 的真实使用证据决定 Dynamic Now 的“继续处理 / 需要回看 / 保持等待”
+   前台分区，不先增加新的 Attention 类型或 Block Marker；
+2. 推进 Day 6 Waiting 恢复与优先级变化，观察 Now 是否自动调整且不重复提醒；
+3. 收敛创建完成卡的工程词与长结果墙，同时保持 Audit/Commit 证据在折叠详情中。

@@ -17,28 +17,37 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
-连续使用 Pilot `PILOT-2026W31-A` 已推进到 Day 5 Project 重建前半链：Day 1—4 的自然
-捕获、Waiting、MiniProject 与 Project create→reload→Undo 证据保持；Day 5 使用同一
-Graylog 材料重新运行 5 轮真实 DeepSeek Grill 与 1 次 Preview 时，发现
+连续使用 Pilot `PILOT-2026W31-A` 已推进到 Day 5 完整代表链：Day 1—4 的自然捕获、
+Waiting、MiniProject 与 Project create→reload→Undo 证据保持；Day 5 使用同一 Graylog
+材料重新运行 5 轮真实 DeepSeek Grill 与 1 次 Preview 时，发现
 `current-interface` 被误解释为“重入页面应显示什么”，并被 Validator 接受为业务当前推进。
 本次 Preview 在进入 Proposal 前取消，正式写入、Proposal 与恢复分支均为 `0`。该失败推动
 `project-creation-modeling@1.6.0` 将 `current-interface` 统一定义为一项可继续的真实工作，
 Grill uncertainty、Provider 输出合同与 Application Validator 共用同一语义；1.5.0 退休，
 不保留平行 active 版本。`f7a5252` 已用第二组 5 轮真实 Grill + 1 次 Preview 证明业务未知
 仍被保留，当前推进正确落到“采集第一条华为 iBMC 原始 syslog”；同时真实 Preview 暴露
-固定渲染句式的“当前先从先确认……继续”重复，已用目标/当前推进两行替代，最新 UI
-构建复验仍 OPEN，因此 Day 5 仍不能标为 DONE。
+固定渲染句式的“当前先从先确认……继续”重复。`19de8de0f47c` 已用第三组 5 轮真实
+Grill + 1 次 Preview 复验“目标 / 当前推进”两行，并继续完成 HIGH Review、正式创建、
+真实插件 reload、Project 重入、真实 Context Recovery、用户反馈、再次 reload、Undo 与
+健康复核。Context Recovery 没有把本次草稿或反馈误作业务未知；对刚创建且证据较少的
+Project，AI 增量准确但有限，主要价值是压缩为一个可行动入口。真实 reload 后 session
+草稿与反馈清除、正式 Project 保持；Undo 删除专用空白 Page 并返回 Logseq 现场，成功消息
+不再泄漏 Project/Anchor/Audit/Commit，随后 Pending/Recovery/Source Conflict `0/0/0`、
+explicit sync clean。Pilot 累计真实 Provider `32` 次，Validator rejection/retry/abstention
+仍为 `0/0/0`。`project-creation-modeling@1.6.0` 可标记
+`CANDIDATE/DESKTOP_VERIFIED`，不能因单条成功升为 Production。
 
 此前 Day 4 代表链中，自然材料形成听云 MiniProject，
 Graylog Project 经真实 DeepSeek 自适应 Grill、Preview、HIGH Review、正式创建、reload、
 Project Page 重入和 Undo；精确构建 `42e6a91309ba` reload 后
 Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。长 Page 来源超过有界预算
 时的用户表达已修复为可行动范围说明，不再伪装 Provider 失败或提供无效 Retry。该轮累计
-真实 Provider 14 次；加上 Day 5 两组各 6 次失败驱动复验，Pilot 累计 26 次，并暴露重复确认、
+真实 Provider 14 次；加上 Day 5 三组各 6 次失败驱动复验，Pilot 累计 32 次，并暴露重复确认、
 无依据模型建议、结果/历史墙、Undo 资格矛盾及成功
 消息工程词。`7a0b444821b7` 已在最新 Desktop 关闭撤销资格/按钮矛盾，并自动压缩
-Project Undo 成功消息；后者仍需下一次真实 Undo 复验。精确构建系统
-Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。重复确认、结果/历史墙仍
+Project Undo 成功消息；`19de8de0f47c` 已完成真实 Undo 复验。精确构建系统
+Pending/Recovery/Source Conflict `0/0/0`、explicit sync clean。创建完成卡仍显示
+“正式 Commit 已完整完成”并复制较长最终阅读，重复确认、结果/历史墙仍
 阻断 Final Release。Day 5—10、Dynamic Now、Attention helpful/noise、
 P2-D 完成边界与 P2-E/P2-G 尾项继续 OPEN，整体 Goal 仍为 `IN_PROGRESS`。
 

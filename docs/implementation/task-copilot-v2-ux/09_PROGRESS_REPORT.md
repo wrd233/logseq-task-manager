@@ -15,8 +15,9 @@
 > Desktop；`73dc1e2` 又关闭正式 Block 的失败、成功、Undo 与 reload 返回链，P0-K 已为
 > DONE_DESKTOP_REPRESENTATIVE；`bc79ffd` 已关闭 P0-J 结束运行后的正式动作边界，原生
 > 中文 IME 仍 OPEN。连续使用 Pilot `PILOT-2026W31-A` 已完成 Day 1—2、Day 3 Waiting
-> 代表子链与 Day 4 MiniProject/Project create→reload→Undo；Day 5 Project 重建的真实
-> Provider 失败样本已经进入通用合同修复，但尚待新构建 Provider/Desktop 复验。完整
+> 代表子链、Day 4 MiniProject/Project create→reload→Undo 与 Day 5
+> Project→Context Recovery→reload→Undo 代表链；`19de8de0f47c` 已用第三组真实 Provider
+> 复验 current-interface 通用合同与最终 UI。完整
 > 7—10 日 Pilot、P1
 > 前台和整体 Goal 仍未完成。
 
@@ -121,7 +122,14 @@
   `currentInterface` 变成采集第一条华为 iBMC syslog 的真实动作，没有把真实未知一起
   过滤。运行时 Validator rejection/retry 仍为 `0/0`。该 Preview 又暴露前台固定句式
   “当前先从先确认……继续”，现改为“目标 / 当前推进”两行；Plugin `352/352`、
-  typecheck/build PASS，最新构建 Desktop 复验仍 OPEN。Pilot 累计 Provider 更新为 `26`。
+  typecheck/build PASS。`19de8de` 又用第三组 5 轮 Grill + 1 次 Preview 复验最终渲染，
+  并完成 HIGH Review、正式创建、真实插件 reload、Context Recovery、反馈、再次 reload、
+  Undo 与健康复核。Context Recovery 没有制造草稿/反馈伪未知，AI 增量准确但对新 Project
+  有限；Undo 成功消息无工程词，随后 Pending/Recovery/Conflict `0/0/0`、explicit sync
+  clean。Pilot 累计 Provider 更新为 `32`，运行时 rejection/retry/abstention `0/0/0`。
+  `project-creation-modeling@1.6.0` 达到 `CANDIDATE/DESKTOP_VERIFIED`，不晋升 Production。
+  关闭 current-interface/渲染/Undo 成功消息三个既有子 Partial；新增长期 Partial `0`。
+  创建完成卡的 Commit 工程词和长结果墙继续作为既有发布阻断。
 
 ### 2026-07-28 P0-K Block Condition 返回现场收口
 
@@ -1011,6 +1019,6 @@ derivative/dashboard 价值也仍未完成。
    bounded host issue；退出后旧 Service PID 按 lease 停止，重开后同一 Launcher 启动新
    Service 并自动恢复正式能力。继续 Rebind 最新指引，不得加入
    第二迁移或恢复状态源。
-3. 继续 `PILOT-2026W31-A`：先关闭 Day 4 撤销资格/按钮和成功消息矛盾，重建 Graylog
-   Project 后进入 Day 5 Context Recovery；用跨日证据收口 Dynamic Now / 第一批 Attention / Block Marker，
-   同时保留 P0-J 原生中文 IME 与 P1-F DB Graph Page Head 的明确开放口径。
+3. 继续 `PILOT-2026W31-A`：推进 Day 6 Waiting 恢复、优先级变化和 Dynamic Now 对照，
+   用跨日证据收口第一批 Attention / disposition / cooldown / Block Marker；同时保留
+   P0-J 原生中文 IME 与 P1-F DB Graph Page Head 的明确开放口径。

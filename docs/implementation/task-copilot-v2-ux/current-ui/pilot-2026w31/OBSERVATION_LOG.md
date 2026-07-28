@@ -125,6 +125,13 @@ Blank 没有虚构来源；原测试 Page 和听云 MiniProject 都保留。Undo
 | `screenshots/day-05-project-preview-current-interface-misclassified-defect-light-plugin-7a0b444.jpg` | 重建 Graylog Project，5 轮真实 Grill 后生成 Preview | 页面显示要求被误列为业务当前推进；旧 Validator 未拒绝 | Preview 取消，零 Proposal/正式写入；用 1.6.0 重跑 | HISTORICAL_DEFECT |
 | `screenshots/day-05-project-grill-actionable-ready-current-light-f7a5252.jpg` | 1.6.0 重跑到 readiness | 五类事实保留；当前推进是采集第一条真实 syslog | 生成 Preview | CURRENT_AT_F7A5252 |
 | `screenshots/day-05-project-preview-actionable-grammar-defect-light-f7a5252.jpg` | 生成 1.6.0 Preview | 业务动作正确；固定句式出现“当前先从先确认” | 改为目标/当前推进两行后重跑 | HISTORICAL_UI_DEFECT |
+| `screenshots/day-05-project-preview-actionable-current-light-19de8de.jpg` | 第三组 1.6.0 真实 Grill 后生成 Preview | 目标与当前推进分行；真实动作保留且无重复句式 | 进入 HIGH Review | CURRENT |
+| `screenshots/day-05-project-created-current-light-19de8de.jpg` | 审阅方案并确认应用 | 正式 Project/Page 已创建；落地页立即显示状态、当前动作与成果 | 真实 plugin reload | CURRENT_WITH_UX_DEBT |
+| `screenshots/day-05-project-after-reload-current-light-19de8de.jpg` | 重载 Task Copilot 后重入 | 正式 Project 保持且可恢复上下文；旧 session 草稿不持久化 | 发起 Context Recovery | CURRENT |
+| `screenshots/day-05-context-recovery-loading-current-light-19de8de.jpg` | 显式发起上下文恢复 | loading 明确项目和正文不会改变 | 等待真实 DeepSeek | CURRENT |
+| `screenshots/day-05-context-recovery-success-current-light-19de8de.jpg` | 展开真实恢复结果 | 没有把本次草稿/反馈误作业务未知；一个当前动作，零正式写入 | 提交“有帮助”反馈并 reload | CURRENT |
+| `screenshots/day-05-project-undo-return-current-light-19de8de.jpg` | 从最近修改执行 Project Undo | 专用空白页移除并返回 Logseq；成功消息无 Project/Anchor/Audit/Commit | 真实 plugin reload | CURRENT |
+| `screenshots/day-05-project-undo-health-current-light-19de8de.jpg` | Undo 后重载并展开系统诊断 | Pending/Recovery/Conflict 0/0/0；explicit sync clean | 进入 Day 6 | CURRENT |
 
 观察：
 
@@ -146,12 +153,12 @@ Blank 没有虚构来源；原测试 Page 和听云 MiniProject 都保留。Undo
 撤销动作时使用与动作一致的用户结论。最新 Logseq Desktop 已证明历史卡不再显示矛盾的
 “证据不足”，且精确构建健康。Project 创建 Undo 的成功消息也已自动改为“新建空白页已
 移除”或“复用来源页保持原样”，但尚未在新构建上再执行一次真实 Project Undo，因此保持
-`AUTOMATED_DONE_DESKTOP_CONFIRMATION_REQUIRED`。
+`DONE_DESKTOP_REPRESENTATIVE`。
 
 自动证据：Plugin `352/352`、typecheck/build、根级 `./scripts/check.sh` PASS，0 skipped。
 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator：`0/0/0/0`。
 
-### Day 5 前半链：Project 当前推进语义
+### Day 5 完整代表链：Project 当前推进语义与 Context Recovery
 
 同一 Graylog 材料重新运行 5 轮真实 DeepSeek Grill 和 1 次 Preview。用户对
 `current-interface` 的回答只描述重入页希望看到的内容，模型仍把它写成正式 Project 的
@@ -162,13 +169,19 @@ Proposal、Commit、正式对象变化与 Recovery 均为 `0`。
 工作”，而非界面、布局、仪表盘或首屏字段。第二组真实 Provider 保留所有业务未知并把
 当前推进正确落到采集第一条真实 syslog；固定渲染句式暴露的重复前台文字已单独修复。
 
-## 轻量指标（截至 Day 5 前半链）
+`19de8de0f47c` 的第三组真实 Provider/Desktop 复验继续完成 HIGH Review、正式创建、真实
+plugin reload、Context Recovery、反馈、再次 reload、Undo 和系统健康。Context Recovery
+没有制造业务未知，reload 后草稿与反馈清除；对刚创建的 Project，AI 增量主要是将已确认
+结构压缩为一个当前动作，准确但增量有限。创建完成卡仍显示“正式 Commit 已完整完成”并
+复制长最终阅读，登记为既有结果墙发布阻断。
+
+## 轻量指标（截至 Day 5 代表链）
 
 | 指标 | 结果 |
 |---|---:|
 | 自然输入 | 20+ 条与 Day 4 两组自然子树 |
 | 正式对象净变化 | MiniProject +1；Graylog Project 创建后已 Undo，净 0 |
-| 真实 Provider | 26 次累计 |
+| 真实 Provider | 32 次累计 |
 | Validator rejection / retry | 0 / 0 |
 | 模型无依据建议 | 2 类（量化门槛、周会/看板） |
 | Attention 前台展示 | 0 |

@@ -19,6 +19,18 @@
 
 ## 本轮变化（2026-07-28）
 
+### Day 5 Project / Context Recovery 完整代表链
+
+- 新增正式状态、顶层导航、Agent Runtime、Recovery 分支、平行写入权威和新 active Skill：
+  均为 `0`；`project-creation-modeling@1.6.0` 取代并退休 1.5.0，不长期并行。
+- 三组真实失败驱动 Provider 复验累计 18 次；Pilot 总计 32 次，Validator rejection/retry/
+  abstention `0/0/0`。第三组证明目标/当前推进语义和前台句式都正确，没有过度过滤真实未知。
+- 真实创建、reload、Context Recovery、feedback clear、Undo 与 0/0/0 健康关闭三个既有
+  子 Partial：current-interface 语义、重复句式、Undo 成功消息。新增长期 Partial `0`，
+  Partial 净变化 `-3`。
+- AI 对刚创建 Project 的增量准确但有限；不新增 Prompt/Skill 补丁。创建完成卡仍有 Commit
+  工程词和长结果墙，继续复用现有结果卡/折叠详情做统一压缩，不创建第二结果模型。
+
 ### Day 4 Undo 前台结论收敛
 
 - 删除一个重复且相互矛盾的用户结论：当同一卡已有真实撤销入口时，不再显示“无法确认
