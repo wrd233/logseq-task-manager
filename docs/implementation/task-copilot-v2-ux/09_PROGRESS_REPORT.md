@@ -1,6 +1,6 @@
 # 交互优化实施进度
 
-> 更新时间：2026-07-27
+> 更新时间：2026-07-28
 > 当前结论：`IN_PROGRESS` — `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；
 > `ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。P0-A Focus、
 > P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
@@ -63,6 +63,12 @@
 - `eba1c54` 继续删除正常连接首屏的重复成功横幅，只保留一个持久 Copilot 状态；Graph
   switch 的 authority 隔离反馈不被静默删除。精确构建 reload 与真实 Provider abstain
   再次 PASS，`p0-k-10` 接管当前画面。
+- `3bd76a6` 合并 Now/Migration 重复对象类型标签，所有可见筛选、分组和卡片类型改为中文；
+  通用 `ACTIONABLE` 只保留一个首屏结论，完整正式事实仍在折叠依据。`f1d0e1f` 又清除
+  `Focus / Now Work` 前台与无障碍术语，统一为“当前关注 / 现在”。Application 169/169、
+  Plugin 343/343、根级检查及真实 Logseq 0.10.15 reload、1000×720、724×720 Gate PASS。
+  本轮关闭 2 个当前 UI 缺陷，但没有把 P1 Attention/Marker 或 P0 宿主 Partial 升级为 DONE；
+  Partial 总量 `0` 新增、`0` 减少。
 - 完成 P0-C LOW 单组单 Block 白名单，`CREATE_OBJECT`/`REWRITE_BLOCK` 之外及 HIGH 组均拒绝；
 - 连续编排复用既有 Review→Graph/版本重验→SemanticCommit→verify，不新增写路径或恢复器；
 - busy 禁用同卡片审阅动作；stale 显示未写入；接受请求不确定时零自动重试并要求刷新；

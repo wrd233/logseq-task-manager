@@ -31,6 +31,14 @@ Provider 可用性显示“可以整理当前页或从待整理继续”，不�
 误写成 Copilot 状态。没有新增正式状态、Runtime、Skill、Validator、写入路径或恢复分支，
 也不关闭 P0/P1/P2 的其余 Partial。
 
+`f1d0e1f1cee9` 又基于最新真实 Desktop 的“现在”页完成一轮日常表面压缩：原先独立维护的
+英文 `Project / MiniProject / Task` 和原始对象枚举，已与 Migration 共用同一中文对象标签；
+通用 `ACTIONABLE` 叙述只在首屏保留“当前可以继续推进”，同一正式事实仍保留在折叠依据，
+不再重复显示；`Focus / Now Work` 可见与无障碍语言改为“当前关注 / 现在”。Application
+169/169、Plugin 343/343、根级检查、1000×720 与 724×720 Logseq 0.10.15 reload Gate
+均通过。该变化没有新增正式状态、Runtime、Skill、Validator、恢复分支或写入路径，也没有
+把仍开放的 Attention/Block Marker/宿主 Gate 伪装为完成。
+
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
   Local Service 读回均已通过；
 - P0-B“暂时做不了”：三种用户意图、最小字段、失败零写入、Focus/Lifecycle 不变、会话内

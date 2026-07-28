@@ -17,6 +17,27 @@
 | 文档/代码/截图漂移 | HIGH | 历史 Desktop 证据多，最新安全提交可能没有新 UI | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；自动-only 安全修复不借用旧截图升级 Desktop 状态；每轮同步 status/progress/acceptance/plan/current-ui | 是 |
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
+## 本轮变化（2026-07-28）
+
+### “现在”标签与状态叙述收敛
+
+- 新增正式状态、顶层导航、Agent Runtime、Skill、Prompt、Validator、恢复分支和平行写入
+  权威：均为 `0`。
+- 删除重复机制：Now 不再维护独立英文对象类型表，改为与 Migration 共用一个中文标签函数；
+  合并重复机制 `1`。
+- 通用 `ACTIONABLE` 仍保留原确定性 conclusion、fact、unknown 和 evidence ref，但
+  `keyEvidence` 不再重复同一事实；首屏减少一条重复说明，完整事实仍在渐进披露中。
+- 前台工程词减少：`Project / MiniProject / Task / Area / Decision / Output` 原始标签、
+  卡片对象枚举以及 `Focus / Now Work` 共 8 组表面词不再进入当前“现在”用户路径。
+- 自动证据：Application `169/169`、Plugin `343/343`、typecheck/build、145 条稳定规则与
+  根级恢复演练 `differences=[]` 全部通过。
+- Desktop：exact build `f1d0e1f1cee9` 在真实 Logseq 0.10.15 reload 后通过 1000×720 和
+  724×720；为保护测试 Graph 其他内容，只保存“项目”筛选后的专用测试对象画面。
+- Partial 总量变化：新增 `0`、关闭 `0`。本轮关闭的是当前 UI 缺陷，不把 Attention、
+  Block Marker、P0 宿主或 P2 恢复尾项虚报为 DONE；后台工程概念泄漏风险保持
+  `MEDIUM`，但日常 Now 表面证据改善。
+- LLM/Provider：本 Slice 不调用模型；Validator 拒绝率、模型重试和 Skill 版本变化不适用。
+
 ## 本轮变化（2026-07-26）
 
 ### P1 Context Recovery 收敛

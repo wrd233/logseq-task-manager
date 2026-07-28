@@ -21,6 +21,23 @@ Graph 首次显示即受限、6 秒稳定 fail-closed 和切回原 authority；`
 `RECOVERY_REQUIRED` 的 HIGH Review、人工恢复、重连和完整 restart；它们不冒充生产 Restore
 连续双重故障注入。`p2-g-44`～`46` 继续只证明 `0c4526d` 的自动回滚交互。
 
+### Now 中文标签与单一结论 — exact build `f1d0e1f1cee9`
+
+Plugin build：`2026-07-28 13:03:00 +0800`；Logseq `0.10.15`；File Graph
+`/Users/wangrundong/work/任务管理中心-logseq插件/logseq`；Plugin 显式 Dark、宿主可见
+表面 Light；真实 Plugin/Launcher/Service。为避免把测试 Graph 中其他 Task 标题写入仓库，
+Desktop 先使用纯会话“项目”筛选，只保留专用测试 Project；筛选没有改变 Focus、对象版本、
+正文或正式状态。
+
+| 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|---|
+| `screenshots/ui-now-chinese-single-conclusion-current-f1d0e1f.png` | CURRENT | Plugin Dark / host Light / 1000×720 | reload exact build，打开“现在”，筛选“项目” | 类型筛选和卡片类型均为中文；筛选说明使用“当前关注”；卡片首屏只有一项状态结论，完整事实留在“查看依据” |
+| `screenshots/ui-now-chinese-single-conclusion-current-narrow-f1d0e1f.png` | CURRENT | Plugin Dark / host Light / 724×720 | 同一会话缩到 724 px | 主结论、筛选、主动作和折叠入口均可达，无横向溢出 |
+
+这两张图替代 `ui-compression-01` 与 `ui-compression-07` 对“现在”当前信息架构的解释权；
+旧图仍保留历史真实运行事实。完整操作记录见
+`../logs/ui-now-language-compression-desktop-live-20260728.md`。
+
 ### UI compression — exact build `f4acf77346b19aa2f096ff2c169bfa7323546062`
 
 Plugin build：`2026-07-27 19:42:41 +0800`；Logseq `0.10.15`；File Graph
@@ -29,13 +46,13 @@ Plugin build：`2026-07-27 19:42:41 +0800`；Logseq `0.10.15`；File Graph
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/ui-compression-01-now-light-f4acf77.jpg` | CURRENT | Light / 1000×720 | 打开“现在” | 卡片只保留一个主动作，依据和次要操作折叠 |
+| `screenshots/ui-compression-01-now-light-f4acf77.jpg` | SUPERSEDED | Light / 1000×720 | 打开“现在” | 卡片只保留一个主动作，依据和次要操作折叠；类型仍为旧英文标签 |
 | `screenshots/ui-compression-02-candidate-language-light-f4acf77.jpg` | CURRENT | Light / 751×720 | 打开“待我确认→待整理” | 普通路径使用“理解当前选中内容/检查当前页”，不显示 Provider/SQLite |
 | `screenshots/ui-compression-03-review-history-light-f4acf77.jpg` | CURRENT | Light / 751×720 | 切到“待审阅” | 当前无待审方案；13 条历史默认折叠，不淹没当前问题 |
 | `screenshots/ui-compression-04-project-intent-light-f4acf77.jpg` | CURRENT | Light / 751×720 | Project 重入→调整项目 | 用户按目的选择，后台影响分级不进入首屏 |
 | `screenshots/ui-compression-05-closure-light-f4acf77.jpg` | CURRENT | Light / 1000×720 | 选择“结束这个项目” | 先显示待判断数、未正式应用和退出安全；下一步为“审阅关闭方案” |
 | `screenshots/ui-compression-06-closure-narrow-light-f4acf77.jpg` | CURRENT | Light / 751×720 | 同一 Closure 首屏 | 主动作仍可见，无横向溢出；逐目标依据默认折叠 |
-| `screenshots/ui-compression-07-now-dark-f4acf77.jpg` | CURRENT | Dark / 1000×720 | 切换宿主主题后打开“现在” | Dark 与 Light 保持相同层级和操作语义 |
+| `screenshots/ui-compression-07-now-dark-f4acf77.jpg` | SUPERSEDED | Dark / 1000×720 | 切换宿主主题后打开“现在” | Dark 与 Light 保持相同层级和操作语义；由 `f1d0e1f` 当前 Now 证据替代 |
 | `screenshots/ui-compression-08-closure-dark-f4acf77.jpg` | CURRENT | Dark / 1000×720 | Dark 下进入 Closure | 安全结论、折叠依据和主操作与 Light 一致 |
 
 这些图片替代 `p0-e-05` 对“现在”布局、旧审阅卡片对当前/历史混排、`p2-d-01`

@@ -3,6 +3,16 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
+最新“现在”精确构建为 `f1d0e1f1cee9`（Plugin build
+`2026-07-28 13:03:00 +0800`）。真实 Logseq 0.10.15 reload 后，对象类型筛选、分组标题和
+卡片 eyebrow 已统一为“项目 / 小项目 / 任务”等中文产品语言；通用可推进状态不再把
+“正式状态允许继续推进”作为第二条首屏依据重复结论，完整正式事实仍在“查看依据”中。
+筛选说明也从 `Focus / Now Work` 收敛为“当前关注 / 现在”。CURRENT
+`ui-now-chinese-single-conclusion-current-f1d0e1f.png` 与
+`ui-now-chinese-single-conclusion-current-narrow-f1d0e1f.png` 分别覆盖 1000×720 和
+724×720；筛选只改变 session view，未改正文或正式状态。`ui-compression-01/07` 因仍显示
+旧英文类型而降为 `SUPERSEDED`。
+
 最新 UI 压缩精确构建为 `f4acf77346b19aa2f096ff2c169bfa7323546062`
 （Plugin build `2026-07-27 19:42:41 +0800`）。`ui-compression-01`～`08` 使用真实
 Logseq 0.10.15 File Graph，覆盖 Light/Dark、1000×720 与 751×720：Now 卡片单一主动作、
