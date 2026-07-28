@@ -204,7 +204,7 @@
   #task-copilot-personal-mvp-root .diagnostic-grid { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 840px) {
+@media (max-width: 1080px) {
   #task-copilot-personal-mvp-root .review-impact,
   #task-copilot-personal-mvp-root .review-impact[data-impact-level="high"] { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .review-impact[data-impact-level="high"] > section:last-child { grid-column: auto; }

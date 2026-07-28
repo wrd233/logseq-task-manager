@@ -1913,6 +1913,14 @@ test("Project creation Review uses the proposal-bound Page creation confirmation
   assert.match(html, /data-action="submit-v2-project-creation-undo"/);
 });
 
+test("HIGH Review stacks its impact summary before the Logseq narrow-window host gate", async () => {
+  const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+  assert.match(
+    css,
+    /@media \(max-width: 1080px\)[\s\S]*\.review-impact\[data-impact-level="high"\] \{ grid-template-columns: 1fr; \}/,
+  );
+});
+
 test("MiniProject restructure Review uses the recoverable Graph Commit and inverse Undo controls", () => {
   const value = model();
   value.workspace = "review";
