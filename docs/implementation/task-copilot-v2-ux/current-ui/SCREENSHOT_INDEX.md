@@ -21,6 +21,22 @@ Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。
 | `screenshots/p0-unfinished-frontstage-final-health-current-3883848.jpg` | CURRENT_AT_3883848 | Undo 后真实 reload 并查看系统状态 | 正式状态已连接；无未完成修改或正文连接冲突 |
 | `screenshots/p0-stale-proposal-archived-current-78528f7.jpg` | CURRENT | 重载修复构建并打开待审阅 | 当前区为空；stale、已应用和已撤销方案只在折叠历史 |
 
+### P0 PENDING same-Commit resume — exact build `78528f7`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。故障只使
+领域收据已存在、同 Commit step 未收口；测试触发器在截图前已删除。
+完整记录见 `../logs/p0-pending-frontstage-desktop-live-20260730.md`。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p0-pending-continue-current-78528f7.jpg` | SUPERSEDED_DEFECT | 正式应用在收据后中断 | 卡片正确，但顶栏泄漏 “Local Service”；由 `dbc5243` 取代 |
+| `screenshots/p0-pending-after-reload-current-78528f7.jpg` | CURRENT | 真实 Plugin Manager reload 后打开工具栏 | 同一持久问题进入最近修改；不创建平行恢复 |
+| `screenshots/p0-pending-resumed-current-78528f7.jpg` | CURRENT | 确认沿用原记录 | 同 Commit 完成，已完成领域步骤不重复；可撤销 |
+| `screenshots/p0-pending-undone-current-78528f7.jpg` | CURRENT | 执行 Closure inverse Undo | Project 恢复进行中，完成回顾移除，Page/正文不变 |
+| `screenshots/p0-pending-final-health-current-78528f7.jpg` | CURRENT | Undo 后再 reload 并打开系统状态 | 可以正常使用；无未完成修改或正文连接冲突 |
+| `screenshots/p0-pending-continue-user-language-current-dbc5243.jpg` | CURRENT | 修复构建中再次制造同一 receipt-backed 中断 | 顶栏和卡片均为用户语言；只有一个继续入口 |
+| `screenshots/p0-pending-final-health-current-dbc5243.jpg` | CURRENT | same-Commit resume、Undo、真实 reload 后检查系统 | 可以正常使用；无需操作 |
+
 ### 连续使用 Pilot `PILOT-2026W31-A` — exact build `bc79ffd`
 
 Logseq `0.10.15`；File Graph `logseq`；host Light；约 1000×720。测试正文直接存在当前

@@ -39,7 +39,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；`3883848` / `78528f7` 又关闭 accepted-not-applied→reload→apply→Undo→reload 与 stale 历史分离代表 Gate；PENDING/Recovery 前台组合与代表视觉总 Gate 仍 OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；`3883848` / `78528f7` 又关闭 accepted-not-applied→reload→apply→Undo→reload、stale 历史分离和 PENDING→reload→same-Commit resume→Undo→reload 代表 Gate；RECOVERY_REQUIRED 代表 Desktop 与代表视觉总 Gate 仍 OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略、建议关注与 Block Marker 仍 OPEN；P1-D status consumers；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -56,10 +56,22 @@
   按真实 UUID/hash 重验后才成功。该真实失败暴露 stale 占据当前“待审阅”的积压问题，
   `78528f7` 将终态 stale 归入默认折叠历史；当前待审阅归零。
 - accepted-not-applied `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`；PENDING/RECOVERY_REQUIRED
-  新语言为 `AUTOMATED_ONLY`，不借健康 Graph 制造危险中断升级。长期 Partial 净变化
+  新语言在该时点为 `AUTOMATED_ONLY`。长期 Partial 净变化
   `-1`；新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、Provider 调用与写入
   权威均为 `0`。证据见
   `logs/p0-unfinished-modification-frontstage-desktop-live-20260730.md`。
+- 同一 `78528f7` 构建随后在测试 Graph 以精确 Proposal-bound fault 完成
+  PENDING 真实 Desktop：中断后一个“继续原修改”、Plugin Manager reload、
+  same-Commit receipt replay、Project 版本不重复递增、inverse Undo、再 reload 与
+  最终健康均 PASS。测试触发器为 `0`；原 Commit `UNDONE`，inverse
+  `COMPLETED`，Project `OPEN v29`。PENDING 子 Gate 升为
+  `DONE_DESKTOP_REPRESENTATIVE`；RECOVERY_REQUIRED 仍为 `AUTOMATED_ONLY`。证据见
+  `logs/p0-pending-frontstage-desktop-live-20260730.md`。
+- `dbc5243` 继续修复真实链暴露的顶栏泄漏：receipt-backed PENDING 不再显示
+  “Local Service 请求失败”，只显示未完成、已安全保存和继续原修改。回归为
+  `372/372`；新一轮真实 Desktop 从 `OPEN v29` 中断至 `COMPLETED v30`，
+  same-Commit resume 不重复递增，Undo 后为 `OPEN v31`，reload 最终健康。
+  该修复没有新增状态、Runtime、Recovery 分支、Skill/Prompt/Validator 或写入权威。
 
 ### 2026-07-30 P1 Attention Now 有界 Pilot
 
@@ -89,7 +101,7 @@
 - P0-J `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`。新增正式
   状态、Runtime、Recovery 分支、Skill/Prompt/Validator、Attention 类型、Provider 调用
   与写入权威均为 `0`。
-- P0 仍由 PENDING/Recovery 前台组合、代表视觉总 Gate 和 Final
+- P0 仍由 RECOVERY_REQUIRED 代表 Desktop、代表视觉总 Gate 和 Final
   Release 保持进行中。证据见
   `logs/p0-j-native-chinese-ime-desktop-live-20260729.md`。
 

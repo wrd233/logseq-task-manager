@@ -17,6 +17,29 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+`78528f7` 最新构建又关闭 P0 PENDING 代表子 Gate。真实 Logseq 0.10.15
+File Graph、host Light / Plugin Dark、1000×720 中，一个精确绑定测试 Proposal 的
+一次性触发器在领域收据已持久后中断 step 收口。Project 为
+`COMPLETED v28`、同一 Commit 为 `PENDING`；前台只显示“修改尚未完成，
+可以继续 / 继续原修改”。触发器立即删除；Plugin Manager reload 从账本
+重建同一问题，同 Commit 续跑只将 step 收口为 `VERIFIED`，Project 仍为
+`v28`。inverse Undo 后 Project 恢复 `OPEN v29`、Closure absent；再次 reload 后
+PENDING/Recovery/Conflict 均为 0，Doctor `PASS` 且没有残留测试触发器。首次
+未命中演练反而确认 Launcher 仍使用安装器显式保留的
+`tmp/runtime/manual-v2/task-copilot.sqlite`，未静默切换到 `$HOME` 下的非权威库。
+RECOVERY_REQUIRED 新用户语义仍为 `AUTOMATED_ONLY`，P0 保持
+`IN_PROGRESS_DESKTOP_GATES`。
+
+`dbc5243` 随后关闭该链发现的前台工程词缺陷：当持久账本已经证明存在可续跑的
+PENDING 时，顶栏不再把底层 transport error 原样显示为 “Local Service 请求失败”，
+而优先翻译为“这次修改没有完成 / 已完成步骤已经安全保存 / 继续原修改”。新增回归后
+Plugin `372/372`、typecheck/build PASS；在同一测试 authority 上用新 Proposal 重跑真实
+Desktop，中断为 `COMPLETED v30 + PENDING/PREPARED`、同 Commit 续跑为
+`COMPLETED/VERIFIED` 且 Project 仍为 `v30`、inverse Undo 后回到 `OPEN v31`。
+Plugin Manager reload 后系统状态为“可以正常使用 / 无需操作”，测试触发器、PENDING、
+RECOVERY_REQUIRED 均为 0。截图中的 Closure/Provider 等词来自专用测试 Project 自身材料，
+不是全局错误或普通用户状态文案；不将该工程化测试内容冒充日常产品语言已全部清理。
+
 `3883848` / `78528f7` 已关闭 P0 accepted-not-applied 代表 Partial。真实 Logseq 0.10.15
 File Graph、host Light / Plugin Dark、1000×720 中，一个 HIGH Proposal 完成审阅但未应用、
 真实 Plugin Manager reload、正式应用、inverse Undo 和再次 reload；正文
@@ -26,8 +49,9 @@ File Graph、host Light / Plugin Dark、1000×720 中，一个 HIGH Proposal 完
 已撤销方案一起移入默认折叠历史，当前区为空。Plugin `371/371`、typecheck/build PASS，
 系统用户状态无未完成修改或正文连接冲突；技术 Doctor 保留 1 条 stale 历史 WARN，不把它
 冒充当前可继续或待恢复修改。新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、
-Provider 调用和写入权威均为 `0`；长期 Partial 净变化 `-1`。P0 仍由 PENDING/Recovery
-代表 Desktop 与最终代表视觉 Gate 保持 `IN_PROGRESS_DESKTOP_GATES`。
+Provider 调用和写入权威均为 `0`；长期 Partial 净变化 `-1`。PENDING 随后已关闭；
+P0 仍由 RECOVERY_REQUIRED 代表 Desktop 与最终代表视觉 Gate 保持
+`IN_PROGRESS_DESKTOP_GATES`。
 
 `3097c39` 已关闭“首批确定性 Attention 没有真实前台处置与 reload/recompute 证据”这一
 既有子 Partial。真实 Logseq 0.10.15 File Graph、host Light / Plugin Dark、约
@@ -50,7 +74,7 @@ host Light、754×720 中，通过 Computer Use `press_key` 和 macOS 简体拼�
 恢复 ABC。结合既有 palette、Slash、custom binding、ended fail-closed 与显式重启证据，
 P0-J 从 `PARTIAL` 关闭为 `DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`；
 没有新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、Attention 类型或写入
-权威。P0 仍因 PENDING/Recovery 前台组合和最终代表视觉 Gate
+权威。P0 仍因 RECOVERY_REQUIRED 前台代表与最终代表视觉 Gate
 保持 `IN_PROGRESS_DESKTOP_GATES`。
 
 `3d63d5aee0a7` 关闭十日 Pilot 暴露的“正式 Now 仍按来源分组、Focus 中 Waiting 会重复”
@@ -211,7 +235,9 @@ Gate：Query 投影无可靠正式身份时安全停止且只显示用户语言�
 Runtime、Skill、Validator、恢复分支或写入路径。该证据与既有 main Page、来源移动/删除、
 Query/reference/right-sidebar bounded Gate 合并后，P0-K 升为
 `DONE_DESKTOP_REPRESENTATIVE`；P0-J 已关闭，accepted-not-applied 随后由 `3883848` /
-`78528f7` 关闭；P0 仍由 PENDING/Recovery 前台组合与代表视觉总 Gate 保持进行中。
+`78528f7` 关闭；PENDING 后续也在同一前台完成真实中断、reload、同 Commit
+续跑、Undo 与再 reload。P0 仍由 RECOVERY_REQUIRED 代表前台与代表视觉总
+Gate 保持进行中。
 
 最新公共 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`；
 Closure 异常、Review 压缩、普通用户标题与审阅空态的增量证据分别基于
@@ -303,11 +329,13 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
 - P0-F 工具栏介入摘要：只从既有 Now Work/Proposal/SemanticCommit/连接投影派生到期复查、
   待确认、HIGH 已接受未应用、Pending/Recovery 和正式连接风险；OPEN/Focus/普通 WAITING/
   Project/Candidate 不计数。真实 Desktop 已通过安静态、连接风险 `TC ①`、诊断路由与连接
-  恢复；`RECOVERY_REQUIRED ↻` 只按自动测试声明；
+  恢复；PENDING 已经真实中断/reload/续跑/Undo Gate，`RECOVERY_REQUIRED ↻`
+  仍只按自动测试声明；
 - P0-G 最近修改与用户层结果：既有 Proposal/SemanticCommit 已投影为用户意图、时间、
   “已应用/尚未完成/需要恢复/未能应用/已撤销”和安全动作；技术 ID 只进折叠详情，即时与长期
   结果共享实际 commit identity。真实 Desktop 已完成 LOW 应用、跨 reload 长期 Undo 与
-  Graph/SQLite 恢复；PENDING/Recovery 新投影只按自动测试声明；
+  Graph/SQLite 恢复；PENDING 新投影、持久入口、same-Commit resume 和 Undo 已经
+  真实 Desktop，Recovery 新投影仍只按自动测试声明；
 - P0-I 用户层系统状态：首屏固定回答发生了什么、影响、仍可用、数据安全和所需动作；
   Provider 未配置不误报故障，Pending 与 Recovery 分离，工程组件/原因码/日志/修复入口默认
   折叠。真实 Desktop 已验证正文核对注意状态与 Service unavailable 只读安全状态；
@@ -726,7 +754,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
-- 当前继续收敛 P0 PENDING/Recovery 与代表视觉总 Gate，并推进
+- 当前继续收敛 P0 RECOVERY_REQUIRED 与代表视觉总 Gate，并推进
   P1 Attention/Block Marker 和 P2-D/P2-F 边界；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

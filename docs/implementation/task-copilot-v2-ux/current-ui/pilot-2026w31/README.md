@@ -37,7 +37,7 @@ Proposal / Commit / Undo / Recovery。
 | Day 6 | PARTIAL_WAITING_RESUME_DONE | 使用 Day 3 的真实 Waiting Task；原 Block 恢复为可行动→返回现场→Now 重排→真实 plugin reload→健康复核 | Waiting 可以自然回到行动；现有 Now 会把它排到“接下来值得处理”第一项，但整体列表仍偏长，Dynamic Now 对照继续开放 |
 | Day 7 | PARTIAL_MOVE_RENAME_DONE | 在 Logseq 中把真实 MiniProject 整棵子树 Cut/Paste 到新 Page，并改名；explicit sync→真实 plugin reload→Now→打开正文→健康复核 | 同一 UUID 移动和改名后 Primary Anchor 保持 active，Now 能打开到新位置；不应误触发 Rebind |
 | Day 8 | DONE_REPRESENTATIVE | 在真实 Page 发现 3 项显式候选；分别执行 7 天后再看、保持普通内容、不再提示；reload、修改被抑制来源、重算与健康复核 | 当前队列与当前 Proposal 均为 0；三种处置保持，历史 21 条默认折叠；重算不再把已处置内容冒充新增 |
-| Day 9 | DONE_REPRESENTATIVE_CLOSURE | 既有 Project→Closure 判断→真实 DeepSeek→HIGH Review→审阅方案→确认应用→reload→专用 Undo→再次 reload→健康复核 | 正常关闭链可验收；PENDING 可继续原操作、RECOVERY_REQUIRED 只恢复一致性；真正故障注入仍 OPEN |
+| Day 9 | DONE_REPRESENTATIVE_CLOSURE | 既有 Project→Closure 判断→真实 DeepSeek→HIGH Review→审阅方案→确认应用→reload→专用 Undo→再次 reload→健康复核；后续 P0 Gate 又真实注入 receipt-backed PENDING 并完成同 Commit 续跑 | 正常关闭链可验收；PENDING 已有真实中断/reload/resume/Undo，RECOVERY_REQUIRED 仍只恢复一致性且代表 Desktop OPEN |
 | Day 10 | DONE_REPRESENTATIVE_REVIEW_AND_NOW_CAP | Now/待整理/待审阅/项目/更多；真实 Plugin reload；切到失效隔离 Graph→安全受限→切回原 Graph；随后精确构建折叠/展开/再次 reload | Review 无积压、项目区克制、维护能力在二级；正式 Now 保留连续性并将 10 个 Next 压为首屏 4 项 + 6 项折叠；Dynamic Now Shadow 仍不可直接替换 |
 
 ## Provider 与安全计数

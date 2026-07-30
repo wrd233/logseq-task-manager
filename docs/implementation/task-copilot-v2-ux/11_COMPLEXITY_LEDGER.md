@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P0-J、P0 accepted-not-applied/stale 历史分离、P2-E 全链及有界恢复合同、P2-G Rebind 纠错/捕获取消安全、真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏、通用深色表面与首批到期 Attention 有界前台处置/recompute 已关闭；P1 真实 helpful/noise/跨会话 disposition/建议关注/Marker、P0 PENDING-Recovery 代表 Gate、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P0-J、P0 accepted-not-applied/stale 历史分离/PENDING same-Commit resume、P2-E 全链及有界恢复合同、P2-G Rebind 纠错/捕获取消安全、真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏、通用深色表面与首批到期 Attention 有界前台处置/recompute 已关闭；P1 真实 helpful/noise/跨会话 disposition/建议关注/Marker、P0 RECOVERY_REQUIRED 代表 Gate、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -18,6 +18,26 @@
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
 ## 本轮变化（2026-07-30）
+
+### P0 PENDING 同 Commit 续跑（`78528f7`）
+
+- 关闭 PENDING 代表子 Gate；RECOVERY_REQUIRED 仍开放，因此该组长期 Partial
+  总数净变化 `0`。本轮累计仍由 accepted-not-applied 子项产生净 `-1`。
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator
+  `0`、Provider 调用 `0`、写入权威 `0`。复用原 SemanticCommit、receipt replay、
+  inverse Undo、最近修改与用户系统状态。
+- 一次性故障只绑定精确 Proposal，命中后立即删除；最终数据库触发器、
+  PENDING 和 RECOVERY_REQUIRED 均为 `0`。没有将测试故障开关带入产品运行时。
+- 删除重复恢复路径：工具栏、最近修改和 Review 均指向同一 Commit；用户
+  只看到“尚未完成、可以继续”，不需理解 receipt 或 step 状态。
+- 首次未命中演练作为 authority 证据：Launcher 仍使用安装器显式保留的
+  `manual-v2` 映射，没有静默选择 `$HOME` 下的另一数据库。
+- 风险变化：PENDING “重复提交或不知道是否已生效”的用户风险下降；
+  Recovery 语义分裂仍因 RECOVERY_REQUIRED 代表前台未闭环而保持 `HIGH`。
+- `dbc5243` 没有增加错误状态，而是用现有持久 Commit 优先级覆盖瞬时 transport
+  文案；删除普通路径中的 “Local Service” 泄漏。新增状态、Runtime、恢复分支、
+  Skill/Prompt/Validator 和写入权威仍均为 `0`。这使后台复杂度回到后台，而没有
+  建立第二个通知或恢复模型。
 
 ### P0 未完成修改前台与 stale 历史收敛（`3883848` / `78528f7`）
 
@@ -34,8 +54,9 @@
   前台不把终态历史冒充当前故障。
 - Desktop 只覆盖最高价值代表矩阵：1000×720、一次 accepted reload、一次 apply/Undo、一次
   最终 reload 与当前/历史分离；没有扩成主题/宿主笛卡尔积。
-- 风险变化：Review backlog 与后台工程词泄漏下降；Partial 堆积仍因 P1 质量门、P0
-  PENDING/Recovery、File Graph Light 和 Final Release 保持 `HIGH`。
+- 风险变化：Review backlog 与后台工程词泄漏下降；PENDING 后续已关闭，
+  Partial 堆积仍因 P1 质量门、P0 RECOVERY_REQUIRED、File Graph Light 和
+  Final Release 保持 `HIGH`。
 
 ### P1 Attention Now 有界前台 Pilot（`3097c39`）
 
@@ -116,7 +137,7 @@
   Create 路径 reload 读回后才关闭 Gate。
 - Desktop 只覆盖 P0-J 需要的 host Light / 754×720 代表链；不扩成所有输入法、主题与
   宿主笛卡尔积。风险变化：Partial 堆积下降，但 P1 Attention/Marker、P0
-  PENDING-Recovery 代表 Gate、File Graph Light host issue 和 Final
+  RECOVERY_REQUIRED 代表 Gate、File Graph Light host issue 和 Final
   Release 仍使该风险保持 `HIGH`。
 
 ### P1 “现在”前台上限

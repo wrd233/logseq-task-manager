@@ -327,10 +327,11 @@ Logseq Desktop 0.10.15 的安静态、正式连接风险数字、点击诊断及
 
 ## P0-G：最近修改与用户层结果
 
-状态：`DONE_WITH_BOUNDED_DESKTOP_SCOPE` — Plugin tests 167/167、typecheck、build 与真实
-Logseq Desktop 0.10.15 的用户层历史、折叠技术详情、查看原 Proposal、即时结果、跨 reload
-长期 Undo、逆向 Commit 和 Graph/SQLite 恢复均通过；PENDING/Recovery 新投影只按自动测试
-声明。
+状态：`DONE_WITH_BOUNDED_DESKTOP_SCOPE` — 用户层历史、折叠技术详情、查看原 Proposal、
+即时结果、跨 reload 长期 Undo、逆向 Commit 和 Graph/SQLite 恢复均通过；后续
+`78528f7` / `dbc5243` 又完成真实 PENDING 中断、一个继续入口、Plugin Manager reload、
+same-Commit resume、Undo、再 reload 与 transport jargon 清理。RECOVERY_REQUIRED
+新投影仍只按自动测试声明。
 
 - 不新增 Audit；
 - 由 Audit/Receipt/Commit 投影生成一句用户语言；
@@ -499,5 +500,5 @@ reload 读回后才关闭 Gate。该结论是代表性 Desktop 完成，不宣�
   `logs/p0-k-block-condition-worksite-desktop-live-20260728.md`。
 
 该状态是代表性宿主完成，不宣称 Logseq 所有位置、主题与宽度的完全笛卡尔积；未来宿主能力
-变化时重开对应 bounded 结论。P0-J 已关闭；P0 仍因 accepted-not-applied、
-PENDING/Recovery 前台组合和代表性视觉总 Gate 保持进行中。
+变化时重开对应 bounded 结论。P0-J、accepted-not-applied 与 PENDING 代表链已关闭；
+P0 仍因 RECOVERY_REQUIRED 代表前台和代表性视觉总 Gate 保持进行中。

@@ -157,9 +157,19 @@ P0 未完成修改前台的当前证据来自 `3883848` / `78528f7`。同一测�
 审阅但不应用→真实 Plugin Manager reload→stale 零写入→基于当前事实重新审阅→正式应用→
 inverse Undo→再次 reload；Object 数量 `13→14→13`，正文 `TODO→[任务]→TODO`。最新
 `78528f7` 又把终态 stale 从当前“待审阅”移入默认折叠历史，当前区为空。该链关闭
-accepted-not-applied 代表 Partial，但 PENDING/RECOVERY_REQUIRED 的新统一语言仍只有自动证据，
-因此 P0 和完整 Goal 继续进行。完整记录见
-`../logs/p0-unfinished-modification-frontstage-desktop-live-20260730.md`。
+accepted-not-applied 代表 Partial。同一 `78528f7` 构建随后又完成 PENDING
+中断→一个“继续原修改”→真实 Plugin Manager reload→same-Commit resume→
+inverse Undo→再 reload 与健康读回。一次性测试触发器已删除，Project
+恢复 `OPEN v29`。RECOVERY_REQUIRED 新语义仍只有自动证据，因此 P0 和完整
+Goal 继续进行。完整记录见
+`../logs/p0-unfinished-modification-frontstage-desktop-live-20260730.md` 与
+`../logs/p0-pending-frontstage-desktop-live-20260730.md`。
+
+`dbc5243` 取代中断首屏的缺陷证据：旧图曾在可续跑 PENDING 顶部原样显示
+“Local Service 请求失败”；当前图只显示用户结论、已安全保存和唯一“继续原修改”。
+同一最新构建已经重新完成 resume、Undo、Plugin Manager reload 与最终健康。
+专用测试 Project 的系统理解仍引用 Closure/Provider 等测试术语，它属于测试材料本身，
+不作为日常业务页面工程词验收样本。
 
 连续使用 Pilot `PILOT-2026W31-A` 当前在 `pilot-2026w31/`：Logseq 0.10.15 File Graph，
 已完成 Day 1—2、Day 3 Waiting、Day 4 MiniProject/Project、Day 5 Project/Context

@@ -470,4 +470,26 @@ stale。这证明零写入边界，但也使当前“待审阅”出现一张没
 - Provider / Validator rejection / retry / abstention：`0/0/0/0`；
 - 正式状态 / Runtime / Recovery 分支 / Skill/Prompt/Validator：新增 `0`；
 - accepted-not-applied Partial 净变化：`-1`；新增长期 Partial `0`；
-- PENDING/RECOVERY_REQUIRED 用户语言仍为 `AUTOMATED_ONLY`，P0 与完整 Goal 继续 OPEN。
+- 该补证时点 PENDING/RECOVERY_REQUIRED 用户语言仍为 `AUTOMATED_ONLY`；
+  PENDING 后续由下述同日 Gate 关闭，RECOVERY_REQUIRED 与完整 Goal 继续 OPEN。
+
+## 2026-07-30 补充：PENDING 跨 reload 续跑与 Undo
+
+这仍是 Day 8 Review Backlog 和既有 Closure 专用 Project 的延伸，不增加模拟日。
+一个精确 Proposal-bound 故障使领域收据已持久、Commit 仍为 PENDING；前台
+只显示“修改尚未完成，可以继续”和一个“继续原修改”。一次性触发器
+立即删除，Plugin Manager reload 后从持久账本重建同一问题。
+
+同 Commit 续跑没有重复递增 Project 版本；随后 inverse Undo 恢复为
+`OPEN v29`，再 reload 后系统健康。首次未命中演练反而证明 Launcher 仍使用
+安装器显式保留的 `manual-v2` authority，没有静默选择 `$HOME` 下的另一库。
+
+- Provider / Validator rejection / retry / abstention：`0/0/0/0`；
+- 新增正式状态 / Runtime / Recovery 分支 / Skill/Prompt/Validator：`0`；
+- PENDING 代表子 Gate：`DONE_DESKTOP_REPRESENTATIVE`；
+- RECOVERY_REQUIRED：`AUTOMATED_ONLY`，P0 与完整 Goal 继续 OPEN。
+
+真实中断首轮还发现顶栏把 transport error 原样写成 “Local Service 请求失败”。
+`dbc5243` 使用已有持久 Commit 事实覆盖该瞬时错误，不新增状态；回归 `372/372`。
+在新 Proposal 上重跑后，用户只看到未完成、已安全保存和“继续原修改”；同 Commit
+完成后 Project 仍为 `v30`，Undo 后为 `OPEN v31`，真实 reload 后无需操作。
