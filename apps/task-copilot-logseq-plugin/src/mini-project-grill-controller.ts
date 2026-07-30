@@ -65,8 +65,27 @@ function serviceErrorCode(error: unknown): string | undefined {
   return typeof remoteCode === "string" ? remoteCode : undefined;
 }
 
+function previewFailureMessage(error: unknown): string {
+  if (serviceErrorCode(error) === "GRILL_PREVIEW_VALIDATION_FAILED") {
+    return "这次结构预览没有通过安全检查。正文和正式事项没有变化，已确认的讨论答案仍保留；你可以重试。";
+  }
+  return boundedMessage(error);
+}
+
 function staleServiceError(error: unknown): boolean {
   return ["V2_OBJECT_VERSION_CONFLICT", "GRILL_SOURCE_STALE", "GRILL_OPEN_MINI_PROJECT_REQUIRED", "V2_OBJECT_NOT_FOUND"].includes(serviceErrorCode(error) ?? "");
+}
+
+async function withPreviewDeadline<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timeout = globalThis.setTimeout(() => reject(new Error("这次结构预览没有按时完成。正文和正式事项没有变化，已确认的讨论答案仍保留；你可以重试。")), timeoutMs);
+  });
+  try {
+    return await Promise.race([operation, deadline]);
+  } finally {
+    if (timeout !== undefined) globalThis.clearTimeout(timeout);
+  }
 }
 
 export class MiniProjectGrillController {
@@ -76,7 +95,10 @@ export class MiniProjectGrillController {
   constructor(
     private readonly runtime: () => MiniProjectGrillRuntime,
     private readonly onStateChange: () => Promise<void>,
-  ) {}
+    private readonly previewDeadlineMs = 130_000,
+  ) {
+    if (!Number.isSafeInteger(previewDeadlineMs) || previewDeadlineMs < 1) throw new Error("MiniProject Preview deadline must be a positive integer.");
+  }
 
   snapshot(): Record<string, PluginMiniProjectGrillState> {
     return Object.fromEntries(this.states);
@@ -133,7 +155,7 @@ export class MiniProjectGrillController {
     const optionalClient = started.client;
     const optionalPreview = optionalClient?.previewMiniProjectGrill;
     if (!optionalClient || !optionalPreview || !started.providerAvailable) {
-      this.states.set(objectId, { ...state, preview: { status: "error", message: "Local Service Preview Provider 未启用或正在重连；没有生成结构预览。" } });
+      this.states.set(objectId, { ...state, preview: { status: "error", message: "这次结构预览暂时不可用。本地运行环境正在连接，正文和正式事项没有变化；请稍后重试。" } });
       await this.onStateChange();
       return;
     }
@@ -144,7 +166,10 @@ export class MiniProjectGrillController {
     await this.onStateChange();
     try {
       requireCurrentMiniProject(await client.listObjects(), objectId, state.expectedVersion);
-      const result = await previewMiniProjectGrill({ objectId, expectedVersion: state.expectedVersion, answers: state.answers });
+      const result = await withPreviewDeadline(
+        previewMiniProjectGrill({ objectId, expectedVersion: state.expectedVersion, answers: state.answers }),
+        this.previewDeadlineMs,
+      );
       const current = this.runtime();
       if (epoch !== this.epoch) return;
       if (current.client !== started.client || current.generation !== started.generation || !current.providerAvailable) throw new StaleGrillSessionError("Local Service 已在预览期间重连；旧结构预览已丢弃。");
@@ -157,7 +182,7 @@ export class MiniProjectGrillController {
           status: "ready",
           result,
           ...(!miniProjectRestructureHasStructuralChange(result.output)
-            ? { proposal: { status: "not-needed" as const, message: "当前材料已经处于预览结构，无需创建 Proposal 或改动正文。" } }
+            ? { proposal: { status: "not-needed" as const, message: "当前材料已经符合预览结构，无需进入审阅或改动正文。" } }
             : {}),
         },
       });
@@ -167,7 +192,7 @@ export class MiniProjectGrillController {
         this.states.set(objectId, { status: "stale", expectedVersion: state.expectedVersion, message: boundedMessage(error) });
       } else {
         const latest = this.states.get(objectId);
-        if (latest?.status === "ready") this.states.set(objectId, { ...latest, preview: { status: "error", message: boundedMessage(error) } });
+        if (latest?.status === "ready") this.states.set(objectId, { ...latest, preview: { status: "error", message: previewFailureMessage(error) } });
       }
     }
     await this.onStateChange();

@@ -196,6 +196,54 @@ test("generates a zero-write preview only from a ready turn and retains the turn
   assert.equal(previewCalls, 2);
 });
 
+test("leaves preview loading with a retryable zero-write error when the transport never settles", async () => {
+  const client = {
+    listObjects: async () => [{ objectId: "mini-1", objectType: "MINI_PROJECT", lifecycle: "OPEN", version: 2 }],
+    grillMiniProject: async () => turn("boundary", "READY_FOR_PREVIEW"),
+    previewMiniProjectGrill: async () => new Promise<ServiceMiniProjectGrillPreviewResult>(() => undefined),
+  };
+  const controller = new MiniProjectGrillController(
+    () => ({ client, providerAvailable: true, generation: 1 }),
+    async () => undefined,
+    5,
+  );
+  await controller.start("mini-1", 2);
+
+  const outcome = await Promise.race([
+    controller.generatePreview("mini-1").then(() => "settled" as const),
+    new Promise<"still-loading">((resolve) => setTimeout(() => resolve("still-loading"), 30)),
+  ]);
+
+  assert.equal(outcome, "settled");
+  const state = controller.snapshot()["mini-1"];
+  assert.equal(state?.status, "ready");
+  assert.equal(state?.status === "ready" ? state.preview?.status : undefined, "error");
+  assert.match(state?.status === "ready" && state.preview?.status === "error" ? state.preview.message : "", /没有按时完成/);
+  assert.equal(state?.status === "ready" ? state.result.output.readiness : undefined, "READY_FOR_PREVIEW");
+});
+
+test("translates preview validation rejection without leaking implementation vocabulary", async () => {
+  const client = {
+    listObjects: async () => [{ objectId: "mini-1", objectType: "MINI_PROJECT", lifecycle: "OPEN", version: 2 }],
+    grillMiniProject: async () => turn("boundary", "READY_FOR_PREVIEW"),
+    previewMiniProjectGrill: async () => {
+      throw Object.assign(new Error("Provider output failed Grill Preview Validator; no Proposal was created."), {
+        details: { remoteCode: "GRILL_PREVIEW_VALIDATION_FAILED" },
+      });
+    },
+  };
+  const controller = new MiniProjectGrillController(() => ({ client, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.start("mini-1", 2);
+  await controller.generatePreview("mini-1");
+
+  const state = controller.snapshot()["mini-1"];
+  const message = state?.status === "ready" && state.preview?.status === "error" ? state.preview.message : "";
+  assert.match(message, /没有通过安全检查/);
+  assert.match(message, /没有变化/);
+  assert.doesNotMatch(message, /Provider|Validator|Proposal|Grill/i);
+  assert.equal(state?.status === "ready" ? state.result.output.readiness : undefined, "READY_FOR_PREVIEW");
+});
+
 test("creates one server-owned HIGH review Proposal from the current preview handle", async () => {
   let proposalInput: unknown;
   const proposalResult = { record: { proposal: { proposalId: "proposal-mini" } }, replayed: false } as ServiceMiniProjectGrillProposalResult;
