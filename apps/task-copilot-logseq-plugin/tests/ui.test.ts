@@ -1359,16 +1359,16 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
   value.originReturnLabel = "返回原内容";
   value.v2MiniProjectGrill = { "mini-open": { status: "ready", expectedVersion: 4, answers: [], result } };
   html = renderApp(value);
-  assert.match(html, /事实、推断和未知分开显示/);
+  assert.match(html, /事实、判断和未知分开显示/);
   assert.match(html, /当前目标是交付一个可验证的发布结果/);
   assert.match(html, /哪些内容明确不属于本次交付/);
   assert.match(html, /data-field="v2MiniProjectGrillAnswer"/);
   assert.match(html, /返回原内容/);
   assert.doesNotMatch(html, /data-action="(?:submit-v2-proposal|v2-proposal-commit|submit-v2-review-accept)"/);
 
-  value.v2MiniProjectGrill["mini-open"] = { status: "error", expectedVersion: 4, answers: [], previous: result, message: "Provider 暂时不可用" };
+  value.v2MiniProjectGrill["mini-open"] = { status: "error", expectedVersion: 4, answers: [], previous: result, message: "这次梳理没有完成。正文和正式事项没有变化，你可以重试。" };
   html = renderApp(value);
-  assert.match(html, /Provider 暂时不可用/);
+  assert.match(html, /这次梳理没有完成/);
   assert.match(html, /当前目标是交付一个可验证的发布结果/);
   assert.match(html, /data-action="v2-mini-project-grill-retry"/);
 
@@ -1404,7 +1404,12 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
   assert.match(html, /删除 0/);
   assert.match(html, /待判断／原始材料（原位保留）/);
   assert.match(html, /data-action="v2-mini-project-grill-proposal"/);
-  assert.match(html, /专用结构 Commit 完成验证前不会出现应用入口/);
+  assert.match(html, /只有之后明确“确认应用”才会改变正文/);
+  assert.match(html, /查看讨论依据/);
+  assert.ok(html.indexOf("零丢失阅读预览") < html.indexOf("已确认事实"));
+  const previewDialog = html.match(/<section class="inbox-dialog action-dialog mini-project-grill"[\s\S]*?<\/section>/)?.[0] ?? "";
+  const visiblePreviewDialog = previewDialog.replace(/<[^>]+>/g, " ");
+  assert.doesNotMatch(visiblePreviewDialog, /Session only|Provider|Proposal|Commit|SQLite|HIGH|SESSION_DRAFT_ONLY/);
   assert.doesNotMatch(html, /data-action="(?:submit-v2-proposal|v2-proposal-commit|submit-v2-review-accept)"/);
   const readyPreview = value.v2MiniProjectGrill["mini-open"];
   if (readyPreview?.status === "ready" && readyPreview.preview?.status === "ready") {
