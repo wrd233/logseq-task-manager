@@ -96,6 +96,43 @@ test("completed Undo restores moved source siblings before removing created cont
   ]);
 });
 
+test("completed Undo accounts for target sibling positions changing as earlier siblings return", () => {
+  const base = planAcceptedMiniProjectRestructure(acceptedProposal());
+  const createSection = base.steps[0]!;
+  const firstMove = base.steps[1]!;
+  if (createSection.kind !== "CREATE_BLOCK" || firstMove.kind !== "MOVE_BLOCK") throw new Error("expected a created section and first move");
+  const secondMove = {
+    ...firstMove,
+    operationId: "move-source-two",
+    blockUuid: "source-block-two",
+    fromPreviousSiblingUuid: firstMove.blockUuid,
+    applyFromPreviousSiblingUuid: null,
+    toPreviousSiblingUuid: firstMove.blockUuid,
+    beforeHash: "33333333",
+    afterHash: "44444444",
+  };
+  const plan = { ...base, steps: [createSection, firstMove, secondMove] };
+
+  const undo = planCompletedMiniProjectRestructureUndo(plan);
+  const moves = undo.filter((entry) => entry.step.kind === "MOVE_BLOCK");
+
+  assert.deepEqual(moves.map(({ step }) => {
+    if (step.kind !== "MOVE_BLOCK") throw new Error("expected only move entries");
+    return {
+      blockUuid: step.blockUuid,
+      fromPreviousSiblingUuid: step.fromPreviousSiblingUuid,
+      toPreviousSiblingUuid: step.toPreviousSiblingUuid,
+    };
+  }), [
+    { blockUuid: firstMove.blockUuid, fromPreviousSiblingUuid: null, toPreviousSiblingUuid: null },
+    {
+      blockUuid: secondMove.blockUuid,
+      fromPreviousSiblingUuid: null,
+      toPreviousSiblingUuid: firstMove.blockUuid,
+    },
+  ]);
+});
+
 test("structure planner rejects unresolved groups, forward references, mixed operations, and inconsistent scope evidence", () => {
   const unresolved = acceptedProposal();
   unresolved.groups.push({ ...structuredClone(unresolved.groups[0]!), groupId: "later", disposition: "DEFERRED", deferredUntil: "2026-07-25T00:00:00.000Z", deferReason: "later", semanticOperations: [{ ...structuredClone(unresolved.groups[0]!.semanticOperations[0]!), operationId: "later-create", payload: { ...unresolved.groups[0]!.semanticOperations[0]!.payload, newBlockUuid: "33333333-3333-4333-8333-333333333333" } }] });

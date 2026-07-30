@@ -2885,13 +2885,24 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         return { stepIndex, forwardStepIndex: entry.forwardStepIndex, step: plan.steps[entry.forwardStepIndex]! };
       };
       const remainingCompensations = () => store.semanticCommitSteps(undoSemanticCommitId).filter(({ status }) => status === "RECOVERY_REQUIRED").map(({ stepIndex }) => compensationFor(stepIndex)).sort((left, right) => right.stepIndex - left.stepIndex);
-      if (inverse.status === "RECOVERY_REQUIRED") {
+      const priorLedgerSteps = ledgerSteps.slice(0, input.failedStepIndex);
+      const futureLedgerSteps = ledgerSteps.slice(input.failedStepIndex + 1);
+      const recoveryNeedsInitialization = inverse.status === "RECOVERY_REQUIRED"
+        && priorLedgerSteps.some(({ status }) => status === "VERIFIED")
+        && priorLedgerSteps.every(({ status }) => status === "VERIFIED" || status === "RECOVERY_REQUIRED")
+        && ledgerSteps[input.failedStepIndex]!.status === "RECOVERY_REQUIRED"
+        && futureLedgerSteps.every(({ status }) => status === "PREPARED");
+      if (inverse.status === "RECOVERY_REQUIRED" && !recoveryNeedsInitialization) {
         const compensations = remainingCompensations();
         if (compensations.length === 0) respond(response, 200, { status: "MANUAL_RECOVERY_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, stepIndex: input.failedStepIndex, errorCode: inverse.errorCode ?? "V2_MINI_PROJECT_RESTRUCTURE_UNDO_RECOVERY_REQUIRED" });
         else respond(response, 200, { status: "COMPENSATION_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, compensations, replayed: true });
         return;
       }
-      if (inverse.status !== "PENDING" || original.status !== "COMPLETED" || ledgerSteps.slice(0, input.failedStepIndex).some(({ status }) => status !== "VERIFIED") || ledgerSteps.slice(input.failedStepIndex + 1).some(({ status }) => status !== "PREPARED") || !["PREPARED", "APPLIED"].includes(ledgerSteps[input.failedStepIndex]!.status)) throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_STEP_ORDER_INVALID", "结构 Undo 恢复只能从第一个未完成 step 开始。");
+      const pendingRecoveryStart = inverse.status === "PENDING"
+        && priorLedgerSteps.every(({ status }) => status === "VERIFIED")
+        && futureLedgerSteps.every(({ status }) => status === "PREPARED")
+        && ["PREPARED", "APPLIED"].includes(ledgerSteps[input.failedStepIndex]!.status);
+      if ((!pendingRecoveryStart && !recoveryNeedsInitialization) || original.status !== "COMPLETED") throw serviceError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_STEP_ORDER_INVALID", "结构 Undo 恢复只能从第一个未完成 step 开始。");
       const graphResult = await graphReadBroker.read({ kind: "BLOCK", target: plan.sourceRootBlockUuid, includeChildren: true, parents: 0 });
       const undoStep = undoPlan[input.failedStepIndex]!.step;
       const markRecovery = (errorCode: string): void => {
@@ -2925,7 +2936,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         const status = store.semanticCommitSteps(undoSemanticCommitId)[stepIndex]!.status;
         if (status === "VERIFIED" || status === "APPLIED" || status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, stepIndex, "RECOVERY_REQUIRED", now, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_EXECUTION_FAILED");
       }
-      store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_EXECUTION_FAILED");
+      if (store.semanticCommit(undoSemanticCommitId)?.status === "PENDING") store.finalizeSemanticCommit(undoSemanticCommitId, "RECOVERY_REQUIRED", now, undefined, "V2_MINI_PROJECT_RESTRUCTURE_UNDO_EXECUTION_FAILED");
       if (before) store.advanceSemanticCommitStep(undoSemanticCommitId, input.failedStepIndex, "COMPENSATED", now);
       const compensations = remainingCompensations();
       if (compensations.length === 0) {

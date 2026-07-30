@@ -144,12 +144,20 @@ export function planCompletedMiniProjectRestructureUndo(plan: MiniProjectRestruc
     if (readyIndex < 0) throw commitError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_ORDER_INVALID", "结构 Undo 的原始相邻顺序存在循环依赖。");
     orderedMoves.push(pendingMoves.splice(readyIndex, 1)[0]!);
   }
-  const removals = plan.steps
-    .map((step, forwardStepIndex) => ({ step, forwardStepIndex }))
-    .filter((entry): entry is { step: MiniProjectRestructureCreateStep; forwardStepIndex: number } => entry.step.kind === "CREATE_BLOCK")
-    .reverse();
-  const ordered = [
-    ...orderedMoves.map(({ step, forwardStepIndex }) => ({
+  const moveByBlockId = new Map(orderedMoves.map(({ step }) => [step.blockUuid, step]));
+  const alreadyReturnedBlockIds = new Set<string>();
+  const inverseMoves = orderedMoves.map(({ step, forwardStepIndex }) => {
+    let currentPreviousSiblingUuid = step.toPreviousSiblingUuid;
+    const visited = new Set<string>();
+    while (currentPreviousSiblingUuid !== null && alreadyReturnedBlockIds.has(currentPreviousSiblingUuid)) {
+      if (visited.has(currentPreviousSiblingUuid)) throw commitError("V2_MINI_PROJECT_RESTRUCTURE_UNDO_ORDER_INVALID", "结构 Undo 的目标相邻顺序存在循环依赖。");
+      visited.add(currentPreviousSiblingUuid);
+      const previousMove = moveByBlockId.get(currentPreviousSiblingUuid);
+      if (!previousMove || previousMove.toParentBlockUuid !== step.toParentBlockUuid) break;
+      currentPreviousSiblingUuid = previousMove.toPreviousSiblingUuid;
+    }
+    alreadyReturnedBlockIds.add(step.blockUuid);
+    return {
       forwardStepIndex,
       forward: step,
       inverse: {
@@ -158,11 +166,18 @@ export function planCompletedMiniProjectRestructureUndo(plan: MiniProjectRestruc
         blockUuid: step.blockUuid,
         contentHash: step.contentHash,
         fromParentBlockUuid: step.toParentBlockUuid,
-        fromPreviousSiblingUuid: step.toPreviousSiblingUuid,
+        fromPreviousSiblingUuid: currentPreviousSiblingUuid,
         toParentBlockUuid: step.fromParentBlockUuid,
         toPreviousSiblingUuid: step.fromPreviousSiblingUuid,
       },
-    })),
+    };
+  });
+  const removals = plan.steps
+    .map((step, forwardStepIndex) => ({ step, forwardStepIndex }))
+    .filter((entry): entry is { step: MiniProjectRestructureCreateStep; forwardStepIndex: number } => entry.step.kind === "CREATE_BLOCK")
+    .reverse();
+  const ordered = [
+    ...inverseMoves,
     ...removals.map(({ step, forwardStepIndex }) => ({
       forwardStepIndex,
       forward: step,

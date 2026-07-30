@@ -1885,6 +1885,12 @@ test("MiniProject structure Undo failure restores the completed forward structur
   const verifyUndoMovePromise = client.verifyMiniProjectRestructureUndoStep(prepared.semanticCommitId, 0, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, traceId: "undo-recovery-move" });
   const [, undoMove] = await Promise.all([verifyUndoMoveRead, verifyUndoMovePromise]);
   assert.equal(undoMove.status, "VERIFIED");
+  const divergedCreatedBlock = { ...createdBlock, content: "unexpected content", contentHash: checksum("unexpected content") };
+  const divergedAfterUndoMoveSnapshot = snapshotOf([originalBlocks[0]!, originalBlocks[1]!, divergedCreatedBlock]);
+  const markRecoveryRead = answerRead(divergedAfterUndoMoveSnapshot);
+  const markRecoveryPromise = client.verifyMiniProjectRestructureUndoStep(prepared.semanticCommitId, 1, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, traceId: "undo-recovery-mark-diverged" });
+  const [, markedRecovery] = await Promise.all([markRecoveryRead, markRecoveryPromise]);
+  assert.equal(markedRecovery.status, "RECOVERY_REQUIRED", "a verify-time divergence enters the existing inverse recovery ledger");
   const beginRecoveryRead = answerRead(afterUndoMoveSnapshot);
   const beginRecoveryPromise = client.beginMiniProjectRestructureUndoRecovery(prepared.semanticCommitId, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, failedStepIndex: 1, failureCode: "GRAPH_WRITE_FAILED", traceId: "undo-recovery-begin" });
   const [, recovery] = await Promise.all([beginRecoveryRead, beginRecoveryPromise]);
