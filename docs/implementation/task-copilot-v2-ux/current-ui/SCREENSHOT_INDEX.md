@@ -5,6 +5,31 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### P2-D 外部 Agent 受控结构治理 — exact build `8d24569`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。外部 Agent 只准备
+Proposal，正式写入、reload、Undo 与 Recovery 全部复用 Task Copilot 单一权威。完整记录见
+`../logs/p2-d-external-agent-vertical-desktop-live-20260730.md`。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p2-d-external-agent-retry-applied-current-8d24569.jpeg` | CURRENT | 确认应用共享外部 Agent 方案 | 两条材料已移入新整理分区；原文、身份和其他正式状态不变；可撤销 |
+| `screenshots/p2-d-external-agent-retry-reload-current-8d24569.jpeg` | CURRENT | Plugin Manager reload 后查看来源 | 新结构保持，原 UUID 与顺序未丢失 |
+| `screenshots/p2-d-external-agent-retry-undone-current-8d24569.jpeg` | CURRENT | 从最近修改确认 inverse Undo | 新分区删除，两条材料恢复到原父 Block 与原顺序 |
+| `screenshots/p2-d-external-agent-retry-undone-reload-current-8d24569.jpeg` | CURRENT | Undo 后再次 reload | 恢复结果保持，回到原 Logseq 工作现场 |
+
+### P2-D 首次链缺陷证据 — exact build `e407799`
+
+以下六张截图均为 `HISTORICAL_DEFECT`，只证明首次 Review/应用/reload 和 Undo 缺陷发现；
+不得作为当前 Undo 实现证据：
+
+- `p2-d-external-agent-review-ready-current-e407799.jpeg`
+- `p2-d-external-agent-accepted-not-applied-current-e407799.jpeg`
+- `p2-d-external-agent-final-confirm-current-e407799.jpeg`
+- `p2-d-external-agent-applied-current-e407799.jpeg`
+- `p2-d-external-agent-source-applied-current-e407799.jpeg`
+- `p2-d-external-agent-reload-undo-confirm-current-e407799.jpeg`
+
 ### P0 未完成修改前台闭环 — exact builds `3883848` / `78528f7`
 
 Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。真实 Proposal

@@ -12,8 +12,8 @@
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K、普通 Block route、系统状态、Service lifecycle、Graph authority 与统一 Commit/Recovery 自动矩阵 PASS | Focus/Condition/LOW apply/Block-Page route/four-nav/toolbar/recent changes/system status；reload/quit/no-arg reinstall/Graph switch；palette/Slash/binding/IME；accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/restart 均有代表 Desktop。`7e72075` 用最新 Now、待审阅、更多、健康页合并既有 733px、主题和宿主有界证据关闭总 Gate | P0 阶段完成；File Graph host limitations 保留，P1/P2/Final Release 与完整 Goal 继续 IN_PROGRESS |
 | P1 | IN_PROGRESS_P1G_DONE_ATTENTION_BOUNDED_PILOT_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C 三段纯派生/正式 Now 前台 + P1-D status consumers + P1-E Block marker 有界宿主拒绝 + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-C 三段已在 `3d63d5a` 完成真实正式状态 Desktop 代表 Gate。`3097c39` 让到期 Signal 在同一 Now 卡片完成显示、处置与 reload/recompute；`c9919f2` 又以四个独立 session 证明取消不误记 acted、later/notRelevant 只安静当前 session、事实解除后自动失效并跨 reload 保持，最终 Service READY、Doctor PASS、PENDING/Recovery 0/0。`acted` 明确只代表完成推荐动作，不冒充 helpful；跨会话 store 无证据且不建立。P1-G Context Recovery 代表链 DONE。P1-E 为 bounded host rejection；File Graph Page Head bounded、DB Graph OPEN | 时间 Attention 为有界 Pilot且不阻断首发；建议关注、Waiting 过久、Project 静默、跨对象观察保持 Shadow，Block Marker OFF。P1 其他质量门与完整 Goal仍未完成 |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_RELEASE_ROUTER_DONE_EXTERNAL_AGENT_CHAIN_OPEN_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A/B、P2-C/D、P2-E 全链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D 正常主链有 Desktop；P2-D A/B/C/D router 与前台边界一致，Association/due 安全关闭、C 类不获得写权；P2-E receipt-backed Commit 中断续跑/Undo、Provider error、generation stale、写入前失败与重放安全合同 DONE；精确 `98df827` 完成真实 reload/当前空审阅证据，FAILED/STALE 卡为自动故障注入证据；P2-G Rebind 最新纠错指引/捕获取消安全、Restore 真实双失败人工恢复、Migration Activation/失败重试/窄栏 DONE | P2-D external Agent product chain；P2-F frontstage；显式正式化等价撤销入口核对；File Graph 自身 Light bounded host issue |
-| Final Release | NOT_STARTED | — | — | — |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_NON_BLOCKING_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A/B、P2-C、P2-D 路由/共享 external Agent、P2-E、P2-F shadow/provider、P2-G 高风险代表链 PASS | `8d24569` 当前构建完成多 Block external Agent Proposal-only→Review→Commit→reload→Undo→reload；首次真实 Undo 缺陷安全进入原 Recovery Kernel，修复后原 UUID/正文/顺序恢复。P2-E/G 既有证据保持 | P2-F 与扩展研究能力默认关闭，不阻断首发；File Graph Light 为 bounded host limitation |
+| Final Release | IN_PROGRESS_RELEASE_FREEZE | 根级检查、145 条规则、恢复演练 PASS | 当前 P2-D 与无参数重装 authority Gate 已复验 | 继续 `12_RELEASE_FREEZE_CHECKLIST.md` 的当前构建代表矩阵与 Release 包 |
 
 `3883848` / `78528f7` 已把 accepted-not-applied 从 P0 Partial 推进为
 `DONE_DESKTOP_REPRESENTATIVE`：真实审阅后正文/Object 零变化，Plugin Manager reload 后入口
@@ -97,12 +97,14 @@ UI 收口冒充 Attention helpful/noise 或 Dynamic Now 全部完成。
 Condition 恢复且系统为 `0/0/0`。该项验收 session-only 显示、处置、失效和重算合同；
 它只有一个人工样本，不能验收真实 helpful/noise、跨会话持久化或其他 Detector 前台化。
 
-P2-D 当前 Release 边界已明确并由 `3c83856` 固化为唯一 Application 合同，但整体仍 Partial：16 类 internal intent 只做安全路由，普通
+P2-D Release 边界已由 `3c83856` 固化为唯一 Application 合同：16 类 internal intent 只做安全路由，普通
 前台维持四个用户意图；Focus/Condition 内置，摘要与完整结构分 MEDIUM/HIGH，
 Ownership/Closure 保持专用链，批量/移动/拆分合并路由外部 Agent，Association 与 Project
-due 在 inverse/语义未齐前禁用。router 不再把后二者错误标为可直接 Undo，也不会把 C 类
-误送进万能内置结构页。该结论不把未实现能力写成 Out of Scope；外部 Agent 的完整产品链
-仍需验收。
+due 在 inverse/语义未齐前禁用。`8d24569` 又完成 C 类一条共享多 Block 移动链：有界
+Context→外部 Agent Proposal→共用 Review→正式 Commit→reload→Undo→reload。首次 Undo
+缺陷由既有 Recovery Kernel 安全补偿，通用 planner 修复后成功复验；没有新增 Runtime、状态、
+Recovery 分支或 Skill。P2-D 因而为 `DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE`，不声称
+每种 C 类 intent 都有独立工作台，也不把 D 类写成 Out of Scope。
 
 连续使用 Day 7 已通过同一 UUID moved/renamed 的代表性 Anchor Gate：真实 MiniProject
 子树在 Logseq 工作现场移动到新 Page 并改名，explicit sync 后 identity 保持且 Primary
@@ -441,9 +443,9 @@ P0/P1/P2 或 Final Release 标为 DONE。
   脱敏 Desktop 截图；`4dfe014` 又以最新 Dark Desktop 证明高频壳层不再显示重复运行组件条；
 - [x] P0-F 介入计数/噪声排除/Recovery 优先级自动覆盖，以及安静态、正式连接风险 `TC ①`、
   诊断路由和恢复后安静态的两张脱敏 Desktop 截图；
-- [ ] P2-D Release 边界已完成证据化分类并由 `3c83856` 固化；Focus/reviewAt 复用现有
+- [x] P2-D Release 边界已完成证据化分类并由 `3c83856` 固化；Focus/reviewAt 复用现有
   Condition/Focus 逆向合同，Association/Project due 明确不开放。外部 Agent 结构操作
-  Context→Preview→正式 Commit 产品链仍需收口；
+  已由 `8d24569` 完成一条共享 Context→Preview→正式 Commit→reload→Undo→reload 代表链；
 - [x] P0-G 用户层状态翻译、inverse 折叠、专用 Undo 路由、折叠技术详情，以及 LOW 应用→
   即时结果→跨 reload 长期 Undo→Graph/SQLite 恢复的四张脱敏 Desktop 截图；
 - [x] P0-I 五个用户问题、Provider 非故障降级、安全优先级、Pending/Recovery 分离和

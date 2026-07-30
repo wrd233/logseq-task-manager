@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P0 已以分层代表矩阵收口；P1-G、P1-E 宿主拒绝、P1 Attention 计数与跨会话策略、P2-E 有界恢复合同、P2-G 高风险代表链已关闭。P1 自然日用 helpful/noise/建议关注、P2-D 外部 Agent、P2-F 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为代表性 Desktop DONE、有界 Pilot 或有证据的 bounded host conclusion | 是 |
+| Partial 长期堆积 | MEDIUM | P0、P1-G、P1-E、P1 Attention 边界、P2-D 共享外部 Agent、P2-E 有界恢复与 P2-G 高风险代表链已关闭。P1 自然日用质量继续 Pilot；P2-F 明确 Shadow/non-blocking；Final Release Freeze 仍 OPEN | Freeze 期间不新增能力面；只关闭 Release blocker、当前构建代表 Gate 和文档/安装态漂移 | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -18,6 +18,16 @@
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
 ## 本轮变化（2026-07-30）
+
+### P2-D 外部 Agent 共享纵向链（`8d24569`）
+
+- 关闭 C 类 external Agent product-chain Partial `1`，新增长期 Partial `0`，净变化 `-1`；
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator `0`；
+- 多 Block Undo 首次真实失败进入既有 `RECOVERY_REQUIRED`，补偿回安全正向结构；通用 planner
+  与已有 recovery 初始化修复后，新 Proposal 完成 apply→reload→Undo→reload；
+- 删除潜在的重复机制：bulk/move/split/merge 不再分别等待独立 Agent 工作台，统一为一条
+  Context/Proposal-only 路线，正式 Commit/Undo/Recovery 仍由 Task Copilot 承担；
+- 风险变化：Agent/LLM 平行小系统与 Partial 堆积风险下降；Recovery Kernel 没有扩张。
 
 ### P1-E Block Marker 宿主拒绝（`53337f2`）
 

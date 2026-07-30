@@ -221,7 +221,7 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 
 ## P2-D：Project 结构操作路由
 
-状态：`IN_PROGRESS_RELEASE_ROUTER_DONE_EXTERNAL_AGENT_CHAIN_OPEN`
+状态：`DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE`
 
 | 级别 | 示例 | 用户摩擦 |
 |---|---|---|
@@ -293,8 +293,20 @@ Preview/Commit/Recovery；`ASSOCIATION` 因 inverse 未齐、`DUE_AT` 因 Projec
 - focused router `6/6`、Application `172/172` 与根级完整检查 PASS。现有四个用户意图 UI
   未变化，因此复用既有 CURRENT Desktop 证据，不用旧截图证明新 UI。
 
-该项关闭 P2-D release-boundary drift Partial `1`；P2-D 仍因 C 类外部 Agent 的完整
-Context→Preview→正式 Commit 产品链以及其余代表性 Final Gate 保持 `IN_PROGRESS`。
+该项关闭 P2-D release-boundary drift Partial `1`；C 类外部 Agent 产品链当时仍开放。
+
+2026-07-30 `8d24569` 又以一个多 Block 移动代表场景关闭 C 类共享纵向链：有界 Context
+Package→外部 Agent Proposal→CLI 零写 validate / Proposal-only submit→精简 Review→正式
+Service Commit→reload→inverse Undo→reload。第一次真实 Undo 暴露“前序兄弟已归位后，
+后续 Block 的目标 previous sibling 会变化”的通用缺陷；系统进入既有
+`RECOVERY_REQUIRED` 并补偿回安全正向结构。TDD 修复 inverse planner 与同一 recovery
+初始化后，新 Proposal 完整成功，原 UUID、正文与顺序恢复，Doctor/Pending/Recovery 健康。
+没有新增 Runtime、正式状态、恢复分支或 Skill。
+
+P2-D 首发边界因此固定为：A 内置直达；B 内置 Review/Grill；C 共用一条外部 Agent
+调查/Proposal 路线且最终写权仍在 Task Copilot；D 无安全 inverse 时保持关闭。该有界代表
+结论不声称每个 C intent 都有独立工作台，也不把 D 类改写为 Out of Scope。完整记录见
+`logs/p2-d-external-agent-vertical-desktop-live-20260730.md`。
 
 ## P2-E：Closure 证据起草
 

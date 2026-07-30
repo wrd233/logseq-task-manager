@@ -41,9 +41,9 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K 的自动与代表 Desktop Gate 完成；P0-H reload/quit/no-arg reinstall authority/Graph switch，P0-J palette/Slash/custom binding/原生中文 IME，P0-K Block/Page/来源移动删除/Query-reference-sidebar bounded，accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/reload/restart 均有真实证据。`7e72075` 以最新 Now、待审阅空态、更多和系统健康页合并既有 733px、主题与宿主证据，关闭最终分层代表视觉总 Gate；File Graph Page Head/identity/真实 Light 保持 bounded host limitation，不扩成笛卡尔积 |
-| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略与建议关注仍 OPEN；P1-D status consumers；P1-E 真实宿主 slot 替换正文，`53337f2` 撤下生产入口并记为 `DONE_BOUNDED_HOST_REJECTION`；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_RELEASE_ROUTER_DONE_EXTERNAL_AGENT_CHAIN_OPEN_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-D A/B/C/D 发布边界已由 `3c83856` 成为唯一代码合同，外部 Agent 完整产品链仍 OPEN；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
-| 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
+| P1 | IN_PROGRESS_P1G_DONE_ATTENTION_BOUNDED_PILOT_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 正式 Now 已完成三段纯派生与代表 Desktop；`REVIEW_DUE/DUE` 在同一卡片完成有界显示、session disposition、reload/recompute、取消不误记 acted 和事实解除自动失效。Dynamic Shadow 不替换 authority；session-only 为首发合同，不建立跨会话提醒权威；自然 helpful/noise 继续 Pilot 而不阻断首发。P1-E 为 `DONE_BOUNDED_HOST_REJECTION`，Block Marker OFF；P1-F File Graph Page Head bounded；P1-G 真实 Provider/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；建议关注、Waiting 过久、Project 静默和跨对象观察保持 Shadow |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_NON_BLOCKING_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C 主链有 Desktop；P2-D A/B/C/D 发布边界与代码一致，`8d24569` 又以多 Block 移动完成一条共享 external Agent Context→Review→Commit→reload→Undo→reload 代表链，真实 Undo 缺陷经同一 Recovery Kernel 安全补偿并修复；P2-E 有界恢复合同 DONE；P2-F 明确为 Shadow、默认关闭且不阻断首发；P2-G 高风险代表链有 Desktop。File Graph 自身 Light host Gate 为 bounded limitation |
+| 最终验收 | IN_PROGRESS_RELEASE_FREEZE | `10_ACCEPTANCE_REPORT.md`、`12_RELEASE_FREEZE_CHECKLIST.md` |
 
 ### 2026-07-30 P0 最终代表视觉总 Gate
 
@@ -188,6 +188,20 @@ EXTERNAL_AGENT / NOT_AVAILABLE`；C 类仍保持“Agent 只准备 Context/Propo
 掌握 Preview/Commit/Undo/Recovery”，D 类明确零正式路由。focused `6/6`、Application
 `172/172`、根级检查 PASS；新增正式状态/Runtime/Recovery/Skill/入口均为 `0`。关闭既有
 release-boundary drift Partial `1`，但外部 Agent 完整产品链仍 OPEN，P2-D 不提前写成 DONE。
+
+### 2026-07-30 P2-D 外部 Agent 共享链与 Release Freeze
+
+- `8d24569` 使用多 Block 整理作为唯一 C 类代表场景，完整走过有界 Context Package、外部
+  Agent Proposal、CLI 零写 validate / Proposal-only submit、精简 Review、正式 Commit、
+  reload、Undo 与再次 reload；
+- 首次 Undo 的 sibling-position divergence 没有假报成功，而是进入既有 Recovery Kernel
+  并补偿回安全正向结构。TDD 通用修复后新 Proposal 成功恢复原 UUID、正文与顺序；
+- 自动聚焦、Application/Service/Plugin typecheck/build、根级检查、145 条稳定规则和恢复演练
+  PASS；当前无参数重装保留原 database authority；
+- 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator 均为 `0`；P2-D 长期
+  Partial `-1`，新增长期 Partial `0`；
+- P2-D 收口为 `DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE`。P2-F 固定 Shadow/non-blocking，
+  系统从此进入 Release Freeze；后续只处理 blocker、明确回归和安装/证据漂移。
 
 ### 2026-07-28 连续使用 Pilot Day 7 稳定移动
 
@@ -1287,9 +1301,8 @@ derivative/dashboard 价值也仍未完成。
 
 ## 下一步
 
-1. 以 `PILOT-2026W31-A` 收口 P1 第一批 Attention 的真实 helpful/noise、跨会话 disposition
-   结论与 Block Marker 默认开关；不新增 Detector 或正式 Attention 类型；
-2. 关闭 P2-D Release 边界中仍有真实使用价值且具备 inverse 的操作，并推进 P2-F
-   generation→revalidate→recompute 的有界前台/反馈门；
-3. 启动 Final Release 代表矩阵与复杂度 Gate，同步核对显式正式化的等价撤销入口；不新增
-   第二套 Agent Runtime、恢复框架或写入权威。
+1. 执行 `12_RELEASE_FREEZE_CHECKLIST.md` 的当前构建代表矩阵，优先安装/生命周期、
+   Project create→Undo、主题/窄栏与 Release 包；
+2. 核对 Skill catalog、安装态、运行态和代表性真实 Provider 样本，不新增 Skill 家族；
+3. 只修复 Release blocker 或明确回归；P2-F、扩展 Attention、Block Marker 与 D 类结构操作
+   保持既定 Shadow/关闭/有界结论。

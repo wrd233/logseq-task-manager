@@ -128,6 +128,24 @@ Lifecycle 与 Condition 不变，Pending/Recovery/Conflict `0/0/0`。Ownership�
 不进入正式路由。CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。该结论只关闭
 Condition 这一条 LIGHT 链；Focus/reviewAt、Association 和其他 HEAVY 类型仍开放。
 
+## P2-D 外部 Agent 受控多 Block 整理
+
+状态：`DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE`
+
+1. Task Copilot 从正式 MiniProject 与实时 Block 子树导出有界 Context Package；
+2. 外部 Agent 只形成事实、判断、未知分区的结构 Proposal，不获得正式写权；
+3. CLI validate 零写入，submit 只进入共用 Review；
+4. 用户先审阅方案，再确认应用；正式写入由既有 Service/SemanticCommit 执行；
+5. 两条原 Block 保持 UUID、正文和顺序移入新分区，reload 后保持；
+6. 最近修改提供同一 inverse Undo；修复构建中 Undo 删除新分区并恢复原父子顺序；
+7. 再次 reload 后 Doctor PASS，PENDING/Recovery `0/0`，返回原 Logseq Page。
+
+第一次真实 Undo 暴露兄弟位置随前序归位变化的缺陷，并进入既有 Recovery Kernel 安全补偿，
+没有假报成功。`8d24569` 的通用 TDD 修复后重新走完整链成功。CURRENT 为
+`p2-d-external-agent-retry-*-8d24569.jpeg`；`e407799` 六张图只保留为
+`HISTORICAL_DEFECT`。完整记录见
+`../logs/p2-d-external-agent-vertical-desktop-live-20260730.md`。
+
 ## P2-E Project Closure evidence → Provider → Commit → Undo
 
 状态：`DONE_BOUNDED_RECOVERY_CONCLUSION`

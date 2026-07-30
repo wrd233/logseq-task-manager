@@ -10,12 +10,27 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: DONE_DESKTOP_REPRESENTATIVE
 p1_status: IN_PROGRESS_P1G_DONE_ATTENTION_BOUNDED_PILOT_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_RELEASE_ROUTER_DONE_EXTERNAL_AGENT_CHAIN_OPEN_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_NON_BLOCKING_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
+
+`8d24569` 关闭 P2-D C 类外部 Agent 完整产品链 Partial。真实 Logseq `0.10.15` File Graph、
+host Light / Plugin Dark、1000×720 中，Task Copilot 从正式 MiniProject 与实时 Block 子树导出
+有界 Context Package；外部 Agent 只准备事实/判断/未知分区 Proposal，CLI validate 零写入、
+submit 只进入共用 Review。用户依次审阅方案、确认应用，正式 Service 创建整理分区并移动
+两条原 Block；reload 后保持。首次 Undo 真实暴露相邻位置随前序 Block 归位而变化的通用
+缺陷，系统正确进入既有 `RECOVERY_REQUIRED` 并补偿回安全正向结构，没有假报成功。
+TDD 修复只调整 inverse planner 与既有 recovery 初始化；新 Proposal 随后完整通过
+apply→reload→Undo→reload，原 UUID、正文与顺序恢复，Doctor `PASS`、PENDING/Recovery
+`0/0`。根级检查、145 条稳定规则与恢复演练 PASS；无新增正式状态、Runtime、Recovery
+分支或 Skill，长期 Partial 净变化 `-1`。P2-D 以“一条共享 C 类链 + A/B/C/D 有界发布边界”
+收口为 `DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE`；Association/Project due 继续关闭，
+P2-F 保持 Shadow 且不阻断首发。项目进入 Release Freeze，但最终 Release 与完整 Goal仍为
+`IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/p2-d-external-agent-vertical-desktop-live-20260730.md`。
 
 `c9919f2` 关闭 P1 Attention 主操作计数语义和跨会话 disposition 决策两个既有 Partial。
 真实 Logseq `0.10.15` File Graph、host Light / Plugin Dark、1000×720 中依次验证：打开
@@ -810,8 +825,9 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
-- P0 代表性 Desktop 总 Gate 已关闭；P1-E Block Marker 已按真实宿主拒绝有界关闭；当前继续推进 P1 Attention、
-  P2-D/P2-F 边界与 Final Release；
+- P0 代表性 Desktop 总 Gate 已关闭；P1-E Block Marker 已按真实宿主拒绝有界关闭；P1
+  Attention 已形成 session-only 有界 Pilot；P2-D 已完成一条共享外部 Agent 代表链；P2-F
+  明确保持 Shadow/non-blocking；当前进入 Final Release Freeze；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。
@@ -822,11 +838,12 @@ V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 DONE_DESKTOP_REPRESENTATIVE / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
 P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
-P2-D router + MEDIUM narration + one HEAVY full-interface vertical DONE,
-remaining LIGHT/other-HEAVY/visual gates OPEN /
+P2-D A/B/C/D router + built-in representative verticals + one shared external Agent
+Context→Review→Commit→reload→Undo→reload DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE /
 P2-E Provider→Review→Commit→Undo→reload + receipt resume + Provider error/stale Desktop DONE,
 pre-write failure/replay/stale bounded recovery contract DONE_AUTOMATED; no artificial RECOVERY_REQUIRED /
-P2-F shadow safety contract + first real Provider repeat quality gate PASS, frontstage/feedback/reload gates OPEN /
+P2-F shadow safety contract + first real Provider repeat quality gate PASS,
+frontstage default OFF and non-blocking for first release /
 P2-G Rebind identity-free capture + bounded correction guidance + cancel safety Desktop DONE,
 Restore frontstage state-delta roundtrip Desktop DONE,
 Restore activation-failure automatic rollback + recovery-point + reload Desktop DONE,
