@@ -29,14 +29,21 @@
   shutdown、Graph switch/切回与失败/Recovery 复用完全相同 Launcher/Service payload 的既有
   Desktop 证据，不机械重跑未受影响的宿主 Gate；
 - [x] 核对当前 Skill catalog、安装态和运行态只使用明确 active 版本；五个 Skill 的源文件、
-  payload、安装态和 Service catalog SHA-256 一致。`1549728` 当前构建又用
+  payload、安装态和 Service catalog SHA-256 一致。`1549728` Freeze 基线又用
   `recover-context@1.3.0` 完成一次真实 Provider Desktop smoke，Project v31 保持零写入；
 - [x] 核对 Project create→reload→Undo 与 Context Recovery 当前构建证据；当前 Dark
   1000×720 主链重新取证，Light/窄栏使用未发生样式变化的既有代表 Gate，不扩成笛卡尔积；
 - [x] 生成并校验可安装 Release 包；`unzip -t` PASS，SHA-256 为
-  `38120182627f89946b5deafdd94be81b2cb5e3c05169a6b08b00da61aa5b2c04`；安装、启动、
-  关闭、恢复、升级与安全卸载说明已同步到 `13_RELEASE_RUNBOOK.md`；又直接从解压包执行
-  无参数 install，authority/hash 保持、Service READY、Doctor PASS；
+  `2efdbdd78621d159718fbc1e666c384b25d4b878d5f07112b2643dfa0b6e52c4`（当前
+  `task-copilot-v2-0.1.0-ae9c6d7-r3.zip`）；包内 Plugin build 与最终根级检查后的源码 hash
+  一致；安装、启动、
+  关闭、恢复、升级与安全卸载说明已同步到 `13_RELEASE_RUNBOOK.md`；真正零参数 install
+  以 `LAUNCHER_INSTALL_ARGUMENTS_INVALID` 安全停止；直接从解压包提供 Graph identity、
+  但不传 `--database` 的正式重装为 `INSTALLED`，authority/hash 保持，真实 Plugin reload
+  后 Service READY、Doctor PASS；
+- [x] Release Candidate 自然 Block→真实 Provider→Review→应用→reload→Undo→reload 回归；
+  `ae9c6d7` 关闭已完成“最近修改”的无效“查看”和 Commit/Object ID 泄漏，Plugin
+  `378/378`、根级检查、Doctor 与恢复演练 PASS；
 - [x] 完成发布前 TODO/FIXME/stub、skipped、silent overwrite、Pending Recovery、依赖审计与
   当前截图/文档一致性检查；没有 skipped test，源码 TODO 命中均为 Logseq Marker 合同；
 - [x] 只把真实 Release blocker 保持为 OPEN；当前没有未解释的代码/数据安全 blocker。

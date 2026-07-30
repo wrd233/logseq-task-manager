@@ -5,6 +5,17 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### Release Candidate 自然使用与 Undo — exact build `ae9c6d7`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720；批次
+`RC-PILOT-20260730-B`。普通 Block 经真实 DeepSeek、Review、正式应用、reload 与产品 Undo；
+正式 Task 最终撤销，objects `15→14`、Doctor PASS。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/rc-natural-use-recent-change-current-ae9c6d7.jpeg` | CURRENT | 当前构建 reload 后打开“最近修改” | 已完成卡只保留“撤销”；没有无效“查看”或 Commit/Object ID |
+| `screenshots/rc-natural-use-undo-current-ae9c6d7.jpeg` | CURRENT | 确认 inverse Undo | 修改已撤销；正文与正式对象回到基线 |
+
 ### Release Freeze Context Recovery smoke — exact build `1549728`
 
 Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。无参数重装后真实

@@ -1,5 +1,21 @@
 # Current Golden Flows
 
+## RC Natural Block → Proposal → Apply → reload → Undo
+
+状态：`DONE_CURRENT_BUILD_NATURAL_USE_REGRESSION`
+
+1. 用户在普通 Logseq Block 记录自然工作内容；
+2. command palette 的“处理当前 Block”构造有界上下文并显式调用真实 Provider；
+3. 用户先审阅系统理解；此时正文与正式对象不变；
+4. 用户确认应用后，现有 Proposal/Commit Kernel 原子更新目标 Block并创建 Task；
+5. reload 后 Task 进入 Now，正式投影保持；
+6. “最近修改”只显示当前真正可用的“撤销”，不暴露 Commit/Object ID；
+7. inverse Undo 恢复原 Block 和对象基线；再次 reload 后 Doctor PASS。
+
+当前结果：exact build `ae9c6d7`，真实 Provider `1` 次，Validator rejection/retry/
+abstention `0/0/0`；objects `14→15→14`。新增长期状态、Runtime、Recovery 或 Skill 为 `0`。
+证据见 `../logs/release-candidate-natural-use-regression-20260730.md`。
+
 ## P1 Project Context Recovery
 
 状态：`DONE_REPRESENTATIVE_DESKTOP_PROVIDER_GATES`

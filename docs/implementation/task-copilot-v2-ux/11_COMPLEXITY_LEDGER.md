@@ -746,3 +746,16 @@
 - Release package/runbook 与 latest Project create/reload/Undo 两个既有 Partial 关闭，新增
   Partial `0`，本轮净变化 `-2`；Partial 风险 `MEDIUM→LOW-MEDIUM`；
 - 剩余 upstream SDK advisory 明确记录，不用无效 major force 制造兼容性 Partial。
+
+### Release Candidate 自然使用回归（2026-07-30，`ae9c6d7`）
+
+- 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator 版本和写入权威均为 `0`；
+- 删除一个重复前台动作：已完成/失败/已撤销的最近修改卡不再显示没有用户价值的“查看”；
+  只有 PENDING/RECOVERY_REQUIRED 继续显示同一账本的“继续/恢复”；
+- 删除普通成功/失败反馈中的 Commit、Proposal、Object ID 与 Domain 枚举，Audit 和 ledger
+  仍保留完整技术事实；前台工程词泄漏风险继续下降；
+- 真实 Provider `1` 次，一次通过，Validator rejection/retry/abstention `0/0/0`；没有为
+  单一样本升级 Skill 或增加 Validator 规则；
+- 发现并同轮关闭一个 RC UX 回归，新增长期 Partial `0`，Partial 净变化 `0`；
+- Release zip 只替换当前 Plugin build 和 Runbook；Launcher、Service、Skill payload 与既有
+  Freeze Gate 相同，没有产生第二套安装态或 authority。

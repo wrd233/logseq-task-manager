@@ -18,7 +18,20 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
-`1549728` 当前构建完成 Release Freeze 的 Project create→reload→Undo 代表回归和发布包。
+`ae9c6d7` 又在 Release Candidate 的自然 Block→真实 Provider→Review→正式应用→reload→
+Undo→reload 链中发现并关闭一个前台回归：已完成的“最近修改”不再同时出现无效“查看”和
+内部 Commit/Object ID，只保留当前真正可用的“撤销”；PENDING/RECOVERY_REQUIRED 仍沿用
+同一账本的“继续/恢复”。真实 Task 已撤销，objects `15→14`，Service `READY`、Doctor
+`PASS`、Commit healthy `0`。从当前包执行真正零参数 install 会安全返回
+`LAUNCHER_INSTALL_ARGUMENTS_INVALID`；提供 Graph identity 但不传 `--database` 的正式重装
+保持 graphKey/database authority，reload 后 Service 恢复。Plugin `378/378`、根级检查、
+145 条稳定规则和恢复演练 PASS；
+当前 Release zip 已重建为 `task-copilot-v2-0.1.0-ae9c6d7-r3.zip`，`unzip -t` 与包内 Plugin
+hash 一致性 PASS。新增正式状态、Runtime、Recovery、Skill 均为 `0`，长期 Partial 净变化
+`0`。Final Release 保持 `RELEASE_CANDIDATE_READY`；完整长期 Goal 仍为 `IN_PROGRESS`。
+证据见 `task-copilot-v2-ux/logs/release-candidate-natural-use-regression-20260730.md`。
+
+`1549728` Freeze 基线完成 Project create→reload→Undo 代表回归和首次发布包。
 真实 Logseq `0.10.15` File Graph、host Light / Plugin Dark、1000×720 中，Blank Project
 Creation 经五轮真实 DeepSeek Grill 与一次最终预览收敛；Preview、HIGH Review、审阅方案、
 确认应用、Project 落地、Plugin Manager reload、最近修改专用 Undo、再次 reload 全部通过。

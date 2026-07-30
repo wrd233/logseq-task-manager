@@ -13,7 +13,18 @@
 | P0 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K、普通 Block route、系统状态、Service lifecycle、Graph authority 与统一 Commit/Recovery 自动矩阵 PASS | Focus/Condition/LOW apply/Block-Page route/four-nav/toolbar/recent changes/system status；reload/quit/no-arg reinstall/Graph switch；palette/Slash/binding/IME；accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/restart 均有代表 Desktop。`7e72075` 用最新 Now、待审阅、更多、健康页合并既有 733px、主题和宿主有界证据关闭总 Gate | P0 阶段完成；File Graph host limitations 保留，P1/P2/Final Release 与完整 Goal 继续 IN_PROGRESS |
 | P1 | DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW | P1-A/B Dynamic Shadow + P1-C 三段纯派生/正式 Now + P1-D status consumers + P1-E Block Marker 有界宿主拒绝 + P1-F Project reentry/Page Head bounded + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | `3097c39` / `c9919f2` 四个独立 session 证明取消不误记 acted、later/notRelevant 只安静当前 session、事实解除后自动失效并跨 reload 保持；`1549728` 当前构建又完成 Context Recovery 真实 Provider smoke、Project v31 零正式写入 | 时间 Attention 为 bounded Pilot；建议关注、Waiting 过久、Project 静默和跨对象观察 Shadow；Block Marker OFF；File Graph Page Head bounded。上述均明确不阻断首发，不保留模糊 Partial |
 | P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A/B、P2-C、P2-D 路由/共享 external Agent、P2-E、P2-F shadow/provider、P2-G 高风险代表链 PASS | `8d24569` 完成 shared external Agent；`1549728` 又以五轮真实 Grill + Preview/HIGH Review/创建/reload/专用 Undo/reload 验证最新 P2-C，最终 objects 14、Doctor PASS、Commit healthy 0。P2-E/G 既有证据保持 | P2-F 与扩展研究能力默认关闭，不阻断首发；File Graph Light 为 bounded host limitation |
-| Final Release | RELEASE_CANDIDATE_READY | 根级检查、145 条规则、恢复演练、安装态/authority、Skill、真实 Provider、当前 Project create/Undo、zip 完整性与解压安装 PASS | `1549728` 当前代码/安装构建/截图一致；release zip SHA-256 已记录；从 zip 无参数 install 后 authority/hash 不变、Service READY、Doctor PASS | 候选包可交付；完整长期 Goal仍继续自然日用质量与真实发布后证据，不把 RC 冒充 overall complete |
+| Final Release | RELEASE_CANDIDATE_READY | 根级检查、145 条规则、恢复演练、安装态/authority、Skill、真实 Provider、Project create/Undo、当前自然 Block apply/Undo、zip 完整性与解压安装 PASS | `ae9c6d7` 当前 Plugin/截图/zip hash 一致；Launcher/Service/Skill payload 沿用 `1549728` 已验证安装基线；Service READY、Doctor PASS | 候选包可交付；完整长期 Goal仍继续自然日用质量与真实发布后证据，不把 RC 冒充 overall complete |
+
+`ae9c6d7` 又以一条自然 Block 正式化链复核 Release Candidate：真实 DeepSeek 生成方案，用户
+先审阅再确认应用，reload 后 Task 进入 Now，最终通过产品 Undo 回到原文与 objects `14`。
+该链发现已完成“最近修改”卡的无效“查看”及 Commit/Object ID 泄漏；先红后绿修复并重载
+当前构建后，卡片只保留真正可用的“撤销”，PENDING/RECOVERY_REQUIRED 的同账本入口不受
+影响。Plugin `378/378`、根级检查、Doctor 与恢复演练 PASS。新 Release zip
+新包完整性和当前 Plugin hash 一致性 PASS；真正零参数 install 安全停止，提供 Graph identity
+但不传 `--database` 的正式重装保持原 graphKey/databasePath，reload 后 Service READY；因此
+RC 状态保持，
+但完整长期 Goal 仍为 `IN_PROGRESS`。完整证据见
+`logs/release-candidate-natural-use-regression-20260730.md`。
 
 `3883848` / `78528f7` 已把 accepted-not-applied 从 P0 Partial 推进为
 `DONE_DESKTOP_REPRESENTATIVE`：真实审阅后正文/Object 零变化，Plugin Manager reload 后入口

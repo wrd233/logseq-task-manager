@@ -43,9 +43,28 @@
 | P0 代码实现 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K 的自动与代表 Desktop Gate 完成；P0-H reload/quit/no-arg reinstall authority/Graph switch，P0-J palette/Slash/custom binding/原生中文 IME，P0-K Block/Page/来源移动删除/Query-reference-sidebar bounded，accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/reload/restart 均有真实证据。`7e72075` 以最新 Now、待审阅空态、更多和系统健康页合并既有 733px、主题与宿主证据，关闭最终分层代表视觉总 Gate；File Graph Page Head/identity/真实 Light 保持 bounded host limitation，不扩成笛卡尔积 |
 | P1 | DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW | P1-A/B Dynamic Shadow 不替换正式 Now；P1-C 正式 Now 三段纯派生与代表 Desktop DONE；`REVIEW_DUE/DUE` 在同一卡片完成 bounded Pilot、session disposition、reload/recompute、取消不误记 acted 和事实解除自动失效。session-only 为首发合同，不建立跨会话提醒权威；自然 helpful/noise 继续 Pilot 而不阻断首发。P1-E 为 `DONE_BOUNDED_HOST_REJECTION`、Block Marker OFF；P1-F File Graph Page Head bounded；P1-G 当前构建真实 Provider smoke 与既有 error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；建议关注、Waiting 过久、Project 静默和跨对象观察保持 Shadow |
 | P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A+B DONE；P2-C 当前 `1549728` 又完成 Blank 真实 Provider→Preview→HIGH Review→create→reload→Undo→reload；P2-D A/B/C/D 发布边界与一条共享 external Agent 代表链 DONE；P2-E 有界恢复合同 DONE；P2-F Shadow、默认关闭且不阻断首发；P2-G 高风险代表链有 Desktop。File Graph Light 为 bounded limitation |
-| 最终验收 | RELEASE_CANDIDATE_READY | Freeze 清单全部关闭；当前 zip、解压安装、authority、自动/Provider/Desktop 代表矩阵 PASS。候选包不等同于完整长期 Goal 结束 |
+| 最终验收 | RELEASE_CANDIDATE_READY | Freeze 清单全部关闭；`ae9c6d7` 当前 zip、Plugin hash、自然使用回归、authority、自动/Provider/Desktop 代表矩阵 PASS。候选包不等同于完整长期 Goal 结束 |
 
-### 2026-07-30 Release Freeze 当前构建代表 Gate
+### 2026-07-30 Release Candidate 自然使用回归
+
+- `ae9c6d7` 在普通 Block→command palette→真实 DeepSeek→Review→确认应用→reload→Now→
+  最近修改→Undo→reload 链中完成当前构建回归；Provider `1` 次，Validator rejection/retry/
+  abstention `0/0/0`；
+- 首次链发现已完成卡同时显示无效“查看”并在顶部泄漏 Commit/Object ID。先红后绿修复后，
+  已完成卡只剩“撤销”；PENDING/RECOVERY_REQUIRED 的“继续/恢复”不受影响；
+- 真正 Undo 后来源 Block 恢复，objects `15→14`；Service READY、Doctor PASS、Commit
+  healthy `0`。Plugin `378/378`、typecheck/build、根级检查、145 条稳定规则与恢复演练 PASS；
+- 当前发布包更新为 `task-copilot-v2-0.1.0-ae9c6d7-r3.zip`，`unzip -t` PASS，SHA-256
+  `2efdbdd78621d159718fbc1e666c384b25d4b878d5f07112b2643dfa0b6e52c4`，包内 Plugin build
+  hash 与当前源码构建一致；Launcher/Service/Skill payload 未变化。真正零参数 install
+  以 `LAUNCHER_INSTALL_ARGUMENTS_INVALID` 安全停止；显式提供 Graph identity、但不传
+  `--database` 的新包重装为 `INSTALLED`，authority 前后不变，reload 后 Service READY；
+- 新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator 版本和长期 Partial 均为
+  `0`；本轮发现并关闭同一 RC 回归，Partial 净变化 `0`。Final Release 仍为
+  `RELEASE_CANDIDATE_READY`，完整 Goal 仍为 `IN_PROGRESS`。证据见
+  `logs/release-candidate-natural-use-regression-20260730.md`。
+
+### 2026-07-30 Release Freeze 基线代表 Gate
 
 - `1549728` 当前构建通过同 Graph 无参数重装 authority、五个 Skill source/payload/安装态、
   当前 Context Recovery 真实 Provider smoke 与完整 Blank Project create→reload→Undo→reload；

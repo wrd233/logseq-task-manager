@@ -24,8 +24,10 @@
      --graph-id "your-graph-id"
    ```
 
-3. 同一 Graph 无参数重装/升级会保留既有 `databasePath`、graph key、Provider 配置和 Keychain
-   reference；不会自动发现另一数据库并把它提升为 authority；
+3. 同一 Graph 重装/升级仍需提供 `--graph-path` 与 `--graph-id`；省略 Graph identity 会以
+   `LAUNCHER_INSTALL_ARGUMENTS_INVALID` 安全停止。只要不传 `--database`，安装器就会保留
+   既有 `databasePath`、graph key、Provider 配置和 Keychain reference，不会自动发现另一
+   数据库并把它提升为 authority；
 4. 只有显式迁移 authority 时才传 `--database`。安装、升级和首次启动都不会自动执行 V1
    迁移；
 5. 在 Logseq 的插件页“手动载入插件”，选择 `task-copilot-plugin/`；更新后点击“重载”。
