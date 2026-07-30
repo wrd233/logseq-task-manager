@@ -10,7 +10,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash/custom binding、ended formal boundary 与原生中文 IME PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS；accepted-not-applied、stale 历史分离、PENDING same-Commit resume 与 RECOVERY_REQUIRED→reload→同记录补偿→restart→正文/UUID/顺序守恒均为代表性 Desktop DONE；最终代表视觉总 Gate OPEN | 不得宣布 P0 完成 |
+| P0 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K、普通 Block route、系统状态、Service lifecycle、Graph authority 与统一 Commit/Recovery 自动矩阵 PASS | Focus/Condition/LOW apply/Block-Page route/four-nav/toolbar/recent changes/system status；reload/quit/no-arg reinstall/Graph switch；palette/Slash/binding/IME；accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/restart 均有代表 Desktop。`7e72075` 用最新 Now、待审阅、更多、健康页合并既有 733px、主题和宿主有界证据关闭总 Gate | P0 阶段完成；File Graph host limitations 保留，P1/P2/Final Release 与完整 Goal 继续 IN_PROGRESS |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C 三段纯派生/正式 Now 前台 + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-C 三段已在 `3d63d5a` 完成真实正式状态 Desktop 代表 Gate：“继续处理”含 reload、Dark 1001×720/733×720，“需要回看”含 Focus Blocked，“保持等待”含 Focus Paused，测试后恢复基线。`3097c39` 又让到期类 Signal 在同一 Now 卡片完成有界显示、两种 session disposition 与 reload/recompute，且不复制既有风险权威表面。P1-G Context Recovery 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker、真实 helpful/noise、跨会话 disposition 与建议关注仍 OPEN | P1-G、Now 和时间 Signal 子 Gate完成不等于 P1 完成；不得把一个人工样本升级为 Production |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A/B、P2-C/D、P2-E 全链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error、generation stale、写入前失败与重放安全合同 DONE；精确 `98df827` 完成真实 reload/当前空审阅证据，FAILED/STALE 卡为自动故障注入证据；P2-G Rebind 最新纠错指引/捕获取消安全、Restore 真实双失败人工恢复、Migration Activation/失败重试/窄栏 DONE | P2-D remaining；P2-F frontstage；显式正式化等价撤销入口核对；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
@@ -20,7 +20,8 @@
 仍在；重验方案随后正式应用、inverse Undo，并在再次 reload 后恢复 TODO 与 Object 基线。
 首次预检 stale 为零写入，最新构建又把 stale 从当前待审阅移入折叠历史。
 该时点 PENDING 和 RECOVERY_REQUIRED 的同 ledger 用户语言只有自动回归；后续
-PENDING 已由下述代表 Desktop 链关闭，P0 仍由 RECOVERY_REQUIRED 保持进行中。
+PENDING 已由下述代表 Desktop 链关闭；在该时点 P0 仍由 RECOVERY_REQUIRED 保持进行中，
+后者与总 Gate 均已由后续证据关闭。
 证据见
 `logs/p0-unfinished-modification-frontstage-desktop-live-20260730.md`。
 
@@ -41,7 +42,14 @@ reload 与健康读回；组件回归 `372/372`。专用测试 Project 自身的
 持久进入 `COMPENSATION_REQUIRED`；Plugin Manager reload 仍从同一 ledger 显示一个恢复
 入口，确认恢复后原 UUID、正文和顺序恢复，对象保持 v4，Proposal/Commit 终止为 FAILED。
 完整 quit/reopen 后 Service READY、待审阅 0。终态失败已归档，最近修改只显示首段摘要。
-该结论不替代 P0 最终视觉总 Gate，也不关闭整体 Goal。
+该子链自身不替代 P0 最终视觉总 Gate；后者由下述 `7e72075` 汇总关闭。两者都不关闭整体 Goal。
+
+`7e72075` 已完成 P0 最终代表视觉总 Gate：在最新 Logseq 0.10.15 File Graph 中重新检查
+Now、待我确认、更多和用户系统状态，并与既有窄栏、Block/Page、主题、reload/quit/Graph
+switch 和三类未完成修改证据合并为分层代表矩阵。当前问题与 29 条历史分离，普通健康页
+不暴露技术诊断，正式状态无 Pending/Recovery/Anchor conflict。Query/reference/sidebar、
+Page Head 与宿主真实 Light 信号保持明确 bounded host limitation，不通过脆弱注入伪装支持。
+P0 因而为 `DONE_DESKTOP_REPRESENTATIVE`；这不关闭 P1、P2、Final Release 或完整 Goal。
 
 `bfabf40` 已通过 Project 创建后落地与返回现场的代表性 UI Gate：真实 Logseq 0.10.15
 File Graph、Dark/Light 1000×720、Light 723×720 均显示当前状态、一个推进、预期成果、
@@ -131,11 +139,13 @@ Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
 ## 2. P0 验收
 
 - [x] 主导航只有现在、待我确认、项目、更多；Project/Objects 与维护能力均有二级可达证据
-- [ ] Block/Page 就近入口；Block Focus/Condition、普通 Block 精确 UUID 内容路由与 Page
+- [x] Block/Page 就近入口；Block Focus/Condition、普通 Block 精确 UUID 内容路由与 Page
   普通/Project/Journal 路由已完成自动 Gate；普通 Block 真实 Provider abstain 已使用用户
   语言且零写入；P0-K 正式 Block 失败/成功/Undo/reload 已完成，Query/引用/right-sidebar
-  按宿主有界隐藏；中文 IME 已关闭，普通 Block 真实 Provider 其他结果仍待集中 Gate
-- [ ] 高频动作 1—2 个明确决定；
+  按宿主有界隐藏；中文 IME 已关闭；普通 Block 的 abstain/成功/不可用/中断/失败均已有
+  用户语言回归，真实 Provider abstain 与零写入 Desktop 已复验
+- [x] 高频动作 1—2 个明确决定；Now/Review/Condition/Block route 首屏均只有一个主操作，
+  低频动作折叠；维护首页按场景分卡但不进入高频路径
 - [x] 正常连接首屏只有一个 Copilot 状态；启动/host-ready 不再重复成功横幅，Graph switch
   仍明确说明没有复用上一知识库数据；
 - [x] 暂时做不了统一入口；三种意图、最小字段和版本保护 Undo 已通过
@@ -162,13 +172,15 @@ Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
   组合、候选、已提交中文中间光标插入、正式建页、保存与 reload 读回
 - [x] 用户层系统状态；READY/协议/Graph/Pending/Recovery/Anchor/正文核对自动覆盖，
   真实 Desktop 注意状态与 Service unavailable 受限状态通过，技术诊断默认折叠；
-- [ ] 完成后回业务现场；session-only Block/Page origin route 自动 Gate PASS，真实
+- [x] 完成后回业务现场；session-only Block/Page origin route 自动 Gate PASS，真实
   main Page 入口与返回同一 Page 已 PASS；right-sidebar 无 Plugin Page item 按宿主限制安全隐藏；
   Query 页面预览与 Block reference 专用菜单均不提供可靠 Plugin identity，按当前 File Graph
   宿主能力有界隐藏；同一 UUID 移动后精确返回新位置、来源删除后安全关闭且不猜测其他目标
-  已 PASS；成功/失败/Undo 返回仍开放；
-- [ ] Light/Dark/窄栏/Query/引用；
-- [ ] 自动与 Desktop 证据齐全。
+  已 PASS；成功/失败/Undo/Condition/Project 创建后返回均有代表链；
+- [x] Light/Dark/窄栏/Query/引用采用代表性有界验收；Plugin Dark 1001px/723px 与 reload
+  PASS，多个 Light 当前页面 PASS；File Graph 最终主题信号、Query/reference/right-sidebar
+  identity 无可靠宿主能力时安全隐藏并明确记录，不冒充全组合支持；
+- [x] 自动与 Desktop 证据按分层代表矩阵齐全；不要求完全笛卡尔积。
 
 ## 3. P1 验收
 
@@ -379,10 +391,10 @@ P0/P1/P2 或 Final Release 标为 DONE。
 |---|---:|---:|---:|
 | Block 加 Focus | 离开正文→Now Work→找对象→操作 | 1 个现场动作 | 自动 + Desktop PASS；右键一次，原地反馈与读回一致 |
 | 暂时做不了 | Now Work→状态表单→选择字段 | 2 个决定 | Desktop PASS：Block 右键→三选一→最小字段；空原因零写入；保存后回原 Block；Undo 与 reload 恢复“可以行动” |
-| 普通 Block 整理 | 当前页 Candidate→Review→接受→Commit | 现场建议 + 1 次接受应用 | 右键“处理这条内容”按精确 UUID 进入既有 Provider→Proposal，自动 Gate PASS；LOW 单击应用/Undo Desktop PASS；普通/Query/引用现场入口仍待 Desktop |
-| 打开正文 | Now Work/Project 找卡片 | 1 个动作 | 待测 |
+| 普通 Block 整理 | 当前页 Candidate→Review→接受→Commit | 现场建议 + 1 次接受应用 | 右键按精确 UUID 进入既有受控建议链；真实 abstain、用户语言、零写入和 LOW 应用/Undo PASS；Query/引用无可靠 identity 时安全隐藏 |
+| 打开正文 | Now Work/Project 找卡片 | 1 个动作 | Now、Project 和来源移动后按 UUID 返回均为 Desktop PASS；来源删除时安全停止 |
 | Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | Project workspace + Context Recovery Dark 主链 Desktop PASS；Logseq 0.10.15 File Graph 不挂载 Page Head slot，安全隐藏为 bounded；DB Graph Page Head OPEN；current-interface 复用 HIGH Proposal |
-| Service 恢复 | 终端 + descriptor + reload | 1 个产品入口 | descriptor 文件一次导入与 reload READY PASS；进程启动/停止待做 |
+| Service 恢复 | 终端 + descriptor + reload | 1 个产品入口 | descriptor 私有导入、Launcher、hidden reload、owned shutdown、crash recovery、Graph switch 与切回均为 Desktop/Process PASS |
 
 ## 6. 发布否决条件
 

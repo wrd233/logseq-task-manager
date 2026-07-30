@@ -476,7 +476,10 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p0-j-05-slash-command-current-dark.png` | `e8db32f1af6d` | 空白 Block 打开 Slash，选择创建任务并继续输入 ASCII 测试标题 | 四条中文 Slash 可发现；精确插入 `[任务] ` 并保留同一 Block | 仅证明 Slash；原生 IME 后由 `a65da34` 专用证据关闭 |
 | `screenshots/p0-j-06-custom-binding-current-dark.png` | `a835f59bf1c4` | 设置页为“打开‘现在’”配置临时两段 chord | 仅三项高频动作可配置；没有默认键 | 测试后已清理本机配置 |
 | `screenshots/p0-j-07-custom-binding-open-now-current-dark.png` | `a835f59bf1c4` | 关闭设置后触发临时 chord | Now 正确打开 | 不保留测试 binding |
-| `screenshots/p0-j-08-cold-start-configurable-shortcuts-current-dark.png` | `a835f59bf1c4` | 清理配置并完整退出/重启 Logseq，重新检索 Task Copilot | 恰好 3 条可配置命令，全部未设置 | IME 与 ended 边界已由后续 CURRENT 证据关闭；P0 总 Gate 仍 OPEN |
+| `screenshots/p0-j-08-cold-start-configurable-shortcuts-current-dark.png` | `a835f59bf1c4` | 清理配置并完整退出/重启 Logseq，重新检索 Task Copilot | 恰好 3 条可配置命令，全部未设置 | HISTORICAL_SUB_GATE；IME、ended 与 P0 总 Gate 已由后续 CURRENT 证据关闭 |
+| `screenshots/p0-final-now-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：从当前测试 Page 打开 Now | 一对象一张卡、一个主操作，其余动作折叠；当前正式状态无恢复问题 | CURRENT；与既有 733px Now 合并验收 |
+| `screenshots/p0-final-review-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：打开“待我确认” | 当前没有需要审阅的方案；29 条历史默认折叠 | CURRENT；补偿后的 FAILED 不占当前队列 |
+| `screenshots/p0-final-system-status-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：更多→系统状态 | 首屏只显示影响、仍可用、数据安全和无需操作；技术诊断折叠 | CURRENT；P0 总 Gate DONE_DESKTOP_REPRESENTATIVE |
 | `screenshots/p0-e-05-daily-shell-clean-current-dark.png` | `4dfe014902a3` | exact build 后台 reload 后打开“现在” | 启动结论使用“当前知识库”；无 Runtime/Store/Graph 状态条，保留四项主导航与真实任务动作 | Light/窄栏和高级卡片信息密度仍 OPEN |
 | `screenshots/p0-h-08-more-productized-current-dark.png` | `4dfe014902a3` | 从日常工作面进入“更多” | 维护能力收敛为最近修改、系统状态、备份恢复、迁移和结束本次使用；无 Launcher/Service/Commit/SQLite 工程词 | 结束/重启最新语言链仍可在集中 P0 Gate 复验 |
 | `screenshots/p0-i-03-system-status-translated-current-dark.png` | `4dfe014902a3` | 从“更多”检查健康系统状态，保持技术诊断折叠 | 首屏只回答发生、影响、可用、安全和操作；内部状态、精确 commit 与 `0/0/0` 仅在主动展开后可见 | 失败/恢复各类别仍需代表性当前复验 |

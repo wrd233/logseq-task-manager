@@ -24,7 +24,8 @@
 > `318baab` 又关闭 Day 8 候选前台压缩与 disposition/cooldown 代表 Gate；
 > `7fe762d` 又关闭 Day 9 Closure 正常链、reload、专用 Undo 与共享前台表达代表 Gate；
 > 同一精确 Plugin 构建完成 Day 10 四页回顾、reload 与 Graph switch，十日代表 Pilot
-> 已关闭。完整
+> 已关闭。`7e72075` 又以最新 Now、待审阅空态、更多、系统健康页和既有窄栏/宿主/失败链
+> 完成 P0 分层代表视觉总 Gate，P0 收口为 `DONE_DESKTOP_REPRESENTATIVE`。完整
 > Day 7 duplicate/missing、P1
 > 前台和整体 Goal 仍未完成。
 
@@ -39,10 +40,25 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；`3883848` / `78528f7` 关闭 accepted-not-applied、stale 历史分离与 PENDING same-Commit resume；`872d2d4` / `684491f` 又关闭 RECOVERY_REQUIRED→reload→同记录安全补偿→restart→正文/UUID/顺序守恒，并将终态 FAILED 归档、压缩最近修改摘要；最终代表视觉总 Gate 仍 OPEN |
+| P0 代码实现 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K 的自动与代表 Desktop Gate 完成；P0-H reload/quit/no-arg reinstall authority/Graph switch，P0-J palette/Slash/custom binding/原生中文 IME，P0-K Block/Page/来源移动删除/Query-reference-sidebar bounded，accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/reload/restart 均有真实证据。`7e72075` 以最新 Now、待审阅空态、更多和系统健康页合并既有 733px、主题与宿主证据，关闭最终分层代表视觉总 Gate；File Graph Page Head/identity/真实 Light 保持 bounded host limitation，不扩成笛卡尔积 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略、建议关注与 Block Marker 仍 OPEN；P1-D status consumers；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
+
+### 2026-07-30 P0 最终代表视觉总 Gate
+
+- 在 HEAD `7e72075`、Logseq 0.10.15 File Graph、host Light / Plugin Dark、1000×720
+  重新操作 Now、待我确认、更多和系统状态；最新截图与当前代码一致；
+- Now 一对象一张卡、一个主动作；待审阅当前为 0，29 条历史默认折叠；维护能力只在二级
+  “更多”；健康页只回答影响、仍可用、数据安全和是否需要操作，技术诊断折叠；
+- 汇总 Gate 复用既有 733px Now、723px Dark、Block/Page、来源移动/删除、Query/reference/
+  sidebar bounded、reload/quit/Graph switch 和三类未完成修改证据，不制作完全笛卡尔积；
+- File Graph Page Head/identity/真实 Light 保持明确宿主限制；未来宿主能力变化时重开对应项，
+  当前不使用 DOM hack、不猜目标、不把 Plugin Dark 冒充 host Light；
+- P0 `IN_PROGRESS_DESKTOP_GATES→DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`；
+  新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator、Provider 调用、写入权威和
+  长期 Partial 均为 `0`。完整 Goal 仍为 `IN_PROGRESS`；证据见
+  `logs/p0-final-representative-visual-gate-desktop-live-20260730.md`。
 
 ### 2026-07-30 P0 未完成修改前台闭环
 
@@ -109,8 +125,8 @@
   状态、Runtime、Recovery 分支、Skill/Prompt/Validator、Attention 类型、Provider 调用
   与写入权威均为 `0`。
 - P0-J 关闭时 P0 仍由 RECOVERY_REQUIRED、代表视觉总 Gate 和 Final Release 保持进行中；
-  RECOVERY_REQUIRED 后续已由 `872d2d4` / `684491f` 关闭，当前只剩代表视觉总 Gate 与
-  Final Release。证据见
+  RECOVERY_REQUIRED 后续已由 `872d2d4` / `684491f` 关闭，代表视觉总 Gate 又由
+  `7e72075` 关闭；当前只剩 P1/P2 与 Final Release。证据见
   `logs/p0-j-native-chinese-ime-desktop-live-20260729.md`。
 
 ### 2026-07-28 连续使用 Pilot Day 6 Waiting 恢复
@@ -1244,21 +1260,9 @@ derivative/dashboard 价值也仍未完成。
 
 ## 下一步
 
-1. Rebind 最新成功态、纠错/整库恢复指引与捕获取消安全已在 `075e031` 关闭；继续核对
-   显式正式化是否已有等价用户撤销入口，但不得绕过 Application/Service 增加快捷删除；
-2. P2-G Restore 正常往返、激活失败→自动回滚以及真实连续双重失败→HIGH Review→
-   人工恢复→Doctor→清锁→正常 Launcher/reload 均已完成真实 Desktop Gate；下一次可控
-   Rebind 仍需验证新的纠错/整库恢复指引。Migration 已完成 ledger、受控 scan、逐项
-   Review/Preview、恢复点/Import/Verify/Undo 与 HIGH Activation 正常主链；真实运行先以
-   `MIGRATION_SNAPSHOT_CHANGED` 证明单恢复基线边界，再修复为复用/重验计划原快照。
-   当前正式对象 5、run ACTIVATED、Pending 0，`2beb1b5` 完整 restart 后只保留只读交接
-   台账与 Backup/Restore 路由，新 scan/Review/Import/Undo/Activate 均退出。写后响应丢失
-   已完成真实 `ledger→reload→Verify→Undo`，Verify/Activate 失败也已完成同 ledger
-   重试和当前构建 reload；`7fcdcf5` 又完成 722×720 窄栏代表 Gate。Light 设置在
-   Logseq 0.10.15 File Graph 完整 Reload 和完整 quit/reopen 后均回到深色宿主，继续作为
-   bounded host issue；退出后旧 Service PID 按 lease 停止，重开后同一 Launcher 启动新
-   Service 并自动恢复正式能力。继续 Final Release 代表矩阵，不得加入
-   第二迁移或恢复状态源。
-3. 以已完成的 `PILOT-2026W31-A` 数据收口第一批确定性 Attention / Dynamic Now 前台
-   边界，并完成 P0-J 原生中文 IME；Block Marker 保持默认关闭，P1-F DB Graph Page Head
-   保留明确开放口径。
+1. 以 `PILOT-2026W31-A` 收口 P1 第一批 Attention 的真实 helpful/noise、跨会话 disposition
+   结论与 Block Marker 默认开关；不新增 Detector 或正式 Attention 类型；
+2. 关闭 P2-D Release 边界中仍有真实使用价值且具备 inverse 的操作，并推进 P2-F
+   generation→revalidate→recompute 的有界前台/反馈门；
+3. 启动 Final Release 代表矩阵与复杂度 Gate，同步核对显式正式化的等价撤销入口；不新增
+   第二套 Agent Runtime、恢复框架或写入权威。

@@ -8,7 +8,7 @@ V2 v1.1 底座完成结论不变；当前继续按
 ```yaml
 base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
-p0_status: IN_PROGRESS_DESKTOP_GATES
+p0_status: DONE_DESKTOP_REPRESENTATIVE
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
 p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE
 overall_goal: IN_PROGRESS
@@ -16,6 +16,17 @@ overall_goal: IN_PROGRESS
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
+
+`7e72075` 当前构建已关闭 P0 最终代表视觉总 Gate，P0 状态收口为
+`DONE_DESKTOP_REPRESENTATIVE`。真实 Logseq 0.10.15 File Graph、host Light / Plugin Dark、
+1000×720 中重新检查 Now、待我确认、更多与用户系统状态：Now 一对象一张卡、一个主动作；
+待审阅为 0 且 29 条历史折叠；维护能力停留在二级入口；健康页只显示影响、仍可用、数据安全
+和“无需操作”，技术诊断折叠。该汇总与既有 733px、Block/Page、Query/reference/sidebar
+有界结论、reload/quit/Graph switch、accepted-not-applied/PENDING/RECOVERY_REQUIRED 组成分层
+代表矩阵，不扩成完全笛卡尔积。File Graph Page Head/identity/真实 Light 限制保持 bounded，
+不使用 DOM hack 或猜目标。Partial 净变化 `-1`，新增状态/Runtime/Recovery/Skill/写入权威
+均为 0；P1、P2、Final Release 和完整 Goal 仍为 `IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/p0-final-representative-visual-gate-desktop-live-20260730.md`。
 
 `78528f7` 最新构建又关闭 P0 PENDING 代表子 Gate。真实 Logseq 0.10.15
 File Graph、host Light / Plugin Dark、1000×720 中，一个精确绑定测试 Proposal 的
@@ -27,7 +38,7 @@ File Graph、host Light / Plugin Dark、1000×720 中，一个精确绑定测试
 PENDING/Recovery/Conflict 均为 0，Doctor `PASS` 且没有残留测试触发器。首次
 未命中演练反而确认 Launcher 仍使用安装器显式保留的
 `tmp/runtime/manual-v2/task-copilot.sqlite`，未静默切换到 `$HOME` 下的非权威库。
-RECOVERY_REQUIRED 新用户语义仍为 `AUTOMATED_ONLY`，P0 保持
+在该时点 RECOVERY_REQUIRED 新用户语义仍为 `AUTOMATED_ONLY`，P0 保持
 `IN_PROGRESS_DESKTOP_GATES`。
 
 `dbc5243` 随后关闭该链发现的前台工程词缺陷：当持久账本已经证明存在可续跑的
@@ -49,7 +60,7 @@ step 0；Graph bridge 读回为 `VERIFIED`，step 1 以 `DESKTOP_DISCONNECTED` �
 子 Block 的 UUID、内容和原顺序全部恢复。完整 quit/reopen 后 Service `READY`、待审阅 0。
 `872d2d4` 将终态 FAILED 归入折叠历史并正确解释已补偿结果；`684491f` 又把最近修改中的
 整份 Markdown Preview 压缩为首段摘要。新增正式状态、Runtime、Recovery 分支、Skill/
-Prompt/Validator 版本和写入权威均为 0；P0 仍因最终代表视觉总 Gate 保持
+Prompt/Validator 版本和写入权威均为 0；在该时点 P0 仍因最终代表视觉总 Gate 保持
 `IN_PROGRESS_DESKTOP_GATES`，完整 Goal 继续 `IN_PROGRESS`。证据见
 `task-copilot-v2-ux/logs/p0-recovery-required-frontstage-desktop-live-20260730.md`。
 
@@ -63,7 +74,7 @@ File Graph、host Light / Plugin Dark、1000×720 中，一个 HIGH Proposal 完
 系统用户状态无未完成修改或正文连接冲突；技术 Doctor 保留 1 条 stale 历史 WARN，不把它
 冒充当前可继续或待恢复修改。新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、
 Provider 调用和写入权威均为 `0`；长期 Partial 净变化 `-1`。PENDING 随后已关闭；
-P0 仍由 RECOVERY_REQUIRED 代表 Desktop 与最终代表视觉 Gate 保持
+在该时点 P0 仍由 RECOVERY_REQUIRED 代表 Desktop 与最终代表视觉 Gate 保持
 `IN_PROGRESS_DESKTOP_GATES`。
 
 `3097c39` 已关闭“首批确定性 Attention 没有真实前台处置与 reload/recompute 证据”这一
@@ -87,7 +98,7 @@ host Light、754×720 中，通过 Computer Use `press_key` 和 macOS 简体拼�
 恢复 ABC。结合既有 palette、Slash、custom binding、ended fail-closed 与显式重启证据，
 P0-J 从 `PARTIAL` 关闭为 `DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`；
 没有新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、Attention 类型或写入
-权威。P0 仍因 RECOVERY_REQUIRED 前台代表与最终代表视觉 Gate
+权威。在该时点 P0 仍因 RECOVERY_REQUIRED 前台代表与最终代表视觉 Gate
 保持 `IN_PROGRESS_DESKTOP_GATES`。
 
 `3d63d5aee0a7` 关闭十日 Pilot 暴露的“正式 Now 仍按来源分组、Focus 中 Waiting 会重复”
@@ -249,7 +260,7 @@ Runtime、Skill、Validator、恢复分支或写入路径。该证据与既有 m
 Query/reference/right-sidebar bounded Gate 合并后，P0-K 升为
 `DONE_DESKTOP_REPRESENTATIVE`；P0-J 已关闭，accepted-not-applied 随后由 `3883848` /
 `78528f7` 关闭；PENDING 后续也在同一前台完成真实中断、reload、同 Commit
-续跑、Undo 与再 reload。P0 仍由 RECOVERY_REQUIRED 代表前台与代表视觉总
+续跑、Undo 与再 reload。在该时点 P0 仍由 RECOVERY_REQUIRED 代表前台与代表视觉总
 Gate 保持进行中。
 
 最新公共 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`；
@@ -767,8 +778,8 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
-- 当前继续收敛 P0 代表视觉总 Gate，并推进
-  P1 Attention/Block Marker 和 P2-D/P2-F 边界；
+- P0 代表性 Desktop 总 Gate 已关闭；当前继续推进 P1 Attention/Block Marker、
+  P2-D/P2-F 边界与 Final Release；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。
@@ -776,7 +787,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
 ## 当前 Slice
 
 V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
-P0 remaining host Desktop gates / P1 partial UI and shadow gates /
+P0 DONE_DESKTOP_REPRESENTATIVE / P1 partial UI and shadow gates /
 P2-A+B bounded Grill→Preview→Review→Commit→Recovery→Undo→reload→root Desktop slice DONE /
 P2-C Blank + Page dedicated + Page reuse + MiniProject source DONE, visual gates OPEN /
 P2-D router + MEDIUM narration + one HEAVY full-interface vertical DONE,

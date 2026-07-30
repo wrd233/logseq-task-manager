@@ -502,4 +502,7 @@ reload 读回后才关闭 Gate。该结论是代表性 Desktop 完成，不宣�
 
 该状态是代表性宿主完成，不宣称 Logseq 所有位置、主题与宽度的完全笛卡尔积；未来宿主能力
 变化时重开对应 bounded 结论。P0-J、accepted-not-applied、PENDING 与 RECOVERY_REQUIRED
-代表链已关闭；P0 仍因代表性视觉总 Gate 保持进行中。
+代表链均已关闭。`7e72075` 又用最新 Now、待审阅空态、更多与系统健康页，合并既有窄栏、
+Block/Page、主题和宿主有界证据完成分层代表视觉总 Gate；P0 因而收口为
+`DONE_DESKTOP_REPRESENTATIVE`。File Graph Page Head/identity/真实 Light 继续记为宿主限制，
+不通过 DOM hack 或猜目标伪装支持。该里程碑不关闭 P1、P2、Final Release 或完整 Goal。

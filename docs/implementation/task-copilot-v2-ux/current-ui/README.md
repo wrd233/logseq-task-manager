@@ -163,10 +163,12 @@ inverse Undo→再 reload 与健康读回。一次性测试触发器已删除，
 恢复 `OPEN v29`。随后双 MOVE 代表场景真实进入 RECOVERY_REQUIRED，在 Plugin Manager reload
 后沿用同一记录完成安全补偿；对象 v4、根与两个子 UUID、正文和顺序守恒，完整 quit/reopen
 后待审阅归零。终态 FAILED 只在折叠历史，最近修改只显示首段摘要。RECOVERY_REQUIRED
-已为代表性 Desktop DONE；P0 仍由最终视觉总 Gate保持进行中。完整记录见
+已为代表性 Desktop DONE；`7e72075` 又用最新 Now、待审阅空态、更多、系统健康页和既有
+窄栏/宿主证据关闭最终分层视觉总 Gate，P0 已为 `DONE_DESKTOP_REPRESENTATIVE`。完整记录见
 `../logs/p0-unfinished-modification-frontstage-desktop-live-20260730.md` 与
 `../logs/p0-pending-frontstage-desktop-live-20260730.md`、
-`../logs/p0-recovery-required-frontstage-desktop-live-20260730.md`。
+`../logs/p0-recovery-required-frontstage-desktop-live-20260730.md` 与
+`../logs/p0-final-representative-visual-gate-desktop-live-20260730.md`。
 
 `dbc5243` 取代中断首屏的缺陷证据：旧图曾在可续跑 PENDING 顶部原样显示
 “Local Service 请求失败”；当前图只显示用户结论、已安全保存和唯一“继续原修改”。
