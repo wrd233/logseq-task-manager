@@ -60,6 +60,8 @@
 - [x] 只把真实 Release blocker 保持为 OPEN；当前没有未解释的代码/数据安全 blocker。
   上游 SDK advisory、bounded host limitation、Shadow 与默认关闭研究能力均列入已知边界，
   不冒充 blocker。
+- [x] 外层仓库 clean Gate：用户明确授权后，Local Service package 精确恢复到 HEAD；明确要求
+  “不提交”的 `docs/research/` 仅加入本地 exclude、内容保留；最终 `git status --short` clean。
 
 ## 当前依赖审计
 

@@ -1,10 +1,10 @@
 # 交互优化验收报告
 
-> 当前状态：`RELEASE_READY / OVERALL_CLEAN_GATE_OPEN`
+> 当前状态：`COMPLETE / RELEASE_READY`
 > 本文件只登记已经有对应代码、自动化和适用运行证据的结果。设计或计划不会标成完成。
 > `base_v2_status=IMPLEMENTATION_COMPLETE` 与完整产品化完成仍是不同层级；后者由本报告、
 > Freeze checklist 和 `logs/release-final-status-alignment-20260731.md` 共同证明；仓库级
-> `MVP_SUCCESS` 仍受外层 clean Gate 约束。
+> clean Gate 已在用户明确授权后关闭，`MVP_SUCCESS` 成立。
 
 ## 1. 阶段结论
 

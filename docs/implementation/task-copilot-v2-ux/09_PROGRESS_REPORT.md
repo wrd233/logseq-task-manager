@@ -1,11 +1,12 @@
 # 交互优化实施进度
 
 > 更新时间：2026-07-31
-> 当前结论：`RELEASE_READY / OVERALL_CLEAN_GATE_OPEN` —
+> 当前结论：`COMPLETE / RELEASE_READY` —
 > `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；P0/P1/P2 release boundary、
 > r8 当前安装态、根级 Freeze Gate、当前 Service Doctor、独立审查和最终交付清单均已完成。
 > Shadow/OFF、future enhancement 与 bounded host limitation 已显式登记，不保留模糊
-> Partial。仓库级 `MVP_SUCCESS` 只剩用户已有无关工作区改动导致的外层 clean Gate。P0-A Focus、
+> Partial。用户明确授权后，最后两项无关工作区内容已按边界处理，外层 clean Gate 关闭，
+> 仓库级 `MVP_SUCCESS` 成立。P0-A Focus、
 > P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
 > P0-D Page 现场路由、P0-E 四项主导航、P0-F 工具栏介入摘要、P0-G 最近修改和 P0-H
 > descriptor 私有 handshake 已完成自动与适用 Desktop 验收；P0-H 独立 Launcher、

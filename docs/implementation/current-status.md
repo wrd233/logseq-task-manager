@@ -7,18 +7,20 @@ V2 v1.1 底座完成结论不变；交互优化 P0→P1→P2 已按
 
 ```yaml
 base_v2_status: IMPLEMENTATION_COMPLETE
-ux_productization_goal: RELEASE_READY
+ux_productization_goal: COMPLETE_RELEASE_V1_1
 p0_status: DONE_DESKTOP_REPRESENTATIVE
 p1_status: DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW
 p2_status: DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW
 final_release_status: RELEASE_READY
-overall_goal: IN_PROGRESS_OUTER_REPOSITORY_CLEAN_GATE
+overall_goal: COMPLETE
 ```
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 仍只指领域、事务、安全、迁移、Provider 与恢复底座；
-P0/P1/P2 与 Final Release 已由本轮 Freeze 审计收口，但仓库级 `MVP_SUCCESS` 还要求外层
-仓库 clean；当前用户已有未提交改动不在本轮授权范围内，因此不能由底座或 Release 标记单独
-推出 `overall_goal=COMPLETE`。最终状态对齐与边界见
+P0/P1/P2 与 Final Release 已由 Freeze 审计收口。用户随后明确授权最后两项外层工作区
+处理：Local Service 的非插件 `logseq.id` 已精确恢复到 HEAD，声明为“不提交”的
+`docs/research/` 已加入本地 `.git/info/exclude`，研究内容本身未删除；外层仓库 clean Gate
+已实际复核通过。因此仓库级 `MVP_SUCCESS` 与 `overall_goal=COMPLETE` 现可成立。最终状态
+对齐与边界见
 `task-copilot-v2-ux/logs/release-final-status-alignment-20260731.md`。
 
 `8928861` 后的 r8 已关闭 Freeze 审计发现的两个 Release blocker：P1-F Task 确定性轻量

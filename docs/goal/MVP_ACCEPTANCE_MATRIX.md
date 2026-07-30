@@ -29,6 +29,7 @@
 - [x] Pilot complete：V2 十日代表 Pilot 覆盖 Capture、Task、MiniProject、Project、Waiting、
   Review、Context Recovery、Closure、Undo/Rebind/Graph switch；关键问题已修复或形成明确
   bounded release decision
-- [ ] MVP_SUCCESS root clean gate：Task Copilot 状态与确定性 lockfile 漂移已独立提交，但外层
-  仍有用户已有、未授权处理的 local-service package 与 `docs/research/` 改动
+- [x] MVP_SUCCESS root clean gate：Task Copilot 状态与确定性 lockfile 漂移已独立提交；经用户
+  明确授权，Local Service package 已精确恢复到 HEAD，声明为“不提交”的
+  `docs/research/` 已加入本地 exclude 且内容保留；`git status --short` clean
 - [x] No remote / no push

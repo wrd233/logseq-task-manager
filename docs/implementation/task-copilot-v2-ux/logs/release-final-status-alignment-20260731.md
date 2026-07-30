@@ -6,11 +6,13 @@ Task Copilot V2 v1.1 的交互优化与产品化实现满足 `RELEASE_READY`。P
 已审计的 release boundary 完成；首发未开放能力已明确归为 Shadow、OFF、future
 enhancement 或 bounded host limitation，没有模糊 Partial，也没有未解释 Release blocker。
 
-本轮不宣布仓库级 `MVP_SUCCESS / overall_goal=COMPLETE`：`MVP_GOAL.md` 还要求外层仓库
-clean。隔离临时副本证明 `package-lock.json` 的差异可由 HEAD 与 Node20 确定性重建，已作为
-发布一致性修复单独收口；当前仍存在用户已有、未授权纳入本轮的
-`apps/task-copilot-local-service/package.json` 与 `docs/research/`。外层 Git 因而仍不 clean；
-该 Gate 只能在用户决定这两组无关改动的去向后关闭。
+仓库级 `MVP_SUCCESS / overall_goal=COMPLETE` 现已成立。隔离临时副本证明
+`package-lock.json` 的差异可由 HEAD 与 Node20 确定性重建，并已作为发布一致性修复单独
+收口。用户随后明确授权处理最后两项外层工作区内容：
+`apps/task-copilot-local-service/package.json` 的非插件 `logseq.id` 已精确恢复到 HEAD；明确
+写明“本轮不提交、不推送”的 `docs/research/` 已加入本地 `.git/info/exclude`，文件内容未删除。
+复核显示 package 与 HEAD 字节一致、research 路径由本地 exclude 命中，外层
+`git status --short` clean；最后的仓库 Gate 因而关闭。
 
 本轮没有修改业务代码、正式状态、Agent Runtime、Recovery Kernel、Skill/Prompt/Validator
 或数据库 schema。唯一产品改动是统一当前状态、风险、验收和截图权威。
@@ -22,8 +24,8 @@ clean。隔离临时副本证明 `package-lock.json` 的差异可由 HEAD 与 No
 - SHA-256：`1d36258a21827554b41dede1deaf1b63d4f68875d85762769b6faf4781627f07`；
 - Logseq Desktop：`0.10.15`，File Graph 测试环境；
 - Plugin 从 r8 稳定解压目录加载，Service/Launcher/Plugin 使用同一 Graph/database authority；
-- 用户已有 `apps/task-copilot-local-service/package.json` 与 `docs/research/` 工作区改动未纳入
-  本轮；`package-lock.json` 经隔离确定性再生成验证后作为 Launcher manifest 同步提交。
+- `package-lock.json` 经隔离确定性再生成验证后作为 Launcher manifest 同步提交；Local
+  Service package 已恢复到 HEAD，`docs/research/` 仅由本地 exclude 保留，不进入发布提交。
 
 ## 自动与运行证据
 
