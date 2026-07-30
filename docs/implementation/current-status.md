@@ -17,6 +17,18 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+`3883848` / `78528f7` 已关闭 P0 accepted-not-applied 代表 Partial。真实 Logseq 0.10.15
+File Graph、host Light / Plugin Dark、1000×720 中，一个 HIGH Proposal 完成审阅但未应用、
+真实 Plugin Manager reload、正式应用、inverse Undo 和再次 reload；正文
+`TODO→[任务]→TODO`，Object `13→14→13`。第一次外部测试 Proposal 因错误猜测宿主
+`version: 1` 被预检安全判为 stale，零写入；重验 Proposal 只使用真实 UUID/hash 后完成闭环。
+该失败又暴露 stale 历史占据“待审阅 (1)”的积压问题；`78528f7` 将终态 stale 与已应用/
+已撤销方案一起移入默认折叠历史，当前区为空。Plugin `371/371`、typecheck/build PASS，
+系统用户状态无未完成修改或正文连接冲突；技术 Doctor 保留 1 条 stale 历史 WARN，不把它
+冒充当前可继续或待恢复修改。新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、
+Provider 调用和写入权威均为 `0`；长期 Partial 净变化 `-1`。P0 仍由 PENDING/Recovery
+代表 Desktop 与最终代表视觉 Gate 保持 `IN_PROGRESS_DESKTOP_GATES`。
+
 `3097c39` 已关闭“首批确定性 Attention 没有真实前台处置与 reload/recompute 证据”这一
 既有子 Partial。真实 Logseq 0.10.15 File Graph、host Light / Plugin Dark、约
 1000×754 中，一个人工构造的到期 Waiting 样本只在既有“需要回看”卡片显示
@@ -38,7 +50,7 @@ host Light、754×720 中，通过 Computer Use `press_key` 和 macOS 简体拼�
 恢复 ABC。结合既有 palette、Slash、custom binding、ended fail-closed 与显式重启证据，
 P0-J 从 `PARTIAL` 关闭为 `DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`；
 没有新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、Attention 类型或写入
-权威。P0 仍因 accepted-not-applied、PENDING/Recovery 前台组合和最终代表视觉 Gate
+权威。P0 仍因 PENDING/Recovery 前台组合和最终代表视觉 Gate
 保持 `IN_PROGRESS_DESKTOP_GATES`。
 
 `3d63d5aee0a7` 关闭十日 Pilot 暴露的“正式 Now 仍按来源分组、Focus 中 Waiting 会重复”
@@ -198,8 +210,8 @@ Gate：Query 投影无可靠正式身份时安全停止且只显示用户语言�
 `347/347`、typecheck/build PASS；没有新增正式状态、
 Runtime、Skill、Validator、恢复分支或写入路径。该证据与既有 main Page、来源移动/删除、
 Query/reference/right-sidebar bounded Gate 合并后，P0-K 升为
-`DONE_DESKTOP_REPRESENTATIVE`；P0-J 已关闭，P0 仍由 accepted-not-applied、
-PENDING/Recovery 前台组合与代表视觉总 Gate 保持进行中。
+`DONE_DESKTOP_REPRESENTATIVE`；P0-J 已关闭，accepted-not-applied 随后由 `3883848` /
+`78528f7` 关闭；P0 仍由 PENDING/Recovery 前台组合与代表视觉总 Gate 保持进行中。
 
 最新公共 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`；
 Closure 异常、Review 压缩、普通用户标题与审阅空态的增量证据分别基于
@@ -714,7 +726,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
-- 当前继续收敛 P0 accepted-not-applied、PENDING/Recovery 与代表视觉总 Gate，并推进
+- 当前继续收敛 P0 PENDING/Recovery 与代表视觉总 Gate，并推进
   P1 Attention/Block Marker 和 P2-D/P2-F 边界；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

@@ -5,6 +5,22 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### P0 未完成修改前台闭环 — exact builds `3883848` / `78528f7`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。真实 Proposal
+审阅、Plugin Manager reload、stale 零写入、正式应用、inverse Undo、再次 reload 与当前/历史
+分离均在同一测试 Block 上完成。完整记录见
+`../logs/p0-unfinished-modification-frontstage-desktop-live-20260730.md`。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p0-accepted-not-applied-current-3883848.jpg` | CURRENT_AT_3883848 | 审阅方案但不应用 | 明确尚未应用；退出安全；唯一主操作为确认应用 |
+| `screenshots/p0-accepted-not-applied-reload-current-3883848.jpg` | CURRENT_AT_3883848 | 真实 Plugin Manager reload 后回到 Review | 同一方案仍等待确认应用，正文未变 |
+| `screenshots/p0-unfinished-frontstage-applied-current-3883848.jpg` | CURRENT_AT_3883848 | 最终确认应用 | 正文和正式 Task 原子生效；可撤销 |
+| `screenshots/p0-unfinished-frontstage-undone-current-3883848.jpg` | CURRENT_AT_3883848 | 执行 inverse Undo | 正文与对象恢复；历史证据保留 |
+| `screenshots/p0-unfinished-frontstage-final-health-current-3883848.jpg` | CURRENT_AT_3883848 | Undo 后真实 reload 并查看系统状态 | 正式状态已连接；无未完成修改或正文连接冲突 |
+| `screenshots/p0-stale-proposal-archived-current-78528f7.jpg` | CURRENT | 重载修复构建并打开待审阅 | 当前区为空；stale、已应用和已撤销方案只在折叠历史 |
+
 ### 连续使用 Pilot `PILOT-2026W31-A` — exact build `bc79ffd`
 
 Logseq `0.10.15`；File Graph `logseq`；host Light；约 1000×720。测试正文直接存在当前

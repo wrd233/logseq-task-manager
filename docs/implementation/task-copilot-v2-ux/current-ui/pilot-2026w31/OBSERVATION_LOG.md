@@ -455,3 +455,19 @@ Day 6 刚从 Waiting 恢复、尚未加入 Focus 的真实 Task 一并隐藏。`
 - 第 27 项“当时没有可用样本”保留为 Day 10 历史事实；本补证只把 timing signal 推进为
   bounded pilot，Waiting 过久、Project 静默、跨对象观察、建议关注与 Block Marker 继续
   Shadow / default-off。
+
+## 2026-07-30 补充：accepted-not-applied、stale 与历史积压
+
+继续复用 Day 8 的真实 Review Backlog Page，而不是新增 Project 或模拟日。一个 HIGH
+正式化方案在审阅后保持零写入，经真实 Plugin Manager reload 仍提供唯一“确认应用”入口；
+随后完成正式应用、inverse Undo 与再次 reload，正文和对象数均回到基线。
+
+首次外部测试 Proposal 错误猜测了 Graph snapshot 未提供的宿主 version，被预检安全判
+stale。这证明零写入边界，但也使当前“待审阅”出现一张没有动作的 stale 卡。`78528f7`
+将 stale 归入默认折叠历史：当前 Proposal 回到 `0`，历史从 Day 10 的 `22` 增为本轮真实
+审阅产生的 `24`，但仍不淹没当前问题。
+
+- Provider / Validator rejection / retry / abstention：`0/0/0/0`；
+- 正式状态 / Runtime / Recovery 分支 / Skill/Prompt/Validator：新增 `0`；
+- accepted-not-applied Partial 净变化：`-1`；新增长期 Partial `0`；
+- PENDING/RECOVERY_REQUIRED 用户语言仍为 `AUTOMATED_ONLY`，P0 与完整 Goal 继续 OPEN。

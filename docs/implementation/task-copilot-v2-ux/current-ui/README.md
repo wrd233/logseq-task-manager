@@ -153,6 +153,14 @@ P0-J 当前结论是 `DONE_DESKTOP_REPRESENTATIVE`：
 `../logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`、
 `../logs/p0-j-native-chinese-ime-desktop-live-20260729.md`。
 
+P0 未完成修改前台的当前证据来自 `3883848` / `78528f7`。同一测试 Block 已完成
+审阅但不应用→真实 Plugin Manager reload→stale 零写入→基于当前事实重新审阅→正式应用→
+inverse Undo→再次 reload；Object 数量 `13→14→13`，正文 `TODO→[任务]→TODO`。最新
+`78528f7` 又把终态 stale 从当前“待审阅”移入默认折叠历史，当前区为空。该链关闭
+accepted-not-applied 代表 Partial，但 PENDING/RECOVERY_REQUIRED 的新统一语言仍只有自动证据，
+因此 P0 和完整 Goal 继续进行。完整记录见
+`../logs/p0-unfinished-modification-frontstage-desktop-live-20260730.md`。
+
 连续使用 Pilot `PILOT-2026W31-A` 当前在 `pilot-2026w31/`：Logseq 0.10.15 File Graph，
 已完成 Day 1—2、Day 3 Waiting、Day 4 MiniProject/Project、Day 5 Project/Context
 Recovery、Day 6 Waiting 恢复、Day 7 稳定移动、Day 8 disposition/cooldown 和 Day 9

@@ -39,10 +39,27 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；accepted-not-applied、PENDING/Recovery 前台组合与代表视觉总 Gate 仍 OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；`3883848` / `78528f7` 又关闭 accepted-not-applied→reload→apply→Undo→reload 与 stale 历史分离代表 Gate；PENDING/Recovery 前台组合与代表视觉总 Gate 仍 OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略、建议关注与 Block Marker 仍 OPEN；P1-D status consumers；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
+
+### 2026-07-30 P0 未完成修改前台闭环
+
+- `3883848` 统一 accepted-not-applied、receipt-backed PENDING 和 RECOVERY_REQUIRED 的
+  用户语义；工具栏对同一 Proposal/Commit ledger 只计一个问题。自动先红后绿，Plugin
+  `371/371`、typecheck/build PASS。
+- 真实 Logseq 0.10.15 File Graph、host Light / Plugin Dark、1000×720 完成：审阅方案但
+  不应用→真实 Plugin Manager reload→确认应用→inverse Undo→再次 reload。正文
+  `TODO→[任务]→TODO`，Object `13→14→13`，最终系统状态无未完成修改或正文连接冲突。
+- 第一次外部测试 Proposal 因错误猜测宿主 `version: 1` 被预检判 stale，零正式写入；
+  按真实 UUID/hash 重验后才成功。该真实失败暴露 stale 占据当前“待审阅”的积压问题，
+  `78528f7` 将终态 stale 归入默认折叠历史；当前待审阅归零。
+- accepted-not-applied `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`；PENDING/RECOVERY_REQUIRED
+  新语言为 `AUTOMATED_ONLY`，不借健康 Graph 制造危险中断升级。长期 Partial 净变化
+  `-1`；新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、Provider 调用与写入
+  权威均为 `0`。证据见
+  `logs/p0-unfinished-modification-frontstage-desktop-live-20260730.md`。
 
 ### 2026-07-30 P1 Attention Now 有界 Pilot
 
@@ -72,7 +89,7 @@
 - P0-J `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`。新增正式
   状态、Runtime、Recovery 分支、Skill/Prompt/Validator、Attention 类型、Provider 调用
   与写入权威均为 `0`。
-- P0 仍由 accepted-not-applied、PENDING/Recovery 前台组合、代表视觉总 Gate 和 Final
+- P0 仍由 PENDING/Recovery 前台组合、代表视觉总 Gate 和 Final
   Release 保持进行中。证据见
   `logs/p0-j-native-chinese-ime-desktop-live-20260729.md`。
 
