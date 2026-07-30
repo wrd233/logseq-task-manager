@@ -5,18 +5,32 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### Release r6 当前安装态 — 构建 HEAD `11e0131`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。
+r6 从当前 HEAD 全量组装，Plugin 从稳定
+`tmp/releases/...-r6/task-copilot-plugin` 目录手动载入；Launcher/Service 也由同一包安装。
+证据包含 reload、完整 quit/owned shutdown/reopen、Service 重连、authority 保持与
+包内 Runbook 一致性。完整记录见
+`../logs/release-r6-current-package-desktop-live-20260731.md`。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/release-r6-stable-package-now-current-11e0131.png` | CURRENT | 从稳定 r6 目录载入 Plugin，reload 后从命令面板打开 Task Copilot | iframe 来自稳定 r6 目录；Copilot 可用；Now 保持一卡一主操作 |
+| `screenshots/release-r6-stable-package-now-restart-current-11e0131.png` | CURRENT | 完整退出 Logseq，确认 owned shutdown，再重开并打开 Task Copilot | r6 注册保持；Service 自动重连；Now 恢复，无需终端维护 |
+
 ### Release r5 稳定安装态 — HEAD `70a7fe7`
 
 Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin 自动外观；1000×720。
-r5 zip 的 Plugin 从稳定 `tmp/releases/...-r5/task-copilot-plugin` 手动载入；
+r5 zip 的 Plugin 当时从稳定 `tmp/releases/...-r5/task-copilot-plugin` 手动载入；
 Launcher/Service 也由同一包安装。证据包含真实 reload、完整 quit/owned
-shutdown/reopen、Service 重连和 authority 保持。完整记录见
+shutdown/reopen、Service 重连和 authority 保持；现仅作为历史生命周期证据。完整记录见
 `../logs/release-r5-installed-package-desktop-live-20260730.md`。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/release-r5-stable-package-now-current-70a7fe7.jpg` | CURRENT | 从稳定 r5 目录启用 Plugin 并点击真实 reload，再从命令面板打开 Task Copilot | iframe 来自稳定 r5 目录；Copilot 可用；Now 每卡一个主操作 |
-| `screenshots/release-r5-stable-package-now-restart-current-70a7fe7.jpg` | CURRENT | 完整退出 Logseq，确认 owned shutdown，再从 Finder 重开并打开 Task Copilot | 稳定包注册保持；Service 自动重连；Now 恢复，无需终端维护 |
+| `screenshots/release-r5-stable-package-now-current-70a7fe7.jpg` | SUPERSEDED_PACKAGE | 从稳定 r5 目录启用 Plugin 并点击真实 reload，再从命令面板打开 Task Copilot | 生命周期证据仍有效；包内 Runbook 已被 r6 取代 |
+| `screenshots/release-r5-stable-package-now-restart-current-70a7fe7.jpg` | SUPERSEDED_PACKAGE | 完整退出 Logseq，确认 owned shutdown，再从 Finder 重开并打开 Task Copilot | 生命周期证据仍有效；当前安装态以 r6 为准 |
 
 早先指向 `/var/folders` 临时解压目录的 r5 截图已删除，不再作为当前证据。
 

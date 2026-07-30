@@ -18,7 +18,23 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
-`70a7fe7` 又补齐 r5 发布包的真实安装态 Desktop Gate。直接从
+`11e0131` 后的 r6 已关闭“当前发布包内 Runbook 落后于仓库”的交付漂移。
+r5 是在旧 r3 解压包上只替换 Plugin 得到的；虽然其真实安装和生命周期 Gate
+有效，包内 Runbook 却缺少稳定解压目录要求，因此 r5 现标记为
+`SUPERSEDED_PACKAGE`。当前产物为
+`task-copilot-v2-0.1.0-11e0131-r6.zip`，SHA-256
+`bedf541640bd45976d213f72a98308705fc33173de63c1d208e59c269fc5e8e5`；它从当前
+HEAD 全量组装，`unzip -t` PASS，包内 Runbook 与仓库字节一致，凭据特征扫描
+命中 `0`。从 r6 再次执行零参数安装安全停止；显式 Graph identity、不传
+database 的真实重装保持既有 graph key 和
+`tmp/runtime/manual-v2/task-copilot.sqlite` authority。Logseq `0.10.15` 已从稳定 r6
+目录注册 Plugin，完成 reload、完整 quit/owned shutdown 和 reopen；重开后 iframe
+仍指向 r6，Service 第一次轮询即 READY，CLI `objects 14`、Doctor PASS。新增
+正式状态/Runtime/Recovery/Skill 均为 `0`，交付一致性 Partial 净变化 `-1`。
+Final Release 仍为 `RELEASE_CANDIDATE_READY`，完整长期 Goal 仍为 `IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/release-r6-current-package-desktop-live-20260731.md`。
+
+历史证据：`70a7fe7` 补齐过 r5 发布包的真实安装态 Desktop Gate。直接从
 `task-copilot-v2-0.1.0-9e7a105-r5.zip` 解压的 installer 重验零参数
 fail-closed 与显式 Graph identity 重装；graph key/database authority 不变，安装态
 Launcher/Service hash 与 r5 payload 一致。Logseq 又将 Plugin 注册从临时解压
@@ -43,7 +59,7 @@ Proposal/Commit Kernel 完成结构应用、reload、inverse Undo 与再次 relo
 Block 精确不变，Doctor `PASS`。当前发布包更新为
 `task-copilot-v2-0.1.0-9e7a105-r5.zip`，SHA-256
 `d3f2242d2a0c3721656a6a9f8b72052e3c3fe301d4ea33b0971d1eb5c43f83d3`，包内 Plugin hash
-与同一 `9e7a105` 源码提交构建一致。`70a7fe7` 是文档-only 后续提交；必须的
+与同一 `9e7a105` 源码提交构建一致。该 r5 包现已由 r6 取代；`70a7fe7` 是文档-only 后续提交，当时必须的
 根级 rebuild 会把内嵌 build commit 更新为 `70a7fe7`，原始 JS hash 因此不同，但将该
 12 位 provenance 归一化后 JS 精确一致，CSS hash 也精确一致。新增正式状态、
 Runtime、Recovery、Skill 和长期 Partial 均为 `0`；关闭
@@ -1035,7 +1051,7 @@ fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Fi
 ## 当前证据
 
 - Git：`feature/task-copilot-mvp`；当前阶段包含 Service/CLI 基础与 SQLite 恢复加固；
-- 自动检查：2026-07-22 根级 `./scripts/check.sh` 的全部 typecheck/lint/test/build、Plugin/架构边界、145 rules、acceptance rehearsal 与仓库边界 PASS，0 failed/skipped。npm audit 既有 2 high / 1 critical 已由 OD-008 spike 证明当前无安全有效的自动修复目标，未使用破坏性 `audit fix --force`；
+- 自动检查：2026-07-31 使用 Node 20 完成根级 `./scripts/check.sh`；全部 typecheck/lint/test/build、Plugin/架构边界、145 rules、acceptance rehearsal 与仓库边界 PASS，0 failed/skipped。npm audit 既有 2 high / 1 critical 已由 OD-008 spike 证明当前无安全有效的自动修复目标，未使用破坏性 `audit fix --force`；
 - Process smoke：独立 Service 进程、0600 descriptor、`tc --json status`、`tc doctor`、Backup create/validate、CLI Restore 停服、descriptor 清理、重启后 Doctor PASS、0700/0600 权限均 PASS；2026-07-20 又对 Desktop 测试库完成 schema v3→v6 迁移前快照、独立进程重启、CLI status/Doctor/object list 与停服清理，schema v6 / integrity / 对象数 / Pending 均符合预期；
 - Runtime：`docs/runtime/V1_MVP_PILOT_REPORT.md`；
 - V2 Desktop：需求级 Gate 总状态为 `V2_REQUIREMENT_DESKTOP_PASS`；E2E-01–24 和追踪矩阵条目均已有对应 Runtime Report，现在只进行 Release 审计；
@@ -1051,8 +1067,8 @@ fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Fi
 
 ## 下一步
 
-1. 在隔离 Logseq Desktop 完成 Project 当前接口 Proposal → Review → Commit → reload → Undo → reload，并记录结构化证据；
-2. 继续 Release 审计与根级全量检查；不重复 DeepSeek L3/L4、迁移、Restore、first-run 等未受影响的昂贵 Gate。
+1. 保持 Release Freeze，只处理真实 Release blocker、明确回归或严重日用体验问题；
+2. 以 r6 为唯一当前安装包，继续有界自然日用与发布后证据；不重复未受影响的 DeepSeek L3/L4、迁移、Restore 和 first-run 昂贵 Gate。
 
 ## 仍需用户决定
 

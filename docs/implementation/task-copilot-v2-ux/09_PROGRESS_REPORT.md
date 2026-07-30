@@ -1,6 +1,6 @@
 # 交互优化实施进度
 
-> 更新时间：2026-07-30
+> 更新时间：2026-07-31
 > 当前结论：`IN_PROGRESS` — `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；
 > `ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。P0-A Focus、
 > P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
@@ -43,9 +43,31 @@
 | P0 代码实现 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K 的自动与代表 Desktop Gate 完成；P0-H reload/quit/no-arg reinstall authority/Graph switch，P0-J palette/Slash/custom binding/原生中文 IME，P0-K Block/Page/来源移动删除/Query-reference-sidebar bounded，accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/reload/restart 均有真实证据。`7e72075` 以最新 Now、待审阅空态、更多和系统健康页合并既有 733px、主题与宿主证据，关闭最终分层代表视觉总 Gate；File Graph Page Head/identity/真实 Light 保持 bounded host limitation，不扩成笛卡尔积 |
 | P1 | DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW | P1-A/B Dynamic Shadow 不替换正式 Now；P1-C 正式 Now 三段纯派生与代表 Desktop DONE；`REVIEW_DUE/DUE` 在同一卡片完成 bounded Pilot、session disposition、reload/recompute、取消不误记 acted 和事实解除自动失效。session-only 为首发合同，不建立跨会话提醒权威；自然 helpful/noise 继续 Pilot 而不阻断首发。P1-E 为 `DONE_BOUNDED_HOST_REJECTION`、Block Marker OFF；P1-F File Graph Page Head bounded；P1-G 当前构建真实 Provider smoke 与既有 error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；建议关注、Waiting 过久、Project 静默和跨对象观察保持 Shadow |
 | P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A+B 当前 `39d73a0` / `9e7a105` 完成真实 Grill→Preview→Review→Commit→reload→Undo→reload，并把 Preview 影响移到首屏；P2-C 当前 `1549728` 完成 Blank 真实 Provider→Preview→HIGH Review→create→reload→Undo→reload；P2-D A/B/C/D 发布边界与一条共享 external Agent 代表链 DONE；P2-E 有界恢复合同 DONE；P2-F Shadow、默认关闭且不阻断首发；P2-G 高风险代表链有 Desktop。File Graph Light 为 bounded limitation |
-| 最终验收 | RELEASE_CANDIDATE_READY | Freeze 清单全部关闭；`9e7a105` 当前 zip、Plugin hash、MiniProject 当前 UI 与既有自然使用回归、authority、自动/Provider/Desktop 代表矩阵 PASS。候选包不等同于完整长期 Goal 结束 |
+| 最终验收 | RELEASE_CANDIDATE_READY | Freeze 清单全部关闭；`11e0131` r6 当前 zip、Runbook、Plugin/Launcher/Service hash、稳定安装路径、authority、自动/Provider/Desktop 代表矩阵 PASS。r5 因包内 Runbook 漂移降为 `SUPERSEDED_PACKAGE`；候选包不等同于完整长期 Goal 结束 |
 
-### 2026-07-30 r5 安装包真实生命周期 Gate
+### 2026-07-31 r6 当前发布包与 Desktop 生命周期 Gate
+
+- 审计发现 r5 从 r3 解压包增量替换 Plugin，因而包内 Runbook 落后于仓库；
+  r5 的真实安装/生命周期证据仍保留，但发布产物标记为
+  `SUPERSEDED_PACKAGE`；
+- 从 `11e0131e3946` 全量组装
+  `task-copilot-v2-0.1.0-11e0131-r6.zip`，SHA-256
+  `bedf541640bd45976d213f72a98308705fc33173de63c1d208e59c269fc5e8e5`；
+  `unzip -t` PASS，包内 Runbook 与 HEAD 字节一致，凭据特征命中 `0`；
+- 从 r6 真正零参数 install 以 exit `2` / `LAUNCHER_INSTALL_ARGUMENTS_INVALID`
+  安全停止；只提供 Graph identity、不传 database 的真实重装保持 graph key 与
+  `tmp/runtime/manual-v2/task-copilot.sqlite` authority；
+- Logseq `0.10.15` 从稳定 r6 目录注册 Plugin，重验 reload、完整
+  quit/owned shutdown 与 reopen。Service 在退出后约 8.5 秒移除 descriptor，
+  Launcher 保持；重开第一次轮询即 READY，iframe 仍来自 r6，CLI
+  `objects 14`、Doctor PASS；
+- CURRENT 截图为 `release-r6-stable-package-now-current-11e0131.png` 和
+  `release-r6-stable-package-now-restart-current-11e0131.png`；
+- 新增正式状态/Runtime/Recovery/Skill `0`，关闭交付一致性 Partial `1`，
+  新增长期 Partial `0`，净变化 `-1`。证据见
+  `logs/release-r6-current-package-desktop-live-20260731.md`。
+
+### 2026-07-30 r5 安装包真实生命周期 Gate（`SUPERSEDED_PACKAGE`）
 
 - 当前 HEAD `70a7fe7`、Logseq `0.10.15` File Graph `logseq`；稳定解压目录
   `tmp/releases/task-copilot-v2-0.1.0-9e7a105-r5/` 为实际安装来源，不使用
@@ -61,9 +83,10 @@
 - 重开后 Task Copilot iframe 仍指向稳定 r5 目录，CLI `READY · objects 14`，
   Doctor `PASS`；唯一 warning 为既有 stale Proposal。无正式写入，新增状态/
   Runtime/Recovery/Skill `0`，安装态证据 Partial 净变化 `-1`。
-- CURRENT 截图为 `release-r5-stable-package-now-current-70a7fe7.jpg` 和
+- 当时的截图为 `release-r5-stable-package-now-current-70a7fe7.jpg` 和
   `release-r5-stable-package-now-restart-current-70a7fe7.jpg`；临时路径截图已删除。
-  完整证据见 `logs/release-r5-installed-package-desktop-live-20260730.md`。
+  完整证据见 `logs/release-r5-installed-package-desktop-live-20260730.md`；当前产物与
+  CURRENT 截图已由 r6 取代。
 
 ### 2026-07-30 P2-A/B MiniProject current-build Gate
 
@@ -1379,8 +1402,7 @@ derivative/dashboard 价值也仍未完成。
 
 ## 下一步
 
-1. 执行 `12_RELEASE_FREEZE_CHECKLIST.md` 的当前构建代表矩阵，优先安装/生命周期、
-   Project create→Undo、主题/窄栏与 Release 包；
-2. 核对 Skill catalog、安装态、运行态和代表性真实 Provider 样本，不新增 Skill 家族；
-3. 只修复 Release blocker 或明确回归；P2-F、扩展 Attention、Block Marker 与 D 类结构操作
-   保持既定 Shadow/关闭/有界结论。
+1. 以 r6 为唯一当前发布产物，保持 Release Freeze；
+2. 继续有界自然日用和发布后证据，只修复 Release blocker、明确回归或严重体验问题；
+3. P2-F、扩展 Attention、Block Marker 与 D 类结构操作继续保持既定
+   Shadow/关闭/有界结论，不新增持久化权威或平行 Runtime。

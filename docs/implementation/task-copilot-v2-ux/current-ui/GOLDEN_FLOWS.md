@@ -1,6 +1,6 @@
 # Current Golden Flows
 
-> CURRENT 取代说明（2026-07-30，HEAD `70a7fe7`）：本文后续各节是按时间累积的
+> CURRENT 取代说明（2026-07-31，构建 HEAD `11e0131`）：本文后续各节是按时间累积的
 > Desktop 证据，其中嵌入的 `OPEN` 只代表当时 commit 的历史检查点，不是当前
 > 发布状态。当前 P0 为 `DONE_DESKTOP_REPRESENTATIVE`；P1 release boundary DONE，
 > Attention 为 bounded Pilot、其他高噪声 Signal Shadow、Block Marker OFF；P2-C/P2-D/
@@ -8,6 +8,24 @@
 > 无可靠 identity 宿主位置是 bounded limitation。当前产品口径以
 > `current-status.md`、`09_PROGRESS_REPORT.md`、`10_ACCEPTANCE_REPORT.md` 和
 > `current-ui/CURRENT_UI_MAP.md` 为准；历史段落不得再将已关闭的 P2-D/P2-G 写回 Partial。
+
+## Release r6 稳定安装 → reload → quit/reopen
+
+状态：`DONE_CURRENT_PACKAGE_DESKTOP_LIFECYCLE`
+
+1. 用户将 r6 解压到稳定、用户可控目录；
+2. Installer 必须收到显式 Graph identity；零参数安全停止，不猜 database；
+3. 不传 `--database` 的同 Graph 重装保持既有 graph key/database authority；
+4. Plugin 从稳定 r6 目录注册，reload 后“现在”可用；
+5. 完整退出 Logseq 后 owned Service 停止，Launcher 保持；
+6. 重开 Logseq 后 Service 自动重连，Plugin 仍来自同一稳定目录；
+7. CLI `READY · objects 14`，Doctor PASS，无用户正式写入。
+
+当前结果：`task-copilot-v2-0.1.0-11e0131-r6.zip` 的 `unzip -t`、
+Runbook 一致性、安装 payload hash、authority、reload、quit/owned shutdown 和
+reopen 均 PASS。r5 的生命周期证据保留，但产物因包内 Runbook 漂移为
+`SUPERSEDED_PACKAGE`。证据见
+`../logs/release-r6-current-package-desktop-live-20260731.md`。
 
 ## RC Natural Block → Proposal → Apply → reload → Undo
 

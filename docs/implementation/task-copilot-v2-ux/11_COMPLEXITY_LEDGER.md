@@ -8,13 +8,13 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 当前阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | LOW | P0 DONE；P1/P2 release boundary DONE；Attention 自然日用质量继续 bounded Pilot；P2-F 明确 Shadow/non-blocking；Release package/runbook、最新 Project create/Undo 与 r5 稳定安装态 Partial 已关闭 | Freeze 期间不新增能力面；只处理真实 Release blocker、明确回归和交付一致性 | 否 |
+| Partial 长期堆积 | LOW | P0 DONE；P1/P2 release boundary DONE；Attention 自然日用质量继续 bounded Pilot；P2-F 明确 Shadow/non-blocking；Release package/runbook、最新 Project create/Undo 与 r6 稳定安装态 Partial 已关闭 | Freeze 期间不新增能力面；只处理真实 Release blocker、明确回归和交付一致性 | 否 |
 | Recovery 语义分裂 | MEDIUM | Commit、Rebind、Restore、Migration 内部账本精细；前台已统一为五类用户结论 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 否 |
 | 状态组合膨胀 | LOW-MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在；Freeze 后新增正式状态为 0 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 否 |
 | Agent / LLM 平行小系统 | LOW-MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 有场景差异；P2-D 一条共享 external Agent 链已证明无需第二 Runtime | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 否 |
 | Skill/Prompt/Validator 补丁化 | MEDIUM | `unified-ux-generator`/`recover-context` 已建立 CANDIDATE/RETIRED 台账与真实 Provider 指标；5 个 active Skill 安装态一致 | 只保留 `EXPERIMENTAL/SHADOW/CANDIDATE/PRODUCTION/RETIRED`；晋升看固定样本、真实 Provider、拒绝/重试/abstain/helpful-noise/越权；旧版退休而非永久兼容 | 否 |
-| Desktop 验收笛卡尔积 | MEDIUM | 宿主、主题、宽度、错误和恢复组合较多；当前已用三层代表矩阵与 r5 完整生命周期取证 | 三层代表矩阵：高频日常、复杂操作、低频高风险；不做完全笛卡尔积 | 否 |
-| 文档/代码/截图漂移 | LOW-MEDIUM | r5 稳定安装路径、CURRENT 截图、status/progress/acceptance/checklist/current-ui 已对齐；时序 Golden Flow 的历史 OPEN 已有顶部 supersession | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；自动-only 安全修复不借用旧截图升级 Desktop 状态；每轮同步 status/progress/acceptance/plan/current-ui | 否 |
+| Desktop 验收笛卡尔积 | MEDIUM | 宿主、主题、宽度、错误和恢复组合较多；当前已用三层代表矩阵与 r6 完整生命周期取证 | 三层代表矩阵：高频日常、复杂操作、低频高风险；不做完全笛卡尔积 | 否 |
+| 文档/代码/截图漂移 | LOW | r6 从当前 HEAD 全量组装；包内 Runbook、稳定安装路径、CURRENT 截图、status/progress/acceptance/checklist/current-ui 已对齐；r5 明确标记 `SUPERSEDED_PACKAGE` | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；发布包从当前 HEAD 全量组装，不从旧包增量替换；每轮同步 status/progress/acceptance/checklist/current-ui | 否 |
 | 后台工程概念泄漏 | LOW-MEDIUM | Now/更多/系统状态、Preview/Review、Grill、Project 落地和 Recovery 代表链已使用用户语言；技术事实只在折叠诊断/Audit | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit | 否 |
 
 ### P2-A/B MiniProject current-build 收口（2026-07-30，`39d73a0` / `9e7a105`）
@@ -30,16 +30,27 @@
   `HIGH→MEDIUM`；File Graph Page UUID reload 漂移仍归既有宿主 identity bounded limitation，
   不新建第二套 identity。
 
-## 本轮变化（2026-07-30）
+## 本轮变化（2026-07-30—31）
 
-### r5 稳定安装态生命周期（`70a7fe7`）
+### r6 当前产物一致性（2026-07-31，`11e0131`）
+
+- 发现 r5 的包内 Runbook 落后于仓库；不新建发布框架，而是从当前 HEAD 全量组装
+  r6，并将 r5 发布产物降为 `SUPERSEDED_PACKAGE`；
+- 包内 Runbook 与 HEAD 字节一致，稳定 Plugin 注册、真实 reload、quit/owned shutdown、
+  reopen、Service 重连和 database authority 保持全部 PASS；
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator `0`、
+  写入权威 `0`；
+- 关闭交付漂移 Partial `1`，新增长期 Partial `0`，净变化 `-1`；
+- 风险变化：文档/代码/截图漂移 `LOW-MEDIUM→LOW`，其他复杂度风险不变。
+
+### r5 稳定安装态生命周期（`70a7fe7`，历史证据）
 
 - 关闭发布包稳定 Plugin 注册/reload/quit/reopen 证据 Partial `1`，新增长期
   Partial `0`，净变化 `-1`；
 - 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator
   版本 `0`、写入权威 `0`；
-- 删除临时解压目录的 Plugin 注册和三张不可持续截图，只保留稳定
-  `tmp/releases/...-r5` 注册的 CURRENT/restart 证据；
+- 删除临时解压目录的 Plugin 注册和三张不可持续截图，当时保留了稳定
+  `tmp/releases/...-r5` 注册的生命周期证据；当前截图与产物已由 r6 取代；
 - 安装态 Launcher/Service/Plugin、graph key/database authority、settings 业务配置在
   reload 和完整 restart 后一致。复用既有 Launcher lease/owned shutdown、descriptor、
   Service 和 Now，没有为发布验证建第二安装 Runtime 或健康权威。

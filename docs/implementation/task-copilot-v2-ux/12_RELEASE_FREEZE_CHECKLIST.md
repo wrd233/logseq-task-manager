@@ -35,18 +35,21 @@
   `recover-context@1.3.0` 完成一次真实 Provider Desktop smoke，Project v31 保持零写入；
 - [x] 核对 Project create→reload→Undo 与 Context Recovery 当前构建证据；当前 Dark
   1000×720 主链重新取证，Light/窄栏使用未发生样式变化的既有代表 Gate，不扩成笛卡尔积；
-- [x] 生成并校验可安装 Release 包；`unzip -t` PASS，SHA-256 为
-  `d3f2242d2a0c3721656a6a9f8b72052e3c3fe301d4ea33b0971d1eb5c43f83d3`（当前
-  `task-copilot-v2-0.1.0-9e7a105-r5.zip`）；包内 Plugin 对应 `9e7a105` 源码。
-  `70a7fe7` 根级 rebuild 仅更换内嵌 build-commit provenance：归一化后 JS 与包内
-  一致，CSS hash 一致；安装、启动、
-  关闭、恢复、升级与安全卸载说明已同步到 `13_RELEASE_RUNBOOK.md`；真正零参数 install
-  以 `LAUNCHER_INSTALL_ARGUMENTS_INVALID` 安全停止；直接从解压包提供 Graph identity、
-  但不传 `--database` 的正式重装为 `INSTALLED`，authority/hash 保持，真实 Plugin reload
-  后 Service READY、Doctor PASS；`70a7fe7` 又将 Logseq 的 Plugin 注册固定到稳定
-  `tmp/releases/...-r5/task-copilot-plugin`，不使用 `/var/folders` 临时目录；再次完成
-  Plugin Manager reload、完整 quit/owned shutdown/reopen，重开后 iframe 仍来自稳定
-  r5 目录，CLI `READY · objects 14`、Doctor PASS；
+- [x] 生成并校验可安装 Release 包；当前产物为
+  `task-copilot-v2-0.1.0-11e0131-r6.zip`，SHA-256
+  `bedf541640bd45976d213f72a98308705fc33173de63c1d208e59c269fc5e8e5`；
+  `unzip -t` PASS，包内 Plugin 对应 `11e0131e3946` 源码，Runbook 与 HEAD
+  字节一致，凭据特征扫描命中 `0`。r5 的真实生命周期证据保留，但由于
+  包内 Runbook 漂移标记为 `SUPERSEDED_PACKAGE`；
+- [x] r6 installer 真正零参数以 `LAUNCHER_INSTALL_ARGUMENTS_INVALID` / exit `2`
+  安全停止；从解压包提供 Graph identity、不传 `--database` 的重装为
+  `INSTALLED`，graph key/database authority 保持，安装态 Launcher/Service hash
+  与 r6 payload 一致；
+- [x] Logseq 的 Plugin 注册固定到
+  `tmp/releases/...-r6/task-copilot-plugin`，不使用 `/var/folders` 临时目录；
+  Plugin Manager reload、完整 quit/owned shutdown/reopen 后 iframe 仍来自稳定 r6
+  目录，Service 退出后约 8.5 秒停止，重开第一次轮询即 READY，CLI
+  `objects 14`、Doctor PASS；
 - [x] Release Candidate 自然 Block→真实 Provider→Review→应用→reload→Undo→reload 回归；
   `ae9c6d7` 关闭已完成“最近修改”的无效“查看”和 Commit/Object ID 泄漏，Plugin
   `378/378`、根级检查、Doctor 与恢复演练 PASS；
