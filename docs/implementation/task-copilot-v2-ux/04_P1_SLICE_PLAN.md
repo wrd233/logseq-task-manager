@@ -6,11 +6,12 @@
 
 ## P1-A：Attention Signal 纯模型与影子存储
 
-状态：`PARTIAL_RUNTIME_SHADOW_BOUNDED_NOW_PILOT / UX-G008_BOUNDED` — 纯模型与有界
+状态：`DONE_RELEASE_BOUNDARY_SHADOW_AND_BOUNDED_PILOT / UX-G008_CLOSED_BOUNDED` — 纯模型与有界
 session shadow repository 已完成并接入 Plugin 只读刷新链路；`3097c39` 已让首批时间信号
 在既有正式 Now 卡片完成真实前台处置与 reload/recompute Gate。没有接入正式 Domain 或
-SQLite schema；跨会话 disposition 是否需要派生持久化，继续等待真实多日 helpful/noise
-证据，不因一次人工样本扩张 authority。
+SQLite schema；`c9919f2` 的四个真实 session 已将 disposition 明确收口为 session-only，
+reload 后从正式事实重算。跨会话 suppression 只有在后续自然日用证明持续高噪声时才作为
+future enhancement 重开，不再作为首发 Partial，也不因人工样本扩张 authority。
 
 最小内部字段：
 
@@ -55,7 +56,8 @@ SQLite schema；跨会话 disposition 是否需要派生持久化，继续等待
 - runtime telemetry 仅记录 raw/merged/cooled/active/invalidated 数量，数量未变化不重复记录；
   不记录正文或 object/proposal/commit/anchor identity；
 - Application tests 82/82、Plugin tests 196/196，typecheck/build 与根级 Gate PASS；
-- 当前仍不构成用户可见 P1 上线或 Desktop PASS。
+- 这是 2026-07-24 自动阶段的历史结论；后续 `3097c39` / `c9919f2` 已完成首批时间
+  Signal 的有界 Desktop Pilot、session disposition、reload 重算和事实失效。
 - fresh repository 对同一正式 snapshot 重算得到相同 signal identity、scope hash、merge/suppress
   count 与 Dynamic Now signature；firstDetected/counters 等历史不参与当前投影；
 - 发现并修复同证据 refresh 会意外清除 session cooldown：现在同 scope + 同 policy 保留 until，
@@ -64,7 +66,7 @@ SQLite schema；跨会话 disposition 是否需要派生持久化，继续等待
 
 ## P1-B：确定性 detector、合并与失效
 
-状态：`PARTIAL_TIMING_PILOT_OTHER_DETECTORS_SHADOW` — 第一波确定性 detector 与合并
+状态：`DONE_RELEASE_BOUNDARY_TIMING_PILOT_OTHER_DETECTORS_SHADOW` — 第一波确定性 detector 与合并
 优先级已完成纯函数 Gate并接入 Plugin session shadow；`REVIEW_DUE / DUE` 已在既有 Now
 卡片完成有界 Desktop Pilot。accepted-not-applied、PENDING/RECOVERY、Anchor/Graph 风险
 继续由既有权威表面承接，不复制同义提醒；blocker 变化、WAITING 过久、Project 静默与
@@ -114,16 +116,18 @@ LLM 跨对象仍未开放。
 - Service 投影 adapter 不携带 Object/Proposal 正文，Plugin UI model refresh 已接入
   session-only detector/reconcile/merge；失败不影响主 UI 或正式写入能力；
 - Application tests 82/82、Plugin tests 196/196、0 skipped，typecheck/build 与根级 Gate PASS；
-- 当前已有 runtime shadow 编排，但没有用户可见 UI 和真实 Desktop telemetry 读回，
-  因此不能算 P1-B 完成或 Desktop PASS。
+- 这是 2026-07-24 自动阶段的历史结论；后续有界 Pilot 已补用户操作与真实 Desktop
+  telemetry，其他 Detector 则按首发边界保持 Shadow，不再作为 P1-B Partial。
 
 ## P1-C：“现在”动态编排
 
-状态：`PARTIAL_DESKTOP_FRONTSTAGE_TIMING_PILOT_HELPFUL_NOISE_OPEN` — 稳定三段骨架、正式事实
+状态：`DONE_RELEASE_BOUNDARY_FRONTSTAGE_AND_TIMING_PILOT` — 稳定三段骨架、正式事实
 inclusion/exclusion、容量与 Focus ownership 已完成纯投影；`3d63d5a` 已让既有正式
 Service Now 在用户层按同一三段展示并完成“继续处理”标准宽度/窄栏 Desktop 代表 Gate。
-Dynamic Now Shadow 仍只作对照，Copilot 建议关注仍为空；`3097c39` 已完成到期类
-Attention 的有界前台处置与重算 Gate，但真实 helpful/noise 和跨会话策略仍未通过。
+Dynamic Now Shadow 只作对照，Copilot 建议关注保持为空；`3097c39` / `c9919f2` 已完成
+到期类 Attention 的有界前台处置、session disposition、事实失效与 reload 重算 Gate。
+受控样本不能冒充自然日用 helpful rate，因此扩展信号仍为 Shadow；这是一项明确的首发边界，
+不再保留为模糊 Partial。
 
 稳定骨架：
 
@@ -213,10 +217,11 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 
 ## P1-D：状态翻译层
 
-状态：`PARTIAL_UI_AUTOMATED` — Application 确定性 Object/Proposal/Commit/Anchor/System
+状态：`DONE_DESKTOP_REPRESENTATIVE` — Application 确定性 Object/Proposal/Commit/Anchor/System
 叙述契约已接入 Plugin System、Proposal Review、Recent Changes 与 Now Work；
-Anchor missing/conflict 的用户问题卡和既有 Rebind 修复链也已接入；Desktop Gate 与 LLM
-draft protocol 仍待扩展。
+Anchor missing/conflict 的用户问题卡和既有 Rebind 修复链也已接入；当前 Now、待审阅、
+最近修改、系统状态、失败/恢复与 Context Recovery 的代表性 Desktop Gate 已完成。以后新增
+消费者必须复用同一结论优先合同，但不构成当前发布缺口。
 
 Application/ViewModel 契约：
 
@@ -283,7 +288,8 @@ source
   可提交动作；
 - 复制/导出的 diagnostics snapshot 只保留冲突计数，不包含对象标题或用户叙述投影；
 - Application tests 112/112、Plugin tests 213/213、0 skipped，typecheck/build PASS；
-- 当前未完成 Desktop 主题/窄栏/真实 missing→repair→reload 对照，不能声明 P1-D 完成。
+- 这是该自动阶段的历史结论；后续 Now、系统状态、Review、最近修改、Rebind、Recovery 与
+  Context Recovery 已覆盖代表主题/窄栏/repair/reload，P1-D 当前为代表性 Desktop DONE。
 
 ## P1-E：Block 轻标记原型
 
@@ -353,10 +359,11 @@ source
 
 ## P1-F：Project/Task 重入
 
-状态：`AUTOMATED_TASK_NOW_DESKTOP_OPEN_PROJECT_WORKSPACE_DONE_FILE_GRAPH_PAGE_HEAD_BOUNDED` — Application 只读重入投影
+状态：`DONE_RELEASE_BOUNDARY_TASK_NOW_DESKTOP_PROJECT_WORKSPACE_FILE_GRAPH_PAGE_HEAD_BOUNDED` — Application 只读重入投影
 已接入 Plugin Project workspace 与 Project 主 Page 的 Page Head 单动作；Project workspace
 真实 Desktop 已通过。Logseq 0.10.15 File Graph 不挂载 Page Head slot，安全隐藏为有界宿主
-结论；Task 轻量重入已接入现有“现在”卡片并通过自动 Gate，当前安装构建 Desktop 尚待复验。
+结论；Task 轻量重入已接入现有“现在”卡片，`fd5ee19` 关闭 receipt-backed recovery
+fail-open，r8 当前安装构建已完成 Now Task Desktop 复验。
 
 Project 顶部条只组合 schema v12、Condition、Focus、Anchor、最近 Audit 与未完成 Commit；不建立第二摘要权威。
 
@@ -404,13 +411,15 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
 - 2026-07-26 真实 Logseq 0.10.15 File Graph 源码与运行双重确认：
   `page-head-actions-slotted` 只在 DB Graph/LSP 分支挂载，File Graph 不能显示该动作；没有
   使用 DOM 注入、页面标题或 stale properties 猜身份。Project workspace 的确定性重入卡与
-  Context Recovery 入口可用，DB Graph Page Head 继续 OPEN。
+  Context Recovery 入口可用；DB Graph Page Head 未作为首发宿主声明，File Graph 使用
+  workspace 替代入口且不采用 DOM hack。
 - 2026-07-31 Freeze 审计补齐 Task consumer：复用同一 `projectV2TaskReentry`、Now 卡片、
   Primary Anchor 与 Audit 路由；普通卡只增加一行直属 MiniProject/Project/Area，不展示未知警告或工程 identity；
   PENDING/RECOVERY_REQUIRED 隐藏普通状态/期限/Focus 动作，只保留一个恢复入口；版本不匹配
   fail closed。提交前双轴审阅又补出 receipt-backed `CREATE_OBJECT` 中断映射，以及
   Commit/Anchor 安全事实不可读时隐藏普通动作的 fail-closed 路径。Application + Plugin
-  定向 tests `93/93`、typecheck PASS；Desktop 与最新安装包仍 OPEN。
+  定向 tests `93/93`、typecheck PASS；随后 r8 exact build `8928861` 已完成当前安装包
+  Now Task、reload/quit/reopen 与同 authority Desktop 复验。
 
 ## P1-G：LLM 叙述与上下文恢复 Skill
 
@@ -483,12 +492,14 @@ Service 必须机器覆盖 provenance、model id/version、时间和 scope hash�
 
 ## P1-H：交互日志与版本
 
-状态：`PARTIAL_LIVE_SERVICE` — Application 已建立 session-only bounded
+状态：`DONE_RELEASE_BOUNDARY_SESSION_EVIDENCE` — Application 已建立 session-only bounded
 Interaction Evidence Buffer，P1-G 生成器已记录成功、Validator 拒绝和 Provider 失败；
 Plugin StructuredLogger/Runtime Diagnostics 与 Local Service daemon output 已去除自由
 文本异常和本机路径；Project recovery 五种可撤回处置、版本噪声汇总、同场景/Skill 版本
 `DO_NOT_REPEAT` 与真实 DeepSeek/Service Gate 已完成，Plugin UI 自动 Gate 完成；Desktop
-点击与跨会话持久化/清理策略、用户可见 dashboard 仍开放。
+点击、处置、同 session 抑制和清理已经接入；跨会话持久化与用户可见 dashboard 没有被
+真实价值证据证明，明确不进入首发权威。未来若自然日用证明需要，只能作为有期限、可清除的
+派生证据重新评估。
 
 默认仅记录：
 

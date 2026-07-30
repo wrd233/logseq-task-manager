@@ -1,6 +1,6 @@
 # Task Copilot V2 Release Freeze Checklist
 
-> 状态：`RELEASE_CANDIDATE_READY`
+> 状态：`RELEASE_READY / FREEZE_COMPLETE`
 > Freeze 起点：`8d24569` 及其 P2-D 当前证据提交之后
 > 原则：不新增大功能、正式状态、顶层导航、Skill 家族、Agent Runtime 或 Recovery Kernel；
 > 只处理 Release blocker、明确回归和严重体验问题。

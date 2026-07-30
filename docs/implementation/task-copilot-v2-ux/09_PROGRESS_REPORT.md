@@ -1,8 +1,11 @@
 # 交互优化实施进度
 
 > 更新时间：2026-07-31
-> 当前结论：`IN_PROGRESS` — `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；
-> `ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。P0-A Focus、
+> 当前结论：`RELEASE_READY / OVERALL_CLEAN_GATE_OPEN` —
+> `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；P0/P1/P2 release boundary、
+> r8 当前安装态、根级 Freeze Gate、当前 Service Doctor、独立审查和最终交付清单均已完成。
+> Shadow/OFF、future enhancement 与 bounded host limitation 已显式登记，不保留模糊
+> Partial。仓库级 `MVP_SUCCESS` 只剩用户已有无关工作区改动导致的外层 clean Gate。P0-A Focus、
 > P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
 > P0-D Page 现场路由、P0-E 四项主导航、P0-F 工具栏介入摘要、P0-G 最近修改和 P0-H
 > descriptor 私有 handshake 已完成自动与适用 Desktop 验收；P0-H 独立 Launcher、
@@ -25,9 +28,9 @@
 > `7fe762d` 又关闭 Day 9 Closure 正常链、reload、专用 Undo 与共享前台表达代表 Gate；
 > 同一精确 Plugin 构建完成 Day 10 四页回顾、reload 与 Graph switch，十日代表 Pilot
 > 已关闭。`7e72075` 又以最新 Now、待审阅空态、更多、系统健康页和既有窄栏/宿主/失败链
-> 完成 P0 分层代表视觉总 Gate，P0 收口为 `DONE_DESKTOP_REPRESENTATIVE`。完整
-> Day 7 duplicate/missing、P1
-> 前台和整体 Goal 仍未完成。
+> 完成 P0 分层代表视觉总 Gate，P0 收口为 `DONE_DESKTOP_REPRESENTATIVE`。Day 7
+> duplicate/missing 后由 `075e031` 关闭；P1 前台按 bounded Pilot/Shadow 边界收口。当前唯一
+> 未关闭的完整 Goal Gate 是外层仓库 clean。
 
 ## 总体状态
 
@@ -82,7 +85,7 @@
   quit/owned shutdown 与 reopen。Service 在退出后约 8.5 秒移除 descriptor，
   Launcher 保持；重开第一次轮询即 READY，iframe 仍来自 r6，CLI
   `objects 14`、Doctor PASS；
-- CURRENT 截图为 `release-r6-stable-package-now-current-11e0131.png` 和
+- HISTORICAL 截图为 `release-r6-stable-package-now-current-11e0131.png` 和
   `release-r6-stable-package-now-restart-current-11e0131.png`；
 - 新增正式状态/Runtime/Recovery/Skill `0`，关闭交付一致性 Partial `1`，
   新增长期 Partial `0`，净变化 `-1`。证据见
@@ -107,7 +110,7 @@
 - 当时的截图为 `release-r5-stable-package-now-current-70a7fe7.jpg` 和
   `release-r5-stable-package-now-restart-current-70a7fe7.jpg`；临时路径截图已删除。
   完整证据见 `logs/release-r5-installed-package-desktop-live-20260730.md`；当前产物与
-  CURRENT 截图已由 r6 取代。
+  HISTORICAL 截图已由 r6 取代。
 
 ### 2026-07-30 P2-A/B MiniProject current-build Gate
 
@@ -469,7 +472,7 @@ release-boundary drift Partial `1`，但外部 Agent 完整产品链仍 OPEN，P
 - 真实 Provider 累计 `14`，Validator rejection/retry `0/0`。模型曾建议无证据的量化门槛
   及周会/看板，用户纠正后未成为正式事实；本轮不增加 Skill 版本。
 - 过程 build 的源码等价于 `42e6a91`，但产物内嵌 commit 为 `fbd14eb`，故过程截图降为
-  `HISTORICAL_SOURCE_EQUIVALENT`；只有重新构建后内嵌 `42e6a91309ba` 的健康图是 CURRENT。
+  `HISTORICAL_SOURCE_EQUIVALENT`；只有重新构建后内嵌 `42e6a91309ba` 的健康图是 HISTORICAL。
 - 新发现：创建仍有四个近义确认、结果/历史墙过长、Undo 资格与按钮矛盾、Undo 成功消息
   工程词泄漏；首次普通 reload 还出现一次有界子树读取失败的 session 核对风险。以上进入
   现有发布阻断，不新增 Runtime、正式状态或恢复分支。
@@ -533,7 +536,7 @@ release-boundary drift Partial `1`，但外部 Agent 完整产品链仍 OPEN，P
   `73dc1e26f610`。
 - Desktop：Logseq 0.10.15 File Graph，host Light / Plugin Dark，999×720 与 727×720。Query 投影安全
   停止；正式测试任务完成入口→空原因失败→正式保存→返回同一 Block→Undo→reload 后
-  “当前可以继续推进”；窄栏保持主结论、三个意图和取消可见。六张 CURRENT 截图对应
+  “当前可以继续推进”；窄栏保持主结论、三个意图和取消可见。六张 HISTORICAL 截图对应
   exact build `73dc1e2`。
 - Provider/Skill：没有调用 Provider；Validator 拒绝率与模型重试不适用；没有新增或修改
   Skill/Prompt。
@@ -557,7 +560,7 @@ release-boundary drift Partial `1`，但外部 Agent 完整产品链仍 OPEN，P
 - 自动：Plugin `347/347`、0 skipped；根级 `./scripts/check.sh`、145 条稳定规则、build/
   dist integrity、恢复演练 `differences=[]` 全部 PASS。
 - Desktop：exact build `869127f`，Logseq 0.10.15 File Graph，Plugin Dark / host Light，
-  1001×720；普通 Page 与 Project Page 两张 CURRENT，取证后回到原 P0-K Page。
+  1001×720；普通 Page 与 Project Page 两张 HISTORICAL，取证后回到原 P0-K Page。
 - Provider/Skill：未调用 Provider；Validator 拒绝率、模型重试不适用；Skill/Prompt 版本
   无变化。
 - 状态：关闭 Page Context 用户语言与受控 Project Page 识别的一个代表性 UI Partial；
@@ -575,7 +578,7 @@ release-boundary drift Partial `1`，但外部 Agent 完整产品链仍 OPEN，P
   拒绝；最终根级 `./scripts/check.sh`、145 条稳定规则、恢复演练
   `differences=[]` 全部 PASS。
 - Desktop：exact build `bfabf4025f60`，Logseq 0.10.15 File Graph；Dark/Light
-  1000×720 与 Light 723×720 CURRENT。点击“开始当前推进”后面板关闭并留在同一 Project
+  1000×720 与 Light 723×720 HISTORICAL。点击“开始当前推进”后面板关闭并留在同一 Project
   Page，正式状态没有变化。
 - Provider/Skill：本 Slice 没有 Provider 调用；Validator 拒绝率、模型重试与 Skill 版本
   变化不适用。新增正式状态、Runtime、Recovery 分支、Prompt/Validator 和写入权威均为 0。
@@ -717,11 +720,13 @@ release-boundary drift Partial `1`，但外部 Agent 完整产品链仍 OPEN，P
 - Plugin tests 191/191、0 skipped，typecheck/build PASS；Query/引用/right sidebar 的真实
   SDK payload 与返回行为仍保留为 Desktop Gate。
 
-## 当前进行
+## 历史进行快照（后续已关闭）
+
+以下是当时的 P0 收口记录，不代表顶部当前状态。
 
 ### Slice P0-H / P0-J / P0-K：产品化与日常现场
 
-状态：`IN_PROGRESS`
+当时状态：`IN_PROGRESS`
 
 P0-I 已完成：用户首屏固定回答发生了什么、影响能力、仍可用能力、数据安全与所需动作；
 工程组件、协议、日志、ID 与修复入口默认折叠。真实 Desktop 已验证 READY 连接下的正文核对
@@ -960,12 +965,12 @@ release 后 owned Service 0、Launcher 1。Desktop 又真实提交 `HELPFUL` 与
 证明处置入口与单 interaction 计数可用；样本量仍不足以建立真实噪声阈值，跨会话
 derivative/dashboard 价值也仍未完成。
 
-## 当前阻塞
+## 历史阻塞快照
 
 当前没有阻塞 capability spike 的外部依赖。若 Logseq iframe 不能可靠启动受支持 Node20
 子进程，必须以真实证据选择独立 launcher，不得在 UI 假装自动。
 
-## 当前风险
+## 历史风险快照
 
 - SDK context menu 的正式 Block payload/排序及 Focus/Condition 动作已真实验证；Page menu
   的普通/Project/Journal 主 Page 已验证；Query/引用与 sidebar Page 扩展入口仍待宿主能力；
@@ -1101,7 +1106,7 @@ derivative/dashboard 价值也仍未完成。
   ownership/empty 预检后删除，复用来源 Page 不创建、不标记、不删除；inverse Undo 保留
   原 Commit/Audit，含用户正文时 fail closed。Local Service 129/129、Plugin 260/260、
   Persistence 48/48 与根级 Gate PASS。该自动合同完成时 Desktop/reload/failure/Recovery/
-  Undo/CURRENT 截图仍 OPEN，随后由本轮 Blank Desktop Gate 关闭；
+  Undo/HISTORICAL 截图仍 OPEN，随后由本轮 Blank Desktop Gate 关闭；
 - P2-C 用户入口已从 Partial 收敛为自动闭环：Blank、普通 Page、OPEN MiniProject 三来源
   统一进入 Project Creation Grill session；客户端不注入事实，前台按事实/Copilot 判断/
   未知分区，每轮一个问题，Preview 明示零正式影响，成功后只进入 HIGH Review。旧直建 UI
@@ -1136,7 +1141,7 @@ derivative/dashboard 价值也仍未完成。
   Project 与 active Primary Page Anchor，Page 没有新增 properties/metadata/正文。创建、
   restart、inverse Undo 与再次 restart 前后，Page name/properties 和三段 Block
   UUID/content/properties 均逐字段等于创建前；Project 投影撤销且系统 `0/0/0`、
-  reconciliation false。`p2-c-21`～`p2-c-24` 为最终构建 CURRENT 证据。内容质量仍有
+  reconciliation false。`p2-c-21`～`p2-c-24` 为最终构建 HISTORICAL 证据。内容质量仍有
   readiness 过长、重复“完成证据”标签和真实 Validator 拒绝率问题，记为既有
   `project-creation-modeling@1.2.0`/renderer 改进候选，不新建平行 Skill；
 - P2-C MiniProject“演化为 Project”从 OPEN 收敛为功能 DONE：Service 有界读取正式
@@ -1149,7 +1154,7 @@ derivative/dashboard 价值也仍未完成。
   Primary Anchor。最新构建完整重跑真实 Provider 链后精确返回来源根 Block，再次 reload
   Runtime/Store/Service READY、`0/0/0`、reconciliation false。最终 Preview 前两次真实
   Validator rejection 零 Proposal/零写，第三次同答案集通过；安全边界 PASS，拒绝率和用户
-  诊断继续作为 Skill/UX 质量项。CURRENT `p2-c-38`/`p2-c-39` 对应 `7a7492a407ed`，
+  诊断继续作为 Skill/UX 质量项。HISTORICAL `p2-c-38`/`p2-c-39` 对应 `7a7492a407ed`，
   旧 Journal 返回 `p2-c-36`/`p2-c-37` 已标为 SUPERSEDED。当前全量 Application
   `155/155`、Local Service `133/133`、Plugin `271/271` 与根级检查 PASS；
 - P2-D 继续保持整体 Partial，但 MEDIUM 纵向链 DONE：新增 16 类 Project operation intent 的确定性
@@ -1163,14 +1168,14 @@ derivative/dashboard 价值也仍未完成。
   Skill 1.2.0 明确机器身份只进入结构引用字段，第三次通过。Object v2→v3→v4，只有摘要往返，
   current focuses 与全部结构字段守恒，Graph 未改。真实长期 Undo 又发现通用 Block 路由错误；
   `f6d0429` 修复为 Project interface 专用 inverse 后通过。`ae2395523798` 修正旧
-  `Agent disabled` 状态并保存 CURRENT `p2-d-05`/`p2-d-06`。同一 `ae2395523798` 构建又完成 HEAVY 完整当前接口：
+  `Agent disabled` 状态并保存 HISTORICAL `p2-d-05`/`p2-d-06`。同一 `ae2395523798` 构建又完成 HEAVY 完整当前接口：
   Proposal→HIGH 接受→提交前重验→Commit→reload→专用 inverse→reload。Object v4→v5→v6，
   Commit 后 Objective/Deliverable/Work Stage/三项 Focus 全部可读，Undo 后恢复原空结构与
-  单一 Focus；Graph 未改、`0/0/0`。CURRENT `p2-d-07`～`p2-d-10`。LIGHT Condition
+  单一 Focus；Graph 未改、`0/0/0`。HISTORICAL `p2-d-07`～`p2-d-10`。LIGHT Condition
   随后新增 receipt 持久 inverse 与 Service prepare/confirm 路由；Desktop Project
   v8→PAUSED v9→reload→正式 Undo ACTIONABLE v10→reload，Project 当前接口、Lifecycle、
   Focus、Ownership 与正文守恒。普通 Association 因无 remove/inverse 已从正式路由禁用。
-  CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。Application `161/161`、Local
+  HISTORICAL `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。Application `161/161`、Local
   Service `135/135`、Plugin `275/275`、Persistence `49/49` 与根级检查 PASS；
 - P2-E 首条只读预览链完成自动 Gate：Project Closure evidence draft 从 Project interface 与
   直接 Primary Ownership 投影 Objective、Deliverable/Output、Decision、完成/未决工作；
@@ -1182,7 +1187,7 @@ derivative/dashboard 价值也仍未完成。
   PASS。`ec1a70d848d6` 最新构建已在 Logseq 0.10.15 / Dark / `1567×1104` 完成
   Project 影响路由→只读预览；空证据场景仅有“取消”，reload 后 draft 消失、READY 并可
   重新计算，Objects/Proposals/Commits 保持 `2/10/21`，Project 保持 v10/OPEN/ACTIONABLE。
-  CURRENT `p2-e-01`～`p2-e-04`。真实 Provider、HIGH
+  HISTORICAL `p2-e-01`～`p2-e-04`。真实 Provider、HIGH
   Proposal/Review/Commit/Recovery/Undo 仍 OPEN；
 - P2-E Provider model contract 已完成真实 Flash Gate：复用既有五层 Proposal generator；
   `design-project@1.3.0`
@@ -1230,7 +1235,7 @@ derivative/dashboard 价值也仍未完成。
   成功/失败重复显示。隔离 Graph 中对活动 SQLite 注入真实文件级写入拒绝后，正式对象仍为
   5、版本 `[1,5,6,13,14]`，新增恢复点 schema 12 / integrity ok / foreign-key 0，
   owned Service PID `99248→99711`，Doctor PASS；Plugin Manager reload 后错误清空并显示
-  系统正常。CURRENT `p2-g-44`～`46`。自动回滚失败后的手工 Recovery Desktop 与
+  系统正常。HISTORICAL `p2-g-44`～`46`。自动回滚失败后的手工 Recovery Desktop 与
   Light/窄栏仍 OPEN，故 P2-G 不提前关闭。完整记录见
   `logs/p2-g-restore-failure-recovery-desktop-live-20260726.md`；
 - `2eb6df1` 关闭 Restore failure Gate 的自动并发/重启绕过风险：Restore 认证后独占入口、
@@ -1267,7 +1272,7 @@ derivative/dashboard 价值也仍未完成。
   独立 HIGH 确认后复用原 one-shot Restore、Doctor、exact clear 和 bounded runtime
   recovery，正式对象恢复为 7，Anchor conflict/Pending/Recovery `0/0/0`。故障 Launcher
   停止、正常 descriptor/LaunchAgent 恢复，Plugin reload 后 exact build、formal writes、
-  explicit sync 和系统状态均 READY；database authority 未静默替换。CURRENT
+  explicit sync 和系统状态均 READY；database authority 未静默替换。HISTORICAL
   `p2-g-55`～`59`；新增正式状态、Skill、Prompt、Validator、恢复入口、平行 Runtime 和
   写入权威均为 `0`。本 Slice 不调用 Provider；
 - `f17f46a` 关闭 Migration 写后响应丢失代表子 Gate：新增的只是 Local Service 既有
@@ -1277,7 +1282,7 @@ derivative/dashboard 价值也仍未完成。
   HIGH Undo。隔离库 objects `4→5→4`，run/batch
   `PREVIEWED→IMPORTING/IMPORTED→VERIFIED→PREVIEWED/UNDONE`，SemanticCommit
   Pending/Recovery 始终 `0/0`。故障 Launcher 退出后，正常 LaunchAgent、7 对象 authority
-  和 READY 用户状态恢复。CURRENT `p2-g-60`～`65`；新增正式状态、Skill、Prompt、
+  和 READY 用户状态恢复。HISTORICAL `p2-g-60`～`65`；新增正式状态、Skill、Prompt、
   Validator、生产恢复分支、平行 Runtime 与写入权威均为 `0`，本 Slice 不调用 Provider；
 - `df5d2ea` 先关闭 Migration Verify/Activate 的自动失败原子性与重试子 Gate：test-only
   `beforeMigrationVerify` / `beforeMigrationActivate` 分别证明失败后保持
@@ -1293,13 +1298,13 @@ derivative/dashboard 价值也仍未完成。
 - `25ddac9` / `4dfe014` 关闭高频壳层工程语言 Partial：删除顶部 Runtime/Store/Graph 状态条，
   把“更多”、启动、知识库切换和系统状态收敛为用户结论；恢复重连必须同时满足连接 READY、
   client 存在和正式修改可用。exact build 真实 reload 后，普通用户层约定工程词扫描为 `0`，
-  CURRENT `p0-e-05`、`p0-h-08`、`p0-i-03`。没有新增正式状态、导航、Skill、Prompt、Validator
+  HISTORICAL `p0-e-05`、`p0-h-08`、`p0-i-03`。没有新增正式状态、导航、Skill、Prompt、Validator
   或 Recovery 分支；本 Slice 不调用 LLM，拒绝率/重试不适用；
 - `e8db32f1af6d` 关闭 P0-H 当前语言的结束/重启 Partial：真实结束先发现主动结束被通用诊断
   误报为知识库不匹配，又发现 ended shell 的“未配置”假结论和 lease release 短暂闪烁；最终
   复用现有 `SERVICE_ENDED_BY_USER` 与 Launcher lease，先记录 session-only 用户意图、立即
   关闭正式动作，再释放租约。100/400/1000/2500 ms 采样均无错误结论；重启后 exact commit、
-  formal writes true 和 `0/0/0` 读回通过。CURRENT `p0-h-09`～`12`；没有新增正式状态、
+  formal writes true 和 `0/0/0` 读回通过。HISTORICAL `p0-h-09`～`12`；没有新增正式状态、
   顶层导航、Skill、Prompt、Validator 或恢复分支；
 - 新增 `11_COMPLEXITY_LEDGER.md`：将 Partial 堆积、Recovery 分裂、状态组合、Agent/Skill 重复、
   Desktop 笛卡尔积、证据漂移和工程语义泄漏列为发布前显式 Gate；
@@ -1321,7 +1326,7 @@ derivative/dashboard 价值也仍未完成。
   `differences=[]`、根级 `./scripts/check.sh` 全部 PASS。
 - Desktop 证据：Logseq 0.10.15、真实 File Graph、精确构建，Light/Dark 1000×720 与
   751×720 窄栏；Now、候选区、待审阅历史、Project 意图与 Closure 均已存为
-  `ui-compression-01`～`08` CURRENT。取证后恢复 Light、1000×720 和普通文档模式。
+  `ui-compression-01`～`08` HISTORICAL。取证后恢复 Light、1000×720 和普通文档模式。
 - 本轮关闭的是“Review 历史淹没当前问题”和“Closure 逐目标证据首屏工程词泄漏”两个 UI
   Partial；新增 Partial、正式状态、Skill、Prompt、Validator、Runtime、恢复分支与写入权威
   均为 `0`。P2-E stale 后续已由 `662246a` 当前构建关闭；当前只剩真正
@@ -1339,7 +1344,7 @@ derivative/dashboard 价值也仍未完成。
   时才需明确选择浅色或深色。没有宿主 DOM 注入，也不读取或改写 custom.css。
 - Desktop：Logseq 0.10.15、File Graph，明确选择深色后 1001×720、完整 reload 和
   723×720 均保持深色表面；主导航、主结论、卡片和唯一主动作可读，取证后恢复窗口并返回
-  Logseq 现场。CURRENT：`ui-theme-dark-current-d7526f4.png`、
+  Logseq 现场。HISTORICAL：`ui-theme-dark-current-d7526f4.png`、
   `ui-theme-dark-current-narrow-d7526f4.png`。
 - 自动：Plugin 342/342、0 skipped；根级检查、145 stable rules、恢复演练均 PASS。
 - 该轮关闭 1 个 UI Partial；新增正式状态、Runtime、Skill、Prompt、Validator、Recovery
@@ -1360,7 +1365,7 @@ derivative/dashboard 价值也仍未完成。
   `design-project@1.3.0` 经现有 Validator 一次接受，没有正式 Project 写入。
 - 真实成功暴露 Review 首屏仍复述模型长报告。`662246a298ac` 不修改 Prompt/Skill/Validator，
   而从已通过验证的结构化 Closure 结果生成一句“将结束项目并保存结果”与未完成目标数量；
-  完整模型说明继续留在折叠依据。Dark 1000×720 reload 后 CURRENT 证据显示唯一主判断、
+  完整模型说明继续留在折叠依据。Dark 1000×720 reload 后 HISTORICAL 证据显示唯一主判断、
   影响与安全边界均在首屏，Project 仍 `OPEN v21`、Proposal `READY`、异常 Commit 为 `0`。
 - 自动证据：Plugin `339/339`、0 skipped；根级 `./scripts/check.sh`、145 条稳定规则、
   build/dist integrity、恢复演练 `differences=[]` 全部 PASS。

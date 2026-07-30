@@ -3,12 +3,19 @@
 本目录只把“当前代码的最新构建在真实 Logseq Desktop 中运行”登记为 `CURRENT`。
 设计稿、静态 HTML、自动测试截图和历史 Commit 的 Desktop 截图都不能证明当前体验。
 
+当前安装权威是 r8 exact build `8928861`，发布包为
+`task-copilot-v2-0.1.0-8928861-r8.zip`。Logseq 0.10.15 当前从 r8 稳定解压目录载入；Now
+Task、完整 quit/owned shutdown、reopen、同一 database authority、Doctor 与结构化
+DeepSeek smoke 已复验。只有 r8 两张安装态截图是当前构建的 `CURRENT`；下方较早 commit
+的流程截图按最新构建规则统一视为 `HISTORICAL`，即使对应流程合同未变化，也不能证明当前
+UI。r6/r5 包证据均为 `SUPERSEDED_PACKAGE`，不得用来证明当前安装构建。
+
 最新 Rebind 与显式同步取消安全精确构建为 `075e031d98ca`（Plugin build
 `2026-07-29 01:05:14 +0800`）。真实 Logseq 0.10.15 File Graph、Dark 1001×720
 证明：已删除显式候选在取消捕获后与真实 plugin reload 后都没有形成正式对象；Rebind
 Preview 只显示有界候选，成功态把选错正文路由到重新选择、整库回退路由到完整恢复选项。
 reload 后系统状态为“Task Copilot 可以正常使用”，Pending/Recovery/Source Conflict
-`0/0/0`、explicit sync clean、Doctor `12 PASS / 0 WARN / 0 FAIL`。CURRENT 为
+`0/0/0`、explicit sync clean、Doctor `12 PASS / 0 WARN / 0 FAIL`。HISTORICAL 为
 `p0-explicit-sync-cancel-reload-dark-075e031.png` 与
 `p2-g-rebind-*-075e031.png` 五张；`3a47cf9` 中间图保留为
 `HISTORICAL/SUPERSEDED`。完整记录见
@@ -18,7 +25,7 @@ reload 后系统状态为“Task Copilot 可以正常使用”，Pending/Recover
 `2026-07-28 15:33:54 +0800`）。真实 Logseq 0.10.15 File Graph 在 999×720、host Light /
 Plugin Dark 下完成两条链，并补 727×720 窄栏：Query 投影没有可靠正式身份时只显示“尚未由 Task Copilot
 管理、原状态未改变、原内容保持原位”；正式测试任务从原文右键进入三意图，空原因失败不
-保存，成功后返回同一 Block，Undo 后恢复“可以行动”，reload 读回仍可推进。CURRENT
+保存，成功后返回同一 Block，Undo 后恢复“可以行动”，reload 读回仍可推进。HISTORICAL
 `p0-k-query-safe-degrade-current-73dc1e2.jpg` 与
 `p0-k-condition-*-current-73dc1e2.jpg` 共六张。首次运行暴露的
 `Block / active Primary Anchor` 提示已由同一构建替代。完整记录见
@@ -30,7 +37,7 @@ Plugin Dark 下完成两条链，并补 727×720 窄栏：Query 投影没有可�
 SQLite/HIGH Proposal/对象版本等工程语言。真实运行还暴露并修复 File Graph reload 后 Page
 UUID 漂移导致受控 Project Page 被降级为普通 Page：当前复用创建页既有 owner/object
 metadata，但仍要求正式 Project 与唯一 active Primary Anchor 一致，冲突继续 fail closed。
-CURRENT 为 `ui-page-context-user-language-current-869127f.jpg` 与
+HISTORICAL 为 `ui-page-context-user-language-current-869127f.jpg` 与
 `ui-project-page-context-user-language-current-869127f.jpg`。完整记录见
 `../logs/ui-page-context-language-desktop-live-20260728.md`。
 
@@ -38,7 +45,7 @@ CURRENT 为 `ui-page-context-user-language-current-869127f.jpg` 与
 从“项目 → 打开项目”进入同一正式 Project 后，首屏只显示当前状态、一个当前推进、预期
 成果、来源背景和一个“开始当前推进”主操作；完整结构默认折叠。点击主操作会再次重验
 Project 与受控 Page identity，成功后关闭 Task Copilot 并留在同一 Logseq Project Page。
-普通同名 Page 不会被猜测为正式工作现场。CURRENT
+普通同名 Page 不会被猜测为正式工作现场。HISTORICAL
 `ui-project-landing-dark-current-bfabf40.jpg`、
 `ui-project-landing-light-current-bfabf40.jpg` 与
 `ui-project-landing-light-narrow-current-bfabf40.jpg` 覆盖 Plugin Dark/Light 的
@@ -52,7 +59,7 @@ Project 与受控 Page identity，成功后关闭 Task Copilot 并留在同一 L
 Page 来源链证明 Preview 已收敛为系统理解、应用影响、安全边界、下一步和折叠完整依据；
 进入待我确认仍只创建 Proposal。HIGH Review 首屏先显示“会改变 / 不会改变”，标准宽度为
 两列影响 + 全宽理解；系统理解只保留两句，完整方案进入“查看完整依据”；约 762px 真实
-窄窗改为单列。CURRENT 覆盖 Dark 1000×720、Dark 762×720、Light 1000×720；
+窄窗改为单列。HISTORICAL 覆盖 Dark 1000×720、Dark 762×720、Light 1000×720；
 `ui-high-review-three-column-defect-historical-2adfc35.jpg` 只保留为促成修复的
 `HISTORICAL`，`e33a398` 截图已由最终构建替代。完整记录见
 `../logs/ui-project-preview-high-review-compression-desktop-live-20260728.md`。
@@ -60,7 +67,7 @@ Page 来源链证明 Preview 已收敛为系统理解、应用影响、安全边
 最新“现在”精确构建为 `3d63d5aee0a7`。真实 Logseq 0.10.15 File Graph 经过 Plugin
 Manager 重载后，既有正式 Now 已收敛为“继续处理 / 需要回看 / 保持等待”；同一对象只
 出现一次，用户 Focus 显示“来自当前关注”且永不被普通 4 项上限折叠，依据和低频操作
-继续默认折叠。CURRENT
+继续默认折叠。HISTORICAL
 `p1-now-frontstage-continue-dark-standard-3d63d5a.png` 与
 `p1-now-frontstage-continue-dark-narrow-3d63d5a.png` 覆盖 Plugin Dark 1001×720 和
 733×720。“需要回看”与“保持等待”随后复用同一正式测试 Task，依次通过 Focus
@@ -77,24 +84,24 @@ Blocked 与 Focus Paused（未来 reviewAt）构造，分别由
 最新 Project 失联正文用户语言精确构建为 `971c6db268f7`（Plugin build
 `2026-07-28 13:08:20 +0800`）。真实 Logseq 0.10.15 reload 后，专用测试 Project 点击
 “打开项目”继续安全失败且没有正式写入；首屏只说明原正文连接不可用、正式事项未修改，
-并指向系统状态中的重新连接入口，不再暴露 `Anchor / 对象 / 运行时`。CURRENT
+并指向系统状态中的重新连接入口，不再暴露 `Anchor / 对象 / 运行时`。HISTORICAL
 `ui-project-missing-source-user-language-current-971c6db.jpg`。该截图只接管 Project
 “打开正文失败”表面的当前解释权，不替代 Rebind 正常链证据，也不表示 Project 重入整体完成。
 
 最新 Project 继续工作首屏精确构建为 `b605e18c21ce`（Plugin build
 `2026-07-28 13:18:06 +0800`）。真实 Logseq 0.10.15 reload 后，入口和标题统一为“继续
 项目”；首屏只保留“打开当前项目”主操作与“帮我恢复上下文”次操作，其余入口折叠。
-Context Recovery 使用蓝色信息语义，与绿色主操作/完成语义分离。CURRENT
+Context Recovery 使用蓝色信息语义，与绿色主操作/完成语义分离。HISTORICAL
 `ui-project-continuation-compressed-current-b605e18.jpg` 和
 `ui-project-continuation-compressed-current-narrow-b605e18.jpg` 覆盖 1001×720 与
 726×720。它们接管此前 Project 重入默认首屏的当前解释权；P1-G 生成态/error/stale 仍由
-各自 CURRENT 证据负责。
+各自 HISTORICAL 证据负责。
 
 最新 UI 压缩精确构建为 `f4acf77346b19aa2f096ff2c169bfa7323546062`
 （Plugin build `2026-07-27 19:42:41 +0800`）。`ui-compression-01`～`08` 使用真实
 Logseq 0.10.15 File Graph，覆盖 Light/Dark、1000×720 与 751×720：Now 卡片单一主动作、
 候选区用户语言、当前待审阅与 13 条历史记录折叠分离、Project 意图路由、Closure
-“尚未正式应用/退出安全”以及逐目标依据默认折叠。它们是这些表面的最新 `CURRENT`
+“尚未正式应用/退出安全”以及逐目标依据默认折叠。它们是这些表面的最新 `HISTORICAL`
 解释权；更早同表面截图继续作为其原纵向链的历史运行证据，不再代表当前信息架构。
 
 `cd59228` 又修复真实 Closure 流程结束后的审阅空态：旧实现把固定为 false 的 legacy
@@ -124,7 +131,7 @@ P2-G Migration 写后响应丢失当前仓库证据为 `f17f46a`，Plugin artifa
 Plugin reload 重建、Verify、安全 Undo 与正常 authority/Launcher 恢复。
 P2-G Migration Verify/Activate 失败重试又在当前 `e2361599fbc9` 完成真实 Desktop
 收口：隔离库复用既有私有配对凭据，先后触发 Verify 与 Activate 的事务前失败并在同一
-正式 ledger 上重试；最终当前构建 reload 只显示“V2 已启用”和只读历史。CURRENT
+正式 ledger 上重试；最终当前构建 reload 只显示“V2 已启用”和只读历史。HISTORICAL
 截图 `p2-g-migration-verify-activate-retry-current-dark-e236159.png` 取代“该失败链
 只有自动证据”的旧结论。
 当前 `7fcdcf5` 又补充 `p2-g-migration-final-current-narrow-720-7fcdcf5.png`：在
@@ -196,11 +203,12 @@ Closure 有界失败合同随后由 `98df827` 关闭。Day 10 证明 Review 无�
 `df6469f` 已在不替换正式投影的前提下，把 Next 压为首屏 4 项 + 6 项折叠，并完成
 折叠、展开和再次 reload 的当前 Desktop Gate；`3d63d5a` 随后把正式 Now 收敛为三段。
 `3097c39` 又让 `REVIEW_DUE / DUE` 只在同一正式卡片显示试用标记，并完成暂缓、不相关、
-真实 reload/recompute 与测试状态恢复。该有界 Pilot 不等于 Attention Production：真实
-helpful/noise、跨会话 disposition与建议关注仍 OPEN。Block Marker 已在 `53337f2` 因真实
+真实 reload/recompute 与测试状态恢复。该有界 Pilot 不等于 Attention Production：自然
+日用 helpful/noise 继续观察，跨会话 disposition 明确不建立，建议关注保持 Shadow/OFF；
+这些均不再作为首发 Partial。Block Marker 已在 `53337f2` 因真实
 宿主 slot 替换正文而撤下生产入口，记为 `DONE_BOUNDED_HOST_REJECTION`。完整记录见
 `../logs/p1-attention-now-pilot-desktop-live-20260730.md`。
-该目录中的截图按 exact Plugin/docs commit 登记为 CURRENT，不替代其他宿主/主题证据，
+该目录中的截图按 exact Plugin/docs commit 登记为 HISTORICAL，不替代其他宿主/主题证据，
 也不把十日代表 Pilot 写成 P0/P1/P2 或完整 Goal 完成。
 
 P0-K 当前使用 `p0-k-01`～`08`、`p0-k-10` 与 `p0-k-condition-*`：
@@ -221,70 +229,71 @@ conclusion 安全隐藏并要求先打开来源。同一 UUID 移动后可返回
 
 P1-F/G 当前使用 `p0-i-01` 与 `p1-g-07`～`13`。真实 File Graph 暴露 active Page Anchor
 UUID 漂移，系统安全显示“正文变化需要核对”且不猜 Project；Logseq 0.10.15 的 File Graph
-不挂载 Page Head slot，因此该入口为 `BOUNDED_HOST_LIMIT`，DB Graph 仍 OPEN。Project
+不挂载 Page Head slot，因此该入口为 `BOUNDED_HOST_LIMIT`，DB Graph 不作为首发宿主声明。Project
 workspace 的确定性基线、真实 Provider 内容、真实业务 unknown、error/rejection/stale、
-feedback/reload 与 Dark/Light/窄栏已有代表性 Desktop 证据；P1-G 已关闭，P1-F 的 DB Graph
-Page Head 宿主 Gate 仍 OPEN。
+feedback/reload 与 Dark/Light/窄栏已有代表性 Desktop 证据；P1-G 已关闭，P1-F 通过
+Project workspace 提供可靠替代入口。
 
 ## 状态
 
-- `CURRENT`：截图所记 commit 与待验收构建一致，场景和前置条件可复现；
-- `HISTORICAL`：曾经是真实运行证据，但没有用当前构建复验；
-- `SUPERSEDED`：同一场景已有更新且更完整的证据；
+- `CURRENT`：仅限 r8 exact build `8928861` 的两张当前安装态截图；
+- `HISTORICAL`：曾经是真实运行证据，但没有用 r8 当前构建复验；
+- `SUPERSEDED`：同一场景已有更新且更完整的历史证据；
 - `PROTOTYPE`：只证明视觉或宿主能力，不代表正式产品链。
 
-当前已有 P2-C Page 来源链在 `913bbda` 构建上的 CURRENT Undo 确认、Undo 完成态和完整
-Logseq restart 后健康态；Page reuse 另有 CURRENT readiness/Preview、返回原 Page、Undo
-与 restart 健康态。MiniProject 演化链又在 `7d4f5e4` 最新构建上补齐 CURRENT Grill
+当前已有 P2-C Page 来源链在 `913bbda` 构建上的 HISTORICAL Undo 确认、Undo 完成态和完整
+Logseq restart 后健康态；Page reuse 另有 HISTORICAL readiness/Preview、返回原 Page、Undo
+与 restart 健康态。MiniProject 演化链又在 `7d4f5e4` 最新构建上补齐 HISTORICAL Grill
 ready、最终阅读、HIGH Review、接受未应用、正式创建、reload 重入、Undo 与再次 reload
 健康态。`7a7492a` 又以最新构建重跑真实 DeepSeek→Preview→Review→Commit→reload→Undo，
 证明专用 Undo 会返回原 MiniProject 根 Block；旧的 Journal 返回截图已降为 `SUPERSEDED`。
 此前暴露 identity、fact key 和错误 closure 对象的截图只登记为真实 `HISTORICAL`
 失败样本；同场景旧安全截图登记为 `SUPERSEDED`。
 
-P2-C 当前结论是 `ALL_SOURCES_DONE_VISUAL_GATES_OPEN`：Blank、Page“保留来源另建”、
+P2-C 当前结论是 `DONE_DESKTOP_REPRESENTATIVE`：Blank、Page“保留来源另建”、
 Page“升级当前 Page”和 MiniProject“保留来源演化”均完成真实 DeepSeek、Preview、Review、
 创建、reload/restart、专用 Undo 与最终健康验证。Preview / HIGH Review 的代表性
 Light/窄栏已由 `2adfc35` / `efb3864` 关闭；新 Project 落地页与返回 Logseq 工作现场的
-Dark/Light/窄栏代表 Gate 又由 `bfabf40` 关闭。最新构建 create→reload→Undo 的重复取证和
-其他宿主视觉组合仍需集中 Desktop Gate 完成，P2-D～G 继续开放。完整记录见
+Dark/Light/窄栏代表 Gate 又由 `bfabf40` 关闭；最新 freeze 构建的
+create→reload→Undo→reload 回归由 `1549728` 关闭。未选择的宿主组合不扩成笛卡尔积，
+不再作为首发 Partial。完整记录见
 `../logs/p2-c-project-creation-desktop-live-20260726.md`。
 
 P2-D 的 MEDIUM 当前摘要链也已在当前真实环境闭环：真实 DeepSeek 草稿先经过
 `recover-context@1.2.0` 与 Unified UX Validator，再进入单组 MEDIUM Review；正式 Commit
 只替换 Project `currentSummary`，reload 后可读，专用 Project interface inverse Commit
-恢复原摘要并再次 reload 健康。最终 CURRENT 为 `ae2395523798` 的 `p2-d-05`/`p2-d-06`；
+恢复原摘要并再次 reload 健康。最终 HISTORICAL 为 `ae2395523798` 的 `p2-d-05`/`p2-d-06`；
 早期 Review/apply/Undo 截图因旧 Provider 状态文案或 Undo 路由已标为
 `HISTORICAL`/`SUPERSEDED`。完整记录见
 `../logs/p2-d-project-narration-desktop-live-20260726.md`。
 
 同一 `ae2395523798` 构建又完成 HEAVY 完整当前接口链：一个 Objective、Deliverable、
 Work Stage、三项 Focus 与摘要进入单组 HIGH Review；最终 Commit 后 reload 可读，专用
-inverse Commit 精确恢复原空结构与单一 Focus，再次 reload 健康。CURRENT
+inverse Commit 精确恢复原空结构与单一 Focus，再次 reload 健康。HISTORICAL
 `p2-d-07`～`p2-d-10`。这不代表其他 HEAVY 类型或 P2-D 整体完成。
 
 LIGHT Condition 又在 `58bf6306d04d` 最新构建上完成正式跨 reload Undo：Project
 ACTIONABLE v8→PAUSED v9，reload 后由 Service receipt 准备 server-owned inverse，确认后
 恢复 ACTIONABLE v10，再次 reload 读回原确定性投影。普通 Association 因尚无 inverse 已在
-正式影响路由中禁用。CURRENT `p2-d-11`～`p2-d-13`；完整记录见
+正式影响路由中禁用。HISTORICAL `p2-d-11`～`p2-d-13`；完整记录见
 `../logs/p2-d-light-condition-undo-desktop-live-20260726.md`。
 
 P2-E 的确定性 Closure 证据入口已在 `ec1a70d848d6` 最新构建上通过当前 Desktop Gate：
 Project 影响路由明确先整理证据，不生成 Proposal 或完成 Project；空证据预览把候选、
 unknown 和用户判断分开，且只有“取消”。reload 后 session preview 不残留，Runtime/Store
 READY，同一 Project v10 可重新计算；正式计数保持 `2 Objects / 10 Proposals /
-21 Commits`。CURRENT `p2-e-01`～`p2-e-04`。这只关闭 read-only preview，不代表真实
+21 Commits`。HISTORICAL `p2-e-01`～`p2-e-04`。这只关闭 read-only preview，不代表真实
 Provider 或 Closure 正式链完成。
 
 P2-E 正常正式链随后完成：`1ec63ac` 的真实 DeepSeek 前向链覆盖用户判断、loading、
 HIGH Review 与 Commit；该真实运行也暴露完成态没有专用 Undo，故 `p2-e-09` 只登记为
 `SUPERSEDED` 缺陷证据。`06907f34b8d2` 最新构建补齐版本/checksum/receipt 绑定的 Closure
-inverse Commit，CURRENT `p2-e-10`～`p2-e-12` 证明 Undo 可发现、撤销后回到 Project 重入、
+inverse Commit，HISTORICAL `p2-e-10`～`p2-e-12` 证明 Undo 可发现、撤销后回到 Project 重入、
 reload 后 Project 再次进入 Now Work。正式回读为 `OPEN v13`、Closure absent、正向
 `UNDONE`、逆向 `COMPLETED`、异常 Commit `0/0/0`。`6f7f9a857be9` 当前构建进一步用
 隔离测试库完成真实 post-domain HTTP 500：同一 receipt-backed Commit 保持 `PENDING`，
 reload 后显示“尚未完成，可以继续”，再次确认只收口原 Commit；随后 reload、专用 Undo
-与再次 reload 均通过。CURRENT `p2-e-13`～`18`，最终 `OPEN v21`、Closure absent、异常
+与再次 reload 均通过。HISTORICAL `p2-e-13`～`18`，最终 `OPEN v21`、Closure absent、异常
 Commit `0/0/0`。Provider error 随后由 `7727770` 关闭，generation stale 又由
 `662246a` 当前构建关闭。`98df827` 又固定单步失败语义：写入前失败终止并重新发起，
 receipt-backed PENDING 只续跑原 Commit，版本竞争转为 stale；不人为制造
@@ -298,14 +307,14 @@ Proposal/Commit 计数没有变化，异常 Commit 为 `0`。恢复 `deepseek-v4
 真实生成 `design-project@1.3.0` Proposal 并一次通过 Validator；`662246a298ac` 根据这次
 真实输出进一步把 Review 的模型长报告移入折叠依据，首屏只显示结构化结果、影响与安全
 边界。`cda4f95` 又把 Review 普通标题从 `Closure Proposal` 收敛为“结束项目”，并以新的
-真实 Provider Proposal 复验。CURRENT 为
+真实 Provider Proposal 复验。HISTORICAL 为
 `p2-e-closure-provider-error-current-light-7727770.png` 和
 `p2-e-closure-review-current-dark-cda4f95.png`；旧 Review 图
 `p2-e-closure-review-current-dark-662246a.png` 与旧错误页
 `p2-e-closure-provider-error-superseded-f4acf77.png` 只保留为修复原因。随后同一
 `662246a` 构建用真实 DeepSeek 无日志延迟完成 generation stale：旧草稿没有进入 Review，
 唯一动作改为“重新检查关闭条件”；Condition Undo 恢复 ACTIONABLE，reload 回到健康 Now。
-CURRENT `p2-e-closure-stale-current-dark-662246a.png` 与
+HISTORICAL `p2-e-closure-stale-current-dark-662246a.png` 与
 `p2-e-closure-stale-reload-restored-dark-662246a.png`。`98df827` 的自动故障注入随后
 覆盖 FAILED/STALE 专用卡、重启重放和矛盾 receipt；当前 Kernel 的
 `RECOVERY_REQUIRED` 继续只做多步骤补偿，不用于 Closure 单步写入前失败。精确构建的真实
@@ -318,14 +327,14 @@ P2-G Rebind 正常主链已在 `344c705ec446` 当前构建完成真实 Desktop G
 发现“新建显式替换 Block 会先被自动物化”的竞态，Service 正确拒绝且零写入；当前实现
 加入 5 分钟受控选择窗口，先 flush 再短时暂停显式物化。新替换 Block 在预览前的 Service
 回读为 0 个正式对象，确认 Rebind 后只产生一个正式对象、旧 Anchor `replaced`、新 Anchor
-唯一 `active`；恢复自动同步与 reload 后系统健康、`0/0/0`。CURRENT `p2-g-07`～`12`；
+唯一 `active`；恢复自动同步与 reload 后系统健康、`0/0/0`。HISTORICAL `p2-g-07`～`12`；
 早先 `p2-g-01`～`06` 只保留为真实历史发现/安全拒绝证据。Rebind 纠错指引继续坚持：
 选错正文再次进入受控 Rebind，整库回退才进入 Backup/Restore，不提供会复活
 missing/conflict 旧 Anchor 的通用 Undo。精确 `075e031` 已完成最新成功态、reload、
-最终健康诊断和捕获取消零旧快照写入，见本文件开头 CURRENT。Restore 失败链现已由后述
-CURRENT `p2-g-55`～`59` 替代，Migration Import 写后响应丢失也由 `p2-g-60`～`65`
-关闭；File Graph Light host Gate 与其他 Release 项仍使 P2-G 和整体 Goal 保持
-`IN_PROGRESS`。完整记录见
+最终健康诊断和捕获取消零旧快照写入，见本文件开头 HISTORICAL。Restore 失败链现已由后述
+HISTORICAL `p2-g-55`～`59` 替代，Migration Import 写后响应丢失也由 `p2-g-60`～`65`
+关闭；File Graph Light host Gate 现作为 bounded host limitation，不再反向打开已关闭的
+P2-G release boundary。完整记录见
 `../logs/p2-g-rebind-desktop-live-20260726.md` 与
 `../logs/p2-g-rebind-guidance-and-cancel-safety-desktop-live-20260729.md`。
 
@@ -333,7 +342,7 @@ P2-G Restore 产品入口的生命周期链已在 `6ae8f2fcebd0` 当前构建完
 Gate。Service-owned 目录不显示路径/ID，选择后再次校验并单独确认；未确认保持零请求，
 确认后创建恢复点、owned Service 自停，Launcher 自动重建同一 Graph Service。Plugin
 reload 后目录从两个变为三个校验 PASS 快照，系统状态为 READY、`0/0/0`。首轮
-`6415dd14b568` 暴露成功态残留旧错误，已修复且该旧画面不列 CURRENT。CURRENT
+`6415dd14b568` 暴露成功态残留旧错误，已修复且该旧画面不列 HISTORICAL。HISTORICAL
 `p2-g-13`～`19`；同一测试 Task 又真实完成 `ACTIONABLE v5→PAUSED v6→ACTIONABLE
 v5→PAUSED v6→ACTIONABLE v5` 的旧快照、自动恢复点反向 Restore 和最终 cleanup，
 逐步经 Local Service 读回。
@@ -341,9 +350,9 @@ v5→PAUSED v6→ACTIONABLE v5` 的旧快照、自动恢复点反向 Restore 和
 Restore 失败主链随后在 `0c4526d4006f` 当前构建完成真实 Desktop Gate。隔离 Graph 对活动
 SQLite 注入真实文件级写入拒绝后，atomic activation 失败、原正式状态自动回滚，Restore
 前恢复点保留，Launcher 重建 owned Service；界面只显示一次“恢复未完成，原状态已回滚并
-重新可用”，Plugin Manager reload 后系统状态恢复正常。CURRENT `p2-g-44`～`46` 取代
-首轮成功/失败重复显示的诊断截图。自动回滚也失败时的手工 Recovery 向导和 Light/窄栏
-仍 OPEN，因此 Restore/P2-G/整体 Goal 不提前关闭。完整记录见
+重新可用”，Plugin Manager reload 后系统状态恢复正常。HISTORICAL `p2-g-44`～`46` 取代
+首轮成功/失败重复显示的诊断截图。自动回滚也失败时的手工 Recovery 向导和 Light/窄栏在
+该历史时点仍 OPEN；后续 `fe0b590` 与 `16bde9a` 已关闭真实双重失败和手工恢复代表链。完整记录见
 `../logs/p2-g-backup-restore-frontstage-automated-20260726.md` 与
 `../logs/p2-g-restore-failure-recovery-desktop-live-20260726.md`。
 
@@ -361,9 +370,9 @@ gate 等待期间被 heartbeat 刷新后仍误删的竞态。`23ae7bd` 只增加
 用户状态→HIGH Review→保存歧义状态→恢复保留基线→清锁→Service 重连→完整 Logseq
 quit/restart。活动库恢复为 5 个基线对象，合成歧义对象只保留于新安全快照，最终系统状态、
 Store 与 Service 均 READY，`0/0/0`。真实操作发现并修复三类通用问题：恢复页泄漏数据库/
-诊断术语、恢复成功后陈旧只读状态、健康页内部枚举泄漏。CURRENT `p2-g-47`～`50`；随后
+诊断术语、恢复成功后陈旧只读状态、健康页内部枚举泄漏。HISTORICAL `p2-g-47`～`50`；随后
 `25ddac9` / `4dfe014` 删除主面板重复运行条，把“更多”、启动、知识库切换与系统状态翻译为
-用户语言，并要求重连时正式修改也可用才报告成功。CURRENT `p0-e-05`、`p0-h-08`、
+用户语言，并要求重连时正式修改也可用才报告成功。HISTORICAL `p0-e-05`、`p0-h-08`、
 `p0-i-03`；高级 Review/Grill/Project/Migration/Restore 表面的压缩仍开放。完整记录见
 `../logs/p2-g-restore-manual-recovery-desktop-live-20260726.md`。
 壳层记录见 `../logs/p0-shell-system-language-desktop-live-20260726.md`。
@@ -376,14 +385,14 @@ Plugin reload，`p2-g-53` / `54` 只作为 `HISTORICAL` 缺陷证据。修复后
 即出现唯一“准备恢复”，用户完成 HIGH 确认后恢复 `6→7`，Doctor PASS、互锁清除，
 Anchor conflict/Pending/Recovery `0/0/0`。停止故障 Launcher、恢复原 descriptor 与正常
 LaunchAgent、Plugin reload 后 exact build、formal writes 与 explicit sync 均 READY，
-原 database authority 未被替换。CURRENT `p2-g-55`～`59` 取代旧手工恢复图的当前解释权。
+原 database authority 未被替换。HISTORICAL `p2-g-55`～`59` 取代旧手工恢复图的当前解释权。
 完整记录见 `../logs/p2-g-restore-double-failure-desktop-live-20260727.md`。
 
 P2-G Migration 的现有只读 ledger 已完成自动状态翻译：日常卡片不再显示 run ID、
 Bundle hash、Backup ID、原始枚举或 CLI 命令，只保留用户阶段、完整审阅计数和下一步。
 新材料可由用户明确选择并做 session-only 只读 scan；前台只见五类计数，放弃、reload 或
 Graph switch 清空，不进入 Preview 或正式写入。`15b976d28ec3` 已在真实 Logseq 0.10.15
-完成文件选择、2 项分类、放弃、reload 清空、非法 JSON 重试和最终系统健康；CURRENT
+完成文件选择、2 项分类、放弃、reload 清空、非法 JSON 重试和最终系统健康；HISTORICAL
 `p2-g-20`～`25` 取代“Migration 新入口无当前截图”的旧结论。逐项 Review、正式
 import/verify/activate、失败/重启/Undo 继续 OPEN。记录见
 `../logs/p2-g-migration-ledger-translation-automated-20260726.md` 与
@@ -393,7 +402,7 @@ import/verify/activate、失败/重启/Undo 继续 OPEN。记录见
 Migration 逐项 Review/Preview 又在 `c660f2d00be5` 当前构建形成下一条完整纵向链。
 前台不再只有计数，而是显示用户主动选择材料的 session-only、规范化 160 字符单行摘录；
 完整正文、内部 identity、evidence/hash 仍不进入 snapshot、账本或日志。两项决定全部
-保存后才可创建 PREVIEWED 计划，reload 后材料释放而计划保留。CURRENT `p2-g-26`～`29`
+保存后才可创建 PREVIEWED 计划，reload 后材料释放而计划保留。HISTORICAL `p2-g-26`～`29`
 取代“逐项 Review 未开放”的旧结论。正式恢复点、Import/Verify/Activate、失败续跑与 Undo
 仍 OPEN；完整记录见
 `../logs/p2-g-migration-item-review-automated-20260726.md` 与
@@ -402,7 +411,7 @@ Migration 逐项 Review/Preview 又在 `c660f2d00be5` 当前构建形成下一�
 Migration 恢复点/Import/Verify/Undo 正常主链又在 `593d14ac2c7` 当前构建完成。用户重新
 选择同一 Bundle 后，系统只读核对计划和待导入范围；恢复点 PASS 后才开放独立 HIGH Import。
 正式对象真实 `4→5`，batch 验证 PASS；完整 Logseq restart 后台账恢复同一 Undo 入口，
-安全撤销后对象 `5→4`，第二次 restart 后计划、UNDONE batch 与下一批入口仍可读。CURRENT
+安全撤销后对象 `5→4`，第二次 restart 后计划、UNDONE batch 与下一批入口仍可读。HISTORICAL
 `p2-g-30`～`37` 取代“恢复点/Import/Verify/Undo 未开放”的旧结论。Activate、正式失败注入、
 Service 中断恢复和视觉 Gate 仍 OPEN；完整记录见
 `../logs/p2-g-migration-execution-automated-20260726.md` 与
@@ -410,7 +419,7 @@ Service 中断恢复和视觉 Gate 仍 OPEN；完整记录见
 
 Migration Activation 正常主链随后在 `f42b62d` 当前构建完成。真实运行先暴露 Undo 后重做
 错误新建恢复点，Service 以 `MIGRATION_SNAPSHOT_CHANGED` 安全拒绝且零写；修复后 Plugin
-复用并重新校验同一计划的原始恢复基线。CURRENT `p2-g-38`～`42` 覆盖恢复基线复用、独立
+复用并重新校验同一计划的原始恢复基线。HISTORICAL `p2-g-38`～`42` 覆盖恢复基线复用、独立
 HIGH 交接、缺确认零写、ACTIVATED 结果和完整 Logseq restart。V1 只读、不双写，旧 UNDONE
 与新 VERIFIED batch 都保留；reload 后无 Import/Undo/Activate。失败/中断恢复、完成后全局
 入口收敛与视觉 Gate 仍 OPEN；完整记录见
@@ -419,7 +428,7 @@ HIGH 交接、缺确认零写、ACTIVATED 结果和完整 Logseq restart。V1 �
 
 `2beb1b5` 继续关闭完成后退出日常操作的缺口：ACTIVATED 页面不再显示新 Bundle scan、
 Review、Import、Undo 或 Activate，只保留一次性交接的只读台账与 Backup/Restore 路由。
-完整 restart 的 CURRENT `p2-g-43` 取代 `p2-g-42` 中仍可见扫描入口的完成态布局；迁移
+完整 restart 的 HISTORICAL `p2-g-43` 取代 `p2-g-42` 中仍可见扫描入口的完成态布局；迁移
 失败/中断恢复与视觉 Gate 继续 OPEN。
 
 `f17f46a` 又关闭 Import 写后响应丢失 / Service interruption 的代表子 Gate。专用测试
@@ -429,11 +438,11 @@ Plugin reload 后 session-only 不确定态消失，仍从同一 `IMPORTED` batc
 Verify 后复用既有 HIGH Undo，正式对象真实 `4→5→4`，run/batch 最终回到
 `PREVIEWED/UNDONE`，SemanticCommit Pending/Recovery 始终 `0/0`。故障 Launcher、
 descriptor 和隔离 Service 退出后，正常 LaunchAgent、原 7 对象 authority 与 READY
-用户系统状态均恢复。CURRENT `p2-g-60`～`65` 取代“Migration interruption 无当前
+用户系统状态均恢复。HISTORICAL `p2-g-60`～`65` 取代“Migration interruption 无当前
 Desktop 证据”的旧结论。Verify/Activate failure 随后也由
 `p2-g-migration-verify-activate-retry-current-dark-e236159.png` 关闭：失败继续由既有
 run/batch ledger 表达，同一计划重试，最终当前精确构建 reload 进入只读完成态；正常
-Launcher 和原 authority 已恢复。窄栏现已由后述 `7fcdcf5` CURRENT 关闭，Light host
+Launcher 和原 authority 已恢复。窄栏现已由后述 `7fcdcf5` HISTORICAL 关闭，Light host
 Gate 仍 OPEN。完整记录见
 `../logs/p2-g-migration-response-loss-desktop-live-20260727.md` 与
 `../logs/p2-g-migration-verify-activate-failure-desktop-live-20260727.md`。
@@ -443,7 +452,7 @@ Gate 仍 OPEN。完整记录见
 强制深色 + 官方浅色信号的组合中仍不足，因此没有把自动测试冒充 Desktop PASS。
 当前设置新增默认 `auto` 的“界面外观”；只有 custom.css 与官方信号分离时才需明确选一次
 浅色或深色。选择深色后 1001×720、完整 reload 和 723×720 窄栏均保持同一信息层级，
-CURRENT `ui-theme-dark-*` 接管此前白底截图的主题表达权；旧截图的业务流程事实不因此失效。
+HISTORICAL `ui-theme-dark-*` 接管此前白底截图的主题表达权；旧截图的业务流程事实不因此失效。
 Logseq File Graph 自身不能稳定切到真实浅色仍是 bounded host issue。完整记录见
 `../logs/ui-theme-dark-override-desktop-live-20260727.md`。
 

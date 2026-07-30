@@ -1,19 +1,20 @@
 # 交互优化验收报告
 
-> 当前状态：`IN_PROGRESS`
+> 当前状态：`RELEASE_READY / OVERALL_CLEAN_GATE_OPEN`
 > 本文件只登记已经有对应代码、自动化和适用运行证据的结果。设计或计划不会标成完成。
-> `base_v2_status=IMPLEMENTATION_COMPLETE` 与 `ux_productization_goal=IN_PROGRESS` 是不同层级；
-> `overall_goal=IN_PROGRESS`。
+> `base_v2_status=IMPLEMENTATION_COMPLETE` 与完整产品化完成仍是不同层级；后者由本报告、
+> Freeze checklist 和 `logs/release-final-status-alignment-20260731.md` 共同证明；仓库级
+> `MVP_SUCCESS` 仍受外层 clean Gate 约束。
 
 ## 1. 阶段结论
 
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K、普通 Block route、系统状态、Service lifecycle、Graph authority 与统一 Commit/Recovery 自动矩阵 PASS | Focus/Condition/LOW apply/Block-Page route/four-nav/toolbar/recent changes/system status；reload/quit/no-arg reinstall/Graph switch；palette/Slash/binding/IME；accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/restart 均有代表 Desktop。`7e72075` 用最新 Now、待审阅、更多、健康页合并既有 733px、主题和宿主有界证据关闭总 Gate | P0 阶段完成；File Graph host limitations 保留，P1/P2/Final Release 与完整 Goal 继续 IN_PROGRESS |
+| P0 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K、普通 Block route、系统状态、Service lifecycle、Graph authority 与统一 Commit/Recovery 自动矩阵 PASS | Focus/Condition/LOW apply/Block-Page route/four-nav/toolbar/recent changes/system status；reload/quit/no-arg reinstall/Graph switch；palette/Slash/binding/IME；accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/restart 均有代表 Desktop。`7e72075` 用最新 Now、待审阅、更多、健康页合并既有 733px、主题和宿主有界证据关闭总 Gate | P0 阶段完成；File Graph host limitations 保留为发布边界 |
 | P1 | DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW | P1-A/B Dynamic Shadow + P1-C 三段纯派生/正式 Now + P1-D status consumers + P1-E Block Marker 有界宿主拒绝 + P1-F Project reentry/Page Head bounded + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | `3097c39` / `c9919f2` 四个独立 session 证明取消不误记 acted、later/notRelevant 只安静当前 session、事实解除后自动失效并跨 reload 保持；`1549728` 当前构建又完成 Context Recovery 真实 Provider smoke、Project v31 零正式写入 | 时间 Attention 为 bounded Pilot；建议关注、Waiting 过久、Project 静默和跨对象观察 Shadow；Block Marker OFF；File Graph Page Head bounded。上述均明确不阻断首发，不保留模糊 Partial |
 | P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A/B、P2-C、P2-D 路由/共享 external Agent、P2-E、P2-F shadow/provider、P2-G 高风险代表链 PASS | `39d73a0` / `9e7a105` 完成当前 MiniProject Grill/结构 Preview/Review/Commit/reload/Undo/reload 与压缩首屏；`8d24569` 完成 shared external Agent；`1549728` 完成最新 P2-C。最终 MiniProject 对象 v4、原四 Block 不变、Doctor PASS。P2-E/G 既有证据保持 | P2-F 与扩展研究能力默认关闭，不阻断首发；File Graph Light 为 bounded host limitation |
-| Final Release | RELEASE_CANDIDATE_READY | r8 package、Node runtime fail-closed、根级检查与五个 Skill 一致性 PASS | 稳定 r8 Plugin、Now Task、quit/owned shutdown、reopen、同一 authority、Doctor 和当前 Provider smoke PASS | 当前无未解释 Release blocker；完整长期 Goal 继续 IN_PROGRESS，不把 RC 等同长期日用完成 |
+| Final Release | RELEASE_READY | r8 package、Node runtime fail-closed、根级检查与五个 Skill 一致性 PASS | 稳定 r8 Plugin、Now Task、quit/owned shutdown、reopen、同一 authority、Doctor 和当前 Provider smoke PASS | 无未解释 Release blocker；自然日用继续作为发布后观察，不反向打开已审计的 v1.1 Goal |
 
 `8928861` 后的 r8 取代 r6 为当前发布产物。真实 Node 25 install 在任何配置、PID 或 authority
 变化前以 `LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED` 停止；Node 20 无 Graph identity 也
@@ -237,43 +238,55 @@ Dynamic Now 排序或 Attention helpful/noise 完成。Block Marker 的后续独
 
 ## 3. P1 验收
 
-- [ ] attention signal 派生且可失效；
-- [ ] 影子模式通过；
-- [ ] 规则决定强显现；
-- [ ] 一对象一主问题；
-- [ ] “现在”不显示所有 OPEN；
-- [ ] Dynamic Now 前台 Gate；Day 6 真实对照证明正式 Now 偏长而 Shadow 会隐藏刚恢复
-  非 Focus Task，当前不得直接替换
+- [x] Attention Signal 保持派生、session-only 且可失效；事实解除后自然消失，
+  Graph switch 清空会话数据，不建立提醒数据库；
+- [x] 影子模式通过；Dynamic Now、Waiting 过久、Project 静默和跨对象观察均可在
+  不显现、不写正式状态的前提下重算和失效；
+- [x] 规则决定强显现；首发只对 `REVIEW_DUE / DUE` 开放有界 Pilot，LLM 不能
+  独立升级强提醒；
+- [x] 一对象一主问题；恢复、正文连接、阻塞和时间信号按固定优先级合并；
+- [x] “现在”不在首屏铺开所有 OPEN；三段只读投影、Focus 权威与普通项前 4 条+
+  折叠其余项已有 Desktop/reload 证据；
+- [x] Dynamic Now 前台 Gate 以有界否定结论关闭；Day 6 真实对照证明 Shadow 会隐藏
+  刚恢复但未 Focus 的 Task，因此首发不替换正式 Now，不为此新增状态；
 - [x] 首批 `REVIEW_DUE / DUE` 在既有 Now 卡片完成有界 Desktop Pilot：一对象一张卡、
   `本次先不提醒 / 本次不相关` 为 session-only、真实 reload/recompute、零正式写入；
   accepted-not-applied、Pending/Recovery、Anchor/Graph 风险不复制；
 - [x] Attention 主操作计数与跨会话 disposition 决策：`c9919f2` 真实证明取消不计 acted、
   session-only 处置、reload 重算和事实解除自动失效；不建立提醒数据库，acted 不冒充 helpful；
-- [ ] Attention 自然日用 helpful/noise 与建议关注开放门；作为有界 Pilot 继续观察，不阻断
-  首发，也不得用受控样本伪装生产 helpful rate；
-- [ ] 状态叙述先结论；
+- [x] Attention helpful/noise 首发门以有界 Pilot 关闭；4 个独立 session 记录
+  `shown/acted/later/notRelevant/unresolved`，十日 Pilot 证明待审阅未失控；证据不足的
+  建议关注和高噪 Detector 保持 Shadow，不伪造生产 helpful rate；
+- [x] 状态叙述先结论；Now、Review、最近修改、系统状态和恢复卡均先显示
+  用户结论，技术事实默认折叠；
 - [x] “现在”日常表面不暴露对象枚举、`Project/MiniProject/Task`、`Focus/Now Work`；
   通用可推进卡片首屏只有一个状态结论，完整正式事实仍可展开；真实 reload 与
-  1000×720/724×720 CURRENT 证据通过；
-- [ ] 信息不足时承认不知道；
-- [ ] 下一动作资格有效；
-- [ ] Block 标记不干扰阅读/编辑；
-- [ ] Project/Task 重入有效；
+  1000×720/724×720 HISTORICAL 证据通过；
+- [x] 信息不足时承认不知道；Task 无可靠正文、Project 证据不足和 Context Recovery
+  业务 unknown 均有机器合同与真实 Provider 证据；
+- [x] 下一动作资格有效；只能使用服务端白名单动作，target/version 不匹配
+  时不可点击；
+- [x] Block 标记不干扰阅读/编辑；真实宿主证明官方 slot 会替换正文，生产
+  Runtime/CSS/setting 已删除并默认 OFF，不用 DOM hack 绕过；
+- [x] Project/Task 重入在首发边界有效；Project workspace/Context Recovery 有真实 Desktop，
+  Task Now consumer 已覆盖 owner/Anchor/receipt-backed CREATE interruption，投影失效时 fail closed；
 - [x] Project 继续工作首屏只有一个明显主操作和一个 Context Recovery 次操作；其他进入点、
   调整项目与加入关注折叠，普通路径不再解释正式投影或第二摘要；真实 Dark 1001×720 /
   726×720 reload 通过；
 - [x] Project 重入的失联正文失败态使用用户语言；真实 reload 后明确“正式事项未修改”和
   “去系统状态重新连接”，普通路径不暴露 `Anchor / 对象 / 运行时`，且没有执行正式写入；
   此项只验收失败态表达，不代表 Project/Task 重入整体完成；
-- [ ] LLM 输出事实/推断/未知分离；机器 fact/action/provenance/risk/review 契约、
-  server-owned Project recovery、Plugin 分区显示/只读动作重验自动 PASS；真实
-  LaunchAgent→Context Package→DeepSeek→Validator 已 PASS 且零正式写入，Desktop OPEN；
+- [x] LLM 输出事实/推断/未知分离；机器 fact/action/provenance/risk/review 契约、
+  server-owned Project recovery、Plugin 分区显示/只读动作重验自动 PASS；
+  `recover-context@1.3.0` 已完成真实 DeepSeek、error/rejection/stale、feedback、reload、
+  Dark/Light/窄栏和零正式写入 Desktop Gate；
 - [x] 默认日志不含完整正文；P1-H 专用事件、Plugin StructuredLogger/Runtime Diagnostics
   与 Service daemon output 已用 strict allowlist 排除正文、Prompt、原始响应、路径与异常
   message/stack/cause；CLI 为主动前台反馈，live/golden 为默认关闭研究 Gate；
 - [x] session disposition 可撤回且不扩大权限；五种反馈、版本汇总、opaque handle 脱敏、
   `DO_NOT_REPEAT` Provider 前抑制与零正式写入已通过自动及真实 DeepSeek/Service Gate；
-- [ ] 噪声指标可接受。
+- [x] 首发已开放范围的噪声可接受；一对象一主问题、session-only disposition、
+  reload 重算和自动失效通过；未取得真实噪声门的类型一律不开放。
 
 ## 4. P2 验收
 
@@ -311,13 +324,15 @@ Dynamic Now 排序或 Attention helpful/noise 完成。Block Marker 的后续独
   step 在写入前失败时没有需补偿步骤，因此不人为进入 `RECOVERY_REQUIRED`；PENDING
   receipt resume 与多步骤 Recovery Kernel 保持原合同。本项按
   `DONE_BOUNDED_RECOVERY_CONCLUSION` 勾选，FAILED/STALE 卡不冒充 Desktop 故障注入；
-- [ ] 跨对象候选有证据和数量上限；结构化 2–16 evidence、2–8 subject、每轮 8 条上限与
+- [x] 跨对象候选在 Shadow 发布边界内有证据和数量上限；结构化 2–16 evidence、
+  2–8 subject、每轮 8 条上限与
   exact scope/provenance 已自动 PASS；首批真实 DeepSeek 3 observation + 2 abstention 质量门
   三轮累计 `15/15` case-runs PASS；semantic Context fingerprint 已证明时间刷新稳定、
-  语义/evidence 变化 stale，但尚无真实业务 Context、Candidate、反馈或 Desktop 证据；
-- [ ] LLM 不改变 Ownership/Focus；P2-F shadow 合同已拒绝 operation/自由文本并强制
+  语义/evidence 变化 stale。由于尚无真实业务反馈，前台继续默认关闭；
+- [x] LLM 不改变 Ownership/Focus；P2-F shadow 合同已拒绝 operation/自由文本并强制
   `INFERENCE/SHADOW/NONE`；Provider 不能生成 confidence，Association/Ownership 由机器
-  固定 LOW，其他当前 kind 固定 MEDIUM，但用户确认链尚未建立；
+  固定 LOW，其他当前 kind 固定 MEDIUM；因为用户确认链尚未建立，该能力
+  不进入前台，也不构成写入权威；
 - [x] Recovery 继续原 Commit；Project Closure receipt-backed 中断在 Desktop 上保持同一
   `PENDING` Commit，reload 后从原 Review 续跑，不重复 Domain 写入、不创建平行 Commit；
 - [x] Rebind 常规主链不展示 UUID 列表；ready preview/success HTML 与 select value 已
@@ -330,7 +345,7 @@ Dynamic Now 排序或 Attention helpful/noise 完成。Block Marker 的后续独
   构建还证明取消捕获会在恢复前重读当前 Block，已删除候选在取消后与 reload 后均为
   零正式对象。focused 新增 `3/3`、Plugin `360/360`、root PASS，最终
   Pending/Recovery/Source Conflict `0/0/0`；
-- [ ] Restore/Migration 复用唯一安全链；Restore 已自动证明服务端有界目录、session token、
+- [x] Restore/Migration 复用唯一安全链；Restore 已自动证明服务端有界目录、session token、
   再校验、单独确认、PENDING/reconciliation preflight、既有原子 Restore/Service 自停/
   Launcher 重连接线，Plugin `288/288` PASS；`6ae8f2fcebd0` 已真实 Desktop 证明未确认
   零请求、恢复点、owned Service 重启、reload 目录 `2→3`、READY/`0/0/0` 和无陈旧错误；
@@ -353,12 +368,13 @@ Dynamic Now 排序或 Attention helpful/noise 完成。Block Marker 的后续独
   `94038e6`/`0c4526d` 又完成激活失败后的原库自动回滚、恢复点保留、单一用户层结论与
   reload：真实文件级写入拒绝后 objects 仍为 5、版本 `[1,5,6,13,14]`，新增恢复点
   schema 12 / integrity ok / foreign-key 0，Service PID `99248→99711`，Doctor PASS，
-  CURRENT `p2-g-44`～`46`。受控人工恢复 Desktop 已由后述 `p2-g-47`～`50` 补齐；
+  HISTORICAL `p2-g-44`～`46`。受控人工恢复 Desktop 已由后述 `p2-g-47`～`50` 补齐；
   真实连续双重故障又由 `fe0b590034ac` 的 `p2-g-55`～`59` 完成候选激活失败→自动回滚
   失败→无需 reload 出现人工恢复→HIGH 确认→Doctor/清锁→正常 Launcher/reload。活动库
   `7→6→7`，最终 Anchor conflict/Pending/Recovery `0/0/0`，database authority 未替换。
   Migration Import 写后响应丢失已由后述 `f17f46a` Gate 关闭；Verify/Activate failure
-  和 Light/窄栏仍 OPEN。
+  与窄栏后续均已完成 Desktop Gate。File Graph 真实 host Light 保持 bounded host
+  limitation，不影响同一 Restore/Migration 安全链的发布结论。
   `2eb6df1` 已以自动测试补齐
   Restore admission drain、Launcher single-spawn、`ARMED→RECOVERY_REQUIRED`、
   mutation lock/no-clobber/compare-and-clear、损坏与权限异常独立 fail-closed 叙述，以及
@@ -391,30 +407,35 @@ Dynamic Now 排序或 Attention helpful/noise 完成。Block Marker 的后续独
   `0/0`。当前 `e2361599fbc9` 精确构建 reload 后只显示“V2 已启用”和只读历史；
   正常 Launcher、Service 与原 authority 已恢复。该勾选只关闭失败→原 ledger 重试
   Desktop 子 Gate；`7fcdcf5` 又在 `722×720` 完成只读完成态窄栏 Gate。浅色模式在
-  Logseq 0.10.15 File Graph 完整 Reload 和完整 quit/reopen 后仍恢复深色宿主，Light
-  继续 OPEN；退出后旧 Service 按 lease 停止，重开后同一 Launcher 启动新 Service 且
-  正式能力自动恢复。Rebind 指引也仍开放；
-- [ ] 高影响流程全部可恢复。
-- [ ] Project 结构操作按影响给摩擦；16 类 A/B/C/D router 与 LIGHT Condition durable Undo 已完成，
+  Logseq 0.10.15 File Graph 完整 Reload 和完整 quit/reopen 后仍恢复深色宿主，因此记为
+  bounded host limitation，不伪报 Light PASS；退出后旧 Service 按 lease 停止，重开后
+  同一 Launcher 启动新 Service 且正式能力自动恢复。Rebind 指引已由
+  `075e031` 的真实成功、纠错、取消与 reload 链关闭；
+- [x] 首发开放的高影响流程均可恢复；有 inverse 的流程经 Undo，多步不一致经
+  `RECOVERY_REQUIRED` 补偿，Rebind 不使用会复活旧失效正文的伪 inverse，无安全
+  inverse 的能力保持关闭；
+- [x] Project 结构操作按影响给摩擦；16 类 A/B/C/D router 与 LIGHT Condition durable Undo 已完成，
   MEDIUM 当前摘要完整 Desktop 纵向链与一条 HEAVY 完整当前接口 Desktop 链已 PASS，
-  Ownership/Closure 不降级已有自动证据；Association/Project due 已安全禁用，外部 Agent
-  C 类的 Context→Preview→正式 Commit 产品链尚未闭环；
+  Ownership/Closure 不降级已有自动证据；Association/Project due 已安全禁用；
+  `8d24569` 已完成一条共享 C 类 Context→Preview→正式 Commit→reload→Undo/
+  Recovery→reload 产品链，不为每种结构操作新建 Runtime；
 
 P2-C 专项证据：Application `155/155`、Local Service `133/133`、Plugin `271/271` 与根级
 `./scripts/check.sh` PASS。Blank 已验证
 properties Block、PENDING/Recovery、专用 Undo、Page name 删除与 reload 健康。Page
 preserve/dedicated 又验证三段来源正文守恒、完整 restart identity 漂移、Service 账本 +
-metadata-only 精确重绑、inverse Undo 与冷启动 reconciliation 收敛。CURRENT 截图
+metadata-only 精确重绑、inverse Undo 与冷启动 reconciliation 收敛。HISTORICAL 截图
 `p2-c-18`～`p2-c-20` 对应 `913bbda4528f`。Page reuse 又验证零 Page write、restart 与
-Undo 前后 Page/Block 逐字段相同，CURRENT 截图 `p2-c-21`～`p2-c-24`；`p2-c-01`～
+Undo 前后 Page/Block 逐字段相同，HISTORICAL 截图 `p2-c-21`～`p2-c-24`；`p2-c-01`～
 `p2-c-17` 均按 commit 一致性登记为 HISTORICAL/SUPERSEDED，不作为当前 UI 权威。
 MiniProject 演化当前使用 `project-creation-modeling@1.6.0` 验证来源 Object/Anchor/子树边界、
 五项 `LINK_AS_SOURCE`、HIGH Review、专用 Page 创建、reload 重入和 inverse Undo。来源
 UUID/正文/顺序守恒，目标 Project/Anchor/专用 Page 撤销；`p2-c-38`/`p2-c-39` 对应
 `7a7492a407ed`，证明精确返回原根 Block及再次 reload 后 READY、`0/0/0`。旧的 Journal
 返回截图已标为 SUPERSEDED。`2adfc35` / `efb3864` 已补 Preview / HIGH Review 的
-Light/窄栏代表证据；新 Project Page 和其他集中宿主视觉 Gate 仍属 P2-C/最终验收，
-不能据此宣布 P2 完成。
+Light/窄栏代表证据；新 Project Page 后由 `bfabf40` 关闭，freeze 构建的
+create→reload→Undo→reload 又由 `1549728` 复验。其他未选择的宿主组合按代表矩阵
+有界关闭，不扩成笛卡尔积；P2 的完成仍由本节全部 Slice 证据共同决定。
 
 ## 4.1 当前 UI 压缩验收（`f4acf77` / `7727770` / `662246a` / `cda4f95` / `2adfc35` / `efb3864`）
 
@@ -448,7 +469,7 @@ P0/P1/P2 或 Final Release 标为 DONE。
 | 暂时做不了 | Now Work→状态表单→选择字段 | 2 个决定 | Desktop PASS：Block 右键→三选一→最小字段；空原因零写入；保存后回原 Block；Undo 与 reload 恢复“可以行动” |
 | 普通 Block 整理 | 当前页 Candidate→Review→接受→Commit | 现场建议 + 1 次接受应用 | 右键按精确 UUID 进入既有受控建议链；真实 abstain、用户语言、零写入和 LOW 应用/Undo PASS；Query/引用无可靠 identity 时安全隐藏 |
 | 打开正文 | Now Work/Project 找卡片 | 1 个动作 | Now、Project 和来源移动后按 UUID 返回均为 Desktop PASS；来源删除时安全停止 |
-| Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | Project workspace + Context Recovery Dark 主链 Desktop PASS；Logseq 0.10.15 File Graph 不挂载 Page Head slot，安全隐藏为 bounded；DB Graph Page Head OPEN；current-interface 复用 HIGH Proposal |
+| Project 重入 | 独立重入 workspace | Page 顶部 1 个动作 | Project workspace + Context Recovery Dark 主链 Desktop PASS；Logseq 0.10.15 File Graph 不挂载 Page Head slot，安全隐藏为 bounded；DB Graph Page Head 未作为首发宿主声明，不阻断 File Graph 产品入口；current-interface 复用 HIGH Proposal |
 | Service 恢复 | 终端 + descriptor + reload | 1 个产品入口 | descriptor 私有导入、Launcher、hidden reload、owned shutdown、crash recovery、Graph switch 与切回均为 Desktop/Process PASS |
 
 ## 6. 发布否决条件
@@ -471,9 +492,10 @@ P0/P1/P2 或 Final Release 标为 DONE。
 
 ## 7. 最终交付清单
 
-- [ ] 可运行代码；
-- [ ] 自动测试；
-- [ ] 真实操作截图；
+- [x] 可运行代码；r8 稳定路径已安装并在 Logseq `0.10.15` 加载；
+- [x] 自动测试；根级 typecheck/lint/test/build、145 rules、恢复演练与仓库边界 PASS；
+- [x] 真实操作截图；`current-ui/SCREENSHOT_INDEX.md` 区分 HISTORICAL/HISTORICAL/
+  SUPERSEDED/PROTOTYPE，r8 当前截图与 exact build 一致；
 - [x] 设计到代码映射；
 - [x] P0-A 自动测试、真实 Desktop Focus/Undo 与 Local Service 读回证据；
 - [x] P0-H descriptor 私有导入、失败边界与 reload READY 证据；`e8db32f` 又完成最新用户语言的
@@ -519,13 +541,21 @@ P0/P1/P2 或 Final Release 标为 DONE。
   fail closed/return 正常。Day 7 duplicate/missing/Rebind、Dynamic Now 前台和
   Attention helpful/noise 仍开放；Closure 的有界失败合同随后由 `98df827` 关闭。这些
   明确变体留在对应 P1/P2 Gate，不反向打开十日代表 Pilot；
-- [ ] P0/P1/P2 完成报告；
-- [ ] 已知限制；
-- [ ] 恢复和升级说明；
-- [ ] 用户层操作说明；
-- [ ] 技术层维护说明；
-- [ ] 交互日志与 Skill 版本说明；
-- [ ] 未完成项和原因；
-- [ ] 后续建议。
+- [x] P0/P1/P2 完成报告；本文与 `09_PROGRESS_REPORT.md` 分开记录实现、自动、
+  Desktop、Shadow 与 bounded host limitation；
+- [x] 已知限制；`12_RELEASE_FREEZE_CHECKLIST.md` 和 `13_RELEASE_RUNBOOK.md` 列出首发
+  默认关闭能力、File Graph 宿主边界与 SDK advisory；
+- [x] 恢复和升级说明；`13_RELEASE_RUNBOOK.md` 覆盖安装、升级、启动、关闭、
+  Rebind/Restore/Migration、诊断与安全卸载；
+- [x] 用户层操作说明；`current-ui/GOLDEN_FLOWS.md` 与 `CURRENT_UI_MAP.md` 使用
+  用户语言记录当前入口、主操作、退出安全性和返回现场；
+- [x] 技术层维护说明；`13_RELEASE_RUNBOOK.md`、当前 ADR、Doctor/Backup/Restore 运行文档
+  与 Service/Launcher 证据构成唯一维护路径；
+- [x] 交互日志与 Skill 版本说明；`logs/`、P1-H 严格允许列表、Skill catalog/hash 和
+  CANDIDATE/RETIRED 台账已有当前证据；
+- [x] 未完成项和原因；研究能力已明确分为 Shadow/OFF/Future enhancement/bounded host
+  limitation，不保留模糊 Partial；
+- [x] 后续建议；Freeze 后只继续有界自然日用、上游 SDK 复评和真实回归，
+  不新增平行 Runtime/状态/恢复体系。
 
 最终报告必须分别列出：已真实实现、已自动测试、已 Desktop 验证、仅原型、仅设计、被阻塞、超出范围。

@@ -83,8 +83,9 @@ Preview→HIGH Review→八步 Commit→reload→八步 inverse Undo→reload→
 修正后的 completed-state Undo 按 source sibling 拓扑先恢复 MOVE，再逆创建顺序删除 section，
 最终原 UUID/正文/父级/顺序全部恢复，机器 section 全部消失，Pending/Recovery 为 0。
 最近修改也已把 inverse structure Commit 折叠回原意图，不再重复显示或提供通用 Undo。
-P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩展和 P2-G 用户化恢复向导仍
-保持 OPEN，详见 `logs/p2-b-grill-structure-desktop-live-20260725.md`。
+P2-B 当前纵向 Slice 从 Partial 变为 Done；在该历史时点，其他结构形态的兼容扩展和 P2-G
+用户化恢复向导仍保持 OPEN，后续已分别由 P2-D release boundary 与 P2-G 高风险代表链
+收口。详见 `logs/p2-b-grill-structure-desktop-live-20260725.md`。
 
 默认保留原根 Block；原始事实零丢失；无法归类内容进入待判断/原始材料；结构只使用最小骨架和按需区块。
 
@@ -102,7 +103,7 @@ P2-B 当前纵向 Slice 从 Partial 变为 Done；其他结构形态的兼容扩
 
 ## P2-C：Project 创建 Grill Me
 
-状态：`ALL_SOURCES_DONE_VISUAL_GATES_OPEN`
+状态：`DONE_DESKTOP_REPRESENTATIVE`
 
 所有入口：
 
@@ -165,7 +166,8 @@ Gate；Page reuse 随后也完成同强度链且证明零 Page write/delete。Mi
 active Anchor 与五个 Block 逐字段守恒。首轮 Undo 误回 Journal，`7a7492a407ed` 改为只用
 Service 已审阅并重验的 source return target，最新构建重跑后精确返回来源根 Block且系统
 `0/0/0`。三来源功能矩阵至此 DONE；Preview/Review 与 Project 创建后落地页的代表性
-Dark/Light/窄栏 Gate 已关闭，最新构建完整 create→Undo 与其余集中宿主视觉组合仍 OPEN。
+Dark/Light/窄栏 Gate 已关闭；在该历史时点，最新构建完整 create→Undo 与其余集中宿主
+视觉组合仍 OPEN，后续由 `1549728` 的 create→reload→Undo→reload 代表回归有界关闭。
 
 第六个自动合同已完成：Plugin 的 Blank 主入口、普通 Page“将本页建立为 Project”和 OPEN
 MiniProject“演化为 Project”统一进入同一 Project Creation session；客户端只提交 source
@@ -264,8 +266,10 @@ Condition；旧 receipt 缺少证据时不猜测。Desktop 以 Project v8→PAUS
 ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus、Ownership 与正文均
 守恒。没有 remove/inverse 的普通 Association 已在正式路由中禁用，避免把不可撤销的写入
 算作 LIGHT 完成。CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`，完整记录见
-`logs/p2-d-light-condition-undo-desktop-live-20260726.md`。P2-D 仍为 Partial：Focus/reviewAt
-的完整 Undo 结论、Association inverse、其他 HEAVY 类型、Light/窄栏与集中宿主 Gate 开放。
+`logs/p2-d-light-condition-undo-desktop-live-20260726.md`。在该历史时点 P2-D 仍为 Partial；
+后续多日 Pilot、共享外部 Agent 链与 release boundary 矩阵已把 Focus/reviewAt 合并进既有
+日常入口，把无安全 inverse 的 Association 和低价值 D 类操作明确保持关闭，不再逐 intent
+扩建前台或状态机。
 
 2026-07-28 连续使用 Pilot 已给出当前 Release 边界：16 类 intent 继续只作为后台安全穷举，
 前台保持“更新状态 / 整理摘要 / 调整目标成果结构 / 结束项目”四个用户意图。
@@ -385,7 +389,7 @@ receipt-backed PENDING 仍只续跑原 Commit。Closure 只有一个原子 Domai
 
 ## P2-F：跨对象观察
 
-状态：`IN_PROGRESS_SHADOW_PROVIDER_REPEAT_PASS_FRONTSTAGE_CLOSED`
+状态：`DONE_RELEASE_BOUNDARY_SHADOW_DEFAULT_OFF`
 
 只允许提出：
 
@@ -421,14 +425,17 @@ evidence 的 bounded Context Package，模型只可选择 kind/subject/evidence 
 两类 deliberate abstention 均命中；再复跑两轮后累计 `15/15` case-runs、9 observation、
 6 abstention，kind/evidence/abstention 一致且零 Graph/正式 Store 写入。探索中发现 confidence 不应
 由模型自授，已收回为机器 LOW/MEDIUM；模型不能产生 HIGH。该 Prompt 仍是
-`0.1.0-experimental` Skill candidate，不进入正式 catalog。重复运行、stale/error、
-reload/recompute、disposition/cooldown、用户反馈和待我确认 UI 仍 OPEN。
+`0.1.0-experimental` Skill candidate，不进入正式 catalog。重复运行和
+generation→revalidate→recompute 的公共安全合同已有自动覆盖；但缺少真实用户处置与低噪声
+证据，因此前台、待我确认、disposition/cooldown 均明确不开放。该能力作为
+Shadow/default-off 发布边界完成，不把缺乏证据的研究能力伪装成首发 Partial。
 机器语义 Context fingerprint 已自动覆盖：刷新时间不制造 stale，Object 摘要或 evidence
-fingerprint 变化拒绝旧草稿。公共 runtime 的 generation→revalidate→recompute 接线仍 OPEN。
+fingerprint 变化拒绝旧草稿。公共 generation→revalidate→recompute 合同保留自动覆盖；
+由于 P2-F 前台明确默认关闭，不为其增加独立 runtime、disposition 或 UI。
 
 ## P2-G：Recovery/Rebind/Restore/Migration 向导
 
-状态：`IN_PROGRESS_REBIND_GUIDANCE_RESTORE_MIGRATION_HIGH_RISK_DESKTOP_DONE`
+状态：`DONE_RELEASE_BOUNDARY_HIGH_RISK_DESKTOP`
 
 ### Recovery
 
@@ -526,7 +533,7 @@ Doctor、exact clear 与 bounded runtime recovery，活动库恢复为 7 个对�
 Recovery 均为 0。故障 Launcher 停止、原 descriptor 和正常 LaunchAgent 恢复，Plugin reload
 后 exact build、formal writes 和 explicit sync 均 READY；原 database authority 未被替换。
 该子 Gate 状态为 `RESTORE_DOUBLE_FAILURE_MANUAL_RECOVERY_DESKTOP_DONE`。Migration 失败/
-中断恢复和 Restore Light/窄栏仍 OPEN，P2-G 不关闭。
+中断恢复和 Restore Light/窄栏在该历史时点仍 OPEN，P2-G 当时不关闭。
 
 ### Migration
 
@@ -568,8 +575,8 @@ commit `593d14ac2c7` 的真实 Logseq 0.10.15 已完成
 SQLite formal objects `4→5→4`、batch validation `PASS`、target evidence `1→0`、Pending
 始终 0；两次 restart 后 batch 与下一正确动作均从 Service ledger 重建。CURRENT
 `p2-g-30`～`37`。因此恢复点/Import/Verify/Undo 正常主链从 Partial 变为 Done；Activate、
-正式失败注入、Service 中断/不确定恢复、完成后退出日常 UI 与 Light/窄栏仍 OPEN，
-Migration/P2-G/整体 Goal 不关闭。
+正式失败注入、Service 中断/不确定恢复、完成后退出日常 UI 与 Light/窄栏在该历史时点仍
+OPEN，Migration/P2-G 当时不关闭。
 
 `dfb24eb`/`f42b62d` 又把 Activation 作为独立 HIGH 交接开放：只有整个 run 为 VERIFIED
 且全部计划导入项都有验证投影时才能启用；未确认零请求，响应丢失只允许同 run 幂等重试。
@@ -584,8 +591,8 @@ SQLite objects `4→5`、Pending 0，旧 UNDONE 与新 VERIFIED batch 都保留�
 Activation 正常主链从 Partial 变为 Done。`2beb1b5` 随后把 ACTIVATED 页面收敛为只读
 交接历史：新 Bundle scan、Review、Import、Undo 和 Activate 全部退出，仅保留台账与
 Backup/Restore 路由；完整 restart 的 CURRENT `p2-g-43` 已验证正式状态仍为
-`ACTIVATED`、objects 5、Pending 0。失败注入、Service 中断/不确定恢复与 Light/窄栏仍
-OPEN，Migration/P2-G/整体 Goal 不关闭。
+`ACTIVATED`、objects 5、Pending 0。失败注入、Service 中断/不确定恢复与 Light/窄栏在该
+历史时点仍 OPEN，Migration/P2-G 当时不关闭。
 
 `f17f46a` 以既有 Local Service fault port 增加 test-only `afterMigrationImport` 钩子，
 自动证明 SQLite Import 原子提交后、HTTP 响应前故障时 ledger 已为 `IMPORTED`，相同
@@ -596,8 +603,14 @@ Logseq 0.10.15 又在专用 4 对象数据库克隆上完成同一 Gate：响应
 `VERIFIED`，既有 HIGH Undo 后对象回到 4、run/batch 为 `PREVIEWED/UNDONE`。故障
 Launcher 停止后，正常 descriptor、LaunchAgent、7 对象原 authority 与用户系统状态 READY
 均恢复。CURRENT `p2-g-60`～`65`。该 post-write response-loss / Service interruption
-代表子 Gate 从 Partial 变为 Done；Verify failure、Activate failure 与 Light/窄栏仍 OPEN，
-Migration/P2-G/整体 Goal 不关闭。
+代表子 Gate 从 Partial 变为 Done；Verify failure、Activate failure 与 Light/窄栏在该
+历史时点仍 OPEN，Migration/P2-G 当时不关闭。
+
+后续 release closure：`e2361599fbc9` 已在隔离库完成 Verify failure→同 ledger 重试→
+Activate failure→同 ledger 重试→reload，只读完成态与原 authority 均恢复；`7fcdcf5`
+关闭 `722×720` 窄栏，File Graph 真实 host Light 记为 bounded host limitation。结合
+`075e031` Rebind 纠错/取消安全、`fe0b590` Restore 双重失败手工恢复和 `f17f46a`
+Migration 写后响应丢失，P2-G 当前按高风险代表矩阵关闭，不新增恢复体系。
 
 ## P2 完成否决条件
 

@@ -2,21 +2,24 @@
 
 ## 交互优化 Goal（2026-07-23）
 
-V2 v1.1 底座完成结论不变；当前继续按
-`docs/implementation/task-copilot-v2-ux/02_IMPLEMENTATION_ROADMAP.md` 推进交互优化 P0→P1→P2。
+V2 v1.1 底座完成结论不变；交互优化 P0→P1→P2 已按
+`docs/implementation/task-copilot-v2-ux/02_IMPLEMENTATION_ROADMAP.md` 收口并进入 Release Freeze。
 
 ```yaml
 base_v2_status: IMPLEMENTATION_COMPLETE
-ux_productization_goal: IN_PROGRESS
+ux_productization_goal: RELEASE_READY
 p0_status: DONE_DESKTOP_REPRESENTATIVE
 p1_status: DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW
 p2_status: DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW
-final_release_status: RELEASE_CANDIDATE_READY
-overall_goal: IN_PROGRESS
+final_release_status: RELEASE_READY
+overall_goal: IN_PROGRESS_OUTER_REPOSITORY_CLEAN_GATE
 ```
 
-这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
-它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
+这里的 `V2_IMPLEMENTATION_COMPLETE` 仍只指领域、事务、安全、迁移、Provider 与恢复底座；
+P0/P1/P2 与 Final Release 已由本轮 Freeze 审计收口，但仓库级 `MVP_SUCCESS` 还要求外层
+仓库 clean；当前用户已有未提交改动不在本轮授权范围内，因此不能由底座或 Release 标记单独
+推出 `overall_goal=COMPLETE`。最终状态对齐与边界见
+`task-copilot-v2-ux/logs/release-final-status-alignment-20260731.md`。
 
 `8928861` 后的 r8 已关闭 Freeze 审计发现的两个 Release blocker：P1-F Task 确定性轻量
 重入只停留在 Application 投影，以及 Node 20 native payload 被默认 Node 25 启动。普通 Task
@@ -30,8 +33,9 @@ Launcher、Service、Runbook 和五个 Skill 与源码/安装态一致，凭据�
 真实 Logseq `0.10.15` 已从稳定 r8 目录加载 Plugin；Now Task、完整 quit/owned shutdown、
 reopen、同一 Service authority 与 Doctor PASS 均已复验。当前结构化 DeepSeek smoke 1 次、
 attempt 1、零 Graph/正式 Store 写入。新增正式状态、Runtime、Recovery、Skill 均为 `0`，
-Release blocker 净关闭 `2`；Final Release 恢复 `RELEASE_CANDIDATE_READY`，完整长期 Goal 仍
-为 `IN_PROGRESS`。证据见
+Release blocker 净关闭 `2`；在该 r8 运行 Gate 时 Final Release 恢复为
+`RELEASE_CANDIDATE_READY`，随后本轮 Freeze 审计晋升为顶部权威状态 `RELEASE_READY`；
+完整长期 Goal 仅保留外层仓库 clean Gate。证据见
 `task-copilot-v2-ux/logs/release-r8-node-runtime-task-reentry-desktop-live-20260731.md`。
 
 `11e0131` 后的 r6 已关闭“当前发布包内 Runbook 落后于仓库”的交付漂移。
@@ -105,7 +109,7 @@ Creation 经五轮真实 DeepSeek Grill 与一次最终预览收敛；Preview、
 同一安装态提供 Graph identity 且不传 `--database` 的重装保留
 graphKey/database authority；五个 Skill SHA 一致；当前
 Context Recovery Provider smoke 零正式写入。Release zip 通过 `unzip -t`，SHA-256 已记录；
-Runbook 与 CURRENT 截图同步。P1/P2 的首发边界由模糊 Partial 收敛为 release-boundary DONE：
+Runbook 与 HISTORICAL 截图同步。P1/P2 的首发边界由模糊 Partial 收敛为 release-boundary DONE：
 Attention 只开放确定性 bounded Pilot，P2-F/高噪声 Signal/Block Marker 保持 Shadow/OFF 且
 不阻断首发。新增状态、Runtime、Recovery、Skill 均为 0；关闭两个既有 Release Partial，
 净变化 `-2`。Final Release 已到 `RELEASE_CANDIDATE_READY`；完整长期 Goal仍为
@@ -614,7 +618,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Validator 拒绝后安全重试、canonical 零丢失预览、server-owned HIGH Proposal、显式 Review、
   八步正式 Commit、reload、真实 divergence→Recovery、修正后的八步 inverse Undo、再次 reload、
   最近修改 inverse 折叠与精确返回原根 Block 均有证据。该结论只关闭 P2-A/P2-B 的这条主链，
-  P2-C～P2-G、P1 和整体产品化 Goal 继续 IN_PROGRESS；
+  在该历史时点 P2-C～P2-G、P1 和整体产品化 Goal 继续 IN_PROGRESS；
 - P2-C 已进入第二个自动合同：Grill session 支持不伪造 Object identity 的
   `PROJECT_CREATION` subject；Local Service 已有三来源自适应 generation builder 与
   `project-creation-modeling@1.6.0`（初始自动 Gate 为 `1.1.0`；1.5.0 已退休），Blank/Page/MiniProject 分别先处理结果、现有材料去向、
@@ -660,7 +664,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   owner/object/semantic-commit metadata 才允许重新绑定受控专用 Page，复用来源 Page 永不
   使用删除回退。真实 Provider 多次越界 Page 写入建议均被 Validator 零写拒绝，Grill
   validation 现作为 422 暴露并允许保留答案重试。Application 152/152、Local Service
-  129/129、Plugin 269/269 PASS；CURRENT 截图与
+  129/129、Plugin 269/269 PASS；HISTORICAL 截图与
   明细在 `current-ui/` 和 `logs/p2-c-project-creation-desktop-live-20260726.md`。
   Page“升级当前 Page”随后也完成真实 DeepSeek 七轮、Preview/HIGH Review、reuse create、
   restart、Page-aware Undo 与再次 restart；原材料要求另建与用户明确 reuse 的冲突被保留，
@@ -673,7 +677,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   `sourceReturnTarget`，最新构建重跑全链后精确返回来源根 Block。最终 Preview 前两次真实
   Validator rejection 均保持零 Proposal/零写入，第三次同答案集通过，说明安全 Gate
   有效但真实拒绝率与用户诊断仍需继续改善。Undo 后专用 Page/目标 Project/Anchor 均不在
-  当前投影，再次 reload 为 READY、`0/0/0`、reconciliation false；CURRENT 截图为
+  当前投影，再次 reload 为 READY、`0/0/0`、reconciliation false；HISTORICAL 截图为
   `p2-c-38`～`p2-c-39`。P2-C 三来源功能矩阵至此 DONE；`2adfc35` / `efb3864` 又关闭
   Preview / HIGH Review 的代表性 Light/窄栏 Gate，新 Project Page 和其余集中宿主视觉
   Gate 仍 OPEN。当前全量 Application `155/155`、Local Service `133/133`、Plugin `271/271`
@@ -691,16 +695,16 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Provider→Review→apply→reload→最近修改→专用 inverse Commit→reload；首次长期 Undo
   暴露的通用 Block 路由错误已由 `f6d0429` 修复并复验，`ae2395523798` 又把误导的旧
   `Agent disabled` 改为“Copilot 可用 · 建议需审阅”。Application `161/161`、Local
-  Service `135/135`、Plugin `274/274` 与根级检查 PASS；CURRENT `p2-d-05`/`p2-d-06`。
+  Service `135/135`、Plugin `274/274` 与根级检查 PASS；HISTORICAL `p2-d-05`/`p2-d-06`。
   同一当前 Project 又完成一条 HEAVY 完整接口真实链：HIGH Proposal、独立接受、提交前重验、
   最终 Commit、reload、专用 Undo 与二次 reload；Object v4→v5→v6，Objectives、
   Deliverables、Work Stages 与三项 Focus 在 Commit 后完整可读，Undo 后精确恢复原空结构与
-  单一 Focus。CURRENT `p2-d-07`～`p2-d-10`。
+  单一 Focus。HISTORICAL `p2-d-07`～`p2-d-10`。
   LIGHT Condition 随后补齐 Service receipt 持久 inverse、prepare/confirm 版本重验和
   跨 reload 可发现 Undo；真实 Desktop 以 Project v8→PAUSED v9→reload→Undo
   ACTIONABLE v10→reload 闭环，Project 当前接口、Lifecycle、Focus、Ownership 与正文守恒。
   没有 remove/inverse 的普通 Association 已从正式路由禁用，不以“可创建”伪装安全完成；
-  CURRENT `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。Application `161/161`、Local
+  HISTORICAL `p2-d-11`～`p2-d-13` 对应 `58bf6306d04d`。Application `161/161`、Local
   Service `135/135`、Plugin `275/275`、Persistence `49/49` 与根级检查 PASS。P2-D 仍未
   整体完成：Focus/reviewAt 的完整 Undo 结论、Association inverse、其他 HEAVY 类型、
   Light/窄栏与最终 Gate 继续 OPEN；
@@ -717,7 +721,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Plugin/Launcher/owned Service：Project → 调整 Project → 整理 Closure 证据可达；空证据
   场景显式区分候选、unknown 与用户判断，唯一按钮为“取消”。reload 后 session preview
   不残留、Runtime/Store READY，并从同一 Project v10 重新计算；Objects/Proposals/Commits
-  前后保持 `2/10/21`。CURRENT `p2-e-01`～`p2-e-04`。真实 Provider、正式
+  前后保持 `2/10/21`。HISTORICAL `p2-e-01`～`p2-e-04`。真实 Provider、正式
   Proposal/Review/Commit/Recovery/Undo 尚未闭环。下一安全门已自动实现：Service 复用五层
   `LocalLlmProposalGenerator` 与 `design-project@1.3.0`；缺原目标、主要交付或关键
   Decision 时在网络调用前拒绝，证据充分时也只允许精确 read/modify scope 和一个 HIGH
@@ -808,7 +812,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Local Service 全套测试、typecheck 和根级检查 PASS。commit `6ae8f2fcebd0` 的真实
   Logseq 0.10.15 已完成未确认零请求、正式 Restore、owned Service PID
   `47467→47600`、Launcher 同 Graph 重连、Plugin reload 后目录 `2→3` 以及系统
-  READY/`0/0/0`；首轮成功/旧错误并列的缺陷已修复且旧画面不计 CURRENT。随后同一
+  READY/`0/0/0`；首轮成功/旧错误并列的缺陷已修复且旧画面不计 HISTORICAL。随后同一
   测试 Task 经真实 Now Work 和 Desktop Restore 完成 `ACTIONABLE v5↔PAUSED v6`
   正反往返，Local Service 每步逐字段读回，最终恢复 ACTIONABLE 基线并 reload 健康。
   `94038e6` 又补齐激活后故障的原库回滚、恢复点保留、Service 停止与四种失败 disposition；
@@ -891,7 +895,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   objects `4→5`、Pending 0，旧 UNDONE 与新 VERIFIED batch 均保留，reload 后不再显示
   Import/Undo/Activate 动作。Activation 正常主链从 Partial 变为 Done。`2beb1b5` 又把
   ACTIVATED 页面收敛为只读交接历史：新 Bundle scan、Review、Import、Undo 与 Activate
-  全部退出，仅保留台账和 Backup/Restore 路由；完整 restart 的 CURRENT `p2-g-43`
+  全部退出，仅保留台账和 Backup/Restore 路由；完整 restart 的 HISTORICAL `p2-g-43`
   仍为 ACTIVATED、objects 5、Pending 0。`f17f46a` 随后关闭 Import 写后响应丢失代表 Gate：
   专用测试库真实 `4→5` 后响应失败，前台不猜测结果而要求“先以台账为准”，同屏正式 ledger
   已显示 `IMPORTED` 和唯一 Verify 动作；Plugin reload 后从 ledger 重建同一动作，Verify 后
@@ -915,8 +919,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   选中，完整 Reload 及完整 quit/reopen 后仍恢复深色宿主；该结果记录为 bounded host
   issue，不伪报 Light PASS。完整退出后旧 Service 子进程按 lease 停止，重新打开后同一
   Launcher 启动新 Service 并自动恢复正式能力。Migration 窄栏从 Partial 变为 Done，
-  Light 仍 OPEN，
-  P2-G 与整体 Goal 继续 `IN_PROGRESS`。完整记录见
+  Light 在该历史时点仍 OPEN，P2-G 与整体 Goal 当时继续 `IN_PROGRESS`。完整记录见
   `logs/p2-g-migration-verify-activate-failure-desktop-live-20260727.md`；
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
@@ -928,7 +931,9 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。
 
-## 当前 Slice
+## 历史 Slice 快照（已由顶部权威状态取代）
+
+以下文本保留 2026-07-30 Freeze 前的阶段记录，不代表当前状态。
 
 V1 frozen / base V2 E2E-01–24 complete / UX productization IN_PROGRESS /
 P0 DONE_DESKTOP_REPRESENTATIVE / P1 partial UI and shadow gates /
@@ -954,7 +959,7 @@ Rebind Recovery/Undo guidance AUTOMATED,
 Restore rollback-failure manual recovery chain Desktop DONE /
 overall Goal IN_PROGRESS
 
-## 当前阶段结论
+## 历史阶段结论
 
 ```text
 V1_RUNTIME_KERNEL_PASS
@@ -1058,8 +1063,9 @@ V2_UX_PRODUCTIZATION_IN_PROGRESS
 
 ## 2026-07-28 交互产品化增量
 
-`base_v2_status=IMPLEMENTATION_COMPLETE` 仍只表示底层领域、事务、安全、迁移、Provider 与
-恢复能力完成；`ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。
+以下为 2026-07-28 历史快照：`base_v2_status=IMPLEMENTATION_COMPLETE` 当时只表示底层领域、
+事务、安全、迁移、Provider 与恢复能力完成；当时
+`ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。
 最新 `869127f` 已在真实 Logseq 0.10.15 File Graph 关闭 Page Context 用户语言与受控
 Project Page UUID 漂移识别的代表性 UI Partial：一个突出主操作、工程词折叠、冲突
 fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Final Release

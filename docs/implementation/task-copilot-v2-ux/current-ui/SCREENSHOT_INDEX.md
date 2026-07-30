@@ -1,6 +1,9 @@
 # Screenshot Index
 
-## CURRENT
+## CURRENT（仅 r8）与历史流程证据
+
+按“最新构建优先”规则，只有下述 r8 两张截图标为 `CURRENT`。本节其余较早 exact build
+截图即使仍能证明当时真实操作链，也统一标为 `HISTORICAL`；它们不能替代 r8 当前 UI 证据。
 
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
@@ -56,14 +59,14 @@ Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/p2-ab-mini-preview-current-9e7a105.jpeg` | CURRENT | 当前构建完成五轮 Grill 后生成 Preview | Preview 影响与尚未应用先出现；讨论依据折叠；唯一主操作进入变更审阅 |
-| `screenshots/p2-ab-mini-grill-ready-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 完成材料驱动 Grill | 边界、成果、验收和材料去向已明确；可生成 Preview |
-| `screenshots/p2-ab-mini-high-review-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 进入既有 HIGH Review | 首屏显示会改变/不会改变与退出安全；先审阅方案 |
-| `screenshots/p2-ab-mini-confirm-apply-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 审阅方案后进入最终确认 | 明确尚未应用；唯一主操作确认应用 |
-| `screenshots/p2-ab-mini-applied-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 正式应用结构变更 | 两个阅读分组生效；原文和 Block 身份保留；可撤销 |
-| `screenshots/p2-ab-mini-applied-reload-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | Plugin Manager reload 后读回 | 正式结构保持，Undo 资格仍有效 |
-| `screenshots/p2-ab-mini-undone-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 确认 inverse Undo | 原结构恢复，历史证据保留 |
-| `screenshots/p2-ab-mini-undone-reload-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | Undo 后再次 reload | 原 UUID、正文和父子层级保持 |
+| `screenshots/p2-ab-mini-preview-current-9e7a105.jpeg` | HISTORICAL | 当前构建完成五轮 Grill 后生成 Preview | Preview 影响与尚未应用先出现；讨论依据折叠；唯一主操作进入变更审阅 |
+| `screenshots/p2-ab-mini-grill-ready-current-39d73a0.jpeg` | HISTORICAL | 完成材料驱动 Grill | 边界、成果、验收和材料去向已明确；可生成 Preview |
+| `screenshots/p2-ab-mini-high-review-current-39d73a0.jpeg` | HISTORICAL | 进入既有 HIGH Review | 首屏显示会改变/不会改变与退出安全；先审阅方案 |
+| `screenshots/p2-ab-mini-confirm-apply-current-39d73a0.jpeg` | HISTORICAL | 审阅方案后进入最终确认 | 明确尚未应用；唯一主操作确认应用 |
+| `screenshots/p2-ab-mini-applied-current-39d73a0.jpeg` | HISTORICAL | 正式应用结构变更 | 两个阅读分组生效；原文和 Block 身份保留；可撤销 |
+| `screenshots/p2-ab-mini-applied-reload-current-39d73a0.jpeg` | HISTORICAL | Plugin Manager reload 后读回 | 正式结构保持，Undo 资格仍有效 |
+| `screenshots/p2-ab-mini-undone-current-39d73a0.jpeg` | HISTORICAL | 确认 inverse Undo | 原结构恢复，历史证据保留 |
+| `screenshots/p2-ab-mini-undone-reload-current-39d73a0.jpeg` | HISTORICAL | Undo 后再次 reload | 原 UUID、正文和父子层级保持 |
 | `screenshots/p2-ab-mini-preview-current-39d73a0.jpeg` | SUPERSEDED_UI | 修复前 Preview | 讨论依据淹没 Preview 首屏；由 `9e7a105` 替代 |
 | `screenshots/p2-ab-mini-grill-current-bbb6fd3.jpeg` | HISTORICAL_PRE_FIX | 首次真实 Grill | 只保留无限 loading/旧工程词缺陷背景，不代表当前界面 |
 
@@ -75,8 +78,8 @@ Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720；
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/rc-natural-use-recent-change-current-ae9c6d7.jpeg` | CURRENT | 当前构建 reload 后打开“最近修改” | 已完成卡只保留“撤销”；没有无效“查看”或 Commit/Object ID |
-| `screenshots/rc-natural-use-undo-current-ae9c6d7.jpeg` | CURRENT | 确认 inverse Undo | 修改已撤销；正文与正式对象回到基线 |
+| `screenshots/rc-natural-use-recent-change-current-ae9c6d7.jpeg` | HISTORICAL | 当前构建 reload 后打开“最近修改” | 已完成卡只保留“撤销”；没有无效“查看”或 Commit/Object ID |
+| `screenshots/rc-natural-use-undo-current-ae9c6d7.jpeg` | HISTORICAL | 确认 inverse Undo | 修改已撤销；正文与正式对象回到基线 |
 
 ### Release Freeze Context Recovery smoke — exact build `1549728`
 
@@ -86,7 +89,7 @@ reload 当前插件，在正式 Project 上运行 `recover-context@1.3.0`：生�
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/context-recovery-release-smoke-current-1549728.jpeg` | CURRENT | 在 Project 工作区点击“恢复上下文”并等待真实 Provider | 确定性项目状态保留；AI 只补一个增量关注点；可打开当前项目或重新生成 |
+| `screenshots/context-recovery-release-smoke-current-1549728.jpeg` | HISTORICAL | 在 Project 工作区点击“恢复上下文”并等待真实 Provider | 确定性项目状态保留；AI 只补一个增量关注点；可打开当前项目或重新生成 |
 
 ### Release Freeze Project create → reload → Undo — exact build `1549728`
 
@@ -96,13 +99,13 @@ Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/project-create-freeze-preview-current-1549728.jpeg` | CURRENT | 生成最终阅读预览 | 目标/当前推进、会改变、不会改变与下一步；尚未应用 |
-| `screenshots/project-create-freeze-high-review-current-1549728.jpeg` | CURRENT | 进入待我确认 | 首屏先显示创建 Project/Page、来源不变与退出安全；主操作是审阅方案 |
-| `screenshots/project-create-freeze-confirm-apply-current-1549728.jpeg` | CURRENT | 审阅方案后进入最终应用前 | 明确上一步尚未应用，唯一主操作是确认创建项目 |
-| `screenshots/project-create-freeze-created-current-1549728.jpeg` | CURRENT | 显式勾选并确认应用 | Project/Page 已创建；当前状态、当前推进、成果和入口可见；可撤销 |
-| `screenshots/project-create-freeze-after-reload-current-1549728.jpeg` | CURRENT | Plugin Manager 真实 reload 后重新打开 | 新 Project 仍在 Now，并保持同一正式投影 |
-| `screenshots/project-create-freeze-undone-current-1549728.jpeg` | CURRENT | 从最近修改确认专用 Project Creation Undo | Project 创建已撤销，专用空 Page 已移除，历史保留 |
-| `screenshots/project-create-freeze-undone-reload-current-1549728.jpeg` | CURRENT | 再次 reload 后精确搜索 Project Page | 只有 Create page；正式 Page 已不存在 |
+| `screenshots/project-create-freeze-preview-current-1549728.jpeg` | HISTORICAL | 生成最终阅读预览 | 目标/当前推进、会改变、不会改变与下一步；尚未应用 |
+| `screenshots/project-create-freeze-high-review-current-1549728.jpeg` | HISTORICAL | 进入待我确认 | 首屏先显示创建 Project/Page、来源不变与退出安全；主操作是审阅方案 |
+| `screenshots/project-create-freeze-confirm-apply-current-1549728.jpeg` | HISTORICAL | 审阅方案后进入最终应用前 | 明确上一步尚未应用，唯一主操作是确认创建项目 |
+| `screenshots/project-create-freeze-created-current-1549728.jpeg` | HISTORICAL | 显式勾选并确认应用 | Project/Page 已创建；当前状态、当前推进、成果和入口可见；可撤销 |
+| `screenshots/project-create-freeze-after-reload-current-1549728.jpeg` | HISTORICAL | Plugin Manager 真实 reload 后重新打开 | 新 Project 仍在 Now，并保持同一正式投影 |
+| `screenshots/project-create-freeze-undone-current-1549728.jpeg` | HISTORICAL | 从最近修改确认专用 Project Creation Undo | Project 创建已撤销，专用空 Page 已移除，历史保留 |
+| `screenshots/project-create-freeze-undone-reload-current-1549728.jpeg` | HISTORICAL | 再次 reload 后精确搜索 Project Page | 只有 Create page；正式 Page 已不存在 |
 
 ### P2-D 外部 Agent 受控结构治理 — exact build `8d24569`
 
@@ -112,10 +115,10 @@ Proposal，正式写入、reload、Undo 与 Recovery 全部复用 Task Copilot �
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/p2-d-external-agent-retry-applied-current-8d24569.jpeg` | CURRENT | 确认应用共享外部 Agent 方案 | 两条材料已移入新整理分区；原文、身份和其他正式状态不变；可撤销 |
-| `screenshots/p2-d-external-agent-retry-reload-current-8d24569.jpeg` | CURRENT | Plugin Manager reload 后查看来源 | 新结构保持，原 UUID 与顺序未丢失 |
-| `screenshots/p2-d-external-agent-retry-undone-current-8d24569.jpeg` | CURRENT | 从最近修改确认 inverse Undo | 新分区删除，两条材料恢复到原父 Block 与原顺序 |
-| `screenshots/p2-d-external-agent-retry-undone-reload-current-8d24569.jpeg` | CURRENT | Undo 后再次 reload | 恢复结果保持，回到原 Logseq 工作现场 |
+| `screenshots/p2-d-external-agent-retry-applied-current-8d24569.jpeg` | HISTORICAL | 确认应用共享外部 Agent 方案 | 两条材料已移入新整理分区；原文、身份和其他正式状态不变；可撤销 |
+| `screenshots/p2-d-external-agent-retry-reload-current-8d24569.jpeg` | HISTORICAL | Plugin Manager reload 后查看来源 | 新结构保持，原 UUID 与顺序未丢失 |
+| `screenshots/p2-d-external-agent-retry-undone-current-8d24569.jpeg` | HISTORICAL | 从最近修改确认 inverse Undo | 新分区删除，两条材料恢复到原父 Block 与原顺序 |
+| `screenshots/p2-d-external-agent-retry-undone-reload-current-8d24569.jpeg` | HISTORICAL | Undo 后再次 reload | 恢复结果保持，回到原 Logseq 工作现场 |
 
 ### P2-D 首次链缺陷证据 — exact build `e407799`
 
@@ -138,12 +141,12 @@ Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/p0-accepted-not-applied-current-3883848.jpg` | CURRENT_AT_3883848 | 审阅方案但不应用 | 明确尚未应用；退出安全；唯一主操作为确认应用 |
-| `screenshots/p0-accepted-not-applied-reload-current-3883848.jpg` | CURRENT_AT_3883848 | 真实 Plugin Manager reload 后回到 Review | 同一方案仍等待确认应用，正文未变 |
-| `screenshots/p0-unfinished-frontstage-applied-current-3883848.jpg` | CURRENT_AT_3883848 | 最终确认应用 | 正文和正式 Task 原子生效；可撤销 |
-| `screenshots/p0-unfinished-frontstage-undone-current-3883848.jpg` | CURRENT_AT_3883848 | 执行 inverse Undo | 正文与对象恢复；历史证据保留 |
-| `screenshots/p0-unfinished-frontstage-final-health-current-3883848.jpg` | CURRENT_AT_3883848 | Undo 后真实 reload 并查看系统状态 | 正式状态已连接；无未完成修改或正文连接冲突 |
-| `screenshots/p0-stale-proposal-archived-current-78528f7.jpg` | CURRENT | 重载修复构建并打开待审阅 | 当前区为空；stale、已应用和已撤销方案只在折叠历史 |
+| `screenshots/p0-accepted-not-applied-current-3883848.jpg` | HISTORICAL | 审阅方案但不应用 | 明确尚未应用；退出安全；唯一主操作为确认应用 |
+| `screenshots/p0-accepted-not-applied-reload-current-3883848.jpg` | HISTORICAL | 真实 Plugin Manager reload 后回到 Review | 同一方案仍等待确认应用，正文未变 |
+| `screenshots/p0-unfinished-frontstage-applied-current-3883848.jpg` | HISTORICAL | 最终确认应用 | 正文和正式 Task 原子生效；可撤销 |
+| `screenshots/p0-unfinished-frontstage-undone-current-3883848.jpg` | HISTORICAL | 执行 inverse Undo | 正文与对象恢复；历史证据保留 |
+| `screenshots/p0-unfinished-frontstage-final-health-current-3883848.jpg` | HISTORICAL | Undo 后真实 reload 并查看系统状态 | 正式状态已连接；无未完成修改或正文连接冲突 |
+| `screenshots/p0-stale-proposal-archived-current-78528f7.jpg` | HISTORICAL | 重载修复构建并打开待审阅 | 当前区为空；stale、已应用和已撤销方案只在折叠历史 |
 
 ### P0 PENDING same-Commit resume — exact build `78528f7`
 
@@ -154,12 +157,12 @@ Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
 | `screenshots/p0-pending-continue-current-78528f7.jpg` | SUPERSEDED_DEFECT | 正式应用在收据后中断 | 卡片正确，但顶栏泄漏 “Local Service”；由 `dbc5243` 取代 |
-| `screenshots/p0-pending-after-reload-current-78528f7.jpg` | CURRENT | 真实 Plugin Manager reload 后打开工具栏 | 同一持久问题进入最近修改；不创建平行恢复 |
-| `screenshots/p0-pending-resumed-current-78528f7.jpg` | CURRENT | 确认沿用原记录 | 同 Commit 完成，已完成领域步骤不重复；可撤销 |
-| `screenshots/p0-pending-undone-current-78528f7.jpg` | CURRENT | 执行 Closure inverse Undo | Project 恢复进行中，完成回顾移除，Page/正文不变 |
-| `screenshots/p0-pending-final-health-current-78528f7.jpg` | CURRENT | Undo 后再 reload 并打开系统状态 | 可以正常使用；无未完成修改或正文连接冲突 |
-| `screenshots/p0-pending-continue-user-language-current-dbc5243.jpg` | CURRENT | 修复构建中再次制造同一 receipt-backed 中断 | 顶栏和卡片均为用户语言；只有一个继续入口 |
-| `screenshots/p0-pending-final-health-current-dbc5243.jpg` | CURRENT | same-Commit resume、Undo、真实 reload 后检查系统 | 可以正常使用；无需操作 |
+| `screenshots/p0-pending-after-reload-current-78528f7.jpg` | HISTORICAL | 真实 Plugin Manager reload 后打开工具栏 | 同一持久问题进入最近修改；不创建平行恢复 |
+| `screenshots/p0-pending-resumed-current-78528f7.jpg` | HISTORICAL | 确认沿用原记录 | 同 Commit 完成，已完成领域步骤不重复；可撤销 |
+| `screenshots/p0-pending-undone-current-78528f7.jpg` | HISTORICAL | 执行 Closure inverse Undo | Project 恢复进行中，完成回顾移除，Page/正文不变 |
+| `screenshots/p0-pending-final-health-current-78528f7.jpg` | HISTORICAL | Undo 后再 reload 并打开系统状态 | 可以正常使用；无未完成修改或正文连接冲突 |
+| `screenshots/p0-pending-continue-user-language-current-dbc5243.jpg` | HISTORICAL | 修复构建中再次制造同一 receipt-backed 中断 | 顶栏和卡片均为用户语言；只有一个继续入口 |
+| `screenshots/p0-pending-final-health-current-dbc5243.jpg` | HISTORICAL | same-Commit resume、Undo、真实 reload 后检查系统 | 可以正常使用；无需操作 |
 
 ### P0 RECOVERY_REQUIRED safety compensation — exact builds `872d2d4` / `684491f`
 
@@ -171,9 +174,9 @@ quit/reopen 后 Service READY、待审阅 0、原 UUID/正文/顺序守恒。完
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/p0-recovery-review-empty-after-restart-current-684491f.jpeg` | CURRENT | 安全补偿后完整 quit/reopen，再打开待审阅 | 当前没有待审阅方案；两个终态失败只保留在折叠历史 |
-| `screenshots/p0-recovery-compensated-history-current-684491f.jpeg` | CURRENT | 打开最近修改与恢复 | 只显示一行操作摘要；明确已执行步骤恢复、正文和正式状态保持原样 |
-| `screenshots/p0-recovery-restored-source-after-restart-current-684491f.jpeg` | CURRENT | restart 后打开测试来源页 | 两个原子 Block 按原 UUID、内容和顺序恢复 |
+| `screenshots/p0-recovery-review-empty-after-restart-current-684491f.jpeg` | HISTORICAL | 安全补偿后完整 quit/reopen，再打开待审阅 | 当前没有待审阅方案；两个终态失败只保留在折叠历史 |
+| `screenshots/p0-recovery-compensated-history-current-684491f.jpeg` | HISTORICAL | 打开最近修改与恢复 | 只显示一行操作摘要；明确已执行步骤恢复、正文和正式状态保持原样 |
+| `screenshots/p0-recovery-restored-source-after-restart-current-684491f.jpeg` | HISTORICAL | restart 后打开测试来源页 | 两个原子 Block 按原 UUID、内容和顺序恢复 |
 | `screenshots/p0-recovery-review-empty-after-restart-current-872d2d4.jpeg` | SUPERSEDED | 首次终态历史修复后 restart | 待审阅已归零；由 `684491f` 最新构建截图替代 |
 | `screenshots/p0-recovery-compensated-history-current-872d2d4.jpeg` | SUPERSEDED_UI | 首次打开补偿历史 | 状态正确但完整 Markdown Preview 过长；由 `684491f` 摘要压缩替代 |
 | `screenshots/p0-recovery-restored-source-after-restart-current-872d2d4.jpeg` | SUPERSEDED | 首次 restart 后打开来源页 | 正文守恒证据保留；由最新构建截图替代 |
@@ -186,16 +189,16 @@ Logseq `0.10.15`；File Graph `logseq`；host Light；约 1000×720。测试正�
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/baseline-recovery-snapshot-current-light-bc79ffd.jpg` | CURRENT | Pilot 前创建产品恢复点 | 快照已验证；初始 Pending/Recovery/Conflict 0/0/0 |
-| `pilot-2026w31/screenshots/day-01-capture-worksite-current-light-bc79ffd.jpg` | CURRENT | 连续输入 7 条自然捕获 | 普通笔记和显式 TODO 共存，不要求先结构化 |
-| `pilot-2026w31/screenshots/day-01-now-after-capture-current-light-bc79ffd.jpg` | CURRENT | 捕获后打开 Now | 普通笔记没有自动正式化或灌入 Now |
-| `pilot-2026w31/screenshots/day-01-selected-todo-provider-review-current-light-bc79ffd.jpg` | CURRENT | 选中 TODO 调用真实 DeepSeek | 一项 Task 建议进入 Review，尚未正式写入 |
-| `pilot-2026w31/screenshots/day-01-task-applied-current-light-bc79ffd.jpg` | CURRENT | 完成正式应用 | Task 已提交；Undo 资格文字与按钮出现矛盾 |
-| `pilot-2026w31/screenshots/day-01-now-after-reload-current-light-bc79ffd.jpg` | CURRENT | reload 后打开 Now | 正式 Task 回来，普通笔记仍未制造列表洪水 |
-| `pilot-2026w31/screenshots/day-02-corrections-worksite-current-light-bc79ffd.jpg` | CURRENT | 输入 7 条补充和纠正 | 新证据明确 83/84 是听云服务器 |
-| `pilot-2026w31/screenshots/day-02-corrected-task-applied-current-light-bc79ffd.jpg` | CURRENT | Undo 错误 Task、改来源、重新 Review/Commit | 旧错误 Task 消失，纠正 Task 正式存在 |
-| `pilot-2026w31/screenshots/day-03-waiting-now-current-light-bc79ffd.jpg` | CURRENT | 把端口 Task 设为等待网络组 | Task 退出“继续处理”；前台缺少“保持等待”确认 |
-| `pilot-2026w31/screenshots/day-03-waiting-after-reload-current-light-bc79ffd.jpg` | CURRENT | reload 后读回 | WAITING/reviewAt 保持，未重新制造行动噪声 |
+| `pilot-2026w31/screenshots/baseline-recovery-snapshot-current-light-bc79ffd.jpg` | HISTORICAL | Pilot 前创建产品恢复点 | 快照已验证；初始 Pending/Recovery/Conflict 0/0/0 |
+| `pilot-2026w31/screenshots/day-01-capture-worksite-current-light-bc79ffd.jpg` | HISTORICAL | 连续输入 7 条自然捕获 | 普通笔记和显式 TODO 共存，不要求先结构化 |
+| `pilot-2026w31/screenshots/day-01-now-after-capture-current-light-bc79ffd.jpg` | HISTORICAL | 捕获后打开 Now | 普通笔记没有自动正式化或灌入 Now |
+| `pilot-2026w31/screenshots/day-01-selected-todo-provider-review-current-light-bc79ffd.jpg` | HISTORICAL | 选中 TODO 调用真实 DeepSeek | 一项 Task 建议进入 Review，尚未正式写入 |
+| `pilot-2026w31/screenshots/day-01-task-applied-current-light-bc79ffd.jpg` | HISTORICAL | 完成正式应用 | Task 已提交；Undo 资格文字与按钮出现矛盾 |
+| `pilot-2026w31/screenshots/day-01-now-after-reload-current-light-bc79ffd.jpg` | HISTORICAL | reload 后打开 Now | 正式 Task 回来，普通笔记仍未制造列表洪水 |
+| `pilot-2026w31/screenshots/day-02-corrections-worksite-current-light-bc79ffd.jpg` | HISTORICAL | 输入 7 条补充和纠正 | 新证据明确 83/84 是听云服务器 |
+| `pilot-2026w31/screenshots/day-02-corrected-task-applied-current-light-bc79ffd.jpg` | HISTORICAL | Undo 错误 Task、改来源、重新 Review/Commit | 旧错误 Task 消失，纠正 Task 正式存在 |
+| `pilot-2026w31/screenshots/day-03-waiting-now-current-light-bc79ffd.jpg` | HISTORICAL | 把端口 Task 设为等待网络组 | Task 退出“继续处理”；前台缺少“保持等待”确认 |
+| `pilot-2026w31/screenshots/day-03-waiting-after-reload-current-light-bc79ffd.jpg` | HISTORICAL | reload 后读回 | WAITING/reviewAt 保持，未重新制造行动噪声 |
 
 Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 
@@ -204,26 +207,26 @@ Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
 | `pilot-2026w31/screenshots/day-05-project-preview-current-interface-misclassified-defect-light-plugin-7a0b444.jpg` | HISTORICAL_DEFECT | 5 轮真实 Grill 后生成 Project Preview | 页面显示要求被误作业务当前推进；在 Preview 取消，零 Proposal/正式写入；由 `project-creation-modeling@1.6.0` 自动合同替代，待真实 Provider/Desktop 复验 |
-| `pilot-2026w31/screenshots/day-05-project-grill-actionable-ready-current-light-f7a5252.jpg` | CURRENT_AT_F7A5252 | 1.6.0 完成第二组真实 Grill | 真实未知均保留；当前推进是采集第一条真实 syslog |
+| `pilot-2026w31/screenshots/day-05-project-grill-actionable-ready-current-light-f7a5252.jpg` | HISTORICAL | 1.6.0 完成第二组真实 Grill | 真实未知均保留；当前推进是采集第一条真实 syslog |
 | `pilot-2026w31/screenshots/day-05-project-preview-actionable-grammar-defect-light-f7a5252.jpg` | HISTORICAL_UI_DEFECT | 生成业务语义正确的 Preview | 固定句式重复“当前先从先确认”；由目标/当前推进两行替代 |
-| `pilot-2026w31/screenshots/day-05-project-preview-actionable-current-light-19de8de.jpg` | CURRENT | 第三组真实 Grill 后生成 Preview | 目标与当前推进分行；真实动作保留，进入 HIGH Review |
-| `pilot-2026w31/screenshots/day-05-project-created-current-light-19de8de.jpg` | CURRENT_WITH_UX_DEBT | 审阅方案并确认应用 | Project/Page 正式创建；落地页有一个当前动作，但完成卡仍泄漏 Commit 与长结果 |
-| `pilot-2026w31/screenshots/day-05-project-after-reload-current-light-19de8de.jpg` | CURRENT | 真实重载插件后重入 | Project 保持；可恢复上下文；旧 session 草稿不持久化 |
-| `pilot-2026w31/screenshots/day-05-context-recovery-loading-current-light-19de8de.jpg` | CURRENT | 发起 Context Recovery | loading 明确零正式变化 |
-| `pilot-2026w31/screenshots/day-05-context-recovery-success-current-light-19de8de.jpg` | CURRENT | 真实 DeepSeek 返回并展开依据 | 无草稿/反馈伪未知；一个可行动入口；AI 增量准确但有限 |
-| `pilot-2026w31/screenshots/day-05-project-undo-return-current-light-19de8de.jpg` | CURRENT | 从最近修改撤销创建 | 专用空白页移除，返回 Logseq，成功消息无工程词 |
-| `pilot-2026w31/screenshots/day-05-project-undo-health-current-light-19de8de.jpg` | CURRENT | Undo 后真实重载并展开诊断 | Pending/Recovery/Conflict 0/0/0；explicit sync clean |
+| `pilot-2026w31/screenshots/day-05-project-preview-actionable-current-light-19de8de.jpg` | HISTORICAL | 第三组真实 Grill 后生成 Preview | 目标与当前推进分行；真实动作保留，进入 HIGH Review |
+| `pilot-2026w31/screenshots/day-05-project-created-current-light-19de8de.jpg` | HISTORICAL_WITH_UX_DEBT | 审阅方案并确认应用 | Project/Page 正式创建；落地页有一个当前动作，但完成卡仍泄漏 Commit 与长结果 |
+| `pilot-2026w31/screenshots/day-05-project-after-reload-current-light-19de8de.jpg` | HISTORICAL | 真实重载插件后重入 | Project 保持；可恢复上下文；旧 session 草稿不持久化 |
+| `pilot-2026w31/screenshots/day-05-context-recovery-loading-current-light-19de8de.jpg` | HISTORICAL | 发起 Context Recovery | loading 明确零正式变化 |
+| `pilot-2026w31/screenshots/day-05-context-recovery-success-current-light-19de8de.jpg` | HISTORICAL | 真实 DeepSeek 返回并展开依据 | 无草稿/反馈伪未知；一个可行动入口；AI 增量准确但有限 |
+| `pilot-2026w31/screenshots/day-05-project-undo-return-current-light-19de8de.jpg` | HISTORICAL | 从最近修改撤销创建 | 专用空白页移除，返回 Logseq，成功消息无工程词 |
+| `pilot-2026w31/screenshots/day-05-project-undo-health-current-light-19de8de.jpg` | HISTORICAL | Undo 后真实重载并展开诊断 | Pending/Recovery/Conflict 0/0/0；explicit sync clean |
 
 ### 连续使用 Pilot Day 6 — exact build `1c18e9b0ff63`
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/day-06-waiting-resume-entry-current-light-1c18e9b.jpg` | CURRENT | 从真实 Waiting Task 的原 Block 打开状态入口 | 回复到达后可选择“恢复为可以行动” |
-| `pilot-2026w31/screenshots/day-06-waiting-resume-confirm-current-light-1c18e9b.jpg` | CURRENT | 查看恢复确认 | 只改能否继续；不完成、不移动、不改变当前关注 |
-| `pilot-2026w31/screenshots/day-06-waiting-resumed-return-current-light-1c18e9b.jpg` | CURRENT | 正式确认恢复 | 返回同一 Block；明确可以撤销本次状态变化 |
-| `pilot-2026w31/screenshots/day-06-now-after-waiting-resume-current-light-1c18e9b.jpg` | CURRENT | 打开“现在” | Task 成为“接下来值得处理”第一项 |
-| `pilot-2026w31/screenshots/day-06-now-after-waiting-resume-reload-current-light-1c18e9b.jpg` | CURRENT | 真实重载插件后再开“现在” | ACTIONABLE 正式状态保持，session 消息清除 |
-| `pilot-2026w31/screenshots/day-06-waiting-resume-health-current-light-1c18e9b.jpg` | CURRENT | 打开系统状态 | 无未完成修改或正文连接冲突；无需操作 |
+| `pilot-2026w31/screenshots/day-06-waiting-resume-entry-current-light-1c18e9b.jpg` | HISTORICAL | 从真实 Waiting Task 的原 Block 打开状态入口 | 回复到达后可选择“恢复为可以行动” |
+| `pilot-2026w31/screenshots/day-06-waiting-resume-confirm-current-light-1c18e9b.jpg` | HISTORICAL | 查看恢复确认 | 只改能否继续；不完成、不移动、不改变当前关注 |
+| `pilot-2026w31/screenshots/day-06-waiting-resumed-return-current-light-1c18e9b.jpg` | HISTORICAL | 正式确认恢复 | 返回同一 Block；明确可以撤销本次状态变化 |
+| `pilot-2026w31/screenshots/day-06-now-after-waiting-resume-current-light-1c18e9b.jpg` | HISTORICAL | 打开“现在” | Task 成为“接下来值得处理”第一项 |
+| `pilot-2026w31/screenshots/day-06-now-after-waiting-resume-reload-current-light-1c18e9b.jpg` | HISTORICAL | 真实重载插件后再开“现在” | ACTIONABLE 正式状态保持，session 消息清除 |
+| `pilot-2026w31/screenshots/day-06-waiting-resume-health-current-light-1c18e9b.jpg` | HISTORICAL | 打开系统状态 | 无未完成修改或正文连接冲突；无需操作 |
 
 ### 连续使用 Pilot Day 7 — exact Plugin build `1c18e9b0ff63`
 
@@ -232,10 +235,10 @@ Day 1—2 为代表日完成，Day 3 只关闭 Waiting 子链。
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/day-07-miniproject-moved-renamed-current-light-1c18e9b.jpg` | CURRENT | 在 Logseq 把真实 MiniProject 子树移动到新 Page 并改名 | 层级和正文保留；进入 explicit sync/reload |
-| `pilot-2026w31/screenshots/day-07-miniproject-after-reload-now-current-light-1c18e9b.jpg` | CURRENT | 真实重载 Plugin 后打开“现在” | 新标题成为“接下来值得处理”第一项；打开正文 |
-| `pilot-2026w31/screenshots/day-07-miniproject-anchor-open-current-light-1c18e9b.jpg` | CURRENT | 从 Now 打开移动后的 MiniProject | 精确进入新 Page 的原 UUID 根 Block |
-| `pilot-2026w31/screenshots/day-07-miniproject-move-health-current-light-1c18e9b.jpg` | CURRENT | 打开系统状态 | 无未完成修改或正文连接冲突；无需 Rebind |
+| `pilot-2026w31/screenshots/day-07-miniproject-moved-renamed-current-light-1c18e9b.jpg` | HISTORICAL | 在 Logseq 把真实 MiniProject 子树移动到新 Page 并改名 | 层级和正文保留；进入 explicit sync/reload |
+| `pilot-2026w31/screenshots/day-07-miniproject-after-reload-now-current-light-1c18e9b.jpg` | HISTORICAL | 真实重载 Plugin 后打开“现在” | 新标题成为“接下来值得处理”第一项；打开正文 |
+| `pilot-2026w31/screenshots/day-07-miniproject-anchor-open-current-light-1c18e9b.jpg` | HISTORICAL | 从 Now 打开移动后的 MiniProject | 精确进入新 Page 的原 UUID 根 Block |
+| `pilot-2026w31/screenshots/day-07-miniproject-move-health-current-light-1c18e9b.jpg` | HISTORICAL | 打开系统状态 | 无未完成修改或正文连接冲突；无需 Rebind |
 
 ### 连续使用 Pilot Day 8 — exact final build `318baab`
 
@@ -244,18 +247,18 @@ Logseq `0.10.15`、File Graph `logseq`、host Light、1001×720。中间截图�
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/day-08-review-material-current-light-793cc46.jpg` | CURRENT_AT_793CC46 | 准备三项混合候选 | 自然材料存在当前测试 Page，可按 Pilot 批次定位 |
+| `pilot-2026w31/screenshots/day-08-review-material-current-light-793cc46.jpg` | HISTORICAL | 准备三项混合候选 | 自然材料存在当前测试 Page，可按 Pilot 批次定位 |
 | `pilot-2026w31/screenshots/day-08-candidate-preview-identity-leak-defect-light-793cc46.jpg` | HISTORICAL_DEFECT | 首次检查当前页 | 旧 Preview 泄漏 type enum 与 UUID；由 `f5ce698` 替代 |
-| `pilot-2026w31/screenshots/day-08-candidate-preview-current-light-f5ce698.jpg` | CURRENT_AT_F5CE698 | 重载后再次预览 | 类型和标题使用用户语言，无 UUID |
+| `pilot-2026w31/screenshots/day-08-candidate-preview-current-light-f5ce698.jpg` | HISTORICAL | 重载后再次预览 | 类型和标题使用用户语言，无 UUID |
 | `pilot-2026w31/screenshots/day-08-candidate-card-pipeline-language-defect-light-f5ce698.jpg` | HISTORICAL_DEFECT | 查看新候选卡 | 旧卡泄漏 Candidate/Proposal 管线词；由 `6135820` 替代 |
-| `pilot-2026w31/screenshots/day-08-candidate-card-current-light-6135820.jpg` | CURRENT_AT_6135820 | 查看压缩后的候选 | 一个主操作、一个暂缓动作；其余处置折叠 |
-| `pilot-2026w31/screenshots/day-08-candidate-deferred-current-light-6135820.jpg` | CURRENT_AT_6135820 | 选择 7 天后再看 | 当前队列归零，显示到期复查结论 |
-| `pilot-2026w31/screenshots/day-08-candidate-deferred-reload-current-light-6135820.jpg` | CURRENT_AT_6135820 | 真实 reload | 暂缓项到期前保持安静 |
-| `pilot-2026w31/screenshots/day-08-review-history-folded-current-light-6135820.jpg` | CURRENT_AT_6135820 | 查看待审阅 | 当前 Proposal 为 0；21 条历史默认折叠 |
-| `pilot-2026w31/screenshots/day-08-candidates-disposed-current-light-6135820.jpg` | CURRENT_AT_6135820 | 保持普通内容与不再提示 | 当前候选归零，两种反馈清楚 |
+| `pilot-2026w31/screenshots/day-08-candidate-card-current-light-6135820.jpg` | HISTORICAL | 查看压缩后的候选 | 一个主操作、一个暂缓动作；其余处置折叠 |
+| `pilot-2026w31/screenshots/day-08-candidate-deferred-current-light-6135820.jpg` | HISTORICAL | 选择 7 天后再看 | 当前队列归零，显示到期复查结论 |
+| `pilot-2026w31/screenshots/day-08-candidate-deferred-reload-current-light-6135820.jpg` | HISTORICAL | 真实 reload | 暂缓项到期前保持安静 |
+| `pilot-2026w31/screenshots/day-08-review-history-folded-current-light-6135820.jpg` | HISTORICAL | 查看待审阅 | 当前 Proposal 为 0；21 条历史默认折叠 |
+| `pilot-2026w31/screenshots/day-08-candidates-disposed-current-light-6135820.jpg` | HISTORICAL | 保持普通内容与不再提示 | 当前候选归零，两种反馈清楚 |
 | `pilot-2026w31/screenshots/day-08-disposition-rescan-current-light-6135820.jpg` | HISTORICAL_DEFECT | 修改被抑制来源后重算 | 实际队列为 0，但旧 Preview 虚报 3 项；由 `318baab` 替代 |
-| `pilot-2026w31/screenshots/day-08-disposition-rescan-current-light-318baab.jpg` | CURRENT | 精确构建重算 | 无新增内容且无提交按钮；三种处置仍有效 |
-| `pilot-2026w31/screenshots/day-08-candidate-disposition-health-current-light-318baab.jpg` | CURRENT | 查看系统状态 | 无未完成修改或正文连接冲突；进入 Day 9 |
+| `pilot-2026w31/screenshots/day-08-disposition-rescan-current-light-318baab.jpg` | HISTORICAL | 精确构建重算 | 无新增内容且无提交按钮；三种处置仍有效 |
+| `pilot-2026w31/screenshots/day-08-candidate-disposition-health-current-light-318baab.jpg` | HISTORICAL | 查看系统状态 | 无未完成修改或正文连接冲突；进入 Day 9 |
 
 ### 连续使用 Pilot Day 9 — exact step builds through `7fe762d`
 
@@ -264,12 +267,12 @@ Plugin build 登记；`f80fda4` 的旧应用结果只作为缺陷证据，不冒
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/day-09-closure-review-current-light-aad478c.jpg` | CURRENT_AT_AAD478C | 真实 DeepSeek 生成后打开 HIGH Review | 影响与不改变优先；完整依据折叠；审阅方案 |
-| `pilot-2026w31/screenshots/day-09-closure-accepted-current-light-f80fda4.jpg` | CURRENT_AT_F80FDA4 | 接受方案 | 明确尚未应用；退出不修改正式内容；下一步确认应用 |
+| `pilot-2026w31/screenshots/day-09-closure-review-current-light-aad478c.jpg` | HISTORICAL | 真实 DeepSeek 生成后打开 HIGH Review | 影响与不改变优先；完整依据折叠；审阅方案 |
+| `pilot-2026w31/screenshots/day-09-closure-accepted-current-light-f80fda4.jpg` | HISTORICAL | 接受方案 | 明确尚未应用；退出不修改正式内容；下一步确认应用 |
 | `pilot-2026w31/screenshots/day-09-closure-applied-engineering-terms-historical-f80fda4.jpg` | HISTORICAL_DEFECT | 首次正式应用 | 旧结果泄漏 Commit/Lifecycle；由 `f18cc72` 替代 |
-| `pilot-2026w31/screenshots/day-09-closure-applied-reload-current-light-f18cc72.jpg` | CURRENT_AT_F18CC72 | 正式应用并真实 reload | 项目已结束；结果、遗留和后续说明已保存；页面与正文不变 |
-| `pilot-2026w31/screenshots/day-09-closure-undo-reload-current-light-7fe762d.jpg` | CURRENT | 专用 Undo 并再次 reload | 项目恢复进行中；本次完成回顾已移除 |
-| `pilot-2026w31/screenshots/day-09-closure-final-health-current-light-7fe762d.jpg` | CURRENT | 打开系统状态 | 正式能力和当前 Graph 已连接；无未完成修改或正文连接冲突 |
+| `pilot-2026w31/screenshots/day-09-closure-applied-reload-current-light-f18cc72.jpg` | HISTORICAL | 正式应用并真实 reload | 项目已结束；结果、遗留和后续说明已保存；页面与正文不变 |
+| `pilot-2026w31/screenshots/day-09-closure-undo-reload-current-light-7fe762d.jpg` | HISTORICAL | 专用 Undo 并再次 reload | 项目恢复进行中；本次完成回顾已移除 |
+| `pilot-2026w31/screenshots/day-09-closure-final-health-current-light-7fe762d.jpg` | HISTORICAL | 打开系统状态 | 正式能力和当前 Graph 已连接；无未完成修改或正文连接冲突 |
 
 ### 连续使用 Pilot Day 10 — Plugin `7fe762d`, docs `f738f59`
 
@@ -279,11 +282,11 @@ Logseq `0.10.15`、File Graph、host Light、约 1000×720。日常四页、真�
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
 | `pilot-2026w31/screenshots/day-10-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | SUPERSEDED_BY_DF6469F | 打开“现在” | 修复前 Focus 1 / Next 10 过载证据；不再代表当前 Now |
-| `pilot-2026w31/screenshots/day-10-review-empty-history-folded-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 查看待审阅 | 当前 Candidate/Proposal 0/0；22 条历史折叠 |
-| `pilot-2026w31/screenshots/day-10-projects-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 打开“项目” | 2 个可继续 Project；一个主操作与上下文恢复入口 |
-| `pilot-2026w31/screenshots/day-10-more-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 打开“更多” | 恢复、迁移与系统维护留在二级 |
+| `pilot-2026w31/screenshots/day-10-review-empty-history-folded-current-light-plugin-7fe762d-docs-f738f59.jpg` | HISTORICAL | 查看待审阅 | 当前 Candidate/Proposal 0/0；22 条历史折叠 |
+| `pilot-2026w31/screenshots/day-10-projects-current-light-plugin-7fe762d-docs-f738f59.jpg` | HISTORICAL | 打开“项目” | 2 个可继续 Project；一个主操作与上下文恢复入口 |
+| `pilot-2026w31/screenshots/day-10-more-current-light-plugin-7fe762d-docs-f738f59.jpg` | HISTORICAL | 打开“更多” | 恢复、迁移与系统维护留在二级 |
 | `pilot-2026w31/screenshots/day-10-now-after-plugin-reload-current-light-plugin-7fe762d-docs-f738f59.jpg` | SUPERSEDED_BY_DF6469F | 从插件管理真实 reload 后重开 | 修复前完整列表 reload 证据；由精确构建折叠 Gate 取代 |
-| `pilot-2026w31/screenshots/day-10-graph-switch-restricted-current-light-plugin-7fe762d-docs-f738f59.jpg` | CURRENT | 切到已失效隔离 Graph | 正式修改暂停；正文安全；不复用原 authority |
+| `pilot-2026w31/screenshots/day-10-graph-switch-restricted-current-light-plugin-7fe762d-docs-f738f59.jpg` | HISTORICAL | 切到已失效隔离 Graph | 正式修改暂停；正文安全；不复用原 authority |
 | `pilot-2026w31/screenshots/day-10-graph-switch-return-now-current-light-plugin-7fe762d-docs-f738f59.jpg` | HISTORICAL_GRAPH_SWITCH | 切回原 Graph | Graph authority 恢复证据仍有效；其中旧 Now 布局不代表当前界面 |
 
 ### 连续使用 Pilot Day 10 Now 前台上限 — exact build `df6469f`
@@ -306,11 +309,11 @@ Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit �
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/p1-now-frontstage-continue-dark-standard-3d63d5a.png` | CURRENT | 1001×720 精确构建 reload 后打开“现在” | Focus 标为“来自当前关注”且首屏保留；普通推进前 4 项可见，其余 8 项折叠；每卡一个主操作 |
-| `screenshots/p1-now-frontstage-continue-dark-narrow-3d63d5a.png` | CURRENT | 把 Logseq 窗口缩至 733×720 | 同一信息层级、主操作与折叠在窄栏可读；未增加工程词或按钮墙 |
-| `screenshots/p1-now-frontstage-needs-review-dark-754x720-3d63d5a.png` | CURRENT | 754×720；正式 Task 临时加入 Focus 后设为 Blocked | 一对象只进入“需要回看”；显示用户卡点与一个主操作；非 Focus Blocked 不抬升 |
-| `screenshots/p1-now-frontstage-keep-waiting-dark-754x720-3d63d5a.png` | CURRENT | 754×720；同一 Task 恢复后设为 Paused，并填写未来 reviewAt | 一对象只进入“保持等待”；暂停原因可见但不制造警告墙 |
-| `screenshots/p1-now-frontstage-restored-healthy-dark-754x720-3d63d5a.png` | CURRENT | 754×720；恢复 Actionable、移出临时 Focus，再检查系统状态 | 无未完成修改或正文冲突；正式能力均可用，无需操作 |
+| `screenshots/p1-now-frontstage-continue-dark-standard-3d63d5a.png` | HISTORICAL | 1001×720 精确构建 reload 后打开“现在” | Focus 标为“来自当前关注”且首屏保留；普通推进前 4 项可见，其余 8 项折叠；每卡一个主操作 |
+| `screenshots/p1-now-frontstage-continue-dark-narrow-3d63d5a.png` | HISTORICAL | 把 Logseq 窗口缩至 733×720 | 同一信息层级、主操作与折叠在窄栏可读；未增加工程词或按钮墙 |
+| `screenshots/p1-now-frontstage-needs-review-dark-754x720-3d63d5a.png` | HISTORICAL | 754×720；正式 Task 临时加入 Focus 后设为 Blocked | 一对象只进入“需要回看”；显示用户卡点与一个主操作；非 Focus Blocked 不抬升 |
+| `screenshots/p1-now-frontstage-keep-waiting-dark-754x720-3d63d5a.png` | HISTORICAL | 754×720；同一 Task 恢复后设为 Paused，并填写未来 reviewAt | 一对象只进入“保持等待”；暂停原因可见但不制造警告墙 |
+| `screenshots/p1-now-frontstage-restored-healthy-dark-754x720-3d63d5a.png` | HISTORICAL | 754×720；恢复 Actionable、移出临时 Focus，再检查系统状态 | 无未完成修改或正文冲突；正式能力均可用，无需操作 |
 
 测试结束后 Condition/Focus 均恢复到开始前基线；没有直接操作 SQLite、没有留下长期
 测试状态，也没有新增 Attention 或恢复分支。
@@ -319,9 +322,9 @@ Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit �
 
 | 文件 | 主题 / 尺寸 | 用户动作 | 系统结果 | 下一步 | 状态 |
 |---|---|---|---|---|---|
-| `screenshots/p1-attention-now-pilot-current-3097c39.png` | host Light / Plugin Dark，约 1000×754 | 保存一个到期 Waiting 后查看 Now | 同一“需要回看”正式卡显示 `Copilot 提醒 · 试用`；没有第二张提醒卡 | 展开更多操作 | CURRENT |
-| `screenshots/p1-attention-now-pilot-deferred-current-3097c39.png` | 同上 | 点击“本次先不提醒” | 只收起试用标记；正式 Waiting 卡、主动作和正文事实保留 | 真实 Plugin reload | CURRENT |
-| `screenshots/p1-attention-now-pilot-reload-recompute-current-3097c39.png` | 同上 | Plugin Manager 重载后重新查看 Now | session disposition 清除；同一有效事实重新生成试用标记 | 不相关处置并恢复测试状态 | CURRENT |
+| `screenshots/p1-attention-now-pilot-current-3097c39.png` | host Light / Plugin Dark，约 1000×754 | 保存一个到期 Waiting 后查看 Now | 同一“需要回看”正式卡显示 `Copilot 提醒 · 试用`；没有第二张提醒卡 | 展开更多操作 | HISTORICAL |
+| `screenshots/p1-attention-now-pilot-deferred-current-3097c39.png` | 同上 | 点击“本次先不提醒” | 只收起试用标记；正式 Waiting 卡、主动作和正文事实保留 | 真实 Plugin reload | HISTORICAL |
+| `screenshots/p1-attention-now-pilot-reload-recompute-current-3097c39.png` | 同上 | Plugin Manager 重载后重新查看 Now | session disposition 清除；同一有效事实重新生成试用标记 | 不相关处置并恢复测试状态 | HISTORICAL |
 
 - Logseq `0.10.15`，File Graph `logseq`；Service/Store READY，最终
   Pending/Recovery/Source Conflict `0/0/0`。
@@ -336,13 +339,13 @@ Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit �
 
 | 文件 | 主题 / 尺寸 | 用户动作 | 系统结果 | 状态 |
 |---|---|---|---|---|
-| `screenshots/p1-attention-quality-primary-current-c9919f2.jpeg` | host Light / Plugin Dark，1000×720 | 查看到期 Waiting 的唯一主操作 | 同一正式卡显示一个试用标记，不复制提醒卡 | CURRENT |
-| `screenshots/p1-attention-quality-cancel-kept-current-c9919f2.jpeg` | 同上 | 打开 Condition 后取消 | marker 和主操作保持；本次不记 acted | CURRENT |
-| `screenshots/p1-attention-quality-later-current-c9919f2.jpeg` | 同上 | 本次先不提醒 | 只隐藏本 session marker；正式 Waiting 卡仍在 | CURRENT |
-| `screenshots/p1-attention-quality-reload-recompute-current-c9919f2.jpeg` | 同上 | Plugin Manager reload | 仍有效正式事实重新生成 marker | CURRENT |
-| `screenshots/p1-attention-quality-not-relevant-current-c9919f2.jpeg` | 同上 | 本次不相关 | 当前 session 安静，正式事实和主操作保留 | CURRENT |
-| `screenshots/p1-attention-quality-fact-resolved-current-c9919f2.jpeg` | 同上 | 完成唯一主操作，保存为可以行动 | 正式 Task 为 ACTIONABLE，Signal 随事实解除 | CURRENT |
-| `screenshots/p1-attention-quality-fact-resolved-reload-current-c9919f2.jpeg` | 同上 | 再次 Plugin Manager reload | Task 仍在继续处理，marker 不返回 | CURRENT |
+| `screenshots/p1-attention-quality-primary-current-c9919f2.jpeg` | host Light / Plugin Dark，1000×720 | 查看到期 Waiting 的唯一主操作 | 同一正式卡显示一个试用标记，不复制提醒卡 | HISTORICAL |
+| `screenshots/p1-attention-quality-cancel-kept-current-c9919f2.jpeg` | 同上 | 打开 Condition 后取消 | marker 和主操作保持；本次不记 acted | HISTORICAL |
+| `screenshots/p1-attention-quality-later-current-c9919f2.jpeg` | 同上 | 本次先不提醒 | 只隐藏本 session marker；正式 Waiting 卡仍在 | HISTORICAL |
+| `screenshots/p1-attention-quality-reload-recompute-current-c9919f2.jpeg` | 同上 | Plugin Manager reload | 仍有效正式事实重新生成 marker | HISTORICAL |
+| `screenshots/p1-attention-quality-not-relevant-current-c9919f2.jpeg` | 同上 | 本次不相关 | 当前 session 安静，正式事实和主操作保留 | HISTORICAL |
+| `screenshots/p1-attention-quality-fact-resolved-current-c9919f2.jpeg` | 同上 | 完成唯一主操作，保存为可以行动 | 正式 Task 为 ACTIONABLE，Signal 随事实解除 | HISTORICAL |
+| `screenshots/p1-attention-quality-fact-resolved-reload-current-c9919f2.jpeg` | 同上 | 再次 Plugin Manager reload | Task 仍在继续处理，marker 不返回 | HISTORICAL |
 | `screenshots/p1-attention-quality-primary-current-3b6816e.jpeg` | 同上 | 早期构建查看主操作 | 后续发现取消也会误记 acted | SUPERSEDED_DEFECT |
 | `screenshots/p1-attention-quality-acted-current-3b6816e.jpeg` | 同上 | 早期构建取消 Condition | marker 消失但正式事实未变，语义错误 | HISTORICAL_DEFECT |
 | `screenshots/p1-attention-quality-reload-recompute-current-3b6816e.jpeg` | 同上 | 早期构建 reload | 证明 session 重算，但不证明正确 acted | SUPERSEDED |
@@ -358,8 +361,8 @@ Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit �
 | 文件 | 主题 / 尺寸 | 用户动作 | 系统结果 | 下一步 | 状态 |
 |---|---|---|---|---|---|
 | `screenshots/p1-block-marker-line-replaces-content-current-79da995.jpeg` | host Light / Plugin Dark，约 1000×720 | 把实验设置从 off 改为 line | Logseq slot 替换正式根 Block 可见正文；文件和正式状态未变 | 关闭 marker 并完整重启 | SUPERSEDED_DEFECT |
-| `screenshots/p1-block-marker-setting-removed-current-53337f2.jpeg` | 同上 | 重载 `53337f2`，打开 Task Copilot 插件设置 | 生产设置只剩 Agent、运行环境和外观；Marker 无公开入口 | 返回原 Page | CURRENT |
-| `screenshots/p1-block-marker-off-restored-current-53337f2.jpeg` | 同上 | 完整退出/重开并返回同一 Page | 根 Block 与子 Block 全部可见，Accessibility tree 重新包含根文本 | 保持发布 OFF | CURRENT |
+| `screenshots/p1-block-marker-setting-removed-current-53337f2.jpeg` | 同上 | 重载 `53337f2`，打开 Task Copilot 插件设置 | 生产设置只剩 Agent、运行环境和外观；Marker 无公开入口 | 返回原 Page | HISTORICAL |
+| `screenshots/p1-block-marker-off-restored-current-53337f2.jpeg` | 同上 | 完整退出/重开并返回同一 Page | 根 Block 与子 Block 全部可见，Accessibility tree 重新包含根文本 | 保持发布 OFF | HISTORICAL |
 
 - 本组关闭的是“当前宿主是否可安全发布 Marker”的决策 Gate，不宣称 Logseq 0.10.15 已交付
   Block Marker；只有稳定 append-only 官方 slot 出现时才重开。
@@ -373,8 +376,8 @@ Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/day-04-project-material-current-light-bc79ffd.jpg` | CURRENT_AT_BC79FFD | 输入自然 MiniProject/Project 材料 | 原文保留，进入真实 Grill |
-| `pilot-2026w31/screenshots/day-04-mini-project-no-change-preview-current-light-bc79ffd.jpg` | CURRENT_AT_BC79FFD | MiniProject Grill 5 次真实 Provider | 当前结构无需正式修改，零 Proposal |
+| `pilot-2026w31/screenshots/day-04-project-material-current-light-bc79ffd.jpg` | HISTORICAL | 输入自然 MiniProject/Project 材料 | 原文保留，进入真实 Grill |
+| `pilot-2026w31/screenshots/day-04-mini-project-no-change-preview-current-light-bc79ffd.jpg` | HISTORICAL | MiniProject Grill 5 次真实 Provider | 当前结构无需正式修改，零 Proposal |
 | `pilot-2026w31/screenshots/day-04-project-page-too-large-defect-historical-light-bc79ffd.jpg` | HISTORICAL_DEFECT | 长 Page 发起 Project 创建 | 旧 UI 错误翻译确定性范围；由 `42e6a91` 自动合同替代 |
 | `pilot-2026w31/screenshots/day-04-project-grill-ready-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | Blank Project 六轮 Grill | readiness 达成；用户纠正两类无依据建议 |
 | `pilot-2026w31/screenshots/day-04-project-preview-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | 生成最终阅读预览 | 影响边界清楚，理解句仍需压缩 |
@@ -383,14 +386,14 @@ Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初
 | `pilot-2026w31/screenshots/day-04-project-after-reload-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | reload 后重入 | Project Page 与页面内入口保持 |
 | `pilot-2026w31/screenshots/day-04-project-undo-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | 正式 Undo | Project/Page 消失，来源保留；成功消息泄漏工程词 |
 | `pilot-2026w31/screenshots/day-04-project-undo-reload-absence-source-equivalent-light-runtime-fbd14eb.jpg` | HISTORICAL_SOURCE_EQUIVALENT | reload 后看项目列表 | Graylog Project 不再存在 |
-| `pilot-2026w31/screenshots/day-04-project-undo-reload-health-current-light-42e6a91.jpg` | CURRENT | 精确构建 reload 后展开诊断 | Plugin `42e6a91309ba`；0/0/0；explicit sync clean |
+| `pilot-2026w31/screenshots/day-04-project-undo-reload-health-current-light-42e6a91.jpg` | HISTORICAL | 精确构建 reload 后展开诊断 | Plugin `42e6a91309ba`；0/0/0；explicit sync clean |
 
 ### 连续使用 Pilot Day 4 Undo 结论收敛 — exact build `7a0b444821b7`
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `pilot-2026w31/screenshots/day-04-undo-guidance-current-light-7a0b444.jpg` | CURRENT | reload 后打开最近修改 | 存在真实撤销入口时明确可以发起撤销且执行时重验，不再显示相反结论 |
-| `pilot-2026w31/screenshots/day-04-undo-guidance-health-current-light-7a0b444.jpg` | CURRENT | 打开系统状态并展开诊断 | Plugin `7a0b444821b7`；0/0/0；explicit sync clean |
+| `pilot-2026w31/screenshots/day-04-undo-guidance-current-light-7a0b444.jpg` | HISTORICAL | reload 后打开最近修改 | 存在真实撤销入口时明确可以发起撤销且执行时重验，不再显示相反结论 |
+| `pilot-2026w31/screenshots/day-04-undo-guidance-health-current-light-7a0b444.jpg` | HISTORICAL | 打开系统状态并展开诊断 | Plugin `7a0b444821b7`；0/0/0；explicit sync clean |
 
 Project 创建 Undo 的新成功消息已经由 Day 5 exact build `19de8de0f47c` 完成真实验证；
 旧 `fbd14eb` 的成功截图继续保留为历史缺陷证据。
@@ -399,10 +402,10 @@ Project 创建 Undo 的新成功消息已经由 Day 5 exact build `19de8de0f47c`
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/p0-j-restricted-ended-current-dark-bc79ffd.jpg` | CURRENT | 显式结束 Task Copilot | 只读路由不会静默重启 |
-| `screenshots/p0-j-restricted-formal-action-blocked-current-light-bc79ffd.jpg` | CURRENT | 受限期间尝试正式动作 | 本次未修改正式事项或正文；需显式重启 |
-| `screenshots/p0-j-restricted-slash-current-light-bc79ffd.jpg` | CURRENT | 受限期间调用 Slash | 仅插入本地显式正文，不获得正式写入权 |
-| `screenshots/p0-j-restricted-restarted-current-light-bc79ffd.jpg` | CURRENT | 显式重新启动 | 正式能力恢复，受限期间零写入 |
+| `screenshots/p0-j-restricted-ended-current-dark-bc79ffd.jpg` | HISTORICAL | 显式结束 Task Copilot | 只读路由不会静默重启 |
+| `screenshots/p0-j-restricted-formal-action-blocked-current-light-bc79ffd.jpg` | HISTORICAL | 受限期间尝试正式动作 | 本次未修改正式事项或正文；需显式重启 |
+| `screenshots/p0-j-restricted-slash-current-light-bc79ffd.jpg` | HISTORICAL | 受限期间调用 Slash | 仅插入本地显式正文，不获得正式写入权 |
+| `screenshots/p0-j-restricted-restarted-current-light-bc79ffd.jpg` | HISTORICAL | 显式重新启动 | 正式能力恢复，受限期间零写入 |
 
 旧 `73dc1e2` 的 P0-J 受限截图没有精确包含最终边界修复，标为 `SUPERSEDED` 并从当前
 证据目录移除。
@@ -414,10 +417,10 @@ Computer Use `press_key` 逐键输入。无 Provider、Proposal、正式对象�
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/p0-j-native-ime-composition-current-a65da34.png` | CURRENT | 逐键输入拼音并停在组合态 | 编辑区显示 `中文输入yan'zheng`，证明原生组合而非程序注入 |
-| `screenshots/p0-j-native-ime-cursor-composition-current-a65da34.png` | CURRENT | 在已提交中文中向左移动光标后逐键输入 | 显示 `中文输入guang'biao验证`，证明中间光标插入与组合 |
-| `screenshots/p0-j-native-ime-saved-current-a65da34.png` | CURRENT | 提交候选并退出编辑 | 最终 Block 为 `中文输入光标验证` |
-| `screenshots/p0-j-native-ime-reload-current-a65da34.png` | CURRENT | 通过正式 Create 建页后 reload | Page 与中文 Block 均读回；输入源随后恢复 ABC |
+| `screenshots/p0-j-native-ime-composition-current-a65da34.png` | HISTORICAL | 逐键输入拼音并停在组合态 | 编辑区显示 `中文输入yan'zheng`，证明原生组合而非程序注入 |
+| `screenshots/p0-j-native-ime-cursor-composition-current-a65da34.png` | HISTORICAL | 在已提交中文中向左移动光标后逐键输入 | 显示 `中文输入guang'biao验证`，证明中间光标插入与组合 |
+| `screenshots/p0-j-native-ime-saved-current-a65da34.png` | HISTORICAL | 提交候选并退出编辑 | 最终 Block 为 `中文输入光标验证` |
+| `screenshots/p0-j-native-ime-reload-current-a65da34.png` | HISTORICAL | 通过正式 Create 建页后 reload | Page 与中文 Block 均读回；输入源随后恢复 ABC |
 
 首次在临时 UUID Page 路由保存后 reload 得到 `Page no longer exists!!`，未计为 PASS；
 只有走正式建页路径并再次 reload 后才关闭 Gate。P0-J 因而为
@@ -432,12 +435,12 @@ Logseq `0.10.15`；File Graph
 
 | 文件 | 状态 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|
-| `screenshots/p0-k-query-safe-degrade-current-73dc1e2.jpg` | CURRENT | Query 投影右键→暂时做不了 | 无可靠正式身份时安全停止；原状态不变、原内容原位；没有 Block/Anchor 工程词 |
-| `screenshots/p0-k-condition-route-current-73dc1e2.jpg` | CURRENT | 正式任务原文右键→暂时做不了 | 一句安全边界；等待别人/被问题卡住/我先暂停三个互斥意图 |
-| `screenshots/p0-k-condition-route-current-narrow-73dc1e2.jpg` | CURRENT | 同一入口缩至 727×720 | 主结论、三个意图、取消和返回原内容可见，无横向溢出 |
-| `screenshots/p0-k-condition-validation-current-73dc1e2.jpg` | CURRENT | 被问题卡住→空原因保存 | 没有保存、原状态不变；补充具体卡点是唯一下一步 |
-| `screenshots/p0-k-condition-success-worksite-current-73dc1e2.jpg` | CURRENT | 填写脱敏原因并保存 | 返回同一原文；已设为被问题卡住；当前关注不变；可撤销 |
-| `screenshots/p0-k-condition-undo-worksite-current-73dc1e2.jpg` | CURRENT | 同一原文右键→撤销上一次状态变化 | 返回同一原文；恢复“可以行动”；当前关注不变 |
+| `screenshots/p0-k-query-safe-degrade-current-73dc1e2.jpg` | HISTORICAL | Query 投影右键→暂时做不了 | 无可靠正式身份时安全停止；原状态不变、原内容原位；没有 Block/Anchor 工程词 |
+| `screenshots/p0-k-condition-route-current-73dc1e2.jpg` | HISTORICAL | 正式任务原文右键→暂时做不了 | 一句安全边界；等待别人/被问题卡住/我先暂停三个互斥意图 |
+| `screenshots/p0-k-condition-route-current-narrow-73dc1e2.jpg` | HISTORICAL | 同一入口缩至 727×720 | 主结论、三个意图、取消和返回原内容可见，无横向溢出 |
+| `screenshots/p0-k-condition-validation-current-73dc1e2.jpg` | HISTORICAL | 被问题卡住→空原因保存 | 没有保存、原状态不变；补充具体卡点是唯一下一步 |
+| `screenshots/p0-k-condition-success-worksite-current-73dc1e2.jpg` | HISTORICAL | 填写脱敏原因并保存 | 返回同一原文；已设为被问题卡住；当前关注不变；可撤销 |
+| `screenshots/p0-k-condition-undo-worksite-current-73dc1e2.jpg` | HISTORICAL | 同一原文右键→撤销上一次状态变化 | 返回同一原文；恢复“可以行动”；当前关注不变 |
 
 这些截图与此前 `p0-k-01`～`10` 的 Page、来源移动/删除和 bounded host 证据共同关闭
 P0-K 代表性 Gate；P0-J 已由后续原生 IME 证据关闭，但完整 P0 仍未完成。
@@ -450,12 +453,12 @@ Logseq `0.10.15`；File Graph
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/ui-page-context-user-language-current-869127f.jpg` | CURRENT | Plugin Dark / host Light / 1001×720 | 普通 Page 菜单→Task Copilot 页面操作 | “整理当前页”为唯一突出主操作；正式事项和建立项目为次级；普通路径无 Anchor/SQLite/Graph/版本枚举 |
-| `screenshots/ui-project-page-context-user-language-current-869127f.jpg` | CURRENT | Plugin Dark / host Light / 1001×720 | 受控 Project Page 菜单→Task Copilot 页面操作 | “打开项目工作区”为唯一突出主操作；更新状态、讨论结构为次级；明确审阅方案后、确认应用才修改 |
+| `screenshots/ui-page-context-user-language-current-869127f.jpg` | HISTORICAL | Plugin Dark / host Light / 1001×720 | 普通 Page 菜单→Task Copilot 页面操作 | “整理当前页”为唯一突出主操作；正式事项和建立项目为次级；普通路径无 Anchor/SQLite/Graph/版本枚举 |
+| `screenshots/ui-project-page-context-user-language-current-869127f.jpg` | HISTORICAL | Plugin Dark / host Light / 1001×720 | 受控 Project Page 菜单→Task Copilot 页面操作 | “打开项目工作区”为唯一突出主操作；更新状态、讨论结构为次级；明确审阅方案后、确认应用才修改 |
 
 真实运行先发现受控 Project Page 被错误降级为普通 Page；`6462f64` 复用创建页既有
 owner/object metadata，并继续要求正式 Project 与唯一 active Primary Anchor 一致。
-`869127f` 再把主操作视觉层级收敛。中间截图未登记为 CURRENT；完整记录见
+`869127f` 再把主操作视觉层级收敛。中间截图未登记为 HISTORICAL；完整记录见
 `../logs/ui-page-context-language-desktop-live-20260728.md`。
 
 ### Project 创建后落地与返回工作现场 — exact build `bfabf4025f60`
@@ -466,9 +469,9 @@ Plugin/Launcher/Service；复用既有正式测试 Project，没有 Provider 调
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/ui-project-landing-dark-current-bfabf40.jpg` | CURRENT | Plugin Dark / host Light / 1000×720 | 打开“项目”，进入既有正式 Project | 首屏显示当前状态、一个推进、成果、来源；一个主操作，完整结构折叠 |
-| `screenshots/ui-project-landing-light-current-bfabf40.jpg` | CURRENT | Plugin Light / host Light / 1000×720 | 临时切换插件外观后进入同一 Project | 与 Dark 保持同一信息层级和操作优先级；普通路径无 object/commit/anchor 字段 |
-| `screenshots/ui-project-landing-light-narrow-current-bfabf40.jpg` | CURRENT | Plugin Light / host Light / 723×720 | 同一会话缩窄窗口 | 当前状态、推进、成果、来源和“开始当前推进”均可达，无横向溢出 |
+| `screenshots/ui-project-landing-dark-current-bfabf40.jpg` | HISTORICAL | Plugin Dark / host Light / 1000×720 | 打开“项目”，进入既有正式 Project | 首屏显示当前状态、一个推进、成果、来源；一个主操作，完整结构折叠 |
+| `screenshots/ui-project-landing-light-current-bfabf40.jpg` | HISTORICAL | Plugin Light / host Light / 1000×720 | 临时切换插件外观后进入同一 Project | 与 Dark 保持同一信息层级和操作优先级；普通路径无 object/commit/anchor 字段 |
+| `screenshots/ui-project-landing-light-narrow-current-bfabf40.jpg` | HISTORICAL | Plugin Light / host Light / 723×720 | 同一会话缩窄窗口 | 当前状态、推进、成果、来源和“开始当前推进”均可达，无横向溢出 |
 
 同一 exact build 点击“开始当前推进”后，插件面板关闭，Logseq 保留在
 `Project/P2-C Page 来源边界可复用检查单`；正式状态没有变化。受控 Page identity 既可按
@@ -488,11 +491,11 @@ Project Page 或正式 Project 对象。
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/ui-project-creation-preview-compressed-dark-current-2adfc35.jpg` | CURRENT | Plugin Dark / host Light，1000×720 | Page 来源完成 Grill 后生成最终阅读 Preview | 四区首屏只显示系统理解、应用影响、安全边界与下一步；完整依据折叠 |
-| `screenshots/ui-project-creation-preview-compressed-dark-narrow-current-2adfc35.jpg` | CURRENT | Plugin Dark / host Light，762×720 | 同一 Preview 收窄窗口 | 主结论、唯一主操作和退出入口保持可见，无横向溢出 |
-| `screenshots/ui-high-review-concise-understanding-dark-current-efb3864.jpg` | CURRENT | Plugin Dark / host Light，1000×720 | reload 最终构建并打开同一 Proposal | 变化 / 不变先显示，系统理解只保留两句；完整方案折叠；“审阅方案”明确尚未应用 |
-| `screenshots/ui-high-review-concise-understanding-dark-narrow-current-efb3864.jpg` | CURRENT | Plugin Dark / host Light，762×720 | 同一 Proposal 收窄窗口 | 变化、不变、理解稳定单列，主操作与折叠依据沿纵向可达 |
-| `screenshots/ui-high-review-concise-understanding-light-current-efb3864.jpg` | CURRENT | Plugin Light / host Light，1000×720 | 临时切换 Plugin 外观后重开同一 Proposal | 与 Dark 保持同一信息层级；取证后已恢复用户原 Dark 设置 |
+| `screenshots/ui-project-creation-preview-compressed-dark-current-2adfc35.jpg` | HISTORICAL | Plugin Dark / host Light，1000×720 | Page 来源完成 Grill 后生成最终阅读 Preview | 四区首屏只显示系统理解、应用影响、安全边界与下一步；完整依据折叠 |
+| `screenshots/ui-project-creation-preview-compressed-dark-narrow-current-2adfc35.jpg` | HISTORICAL | Plugin Dark / host Light，762×720 | 同一 Preview 收窄窗口 | 主结论、唯一主操作和退出入口保持可见，无横向溢出 |
+| `screenshots/ui-high-review-concise-understanding-dark-current-efb3864.jpg` | HISTORICAL | Plugin Dark / host Light，1000×720 | reload 最终构建并打开同一 Proposal | 变化 / 不变先显示，系统理解只保留两句；完整方案折叠；“审阅方案”明确尚未应用 |
+| `screenshots/ui-high-review-concise-understanding-dark-narrow-current-efb3864.jpg` | HISTORICAL | Plugin Dark / host Light，762×720 | 同一 Proposal 收窄窗口 | 变化、不变、理解稳定单列，主操作与折叠依据沿纵向可达 |
+| `screenshots/ui-high-review-concise-understanding-light-current-efb3864.jpg` | HISTORICAL | Plugin Light / host Light，1000×720 | 临时切换 Plugin 外观后重开同一 Proposal | 与 Dark 保持同一信息层级；取证后已恢复用户原 Dark 设置 |
 
 `screenshots/ui-high-review-three-column-defect-historical-2adfc35.jpg` 为 `HISTORICAL`：
 762×720 下旧三列把系统理解压成窄长文本，促成后续响应式修复，不能作为成功证据。
@@ -523,8 +526,8 @@ Plugin build：`2026-07-28 13:18:06 +0800`；Logseq `0.10.15`；File Graph
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/ui-project-continuation-compressed-current-b605e18.jpg` | CURRENT | Plugin Dark / host Light / 1001×720 | reload exact build，打开“项目” | 标题和子导航均为“继续项目”；首屏一个主操作、一个蓝色 Copilot 次操作；调整项目、加入关注和其他入口折叠 |
-| `screenshots/ui-project-continuation-compressed-current-narrow-b605e18.jpg` | CURRENT | Plugin Dark / host Light / 726×720 | 同一会话缩到 726 px | 标题、当前结论、主操作、Copilot 次操作与两个折叠入口均可达，无横向溢出 |
+| `screenshots/ui-project-continuation-compressed-current-b605e18.jpg` | HISTORICAL | Plugin Dark / host Light / 1001×720 | reload exact build，打开“项目” | 标题和子导航均为“继续项目”；首屏一个主操作、一个蓝色 Copilot 次操作；调整项目、加入关注和其他入口折叠 |
+| `screenshots/ui-project-continuation-compressed-current-narrow-b605e18.jpg` | HISTORICAL | Plugin Dark / host Light / 726×720 | 同一会话缩到 726 px | 标题、当前结论、主操作、Copilot 次操作与两个折叠入口均可达，无横向溢出 |
 
 两图接管此前 Project 重入默认首屏的当前解释权；P1-G Context Recovery 的 loading、生成、
 error、rejection、stale 和反馈仍由 `p1-g-07`～`13` 负责。完整操作记录见
@@ -539,7 +542,7 @@ Plugin build：`2026-07-28 13:08:20 +0800`；Logseq `0.10.15`；File Graph
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/ui-project-missing-source-user-language-current-971c6db.jpg` | CURRENT | Plugin Dark / host Light / 1001×720 | reload exact build，打开“现在”，筛选“项目”，点击“打开项目” | 原正文连接不可用；正式事项未修改；去系统状态重新连接。普通路径不显示 Anchor、对象或运行时 |
+| `screenshots/ui-project-missing-source-user-language-current-971c6db.jpg` | HISTORICAL | Plugin Dark / host Light / 1001×720 | reload exact build，打开“现在”，筛选“项目”，点击“打开项目” | 原正文连接不可用；正式事项未修改；去系统状态重新连接。普通路径不显示 Anchor、对象或运行时 |
 
 该图只替代旧实现对“Project 原正文失联时如何表达”的解释权；Rebind 与 Project 正常打开
 仍分别由各自证据负责。完整操作记录见
@@ -555,8 +558,8 @@ Desktop 先使用纯会话“项目”筛选，只保留专用测试 Project；�
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/ui-now-chinese-single-conclusion-current-f1d0e1f.png` | CURRENT | Plugin Dark / host Light / 1000×720 | reload exact build，打开“现在”，筛选“项目” | 类型筛选和卡片类型均为中文；筛选说明使用“当前关注”；卡片首屏只有一项状态结论，完整事实留在“查看依据” |
-| `screenshots/ui-now-chinese-single-conclusion-current-narrow-f1d0e1f.png` | CURRENT | Plugin Dark / host Light / 724×720 | 同一会话缩到 724 px | 主结论、筛选、主动作和折叠入口均可达，无横向溢出 |
+| `screenshots/ui-now-chinese-single-conclusion-current-f1d0e1f.png` | HISTORICAL | Plugin Dark / host Light / 1000×720 | reload exact build，打开“现在”，筛选“项目” | 类型筛选和卡片类型均为中文；筛选说明使用“当前关注”；卡片首屏只有一项状态结论，完整事实留在“查看依据” |
+| `screenshots/ui-now-chinese-single-conclusion-current-narrow-f1d0e1f.png` | HISTORICAL | Plugin Dark / host Light / 724×720 | 同一会话缩到 724 px | 主结论、筛选、主动作和折叠入口均可达，无横向溢出 |
 
 这两张图替代 `ui-compression-01` 与 `ui-compression-07` 对“现在”当前信息架构的解释权；
 旧图仍保留历史真实运行事实。完整操作记录见
@@ -571,13 +574,13 @@ Plugin build：`2026-07-27 19:42:41 +0800`；Logseq `0.10.15`；File Graph
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
 | `screenshots/ui-compression-01-now-light-f4acf77.jpg` | SUPERSEDED | Light / 1000×720 | 打开“现在” | 卡片只保留一个主动作，依据和次要操作折叠；类型仍为旧英文标签 |
-| `screenshots/ui-compression-02-candidate-language-light-f4acf77.jpg` | CURRENT | Light / 751×720 | 打开“待我确认→待整理” | 普通路径使用“理解当前选中内容/检查当前页”，不显示 Provider/SQLite |
-| `screenshots/ui-compression-03-review-history-light-f4acf77.jpg` | CURRENT | Light / 751×720 | 切到“待审阅” | 当前无待审方案；13 条历史默认折叠，不淹没当前问题 |
-| `screenshots/ui-compression-04-project-intent-light-f4acf77.jpg` | CURRENT | Light / 751×720 | Project 重入→调整项目 | 用户按目的选择，后台影响分级不进入首屏 |
-| `screenshots/ui-compression-05-closure-light-f4acf77.jpg` | CURRENT | Light / 1000×720 | 选择“结束这个项目” | 先显示待判断数、未正式应用和退出安全；下一步为“审阅关闭方案” |
-| `screenshots/ui-compression-06-closure-narrow-light-f4acf77.jpg` | CURRENT | Light / 751×720 | 同一 Closure 首屏 | 主动作仍可见，无横向溢出；逐目标依据默认折叠 |
+| `screenshots/ui-compression-02-candidate-language-light-f4acf77.jpg` | HISTORICAL | Light / 751×720 | 打开“待我确认→待整理” | 普通路径使用“理解当前选中内容/检查当前页”，不显示 Provider/SQLite |
+| `screenshots/ui-compression-03-review-history-light-f4acf77.jpg` | HISTORICAL | Light / 751×720 | 切到“待审阅” | 当前无待审方案；13 条历史默认折叠，不淹没当前问题 |
+| `screenshots/ui-compression-04-project-intent-light-f4acf77.jpg` | HISTORICAL | Light / 751×720 | Project 重入→调整项目 | 用户按目的选择，后台影响分级不进入首屏 |
+| `screenshots/ui-compression-05-closure-light-f4acf77.jpg` | HISTORICAL | Light / 1000×720 | 选择“结束这个项目” | 先显示待判断数、未正式应用和退出安全；下一步为“审阅关闭方案” |
+| `screenshots/ui-compression-06-closure-narrow-light-f4acf77.jpg` | HISTORICAL | Light / 751×720 | 同一 Closure 首屏 | 主动作仍可见，无横向溢出；逐目标依据默认折叠 |
 | `screenshots/ui-compression-07-now-dark-f4acf77.jpg` | SUPERSEDED | Dark / 1000×720 | 切换宿主主题后打开“现在” | Dark 与 Light 保持相同层级和操作语义；由 `f1d0e1f` 当前 Now 证据替代 |
-| `screenshots/ui-compression-08-closure-dark-f4acf77.jpg` | CURRENT | Dark / 1000×720 | Dark 下进入 Closure | 安全结论、折叠依据和主操作与 Light 一致 |
+| `screenshots/ui-compression-08-closure-dark-f4acf77.jpg` | HISTORICAL | Dark / 1000×720 | Dark 下进入 Closure | 安全结论、折叠依据和主操作与 Light 一致 |
 
 这些图片替代 `p0-e-05` 对“现在”布局、旧审阅卡片对当前/历史混排、`p2-d-01`
 对 Project 入口语言，以及 `p2-e-01`～`08` 对 Closure 当前首屏信息架构的解释权；
@@ -593,13 +596,13 @@ Proposal，Project 保持 `OPEN v21`。
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/p2-e-closure-provider-error-current-light-7727770.png` | CURRENT | Light / 1000×720 | 保存 Closure 判断并请求整理；Provider 受控失败 | 本次没有完成，项目和正文未变化；输入保留；唯一动作“重新整理关闭方案” |
-| `screenshots/p2-e-closure-review-current-dark-cda4f95.png` | CURRENT | Dark / 1000×720 | 在 `cda4f95` 最新构建重新调用真实 DeepSeek，生成并打开待审阅 | 标题为“结束项目”，首屏只显示一句结构化结果、2 项影响、2 项不改变；完整模型说明折叠；下一步“审阅方案” |
+| `screenshots/p2-e-closure-provider-error-current-light-7727770.png` | HISTORICAL | Light / 1000×720 | 保存 Closure 判断并请求整理；Provider 受控失败 | 本次没有完成，项目和正文未变化；输入保留；唯一动作“重新整理关闭方案” |
+| `screenshots/p2-e-closure-review-current-dark-cda4f95.png` | HISTORICAL | Dark / 1000×720 | 在 `cda4f95` 最新构建重新调用真实 DeepSeek，生成并打开待审阅 | 标题为“结束项目”，首屏只显示一句结构化结果、2 项影响、2 项不改变；完整模型说明折叠；下一步“审阅方案” |
 | `screenshots/p2-e-closure-review-current-dark-662246a.png` | SUPERSEDED | Dark / 1000×720 | 恢复真实 DeepSeek 后生成 Proposal，reload exact build 并打开待审阅 | 首屏结构已经压缩，但标题仍含 `Closure Proposal`；由 `cda4f95` 当前证据替代 |
-| `screenshots/p2-e-closure-stale-current-dark-662246a.png` | CURRENT | Dark / 1000×720 | 真实 DeepSeek 经无日志 8 秒延迟转发，期间 Project Condition `v21→v22` | 旧草稿没有进入 Review；只说明材料不再适用、本次未修改项目或正文；唯一动作“重新检查关闭条件” |
-| `screenshots/p2-e-closure-stale-reload-restored-dark-662246a.png` | CURRENT | Dark / 1000×720 | 正式 Condition Undo 到 `ACTIONABLE v23`，恢复原 Provider 与 authority，Plugin reload | “现在”重新显示可推进 Project；Service READY；Proposal/Commit 无异常增量 |
+| `screenshots/p2-e-closure-stale-current-dark-662246a.png` | HISTORICAL | Dark / 1000×720 | 真实 DeepSeek 经无日志 8 秒延迟转发，期间 Project Condition `v21→v22` | 旧草稿没有进入 Review；只说明材料不再适用、本次未修改项目或正文；唯一动作“重新检查关闭条件” |
+| `screenshots/p2-e-closure-stale-reload-restored-dark-662246a.png` | HISTORICAL | Dark / 1000×720 | 正式 Condition Undo 到 `ACTIONABLE v23`，恢复原 Provider 与 authority，Plugin reload | “现在”重新显示可推进 Project；Service READY；Proposal/Commit 无异常增量 |
 | `screenshots/p2-e-closure-provider-error-superseded-f4acf77.png` | SUPERSEDED | Light / 1000×720 | 同一故障的旧构建 | 曾暴露 Provider/Proposal 工程语义；由 `7727770` 用户语言替代 |
-| `screenshots/p2-e-closure-review-clean-after-reload-dark-98df827.jpeg` | CURRENT | Dark / 1000×730 | 精确 commit `98df827`，从插件管理器真实重载后打开“待我确认 → 待审阅” | 当前待审阅为 0，22 条历史默认折叠；证明最新构建可加载且失败不会以未完成确认悬挂。FAILED/STALE 专用卡只由自动故障注入验证，本图不冒充生产故障 |
+| `screenshots/p2-e-closure-review-clean-after-reload-dark-98df827.jpeg` | HISTORICAL | Dark / 1000×730 | 精确 commit `98df827`，从插件管理器真实重载后打开“待我确认 → 待审阅” | 当前待审阅为 0，22 条历史默认折叠；证明最新构建可加载且失败不会以未完成确认悬挂。FAILED/STALE 专用卡只由自动故障注入验证，本图不冒充生产故障 |
 
 ### Review empty state — exact build `cd59228`
 
@@ -608,7 +611,7 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 
 | 文件 | 状态 | 主题 / 窗口 | 用户动作 | 主结论与下一步 |
 |---|---|---|---|---|
-| `screenshots/review-empty-current-dark-cd59228.png` | CURRENT | Dark / 1000×720 | 拒绝测试 Proposal、reload 最新构建并打开待审阅 | 不再错误显示“Agent 已关闭”；当前无待审阅方案，可整理当前页或回待整理 |
+| `screenshots/review-empty-current-dark-cd59228.png` | HISTORICAL | Dark / 1000×720 | 拒绝测试 Proposal、reload 最新构建并打开待审阅 | 不再错误显示“Agent 已关闭”；当前无待审阅方案，可整理当前页或回待整理 |
 
 | 文件 | commit | 场景与用户动作 | 系统结果 | 下一步 / 已知问题 |
 |---|---|---|---|---|
@@ -620,26 +623,26 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p1-g-11-context-recovery-validator-rejection-current-light.png` | `653875a` | 受控兼容 Provider 输出违反前台合同 | Unified UX Validator 拒绝，可靠基线不被覆盖 | `REJECTED=1`，无自动重试 |
 | `screenshots/p1-g-12-context-recovery-generation-stale-current-light.png` | `653875a` | Provider 期间正式 Project 版本变化 | 旧草稿不显示、不执行，用户可基于当前版本重试 | 用户层 stale 证据 |
 | `screenshots/p1-g-13-context-recovery-stale-telemetry-current-light.png` | `653875a` | 真实 DeepSeek 经本地无日志延迟转发，期间 Condition 正向+Undo | 同一 stale 用户结论；Service 摘要 `STALE=1 / GENERATED=0`，Project 最终 ACTIONABLE v19 | 当前 stale 遥测权威 |
-| `screenshots/p0-k-01-main-page-origin-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 普通主 Page 从宿主菜单进入 Task Copilot 页面操作 | 前台显示精确 Page 标题、执行前重验说明和“返回原 Page”主动作 | Query/reference 与来源变化已由后续 CURRENT 补齐 |
-| `screenshots/p0-k-02-main-page-return-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 点击“返回原 Page” | overlay 关闭，回到同一 Page URL 与正文现场 | 正式 Block 成功/失败/Undo 返回已由 `73dc1e2` CURRENT 补齐 |
+| `screenshots/p0-k-01-main-page-origin-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 普通主 Page 从宿主菜单进入 Task Copilot 页面操作 | 前台显示精确 Page 标题、执行前重验说明和“返回原 Page”主动作 | Query/reference 与来源变化已由后续 HISTORICAL 补齐 |
+| `screenshots/p0-k-02-main-page-return-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 点击“返回原 Page” | overlay 关闭，回到同一 Page URL 与正文现场 | 正式 Block 成功/失败/Undo 返回已由 `73dc1e2` HISTORICAL 补齐 |
 | `screenshots/p0-k-03-sidebar-menu-bounded-current-dark.png` | runtime `a835f59bf1c4` / docs `47df2aa` | 在 right-sidebar 页面打开专用 More | 宿主只提供 Close/Collapse/Open as page，无 Plugin Page item；插件不猜 identity | 这是宿主限制，不代表 sidebar 精确入口 DONE |
 | `screenshots/p0-k-04-query-reference-synthetic-current-dark-73fea9a.png` | runtime `d7526f4` / docs `73fea9a` | 脱敏专用页同时显示 live query 与 block reference | 两种投影均真实解析，未包含个人正文 | 原地精确入口按宿主能力有界 |
 | `screenshots/p0-k-05-reference-native-menu-bounded-current-dark-73fea9a.png` | runtime `d7526f4` / docs `73fea9a` | Block reference 投影打开宿主菜单 | 仅有打开/复制/删除/替换引用，没有 Plugin Block item | 安全隐藏；先打开来源 Block |
 | `screenshots/p0-k-06-query-preview-bounded-current-dark-73fea9a.png` | runtime `d7526f4` / docs `73fea9a` | Query 结果使用宿主投影交互 | 宿主打开来源页面预览，不提供可靠 Plugin Block item | 不用 DOM hack 猜 UUID |
-| `screenshots/p0-k-07-moved-source-return-current-dark-66850e6.png` | runtime `d7526f4` / docs `66850e6` | Task Copilot 打开期间把来源 Block 移到页面底部并修改可见文字，再点击“返回原 Block” | 按稳定 UUID 返回移动后的新位置，Query/reference 投影同步更新 | `CURRENT`；Dark / 1000×720；未依赖旧位置 |
-| `screenshots/p0-k-08-deleted-source-safe-return-current-dark-66850e6.png` | runtime `d7526f4` / docs `66850e6` | Task Copilot 打开期间删除来源 UUID，再点击“返回原 Block” | 面板关闭并提示“原 Block 已不可用；未执行其他导航”，没有猜测 Query/reference 或同名内容 | `CURRENT`；Dark / 1000×720；fixture 截图后恢复 |
+| `screenshots/p0-k-07-moved-source-return-current-dark-66850e6.png` | runtime `d7526f4` / docs `66850e6` | Task Copilot 打开期间把来源 Block 移到页面底部并修改可见文字，再点击“返回原 Block” | 按稳定 UUID 返回移动后的新位置，Query/reference 投影同步更新 | `HISTORICAL`；Dark / 1000×720；未依赖旧位置 |
+| `screenshots/p0-k-08-deleted-source-safe-return-current-dark-66850e6.png` | runtime `d7526f4` / docs `66850e6` | Task Copilot 打开期间删除来源 UUID，再点击“返回原 Block” | 面板关闭并提示“原 Block 已不可用；未执行其他导航”，没有猜测 Query/reference 或同名内容 | `HISTORICAL`；Dark / 1000×720；fixture 截图后恢复 |
 | `screenshots/p0-k-09-analysis-no-proposal-user-language-current-dark-06b8762.png` | `06b8762933f8` | 完整 Force Reload 后从脱敏普通来源 Block 发起真实智能整理 | 一次 Provider abstain 已使用用户语言，但仍含重复的正常连接成功横幅 | `SUPERSEDED`；由 `p0-k-10` 接管当前画面 |
-| `screenshots/p0-k-10-analysis-single-status-current-dark-eba1c54.png` | `eba1c541d3af` | 完整 Force Reload 后从脱敏普通来源 Block 发起真实智能整理 | 只保留“Copilot 可用 · 建议需审阅”和一条无需整理结论；正常连接成功横幅已删除 | `CURRENT`；Plugin explicit Dark / host Light / 1000×720；0 retry、0 formal write |
+| `screenshots/p0-k-10-analysis-single-status-current-dark-eba1c54.png` | `eba1c541d3af` | 完整 Force Reload 后从脱敏普通来源 Block 发起真实智能整理 | 只保留“Copilot 可用 · 建议需审阅”和一条无需整理结论；正常连接成功横幅已删除 | `HISTORICAL`；Plugin explicit Dark / host Light / 1000×720；0 retry、0 formal write |
 | `screenshots/p0-j-02-command-palette-single-current-dark.png` | `e8db32f1af6d` | 完整冷启动后打开命令面板并检索 Task Copilot | 六条中文命令单组可见，无持久重复 | 连续 reload residue 见 HISTORICAL；受限态 OPEN |
 | `screenshots/p0-j-03-command-palette-open-now-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“打开‘现在’” | 当前 Now 工作面打开，无静默或错误 | Light/窄栏 OPEN |
 | `screenshots/p0-j-04-command-palette-system-status-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“系统状态与技术诊断” | 用户层健康结论可读，技术详情保持折叠 | 受限态代表链 OPEN |
 | `screenshots/p0-j-05-slash-command-current-dark.png` | `e8db32f1af6d` | 空白 Block 打开 Slash，选择创建任务并继续输入 ASCII 测试标题 | 四条中文 Slash 可发现；精确插入 `[任务] ` 并保留同一 Block | 仅证明 Slash；原生 IME 后由 `a65da34` 专用证据关闭 |
 | `screenshots/p0-j-06-custom-binding-current-dark.png` | `a835f59bf1c4` | 设置页为“打开‘现在’”配置临时两段 chord | 仅三项高频动作可配置；没有默认键 | 测试后已清理本机配置 |
 | `screenshots/p0-j-07-custom-binding-open-now-current-dark.png` | `a835f59bf1c4` | 关闭设置后触发临时 chord | Now 正确打开 | 不保留测试 binding |
-| `screenshots/p0-j-08-cold-start-configurable-shortcuts-current-dark.png` | `a835f59bf1c4` | 清理配置并完整退出/重启 Logseq，重新检索 Task Copilot | 恰好 3 条可配置命令，全部未设置 | HISTORICAL_SUB_GATE；IME、ended 与 P0 总 Gate 已由后续 CURRENT 证据关闭 |
-| `screenshots/p0-final-now-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：从当前测试 Page 打开 Now | 一对象一张卡、一个主操作，其余动作折叠；当前正式状态无恢复问题 | CURRENT；与既有 733px Now 合并验收 |
-| `screenshots/p0-final-review-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：打开“待我确认” | 当前没有需要审阅的方案；29 条历史默认折叠 | CURRENT；补偿后的 FAILED 不占当前队列 |
-| `screenshots/p0-final-system-status-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：更多→系统状态 | 首屏只显示影响、仍可用、数据安全和无需操作；技术诊断折叠 | CURRENT；P0 总 Gate DONE_DESKTOP_REPRESENTATIVE |
+| `screenshots/p0-j-08-cold-start-configurable-shortcuts-current-dark.png` | `a835f59bf1c4` | 清理配置并完整退出/重启 Logseq，重新检索 Task Copilot | 恰好 3 条可配置命令，全部未设置 | HISTORICAL_SUB_GATE；IME、ended 与 P0 总 Gate 已由后续 HISTORICAL 证据关闭 |
+| `screenshots/p0-final-now-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：从当前测试 Page 打开 Now | 一对象一张卡、一个主操作，其余动作折叠；当前正式状态无恢复问题 | HISTORICAL；与既有 733px Now 合并验收 |
+| `screenshots/p0-final-review-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：打开“待我确认” | 当前没有需要审阅的方案；29 条历史默认折叠 | HISTORICAL；补偿后的 FAILED 不占当前队列 |
+| `screenshots/p0-final-system-status-current-dark-7e72075.jpeg` | `7e72075` | P0 最终代表汇总：更多→系统状态 | 首屏只显示影响、仍可用、数据安全和无需操作；技术诊断折叠 | HISTORICAL；P0 总 Gate DONE_DESKTOP_REPRESENTATIVE |
 | `screenshots/p0-e-05-daily-shell-clean-current-dark.png` | `4dfe014902a3` | exact build 后台 reload 后打开“现在” | 启动结论使用“当前知识库”；无 Runtime/Store/Graph 状态条，保留四项主导航与真实任务动作 | Light/窄栏和高级卡片信息密度仍 OPEN |
 | `screenshots/p0-h-08-more-productized-current-dark.png` | `4dfe014902a3` | 从日常工作面进入“更多” | 维护能力收敛为最近修改、系统状态、备份恢复、迁移和结束本次使用；无 Launcher/Service/Commit/SQLite 工程词 | 结束/重启最新语言链仍可在集中 P0 Gate 复验 |
 | `screenshots/p0-i-03-system-status-translated-current-dark.png` | `4dfe014902a3` | 从“更多”检查健康系统状态，保持技术诊断折叠 | 首屏只回答发生、影响、可用、安全和操作；内部状态、精确 commit 与 `0/0/0` 仅在主动展开后可见 | 失败/恢复各类别仍需代表性当前复验 |
@@ -688,22 +691,22 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p2-e-16-closure-completed-after-reload-current-dark.jpeg` | `6f7f9a857be9` | recovered Commit 完成后再次 reload，打开最近修改 | 完成态跨 reload 可读，提供同一个 Closure Undo；异常 Commit 0/0/0 | Provider error/stale Desktop 仍 OPEN |
 | `screenshots/p2-e-17-closure-undo-restored-project-current-dark.jpeg` | `6f7f9a857be9` | 对 recovered Commit 执行专用 Closure inverse | 即时结果为“已撤销”，自动返回 Project 重入；Project OPEN v21、Closure absent | 不修改 Logseq Page/正文 |
 | `screenshots/p2-e-18-closure-undo-after-reload-current-dark.jpeg` | `6f7f9a857be9` | recovered Commit Undo 后再次 reload | Now Work 重新显示同一 Project；Runtime/Store READY，原 Commit UNDONE、inverse COMPLETED、异常 Commit 0/0/0 | 当前只代表 Dark 标准宽度 |
-| `screenshots/p2-g-07-rebind-capture-entry-dark-994x700.jpg` | `344c705ec446` | reload 发现一个合成正式事项的旧正文不可用，用户进入系统状态 | 前台只说明正式事项仍保留、受影响能力和数据安全；唯一主动作是“开始重新连接” | `HISTORICAL`；当时 Rebind 指引仍 OPEN，现由 `075e031` CURRENT 替代 |
+| `screenshots/p2-g-07-rebind-capture-entry-dark-994x700.jpg` | `344c705ec446` | reload 发现一个合成正式事项的旧正文不可用，用户进入系统状态 | 前台只说明正式事项仍保留、受影响能力和数据安全；唯一主动作是“开始重新连接” | `HISTORICAL`；当时 Rebind 指引仍 OPEN，现由 `075e031` HISTORICAL 替代 |
 | `screenshots/p2-g-08-rebind-capture-window-dark-994x700.jpg` | `344c705ec446` | 用户启动受控选择并回到 Logseq 新建替换 Block，再打开 Task Copilot | 明确 5 分钟上限、暂缓自动物化、取消/提交后恢复；Service 此时匹配正式对象数为 0 | 窗口期间其他显式编辑也会排队，故必须保持短时且用户主动 |
 | `screenshots/p2-g-09-rebind-capture-preview-dark-994x700.jpg` | `344c705ec446` | 用户预览新正文并选择原连接不可用的事项 | 只显示标题、类型和翻译状态；无 UUID/Anchor ID/hash，正式事项与主归属保持说明可读 | 当前截图在勾选最终影响确认前 |
 | `screenshots/p2-g-10-rebind-capture-success-dark-994x700.jpg` | `344c705ec446` | 用户勾选单独确认并提交正式 Rebind | 新正文连接成功、旧连接保留历史；恢复自动同步后匹配正式对象仍为 1 | 页面标题在即时窗口仍短暂显示正文核对，reload 后收敛 |
-| `screenshots/p2-g-11-rebind-capture-reload-clean-dark-994x700.jpg` | `344c705ec446` | Plugin Manager reload 后打开用户系统状态 | Task Copilot 可以正常使用、数据安全、无需操作；Anchor issue 已消失 | `HISTORICAL`；当前纠错指引与取消安全由 `075e031` CURRENT 替代 |
+| `screenshots/p2-g-11-rebind-capture-reload-clean-dark-994x700.jpg` | `344c705ec446` | Plugin Manager reload 后打开用户系统状态 | Task Copilot 可以正常使用、数据安全、无需操作；Anchor issue 已消失 | `HISTORICAL`；当前纠错指引与取消安全由 `075e031` HISTORICAL 替代 |
 | `screenshots/p2-g-12-rebind-capture-build-identity-dark-994x700.jpg` | `344c705ec446` | reload 健康后展开技术诊断 | Plugin commit、Logseq 0.10.15、Runtime/Store/Service READY、`0/0/0` 与 explicit sync healthy 同屏 | 诊断属于证据层，不是日常必读 UI |
 | `screenshots/p2-g-rebind-anchor-missing-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | 修复前测试对象正文失联 | 促成候选收窄与纠错链 | `HISTORICAL`；早于捕获取消安全修复，不代表当前完整构建 |
 | `screenshots/p2-g-rebind-correction-targeted-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | 成功态只提供重新选择正文与完整恢复 | 用户语义有效 | `HISTORICAL`；由精确 `075e031` 成功态替代 |
 | `screenshots/p2-g-rebind-preview-bounded-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | missing/conflict 候选收窄 Preview | 候选范围有界 | `SUPERSEDED`；由 `p2-g-rebind-preview-bounded-dark-075e031.png` 替代 |
 | `screenshots/p2-g-rebind-success-guidance-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | Rebind 成功纠错指引 | 选错/整库回退分流 | `SUPERSEDED`；由精确 `075e031` 同场景替代 |
 | `screenshots/p2-g-rebind-reload-healthy-dark-3a47cf9.jpeg` | `3a47cf9` / Dark / 1001×720 | Rebind 后 reload 健康 | 系统不再报告失联 | `SUPERSEDED`；由精确 `075e031` 同场景替代 |
-| `screenshots/p0-explicit-sync-cancel-reload-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 捕获期间创建并删除显式候选，取消后真实 reload | Now 不含测试候选；Service 取消后和 reload 后均查询为 `objects=[]` | `CURRENT`；原内容已删除且没有静默正式化 |
-| `screenshots/p2-g-rebind-preview-bounded-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 选择正文失联测试事项并阅读 Preview | 只显示标题、类型与“原连接位置不可用” | `CURRENT`；当前未应用、退出安全 |
-| `screenshots/p2-g-rebind-success-guidance-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 单独确认后完成正式 Rebind | 主结论“正文已重新连接”；选错走“重新选择正文”，整库回退走“查看完整恢复选项” | `CURRENT` |
-| `screenshots/p2-g-rebind-reload-healthy-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | Plugin Manager 真实 reload 后打开“现在” | 纠错后的事项可继续，正文连接警告消失；取消回归候选未出现 | `CURRENT` |
-| `screenshots/p2-g-rebind-final-system-healthy-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | reload 后打开用户系统状态并展开诊断 | “Task Copilot 可以正常使用”；`0/0/0`、explicit sync clean、最近错误无 | `CURRENT`；技术信息默认折叠 |
+| `screenshots/p0-explicit-sync-cancel-reload-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 捕获期间创建并删除显式候选，取消后真实 reload | Now 不含测试候选；Service 取消后和 reload 后均查询为 `objects=[]` | `HISTORICAL`；原内容已删除且没有静默正式化 |
+| `screenshots/p2-g-rebind-preview-bounded-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 选择正文失联测试事项并阅读 Preview | 只显示标题、类型与“原连接位置不可用” | `HISTORICAL`；当前未应用、退出安全 |
+| `screenshots/p2-g-rebind-success-guidance-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | 单独确认后完成正式 Rebind | 主结论“正文已重新连接”；选错走“重新选择正文”，整库回退走“查看完整恢复选项” | `HISTORICAL` |
+| `screenshots/p2-g-rebind-reload-healthy-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | Plugin Manager 真实 reload 后打开“现在” | 纠错后的事项可继续，正文连接警告消失；取消回归候选未出现 | `HISTORICAL` |
+| `screenshots/p2-g-rebind-final-system-healthy-dark-075e031.png` | `075e031d98ca` / Logseq 0.10.15 / File Graph / Dark / 1001×720 | reload 后打开用户系统状态并展开诊断 | “Task Copilot 可以正常使用”；`0/0/0`、explicit sync clean、最近错误无 | `HISTORICAL`；技术信息默认折叠 |
 | `screenshots/p2-g-13-backup-catalog-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | reload 最新构建后进入“更多 → 备份与恢复” | 两个 Service 管理快照只显示时间、四项正式事项与完整性 PASS；无 ID/路径 | 当前产品 UI 的状态差异读回仍 OPEN |
 | `screenshots/p2-g-14-restore-impact-review-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 选择快照并由 Service 再校验 | 最终影响明确 SQLite 替换、Logseq 正文不改写、当前状态先保留恢复点；单独确认未勾选 | failure 注入仍 OPEN |
 | `screenshots/p2-g-15-restore-success-current-6ae8f2f.jpeg` | `6ae8f2fcebd0` | 先验证未确认零请求，再勾选并正式 Restore | Service 自停并由 Launcher 重建；Plugin 自动回到 READY；成功态不再残留旧错误 | 即时重连过程很短，截图捕获最终稳定态 |
@@ -748,12 +751,12 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p2-g-63-migration-verified-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 点击 Verify | 显示本批验证通过、尚未启用，并只给出安全撤销/启用动作 | run/batch 均 VERIFIED，objects=5 |
 | `screenshots/p2-g-64-migration-safe-undo-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 既有 HIGH Undo 最终确认后撤销测试批次 | 明确正式对象回到导入前范围，审阅和审计证据保留 | objects=4，run/batch=`PREVIEWED/UNDONE`，Pending/Recovery=0/0 |
 | `screenshots/p2-g-65-migration-normal-runtime-restored-current-f17f46a.jpeg` | repo `f17f46a` / Plugin `757fac87d511` | 停止故障 Launcher、恢复原 descriptor/LaunchAgent 并 reload Plugin | 用户系统状态 READY、当前无受影响能力、无需操作 | 原 authority 7 对象，loopback `19673`；故障 `19674` 已停止 |
-| `screenshots/p2-g-migration-verify-activate-retry-current-dark-e236159.png` | `e2361599fbc9` | 隔离库完成 Verify failure→同 ledger retry→Activate failure→同 ledger retry；重新构建并 reload 当前 Plugin | “一次性迁移已完成 · 只读历史”“V2 已启用”；旧 UNDONE 与新 VERIFIED 批次可读，无 scan/Review/Import/Undo/Activate | Logseq 0.10.15、File Graph、Dark、1000×720；中间故障动作使用 migration 路径未变化的 `2148f42b00cb` artifact，CURRENT 只记录精确当前构建 reload；Light host Gate 仍 OPEN |
-| `screenshots/p2-g-migration-final-current-narrow-720-7fcdcf5.png` | repo `7fcdcf5` / Plugin `e2361599fbc9` | 同一 ACTIVATED ledger 在当前构建完整 Reload 后把 Logseq 窗口缩至 722×720 | 主结论、计划摘要、旧 UNDONE 与新 VERIFIED batch、折叠安全边界和关闭动作均可读，无横向溢出 | `CURRENT`；窄栏子 Gate DONE，Light host Gate OPEN |
-| `screenshots/p2-g-light-mode-selected-host-remains-dark-bounded-7fcdcf5.png` | repo `7fcdcf5` / Logseq `0.10.15` | File Graph 设置页选择“浅色模式”，随后完整 View→Reload | 设置页显示浅色模式已选中；加载页短暂为浅色，但 Graph 就绪后仍恢复深色宿主 | `CURRENT_BOUNDED_HOST_ISSUE`；不是 Plugin Light PASS，不用加载页冒充当前 UI |
-| `screenshots/p2-g-light-mode-full-restart-remains-dark-bounded-1364235.png` | repo `1364235` / Logseq `0.10.15` | 浅色模式已选中后完整 quit；旧 Service 按 lease 停止，再由 Computer Use 重新打开 Logseq | File Graph 就绪后仍为深色宿主；同一 Launcher 启动新 Service，Task Copilot 自动重连 | `CURRENT_BOUNDED_HOST_ISSUE`；完整生命周期仍不能证明 Light，Light Gate 保持 OPEN |
-| `screenshots/ui-theme-dark-current-d7526f4.png` | `d7526f43e798` | File Graph custom.css 强制深色、官方信号仍为浅色；在 Task Copilot 配置中明确选择深色，完整 reload 后再次打开 | 插件壳层、导航、提示、卡片、按钮和滚动区与深色宿主一致；主结论和每卡主动作清晰 | `CURRENT`；1001×720；只改变插件显示，不写正式状态 |
-| `screenshots/ui-theme-dark-current-narrow-d7526f4.png` | `d7526f43e798` | 同一 reload 后会话把 Logseq 收窄到 723×720 | 主导航、筛选、主结论、卡片和唯一主动作仍可见；无横向溢出 | `CURRENT`；接管旧白底截图的主题表达权，Logseq 自身 Light bounded host issue 仍 OPEN |
+| `screenshots/p2-g-migration-verify-activate-retry-current-dark-e236159.png` | `e2361599fbc9` | 隔离库完成 Verify failure→同 ledger retry→Activate failure→同 ledger retry；重新构建并 reload 当前 Plugin | “一次性迁移已完成 · 只读历史”“V2 已启用”；旧 UNDONE 与新 VERIFIED 批次可读，无 scan/Review/Import/Undo/Activate | Logseq 0.10.15、File Graph、Dark、1000×720；中间故障动作使用 migration 路径未变化的 `2148f42b00cb` artifact，HISTORICAL 只记录精确当前构建 reload；Light host Gate 仍 OPEN |
+| `screenshots/p2-g-migration-final-current-narrow-720-7fcdcf5.png` | repo `7fcdcf5` / Plugin `e2361599fbc9` | 同一 ACTIVATED ledger 在当前构建完整 Reload 后把 Logseq 窗口缩至 722×720 | 主结论、计划摘要、旧 UNDONE 与新 VERIFIED batch、折叠安全边界和关闭动作均可读，无横向溢出 | `HISTORICAL`；窄栏子 Gate DONE，Light host Gate OPEN |
+| `screenshots/p2-g-light-mode-selected-host-remains-dark-bounded-7fcdcf5.png` | repo `7fcdcf5` / Logseq `0.10.15` | File Graph 设置页选择“浅色模式”，随后完整 View→Reload | 设置页显示浅色模式已选中；加载页短暂为浅色，但 Graph 就绪后仍恢复深色宿主 | `HISTORICAL_BOUNDED_HOST_ISSUE`；不是 Plugin Light PASS，不用加载页冒充当前 UI |
+| `screenshots/p2-g-light-mode-full-restart-remains-dark-bounded-1364235.png` | repo `1364235` / Logseq `0.10.15` | 浅色模式已选中后完整 quit；旧 Service 按 lease 停止，再由 Computer Use 重新打开 Logseq | File Graph 就绪后仍为深色宿主；同一 Launcher 启动新 Service，Task Copilot 自动重连 | `HISTORICAL_BOUNDED_HOST_ISSUE`；完整生命周期仍不能证明 Light，Light Gate 保持 OPEN |
+| `screenshots/ui-theme-dark-current-d7526f4.png` | `d7526f43e798` | File Graph custom.css 强制深色、官方信号仍为浅色；在 Task Copilot 配置中明确选择深色，完整 reload 后再次打开 | 插件壳层、导航、提示、卡片、按钮和滚动区与深色宿主一致；主结论和每卡主动作清晰 | `HISTORICAL`；1001×720；只改变插件显示，不写正式状态 |
+| `screenshots/ui-theme-dark-current-narrow-d7526f4.png` | `d7526f43e798` | 同一 reload 后会话把 Logseq 收窄到 723×720 | 主导航、筛选、主结论、卡片和唯一主动作仍可见；无横向溢出 | `HISTORICAL`；接管旧白底截图的主题表达权，Logseq 自身 Light bounded host issue 仍 OPEN |
 
 ## HISTORICAL
 
@@ -767,7 +770,7 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `p1-g-04-context-recovery-grounded-provider-current-dark.png` | HISTORICAL | `4e02226` | 最近正式变化已接地且 forward/inverse 折叠正确 | 模型判断仍为英文，后续中文合同替代 |
 | `p1-g-05-context-recovery-language-validated-provider-current-dark.png` | SUPERSEDED | `2cf8bf2` | 真实中文输出与 `HELPFUL` disposition；一次 session `GENERATED=1 / HELPFUL=1` | 自动语言 repair/弱语言检查已由 `894d14f` 删除并收紧；只作为质量对照 |
 | `p1-g-06-context-recovery-final-provider-current-dark.png` | SUPERSEDED | `894d14f` | 真实 Provider 结果正确接地，但把当前草稿评价误列为业务未知 | `recover-context@1.3.0` 与 `p1-g-07` 已替代 |
-| `p1-g-08-context-recovery-skill-1-3-current-light-before-fix.png` | HISTORICAL | `653875a` 构建前的本轮运行 | 真实 Logseq Light 时 Plugin 仍显示 dark surface | 同一提交中的宿主 theme sync 修复后由 CURRENT `p1-g-08` 替代 |
+| `p1-g-08-context-recovery-skill-1-3-current-light-before-fix.png` | HISTORICAL | `653875a` 构建前的本轮运行 | 真实 Logseq Light 时 Plugin 仍显示 dark surface | 同一提交中的宿主 theme sync 修复后由 HISTORICAL `p1-g-08` 替代 |
 | `p0-j-01-command-palette-duplicate-historical-dark.png` | HISTORICAL | `e8db32f1af6d` 连续 Plugin reload 会话 | Logseq 0.10.15 reload 会话曾出现重复 palette 行 | 完整退出/重启恢复单组；`p0-j-02` 是冷启动当前权威，不新增持久去重状态 |
 | `p0-h-13-graph-switch-old-authority-leak-historical-dark.png` | HISTORICAL | `ca50304` 前的真实 Graph switch build | 新隔离 Graph 已显示，但旧 Graph 的 Project 卡与“Copilot 可用”仍短暂留在前台 | `ca50304` 把旧 key 清除和受限 UI 刷新移到 lease release 之前；`p0-h-16` 替代 |
 | `p2-g-47-restore-recovery-controlled-entry-current-dark.png`～`p2-g-50-restore-recovery-restart-health-current-dark.png` | HISTORICAL | `16bde9ad88a5` | 受控 `RECOVERY_REQUIRED` 的用户状态、HIGH Review、恢复、重连与完整 restart | 不是由真实连续双重故障产生；当前恢复实现由 `p2-g-55`～`59` 替代 |
@@ -817,7 +820,7 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `p2-g-05-rebind-success-dark-994x700.jpg` | SUPERSEDED | `46b45c3f11e1` | 使用既有未物化测试 Block 的正式 Rebind 成功 | `p2-g-10` 证明用户可新建替换 Block 且无竞态 |
 | `p2-g-06-rebind-reload-clean-dark-994x700.jpg` | SUPERSEDED | `46b45c3f11e1` | 旧链 reload 后系统健康 | `p2-g-11`/`12` 使用当前构建替代 |
 
-仓库其他目录中的既有截图也继续按历史证据处理，除非索引明确登记为 `CURRENT`。
+仓库其他目录中的既有截图也继续按历史证据处理，除非索引明确登记为 `HISTORICAL`。
 
 ## 新截图登记模板
 

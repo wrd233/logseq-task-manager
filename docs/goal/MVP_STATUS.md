@@ -1,11 +1,11 @@
 # MVP Status
 
 ```yaml
-goal_state: V2_IMPLEMENTATION_COMPLETE
-current_slice: "V1 frozen for read-only migration; V2 Slice A-F, E2E-01-24, Desktop, migration, recovery, DeepSeek and final clean audit complete"
-last_successful_check: "2026-07-22 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; all typecheck/lint/tests/build, Plugin and architecture boundaries, 145 rules, acceptance rehearsal and repository boundary PASS with 0 failed/skipped; DeepSeek Flash/Pro L3 each 22/22, Logseq Desktop L4 and UC-28 live Provider PASS"
+goal_state: V2_RELEASE_READY_OUTER_CLEAN_GATE_OPEN
+current_slice: "V1 frozen for read-only migration; V2 base, P0/P1/P2 release boundaries, ten-day representative Pilot, Desktop, migration, recovery, DeepSeek and Release Freeze complete; outer repository clean gate remains"
+last_successful_check: "2026-07-31 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; all typecheck/lint/tests/build, Plugin and architecture boundaries, 145 rules, acceptance rehearsal and repository boundary PASS; current r8 Desktop lifecycle and Service Doctor PASS"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
-product_pilot: V1_MVP_PILOT_PARTIAL
+product_pilot: V2_TEN_DAY_REPRESENTATIVE_PILOT_COMPLETE
 v1_state: V1_FROZEN_FOR_MIGRATION
 v2_migration_design: V2_MIGRATION_DESIGN_READY
 implemented:
@@ -68,8 +68,8 @@ implemented:
 pilot_results:
   capture: PASS
   task: PASS_WITH_DOCUMENTED_REBIND_LIMITATION
-  mini_project: PARTIAL_OPEN_ACCEPTED_PROPOSALS
-  project: PARTIAL_NO_NEW_AGGREGATION_OR_CLOSURE_LOOP
+  mini_project: PASS_WITH_GRILL_RESTRUCTURE_RELOAD_UNDO
+  project: PASS_WITH_CREATE_CONTEXT_RECOVERY_CLOSURE_RELOAD_UNDO
 runtime_checks_completed:
   - "RT-MVP-001B..004 PASS on Logseq Desktop 0.10.15"
   - "Pilot reload, Task complete/inverse Commit and explicit rebind verified"
