@@ -138,7 +138,7 @@ test("Now Attention pilot cools a deferred reminder and reopens it after the bou
   }).length, 1);
 });
 
-test("Now Attention pilot counts a primary action as helpful without storing content or object identity", () => {
+test("Now Attention pilot counts a completed primary action as engagement without claiming helpfulness", () => {
   const session = new AttentionShadowSession();
   session.run(buildAttentionDetectorSnapshot({
     observedAt: now,

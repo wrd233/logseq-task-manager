@@ -849,7 +849,7 @@ function recordAttentionNowPilotActed(signalId?: string): void {
     operationalLogger.log("info", "attention-shadow", "attention_now_pilot_acted", {
       actionId: "attention-primary-action",
       command: result.signalType,
-      result: "acted_session_only_no_formal_write",
+      result: "primary_action_completed_session_only_measurement",
       attentionPilotShownCount: quality.shown,
       attentionPilotActedCount: quality.acted,
       attentionPilotLaterCount: quality.later,
@@ -2686,9 +2686,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-condition-open" && value) {
-    const primary = decodeAttentionNowPilotPrimaryValue(value);
-    await openActionDialog("v2-condition", primary.value);
-    recordAttentionNowPilotActed(primary.signalId);
+    await openActionDialog("v2-condition", value);
     return;
   }
   if (action === "v2-block-condition-intent" && value) {
@@ -2769,7 +2767,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-deadline-open" && value) return openActionDialog("v2-deadline", value);
   if (action === "submit-v2-condition" && value) {
-    const [objectId, rawVersion] = value.split("|");
+    const primary = decodeAttentionNowPilotPrimaryValue(value);
+    const [objectId, rawVersion] = primary.value.split("|");
     await run(async () => {
       const client = serviceRuntimeClient;
       const expectedVersion = Number(rawVersion);
@@ -2783,6 +2782,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
         : kind === "BLOCKED" ? { kind, reason: dialogField("v2ConditionReason"), ...(dialogField("v2BlockerObjectId") ? { blockerObjectId: dialogField("v2BlockerObjectId") } : {}) }
         : { kind, reason: dialogField("v2ConditionReason"), ...(reviewAt ? { reviewAt: reviewAt.toISOString() } : {}) };
       await client.changeCondition(objectId, expectedVersion, condition);
+      recordAttentionNowPilotActed(primary.signalId);
       actionDialog = undefined;
       workspace = "now";
     }, "状态已正式保存；Now Work 已按新 Condition 重算。");

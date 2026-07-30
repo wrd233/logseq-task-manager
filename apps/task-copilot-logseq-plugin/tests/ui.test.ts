@@ -2494,6 +2494,8 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /async function openV2ProjectWorksite[\s\S]*listAllPrimaryAnchors\(client\)[\s\S]*Editor\.getCurrentPage\(\)[\s\S]*Editor\.getPage\(primaryAnchor\.externalId\)[\s\S]*Editor\.getPage\(`Project\/\$\{current\.text\}`\)[\s\S]*identity\.pageUuid === primaryAnchor\.externalId[\s\S]*pushState\("page"[\s\S]*openV2PrimaryAnchor\(primaryAnchor\.externalId\)/);
   assert.match(source, /action === "v2-project-worksite-open"[\s\S]*openV2ProjectWorksite\(objectId, expectedVersion\)[\s\S]*if \(!latestError\) await logseq\.hideMainUI\(\)/);
   assert.match(source, /action === "v2-open-primary-anchor"[\s\S]*decodeAttentionNowPilotPrimaryValue\(value\)[\s\S]*openV2PrimaryAnchor\(primary\.value\)[\s\S]*recordAttentionNowPilotActed\(primary\.signalId\)[\s\S]*await logseq\.hideMainUI\(\)/);
+  assert.match(source, /action === "v2-condition-open"[\s\S]*openActionDialog\("v2-condition", value\)[\s\S]*action === "submit-v2-condition"[\s\S]*decodeAttentionNowPilotPrimaryValue\(value\)[\s\S]*changeCondition\([\s\S]*recordAttentionNowPilotActed\(primary\.signalId\)/);
+  assert.doesNotMatch(source, /action === "v2-condition-open"[\s\S]{0,240}recordAttentionNowPilotActed/);
   assert.match(projectCreationSubmit, /v2ReentryTargetObjectId = result\.object\.objectId/);
   assert.doesNotMatch(projectCreationSubmit, /logseq\.hideMainUI\(\)/);
   assert.match(projectClosureSubmit, /actionDialog = undefined;\s*workspace = "review";\s*await run\(/);

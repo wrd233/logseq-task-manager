@@ -46,7 +46,7 @@ test("structured logger ignores unsupported runtime fields and rejects free-text
 test("structured logger retains only aggregate Attention pilot quality counts", () => {
   const logger = new StructuredLogger();
   logger.log("info", "attention-shadow", "attention_now_pilot_acted", {
-    result: "acted_session_only_no_formal_write",
+    result: "primary_action_completed_session_only_measurement",
     attentionPilotShownCount: 4,
     attentionPilotActedCount: 1,
     attentionPilotLaterCount: 1,
@@ -60,7 +60,7 @@ test("structured logger retains only aggregate Attention pilot quality counts", 
     level: "info",
     category: "attention-shadow",
     event: "attention_now_pilot_acted",
-    result: "acted_session_only_no_formal_write",
+    result: "primary_action_completed_session_only_measurement",
     attentionPilotShownCount: 4,
     attentionPilotActedCount: 1,
     attentionPilotLaterCount: 1,
