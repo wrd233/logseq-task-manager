@@ -4,6 +4,7 @@ import test from "node:test";
 import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 
 import {
+  BLOCK_MARKER_HOST_RELEASE_POLICY,
   BlockMarkerPrototypeController,
   renderBlockMarkerPrototype,
 } from "../src/block-marker-prototype.ts";
@@ -29,6 +30,15 @@ const anchor: V2Anchor = {
   status: "active",
   lastSeenAt: "2026-07-24T01:00:00.000Z",
 };
+
+test("current Logseq host release policy keeps the prototype out of production", () => {
+  assert.deepEqual(BLOCK_MARKER_HOST_RELEASE_POLICY, {
+    productionMode: "OFF",
+    publicSettingVisible: false,
+    status: "HOST_SLOT_REJECTED",
+    recheckWhen: "STABLE_APPEND_ONLY_BLOCK_SLOT",
+  });
+});
 
 test("all visual candidates are tiny inert templates with no正文 or action authority", () => {
   for (const mode of ["LINE", "DOT", "ICON", "TINT", "PHRASE"] as const) {

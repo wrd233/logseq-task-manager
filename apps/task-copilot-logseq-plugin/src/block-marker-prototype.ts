@@ -2,6 +2,13 @@ import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 
 export type BlockMarkerPrototypeMode = "OFF" | "LINE" | "DOT" | "ICON" | "TINT" | "PHRASE";
 
+export const BLOCK_MARKER_HOST_RELEASE_POLICY = {
+  productionMode: "OFF",
+  publicSettingVisible: false,
+  status: "HOST_SLOT_REJECTED",
+  recheckWhen: "STABLE_APPEND_ONLY_BLOCK_SLOT",
+} as const;
+
 type MarkerState = "BLOCKED" | "WAITING" | "PAUSED" | "FOCUS" | "OPEN" | "CLOSED";
 
 interface MarkerProjection {

@@ -113,7 +113,6 @@ import {
 import { ProjectPageHeadActionController } from "./project-page-head-action.ts";
 import { ProjectContextRecoveryController } from "./project-context-recovery-controller.ts";
 import { MiniProjectGrillController } from "./mini-project-grill-controller.ts";
-import { BlockMarkerPrototypeController, type BlockMarkerPrototypeMode } from "./block-marker-prototype.ts";
 import { BackupRestoreController, backupRestoreFailureDisposition, type BackupRestoreClient } from "./backup-restore-controller.ts";
 import { renderRestoreRecoveryGuide } from "./restore-recovery-guide.ts";
 import {
@@ -180,18 +179,6 @@ function isMigrationExecutionClient(client: ServiceRuntimeClient | undefined): c
   );
 }
 let lastAttentionShadowSummarySignature: string | undefined;
-const blockMarkerPrototypeController = new BlockMarkerPrototypeController({
-  registerBlockSlot: (blockUuid, callback) => {
-    logseq.App.onBlockRendererSlotted(blockUuid, (event) => callback({ slot: event.slot, uuid: event.uuid }));
-  },
-  checkSlotValid: (slot) => logseq.UI.checkSlotValid(slot),
-  provideUi: (input) => { logseq.provideUI(input); },
-}, {
-  onIssue: (error) => operationalLogger.log("warn", "query-refresh", "block_marker_prototype_issue", {
-    result: "marker_hidden",
-    errorCode: explain(error),
-  }),
-});
 const graphReadBridgeController = new GraphReadBridgeController({
   getPage: (target) => logseq.Editor.getPage(target as never),
   getPageBlocksTree: (target) => logseq.Editor.getPageBlocksTree(target as never),
@@ -411,50 +398,11 @@ function updateToolbarIntervention(): void {
   bootstrapRegistration.updateToolbar(logseq as unknown as BootstrapHost, toolbarIntervention);
 }
 
-function configuredBlockMarkerPrototypeMode(): BlockMarkerPrototypeMode {
-  const value = (logseq.settings as { blockMarkerPrototype?: unknown } | undefined)?.blockMarkerPrototype;
-  return value === "line" ? "LINE"
-    : value === "dot" ? "DOT"
-      : value === "icon" ? "ICON"
-        : value === "tint" ? "TINT"
-          : value === "phrase" ? "PHRASE"
-            : "OFF";
-}
-
-async function refreshBlockMarkerPrototype(
-  client: ServiceRuntimeClient,
-  generation: number,
-  nowWork: ServiceNowWork,
-): Promise<void> {
-  const mode = configuredBlockMarkerPrototypeMode();
-  if (mode === "OFF") {
-    blockMarkerPrototypeController.clear();
-    return;
-  }
-  try {
-    const [objects, anchors] = await Promise.all([client.listObjects(), listAllPrimaryAnchors(client)]);
-    if (client !== serviceRuntimeClient || generation !== serviceDiscoveryGeneration) return;
-    blockMarkerPrototypeController.refresh({
-      mode,
-      objects,
-      anchors,
-      activeFocusObjectIds: nowWork.focus.map((item) => item.objectId),
-    });
-  } catch (error) {
-    blockMarkerPrototypeController.clear();
-    operationalLogger.log("warn", "query-refresh", "block_marker_prototype_refresh_failed", {
-      result: "marker_hidden",
-      errorCode: explain(error),
-    });
-  }
-}
-
 async function refreshToolbarInterventionFacts(): Promise<void> {
   const client = serviceRuntimeClient;
   const generation = serviceDiscoveryGeneration;
   if (serviceConnection.status !== "READY" || !serviceConnection.formalWritesAvailable || !client) {
     toolbarFacts = { proposals: [], semanticCommits: [], available: false };
-    blockMarkerPrototypeController.clear();
     updateToolbarIntervention();
     return;
   }
@@ -466,11 +414,9 @@ async function refreshToolbarInterventionFacts(): Promise<void> {
     ]);
     if (client !== serviceRuntimeClient || generation !== serviceDiscoveryGeneration) return;
     toolbarFacts = { nowWork, proposals, semanticCommits, available: true };
-    await refreshBlockMarkerPrototype(client, generation, nowWork);
   } catch (error) {
     if (client !== serviceRuntimeClient || generation !== serviceDiscoveryGeneration) return;
     toolbarFacts = { proposals: [], semanticCommits: [], available: false };
-    blockMarkerPrototypeController.clear();
     operationalLogger.log("warn", "query-refresh", "toolbar_intervention_unavailable", {
       result: "formal-connection-risk",
       errorCode: explain(error),
@@ -958,7 +904,6 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   diagnostics.setServiceConnection(serviceConnection);
   explicitSyncController?.pause();
   toolbarFacts = { proposals: [], semanticCommits: [], available: false };
-  blockMarkerPrototypeController.clear();
   updateToolbarIntervention();
   void projectPageHeadActionController.refreshAll();
 }
@@ -4392,7 +4337,6 @@ async function handleCurrentGraphChanged(): Promise<void> {
   v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   attentionShadowSession.clear();
-  blockMarkerPrototypeController.clear();
   projectContextRecoveryController.clear();
   miniProjectGrillController.clear();
   projectCreationGrillController.clear();
@@ -4447,15 +4391,6 @@ async function initializeFeatures(): Promise<void> {
       title: "V2 本地运行环境 descriptor 私有存储 key",
       description: "仅填写 Launcher 配对 descriptor（推荐）或兼容 Service descriptor 在 Task Copilot 私有 FileStorage 中的文件名；token 不写入设置、Graph 或日志。",
       default: "",
-    },
-    {
-      key: "blockMarkerPrototype",
-      type: "enum",
-      title: "Block 轻标记原型（实验）",
-      description: "默认关闭。仅装饰已绑定 active primary Anchor 的正式 Block；不改正文。请在专用测试页比较主题、编辑态、Query、引用、侧栏与性能。",
-      default: "off",
-      enumChoices: ["off", "line", "dot", "icon", "tint", "phrase"],
-      enumPicker: "select",
     },
     {
       key: "appearance",
@@ -4623,7 +4558,6 @@ async function main(): Promise<void> {
   logseq.beforeunload(async () => {
     for (const off of cleanupHooks.splice(0).reverse()) off();
     projectPageHeadActionController.clear();
-    blockMarkerPrototypeController.dispose();
     await releaseServiceLifecycleSession();
     featureReady = false;
     logseq.hideMainUI();
