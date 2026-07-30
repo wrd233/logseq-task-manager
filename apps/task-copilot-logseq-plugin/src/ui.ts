@@ -491,7 +491,7 @@ function renderReview(model: UiModel): string {
   const reviewMode = model.reviewMode ?? "candidates";
   const candidatePanel = model.v2CandidatePanel ? renderV2ExplicitCandidateDiscoveryPanel(model.v2CandidatePanel, Boolean(model.v2CandidateAvailable), model.v2Candidates, model.v2CandidateSourcePreviews) : "";
   const candidateCount = (model.v2Candidates ?? []).filter(({ disposition, deferredUntil }) => disposition === "PENDING" || (disposition === "LATER" && deferredUntil !== undefined && Date.parse(deferredUntil) <= Date.now())).length;
-  const proposalCount = open.length + v2.filter((record) => !["APPLIED", "REJECTED", "STALE"].includes(record.proposal.status)).length;
+  const proposalCount = open.length + v2.filter((record) => !["APPLIED", "REJECTED", "STALE", "FAILED"].includes(record.proposal.status)).length;
   const reviewModeButton = (label: string, value: "candidates" | "proposals") => `<button type="button" class="${reviewMode === value ? "primary" : "quiet"}" data-action="review-mode" data-value="${value}" aria-pressed="${reviewMode === value}">${escapeHtml(label)}</button>`;
   const tabs = `<div class="actions review-modes" role="group" aria-label="审阅中心视图">${reviewModeButton(`待整理${candidateCount ? ` (${candidateCount})` : ""}`, "candidates")}${reviewModeButton(`待审阅${proposalCount ? ` (${proposalCount})` : ""}`, "proposals")}</div>`;
   if (reviewMode === "candidates") {
@@ -695,11 +695,11 @@ function renderReview(model: UiModel): string {
       </details>
     </article>`;
   };
-  const currentV2 = v2.filter((record) => !["APPLIED", "REJECTED", "STALE"].includes(record.proposal.status));
-  const historicalV2 = v2.filter((record) => ["APPLIED", "REJECTED", "STALE"].includes(record.proposal.status));
+  const currentV2 = v2.filter((record) => !["APPLIED", "REJECTED", "STALE", "FAILED"].includes(record.proposal.status));
+  const historicalV2 = v2.filter((record) => ["APPLIED", "REJECTED", "STALE", "FAILED"].includes(record.proposal.status));
   const currentV2Cards = currentV2.map(renderV2Card).join("");
   const historicalV2Cards = historicalV2.length
-    ? `<details class="review-history"><summary>历史记录（${historicalV2.length}）</summary><p class="muted">已应用、已撤销、已失效或不再采用的方案保留在这里，不影响当前判断。</p><div class="cards">${historicalV2.map(renderV2Card).join("")}</div></details>`
+    ? `<details class="review-history"><summary>历史记录（${historicalV2.length}）</summary><p class="muted">已应用、未能应用、已撤销、已失效或不再采用的方案保留在这里，不影响当前判断。</p><div class="cards">${historicalV2.map(renderV2Card).join("")}</div></details>`
     : "";
   const emptyCurrentReview = empty(
     "当前没有需要审阅的方案",

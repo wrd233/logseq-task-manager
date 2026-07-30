@@ -49,6 +49,9 @@ function originalIdentity(commitId: string): string | undefined {
 
 function changedStateExplanation(code: string | undefined): string {
   const normalized = code?.toUpperCase() ?? "";
+  if (normalized.includes("MINI_PROJECT_RESTRUCTURE_EXECUTION_FAILED")) {
+    return "这次整理没有完成；已执行步骤已经恢复，正文和正式状态保持原样。";
+  }
   if (normalized.includes("OWNERSHIP")) {
     return "Primary Ownership 已在本次修改后变化；为避免覆盖新归属，不能直接撤销。";
   }

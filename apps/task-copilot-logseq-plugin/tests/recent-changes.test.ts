@@ -145,6 +145,21 @@ test("pending, recovery, failure, and undone are translated without inventing a 
   assert.equal(changes[3]!.availability, "这次修改已经通过逆向修改撤销，历史证据仍保留。");
 });
 
+test("a compensated MiniProject structure failure says the original content is restored", () => {
+  const changes = projectRecentChanges({
+    proposals: [proposal("proposal-1", rewrite)],
+    commits: [commit("proposal-commit:structure", "FAILED", {
+      errorCode: "V2_MINI_PROJECT_RESTRUCTURE_EXECUTION_FAILED",
+    })],
+  });
+
+  assert.equal(changes[0]!.status, "FAILED");
+  assert.equal(
+    changes[0]!.availability,
+    "这次整理没有完成；已执行步骤已经恢复，正文和正式状态保持原样。",
+  );
+});
+
 test("a failed inverse commit disables another Undo and explains which later state changed", () => {
   const changes = projectRecentChanges({
     proposals: [proposal("proposal-1", rewrite)],
