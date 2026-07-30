@@ -15,13 +15,15 @@
 
 ## 安装与升级
 
-1. 安装受支持的 Node 20；
+1. 安装 Node `>=20.19 <21`。安装器会在修改 Launcher 配置、LaunchAgent 或 Graph
+   authority 之前检查运行时；Node 21+、低于 20.19 或无法识别的版本会以
+   `LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED` 安全停止；
 2. 将 zip 解压到一个稳定、用户可控的目录。不要从 `/var/folders`、系统临时目录
    或会被自动清理的预览路径注册 Logseq Plugin；
 3. 构建包已完成时，从该稳定解压目录执行：
 
    ```bash
-   node task-copilot-launcher/dist/installer.js install \
+   /absolute/path/to/node20 task-copilot-launcher/dist/installer.js install \
      --graph-path "/absolute/path/to/your/logseq-graph" \
      --graph-id "your-graph-id"
    ```
