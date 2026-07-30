@@ -40,6 +40,19 @@ Plugin Manager reload 后系统状态为“可以正常使用 / 无需操作”�
 RECOVERY_REQUIRED 均为 0。截图中的 Closure/Provider 等词来自专用测试 Project 自身材料，
 不是全局错误或普通用户状态文案；不将该工程化测试内容冒充日常产品语言已全部清理。
 
+`872d2d4` / `684491f` 现已关闭 P0 RECOVERY_REQUIRED 代表子 Gate。真实
+Logseq 0.10.15 File Graph、host Light / Plugin Dark、约 1000×720 中，一个只包含两个
+`MOVE_BLOCK` 的用户来源 HIGH Proposal 经正式 Review 后，由 Computer Use 在真实正文完成
+step 0；Graph bridge 读回为 `VERIFIED`，step 1 以 `DESKTOP_DISCONNECTED` 进入
+`COMPENSATION_REQUIRED`。真实 Plugin Manager reload 后仍只显示同一恢复记录；用户确认
+“恢复到安全状态”后，Proposal/Commit 安全终止为 `FAILED/FAILED`，对象保持 `v4`，根与两个
+子 Block 的 UUID、内容和原顺序全部恢复。完整 quit/reopen 后 Service `READY`、待审阅 0。
+`872d2d4` 将终态 FAILED 归入折叠历史并正确解释已补偿结果；`684491f` 又把最近修改中的
+整份 Markdown Preview 压缩为首段摘要。新增正式状态、Runtime、Recovery 分支、Skill/
+Prompt/Validator 版本和写入权威均为 0；P0 仍因最终代表视觉总 Gate 保持
+`IN_PROGRESS_DESKTOP_GATES`，完整 Goal 继续 `IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/p0-recovery-required-frontstage-desktop-live-20260730.md`。
+
 `3883848` / `78528f7` 已关闭 P0 accepted-not-applied 代表 Partial。真实 Logseq 0.10.15
 File Graph、host Light / Plugin Dark、1000×720 中，一个 HIGH Proposal 完成审阅但未应用、
 真实 Plugin Manager reload、正式应用、inverse Undo 和再次 reload；正文
@@ -754,7 +767,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
-- 当前继续收敛 P0 RECOVERY_REQUIRED 与代表视觉总 Gate，并推进
+- 当前继续收敛 P0 代表视觉总 Gate，并推进
   P1 Attention/Block Marker 和 P2-D/P2-F 边界；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

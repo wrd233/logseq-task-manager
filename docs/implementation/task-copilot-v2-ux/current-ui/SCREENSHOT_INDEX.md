@@ -37,6 +37,23 @@ Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。
 | `screenshots/p0-pending-continue-user-language-current-dbc5243.jpg` | CURRENT | 修复构建中再次制造同一 receipt-backed 中断 | 顶栏和卡片均为用户语言；只有一个继续入口 |
 | `screenshots/p0-pending-final-health-current-dbc5243.jpg` | CURRENT | same-Commit resume、Undo、真实 reload 后检查系统 | 可以正常使用；无需操作 |
 
+### P0 RECOVERY_REQUIRED safety compensation — exact builds `872d2d4` / `684491f`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；约 1000×720。两个真实
+`MOVE_BLOCK` 中 step 0 由 Computer Use 在 Logseq 执行并经 Graph bridge 验证，step 1
+断开后进入 `COMPENSATION_REQUIRED`。Plugin Manager reload 后沿用同一记录恢复，完整
+quit/reopen 后 Service READY、待审阅 0、原 UUID/正文/顺序守恒。完整记录见
+`../logs/p0-recovery-required-frontstage-desktop-live-20260730.md`。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p0-recovery-review-empty-after-restart-current-684491f.jpeg` | CURRENT | 安全补偿后完整 quit/reopen，再打开待审阅 | 当前没有待审阅方案；两个终态失败只保留在折叠历史 |
+| `screenshots/p0-recovery-compensated-history-current-684491f.jpeg` | CURRENT | 打开最近修改与恢复 | 只显示一行操作摘要；明确已执行步骤恢复、正文和正式状态保持原样 |
+| `screenshots/p0-recovery-restored-source-after-restart-current-684491f.jpeg` | CURRENT | restart 后打开测试来源页 | 两个原子 Block 按原 UUID、内容和顺序恢复 |
+| `screenshots/p0-recovery-review-empty-after-restart-current-872d2d4.jpeg` | SUPERSEDED | 首次终态历史修复后 restart | 待审阅已归零；由 `684491f` 最新构建截图替代 |
+| `screenshots/p0-recovery-compensated-history-current-872d2d4.jpeg` | SUPERSEDED_UI | 首次打开补偿历史 | 状态正确但完整 Markdown Preview 过长；由 `684491f` 摘要压缩替代 |
+| `screenshots/p0-recovery-restored-source-after-restart-current-872d2d4.jpeg` | SUPERSEDED | 首次 restart 后打开来源页 | 正文守恒证据保留；由最新构建截图替代 |
+
 ### 连续使用 Pilot `PILOT-2026W31-A` — exact build `bc79ffd`
 
 Logseq `0.10.15`；File Graph `logseq`；host Light；约 1000×720。测试正文直接存在当前

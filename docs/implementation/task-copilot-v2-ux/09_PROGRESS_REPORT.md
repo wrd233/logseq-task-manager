@@ -39,7 +39,7 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；`3883848` / `78528f7` 又关闭 accepted-not-applied→reload→apply→Undo→reload、stale 历史分离和 PENDING→reload→same-Commit resume→Undo→reload 代表 Gate；RECOVERY_REQUIRED 代表 Desktop 与代表视觉总 Gate 仍 OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；`3883848` / `78528f7` 关闭 accepted-not-applied、stale 历史分离与 PENDING same-Commit resume；`872d2d4` / `684491f` 又关闭 RECOVERY_REQUIRED→reload→同记录安全补偿→restart→正文/UUID/顺序守恒，并将终态 FAILED 归档、压缩最近修改摘要；最终代表视觉总 Gate 仍 OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略、建议关注与 Block Marker 仍 OPEN；P1-D status consumers；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
@@ -72,6 +72,13 @@
   `372/372`；新一轮真实 Desktop 从 `OPEN v29` 中断至 `COMPLETED v30`，
   same-Commit resume 不重复递增，Undo 后为 `OPEN v31`，reload 最终健康。
   该修复没有新增状态、Runtime、Recovery 分支、Skill/Prompt/Validator 或写入权威。
+- `872d2d4` / `684491f` 随后完成真实 RECOVERY_REQUIRED：两个 MOVE step 中第一步通过
+  Logseq Desktop 应用和 Graph bridge 验证，第二步断开后进入统一补偿；Plugin Manager reload
+  后从同一记录恢复，补偿把两个原 UUID、内容和顺序恢复，对象版本不变。完整 quit/reopen 后
+  Service READY、待审阅为 0。终态 FAILED 只在折叠历史/最近修改保留，摘要不再重复完整
+  Markdown。该子 Gate `AUTOMATED_ONLY→DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净
+  `-1`；新增状态/Runtime/Recovery/Skill 0。证据见
+  `logs/p0-recovery-required-frontstage-desktop-live-20260730.md`。
 
 ### 2026-07-30 P1 Attention Now 有界 Pilot
 
@@ -101,8 +108,9 @@
 - P0-J `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`。新增正式
   状态、Runtime、Recovery 分支、Skill/Prompt/Validator、Attention 类型、Provider 调用
   与写入权威均为 `0`。
-- P0 仍由 RECOVERY_REQUIRED 代表 Desktop、代表视觉总 Gate 和 Final
-  Release 保持进行中。证据见
+- P0-J 关闭时 P0 仍由 RECOVERY_REQUIRED、代表视觉总 Gate 和 Final Release 保持进行中；
+  RECOVERY_REQUIRED 后续已由 `872d2d4` / `684491f` 关闭，当前只剩代表视觉总 Gate 与
+  Final Release。证据见
   `logs/p0-j-native-chinese-ime-desktop-live-20260729.md`。
 
 ### 2026-07-28 连续使用 Pilot Day 6 Waiting 恢复

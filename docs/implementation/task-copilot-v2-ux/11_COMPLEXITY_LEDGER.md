@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P0-J、P0 accepted-not-applied/stale 历史分离/PENDING same-Commit resume、P2-E 全链及有界恢复合同、P2-G Rebind 纠错/捕获取消安全、真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏、通用深色表面与首批到期 Attention 有界前台处置/recompute 已关闭；P1 真实 helpful/noise/跨会话 disposition/建议关注/Marker、P0 RECOVERY_REQUIRED 代表 Gate、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P0-J、P0 accepted-not-applied/stale 历史分离/PENDING same-Commit resume/RECOVERY_REQUIRED 安全补偿、P2-E 全链及有界恢复合同、P2-G Rebind/Restore/Migration 高风险代表链、通用深色表面与首批到期 Attention 有界前台处置/recompute 已关闭；P1 真实 helpful/noise/跨会话 disposition/建议关注/Marker、P0 最终视觉总 Gate、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -18,6 +18,22 @@
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
 ## 本轮变化（2026-07-30）
+
+### P0 RECOVERY_REQUIRED 同记录安全补偿（`872d2d4` / `684491f`）
+
+- Partial 净变化 `-1`：RECOVERY_REQUIRED 代表 Gate 从 `AUTOMATED_ONLY` 升为
+  `DONE_DESKTOP_REPRESENTATIVE`；新增长期 Partial `0`。
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator 版本 `0`、
+  写入权威 `0`。复用原 Proposal、SemanticCommit step ledger、Graph bridge、补偿步骤、
+  Review、最近修改和系统状态。
+- 删除重复表面：安全补偿完成后的 FAILED 不再占当前待审阅；工具栏、Review、最近修改都由
+  同一 ledger 投影。最近修改只取 Preview 首段，完整 Markdown 回到原审阅记录。
+- Desktop 采用一个双 MOVE 代表场景：真实 step 0、step 1 断开、Plugin Manager reload、
+  同记录确认恢复、完整 quit/reopen。对象版本、两个 UUID、正文和顺序守恒。
+- Provider flash/pro 的重复提问、Validator 拒绝与 timeout 没有推动单样本 Prompt 补丁；运行
+  默认恢复 flash，Skill 版本不变。用户来源 Proposal 用于恢复内核隔离，不冒充 LLM 成功。
+- 风险变化：Recovery 语义分裂从 `HIGH` 降为 `MEDIUM`；P0 最终视觉总 Gate、P1 质量门和
+  Final Release 仍阻断发布。
 
 ### P0 PENDING 同 Commit 续跑（`78528f7`）
 

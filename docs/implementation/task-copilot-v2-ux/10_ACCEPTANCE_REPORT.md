@@ -10,7 +10,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash/custom binding、ended formal boundary 与原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS，已为 DONE_DESKTOP_REPRESENTATIVE；`3883848` / `78528f7` 完成 accepted-not-applied 持续入口、stale 零写入/历史分离与 PENDING→reload→same-Commit resume→Undo→reload；RECOVERY_REQUIRED 代表 Desktop 与代表视觉总 Gate OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash/custom binding、ended formal boundary 与原生中文 IME PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS；accepted-not-applied、stale 历史分离、PENDING same-Commit resume 与 RECOVERY_REQUIRED→reload→同记录补偿→restart→正文/UUID/顺序守恒均为代表性 Desktop DONE；最终代表视觉总 Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C 三段纯派生/正式 Now 前台 + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-C 三段已在 `3d63d5a` 完成真实正式状态 Desktop 代表 Gate：“继续处理”含 reload、Dark 1001×720/733×720，“需要回看”含 Focus Blocked，“保持等待”含 Focus Paused，测试后恢复基线。`3097c39` 又让到期类 Signal 在同一 Now 卡片完成有界显示、两种 session disposition 与 reload/recompute，且不复制既有风险权威表面。P1-G Context Recovery 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker、真实 helpful/noise、跨会话 disposition 与建议关注仍 OPEN | P1-G、Now 和时间 Signal 子 Gate完成不等于 P1 完成；不得把一个人工样本升级为 Production |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A/B、P2-C/D、P2-E 全链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error、generation stale、写入前失败与重放安全合同 DONE；精确 `98df827` 完成真实 reload/当前空审阅证据，FAILED/STALE 卡为自动故障注入证据；P2-G Rebind 最新纠错指引/捕获取消安全、Restore 真实双失败人工恢复、Migration Activation/失败重试/窄栏 DONE | P2-D remaining；P2-F frontstage；显式正式化等价撤销入口核对；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
@@ -35,6 +35,13 @@ Undo 与再 reload 回到健康。RECOVERY_REQUIRED 仍只有自动化用户语�
 已经安全保存”和“继续原修改”。同一正式链再次完成 resume、Undo、Plugin Manager
 reload 与健康读回；组件回归 `372/372`。专用测试 Project 自身的工程化正文不计作
 普通 UI 文案通过，避免以测试材料替代日常语言验收。
+
+`872d2d4` / `684491f` 已把 RECOVERY_REQUIRED 从 `AUTOMATED_ONLY` 推进为
+`DONE_DESKTOP_REPRESENTATIVE`：真实 Logseq 先完成并验证第一个 MOVE step，第二步断开后
+持久进入 `COMPENSATION_REQUIRED`；Plugin Manager reload 仍从同一 ledger 显示一个恢复
+入口，确认恢复后原 UUID、正文和顺序恢复，对象保持 v4，Proposal/Commit 终止为 FAILED。
+完整 quit/reopen 后 Service READY、待审阅 0。终态失败已归档，最近修改只显示首段摘要。
+该结论不替代 P0 最终视觉总 Gate，也不关闭整体 Goal。
 
 `bfabf40` 已通过 Project 创建后落地与返回现场的代表性 UI Gate：真实 Logseq 0.10.15
 File Graph、Dark/Light 1000×720、Light 723×720 均显示当前状态、一个推进、预期成果、
@@ -138,11 +145,12 @@ Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
 - [x] accepted-not-applied 不静默；真实审阅后零写入、Plugin Manager reload 持续入口、
   最终应用/Undo/reload 与 stale 历史分离均通过
 - [x] PENDING 清楚；真实中断、reload、same-Commit resume、Undo 与最终健康通过
-- [ ] RECOVERY_REQUIRED 代表性 Desktop 前台清楚；自动合同已通过
+- [x] RECOVERY_REQUIRED 代表性 Desktop 前台清楚；真实部分执行、reload、同记录补偿、
+  restart 与正文/UUID/顺序守恒通过
 - [x] 即时 Undo 与最近修改可发现；同一 Commit identity、跨 reload 长期入口与真实逆向
   Commit/Graph 恢复已验证
 - [x] 工具栏只表示需要介入；安静态、连接风险数字与诊断路由已 Desktop 验证，
-  `RECOVERY_REQUIRED ↻` 仅自动验证
+  `RECOVERY_REQUIRED ↻` 已完成代表性 Desktop 恢复验证
 - [x] Service 日常无需终端；真实 LaunchAgent 安装、READY、更新、租约启动/结束与 crash recovery 通过
 - [x] 隐藏 Plugin reload 不要求先打开面板；non-blocking bootstrap 与宿主 ready 事件自动取得
   精确 Graph identity，新 lease 在 25 秒观察窗内保持，首次打开直接 READY
