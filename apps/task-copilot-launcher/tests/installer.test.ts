@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { installLauncher, LAUNCH_AGENT_LABEL, renderLaunchAgentPlist } from "../src/installer.ts";
+import {
+  assertSupportedInstallerNodeVersion,
+  installLauncher,
+  LAUNCH_AGENT_LABEL,
+  renderLaunchAgentPlist,
+} from "../src/installer.ts";
 
 async function fakePayload(root: string): Promise<string> {
   const payload = join(root, "payload");
@@ -29,6 +34,15 @@ test("LaunchAgent is argument-only and carries no token, Graph path, or shell co
   assert.match(plist, /RunAtLoad/);
   assert.match(plist, /KeepAlive/);
   assert.doesNotMatch(plist, /Program\b|Shell|token|graph-key|sqlite/);
+});
+
+test("installer accepts only the Node 20 runtime range used by the packaged native addon", () => {
+  assert.doesNotThrow(() => assertSupportedInstallerNodeVersion("20.19.0"));
+  assert.doesNotThrow(() => assertSupportedInstallerNodeVersion("20.20.2"));
+  assert.throws(() => assertSupportedInstallerNodeVersion("20.18.9"), /LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED/);
+  assert.throws(() => assertSupportedInstallerNodeVersion("21.0.0"), /LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED/);
+  assert.throws(() => assertSupportedInstallerNodeVersion("25.6.1"), /LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED/);
+  assert.throws(() => assertSupportedInstallerNodeVersion("not-a-version"), /LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED/);
 });
 
 test("installer creates one private Graph-bound runtime and bootstraps the exact user LaunchAgent", async () => {

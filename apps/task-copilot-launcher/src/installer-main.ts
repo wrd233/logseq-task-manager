@@ -1,4 +1,4 @@
-import { installLauncher } from "./installer.ts";
+import { assertSupportedInstallerNodeVersion, installLauncher } from "./installer.ts";
 
 function parse(args: string[]): { graphPath: string; graphId: string; databasePath?: string; provider?: { providerId: "deepseek"; baseUrl: string; model: string; apiKeyRef: string; timeoutMs?: number; maxOutputTokens?: number } } {
   if (args[0] !== "install") {
@@ -40,6 +40,7 @@ function parse(args: string[]): { graphPath: string; graphId: string; databasePa
 }
 
 try {
+  assertSupportedInstallerNodeVersion(process.versions.node);
   const result = await installLauncher(parse(process.argv.slice(2)));
   process.stdout.write(`${JSON.stringify(result)}\n`);
 } catch (error) {

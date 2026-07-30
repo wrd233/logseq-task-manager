@@ -44,6 +44,14 @@ function installError(code: string): never {
   throw new Error(code);
 }
 
+export function assertSupportedInstallerNodeVersion(version: string): void {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) installError("LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED");
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  if (major !== 20 || minor < 19) installError("LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED");
+}
+
 function validateIdentifier(value: string, field: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(value)) installError(`LAUNCHER_INSTALL_${field.toUpperCase()}_INVALID`);
   return value;
