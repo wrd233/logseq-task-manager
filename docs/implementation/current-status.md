@@ -18,6 +18,20 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+`70a7fe7` 又补齐 r5 发布包的真实安装态 Desktop Gate。直接从
+`task-copilot-v2-0.1.0-9e7a105-r5.zip` 解压的 installer 重验零参数
+fail-closed 与显式 Graph identity 重装；graph key/database authority 不变，安装态
+Launcher/Service hash 与 r5 payload 一致。Logseq 又将 Plugin 注册从临时解压
+目录替换为 `tmp/releases/...-r5/task-copilot-plugin`，完成真实 reload、完整
+quit/owned shutdown 与 reopen；重开后 iframe 仍指向稳定 r5 目录，Service 第
+1 次轮询即恢复，CLI `READY · objects 14`、Doctor `PASS`。业务 settings 保持，
+唯一差异是真实启用带来的 `disabled: true→false`。新增正式状态、Runtime、
+Recovery、Skill/Prompt 和长期 Partial 均为 `0`；从“包内安装器已验证”到
+“稳定包 Plugin + 安装 payload 完整生命周期已验证”的证据 Partial 净下降
+`1`。Final Release 仍为 `RELEASE_CANDIDATE_READY`，完整长期 Goal 仍为
+`IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/release-r5-installed-package-desktop-live-20260730.md`。
+
 `39d73a0` / `9e7a105` 已关闭 current-ui 中最后一项“MiniProject Grill / 原位重构只有历史
 Desktop”的证据缺口。真实 Logseq `0.10.15` File Graph、host Light / Plugin Dark、
 1000×720 中，正式 MiniProject 经五轮材料驱动 Grill 与一次 Preview 收敛；现有
@@ -29,7 +43,10 @@ Proposal/Commit Kernel 完成结构应用、reload、inverse Undo 与再次 relo
 Block 精确不变，Doctor `PASS`。当前发布包更新为
 `task-copilot-v2-0.1.0-9e7a105-r5.zip`，SHA-256
 `d3f2242d2a0c3721656a6a9f8b72052e3c3fe301d4ea33b0971d1eb5c43f83d3`，包内 Plugin hash
-与当前构建一致。新增正式状态、Runtime、Recovery、Skill 和长期 Partial 均为 `0`；关闭
+与同一 `9e7a105` 源码提交构建一致。`70a7fe7` 是文档-only 后续提交；必须的
+根级 rebuild 会把内嵌 build commit 更新为 `70a7fe7`，原始 JS hash 因此不同，但将该
+12 位 provenance 归一化后 JS 精确一致，CSS hash 也精确一致。新增正式状态、
+Runtime、Recovery、Skill 和长期 Partial 均为 `0`；关闭
 current-ui 证据 Partial `1`，Final Release 仍为 `RELEASE_CANDIDATE_READY`，完整长期 Goal
 仍为 `IN_PROGRESS`。证据见
 `task-copilot-v2-ux/logs/p2-ab-mini-project-current-build-regression-20260730.md`。
@@ -52,7 +69,8 @@ hash 一致性 PASS。新增正式状态、Runtime、Recovery、Skill 均为 `0`
 Creation 经五轮真实 DeepSeek Grill 与一次最终预览收敛；Preview、HIGH Review、审阅方案、
 确认应用、Project 落地、Plugin Manager reload、最近修改专用 Undo、再次 reload 全部通过。
 撤销后精确页面搜索只剩创建入口，CLI 回到 objects `14`，Doctor PASS、Commit healthy `0`。
-同一安装态无参数重装保留 graphKey/database authority；五个 Skill SHA 一致；当前
+同一安装态提供 Graph identity 且不传 `--database` 的重装保留
+graphKey/database authority；五个 Skill SHA 一致；当前
 Context Recovery Provider smoke 零正式写入。Release zip 通过 `unzip -t`，SHA-256 已记录；
 Runbook 与 CURRENT 截图同步。P1/P2 的首发边界由模糊 Partial 收敛为 release-boundary DONE：
 Attention 只开放确定性 bounded Pilot，P2-F/高噪声 Signal/Block Marker 保持 Shadow/OFF 且

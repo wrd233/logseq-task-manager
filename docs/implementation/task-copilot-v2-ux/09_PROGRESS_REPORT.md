@@ -45,6 +45,26 @@
 | P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A+B 当前 `39d73a0` / `9e7a105` 完成真实 Grill→Preview→Review→Commit→reload→Undo→reload，并把 Preview 影响移到首屏；P2-C 当前 `1549728` 完成 Blank 真实 Provider→Preview→HIGH Review→create→reload→Undo→reload；P2-D A/B/C/D 发布边界与一条共享 external Agent 代表链 DONE；P2-E 有界恢复合同 DONE；P2-F Shadow、默认关闭且不阻断首发；P2-G 高风险代表链有 Desktop。File Graph Light 为 bounded limitation |
 | 最终验收 | RELEASE_CANDIDATE_READY | Freeze 清单全部关闭；`9e7a105` 当前 zip、Plugin hash、MiniProject 当前 UI 与既有自然使用回归、authority、自动/Provider/Desktop 代表矩阵 PASS。候选包不等同于完整长期 Goal 结束 |
 
+### 2026-07-30 r5 安装包真实生命周期 Gate
+
+- 当前 HEAD `70a7fe7`、Logseq `0.10.15` File Graph `logseq`；稳定解压目录
+  `tmp/releases/task-copilot-v2-0.1.0-9e7a105-r5/` 为实际安装来源，不使用
+  `/var/folders` 临时注册；
+- r5 installer 真正零参数执行以 `LAUNCHER_INSTALL_ARGUMENTS_INVALID` / exit `2`
+  安全停止；显式 Graph identity、不传 database 的重装为 `INSTALLED`，
+  graph key 与 `tmp/runtime/manual-v2/task-copilot.sqlite` authority 前后不变；
+- 安装态 Launcher/Service 与 r5 payload SHA-256 精确一致；包内 Plugin 是
+  `9e7a105` 源码构建。必须的 `70a7fe7` 根级 rebuild 只更换内嵌 build-commit
+  provenance：归一化后 JS 精确一致，CSS hash 精确一致。Plugin Manager 完成
+  启用、reload、完整 quit 和
+  reopen，owned Service 第 `6` 次轮询前停止，重开第 `1` 次轮询恢复；
+- 重开后 Task Copilot iframe 仍指向稳定 r5 目录，CLI `READY · objects 14`，
+  Doctor `PASS`；唯一 warning 为既有 stale Proposal。无正式写入，新增状态/
+  Runtime/Recovery/Skill `0`，安装态证据 Partial 净变化 `-1`。
+- CURRENT 截图为 `release-r5-stable-package-now-current-70a7fe7.jpg` 和
+  `release-r5-stable-package-now-restart-current-70a7fe7.jpg`；临时路径截图已删除。
+  完整证据见 `logs/release-r5-installed-package-desktop-live-20260730.md`。
+
 ### 2026-07-30 P2-A/B MiniProject current-build Gate
 
 - `39d73a0` 用真实 MiniProject 完成五轮自适应 Grill、Preview、HIGH Review、审阅方案、确认
@@ -83,7 +103,8 @@
 
 ### 2026-07-30 Release Freeze 基线代表 Gate
 
-- `1549728` 当前构建通过同 Graph 无参数重装 authority、五个 Skill source/payload/安装态、
+- `1549728` 当前构建通过提供 Graph identity 且不传 `--database` 的重装
+  authority、五个 Skill source/payload/安装态、
   当前 Context Recovery 真实 Provider smoke 与完整 Blank Project create→reload→Undo→reload；
 - Project Creation 使用五轮真实 Grill + 一次最终预览，Validator rejection/retry/abstention
   `0/0/0`。模型能接受用户对“固定日会”的纠正，但逐项追问仍偏长；不因此升级 Skill；
@@ -92,7 +113,8 @@
 - Release zip `unzip -t` PASS，SHA-256
   `38120182627f89946b5deafdd94be81b2cb5e3c05169a6b08b00da61aa5b2c04`；Runbook 覆盖安装、
   升级、启动、关闭、恢复与安全卸载；从 zip 解压出的 installer 又对当前测试 Graph 完成
-  真实无参数 install，authority 与安装二进制 hash 保持，Service READY、Doctor PASS；
+  真实 Graph-identity install（不传 `--database`），authority 与安装二进制 hash
+  保持，Service READY、Doctor PASS；
 - 发布前没有 skipped test；TODO 命中全为 Logseq Marker 合同。audit 剩余 `2 high / 1
   critical` 均为既有 `@logseq/libs` 上游 runtime 风险，不执行无效 major force；
 - P1/P2 从模糊 `IN_PROGRESS/...PARTIAL` 收敛为各自 release boundary DONE；Shadow、bounded

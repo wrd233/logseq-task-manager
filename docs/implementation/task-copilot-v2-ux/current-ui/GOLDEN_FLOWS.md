@@ -1,5 +1,14 @@
 # Current Golden Flows
 
+> CURRENT 取代说明（2026-07-30，HEAD `70a7fe7`）：本文后续各节是按时间累积的
+> Desktop 证据，其中嵌入的 `OPEN` 只代表当时 commit 的历史检查点，不是当前
+> 发布状态。当前 P0 为 `DONE_DESKTOP_REPRESENTATIVE`；P1 release boundary DONE，
+> Attention 为 bounded Pilot、其他高噪声 Signal Shadow、Block Marker OFF；P2-C/P2-D/
+> P2-E/P2-G release boundary DONE，P2-F Shadow/non-blocking。File Graph Page Head/Light 与
+> 无可靠 identity 宿主位置是 bounded limitation。当前产品口径以
+> `current-status.md`、`09_PROGRESS_REPORT.md`、`10_ACCEPTANCE_REPORT.md` 和
+> `current-ui/CURRENT_UI_MAP.md` 为准；历史段落不得再将已关闭的 P2-D/P2-G 写回 Partial。
+
 ## RC Natural Block → Proposal → Apply → reload → Undo
 
 状态：`DONE_CURRENT_BUILD_NATURAL_USE_REGRESSION`

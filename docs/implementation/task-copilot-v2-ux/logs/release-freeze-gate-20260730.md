@@ -16,7 +16,7 @@
   recovery rehearsal 全部通过；
 - 发布前源码搜索没有 skipped test；命中的 `TODO` 全部是 Logseq 执行 Marker 合同，不是
   未实现占位；silent-overwrite 与 Pending Recovery 继续由根级规则覆盖；
-- 同 Graph 无参数重装保留既有 authority：
+- 提供 Graph identity 且不传 `--database` 的同 Graph 重装保留既有 authority：
   `graph-a00da3a2f9b4c5a53b393c03a0c234d0562be1905965dd11e50b96f10514ce46` 与
   `tmp/runtime/manual-v2/task-copilot.sqlite` 均未变化；
 - 安装态 Service/Launcher SHA-256 分别为
@@ -60,8 +60,9 @@
 - SHA-256：`38120182627f89946b5deafdd94be81b2cb5e3c05169a6b08b00da61aa5b2c04`
 - 大小：约 `10 MiB`
 - `unzip -t`：PASS
-- 从 zip 解压出的 `task-copilot-launcher/dist/installer.js` 对当前测试 Graph 执行真实无参数
-  install：`INSTALLED`；graphKey/databasePath 不变，安装后二进制 hash 保持一致，Service
+- 从 zip 解压出的 `task-copilot-launcher/dist/installer.js` 对当前测试 Graph 执行
+  Graph-identity install（不传 `--database`）：`INSTALLED`；graphKey/databasePath 不变，
+  安装后二进制 hash 保持一致，Service
   `READY · objects 14`、Doctor PASS；
 - 内容：Plugin、Launcher/Service payload、SQLite native runtime、五个 Skills、CLI 与
   `13_RELEASE_RUNBOOK.md`；不包含 Graph、SQLite 数据、日志、截图、API Key 或凭据。

@@ -13,7 +13,17 @@
 | P0 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K、普通 Block route、系统状态、Service lifecycle、Graph authority 与统一 Commit/Recovery 自动矩阵 PASS | Focus/Condition/LOW apply/Block-Page route/four-nav/toolbar/recent changes/system status；reload/quit/no-arg reinstall/Graph switch；palette/Slash/binding/IME；accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/restart 均有代表 Desktop。`7e72075` 用最新 Now、待审阅、更多、健康页合并既有 733px、主题和宿主有界证据关闭总 Gate | P0 阶段完成；File Graph host limitations 保留，P1/P2/Final Release 与完整 Goal 继续 IN_PROGRESS |
 | P1 | DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW | P1-A/B Dynamic Shadow + P1-C 三段纯派生/正式 Now + P1-D status consumers + P1-E Block Marker 有界宿主拒绝 + P1-F Project reentry/Page Head bounded + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | `3097c39` / `c9919f2` 四个独立 session 证明取消不误记 acted、later/notRelevant 只安静当前 session、事实解除后自动失效并跨 reload 保持；`1549728` 当前构建又完成 Context Recovery 真实 Provider smoke、Project v31 零正式写入 | 时间 Attention 为 bounded Pilot；建议关注、Waiting 过久、Project 静默和跨对象观察 Shadow；Block Marker OFF；File Graph Page Head bounded。上述均明确不阻断首发，不保留模糊 Partial |
 | P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A/B、P2-C、P2-D 路由/共享 external Agent、P2-E、P2-F shadow/provider、P2-G 高风险代表链 PASS | `39d73a0` / `9e7a105` 完成当前 MiniProject Grill/结构 Preview/Review/Commit/reload/Undo/reload 与压缩首屏；`8d24569` 完成 shared external Agent；`1549728` 完成最新 P2-C。最终 MiniProject 对象 v4、原四 Block 不变、Doctor PASS。P2-E/G 既有证据保持 | P2-F 与扩展研究能力默认关闭，不阻断首发；File Graph Light 为 bounded host limitation |
-| Final Release | RELEASE_CANDIDATE_READY | 根级检查、145 条规则、恢复演练、安装态/authority、Skill、真实 Provider、Project/MiniProject create/Undo、当前自然 Block apply/Undo、zip 完整性与解压安装 PASS | Preview 截图对应 `9e7a105` 源码提交；zip 包内 Plugin hash 与最终根级构建一致；Launcher/Service/Skill payload 沿用 `1549728` 已验证安装基线；Service READY、Doctor PASS | 候选包可交付；完整长期 Goal仍继续自然日用质量与真实发布后证据，不把 RC 冒充 overall complete |
+| Final Release | RELEASE_CANDIDATE_READY | 根级检查、145 条规则、恢复演练、安装态/authority、Skill、真实 Provider、Project/MiniProject create/Undo、当前自然 Block apply/Undo、zip 完整性与解压安装 PASS | `70a7fe7` 已直接从最终 r5 包安装 Launcher/Service/Plugin；稳定 Plugin 路径的 reload、quit/owned shutdown/reopen、Service 重连和 Doctor PASS 均有 CURRENT 证据 | 候选包可交付；完整长期 Goal仍继续自然日用质量与真实发布后证据，不把 RC 冒充 overall complete |
+
+`70a7fe7` 下又对最终 r5 zip 完成真实可持续安装验收：包内 installer
+真正零参数 fail-closed，显式 Graph identity 重装不更换 graph key/database
+authority；Launcher/Service 安装 hash 与 r5 payload 一致。Plugin 从稳定的
+`tmp/releases/...-r5/task-copilot-plugin` 手动载入，而不是临时目录；真实
+reload 和完整 quit/reopen 后 iframe 仍指向该路径，owned Service 正确停止并
+重连。终态 CLI `READY · objects 14`、Doctor `PASS`，只有一条既有 stale
+Proposal warning，本轮零正式写入。该证据关闭“发布包仅做包内检查”的
+最后安装态疑义，但不把 `RELEASE_CANDIDATE_READY` 写成完整长期 Goal
+完成。证据见 `logs/release-r5-installed-package-desktop-live-20260730.md`。
 
 `39d73a0` / `9e7a105` 又把 P2-A/B 从“历史 Desktop、当前截图 OPEN”推进为当前构建代表
 验收：真实材料驱动 Grill 只围绕边界、成果、完成证据和旧材料去向追问，随后生成零丢失
