@@ -41,9 +41,29 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K 的自动与代表 Desktop Gate 完成；P0-H reload/quit/no-arg reinstall authority/Graph switch，P0-J palette/Slash/custom binding/原生中文 IME，P0-K Block/Page/来源移动删除/Query-reference-sidebar bounded，accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/reload/restart 均有真实证据。`7e72075` 以最新 Now、待审阅空态、更多和系统健康页合并既有 733px、主题与宿主证据，关闭最终分层代表视觉总 Gate；File Graph Page Head/identity/真实 Light 保持 bounded host limitation，不扩成笛卡尔积 |
-| P1 | IN_PROGRESS_P1G_DONE_ATTENTION_BOUNDED_PILOT_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 正式 Now 已完成三段纯派生与代表 Desktop；`REVIEW_DUE/DUE` 在同一卡片完成有界显示、session disposition、reload/recompute、取消不误记 acted 和事实解除自动失效。Dynamic Shadow 不替换 authority；session-only 为首发合同，不建立跨会话提醒权威；自然 helpful/noise 继续 Pilot 而不阻断首发。P1-E 为 `DONE_BOUNDED_HOST_REJECTION`，Block Marker OFF；P1-F File Graph Page Head bounded；P1-G 真实 Provider/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；建议关注、Waiting 过久、Project 静默和跨对象观察保持 Shadow |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_NON_BLOCKING_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C 主链有 Desktop；P2-D A/B/C/D 发布边界与代码一致，`8d24569` 又以多 Block 移动完成一条共享 external Agent Context→Review→Commit→reload→Undo→reload 代表链，真实 Undo 缺陷经同一 Recovery Kernel 安全补偿并修复；P2-E 有界恢复合同 DONE；P2-F 明确为 Shadow、默认关闭且不阻断首发；P2-G 高风险代表链有 Desktop。File Graph 自身 Light host Gate 为 bounded limitation |
-| 最终验收 | IN_PROGRESS_RELEASE_FREEZE | `10_ACCEPTANCE_REPORT.md`、`12_RELEASE_FREEZE_CHECKLIST.md` |
+| P1 | DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW | P1-A/B Dynamic Shadow 不替换正式 Now；P1-C 正式 Now 三段纯派生与代表 Desktop DONE；`REVIEW_DUE/DUE` 在同一卡片完成 bounded Pilot、session disposition、reload/recompute、取消不误记 acted 和事实解除自动失效。session-only 为首发合同，不建立跨会话提醒权威；自然 helpful/noise 继续 Pilot 而不阻断首发。P1-E 为 `DONE_BOUNDED_HOST_REJECTION`、Block Marker OFF；P1-F File Graph Page Head bounded；P1-G 当前构建真实 Provider smoke 与既有 error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；建议关注、Waiting 过久、Project 静默和跨对象观察保持 Shadow |
+| P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A+B DONE；P2-C 当前 `1549728` 又完成 Blank 真实 Provider→Preview→HIGH Review→create→reload→Undo→reload；P2-D A/B/C/D 发布边界与一条共享 external Agent 代表链 DONE；P2-E 有界恢复合同 DONE；P2-F Shadow、默认关闭且不阻断首发；P2-G 高风险代表链有 Desktop。File Graph Light 为 bounded limitation |
+| 最终验收 | RELEASE_CANDIDATE_READY | Freeze 清单全部关闭；当前 zip、解压安装、authority、自动/Provider/Desktop 代表矩阵 PASS。候选包不等同于完整长期 Goal 结束 |
+
+### 2026-07-30 Release Freeze 当前构建代表 Gate
+
+- `1549728` 当前构建通过同 Graph 无参数重装 authority、五个 Skill source/payload/安装态、
+  当前 Context Recovery 真实 Provider smoke 与完整 Blank Project create→reload→Undo→reload；
+- Project Creation 使用五轮真实 Grill + 一次最终预览，Validator rejection/retry/abstention
+  `0/0/0`。模型能接受用户对“固定日会”的纠正，但逐项追问仍偏长；不因此升级 Skill；
+- Undo 后专用 Project Page 精确搜索只剩“创建 Page”，CLI objects `15→14`，Doctor PASS、
+  Commit healthy `0`，测试 Project/Page 已移除，Audit 保留；
+- Release zip `unzip -t` PASS，SHA-256
+  `38120182627f89946b5deafdd94be81b2cb5e3c05169a6b08b00da61aa5b2c04`；Runbook 覆盖安装、
+  升级、启动、关闭、恢复与安全卸载；从 zip 解压出的 installer 又对当前测试 Graph 完成
+  真实无参数 install，authority 与安装二进制 hash 保持，Service READY、Doctor PASS；
+- 发布前没有 skipped test；TODO 命中全为 Logseq Marker 合同。audit 剩余 `2 high / 1
+  critical` 均为既有 `@logseq/libs` 上游 runtime 风险，不执行无效 major force；
+- P1/P2 从模糊 `IN_PROGRESS/...PARTIAL` 收敛为各自 release boundary DONE；Shadow、bounded
+  host limitation 与 future enhancement 明确不阻断首发。新增状态/Runtime/Recovery/Skill
+  `0`，关闭既有 Release Partial `2`，新增 `0`，净变化 `-2`。Final Release 与完整 Goal
+  继续 `IN_PROGRESS`；Final Release 为 `RELEASE_CANDIDATE_READY`，证据见
+  `logs/release-freeze-gate-20260730.md`。
 
 ### 2026-07-30 P0 最终代表视觉总 Gate
 
@@ -457,9 +477,9 @@ release-boundary drift Partial `1`，但外部 Agent 完整产品链仍 OPEN，P
   Page，正式状态没有变化。
 - Provider/Skill：本 Slice 没有 Provider 调用；Validator 拒绝率、模型重试与 Skill 版本
   变化不适用。新增正式状态、Runtime、Recovery 分支、Prompt/Validator 和写入权威均为 0。
-- 状态：关闭“新 Project Page 价值落地”的一个代表性 UI Partial；阶段级 Partial 新增 0，
-  P2-C 仍保持 `ALL_SOURCES_DONE_VISUAL_GATES_OPEN`，最新构建整条 create→Undo 和其他宿主
-  组合仍 OPEN。
+- 状态：当时关闭“新 Project Page 价值落地”的一个代表性 UI Partial；阶段级 Partial
+  新增 0，P2-C 当时保持 `ALL_SOURCES_DONE_VISUAL_GATES_OPEN`。后续 `1549728` 已关闭
+  最新构建 create→reload→Undo→reload 代表 Gate；其他宿主按分层矩阵为 bounded。
 
 ### 2026-07-28 Project Preview / HIGH Review 交互压缩
 

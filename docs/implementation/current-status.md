@@ -9,13 +9,28 @@ V2 v1.1 底座完成结论不变；当前继续按
 base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: DONE_DESKTOP_REPRESENTATIVE
-p1_status: IN_PROGRESS_P1G_DONE_ATTENTION_BOUNDED_PILOT_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_DONE_BOUNDED_EXTERNAL_AGENT_REPRESENTATIVE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_NON_BLOCKING_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE
+p1_status: DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW
+p2_status: DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW
+final_release_status: RELEASE_CANDIDATE_READY
 overall_goal: IN_PROGRESS
 ```
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
+
+`1549728` 当前构建完成 Release Freeze 的 Project create→reload→Undo 代表回归和发布包。
+真实 Logseq `0.10.15` File Graph、host Light / Plugin Dark、1000×720 中，Blank Project
+Creation 经五轮真实 DeepSeek Grill 与一次最终预览收敛；Preview、HIGH Review、审阅方案、
+确认应用、Project 落地、Plugin Manager reload、最近修改专用 Undo、再次 reload 全部通过。
+撤销后精确页面搜索只剩创建入口，CLI 回到 objects `14`，Doctor PASS、Commit healthy `0`。
+同一安装态无参数重装保留 graphKey/database authority；五个 Skill SHA 一致；当前
+Context Recovery Provider smoke 零正式写入。Release zip 通过 `unzip -t`，SHA-256 已记录；
+Runbook 与 CURRENT 截图同步。P1/P2 的首发边界由模糊 Partial 收敛为 release-boundary DONE：
+Attention 只开放确定性 bounded Pilot，P2-F/高噪声 Signal/Block Marker 保持 Shadow/OFF 且
+不阻断首发。新增状态、Runtime、Recovery、Skill 均为 0；关闭两个既有 Release Partial，
+净变化 `-2`。Final Release 已到 `RELEASE_CANDIDATE_READY`；完整长期 Goal仍为
+`IN_PROGRESS`，不把候选包等同于长期日用完成。证据见
+`task-copilot-v2-ux/logs/release-freeze-gate-20260730.md`。
 
 `8d24569` 关闭 P2-D C 类外部 Agent 完整产品链 Partial。真实 Logseq `0.10.15` File Graph、
 host Light / Plugin Dark、1000×720 中，Task Copilot 从正式 MiniProject 与实时 Block 子树导出
@@ -360,7 +375,8 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
 真实 Provider 共 9 次显式流程调用、Validator 拒绝 0、
 自动重试 0；发现一次已明确 Page 关系仍被重复提问，登记为既有 Skill 的质量债，不新增
 样本 Prompt、Skill 版本或 Validator 分支。P2-C 整体仍为
-`ALL_SOURCES_DONE_VISUAL_GATES_OPEN`，完整 Goal 仍为 `IN_PROGRESS`。
+该时点为 `ALL_SOURCES_DONE_VISUAL_GATES_OPEN`；此视觉 Gate 已由后续 `1549728` Release
+代表链关闭，完整 Goal 仍为 `IN_PROGRESS`。
 
 - P0-A 正式 Block Focus 现场入口：自动测试与真实 Logseq Desktop 的加入、移出、会话内 Undo、
   Local Service 读回均已通过；

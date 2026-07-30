@@ -5,6 +5,32 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### Release Freeze Context Recovery smoke — exact build `1549728`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。无参数重装后真实
+reload 当前插件，在正式 Project 上运行 `recover-context@1.3.0`：生成一段增量恢复摘要和
+一条“值得留意”，Object 保持 `v31`，Doctor PASS，没有正式写入。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/context-recovery-release-smoke-current-1549728.jpeg` | CURRENT | 在 Project 工作区点击“恢复上下文”并等待真实 Provider | 确定性项目状态保留；AI 只补一个增量关注点；可打开当前项目或重新生成 |
+
+### Release Freeze Project create → reload → Undo — exact build `1549728`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。Blank 来源经五轮
+真实 Grill 和一次最终预览进入现有 Proposal/Commit/Undo；测试 Project 与专用 Page 最终已
+撤销，Object `15→14`、Doctor PASS、Commit healthy `0`。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/project-create-freeze-preview-current-1549728.jpeg` | CURRENT | 生成最终阅读预览 | 目标/当前推进、会改变、不会改变与下一步；尚未应用 |
+| `screenshots/project-create-freeze-high-review-current-1549728.jpeg` | CURRENT | 进入待我确认 | 首屏先显示创建 Project/Page、来源不变与退出安全；主操作是审阅方案 |
+| `screenshots/project-create-freeze-confirm-apply-current-1549728.jpeg` | CURRENT | 审阅方案后进入最终应用前 | 明确上一步尚未应用，唯一主操作是确认创建项目 |
+| `screenshots/project-create-freeze-created-current-1549728.jpeg` | CURRENT | 显式勾选并确认应用 | Project/Page 已创建；当前状态、当前推进、成果和入口可见；可撤销 |
+| `screenshots/project-create-freeze-after-reload-current-1549728.jpeg` | CURRENT | Plugin Manager 真实 reload 后重新打开 | 新 Project 仍在 Now，并保持同一正式投影 |
+| `screenshots/project-create-freeze-undone-current-1549728.jpeg` | CURRENT | 从最近修改确认专用 Project Creation Undo | Project 创建已撤销，专用空 Page 已移除，历史保留 |
+| `screenshots/project-create-freeze-undone-reload-current-1549728.jpeg` | CURRENT | 再次 reload 后精确搜索 Project Page | 只有 Create page；正式 Page 已不存在 |
+
 ### P2-D 外部 Agent 受控结构治理 — exact build `8d24569`
 
 Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。外部 Agent 只准备

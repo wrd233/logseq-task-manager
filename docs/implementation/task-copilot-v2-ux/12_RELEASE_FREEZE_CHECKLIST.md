@@ -1,6 +1,6 @@
 # Task Copilot V2 Release Freeze Checklist
 
-> 状态：`IN_PROGRESS`
+> 状态：`RELEASE_CANDIDATE_READY`
 > Freeze 起点：`8d24569` 及其 P2-D 当前证据提交之后
 > 原则：不新增大功能、正式状态、顶层导航、Skill 家族、Agent Runtime 或 Recovery Kernel；
 > 只处理 Release blocker、明确回归和严重体验问题。
@@ -24,16 +24,33 @@
 
 ## Freeze 中仍需复核
 
-- [ ] 对当前 freeze commit 重新执行 Release 代表矩阵：安装/无参数重装/升级、reload、
-  quit/reopen、Graph switch/切回、正常操作、失败、Undo、Recovery；
-- [ ] 核对当前 Skill catalog、安装态和运行态只使用明确 active 版本，并用代表性真实 Provider
-  样本确认无回归；
-- [ ] 核对 Project create→reload→Undo、Context Recovery、Light/Dark/窄栏的当前构建证据；
-- [ ] 生成并校验可安装 Release 包；同步安装、启动、关闭、恢复、升级与卸载说明；
-- [ ] 完成发布前 TODO/FIXME/stub、skipped、silent overwrite、Pending Recovery、依赖审计与
-  当前截图/文档一致性检查；
-- [ ] 只把真实 Release blocker 保持为 OPEN；bounded host limitation 与默认关闭研究能力
+- [x] 对当前 freeze commit 执行分层 Release 代表矩阵：无参数重装保留 authority；当前 Plugin
+  reload、真实 Provider、Project create→reload→Undo→reload PASS；quit/reopen、owned
+  shutdown、Graph switch/切回与失败/Recovery 复用完全相同 Launcher/Service payload 的既有
+  Desktop 证据，不机械重跑未受影响的宿主 Gate；
+- [x] 核对当前 Skill catalog、安装态和运行态只使用明确 active 版本；五个 Skill 的源文件、
+  payload、安装态和 Service catalog SHA-256 一致。`1549728` 当前构建又用
+  `recover-context@1.3.0` 完成一次真实 Provider Desktop smoke，Project v31 保持零写入；
+- [x] 核对 Project create→reload→Undo 与 Context Recovery 当前构建证据；当前 Dark
+  1000×720 主链重新取证，Light/窄栏使用未发生样式变化的既有代表 Gate，不扩成笛卡尔积；
+- [x] 生成并校验可安装 Release 包；`unzip -t` PASS，SHA-256 为
+  `38120182627f89946b5deafdd94be81b2cb5e3c05169a6b08b00da61aa5b2c04`；安装、启动、
+  关闭、恢复、升级与安全卸载说明已同步到 `13_RELEASE_RUNBOOK.md`；又直接从解压包执行
+  无参数 install，authority/hash 保持、Service READY、Doctor PASS；
+- [x] 完成发布前 TODO/FIXME/stub、skipped、silent overwrite、Pending Recovery、依赖审计与
+  当前截图/文档一致性检查；没有 skipped test，源码 TODO 命中均为 Logseq Marker 合同；
+- [x] 只把真实 Release blocker 保持为 OPEN；当前没有未解释的代码/数据安全 blocker。
+  上游 SDK advisory、bounded host limitation、Shadow 与默认关闭研究能力均列入已知边界，
   不冒充 blocker。
+
+## 当前依赖审计
+
+- `1549728` 将 ESLint 开发链的 `brace-expansion` 从 `5.0.7` 升至 `5.0.9`，audit 从
+  `4` 项降为 `3` 项，根级检查保持 PASS；
+- 剩余 `2 high / 1 critical` 都来自 `@logseq/libs@0.0.17` 的 DOMPurify/lodash runtime；
+- 既有 ADR-0007 的结论仍成立：npm 建议的 `@logseq/libs@0.3.4` 不能消除当前 advisory，
+  type-only 又不能在 Logseq 0.10.15 建立 `window.logseq`。因此保留为显式上游发布风险，
+  不执行 `npm audit fix --force`。
 
 ## 首发默认关闭与已知限制
 
@@ -43,5 +60,6 @@
 - P2-F 保持 Shadow；
 - Association 与 Project due 不从 Project Router 正式开放；
 - File Graph Page Head 与真实 host Light 能力按宿主限制安全隐藏或有界降级；
-- 无可靠 identity 的 Query/reference/sidebar 位置不猜测目标。
-
+- 无可靠 identity 的 Query/reference/sidebar 位置不猜测目标；
+- 直接显式标记已经产生并发生后续变化的正式对象不提供通用“删除对象”按钮；新建且保持
+  精确原状态的 Proposal 正式化继续支持既有安全 Undo，其他情况使用 Lifecycle/受控恢复。

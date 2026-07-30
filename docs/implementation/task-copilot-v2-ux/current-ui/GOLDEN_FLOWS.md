@@ -28,7 +28,7 @@ CURRENT 权威截图为 `p1-g-07`～`13`，完整记录见
 
 ## P2-C Blank Project Creation
 
-状态：`ALL_SOURCES_DONE_VISUAL_GATES_OPEN`
+状态：`DONE_RELEASE_BOUNDARY_CURRENT_BUILD_CREATE_RELOAD_UNDO`
 
 1. 项目 → 正式事项与创建 → 开始梳理 Project；
 2. Service 构造 Blank Context，真实 DeepSeek 每轮只处理一个机器选定的不确定性；
@@ -73,7 +73,14 @@ Review 代表性 Light/窄栏已关闭；新 Project Page、其他宿主位置�
 折叠。用户点击“开始当前推进”时，Plugin 先按当前版本和唯一 active Primary Anchor 重验，
 再解析受控 Project Page；成功后关闭面板并停留在同一 Logseq Page。真实 Desktop 覆盖
 Dark/Light 1000×720 和 Light 723×720。该 Gate 没有 Provider 调用或正式写入，也没有替代
-旧 create/reload/Undo 链；最新构建重新执行整条 create→Undo 仍属于集中回归。
+旧 create/reload/Undo 链。
+
+`1549728` 已完成集中回归：Blank 来源五轮真实 Grill 明确结果、边界、证据、闭环与当前
+推进，第六次调用生成最终预览；六次均一次通过，Validator rejection/retry/abstention
+`0/0/0`。Preview、HIGH Review、“审阅方案/确认应用”、正式创建、Plugin Manager reload、
+最近修改专用 Undo、再次 reload 全链通过。撤销后精确页面搜索只提供“创建 Page”，CLI
+objects 回到 `14`、Doctor PASS、Commit healthy `0`。当前截图与 exact code build 一致。
+因此 P2-C release boundary DONE；逐项 Grill 偏长继续作为质量债，不升级 Skill、不阻断首发。
 
 ## P2-D MEDIUM Project 当前摘要
 

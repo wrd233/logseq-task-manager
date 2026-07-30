@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | MEDIUM | P0、P1-G、P1-E、P1 Attention 边界、P2-D 共享外部 Agent、P2-E 有界恢复与 P2-G 高风险代表链已关闭。P1 自然日用质量继续 Pilot；P2-F 明确 Shadow/non-blocking；Final Release Freeze 仍 OPEN | Freeze 期间不新增能力面；只关闭 Release blocker、当前构建代表 Gate 和文档/安装态漂移 | 是 |
+| Partial 长期堆积 | LOW-MEDIUM | P0 DONE；P1/P2 release boundary DONE；Attention 自然日用质量继续 bounded Pilot；P2-F 明确 Shadow/non-blocking；Release package/runbook 与最新 Project create/Undo Partial 已关闭，仅 Final Release Freeze 最终签署 OPEN | Freeze 期间不新增能力面；只处理真实 Release blocker、明确回归和交付一致性 | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -732,3 +732,17 @@
   Primary Anchor / OPEN / vN`；技术事实仍保留在日志、Audit 与诊断中。
 - Desktop 矩阵只增加普通 Page 与受控 Project Page 两个高频代表场景，没有扩成主题/
   viewport/宿主笛卡尔积。Partial 堆积仍为 HIGH，但本轮净下降 `1`。
+
+### Release Freeze 当前构建收口（2026-07-30，`1549728`）
+
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator 版本 `0`；
+- 删除/退休机制 `0`；没有为了 Release 包、Provider smoke 或 Project 回归新建框架；
+- P1/P2 的 release boundary 从模糊 `IN_PROGRESS/...PARTIAL` 收敛为 DONE；仍研究的
+  Attention helpful/noise、P2-F、DB Graph Page Head 和 Block Marker 均有明确
+  bounded/Shadow/OFF 分类，不再冒充 Release blocker；
+- 当前 Blank Project Creation 真实调用六次 Provider（五轮 Grill + 一次预览），rejection、
+  retry、abstention 均为 `0`。逐项追问偏长作为既有质量债，不升级 Skill；
+- 发布前 TODO/skipped 审计不引入新台账：skipped `0`，源码 TODO 命中均为 Logseq Marker；
+- Release package/runbook 与 latest Project create/reload/Undo 两个既有 Partial 关闭，新增
+  Partial `0`，本轮净变化 `-2`；Partial 风险 `MEDIUM→LOW-MEDIUM`；
+- 剩余 upstream SDK advisory 明确记录，不用无效 major force 制造兼容性 Partial。
