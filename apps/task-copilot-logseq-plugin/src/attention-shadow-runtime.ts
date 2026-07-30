@@ -1,9 +1,11 @@
 import {
   AttentionShadowRepository,
+  attentionSignalId,
   detectDeterministicAttentionSignals,
   mergeDeterministicAttentionSignals,
   projectV2DynamicNowShadow,
   type AttentionDetectorSnapshot,
+  type AttentionSignalCandidate,
   type AttentionSignalType,
   type CrossObjectObservationDraft,
 } from "@task-copilot/application";
@@ -45,6 +47,20 @@ export interface DynamicNowShadowRuntimeSummary {
   reviewOverflowCount: number;
   waitingOverflowCount: number;
   focusOverload: boolean;
+}
+
+export interface AttentionNowPilotHint {
+  signalId: string;
+  objectId: string;
+  signalType: "REVIEW_DUE" | "DUE";
+}
+
+export type AttentionNowPilotDisposition = "LATER" | "NOT_RELEVANT";
+
+export interface AttentionNowPilotDispositionResult {
+  signalType: AttentionNowPilotHint["signalType"];
+  disposition: AttentionNowPilotDisposition;
+  cooldownUntil: string;
 }
 
 function proposalTargetObjectIds(proposal: V2Proposal): string[] {
@@ -135,10 +151,10 @@ export function buildAttentionDetectorSnapshot(
   };
 }
 
-export function runAttentionShadowCycle(
+function reconcileAttentionShadowCycle(
   repository: AttentionShadowRepository,
   snapshot: AttentionDetectorSnapshot,
-): AttentionShadowCycleSummary {
+): { candidates: AttentionSignalCandidate[]; summary: AttentionShadowCycleSummary } {
   const candidates = detectDeterministicAttentionSignals(snapshot);
   if (candidates.length > 512) {
     throw new Error("Attention shadow cycle exceeded its 512-candidate processing bound.");
@@ -157,30 +173,90 @@ export function runAttentionShadowCycle(
   const merged = mergeDeterministicAttentionSignals(candidates, repository.list(), snapshot.observedAt);
   const metrics = repository.metrics();
   return {
-    observedAt: snapshot.observedAt,
-    rawCount: merged.rawCount,
-    mergedCount: merged.mergedCount,
-    cooledCount: merged.cooledCount,
-    activeCount: metrics.active,
-    invalidatedCurrentCount: metrics.invalidatedCurrent,
-    detectedTotal: metrics.detected,
-    confirmedTotal: metrics.confirmed,
-    invalidatedTotal: metrics.invalidated,
-    evidenceChangedTotal: metrics.evidenceChanged,
-    primaryByType: countTypes(merged.issues.map((issue) => issue.primary.signalType)),
-    suppressedByType: countTypes(merged.issues.flatMap((issue) => issue.suppressedSignalTypes)),
+    candidates,
+    summary: {
+      observedAt: snapshot.observedAt,
+      rawCount: merged.rawCount,
+      mergedCount: merged.mergedCount,
+      cooledCount: merged.cooledCount,
+      activeCount: metrics.active,
+      invalidatedCurrentCount: metrics.invalidatedCurrent,
+      detectedTotal: metrics.detected,
+      confirmedTotal: metrics.confirmed,
+      invalidatedTotal: metrics.invalidated,
+      evidenceChangedTotal: metrics.evidenceChanged,
+      primaryByType: countTypes(merged.issues.map((issue) => issue.primary.signalType)),
+      suppressedByType: countTypes(merged.issues.flatMap((issue) => issue.suppressedSignalTypes)),
+    },
   };
+}
+
+export function runAttentionShadowCycle(
+  repository: AttentionShadowRepository,
+  snapshot: AttentionDetectorSnapshot,
+): AttentionShadowCycleSummary {
+  return reconcileAttentionShadowCycle(repository, snapshot).summary;
 }
 
 export class AttentionShadowSession {
   private readonly repository = new AttentionShadowRepository({ maxRecords: 512 });
+  private candidates: AttentionSignalCandidate[] = [];
 
   run(snapshot: AttentionDetectorSnapshot): AttentionShadowCycleSummary {
-    return runAttentionShadowCycle(this.repository, snapshot);
+    const result = reconcileAttentionShadowCycle(this.repository, snapshot);
+    this.candidates = result.candidates;
+    return result.summary;
+  }
+
+  projectNowPilot(input: { observedAt: string; visibleObjectIds: readonly string[] }): AttentionNowPilotHint[] {
+    const visible = new Set(input.visibleObjectIds);
+    const records = this.repository.list();
+    const byId = new Map(records.map((record) => [record.signalId, record]));
+    return mergeDeterministicAttentionSignals(this.candidates, records, input.observedAt).issues
+      .filter((issue): issue is typeof issue & {
+        objectId: string;
+        primary: AttentionSignalCandidate & { signalType: "REVIEW_DUE" | "DUE" };
+      } => {
+        if (!issue.objectId || !visible.has(issue.objectId)) return false;
+        return issue.primary.signalType === "REVIEW_DUE" || issue.primary.signalType === "DUE";
+      })
+      .map((issue) => {
+        const signalId = attentionSignalId(issue.primary);
+        const record = byId.get(signalId);
+        if (record && record.shownCount === 0) this.repository.markShown(signalId, input.observedAt);
+        return { signalId, objectId: issue.objectId, signalType: issue.primary.signalType };
+      });
+  }
+
+  applyNowPilotDisposition(input: {
+    signalId: string;
+    disposition: AttentionNowPilotDisposition;
+    recordedAt: string;
+  }): AttentionNowPilotDispositionResult {
+    const record = this.repository.get(input.signalId);
+    if (
+      !record
+      || record.invalidation.state !== "ACTIVE"
+      || (record.signalType !== "REVIEW_DUE" && record.signalType !== "DUE")
+    ) {
+      throw new Error("This Attention reminder is unavailable or not eligible for the Now pilot.");
+    }
+    const recordedAt = Date.parse(input.recordedAt);
+    if (!Number.isFinite(recordedAt)) throw new Error("Attention pilot disposition timestamp is invalid.");
+    const cooldownMs = input.disposition === "LATER" ? 24 * 60 * 60 * 1_000 : 7 * 24 * 60 * 60 * 1_000;
+    const cooldownUntil = new Date(recordedAt + cooldownMs).toISOString();
+    this.repository.setDisposition(
+      input.signalId,
+      input.disposition === "LATER" ? "DISMISSED" : "INACCURATE",
+      input.recordedAt,
+    );
+    this.repository.setCooldown(input.signalId, cooldownUntil);
+    return { signalType: record.signalType, disposition: input.disposition, cooldownUntil };
   }
 
   clear(): void {
     this.repository.clear();
+    this.candidates = [];
   }
 }
 

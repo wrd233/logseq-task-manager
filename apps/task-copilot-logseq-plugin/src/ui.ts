@@ -26,6 +26,7 @@ import {
   type PluginObjectNarration,
 } from "./status-narration-runtime.ts";
 import { projectNowFrontstageSections, type NowFrontstageItem } from "./now-frontstage.ts";
+import type { AttentionNowPilotHint } from "./attention-shadow-runtime.ts";
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -135,6 +136,7 @@ export interface UiModel {
   v2Proposals?: ServiceStoredProposal[];
   v2SemanticCommits?: ServiceSemanticCommit[];
   v2NowWork?: ServiceNowWork;
+  v2AttentionNowPilot?: AttentionNowPilotHint[];
   v2NowWorkTypeFilter?: V2NowWorkTypeFilter;
   v2NowWorkGrouping?: V2NowWorkGrouping;
   v2ProjectReentryCards?: PluginProjectReentryCard[];
@@ -250,7 +252,9 @@ function renderNow(model: UiModel): string {
       : values.filter(({ item }) => item.objectType === filter);
     const orderingAvailable = filter === "ALL" && grouping === "mixed";
     const focusIds = new Set(model.v2NowWork.focus.map((item) => item.objectId));
+    const attentionByObjectId = new Map((model.v2AttentionNowPilot ?? []).map((hint) => [hint.objectId, hint]));
     const cards = (values: NowFrontstageItem[]) => values.map(({ item, focused, focusRank }) => {
+      const attentionHint = attentionByObjectId.get(item.objectId);
       const projected = model.v2ObjectNarrations?.[item.objectId];
       const narration = projected?.objectVersion === item.version ? projected.narration : undefined;
       const nextAction = narration?.nextAction;
@@ -273,8 +277,11 @@ function renderNow(model: UiModel): string {
         ? `<p><strong>${escapeHtml(narration.conclusion)}</strong></p>${narration.keyEvidence.length ? `<p class="muted">${escapeHtml(narration.keyEvidence[0]!)}</p>` : ""}<details><summary>查看依据</summary>${narration.unknowns.length ? `<p class="muted">${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
         : `<p>${escapeHtml(item.reason)}</p>`;
       const secondaryStatusAction = !guidedStatusAction && !item.primaryAnchorExternalId ? "" : button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet");
-      const secondaryActions = `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${focused ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", focusRank === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", focusRank === model.v2NowWork!.focus.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}`;
-      const sourceLabel = focused ? " · 来自当前关注" : "";
+      const attentionActions = attentionHint
+        ? `${button("本次先不提醒", "v2-attention-disposition", `${attentionHint.signalId}|LATER`, "quiet")}${button("本次不相关", "v2-attention-disposition", `${attentionHint.signalId}|NOT_RELEVANT`, "quiet")}`
+        : "";
+      const secondaryActions = `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${focused ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", focusRank === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", focusRank === model.v2NowWork!.focus.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}${attentionActions}`;
+      const sourceLabel = `${focused ? " · 来自当前关注" : ""}${attentionHint ? " · Copilot 提醒 · 试用" : ""}`;
       return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${primaryAction}</div><details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details></article>`;
     }).join("");
     const section = (title: string, source: NowFrontstageItem[], frontstageLimit?: number) => {

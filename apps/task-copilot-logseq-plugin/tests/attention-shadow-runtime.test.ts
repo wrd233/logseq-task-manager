@@ -6,6 +6,7 @@ import type { V2Anchor, V2ManagedObject, V2Proposal } from "@task-copilot/domain
 import type { ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
 
 import {
+  AttentionShadowSession,
   attentionShadowCurrentSignature,
   buildAttentionDetectorSnapshot,
   runAttentionShadowCycle,
@@ -67,6 +68,133 @@ function proposal(overrides: Partial<V2Proposal> = {}): ServiceStoredProposal {
   };
   return { proposal: value, files: { proposalMd: "private", proposalJson: "private" }, updatedAt: "2026-07-24T09:30:00.000Z" };
 }
+
+test("Now Attention pilot decorates only existing timing cards and does not duplicate formal risk surfaces", () => {
+  const session = new AttentionShadowSession();
+  session.run(buildAttentionDetectorSnapshot({
+    observedAt: now,
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [
+      object(),
+      object({
+        objectId: "task-due",
+        condition: { kind: "ACTIONABLE" },
+        dueAt: "2026-07-24T09:30:00.000Z",
+      }),
+    ],
+    proposals: [proposal()],
+    commits: [],
+    anchors: [],
+  }));
+
+  const hints = session.projectNowPilot({
+    observedAt: now,
+    visibleObjectIds: ["task-1", "task-due"],
+  });
+
+  assert.deepEqual(hints.map(({ objectId, signalType }) => ({ objectId, signalType })), [
+    { objectId: "task-due", signalType: "DUE" },
+  ]);
+});
+
+test("Now Attention pilot cools a deferred reminder and reopens it after the bounded session cooldown", () => {
+  const session = new AttentionShadowSession();
+  const snapshot = buildAttentionDetectorSnapshot({
+    observedAt: now,
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [object()],
+    proposals: [],
+    commits: [],
+    anchors: [],
+  });
+  session.run(snapshot);
+  const first = session.projectNowPilot({ observedAt: now, visibleObjectIds: ["task-1"] });
+
+  assert.equal(first.length, 1);
+  const result = session.applyNowPilotDisposition({
+    signalId: first[0]!.signalId,
+    disposition: "LATER",
+    recordedAt: "2026-07-24T10:01:00.000Z",
+  });
+
+  assert.deepEqual(result, {
+    signalType: "REVIEW_DUE",
+    disposition: "LATER",
+    cooldownUntil: "2026-07-25T10:01:00.000Z",
+  });
+  assert.deepEqual(session.projectNowPilot({
+    observedAt: "2026-07-24T10:02:00.000Z",
+    visibleObjectIds: ["task-1"],
+  }), []);
+
+  session.run({ ...snapshot, observedAt: "2026-07-25T10:02:00.000Z" });
+  assert.equal(session.projectNowPilot({
+    observedAt: "2026-07-25T10:02:00.000Z",
+    visibleObjectIds: ["task-1"],
+  }).length, 1);
+});
+
+test("Now Attention pilot invalidates resolved facts and lets changed evidence bypass an old disposition", () => {
+  const session = new AttentionShadowSession();
+  const base = buildAttentionDetectorSnapshot({
+    observedAt: now,
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [object()],
+    proposals: [],
+    commits: [],
+    anchors: [],
+  });
+  session.run(base);
+  const first = session.projectNowPilot({ observedAt: now, visibleObjectIds: ["task-1"] });
+  session.applyNowPilotDisposition({
+    signalId: first[0]!.signalId,
+    disposition: "NOT_RELEVANT",
+    recordedAt: "2026-07-24T10:01:00.000Z",
+  });
+  assert.deepEqual(session.projectNowPilot({
+    observedAt: "2026-07-24T10:02:00.000Z",
+    visibleObjectIds: ["task-1"],
+  }), []);
+
+  session.run(buildAttentionDetectorSnapshot({
+    observedAt: "2026-07-24T10:03:00.000Z",
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [object({
+      version: 4,
+      condition: {
+        kind: "WAITING",
+        waitingFor: "外部",
+        expectedResult: "变化后的事件",
+        reviewAt: "2026-07-24T09:30:00.000Z",
+      },
+    })],
+    proposals: [],
+    commits: [],
+    anchors: [],
+  }));
+  assert.equal(session.projectNowPilot({
+    observedAt: "2026-07-24T10:03:00.000Z",
+    visibleObjectIds: ["task-1"],
+  }).length, 1);
+
+  session.run(buildAttentionDetectorSnapshot({
+    observedAt: "2026-07-24T10:04:00.000Z",
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [object({ version: 5, condition: { kind: "ACTIONABLE" } })],
+    proposals: [],
+    commits: [],
+    anchors: [],
+  }));
+  assert.deepEqual(session.projectNowPilot({
+    observedAt: "2026-07-24T10:04:00.000Z",
+    visibleObjectIds: ["task-1"],
+  }), []);
+});
 
 test("runtime adapter projects only structured Service facts and derives existing object targets", () => {
   const snapshot = buildAttentionDetectorSnapshot({

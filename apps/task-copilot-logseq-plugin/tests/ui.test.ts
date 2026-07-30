@@ -1635,6 +1635,40 @@ test("V2 Task deadline stays an explicit no-score action in Now Work", () => {
   assert.match(html, /data-action="submit-v2-deadline"/);
 });
 
+test("V2 Now adds the bounded Attention pilot to an existing card instead of creating another reminder card", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = {
+    generatedAt: "2026-07-24T12:00:00.000Z",
+    focus: [],
+    waitingReview: [],
+    conditionOptions: [],
+    next: [{
+      objectId: "task-due",
+      objectType: "TASK",
+      version: 3,
+      text: "核对期限",
+      condition: { kind: "ACTIONABLE" },
+      dueAt: "2026-07-24T09:00:00.000Z",
+      updatedAt: "2026-07-24T08:00:00.000Z",
+      reason: "期限已到",
+      primaryAnchorExternalId: "block-due",
+    }],
+  };
+  value.v2AttentionNowPilot = [{
+    signalId: "attention_due",
+    objectId: "task-due",
+    signalType: "DUE",
+  }];
+
+  const html = renderApp(value);
+  assert.equal((html.match(/核对期限/g) ?? []).length, 1);
+  assert.match(html, /Copilot 提醒 · 试用/);
+  assert.match(html, /data-action="v2-attention-disposition" data-value="attention_due\|LATER"[^>]*>本次先不提醒/);
+  assert.match(html, /data-action="v2-attention-disposition" data-value="attention_due\|NOT_RELEVANT"[^>]*>本次不相关/);
+  assert.doesNotMatch(html, /AttentionSignal|REVIEW_DUE|\bDUE\b/);
+});
+
 test("V2 Focus exposes compact manual ordering and removal in the same Now Work context", () => {
   const value = model();
   value.workspace = "now";

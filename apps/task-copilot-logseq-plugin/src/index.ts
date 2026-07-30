@@ -99,6 +99,7 @@ import {
   attentionShadowCurrentSignature,
   buildAttentionDetectorSnapshot,
   summarizeDynamicNowShadow,
+  type AttentionNowPilotHint,
   type AttentionShadowCycleSummary,
   type DynamicNowShadowRuntimeSummary,
 } from "./attention-shadow-runtime.ts";
@@ -587,6 +588,7 @@ async function model(): Promise<UiModel> {
   let v2ObjectNarrations: Record<string, PluginObjectNarration> | undefined;
   let v2MigrationRuns: PluginMigrationRunView[] = [];
   let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
+  let v2AttentionNowPilot: AttentionNowPilotHint[] | undefined;
   let v2ProposalLoadError: string | undefined;
   let v2AuditLoadError: string | undefined;
   let v2RelationLoadError: string | undefined;
@@ -632,7 +634,7 @@ async function model(): Promise<UiModel> {
       v2MigrationLoadError = explain(error);
     }
     if (currentGraphKey && v2NowWork && !v2ProposalLoadError && !v2AuditLoadError && !v2ReentryLoadError) {
-      await refreshAttentionShadowRuntime({
+      const attentionReady = await refreshAttentionShadowRuntime({
         graphKey: currentGraphKey,
         objects: v2Objects,
         proposals: v2Proposals,
@@ -640,6 +642,16 @@ async function model(): Promise<UiModel> {
         anchors: v2PrimaryAnchors,
         activeFocusObjectIds: v2NowWork.focus.map((item) => item.objectId),
       });
+      if (attentionReady && workspace === "now") {
+        v2AttentionNowPilot = attentionShadowSession.projectNowPilot({
+          observedAt: v2NowWork.generatedAt,
+          visibleObjectIds: [
+            ...v2NowWork.focus.map((item) => item.objectId),
+            ...v2NowWork.next.map((item) => item.objectId),
+            ...v2NowWork.waitingReview.map((item) => item.objectId),
+          ],
+        });
+      }
     }
     if (v2NowWork && !v2ProposalLoadError && !v2AuditLoadError && !v2RelationLoadError && !v2ReentryLoadError) {
       try {
@@ -756,6 +768,7 @@ async function model(): Promise<UiModel> {
     ...(v2LowRiskApplyBusyProposalId ? { v2LowRiskApplyBusyProposalId } : {}),
     reviewMode,
     ...(v2NowWork ? { v2NowWork } : {}),
+    ...(v2AttentionNowPilot ? { v2AttentionNowPilot } : {}),
     v2NowWorkTypeFilter,
     v2NowWorkGrouping,
     ...(v2ProjectReentryCards !== undefined ? { v2ProjectReentryCards } : {}),
@@ -820,7 +833,7 @@ async function refreshAttentionShadowRuntime(input: {
   commits: Awaited<ReturnType<ServiceRuntimeClient["listSemanticCommits"]>>;
   anchors: V2Anchor[];
   activeFocusObjectIds: string[];
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const observedAt = new Date().toISOString();
     const summary = attentionShadowSession.run(
@@ -840,6 +853,7 @@ async function refreshAttentionShadowRuntime(input: {
       activeFocusObjectIds: input.activeFocusObjectIds,
     });
     logChangedAttentionShadowSummary(summary, dynamicNow);
+    return true;
   } catch (error) {
     operationalLogger.log(
       "warn",
@@ -848,6 +862,7 @@ async function refreshAttentionShadowRuntime(input: {
       { result: "shadow_unchanged" },
       error,
     );
+    return false;
   }
 }
 
@@ -2192,6 +2207,41 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-now-grouping" && (value === "mixed" || value === "type")) {
     workspace = "now";
     v2NowWorkGrouping = value;
+    await refresh();
+    return;
+  }
+  if (action === "v2-attention-disposition" && value) {
+    const [signalId, disposition] = value.split("|");
+    if (!signalId || (disposition !== "LATER" && disposition !== "NOT_RELEVANT")) {
+      latestError = "这条提醒已经变化；正式事项没有改变。";
+      await refresh();
+      return;
+    }
+    try {
+      const result = attentionShadowSession.applyNowPilotDisposition({
+        signalId,
+        disposition,
+        recordedAt: new Date().toISOString(),
+      });
+      latestError = undefined;
+      message = disposition === "LATER"
+        ? "这条提醒已在本次使用中暂时收起；正式事项没有变化。"
+        : "已记下这条提醒本次不相关；正式事项没有变化。";
+      operationalLogger.log("info", "attention-shadow", "attention_now_pilot_disposition", {
+        actionId: "v2-attention-disposition",
+        command: result.signalType,
+        result: result.disposition,
+      });
+    } catch (error) {
+      latestError = "这条提醒已经变化；请以当前事项状态为准。正式事项没有改变。";
+      operationalLogger.log(
+        "warn",
+        "attention-shadow",
+        "attention_now_pilot_disposition_rejected",
+        { result: "shadow_unchanged" },
+        error,
+      );
+    }
     await refresh();
     return;
   }
