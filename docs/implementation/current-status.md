@@ -17,6 +17,17 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+`a65da34` 已补齐 P0-J 最后一个原生中文 IME 子 Gate。真实 Logseq 0.10.15 File Graph、
+host Light、754×720 中，通过 Computer Use `press_key` 和 macOS 简体拼音逐键完成
+`zhong'wen`、`yan'zheng`、`guang'biao` 组合态、候选提交、已提交中文中间光标插入，
+最终得到 `中文输入光标验证`。首次临时 UUID Page reload 真实失败，没有被冒充 PASS；
+改走 Logseq 搜索的正式 Create 路径后再次 reload，Page 与中文 Block 均读回。测试后输入源
+恢复 ABC。结合既有 palette、Slash、custom binding、ended fail-closed 与显式重启证据，
+P0-J 从 `PARTIAL` 关闭为 `DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`；
+没有新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、Attention 类型或写入
+权威。P0 仍因 accepted-not-applied、PENDING/Recovery 前台组合和最终代表视觉 Gate
+保持 `IN_PROGRESS_DESKTOP_GATES`。
+
 `3d63d5aee0a7` 关闭十日 Pilot 暴露的“正式 Now 仍按来源分组、Focus 中 Waiting 会重复”
 前台子 Partial：不启用会遗漏刚恢复事项的 Dynamic Now Shadow，也不改变 Service 排序；
 只把同一正式 `/now-work` 投影派生为“继续处理 / 需要回看 / 保持等待”。同一对象只出现
@@ -136,8 +147,8 @@ Pilot Page。跨日主要 UX 风险不是 Review backlog，而是正式 Now 的
 因此 P1-C 继续 Partial，不直接替换前台。本轮不开放新 Attention，Block Marker 继续默认
 关闭；确定性 Graph/Pending/Recovery/accepted-not-applied 风险继续使用既有工具栏、
 系统状态和 Review 入口。十日 Pilot `OPEN→DONE_REPRESENTATIVE_WITH_OPEN_VARIANTS`，
-Partial 净变化 `-1`；duplicate/missing/Rebind、P0 中文 IME
-和完整 Goal 继续 OPEN。
+Partial 净变化 `-1`；duplicate/missing/Rebind 在后续 Gate 已收口，P0 中文 IME 又由
+`a65da34` 收口；完整 Goal 继续 OPEN。
 
 `df6469f` 随后关闭 Day 10 发现的“现在首屏一次展开全部 10 个普通 Next”前台子
 Partial。它不启用现有 Dynamic Now Shadow，也不改变 Service 排序：当前关注仍全部展示，
@@ -173,7 +184,8 @@ Gate：Query 投影无可靠正式身份时安全停止且只显示用户语言�
 `347/347`、typecheck/build PASS；没有新增正式状态、
 Runtime、Skill、Validator、恢复分支或写入路径。该证据与既有 main Page、来源移动/删除、
 Query/reference/right-sidebar bounded Gate 合并后，P0-K 升为
-`DONE_DESKTOP_REPRESENTATIVE`；P0-J 中文 IME/受限视觉仍使 P0 保持进行中。
+`DONE_DESKTOP_REPRESENTATIVE`；P0-J 已关闭，P0 仍由 accepted-not-applied、
+PENDING/Recovery 前台组合与代表视觉总 Gate 保持进行中。
 
 最新公共 UI 压缩证据基于 `f4acf77346b19aa2f096ff2c169bfa7323546062`；
 Closure 异常、Review 压缩、普通用户标题与审阅空态的增量证据分别基于
@@ -279,7 +291,9 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   command palette 复用“现在”、Provider Proposal 与正式 Focus Controller；`a835f59`
   让这三项进入 Logseq 原生可配置快捷键但不设默认键。Plugin 329/329 与根级检查通过；
   真实 Desktop 已验证冷启动单组 palette、四条 Slash 可发现、`[任务] ` 代表插入、临时
-  chord 配置/触发/清理和冷启动复验。原生中文 IME、受限态、Light/窄栏仍 OPEN；
+  chord 配置/触发/清理和冷启动复验；`bc79ffd` 关闭 ended fail-closed，`a65da34`
+  又以原生简体拼音逐键关闭组合、候选、光标插入、保存与 reload。P0-J 为
+  `DONE_DESKTOP_REPRESENTATIVE`；
 - P0-K 完成后路由：Block/Page 来源只保存在 session token；main Page 按 UUID 重验返回，
   secondary Page 保持宿主现场，来源缺失安全关闭；自动 Gate 187/187 通过。真实 Desktop
   已验证 main Page 入口与返回同一 Page；Logseq 0.10.15 right-sidebar 菜单不提供 Plugin
@@ -686,7 +700,8 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
-- 当前并行收敛 P0-H/P0-J/P0-K 剩余 Desktop Gate，并继续 P1 runtime/状态翻译/重入；
+- 当前继续收敛 P0 accepted-not-applied、PENDING/Recovery 与代表视觉总 Gate，并推进
+  P1 Attention/Block Marker 和 P2-D/P2-F 边界；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与
   `docs/implementation/task-copilot-v2-ux/10_ACCEPTANCE_REPORT.md` 为准。

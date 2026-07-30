@@ -232,7 +232,8 @@ Runtime 或 Recovery，而是让既有 `BlockConditionController` 和 `changeCon
 该链关闭“同一 UUID moved + renamed 后仍可重入”的代表性 Anchor 子 Gate。复制出的相似
 Block、真正 missing/conflict、候选解释、Rebind 成功与纠错指引仍开放，不能把本次稳定
 移动写成 P2-G Rebind 完成。Computer Use 无法提交中文输入法候选，故本次用 ASCII 标题；
-这不替代 P0-J 原生中文 IME Gate。
+这在 Day 7 当时不替代 P0-J 原生中文 IME Gate；该 Gate 后由 `a65da34` 的原生逐键证据
+关闭。
 
 ## 轻量指标（截至 Day 7 moved/renamed 链）
 
@@ -400,7 +401,7 @@ P2-E 恢复语义同时固定为最小合同：receipt-backed `PENDING` 可继�
 | 新正式状态 / Runtime / Recovery 分支 | 0 / 0 / 0 |
 | 新 Skill / Prompt / Validator | 0 / 0 / 0 |
 | Day 10 Partial 净变化 | -1（十日连续使用代表 Pilot） |
-| 开放变体 | duplicate/missing/Rebind；真正 RECOVERY_REQUIRED；P0 中文 IME |
+| 开放变体 | duplicate/missing/Rebind 后由 `075e031` 代表链关闭；P0 中文 IME 后由 `a65da34` 关闭；真正 RECOVERY_REQUIRED 继续按有界 Kernel 结论管理 |
 
 ## Day 10 补充：正式 Now 前台上限
 

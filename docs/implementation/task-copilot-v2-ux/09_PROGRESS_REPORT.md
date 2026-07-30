@@ -14,7 +14,8 @@
 > 已完成，main Page 返回、来源移动/删除和 Query/reference/right-sidebar 有界结论已有真实
 > Desktop；`73dc1e2` 又关闭正式 Block 的失败、成功、Undo 与 reload 返回链，P0-K 已为
 > DONE_DESKTOP_REPRESENTATIVE；`bc79ffd` 已关闭 P0-J 结束运行后的正式动作边界，原生
-> 中文 IME 仍 OPEN。连续使用 Pilot `PILOT-2026W31-A` 已完成 Day 1—2、Day 3 Waiting
+> 中文 IME 又由 `a65da34` 通过原生拼音组合、候选、光标插入、保存与 reload 关闭，
+> P0-J 已为 DONE_DESKTOP_REPRESENTATIVE。连续使用 Pilot `PILOT-2026W31-A` 已完成 Day 1—2、Day 3 Waiting
 > 代表子链、Day 4 MiniProject/Project create→reload→Undo 与 Day 5
 > Project→Context Recovery→reload→Undo 代表链；`19de8de0f47c` 已用第三组真实 Provider
 > 复验 current-interface 通用合同与最终 UI；`1c18e9b0ff63` 又关闭 Day 6
@@ -38,10 +39,26 @@
 | 设计到代码映射 | DONE | `01_DESIGN_TO_CODE_MAP.md` |
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
-| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding 及 ended→formal-action fail-closed→显式重启 PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN |
+| P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；accepted-not-applied、PENDING/Recovery 前台组合与代表视觉总 Gate 仍 OPEN |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；Dynamic Shadow 不替换 authority、Attention 建议/质量门仍 OPEN；P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
+
+### 2026-07-29 P0-J 原生中文 IME
+
+- 在 Logseq 0.10.15 File Graph、host Light、754×720 中，使用 Computer Use
+  `press_key` 和 macOS 简体拼音逐键输入；没有用会丢失中文的 `type_text`，也没有注入
+  Unicode。
+- 真实观察到 `zhong'wen` / `yan'zheng` / `guang'biao` 组合态，候选提交后得到
+  `中文输入光标验证`；`guang'biao` 是把光标移入已提交中文中间后插入，覆盖光标合同。
+- 首次临时 UUID Page reload 显示 `Page no longer exists!!`，未计为通过；通过 Logseq
+  搜索 `Create` 建立正式 Page 后再次 reload，Page 与中文 Block 均读回。测试后恢复 ABC。
+- P0-J `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`。新增正式
+  状态、Runtime、Recovery 分支、Skill/Prompt/Validator、Attention 类型、Provider 调用
+  与写入权威均为 `0`。
+- P0 仍由 accepted-not-applied、PENDING/Recovery 前台组合、代表视觉总 Gate 和 Final
+  Release 保持进行中。证据见
+  `logs/p0-j-native-chinese-ime-desktop-live-20260729.md`。
 
 ### 2026-07-28 连续使用 Pilot Day 6 Waiting 恢复
 
@@ -203,7 +220,7 @@
 - P0-J：`bc79ffd` 的 350/350、typecheck/build/dist PASS；真实 Desktop 证明显式结束后
   路由不会重启，Focus/Condition/Undo fail closed，Slash 只写本地显式正文，显式重启后
   正式能力恢复且受限期间零写入。该子 Gate `OPEN→DONE_DESKTOP_REPRESENTATIVE`；原生
-  中文 IME 仍 OPEN。
+  中文 IME 在该阶段仍 OPEN，后由 `a65da34` 关闭。
 - 复杂度：新增正式状态、Runtime、Recovery 分支、Skill/Prompt/Validator 均为 `0`；
   P0-J 子 Gate 净关闭 `1`，Pilot 发现按 release blocker / UX debt / bounded host issue
   分类，不创建新的平行状态机。
@@ -293,7 +310,8 @@
   Skill/Prompt。
 - 复杂度：新增正式状态、Runtime、恢复分支、Validator、写入权威和新 Partial 均为 `0`；
   关闭 P0-K 最后一个代表性返回现场 Partial，Partial 净下降 `1`。P0-K 升为
-  `DONE_DESKTOP_REPRESENTATIVE`，但 P0-J 中文 IME/受限视觉仍使 P0 保持进行中。
+  `DONE_DESKTOP_REPRESENTATIVE`；当时 P0-J 中文 IME/受限视觉仍使 P0 保持进行中，
+  P0-J 后由 `a65da34` 关闭。
 
 ### 2026-07-28 Page / Project Page 现场操作压缩
 
@@ -504,11 +522,12 @@ release 之前。当前构建切到未配置隔离 Graph 后，宿主首次显�
 `DONE_DESKTOP_REPRESENTATIVE`；记录见
 `logs/p0-h-graph-switch-desktop-live-20260727.md`。
 
-P0-J 已从 `AUTOMATED_ONLY` 推进为代表性 Desktop partial：冷启动命令面板单组注册、Now/
+P0-J 在该阶段从 `AUTOMATED_ONLY` 推进为代表性 Desktop partial：冷启动命令面板单组注册、Now/
 系统状态路由、四条 Slash 可发现、`[任务] ` 代表插入和自定义 binding 配置/触发/清理均已
 通过。连续 Plugin reload 的重复行经完整 restart 清除，按宿主 residue 记录而不增加第二
 去重状态。Computer Use 不能可靠注入中文字符，因此原生中文 IME、受限态、Light 与窄窗口
-继续 OPEN；完整记录见 `logs/p0-j-host-commands-desktop-live-20260726.md`。
+在该阶段继续 OPEN；IME 后由 `a65da34` 的原生逐键 Gate 关闭，ended boundary 由
+`bc79ffd` 关闭。完整记录见 `logs/p0-j-host-commands-desktop-live-20260726.md`。
 
 P0-K 已完成 main Page 入口→来源说明→返回同一 Page 的真实 Desktop 代表链；Logseq 0.10.15
 right-sidebar 专用菜单不提供 Plugin Page item，按 bounded host conclusion 安全隐藏，不猜测

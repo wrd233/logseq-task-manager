@@ -364,7 +364,8 @@ owned Service 结束均已有自动和 Desktop/进程证据；Launcher 保留以
 又用未配置隔离 Graph 完成真实切换：宿主首次显示新 Graph 时旧 Project 已不可见，正式能力
 立即受限，6 秒后仍不猜数据库；切回原 Graph 后约 3.75 秒恢复同一正式投影。对应
 graphKey/path digest、database inode 与唯一 Launcher mapping 均未改变。P0-H 因而关闭，
-但 P0-J/P0-K 的其余宿主 Gate 仍使整个 P0 保持进行中。
+在该阶段 P0-J/P0-K 的其余宿主 Gate 仍使整个 P0 保持进行中；两者后续均已各自关闭，
+P0 总 Gate 仍继续。
 
 `653875a` 前后的当前源码构建又完成同一 Graph 的真实无参数重装：graphKey 与 databasePath
 digest、database inode、7 Objects、24 Commits、12 Proposals 和 Provider 配置前后完全一致。
@@ -433,8 +434,9 @@ Logseq 0.10.15 还证明隐藏 Plugin iframe 的早期 `getCurrentGraph()` 与 i
 
 ## P0-J：中文创建命令与快捷动作
 
-状态：`PARTIAL`（自动 Gate PASS；Desktop palette / Slash 可发现与代表插入 / custom binding
-PASS；结束运行后的正式动作 fail-closed 与显式重启 PASS；原生中文 IME OPEN）
+状态：`DONE_DESKTOP_REPRESENTATIVE`（自动 Gate PASS；Desktop palette / Slash 可发现与
+代表插入 / custom binding PASS；结束运行后的正式动作 fail-closed 与显式重启 PASS；
+原生中文 IME 组合、候选提交、光标插入、保存与 reload PASS）
 
 斜杠：
 
@@ -463,13 +465,17 @@ PASS；结束运行后的正式动作 fail-closed 与显式重启 PASS；原生�
   `[任务] ` 代表插入、临时 chord 配置与触发、清理后完整冷启动仍为三条未设置；
 - `bc79ffd` 又验证显式结束后切换路由不会静默重启，Focus/Condition/Undo 等正式动作
   fail closed 且零写入；Slash 只保留本地正文插入；显式重新启动后正式能力与 Now 恢复；
+- `a65da34` 使用 macOS 原生简体拼音逐键验证 `zhong'wen` / `yan'zheng` /
+  `guang'biao` 组合态、候选提交、已提交中文中间光标插入、正式建页、保存与 reload
+  读回；测试后恢复 ABC 输入源；
 - 自动与 Desktop 证据见 `logs/p0-j-chinese-commands-automated-20260724.md` 和
   `logs/p0-j-host-commands-desktop-live-20260726.md`、
-  `logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`。
+  `logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`、
+  `logs/p0-j-native-chinese-ime-desktop-live-20260729.md`。
 
-Computer Use 当前不能可靠证明真实中文输入法候选、组词与光标体验，因此原生中文 IME
-仍需人工输入 Gate；不能用 Slash 的程序化中文插入替代。该开放项继续使 P0-J 保持
-`PARTIAL`，但受限态正式写入边界不再重复列为 OPEN。
+原生 IME 证据严格使用 `press_key` 逐键输入而不是会丢失中文的 `type_text`，并将首次
+临时 Page 路由 reload 失败保留为验收陷阱；只有经 Logseq 正式 Create 路径建页并再次
+reload 读回后才关闭 Gate。该结论是代表性 Desktop 完成，不宣称所有第三方输入法组合。
 
 ## P0-K：完成后返回业务现场
 
@@ -493,4 +499,5 @@ Computer Use 当前不能可靠证明真实中文输入法候选、组词与光�
   `logs/p0-k-block-condition-worksite-desktop-live-20260728.md`。
 
 该状态是代表性宿主完成，不宣称 Logseq 所有位置、主题与宽度的完全笛卡尔积；未来宿主能力
-变化时重开对应 bounded 结论。P0-J 中文 IME/受限视觉仍保持 OPEN，P0 未完成。
+变化时重开对应 bounded 结论。P0-J 已关闭；P0 仍因 accepted-not-applied、
+PENDING/Recovery 前台组合和代表性视觉总 Gate 保持进行中。

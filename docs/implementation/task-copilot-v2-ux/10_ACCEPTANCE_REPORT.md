@@ -10,7 +10,7 @@
 | 阶段 | 状态 | 自动化 | Desktop | 结论 |
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
-| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash/custom binding 与 ended formal boundary PASS；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS，已为 DONE_DESKTOP_REPRESENTATIVE；原生中文 IME OPEN | 不得宣布 P0 完成 |
+| P0 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I + P0-J/P0-K/普通 Block route automated PASS | Focus/Condition/LOW apply/Page route/four-nav/toolbar/recent changes/system status；P0-H hidden reload/quit/no-arg reinstall/Graph switch fail-closed/return PASS；P0-J palette/Slash/custom binding、ended formal boundary 与原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 及 Query/reference/right-sidebar bounded PASS，已为 DONE_DESKTOP_REPRESENTATIVE；accepted-not-applied、PENDING/Recovery 前台组合与代表视觉总 Gate OPEN | 不得宣布 P0 完成 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C 三段纯派生/正式 Now 前台 + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-C 三段已在 `3d63d5a` 完成真实正式状态 Desktop 代表 Gate：“继续处理”含 reload、Dark 1001×720/733×720，“需要回看”含 Focus Blocked，“保持等待”含 Focus Paused，测试后恢复基线。P1-G Context Recovery 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker 与 Attention 前台仍 OPEN；跨会话 dashboard 未决 | P1-G 和 Now 子 Gate 完成不等于 P1 完成；不得提前开放 Signal 或 marker 默认值 |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A/B、P2-C/D、P2-E 全链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error、generation stale、写入前失败与重放安全合同 DONE；精确 `98df827` 完成真实 reload/当前空审阅证据，FAILED/STALE 卡为自动故障注入证据；P2-G Rebind 最新纠错指引/捕获取消安全、Restore 真实双失败人工恢复、Migration Activation/失败重试/窄栏 DONE | P2-D remaining；P2-F frontstage；显式正式化等价撤销入口核对；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
@@ -100,7 +100,7 @@ Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
 - [ ] Block/Page 就近入口；Block Focus/Condition、普通 Block 精确 UUID 内容路由与 Page
   普通/Project/Journal 路由已完成自动 Gate；普通 Block 真实 Provider abstain 已使用用户
   语言且零写入；P0-K 正式 Block 失败/成功/Undo/reload 已完成，Query/引用/right-sidebar
-  按宿主有界隐藏；中文 IME 与普通 Block 真实 Provider 其他结果仍待集中 Gate
+  按宿主有界隐藏；中文 IME 已关闭，普通 Block 真实 Provider 其他结果仍待集中 Gate
 - [ ] 高频动作 1—2 个明确决定；
 - [x] 正常连接首屏只有一个 Copilot 状态；启动/host-ready 不再重复成功横幅，Graph switch
   仍明确说明没有复用上一知识库数据；
@@ -119,9 +119,10 @@ Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
   精确 Graph identity，新 lease 在 25 秒观察窗内保持，首次打开直接 READY
 - [x] Logseq 退出安全结束 owned Service；自动 unload/TTL/owner-PID 与真实 Desktop quit 后
   租约窗口内 owned Service 结束、Launcher 保留均通过
-- [ ] 中文命令与快捷动作；真实 Desktop 已完成冷启动 palette 单组、四条 Slash 可发现、
+- [x] 中文命令与快捷动作；真实 Desktop 已完成冷启动 palette 单组、四条 Slash 可发现、
   `[任务] ` 代表插入和 custom binding 配置/触发/清理；`bc79ffd` 又关闭显式结束后的
-  正式动作 fail-closed、零写入和显式重启代表链；原生中文 IME 仍开放
+  正式动作 fail-closed、零写入和显式重启代表链；`a65da34` 以原生简体拼音逐键完成
+  组合、候选、已提交中文中间光标插入、正式建页、保存与 reload 读回
 - [x] 用户层系统状态；READY/协议/Graph/Pending/Recovery/Anchor/正文核对自动覆盖，
   真实 Desktop 注意状态与 Service unavailable 受限状态通过，技术诊断默认折叠；
 - [ ] 完成后回业务现场；session-only Block/Page origin route 自动 Gate PASS，真实

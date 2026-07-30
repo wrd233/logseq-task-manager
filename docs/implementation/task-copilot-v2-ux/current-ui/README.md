@@ -139,16 +139,19 @@ P0-H Graph switch 最新精确构建为 `ca50304e9aa2`。`p0-h-16`～`18` 分别
 Graph 首次显示时已安全受限、6 秒后仍不显示旧 Project，以及切回原 Graph 后约 3.75 秒
 恢复同一正式投影；Launcher mapping、graphKey/path digest 和 database inode 未变。
 `p0-h-13` 保留为真实旧 authority 短暂泄漏的 `HISTORICAL`，`p0-h-14`/`15` 已
-`SUPERSEDED`。P0-H 已关闭为代表性 Desktop DONE，不代表 P0-J/P0-K 或整体 P0 完成。
+`SUPERSEDED`。P0-H 已关闭为代表性 Desktop DONE；P0-J/P0-K 后续也已各自关闭，但这仍
+不代表整体 P0 完成。
 完整记录见 `../logs/p0-h-graph-switch-desktop-live-20260727.md`。
 
-P0-J 当前结论是 `HOST_COMMANDS_DESKTOP_PARTIAL_CHINESE_IME_OPEN`：
+P0-J 当前结论是 `DONE_DESKTOP_REPRESENTATIVE`：
 冷启动 palette、Now/系统状态路由、四条 Slash 可发现、任务语法代表插入和 custom binding
 配置/触发/清理已在 Logseq 0.10.15 通过。`bc79ffd` 又证明显式结束后切换路由不重启、
-正式动作 fail closed、Slash 只插入本地正文、显式重启恢复且受限期间零写入。Computer Use
-不能证明真实中文输入法候选/组词/光标，因此原生中文 IME 继续开放。完整记录见
+正式动作 fail closed、Slash 只插入本地正文、显式重启恢复且受限期间零写入。`a65da34`
+又用 macOS 原生简体拼音和 Computer Use 逐键验证组合态、候选提交、已提交中文中间光标
+插入、正式建页、保存与 reload 读回；测试后恢复 ABC。完整记录见
 `../logs/p0-j-host-commands-desktop-live-20260726.md` 与
-`../logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`。
+`../logs/p0-j-ended-formal-boundary-desktop-live-20260728.md`、
+`../logs/p0-j-native-chinese-ime-desktop-live-20260729.md`。
 
 连续使用 Pilot `PILOT-2026W31-A` 当前在 `pilot-2026w31/`：Logseq 0.10.15 File Graph，
 已完成 Day 1—2、Day 3 Waiting、Day 4 MiniProject/Project、Day 5 Project/Context

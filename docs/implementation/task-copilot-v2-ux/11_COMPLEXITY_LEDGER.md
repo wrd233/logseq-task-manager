@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P2-E 全链及有界恢复合同、P2-G Rebind 纠错/捕获取消安全、真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏与通用深色表面已关闭；P0 原生中文 IME、P1 Attention/Marker、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P0-J、P2-E 全链及有界恢复合同、P2-G Rebind 纠错/捕获取消安全、真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏与通用深色表面已关闭；P1 Attention/Marker、P0 accepted-not-applied/PENDING-Recovery 总 Gate、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -55,7 +55,8 @@
 - Desktop 只覆盖 Dark 1001×720 的风险代表链、reload 和最终系统诊断；不扩成主题/宿主
   笛卡尔积。旧 `3a47cf9` 图降为历史，精确 `075e031` 五张图成为 CURRENT。
 - 风险变化：Recovery 语义分裂不增加；Silent overwrite 风险下降；Partial 堆积保持 HIGH，
-  因 P0 原生中文 IME、P1 Attention/Dynamic Now/Marker 与 Final Release 仍开放。
+  当时仍因 P0 原生中文 IME、P1 Attention/Dynamic Now/Marker 与 Final Release 开放；
+  P0-J IME 后由 `a65da34` 关闭。
 
 ### P2-E 单步失败合同收口（2026-07-29，`98df827`）
 
@@ -70,6 +71,21 @@
 - Desktop 矩阵只取精确构建的 Dark/reload/空审阅代表证据；生产入口无法安全制造的
   FAILED/STALE 卡保持 AUTOMATED_ONLY，没有为了形式扩大故障入口或笛卡尔矩阵。
 
+### P0-J 原生中文 IME（2026-07-29，repo HEAD `a65da34`）
+
+- P0-J `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`；新增长期
+  Partial `0`。
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator `0`、
+  Attention 类型 `0`、Provider 调用 `0`、写入权威 `0`。
+- 没有为了自动化输入建立第二输入 Runtime：Computer Use 通过 macOS 原生简体拼音逐键
+  输入，真实覆盖组合、候选提交、已提交中文中间光标插入、正式建页、保存和 reload。
+- 首次临时 Page 路由 reload 失败被保留为验收陷阱，没有把编辑态截图冒充持久化；正式
+  Create 路径 reload 读回后才关闭 Gate。
+- Desktop 只覆盖 P0-J 需要的 host Light / 754×720 代表链；不扩成所有输入法、主题与
+  宿主笛卡尔积。风险变化：Partial 堆积下降，但 P1 Attention/Marker、P0
+  accepted-not-applied/PENDING-Recovery 总 Gate、File Graph Light host issue 和 Final
+  Release 仍使该风险保持 `HIGH`。
+
 ### P1 “现在”前台上限
 
 - 关闭 Day 10 的 Now 首屏过载子 Partial `1`；新增长期 Partial `0`。
@@ -80,7 +96,7 @@
 - Desktop 代表矩阵只覆盖 Light 标准宽度、折叠/展开和两次真实 reload；没有扩成主题、
   宿主和窗口的笛卡尔积。前台阅读量下降，后台状态组合不变。
 - 风险变化：前台工程概念泄漏与 Now 列表噪声下降；Partial 堆积仍为 `HIGH`，P1-C
-  Dynamic Now、Attention/Block Marker 和 P0 中文 IME 仍阻断发布。
+  Dynamic Now、Attention/Block Marker 仍阻断发布；P0 中文 IME 后由 `a65da34` 关闭。
 
 ### Day 10 十日回顾与 P1 前台边界
 
@@ -218,8 +234,9 @@
 - 新增正式状态、顶层导航、Agent Runtime、写入权威、Recovery 分支、Skill、Prompt、
   Validator：均为 `0`。Pilot 只复用现有 Logseq Graph、Context/Provider、Proposal、
   Commit、Undo、Condition 和 current-ui。
-- P0-J ended boundary `OPEN→DONE_DESKTOP_REPRESENTATIVE`；原生中文 IME 保持 OPEN。
-  子 Gate 净下降 `1`，没有为 Desktop 模拟创建长期 Partial。
+- P0-J ended boundary `OPEN→DONE_DESKTOP_REPRESENTATIVE`；原生中文 IME 在该阶段保持
+  OPEN，后由 `a65da34` 关闭。该阶段子 Gate 净下降 `1`，没有为 Desktop 模拟创建长期
+  Partial。
 - 真实 Provider `2` 次，Validator rejection/retry/abstention `0/0/0`；事实纠正属于
   用户新增业务证据，不创建单样本 Skill 补丁。
 - 新暴露的 release blockers：Undo 资格结论与按钮矛盾；最近修改首屏工程词和历史墙；
@@ -247,8 +264,8 @@
   任务的失败→保存→返回→Undo→reload，并以 727×720 关闭该入口窄栏代表 Gate。
 - LLM：未调用 Provider；Validator rejection、retry、Skill/Prompt 版本变化不适用。
 - Partial 总量净下降 `1`：P0-K 返回现场代表 Gate `PARTIAL→DONE_DESKTOP_REPRESENTATIVE`；
-  P0-J 中文 IME/受限视觉、P1 Attention/Marker 和 P2 恢复项保持 OPEN。后台工程概念泄漏
-  进一步下降，未通过增加说明层掩盖复杂度。
+  P0-J 中文 IME/受限视觉、P1 Attention/Marker 和 P2 恢复项在该阶段保持 OPEN；P0-J
+  后由 `a65da34` 关闭。后台工程概念泄漏进一步下降，未通过增加说明层掩盖复杂度。
 
 ### Project 创建后落地与工作现场路由
 
@@ -403,8 +420,8 @@
   没有为四条 Slash、六条 palette 或三个 binding 创建场景状态；新正式状态、恢复分支、
   Agent Runtime、Prompt、Skill 与 Validator 均为 `0`。
 - 连续 reload 的 palette 重复只在宿主会话内出现，完整 restart 后消失；保留一张
-  `HISTORICAL` 缺陷截图，不增加 Plugin 持久去重账本。中文 IME 与 Light/窄栏继续作为
-  代表性 Gate，不扩张为全组合矩阵。
+  `HISTORICAL` 缺陷截图，不增加 Plugin 持久去重账本。中文 IME 与 Light/窄栏在该阶段
+  继续作为代表性 Gate；IME 后由 `a65da34` 关闭，仍不扩张为全组合矩阵。
 - P0-K main Page 使用既有 session-only source token 通过返回 Gate；right-sidebar 不提供
   Plugin Page item 时保持隐藏，没有为宿主缺失 identity 增加 fallback 状态或第二入口。
 - P0-K Query / Block reference 在脱敏 Desktop 页确认由宿主接管预览或引用专用菜单；

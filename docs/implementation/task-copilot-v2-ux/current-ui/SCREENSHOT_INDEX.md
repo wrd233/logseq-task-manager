@@ -182,7 +182,23 @@ Project 创建 Undo 的新成功消息已经由 Day 5 exact build `19de8de0f47c`
 | `screenshots/p0-j-restricted-restarted-current-light-bc79ffd.jpg` | CURRENT | 显式重新启动 | 正式能力恢复，受限期间零写入 |
 
 旧 `73dc1e2` 的 P0-J 受限截图没有精确包含最终边界修复，标为 `SUPERSEDED` 并从当前
-证据目录移除；P0-J 原生中文 IME 仍 OPEN。
+证据目录移除。
+
+### P0-J 原生中文 IME — repo HEAD `a65da34`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light；754×720；macOS 简体拼音；
+Computer Use `press_key` 逐键输入。无 Provider、Proposal、正式对象写入或 Unicode 注入。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p0-j-native-ime-composition-current-a65da34.png` | CURRENT | 逐键输入拼音并停在组合态 | 编辑区显示 `中文输入yan'zheng`，证明原生组合而非程序注入 |
+| `screenshots/p0-j-native-ime-cursor-composition-current-a65da34.png` | CURRENT | 在已提交中文中向左移动光标后逐键输入 | 显示 `中文输入guang'biao验证`，证明中间光标插入与组合 |
+| `screenshots/p0-j-native-ime-saved-current-a65da34.png` | CURRENT | 提交候选并退出编辑 | 最终 Block 为 `中文输入光标验证` |
+| `screenshots/p0-j-native-ime-reload-current-a65da34.png` | CURRENT | 通过正式 Create 建页后 reload | Page 与中文 Block 均读回；输入源随后恢复 ABC |
+
+首次在临时 UUID Page 路由保存后 reload 得到 `Page no longer exists!!`，未计为 PASS；
+只有走正式建页路径并再次 reload 后才关闭 Gate。P0-J 因而为
+`DONE_DESKTOP_REPRESENTATIVE`，不等于 P0 或完整 Goal 完成。
 
 ### P0-K Block Condition 返回现场 — exact build `73dc1e26f610`
 
@@ -201,7 +217,7 @@ Logseq `0.10.15`；File Graph
 | `screenshots/p0-k-condition-undo-worksite-current-73dc1e2.jpg` | CURRENT | 同一原文右键→撤销上一次状态变化 | 返回同一原文；恢复“可以行动”；当前关注不变 |
 
 这些截图与此前 `p0-k-01`～`10` 的 Page、来源移动/删除和 bounded host 证据共同关闭
-P0-K 代表性 Gate；不替代 P0-J 中文 IME/受限视觉或完整 P0。
+P0-K 代表性 Gate；P0-J 已由后续原生 IME 证据关闭，但完整 P0 仍未完成。
 
 ### Page / Project Page 用户语言 — exact build `869127f`
 
@@ -394,10 +410,10 @@ Logseq `0.10.15`；File Graph；Dark；1000×720；Task Copilot reload 后打开
 | `screenshots/p0-j-02-command-palette-single-current-dark.png` | `e8db32f1af6d` | 完整冷启动后打开命令面板并检索 Task Copilot | 六条中文命令单组可见，无持久重复 | 连续 reload residue 见 HISTORICAL；受限态 OPEN |
 | `screenshots/p0-j-03-command-palette-open-now-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“打开‘现在’” | 当前 Now 工作面打开，无静默或错误 | Light/窄栏 OPEN |
 | `screenshots/p0-j-04-command-palette-system-status-current-dark.png` | `e8db32f1af6d` | 从命令面板执行“系统状态与技术诊断” | 用户层健康结论可读，技术详情保持折叠 | 受限态代表链 OPEN |
-| `screenshots/p0-j-05-slash-command-current-dark.png` | `e8db32f1af6d` | 空白 Block 打开 Slash，选择创建任务并继续输入 ASCII 测试标题 | 四条中文 Slash 可发现；精确插入 `[任务] ` 并保留同一 Block | Computer Use 不能替代原生中文 IME Gate |
+| `screenshots/p0-j-05-slash-command-current-dark.png` | `e8db32f1af6d` | 空白 Block 打开 Slash，选择创建任务并继续输入 ASCII 测试标题 | 四条中文 Slash 可发现；精确插入 `[任务] ` 并保留同一 Block | 仅证明 Slash；原生 IME 后由 `a65da34` 专用证据关闭 |
 | `screenshots/p0-j-06-custom-binding-current-dark.png` | `a835f59bf1c4` | 设置页为“打开‘现在’”配置临时两段 chord | 仅三项高频动作可配置；没有默认键 | 测试后已清理本机配置 |
 | `screenshots/p0-j-07-custom-binding-open-now-current-dark.png` | `a835f59bf1c4` | 关闭设置后触发临时 chord | Now 正确打开 | 不保留测试 binding |
-| `screenshots/p0-j-08-cold-start-configurable-shortcuts-current-dark.png` | `a835f59bf1c4` | 清理配置并完整退出/重启 Logseq，重新检索 Task Copilot | 恰好 3 条可配置命令，全部未设置 | 中文 IME、受限态、Light/窄栏 OPEN |
+| `screenshots/p0-j-08-cold-start-configurable-shortcuts-current-dark.png` | `a835f59bf1c4` | 清理配置并完整退出/重启 Logseq，重新检索 Task Copilot | 恰好 3 条可配置命令，全部未设置 | IME 与 ended 边界已由后续 CURRENT 证据关闭；P0 总 Gate 仍 OPEN |
 | `screenshots/p0-e-05-daily-shell-clean-current-dark.png` | `4dfe014902a3` | exact build 后台 reload 后打开“现在” | 启动结论使用“当前知识库”；无 Runtime/Store/Graph 状态条，保留四项主导航与真实任务动作 | Light/窄栏和高级卡片信息密度仍 OPEN |
 | `screenshots/p0-h-08-more-productized-current-dark.png` | `4dfe014902a3` | 从日常工作面进入“更多” | 维护能力收敛为最近修改、系统状态、备份恢复、迁移和结束本次使用；无 Launcher/Service/Commit/SQLite 工程词 | 结束/重启最新语言链仍可在集中 P0 Gate 复验 |
 | `screenshots/p0-i-03-system-status-translated-current-dark.png` | `4dfe014902a3` | 从“更多”检查健康系统状态，保持技术诊断折叠 | 首屏只回答发生、影响、可用、安全和操作；内部状态、精确 commit 与 `0/0/0` 仅在主动展开后可见 | 失败/恢复各类别仍需代表性当前复验 |
