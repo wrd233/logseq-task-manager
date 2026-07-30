@@ -1432,6 +1432,11 @@ test("V2 objects and Review expose reasoned cancellation and explicit reopen wit
   html = renderApp(value);
   assert.match(html, /data-action="submit-v2-reasoned-lifecycle"/);
   assert.match(html, /只改变是否继续，不改写正文/);
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:cancel", proposalId: "prop-cancel", status: "PENDING", beforeStateChecksum: "before", createdAt: "2026-07-22T13:00:00.000Z", updatedAt: "2026-07-22T13:01:00.000Z" }];
+  html = renderApp(value);
+  assert.match(html, /继续上次修改/);
+  assert.match(html, /沿用原记录/);
+  assert.match(html, /data-action="submit-v2-reasoned-lifecycle"[^>]*>确认继续</);
 
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
@@ -1908,6 +1913,37 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /上一步只是确认方案/);
   assert.doesNotMatch(html, /data-action="v2-proposal-revalidate"/);
   assert.match(html, /data-action="v2-proposal-commit"/);
+  value.v2SemanticCommits = [{
+    semanticCommitId: "proposal-commit:pending",
+    proposalId: "prop_v2",
+    status: "PENDING",
+    beforeStateChecksum: "before",
+    createdAt: "2026-07-20T12:02:00.000Z",
+    updatedAt: "2026-07-20T12:03:00.000Z",
+  }];
+  html = renderApp(value);
+  assert.match(html, /修改尚未完成，可以继续/);
+  assert.match(html, /沿用原记录/);
+  assert.match(html, /data-action="v2-proposal-commit"[^>]*>继续原修改</);
+  assert.doesNotMatch(html, /方案已审阅，等待确认应用|上一步只是确认方案/);
+  value.actionDialog = { kind: "confirm-v2-commit", value: "prop_v2|2026-07-20T12:00:01.000Z" };
+  html = renderApp(value);
+  assert.match(html, /继续上次修改/);
+  assert.match(html, /沿用原记录/);
+  assert.match(html, /data-action="submit-v2-proposal-commit"[^>]*>确认继续</);
+  delete value.actionDialog;
+  value.v2SemanticCommits[0]!.status = "RECOVERY_REQUIRED";
+  value.v2SemanticCommits[0]!.errorCode = "VERIFY_FAILED";
+  html = renderApp(value);
+  assert.match(html, /上次修改需要恢复/);
+  assert.match(html, /data-action="v2-proposal-commit"[^>]*>恢复到安全状态</);
+  assert.doesNotMatch(html, /确认应用/);
+  value.actionDialog = { kind: "confirm-v2-commit", value: "prop_v2|2026-07-20T12:00:01.000Z" };
+  html = renderApp(value);
+  assert.match(html, /恢复到安全状态/);
+  assert.match(html, /同一恢复记录/);
+  assert.match(html, /data-action="submit-v2-proposal-commit"[^>]*>确认恢复</);
+  delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:abc", proposalId: "prop_v2", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-20T12:00:00.000Z", updatedAt: "2026-07-20T12:01:00.000Z" }];
   html = renderApp(value);
@@ -2170,7 +2206,13 @@ test("MiniProject DONE Review uses a dedicated final confirmation and does not e
   html = renderApp(value);
   assert.match(html, /原目标、实际结果和遗留事项/);
   assert.match(html, /data-action="submit-v2-mini-project-closure"/);
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:mini", proposalId: "prop-mini-close", status: "RECOVERY_REQUIRED", beforeStateChecksum: "before", createdAt: "2026-07-22T08:00:00.000Z", updatedAt: "2026-07-22T08:01:00.000Z", errorCode: "VERIFY_FAILED" }];
+  html = renderApp(value);
+  assert.match(html, /恢复到安全状态/);
+  assert.match(html, /同一恢复记录/);
+  assert.match(html, /data-action="submit-v2-mini-project-closure"[^>]*>确认恢复</);
   delete value.actionDialog;
+  value.v2SemanticCommits = [];
   value.v2LifecycleCommitBusy = true;
   html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-closure-commit"[^>]*disabled[^>]*aria-busy="true"/);

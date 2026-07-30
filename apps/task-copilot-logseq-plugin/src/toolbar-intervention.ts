@@ -73,10 +73,19 @@ export function deriveToolbarIntervention(input: ToolbarInterventionInput): Tool
       )))
       .map((record) => record.proposal.proposalId),
   );
+  const unfinishedProposalIds = new Set(
+    input.semanticCommits
+      .filter((commit) => commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED")
+      .map((commit) => commit.proposalId)
+      .filter((proposalId): proposalId is string => Boolean(proposalId)),
+  );
   const counts: ToolbarInterventionCounts = {
     dueReview: dueObjectIds.size + dueDeferredProposalIds.size,
     pendingConfirmation: input.proposals.filter(pendingConfirmation).length,
-    acceptedNotApplied: input.proposals.filter(acceptedHighImpactNotApplied).length,
+    acceptedNotApplied: input.proposals.filter((record) => (
+      acceptedHighImpactNotApplied(record)
+      && !unfinishedProposalIds.has(record.proposal.proposalId)
+    )).length,
     pendingCommit: input.semanticCommits.filter((commit) => commit.status === "PENDING").length,
     formalConnectionRisk: input.formalConnectionRisk ? 1 : 0,
   };

@@ -203,6 +203,15 @@ function button(label: string, action: string, value?: string, className = "", d
   return `<button type="button" class="${className}" data-action="${action}"${value ? ` data-value="${escapeHtml(value)}"` : ""}${disabled ? " disabled aria-busy=\"true\"" : ""}>${escapeHtml(label)}</button>`;
 }
 
+function proposalContinuationStatus(model: UiModel, proposalId: string): "PENDING" | "RECOVERY_REQUIRED" | undefined {
+  const status = model.v2SemanticCommits?.find((commit) => (
+    commit.proposalId === proposalId
+    && commit.semanticCommitId.startsWith("proposal-commit:")
+    && (commit.status === "PENDING" || commit.status === "RECOVERY_REQUIRED")
+  ))?.status;
+  return status === "PENDING" || status === "RECOVERY_REQUIRED" ? status : undefined;
+}
+
 function empty(title: string, detail: string): string {
   return `<div class="empty"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(detail)}</p></div>`;
 }
@@ -540,6 +549,9 @@ function renderReview(model: UiModel): string {
       : undefined;
     const isReasonedLifecycle = reasonedLifecycleOperation?.kind === "TRANSITION_LIFECYCLE" && (reasonedLifecycleOperation.payload.action === "CANCEL" || reasonedLifecycleOperation.payload.action === "REOPEN");
     const originalCommit = model.v2SemanticCommits?.find((commit) => commit.proposalId === record.proposal.proposalId && commit.semanticCommitId.startsWith("proposal-commit:"));
+    const continuationStatus = proposalContinuationStatus(model, record.proposal.proposalId);
+    const pendingOriginalCommit = continuationStatus === "PENDING";
+    const recoveryOriginalCommit = continuationStatus === "RECOVERY_REQUIRED";
     const ownershipUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `ownership-undo:${originalCommit.semanticCommitId}`) : undefined;
     const projectStructureUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `project-structure-undo:${originalCommit.semanticCommitId}`) : undefined;
     const projectClosureUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `project-closure-undo:${originalCommit.semanticCommitId}`) : undefined;
@@ -559,7 +571,19 @@ function renderReview(model: UiModel): string {
     const applied = record.proposal.status === "APPLIED";
     const failed = record.proposal.status === "FAILED";
     const stale = record.proposal.status === "STALE";
-    const reviewStage = applied ? "已正式应用" : failed ? "这次应用没有完成" : stale ? "方案已变化，需要重新检查" : canCommit ? "方案已审阅，等待确认应用" : "请审阅这项方案";
+    const reviewStage = applied
+      ? "已正式应用"
+      : failed
+        ? "这次应用没有完成"
+        : stale
+          ? "方案已变化，需要重新检查"
+          : recoveryOriginalCommit
+            ? "上次修改需要恢复"
+            : pendingOriginalCommit
+              ? "修改尚未完成，可以继续"
+              : canCommit
+                ? "方案已审阅，等待确认应用"
+                : "请审阅这项方案";
     const visibleGroups = record.proposal.groups.filter((group) => group.disposition !== "REJECTED");
     const highImpact = visibleGroups.some((group) => group.risk === "HIGH");
     const operationKinds = new Set(visibleGroups.flatMap((group) => group.semanticOperations.map((operation) => operation.kind)));
@@ -587,7 +611,11 @@ function renderReview(model: UiModel): string {
               : "未在方案中的正文、状态和关系不会改变。";
     const safetyItems = applied
       ? [scopeBoundary, "没有后续冲突时，可以从这里撤销本次应用。"]
-      : [scopeBoundary, "现在退出是安全的；只有“确认应用”后才会正式生效。"];
+      : recoveryOriginalCommit
+        ? [scopeBoundary, "上次修改未完整收口；系统会沿用同一恢复记录，不会新建重复操作。"]
+        : pendingOriginalCommit
+          ? [scopeBoundary, "正式修改已经开始；继续时会沿用原记录，不会重复应用已完成步骤。"]
+          : [scopeBoundary, "现在退出是安全的；只有“确认应用”后才会正式生效。"];
     const understandingSection = `<section><h4>系统理解</h4><p>${escapeHtml(systemUnderstanding)}</p></section>`;
     const changesSection = `<section><h4>本次会改变什么</h4>${changes.length ? `<ul>${changes.map((change) => `<li>${escapeHtml(change)}</li>`).join("")}</ul>` : "<p>不会产生正式变化。</p>"}</section>`;
     const safetySection = `<section><h4>本次不会改变什么</h4><ul>${safetyItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`;
@@ -608,8 +636,9 @@ function renderReview(model: UiModel): string {
     const commitLabel = isProjectClosure ? "确认结束项目" : isProjectStructure ? "确认更新项目" : isProjectCreation ? "确认创建项目" : isMiniProjectRestructure ? "确认整理结构" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消事项" : "确认重新打开") : isOwnershipChange ? "确认调整主归属" : "确认应用";
     const commitAction = isProjectClosure ? "v2-project-closure-commit" : isProjectStructure ? "v2-project-structure-commit" : isProjectCreation ? "v2-project-creation-commit" : isMiniProjectRestructure ? "v2-mini-project-restructure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit";
     const commitBusy = (isProjectCreation && model.v2ProjectCreationCommitBusy === true) || (isMiniProjectRestructure && model.v2StructureCommitBusy === true) || (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true);
+    const resolutionLabel = recoveryOriginalCommit ? "恢复到安全状态" : pendingOriginalCommit ? "继续原修改" : commitLabel;
     const primaryResolution = canCommit
-      ? `<div class="actions review-primary-action">${button(commitLabel, commitAction, `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, "primary", commitBusy)}</div>`
+      ? `<div class="actions review-primary-action">${button(resolutionLabel, commitAction, `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, recoveryOriginalCommit ? "danger" : "primary", commitBusy)}</div>`
       : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>`
       : canProjectCreationUndo ? `<div class="actions">${button(model.v2ProjectCreationCommitBusy ? "正在安全撤销…" : "撤销项目创建", "v2-project-creation-undo", originalCommit.semanticCommitId, "danger", model.v2ProjectCreationCommitBusy === true)}</div>`
       : canProjectClosureUndo ? `<div class="actions">${button("撤销结束项目", "v2-project-closure-undo", originalCommit.semanticCommitId, "danger")}</div>`
@@ -626,8 +655,12 @@ function renderReview(model: UiModel): string {
         ? "撤销因后续变化已安全停止，没有覆盖当前内容。"
         : originalCommit?.status === "UNDONE"
           ? "本次修改已经撤销；历史记录仍然保留。"
-          : canCommit
-            ? "上一步只是确认方案。点击下方按钮后才会重新检查并正式应用。"
+          : recoveryOriginalCommit
+            ? "上次修改没有完整收口。请沿用同一恢复记录恢复到安全状态，不要创建重复修改。"
+            : pendingOriginalCommit
+              ? "原修改已经开始。继续时会沿用原记录，并跳过已经完成的步骤。"
+              : canCommit
+                ? "上一步只是确认方案。点击下方按钮后才会重新检查并正式应用。"
             : applied
               ? "本次修改已正式应用。"
               : failed
@@ -1646,15 +1679,43 @@ function renderActionDialog(model: UiModel): string {
     return `<section class="inbox-dialog action-dialog" aria-label="审阅 MiniProject 完成回顾"><div class="eyebrow">审阅方案 · 尚未应用</div><h3>MiniProject 完成回顾</h3><p class="muted">Copilot 只帮助整理文字，最终判断仍由你确认。这一步不会完成 MiniProject；确认应用前正式状态不会改变。</p><label>原本要得到什么<textarea data-field="miniClosureOriginalGoal">${escapeHtml(closure.originalGoal)}</textarea></label><label>实际得到了什么<textarea data-field="miniClosureActualResult">${escapeHtml(closure.actualResult)}</textarea></label><label>有什么遗留或需要转移<textarea data-field="miniClosureRemainingWork" placeholder="没有遗留时请明确写“无遗留”">${escapeHtml(closure.remainingWork)}</textarea></label><details class="legacy-transfer"><summary>把遗留整理为新事项</summary><p class="muted">先在 Logseq 新建并选中一个空 Block；不创建新事项也会保留上方遗留说明。</p><label>承接事项类型<select data-field="miniClosureLegacyObjectType"><option value="TASK">任务</option><option value="MINI_PROJECT">MiniProject</option><option value="DECISION">决定</option><option value="OUTPUT">成果</option></select></label>${button(model.v2LegacyTransferBusy ? "正在准备新事项…" : "准备新事项", "v2-mini-project-legacy-transfer", dialog.value, "quiet", transferDisabled)}</details><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已核对这份完成回顾，准备确认方案</label><div class="actions">${button(draftLabel, "v2-mini-project-closure-draft", dialog.value, "quiet", draftDisabled)}${button(model.v2ClosureReviewBusy ? "正在保存…" : "确认这份方案", "submit-v2-review-accept", dialog.value, "primary", model.v2ClosureReviewBusy === true || model.v2ClosureDraftBusy === true || model.v2LegacyTransferBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-mini-project-closure") {
-    const proposalId = dialog.value.split("|")[0];
+    const proposalId = dialog.value.split("|")[0] ?? "";
+    const continuation = proposalContinuationStatus(model, proposalId);
+    const recovering = continuation === "RECOVERY_REQUIRED";
+    const continuing = continuation === "PENDING";
     const operation = model.v2Proposals?.find((candidate) => candidate.proposal.proposalId === proposalId)?.proposal.groups.flatMap(({ semanticOperations }) => semanticOperations).find((candidate) => candidate.kind === "TRANSITION_LIFECYCLE" && candidate.payload.objectType === "MINI_PROJECT" && candidate.payload.lifecycle === "COMPLETED");
     const evidence = operation?.payload.marker === "DONE" ? "系统会重新检查当前正文和事项版本" : "系统会重新检查事项版本，且不会改写 Logseq 正文";
-    return `<section class="inbox-dialog action-dialog" aria-label="确认完成 MiniProject"><div class="eyebrow">确认应用 · 点击后正式生效</div><h3>完成这个 MiniProject</h3><p class="safety-note">现在退出不会修改正式状态。应用成功后可从历史记录中查看结果。</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(`我已审阅原目标、实际结果和遗留事项；${evidence}，然后完成这个 MiniProject`)}</label><div class="actions">${button("确认完成", "submit-v2-mini-project-closure", dialog.value, "danger")}${cancel}</div></section>`;
+    const title = recovering ? "恢复到安全状态" : continuing ? "继续上次修改" : "完成这个 MiniProject";
+    const eyebrow = recovering ? "恢复操作 · 沿用同一恢复记录" : continuing ? "继续原修改 · 沿用原记录" : "确认应用 · 点击后正式生效";
+    const safety = recovering
+      ? "上次修改没有完整收口；这次只恢复同一记录，不会创建重复修改。"
+      : continuing
+        ? "正式修改已经开始；这次会沿用原记录，并跳过已完成的步骤。"
+        : "现在退出不会修改正式状态。应用成功后可从历史记录中查看结果。";
+    const statement = recovering
+      ? "我确认沿用同一恢复记录；系统会完成安全补偿，不会创建重复修改"
+      : continuing
+        ? "我确认沿用原记录继续；系统会重新检查当前状态，并跳过已完成的步骤"
+        : `我已审阅原目标、实际结果和遗留事项；${evidence}，然后完成这个 MiniProject`;
+    const actionLabel = recovering ? "确认恢复" : continuing ? "确认继续" : "确认完成";
+    return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(title)}"><div class="eyebrow">${escapeHtml(eyebrow)}</div><h3>${escapeHtml(title)}</h3><p class="safety-note">${escapeHtml(safety)}</p><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(statement)}</label><div class="actions">${button(actionLabel, "submit-v2-mini-project-closure", dialog.value, "danger")}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-reasoned-lifecycle") {
+    const proposalId = dialog.value.split("|")[0] ?? "";
+    const continuation = proposalContinuationStatus(model, proposalId);
+    const recovering = continuation === "RECOVERY_REQUIRED";
+    const continuing = continuation === "PENDING";
     const action = dialog.value.split("|")[2];
     const verb = action === "CANCEL" ? "取消" : "重开";
-    return `<section class="inbox-dialog action-dialog" aria-label="确认${verb}事项"><div class="eyebrow">确认应用 · 点击后正式生效</div><h3>确认${verb}事项</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已审阅${verb}原因；系统会重新检查当前版本，只改变是否继续，不改写正文</label><div class="actions">${button(`确认${verb}`, "submit-v2-reasoned-lifecycle", dialog.value, "danger")}${cancel}</div></section>`;
+    const title = recovering ? "恢复到安全状态" : continuing ? "继续上次修改" : `确认${verb}事项`;
+    const eyebrow = recovering ? "恢复操作 · 沿用同一恢复记录" : continuing ? "继续原修改 · 沿用原记录" : "确认应用 · 点击后正式生效";
+    const statement = recovering
+      ? "我确认沿用同一恢复记录；系统会恢复安全一致状态，不会创建重复修改"
+      : continuing
+        ? "我确认沿用原记录继续；系统会重新检查当前版本，不会重复完成已应用的步骤"
+        : `我已审阅${verb}原因；系统会重新检查当前版本，只改变是否继续，不改写正文`;
+    const actionLabel = recovering ? "确认恢复" : continuing ? "确认继续" : `确认${verb}`;
+    return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(title)}"><div class="eyebrow">${escapeHtml(eyebrow)}</div><h3>${escapeHtml(title)}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(statement)}</label><div class="actions">${button(actionLabel, "submit-v2-reasoned-lifecycle", dialog.value, "danger")}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-lifecycle-undo") {
     return `<section class="inbox-dialog action-dialog" aria-label="撤销 Lifecycle 变化"><h3>撤销 Lifecycle 变化</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我确认只恢复对象的 Lifecycle 与必要的 Closure 快照；系统会校验当前对象版本，不改写正文、Anchor、Condition、Focus 或 Ownership</label><div class="actions">${button("确认继续", "submit-v2-lifecycle-undo", dialog.value, "danger")}${cancel}</div></section>`;
@@ -1682,8 +1743,19 @@ function renderActionDialog(model: UiModel): string {
   if (confirmation) {
     const isReviewOnly = dialog.kind === "confirm-v2-review-accept";
     const isUndo = dialog.kind.includes("undo");
-    const actionLabel = isReviewOnly ? "确认方案" : isUndo ? "确认撤销" : "确认应用";
-    return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(confirmation[0])}"><div class="eyebrow">${isReviewOnly ? "审阅方案 · 尚未应用" : isUndo ? "撤销操作" : "确认应用 · 点击后正式生效"}</div><h3>${escapeHtml(confirmation[0])}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(confirmation[1])}</label><div class="actions">${button(actionLabel, confirmation[2], dialog.value, isReviewOnly ? "primary" : "danger")}${cancel}</div></section>`;
+    const proposalId = dialog.value.split("|")[0] ?? "";
+    const continuation = !isReviewOnly && !isUndo ? proposalContinuationStatus(model, proposalId) : undefined;
+    const recovering = continuation === "RECOVERY_REQUIRED";
+    const continuing = continuation === "PENDING";
+    const title = recovering ? "恢复到安全状态" : continuing ? "继续上次修改" : confirmation[0];
+    const statement = recovering
+      ? "我确认沿用同一恢复记录；系统会重新检查已完成步骤，并完成剩余步骤或安全补偿，不会创建重复修改"
+      : continuing
+        ? "我确认沿用原记录继续；系统会重新检查当前内容，并跳过已经完成的步骤"
+        : confirmation[1];
+    const actionLabel = recovering ? "确认恢复" : continuing ? "确认继续" : isReviewOnly ? "确认方案" : isUndo ? "确认撤销" : "确认应用";
+    const eyebrow = recovering ? "恢复操作 · 沿用同一恢复记录" : continuing ? "继续原修改 · 沿用原记录" : isReviewOnly ? "审阅方案 · 尚未应用" : isUndo ? "撤销操作" : "确认应用 · 点击后正式生效";
+    return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(title)}"><div class="eyebrow">${escapeHtml(eyebrow)}</div><h3>${escapeHtml(title)}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(statement)}</label><div class="actions">${button(actionLabel, confirmation[2], dialog.value, isReviewOnly ? "primary" : "danger")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-review-defer") return `<section class="inbox-dialog action-dialog" aria-label="暂缓 V2 语义组"><h3>暂缓语义组</h3><label>复查时间<input type="datetime-local" data-field="v2DeferredUntil"></label><label>原因<input data-field="v2DeferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-v2-review-defer", dialog.value, "primary")}${cancel}</div></section>`;
   return "";

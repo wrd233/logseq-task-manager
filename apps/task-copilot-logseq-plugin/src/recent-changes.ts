@@ -255,9 +255,9 @@ export function projectRecentChanges(input: RecentChangesInput): RecentChange[] 
         ...(record ? {
           secondaryAction: {
             action: "recent-change-review" as const,
-            label: "查看",
+            label: state.status === "PENDING" ? "继续" : state.status === "RECOVERY_REQUIRED" ? "恢复" : "查看",
             value: "review",
-            tone: "quiet" as const,
+            tone: state.status === "RECOVERY_REQUIRED" ? "danger" as const : "quiet" as const,
           },
         } : {}),
         technical,

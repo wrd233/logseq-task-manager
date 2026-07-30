@@ -81,9 +81,10 @@ function proposal(
   };
 }
 
-function commit(status: ServiceSemanticCommit["status"]): ServiceSemanticCommit {
+function commit(status: ServiceSemanticCommit["status"], proposalId?: string): ServiceSemanticCommit {
   return {
     semanticCommitId: `commit-${status}`,
+    ...(proposalId ? { proposalId } : {}),
     status,
     beforeStateChecksum: "before",
     createdAt: "2026-07-24T00:00:00.000Z",
@@ -166,6 +167,22 @@ test("RECOVERY_REQUIRED replaces the number with a recovery symbol and routes di
   const html = renderToolbarIntervention(summary);
   assert.match(html, />↻</);
   assert.doesNotMatch(html, /toolbar-badge[^>]*>②</);
+});
+
+test("one accepted Proposal with an unfinished Commit is counted as one issue", () => {
+  const summary = deriveToolbarIntervention({
+    nowWork: nowWork(),
+    proposals: [proposal("same-change", "ACCEPTED", "HIGH", "ACCEPTED")],
+    semanticCommits: [commit("PENDING", "same-change")],
+    formalConnectionRisk: false,
+  });
+  assert.equal(summary.mode, "attention");
+  assert.equal(summary.count, 1);
+  assert.equal(summary.counts.acceptedNotApplied, 0);
+  assert.equal(summary.counts.pendingCommit, 1);
+  assert.equal(summary.target, "audit");
+  assert.match(summary.title, /1 项修改尚未完成/);
+  assert.doesNotMatch(summary.title, /高影响修改尚未应用/);
 });
 
 test("the highest-priority intervention decides the toolbar destination", () => {

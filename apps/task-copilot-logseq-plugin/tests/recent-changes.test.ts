@@ -126,8 +126,20 @@ test("pending, recovery, failure, and undone are translated without inventing a 
     "这次修改已经撤销",
   ]);
   assert.equal(changes[0]!.primaryAction, undefined);
+  assert.deepEqual(changes[0]!.secondaryAction, {
+    action: "recent-change-review",
+    label: "继续",
+    value: "review",
+    tone: "quiet",
+  });
   assert.equal(changes[0]!.availability, "已完成的步骤被安全记录；请继续原操作，不要重复提交。");
   assert.equal(changes[1]!.primaryAction, undefined);
+  assert.deepEqual(changes[1]!.secondaryAction, {
+    action: "recent-change-review",
+    label: "恢复",
+    value: "review",
+    tone: "danger",
+  });
   assert.equal(changes[1]!.availability, "上一次修改尚未完成；请按同一恢复记录继续，不要新建重复操作。");
   assert.equal(changes[2]!.availability, "Logseq 正文已有变化；系统没有覆盖当前内容。");
   assert.equal(changes[3]!.availability, "这次修改已经通过逆向修改撤销，历史证据仍保留。");
