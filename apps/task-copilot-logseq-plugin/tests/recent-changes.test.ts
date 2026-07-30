@@ -146,14 +146,24 @@ test("pending, recovery, failure, and undone are translated without inventing a 
 });
 
 test("a compensated MiniProject structure failure says the original content is restored", () => {
+  const record = proposal("proposal-1", rewrite);
+  record.proposal.finalPreview = [
+    "# P0 恢复前台顺序演练 20260730",
+    "只调整两条现有材料的阅读顺序。",
+    "### 入口",
+    "- [MiniProject] P0 恢复前台结构演练 20260730",
+    "- 最后只需要一份可读检查结果，原文都保留",
+    "- 网络结果和安装记录混在下面，顺序还没整理",
+  ].join("\n");
   const changes = projectRecentChanges({
-    proposals: [proposal("proposal-1", rewrite)],
+    proposals: [record],
     commits: [commit("proposal-commit:structure", "FAILED", {
       errorCode: "V2_MINI_PROJECT_RESTRUCTURE_EXECUTION_FAILED",
     })],
   });
 
   assert.equal(changes[0]!.status, "FAILED");
+  assert.equal(changes[0]!.summary, "只调整两条现有材料的阅读顺序。");
   assert.equal(
     changes[0]!.availability,
     "这次整理没有完成；已执行步骤已经恢复，正文和正式状态保持原样。",

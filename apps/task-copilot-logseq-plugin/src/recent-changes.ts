@@ -176,6 +176,27 @@ function completedWithoutUndoExplanation(record: ServiceStoredProposal | undefin
     : undefined;
 }
 
+function compactUserPreview(value: string): string {
+  const lines = value.split(/\r?\n/u).map((line) => line.trim());
+  const firstMeaningful = lines.findIndex(Boolean);
+  if (firstMeaningful === -1) return "本次修改的完整说明保留在原始审阅记录中。";
+  const heading = /^#{1,6}\s+/u;
+  const startsWithHeading = heading.test(lines[firstMeaningful]!);
+  const fallback = startsWithHeading ? lines[firstMeaningful]!.replace(heading, "") : "";
+  const summaryLines: string[] = [];
+  for (let index = firstMeaningful + (startsWithHeading ? 1 : 0); index < lines.length; index += 1) {
+    const line = lines[index]!;
+    if (!line) {
+      if (summaryLines.length > 0) break;
+      continue;
+    }
+    if (heading.test(line)) break;
+    summaryLines.push(line);
+  }
+  const compact = (summaryLines.join(" ") || fallback || lines[firstMeaningful]!).replace(/\s+/gu, " ").trim();
+  return compact.length > 180 ? `${compact.slice(0, 179).trimEnd()}…` : compact;
+}
+
 function userSummary(record: ServiceStoredProposal | undefined, status: RecentChangeStatus): string {
   if (!record) return "这次正式修改的详细意图只在原始审阅记录中可用。";
   const acceptedOperations = record.proposal.groups
@@ -191,7 +212,7 @@ function userSummary(record: ServiceStoredProposal | undefined, status: RecentCh
       ? "项目已恢复为进行中；本次完成回顾已移除，项目页面与正文保持不变。"
       : "项目已结束；结果、遗留和后续说明已经保存，项目页面与正文保持不变。";
   }
-  return record.proposal.finalPreview;
+  return compactUserPreview(record.proposal.finalPreview);
 }
 
 function inverseAvailability(inverse: ServiceSemanticCommit): string {
