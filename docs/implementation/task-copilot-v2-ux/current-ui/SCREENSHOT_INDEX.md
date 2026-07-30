@@ -5,6 +5,26 @@
 共同环境：`feature/task-copilot-mvp`，Logseq Desktop `0.10.15`，测试 Graph `logseq`，
 主题与 viewport 以各场景记录为准，真实 Plugin/Launcher/Service；无 API Key、token 或私人正文。
 
+### P2-A/B MiniProject Grill 与原位重构 — exact builds `39d73a0` / `9e7a105`
+
+Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720。`39d73a0` 完成
+真实 Provider 对话、Preview、Review、正式应用、reload、Undo 与再次 reload；`9e7a105` 是
+只改信息层级的当前渲染，并重跑真实 Provider Preview。完整记录见
+`../logs/p2-ab-mini-project-current-build-regression-20260730.md`。
+
+| 文件 | 状态 | 用户动作 | 主结论与下一步 |
+|---|---|---|---|
+| `screenshots/p2-ab-mini-preview-current-9e7a105.jpeg` | CURRENT | 当前构建完成五轮 Grill 后生成 Preview | Preview 影响与尚未应用先出现；讨论依据折叠；唯一主操作进入变更审阅 |
+| `screenshots/p2-ab-mini-grill-ready-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 完成材料驱动 Grill | 边界、成果、验收和材料去向已明确；可生成 Preview |
+| `screenshots/p2-ab-mini-high-review-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 进入既有 HIGH Review | 首屏显示会改变/不会改变与退出安全；先审阅方案 |
+| `screenshots/p2-ab-mini-confirm-apply-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 审阅方案后进入最终确认 | 明确尚未应用；唯一主操作确认应用 |
+| `screenshots/p2-ab-mini-applied-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 正式应用结构变更 | 两个阅读分组生效；原文和 Block 身份保留；可撤销 |
+| `screenshots/p2-ab-mini-applied-reload-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | Plugin Manager reload 后读回 | 正式结构保持，Undo 资格仍有效 |
+| `screenshots/p2-ab-mini-undone-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | 确认 inverse Undo | 原结构恢复，历史证据保留 |
+| `screenshots/p2-ab-mini-undone-reload-current-39d73a0.jpeg` | CURRENT_AT_39D73A0 | Undo 后再次 reload | 原 UUID、正文和父子层级保持 |
+| `screenshots/p2-ab-mini-preview-current-39d73a0.jpeg` | SUPERSEDED_UI | 修复前 Preview | 讨论依据淹没 Preview 首屏；由 `9e7a105` 替代 |
+| `screenshots/p2-ab-mini-grill-current-bbb6fd3.jpeg` | HISTORICAL_PRE_FIX | 首次真实 Grill | 只保留无限 loading/旧工程词缺陷背景，不代表当前界面 |
+
 ### Release Candidate 自然使用与 Undo — exact build `ae9c6d7`
 
 Logseq `0.10.15`；File Graph `logseq`；host Light / Plugin Dark；1000×720；批次

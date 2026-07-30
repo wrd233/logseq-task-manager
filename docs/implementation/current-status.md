@@ -18,6 +18,22 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+`39d73a0` / `9e7a105` 已关闭 current-ui 中最后一项“MiniProject Grill / 原位重构只有历史
+Desktop”的证据缺口。真实 Logseq `0.10.15` File Graph、host Light / Plugin Dark、
+1000×720 中，正式 MiniProject 经五轮材料驱动 Grill 与一次 Preview 收敛；现有
+Proposal/Commit Kernel 完成结构应用、reload、inverse Undo 与再次 reload，原 Block UUID、
+正文和层级恢复，对象保持 `v4 / OPEN / ACTIONABLE`。首次真实 Preview 还暴露无限 loading
+和工程词问题，`39d73a0` 增加 130 秒有界失败及用户语言；`9e7a105` 又将 Preview 影响提前、
+讨论依据折叠，并清理普通路径中的 Session/Proposal/Commit/SQLite/HIGH。当前构建重跑六次
+真实 Provider 请求，Validator rejection/retry/abstention `0/0/0`，只读结束后对象和四个
+Block 精确不变，Doctor `PASS`。当前发布包更新为
+`task-copilot-v2-0.1.0-9e7a105-r5.zip`，SHA-256
+`d3f2242d2a0c3721656a6a9f8b72052e3c3fe301d4ea33b0971d1eb5c43f83d3`，包内 Plugin hash
+与当前构建一致。新增正式状态、Runtime、Recovery、Skill 和长期 Partial 均为 `0`；关闭
+current-ui 证据 Partial `1`，Final Release 仍为 `RELEASE_CANDIDATE_READY`，完整长期 Goal
+仍为 `IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/p2-ab-mini-project-current-build-regression-20260730.md`。
+
 `ae9c6d7` 又在 Release Candidate 的自然 Block→真实 Provider→Review→正式应用→reload→
 Undo→reload 链中发现并关闭一个前台回归：已完成的“最近修改”不再同时出现无效“查看”和
 内部 Commit/Object ID，只保留当前真正可用的“撤销”；PENDING/RECOVERY_REQUIRED 仍沿用
@@ -26,7 +42,7 @@ Undo→reload 链中发现并关闭一个前台回归：已完成的“最近修
 `LAUNCHER_INSTALL_ARGUMENTS_INVALID`；提供 Graph identity 但不传 `--database` 的正式重装
 保持 graphKey/database authority，reload 后 Service 恢复。Plugin `378/378`、根级检查、
 145 条稳定规则和恢复演练 PASS；
-当前 Release zip 已重建为 `task-copilot-v2-0.1.0-ae9c6d7-r3.zip`，`unzip -t` 与包内 Plugin
+该轮 Release zip 重建为 `task-copilot-v2-0.1.0-ae9c6d7-r3.zip`，`unzip -t` 与包内 Plugin
 hash 一致性 PASS。新增正式状态、Runtime、Recovery、Skill 均为 `0`，长期 Partial 净变化
 `0`。Final Release 保持 `RELEASE_CANDIDATE_READY`；完整长期 Goal 仍为 `IN_PROGRESS`。
 证据见 `task-copilot-v2-ux/logs/release-candidate-natural-use-regression-20260730.md`。

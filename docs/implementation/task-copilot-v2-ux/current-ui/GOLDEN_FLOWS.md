@@ -42,6 +42,26 @@ error、统一 Validator rejection、真实 DeepSeek 延迟 stale、feedback、r
 CURRENT 权威截图为 `p1-g-07`～`13`，完整记录见
 `../logs/p1-g-context-recovery-1-3-desktop-live-20260726.md`。
 
+## P2-A/B MiniProject Grill → 原位重构 → Undo
+
+状态：`DONE_CURRENT_BUILD_REPRESENTATIVE`
+
+1. 用户从正式 MiniProject 发起梳理；Service 只读取当前 active Primary Anchor 的有界子树；
+2. 真实 Provider 围绕当前材料中的边界、成果、完成证据和材料去向逐轮提问，回答只留在本次
+   讨论；
+3. READY 后生成零丢失阅读预览；首屏先显示结果、范围、影响与“尚未应用”，讨论依据折叠；
+4. 用户进入既有 HIGH Review，先审阅方案，再单独确认应用；退出前均不改变正文或正式对象；
+5. 正式 Service Commit 创建阅读分组并移动原 Block，删除固定为 0；reload 后保持；
+6. 最近修改使用现有 inverse Undo；再次 reload 后原 Block UUID、文字、父子层级恢复；
+7. Preview transport 超过 130 秒或 Validator 拒绝时，保留已确认回答，明确原内容未变并允许
+   重试，不创建 Proposal 或新恢复分支。
+
+当前结果：`39d73a0` 完整事务链 PASS；`9e7a105` 当前渲染又以五轮 Grill + 一次 Preview
+复验，六次 Provider 均一次通过，Validator rejection/retry/abstention `0/0/0`。只读结束后
+对象保持 `v4 / OPEN / ACTIONABLE`，四个原 Block 精确不变，Doctor `PASS`。deadline 只有
+自动回归证据，不冒充 Desktop timeout。完整记录见
+`../logs/p2-ab-mini-project-current-build-regression-20260730.md`。
+
 ## P2-C Blank Project Creation
 
 状态：`DONE_RELEASE_BOUNDARY_CURRENT_BUILD_CREATE_RELOAD_UNDO`

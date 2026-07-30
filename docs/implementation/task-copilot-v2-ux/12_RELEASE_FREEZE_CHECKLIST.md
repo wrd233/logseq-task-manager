@@ -34,8 +34,8 @@
 - [x] 核对 Project create→reload→Undo 与 Context Recovery 当前构建证据；当前 Dark
   1000×720 主链重新取证，Light/窄栏使用未发生样式变化的既有代表 Gate，不扩成笛卡尔积；
 - [x] 生成并校验可安装 Release 包；`unzip -t` PASS，SHA-256 为
-  `2efdbdd78621d159718fbc1e666c384b25d4b878d5f07112b2643dfa0b6e52c4`（当前
-  `task-copilot-v2-0.1.0-ae9c6d7-r3.zip`）；包内 Plugin build 与最终根级检查后的源码 hash
+  `d3f2242d2a0c3721656a6a9f8b72052e3c3fe301d4ea33b0971d1eb5c43f83d3`（当前
+  `task-copilot-v2-0.1.0-9e7a105-r5.zip`）；包内 Plugin build 与最终根级检查后的源码 hash
   一致；安装、启动、
   关闭、恢复、升级与安全卸载说明已同步到 `13_RELEASE_RUNBOOK.md`；真正零参数 install
   以 `LAUNCHER_INSTALL_ARGUMENTS_INVALID` 安全停止；直接从解压包提供 Graph identity、

@@ -15,6 +15,19 @@
 | Skill/Prompt/Validator 补丁化 | MEDIUM | `unified-ux-generator`/`recover-context` 已建立首组 CANDIDATE/RETIRED 台账与真实 Provider 指标；其他 active Skill 仍需统一收敛 | 只保留 `EXPERIMENTAL/SHADOW/CANDIDATE/PRODUCTION/RETIRED`；晋升看固定样本、真实 Provider、拒绝/重试/abstain/helpful-noise/越权；旧版退休而非永久兼容 | 是 |
 | Desktop 验收笛卡尔积 | HIGH | 宿主、主题、宽度、错误和恢复组合已很多 | 三层代表矩阵：高频日常覆盖 Block/Page/sidebar/Query-reference/Light-Dark/窄栏/reload/Graph switch；复杂操作覆盖 Preview/HIGH/Commit/reload/Undo/stale/Recovery；低频高风险覆盖正常、一种失败、自动回滚、手工入口、restart | 是 |
 | 文档/代码/截图漂移 | HIGH | 历史 Desktop 证据多，最新安全提交可能没有新 UI | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；自动-only 安全修复不借用旧截图升级 Desktop 状态；每轮同步 status/progress/acceptance/plan/current-ui | 是 |
+
+### P2-A/B MiniProject current-build 收口（2026-07-30，`39d73a0` / `9e7a105`）
+
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt/Validator 版本 `0`、写入
+  权威 `0`；复用现有 Grill Contract、Preview Handle、Proposal/Commit/Undo；
+- 增加的 deadline 是既有 controller 的有界 transport 终止，不是新恢复状态；超时和 Validator
+  rejection 都收敛为“未应用、原内容不变、可重试”；
+- 删除前台重复机制：Preview 出现后不再先展开整份事实/推断/未知，改为影响优先、讨论依据
+  折叠；删除 Session/Proposal/Commit/SQLite/HIGH 工程词；
+- 真实 Provider 6 次，Validator rejection/retry/abstention `0/0/0`；没有因单个样本升级 Skill；
+- 关闭 current-ui 证据 Partial `1`，新增长期 Partial `0`，净变化 `-1`。文档/截图漂移风险
+  `HIGH→MEDIUM`；File Graph Page UUID reload 漂移仍归既有宿主 identity bounded limitation，
+  不新建第二套 identity。
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
 ## 本轮变化（2026-07-30）
