@@ -9,13 +9,25 @@ V2 v1.1 底座完成结论不变；当前继续按
 base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: DONE_DESKTOP_REPRESENTATIVE
-p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
+p1_status: IN_PROGRESS_P1G_DONE_ATTENTION_BOUNDED_PILOT_OTHER_P1_PARTIAL
 p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_RELEASE_ROUTER_DONE_EXTERNAL_AGENT_CHAIN_OPEN_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
+
+`c9919f2` 关闭 P1 Attention 主操作计数语义和跨会话 disposition 决策两个既有 Partial。
+真实 Logseq `0.10.15` File Graph、host Light / Plugin Dark、1000×720 中依次验证：打开
+Condition 后取消不记 `acted` 且提醒保持；`later / notRelevant` 只在本 session 收起；
+Plugin Manager reload 对仍有效正式事实重新计算；完成唯一主操作后 Task 变为
+`ACTIONABLE v9`，提醒自然失效，再次 reload 也不返回。最终 Service `READY`、Doctor
+`PASS`、PENDING/RECOVERY `0/0`。`acted` 只表示完成推荐动作，不冒充 helpful；因此发布
+保持 session-only、无提醒数据库，不开放 Waiting 过久、Project 静默、跨对象 LLM 或
+Block Marker。新增正式状态/Runtime/Recovery/Skill/持久权威均为 `0`，Partial 净变化
+`-2`。P1 Attention 进入 `BOUNDED_PILOT`，P1 其他质量门、P2-D 外部 Agent、Final Release
+和完整 Goal 继续 `IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/p1-attention-quality-boundary-desktop-live-20260730.md`。
 
 `7e72075` 当前构建已关闭 P0 最终代表视觉总 Gate，P0 状态收口为
 `DONE_DESKTOP_REPRESENTATIVE`。真实 Logseq 0.10.15 File Graph、host Light / Plugin Dark、

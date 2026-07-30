@@ -96,6 +96,22 @@
   `-1`；新增状态/Runtime/Recovery/Skill 0。证据见
   `logs/p0-recovery-required-frontstage-desktop-live-20260730.md`。
 
+### 2026-07-30 P1 Attention 质量边界与 session-only 决策
+
+- `c9919f2` 修复真实 Desktop 暴露的计数错误：只打开 Condition 对话框不再计
+  `acted`；取消后提醒保持，只有正式保存成功或正文导航成功才记录完成的主操作。
+- 4 个独立 reload session 覆盖 `取消 / later / notRelevant / acted`：取消为
+  `shown=1, acted=0, unresolved=1`；两个处置只在本 session 收起；完成主操作后测试
+  Task 正式变为 `ACTIONABLE v9`，提醒随事实解除并在再次 reload 后保持消失。
+- `acted` 定义为 engagement，不等于 helpful；现有少量受控样本不提供生产 helpful
+  rate，但已足以确认无需跨会话 disposition store。时间 Signal 保持有界 Pilot；建议关注、
+  Waiting 过久、Project 静默、跨对象观察继续 Shadow，Block Marker 继续关闭。
+- 自动证据：Plugin `378/378`、typecheck/build、根级检查、stable rules `145`、recovery
+  rehearsal PASS；最终 Service READY、Doctor PASS、PENDING/RECOVERY `0/0`。
+- 新增正式状态、Runtime、Recovery、Skill/Prompt/Validator、持久权威均为 `0`；关闭
+  既有 Partial `2`，新增长期 Partial `0`，净变化 `-2`。证据见
+  `logs/p1-attention-quality-boundary-desktop-live-20260730.md`。
+
 ### 2026-07-30 P1 Attention Now 有界 Pilot
 
 - `3097c39` 没有新增提醒页面，而把首批确定性时间信号装饰到既有“需要回看”正式卡片；

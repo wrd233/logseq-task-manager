@@ -493,3 +493,25 @@ stale。这证明零写入边界，但也使当前“待审阅”出现一张没
 `dbc5243` 使用已有持久 Commit 事实覆盖该瞬时错误，不新增状态；回归 `372/372`。
 在新 Proposal 上重跑后，用户只看到未完成、已安全保存和“继续原修改”；同 Commit
 完成后 Project 仍为 `v30`，Undo 后为 `OPEN v31`，真实 reload 后无需操作。
+
+## 2026-07-30 补充：Attention 质量边界与 session-only 决策
+
+在早期有界 Pilot 上增加四个独立 Plugin reload session，不重做十日 Pilot：取消主操作、
+本次先不提醒、本次不相关、完成唯一主操作。真实 UI 暴露“打开 Condition 后取消仍计
+acted”的问题；`c9919f2` 把计数移动到正式保存或导航成功之后。
+
+| session | shown | acted | later | notRelevant | unresolved | 用户结果 |
+|---|---:|---:|---:|---:|---:|---|
+| 取消 | 1 | 0 | 0 | 0 | 1 | 提醒保持，不把退出对话当成价值 |
+| 稍后 | 1 | 0 | 1 | 0 | 0 | 当前 session 安静；Waiting 事实不变 |
+| 不相关 | 1 | 0 | 0 | 1 | 0 | 当前 session 安静；正式主操作仍在 |
+| 完成主操作 | 1 | 1 | 0 | 0 | 0 | Task 变为 ACTIONABLE；提醒自然失效 |
+
+再次 reload 后事实仍为 `ACTIONABLE v9`，提醒未返回；Service READY、Doctor PASS、
+PENDING/Recovery `0/0`。结论是 session-only disposition 足够且更符合派生 Signal 边界；
+不建立提醒数据库。`acted` 只表示完成推荐动作，不能当作 helpful rate。建议关注、Waiting
+过久、Project 静默、跨对象观察继续 Shadow，Block Marker 继续 OFF。
+
+- 新增正式状态 / Runtime / Recovery / Skill / Prompt / Validator / 持久权威：`0`；
+- 关闭既有 Partial：`2`；新增长期 Partial：`0`；净变化：`-2`；
+- 自然日用 helpful/noise 继续作为有界 Pilot 观察，不阻断首发，也不据此开放更多 Signal。

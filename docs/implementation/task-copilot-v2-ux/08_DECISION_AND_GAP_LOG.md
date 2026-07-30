@@ -70,7 +70,7 @@ PID 恢复且 SQLite 对象不丢。Desktop reload/结束/退出/Graph switch �
 | UX-G005 | descriptor 写入 private FileStorage 的产品通道 | real Desktop | DONE：本地文件读取后校验，只写固定私有 key；设置不含 token/path；reload 自动 READY |
 | UX-G006 | Logseq exit shutdown 时间窗口 | process + Desktop fault Gate | beforeunload 不等于可等待任意时长 |
 | UX-G007 | 多 Block SemanticCommit scope 是否足以原位重构 | application prototype | 不先扩 Schema/恢复器 |
-| UX-G008 | attention signal 持久化位置 | BOUNDED_FOR_SHADOW：fresh-session 自动 recompute 对同一正式 snapshot 产生相同 active identity/scope/current signature；同证据 refresh 的 session cooldown 保留缺陷已修复。当前 shadow 没有 shown/disposition 用户入口，不需要 SQLite derivative | 当前不改 schema；未来首批信号显现后，只有 Desktop 证明跨 reload disposition/cooldown 明显减噪，才评估有期限、可清除的 derivative store |
+| UX-G008 | attention signal 持久化位置 | CLOSED_BOUNDED_SESSION_ONLY：`c9919f2` 以四个真实 reload session 证明取消不计 acted、later/notRelevant 安静当前 session、仍有效事实 reload 后重算、事实解除后自然失效；受控样本没有证明跨会话 suppression 的净价值 | 不改 schema、不建立提醒数据库；acted 只作 engagement，不冒充 helpful。未来只有自然 Pilot 明确证明 reload 重现造成持续高噪声，才重新评估有期限、可清除的 derivative store |
 | UX-G009 | unified UX output 是否需要持久化 | CLOSED_FOR_P1：Application/Service contract 直接返回机器物化的派生草稿，不持久化；修改建议只有无 operation 的 `DRAFT_PROPOSAL`，正式保留必须重建为现有 Proposal | Provider 类型未进入 Domain；若以后有性能证据，只加可失效 cache，不建第二正式权威 |
 | UX-G010 | interaction evidence 的默认存储与留存 | PARTIAL_SESSION_LIVE：strict-allowlist bounded buffer、P1-G 结构事件、可撤回 disposition、版本噪声汇总和 `DO_NOT_REPEAT` session 抑制已通过真实 Provider/Service；当前不自动持久化、上传或保存正文/身份/Prompt/原始响应 | 先用 Desktop 反馈与多次真实使用判断跨会话比较价值；只有用户可见开关、期限与一键清除完成后才可加入 derivative store，正式事实仍不进入 |
 

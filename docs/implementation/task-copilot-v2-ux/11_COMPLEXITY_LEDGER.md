@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P0 已以分层代表矩阵收口；P1-G、P1-E 宿主拒绝、P2-E 有界恢复合同、P2-G Rebind/Restore/Migration 高风险代表链也已关闭。P1 真实 helpful/noise/跨会话 disposition/建议关注、P2-D/P2-F、File Graph Page Head limitation 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE 或有证据的 bounded host conclusion | 是 |
+| Partial 长期堆积 | HIGH | P0 已以分层代表矩阵收口；P1-G、P1-E 宿主拒绝、P1 Attention 计数与跨会话策略、P2-E 有界恢复合同、P2-G 高风险代表链已关闭。P1 自然日用 helpful/noise/建议关注、P2-D 外部 Agent、P2-F 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为代表性 Desktop DONE、有界 Pilot 或有证据的 bounded host conclusion | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -123,6 +123,19 @@
   覆盖显示、两个处置、reload/recompute、正式测试状态恢复与 `0/0/0` 健康。
 - 风险变化：Partial 堆积下降；状态和恢复分裂不增加。单个人工样本不能形成真实
   helpful/noise，跨会话 disposition、建议关注、其他 Detector 与 Block Marker 仍阻断 P1。
+
+### P1 Attention 质量边界（`c9919f2`）
+
+- 真实 Desktop 发现并修复一个通用计数错误：打开 Condition 但取消不再计 `acted`；只有
+  正式保存或正文导航完成后记录 engagement。
+- 4 个独立 session 验证 cancel、later、notRelevant、acted 与 reload/recompute；正式事实
+  解除后 Signal 自动失效，再次 reload 不返回。
+- `acted != helpful`；不通过持久化掩盖自然样本不足。disposition 保持 session-only，
+  reload 从正式事实重算，不建立提醒数据库。
+- 新增正式状态、Runtime、Recovery、Attention 类型、Skill/Prompt/Validator、持久权威
+  均为 `0`；关闭既有 Partial `2`，新增长期 Partial `0`，净变化 `-2`。
+- 风险变化：提醒状态与跨会话权威膨胀风险下降；自然日用 helpful/noise 继续作为 Pilot
+  观测，不阻断首发；建议关注和其他 Detector 保持 Shadow。
 
 ### P1 Now 三段前台与 Focus 权威（`3d63d5a`）
 

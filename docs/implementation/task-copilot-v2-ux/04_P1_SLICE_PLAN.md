@@ -197,6 +197,20 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
 - 本轮只有一个人工 eligible 样本，不能计算真实 helpful/noise；跨会话 disposition、建议
   关注与默认 Block Marker 继续开放。关闭既有子 Partial `1`，新增长期 Partial `0`。
 
+2026-07-30 Attention 质量边界补证（`c9919f2`）：
+
+- 真实 Desktop 发现“只打开 Condition、随后取消也计 acted”的语义错误；计数点已移至正式
+  保存成功或宿主导航成功之后，取消保持提醒且 `acted=0`；
+- 四个独立 reload session 覆盖取消、later、notRelevant 和完成主操作；两个处置只安静
+  当前 session，仍有效事实 reload 后重算，事实解除后自动失效且再次 reload 不返回；
+- `acted` 只代表完成推荐动作，不等于 helpful；受控样本不伪装生产 helpful rate；
+- disposition 正式固定为 session-only，不建立提醒数据库；Waiting 过久、Project 静默、
+  跨对象观察和建议关注保持 Shadow，Block Marker OFF；
+- Plugin `378/378`、typecheck/build、根级检查、Service READY、Doctor PASS、
+  PENDING/Recovery `0/0`；新增状态/Runtime/Recovery/Skill/持久权威 `0`；
+- 关闭“主操作计数语义”和“跨会话 disposition 决策”两个 Partial，净变化 `-2`。
+  自然日用 helpful/noise 继续作为有界 Pilot 观察，不阻断首发。
+
 ## P1-D：状态翻译层
 
 状态：`PARTIAL_UI_AUTOMATED` — Application 确定性 Object/Proposal/Commit/Anchor/System

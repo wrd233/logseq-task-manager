@@ -205,6 +205,30 @@ Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit �
   跨会话 disposition、其他 Detector、建议关注或 Block Marker 已通过。
 - 完整操作链见 `../logs/p1-attention-now-pilot-desktop-live-20260730.md`。
 
+该组已经被 `c9919f2` 的当前质量边界证据替代；仍保留为早期合同历史，不代表最新
+`acted` 语义。
+
+### P1 Attention 质量边界 — exact build `c9919f2`
+
+| 文件 | 主题 / 尺寸 | 用户动作 | 系统结果 | 状态 |
+|---|---|---|---|---|
+| `screenshots/p1-attention-quality-primary-current-c9919f2.jpeg` | host Light / Plugin Dark，1000×720 | 查看到期 Waiting 的唯一主操作 | 同一正式卡显示一个试用标记，不复制提醒卡 | CURRENT |
+| `screenshots/p1-attention-quality-cancel-kept-current-c9919f2.jpeg` | 同上 | 打开 Condition 后取消 | marker 和主操作保持；本次不记 acted | CURRENT |
+| `screenshots/p1-attention-quality-later-current-c9919f2.jpeg` | 同上 | 本次先不提醒 | 只隐藏本 session marker；正式 Waiting 卡仍在 | CURRENT |
+| `screenshots/p1-attention-quality-reload-recompute-current-c9919f2.jpeg` | 同上 | Plugin Manager reload | 仍有效正式事实重新生成 marker | CURRENT |
+| `screenshots/p1-attention-quality-not-relevant-current-c9919f2.jpeg` | 同上 | 本次不相关 | 当前 session 安静，正式事实和主操作保留 | CURRENT |
+| `screenshots/p1-attention-quality-fact-resolved-current-c9919f2.jpeg` | 同上 | 完成唯一主操作，保存为可以行动 | 正式 Task 为 ACTIONABLE，Signal 随事实解除 | CURRENT |
+| `screenshots/p1-attention-quality-fact-resolved-reload-current-c9919f2.jpeg` | 同上 | 再次 Plugin Manager reload | Task 仍在继续处理，marker 不返回 | CURRENT |
+| `screenshots/p1-attention-quality-primary-current-3b6816e.jpeg` | 同上 | 早期构建查看主操作 | 后续发现取消也会误记 acted | SUPERSEDED_DEFECT |
+| `screenshots/p1-attention-quality-acted-current-3b6816e.jpeg` | 同上 | 早期构建取消 Condition | marker 消失但正式事实未变，语义错误 | HISTORICAL_DEFECT |
+| `screenshots/p1-attention-quality-reload-recompute-current-3b6816e.jpeg` | 同上 | 早期构建 reload | 证明 session 重算，但不证明正确 acted | SUPERSEDED |
+
+- Logseq `0.10.15`，File Graph `logseq`；最终 Task `ACTIONABLE v9`，Service READY、
+  Doctor PASS、PENDING/Recovery `0/0`。
+- `acted` 是完成推荐动作，不是 helpful；跨会话 disposition 固定为 session-only，不建立
+  提醒持久权威。完整链见
+  `../logs/p1-attention-quality-boundary-desktop-live-20260730.md`。
+
 ### P1-E Block Marker 宿主拒绝 — exact build `53337f2`
 
 | 文件 | 主题 / 尺寸 | 用户动作 | 系统结果 | 下一步 | 状态 |
