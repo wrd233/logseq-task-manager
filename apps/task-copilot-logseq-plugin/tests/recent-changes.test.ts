@@ -96,7 +96,6 @@ test("recent changes shows user intent and safe action while keeping technical i
       value: "proposal-commit:opaque-1",
       tone: "danger",
     },
-    secondaryAction: { action: "recent-change-review", label: "查看", value: "review", tone: "quiet" },
     technical: {
       semanticCommitId: "proposal-commit:opaque-1",
       proposalId: "proposal-1",

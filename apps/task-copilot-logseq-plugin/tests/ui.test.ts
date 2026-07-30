@@ -292,7 +292,7 @@ test("recent changes leads with user intent, application result, and existing Un
   assert.match(cardLead, /整理设备托管材料/);
   assert.match(cardLead, /把设备托管材料组织为 MiniProject/);
   assert.match(cardLead, /已应用/);
-  assert.match(cardLead, /data-action="recent-change-review"[\s\S]*>查看</);
+  assert.doesNotMatch(cardLead, /data-action="recent-change-review"/);
   assert.match(cardLead, /data-action="v2-proposal-undo"[\s\S]*>撤销</);
   const visibleLead = cardLead.replace(/<[^>]+>/g, "");
   for (const engineeringValue of ["proposal-commit:private-1", "proposal-private-1", "before-private-checksum", "COMPLETED"]) {

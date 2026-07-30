@@ -276,10 +276,10 @@ export function projectRecentChanges(input: RecentChangesInput): RecentChange[] 
         occurredAt: commit.updatedAt,
         ...(availability ? { availability } : {}),
         ...(primaryAction ? { primaryAction } : {}),
-        ...(record ? {
+        ...(record && (state.status === "PENDING" || state.status === "RECOVERY_REQUIRED") ? {
           secondaryAction: {
             action: "recent-change-review" as const,
-            label: state.status === "PENDING" ? "继续" : state.status === "RECOVERY_REQUIRED" ? "恢复" : "查看",
+            label: state.status === "PENDING" ? "继续" : "恢复",
             value: "review",
             tone: state.status === "RECOVERY_REQUIRED" ? "danger" as const : "quiet" as const,
           },

@@ -1834,6 +1834,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     recentActionCommitId = undefined;
     workspace = "review";
     reviewMode = "proposals";
+    message = "已打开这次未完成修改的处理记录；请按当前卡片的下一步继续。";
     await refresh();
     return;
   }
@@ -3235,11 +3236,11 @@ async function handleAction(action: string, value?: string): Promise<void> {
         workspace = "review";
         recentActionCommitId = "semanticCommitId" in result ? result.semanticCommitId : undefined;
         if (result.status === "COMPLETED") {
-          message = `已接受并应用 LOW 风险变更；对象 ${result.objectId ?? "已创建或更新"} 已正式写入，可在当前卡片撤销。`;
+          message = "这次修改已经应用；需要时可以在刚刚的结果中撤销。";
         } else if (result.status === "STALE") {
-          message = "应用前检查发现正文或版本已变化；没有写入，请重新检查 Proposal。";
+          message = "内容已发生变化，这次修改没有应用；请重新检查。";
         } else {
-          message = "领域写入未完成，正文已安全恢复；Proposal 与恢复记录已保留，没有报告成功。";
+          message = "这次修改没有完成；正文已恢复到安全状态。";
         }
       });
     } finally {
@@ -3703,7 +3704,11 @@ async function handleAction(action: string, value?: string): Promise<void> {
       actionDialog = undefined;
       workspace = "review";
       recentActionCommitId = result.semanticCommitId;
-      message = result.status === "COMPLETED" ? `最终 Commit 已生效；对象 ${result.objectId} 已写入，可在当前卡片撤销。` : result.status === "STALE" ? "提交前重验失败；没有写入。" : "领域写入失败，正文已安全恢复；未报告成功。";
+      message = result.status === "COMPLETED"
+        ? "这次修改已经应用；需要时可以在刚刚的结果中撤销。"
+        : result.status === "STALE"
+          ? "内容已发生变化，这次修改没有应用；请重新检查。"
+          : "这次修改没有完成；正文已恢复到安全状态。";
     });
     return;
   }
