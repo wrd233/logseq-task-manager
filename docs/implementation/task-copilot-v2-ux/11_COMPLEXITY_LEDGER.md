@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P0 已以分层代表矩阵收口；P1-G、P2-E 有界恢复合同、P2-G Rebind/Restore/Migration 高风险代表链也已关闭。P1 真实 helpful/noise/跨会话 disposition/建议关注/Marker、P2-D/P2-F、File Graph host limitation 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P0 已以分层代表矩阵收口；P1-G、P1-E 宿主拒绝、P2-E 有界恢复合同、P2-G Rebind/Restore/Migration 高风险代表链也已关闭。P1 真实 helpful/noise/跨会话 disposition/建议关注、P2-D/P2-F、File Graph Page Head limitation 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE 或有证据的 bounded host conclusion | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -18,6 +18,17 @@
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
 ## 本轮变化（2026-07-30）
+
+### P1-E Block Marker 宿主拒绝（`53337f2`）
+
+- 真实 Logseq `0.10.15` File Graph 证明 marker slot 会替换正式根 Block 可见正文；文件、
+  SQLite、Anchor 与 UUID 未变，完整重启恢复；
+- 删除生产 setting、slot runtime、CSS 和 lifecycle 接线，公开激活路径从 `1` 减为 `0`；
+  保留隔离 prototype 与回归样本，不新增平行 Runtime；
+- 新增正式状态 `0`、新 Runtime `0`、新 Recovery 分支 `0`、新 Skill/Prompt `0`；删除生产
+  Runtime `1`，P1-E 长期 Partial 净变化 `-1`；
+- 当前风险从“正文被视觉增强遮蔽”降为“等待宿主提供稳定 append-only slot”的非发布阻断
+  宿主能力观察项；Now/Project/状态翻译继续承担用户前台价值。
 
 ### P0 最终代表视觉总 Gate（`7e72075`）
 

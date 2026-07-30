@@ -11,7 +11,7 @@
 |---|---|---|---|---|
 | Baseline | DONE | 根级 PASS | 复用 3 张当前 UX 基线截图，不代表新实现 | 可开始 P0 |
 | P0 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K、普通 Block route、系统状态、Service lifecycle、Graph authority 与统一 Commit/Recovery 自动矩阵 PASS | Focus/Condition/LOW apply/Block-Page route/four-nav/toolbar/recent changes/system status；reload/quit/no-arg reinstall/Graph switch；palette/Slash/binding/IME；accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/restart 均有代表 Desktop。`7e72075` 用最新 Now、待审阅、更多、健康页合并既有 733px、主题和宿主有界证据关闭总 Gate | P0 阶段完成；File Graph host limitations 保留，P1/P2/Final Release 与完整 Goal 继续 IN_PROGRESS |
-| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C 三段纯派生/正式 Now 前台 + P1-D status consumers + P1-E default-off Block marker prototype + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-C 三段已在 `3d63d5a` 完成真实正式状态 Desktop 代表 Gate：“继续处理”含 reload、Dark 1001×720/733×720，“需要回看”含 Focus Blocked，“保持等待”含 Focus Paused，测试后恢复基线。`3097c39` 又让到期类 Signal 在同一 Now 卡片完成有界显示、两种 session disposition 与 reload/recompute，且不复制既有风险权威表面。P1-G Context Recovery 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；File Graph Page Head bounded、DB Graph OPEN；Block marker、真实 helpful/noise、跨会话 disposition 与建议关注仍 OPEN | P1-G、Now 和时间 Signal 子 Gate完成不等于 P1 完成；不得把一个人工样本升级为 Production |
+| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow + P1-C 三段纯派生/正式 Now 前台 + P1-D status consumers + P1-E Block marker 有界宿主拒绝 + P1-F Project reentry/Page Head + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | P1-C 三段已在 `3d63d5a` 完成真实正式状态 Desktop 代表 Gate：“继续处理”含 reload、Dark 1001×720/733×720，“需要回看”含 Focus Blocked，“保持等待”含 Focus Paused，测试后恢复基线。`3097c39` 又让到期类 Signal 在同一 Now 卡片完成有界显示、两种 session disposition 与 reload/recompute，且不复制既有风险权威表面。P1-G Context Recovery 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE。P1-E 真实证明 Logseq 0.10.15 File Graph slot 会替换可见正文，`53337f2` 撤下生产入口并完整重启恢复，记为 bounded host rejection；File Graph Page Head bounded、DB Graph OPEN；真实 helpful/noise、跨会话 disposition 与建议关注仍 OPEN | P1-G、Now、时间 Signal 与 Marker 宿主结论不等于 P1 完成；不得把一个人工样本升级为 Production |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A/B、P2-C/D、P2-E 全链、P2-F shadow/provider、P2-G Rebind + Restore normal/failure rollback/real double-failure manual recovery + Migration normal/response-loss/Verify-Activate failure retry/narrow PASS | P2-C/D 正常主链有 Desktop；P2-E receipt-backed Commit 中断续跑/Undo、Provider error、generation stale、写入前失败与重放安全合同 DONE；精确 `98df827` 完成真实 reload/当前空审阅证据，FAILED/STALE 卡为自动故障注入证据；P2-G Rebind 最新纠错指引/捕获取消安全、Restore 真实双失败人工恢复、Migration Activation/失败重试/窄栏 DONE | P2-D remaining；P2-F frontstage；显式正式化等价撤销入口核对；File Graph 自身 Light bounded host issue |
 | Final Release | NOT_STARTED | — | — | — |
 
@@ -126,15 +126,17 @@ Audit，Undo 使用业务结论。该 Day 9 证据当时不等于 P2-E 完成；
 折叠，Project 区 2 张卡，维护能力保持二级；真实 Plugin reload 后连续性不变。切换到
 无可用 authority 的隔离 Graph 时正式修改安全暂停，切回后原 Now 恢复。该 Gate 关闭
 连续使用 Pilot 本身，但明确否决现有 Dynamic Now Shadow 直接前台化：正式 Now 的
-`Focus 1 / Next 10` 偏长，而 Shadow 会遗漏刚恢复事项。Attention 和 Block Marker
-继续开放，不以“没有展示 Signal”冒充低噪声门通过。
+`Focus 1 / Next 10` 偏长，而 Shadow 会遗漏刚恢复事项。Attention 当时继续开放；Block
+Marker 后续已由 `53337f2` 以真实宿主替换正文证据关闭为 bounded host rejection，不能用
+“没有展示 Signal”冒充低噪声门通过。
 
 精确构建 `df6469f` 已关闭上述 Now 首屏过载子 Gate：正式 Now 仍保留原 Service 顺序和
 全部对象，当前关注全部显示，普通 Next 首屏只显示前 4 项，其余 6 项由一个原生折叠承接。
 Logseq 0.10.15 File Graph、host Light / Plugin Dark、约 1000×720 已完成真实插件 reload、展开和第二次
 reload；第二次 reload 后首屏重新折叠，Focus 与原前 4 项保持。Plugin `356/356`、
 typecheck/build PASS，零正式写入。该项可标为 `DONE_DESKTOP_REPRESENTATIVE`，但不等于
-Dynamic Now 排序、Attention helpful/noise 或 Block Marker Gate 完成。
+Dynamic Now 排序或 Attention helpful/noise 完成。Block Marker 的后续独立 Gate 结论是当前
+宿主不可安全发布，并非视觉方案通过。
 
 ## 2. P0 验收
 

@@ -273,8 +273,10 @@ source
 
 ## P1-E：Block 轻标记原型
 
-状态：`PARTIAL_PROTOTYPE_AUTOMATED` — 默认关闭、精确 active primary Anchor UUID 注册、
-五种候选与 100 Block 自动 harness 已进入 Plugin 包；未完成 Desktop Gate，不全局发布。
+状态：`DONE_BOUNDED_HOST_REJECTION` — Logseq `0.10.15` File Graph 真实 Desktop 证明
+`onBlockRendererSlotted + provideUI(slot)` 会替换目标 Block 的可见正文，而不是提供稳定的
+追加式装饰位置。生产设置、slot 注册、CSS 和生命周期接线已由 `53337f2` 移除；隔离原型和
+自动样本仅作为研究证据保留，不进入发布运行时。
 
 候选：
 
@@ -303,6 +305,19 @@ source
 - 性能预算。
 
 原型验证前不全局上线。
+
+2026-07-30 Desktop 结论：
+
+- 在正式 MiniProject 根 Block 上把 setting 从 `off` 切到 `line` 后，根正文立即从页面和
+  Accessibility tree 消失，只剩一条竖线；Markdown 文件、正式 Object/Anchor 与 SQLite
+  权威均未变化；
+- setting 恢复 `off` 和 Plugin reload 不足以让宿主恢复该 slot；完整退出/重开 Logseq 后
+  原根 Block、子 Block、UUID 与正式映射重新可见；
+- 当前发布策略固定为 `OFF / publicSettingVisible=false / HOST_SLOT_REJECTED`。只有 Logseq
+  提供可验证、稳定、append-only 的 Block 装饰 slot 时才重新开启评估；
+- 不使用 MutationObserver、DOM selector、renderer macro 或正文属性模拟视觉标记。Now、
+  Project workspace 和状态翻译继续承担用户可见治理信息；这是一项有证据的宿主边界结论，
+  不把“不安全但能画出来”伪装为已交付能力。
 
 2026-07-24 自动原型：
 

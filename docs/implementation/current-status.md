@@ -28,6 +28,16 @@ overall_goal: IN_PROGRESS
 均为 0；P1、P2、Final Release 和完整 Goal 仍为 `IN_PROGRESS`。证据见
 `task-copilot-v2-ux/logs/p0-final-representative-visual-gate-desktop-live-20260730.md`。
 
+`53337f2` 随后关闭 P1-E Block Marker 的发布决策 Partial。真实 Logseq `0.10.15`
+File Graph 证明 `onBlockRendererSlotted + provideUI(slot)` 会替换正式根 Block 的可见正文，
+而不是追加轻标记；文件、SQLite Object/Anchor 和 UUID 未变，完整退出/重开后恢复。
+最新构建已移除生产 setting、slot runtime、CSS 和 lifecycle 接线，插件设置不再暴露 Marker；
+隔离 prototype 与 100 Block harness 只作为研究资产保留。发布策略为
+`DONE_BOUNDED_HOST_REJECTION`，不采用 DOM/macro 绕过，只在稳定 append-only 官方 slot
+出现时重开。新增状态/Runtime/Recovery/Skill 均为 0，删除生产 Runtime 1，长期 Partial
+净变化 `-1`；P1 其他质量门、P2 与完整 Goal 仍为 `IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/p1-e-block-marker-host-rejection-desktop-live-20260730.md`。
+
 `78528f7` 最新构建又关闭 P0 PENDING 代表子 Gate。真实 Logseq 0.10.15
 File Graph、host Light / Plugin Dark、1000×720 中，一个精确绑定测试 Proposal 的
 一次性触发器在领域收据已持久后中断 step 收口。Project 为
@@ -412,11 +422,11 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   blocker/review/due/Focus blocked 收敛，保持等待只含 Focus 中安静等待，普通 OPEN 不进入；
   复用 `/now-work.focus` 的过滤后顺序，不新增 API；Copilot 建议固定为空，Application
   98/98、Plugin 197/197 与根级 Gate 通过，未替换 Service/UI；
-- P1-E Block 轻标记已进入默认关闭的生产包内 prototype：只对 SQLite active primary Anchor
-  的精确 Block UUID 注册官方 `onBlockRendererSlotted`，通过宿主 slot 注入 LINE/DOT/ICON/
-  TINT/PHRASE 五种无动作标记；不写正文、不用 renderer 宏、不扫描 DOM，Service 受限、Graph
-  switch、设置关闭与 unload 均清理 slot。Plugin 231/231、100 Block harness PASS；真实编辑态、
-  TODO/DONE、Query/引用、sidebar、Zoom、Light/Dark 和性能 Desktop Gate 仍开放，未全局发布；
+- P1-E Block 轻标记已形成有界宿主拒绝结论：Logseq `0.10.15` File Graph 真实 Desktop 证明
+  官方 `onBlockRendererSlotted + provideUI` 会替换正式根 Block 的可见正文；Markdown、SQLite
+  Object/Anchor 与 UUID 未变，完整退出/重开后恢复。`53337f2` 已移除生产 setting、slot runtime、
+  CSS 和生命周期接线，并以 `HOST_SLOT_REJECTED` 合同固定发布为 OFF；隔离 prototype/harness
+  只保留研究，不用 DOM/macro 绕过。该 P1-E 发布决策 Partial 已关闭，但不宣称宿主已交付 Marker；
 - P1-F Project/Task 重入投影已接入 Project workspace：恢复风险优先，Project 只保留最多
   三个 Focus 直属进入点，普通 Association 不升级为动作；新 Project 与无正文 Task 会明确
   承认进入点不足；Project 主 Page 顶部新增一个只读“继续项目”宿主动作，点击时重验当前
@@ -778,7 +788,7 @@ UI Partial。真实 Page 来源链使用当前有界材料和真实 Provider 生
   Blank Preview 已在独立 Service + SQLite 上使用真实 `deepseek-v4-flash` 与
   初始 `project-creation-modeling@1.1.0` 通过 Gate，当前 Skill 已升至 `1.2.0`：Schema/handle 合法、关系仍待 Review、
   formal impact 0、Object 0→0；
-- P0 代表性 Desktop 总 Gate 已关闭；当前继续推进 P1 Attention/Block Marker、
+- P0 代表性 Desktop 总 Gate 已关闭；P1-E Block Marker 已按真实宿主拒绝有界关闭；当前继续推进 P1 Attention、
   P2-D/P2-F 边界与 Final Release；
 - 本 Goal 的细粒度状态、风险、缺口和验收以
   `docs/implementation/task-copilot-v2-ux/09_PROGRESS_REPORT.md` 与

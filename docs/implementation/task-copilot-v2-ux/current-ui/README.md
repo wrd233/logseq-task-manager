@@ -197,7 +197,8 @@ Closure 有界失败合同随后由 `98df827` 关闭。Day 10 证明 Review 无�
 折叠、展开和再次 reload 的当前 Desktop Gate；`3d63d5a` 随后把正式 Now 收敛为三段。
 `3097c39` 又让 `REVIEW_DUE / DUE` 只在同一正式卡片显示试用标记，并完成暂缓、不相关、
 真实 reload/recompute 与测试状态恢复。该有界 Pilot 不等于 Attention Production：真实
-helpful/noise、跨会话 disposition、建议关注与 Block Marker 仍 OPEN。完整记录见
+helpful/noise、跨会话 disposition与建议关注仍 OPEN。Block Marker 已在 `53337f2` 因真实
+宿主 slot 替换正文而撤下生产入口，记为 `DONE_BOUNDED_HOST_REJECTION`。完整记录见
 `../logs/p1-attention-now-pilot-desktop-live-20260730.md`。
 该目录中的截图按 exact Plugin/docs commit 登记为 CURRENT，不替代其他宿主/主题证据，
 也不把十日代表 Pilot 写成 P0/P1/P2 或完整 Goal 完成。

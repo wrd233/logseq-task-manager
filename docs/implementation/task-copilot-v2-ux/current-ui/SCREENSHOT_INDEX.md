@@ -205,6 +205,18 @@ Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit �
   跨会话 disposition、其他 Detector、建议关注或 Block Marker 已通过。
 - 完整操作链见 `../logs/p1-attention-now-pilot-desktop-live-20260730.md`。
 
+### P1-E Block Marker 宿主拒绝 — exact build `53337f2`
+
+| 文件 | 主题 / 尺寸 | 用户动作 | 系统结果 | 下一步 | 状态 |
+|---|---|---|---|---|---|
+| `screenshots/p1-block-marker-line-replaces-content-current-79da995.jpeg` | host Light / Plugin Dark，约 1000×720 | 把实验设置从 off 改为 line | Logseq slot 替换正式根 Block 可见正文；文件和正式状态未变 | 关闭 marker 并完整重启 | SUPERSEDED_DEFECT |
+| `screenshots/p1-block-marker-setting-removed-current-53337f2.jpeg` | 同上 | 重载 `53337f2`，打开 Task Copilot 插件设置 | 生产设置只剩 Agent、运行环境和外观；Marker 无公开入口 | 返回原 Page | CURRENT |
+| `screenshots/p1-block-marker-off-restored-current-53337f2.jpeg` | 同上 | 完整退出/重开并返回同一 Page | 根 Block 与子 Block 全部可见，Accessibility tree 重新包含根文本 | 保持发布 OFF | CURRENT |
+
+- 本组关闭的是“当前宿主是否可安全发布 Marker”的决策 Gate，不宣称 Logseq 0.10.15 已交付
+  Block Marker；只有稳定 append-only 官方 slot 出现时才重开。
+- 完整操作链见 `../logs/p1-e-block-marker-host-rejection-desktop-live-20260730.md`。
+
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
 Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌

@@ -41,7 +41,7 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K 的自动与代表 Desktop Gate 完成；P0-H reload/quit/no-arg reinstall authority/Graph switch，P0-J palette/Slash/custom binding/原生中文 IME，P0-K Block/Page/来源移动删除/Query-reference-sidebar bounded，accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/reload/restart 均有真实证据。`7e72075` 以最新 Now、待审阅空态、更多和系统健康页合并既有 733px、主题与宿主证据，关闭最终分层代表视觉总 Gate；File Graph Page Head/identity/真实 Light 保持 bounded host limitation，不扩成笛卡尔积 |
-| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略、建议关注与 Block Marker 仍 OPEN；P1-D status consumers；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
+| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略与建议关注仍 OPEN；P1-D status consumers；P1-E 真实宿主 slot 替换正文，`53337f2` 撤下生产入口并记为 `DONE_BOUNDED_HOST_REJECTION`；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
@@ -641,18 +641,20 @@ Plugin 已把该投影接到既有 Attention session cycle 的 count-only teleme
 `/now-work.focus` 已过滤的 object ID 顺序，不新增 Focus endpoint，不记录对象 ID 或正文；
 日志只增加三段/建议/suppressed/overflow 数量与 Focus overload。相同当前数量不重复写日志。
 
-### P1-E Block 轻标记隔离原型
+### P1-E Block 轻标记宿主拒绝结论
 
-本地 SDK 与官方 API 证实 `onBlockRendererSlotted` 是指定 Block UUID 的 condition hook，
-`provideUI` 只能注入宿主提供的 slot。因此未采用会污染正文的 renderer macro，也未采用
-MutationObserver/DOM selector 全局扫描。Plugin 新增默认 off setting，只对 active primary
-Anchor 的精确 UUID 注册；LINE/DOT/ICON/TINT/PHRASE 五种 inert marker 只读取 Object
-Lifecycle/Condition 与 Focus。关闭、Service restricted、Graph switch、unload 会清除当前
-slots，Block 正文和 SQLite 均不变；只改 marker setting 不触发 Service rediscovery/lease churn。
+自动 harness 曾证明精确 UUID、容量、identity guard 与零正文写入，但真实 Logseq `0.10.15`
+File Graph 推翻了“宿主 slot 是追加式装饰位置”的关键假设：把正式 MiniProject 根 Block 的
+setting 从 `off` 改为 `line` 后，可见根正文和 Accessibility 文本立即被 marker 替换，只剩
+子 Block。Markdown、SQLite Object/Anchor 和 UUID 没有变化；恢复 `off` 与 Plugin reload
+仍不足以恢复宿主渲染，完整退出/重开 Logseq 后正文才重新可见。
 
-focused 4/4 与 100 Block registration/injection harness、Plugin 231/231、typecheck/build PASS。
-这是生产包内的隔离 prototype，不是发布：TODO/DONE、编辑光标、长文、父子、Query、引用、
-Linked References、sidebar、Zoom、Light/Dark、renderer reload 与真实性能仍须 Desktop。
+`53337f2` 因此把生产 setting、renderer slot 注册、样式和生命周期接线全部移除，并加入
+`BLOCK_MARKER_HOST_RELEASE_POLICY` 回归合同：生产模式固定 `OFF`、公开设置不可见、状态为
+`HOST_SLOT_REJECTED`。隔离的五候选实现与 100 Block harness 保留为研究资产；只有 Logseq
+提供稳定、可验证的 append-only 官方 slot 时才重开。没有采用 DOM observer、全局 selector、
+renderer macro 或正文属性绕过。这关闭了 P1-E 的发布决策 Partial，但不宣称当前宿主已交付
+Block Marker；用户可见状态继续由 Now、Project workspace 和统一状态翻译承接。
 
 ### P1-D 确定性状态翻译扩展
 
@@ -851,8 +853,9 @@ derivative/dashboard 价值也仍未完成。
 - P1-C Plugin runtime 后 tests：197/197、0 skipped，typecheck/build PASS；
 - P1-A recompute/cooldown focused tests：13/13 PASS；fresh session current signature parity，
   同证据 cooldown 保留、evidence/policy 变化解除；
-- P1-E Block marker prototype：focused 4/4、Plugin 231/231、typecheck/build PASS；默认 off、
-  exact UUID、100 Block harness、slot cleanup 与 no-Markdown-write；Desktop OPEN；
+- P1-E Block marker：真实 Desktop 发现官方 slot 替换可见正文；`53337f2` 后 focused 5/5、
+  Plugin typecheck/build、根级完整检查 PASS；生产 runtime/setting/CSS 已移除，完整重启后正文
+  恢复，状态为 `DONE_BOUNDED_HOST_REJECTION`；
 - P2-A Grill Turn contract：focused 4/4、Application typecheck PASS；机器选择最大开放
   uncertainty/readiness，事实/推断/未知与 evidence scope 分离，越界/提前结束/额外字段
   fail closed；仅 session draft，无 Proposal/operation/正式写入；Service/Provider/UI/Desktop OPEN；
