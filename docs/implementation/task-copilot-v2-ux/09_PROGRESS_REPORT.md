@@ -42,7 +42,7 @@
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K 的自动与代表 Desktop Gate 完成；P0-H reload/quit/no-arg reinstall authority/Graph switch，P0-J palette/Slash/custom binding/原生中文 IME，P0-K Block/Page/来源移动删除/Query-reference-sidebar bounded，accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/reload/restart 均有真实证据。`7e72075` 以最新 Now、待审阅空态、更多和系统健康页合并既有 733px、主题与宿主证据，关闭最终分层代表视觉总 Gate；File Graph Page Head/identity/真实 Light 保持 bounded host limitation，不扩成笛卡尔积 |
 | P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略与建议关注仍 OPEN；P1-D status consumers；P1-E 真实宿主 slot 替换正文，`53337f2` 撤下生产入口并记为 `DONE_BOUNDED_HOST_REJECTION`；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
-| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
+| P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_RELEASE_ROUTER_DONE_EXTERNAL_AGENT_CHAIN_OPEN_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-D A/B/C/D 发布边界已由 `3c83856` 成为唯一代码合同，外部 Agent 完整产品链仍 OPEN；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
 
 ### 2026-07-30 P0 最终代表视觉总 Gate
@@ -164,6 +164,14 @@
 - 没有新增 intent、用户入口、正式状态、Runtime、Recovery、Skill/Prompt/Validator；
   没有把待外部 Agent 的能力改成 Out of Scope。P2-D 仍 Partial，Day 7/9 继续验证边界。
 - 详细矩阵：`logs/p2-d-release-boundary-pilot-20260728.md`。
+
+`3c83856` 已把上述 A/B/C/D 边界提升为唯一 Application 代码合同，修复先前 router 仍把
+Association/Project due 标作 `DIRECT_WITH_UNDO`、把批量/移动/拆分合并都指向内置结构
+Review 的漂移。16 类 intent 现在分别为 `BUILT_IN_DIRECT / BUILT_IN_REVIEW /
+EXTERNAL_AGENT / NOT_AVAILABLE`；C 类仍保持“Agent 只准备 Context/Proposal，Task Copilot
+掌握 Preview/Commit/Undo/Recovery”，D 类明确零正式路由。focused `6/6`、Application
+`172/172`、根级检查 PASS；新增正式状态/Runtime/Recovery/Skill/入口均为 `0`。关闭既有
+release-boundary drift Partial `1`，但外部 Agent 完整产品链仍 OPEN，P2-D 不提前写成 DONE。
 
 ### 2026-07-28 连续使用 Pilot Day 7 稳定移动
 

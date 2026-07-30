@@ -10,7 +10,7 @@ base_v2_status: IMPLEMENTATION_COMPLETE
 ux_productization_goal: IN_PROGRESS
 p0_status: DONE_DESKTOP_REPRESENTATIVE
 p1_status: IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL
-p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE
+p2_status: IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_RELEASE_ROUTER_DONE_EXTERNAL_AGENT_CHAIN_OPEN_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE
 overall_goal: IN_PROGRESS
 ```
 
@@ -37,6 +37,16 @@ File Graph 证明 `onBlockRendererSlotted + provideUI(slot)` 会替换正式根 
 出现时重开。新增状态/Runtime/Recovery/Skill 均为 0，删除生产 Runtime 1，长期 Partial
 净变化 `-1`；P1 其他质量门、P2 与完整 Goal 仍为 `IN_PROGRESS`。证据见
 `task-copilot-v2-ux/logs/p1-e-block-marker-host-rejection-desktop-live-20260730.md`。
+
+`3c83856` 关闭 P2-D 发布边界的代码/文档漂移 Partial。此前连续 Pilot 和前台已经明确
+A/B/C/D 四类，但 Application router 仍把 Association/Project due 声称为
+`DIRECT_WITH_UNDO`，并把批量子项、正文移动、拆分合并全部送往内置结构 Review。现在 16 类
+intent 都具有唯一 release class：Focus/Condition/reviewAt 内置直达；叙述、完整结构、
+Ownership/Closure 进入既有审阅链；批量/移动/拆分合并路由外部 Agent 但写入权仍在 Task
+Copilot；Association/Project due 在 inverse/语义未齐前无正式路由。没有新增正式状态、
+Runtime、Recovery、Skill 或 UI 入口；focused `6/6`、Application `172/172`、根级检查 PASS。
+P2-D release-boundary drift Partial 净变化 `-1`，但外部 Agent 完整产品链仍开放，P2 与完整
+Goal 继续 `IN_PROGRESS`。
 
 `78528f7` 最新构建又关闭 P0 PENDING 代表子 Gate。真实 Logseq 0.10.15
 File Graph、host Light / Plugin Dark、1000×720 中，一个精确绑定测试 Proposal 的

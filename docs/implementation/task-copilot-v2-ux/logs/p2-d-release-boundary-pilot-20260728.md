@@ -79,3 +79,22 @@ Gate 验收，不能因被列入 B 就冒充全部 Done。
 - 新增用户一级操作：0
 - 合并用户语义：`REVIEW_AT→CONDITION`、`CURRENT_FOCUSES→CURRENT_SUMMARY`、
   `STAGE_MAPPING→完整结构`
+
+## 2026-07-30 代码合同复核（`3c83856`）
+
+复核发现本文与前台已按 A/B/C/D 收敛，但 Application router 仍保留早期分类：Association
+和 Project due 被描述为 `DIRECT_WITH_UNDO`，C 类全部指向内置结构 Review。`3c83856`
+将本矩阵固化为唯一纯函数合同：
+
+- `BUILT_IN_DIRECT`：Focus、Condition、reviewAt；
+- `BUILT_IN_REVIEW`：摘要/进入点、完整结构、Ownership、Closure；
+- `EXTERNAL_AGENT`：批量子项、正文移动、拆分合并、外部 Agent；
+- `NOT_AVAILABLE`：Association、Project due。
+
+外部 Agent 的 safety boundary 明确写入“只准备 Context/Proposal，Task Copilot 掌握
+Preview/Commit/Undo/Recovery”；D 类 `nextRoute=NONE`，不会因下游误用而获得正式写入。
+focused router `6/6`、Application `172/172`、根级 typecheck/lint/tests/build、145 rules、
+recovery rehearsal `differences=[]` 与仓库边界全部 PASS。
+
+本次没有 UI 变化，既有四意图 CURRENT Desktop 仍与当前合同一致，因此不机械重复截图。
+关闭 release-boundary drift Partial `1`；C 类完整产品链继续 `IN_PROGRESS`。

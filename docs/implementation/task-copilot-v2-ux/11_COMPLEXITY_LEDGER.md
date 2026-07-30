@@ -30,6 +30,17 @@
 - 当前风险从“正文被视觉增强遮蔽”降为“等待宿主提供稳定 append-only slot”的非发布阻断
   宿主能力观察项；Now/Project/状态翻译继续承担用户前台价值。
 
+### P2-D Release Router 单一合同（`3c83856`）
+
+- 合并文档/UI 与 Application router 的 A/B/C/D 发布边界，删除两个“无 inverse 但声称可直接
+  Undo”的错误路由和一个把所有重操作塞进万能结构 Review 的重复机制；
+- 新增正式状态 `0`、Runtime `0`、Recovery 分支 `0`、Skill/Prompt `0`、UI 入口 `0`；
+  `releaseClass` 仅为纯 Application 路由合同；
+- P2-D release-boundary drift Partial 净变化 `-1`；外部 Agent 完整产品链仍保持明确 OPEN，
+  未被改写为 Out of Scope 或伪装 DONE；
+- 状态/恢复膨胀风险不变，文档/代码漂移风险下降；普通用户继续只看四个意图，不接触 16 类
+  machine intent、摩擦等级或路由枚举。
+
 ### P0 最终代表视觉总 Gate（`7e72075`）
 
 - P0 `IN_PROGRESS_DESKTOP_GATES→DONE_DESKTOP_REPRESENTATIVE`，长期 Partial 净变化 `-1`；

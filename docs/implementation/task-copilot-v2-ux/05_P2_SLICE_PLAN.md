@@ -221,7 +221,7 @@ machine identity/fact key 泄漏、把内部闭环错指向关闭来源对象和
 
 ## P2-D：Project 结构操作路由
 
-状态：`IN_PROGRESS_LIGHT_CONDITION_MEDIUM_AND_HEAVY_INTERFACE_VERTICAL_DONE`
+状态：`IN_PROGRESS_RELEASE_ROUTER_DONE_EXTERNAL_AGENT_CHAIN_OPEN`
 
 | 级别 | 示例 | 用户摩擦 |
 |---|---|---|
@@ -277,6 +277,24 @@ ACTIONABLE v10→reload 完成闭环，Project 当前接口、Lifecycle、Focus�
 Preview/Commit/Recovery；`ASSOCIATION` 因 inverse 未齐、`DUE_AT` 因 Project 级语义与
 长期 Undo 未齐而暂不从 Project Router 开放。完整矩阵见
 `logs/p2-d-release-boundary-pilot-20260728.md`。该结论控制前台复杂度，不删除完整 Goal。
+
+2026-07-30 `3c83856` 关闭“文档/UI 已按 A/B/C/D 收敛、Application router 仍保持旧路由”
+这一漂移 Partial：
+
+- 16 类 intent 现在都带唯一 `releaseClass`，但它只是 Application 发布路由合同，不是新的
+  正式领域状态；
+- A `BUILT_IN_DIRECT`：Focus、Condition、reviewAt，只复用已有版本化命令与 Undo；
+- B `BUILT_IN_REVIEW`：current summary/focuses、完整当前接口、stage、目标/成果、Ownership、
+  Closure，继续进入既有 MEDIUM/HIGH/专用安全链；
+- C `EXTERNAL_AGENT`：bulk children、move content、split/merge、external Agent。外部 Agent
+  只能准备 Context/Proposal，正式 Preview/Commit/Undo/Recovery 仍归 Task Copilot；
+- D `NOT_AVAILABLE`：Association 因缺可靠 inverse、Project due 因语义与跨 reload inverse
+  未统一，代码不再错误宣称 `DIRECT_WITH_UNDO`；
+- focused router `6/6`、Application `172/172` 与根级完整检查 PASS。现有四个用户意图 UI
+  未变化，因此复用既有 CURRENT Desktop 证据，不用旧截图证明新 UI。
+
+该项关闭 P2-D release-boundary drift Partial `1`；P2-D 仍因 C 类外部 Agent 的完整
+Context→Preview→正式 Commit 产品链以及其余代表性 Final Gate 保持 `IN_PROGRESS`。
 
 ## P2-E：Closure 证据起草
 
