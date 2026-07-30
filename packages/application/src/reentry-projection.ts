@@ -80,7 +80,7 @@ export interface V2ProjectReentryInput {
 export interface V2TaskReentryInput {
   observedAt: string;
   task: V2ManagedObject;
-  ownerProject?: V2ManagedObject;
+  owner?: V2ManagedObject;
   anchor?: V2Anchor;
   parentContext?: {
     text: string;
@@ -464,19 +464,19 @@ export function projectV2TaskReentry(input: V2TaskReentryInput): V2ReentryProjec
   if (input.task.objectType !== "TASK") throw new Error("Task reentry requires a Task object.");
   validateCommon(
     input.observedAt,
-    [input.task, ...(input.ownerProject ? [input.ownerProject] : [])],
+    [input.task, ...(input.owner ? [input.owner] : [])],
     input.anchor ? [input.anchor] : [],
     input.commits,
   );
   requireTimestamp(input.task.updatedAt, "Task updatedAt");
-  if (input.ownerProject && input.ownerProject.objectType !== "PROJECT") {
-    throw new Error("Task reentry owner must be a Project.");
+  if (input.owner && !["MINI_PROJECT", "PROJECT", "AREA"].includes(input.owner.objectType)) {
+    throw new Error("Task reentry owner must be a MiniProject, Project, or Area.");
   }
   if (input.anchor && input.anchor.objectId !== input.task.objectId) {
     throw new Error("Anchor evidence does not match the Task.");
   }
   const taskSource = objectRef(input.task);
-  const ownerSource = input.ownerProject ? objectRef(input.ownerProject) : undefined;
+  const ownerSource = input.owner ? objectRef(input.owner) : undefined;
   const exactCondition = conditionText(input.task);
   const relevantCommit = unfinishedCommit(input.commits, input.task.objectId);
   if (relevantCommit) {
@@ -543,7 +543,7 @@ export function projectV2TaskReentry(input: V2TaskReentryInput): V2ReentryProjec
   const keyEvidence = [
     ...(exactCondition ? [exactCondition] : []),
     ...(input.parentContext ? [`父级正文：${compact(input.parentContext.text)}`] : []),
-    ...(input.ownerProject ? [`所属 Project：${input.ownerProject.text}`] : []),
+    ...(input.owner ? [`所属 ${input.owner.objectType === "MINI_PROJECT" ? "MiniProject" : input.owner.objectType === "PROJECT" ? "Project" : "Area"}：${input.owner.text}`] : []),
   ].slice(0, 2);
   return result({
     kind: "TASK",
@@ -567,8 +567,8 @@ export function projectV2TaskReentry(input: V2TaskReentryInput): V2ReentryProjec
       ...(input.parentContext
         ? [fact(`已读取父级正文：${input.parentContext.text}`, input.parentContext.sourceRef)]
         : []),
-      ...(input.ownerProject && ownerSource
-        ? [fact(`Task 的 Primary Owner 是 ${input.ownerProject.text}`, taskSource, ownerSource)]
+      ...(input.owner && ownerSource
+        ? [fact(`Task 的 Primary Owner 是 ${input.owner.text}`, taskSource, ownerSource)]
         : []),
     ],
     unknowns: sufficient ? [] : ["需要打开原文才能判断从哪里继续"],

@@ -104,7 +104,12 @@ import {
   type AttentionShadowCycleSummary,
   type DynamicNowShadowRuntimeSummary,
 } from "./attention-shadow-runtime.ts";
-import { projectPluginV2ProjectReentry, type PluginProjectReentryCard } from "./reentry-runtime.ts";
+import {
+  projectPluginV2ProjectReentry,
+  projectPluginV2TaskReentry,
+  type PluginProjectReentryCard,
+  type PluginTaskReentryCard,
+} from "./reentry-runtime.ts";
 import {
   projectPluginAnchorIssueNarrations,
   projectPluginObjectNarrations,
@@ -532,6 +537,7 @@ async function model(): Promise<UiModel> {
   let v2PrimaryOwnerships: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listPrimaryOwnerships"]>> = [];
   let v2PrimaryAnchors: V2Anchor[] = [];
   let v2ProjectReentryCards: PluginProjectReentryCard[] | undefined;
+  let v2TaskReentryCards: Record<string, PluginTaskReentryCard> | undefined;
   let v2ObjectNarrations: Record<string, PluginObjectNarration> | undefined;
   let v2MigrationRuns: PluginMigrationRunView[] = [];
   let v2NowWork: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["nowWork"]>> | undefined;
@@ -540,6 +546,8 @@ async function model(): Promise<UiModel> {
   let v2AuditLoadError: string | undefined;
   let v2RelationLoadError: string | undefined;
   let v2ReentryLoadError: string | undefined;
+  let v2TaskReentryLoadError: string | undefined;
+  let v2PrimaryAnchorLoadError: string | undefined;
   let v2StatusNarrationLoadError: string | undefined;
   let v2MigrationLoadError: string | undefined;
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
@@ -569,7 +577,8 @@ async function model(): Promise<UiModel> {
     try {
       v2PrimaryAnchors = await listAllPrimaryAnchors(serviceRuntimeClient);
     } catch (error) {
-      v2ReentryLoadError = explain(error);
+      v2PrimaryAnchorLoadError = explain(error);
+      v2ReentryLoadError = v2PrimaryAnchorLoadError;
     }
     try {
       const rawMigrationRuns = await serviceRuntimeClient.listMigrationRuns();
@@ -616,6 +625,20 @@ async function model(): Promise<UiModel> {
         v2ReentryLoadError = explain(error);
       }
     }
+    if (v2NowWork && !v2ProposalLoadError && !v2AuditLoadError && !v2PrimaryAnchorLoadError) {
+      try {
+        v2TaskReentryCards = projectPluginV2TaskReentry({
+          observedAt: v2NowWork.generatedAt,
+          objects: v2Objects,
+          ownerships: v2RelationLoadError ? [] : v2PrimaryOwnerships,
+          anchors: v2PrimaryAnchors,
+          proposals: v2Proposals,
+          commits: v2SemanticCommits,
+        });
+      } catch (error) {
+        v2TaskReentryLoadError = explain(error);
+      }
+    }
     if (v2NowWork && !v2ProposalLoadError) {
       try {
         v2ObjectNarrations = projectPluginObjectNarrations(v2Objects, v2NowWork.generatedAt);
@@ -626,6 +649,9 @@ async function model(): Promise<UiModel> {
     if (!v2ReentryLoadError && v2ProposalLoadError) v2ReentryLoadError = v2ProposalLoadError;
     if (!v2ReentryLoadError && v2AuditLoadError) v2ReentryLoadError = v2AuditLoadError;
     if (!v2ReentryLoadError && v2RelationLoadError) v2ReentryLoadError = v2RelationLoadError;
+    if (!v2TaskReentryLoadError && v2ProposalLoadError) v2TaskReentryLoadError = v2ProposalLoadError;
+    if (!v2TaskReentryLoadError && v2AuditLoadError) v2TaskReentryLoadError = v2AuditLoadError;
+    if (!v2TaskReentryLoadError && v2PrimaryAnchorLoadError) v2TaskReentryLoadError = v2PrimaryAnchorLoadError;
   }
   const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
   toolbarFacts = {
@@ -719,6 +745,8 @@ async function model(): Promise<UiModel> {
     v2NowWorkTypeFilter,
     v2NowWorkGrouping,
     ...(v2ProjectReentryCards !== undefined ? { v2ProjectReentryCards } : {}),
+    ...(v2TaskReentryCards !== undefined ? { v2TaskReentryCards } : {}),
+    ...(v2TaskReentryLoadError ? { v2TaskReentryLoadError } : {}),
     v2ProjectContextRecovery: projectContextRecoveryController.snapshot(),
     v2MiniProjectGrill: miniProjectGrillController.snapshot(),
     v2MiniProjectGrillAvailable: serviceConnection.status === "READY"

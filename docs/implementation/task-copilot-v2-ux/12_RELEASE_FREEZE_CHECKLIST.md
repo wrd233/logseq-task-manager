@@ -1,6 +1,6 @@
 # Task Copilot V2 Release Freeze Checklist
 
-> 状态：`RELEASE_CANDIDATE_READY`
+> 状态：`FREEZE_REVALIDATION_IN_PROGRESS`
 > Freeze 起点：`8d24569` 及其 P2-D 当前证据提交之后
 > 原则：不新增大功能、正式状态、顶层导航、Skill 家族、Agent Runtime 或 Recovery Kernel；
 > 只处理 Release blocker、明确回归和严重体验问题。
@@ -24,6 +24,10 @@
 - [x] 当前构建 P2-D 正常操作、真实失败、安全补偿、Undo 和 reload 证据。
 
 ## Freeze 中仍需复核
+
+- [ ] 从补齐 P1-F Task 轻量重入 consumer 的当前提交全量组装新包；安装到稳定路径，完成
+  Now Task 普通卡、恢复优先级、reload 和当前截图代表 Gate；在此之前 r6 只作为最后验证包，
+  不代表当前源码；
 
 - [x] 对当前 freeze commit 执行分层 Release 代表矩阵：零参数安全停止；Graph-identity
   重装（不传 `--database`）保留 authority；当前 Plugin

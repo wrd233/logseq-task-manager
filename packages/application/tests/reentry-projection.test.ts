@@ -289,7 +289,7 @@ test("Task reentry uses exact Condition and owner facts but never manufactures a
   const projection = projectV2TaskReentry({
     observedAt,
     task,
-    ownerProject: object(),
+    owner: object(),
     anchor: anchor("task-1"),
     parentContext: {
       text: "采购事项",
@@ -303,6 +303,29 @@ test("Task reentry uses exact Condition and owner facts but never manufactures a
   assert.deepEqual(projection.inferences, []);
   assert.match(projection.facts.map((item) => item.text).join(" "), /Primary Owner 是 设备托管/);
   assert.equal(projection.primaryAction?.intent, "OPEN_PRIMARY_ANCHOR");
+});
+
+test("Task reentry preserves every allowed direct Primary Owner type as bounded context", () => {
+  const task = object({
+    objectId: "task-1",
+    objectType: "TASK",
+    text: "确认最终报价",
+  });
+  for (const [objectType, label] of [
+    ["MINI_PROJECT", "所属 MiniProject：报价确认"],
+    ["PROJECT", "所属 Project：报价确认"],
+    ["AREA", "所属 Area：报价确认"],
+  ] as const) {
+    const projection = projectV2TaskReentry({
+      observedAt,
+      task,
+      owner: object({ objectId: `owner-${objectType}`, objectType, text: "报价确认" }),
+      anchor: anchor("task-1"),
+      commits: [],
+    });
+    assert.match(projection.keyEvidence.join("；"), new RegExp(label));
+    assert.match(projection.facts.map((item) => item.text).join("；"), /Primary Owner 是 报价确认/);
+  }
 });
 
 test("actionable Task with no current body context stays insufficient and opens only its source", () => {

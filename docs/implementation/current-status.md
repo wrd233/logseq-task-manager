@@ -11,19 +11,30 @@ ux_productization_goal: IN_PROGRESS
 p0_status: DONE_DESKTOP_REPRESENTATIVE
 p1_status: DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW
 p2_status: DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW
-final_release_status: RELEASE_CANDIDATE_READY
+final_release_status: FREEZE_REVALIDATION_IN_PROGRESS
 overall_goal: IN_PROGRESS
 ```
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+当前 Freeze 审计发现 P1-F 的 Task 确定性轻量重入只停留在 Application 投影，Plugin
+“现在”没有消费，因而旧 r6 虽仍是最后一个完整验证的安装包，却不再代表当前源码候选。
+本轮已用现有投影、Now 卡片、Anchor/Audit 路由补齐只读 consumer：普通 Task 只增加一行
+直属 MiniProject/Project/Area 上下文并保留唯一原文动作；PENDING/RECOVERY_REQUIRED 将
+既有恢复入口提升为唯一动作；receipt-backed `CREATE_OBJECT` 中断通过 active Primary Anchor
+关联到新 Task；Commit/Anchor 安全事实不可读时隐藏普通动作并只引导核对；Object version
+不匹配时忽略旧投影。没有新增正式状态、Runtime、Recovery、Skill 或写入权威。
+Application + Plugin 定向 tests `93/93` 与 typecheck PASS；当前状态为
+`AUTOMATED_ONLY_DESKTOP_AND_PACKAGE_REVALIDATION_REQUIRED`，待最新安装构建和真实 Desktop
+代表 Gate 后才能恢复 `RELEASE_CANDIDATE_READY`。
+
 `11e0131` 后的 r6 已关闭“当前发布包内 Runbook 落后于仓库”的交付漂移。
 r5 是在旧 r3 解压包上只替换 Plugin 得到的；虽然其真实安装和生命周期 Gate
 有效，包内 Runbook 却缺少稳定解压目录要求，因此 r5 现标记为
-`SUPERSEDED_PACKAGE`。当前产物为
+`SUPERSEDED_PACKAGE`。该轮验证产物为
 `task-copilot-v2-0.1.0-11e0131-r6.zip`，SHA-256
-`bedf541640bd45976d213f72a98308705fc33173de63c1d208e59c269fc5e8e5`；它从当前
+`bedf541640bd45976d213f72a98308705fc33173de63c1d208e59c269fc5e8e5`；它从当时的
 HEAD 全量组装，`unzip -t` PASS，包内 Runbook 与仓库字节一致，凭据特征扫描
 命中 `0`。从 r6 再次执行零参数安装安全停止；显式 Graph identity、不传
 database 的真实重装保持既有 graph key 和
@@ -31,7 +42,8 @@ database 的真实重装保持既有 graph key 和
 目录注册 Plugin，完成 reload、完整 quit/owned shutdown 和 reopen；重开后 iframe
 仍指向 r6，Service 第一次轮询即 READY，CLI `objects 14`、Doctor PASS。新增
 正式状态/Runtime/Recovery/Skill 均为 `0`，交付一致性 Partial 净变化 `-1`。
-Final Release 仍为 `RELEASE_CANDIDATE_READY`，完整长期 Goal 仍为 `IN_PROGRESS`。证据见
+该轮 Final Release 为 `RELEASE_CANDIDATE_READY`；当前源码已进入上文所述复验状态，
+完整长期 Goal 仍为 `IN_PROGRESS`。证据见
 `task-copilot-v2-ux/logs/release-r6-current-package-desktop-live-20260731.md`。
 
 历史证据：`70a7fe7` 补齐过 r5 发布包的真实安装态 Desktop Gate。直接从

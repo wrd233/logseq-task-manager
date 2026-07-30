@@ -353,10 +353,10 @@ source
 
 ## P1-F：Project/Task 重入
 
-状态：`PARTIAL_DESKTOP_WORKSPACE_FILE_GRAPH_PAGE_HEAD_BOUNDED` — Application 只读重入投影
+状态：`AUTOMATED_TASK_NOW_DESKTOP_OPEN_PROJECT_WORKSPACE_DONE_FILE_GRAPH_PAGE_HEAD_BOUNDED` — Application 只读重入投影
 已接入 Plugin Project workspace 与 Project 主 Page 的 Page Head 单动作；Project workspace
 真实 Desktop 已通过。Logseq 0.10.15 File Graph 不挂载 Page Head slot，安全隐藏为有界宿主
-结论；DB Graph Page Head 与视觉 Gate 尚未完成。
+结论；Task 轻量重入已接入现有“现在”卡片并通过自动 Gate，当前安装构建 Desktop 尚待复验。
 
 Project 顶部条只组合 schema v12、Condition、Focus、Anchor、最近 Audit 与未完成 Commit；不建立第二摘要权威。
 
@@ -405,6 +405,12 @@ Task 不建立强制 current interface。依次使用正式状态、当前正文
   `page-head-actions-slotted` 只在 DB Graph/LSP 分支挂载，File Graph 不能显示该动作；没有
   使用 DOM 注入、页面标题或 stale properties 猜身份。Project workspace 的确定性重入卡与
   Context Recovery 入口可用，DB Graph Page Head 继续 OPEN。
+- 2026-07-31 Freeze 审计补齐 Task consumer：复用同一 `projectV2TaskReentry`、Now 卡片、
+  Primary Anchor 与 Audit 路由；普通卡只增加一行直属 MiniProject/Project/Area，不展示未知警告或工程 identity；
+  PENDING/RECOVERY_REQUIRED 隐藏普通状态/期限/Focus 动作，只保留一个恢复入口；版本不匹配
+  fail closed。提交前双轴审阅又补出 receipt-backed `CREATE_OBJECT` 中断映射，以及
+  Commit/Anchor 安全事实不可读时隐藏普通动作的 fail-closed 路径。Application + Plugin
+  定向 tests `93/93`、typecheck PASS；Desktop 与最新安装包仍 OPEN。
 
 ## P1-G：LLM 叙述与上下文恢复 Skill
 

@@ -11,7 +11,10 @@ import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelS
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
 import { projectRecentChanges, type RecentChange } from "./recent-changes.ts";
-import type { PluginProjectReentryCard } from "./reentry-runtime.ts";
+import type {
+  PluginProjectReentryCard,
+  PluginTaskReentryCard,
+} from "./reentry-runtime.ts";
 import type { PluginMiniProjectGrillState } from "./mini-project-grill-controller.ts";
 import type { PluginProjectCreationGrillState } from "./project-creation-grill-controller.ts";
 import type { PluginBackupRestoreState } from "./backup-restore-controller.ts";
@@ -143,6 +146,8 @@ export interface UiModel {
   v2NowWorkTypeFilter?: V2NowWorkTypeFilter;
   v2NowWorkGrouping?: V2NowWorkGrouping;
   v2ProjectReentryCards?: PluginProjectReentryCard[];
+  v2TaskReentryCards?: Record<string, PluginTaskReentryCard>;
+  v2TaskReentryLoadError?: string;
   v2ProjectContextRecovery?: Record<string, PluginProjectContextRecoveryState>;
   v2MiniProjectGrill?: Record<string, PluginMiniProjectGrillState>;
   v2MiniProjectGrillAvailable?: boolean;
@@ -273,6 +278,29 @@ function renderNow(model: UiModel): string {
       );
       const projected = model.v2ObjectNarrations?.[item.objectId];
       const narration = projected?.objectVersion === item.version ? projected.narration : undefined;
+      const projectedTaskReentry = item.objectType === "TASK"
+        ? model.v2TaskReentryCards?.[item.objectId]
+        : undefined;
+      const taskReentry = projectedTaskReentry?.objectVersion === item.version
+        ? projectedTaskReentry
+        : undefined;
+      const taskRecovery = taskReentry
+        && (taskReentry.projection.safetyState === "PENDING"
+          || taskReentry.projection.safetyState === "RECOVERY_REQUIRED")
+        && taskReentry.primaryRoute
+        ? taskReentry
+        : undefined;
+      const taskSafetyUnavailable = item.objectType === "TASK"
+        && taskReentry === undefined
+        && model.v2TaskReentryLoadError !== undefined;
+      const rawTaskOwnerContext = taskReentry?.projection.safetyState === "CLEAN"
+        ? taskReentry.projection.keyEvidence
+          .find((evidence) => /^所属 (?:MiniProject|Project|Area)：/.test(evidence))
+        : undefined;
+      const taskOwnerContext = rawTaskOwnerContext
+        ?.replace("所属 MiniProject：", "所属小项目：")
+        .replace("所属 Project：", "所属项目：")
+        .replace("所属 Area：", "所属领域：");
       const nextAction = narration?.nextAction;
       const guidedStatusAction = narration?.nextActionEligible
         && nextAction
@@ -285,20 +313,46 @@ function renderNow(model: UiModel): string {
         ? button(nextAction.label, "v2-condition-open", primaryValue(`${item.objectId}|${item.version}`), "primary")
         : "";
       const openLabel = item.objectType === "PROJECT" ? "打开项目" : focused ? "继续处理" : "打开正文";
-      const primaryAction = guidedStatusAction
+      const primaryAction = taskRecovery
+        ? button(
+            taskRecovery.primaryRoute!.label,
+            taskRecovery.primaryRoute!.action,
+            taskRecovery.primaryRoute!.value,
+            "primary",
+          )
+        : taskSafetyUnavailable
+          ? button("核对未完成修改", "view", "audit", "primary")
+        : guidedStatusAction
         || (item.primaryAnchorExternalId
           ? button(openLabel, "v2-open-primary-anchor", primaryValue(item.primaryAnchorExternalId), "primary")
           : button("更新当前状态", "v2-condition-open", primaryValue(`${item.objectId}|${item.version}`), "primary"));
-      const status = narration
+      const status = taskRecovery
+        ? taskRecovery.projection.safetyState === "RECOVERY_REQUIRED"
+          ? "<p><strong>上一次修改需要恢复</strong></p><p class=\"muted\">相关写入已经停止；请先核对差异并恢复到安全状态。</p>"
+          : "<p><strong>上一次修改尚未完成</strong></p><p class=\"muted\">已完成的步骤仍会保留；请沿用上一次修改继续。</p>"
+        : taskSafetyUnavailable
+          ? "<p><strong>当前安全状态暂时无法核对</strong></p><p class=\"muted\">正式内容没有因此改变；请先核对未完成修改。</p>"
+        : narration
         ? `<p><strong>${escapeHtml(narration.conclusion)}</strong></p>${narration.keyEvidence.length ? `<p class="muted">${escapeHtml(narration.keyEvidence[0]!)}</p>` : ""}<details><summary>查看依据</summary>${narration.unknowns.length ? `<p class="muted">${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
         : `<p>${escapeHtml(item.reason)}</p>`;
+      const taskContext = !taskSafetyUnavailable && taskOwnerContext ? `<p class="muted">${escapeHtml(taskOwnerContext)}</p>` : "";
       const secondaryStatusAction = !guidedStatusAction && !item.primaryAnchorExternalId ? "" : button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet");
       const attentionActions = attentionHint
         ? `${button("本次先不提醒", "v2-attention-disposition", `${attentionHint.signalId}|LATER`, "quiet")}${button("本次不相关", "v2-attention-disposition", `${attentionHint.signalId}|NOT_RELEVANT`, "quiet")}`
         : "";
-      const secondaryActions = `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${focused ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", focusRank === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", focusRank === model.v2NowWork!.focus.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}${attentionActions}`;
-      const sourceLabel = `${focused ? " · 来自当前关注" : ""}${attentionHint ? " · Copilot 提醒 · 试用" : ""}`;
-      return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${item.dueAt ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>` : ""}<div class="actions">${primaryAction}</div><details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details></article>`;
+      const secondaryActions = taskRecovery || taskSafetyUnavailable
+        ? ""
+        : `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${focused ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", focusRank === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", focusRank === model.v2NowWork!.focus.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}${attentionActions}`;
+      const moreActions = secondaryActions
+        ? `<details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details>`
+        : "";
+      const sourceLabel = taskRecovery || taskSafetyUnavailable
+        ? ""
+        : `${focused ? " · 来自当前关注" : ""}${attentionHint ? " · Copilot 提醒 · 试用" : ""}`;
+      const due = !taskRecovery && !taskSafetyUnavailable && item.dueAt
+        ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>`
+        : "";
+      return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${taskContext}${due}<div class="actions">${primaryAction}</div>${moreActions}</article>`;
     }).join("");
     const section = (title: string, source: NowFrontstageItem[], frontstageLimit?: number) => {
       const values = filtered(source);

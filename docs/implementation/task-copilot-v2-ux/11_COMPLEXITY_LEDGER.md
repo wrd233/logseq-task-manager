@@ -14,7 +14,7 @@
 | Agent / LLM 平行小系统 | LOW-MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 有场景差异；P2-D 一条共享 external Agent 链已证明无需第二 Runtime | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 否 |
 | Skill/Prompt/Validator 补丁化 | MEDIUM | `unified-ux-generator`/`recover-context` 已建立 CANDIDATE/RETIRED 台账与真实 Provider 指标；5 个 active Skill 安装态一致 | 只保留 `EXPERIMENTAL/SHADOW/CANDIDATE/PRODUCTION/RETIRED`；晋升看固定样本、真实 Provider、拒绝/重试/abstain/helpful-noise/越权；旧版退休而非永久兼容 | 否 |
 | Desktop 验收笛卡尔积 | MEDIUM | 宿主、主题、宽度、错误和恢复组合较多；当前已用三层代表矩阵与 r6 完整生命周期取证 | 三层代表矩阵：高频日常、复杂操作、低频高风险；不做完全笛卡尔积 | 否 |
-| 文档/代码/截图漂移 | LOW | r6 从当前 HEAD 全量组装；包内 Runbook、稳定安装路径、CURRENT 截图、status/progress/acceptance/checklist/current-ui 已对齐；r5 明确标记 `SUPERSEDED_PACKAGE` | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；发布包从当前 HEAD 全量组装，不从旧包增量替换；每轮同步 status/progress/acceptance/checklist/current-ui | 否 |
+| 文档/代码/截图漂移 | MEDIUM | r6 是最后一个完整验证包；P1-F Task consumer 已通过自动 Gate但当前安装包与 Desktop 证据尚未前移 | 从当前提交全量组装新包，安装稳定路径并重验 Now Task/reload；随后同步 status/progress/acceptance/checklist/current-ui，旧 r6 转为 SUPERSEDED | 是，直到当前源码包与 Desktop 对齐 |
 | 后台工程概念泄漏 | LOW-MEDIUM | Now/更多/系统状态、Preview/Review、Grill、Project 落地和 Recovery 代表链已使用用户语言；技术事实只在折叠诊断/Audit | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit | 否 |
 
 ### P2-A/B MiniProject current-build 收口（2026-07-30，`39d73a0` / `9e7a105`）

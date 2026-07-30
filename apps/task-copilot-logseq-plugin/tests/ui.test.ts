@@ -7,7 +7,10 @@ import type { ServiceProjectCreationGrillResult, ServiceProjectCreationPreviewRe
 
 import { MigrationScanController } from "../src/migration-scan-controller.ts";
 import { renderApp, type UiModel } from "../src/ui.ts";
-import { projectPluginV2ProjectReentry } from "../src/reentry-runtime.ts";
+import {
+  projectPluginV2ProjectReentry,
+  projectPluginV2TaskReentry,
+} from "../src/reentry-runtime.ts";
 import { projectPluginObjectNarrations } from "../src/status-narration-runtime.ts";
 
 function model(): UiModel {
@@ -1489,6 +1492,252 @@ test("V2 Now Work renders only non-empty explainable regions without scores or b
   assert.match(html, /data-action="v2-condition-open" data-value="task-next\|2"/);
 });
 
+test("V2 Now Work adds bounded Task owner context without replacing the single primary action", () => {
+  const value = model();
+  value.workspace = "now";
+  const observedAt = "2026-07-31T08:00:00.000Z";
+  const task = {
+    objectId: "task-owned",
+    objectType: "TASK" as const,
+    version: 4,
+    lifecycle: "OPEN" as const,
+    condition: { kind: "ACTIONABLE" as const },
+    text: "核对发布材料",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  const project = {
+    objectId: "project-owner",
+    objectType: "PROJECT" as const,
+    version: 2,
+    lifecycle: "OPEN" as const,
+    condition: { kind: "ACTIONABLE" as const },
+    text: "发布治理",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  value.v2NowWork = {
+    generatedAt: observedAt,
+    focus: [{
+      objectId: task.objectId,
+      objectType: task.objectType,
+      version: task.version,
+      text: task.text,
+      condition: task.condition,
+      updatedAt: task.updatedAt,
+      reason: "来自用户明确关注",
+      primaryAnchorExternalId: "block-task-owned",
+    }],
+    next: [],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  value.v2TaskReentryCards = projectPluginV2TaskReentry({
+    observedAt,
+    objects: [project, task],
+    ownerships: [{ ownerObjectId: project.objectId, childObjectId: task.objectId, assignedAt: observedAt }],
+    anchors: [{
+      anchorId: "anchor-task-owned",
+      objectId: task.objectId,
+      graphId: "graph-1",
+      externalId: "block-task-owned",
+      role: "primary_text",
+      status: "active",
+      contentHash: "hash-task-owned",
+      lastSeenAt: observedAt,
+    }],
+    proposals: [],
+    commits: [],
+  });
+
+  const html = renderApp(value);
+  const card = html.match(/<article class="card compact now-card"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(card, /所属项目：发布治理/);
+  assert.doesNotMatch(card, /所属 Project|Anchor|Commit/);
+  assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
+  assert.match(card, /data-action="v2-open-primary-anchor" data-value="block-task-owned"[^>]*>继续处理/);
+});
+
+test("V2 Now Work makes Task recovery the only action and hides internal recovery vocabulary", () => {
+  const value = model();
+  value.workspace = "now";
+  const observedAt = "2026-07-31T08:00:00.000Z";
+  const task = {
+    objectId: "task-recovery",
+    objectType: "TASK" as const,
+    version: 5,
+    lifecycle: "OPEN" as const,
+    condition: { kind: "ACTIONABLE" as const },
+    text: "恢复发布材料",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  value.v2NowWork = {
+    generatedAt: observedAt,
+    focus: [{
+      objectId: task.objectId,
+      objectType: task.objectType,
+      version: task.version,
+      text: task.text,
+      condition: task.condition,
+      updatedAt: task.updatedAt,
+      reason: "近期更新，可继续推进",
+      dueAt: "2026-07-31T07:00:00.000Z",
+      primaryAnchorExternalId: "block-task-recovery",
+    }],
+    next: [],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  value.v2AttentionNowPilot = [{
+    signalId: "attention-task-recovery",
+    objectId: task.objectId,
+    signalType: "DUE",
+  }];
+  value.v2TaskReentryCards = projectPluginV2TaskReentry({
+    observedAt,
+    objects: [task],
+    ownerships: [],
+    anchors: [{
+      anchorId: "anchor-task-recovery",
+      objectId: task.objectId,
+      graphId: "graph-1",
+      externalId: "block-task-recovery",
+      role: "primary_text",
+      status: "active",
+      contentHash: "hash-task-recovery",
+      lastSeenAt: observedAt,
+    }],
+    proposals: [{
+      updatedAt: observedAt,
+      files: { proposalMd: "# recovery", proposalJson: "{}" },
+      proposal: {
+        proposalId: "proposal-task-recovery",
+        schemaVersion: "v2",
+        title: "更新发布材料",
+        context: "context",
+        understanding: "understanding",
+        objective: "objective",
+        logic: "logic",
+        finalPreview: "preview",
+        unresolvedQuestions: [],
+        source: { kind: "user" },
+        scope: { read: [], modify: [{ kind: "OBJECT", id: task.objectId, version: task.version }] },
+        preconditions: [],
+        groups: [],
+        status: "ACCEPTED",
+        createdAt: observedAt,
+      },
+    }],
+    commits: [{
+      semanticCommitId: "commit-task-recovery",
+      proposalId: "proposal-task-recovery",
+      status: "RECOVERY_REQUIRED",
+      beforeStateChecksum: "before",
+      createdAt: observedAt,
+      updatedAt: observedAt,
+    }],
+  });
+
+  const html = renderApp(value);
+  const card = html.match(/<article class="card compact now-card"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(card, /上一次修改需要恢复/);
+  assert.match(card, /相关写入已经停止/);
+  assert.match(card, /data-action="view" data-value="audit"[^>]*>查看差异与恢复记录/);
+  assert.doesNotMatch(card, /RECOVERY_REQUIRED|Commit|Proposal|Anchor|更新状态|设置期限|移出关注|打开正文|来自当前关注|Copilot 提醒|期限：/);
+  assert.doesNotMatch(card, /<details class="more-actions">/);
+  assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
+});
+
+test("V2 Now Work ignores Task reentry projected from another Object version", () => {
+  const value = model();
+  value.workspace = "now";
+  const observedAt = "2026-07-31T08:00:00.000Z";
+  const task = {
+    objectId: "task-stale-reentry",
+    objectType: "TASK" as const,
+    version: 3,
+    lifecycle: "OPEN" as const,
+    condition: { kind: "ACTIONABLE" as const },
+    text: "核对版本",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  value.v2NowWork = {
+    generatedAt: observedAt,
+    focus: [],
+    next: [{
+      objectId: task.objectId,
+      objectType: task.objectType,
+      version: 4,
+      text: task.text,
+      condition: task.condition,
+      updatedAt: task.updatedAt,
+      reason: "Service 当前理由",
+      primaryAnchorExternalId: "block-task-stale",
+    }],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  value.v2TaskReentryCards = projectPluginV2TaskReentry({
+    observedAt,
+    objects: [task],
+    ownerships: [],
+    anchors: [{
+      anchorId: "anchor-task-stale",
+      objectId: task.objectId,
+      graphId: "graph-1",
+      externalId: "block-task-stale",
+      role: "primary_text",
+      status: "active",
+      contentHash: "hash-task-stale",
+      lastSeenAt: observedAt,
+    }],
+    proposals: [],
+    commits: [],
+  });
+
+  const html = renderApp(value);
+  assert.match(html, /Service 当前理由/);
+  assert.doesNotMatch(html, /当前进入点不明确|需要打开原文才能判断从哪里继续/);
+  assert.match(html, /data-action="v2-open-primary-anchor" data-value="block-task-stale"/);
+});
+
+test("V2 Now Work fails closed when Task recovery facts are unavailable", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = {
+    generatedAt: "2026-07-31T08:00:00.000Z",
+    focus: [],
+    next: [{
+      objectId: "task-unavailable-reentry",
+      objectType: "TASK",
+      version: 2,
+      text: "核对未完成修改",
+      condition: { kind: "ACTIONABLE" },
+      updatedAt: "2026-07-31T07:00:00.000Z",
+      reason: "近期更新，可继续推进",
+      dueAt: "2026-07-31T09:00:00.000Z",
+      primaryAnchorExternalId: "block-task-unavailable",
+    }],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  value.v2TaskReentryLoadError = "未能读取未完成修改";
+
+  const html = renderApp(value);
+  const card = html.match(/<article class="card compact now-card"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(card, /当前安全状态暂时无法核对/);
+  assert.match(card, /正式内容没有因此改变/);
+  assert.match(card, /data-action="view" data-value="audit"[^>]*>核对未完成修改/);
+  assert.doesNotMatch(card, /近期更新，可继续推进|更新状态|设置期限|加入关注|打开正文|期限：/);
+  assert.doesNotMatch(html, /未能读取未完成修改/);
+});
+
 test("V2 Now Work keeps the first four next items visible and folds the rest without losing them", () => {
   const value = model();
   value.workspace = "now";
@@ -2536,6 +2785,9 @@ test("formal V2 plugin entry excludes the writable V1 runtime", async () => {
   assert.match(source, /V2_UI_ACTION_UNSUPPORTED/);
   assert.match(source, /listSemanticCommits\(\)/);
   assert.match(source, /listPrimaryAnchors\(cursor, true\)/);
+  assert.match(source, /if \(v2NowWork && !v2ProposalLoadError && !v2AuditLoadError && !v2PrimaryAnchorLoadError\)[\s\S]*projectPluginV2TaskReentry\([\s\S]*ownerships: v2RelationLoadError \? \[\] : v2PrimaryOwnerships/);
+  assert.match(source, /if \(!v2TaskReentryLoadError && v2AuditLoadError\) v2TaskReentryLoadError = v2AuditLoadError/);
+  assert.match(source, /if \(!v2TaskReentryLoadError && v2PrimaryAnchorLoadError\) v2TaskReentryLoadError = v2PrimaryAnchorLoadError/);
   assert.match(source, /if \(!featureReady && !runtimeEndedByUser\)/);
   assert.match(source, /featureReady = serviceConnection\.status === "READY" && serviceConnection\.formalWritesAvailable && Boolean\(serviceRuntimeClient\)/);
   assert.match(
