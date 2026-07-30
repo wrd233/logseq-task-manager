@@ -1944,6 +1944,14 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /同一恢复记录/);
   assert.match(html, /data-action="submit-v2-proposal-commit"[^>]*>确认恢复</);
   delete value.actionDialog;
+  value.v2Proposals[0]!.proposal.status = "STALE";
+  value.v2SemanticCommits = [];
+  html = renderApp(value);
+  assert.match(html, /待审阅/);
+  assert.doesNotMatch(html, /待审阅 \(1\)/);
+  assert.match(html, /当前没有需要审阅的方案/);
+  assert.match(html, /<details class="review-history"><summary>历史记录（1）<\/summary>/);
+  assert.doesNotMatch(html.split('<details class="review-history">')[0]!, /方案已变化，需要重新检查/);
   value.v2Proposals[0]!.proposal.status = "APPLIED";
   value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:abc", proposalId: "prop_v2", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-07-20T12:00:00.000Z", updatedAt: "2026-07-20T12:01:00.000Z" }];
   html = renderApp(value);
