@@ -6,10 +6,11 @@
 
 ## P1-A：Attention Signal 纯模型与影子存储
 
-状态：`PARTIAL_RUNTIME_SHADOW / UX-G008_BOUNDED` — 纯模型与有界 session shadow
-repository 已完成并接入 Plugin 只读刷新链路；没有接入 UI、正式 Domain 或 SQLite schema。
-fresh-session recompute 自动证据已证明当前 active projection 不需要持久化；显现后的用户
-disposition/cooldown 是否需要跨 reload derivative，保留到 Desktop 真实反馈后再判断。
+状态：`PARTIAL_RUNTIME_SHADOW_BOUNDED_NOW_PILOT / UX-G008_BOUNDED` — 纯模型与有界
+session shadow repository 已完成并接入 Plugin 只读刷新链路；`3097c39` 已让首批时间信号
+在既有正式 Now 卡片完成真实前台处置与 reload/recompute Gate。没有接入正式 Domain 或
+SQLite schema；跨会话 disposition 是否需要派生持久化，继续等待真实多日 helpful/noise
+证据，不因一次人工样本扩张 authority。
 
 最小内部字段：
 
@@ -63,8 +64,11 @@ disposition/cooldown 是否需要跨 reload derivative，保留到 Desktop 真�
 
 ## P1-B：确定性 detector、合并与失效
 
-状态：`PARTIAL_RUNTIME_SHADOW` — 第一波确定性 detector 与合并优先级已完成纯函数 Gate
-并接入 Plugin session shadow；blocker 变化、WAITING 过久、Project 静默与 LLM 跨对象仍未实现。
+状态：`PARTIAL_TIMING_PILOT_OTHER_DETECTORS_SHADOW` — 第一波确定性 detector 与合并
+优先级已完成纯函数 Gate并接入 Plugin session shadow；`REVIEW_DUE / DUE` 已在既有 Now
+卡片完成有界 Desktop Pilot。accepted-not-applied、PENDING/RECOVERY、Anchor/Graph 风险
+继续由既有权威表面承接，不复制同义提醒；blocker 变化、WAITING 过久、Project 静默与
+LLM 跨对象仍未开放。
 
 开放顺序：
 
@@ -115,10 +119,11 @@ disposition/cooldown 是否需要跨 reload derivative，保留到 Desktop 真�
 
 ## P1-C：“现在”动态编排
 
-状态：`PARTIAL_DESKTOP_FRONTSTAGE_SHADOW_SUGGESTIONS_OPEN` — 稳定三段骨架、正式事实
+状态：`PARTIAL_DESKTOP_FRONTSTAGE_TIMING_PILOT_HELPFUL_NOISE_OPEN` — 稳定三段骨架、正式事实
 inclusion/exclusion、容量与 Focus ownership 已完成纯投影；`3d63d5a` 已让既有正式
 Service Now 在用户层按同一三段展示并完成“继续处理”标准宽度/窄栏 Desktop 代表 Gate。
-Dynamic Now Shadow 仍只作对照，Copilot 建议关注仍为空，Attention 前台质量门未通过。
+Dynamic Now Shadow 仍只作对照，Copilot 建议关注仍为空；`3097c39` 已完成到期类
+Attention 的有界前台处置与重算 Gate，但真实 helpful/noise 和跨会话策略仍未通过。
 
 稳定骨架：
 
@@ -174,8 +179,23 @@ Copilot 建议关注只有达到质量门槛时动态插入。普通 OPEN、普�
   Blocked 保持安静，符合低噪声边界；
 - 结束后 Condition 与 Focus 均恢复到测试前基线，系统状态显示没有未完成修改或正文冲突；
 - 累计关闭“来源分区重复/Focus 被容量折叠风险”“需要回看 Desktop”“保持等待 Desktop”
-  子 Partial `3`。P1-C 仍因 Attention
-  helpful/noise、disposition/cooldown 前台 Pilot 和建议关注为空而保持 Partial。
+  子 Partial `3`。该时点 P1-C 仍因 Attention 前台 Pilot 与建议关注为空而保持 Partial；
+  timing 子 Gate 后由 `3097c39` 关闭，真实 helpful/noise、跨会话策略和建议关注仍开放。
+
+2026-07-30 Attention 有界前台 Pilot：
+
+- 只把 `REVIEW_DUE / DUE` 装饰到同一正式 Now 卡片，显示
+  `Copilot 提醒 · 试用`；没有新增 Attention 列表、一级导航或第二张同义卡；
+- `本次先不提醒` 与 `本次不相关` 分别使用既有 session disposition/cooldown；正式对象、
+  Condition、Focus、正文与写入权限不变；
+- 同 scope 保持处置，事实变化解除旧处置，事实消失自动失效；真实 Plugin Manager reload
+  清除 session disposition 并从正式事实重算；
+- accepted-not-applied、Pending/Recovery、Anchor/Graph 风险不在 Now 复制，继续由 Review、
+  系统状态和工具栏承接；
+- 自动聚焦 `83/83`、Plugin `370/370`、typecheck/build 与根级检查 PASS；真实 Desktop
+  完成显示→暂缓→reload/recompute→不相关→恢复正式测试 Condition→健康；
+- 本轮只有一个人工 eligible 样本，不能计算真实 helpful/noise；跨会话 disposition、建议
+  关注与默认 Block Marker 继续开放。关闭既有子 Partial `1`，新增长期 Partial `0`。
 
 ## P1-D：状态翻译层
 

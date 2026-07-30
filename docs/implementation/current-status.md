@@ -17,6 +17,19 @@ overall_goal: IN_PROGRESS
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
+`3097c39` 已关闭“首批确定性 Attention 没有真实前台处置与 reload/recompute 证据”这一
+既有子 Partial。真实 Logseq 0.10.15 File Graph、host Light / Plugin Dark、约
+1000×754 中，一个人工构造的到期 Waiting 样本只在既有“需要回看”卡片显示
+`Copilot 提醒 · 试用`，没有生成第二张提醒卡；“本次先不提醒 / 本次不相关”只改变
+session-only 派生 disposition，不改变正式 Waiting、Focus、正文或对象。真实 Plugin
+Manager reload 后同一仍有效事实重新生成标记；最后通过既有 Condition 正式入口恢复
+测试对象，系统回到 Pending/Recovery/Source Conflict `0/0/0`。自动证据为聚焦
+`83/83`、Plugin `370/370`、typecheck/build 与根级检查 PASS。没有新增正式状态、
+Detector、Attention 类型、Runtime、Recovery、Skill/Prompt/Validator 或写入权威，
+长期 Partial 净变化 `-1`。该证据不能冒充 helpful/noise 生产数据；跨会话 disposition、
+建议关注、Waiting 过久、Project 静默、跨对象观察与 Block Marker 继续开放，P1 与完整
+Goal 保持 `IN_PROGRESS`。
+
 `a65da34` 已补齐 P0-J 最后一个原生中文 IME 子 Gate。真实 Logseq 0.10.15 File Graph、
 host Light、754×720 中，通过 Computer Use `press_key` 和 macOS 简体拼音逐键完成
 `zhong'wen`、`yan'zheng`、`guang'biao` 组合态、候选提交、已提交中文中间光标插入，
@@ -40,9 +53,10 @@ Actionable→Focus→Blocked→Actionable→Paused（未来 reviewAt）→Action
 Blocked 不被提升为前台提醒。全部状态与 Focus 变化均通过既有 Block 菜单、Condition
 Controller 和 Local Service；结束后恢复原 Condition/Focus，系统状态健康且无需操作。
 该项新增关闭两个 Desktop 子 Partial，累计 Partial 净变化 `-3`；没有新增正式状态、
-Runtime、Recovery 分支、Attention 类型、Skill/Prompt/Validator 或写入权威。P1-C 的
-Attention helpful/noise、disposition/cooldown 前台 Pilot 与 Block Marker 仍开放，整体
-Goal 继续 `IN_PROGRESS`。
+Runtime、Recovery 分支、Attention 类型、Skill/Prompt/Validator 或写入权威。该时点
+P1-C 的 Attention 前台 Pilot 仍开放；其 timing 子 Gate 后由 `3097c39` 关闭，真实
+helpful/noise、跨会话 disposition、建议关注与 Block Marker 仍开放，整体 Goal 继续
+`IN_PROGRESS`。
 
 `075e031d98ca` 又关闭 Rebind 捕获取消时的显式同步旧快照风险：transport 恢复前逐条
 重读当前 Block；已删除/已取消显式语义的候选被丢弃，已修改候选只同步最新内容，读取失败

@@ -8,7 +8,7 @@
 
 | 风险 | 等级 | 当前证据 | 统一缓解措施 | 阻断发布 |
 |---|---|---|---|---|
-| Partial 长期堆积 | HIGH | P1-G、P0-H、P0-J、P2-E 全链及有界恢复合同、P2-G Rebind 纠错/捕获取消安全、真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏与通用深色表面已关闭；P1 Attention/Marker、P0 accepted-not-applied/PENDING-Recovery 总 Gate、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
+| Partial 长期堆积 | HIGH | P1-G、P0-H、P0-J、P2-E 全链及有界恢复合同、P2-G Rebind 纠错/捕获取消安全、真实连续双重 Restore→人工恢复、Migration 写后响应丢失、Verify/Activate failure retry、窄栏、通用深色表面与首批到期 Attention 有界前台处置/recompute 已关闭；P1 真实 helpful/noise/跨会话 disposition/建议关注/Marker、P0 accepted-not-applied/PENDING-Recovery 总 Gate、File Graph Light host issue 与 Final Release 仍 OPEN | 暂停新正式对象/导航/Slice；每轮优先把已有 `PARTIAL/SHADOW/PROTOTYPE/AUTOMATED_ONLY` 升级为有代表性 Desktop 证据的 DONE | 是 |
 | Recovery 语义分裂 | HIGH | Commit、Rebind、Restore、Migration 内部账本精细，但前台曾有分散术语与入口 | 所有场景只翻译为：未应用、可继续、已应用可撤销、需重新连接、需手工恢复；统一进入系统状态/最近修改/备份恢复，不创建第二 Recovery Kernel | 是 |
 | 状态组合膨胀 | MEDIUM | 正式 Lifecycle/Condition/Focus 与 Proposal/Commit/Anchor/Service 等运行事实同时存在 | 新 UI 状态必须派生且 session-only；一对象只显示一个按数据安全、恢复、阻塞、时间的优先结论；新正式状态需单独证明不可替代性 | 是 |
 | Agent / LLM 平行小系统 | MEDIUM | Context Recovery、Grill、Creation、Closure、Cross-object 都有场景差异 | 共享 Context Package、Fact/Inference/Unknown、Action Authority、Grill Turn、Preview Handle、Proposal Factory、Validator、Interaction Evidence 与 Provider/stale 处理；Skill 不得重建运行时 | 是 |
@@ -17,7 +17,22 @@
 | 文档/代码/截图漂移 | HIGH | 历史 Desktop 证据多，最新安全提交可能没有新 UI | 截图必须记录 commit 并分 `CURRENT/HISTORICAL/SUPERSEDED`；自动-only 安全修复不借用旧截图升级 Desktop 状态；每轮同步 status/progress/acceptance/plan/current-ui | 是 |
 | 后台工程概念泄漏 | MEDIUM | `4dfe014` 的最新 Desktop 已证明“现在”移除重复运行条、“更多”使用用户维护语义、系统状态默认折叠工程诊断；高级 Review/Grill/Project/Migration/Restore 表面仍需逐场景复核 | 默认只显示一个主结论、1—2 条依据、一个主操作、最多两个快速处置；版本/ID/checksum/机器理由只进技术详情/Audit；以代表性复杂链继续压缩而不新增说明层 | 是 |
 
-## 本轮变化（2026-07-29）
+## 本轮变化（2026-07-30）
+
+### P1 Attention Now 有界前台 Pilot（`3097c39`）
+
+- Partial 净变化 `-1`：关闭首批确定性时间 Signal 缺少真实前台显示、处置与
+  reload/recompute 证据的子项；新增长期 Partial `0`。
+- 新增正式状态、Runtime、Detector、Attention 类型、Recovery 分支、Skill/Prompt/Validator
+  与写入权威均为 `0`；复用既有 `AttentionShadowSession`、正式 Now 卡片和 Condition 入口。
+- 删除重复表面：到期信号只装饰同一“需要回看”卡；accepted-not-applied、Pending/Recovery、
+  Anchor/Graph 风险继续由 Review、系统状态和工具栏承接，不复制成 Attention 卡。
+- 处置只影响 session 派生标记；正式对象/Waiting/Focus/正文不变。真实 Plugin Manager
+  reload 从同一事实重算，未引入 SQLite disposition authority。
+- 自动聚焦 `83/83`、Plugin `370/370`、typecheck/build、根级检查 PASS；真实 Desktop
+  覆盖显示、两个处置、reload/recompute、正式测试状态恢复与 `0/0/0` 健康。
+- 风险变化：Partial 堆积下降；状态和恢复分裂不增加。单个人工样本不能形成真实
+  helpful/noise，跨会话 disposition、建议关注、其他 Detector 与 Block Marker 仍阻断 P1。
 
 ### P1 Now 三段前台与 Focus 权威（`3d63d5a`）
 

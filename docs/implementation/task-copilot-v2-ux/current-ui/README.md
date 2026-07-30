@@ -171,7 +171,11 @@ explicit sync 后同一 UUID/identity 与 active Primary Anchor 保持，reload 
 Closure 有界失败合同随后由 `98df827` 关闭。Day 10 证明 Review 无积压、Project/More 克制，
 但原 Now 的 `Focus 1 + Next 10` 偏长，现有 Dynamic Now Shadow 又会遗漏刚恢复事项。
 `df6469f` 已在不替换正式投影的前提下，把 Next 压为首屏 4 项 + 6 项折叠，并完成
-折叠、展开和再次 reload 的当前 Desktop Gate；Dynamic Now/Attention 本身仍 OPEN。
+折叠、展开和再次 reload 的当前 Desktop Gate；`3d63d5a` 随后把正式 Now 收敛为三段。
+`3097c39` 又让 `REVIEW_DUE / DUE` 只在同一正式卡片显示试用标记，并完成暂缓、不相关、
+真实 reload/recompute 与测试状态恢复。该有界 Pilot 不等于 Attention Production：真实
+helpful/noise、跨会话 disposition、建议关注与 Block Marker 仍 OPEN。完整记录见
+`../logs/p1-attention-now-pilot-desktop-live-20260730.md`。
 该目录中的截图按 exact Plugin/docs commit 登记为 CURRENT，不替代其他宿主/主题证据，
 也不把十日代表 Pilot 写成 P0/P1/P2 或完整 Goal 完成。
 

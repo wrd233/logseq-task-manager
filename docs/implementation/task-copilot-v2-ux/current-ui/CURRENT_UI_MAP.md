@@ -1,11 +1,11 @@
 # Current UI Map
 
-> 截至 2026-07-29：所有未在本目录索引的既有 Desktop 截图默认 `HISTORICAL`；下表的 `OPEN` 表示尚无
+> 截至 2026-07-30：所有未在本目录索引的既有 Desktop 截图默认 `HISTORICAL`；下表的 `OPEN` 表示尚无
 > 与当前代码 Commit 对齐的真实截图，不代表功能未实现。
 
 | 场景 | 最新实现状态 | 当前截图 | 下一次取证 Gate |
 |---|---|---|---|
-| 工具栏 / 现在 / 待我确认 / 项目 / 更多 | 正式 Now 不采用会遗漏刚恢复事项的 Dynamic Shadow，而把既有 Service facts 去重为“继续处理 / 需要回看 / 保持等待”；Focus 明确显示来源且永不被普通 4 项上限折叠；Focus Blocked 进入回看、Focus Paused 保持等待、普通非 Focus Blocked 保持安静；卡片保持单一主动作。待审阅当前问题与历史分离，候选处置在 reload/recompute 后不冒充新增 | CURRENT Now：`p1-now-frontstage-continue-dark-standard-3d63d5a.png`、`p1-now-frontstage-continue-dark-narrow-3d63d5a.png`、`p1-now-frontstage-needs-review-dark-754x720-3d63d5a.png`、`p1-now-frontstage-keep-waiting-dark-754x720-3d63d5a.png`、`p1-now-frontstage-restored-healthy-dark-754x720-3d63d5a.png`；Review/Project/More 继续用 Day 10 当前证据；Day 8 disposition 继续有效 | Attention helpful/noise 与 disposition/cooldown 有界前台 Pilot |
+| 工具栏 / 现在 / 待我确认 / 项目 / 更多 | 正式 Now 不采用会遗漏刚恢复事项的 Dynamic Shadow，而把既有 Service facts 去重为“继续处理 / 需要回看 / 保持等待”；Focus 明确显示来源且永不被普通 4 项上限折叠；Focus Blocked 进入回看、Focus Paused 保持等待、普通非 Focus Blocked 保持安静；卡片保持单一主动作。`REVIEW_DUE / DUE` 只装饰同一正式卡片并提供 session-only 暂缓/不相关；待审阅当前问题与历史分离，候选处置在 reload/recompute 后不冒充新增 | CURRENT Now：`p1-now-frontstage-continue-dark-standard-3d63d5a.png`、`p1-now-frontstage-continue-dark-narrow-3d63d5a.png`、`p1-now-frontstage-needs-review-dark-754x720-3d63d5a.png`、`p1-now-frontstage-keep-waiting-dark-754x720-3d63d5a.png`、`p1-now-frontstage-restored-healthy-dark-754x720-3d63d5a.png`；Attention：`p1-attention-now-pilot-*-3097c39.png`；Review/Project/More 继续用 Day 10 当前证据 | Attention 真实 helpful/noise、跨会话 disposition 与建议关注开放门 |
 | 插件外观 / Dark / 窄栏 | 自动模式优先可读宿主；custom.css 与官方信号分离时可显式选择浅色或深色。Dark 1001×720 与 723×720、reload 持久性已通过 | CURRENT：`ui-theme-dark-current-d7526f4.png`、`ui-theme-dark-current-narrow-d7526f4.png` | Logseq File Graph 自身 Light bounded host issue 仍 OPEN；不把深色覆盖冒充 Light PASS |
 | Block / Page 现场入口 | main Page 与普通 Block 可用；Page 操作已压缩为一个突出主操作和两个次级意图；正式 Block“暂时做不了”只显示三种用户原因，空原因不保存，成功/Undo 返回同一原文并经 reload 恢复；727×720 保持同一层级；同一 UUID 移动后精确返回新位置，来源删除后安全关闭；right-sidebar、Query 与 Block reference 无可靠正式 identity 时安全隐藏或用用户语言停止，不猜测目标；P0-J 原生中文 IME 组合、候选、光标插入、正式建页与 reload 已通过 | CURRENT：`ui-page-context-user-language-current-869127f.jpg` + `p0-k-01`～`08`、`10` + `p0-k-condition-*-73dc1e2.jpg` + `p0-j-native-ime-*-a65da34.png` | P0-J/P0-K 已为代表性 DONE；未来 DB Graph 宿主差异与 P0 总 Gate |
 | Service 状态 / reload / quit / Graph switch | reload/quit/owned shutdown 已通过；`ca50304` 完成未配置 Graph fail-closed 和切回原 authority；Day 10 又在连续使用尾声复验已失效隔离 Graph 安全受限与切回后投影恢复 | CURRENT：`p0-h-16`～`18`；Day 10 `day-10-graph-switch-*-plugin-7fe762d-docs-f738f59.jpg` | P0-H 已关闭；只在未来宿主能力变化时重开非代表性组合 |
@@ -16,7 +16,7 @@
 | Project 结构操作路由 | 16 类后台分类保留；前台改为“更新状态/整理摘要/调整目标成果结构/结束项目”等用户意图；无 inverse 的 Association 安全禁用 | CURRENT：`ui-compression-04`（`f4acf77`）+ `p2-d-05`～`13` 正式链 | Association/其余 LIGHT、其他 HEAVY 类型 |
 | Project Closure | 首屏先显示待判断数量、未正式应用、退出安全和唯一主动作；逐目标原始依据与完整依据默认折叠。Provider error 保留用户判断并只给一个重试动作；stale 丢弃旧草稿并改为重新检查。FAILED 明确“没有应用、项目和正文不变、重新发起”，不再保留确认应用按钮；receipt-backed PENDING 才表示原修改可以继续。应用/reload/Undo 与最近修改都使用业务结论，内部错误码折叠 | CURRENT UI：`ui-compression-05`、`06`、`08`（`f4acf77`）、Provider error（`7727770`）、stale/reload（`662246a`）、Day 9 Review/应用/Undo/健康（`aad478c` / `f18cc72` / `7fe762d`）、精确 `98df827` reload 空审阅；正式链：`p2-e-01`～`18` | FAILED/STALE 专用卡由自动故障注入验证；生产入口不增加危险注入。Closure 单步失败不人为进入 `RECOVERY_REQUIRED` |
 | Recovery / Rebind / Restore / Migration | Rebind 受控选择、选错后重新选择、整库回退路由与捕获取消零旧快照写入均已完成；Restore 正常往返、自动回滚以及真实连续双重失败→无需 reload 人工恢复→Doctor/清锁→正常 Launcher/reload 均已完成；Migration 已完成 normal main chain、完成后只读交接、写后响应丢失→ledger reload→Verify→Undo、Verify/Activate failure same-ledger retry 与窄栏 | CURRENT：Rebind `p2-g-rebind-*-075e031.png` + `p0-explicit-sync-cancel-*-075e031.png`；Restore 真实双重失败 `p2-g-55`～`59`；Migration normal `p2-g-20`～`43`、response-loss `p2-g-60`～`65`、failure retry + narrow；主题表达由 `ui-theme-dark-*` 接管 | 显式正式化等价撤销入口核对；Restore 代表视觉；Logseq File Graph Light bounded host issue |
-| Attention Signal | Shadow runtime | OPEN | 首批确定性 Signal 开放门通过后 |
+| Attention Signal | `REVIEW_DUE / DUE` 已在既有 Now 卡完成有界前台 Pilot；暂缓/不相关为 session-only，reload 从正式事实重算；其他风险不复制，建议类保持 Shadow | CURRENT：`p1-attention-now-pilot-current-3097c39.png`、`p1-attention-now-pilot-deferred-current-3097c39.png`、`p1-attention-now-pilot-reload-recompute-current-3097c39.png` | 真实 helpful/noise、跨会话策略、建议关注与默认 Marker 决策 |
 
 权威进度仍以 `current-status.md`、`09_PROGRESS_REPORT.md` 和
 `10_ACCEPTANCE_REPORT.md` 为准；本表只回答“当前界面是否有最新真实截图”。

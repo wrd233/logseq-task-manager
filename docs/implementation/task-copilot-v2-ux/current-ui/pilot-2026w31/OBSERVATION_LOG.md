@@ -433,3 +433,25 @@ Day 6 刚从 Waiting 恢复、尚未加入 Focus 的真实 Task 一并隐藏。`
 - 新增正式状态、Runtime、Attention 类型、Recovery 分支和 Skill/Prompt/Validator：`0`。
 - 关闭两个既有 Desktop 子 Partial；P1-C 的 Attention helpful/noise、disposition/cooldown
   前台 Pilot 与 Block Marker 决策继续 OPEN。
+
+## 2026-07-30 补充：首批时间 Attention 有界前台 Pilot
+
+`3097c39` 使用一个人工构造的到期 Waiting 样本，验证十日回顾中尚无 eligible sample 的
+开放项。它没有创建 Attention 页面或第二张卡，而在既有“需要回看”卡显示
+`Copilot 提醒 · 试用`。
+
+| 截图 | 用户目标 | 主结论 | 下一步 | 状态 |
+|---|---|---|---|---|
+| `../screenshots/p1-attention-now-pilot-current-3097c39.png` | 验证有界显现 | 一个正式事项只显示一张卡；试用标记说明 Copilot 增量 | 暂缓本次标记 | CURRENT |
+| `../screenshots/p1-attention-now-pilot-deferred-current-3097c39.png` | 验证处置不修改事实 | 标记收起，Waiting 卡和主操作仍在 | 真实 reload | CURRENT |
+| `../screenshots/p1-attention-now-pilot-reload-recompute-current-3097c39.png` | 验证可重算 | reload 后从仍有效正式事实重新生成标记 | 恢复测试状态 | CURRENT |
+
+- eligible object `1`；重复 Attention 卡 `0`；`LATER 1`、`NOT_RELEVANT 1`。
+- Provider / Validator rejection / retry / abstention `0/0/0/0`。
+- 两个 disposition 零正式写入；只有创建测试 Condition 与最后恢复使用既有 Service 正式链。
+- 本轮是同一人工样本的合同验证，不能计算 helpful/noise，也不能证明跨会话持久化价值。
+- 新正式状态、Runtime、Detector、Attention 类型、Recovery、Skill/Prompt/Validator 均为
+  `0`；关闭既有子 Partial `1`，新增长期 Partial `0`。
+- 第 27 项“当时没有可用样本”保留为 Day 10 历史事实；本补证只把 timing signal 推进为
+  bounded pilot，Waiting 过久、Project 静默、跨对象观察、建议关注与 Block Marker 继续
+  Shadow / default-off。

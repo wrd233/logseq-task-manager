@@ -143,6 +143,11 @@ Day 1 的误解来自原始输入把 `83/84` 写成“要部署到”的业务�
 29. `df6469f` 没有用 Shadow 替换正式 Now，而在既有投影中保留当前关注和 Service
     原排序前 4 个 Next，将其余 6 项折叠。展开后全部原对象和操作仍在；第二次真实
     plugin reload 后重新以折叠首屏出现，用户 Focus 和前 4 项不变。
+30. 十日回顾后的有界补证由 `3097c39` 完成：人工构造一个到期 Waiting，只在既有
+    “需要回看”卡显示 `Copilot 提醒 · 试用`；暂缓/不相关只改变 session 派生标记，真实
+    Plugin Manager reload 后从同一事实重算，最后恢复测试 Condition 并确认系统健康。
+    该补证替代第 27 项“当时无样本”的历史状态，但不提供真实 helpful/noise 比率，也不
+    开放 Waiting 过久、Project 静默、跨对象观察、跨会话 disposition 或 Block Marker。
 
 上述发现不会自动变成新的正式状态或独立恢复分支。修复优先复用现有 Review、Undo、
 Dynamic Now 和用户状态翻译内核。
@@ -171,6 +176,9 @@ CURRENT 分别来自 `f5ce698` 与 `6135820`；最终 disposition 重算和健�
 `df6469f` 的产物完成折叠、展开与第二次 reload；三张 PNG 保留为 4 项上限的历史交互
 证据。当前 Now 表达已由 `3d63d5a` 的三段前台标准宽度/窄栏截图接管；
 `7fe762d` 的长列表截图继续作为修复前历史证据。
+首批时间 Attention 的后续有界补证使用精确 Plugin `3097c39b85d2`，Logseq 0.10.15、
+File Graph `logseq`、host Light / Plugin Dark、约 1000×754；三张 PNG 登记在上级
+`screenshots/`，不把一个人工样本伪装成十日真实噪声结论。
 详细结论见 `OBSERVATION_LOG.md`。
 
 ## 当时下一段（HISTORICAL）

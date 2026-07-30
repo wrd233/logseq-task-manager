@@ -142,6 +142,20 @@ Logseq `0.10.15`、File Graph、host shell Light / Plugin Dark。精确 commit �
 测试结束后 Condition/Focus 均恢复到开始前基线；没有直接操作 SQLite、没有留下长期
 测试状态，也没有新增 Attention 或恢复分支。
 
+### P1 Attention Now 有界 Pilot — exact build `3097c39b85d2`
+
+| 文件 | 主题 / 尺寸 | 用户动作 | 系统结果 | 下一步 | 状态 |
+|---|---|---|---|---|---|
+| `screenshots/p1-attention-now-pilot-current-3097c39.png` | host Light / Plugin Dark，约 1000×754 | 保存一个到期 Waiting 后查看 Now | 同一“需要回看”正式卡显示 `Copilot 提醒 · 试用`；没有第二张提醒卡 | 展开更多操作 | CURRENT |
+| `screenshots/p1-attention-now-pilot-deferred-current-3097c39.png` | 同上 | 点击“本次先不提醒” | 只收起试用标记；正式 Waiting 卡、主动作和正文事实保留 | 真实 Plugin reload | CURRENT |
+| `screenshots/p1-attention-now-pilot-reload-recompute-current-3097c39.png` | 同上 | Plugin Manager 重载后重新查看 Now | session disposition 清除；同一有效事实重新生成试用标记 | 不相关处置并恢复测试状态 | CURRENT |
+
+- Logseq `0.10.15`，File Graph `logseq`；Service/Store READY，最终
+  Pending/Recovery/Source Conflict `0/0/0`。
+- 本组只证明首批时间信号的有界显示、处置与重算，不提供真实 helpful/noise 比率，不代表
+  跨会话 disposition、其他 Detector、建议关注或 Block Marker 已通过。
+- 完整操作链见 `../logs/p1-attention-now-pilot-desktop-live-20260730.md`。
+
 ### 连续使用 Pilot Day 4 — current exact build `42e6a91309ba`
 
 Day 4 主链运行时的 working tree 已含最终来源预算修复，但最初产物仍内嵌

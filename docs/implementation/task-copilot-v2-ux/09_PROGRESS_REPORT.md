@@ -1,6 +1,6 @@
 # 交互优化实施进度
 
-> 更新时间：2026-07-29
+> 更新时间：2026-07-30
 > 当前结论：`IN_PROGRESS` — `base_v2_status=IMPLEMENTATION_COMPLETE` 只表示底层 V2 完成；
 > `ux_productization_goal=IN_PROGRESS`、`overall_goal=IN_PROGRESS`。P0-A Focus、
 > P0-B“暂时做不了”、P0-C 低风险“接受并应用”、
@@ -40,9 +40,25 @@
 | P0/P1/P2 路线图 | DONE | `02`–`05` |
 | 测试/风险/缺口计划 | DONE | `06`–`08` |
 | P0 代码实现 | IN_PROGRESS_DESKTOP_GATES | P0-A/P0-B/P0-C/P0-D/P0-E/P0-F/P0-G/P0-H/P0-I bounded scope DONE；P0-H code/process、hidden reload、quit shutdown、无参数重装 authority、Graph switch fail-closed/切回均 Desktop PASS；P0-J palette/Slash/custom binding、ended→formal-action fail-closed→显式重启及原生中文 IME 组合/候选/光标/保存/reload PASS，已为 DONE_DESKTOP_REPRESENTATIVE；P0-K main Page、来源移动/删除、正式 Block 失败/成功/Undo/reload 与 Query/reference/right-sidebar bounded Gate PASS，已为 DONE_DESKTOP_REPRESENTATIVE；accepted-not-applied、PENDING/Recovery 前台组合与代表视觉总 Gate 仍 OPEN |
-| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；Dynamic Shadow 不替换 authority、Attention 建议/质量门仍 OPEN；P1-D status consumers、P1-E default-off Block marker prototype；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
+| P1 | IN_PROGRESS_P1G_DONE_OTHER_P1_PARTIAL | P1-A/B runtime shadow；P1-C 已在既有正式 Now 上完成“继续处理/需要回看/保持等待”纯派生及三段 Dark Desktop 代表 Gate，“继续处理”另含窄栏；`3097c39` 又让 `REVIEW_DUE/DUE` 在同一卡片完成有界显示、两种 session disposition 与真实 reload/recompute，不复制 accepted-not-applied、Pending/Recovery、Anchor/Graph 风险；Dynamic Shadow 不替换 authority，真实 helpful/noise、跨会话策略、建议关注与 Block Marker 仍 OPEN；P1-D status consumers；P1-F Project workspace Desktop PASS、File Graph Page Head bounded/DB Graph OPEN；P1-G 真实 Provider 内容/error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；P1-H session disposition/噪声汇总真实 Service + Desktop disposition PASS；跨会话 dashboard 仍 OPEN |
 | P2 | IN_PROGRESS_P2_AB_DONE_P2C_ALL_SOURCES_DONE_P2D_LIGHT_CONDITION_MEDIUM_HEAVY_CORE_DONE_P2E_DONE_BOUNDED_RECOVERY_CONCLUSION_P2F_SHADOW_PROVIDER_REPEAT_PASS_P2G_REBIND_GUIDANCE_MIGRATION_RESTORE_HIGH_RISK_DESKTOP_DONE | P2-A+B DONE；P2-C/P2-D 核心链有 Desktop；P2-E 正常链、receipt-backed 中断续跑、Provider error、stale、Undo/reload 与写入前失败有界恢复合同均 DONE；Closure 的单一原子领域写入不人为进入 `RECOVERY_REQUIRED`，多步骤恢复仍复用统一 Kernel；P2-F shadow/provider 无 UI；P2-G Rebind 最新纠错指引与捕获取消安全、Restore 正常往返/真实连续双重失败→人工恢复，以及 Migration through Activation 正常主链、Import 写后响应丢失、Verify/Activate failure→same-ledger retry 与 722px 窄栏均有真实 Desktop。Task Copilot 深色表面/reload/723px DONE；File Graph 自身 Light host Gate 仍 OPEN |
 | 最终验收 | NOT_STARTED | `10_ACCEPTANCE_REPORT.md` |
+
+### 2026-07-30 P1 Attention Now 有界 Pilot
+
+- `3097c39` 没有新增提醒页面，而把首批确定性时间信号装饰到既有“需要回看”正式卡片；
+  一对象仍只有一个主问题，工具栏只汇总 `1 项到期复查`。
+- 真实 Logseq 0.10.15 File Graph、host Light / Plugin Dark、约 1000×754 中完成：正式
+  Condition 制造到期样本→显示试用标记→本次先不提醒→真实 Plugin Manager reload 后
+  从同一事实重算→本次不相关→恢复 Actionable→系统健康。
+- 两种 disposition 均为 session-only、零正式写入；正式 Waiting 卡和主操作始终保留。
+  accepted-not-applied、PENDING、RECOVERY_REQUIRED、Anchor/Graph 风险不在 Now 重复。
+- 自动证据：聚焦 `83/83`、Plugin `370/370`、typecheck/build、根级检查 PASS；Provider、
+  Validator、Skill/Prompt 变化与调用均为 `0`。
+- 该人工样本只证明合同和 Desktop 可用性，不提供真实 helpful/noise 比率。跨会话
+  disposition、建议关注、Waiting 过久、Project 静默、跨对象观察和 Block Marker 继续
+  开放。新增长期 Partial `0`、关闭既有子 Partial `1`、净变化 `-1`。证据见
+  `logs/p1-attention-now-pilot-desktop-live-20260730.md`。
 
 ### 2026-07-29 P0-J 原生中文 IME
 
