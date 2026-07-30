@@ -215,6 +215,24 @@ test("global action failure language remains accurate when an operation was roll
   assert.doesNotMatch(html, /未执行：|请修正后重试/);
 });
 
+test("a receipt-backed pending Commit replaces transport jargon with the one safe user action", () => {
+  const value = model();
+  value.error = "Local Service 请求失败。";
+  value.v2SemanticCommits = [{
+    semanticCommitId: "proposal-commit:pending-user-language",
+    proposalId: "proposal-pending-user-language",
+    status: "PENDING",
+    beforeStateChecksum: "before",
+    createdAt: "2026-07-30T07:24:00.000Z",
+    updatedAt: "2026-07-30T07:24:01.000Z",
+  }];
+  const html = renderApp(value);
+  assert.match(html, /这次修改没有完成/);
+  assert.match(html, /已完成步骤已经安全保存/);
+  assert.match(html, /继续原修改/);
+  assert.doesNotMatch(html, /Local Service|Provider|Commit|PENDING/);
+});
+
 test("recent changes leads with user intent, application result, and existing Undo instead of engineering IDs", () => {
   const value = model();
   value.workspace = "audit";

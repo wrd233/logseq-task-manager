@@ -1761,6 +1761,17 @@ function renderActionDialog(model: UiModel): string {
   return "";
 }
 
+function userFacingGlobalError(model: UiModel): string | undefined {
+  if (!model.error) return undefined;
+  if (model.v2SemanticCommits?.some((commit) => commit.status === "RECOVERY_REQUIRED")) {
+    return "这次修改需要先恢复到安全状态。原内容不会被静默覆盖，请按当前恢复指引处理。";
+  }
+  if (model.v2SemanticCommits?.some((commit) => commit.status === "PENDING")) {
+    return "这次修改没有完成。已完成步骤已经安全保存，请继续原修改。";
+  }
+  return model.error;
+}
+
 export function renderApp(model: UiModel): string {
   const sessionEnded = model.v2ManagedRuntimeState === "ENDED";
   const labels: Array<[PrimaryWorkspace, Workspace, string]> = sessionEnded
@@ -1774,6 +1785,7 @@ export function renderApp(model: UiModel): string {
   const activePrimary = primaryWorkspace(model.workspace);
   const changes = recentChanges(model);
   const immediateResult = renderImmediateResult(model, changes);
+  const globalError = userFacingGlobalError(model);
   const copilotState = sessionEnded
     ? "本次使用已结束 · 正文仍可编辑"
     : model.v2ProviderAvailable
@@ -1803,7 +1815,7 @@ export function renderApp(model: UiModel): string {
     <div class="agent-state ${!sessionEnded && (model.v2ProviderAvailable || model.agent.enabled) ? "enabled" : "disabled"}">${copilotState}</div>
     ${model.message && !immediateResult ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
     ${immediateResult}
-    ${model.error ? `<div class="error"><strong>未完成：</strong>${escapeHtml(model.error)}<span>请按上方说明处理；系统不会静默覆盖或重复提交。</span></div>` : ""}
+    ${globalError ? `<div class="error"><strong>未完成：</strong>${escapeHtml(globalError)}<span>系统不会静默覆盖或重复提交。</span></div>` : ""}
     <nav aria-label="主要工作区">${labels.map(([id, target, label]) => `<button class="${activePrimary === id ? "active" : ""}" data-action="view" data-value="${target}"${activePrimary === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}</nav>
     <main class="workspace" data-workspace="${model.workspace}">${renderActionDialog(model)}${sectionNavigation(model)}${body}</main>
   </section>`;
