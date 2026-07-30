@@ -11,23 +11,28 @@ ux_productization_goal: IN_PROGRESS
 p0_status: DONE_DESKTOP_REPRESENTATIVE
 p1_status: DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW
 p2_status: DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW
-final_release_status: FREEZE_REVALIDATION_IN_PROGRESS
+final_release_status: RELEASE_CANDIDATE_READY
 overall_goal: IN_PROGRESS
 ```
 
 这里的 `V2_IMPLEMENTATION_COMPLETE` 只指领域、事务、安全、迁移、Provider 与恢复底座；
 它不包含 P0/P1/P2 的交互优化和产品化验收，也不得被解释为完整 Goal 完成。
 
-当前 Freeze 审计发现 P1-F 的 Task 确定性轻量重入只停留在 Application 投影，Plugin
-“现在”没有消费，因而旧 r6 虽仍是最后一个完整验证的安装包，却不再代表当前源码候选。
-本轮已用现有投影、Now 卡片、Anchor/Audit 路由补齐只读 consumer：普通 Task 只增加一行
-直属 MiniProject/Project/Area 上下文并保留唯一原文动作；PENDING/RECOVERY_REQUIRED 将
-既有恢复入口提升为唯一动作；receipt-backed `CREATE_OBJECT` 中断通过 active Primary Anchor
-关联到新 Task；Commit/Anchor 安全事实不可读时隐藏普通动作并只引导核对；Object version
-不匹配时忽略旧投影。没有新增正式状态、Runtime、Recovery、Skill 或写入权威。
-Application + Plugin 定向 tests `93/93` 与 typecheck PASS；当前状态为
-`AUTOMATED_ONLY_DESKTOP_AND_PACKAGE_REVALIDATION_REQUIRED`，待最新安装构建和真实 Desktop
-代表 Gate 后才能恢复 `RELEASE_CANDIDATE_READY`。
+`8928861` 后的 r8 已关闭 Freeze 审计发现的两个 Release blocker：P1-F Task 确定性轻量
+重入只停留在 Application 投影，以及 Node 20 native payload 被默认 Node 25 启动。普通 Task
+现由既有 Now 卡消费只读投影，保持一个主操作；PENDING/RECOVERY_REQUIRED 仍只进入既有
+恢复入口。安装器只接受 Node `>=20.19 <21`，并在修改配置、LaunchAgent 或 authority 前
+fail-closed。Node 25 与 Node 20 无 Graph identity 的实际安装均 exit 2 且零变更；Node 20
+显式重装保留既有 graph key、`tmp/runtime/manual-v2/task-copilot.sqlite` authority 和 Provider
+reference。r8 从 exact build `89288614258c` 全量组装，zip SHA-256 为
+`1d36258a21827554b41dede1deaf1b63d4f68875d85762769b6faf4781627f07`，包内 Plugin、
+Launcher、Service、Runbook 和五个 Skill 与源码/安装态一致，凭据与数据库特征命中 `0`。
+真实 Logseq `0.10.15` 已从稳定 r8 目录加载 Plugin；Now Task、完整 quit/owned shutdown、
+reopen、同一 Service authority 与 Doctor PASS 均已复验。当前结构化 DeepSeek smoke 1 次、
+attempt 1、零 Graph/正式 Store 写入。新增正式状态、Runtime、Recovery、Skill 均为 `0`，
+Release blocker 净关闭 `2`；Final Release 恢复 `RELEASE_CANDIDATE_READY`，完整长期 Goal 仍
+为 `IN_PROGRESS`。证据见
+`task-copilot-v2-ux/logs/release-r8-node-runtime-task-reentry-desktop-live-20260731.md`。
 
 `11e0131` 后的 r6 已关闭“当前发布包内 Runbook 落后于仓库”的交付漂移。
 r5 是在旧 r3 解压包上只替换 Plugin 得到的；虽然其真实安装和生命周期 Gate
@@ -1080,7 +1085,9 @@ fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Fi
 ## 下一步
 
 1. 保持 Release Freeze，只处理真实 Release blocker、明确回归或严重日用体验问题；
-2. 以 r6 为唯一当前安装包，继续有界自然日用与发布后证据；不重复未受影响的 DeepSeek L3/L4、迁移、Restore 和 first-run 昂贵 Gate。
+2. 以 r8 为唯一当前安装包，继续有界自然日用与发布后证据；r6 降为
+   `SUPERSEDED_PACKAGE`，不重复未受影响的 DeepSeek L3/L4、迁移、Restore 和 first-run
+   昂贵 Gate。
 
 ## 仍需用户决定
 

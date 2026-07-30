@@ -1,6 +1,6 @@
 # Task Copilot V2 Release Freeze Checklist
 
-> 状态：`FREEZE_REVALIDATION_IN_PROGRESS`
+> 状态：`RELEASE_CANDIDATE_READY`
 > Freeze 起点：`8d24569` 及其 P2-D 当前证据提交之后
 > 原则：不新增大功能、正式状态、顶层导航、Skill 家族、Agent Runtime 或 Recovery Kernel；
 > 只处理 Release blocker、明确回归和严重体验问题。
@@ -23,11 +23,11 @@
   指向同一映射；
 - [x] 当前构建 P2-D 正常操作、真实失败、安全补偿、Undo 和 reload 证据。
 
-## Freeze 中仍需复核
+## Freeze 收口复核
 
-- [ ] 从补齐 P1-F Task 轻量重入 consumer 的当前提交全量组装新包；安装到稳定路径，完成
-  Now Task 普通卡、恢复优先级、reload 和当前截图代表 Gate；在此之前 r6 只作为最后验证包，
-  不代表当前源码；
+- [x] 从补齐 P1-F Task 轻量重入 consumer 与 installer Node runtime guard 的 exact build
+  `8928861` 全量组装 r8；从稳定路径完成 Now Task 单一主操作、reload/quit/reopen、当前截图
+  和 authority 代表 Gate；r6 已标记 `SUPERSEDED_PACKAGE`；
 
 - [x] 对当前 freeze commit 执行分层 Release 代表矩阵：零参数安全停止；Graph-identity
   重装（不传 `--database`）保留 authority；当前 Plugin
@@ -40,20 +40,18 @@
 - [x] 核对 Project create→reload→Undo 与 Context Recovery 当前构建证据；当前 Dark
   1000×720 主链重新取证，Light/窄栏使用未发生样式变化的既有代表 Gate，不扩成笛卡尔积；
 - [x] 生成并校验可安装 Release 包；当前产物为
-  `task-copilot-v2-0.1.0-11e0131-r6.zip`，SHA-256
-  `bedf541640bd45976d213f72a98308705fc33173de63c1d208e59c269fc5e8e5`；
-  `unzip -t` PASS，包内 Plugin 对应 `11e0131e3946` 源码，Runbook 与 HEAD
-  字节一致，凭据特征扫描命中 `0`。r5 的真实生命周期证据保留，但由于
-  包内 Runbook 漂移标记为 `SUPERSEDED_PACKAGE`；
-- [x] r6 installer 真正零参数以 `LAUNCHER_INSTALL_ARGUMENTS_INVALID` / exit `2`
-  安全停止；从解压包提供 Graph identity、不传 `--database` 的重装为
-  `INSTALLED`，graph key/database authority 保持，安装态 Launcher/Service hash
-  与 r6 payload 一致；
+  `task-copilot-v2-0.1.0-8928861-r8.zip`，SHA-256
+  `1d36258a21827554b41dede1deaf1b63d4f68875d85762769b6faf4781627f07`；
+  `unzip -t` PASS，包内 Plugin、Launcher、Service、Runbook 与 exact build 字节一致，
+  凭据/数据库/日志特征命中 `0`。r5/r6 均为 `SUPERSEDED_PACKAGE`；
+- [x] r8 installer 在 Node 25 以 `LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED` / exit `2`
+  于状态变化前停止；Node 20 无 Graph identity 以
+  `LAUNCHER_INSTALL_ARGUMENTS_INVALID` 停止；Node 20 显式 Graph、不传 `--database` 的
+  重装保留 graph key/database authority，安装态 Launcher/Service hash 与 r8 payload 一致；
 - [x] Logseq 的 Plugin 注册固定到
-  `tmp/releases/...-r6/task-copilot-plugin`，不使用 `/var/folders` 临时目录；
-  Plugin Manager reload、完整 quit/owned shutdown/reopen 后 iframe 仍来自稳定 r6
-  目录，Service 退出后约 8.5 秒停止，重开第一次轮询即 READY，CLI
-  `objects 14`、Doctor PASS；
+  `tmp/releases/...8928861-r8/task-copilot-plugin`，不使用 `/var/folders` 临时目录；完整
+  quit/owned shutdown/reopen 后 iframe 仍来自稳定 r8 目录，Service/descriptor 清理而
+  Launcher 保持，重开后同一 authority 自动 READY，CLI `objects 14`、Doctor PASS；
 - [x] Release Candidate 自然 Block→真实 Provider→Review→应用→reload→Undo→reload 回归；
   `ae9c6d7` 关闭已完成“最近修改”的无效“查看”和 Commit/Object ID 泄漏，Plugin
   `378/378`、根级检查、Doctor 与恢复演练 PASS；

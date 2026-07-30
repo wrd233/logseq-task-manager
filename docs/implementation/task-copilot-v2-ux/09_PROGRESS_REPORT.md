@@ -43,9 +43,30 @@
 | P0 代码实现 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K 的自动与代表 Desktop Gate 完成；P0-H reload/quit/no-arg reinstall authority/Graph switch，P0-J palette/Slash/custom binding/原生中文 IME，P0-K Block/Page/来源移动删除/Query-reference-sidebar bounded，accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/reload/restart 均有真实证据。`7e72075` 以最新 Now、待审阅空态、更多和系统健康页合并既有 733px、主题与宿主证据，关闭最终分层代表视觉总 Gate；File Graph Page Head/identity/真实 Light 保持 bounded host limitation，不扩成笛卡尔积 |
 | P1 | DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW | P1-A/B Dynamic Shadow 不替换正式 Now；P1-C 正式 Now 三段纯派生与代表 Desktop DONE；`REVIEW_DUE/DUE` 在同一卡片完成 bounded Pilot、session disposition、reload/recompute、取消不误记 acted 和事实解除自动失效。session-only 为首发合同，不建立跨会话提醒权威；自然 helpful/noise 继续 Pilot 而不阻断首发。P1-E 为 `DONE_BOUNDED_HOST_REJECTION`、Block Marker OFF；P1-F File Graph Page Head bounded；P1-G 当前构建真实 Provider smoke 与既有 error/rejection/stale/feedback/reload/Dark/Light/窄栏代表链 DONE；建议关注、Waiting 过久、Project 静默和跨对象观察保持 Shadow |
 | P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A+B 当前 `39d73a0` / `9e7a105` 完成真实 Grill→Preview→Review→Commit→reload→Undo→reload，并把 Preview 影响移到首屏；P2-C 当前 `1549728` 完成 Blank 真实 Provider→Preview→HIGH Review→create→reload→Undo→reload；P2-D A/B/C/D 发布边界与一条共享 external Agent 代表链 DONE；P2-E 有界恢复合同 DONE；P2-F Shadow、默认关闭且不阻断首发；P2-G 高风险代表链有 Desktop。File Graph Light 为 bounded limitation |
-| 最终验收 | FREEZE_REVALIDATION_IN_PROGRESS | r6 仍是最后一个完整验证包；Freeze 审计补齐既有 P1-F Task 轻量重入 consumer 后，当前源码已前移，必须重建安装包并补当前 Desktop 代表 Gate 才能恢复 RC。没有扩能力面或新建状态/Runtime/Recovery |
+| 最终验收 | RELEASE_CANDIDATE_READY | r8 从 exact build `8928861` 全量组装并从稳定目录安装；Node 25 在状态变化前拒绝，Node 20 显式重装保留 authority；Now Task、quit/owned shutdown、reopen、Doctor、当前 Provider smoke 和截图 PASS。无新增状态/Runtime/Recovery/Skill |
 
-### 2026-07-31 r6 当前发布包与 Desktop 生命周期 Gate
+### 2026-07-31 r8 Node runtime、Task 重入与生命周期 Gate
+
+- `cc53e33` 修复 Node 20 native payload 被默认 Node 25 启动的 Release blocker；安装器现于
+  状态变化前拒绝 Node 21+、低于 20.19 和无法识别的版本；`8928861` 同步 Runbook；
+- 从 exact build `89288614258c` 全量组装
+  `task-copilot-v2-0.1.0-8928861-r8.zip`，SHA-256
+  `1d36258a21827554b41dede1deaf1b63d4f68875d85762769b6faf4781627f07`；
+  `unzip -t`、字节一致性、凭据/数据库/日志扫描和 Node 20 native SQLite load PASS；
+- Node 25 install 以 `LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED` / exit `2` 停止，config
+  hash 与 Launcher PID 不变；Node 20 无 Graph identity 以
+  `LAUNCHER_INSTALL_ARGUMENTS_INVALID` 停止；Node 20 显式重装保留 graph key 与
+  `tmp/runtime/manual-v2/task-copilot.sqlite` authority；
+- Logseq `0.10.15` 从稳定 r8 目录加载 Plugin；Now Task 一卡一主操作，完整退出后 owned
+  Service 与 descriptor 清理、Launcher 保持；重开后同一 authority 自动 READY，CLI
+  `objects 14`、Doctor PASS；
+- 五个 Skill 的源码/payload/安装态/catalog hash 一致；当前结构化 DeepSeek smoke 1 次、
+  attempt 1、零 Graph/Store 写入；
+- 新增正式状态/Runtime/Recovery/Skill `0`；关闭 Release blocker `2`，新增长期 Partial
+  `0`，净变化 `-2`。r6 降为 `SUPERSEDED_PACKAGE`。证据见
+  `logs/release-r8-node-runtime-task-reentry-desktop-live-20260731.md`。
+
+### 2026-07-31 r6 发布包与 Desktop 生命周期 Gate（`SUPERSEDED_PACKAGE`）
 
 - 审计发现 r5 从 r3 解压包增量替换 Plugin，因而包内 Runbook 落后于仓库；
   r5 的真实安装/生命周期证据仍保留，但发布产物标记为
@@ -1402,7 +1423,7 @@ derivative/dashboard 价值也仍未完成。
 
 ## 下一步
 
-1. 以 r6 为唯一当前发布产物，保持 Release Freeze；
+1. 以 r8 为唯一当前发布产物，保持 Release Freeze；
 2. 继续有界自然日用和发布后证据，只修复 Release blocker、明确回归或严重体验问题；
 3. P2-F、扩展 Attention、Block Marker 与 D 类结构操作继续保持既定
    Shadow/关闭/有界结论，不新增持久化权威或平行 Runtime。

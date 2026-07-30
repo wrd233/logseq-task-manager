@@ -13,9 +13,21 @@
 | P0 | DONE_DESKTOP_REPRESENTATIVE | P0-A～K、普通 Block route、系统状态、Service lifecycle、Graph authority 与统一 Commit/Recovery 自动矩阵 PASS | Focus/Condition/LOW apply/Block-Page route/four-nav/toolbar/recent changes/system status；reload/quit/no-arg reinstall/Graph switch；palette/Slash/binding/IME；accepted-not-applied/PENDING/RECOVERY_REQUIRED/Undo/restart 均有代表 Desktop。`7e72075` 用最新 Now、待审阅、更多、健康页合并既有 733px、主题和宿主有界证据关闭总 Gate | P0 阶段完成；File Graph host limitations 保留，P1/P2/Final Release 与完整 Goal 继续 IN_PROGRESS |
 | P1 | DONE_RELEASE_BOUNDARY_CONTEXT_RECOVERY_DONE_ATTENTION_BOUNDED_PILOT_OTHER_SIGNALS_SHADOW | P1-A/B Dynamic Shadow + P1-C 三段纯派生/正式 Now + P1-D status consumers + P1-E Block Marker 有界宿主拒绝 + P1-F Project reentry/Page Head bounded + P1-G unified UX/真实 Provider + P1-H session disposition/噪声汇总 | `3097c39` / `c9919f2` 四个独立 session 证明取消不误记 acted、later/notRelevant 只安静当前 session、事实解除后自动失效并跨 reload 保持；`1549728` 当前构建又完成 Context Recovery 真实 Provider smoke、Project v31 零正式写入 | 时间 Attention 为 bounded Pilot；建议关注、Waiting 过久、Project 静默和跨对象观察 Shadow；Block Marker OFF；File Graph Page Head bounded。上述均明确不阻断首发，不保留模糊 Partial |
 | P2 | DONE_RELEASE_BOUNDARY_P2D_EXTERNAL_AGENT_P2E_RECOVERY_P2G_HIGH_RISK_P2F_SHADOW | P2-A/B、P2-C、P2-D 路由/共享 external Agent、P2-E、P2-F shadow/provider、P2-G 高风险代表链 PASS | `39d73a0` / `9e7a105` 完成当前 MiniProject Grill/结构 Preview/Review/Commit/reload/Undo/reload 与压缩首屏；`8d24569` 完成 shared external Agent；`1549728` 完成最新 P2-C。最终 MiniProject 对象 v4、原四 Block 不变、Doctor PASS。P2-E/G 既有证据保持 | P2-F 与扩展研究能力默认关闭，不阻断首发；File Graph Light 为 bounded host limitation |
-| Final Release | FREEZE_REVALIDATION_IN_PROGRESS | r6 是最后一个全量验证包；当前源码新增的是既定 P1-F Task 轻量重入 consumer；提交前审阅补齐 receipt-backed CREATE 中断和安全事实不可读 fail-closed，Application + Plugin 定向 tests `93/93` 与 typecheck PASS | 当前源码尚未生成、安装和 Desktop 验证新包 | 不新增能力面；完成最新包、Now Task Desktop 与根级 Gate 后再恢复 RC，完整长期 Goal 继续 IN_PROGRESS |
+| Final Release | RELEASE_CANDIDATE_READY | r8 package、Node runtime fail-closed、根级检查与五个 Skill 一致性 PASS | 稳定 r8 Plugin、Now Task、quit/owned shutdown、reopen、同一 authority、Doctor 和当前 Provider smoke PASS | 当前无未解释 Release blocker；完整长期 Goal 继续 IN_PROGRESS，不把 RC 等同长期日用完成 |
 
-`11e0131` 后的 r6 取代 r5 为当前发布产物。审计发现 r5 的包内 Runbook 没有随
+`8928861` 后的 r8 取代 r6 为当前发布产物。真实 Node 25 install 在任何配置、PID 或 authority
+变化前以 `LAUNCHER_INSTALL_NODE_VERSION_UNSUPPORTED` 停止；Node 20 无 Graph identity 也
+安全停止；Node 20 显式重装保留既有 graph key 与
+`tmp/runtime/manual-v2/task-copilot.sqlite`。r8 zip SHA-256 为
+`1d36258a21827554b41dede1deaf1b63d4f68875d85762769b6faf4781627f07`；包内 Plugin、
+Launcher、Service、Runbook、native module 与五个 Skill 通过完整性和安装态一致性 Gate。
+Logseq `0.10.15` 从稳定 r8 目录显示 Now Task 的单一主操作；完整 quit 后 owned Service 与
+descriptor 清理、Launcher 保持，reopen 后同一 authority 自动 READY。CLI `objects 14`、
+Doctor PASS；当前结构化 DeepSeek smoke attempt `1`、graph/formal store writes `0/0`。
+本轮新增状态/Runtime/Recovery/Skill `0`，Release blocker/Partial 净变化 `-2`。完整证据见
+`logs/release-r8-node-runtime-task-reentry-desktop-live-20260731.md`。
+
+历史上，`11e0131` 后的 r6 曾取代 r5；当前已由 r8 标记为 `SUPERSEDED_PACKAGE`。审计发现 r5 的包内 Runbook 没有随
 仓库同步，因此 r5 的安装/生命周期证据保留为历史，但产物不再作为当前候选。
 r6 从当前 HEAD 全量组装，zip SHA-256 为
 `bedf541640bd45976d213f72a98308705fc33173de63c1d208e59c269fc5e8e5`，`unzip -t`
