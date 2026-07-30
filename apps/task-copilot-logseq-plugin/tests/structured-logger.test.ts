@@ -43,6 +43,33 @@ test("structured logger ignores unsupported runtime fields and rejects free-text
   }
 });
 
+test("structured logger retains only aggregate Attention pilot quality counts", () => {
+  const logger = new StructuredLogger();
+  logger.log("info", "attention-shadow", "attention_now_pilot_acted", {
+    result: "acted_session_only_no_formal_write",
+    attentionPilotShownCount: 4,
+    attentionPilotActedCount: 1,
+    attentionPilotLaterCount: 1,
+    attentionPilotNotRelevantCount: 1,
+    attentionPilotUnresolvedCount: 1,
+    ...({ privateObjectText: "正文不能进入日志" } as object),
+  });
+
+  assert.deepEqual(logger.snapshot()[0], {
+    timestamp: logger.snapshot()[0]!.timestamp,
+    level: "info",
+    category: "attention-shadow",
+    event: "attention_now_pilot_acted",
+    result: "acted_session_only_no_formal_write",
+    attentionPilotShownCount: 4,
+    attentionPilotActedCount: 1,
+    attentionPilotLaterCount: 1,
+    attentionPilotNotRelevantCount: 1,
+    attentionPilotUnresolvedCount: 1,
+  });
+  assert.doesNotMatch(logger.exportJsonl(), /正文不能进入日志/);
+});
+
 test("structured logger bounds capacity and normalizes runtime-invalid envelope values", (context) => {
   assert.throws(() => new StructuredLogger(0), /capacity/);
   assert.throws(() => new StructuredLogger(4097), /capacity/);

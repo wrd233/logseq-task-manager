@@ -98,6 +98,7 @@ import {
   AttentionShadowSession,
   attentionShadowCurrentSignature,
   buildAttentionDetectorSnapshot,
+  decodeAttentionNowPilotPrimaryValue,
   summarizeDynamicNowShadow,
   type AttentionNowPilotHint,
   type AttentionShadowCycleSummary,
@@ -835,6 +836,35 @@ function logChangedAttentionShadowSummary(
     nowWaitingOverflowCount: dynamicNow.waitingOverflowCount,
     focusOverload: dynamicNow.focusOverload,
   });
+}
+
+function recordAttentionNowPilotActed(signalId?: string): void {
+  if (!signalId) return;
+  try {
+    const result = attentionShadowSession.markNowPilotActed({
+      signalId,
+      recordedAt: new Date().toISOString(),
+    });
+    const quality = attentionShadowSession.nowPilotQuality();
+    operationalLogger.log("info", "attention-shadow", "attention_now_pilot_acted", {
+      actionId: "attention-primary-action",
+      command: result.signalType,
+      result: "acted_session_only_no_formal_write",
+      attentionPilotShownCount: quality.shown,
+      attentionPilotActedCount: quality.acted,
+      attentionPilotLaterCount: quality.later,
+      attentionPilotNotRelevantCount: quality.notRelevant,
+      attentionPilotUnresolvedCount: quality.unresolved,
+    });
+  } catch (error) {
+    operationalLogger.log(
+      "warn",
+      "attention-shadow",
+      "attention_now_pilot_action_not_recorded",
+      { result: "primary_action_preserved" },
+      error,
+    );
+  }
 }
 
 async function refresh(): Promise<void> {
@@ -2608,8 +2638,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "v2-open-primary-anchor" && value) {
-    await run(async () => openV2PrimaryAnchor(value), "已定位到主正文；Now Work 和正式状态未改变。");
-    if (!latestError) await logseq.hideMainUI();
+    const primary = decodeAttentionNowPilotPrimaryValue(value);
+    await run(async () => openV2PrimaryAnchor(primary.value), "已定位到主正文；Now Work 和正式状态未改变。");
+    if (!latestError) {
+      recordAttentionNowPilotActed(primary.signalId);
+      await logseq.hideMainUI();
+    }
     return;
   }
   if (action === "v2-focus-add" && value) {
@@ -2651,7 +2685,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }, "当前关注顺序已保存。");
     return;
   }
-  if (action === "v2-condition-open" && value) return openActionDialog("v2-condition", value);
+  if (action === "v2-condition-open" && value) {
+    const primary = decodeAttentionNowPilotPrimaryValue(value);
+    await openActionDialog("v2-condition", primary.value);
+    recordAttentionNowPilotActed(primary.signalId);
+    return;
+  }
   if (action === "v2-block-condition-intent" && value) {
     const [intent, ...context] = value.split("|");
     if (typeof intent !== "string" || !["ACTIONABLE", "WAITING", "BLOCKED", "PAUSED"].includes(intent) || context.length !== 3) {

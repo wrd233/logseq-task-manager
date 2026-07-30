@@ -1687,6 +1687,7 @@ test("V2 Now adds the bounded Attention pilot to an existing card instead of cre
   const html = renderApp(value);
   assert.equal((html.match(/核对期限/g) ?? []).length, 1);
   assert.match(html, /Copilot 提醒 · 试用/);
+  assert.match(html, /data-action="v2-open-primary-anchor" data-value="block-due\|attention=attention_due"/);
   assert.match(html, /data-action="v2-attention-disposition" data-value="attention_due\|LATER"[^>]*>本次先不提醒/);
   assert.match(html, /data-action="v2-attention-disposition" data-value="attention_due\|NOT_RELEVANT"[^>]*>本次不相关/);
   assert.doesNotMatch(html, /AttentionSignal|REVIEW_DUE|\bDUE\b/);
@@ -2492,7 +2493,7 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /action === "v2-project-landing-open"[\s\S]*current\.version !== expectedVersion[\s\S]*v2ReentryTargetObjectId = current\.objectId;[\s\S]*workspace = "reentry";/);
   assert.match(source, /async function openV2ProjectWorksite[\s\S]*listAllPrimaryAnchors\(client\)[\s\S]*Editor\.getCurrentPage\(\)[\s\S]*Editor\.getPage\(primaryAnchor\.externalId\)[\s\S]*Editor\.getPage\(`Project\/\$\{current\.text\}`\)[\s\S]*identity\.pageUuid === primaryAnchor\.externalId[\s\S]*pushState\("page"[\s\S]*openV2PrimaryAnchor\(primaryAnchor\.externalId\)/);
   assert.match(source, /action === "v2-project-worksite-open"[\s\S]*openV2ProjectWorksite\(objectId, expectedVersion\)[\s\S]*if \(!latestError\) await logseq\.hideMainUI\(\)/);
-  assert.match(source, /action === "v2-open-primary-anchor"[\s\S]*openV2PrimaryAnchor\(value\)[\s\S]*if \(!latestError\) await logseq\.hideMainUI\(\)/);
+  assert.match(source, /action === "v2-open-primary-anchor"[\s\S]*decodeAttentionNowPilotPrimaryValue\(value\)[\s\S]*openV2PrimaryAnchor\(primary\.value\)[\s\S]*recordAttentionNowPilotActed\(primary\.signalId\)[\s\S]*await logseq\.hideMainUI\(\)/);
   assert.match(projectCreationSubmit, /v2ReentryTargetObjectId = result\.object\.objectId/);
   assert.doesNotMatch(projectCreationSubmit, /logseq\.hideMainUI\(\)/);
   assert.match(projectClosureSubmit, /actionDialog = undefined;\s*workspace = "review";\s*await run\(/);

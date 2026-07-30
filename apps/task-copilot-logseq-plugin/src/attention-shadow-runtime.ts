@@ -6,6 +6,7 @@ import {
   projectV2DynamicNowShadow,
   type AttentionDetectorSnapshot,
   type AttentionSignalCandidate,
+  type AttentionSignalRecord,
   type AttentionSignalType,
   type CrossObjectObservationDraft,
 } from "@task-copilot/application";
@@ -61,6 +62,39 @@ export interface AttentionNowPilotDispositionResult {
   signalType: AttentionNowPilotHint["signalType"];
   disposition: AttentionNowPilotDisposition;
   cooldownUntil: string;
+}
+
+export interface AttentionNowPilotActedResult {
+  signalType: AttentionNowPilotHint["signalType"];
+  cooldownUntil: string;
+}
+
+export interface AttentionNowPilotQualitySummary {
+  shown: number;
+  acted: number;
+  later: number;
+  notRelevant: number;
+  unresolved: number;
+}
+
+const ATTENTION_PRIMARY_VALUE_MARKER = "|attention=";
+
+export function encodeAttentionNowPilotPrimaryValue(value: string, signalId?: string): string {
+  return signalId ? `${value}${ATTENTION_PRIMARY_VALUE_MARKER}${signalId}` : value;
+}
+
+export function decodeAttentionNowPilotPrimaryValue(value: string): {
+  value: string;
+  signalId?: string;
+} {
+  const markerIndex = value.lastIndexOf(ATTENTION_PRIMARY_VALUE_MARKER);
+  if (markerIndex < 0) return { value };
+  const signalId = value.slice(markerIndex + ATTENTION_PRIMARY_VALUE_MARKER.length);
+  if (!signalId || signalId.includes("|")) return { value };
+  return {
+    value: value.slice(0, markerIndex),
+    signalId,
+  };
 }
 
 function proposalTargetObjectIds(proposal: V2Proposal): string[] {
@@ -254,9 +288,50 @@ export class AttentionShadowSession {
     return { signalType: record.signalType, disposition: input.disposition, cooldownUntil };
   }
 
+  markNowPilotActed(input: {
+    signalId: string;
+    recordedAt: string;
+  }): AttentionNowPilotActedResult {
+    const record = this.requireNowPilotRecord(input.signalId);
+    const recordedAt = Date.parse(input.recordedAt);
+    if (!Number.isFinite(recordedAt)) throw new Error("Attention pilot action timestamp is invalid.");
+    const cooldownUntil = new Date(recordedAt + 24 * 60 * 60 * 1_000).toISOString();
+    this.repository.setDisposition(input.signalId, "ACTED", input.recordedAt);
+    this.repository.setCooldown(input.signalId, cooldownUntil);
+    return { signalType: record.signalType, cooldownUntil };
+  }
+
+  nowPilotQuality(): AttentionNowPilotQualitySummary {
+    const shown = this.repository.list().filter((record) =>
+      (record.signalType === "REVIEW_DUE" || record.signalType === "DUE")
+      && record.shownCount > 0
+    );
+    return {
+      shown: shown.length,
+      acted: shown.filter((record) => record.userDisposition.kind === "ACTED").length,
+      later: shown.filter((record) => record.userDisposition.kind === "DISMISSED").length,
+      notRelevant: shown.filter((record) => record.userDisposition.kind === "INACCURATE").length,
+      unresolved: shown.filter((record) => record.userDisposition.kind === "UNSEEN").length,
+    };
+  }
+
   clear(): void {
     this.repository.clear();
     this.candidates = [];
+  }
+
+  private requireNowPilotRecord(signalId: string): AttentionSignalRecord & {
+    signalType: "REVIEW_DUE" | "DUE";
+  } {
+    const record = this.repository.get(signalId);
+    if (
+      !record
+      || record.invalidation.state !== "ACTIVE"
+      || (record.signalType !== "REVIEW_DUE" && record.signalType !== "DUE")
+    ) {
+      throw new Error("This Attention reminder is unavailable or not eligible for the Now pilot.");
+    }
+    return record as AttentionSignalRecord & { signalType: "REVIEW_DUE" | "DUE" };
   }
 }
 

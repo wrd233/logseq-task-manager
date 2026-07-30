@@ -26,7 +26,10 @@ import {
   type PluginObjectNarration,
 } from "./status-narration-runtime.ts";
 import { projectNowFrontstageSections, type NowFrontstageItem } from "./now-frontstage.ts";
-import type { AttentionNowPilotHint } from "./attention-shadow-runtime.ts";
+import {
+  encodeAttentionNowPilotPrimaryValue,
+  type AttentionNowPilotHint,
+} from "./attention-shadow-runtime.ts";
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -264,6 +267,10 @@ function renderNow(model: UiModel): string {
     const attentionByObjectId = new Map((model.v2AttentionNowPilot ?? []).map((hint) => [hint.objectId, hint]));
     const cards = (values: NowFrontstageItem[]) => values.map(({ item, focused, focusRank }) => {
       const attentionHint = attentionByObjectId.get(item.objectId);
+      const primaryValue = (value: string) => encodeAttentionNowPilotPrimaryValue(
+        value,
+        attentionHint?.signalId,
+      );
       const projected = model.v2ObjectNarrations?.[item.objectId];
       const narration = projected?.objectVersion === item.version ? projected.narration : undefined;
       const nextAction = narration?.nextAction;
@@ -275,13 +282,13 @@ function renderNow(model: UiModel): string {
           || nextAction.intent === "REVIEW_PAUSE"
         )
         && nextAction.targetObjectId === item.objectId
-        ? button(nextAction.label, "v2-condition-open", `${item.objectId}|${item.version}`, "primary")
+        ? button(nextAction.label, "v2-condition-open", primaryValue(`${item.objectId}|${item.version}`), "primary")
         : "";
       const openLabel = item.objectType === "PROJECT" ? "打开项目" : focused ? "继续处理" : "打开正文";
       const primaryAction = guidedStatusAction
         || (item.primaryAnchorExternalId
-          ? button(openLabel, "v2-open-primary-anchor", item.primaryAnchorExternalId, "primary")
-          : button("更新当前状态", "v2-condition-open", `${item.objectId}|${item.version}`, "primary"));
+          ? button(openLabel, "v2-open-primary-anchor", primaryValue(item.primaryAnchorExternalId), "primary")
+          : button("更新当前状态", "v2-condition-open", primaryValue(`${item.objectId}|${item.version}`), "primary"));
       const status = narration
         ? `<p><strong>${escapeHtml(narration.conclusion)}</strong></p>${narration.keyEvidence.length ? `<p class="muted">${escapeHtml(narration.keyEvidence[0]!)}</p>` : ""}<details><summary>查看依据</summary>${narration.unknowns.length ? `<p class="muted">${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
         : `<p>${escapeHtml(item.reason)}</p>`;

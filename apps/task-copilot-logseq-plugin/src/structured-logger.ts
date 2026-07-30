@@ -50,6 +50,11 @@ export interface StructuredLogEntry {
   signalCooledCount?: number;
   signalActiveCount?: number;
   signalInvalidatedCount?: number;
+  attentionPilotShownCount?: number;
+  attentionPilotActedCount?: number;
+  attentionPilotLaterCount?: number;
+  attentionPilotNotRelevantCount?: number;
+  attentionPilotUnresolvedCount?: number;
   nowContinueCount?: number;
   nowReviewCount?: number;
   nowWaitingCount?: number;
@@ -95,6 +100,11 @@ const COUNT_FIELDS = [
   "signalCooledCount",
   "signalActiveCount",
   "signalInvalidatedCount",
+  "attentionPilotShownCount",
+  "attentionPilotActedCount",
+  "attentionPilotLaterCount",
+  "attentionPilotNotRelevantCount",
+  "attentionPilotUnresolvedCount",
   "nowContinueCount",
   "nowReviewCount",
   "nowWaitingCount",

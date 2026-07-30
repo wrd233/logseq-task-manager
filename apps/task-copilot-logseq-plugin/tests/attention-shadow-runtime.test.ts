@@ -9,6 +9,8 @@ import {
   AttentionShadowSession,
   attentionShadowCurrentSignature,
   buildAttentionDetectorSnapshot,
+  decodeAttentionNowPilotPrimaryValue,
+  encodeAttentionNowPilotPrimaryValue,
   runAttentionShadowCycle,
   summarizeDynamicNowShadow,
 } from "../src/attention-shadow-runtime.ts";
@@ -134,6 +136,97 @@ test("Now Attention pilot cools a deferred reminder and reopens it after the bou
     observedAt: "2026-07-25T10:02:00.000Z",
     visibleObjectIds: ["task-1"],
   }).length, 1);
+});
+
+test("Now Attention pilot counts a primary action as helpful without storing content or object identity", () => {
+  const session = new AttentionShadowSession();
+  session.run(buildAttentionDetectorSnapshot({
+    observedAt: now,
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [object()],
+    proposals: [],
+    commits: [],
+    anchors: [],
+  }));
+  const [hint] = session.projectNowPilot({ observedAt: now, visibleObjectIds: ["task-1"] });
+
+  assert.ok(hint);
+  const result = session.markNowPilotActed({
+    signalId: hint.signalId,
+    recordedAt: "2026-07-24T10:01:00.000Z",
+  });
+
+  assert.deepEqual(result, {
+    signalType: "REVIEW_DUE",
+    cooldownUntil: "2026-07-25T10:01:00.000Z",
+  });
+  assert.deepEqual(session.projectNowPilot({
+    observedAt: "2026-07-24T10:02:00.000Z",
+    visibleObjectIds: ["task-1"],
+  }), []);
+  assert.deepEqual(session.nowPilotQuality(), {
+    shown: 1,
+    acted: 1,
+    later: 0,
+    notRelevant: 0,
+    unresolved: 0,
+  });
+  const serialized = JSON.stringify(session.nowPilotQuality());
+  assert.equal(serialized.includes("task-1"), false);
+  assert.equal(serialized.includes("完整正文"), false);
+});
+
+test("Now Attention pilot quality keeps bounded aggregate helpful and noise evidence", () => {
+  const session = new AttentionShadowSession();
+  session.run(buildAttentionDetectorSnapshot({
+    observedAt: now,
+    graphKey: "graph-key",
+    graphBinding: "MATCH",
+    objects: [
+      object(),
+      object({ objectId: "task-later", condition: { kind: "WAITING", waitingFor: "外部", expectedResult: "稍后", reviewAt: "2026-07-24T09:05:00.000Z" } }),
+      object({ objectId: "task-noise", condition: { kind: "WAITING", waitingFor: "外部", expectedResult: "无关", reviewAt: "2026-07-24T09:10:00.000Z" } }),
+      object({ objectId: "task-unresolved", condition: { kind: "WAITING", waitingFor: "外部", expectedResult: "未处置", reviewAt: "2026-07-24T09:15:00.000Z" } }),
+    ],
+    proposals: [],
+    commits: [],
+    anchors: [],
+  }));
+  const hints = session.projectNowPilot({
+    observedAt: now,
+    visibleObjectIds: ["task-1", "task-later", "task-noise", "task-unresolved"],
+  });
+  const byObject = new Map(hints.map((hint) => [hint.objectId, hint]));
+
+  session.markNowPilotActed({ signalId: byObject.get("task-1")!.signalId, recordedAt: "2026-07-24T10:01:00.000Z" });
+  session.applyNowPilotDisposition({ signalId: byObject.get("task-later")!.signalId, disposition: "LATER", recordedAt: "2026-07-24T10:02:00.000Z" });
+  session.applyNowPilotDisposition({ signalId: byObject.get("task-noise")!.signalId, disposition: "NOT_RELEVANT", recordedAt: "2026-07-24T10:03:00.000Z" });
+
+  assert.deepEqual(session.nowPilotQuality(), {
+    shown: 4,
+    acted: 1,
+    later: 1,
+    notRelevant: 1,
+    unresolved: 1,
+  });
+});
+
+test("Now Attention pilot primary-action transport preserves the existing action value", () => {
+  assert.deepEqual(
+    decodeAttentionNowPilotPrimaryValue(
+      encodeAttentionNowPilotPrimaryValue("task-1|3", "attention_review"),
+    ),
+    { value: "task-1|3", signalId: "attention_review" },
+  );
+  assert.deepEqual(
+    decodeAttentionNowPilotPrimaryValue("block-uuid"),
+    { value: "block-uuid" },
+  );
+  assert.deepEqual(
+    decodeAttentionNowPilotPrimaryValue("block-uuid|attention="),
+    { value: "block-uuid|attention=" },
+  );
 });
 
 test("Now Attention pilot invalidates resolved facts and lets changed evidence bypass an old disposition", () => {
