@@ -6,7 +6,7 @@ import { checksum } from "@task-copilot/shared";
 import type { ServiceProjectCreationGrillResult, ServiceProjectCreationPreviewResult } from "@task-copilot/service-client";
 
 import { MigrationScanController } from "../src/migration-scan-controller.ts";
-import { renderApp, type UiModel } from "../src/ui.ts";
+import { cancelActionDialogReturnsToOrigin, renderApp, type UiModel } from "../src/ui.ts";
 import {
   projectPluginV2ProjectReentry,
   projectPluginV2TaskReentry,
@@ -28,6 +28,13 @@ function model(): UiModel {
     reentryProjects: [],
   };
 }
+
+test("focused confirmation cancellation restores its review workspace before returning to the source", () => {
+  assert.equal(cancelActionDialogReturnsToOrigin("confirm-v2-commit", true), false);
+  assert.equal(cancelActionDialogReturnsToOrigin("confirm-v2-undo", true), false);
+  assert.equal(cancelActionDialogReturnsToOrigin("v2-condition", true), true);
+  assert.equal(cancelActionDialogReturnsToOrigin("confirm-v2-commit", false), false);
+});
 
 test("shell exposes exactly four user-level primary destinations and no-agent degradation", () => {
   const value = model();
@@ -2770,7 +2777,7 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(projectClosureSubmit, /result\.status === "FAILED"[\s\S]*项目和正文没有变化/);
   assert.doesNotMatch(projectClosureSubmit, /"[^"\n]*(?:Project Closure|Objective|Proposal)[^"\n]*"/);
   assert.doesNotMatch(source, /action === "create-v2-project"/);
-  assert.match(source, /const returnToOrigin = originRoute !== undefined;[\s\S]*if \(returnToOrigin\) \{[\s\S]*await returnToBusinessOrigin\(\);/);
+  assert.match(source, /const returnToOrigin = cancelActionDialogReturnsToOrigin\(actionDialog\?\.kind, originRoute !== undefined\);[\s\S]*if \(returnToOrigin\) \{[\s\S]*await returnToBusinessOrigin\(\);/);
   assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*originRoute = undefined;[\s\S]*originRouteController\.returnTo\(token\)/);
 });
 

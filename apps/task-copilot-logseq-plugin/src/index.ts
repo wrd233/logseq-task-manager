@@ -16,7 +16,7 @@ import {
   type RuntimeStage,
 } from "./runtime-diagnostics.ts";
 import { BootstrapRegistration, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
-import { isWorkspace, renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
+import { cancelActionDialogReturnsToOrigin, isWorkspace, renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
 import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger } from "./structured-logger.ts";
 import { recoverServiceRuntime } from "./service-runtime-recovery.ts";
@@ -3865,7 +3865,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "cancel-action-dialog") {
-    const returnToOrigin = originRoute !== undefined;
+    const returnToOrigin = cancelActionDialogReturnsToOrigin(actionDialog?.kind, originRoute !== undefined);
     if (actionDialog?.kind === "v2-mini-project-grill") miniProjectGrillController.clear();
     if (actionDialog?.kind === "v2-project-creation-grill") projectCreationGrillController.clear();
     if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureEvidence = undefined;

@@ -93,6 +93,11 @@ export type ActionDialogKind =
   | "v2-backup-restore"
   | "confirm-end-task-copilot";
 
+export function cancelActionDialogReturnsToOrigin(kind: ActionDialogKind | undefined, hasOrigin: boolean): boolean {
+  if (!hasOrigin) return false;
+  return kind !== "confirm-v2-commit" && kind !== "confirm-v2-undo";
+}
+
 export interface UiModel {
   workspace: Workspace;
   agent: { enabled: boolean; providerId: string };
