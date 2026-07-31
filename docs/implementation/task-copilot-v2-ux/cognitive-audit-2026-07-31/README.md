@@ -275,3 +275,34 @@ Markdown Page 文件仍在；通过 Logseq Search 按 Page 名重新打开可以
 - 确认后结果卡、Undo 和 PENDING 语义不变；
 - Light/Dark、1000px/760px 均不溢出；
 - 根级检查通过，真实 Logseq 复验当前构建。
+
+## 小原型实施与复验
+
+状态：`CUX-P1-01 PROTOTYPE_VALIDATED`。审计报告先以 `7986047` 独立提交，随后才实施原型，避免用实现倒推审计结论。
+
+### 实施边界
+
+- `9cb2927 feat(ux): isolate final confirmations`：在最终 Apply / Undo confirmation 激活时，只渲染产品标识、当前操作标题、最多两项影响摘要、确认 checkbox、一个主动作和一个取消；不渲染导航、旧消息、Review 卡片或底层工作区。
+- `d4b4613 fix(ux): keep review context on confirmation cancel`：第一次真实复验发现“取消”仍按旧 `originRoute` 规则关闭 Overlay 并跳回来源页，违背“恢复完整工作区”的验收条件；修复为 Apply / Undo confirmation 的取消只关闭 action dialog 并刷新 Review，其他来源型 dialog 的取消语义保持不变。
+- Domain、Application Command、Local Service、SQLite、Proposal、Commit 与 Recovery 语义均未改变；正式写入仍只能经过原有确认和重验路径。
+
+### 真实复验
+
+环境仍为 Logseq `0.10.15`、1000×720、host Light。临时加载的 Plugin 来自当前 `d4b461351388` build，Service 与真实 DeepSeek 配置沿用现有本机权威；Key 未读取、未记录、未进入截图或仓库。
+
+1. 真实 DeepSeek 对 `我已承诺明天下午五点前提交演示环境检查单` 生成标题为“提交演示环境检查单”的新 Proposal；其影响为“更新 1 处正文；创建新的 TASK”。
+2. Review 接受后仍为 accepted-not-applied；进入最终确认时，AX 树只包含一个 confirmation surface、一个 checkbox、一个 `确认应用` 和一个 `取消`，没有导航、底层 Review 卡或第二个正式动作。
+3. 没有勾选 checkbox、没有执行正式应用；来源正文与正式状态均未因原型复验改变。
+4. 点击 `取消` 后，Overlay 保持打开并恢复到同一待审阅 Proposal；没有跳回 UUID 来源路由，也没有丢失 Review 上下文。
+5. Plugin 自动测试最终为 `389/389 PASS`；Plugin typecheck 与 build PASS。Node `20.20.2` 根级 `./scripts/check.sh` 随后通过全部 typecheck/lint/test/build、Plugin/架构边界、145 条稳定规则、恢复演练 `differences: []` 与仓库边界。
+6. 恢复稳定 r8 后，CLI status 为 `READY`、schema 12、objects 19；Doctor 总体 PASS，Semantic Commit healthy `0`。唯一警告是队列中一条既有 STALE Proposal；本轮 accepted-not-applied Proposal 仍为 ACCEPTED。
+
+证据：
+
+- `30-focused-confirmation-prototype-current-light-9cb2927.jpeg`：第一版视觉隔离；该轮真实取消行为暴露旧 origin-route 问题。
+- `31-focused-confirmation-prototype-current-light-d4b4613.jpeg`：修复版最终确认，单一正式动作与最小影响摘要。
+- `32-focused-confirmation-cancel-restores-review-current-light-d4b4613.jpeg`：取消后恢复同一 Review 工作区。
+
+### 结论边界
+
+该原型证明 CUX-P1-01 的最小方向在当前构建和真实 Desktop 中成立，不等于整份认知体验清单已关闭。CUX-P0-01、CUX-P0-02 以及 CUX-P1-02..04 仍是后续产品化待办；原型也没有把本次审计的 accepted-not-applied Proposal 正式应用到 Graph/SQLite。复验后 Logseq 已恢复稳定 r8 Plugin 路径与审计前 Plugin Dark 外观。

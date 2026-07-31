@@ -2,13 +2,14 @@
 
 ```yaml
 goal_state: MVP_SUCCESS
-current_slice: "V1 frozen for read-only migration; V2 base, P0/P1/P2 release boundaries, ten-day representative Pilot, Desktop, migration, recovery, DeepSeek, Release Freeze and outer repository clean gate complete"
-last_successful_check: "2026-07-31 ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; all typecheck/lint/tests/build, Plugin and architecture boundaries, 145 rules, acceptance rehearsal and repository boundary PASS; current r8 Desktop lifecycle and Service Doctor PASS"
+current_slice: "V1 frozen for read-only migration; V2 base, P0/P1/P2 release boundaries, ten-day representative Pilot, Desktop, migration, recovery, DeepSeek, Release Freeze and outer repository clean gate complete; current-build cognitive UX audit complete and CUX-P1-01 small prototype validated while the report's remaining cognitive backlog stays explicitly open"
+last_successful_check: "2026-07-31 post-audit ./scripts/check.sh PASS on Node 20.20.2/npm 10.8.2; all typecheck/lint/tests/build, Plugin and architecture boundaries, 145 rules, acceptance rehearsal differences [], and repository boundary PASS; stable r8 restored, Service Doctor PASS with semantic commits healthy 0 and one known stale Proposal warning"
 runtime_kernel: V1_RUNTIME_KERNEL_PASS
 product_pilot: V2_TEN_DAY_REPRESENTATIVE_PILOT_COMPLETE
 v1_state: V1_FROZEN_FOR_MIGRATION
 v2_migration_design: V2_MIGRATION_DESIGN_READY
 implemented:
+  - "Current-build cognitive UX audit: real Logseq 0.10.15 and DeepSeek task walkthrough across Light/Dark, normal/narrow, failure, cancellation, interruption, reload and return; report committed before implementation. CUX-P1-01 focused Apply/Undo confirmation prototype is Desktop-validated with one formal action and cancel-to-Review; no prototype Proposal was formally applied. Two P0 and the remaining P1/P2 cognitive findings remain explicit backlog, not silently declared complete"
   - "V1 Slice 0-7 and RT-MVP-001B..004 with Desktop evidence"
   - "Plugin-native forms, explicit Phase actions and high-impact confirmation"
   - "Stable inverse Commit serialization and A/B previous-slot recovery"

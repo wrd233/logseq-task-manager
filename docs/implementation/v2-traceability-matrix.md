@@ -11,6 +11,20 @@
 - `RUNTIME_BLOCKED_BY_CONFIG`：自动骨架可继续，最终 Gate 依赖用户提供真实配置；
 - `DONE`：代码、失败路径、文档和对应 Gate 证据全部通过。
 
+## 2026-07-31 认知体验审计增量
+
+该增量不重写下方已完成的领域/E2E Gate，而是登记当前构建上新发现的认知体验风险与小原型证据。
+完整任务矩阵、截图和边界见
+`docs/implementation/task-copilot-v2-ux/cognitive-audit-2026-07-31/README.md`。
+
+| requirement_id | 范围 | 状态 | 当前证据 / 缺口 |
+|---|---|---|---|
+| CUX-P0-01 | 当前页整理结果必须与真实候选数一致 | OPEN | 真实 Desktop 同时显示已放入队列与检查未完成，队列为空；尚未修复。 |
+| CUX-P0-02 | reload / return 必须保持来源 Page 与 Block anchor | OPEN | UUID Page 路由 reload 后空白，按 Page 名恢复后 anchor 丢失；尚未修复。 |
+| CUX-P1-01 | Apply / Undo / PENDING 最终确认只保留一个 action surface | PROTOTYPE_VALIDATED | `9cb2927` 隔离最终确认；`d4b4613` 修复取消返回 Review。Plugin 389 tests、typecheck/build 与真实 Logseq accepted-not-applied 流程通过；未执行正式写入。 |
+| CUX-P1-02..04 | Grill 隔离、日常用户语言、scoped message lifecycle | OPEN | 已有真实 Desktop 证据与验收条件；本轮未扩张原型范围。 |
+| CUX-P2-01..03 | Now 密度、Provider 分类、datetime-local AX | OPEN | 已登记为后续优化/专项 Desktop Gate，不影响现有事实安全内核。 |
+
 ## 横切要求
 
 | requirement_id | 文档章节 / 决定 | 用户场景 | Domain 规则 / 不变量 | Application 用例 | Adapter / UI | 测试 | Slice | 状态 | 当前证据 / 缺口 |

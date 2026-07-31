@@ -1,5 +1,25 @@
 # V2 当前实施状态
 
+## 认知体验审计与小原型（2026-07-31）
+
+基于当前 r8、Logseq `0.10.15` 和真实 DeepSeek 的任务级认知体验审计已经完成；审计报告先以
+`7986047` 提交，随后才实施一项小原型。报告逐任务记录 Concept Budget、Carried Context、
+Visual Competition、Context Isolation，并覆盖 Light/Dark、1000×720/760×720、失败、取消、
+中断恢复、reload 与返回来源。完整证据见
+`docs/implementation/task-copilot-v2-ux/cognitive-audit-2026-07-31/README.md`。
+
+当前结论：
+
+- `CUX-P1-01 PROTOTYPE_VALIDATED`：`9cb2927` 将 Apply / Undo 最终确认隔离为一个 action surface；
+  `d4b4613` 又根据第一次真实复验修复取消跳回来源页的问题。当前 Desktop 证据证明只有一个
+  正式动作、一个取消和最小影响摘要，取消后恢复同一 Review，未执行正式写入。
+- 两项 P0 仍开放：无候选的当前页整理会同时给出错误成功与失败；UUID 来源路由 reload 后可空白
+  且丢失 Block anchor。
+- 其余 P1 仍开放：Project / MiniProject Grill 缺少上下文隔离、日常层暴露领域内部词、全局瞬时
+  banner 跨流程残留。P2 为 Now 密度、Provider 错误分类与 datetime-local Desktop/AX Gate。
+- 本审计不会改写既有 v1.1 技术 Release Gate；它也不把单个已验证原型冒充为整份 UX 清单完成。
+  复验后 Logseq 已恢复稳定 r8 Plugin 路径与审计前 Plugin Dark 外观。
+
 ## 交互优化 Goal（2026-07-23）
 
 V2 v1.1 底座完成结论不变；交互优化 P0→P1→P2 已按
