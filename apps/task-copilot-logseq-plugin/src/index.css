@@ -23,7 +23,7 @@
 }
 
 #task-copilot-personal-mvp-root, #task-copilot-personal-mvp-root * { box-sizing: border-box; }
-#task-copilot-personal-mvp-root { margin: 0; color: var(--text); background: transparent; }
+#task-copilot-personal-mvp-root { margin: 0; color: var(--text); background: transparent; font-size: 14px; line-height: 1.55; }
 #task-copilot-personal-mvp-root button, #task-copilot-personal-mvp-root input, #task-copilot-personal-mvp-root textarea, #task-copilot-personal-mvp-root select { font: inherit; }
 #task-copilot-personal-mvp-root button { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); padding: 8px 12px; cursor: pointer; }
 #task-copilot-personal-mvp-root button:hover, #task-copilot-personal-mvp-root button:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-soft); }
@@ -56,17 +56,19 @@
 #task-copilot-personal-mvp-root .section-nav { margin: -4px 0 18px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 #task-copilot-personal-mvp-root .section-nav button { flex: 0 0 auto; }
 #task-copilot-personal-mvp-root .workspace { max-height: calc(100vh - 220px); min-height: 360px; overflow: auto; padding: 20px; }
-#task-copilot-personal-mvp-root .focused-confirmation-shell { width: min(680px, calc(100vw - 32px)); }
-#task-copilot-personal-mvp-root .focused-confirmation { display: grid; align-content: center; max-height: calc(100vh - 124px); min-height: 360px; }
-#task-copilot-personal-mvp-root .focused-confirmation .action-dialog { margin: 0; padding: 20px; }
+#task-copilot-personal-mvp-root .active-surface-shell { width: min(760px, calc(100vw - 32px)); }
+#task-copilot-personal-mvp-root .active-surface { display: grid; align-content: center; max-height: calc(100vh - 124px); min-height: 360px; }
+#task-copilot-personal-mvp-root .active-surface .action-dialog { margin: 0; padding: 20px; }
 #task-copilot-personal-mvp-root .confirmation-context { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 #task-copilot-personal-mvp-root .confirmation-context p { margin: 0; color: var(--muted); line-height: 1.5; }
 #task-copilot-personal-mvp-root .cards { display: grid; gap: 12px; }
 #task-copilot-personal-mvp-root .migration-review-list { margin: 16px 0; }
 #task-copilot-personal-mvp-root .more-hub { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-#task-copilot-personal-mvp-root .now-work-controls { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; margin-bottom: 18px; }
-#task-copilot-personal-mvp-root .now-work-controls strong { display: block; margin-bottom: 6px; }
-#task-copilot-personal-mvp-root .now-work-controls .muted { flex-basis: 100%; margin: 0; }
+#task-copilot-personal-mvp-root .now-work-controls { margin: 0 0 18px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+#task-copilot-personal-mvp-root .now-work-controls > summary { font-weight: 700; }
+#task-copilot-personal-mvp-root .now-work-control-body { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; margin-top: 12px; }
+#task-copilot-personal-mvp-root .now-work-control-body strong { display: block; margin-bottom: 6px; }
+#task-copilot-personal-mvp-root .now-work-control-body .muted { flex-basis: 100%; margin: 0; }
 #task-copilot-personal-mvp-root .now-work-group + .now-work-group { margin-top: 16px; }
 #task-copilot-personal-mvp-root .now-work-overflow { margin-top: 12px; }
 #task-copilot-personal-mvp-root .now-work-overflow > summary { color: var(--tc-text-muted); }
@@ -74,6 +76,8 @@
 #task-copilot-personal-mvp-root .now-card > .actions { margin-top: 12px; }
 #task-copilot-personal-mvp-root .now-card .more-actions { margin-top: 8px; }
 #task-copilot-personal-mvp-root .now-card .more-actions .actions { margin-top: 8px; }
+#task-copilot-personal-mvp-root .now-card.current-focus { padding: 17px 18px; border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 12%, transparent); }
+#task-copilot-personal-mvp-root .now-card.current-focus h3 { font-size: 18px; }
 #task-copilot-personal-mvp-root .card, #task-copilot-personal-mvp-root .drawer, #task-copilot-personal-mvp-root .reentry { padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 #task-copilot-personal-mvp-root .card h3, #task-copilot-personal-mvp-root .drawer h2, #task-copilot-personal-mvp-root .reentry h2 { margin: 8px 0 10px; }
 #task-copilot-personal-mvp-root .card.compact { padding: 13px 15px; }
@@ -222,6 +226,7 @@
   #task-copilot-personal-mvp-root .topbar { align-items: flex-start; }
   #task-copilot-personal-mvp-root .top-actions { flex-direction: column; align-items: stretch; }
   #task-copilot-personal-mvp-root .workspace { max-height: calc(100vh - 210px); padding: 14px; }
+  #task-copilot-personal-mvp-root .active-surface { max-height: calc(100vh - 96px); }
   #task-copilot-personal-mvp-root .split { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .project-landing-grid { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .intent-list { grid-template-columns: 1fr; }

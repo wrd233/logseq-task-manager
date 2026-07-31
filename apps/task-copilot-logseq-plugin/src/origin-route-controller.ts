@@ -130,7 +130,7 @@ export class OriginRouteController {
               label: "当前 Logseq 不能定位原内容；已关闭 Task Copilot，没有跳到其他位置。",
             };
           }
-          await this.host.scrollToBlockInPage(currentBlockPage.pageUuid, token.blockUuid);
+          await this.host.scrollToBlockInPage(currentBlockPage.pageName, token.blockUuid);
         }
         return { status: "RETURNED", label: "已回到原内容。" };
       }

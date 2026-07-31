@@ -33,6 +33,7 @@ import {
   encodeAttentionNowPilotPrimaryValue,
   type AttentionNowPilotHint,
 } from "./attention-shadow-runtime.ts";
+import { activeOutcomeScope, createScopedOutcome, outcomeForScope, type ScopedOutcome } from "./scoped-outcome.ts";
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -113,6 +114,7 @@ export interface UiModel {
   selectedReentryProjectId?: string;
   selectedObjectDetail?: ObjectDetailView;
   reentry?: ProjectReentryView;
+  outcome?: ScopedOutcome;
   message?: string;
   error?: string;
   recoveryReport?: string;
@@ -206,6 +208,15 @@ export function escapeHtml(value: unknown): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function userFacingDateTime(value: string): string {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "时间待确认" : parsed.toLocaleString("zh-CN");
+}
+
+function localTimeHint(id: string): string {
+  return `<p class="muted field-hint" id="${id}">使用当前设备的本地时间。</p>`;
 }
 
 export function isWorkspace(value: string): value is Workspace {
@@ -357,7 +368,7 @@ function renderNow(model: UiModel): string {
       const due = !taskRecovery && !taskSafetyUnavailable && item.dueAt
         ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>`
         : "";
-      return `<article class="card compact now-card"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${taskContext}${due}<div class="actions">${primaryAction}</div>${moreActions}</article>`;
+      return `<article class="card compact now-card${focused ? " current-focus" : ""}"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${taskContext}${due}<div class="actions">${primaryAction}</div>${moreActions}</article>`;
     }).join("");
     const section = (title: string, source: NowFrontstageItem[], frontstageLimit?: number) => {
       const values = filtered(source);
@@ -379,8 +390,8 @@ function renderNow(model: UiModel): string {
         : "";
       return `<section><h2>${escapeHtml(title)}</h2>${renderValues(visible)}${overflow}</section>`;
     };
-    const controls = `<section class="now-work-controls" aria-label="现在：筛选与分组"><div><strong>类型</strong><div class="actions wrap">${button("全部", "v2-now-filter", "ALL", filter === "ALL" ? "active" : "quiet")}${availableTypes.map((type) => button(typeLabels[type], "v2-now-filter", type, filter === type ? "active" : "quiet")).join("")}</div></div><div><strong>排列</strong><div class="actions">${button("混排", "v2-now-grouping", "mixed", grouping === "mixed" ? "active" : "quiet")}${button("按类型分组", "v2-now-grouping", "type", grouping === "type" ? "active" : "quiet")}</div></div>${orderingAvailable ? "" : "<p class=\"muted\">手动调整“当前关注”顺序请切回“全部 · 混排”；筛选不会改变正式状态。</p>"}</section>`;
-    const content = `${section("继续处理", frontstage.continueProcessing, 4)}${section("需要回看", frontstage.needsReview)}${section("保持等待", frontstage.keepWaiting)}`;
+    const controls = `<details class="now-work-controls"><summary>筛选与排列</summary><div class="now-work-control-body" aria-label="现在：筛选与分组"><div><strong>类型</strong><div class="actions wrap">${button("全部", "v2-now-filter", "ALL", filter === "ALL" ? "active" : "quiet")}${availableTypes.map((type) => button(typeLabels[type], "v2-now-filter", type, filter === type ? "active" : "quiet")).join("")}</div></div><div><strong>排列</strong><div class="actions">${button("混排", "v2-now-grouping", "mixed", grouping === "mixed" ? "active" : "quiet")}${button("按类型分组", "v2-now-grouping", "type", grouping === "type" ? "active" : "quiet")}</div></div>${orderingAvailable ? "" : "<p class=\"muted\">手动调整“当前关注”顺序请切回“全部 · 混排”；筛选不会改变正式状态。</p>"}</div></details>`;
+    const content = `${section("现在先做", frontstage.continueProcessing, 4)}${section("需要回看", frontstage.needsReview)}${section("保持等待", frontstage.keepWaiting)}`;
     const narrationError = model.v2StatusNarrationLoadError
       ? `<div class="error"><strong>状态说明暂时不可用：</strong>${escapeHtml(model.v2StatusNarrationLoadError)}<span>继续显示 Local Service 的既有只读理由；没有改变正式状态或动作资格。</span></div>`
       : "";
@@ -422,7 +433,7 @@ function renderV2ProjectStructure(object: V2ManagedObject): string {
 
 function renderObjects(model: UiModel): string {
   const relationError = model.v2RelationLoadError ? `<section class="card error" role="alert"><strong>关系投影暂不可用</strong><p>${escapeHtml(model.v2RelationLoadError)}</p><p class="muted">正式对象与其他工作区仍可使用；没有执行关系写入。</p></section>` : "";
-  const projectCreator = `<section class="card project-creator" aria-label="创建 Project 页面"><div class="eyebrow">V2 · Project Grill Me</div><h3>新建 Project</h3><p class="muted">先围绕真正缺失的结果、边界、完成证据、内部闭环、当前接口和 Page 关系讨论；确认最终阅读结果后再进入“待我确认”。</p>${button("开始梳理 Project", "v2-project-creation-grill-open", "BLANK", "primary", model.v2ProjectCreationGrillAvailable !== true)}</section>`;
+  const projectCreator = `<section class="card project-creator" aria-label="创建项目"><div class="eyebrow">项目梳理</div><h3>新建项目</h3><p class="muted">先说清想得到的结果、范围、完成证据和当前推进；确认最终阅读结果后再进入“待我确认”。</p>${button("开始梳理项目", "v2-project-creation-grill-open", "BLANK", "primary", model.v2ProjectCreationGrillAvailable !== true)}</section>`;
   const areaCreator = `<section class="card area-creator" aria-label="创建 Area"><div class="eyebrow">V2 · Area 受控入口</div><h3>新建 Area</h3><p class="muted">记录长期责任边界并写入 SQLite；页面与 Anchor 为可选能力，此处不创建隐式 Graph 副本。</p><label>责任描述<input data-field="v2AreaText" placeholder="例如：维持稳定作息与健康检查"${model.v2AreaAvailable && !model.v2AreaBusy ? "" : " disabled"}></label>${button(model.v2AreaBusy ? "正在创建…" : "创建 Area", "create-v2-area", undefined, "primary", !model.v2AreaAvailable || model.v2AreaBusy === true)}</section>`;
   const associationCreator = model.v2Objects && model.v2Objects.length >= 2 ? `<section class="card association-creator" aria-label="添加普通 Association"><div class="eyebrow">V2 · 普通关联</div><h3>关联两个正式对象</h3><p class="muted">只表达“相关”，不会改变 Primary Ownership、位置、Lifecycle 或 Focus。</p><label>来源对象<select data-field="v2AssociationSource"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}" data-version="${object.version}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)} · v${object.version}</option>`).join("")}</select></label><label>目标对象<select data-field="v2AssociationTarget"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="v2AssociationConfirmed" value="yes">确认添加普通 Association，不改变归属</label>${button(model.v2AssociationBusy ? "正在添加…" : "添加 Association", "v2-association-add", undefined, "primary", !model.v2AssociationAvailable || model.v2AssociationBusy)}${model.v2Associations?.length ? `<p class="muted">当前已有 ${model.v2Associations.length} 条普通 Association。</p>` : ""}</section>` : "";
   if (model.v2Objects !== undefined) {
@@ -439,7 +450,7 @@ function renderObjects(model: UiModel): string {
           ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${object.objectType}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
           : "";
       const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成 MiniProject", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
-      const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理 MiniProject" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
+      const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理小项目" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
       const evolveProjectAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ProjectCreationGrillAvailable ? "演化为 Project" : "演化暂不可用", "v2-project-creation-grill-open", `MINI_PROJECT:${object.objectId}:${object.version}`, "quiet", model.v2ProjectCreationGrillAvailable !== true) : "";
       const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑 Area", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
       const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("调整项目", "v2-project-operation-router-open", `${object.objectId}|${object.version}`, "quiet") : "";
@@ -468,8 +479,8 @@ function renderObjects(model: UiModel): string {
     ${object.completionCriteria ? `<section><h3>完成标准</h3><p>${escapeHtml(object.completionCriteria)}</p></section>` : ""}
     ${object.nextAction ? `<section><h3>下一步</h3><p>${escapeHtml(object.nextAction)}</p></section>` : ""}
     ${object.currentSummary ? `<section><h3>当前状态</h3><p>${escapeHtml(object.currentSummary)}</p></section>` : ""}
-    ${object.dueAt || object.reviewAt ? `<section><h3>日期</h3><p>${object.dueAt ? `due ${escapeHtml(object.dueAt)}` : ""}${object.dueAt && object.reviewAt ? " · " : ""}${object.reviewAt ? `review ${escapeHtml(object.reviewAt)}` : ""}</p></section>` : ""}
-    ${object.condition.kind === "WAITING" ? `<section><h3>等待</h3><p>${escapeHtml(object.condition.waitingFor)} · ${escapeHtml(object.condition.expectedResult)} · ${escapeHtml(object.condition.reviewAt)}</p></section>` : ""}
+    ${object.dueAt || object.reviewAt ? `<section><h3>日期</h3><p>${object.dueAt ? `期限：${escapeHtml(userFacingDateTime(object.dueAt))}` : ""}${object.dueAt && object.reviewAt ? " · " : ""}${object.reviewAt ? `复查：${escapeHtml(userFacingDateTime(object.reviewAt))}` : ""}</p></section>` : ""}
+    ${object.condition.kind === "WAITING" ? `<section><h3>等待</h3><p>${escapeHtml(object.condition.waitingFor)} · ${escapeHtml(object.condition.expectedResult)} · ${escapeHtml(userFacingDateTime(object.condition.reviewAt))}</p></section>` : ""}
     ${object.condition.kind === "BLOCKED" ? `<section><h3>阻塞</h3><p>${escapeHtml(object.condition.reason)}</p></section>` : ""}
     ${anchors.length ? `<section><h3>正文与来源</h3>${anchors.map((anchor) => `<p><code>${escapeHtml(anchor.role)}</code> · ${escapeHtml(anchor.status)} · ${escapeHtml(anchor.cachedPageRef ?? anchor.externalId)}</p>`).join("")}</section>` : ""}
     ${recentEvents.length ? `<section><h3>最近事件</h3><ol>${recentEvents.map((event) => `<li>${escapeHtml(event.timestamp)} · ${escapeHtml(event.operationType)}</li>`).join("")}</ol></section>` : ""}
@@ -563,7 +574,7 @@ function renderReview(model: UiModel): string {
   if (reviewMode === "candidates") {
     const providerState = model.v2ProviderState ?? { status: "idle" as const };
     const providerPanel = model.v2ProviderAvailable
-      ? `<section class="card compact"><div class="eyebrow">AI 辅助 · 只读分析</div><h3>理解当前选中内容</h3><p>只生成一份可审阅方案；普通记录会说明为什么暂不整理。不会自动扫描页面或修改正式状态。</p><div class="actions">${button(providerState.status === "loading" ? "分析中…" : "分析当前内容", "v2-provider-analyze-current-block", undefined, "primary", providerState.status === "loading")}</div>${providerState.message ? `<div class="${providerState.status === "error" ? "error" : "notice"}">${escapeHtml(providerState.message)}</div>` : ""}</section>`
+      ? `<section class="card compact"><div class="eyebrow">AI 辅助 · 只读分析</div><h3>理解当前选中内容</h3><p>只生成一份可审阅方案；普通记录会说明为什么暂不整理。不会自动扫描页面或修改正式状态。</p><div class="actions">${button(providerState.status === "loading" ? "分析中…" : providerState.status === "error" ? "重新分析" : "分析当前内容", "v2-provider-analyze-current-block", undefined, "primary", providerState.status === "loading")}${providerState.status === "error" ? button("查看系统状态", "runtime-diagnostics", undefined, "quiet") : ""}</div>${providerState.message ? `<div class="${providerState.status === "error" ? "error" : "notice"}"${providerState.status === "error" ? " role=\"alert\"" : ""}>${escapeHtml(providerState.message)}${providerState.status === "error" ? "<span>没有修改正文或正式事项。你可以重试，或查看当前系统状态。</span>" : ""}</div>` : ""}</section>`
       : "";
     return `${tabs}${providerPanel}${candidatePanel || empty("当前无法读取待整理内容", "连接恢复后可手动检查当前页；系统不会自动扫描整个知识库。")}`;
   }
@@ -1188,7 +1199,7 @@ function renderMigrationReviewItem(item: PluginMigrationReviewItem, busy: boolea
         <details><summary>卡住或暂停需要的细节</summary>
           <label>具体原因<input data-field="migrationDecisionReason:${token}" maxlength="4000" value="${escapeHtml(blocked?.reason ?? paused?.reason ?? "")}"${busy ? " disabled" : ""}></label>
         </details>
-        <label>复查时间（等待必填，暂停可选）<input type="datetime-local" data-field="migrationDecisionReviewAt:${token}" value="${escapeHtml(migrationDateTimeLocal(waiting?.reviewAt ?? paused?.reviewAt))}"${busy ? " disabled" : ""}></label>
+        <label>复查时间（等待必填，暂停可选）<input type="datetime-local" step="60" aria-describedby="migration-review-local-time" data-field="migrationDecisionReviewAt:${token}" value="${escapeHtml(migrationDateTimeLocal(waiting?.reviewAt ?? paused?.reviewAt))}"${busy ? " disabled" : ""}></label>${localTimeHint("migration-review-local-time")}
       </details>
       <label>判断依据${item.classification === "DIRECT_BIND" ? "（完整沿用全部建议时可不填；改映射必填）" : "（必填）"}<textarea data-field="migrationDecisionNote:${token}" maxlength="4000" placeholder="用一句话说明为什么这样处理"${busy ? " disabled" : ""}>${escapeHtml(reviewNote)}</textarea></label>
       <div class="actions">${button(decision ? "更新本项判断" : "保存本项判断", "migration-review-save", item.token, "quiet", busy)}</div>
@@ -1419,6 +1430,9 @@ function renderActionDialog(model: UiModel): string {
     const inferences = output?.inferences.length ? `<section><h4>Copilot 判断</h4><ul>${output.inferences.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
     const unknowns = output?.unknowns.length ? `<section><h4>仍待澄清</h4><ul>${output.unknowns.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul></section>` : "";
     const recommendation = output?.questionGroup?.recommendation ? `<aside class="notice"><strong>建议：</strong>${escapeHtml(output.questionGroup.recommendation.text)}</aside>` : "";
+    const reasoning = inferences || unknowns || recommendation
+      ? `<details class="grill-reasoning"><summary>查看判断依据</summary>${inferences}${unknowns}${recommendation}</details>`
+      : "";
     const previewState = state.status === "ready" ? state.preview : undefined;
     const readyForPreview = output?.readiness === "READY_FOR_PREVIEW" && previewState?.status !== "ready"
       ? previewState?.status === "loading" ? `<p class="notice" aria-live="polite">正在生成最终阅读预览；正式状态保持不变。</p>`
@@ -1428,7 +1442,7 @@ function renderActionDialog(model: UiModel): string {
     const proposal = previewState?.status === "ready" ? previewState.proposal : undefined;
     const proposalCta = preview ? proposal?.status === "loading" ? `<p class="notice">正在核对最新来源并准备“待我确认”；正式状态仍未变化。</p>`
       : proposal?.status === "error" ? `<div class="notice error">${escapeHtml(proposal.message)}</div>${button("重试进入待我确认", "v2-project-creation-grill-proposal", dialog.value, "quiet", model.v2ProjectCreationProposalAvailable !== true)}`
-      : proposal?.status === "ready" ? `<p class="notice">项目创建方案已进入“待我确认”；尚未创建正式事项或页面。</p>`
+      : proposal?.status === "ready" ? `<p class="notice">创建方案已进入“待我确认”；尚未创建正式事项或页面。</p>`
       : button("进入待我确认", "v2-project-creation-grill-proposal", dialog.value, "primary", model.v2ProjectCreationProposalAvailable !== true) : "";
     const previewHtml = preview ? (() => {
       const changeItems = projectCreationPreviewChanges(preview);
@@ -1467,7 +1481,7 @@ function renderActionDialog(model: UiModel): string {
       ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2ProjectCreationGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-project-creation-grill-answer", dialog.value, "primary")}</section>` : "";
     const retry = state.status === "error" && state.retryable ? button("重试本轮", "v2-project-creation-grill-retry", dialog.value, "quiet") : "";
     const recheck = state.status === "stale" ? button("基于最新内容重新检查", "v2-project-creation-grill-recheck", dialog.value, "primary") : "";
-    return `<section class="inbox-dialog action-dialog project-creation-grill" aria-label="梳理项目"><div class="eyebrow">Project Grill Me · ${escapeHtml(sourceLabel)} · 本次讨论不会保存</div><h3>先把项目说清楚</h3><p class="muted">后台可以读取有界来源；前台只保留核心理解、依据、一个真正分歧和一个主要动作。事实、推断、未知分开，智能分析无权创建正式事项。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${recheck}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog project-creation-grill" aria-label="梳理项目"><div class="eyebrow">项目梳理 · ${escapeHtml(sourceLabel)} · 本次讨论不会保存</div><h3>先把项目说清楚</h3><p class="muted">这里只保留来源摘要、已确认事实和当前唯一问题。智能分析只帮助梳理，不会创建正式事项。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${reasoning}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${recheck}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-mini-project-grill") {
     const [objectId] = dialog.value.split("|");
@@ -1483,7 +1497,7 @@ function renderActionDialog(model: UiModel): string {
       ? `<aside class="notice"><strong>建议：</strong>${escapeHtml(output.questionGroup.recommendation.text)}${output.questionGroup.recommendation.tradeoffs.length ? `<p class="muted">取舍：${escapeHtml(output.questionGroup.recommendation.tradeoffs.join("；"))}</p>` : ""}</aside>`
       : "";
     const error = state.status === "error" || state.status === "stale" ? `<div class="notice error" role="alert">${escapeHtml(state.message)}</div>` : "";
-    const loading = state.status === "loading" ? `<div class="notice" aria-live="polite">正在结合原 Block 子树和前序回答生成下一轮；正式对象与正文保持不变。</div>` : "";
+    const loading = state.status === "loading" ? `<div class="notice" aria-live="polite">正在结合原始材料和前序回答生成下一轮；正式事项与正文保持不变。</div>` : "";
     const previewState = state.status === "ready" ? state.preview : undefined;
     const readyForPreview = output?.readiness === "READY_FOR_PREVIEW" && previewState?.status !== "ready"
       ? `<div class="notice"><strong>已经可以查看结构预览。</strong><p>预览只供审阅；确认应用前不会改变正文或正式事项。</p>${previewState?.status === "loading" ? "<p aria-live=\"polite\">正在生成零丢失阅读预览…</p>" : previewState?.status === "error" ? `<p class="error">${escapeHtml(previewState.message)}</p>${button("重试结构预览", "v2-mini-project-grill-preview", object.objectId, "quiet", model.v2MiniProjectGrillPreviewAvailable !== true)}` : button("生成结构预览", "v2-mini-project-grill-preview", object.objectId, "primary", model.v2MiniProjectGrillPreviewAvailable !== true)}</div>`
@@ -1494,22 +1508,25 @@ function renderActionDialog(model: UiModel): string {
       ? restructureProposal?.status === "loading" ? `<p class="notice" aria-live="polite">正在重新检查原材料并准备变更审阅；正文仍未修改。</p>`
         : restructureProposal?.status === "error" ? `<div class="notice error">${escapeHtml(restructureProposal.message)}</div>${button("重新进入变更审阅", "v2-mini-project-grill-proposal", object.objectId, "quiet", model.v2MiniProjectGrillProposalAvailable !== true)}`
         : restructureProposal?.status === "not-needed" ? `<div class="notice"><strong>讨论已完成，无需正式变更。</strong><p>当前内容已经符合预览结构，正文和正式事项没有变化。</p></div>`
-        : restructureProposal?.status === "ready" ? `<p class="notice">方案已进入“待我确认”；尚未应用。</p>`
+        : restructureProposal?.status === "ready" ? `<p class="notice">整理方案已进入“待我确认”；尚未应用。</p>`
         : button("进入变更审阅", "v2-mini-project-grill-proposal", object.objectId, "primary", model.v2MiniProjectGrillProposalAvailable !== true)
       : "";
     const previewSections = preview ? preview.finalReading.sections.map((section) => `<section class="grill-preview-section"><h4>${escapeHtml(section.heading)}</h4><p class="muted">${escapeHtml(section.purpose)}</p>${section.sourceMaterials.length ? `<ul>${section.sourceMaterials.map((material) => `<li>${escapeHtml(material.text || "（空 Block，原位保留）")}</li>`).join("")}</ul>` : ""}${section.derivedBlocks.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}</section>`).join("") : "";
-    const previewHtml = preview ? `<section class="grill-preview" aria-label="MiniProject 最终阅读预览"><div class="eyebrow">零丢失阅读预览 · 尚未应用</div><h3>${escapeHtml(preview.finalReading.title.text)}</h3><p><strong>要得到：</strong>${escapeHtml(preview.finalReading.outcome.text)}</p><p><strong>范围内：</strong>${escapeHtml(preview.finalReading.boundary.included.map((item) => item.text).join("；"))}</p>${preview.finalReading.boundary.excluded.length ? `<p><strong>范围外：</strong>${escapeHtml(preview.finalReading.boundary.excluded.map((item) => item.text).join("；"))}</p>` : ""}<p><strong>完成证据：</strong>${escapeHtml(preview.finalReading.completionEvidence.map((item) => item.text).join("；"))}</p><div class="badges"><span>原材料 ${preview.impact.sourceMaterialCount}</span><span>移动 ${preview.impact.movedMaterialCount}</span><span>新增归纳 ${preview.impact.addedDerivedBlockCount}</span><span>删除 ${preview.impact.deletedMaterialCount}</span><span>未分类 ${preview.impact.unclassifiedMaterialCount}</span></div>${previewSections}${preview.unclassified.length ? `<section><h4>待判断／原始材料（原位保留）</h4>${preview.unclassified.map((item) => `<blockquote>${escapeHtml(item.text || "（空 Block）")}<small>${escapeHtml(item.reason)}</small></blockquote>`).join("")}</section>` : ""}<div class="notice">这是阅读预览，不是正式变化。下一步只审阅方案；只有之后明确“确认应用”才会改变正文。原始材料全部保留，删除数固定为 0。</div>${proposalCta}</section>` : "";
+    const previewHtml = preview ? `<section class="grill-preview" aria-label="小项目最终阅读预览"><div class="eyebrow">零丢失阅读预览 · 尚未应用</div><h3>${escapeHtml(preview.finalReading.title.text)}</h3><p><strong>要得到：</strong>${escapeHtml(preview.finalReading.outcome.text)}</p><p><strong>范围内：</strong>${escapeHtml(preview.finalReading.boundary.included.map((item) => item.text).join("；"))}</p>${preview.finalReading.boundary.excluded.length ? `<p><strong>范围外：</strong>${escapeHtml(preview.finalReading.boundary.excluded.map((item) => item.text).join("；"))}</p>` : ""}<p><strong>完成证据：</strong>${escapeHtml(preview.finalReading.completionEvidence.map((item) => item.text).join("；"))}</p><div class="badges"><span>来源内容 ${preview.impact.sourceMaterialCount}</span><span>调整位置 ${preview.impact.movedMaterialCount}</span><span>补充总结 ${preview.impact.addedDerivedBlockCount}</span><span>删除 ${preview.impact.deletedMaterialCount}</span><span>待判断 ${preview.impact.unclassifiedMaterialCount}</span></div>${previewSections}${preview.unclassified.length ? `<section><h4>待判断／原始材料（原位保留）</h4>${preview.unclassified.map((item) => `<blockquote>${escapeHtml(item.text || "（空内容）")}<small>${escapeHtml(item.reason)}</small></blockquote>`).join("")}</section>` : ""}<div class="notice">这是阅读预览，不是正式变化。下一步只审阅方案；只有之后明确“确认应用”才会改变正文。原始材料全部保留，删除数固定为 0。</div>${proposalCta}</section>` : "";
+    const discussionReasoning = inferences || unknowns || recommendation
+      ? `<details class="grill-reasoning"><summary>查看判断依据</summary>${inferences}${unknowns}${recommendation}</details>`
+      : "";
     const discussion = output
       ? preview
         ? `<details class="grill-preview-evidence"><summary>查看讨论依据</summary><div class="grill-preview-evidence-body"><blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}</div></details>`
-        : `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}`
+        : `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${discussionReasoning}`
       : "";
     const question = state.status === "ready" && output?.readiness === "CONTINUE" && output.questionGroup
       ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2MiniProjectGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-mini-project-grill-answer", object.objectId, "primary")}</section>`
       : "";
     const retry = state.status === "error" ? button("重试本轮", "v2-mini-project-grill-retry", object.objectId, "quiet") : "";
     const closeLabel = model.originReturnLabel ?? "关闭讨论";
-    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理 MiniProject"><div class="eyebrow">MiniProject 梳理 · 本次讨论结束后清除</div><h3>${escapeHtml(object.text)}</h3><p class="muted">Copilot 只围绕当前材料中的真实不确定性追问。事实、判断和未知分开显示；确认应用前不会改变正文或正式事项。</p>${previewHtml}${discussion}${loading}${error}${readyForPreview}${question}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
+    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理小项目"><div class="eyebrow">小项目梳理 · 本次讨论结束后清除</div><h3>${escapeHtml(object.text)}</h3><p class="muted">这里只保留来源摘要、已确认事实和当前唯一问题；确认应用前不会改变正文或正式事项。</p>${previewHtml}${discussion}${loading}${error}${readyForPreview}${question}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
   }
   if (dialog.kind === "confirm-end-task-copilot") {
     return `<section class="inbox-dialog action-dialog" aria-label="结束本次 Task Copilot"><h3>结束本次 Task Copilot？</h3><p>系统会再次检查未完成修改与正文核对。安全时只结束当前知识库的 Task Copilot；Logseq 正文、历史记录和其他进程不受影响。</p><div class="actions">${button("确认安全结束", "submit-end-task-copilot", undefined, "danger")}${cancel}</div></section>`;
@@ -1668,7 +1685,7 @@ function renderActionDialog(model: UiModel): string {
     const current = model.v2NowWork ? [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview].find((item) => item.objectId === objectId) : undefined;
     const blockerObjectId = current?.condition.kind === "BLOCKED" ? current.condition.blockerObjectId : undefined;
     const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}"${option.objectId === blockerObjectId ? " selected" : ""}>${escapeHtml(option.objectType)} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
-    return `<section class="inbox-dialog action-dialog" aria-label="更新当前状态"><h3>更新当前状态</h3><p class="muted">只记录眼下是否能继续，不会改变是否完成、当前关注或归属。</p><label>当前状态<select data-field="v2ConditionKind"><option value="ACTIONABLE">可以行动</option><option value="WAITING">等待别人</option><option value="BLOCKED">被问题卡住</option><option value="PAUSED">我先暂停</option></select></label><label>等待谁或什么<input data-field="v2WaitingFor"></label><label>期待结果<input data-field="v2ExpectedResult"></label><label>原因<input data-field="v2ConditionReason"></label><label>阻碍来源（可选）<select data-field="v2BlockerObjectId"><option value="">仅记录原因</option>${blockers}</select></label><label>复查时间（等待时必填）<input type="datetime-local" data-field="v2ConditionReviewAt"></label><div class="actions">${button("保存状态", "submit-v2-condition", dialog.value, "primary")}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="更新当前状态"><h3>更新当前状态</h3><p class="muted">只记录眼下是否能继续，不会改变是否完成、当前关注或归属。</p><label>当前状态<select data-field="v2ConditionKind"><option value="ACTIONABLE">可以行动</option><option value="WAITING">等待别人</option><option value="BLOCKED">被问题卡住</option><option value="PAUSED">我先暂停</option></select></label><label>等待谁或什么<input data-field="v2WaitingFor"></label><label>期待结果<input data-field="v2ExpectedResult"></label><label>原因<input data-field="v2ConditionReason"></label><label>阻碍来源（可选）<select data-field="v2BlockerObjectId"><option value="">仅记录原因</option>${blockers}</select></label><label>复查时间（等待时必填）<input type="datetime-local" step="60" aria-describedby="v2-condition-local-time" data-field="v2ConditionReviewAt"></label>${localTimeHint("v2-condition-local-time")}<div class="actions">${button("保存状态", "submit-v2-condition", dialog.value, "primary")}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-condition-undo") {
     const [objectId, changeId, rawVersion] = dialog.value.split("|");
@@ -1699,7 +1716,7 @@ function renderActionDialog(model: UiModel): string {
     return `<section class="inbox-dialog action-dialog" aria-label="恢复为可以行动"><div class="eyebrow">当前状态将更新</div><h3>恢复为可以行动</h3><p>“${escapeHtml(object?.text ?? "当前事项")}”将重新出现在可推进事项中。</p><p class="muted">只更新眼下是否能继续；不会完成事项、移动正文或改变当前关注。保存时会重验当前版本。</p><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "确认恢复", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-waiting") {
-    return `<section class="inbox-dialog action-dialog" aria-label="等待别人"><h3>等待别人</h3><p class="muted">用一个短语说明在等谁或什么结果；到点后会回到“需要回看”。当前关注不会自动改变。</p><label>在等谁或什么结果<input data-field="v2BlockWaitingSummary" placeholder="例如：等评审人确认恢复结果"></label><label>复查时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为等待别人", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="等待别人"><h3>等待别人</h3><p class="muted">用一个短语说明在等谁或什么结果；到点后会回到“需要回看”。当前关注不会自动改变。</p><label>在等谁或什么结果<input data-field="v2BlockWaitingSummary" placeholder="例如：等评审人确认恢复结果"></label><label>复查时间<input type="datetime-local" step="60" aria-describedby="v2-block-waiting-local-time" data-field="v2BlockConditionReviewAt"></label>${localTimeHint("v2-block-waiting-local-time")}<div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为等待别人", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-blocked") {
     const [objectId] = dialog.value.split("|");
@@ -1707,11 +1724,11 @@ function renderActionDialog(model: UiModel): string {
     return `<section class="inbox-dialog action-dialog" aria-label="被问题卡住"><h3>被问题卡住</h3><p class="muted">只记录当前卡点；不会完成事项、移动正文、改变归属或当前关注。</p><label>具体卡点<textarea data-field="v2BlockConditionReason" placeholder="例如：测试环境暂不可用"></textarea></label><label>阻碍事项（可选）<select data-field="v2BlockerObjectId"><option value="">只记录卡点</option>${blockers}</select></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为被问题卡住", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-paused") {
-    return `<section class="inbox-dialog action-dialog" aria-label="我先暂停"><h3>我先暂停</h3><p class="muted">暂停不是完成；到重新判断时间后再决定是否恢复。当前关注不会自动改变。</p><label>暂停原因<textarea data-field="v2BlockConditionReason" placeholder="例如：先完成本周发布"></textarea></label><label>重新判断时间<input type="datetime-local" data-field="v2BlockConditionReviewAt"></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为我先暂停", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="我先暂停"><h3>我先暂停</h3><p class="muted">暂停不是完成；到重新判断时间后再决定是否恢复。当前关注不会自动改变。</p><label>暂停原因<textarea data-field="v2BlockConditionReason" placeholder="例如：先完成本周发布"></textarea></label><label>重新判断时间<input type="datetime-local" step="60" aria-describedby="v2-block-paused-local-time" data-field="v2BlockConditionReviewAt"></label>${localTimeHint("v2-block-paused-local-time")}<div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为我先暂停", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-deadline") {
     const current = dialog.value.split("|")[2];
-    return `<section class="inbox-dialog action-dialog" aria-label="设置 Task 期限"><h3>设置明确期限</h3><p class="muted">期限是明确承诺时间，只影响可解释排序，不产生分数。${current ? ` 当前：${escapeHtml(new Date(current).toLocaleString("zh-CN"))}` : ""}</p><label>期限<input type="datetime-local" data-field="v2DueAt"></label><label class="confirm-line"><input type="checkbox" data-field="v2ClearDueAt">清除现有期限</label><div class="actions">${button("保存期限", "submit-v2-deadline", dialog.value, "primary")}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="设置 Task 期限"><h3>设置明确期限</h3><p class="muted">期限是明确承诺时间，只影响可解释排序，不产生分数。${current ? ` 当前：${escapeHtml(userFacingDateTime(current))}` : ""}</p><label>期限<input type="datetime-local" step="60" aria-describedby="v2-due-local-time" data-field="v2DueAt"></label>${localTimeHint("v2-due-local-time")}<label class="confirm-line"><input type="checkbox" data-field="v2ClearDueAt">清除现有期限</label><div class="actions">${button("保存期限", "submit-v2-deadline", dialog.value, "primary")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-lifecycle-reason") {
     const action = dialog.value.split("|")[2];
@@ -1841,19 +1858,20 @@ function renderActionDialog(model: UiModel): string {
     const context = focusedConfirmationContext(model, dialog);
     return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(title)}"><div class="eyebrow">${escapeHtml(eyebrow)}</div><h3>${escapeHtml(title)}</h3>${context}<label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(statement)}</label><div class="actions">${button(actionLabel, confirmation[2], dialog.value, isReviewOnly ? "primary" : "danger")}${cancel}</div></section>`;
   }
-  if (dialog.kind === "v2-review-defer") return `<section class="inbox-dialog action-dialog" aria-label="暂缓 V2 语义组"><h3>暂缓语义组</h3><label>复查时间<input type="datetime-local" data-field="v2DeferredUntil"></label><label>原因<input data-field="v2DeferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-v2-review-defer", dialog.value, "primary")}${cancel}</div></section>`;
+  if (dialog.kind === "v2-review-defer") return `<section class="inbox-dialog action-dialog" aria-label="暂缓 V2 语义组"><h3>暂缓语义组</h3><label>复查时间<input type="datetime-local" step="60" aria-describedby="v2-defer-local-time" data-field="v2DeferredUntil"></label>${localTimeHint("v2-defer-local-time")}<label>原因<input data-field="v2DeferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-v2-review-defer", dialog.value, "primary")}${cancel}</div></section>`;
   return "";
 }
 
-function userFacingGlobalError(model: UiModel): string | undefined {
-  if (!model.error) return undefined;
+function userFacingGlobalError(model: UiModel, outcome: ScopedOutcome | undefined): string | undefined {
+  const error = outcome?.kind === "error" ? outcome.message : model.outcome ? undefined : model.error;
+  if (!error) return undefined;
   if (model.v2SemanticCommits?.some((commit) => commit.status === "RECOVERY_REQUIRED")) {
     return "这次修改需要先恢复到安全状态。原内容不会被静默覆盖，请按当前恢复指引处理。";
   }
   if (model.v2SemanticCommits?.some((commit) => commit.status === "PENDING")) {
     return "这次修改没有完成。已完成步骤已经安全保存，请继续原修改。";
   }
-  return model.error;
+  return error;
 }
 
 export function renderApp(model: UiModel): string {
@@ -1868,8 +1886,19 @@ export function renderApp(model: UiModel): string {
       ];
   const activePrimary = primaryWorkspace(model.workspace);
   const changes = recentChanges(model);
-  const immediateResult = renderImmediateResult(model, changes);
-  const globalError = userFacingGlobalError(model);
+  const scope = activeOutcomeScope({ workspace: model.workspace, ...(model.actionDialog?.kind ? { actionDialogKind: model.actionDialog.kind } : {}) });
+  const legacyOutcome = createScopedOutcome({
+    actionId: "legacy-render",
+    scope,
+    ...(model.message ? { message: model.message } : {}),
+    ...(model.error ? { error: model.error } : {}),
+    ...(model.recentActionCommitId ? { commitId: model.recentActionCommitId } : {}),
+  });
+  const outcome = outcomeForScope(model.outcome ?? legacyOutcome, scope);
+  const immediateResult = outcome?.kind === "result" && outcome.commitId
+    ? renderImmediateResult({ ...model, recentActionCommitId: outcome.commitId }, changes)
+    : "";
+  const globalError = userFacingGlobalError(model, outcome);
   const copilotState = sessionEnded
     ? "本次使用已结束 · 正文仍可编辑"
     : model.v2ProviderAvailable
@@ -1877,13 +1906,13 @@ export function renderApp(model: UiModel): string {
     : model.agent.enabled
       ? `Agent Demo · ${escapeHtml(model.agent.providerId)}`
       : "Copilot 未配置 · 基础事务系统可用";
-  const focusedConfirmation = model.actionDialog?.kind === "confirm-v2-commit" || model.actionDialog?.kind === "confirm-v2-undo";
-  if (focusedConfirmation) {
-    return `<section class="app-shell focused-confirmation-shell">
+  if (model.actionDialog) {
+    const activeSurface = renderActionDialog(model) || `<section class="inbox-dialog action-dialog" role="alert"><div class="eyebrow">当前操作已变化</div><h3>回到原工作区重新开始</h3><p>这次表单所依赖的内容已经不可用；没有执行正式修改。</p><div class="actions">${button("返回", "cancel-action-dialog", undefined, "primary")}</div></section>`;
+    return `<section class="app-shell active-surface-shell">
       <header class="topbar">
         <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
       </header>
-      <main class="workspace focused-confirmation" data-workspace="${model.workspace}">${renderActionDialog(model)}</main>
+      <main class="workspace active-surface" data-workspace="${model.workspace}">${activeSurface}</main>
     </section>`;
   }
   const body =
@@ -1906,7 +1935,7 @@ export function renderApp(model: UiModel): string {
       <div class="top-actions">${sessionEnded ? "" : button("整理当前页", "v2-candidate-open", undefined, "primary")}${button(model.originReturnLabel ?? "关闭", "close", undefined, "quiet")}</div>
     </header>
     <div class="agent-state ${!sessionEnded && (model.v2ProviderAvailable || model.agent.enabled) ? "enabled" : "disabled"}">${copilotState}</div>
-    ${model.message && !immediateResult ? `<div class="notice">${escapeHtml(model.message)}</div>` : ""}
+    ${outcome?.kind === "notice" && outcome.message && !immediateResult ? `<div class="notice" data-outcome-scope="${escapeHtml(outcome.scope)}">${escapeHtml(outcome.message)}</div>` : ""}
     ${immediateResult}
     ${globalError ? `<div class="error"><strong>未完成：</strong>${escapeHtml(globalError)}<span>系统不会静默覆盖或重复提交。</span></div>` : ""}
     <nav aria-label="主要工作区">${labels.map(([id, target, label]) => `<button class="${activePrimary === id ? "active" : ""}" data-action="view" data-value="${target}"${activePrimary === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}</nav>

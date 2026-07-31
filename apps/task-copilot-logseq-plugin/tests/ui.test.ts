@@ -36,6 +36,38 @@ test("focused confirmation cancellation restores its review workspace before ret
   assert.equal(cancelActionDialogReturnsToOrigin("confirm-v2-commit", false), false);
 });
 
+test("every active form is the only rendered work surface", () => {
+  const value = model();
+  value.workspace = "now";
+  value.message = "旧流程成功提示";
+  value.actionDialog = { kind: "v2-condition", value: "task-1|1" };
+  value.v2NowWork = {
+    generatedAt: "2026-07-31T12:00:00.000Z",
+    focus: [], next: [], waitingReview: [], conditionOptions: [],
+  };
+  const html = renderApp(value);
+  assert.match(html, /class="app-shell active-surface-shell"/);
+  assert.match(html, /aria-label="更新当前状态"/);
+  assert.doesNotMatch(html, /旧流程成功提示|aria-label="主要工作区"|class="section-nav"|现在：筛选与分组/);
+});
+
+test("an outcome is visible only on the action surface that produced it", () => {
+  const value = model();
+  value.workspace = "now";
+  value.outcome = {
+    actionId: "candidate-organize:4",
+    scope: "workspace:review",
+    kind: "notice",
+    lifecycle: "UNTIL_NEXT_ACTION",
+    message: "当前没有需要整理的内容。",
+  };
+  assert.doesNotMatch(renderApp(value), /当前没有需要整理的内容/);
+  value.workspace = "review";
+  const html = renderApp(value);
+  assert.match(html, /data-outcome-scope="workspace:review"/);
+  assert.match(html, /当前没有需要整理的内容/);
+});
+
 test("shell exposes exactly four user-level primary destinations and no-agent degradation", () => {
   const value = model();
   value.workspace = "now";
@@ -763,9 +795,9 @@ test("Project creation exposes one adaptive Grill entry across Blank, Page, and 
     sourceOrCreationEvent: "test",
   }];
   const html = renderApp(value);
-  assert.match(html, /V2 · Project Grill Me/);
+  assert.match(html, /项目梳理/);
   assert.match(html, /data-action="v2-project-creation-grill-open" data-value="BLANK"/);
-  assert.match(html, /开始梳理 Project/);
+  assert.match(html, /开始梳理项目/);
   assert.match(html, /data-action="v2-project-creation-grill-open" data-value="MINI_PROJECT:mini:release:1:4"/);
   assert.match(html, /演化为 Project/);
   assert.doesNotMatch(html, /data-action="create-v2-project"|data-field="v2ProjectName"|直接创建/);
@@ -817,7 +849,7 @@ test("Project Creation Grill keeps facts, inference, unknown, one question, zero
     },
   };
   let html = renderApp(value);
-  assert.match(html, /Project Grill Me · 基于当前页面/);
+  assert.match(html, /项目梳理 · 基于当前页面/);
   assert.match(html, /已确认事实[\s\S]*已有发布核对材料/);
   assert.match(html, /Copilot 判断[\s\S]*长期运营可能不在当前边界/);
   assert.match(html, /仍待澄清[\s\S]*最终结果尚未确认/);
@@ -1255,7 +1287,7 @@ test("Migration workspace renders only the controller's bounded failure and not 
 
 test("Project workspace requires adaptive Grill and exposes no direct-creation bypass", () => {
   const unavailable = renderApp(model());
-  assert.match(unavailable, /V2 · Project Grill Me/);
+  assert.match(unavailable, /项目梳理/);
   assert.match(unavailable, /data-action="v2-project-creation-grill-open"[^>]*disabled/);
   const available = model();
   available.v2ProjectCreationGrillAvailable = true;
@@ -1369,7 +1401,8 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
   value.originReturnLabel = "返回原内容";
   value.v2MiniProjectGrill = { "mini-open": { status: "ready", expectedVersion: 4, answers: [], result } };
   html = renderApp(value);
-  assert.match(html, /事实、判断和未知分开显示/);
+  assert.match(html, /只保留来源摘要、已确认事实和当前唯一问题/);
+  assert.match(html, /<details class="grill-reasoning"><summary>查看判断依据<\/summary>/);
   assert.match(html, /当前目标是交付一个可验证的发布结果/);
   assert.match(html, /哪些内容明确不属于本次交付/);
   assert.match(html, /data-field="v2MiniProjectGrillAnswer"/);
@@ -1410,13 +1443,13 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
   } } };
   html = renderApp(value);
   assert.match(html, /零丢失阅读预览 · 尚未应用/);
-  assert.match(html, /原材料 2/);
+  assert.match(html, /来源内容 2/);
   assert.match(html, /删除 0/);
   assert.match(html, /待判断／原始材料（原位保留）/);
   assert.match(html, /data-action="v2-mini-project-grill-proposal"/);
   assert.match(html, /只有之后明确“确认应用”才会改变正文/);
   assert.match(html, /查看讨论依据/);
-  assert.ok(html.indexOf("零丢失阅读预览") < html.indexOf("已确认事实"));
+  assert.ok(html.indexOf("零丢失阅读预览") < html.indexOf("<h4>已确认事实</h4>"));
   const previewDialog = html.match(/<section class="inbox-dialog action-dialog mini-project-grill"[\s\S]*?<\/section>/)?.[0] ?? "";
   const visiblePreviewDialog = previewDialog.replace(/<[^>]+>/g, " ");
   assert.doesNotMatch(visiblePreviewDialog, /Session only|Provider|Proposal|Commit|SQLite|HIGH|SESSION_DRAFT_ONLY/);
@@ -1488,7 +1521,7 @@ test("V2 Now Work renders only non-empty explainable regions without scores or b
   value.workspace = "now";
   value.v2NowWork = { generatedAt: "2026-07-20T12:00:00.000Z", focus: [], waitingReview: [], conditionOptions: [], next: [{ objectId: "task-next", objectType: "TASK", version: 2, text: "核对告警", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-20T11:00:00.000Z", reason: "近期建立，可直接推进", primaryAnchorExternalId: "block-next" }] };
   const html = renderApp(value);
-  assert.match(html, /继续处理/);
+  assert.match(html, /现在先做/);
   assert.match(html, /近期建立，可直接推进/);
   assert.doesNotMatch(html, /来自当前关注/);
   assert.doesNotMatch(html, /需要回看/);
@@ -1560,7 +1593,7 @@ test("V2 Now Work adds bounded Task owner context without replacing the single p
   });
 
   const html = renderApp(value);
-  const card = html.match(/<article class="card compact now-card"[\s\S]*?<\/article>/)?.[0] ?? "";
+  const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
   assert.match(card, /所属项目：发布治理/);
   assert.doesNotMatch(card, /所属 Project|Anchor|Commit/);
   assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
@@ -1650,7 +1683,7 @@ test("V2 Now Work makes Task recovery the only action and hides internal recover
   });
 
   const html = renderApp(value);
-  const card = html.match(/<article class="card compact now-card"[\s\S]*?<\/article>/)?.[0] ?? "";
+  const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
   assert.match(card, /上一次修改需要恢复/);
   assert.match(card, /相关写入已经停止/);
   assert.match(card, /data-action="view" data-value="audit"[^>]*>查看差异与恢复记录/);
@@ -1737,7 +1770,7 @@ test("V2 Now Work fails closed when Task recovery facts are unavailable", () => 
   value.v2TaskReentryLoadError = "未能读取未完成修改";
 
   const html = renderApp(value);
-  const card = html.match(/<article class="card compact now-card"[\s\S]*?<\/article>/)?.[0] ?? "";
+  const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
   assert.match(card, /当前安全状态暂时无法核对/);
   assert.match(card, /正式内容没有因此改变/);
   assert.match(card, /data-action="view" data-value="audit"[^>]*>核对未完成修改/);
@@ -1900,6 +1933,8 @@ test("V2 Condition is edited in one in-context form with explicit Waiting eviden
   assert.match(html, /只记录眼下是否能继续，不会改变是否完成、当前关注或归属/);
   for (const field of ["v2ConditionKind", "v2WaitingFor", "v2ExpectedResult", "v2ConditionReason", "v2BlockerObjectId", "v2ConditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
   assert.match(html, /TASK · 恢复真实事件/);
+  assert.match(html, /type="datetime-local" step="60" aria-describedby="v2-condition-local-time"/);
+  assert.match(html, /使用当前设备的本地时间/);
   assert.match(html, /data-action="submit-v2-condition" data-value="task-next\|2"/);
 });
 
@@ -1915,6 +1950,8 @@ test("V2 Task deadline stays an explicit no-score action in Now Work", () => {
   html = renderApp(value);
   assert.match(html, /只影响可解释排序，不产生分数/);
   assert.match(html, /data-field="v2DueAt"/);
+  assert.match(html, /type="datetime-local" step="60" aria-describedby="v2-due-local-time"/);
+  assert.match(html, /使用当前设备的本地时间/);
   assert.match(html, /data-field="v2ClearDueAt"/);
   assert.match(html, /data-action="submit-v2-deadline"/);
 });
@@ -2071,6 +2108,13 @@ test("Review Center exposes Provider analysis only when capability is enabled an
   assert.match(html, /data-action="v2-provider-analyze-current-block"[^>]*disabled aria-busy="true"/);
   assert.match(html, /只生成一份可审阅方案/);
   assert.match(html, /正文仍可编辑/);
+
+  available.v2ProviderState = { status: "error", message: "这次分析没有完成。" };
+  const failed = renderApp(available);
+  assert.match(failed, /role="alert"/);
+  assert.match(failed, />重新分析<\/button>/);
+  assert.match(failed, /data-action="runtime-diagnostics"[^>]*>查看系统状态/);
+  assert.match(failed, /没有修改正文或正式事项/);
 });
 
 test("local LLM Proposal exposes one-machine revision with observable busy state", () => {
@@ -2758,6 +2802,8 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.doesNotMatch(source, /window\.(?:prompt|confirm)\s*\(/);
   assert.match(openPrimaryText, /原正文连接已不可用；没有修改正式事项。请在系统状态中检查并重新连接正文/);
   assert.doesNotMatch(openPrimaryText, /\bAnchor\b|运行时|对象/);
+  assert.match(openPrimaryText, /scrollToBlockInPage\(page\.pageName \?\? page\.displayName/);
+  assert.doesNotMatch(openPrimaryText, /scrollToBlockInPage\(page\.pageUuid/);
   for (const kind of ["v2-candidate-update", "confirm-v2-commit", "confirm-v2-undo", "v2-condition", "v2-deadline"]) {
     assert.match(source, new RegExp(`openActionDialog\\("${kind}"`));
   }
@@ -2769,6 +2815,7 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /async function openV2ProjectWorksite[\s\S]*listAllPrimaryAnchors\(client\)[\s\S]*Editor\.getCurrentPage\(\)[\s\S]*Editor\.getPage\(primaryAnchor\.externalId\)[\s\S]*Editor\.getPage\(`Project\/\$\{current\.text\}`\)[\s\S]*identity\.pageUuid === primaryAnchor\.externalId[\s\S]*pushState\("page"[\s\S]*openV2PrimaryAnchor\(primaryAnchor\.externalId\)/);
   assert.match(source, /action === "v2-project-worksite-open"[\s\S]*openV2ProjectWorksite\(objectId, expectedVersion\)[\s\S]*if \(!latestError\) await logseq\.hideMainUI\(\)/);
   assert.match(source, /action === "v2-open-primary-anchor"[\s\S]*decodeAttentionNowPilotPrimaryValue\(value\)[\s\S]*openV2PrimaryAnchor\(primary\.value\)[\s\S]*recordAttentionNowPilotActed\(primary\.signalId\)[\s\S]*await logseq\.hideMainUI\(\)/);
+  assert.doesNotMatch(source, /已定位到主正文；Now Work 和正式状态未改变/);
   assert.match(source, /action === "v2-condition-open"[\s\S]*openActionDialog\("v2-condition", value\)[\s\S]*action === "submit-v2-condition"[\s\S]*decodeAttentionNowPilotPrimaryValue\(value\)[\s\S]*changeCondition\([\s\S]*recordAttentionNowPilotActed\(primary\.signalId\)/);
   assert.doesNotMatch(source, /action === "v2-condition-open"[\s\S]{0,240}recordAttentionNowPilotActed/);
   assert.match(projectCreationSubmit, /v2ReentryTargetObjectId = result\.object\.objectId/);
@@ -2778,7 +2825,14 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.doesNotMatch(projectClosureSubmit, /"[^"\n]*(?:Project Closure|Objective|Proposal)[^"\n]*"/);
   assert.doesNotMatch(source, /action === "create-v2-project"/);
   assert.match(source, /const returnToOrigin = cancelActionDialogReturnsToOrigin\(actionDialog\?\.kind, originRoute !== undefined\);[\s\S]*if \(returnToOrigin\) \{[\s\S]*await returnToBusinessOrigin\(\);/);
-  assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*originRoute = undefined;[\s\S]*originRouteController\.returnTo\(token\)/);
+  assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*await clearBusinessOrigin\(\);[\s\S]*originRouteController\.returnTo\(token\)/);
+  assert.match(source, /async function bindBusinessOrigin[\s\S]*saveDurableOrigin\(logseq\.FileStorage, graphKey, token\)/);
+  assert.match(source, /async function environmentInfo[\s\S]*await restoreBusinessOriginForCurrentGraph\(\)/);
+  assert.match(source, /createDelegatedActionHandler\(async \(action, value\) => \{[\s\S]*beginUiAction\(action\);[\s\S]*handleAction\(action, value\)/);
+  assert.match(source, /const outcome = createScopedOutcome\([\s\S]*activeOutcomeScope\(\{ workspace,[\s\S]*actionDialogKind: actionDialog\.kind/);
+  assert.match(source, /function beginUiAction[\s\S]*v2CandidatePanel\.status === "success"[\s\S]*v2ProviderState\.status === "success"[\s\S]*v2ProjectClosureProposalMessage = undefined/);
+  assert.match(source, /action === "export-diagnostics"[\s\S]*是否保存以下载窗口中的最终选择为准/);
+  assert.doesNotMatch(source, /Diagnostics JSONL 已导出/);
 });
 
 test("formal V2 plugin entry excludes the writable V1 runtime", async () => {

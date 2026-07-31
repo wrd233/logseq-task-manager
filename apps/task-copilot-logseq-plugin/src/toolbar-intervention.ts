@@ -143,5 +143,5 @@ export function renderToolbarIntervention(summary: ToolbarIntervention): string 
     : summary.mode === "attention"
       ? `<span class="task-copilot-toolbar-badge" aria-hidden="true">${circledCount(summary.count)}</span>`
       : "";
-  return `<span class="task-copilot-toolbar-state" data-toolbar-mode="${summary.mode}" title="${escapeAttribute(summary.title)}" aria-label="${escapeAttribute(summary.title)}"><span aria-hidden="true">TC</span>${badge}</span>`;
+  return `<span class="task-copilot-toolbar-state" data-toolbar-mode="${summary.mode}" title="${escapeAttribute(summary.title)}" aria-label="${escapeAttribute(summary.title)}"><span class="task-copilot-toolbar-name" aria-hidden="true">Task Copilot</span>${badge}</span>`;
 }

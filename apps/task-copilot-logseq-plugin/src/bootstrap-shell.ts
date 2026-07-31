@@ -185,6 +185,7 @@ export class BootstrapRegistration {
       div[data-injected-ui="${TOOLBAR_KEY}-${PLUGIN_ID}"] { display: inline-flex; align-items: center; }
       .task-copilot-personal-mvp-toolbar { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; font-weight: 700; }
       .task-copilot-toolbar-state { display: inline-flex; align-items: center; gap: 3px; }
+      .task-copilot-toolbar-name { font-size: 12px; letter-spacing: -.01em; }
       .task-copilot-toolbar-badge { color: var(--ls-primary-text-color); font-weight: 800; }
       .task-copilot-toolbar-badge.recovery { color: var(--ls-error-text-color, #b42318); }
       .task-copilot-project-reentry-head-action { margin-left: 6px; padding: 3px 9px; border: 1px solid var(--ls-border-color, currentColor); border-radius: 999px; color: var(--ls-primary-text-color); background: var(--ls-secondary-background-color); font-size: 12px; line-height: 1.5; }

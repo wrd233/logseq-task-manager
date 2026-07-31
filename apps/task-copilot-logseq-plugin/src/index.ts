@@ -93,6 +93,7 @@ import { insertSlashCreateSyntax, slashCreateContentAfterInsertion, SLASH_CREATE
 import { projectClosureProposalFailure, readProjectClosureUserJudgments } from "./project-closure-input.ts";
 import { OriginRouteController, type OriginRouteToken } from "./origin-route-controller.ts";
 import type { OriginReturnTarget } from "./origin-route-controller.ts";
+import { clearDurableOrigin, loadDurableOrigin, saveDurableOrigin } from "./durable-origin-storage.ts";
 import { readSelectedBlockForAnalysis, SelectedBlockAnalysisTarget } from "./selected-block-analysis.ts";
 import {
   AttentionShadowSession,
@@ -133,6 +134,7 @@ import {
   type PluginMigrationRunView,
 } from "./migration-execution-controller.ts";
 import { applyHostThemeMode, configuredThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
+import { activeOutcomeScope, createScopedOutcome } from "./scoped-outcome.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -147,6 +149,8 @@ let v2NowWorkGrouping: V2NowWorkGrouping = "mixed";
 let message: string | undefined;
 let latestError: string | undefined;
 let recentActionCommitId: string | undefined;
+let uiActionSequence = 0;
+let currentUiActionId = "runtime-startup:0";
 let actionDialog: UiModel["actionDialog"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 const attentionShadowSession = new AttentionShadowSession();
@@ -183,6 +187,21 @@ function isMigrationExecutionClient(client: ServiceRuntimeClient | undefined): c
     && typeof client.undoLegacyMigrationBatch === "function"
     && typeof client.activateLegacyMigration === "function",
   );
+}
+
+function beginUiAction(action: string): void {
+  uiActionSequence += 1;
+  currentUiActionId = `${action}:${uiActionSequence}`;
+  message = undefined;
+  latestError = undefined;
+  recentActionCommitId = undefined;
+  if (v2CandidatePanel.status === "success" || v2CandidatePanel.status === "error") {
+    v2CandidatePanel = { status: "idle" };
+  }
+  if (v2ProviderState.status === "success" || v2ProviderState.status === "error") {
+    v2ProviderState = { status: "idle" };
+  }
+  v2ProjectClosureProposalMessage = undefined;
 }
 let lastAttentionShadowSummarySignature: string | undefined;
 const graphReadBridgeController = new GraphReadBridgeController({
@@ -245,6 +264,7 @@ const originRouteController = new OriginRouteController({
 });
 let pageContext: PageContextSnapshot | undefined;
 let originRoute: OriginRouteToken | undefined;
+let durableOriginLoadedGraphKey: string | undefined;
 let v2ReentryTargetObjectId: string | undefined;
 const v2ProviderTarget = new SelectedBlockAnalysisTarget();
 let serviceDiscoveryGeneration = 0;
@@ -275,6 +295,44 @@ const projectContextRecoveryController = new ProjectContextRecoveryController(
   }),
   refresh,
 );
+
+async function bindBusinessOrigin(token: OriginRouteToken): Promise<void> {
+  originRoute = token;
+  const graphKey = currentGraphKey;
+  if (!graphKey) return;
+  durableOriginLoadedGraphKey = graphKey;
+  try {
+    await saveDurableOrigin(logseq.FileStorage, graphKey, token);
+  } catch (error) {
+    operationalLogger.log("warn", "source-resolution", "durable_origin_save_failed", {
+      actionId: "save-business-origin",
+      result: "session-only",
+      errorCode: explain(error),
+    });
+  }
+}
+
+async function clearBusinessOrigin(): Promise<void> {
+  originRoute = undefined;
+  durableOriginLoadedGraphKey = currentGraphKey;
+  try {
+    await clearDurableOrigin(logseq.FileStorage);
+  } catch (error) {
+    operationalLogger.log("warn", "source-resolution", "durable_origin_clear_failed", {
+      actionId: "clear-business-origin",
+      result: "cleared-in-memory",
+      errorCode: explain(error),
+    });
+  }
+}
+
+async function restoreBusinessOriginForCurrentGraph(): Promise<void> {
+  const graphKey = currentGraphKey;
+  if (!graphKey || durableOriginLoadedGraphKey === graphKey) return;
+  durableOriginLoadedGraphKey = graphKey;
+  const restored = await loadDurableOrigin(logseq.FileStorage, graphKey);
+  if (restored) originRoute = restored;
+}
 
 function abandonV2RebindCaptureWithoutResume(): void {
   v2RebindCaptureController.abandon();
@@ -437,7 +495,7 @@ async function openV2PrimaryAnchor(externalId: string): Promise<void> {
   if (!logseq.Editor.scrollToBlockInPage || block.page === undefined) throw new Error("当前 Logseq 无法安全打开这条正文；没有修改正式事项。");
   const page = await resolveLogseqPageReference(block.page, logseq.Editor.getPage?.bind(logseq.Editor));
   if (page.displayName === "无法解析的 Logseq 页面") throw new Error("正文所在页面当前无法确认；没有修改正式事项。请从系统状态检查正文连接。");
-  await logseq.Editor.scrollToBlockInPage(page.pageUuid ?? page.pageName ?? page.displayName.replace(" · Journal", ""), externalId);
+  await logseq.Editor.scrollToBlockInPage(page.pageName ?? page.displayName.replace(" · Journal", ""), externalId);
 }
 
 async function openV2ProjectWorksite(objectId: string, expectedVersion: number): Promise<void> {
@@ -661,6 +719,14 @@ async function model(): Promise<UiModel> {
     available: serviceConnection.status === "READY" && !v2ProposalLoadError && !v2AuditLoadError,
   };
   updateToolbarIntervention();
+  const outcome = createScopedOutcome({
+    actionId: currentUiActionId,
+    scope: activeOutcomeScope({ workspace, ...(actionDialog?.kind ? { actionDialogKind: actionDialog.kind } : {}) }),
+    ...(message ? { message } : {}),
+    ...(latestError ? { error: latestError } : {}),
+    ...(recentActionCommitId ? { commitId: recentActionCommitId } : {}),
+    recoveryRequired: v2SemanticCommits.some((commit) => commit.status === "RECOVERY_REQUIRED"),
+  });
   return {
     workspace,
     agent: { enabled: false, providerId: "no-agent" },
@@ -673,8 +739,7 @@ async function model(): Promise<UiModel> {
     reentryProjects: [],
     signalsByObject: {},
     proposalImpacts: {},
-    ...(message ? { message } : {}),
-    ...(latestError ? { error: latestError } : {}),
+    ...(outcome ? { outcome } : {}),
     ...(actionDialog ? { actionDialog } : {}),
     runtime: {
       pluginVersion: diagnostics.snapshot().plugin_version,
@@ -774,7 +839,6 @@ async function model(): Promise<UiModel> {
     ...(v2StatusNarrationLoadError ? { v2StatusNarrationLoadError } : {}),
     ...(v2ProposalLoadError ? { v2ProposalLoadError } : {}),
     ...(v2AuditLoadError ? { v2AuditLoadError } : {}),
-    ...(recentActionCommitId ? { recentActionCommitId } : {}),
     ...(originRoute ? { originReturnLabel: originRoute.kind === "BLOCK" ? "返回原内容" as const : "返回原页面" as const } : {}),
     ...(v2MigrationLoadError ? { v2MigrationLoadError } : {}),
     ...(pageContext ? { pageContext } : {}),
@@ -2345,7 +2409,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "export-diagnostics") {
     downloadText(`task-copilot-diagnostics-${Date.now()}.jsonl`, operationalLogger.exportJsonl(), "application/x-ndjson");
-    message = "Diagnostics JSONL 已导出。";
+    message = "已打开系统下载窗口；是否保存以下载窗口中的最终选择为准。";
     await showRuntimeDiagnostics();
     return;
   }
@@ -2668,7 +2732,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "v2-open-primary-anchor" && value) {
     const primary = decodeAttentionNowPilotPrimaryValue(value);
-    await run(async () => openV2PrimaryAnchor(primary.value), "已定位到主正文；Now Work 和正式状态未改变。");
+    await run(async () => openV2PrimaryAnchor(primary.value));
     if (!latestError) {
       recordAttentionNowPilotActed(primary.signalId);
       await logseq.hideMainUI();
@@ -3477,7 +3541,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }
     if (openedPageName && !latestError) {
       pageContext = undefined;
-      originRoute = undefined;
+      await clearBusinessOrigin();
       await logseq.App.pushState("page", { name: openedPageName });
     }
     return;
@@ -3886,7 +3950,10 @@ async function handleAction(action: string, value?: string): Promise<void> {
   throw new Error(`V2_UI_ACTION_UNSUPPORTED: 未注册操作 ${action}；没有执行写入。`);
 }
 
-const onRootClick = createDelegatedActionHandler(handleAction, (error) => {
+const onRootClick = createDelegatedActionHandler(async (action, value) => {
+  beginUiAction(action);
+  await handleAction(action, value);
+}, (error) => {
   const correlationId = `TC-unhandled-${Date.now()}`;
   latestError = `界面操作失败：${explain(error)}。Graph 正文与 SQLite 正式状态保持安全。诊断 ID：${correlationId}`;
   operationalLogger.log("error", "ui-action", "ui_action_unhandled", { correlationId, result: "error" }, error);
@@ -3913,14 +3980,16 @@ async function showTaskCopilot(): Promise<void> {
 }
 
 async function showTaskCopilotFromGeneralEntry(): Promise<void> {
-  originRoute = undefined;
+  beginUiAction("open-task-copilot");
+  await clearBusinessOrigin();
   v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   await showTaskCopilot();
 }
 
 async function openFromToolbar(): Promise<void> {
-  originRoute = undefined;
+  beginUiAction("open-toolbar-destination");
+  await clearBusinessOrigin();
   v2ReentryTargetObjectId = undefined;
   v2ProviderTarget.clear();
   if (toolbarIntervention.target === "diagnostics" || !featureReady) {
@@ -3937,7 +4006,8 @@ async function showRuntimeDiagnostics(): Promise<void> {
 }
 
 async function showRuntimeDiagnosticsFromGeneralEntry(): Promise<void> {
-  originRoute = undefined;
+  beginUiAction("open-system-status");
+  await clearBusinessOrigin();
   v2ProviderTarget.clear();
   await showRuntimeDiagnostics();
 }
@@ -3956,9 +4026,10 @@ async function processBlockFromContext(blockUuid: string): Promise<void> {
       return;
     }
   }
-  originRoute = await originRouteController.captureBlock(blockUuid);
+  await bindBusinessOrigin(await originRouteController.captureBlock(blockUuid));
   v2ProviderTarget.bind(blockUuid);
   try {
+    beginUiAction("v2-provider-analyze-current-block");
     await showTaskCopilot();
     await handleAction("v2-provider-analyze-current-block");
   } finally {
@@ -3968,7 +4039,7 @@ async function processBlockFromContext(blockUuid: string): Promise<void> {
 
 async function returnToBusinessOrigin(): Promise<void> {
   const token = originRoute;
-  originRoute = undefined;
+  await clearBusinessOrigin();
   if (!token) {
     logseq.hideMainUI();
     return;
@@ -4072,6 +4143,7 @@ interface BlockContextActionResult {
 }
 
 async function runBlockContextAction(actionId: string, action: () => Promise<BlockContextActionResult>): Promise<void> {
+  beginUiAction(actionId);
   const correlationId = `TC-block-${Date.now()}`;
   const availability = formalActionAvailability();
   if (!availability.available) {
@@ -4141,6 +4213,7 @@ async function undoBlockFocusFromContext(): Promise<void> {
 }
 
 async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
+  beginUiAction("block-condition-open");
   const correlationId = `TC-block-condition-${Date.now()}`;
   const availability = formalActionAvailability();
   if (!availability.available) {
@@ -4170,7 +4243,7 @@ async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
   try {
     const capturedOrigin = await originRouteController.captureBlock(blockUuid);
     const prepared = await blockConditionController.prepare(blockUuid);
-    originRoute = capturedOrigin;
+    await bindBusinessOrigin(capturedOrigin);
     actionDialog = {
       kind: "v2-block-condition-route",
       value: `${prepared.objectId}|${prepared.objectVersion}|${prepared.blockUuid}`,
@@ -4198,6 +4271,7 @@ async function openBlockConditionFromContext(blockUuid: string): Promise<void> {
 }
 
 async function openMiniProjectGrillFromContext(blockUuid: string): Promise<void> {
+  beginUiAction("mini-project-grill-open");
   const correlationId = `TC-mini-project-grill-${Date.now()}`;
   if (!formalActionAvailability().available || !serviceRuntimeClient) {
     await showBlockContextMessage("智能梳理暂时不可用；没有开始讨论，原内容保持原位。", "warning");
@@ -4209,7 +4283,7 @@ async function openMiniProjectGrillFromContext(blockUuid: string): Promise<void>
       throw new Error("当前 Block 对应的正式对象不是 MiniProject；没有开始讨论。");
     }
     const capturedOrigin = await originRouteController.captureBlock(blockUuid);
-    originRoute = capturedOrigin;
+    await bindBusinessOrigin(capturedOrigin);
     workspace = "objects";
     actionDialog = { kind: "v2-mini-project-grill", value: `${object.objectId}|${object.version}` };
     latestError = undefined;
@@ -4236,9 +4310,10 @@ async function undoBlockConditionFromContext(): Promise<void> {
 }
 
 async function openPageContextFromMenu(page: string): Promise<void> {
+  beginUiAction("page-context-open");
   await guardedFeatureCommand(async () => {
     pageContext = await pageContextController.open(page);
-    originRoute = originRouteController.capturePage(pageContext);
+    await bindBusinessOrigin(originRouteController.capturePage(pageContext));
     actionDialog = { kind: "v2-page-context", value: pageContext.pageUuid };
     latestError = undefined;
     operationalLogger.log("info", "ui-action", "page_context_opened", {
@@ -4252,6 +4327,7 @@ async function openPageContextFromMenu(page: string): Promise<void> {
 }
 
 async function openCurrentProjectReentryFromPageHead(): Promise<void> {
+  beginUiAction("project-page-reentry-open");
   await guardedFeatureCommand(async () => {
     const current = await pageContextController.resolveCurrentProject();
     if (!current) {
@@ -4268,7 +4344,7 @@ async function openCurrentProjectReentryFromPageHead(): Promise<void> {
       throw new Error("当前 Project Page 在打开期间发生变化；旧顶部入口已作废。");
     }
     pageContext = snapshot;
-    originRoute = originRouteController.capturePage(snapshot);
+    await bindBusinessOrigin(originRouteController.capturePage(snapshot));
     v2ReentryTargetObjectId = snapshot.project.objectId;
     workspace = "reentry";
     actionDialog = undefined;
@@ -4297,12 +4373,18 @@ function registerBootstrapShell(): void {
     openToolbar: openFromToolbar,
     processCurrentBlock: () => guardedFeatureCommand(processCurrentBlockFromCommand),
     openReview: () => {
-      originRoute = undefined;
-      return guardedFeatureCommand(() => openWorkspace("review"));
+      return guardedFeatureCommand(async () => {
+        beginUiAction("open-review");
+        await clearBusinessOrigin();
+        await openWorkspace("review");
+      });
     },
     openNowWork: () => {
-      originRoute = undefined;
-      return guardedFeatureCommand(() => openWorkspace("now"));
+      return guardedFeatureCommand(async () => {
+        beginUiAction("open-now");
+        await clearBusinessOrigin();
+        await openWorkspace("now");
+      });
     },
     toggleCurrentBlockFocus: toggleCurrentBlockFocusFromCommand,
     diagnostics: showRuntimeDiagnosticsFromGeneralEntry,
@@ -4352,6 +4434,7 @@ async function environmentInfo(timeoutMs = 2_000): Promise<void> {
   currentGraphKey = typeof graphIdentity === "string"
     ? await deriveLauncherGraphKey(graphIdentity).catch(() => undefined)
     : undefined;
+  await restoreBusinessOriginForCurrentGraph();
   diagnostics.setEnvironment(graphLabel || "available (identity shape unavailable)", typeof version === "string" ? version : JSON.stringify(version));
 }
 
@@ -4398,7 +4481,8 @@ async function recoverCurrentGraphRuntime(successMessage?: string): Promise<bool
 }
 
 async function handleCurrentGraphChanged(): Promise<void> {
-  originRoute = undefined;
+  await clearBusinessOrigin();
+  durableOriginLoadedGraphKey = undefined;
   actionDialog = undefined;
   v2ConditionUndoPreparation = undefined;
   v2ProjectClosureEvidence = undefined;

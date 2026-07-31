@@ -13,7 +13,7 @@ function host(options: { currentPageUuid?: string; blockPageUuid?: string } = {}
       getCurrentPage: async () => ({ uuid: currentPageUuid, name: currentPageUuid }),
       getPage: async (identity: unknown) => {
         const uuid = String(identity);
-        return { uuid, name: uuid === "page-origin" ? "renamed-origin" : uuid };
+        return { uuid, name: uuid === "page-origin" ? "renamed-origin" : `${uuid}-name` };
       },
       getBlock: async (uuid: string) => uuid === "missing"
         ? null
@@ -34,10 +34,10 @@ test("main-page Block origin revalidates its UUID, scrolls to the current page i
     surface: "MAIN_PAGE",
     blockUuid: "block-origin",
     pageUuid: "page-main",
-    pageName: "page-main",
+    pageName: "page-main-name",
   });
   assert.deepEqual(await controller.returnTo(token), { status: "RETURNED", label: "已回到原内容。" });
-  assert.deepEqual(fake.events, ["scroll:page-main:block-origin", "hide"]);
+  assert.deepEqual(fake.events, ["scroll:page-main-name:block-origin", "hide"]);
 });
 
 test("secondary-page Block origin preserves the sidebar instead of navigating the main page", async () => {
@@ -83,7 +83,7 @@ test("a persisted formal source target returns to the main Block even after the 
     status: "RETURNED",
     label: "已回到来源内容。",
   });
-  assert.deepEqual(fake.events, ["scroll:page-mini-project:mini-project-root", "hide"]);
+  assert.deepEqual(fake.events, ["scroll:page-mini-project-name:mini-project-root", "hide"]);
 
   fake.events.length = 0;
   assert.deepEqual(await controller.returnToMainTarget({ kind: "PAGE", externalId: "page-origin" }), {

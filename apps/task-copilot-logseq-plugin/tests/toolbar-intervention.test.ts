@@ -113,6 +113,7 @@ test("ordinary OPEN, Focus, future WAITING and ordinary Candidate totals stay si
     },
   });
   assert.equal(renderToolbarIntervention(summary).includes("toolbar-badge"), false);
+  assert.match(renderToolbarIntervention(summary), />Task Copilot<\/span>/);
 });
 
 test("badge counts only due review, pending confirmation, HIGH accepted-not-applied, pending Commit and formal risk", () => {
