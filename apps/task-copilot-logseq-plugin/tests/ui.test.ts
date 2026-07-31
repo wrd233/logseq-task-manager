@@ -2203,7 +2203,10 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   html = renderApp(value);
   assert.match(html, /继续上次修改/);
   assert.match(html, /沿用原记录/);
+  assert.match(html, /本次操作[\s\S]*正式化告警[\s\S]*更新 1 处正文/);
   assert.match(html, /data-action="submit-v2-proposal-commit"[^>]*>确认继续</);
+  assert.equal(html.match(/data-action="submit-v2-proposal-commit"/g)?.length, 1);
+  assert.doesNotMatch(html, /aria-label="主要工作区"|class="section-nav"|data-action="v2-proposal-commit"/);
   delete value.actionDialog;
   value.v2SemanticCommits[0]!.status = "RECOVERY_REQUIRED";
   value.v2SemanticCommits[0]!.errorCode = "VERIFY_FAILED";
@@ -2216,6 +2219,7 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /恢复到安全状态/);
   assert.match(html, /同一恢复记录/);
   assert.match(html, /data-action="submit-v2-proposal-commit"[^>]*>确认恢复</);
+  assert.doesNotMatch(html, /上次修改需要恢复|data-action="v2-proposal-commit"/);
   delete value.actionDialog;
   value.v2Proposals[0]!.proposal.status = "STALE";
   value.v2SemanticCommits = [];
@@ -2235,6 +2239,16 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
   assert.match(html, /基础功能仍可使用/);
   assert.match(html, /data-action="v2-proposal-undo"/);
   assert.match(html, /已正式应用/);
+
+  value.actionDialog = { kind: "confirm-v2-undo", value: "proposal-commit:abc" };
+  html = renderApp(value);
+  assert.match(html, /本次操作[\s\S]*正式化告警/);
+  assert.equal(html.match(/data-action="submit-v2-proposal-undo"/g)?.length, 1);
+  assert.doesNotMatch(html, /aria-label="主要工作区"|class="section-nav"|data-action="v2-proposal-undo"/);
+  delete value.actionDialog;
+  html = renderApp(value);
+  assert.match(html, /aria-label="主要工作区"/);
+  assert.match(html, /data-action="v2-proposal-undo"/);
 
   value.v2ProviderAvailable = true;
   html = renderApp(value);

@@ -1361,6 +1361,18 @@ function renderMore(model: UiModel): string {
   </div></section>`;
 }
 
+function focusedConfirmationContext(model: UiModel, dialog: NonNullable<UiModel["actionDialog"]>): string {
+  if (dialog.kind !== "confirm-v2-commit" && dialog.kind !== "confirm-v2-undo") return "";
+  const referenceId = dialog.value.split("|")[0] ?? "";
+  const proposalId = dialog.kind === "confirm-v2-undo"
+    ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === referenceId)?.proposalId
+    : referenceId;
+  const record = model.v2Proposals?.find(({ proposal }) => proposal.proposalId === proposalId);
+  if (!record) return "";
+  const changes = v2ReviewChanges(record).slice(0, 2);
+  return `<div class="confirmation-context"><div class="eyebrow">本次操作</div><strong>${escapeHtml(record.proposal.title)}</strong>${changes.length ? `<p>${escapeHtml(changes.join("；"))}</p>` : ""}</div>`;
+}
+
 function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
@@ -1821,7 +1833,8 @@ function renderActionDialog(model: UiModel): string {
         : confirmation[1];
     const actionLabel = recovering ? "确认恢复" : continuing ? "确认继续" : isReviewOnly ? "确认方案" : isUndo ? "确认撤销" : "确认应用";
     const eyebrow = recovering ? "恢复操作 · 沿用同一恢复记录" : continuing ? "继续原修改 · 沿用原记录" : isReviewOnly ? "审阅方案 · 尚未应用" : isUndo ? "撤销操作" : "确认应用 · 点击后正式生效";
-    return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(title)}"><div class="eyebrow">${escapeHtml(eyebrow)}</div><h3>${escapeHtml(title)}</h3><label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(statement)}</label><div class="actions">${button(actionLabel, confirmation[2], dialog.value, isReviewOnly ? "primary" : "danger")}${cancel}</div></section>`;
+    const context = focusedConfirmationContext(model, dialog);
+    return `<section class="inbox-dialog action-dialog" aria-label="${escapeHtml(title)}"><div class="eyebrow">${escapeHtml(eyebrow)}</div><h3>${escapeHtml(title)}</h3>${context}<label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">${escapeHtml(statement)}</label><div class="actions">${button(actionLabel, confirmation[2], dialog.value, isReviewOnly ? "primary" : "danger")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-review-defer") return `<section class="inbox-dialog action-dialog" aria-label="暂缓 V2 语义组"><h3>暂缓语义组</h3><label>复查时间<input type="datetime-local" data-field="v2DeferredUntil"></label><label>原因<input data-field="v2DeferReason" value="等待更多上下文"></label><div class="actions">${button("确认暂缓", "submit-v2-review-defer", dialog.value, "primary")}${cancel}</div></section>`;
   return "";
@@ -1859,6 +1872,15 @@ export function renderApp(model: UiModel): string {
     : model.agent.enabled
       ? `Agent Demo · ${escapeHtml(model.agent.providerId)}`
       : "Copilot 未配置 · 基础事务系统可用";
+  const focusedConfirmation = model.actionDialog?.kind === "confirm-v2-commit" || model.actionDialog?.kind === "confirm-v2-undo";
+  if (focusedConfirmation) {
+    return `<section class="app-shell focused-confirmation-shell">
+      <header class="topbar">
+        <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
+      </header>
+      <main class="workspace focused-confirmation" data-workspace="${model.workspace}">${renderActionDialog(model)}</main>
+    </section>`;
+  }
   const body =
     model.workspace === "now"
         ? renderNow(model)
