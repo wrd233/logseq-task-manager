@@ -9,7 +9,7 @@ product_pilot: V2_TEN_DAY_REPRESENTATIVE_PILOT_COMPLETE
 v1_state: V1_FROZEN_FOR_MIGRATION
 v2_migration_design: V2_MIGRATION_DESIGN_READY
 implemented:
-  - "Current-build cognitive UX audit: real Logseq 0.10.15 and DeepSeek task walkthrough across Light/Dark, normal/narrow, failure, cancellation, interruption, reload and return; report committed before implementation. CUX-P1-01 focused Apply/Undo confirmation prototype is Desktop-validated with one formal action and cancel-to-Review; no prototype Proposal was formally applied. Two P0 and the remaining P1/P2 cognitive findings remain explicit backlog, not silently declared complete"
+  - "Current-build cognitive UX audit: real Logseq 0.10.15 and DeepSeek task walkthrough across Light/Dark, normal/narrow, failure, cancellation, interruption, reload and return; report committed before implementation. CUX-P1-01 focused Apply/Undo confirmation prototype is Desktop-validated with one formal action and cancel-to-Review; no prototype Proposal was formally applied. Two P0 and the remaining P1/P2/P3 cognitive findings, five inferred structural directions and six revalidation tasks remain explicitly tracked, not silently declared complete"
   - "V1 Slice 0-7 and RT-MVP-001B..004 with Desktop evidence"
   - "Plugin-native forms, explicit Phase actions and high-impact confirmation"
   - "Stable inverse Commit serialization and A/B previous-slot recovery"

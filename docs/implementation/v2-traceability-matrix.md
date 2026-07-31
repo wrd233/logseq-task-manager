@@ -24,6 +24,7 @@
 | CUX-P1-01 | Apply / Undo / PENDING 最终确认只保留一个 action surface | PROTOTYPE_VALIDATED | `9cb2927` 隔离最终确认；`d4b4613` 修复取消返回 Review。Plugin 389 tests、typecheck/build 与真实 Logseq accepted-not-applied 流程通过；未执行正式写入。 |
 | CUX-P1-02..04 | Grill 隔离、日常用户语言、scoped message lifecycle | OPEN | 已有真实 Desktop 证据与验收条件；本轮未扩张原型范围。 |
 | CUX-P2-01..03 | Now 密度、Provider 分类、datetime-local AX | OPEN | 已登记为后续优化/专项 Desktop Gate，不影响现有事实安全内核。 |
+| CUX-P3-01..02 | Block 动作发现性、Review 本地时间表达 | OPEN | 当前证据为真实右键菜单与 Review；属于日常可读性/发现性，不用来稀释 P0/P1。 |
 
 ## 横切要求
 

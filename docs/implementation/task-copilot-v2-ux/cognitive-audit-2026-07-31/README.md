@@ -4,7 +4,7 @@
 
 当前 V2 已经具备可信的正式写入安全链：真实 DeepSeek 只生成 Proposal，审阅、确认应用、Undo、进程中断后的 PENDING 续跑都能保持 SQLite、Logseq 正文与来源关系一致；Light、Dark 和 760px 窄窗也都可读可操作。
 
-但当前版本还不能把“前台克制”视为完成。本轮在最新运行代码上确认了 2 个 P0、4 个 P1 和 3 个 P2 认知问题：
+但当前版本还不能把“前台克制”视为完成。本轮在最新运行代码上确认了 2 个 P0、4 个 P1、3 个 P2 和 2 个 P3 认知问题：
 
 1. `整理当前页` 在没有合法候选时，同时显示“建议已放入待我确认”和“这次检查没有完成”，而待审阅队列实际为空。这是错误的完成感。
 2. 从 Block 来源返回后 reload，Logseq 重新打开 `/page/<page-uuid>?anchor=<block-uuid>` 会得到空白的 `Page no longer exists!!`；按 Page 名搜索可以恢复正文，但原 Block 锚点和工作视角已经丢失。
@@ -30,6 +30,27 @@
 | 可提交证据 | 本目录 `screenshots/` 只包含合成内容；没有 API Key、真实地址或私有 Journal 正文 |
 
 本报告只把本轮当前截图和当前 CLI/Service 观察标为 `VERIFIED_CURRENT`。旧报告只用于理解设计合同，不作为当前视觉证据。
+
+证据分类固定为：
+
+- `VERIFIED_CURRENT`：本轮在当前构建、真实 Logseq / Service / DeepSeek 或当前自动测试中直接观察；
+- `INFERRED_DIRECTION`：由当前证据推导的改造方向，尚不是已实现事实；
+- `OPEN_MANUAL_GATE`：本轮工具边界不能替代鼠标、键盘或 VoiceOver 的专项人工结论。
+
+## 用户任务地图
+
+| 用户任务 | 入口与主路径 | 用户需要保持的心智承诺 | 当前状态 | 证据分类 |
+| --- | --- | --- | --- | --- |
+| 记下一句普通内容 | Logseq Block → 分析当前内容 | 普通记录留在 Logseq；模型不擅自正式化 | no-proposal 安全，旧提示干扰 | `VERIFIED_CURRENT` |
+| 把承诺变成可审阅事项 | 当前 Block → DeepSeek → Proposal → Review | AI 只建议；接受不等于应用 | 主路径清楚 | `VERIFIED_CURRENT` |
+| 正式应用与撤销 | Review → final confirm → result → Undo | 最后一步才写；可撤销且不覆盖后续编辑 | 安全链通过，原版确认上下文竞争 | `VERIFIED_CURRENT` |
+| 标记暂时做不了 | Block 右键 → Condition → 表单 | Waiting / Blocked / Paused 与 Lifecycle / Focus 分离 | 安全拒绝通过；datetime 无障碍链待专项确认 | `VERIFIED_CURRENT` + `OPEN_MANUAL_GATE` |
+| 决定现在推进什么 | Now → 筛选/卡片/依据/更多操作 | 当前关注是选择，不是新的状态轴 | 卡片清楚，整屏密度偏高 | `VERIFIED_CURRENT` |
+| 整理当前页 | 顶栏 → 当前页检查 → 待我确认 | 没有候选就明确说没有；结果必须与队列一致 | 错误成功感 | `VERIFIED_CURRENT` |
+| 梳理 MiniProject / 创建 Project | 工作现场或空白 → 一问一答 Grill → Preview/Proposal | 每轮只回答一个问题，不携带全领域模型 | 语义单问，视觉未隔离 | `VERIFIED_CURRENT` |
+| 理解来源变化 | 系统状态 → 用户摘要 → 技术详情 | 正文仍安全；明确下一步和受影响能力 | 表现良好 | `VERIFIED_CURRENT` |
+| 从中断中恢复正式修改 | PENDING → 原记录续跑 → result/Undo | 不重复提交；已完成步骤可辨 | 恢复通过，原版确认有重复入口 | `VERIFIED_CURRENT` |
+| reload 后返回工作现场 | Overlay 关闭 → 来源 Block → reload | Page、Block anchor 与刚才视角可恢复 | UUID route 空白，anchor 丢失 | `VERIFIED_CURRENT` |
 
 ## 逐任务认知走查
 
@@ -246,6 +267,36 @@ Markdown Page 文件仍在；通过 Logseq Search 按 Page 名重新打开可以
 | CUX-P2-01 | Now 整体筛选/卡片/Disclosure 密度偏高 | 02、13 | 默认只保留当前筛选和主要卡片；次级筛选折叠或记忆 |
 | CUX-P2-02 | Provider 瞬时失败只显示“稍后重试”，诊断为 `UNCLASSIFIED_ERROR` | 10 | 前台给出可行动的安全重试/系统状态入口，日志保留结构化分类 |
 | CUX-P2-03 | datetime-local 的 AX 输入看似完成但提交读取为空 | 06、07 | 单独的键盘/VoiceOver/Desktop 手工 Gate；失败时字段级说明而非复用旧全局错误 |
+
+### P3
+
+| ID | 问题 | 当前证据 | 验收条件 |
+| --- | --- | --- | --- |
+| CUX-P3-01 | Task Copilot 的 Block 动作埋在约 30 项原生右键菜单底部 | 03 | 不改变 Logseq 原生菜单语义；至少一个常用入口可由可发现的 Toolbar/命令/快捷键到达，并保留现场上下文 |
+| CUX-P3-02 | Review 使用原始 ISO 时间，增加非必要格式解码 | 16、32 | 日常层显示本地相对/绝对时间；原始时间只进入技术详情与诊断 |
+
+以上问题的截图与运行结果均为 `VERIFIED_CURRENT`；CUX-P2-03 对鼠标、键盘和 VoiceOver 的跨输入方式结论仍为 `OPEN_MANUAL_GATE`，不能由 AX 自动化失败直接外推。
+
+## 结构性改造方向
+
+以下 5 项均为 `INFERRED_DIRECTION`，不是当前已完成能力：
+
+1. **Action-scoped renderer**：把 Apply、Undo、PENDING continue、Condition 等高风险动作提升为互斥的 action surface；打开时不渲染底层可操作工作区。CUX-P1-01 小原型只验证了其中 Apply / Undo 的最小切口。
+2. **Scoped outcome lifecycle**：每条 success / empty / warning / error 绑定 action ID、workspace scope 和过期规则；取消、切换任务或新动作开始时清理无关瞬时提示，禁止全局 message 携带旧因果。
+3. **Durable origin token**：来源不再依赖直接拼接 `/page/<uuid>?anchor=<uuid>`；保存可解析的 Page identity、Block UUID 和 fallback，reload 时先解析当前 Graph 再恢复 anchor，失败时显示明确的一键返回。
+4. **Progressive domain disclosure**：日常层只显示“项目、事项、成果、归属、当前状态”等用户语言；SQLite、Anchor、Lifecycle、Association、版本号只在显式技术详情或诊断中出现。
+5. **One-question workspace**：Grill 活跃时只保留来源摘要、已确认事实、当前唯一问题、输入和退出；创建器、对象清单和维护动作移出当前注意面，结束/取消后再恢复原 workspace。
+
+## 复验任务
+
+| ID | 复验范围 | 通过条件 | 证据要求 |
+| --- | --- | --- | --- |
+| CUX-RT-01 | 当前页没有新候选、部分非法、真实有候选三种路径 | 每次只有一个 scoped outcome，提示数与队列事实一致 | Dark/Light、标准/窄栏截图 + 队列读回；`VERIFIED_CURRENT` |
+| CUX-RT-02 | 从 Page/Block 打开、关闭、reload、应用重启、Page 改名 | 自动恢复 Page 与 Block anchor；不可解析时给一键 fallback，不显示空白成功态 | 路由、AX、截图和 Block UUID；`VERIFIED_CURRENT` |
+| CUX-RT-03 | Apply、Undo、PENDING continue | 每态只有一个正式动作和一个取消；取消回原 workspace；确认后的 Commit/Undo/Recovery 语义不变 | Light/Dark、1000/760、正常/中断 + 自动回归；`VERIFIED_CURRENT` |
+| CUX-RT-04 | MiniProject 与 Project Grill 各至少三轮 | 首屏只见来源摘要、当前唯一问题与输入；退出后原 workspace 可恢复 | 真实 DeepSeek、标准/窄栏、取消/reload；`VERIFIED_CURRENT` |
+| CUX-RT-05 | 成功、空结果、Provider 失败、取消下载、切换 workspace | 旧提示不跨 action/scope；取消不报成功；错误保留安全重试与系统状态入口 | action ID 日志 + UI 时间序列；`VERIFIED_CURRENT` |
+| CUX-RT-06 | datetime-local 鼠标、键盘、VoiceOver | 值可读回并提交，或字段级说明失败；不得误用旧全局错误 | 用户手工 Desktop Gate；`OPEN_MANUAL_GATE` |
 
 ## 保留的优点
 

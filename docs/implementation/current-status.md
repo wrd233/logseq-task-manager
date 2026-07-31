@@ -16,7 +16,8 @@ Visual Competition、Context Isolation，并覆盖 Light/Dark、1000×720/760×7
 - 两项 P0 仍开放：无候选的当前页整理会同时给出错误成功与失败；UUID 来源路由 reload 后可空白
   且丢失 Block anchor。
 - 其余 P1 仍开放：Project / MiniProject Grill 缺少上下文隔离、日常层暴露领域内部词、全局瞬时
-  banner 跨流程残留。P2 为 Now 密度、Provider 错误分类与 datetime-local Desktop/AX Gate。
+  banner 跨流程残留。P2 为 Now 密度、Provider 错误分类与 datetime-local Desktop/AX Gate；P3
+  登记右键入口发现性与 Review 时间格式。报告已给出 5 个 `INFERRED_DIRECTION` 和 6 个独立复验任务。
 - 本审计不会改写既有 v1.1 技术 Release Gate；它也不把单个已验证原型冒充为整份 UX 清单完成。
   复验后 Logseq 已恢复稳定 r8 Plugin 路径与审计前 Plugin Dark 外观。
 
