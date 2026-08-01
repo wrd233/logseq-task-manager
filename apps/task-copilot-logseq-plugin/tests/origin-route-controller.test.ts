@@ -172,6 +172,30 @@ test("reload resolution restores the Block anchor when the user is already on th
   assert.deepEqual(fake.events, ["scroll:page-main-name:block-origin"]);
 });
 
+test("reload resolution matches the origin page by name when Logseq regenerated the page UUID", async () => {
+  const fake = host({ currentPageUuid: "regenerated-uuid" });
+  const controller = new OriginRouteController({
+    ...fake.value,
+    getCurrentPage: async () => ({ uuid: "regenerated-uuid", name: "tc cux renamed 20260801" }),
+    getPage: async (identity: unknown) => {
+      const value = String(identity);
+      if (value === "page-main" || value === "page-main-name" || value === "tc cux renamed 20260801") {
+        return { uuid: "regenerated-uuid", name: "tc cux renamed 20260801" };
+      }
+      return undefined;
+    },
+  });
+  const token = {
+    kind: "BLOCK" as const,
+    surface: "MAIN_PAGE" as const,
+    blockUuid: "block-origin",
+    pageUuid: "stale-uuid",
+    pageName: "TC CUX Renamed 20260801",
+  };
+  assert.deepEqual(await controller.resolveAfterReload(token), { status: "RETURNED", label: "已回到来源内容。" });
+  assert.deepEqual(fake.events, ["scroll:tc cux renamed 20260801:block-origin"]);
+});
+
 test("reload resolution parks on the origin page when the Block itself is gone", async () => {
   const fake = host({ currentPageUuid: "page-main" });
   const controller = new OriginRouteController({

@@ -167,10 +167,15 @@ export class OriginRouteController {
   async resolveAfterReload(token: OriginRouteToken): Promise<DurableOriginResolveResult> {
     const currentPage = await resolvePage(this.host, await this.host.getCurrentPage());
     if (currentPage) {
+      const samePageByName = Boolean(
+        currentPage.pageName
+        && token.pageName
+        && currentPage.pageName.trim().toLowerCase() === token.pageName.trim().toLowerCase(),
+      );
       if (
         token.kind === "BLOCK"
         && token.surface === "MAIN_PAGE"
-        && currentPage.pageUuid === token.pageUuid
+        && (currentPage.pageUuid === token.pageUuid || samePageByName)
         && this.host.scrollToBlockInPage
       ) {
         const block = RuntimeShapeAdapter.block(await this.host.getBlock(token.blockUuid));

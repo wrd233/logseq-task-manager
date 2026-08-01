@@ -269,6 +269,7 @@ let durableOriginFallbackShownForToken: string | undefined;
 let durableOriginResolvedForToken: string | undefined;
 let durableOriginResolving = false;
 let durableOriginLastAttemptAt = 0;
+let durableOriginParkedRetryCount = 0;
 let v2ReentryTargetObjectId: string | undefined;
 const v2ProviderTarget = new SelectedBlockAnalysisTarget();
 let serviceDiscoveryGeneration = 0;
@@ -304,6 +305,7 @@ async function bindBusinessOrigin(token: OriginRouteToken): Promise<void> {
   originRoute = token;
   durableOriginFallbackShownForToken = undefined;
   durableOriginResolvedForToken = undefined;
+  durableOriginParkedRetryCount = 0;
   const graphKey = currentGraphKey;
   if (!graphKey) return;
   durableOriginLoadedGraphKey = graphKey;
@@ -322,6 +324,7 @@ async function clearBusinessOrigin(): Promise<void> {
   originRoute = undefined;
   durableOriginFallbackShownForToken = undefined;
   durableOriginResolvedForToken = undefined;
+  durableOriginParkedRetryCount = 0;
   durableOriginLoadedGraphKey = currentGraphKey;
   try {
     await clearDurableOrigin(logseq.FileStorage);
@@ -337,15 +340,19 @@ async function clearBusinessOrigin(): Promise<void> {
 async function restoreBusinessOriginForCurrentGraph(): Promise<void> {
   const graphKey = currentGraphKey;
   if (!graphKey || durableOriginLoadedGraphKey === graphKey) return;
-  durableOriginLoadedGraphKey = graphKey;
   const restored = await loadDurableOrigin(logseq.FileStorage, graphKey);
-  if (restored) originRoute = restored;
+  if (restored) {
+    originRoute = restored;
+    durableOriginLoadedGraphKey = graphKey;
+  }
 }
 
 async function resolveDurableOriginAfterReload(): Promise<void> {
   const graphKey = currentGraphKey;
+  if (!graphKey || runtimeEndedByUser || logseq.isMainUIVisible) return;
+  if (!originRoute) await restoreBusinessOriginForCurrentGraph();
   const token = originRoute;
-  if (!graphKey || !token || runtimeEndedByUser || logseq.isMainUIVisible) return;
+  if (!token) return;
   const tokenSignature = `${token.kind}:${token.pageUuid}:${token.kind === "BLOCK" ? token.blockUuid : ""}`;
   if (durableOriginResolvedForToken === tokenSignature || durableOriginResolving) return;
   if (Date.now() - durableOriginLastAttemptAt < 750) return;
@@ -362,7 +369,17 @@ async function resolveDurableOriginAfterReload(): Promise<void> {
       if (result.status !== "SOURCE_UNAVAILABLE") break;
     }
     if (!result) return;
-    if (result.status === "PARKED") return;
+    if (result.status === "PARKED") {
+      if (durableOriginParkedRetryCount < 2) {
+        durableOriginParkedRetryCount += 1;
+        for (const delay of [2_000, 5_000]) {
+          setTimeout(() => {
+            void resolveDurableOriginAfterReload();
+          }, delay);
+        }
+      }
+      return;
+    }
     if (result.status === "SOURCE_UNAVAILABLE" && durableOriginFallbackShownForToken === tokenSignature) return;
     operationalLogger.log(
       result.status === "RETURNED" || result.status === "RETURNED_PAGE_ONLY" ? "info" : "warn",
@@ -372,6 +389,7 @@ async function resolveDurableOriginAfterReload(): Promise<void> {
     );
     if (result.status === "RETURNED" || result.status === "RETURNED_PAGE_ONLY") {
       durableOriginResolvedForToken = tokenSignature;
+      durableOriginParkedRetryCount = 0;
     }
     if (result.status === "RETURNED" && token.kind === "BLOCK") {
       const pageName = token.pageName;
@@ -4828,6 +4846,16 @@ async function main(): Promise<void> {
         errorCode: "DIAGNOSTIC_FALLBACK_RENDER_FAILED",
       }, renderError);
     }
+  }
+  for (const delay of [3_000, 8_000]) {
+    setTimeout(() => {
+      void resolveDurableOriginAfterReload().catch((error: unknown) => operationalLogger.log(
+        "warn",
+        "plugin-lifecycle",
+        "durable_origin_boot_resolve_failed",
+        { result: "parked", errorCode: explain(error) },
+      ));
+    }, delay);
   }
 }
 

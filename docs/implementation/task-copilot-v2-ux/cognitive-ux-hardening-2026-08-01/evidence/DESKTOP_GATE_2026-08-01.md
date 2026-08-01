@@ -17,6 +17,7 @@
 | CUX-P1-03 | 对象工作区 + Condition 对话框 | 对象行/创建器/关联/所属关系全用户语言；Condition 阻碍下拉此前泄漏 `OUTPUT/TASK/MINI_PROJECT/PROJECT`，本次已修复并复验为 成果/任务/小项目/项目，`hasRawCodes=false` |
 | CUX-P0-02 | Block 来源流全链（真实右键菜单 → 处理这条内容 → 真实 DeepSeek NO_PROPOSAL → 返回原内容） | 返回后路由为 `#/page/TC%20CUX%20Empty%2020260801?anchor=...`（页面名路由，非 UUID）；durable origin BLOCK token 持久化于 FileStorage（schemaVersion 1 + graphKey + BLOCK/pageUuid/blockUuid）；随后 hard reload：页面正常加载、无 “Page no longer exists!!”、无 fallback 弹窗、正文可见。anchor 滚动恢复由 resolver 单测覆盖（同页 + Block 可解析 → RETURNED + scroll） |
 | CUX-P0-02 | 完整退出/重开 + 跨页往返 + anchor 可见滚动 | 退出重开后 origin 文件仍持久化；解析器返回 RETURNED（真实 console 证据）；离开来源页再点回时路由事件触发解析，same-page 分支调用 `scrollToBlockInPage` 并有界跟随滚动（1s/2.5s）。**anchor 可见滚动 Desktop PASS**：先把页面滚动复位到 0（目标块 top=910，视口外），调用 API 后滚动容器 0→411.84、目标块 top 910→498 且 `inViewportAfter=true`——宿主语义为“滚到块可见”而非“滚到顶部”，符合“恢复 Block anchor”验收。另修复调试中发现的路由事件循环：解析返回后滚动触发路由变化 → 再解析的无限循环，已用 resolved-token 守卫 + 750ms 节流封顶 |
+| CUX-P0-02 | Page 改名 + 重启 UUID 再生 | 真实 Desktop 发现：改名页在每次重启时 Logseq 会重新生成 Page UUID；解析器现同时按 pageUuid 与 pageName（大小写不敏感）匹配同页，并新增 restore 重试（仅在成功恢复时标记已加载）与 boot 3s/8s 固定尝试，覆盖“同路由重启无宿主路由事件”的时序。12/12 resolver 测试覆盖 name-fallback 分支。同路由 boot 恢复的最终可见滚动仍保留为 OPEN_MANUAL_GATE（需真实鼠标/焦点确认），事件触发路径已 Desktop PASS |
 | CUX-P2-03 结构 | Waiting 表单缺字段提交 | dialog-scoped error 在任务面内显示：“未完成：WAITING 必须说明正在等待谁或什么。系统不会静默覆盖或重复提交。”；零正式写入 |
 | CUX-P3-02 | Review eyebrow | 显示 `2026/7/31 20:35:03`（本地化），不再显示原始 ISO |
 | Now/入口 | Now 首屏 | 一卡一主动作；“筛选与排列”折叠；“查看其余 8 项”折叠；Copilot 状态条用户语言 |
