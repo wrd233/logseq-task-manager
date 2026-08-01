@@ -5,17 +5,20 @@ import {
   createAgentDecision,
   createAgentDecisionEvent,
   createAgentFeedbackEvent,
+  createAgentGovernanceSettings,
   createAgentRuleAuthorization,
   createOrRefreshAgentReviewSignal,
   groupCompatibleAgentFeedback,
   reconcileAgentReviewSignal,
   reviseAgentDecision,
   setAgentRulePaused,
+  setAgentGlobalWritesPaused,
   updateAgentRuleSkill,
   type AgentDecision,
   type AgentDecisionEvent,
   type AgentDecisionInput,
   type AgentGovernanceExportPackage,
+  type AgentGovernanceSettings,
   type AgentFeedbackInput,
   type AgentFeedbackCompatibilityGroup,
   type AgentRuleAuthorization,
@@ -61,6 +64,13 @@ export interface AgentGovernanceRepository {
   ): { authorization: AgentRuleAuthorization; replayed: boolean }
     | Promise<{ authorization: AgentRuleAuthorization; replayed: boolean }>;
   listAgentRuleAuthorizations(): AgentRuleAuthorization[] | Promise<AgentRuleAuthorization[]>;
+  getAgentGovernanceSettings(): AgentGovernanceSettings | undefined | Promise<AgentGovernanceSettings | undefined>;
+  saveAgentGovernanceSettings(
+    settings: AgentGovernanceSettings,
+    expectedUpdatedAt: string,
+    idempotencyKey: string,
+  ): { settings: AgentGovernanceSettings; replayed: boolean }
+    | Promise<{ settings: AgentGovernanceSettings; replayed: boolean }>;
   getAgentReviewSignalBySource(graphId: string, sourceExternalId: string): AgentReviewSignal | undefined | Promise<AgentReviewSignal | undefined>;
   getAgentReviewSignal(reviewSignalId: string): AgentReviewSignal | undefined | Promise<AgentReviewSignal | undefined>;
   saveAgentReviewSignal(
@@ -272,6 +282,40 @@ export class AgentGovernanceApplication {
     const current = await this.requireRuleAuthorization(ruleId);
     const authorization = autoDowngradeAgentRule(current, reason, at);
     return this.repository.saveAgentRuleAuthorization(authorization, current.updatedAt, envelope.idempotencyKey);
+  }
+
+  async setRulePaused(
+    ruleId: string,
+    paused: boolean,
+    reason: string,
+    envelope: AgentGovernanceCommandEnvelope,
+    at = new Date(),
+  ): Promise<{ authorization: AgentRuleAuthorization; replayed: boolean }> {
+    requireEnvelope(envelope);
+    if (eventActor(envelope.actor) !== "USER") {
+      throw new StructuredError({ code: "AGENT_RULE_PAUSE_REQUIRES_USER", message: "暂停或恢复 Rule 必须由 USER 显式提交。", ruleRefs: ["ADG-ROUTER-01"] });
+    }
+    const current = await this.requireRuleAuthorization(ruleId);
+    const authorization = setAgentRulePaused(current, paused, "USER", reason, at);
+    return this.repository.saveAgentRuleAuthorization(authorization, current.updatedAt, envelope.idempotencyKey);
+  }
+
+  async getSettings(at = new Date()): Promise<AgentGovernanceSettings> {
+    return (await this.repository.getAgentGovernanceSettings()) ?? createAgentGovernanceSettings(at);
+  }
+
+  async setGlobalWritesPaused(
+    paused: boolean,
+    envelope: AgentGovernanceCommandEnvelope,
+    at = new Date(),
+  ): Promise<{ settings: AgentGovernanceSettings; replayed: boolean }> {
+    requireEnvelope(envelope);
+    if (eventActor(envelope.actor) !== "USER") {
+      throw new StructuredError({ code: "AGENT_GLOBAL_PAUSE_REQUIRES_USER", message: "暂停或恢复全部 Agent 写入必须由 USER 显式提交。", ruleRefs: ["ADG-ROUTER-01"] });
+    }
+    const current = await this.getSettings(at);
+    const settings = setAgentGlobalWritesPaused(current, paused, "USER", at);
+    return this.repository.saveAgentGovernanceSettings(settings, current.updatedAt, envelope.idempotencyKey);
   }
 
   async updateRuleSkill(

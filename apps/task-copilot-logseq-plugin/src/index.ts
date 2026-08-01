@@ -167,6 +167,10 @@ let agentSelectedDecisionId: string | undefined;
 let agentSelectedDecisionIds = new Set<string>();
 let agentFeedbackBusy = false;
 let agentExportBusy: AgentGovernanceUiState["exportBusy"];
+let agentGovernanceMutationBusy = false;
+let agentDecisionFilter: AgentGovernanceUiState["decisionFilter"] = "ALL";
+let agentDecisionSearch = "";
+let agentDecisionSearchTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 const attentionShadowSession = new AttentionShadowSession();
 const backupRestoreController = new BackupRestoreController();
@@ -209,6 +213,9 @@ type AgentGovernanceUiClient = ServiceRuntimeClient & Required<Pick<ServiceRunti
   | "listAgentDecisionEvents"
   | "listAgentReviewSignals"
   | "listAgentRuleAuthorizations"
+  | "getAgentGovernanceSettings"
+  | "setAgentRulePaused"
+  | "setAgentGlobalWritesPaused"
   | "recordAgentFeedback"
   | "recordAgentBulkFeedback"
   | "exportAgentSkillFeedback"
@@ -222,6 +229,9 @@ function isAgentGovernanceUiClient(client: ServiceRuntimeClient | undefined): cl
     && typeof client.listAgentDecisionEvents === "function"
     && typeof client.listAgentReviewSignals === "function"
     && typeof client.listAgentRuleAuthorizations === "function"
+    && typeof client.getAgentGovernanceSettings === "function"
+    && typeof client.setAgentRulePaused === "function"
+    && typeof client.setAgentGlobalWritesPaused === "function"
     && typeof client.recordAgentFeedback === "function"
     && typeof client.recordAgentBulkFeedback === "function"
     && typeof client.exportAgentSkillFeedback === "function"
@@ -696,6 +706,24 @@ async function openV2PrimaryAnchor(externalId: string): Promise<void> {
   await logseq.Editor.scrollToBlockInPage(page.pageName ?? page.displayName.replace(" · Journal", ""), externalId);
 }
 
+async function openAgentDecisionSource(value: string): Promise<void> {
+  let source: { kind?: unknown; externalId?: unknown; pageName?: unknown };
+  try {
+    source = JSON.parse(decodeURIComponent(value)) as typeof source;
+  } catch {
+    throw new Error("Agent 决策来源标识无效；没有修改任何内容。");
+  }
+  if ((source.kind !== "BLOCK" && source.kind !== "PAGE") || typeof source.externalId !== "string" || !source.externalId) {
+    throw new Error("Agent 决策来源标识无效；没有修改任何内容。");
+  }
+  if (source.kind === "BLOCK") {
+    await openV2PrimaryAnchor(source.externalId);
+    return;
+  }
+  const pageName = typeof source.pageName === "string" && source.pageName.trim() ? source.pageName : source.externalId;
+  await logseq.App.pushState("page", { name: pageName });
+}
+
 async function openV2ProjectWorksite(objectId: string, expectedVersion: number): Promise<void> {
   const client = serviceRuntimeClient;
   if (!client) throw new Error("当前项目入口暂不可用；项目和正文没有变化。");
@@ -929,14 +957,18 @@ async function model(): Promise<UiModel> {
         error: "Agent 治理服务尚未就绪。请先在系统状态中恢复 Local Service 连接。",
         mode: "EXPERIMENT",
         automaticWritesPaused: true,
+        globalWritesPaused: false,
+        decisionFilter: agentDecisionFilter,
+        decisionSearch: agentDecisionSearch,
         decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now,
       };
     } else {
       try {
-        const [decisions, rules, signals] = await Promise.all([
+        const [decisions, rules, signals, settings] = await Promise.all([
           client.listAgentDecisions({ limit: 100 }),
           client.listAgentRuleAuthorizations(),
           client.listAgentReviewSignals({ limit: 100 }),
+          client.getAgentGovernanceSettings(),
         ]);
         const validDecisionIds = new Set(decisions.map((decision) => decision.decisionId));
         agentSelectedDecisionIds = new Set([...agentSelectedDecisionIds].filter((decisionId) => validDecisionIds.has(decisionId)));
@@ -947,6 +979,9 @@ async function model(): Promise<UiModel> {
           status: "ready",
           mode: "EXPERIMENT",
           automaticWritesPaused: true,
+          globalWritesPaused: settings.globalWritesPaused,
+          decisionFilter: agentDecisionFilter,
+          decisionSearch: agentDecisionSearch,
           decisions,
           rules,
           signals,
@@ -954,6 +989,7 @@ async function model(): Promise<UiModel> {
           ...(agentSelectedDecisionId ? { selectedDecisionId: agentSelectedDecisionId } : {}),
           selectedDecisionIds: [...agentSelectedDecisionIds],
           feedbackBusy: agentFeedbackBusy,
+          mutationBusy: agentGovernanceMutationBusy,
           ...(agentExportBusy ? { exportBusy: agentExportBusy } : {}),
           now,
         };
@@ -963,6 +999,9 @@ async function model(): Promise<UiModel> {
           error: explain(error),
           mode: "EXPERIMENT",
           automaticWritesPaused: true,
+          globalWritesPaused: false,
+          decisionFilter: agentDecisionFilter,
+          decisionSearch: agentDecisionSearch,
           decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [...agentSelectedDecisionIds], now,
         };
       }
@@ -2346,6 +2385,52 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     return;
   }
+  if (action === "agent-rule-pause" && value) {
+    const client = serviceRuntimeClient;
+    if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有改变规则授权。");
+    if (agentGovernanceMutationBusy) throw new Error("治理设置正在更新，不会重复提交。");
+    const separator = value.lastIndexOf(":");
+    const ruleId = separator > 0 ? value.slice(0, separator) : "";
+    const operation = separator > 0 ? value.slice(separator + 1) : "";
+    if (!ruleId || (operation !== "pause" && operation !== "resume")) throw new Error("规则暂停操作无效。");
+    const traceId = `agent-rule-pause-ui-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    agentGovernanceMutationBusy = true;
+    await refresh();
+    try {
+      const result = await client.setAgentRulePaused(ruleId, { paused: operation === "pause", traceId, idempotencyKey: traceId });
+      message = `规则“${result.authorization.displayName}”已${result.authorization.paused ? "暂停" : "恢复"}；Shadow 观察继续。`;
+    } catch (error) {
+      latestError = explain(error);
+    } finally {
+      agentGovernanceMutationBusy = false;
+    }
+    await refresh();
+    return;
+  }
+  if (action === "agent-global-pause" && value) {
+    const client = serviceRuntimeClient;
+    if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有改变全局写入状态。");
+    if (agentGovernanceMutationBusy) throw new Error("治理设置正在更新，不会重复提交。");
+    if (value !== "pause" && value !== "resume") throw new Error("全局暂停操作无效。");
+    const traceId = `agent-global-pause-ui-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    agentGovernanceMutationBusy = true;
+    await refresh();
+    try {
+      const result = await client.setAgentGlobalWritesPaused({ globalWritesPaused: value === "pause", traceId, idempotencyKey: traceId });
+      message = result.settings.globalWritesPaused ? "全部 Agent 正式写入已暂停；观察和 Shadow 继续。" : "全部 Agent 写入暂停已解除；仍只按当前运行模式与逐规则授权路由。";
+    } catch (error) {
+      latestError = explain(error);
+    } finally {
+      agentGovernanceMutationBusy = false;
+    }
+    await refresh();
+    return;
+  }
+  if (action === "agent-source-open" && value) {
+    await run(async () => openAgentDecisionSource(value));
+    if (!latestError) await logseq.hideMainUI();
+    return;
+  }
   if (action === "agent-feedback-submit" && value) {
     const client = serviceRuntimeClient;
     if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有记录反馈。");
@@ -2395,13 +2480,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (agentExportBusy) throw new Error("治理证据正在导出，不会重复启动。");
     const days = Number(value);
     if (action === "agent-export-skill" && days !== 30) throw new Error("Skill 反馈导出范围无效。");
-    if (action === "agent-export-review" && days !== 60) throw new Error("复查证据导出范围无效。");
+    if (action === "agent-export-review" && days !== 60 && days !== 180) throw new Error("复查证据导出范围无效。");
+    const reviewDays: 60 | 180 = days === 180 ? 180 : 60;
     agentExportBusy = action === "agent-export-skill" ? "skill" : "review";
     await refresh();
     try {
       const exported = action === "agent-export-skill"
         ? await client.exportAgentSkillFeedback(30)
-        : await client.exportAgentReviewEvidence(60);
+        : await client.exportAgentReviewEvidence(reviewDays);
       downloadAgentGovernancePackage(exported);
       message = `已生成 ${exported.manifest.includedCount} 条证据的可校验导出，共 ${exported.manifest.files.length} 个包内文件。`;
     } catch (error) {
@@ -4549,8 +4635,22 @@ function bindUi(): void {
     }
   };
   const onDirectoryInput = (event: Event): void => {
-    if (!(event.target instanceof HTMLInputElement) || event.target.dataset.field !== "v2DirectorySearch") return;
+    if (!(event.target instanceof HTMLInputElement)) return;
     if (event instanceof InputEvent && event.isComposing) return;
+    if (event.target.dataset.field === "agentDecisionSearch") {
+      if (agentDecisionSearchTimer !== undefined) globalThis.clearTimeout(agentDecisionSearchTimer);
+      const input = event.target;
+      agentDecisionSearchTimer = globalThis.setTimeout(() => {
+        agentDecisionSearchTimer = undefined;
+        agentDecisionSearch = input.value;
+        const token = captureUiFocus(input);
+        void refresh().then(() => {
+          if (token) restoreUiFocus(requireAppRoot(), token);
+        });
+      }, 250);
+      return;
+    }
+    if (event.target.dataset.field !== "v2DirectorySearch") return;
     if (v2DirectorySearchTimer !== undefined) globalThis.clearTimeout(v2DirectorySearchTimer);
     const input = event.target;
     v2DirectorySearchTimer = globalThis.setTimeout(() => {
@@ -4566,6 +4666,15 @@ function bindUi(): void {
     if (!(event.target instanceof HTMLSelectElement)) return;
     const field = event.target.dataset.field;
     const value = event.target.value;
+    if (field === "agentDecisionFilter") {
+      if (!["ALL", "NEEDS_HUMAN", "FAILED", "SHADOW"].includes(value)) return;
+      agentDecisionFilter = value as AgentGovernanceUiState["decisionFilter"];
+      const token = captureUiFocus(event.target);
+      void refresh().then(() => {
+        if (token) restoreUiFocus(requireAppRoot(), token);
+      });
+      return;
+    }
     const next = field === "v2DirectoryTypeFilter"
       ? { ...v2DirectoryFilter, type: value as DirectoryFilterState["type"] }
       : field === "v2DirectoryLifecycleFilter"
@@ -4597,6 +4706,8 @@ function bindUi(): void {
     root.removeEventListener("change", onDirectoryChange);
     if (v2DirectorySearchTimer !== undefined) globalThis.clearTimeout(v2DirectorySearchTimer);
     v2DirectorySearchTimer = undefined;
+    if (agentDecisionSearchTimer !== undefined) globalThis.clearTimeout(agentDecisionSearchTimer);
+    agentDecisionSearchTimer = undefined;
     uiBound = false;
     if (appRoot) appRoot.replaceChildren();
   });

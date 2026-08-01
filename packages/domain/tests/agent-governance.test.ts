@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { authorizeAgentRule, autoDowngradeAgentRule, createAgentDecision, createAgentFeedbackEvent, createAgentRuleAuthorization, createOrRefreshAgentReviewSignal, groupCompatibleAgentFeedback, reconcileAgentReviewSignal, reviseAgentDecision, setAgentRulePaused, updateAgentRuleSkill, validateAgentDecision, validateAgentDecisionEvent, validateAgentReviewSignal, validateAgentRuleAuthorization } from "../src/agent-governance.ts";
+import { authorizeAgentRule, autoDowngradeAgentRule, createAgentDecision, createAgentFeedbackEvent, createAgentGovernanceSettings, createAgentRuleAuthorization, createOrRefreshAgentReviewSignal, groupCompatibleAgentFeedback, reconcileAgentReviewSignal, reviseAgentDecision, setAgentGlobalWritesPaused, setAgentRulePaused, updateAgentRuleSkill, validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "../src/agent-governance.ts";
 
 const observedAt = new Date("2026-08-02T02:00:00.000Z");
 
@@ -226,4 +226,13 @@ test("only an explicit user action can pause or resume one rule without changing
   assert.equal(paused.paused, true);
   assert.equal(paused.localCurrentAuthority, "DELAYED_APPLY");
   assert.equal(setAgentRulePaused(paused, false, "USER", "用户恢复", new Date("2026-08-02T05:11:00.000Z")).paused, false);
+});
+
+test("global Agent writes pause is explicit, validated, and independent from observation", () => {
+  const current = createAgentGovernanceSettings(observedAt);
+  assert.deepEqual(validateAgentGovernanceSettings(structuredClone(current)), current);
+  assert.throws(() => setAgentGlobalWritesPaused(current, true, "SYSTEM", observedAt), /USER/);
+  const paused = setAgentGlobalWritesPaused(current, true, "USER", new Date("2026-08-02T05:20:00.000Z"));
+  assert.equal(paused.globalWritesPaused, true);
+  assert.equal(setAgentGlobalWritesPaused(paused, false, "USER", new Date("2026-08-02T05:21:00.000Z")).globalWritesPaused, false);
 });

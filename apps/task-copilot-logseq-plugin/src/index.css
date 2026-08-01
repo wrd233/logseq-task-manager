@@ -312,6 +312,10 @@
 #task-copilot-personal-mvp-root .agent-decision-stream, #task-copilot-personal-mvp-root .agent-governance-side > section, #task-copilot-personal-mvp-root .agent-bulk-feedback { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 #task-copilot-personal-mvp-root .agent-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--border); }
 #task-copilot-personal-mvp-root .agent-section-head h3, #task-copilot-personal-mvp-root .agent-governance-side h3, #task-copilot-personal-mvp-root .agent-bulk-feedback h3 { margin: 2px 0 0; font-size: 15px; }
+#task-copilot-personal-mvp-root .agent-decision-tools { display: grid; grid-template-columns: minmax(120px, .55fr) minmax(180px, 1fr); gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .agent-decision-tools label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 700; }
+#task-copilot-personal-mvp-root .agent-decision-tools select, #task-copilot-personal-mvp-root .agent-decision-tools input { width: 100%; padding: 7px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); }
+#task-copilot-personal-mvp-root .agent-decision-tools select:focus-visible, #task-copilot-personal-mvp-root .agent-decision-tools input:focus-visible { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 #task-copilot-personal-mvp-root .agent-decision-row { display: grid; grid-template-columns: 58px minmax(0, 1fr); border-bottom: 1px solid var(--border); }
 #task-copilot-personal-mvp-root .agent-decision-row:last-child { border-bottom: 0; }
 #task-copilot-personal-mvp-root .agent-decision-row.has-issue { box-shadow: inset 3px 0 0 var(--warning); }
@@ -355,6 +359,7 @@
 #task-copilot-personal-mvp-root .agent-rule-list article { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
 #task-copilot-personal-mvp-root .agent-rule-list article > div { display: grid; min-width: 0; }
 #task-copilot-personal-mvp-root .agent-rule-list article > div:last-child { justify-items: end; }
+#task-copilot-personal-mvp-root .agent-rule-list button { min-height: 26px; margin-top: 4px; padding: 3px 8px; font-size: 10px; }
 #task-copilot-personal-mvp-root .agent-rule-list strong { font-size: 11px; }
 #task-copilot-personal-mvp-root .agent-signal-list { display: grid; gap: 7px; margin: 9px 0 0; padding: 0; list-style: none; }
 #task-copilot-personal-mvp-root .agent-signal-list li { display: grid; gap: 2px; padding: 8px 9px; border-left: 3px solid var(--warning); background: var(--surface-2); }
@@ -395,6 +400,7 @@
   #task-copilot-personal-mvp-root .agent-metrics > div:nth-child(3) { border-right: 0; }
   #task-copilot-personal-mvp-root .agent-metrics > div:nth-child(-n+3) { border-bottom: 1px solid var(--border); }
   #task-copilot-personal-mvp-root .agent-governance-layout { grid-template-columns: 1fr; }
+  #task-copilot-personal-mvp-root .agent-decision-tools { grid-template-columns: 1fr; }
   #task-copilot-personal-mvp-root .agent-decision-row { grid-template-columns: 48px minmax(0, 1fr); }
   #task-copilot-personal-mvp-root .agent-decision-main { grid-template-columns: 20px minmax(0, 1fr); }
   #task-copilot-personal-mvp-root .agent-decision-state { grid-column: 2; justify-items: start; text-align: left; }

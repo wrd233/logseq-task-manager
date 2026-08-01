@@ -30,6 +30,25 @@ export type AgentFeedbackCorrectionType =
   | "OTHER";
 export type AgentFeedbackAction = "THIS_DECISION_ONLY" | "RECORD_RULE_FEEDBACK" | "PAUSE_RULE_AUTOMATION";
 
+export interface AgentGovernanceSettings {
+  globalWritesPaused: boolean;
+  updatedAt: string;
+}
+
+export function createAgentGovernanceSettings(at = new Date()): AgentGovernanceSettings {
+  return { globalWritesPaused: false, updatedAt: at.toISOString() };
+}
+
+export function setAgentGlobalWritesPaused(
+  current: AgentGovernanceSettings,
+  paused: boolean,
+  actor: "USER" | "SYSTEM",
+  at = new Date(),
+): AgentGovernanceSettings {
+  if (actor !== "USER") throw governanceError("AGENT_GLOBAL_PAUSE_REQUIRES_USER", "暂停或恢复全部 Agent 写入必须由 USER 显式授权。");
+  return paused === current.globalWritesPaused ? current : { globalWritesPaused: paused, updatedAt: at.toISOString() };
+}
+
 export interface AgentFeedbackInput {
   rating: AgentFeedbackRating;
   correctionType?: AgentFeedbackCorrectionType;
@@ -773,6 +792,14 @@ export function validateAgentRuleAuthorization(value: unknown): AgentRuleAuthori
     changeLevel: enumValue(record.changeLevel, "changeLevel", ["PATCH", "NARROWING", "EXPANDING"]),
     paused: booleanValue(record.paused, "paused"),
     createdAt: isoValue(record.createdAt, "createdAt"),
+    updatedAt: isoValue(record.updatedAt, "updatedAt"),
+  };
+}
+
+export function validateAgentGovernanceSettings(value: unknown): AgentGovernanceSettings {
+  const record = recordValue(value, "AgentGovernanceSettings");
+  return {
+    globalWritesPaused: booleanValue(record.globalWritesPaused, "globalWritesPaused"),
     updatedAt: isoValue(record.updatedAt, "updatedAt"),
   };
 }

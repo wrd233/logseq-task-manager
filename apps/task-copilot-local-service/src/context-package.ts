@@ -50,6 +50,15 @@ export interface ContextPackageSource {
   databaseSchemaVersion(): number;
 }
 
+export interface ContextRetrievalCandidate {
+  objectId: string;
+  reason: "SOURCE_LINEAGE" | "EXACT_TEXT_MENTION";
+}
+
+export interface BuildContextPackageOptions {
+  retrievalCandidates?: readonly ContextRetrievalCandidate[];
+}
+
 function contextError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["D-118", "D-132", "D-135", "D-190"] });
 }
@@ -81,6 +90,7 @@ export function buildContextPackage(
   scope: { kind: ContextExportScope; id: string },
   at = new Date(),
   graphSnapshot?: ServiceGraphSnapshot,
+  options: BuildContextPackageOptions = {},
 ): ServiceContextPackage {
   const graphScope = scope.kind === "block" || scope.kind === "page";
   const root = graphScope ? undefined : source.getObject(scope.id);
@@ -98,9 +108,13 @@ export function buildContextPackage(
     const anchor = source.getActivePrimaryAnchorByObject(object.objectId);
     return Boolean(anchor && graphExternalIds.has(anchor.externalId));
   }).map(({ objectId }) => objectId).sort();
-  const ids = scope.kind === "project" && root
+  const scopedIds = scope.kind === "project" && root
     ? [root.objectId, ...descendants(root.objectId, allOwnerships)]
     : scope.kind === "object" && root ? [root.objectId] : graphObjectIds;
+  const retrievalCandidates = [...(options.retrievalCandidates ?? [])]
+    .sort((left, right) => left.objectId.localeCompare(right.objectId));
+  const ids = [...new Set([...scopedIds, ...retrievalCandidates.map(({ objectId }) => objectId)])];
+  if (ids.length > 256) throw contextError("CONTEXT_SCOPE_TOO_LARGE", "Context Package 最多包含 256 个正式对象。");
   const idSet = new Set(ids);
   const objects = ids.map((id) => allObjects.find((object) => object.objectId === id)).filter((object): object is V2ManagedObject => Boolean(object));
   if (objects.length !== ids.length) throw contextError("CONTEXT_OWNERSHIP_DANGLING", "Context Ownership 引用了不存在的对象。");
@@ -122,7 +136,15 @@ export function buildContextPackage(
     "decisions.json": pretty({ schemaVersion: 1, formalFacts: objects.filter(({ objectType }) => objectType === "DECISION") }),
     "outputs.json": pretty({ schemaVersion: 1, formalFacts: objects.filter(({ objectType }) => objectType === "OUTPUT") }),
     "graph-excerpts.json": pretty({ schemaVersion: 1, status: graphSnapshot ? "AVAILABLE_FROM_LOGSEQ_BRIDGE" : "NOT_INCLUDED", excerpts: graphSnapshot ? [{ path: graphSnapshot.kind === "PAGE" ? "graph/page.json" : "graph/block.json", scopeHash: graphSnapshot.scopeHash, readAt: graphSnapshot.readAt, truncated: graphSnapshot.truncated }] : [] }),
-    "retrieval-candidates.json": pretty({ schemaVersion: 1, candidates: [], note: "Candidates are not formal facts." }),
+    "retrieval-candidates.json": pretty({
+      schemaVersion: 1,
+      candidates: retrievalCandidates.map(({ objectId, reason }) => {
+        const object = allObjects.find((value) => value.objectId === objectId);
+        if (!object) throw contextError("CONTEXT_RETRIEVAL_TARGET_NOT_FOUND", "Context retrieval candidate 引用了不存在的正式对象。");
+        return { objectId, objectType: object.objectType, text: object.text, lifecycle: object.lifecycle, version: object.version, reason };
+      }),
+      note: "Candidates are bounded retrieval hints over SQLite formal facts; they grant no write authority.",
+    }),
     "workspace-semantics.md": "# Workspace Semantics\n\nStatus: NOT_CONFIGURED\n\nNo user semantic profile was invented for this export.\n",
     "writing-profile.md": "# Writing Profile\n\nStatus: NOT_CONFIGURED\n\nNo writing profile was invented for this export.\n",
     "versions.json": pretty({ schemaVersion: 1, contextPackageSchemaVersion: 1, domainSchemaVersion: "v2", databaseSchemaVersion: source.databaseSchemaVersion(), skills: skillVersions }),

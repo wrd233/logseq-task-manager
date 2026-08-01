@@ -389,6 +389,22 @@ function validAgentCommandIdentity(value: unknown): value is string {
   return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(value);
 }
 
+async function readAgentPauseRequest(
+  request: IncomingMessage,
+  field: "paused" | "globalWritesPaused",
+): Promise<{ paused: boolean; traceId: string; idempotencyKey: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Agent 暂停请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== [field, "idempotencyKey", "traceId"].sort().join(",")
+    || typeof record[field] !== "boolean"
+    || !validAgentCommandIdentity(record.traceId) || !validAgentCommandIdentity(record.idempotencyKey)) {
+    throw serviceError("AGENT_PAUSE_COMMAND_INVALID", "Agent 暂停请求只接受布尔状态、trace ID 与幂等键。");
+  }
+  return { paused: record[field] as boolean, traceId: record.traceId, idempotencyKey: record.idempotencyKey };
+}
+
 async function readAgentFeedbackRequest(request: IncomingMessage): Promise<{ feedback: AgentFeedbackInput; traceId: string; idempotencyKey: string }> {
   const body = await readBody(request);
   let value: unknown;
@@ -1475,6 +1491,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     ...(options.agentGovernanceProvider ? { provider: options.agentGovernanceProvider } : {}),
     runtimeMode: "EXPERIMENT",
     guardedAutomationEnabled: false,
+    globalWritesPaused: () => store.getAgentGovernanceSettings()?.globalWritesPaused ?? true,
   });
   const grillPreviewSessions = new GrillPreviewSessionStore<{ objectId: string; expectedVersion: number; answers: MiniProjectGrillAnswer[]; preview: GrillPreview; graphScopeHash: string }>();
   const projectCreationPreviewSessions = new GrillPreviewSessionStore<{ input: ProjectCreationGrillRequest; preview: ProjectCreationPreview; sourceFingerprint: string; graphScopeHash?: string; pageAuthority?: { id: string; name?: string; version?: number; hash: string } }>();
@@ -2057,6 +2074,29 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "GET" && url.pathname === "/agent/rules" && !url.search) {
       respond(response, 200, { authorizations: await agentGovernanceApplication.listRuleAuthorizations() });
+      return;
+    }
+    const agentRulePauseMatch = request.method === "POST" ? url.pathname.match(/^\/agent\/rules\/([^/]+)\/pause$/) : null;
+    if (agentRulePauseMatch) {
+      const ruleId = decodeURIComponent(agentRulePauseMatch[1]!);
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(ruleId) || url.search) throw serviceError("AGENT_RULE_PAUSE_INVALID", "Rule 暂停需要唯一受控 Rule ID。");
+      const input = await readAgentPauseRequest(request, "paused");
+      const result = await agentGovernanceApplication.setRulePaused(ruleId, input.paused, input.paused ? "用户从治理台暂停规则。" : "用户从治理台恢复规则。", {
+        actor: "user", traceId: input.traceId, idempotencyKey: input.idempotencyKey,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/agent/settings" && !url.search) {
+      respond(response, 200, { settings: await agentGovernanceApplication.getSettings() });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/agent/settings/global-pause" && !url.search) {
+      const input = await readAgentPauseRequest(request, "globalWritesPaused");
+      const result = await agentGovernanceApplication.setGlobalWritesPaused(input.paused, {
+        actor: "user", traceId: input.traceId, idempotencyKey: input.idempotencyKey,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
       return;
     }
     if (request.method === "POST" && url.pathname === "/agent/exports/skill-feedback" && !url.search) {

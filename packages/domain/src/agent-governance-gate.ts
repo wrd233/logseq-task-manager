@@ -8,7 +8,7 @@ export interface AgentGateBlock {
 }
 
 export type AgentGateAction = "IGNORE_THIS_CHANGE" | "UPDATE_REVIEW_SIGNAL" | "RUN_LOCAL" | "RUN_EXPANDED" | "DEFER_TO_BATCH";
-export type AgentGateReason = "FORMAT_ONLY" | "ORDINARY_CONTENT" | "WEAK_SIGNAL" | "REPEATED_WEAK_SIGNAL" | "STRONG_SIGNAL" | "FORMAL_OBJECT_UPDATE" | "EXISTING_THREAD_CHANGED" | "MULTIPLE_TARGETS" | "EVENT_STORM";
+export type AgentGateReason = "FORMAT_ONLY" | "ORDINARY_CONTENT" | "WEAK_SIGNAL" | "REPEATED_WEAK_SIGNAL" | "STRONG_SIGNAL" | "FORMAL_OBJECT_UPDATE" | "EXISTING_CANDIDATE" | "EXISTING_THREAD_CHANGED" | "MULTIPLE_TARGETS" | "EVENT_STORM";
 
 export interface AgentGateInput {
   changed: AgentGateBlock;
@@ -18,6 +18,7 @@ export interface AgentGateInput {
   changedBlockCount: number;
   weakSignalOccurrences30d: number;
   candidateTargetCount: number;
+  hasCandidateSource?: boolean;
   hasExistingDecisionThread: boolean;
   insideFormalObject: boolean;
 }
@@ -87,6 +88,7 @@ export function classifyAgentGovernanceChange(input: AgentGateInput): AgentGateR
   const content = agentGovernanceSemanticText(changed.content);
   if (strongSignal.test(content) || isExplicit(sourceRoot)) return { action: "RUN_LOCAL", reason: "STRONG_SIGNAL", sourceRoot };
   if (input.insideFormalObject) return { action: "RUN_LOCAL", reason: "FORMAL_OBJECT_UPDATE", sourceRoot };
+  if (input.hasCandidateSource) return { action: "RUN_LOCAL", reason: "EXISTING_CANDIDATE", sourceRoot };
   if (weakSignal.test(content)) {
     return weakOccurrences >= 3
       ? { action: "RUN_EXPANDED", reason: "REPEATED_WEAK_SIGNAL", sourceRoot }

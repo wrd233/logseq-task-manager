@@ -10,6 +10,9 @@ export interface AgentGovernanceUiState {
   error?: string;
   mode: "EXPERIMENT" | "GUARDED";
   automaticWritesPaused: boolean;
+  globalWritesPaused: boolean;
+  decisionFilter: "ALL" | "NEEDS_HUMAN" | "FAILED" | "SHADOW";
+  decisionSearch: string;
   decisions: AgentDecision[];
   rules: AgentRuleAuthorization[];
   signals: AgentReviewSignal[];
@@ -18,6 +21,7 @@ export interface AgentGovernanceUiState {
   selectedDecisionIds: string[];
   feedbackBusy?: boolean;
   exportBusy?: "skill" | "review";
+  mutationBusy?: boolean;
   now: string;
 }
 
@@ -153,6 +157,11 @@ function renderDecisionDetails(state: AgentGovernanceUiState, decision: AgentDec
   const alternative = decision.closestAlternative.outcome
     ? `${outcomeLabels[decision.closestAlternative.outcome]}${decision.closestAlternative.reason ? `：${escapeHtml(decision.closestAlternative.reason)}` : ""}`
     : "无必要的备选。";
+  const sourceValue = encodeURIComponent(JSON.stringify({
+    kind: decision.sourceRoot.kind,
+    externalId: decision.sourceRoot.externalId,
+    ...(decision.sourceRoot.pageName ? { pageName: decision.sourceRoot.pageName } : {}),
+  }));
   return `<section class="agent-decision-detail" aria-label="决策详情">
     <div class="agent-detail-grid">
       <section><h4>判断依据</h4><p>${escapeHtml(decision.evidenceSummary)}</p><ul>${evidenceRefs}</ul></section>
@@ -160,6 +169,7 @@ function renderDecisionDetails(state: AgentGovernanceUiState, decision: AgentDec
       <section><h4>最接近的备选</h4><p>${alternative}</p></section>
       <section><h4>上下文与规则</h4><p>${escapeHtml(decision.context.tier)} · 预估 ${escapeHtml(decision.context.estimatedInputTokens)} tokens${decision.context.truncated ? " · 已截断" : ""}</p><p>${escapeHtml(decision.rule.displayName)} · Skill ${escapeHtml(decision.rule.skillVersion)}</p><code>${escapeHtml(decision.rule.id)}</code></section>
     </div>
+    <div class="actions">${button("打开来源", "agent-source-open", sourceValue, "quiet")}</div>
     <details class="agent-event-history" open><summary>事件历史 · ${events.length}</summary>${events.length ? `<ol>${events.map((event) => `<li><span>${escapeHtml(formatTime(event.occurredAt))}</span><strong>${eventLabels[event.eventType]}</strong><small>${escapeHtml(event.actor)}</small></li>`).join("")}</ol>` : "<p class=\"muted\">暂无可显示事件。</p>"}</details>
     <form class="agent-feedback-form" data-agent-feedback-decision="${escapeHtml(decision.decisionId)}">
       <div><div class="eyebrow">记录反馈</div><h4>这条判断对吗？</h4><p class="muted">反馈用于复查与规则改进；不会自动撤销任何正式变化。</p></div>
@@ -194,11 +204,12 @@ function renderBulkFeedback(state: AgentGovernanceUiState): string {
   </section>`;
 }
 
-function renderRules(rules: readonly AgentRuleAuthorization[], decisions: readonly AgentDecision[]): string {
+function renderRules(state: AgentGovernanceUiState): string {
+  const { rules, decisions } = state;
   if (!rules.length) return `<div class="empty agent-compact-empty"><strong>暂无规则授权记录</strong><span>第一次 Agent 观察后会在这里显示。</span></div>`;
   return `<div class="agent-rule-list">${rules.map((rule) => {
     const count = decisions.filter((decision) => decision.rule.id === rule.ruleId).length;
-    return `<article><span class="agent-status-mark" aria-hidden="true">${rule.paused ? "‖" : "·"}</span><div><strong>${escapeHtml(rule.displayName)}</strong><small>${escapeHtml(rule.ruleId)} · Skill ${escapeHtml(rule.skillVersion)}</small></div><div><strong>${rule.paused ? "已暂停" : escapeHtml(rule.effectiveAuthority)}</strong><small>${count} 条决策</small></div></article>`;
+    return `<article><span class="agent-status-mark" aria-hidden="true">${rule.paused ? "‖" : "·"}</span><div><strong>${escapeHtml(rule.displayName)}</strong><small>${escapeHtml(rule.ruleId)} · Skill ${escapeHtml(rule.skillVersion)}</small></div><div><strong>${rule.paused ? "已暂停" : escapeHtml(rule.effectiveAuthority)}</strong><small>${count} 条决策</small>${button(rule.paused ? "恢复" : "暂停", "agent-rule-pause", `${rule.ruleId}:${rule.paused ? "resume" : "pause"}`, "quiet", Boolean(state.mutationBusy))}</div></article>`;
   }).join("")}</div>`;
 }
 
@@ -210,25 +221,35 @@ function renderSignals(signals: readonly AgentReviewSignal[]): string {
 
 export function renderAgentGovernance(state: AgentGovernanceUiState): string {
   const modeLabel = state.mode === "EXPERIMENT" ? "观察模式" : "受控执行";
-  const boundary = state.automaticWritesPaused ? "自动写入已关闭" : "自动写入按规则授权";
-  const heading = `<header class="agent-governance-head"><div><div class="eyebrow">Agent Decision Governance</div><h2>Agent 治理</h2><p>了解 Agent 处理了什么、为什么这样判断，并对规则给出可追溯反馈。</p></div><div class="agent-run-state"><strong>${modeLabel}</strong><span>${boundary}</span><small>${state.mode === "EXPERIMENT" ? "当前决策只记录，不会写入正式对象。" : "仅明确授权且通过风险门的规则可执行。"}</small></div></header>`;
+  const boundary = state.globalWritesPaused ? "全部 Agent 写入已暂停" : state.automaticWritesPaused ? "自动写入已关闭" : "自动写入按规则授权";
+  const heading = `<header class="agent-governance-head"><div><div class="eyebrow">Agent Decision Governance</div><h2>Agent 治理</h2><p>了解 Agent 处理了什么、为什么这样判断，并对规则给出可追溯反馈。</p></div><div class="agent-run-state"><strong>${modeLabel}</strong><span>${boundary}</span><small>${state.mode === "EXPERIMENT" ? "当前决策只记录，不会写入正式对象。" : "仅明确授权且通过风险门的规则可执行。"}</small>${button(state.globalWritesPaused ? "恢复全部 Agent 写入" : "暂停全部 Agent 写入", "agent-global-pause", state.globalWritesPaused ? "resume" : "pause", "quiet", Boolean(state.mutationBusy))}</div></header>`;
   if (state.status === "loading") return `${heading}<div class="empty agent-governance-loading" role="status"><strong>正在读取决策记录…</strong><span>正式事项不受影响。</span></div>`;
   if (state.status === "error") return `${heading}<section class="error agent-governance-error" role="alert"><strong>不能读取 Agent 治理数据</strong><span>${escapeHtml(state.error ?? "未知错误")}；没有修改任何正式事项。</span>${button("重试", "agent-governance-refresh", undefined, "primary")}</section>`;
 
   const dashboard = projectAgentGovernanceDashboard({ decisions: state.decisions, rules: state.rules, signals: state.signals, now: state.now });
   const selected = new Set(state.selectedDecisionIds);
-  const decisions = dashboard.decisions.map((decision) => renderDecisionRow({ ...state, selectedDecisionIds: [...selected] }, decision)).join("");
+  const query = state.decisionSearch.trim().toLocaleLowerCase("zh-CN");
+  const visibleDecisions = dashboard.decisions.filter((decision) => {
+    const matchesFilter = state.decisionFilter === "ALL"
+      || (state.decisionFilter === "NEEDS_HUMAN" && (decision.outcome === "NEEDS_HUMAN" || decision.riskRoute === "HUMAN_REVIEW"))
+      || (state.decisionFilter === "FAILED" && ["FAILED", "BLOCKED", "STALE"].includes(decision.executionStatus))
+      || (state.decisionFilter === "SHADOW" && decision.riskRoute === "SHADOW");
+    if (!matchesFilter || !query) return matchesFilter;
+    return [decision.evidenceSummary, decision.rule.displayName, decision.rule.id, decision.sourceRoot.pageName, outcomeLabels[decision.outcome]]
+      .some((value) => String(value ?? "").toLocaleLowerCase("zh-CN").includes(query));
+  });
+  const decisions = visibleDecisions.map((decision) => renderDecisionRow({ ...state, selectedDecisionIds: [...selected] }, decision)).join("");
   return `${heading}
     <section class="agent-metrics" aria-label="近期 Agent 运行摘要">
       <div><span>24h 处理</span><strong>${dashboard.metrics.handled24h}</strong></div><div><span>7d 处理</span><strong>${dashboard.metrics.handled7d}</strong></div><div><span>自动应用</span><strong>${dashboard.metrics.automatic}</strong></div><div><span>需要人工</span><strong>${dashboard.metrics.humanNeeded}</strong></div><div><span>执行失败</span><strong>${dashboard.metrics.failed}</strong></div><div><span>批量采样</span><strong>${dashboard.metrics.sampled}</strong></div>
     </section>
     ${renderBulkFeedback(state)}
     <div class="agent-governance-layout">
-      <section class="agent-decision-stream"><div class="agent-section-head"><div><div class="eyebrow">异常优先</div><h3>最近决策</h3></div>${button("刷新", "agent-governance-refresh")}</div>${decisions || `<div class="empty"><strong>尚无决策记录</strong><span>观察模式运行后，可追溯决策会在这里出现。</span></div>`}</section>
+      <section class="agent-decision-stream"><div class="agent-section-head"><div><div class="eyebrow">异常优先</div><h3>最近决策</h3></div>${button("刷新", "agent-governance-refresh")}</div><div class="agent-decision-tools"><label>筛选<select data-field="agentDecisionFilter"><option value="ALL"${state.decisionFilter === "ALL" ? " selected" : ""}>全部</option><option value="NEEDS_HUMAN"${state.decisionFilter === "NEEDS_HUMAN" ? " selected" : ""}>需要判断</option><option value="FAILED"${state.decisionFilter === "FAILED" ? " selected" : ""}>失败与阻断</option><option value="SHADOW"${state.decisionFilter === "SHADOW" ? " selected" : ""}>观察中</option></select></label><label>搜索<input type="search" data-field="agentDecisionSearch" value="${escapeHtml(state.decisionSearch)}" placeholder="来源、决定或规则"></label></div>${decisions || `<div class="empty"><strong>${state.decisions.length ? "没有符合条件的决策" : "尚无决策记录"}</strong><span>${state.decisions.length ? "调整筛选或搜索条件后重试。" : "观察模式运行后，可追溯决策会在这里出现。"}</span></div>`}</section>
       <aside class="agent-governance-side">
-        <section><div class="eyebrow">规则与表现</div><h3>当前授权</h3>${renderRules(state.rules, state.decisions)}</section>
+        <section><div class="eyebrow">规则与表现</div><h3>当前授权</h3>${renderRules(state)}</section>
         <section><div class="eyebrow">稍后复查</div><h3>弱信号</h3>${renderSignals(state.signals)}</section>
-        <section class="agent-export-panel"><div class="eyebrow">评审与改进</div><h3>导出治理证据</h3><p>导出前会校验文件清单、大小和校验和，并移除凭据形式的内容。</p><div class="actions">${button(state.exportBusy === "skill" ? "正在导出…" : "导出 30 天 Skill 反馈", "agent-export-skill", "30", "quiet", Boolean(state.exportBusy))}${button(state.exportBusy === "review" ? "正在准备…" : "导出 60 天复查证据", "agent-export-review", "60", "quiet", Boolean(state.exportBusy))}</div></section>
+        <section class="agent-export-panel"><div class="eyebrow">评审与改进</div><h3>导出治理证据</h3><p>导出前会校验文件清单、大小和校验和，并移除凭据形式的内容。</p><div class="actions">${button(state.exportBusy === "skill" ? "正在导出…" : "导出 30 天 Skill 反馈", "agent-export-skill", "30", "quiet", Boolean(state.exportBusy))}${button(state.exportBusy === "review" ? "正在准备…" : "导出 60 天复查证据", "agent-export-review", "60", "quiet", Boolean(state.exportBusy))}${button(state.exportBusy === "review" ? "正在准备…" : "导出 180 天复查证据", "agent-export-review", "180", "quiet", Boolean(state.exportBusy))}</div></section>
       </aside>
     </div>`;
 }

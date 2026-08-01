@@ -54,6 +54,14 @@ test("authenticated observation crosses the shared Graph bridge and persists onl
   assert.equal((await client.listAgentDecisions({ limit: 10 })).length, 1);
   assert.equal((await client.listAgentRuleAuthorizations()).length, 6);
 
+  assert.equal((await client.getAgentGovernanceSettings()).globalWritesPaused, false);
+  const globalPauseCommand = { globalWritesPaused: true, traceId: "trace-agent-global-pause-1", idempotencyKey: "agent-global-pause-1" };
+  assert.equal((await client.setAgentGlobalWritesPaused(globalPauseCommand)).settings.globalWritesPaused, true);
+  assert.equal((await client.setAgentGlobalWritesPaused(globalPauseCommand)).replayed, true);
+  const pausedRule = await client.setAgentRulePaused("EXPLICIT-TASK-01", { paused: true, traceId: "trace-agent-rule-pause-1", idempotencyKey: "agent-rule-pause-1" });
+  assert.equal(pausedRule.authorization.paused, true);
+  assert.equal((await client.setAgentRulePaused("EXPLICIT-TASK-01", { paused: false, traceId: "trace-agent-rule-resume-1", idempotencyKey: "agent-rule-resume-1" })).authorization.paused, false);
+
   if (!result.decision) throw new Error("expected persisted Decision");
   const feedbackCommand = {
     feedback: { rating: "WRONG" as const, correctionType: "SHOULD_KEEP_ORDINARY" as const, action: "PAUSE_RULE_AUTOMATION" as const },

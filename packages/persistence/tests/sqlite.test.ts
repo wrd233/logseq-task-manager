@@ -77,6 +77,7 @@ async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
 
 function dropAgentGovernanceSchema(database: Database.Database): void {
   database.exec(`
+    DROP TABLE IF EXISTS agent_governance_settings;
     DROP TABLE IF EXISTS agent_decision_events;
     DROP TABLE IF EXISTS agent_review_signals;
     DROP TABLE IF EXISTS agent_rule_authorizations;
@@ -121,6 +122,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 11, name: "allow_project_closure_retention_and_mini_project_closure", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 12, name: "add_project_structure_aggregate", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 13, name: "add_agent_decision_governance", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 14, name: "add_agent_governance_settings", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -470,6 +472,7 @@ test("schema v12 explicitly adds the minimal Agent governance tables after a val
   store.close();
   const legacy = new Database(path);
   legacy.exec(`
+    DROP TABLE IF EXISTS agent_governance_settings;
     DROP TABLE IF EXISTS agent_decision_events;
     DROP TABLE IF EXISTS agent_review_signals;
     DROP TABLE IF EXISTS agent_rule_authorizations;
@@ -488,7 +491,7 @@ test("schema v12 explicitly adds the minimal Agent governance tables after a val
   const backupPath = join(root, "before-agent-governance.db");
   assert.deepEqual(
     await migrating.migrateSchema("graph-agent-governance", backupPath, new Date("2026-08-02T03:00:00.000Z")),
-    { migrated: true, fromVersion: 12, schemaVersion: 13, backupPath },
+    { migrated: true, fromVersion: 12, schemaVersion: 14, backupPath },
   );
   const backup = new Database(backupPath, { readonly: true, fileMustExist: true });
   assert.equal(backup.pragma("user_version", { simple: true }), 12);
@@ -497,10 +500,40 @@ test("schema v12 explicitly adds the minimal Agent governance tables after a val
   const internal = migrating as unknown as { database: Database.Database };
   assert.deepEqual(
     (internal.database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'agent_%' ORDER BY name").pluck().all()),
-    ["agent_decision_events", "agent_decisions", "agent_review_signals", "agent_rule_authorizations"],
+    ["agent_decision_events", "agent_decisions", "agent_governance_settings", "agent_review_signals", "agent_rule_authorizations"],
   );
   assert.equal(migrating.schemaMigrationHistory()[12]?.name, "add_agent_decision_governance");
   migrating.close();
+});
+
+test("schema v14 adds one durable global Agent write-pause setting after a validated backup", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-agent-settings");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec(`
+    DROP TABLE agent_governance_settings;
+    DELETE FROM schema_migrations WHERE version >= 14;
+    UPDATE schema_meta SET value = '13' WHERE key = 'schema_version';
+    PRAGMA user_version = 13;
+  `);
+  legacy.close();
+
+  const migrating = await V2SqliteStore.open(path);
+  const backupPath = join(root, "before-agent-settings.db");
+  assert.deepEqual(
+    await migrating.migrateSchema("graph-agent-settings", backupPath, new Date("2026-08-02T03:10:00.000Z")),
+    { migrated: true, fromVersion: 13, schemaVersion: 14, backupPath },
+  );
+  assert.deepEqual(migrating.getAgentGovernanceSettings(), { globalWritesPaused: false, updatedAt: "2026-08-02T03:10:00.000Z" });
+  const application = new AgentGovernanceApplication(migrating);
+  const paused = await application.setGlobalWritesPaused(true, { actor: "user", traceId: "pause-all", idempotencyKey: "pause-all" }, new Date("2026-08-02T03:11:00.000Z"));
+  assert.equal(paused.settings.globalWritesPaused, true);
+  migrating.close();
+  const reopened = await V2SqliteStore.open(path);
+  assert.equal(reopened.getAgentGovernanceSettings()?.globalWritesPaused, true);
+  reopened.close();
 });
 
 test("Agent governance persists one Decision Thread, meaningful Revision events, and reloadable history", async (t) => {

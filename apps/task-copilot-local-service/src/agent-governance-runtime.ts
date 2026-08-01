@@ -92,25 +92,81 @@ function ruleForGate(
   rules: readonly AgentGovernanceRule[],
   gateReason: string,
   sourceRoot: AgentGateBlock,
-  current?: AgentDecision,
+  input: {
+    current?: AgentDecision;
+    candidateExists: boolean;
+    relatedTargetCount: number;
+    insideFormalObject: boolean;
+  },
 ): AgentGovernanceRule | undefined {
-  if (current) return rules.find(({ id }) => id === current.rule.id);
-  if (gateReason === "WEAK_SIGNAL" || gateReason === "REPEATED_WEAK_SIGNAL") return rules.find(({ id }) => id === "REVIEW-SIGNAL-01");
-  if (gateReason === "FORMAL_OBJECT_UPDATE") return rules.find(({ id }) => id === "WORKSITE-CONTEXT-01");
+  if (gateReason === "FORMAL_OBJECT_UPDATE" || input.insideFormalObject) return rules.find(({ id }) => id === "WORKSITE-CONTEXT-01");
   if (/^(?:TODO|NOW|DOING)\b|^\[(?:Task|任务)\]/iu.test(agentGovernanceSemanticText(sourceRoot.content))) return rules.find(({ id }) => id === "EXPLICIT-TASK-01");
+  if (input.candidateExists && /以后考虑|以后可能|有空可以|\b(?:someday|later)\b/iu.test(agentGovernanceSemanticText(sourceRoot.content))) {
+    return rules.find(({ id }) => id === "CANDIDATE-DEFER-01");
+  }
+  if (gateReason === "WEAK_SIGNAL" || gateReason === "REPEATED_WEAK_SIGNAL") return rules.find(({ id }) => id === "REVIEW-SIGNAL-01");
+  if (input.candidateExists && input.relatedTargetCount === 1) return rules.find(({ id }) => id === "CANDIDATE-DUPLICATE-01");
+  if (input.candidateExists || input.current) return rules.find(({ id }) => id === "ORDINARY-CONTENT-01");
   return undefined;
 }
 
-function presentEvidenceFor(rule: AgentGovernanceRule, sourceRoot: AgentGateBlock, hasSameSourceFormalState: boolean): string[] {
-  const present = new Set<string>(["SOURCE_ROOT_CAPTURED", "SOURCE_STILL_EXISTS", "SINGLE_OBJECT_IMPACT", "NO_SOURCE_TEXT_WRITE"]);
+function presentEvidenceFor(input: {
+  rule: AgentGovernanceRule;
+  sourceRoot: AgentGateBlock;
+  hasSameSourceFormalState: boolean;
+  candidateExists: boolean;
+  relatedTargetCount: number;
+}): string[] {
+  const { rule, sourceRoot, hasSameSourceFormalState, candidateExists, relatedTargetCount } = input;
+  const content = agentGovernanceSemanticText(sourceRoot.content);
+  const present = new Set<string>(["SOURCE_ROOT_CAPTURED", "SOURCE_STILL_EXISTS", "NO_SOURCE_TEXT_WRITE"]);
+  if (relatedTargetCount <= 1) present.add("SINGLE_OBJECT_IMPACT");
   if (/^(?:TODO|NOW|DOING)\b|^\[(?:Task|任务)\]/iu.test(agentGovernanceSemanticText(sourceRoot.content))) present.add("SOURCE_ROOT_EXPLICIT_TASK_MARKER");
-  if (!hasSameSourceFormalState) present.add("NO_DUPLICATE");
+  if (!hasSameSourceFormalState && relatedTargetCount === 0) present.add("NO_DUPLICATE");
   if (rule.id === "REVIEW-SIGNAL-01") present.add("WEAK_SIGNAL_EXPRESSION");
+  if (rule.id === "ORDINARY-CONTENT-01" && !/TODO|NOW|DOING|等待|阻塞|已完成|已交付|决定为/iu.test(content)) present.add("NO_ACTION_OR_DELIVERY_EXPRESSION");
+  if (candidateExists) present.add("CANDIDATE_EXISTS");
+  if (rule.id === "CANDIDATE-DEFER-01" && /以后考虑|以后可能|有空可以|\b(?:someday|later)\b/iu.test(content)) present.add("EXPLICIT_DEFER_EXPRESSION");
+  if (rule.id === "CANDIDATE-DUPLICATE-01" && relatedTargetCount === 1) {
+    present.add("UNIQUE_EQUIVALENT_OBJECT");
+    present.add("TARGET_VERSION_CURRENT");
+  }
   if (rule.id === "WORKSITE-CONTEXT-01" && hasSameSourceFormalState) {
     present.add("UNIQUE_OWNING_OBJECT");
     present.add("SOURCE_IN_WORKSITE");
   }
   return [...present].sort();
+}
+
+function relatedFormalTargets(
+  sourceRoot: AgentGateBlock,
+  source: AgentGovernanceRuntimeOptions["source"],
+  lineageIds: ReadonlySet<string>,
+): Array<{ objectId: string; reason: "SOURCE_LINEAGE" | "EXACT_TEXT_MENTION" }> {
+  const content = agentGovernanceSemanticText(sourceRoot.content).toLocaleLowerCase("und");
+  const targets: Array<{ objectId: string; reason: "SOURCE_LINEAGE" | "EXACT_TEXT_MENTION" }> = [];
+  for (const object of source.listObjects()) {
+    if (object.lifecycle !== "OPEN") continue;
+    const anchor = source.getActivePrimaryAnchorByObject(object.objectId);
+    if (anchor && lineageIds.has(anchor.externalId)) {
+      targets.push({ objectId: object.objectId, reason: "SOURCE_LINEAGE" });
+      continue;
+    }
+    const objectText = agentGovernanceSemanticText(object.text).toLocaleLowerCase("und");
+    if (objectText.length >= 3 && content.includes(objectText)) targets.push({ objectId: object.objectId, reason: "EXACT_TEXT_MENTION" });
+  }
+  return targets.sort((left, right) => left.objectId.localeCompare(right.objectId)).slice(0, 8);
+}
+
+function deterministicCounterSignals(rule: AgentGovernanceRule, relatedTargetCount: number): string[] {
+  const counters = new Set<string>();
+  if (relatedTargetCount > 1) {
+    if (rule.counterSignals.includes("MULTIPLE_TARGETS")) counters.add("MULTIPLE_TARGETS");
+    if (rule.counterSignals.includes("MULTIPLE_EQUIVALENT_OBJECTS")) counters.add("MULTIPLE_EQUIVALENT_OBJECTS");
+  } else if (relatedTargetCount === 1 && rule.counterSignals.includes("DUPLICATE_OBJECT")) {
+    counters.add("DUPLICATE_OBJECT");
+  }
+  return [...counters].sort();
 }
 
 export class AgentGovernanceRuntime {
@@ -139,7 +195,8 @@ export class AgentGovernanceRuntime {
     const candidates = this.options.source.listCandidates();
     const insideFormalObject = lineage.some(({ externalId }) => formalSourceIds.has(externalId));
     const lineageIds = new Set(lineage.map(({ externalId }) => externalId));
-    const candidateTargetCount = candidates.filter(({ sourceAnchorId }) => lineageIds.has(sourceAnchorId)).length;
+    const candidateExists = candidates.some(({ sourceAnchorId }) => lineageIds.has(sourceAnchorId));
+    const relatedTargets = relatedFormalTargets(lineage[0]!, this.options.source, lineageIds);
     const priorWeakOccurrences = activeSignals.find(({ sourceRoot }) => lineageIds.has(sourceRoot.externalId))?.occurrenceCount ?? 0;
     const currentForChanged = decisions.find(({ sourceRoot }) => sourceRoot.externalId === changedBlockId);
     const gate = classifyAgentGovernanceChange({
@@ -147,7 +204,8 @@ export class AgentGovernanceRuntime {
       lineage,
       changedBlockCount: observation.changedBlockCount,
       weakSignalOccurrences30d: priorWeakOccurrences + 1,
-      candidateTargetCount,
+      candidateTargetCount: relatedTargets.length,
+      hasCandidateSource: candidateExists,
       hasExistingDecisionThread: currentForChanged !== undefined,
       insideFormalObject,
     });
@@ -161,18 +219,31 @@ export class AgentGovernanceRuntime {
     const current = decisions.find(({ sourceRoot }) => sourceRoot.externalId === gate.sourceRoot.externalId);
     const snapshotHash = sourceSnapshotHash(sourceSnapshot);
     if (current?.sourceSnapshotHash === snapshotHash) return { status: "UNCHANGED", gateAction: gate.action, decision: current };
-    const rule = ruleForGate(this.options.skill.manifest.rules, gate.reason, gate.sourceRoot, current);
+    const rule = ruleForGate(this.options.skill.manifest.rules, gate.reason, gate.sourceRoot, {
+      ...(current ? { current } : {}),
+      candidateExists,
+      relatedTargetCount: relatedTargets.length,
+      insideFormalObject,
+    });
     if (!rule) return { status: "IGNORED", gateAction: gate.action };
     const authorization = await this.requireAuthorization(rule.id);
     const hasSameSourceFormalState = formalSourceIds.has(gate.sourceRoot.externalId)
       || candidates.some(({ sourceAnchorId }) => sourceAnchorId === gate.sourceRoot.externalId);
-    const presentEvidence = presentEvidenceFor(rule, gate.sourceRoot, hasSameSourceFormalState);
-    const contextPackage = buildContextPackage(this.options.source, [], { kind: "block", id: gate.sourceRoot.externalId }, observedAt, sourceSnapshot);
+    const presentEvidence = presentEvidenceFor({ rule, sourceRoot: gate.sourceRoot, hasSameSourceFormalState, candidateExists, relatedTargetCount: relatedTargets.length });
+    const counterSignals = deterministicCounterSignals(rule, relatedTargets.length);
+    const contextPackage = buildContextPackage(
+      this.options.source,
+      [],
+      { kind: "block", id: gate.sourceRoot.externalId },
+      observedAt,
+      sourceSnapshot,
+      { retrievalCandidates: relatedTargets },
+    );
     const context = buildAgentGovernanceContextPackage(contextPackage, {
       tier: gate.action === "RUN_EXPANDED" ? "EXPANDED" : "LOCAL",
       tokenBudget: gate.action === "RUN_EXPANDED" ? 24_000 : 12_000,
       rule,
-      counterSignals: [],
+      counterSignals,
       recentFeedback: [],
     });
     if (gate.action === "UPDATE_REVIEW_SIGNAL") {
@@ -181,7 +252,12 @@ export class AgentGovernanceRuntime {
     if (!this.options.provider) return this.recordProviderFailure(gate.action, gate.sourceRoot, sourceSnapshot, snapshotHash, rule, context, "PROVIDER_DISABLED", observedAt);
 
     try {
-      const allowedEvidenceRefs = new Set([`source:${gate.sourceRoot.externalId}`, `rule:${rule.id}`]);
+      const allowedTargetObjectIds = relatedTargets.map(({ objectId }) => objectId);
+      const allowedEvidenceRefs = new Set([
+        `source:${gate.sourceRoot.externalId}`,
+        `rule:${rule.id}`,
+        ...allowedTargetObjectIds.map((objectId) => `object:${objectId}`),
+      ]);
       const orderedEvidenceRefs = [...allowedEvidenceRefs].sort();
       const legalOutcomes = [...new Set([rule.recommendedOutcome, "NEEDS_MORE_CONTEXT", "NEEDS_HUMAN"] as const)];
       const outputTemplate = {
@@ -205,7 +281,7 @@ export class AgentGovernanceRuntime {
           legalOutcomes,
           allowedEvidenceRefs: orderedEvidenceRefs,
           allowedCounterSignals: [...rule.counterSignals].sort(),
-          allowedTargetObjectIds: [],
+          allowedTargetObjectIds,
           outputTemplate,
         }),
         ...(signal ? { signal } : {}),
@@ -215,6 +291,8 @@ export class AgentGovernanceRuntime {
       if (output.ruleId !== rule.id) throw runtimeError("AGENT_PROVIDER_RULE_MISMATCH", "Provider 返回了未选中的 Rule ID。");
       if (![rule.recommendedOutcome, "NEEDS_MORE_CONTEXT", "NEEDS_HUMAN"].includes(output.outcome)) throw runtimeError("AGENT_PROVIDER_OUTCOME_NOT_ALLOWED", "Provider 返回了 Skill 未允许的 Outcome。");
       if (output.evidenceRefs.some((reference) => !allowedEvidenceRefs.has(reference))) throw runtimeError("AGENT_PROVIDER_EVIDENCE_INVENTED", "Provider 返回了 Context 中不存在的 Evidence Ref。");
+      if (output.counterSignals.some((counterSignal) => !rule.counterSignals.includes(counterSignal))) throw runtimeError("AGENT_PROVIDER_COUNTER_SIGNAL_INVENTED", "Provider 返回了 Skill 未允许的 Counter Signal。");
+      if (output.targetObjectIds.some((objectId) => !allowedTargetObjectIds.includes(objectId))) throw runtimeError("AGENT_PROVIDER_TARGET_INVENTED", "Provider 返回了 Context 中不存在的目标 Object。 ");
       const routing = routeAgentDecision({
         riskLevel: rule.riskLevel,
         authorization,
@@ -285,7 +363,10 @@ export class AgentGovernanceRuntime {
       return { status: "RECORDED", gateAction: gate.action, decision: recorded.decision };
     } catch (error) {
       if (signal?.aborted || (error instanceof StructuredError && error.code === "AGENT_OBSERVATION_CANCELLED")) throw error;
-      return this.recordProviderFailure(gate.action, gate.sourceRoot, sourceSnapshot, snapshotHash, rule, context, "PROVIDER_OUTPUT_REJECTED", observedAt);
+      const failureCode = error instanceof StructuredError && /^AGENT_[A-Z0-9_]+$/u.test(error.code)
+        ? error.code
+        : "PROVIDER_OUTPUT_REJECTED";
+      return this.recordProviderFailure(gate.action, gate.sourceRoot, sourceSnapshot, snapshotHash, rule, context, failureCode, observedAt);
     }
   }
 

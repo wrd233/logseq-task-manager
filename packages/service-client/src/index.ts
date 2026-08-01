@@ -1,5 +1,5 @@
-import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
-import { validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceExportPackage, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
+import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import { validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceExportPackage, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -541,6 +541,19 @@ export interface ServiceAgentBulkFeedbackCommand extends ServiceAgentFeedbackCom
 export interface ServiceAgentBulkFeedbackResult {
   groups: AgentFeedbackCompatibilityGroup[];
   results: ServiceAgentFeedbackResult[];
+}
+
+export interface ServiceAgentGovernanceMutationCommand {
+  traceId: string;
+  idempotencyKey: string;
+}
+
+export interface ServiceAgentRulePauseCommand extends ServiceAgentGovernanceMutationCommand {
+  paused: boolean;
+}
+
+export interface ServiceAgentGlobalPauseCommand extends ServiceAgentGovernanceMutationCommand {
+  globalWritesPaused: boolean;
 }
 
 export type ServiceLegacyMigrationPreview = LegacyMigrationPreview;
@@ -1132,6 +1145,29 @@ export class LocalServiceClient {
 
   async listAgentRuleAuthorizations(): Promise<AgentRuleAuthorization[]> {
     return validatedGovernanceArray(await this.request<unknown>("/agent/rules"), "authorizations", validateAgentRuleAuthorization);
+  }
+
+  async getAgentGovernanceSettings(): Promise<AgentGovernanceSettings> {
+    const value = await this.request<{ settings?: unknown }>("/agent/settings");
+    return validateAgentGovernanceSettings(value.settings);
+  }
+
+  async setAgentRulePaused(ruleId: string, input: ServiceAgentRulePauseCommand): Promise<{ authorization: AgentRuleAuthorization; replayed: boolean }> {
+    const value = await this.request<{ authorization?: unknown; replayed?: unknown }>(`/agent/rules/${encodeURIComponent(ruleId)}/pause`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return { authorization: validateAgentRuleAuthorization(value.authorization), replayed: Boolean(value.replayed) };
+  }
+
+  async setAgentGlobalWritesPaused(input: ServiceAgentGlobalPauseCommand): Promise<{ settings: AgentGovernanceSettings; replayed: boolean }> {
+    const value = await this.request<{ settings?: unknown; replayed?: unknown }>("/agent/settings/global-pause", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return { settings: validateAgentGovernanceSettings(value.settings), replayed: Boolean(value.replayed) };
   }
 
   async recordAgentFeedback(decisionId: string, input: ServiceAgentFeedbackCommand): Promise<ServiceAgentFeedbackResult> {
