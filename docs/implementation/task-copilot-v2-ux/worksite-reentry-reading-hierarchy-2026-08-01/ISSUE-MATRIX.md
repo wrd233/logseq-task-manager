@@ -9,7 +9,7 @@
 | WRH-P1-03 | P1 | Worksite Preview | Now 不呈现来源 Block 子级工作记录 | 只读有界预览、按需展开、打开正文 | DESKTOP_BEHAVIOR_PASS | sprint-b bundles + source-tree |
 | WRH-P1-04 | P1 | Data Boundary | 预览可能复制到 SQLite 或形成第二编辑器 | UI projection；Graph 原文权威；无正式写入 | DESKTOP_BEHAVIOR_PASS（只读断言） | 控制器源码测试 |
 | WRH-P1-05 | P1 | Performance | 多卡片 N+1 子树读取 | base-first、lazy、concurrency、cache | DESKTOP_BEHAVIOR_PASS | performance.json + 并发测试 |
-| WRH-P1-06 | P1 | Visual Hierarchy | 对象/状态/上下文/解释/行动强调不稳定 | 五层语义角色、加粗和颜色预算 | OPEN（Sprint C） | computed-style bundles |
+| WRH-P1-06 | P1 | Visual Hierarchy | 对象/状态/上下文/解释/行动强调不稳定 | 五层语义角色、加粗和颜色预算 | DESKTOP_BEHAVIOR_PASS（视觉待 reviewer） | sprint-c bundles + computed styles |
 | WRH-P1-07 | P1 | Responsive | 右侧动作可能压缩长标题 | 1000 两区，760 footer，语义一致 | DESKTOP_BEHAVIOR_PASS | sprint-a/02/04 |
 | WRH-P1-08 | P1 | Accessibility | menu/disclosure/focus order 可能回归 | accessible name、Esc、focus return、DOM order | DESKTOP_BEHAVIOR_PASS | sprint-a bundles + 真实输入链 |
 | WRH-P2-01 | P2 | Focus | Focus 项和其他项过于同质 | Focus 短预览；其他折叠；不夸张装饰 | PARTIAL（Focus 短预览已实现；视觉待 reviewer） | sprint-b/01/05/06 |

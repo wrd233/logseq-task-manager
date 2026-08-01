@@ -110,7 +110,6 @@ export function projectWorksiteBlocks(
       continue;
     }
     let display = text;
-    let remainder = 0;
     const room = limits.byteBased ? limits.characterLimit - characters - utf8Bytes(text) : limits.characterLimit - characters - text.length;
     if (room < 0) {
       const allowed = limits.characterLimit - characters;
@@ -128,7 +127,6 @@ export function projectWorksiteBlocks(
       ...(marker ? { marker } : {}),
     });
     characters += limits.byteBased ? utf8Bytes(display) : display.length;
-    remainingCount += remainder;
   }
   return {
     blocks,
@@ -139,7 +137,18 @@ export function projectWorksiteBlocks(
 }
 
 export class WorksitePreviewController {
-  private readonly options: Required<WorksitePreviewControllerOptions> & { requestIdPrefix: string };
+  private readonly options: {
+    maximumConcurrency: number;
+    shortBlockLimit: number;
+    shortDepthLimit: number;
+    shortCharacterLimit: number;
+    fullBlockLimit: number;
+    fullDepthLimit: number;
+    fullByteLimit: number;
+    requestIdPrefix: string;
+    now: () => Date;
+    onStateChange?: (objectId: string, mode: WorksitePreviewMode) => void;
+  };
   private readonly cache = new Map<string, CacheEntry>();
   private readonly expanded = new Set<string>();
   private readonly expandedFull = new Set<string>();
@@ -162,7 +171,7 @@ export class WorksitePreviewController {
       fullByteLimit: options.fullByteLimit ?? DEFAULT_OPTIONS.fullByteLimit,
       requestIdPrefix: options.requestIdPrefix ?? DEFAULT_OPTIONS.requestIdPrefix,
       now: options.now ?? (() => new Date()),
-      onStateChange: options.onStateChange,
+      ...(options.onStateChange ? { onStateChange: options.onStateChange } : {}),
     };
   }
 
@@ -324,7 +333,7 @@ export class WorksitePreviewController {
       this.cache.set(objectId, entry);
       this.options.onStateChange?.(objectId, mode);
       return state;
-    } catch (error) {
+    } catch {
       return failure({ status: "error", diagnosticId: requestId, safeMessage: "暂时无法读取工作记录" });
     }
   }

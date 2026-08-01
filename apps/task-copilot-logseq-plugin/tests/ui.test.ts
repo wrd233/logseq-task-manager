@@ -12,6 +12,8 @@ import {
   projectPluginV2TaskReentry,
 } from "../src/reentry-runtime.ts";
 import { projectPluginObjectNarrations } from "../src/status-narration-runtime.ts";
+import type { WorksitePreviewMode, WorksitePreviewState } from "../src/worksite-preview-controller.ts";
+import type { WorksitePreviewUiEntry } from "../src/ui.ts";
 
 function model(): UiModel {
   return {
@@ -1648,7 +1650,7 @@ test("Sprint A menu keyboard contract is wired in the runtime entry", async () =
 });
 
 function worksiteNowModel(overrides: {
-  preview?: { expanded: boolean; state: import("../src/ui.ts").WorksitePreviewUiEntry["state"] };
+  preview?: { expanded: boolean; state: WorksitePreviewState; mode?: WorksitePreviewMode };
   focused?: boolean;
 } = {}): ReturnType<typeof model> {
   const value = model();
@@ -1678,7 +1680,15 @@ function worksiteNowModel(overrides: {
     waitingReview: [],
     conditionOptions: [],
   };
-  if (overrides.preview) value.v2WorksitePreviews = { "task-worksite": overrides.preview };
+  if (overrides.preview) {
+    value.v2WorksitePreviews = {
+      "task-worksite": {
+        expanded: overrides.preview.expanded,
+        state: overrides.preview.state,
+        ...(overrides.preview.mode ? { mode: overrides.preview.mode } : {}),
+      },
+    };
+  }
   return value;
 }
 
@@ -1709,6 +1719,7 @@ test("Sprint B focus card shows a bounded worksite preview without losing its si
   assert.match(card, /data-action="v2-worksite-expand-full"/);
   assert.match(card, /data-action="v2-worksite-refresh"/);
   assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
+  assert.equal((card.match(/<strong>/g) ?? []).length, 0, "normal card keeps the bold budget for the title only");
   assert.match(card, /<div class="now-card-status">[\s\S]*<section class="now-worksite now-worksite-open"/);
   assert.match(card, /<section class="now-worksite now-worksite-open"[\s\S]*<\/section><\/div><div class="now-card-actions">/);
 });
@@ -1772,7 +1783,7 @@ test("Sprint B worksite loading/empty/error/unavailable states stay card-local a
     { status: "loaded-empty", sourceVersion: "v3" },
     { status: "error", safeMessage: "暂时无法读取工作记录", diagnosticId: "worksite-x" },
     { status: "unavailable", reason: "来源位置不可用" },
-  ] as Array<import("../src/ui.ts").WorksitePreviewUiEntry["state"]>) {
+  ] as Array<WorksitePreviewUiEntry["state"]>) {
     const value = worksiteNowModel({ preview: { expanded: true, state } });
     const html = renderApp(value);
     const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
@@ -1952,6 +1963,110 @@ test("V2 Now Work makes Task recovery the only action and hides internal recover
   assert.doesNotMatch(card, /RECOVERY_REQUIRED|Commit|Proposal|Anchor|更新状态|设置期限|移出关注|打开正文|来自当前关注|Copilot 提醒|期限：/);
   assert.doesNotMatch(card, /<details class="more-actions">/);
   assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
+  assert.match(card, /<div class="now-card-status status-recovery">/);
+  assert.equal((card.match(/<strong>/g) ?? []).length, 1, "recovery keeps exactly one strong emphasis");
+});
+
+test("Sprint C pending status uses the warning role with exactly one strong emphasis", () => {
+  const value = model();
+  value.workspace = "now";
+  const observedAt = "2026-07-31T08:00:00.000Z";
+  const task = {
+    objectId: "task-pending",
+    objectType: "TASK" as const,
+    version: 6,
+    lifecycle: "OPEN" as const,
+    condition: { kind: "ACTIONABLE" as const },
+    text: "续跑发布材料",
+    sourceOrCreationEvent: "test",
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  };
+  value.v2NowWork = {
+    generatedAt: observedAt,
+    focus: [{
+      objectId: task.objectId,
+      objectType: task.objectType,
+      version: task.version,
+      text: task.text,
+      condition: task.condition,
+      updatedAt: task.updatedAt,
+      reason: "近期更新，可继续推进",
+      primaryAnchorExternalId: "block-task-pending",
+    }],
+    next: [],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  value.v2TaskReentryCards = projectPluginV2TaskReentry({
+    observedAt,
+    objects: [task],
+    ownerships: [],
+    anchors: [{
+      anchorId: "anchor-task-pending",
+      objectId: task.objectId,
+      graphId: "graph-1",
+      externalId: "block-task-pending",
+      role: "primary_text",
+      status: "active",
+      contentHash: "hash-task-pending",
+      lastSeenAt: observedAt,
+    }],
+    proposals: [{
+      updatedAt: observedAt,
+      files: { proposalMd: "# pending", proposalJson: "{}" },
+      proposal: {
+        proposalId: "proposal-task-pending",
+        schemaVersion: "v2",
+        title: "更新发布材料",
+        context: "context",
+        understanding: "understanding",
+        objective: "objective",
+        logic: "logic",
+        finalPreview: "preview",
+        unresolvedQuestions: [],
+        source: { kind: "user" },
+        scope: { read: [], modify: [{ kind: "OBJECT", id: task.objectId, version: task.version }] },
+        preconditions: [],
+        groups: [],
+        status: "ACCEPTED",
+        createdAt: observedAt,
+      },
+    }],
+    commits: [{
+      semanticCommitId: "commit-task-pending",
+      proposalId: "proposal-task-pending",
+      status: "PENDING",
+      beforeStateChecksum: "before",
+      createdAt: observedAt,
+      updatedAt: observedAt,
+    }],
+  });
+  const html = renderApp(value);
+  const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(card, /上一次修改尚未完成/);
+  assert.match(card, /<div class="now-card-status status-pending">/);
+  assert.equal((card.match(/<strong>/g) ?? []).length, 1);
+  assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
+});
+
+test("Sprint C semantic hierarchy tokens fix title/status/aux weights and colors", async () => {
+  const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+  for (const token of [
+    "--now-title-size: 16px",
+    "--now-title-weight: 650",
+    "--now-status-weight: 400",
+    "--now-aux-size: 12px",
+    "--worksite-line-height: 1.55",
+    "--now-card-padding: 14px 16px",
+  ]) {
+    assert.match(css, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.match(css, /\.now-card-content h3 \{[\s\S]*font-size: var\(--now-title-size\);[\s\S]*font-weight: var\(--now-title-weight\);/);
+  assert.match(css, /\.now-card-status\.status-pending strong \{ color: var\(--warning\); \}/);
+  assert.match(css, /\.now-card-status\.status-recovery strong \{ color: var\(--danger-text\); \}/);
+  assert.match(css, /\.worksite-actions button \{[\s\S]*color: var\(--muted\); \}/);
+  assert.match(css, /\.now-card-actions > \.actions button\.primary \{ width: 100%; font-weight: 600; \}/);
 });
 
 test("V2 Now Work ignores Task reentry projected from another Object version", () => {

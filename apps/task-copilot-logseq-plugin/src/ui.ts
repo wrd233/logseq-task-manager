@@ -396,10 +396,10 @@ function renderNow(model: UiModel): string {
         : "";
       const status = taskRecovery
         ? taskRecovery.projection.safetyState === "RECOVERY_REQUIRED"
-          ? "<div class=\"now-card-status\"><p><strong>上一次修改需要恢复</strong></p><p class=\"muted\">相关写入已经停止；请先核对差异并恢复到安全状态。</p></div>"
-          : "<div class=\"now-card-status\"><p><strong>上一次修改尚未完成</strong></p><p class=\"muted\">已完成的步骤仍会保留；请沿用上一次修改继续。</p></div>"
+          ? "<div class=\"now-card-status status-recovery\"><p><strong>上一次修改需要恢复</strong></p><p class=\"muted\">相关写入已经停止；请先核对差异并恢复到安全状态。</p></div>"
+          : "<div class=\"now-card-status status-pending\"><p><strong>上一次修改尚未完成</strong></p><p class=\"muted\">已完成的步骤仍会保留；请沿用上一次修改继续。</p></div>"
         : taskSafetyUnavailable
-          ? "<div class=\"now-card-status\"><p><strong>当前安全状态暂时无法核对</strong></p><p class=\"muted\">正式内容没有因此改变；请先核对未完成修改。</p></div>"
+          ? "<div class=\"now-card-status status-unavailable\"><p><strong>当前安全状态暂时无法核对</strong></p><p class=\"muted\">正式内容没有因此改变；请先核对未完成修改。</p></div>"
         : narration
         ? `<div class="now-card-status"><p class="now-status-conclusion">${escapeHtml(narration.conclusion)}</p>${narration.keyEvidence.length ? `<p class="muted">${escapeHtml(narration.keyEvidence[0]!)}</p>` : ""}</div>`
         : `<div class="now-card-status"><p class="now-status-conclusion">${escapeHtml(item.reason)}</p></div>`;

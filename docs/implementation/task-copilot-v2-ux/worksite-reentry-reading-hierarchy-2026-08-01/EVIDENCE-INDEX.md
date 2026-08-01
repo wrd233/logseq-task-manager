@@ -63,3 +63,13 @@ Proposal warning 1 为既有）。
 | 性能 | `performance.json` | 短预览 107ms、完整 105ms、并发 2 |
 
 真实服务证据：`tc status` READY · schema 12；`tc doctor` PASS；Graph bridge connected。
+
+## Sprint C after 证据（2026-08-01）
+
+`tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-c/`
+
+| 场景 | 文件 | 内容 |
+|---|---|---|
+| Now Light 1000 | `01-now-light-1000/` | computed-style：h3 650/18px、status 400 muted、primary 600 |
+| Now Dark 1000 | `03-now-dark-1000/` | 语义一致 |
+| 结构指标 | `metrics-1000.json` | 布局不回归 |

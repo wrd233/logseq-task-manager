@@ -811,7 +811,7 @@ async function model(): Promise<UiModel> {
     if (!v2TaskReentryLoadError && v2PrimaryAnchorLoadError) v2TaskReentryLoadError = v2PrimaryAnchorLoadError;
   }
   const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
-  let v2WorksitePreviews: Record<string, { expanded: boolean; state: WorksitePreviewState }> | undefined;
+  let v2WorksitePreviews: Record<string, { expanded: boolean; state: WorksitePreviewState; mode?: WorksitePreviewMode }> | undefined;
   if (v2NowWork) {
     const items = [...v2NowWork.focus, ...v2NowWork.next, ...v2NowWork.waitingReview];
     const byObjectId = new Map<string, { objectId: string; version: number; primaryAnchorExternalId?: string }>();
