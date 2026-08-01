@@ -32,3 +32,31 @@
 
 截图与运行时产物放入 `tmp/runtime/cognitive-ux-hardening/current/`（Git ignored），
 可提交的脱敏伴随文件放入 `docs/implementation/task-copilot-v2-ux/cognitive-ux-hardening-2026-08-01/evidence/`。
+
+## 2026-08-01 Desktop 证据（真实 Logseq 0.10.15，CDP 采集）
+
+### 截图（供独立视觉 Gate）
+
+- `tmp/runtime/cognitive-ux-hardening/current/01c-now-dark-760.png`、`01d-now-dark-1000.png`
+- `tmp/runtime/cognitive-ux-hardening/current/01b-now-light-760.png`、`05-now-light-1000.png`
+- `tmp/runtime/cognitive-ux-hardening/current/02-confirmation-apply-light-1000.png`
+- `tmp/runtime/cognitive-ux-hardening/current/02b-confirmation-undo-light-1000.png`
+- `tmp/runtime/cognitive-ux-hardening/current/03-grill-question-first-light-1000.png`
+- `tmp/runtime/cognitive-ux-hardening/current/04-objects-user-language-light-1000.png`
+
+### 机器可读证据包（`tmp/runtime/cognitive-ux-hardening/current/bundles/<state>/`）
+
+每个状态包含 `visible-text.txt`、`accessibility-tree.txt`、`interactive-elements.json`、
+`ui-state.json`、`computed-style.json`、`route-and-data.json`：
+
+- `now-dark-1000` / `now-light-1000` / `now-light-760`（窄栏 clientWidth 754，无横向溢出）
+- `review-dark-1000`（含本地化时间 `待我确认 · 2026/7/31 20:35:03`）
+- `confirmation-dark-1000`（dialog=确认应用，唯一 action surface）
+- `objects-dark-1000`（用户语言；visible-text 无 SQLite/Anchor/Association/Lifecycle/大写类型）
+
+### 采集工具（本地、Git ignored）
+
+- `cdp_helper.py`（evaluate/screenshot/rightclick/hardreload/emulate/window-size）
+- `cdp_listen.py`（console 事件捕获，用于 durable-origin 行为与循环诊断）
+- `bundle.py`（证据包生成）
+- `desktop-evidence-20260801.json`（流程结果汇总）

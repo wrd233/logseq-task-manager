@@ -53,6 +53,11 @@
   返回原内容（路由为页面名+anchor）→ hard reload 后页面正常加载、无空白、无 fallback、BLOCK origin
   持久化；`resolveAfterReload` 新增“当前页即来源页时滚动恢复 anchor”（origin 11/11）；Light/Dark ×
   1000/760 四张 Now 截图已采集（窄栏 756px 无横向溢出）。
+- 追加（2026-08-01 第三轮）：quit/reopen 变体验证 PASS（origin 文件跨重启持久化、解析器返回 RETURNED）；
+  修复真实循环回归（滚动→路由事件→再解析，console 捕获数十万条日志）：resolved-token 守卫 +
+  750ms 节流 + 防重入 + PARKED 静默；增加 1s/2.5s 有界跟随滚动。宿主 `scrollToBlockInPage` 在无焦点
+  CDP 环境未产生可见滚动 → 记 OPEN_MANUAL_GATE。生成 6 组机器可读证据包（now/review/confirmation/
+  objects × light/dark × 1000/760），见 `CUX_EVIDENCE_INDEX.md`。
 - 修复：Condition/Candidate/阶段映射/主归属等下拉仍泄漏 `TASK/OUTPUT/...` 原始类型码 → 已改为用户语言
   （ui.ts），新增 select 术语合同测试；Desktop 复验 `hasRawCodes=false`。
 - 明细见 `evidence/DESKTOP_GATE_2026-08-01.md`；截图已就绪，独立视觉 Gate 仍 PENDING。
