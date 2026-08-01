@@ -463,7 +463,7 @@ function renderObjects(model: UiModel): string {
   const list = `<div class="object-list">${model.objects
     .map(
       (object) => `<button class="object-row" data-action="select-object" data-value="${escapeHtml(object.objectId)}">
-        <span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.phase)} · ${escapeHtml(object.condition.kind)}</small>
+        <span>${escapeHtml(object.text)}</span><small>${escapeHtml(objectTypeLabel(object.objectType))} · ${escapeHtml(migrationPhaseLabel(object.phase))} · ${escapeHtml(conditionKindLabel(object.condition.kind))}</small>
       </button>`,
     )
     .join("")}</div>`;
@@ -471,7 +471,7 @@ function renderObjects(model: UiModel): string {
   if (!detailView) return `${areaCreator}${projectCreator}${list}`;
   const { object, owner, anchors, signals, recentEvents, undoableCommitId } = detailView;
   const detail = `<aside class="drawer" aria-label="对象抽屉">
-    <div class="eyebrow">${escapeHtml(object.objectType)} · v${object.version}</div>
+    <div class="eyebrow">${escapeHtml(objectTypeLabel(object.objectType))} · v${object.version}</div>
     <h2>${escapeHtml(object.text)}</h2>
     <code>${escapeHtml(object.objectId)}</code>
     <div class="badges"><span>${escapeHtml(object.phase)}</span><span>${escapeHtml(object.condition.kind)}</span></div>
@@ -1601,7 +1601,7 @@ function renderActionDialog(model: UiModel): string {
     const candidate = model.v2Candidates?.find(({ candidateId }) => candidateId === dialog.value);
     const targets = (model.v2Objects ?? []).filter(({ objectType }) => ["TASK", "MINI_PROJECT", "DECISION", "OUTPUT"].includes(objectType));
     if (!candidate) return "";
-    return `<section class="inbox-dialog action-dialog" aria-label="更新已有对象"><h3>更新已有对象</h3><p class="muted">来源保持只读；请选择目标并填写审阅后希望保留的完整显式 Block 正文。此操作只生成 Proposal，接受与最终 Commit 前不会改正文或 SQLite。</p><blockquote>${escapeHtml(model.v2CandidateSourcePreviews?.[candidate.candidateId] ?? "原文暂不可读；提交时会再次检查。")}</blockquote><label>目标对象<select data-field="v2CandidateUpdateTarget"><option value="">请选择</option>${targets.map((target) => `<option value="${escapeHtml(target.objectId)}">${escapeHtml(target.objectType)} · ${escapeHtml(target.text)}</option>`).join("")}</select></label><label>目标最终完整正文<textarea data-field="v2CandidateUpdateContent" placeholder="[任务] 合并后的最终正文"></textarea></label><div class="actions">${button("生成更新 Proposal", "submit-v2-candidate-update", candidate.candidateId, "primary")}${cancel}</div></section>`;
+    return `<section class="inbox-dialog action-dialog" aria-label="更新已有对象"><h3>更新已有对象</h3><p class="muted">来源保持只读；请选择目标并填写审阅后希望保留的完整显式 Block 正文。此操作只生成 Proposal，接受与最终 Commit 前不会改正文或 SQLite。</p><blockquote>${escapeHtml(model.v2CandidateSourcePreviews?.[candidate.candidateId] ?? "原文暂不可读；提交时会再次检查。")}</blockquote><label>目标对象<select data-field="v2CandidateUpdateTarget"><option value="">请选择</option>${targets.map((target) => `<option value="${escapeHtml(target.objectId)}">${escapeHtml(objectTypeLabel(target.objectType))} · ${escapeHtml(target.text)}</option>`).join("")}</select></label><label>目标最终完整正文<textarea data-field="v2CandidateUpdateContent" placeholder="[任务] 合并后的最终正文"></textarea></label><div class="actions">${button("生成更新 Proposal", "submit-v2-candidate-update", candidate.candidateId, "primary")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-project-operation-router") {
     const [objectId, rawVersion] = dialog.value.split("|");
@@ -1713,7 +1713,7 @@ function renderActionDialog(model: UiModel): string {
     const stages = structure.workStages.map((item) => `${item.name}｜${item.statusDescription}`).join("\n");
     const children = (model.v2PrimaryOwnerships ?? []).filter((ownership) => ownership.ownerObjectId === project.objectId).map((ownership) => model.v2Objects?.find((candidate) => candidate.objectId === ownership.childObjectId)).filter((candidate): candidate is V2ManagedObject => candidate !== undefined && (candidate.objectType === "TASK" || candidate.objectType === "MINI_PROJECT"));
     const mappingByObject = new Map(structure.stageMappings.map((mapping) => [mapping.objectId, mapping.stageId]));
-    const mappings = children.length && structure.workStages.length ? `<fieldset><legend>这些事项主要属于哪个推进阶段（可选）</legend>${children.map((child) => `<label>${escapeHtml(child.objectType)} · ${escapeHtml(child.text)}<select data-field="v2ProjectStageMapping:${escapeHtml(child.objectId)}"><option value="">不指定</option>${structure.workStages.map((stage) => `<option value="${escapeHtml(stage.stageId)}"${mappingByObject.get(child.objectId) === stage.stageId ? " selected" : ""}>${escapeHtml(stage.name)}</option>`).join("")}</select></label>`).join("")}</fieldset>` : "";
+    const mappings = children.length && structure.workStages.length ? `<fieldset><legend>这些事项主要属于哪个推进阶段（可选）</legend>${children.map((child) => `<label>${escapeHtml(objectTypeLabel(child.objectType))} · ${escapeHtml(child.text)}<select data-field="v2ProjectStageMapping:${escapeHtml(child.objectId)}"><option value="">不指定</option>${structure.workStages.map((stage) => `<option value="${escapeHtml(stage.stageId)}"${mappingByObject.get(child.objectId) === stage.stageId ? " selected" : ""}>${escapeHtml(stage.name)}</option>`).join("")}</select></label>`).join("")}</fieldset>` : "";
     return `<section class="inbox-dialog action-dialog project-structure-editor" aria-label="调整项目目标与结构"><div class="eyebrow">调整项目</div><h3>目标、成果和当前推进</h3><p class="muted">把未来重回项目时真正需要的信息集中在这里。下一步先审阅完整结果；确认应用前不会修改项目或正文。每项一行，使用全角分隔符 ｜。</p><label>项目摘要<textarea data-field="v2ProjectCurrentSummary">${escapeHtml(structure.currentSummary)}</textarea></label><label>现在先推进什么（1–3 行）<textarea data-field="v2ProjectCurrentFocuses">${escapeHtml(structure.currentFocuses.join("\n"))}</textarea></label><label>目标：主要/次要｜目标｜完成证据（证据用；分隔）<textarea data-field="v2ProjectObjectives" placeholder="主要｜稳定发布｜恢复演练通过；无静默覆盖">${escapeHtml(objectives)}</textarea></label><label>预期成果：计划中/可用/已接受/已替代｜成果｜验收说明<textarea data-field="v2ProjectDeliverables" placeholder="计划中｜发布手册｜值班同学可独立执行">${escapeHtml(deliverables)}</textarea></label><label>推进阶段：阶段名｜当前状态<textarea data-field="v2ProjectStages" placeholder="验收｜正在验证恢复路径">${escapeHtml(stages)}</textarea></label>${mappings}<label class="confirm-line"><input type="checkbox" data-field="actionConfirmed">我已核对以上内容，准备进入方案审阅</label><div class="actions">${button("审阅更新方案", "submit-v2-project-structure", dialog.value, "primary")}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-area-edit") {
@@ -1726,7 +1726,7 @@ function renderActionDialog(model: UiModel): string {
     const objectId = dialog.value.split("|")[0];
     const current = model.v2NowWork ? [...model.v2NowWork.focus, ...model.v2NowWork.next, ...model.v2NowWork.waitingReview].find((item) => item.objectId === objectId) : undefined;
     const blockerObjectId = current?.condition.kind === "BLOCKED" ? current.condition.blockerObjectId : undefined;
-    const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}"${option.objectId === blockerObjectId ? " selected" : ""}>${escapeHtml(option.objectType)} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
+    const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}"${option.objectId === blockerObjectId ? " selected" : ""}>${escapeHtml(objectTypeLabel(option.objectType))} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
     return `<section class="inbox-dialog action-dialog" aria-label="更新当前状态"><h3>更新当前状态</h3><p class="muted">只记录眼下是否能继续，不会改变是否完成、当前关注或归属。</p><label>当前状态<select data-field="v2ConditionKind"><option value="ACTIONABLE">可以行动</option><option value="WAITING">等待别人</option><option value="BLOCKED">被问题卡住</option><option value="PAUSED">我先暂停</option></select></label><label>等待谁或什么<input data-field="v2WaitingFor"></label><label>期待结果<input data-field="v2ExpectedResult"></label><label>原因<input data-field="v2ConditionReason"></label><label>阻碍来源（可选）<select data-field="v2BlockerObjectId"><option value="">仅记录原因</option>${blockers}</select></label><label>复查时间（等待时必填）<input type="datetime-local" step="60" aria-describedby="v2-condition-local-time" data-field="v2ConditionReviewAt"></label>${localTimeHint("v2-condition-local-time")}<div class="actions">${button("保存状态", "submit-v2-condition", dialog.value, "primary")}${cancel}</div></section>`;
   }
   if (dialog.kind === "confirm-v2-condition-undo") {
@@ -1762,7 +1762,7 @@ function renderActionDialog(model: UiModel): string {
   }
   if (dialog.kind === "v2-block-condition-blocked") {
     const [objectId] = dialog.value.split("|");
-    const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}">${escapeHtml(option.objectType)} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
+    const blockers = model.v2NowWork?.conditionOptions.filter((option) => option.objectId !== objectId).map((option) => `<option value="${escapeHtml(option.objectId)}">${escapeHtml(objectTypeLabel(option.objectType))} · ${escapeHtml(option.text)}</option>`).join("") ?? "";
     return `<section class="inbox-dialog action-dialog" aria-label="被问题卡住"><h3>被问题卡住</h3><p class="muted">只记录当前卡点；不会完成事项、移动正文、改变归属或当前关注。</p><label>具体卡点<textarea data-field="v2BlockConditionReason" placeholder="例如：测试环境暂不可用"></textarea></label><label>阻碍事项（可选）<select data-field="v2BlockerObjectId"><option value="">只记录卡点</option>${blockers}</select></label><div class="actions">${button(model.v2BlockConditionBusy ? "正在保存…" : "保存为被问题卡住", "submit-v2-block-condition", dialog.value, "primary", model.v2BlockConditionBusy === true)}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-block-condition-paused") {
@@ -1790,7 +1790,7 @@ function renderActionDialog(model: UiModel): string {
     <label>review 时间（ISO，允许留空）<input data-field="objectReviewAt" value="${escapeHtml(object.reviewAt ?? "")}"></label>
     <div class="actions">${button("创建编辑 Proposal", "submit-edit-object", object.objectId, "primary")}${cancel}</div></section>`;
   if (dialog.kind === "set-owner" && object) return `<section class="inbox-dialog action-dialog" aria-label="设置主归属"><h3>设置主归属</h3>
-    <label>主归属对象<select data-field="ownerObjectId"><option value="">请选择</option>${model.objects.filter((candidate) => candidate.objectId !== object.objectId).map((candidate) => `<option value="${escapeHtml(candidate.objectId)}">${escapeHtml(candidate.objectType)} · ${escapeHtml(candidate.text)}</option>`).join("")}</select></label>
+    <label>主归属对象<select data-field="ownerObjectId"><option value="">请选择</option>${model.objects.filter((candidate) => candidate.objectId !== object.objectId).map((candidate) => `<option value="${escapeHtml(candidate.objectId)}">${escapeHtml(objectTypeLabel(candidate.objectType))} · ${escapeHtml(candidate.text)}</option>`).join("")}</select></label>
     <label class="confirm-line"><input type="checkbox" data-field="highImpactConfirmed">我单独确认这项高影响归属变化；它不会移动正文</label>
     <div class="actions">${button("创建归属 Proposal", "submit-set-owner", object.objectId, "primary")}${cancel}</div></section>`;
   if (dialog.kind === "condition-waiting" && object) return `<section class="inbox-dialog action-dialog" aria-label="设置 Waiting"><h3>设置 Waiting</h3>

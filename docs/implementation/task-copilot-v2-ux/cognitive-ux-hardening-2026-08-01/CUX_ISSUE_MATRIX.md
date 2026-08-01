@@ -4,17 +4,17 @@
 
 | ID | 优先级 | 根因 | 历史问题 | 当前状态 @179a6bc | 本轮目标 | 验收 | Commit |
 |---|---|---|---|---|---|---|---|
-| CUX-P0-01 | P0 | Scoped Outcome | 无候选时成功与失败并存，队列为空 | 已实现：空/全非法候选返回中性 empty（不再 throw），无提交按钮；成功/失败并存已消除；`beginUiAction` 保证新动作清旧结果 | 无候选→中性空结果；提示数与队列一致 | empty 中性测试（14/14+4/4 通过）+ Desktop 队列读回 | 本 Sprint 提交 |
-| CUX-P0-02 | P0 | Durable Origin | UUID Page route reload 后空白，anchor 丢失 | 已实现：`resolveAfterReload`（PARKED/RETURNED/RETURNED_PAGE_ONLY/SOURCE_UNAVAILABLE）+ 有界重试 + fallback 对话框 + 正常返回后写稳定 pageName 路由；origin 保留到下次一般入口 | reload/rename/move 后恢复 Page/Block；失败给一键 fallback | route resolver 测试（9/9）+ Desktop reload/reopen | 本 Sprint 提交 |
-| CUX-P1-01 | P1 | Active Surface | Apply/Undo/PENDING confirmation 与底层工作区同屏 | 所有 dialog 已是唯一 active surface（结构） | Desktop 复验 + 测试补 PENDING/Recovery | 1 surface/1 primary/1 cancel；取消回同一上下文 | 已含于 179a6bc；待复验 |
-| CUX-P1-02 | P1 | One-question Workspace | Grill 与创建器/关联/对象列表同屏 | 已实现：Grill 首屏唯一问题+输入置顶；系统理解/事实/推断/未知折叠进 “查看系统理解与已确认事实”；预览态预览优先 | 问题+输入置首；事实/推断/未知折叠 | DOM 顺序测试（405/405）+ 三轮 Desktop | 本 Sprint 提交 |
-| CUX-P1-03 | P1 | Progressive Disclosure | 日常层暴露 SQLite/Graph/Anchor/Association/Lifecycle 等 | 已实现：领域/关联/归属/相关内容/正式事项均改用户语言；类型/生命周期/状态/交付状态/版本号不再出现在日常行；技术说明进 details；新增 visible-text 合同测试 | 日常层用户语言；技术词进 details | 文本合同测试 + visual gate | 本 Sprint 提交 |
-| CUX-P1-04 | P1 | Scoped Outcome | 全局消息跨流程残留，取消报成功 | `beginUiAction` + scoped outcome 已实现；export 文案已修；新增“同工作区新动作替换旧结果、empty 非 error”测试 | 随 P0-01 收口并补时间序列测试 | action 生命周期测试 + Desktop timeline | 本 Sprint 提交 |
+| CUX-P0-01 | P0 | Scoped Outcome | 无候选时成功与失败并存，队列为空 | 已实现 + Desktop PASS：空页与部分非法页均显示中性 empty、无提交按钮、无错误卡；队列计数一致 | 无候选→中性空结果；提示数与队列一致 | empty 中性测试 + Desktop 队列读回（2026-08-01） | af9c852 |
+| CUX-P0-02 | P0 | Durable Origin | UUID Page route reload 后空白，anchor 丢失 | 已实现：`resolveAfterReload`（PARKED/RETURNED/RETURNED_PAGE_ONLY/SOURCE_UNAVAILABLE）+ 有界重试 + fallback 对话框 + 正常返回后写稳定 pageName 路由；origin 保留到下次一般入口 | reload/rename/move 后恢复 Page/Block；失败给一键 fallback | route resolver 测试（9/9）；Desktop reload 复验待补 | 13f47ec |
+| CUX-P1-01 | P1 | Active Surface | Apply/Undo/PENDING confirmation 与底层工作区同屏 | 已实现 + Desktop PASS（Apply 确认面）：唯一 active surface、1 checkbox/1 confirm/1 cancel、取消恢复同一 Review | Desktop 复验 + 测试补 PENDING/Recovery | 1 surface/1 primary/1 cancel；取消回同一上下文 | 179a6bc + 13f47ec |
+| CUX-P1-02 | P1 | One-question Workspace | Grill 与创建器/关联/对象列表同屏 | 已实现 + Desktop PASS（真实 DeepSeek 首轮）：问题+输入置顶、理解折叠、关闭回原工作区 | 问题+输入置首；事实/推断/未知折叠 | DOM 顺序测试（407/407）+ Desktop 首轮 | 13f47ec |
+| CUX-P1-03 | P1 | Progressive Disclosure | 日常层暴露 SQLite/Graph/Anchor/Association/Lifecycle 等 | 已实现 + Desktop PASS：对象工作区与 Condition 下拉均为用户语言（本次补修 select 术语泄漏）；技术说明进 details | 日常层用户语言；技术词进 details | 文本合同测试 + Desktop select 复验 | 13f47ec + 本批 |
+| CUX-P1-04 | P1 | Scoped Outcome | 全局消息跨流程残留，取消报成功 | `beginUiAction` + scoped outcome 已实现；export 文案已修；新增“同工作区新动作替换旧结果、empty 非 error”测试 | 随 P0-01 收口并补时间序列测试 | action 生命周期测试 + Desktop timeline | af9c852 |
 | CUX-P2-01 | P2 | Now Density | 筛选/卡片/披露/banner 叠加 | 筛选/排列已折叠进 “筛选与排列” details；“查看其余 N 项”折叠已有（历史提交）；单卡一主动作 | 默认心智简单；次级筛选后置/记忆 | DOM counts + 1000/760 visual gate | 结构已含历史提交；视觉 Gate 待做 |
 | CUX-P2-02 | P2 | Provider Error | 错误不可行动且分类笼统 | 已实现：前台“这次整理没有完成…稍后重试”+ 重新分析 + 查看系统状态；日志保留结构化分类；测试覆盖 retry/status/safety 文案 | 前台安全重试/系统状态；技术层分类 | Provider mapping 测试（已有）+ Desktop failure | 已含历史提交；测试复核通过 |
-| CUX-P2-03 | P2 | datetime-local | AX 看似有值但 DOM 读回为空 | 表单失败现在以 dialog-scoped error 显示在任务面内（不再无反馈）；字段级位置仍待人工确认 | 鼠标/键盘/VoiceOver 手工 Gate 或字段级错误 | dialog error 测试 + 人工 Desktop accessibility gate | 结构部分完成；输入链 OPEN_MANUAL_GATE |
+| CUX-P2-03 | P2 | datetime-local | AX 看似有值但 DOM 读回为空 | 表单失败现在以 dialog-scoped error 显示在任务面内（Desktop PASS：WAITING 缺字段提交显示 dialog-scoped 错误、零写入）；字段级位置仍待人工确认 | 鼠标/键盘/VoiceOver 手工 Gate 或字段级错误 | dialog error 测试 + Desktop + 人工 accessibility gate | 45d8726；输入链 OPEN_MANUAL_GATE |
 | CUX-P3-01 | P3 | Entry Discoverability | Block 动作埋在长菜单底部 | 命令面板高频入口已有（历史 P0-J） | 至少一条可发现 Toolbar/Command/shortcut | Command 注册测试 + novice visual gate | 登记 |
-| CUX-P3-02 | P3 | Time Language | Review 显示原始 ISO 时间 | 已实现：Review eyebrow 使用 `toLocaleString("zh-CN")`；技术详情保留原值 | 日常层本地时间；ISO 只进技术详情 | 时间格式测试（新增） | 本 Sprint 提交 |
+| CUX-P3-02 | P3 | Time Language | Review 显示原始 ISO 时间 | 已实现 + Desktop PASS：Review eyebrow 显示 `2026/7/31 20:35:03`；技术详情保留原值 | 日常层本地时间；ISO 只进技术详情 | 时间格式测试 + Desktop | 45d8726 |
 
 ## 证据状态定义
 

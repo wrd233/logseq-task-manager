@@ -1398,6 +1398,28 @@ test("daily object workspace hides internal model terms behind user language", (
   assert.match(html, /发布手册 · 可用 · 验收：可执行/);
 });
 
+test("condition and candidate dialogs use user-language object types in selects", () => {
+  const value = model();
+  value.v2NowWork = {
+    generatedAt: "2026-08-01T00:00:00.000Z",
+    focus: [{ objectId: "task-1", objectType: "TASK", version: 1, text: "核对", condition: { kind: "ACTIONABLE" }, reason: "可以继续", updatedAt: "2026-08-01T00:00:00.000Z" }],
+    next: [],
+    waitingReview: [],
+    conditionOptions: [
+      { objectId: "task-2", objectType: "TASK", text: "核对" },
+      { objectId: "mini-1", objectType: "MINI_PROJECT", text: "演示" },
+      { objectId: "output-1", objectType: "OUTPUT", text: "脚本" },
+    ],
+  };
+  value.actionDialog = { kind: "v2-condition", value: "task-1|1" };
+  const html = renderApp(value);
+  const visible = html.replace(/<[^>]+>/g, " ");
+  for (const raw of ["TASK", "MINI_PROJECT", "OUTPUT", "PROJECT"]) assert.doesNotMatch(visible, new RegExp(raw));
+  assert.match(visible, /任务 · 核对/);
+  assert.match(visible, /小项目 · 演示/);
+  assert.match(visible, /成果 · 脚本/);
+});
+
 test("MiniProject Grill renders a session-only multi-turn boundary with loading, error recovery, and no formal action", () => {
   const value = model();
   value.v2Objects = [{ objectId: "mini-open", objectType: "MINI_PROJECT", version: 4, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "梳理发布边界", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" }];
@@ -1956,7 +1978,7 @@ test("V2 Condition is edited in one in-context form with explicit Waiting eviden
   const html = renderApp(value);
   assert.match(html, /只记录眼下是否能继续，不会改变是否完成、当前关注或归属/);
   for (const field of ["v2ConditionKind", "v2WaitingFor", "v2ExpectedResult", "v2ConditionReason", "v2BlockerObjectId", "v2ConditionReviewAt"]) assert.match(html, new RegExp(`data-field="${field}"`));
-  assert.match(html, /TASK · 恢复真实事件/);
+  assert.match(html, /任务 · 恢复真实事件/);
   assert.match(html, /type="datetime-local" step="60" aria-describedby="v2-condition-local-time"/);
   assert.match(html, /使用当前设备的本地时间/);
   assert.match(html, /data-action="submit-v2-condition" data-value="task-next\|2"/);
@@ -2110,7 +2132,7 @@ test("Candidate update dialog selects one existing Block object and explains Pro
   value.actionDialog = { kind: "v2-candidate-update", value: "candidate-ui" };
   const html = renderApp(value);
   assert.match(html, /供应商补充/);
-  assert.match(html, /TASK · 核对告警/);
+  assert.match(html, /任务 · 核对告警/);
   assert.match(html, /data-field="v2CandidateUpdateContent"/);
   assert.match(html, /只生成 Proposal/);
   assert.match(html, /data-action="submit-v2-candidate-update"/);
@@ -2783,7 +2805,7 @@ test("Block Condition router shows a bounded resume action only for non-actionab
   value.actionDialog = { kind: "v2-block-condition-blocked", value: "task-block|3|block-1" };
   html = renderApp(value);
   for (const field of ["v2BlockConditionReason", "v2BlockerObjectId"]) assert.match(html, new RegExp(`data-field="${field}"`));
-  assert.match(html, /PROJECT · 测试环境/);
+  assert.match(html, /项目 · 测试环境/);
   assert.doesNotMatch(html, /data-field="v2BlockConditionReviewAt"/);
 
   value.v2BlockConditionBusy = true;
