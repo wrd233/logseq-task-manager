@@ -39,7 +39,8 @@ tmp/runtime/global-object-directory/
 
 每目录含 `screenshot.png / visible-text.txt / accessibility-tree.txt /
 interactive-elements.json / ui-state.json / route-and-data.json / computed-style.json`
-及对应 `filter-state.json / sort-state.json`。
+及对应 `filter-state.json / sort-state.json`；插件子树 AX 快照见
+`plugin-accessibility-tree.txt`（宿主页 AX 为 `accessibility-tree.txt`）。
 
 ## Reviewer 必须回答（Goal §17.2）
 

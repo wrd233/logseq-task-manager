@@ -96,6 +96,10 @@ Recommended initial status: DRAFT → ACTIVE
   插件 iframe 内无横向溢出（顶层 Logseq 4px 为宿主伪影）。
   证据：`tmp/runtime/global-object-directory/sprint-e/` + `desktop-gate.md`；
   报告：`PERFORMANCE_REPORT.md`、`ACCESSIBILITY_REPORT.md`。
+  收口补证：每个场景目录补齐 `directory-query.json`；新增
+  `plugin-accessibility-tree.txt`（插件 DOM 推导 AX 快照，宿主 AX 另存
+  `accessibility-tree.txt`）与 `review-notes.md`；性能报告补充 service calls、
+  Anchor read、Now/Focus join 与内存观察事实。
 
 ## 当前返回边界
 

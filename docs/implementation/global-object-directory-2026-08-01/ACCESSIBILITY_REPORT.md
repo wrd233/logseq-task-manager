@@ -14,6 +14,16 @@
 - WCAG AA 对比度：token 对（text/surface、muted/surface-2、primary/accent 等）
   Light/Dark 通过（`contrast.test.ts`）。
 
+## 证据标注（重要）
+
+- `accessibility-tree.txt`：Logseq 宿主页的浏览器 AX 树（CDP 跨源 iframe 不展开
+  Plugin 子树，属宿主证据）；
+- `plugin-accessibility-tree.txt`：Plugin iframe 的 DOM 推导 AX 快照
+  （role/name/aria-pressed/aria-expanded/disabled 等），由真实 Desktop DOM 生成，
+  与 `interactive-elements.json` 交叉印证。代表快照：
+  `tmp/runtime/global-object-directory/plugin-accessibility-tree.txt`
+  与 `sprint-e/06-plugin-ax/`、`sprint-e/01-light-1000/`。
+
 ## 未执行的专项
 
 - 真实 VoiceOver 人工走查、物理键盘逐键顺序：`OPEN_MANUAL_GATE`，
@@ -22,4 +32,5 @@
 ## 证据
 
 - `tmp/runtime/global-object-directory/sprint-e/01..04/accessibility-tree.txt`
+- `tmp/runtime/global-object-directory/sprint-e/01-light-1000/plugin-accessibility-tree.txt`
 - `tmp/runtime/global-object-directory/sprint-e/01..04/interactive-elements.json`
