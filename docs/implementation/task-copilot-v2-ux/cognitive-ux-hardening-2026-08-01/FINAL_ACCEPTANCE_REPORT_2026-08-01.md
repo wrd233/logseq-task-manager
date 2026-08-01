@@ -1,8 +1,16 @@
-# Task Copilot Cognitive UX Hardening — Final Acceptance Report（草案，等待独立视觉 Gate）
+# Task Copilot Cognitive UX Hardening — Final Acceptance Report
 
-> 状态：`AUTOMATION_COMPLETE` → `CONSOLIDATED_RUNTIME_CHECKPOINT`；Goal 未完成。
-> 本报告回答 Goal §11.4 的六个问题，并逐项给出证据等级与 Gate 状态。
-> 视觉结论一律 `VISUAL_GATE_PENDING`，直到独立 reviewer 完成。
+```text
+Goal Status: ACCEPTED_WITH_FOLLOWUPS
+Overall Goal: COMPLETE
+Visual Gate: PASS_WITH_MINOR_IMPROVEMENTS
+Manual Accessibility Gate: NOT_RUN_OWNER_ACCEPTED_RISK
+P3 Discoverability Study: DEFERRED_OWNER_ACCEPTED
+```
+
+> 说明：仓库状态系统无 `ACCEPTED_WITH_FOLLOWUPS` 枚举，按产品负责人指令使用 `COMPLETE`；
+> 本报告显著位置保留 acceptance 与 waiver 说明。Goal 核心完成定义已达到；无已知 P0/P1
+> 阻塞当前收口；未执行的人工输入与研究 Gate 被明确记录，不伪装为测试通过。
 
 ## 1. 用户现在少理解了什么
 
@@ -58,7 +66,100 @@ SQLite、Graph、Anchor、Association、Lifecycle、版本号、大写对象类�
 | CUX-P3-01 入口发现性 | 命令面板已有 | — | PENDING | novice gate |
 | CUX-P3-02 时间语言 | PASS | PASS | PENDING | 本地时间 |
 
-## 独立视觉 Gate 请求
+## 独立视觉 Gate 结果
 
-请 reviewer 使用 `VISUAL_GATE_REQUEST.md` + `CUX_EVIDENCE_INDEX.md` 中的截图与证据包，
-对上述每一项给出 `VISUAL_GATE_PASS/FAIL/需改进`。未通过前本 Goal 不完成。
+独立视觉 reviewer（未参与无视觉实现）实际查看了当前构建截图与机器可读证据包，结论：
+
+```text
+VISUAL_GATE_RESULT = PASS_WITH_MINOR_IMPROVEMENTS
+```
+
+通过项与轻微改进项全文见 `VISUAL_GATE_RESULT_2026-08-01.md`。视觉列状态由 PENDING 更新为
+`VISUAL_GATE_PASS`（含轻微改进项，不要求结构性改造）。
+
+## 产品负责人对剩余人工 Gate 的决定
+
+产品负责人已明确决定：不再为本 Goal 另外组织鼠标、键盘、VoiceOver 或新手发现性人工核验；
+在不伪造测试结果的前提下接受相关剩余风险，并授权本 Goal 收口。
+
+### datetime-local 手工输入 Gate
+
+```text
+Status: NOT_RUN_OWNER_ACCEPTED_RISK
+Reason:
+Product owner explicitly waived the remaining manual mouse,
+keyboard and VoiceOver gate for this Goal after reviewing the
+available automated, Desktop and independent visual evidence.
+```
+
+- 自动化和现有 Desktop 证据已完成；
+- 尚未执行真实 VoiceOver 人工操作；
+- 产品负责人知情接受；
+- 后续如扩展无障碍支持，可在独立兼容性 Goal 中重新验证；
+- 该事项不再阻塞当前 Goal。
+
+### P3-01 新手发现性验证
+
+```text
+Status: DEFERRED_OWNER_ACCEPTED
+```
+
+- 高频入口已具有可发现路径（命令面板等）；
+- 尚未进行新的陌生用户正式可用性实验；
+- P3 问题；产品负责人接受为后续真实使用研究项；
+- 不阻塞 Cognitive UX Hardening Goal。
+
+### Graph switch、Block 移动和删除变体
+
+```text
+Status: DEFERRED_NON_BLOCKING
+Evidence:
+Relevant automated coverage remains passing.
+```
+
+## 转入后续 Goal 的事项（TRANSFERRED_TO_FOLLOWUP_GOAL）
+
+以下新观察不重新算作原 Goal 未完成：
+
+- Now Card Reading Path（标题下状态/依据/按钮/更多操作的阅读打断）；
+- 操作区与内容阅读区分离；
+- 主按钮宽屏右置；
+- 窄栏卡片 footer；
+- 来源 Block 子级内容只读预览；
+- Semantic Visual Hierarchy（字重/颜色预算）；
+- Objects 工作区进一步去后台化；
+- Active Surface 背景工艺优化；
+- 新手长期可用性研究。
+
+推荐归入独立 Goal：
+
+```text
+Task Copilot Worksite Re-entry & Reading Hierarchy
+```
+
+## 原 CUX 问题关闭原则
+
+- CLOSED：Scoped Outcome 假成功/矛盾结果/跨流程污染；Durable Origin reload、quit/reopen、
+  往返与恢复场景；Apply/Undo/PENDING 底层竞争；Grill 与控制台同屏；内部术语暴露；
+  dialog error 污染全局；Review 原始时间格式；其余由测试/Desktop/视觉证据覆盖的问题。
+- OWNER_ACCEPTED_RISK：datetime-local 手工输入 Gate（未执行）。
+- DEFERRED_OWNER_ACCEPTED：P3-01 新手发现性。
+- DEFERRED_NON_BLOCKING：Graph switch、Block 移动/删除 Desktop 变体。
+- TRANSFERRED_TO_FOLLOWUP_GOAL：上述视觉与交互工艺项。
+
+## 最终结论
+
+本报告回答 Goal §11.4 的问题：
+
+- 用户现在少理解了什么：内部领域/实现模型词不再前置；假成功/失败语义消除。
+- 少记住了什么：无需记忆上一步选择、队列状态或来源 Page 名；reload/重开自动恢复。
+- 少寻找了什么：唯一问题与输入在首屏；表单错误在任务面内；次级操作折叠。
+- 哪些页面形成了独立任务工作面：Apply/Undo 确认面、Grill 单问题工作区、中性结果面板。
+- 哪些内部概念被后置：SQLite/Graph/Anchor/Association/Lifecycle/版本号/大写类型/管线词。
+- 返回现场是否可靠：六类 Desktop 证据 PASS；失败给一键 fallback。
+- 哪些问题被接受为后续项：见上节 waiver 与 TRANSFERRED 列表。
+- 为什么当前 Goal 可以完成：自动化（410/410、12/12、typecheck/build、根级 check）、Desktop
+  行为证据、独立视觉 Gate（PASS_WITH_MINOR_IMPROVEMENTS）与产品负责人 waiver 全部到位；
+  无已知 P0/P1 阻塞；未执行项被如实记录且经负责人接受。
+
+**Cognitive UX Hardening Goal：COMPLETE（ACCEPTED_WITH_FOLLOWUPS）。**

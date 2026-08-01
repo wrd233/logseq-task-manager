@@ -1,5 +1,9 @@
 # Consolidated Runtime Checkpoint（集中 Desktop 复验）
 
+> 状态：本清单已执行完毕——自动化与非视觉 Desktop 复验 PASS、独立视觉 Gate 于 2026-08-01
+> 解除（`VISUAL_GATE_RESULT_2026-08-01.md`）、剩余人工项由产品负责人 waiver 收口。
+> 以下为原清单，保留作为执行记录。
+
 > 自动化与非视觉结构工作已穷尽（Plugin 406/406、origin 9/9、scoped-outcome 4/4、根级 check PASS）。
 > 剩余实质工作依赖一次集中的用户/审查者运行时操作，总时长建议 ≤30 分钟。
 

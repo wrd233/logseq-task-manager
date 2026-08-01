@@ -3,6 +3,15 @@
 > 本请求只审查以下 Sprint，不重新设计整个产品。审查者必须实际查看当前构建截图或真实 Desktop。
 > 无视觉执行模型不参与本 Gate 的结论。
 
+```text
+Status: RESOLVED
+Resolved By: Independent visual review
+Result: PASS_WITH_MINOR_IMPROVEMENTS
+Result Document: VISUAL_GATE_RESULT_2026-08-01.md
+```
+
+> 以下为原请求正文，保留作为历史记录。
+
 ## 用户任务与结构目标
 
 1. 整理当前页（无候选 / 部分非法 / 真实候选）：结果中性、与队列一致；

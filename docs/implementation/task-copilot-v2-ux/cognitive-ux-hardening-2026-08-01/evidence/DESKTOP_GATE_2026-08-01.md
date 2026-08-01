@@ -3,7 +3,8 @@
 > 环境：Logseq 0.10.15 / macOS / 插件 r11 build（select 术语修复后 `b443d589b268`；
 > durable-origin anchor 恢复增强后 `e280d7d2ca7b`）/ Local Service READY / schema 12 / 测试 Graph `logseq`。
 > 采集方式：Chromium CDP（`--remote-debugging-port=9222`）读取真实 renderer DOM/AX 文本并截图，
-> 由无视觉执行模型整理；**视觉结论仍为 VISUAL_GATE_PENDING**，截图已提交独立 reviewer。
+> 由无视觉执行模型整理；截图已提交独立 reviewer，视觉结论已于收口时解除
+> （`VISUAL_GATE_RESULT_2026-08-01.md`，PASS_WITH_MINOR_IMPROVEMENTS）。
 
 ## 已验证项（DESKTOP_BEHAVIOR_FACT）
 
@@ -47,10 +48,23 @@
 
 ## Gate 状态
 
-- 自动化：Plugin 409/409、origin 11/11、scoped-outcome 4/4、typecheck/build、根级检查（提交前重跑）。
+- 自动化：Plugin 410/410、origin 12/12、scoped-outcome 4/4、typecheck/build、根级检查（提交前重跑）。
 - Desktop 行为：上述矩阵 PASS（真实 Logseq renderer DOM/AX + 截图）。
 - 视觉：**VISUAL_GATE_PENDING**——截图与 `VISUAL_GATE_REQUEST.md` 已就绪，等待独立 reviewer。
 - 未覆盖（保持 OPEN）：Light/Dark × 760 全流程矩阵（Now 四主题/视口已采集，其余流程仅标准宽度）、
   datetime-local 鼠标/键盘/VoiceOver 手工 Gate、P3-01 新手发现性。
 - 右键菜单链路已打通（右键 Block 圆点唤起原生菜单 → 点击 “Task Copilot：处理这条内容”）；
   durable-origin “Block 入口 → 返回 → reload” 全链已在真实 Desktop PASS（见上表）。
+
+## 收口状态（2026-08-01 产品负责人决定）
+
+```text
+Desktop automated and nonvisual behavior gates: COMPLETE (PASS)
+Visual Gate: RESOLVED by independent reviewer -> PASS_WITH_MINOR_IMPROVEMENTS
+datetime-local manual mouse/keyboard/VoiceOver gate: NOT_RUN_OWNER_ACCEPTED_RISK
+P3-01 novice discoverability study: DEFERRED_OWNER_ACCEPTED
+Graph switch / Block move / delete Desktop variants: DEFERRED_NON_BLOCKING
+```
+
+- 未执行项不写为 PASS；产品负责人知情接受剩余风险并授权收口。
+- 完整记录见 `FINAL_ACCEPTANCE_REPORT_2026-08-01.md` 与 `VISUAL_GATE_RESULT_2026-08-01.md`。

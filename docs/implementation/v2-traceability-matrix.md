@@ -19,13 +19,13 @@
 
 | requirement_id | 范围 | 状态 | 当前证据 / 缺口 |
 |---|---|---|---|
-| CUX-P0-01 | 当前页整理结果必须与真实候选数一致 | AUTOMATED_NONVISUAL_PASS | 2026-08-01 收口：空/全非法候选返回中性 empty（无提交按钮、不再报 error），部分非法显示计数；`beginUiAction` 保证新动作清旧瞬时结果。Plugin 406 tests、typecheck/build、根级检查 PASS。Desktop 空队列读回复验待做（`af9c852`）。 |
-| CUX-P0-02 | reload / return 必须保持来源 Page 与 Block anchor | AUTOMATED_NONVISUAL_PASS | 2026-08-01 实现 `resolveAfterReload`（PARKED/RETURNED/RETURNED_PAGE_ONLY/SOURCE_UNAVAILABLE + 有界重试 + fallback 对话框），正常返回写稳定 pageName 路由并保留 durable origin；origin resolver 9/9 测试、Plugin 406 tests、根级检查 PASS。Desktop reload/reopen/rename/move 复验待做（`13f47ec`）。 |
+| CUX-P0-01 | 当前页整理结果必须与真实候选数一致 | DESKTOP_BEHAVIOR_PASS | 2026-08-01 收口：空/全非法候选返回中性 empty（无提交按钮、不再报 error），部分非法显示计数；`beginUiAction` 保证新动作清旧瞬时结果；真实 Desktop 空/部分非法/真实候选矩阵 PASS；独立视觉 Gate PASS_WITH_MINOR_IMPROVEMENTS（`af9c852` 起）。 |
+| CUX-P0-02 | reload / return 必须保持来源 Page 与 Block anchor | DESKTOP_BEHAVIOR_PASS | 2026-08-01 实现 `resolveAfterReload` + 有界重试 + fallback；正常返回写稳定 pageName 路由并保留 durable origin。六类 Desktop 证据（reload、quit/reopen、跨页往返、anchor 可见滚动、Page 改名+UUID 再生、同路由 boot 恢复）PASS；resolver 12/12；剩余 Graph switch/Block 移动/删除为 DEFERRED_NON_BLOCKING（自动测试覆盖）。 |
 | CUX-P0-02 | reload / return 必须保持来源 Page 与 Block anchor | DESKTOP_BEHAVIOR_PASS | 2026-08-01 增补：六类 Desktop 证据（reload、quit/reopen、跨页往返、anchor 可见滚动、Page 改名+UUID 再生、同路由 boot 恢复）全部 PASS；resolver 12/12；剩余 Graph switch 与 Block 移动/删除变体为单测覆盖。最终验收见 `cognitive-ux-hardening-2026-08-01/FINAL_ACCEPTANCE_REPORT_2026-08-01.md`。 |
-| CUX-P1-01 | Apply / Undo / PENDING 最终确认只保留一个 action surface | AUTOMATED_NONVISUAL_PASS | `9cb2927`/`d4b4613` 原型已合并且扩展为所有 dialog 唯一 active surface（`renderApp`）；确认面 1 checkbox/1 primary/1 cancel；新增 dialog-scoped error 显示。Desktop 复验代表矩阵待做。 |
-| CUX-P1-02..04 | Grill 隔离、日常用户语言、scoped message lifecycle | AUTOMATED_NONVISUAL_PASS | 2026-08-01 完成：Grill 唯一问题+输入置顶、完整理解折叠（P1-02）；对象工作区日常用户语言、内部词进技术说明（P1-03）；scoped outcome + 新动作清理 + 取消不假成功（P1-04）。新增 visible-text 合同测试与 dialog error 测试。Desktop 复验待做（`af9c852`、`13f47ec`）。 |
-| CUX-P2-01..03 | Now 密度、Provider 分类、datetime-local AX | PARTIAL | P2-01 筛选/排列已折叠、其余 N 项折叠（历史）；P2-02 Provider 失败已有可行动文案+重试+系统状态入口与测试；P2-03 表单失败现以 dialog-scoped error 可见，datetime AX 输入链仍 OPEN_MANUAL_GATE。 |
-| CUX-P3-01..02 | Block 动作发现性、Review 本地时间表达 | PARTIAL | P3-02 已实现（Review eyebrow 本地化时间，新增回归测试）；P3-01 命令面板高频入口已有（历史 P0-J），右键菜单发现性仍需 novice visual gate。 |
+| CUX-P1-01 | Apply / Undo / PENDING 最终确认只保留一个 action surface | DESKTOP_BEHAVIOR_PASS | `9cb2927`/`d4b4613` 原型已合并并扩展为所有 dialog 唯一 active surface（`renderApp`）；真实 Desktop Apply/Undo 确认面 PASS（无主导航、1 checkbox/1 primary/1 cancel、取消恢复 Review）；独立视觉 Gate PASS。PENDING 继续共用同一 render 路径（单测覆盖）。 |
+| CUX-P1-02..04 | Grill 隔离、日常用户语言、scoped message lifecycle | DESKTOP_BEHAVIOR_PASS | 2026-08-01 完成：Grill 唯一问题+输入置顶、完整理解折叠（P1-02，三轮真实 DeepSeek Desktop PASS）；对象工作区日常用户语言（P1-03，visible-text 0 内部词）；scoped outcome + 新动作清理 + 取消不假成功（P1-04）。独立视觉 Gate PASS_WITH_MINOR_IMPROVEMENTS。 |
+| CUX-P2-01..03 | Now 密度、Provider 分类、datetime-local AX | PARTIAL | P2-01 筛选/排列已折叠、其余 N 项折叠（历史），视觉改进项转入后续 Goal；P2-02 Provider 失败已有可行动文案+重试+系统状态入口与测试（CLOSED）；P2-03 表单失败现以 dialog-scoped error 可见（结构/Desktop 完成），datetime AX 输入链 = NOT_RUN_OWNER_ACCEPTED_RISK（产品负责人 waiver）。 |
+| CUX-P3-01..02 | Block 动作发现性、Review 本地时间表达 | PARTIAL | P3-02 已实现（Review eyebrow 本地化时间，新增回归测试，Desktop+视觉 PASS）；P3-01 命令面板高频入口已有，新手发现性 = DEFERRED_OWNER_ACCEPTED（后续真实使用研究项）。 |
 
 ## 横切要求
 

@@ -2,7 +2,8 @@
 
 > 2026-08-01 · 无视觉执行版 · 证据分级：STRUCTURAL_FACT / AUTOMATED / DESKTOP_BEHAVIOR_FACT /
 > HISTORICAL_VISUAL_OBSERVATION / CURRENT_VISUAL_JUDGMENT。
-> 本报告不产生 CURRENT_VISUAL_JUDGMENT；所有 Sprint 的视觉结论保留为 VISUAL_GATE_PENDING。
+> 本报告不产生 CURRENT_VISUAL_JUDGMENT；所有 Sprint 的视觉结论此前保留为 VISUAL_GATE_PENDING，
+> 收口时已由独立视觉 Gate 解除（`VISUAL_GATE_RESULT_2026-08-01.md`）。
 
 ## 基线（Phase 0）
 
@@ -87,3 +88,20 @@
 4. 独立视觉 Gate：每个 Sprint 截图交 gstack/Microsoft frontend-design-review 或人工 reviewer；
    未完成前全部标记 `VISUAL_GATE_PENDING`。
 5. P3-01 右键入口发现性：命令面板/快捷键路径已有，novice visual gate 待做。
+
+## 最终收口（2026-08-01 产品负责人决定）
+
+```text
+Goal Status: ACCEPTED_WITH_FOLLOWUPS
+Overall Goal: COMPLETE
+Visual Gate: PASS_WITH_MINOR_IMPROVEMENTS
+Manual Accessibility Gate: NOT_RUN_OWNER_ACCEPTED_RISK
+P3 Discoverability Study: DEFERRED_OWNER_ACCEPTED
+```
+
+- 独立视觉 reviewer 已验收（未参与实现），见 `VISUAL_GATE_RESULT_2026-08-01.md`；
+- datetime-local 鼠标/键盘/VoiceOver Gate 未执行，产品负责人知情接受风险并授权收口；
+- P3-01 新手发现性转为后续真实使用研究项；
+- Graph switch / Block 移动/删除 Desktop 变体保持 `DEFERRED_NON_BLOCKING`（自动测试覆盖）；
+- 视觉与交互工艺改进转入 `Task Copilot Worksite Re-entry & Reading Hierarchy` 后续 Goal；
+- 本 Goal 不再继续扩展。完整依据见 `FINAL_ACCEPTANCE_REPORT_2026-08-01.md`。

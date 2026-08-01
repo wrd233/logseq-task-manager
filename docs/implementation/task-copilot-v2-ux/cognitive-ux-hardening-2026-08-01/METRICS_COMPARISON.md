@@ -2,7 +2,8 @@
 
 > 基线来源：`cognitive-audit-2026-07-31/README.md`（HISTORICAL_VISUAL_OBSERVATION + VERIFIED_CURRENT at 08825d8）。
 > “当前”来源：本目录 Desktop Gate 记录（STRUCTURAL_FACT / AUTOMATED / DESKTOP_BEHAVIOR_FACT）。
-> 视觉结论一律 `VISUAL_GATE_PENDING`；以下对比只表示结构/行为证据，不替代独立视觉判断。
+> 视觉结论此前一律 `VISUAL_GATE_PENDING`；收口时已由独立视觉 Gate 解除
+> （`VISUAL_GATE_RESULT_2026-08-01.md`）。以下对比以结构/行为证据为主。
 
 ## 1. 整理当前页（无候选）
 
@@ -60,3 +61,12 @@
 
 - 以上“减少”均为结构/行为证据；视觉权重、留白、对比度等仍需独立视觉 Gate。
 - Now 整屏密度（CUX-P2-01）未做结构性改动，仅保留既有折叠；视觉 Gate 再判断。
+
+## 收口补充（2026-08-01）
+
+- 独立视觉 Gate 已解除：`PASS_WITH_MINOR_IMPROVEMENTS`，主要改善方向（任务可识别、唯一主动作、
+  Active Surface、One-question Grill、Progressive Disclosure、无横向溢出、outcome 来源清楚）
+  已由 reviewer 确认。
+- 后续候选项（Now 阅读路径、操作区/阅读区分、语义视觉层级、Objects 去后台化等）不改变本轮
+  指标结论，已转入 `Task Copilot Worksite Re-entry & Reading Hierarchy` 独立 Goal 候选。
+- Now 阅读路径与工作现场预览属于下一 Goal，不倒推本 Goal 未完成。

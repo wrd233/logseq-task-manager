@@ -21,3 +21,30 @@
 `NOT_STARTED` / `REPRODUCED_CURRENT` / `PLAN_SKILL_REVIEWED` / `IMPLEMENTED` /
 `AUTOMATED_NONVISUAL_PASS` / `DESKTOP_BEHAVIOR_PASS` / `VISUAL_GATE_PENDING` /
 `VISUAL_GATE_PASS` / `ACCEPTED`。无视觉结论不得越过 `VISUAL_GATE_PENDING`。
+
+## 收口状态（2026-08-01）
+
+```text
+Goal Status: ACCEPTED_WITH_FOLLOWUPS
+Overall Goal: COMPLETE
+Visual Gate: PASS_WITH_MINOR_IMPROVEMENTS
+Manual Accessibility Gate: NOT_RUN_OWNER_ACCEPTED_RISK
+```
+
+| ID | 关闭/接受方式 | 说明 |
+|---|---|---|
+| CUX-P0-01 | CLOSED | 自动 + Desktop + 视觉证据齐备 |
+| CUX-P0-02 | CLOSED | 六类 Desktop 证据 + 12/12 resolver；变体见下 |
+| CUX-P1-01 | CLOSED | Active Surface Desktop/视觉 PASS；PENDING 共用同一 render 路径 |
+| CUX-P1-02 | CLOSED | 三轮真实 DeepSeek Desktop + 视觉 PASS |
+| CUX-P1-03 | CLOSED | visible-text 0 内部词 + 视觉 PASS |
+| CUX-P1-04 | CLOSED | scoped outcome + 视觉 PASS |
+| CUX-P2-01 | TRANSFERRED_TO_FOLLOWUP_GOAL | Now 阅读路径/密度改进项 |
+| CUX-P2-02 | CLOSED | Provider 错误文案/重试/系统状态 + 视觉 PASS |
+| CUX-P2-03 | NOT_RUN_OWNER_ACCEPTED_RISK | datetime AX 输入链未手工执行；结构/Desktop 证据完成 |
+| CUX-P3-01 | DEFERRED_OWNER_ACCEPTED | 新手发现性转为后续真实使用研究 |
+| CUX-P3-02 | CLOSED | 本地时间 + 视觉 PASS |
+| Graph switch / Block 移动/删除 | DEFERRED_NON_BLOCKING | 自动测试覆盖；Desktop 变体可选 |
+| Now Card Reading Path / 操作区分离 / 语义层级 / Objects 去后台化 / 子级预览等 | TRANSFERRED_TO_FOLLOWUP_GOAL | 归入 `Task Copilot Worksite Re-entry & Reading Hierarchy` |
+
+未执行项未伪装为 PASS；产品负责人已授权收口，详见 `FINAL_ACCEPTANCE_REPORT_2026-08-01.md`。
