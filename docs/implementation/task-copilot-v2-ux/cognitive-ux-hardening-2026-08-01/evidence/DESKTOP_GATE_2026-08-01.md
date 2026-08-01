@@ -40,3 +40,6 @@
 - 视觉：**VISUAL_GATE_PENDING**——截图与 `VISUAL_GATE_REQUEST.md` 已就绪，等待独立 reviewer。
 - 未覆盖（保持 OPEN）：reload 后 durable origin 自动恢复的 Desktop 复验（需要 Block 右键入口链路）、
   Light/Dark × 760 全矩阵、datetime-local 鼠标/键盘/VoiceOver 手工 Gate、P3-01 新手发现性。
+- Block 右键入口链路：CDP 合成 `contextmenu` 事件与 `Input.dispatchMouseEvent` 右键均未能唤起 Logseq
+  原生 Block 菜单（宿主菜单层未暴露到可查询 DOM），因此 durable-origin 的“Block 入口→返回→reload”
+  全链保留为手工 Desktop 项；`OriginRouteController` 解析/fallback 已由 9/9 单元测试覆盖。
