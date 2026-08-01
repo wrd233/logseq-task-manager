@@ -1,5 +1,30 @@
 # V2 当前实施状态
 
+## WRH-P1-09 Worksite Preview Graph Refresh（2026-08-01）
+
+真实用户复现的缺陷已修复为原子 Sprint：Now 卡片的 Worksite Preview 先读为空后，
+来源 Block 下新增/修改/移动/删除子 Block 不会自动更新，loaded-empty 也没有手动
+“重新读取”。根因与实现记录在
+`task-copilot-v2-ux/worksite-reentry-reading-hierarchy-2026-08-01/GOAL_STATUS.md`。
+
+实现：共享 Explicit Sync 的同一 `DB.onChanged` → 新增 `WorksiteChangeRouter`
+（有限父链 8 层/块、单批 64、并发 2、350ms 按对象防抖、反向索引）→ 仅失效对应
+预览；Controller 增加 stale、generation 竞态保护、dispose、metrics；可见卡自动
+重读、折叠卡延迟读取、Now 关闭不后台读取；空态与 stale 增加低权重“重新读取”。
+不轮询、不写 SQLite/Graph、不改正式对象 version、不新增状态/恢复系统/AI 摘要。
+
+真实 Logseq 0.10.15 Desktop 完成 A–D 流程：空态→三条自动更新；折叠卡不读、
+展开读最新；空态/有记录/error（70KB 超大 Block 触发 Bridge fail-closed）重试；
+删除/移入/移出。Plugin 466/466、根级 `./scripts/check.sh` PASS。
+证据：`tmp/runtime/worksite-reentry-reading-hierarchy/wrh-p1-09-worksite-graph-refresh/`
+（before 缺陷复现 + after 机器证据 + desktop-gate + performance）。
+
+实验环境说明：Desktop 导航实验误删测试 Graph 的 2026-07-28 日志页；已从证据与
+SQLite 重建 RedHat 任务子树与两个 P2-G 锚点（原 UUID）。该对象 version 2→3→4
+仅来自恢复期 `observe_primary_anchor`（10:45/10:48），流程窗口 audit 零新增；
+用户已确认实验环境损失可接受。Visual Gate 保持 `VISUAL_GATE_READY`
+（独立视觉 reviewer 未执行）。
+
 ## 认知体验审计与小原型（2026-07-31）
 
 基于当前 r8、Logseq `0.10.15` 和真实 DeepSeek 的任务级认知体验审计已经完成；审计报告先以

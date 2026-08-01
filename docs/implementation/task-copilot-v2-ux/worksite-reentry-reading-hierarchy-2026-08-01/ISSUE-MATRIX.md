@@ -18,6 +18,7 @@
 | WRH-P2-04 | P2 | Active Surface | 宿主背景轻微语义竞争 | 背景 inert 且视觉降权 | DESKTOP_BEHAVIOR_PASS | sprint-f/19 |
 | WRH-P3-01 | P3 | Microcopy | 状态/依据/时间可更用户化 | 可继续、为什么现在显示它、本地时间 | PARTIAL→CLOSED（核心项完成；剩余随使用观察） | sprint-f bundles + 单测 + sprint-g/21 |
 | WRH-P3-02 | P3 | Research | 陌生用户对工作记录入口的理解未验证 | 新手发现性研究 | DEFERRED_CANDIDATE | 同交接包 |
+| WRH-P1-09 | P1 | Worksite Preview | 子 Block 变化后预览不自动失效；loaded-empty 无手动刷新 | 共享 DB.onChanged → 有限父链识别 → 防抖失效 → 可见卡自动重读/折叠卡 stale；空态“重新读取” | IMPLEMENTED + DESKTOP_BEHAVIOR_PASS（视觉待 reviewer） | wrh-p1-09-worksite-graph-refresh/before+after |
 
 ## 收口规则
 

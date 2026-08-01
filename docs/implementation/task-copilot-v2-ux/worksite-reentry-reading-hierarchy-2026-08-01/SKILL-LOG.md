@@ -26,6 +26,16 @@
 - Sprint B/C/D/E/F 各自运行 plan-design-review（结构性 Sprint）与 design-review（实现后）；
 - Microsoft frontend-design-review 作为最终独立质量门候选（需可查看像素的 reviewer）。
 
+## WRH-P1-09 记录（2026-08-01）
+
+| Skill | Path/Version | Visual capability | 输入问题 | 建议 | 接受/拒绝 | 理由 |
+|---|---|---|---|---|---|---|
+| task-copilot-core | `skills/task-copilot-core/SKILL.md` 1.0.0 | 无 | 预览失效是否允许写正式状态 | 只读；正式变化必须走既有 Review/Commit；不新增状态 | Accepted | 实现只做缓存失效 + Graph 读取；无 SQLite/Graph 写入、无新正式状态 |
+| recover-context | `skills/recover-context/SKILL.md` 1.3.0 | 无 | 工作记录能否用摘要刷新 | 原文优先、不生成 AI 摘要、只读投影 | Accepted | 预览仍是忠实只读投影；未引入 AI 摘要或第二恢复系统 |
+| gstack plan-design-review | `.gstack/repos/gstack/.agents/skills/gstack-plan-design-review/SKILL.md` | 无（本会话） | 刷新入口是否会变成视觉主动作/轮询 | 保持低权重、不引入轮询、不重设计 Now | Accepted（prose 适配，沿用前序惯例） | 空态“重新读取”为 quiet 按钮；机制为事件+防抖，无 setInterval 轮询 |
+| gstack design-review | `.gstack/repos/gstack/.agents/skills/gstack-design-review/SKILL.md` | 无（需像素 reviewer） | 完成后审查 Desktop 流程 | 提供 before/after 截图与 DOM/AX 证据 | Accepted（证据部分）；视觉评分未执行 | 无视觉能力；截图矩阵已生成供独立 reviewer |
+| Microsoft frontend-design-review | `/Users/wangrundong/.agents/skills/frontend-design-review/SKILL.md` | 无（需像素 reviewer） | 刷新入口与状态层级独立质量门 | 不重设计 Now；只审查刷新入口层级 | Accepted（边界）；像素审查未执行 | 遵循“没有可靠视觉能力”约束；标记 VISUAL_GATE_READY 而非 PASS |
+
 ## Sprint B 记录
 
 | Skill / 合同 | 使用 | 结果 |

@@ -129,6 +129,26 @@ Now 结论文案与相对时间由自动测试覆盖（`userFacingRelativeDateTi
 | Reload 恢复 | `16-now-reload-restored-light-1000/` | Plugin Manager 真实 reload 后 iframe 仍 r12、Now 恢复 |
 | Review 时间 | `21-review-time-light-1000/` | eyebrow 显示“待我确认 · 昨天 20:35” |
 
+## WRH-P1-09 Worksite Preview Graph Refresh 证据（2026-08-01）
+
+`tmp/runtime/worksite-reentry-reading-hierarchy/wrh-p1-09-worksite-graph-refresh/`
+
+| 目录 | 内容 |
+|---|---|
+| `before/` | 修复前构建（HEAD `2ec0e7b` 前）缺陷复现：空态无“重新读取”按钮；
+  子 Block 已存在但预览仍“暂无工作记录”；source-tree-before/after + object-before |
+| `after/01-now-empty-light-1000/` | 空态机器证据 + 截图（visible-text/AX/interactive/
+  ui-state/route-and-data） |
+| `after/02-now-auto-updated-light-1000/` | 三条记录自动更新后的机器证据 + 截图 |
+| `after/03..06-now-empty-{dark-1000,light-760,dark-760,light-1000}/` | 空态截图矩阵 |
+| `after/graph-change-events.json` | 72 个真实 DB.onChanged 事件日志 |
+| `after/preview-load-events.json` | 46 次自动重读 + 4 次手动重读 + 25 次失效 |
+| `after/performance.json` | 变化/读取/并发/耗时/忽略/丢弃统计 |
+| `after/flow-console.jsonl` | 完整结构化日志（含流程时间戳） |
+| `after/desktop-gate.md` | 流程 A–D 与安全边界结论 |
+| `after/test-results.md` | 新增测试与根级检查结果 |
+| `after/source-tree-after.json` / `object-after.json` | 最终子树与对象状态 |
+
 ## Sprint D after 证据（2026-08-01）
 
 `tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-d/`
