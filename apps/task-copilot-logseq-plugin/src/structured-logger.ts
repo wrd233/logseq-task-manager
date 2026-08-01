@@ -63,6 +63,16 @@ export interface StructuredLogEntry {
   nowReviewOverflowCount?: number;
   nowWaitingOverflowCount?: number;
   focusOverload?: boolean;
+  worksiteReadsStartedCount?: number;
+  worksiteReadsCompletedCount?: number;
+  worksiteDiscardedReadsCount?: number;
+  worksiteCacheHitsCount?: number;
+  worksiteMaxConcurrentCount?: number;
+  worksiteIgnoredChangesCount?: number;
+  worksiteParentChainReadsCount?: number;
+  worksiteAffectedObjectsCount?: number;
+  worksiteChangeEventsCount?: number;
+  worksiteDebouncedInvalidationsCount?: number;
 }
 
 export function createCorrelationId(now = new Date()): string {
@@ -112,6 +122,16 @@ const COUNT_FIELDS = [
   "nowSuppressedOpenCount",
   "nowReviewOverflowCount",
   "nowWaitingOverflowCount",
+  "worksiteReadsStartedCount",
+  "worksiteReadsCompletedCount",
+  "worksiteDiscardedReadsCount",
+  "worksiteCacheHitsCount",
+  "worksiteMaxConcurrentCount",
+  "worksiteIgnoredChangesCount",
+  "worksiteParentChainReadsCount",
+  "worksiteAffectedObjectsCount",
+  "worksiteChangeEventsCount",
+  "worksiteDebouncedInvalidationsCount",
 ] as const satisfies readonly (keyof StructuredLogEntry)[];
 
 function sanitizedFields(fields: Partial<StructuredLogEntry>): Partial<StructuredLogEntry> {

@@ -216,3 +216,111 @@ test("worksite controller tracks overflow open state session-only", () => {
   controller.setOverflowOpen(false);
   assert.equal(controller.isOverflowOpen(), false);
 });
+
+test("worksite controller invalidates loaded-empty and re-reads newly added children", async () => {
+  const map = new Map<string, Record<string, unknown>>([["root-1", block("root-1", "[任务] 空记录", [])]]);
+  const { host, getBlockCalls } = fakeHost(map);
+  const controller = new WorksitePreviewController(host);
+  const empty = await controller.load("object-1", "root-1", 1, "short");
+  assert.equal(empty.status, "loaded-empty");
+  map.set("root-1", block("root-1", "[任务] 空记录", [block("child-1", "新增工作记录")]));
+  controller.invalidate("object-1");
+  const loaded = await controller.load("object-1", "root-1", 1, "short");
+  assert.equal(loaded.status, "loaded");
+  if (loaded.status === "loaded") assert.equal(loaded.blocks[0]?.content, "新增工作记录");
+  assert.equal(getBlockCalls.filter((id) => id === "root-1").length, 2);
+});
+
+test("worksite controller invalidates one object without dropping another object's cache", async () => {
+  const { host, getBlockCalls } = fakeHost(sampleTree());
+  const controller = new WorksitePreviewController(host);
+  await controller.load("object-1", "root-1", 1, "short");
+  await controller.load("object-2", "root-1", 1, "short");
+  assert.equal(getBlockCalls.filter((id) => id === "root-1").length, 2);
+  controller.invalidate("object-1");
+  await controller.load("object-1", "root-1", 1, "short");
+  await controller.load("object-2", "root-1", 1, "short");
+  assert.equal(getBlockCalls.filter((id) => id === "root-1").length, 3, "only the invalidated object re-reads");
+});
+
+test("worksite controller surfaces stale after invalidation until the next load", async () => {
+  const { host } = fakeHost(sampleTree());
+  const controller = new WorksitePreviewController(host);
+  await controller.load("object-1", "root-1", 1, "short");
+  controller.invalidate("object-1");
+  controller.markStale("object-1");
+  assert.deepEqual(controller.state("object-1", "root-1", 1, "short"), { status: "stale" });
+  const state = await controller.load("object-1", "root-1", 1, "short");
+  assert.equal(state.status, "loaded");
+  assert.notEqual(controller.state("object-1", "root-1", 1, "short").status, "stale");
+});
+
+test("worksite controller discards an older in-flight read after invalidation", async () => {
+  const map = new Map<string, Record<string, unknown>>([
+    ["root-1", block("root-1", "[任务] 竞态", [block("child-1", "旧内容")])],
+  ]);
+  let firstStartedResolve: (() => void) | undefined;
+  const firstStarted = new Promise<void>((resolve) => { firstStartedResolve = resolve; });
+  let firstRead = true;
+  const host: GraphReadBridgeHost = {
+    getPage: async () => undefined,
+    getPageBlocksTree: async () => [],
+    getBlock: async (target) => {
+      if (String(target) === "root-1" && firstRead) {
+        firstRead = false;
+        firstStartedResolve?.();
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+      return map.get(String(target));
+    },
+  };
+  const controller = new WorksitePreviewController(host);
+  const first = controller.load("object-1", "root-1", 1, "short");
+  await firstStarted;
+  map.set("root-1", block("root-1", "[任务] 竞态", [block("child-1", "新内容")]));
+  controller.invalidate("object-1");
+  const second = await controller.load("object-1", "root-1", 1, "short");
+  await first;
+  assert.equal(second.status, "loaded");
+  if (second.status === "loaded") assert.deepEqual(second.blocks.map((entry) => entry.content), ["新内容"]);
+  assert.equal(controller.state("object-1", "root-1", 1, "short").status, "loaded");
+  const state = controller.state("object-1", "root-1", 1, "short");
+  if (state.status === "loaded") assert.deepEqual(state.blocks.map((entry) => entry.content), ["新内容"]);
+  assert.ok(controller.metrics().discardedReads >= 1, "the old read result must be discarded");
+});
+
+test("worksite controller dispose clears state and prevents further reads", async () => {
+  const { host, getBlockCalls } = fakeHost(sampleTree());
+  const controller = new WorksitePreviewController(host);
+  await controller.load("object-1", "root-1", 1, "short");
+  controller.dispose();
+  assert.deepEqual(controller.state("object-1", "root-1", 1, "short"), { status: "idle" });
+  assert.deepEqual(await controller.load("object-1", "root-1", 1, "short"), { status: "idle" });
+  assert.equal(getBlockCalls.length, 1);
+});
+
+test("worksite controller refreshFrom drops removed objects including stale and expanded state", () => {
+  const { host } = fakeHost(sampleTree());
+  const controller = new WorksitePreviewController(host);
+  controller.setExpanded("object-1", true);
+  controller.markStale("object-1");
+  controller.refreshFrom([{ objectId: "object-2", version: 1, anchor: "root-1" }]);
+  assert.deepEqual(controller.expandedObjectIds(), []);
+  assert.deepEqual(controller.state("object-1", "root-1", 1, "short"), { status: "idle" });
+});
+
+test("worksite controller metrics count reads, cache hits and bounded concurrency", async () => {
+  const { host, maxConcurrent } = fakeHost(sampleTree(), { readDelayMs: 30 });
+  const controller = new WorksitePreviewController(host, { maximumConcurrency: 2 });
+  await Promise.all([
+    controller.load("object-1", "root-1", 1, "short"),
+    controller.load("object-2", "root-1", 1, "short"),
+  ]);
+  await controller.load("object-1", "root-1", 1, "short");
+  const metrics = controller.metrics();
+  assert.equal(metrics.readsStarted, 2);
+  assert.equal(metrics.readsCompleted, 2);
+  assert.equal(metrics.cacheHits, 1);
+  assert.equal(metrics.maxConcurrentReads, 2);
+  assert.ok(maxConcurrent() <= 2);
+});

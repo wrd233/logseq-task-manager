@@ -299,16 +299,19 @@ function worksitePreviewValue(objectId: string, anchor: string, version: number)
 
 function renderWorksitePreviewBody(state: WorksitePreviewState, value: string, mode: WorksitePreviewMode): string {
   if (state.status === "loading") return `<p class="muted worksite-status">正在读取工作记录…</p>`;
-  if (state.status === "loaded-empty") return `<p class="muted worksite-status">暂无工作记录</p>`;
+  if (state.status === "loaded-empty") {
+    return `<p class="muted worksite-status">暂无工作记录</p><div class="worksite-actions">${button("重新读取", "v2-worksite-refresh", value, "quiet")}</div>`;
+  }
   if (state.status === "unavailable") {
     return `<p class="muted worksite-status">工作记录不可用：${escapeHtml(state.reason)}</p>${button("重新读取", "v2-worksite-refresh", value, "quiet")}`;
   }
   if (state.status === "error") {
     return `<p class="worksite-error" role="status">${escapeHtml(state.safeMessage)}</p>${button("重新读取", "v2-worksite-refresh", value, "quiet")}`;
   }
-  if (state.status === "stale" || state.status === "idle") {
-    return `<p class="muted worksite-status">工作记录</p>`;
+  if (state.status === "stale") {
+    return `<p class="muted worksite-status">工作记录</p><div class="worksite-actions">${button("重新读取", "v2-worksite-refresh", value, "quiet")}</div>`;
   }
+  if (state.status === "idle") return `<p class="muted worksite-status">工作记录</p>`;
   const list = `<ul class="now-worksite-blocks">${state.blocks.map((block) => `<li class="worksite-block" style="--worksite-depth:${Math.min(block.depth, 3)}">${block.marker ? `<span class="worksite-marker">${escapeHtml(block.marker)}</span>` : ""}<span class="worksite-content">${escapeHtml(block.content)}</span></li>`).join("")}</ul>`;
   const actions = `<div class="worksite-actions">${mode === "short" && state.truncated ? button("展开完整记录", "v2-worksite-expand-full", value, "quiet") : ""}${button("重新读取", "v2-worksite-refresh", value, "quiet")}</div>`;
   return `${list}${actions}`;

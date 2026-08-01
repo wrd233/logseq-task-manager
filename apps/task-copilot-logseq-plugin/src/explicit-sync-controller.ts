@@ -59,6 +59,7 @@ export interface ExplicitSyncEventHost {
 export interface ExplicitSyncEventRegistrationOptions {
   subtreeDelayMs?: number;
   maximumPendingRoots?: number;
+  onGraphBlocksChanged?(blocks: readonly unknown[]): void;
 }
 
 export interface PersistentBlockIdentityHost {
@@ -176,6 +177,7 @@ export function registerExplicitSyncEvents(
 
   const unregister = host.DB.onChanged((event) => {
     const blocks = event.blocks ?? [];
+    options.onGraphBlocksChanged?.(blocks);
     let overflowed = false;
     for (const value of blocks) {
       if (!value || typeof value !== "object" || Array.isArray(value)) continue;

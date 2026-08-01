@@ -519,6 +519,39 @@ test("Logseq DB event registration forwards only transaction Blocks and unregist
   assert.equal(unregistered, 1);
 });
 
+test("Logseq DB event registration shares the same change stream with worksite invalidation", async () => {
+  let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
+  const requests: string[] = [];
+  const forwarded: Array<readonly unknown[]> = [];
+  const controller = new ExplicitSyncController({ delayMs: 0, createTraceId: () => "trace-shared" });
+  await controller.resume({
+    async synchronizeExplicitObject(input) {
+      requests.push(input.externalId);
+      return success("shared-object", 2);
+    },
+  });
+  const unregister = registerExplicitSyncEvents({
+    DB: {
+      onChanged(callback) {
+        listener = callback;
+        return () => undefined;
+      },
+    },
+    Editor: { getBlock: async (externalId) => ({ uuid: externalId, content: "[任务] 共享事件", children: [] }) },
+  }, controller, {
+    subtreeDelayMs: 0,
+    onGraphBlocksChanged: (blocks) => forwarded.push(blocks),
+  });
+  const eventBlocks = [{ uuid: "shared-block", content: "[任务] 共享事件" }];
+  listener?.({ blocks: eventBlocks });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await controller.flush();
+  assert.deepEqual(requests, ["shared-block"], "explicit sync still consumes the same event");
+  assert.equal(forwarded.length, 1, "the worksite router receives the same blocks through the single listener");
+  assert.deepEqual(forwarded[0], eventBlocks);
+  unregister();
+});
+
 test("event registration expands a finite subtree without materializing an internal bare TODO", async () => {
   let listener: ((event: { blocks?: unknown[] }) => void) | undefined;
   const requests: string[] = [];

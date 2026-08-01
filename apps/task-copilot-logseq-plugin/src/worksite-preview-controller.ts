@@ -37,7 +37,7 @@ export interface WorksitePreviewControllerOptions {
   fullByteLimit?: number;
   requestIdPrefix?: string;
   now?: () => Date;
-  onStateChange?(objectId: string, mode: WorksitePreviewMode): void;
+  onStateChange?(objectId: string, mode: WorksitePreviewMode, state: WorksitePreviewState): void;
 }
 
 export type WorksitePreviewMode = "short" | "full";
@@ -54,6 +54,16 @@ interface CacheEntry {
   objectId: string;
   short?: WorksitePreviewState;
   full?: WorksitePreviewState;
+}
+
+export interface WorksitePreviewMetrics {
+  readsStarted: number;
+  readsCompleted: number;
+  discardedReads: number;
+  cacheHits: number;
+  maxConcurrentReads: number;
+  activeReads: number;
+  inflight: number;
 }
 
 const DEFAULT_OPTIONS = {
@@ -147,7 +157,7 @@ export class WorksitePreviewController {
     fullByteLimit: number;
     requestIdPrefix: string;
     now: () => Date;
-    onStateChange?: (objectId: string, mode: WorksitePreviewMode) => void;
+    onStateChange?: (objectId: string, mode: WorksitePreviewMode, state: WorksitePreviewState) => void;
   };
   private readonly cache = new Map<string, CacheEntry>();
   private readonly expanded = new Set<string>();
@@ -155,7 +165,15 @@ export class WorksitePreviewController {
   private overflowOpen = false;
   private readonly inflight = new Map<string, Promise<WorksitePreviewState>>();
   private activeReads = 0;
+  private maxActiveReads = 0;
   private readonly queue: Array<() => void> = [];
+  private readonly generations = new Map<string, number>();
+  private readonly stale = new Set<string>();
+  private disposed = false;
+  private readsStarted = 0;
+  private readsCompleted = 0;
+  private discardedReads = 0;
+  private cacheHits = 0;
 
   constructor(
     private readonly host: GraphReadBridgeHost,
@@ -214,27 +232,73 @@ export class WorksitePreviewController {
 
   refreshFrom(items: ReadonlyArray<{ objectId: string; version: number; anchor?: string }>): void {
     const currentObjectIds = new Set(items.map((item) => item.objectId));
-    for (const objectId of this.cache.keys()) {
-      if (!currentObjectIds.has(objectId)) {
-        this.cache.delete(objectId);
-        this.expanded.delete(objectId);
-        this.expandedFull.delete(objectId);
-      }
+    const known = new Set<string>([
+      ...this.cache.keys(),
+      ...this.expanded,
+      ...this.expandedFull,
+      ...this.stale,
+      ...this.generations.keys(),
+    ]);
+    for (const objectId of known) {
+      if (currentObjectIds.has(objectId)) continue;
+      this.cache.delete(objectId);
+      this.expanded.delete(objectId);
+      this.expandedFull.delete(objectId);
+      this.stale.delete(objectId);
+      this.generations.delete(objectId);
+      this.dropInflight(objectId);
     }
   }
 
   invalidate(objectId?: string): void {
     if (objectId === undefined) {
       this.cache.clear();
+      this.inflight.clear();
+      this.generations.clear();
+      this.stale.clear();
       return;
     }
+    this.bumpGeneration(objectId);
     this.cache.delete(objectId);
+    this.dropInflight(objectId);
+  }
+
+  markStale(objectId: string): void {
+    this.stale.add(objectId);
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    this.cache.clear();
+    this.inflight.clear();
+    this.generations.clear();
+    this.stale.clear();
+    this.expanded.clear();
+    this.expandedFull.clear();
+    this.queue.length = 0;
+    this.activeReads = 0;
+  }
+
+  metrics(): WorksitePreviewMetrics {
+    return {
+      readsStarted: this.readsStarted,
+      readsCompleted: this.readsCompleted,
+      discardedReads: this.discardedReads,
+      cacheHits: this.cacheHits,
+      maxConcurrentReads: this.maxActiveReads,
+      activeReads: this.activeReads,
+      inflight: this.inflight.size,
+    };
   }
 
   state(objectId: string, anchor: string, version: number, mode: WorksitePreviewMode): WorksitePreviewState {
     const entry = this.cache.get(objectId);
-    if (!entry || entry.key !== this.sourceKey(anchor, version)) return { status: "idle" };
-    return entry[mode] ?? { status: "idle" };
+    if (entry && entry.key === this.sourceKey(anchor, version)) {
+      const state = entry[mode];
+      if (state) return state;
+    }
+    if (this.stale.has(objectId)) return { status: "stale" };
+    return { status: "idle" };
   }
 
   prefetch(objectId: string, anchor: string, version: number): void {
@@ -244,9 +308,11 @@ export class WorksitePreviewController {
   }
 
   load(objectId: string, anchor: string, version: number, mode: WorksitePreviewMode): Promise<WorksitePreviewState> {
+    if (this.disposed) return Promise.resolve({ status: "idle" });
     const key = this.sourceKey(anchor, version);
     const existing = this.cache.get(objectId);
     if (existing && existing.key === key && existing[mode] && existing[mode]!.status !== "loading") {
+      this.cacheHits += 1;
       return Promise.resolve(existing[mode]!);
     }
     const inflightKey = `${objectId}:${key}:${mode}`;
@@ -256,13 +322,35 @@ export class WorksitePreviewController {
     entry.key = key;
     entry[mode] = { status: "loading" };
     this.cache.set(objectId, entry);
-    const promise = this.enqueue(() => this.read(objectId, anchor, version, key, mode));
+    this.stale.delete(objectId);
+    const generation = this.bumpGeneration(objectId);
+    this.readsStarted += 1;
+    const promise = this.enqueue(() => this.read(objectId, anchor, version, key, mode, generation));
     this.inflight.set(inflightKey, promise);
     void promise.then(
-      () => this.inflight.delete(inflightKey),
-      () => this.inflight.delete(inflightKey),
+      () => {
+        this.inflight.delete(inflightKey);
+        this.readsCompleted += 1;
+      },
+      () => {
+        this.inflight.delete(inflightKey);
+        this.readsCompleted += 1;
+      },
     );
     return promise;
+  }
+
+  private bumpGeneration(objectId: string): number {
+    const next = (this.generations.get(objectId) ?? 0) + 1;
+    this.generations.set(objectId, next);
+    return next;
+  }
+
+  private dropInflight(objectId: string): void {
+    const prefix = `${objectId}:`;
+    for (const key of this.inflight.keys()) {
+      if (key.startsWith(prefix)) this.inflight.delete(key);
+    }
   }
 
   private sourceKey(anchor: string, version: number): string {
@@ -291,6 +379,7 @@ export class WorksitePreviewController {
     version: number,
     key: string,
     mode: WorksitePreviewMode,
+    generation: number,
   ): Promise<WorksitePreviewState> {
     const now = this.options.now();
     const requestId = `${this.options.requestIdPrefix}-${objectId}-${now.getTime()}`;
@@ -304,9 +393,13 @@ export class WorksitePreviewController {
       parents: 0,
     };
     const failure = (state: WorksitePreviewState): WorksitePreviewState => {
+      if (this.disposed || this.generations.get(objectId) !== generation) {
+        this.discardedReads += 1;
+        return state;
+      }
       const entry = this.cache.get(objectId);
       if (entry && entry.key === key) entry[mode] = state;
-      this.options.onStateChange?.(objectId, mode);
+      this.options.onStateChange?.(objectId, mode, state);
       return state;
     };
     try {
@@ -327,11 +420,15 @@ export class WorksitePreviewController {
             remainingCount: projected.remainingCount,
             readAt: result.snapshot.readAt,
           };
+      if (this.disposed || this.generations.get(objectId) !== generation) {
+        this.discardedReads += 1;
+        return state;
+      }
       const entry = this.cache.get(objectId) ?? { key, objectId };
       entry.key = key;
       entry[mode] = state;
       this.cache.set(objectId, entry);
-      this.options.onStateChange?.(objectId, mode);
+      this.options.onStateChange?.(objectId, mode, state);
       return state;
     } catch {
       return failure({ status: "error", diagnosticId: requestId, safeMessage: "暂时无法读取工作记录" });
@@ -341,7 +438,12 @@ export class WorksitePreviewController {
   private enqueue<T>(task: () => Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       const run = (): void => {
+        if (this.disposed) {
+          resolve(undefined as unknown as T);
+          return;
+        }
         this.activeReads += 1;
+        this.maxActiveReads = Math.max(this.maxActiveReads, this.activeReads);
         task().then(
           (value) => {
             this.activeReads -= 1;

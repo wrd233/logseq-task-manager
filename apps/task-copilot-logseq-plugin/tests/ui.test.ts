@@ -1789,13 +1789,56 @@ test("Sprint B worksite loading/empty/error/unavailable states stay card-local a
     const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
     assert.equal((card.match(/class="primary"/g) ?? []).length, 1, `single primary for ${state.status}`);
     if (state.status === "loading") assert.match(card, /正在读取工作记录/);
-    if (state.status === "loaded-empty") assert.match(card, /暂无工作记录/);
+    if (state.status === "loaded-empty") {
+      assert.match(card, /暂无工作记录/);
+      assert.match(card, /data-action="v2-worksite-refresh" data-value="task-worksite\|block-worksite\|3"/);
+      assert.match(card, /<button type="button" class="quiet" data-action="v2-worksite-refresh"/);
+    }
     if (state.status === "error") {
       assert.match(card, /<p class="worksite-error" role="status">暂时无法读取工作记录<\/p>/);
       assert.doesNotMatch(card, /<div class="error"><strong>未完成/);
     }
     if (state.status === "unavailable") assert.match(card, /工作记录不可用：来源位置不可用/);
   }
+});
+
+test("Sprint worksite empty state reload stays quiet and loading hides repeat clicks", () => {
+  const empty = worksiteNowModel({
+    preview: { expanded: true, state: { status: "loaded-empty", sourceVersion: "v3" } },
+  });
+  const emptyHtml = renderApp(empty);
+  const emptyCard = emptyHtml.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(emptyCard, /<p class="muted worksite-status">暂无工作记录<\/p><div class="worksite-actions"><button type="button" class="quiet" data-action="v2-worksite-refresh" data-value="task-worksite\|block-worksite\|3">重新读取<\/button><\/div>/);
+  assert.equal((emptyCard.match(/class="primary"/g) ?? []).length, 1);
+  assert.equal((emptyCard.match(/重新读取/g) ?? []).length, 1);
+
+  const loading = worksiteNowModel({
+    preview: { expanded: true, state: { status: "loading" } },
+  });
+  const loadingHtml = renderApp(loading);
+  const loadingCard = loadingHtml.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(loadingCard, /正在读取工作记录/);
+  assert.doesNotMatch(loadingCard, /v2-worksite-refresh/, "loading state disables repeat refresh clicks");
+});
+
+test("Sprint worksite stale state keeps a quiet manual reload and the single primary", () => {
+  const value = worksiteNowModel({
+    preview: { expanded: true, state: { status: "stale" } },
+  });
+  const html = renderApp(value);
+  const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(card, /<p class="muted worksite-status">工作记录<\/p><div class="worksite-actions"><button type="button" class="quiet" data-action="v2-worksite-refresh"/);
+  assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
+});
+
+test("Sprint worksite graph-change wiring reuses the explicit sync listener and clears on graph switch", async () => {
+  const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
+  assert.match(source, /onGraphBlocksChanged: \(blocks\) => \{[\s\S]*worksiteChangeRouter\.handleChangedBlocks\(blocks\)/);
+  assert.match(source, /new WorksiteChangeRouter\(graphReadBridgeHost/);
+  assert.match(source, /worksiteChangeRouter\.setTrackedAnchors\(lastNowWorkItems\.map\(\(item\) => \(\{[\s\S]*anchor: item\.primaryAnchorExternalId/);
+  assert.match(source, /worksiteChangeRouter\.observeLoaded\(objectId, item\?\.primaryAnchorExternalId, state\)/);
+  assert.match(source, /handleCurrentGraphChanged[\s\S]*worksitePreviewController\.invalidate\(\)[\s\S]*worksiteChangeRouter\.clear\(\)/);
+  assert.match(source, /worksiteChangeRouter\.dispose\(\)/);
 });
 
 test("Sprint B writes stay read-only: worksite controller never exposes a Graph or SQLite write path", async () => {

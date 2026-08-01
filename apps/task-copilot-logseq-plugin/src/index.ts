@@ -18,8 +18,9 @@ import {
 import { BootstrapRegistration, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
 import { cancelActionDialogReturnsToOrigin, isWorkspace, renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
 import { WorksitePreviewController, type WorksitePreviewMode, type WorksitePreviewState } from "./worksite-preview-controller.ts";
+import { WorksiteChangeRouter } from "./worksite-change-router.ts";
 import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
-import { StructuredLogger } from "./structured-logger.ts";
+import { StructuredLogger, type StructuredLogEntry } from "./structured-logger.ts";
 import { recoverServiceRuntime } from "./service-runtime-recovery.ts";
 import {
   createElectronDescriptorReader,
@@ -216,15 +217,76 @@ const graphReadBridgeController = new GraphReadBridgeController(graphReadBridgeH
 });
 let worksiteRefreshTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
 const worksitePreviewController = new WorksitePreviewController(graphReadBridgeHost, {
-  onStateChange: () => {
-    if (worksiteRefreshTimer !== undefined) return;
-    worksiteRefreshTimer = globalThis.setTimeout(() => {
-      worksiteRefreshTimer = undefined;
-      if (logseq.isMainUIVisible && workspace === "now") void refresh();
-    }, 50);
+  onStateChange: (objectId, mode, state) => {
+    const item = lastNowWorkItems.find((candidate) => candidate.objectId === objectId);
+    worksiteChangeRouter.observeLoaded(objectId, item?.primaryAnchorExternalId, state);
+    scheduleWorksiteRefresh();
   },
 });
+const worksiteChangeRouter = new WorksiteChangeRouter(graphReadBridgeHost, {
+  debounceMs: 350,
+  onAffected: (objectIds) => {
+    for (const objectId of objectIds) {
+      worksitePreviewController.invalidate(objectId);
+      worksitePreviewController.markStale(objectId);
+      operationalLogger.log("info", "source-resolution", "worksite_invalidation", { objectId, result: "deferred" });
+    }
+    void refreshAffectedWorksitePreviews(objectIds);
+  },
+});
+function worksiteMetricsFields(): Partial<StructuredLogEntry> {
+  const controllerMetrics = worksitePreviewController.metrics();
+  const routerMetrics = worksiteChangeRouter.metrics();
+  return {
+    worksiteReadsStartedCount: controllerMetrics.readsStarted,
+    worksiteReadsCompletedCount: controllerMetrics.readsCompleted,
+    worksiteDiscardedReadsCount: controllerMetrics.discardedReads,
+    worksiteCacheHitsCount: controllerMetrics.cacheHits,
+    worksiteMaxConcurrentCount: controllerMetrics.maxConcurrentReads,
+    worksiteIgnoredChangesCount: routerMetrics.changedBlocksIgnored,
+    worksiteParentChainReadsCount: routerMetrics.parentChainReads,
+    worksiteAffectedObjectsCount: routerMetrics.affectedObjects,
+    worksiteChangeEventsCount: routerMetrics.changeEventsReceived,
+    worksiteDebouncedInvalidationsCount: routerMetrics.debouncedInvalidations,
+  };
+}
+function scheduleWorksiteRefresh(): void {
+  if (worksiteRefreshTimer !== undefined) return;
+  worksiteRefreshTimer = globalThis.setTimeout(() => {
+    worksiteRefreshTimer = undefined;
+    if (logseq.isMainUIVisible && workspace === "now") void refresh();
+  }, 50);
+}
+async function refreshAffectedWorksitePreviews(objectIds: readonly string[]): Promise<void> {
+  if (!logseq.isMainUIVisible || workspace !== "now") return;
+  const loads: Array<Promise<WorksitePreviewState>> = [];
+  const startedAt = Date.now();
+  for (const objectId of objectIds) {
+    const item = lastNowWorkItems.find((candidate) => candidate.objectId === objectId);
+    if (!item?.primaryAnchorExternalId) continue;
+    const focused = lastNowWorkFocusIds.has(objectId);
+    if (!focused && !worksitePreviewController.isExpanded(objectId)) continue;
+    const loadStartedAt = Date.now();
+    loads.push(worksitePreviewController.load(item.objectId, item.primaryAnchorExternalId, item.version, worksitePreviewController.expandedMode(item.objectId)).then((state) => {
+      operationalLogger.log("info", "query-refresh", "worksite_auto_reload", {
+        objectId,
+        result: state.status,
+        durationMs: Date.now() - loadStartedAt,
+      });
+      return state;
+    }));
+  }
+  if (loads.length === 0) return;
+  await Promise.allSettled(loads);
+  operationalLogger.log("info", "query-refresh", "worksite_auto_reload_batch", {
+    result: "completed",
+    durationMs: Date.now() - startedAt,
+    ...worksiteMetricsFields(),
+  });
+  scheduleWorksiteRefresh();
+}
 let lastNowWorkItems: Array<{ objectId: string; version: number; primaryAnchorExternalId?: string }> = [];
+let lastNowWorkFocusIds = new Set<string>();
 let firstRunMode = false;
 let firstRunAction: FirstRunAction | undefined;
 let firstRunDescriptorImport: FirstRunModel["descriptorImport"];
@@ -827,6 +889,11 @@ async function model(): Promise<UiModel> {
     }
     lastNowWorkItems = [...byObjectId.values()];
     worksitePreviewController.refreshFrom([...lastNowWorkItems]);
+    worksiteChangeRouter.setTrackedAnchors(lastNowWorkItems.map((item) => ({
+      objectId: item.objectId,
+      ...(item.primaryAnchorExternalId ? { anchor: item.primaryAnchorExternalId } : {}),
+    })));
+    lastNowWorkFocusIds = new Set(v2NowWork.focus.map((item) => item.objectId));
     v2WorksitePreviews = {};
     for (const item of lastNowWorkItems) {
       if (!item.primaryAnchorExternalId) continue;
@@ -842,6 +909,14 @@ async function model(): Promise<UiModel> {
       if (!item.primaryAnchorExternalId || prefetched.has(item.objectId)) continue;
       prefetched.add(item.objectId);
       worksitePreviewController.prefetch(item.objectId, item.primaryAnchorExternalId, item.version);
+    }
+    for (const item of lastNowWorkItems) {
+      if (!item.primaryAnchorExternalId || lastNowWorkFocusIds.has(item.objectId)) continue;
+      if (!worksitePreviewController.isExpanded(item.objectId)) continue;
+      const mode = worksitePreviewController.expandedMode(item.objectId);
+      const state = worksitePreviewController.state(item.objectId, item.primaryAnchorExternalId, item.version, mode);
+      if (state.status !== "stale" && state.status !== "idle") continue;
+      void worksitePreviewController.load(item.objectId, item.primaryAnchorExternalId, item.version, mode);
     }
   }
   toolbarFacts = {
@@ -1396,7 +1471,12 @@ function initializeExplicitSync(): void {
       updateToolbarIntervention();
     },
   });
-  cleanupHooks.push(registerExplicitSyncEvents(logseq as unknown as ExplicitSyncEventHost, explicitSyncController));
+  cleanupHooks.push(registerExplicitSyncEvents(logseq as unknown as ExplicitSyncEventHost, explicitSyncController, {
+    onGraphBlocksChanged: (blocks) => {
+      worksiteChangeRouter.handleChangedBlocks(blocks);
+      operationalLogger.log("info", "source-resolution", "worksite_change_event", { signalRawCount: blocks.length });
+    },
+  }));
   const reconciliationTimer = globalThis.setInterval(() => {
     void explicitSyncController?.reconcileKnownAnchors();
   }, 5 * 60 * 1000);
@@ -1515,7 +1595,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const mode: WorksitePreviewMode = action === "v2-worksite-expand-full"
       ? "full"
       : worksitePreviewController.isExpanded(objectId) ? "full" : "short";
-    await worksitePreviewController.load(objectId, anchor, version, mode);
+    const startedAt = Date.now();
+    const state = await worksitePreviewController.load(objectId, anchor, version, mode);
+    operationalLogger.log("info", "query-refresh", "worksite_manual_reload", {
+      objectId,
+      result: state.status,
+      durationMs: Date.now() - startedAt,
+      ...worksiteMetricsFields(),
+    });
     await refresh();
     return;
   }
@@ -4708,6 +4795,14 @@ async function recoverCurrentGraphRuntime(successMessage?: string): Promise<bool
 async function handleCurrentGraphChanged(): Promise<void> {
   await clearBusinessOrigin();
   durableOriginLoadedGraphKey = undefined;
+  worksitePreviewController.invalidate();
+  worksiteChangeRouter.clear();
+  if (worksiteRefreshTimer !== undefined) {
+    globalThis.clearTimeout(worksiteRefreshTimer);
+    worksiteRefreshTimer = undefined;
+  }
+  lastNowWorkItems = [];
+  lastNowWorkFocusIds = new Set();
   actionDialog = undefined;
   v2ConditionUndoPreparation = undefined;
   v2ProjectClosureEvidence = undefined;
@@ -4941,6 +5036,14 @@ async function main(): Promise<void> {
     if (mode) applyHostThemeMode(themeRoot, mode);
   }));
   operationalLogger.log("info", "plugin-lifecycle", "event_listeners_registered", { result: "success" });
+  cleanupHooks.push(() => worksiteChangeRouter.dispose());
+  cleanupHooks.push(() => worksitePreviewController.dispose());
+  cleanupHooks.push(() => {
+    if (worksiteRefreshTimer !== undefined) {
+      globalThis.clearTimeout(worksiteRefreshTimer);
+      worksiteRefreshTimer = undefined;
+    }
+  });
 
   logseq.beforeunload(async () => {
     for (const off of cleanupHooks.splice(0).reverse()) off();
