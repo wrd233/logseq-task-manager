@@ -67,3 +67,19 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - Agent execution revalidation stops stale sources, pause/revocation, degraded state, impact expansion and equivalent user actions before the existing formal chain.
 - No-Agent Service regression creates ordinary formal objects both before and after an isolated Provider-disabled governance failure; no Candidate or Proposal is materialized by the failure.
 - Real activation/apply/reload/Undo/reload remains CP-6 after honest CP-5 runtime evidence and explicit user authorization. Automated tests do not substitute for that gate.
+
+## CP-4 — consolidated live Shadow checkpoint (partial pass)
+
+- The formal live database was explicitly migrated from v12 to v13 only after a 0600 prebackup. Objects remained 59; SQLite reload, integrity, foreign-key checks and Doctor passed.
+- A schema v13 backup containing governance rows was validated by the live Service and independently restored into a temporary path. The restored database retained 59 Objects, 2 Decisions, 1 Review Signal and the then-current Feedback Event, with recovery validation PASS.
+- The dedicated Logseq page `Task Copilot Lab/Agent Governance CP4 20260802` produced two real governance threads through the shared Desktop observation path.
+- The explicit `[Task]` source first produced a bounded failed r1 after real Provider output was rejected. After prompt/schema hardening, real DeepSeek produced meaningful r2 `CREATE_OBJECT / SHADOW / NOT_EXECUTED` under `EXPLICIT-TASK-01`; formal Object/Candidate/Proposal/Commit counts did not change.
+- The weak source produced deterministic `REVIEW_SIGNAL / SHADOW / NOT_EXECUTED`, one ACTIVE/NORMAL 60-day Review Signal and no Candidate or Object.
+- Desktop detail exposed bounded evidence, counter-signals, closest alternative, Context tier/token/truncation metrics, Chinese rule + Skill version and ordered Event history.
+- One single feedback and one two-Decision bulk submission were persisted. The bulk action automatically split incompatible Outcome/Rule/Risk groups into two groups and added two Events; total Feedback Events became 3. Undo remained a separate existing capability.
+- A fresh 30-day Skill Feedback package contains 2 Decisions, 5 exported Events and all 3 feedback events. The live 60-day Review package contains the weak-signal Evidence. Every package file matched its 64-character SHA-256 and byte count; credential scan hits were 0.
+- Light, Dark, bulk-success and detail screenshots were captured from Logseq Desktop. They establish `VISUAL_GATE_READY`, not independent visual approval. A physical 760-wide window and the full state matrix remain pending.
+- Service restart/Plugin reload, Provider-output rejection and recovery, backup/restore, real DeepSeek structured output and Shadow zero-write were observed. Multi-target EXPANDED, full same-thread ordinary→action→explicit, live pause/degrade, timeout/cancel/auth and source-missing/truncation export remain automated-only.
+- Final runtime is READY, schema v13, Graph bridge connected, Doctor 11 PASS / 1 known WARN / 0 FAIL / 2 INFO, six governance rules all unpaused SHADOW, Pending/Recovery Commit 0 and SQLite integrity `ok`.
+
+The honest terminal state is `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`: all implementation and automated work is complete, but CP-5 cannot complete before 14 natural days and 200 real Decisions. CP-6 remains barred until that evidence exists and the user explicitly authorizes Guarded execution.
