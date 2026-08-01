@@ -58,3 +58,12 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - Skill Feedback and Review Evidence controls download a human-readable README plus the integrity-validated machine package.
 - Renderer tests cover exception order, runtime boundaries, detail, feedback, export, loading, failure and empty states; existing Plugin shell focus restoration and focus-visible styles apply, with dedicated normal/narrow responsive governance CSS.
 - Light/Dark and 1000/760 Desktop screenshots remain consolidated in CP-4 and are not claimed from renderer tests.
+
+## Guarded representative foundation complete (disabled)
+
+- `agent-guarded-explicit-task.ts` is a compiled coordinator, not a new write authority. It delegates exclusively to the existing LOW-risk Proposal acceptance/revalidation/Semantic Commit path and its inverse Undo path.
+- EXPERIMENT mode, disabled automation, an unmet 14-day/200-Decision gate, or missing explicit user authorization each stop before Proposal acceptance. Production currently satisfies all four stop conditions needed to remain zero-write.
+- A Decision-linked Proposal must be deterministic, LOW risk, one explicit Task on the same Source Root, preserve source text byte-for-byte, carry the same internal Skill version and have no truncation or counter-signal.
+- Agent execution revalidation stops stale sources, pause/revocation, degraded state, impact expansion and equivalent user actions before the existing formal chain.
+- No-Agent Service regression creates ordinary formal objects both before and after an isolated Provider-disabled governance failure; no Candidate or Proposal is materialized by the failure.
+- Real activation/apply/reload/Undo/reload remains CP-6 after honest CP-5 runtime evidence and explicit user authorization. Automated tests do not substitute for that gate.

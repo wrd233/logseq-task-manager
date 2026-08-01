@@ -115,3 +115,39 @@ test("authenticated observation crosses the shared Graph bridge and persists onl
   });
   assert.equal(invalidFeedback.status, 400, "Feedback endpoint rejects any implicit Undo field");
 });
+
+test("no-Agent mode keeps the base product writable while governance failure stays isolated and zero-write", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-no-agent-service-"));
+  const service = await startLocalService({
+    databasePath: join(root, "task-copilot.db"),
+    graphId: "graph-no-agent",
+    token: "no-agent-service-token-24-chars",
+  });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = new LocalServiceClient({ protocolVersion: LOCAL_SERVICE_PROTOCOL_VERSION, url: service.url, token: service.token, pid: process.pid, createdAt: new Date().toISOString() });
+
+  const first = await client.createArea({ text: "无 Agent 仍可用", traceId: "no-agent-area-before" });
+  assert.equal(first.object.text, "无 Agent 仍可用");
+  const formalBefore = { candidates: await client.listCandidates(), proposals: await client.listProposals() };
+
+  const claim = client.claimGraphReadRequest();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const observation = client.observeAgentGovernanceChange({ changedBlockId: "no-agent-source", changedBlockCount: 1 });
+  const request = await claim;
+  if (!request) throw new Error("expected no-Agent Graph read request");
+  const blocks = [{ uuid: "no-agent-source", content: "[Task] 只记录治理失败", contentHash: checksum("[Task] 只记录治理失败"), relation: "ROOT" as const, depth: 0, pageName: "2026-08-02" }];
+  const resolved = { kind: "BLOCK" as const, id: request.target };
+  await client.completeGraphReadRequest({
+    requestId: request.requestId,
+    status: "FOUND",
+    snapshot: { kind: "BLOCK", requestedTarget: request.target, resolved, blocks, truncated: false, readAt: "2026-08-02T11:00:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved, blocks, truncated: false }) },
+  });
+  const result = await observation;
+  assert.equal(result.status, "RECORDED");
+  assert.equal(result.decision?.executionStatus, "FAILED");
+  assert.deepEqual({ candidates: await client.listCandidates(), proposals: await client.listProposals() }, formalBefore);
+
+  const second = await client.createArea({ text: "治理失败后仍可用", traceId: "no-agent-area-after" });
+  assert.equal(second.object.text, "治理失败后仍可用");
+  assert.deepEqual((await client.listObjects()).map(({ text }) => text).sort(), ["无 Agent 仍可用", "治理失败后仍可用"].sort());
+});

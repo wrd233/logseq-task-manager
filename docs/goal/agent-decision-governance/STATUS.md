@@ -3,8 +3,8 @@
 ```yaml
 goal_state: IN_PROGRESS
 base_commit: 7f23564131dbaf5bdcb04c21b80ddb7abd9d48e0
-current_commit: fe6abaf
-current_phase: PHASE_4_GUARDED_RUNTIME
+current_commit: 55edefb
+current_phase: PHASE_5_CONSOLIDATED_RUNTIME
 completed:
   - Goal Objective and full user detailed design read
   - repository baseline and pre-existing dirty file recorded
@@ -44,8 +44,11 @@ completed:
   - Decision detail exposes source, evidence, counter-signals, alternative, Context tier, internal Skill version and ordered Event history without mixing Feedback with Undo
   - single and compatibility-grouped bulk Feedback, duplicate-submit protection and verified Skill/Review export downloads are wired to authenticated Service Client commands
   - governance renderer covers loading, failure, empty, dense/detail, pause and disabled states with existing shell focus restoration, visible keyboard focus and normal/narrow responsive layouts
-remaining_automatable_work:
-  - implement guarded explicit-task execution wiring default off and full fault/no-Agent regression
+  - compiled Guarded explicit-Task coordinator independently requires GUARDED mode, enabled automation, the honest Shadow evidence gate and explicit user authorization before any Proposal acceptance
+  - Guarded coordinator reuses the existing LOW-risk Proposal review, Graph revalidation, Semantic Commit, compensation and inverse Undo chain; it rejects source writes, non-Task operations, mismatched Decision revisions and absent Commit identity
+  - Agent execution revalidation now gates the representative path before Proposal acceptance for stale source, pause, revoked Skill/rule, degraded mode, scope expansion and equivalent user action
+  - no-Agent Local Service regression proves base object writes remain available before and after an isolated Provider-disabled governance failure while Candidate/Proposal state stays unchanged
+remaining_automatable_work: []
 runtime_checks_pending:
   - consolidated Desktop scenarios A through J
   - real DeepSeek governance Structured Output gate
@@ -64,7 +67,7 @@ active_risks:
   - current Plugin is loaded from a prior global-object-directory build, not this Goal build; governance UI has automated renderer evidence but no Desktop visual evidence yet
   - Provider is configured but has not been probed in this Goal
   - live formal SQLite remains schema v12 until the consolidated explicit migration checkpoint; implementation tests use isolated v13 fixtures
-  - Guarded R1 routing is compiled but execution remains absent/disabled until the honest Shadow time gate and explicit user authorization
+  - Guarded R1 execution coordinator is compiled and tested but has no active runtime trigger; production remains EXPERIMENT + disabled until the honest Shadow time gate and explicit user authorization
 user_actions_required: []
 resume_instruction: Read this directory, ADR 0009, and current git status; continue from the first incomplete acceptance row without touching the pre-existing package.json change.
 ```
