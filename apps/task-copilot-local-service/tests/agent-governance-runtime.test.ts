@@ -127,7 +127,9 @@ test("two explicitly named formal targets expand one Shadow Decision without inv
   );
   const before = store.listObjects();
   let providerInput: Record<string, unknown> | undefined;
-  const source = snapshot("source-expanded", "TODO 对照 GOD 性能验证 31 与 GOD 性能验证 32，决定下一步");
+  let providerCalls = 0;
+  let expandedContextEnabled = true;
+  let source = snapshot("source-expanded", "TODO 对照 GOD 性能验证 31 与 GOD 性能验证 32，决定下一步");
   const runtime = new AgentGovernanceRuntime({
     graphId: "graph-agent-runtime-expanded",
     source: contextSource(store),
@@ -136,6 +138,7 @@ test("two explicitly named formal targets expand one Shadow Decision without inv
     skill: await readAgentGovernanceSkill(),
     provider: {
       completeStructured: async ({ user }) => {
+        providerCalls += 1;
         providerInput = JSON.parse(user) as Record<string, unknown>;
         return {
           value: {
@@ -156,6 +159,7 @@ test("two explicitly named formal targets expand one Shadow Decision without inv
     },
     runtimeMode: "EXPERIMENT",
     guardedAutomationEnabled: false,
+    expandedContextEnabled: () => expandedContextEnabled,
     now: () => new Date("2026-08-02T08:30:00.000Z"),
   });
 
@@ -168,6 +172,16 @@ test("two explicitly named formal targets expand one Shadow Decision without inv
   assert.match(JSON.stringify(providerInput?.context), /target-performance-31/);
   assert.match(JSON.stringify(providerInput?.context), /target-performance-32/);
   assert.deepEqual(store.listObjects(), before, "Shadow target disambiguation must not change formal Objects");
+
+  expandedContextEnabled = false;
+  source = snapshot("source-expanded", "TODO 对照 GOD 性能验证 31 与 GOD 性能验证 32，决定下一步（更新）");
+  const disabled = await runtime.observe({ changedBlockId: "source-expanded", changedBlockCount: 1 });
+  assert.equal(providerCalls, 1, "disabled expanded context must not call Provider");
+  assert.equal(disabled.gateAction, "RUN_EXPANDED");
+  assert.equal(disabled.decision?.context.tier, "LOCAL");
+  assert.equal(disabled.decision?.outcome, "NEEDS_HUMAN");
+  assert.deepEqual(disabled.decision?.counterSignals, ["EXPANDED_CONTEXT_DISABLED"]);
+  assert.deepEqual(store.listObjects(), before);
 });
 
 test("an existing Candidate with an explicit defer expression reaches the defer rule instead of becoming a generic Review Signal", async (t) => {

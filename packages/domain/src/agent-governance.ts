@@ -31,12 +31,79 @@ export type AgentFeedbackCorrectionType =
 export type AgentFeedbackAction = "THIS_DECISION_ONLY" | "RECORD_RULE_FEEDBACK" | "PAUSE_RULE_AUTOMATION";
 
 export interface AgentGovernanceSettings {
+  observationEnabled: boolean;
+  expandedContextEnabled: boolean;
   globalWritesPaused: boolean;
   updatedAt: string;
 }
 
+export interface AgentGovernanceRetentionPreview {
+  schemaVersion: 1;
+  generatedAt: string;
+  policy: {
+    decisions: "LONG_TERM";
+    events: "LONG_TERM";
+    sourceSnapshots: "NOT_STORED";
+    reviewSignalIndex: "EXPIRE_60_OR_180_DAYS";
+  };
+  counts: {
+    decisions: number;
+    events: number;
+    feedbackEvents: number;
+    reviewSignals: number;
+    activeReviewSignals: number;
+    rules: number;
+    approximateGovernanceBytes: number;
+  };
+  cleanup: {
+    operation: "EXPIRE_REVIEW_SIGNAL_INDEX_ONLY";
+    eligibleReviewSignals: number;
+    deletesRows: false;
+    deletesSourceText: false;
+  };
+}
+
+export interface AgentGovernanceRetentionResult {
+  preview: AgentGovernanceRetentionPreview;
+  expiredReviewSignals: number;
+  replayed: boolean;
+}
+
 export function createAgentGovernanceSettings(at = new Date()): AgentGovernanceSettings {
-  return { globalWritesPaused: false, updatedAt: at.toISOString() };
+  return { observationEnabled: true, expandedContextEnabled: true, globalWritesPaused: false, updatedAt: at.toISOString() };
+}
+
+function changeAgentGovernanceSetting(
+  current: AgentGovernanceSettings,
+  field: "observationEnabled" | "expandedContextEnabled" | "globalWritesPaused",
+  value: boolean,
+  actor: "USER" | "SYSTEM",
+  errorCode: string,
+  errorMessage: string,
+  at: Date,
+): AgentGovernanceSettings {
+  if (actor !== "USER") throw governanceError(errorCode, errorMessage);
+  return value === current[field] ? current : { ...current, [field]: value, updatedAt: at.toISOString() };
+}
+
+export function setAgentObservationEnabled(
+  current: AgentGovernanceSettings,
+  enabled: boolean,
+  actor: "USER" | "SYSTEM",
+  at = new Date(),
+): AgentGovernanceSettings {
+  return changeAgentGovernanceSetting(current, "observationEnabled", enabled, actor,
+    "AGENT_OBSERVATION_SETTING_REQUIRES_USER", "开启或关闭 Agent 观察必须由 USER 显式授权。", at);
+}
+
+export function setAgentExpandedContextEnabled(
+  current: AgentGovernanceSettings,
+  enabled: boolean,
+  actor: "USER" | "SYSTEM",
+  at = new Date(),
+): AgentGovernanceSettings {
+  return changeAgentGovernanceSetting(current, "expandedContextEnabled", enabled, actor,
+    "AGENT_EXPANDED_CONTEXT_SETTING_REQUIRES_USER", "开启或关闭扩展联想必须由 USER 显式授权。", at);
 }
 
 export function setAgentGlobalWritesPaused(
@@ -45,8 +112,8 @@ export function setAgentGlobalWritesPaused(
   actor: "USER" | "SYSTEM",
   at = new Date(),
 ): AgentGovernanceSettings {
-  if (actor !== "USER") throw governanceError("AGENT_GLOBAL_PAUSE_REQUIRES_USER", "暂停或恢复全部 Agent 写入必须由 USER 显式授权。");
-  return paused === current.globalWritesPaused ? current : { globalWritesPaused: paused, updatedAt: at.toISOString() };
+  return changeAgentGovernanceSetting(current, "globalWritesPaused", paused, actor,
+    "AGENT_GLOBAL_PAUSE_REQUIRES_USER", "暂停或恢复全部 Agent 写入必须由 USER 显式授权。", at);
 }
 
 export interface AgentFeedbackInput {
@@ -799,8 +866,40 @@ export function validateAgentRuleAuthorization(value: unknown): AgentRuleAuthori
 export function validateAgentGovernanceSettings(value: unknown): AgentGovernanceSettings {
   const record = recordValue(value, "AgentGovernanceSettings");
   return {
+    observationEnabled: booleanValue(record.observationEnabled, "observationEnabled"),
+    expandedContextEnabled: booleanValue(record.expandedContextEnabled, "expandedContextEnabled"),
     globalWritesPaused: booleanValue(record.globalWritesPaused, "globalWritesPaused"),
     updatedAt: isoValue(record.updatedAt, "updatedAt"),
+  };
+}
+
+export function validateAgentGovernanceRetentionPreview(value: unknown): AgentGovernanceRetentionPreview {
+  const record = recordValue(value, "AgentGovernanceRetentionPreview");
+  const policy = recordValue(record.policy, "retention.policy");
+  const counts = recordValue(record.counts, "retention.counts");
+  const cleanup = recordValue(record.cleanup, "retention.cleanup");
+  const count = (field: keyof AgentGovernanceRetentionPreview["counts"]): number => {
+    const result = Number(counts[field]);
+    if (!Number.isSafeInteger(result) || result < 0) throw governanceError("AGENT_RETENTION_PREVIEW_INVALID", `Retention ${field} 必须是非负整数。`);
+    return result;
+  };
+  const eligibleReviewSignals = Number(cleanup.eligibleReviewSignals);
+  if (!Number.isSafeInteger(eligibleReviewSignals) || eligibleReviewSignals < 0
+    || record.schemaVersion !== 1 || policy.decisions !== "LONG_TERM" || policy.events !== "LONG_TERM"
+    || policy.sourceSnapshots !== "NOT_STORED" || policy.reviewSignalIndex !== "EXPIRE_60_OR_180_DAYS"
+    || cleanup.operation !== "EXPIRE_REVIEW_SIGNAL_INDEX_ONLY" || cleanup.deletesRows !== false || cleanup.deletesSourceText !== false) {
+    throw governanceError("AGENT_RETENTION_PREVIEW_INVALID", "Agent retention preview 合同无效。");
+  }
+  return {
+    schemaVersion: 1,
+    generatedAt: isoValue(record.generatedAt, "generatedAt"),
+    policy: { decisions: "LONG_TERM", events: "LONG_TERM", sourceSnapshots: "NOT_STORED", reviewSignalIndex: "EXPIRE_60_OR_180_DAYS" },
+    counts: {
+      decisions: count("decisions"), events: count("events"), feedbackEvents: count("feedbackEvents"),
+      reviewSignals: count("reviewSignals"), activeReviewSignals: count("activeReviewSignals"), rules: count("rules"),
+      approximateGovernanceBytes: count("approximateGovernanceBytes"),
+    },
+    cleanup: { operation: "EXPIRE_REVIEW_SIGNAL_INDEX_ONLY", eligibleReviewSignals, deletesRows: false, deletesSourceText: false },
   };
 }
 

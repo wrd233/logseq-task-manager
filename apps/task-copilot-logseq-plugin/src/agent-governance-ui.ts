@@ -10,6 +10,8 @@ export interface AgentGovernanceUiState {
   error?: string;
   mode: "EXPERIMENT" | "GUARDED";
   automaticWritesPaused: boolean;
+  observationEnabled: boolean;
+  expandedContextEnabled: boolean;
   globalWritesPaused: boolean;
   decisionFilter: "ALL" | "NEEDS_HUMAN" | "FAILED" | "SHADOW";
   decisionSearch: string;
@@ -221,8 +223,9 @@ function renderSignals(signals: readonly AgentReviewSignal[]): string {
 
 export function renderAgentGovernance(state: AgentGovernanceUiState): string {
   const modeLabel = state.mode === "EXPERIMENT" ? "观察模式" : "受控执行";
-  const boundary = state.globalWritesPaused ? "全部 Agent 写入已暂停" : state.automaticWritesPaused ? "自动写入已关闭" : "自动写入按规则授权";
-  const heading = `<header class="agent-governance-head"><div><div class="eyebrow">Agent Decision Governance</div><h2>Agent 治理</h2><p>了解 Agent 处理了什么、为什么这样判断，并对规则给出可追溯反馈。</p></div><div class="agent-run-state"><strong>${modeLabel}</strong><span>${boundary}</span><small>${state.mode === "EXPERIMENT" ? "当前决策只记录，不会写入正式对象。" : "仅明确授权且通过风险门的规则可执行。"}</small>${button(state.globalWritesPaused ? "恢复全部 Agent 写入" : "暂停全部 Agent 写入", "agent-global-pause", state.globalWritesPaused ? "resume" : "pause", "quiet", Boolean(state.mutationBusy))}</div></header>`;
+  const boundary = !state.observationEnabled ? "Agent 观察已关闭" : state.globalWritesPaused ? "全部 Agent 写入已暂停" : state.automaticWritesPaused ? "自动写入已关闭" : "自动写入按规则授权";
+  const observationNote = state.observationEnabled ? "Graph 变化会进入有界观察队列。" : "Graph 变化仅保留最新的 32 个来源水位；基础产品不受影响。";
+  const heading = `<header class="agent-governance-head"><div><div class="eyebrow">Agent Decision Governance</div><h2>Agent 治理</h2><p>了解 Agent 处理了什么、为什么这样判断，并对规则给出可追溯反馈。</p></div><div class="agent-run-state"><strong>${modeLabel}</strong><span>${boundary}</span><small>${observationNote} ${state.mode === "EXPERIMENT" ? "当前决策只记录，不会写入正式对象。" : "仅明确授权且通过风险门的规则可执行。"}</small>${button(state.observationEnabled ? "关闭 Agent 观察" : "开启 Agent 观察", "agent-observation-toggle", state.observationEnabled ? "disable" : "enable", "quiet", Boolean(state.mutationBusy))}${button(state.expandedContextEnabled ? "关闭扩展联想" : "开启扩展联想", "agent-expanded-context-toggle", state.expandedContextEnabled ? "disable" : "enable", "quiet", Boolean(state.mutationBusy))}${button(state.globalWritesPaused ? "恢复全部 Agent 写入" : "暂停全部 Agent 写入", "agent-global-pause", state.globalWritesPaused ? "resume" : "pause", "quiet", Boolean(state.mutationBusy))}</div></header>`;
   if (state.status === "loading") return `${heading}<div class="empty agent-governance-loading" role="status"><strong>正在读取决策记录…</strong><span>正式事项不受影响。</span></div>`;
   if (state.status === "error") return `${heading}<section class="error agent-governance-error" role="alert"><strong>不能读取 Agent 治理数据</strong><span>${escapeHtml(state.error ?? "未知错误")}；没有修改任何正式事项。</span>${button("重试", "agent-governance-refresh", undefined, "primary")}</section>`;
 

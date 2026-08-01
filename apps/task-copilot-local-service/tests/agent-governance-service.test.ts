@@ -54,7 +54,30 @@ test("authenticated observation crosses the shared Graph bridge and persists onl
   assert.equal((await client.listAgentDecisions({ limit: 10 })).length, 1);
   assert.equal((await client.listAgentRuleAuthorizations()).length, 6);
 
-  assert.equal((await client.getAgentGovernanceSettings()).globalWritesPaused, false);
+  assert.deepEqual(await client.getAgentGovernanceSettings(), {
+    observationEnabled: true,
+    expandedContextEnabled: true,
+    globalWritesPaused: false,
+    updatedAt: (await client.getAgentGovernanceSettings()).updatedAt,
+  });
+  const observationOff = await client.setAgentObservationEnabled({ observationEnabled: false, traceId: "trace-agent-observation-off-1", idempotencyKey: "agent-observation-off-1" });
+  assert.equal(observationOff.settings.observationEnabled, false);
+  await assert.rejects(
+    () => client.observeAgentGovernanceChange({ changedBlockId: "disabled-observation-source", changedBlockCount: 1 }),
+    (error: unknown) => error instanceof Error && "details" in error
+      && (error.details as { remoteCode?: string }).remoteCode === "AGENT_OBSERVATION_DISABLED",
+  );
+  assert.equal((await client.setAgentObservationEnabled({ observationEnabled: true, traceId: "trace-agent-observation-on-1", idempotencyKey: "agent-observation-on-1" })).settings.observationEnabled, true);
+  const expandedOff = await client.setAgentExpandedContextEnabled({ expandedContextEnabled: false, traceId: "trace-agent-expanded-off-1", idempotencyKey: "agent-expanded-off-1" });
+  assert.equal(expandedOff.settings.expandedContextEnabled, false);
+  assert.equal((await client.setAgentExpandedContextEnabled({ expandedContextEnabled: true, traceId: "trace-agent-expanded-on-1", idempotencyKey: "agent-expanded-on-1" })).settings.expandedContextEnabled, true);
+  const retentionPreview = await client.previewAgentGovernanceRetention();
+  assert.equal(retentionPreview.counts.decisions, 1);
+  assert.equal(retentionPreview.cleanup.deletesRows, false);
+  assert.equal(retentionPreview.policy.sourceSnapshots, "NOT_STORED");
+  const retentionCommand = { confirmation: "EXPIRE_REVIEW_SIGNAL_INDEX_ONLY" as const, traceId: "trace-agent-retention-1", idempotencyKey: "agent-retention-1" };
+  assert.equal((await client.runAgentGovernanceRetention(retentionCommand)).expiredReviewSignals, 0);
+  assert.equal((await client.runAgentGovernanceRetention(retentionCommand)).replayed, true);
   const globalPauseCommand = { globalWritesPaused: true, traceId: "trace-agent-global-pause-1", idempotencyKey: "agent-global-pause-1" };
   assert.equal((await client.setAgentGlobalWritesPaused(globalPauseCommand)).settings.globalWritesPaused, true);
   assert.equal((await client.setAgentGlobalWritesPaused(globalPauseCommand)).replayed, true);

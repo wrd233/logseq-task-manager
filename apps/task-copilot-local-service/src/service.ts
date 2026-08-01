@@ -391,7 +391,7 @@ function validAgentCommandIdentity(value: unknown): value is string {
 
 async function readAgentPauseRequest(
   request: IncomingMessage,
-  field: "paused" | "globalWritesPaused",
+  field: "paused" | "globalWritesPaused" | "observationEnabled" | "expandedContextEnabled",
 ): Promise<{ paused: boolean; traceId: string; idempotencyKey: string }> {
   const body = await readBody(request);
   let value: unknown;
@@ -443,6 +443,19 @@ async function readAgentExportRequest(request: IncomingMessage, kind: "SKILL_FEE
     throw serviceError("AGENT_EXPORT_RANGE_INVALID", kind === "REVIEW_EVIDENCE" ? "主动复盘只接受最近 60 或 180 天。" : "Skill Feedback 只接受最近 7、30、60 或 180 天。");
   }
   return { days: Number(record.days) as 7 | 30 | 60 | 180 };
+}
+
+async function readAgentRetentionRequest(request: IncomingMessage): Promise<{ traceId: string; idempotencyKey: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Agent retention 请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "confirmation,idempotencyKey,traceId"
+    || record.confirmation !== "EXPIRE_REVIEW_SIGNAL_INDEX_ONLY"
+    || !validAgentCommandIdentity(record.traceId) || !validAgentCommandIdentity(record.idempotencyKey)) {
+    throw serviceError("AGENT_RETENTION_CONFIRMATION_REQUIRED", "Retention 作业需要精确确认 EXPIRE_REVIEW_SIGNAL_INDEX_ONLY、trace ID 与幂等键。");
+  }
+  return { traceId: record.traceId, idempotencyKey: record.idempotencyKey };
 }
 
 async function readAssociationRequest(request: IncomingMessage): Promise<{ sourceObjectId: string; targetObjectId: string; expectedVersion: number; traceId: string }> {
@@ -1491,6 +1504,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     ...(options.agentGovernanceProvider ? { provider: options.agentGovernanceProvider } : {}),
     runtimeMode: "EXPERIMENT",
     guardedAutomationEnabled: false,
+    observationEnabled: () => store.getAgentGovernanceSettings()?.observationEnabled ?? false,
+    expandedContextEnabled: () => store.getAgentGovernanceSettings()?.expandedContextEnabled ?? false,
     globalWritesPaused: () => store.getAgentGovernanceSettings()?.globalWritesPaused ?? true,
   });
   const grillPreviewSessions = new GrillPreviewSessionStore<{ objectId: string; expectedVersion: number; answers: MiniProjectGrillAnswer[]; preview: GrillPreview; graphScopeHash: string }>();
@@ -2094,6 +2109,34 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (request.method === "POST" && url.pathname === "/agent/settings/global-pause" && !url.search) {
       const input = await readAgentPauseRequest(request, "globalWritesPaused");
       const result = await agentGovernanceApplication.setGlobalWritesPaused(input.paused, {
+        actor: "user", traceId: input.traceId, idempotencyKey: input.idempotencyKey,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/agent/settings/observation" && !url.search) {
+      const input = await readAgentPauseRequest(request, "observationEnabled");
+      const result = await agentGovernanceApplication.setObservationEnabled(input.paused, {
+        actor: "user", traceId: input.traceId, idempotencyKey: input.idempotencyKey,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/agent/settings/expanded-context" && !url.search) {
+      const input = await readAgentPauseRequest(request, "expandedContextEnabled");
+      const result = await agentGovernanceApplication.setExpandedContextEnabled(input.paused, {
+        actor: "user", traceId: input.traceId, idempotencyKey: input.idempotencyKey,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/agent/retention/preview" && !url.search) {
+      respond(response, 200, { preview: await agentGovernanceApplication.previewRetention() });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/agent/retention/run" && !url.search) {
+      const input = await readAgentRetentionRequest(request);
+      const result = await agentGovernanceApplication.runRetentionCleanup("EXPIRE_REVIEW_SIGNAL_INDEX_ONLY", {
         actor: "user", traceId: input.traceId, idempotencyKey: input.idempotencyKey,
       });
       respond(response, result.replayed ? 200 : 201, result);

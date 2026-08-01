@@ -123,6 +123,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 12, name: "add_project_structure_aggregate", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 13, name: "add_agent_decision_governance", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 14, name: "add_agent_governance_settings", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 15, name: "add_agent_observation_and_expanded_context_settings", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -491,7 +492,7 @@ test("schema v12 explicitly adds the minimal Agent governance tables after a val
   const backupPath = join(root, "before-agent-governance.db");
   assert.deepEqual(
     await migrating.migrateSchema("graph-agent-governance", backupPath, new Date("2026-08-02T03:00:00.000Z")),
-    { migrated: true, fromVersion: 12, schemaVersion: 14, backupPath },
+    { migrated: true, fromVersion: 12, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath },
   );
   const backup = new Database(backupPath, { readonly: true, fileMustExist: true });
   assert.equal(backup.pragma("user_version", { simple: true }), 12);
@@ -524,9 +525,14 @@ test("schema v14 adds one durable global Agent write-pause setting after a valid
   const backupPath = join(root, "before-agent-settings.db");
   assert.deepEqual(
     await migrating.migrateSchema("graph-agent-settings", backupPath, new Date("2026-08-02T03:10:00.000Z")),
-    { migrated: true, fromVersion: 13, schemaVersion: 14, backupPath },
+    { migrated: true, fromVersion: 13, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath },
   );
-  assert.deepEqual(migrating.getAgentGovernanceSettings(), { globalWritesPaused: false, updatedAt: "2026-08-02T03:10:00.000Z" });
+  assert.deepEqual(migrating.getAgentGovernanceSettings(), {
+    observationEnabled: true,
+    expandedContextEnabled: true,
+    globalWritesPaused: false,
+    updatedAt: "2026-08-02T03:10:00.000Z",
+  });
   const application = new AgentGovernanceApplication(migrating);
   const paused = await application.setGlobalWritesPaused(true, { actor: "user", traceId: "pause-all", idempotencyKey: "pause-all" }, new Date("2026-08-02T03:11:00.000Z"));
   assert.equal(paused.settings.globalWritesPaused, true);
@@ -534,6 +540,49 @@ test("schema v14 adds one durable global Agent write-pause setting after a valid
   const reopened = await V2SqliteStore.open(path);
   assert.equal(reopened.getAgentGovernanceSettings()?.globalWritesPaused, true);
   reopened.close();
+});
+
+test("schema v15 preserves global pause while adding durable observation and expanded-context switches", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-agent-runtime-settings");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec(`
+    DROP TABLE agent_governance_settings;
+    CREATE TABLE agent_governance_settings (
+      settings_id INTEGER PRIMARY KEY CHECK (settings_id = 1),
+      global_writes_paused INTEGER NOT NULL CHECK (global_writes_paused IN (0,1)),
+      settings_json TEXT NOT NULL CHECK (json_valid(settings_json)),
+      updated_at TEXT NOT NULL
+    ) STRICT;
+    INSERT INTO agent_governance_settings(settings_id, global_writes_paused, settings_json, updated_at)
+      VALUES (1, 1, '{"globalWritesPaused":true,"updatedAt":"2026-08-02T03:19:00.000Z"}', '2026-08-02T03:19:00.000Z');
+    DELETE FROM schema_migrations WHERE version >= 15;
+    UPDATE schema_meta SET value = '14' WHERE key = 'schema_version';
+    PRAGMA user_version = 14;
+  `);
+  legacy.close();
+
+  const migrating = await V2SqliteStore.open(path);
+  const backupPath = join(root, "before-agent-runtime-settings.db");
+  assert.deepEqual(
+    await migrating.migrateSchema("graph-agent-runtime-settings", backupPath, new Date("2026-08-02T03:20:00.000Z")),
+    { migrated: true, fromVersion: 14, schemaVersion: V2_DATABASE_SCHEMA_VERSION, backupPath },
+  );
+  assert.deepEqual(migrating.getAgentGovernanceSettings(), {
+    observationEnabled: true,
+    expandedContextEnabled: true,
+    globalWritesPaused: true,
+    updatedAt: "2026-08-02T03:20:00.000Z",
+  });
+  const internal = migrating as unknown as { database: Database.Database };
+  assert.deepEqual(internal.database.prepare("SELECT observation_enabled, expanded_context_enabled, global_writes_paused FROM agent_governance_settings").get(), {
+    observation_enabled: 1,
+    expanded_context_enabled: 1,
+    global_writes_paused: 1,
+  });
+  migrating.close();
 });
 
 test("Agent governance persists one Decision Thread, meaningful Revision events, and reloadable history", async (t) => {
@@ -683,6 +732,33 @@ test("Review Signal persistence deduplicates a Source Root and preserves source-
   const reviewMaterial = await application.prepareReviewEvidenceExport(60, new Date("2026-08-04T04:20:00.000Z"));
   assert.equal(reviewMaterial.sourceTotal, 1);
   assert.equal(reviewMaterial.signals[0]?.occurrenceCount, 2);
+  await application.recordReviewSignal({
+    ...input,
+    sourceRoot: { kind: "BLOCK", externalId: "weak-block-expiring", durableOrigin: { kind: "BLOCK_UUID", value: "weak-block-expiring" } },
+    capturedSnapshotHash: "b".repeat(8),
+    capturedText: "单次弱信号，等待有界索引到期。",
+  }, { actor: "agent", traceId: "trace-signal-expiring", idempotencyKey: "review-signal-expiring" }, new Date("2026-01-01T04:20:00.000Z"));
+  const retention = await application.previewRetention(new Date("2026-08-04T04:20:00.000Z"));
+  assert.equal(retention.counts.decisions, 0);
+  assert.equal(retention.counts.reviewSignals, 2);
+  assert.equal(retention.cleanup.eligibleReviewSignals, 1);
+  assert.equal(retention.cleanup.deletesRows, false);
+  assert.equal(retention.policy.sourceSnapshots, "NOT_STORED");
+  const readOnly = new Database(path, { readonly: true });
+  const expectedGovernanceBytes = Number(readOnly.prepare(`SELECT
+    COALESCE((SELECT SUM(length(CAST(decision_json AS BLOB))) FROM agent_decisions), 0) +
+    COALESCE((SELECT SUM(length(CAST(payload_json AS BLOB))) FROM agent_decision_events), 0) +
+    COALESCE((SELECT SUM(length(CAST(signal_json AS BLOB))) FROM agent_review_signals), 0) +
+    COALESCE((SELECT SUM(length(CAST(authorization_json AS BLOB))) FROM agent_rule_authorizations), 0) +
+    COALESCE((SELECT SUM(length(CAST(settings_json AS BLOB))) FROM agent_governance_settings), 0)`).pluck().get());
+  readOnly.close();
+  assert.equal(retention.counts.approximateGovernanceBytes, expectedGovernanceBytes);
+  const cleanupCommand = { actor: "user", traceId: "trace-retention-cleanup", idempotencyKey: "retention-cleanup-1" };
+  const cleaned = await application.runRetentionCleanup("EXPIRE_REVIEW_SIGNAL_INDEX_ONLY", cleanupCommand, new Date("2026-08-04T04:20:00.000Z"));
+  assert.equal(cleaned.expiredReviewSignals, 1);
+  assert.equal(cleaned.preview.cleanup.eligibleReviewSignals, 0);
+  assert.equal((await application.runRetentionCleanup("EXPIRE_REVIEW_SIGNAL_INDEX_ONLY", cleanupCommand, new Date("2026-08-04T04:20:00.000Z"))).replayed, true);
+  assert.equal((await application.listReviewSignals({ status: "EXPIRED", limit: 10 })).length, 1);
   store.close();
 
   const reopened = await V2SqliteStore.open(path);

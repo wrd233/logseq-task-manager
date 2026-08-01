@@ -69,6 +69,8 @@ test("governance dashboard is exception-first and exposes honest run boundaries"
     status: "ready",
     mode: "EXPERIMENT",
     automaticWritesPaused: true,
+    observationEnabled: true,
+    expandedContextEnabled: true,
     globalWritesPaused: false,
     decisionFilter: "ALL",
     decisionSearch: "",
@@ -81,6 +83,8 @@ test("governance dashboard is exception-first and exposes honest run boundaries"
   });
   assert.match(html, /观察模式/);
   assert.match(html, /自动写入已关闭/);
+  assert.match(html, /data-action="agent-observation-toggle" data-value="disable"/);
+  assert.match(html, /data-action="agent-expanded-context-toggle" data-value="disable"/);
   assert.match(html, /需要人工/);
   assert.match(html, /执行失败/);
   assert.ok(html.indexOf("decision-failed") < html.indexOf("decision-1"));
@@ -91,10 +95,13 @@ test("governance filters, searches, and exposes recoverable rule/global pause co
   const ordinary = decision({ decisionId: "decision-ordinary", evidenceSummary: "普通记录无需处理" });
   const failed = decision({ decisionId: "decision-failed", threadId: "thread-failed", outcome: "NEEDS_HUMAN", executionStatus: "FAILED", evidenceSummary: "告警来源需要人工判断" });
   const html = renderAgentGovernance({
-    status: "ready", mode: "EXPERIMENT", automaticWritesPaused: true, globalWritesPaused: true,
+    status: "ready", mode: "EXPERIMENT", automaticWritesPaused: true, observationEnabled: false, expandedContextEnabled: false, globalWritesPaused: true,
     decisionFilter: "FAILED", decisionSearch: "告警", decisions: [ordinary, failed], rules: [authorization()], signals: [], events: [], selectedDecisionIds: [], now: observedAt,
   });
-  assert.match(html, /全部 Agent 写入已暂停/);
+  assert.match(html, /Agent 观察已关闭/);
+  assert.match(html, /最新的 32 个来源水位/);
+  assert.match(html, /data-action="agent-observation-toggle" data-value="enable"/);
+  assert.match(html, /data-action="agent-expanded-context-toggle" data-value="enable"/);
   assert.match(html, /data-action="agent-global-pause" data-value="resume"/);
   assert.match(html, /data-field="agentDecisionFilter"/);
   assert.match(html, /data-field="agentDecisionSearch"/);
@@ -136,6 +143,8 @@ test("selected decision shows evidence, event history, single feedback and compa
     status: "ready",
     mode: "EXPERIMENT",
     automaticWritesPaused: true,
+    observationEnabled: true,
+    expandedContextEnabled: true,
     globalWritesPaused: false,
     decisionFilter: "ALL",
     decisionSearch: "",
@@ -158,7 +167,7 @@ test("selected decision shows evidence, event history, single feedback and compa
 });
 
 test("governance view has bounded loading, failure, empty and export states", () => {
-  const state = { mode: "EXPERIMENT" as const, automaticWritesPaused: true, globalWritesPaused: false, decisionFilter: "ALL" as const, decisionSearch: "", decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now: observedAt };
+  const state = { mode: "EXPERIMENT" as const, automaticWritesPaused: true, observationEnabled: true, expandedContextEnabled: true, globalWritesPaused: false, decisionFilter: "ALL" as const, decisionSearch: "", decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now: observedAt };
   assert.match(renderAgentGovernance({ status: "loading", ...state }), /正在读取决策记录/);
   assert.match(renderAgentGovernance({ status: "error", error: "SERVICE_DOWN", ...state }), /不能读取 Agent 治理数据/);
   const empty = renderAgentGovernance({ status: "ready", ...state });
@@ -184,7 +193,7 @@ test("governance stays under More and renders through the existing plugin shell"
   const governance = renderApp({
     ...base,
     workspace: "governance",
-    agentGovernance: { status: "ready", mode: "EXPERIMENT", automaticWritesPaused: true, globalWritesPaused: false, decisionFilter: "ALL", decisionSearch: "", decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now: observedAt },
+    agentGovernance: { status: "ready", mode: "EXPERIMENT", automaticWritesPaused: true, observationEnabled: true, expandedContextEnabled: true, globalWritesPaused: false, decisionFilter: "ALL", decisionSearch: "", decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now: observedAt },
   });
   assert.match(governance, /data-workspace="governance"/);
   assert.match(governance, /aria-label="更多区域"/);

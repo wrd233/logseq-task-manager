@@ -216,6 +216,8 @@ type AgentGovernanceUiClient = ServiceRuntimeClient & Required<Pick<ServiceRunti
   | "getAgentGovernanceSettings"
   | "setAgentRulePaused"
   | "setAgentGlobalWritesPaused"
+  | "setAgentObservationEnabled"
+  | "setAgentExpandedContextEnabled"
   | "recordAgentFeedback"
   | "recordAgentBulkFeedback"
   | "exportAgentSkillFeedback"
@@ -232,6 +234,8 @@ function isAgentGovernanceUiClient(client: ServiceRuntimeClient | undefined): cl
     && typeof client.getAgentGovernanceSettings === "function"
     && typeof client.setAgentRulePaused === "function"
     && typeof client.setAgentGlobalWritesPaused === "function"
+    && typeof client.setAgentObservationEnabled === "function"
+    && typeof client.setAgentExpandedContextEnabled === "function"
     && typeof client.recordAgentFeedback === "function"
     && typeof client.recordAgentBulkFeedback === "function"
     && typeof client.exportAgentSkillFeedback === "function"
@@ -397,6 +401,7 @@ let v2ReentryTargetObjectId: string | undefined;
 const v2ProviderTarget = new SelectedBlockAnalysisTarget();
 let serviceDiscoveryGeneration = 0;
 let explicitSyncController: ExplicitSyncController | undefined;
+let agentGovernanceChangeQueue: AgentGovernanceChangeQueue<{ changedBlockId: string; changedBlockCount: number }> | undefined;
 let explicitSyncState: ExplicitSyncState = {
   pending: 0,
   transportReady: false,
@@ -957,6 +962,8 @@ async function model(): Promise<UiModel> {
         error: "Agent 治理服务尚未就绪。请先在系统状态中恢复 Local Service 连接。",
         mode: "EXPERIMENT",
         automaticWritesPaused: true,
+        observationEnabled: false,
+        expandedContextEnabled: false,
         globalWritesPaused: false,
         decisionFilter: agentDecisionFilter,
         decisionSearch: agentDecisionSearch,
@@ -979,6 +986,8 @@ async function model(): Promise<UiModel> {
           status: "ready",
           mode: "EXPERIMENT",
           automaticWritesPaused: true,
+          observationEnabled: settings.observationEnabled,
+          expandedContextEnabled: settings.expandedContextEnabled,
           globalWritesPaused: settings.globalWritesPaused,
           decisionFilter: agentDecisionFilter,
           decisionSearch: agentDecisionSearch,
@@ -999,6 +1008,8 @@ async function model(): Promise<UiModel> {
           error: explain(error),
           mode: "EXPERIMENT",
           automaticWritesPaused: true,
+          observationEnabled: false,
+          expandedContextEnabled: false,
           globalWritesPaused: false,
           decisionFilter: agentDecisionFilter,
           decisionSearch: agentDecisionSearch,
@@ -1628,6 +1639,7 @@ function initializeExplicitSync(): void {
       ...(issue.sourceRootId ? { blockUuid: issue.sourceRootId } : {}),
     }),
   });
+  agentGovernanceChangeQueue = agentGovernanceQueue;
   cleanupHooks.push(registerExplicitSyncEvents(logseq as unknown as ExplicitSyncEventHost, explicitSyncController, {
     onGraphBlocksChanged: (blocks) => {
       worksiteChangeRouter.handleChangedBlocks(blocks);
@@ -1642,7 +1654,10 @@ function initializeExplicitSync(): void {
       operationalLogger.log("info", "source-resolution", "worksite_change_event", { signalRawCount: blocks.length });
     },
   }));
-  cleanupHooks.push(() => agentGovernanceQueue.dispose());
+  cleanupHooks.push(() => {
+    agentGovernanceQueue.dispose();
+    if (agentGovernanceChangeQueue === agentGovernanceQueue) agentGovernanceChangeQueue = undefined;
+  });
   const reconciliationTimer = globalThis.setInterval(() => {
     void explicitSyncController?.reconcileKnownAnchors();
   }, 5 * 60 * 1000);
@@ -2418,6 +2433,51 @@ async function handleAction(action: string, value?: string): Promise<void> {
     try {
       const result = await client.setAgentGlobalWritesPaused({ globalWritesPaused: value === "pause", traceId, idempotencyKey: traceId });
       message = result.settings.globalWritesPaused ? "全部 Agent 正式写入已暂停；观察和 Shadow 继续。" : "全部 Agent 写入暂停已解除；仍只按当前运行模式与逐规则授权路由。";
+    } catch (error) {
+      latestError = explain(error);
+    } finally {
+      agentGovernanceMutationBusy = false;
+    }
+    await refresh();
+    return;
+  }
+  if (action === "agent-observation-toggle" && value) {
+    const client = serviceRuntimeClient;
+    if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有改变观察状态。");
+    if (agentGovernanceMutationBusy) throw new Error("治理设置正在更新，不会重复提交。");
+    if (value !== "enable" && value !== "disable") throw new Error("Agent 观察操作无效。");
+    const traceId = `agent-observation-ui-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    agentGovernanceMutationBusy = true;
+    await refresh();
+    try {
+      const result = await client.setAgentObservationEnabled({ observationEnabled: value === "enable", traceId, idempotencyKey: traceId });
+      if (result.settings.observationEnabled) {
+        agentGovernanceChangeQueue?.requestDrain();
+        message = "Agent 观察已开启；有界水位中的最新来源已开始后台补偿处理。";
+      } else {
+        message = "Agent 观察已关闭；基础产品保持可用，最多保留 32 个来源的最新待观察水位。";
+      }
+    } catch (error) {
+      latestError = explain(error);
+    } finally {
+      agentGovernanceMutationBusy = false;
+    }
+    await refresh();
+    return;
+  }
+  if (action === "agent-expanded-context-toggle" && value) {
+    const client = serviceRuntimeClient;
+    if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有改变扩展联想状态。");
+    if (agentGovernanceMutationBusy) throw new Error("治理设置正在更新，不会重复提交。");
+    if (value !== "enable" && value !== "disable") throw new Error("扩展联想操作无效。");
+    const traceId = `agent-expanded-context-ui-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    agentGovernanceMutationBusy = true;
+    await refresh();
+    try {
+      const result = await client.setAgentExpandedContextEnabled({ expandedContextEnabled: value === "enable", traceId, idempotencyKey: traceId });
+      message = result.settings.expandedContextEnabled
+        ? "扩展联想已开启；仅在 Gate 明确要求时读取受控扩展上下文。"
+        : "扩展联想已关闭；需要扩展上下文的判断会留在 LOCAL 并转人工。";
     } catch (error) {
       latestError = explain(error);
     } finally {

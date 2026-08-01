@@ -83,3 +83,26 @@ test("a transport failure retains one bounded latest waterline until Service rec
   assert.deepEqual(queue.metrics(), { pendingRoots: 0, active: false, trackedRevisions: 0 });
   queue.dispose();
 });
+
+test("requestDrain starts catch-up without blocking a foreground settings action", async () => {
+  let started = false;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const queue = new AgentGovernanceChangeQueue<string>({
+    delayMs: 5_000,
+    process: async () => {
+      started = true;
+      await gate;
+    },
+  });
+  queue.enqueue("source-catch-up", "latest");
+
+  queue.requestDrain();
+  await Promise.resolve();
+
+  assert.equal(started, true);
+  assert.deepEqual(queue.metrics(), { pendingRoots: 0, active: true, trackedRevisions: 1 });
+  release();
+  await queue.drainNow();
+  queue.dispose();
+});

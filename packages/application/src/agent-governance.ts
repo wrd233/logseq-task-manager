@@ -11,13 +11,17 @@ import {
   groupCompatibleAgentFeedback,
   reconcileAgentReviewSignal,
   reviseAgentDecision,
+  setAgentExpandedContextEnabled,
   setAgentRulePaused,
   setAgentGlobalWritesPaused,
+  setAgentObservationEnabled,
   updateAgentRuleSkill,
   type AgentDecision,
   type AgentDecisionEvent,
   type AgentDecisionInput,
   type AgentGovernanceExportPackage,
+  type AgentGovernanceRetentionPreview,
+  type AgentGovernanceRetentionResult,
   type AgentGovernanceSettings,
   type AgentFeedbackInput,
   type AgentFeedbackCompatibilityGroup,
@@ -81,6 +85,8 @@ export interface AgentGovernanceRepository {
   listAgentReviewSignals(input: { status?: AgentReviewSignalStatus; limit: number }): AgentReviewSignal[] | Promise<AgentReviewSignal[]>;
   listAgentReviewSignalsForExport(input: { since: string; until: string; limit: number }): AgentReviewSignal[] | Promise<AgentReviewSignal[]>;
   countAgentReviewSignalsForExport(input: { since: string; until: string }): number | Promise<number>;
+  previewAgentGovernanceRetention(at: Date): AgentGovernanceRetentionPreview | Promise<AgentGovernanceRetentionPreview>;
+  runAgentGovernanceRetention(at: Date, idempotencyKey: string): AgentGovernanceRetentionResult | Promise<AgentGovernanceRetentionResult>;
 }
 
 export interface AgentGovernanceCommandEnvelope {
@@ -318,6 +324,34 @@ export class AgentGovernanceApplication {
     return this.repository.saveAgentGovernanceSettings(settings, current.updatedAt, envelope.idempotencyKey);
   }
 
+  async setObservationEnabled(
+    enabled: boolean,
+    envelope: AgentGovernanceCommandEnvelope,
+    at = new Date(),
+  ): Promise<{ settings: AgentGovernanceSettings; replayed: boolean }> {
+    requireEnvelope(envelope);
+    if (eventActor(envelope.actor) !== "USER") {
+      throw new StructuredError({ code: "AGENT_OBSERVATION_SETTING_REQUIRES_USER", message: "开启或关闭 Agent 观察必须由 USER 显式提交。", ruleRefs: ["ADG-GATE-01"] });
+    }
+    const current = await this.getSettings(at);
+    const settings = setAgentObservationEnabled(current, enabled, "USER", at);
+    return this.repository.saveAgentGovernanceSettings(settings, current.updatedAt, envelope.idempotencyKey);
+  }
+
+  async setExpandedContextEnabled(
+    enabled: boolean,
+    envelope: AgentGovernanceCommandEnvelope,
+    at = new Date(),
+  ): Promise<{ settings: AgentGovernanceSettings; replayed: boolean }> {
+    requireEnvelope(envelope);
+    if (eventActor(envelope.actor) !== "USER") {
+      throw new StructuredError({ code: "AGENT_EXPANDED_CONTEXT_SETTING_REQUIRES_USER", message: "开启或关闭扩展联想必须由 USER 显式提交。", ruleRefs: ["ADG-GATE-01"] });
+    }
+    const current = await this.getSettings(at);
+    const settings = setAgentExpandedContextEnabled(current, enabled, "USER", at);
+    return this.repository.saveAgentGovernanceSettings(settings, current.updatedAt, envelope.idempotencyKey);
+  }
+
   async updateRuleSkill(
     ruleId: string,
     input: UpdateAgentRuleSkillInput,
@@ -366,6 +400,26 @@ export class AgentGovernanceApplication {
 
   listReviewSignals(input: { status?: AgentReviewSignalStatus; limit: number }): Promise<AgentReviewSignal[]> {
     return Promise.resolve(this.repository.listAgentReviewSignals(input));
+  }
+
+  previewRetention(at = new Date()): Promise<AgentGovernanceRetentionPreview> {
+    return Promise.resolve(this.repository.previewAgentGovernanceRetention(at));
+  }
+
+  async runRetentionCleanup(
+    confirmation: string,
+    envelope: AgentGovernanceCommandEnvelope,
+    at = new Date(),
+  ): Promise<AgentGovernanceRetentionResult> {
+    requireEnvelope(envelope);
+    if (eventActor(envelope.actor) !== "USER" || confirmation !== "EXPIRE_REVIEW_SIGNAL_INDEX_ONLY") {
+      throw new StructuredError({
+        code: "AGENT_RETENTION_CONFIRMATION_REQUIRED",
+        message: "Retention 作业只接受 USER 提交的精确确认 EXPIRE_REVIEW_SIGNAL_INDEX_ONLY。",
+        ruleRefs: ["ADG-DATA-01"],
+      });
+    }
+    return this.repository.runAgentGovernanceRetention(at, envelope.idempotencyKey);
   }
 
   private async requireRuleAuthorization(ruleId: string): Promise<AgentRuleAuthorization> {

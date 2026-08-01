@@ -34,10 +34,10 @@ import type {
   V2OwnershipUndoResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
-import { createAgentGovernanceSettings, renderV2ProposalFiles, validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization, validateV2Proposal, type AgentDecision, type AgentDecisionEvent, type AgentGovernanceSettings, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
+import { createAgentGovernanceSettings, reconcileAgentReviewSignal, renderV2ProposalFiles, validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceRetentionPreview, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization, validateV2Proposal, type AgentDecision, type AgentDecisionEvent, type AgentGovernanceRetentionPreview, type AgentGovernanceRetentionResult, type AgentGovernanceSettings, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 14;
+export const V2_DATABASE_SCHEMA_VERSION = 15;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -72,6 +72,7 @@ const schemaMigrationNames = new Map<number, string>([
   [12, "add_project_structure_aggregate"],
   [13, "add_agent_decision_governance"],
   [14, "add_agent_governance_settings"],
+  [15, "add_agent_observation_and_expanded_context_settings"],
 ]);
 
 const agentGovernanceSchemaSql = `
@@ -130,9 +131,20 @@ const agentGovernanceSchemaSql = `
   ) STRICT;
 `;
 
+const agentGovernanceSettingsV14SchemaSql = `
+  CREATE TABLE agent_governance_settings (
+    settings_id INTEGER PRIMARY KEY CHECK (settings_id = 1),
+    global_writes_paused INTEGER NOT NULL CHECK (global_writes_paused IN (0,1)),
+    settings_json TEXT NOT NULL CHECK (json_valid(settings_json)),
+    updated_at TEXT NOT NULL
+  ) STRICT;
+`;
+
 const agentGovernanceSettingsSchemaSql = `
   CREATE TABLE agent_governance_settings (
     settings_id INTEGER PRIMARY KEY CHECK (settings_id = 1),
+    observation_enabled INTEGER NOT NULL CHECK (observation_enabled IN (0,1)),
+    expanded_context_enabled INTEGER NOT NULL CHECK (expanded_context_enabled IN (0,1)),
     global_writes_paused INTEGER NOT NULL CHECK (global_writes_paused IN (0,1)),
     settings_json TEXT NOT NULL CHECK (json_valid(settings_json)),
     updated_at TEXT NOT NULL
@@ -532,8 +544,8 @@ export class V2SqliteStore {
         insertMigration.run(version, schemaMigrationNames.get(version), at.toISOString());
       }
       const governanceSettings = createAgentGovernanceSettings(at);
-      this.database.prepare("INSERT INTO agent_governance_settings(settings_id, global_writes_paused, settings_json, updated_at) VALUES (1, ?, ?, ?)")
-        .run(0, stableJson(governanceSettings), governanceSettings.updatedAt);
+      this.database.prepare("INSERT INTO agent_governance_settings(settings_id, observation_enabled, expanded_context_enabled, global_writes_paused, settings_json, updated_at) VALUES (1, ?, ?, ?, ?, ?)")
+        .run(1, 1, 0, stableJson(governanceSettings), governanceSettings.updatedAt);
       this.database.pragma(`user_version = ${V2_DATABASE_SCHEMA_VERSION}`);
     });
     createSchema();
@@ -579,7 +591,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 14) {
+    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 15) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -831,12 +843,29 @@ export class V2SqliteStore {
         workingVersion = 13;
       }
       if (workingVersion === 13) {
-        this.database.exec(agentGovernanceSettingsSchemaSql);
+        this.database.exec(agentGovernanceSettingsV14SchemaSql);
         const settings = createAgentGovernanceSettings(at);
         this.database.prepare("INSERT INTO agent_governance_settings(settings_id, global_writes_paused, settings_json, updated_at) VALUES (1, ?, ?, ?)")
           .run(0, stableJson(settings), settings.updatedAt);
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(14, schemaMigrationNames.get(14), at.toISOString());
+        workingVersion = 14;
+      }
+      if (workingVersion === 14) {
+        const legacy = this.database.prepare("SELECT global_writes_paused FROM agent_governance_settings WHERE settings_id = 1").get() as
+          | { global_writes_paused: number }
+          | undefined;
+        if (!legacy || ![0, 1].includes(legacy.global_writes_paused)) {
+          throw persistenceError("AGENT_GOVERNANCE_SETTINGS_CORRUPT", "旧版 Agent 治理设置无效；迁移已回滚。");
+        }
+        this.database.exec("ALTER TABLE agent_governance_settings RENAME TO agent_governance_settings_v14");
+        this.database.exec(agentGovernanceSettingsSchemaSql);
+        const settings = { ...createAgentGovernanceSettings(at), globalWritesPaused: legacy.global_writes_paused === 1 };
+        this.database.prepare("INSERT INTO agent_governance_settings(settings_id, observation_enabled, expanded_context_enabled, global_writes_paused, settings_json, updated_at) VALUES (1, ?, ?, ?, ?, ?)")
+          .run(1, 1, settings.globalWritesPaused ? 1 : 0, stableJson(settings), settings.updatedAt);
+        this.database.exec("DROP TABLE agent_governance_settings_v14");
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(15, schemaMigrationNames.get(15), at.toISOString());
       }
       const foreignKeyViolations = (this.database.pragma("foreign_key_check") as unknown[]).length;
       if (foreignKeyViolations > 0) throw persistenceError("V2_SCHEMA_MIGRATION_FOREIGN_KEY_FAILED", "SQLite schema 迁移后出现外键错误；本批变化已回滚。", { foreignKeyViolations });
@@ -1287,9 +1316,10 @@ export class V2SqliteStore {
         throw persistenceError("AGENT_GOVERNANCE_SETTINGS_STALE", "Agent 治理设置已变化；本次写入已回滚。");
       }
       const updated = this.database.prepare(`UPDATE agent_governance_settings SET
-        global_writes_paused = ?, settings_json = ?, updated_at = ?
+        observation_enabled = ?, expanded_context_enabled = ?, global_writes_paused = ?, settings_json = ?, updated_at = ?
         WHERE settings_id = 1 AND updated_at = ?`)
-        .run(settings.globalWritesPaused ? 1 : 0, stableJson(settings), settings.updatedAt, expectedUpdatedAt);
+        .run(settings.observationEnabled ? 1 : 0, settings.expandedContextEnabled ? 1 : 0,
+          settings.globalWritesPaused ? 1 : 0, stableJson(settings), settings.updatedAt, expectedUpdatedAt);
       if (updated.changes !== 1) throw persistenceError("AGENT_GOVERNANCE_SETTINGS_STALE", "Agent 治理设置已变化；本次写入已回滚。");
       this.database.prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
         .run(idempotencyKey, "SaveAgentGovernanceSettings", stableJson(settings), settings.updatedAt);
@@ -1382,6 +1412,63 @@ export class V2SqliteStore {
     this.validateAgentExportRange(input.since, input.until, 1, 1);
     return Number((this.database.prepare("SELECT COUNT(*) AS count FROM agent_review_signals WHERE last_seen_at >= ? AND last_seen_at <= ?")
       .get(input.since, input.until) as { count: number }).count);
+  }
+
+  previewAgentGovernanceRetention(at: Date): AgentGovernanceRetentionPreview {
+    const generatedAt = at.toISOString();
+    const scalar = (sql: string, ...parameters: unknown[]): number => Number(this.database.prepare(sql).pluck().get(...parameters) ?? 0);
+    return validateAgentGovernanceRetentionPreview({
+      schemaVersion: 1,
+      generatedAt,
+      policy: { decisions: "LONG_TERM", events: "LONG_TERM", sourceSnapshots: "NOT_STORED", reviewSignalIndex: "EXPIRE_60_OR_180_DAYS" },
+      counts: {
+        decisions: scalar("SELECT COUNT(*) FROM agent_decisions"),
+        events: scalar("SELECT COUNT(*) FROM agent_decision_events"),
+        feedbackEvents: scalar("SELECT COUNT(*) FROM agent_decision_events WHERE event_type = 'USER_FEEDBACK_ADDED'"),
+        reviewSignals: scalar("SELECT COUNT(*) FROM agent_review_signals"),
+        activeReviewSignals: scalar("SELECT COUNT(*) FROM agent_review_signals WHERE status = 'ACTIVE'"),
+        rules: scalar("SELECT COUNT(*) FROM agent_rule_authorizations"),
+        approximateGovernanceBytes: scalar(`SELECT
+          COALESCE((SELECT SUM(length(CAST(decision_json AS BLOB))) FROM agent_decisions), 0) +
+          COALESCE((SELECT SUM(length(CAST(payload_json AS BLOB))) FROM agent_decision_events), 0) +
+          COALESCE((SELECT SUM(length(CAST(signal_json AS BLOB))) FROM agent_review_signals), 0) +
+          COALESCE((SELECT SUM(length(CAST(authorization_json AS BLOB))) FROM agent_rule_authorizations), 0) +
+          COALESCE((SELECT SUM(length(CAST(settings_json AS BLOB))) FROM agent_governance_settings), 0)`),
+      },
+      cleanup: {
+        operation: "EXPIRE_REVIEW_SIGNAL_INDEX_ONLY",
+        eligibleReviewSignals: scalar("SELECT COUNT(*) FROM agent_review_signals WHERE status = 'ACTIVE' AND active_until IS NOT NULL AND active_until <= ?", generatedAt),
+        deletesRows: false,
+        deletesSourceText: false,
+      },
+    });
+  }
+
+  runAgentGovernanceRetention(at: Date, idempotencyKey: string): AgentGovernanceRetentionResult {
+    this.requireIdempotencyKey(idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(idempotencyKey);
+      if (receipt) {
+        if (receipt.command_name !== "RunAgentGovernanceRetention") throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+        const stored = JSON.parse(receipt.result_json) as { preview?: unknown; expiredReviewSignals?: unknown };
+        const expiredReviewSignals = Number(stored.expiredReviewSignals);
+        if (!Number.isSafeInteger(expiredReviewSignals) || expiredReviewSignals < 0) throw persistenceError("AGENT_RETENTION_RECEIPT_CORRUPT", "Retention receipt 无效。");
+        return { preview: validateAgentGovernanceRetentionPreview(stored.preview), expiredReviewSignals, replayed: true };
+      }
+      const rows = this.database.prepare(`SELECT signal_json FROM agent_review_signals
+        WHERE status = 'ACTIVE' AND active_until IS NOT NULL AND active_until <= ? ORDER BY review_signal_id`).all(at.toISOString()) as Array<{ signal_json: string }>;
+      for (const row of rows) {
+        const signal = reconcileAgentReviewSignal(validateAgentReviewSignal(JSON.parse(row.signal_json) as unknown), { sourceExists: true }, at);
+        if (signal.status !== "EXPIRED") throw persistenceError("AGENT_RETENTION_SIGNAL_INVALID", "到期 Review Signal 无法安全退出活跃索引。");
+        this.database.prepare("UPDATE agent_review_signals SET status = ?, signal_json = ? WHERE review_signal_id = ? AND status = 'ACTIVE'")
+          .run(signal.status, stableJson(signal), signal.reviewSignalId);
+      }
+      const result = { preview: this.previewAgentGovernanceRetention(at), expiredReviewSignals: rows.length, replayed: false };
+      this.database.prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
+        .run(idempotencyKey, "RunAgentGovernanceRetention", stableJson(result), at.toISOString());
+      return result;
+    });
+    return this.executeWrite(write);
   }
 
   private validateAgentExportRange(since: string, until: string, limit: number, maximum: number): void {

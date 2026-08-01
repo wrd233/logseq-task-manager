@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { authorizeAgentRule, autoDowngradeAgentRule, createAgentDecision, createAgentFeedbackEvent, createAgentGovernanceSettings, createAgentRuleAuthorization, createOrRefreshAgentReviewSignal, groupCompatibleAgentFeedback, reconcileAgentReviewSignal, reviseAgentDecision, setAgentGlobalWritesPaused, setAgentRulePaused, updateAgentRuleSkill, validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "../src/agent-governance.ts";
+import { authorizeAgentRule, autoDowngradeAgentRule, createAgentDecision, createAgentFeedbackEvent, createAgentGovernanceSettings, createAgentRuleAuthorization, createOrRefreshAgentReviewSignal, groupCompatibleAgentFeedback, reconcileAgentReviewSignal, reviseAgentDecision, setAgentExpandedContextEnabled, setAgentGlobalWritesPaused, setAgentObservationEnabled, setAgentRulePaused, updateAgentRuleSkill, validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "../src/agent-governance.ts";
 
 const observedAt = new Date("2026-08-02T02:00:00.000Z");
 
@@ -231,8 +231,29 @@ test("only an explicit user action can pause or resume one rule without changing
 test("global Agent writes pause is explicit, validated, and independent from observation", () => {
   const current = createAgentGovernanceSettings(observedAt);
   assert.deepEqual(validateAgentGovernanceSettings(structuredClone(current)), current);
+  assert.equal(current.observationEnabled, true);
+  assert.equal(current.expandedContextEnabled, true);
   assert.throws(() => setAgentGlobalWritesPaused(current, true, "SYSTEM", observedAt), /USER/);
   const paused = setAgentGlobalWritesPaused(current, true, "USER", new Date("2026-08-02T05:20:00.000Z"));
   assert.equal(paused.globalWritesPaused, true);
+  assert.equal(paused.observationEnabled, true);
   assert.equal(setAgentGlobalWritesPaused(paused, false, "USER", new Date("2026-08-02T05:21:00.000Z")).globalWritesPaused, false);
+});
+
+test("observation and expanded context switches are explicit and independently validated", () => {
+  const current = createAgentGovernanceSettings(observedAt);
+  assert.throws(() => setAgentObservationEnabled(current, false, "SYSTEM", observedAt), /USER/);
+  assert.throws(() => setAgentExpandedContextEnabled(current, false, "SYSTEM", observedAt), /USER/);
+
+  const observationOff = setAgentObservationEnabled(current, false, "USER", new Date("2026-08-02T05:22:00.000Z"));
+  assert.deepEqual(observationOff, {
+    observationEnabled: false,
+    expandedContextEnabled: true,
+    globalWritesPaused: false,
+    updatedAt: "2026-08-02T05:22:00.000Z",
+  });
+  const expandedOff = setAgentExpandedContextEnabled(observationOff, false, "USER", new Date("2026-08-02T05:23:00.000Z"));
+  assert.equal(expandedOff.observationEnabled, false);
+  assert.equal(expandedOff.expandedContextEnabled, false);
+  assert.deepEqual(validateAgentGovernanceSettings(structuredClone(expandedOff)), expandedOff);
 });

@@ -1,5 +1,5 @@
-import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
-import { validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceExportPackage, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
+import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceRetentionPreview, AgentGovernanceRetentionResult, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import { validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceExportPackage, validateAgentGovernanceRetentionPreview, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -554,6 +554,18 @@ export interface ServiceAgentRulePauseCommand extends ServiceAgentGovernanceMuta
 
 export interface ServiceAgentGlobalPauseCommand extends ServiceAgentGovernanceMutationCommand {
   globalWritesPaused: boolean;
+}
+
+export interface ServiceAgentObservationCommand extends ServiceAgentGovernanceMutationCommand {
+  observationEnabled: boolean;
+}
+
+export interface ServiceAgentExpandedContextCommand extends ServiceAgentGovernanceMutationCommand {
+  expandedContextEnabled: boolean;
+}
+
+export interface ServiceAgentRetentionCommand extends ServiceAgentGovernanceMutationCommand {
+  confirmation: "EXPIRE_REVIEW_SIGNAL_INDEX_ONLY";
 }
 
 export type ServiceLegacyMigrationPreview = LegacyMigrationPreview;
@@ -1168,6 +1180,40 @@ export class LocalServiceClient {
       body: JSON.stringify(input),
     });
     return { settings: validateAgentGovernanceSettings(value.settings), replayed: Boolean(value.replayed) };
+  }
+
+  async setAgentObservationEnabled(input: ServiceAgentObservationCommand): Promise<{ settings: AgentGovernanceSettings; replayed: boolean }> {
+    const value = await this.request<{ settings?: unknown; replayed?: unknown }>("/agent/settings/observation", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return { settings: validateAgentGovernanceSettings(value.settings), replayed: Boolean(value.replayed) };
+  }
+
+  async setAgentExpandedContextEnabled(input: ServiceAgentExpandedContextCommand): Promise<{ settings: AgentGovernanceSettings; replayed: boolean }> {
+    const value = await this.request<{ settings?: unknown; replayed?: unknown }>("/agent/settings/expanded-context", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return { settings: validateAgentGovernanceSettings(value.settings), replayed: Boolean(value.replayed) };
+  }
+
+  async previewAgentGovernanceRetention(): Promise<AgentGovernanceRetentionPreview> {
+    const value = await this.request<{ preview?: unknown }>("/agent/retention/preview");
+    return validateAgentGovernanceRetentionPreview(value.preview);
+  }
+
+  async runAgentGovernanceRetention(input: ServiceAgentRetentionCommand): Promise<AgentGovernanceRetentionResult> {
+    const value = await this.request<{ preview?: unknown; expiredReviewSignals?: unknown; replayed?: unknown }>("/agent/retention/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const expiredReviewSignals = Number(value.expiredReviewSignals);
+    if (!Number.isSafeInteger(expiredReviewSignals) || expiredReviewSignals < 0) throw clientError("SERVICE_RESPONSE_INVALID", "Local Service retention result 无效。");
+    return { preview: validateAgentGovernanceRetentionPreview(value.preview), expiredReviewSignals, replayed: Boolean(value.replayed) };
   }
 
   async recordAgentFeedback(decisionId: string, input: ServiceAgentFeedbackCommand): Promise<ServiceAgentFeedbackResult> {

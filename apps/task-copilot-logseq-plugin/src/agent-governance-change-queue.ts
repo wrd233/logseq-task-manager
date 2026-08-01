@@ -81,6 +81,10 @@ export class AgentGovernanceChangeQueue<T> {
     return this.drainPromise;
   }
 
+  requestDrain(): void {
+    void this.drainNow();
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;

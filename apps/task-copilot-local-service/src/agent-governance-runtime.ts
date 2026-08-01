@@ -49,6 +49,8 @@ export interface AgentGovernanceRuntimeOptions {
   provider?: AgentGovernanceRuntimeProvider;
   runtimeMode: AgentGovernanceRuntimeMode;
   guardedAutomationEnabled: boolean;
+  observationEnabled?: () => boolean;
+  expandedContextEnabled?: () => boolean;
   globalWritesPaused?: () => boolean;
   degraded?: () => boolean;
   now?: () => Date;
@@ -181,6 +183,9 @@ export class AgentGovernanceRuntime {
     if (!changedBlockId || changedBlockId.length > 512 || !Number.isSafeInteger(observation.changedBlockCount) || observation.changedBlockCount < 1 || observation.changedBlockCount > 1_024) {
       throw runtimeError("AGENT_OBSERVATION_INVALID", "Agent observation 必须包含受控 Block 身份与变更数量。");
     }
+    if (!(this.options.observationEnabled?.() ?? true)) {
+      throw runtimeError("AGENT_OBSERVATION_DISABLED", "Agent 观察已由用户关闭；本次变更只保留在有界本地水位中，不读取 Graph 或调用 Provider。");
+    }
     if (signal?.aborted) throw runtimeError("AGENT_OBSERVATION_CANCELLED", "Agent observation 已被更新的来源版本取消。");
     const observedAt = this.now();
     await this.registerRules(observedAt);
@@ -231,6 +236,7 @@ export class AgentGovernanceRuntime {
       || candidates.some(({ sourceAnchorId }) => sourceAnchorId === gate.sourceRoot.externalId);
     const presentEvidence = presentEvidenceFor({ rule, sourceRoot: gate.sourceRoot, hasSameSourceFormalState, candidateExists, relatedTargetCount: relatedTargets.length });
     const counterSignals = deterministicCounterSignals(rule, relatedTargets.length);
+    const expandedContextAllowed = gate.action !== "RUN_EXPANDED" || (this.options.expandedContextEnabled?.() ?? true);
     const contextPackage = buildContextPackage(
       this.options.source,
       [],
@@ -240,14 +246,17 @@ export class AgentGovernanceRuntime {
       { retrievalCandidates: relatedTargets },
     );
     const context = buildAgentGovernanceContextPackage(contextPackage, {
-      tier: gate.action === "RUN_EXPANDED" ? "EXPANDED" : "LOCAL",
-      tokenBudget: gate.action === "RUN_EXPANDED" ? 24_000 : 12_000,
+      tier: gate.action === "RUN_EXPANDED" && expandedContextAllowed ? "EXPANDED" : "LOCAL",
+      tokenBudget: gate.action === "RUN_EXPANDED" && expandedContextAllowed ? 24_000 : 12_000,
       rule,
       counterSignals,
       recentFeedback: [],
     });
     if (gate.action === "UPDATE_REVIEW_SIGNAL") {
       return this.recordDeterministicReviewSignal(gate.action, gate.sourceRoot, snapshotHash, rule, context, observedAt);
+    }
+    if (!expandedContextAllowed) {
+      return this.recordProviderFailure(gate.action, gate.sourceRoot, sourceSnapshot, snapshotHash, rule, context, "EXPANDED_CONTEXT_DISABLED", observedAt);
     }
     if (!this.options.provider) return this.recordProviderFailure(gate.action, gate.sourceRoot, sourceSnapshot, snapshotHash, rule, context, "PROVIDER_DISABLED", observedAt);
 
