@@ -158,6 +158,19 @@
 #task-copilot-personal-mvp-root .split { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.2fr); gap: 14px; }
 #task-copilot-personal-mvp-root .object-list { display: flex; flex-direction: column; gap: 7px; }
 #task-copilot-personal-mvp-root .object-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
+#task-copilot-personal-mvp-root .directory-list { gap: 8px; }
+#task-copilot-personal-mvp-root .directory-count { margin: -4px 0 10px; color: var(--muted); font-size: 12px; }
+#task-copilot-personal-mvp-root .directory-row { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+#task-copilot-personal-mvp-root .directory-row-body { display: grid; gap: 2px; min-width: 0; }
+#task-copilot-personal-mvp-root .directory-row-title { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+#task-copilot-personal-mvp-root .directory-row-meta { margin: 0; color: var(--muted); font-size: 12px; }
+#task-copilot-personal-mvp-root .directory-row-facts { margin: 1px 0 0; color: var(--muted); font-size: 11px; }
+#task-copilot-personal-mvp-root .directory-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+#task-copilot-personal-mvp-root .directory-row-more { margin-top: 2px; min-width: 0; }
+#task-copilot-personal-mvp-root .directory-row-more > summary { color: var(--muted); font-size: 12px; font-weight: 600; }
+#task-copilot-personal-mvp-root .directory-row-more[open] > summary { color: var(--text); margin-bottom: 8px; }
+#task-copilot-personal-mvp-root .directory-row-more .actions { flex-wrap: wrap; }
+#task-copilot-personal-mvp-root .directory-source-issue { font-size: 11px; }
 #task-copilot-personal-mvp-root .objects-advanced { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 #task-copilot-personal-mvp-root .objects-advanced > summary { color: var(--muted); font-weight: 600; }
 #task-copilot-personal-mvp-root .objects-advanced[open] > summary { color: var(--text); margin-bottom: 12px; }

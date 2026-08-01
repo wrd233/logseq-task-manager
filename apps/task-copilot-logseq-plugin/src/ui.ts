@@ -5,8 +5,9 @@ import type {
   ProposalImpactView,
   ProjectReentryView,
 } from "@task-copilot/application";
-import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
-import type { ServiceConditionUndoPreparation, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceProjectCreationPreview, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
+import type { ServiceConditionUndoPreparation, ServiceFocusSelection, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceProjectCreationPreview, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
+import { projectGlobalObjectDirectory, type GlobalObjectDirectoryEntry } from "./global-object-directory.ts";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
@@ -136,6 +137,8 @@ export interface UiModel {
   v2AreaAvailable?: boolean;
   v2AreaBusy?: boolean;
   v2Objects?: V2ManagedObject[];
+  v2PrimaryAnchors?: V2Anchor[];
+  v2FocusSelections?: ServiceFocusSelection[];
   v2Associations?: V2Association[];
   v2PrimaryOwnerships?: V2PrimaryOwnership[];
   v2RelationLoadError?: string;
@@ -499,6 +502,46 @@ function renderV2ProjectStructure(object: V2ManagedObject): string {
   return `<details class="project-structure" open><summary>项目当前信息</summary><p><strong>当前摘要：</strong>${escapeHtml(structure.currentSummary)}</p><p><strong>当前推进：</strong>${escapeHtml(structure.currentFocuses.join("；"))}</p>${objectives}${deliverables}${stages}${structure.stageMappings.length ? `<p class="muted">${structure.stageMappings.length} 个工作对象已映射到主推进阶段；阶段调整不会移动正文或改变归属。</p>` : ""}</details>`;
 }
 
+function renderDirectoryRow(model: UiModel, entry: GlobalObjectDirectoryEntry): string {
+  const object = model.v2Objects?.find((candidate) => candidate.objectId === entry.objectId);
+  if (!object) return "";
+  const supportsReasonedLifecycle = ["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType);
+  const lifecycleActions = supportsReasonedLifecycle && object.lifecycle === "OPEN"
+    ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `取消 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|CANCEL`, "quiet", model.v2LifecycleProposalBusy === true)
+    : supportsReasonedLifecycle && (object.lifecycle === "COMPLETED" || object.lifecycle === "CANCELLED")
+      ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
+      : "";
+  const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成小项目", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
+  const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理小项目" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
+  const evolveProjectAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ProjectCreationGrillAvailable ? "升级为项目" : "升级暂不可用", "v2-project-creation-grill-open", `MINI_PROJECT:${object.objectId}:${object.version}`, "quiet", model.v2ProjectCreationGrillAvailable !== true) : "";
+  const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑领域", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
+  const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("调整项目", "v2-project-operation-router-open", `${object.objectId}|${object.version}`, "quiet") : "";
+  const secondaryActions = `${areaAction}${grillAction}${evolveProjectAction}${closureAction}${projectStructureAction}${lifecycleActions}`;
+  const meta = [
+    objectTypeLabel(object.objectType),
+    objectLifecycleLabel(object.lifecycle),
+    ...(entry.condition ? [conditionKindLabel(entry.condition.kind)] : []),
+  ].join(" · ");
+  const updated = userFacingRelativeDateTime(entry.updatedAt);
+  const due = entry.dueAt ? ` · 期限 ${userFacingDateTime(entry.dueAt)}` : "";
+  const openSource = entry.primaryAnchor?.status === "active"
+    ? button("打开原文", "v2-directory-open-source", entry.primaryAnchor.externalId, "quiet")
+    : entry.primaryAnchor
+      ? `<span class="muted directory-source-issue">来源需重新连接</span>`
+      : "";
+  const more = secondaryActions || object.projectStructure || object.closure
+    ? `<details class="directory-row-more"><summary>更多</summary><div class="actions">${secondaryActions}</div>${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</details>`
+    : "";
+  return `<article class="object-row directory-row" data-object-id="${escapeHtml(object.objectId)}">
+    <div class="directory-row-body">
+      <h3 class="directory-row-title">${escapeHtml(object.text)}</h3>
+      <p class="directory-row-meta">${meta}</p>
+      <p class="directory-row-facts">${escapeHtml(updated)}${due}</p>
+    </div>
+    <div class="directory-row-actions">${openSource}${more}</div>
+  </article>`;
+}
+
 function renderObjects(model: UiModel): string {
   const relationError = model.v2RelationLoadError ? `<section class="card error" role="alert"><strong>关系投影暂不可用</strong><p>${escapeHtml(model.v2RelationLoadError)}</p><p class="muted">正式对象与其他工作区仍可使用；没有执行关系写入。</p></section>` : "";
   const projectCreator = `<section class="card project-creator" aria-label="创建项目"><div class="eyebrow">项目梳理</div><h3>新建项目</h3><p class="muted">先说清想得到的结果、范围、完成证据和当前推进；确认最终阅读结果后再进入“待我确认”。</p>${button("开始梳理项目", "v2-project-creation-grill-open", "BLANK", "primary", model.v2ProjectCreationGrillAvailable !== true)}</section>`;
@@ -511,20 +554,14 @@ function renderObjects(model: UiModel): string {
     const ownershipList = (model.v2PrimaryOwnerships ?? []).length ? `<section aria-label="所属关系"><h2>所属关系</h2><div class="object-list">${(model.v2PrimaryOwnerships ?? []).slice(0, 100).map((ownership) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(ownership.childObjectId) ?? ownership.childObjectId)} → ${escapeHtml(objectLabels.get(ownership.ownerObjectId) ?? ownership.ownerObjectId)}</span><small>唯一主归属</small></article>`).join("")}</div>${(model.v2PrimaryOwnerships?.length ?? 0) > 100 ? `<p class="muted">仅显示前 100 条；完整投影仍由本地服务提供。</p>` : ""}</section>` : "";
     const visibleAssociations = (model.v2Associations ?? []).slice(0, 100);
     const associationList = visibleAssociations.length ? `<section aria-label="相关内容列表"><h2>相关内容</h2><div class="object-list">${visibleAssociations.map((association) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(association.sourceObjectId) ?? association.sourceObjectId)} → ${escapeHtml(objectLabels.get(association.targetObjectId) ?? association.targetObjectId)}</span><small>${escapeHtml(associationKindLabel(association.associationKind))} · ${escapeHtml(associationStatusLabel(association.status))}</small></article>`).join("")}</div>${(model.v2Associations?.length ?? 0) > visibleAssociations.length ? `<p class="muted">仅显示前 ${visibleAssociations.length} 条；完整投影仍由本地服务提供。</p>` : ""}</section>` : "";
-    const list = `<section aria-label="正式事项"><h2>正式事项</h2><div class="object-list">${model.v2Objects.map((object) => {
-      const supportsReasonedLifecycle = ["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType);
-      const lifecycleActions = supportsReasonedLifecycle && object.lifecycle === "OPEN"
-        ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `取消 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|CANCEL`, "quiet", model.v2LifecycleProposalBusy === true)
-        : supportsReasonedLifecycle && (object.lifecycle === "COMPLETED" || object.lifecycle === "CANCELLED")
-          ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
-          : "";
-      const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成小项目", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
-      const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理小项目" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
-      const evolveProjectAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ProjectCreationGrillAvailable ? "升级为项目" : "升级暂不可用", "v2-project-creation-grill-open", `MINI_PROJECT:${object.objectId}:${object.version}`, "quiet", model.v2ProjectCreationGrillAvailable !== true) : "";
-      const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑领域", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
-      const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("调整项目", "v2-project-operation-router-open", `${object.objectId}|${object.version}`, "quiet") : "";
-      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(objectTypeLabel(object.objectType))} · ${escapeHtml(objectLifecycleLabel(object.lifecycle))} · ${escapeHtml(conditionKindLabel(object.condition.kind))}</small>${lifecycleActions || closureAction || grillAction || evolveProjectAction || areaAction || projectStructureAction ? `<div class="actions">${areaAction}${grillAction}${evolveProjectAction}${closureAction}${projectStructureAction}${lifecycleActions}</div>` : ""}${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</article>`;
-    }).join("")}</div></section>`;
+    const entries = projectGlobalObjectDirectory({
+      objects: model.v2Objects,
+      anchors: model.v2PrimaryAnchors ?? [],
+      ownerships: model.v2PrimaryOwnerships ?? [],
+      focusSelections: model.v2FocusSelections ?? [],
+      ...(model.v2NowWork ? { nowWork: model.v2NowWork } : {}),
+    });
+    const list = `<section aria-label="全部事项"><h2>全部事项</h2><p class="muted">查看任务、小项目、项目和其他正式记录。</p><p class="directory-count" aria-live="polite">${entries.length} 项</p><div class="object-list directory-list">${entries.map((entry) => renderDirectoryRow(model, entry)).join("")}</div></section>`;
     const context = `<details class="objects-advanced objects-context"><summary>查看所属与相关内容（${(model.v2PrimaryOwnerships?.length ?? 0) + (model.v2Associations?.length ?? 0)} 条）</summary><div class="objects-advanced-body">${ownershipList}${associationList}</div></details>`;
     return `${relationError}${list}${context}${advanced}`;
   }
@@ -1443,7 +1480,7 @@ function sectionNavigation(model: UiModel): string {
   if (model.workspace === "objects" || model.workspace === "reentry") {
     const entries: Array<[Workspace, string]> = [
       ["reentry", "继续项目"],
-      ["objects", "正式事项与创建"],
+      ["objects", "全部事项"],
     ];
     return `<nav class="section-nav" aria-label="项目区域">${entries.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}" aria-pressed="${model.workspace === id}">${label}</button>`).join("")}</nav>`;
   }

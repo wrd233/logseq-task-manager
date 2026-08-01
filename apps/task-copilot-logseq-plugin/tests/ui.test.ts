@@ -156,7 +156,7 @@ test("Project primary destination keeps reentry and formal-object capabilities r
   assert.match(html, /data-value="reentry" aria-current="page">项目</);
   assert.match(html, /aria-label="项目区域"/);
   assert.match(html, /data-value="reentry"[\s\S]*继续项目/);
-  assert.match(html, /data-value="objects"[\s\S]*正式事项与创建/);
+  assert.match(html, /data-value="objects"[\s\S]*全部事项/);
 
   value.workspace = "objects";
   html = renderApp(value);
@@ -2136,10 +2136,68 @@ test("Sprint E Objects default layer leads with formal items and moves creation/
   value.v2PrimaryOwnerships = [{ ownerObjectId: "obj-1", childObjectId: "obj-2", assignedAt: "2026-07-31T00:00:00.000Z" }];
   value.v2Associations = [{ associationId: "rel-1", sourceObjectId: "obj-1", targetObjectId: "obj-2", associationKind: "RELATED", status: "ACTIVE", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" }];
   const html = renderApp(value);
-  assert.match(html, /<section aria-label="正式事项"><h2>正式事项<\/h2>/);
-  assert.match(html, /<section aria-label="正式事项"><h2>正式事项<\/h2>[\s\S]*<details class="objects-advanced"/);
+  assert.match(html, /<section aria-label="全部事项"><h2>全部事项<\/h2>/);
+  assert.match(html, /<section aria-label="全部事项"><h2>全部事项<\/h2>[\s\S]*<details class="objects-advanced"/);
   assert.match(html, /<details class="objects-advanced"><summary>整理结构（创建领域、项目与关联）<\/summary>[\s\S]*新建领域[\s\S]*新建项目[\s\S]*关联两个事项/);
   assert.match(html, /<details class="objects-advanced objects-context"><summary>查看所属与相关内容（2 条）<\/summary>/);
+});
+
+test("Global directory rows hide current condition for closed objects and keep open-source reachable", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [
+    { objectId: "task-open", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "BLOCKED", reason: "等依赖" }, text: "推进发布", sourceOrCreationEvent: "test", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" },
+    { objectId: "mini-done", objectType: "MINI_PROJECT", version: 2, lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, text: "收尾演示", closure: { originalGoal: "完成演示", actualResult: "已完成", remainingWork: "无" }, sourceOrCreationEvent: "test", createdAt: "2026-07-30T00:00:00.000Z", updatedAt: "2026-07-30T00:00:00.000Z" },
+    { objectId: "project-cancelled", objectType: "PROJECT", version: 1, lifecycle: "CANCELLED", condition: { kind: "ACTIONABLE" }, text: "已取消项目", sourceOrCreationEvent: "test", createdAt: "2026-07-29T00:00:00.000Z", updatedAt: "2026-07-29T00:00:00.000Z" },
+  ];
+  value.v2PrimaryAnchors = [
+    { anchorId: "a1", objectId: "task-open", role: "primary_text", graphId: "g", externalId: "block-1", status: "active", contentHash: "h", lastSeenAt: "2026-08-01T00:00:00.000Z" },
+    { anchorId: "a2", objectId: "project-cancelled", role: "primary_text", graphId: "g", externalId: "block-gone", status: "missing", contentHash: "h", lastSeenAt: "2026-07-01T00:00:00.000Z" },
+  ];
+  const html = renderApp(value);
+  const taskRow = html.match(/<article class="object-row directory-row" data-object-id="task-open">[\s\S]*?<\/article>/)?.[0] ?? "";
+  const miniRow = html.match(/<article class="object-row directory-row" data-object-id="mini-done">[\s\S]*?<\/article>/)?.[0] ?? "";
+  const projectRow = html.match(/<article class="object-row directory-row" data-object-id="project-cancelled">[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(taskRow, /任务 · 进行中 · 受阻/);
+  assert.match(taskRow, /data-action="v2-directory-open-source" data-value="block-1"/);
+  assert.match(taskRow, /取消 任务/);
+  assert.doesNotMatch(miniRow, /可以行动/);
+  assert.match(miniRow, /小项目 · 已完成/);
+  assert.match(miniRow, /重开 小项目/);
+  assert.doesNotMatch(projectRow, /可以行动/);
+  assert.match(projectRow, /项目 · 已取消/);
+  assert.match(projectRow, /来源需重新连接/);
+  assert.doesNotMatch(projectRow, /data-action="v2-directory-open-source"/);
+});
+
+test("Global directory row details keep project structure and closure behind the overflow", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [{
+    objectId: "project-structure-row",
+    objectType: "PROJECT",
+    version: 2,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "发布治理",
+    projectStructure: {
+      currentSummary: "核心链路已完成。",
+      currentFocuses: ["验证发布"],
+      objectives: [],
+      deliverables: [],
+      workStages: [],
+      stageMappings: [],
+    },
+    sourceOrCreationEvent: "test",
+    createdAt: "2026-07-22T00:00:00.000Z",
+    updatedAt: "2026-07-22T01:00:00.000Z",
+  }];
+  const html = renderApp(value);
+  const row = html.match(/<article class="object-row directory-row"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(row, /<details class="directory-row-more"><summary>更多<\/summary>/);
+  assert.match(row, /data-action="v2-project-operation-router-open"/);
+  assert.match(row, /<details class="project-structure" open><summary>项目当前信息<\/summary>/);
+  assert.doesNotMatch(html.replace(row, ""), /项目当前信息/);
 });
 
 test("Sprint E empty Objects page keeps creation reachable with the structure section open", () => {

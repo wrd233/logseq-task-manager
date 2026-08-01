@@ -769,6 +769,7 @@ async function model(): Promise<UiModel> {
   let v2PrimaryAnchorLoadError: string | undefined;
   let v2StatusNarrationLoadError: string | undefined;
   let v2MigrationLoadError: string | undefined;
+  const primaryAnchorByObject = new Map<string, V2Anchor>();
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
     try {
       [v2Proposals, v2Objects, v2NowWork, v2Candidates] = await Promise.all([
@@ -795,6 +796,13 @@ async function model(): Promise<UiModel> {
     }
     try {
       v2PrimaryAnchors = await listAllPrimaryAnchors(serviceRuntimeClient);
+      for (const anchor of v2PrimaryAnchors) {
+        if (anchor.role !== "primary_text" || anchor.status === "replaced") continue;
+        const current = primaryAnchorByObject.get(anchor.objectId);
+        if (!current || (current.status !== "active" && anchor.status === "active")) {
+          primaryAnchorByObject.set(anchor.objectId, anchor);
+        }
+      }
     } catch (error) {
       v2PrimaryAnchorLoadError = explain(error);
       v2ReentryLoadError = v2PrimaryAnchorLoadError;
@@ -957,6 +965,8 @@ async function model(): Promise<UiModel> {
     v2AreaAvailable: serviceConnection.status === "READY" && serviceConnection.formalWritesAvailable && Boolean(serviceRuntimeClient),
     v2AreaBusy,
     v2Objects,
+    v2PrimaryAnchors: [...primaryAnchorByObject.values()],
+    v2FocusSelections: [],
     v2Associations,
     v2PrimaryOwnerships,
     ...(v2RelationLoadError ? { v2RelationLoadError } : {}),
@@ -3005,6 +3015,11 @@ async function handleAction(action: string, value?: string): Promise<void> {
       recordAttentionNowPilotActed(primary.signalId);
       await logseq.hideMainUI();
     }
+    return;
+  }
+  if (action === "v2-directory-open-source" && value) {
+    await run(async () => openV2PrimaryAnchor(value));
+    if (!latestError) await logseq.hideMainUI();
     return;
   }
   if (action === "v2-focus-add" && value) {
