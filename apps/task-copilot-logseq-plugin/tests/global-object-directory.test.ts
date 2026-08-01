@@ -173,3 +173,27 @@ test("directory sorts cover title, type, lifecycle, due and focus priority", () 
   assert.deepEqual(filterAndSortDirectoryEntries(entries, { ...state, sort: "due" }).map((entry) => entry.objectId), ["d", "a", "c", "b"]);
   assert.deepEqual(filterAndSortDirectoryEntries(entries, { ...state, sort: "focus" }).map((entry) => entry.objectId), ["d", "c", "a", "b"]);
 });
+
+test("directory projection and filters stay correct and bounded at 500 objects", () => {
+  const objects: V2ManagedObject[] = Array.from({ length: 500 }, (_, index) => object({
+    objectId: `obj-${String(index).padStart(3, "0")}`,
+    objectType: index % 5 === 0 ? "PROJECT" : "TASK",
+    text: index % 3 === 0 ? `GOD 性能验证 ${index}` : `普通事项 ${index}`,
+    lifecycle: index % 7 === 0 ? "COMPLETED" : "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    updatedAt: `2026-08-01T00:${String(index % 60).padStart(2, "0")}:00.000Z`,
+  }));
+  const focusSelections: ServiceFocusSelection[] = [{ objectId: "obj-042", selectedAt: "2026-08-01T00:00:00.000Z", rank: 0 }];
+  const started = performance.now();
+  const entries = projectGlobalObjectDirectory({ objects, anchors: [], ownerships: [], focusSelections });
+  const state = defaultDirectoryFilterState();
+  const searched = filterAndSortDirectoryEntries(entries, { ...state, search: "GOD 性能验证", type: "TASK" });
+  const lifecycle = filterAndSortDirectoryEntries(entries, { ...state, lifecycle: "COMPLETED" });
+  const sorted = filterAndSortDirectoryEntries(entries, { ...state, sort: "title" });
+  const elapsed = performance.now() - started;
+  assert.equal(entries.length, 500);
+  assert.ok(searched.length > 0 && searched.every((entry) => entry.text.includes("GOD 性能验证") && entry.objectType === "TASK"));
+  assert.ok(lifecycle.every((entry) => entry.lifecycle === "COMPLETED"));
+  assert.equal(sorted.length, 500);
+  assert.ok(elapsed < 2_000, `500-object projection/filter/sort took ${elapsed.toFixed(0)}ms`);
+});

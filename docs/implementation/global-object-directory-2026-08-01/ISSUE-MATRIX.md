@@ -18,9 +18,9 @@
 | GOD-011 | 列表无 Now 暗示（分区） | 无法区分“正在 Now / 接下来 / 等待” | 低权重 Now 标记与分区；不写回领域 | Sprint C | DONE_DESKTOP |
 | GOD-012 | 无归档 UI（领域已支持 COMPLETED/CANCELLED→ARCHIVED） | 已完成/已取消对象无法归档 | 若合同完整，在次级操作提供归档；仍走 Proposal/Review | Sprint D | DONE_DESKTOP（真实 UI 取消→归档→ARCHIVED 全链；service/application/plugin 测试） |
 | GOD-013 | Service 无 `GET /focus` 只读端点；Plugin 只能经 `/now-work` 推断 OPEN focus | “当前关注”筛选不能覆盖正式 FocusSelection 全量 | 新增只读 `GET /focus` + client 方法；不改变写入路径 | Sprint C | DONE（route + client + service 集成测试 + Desktop） |
-| GOD-014 | 4px 横向溢出（1000/760/1440 均测得） | 横向滚动与裁切风险 | 760px 无横向滚动；不依赖宽表格 | Sprint E | OPEN |
-| GOD-015 | 新控件（搜索/筛选/排序/overflow/标记）无键盘/AX/对比度专项证据 | 可访问性风险 | 键盘顺序、ARIA 状态、focus ring、对比度、无重复 ID | Sprint E | OPEN |
-| GOD-016 | 50+/100/500 对象规模无性能证据 | 目录在规模下卡顿/疲劳 | 性能报告（渲染/搜索/筛选/排序/DOM 行数） | Sprint E | OPEN |
+| GOD-014 | 顶层 Logseq 文档 4px 横向溢出（基线同样存在） | 疑似插件横向滚动 | 插件 iframe 无横向溢出；760px 不依赖宽表格 | Sprint E | CLOSED_AS_HOST_ARTIFACT（插件内 scrollWidth==clientWidth；760 实测无插件溢出） |
+| GOD-015 | 新控件（搜索/筛选/排序/overflow/标记）无键盘/AX/对比度专项证据 | 可访问性风险 | 键盘顺序、ARIA 状态、focus ring、对比度、无重复 ID | Sprint E | DONE_AUTOMATED（AX 树/交互元素证据 + 对比度 token 测试 + 无重复 id；VoiceOver 手工为 OPEN_MANUAL_GATE） |
+| GOD-016 | 50+/100/500 对象规模无性能证据 | 目录在规模下卡顿/疲劳 | 性能报告（渲染/搜索/筛选/排序/DOM 行数） | Sprint E | DONE（57 行 Desktop 实测 + 500 对象投影 fixture + 60 行渲染测试） |
 
 ## 关闭规则
 

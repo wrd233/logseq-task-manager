@@ -2367,6 +2367,28 @@ test("Global directory focus filter uses formal selections and stays empty for c
   assert.match(html, /已筛选 1 \/ 2 项/);
 });
 
+test("Global directory renders 60 rows with a single live count", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = Array.from({ length: 60 }, (_, index) => ({
+    objectId: `obj-${index}`,
+    objectType: "TASK" as const,
+    version: 1,
+    lifecycle: "OPEN" as const,
+    condition: { kind: "ACTIONABLE" as const },
+    text: `性能验证对象 ${String(index).padStart(2, "0")}`,
+    sourceOrCreationEvent: "test",
+    createdAt: "2026-07-31T00:00:00.000Z",
+    updatedAt: `2026-07-31T00:${String(index % 60).padStart(2, "0")}:00.000Z`,
+  }));
+  const html = renderApp(value);
+  const rows = (html.match(/class="object-row directory-row"/g) ?? []).length;
+  assert.equal(rows, 60);
+  assert.match(html, /60 项/);
+  const ids = [...html.matchAll(/id="([^"]+)"/g)].map((match) => match[1]!);
+  assert.equal(new Set(ids).size, ids.length, "rendered directory must not emit duplicate DOM ids");
+});
+
 test("Sprint E empty Objects page keeps creation reachable with the structure section open", () => {
   const value = model();
   value.workspace = "objects";

@@ -11,6 +11,8 @@ Sprint A: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Sprint B: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Sprint C: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Sprint D: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
+Sprint E: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
+状态: VISUAL_GATE_READY —— 只剩独立视觉 reviewer（CONSOLIDATED_VISUAL_CHECKPOINT）
 Recommended initial status: DRAFT → ACTIVE
 ```
 
@@ -88,6 +90,21 @@ Recommended initial status: DRAFT → ACTIVE
   真实 Desktop 用三个测试对象走通 创建→取消→归档 全 UI 链；CANCELLED 行显示
   重开/归档、ARCHIVED 行只显示“任务 · 已归档”（无 Condition、无生命周期按钮）。
   证据：`tmp/runtime/global-object-directory/sprint-d/`。
+- Sprint E（未提交）：57 对象四视图（Light/Dark × 1000/760）与 50+ 搜索/打开原文/返回列表
+  场景；性能（首渲染 18ms、搜索净 103ms、类型筛选 5ms、500 对象投影 6.4ms）；
+  目录输入/下拉 focus-visible 与对比度 token 通过；无重复 DOM id。
+  插件 iframe 内无横向溢出（顶层 Logseq 4px 为宿主伪影）。
+  证据：`tmp/runtime/global-object-directory/sprint-e/` + `desktop-gate.md`；
+  报告：`PERFORMANCE_REPORT.md`、`ACCESSIBILITY_REPORT.md`。
+
+## 当前返回边界
+
+```text
+Goal Status: VISUAL_GATE_READY
+AUTOMATED_NONVISUAL_PASS: PASS（根级 check、单元/集成/UI 测试）
+DESKTOP_BEHAVIOR_PASS: PASS（场景 A–E、四视图、性能）
+VISUAL_GATE_PASS: PENDING —— 独立视觉 reviewer 未执行（Codex 不代签）
+```
 
 ## 返回边界
 

@@ -177,6 +177,10 @@
 #task-copilot-personal-mvp-root .directory-toolbar { display: grid; gap: 8px; margin-bottom: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 #task-copilot-personal-mvp-root .directory-search-field { display: grid; gap: 3px; min-width: 0; }
 #task-copilot-personal-mvp-root .directory-search-field input { width: 100%; box-sizing: border-box; }
+#task-copilot-personal-mvp-root .directory-toolbar input,
+#task-copilot-personal-mvp-root .directory-toolbar select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+#task-copilot-personal-mvp-root .directory-toolbar input:focus-visible,
+#task-copilot-personal-mvp-root .directory-toolbar select:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 #task-copilot-personal-mvp-root .directory-focus-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 #task-copilot-personal-mvp-root .directory-filter-fields { display: flex; flex-wrap: wrap; gap: 8px; }
 #task-copilot-personal-mvp-root .directory-filter-field { display: grid; gap: 3px; min-width: 0; }

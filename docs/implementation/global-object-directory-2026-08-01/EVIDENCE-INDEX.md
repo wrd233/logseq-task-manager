@@ -29,6 +29,23 @@ tmp/runtime/global-object-directory/
   desktop-gate/ # 场景 A–E（desktop-gate.md + 机器可读证据 + 性能报告）
 ```
 
+## 已完成证据（2026-08-01）
+
+| Sprint | 证据 | 关键事实 |
+|---|---|---|
+| A | `sprint-a/objects-light-1000/`、`sprint-a/anchor-resolution.json` | 全部事项入口、紧凑行、打开原文真实跳转 |
+| B | `sprint-b/01-default…08-empty/` | 搜索 1/22、类型 12/22、空态、排序、清除 |
+| C | `sprint-c/01..04/`、`sprint-c/focus-loop.json` | 关注闭环 2/22、Now 14/22、标记 |
+| D | `sprint-d/01..04/` | 取消→归档全 UI 链、Review 卡、ARCHIVED 显示 |
+| E | `sprint-e/01..05/`、`performance.json`、`anchor-resolution.json` | 57 对象四视图、50+ 搜索+打开原文+返回、性能 |
+| Desktop Gate | `desktop-gate.md` | 场景 A–E 状态与证据映射 |
+
+命名报告：
+
+- `docs/implementation/global-object-directory-2026-08-01/PERFORMANCE_REPORT.md`
+- `docs/implementation/global-object-directory-2026-08-01/ACCESSIBILITY_REPORT.md`
+- `docs/implementation/global-object-directory-2026-08-01/VISUAL-GATE-REQUEST.md`
+
 每场景至少保存 Goal §16 要求的机器可读文件：`screenshot.png`、`visible-text.txt`、
 `accessibility-tree.txt`、`interactive-elements.json`、`ui-state.json`、
 `route-and-data.json`、`computed-style.json`、`directory-query.json`、
