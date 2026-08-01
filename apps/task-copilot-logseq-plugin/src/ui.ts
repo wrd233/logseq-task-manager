@@ -343,15 +343,18 @@ function renderNow(model: UiModel): string {
         || (item.primaryAnchorExternalId
           ? button(openLabel, "v2-open-primary-anchor", primaryValue(item.primaryAnchorExternalId), "primary")
           : button("更新当前状态", "v2-condition-open", primaryValue(`${item.objectId}|${item.version}`), "primary"));
+      const explanation = narration
+        ? `<details class="now-explanation"><summary aria-expanded="false">为什么现在显示它</summary>${narration.unknowns.length ? `<p class="muted">${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
+        : "";
       const status = taskRecovery
         ? taskRecovery.projection.safetyState === "RECOVERY_REQUIRED"
-          ? "<p><strong>上一次修改需要恢复</strong></p><p class=\"muted\">相关写入已经停止；请先核对差异并恢复到安全状态。</p>"
-          : "<p><strong>上一次修改尚未完成</strong></p><p class=\"muted\">已完成的步骤仍会保留；请沿用上一次修改继续。</p>"
+          ? "<div class=\"now-card-status\"><p><strong>上一次修改需要恢复</strong></p><p class=\"muted\">相关写入已经停止；请先核对差异并恢复到安全状态。</p></div>"
+          : "<div class=\"now-card-status\"><p><strong>上一次修改尚未完成</strong></p><p class=\"muted\">已完成的步骤仍会保留；请沿用上一次修改继续。</p></div>"
         : taskSafetyUnavailable
-          ? "<p><strong>当前安全状态暂时无法核对</strong></p><p class=\"muted\">正式内容没有因此改变；请先核对未完成修改。</p>"
+          ? "<div class=\"now-card-status\"><p><strong>当前安全状态暂时无法核对</strong></p><p class=\"muted\">正式内容没有因此改变；请先核对未完成修改。</p></div>"
         : narration
-        ? `<p><strong>${escapeHtml(narration.conclusion)}</strong></p>${narration.keyEvidence.length ? `<p class="muted">${escapeHtml(narration.keyEvidence[0]!)}</p>` : ""}<details><summary>查看依据</summary>${narration.unknowns.length ? `<p class="muted">${escapeHtml(narration.unknowns.join("；"))}</p>` : ""}<ul>${narration.facts.map((fact) => `<li>${escapeHtml(fact.text)}</li>`).join("")}</ul></details>`
-        : `<p>${escapeHtml(item.reason)}</p>`;
+        ? `<div class="now-card-status"><p class="now-status-conclusion">${escapeHtml(narration.conclusion)}</p>${narration.keyEvidence.length ? `<p class="muted">${escapeHtml(narration.keyEvidence[0]!)}</p>` : ""}</div>`
+        : `<div class="now-card-status"><p class="now-status-conclusion">${escapeHtml(item.reason)}</p></div>`;
       const taskContext = !taskSafetyUnavailable && taskOwnerContext ? `<p class="muted">${escapeHtml(taskOwnerContext)}</p>` : "";
       const secondaryStatusAction = !guidedStatusAction && !item.primaryAnchorExternalId ? "" : button("更新状态", "v2-condition-open", `${item.objectId}|${item.version}`, "quiet");
       const attentionActions = attentionHint
@@ -361,7 +364,7 @@ function renderNow(model: UiModel): string {
         ? ""
         : `${guidedStatusAction && item.primaryAnchorExternalId ? button("打开正文", "v2-open-primary-anchor", item.primaryAnchorExternalId, "quiet") : ""}${secondaryStatusAction}${item.objectType === "TASK" ? button("设置期限", "v2-deadline-open", `${item.objectId}|${item.version}|${item.dueAt ?? ""}`, "quiet") : ""}${focused ? `${orderingAvailable ? `${button("上移", "v2-focus-up", item.objectId, "quiet", focusRank === 0)}${button("下移", "v2-focus-down", item.objectId, "quiet", focusRank === model.v2NowWork!.focus.length - 1)}` : ""}${button("移出关注", "v2-focus-remove", `${item.objectId}|${item.version}`, "quiet")}` : focusIds.has(item.objectId) ? `<span class="muted">已在当前关注</span>` : button("加入关注", "v2-focus-add", `${item.objectId}|${item.version}`, "quiet")}${attentionActions}`;
       const moreActions = secondaryActions
-        ? `<details class="more-actions"><summary>更多操作</summary><div class="actions wrap">${secondaryActions}</div></details>`
+        ? `<details class="more-actions"><summary aria-expanded="false" aria-label="更多操作">⋯</summary><div class="actions wrap">${secondaryActions}</div></details>`
         : "";
       const sourceLabel = taskRecovery || taskSafetyUnavailable
         ? ""
@@ -369,7 +372,7 @@ function renderNow(model: UiModel): string {
       const due = !taskRecovery && !taskSafetyUnavailable && item.dueAt
         ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>`
         : "";
-      return `<article class="card compact now-card${focused ? " current-focus" : ""}"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${taskContext}${due}<div class="actions">${primaryAction}</div>${moreActions}</article>`;
+      return `<article class="card compact now-card${focused ? " current-focus" : ""}"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="now-card-content"><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${taskContext}${due}${explanation}</div><div class="now-card-actions">${moreActions}<div class="actions">${primaryAction}</div></div></article>`;
     }).join("");
     const section = (title: string, source: NowFrontstageItem[], frontstageLimit?: number) => {
       const values = filtered(source);

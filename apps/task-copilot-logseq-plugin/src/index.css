@@ -19,6 +19,7 @@
   --info-soft: #eef2ff;
   --disabled-bg: #f2f0ea;
   --disabled-text: #746d5c;
+  --now-action-column: 156px;
   --shadow: 0 18px 45px rgb(20 48 37 / 18%);
 }
 
@@ -73,9 +74,22 @@
 #task-copilot-personal-mvp-root .now-work-overflow { margin-top: 12px; }
 #task-copilot-personal-mvp-root .now-work-overflow > summary { color: var(--tc-text-muted); }
 #task-copilot-personal-mvp-root .now-work-overflow[open] > summary { margin-bottom: 12px; }
-#task-copilot-personal-mvp-root .now-card > .actions { margin-top: 12px; }
-#task-copilot-personal-mvp-root .now-card .more-actions { margin-top: 8px; }
-#task-copilot-personal-mvp-root .now-card .more-actions .actions { margin-top: 8px; }
+#task-copilot-personal-mvp-root .now-card { display: grid; grid-template-columns: minmax(0, 1fr) var(--now-action-column); column-gap: 16px; align-items: start; }
+#task-copilot-personal-mvp-root .now-card-content { min-width: 0; display: grid; gap: 6px; align-content: start; }
+#task-copilot-personal-mvp-root .now-card-content h3 { margin: 2px 0 4px; }
+#task-copilot-personal-mvp-root .now-card-actions { min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+#task-copilot-personal-mvp-root .now-card-actions > .actions { margin-top: 0; }
+#task-copilot-personal-mvp-root .now-card-actions > .actions button.primary { width: 100%; }
+#task-copilot-personal-mvp-root .now-card-actions .more-actions { margin-top: 0; text-align: right; }
+#task-copilot-personal-mvp-root .now-card-actions .more-actions > summary { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; }
+#task-copilot-personal-mvp-root .now-card-actions .more-actions > summary:hover,
+#task-copilot-personal-mvp-root .now-card-actions .more-actions > summary:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-soft); }
+#task-copilot-personal-mvp-root .now-card-actions .more-actions[open] > summary { border-color: var(--accent); color: var(--accent); }
+#task-copilot-personal-mvp-root .now-card-actions .more-actions .actions { margin-top: 8px; justify-content: flex-end; }
+#task-copilot-personal-mvp-root .now-card-status .now-status-conclusion { margin: 0; color: var(--muted); }
+#task-copilot-personal-mvp-root .now-explanation { margin-top: 4px; }
+#task-copilot-personal-mvp-root .now-explanation > summary { color: var(--muted); font-size: 12px; }
+#task-copilot-personal-mvp-root .now-explanation ul { margin: 6px 0 0; padding-left: 18px; }
 #task-copilot-personal-mvp-root .now-card.current-focus { padding: 17px 18px; border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 12%, transparent); }
 #task-copilot-personal-mvp-root .now-card.current-focus h3 { font-size: 18px; }
 #task-copilot-personal-mvp-root .card, #task-copilot-personal-mvp-root .drawer, #task-copilot-personal-mvp-root .reentry { padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
@@ -223,6 +237,13 @@
 
 @media (max-width: 760px) {
   #task-copilot-personal-mvp-root .app-shell { width: 100vw; max-height: 100vh; margin: 0; border-radius: 0; }
+  #task-copilot-personal-mvp-root .now-card { display: block; position: relative; }
+  #task-copilot-personal-mvp-root .now-card-content { display: block; }
+  #task-copilot-personal-mvp-root .now-card-actions { margin-top: 12px; width: 100%; }
+  #task-copilot-personal-mvp-root .now-card-actions > .actions { justify-content: flex-end; }
+  #task-copilot-personal-mvp-root .now-card-actions > .actions button.primary { width: auto; }
+  #task-copilot-personal-mvp-root .now-card-actions .more-actions { position: absolute; top: 12px; right: 14px; }
+  #task-copilot-personal-mvp-root .now-card-actions .more-actions .actions { justify-content: flex-end; }
   #task-copilot-personal-mvp-root .topbar { align-items: flex-start; }
   #task-copilot-personal-mvp-root .top-actions { flex-direction: column; align-items: stretch; }
   #task-copilot-personal-mvp-root .workspace { max-height: calc(100vh - 210px); padding: 14px; }

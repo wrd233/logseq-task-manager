@@ -4065,9 +4065,38 @@ const onRootClick = createDelegatedActionHandler(async (action, value) => {
 function bindUi(): void {
   if (uiBound) return;
   const unbind = bindRootClick(requireAppRoot(), onRootClick);
+  const root = requireAppRoot();
+  const onNowMenuKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape") return;
+    const openMenu = root.querySelector<HTMLDetailsElement>("details.more-actions[open]");
+    if (!openMenu) return;
+    const target = event.target instanceof Element ? event.target : undefined;
+    if (target && !openMenu.contains(target)) return;
+    event.preventDefault();
+    openMenu.open = false;
+    openMenu.querySelector("summary")?.focus();
+  };
+  const onNowMenuPointerDown = (event: PointerEvent): void => {
+    const openMenu = root.querySelector<HTMLDetailsElement>("details.more-actions[open]");
+    if (!openMenu) return;
+    const target = event.target instanceof Element ? event.target : undefined;
+    if (target && openMenu.contains(target)) return;
+    openMenu.open = false;
+  };
+  const onNowMenuToggle = (event: Event): void => {
+    if (!(event.target instanceof HTMLDetailsElement)) return;
+    const summary = event.target.querySelector(":scope > summary");
+    if (summary) summary.setAttribute("aria-expanded", event.target.open ? "true" : "false");
+  };
+  root.addEventListener("keydown", onNowMenuKeyDown);
+  root.addEventListener("pointerdown", onNowMenuPointerDown);
+  root.addEventListener("toggle", onNowMenuToggle, true);
   uiBound = true;
   cleanupHooks.push(() => {
     unbind();
+    root.removeEventListener("keydown", onNowMenuKeyDown);
+    root.removeEventListener("pointerdown", onNowMenuPointerDown);
+    root.removeEventListener("toggle", onNowMenuToggle, true);
     uiBound = false;
     if (appRoot) appRoot.replaceChildren();
   });

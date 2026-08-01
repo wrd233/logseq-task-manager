@@ -1578,6 +1578,73 @@ test("V2 Now Work renders only non-empty explainable regions without scores or b
   assert.match(html, /data-action="v2-condition-open" data-value="task-next\|2"/);
 });
 
+test("V2 Now card separates content and action zones so scanning is not interrupted by controls", () => {
+  const value = model();
+  value.workspace = "now";
+  const observedAt = "2026-07-31T08:00:00.000Z";
+  value.v2NowWork = {
+    generatedAt: observedAt,
+    focus: [{
+      objectId: "task-scan",
+      objectType: "TASK",
+      version: 4,
+      text: "连续扫描标题",
+      condition: { kind: "ACTIONABLE" },
+      updatedAt: observedAt,
+      reason: "来自用户明确关注",
+      primaryAnchorExternalId: "block-scan",
+    }],
+    next: [],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  value.v2ObjectNarrations = {
+    "task-scan": {
+      objectVersion: 4,
+      narration: {
+        conclusion: "可以继续推进",
+        keyEvidence: ["正式状态允许继续推进"],
+        facts: [{ text: "正式状态允许继续推进", sourceRefs: [] }],
+        inferences: [],
+        unknowns: [],
+        nextActionEligible: false,
+        evidenceScope: { refs: ["object:task-scan@v4"], observedAt },
+        source: { kind: "DETERMINISTIC_RULE", ruleId: "continue", version: "1.0.0" },
+      },
+    },
+  };
+  const html = renderApp(value);
+  const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
+  const contentAt = card.indexOf("now-card-content");
+  const actionsAt = card.indexOf("now-card-actions");
+  assert.ok(contentAt >= 0 && actionsAt > contentAt, "content zone precedes action zone");
+  assert.match(card, /<div class="now-card-content">[\s\S]*<h3>连续扫描标题<\/h3>[\s\S]*<div class="now-card-status">[\s\S]*为什么现在显示它/);
+  assert.match(card, /<details class="now-explanation"><summary aria-expanded="false">为什么现在显示它<\/summary>/);
+  assert.match(card, /<details class="more-actions"><summary aria-expanded="false" aria-label="更多操作">⋯<\/summary>/);
+  assert.match(card, /<div class="now-card-actions">[\s\S]*<button type="button" class="primary"/);
+  assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
+  assert.match(card, /<div class="now-card-status"><p class="now-status-conclusion">可以继续推进<\/p>/);
+  assert.doesNotMatch(card, /<div class="now-card-status">[\s\S]*<strong>/);
+});
+
+test("Sprint A CSS fixes a stable action column and a narrow footer without horizontal overflow", async () => {
+  const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+  assert.match(css, /--now-action-column: 156px/);
+  assert.match(css, /\.now-card \{ display: grid; grid-template-columns: minmax\(0, 1fr\) var\(--now-action-column\)/);
+  assert.match(css, /@media \(max-width: 760px\)/);
+  assert.match(css, /\.now-card-actions \.more-actions \{ position: absolute; top: 12px; right: 14px; \}/);
+  assert.match(css, /\.now-card-status \.now-status-conclusion \{ margin: 0; color: var\(--muted\); \}/);
+});
+
+test("Sprint A menu keyboard contract is wired in the runtime entry", async () => {
+  const source = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
+  assert.match(source, /details\.more-actions\[open\]/);
+  assert.match(source, /onNowMenuKeyDown/);
+  assert.match(source, /onNowMenuPointerDown/);
+  assert.match(source, /addEventListener\("toggle", onNowMenuToggle, true\)/);
+  assert.match(source, /summary\.setAttribute\("aria-expanded"/);
+});
+
 test("V2 Now Work adds bounded Task owner context without replacing the single primary action", () => {
   const value = model();
   value.workspace = "now";
