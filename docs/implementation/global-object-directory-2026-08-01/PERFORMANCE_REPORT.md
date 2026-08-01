@@ -1,6 +1,6 @@
 # Performance Report — Global Object Directory
 
-## 真实 Desktop（Logseq 0.10.15，57 个正式对象）
+## 真实 Desktop（Logseq 0.10.15）
 
 | 指标 | 实测 | 说明 |
 |---|---|---|
@@ -10,6 +10,10 @@
 | 排序切换 | ~3ms | 六种排序同构 |
 | 最大 DOM 行数 | 57 | 等于结果数，无冗余嵌套 |
 | 插件侧横向溢出 | 0 | iframe scrollWidth == clientWidth（1000/760） |
+
+说明：核心测量在 57 对象时点完成；其后新增 2 个条件 fixture
+（OPEN+WAITING / OPEN+BLOCKED），当前测试库共 59 个对象，
+行数仍等于结果数（`sprint-e/07-conditions/` 拍摄 59 行）。
 
 ## 自动 fixture（500 对象）
 

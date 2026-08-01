@@ -12,8 +12,7 @@
 4. “在 Now”筛选（14/57 实测）
 5. 类型 + Lifecycle 组合筛选
 6. 搜索（中文/英文/特殊字符/空结果）
-7. OPEN 状态组合（ACTIONABLE/WAITING/BLOCKED/PAUSED 由 unit fixture 覆盖；
-   真实数据当前 ACTIONABLE）
+7. OPEN 状态组合（ACTIONABLE/WAITING/BLOCKED 真实 Desktop；PAUSED 由 unit fixture 覆盖）
 8. 已完成 / 已取消 / 已归档（真实 Desktop 三行）
 9. 长标题（现有长标题行）
 10. 来源不可用 fallback（“来源需重新连接”）

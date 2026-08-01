@@ -99,7 +99,9 @@ Recommended initial status: DRAFT → ACTIVE
   收口补证：每个场景目录补齐 `directory-query.json`；新增
   `plugin-accessibility-tree.txt`（插件 DOM 推导 AX 快照，宿主 AX 另存
   `accessibility-tree.txt`）与 `review-notes.md`；性能报告补充 service calls、
-  Anchor read、Now/Focus join 与内存观察事实。
+  Anchor read、Now/Focus join 与内存观察事实。状态矩阵补证：真实 Desktop
+  新增 OPEN+WAITING（等待中 + 需要回看）与 OPEN+BLOCKED（受阻）行
+  （`sprint-e/07-conditions/`、`sprint-e/08-now-waiting/`，对象 59 个）。
 
 ## 当前返回边界
 
