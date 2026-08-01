@@ -73,3 +73,13 @@ Proposal warning 1 为既有）。
 | Now Light 1000 | `01-now-light-1000/` | computed-style：h3 650/18px、status 400 muted、primary 600 |
 | Now Dark 1000 | `03-now-dark-1000/` | 语义一致 |
 | 结构指标 | `metrics-1000.json` | 布局不回归 |
+
+## Sprint D after 证据（2026-08-01）
+
+`tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-d/`
+
+| 场景 | 文件 | 内容 |
+|---|---|---|
+| Now Light 1000（shell 降权） | `01-now-light-1000/` | agent-state transparent/muted；筛选折叠无框 |
+| 筛选展开态 | `13b-now-controls-open-light-1000/` | 展开后恢复面板 |
+| 结构指标 | `metrics-1000.json` | 布局不回归 |

@@ -2069,6 +2069,20 @@ test("Sprint C semantic hierarchy tokens fix title/status/aux weights and colors
   assert.match(css, /\.now-card-actions > \.actions button\.primary \{ width: 100%; font-weight: 600; \}/);
 });
 
+test("Sprint D quiets the Now shell chrome without removing any entry", async () => {
+  const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+  assert.match(css, /\.agent-state \{ padding: 6px 22px; font-size: 12px; color: var\(--muted\);/);
+  assert.match(css, /\.agent-state\.enabled \{ background: transparent; color: var\(--muted\); \}/);
+  assert.match(css, /\.now-work-controls \{ margin: 0 0 14px; padding: 0; border: 0;/);
+  assert.match(css, /\.now-work-controls\[open\] \{ margin-bottom: 18px; padding: 10px 12px; border: 1px solid var\(--border\);/);
+  assert.match(css, /\.now-work-controls > summary \{[\s\S]*color: var\(--muted\);/);
+  const value = worksiteNowModel({});
+  const html = renderApp(value);
+  for (const label of ["整理当前页", "关闭", "现在", "待我确认", "项目", "更多", "筛选与排列"]) {
+    assert.match(html, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+});
+
 test("V2 Now Work ignores Task reentry projected from another Object version", () => {
   const value = model();
   value.workspace = "now";
