@@ -68,7 +68,7 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - No-Agent Service regression creates ordinary formal objects both before and after an isolated Provider-disabled governance failure; no Candidate or Proposal is materialized by the failure.
 - Real activation/apply/reload/Undo/reload remains CP-6 after honest CP-5 runtime evidence and explicit user authorization. Automated tests do not substitute for that gate.
 
-## CP-4 — consolidated live Shadow checkpoint (partial pass)
+## CP-4 — initial consolidated live Shadow checkpoint (historical)
 
 - The formal live database was explicitly migrated from v12 to v13 only after a 0600 prebackup. Objects remained 59; SQLite reload, integrity, foreign-key checks and Doctor passed.
 - A schema v13 backup containing governance rows was validated by the live Service and independently restored into a temporary path. The restored database retained 59 Objects, 2 Decisions, 1 Review Signal and the then-current Feedback Event, with recovery validation PASS.
@@ -78,8 +78,20 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - Desktop detail exposed bounded evidence, counter-signals, closest alternative, Context tier/token/truncation metrics, Chinese rule + Skill version and ordered Event history.
 - One single feedback and one two-Decision bulk submission were persisted. The bulk action automatically split incompatible Outcome/Rule/Risk groups into two groups and added two Events; total Feedback Events became 3. Undo remained a separate existing capability.
 - A fresh 30-day Skill Feedback package contains 2 Decisions, 5 exported Events and all 3 feedback events. The live 60-day Review package contains the weak-signal Evidence. Every package file matched its 64-character SHA-256 and byte count; credential scan hits were 0.
-- Light, Dark, bulk-success and detail screenshots were captured from Logseq Desktop. They establish `VISUAL_GATE_READY`, not independent visual approval. A physical 760-wide window and the full state matrix remain pending.
+- Light, Dark, bulk-success and detail screenshots were captured from Logseq Desktop. At this initial checkpoint, narrow empty/failure/pause states remained pending; CP-4.1 below closes their representative Desktop evidence while independent visual approval remains external.
 - Service restart/Plugin reload, Provider-output rejection and recovery, backup/restore, real DeepSeek structured output and Shadow zero-write were observed. Multi-target EXPANDED, full same-thread ordinary→action→explicit, live pause/degrade, timeout/cancel/auth and source-missing/truncation export remain automated-only.
-- Final runtime is READY, schema v13, Graph bridge connected, Doctor 11 PASS / 1 known WARN / 0 FAIL / 2 INFO, six governance rules all unpaused SHADOW, Pending/Recovery Commit 0 and SQLite integrity `ok`.
+- The initial checkpoint runtime was READY at schema v13 with Graph bridge connected, Doctor 11 PASS / 1 known WARN / 0 FAIL / 2 INFO, six governance rules unpaused SHADOW, Pending/Recovery Commit 0 and SQLite integrity `ok`; CP-4.1 records the later schema v14 final state.
 
-The honest terminal state is `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`: all implementation and automated work is complete, but CP-5 cannot complete before 14 natural days and 200 real Decisions. CP-6 remains barred until that evidence exists and the user explicitly authorizes Guarded execution.
+## CP-4.1 — representative Desktop matrix complete
+
+- Commit `9458670` broadened bounded retrieval and deterministic routing to Candidate defer/duplicate, ordinary, Worksite, exact multi-target EXPANDED and Provider invented-target rejection paths.
+- schema v14 added only one durable global Agent write-pause setting. The formal v13 database was stopped, explicitly backed up, migrated and reopened with 59 Objects, 4 Decisions and 2 Review Signals intact; current schema v14 backup validation passed.
+- The existing governance workspace now exposes minimum filter/search, source opening, direct per-rule pause/resume, global pause/resume, and both 60/180-day Review Evidence controls.
+- Live Desktop proved multi-target EXPANDED fail-closed behavior and same-Source weak→explicit r1→r2 revision with zero formal Object change.
+- Global pause survived Plugin reload. During the pause, editing a real Logseq weak signal refreshed the same Shadow Decision and increased the Review Signal occurrence count from 3 to 4 while Objects stayed 59; resume restored the default unpaused state.
+- A real rule was paused and resumed through the UI without changing its granted authority. `打开来源` navigated to the exact Block anchor.
+- A no-match search produced the bounded empty-result state. Stopping Launcher/Service produced the safe system failure surface while Logseq正文 remained readable/editable; reinstall and Plugin reload restored READY.
+- All six live rules finish unpaused at `SHADOW`; global pause finishes false; automatic applies remain 0.
+- Root Node 20 `./scripts/check.sh` passed after the implementation and schema changes.
+
+The honest terminal state is `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`: representative Desktop and all current automatable work are complete. CP-5 still requires 14 natural days and at least 200 real Decisions; CP-6 remains barred until that evidence exists and the user explicitly authorizes Guarded execution.

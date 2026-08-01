@@ -2,7 +2,7 @@
 
 Date: 2026-08-02 (Asia/Shanghai)
 
-Implementation commit: `2df6597`
+Implementation commit: `9458670` (includes and supersedes the initial `2df6597` checkpoint)
 
 Terminal state: `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`
 
@@ -19,14 +19,14 @@ This checkpoint used the formal local runtime, not a fixture:
 - dedicated page `Task Copilot Lab/Agent Governance CP4 20260802`;
 - configured real DeepSeek Provider with the key resolved out of band.
 
-The runtime remained `EXPERIMENT`; every rule's local and effective authority remained `SHADOW`, all rules remained unpaused, and Agent formal writes remained disabled. No credential value was read into this report, a screenshot, Git, Graph or an export.
+The runtime remained `EXPERIMENT`; every rule's local and effective authority remained `SHADOW`, and Agent formal writes remained disabled. One rule and the global write gate were temporarily paused only for the explicit Desktop exercise, then restored to unpaused. No credential value was read into this report, a screenshot, Git, Graph or an export.
 
 ## Live database and service
 
 | Check | Final value |
 |---|---|
 | Service | `READY`; protocol 1; formal write, migration, Provider, backup and Graph bridge capabilities present |
-| Schema | 13 |
+| Schema | 14 |
 | SQLite | integrity `ok`; foreign-key violations 0 |
 | Doctor | PASS: 11 pass / 1 warn / 0 fail / 2 info |
 | Known warning | `STALE_PROPOSAL_PRESENT`, count 1; existed before this Goal |
@@ -35,9 +35,9 @@ The runtime remained `EXPERIMENT`; every rule's local and effective authority re
 | Proposals | 49 |
 | Semantic Commits | 75: 42 COMPLETED / 4 FAILED / 29 UNDONE |
 | Pending or Recovery Required Commit | 0 |
-| Decisions | 2 |
-| Review Signals | 1 |
-| Decision Events | 6: 2 SOURCE_OBSERVED / 1 DECISION_REVISED / 3 USER_FEEDBACK_ADDED |
+| Decisions | 4 |
+| Review Signals | 2 |
+| Agent write settings | global pause false; 6 Rules all unpaused SHADOW; automatic apply 0 |
 
 Objects, Candidates, Proposals and Semantic Commits were unchanged across the representative Shadow observations and feedback actions. The only intended writes were governance Decisions, Review Signals and Feedback Events.
 
@@ -49,6 +49,9 @@ Objects, Candidates, Proposals and Semantic Commits were unchanged across the re
 4. The same backup was restored independently over an older v13 database in a temporary path. Offline reopen reported schema 13, integrity `ok`, 59 Objects, 2 Decisions, 1 Review Signal, 1 then-current Feedback Event and recovery validation PASS.
 
 The two later bulk Feedback Events occurred after this backup. They are present in the live database and in the final Skill Feedback export; the restore proof intentionally reports the backup's own earlier point in time.
+
+5. Commit `9458670` introduced schema v14 with only one singleton global Agent write-pause setting. After stopping the exact Launcher/Service processes, `migrate-schema` created `before-schema14-20260801T212408Z.sqlite` and explicitly migrated v13→v14. The prebackup retained schema 13, integrity `ok`, 59 Objects, 4 Decisions and 2 Review Signals; the active database reopened as schema 14 with the same counts, integrity `ok`, zero foreign-key violations and default global pause false.
+6. The live Service then created and validated `backup_20260801212512716_e6944a43beb147718ca109558dd97c60`: PASS, schema 14, integrity `ok`, foreign-key violations 0 and 59 Objects. Doctor returned to `BACKUP_LATEST_VALID`.
 
 ## Real Desktop and Provider evidence
 
@@ -71,9 +74,21 @@ Source block UUID: `6a6e5370-8de8-4042-8aff-695e37d193e5`
 Thread/Decision: `agent-thread-8eebb3ca` / `agent-thread-8eebb3ca:r1`
 
 - Result: `REVIEW_SIGNAL / SHADOW / NOT_EXECUTED`, rule `复盘弱信号 / REVIEW-SIGNAL-01`.
-- One `ACTIVE / NORMAL` Review Signal was created, with an expiry 60 days after capture and occurrence count 1.
+- One Review Signal was created and later related to persisted feedback. During the global-pause Desktop exercise, the source was edited to `maybe revisit the governance review signal after global pause live CP4`; the same Decision was safely re-observed without a spurious Revision because Outcome/Rule/Route did not change. Its captured hash/text and `lastSeenAt` advanced, occurrence count became 4 and retention became the bounded RELATED policy.
 - The source did not enter Candidate review and did not become a formal Object.
 - The live 60-day Review Evidence export included this signal.
+
+### Multi-target and same-Source revision
+
+- Source `6a6e5eb1-6363-4058-b448-f1ccfe0d7af5` named `GOD 性能验证 31` and `GOD 性能验证 32` exactly. The runtime retrieved only those formal targets, escalated Context to EXPANDED and rejected invalid Provider output into `NEEDS_HUMAN / SHADOW / FAILED`; no target or evidence authority was invented and Objects stayed 59.
+- Source `6a6e5f8e-c282-461b-b2cf-5257d46a2f77` retained one Thread while moving from weak review r1 to explicit TODO Task r2 `CREATE_OBJECT / SHADOW / NOT_EXECUTED`; Event history contains `SOURCE_OBSERVED` then `DECISION_REVISED`.
+
+### Pause, source navigation and failure recovery
+
+- Desktop paused and resumed `EXPLICIT-TASK-01`; granted/effective authority remained SHADOW and observation continued.
+- Global pause survived Plugin reload. Editing the live weak source while paused refreshed the Decision/Review Signal, kept execution `NOT_EXECUTED` and Objects 59, proving pause blocks formal execution rather than observation. The global gate was then resumed.
+- `打开来源` navigated to the exact Logseq URL anchor for Block `6a6e5370-8de8-4042-8aff-695e37d193e5` and hid the plugin overlay.
+- Stopping the exact LaunchAgent/Service showed the bounded system status: formal changes paused, Logseq正文 still readable/editable, no empty-store fallback and no automatic mutation retry. Installer plus Plugin reload restored the toolbar, Graph bridge and READY runtime.
 
 ### Feedback
 
@@ -110,12 +125,14 @@ Three obsolete artifacts produced while diagnosing Electron's concurrent Save Pa
 - `screenshots/agent-governance-dark-live.jpeg`
 - `screenshots/agent-governance-bulk-feedback-live.jpeg`
 - `screenshots/agent-governance-detail-live.jpeg`
+- `screenshots/agent-governance-empty-live.jpeg`
+- `screenshots/agent-governance-failure-live.jpeg`
 
-The Plugin's explicit appearance preference was temporarily changed to Dark only for the Dark capture, then restored exactly to `light` and reloaded. The committed screenshots are real Desktop evidence, but the implementing Agent is not an independent visual reviewer. They establish `VISUAL_GATE_READY`, not `VISUAL_GATE_PASS`. A physical 760-wide window and the full live empty/failure/pause matrix remain outstanding; responsive renderer tests cover those contracts automatically.
+The Plugin's explicit appearance preference was temporarily changed to Dark only for the Dark capture, then restored exactly to `light` and reloaded. The empty-result and failure screenshots were captured from the physical 720×520 Logseq window, so the narrow responsive surface is real Desktop evidence. The committed screenshots establish `VISUAL_GATE_READY`, not `VISUAL_GATE_PASS`, because the implementing Agent is not an independent visual reviewer.
 
 ## Automated and safety gates
 
-The Node 20.20.2 root gate passed after the export/provider fixes:
+The Node 20.20.2 root gate passed again after commit `9458670`:
 
 - typecheck and lint;
 - all unit/integration/service tests, including Plugin 499 and Local Service 180;
@@ -138,9 +155,9 @@ The known npm audit baseline remains 2 high / 1 critical under existing OD-008; 
 
 ## Scenario verdicts and stop condition
 
-Scenarios 1 and 2 passed live. Scenarios 4, 5, 6, 8 and 9 have representative live evidence but retain the precise combinations listed in `PENDING_RUNTIME_TESTS.md`. Scenarios 3 and 7 remain automated-only. Scenario 10 is deliberately barred.
+Representative scenarios 1–8 passed live. Scenario 9 has live package integrity evidence and automated source-missing/truncation edge coverage. Scenario 10 is deliberately barred.
 
-There are only 2 real Decisions and no natural 14-day observation period yet. Therefore:
+There are only 4 real Decisions and no natural 14-day observation period yet. Therefore:
 
 - do not promote any rule;
 - do not treat automated fixtures as accuracy history;

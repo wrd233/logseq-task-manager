@@ -1149,8 +1149,8 @@ fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Fi
 
 ## Additive Goal：Agent Decision Governance（2026-08-02）
 
-- 在不重开 MVP、外部 Agent 权限和唯一正式写入内核的前提下，Agent Decision Governance 的实现与全部自动化已完成；代码收口于 `2df6597`，详细状态见 `docs/goal/agent-decision-governance/STATUS.md`。
-- 正式 SQLite 已经显式 prebackup 后从 v12 升至 v13；最终 Service `READY`、Objects 59、Doctor 11 PASS / 1 个既有 stale Proposal WARN / 0 FAIL / 2 INFO、Pending/Recovery Commit 0、integrity `ok`。
-- 真实 Logseq Desktop + DeepSeek 已产生 2 条 Shadow Decision、1 条 60 天 Review Signal 和 3 条 Feedback Event；Objects/Candidates/Proposals/Semantic Commits 在代表性观察与反馈前后不变。导出 manifest 的真实 SHA-256/bytes 全匹配，credential scan 为 0；备份验证和独立离线恢复通过。
-- 当前状态为 `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`，不是生产自动化完成。6 条规则全部保持未暂停 `SHADOW`，自动应用 0；14 天 / 200 条真实 Decision 尚未发生，Guarded apply/Undo 必须继续等待长期证据与用户显式授权。
-- Light/Dark、批量反馈和详情截图已达到 `VISUAL_GATE_READY`；仍需独立人类视觉结论，不能由实现 Agent 自授 PASS。完整运行证据和未完成 Desktop 组合见 `docs/goal/agent-decision-governance/CP4_RUNTIME_REPORT.md` 与 `PENDING_RUNTIME_TESTS.md`。
+- 在不重开 MVP、外部 Agent 权限和唯一正式写入内核的前提下，Agent Decision Governance 的实现、全部自动化与代表性 Desktop matrix 已完成；代码收口于 `9458670`，详细状态见 `docs/goal/agent-decision-governance/STATUS.md`。
+- 正式 SQLite 已经依次显式 prebackup 后从 v12→v13→v14；最终 Service `READY`、Objects 59、Doctor 仅保留 1 个既有 stale Proposal WARN、Pending/Recovery Commit 0、integrity `ok`，最新 schema v14 backup PASS。
+- 真实 Logseq Desktop + DeepSeek 已产生 4 条 Shadow Decision 和 2 条 Review Signal。代表性 explicit/weak/multi-target/revision/pause/failure-recovery 场景均保持 Objects 59、自动应用 0；导出 manifest 的 SHA-256/bytes 全匹配，credential scan 为 0。
+- 当前状态为 `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`，不是生产自动化完成。6 条规则最终全部未暂停 `SHADOW`、global pause false；14 天 / 200 条真实 Decision 尚未发生，Guarded apply/Undo 必须继续等待长期证据与用户显式授权。
+- Light/Dark、批量反馈、详情、720×520 空结果和 failure 截图已达到 `VISUAL_GATE_READY`；仍需独立人类视觉结论，不能由实现 Agent 自授 PASS。完整运行证据见 `docs/goal/agent-decision-governance/CP4_RUNTIME_REPORT.md`。

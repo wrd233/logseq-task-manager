@@ -17,9 +17,11 @@ schema v13 采用四张表：
 
 不新增第二套对象、Proposal、Commit、Audit 或全文索引。若真实查询证明此结构不足，先更新 ADR，再加表。
 
-### ADG-D-003 — Schema v13 uses the existing explicit migration gate
+schema v14 只增加 `agent_governance_settings` 单例行，持久化用户控制的全局 Agent 写入暂停。它不复制逐规则授权、不改变运行模式，也不成为第二套写入权限状态机；缺行时运行时 fail closed。
 
-新建空库直接创建 v13；现有 v12 必须通过已存在的 preflight snapshot + validation + single transaction + ledger 才能升级。`initialize()` 只报告 migration required，不静默升级。
+### ADG-D-003 — Schema v13/v14 use the existing explicit migration gate
+
+新建空库直接创建当前 schema；现有 v12→v13 和 v13→v14 都必须通过 preflight snapshot + validation + single transaction + ledger 才能升级。`initialize()` 只报告 migration required，不静默升级。
 
 ### ADG-D-004 — Shadow first
 

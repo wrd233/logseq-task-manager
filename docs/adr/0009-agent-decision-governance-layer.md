@@ -12,7 +12,7 @@ The governance layer is not a second formal-state system. Formal Task Copilot ch
 
 ## Persistence
 
-SQLite schema v13 adds four bounded governance tables: Decision aggregate, append-only important Decision events, Review Signals, and Rule Authorizations. User Feedback is an important typed Decision event rather than a separate workflow table. Source text remains authoritative in Logseq; captured text is bounded evidence with retention, never a second live Graph projection.
+SQLite schema v13 adds four bounded governance tables: Decision aggregate, append-only important Decision events, Review Signals, and Rule Authorizations. Schema v14 adds one singleton governance-settings row for the user-controlled global write pause; it does not add a state machine or new authority. User Feedback is an important typed Decision event rather than a separate workflow table. Source text remains authoritative in Logseq; captured text is bounded evidence with retention, never a second live Graph projection.
 
 Existing v12 databases require the accepted explicit snapshot/validation/ledger migration. Startup never silently upgrades. Governance data is Graph-scoped in the same database authority and is included in backup/Doctor/schema checks.
 

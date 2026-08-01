@@ -51,7 +51,7 @@
 ### Extend minimally
 
 - 新增内部治理 Decision aggregate、重要 Event、Review Signal、Rule Authorization；Feedback 作为结构化重要 Event 保存，避免独立重型子系统。
-- 新增 schema v13，但仍沿用显式快照、ledger、Graph identity、Doctor 和 backup 合同。
+- schema v13 新增治理事实表，schema v14 只新增单例全局暂停设置；两者仍沿用显式快照、ledger、Graph identity、Doctor 和 backup 合同。
 - 从既有 `DB.onChanged` 分叉一个独立、失败隔离、latest-value 的治理观察消费者；不得改变 Explicit Sync 的正式同步语义。
 - 扩展 Context builder，复用 Graph Snapshot/正式对象/Skill，而不是建立第二套全文检索或 Graph 缓存。
 - 新增内部 hash-addressed governance Skill；外部 `task-copilot-core` 的 review-only 权限不变。
@@ -77,7 +77,7 @@
 ## Delivery phases
 
 0. Baseline Freeze 与 Goal 建档。
-1. schema v13、Decision/Event/Review Signal/Authorization persistence、Application query/command、Service API。
+1. schema v13/v14、Decision/Event/Review Signal/Authorization/global pause persistence、Application query/command、Service API。
 2. Source Root、gate、LOCAL/EXPANDED、token/context metrics、latest-value/revision。
 3. governance Skill、Structured Output Validator、Risk Router、pause/downgrade/revalidation。
 4. EXPERIMENT Shadow runtime 与 failure isolation。
