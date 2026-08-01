@@ -167,6 +167,21 @@ export class OriginRouteController {
   async resolveAfterReload(token: OriginRouteToken): Promise<DurableOriginResolveResult> {
     const currentPage = await resolvePage(this.host, await this.host.getCurrentPage());
     if (currentPage) {
+      if (
+        token.kind === "BLOCK"
+        && token.surface === "MAIN_PAGE"
+        && currentPage.pageUuid === token.pageUuid
+        && this.host.scrollToBlockInPage
+      ) {
+        const block = RuntimeShapeAdapter.block(await this.host.getBlock(token.blockUuid));
+        if (block && block.uuid === token.blockUuid && block.page !== undefined) {
+          const blockPage = await resolvePage(this.host, block.page);
+          if (blockPage) {
+            await this.host.scrollToBlockInPage(blockPage.pageName, token.blockUuid);
+            return { status: "RETURNED", label: "已回到来源内容。" };
+          }
+        }
+      }
       return {
         status: "PARKED",
         label: "已保留返回现场；需要时仍可从 Task Copilot 返回原内容。",

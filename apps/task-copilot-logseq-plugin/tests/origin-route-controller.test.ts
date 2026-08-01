@@ -158,6 +158,40 @@ test("reload resolution parks when the user is already on a real page", async ()
   assert.deepEqual(fake.events, []);
 });
 
+test("reload resolution restores the Block anchor when the user is already on the origin page", async () => {
+  const fake = host({ currentPageUuid: "page-main" });
+  const controller = new OriginRouteController(fake.value);
+  const token = {
+    kind: "BLOCK" as const,
+    surface: "MAIN_PAGE" as const,
+    blockUuid: "block-origin",
+    pageUuid: "page-main",
+    pageName: "page-main-name",
+  };
+  assert.deepEqual(await controller.resolveAfterReload(token), { status: "RETURNED", label: "已回到来源内容。" });
+  assert.deepEqual(fake.events, ["scroll:page-main-name:block-origin"]);
+});
+
+test("reload resolution parks on the origin page when the Block itself is gone", async () => {
+  const fake = host({ currentPageUuid: "page-main" });
+  const controller = new OriginRouteController({
+    ...fake.value,
+    getBlock: async () => null,
+  });
+  const token = {
+    kind: "BLOCK" as const,
+    surface: "MAIN_PAGE" as const,
+    blockUuid: "missing",
+    pageUuid: "page-main",
+    pageName: "page-main-name",
+  };
+  assert.deepEqual(await controller.resolveAfterReload(token), {
+    status: "PARKED",
+    label: "已保留返回现场；需要时仍可从 Task Copilot 返回原内容。",
+  });
+  assert.deepEqual(fake.events, []);
+});
+
 test("reload resolution reports an explicit unavailable fallback when nothing resolves", async () => {
   const fake = host({ currentPageUuid: "broken-route" });
   const controller = new OriginRouteController({

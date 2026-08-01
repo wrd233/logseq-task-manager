@@ -49,6 +49,10 @@
 - Desktop 已验证：CUX-P0-01 空/部分非法中性结果、CUX-P1-01 确认面唯一与取消恢复、
   CUX-P1-02 Grill 问题置顶+理解折叠（真实 DeepSeek）、CUX-P1-03 对象工作区与 Condition 下拉用户语言
   （含本次修复的 select 术语）、CUX-P2-03 dialog-scoped 错误可见、CUX-P3-02 Review 本地时间。
+- 追加（2026-08-01 第二轮）：CUX-P0-02 Desktop 全链 PASS——真实右键 Block 菜单 → 处理这条内容 →
+  返回原内容（路由为页面名+anchor）→ hard reload 后页面正常加载、无空白、无 fallback、BLOCK origin
+  持久化；`resolveAfterReload` 新增“当前页即来源页时滚动恢复 anchor”（origin 11/11）；Light/Dark ×
+  1000/760 四张 Now 截图已采集（窄栏 756px 无横向溢出）。
 - 修复：Condition/Candidate/阶段映射/主归属等下拉仍泄漏 `TASK/OUTPUT/...` 原始类型码 → 已改为用户语言
   （ui.ts），新增 select 术语合同测试；Desktop 复验 `hasRawCodes=false`。
 - 明细见 `evidence/DESKTOP_GATE_2026-08-01.md`；截图已就绪，独立视觉 Gate 仍 PENDING。
@@ -64,7 +68,8 @@
 
 1. Desktop 复验代表矩阵：无候选/部分非法已 PASS；Apply/Undo/PENDING 确认面 PASS；Grill 首轮 PASS；
    其余（Undo/PENDING 全链、Grill 三轮、Light/Dark × 1000/760）待补。
-2. Durable Origin Desktop：reload、quit/reopen、Graph switch、Page 改名、Block 移动/删除、fallback 待补。
+2. Durable Origin Desktop：Block 入口→返回→reload 已 PASS；quit/reopen、Graph switch、Page 改名、
+   Block 移动/删除、broken-UUID fallback 场景待补。
 3. datetime-local 鼠标/键盘/VoiceOver 手工 Gate（OPEN_MANUAL_GATE）。
 4. 独立视觉 Gate：每个 Sprint 截图交 gstack/Microsoft frontend-design-review 或人工 reviewer；
    未完成前全部标记 `VISUAL_GATE_PENDING`。
