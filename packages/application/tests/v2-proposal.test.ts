@@ -227,6 +227,11 @@ test("reasoned cancellation and reopen plans preserve the reviewed reason withou
   const missingReason = structuredClone(cancellation);
   missingReason.groups[0]!.semanticOperations[0]!.payload.reason = "";
   assert.throws(() => planAcceptedV2LifecycleTransition(missingReason), /原因/);
+  const archive = structuredClone(cancellation);
+  archive.proposalId = "prop-archive-task";
+  archive.groups[0]!.groupId = "archive-object";
+  Object.assign(archive.groups[0]!.semanticOperations[0]!.payload, { action: "ARCHIVE", lifecycle: "ARCHIVED", fromLifecycle: "CANCELLED", reason: "记录归档" });
+  assert.deepEqual(planAcceptedV2LifecycleTransition(archive), { proposalId: "prop-archive-task", groupId: "archive-object", objectId: "task-1", expectedVersion: 4, action: "ARCHIVE", lifecycle: "ARCHIVED", objectType: "TASK", reason: "记录归档", previousLifecycle: "CANCELLED", evidenceKind: "OBJECT_ONLY" });
 });
 
 test("accepted Ownership plan requires one versioned HIGH operation and explicit current-owner evidence", () => {

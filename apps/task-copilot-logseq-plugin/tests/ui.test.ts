@@ -2161,13 +2161,31 @@ test("Global directory rows hide current condition for closed objects and keep o
   assert.match(taskRow, /任务 · 进行中 · 受阻/);
   assert.match(taskRow, /data-action="v2-directory-open-source" data-value="block-1"/);
   assert.match(taskRow, /取消 任务/);
+  assert.match(taskRow, /data-action="v2-directory-condition-open"/);
+  assert.match(taskRow, /data-action="v2-directory-deadline-open"/);
   assert.doesNotMatch(miniRow, /可以行动/);
   assert.match(miniRow, /小项目 · 已完成/);
   assert.match(miniRow, /重开 小项目/);
+  assert.match(miniRow, /data-action="v2-lifecycle-propose-open" data-value="mini-done\|2\|ARCHIVE"/);
   assert.doesNotMatch(projectRow, /可以行动/);
   assert.match(projectRow, /项目 · 已取消/);
+  assert.match(projectRow, /data-action="v2-lifecycle-propose-open" data-value="project-cancelled\|1\|ARCHIVE"/);
   assert.match(projectRow, /来源需重新连接/);
   assert.doesNotMatch(projectRow, /data-action="v2-directory-open-source"/);
+});
+
+test("Global directory offers no lifecycle actions for already archived rows", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [
+    { objectId: "task-archived", objectType: "TASK", version: 1, lifecycle: "ARCHIVED", condition: { kind: "ACTIONABLE" }, text: "已归档任务", sourceOrCreationEvent: "test", createdAt: "2026-07-29T00:00:00.000Z", updatedAt: "2026-07-29T00:00:00.000Z" },
+    { objectId: "project-archived", objectType: "PROJECT", version: 2, lifecycle: "ARCHIVED", condition: { kind: "ACTIONABLE" }, text: "已归档项目", closure: { originalGoal: "目标", actualResult: "结果", majorDeliverables: ["交付"], incompleteObjectives: [], legacyDisposition: "无", keyDecisions: ["决定"], futureSummary: "结束" }, sourceOrCreationEvent: "test", createdAt: "2026-07-28T00:00:00.000Z", updatedAt: "2026-07-28T00:00:00.000Z" },
+  ];
+  const html = renderApp(value);
+  assert.match(html, /已归档任务/);
+  assert.match(html, /已归档项目/);
+  assert.doesNotMatch(html, /data-action="v2-lifecycle-propose-open"/);
+  assert.match(html, /<details class="directory-row-more"><summary>更多<\/summary>/);
 });
 
 test("Global directory row details keep project structure and closure behind the overflow", () => {

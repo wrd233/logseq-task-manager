@@ -99,8 +99,8 @@ export interface V2ReasonedLifecycleTransitionPlan {
   groupId: string;
   objectId: string;
   expectedVersion: number;
-  action: "CANCEL" | "REOPEN";
-  lifecycle: "CANCELLED" | "OPEN";
+  action: "CANCEL" | "REOPEN" | "ARCHIVE";
+  lifecycle: "CANCELLED" | "OPEN" | "ARCHIVED";
   objectType: "TASK" | "MINI_PROJECT" | "PROJECT";
   reason: string;
   previousLifecycle: "OPEN" | "COMPLETED" | "CANCELLED";
@@ -271,12 +271,13 @@ export function planAcceptedV2LifecycleTransition(proposal: V2Proposal): V2Lifec
   const reason = typeof payload.reason === "string" ? payload.reason.trim() : "";
   const isCancellation = payload.action === "CANCEL" && payload.lifecycle === "CANCELLED";
   const isReopen = payload.action === "REOPEN" && payload.lifecycle === "OPEN";
-  if (isCancellation || isReopen) {
+  const isArchive = payload.action === "ARCHIVE" && payload.lifecycle === "ARCHIVED";
+  if (isCancellation || isReopen || isArchive) {
     const previousLifecycle = payload.fromLifecycle;
-    const fromStateValid = isCancellation ? previousLifecycle === "OPEN" : previousLifecycle === "COMPLETED" || previousLifecycle === "CANCELLED";
-    if (operation.target.kind !== "OBJECT" || operation.target.version === undefined || objectTarget.length !== 1 || objectTarget[0]!.version !== operation.target.version || !fromStateValid || !reason || reason.length > 4_000 || !["TASK", "MINI_PROJECT", "PROJECT"].includes(String(payload.objectType))) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_TARGET_INVALID", "取消或重开必须指向同一带版本对象、记录源状态和有界原因。");
-    if ((payload.objectType === "PROJECT" || payload.objectType === "MINI_PROJECT") && group.risk !== "HIGH") throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OPERATION_INVALID", "Project 或 MiniProject 的取消与重开必须按 HIGH 独立审阅。");
-    return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: operation.target.id, expectedVersion: operation.target.version, action: payload.action as "CANCEL" | "REOPEN", lifecycle: payload.lifecycle as "CANCELLED" | "OPEN", objectType: payload.objectType as "TASK" | "MINI_PROJECT" | "PROJECT", reason, previousLifecycle: previousLifecycle as "OPEN" | "COMPLETED" | "CANCELLED", ...(payload.previousClosure && typeof payload.previousClosure === "object" ? { previousClosure: payload.previousClosure as unknown as V2ProjectClosure | V2MiniProjectClosure } : {}), evidenceKind: "OBJECT_ONLY" };
+    const fromStateValid = isCancellation ? previousLifecycle === "OPEN" : isReopen ? previousLifecycle === "COMPLETED" || previousLifecycle === "CANCELLED" : previousLifecycle === "COMPLETED" || previousLifecycle === "CANCELLED";
+    if (operation.target.kind !== "OBJECT" || operation.target.version === undefined || objectTarget.length !== 1 || objectTarget[0]!.version !== operation.target.version || !fromStateValid || (isCancellation || isReopen) && (!reason || reason.length > 4_000) || !["TASK", "MINI_PROJECT", "PROJECT"].includes(String(payload.objectType))) throw proposalApplicationError("V2_LIFECYCLE_COMMIT_TARGET_INVALID", "取消、重开或归档必须指向同一带版本对象、记录源状态和（取消/重开时）有界原因。");
+    if ((payload.objectType === "PROJECT" || payload.objectType === "MINI_PROJECT") && group.risk !== "HIGH") throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OPERATION_INVALID", "Project 或 MiniProject 的取消、重开与归档必须按 HIGH 独立审阅。");
+    return { proposalId: proposal.proposalId, groupId: group.groupId, objectId: operation.target.id, expectedVersion: operation.target.version, action: payload.action as "CANCEL" | "REOPEN" | "ARCHIVE", lifecycle: payload.lifecycle as "CANCELLED" | "OPEN" | "ARCHIVED", objectType: payload.objectType as "TASK" | "MINI_PROJECT" | "PROJECT", reason, previousLifecycle: previousLifecycle as "OPEN" | "COMPLETED" | "CANCELLED", ...(payload.previousClosure && typeof payload.previousClosure === "object" ? { previousClosure: payload.previousClosure as unknown as V2ProjectClosure | V2MiniProjectClosure } : {}), evidenceKind: "OBJECT_ONLY" };
   }
   if (group.risk !== "HIGH") throw proposalApplicationError("V2_LIFECYCLE_COMMIT_OPERATION_INVALID", "MiniProject 完成必须是独立 HIGH 组。");
   let closure: V2MiniProjectClosure;

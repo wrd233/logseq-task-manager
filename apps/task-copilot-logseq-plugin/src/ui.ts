@@ -510,14 +510,16 @@ function renderDirectoryRow(model: UiModel, entry: GlobalObjectDirectoryEntry): 
   const lifecycleActions = supportsReasonedLifecycle && object.lifecycle === "OPEN"
     ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `取消 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|CANCEL`, "quiet", model.v2LifecycleProposalBusy === true)
     : supportsReasonedLifecycle && (object.lifecycle === "COMPLETED" || object.lifecycle === "CANCELLED")
-      ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
+      ? `${button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)}${button("归档", "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|ARCHIVE`, "quiet", model.v2LifecycleProposalBusy === true)}`
       : "";
   const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成小项目", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
   const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理小项目" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
   const evolveProjectAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ProjectCreationGrillAvailable ? "升级为项目" : "升级暂不可用", "v2-project-creation-grill-open", `MINI_PROJECT:${object.objectId}:${object.version}`, "quiet", model.v2ProjectCreationGrillAvailable !== true) : "";
   const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑领域", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
   const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("调整项目", "v2-project-operation-router-open", `${object.objectId}|${object.version}`, "quiet") : "";
-  const secondaryActions = `${areaAction}${grillAction}${evolveProjectAction}${closureAction}${projectStructureAction}${lifecycleActions}`;
+  const conditionAction = object.lifecycle === "OPEN" ? button("更新状态", "v2-directory-condition-open", `${object.objectId}|${object.version}`, "quiet") : "";
+  const deadlineAction = object.objectType === "TASK" && object.lifecycle === "OPEN" ? button("设置期限", "v2-directory-deadline-open", `${object.objectId}|${object.version}|${object.dueAt ?? ""}`, "quiet") : "";
+  const secondaryActions = `${areaAction}${grillAction}${evolveProjectAction}${closureAction}${projectStructureAction}${conditionAction}${deadlineAction}${lifecycleActions}`;
   const meta = [
     objectTypeLabel(object.objectType),
     objectLifecycleLabel(object.lifecycle),
@@ -709,7 +711,7 @@ function userFacingSemanticOperation(operation: ServiceStoredProposal["proposal"
     case "UPDATE_PROJECT_INTERFACE":
       return "更新项目的目标、成果和当前推进";
     case "TRANSITION_LIFECYCLE":
-      return operation.payload.lifecycle === "COMPLETED" ? "将事项标记为已完成" : operation.payload.lifecycle === "CANCELLED" ? "取消这个事项" : "重新打开这个事项";
+      return operation.payload.lifecycle === "COMPLETED" ? "将事项标记为已完成" : operation.payload.lifecycle === "CANCELLED" ? "取消这个事项" : operation.payload.lifecycle === "ARCHIVED" ? "归档这个事项" : "重新打开这个事项";
     case "CHANGE_OWNERSHIP":
       return "调整事项的主归属";
     case "CREATE_BLOCK":
@@ -793,7 +795,7 @@ function renderReview(model: UiModel): string {
     const reasonedLifecycleOperation = acceptedGroups.length === 1 && acceptedGroups[0]!.textPatches.length === 0 && acceptedGroups[0]!.semanticOperations.length === 1
       ? acceptedGroups[0]!.semanticOperations[0]
       : undefined;
-    const isReasonedLifecycle = reasonedLifecycleOperation?.kind === "TRANSITION_LIFECYCLE" && (reasonedLifecycleOperation.payload.action === "CANCEL" || reasonedLifecycleOperation.payload.action === "REOPEN");
+    const isReasonedLifecycle = reasonedLifecycleOperation?.kind === "TRANSITION_LIFECYCLE" && (reasonedLifecycleOperation.payload.action === "CANCEL" || reasonedLifecycleOperation.payload.action === "REOPEN" || reasonedLifecycleOperation.payload.action === "ARCHIVE");
     const originalCommit = model.v2SemanticCommits?.find((commit) => commit.proposalId === record.proposal.proposalId && commit.semanticCommitId.startsWith("proposal-commit:"));
     const continuationStatus = proposalContinuationStatus(model, record.proposal.proposalId);
     const pendingOriginalCommit = continuationStatus === "PENDING";
@@ -1942,7 +1944,7 @@ function renderActionDialog(model: UiModel): string {
   }
   if (dialog.kind === "v2-lifecycle-reason") {
     const action = dialog.value.split("|")[2];
-    const verb = action === "CANCEL" ? "取消" : "重开";
+    const verb = action === "CANCEL" ? "取消" : action === "REOPEN" ? "重开" : "归档";
     return `<section class="inbox-dialog action-dialog" aria-label="${verb}对象"><h3>${verb}对象</h3><p class="muted">只创建可审阅 Proposal；正式状态在 Review 和最终 Commit 前不会变化。</p><label>${verb}原因<textarea data-field="v2LifecycleReason"></textarea></label><div class="actions">${button(`创建${verb} Proposal`, "submit-v2-lifecycle-proposal", dialog.value, "primary")}${cancel}</div></section>`;
   }
   const object = model.objects.find((candidate) => candidate.objectId === dialog.value);
@@ -2016,7 +2018,7 @@ function renderActionDialog(model: UiModel): string {
     const recovering = continuation === "RECOVERY_REQUIRED";
     const continuing = continuation === "PENDING";
     const action = dialog.value.split("|")[2];
-    const verb = action === "CANCEL" ? "取消" : "重开";
+    const verb = action === "CANCEL" ? "取消" : action === "REOPEN" ? "重开" : "归档";
     const title = recovering ? "恢复到安全状态" : continuing ? "继续上次修改" : `确认${verb}事项`;
     const eyebrow = recovering ? "恢复操作 · 沿用同一恢复记录" : continuing ? "继续原修改 · 沿用原记录" : "确认应用 · 点击后正式生效";
     const statement = recovering

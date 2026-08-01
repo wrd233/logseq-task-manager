@@ -1144,7 +1144,7 @@ export class LocalServiceClient {
     }, 125_000);
   }
 
-  createLifecycleProposal(objectId: string, input: { expectedVersion: number; action: "CANCEL" | "REOPEN"; reason: string }): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {
+  createLifecycleProposal(objectId: string, input: { expectedVersion: number; action: "CANCEL" | "REOPEN" | "ARCHIVE"; reason: string }): Promise<{ record: ServiceStoredProposal; replayed: boolean }> {
     return this.request<{ record: ServiceStoredProposal; replayed: boolean }>(`/objects/${encodeURIComponent(objectId)}/lifecycle/proposal`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });
@@ -1562,7 +1562,7 @@ export class LocalServiceClient {
     });
   }
 
-  commitLifecycleTransition(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceLifecycleTransitionCommitResult> {
+  commitLifecycleTransition(proposalId: string, input: { expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT" | "ARCHIVE_OBJECT"; observations: readonly V2ProposalScopeObservation[]; traceId: string }): Promise<ServiceLifecycleTransitionCommitResult> {
     return this.request<ServiceLifecycleTransitionCommitResult>(`/proposals/${encodeURIComponent(proposalId)}/lifecycle/commit`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
     });

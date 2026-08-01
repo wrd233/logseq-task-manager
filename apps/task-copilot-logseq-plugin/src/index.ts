@@ -153,6 +153,7 @@ let v2NowWorkTypeFilter: V2NowWorkTypeFilter = "ALL";
 let v2NowWorkGrouping: V2NowWorkGrouping = "mixed";
 let v2DirectoryFilter: DirectoryFilterState = defaultDirectoryFilterState();
 let v2DirectorySearchTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+let directoryFormReturnToObjects = false;
 let message: string | undefined;
 let latestError: string | undefined;
 let recentActionCommitId: string | undefined;
@@ -3061,6 +3062,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     }, "已移出当前关注；对象正式状态与正文未改变。");
     return;
   }
+  if (action === "v2-directory-condition-open" && value) {
+    directoryFormReturnToObjects = true;
+    return openActionDialog("v2-condition", value);
+  }
+  if (action === "v2-directory-deadline-open" && value) {
+    directoryFormReturnToObjects = true;
+    return openActionDialog("v2-deadline", value);
+  }
   if (action === "v2-focus-add" && value) {
     const [objectId, rawVersion] = value.split("|");
     await run(async () => {
@@ -3199,7 +3208,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await client.changeCondition(objectId, expectedVersion, condition);
       recordAttentionNowPilotActed(primary.signalId);
       actionDialog = undefined;
-      workspace = "now";
+      workspace = directoryFormReturnToObjects ? "objects" : "now";
+      directoryFormReturnToObjects = false;
     }, "状态已正式保存；Now Work 已按新 Condition 重算。");
     return;
   }
@@ -3215,7 +3225,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
       if (!clear && (!dueAt || !Number.isFinite(dueAt.getTime()))) throw new Error("请填写合法期限，或选择清除现有期限。");
       await client.changeDeadline(objectId, expectedVersion, clear ? undefined : dueAt!.toISOString());
       actionDialog = undefined;
-      workspace = "now";
+      workspace = directoryFormReturnToObjects ? "objects" : "now";
+      directoryFormReturnToObjects = false;
     }, "期限已正式保存；Now Work 已按明确时间重算，未产生分数。");
     return;
   }
@@ -3245,14 +3256,14 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (v2LifecycleProposalBusy) return;
     const [objectId, rawVersion, rawAction] = value.split("|");
     const expectedVersion = Number(rawVersion);
-    const lifecycleAction = rawAction === "CANCEL" || rawAction === "REOPEN" ? rawAction : undefined;
+    const lifecycleAction = rawAction === "CANCEL" || rawAction === "REOPEN" || rawAction === "ARCHIVE" ? rawAction : undefined;
     const reason = dialogField("v2LifecycleReason");
     v2LifecycleProposalBusy = true;
     try {
       await refresh();
       await run(async () => {
         const client = serviceRuntimeClient;
-        if (!client || !objectId || !Number.isSafeInteger(expectedVersion) || !lifecycleAction || !reason.trim()) throw new Error("请填写取消或重开原因；没有创建 Proposal。");
+        if (!client || !objectId || !Number.isSafeInteger(expectedVersion) || !lifecycleAction || !reason.trim()) throw new Error("请填写原因；没有创建 Proposal。");
         const result = await client.createLifecycleProposal(objectId, { expectedVersion, action: lifecycleAction, reason });
         actionDialog = undefined;
         workspace = "review";
@@ -4079,7 +4090,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (v2LifecycleCommitBusy) return;
     if (!dialogChecked("actionConfirmed")) { latestError = "请确认已审阅取消或重开原因。"; await refresh(); return; }
     const [proposalId, expectedUpdatedAt, rawAction] = value.split("|");
-    const lifecycleAction = rawAction === "CANCEL" || rawAction === "REOPEN" ? rawAction : undefined;
+    const lifecycleAction = rawAction === "CANCEL" || rawAction === "REOPEN" || rawAction === "ARCHIVE" ? rawAction : undefined;
     v2LifecycleCommitBusy = true;
     try {
       await refresh();
@@ -4089,12 +4100,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
         const stored = (await client.listProposals()).find((candidate) => candidate.proposal.proposalId === proposalId);
         if (!stored || stored.updatedAt !== expectedUpdatedAt) throw new Error("Proposal 已变化；请刷新后重新检查原因。");
         const observations = await collectV2ProposalGraphObservations(stored.proposal, { getBlock: (id) => logseq.Editor.getBlock(id, { includeChildren: false }), getPage: (id) => logseq.Editor.getPage(id) });
-        const confirmation = lifecycleAction === "CANCEL" ? "CANCEL_OBJECT" : "REOPEN_OBJECT";
+        const confirmation = lifecycleAction === "CANCEL" ? "CANCEL_OBJECT" : lifecycleAction === "REOPEN" ? "REOPEN_OBJECT" : "ARCHIVE_OBJECT";
         const result = await client.commitLifecycleTransition(proposalId, { expectedUpdatedAt, confirmation, observations, traceId: `v2-reasoned-lifecycle-ui-${Date.now()}` });
         actionDialog = undefined;
         workspace = "review";
         if (result.status === "COMPLETED") recentActionCommitId = result.semanticCommitId;
-        message = result.status === "COMPLETED" ? `${lifecycleAction === "CANCEL" ? "取消" : "重开"}已正式生效；原因保留在已应用 Proposal，正文与其他状态轴未改变。` : "对象版本已变化；Proposal 已标记 STALE，没有改变 Lifecycle。";
+        message = result.status === "COMPLETED" ? `${lifecycleAction === "CANCEL" ? "取消" : lifecycleAction === "REOPEN" ? "重开" : "归档"}已正式生效；原因保留在已应用 Proposal，正文与其他状态轴未改变。` : "对象版本已变化；Proposal 已标记 STALE，没有改变 Lifecycle。";
       });
     } finally {
       v2LifecycleCommitBusy = false;

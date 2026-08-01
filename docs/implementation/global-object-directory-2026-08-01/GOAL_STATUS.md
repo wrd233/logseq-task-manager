@@ -10,6 +10,7 @@ Phase 0: COMPLETE (2026-08-01)
 Sprint A: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Sprint B: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Sprint C: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
+Sprint D: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Recommended initial status: DRAFT → ACTIVE
 ```
 
@@ -81,6 +82,12 @@ Recommended initial status: DRAFT → ACTIVE
   显示“已关注 · 已关闭”且不进入“当前关注”筛选（数据不修改）。
   真实 Desktop：focus filter 2/22、now filter 14/22；完整加入→移出→恢复闭环 PASS。
   证据：`tmp/runtime/global-object-directory/sprint-c/`。
+- Sprint D（未提交）：次级操作补齐（更新状态/设置期限/归档），表单提交后停留在目录；
+  “归档”经既有 reasoned Lifecycle Proposal 链（Service action 扩展 + plan 扩展 +
+   ARCHIVE_OBJECT 确认词 + transition_lifecycle 收口），审阅卡显示“归档这个事项”。
+  真实 Desktop 用三个测试对象走通 创建→取消→归档 全 UI 链；CANCELLED 行显示
+  重开/归档、ARCHIVED 行只显示“任务 · 已归档”（无 Condition、无生命周期按钮）。
+  证据：`tmp/runtime/global-object-directory/sprint-d/`。
 
 ## 返回边界
 

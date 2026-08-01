@@ -6,7 +6,7 @@
 | ID | 现象 / 证据 | 用户风险 | Goal 要求 | 归属 | 状态 |
 |---|---|---|---|---|---|
 | GOD-001 | 入口名“正式事项与创建”位于“项目”区，用户易误以为只管理 Project | 找不到 Task/MiniProject/Decision/Output 全局入口 | 用户层名称“全部事项”或语义等价，说明覆盖所有正式记录 | Sprint A | OPEN |
-| GOD-002 | 每行平铺取消/完成/梳理/升级/编辑/调整等按钮，51 个可见按钮 | 按钮墙、纵向浏览成本高、误操作风险 | 默认不铺开全部操作；次级操作进入 overflow/展开 | Sprint A/D | PARTIAL（Sprint A 已移入“更多”；D 细化动态动作集） |
+| GOD-002 | 每行平铺取消/完成/梳理/升级/编辑/调整等按钮，51 个可见按钮 | 按钮墙、纵向浏览成本高、误操作风险 | 默认不铺开全部操作；次级操作进入 overflow/展开 | Sprint A/D | DONE（动作集按类型×Lifecycle 动态；Desktop 证据见 sprint-d/01） |
 | GOD-003 | 无标题搜索 | 记得部分标题的旧对象无法快速找到 | 标题搜索（防抖、清除、空结果、中文/大小写/特殊字符、与筛选组合） | Sprint B | DONE_DESKTOP |
 | GOD-004 | 无“全部/当前关注/在 Now”注意力筛选 | 无法稳定只看关注或 Now 对象 | 高频注意力筛选，Focus 用正式 FocusSelection | Sprint B/C | DONE_DESKTOP（Sprint B 控件 + C 正式数据；focus 2/22、now 14/22 实测） |
 | GOD-005 | 无类型/Lifecycle/Condition 筛选 | 无法盘点“进行中的项目”或已完成/取消 | 类型、Lifecycle、Condition 筛选；关闭对象不暗示当前 Condition | Sprint B | DONE_DESKTOP |
@@ -16,7 +16,7 @@
 | GOD-009 | 行内无条件区分 Lifecycle 与 Condition；代码对所有 lifecycle 都渲染 Condition | 关闭对象显示“进行中/可以行动”误导 | OPEN 显示 Condition；非 OPEN 默认只显示 Lifecycle；历史 Condition 只进技术层 | Sprint A | DONE（单测覆盖关闭对象矩阵；Desktop 数据全 OPEN，历史 Condition 合同在 E 复核） |
 | GOD-010 | 列表无关注标记/加入/移出入口；现有入口只在 Now/Re-entry/Block 右键 | 不在 Now 的旧对象无法主动关注 | 目录内加入/移出关注；关注筛选；不改 Lifecycle/Condition | Sprint C | DONE_DESKTOP |
 | GOD-011 | 列表无 Now 暗示（分区） | 无法区分“正在 Now / 接下来 / 等待” | 低权重 Now 标记与分区；不写回领域 | Sprint C | DONE_DESKTOP |
-| GOD-012 | 无归档 UI（领域已支持 COMPLETED/CANCELLED→ARCHIVED） | 已完成/已取消对象无法归档 | 若合同完整，在次级操作提供归档；仍走 Proposal/Review | Sprint D | OPEN |
+| GOD-012 | 无归档 UI（领域已支持 COMPLETED/CANCELLED→ARCHIVED） | 已完成/已取消对象无法归档 | 若合同完整，在次级操作提供归档；仍走 Proposal/Review | Sprint D | DONE_DESKTOP（真实 UI 取消→归档→ARCHIVED 全链；service/application/plugin 测试） |
 | GOD-013 | Service 无 `GET /focus` 只读端点；Plugin 只能经 `/now-work` 推断 OPEN focus | “当前关注”筛选不能覆盖正式 FocusSelection 全量 | 新增只读 `GET /focus` + client 方法；不改变写入路径 | Sprint C | DONE（route + client + service 集成测试 + Desktop） |
 | GOD-014 | 4px 横向溢出（1000/760/1440 均测得） | 横向滚动与裁切风险 | 760px 无横向滚动；不依赖宽表格 | Sprint E | OPEN |
 | GOD-015 | 新控件（搜索/筛选/排序/overflow/标记）无键盘/AX/对比度专项证据 | 可访问性风险 | 键盘顺序、ARIA 状态、focus ring、对比度、无重复 ID | Sprint E | OPEN |

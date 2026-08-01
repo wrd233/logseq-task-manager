@@ -683,13 +683,13 @@ async function readProjectClosureProposalRequest(request: IncomingMessage): Prom
   };
 }
 
-async function readReasonedLifecycleProposalRequest(request: IncomingMessage): Promise<{ expectedVersion: number; action: "CANCEL" | "REOPEN"; reason: string }> {
+async function readReasonedLifecycleProposalRequest(request: IncomingMessage): Promise<{ expectedVersion: number; action: "CANCEL" | "REOPEN" | "ARCHIVE"; reason: string }> {
   const body = await readBody(request);
   let value: unknown;
   try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const reason = typeof record.reason === "string" ? record.reason.trim() : "";
-  if (Object.keys(record).sort().join(",") !== "action,expectedVersion,reason" || !Number.isSafeInteger(record.expectedVersion) || Number(record.expectedVersion) < 1 || (record.action !== "CANCEL" && record.action !== "REOPEN") || !reason || reason.length > 4_000) throw serviceError("LIFECYCLE_PROPOSAL_REQUEST_INVALID", "Lifecycle Proposal 必须包含对象版本、取消或重开动作和有界原因。");
+  if (Object.keys(record).sort().join(",") !== "action,expectedVersion,reason" || !Number.isSafeInteger(record.expectedVersion) || Number(record.expectedVersion) < 1 || (record.action !== "CANCEL" && record.action !== "REOPEN" && record.action !== "ARCHIVE") || !reason || reason.length > 4_000) throw serviceError("LIFECYCLE_PROPOSAL_REQUEST_INVALID", "Lifecycle Proposal 必须包含对象版本、取消/重开/归档动作和有界原因。");
   return { expectedVersion: Number(record.expectedVersion), action: record.action, reason };
 }
 
@@ -954,13 +954,13 @@ async function readMiniProjectRestructureUndoRecoveryRequest(request: IncomingMe
   return record as unknown as { undoSemanticCommitId: string; failedStepIndex: number; failureCode: "GRAPH_WRITE_FAILED" | "GRAPH_VERIFY_FAILED" | "DESKTOP_DISCONNECTED"; traceId: string };
 }
 
-async function readLifecycleCommitRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT"; observations: V2ProposalScopeObservation[]; traceId: string }> {
+async function readLifecycleCommitRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; confirmation: "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT" | "ARCHIVE_OBJECT"; observations: V2ProposalScopeObservation[]; traceId: string }> {
   const body = await readBody(request);
   let value: unknown;
   try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "请求体必须是合法 JSON。"); }
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  if (Object.keys(record).sort().join(",") !== "confirmation,expectedUpdatedAt,observations,traceId" || !["COMPLETE_MINI_PROJECT", "CANCEL_OBJECT", "REOPEN_OBJECT"].includes(String(record.confirmation)) || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("LIFECYCLE_COMMIT_REQUEST_INVALID", "Lifecycle Commit 必须有当前 Proposal 版本、trace_id 和精确动作确认。");
-  return { expectedUpdatedAt: record.expectedUpdatedAt, confirmation: record.confirmation as "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT", observations: parseProposalGraphObservations(record.observations, "LIFECYCLE_COMMIT_REQUEST_INVALID", "Lifecycle 重验证据无效。"), traceId: record.traceId };
+  if (Object.keys(record).sort().join(",") !== "confirmation,expectedUpdatedAt,observations,traceId" || !["COMPLETE_MINI_PROJECT", "CANCEL_OBJECT", "REOPEN_OBJECT", "ARCHIVE_OBJECT"].includes(String(record.confirmation)) || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt)) || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("LIFECYCLE_COMMIT_REQUEST_INVALID", "Lifecycle Commit 必须有当前 Proposal 版本、trace_id 和精确动作确认。");
+  return { expectedUpdatedAt: record.expectedUpdatedAt, confirmation: record.confirmation as "COMPLETE_MINI_PROJECT" | "CANCEL_OBJECT" | "REOPEN_OBJECT" | "ARCHIVE_OBJECT", observations: parseProposalGraphObservations(record.observations, "LIFECYCLE_COMMIT_REQUEST_INVALID", "Lifecycle 重验证据无效。"), traceId: record.traceId };
 }
 
 async function readOwnershipCommitRequest(request: IncomingMessage): Promise<{ expectedUpdatedAt: string; observations: V2ProposalScopeObservation[]; traceId: string }> {
@@ -1420,19 +1420,19 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     const matches = (await proposalApplication.list()).filter(({ proposal }) =>
       ["DRAFT", "READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED"].includes(proposal.status)
       && proposal.scope.modify.some(({ kind, id }) => kind === "OBJECT" && id === objectId)
-      && proposal.groups.some(({ semanticOperations }) => semanticOperations.some(({ kind, payload }) => kind === "TRANSITION_LIFECYCLE" && (payload.action === "CANCEL" || payload.action === "REOPEN"))),
+      && proposal.groups.some(({ semanticOperations }) => semanticOperations.some(({ kind, payload }) => kind === "TRANSITION_LIFECYCLE" && (payload.action === "CANCEL" || payload.action === "REOPEN" || payload.action === "ARCHIVE"))),
     );
-    if (matches.length > 1) throw serviceError("V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "同一对象存在多个活跃取消或重开 Proposal；必须先恢复为单一机器权威。");
+    if (matches.length > 1) throw serviceError("V2_LIFECYCLE_PROPOSAL_AMBIGUOUS", "同一对象存在多个活跃取消、重开或归档 Proposal；必须先恢复为单一机器权威。");
     return matches[0];
   };
-  const submitReasonedLifecycle = async (object: V2ManagedObject, input: { action: "CANCEL" | "REOPEN"; reason: string }) => serializeByKey(`lifecycle-proposal:${object.objectId}`, async () => {
-    if (!["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType)) throw serviceError("V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "只有 Task、MiniProject 或 Project 支持取消与重开。");
+  const submitReasonedLifecycle = async (object: V2ManagedObject, input: { action: "CANCEL" | "REOPEN" | "ARCHIVE"; reason: string }) => serializeByKey(`lifecycle-proposal:${object.objectId}`, async () => {
+    if (!["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType)) throw serviceError("V2_LIFECYCLE_ACTION_NOT_AVAILABLE", "只有 Task、MiniProject 或 Project 支持取消、重开与归档。");
     if (input.action === "CANCEL" ? object.lifecycle !== "OPEN" : !["COMPLETED", "CANCELLED"].includes(object.lifecycle)) throw serviceError("V2_LIFECYCLE_ACTION_NOT_AVAILABLE", `当前 ${object.lifecycle} 对象不能执行 ${input.action}。`);
     const active = await activeReasonedLifecycle(object.objectId);
     const historyCount = (await proposalApplication.list()).filter(({ proposal }) => proposal.scope.modify.some(({ kind, id, version }) => kind === "OBJECT" && id === object.objectId && version === object.version) && proposal.groups.some(({ semanticOperations }) => semanticOperations.some(({ kind, payload }) => kind === "TRANSITION_LIFECYCLE" && payload.action === input.action))).length;
     const proposalId = active?.proposal.proposalId ?? `proposal_lifecycle_${createHash("sha256").update(JSON.stringify([options.graphId, object.objectId, object.version, input.action, historyCount + 1])).digest("hex").slice(0, 32)}`;
-    const lifecycle = input.action === "CANCEL" ? "CANCELLED" : "OPEN";
-    const verb = input.action === "CANCEL" ? "取消" : "重开";
+    const lifecycle = input.action === "CANCEL" ? "CANCELLED" : input.action === "REOPEN" ? "OPEN" : "ARCHIVED";
+    const verb = input.action === "CANCEL" ? "取消" : input.action === "REOPEN" ? "重开" : "归档";
     const risk = object.objectType === "TASK" ? "MEDIUM" : "HIGH";
     const proposal: V2Proposal = {
       proposalId, schemaVersion: "v2", title: `${verb}${object.objectType}：${object.text}`, context: `用户对 ${object.objectId} 发起显式${verb}。`, understanding: `${verb}不会由 Marker 删除或普通同步隐式触发，必须记录原因。`, objective: `审阅后${verb}同一对象，不改变正文、Anchor、Condition、Focus 或 Ownership。`, logic: "原因保存在唯一机器 Proposal；最终提交重验 SQLite Object version，并复用单步 Domain SemanticCommit。", finalPreview: `${verb}原因：${input.reason}`, unresolvedQuestions: [], source: { kind: "user" }, scope: { read: [], modify: [{ kind: "OBJECT", id: object.objectId, version: object.version }] }, preconditions: [`对象仍为 ${object.lifecycle} 且版本保持不变`], groups: [{ groupId: `${input.action.toLowerCase()}-object`, explanation: `${verb} Lifecycle 与原因不可拆分。`, risk, independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: `${input.action.toLowerCase()}-object`, kind: "TRANSITION_LIFECYCLE", target: { kind: "OBJECT", id: object.objectId, version: object.version }, summary: `${verb}${object.objectType}`, payload: { action: input.action, lifecycle, fromLifecycle: object.lifecycle, objectType: object.objectType, reason: input.reason, ...(object.closure ? { previousClosure: object.closure } : {}) }, preconditions: [`Object 仍为 ${object.lifecycle}`] }], disposition: "PENDING" }], status: "READY", createdAt: active?.proposal.createdAt ?? object.updatedAt,
@@ -3666,9 +3666,9 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         const currentObject = store.getObject(plan.objectId);
         if (!currentObject || currentObject.version !== plan.expectedVersion || currentObject.objectType !== plan.objectType || currentObject.lifecycle !== plan.previousLifecycle || checksum(currentObject.closure ?? null) !== checksum(plan.previousClosure ?? null)) throw serviceError("V2_LIFECYCLE_COMMIT_TARGET_STALE", "Lifecycle Proposal 的真实对象类型、源状态、Closure 或版本已变化；没有准备 Commit。");
       }
-      const expectedConfirmation = "action" in plan ? (plan.action === "CANCEL" ? "CANCEL_OBJECT" : "REOPEN_OBJECT") : "COMPLETE_MINI_PROJECT";
+      const expectedConfirmation = "action" in plan ? (plan.action === "CANCEL" ? "CANCEL_OBJECT" : plan.action === "REOPEN" ? "REOPEN_OBJECT" : "ARCHIVE_OBJECT") : "COMPLETE_MINI_PROJECT";
       if (input.confirmation !== expectedConfirmation) throw serviceError("LIFECYCLE_COMMIT_CONFIRMATION_MISMATCH", "Lifecycle Commit 确认词与已审阅动作不一致。");
-      const receiptCommand = "action" in plan ? (plan.action === "CANCEL" ? "cancel_lifecycle" : "reopen_lifecycle") : plan.evidenceKind === "MARKER" ? "complete_mini_project_from_marker" : "complete_mini_project";
+      const receiptCommand = "action" in plan ? (plan.action === "CANCEL" ? "cancel_lifecycle" : plan.action === "REOPEN" ? "reopen_lifecycle" : "transition_lifecycle") : plan.evidenceKind === "MARKER" ? "complete_mini_project_from_marker" : "complete_mini_project";
       if (existing?.status === "COMPLETED") {
         const receipt = store.getCommandReceipt(receiptKey);
         if (existingSteps.length !== 1 || existingSteps[0]?.operationId !== plan.objectId || receipt?.command !== receiptCommand) throw serviceError("V2_LIFECYCLE_COMMIT_LEDGER_CORRUPT", "MiniProject Completion Commit 账本与审阅计划不一致。");
@@ -3700,7 +3700,9 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         if ("action" in plan) {
           const object = plan.action === "CANCEL"
             ? await application.cancelLifecycle(plan.objectId, plan.reason, envelope, now)
-            : await application.reopenLifecycle(plan.objectId, plan.reason, envelope, now);
+            : plan.action === "REOPEN"
+              ? await application.reopenLifecycle(plan.objectId, plan.reason, envelope, now)
+              : await application.transitionLifecycle(plan.objectId, "ARCHIVED", envelope, now);
           result = { object, replayed: priorReceipt?.command === receiptCommand };
         } else if (plan.evidenceKind === "MARKER") {
           result = await application.completeMiniProjectFromMarker({ objectType: plan.objectType, text: plan.text, marker: plan.marker, graphId: options.graphId, externalId: plan.externalId, contentHash: plan.contentHash, expectedObjectId: plan.objectId, closure: plan.closure }, envelope, now);
@@ -3711,7 +3713,11 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         const concurrentReceipt = store.getCommandReceipt(receiptKey);
         if (concurrentReceipt?.command === receiptCommand) {
           if ("action" in plan) {
-            const object = plan.action === "CANCEL" ? await application.cancelLifecycle(plan.objectId, plan.reason, envelope, now) : await application.reopenLifecycle(plan.objectId, plan.reason, envelope, now);
+            const object = plan.action === "CANCEL"
+              ? await application.cancelLifecycle(plan.objectId, plan.reason, envelope, now)
+              : plan.action === "REOPEN"
+                ? await application.reopenLifecycle(plan.objectId, plan.reason, envelope, now)
+                : await application.transitionLifecycle(plan.objectId, "ARCHIVED", envelope, now);
             result = { object, replayed: true };
           } else if (plan.evidenceKind === "MARKER") result = await application.completeMiniProjectFromMarker({ objectType: plan.objectType, text: plan.text, marker: plan.marker, graphId: options.graphId, externalId: plan.externalId, contentHash: plan.contentHash, expectedObjectId: plan.objectId, closure: plan.closure }, envelope, now);
           else result = { object: await application.completeMiniProject(plan.objectId, plan.closure, envelope, now), replayed: true };

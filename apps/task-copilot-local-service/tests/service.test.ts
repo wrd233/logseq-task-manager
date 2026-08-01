@@ -4109,6 +4109,17 @@ test("Task cancellation and explicit reopen retain reasons in one reviewed Lifec
   const undoReplay = await client.undoLifecycle(reopenForward!.semanticCommitId, { confirmation: "UNDO_LIFECYCLE", traceId: "trace-reopen-undo-replay" });
   assert.equal(undoReplay.replayed, true);
   assert.equal(undoReplay.object.lifecycle, "CANCELLED");
+
+  await assert.rejects(() => client.createLifecycleProposal(retryTask.object.objectId, { expectedVersion: retryTask.object.version, action: "ARCHIVE", reason: "还在进行中不能归档" }), /不能执行 ARCHIVE/);
+  const archiveProposal = await client.createLifecycleProposal(created.object.objectId, { expectedVersion: undone.object.version, action: "ARCHIVE", reason: "下线记录归档" });
+  assert.equal(archiveProposal.record.proposal.groups[0]?.groupId, "archive-object");
+  const archiveAccepted = await client.reviewProposal(archiveProposal.record.proposal.proposalId, { "archive-object": { disposition: "ACCEPTED" } }, archiveProposal.record.updatedAt);
+  await assert.rejects(() => client.commitLifecycleTransition(archiveAccepted.proposal.proposalId, { expectedUpdatedAt: archiveAccepted.updatedAt, confirmation: "CANCEL_OBJECT", observations: [], traceId: "trace-archive-wrong-confirmation" }), /确认|409/);
+  const archived = await client.commitLifecycleTransition(archiveAccepted.proposal.proposalId, { expectedUpdatedAt: archiveAccepted.updatedAt, confirmation: "ARCHIVE_OBJECT", observations: [], traceId: "trace-archive-task" });
+  assert.equal(archived.status, "COMPLETED");
+  if (archived.status !== "COMPLETED") return;
+  assert.equal(archived.object.lifecycle, "ARCHIVED");
+  assert.equal((await client.getObject(created.object.objectId))?.lifecycle, "ARCHIVED");
 });
 
 test("Lifecycle Commit rechecks the real object type and rejects a downgraded external Proposal before any ledger write", async (t) => {
