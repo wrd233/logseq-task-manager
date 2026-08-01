@@ -182,9 +182,32 @@ export class AgentGovernanceRuntime {
 
     try {
       const allowedEvidenceRefs = new Set([`source:${gate.sourceRoot.externalId}`, `rule:${rule.id}`]);
+      const orderedEvidenceRefs = [...allowedEvidenceRefs].sort();
+      const legalOutcomes = [...new Set([rule.recommendedOutcome, "NEEDS_MORE_CONTEXT", "NEEDS_HUMAN"] as const)];
+      const outputTemplate = {
+        schemaVersion: "agent-decision-output-v1",
+        outcome: rule.recommendedOutcome,
+        targetObjectIds: [],
+        ruleId: rule.id,
+        evidenceSummary: "Summarize only supplied evidence without hidden reasoning.",
+        evidenceRefs: orderedEvidenceRefs,
+        counterSignals: [],
+        closestAlternative: { outcome: "NEEDS_HUMAN", reason: "State the closest legal alternative, or use an empty object." },
+        needsMoreContext: false,
+        needsHuman: false,
+      };
       const completion = await this.options.provider.completeStructured({
-        system: `${this.options.skill.content}\n\nUse only the supplied bounded Context. Return exactly one JSON object and no prose.`,
-        user: stableJson({ context, rule, deterministicEvidence: presentEvidence, allowedEvidenceRefs: [...allowedEvidenceRefs] }),
+        system: `${this.options.skill.content}\n\nUse only the supplied bounded Context. Return exactly one JSON object and no prose. Copy the exact outputTemplate field set and JSON value types supplied by the user. Do not add fields. Choose only listed legalOutcomes, allowedEvidenceRefs, allowedCounterSignals, and allowedTargetObjectIds. closestAlternative must be an object; its outcome and reason may be omitted or null when no legal alternative exists.`,
+        user: stableJson({
+          context,
+          rule,
+          deterministicEvidence: presentEvidence,
+          legalOutcomes,
+          allowedEvidenceRefs: orderedEvidenceRefs,
+          allowedCounterSignals: [...rule.counterSignals].sort(),
+          allowedTargetObjectIds: [],
+          outputTemplate,
+        }),
         ...(signal ? { signal } : {}),
       });
       if (signal?.aborted) throw runtimeError("AGENT_OBSERVATION_CANCELLED", "Agent observation 已被更新的来源版本取消。");

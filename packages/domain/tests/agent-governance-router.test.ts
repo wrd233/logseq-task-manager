@@ -102,6 +102,22 @@ test("structured Decision output rejects unknown or forged authority fields", ()
   assert.throws(() => validateAgentStructuredDecisionOutput({ ...valid, confidence: 1 }), /unknown field/i);
 });
 
+test("structured Decision output normalizes the design contract's nullable closest alternative", () => {
+  const value = validateAgentStructuredDecisionOutput({
+    schemaVersion: "agent-decision-output-v1",
+    outcome: "CREATE_OBJECT",
+    targetObjectIds: [],
+    ruleId: "EXPLICIT-TASK-01",
+    evidenceSummary: "Explicit marker and no duplicate.",
+    evidenceRefs: ["source:root", "rule:EXPLICIT-TASK-01"],
+    counterSignals: [],
+    closestAlternative: { outcome: null, reason: null },
+    needsMoreContext: false,
+    needsHuman: false,
+  });
+  assert.deepEqual(value.closestAlternative, {});
+});
+
 test("Skill manifest requires stable unique Rule IDs, Chinese names, examples, and a bounded output schema", () => {
   const manifest = validateAgentGovernanceSkillManifest({
     schemaVersion: "agent-governance-skill-v1",

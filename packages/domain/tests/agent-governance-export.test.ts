@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import {
@@ -49,6 +50,10 @@ test("Skill Feedback Package is deterministic, aggregated, bounded, and redacts 
   assert.match(first.files["data/summary.json"]!, /"correctionRate":1/);
   assert.ok(Object.values(first.files).every((content) => !content.includes("super-secret") && !content.includes("private-token")));
   assert.ok(first.manifest.redactionCount >= 2);
+  for (const entry of first.manifest.files) {
+    assert.match(entry.sha256, /^[0-9a-f]{64}$/);
+    assert.equal(entry.sha256, createHash("sha256").update(first.files[entry.path]!).digest("hex"));
+  }
 });
 
 test("Review Evidence Package deduplicates by source identity, not equal text, and records drift, missing, and truncation", () => {

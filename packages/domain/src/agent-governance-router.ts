@@ -118,8 +118,8 @@ export function validateAgentStructuredDecisionOutput(value: unknown): AgentStru
   if (!outcomes.has(source.outcome as AgentDecisionOutcome)) throw routerError("AGENT_GOVERNANCE_SCHEMA_INVALID", "Decision outcome 不受支持。");
   const alternative = record(source.closestAlternative, "closestAlternative");
   exactKeys(alternative, ["outcome", "reason"], "closestAlternative");
-  if (alternative.outcome !== undefined && !outcomes.has(alternative.outcome as AgentDecisionOutcome)) throw routerError("AGENT_GOVERNANCE_SCHEMA_INVALID", "closestAlternative outcome 不受支持。");
-  const alternativeReason = alternative.reason === undefined ? undefined : stringValue(alternative.reason, "closestAlternative.reason");
+  if (alternative.outcome !== undefined && alternative.outcome !== null && !outcomes.has(alternative.outcome as AgentDecisionOutcome)) throw routerError("AGENT_GOVERNANCE_SCHEMA_INVALID", "closestAlternative outcome 不受支持。");
+  const alternativeReason = alternative.reason === undefined || alternative.reason === null ? undefined : stringValue(alternative.reason, "closestAlternative.reason");
   return {
     schemaVersion: "agent-decision-output-v1",
     outcome: source.outcome as AgentDecisionOutcome,
@@ -129,7 +129,7 @@ export function validateAgentStructuredDecisionOutput(value: unknown): AgentStru
     evidenceRefs: stringArray(source.evidenceRefs, "evidenceRefs", 1, 64),
     counterSignals: stringArray(source.counterSignals, "counterSignals", 0, 32),
     closestAlternative: {
-      ...(alternative.outcome === undefined ? {} : { outcome: alternative.outcome as AgentDecisionOutcome }),
+      ...(alternative.outcome === undefined || alternative.outcome === null ? {} : { outcome: alternative.outcome as AgentDecisionOutcome }),
       ...(alternativeReason === undefined ? {} : { reason: alternativeReason }),
     },
     needsMoreContext: booleanValue(source.needsMoreContext, "needsMoreContext"),

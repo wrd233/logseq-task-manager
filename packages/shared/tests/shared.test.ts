@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { checksum, classifyStorageError, createId, stableJson } from "../src/index.ts";
+import { checksum, classifyStorageError, createId, sha256, stableJson } from "../src/index.ts";
 
 test("stable identifiers do not depend on note paths or content", () => {
   const time = new Date("2026-07-17T12:00:00.000Z");
@@ -13,6 +13,11 @@ test("stable identifiers do not depend on note paths or content", () => {
 test("stable JSON and checksum detect changed persisted content", () => {
   assert.equal(stableJson({ b: 2, a: 1 }), '{"a":1,"b":2}');
   assert.notEqual(checksum({ a: 1 }), checksum({ a: 2 }));
+});
+
+test("portable SHA-256 matches the standard empty and abc vectors", () => {
+  assert.equal(sha256(""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  assert.equal(sha256("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 });
 
 test("stable JSON omits undefined object fields and remains parseable for inverse audit changes", () => {

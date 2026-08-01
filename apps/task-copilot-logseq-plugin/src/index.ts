@@ -21,6 +21,7 @@ import { defaultDirectoryFilterState, type DirectoryFilterState } from "./global
 import { WorksitePreviewController, type WorksitePreviewMode, type WorksitePreviewState } from "./worksite-preview-controller.ts";
 import { WorksiteChangeRouter } from "./worksite-change-router.ts";
 import { AgentGovernanceChangeQueue } from "./agent-governance-change-queue.ts";
+import { buildAgentGovernancePackageDownload, downloadTextFile } from "./download-text.ts";
 import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger, type StructuredLogEntry } from "./structured-logger.ts";
 import { recoverServiceRuntime } from "./service-runtime-recovery.ts";
@@ -1616,21 +1617,9 @@ function initializeExplicitSync(): void {
   });
 }
 
-function downloadText(filename: string, content: string, type: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 function downloadAgentGovernancePackage(value: AgentGovernanceExportPackage): void {
-  const prefix = value.manifest.kind === "SKILL_FEEDBACK" ? "agent-skill-feedback" : "agent-review-evidence";
-  const stamp = value.manifest.generatedAt.replaceAll(":", "-").replaceAll(".", "-");
-  const readme = value.files["README.md"];
-  if (readme) downloadText(`${prefix}-${stamp}.md`, readme, "text/markdown;charset=utf-8");
-  downloadText(`${prefix}-${stamp}.json`, JSON.stringify(value, null, 2), "application/json;charset=utf-8");
+  const download = buildAgentGovernancePackageDownload(value);
+  downloadTextFile(download.filename, download.content, download.type);
 }
 
 function dialogField(name: string): string {
@@ -2926,7 +2915,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     return;
   }
   if (action === "export-diagnostics") {
-    downloadText(`task-copilot-diagnostics-${Date.now()}.jsonl`, operationalLogger.exportJsonl(), "application/x-ndjson");
+    downloadTextFile(`task-copilot-diagnostics-${Date.now()}.jsonl`, operationalLogger.exportJsonl(), "application/x-ndjson");
     message = "已打开系统下载窗口；是否保存以下载窗口中的最终选择为准。";
     await showRuntimeDiagnostics();
     return;

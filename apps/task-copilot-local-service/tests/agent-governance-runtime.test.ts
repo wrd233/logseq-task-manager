@@ -49,6 +49,7 @@ test("EXPERIMENT observes an explicit Task into a reloadable Shadow Decision wit
   );
   const formalBefore = { objects: store.listObjects(), candidates: store.listCandidates(), ownerships: store.listPrimaryOwnerships(), associations: store.listAssociations() };
   const graphSnapshot = snapshot("source-explicit", "[Task] 整理 RHCSA 资料");
+  let providerRequest: { system: string; user: string } | undefined;
   const runtime = new AgentGovernanceRuntime({
     graphId: "graph-agent-runtime",
     source: contextSource(store),
@@ -56,7 +57,9 @@ test("EXPERIMENT observes an explicit Task into a reloadable Shadow Decision wit
     graph: { read: async () => ({ requestId: "read-1", status: "FOUND", snapshot: graphSnapshot }) },
     skill: await readAgentGovernanceSkill(),
     provider: {
-      completeStructured: async () => ({
+      completeStructured: async (request) => {
+        providerRequest = { system: request.system, user: request.user };
+        return {
         value: {
           schemaVersion: "agent-decision-output-v1",
           outcome: "CREATE_OBJECT",
@@ -70,7 +73,8 @@ test("EXPERIMENT observes an explicit Task into a reloadable Shadow Decision wit
           needsHuman: false,
         },
         metadata: { model: "configured-model", promptTokens: 200, completionTokens: 80, durationMs: 5, attempts: 1 },
-      }),
+        };
+      },
     },
     runtimeMode: "EXPERIMENT",
     guardedAutomationEnabled: false,
@@ -84,6 +88,22 @@ test("EXPERIMENT observes an explicit Task into a reloadable Shadow Decision wit
   assert.deepEqual({ objects: store.listObjects(), candidates: store.listCandidates(), ownerships: store.listPrimaryOwnerships(), associations: store.listAssociations() }, formalBefore);
   assert.equal(store.listAgentDecisions({ limit: 10 }).length, 1);
   assert.equal(store.listAgentRuleAuthorizations().length, 6);
+  const providerInput = JSON.parse(providerRequest?.user ?? "null") as Record<string, unknown>;
+  assert.deepEqual(providerInput.legalOutcomes, ["CREATE_OBJECT", "NEEDS_MORE_CONTEXT", "NEEDS_HUMAN"]);
+  assert.deepEqual(providerInput.allowedEvidenceRefs, ["rule:EXPLICIT-TASK-01", "source:source-explicit"]);
+  assert.deepEqual(providerInput.allowedCounterSignals, ["DUPLICATE_OBJECT", "EXPLANATORY_ONLY", "MULTIPLE_TARGETS", "SOURCE_STALE"]);
+  assert.deepEqual(providerInput.outputTemplate, {
+    schemaVersion: "agent-decision-output-v1",
+    outcome: "CREATE_OBJECT",
+    targetObjectIds: [],
+    ruleId: "EXPLICIT-TASK-01",
+    evidenceSummary: "Summarize only supplied evidence without hidden reasoning.",
+    evidenceRefs: ["rule:EXPLICIT-TASK-01", "source:source-explicit"],
+    counterSignals: [],
+    closestAlternative: { outcome: "NEEDS_HUMAN", reason: "State the closest legal alternative, or use an empty object." },
+    needsMoreContext: false,
+    needsHuman: false,
+  });
 
   const replay = await runtime.observe({ changedBlockId: "source-explicit", changedBlockCount: 1 });
   assert.equal(replay.status, "UNCHANGED");

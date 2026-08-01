@@ -1,4 +1,4 @@
-import { checksum, stableJson } from "@task-copilot/shared";
+import { checksum, sha256, stableJson } from "@task-copilot/shared";
 
 import {
   validateAgentFeedbackPayload,
@@ -68,7 +68,7 @@ export function validateAgentGovernanceExportPackage(value: unknown): AgentGover
     const content = files[path];
     if (!/^(?:README\.md|data\/[a-z0-9][a-z0-9._-]{0,63})$/.test(path)
       || typeof content !== "string" || content.length > 2 * 1024 * 1024
-      || entry.sha256 !== checksum(content)
+      || entry.sha256 !== sha256(content)
       || entry.bytes !== new TextEncoder().encode(content).byteLength) {
       throw new Error("Agent governance export file failed integrity validation.");
     }
@@ -139,7 +139,7 @@ function finalize(
   }));
   const fileManifest = Object.entries(files).map(([path, content]) => ({
     path,
-    sha256: checksum(content),
+    sha256: sha256(content),
     bytes: new TextEncoder().encode(content).byteLength,
   }));
   return {
