@@ -17,6 +17,7 @@ import {
 } from "./runtime-diagnostics.ts";
 import { BootstrapRegistration, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
 import { cancelActionDialogReturnsToOrigin, isWorkspace, renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
+import { defaultDirectoryFilterState, type DirectoryFilterState } from "./global-object-directory.ts";
 import { WorksitePreviewController, type WorksitePreviewMode, type WorksitePreviewState } from "./worksite-preview-controller.ts";
 import { WorksiteChangeRouter } from "./worksite-change-router.ts";
 import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
@@ -149,6 +150,8 @@ let workspace: Workspace = "now";
 let reviewMode: NonNullable<UiModel["reviewMode"]> = "candidates";
 let v2NowWorkTypeFilter: V2NowWorkTypeFilter = "ALL";
 let v2NowWorkGrouping: V2NowWorkGrouping = "mixed";
+let v2DirectoryFilter: DirectoryFilterState = defaultDirectoryFilterState();
+let v2DirectorySearchTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
 let message: string | undefined;
 let latestError: string | undefined;
 let recentActionCommitId: string | undefined;
@@ -967,6 +970,7 @@ async function model(): Promise<UiModel> {
     v2Objects,
     v2PrimaryAnchors: [...primaryAnchorByObject.values()],
     v2FocusSelections: [],
+    v2DirectoryFilter,
     v2Associations,
     v2PrimaryOwnerships,
     ...(v2RelationLoadError ? { v2RelationLoadError } : {}),
@@ -2199,6 +2203,17 @@ async function handleAction(action: string, value?: string): Promise<void> {
     recentActionCommitId = undefined;
     if (value === "reentry") v2ReentryTargetObjectId = undefined;
     workspace = value;
+    await refresh();
+    return;
+  }
+  if (action === "v2-directory-filter-focus" && value) {
+    if (value !== "all" && value !== "focus" && value !== "now") throw new Error("注意力筛选条件无效。");
+    v2DirectoryFilter = { ...v2DirectoryFilter, focus: value };
+    await refresh();
+    return;
+  }
+  if (action === "v2-directory-clear-filters") {
+    v2DirectoryFilter = defaultDirectoryFilterState();
     await refresh();
     return;
   }
@@ -4288,15 +4303,55 @@ function bindUi(): void {
       worksitePreviewController.setOverflowOpen(details.open);
     }
   };
+  const onDirectoryInput = (event: Event): void => {
+    if (!(event.target instanceof HTMLInputElement) || event.target.dataset.field !== "v2DirectorySearch") return;
+    if (event instanceof InputEvent && event.isComposing) return;
+    if (v2DirectorySearchTimer !== undefined) globalThis.clearTimeout(v2DirectorySearchTimer);
+    const input = event.target;
+    v2DirectorySearchTimer = globalThis.setTimeout(() => {
+      v2DirectorySearchTimer = undefined;
+      v2DirectoryFilter = { ...v2DirectoryFilter, search: input.value };
+      const token = captureUiFocus(input);
+      void refresh().then(() => {
+        if (token) restoreUiFocus(requireAppRoot(), token);
+      });
+    }, 250);
+  };
+  const onDirectoryChange = (event: Event): void => {
+    if (!(event.target instanceof HTMLSelectElement)) return;
+    const field = event.target.dataset.field;
+    const value = event.target.value;
+    const next = field === "v2DirectoryTypeFilter"
+      ? { ...v2DirectoryFilter, type: value as DirectoryFilterState["type"] }
+      : field === "v2DirectoryLifecycleFilter"
+        ? { ...v2DirectoryFilter, lifecycle: value as DirectoryFilterState["lifecycle"] }
+        : field === "v2DirectoryConditionFilter"
+          ? { ...v2DirectoryFilter, condition: value as DirectoryFilterState["condition"] }
+          : field === "v2DirectorySort"
+            ? { ...v2DirectoryFilter, sort: value as DirectoryFilterState["sort"] }
+            : undefined;
+    if (!next) return;
+    v2DirectoryFilter = next;
+    const token = captureUiFocus(event.target);
+    void refresh().then(() => {
+      if (token) restoreUiFocus(requireAppRoot(), token);
+    });
+  };
   root.addEventListener("keydown", onNowMenuKeyDown);
   root.addEventListener("pointerdown", onNowMenuPointerDown);
   root.addEventListener("toggle", onNowMenuToggle, true);
+  root.addEventListener("input", onDirectoryInput);
+  root.addEventListener("change", onDirectoryChange);
   uiBound = true;
   cleanupHooks.push(() => {
     unbind();
     root.removeEventListener("keydown", onNowMenuKeyDown);
     root.removeEventListener("pointerdown", onNowMenuPointerDown);
     root.removeEventListener("toggle", onNowMenuToggle, true);
+    root.removeEventListener("input", onDirectoryInput);
+    root.removeEventListener("change", onDirectoryChange);
+    if (v2DirectorySearchTimer !== undefined) globalThis.clearTimeout(v2DirectorySearchTimer);
+    v2DirectorySearchTimer = undefined;
     uiBound = false;
     if (appRoot) appRoot.replaceChildren();
   });

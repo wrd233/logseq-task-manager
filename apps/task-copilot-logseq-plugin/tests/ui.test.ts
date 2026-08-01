@@ -2200,6 +2200,101 @@ test("Global directory row details keep project structure and closure behind the
   assert.doesNotMatch(html.replace(row, ""), /项目当前信息/);
 });
 
+test("Global directory toolbar renders search, attention chips, filters and count", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [
+    { objectId: "task-1", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "推进发布", sourceOrCreationEvent: "test", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" },
+    { objectId: "task-2", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "WAITING", waitingFor: "回复", expectedResult: "确认", reviewAt: "2026-08-01T00:00:00.000Z" }, text: "等待回复", sourceOrCreationEvent: "test", createdAt: "2026-07-30T00:00:00.000Z", updatedAt: "2026-07-30T00:00:00.000Z" },
+  ];
+  const html = renderApp(value);
+  assert.match(html, /data-field="v2DirectorySearch"/);
+  assert.match(html, /data-action="v2-directory-filter-focus" data-value="all" aria-pressed="true"/);
+  assert.match(html, /data-action="v2-directory-filter-focus" data-value="focus" aria-pressed="false"/);
+  assert.match(html, /data-action="v2-directory-filter-focus" data-value="now" aria-pressed="false"/);
+  assert.match(html, /data-field="v2DirectoryTypeFilter"/);
+  assert.match(html, /data-field="v2DirectoryLifecycleFilter"/);
+  assert.match(html, /data-field="v2DirectoryConditionFilter"/);
+  assert.match(html, /data-field="v2DirectorySort"/);
+  assert.match(html, /2 项/);
+  assert.doesNotMatch(html, /data-action="v2-directory-clear-filters"/);
+});
+
+test("Global directory applies search, focus, type, lifecycle and condition filters to rows", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [
+    { objectId: "task-a", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "整理RedHat题目", sourceOrCreationEvent: "test", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" },
+    { objectId: "task-b", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "WAITING", waitingFor: "窗口", expectedResult: "确认", reviewAt: "2026-08-02T00:00:00.000Z" }, text: "等待发布窗口", sourceOrCreationEvent: "test", createdAt: "2026-07-30T00:00:00.000Z", updatedAt: "2026-07-30T00:00:00.000Z" },
+    { objectId: "project-done", objectType: "PROJECT", version: 1, lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, text: "已交付项目", sourceOrCreationEvent: "test", createdAt: "2026-07-29T00:00:00.000Z", updatedAt: "2026-07-29T00:00:00.000Z" },
+  ];
+  value.v2FocusSelections = [{ objectId: "task-a", selectedAt: "2026-08-01T00:00:00.000Z", rank: 0 }];
+  value.v2NowWork = {
+    generatedAt: "2026-08-01T00:00:00.000Z",
+    focus: [{ objectId: "task-a", objectType: "TASK", version: 1, text: "整理RedHat题目", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-31T00:00:00.000Z", reason: "已加入当前关注" }],
+    next: [{ objectId: "task-b", objectType: "TASK", version: 1, text: "等待发布窗口", condition: { kind: "WAITING", waitingFor: "窗口", expectedResult: "确认", reviewAt: "2026-08-02T00:00:00.000Z" }, updatedAt: "2026-07-30T00:00:00.000Z", reason: "近期更新" }],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  const filtered = { search: "", focus: "focus" as const, type: "ALL" as const, lifecycle: "ALL" as const, condition: "ALL" as const, sort: "updated" as const };
+  value.v2DirectoryFilter = filtered;
+  const html = renderApp(value);
+  assert.match(html, /data-object-id="task-a"/);
+  assert.doesNotMatch(html, /data-object-id="task-b"/);
+  assert.doesNotMatch(html, /data-object-id="project-done"/);
+  assert.match(html, /已筛选 1 \/ 3 项/);
+  assert.match(html, /data-action="v2-directory-clear-filters"/);
+
+  value.v2DirectoryFilter = { ...filtered, search: "REDHAT", focus: "all" };
+  const searched = renderApp(value);
+  assert.match(searched, /data-object-id="task-a"/);
+  assert.doesNotMatch(searched, /data-object-id="task-b"/);
+  assert.doesNotMatch(searched, /data-object-id="project-done"/);
+
+  value.v2DirectoryFilter = { ...filtered, focus: "now" };
+  const inNow = renderApp(value);
+  assert.match(inNow, /data-object-id="task-a"/);
+  assert.match(inNow, /data-object-id="task-b"/);
+  assert.doesNotMatch(inNow, /data-object-id="project-done"/);
+
+  value.v2DirectoryFilter = { ...filtered, focus: "all", type: "PROJECT" };
+  const typed = renderApp(value);
+  assert.match(typed, /data-object-id="project-done"/);
+  assert.doesNotMatch(typed, /data-object-id="task-a"/);
+
+  value.v2DirectoryFilter = { ...filtered, focus: "all", lifecycle: "COMPLETED" };
+  const lifecycle = renderApp(value);
+  assert.match(lifecycle, /data-object-id="project-done"/);
+  assert.doesNotMatch(lifecycle, /data-object-id="task-a"/);
+
+  value.v2DirectoryFilter = { ...filtered, focus: "all", condition: "WAITING" };
+  const waiting = renderApp(value);
+  assert.match(waiting, /data-object-id="task-b"/);
+  assert.doesNotMatch(waiting, /data-object-id="task-a"/);
+});
+
+test("Global directory shows a neutral filtered-empty state with clear action", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [{
+    objectId: "task-1",
+    objectType: "TASK",
+    version: 1,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "推进发布",
+    sourceOrCreationEvent: "test",
+    createdAt: "2026-07-31T00:00:00.000Z",
+    updatedAt: "2026-07-31T00:00:00.000Z",
+  }];
+  value.v2DirectoryFilter = { search: "不存在", focus: "all", type: "ALL", lifecycle: "ALL", condition: "ALL", sort: "updated" };
+  const html = renderApp(value);
+  assert.match(html, /没有找到匹配的事项/);
+  assert.match(html, /正式记录没有被修改/);
+  assert.match(html, /data-action="v2-directory-clear-filters"/);
+  assert.doesNotMatch(html, /data-object-id="task-1"/);
+});
+
 test("Sprint E empty Objects page keeps creation reachable with the structure section open", () => {
   const value = model();
   value.workspace = "objects";

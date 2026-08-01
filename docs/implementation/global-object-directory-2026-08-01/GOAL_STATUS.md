@@ -7,6 +7,8 @@
 ```text
 Goal Status: ACTIVE
 Phase 0: COMPLETE (2026-08-01)
+Sprint A: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
+Sprint B: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Recommended initial status: DRAFT → ACTIVE
 ```
 
@@ -59,6 +61,19 @@ Recommended initial status: DRAFT → ACTIVE
 - Sprint D：次级维护与详情层（overflow、生命周期操作、Closure/归档核验）；
 - Sprint E：响应式、可访问性、视觉收口与 50+ 对象性能；
 - 收口：根级检查、Desktop Gate、机器证据、VISUAL_GATE_REQUEST。
+
+## 进度记录
+
+- Sprint A（`6bd165a` 文档基线 / `d668da1` 实现）：全局目录只读投影
+  （`global-object-directory.ts`，纯函数）、入口改名“全部事项”、紧凑目录行、
+  非 OPEN 隐藏 Condition、行内操作移入“更多”、打开原文真实 Desktop 通过
+  （锚点路由跳转 + 主 UI 隐藏）。Plugin 479/479、根级 check PASS。
+  证据：`tmp/runtime/global-object-directory/sprint-a/`。
+- Sprint B（未提交）：标题搜索（250ms 防抖 + IME composition 保护）、
+  全部/当前关注/在 Now、类型/状态/当前情况筛选、六种排序、清除/计数/空态；
+  真实 Desktop 复验搜索“发布”→1/22、类型→12/22、空态、清除与标题排序。
+  “当前关注”在 Sprint C 接通正式 `GET /focus` 前按合同显示 0/22。
+  证据：`tmp/runtime/global-object-directory/sprint-b/01-default…08-empty`。
 
 ## 返回边界
 

@@ -43,6 +43,70 @@ export interface GlobalObjectDirectoryInput {
   nowWork?: ServiceNowWork;
 }
 
+export type DirectoryFocusFilter = "all" | "focus" | "now";
+export type DirectoryTypeFilter = "ALL" | V2ObjectType;
+export type DirectoryLifecycleFilter = "ALL" | Lifecycle;
+export type DirectoryConditionFilter = "ALL" | V2Condition["kind"];
+export type DirectorySort = "updated" | "title" | "type" | "lifecycle" | "due" | "focus";
+
+export interface DirectoryFilterState {
+  search: string;
+  focus: DirectoryFocusFilter;
+  type: DirectoryTypeFilter;
+  lifecycle: DirectoryLifecycleFilter;
+  condition: DirectoryConditionFilter;
+  sort: DirectorySort;
+}
+
+export const DIRECTORY_SORT_ORDER: Record<Lifecycle, number> = {
+  OPEN: 0,
+  COMPLETED: 1,
+  CANCELLED: 2,
+  ARCHIVED: 3,
+};
+
+const TYPE_ORDER: V2ObjectType[] = ["AREA", "PROJECT", "MINI_PROJECT", "TASK", "DECISION", "OUTPUT"];
+
+export function defaultDirectoryFilterState(): DirectoryFilterState {
+  return { search: "", focus: "all", type: "ALL", lifecycle: "ALL", condition: "ALL", sort: "updated" };
+}
+
+export function filterAndSortDirectoryEntries(
+  entries: readonly GlobalObjectDirectoryEntry[],
+  state: DirectoryFilterState,
+): GlobalObjectDirectoryEntry[] {
+  const query = state.search.trim().toLocaleLowerCase();
+  const filtered = entries.filter((entry) => {
+    if (query && !entry.text.toLocaleLowerCase().includes(query)) return false;
+    if (state.focus === "focus" && !entry.focus.selected) return false;
+    if (state.focus === "now" && !entry.now) return false;
+    if (state.type !== "ALL" && entry.objectType !== state.type) return false;
+    if (state.lifecycle !== "ALL" && entry.lifecycle !== state.lifecycle) return false;
+    if (state.condition !== "ALL" && entry.condition?.kind !== state.condition) return false;
+    return true;
+  });
+  const dueTime = (entry: GlobalObjectDirectoryEntry) => entry.dueAt ? Date.parse(entry.dueAt) : Number.POSITIVE_INFINITY;
+  const byUpdated = (left: GlobalObjectDirectoryEntry, right: GlobalObjectDirectoryEntry) =>
+    right.updatedAt.localeCompare(left.updatedAt) || left.objectId.localeCompare(right.objectId);
+  return [...filtered].sort((left, right) => {
+    switch (state.sort) {
+      case "title":
+        return left.text.localeCompare(right.text, "zh-CN") || byUpdated(left, right);
+      case "type":
+        return (TYPE_ORDER.indexOf(left.objectType) - TYPE_ORDER.indexOf(right.objectType)) || byUpdated(left, right);
+      case "lifecycle":
+        return (DIRECTORY_SORT_ORDER[left.lifecycle] - DIRECTORY_SORT_ORDER[right.lifecycle]) || byUpdated(left, right);
+      case "due":
+        return (dueTime(left) - dueTime(right)) || byUpdated(left, right);
+      case "focus":
+        if (left.focus.selected !== right.focus.selected) return left.focus.selected ? -1 : 1;
+        return (left.focus.rank ?? Number.MAX_SAFE_INTEGER) - (right.focus.rank ?? Number.MAX_SAFE_INTEGER) || byUpdated(left, right);
+      default:
+        return byUpdated(left, right);
+    }
+  });
+}
+
 function activeOrIssueAnchor(anchors: readonly V2Anchor[], objectId: string): GlobalObjectDirectoryEntry["primaryAnchor"] {
   const primary = anchors.filter((anchor) => anchor.objectId === objectId && anchor.role === "primary_text" && anchor.status !== "replaced");
   if (primary.length === 0) return undefined;

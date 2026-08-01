@@ -6,14 +6,14 @@
 | ID | 现象 / 证据 | 用户风险 | Goal 要求 | 归属 | 状态 |
 |---|---|---|---|---|---|
 | GOD-001 | 入口名“正式事项与创建”位于“项目”区，用户易误以为只管理 Project | 找不到 Task/MiniProject/Decision/Output 全局入口 | 用户层名称“全部事项”或语义等价，说明覆盖所有正式记录 | Sprint A | OPEN |
-| GOD-002 | 每行平铺取消/完成/梳理/升级/编辑/调整等按钮，51 个可见按钮 | 按钮墙、纵向浏览成本高、误操作风险 | 默认不铺开全部操作；次级操作进入 overflow/展开 | Sprint A/D | OPEN |
-| GOD-003 | 无标题搜索 | 记得部分标题的旧对象无法快速找到 | 标题搜索（防抖、清除、空结果、中文/大小写/特殊字符、与筛选组合） | Sprint B | OPEN |
-| GOD-004 | 无“全部/当前关注/在 Now”注意力筛选 | 无法稳定只看关注或 Now 对象 | 高频注意力筛选，Focus 用正式 FocusSelection | Sprint B/C | OPEN |
-| GOD-005 | 无类型/Lifecycle/Condition 筛选 | 无法盘点“进行中的项目”或已完成/取消 | 类型、Lifecycle、Condition 筛选；关闭对象不暗示当前 Condition | Sprint B | OPEN |
-| GOD-006 | 无稳定排序 | 无法按更新时间/标题/期限组织 | 至少一种稳定默认排序 + 用户可调整 | Sprint B | OPEN |
-| GOD-007 | 无结果计数、清除筛选、加载/失败 scoped state | 用户不知道对象为何消失、状态不可信 | 当前条件/计数清楚；空结果中性；加载与失败 scoped | Sprint B | OPEN |
-| GOD-008 | 列表无“打开原文”；只有 Now 卡与 Project 卡有 | 旧对象必须先加入 Now 才能回原文 | 每个有来源对象可直接打开原文，复用 Durable Origin；无来源时诚实 fallback | Sprint A | OPEN |
-| GOD-009 | 行内无条件区分 Lifecycle 与 Condition；代码对所有 lifecycle 都渲染 Condition | 关闭对象显示“进行中/可以行动”误导 | OPEN 显示 Condition；非 OPEN 默认只显示 Lifecycle；历史 Condition 只进技术层 | Sprint A | OPEN |
+| GOD-002 | 每行平铺取消/完成/梳理/升级/编辑/调整等按钮，51 个可见按钮 | 按钮墙、纵向浏览成本高、误操作风险 | 默认不铺开全部操作；次级操作进入 overflow/展开 | Sprint A/D | PARTIAL（Sprint A 已移入“更多”；D 细化动态动作集） |
+| GOD-003 | 无标题搜索 | 记得部分标题的旧对象无法快速找到 | 标题搜索（防抖、清除、空结果、中文/大小写/特殊字符、与筛选组合） | Sprint B | DONE_DESKTOP |
+| GOD-004 | 无“全部/当前关注/在 Now”注意力筛选 | 无法稳定只看关注或 Now 对象 | 高频注意力筛选，Focus 用正式 FocusSelection | Sprint B/C | PARTIAL（Sprint B 控件就绪；正式 Focus 数据在 C 接通） |
+| GOD-005 | 无类型/Lifecycle/Condition 筛选 | 无法盘点“进行中的项目”或已完成/取消 | 类型、Lifecycle、Condition 筛选；关闭对象不暗示当前 Condition | Sprint B | DONE_DESKTOP |
+| GOD-006 | 无稳定排序 | 无法按更新时间/标题/期限组织 | 至少一种稳定默认排序 + 用户可调整 | Sprint B | DONE_DESKTOP |
+| GOD-007 | 无结果计数、清除筛选、加载/失败 scoped state | 用户不知道对象为何消失、状态不可信 | 当前条件/计数清楚；空结果中性；加载与失败 scoped | Sprint B | DONE_DESKTOP（失败 scoped 态随现有 relationError/受限态机制） |
+| GOD-008 | 列表无“打开原文”；只有 Now 卡与 Project 卡有 | 旧对象必须先加入 Now 才能回原文 | 每个有来源对象可直接打开原文，复用 Durable Origin；无来源时诚实 fallback | Sprint A | DONE_DESKTOP（缺 Anchor 显示“来源需重新连接”） |
+| GOD-009 | 行内无条件区分 Lifecycle 与 Condition；代码对所有 lifecycle 都渲染 Condition | 关闭对象显示“进行中/可以行动”误导 | OPEN 显示 Condition；非 OPEN 默认只显示 Lifecycle；历史 Condition 只进技术层 | Sprint A | DONE（单测覆盖关闭对象矩阵；Desktop 数据全 OPEN，历史 Condition 合同在 E 复核） |
 | GOD-010 | 列表无关注标记/加入/移出入口；现有入口只在 Now/Re-entry/Block 右键 | 不在 Now 的旧对象无法主动关注 | 目录内加入/移出关注；关注筛选；不改 Lifecycle/Condition | Sprint C | OPEN |
 | GOD-011 | 列表无 Now 暗示（分区） | 无法区分“正在 Now / 接下来 / 等待” | 低权重 Now 标记与分区；不写回领域 | Sprint C | OPEN |
 | GOD-012 | 无归档 UI（领域已支持 COMPLETED/CANCELLED→ARCHIVED） | 已完成/已取消对象无法归档 | 若合同完整，在次级操作提供归档；仍走 Proposal/Review | Sprint D | OPEN |

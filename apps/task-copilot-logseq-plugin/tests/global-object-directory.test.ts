@@ -4,7 +4,7 @@ import test from "node:test";
 import type { V2Anchor, V2ManagedObject } from "@task-copilot/domain";
 import type { ServiceFocusSelection, ServiceNowWork } from "@task-copilot/service-client";
 
-import { projectGlobalObjectDirectory } from "../src/global-object-directory.ts";
+import { defaultDirectoryFilterState, filterAndSortDirectoryEntries, projectGlobalObjectDirectory } from "../src/global-object-directory.ts";
 
 function object(overrides: Partial<V2ManagedObject> = {}): V2ManagedObject {
   return {
@@ -108,4 +108,66 @@ test("due and updated summaries stay machine-readable in the projection", () => 
   const entries = projectGlobalObjectDirectory({ objects, anchors: [], ownerships: [], focusSelections: [] });
   assert.equal(entries[0]?.dueAt, "2026-08-05T00:00:00.000Z");
   assert.equal(entries[0]?.updatedAt, "2026-07-31T00:00:00.000Z");
+});
+
+test("directory filters combine search, focus, type, lifecycle and condition", () => {
+  const objects = [
+    object({ objectId: "task-a", objectType: "TASK", text: "整理RedHat题目", lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-31T00:00:00.000Z" }),
+    object({ objectId: "task-b", objectType: "TASK", text: "等待发布窗口", lifecycle: "OPEN", condition: { kind: "WAITING", waitingFor: "窗口", expectedResult: "确认", reviewAt: "2026-08-02T00:00:00.000Z" }, updatedAt: "2026-07-30T00:00:00.000Z" }),
+    object({ objectId: "project-done", objectType: "PROJECT", text: "已交付项目", lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-29T00:00:00.000Z" }),
+  ];
+  const focusSelections: ServiceFocusSelection[] = [{ objectId: "task-a", selectedAt: "2026-08-01T00:00:00.000Z", rank: 0 }];
+  const testNowWork: ServiceNowWork = {
+    generatedAt: "2026-08-01T00:00:00.000Z",
+    focus: [{ objectId: "task-a", objectType: "TASK", version: 1, text: "整理RedHat题目", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-31T00:00:00.000Z", reason: "已加入当前关注" }],
+    next: [{ objectId: "task-b", objectType: "TASK", version: 1, text: "等待发布窗口", condition: { kind: "WAITING", waitingFor: "窗口", expectedResult: "确认", reviewAt: "2026-08-02T00:00:00.000Z" }, updatedAt: "2026-07-30T00:00:00.000Z", reason: "近期更新" }],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  const entries = projectGlobalObjectDirectory({ objects, anchors: [], ownerships: [], focusSelections, nowWork: testNowWork });
+  const state = defaultDirectoryFilterState();
+
+  assert.deepEqual(filterAndSortDirectoryEntries(entries, state).map((entry) => entry.objectId), ["task-a", "task-b", "project-done"]);
+
+  const searched = filterAndSortDirectoryEntries(entries, { ...state, search: "REDHAT" });
+  assert.deepEqual(searched.map((entry) => entry.objectId), ["task-a"]);
+
+  const focused = filterAndSortDirectoryEntries(entries, { ...state, focus: "focus" });
+  assert.deepEqual(focused.map((entry) => entry.objectId), ["task-a"]);
+
+  const inNow = filterAndSortDirectoryEntries(entries, { ...state, focus: "now" });
+  assert.deepEqual(inNow.map((entry) => entry.objectId), ["task-a", "task-b"]);
+
+  const typed = filterAndSortDirectoryEntries(entries, { ...state, type: "PROJECT" });
+  assert.deepEqual(typed.map((entry) => entry.objectId), ["project-done"]);
+
+  const lifecycle = filterAndSortDirectoryEntries(entries, { ...state, lifecycle: "COMPLETED" });
+  assert.deepEqual(lifecycle.map((entry) => entry.objectId), ["project-done"]);
+
+  const waiting = filterAndSortDirectoryEntries(entries, { ...state, condition: "WAITING" });
+  assert.deepEqual(waiting.map((entry) => entry.objectId), ["task-b"]);
+
+  const combined = filterAndSortDirectoryEntries(entries, { ...state, focus: "focus", type: "TASK", condition: "ACTIONABLE" });
+  assert.deepEqual(combined.map((entry) => entry.objectId), ["task-a"]);
+
+  const none = filterAndSortDirectoryEntries(entries, { ...state, search: "不存在" });
+  assert.deepEqual(none, []);
+});
+
+test("directory sorts cover title, type, lifecycle, due and focus priority", () => {
+  const objects = [
+    object({ objectId: "b", text: "贝塔", objectType: "MINI_PROJECT", updatedAt: "2026-07-30T00:00:00.000Z" }),
+    object({ objectId: "a", text: "阿尔法", objectType: "TASK", dueAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" }),
+    object({ objectId: "c", text: "伽马", objectType: "PROJECT", lifecycle: "COMPLETED", updatedAt: "2026-08-01T00:00:00.000Z" }),
+    object({ objectId: "d", text: "德尔塔", objectType: "DECISION", dueAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-07-28T00:00:00.000Z" }),
+  ];
+  const focusSelections: ServiceFocusSelection[] = [{ objectId: "d", selectedAt: "2026-08-01T00:00:00.000Z", rank: 0 }];
+  const entries = projectGlobalObjectDirectory({ objects, anchors: [], ownerships: [], focusSelections });
+  const state = defaultDirectoryFilterState();
+
+  assert.deepEqual(filterAndSortDirectoryEntries(entries, { ...state, sort: "title" }).map((entry) => entry.objectId), ["a", "b", "d", "c"]);
+  assert.deepEqual(filterAndSortDirectoryEntries(entries, { ...state, sort: "type" }).map((entry) => entry.objectId), ["c", "b", "a", "d"]);
+  assert.deepEqual(filterAndSortDirectoryEntries(entries, { ...state, sort: "lifecycle" }).map((entry) => entry.objectId), ["a", "b", "d", "c"]);
+  assert.deepEqual(filterAndSortDirectoryEntries(entries, { ...state, sort: "due" }).map((entry) => entry.objectId), ["d", "a", "c", "b"]);
+  assert.deepEqual(filterAndSortDirectoryEntries(entries, { ...state, sort: "focus" }).map((entry) => entry.objectId), ["d", "c", "a", "b"]);
 });

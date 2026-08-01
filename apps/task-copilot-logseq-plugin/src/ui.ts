@@ -7,7 +7,7 @@ import type {
 } from "@task-copilot/application";
 import { allowedPhaseTransitions, type AttentionSignal, type DomainEvent, type ManagedObject, type Proposal, type SemanticCommit, type SemanticOperation, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2PrimaryOwnership, type V2ProjectClosure } from "@task-copilot/domain";
 import type { ServiceConditionUndoPreparation, ServiceFocusSelection, ServiceNowWork, ServiceProjectClosureEvidenceDraft, ServiceProjectClosureUserJudgments, ServiceProjectCreationPreview, ServiceSemanticCommit, ServiceStoredProposal } from "@task-copilot/service-client";
-import { projectGlobalObjectDirectory, type GlobalObjectDirectoryEntry } from "./global-object-directory.ts";
+import { defaultDirectoryFilterState, filterAndSortDirectoryEntries, projectGlobalObjectDirectory, type DirectoryFilterState, type DirectoryFocusFilter, type GlobalObjectDirectoryEntry } from "./global-object-directory.ts";
 import { renderV2ExplicitCandidateDiscoveryPanel, type V2ExplicitCandidatePanelState } from "./v2-explicit-candidate-discovery.ts";
 import { lowRiskApplyEligibility } from "./v2-low-risk-apply.ts";
 import type { PageContextSnapshot } from "./page-context-controller.ts";
@@ -139,6 +139,7 @@ export interface UiModel {
   v2Objects?: V2ManagedObject[];
   v2PrimaryAnchors?: V2Anchor[];
   v2FocusSelections?: ServiceFocusSelection[];
+  v2DirectoryFilter?: DirectoryFilterState;
   v2Associations?: V2Association[];
   v2PrimaryOwnerships?: V2PrimaryOwnership[];
   v2RelationLoadError?: string;
@@ -542,6 +543,47 @@ function renderDirectoryRow(model: UiModel, entry: GlobalObjectDirectoryEntry): 
   </article>`;
 }
 
+function renderDirectoryToolbar(
+  model: UiModel,
+  filter: DirectoryFilterState,
+  total: number,
+  visible: number,
+): string {
+  const focusOptions: Array<{ value: DirectoryFocusFilter; label: string }> = [
+    { value: "all", label: "全部" },
+    { value: "focus", label: "当前关注" },
+    { value: "now", label: "在 Now" },
+  ];
+  const focusChips = focusOptions.map((option) => {
+    const selected = filter.focus === option.value;
+    return `<button type="button" class="${selected ? "primary" : "quiet"}" data-action="v2-directory-filter-focus" data-value="${option.value}" aria-pressed="${selected ? "true" : "false"}">${escapeHtml(option.label)}</button>`;
+  }).join("");
+  const select = (field: string, label: string, options: Array<[string, string]>, value: string): string =>
+    `<label class="directory-filter-field">${escapeHtml(label)}<select data-field="${field}" aria-label="${escapeHtml(label)}">${options.map(([optionValue, optionLabel]) => `<option value="${escapeHtml(optionValue)}"${optionValue === value ? " selected" : ""}>${escapeHtml(optionLabel)}</option>`).join("")}</select></label>`;
+  const typeOptions: Array<[string, string]> = [["ALL", "全部类型"], ["AREA", "领域"], ["PROJECT", "项目"], ["MINI_PROJECT", "小项目"], ["TASK", "任务"], ["DECISION", "决定"], ["OUTPUT", "成果"]];
+  const lifecycleOptions: Array<[string, string]> = [["ALL", "全部状态"], ["OPEN", "进行中"], ["COMPLETED", "已完成"], ["CANCELLED", "已取消"], ["ARCHIVED", "已归档"]];
+  const conditionOptions: Array<[string, string]> = [["ALL", "全部情况"], ["ACTIONABLE", "可以行动"], ["WAITING", "等待中"], ["BLOCKED", "受阻"], ["PAUSED", "已暂停"]];
+  const sortOptions: Array<[string, string]> = [["updated", "最近更新"], ["title", "标题"], ["type", "类型"], ["lifecycle", "状态"], ["due", "期限"], ["focus", "关注优先"]];
+  const active = filter.search.trim() !== "" || filter.focus !== "all" || filter.type !== "ALL" || filter.lifecycle !== "ALL" || filter.condition !== "ALL" || filter.sort !== "updated";
+  const count = active
+    ? `<p class="directory-count" aria-live="polite">已筛选 ${visible} / ${total} 项</p>`
+    : `<p class="directory-count" aria-live="polite">${total} 项</p>`;
+  return `<div class="directory-toolbar">
+    <label class="directory-search-field">搜索标题<input data-field="v2DirectorySearch" value="${escapeHtml(filter.search)}" placeholder="搜索标题" aria-label="搜索标题"></label>
+    <div class="directory-focus-chips" role="group" aria-label="注意力筛选">${focusChips}</div>
+    <div class="directory-filter-fields">${select("v2DirectoryTypeFilter", "类型", typeOptions, filter.type)}${select("v2DirectoryLifecycleFilter", "状态", lifecycleOptions, filter.lifecycle)}${select("v2DirectoryConditionFilter", "当前情况", conditionOptions, filter.condition)}${select("v2DirectorySort", "排序", sortOptions, filter.sort)}</div>
+    ${active ? button("清除筛选", "v2-directory-clear-filters", undefined, "quiet") : ""}
+    ${count}
+  </div>`;
+}
+
+function renderDirectoryEmpty(filter: DirectoryFilterState): string {
+  const active = filter.search.trim() !== "" || filter.focus !== "all" || filter.type !== "ALL" || filter.lifecycle !== "ALL" || filter.condition !== "ALL";
+  return active
+    ? `<div class="empty directory-empty"><strong>没有找到匹配的事项</strong><p class="muted">可以清除筛选或换一个标题再试；正式记录没有被修改。</p>${button("清除筛选", "v2-directory-clear-filters", undefined, "primary")}</div>`
+    : empty("还没有正式事项", "从“待整理”或“待我确认”开始，或在下方创建领域/项目。");
+}
+
 function renderObjects(model: UiModel): string {
   const relationError = model.v2RelationLoadError ? `<section class="card error" role="alert"><strong>关系投影暂不可用</strong><p>${escapeHtml(model.v2RelationLoadError)}</p><p class="muted">正式对象与其他工作区仍可使用；没有执行关系写入。</p></section>` : "";
   const projectCreator = `<section class="card project-creator" aria-label="创建项目"><div class="eyebrow">项目梳理</div><h3>新建项目</h3><p class="muted">先说清想得到的结果、范围、完成证据和当前推进；确认最终阅读结果后再进入“待我确认”。</p>${button("开始梳理项目", "v2-project-creation-grill-open", "BLANK", "primary", model.v2ProjectCreationGrillAvailable !== true)}</section>`;
@@ -561,7 +603,9 @@ function renderObjects(model: UiModel): string {
       focusSelections: model.v2FocusSelections ?? [],
       ...(model.v2NowWork ? { nowWork: model.v2NowWork } : {}),
     });
-    const list = `<section aria-label="全部事项"><h2>全部事项</h2><p class="muted">查看任务、小项目、项目和其他正式记录。</p><p class="directory-count" aria-live="polite">${entries.length} 项</p><div class="object-list directory-list">${entries.map((entry) => renderDirectoryRow(model, entry)).join("")}</div></section>`;
+    const filter = model.v2DirectoryFilter ?? defaultDirectoryFilterState();
+    const visible = filterAndSortDirectoryEntries(entries, filter);
+    const list = `<section aria-label="全部事项"><h2>全部事项</h2><p class="muted">查看任务、小项目、项目和其他正式记录。</p>${renderDirectoryToolbar(model, filter, entries.length, visible.length)}${visible.length ? `<div class="object-list directory-list">${visible.map((entry) => renderDirectoryRow(model, entry)).join("")}</div>` : renderDirectoryEmpty(filter)}</section>`;
     const context = `<details class="objects-advanced objects-context"><summary>查看所属与相关内容（${(model.v2PrimaryOwnerships?.length ?? 0) + (model.v2Associations?.length ?? 0)} 条）</summary><div class="objects-advanced-body">${ownershipList}${associationList}</div></details>`;
     return `${relationError}${list}${context}${advanced}`;
   }

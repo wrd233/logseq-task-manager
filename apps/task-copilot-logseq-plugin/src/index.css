@@ -171,6 +171,14 @@
 #task-copilot-personal-mvp-root .directory-row-more[open] > summary { color: var(--text); margin-bottom: 8px; }
 #task-copilot-personal-mvp-root .directory-row-more .actions { flex-wrap: wrap; }
 #task-copilot-personal-mvp-root .directory-source-issue { font-size: 11px; }
+#task-copilot-personal-mvp-root .directory-toolbar { display: grid; gap: 8px; margin-bottom: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+#task-copilot-personal-mvp-root .directory-search-field { display: grid; gap: 3px; min-width: 0; }
+#task-copilot-personal-mvp-root .directory-search-field input { width: 100%; box-sizing: border-box; }
+#task-copilot-personal-mvp-root .directory-focus-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+#task-copilot-personal-mvp-root .directory-filter-fields { display: flex; flex-wrap: wrap; gap: 8px; }
+#task-copilot-personal-mvp-root .directory-filter-field { display: grid; gap: 3px; min-width: 0; }
+#task-copilot-personal-mvp-root .directory-filter-field select { max-width: 100%; }
+#task-copilot-personal-mvp-root .directory-empty { min-height: 180px; }
 #task-copilot-personal-mvp-root .objects-advanced { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 #task-copilot-personal-mvp-root .objects-advanced > summary { color: var(--muted); font-weight: 600; }
 #task-copilot-personal-mvp-root .objects-advanced[open] > summary { color: var(--text); margin-bottom: 12px; }
