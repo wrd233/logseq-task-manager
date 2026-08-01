@@ -43,6 +43,8 @@
 - `tmp/runtime/cognitive-ux-hardening/current/02b-confirmation-undo-light-1000.png`
 - `tmp/runtime/cognitive-ux-hardening/current/03-grill-question-first-light-1000.png`
 - `tmp/runtime/cognitive-ux-hardening/current/04-objects-user-language-light-1000.png`
+- `tmp/runtime/cognitive-ux-hardening/current/06-objects-dark-760.png`、`07-confirmation-dark-760.png`
+- `tmp/runtime/cognitive-ux-hardening/current/08-objects-light-760.png`、`09-confirmation-light-760.png`
 
 ### 机器可读证据包（`tmp/runtime/cognitive-ux-hardening/current/bundles/<state>/`）
 
