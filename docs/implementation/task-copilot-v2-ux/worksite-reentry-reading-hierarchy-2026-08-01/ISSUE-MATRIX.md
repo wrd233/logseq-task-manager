@@ -16,7 +16,7 @@
 | WRH-P2-02 | P2 | Now Shell | Banner/Tab/筛选/卡片密度高 | 首屏突出重点项，系统结构降权 | DESKTOP_BEHAVIOR_PASS | sprint-d bundles + computed styles |
 | WRH-P2-03 | P2 | Objects | 默认页面仍像对象管理后台 | 默认推进层；高级结构层 | DESKTOP_BEHAVIOR_PASS | sprint-e bundles |
 | WRH-P2-04 | P2 | Active Surface | 宿主背景轻微语义竞争 | 背景 inert 且视觉降权 | DESKTOP_BEHAVIOR_PASS | sprint-f/19 |
-| WRH-P3-01 | P3 | Microcopy | 状态/依据/时间可更用户化 | 可继续、为什么现在显示它、本地时间 | PARTIAL（核心文案已完成；其余随使用观察） | sprint-f bundles + 单测 |
+| WRH-P3-01 | P3 | Microcopy | 状态/依据/时间可更用户化 | 可继续、为什么现在显示它、本地时间 | PARTIAL→CLOSED（核心项完成；剩余随使用观察） | sprint-f bundles + 单测 + sprint-g/21 |
 | WRH-P3-02 | P3 | Research | 陌生用户对工作记录入口的理解未验证 | 新手发现性研究 | DEFERRED_CANDIDATE | 同交接包 |
 
 ## 收口规则

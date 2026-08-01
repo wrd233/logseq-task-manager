@@ -108,6 +108,27 @@ Now 结论文案与相对时间由自动测试覆盖（`userFacingRelativeDateTi
 - 原子提交：`e10123c`（A）、`2fb414e`（B）、`5ef0040`（C）、`bd8496f`（D）、
   `62ed0dd`（E）、`824a420`（F）。
 
+## §16.1 命名交付物
+
+`docs/implementation/task-copilot-v2-ux/worksite-reentry-reading-hierarchy-2026-08-01/`
+
+- `NOW_READING_PATH_REPORT.md`
+- `WORKSITE_PREVIEW_CONTRACT.md`
+- `SEMANTIC_HIERARCHY_SPEC.md`
+- `PERFORMANCE_REPORT.md`
+- `ACCESSIBILITY_REPORT.md`
+
+## Sprint G 补充场景证据（2026-08-01）
+
+`tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-g/`
+
+| 场景 | 文件 | 内容 |
+|---|---|---|
+| 长标题 | `07-now-long-title-light-1000/` | 长标题在 705px 内容列完整换行 |
+| Waiting/到复查 | `14-now-waiting-dark-760/`、`14b-now-waiting-light-1000/` | 真实 WAITING + 过期复查进入“需要回看”（证据后已恢复 ACTIONABLE） |
+| Reload 恢复 | `16-now-reload-restored-light-1000/` | Plugin Manager 真实 reload 后 iframe 仍 r12、Now 恢复 |
+| Review 时间 | `21-review-time-light-1000/` | eyebrow 显示“待我确认 · 昨天 20:35” |
+
 ## Sprint D after 证据（2026-08-01）
 
 `tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-d/`

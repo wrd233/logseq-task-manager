@@ -29,6 +29,10 @@
 | 筛选展开 | `13b-now-controls-open-light-1000/` |
 | Objects 默认/高级层 | `17/18/18b` |
 | Confirmation 宿主隔离 | `19-confirmation-host-isolation-dark-760/` |
+| 长标题 | `sprint-g/07-now-long-title-light-1000/` |
+| Waiting/到复查 | `sprint-g/14-now-waiting-dark-760/`、`sprint-g/14b-now-waiting-light-1000/` |
+| Reload 恢复 | `sprint-g/16-now-reload-restored-light-1000/` |
+| Review 时间 | `sprint-g/21-review-time-light-1000/` |
 
 每张截图目录内含：`visible-text.txt`、`accessibility-tree.txt`、
 `interactive-elements.json`、`ui-state.json`、`computed-style.json`、
