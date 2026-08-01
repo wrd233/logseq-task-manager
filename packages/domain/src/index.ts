@@ -5,6 +5,9 @@ export * from "./v2-proposal.ts";
 export * from "./v2-candidate.ts";
 export * from "./legacy-migration.ts";
 export * from "./agent-governance.ts";
+export * from "./agent-governance-gate.ts";
+export * from "./agent-governance-context.ts";
+export * from "./agent-governance-router.ts";
 
 export type ObjectType =
   | "TASK"

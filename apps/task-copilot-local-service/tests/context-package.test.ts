@@ -4,7 +4,7 @@ import test from "node:test";
 
 import type { V2Anchor, V2Association, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
 
-import { buildContextPackage, contextPackageFingerprint, type ContextPackageSource } from "../src/context-package.ts";
+import { buildAgentGovernanceContextPackage, buildContextPackage, contextPackageFingerprint, type ContextPackageSource } from "../src/context-package.ts";
 
 function object(objectId: string, objectType: V2ManagedObject["objectType"], text: string): V2ManagedObject {
   return { objectId, objectType, version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text, createdAt: "2026-07-21T08:00:00.000Z", updatedAt: "2026-07-21T08:00:00.000Z", sourceOrCreationEvent: "test" };
@@ -55,4 +55,31 @@ test("Project Context Package contains bounded formal descendants, versions, has
   assert.equal(JSON.parse(graph.files["graph/block.json"] ?? "").snapshot.scopeHash, "22222222");
   assert.deepEqual(JSON.parse(graph.files["modify-scope.json"] ?? "").targets, [{ kind: "BLOCK", id: "block-task-1", hash: "11111111" }]);
   assert.throws(() => buildContextPackage(source, skills, { kind: "page", id: "Project/Test" }), /实时 Logseq/);
+
+  const agentContext = buildAgentGovernanceContextPackage(graph, {
+    tier: "LOCAL",
+    tokenBudget: 2_000,
+    rule: {
+      id: "EXPLICIT-TASK-01",
+      displayName: "明确任务标记",
+      shortReason: "来源包含明确任务标记。",
+      scope: ["EXPLICIT_TASK"],
+      requiredEvidence: ["SOURCE_ROOT_EXPLICIT_TASK_MARKER", "NO_DUPLICATE"],
+      counterSignals: ["MULTIPLE_TARGETS"],
+      recommendedOutcome: "CREATE_OBJECT",
+      maxAuthority: "AUTO_APPLY",
+      riskLevel: "R1",
+      positiveExamples: ["[Task] 校验告警"],
+      boundaryExamples: ["校验告警"],
+      negativeExamples: ["告警校验说明"],
+    },
+    counterSignals: [],
+    recentFeedback: [],
+  });
+  assert.equal(agentContext.tier, "LOCAL");
+  assert.equal(agentContext.sections[0]?.kind, "SOURCE_ROOT");
+  assert.match(agentContext.sections[0]?.content ?? "", /\[任务\] 校验告警/);
+  assert.deepEqual(agentContext.requiredEvidenceOmitted, []);
+  assert.equal(agentContext.sections.some(({ kind }) => kind === "SKILL_RULE"), true);
+  assert.equal(agentContext.sections.some(({ kind }) => kind === "FORMAL_FACTS"), true);
 });

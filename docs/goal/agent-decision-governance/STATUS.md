@@ -3,7 +3,7 @@
 ```yaml
 goal_state: IN_PROGRESS
 base_commit: 7f23564131dbaf5bdcb04c21b80ddb7abd9d48e0
-current_commit: ca5c027
+current_commit: 626617e
 current_phase: PHASE_2_GATE_CONTEXT_SKILL_ROUTER
 completed:
   - Goal Objective and full user detailed design read
@@ -19,8 +19,14 @@ completed:
   - runtime trust-boundary validators for Decision, Event, Review Signal and Rule Authorization
   - bounded authenticated Local Service projections and read-only CLI commands for decisions, events, signals and rules
   - governance rows verified across SQLite reload, backup and offline restore
+  - deterministic gate with format-only suppression, strong/weak signals, bounded Source Root selection and EXPANDED/batch escalation
+  - independently bounded 3-second latest-value queue with cancellation, capacity diagnostics and failure isolation
+  - LOCAL/EXPANDED Context Package adapter reusing live Graph excerpts and SQLite formal facts with explicit token/truncation metrics
+  - internal hash-addressed governance Skill with six stable Rule IDs, unique Chinese names, evidence/counter-signals and external-Skill isolation
+  - strict Structured Decision Output validator rejects unknown confidence/authority fields
+  - deterministic Risk Router enforces EXPERIMENT zero-write, evidence/counter-signal/pause/version gates and high-impact never-auto
 remaining_automatable_work:
-  - implement Phase 2 gate/source/context/Skill/router and zero-write Shadow runtime
+  - finish Phase 2 shared Graph observation wiring, Provider orchestration, revalidation and zero-write Shadow runtime
   - implement Phases 3 through 7 in dependency order
 runtime_checks_pending:
   - consolidated Desktop scenarios A through J
@@ -40,6 +46,7 @@ active_risks:
   - current Plugin is loaded from a prior global-object-directory build, not this Goal build
   - Provider is configured but has not been probed in this Goal
   - live formal SQLite remains schema v12 until the consolidated explicit migration checkpoint; implementation tests use isolated v13 fixtures
+  - Guarded R1 routing is compiled but disabled until the honest Shadow time gate and explicit user authorization
 user_actions_required: []
 resume_instruction: Read this directory, ADR 0009, and current git status; continue from the first incomplete acceptance row without touching the pre-existing package.json change.
 ```

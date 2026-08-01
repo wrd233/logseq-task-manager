@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { listTaskCopilotSkills, readTaskCopilotSkill, skillRootForModuleUrl } from "../src/skill-catalog.ts";
+import { listTaskCopilotSkills, readAgentGovernanceSkill, readTaskCopilotSkill, skillRootForModuleUrl } from "../src/skill-catalog.ts";
 
 test("Skill root resolves beside both build and installed runtime bundles", () => {
   assert.equal(skillRootForModuleUrl("file:///Applications/Task%20Copilot/dist/service.js"), "/Applications/Task Copilot/dist/skills");
@@ -57,4 +57,25 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   assert.match(projectCreation?.content ?? "", /Never copy an Object ID.*Block\/Page UUID/is);
   assert.equal(await readTaskCopilotSkill("../task-copilot-core"), undefined);
   assert.equal(await readTaskCopilotSkill("missing"), undefined);
+});
+
+test("internal governance Skill is hash-addressed, validated, and isolated from external Agent Skills", async () => {
+  const external = await listTaskCopilotSkills();
+  assert.equal(external.some(({ name }) => name === ("agent-decision-governance" as never)), false);
+
+  const internal = await readAgentGovernanceSkill();
+  assert.equal(internal.name, "agent-decision-governance");
+  assert.equal(internal.version, "1.0.0");
+  assert.match(internal.sha256, /^[0-9a-f]{64}$/);
+  assert.equal(internal.manifest.outputSchemaVersion, "agent-decision-output-v1");
+  assert.deepEqual(internal.manifest.rules.map(({ id, displayName }) => ({ id, displayName })), [
+    { id: "EXPLICIT-TASK-01", displayName: "明确任务标记" },
+    { id: "ORDINARY-CONTENT-01", displayName: "明确保留普通内容" },
+    { id: "CANDIDATE-DUPLICATE-01", displayName: "候选事项去重" },
+    { id: "CANDIDATE-DEFER-01", displayName: "候选事项延后" },
+    { id: "WORKSITE-CONTEXT-01", displayName: "工作现场上下文关联" },
+    { id: "REVIEW-SIGNAL-01", displayName: "复盘弱信号" },
+  ]);
+  assert.match(internal.content, /cannot grant itself authority/i);
+  assert.match(internal.content, /never writes Graph or formal business state directly/i);
 });

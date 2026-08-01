@@ -241,6 +241,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   assert.equal(doctorReport.checks?.find(({ component }) => component === "BACKUP")?.code, "BACKUP_NONE");
   assert.equal(doctorReport.checks?.find(({ component }) => component === "GRAPH")?.code, "GRAPH_READ_BRIDGE_NOT_CONNECTED");
   assert.equal(doctorReport.checks?.find(({ component }) => component === "SEMANTIC_COMMIT")?.status, "PASS");
+  assert.deepEqual(doctorReport.checks?.find(({ component }) => component === "SKILL_PROFILE"), { component: "SKILL_PROFILE", status: "PASS", code: "BUILTIN_AND_GOVERNANCE_SKILLS_VALID", count: 6 });
   assert.deepEqual(doctorReport.summary, { pass: 10, warn: 1, fail: 0, info: 3 });
   assert.equal(doctorReport.limitations?.length, 3);
   await service.close();

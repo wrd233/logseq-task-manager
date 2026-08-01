@@ -1,6 +1,15 @@
 import { createHash } from "node:crypto";
 
-import type { V2Anchor, V2Association, V2ManagedObject, V2PrimaryOwnership } from "@task-copilot/domain";
+import {
+  buildAgentDecisionContext,
+  type AgentContextTier,
+  type AgentDecisionContextPackage,
+  type AgentGovernanceRule,
+  type V2Anchor,
+  type V2Association,
+  type V2ManagedObject,
+  type V2PrimaryOwnership,
+} from "@task-copilot/domain";
 import type { ServiceGraphSnapshot } from "@task-copilot/service-client";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
@@ -22,6 +31,14 @@ export interface ContextPackageManifest {
 export interface ServiceContextPackage {
   manifest: ContextPackageManifest;
   files: Record<string, string>;
+}
+
+export interface BuildAgentGovernanceContextPackageInput {
+  tier: AgentContextTier;
+  tokenBudget: number;
+  rule: AgentGovernanceRule;
+  counterSignals: string[];
+  recentFeedback: string[];
 }
 
 export interface ContextPackageSource {
@@ -133,4 +150,81 @@ export function buildContextPackage(
 
 export function contextPackageFingerprint(value: ServiceContextPackage): string {
   return createHash("sha256").update(stableJson(value)).digest("hex");
+}
+
+function estimatedTokens(content: string): number {
+  return Math.max(1, Math.ceil(Buffer.byteLength(content, "utf8") / 4));
+}
+
+function graphRootContent(contextPackage: ServiceContextPackage): string {
+  const path = contextPackage.files["graph/block.json"] !== undefined ? "graph/block.json" : "graph/page.json";
+  const raw = contextPackage.files[path];
+  if (!raw) throw contextError("AGENT_CONTEXT_GRAPH_REQUIRED", "Agent LOCAL/EXPANDED Context 必须复用实时 Graph Snapshot。");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw contextError("AGENT_CONTEXT_GRAPH_INVALID", "Context Package 中的 Graph Snapshot 不是合法 JSON。");
+  }
+  const snapshot = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? (parsed as { snapshot?: unknown }).snapshot
+    : undefined;
+  const blocks = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+    ? (snapshot as { blocks?: unknown }).blocks
+    : undefined;
+  if (!Array.isArray(blocks)) throw contextError("AGENT_CONTEXT_GRAPH_INVALID", "Graph Snapshot 缺少受控 Blocks。");
+  const root = blocks.find((value) => value && typeof value === "object" && !Array.isArray(value) && (value as { relation?: unknown }).relation === "ROOT") ?? blocks[0];
+  if (!root || typeof root !== "object" || Array.isArray(root)) throw contextError("AGENT_CONTEXT_SOURCE_ROOT_MISSING", "Graph Snapshot 缺少 Source Root。");
+  const uuid = (root as { uuid?: unknown }).uuid;
+  const content = (root as { content?: unknown }).content;
+  if (typeof uuid !== "string" || !uuid.trim() || typeof content !== "string" || !content.trim()) {
+    throw contextError("AGENT_CONTEXT_SOURCE_ROOT_MISSING", "Graph Snapshot Source Root 缺少身份或正文。");
+  }
+  return stableJson({ externalId: uuid, content, scopeHash: (snapshot as { scopeHash?: unknown }).scopeHash });
+}
+
+/**
+ * Reuses the existing read-only Context Package as the single source for
+ * Agent LOCAL/EXPANDED evidence. It adds no Graph cache or second retrieval
+ * index; token clipping remains explicit and is consumed by the Risk Router.
+ */
+export function buildAgentGovernanceContextPackage(
+  contextPackage: ServiceContextPackage,
+  input: BuildAgentGovernanceContextPackageInput,
+): AgentDecisionContextPackage {
+  const sourceRoot = graphRootContent(contextPackage);
+  const formalFacts = stableJson({
+    objects: contextPackage.files["objects.json"],
+    anchors: contextPackage.files["anchors.json"],
+    relations: contextPackage.files["relations.json"],
+    versions: contextPackage.files["versions.json"],
+  });
+  const rule = stableJson(input.rule);
+  const counterSignals = stableJson(input.counterSignals);
+  const feedback = stableJson(input.recentFeedback);
+  const graphExcerpt = contextPackage.files["graph/block.json"] ?? contextPackage.files["graph/page.json"] ?? "{}";
+  const relatedDecisions = contextPackage.files["decisions.json"] ?? "{}";
+  const retrievalCandidates = contextPackage.files["retrieval-candidates.json"] ?? "{}";
+  const optionalSections = input.tier === "LOCAL"
+    ? [
+      { id: "graph-excerpt", kind: "SUBTREE" as const, content: graphExcerpt, relevance: 80 },
+      { id: "related-decisions", kind: "RELATED_DECISIONS" as const, content: relatedDecisions, relevance: 60 },
+    ]
+    : [
+      { id: "graph-excerpt", kind: "PAGE_CONTEXT" as const, content: graphExcerpt, relevance: 90 },
+      { id: "retrieval-candidates", kind: "CANDIDATE_TARGETS" as const, content: retrievalCandidates, relevance: 80 },
+      { id: "related-decisions", kind: "RELATED_DECISIONS" as const, content: relatedDecisions, relevance: 70 },
+    ];
+  return buildAgentDecisionContext({
+    tier: input.tier,
+    tokenBudget: input.tokenBudget,
+    sections: [
+      { id: "source-root", kind: "SOURCE_ROOT", content: sourceRoot, estimatedTokens: estimatedTokens(sourceRoot), required: true, relevance: 100 },
+      { id: `skill-rule:${input.rule.id}`, kind: "SKILL_RULE", content: rule, estimatedTokens: estimatedTokens(rule), required: true, relevance: 100 },
+      { id: "formal-facts", kind: "FORMAL_FACTS", content: formalFacts, estimatedTokens: estimatedTokens(formalFacts), required: true, relevance: 95 },
+      { id: "counter-signals", kind: "COUNTER_SIGNALS", content: counterSignals, estimatedTokens: estimatedTokens(counterSignals), required: true, relevance: 100 },
+      { id: "recent-feedback", kind: "USER_FEEDBACK", content: feedback, estimatedTokens: estimatedTokens(feedback), required: true, relevance: 100 },
+      ...optionalSections.map((section) => ({ ...section, estimatedTokens: estimatedTokens(section.content), required: false })),
+    ],
+  });
 }

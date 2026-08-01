@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { validateAgentGovernanceSkillManifest, type AgentGovernanceSkillManifest } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 const skillNames = ["task-copilot-core", "design-project", "recover-context", "mini-project-modeling", "project-creation-modeling"] as const;
@@ -17,6 +18,15 @@ export interface TaskCopilotSkillSummary {
 
 export interface TaskCopilotSkillDocument extends TaskCopilotSkillSummary {
   content: string;
+}
+
+export interface AgentGovernanceSkillDocument {
+  name: "agent-decision-governance";
+  version: string;
+  description: string;
+  sha256: string;
+  content: string;
+  manifest: AgentGovernanceSkillManifest;
 }
 
 export function skillRootForModuleUrl(moduleUrl: string): string {
@@ -56,4 +66,31 @@ export async function listTaskCopilotSkills(root = defaultSkillRoot()): Promise<
       sha256: document.sha256,
     };
   });
+}
+
+export async function readAgentGovernanceSkill(root = defaultSkillRoot()): Promise<AgentGovernanceSkillDocument> {
+  const name = "agent-decision-governance" as const;
+  const content = await readFile(join(root, name, "SKILL.md"), "utf8");
+  if (Buffer.byteLength(content) > 64 * 1024) throw skillError("SKILL_DOCUMENT_TOO_LARGE", "Agent governance Skill 文档超过 64 KiB 限制。");
+  const frontmatterName = content.match(/^---\nname: ([a-z0-9-]+)\n/m)?.[1];
+  const description = content.match(/^description: (.+)$/m)?.[1]?.trim();
+  const version = content.match(/^Version: `([0-9]+\.[0-9]+\.[0-9]+)`$/m)?.[1];
+  const rawManifest = content.match(/^## Governance Manifest\n\n```json\n([\s\S]*?)\n```$/m)?.[1];
+  if (frontmatterName !== name || !description || !version || !rawManifest) {
+    throw skillError("SKILL_DOCUMENT_INVALID", "Agent governance Skill 缺少匹配的 name、description、version 或 manifest。");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawManifest) as unknown;
+  } catch {
+    throw skillError("SKILL_MANIFEST_INVALID_JSON", "Agent governance Skill manifest 不是合法 JSON。");
+  }
+  return {
+    name,
+    version,
+    description,
+    sha256: createHash("sha256").update(content).digest("hex"),
+    content,
+    manifest: validateAgentGovernanceSkillManifest(parsed),
+  };
 }

@@ -33,7 +33,7 @@ import type { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import type { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
 import type { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import type { LocalLlmProjectCreationPreviewGenerator } from "./llm-project-creation-preview.ts";
-import { listTaskCopilotSkills, readTaskCopilotSkill } from "./skill-catalog.ts";
+import { listTaskCopilotSkills, readAgentGovernanceSkill, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope, type ServiceContextPackage } from "./context-package.ts";
 import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
 import { buildMiniProjectGrillGeneration, buildMiniProjectGrillPreviewGeneration, buildMiniProjectSourcePositions, type MiniProjectGrillAnswer, type MiniProjectGrillSource } from "./mini-project-grill.ts";
@@ -1565,7 +1565,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const comprehensiveDoctor = async (): Promise<ServiceDoctor> => {
     const core = store.doctor();
     const operational = store.operationalDiagnostics();
-    const skillCount = (await listTaskCopilotSkills()).length;
+    const [externalSkills] = await Promise.all([listTaskCopilotSkills(), readAgentGovernanceSkill()]);
+    const skillCount = externalSkills.length + 1;
     const graphRuntime = graphReadBroker.status();
     let backupCount = 0;
     let backupCode = "BACKUP_NONE";
@@ -1600,7 +1601,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       { component: "BACKUP", status: backupStatus, code: backupCode, count: backupCount },
       { component: "KEY_REFERENCE", status: "PASS", code: providerConfigured ? "KEY_RESOLVED_OUT_OF_BAND" : "KEY_NOT_REQUIRED" },
       { component: "PROVIDER", status: "INFO", code: providerConfigured ? "PROVIDER_CONFIGURED_NOT_PROBED" : "PROVIDER_DISABLED" },
-      { component: "SKILL_PROFILE", status: skillCount === 5 ? "PASS" : "FAIL", code: skillCount === 5 ? "BUILTIN_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
+      { component: "SKILL_PROFILE", status: skillCount === 6 ? "PASS" : "FAIL", code: skillCount === 6 ? "BUILTIN_AND_GOVERNANCE_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
       { component: "LOGGING", status: "INFO", code: "SERVICE_LOG_COLLECTION_NOT_CONFIGURED" },
       { component: "PROTOCOL", status: "PASS", code: "CLI_SERVICE_PROTOCOL_CURRENT" },
     ];
