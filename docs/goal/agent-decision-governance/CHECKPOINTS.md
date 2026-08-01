@@ -18,3 +18,11 @@
 6. CP-6: only after CP-5, explicitly authorized Guarded apply/reload/Undo/reload.
 
 Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with Node 20, a buildable local commit, and continuation to the next independent work item.
+
+## CP-1 progress — data foundation
+
+- schema v13 is an explicit backup-gated migration; v1 through v12 migration rehearsals remain green.
+- Decision Thread identity is stable per Graph + Source Root; source-only refreshes update snapshots without spurious Revision events.
+- Review Signal and Rule Authorization survive SQLite reopen with bounded list queries and idempotent optimistic writes.
+- Rule promotion requires a USER actor; automatic transitions only move down one authority level, and EXPANDING Skill changes fail closed to Shadow.
+- Remaining before CP-1 closes: Local Service/CLI contracts, structured validators at the trust boundary, migration diagnostics, and isolated backup/restore rehearsal with governance rows.

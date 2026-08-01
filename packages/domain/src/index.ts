@@ -4,6 +4,7 @@ export * from "./v2.ts";
 export * from "./v2-proposal.ts";
 export * from "./v2-candidate.ts";
 export * from "./legacy-migration.ts";
+export * from "./agent-governance.ts";
 
 export type ObjectType =
   | "TASK"

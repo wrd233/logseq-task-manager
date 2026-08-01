@@ -6,7 +6,7 @@ import test from "node:test";
 
 import Database from "better-sqlite3";
 
-import { V2Application, V2CandidateApplication } from "@task-copilot/application";
+import { AgentGovernanceApplication, V2Application, V2CandidateApplication } from "@task-copilot/application";
 import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
@@ -61,6 +61,7 @@ test("Condition command receipts retain a durable inverse without changing the o
 
 async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   const database = new Database(path);
+  dropAgentGovernanceSchema(database);
   database.exec("DROP TABLE candidates");
   database.exec("DROP TABLE associations");
   database.exec("DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs");
@@ -72,6 +73,15 @@ async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   database.prepare("UPDATE schema_meta SET value = '1' WHERE key = 'schema_version'").run();
   database.pragma("user_version = 1");
   database.close();
+}
+
+function dropAgentGovernanceSchema(database: Database.Database): void {
+  database.exec(`
+    DROP TABLE IF EXISTS agent_decision_events;
+    DROP TABLE IF EXISTS agent_review_signals;
+    DROP TABLE IF EXISTS agent_rule_authorizations;
+    DROP TABLE IF EXISTS agent_decisions;
+  `);
 }
 
 test("schema v1 requires an explicit preflight backup before one auditable migration", async (t) => {
@@ -110,6 +120,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 10, name: "add_candidate_review_state", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 11, name: "allow_project_closure_retention_and_mini_project_closure", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 12, name: "add_project_structure_aggregate", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 13, name: "add_agent_decision_governance", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -163,6 +174,7 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
   legacy.prepare("UPDATE schema_meta SET value = '2' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 2");
@@ -199,6 +211,7 @@ test("schema v3 explicitly migrates to proposal review tables after a validated 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
   legacy.prepare("UPDATE schema_meta SET value = '3' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 3");
@@ -220,6 +233,7 @@ test("schema v4 explicitly decouples immutable Audit from the current object pro
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec(`
     DROP TABLE candidates;
     DROP TABLE associations;
@@ -257,6 +271,7 @@ test("schema v5 explicitly adds nullable Task due_at after a validated backup", 
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
   legacy.prepare("UPDATE schema_meta SET value = '5' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 5");
@@ -277,6 +292,7 @@ test("schema v6 explicitly adds only the bounded V1 migration ledger after a val
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 7");
   legacy.prepare("UPDATE schema_meta SET value = '6' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 6");
@@ -297,6 +313,7 @@ test("schema v7 adds only nullable Project closure_summary after a validated bac
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec("DROP TABLE candidates; DROP TABLE associations; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 8");
   legacy.prepare("UPDATE schema_meta SET value = '7' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 7");
@@ -316,6 +333,7 @@ test("schema v8 adds only plain associations after preserving an exact v8 backup
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec("DROP TABLE candidates; DROP TABLE associations; DELETE FROM schema_migrations WHERE version >= 9");
   legacy.prepare("UPDATE schema_meta SET value = '8' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 8");
@@ -340,6 +358,7 @@ test("schema v9 adds only Candidate review state after preserving an exact v9 ba
   store.initialize("graph-a");
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec("DROP TABLE candidates; DELETE FROM schema_migrations WHERE version >= 10");
   legacy.prepare("UPDATE schema_meta SET value = '9' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 9");
@@ -368,6 +387,7 @@ test("schema v10 reuses closure_json for MiniProject three-question Closure with
   }, { actor: "test", expectedVersion: 0, idempotencyKey: "mini-v10-create", traceId: "trace-create" });
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.exec("DELETE FROM schema_migrations WHERE version >= 11");
   legacy.prepare("UPDATE schema_meta SET value = '10' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 10");
@@ -402,6 +422,7 @@ test("schema v11 adds one Project structure aggregate without adding a parallel 
   const created = await new V2Application(store).createProjectWithPage({ objectId: "project-v11", name: "旧 Project", page: { graphId: "graph-a", externalId: "page-project-v11", contentHash: "12345678" } }, { actor: "test", expectedVersion: 0, idempotencyKey: "project-v11-create", traceId: "trace-project-v11" });
   store.close();
   const legacy = new Database(path);
+  dropAgentGovernanceSchema(legacy);
   legacy.pragma("foreign_keys = OFF");
   legacy.exec(`
     CREATE TABLE objects_v11 (
@@ -440,6 +461,149 @@ test("schema v11 adds one Project structure aggregate without adding a parallel 
   assert.equal(internal.database.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name LIKE '%project_structure%'").pluck().get(), 0, "aggregate is a column, not a parallel table");
   assert.equal(migrating.doctor().status, "PASS");
   migrating.close();
+});
+
+test("schema v12 explicitly adds the minimal Agent governance tables after a validated backup", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-agent-governance");
+  store.close();
+  const legacy = new Database(path);
+  legacy.exec(`
+    DROP TABLE IF EXISTS agent_decision_events;
+    DROP TABLE IF EXISTS agent_review_signals;
+    DROP TABLE IF EXISTS agent_rule_authorizations;
+    DROP TABLE IF EXISTS agent_decisions;
+    DELETE FROM schema_migrations WHERE version >= 13;
+    UPDATE schema_meta SET value = '12' WHERE key = 'schema_version';
+    PRAGMA user_version = 12;
+  `);
+  legacy.close();
+
+  const migrating = await V2SqliteStore.open(path);
+  assert.throws(
+    () => migrating.initialize("graph-agent-governance"),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "V2_SCHEMA_MIGRATION_REQUIRED",
+  );
+  const backupPath = join(root, "before-agent-governance.db");
+  assert.deepEqual(
+    await migrating.migrateSchema("graph-agent-governance", backupPath, new Date("2026-08-02T03:00:00.000Z")),
+    { migrated: true, fromVersion: 12, schemaVersion: 13, backupPath },
+  );
+  const backup = new Database(backupPath, { readonly: true, fileMustExist: true });
+  assert.equal(backup.pragma("user_version", { simple: true }), 12);
+  assert.equal(backup.prepare("SELECT count(*) FROM sqlite_master WHERE name LIKE 'agent_%'").pluck().get(), 0);
+  backup.close();
+  const internal = migrating as unknown as { database: Database.Database };
+  assert.deepEqual(
+    (internal.database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'agent_%' ORDER BY name").pluck().all()),
+    ["agent_decision_events", "agent_decisions", "agent_review_signals", "agent_rule_authorizations"],
+  );
+  assert.equal(migrating.schemaMigrationHistory()[12]?.name, "add_agent_decision_governance");
+  migrating.close();
+});
+
+test("Agent governance persists one Decision Thread, meaningful Revision events, and reloadable history", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-agent-decisions");
+  const application = new AgentGovernanceApplication(store);
+  const decisionInput = {
+    graphId: "graph-agent-decisions",
+    sourceRoot: { kind: "BLOCK" as const, externalId: "block-1", pageName: "2026-08-02", durableOrigin: { kind: "BLOCK_UUID" as const, value: "block-1" } },
+    sourceSnapshotHash: "a".repeat(8),
+    outcome: "CREATE_CANDIDATE" as const,
+    rule: { id: "EXPLICIT_TASK_01", displayName: "明确任务标记", skillName: "agent-decision-governance", skillVersion: "1.0.0", skillHash: "b".repeat(64) },
+    riskRoute: "SHADOW" as const,
+    executionStatus: "NOT_EXECUTED" as const,
+    evidenceSummary: "明确任务标记",
+    evidenceRefs: ["block:block-1"],
+    counterSignals: [],
+    closestAlternative: { outcome: "KEEP_ORDINARY" as const, reason: "若为引用则保持普通内容" },
+    context: { tier: "LOCAL" as const, truncated: false, omittedSections: [], estimatedInputTokens: 128 },
+  };
+  const first = await application.recordDecision(decisionInput, { actor: "agent", traceId: "trace-1", idempotencyKey: "agent-decision-1" }, new Date("2026-08-02T04:00:00.000Z"));
+  assert.equal(first.decision.revision, 1);
+  assert.equal(first.revised, true);
+
+  const refreshed = await application.recordDecision({ ...decisionInput, sourceSnapshotHash: "c".repeat(8), evidenceSummary: "正文轻微修订" }, { actor: "agent", traceId: "trace-2", idempotencyKey: "agent-decision-2" }, new Date("2026-08-02T04:01:00.000Z"));
+  assert.equal(refreshed.revised, false);
+  assert.equal(refreshed.decision.decisionId, first.decision.decisionId);
+  assert.equal((await application.listDecisionEvents(first.decision.threadId)).length, 1, "source-only refresh does not create typo history");
+
+  const changed = await application.recordDecision({ ...decisionInput, sourceSnapshotHash: "d".repeat(8), outcome: "NEEDS_HUMAN", riskRoute: "HUMAN_REVIEW", counterSignals: ["目标不唯一"] }, { actor: "agent", traceId: "trace-3", idempotencyKey: "agent-decision-3" }, new Date("2026-08-02T04:02:00.000Z"));
+  assert.equal(changed.decision.revision, 2);
+  assert.equal((await application.listDecisionEvents(first.decision.threadId)).length, 2);
+  store.close();
+
+  const reopened = await V2SqliteStore.open(path);
+  reopened.initialize("graph-agent-decisions");
+  const [restored] = await new AgentGovernanceApplication(reopened).listDecisions({ limit: 10 });
+  assert.equal(restored?.decisionId, changed.decision.decisionId);
+  assert.equal(restored?.revision, 2);
+  reopened.close();
+});
+
+test("Agent Rule authorization persists explicit user promotion and system-only downgrade semantics", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-agent-rule-authority");
+  const application = new AgentGovernanceApplication(store);
+  const registered = await application.registerRule({
+    ruleId: "EXPLICIT_TASK_01",
+    displayName: "明确任务标记",
+    skillName: "agent-decision-governance",
+    skillVersion: "1.0.0",
+    skillHash: "e".repeat(64),
+    skillMaxAuthority: "AUTO_APPLY",
+  }, { actor: "system", traceId: "trace-rule-register", idempotencyKey: "rule-register-1" }, new Date("2026-08-02T04:10:00.000Z"));
+  assert.equal(registered.authorization.effectiveAuthority, "SHADOW");
+  await assert.rejects(
+    () => application.authorizeRule(registered.authorization.ruleId, "BATCH_REVIEW", "模型建议升权", { actor: "agent", traceId: "trace-rule-invalid-promote", idempotencyKey: "rule-promote-invalid" }, new Date("2026-08-02T04:11:00.000Z")),
+    /USER/,
+  );
+  const promoted = await application.authorizeRule(registered.authorization.ruleId, "AUTO_APPLY", "用户明确批准", { actor: "user", traceId: "trace-rule-promote", idempotencyKey: "rule-promote-1" }, new Date("2026-08-02T04:12:00.000Z"));
+  assert.equal(promoted.authorization.effectiveAuthority, "AUTO_APPLY");
+  const downgraded = await application.autoDowngradeRule(registered.authorization.ruleId, "目标对象错误率升高", { actor: "system", traceId: "trace-rule-downgrade", idempotencyKey: "rule-downgrade-1" }, new Date("2026-08-02T04:13:00.000Z"));
+  assert.equal(downgraded.authorization.effectiveAuthority, "DELAYED_APPLY");
+  store.close();
+
+  const reopened = await V2SqliteStore.open(path);
+  reopened.initialize("graph-agent-rule-authority");
+  const [restored] = await new AgentGovernanceApplication(reopened).listRuleAuthorizations();
+  assert.equal(restored?.localCurrentAuthority, "DELAYED_APPLY");
+  reopened.close();
+});
+
+test("Review Signal persistence deduplicates a Source Root and preserves source-missing lifecycle across restart", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-review-signal");
+  const application = new AgentGovernanceApplication(store);
+  const input = {
+    graphId: "graph-review-signal",
+    sourceRoot: { kind: "BLOCK" as const, externalId: "weak-block-1", durableOrigin: { kind: "BLOCK_UUID" as const, value: "weak-block-1" } },
+    capturedSnapshotHash: "f".repeat(8),
+    capturedText: "以后可能需要整理监控告警。",
+    category: "POSSIBLE_ACTION",
+    relatedObjectIds: [],
+    revisitReason: "弱行动信号",
+    createdByDecisionId: "agent-thread-review:r1",
+  };
+  const first = await application.recordReviewSignal(input, { actor: "agent", traceId: "trace-signal-1", idempotencyKey: "review-signal-1" }, new Date("2026-08-02T04:20:00.000Z"));
+  const repeated = await application.recordReviewSignal({ ...input, capturedSnapshotHash: "a".repeat(8), capturedText: "监控告警整理再次出现。" }, { actor: "agent", traceId: "trace-signal-2", idempotencyKey: "review-signal-2" }, new Date("2026-08-03T04:20:00.000Z"));
+  assert.equal(repeated.signal.reviewSignalId, first.signal.reviewSignalId);
+  assert.equal(repeated.signal.occurrenceCount, 2);
+  assert.equal((await application.listReviewSignals({ status: "ACTIVE", limit: 10 })).length, 1);
+  store.close();
+
+  const reopened = await V2SqliteStore.open(path);
+  reopened.initialize("graph-review-signal");
+  const restoredApplication = new AgentGovernanceApplication(reopened);
+  const missing = await restoredApplication.reconcileReviewSignal(first.signal.reviewSignalId, false, { actor: "system", traceId: "trace-signal-missing", idempotencyKey: "review-signal-missing" }, new Date("2026-08-04T04:20:00.000Z"));
+  assert.equal(missing.signal.status, "SOURCE_MISSING");
+  assert.equal((await restoredApplication.listReviewSignals({ status: "SOURCE_MISSING", limit: 10 }))[0]?.occurrenceCount, 2);
+  reopened.close();
 });
 
 function validProposal(): V2Proposal {

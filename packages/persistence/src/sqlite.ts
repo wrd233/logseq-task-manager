@@ -34,10 +34,10 @@ import type {
   V2OwnershipUndoResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
-import { renderV2ProposalFiles, validateV2Proposal, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
+import { renderV2ProposalFiles, validateV2Proposal, type AgentDecision, type AgentDecisionEvent, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 12;
+export const V2_DATABASE_SCHEMA_VERSION = 13;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -70,7 +70,64 @@ const schemaMigrationNames = new Map<number, string>([
   [10, "add_candidate_review_state"],
   [11, "allow_project_closure_retention_and_mini_project_closure"],
   [12, "add_project_structure_aggregate"],
+  [13, "add_agent_decision_governance"],
 ]);
+
+const agentGovernanceSchemaSql = `
+  CREATE TABLE agent_decisions (
+    thread_id TEXT PRIMARY KEY,
+    decision_id TEXT NOT NULL UNIQUE,
+    revision INTEGER NOT NULL CHECK (revision >= 1),
+    graph_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK (source_kind IN ('BLOCK','PAGE')),
+    source_external_id TEXT NOT NULL,
+    source_snapshot_hash TEXT NOT NULL CHECK (length(source_snapshot_hash) IN (8,64)),
+    decision_json TEXT NOT NULL CHECK (json_valid(decision_json)),
+    observed_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(graph_id, source_kind, source_external_id)
+  ) STRICT;
+  CREATE INDEX agent_decisions_updated ON agent_decisions(updated_at DESC, thread_id);
+  CREATE TABLE agent_decision_events (
+    event_id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL REFERENCES agent_decisions(thread_id) ON DELETE CASCADE,
+    decision_id TEXT NOT NULL,
+    event_type TEXT NOT NULL CHECK (event_type IN ('SOURCE_OBSERVED','DECISION_REVISED','ROUTE_CHANGED','EXECUTION_SCHEDULED','APPLIED','BLOCKED','FAILED','UNDONE','USER_FEEDBACK_ADDED','RULE_AUTHORITY_CHANGED','RULE_AUTO_DOWNGRADED')),
+    actor TEXT NOT NULL CHECK (actor IN ('SYSTEM','AGENT','USER')),
+    payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+    occurred_at TEXT NOT NULL
+  ) STRICT;
+  CREATE INDEX agent_decision_events_thread_time ON agent_decision_events(thread_id, occurred_at DESC);
+  CREATE TABLE agent_review_signals (
+    review_signal_id TEXT PRIMARY KEY,
+    graph_id TEXT NOT NULL,
+    source_external_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('ACTIVE','EXPIRED','SOURCE_MISSING')),
+    retention_class TEXT NOT NULL CHECK (retention_class IN ('NORMAL','RELATED','PINNED')),
+    active_until TEXT,
+    occurrence_count INTEGER NOT NULL CHECK (occurrence_count >= 1),
+    signal_json TEXT NOT NULL CHECK (json_valid(signal_json)),
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    UNIQUE(graph_id, source_external_id)
+  ) STRICT;
+  CREATE INDEX agent_review_signals_active ON agent_review_signals(status, active_until, last_seen_at DESC);
+  CREATE TABLE agent_rule_authorizations (
+    rule_id TEXT PRIMARY KEY,
+    skill_name TEXT NOT NULL,
+    skill_version TEXT NOT NULL,
+    skill_hash TEXT NOT NULL CHECK (length(skill_hash) = 64),
+    skill_max_authority TEXT NOT NULL CHECK (skill_max_authority IN ('SHADOW','BATCH_REVIEW','DELAYED_APPLY','AUTO_APPLY')),
+    local_current_authority TEXT NOT NULL CHECK (local_current_authority IN ('SHADOW','BATCH_REVIEW','DELAYED_APPLY','AUTO_APPLY')),
+    effective_authority TEXT NOT NULL CHECK (effective_authority IN ('SHADOW','BATCH_REVIEW','DELAYED_APPLY','AUTO_APPLY')),
+    change_level TEXT NOT NULL CHECK (change_level IN ('PATCH','NARROWING','EXPANDING')),
+    paused INTEGER NOT NULL CHECK (paused IN (0,1)),
+    authorization_json TEXT NOT NULL CHECK (json_valid(authorization_json)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  ) STRICT;
+`;
 
 export interface V2StoredProposal {
   proposal: V2Proposal;
@@ -448,6 +505,7 @@ export class V2SqliteStore {
           target_object_id TEXT REFERENCES objects(object_id) ON DELETE SET NULL,
           PRIMARY KEY (run_id, legacy_object_id)
         ) STRICT;
+        ${agentGovernanceSchemaSql}
         CREATE TABLE schema_migrations (
           version INTEGER PRIMARY KEY CHECK (version >= 1),
           name TEXT NOT NULL UNIQUE,
@@ -507,7 +565,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 12) {
+    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 13) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -750,6 +808,12 @@ export class V2SqliteStore {
         `);
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(12, schemaMigrationNames.get(12), at.toISOString());
+        workingVersion = 12;
+      }
+      if (workingVersion === 12) {
+        this.database.exec(agentGovernanceSchemaSql);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(13, schemaMigrationNames.get(13), at.toISOString());
       }
       const foreignKeyViolations = (this.database.pragma("foreign_key_check") as unknown[]).length;
       if (foreignKeyViolations > 0) throw persistenceError("V2_SCHEMA_MIGRATION_FOREIGN_KEY_FAILED", "SQLite schema 迁移后出现外键错误；本批变化已回滚。", { foreignKeyViolations });
@@ -879,6 +943,258 @@ export class V2SqliteStore {
   getCandidate(candidateId: string): V2Candidate | undefined {
     const row = this.database.prepare("SELECT * FROM candidates WHERE candidate_id = ?").get(candidateId) as CandidateRow | undefined;
     return row ? this.mapCandidate(row) : undefined;
+  }
+
+  getAgentDecisionBySource(graphId: string, sourceKind: "BLOCK" | "PAGE", sourceExternalId: string): AgentDecision | undefined {
+    const row = this.database.prepare(`SELECT decision_json FROM agent_decisions
+      WHERE graph_id = ? AND source_kind = ? AND source_external_id = ?`).get(graphId, sourceKind, sourceExternalId) as
+      | { decision_json: string }
+      | undefined;
+    return row ? JSON.parse(row.decision_json) as AgentDecision : undefined;
+  }
+
+  saveAgentDecision(
+    decision: AgentDecision,
+    event: AgentDecisionEvent | undefined,
+    idempotencyKey: string,
+  ): { decision: AgentDecision; event?: AgentDecisionEvent; replayed: boolean } {
+    this.requireIdempotencyKey(idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(idempotencyKey);
+      if (receipt) {
+        if (receipt.command_name !== "RecordAgentDecision") {
+          throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+        }
+        const restored = JSON.parse(receipt.result_json) as { decision: AgentDecision; event?: AgentDecisionEvent };
+        return { ...restored, replayed: true };
+      }
+
+      const currentRow = this.database.prepare("SELECT decision_json FROM agent_decisions WHERE thread_id = ?").get(decision.threadId) as
+        | { decision_json: string }
+        | undefined;
+      if (currentRow) {
+        const current = JSON.parse(currentRow.decision_json) as AgentDecision;
+        if (current.graphId !== decision.graphId
+          || current.sourceRoot.kind !== decision.sourceRoot.kind
+          || current.sourceRoot.externalId !== decision.sourceRoot.externalId) {
+          throw persistenceError("AGENT_DECISION_THREAD_IDENTITY_MISMATCH", "Decision Thread 不允许改变 Graph 或 Source Root。");
+        }
+        if (decision.revision < current.revision
+          || decision.revision > current.revision + 1
+          || (decision.revision === current.revision && decision.decisionId !== current.decisionId)
+          || (decision.revision === current.revision && decision.updatedAt < current.updatedAt)) {
+          throw persistenceError("AGENT_DECISION_REVISION_STALE", "Decision Revision 已过期或不连续；本次写入已回滚。");
+        }
+      } else if (decision.revision !== 1) {
+        throw persistenceError("AGENT_DECISION_REVISION_INVALID", "新 Decision Thread 必须从 Revision 1 开始。");
+      }
+
+      this.database.prepare(`INSERT INTO agent_decisions(
+        thread_id, decision_id, revision, graph_id, source_kind, source_external_id, source_snapshot_hash,
+        decision_json, observed_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(thread_id) DO UPDATE SET
+        decision_id = excluded.decision_id,
+        revision = excluded.revision,
+        source_snapshot_hash = excluded.source_snapshot_hash,
+        decision_json = excluded.decision_json,
+        observed_at = excluded.observed_at,
+        updated_at = excluded.updated_at`)
+        .run(decision.threadId, decision.decisionId, decision.revision, decision.graphId, decision.sourceRoot.kind,
+          decision.sourceRoot.externalId, decision.sourceSnapshotHash, stableJson(decision), decision.observedAt,
+          decision.createdAt, decision.updatedAt);
+
+      if (event) {
+        const existingEvent = this.database.prepare("SELECT thread_id, decision_id, event_type, actor, payload_json, occurred_at FROM agent_decision_events WHERE event_id = ?")
+          .get(event.eventId) as { thread_id: string; decision_id: string; event_type: string; actor: string; payload_json: string; occurred_at: string } | undefined;
+        const eventPayload = stableJson(event.payload);
+        if (existingEvent) {
+          if (stableJson(existingEvent) !== stableJson({
+            thread_id: event.threadId,
+            decision_id: event.decisionId,
+            event_type: event.eventType,
+            actor: event.actor,
+            payload_json: eventPayload,
+            occurred_at: event.occurredAt,
+          })) throw persistenceError("AGENT_DECISION_EVENT_ID_CONFLICT", "Decision Event ID 已存在且内容不同。");
+        } else {
+          this.database.prepare(`INSERT INTO agent_decision_events(
+            event_id, thread_id, decision_id, event_type, actor, payload_json, occurred_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+            .run(event.eventId, event.threadId, event.decisionId, event.eventType, event.actor, eventPayload, event.occurredAt);
+        }
+      }
+
+      const receiptResult = event ? { decision, event } : { decision };
+      this.database.prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
+        .run(idempotencyKey, "RecordAgentDecision", stableJson(receiptResult), decision.updatedAt);
+      return { ...receiptResult, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  listAgentDecisions(input: { limit: number; since?: string }): AgentDecision[] {
+    if (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 100) {
+      throw persistenceError("AGENT_DECISION_LIMIT_INVALID", "Decision list limit 必须介于 1 与 100 之间。");
+    }
+    const rows = input.since
+      ? this.database.prepare("SELECT decision_json FROM agent_decisions WHERE updated_at > ? ORDER BY updated_at DESC, thread_id LIMIT ?").all(input.since, input.limit)
+      : this.database.prepare("SELECT decision_json FROM agent_decisions ORDER BY updated_at DESC, thread_id LIMIT ?").all(input.limit);
+    return (rows as Array<{ decision_json: string }>).map((row) => JSON.parse(row.decision_json) as AgentDecision);
+  }
+
+  listAgentDecisionEvents(threadId: string): AgentDecisionEvent[] {
+    return (this.database.prepare(`SELECT event_id, thread_id, decision_id, event_type, actor, payload_json, occurred_at
+      FROM agent_decision_events WHERE thread_id = ? ORDER BY occurred_at, event_id`).all(threadId) as Array<{
+        event_id: string;
+        thread_id: string;
+        decision_id: string;
+        event_type: AgentDecisionEvent["eventType"];
+        actor: AgentDecisionEvent["actor"];
+        payload_json: string;
+        occurred_at: string;
+      }>).map((row) => ({
+        eventId: row.event_id,
+        threadId: row.thread_id,
+        decisionId: row.decision_id,
+        eventType: row.event_type,
+        actor: row.actor,
+        payload: JSON.parse(row.payload_json) as Record<string, unknown>,
+        occurredAt: row.occurred_at,
+      }));
+  }
+
+  getAgentRuleAuthorization(ruleId: string): AgentRuleAuthorization | undefined {
+    const row = this.database.prepare("SELECT authorization_json FROM agent_rule_authorizations WHERE rule_id = ?").get(ruleId) as
+      | { authorization_json: string }
+      | undefined;
+    return row ? JSON.parse(row.authorization_json) as AgentRuleAuthorization : undefined;
+  }
+
+  saveAgentRuleAuthorization(
+    authorization: AgentRuleAuthorization,
+    expectedUpdatedAt: string | undefined,
+    idempotencyKey: string,
+  ): { authorization: AgentRuleAuthorization; replayed: boolean } {
+    this.requireIdempotencyKey(idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(idempotencyKey);
+      if (receipt) {
+        if (receipt.command_name !== "SaveAgentRuleAuthorization") {
+          throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+        }
+        return { authorization: JSON.parse(receipt.result_json) as AgentRuleAuthorization, replayed: true };
+      }
+      const current = this.getAgentRuleAuthorization(authorization.ruleId);
+      if (current) {
+        if (expectedUpdatedAt === undefined || current.updatedAt !== expectedUpdatedAt) {
+          throw persistenceError("AGENT_RULE_AUTHORIZATION_STALE", "Rule 授权已变化；本次写入已回滚。");
+        }
+        if (current.ruleId !== authorization.ruleId || current.skillName !== authorization.skillName || current.createdAt !== authorization.createdAt) {
+          throw persistenceError("AGENT_RULE_AUTHORIZATION_IDENTITY_IMMUTABLE", "Rule ID、Skill 归属与创建时间不可变更。");
+        }
+        const result = this.database.prepare(`UPDATE agent_rule_authorizations SET
+          skill_version = ?, skill_hash = ?, skill_max_authority = ?, local_current_authority = ?,
+          effective_authority = ?, change_level = ?, paused = ?, authorization_json = ?, updated_at = ?
+          WHERE rule_id = ? AND updated_at = ?`)
+          .run(authorization.skillVersion, authorization.skillHash, authorization.skillMaxAuthority,
+            authorization.localCurrentAuthority, authorization.effectiveAuthority, authorization.changeLevel,
+            authorization.paused ? 1 : 0, stableJson(authorization), authorization.updatedAt,
+            authorization.ruleId, expectedUpdatedAt);
+        if (result.changes !== 1) throw persistenceError("AGENT_RULE_AUTHORIZATION_STALE", "Rule 授权已变化；本次写入已回滚。");
+      } else {
+        if (expectedUpdatedAt !== undefined) throw persistenceError("AGENT_RULE_AUTHORIZATION_NOT_FOUND", "Rule 授权不存在。");
+        this.database.prepare(`INSERT INTO agent_rule_authorizations(
+          rule_id, skill_name, skill_version, skill_hash, skill_max_authority, local_current_authority,
+          effective_authority, change_level, paused, authorization_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(authorization.ruleId, authorization.skillName, authorization.skillVersion, authorization.skillHash,
+            authorization.skillMaxAuthority, authorization.localCurrentAuthority, authorization.effectiveAuthority,
+            authorization.changeLevel, authorization.paused ? 1 : 0, stableJson(authorization),
+            authorization.createdAt, authorization.updatedAt);
+      }
+      this.database.prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
+        .run(idempotencyKey, "SaveAgentRuleAuthorization", stableJson(authorization), authorization.updatedAt);
+      return { authorization, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  listAgentRuleAuthorizations(): AgentRuleAuthorization[] {
+    return (this.database.prepare("SELECT authorization_json FROM agent_rule_authorizations ORDER BY rule_id").all() as Array<{
+      authorization_json: string;
+    }>).map((row) => JSON.parse(row.authorization_json) as AgentRuleAuthorization);
+  }
+
+  getAgentReviewSignalBySource(graphId: string, sourceExternalId: string): AgentReviewSignal | undefined {
+    const row = this.database.prepare(`SELECT signal_json FROM agent_review_signals
+      WHERE graph_id = ? AND source_external_id = ?`).get(graphId, sourceExternalId) as { signal_json: string } | undefined;
+    return row ? JSON.parse(row.signal_json) as AgentReviewSignal : undefined;
+  }
+
+  getAgentReviewSignal(reviewSignalId: string): AgentReviewSignal | undefined {
+    const row = this.database.prepare("SELECT signal_json FROM agent_review_signals WHERE review_signal_id = ?").get(reviewSignalId) as
+      | { signal_json: string }
+      | undefined;
+    return row ? JSON.parse(row.signal_json) as AgentReviewSignal : undefined;
+  }
+
+  saveAgentReviewSignal(
+    signal: AgentReviewSignal,
+    expected: AgentReviewSignal | undefined,
+    idempotencyKey: string,
+  ): { signal: AgentReviewSignal; replayed: boolean } {
+    this.requireIdempotencyKey(idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(idempotencyKey);
+      if (receipt) {
+        if (receipt.command_name !== "SaveAgentReviewSignal") {
+          throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+        }
+        return { signal: JSON.parse(receipt.result_json) as AgentReviewSignal, replayed: true };
+      }
+      const current = this.getAgentReviewSignal(signal.reviewSignalId);
+      if (current) {
+        if (!expected || stableJson(current) !== stableJson(expected)) {
+          throw persistenceError("AGENT_REVIEW_SIGNAL_STALE", "Review Signal 已变化；本次写入已回滚。");
+        }
+        if (current.graphId !== signal.graphId
+          || current.sourceRoot.kind !== signal.sourceRoot.kind
+          || current.sourceRoot.externalId !== signal.sourceRoot.externalId
+          || current.firstSeenAt !== signal.firstSeenAt) {
+          throw persistenceError("AGENT_REVIEW_SIGNAL_IDENTITY_IMMUTABLE", "Review Signal 不允许改变 Graph、Source Root 或首次观测时间。");
+        }
+        const result = this.database.prepare(`UPDATE agent_review_signals SET
+          status = ?, retention_class = ?, active_until = ?, occurrence_count = ?, signal_json = ?, last_seen_at = ?
+          WHERE review_signal_id = ? AND signal_json = ?`)
+          .run(signal.status, signal.retentionClass, signal.activeUntil ?? null, signal.occurrenceCount,
+            stableJson(signal), signal.lastSeenAt, signal.reviewSignalId, stableJson(expected));
+        if (result.changes !== 1) throw persistenceError("AGENT_REVIEW_SIGNAL_STALE", "Review Signal 已变化；本次写入已回滚。");
+      } else {
+        if (expected) throw persistenceError("AGENT_REVIEW_SIGNAL_NOT_FOUND", "Review Signal 不存在。");
+        this.database.prepare(`INSERT INTO agent_review_signals(
+          review_signal_id, graph_id, source_external_id, status, retention_class, active_until,
+          occurrence_count, signal_json, first_seen_at, last_seen_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(signal.reviewSignalId, signal.graphId, signal.sourceRoot.externalId, signal.status,
+            signal.retentionClass, signal.activeUntil ?? null, signal.occurrenceCount, stableJson(signal),
+            signal.firstSeenAt, signal.lastSeenAt);
+      }
+      this.database.prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
+        .run(idempotencyKey, "SaveAgentReviewSignal", stableJson(signal), signal.lastSeenAt);
+      return { signal, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  listAgentReviewSignals(input: { status?: AgentReviewSignalStatus; limit: number }): AgentReviewSignal[] {
+    if (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 100) {
+      throw persistenceError("AGENT_REVIEW_SIGNAL_LIMIT_INVALID", "Review Signal list limit 必须介于 1 与 100 之间。");
+    }
+    const rows = input.status
+      ? this.database.prepare("SELECT signal_json FROM agent_review_signals WHERE status = ? ORDER BY last_seen_at DESC, review_signal_id LIMIT ?").all(input.status, input.limit)
+      : this.database.prepare("SELECT signal_json FROM agent_review_signals ORDER BY last_seen_at DESC, review_signal_id LIMIT ?").all(input.limit);
+    return (rows as Array<{ signal_json: string }>).map((row) => JSON.parse(row.signal_json) as AgentReviewSignal);
   }
 
   activeCandidateForSourceAnchor(sourceAnchorId: string): V2Candidate | undefined {
