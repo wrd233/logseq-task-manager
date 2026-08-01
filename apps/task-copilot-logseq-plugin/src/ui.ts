@@ -34,6 +34,13 @@ import {
   type AttentionNowPilotHint,
 } from "./attention-shadow-runtime.ts";
 import { activeOutcomeScope, createScopedOutcome, outcomeForScope, type ScopedOutcome } from "./scoped-outcome.ts";
+import type { WorksitePreviewMode, WorksitePreviewState } from "./worksite-preview-controller.ts";
+
+export interface WorksitePreviewUiEntry {
+  expanded: boolean;
+  state: WorksitePreviewState;
+  mode?: WorksitePreviewMode;
+}
 
 export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
@@ -156,6 +163,8 @@ export interface UiModel {
   v2ProjectReentryCards?: PluginProjectReentryCard[];
   v2TaskReentryCards?: Record<string, PluginTaskReentryCard>;
   v2TaskReentryLoadError?: string;
+  v2WorksitePreviews?: Record<string, WorksitePreviewUiEntry>;
+  v2NowWorkOverflowOpen?: boolean;
   v2ProjectContextRecovery?: Record<string, PluginProjectContextRecoveryState>;
   v2MiniProjectGrill?: Record<string, PluginMiniProjectGrillState>;
   v2MiniProjectGrillAvailable?: boolean;
@@ -271,6 +280,45 @@ function projectCreationPreviewChanges(preview: ServiceProjectCreationPreview): 
   ];
 }
 
+function worksitePreviewValue(objectId: string, anchor: string, version: number): string {
+  return `${objectId}|${anchor}|${version}`;
+}
+
+function renderWorksitePreviewBody(state: WorksitePreviewState, value: string, mode: WorksitePreviewMode): string {
+  if (state.status === "loading") return `<p class="muted worksite-status">正在读取工作记录…</p>`;
+  if (state.status === "loaded-empty") return `<p class="muted worksite-status">暂无工作记录</p>`;
+  if (state.status === "unavailable") {
+    return `<p class="muted worksite-status">工作记录不可用：${escapeHtml(state.reason)}</p>${button("重新读取", "v2-worksite-refresh", value, "quiet")}`;
+  }
+  if (state.status === "error") {
+    return `<p class="worksite-error" role="status">${escapeHtml(state.safeMessage)}</p>${button("重新读取", "v2-worksite-refresh", value, "quiet")}`;
+  }
+  if (state.status === "stale" || state.status === "idle") {
+    return `<p class="muted worksite-status">工作记录</p>`;
+  }
+  const list = `<ul class="now-worksite-blocks">${state.blocks.map((block) => `<li class="worksite-block" style="--worksite-depth:${Math.min(block.depth, 3)}">${block.marker ? `<span class="worksite-marker">${escapeHtml(block.marker)}</span>` : ""}<span class="worksite-content">${escapeHtml(block.content)}</span></li>`).join("")}</ul>`;
+  const actions = `<div class="worksite-actions">${mode === "short" && state.truncated ? button("展开完整记录", "v2-worksite-expand-full", value, "quiet") : ""}${button("重新读取", "v2-worksite-refresh", value, "quiet")}</div>`;
+  return `${list}${actions}`;
+}
+
+function renderWorksitePreview(
+  objectId: string,
+  anchor: string | undefined,
+  version: number,
+  preview: WorksitePreviewUiEntry | undefined,
+  focused: boolean,
+): string {
+  if (!anchor) return "";
+  const value = worksitePreviewValue(objectId, anchor, version);
+  const state = preview?.state ?? { status: "idle" as const };
+  const mode = preview?.mode ?? "short";
+  if (!focused && !preview?.expanded) {
+    return `<details class="now-worksite now-worksite-collapsed" data-worksite-object="${escapeHtml(objectId)}"><summary aria-expanded="false">工作记录${state.status === "loaded" && state.blocks.length ? `（${state.blocks.length}）` : ""}</summary></details>`;
+  }
+  const collapse = !focused ? `<div class="worksite-actions">${button("收起", "v2-worksite-collapse", objectId, "quiet")}</div>` : "";
+  return `<section class="now-worksite now-worksite-open" data-worksite-object="${escapeHtml(objectId)}"><div class="now-worksite-head"><span class="worksite-label">工作记录</span>${state.status === "loaded" && state.truncated ? `<span class="muted">还有 ${state.remainingCount} 条</span>` : ""}</div>${renderWorksitePreviewBody(state, value, mode)}${collapse}</section>`;
+}
+
 function renderNow(model: UiModel): string {
   if (model.v2NowWork) {
     const filter = model.v2NowWorkTypeFilter ?? "ALL";
@@ -372,7 +420,7 @@ function renderNow(model: UiModel): string {
       const due = !taskRecovery && !taskSafetyUnavailable && item.dueAt
         ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>`
         : "";
-      return `<article class="card compact now-card${focused ? " current-focus" : ""}"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="now-card-content"><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${taskContext}${due}${explanation}</div><div class="now-card-actions">${moreActions}<div class="actions">${primaryAction}</div></div></article>`;
+      return `<article class="card compact now-card${focused ? " current-focus" : ""}"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="now-card-content"><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${renderWorksitePreview(item.objectId, item.primaryAnchorExternalId, item.version, model.v2WorksitePreviews?.[item.objectId], focused)}${taskContext}${due}${explanation}</div><div class="now-card-actions">${moreActions}<div class="actions">${primaryAction}</div></div></article>`;
     }).join("");
     const section = (title: string, source: NowFrontstageItem[], frontstageLimit?: number) => {
       const values = filtered(source);
@@ -390,7 +438,7 @@ function renderNow(model: UiModel): string {
         ? []
         : values.filter(({ focused }) => !focused).slice(frontstageLimit);
       const overflow = remaining.length
-        ? `<details class="now-work-overflow"><summary>查看其余 ${remaining.length} 项</summary>${renderValues(remaining)}</details>`
+        ? `<details class="now-work-overflow"${model.v2NowWorkOverflowOpen === true ? " open" : ""}><summary>查看其余 ${remaining.length} 项</summary>${renderValues(remaining)}</details>`
         : "";
       return `<section><h2>${escapeHtml(title)}</h2>${renderValues(visible)}${overflow}</section>`;
     };

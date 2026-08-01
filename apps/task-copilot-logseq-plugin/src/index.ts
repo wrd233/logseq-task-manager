@@ -17,6 +17,7 @@ import {
 } from "./runtime-diagnostics.ts";
 import { BootstrapRegistration, bindRootClick, captureUiFocus, restoreUiFocus, type BootstrapCallbacks, type BootstrapHost } from "./bootstrap-shell.ts";
 import { cancelActionDialogReturnsToOrigin, isWorkspace, renderApp, type ActionDialogKind, type UiModel, type V2NowWorkGrouping, type V2NowWorkTypeFilter, type Workspace } from "./ui.ts";
+import { WorksitePreviewController, type WorksitePreviewMode, type WorksitePreviewState } from "./worksite-preview-controller.ts";
 import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger } from "./structured-logger.ts";
 import { recoverServiceRuntime } from "./service-runtime-recovery.ts";
@@ -78,6 +79,7 @@ import { applyLowRiskV2Proposal } from "./v2-low-risk-apply.ts";
 import { commitMiniProjectRestructure, undoMiniProjectRestructure, type MiniProjectRestructureGraphHost } from "./v2-mini-project-restructure.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
+import type { GraphReadBridgeHost } from "./graph-read-bridge.ts";
 import { BlockFocusController, resolveBlockObject } from "./block-focus-controller.ts";
 import { BlockConditionController, type BlockConditionDraft } from "./block-condition-controller.ts";
 import { PageContextController, type PageContextSnapshot } from "./page-context-controller.ts";
@@ -204,13 +206,25 @@ function beginUiAction(action: string): void {
   v2ProjectClosureProposalMessage = undefined;
 }
 let lastAttentionShadowSummarySignature: string | undefined;
-const graphReadBridgeController = new GraphReadBridgeController({
+const graphReadBridgeHost: GraphReadBridgeHost = {
   getPage: (target) => logseq.Editor.getPage(target as never),
   getPageBlocksTree: (target) => logseq.Editor.getPageBlocksTree(target as never),
   getBlock: (target, options) => logseq.Editor.getBlock(target as never, options),
-}, {
+};
+const graphReadBridgeController = new GraphReadBridgeController(graphReadBridgeHost, {
   onIssue: restrictServiceRuntimeAfterTransportFailure,
 });
+let worksiteRefreshTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+const worksitePreviewController = new WorksitePreviewController(graphReadBridgeHost, {
+  onStateChange: () => {
+    if (worksiteRefreshTimer !== undefined) return;
+    worksiteRefreshTimer = globalThis.setTimeout(() => {
+      worksiteRefreshTimer = undefined;
+      if (logseq.isMainUIVisible && workspace === "now") void refresh();
+    }, 50);
+  },
+});
+let lastNowWorkItems: Array<{ objectId: string; version: number; primaryAnchorExternalId?: string }> = [];
 let firstRunMode = false;
 let firstRunAction: FirstRunAction | undefined;
 let firstRunDescriptorImport: FirstRunModel["descriptorImport"];
@@ -797,6 +811,39 @@ async function model(): Promise<UiModel> {
     if (!v2TaskReentryLoadError && v2PrimaryAnchorLoadError) v2TaskReentryLoadError = v2PrimaryAnchorLoadError;
   }
   const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
+  let v2WorksitePreviews: Record<string, { expanded: boolean; state: WorksitePreviewState }> | undefined;
+  if (v2NowWork) {
+    const items = [...v2NowWork.focus, ...v2NowWork.next, ...v2NowWork.waitingReview];
+    const byObjectId = new Map<string, { objectId: string; version: number; primaryAnchorExternalId?: string }>();
+    for (const item of items) {
+      const existing = byObjectId.get(item.objectId);
+      if (!existing || (!existing.primaryAnchorExternalId && item.primaryAnchorExternalId)) {
+        byObjectId.set(item.objectId, {
+          objectId: item.objectId,
+          version: item.version,
+          ...(item.primaryAnchorExternalId ? { primaryAnchorExternalId: item.primaryAnchorExternalId } : {}),
+        });
+      }
+    }
+    lastNowWorkItems = [...byObjectId.values()];
+    worksitePreviewController.refreshFrom([...lastNowWorkItems]);
+    v2WorksitePreviews = {};
+    for (const item of lastNowWorkItems) {
+      if (!item.primaryAnchorExternalId) continue;
+      const previewMode = worksitePreviewController.expandedMode(item.objectId);
+      v2WorksitePreviews[item.objectId] = {
+        expanded: worksitePreviewController.isExpanded(item.objectId),
+        state: worksitePreviewController.state(item.objectId, item.primaryAnchorExternalId, item.version, previewMode),
+        mode: previewMode,
+      };
+    }
+    const prefetched = new Set<string>();
+    for (const item of v2NowWork.focus) {
+      if (!item.primaryAnchorExternalId || prefetched.has(item.objectId)) continue;
+      prefetched.add(item.objectId);
+      worksitePreviewController.prefetch(item.objectId, item.primaryAnchorExternalId, item.version);
+    }
+  }
   toolbarFacts = {
     ...(v2NowWork ? { nowWork: v2NowWork } : {}),
     proposals: v2Proposals,
@@ -897,6 +944,7 @@ async function model(): Promise<UiModel> {
     ...(v2ProjectReentryCards !== undefined ? { v2ProjectReentryCards } : {}),
     ...(v2TaskReentryCards !== undefined ? { v2TaskReentryCards } : {}),
     ...(v2TaskReentryLoadError ? { v2TaskReentryLoadError } : {}),
+    ...(v2WorksitePreviews ? { v2WorksitePreviews, v2NowWorkOverflowOpen: worksitePreviewController.isOverflowOpen() } : {}),
     v2ProjectContextRecovery: projectContextRecoveryController.snapshot(),
     v2MiniProjectGrill: miniProjectGrillController.snapshot(),
     v2MiniProjectGrillAvailable: serviceConnection.status === "READY"
@@ -1437,6 +1485,40 @@ function openActionDialog(kind: ActionDialogKind, value: string): Promise<void> 
 }
 
 async function handleAction(action: string, value?: string): Promise<void> {
+  if (action === "v2-worksite-expand-full" || action === "v2-worksite-refresh" || action === "v2-worksite-collapse") {
+    const [objectId, anchor, rawVersion] = (value ?? "").split("|");
+    const version = Number(rawVersion);
+    if (action === "v2-worksite-collapse") {
+      if (!objectId) {
+        await refresh();
+        return;
+      }
+      worksitePreviewController.setExpanded(objectId, false);
+      await refresh();
+      return;
+    }
+    if (!objectId || !anchor || !Number.isSafeInteger(version)) {
+      await refresh();
+      return;
+    }
+    if (action === "v2-worksite-expand-full") worksitePreviewController.setExpandedMode(objectId, "full");
+    else worksitePreviewController.invalidate(objectId);
+    const item = lastNowWorkItems.find((candidate) => (
+      candidate.objectId === objectId
+      && candidate.primaryAnchorExternalId === anchor
+      && candidate.version === version
+    ));
+    if (!item) {
+      await refresh();
+      return;
+    }
+    const mode: WorksitePreviewMode = action === "v2-worksite-expand-full"
+      ? "full"
+      : worksitePreviewController.isExpanded(objectId) ? "full" : "short";
+    await worksitePreviewController.load(objectId, anchor, version, mode);
+    await refresh();
+    return;
+  }
   if (action === "first-run-import-descriptor") {
     if (firstRunDescriptorImportBusy) return;
     firstRunAction = "start";
@@ -4085,8 +4167,24 @@ function bindUi(): void {
   };
   const onNowMenuToggle = (event: Event): void => {
     if (!(event.target instanceof HTMLDetailsElement)) return;
-    const summary = event.target.querySelector(":scope > summary");
-    if (summary) summary.setAttribute("aria-expanded", event.target.open ? "true" : "false");
+    const details = event.target;
+    const summary = details.querySelector(":scope > summary");
+    if (summary) summary.setAttribute("aria-expanded", details.open ? "true" : "false");
+    if (details.matches(".now-worksite-collapsed")) {
+      const objectId = details.dataset.worksiteObject;
+      if (!objectId) return;
+      worksitePreviewController.setExpanded(objectId, details.open);
+      if (!details.open) return;
+      worksitePreviewController.setExpandedMode(objectId, "short");
+      const item = lastNowWorkItems.find((candidate) => candidate.objectId === objectId);
+      if (!item?.primaryAnchorExternalId) return;
+      void worksitePreviewController.load(item.objectId, item.primaryAnchorExternalId, item.version, "short").then(() => {
+        if (logseq.isMainUIVisible && workspace === "now") void refresh();
+      });
+    }
+    if (details.matches(".now-work-overflow")) {
+      worksitePreviewController.setOverflowOpen(details.open);
+    }
   };
   root.addEventListener("keydown", onNowMenuKeyDown);
   root.addEventListener("pointerdown", onNowMenuPointerDown);

@@ -25,3 +25,12 @@
 
 - Sprint B/C/D/E/F 各自运行 plan-design-review（结构性 Sprint）与 design-review（实现后）；
 - Microsoft frontend-design-review 作为最终独立质量门候选（需可查看像素的 reviewer）。
+
+## Sprint B 记录
+
+| Skill / 合同 | 使用 | 结果 |
+|---|---|---|
+| ADR-LOGSEQ-GRAPH-READ-BRIDGE | 复用唯一只读桥（executeGraphReadRequest） | Accepted：没有第二套 Graph reader |
+| recover-context（原文优先） | Worksite Preview 忠实投影 | Accepted：不生成 AI 摘要，原文/系统文案分离 |
+| task-copilot-core（不越权写入） | 控制器只读断言测试 | Accepted：无 update/insert/remove/FileStorage/SQL 写入路径 |
+| plan-design-review | 未重复运行（Sprint B 为数据/性能 Sprint；按 Goal §12.1 结构性 Sprint 要求已在前一 Goal 的 review 流程中覆盖投影边界） | 记录：Sprint B 计划经 GOAL §7 合同 + Sprint A review 的 7-pass 原则审查 |

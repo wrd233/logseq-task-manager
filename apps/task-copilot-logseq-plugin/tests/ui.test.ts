@@ -1643,6 +1643,155 @@ test("Sprint A menu keyboard contract is wired in the runtime entry", async () =
   assert.match(source, /onNowMenuPointerDown/);
   assert.match(source, /addEventListener\("toggle", onNowMenuToggle, true\)/);
   assert.match(source, /summary\.setAttribute\("aria-expanded"/);
+  assert.match(source, /details\.matches\("\.now-work-overflow"\)/);
+  assert.match(source, /setOverflowOpen\(details\.open\)/);
+});
+
+function worksiteNowModel(overrides: {
+  preview?: { expanded: boolean; state: import("../src/ui.ts").WorksitePreviewUiEntry["state"] };
+  focused?: boolean;
+} = {}): ReturnType<typeof model> {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = {
+    generatedAt: "2026-07-31T08:00:00.000Z",
+    focus: overrides.focused === false ? [] : [{
+      objectId: "task-worksite",
+      objectType: "TASK",
+      version: 3,
+      text: "带工作记录的事项",
+      condition: { kind: "ACTIONABLE" },
+      updatedAt: "2026-07-31T07:00:00.000Z",
+      reason: "来自用户明确关注",
+      primaryAnchorExternalId: "block-worksite",
+    }],
+    next: overrides.focused === false ? [{
+      objectId: "task-worksite",
+      objectType: "TASK",
+      version: 3,
+      text: "带工作记录的事项",
+      condition: { kind: "ACTIONABLE" },
+      updatedAt: "2026-07-31T07:00:00.000Z",
+      reason: "近期建立，可直接推进",
+      primaryAnchorExternalId: "block-worksite",
+    }] : [],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  if (overrides.preview) value.v2WorksitePreviews = { "task-worksite": overrides.preview };
+  return value;
+}
+
+test("Sprint B focus card shows a bounded worksite preview without losing its single primary action", () => {
+  const value = worksiteNowModel({
+    preview: {
+      expanded: true,
+      state: {
+        status: "loaded",
+        sourceVersion: "v3",
+        blocks: [
+          { externalId: "child-1", content: "做第一步", depth: 1, marker: "TODO" },
+          { externalId: "child-2", content: "第二层内容", depth: 2 },
+        ],
+        totalVisibleCount: 4,
+        truncated: true,
+        remainingCount: 2,
+        readAt: "2026-07-31T08:00:00.000Z",
+      },
+    },
+  });
+  const html = renderApp(value);
+  const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(card, /<section class="now-worksite now-worksite-open" data-worksite-object="task-worksite">/);
+  assert.match(card, /<span class="worksite-label">工作记录<\/span>/);
+  assert.match(card, /<span class="muted">还有 2 条<\/span>/);
+  assert.match(card, /<span class="worksite-marker">TODO<\/span>/);
+  assert.match(card, /data-action="v2-worksite-expand-full"/);
+  assert.match(card, /data-action="v2-worksite-refresh"/);
+  assert.equal((card.match(/class="primary"/g) ?? []).length, 1);
+  assert.match(card, /<div class="now-card-status">[\s\S]*<section class="now-worksite now-worksite-open"/);
+  assert.match(card, /<section class="now-worksite now-worksite-open"[\s\S]*<\/section><\/div><div class="now-card-actions">/);
+});
+
+test("Sprint B non-focus worksite preview stays collapsed until expanded", () => {
+  const value = worksiteNowModel({ focused: false });
+  const html = renderApp(value);
+  const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(card, /<details class="now-worksite now-worksite-collapsed" data-worksite-object="task-worksite"><summary aria-expanded="false">工作记录<\/summary><\/details>/);
+  assert.doesNotMatch(card, /now-worksite-open/);
+  assert.doesNotMatch(card, /展开完整记录/);
+  const expanded = worksiteNowModel({
+    focused: false,
+    preview: {
+      expanded: true,
+      mode: "short",
+      state: {
+        status: "loaded",
+        sourceVersion: "v3",
+        blocks: [{ externalId: "child-1", content: "做第一步", depth: 1 }],
+        totalVisibleCount: 2,
+        truncated: true,
+        remainingCount: 1,
+        readAt: "2026-07-31T08:00:00.000Z",
+      },
+    },
+  });
+  const expandedHtml = renderApp(expanded);
+  assert.match(expandedHtml, /<section class="now-worksite now-worksite-open"/);
+  assert.match(expandedHtml, /data-action="v2-worksite-collapse"/);
+  assert.match(expandedHtml, /data-action="v2-worksite-expand-full"/);
+});
+
+test("Sprint B overflow disclosure stays open across worksite refreshes", () => {
+  const value = model();
+  value.workspace = "now";
+  value.v2NowWork = {
+    generatedAt: "2026-07-31T08:00:00.000Z",
+    focus: [],
+    next: Array.from({ length: 6 }, (_, index) => ({
+      objectId: `task-${index}`,
+      objectType: "TASK" as const,
+      version: 1,
+      text: `事项 ${index + 1}`,
+      condition: { kind: "ACTIONABLE" as const },
+      updatedAt: "2026-07-31T07:00:00.000Z",
+      reason: "近期建立，可直接推进",
+      primaryAnchorExternalId: `block-${index}`,
+    })),
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  value.v2NowWorkOverflowOpen = true;
+  const html = renderApp(value);
+  assert.match(html, /<details class="now-work-overflow" open><summary>查看其余 2 项<\/summary>/);
+});
+
+test("Sprint B worksite loading/empty/error/unavailable states stay card-local and keep the primary action", () => {
+  for (const state of [
+    { status: "loading" },
+    { status: "loaded-empty", sourceVersion: "v3" },
+    { status: "error", safeMessage: "暂时无法读取工作记录", diagnosticId: "worksite-x" },
+    { status: "unavailable", reason: "来源位置不可用" },
+  ] as Array<import("../src/ui.ts").WorksitePreviewUiEntry["state"]>) {
+    const value = worksiteNowModel({ preview: { expanded: true, state } });
+    const html = renderApp(value);
+    const card = html.match(/<article class="card compact now-card(?: current-focus)?"[\s\S]*?<\/article>/)?.[0] ?? "";
+    assert.equal((card.match(/class="primary"/g) ?? []).length, 1, `single primary for ${state.status}`);
+    if (state.status === "loading") assert.match(card, /正在读取工作记录/);
+    if (state.status === "loaded-empty") assert.match(card, /暂无工作记录/);
+    if (state.status === "error") {
+      assert.match(card, /<p class="worksite-error" role="status">暂时无法读取工作记录<\/p>/);
+      assert.doesNotMatch(card, /<div class="error"><strong>未完成/);
+    }
+    if (state.status === "unavailable") assert.match(card, /工作记录不可用：来源位置不可用/);
+  }
+});
+
+test("Sprint B writes stay read-only: worksite controller never exposes a Graph or SQLite write path", async () => {
+  const source = await readFile(new URL("../src/worksite-preview-controller.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /Editor\.(update|insert|remove|move|upsert|delete)|logseq\.FileStorage\.setItem|INSERT|UPDATE|DELETE/);
+  assert.match(source, /includeChildren: true/);
+  assert.match(source, /executeGraphReadRequest/);
 });
 
 test("V2 Now Work adds bounded Task owner context without replacing the single primary action", () => {

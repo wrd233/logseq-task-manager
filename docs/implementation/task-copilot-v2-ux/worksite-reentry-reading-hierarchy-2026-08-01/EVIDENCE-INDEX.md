@@ -47,3 +47,19 @@ CSS 视口经 Cmd+0 归位后由 CDP 显式模拟（1000×720 / 760×720，Light
 
 桌面服务证据：`tc status` READY · schema 12 · objects 21；`tc doctor` PASS（stale
 Proposal warning 1 为既有）。
+
+## Sprint B after 证据（2026-08-01）
+
+`tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-b/`
+
+| 场景 | 文件 | 内容 |
+|---|---|---|
+| Now Light 1000（含 Focus 空工作记录） | `01-now-light-1000/`、`05-now-focus-preview-light-1000/` | Focus 卡“暂无工作记录” |
+| 次级卡短预览 | `06-now-secondary-expanded-light-1000/` | 梅北 3 条 + 还有 4 条 |
+| 完整嵌套预览 | `08-now-nested-worksite-light-1000/` | 梅北 7 Block |
+| 完整预览 + TODO | `08b-now-nested-marker-light-1000/` | k8s 10 Block + TODO marker |
+| 截断场景 | `12-now-truncated-light-1000/` | k8s 3 条 + 还有 7 条 + source-tree.json |
+| 760/暗色 | `02-now-light-760/`、`03-now-dark-1000/`、`04-now-dark-760/` | 语义一致 |
+| 性能 | `performance.json` | 短预览 107ms、完整 105ms、并发 2 |
+
+真实服务证据：`tc status` READY · schema 12；`tc doctor` PASS；Graph bridge connected。

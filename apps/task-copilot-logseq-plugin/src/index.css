@@ -90,6 +90,18 @@
 #task-copilot-personal-mvp-root .now-explanation { margin-top: 4px; }
 #task-copilot-personal-mvp-root .now-explanation > summary { color: var(--muted); font-size: 12px; }
 #task-copilot-personal-mvp-root .now-explanation ul { margin: 6px 0 0; padding-left: 18px; }
+#task-copilot-personal-mvp-root .now-worksite { margin-top: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+#task-copilot-personal-mvp-root .now-worksite-collapsed { margin-top: 4px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+#task-copilot-personal-mvp-root .now-worksite-collapsed > summary { font-size: 12px; }
+#task-copilot-personal-mvp-root .now-worksite-head { display: flex; align-items: center; gap: 8px; }
+#task-copilot-personal-mvp-root .worksite-label { font-size: 12px; font-weight: 600; }
+#task-copilot-personal-mvp-root .now-worksite-blocks { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 5px; }
+#task-copilot-personal-mvp-root .worksite-block { display: flex; gap: 7px; padding-left: calc(var(--worksite-depth, 0) * 14px); font-size: 13px; line-height: 1.5; }
+#task-copilot-personal-mvp-root .worksite-block .worksite-marker { flex: 0 0 auto; color: var(--warning); font-size: 11px; font-weight: 700; }
+#task-copilot-personal-mvp-root .worksite-block .worksite-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+#task-copilot-personal-mvp-root .worksite-actions { display: flex; gap: 8px; margin-top: 8px; }
+#task-copilot-personal-mvp-root .worksite-actions button { padding: 5px 9px; font-size: 12px; }
+#task-copilot-personal-mvp-root .worksite-error { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--danger-soft); color: var(--danger-text); font-size: 12px; }
 #task-copilot-personal-mvp-root .now-card.current-focus { padding: 17px 18px; border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 12%, transparent); }
 #task-copilot-personal-mvp-root .now-card.current-focus h3 { font-size: 18px; }
 #task-copilot-personal-mvp-root .card, #task-copilot-personal-mvp-root .drawer, #task-copilot-personal-mvp-root .reentry { padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
