@@ -15,6 +15,7 @@
 | CUX-P1-02 | MiniProject Grill（真实 DeepSeek） | 首屏=“这一轮只确认一件事/问题/你的回答/继续讨论”；`data-field=v2MiniProjectGrillAnswer` 位于 `details.grill-context` 之前；details 默认 closed；展开可见理解/事实/推断/未知/建议；关闭返回同一 objects 工作区 |
 | CUX-P1-03 | 对象工作区 + Condition 对话框 | 对象行/创建器/关联/所属关系全用户语言；Condition 阻碍下拉此前泄漏 `OUTPUT/TASK/MINI_PROJECT/PROJECT`，本次已修复并复验为 成果/任务/小项目/项目，`hasRawCodes=false` |
 | CUX-P0-02 | Block 来源流全链（真实右键菜单 → 处理这条内容 → 真实 DeepSeek NO_PROPOSAL → 返回原内容） | 返回后路由为 `#/page/TC%20CUX%20Empty%2020260801?anchor=...`（页面名路由，非 UUID）；durable origin BLOCK token 持久化于 FileStorage（schemaVersion 1 + graphKey + BLOCK/pageUuid/blockUuid）；随后 hard reload：页面正常加载、无 “Page no longer exists!!”、无 fallback 弹窗、正文可见。anchor 滚动恢复由 resolver 单测覆盖（同页 + Block 可解析 → RETURNED + scroll） |
+| CUX-P0-02 | 完整退出/重开 + 跨页往返 | 退出重开后 origin 文件仍持久化；Logseq 恢复页面后插件解析器运行并返回 RETURNED（真实 console 证据）；离开来源页再点回时路由事件触发解析，same-page 分支调用 `scrollToBlockInPage` 并有界跟随滚动（1s/2.5s）。注意：该宿主 API 在无焦点/CDP 驱动环境下未产生可见滚动（原/小写/uuid 三种页面名均无效），产品侧保留 API 调用；可见滚动验收记入 OPEN_MANUAL_GATE（焦点/鼠标相关）。另修复调试中发现的路由事件循环：解析返回后滚动触发路由变化 → 再解析的无限循环，已用 resolved-token 守卫 + 750ms 节流封顶 |
 | CUX-P2-03 结构 | Waiting 表单缺字段提交 | dialog-scoped error 在任务面内显示：“未完成：WAITING 必须说明正在等待谁或什么。系统不会静默覆盖或重复提交。”；零正式写入 |
 | CUX-P3-02 | Review eyebrow | 显示 `2026/7/31 20:35:03`（本地化），不再显示原始 ISO |
 | Now/入口 | Now 首屏 | 一卡一主动作；“筛选与排列”折叠；“查看其余 8 项”折叠；Copilot 状态条用户语言 |
@@ -47,6 +48,6 @@
 - Desktop 行为：上述矩阵 PASS（真实 Logseq renderer DOM/AX + 截图）。
 - 视觉：**VISUAL_GATE_PENDING**——截图与 `VISUAL_GATE_REQUEST.md` 已就绪，等待独立 reviewer。
 - 未覆盖（保持 OPEN）：Light/Dark × 760 全流程矩阵（Now 四主题/视口已采集，其余流程仅标准宽度）、
-  datetime-local 鼠标/键盘/VoiceOver 手工 Gate、P3-01 新手发现性。
+  datetime-local 鼠标/键盘/VoiceOver 手工 Gate、P3-01 新手发现性、anchor 可见滚动（宿主焦点/鼠标确认）。
 - 右键菜单链路已打通（右键 Block 圆点唤起原生菜单 → 点击 “Task Copilot：处理这条内容”）；
   durable-origin “Block 入口 → 返回 → reload” 全链已在真实 Desktop PASS（见上表）。

@@ -2896,6 +2896,7 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.match(source, /async function environmentInfo[\s\S]*await restoreBusinessOriginForCurrentGraph\(\)/);
   assert.match(source, /async function resolveDurableOriginAfterReload\(\)[\s\S]*originRouteController\.resolveAfterReload\(token\)/);
   assert.match(source, /recoverCurrentGraphIdentity\(\)\s*\.then\(\(\) => resolveDurableOriginAfterReload\(\)\)/);
+  assert.match(source, /durableOriginResolvedForToken[\s\S]*durableOriginResolving[\s\S]*durableOriginLastAttemptAt/);
   assert.match(source, /action === "v2-origin-fallback-open"/);
   assert.match(source, /action === "v2-origin-fallback-dismiss"/);
   assert.match(source, /createDelegatedActionHandler\(async \(action, value\) => \{[\s\S]*beginUiAction\(action\);[\s\S]*handleAction\(action, value\)/);

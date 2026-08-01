@@ -265,7 +265,10 @@ const originRouteController = new OriginRouteController({
 let pageContext: PageContextSnapshot | undefined;
 let originRoute: OriginRouteToken | undefined;
 let durableOriginLoadedGraphKey: string | undefined;
-let durableOriginResolveAttemptedGraphKey: string | undefined;
+let durableOriginFallbackShownForToken: string | undefined;
+let durableOriginResolvedForToken: string | undefined;
+let durableOriginResolving = false;
+let durableOriginLastAttemptAt = 0;
 let v2ReentryTargetObjectId: string | undefined;
 const v2ProviderTarget = new SelectedBlockAnalysisTarget();
 let serviceDiscoveryGeneration = 0;
@@ -299,6 +302,8 @@ const projectContextRecoveryController = new ProjectContextRecoveryController(
 
 async function bindBusinessOrigin(token: OriginRouteToken): Promise<void> {
   originRoute = token;
+  durableOriginFallbackShownForToken = undefined;
+  durableOriginResolvedForToken = undefined;
   const graphKey = currentGraphKey;
   if (!graphKey) return;
   durableOriginLoadedGraphKey = graphKey;
@@ -315,6 +320,8 @@ async function bindBusinessOrigin(token: OriginRouteToken): Promise<void> {
 
 async function clearBusinessOrigin(): Promise<void> {
   originRoute = undefined;
+  durableOriginFallbackShownForToken = undefined;
+  durableOriginResolvedForToken = undefined;
   durableOriginLoadedGraphKey = currentGraphKey;
   try {
     await clearDurableOrigin(logseq.FileStorage);
@@ -338,36 +345,59 @@ async function restoreBusinessOriginForCurrentGraph(): Promise<void> {
 async function resolveDurableOriginAfterReload(): Promise<void> {
   const graphKey = currentGraphKey;
   const token = originRoute;
-  if (!graphKey || !token || durableOriginResolveAttemptedGraphKey === graphKey || runtimeEndedByUser) return;
-  if (logseq.isMainUIVisible) {
-    durableOriginResolveAttemptedGraphKey = graphKey;
-    return;
-  }
-  durableOriginResolveAttemptedGraphKey = graphKey;
-  let result: Awaited<ReturnType<OriginRouteController["resolveAfterReload"]>> | undefined;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 1_500));
-      if (logseq.isMainUIVisible) return;
+  if (!graphKey || !token || runtimeEndedByUser || logseq.isMainUIVisible) return;
+  const tokenSignature = `${token.kind}:${token.pageUuid}:${token.kind === "BLOCK" ? token.blockUuid : ""}`;
+  if (durableOriginResolvedForToken === tokenSignature || durableOriginResolving) return;
+  if (Date.now() - durableOriginLastAttemptAt < 750) return;
+  durableOriginLastAttemptAt = Date.now();
+  durableOriginResolving = true;
+  try {
+    let result: Awaited<ReturnType<OriginRouteController["resolveAfterReload"]>> | undefined;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        if (logseq.isMainUIVisible) return;
+      }
+      result = await originRouteController.resolveAfterReload(token);
+      if (result.status !== "SOURCE_UNAVAILABLE") break;
     }
-    result = await originRouteController.resolveAfterReload(token);
-    if (result.status !== "SOURCE_UNAVAILABLE") break;
-  }
-  if (!result) return;
-  operationalLogger.log(
-    result.status === "PARKED" || result.status === "RETURNED" || result.status === "RETURNED_PAGE_ONLY" ? "info" : "warn",
-    "source-resolution",
-    "durable_origin_reload_resolved",
-    { actionId: "resolve-durable-origin", result: result.status.toLowerCase() },
-  );
-  if (result.status === "SOURCE_UNAVAILABLE") {
-    actionDialog = {
-      kind: "v2-origin-fallback",
-      value: JSON.stringify({ pageName: token.pageName, label: result.label }),
-    };
-    message = undefined;
-    latestError = undefined;
-    await showTaskCopilot();
+    if (!result) return;
+    if (result.status === "PARKED") return;
+    if (result.status === "SOURCE_UNAVAILABLE" && durableOriginFallbackShownForToken === tokenSignature) return;
+    operationalLogger.log(
+      result.status === "RETURNED" || result.status === "RETURNED_PAGE_ONLY" ? "info" : "warn",
+      "source-resolution",
+      "durable_origin_reload_resolved",
+      { actionId: "resolve-durable-origin", result: result.status.toLowerCase() },
+    );
+    if (result.status === "RETURNED" || result.status === "RETURNED_PAGE_ONLY") {
+      durableOriginResolvedForToken = tokenSignature;
+    }
+    if (result.status === "RETURNED" && token.kind === "BLOCK") {
+      const pageName = token.pageName;
+      const blockUuid = token.blockUuid;
+      for (const delay of [1_000, 2_500]) {
+        setTimeout(() => {
+          try {
+            void logseq.Editor.scrollToBlockInPage(pageName, blockUuid);
+          } catch {
+            // Late-render scroll is best-effort; the main resolution already succeeded.
+          }
+        }, delay);
+      }
+    }
+    if (result.status === "SOURCE_UNAVAILABLE") {
+      durableOriginFallbackShownForToken = tokenSignature;
+      actionDialog = {
+        kind: "v2-origin-fallback",
+        value: JSON.stringify({ pageName: token.pageName, label: result.label }),
+      };
+      message = undefined;
+      latestError = undefined;
+      await showTaskCopilot();
+    }
+  } finally {
+    durableOriginResolving = false;
   }
 }
 
