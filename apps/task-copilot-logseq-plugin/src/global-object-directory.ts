@@ -78,7 +78,9 @@ export function filterAndSortDirectoryEntries(
   const query = state.search.trim().toLocaleLowerCase();
   const filtered = entries.filter((entry) => {
     if (query && !entry.text.toLocaleLowerCase().includes(query)) return false;
-    if (state.focus === "focus" && !entry.focus.selected) return false;
+    // “当前关注”筛选使用正式 FocusSelection，但只对仍在进行的对象表达当前关注；
+    // 关闭对象即使残留旧 selection 也不进入该筛选（数据本身不被修改）。
+    if (state.focus === "focus" && (!entry.focus.selected || entry.lifecycle !== "OPEN")) return false;
     if (state.focus === "now" && !entry.now) return false;
     if (state.type !== "ALL" && entry.objectType !== state.type) return false;
     if (state.lifecycle !== "ALL" && entry.lifecycle !== state.lifecycle) return false;

@@ -1608,6 +1608,10 @@ export class LocalServiceClient {
     return this.request<ServiceNowWork>("/now-work");
   }
 
+  listFocusSelections(): Promise<ServiceFocusSelection[]> {
+    return this.request<{ selections: ServiceFocusSelection[] }>("/focus").then((result) => result.selections);
+  }
+
   selectFocus(objectId: string, expectedVersion: number, rank: number): Promise<{ status: "SELECTED"; selection: ServiceFocusSelection }> {
     return this.request<{ status: "SELECTED"; selection: ServiceFocusSelection }>(`/focus/${encodeURIComponent(objectId)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion, rank }) });
   }

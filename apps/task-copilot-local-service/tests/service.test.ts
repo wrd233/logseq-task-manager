@@ -2509,6 +2509,7 @@ test("Now Work Focus is service-owned, manually ordered, and opens from Primary 
   const second = await createProject("Focus 第二项", "focus-page-b");
   await client.selectFocus(first.object.objectId, first.object.version, 0);
   await client.selectFocus(second.object.objectId, second.object.version, 0);
+  assert.deepEqual((await client.listFocusSelections()).map((selection) => selection.objectId).sort(), [first.object.objectId, second.object.objectId].sort());
   let now = await client.nowWork();
   assert.deepEqual(now.focus.map((item) => [item.objectId, item.primaryAnchorExternalId]), [
     [second.object.objectId, "focus-page-b"], [first.object.objectId, "focus-page-a"],
@@ -2519,6 +2520,7 @@ test("Now Work Focus is service-owned, manually ordered, and opens from Primary 
   assert.deepEqual(now.focus.map((item) => item.objectId), [first.object.objectId, second.object.objectId]);
   await assert.rejects(() => client.reorderFocus([second.object.objectId, first.object.objectId], [first.object.objectId, second.object.objectId]), (error: unknown) => error instanceof Error && "details" in error && (error as { details?: { status?: number; remoteCode?: string } }).details?.status === 409 && (error as { details?: { remoteCode?: string } }).details?.remoteCode === "V2_FOCUS_ORDER_STALE");
   await client.removeFocus(first.object.objectId, first.object.version);
+  assert.deepEqual((await client.listFocusSelections()).map((selection) => selection.objectId), [second.object.objectId]);
   assert.deepEqual((await client.nowWork()).focus.map((item) => item.objectId), [second.object.objectId]);
   const waiting = await client.changeCondition(second.object.objectId, second.object.version, { kind: "WAITING", waitingFor: "外部负责人", expectedResult: "确认窗口", reviewAt: "2026-07-20T00:00:00.000Z" });
   assert.equal(waiting.object.version, second.object.version + 1);

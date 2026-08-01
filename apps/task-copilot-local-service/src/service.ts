@@ -3217,6 +3217,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       respond(response, 200, { ...projection, focus: withAnchors(projection.focus), next: withAnchors(projection.next), waitingReview: withAnchors(projection.waitingReview), conditionOptions });
       return;
     }
+    if (request.method === "GET" && url.pathname === "/focus") {
+      respond(response, 200, { selections: store.listFocusSelections() });
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/focus/reorder") {
       const input = await readFocusReorderRequest(request);
       respond(response, 200, { selections: await application.reorderFocus(input.expectedObjectIds, input.objectIds) });

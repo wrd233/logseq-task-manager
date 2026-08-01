@@ -2295,6 +2295,60 @@ test("Global directory shows a neutral filtered-empty state with clear action", 
   assert.doesNotMatch(html, /data-object-id="task-1"/);
 });
 
+test("Global directory exposes focus and Now markers with direct focus management", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [
+    { objectId: "task-focused", objectType: "TASK", version: 2, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "已关注任务", sourceOrCreationEvent: "test", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" },
+    { objectId: "task-next", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "WAITING", waitingFor: "回复", expectedResult: "确认", reviewAt: "2026-08-01T00:00:00.000Z" }, text: "接下来任务", sourceOrCreationEvent: "test", createdAt: "2026-07-30T00:00:00.000Z", updatedAt: "2026-07-30T00:00:00.000Z" },
+    { objectId: "mini-done", objectType: "MINI_PROJECT", version: 3, lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, text: "已关闭但残留关注", sourceOrCreationEvent: "test", createdAt: "2026-07-29T00:00:00.000Z", updatedAt: "2026-07-29T00:00:00.000Z" },
+    { objectId: "task-plain", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "普通任务", sourceOrCreationEvent: "test", createdAt: "2026-07-28T00:00:00.000Z", updatedAt: "2026-07-28T00:00:00.000Z" },
+  ];
+  value.v2FocusSelections = [
+    { objectId: "task-focused", selectedAt: "2026-08-01T00:00:00.000Z", rank: 0 },
+    { objectId: "mini-done", selectedAt: "2026-08-01T00:00:00.000Z", rank: 1 },
+  ];
+  value.v2NowWork = {
+    generatedAt: "2026-08-01T00:00:00.000Z",
+    focus: [{ objectId: "task-focused", objectType: "TASK", version: 2, text: "已关注任务", condition: { kind: "ACTIONABLE" }, updatedAt: "2026-07-31T00:00:00.000Z", reason: "已加入当前关注" }],
+    next: [{ objectId: "task-next", objectType: "TASK", version: 1, text: "接下来任务", condition: { kind: "WAITING", waitingFor: "回复", expectedResult: "确认", reviewAt: "2026-08-01T00:00:00.000Z" }, updatedAt: "2026-07-30T00:00:00.000Z", reason: "近期更新" }],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  const html = renderApp(value);
+  const focused = html.match(/<article class="object-row directory-row" data-object-id="task-focused">[\s\S]*?<\/article>/)?.[0] ?? "";
+  const next = html.match(/<article class="object-row directory-row" data-object-id="task-next">[\s\S]*?<\/article>/)?.[0] ?? "";
+  const closed = html.match(/<article class="object-row directory-row" data-object-id="mini-done">[\s\S]*?<\/article>/)?.[0] ?? "";
+  const plain = html.match(/<article class="object-row directory-row" data-object-id="task-plain">[\s\S]*?<\/article>/)?.[0] ?? "";
+  assert.match(focused, /当前关注/);
+  assert.match(focused, /data-action="v2-directory-focus-remove" data-value="task-focused\|2"/);
+  assert.doesNotMatch(focused, /data-action="v2-directory-focus-add"/);
+  assert.match(next, /接下来/);
+  assert.match(next, /data-action="v2-directory-focus-add" data-value="task-next\|1"/);
+  assert.match(closed, /已关注 · 已关闭/);
+  assert.doesNotMatch(closed, /data-action="v2-directory-focus-(add|remove)"/);
+  assert.match(plain, /data-action="v2-directory-focus-add" data-value="task-plain\|1"/);
+  assert.doesNotMatch(plain, /当前关注|接下来/);
+});
+
+test("Global directory focus filter uses formal selections and stays empty for closed residuals", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [
+    { objectId: "task-open", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "进行中", sourceOrCreationEvent: "test", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" },
+    { objectId: "task-closed", objectType: "TASK", version: 1, lifecycle: "COMPLETED", condition: { kind: "ACTIONABLE" }, text: "已完成", sourceOrCreationEvent: "test", createdAt: "2026-07-30T00:00:00.000Z", updatedAt: "2026-07-30T00:00:00.000Z" },
+  ];
+  value.v2FocusSelections = [
+    { objectId: "task-open", selectedAt: "2026-08-01T00:00:00.000Z", rank: 0 },
+    { objectId: "task-closed", selectedAt: "2026-08-01T00:00:00.000Z", rank: 1 },
+  ];
+  value.v2DirectoryFilter = { search: "", focus: "focus", type: "ALL", lifecycle: "ALL", condition: "ALL", sort: "updated" };
+  const html = renderApp(value);
+  assert.match(html, /data-object-id="task-open"/);
+  assert.doesNotMatch(html, /data-object-id="task-closed"/);
+  assert.match(html, /已筛选 1 \/ 2 项/);
+});
+
 test("Sprint E empty Objects page keeps creation reachable with the structure section open", () => {
   const value = model();
   value.workspace = "objects";

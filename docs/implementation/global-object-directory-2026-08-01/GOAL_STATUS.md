@@ -9,6 +9,7 @@ Goal Status: ACTIVE
 Phase 0: COMPLETE (2026-08-01)
 Sprint A: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Sprint B: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
+Sprint C: DESKTOP_BEHAVIOR_PASS (VISUAL_GATE_READY)
 Recommended initial status: DRAFT → ACTIVE
 ```
 
@@ -74,6 +75,12 @@ Recommended initial status: DRAFT → ACTIVE
   真实 Desktop 复验搜索“发布”→1/22、类型→12/22、空态、清除与标题排序。
   “当前关注”在 Sprint C 接通正式 `GET /focus` 前按合同显示 0/22。
   证据：`tmp/runtime/global-object-directory/sprint-b/01-default…08-empty`。
+- Sprint C（未提交）：Service 新增只读 `GET /focus` + client `listFocusSelections()`；
+  目录行显示“当前关注”与“接下来/需要回看/保持等待”低权重标记；
+  行内“加入关注/移出关注”直接可用且停留在目录；关闭对象残留 selection
+  显示“已关注 · 已关闭”且不进入“当前关注”筛选（数据不修改）。
+  真实 Desktop：focus filter 2/22、now filter 14/22；完整加入→移出→恢复闭环 PASS。
+  证据：`tmp/runtime/global-object-directory/sprint-c/`。
 
 ## 返回边界
 

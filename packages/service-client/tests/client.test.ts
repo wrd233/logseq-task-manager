@@ -152,6 +152,30 @@ test("materialization client sends no Graph, database path, or caller-selected o
   assert.equal("databasePath" in (received as Record<string, unknown>), false);
 });
 
+test("focus selection client lists the read-only /focus projection", async (t) => {
+  const token = "client-focus-token-at-least-24-chars";
+  let receivedUrl = "";
+  const { server, url } = await listen((request, response) => {
+    receivedUrl = request.url ?? "";
+    assert.equal(request.method, "GET");
+    assert.equal(request.headers.authorization, `Bearer ${token}`);
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({
+      selections: [
+        { objectId: "obj-a", selectedAt: "2026-08-01T00:00:00.000Z", rank: 0 },
+        { objectId: "obj-b", selectedAt: "2026-08-01T00:00:01.000Z", rank: 1 },
+      ],
+    }));
+  });
+  t.after(() => server.close());
+  const client = new LocalServiceClient(descriptor(url, token));
+  assert.deepEqual(await client.listFocusSelections(), [
+    { objectId: "obj-a", selectedAt: "2026-08-01T00:00:00.000Z", rank: 0 },
+    { objectId: "obj-b", selectedAt: "2026-08-01T00:00:01.000Z", rank: 1 },
+  ]);
+  assert.equal(receivedUrl, "/focus");
+});
+
 test("Anchor observation client sends only bounded evidence and no Graph authority", async (t) => {
   const token = "client-anchor-observation-token-24-chars";
   let received: unknown;

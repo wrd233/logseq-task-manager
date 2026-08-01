@@ -101,6 +101,8 @@ test("focus selections map by rank and now placement comes from the read-only pr
   assert.deepEqual(byId.get("obj-next")?.now, { section: "next", reason: "近期更新" });
   assert.deepEqual(byId.get("obj-waiting")?.now, { section: "waitingReview", reason: "复查已到" });
   assert.equal(byId.get("obj-closed-focus")?.now, undefined);
+  const state = defaultDirectoryFilterState();
+  assert.deepEqual(filterAndSortDirectoryEntries(entries, { ...state, focus: "focus" }).map((entry) => entry.objectId), ["obj-focus"]);
 });
 
 test("due and updated summaries stay machine-readable in the projection", () => {

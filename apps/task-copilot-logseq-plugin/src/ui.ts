@@ -530,6 +530,23 @@ function renderDirectoryRow(model: UiModel, entry: GlobalObjectDirectoryEntry): 
     : entry.primaryAnchor
       ? `<span class="muted directory-source-issue">来源需重新连接</span>`
       : "";
+  const focusAction = object.lifecycle === "OPEN"
+    ? entry.focus.selected
+      ? button("移出关注", "v2-directory-focus-remove", `${object.objectId}|${object.version}`, "quiet")
+      : button("加入关注", "v2-directory-focus-add", `${object.objectId}|${object.version}`, "quiet")
+    : "";
+  const focusMarker = entry.focus.selected
+    ? entry.lifecycle === "OPEN"
+      ? `<span class="directory-marker focus-marker">当前关注</span>`
+      : `<span class="directory-marker">已关注 · 已关闭</span>`
+    : "";
+  const nowMarker = entry.now
+    ? entry.now.section === "next"
+      ? `<span class="directory-marker now-marker">接下来</span>`
+      : entry.now.section === "waitingReview"
+        ? `<span class="directory-marker now-marker">${entry.condition?.kind === "WAITING" ? "需要回看" : "保持等待"}</span>`
+        : ""
+    : "";
   const more = secondaryActions || object.projectStructure || object.closure
     ? `<details class="directory-row-more"><summary>更多</summary><div class="actions">${secondaryActions}</div>${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</details>`
     : "";
@@ -537,9 +554,10 @@ function renderDirectoryRow(model: UiModel, entry: GlobalObjectDirectoryEntry): 
     <div class="directory-row-body">
       <h3 class="directory-row-title">${escapeHtml(object.text)}</h3>
       <p class="directory-row-meta">${meta}</p>
+      ${focusMarker || nowMarker ? `<p class="directory-row-markers">${focusMarker}${nowMarker}</p>` : ""}
       <p class="directory-row-facts">${escapeHtml(updated)}${due}</p>
     </div>
-    <div class="directory-row-actions">${openSource}${more}</div>
+    <div class="directory-row-actions">${openSource}${focusAction}${more}</div>
   </article>`;
 }
 

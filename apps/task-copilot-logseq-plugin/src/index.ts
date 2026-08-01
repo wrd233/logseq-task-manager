@@ -37,6 +37,7 @@ import type {
   ServiceConnectionState,
   ServiceConditionUndoPreparation,
   LocalServiceClient,
+  ServiceFocusSelection,
   ServiceNowWork,
   ServiceProjectClosureEvidenceDraft,
   ServiceProjectClosureUserJudgments,
@@ -755,6 +756,7 @@ async function model(): Promise<UiModel> {
   let v2Candidates: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listCandidates"]>> = [];
   let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
   let v2Objects: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listObjects"]>> = [];
+  let v2FocusSelections: ServiceFocusSelection[] = [];
   let v2Associations: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listAssociations"]>> = [];
   let v2PrimaryOwnerships: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listPrimaryOwnerships"]>> = [];
   let v2PrimaryAnchors: V2Anchor[] = [];
@@ -775,11 +777,12 @@ async function model(): Promise<UiModel> {
   const primaryAnchorByObject = new Map<string, V2Anchor>();
   if (serviceConnection.status === "READY" && serviceRuntimeClient) {
     try {
-      [v2Proposals, v2Objects, v2NowWork, v2Candidates] = await Promise.all([
+      [v2Proposals, v2Objects, v2NowWork, v2Candidates, v2FocusSelections] = await Promise.all([
         serviceRuntimeClient.listProposals(),
         serviceRuntimeClient.listObjects(),
         serviceRuntimeClient.nowWork(),
         serviceRuntimeClient.listCandidates(),
+        serviceRuntimeClient.listFocusSelections(),
       ]);
     } catch (error) {
       v2ProposalLoadError = explain(error);
@@ -969,7 +972,7 @@ async function model(): Promise<UiModel> {
     v2AreaBusy,
     v2Objects,
     v2PrimaryAnchors: [...primaryAnchorByObject.values()],
-    v2FocusSelections: [],
+    v2FocusSelections,
     v2DirectoryFilter,
     v2Associations,
     v2PrimaryOwnerships,
@@ -3035,6 +3038,27 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-directory-open-source" && value) {
     await run(async () => openV2PrimaryAnchor(value));
     if (!latestError) await logseq.hideMainUI();
+    return;
+  }
+  if (action === "v2-directory-focus-add" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      const expectedVersion = Number(rawVersion);
+      if (!client || !objectId || !Number.isSafeInteger(expectedVersion)) throw new Error("关注上下文已失效；没有写入。");
+      const current = await client.nowWork();
+      await client.selectFocus(objectId, expectedVersion, current.focus.length);
+    }, "已加入当前关注；对象正式状态与正文未改变。");
+    return;
+  }
+  if (action === "v2-directory-focus-remove" && value) {
+    const [objectId, rawVersion] = value.split("|");
+    await run(async () => {
+      const client = serviceRuntimeClient;
+      const expectedVersion = Number(rawVersion);
+      if (!client || !objectId || !Number.isSafeInteger(expectedVersion)) throw new Error("关注上下文已失效；没有写入。");
+      await client.removeFocus(objectId, expectedVersion);
+    }, "已移出当前关注；对象正式状态与正文未改变。");
     return;
   }
   if (action === "v2-focus-add" && value) {
