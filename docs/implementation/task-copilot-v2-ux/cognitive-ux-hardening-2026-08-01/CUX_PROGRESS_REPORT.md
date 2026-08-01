@@ -58,6 +58,9 @@
   750ms 节流 + 防重入 + PARKED 静默；增加 1s/2.5s 有界跟随滚动。宿主 `scrollToBlockInPage` 在无焦点
   CDP 环境未产生可见滚动 → 记 OPEN_MANUAL_GATE。生成 6 组机器可读证据包（now/review/confirmation/
   objects × light/dark × 1000/760），见 `CUX_EVIDENCE_INDEX.md`。
+- 追加（2026-08-01 第四轮）：anchor 可见滚动 Desktop PASS——宿主语义为“滚到块可见”；复位滚动后
+  `scrollToBlockInPage` 使滚动容器 0→411.84、目标块 910→498 进入视口。CUX-P0-02 的 reload /
+  quit/reopen / anchor 三项 Desktop 证据齐备；仅剩余 Graph switch、改名、移动等变体与视觉 Gate。
 - 修复：Condition/Candidate/阶段映射/主归属等下拉仍泄漏 `TASK/OUTPUT/...` 原始类型码 → 已改为用户语言
   （ui.ts），新增 select 术语合同测试；Desktop 复验 `hasRawCodes=false`。
 - 明细见 `evidence/DESKTOP_GATE_2026-08-01.md`；截图已就绪，独立视觉 Gate 仍 PENDING。
