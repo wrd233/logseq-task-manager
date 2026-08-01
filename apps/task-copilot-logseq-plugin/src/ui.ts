@@ -36,6 +36,7 @@ import {
 } from "./attention-shadow-runtime.ts";
 import { activeOutcomeScope, createScopedOutcome, outcomeForScope, type ScopedOutcome } from "./scoped-outcome.ts";
 import type { WorksitePreviewMode, WorksitePreviewState } from "./worksite-preview-controller.ts";
+import { renderAgentGovernance, type AgentGovernanceUiState } from "./agent-governance-ui.ts";
 
 export interface WorksitePreviewUiEntry {
   expanded: boolean;
@@ -43,7 +44,7 @@ export interface WorksitePreviewUiEntry {
   mode?: WorksitePreviewMode;
 }
 
-export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "migration", "audit"] as const;
+export const WORKSPACE_IDS = ["now", "objects", "review", "reentry", "more", "governance", "migration", "audit"] as const;
 export type Workspace = typeof WORKSPACE_IDS[number];
 type PrimaryWorkspace = "now" | "review" | "projects" | "more";
 export type V2NowWorkTypeFilter = "ALL" | ServiceNowWork["focus"][number]["objectType"];
@@ -213,6 +214,7 @@ export interface UiModel {
   v2BackupRestoreAvailable?: boolean;
   pageContext?: PageContextSnapshot;
   v2ManagedRuntimeState?: "RUNNING" | "ENDED";
+  agentGovernance?: AgentGovernanceUiState;
 }
 
 export function escapeHtml(value: unknown): string {
@@ -1548,9 +1550,10 @@ function sectionNavigation(model: UiModel): string {
     ];
     return `<nav class="section-nav" aria-label="项目区域">${entries.map(([id, label]) => `<button class="${model.workspace === id ? "active" : ""}" data-action="view" data-value="${id}" aria-pressed="${model.workspace === id}">${label}</button>`).join("")}</nav>`;
   }
-  if (model.workspace === "more" || model.workspace === "audit" || model.workspace === "migration") {
+  if (model.workspace === "more" || model.workspace === "governance" || model.workspace === "audit" || model.workspace === "migration") {
     const entries: Array<[Workspace, string]> = [
       ["more", "更多首页"],
+      ["governance", "Agent 治理"],
       ["audit", "最近修改与恢复"],
       ["migration", "迁移"],
     ];
@@ -1566,6 +1569,7 @@ function renderMore(model: UiModel): string {
       ? `<article class="card"><h3>本次使用已结束</h3><p>Logseq 正文仍可编辑，历史与恢复信息保持安全；需要正式能力时可重新启动。</p>${button("重新启动 Task Copilot", "restart-task-copilot", undefined, "primary")}</article>`
       : "";
   return `<section><div class="eyebrow">高级与维护</div><h2>更多</h2><p class="muted">日常只需要“现在”“待我确认”和“项目”。这里处理最近修改、系统维护、备份恢复和一次性迁移。</p><div class="cards more-hub">
+    <article class="card"><h3>Agent 治理</h3><p>查看 Agent 判断、异常、规则授权与复查信号，并记录可追溯反馈。</p>${button("打开 Agent 治理", "view", "governance", "primary")}</article>
     <article class="card"><h3>最近修改与恢复</h3><p>查看已经应用、尚未完成或需要恢复的变化，并按安全前置决定能否撤销。</p>${button("查看最近修改与恢复", "view", "audit", "primary")}</article>
     <article class="card"><h3>系统状态</h3><p>先说明哪些能力受影响、哪些仍可用和数据是否安全；需要时再展开技术详情。</p>${button("检查系统状态", "runtime-diagnostics", undefined, "quiet")}</article>
     <article class="card"><h3>备份与恢复</h3><p>创建当前快照，或从已校验快照恢复；系统会先保留当前状态，再安全切换并自动重新连接。</p>${button(model.v2BackupRestoreAvailable ? "打开备份与恢复" : "备份与恢复暂不可用", "backup-restore-open", undefined, "quiet", !model.v2BackupRestoreAvailable)}</article>
@@ -2143,6 +2147,8 @@ export function renderApp(model: UiModel): string {
               ? renderReentry(model)
               : model.workspace === "more"
                 ? renderMore(model)
+              : model.workspace === "governance"
+                ? renderAgentGovernance(model.agentGovernance ?? { status: "loading", mode: "EXPERIMENT", automaticWritesPaused: true, decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now: new Date().toISOString() })
               : model.workspace === "migration"
                 ? renderMigration(model)
                 : renderAudit(model);

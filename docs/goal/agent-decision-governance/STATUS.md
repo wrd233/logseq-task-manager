@@ -3,8 +3,8 @@
 ```yaml
 goal_state: IN_PROGRESS
 base_commit: 7f23564131dbaf5bdcb04c21b80ddb7abd9d48e0
-current_commit: ebf0173
-current_phase: PHASE_3_FEEDBACK_EXPORT_UI
+current_commit: fe6abaf
+current_phase: PHASE_4_GUARDED_RUNTIME
 completed:
   - Goal Objective and full user detailed design read
   - repository baseline and pre-existing dirty file recorded
@@ -40,8 +40,11 @@ completed:
   - bounded 60/180-day Review Evidence Package with source-identity deduplication, stable Evidence IDs, weak clusters, timeline, captured/current drift, source-missing/error/truncation evidence
   - export credential redaction, file byte/hash manifest and Service Client integrity validation
   - Review export reuses the live bounded Graph read bridge with four-way concurrency and records unavailable sources instead of guessing or dumping the Graph
+  - existing Plugin shell exposes Agent Governance under More with exception-first Decisions, honest EXPERIMENT zero-write state, 24h/7d metrics, rule authorizations and weak Review Signals
+  - Decision detail exposes source, evidence, counter-signals, alternative, Context tier, internal Skill version and ordered Event history without mixing Feedback with Undo
+  - single and compatibility-grouped bulk Feedback, duplicate-submit protection and verified Skill/Review export downloads are wired to authenticated Service Client commands
+  - governance renderer covers loading, failure, empty, dense/detail, pause and disabled states with existing shell focus restoration, visible keyboard focus and normal/narrow responsive layouts
 remaining_automatable_work:
-  - implement governance UI
   - implement guarded explicit-task execution wiring default off and full fault/no-Agent regression
 runtime_checks_pending:
   - consolidated Desktop scenarios A through J
@@ -58,7 +61,7 @@ visual_gates:
 active_risks:
   - default shell Node 25 cannot be used for the repository gate; use pinned Node 20.20.2
   - existing local-service package.json change belongs to the user and must remain untouched
-  - current Plugin is loaded from a prior global-object-directory build, not this Goal build
+  - current Plugin is loaded from a prior global-object-directory build, not this Goal build; governance UI has automated renderer evidence but no Desktop visual evidence yet
   - Provider is configured but has not been probed in this Goal
   - live formal SQLite remains schema v12 until the consolidated explicit migration checkpoint; implementation tests use isolated v13 fixtures
   - Guarded R1 routing is compiled but execution remains absent/disabled until the honest Shadow time gate and explicit user authorization

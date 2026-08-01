@@ -44,7 +44,7 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - Commit revalidation classifies current facts as READY, STALE, BLOCKED or idempotent NO_OP without widening scope.
 - The live Desktop/real-DeepSeek gate remains consolidated in CP-4; the automated CP-2 contract is complete.
 
-## CP-3 — feedback/export/UI (in progress)
+## CP-3 — feedback/export/UI complete (automated)
 
 - Feedback is a bounded `USER_FEEDBACK_ADDED` Decision Event and has no Undo field or transaction side effect.
 - Single and bulk feedback are authenticated user commands with exact request shapes and idempotent persistence.
@@ -52,4 +52,9 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - Explicit pause feedback atomically records the feedback and pauses only the referenced Rule; it does not alter the Rule's granted authority.
 - Skill Feedback export now provides deterministic Markdown + JSON/JSONL, per-rule metrics, representative indexes, authority state, bounded redaction and a verified file manifest.
 - Review Evidence export covers explicit 60/180-day ranges, stable source-identity Evidence IDs, captured/current drift, source-missing/error/truncation, weak clusters and a compact timeline through the existing live Graph read bridge.
-- The governance UI remains open.
+- The existing Plugin shell now exposes Agent Governance under More; no standalone frontend or competing state store was added.
+- Its compact exception-first stream provides 24h/7d counts, human/failure/sample indicators, Chinese Rule names, honest observation-only runtime state, weak signals and source/evidence/alternative/Context/Skill/Event detail.
+- Single and compatibility-grouped bulk Feedback call the authenticated Service commands with visible pending/failure states and duplicate prevention; Feedback remains explicitly separate from existing Undo/recovery UI.
+- Skill Feedback and Review Evidence controls download a human-readable README plus the integrity-validated machine package.
+- Renderer tests cover exception order, runtime boundaries, detail, feedback, export, loading, failure and empty states; existing Plugin shell focus restoration and focus-visible styles apply, with dedicated normal/narrow responsive governance CSS.
+- Light/Dark and 1000/760 Desktop screenshots remain consolidated in CP-4 and are not claimed from renderer tests.

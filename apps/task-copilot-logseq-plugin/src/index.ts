@@ -1,6 +1,6 @@
 import "@logseq/libs";
 
-import type { Lifecycle, V2Anchor, V2Condition, V2MiniProjectClosure, V2ObjectType, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
+import type { AgentFeedbackAction, AgentFeedbackCorrectionType, AgentFeedbackInput, AgentFeedbackRating, AgentGovernanceExportPackage, Lifecycle, V2Anchor, V2Condition, V2MiniProjectClosure, V2ObjectType, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
@@ -141,6 +141,7 @@ import {
 } from "./migration-execution-controller.ts";
 import { applyHostThemeMode, configuredThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
 import { activeOutcomeScope, createScopedOutcome } from "./scoped-outcome.ts";
+import type { AgentGovernanceUiState } from "./agent-governance-ui.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -161,6 +162,10 @@ let recentActionCommitId: string | undefined;
 let uiActionSequence = 0;
 let currentUiActionId = "runtime-startup:0";
 let actionDialog: UiModel["actionDialog"];
+let agentSelectedDecisionId: string | undefined;
+let agentSelectedDecisionIds = new Set<string>();
+let agentFeedbackBusy = false;
+let agentExportBusy: AgentGovernanceUiState["exportBusy"];
 const operationalLogger = new StructuredLogger(300, { pluginVersion: "0.1.0", pluginCommit: PLUGIN_COMMIT });
 const attentionShadowSession = new AttentionShadowSession();
 const backupRestoreController = new BackupRestoreController();
@@ -195,6 +200,31 @@ function isMigrationExecutionClient(client: ServiceRuntimeClient | undefined): c
     && typeof client.verifyLegacyMigrationBatch === "function"
     && typeof client.undoLegacyMigrationBatch === "function"
     && typeof client.activateLegacyMigration === "function",
+  );
+}
+
+type AgentGovernanceUiClient = ServiceRuntimeClient & Required<Pick<ServiceRuntimeClient,
+  | "listAgentDecisions"
+  | "listAgentDecisionEvents"
+  | "listAgentReviewSignals"
+  | "listAgentRuleAuthorizations"
+  | "recordAgentFeedback"
+  | "recordAgentBulkFeedback"
+  | "exportAgentSkillFeedback"
+  | "exportAgentReviewEvidence"
+>>;
+
+function isAgentGovernanceUiClient(client: ServiceRuntimeClient | undefined): client is AgentGovernanceUiClient {
+  return Boolean(
+    client
+    && typeof client.listAgentDecisions === "function"
+    && typeof client.listAgentDecisionEvents === "function"
+    && typeof client.listAgentReviewSignals === "function"
+    && typeof client.listAgentRuleAuthorizations === "function"
+    && typeof client.recordAgentFeedback === "function"
+    && typeof client.recordAgentBulkFeedback === "function"
+    && typeof client.exportAgentSkillFeedback === "function"
+    && typeof client.exportAgentReviewEvidence === "function",
   );
 }
 
@@ -754,6 +784,7 @@ function renderDiagnostics(
 }
 
 async function model(): Promise<UiModel> {
+  let agentGovernance: AgentGovernanceUiState | undefined;
   let v2Proposals: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listProposals"]>> = [];
   let v2Candidates: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listCandidates"]>> = [];
   let v2SemanticCommits: Awaited<ReturnType<NonNullable<typeof serviceRuntimeClient>["listSemanticCommits"]>> = [];
@@ -887,6 +918,54 @@ async function model(): Promise<UiModel> {
     if (!v2TaskReentryLoadError && v2ProposalLoadError) v2TaskReentryLoadError = v2ProposalLoadError;
     if (!v2TaskReentryLoadError && v2AuditLoadError) v2TaskReentryLoadError = v2AuditLoadError;
     if (!v2TaskReentryLoadError && v2PrimaryAnchorLoadError) v2TaskReentryLoadError = v2PrimaryAnchorLoadError;
+  }
+  if (workspace === "governance") {
+    const now = new Date().toISOString();
+    const client = serviceRuntimeClient;
+    if (serviceConnection.status !== "READY" || !isAgentGovernanceUiClient(client)) {
+      agentGovernance = {
+        status: "error",
+        error: "Agent 治理服务尚未就绪。请先在系统状态中恢复 Local Service 连接。",
+        mode: "EXPERIMENT",
+        automaticWritesPaused: true,
+        decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now,
+      };
+    } else {
+      try {
+        const [decisions, rules, signals] = await Promise.all([
+          client.listAgentDecisions({ limit: 100 }),
+          client.listAgentRuleAuthorizations(),
+          client.listAgentReviewSignals({ limit: 100 }),
+        ]);
+        const validDecisionIds = new Set(decisions.map((decision) => decision.decisionId));
+        agentSelectedDecisionIds = new Set([...agentSelectedDecisionIds].filter((decisionId) => validDecisionIds.has(decisionId)));
+        if (agentSelectedDecisionId && !validDecisionIds.has(agentSelectedDecisionId)) agentSelectedDecisionId = undefined;
+        const selectedDecision = decisions.find((decision) => decision.decisionId === agentSelectedDecisionId);
+        const events = selectedDecision ? await client.listAgentDecisionEvents(selectedDecision.threadId) : [];
+        agentGovernance = {
+          status: "ready",
+          mode: "EXPERIMENT",
+          automaticWritesPaused: true,
+          decisions,
+          rules,
+          signals,
+          events,
+          ...(agentSelectedDecisionId ? { selectedDecisionId: agentSelectedDecisionId } : {}),
+          selectedDecisionIds: [...agentSelectedDecisionIds],
+          feedbackBusy: agentFeedbackBusy,
+          ...(agentExportBusy ? { exportBusy: agentExportBusy } : {}),
+          now,
+        };
+      } catch (error) {
+        agentGovernance = {
+          status: "error",
+          error: explain(error),
+          mode: "EXPERIMENT",
+          automaticWritesPaused: true,
+          decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [...agentSelectedDecisionIds], now,
+        };
+      }
+    }
   }
   const v2CandidateSourcePreviews = await loadV2CandidateSourcePreviews(v2Candidates);
   let v2WorksitePreviews: Record<string, { expanded: boolean; state: WorksitePreviewState; mode?: WorksitePreviewMode }> | undefined;
@@ -1074,6 +1153,7 @@ async function model(): Promise<UiModel> {
       : runtimeEndedByUser
         ? { v2ManagedRuntimeState: "ENDED" as const }
         : {}),
+    ...(agentGovernance ? { agentGovernance } : {}),
   };
 
 }
@@ -1545,6 +1625,14 @@ function downloadText(filename: string, content: string, type: string): void {
   URL.revokeObjectURL(url);
 }
 
+function downloadAgentGovernancePackage(value: AgentGovernanceExportPackage): void {
+  const prefix = value.manifest.kind === "SKILL_FEEDBACK" ? "agent-skill-feedback" : "agent-review-evidence";
+  const stamp = value.manifest.generatedAt.replaceAll(":", "-").replaceAll(".", "-");
+  const readme = value.files["README.md"];
+  if (readme) downloadText(`${prefix}-${stamp}.md`, readme, "text/markdown;charset=utf-8");
+  downloadText(`${prefix}-${stamp}.json`, JSON.stringify(value, null, 2), "application/json;charset=utf-8");
+}
+
 function dialogField(name: string): string {
   const element = requireAppRoot().querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-field="${name}"]`);
   return element?.value.trim() ?? "";
@@ -1552,6 +1640,25 @@ function dialogField(name: string): string {
 
 function dialogChecked(name: string): boolean {
   return requireAppRoot().querySelector<HTMLInputElement>(`[data-field="${name}"]`)?.checked === true;
+}
+
+const agentFeedbackRatings = new Set<AgentFeedbackRating>(["CORRECT", "MOSTLY_CORRECT", "WRONG"]);
+const agentFeedbackCorrectionTypes = new Set<AgentFeedbackCorrectionType>(["SHOULD_KEEP_ORDINARY", "SHOULD_CREATE_OBJECT", "SHOULD_UPDATE_EXISTING", "SHOULD_DEFER", "WRONG_TARGET", "TOO_AGGRESSIVE", "TOO_CONSERVATIVE", "RISK_TOO_HIGH", "RISK_TOO_LOW", "OTHER"]);
+const agentFeedbackActions = new Set<AgentFeedbackAction>(["THIS_DECISION_ONLY", "RECORD_RULE_FEEDBACK", "PAUSE_RULE_AUTOMATION"]);
+
+function readAgentFeedback(prefix: "agent-feedback" | "agent-bulk-feedback"): AgentFeedbackInput {
+  const rawRating = dialogField(`${prefix}-rating`) as AgentFeedbackRating;
+  const rawCorrectionType = dialogField(`${prefix}-correction-type`) as AgentFeedbackCorrectionType;
+  const rawAction = dialogField(`${prefix}-action`) as AgentFeedbackAction;
+  const note = dialogField(`${prefix}-note`);
+  if (!agentFeedbackRatings.has(rawRating) || !agentFeedbackActions.has(rawAction)) throw new Error("Agent 反馈选项无效；没有记录反馈。");
+  if (rawCorrectionType && !agentFeedbackCorrectionTypes.has(rawCorrectionType)) throw new Error("Agent 修正类型无效；没有记录反馈。");
+  return {
+    rating: rawRating,
+    ...(rawCorrectionType ? { correctionType: rawCorrectionType } : {}),
+    ...(note ? { note } : {}),
+    action: rawAction,
+  };
 }
 
 function dialogSelectedVersion(name: string): number | undefined {
@@ -2227,6 +2334,92 @@ async function handleAction(action: string, value?: string): Promise<void> {
     workspace = "review";
     reviewMode = "proposals";
     message = "已打开这次未完成修改的处理记录；请按当前卡片的下一步继续。";
+    await refresh();
+    return;
+  }
+  if (action === "agent-governance-refresh") {
+    await refresh();
+    return;
+  }
+  if (action === "agent-decision-detail" && value) {
+    agentSelectedDecisionId = agentSelectedDecisionId === value ? undefined : value;
+    await refresh();
+    return;
+  }
+  if (action === "agent-decision-select" && value) {
+    if (agentSelectedDecisionIds.has(value)) agentSelectedDecisionIds.delete(value);
+    else agentSelectedDecisionIds.add(value);
+    await refresh();
+    return;
+  }
+  if (action === "agent-decision-selection-clear") {
+    agentSelectedDecisionIds.clear();
+    await refresh();
+    return;
+  }
+  if (action === "agent-feedback-submit" && value) {
+    const client = serviceRuntimeClient;
+    if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有记录反馈。");
+    if (agentFeedbackBusy) throw new Error("这条反馈正在提交，不会重复发送。");
+    const feedback = readAgentFeedback("agent-feedback");
+    const traceId = `agent-feedback-ui-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    agentFeedbackBusy = true;
+    await refresh();
+    try {
+      const result = await client.recordAgentFeedback(value, { feedback, traceId, idempotencyKey: traceId });
+      message = result.authorization?.paused
+        ? `已记录反馈，并暂停规则“${result.authorization.displayName}”的自动化。`
+        : `已记录这条 Agent 反馈${result.replayed ? "（已确认前次提交，未重复写入）" : ""}。`;
+    } catch (error) {
+      latestError = explain(error);
+    } finally {
+      agentFeedbackBusy = false;
+    }
+    await refresh();
+    return;
+  }
+  if (action === "agent-bulk-feedback-submit") {
+    const client = serviceRuntimeClient;
+    if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有记录批量反馈。");
+    if (agentFeedbackBusy) throw new Error("批量反馈正在提交，不会重复发送。");
+    const decisionIds = [...agentSelectedDecisionIds];
+    if (decisionIds.length < 2) throw new Error("请至少选择两条决策。");
+    const feedback = readAgentFeedback("agent-bulk-feedback");
+    const traceId = `agent-bulk-feedback-ui-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    agentFeedbackBusy = true;
+    await refresh();
+    try {
+      const result = await client.recordAgentBulkFeedback({ decisionIds, feedback, traceId, idempotencyKey: traceId });
+      message = `已按结果、规则和风险路由分成 ${result.groups.length} 组，记录 ${result.results.length} 条反馈。`;
+      agentSelectedDecisionIds.clear();
+    } catch (error) {
+      latestError = explain(error);
+    } finally {
+      agentFeedbackBusy = false;
+    }
+    await refresh();
+    return;
+  }
+  if ((action === "agent-export-skill" || action === "agent-export-review") && value) {
+    const client = serviceRuntimeClient;
+    if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理导出服务尚未就绪。");
+    if (agentExportBusy) throw new Error("治理证据正在导出，不会重复启动。");
+    const days = Number(value);
+    if (action === "agent-export-skill" && days !== 30) throw new Error("Skill 反馈导出范围无效。");
+    if (action === "agent-export-review" && days !== 60) throw new Error("复查证据导出范围无效。");
+    agentExportBusy = action === "agent-export-skill" ? "skill" : "review";
+    await refresh();
+    try {
+      const exported = action === "agent-export-skill"
+        ? await client.exportAgentSkillFeedback(30)
+        : await client.exportAgentReviewEvidence(60);
+      downloadAgentGovernancePackage(exported);
+      message = `已生成 ${exported.manifest.includedCount} 条证据的可校验导出，共 ${exported.manifest.files.length} 个包内文件。`;
+    } catch (error) {
+      latestError = explain(error);
+    } finally {
+      agentExportBusy = undefined;
+    }
     await refresh();
     return;
   }
