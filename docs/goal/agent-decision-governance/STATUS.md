@@ -3,7 +3,7 @@
 ```yaml
 goal_state: IN_PROGRESS
 base_commit: 7f23564131dbaf5bdcb04c21b80ddb7abd9d48e0
-current_commit: b296b4f
+current_commit: df3dde2
 current_phase: PHASE_3_FEEDBACK_EXPORT_UI
 completed:
   - Goal Objective and full user detailed design read
@@ -32,8 +32,12 @@ completed:
   - newer source observations cancel stale Provider results before Decision persistence
   - offline Service failures retain one bounded latest waterline per observation key and retry after recovery
   - source/target/Anchor/rule/Skill/mode/pause/scope/equivalent-action revalidation contract
+  - bounded single and bulk Feedback commands with deterministic compatibility grouping across Outcome, Rule, Risk Route and action
+  - Feedback persists only as USER_FEEDBACK_ADDED Decision Events and never implies Undo
+  - explicit PAUSE_RULE_AUTOMATION feedback atomically records the event and pauses only the matching Rule without changing authority
+  - authenticated Feedback service/client contracts reject unknown fields, implicit Undo and forged non-user submissions
 remaining_automatable_work:
-  - implement Feedback/bulk compatibility, privacy-safe exports and governance UI
+  - implement privacy-safe exports and governance UI
   - implement guarded explicit-task execution wiring default off and full fault/no-Agent regression
 runtime_checks_pending:
   - consolidated Desktop scenarios A through J

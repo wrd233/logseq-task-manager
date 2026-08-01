@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { AgentGovernanceApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
-import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentFeedbackInput, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -362,6 +362,59 @@ async function readAgentGovernanceObservationRequest(request: IncomingMessage): 
     throw serviceError("AGENT_OBSERVATION_INVALID", "Agent observation 只接受受控 changed Block 身份与批次大小。");
   }
   return { changedBlockId: record.changedBlockId.trim(), changedBlockCount: Number(record.changedBlockCount) };
+}
+
+function parseAgentFeedbackInput(value: unknown): AgentFeedbackInput {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const allowed = new Set(["rating", "correctionType", "tendency", "routeAssessment", "note", "action"]);
+  const valid = Object.keys(record).every((key) => allowed.has(key))
+    && ["CORRECT", "MOSTLY_CORRECT", "WRONG"].includes(String(record.rating))
+    && ["THIS_DECISION_ONLY", "RECORD_RULE_FEEDBACK", "PAUSE_RULE_AUTOMATION"].includes(String(record.action))
+    && (record.correctionType === undefined || ["SHOULD_KEEP_ORDINARY", "SHOULD_CREATE_OBJECT", "SHOULD_UPDATE_EXISTING", "SHOULD_DEFER", "WRONG_TARGET", "TOO_AGGRESSIVE", "TOO_CONSERVATIVE", "RISK_TOO_HIGH", "RISK_TOO_LOW", "OTHER"].includes(String(record.correctionType)))
+    && (record.tendency === undefined || ["TOO_AGGRESSIVE", "TOO_CONSERVATIVE"].includes(String(record.tendency)))
+    && (record.routeAssessment === undefined || ["TOO_HIGH", "TOO_LOW"].includes(String(record.routeAssessment)))
+    && (record.note === undefined || (typeof record.note === "string" && record.note.trim().length > 0 && record.note.length <= 2_048));
+  if (!valid) throw serviceError("AGENT_FEEDBACK_INVALID", "Agent Feedback 字段、评价或纠正类型无效。");
+  return {
+    rating: record.rating as AgentFeedbackInput["rating"],
+    ...(record.correctionType !== undefined ? { correctionType: record.correctionType as NonNullable<AgentFeedbackInput["correctionType"]> } : {}),
+    ...(record.tendency !== undefined ? { tendency: record.tendency as NonNullable<AgentFeedbackInput["tendency"]> } : {}),
+    ...(record.routeAssessment !== undefined ? { routeAssessment: record.routeAssessment as NonNullable<AgentFeedbackInput["routeAssessment"]> } : {}),
+    ...(typeof record.note === "string" ? { note: record.note.trim() } : {}),
+    action: record.action as AgentFeedbackInput["action"],
+  };
+}
+
+function validAgentCommandIdentity(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(value);
+}
+
+async function readAgentFeedbackRequest(request: IncomingMessage): Promise<{ feedback: AgentFeedbackInput; traceId: string; idempotencyKey: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Agent Feedback 请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "feedback,idempotencyKey,traceId"
+    || !validAgentCommandIdentity(record.traceId) || !validAgentCommandIdentity(record.idempotencyKey)) {
+    throw serviceError("AGENT_FEEDBACK_INVALID", "Agent Feedback 只接受反馈、trace ID 与幂等键。");
+  }
+  return { feedback: parseAgentFeedbackInput(record.feedback), traceId: record.traceId, idempotencyKey: record.idempotencyKey };
+}
+
+async function readAgentBulkFeedbackRequest(request: IncomingMessage): Promise<{ decisionIds: string[]; feedback: AgentFeedbackInput; traceId: string; idempotencyKey: string }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "批量 Agent Feedback 请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const decisionIds = Array.isArray(record.decisionIds) ? record.decisionIds : [];
+  if (Object.keys(record).sort().join(",") !== "decisionIds,feedback,idempotencyKey,traceId"
+    || decisionIds.length < 1 || decisionIds.length > 50
+    || decisionIds.some((id) => typeof id !== "string" || !id.trim() || id.length > 256)
+    || new Set(decisionIds).size !== decisionIds.length
+    || !validAgentCommandIdentity(record.traceId) || !validAgentCommandIdentity(record.idempotencyKey)) {
+    throw serviceError("AGENT_BULK_FEEDBACK_INVALID", "批量 Agent Feedback 只接受 1..50 个唯一 Decision ID、反馈、trace ID 与幂等键。");
+  }
+  return { decisionIds: decisionIds as string[], feedback: parseAgentFeedbackInput(record.feedback), traceId: record.traceId, idempotencyKey: record.idempotencyKey };
 }
 
 async function readAssociationRequest(request: IncomingMessage): Promise<{ sourceObjectId: string; targetObjectId: string; expectedVersion: number; traceId: string }> {
@@ -1340,20 +1393,20 @@ function respondError(response: ServerResponse, error: unknown): void {
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
-    const uxInputError = error.code === "AGENT_OBSERVATION_INVALID" || ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "PROJECT_CLOSURE_USER_JUDGMENTS_INVALID"].includes(error.code)
+    const uxInputError = ["AGENT_OBSERVATION_INVALID", "AGENT_FEEDBACK_INVALID", "AGENT_BULK_FEEDBACK_INVALID", "AGENT_FEEDBACK_REQUIRES_USER"].includes(error.code) || ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "PROJECT_CLOSURE_USER_JUDGMENTS_INVALID"].includes(error.code)
       || error.code.startsWith("V2_PROJECT_CLOSURE_EVIDENCE_")
       || error.code.startsWith("PROJECT_CLOSURE_PROVIDER_");
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
       ? 413
       : migrationInputError || proposalInputError || domainInputError || uxInputError || error.code === "PROPOSAL_REVIEW_REQUEST_INVALID" || error.code === "PROPOSAL_REVALIDATION_REQUEST_INVALID" || error.code === "PROPOSAL_COMMIT_REQUEST_INVALID" || error.code === "PROJECT_CLOSURE_COMMIT_REQUEST_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_SHAPE") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_OPERATION") || error.code.startsWith("V2_PROJECT_CLOSURE_COMMIT_TARGET") || error.code === "V2_PROJECT_CLOSURE_PAYLOAD_INVALID" || error.code.startsWith("V2_PROJECT_CLOSURE_FIELD_") || error.code === "V2_PROJECT_CLOSURE_LIST_INVALID" || error.code === "CONTEXT_EXPORT_REQUEST_INVALID" || error.code === "CONTEXT_PROJECT_REQUIRED" || error.code === "FOCUS_REQUEST_INVALID" || error.code === "FOCUS_REORDER_REQUEST_INVALID" || error.code === "CONDITION_REQUEST_INVALID" || error.code === "DEADLINE_REQUEST_INVALID" || error.code === "V2_DEADLINE_INVALID" || error.code === "V2_DEADLINE_TASK_ONLY" || ["WAITING_FOR_REQUIRED", "WAITING_RESULT_REQUIRED", "WAITING_REVIEW_REQUIRED", "WAITING_REVIEW_INVALID", "BLOCKED_REASON_REQUIRED", "BLOCKER_OBJECT_ID_INVALID", "BLOCKER_OBJECT_SELF_REFERENCE", "PAUSED_REASON_REQUIRED", "PAUSED_REVIEW_INVALID"].includes(error.code) || error.code === "REQUEST_BODY_NOT_ALLOWED" || error.code === "REQUEST_JSON_INVALID" || error.code === "BACKUP_ID_INVALID" || error.code === "RESTORE_CONFIRMATION_REQUIRED" || error.code === "MATERIALIZATION_REQUEST_INVALID" || error.code === "PROJECT_CREATION_REQUEST_INVALID" || error.code === "PRIMARY_ANCHOR_CURSOR_INVALID" || error.code === "PRIMARY_ANCHOR_OBSERVATION_INVALID" || error.code === "PRIMARY_ANCHOR_REBIND_INVALID" || error.code === "V2_REBIND_CONFIRMATION_REQUIRED" || error.code === "V2_FOCUS_COMMAND_INVALID" || error.code === "V2_FOCUS_ORDER_INVALID" || error.code === "V2_FOCUS_SELECTION_INVALID"
         ? 400
-          : migrationNotFound || error.code === "V2_OBJECT_NOT_FOUND" || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_NOT_FOUND" || error.code === "V2_CANDIDATE_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "V2_CONDITION_CHANGE_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND" || error.code === "UX_INTERACTION_NOT_FOUND"
+          : migrationNotFound || error.code === "AGENT_DECISION_NOT_FOUND" || error.code === "V2_OBJECT_NOT_FOUND" || error.code === "V2_PRIMARY_ANCHOR_NOT_FOUND" || error.code === "V2_PROPOSAL_NOT_FOUND" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_NOT_FOUND" || error.code === "V2_CANDIDATE_NOT_FOUND" || error.code === "V2_BLOCKER_OBJECT_NOT_FOUND" || error.code === "V2_CONDITION_CHANGE_NOT_FOUND" || error.code === "CONTEXT_OBJECT_NOT_FOUND" || error.code === "UX_INTERACTION_NOT_FOUND"
           ? 404
           : error.code === "UX_INTERACTION_SESSION_UNAVAILABLE"
           ? 409
           : error.code === "V2_GRAPH_ID_MISMATCH" || error.code === "V2_UNSUPPORTED_DATABASE_SCHEMA" || error.code === "V2_BACKUP_VALIDATION_FAILED"
           ? 422
-          : migrationConflict || error.code === "V2_AREA_CLOSED" || error.code === "V2_ASSOCIATION_EXISTS" || error.code === "V2_CANDIDATE_STALE" || error.code === "V2_CANDIDATE_UPDATE_TARGET_STALE" || error.code === "V2_OBJECT_UPDATE_TARGET_STALE" || error.code === "V2_CANDIDATE_ALREADY_RESOLVED" || error.code === "V2_CANDIDATE_NOT_ACTIONABLE" || error.code === "V2_CANDIDATE_PROPOSAL_EXISTS" || error.code === "V2_CANDIDATE_PROPOSAL_ACTIVE" || error.code === "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED" || error.code === "V2_MINI_PROJECT_CLOSURE_NOT_AVAILABLE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_ACTIVE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_AMBIGUOUS" || error.code === "V2_IDEMPOTENCY_KEY_CONFLICT" || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_CONDITION_UNDO_ALREADY_APPLIED" || error.code === "V2_CONDITION_UNDO_STALE" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_PROJECT_CLOSURE_REQUIRED" || error.code === "V2_PROJECT_CLOSURE_PROJECT_ONLY" || error.code === "V2_PROJECT_CLOSURE_NOT_OPEN" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
+          : migrationConflict || ["AGENT_RULE_AUTHORIZATION_STALE", "AGENT_FEEDBACK_DECISION_MISMATCH"].includes(error.code) || error.code === "V2_AREA_CLOSED" || error.code === "V2_ASSOCIATION_EXISTS" || error.code === "V2_CANDIDATE_STALE" || error.code === "V2_CANDIDATE_UPDATE_TARGET_STALE" || error.code === "V2_OBJECT_UPDATE_TARGET_STALE" || error.code === "V2_CANDIDATE_ALREADY_RESOLVED" || error.code === "V2_CANDIDATE_NOT_ACTIONABLE" || error.code === "V2_CANDIDATE_PROPOSAL_EXISTS" || error.code === "V2_CANDIDATE_PROPOSAL_ACTIVE" || error.code === "V2_EXPLICIT_CANDIDATE_REVIEW_REQUIRED" || error.code === "V2_MINI_PROJECT_CLOSURE_NOT_AVAILABLE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_ACTIVE" || error.code === "V2_MINI_PROJECT_CLOSURE_PROPOSAL_AMBIGUOUS" || error.code === "V2_IDEMPOTENCY_KEY_CONFLICT" || error.code === "V2_BACKUP_DESTINATION_EXISTS" || error.code === "V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS" || error.code === "V2_OBJECT_VERSION_CONFLICT" || error.code === "V2_CONDITION_OBJECT_CLOSED" || error.code === "V2_CONDITION_UNDO_ALREADY_APPLIED" || error.code === "V2_CONDITION_UNDO_STALE" || error.code === "V2_BLOCKER_OBJECT_CLOSED" || error.code === "V2_DEADLINE_OBJECT_CLOSED" || error.code === "V2_EXPLICIT_TYPE_CHANGE_REQUIRES_PROPOSAL" || error.code === "V2_COMPLEX_CLOSURE_REQUIRES_PROPOSAL" || error.code === "V2_PROJECT_CLOSURE_REQUIRED" || error.code === "V2_PROJECT_CLOSURE_PROJECT_ONLY" || error.code === "V2_PROJECT_CLOSURE_NOT_OPEN" || error.code === "V2_MARKER_LIFECYCLE_UNSUPPORTED" || error.code === "V2_MARKER_TERMINAL_CONFLICT" || error.code === "V2_TASK_CANCELLATION_REASON_REQUIRED" || error.code === "V2_PRIMARY_ANCHOR_CONFLICT" || error.code === "V2_REBIND_TARGET_ALREADY_BOUND" || error.code === "V2_REBIND_PREVIEW_STALE" || error.code === "V2_PROJECT_CREATION_INTENT_MISMATCH" || error.code === "V2_PROJECT_CREATION_RECOVERY_REQUIRED" || error.code === "V2_FOCUS_OBJECT_STALE" || error.code === "V2_FOCUS_OBJECT_CLOSED" || error.code === "V2_FOCUS_ORDER_STALE" || proposalConflictCodes.includes(error.code)
             ? 409
             : 500;
     respond(response, status, { error: { code: error.code, message: error.message } });
@@ -1959,6 +2012,25 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const threadId = decodeURIComponent(agentDecisionEventsMatch[1]!);
       if (!threadId.trim() || threadId.length > 256 || url.search) throw serviceError("AGENT_DECISION_EVENT_QUERY_INVALID", "Decision Event 查询需要唯一受控 thread ID。");
       respond(response, 200, { events: await agentGovernanceApplication.listDecisionEvents(threadId) });
+      return;
+    }
+    const agentDecisionFeedbackMatch = request.method === "POST" ? url.pathname.match(/^\/agent\/decisions\/([^/]+)\/feedback$/) : null;
+    if (agentDecisionFeedbackMatch) {
+      const decisionId = decodeURIComponent(agentDecisionFeedbackMatch[1]!);
+      if (!decisionId.trim() || decisionId.length > 256 || url.search) throw serviceError("AGENT_FEEDBACK_INVALID", "Agent Feedback 需要唯一受控 Decision ID。");
+      const input = await readAgentFeedbackRequest(request);
+      const result = await agentGovernanceApplication.recordFeedback(decisionId, input.feedback, {
+        actor: "user", traceId: input.traceId, idempotencyKey: input.idempotencyKey,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/agent/feedback/bulk" && !url.search) {
+      const input = await readAgentBulkFeedbackRequest(request);
+      const result = await agentGovernanceApplication.recordBulkFeedback(input.decisionIds, input.feedback, {
+        actor: "user", traceId: input.traceId, idempotencyKey: input.idempotencyKey,
+      });
+      respond(response, result.results.every(({ replayed }) => replayed) ? 200 : 201, result);
       return;
     }
     if (request.method === "GET" && url.pathname === "/agent/review-signals") {

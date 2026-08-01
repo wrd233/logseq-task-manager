@@ -16,6 +16,45 @@ export type AgentExecutionStatus = "NOT_EXECUTED" | "SCHEDULED" | "APPLIED" | "B
 export type AgentContextTier = "LOCAL" | "EXPANDED" | "REVIEW";
 export type AgentRuleAuthority = "SHADOW" | "BATCH_REVIEW" | "DELAYED_APPLY" | "AUTO_APPLY";
 export type AgentRuleChangeLevel = "PATCH" | "NARROWING" | "EXPANDING";
+export type AgentFeedbackRating = "CORRECT" | "MOSTLY_CORRECT" | "WRONG";
+export type AgentFeedbackCorrectionType =
+  | "SHOULD_KEEP_ORDINARY"
+  | "SHOULD_CREATE_OBJECT"
+  | "SHOULD_UPDATE_EXISTING"
+  | "SHOULD_DEFER"
+  | "WRONG_TARGET"
+  | "TOO_AGGRESSIVE"
+  | "TOO_CONSERVATIVE"
+  | "RISK_TOO_HIGH"
+  | "RISK_TOO_LOW"
+  | "OTHER";
+export type AgentFeedbackAction = "THIS_DECISION_ONLY" | "RECORD_RULE_FEEDBACK" | "PAUSE_RULE_AUTOMATION";
+
+export interface AgentFeedbackInput {
+  rating: AgentFeedbackRating;
+  correctionType?: AgentFeedbackCorrectionType;
+  tendency?: "TOO_AGGRESSIVE" | "TOO_CONSERVATIVE";
+  routeAssessment?: "TOO_HIGH" | "TOO_LOW";
+  note?: string;
+  action: AgentFeedbackAction;
+}
+
+export interface AgentFeedbackPayload extends AgentFeedbackInput {
+  schemaVersion: "agent-feedback-v1";
+  decisionRevision: number;
+  ruleId: string;
+  traceId: string;
+}
+
+export interface AgentFeedbackCompatibilityGroup {
+  compatibilityKey: string;
+  decisionIds: string[];
+  threadIds: string[];
+  outcome: AgentDecisionOutcome;
+  ruleId: string;
+  riskRoute: AgentRiskRoute;
+  action: AgentFeedbackAction;
+}
 
 export interface AgentSourceRoot {
   kind: "BLOCK" | "PAGE";
@@ -208,6 +247,20 @@ export function authorizeAgentRule(
     effectiveAuthority: effectiveAgentRuleAuthority(current.skillMaxAuthority, requestedAuthority),
     updatedAt: at.toISOString(),
   };
+}
+
+export function setAgentRulePaused(
+  current: AgentRuleAuthorization,
+  paused: boolean,
+  actor: "USER" | "SYSTEM",
+  reason: string,
+  at = new Date(),
+): AgentRuleAuthorization {
+  bounded(reason, "reason", 2_048);
+  if (actor !== "USER") {
+    throw governanceError("AGENT_RULE_PAUSE_REQUIRES_USER", "暂停或恢复 Rule 必须由 USER 显式授权。");
+  }
+  return paused === current.paused ? current : { ...current, paused, updatedAt: at.toISOString() };
 }
 
 export function autoDowngradeAgentRule(
@@ -436,6 +489,99 @@ export function createAgentDecisionEvent(
   };
 }
 
+function normalizeAgentFeedbackInput(input: AgentFeedbackInput): AgentFeedbackInput {
+  const correctionType = input.correctionType === undefined ? undefined : enumValue(input.correctionType, "feedback.correctionType", ["SHOULD_KEEP_ORDINARY", "SHOULD_CREATE_OBJECT", "SHOULD_UPDATE_EXISTING", "SHOULD_DEFER", "WRONG_TARGET", "TOO_AGGRESSIVE", "TOO_CONSERVATIVE", "RISK_TOO_HIGH", "RISK_TOO_LOW", "OTHER"]);
+  const tendency = input.tendency === undefined ? undefined : enumValue(input.tendency, "feedback.tendency", ["TOO_AGGRESSIVE", "TOO_CONSERVATIVE"]);
+  const routeAssessment = input.routeAssessment === undefined ? undefined : enumValue(input.routeAssessment, "feedback.routeAssessment", ["TOO_HIGH", "TOO_LOW"]);
+  const note = input.note?.trim();
+  return {
+    rating: enumValue(input.rating, "feedback.rating", ["CORRECT", "MOSTLY_CORRECT", "WRONG"]),
+    ...(correctionType ? { correctionType } : {}),
+    ...(tendency ? { tendency } : {}),
+    ...(routeAssessment ? { routeAssessment } : {}),
+    ...(note ? { note: bounded(note, "feedback.note", 2_048) } : {}),
+    action: enumValue(input.action, "feedback.action", ["THIS_DECISION_ONLY", "RECORD_RULE_FEEDBACK", "PAUSE_RULE_AUTOMATION"]),
+  };
+}
+
+export function createAgentFeedbackEvent(
+  decision: AgentDecision,
+  input: AgentFeedbackInput,
+  traceId: string,
+  at = new Date(),
+): AgentDecisionEvent {
+  const normalized = normalizeAgentFeedbackInput(input);
+  return createAgentDecisionEvent({
+    threadId: decision.threadId,
+    decisionId: decision.decisionId,
+    eventType: "USER_FEEDBACK_ADDED",
+    actor: "USER",
+    payload: {
+      schemaVersion: "agent-feedback-v1",
+      decisionRevision: decision.revision,
+      ruleId: decision.rule.id,
+      traceId: bounded(traceId, "feedback.traceId", 256),
+      ...normalized,
+    },
+  }, at);
+}
+
+export function validateAgentFeedbackPayload(value: unknown): AgentFeedbackPayload {
+  const record = recordValue(value, "AgentFeedbackPayload");
+  const allowed = new Set(["schemaVersion", "decisionRevision", "ruleId", "traceId", "rating", "correctionType", "tendency", "routeAssessment", "note", "action"]);
+  if (Object.keys(record).some((key) => !allowed.has(key))) {
+    throw governanceError("AGENT_FEEDBACK_INVALID", "Feedback 包含未知字段。");
+  }
+  if (record.schemaVersion !== "agent-feedback-v1") throw governanceError("AGENT_FEEDBACK_INVALID", "Feedback schemaVersion 无效。");
+  const decisionRevision = Number(record.decisionRevision);
+  if (!Number.isSafeInteger(decisionRevision) || decisionRevision < 1) throw governanceError("AGENT_FEEDBACK_INVALID", "Feedback decisionRevision 无效。");
+  return {
+    schemaVersion: "agent-feedback-v1",
+    decisionRevision,
+    ruleId: bounded(String(record.ruleId ?? ""), "feedback.ruleId", 128),
+    traceId: bounded(String(record.traceId ?? ""), "feedback.traceId", 256),
+    ...normalizeAgentFeedbackInput({
+      rating: record.rating as AgentFeedbackRating,
+      ...(record.correctionType !== undefined ? { correctionType: record.correctionType as AgentFeedbackCorrectionType } : {}),
+      ...(record.tendency !== undefined ? { tendency: record.tendency as "TOO_AGGRESSIVE" | "TOO_CONSERVATIVE" } : {}),
+      ...(record.routeAssessment !== undefined ? { routeAssessment: record.routeAssessment as "TOO_HIGH" | "TOO_LOW" } : {}),
+      ...(record.note !== undefined ? { note: String(record.note) } : {}),
+      action: record.action as AgentFeedbackAction,
+    }),
+  };
+}
+
+export function groupCompatibleAgentFeedback(
+  decisions: readonly AgentDecision[],
+  input: AgentFeedbackInput,
+): AgentFeedbackCompatibilityGroup[] {
+  const normalized = normalizeAgentFeedbackInput(input);
+  const groups = new Map<string, AgentFeedbackCompatibilityGroup>();
+  for (const decision of decisions) {
+    const compatibilityKey = stableJson({
+      outcome: decision.outcome,
+      ruleId: decision.rule.id,
+      riskRoute: decision.riskRoute,
+      action: normalized.action,
+    });
+    const current = groups.get(compatibilityKey) ?? {
+      compatibilityKey,
+      decisionIds: [],
+      threadIds: [],
+      outcome: decision.outcome,
+      ruleId: decision.rule.id,
+      riskRoute: decision.riskRoute,
+      action: normalized.action,
+    };
+    current.decisionIds.push(decision.decisionId);
+    current.threadIds.push(decision.threadId);
+    groups.set(compatibilityKey, current);
+  }
+  return [...groups.values()]
+    .map((group) => ({ ...group, decisionIds: [...group.decisionIds].sort(), threadIds: [...group.threadIds].sort() }))
+    .sort((left, right) => left.compatibilityKey.localeCompare(right.compatibilityKey));
+}
+
 function decisionId(threadIdValue: string, revision: number): string {
   return `${threadIdValue}:r${revision}`;
 }
@@ -600,6 +746,10 @@ export function validateAgentDecisionEvent(value: unknown): AgentDecisionEvent {
     actor: enumValue(record.actor, "actor", ["SYSTEM", "AGENT", "USER"]),
     payload: recordValue(record.payload, "payload"),
   } satisfies Omit<AgentDecisionEvent, "eventId" | "occurredAt">;
+  if (input.eventType === "USER_FEEDBACK_ADDED") {
+    if (input.actor !== "USER") throw governanceError("AGENT_FEEDBACK_INVALID", "Feedback actor 必须是 USER。");
+    input.payload = { ...validateAgentFeedbackPayload(input.payload) };
+  }
   const expected = createAgentDecisionEvent(input, new Date(occurredAt));
   if (record.eventId !== expected.eventId) throw governanceError("AGENT_DECISION_EVENT_IDENTITY_INVALID", "Decision Event identity 与内容不一致。");
   return expected;

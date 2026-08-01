@@ -3,14 +3,19 @@ import {
   autoDowngradeAgentRule,
   createAgentDecision,
   createAgentDecisionEvent,
+  createAgentFeedbackEvent,
   createAgentRuleAuthorization,
   createOrRefreshAgentReviewSignal,
+  groupCompatibleAgentFeedback,
   reconcileAgentReviewSignal,
   reviseAgentDecision,
+  setAgentRulePaused,
   updateAgentRuleSkill,
   type AgentDecision,
   type AgentDecisionEvent,
   type AgentDecisionInput,
+  type AgentFeedbackInput,
+  type AgentFeedbackCompatibilityGroup,
   type AgentRuleAuthorization,
   type AgentRuleAuthority,
   type AgentReviewSignal,
@@ -19,7 +24,7 @@ import {
   type CreateAgentRuleAuthorizationInput,
   type UpdateAgentRuleSkillInput,
 } from "@task-copilot/domain";
-import { StructuredError } from "@task-copilot/shared";
+import { StructuredError, checksum } from "@task-copilot/shared";
 
 export interface AgentGovernanceRepository {
   getAgentDecisionBySource(
@@ -27,6 +32,7 @@ export interface AgentGovernanceRepository {
     sourceKind: "BLOCK" | "PAGE",
     sourceExternalId: string,
   ): AgentDecision | undefined | Promise<AgentDecision | undefined>;
+  getAgentDecisionById(decisionId: string): AgentDecision | undefined | Promise<AgentDecision | undefined>;
   saveAgentDecision(
     decision: AgentDecision,
     event: AgentDecisionEvent | undefined,
@@ -35,6 +41,13 @@ export interface AgentGovernanceRepository {
     | Promise<{ decision: AgentDecision; event?: AgentDecisionEvent; replayed: boolean }>;
   listAgentDecisions(input: { limit: number; since?: string }): AgentDecision[] | Promise<AgentDecision[]>;
   listAgentDecisionEvents(threadId: string): AgentDecisionEvent[] | Promise<AgentDecisionEvent[]>;
+  saveAgentFeedback(
+    event: AgentDecisionEvent,
+    authorization: AgentRuleAuthorization | undefined,
+    expectedAuthorizationUpdatedAt: string | undefined,
+    idempotencyKey: string,
+  ): { event: AgentDecisionEvent; authorization?: AgentRuleAuthorization; replayed: boolean }
+    | Promise<{ event: AgentDecisionEvent; authorization?: AgentRuleAuthorization; replayed: boolean }>;
   getAgentRuleAuthorization(ruleId: string): AgentRuleAuthorization | undefined | Promise<AgentRuleAuthorization | undefined>;
   saveAgentRuleAuthorization(
     authorization: AgentRuleAuthorization,
@@ -110,6 +123,60 @@ export class AgentGovernanceApplication {
 
   listDecisionEvents(threadId: string): Promise<AgentDecisionEvent[]> {
     return Promise.resolve(this.repository.listAgentDecisionEvents(threadId));
+  }
+
+  async recordFeedback(
+    decisionId: string,
+    input: AgentFeedbackInput,
+    envelope: AgentGovernanceCommandEnvelope,
+    at = new Date(),
+  ): Promise<{ event: AgentDecisionEvent; authorization?: AgentRuleAuthorization; replayed: boolean }> {
+    requireEnvelope(envelope);
+    if (eventActor(envelope.actor) !== "USER") {
+      throw new StructuredError({ code: "AGENT_FEEDBACK_REQUIRES_USER", message: "Agent Feedback 必须由 USER 显式提交。", ruleRefs: ["ADG-FEEDBACK-01"] });
+    }
+    const decision = await this.repository.getAgentDecisionById(decisionId);
+    if (!decision) {
+      throw new StructuredError({ code: "AGENT_DECISION_NOT_FOUND", message: "Agent Decision 不存在或已不是当前 Revision。", ruleRefs: ["ADG-DATA-01", "ADG-FEEDBACK-01"] });
+    }
+    const event = createAgentFeedbackEvent(decision, input, envelope.traceId, at);
+    const currentAuthorization = input.action === "PAUSE_RULE_AUTOMATION"
+      ? await this.requireRuleAuthorization(decision.rule.id)
+      : undefined;
+    const authorization = currentAuthorization
+      ? setAgentRulePaused(currentAuthorization, true, "USER", "用户通过 Decision Feedback 显式暂停规则自动应用。", at)
+      : undefined;
+    return this.repository.saveAgentFeedback(event, authorization, currentAuthorization?.updatedAt, envelope.idempotencyKey);
+  }
+
+  async recordBulkFeedback(
+    decisionIds: readonly string[],
+    input: AgentFeedbackInput,
+    envelope: AgentGovernanceCommandEnvelope,
+    at = new Date(),
+  ): Promise<{
+    groups: AgentFeedbackCompatibilityGroup[];
+    results: Array<{ event: AgentDecisionEvent; authorization?: AgentRuleAuthorization; replayed: boolean }>;
+  }> {
+    requireEnvelope(envelope);
+    const uniqueIds = [...new Set(decisionIds.map((value) => value.trim()))];
+    if (uniqueIds.length < 1 || uniqueIds.length > 50 || uniqueIds.some((value) => !value || value.length > 256)) {
+      throw new StructuredError({ code: "AGENT_BULK_FEEDBACK_INVALID", message: "批量 Feedback 必须包含 1..50 个唯一 Decision ID。", ruleRefs: ["ADG-FEEDBACK-02"] });
+    }
+    const decisions = await Promise.all(uniqueIds.map((decisionId) => Promise.resolve(this.repository.getAgentDecisionById(decisionId))));
+    if (decisions.some((decision) => decision === undefined)) {
+      throw new StructuredError({ code: "AGENT_DECISION_NOT_FOUND", message: "批量 Feedback 包含不存在或已不是当前 Revision 的 Decision。", ruleRefs: ["ADG-FEEDBACK-02"] });
+    }
+    const resolved = decisions as AgentDecision[];
+    const groups = groupCompatibleAgentFeedback(resolved, input);
+    const results = [];
+    for (const decision of resolved) {
+      results.push(await this.recordFeedback(decision.decisionId, input, {
+        ...envelope,
+        idempotencyKey: `${envelope.idempotencyKey}:${checksum(decision.decisionId)}`,
+      }, at));
+    }
+    return { groups, results };
   }
 
   async registerRule(

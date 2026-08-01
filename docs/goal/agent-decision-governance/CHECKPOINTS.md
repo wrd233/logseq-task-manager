@@ -43,3 +43,11 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - Service E2E proves Object, Candidate, Proposal, Ownership and Association projections do not change while Decision/Rule governance rows persist.
 - Commit revalidation classifies current facts as READY, STALE, BLOCKED or idempotent NO_OP without widening scope.
 - The live Desktop/real-DeepSeek gate remains consolidated in CP-4; the automated CP-2 contract is complete.
+
+## CP-3 — feedback/export/UI (in progress)
+
+- Feedback is a bounded `USER_FEEDBACK_ADDED` Decision Event and has no Undo field or transaction side effect.
+- Single and bulk feedback are authenticated user commands with exact request shapes and idempotent persistence.
+- Concrete bulk correction is split deterministically by Outcome, Rule ID, Risk Route and available action instead of being forced across incompatible Decisions.
+- Explicit pause feedback atomically records the feedback and pauses only the referenced Rule; it does not alter the Rule's granted authority.
+- Privacy-safe Skill Feedback and Review Evidence exports plus the governance UI remain open.

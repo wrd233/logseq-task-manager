@@ -553,6 +553,46 @@ test("Agent governance persists one Decision Thread, meaningful Revision events,
   restoredSnapshot.close();
 });
 
+test("Agent feedback persists as a separate event, replays idempotently, and explicitly pauses only its rule", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-agent-feedback");
+  const application = new AgentGovernanceApplication(store);
+  await application.registerRule({
+    ruleId: "EXPLICIT_TASK_01", displayName: "明确任务标记", skillName: "agent-decision-governance",
+    skillVersion: "1.0.0", skillHash: "e".repeat(64), skillMaxAuthority: "AUTO_APPLY",
+  }, { actor: "system", traceId: "trace-register-feedback-rule", idempotencyKey: "register-feedback-rule" }, new Date("2026-08-02T04:30:00.000Z"));
+  const recorded = await application.recordDecision({
+    graphId: "graph-agent-feedback",
+    sourceRoot: { kind: "BLOCK", externalId: "feedback-block", durableOrigin: { kind: "BLOCK_UUID", value: "feedback-block" } },
+    sourceSnapshotHash: "a".repeat(8), outcome: "CREATE_CANDIDATE",
+    rule: { id: "EXPLICIT_TASK_01", displayName: "明确任务标记", skillName: "agent-decision-governance", skillVersion: "1.0.0", skillHash: "e".repeat(64) },
+    riskRoute: "SHADOW", executionStatus: "NOT_EXECUTED", evidenceSummary: "明确任务标记",
+    evidenceRefs: ["block:feedback-block"], counterSignals: [], closestAlternative: { outcome: "KEEP_ORDINARY" },
+    context: { tier: "LOCAL", truncated: false, omittedSections: [], estimatedInputTokens: 64 },
+  }, { actor: "agent", traceId: "trace-feedback-decision", idempotencyKey: "feedback-decision" }, new Date("2026-08-02T04:31:00.000Z"));
+
+  const envelope = { actor: "user", traceId: "trace-feedback", idempotencyKey: "feedback-command" };
+  const feedback = await application.recordFeedback(recorded.decision.decisionId, {
+    rating: "WRONG", correctionType: "SHOULD_KEEP_ORDINARY", action: "PAUSE_RULE_AUTOMATION",
+  }, envelope, new Date("2026-08-02T04:32:00.000Z"));
+  assert.equal(feedback.event.eventType, "USER_FEEDBACK_ADDED");
+  assert.equal(feedback.authorization?.paused, true);
+  assert.equal(feedback.replayed, false);
+  assert.equal((await application.recordFeedback(recorded.decision.decisionId, {
+    rating: "WRONG", correctionType: "SHOULD_KEEP_ORDINARY", action: "PAUSE_RULE_AUTOMATION",
+  }, envelope, new Date("2026-08-02T04:32:00.000Z"))).replayed, true);
+  assert.deepEqual((await application.listDecisionEvents(recorded.decision.threadId)).map((event) => event.eventType), ["SOURCE_OBSERVED", "USER_FEEDBACK_ADDED"]);
+  store.close();
+
+  const reopened = await V2SqliteStore.open(path);
+  reopened.initialize("graph-agent-feedback");
+  const restored = new AgentGovernanceApplication(reopened);
+  assert.equal((await restored.listRuleAuthorizations())[0]?.paused, true);
+  assert.equal((await restored.listDecisionEvents(recorded.decision.threadId))[1]?.payload.rating, "WRONG");
+  reopened.close();
+});
+
 test("Agent Rule authorization persists explicit user promotion and system-only downgrade semantics", async (t) => {
   const { root, path, store } = await fixture();
   t.after(async () => rm(root, { recursive: true, force: true }));

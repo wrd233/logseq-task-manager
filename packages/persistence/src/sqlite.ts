@@ -953,6 +953,13 @@ export class V2SqliteStore {
     return row ? validateAgentDecision(JSON.parse(row.decision_json) as unknown) : undefined;
   }
 
+  getAgentDecisionById(decisionId: string): AgentDecision | undefined {
+    const row = this.database.prepare("SELECT decision_json FROM agent_decisions WHERE decision_id = ?").get(decisionId) as
+      | { decision_json: string }
+      | undefined;
+    return row ? validateAgentDecision(JSON.parse(row.decision_json) as unknown) : undefined;
+  }
+
   saveAgentDecision(
     decision: AgentDecision,
     event: AgentDecisionEvent | undefined,
@@ -1066,6 +1073,68 @@ export class V2SqliteStore {
         payload: JSON.parse(row.payload_json) as Record<string, unknown>,
         occurredAt: row.occurred_at,
       }));
+  }
+
+  saveAgentFeedback(
+    event: AgentDecisionEvent,
+    authorization: AgentRuleAuthorization | undefined,
+    expectedAuthorizationUpdatedAt: string | undefined,
+    idempotencyKey: string,
+  ): { event: AgentDecisionEvent; authorization?: AgentRuleAuthorization; replayed: boolean } {
+    validateAgentDecisionEvent(event);
+    if (event.eventType !== "USER_FEEDBACK_ADDED" || event.actor !== "USER") {
+      throw persistenceError("AGENT_FEEDBACK_INVALID", "Feedback 必须是 USER_FEEDBACK_ADDED 用户事件。");
+    }
+    if (authorization) validateAgentRuleAuthorization(authorization);
+    this.requireIdempotencyKey(idempotencyKey);
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(idempotencyKey);
+      if (receipt) {
+        if (receipt.command_name !== "RecordAgentFeedback") {
+          throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+        }
+        const restored = JSON.parse(receipt.result_json) as Record<string, unknown>;
+        const restoredAuthorization = restored.authorization === undefined ? undefined : validateAgentRuleAuthorization(restored.authorization);
+        return {
+          event: validateAgentDecisionEvent(restored.event),
+          ...(restoredAuthorization ? { authorization: restoredAuthorization } : {}),
+          replayed: true,
+        };
+      }
+      const decision = this.getAgentDecisionById(event.decisionId);
+      if (!decision || decision.threadId !== event.threadId) {
+        throw persistenceError("AGENT_DECISION_NOT_FOUND", "Feedback 只能关联当前存在的 Decision Revision。");
+      }
+      if (event.payload.ruleId !== decision.rule.id || event.payload.decisionRevision !== decision.revision) {
+        throw persistenceError("AGENT_FEEDBACK_DECISION_MISMATCH", "Feedback 的 Rule 或 Revision 与 Decision 不一致。");
+      }
+      this.database.prepare(`INSERT INTO agent_decision_events(
+        event_id, thread_id, decision_id, event_type, actor, payload_json, occurred_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .run(event.eventId, event.threadId, event.decisionId, event.eventType, event.actor, stableJson(event.payload), event.occurredAt);
+
+      if (authorization) {
+        const current = this.getAgentRuleAuthorization(authorization.ruleId);
+        if (!current || expectedAuthorizationUpdatedAt === undefined || current.updatedAt !== expectedAuthorizationUpdatedAt
+          || authorization.ruleId !== decision.rule.id || current.createdAt !== authorization.createdAt) {
+          throw persistenceError("AGENT_RULE_AUTHORIZATION_STALE", "Rule 授权已变化；Feedback 与暂停操作已回滚。");
+        }
+        const result = this.database.prepare(`UPDATE agent_rule_authorizations SET
+          skill_version = ?, skill_hash = ?, skill_max_authority = ?, local_current_authority = ?,
+          effective_authority = ?, change_level = ?, paused = ?, authorization_json = ?, updated_at = ?
+          WHERE rule_id = ? AND updated_at = ?`)
+          .run(authorization.skillVersion, authorization.skillHash, authorization.skillMaxAuthority,
+            authorization.localCurrentAuthority, authorization.effectiveAuthority, authorization.changeLevel,
+            authorization.paused ? 1 : 0, stableJson(authorization), authorization.updatedAt,
+            authorization.ruleId, expectedAuthorizationUpdatedAt);
+        if (result.changes !== 1) throw persistenceError("AGENT_RULE_AUTHORIZATION_STALE", "Rule 授权已变化；Feedback 与暂停操作已回滚。");
+      }
+      const receiptResult = { event, ...(authorization ? { authorization } : {}) };
+      this.database.prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
+        .run(idempotencyKey, "RecordAgentFeedback", stableJson(receiptResult), event.occurredAt);
+      return { ...receiptResult, replayed: false };
+    });
+    return this.executeWrite(write);
   }
 
   getAgentRuleAuthorization(ruleId: string): AgentRuleAuthorization | undefined {

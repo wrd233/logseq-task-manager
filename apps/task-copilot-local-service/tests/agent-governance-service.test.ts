@@ -54,10 +54,37 @@ test("authenticated observation crosses the shared Graph bridge and persists onl
   assert.equal((await client.listAgentDecisions({ limit: 10 })).length, 1);
   assert.equal((await client.listAgentRuleAuthorizations()).length, 6);
 
+  if (!result.decision) throw new Error("expected persisted Decision");
+  const feedbackCommand = {
+    feedback: { rating: "WRONG" as const, correctionType: "SHOULD_KEEP_ORDINARY" as const, action: "PAUSE_RULE_AUTOMATION" as const },
+    traceId: "trace-agent-feedback-1",
+    idempotencyKey: "agent-feedback-service-1",
+  };
+  const feedback = await client.recordAgentFeedback(result.decision.decisionId, feedbackCommand);
+  assert.equal(feedback.event.eventType, "USER_FEEDBACK_ADDED");
+  assert.equal(feedback.authorization?.paused, true);
+  assert.equal((await client.recordAgentFeedback(result.decision.decisionId, feedbackCommand)).replayed, true);
+  const bulk = await client.recordAgentBulkFeedback({
+    decisionIds: [result.decision.decisionId],
+    feedback: { rating: "MOSTLY_CORRECT", tendency: "TOO_AGGRESSIVE", action: "RECORD_RULE_FEEDBACK" },
+    traceId: "trace-agent-bulk-feedback-1",
+    idempotencyKey: "agent-bulk-feedback-service-1",
+  });
+  assert.equal(bulk.groups.length, 1);
+  assert.equal(bulk.results[0]?.event.payload.rating, "MOSTLY_CORRECT");
+  assert.equal((await client.listAgentDecisionEvents(result.decision.threadId)).filter(({ eventType }) => eventType === "USER_FEEDBACK_ADDED").length, 2);
+
   const invalid = await fetch(new URL("agent/observations", service.url), {
     method: "POST",
     headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
     body: JSON.stringify({ changedBlockId: "agent-service-source", changedBlockCount: 0, authority: "AUTO_APPLY" }),
   });
   assert.equal(invalid.status, 400);
+
+  const invalidFeedback = await fetch(new URL(`agent/decisions/${encodeURIComponent(result.decision.decisionId)}/feedback`, service.url), {
+    method: "POST",
+    headers: { authorization: `Bearer ${service.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ ...feedbackCommand, undo: true }),
+  });
+  assert.equal(invalidFeedback.status, 400, "Feedback endpoint rejects any implicit Undo field");
 });

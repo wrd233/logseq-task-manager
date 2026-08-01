@@ -1,4 +1,4 @@
-import type { AgentDecision, AgentDecisionEvent, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { validateAgentDecision, validateAgentDecisionEvent, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -520,6 +520,27 @@ export interface ServiceAgentGovernanceObservationResult {
   status: "IGNORED" | "DEFERRED" | "UNCHANGED" | "RECORDED";
   gateAction: "IGNORE_THIS_CHANGE" | "UPDATE_REVIEW_SIGNAL" | "RUN_LOCAL" | "RUN_EXPANDED" | "DEFER_TO_BATCH";
   decision?: AgentDecision;
+}
+
+export interface ServiceAgentFeedbackCommand {
+  feedback: AgentFeedbackInput;
+  traceId: string;
+  idempotencyKey: string;
+}
+
+export interface ServiceAgentFeedbackResult {
+  event: AgentDecisionEvent;
+  authorization?: AgentRuleAuthorization;
+  replayed: boolean;
+}
+
+export interface ServiceAgentBulkFeedbackCommand extends ServiceAgentFeedbackCommand {
+  decisionIds: string[];
+}
+
+export interface ServiceAgentBulkFeedbackResult {
+  groups: AgentFeedbackCompatibilityGroup[];
+  results: ServiceAgentFeedbackResult[];
 }
 
 export type ServiceLegacyMigrationPreview = LegacyMigrationPreview;
@@ -1111,6 +1132,36 @@ export class LocalServiceClient {
 
   async listAgentRuleAuthorizations(): Promise<AgentRuleAuthorization[]> {
     return validatedGovernanceArray(await this.request<unknown>("/agent/rules"), "authorizations", validateAgentRuleAuthorization);
+  }
+
+  async recordAgentFeedback(decisionId: string, input: ServiceAgentFeedbackCommand): Promise<ServiceAgentFeedbackResult> {
+    const value = await this.request<ServiceAgentFeedbackResult>(`/agent/decisions/${encodeURIComponent(decisionId)}/feedback`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return {
+      event: validateAgentDecisionEvent(value.event),
+      ...(value.authorization ? { authorization: validateAgentRuleAuthorization(value.authorization) } : {}),
+      replayed: Boolean(value.replayed),
+    };
+  }
+
+  async recordAgentBulkFeedback(input: ServiceAgentBulkFeedbackCommand): Promise<ServiceAgentBulkFeedbackResult> {
+    const value = await this.request<ServiceAgentBulkFeedbackResult>("/agent/feedback/bulk", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!Array.isArray(value.groups) || !Array.isArray(value.results)) throw clientError("SERVICE_RESPONSE_INVALID", "Local Service 批量 Feedback response 无效。");
+    return {
+      groups: value.groups,
+      results: value.results.map((result) => ({
+        event: validateAgentDecisionEvent(result.event),
+        ...(result.authorization ? { authorization: validateAgentRuleAuthorization(result.authorization) } : {}),
+        replayed: Boolean(result.replayed),
+      })),
+    };
   }
 
   async observeAgentGovernanceChange(

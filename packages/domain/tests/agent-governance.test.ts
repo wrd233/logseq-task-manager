@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { authorizeAgentRule, autoDowngradeAgentRule, createAgentDecision, createAgentRuleAuthorization, createOrRefreshAgentReviewSignal, reconcileAgentReviewSignal, reviseAgentDecision, updateAgentRuleSkill, validateAgentDecision, validateAgentReviewSignal, validateAgentRuleAuthorization } from "../src/agent-governance.ts";
+import { authorizeAgentRule, autoDowngradeAgentRule, createAgentDecision, createAgentFeedbackEvent, createAgentRuleAuthorization, createOrRefreshAgentReviewSignal, groupCompatibleAgentFeedback, reconcileAgentReviewSignal, reviseAgentDecision, setAgentRulePaused, updateAgentRuleSkill, validateAgentDecision, validateAgentDecisionEvent, validateAgentReviewSignal, validateAgentRuleAuthorization } from "../src/agent-governance.ts";
 
 const observedAt = new Date("2026-08-02T02:00:00.000Z");
 
@@ -178,4 +178,52 @@ test("governance trust-boundary validators reject forged identity, retention, an
   }, observedAt);
   assert.deepEqual(validateAgentReviewSignal(structuredClone(signal)), signal);
   assert.throws(() => validateAgentReviewSignal({ ...signal, activeUntil: undefined }), /retention/i);
+});
+
+test("feedback is a bounded Decision Event and remains distinct from Undo", () => {
+  const decision = createAgentDecision(input(), observedAt);
+  const event = createAgentFeedbackEvent(decision, {
+    rating: "WRONG",
+    correctionType: "SHOULD_KEEP_ORDINARY",
+    tendency: "TOO_AGGRESSIVE",
+    routeAssessment: "TOO_HIGH",
+    note: "这是讨论中的例子，不应正式化。",
+    action: "RECORD_RULE_FEEDBACK",
+  }, "trace-feedback-1", new Date("2026-08-02T05:00:00.000Z"));
+
+  assert.equal(event.eventType, "USER_FEEDBACK_ADDED");
+  assert.equal(event.actor, "USER");
+  assert.equal(event.payload.rating, "WRONG");
+  assert.equal(event.payload.action, "RECORD_RULE_FEEDBACK");
+  assert.equal(event.payload.undoRequested, undefined);
+  assert.deepEqual(validateAgentDecisionEvent(structuredClone(event)), event);
+  assert.throws(() => validateAgentDecisionEvent({ ...event, payload: { ...event.payload, rating: "PERFECT" } }), /feedback/i);
+});
+
+test("bulk correction splits incompatible outcomes, rules, routes, and actions into deterministic groups", () => {
+  const first = createAgentDecision(input(), observedAt);
+  const differentOutcome = createAgentDecision({ ...input(), sourceRoot: { ...input().sourceRoot, externalId: "block-2", durableOrigin: { kind: "BLOCK_UUID", value: "block-2" } }, outcome: "KEEP_ORDINARY" }, observedAt);
+  const differentRoute = createAgentDecision({ ...input(), sourceRoot: { ...input().sourceRoot, externalId: "block-3", durableOrigin: { kind: "BLOCK_UUID", value: "block-3" } }, riskRoute: "BATCH_REVIEW" }, observedAt);
+  const groups = groupCompatibleAgentFeedback([differentRoute, first, differentOutcome], {
+    rating: "WRONG",
+    correctionType: "TOO_AGGRESSIVE",
+    action: "RECORD_RULE_FEEDBACK",
+  });
+
+  assert.equal(groups.length, 3);
+  assert.deepEqual(groups.flatMap((group) => group.decisionIds).sort(), [first.decisionId, differentOutcome.decisionId, differentRoute.decisionId].sort());
+  assert.ok(groups.every((group) => group.compatibilityKey.includes("RECORD_RULE_FEEDBACK")));
+});
+
+test("only an explicit user action can pause or resume one rule without changing its authority", () => {
+  const current = authorizeAgentRule(createAgentRuleAuthorization({
+    ruleId: "EXPLICIT_TASK_01", displayName: "明确任务标记", skillName: "agent-decision-governance",
+    skillVersion: "1.0.0", skillHash: "b".repeat(64), skillMaxAuthority: "AUTO_APPLY",
+  }, observedAt), "DELAYED_APPLY", "USER", "用户批准", observedAt);
+
+  assert.throws(() => setAgentRulePaused(current, true, "SYSTEM", "模型建议暂停", observedAt), /USER/);
+  const paused = setAgentRulePaused(current, true, "USER", "用户在反馈中明确暂停", new Date("2026-08-02T05:10:00.000Z"));
+  assert.equal(paused.paused, true);
+  assert.equal(paused.localCurrentAuthority, "DELAYED_APPLY");
+  assert.equal(setAgentRulePaused(paused, false, "USER", "用户恢复", new Date("2026-08-02T05:11:00.000Z")).paused, false);
 });
