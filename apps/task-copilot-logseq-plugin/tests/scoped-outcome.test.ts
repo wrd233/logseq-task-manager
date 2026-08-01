@@ -36,3 +36,25 @@ test("commit result wins over prose while recovery keeps an explicit longer life
     commitId: "semantic-commit-3",
   });
 });
+
+test("an empty result is a neutral notice with its own action and scope, never an error", () => {
+  const outcome = createScopedOutcome({
+    actionId: "candidate-organize:empty-1",
+    scope: "workspace:review",
+    message: "没有新增需要整理的内容",
+  });
+  assert.equal(outcome?.kind, "notice");
+  assert.equal(outcome?.message, "没有新增需要整理的内容");
+  assert.equal(outcomeForScope(outcome, "workspace:review")?.kind, "notice");
+  assert.equal(outcomeForScope(outcome, "workspace:now"), undefined);
+  assert.equal(createScopedOutcome({ actionId: "cancel:1", scope: "workspace:review", error: "已取消" })?.kind, "error");
+});
+
+test("one action owns one current outcome in a scope and a new action replaces it", () => {
+  const first = createScopedOutcome({ actionId: "undo:1", scope: "workspace:review", commitId: "commit-1" });
+  const second = createScopedOutcome({ actionId: "organize:2", scope: "workspace:review", message: "当前没有需要整理的内容" });
+  assert.equal(first?.kind, "result");
+  assert.equal(second?.kind, "notice");
+  assert.notEqual(first?.actionId, second?.actionId);
+  assert.equal(outcomeForScope(second, "workspace:review")?.message, "当前没有需要整理的内容");
+});

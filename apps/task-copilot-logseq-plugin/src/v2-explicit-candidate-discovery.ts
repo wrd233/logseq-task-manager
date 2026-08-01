@@ -114,7 +114,6 @@ export async function prepareV2ExplicitCandidateDiscovery(
       text: normalized.parsed.title,
     });
   }
-  if (candidates.length === 0) throw new Error("当前页有界范围内没有新的合法显式对象候选；没有执行写入。");
   return { candidates, scannedBlocks, invalidExplicitBlocks, truncated: stack.length > 0 };
 }
 
@@ -326,7 +325,12 @@ export function renderV2ExplicitCandidateDiscoveryPanel(state: V2ExplicitCandida
     return !existing.sourceVersion.endsWith(`:${candidate.contentHash}`);
   });
   if (candidates.length === 0) {
-    return `${queue}<section class="card candidate-review"><div class="eyebrow">当前页</div><h2>没有新增需要整理的内容</h2><p>已经暂缓、保留为普通内容或不再提示的处置仍然有效；正式事项没有变化。</p><div class="actions"><button type="button" data-action="v2-candidate-open">重新检查</button><button type="button" data-action="v2-candidate-cancel">关闭</button></div></section>`;
+    const invalidNote = preview.invalidExplicitBlocks
+      ? `<p class="muted">已读取前 ${preview.scannedBlocks} 条内容；${preview.invalidExplicitBlocks} 个显式标识存在冲突或缺少标题，未列为可写候选。正式事项没有变化。</p>`
+      : preview.scannedBlocks === 0
+        ? `<p class="muted">当前页没有需要检查的内容。</p>`
+        : `<p class="muted">已读取前 ${preview.scannedBlocks} 条内容；没有发现新的明确标记内容。</p>`;
+    return `${queue}<section class="card candidate-review" aria-label="当前页没有新增待整理内容"><div class="eyebrow">当前页</div><h2>没有新增需要整理的内容</h2><p>已经暂缓、保留为普通内容或不再提示的处置仍然有效；正式事项没有变化。</p>${invalidNote}<div class="actions"><button type="button" data-action="v2-candidate-open">重新检查</button><button type="button" data-action="v2-candidate-cancel">关闭</button></div></section>`;
   }
   return `<section class="card candidate-review" aria-label="当前页待整理内容"><div class="eyebrow">当前页</div><h2>预览待整理内容</h2>
     <p>只检查当前页：已读取前 ${preview.scannedBlocks} 条内容，发现 ${candidates.length} 项新增内容可能需要整理。确认后只加入待整理列表，不创建正式事项。</p>

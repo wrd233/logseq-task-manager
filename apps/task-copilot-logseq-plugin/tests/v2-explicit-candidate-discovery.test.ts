@@ -210,6 +210,32 @@ test("candidate discovery refuses incomplete Anchor coverage and non-page shapes
   await assert.rejects(() => prepareV2ExplicitCandidateDiscovery(client([]), async () => null, async () => undefined, { maxBlocks: 10, maxAnchorPages: 1 }), /当前页/);
 });
 
+test("empty and all-invalid current-page scans are neutral empty results, not errors", async () => {
+  const empty = await prepareV2ExplicitCandidateDiscovery(client([]), async () => [
+    { uuid: "plain", content: "普通记录", "updated-at": 1, children: [] },
+    { uuid: "known-task", content: "[任务] 已同步", "updated-at": 2, children: [] },
+  ], async () => undefined, { maxBlocks: 10, maxAnchorPages: 2 });
+  assert.deepEqual(empty.candidates, []);
+  assert.equal(empty.scannedBlocks, 2);
+  assert.equal(empty.invalidExplicitBlocks, 0);
+  const emptyHtml = renderV2ExplicitCandidateDiscoveryPanel({ status: "ready", preview: empty, serviceGeneration: 1 }, true);
+  assert.match(emptyHtml, /没有新增需要整理的内容/);
+  assert.doesNotMatch(emptyHtml, /这次检查没有完成/);
+  assert.doesNotMatch(emptyHtml, /data-action="v2-candidate-submit"/);
+
+  const invalidOnly = await prepareV2ExplicitCandidateDiscovery(client([]), async () => [
+    { uuid: "bad-task", content: "[任务]", "updated-at": 1, children: [] },
+    { uuid: "bad-mini", content: "[MiniProject] [任务] 双类型", "updated-at": 2, children: [] },
+  ], async () => undefined, { maxBlocks: 10, maxAnchorPages: 2 });
+  assert.deepEqual(invalidOnly.candidates, []);
+  assert.equal(invalidOnly.invalidExplicitBlocks, 2);
+  const invalidHtml = renderV2ExplicitCandidateDiscoveryPanel({ status: "ready", preview: invalidOnly, serviceGeneration: 1 }, true);
+  assert.match(invalidHtml, /没有新增需要整理的内容/);
+  assert.match(invalidHtml, /2 个显式标识存在冲突或缺少标题/);
+  assert.doesNotMatch(invalidHtml, /这次检查没有完成/);
+  assert.doesNotMatch(invalidHtml, /data-action="v2-candidate-submit"/);
+});
+
 test("candidate discovery resolves nested Logseq UUID tuples within the processing budget", async () => {
   const resolved = { uuid: "tuple-task", content: "[任务] tuple 候选", "updated-at": 105, children: [["uuid", "tuple-mini"]] };
   const preview = await prepareV2ExplicitCandidateDiscovery(
