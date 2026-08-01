@@ -94,6 +94,18 @@ Proposal warning 1 为既有）。
 
 Now 结论文案与相对时间由自动测试覆盖（`userFacingRelativeDateTime` 单测 + 文案断言）。
 
+## 收口证据（2026-08-01）
+
+- `FINAL_ACCEPTANCE_REPORT_2026-08-01.md`：Goal 完成定义逐项（非视觉收口稿）；
+- `VISUAL_GATE_REQUEST.md`：独立 reviewer 请求（仓库版 + `tmp/runtime/
+  worksite-reentry-reading-hierarchy/VISUAL_GATE_REQUEST.md` 拷贝）；
+- 根级 `./scripts/check.sh` 最终 exit 0（typecheck/lint/tests/build/边界/145 rules/
+  rehearsal/仓库边界）；
+- `tc status` READY · schema 12 · objects 21；`tc doctor` PASS（1 条既有 stale
+  Proposal warning）；
+- 原子提交：`e10123c`（A）、`2fb414e`（B）、`5ef0040`（C）、`bd8496f`（D）、
+  `62ed0dd`（E）、`824a420`（F）。
+
 ## Sprint D after 证据（2026-08-01）
 
 `tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-d/`
