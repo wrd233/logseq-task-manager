@@ -101,6 +101,8 @@ Now 结论文案与相对时间由自动测试覆盖（`userFacingRelativeDateTi
   worksite-reentry-reading-hierarchy/VISUAL_GATE_REQUEST.md` 拷贝）；
 - 根级 `./scripts/check.sh` 最终 exit 0（typecheck/lint/tests/build/边界/145 rules/
   rehearsal/仓库边界）；
+- 自动可访问性 Gate：`tests/contrast.test.ts`（WCAG AA ≥ 4.5，Light/Dark 六组 token
+  组合）+ rendered duplicate-id 断言（Plugin 440/440）；
 - `tc status` READY · schema 12 · objects 21；`tc doctor` PASS（1 条既有 stale
   Proposal warning）；
 - 原子提交：`e10123c`（A）、`2fb414e`（B）、`5ef0040`（C）、`bd8496f`（D）、

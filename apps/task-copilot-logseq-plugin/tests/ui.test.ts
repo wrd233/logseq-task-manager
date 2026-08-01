@@ -2137,6 +2137,42 @@ test("Sprint F microcopy moves session-scope language behind the grill hint", as
   assert.match(css, /\.active-surface-shell \{ position: relative; z-index: 1; \}/);
 });
 
+test("rendered workspaces never emit duplicate DOM ids", () => {
+  const now = worksiteNowModel({
+    preview: {
+      expanded: true,
+      state: { status: "loaded-empty", sourceVersion: "v3" },
+    },
+  });
+  const objects = model();
+  objects.workspace = "objects";
+  objects.v2Objects = [{
+    objectId: "obj-1",
+    objectType: "TASK",
+    version: 1,
+    lifecycle: "OPEN",
+    condition: { kind: "ACTIONABLE" },
+    text: "推进发布",
+    sourceOrCreationEvent: "test",
+    createdAt: "2026-07-31T00:00:00.000Z",
+    updatedAt: "2026-07-31T00:00:00.000Z",
+  }];
+  const dialog = model();
+  dialog.workspace = "objects";
+  dialog.v2NowWork = {
+    generatedAt: "2026-07-31T08:00:00.000Z",
+    focus: [],
+    next: [],
+    waitingReview: [],
+    conditionOptions: [],
+  };
+  dialog.actionDialog = { kind: "v2-condition", value: "task-1|1" };
+  for (const html of [renderApp(now), renderApp(objects), renderApp(dialog)]) {
+    const ids = [...html.matchAll(/\bid="([^"]+)"/gu)].map((match) => match[1]!);
+    assert.equal(new Set(ids).size, ids.length, `duplicate DOM ids found: ${ids.filter((id, index) => ids.indexOf(id) !== index).join(", ")}`);
+  }
+});
+
 test("V2 Now Work ignores Task reentry projected from another Object version", () => {
   const value = model();
   value.workspace = "now";

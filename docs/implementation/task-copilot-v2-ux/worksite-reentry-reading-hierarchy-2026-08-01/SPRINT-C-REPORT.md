@@ -44,4 +44,6 @@ Visual Gate: VISUAL_GATE_READY（独立视觉 reviewer 未签发）
 ## 已知限制
 
 - 独立视觉 reviewer 未执行（字重/颜色是否“足够但不过量”最终由 Visual Gate 判定）；
-- Light/Dark 对比度以 token 计算为准，未运行自动 axe/contrast 工具链（可后续补）。
+- 自动对比度 Gate 已补：`tests/contrast.test.ts` 对 Light/Dark 六组语义 token 组合
+  断言 WCAG AA ≥ 4.5（muted/body/warning/danger/primary 按钮标签），随 Plugin 440/440
+  PASS；axe 全量扫描仍不在本轮范围。

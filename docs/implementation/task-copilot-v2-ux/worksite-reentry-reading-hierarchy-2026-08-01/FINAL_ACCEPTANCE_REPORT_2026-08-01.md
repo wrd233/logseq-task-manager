@@ -38,7 +38,7 @@ Desktop 行为与机器证据已完成；只差独立视觉 reviewer 签发 VISU
 | 12 | Active Surface 背景竞争降低 | PASS（veil 58%） |
 | 13 | Light/Dark、1000/760、键盘、菜单、焦点 | PASS（Desktop 真实输入 Esc/外部点击/焦点返回） |
 | 14 | Cognitive UX Hardening 无回归 | PASS（根级 438/438 + 全量 check） |
-| 15 | 自动测试、Desktop、独立视觉 Gate | 自动+Desktop PASS；视觉 Gate PENDING |
+| 15 | 自动测试、Desktop、独立视觉 Gate | 自动（440/440 含对比度 AA 与 duplicate-id）+ Desktop PASS；视觉 Gate PENDING |
 | 16 | 未执行人工 Gate 诚实记录 | 是（VoiceOver/鼠标/键盘人工 → owner-accepted risk） |
 | 17 | 用户明显感知更容易看/想起/开始 | 待独立视觉 reviewer 与真实使用确认 |
 
