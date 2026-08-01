@@ -8,6 +8,7 @@ export * from "./agent-governance.ts";
 export * from "./agent-governance-gate.ts";
 export * from "./agent-governance-context.ts";
 export * from "./agent-governance-router.ts";
+export * from "./agent-governance-revalidation.ts";
 
 export type ObjectType =
   | "TASK"

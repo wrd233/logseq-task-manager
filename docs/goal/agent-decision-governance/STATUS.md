@@ -3,8 +3,8 @@
 ```yaml
 goal_state: IN_PROGRESS
 base_commit: 7f23564131dbaf5bdcb04c21b80ddb7abd9d48e0
-current_commit: 626617e
-current_phase: PHASE_2_GATE_CONTEXT_SKILL_ROUTER
+current_commit: b296b4f
+current_phase: PHASE_3_FEEDBACK_EXPORT_UI
 completed:
   - Goal Objective and full user detailed design read
   - repository baseline and pre-existing dirty file recorded
@@ -25,9 +25,16 @@ completed:
   - internal hash-addressed governance Skill with six stable Rule IDs, unique Chinese names, evidence/counter-signals and external-Skill isolation
   - strict Structured Decision Output validator rejects unknown confidence/authority fields
   - deterministic Risk Router enforces EXPERIMENT zero-write, evidence/counter-signal/pause/version gates and high-impact never-auto
+  - shared Plugin DB.onChanged stream wired through a 3-second bounded observation queue; no second Graph listener
+  - authenticated observation-only Service route reuses the Logseq Graph read bridge and carries no apply, promote or caller-selected business write authority
+  - EXPERIMENT Shadow runtime records explicit-task Decisions and deterministic weak Review Signals while Object/Candidate/Proposal/Ownership/Association projections remain byte-for-byte unchanged
+  - Provider disabled/invalid/failure paths retain bounded failed governance Decisions without exposing Provider error bodies
+  - newer source observations cancel stale Provider results before Decision persistence
+  - offline Service failures retain one bounded latest waterline per observation key and retry after recovery
+  - source/target/Anchor/rule/Skill/mode/pause/scope/equivalent-action revalidation contract
 remaining_automatable_work:
-  - finish Phase 2 shared Graph observation wiring, Provider orchestration, revalidation and zero-write Shadow runtime
-  - implement Phases 3 through 7 in dependency order
+  - implement Feedback/bulk compatibility, privacy-safe exports and governance UI
+  - implement guarded explicit-task execution wiring default off and full fault/no-Agent regression
 runtime_checks_pending:
   - consolidated Desktop scenarios A through J
   - real DeepSeek governance Structured Output gate
@@ -46,7 +53,7 @@ active_risks:
   - current Plugin is loaded from a prior global-object-directory build, not this Goal build
   - Provider is configured but has not been probed in this Goal
   - live formal SQLite remains schema v12 until the consolidated explicit migration checkpoint; implementation tests use isolated v13 fixtures
-  - Guarded R1 routing is compiled but disabled until the honest Shadow time gate and explicit user authorization
+  - Guarded R1 routing is compiled but execution remains absent/disabled until the honest Shadow time gate and explicit user authorization
 user_actions_required: []
 resume_instruction: Read this directory, ADR 0009, and current git status; continue from the first incomplete acceptance row without touching the pre-existing package.json change.
 ```

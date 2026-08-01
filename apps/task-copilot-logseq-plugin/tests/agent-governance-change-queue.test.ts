@@ -58,3 +58,28 @@ test("queue capacity is bounded without throwing into existing Graph consumers",
   await queue.drainNow();
   queue.dispose();
 });
+
+test("a transport failure retains one bounded latest waterline until Service recovery", async () => {
+  let available = false;
+  const processed: string[] = [];
+  const issues: string[] = [];
+  const queue = new AgentGovernanceChangeQueue<string>({
+    delayMs: 5_000,
+    retryDelayMs: 30_000,
+    process: async (value) => {
+      if (!available) throw new Error("service offline");
+      processed.push(value);
+    },
+    onIssue: ({ code }) => { issues.push(code); },
+  });
+  queue.enqueue("source-offline", "old");
+  queue.enqueue("source-offline", "latest");
+  await queue.drainNow();
+  assert.deepEqual(queue.metrics(), { pendingRoots: 1, active: false, trackedRevisions: 1 });
+  assert.deepEqual(issues, ["AGENT_GOVERNANCE_PROCESSING_FAILED"]);
+  available = true;
+  await queue.drainNow();
+  assert.deepEqual(processed, ["latest"]);
+  assert.deepEqual(queue.metrics(), { pendingRoots: 0, active: false, trackedRevisions: 0 });
+  queue.dispose();
+});

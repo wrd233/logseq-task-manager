@@ -34,6 +34,7 @@ try {
   const provider = await loadStructuredProviderFromEnvironment();
   const interactionEvidence = new InteractionEvidenceBuffer();
   const providerOptions = provider ? {
+    agentGovernanceProvider: provider,
     proposalGenerator: new LocalLlmProposalGenerator(provider),
     uxOutputGenerator: new LocalLlmUxOutputGenerator(provider, interactionEvidence),
     grillTurnGenerator: new LocalLlmGrillTurnGenerator(provider),

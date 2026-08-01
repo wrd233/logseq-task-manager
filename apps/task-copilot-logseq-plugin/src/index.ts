@@ -20,6 +20,7 @@ import { cancelActionDialogReturnsToOrigin, isWorkspace, renderApp, type ActionD
 import { defaultDirectoryFilterState, type DirectoryFilterState } from "./global-object-directory.ts";
 import { WorksitePreviewController, type WorksitePreviewMode, type WorksitePreviewState } from "./worksite-preview-controller.ts";
 import { WorksiteChangeRouter } from "./worksite-change-router.ts";
+import { AgentGovernanceChangeQueue } from "./agent-governance-change-queue.ts";
 import { createDelegatedActionHandler } from "./inbox-action-controller.ts";
 import { StructuredLogger, type StructuredLogEntry } from "./structured-logger.ts";
 import { recoverServiceRuntime } from "./service-runtime-recovery.ts";
@@ -1489,12 +1490,39 @@ function initializeExplicitSync(): void {
       updateToolbarIntervention();
     },
   });
+  const agentGovernanceQueue = new AgentGovernanceChangeQueue<{ changedBlockId: string; changedBlockCount: number }>({
+    delayMs: 3_000,
+    maximumPendingRoots: 32,
+    process: async (input, signal) => {
+      const client = serviceRuntimeClient;
+      if (!client?.observeAgentGovernanceChange) throw new Error("AGENT_GOVERNANCE_SERVICE_UNAVAILABLE");
+      const result = await client.observeAgentGovernanceChange(input, signal);
+      operationalLogger.log("info", "source-resolution", "agent_observation_processed", {
+        blockUuid: input.changedBlockId,
+        result: result.status.toLowerCase(),
+      });
+    },
+    onIssue: (issue) => operationalLogger.log("warn", "source-resolution", "agent_observation_issue", {
+      result: "isolated",
+      errorCode: issue.code,
+      ...(issue.sourceRootId ? { blockUuid: issue.sourceRootId } : {}),
+    }),
+  });
   cleanupHooks.push(registerExplicitSyncEvents(logseq as unknown as ExplicitSyncEventHost, explicitSyncController, {
     onGraphBlocksChanged: (blocks) => {
       worksiteChangeRouter.handleChangedBlocks(blocks);
+      const seen = new Set<string>();
+      for (const value of blocks) {
+        if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+        const uuid = (value as { uuid?: unknown }).uuid;
+        if (typeof uuid !== "string" || !uuid.trim() || seen.has(uuid)) continue;
+        seen.add(uuid);
+        agentGovernanceQueue.enqueue(uuid, { changedBlockId: uuid, changedBlockCount: blocks.length });
+      }
       operationalLogger.log("info", "source-resolution", "worksite_change_event", { signalRawCount: blocks.length });
     },
   }));
+  cleanupHooks.push(() => agentGovernanceQueue.dispose());
   const reconciliationTimer = globalThis.setInterval(() => {
     void explicitSyncController?.reconcileKnownAnchors();
   }, 5 * 60 * 1000);

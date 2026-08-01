@@ -30,12 +30,16 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - An isolated governance Decision snapshot passes backup, active reopen, offline restore and restored history verification.
 - Live formal v12 migration remains intentionally deferred to the consolidated runtime checkpoint.
 
-## CP-2 — deterministic runtime boundaries in progress
+## CP-2 — deterministic zero-write Shadow runtime complete (automated)
 
 - The gate suppresses format-only changes, selects a bounded structural Source Root and escalates strong, repeated weak, multi-target and event-storm signals deterministically.
-- The Plugin-side latest-value queue uses the existing shared Graph fact stream design, a 3-second debounce, cancellation and bounded failure isolation; lifecycle wiring remains pending.
+- The Plugin-side latest-value queue is wired into the existing shared Graph fact stream with a 3-second debounce, cancellation, bounded failure isolation and a retained offline waterline; no second `DB.onChanged` listener exists.
 - LOCAL/EXPANDED construction reuses the existing read-only Context Package Graph snapshot and SQLite projections, deduplicates exact content and records omitted required evidence.
 - The internal governance Skill is packaged separately from external Agent Skills, hash-addressed, Doctor-validated and contains six stable Rule IDs with unique Chinese display names.
 - Structured output cannot supply confidence or authority fields; the deterministic Router owns route selection.
 - EXPERIMENT always returns Shadow with zero formal business writes; Guarded R1 is compiled behind a disabled runtime gate and cannot bypass pause, evidence, impact or version checks.
-- CP-2 is not complete until shared observation wiring, Provider orchestration, revalidation and an end-to-end zero-business-write Shadow test are green.
+- An authenticated observation-only API drives the existing Graph read bridge, Context adapter, Skill, Structured Provider and deterministic Router; it exposes no apply or promotion authority.
+- Explicit Task Shadow, Provider failure, stale-result cancellation, weak Review Signal and unchanged-source paths are green.
+- Service E2E proves Object, Candidate, Proposal, Ownership and Association projections do not change while Decision/Rule governance rows persist.
+- Commit revalidation classifies current facts as READY, STALE, BLOCKED or idempotent NO_OP without widening scope.
+- The live Desktop/real-DeepSeek gate remains consolidated in CP-4; the automated CP-2 contract is complete.

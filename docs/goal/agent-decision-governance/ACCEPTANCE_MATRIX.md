@@ -12,12 +12,12 @@
 | ADG-CTX-01 | LOCAL/EXPANDED/REVIEW、metrics、truncation fail-closed | domain context budget + existing Service Context adapter | required evidence, dedupe, deterministic clipping and existing Graph/SQLite reuse tests; REVIEW pending | scenarios C/I | AUTOMATED_FOUNDATION |
 | ADG-SKILL-01 | hash-addressed internal Skill、稳定 Rule ID、中文名称 | `skills/agent-decision-governance/SKILL.md`; separate internal catalog loader | hash/manifest/Rule ID/name/examples/output schema/Doctor tests | scenario E/detail | AUTOMATED_FOUNDATION |
 | ADG-ROUTER-01 | deterministic effective authority、pause、downgrade、high-impact never-auto | governance domain + deterministic router | effective min, user-only promotion, step downgrade, pause/global pause, truncation, counter-signal, multi-object and R3 matrix | scenario G | AUTOMATED_FOUNDATION |
-| ADG-REVAL-01 | source/target/Anchor/rule/Skill/mode/scope/equivalent action revalidation | pending | stale/idempotency/fault tests | scenario J | NOT_STARTED |
-| ADG-SHADOW-01 | EXPERIMENT 下业务 Object/Graph/Ownership/Lifecycle/Condition/Focus 写入 0 | pending | zero-write snapshots | scenarios A–D/H | NOT_STARTED |
+| ADG-REVAL-01 | source/target/Anchor/rule/Skill/mode/scope/equivalent action revalidation | `packages/domain/src/agent-governance-revalidation.ts` | READY/STALE/BLOCKED/NO_OP matrix; guarded executor integration pending | scenario J | AUTOMATED_FOUNDATION |
+| ADG-SHADOW-01 | EXPERIMENT 下业务 Object/Graph/Ownership/Lifecycle/Condition/Focus 写入 0 | Plugin shared stream + observation-only Service + Shadow runtime | Service E2E compares Object/Candidate/Proposal/Ownership/Association before/after; weak signal, failure, unchanged and cancellation tests | scenarios A–D/H | AUTOMATED_FOUNDATION |
 | ADG-UI-01 | 24h/7d、最近 Decision、例外、抽样、中文规则、详情、来源 | pending | renderer/AX tests | Light/Dark/1000/760 | NOT_STARTED |
 | ADG-UI-02 | loading/error/disabled、keyboard、focus restore、focus ring、pause clarity | pending | UI interaction tests | scenario E/G/H | NOT_STARTED |
 | ADG-EXPORT-01 | privacy-safe Skill Feedback Package | pending | deterministic export tests | scenario F | NOT_STARTED |
 | ADG-EXPORT-02 | 60/180 day Review Evidence Markdown + machine data | pending | dedupe/source-missing/truncation tests | scenario I | NOT_STARTED |
 | ADG-GUARDED-01 | explicit-task representative path default off, explicit authority, existing Commit/Undo | pending | disabled/guarded/revalidation tests | scenario J | NOT_STARTED |
-| ADG-FAIL-01 | Provider/Skill/Service unavailable and Agent off do not block base product | pending | failure/no-agent regression | scenarios G/H | NOT_STARTED |
+| ADG-FAIL-01 | Provider/Skill/Service unavailable and Agent off do not block base product | isolated Plugin queue + bounded runtime failure Decision | Provider failure, cancellation, offline waterline retry and root full check; explicit Agent-off regression pending | scenarios G/H | AUTOMATED_FOUNDATION |
 | ADG-TIME-01 | 14 days + 200 real Decisions; per-rule evidence | runtime data | no synthetic substitution | daily Shadow use | RUNTIME_TIME_GATE |

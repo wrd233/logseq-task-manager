@@ -44,7 +44,7 @@ function validateBlock(value: AgentGateBlock, field: string): AgentGateBlock {
   return { ...value, externalId };
 }
 
-function semanticText(value: string): string {
+export function agentGovernanceSemanticText(value: string): string {
   return value
     .normalize("NFKC")
     .replace(/^\s*(?:id|collapsed)::.*$/gimu, "")
@@ -55,7 +55,7 @@ function semanticText(value: string): string {
 }
 
 function isExplicit(value: AgentGateBlock): boolean {
-  return explicitMarker.test(semanticText(value.content));
+  return explicitMarker.test(agentGovernanceSemanticText(value.content));
 }
 
 export function selectAgentSourceRoot(lineage: readonly AgentGateBlock[]): AgentGateBlock {
@@ -80,11 +80,11 @@ export function classifyAgentGovernanceChange(input: AgentGateInput): AgentGateR
   const weakOccurrences = boundedCount(input.weakSignalOccurrences30d, "weakSignalOccurrences30d", 10_000);
   const candidateTargetCount = boundedCount(input.candidateTargetCount, "candidateTargetCount", 256);
   if (changedBlockCount > 32) return { action: "DEFER_TO_BATCH", reason: "EVENT_STORM", sourceRoot };
-  if (input.previousContent !== undefined && semanticText(input.previousContent) === semanticText(changed.content)) {
+  if (input.previousContent !== undefined && agentGovernanceSemanticText(input.previousContent) === agentGovernanceSemanticText(changed.content)) {
     return { action: "IGNORE_THIS_CHANGE", reason: "FORMAT_ONLY", sourceRoot };
   }
   if (candidateTargetCount > 1) return { action: "RUN_EXPANDED", reason: "MULTIPLE_TARGETS", sourceRoot };
-  const content = semanticText(changed.content);
+  const content = agentGovernanceSemanticText(changed.content);
   if (strongSignal.test(content) || isExplicit(sourceRoot)) return { action: "RUN_LOCAL", reason: "STRONG_SIGNAL", sourceRoot };
   if (input.insideFormalObject) return { action: "RUN_LOCAL", reason: "FORMAL_OBJECT_UPDATE", sourceRoot };
   if (weakSignal.test(content)) {

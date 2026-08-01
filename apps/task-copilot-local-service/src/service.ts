@@ -43,6 +43,7 @@ import { GraphReadBroker } from "./graph-read-broker.ts";
 import { parseGraphReadQuery, parseGraphReadResult } from "./graph-read-contract.ts";
 import { readLegacyRecoveryBundle, scanLegacyRecoveryBundle } from "./migration-scan.ts";
 import { buildProjectClosureProposalPrompt, validateGeneratedProjectClosureProposal, validateProjectClosureUserJudgments, type ProjectClosureUserJudgments } from "./project-closure-provider.ts";
+import { AgentGovernanceRuntime, type AgentGovernanceRuntimeProvider } from "./agent-governance-runtime.ts";
 
 export { LOCAL_SERVICE_PROTOCOL_VERSION } from "@task-copilot/service-client";
 
@@ -65,6 +66,7 @@ export interface LocalServiceOptions {
   grillTurnGenerator?: LocalLlmGrillTurnGenerator;
   grillPreviewGenerator?: LocalLlmGrillPreviewGenerator;
   projectCreationPreviewGenerator?: LocalLlmProjectCreationPreviewGenerator;
+  agentGovernanceProvider?: AgentGovernanceRuntimeProvider;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
   faults?: { beforeProjectClosureDomainWrite?: () => void; afterProjectClosureDomainWrite?: () => void; afterOwnershipPrepare?: () => void; afterOwnershipDomainWrite?: () => void; afterOwnershipCommitFailedBeforeProposalTerminal?: () => void; beforeOwnershipUndoDomainWrite?: () => void; afterOwnershipUndoDomainWrite?: () => void; afterLifecyclePrepare?: () => void; afterLifecycleDomainWrite?: () => void; afterLifecycleUndoPrepare?: () => void; afterLifecycleUndoDomainWrite?: () => void; afterLifecycleProposalStale?: () => void; afterLifecycleCommitFailed?: () => void; beforeProposalProjectCreationDomainWrite?: () => void; afterProposalProjectCreationDomainWrite?: () => void; beforeAreaDomainWrite?: () => void | Promise<void>; afterMigrationImport?: () => void; beforeMigrationVerify?: () => void; beforeMigrationActivate?: () => void; beforeRestoreDrain?: () => void; beforeRestoreOffline?: () => void; afterRestoreActivate?: () => void; beforeRestoreRollback?: () => void };
@@ -347,6 +349,19 @@ async function readGraphResultRequest(request: IncomingMessage): Promise<Service
   let value: unknown;
   try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Graph 只读桥接结果必须是合法 JSON。"); }
   return parseGraphReadResult(value);
+}
+
+async function readAgentGovernanceObservationRequest(request: IncomingMessage): Promise<{ changedBlockId: string; changedBlockCount: number }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Agent observation 请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  if (Object.keys(record).sort().join(",") !== "changedBlockCount,changedBlockId"
+    || typeof record.changedBlockId !== "string" || !record.changedBlockId.trim() || record.changedBlockId.length > 512
+    || !Number.isSafeInteger(record.changedBlockCount) || Number(record.changedBlockCount) < 1 || Number(record.changedBlockCount) > 1_024) {
+    throw serviceError("AGENT_OBSERVATION_INVALID", "Agent observation 只接受受控 changed Block 身份与批次大小。");
+  }
+  return { changedBlockId: record.changedBlockId.trim(), changedBlockCount: Number(record.changedBlockCount) };
 }
 
 async function readAssociationRequest(request: IncomingMessage): Promise<{ sourceObjectId: string; targetObjectId: string; expectedVersion: number; traceId: string }> {
@@ -1325,7 +1340,7 @@ function respondError(response: ServerResponse, error: unknown): void {
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
-    const uxInputError = ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "PROJECT_CLOSURE_USER_JUDGMENTS_INVALID"].includes(error.code)
+    const uxInputError = error.code === "AGENT_OBSERVATION_INVALID" || ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "PROJECT_CLOSURE_USER_JUDGMENTS_INVALID"].includes(error.code)
       || error.code.startsWith("V2_PROJECT_CLOSURE_EVIDENCE_")
       || error.code.startsWith("PROJECT_CLOSURE_PROVIDER_");
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
@@ -1377,6 +1392,25 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const migrationApplication = new V2MigrationApplication(store);
   const proposalApplication = new V2ProposalApplication(store);
   const graphReadBroker = new GraphReadBroker();
+  const agentGovernanceSkill = await readAgentGovernanceSkill();
+  const agentGovernanceRuntime = new AgentGovernanceRuntime({
+    graphId: options.graphId,
+    source: {
+      getObject: (objectId) => store.getObject(objectId),
+      listObjects: () => store.listObjects(),
+      listPrimaryOwnerships: () => store.listPrimaryOwnerships(),
+      listAssociations: () => store.listAssociations(),
+      getActivePrimaryAnchorByObject: (objectId) => store.getActivePrimaryAnchorByObject(objectId),
+      databaseSchemaVersion: () => store.doctor().schemaVersion,
+      listCandidates: () => store.listCandidates(),
+    },
+    application: agentGovernanceApplication,
+    graph: graphReadBroker,
+    skill: agentGovernanceSkill,
+    ...(options.agentGovernanceProvider ? { provider: options.agentGovernanceProvider } : {}),
+    runtimeMode: "EXPERIMENT",
+    guardedAutomationEnabled: false,
+  });
   const grillPreviewSessions = new GrillPreviewSessionStore<{ objectId: string; expectedVersion: number; answers: MiniProjectGrillAnswer[]; preview: GrillPreview; graphScopeHash: string }>();
   const projectCreationPreviewSessions = new GrillPreviewSessionStore<{ input: ProjectCreationGrillRequest; preview: ProjectCreationPreview; sourceFingerprint: string; graphScopeHash?: string; pageAuthority?: { id: string; name?: string; version?: number; hash: string } }>();
   const serializedTails = new Map<string, Promise<void>>();
@@ -1560,7 +1594,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     || options.uxOutputGenerator !== undefined
     || options.grillTurnGenerator !== undefined
     || options.grillPreviewGenerator !== undefined
-    || options.projectCreationPreviewGenerator !== undefined;
+    || options.projectCreationPreviewGenerator !== undefined
+    || options.agentGovernanceProvider !== undefined;
   const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: providerConfigured };
   const comprehensiveDoctor = async (): Promise<ServiceDoctor> => {
     const core = store.doctor();
@@ -2072,6 +2107,21 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       }
       if (result.status === "NOT_FOUND") throw new StructuredError({ code: "GRAPH_READ_NOT_FOUND", message: "Logseq Desktop 中未找到目标。", ruleRefs: ["D-132", "D-135"] });
       throw new StructuredError({ code: result.errorCode, message: result.message, ruleRefs: ["D-132", "D-135"] });
+    }
+    if (request.method === "POST" && url.pathname === "/agent/observations") {
+      const input = await readAgentGovernanceObservationRequest(request);
+      const controller = new AbortController();
+      const abort = () => { if (!response.writableEnded) controller.abort(); };
+      response.once("close", abort);
+      try {
+        const result = await serializeByKey("agent-governance-observation", () => agentGovernanceRuntime.observe(input, controller.signal));
+        if (!controller.signal.aborted) respond(response, 200, result);
+      } catch (error) {
+        if (!controller.signal.aborted) throw error;
+      } finally {
+        response.removeListener("close", abort);
+      }
+      return;
     }
     if (request.method === "GET" && url.pathname === "/skills") {
       respond(response, 200, { skills: await listTaskCopilotSkills() });

@@ -8,6 +8,7 @@ export interface AgentGovernanceChangeQueueOptions<T> {
   process(value: T, signal: AbortSignal): Promise<void>;
   onIssue?(issue: AgentGovernanceQueueIssue): void;
   delayMs?: number;
+  retryDelayMs?: number;
   maximumPendingRoots?: number;
 }
 
@@ -22,20 +23,27 @@ export class AgentGovernanceChangeQueue<T> {
   private readonly latestRevision = new Map<string, number>();
   private readonly delayMs: number;
   private readonly maximumPendingRoots: number;
+  private readonly retryDelayMs: number;
+  private readonly failureReported = new Set<string>();
   private active: { sourceRootId: string; controller: AbortController } | undefined;
   private timer: ReturnType<typeof globalThis.setTimeout> | undefined;
   private drainPromise: Promise<void> | undefined;
   private disposed = false;
   private revision = 0;
+  private retryPending = false;
 
   constructor(private readonly options: AgentGovernanceChangeQueueOptions<T>) {
     this.delayMs = options.delayMs ?? 3_000;
     this.maximumPendingRoots = options.maximumPendingRoots ?? 32;
+    this.retryDelayMs = options.retryDelayMs ?? 30_000;
     if (!Number.isSafeInteger(this.delayMs) || this.delayMs < 2_000 || this.delayMs > 5_000) {
       throw new Error("Agent governance debounce must be an integer from 2000 to 5000 milliseconds.");
     }
     if (!Number.isSafeInteger(this.maximumPendingRoots) || this.maximumPendingRoots < 1 || this.maximumPendingRoots > 256) {
       throw new Error("Agent governance pending Source Root capacity must be from 1 to 256.");
+    }
+    if (!Number.isSafeInteger(this.retryDelayMs) || this.retryDelayMs < 5_000 || this.retryDelayMs > 5 * 60_000) {
+      throw new Error("Agent governance retry delay must be an integer from 5000 to 300000 milliseconds.");
     }
   }
 
@@ -67,7 +75,8 @@ export class AgentGovernanceChangeQueue<T> {
     if (this.drainPromise) return this.drainPromise;
     this.drainPromise = this.drain().finally(() => {
       this.drainPromise = undefined;
-      if (!this.disposed && this.pending.size > 0) this.schedule();
+      if (!this.disposed && this.pending.size > 0) this.schedule(this.retryPending ? this.retryDelayMs : this.delayMs);
+      this.retryPending = false;
     });
     return this.drainPromise;
   }
@@ -81,18 +90,19 @@ export class AgentGovernanceChangeQueue<T> {
     this.active = undefined;
     this.pending.clear();
     this.latestRevision.clear();
+    this.failureReported.clear();
   }
 
   metrics(): { pendingRoots: number; active: boolean; trackedRevisions: number } {
     return { pendingRoots: this.pending.size, active: this.active !== undefined, trackedRevisions: this.latestRevision.size };
   }
 
-  private schedule(): void {
+  private schedule(delay = this.delayMs): void {
     if (this.timer !== undefined) globalThis.clearTimeout(this.timer);
     this.timer = globalThis.setTimeout(() => {
       this.timer = undefined;
       void this.drainNow();
-    }, this.delayMs);
+    }, delay);
   }
 
   private async drain(): Promise<void> {
@@ -105,13 +115,21 @@ export class AgentGovernanceChangeQueue<T> {
       this.active = { sourceRootId: item.sourceRootId, controller };
       try {
         await this.options.process(item.value, controller.signal);
+        this.failureReported.delete(item.sourceRootId);
       } catch {
         if (!controller.signal.aborted) {
-          this.options.onIssue?.({
-            code: "AGENT_GOVERNANCE_PROCESSING_FAILED",
-            message: "Agent governance processing failed inside its isolated queue; existing Graph consumers remain active.",
-            sourceRootId: item.sourceRootId,
-          });
+          if (this.latestRevision.get(item.sourceRootId) === item.revision && !this.pending.has(item.sourceRootId)) {
+            this.pending.set(item.sourceRootId, item);
+            this.retryPending = true;
+          }
+          if (!this.failureReported.has(item.sourceRootId)) {
+            this.failureReported.add(item.sourceRootId);
+            this.options.onIssue?.({
+              code: "AGENT_GOVERNANCE_PROCESSING_FAILED",
+              message: "Agent governance processing failed inside its isolated queue; the latest bounded waterline remains pending while existing Graph consumers stay active.",
+              sourceRootId: item.sourceRootId,
+            });
+          }
         }
       } finally {
         if (this.active?.controller === controller) this.active = undefined;

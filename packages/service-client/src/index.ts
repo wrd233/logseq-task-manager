@@ -511,6 +511,17 @@ export type ServiceGraphReadResult =
   | { requestId: string; status: "NOT_FOUND" }
   | { requestId: string; status: "ERROR"; errorCode: string; message: string };
 
+export interface ServiceAgentGovernanceObservationRequest {
+  changedBlockId: string;
+  changedBlockCount: number;
+}
+
+export interface ServiceAgentGovernanceObservationResult {
+  status: "IGNORED" | "DEFERRED" | "UNCHANGED" | "RECORDED";
+  gateAction: "IGNORE_THIS_CHANGE" | "UPDATE_REVIEW_SIGNAL" | "RUN_LOCAL" | "RUN_EXPANDED" | "DEFER_TO_BATCH";
+  decision?: AgentDecision;
+}
+
 export type ServiceLegacyMigrationPreview = LegacyMigrationPreview;
 
 export interface ServiceLegacyMigrationScanReport {
@@ -1015,6 +1026,10 @@ export class LocalServiceClient {
   private async request<T>(path: string, init?: RequestInit, timeoutMs = this.timeoutMs): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort("timeout"), timeoutMs);
+    const externalSignal = init?.signal;
+    const cancelFromCaller = (): void => controller.abort("caller");
+    if (externalSignal?.aborted) cancelFromCaller();
+    else externalSignal?.addEventListener("abort", cancelFromCaller, { once: true });
     let response: Response;
     try {
       response = await fetch(`${this.descriptor.url}${path.slice(1)}`, {
@@ -1023,12 +1038,14 @@ export class LocalServiceClient {
         signal: controller.signal,
       });
     } catch (error) {
+      if (externalSignal?.aborted) throw clientError("SERVICE_REQUEST_CANCELLED", "Local Service 请求已被更新的工作取消。");
       if (controller.signal.aborted) throw clientError("SERVICE_TIMEOUT", "Local Service 请求超时。");
       throw clientError("SERVICE_UNAVAILABLE", "Local Service 不可用；正式语义写入已受限。", {
         cause: error instanceof Error ? error.message : String(error),
       });
     } finally {
       clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort", cancelFromCaller);
     }
     let body: unknown;
     try {
@@ -1094,6 +1111,23 @@ export class LocalServiceClient {
 
   async listAgentRuleAuthorizations(): Promise<AgentRuleAuthorization[]> {
     return validatedGovernanceArray(await this.request<unknown>("/agent/rules"), "authorizations", validateAgentRuleAuthorization);
+  }
+
+  async observeAgentGovernanceChange(
+    input: ServiceAgentGovernanceObservationRequest,
+    signal?: AbortSignal,
+  ): Promise<ServiceAgentGovernanceObservationResult> {
+    const value = await this.request<ServiceAgentGovernanceObservationResult>("/agent/observations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+      ...(signal ? { signal } : {}),
+    }, 45_000);
+    if (!value || !["IGNORED", "DEFERRED", "UNCHANGED", "RECORDED"].includes(value.status)
+      || !["IGNORE_THIS_CHANGE", "UPDATE_REVIEW_SIGNAL", "RUN_LOCAL", "RUN_EXPANDED", "DEFER_TO_BATCH"].includes(value.gateAction)) {
+      throw clientError("SERVICE_RESPONSE_INVALID", "Local Service Agent observation response 无效。");
+    }
+    return { ...value, ...(value.decision ? { decision: validateAgentDecision(value.decision) } : {}) };
   }
 
   createBackup(): Promise<ServiceBackupCreated> {
