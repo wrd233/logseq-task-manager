@@ -74,6 +74,16 @@ Proposal warning 1 为既有）。
 | Now Dark 1000 | `03-now-dark-1000/` | 语义一致 |
 | 结构指标 | `metrics-1000.json` | 布局不回归 |
 
+## Sprint E after 证据（2026-08-01）
+
+`tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-e/`
+
+| 场景 | 文件 | 内容 |
+|---|---|---|
+| Objects Dark 1000 默认层 | `17-objects-dark-1000/` | 只显示正式事项；创建器折叠 |
+| Objects Light 1000 默认层 | `18-objects-light-1000/` | 同上 |
+| Objects 高级层展开 | `18b-objects-advanced-light-1000/` | 新建领域/项目/关联可见 |
+
 ## Sprint D after 证据（2026-08-01）
 
 `tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-d/`

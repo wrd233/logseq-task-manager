@@ -156,6 +156,11 @@
 #task-copilot-personal-mvp-root .split { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.2fr); gap: 14px; }
 #task-copilot-personal-mvp-root .object-list { display: flex; flex-direction: column; gap: 7px; }
 #task-copilot-personal-mvp-root .object-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
+#task-copilot-personal-mvp-root .objects-advanced { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+#task-copilot-personal-mvp-root .objects-advanced > summary { color: var(--muted); font-weight: 600; }
+#task-copilot-personal-mvp-root .objects-advanced[open] > summary { color: var(--text); margin-bottom: 12px; }
+#task-copilot-personal-mvp-root .objects-advanced-body { display: grid; gap: 12px; }
+#task-copilot-personal-mvp-root .objects-advanced .card { margin: 0; }
 #task-copilot-personal-mvp-root .drawer { position: sticky; top: 0; }
 #task-copilot-personal-mvp-root .drawer section, #task-copilot-personal-mvp-root .reentry section { margin-top: 18px; }
 #task-copilot-personal-mvp-root .drawer section h3, #task-copilot-personal-mvp-root .reentry section h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); }

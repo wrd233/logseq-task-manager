@@ -2083,6 +2083,33 @@ test("Sprint D quiets the Now shell chrome without removing any entry", async ()
   }
 });
 
+test("Sprint E Objects default layer leads with formal items and moves creation/relations into structure", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [
+    { objectId: "obj-1", objectType: "TASK", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "推进发布", sourceOrCreationEvent: "test", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" },
+    { objectId: "obj-2", objectType: "AREA", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "健康领域", sourceOrCreationEvent: "test", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" },
+  ];
+  value.v2PrimaryOwnerships = [{ ownerObjectId: "obj-1", childObjectId: "obj-2", assignedAt: "2026-07-31T00:00:00.000Z" }];
+  value.v2Associations = [{ associationId: "rel-1", sourceObjectId: "obj-1", targetObjectId: "obj-2", associationKind: "RELATED", status: "ACTIVE", createdAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-07-31T00:00:00.000Z" }];
+  const html = renderApp(value);
+  assert.match(html, /<section aria-label="正式事项"><h2>正式事项<\/h2>/);
+  assert.match(html, /<section aria-label="正式事项"><h2>正式事项<\/h2>[\s\S]*<details class="objects-advanced"/);
+  assert.match(html, /<details class="objects-advanced"><summary>整理结构（创建领域、项目与关联）<\/summary>[\s\S]*新建领域[\s\S]*新建项目[\s\S]*关联两个事项/);
+  assert.match(html, /<details class="objects-advanced objects-context"><summary>查看所属与相关内容（2 条）<\/summary>/);
+});
+
+test("Sprint E empty Objects page keeps creation reachable with the structure section open", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2Objects = [];
+  const html = renderApp(value);
+  assert.match(html, /还没有正式事项/);
+  assert.match(html, /<details class="objects-advanced" open><summary>整理结构（创建领域、项目与关联）<\/summary>/);
+  assert.match(html, /data-action="create-v2-area"/);
+  assert.match(html, /data-action="v2-project-creation-grill-open"/);
+});
+
 test("V2 Now Work ignores Task reentry projected from another Object version", () => {
   const value = model();
   value.workspace = "now";
