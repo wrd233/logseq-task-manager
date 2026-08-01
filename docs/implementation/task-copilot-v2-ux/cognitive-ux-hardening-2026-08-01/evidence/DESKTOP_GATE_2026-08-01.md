@@ -13,6 +13,7 @@
 | CUX-P0-01 | 部分非法（`[任务]` 缺标题 + 两个有效块已自动同步为正式对象） | 中性 empty + “1 个显式标识存在冲突或缺少标题，未列为可写候选”；无提交按钮 |
 | CUX-P1-01 | accepted-not-applied → 确认应用；历史已应用项 → 确认撤销 | Apply：打开后 `nav[aria-label=主要工作区]` 不存在；仅确认面：checkbox + 确认应用 + 取消；取消后恢复同一 Review 卡（“方案已审阅，等待确认应用”）。Undo：历史“撤销项目更新”确认面同样无主导航、1 checkbox + 1 确认撤销 + 1 取消 |
 | CUX-P1-02 | MiniProject Grill（真实 DeepSeek） | 首屏=“这一轮只确认一件事/问题/你的回答/继续讨论”；`data-field=v2MiniProjectGrillAnswer` 位于 `details.grill-context` 之前；details 默认 closed；展开可见理解/事实/推断/未知/建议；关闭返回同一 objects 工作区 |
+| CUX-P1-02 | MiniProject Grill 三轮上下文保持（真实 DeepSeek） | 三轮问题各不相同且携带上下文：①准备范围（受众/时长/内容/交付物）→ ②交付成果形态（大纲/讲稿/截图/环境清单）→ ③完成证据（试讲/可复现）。第二轮真实命中 Provider 长度限制：界面安全显示“Provider 输出达到长度限制；没有创建 Proposal 或执行写入”+ 重试本轮，重试成功进入第三轮。第三轮后到达 `READY_FOR_PREVIEW`（“已经可以查看结构预览…确认应用前不会改变正文或正式事项”），零正式写入；关闭返回 objects 工作区 |
 | CUX-P1-03 | 对象工作区 + Condition 对话框 | 对象行/创建器/关联/所属关系全用户语言；Condition 阻碍下拉此前泄漏 `OUTPUT/TASK/MINI_PROJECT/PROJECT`，本次已修复并复验为 成果/任务/小项目/项目，`hasRawCodes=false` |
 | CUX-P0-02 | Block 来源流全链（真实右键菜单 → 处理这条内容 → 真实 DeepSeek NO_PROPOSAL → 返回原内容） | 返回后路由为 `#/page/TC%20CUX%20Empty%2020260801?anchor=...`（页面名路由，非 UUID）；durable origin BLOCK token 持久化于 FileStorage（schemaVersion 1 + graphKey + BLOCK/pageUuid/blockUuid）；随后 hard reload：页面正常加载、无 “Page no longer exists!!”、无 fallback 弹窗、正文可见。anchor 滚动恢复由 resolver 单测覆盖（同页 + Block 可解析 → RETURNED + scroll） |
 | CUX-P0-02 | 完整退出/重开 + 跨页往返 + anchor 可见滚动 | 退出重开后 origin 文件仍持久化；解析器返回 RETURNED（真实 console 证据）；离开来源页再点回时路由事件触发解析，same-page 分支调用 `scrollToBlockInPage` 并有界跟随滚动（1s/2.5s）。**anchor 可见滚动 Desktop PASS**：先把页面滚动复位到 0（目标块 top=910，视口外），调用 API 后滚动容器 0→411.84、目标块 top 910→498 且 `inViewportAfter=true`——宿主语义为“滚到块可见”而非“滚到顶部”，符合“恢复 Block anchor”验收。另修复调试中发现的路由事件循环：解析返回后滚动触发路由变化 → 再解析的无限循环，已用 resolved-token 守卫 + 750ms 节流封顶 |
@@ -29,6 +30,7 @@
 - `tmp/runtime/cognitive-ux-hardening/current/02-confirmation-apply-light-1000.png`
 - `tmp/runtime/cognitive-ux-hardening/current/02b-confirmation-undo-light-1000.png`
 - `tmp/runtime/cognitive-ux-hardening/current/03-grill-question-first-light-1000.png`
+- `tmp/runtime/cognitive-ux-hardening/current/10-grill-three-rounds-ready-dark-1000.png`
 - `tmp/runtime/cognitive-ux-hardening/current/04-objects-user-language-light-1000.png`
 
 > 注：02/02b/03/04 为插件 Dark 外观（审计稳定外观）下采集；01/01b/01c/01d/05 为切换插件
