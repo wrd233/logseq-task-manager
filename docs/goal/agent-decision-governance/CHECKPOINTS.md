@@ -50,4 +50,6 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - Single and bulk feedback are authenticated user commands with exact request shapes and idempotent persistence.
 - Concrete bulk correction is split deterministically by Outcome, Rule ID, Risk Route and available action instead of being forced across incompatible Decisions.
 - Explicit pause feedback atomically records the feedback and pauses only the referenced Rule; it does not alter the Rule's granted authority.
-- Privacy-safe Skill Feedback and Review Evidence exports plus the governance UI remain open.
+- Skill Feedback export now provides deterministic Markdown + JSON/JSONL, per-rule metrics, representative indexes, authority state, bounded redaction and a verified file manifest.
+- Review Evidence export covers explicit 60/180-day ranges, stable source-identity Evidence IDs, captured/current drift, source-missing/error/truncation, weak clusters and a compact timeline through the existing live Graph read bridge.
+- The governance UI remains open.

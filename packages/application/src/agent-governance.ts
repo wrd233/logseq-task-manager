@@ -1,6 +1,7 @@
 import {
   authorizeAgentRule,
   autoDowngradeAgentRule,
+  buildAgentSkillFeedbackPackage,
   createAgentDecision,
   createAgentDecisionEvent,
   createAgentFeedbackEvent,
@@ -14,6 +15,7 @@ import {
   type AgentDecision,
   type AgentDecisionEvent,
   type AgentDecisionInput,
+  type AgentGovernanceExportPackage,
   type AgentFeedbackInput,
   type AgentFeedbackCompatibilityGroup,
   type AgentRuleAuthorization,
@@ -40,7 +42,10 @@ export interface AgentGovernanceRepository {
   ): { decision: AgentDecision; event?: AgentDecisionEvent; replayed: boolean }
     | Promise<{ decision: AgentDecision; event?: AgentDecisionEvent; replayed: boolean }>;
   listAgentDecisions(input: { limit: number; since?: string }): AgentDecision[] | Promise<AgentDecision[]>;
+  listAgentDecisionsForExport(input: { since: string; until: string; limit: number }): AgentDecision[] | Promise<AgentDecision[]>;
+  countAgentDecisionsForExport(input: { since: string; until: string }): number | Promise<number>;
   listAgentDecisionEvents(threadId: string): AgentDecisionEvent[] | Promise<AgentDecisionEvent[]>;
+  listAgentDecisionEventsForExport(input: { since: string; until: string; limit: number }): AgentDecisionEvent[] | Promise<AgentDecisionEvent[]>;
   saveAgentFeedback(
     event: AgentDecisionEvent,
     authorization: AgentRuleAuthorization | undefined,
@@ -64,6 +69,8 @@ export interface AgentGovernanceRepository {
     idempotencyKey: string,
   ): { signal: AgentReviewSignal; replayed: boolean } | Promise<{ signal: AgentReviewSignal; replayed: boolean }>;
   listAgentReviewSignals(input: { status?: AgentReviewSignalStatus; limit: number }): AgentReviewSignal[] | Promise<AgentReviewSignal[]>;
+  listAgentReviewSignalsForExport(input: { since: string; until: string; limit: number }): AgentReviewSignal[] | Promise<AgentReviewSignal[]>;
+  countAgentReviewSignalsForExport(input: { since: string; until: string }): number | Promise<number>;
 }
 
 export interface AgentGovernanceCommandEnvelope {
@@ -123,6 +130,47 @@ export class AgentGovernanceApplication {
 
   listDecisionEvents(threadId: string): Promise<AgentDecisionEvent[]> {
     return Promise.resolve(this.repository.listAgentDecisionEvents(threadId));
+  }
+
+  async exportSkillFeedback(
+    input: { since: string; until?: string },
+    at = new Date(),
+  ): Promise<AgentGovernanceExportPackage> {
+    const until = input.until ?? at.toISOString();
+    const [decisions, sourceTotal, events, authorizations] = await Promise.all([
+      this.repository.listAgentDecisionsForExport({ since: input.since, until, limit: 100 }),
+      this.repository.countAgentDecisionsForExport({ since: input.since, until }),
+      this.repository.listAgentDecisionEventsForExport({ since: input.since, until, limit: 1_000 }),
+      this.repository.listAgentRuleAuthorizations(),
+    ]);
+    const includedIds = new Set(decisions.map(({ decisionId }) => decisionId));
+    return buildAgentSkillFeedbackPackage({
+      generatedAt: at,
+      since: input.since,
+      until,
+      decisions,
+      events: events.filter(({ decisionId }) => includedIds.has(decisionId)),
+      authorizations,
+      sourceTotal,
+      truncated: sourceTotal > decisions.length,
+    });
+  }
+
+  async prepareReviewEvidenceExport(
+    days: 60 | 180,
+    at = new Date(),
+  ): Promise<{ since: string; until: string; signals: AgentReviewSignal[]; decisions: AgentDecision[]; events: AgentDecisionEvent[]; sourceTotal: number; truncated: boolean }> {
+    const until = at.toISOString();
+    const sinceDate = new Date(at);
+    sinceDate.setUTCDate(sinceDate.getUTCDate() - days);
+    const since = sinceDate.toISOString();
+    const [signals, sourceTotal, decisions, events] = await Promise.all([
+      this.repository.listAgentReviewSignalsForExport({ since, until, limit: 50 }),
+      this.repository.countAgentReviewSignalsForExport({ since, until }),
+      this.repository.listAgentDecisionsForExport({ since, until, limit: 100 }),
+      this.repository.listAgentDecisionEventsForExport({ since, until, limit: 1_000 }),
+    ]);
+    return { since, until, signals, decisions, events, sourceTotal, truncated: sourceTotal > signals.length };
   }
 
   async recordFeedback(

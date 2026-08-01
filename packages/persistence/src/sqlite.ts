@@ -1054,9 +1054,46 @@ export class V2SqliteStore {
     return (rows as Array<{ decision_json: string }>).map((row) => validateAgentDecision(JSON.parse(row.decision_json) as unknown));
   }
 
+  listAgentDecisionsForExport(input: { since: string; until: string; limit: number }): AgentDecision[] {
+    this.validateAgentExportRange(input.since, input.until, input.limit, 100);
+    const rows = this.database.prepare(`SELECT decision_json FROM agent_decisions
+      WHERE observed_at >= ? AND observed_at <= ? ORDER BY observed_at, thread_id LIMIT ?`)
+      .all(input.since, input.until, input.limit) as Array<{ decision_json: string }>;
+    return rows.map((row) => validateAgentDecision(JSON.parse(row.decision_json) as unknown));
+  }
+
+  countAgentDecisionsForExport(input: { since: string; until: string }): number {
+    this.validateAgentExportRange(input.since, input.until, 1, 1);
+    return Number((this.database.prepare("SELECT COUNT(*) AS count FROM agent_decisions WHERE observed_at >= ? AND observed_at <= ?")
+      .get(input.since, input.until) as { count: number }).count);
+  }
+
   listAgentDecisionEvents(threadId: string): AgentDecisionEvent[] {
     return (this.database.prepare(`SELECT event_id, thread_id, decision_id, event_type, actor, payload_json, occurred_at
       FROM agent_decision_events WHERE thread_id = ? ORDER BY occurred_at, event_id`).all(threadId) as Array<{
+        event_id: string;
+        thread_id: string;
+        decision_id: string;
+        event_type: AgentDecisionEvent["eventType"];
+        actor: AgentDecisionEvent["actor"];
+        payload_json: string;
+        occurred_at: string;
+      }>).map((row) => validateAgentDecisionEvent({
+        eventId: row.event_id,
+        threadId: row.thread_id,
+        decisionId: row.decision_id,
+        eventType: row.event_type,
+        actor: row.actor,
+        payload: JSON.parse(row.payload_json) as Record<string, unknown>,
+        occurredAt: row.occurred_at,
+      }));
+  }
+
+  listAgentDecisionEventsForExport(input: { since: string; until: string; limit: number }): AgentDecisionEvent[] {
+    this.validateAgentExportRange(input.since, input.until, input.limit, 1_000);
+    return (this.database.prepare(`SELECT event_id, thread_id, decision_id, event_type, actor, payload_json, occurred_at
+      FROM agent_decision_events WHERE occurred_at >= ? AND occurred_at <= ? ORDER BY occurred_at, event_id LIMIT ?`)
+      .all(input.since, input.until, input.limit) as Array<{
         event_id: string;
         thread_id: string;
         decision_id: string;
@@ -1270,6 +1307,27 @@ export class V2SqliteStore {
       ? this.database.prepare("SELECT signal_json FROM agent_review_signals WHERE status = ? ORDER BY last_seen_at DESC, review_signal_id LIMIT ?").all(input.status, input.limit)
       : this.database.prepare("SELECT signal_json FROM agent_review_signals ORDER BY last_seen_at DESC, review_signal_id LIMIT ?").all(input.limit);
     return (rows as Array<{ signal_json: string }>).map((row) => validateAgentReviewSignal(JSON.parse(row.signal_json) as unknown));
+  }
+
+  listAgentReviewSignalsForExport(input: { since: string; until: string; limit: number }): AgentReviewSignal[] {
+    this.validateAgentExportRange(input.since, input.until, input.limit, 50);
+    const rows = this.database.prepare(`SELECT signal_json FROM agent_review_signals
+      WHERE last_seen_at >= ? AND last_seen_at <= ? ORDER BY last_seen_at, review_signal_id LIMIT ?`)
+      .all(input.since, input.until, input.limit) as Array<{ signal_json: string }>;
+    return rows.map((row) => validateAgentReviewSignal(JSON.parse(row.signal_json) as unknown));
+  }
+
+  countAgentReviewSignalsForExport(input: { since: string; until: string }): number {
+    this.validateAgentExportRange(input.since, input.until, 1, 1);
+    return Number((this.database.prepare("SELECT COUNT(*) AS count FROM agent_review_signals WHERE last_seen_at >= ? AND last_seen_at <= ?")
+      .get(input.since, input.until) as { count: number }).count);
+  }
+
+  private validateAgentExportRange(since: string, until: string, limit: number, maximum: number): void {
+    if (!Number.isFinite(Date.parse(since)) || !Number.isFinite(Date.parse(until)) || since > until
+      || !Number.isSafeInteger(limit) || limit < 1 || limit > maximum) {
+      throw persistenceError("AGENT_EXPORT_RANGE_INVALID", "Agent export 时间范围或数量上限无效。");
+    }
   }
 
   activeCandidateForSourceAnchor(sourceAnchorId: string): V2Candidate | undefined {

@@ -119,6 +119,23 @@ test("Agent governance client rejects forged effective authority at the HTTP tru
   await assert.rejects(() => new LocalServiceClient(descriptor(url)).listAgentRuleAuthorizations(), /effective authority/i);
 });
 
+test("Agent governance export client verifies the complete file manifest before exposing content", async (t) => {
+  const { server, url } = await listen((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({
+      manifest: {
+        schemaVersion: "agent-governance-export-v1", kind: "SKILL_FEEDBACK",
+        generatedAt: "2026-08-02T05:00:00.000Z", since: "2026-08-01T05:00:00.000Z", until: "2026-08-02T05:00:00.000Z",
+        sourceTotal: 1, includedCount: 1, truncated: false, redactionCount: 0,
+        files: [{ path: "README.md", sha256: "forged", bytes: 1 }],
+      },
+      files: { "README.md": "x" },
+    }));
+  });
+  t.after(() => server.close());
+  await assert.rejects(() => new LocalServiceClient(descriptor(url)).exportAgentSkillFeedback(30), /integrity/i);
+});
+
 test("materialization client sends no Graph, database path, or caller-selected object identity", async (t) => {
   const token = "client-materialize-token-24-characters";
   let received: unknown;

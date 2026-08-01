@@ -1,5 +1,5 @@
-import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
-import { validateAgentDecision, validateAgentDecisionEvent, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
+import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import { validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceExportPackage, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -1162,6 +1162,22 @@ export class LocalServiceClient {
         replayed: Boolean(result.replayed),
       })),
     };
+  }
+
+  async exportAgentSkillFeedback(days: 7 | 30 | 60 | 180): Promise<AgentGovernanceExportPackage> {
+    return validateAgentGovernanceExportPackage(await this.request<unknown>("/agent/exports/skill-feedback", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ days }),
+    }));
+  }
+
+  async exportAgentReviewEvidence(days: 60 | 180): Promise<AgentGovernanceExportPackage> {
+    return validateAgentGovernanceExportPackage(await this.request<unknown>("/agent/exports/review-evidence", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ days }),
+    }, 90_000));
   }
 
   async observeAgentGovernanceChange(

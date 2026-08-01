@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { AgentGovernanceApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
-import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentFeedbackInput, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -415,6 +415,18 @@ async function readAgentBulkFeedbackRequest(request: IncomingMessage): Promise<{
     throw serviceError("AGENT_BULK_FEEDBACK_INVALID", "批量 Agent Feedback 只接受 1..50 个唯一 Decision ID、反馈、trace ID 与幂等键。");
   }
   return { decisionIds: decisionIds as string[], feedback: parseAgentFeedbackInput(record.feedback), traceId: record.traceId, idempotencyKey: record.idempotencyKey };
+}
+
+async function readAgentExportRequest(request: IncomingMessage, kind: "SKILL_FEEDBACK" | "REVIEW_EVIDENCE"): Promise<{ days: 7 | 30 | 60 | 180 }> {
+  const body = await readBody(request);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Agent export 请求必须是合法 JSON。"); }
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const allowed = kind === "REVIEW_EVIDENCE" ? [60, 180] : [7, 30, 60, 180];
+  if (Object.keys(record).join(",") !== "days" || !Number.isSafeInteger(record.days) || !allowed.includes(Number(record.days))) {
+    throw serviceError("AGENT_EXPORT_RANGE_INVALID", kind === "REVIEW_EVIDENCE" ? "主动复盘只接受最近 60 或 180 天。" : "Skill Feedback 只接受最近 7、30、60 或 180 天。");
+  }
+  return { days: Number(record.days) as 7 | 30 | 60 | 180 };
 }
 
 async function readAssociationRequest(request: IncomingMessage): Promise<{ sourceObjectId: string; targetObjectId: string; expectedVersion: number; traceId: string }> {
@@ -1393,7 +1405,7 @@ function respondError(response: ServerResponse, error: unknown): void {
     const migrationNotFound = ["MIGRATION_RUN_NOT_FOUND", "MIGRATION_BATCH_NOT_FOUND", "MIGRATION_SOURCE_OBJECT_NOT_FOUND"].includes(error.code);
     const migrationInputError = error.code.startsWith("MIGRATION_") && ["INVALID", "REQUIRED", "INCOMPLETE", "MISMATCH", "STRUCTURAL"].some((token) => error.code.includes(token)) && !migrationNotFound;
     const migrationConflict = error.code.startsWith("MIGRATION_") && !migrationInputError && !migrationNotFound;
-    const uxInputError = ["AGENT_OBSERVATION_INVALID", "AGENT_FEEDBACK_INVALID", "AGENT_BULK_FEEDBACK_INVALID", "AGENT_FEEDBACK_REQUIRES_USER"].includes(error.code) || ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "PROJECT_CLOSURE_USER_JUDGMENTS_INVALID"].includes(error.code)
+    const uxInputError = ["AGENT_OBSERVATION_INVALID", "AGENT_FEEDBACK_INVALID", "AGENT_BULK_FEEDBACK_INVALID", "AGENT_FEEDBACK_REQUIRES_USER", "AGENT_EXPORT_RANGE_INVALID"].includes(error.code) || ["UX_CONTEXT_RECOVERY_REQUEST_INVALID", "UX_CONTEXT_PROJECT_REQUIRED", "UX_INTERACTION_DISPOSITION_INVALID", "PROJECT_CREATION_GRILL_REQUEST_INVALID", "PROJECT_CLOSURE_EVIDENCE_REQUEST_INVALID", "PROJECT_CLOSURE_PROPOSAL_REQUEST_INVALID", "PROJECT_CLOSURE_USER_JUDGMENTS_INVALID"].includes(error.code)
       || error.code.startsWith("V2_PROJECT_CLOSURE_EVIDENCE_")
       || error.code.startsWith("PROJECT_CLOSURE_PROVIDER_");
     const status = error.code === "REQUEST_BODY_TOO_LARGE"
@@ -2045,6 +2057,63 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "GET" && url.pathname === "/agent/rules" && !url.search) {
       respond(response, 200, { authorizations: await agentGovernanceApplication.listRuleAuthorizations() });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/agent/exports/skill-feedback" && !url.search) {
+      const input = await readAgentExportRequest(request, "SKILL_FEEDBACK");
+      const generatedAt = new Date();
+      const since = new Date(generatedAt);
+      since.setUTCDate(since.getUTCDate() - input.days);
+      respond(response, 200, await agentGovernanceApplication.exportSkillFeedback({ since: since.toISOString(), until: generatedAt.toISOString() }, generatedAt));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/agent/exports/review-evidence" && !url.search) {
+      const input = await readAgentExportRequest(request, "REVIEW_EVIDENCE");
+      const generatedAt = new Date();
+      const material = await agentGovernanceApplication.prepareReviewEvidenceExport(input.days as 60 | 180, generatedAt);
+      const currentSources = new Array<AgentCurrentSourceEvidence>(material.signals.length);
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(4, material.signals.length) }, async () => {
+        while (cursor < material.signals.length) {
+          const index = cursor++;
+          const signal = material.signals[index]!;
+          try {
+            const graphResult = await graphReadBroker.read(signal.sourceRoot.kind === "BLOCK"
+              ? { kind: "BLOCK", target: signal.sourceRoot.externalId, includeChildren: true, parents: 8 }
+              : { kind: "PAGE", target: signal.sourceRoot.externalId, depth: 2 });
+            if (graphResult.status === "NOT_FOUND") {
+              currentSources[index] = { graphId: signal.graphId, sourceRoot: signal.sourceRoot, status: "MISSING" };
+            } else if (graphResult.status === "ERROR") {
+              currentSources[index] = { graphId: signal.graphId, sourceRoot: signal.sourceRoot, status: "ERROR" };
+            } else {
+              const blocks = graphResult.snapshot.blocks;
+              currentSources[index] = {
+                graphId: signal.graphId,
+                sourceRoot: signal.sourceRoot,
+                status: "FOUND",
+                currentText: blocks.map(({ depth, content }) => `${"  ".repeat(depth)}${content}`).join("\n"),
+                currentSnapshotHash: checksum(blocks.map(({ uuid, relation, depth, parentUuid, content }) => ({
+                  uuid, relation, depth, ...(parentUuid ? { parentUuid } : {}), content: agentGovernanceSemanticText(content),
+                }))),
+                truncated: graphResult.snapshot.truncated,
+              };
+            }
+          } catch {
+            currentSources[index] = { graphId: signal.graphId, sourceRoot: signal.sourceRoot, status: "ERROR" };
+          }
+        }
+      });
+      await Promise.all(workers);
+      respond(response, 200, buildAgentReviewEvidencePackage({
+        generatedAt,
+        days: input.days as 60 | 180,
+        signals: material.signals,
+        decisions: material.decisions,
+        events: material.events,
+        currentSources,
+        sourceTotal: material.sourceTotal,
+        truncated: material.truncated,
+      }));
       return;
     }
     if (request.method === "POST" && url.pathname === "/candidates/discover") {

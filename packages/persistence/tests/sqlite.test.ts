@@ -583,6 +583,9 @@ test("Agent feedback persists as a separate event, replays idempotently, and exp
     rating: "WRONG", correctionType: "SHOULD_KEEP_ORDINARY", action: "PAUSE_RULE_AUTOMATION",
   }, envelope, new Date("2026-08-02T04:32:00.000Z"))).replayed, true);
   assert.deepEqual((await application.listDecisionEvents(recorded.decision.threadId)).map((event) => event.eventType), ["SOURCE_OBSERVED", "USER_FEEDBACK_ADDED"]);
+  const exported = await application.exportSkillFeedback({ since: "2026-08-01T00:00:00.000Z", until: "2026-08-03T00:00:00.000Z" }, new Date("2026-08-03T00:00:00.000Z"));
+  assert.equal(exported.manifest.includedCount, 1);
+  assert.match(exported.files["data/summary.json"]!, /"feedbackCount":1/);
   store.close();
 
   const reopened = await V2SqliteStore.open(path);
@@ -644,6 +647,9 @@ test("Review Signal persistence deduplicates a Source Root and preserves source-
   assert.equal(repeated.signal.reviewSignalId, first.signal.reviewSignalId);
   assert.equal(repeated.signal.occurrenceCount, 2);
   assert.equal((await application.listReviewSignals({ status: "ACTIVE", limit: 10 })).length, 1);
+  const reviewMaterial = await application.prepareReviewEvidenceExport(60, new Date("2026-08-04T04:20:00.000Z"));
+  assert.equal(reviewMaterial.sourceTotal, 1);
+  assert.equal(reviewMaterial.signals[0]?.occurrenceCount, 2);
   store.close();
 
   const reopened = await V2SqliteStore.open(path);

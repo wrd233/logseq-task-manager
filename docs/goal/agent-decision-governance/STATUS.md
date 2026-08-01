@@ -3,7 +3,7 @@
 ```yaml
 goal_state: IN_PROGRESS
 base_commit: 7f23564131dbaf5bdcb04c21b80ddb7abd9d48e0
-current_commit: df3dde2
+current_commit: ebf0173
 current_phase: PHASE_3_FEEDBACK_EXPORT_UI
 completed:
   - Goal Objective and full user detailed design read
@@ -36,8 +36,12 @@ completed:
   - Feedback persists only as USER_FEEDBACK_ADDED Decision Events and never implies Undo
   - explicit PAUSE_RULE_AUTOMATION feedback atomically records the event and pauses only the matching Rule without changing authority
   - authenticated Feedback service/client contracts reject unknown fields, implicit Undo and forged non-user submissions
+  - deterministic Skill Feedback Package with scope/completeness, aggregate correction metrics, per-rule statistics, representative indexes, authority projection, Markdown plus JSON/JSONL
+  - bounded 60/180-day Review Evidence Package with source-identity deduplication, stable Evidence IDs, weak clusters, timeline, captured/current drift, source-missing/error/truncation evidence
+  - export credential redaction, file byte/hash manifest and Service Client integrity validation
+  - Review export reuses the live bounded Graph read bridge with four-way concurrency and records unavailable sources instead of guessing or dumping the Graph
 remaining_automatable_work:
-  - implement privacy-safe exports and governance UI
+  - implement governance UI
   - implement guarded explicit-task execution wiring default off and full fault/no-Agent regression
 runtime_checks_pending:
   - consolidated Desktop scenarios A through J

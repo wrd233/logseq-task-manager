@@ -73,6 +73,33 @@ test("authenticated observation crosses the shared Graph bridge and persists onl
   assert.equal(bulk.groups.length, 1);
   assert.equal(bulk.results[0]?.event.payload.rating, "MOSTLY_CORRECT");
   assert.equal((await client.listAgentDecisionEvents(result.decision.threadId)).filter(({ eventType }) => eventType === "USER_FEEDBACK_ADDED").length, 2);
+  const skillExport = await client.exportAgentSkillFeedback(60);
+  assert.equal(skillExport.manifest.kind, "SKILL_FEEDBACK");
+  assert.match(skillExport.files["README.md"]!, /Feedback：2/);
+
+  const weakClaim = client.claimGraphReadRequest();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const weakObservation = client.observeAgentGovernanceChange({ changedBlockId: "agent-weak-source", changedBlockCount: 1 });
+  const weakRequest = await weakClaim;
+  if (!weakRequest) throw new Error("expected weak-signal Graph read request");
+  const weakBlocks = [{ uuid: "agent-weak-source", content: "以后可能需要整理告警趋势。", contentHash: checksum("以后可能需要整理告警趋势。"), relation: "ROOT" as const, depth: 0, pageName: "2026-08-02" }];
+  const weakResolved = { kind: "BLOCK" as const, id: weakRequest.target };
+  await client.completeGraphReadRequest({
+    requestId: weakRequest.requestId,
+    status: "FOUND",
+    snapshot: { kind: "BLOCK", requestedTarget: weakRequest.target, resolved: weakResolved, blocks: weakBlocks, truncated: false, readAt: "2026-08-02T10:05:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved: weakResolved, blocks: weakBlocks, truncated: false }) },
+  });
+  assert.equal((await weakObservation).gateAction, "UPDATE_REVIEW_SIGNAL");
+
+  const reviewClaim = client.claimGraphReadRequest();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const reviewExportPromise = client.exportAgentReviewEvidence(60);
+  const reviewRequest = await reviewClaim;
+  if (!reviewRequest) throw new Error("expected Review export Graph read request");
+  await client.completeGraphReadRequest({ requestId: reviewRequest.requestId, status: "NOT_FOUND" });
+  const reviewExport = await reviewExportPromise;
+  assert.equal(reviewExport.manifest.kind, "REVIEW_EVIDENCE");
+  assert.match(reviewExport.files["README.md"]!, /来源缺失：1/);
 
   const invalid = await fetch(new URL("agent/observations", service.url), {
     method: "POST",
