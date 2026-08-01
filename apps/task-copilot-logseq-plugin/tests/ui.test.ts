@@ -2224,6 +2224,7 @@ test("V2 Review shows text and semantic Diff while making accepted-not-applied e
     },
   }];
   let html = renderApp(value);
+  assert.doesNotMatch(html, /待我确认 · 2026-07-20T12:00/);
   assert.match(html, /系统理解[\s\S]*\[任务\] 告警/);
   assert.match(html, /本次会改变什么[\s\S]*更新 1 处正文/);
   assert.match(html, /查看完整依据[\s\S]*语义变化/);
@@ -2813,6 +2814,25 @@ test("relation projection failure is explicit without hiding formal objects", ()
   assert.match(html, /关系投影暂不可用/);
   assert.match(html, /仍可见/);
   assert.match(html, /没有执行关系写入/);
+});
+
+test("dialog-scoped errors render inside the active surface without global workspace chrome", () => {
+  const value = model();
+  value.workspace = "review";
+  value.actionDialog = { kind: "v2-block-condition-waiting", value: "object-1|2|block-1" };
+  value.outcome = {
+    actionId: "submit-v2-block-condition:1",
+    scope: "dialog:v2-block-condition-waiting",
+    kind: "error",
+    lifecycle: "UNTIL_NEXT_ACTION",
+    message: "等待状态需要填写等待对象和期待结果。",
+  };
+  const html = renderApp(value);
+  assert.match(html, /role="alert"/);
+  assert.match(html, /等待状态需要填写等待对象和期待结果/);
+  assert.match(html, /系统不会静默覆盖或重复提交/);
+  assert.doesNotMatch(html, /aria-label="主要工作区"/);
+  assert.doesNotMatch(html, /data-action="close"/);
 });
 
 test("formal plugin entry does not regress to host browser prompts", async () => {

@@ -751,7 +751,7 @@ function renderReview(model: UiModel): string {
                     : "当前内容已经变化；这次没有应用。请重新检查后再发起。"
               : "审阅方案只记录你的选择，尚未修改正式内容。";
     return `<article class="card proposal v2-proposal" data-narration-rule="${escapeHtml(statusNarration.source.ruleId)}">
-      <div class="eyebrow">待我确认 · ${escapeHtml(record.updatedAt)}</div>
+      <div class="eyebrow">待我确认 · ${escapeHtml(new Date(record.updatedAt).toLocaleString("zh-CN"))}</div>
       <h3>${escapeHtml(reviewStage)}</h3>
       <p class="lead"><strong>${escapeHtml(reviewTitle)}</strong></p>
       <section class="review-impact" data-impact-level="${highImpact ? "high" : "standard"}" aria-label="方案影响">
@@ -1950,10 +1950,15 @@ export function renderApp(model: UiModel): string {
       : "Copilot 未配置 · 基础事务系统可用";
   if (model.actionDialog) {
     const activeSurface = renderActionDialog(model) || `<section class="inbox-dialog action-dialog" role="alert"><div class="eyebrow">当前操作已变化</div><h3>回到原工作区重新开始</h3><p>这次表单所依赖的内容已经不可用；没有执行正式修改。</p><div class="actions">${button("返回", "cancel-action-dialog", undefined, "primary")}</div></section>`;
+    const dialogOutcome = outcomeForScope(model.outcome, activeOutcomeScope({ workspace: model.workspace, actionDialogKind: model.actionDialog.kind }));
+    const dialogError = dialogOutcome?.kind === "error"
+      ? `<div class="notice error dialog-error" role="alert"><strong>未完成：</strong>${escapeHtml(dialogOutcome.message)}<span>系统不会静默覆盖或重复提交。</span></div>`
+      : "";
     return `<section class="app-shell active-surface-shell">
       <header class="topbar">
         <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
       </header>
+      ${dialogError}
       <main class="workspace active-surface" data-workspace="${model.workspace}">${activeSurface}</main>
     </section>`;
   }

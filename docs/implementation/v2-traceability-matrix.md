@@ -19,12 +19,12 @@
 
 | requirement_id | 范围 | 状态 | 当前证据 / 缺口 |
 |---|---|---|---|
-| CUX-P0-01 | 当前页整理结果必须与真实候选数一致 | OPEN | 真实 Desktop 同时显示已放入队列与检查未完成，队列为空；尚未修复。 |
-| CUX-P0-02 | reload / return 必须保持来源 Page 与 Block anchor | OPEN | UUID Page 路由 reload 后空白，按 Page 名恢复后 anchor 丢失；尚未修复。 |
-| CUX-P1-01 | Apply / Undo / PENDING 最终确认只保留一个 action surface | PROTOTYPE_VALIDATED | `9cb2927` 隔离最终确认；`d4b4613` 修复取消返回 Review。Plugin 389 tests、typecheck/build 与真实 Logseq accepted-not-applied 流程通过；未执行正式写入。 |
-| CUX-P1-02..04 | Grill 隔离、日常用户语言、scoped message lifecycle | OPEN | 已有真实 Desktop 证据与验收条件；本轮未扩张原型范围。 |
-| CUX-P2-01..03 | Now 密度、Provider 分类、datetime-local AX | OPEN | 已登记为后续优化/专项 Desktop Gate，不影响现有事实安全内核。 |
-| CUX-P3-01..02 | Block 动作发现性、Review 本地时间表达 | OPEN | 当前证据为真实右键菜单与 Review；属于日常可读性/发现性，不用来稀释 P0/P1。 |
+| CUX-P0-01 | 当前页整理结果必须与真实候选数一致 | AUTOMATED_NONVISUAL_PASS | 2026-08-01 收口：空/全非法候选返回中性 empty（无提交按钮、不再报 error），部分非法显示计数；`beginUiAction` 保证新动作清旧瞬时结果。Plugin 406 tests、typecheck/build、根级检查 PASS。Desktop 空队列读回复验待做（`af9c852`）。 |
+| CUX-P0-02 | reload / return 必须保持来源 Page 与 Block anchor | AUTOMATED_NONVISUAL_PASS | 2026-08-01 实现 `resolveAfterReload`（PARKED/RETURNED/RETURNED_PAGE_ONLY/SOURCE_UNAVAILABLE + 有界重试 + fallback 对话框），正常返回写稳定 pageName 路由并保留 durable origin；origin resolver 9/9 测试、Plugin 406 tests、根级检查 PASS。Desktop reload/reopen/rename/move 复验待做（`13f47ec`）。 |
+| CUX-P1-01 | Apply / Undo / PENDING 最终确认只保留一个 action surface | AUTOMATED_NONVISUAL_PASS | `9cb2927`/`d4b4613` 原型已合并且扩展为所有 dialog 唯一 active surface（`renderApp`）；确认面 1 checkbox/1 primary/1 cancel；新增 dialog-scoped error 显示。Desktop 复验代表矩阵待做。 |
+| CUX-P1-02..04 | Grill 隔离、日常用户语言、scoped message lifecycle | AUTOMATED_NONVISUAL_PASS | 2026-08-01 完成：Grill 唯一问题+输入置顶、完整理解折叠（P1-02）；对象工作区日常用户语言、内部词进技术说明（P1-03）；scoped outcome + 新动作清理 + 取消不假成功（P1-04）。新增 visible-text 合同测试与 dialog error 测试。Desktop 复验待做（`af9c852`、`13f47ec`）。 |
+| CUX-P2-01..03 | Now 密度、Provider 分类、datetime-local AX | PARTIAL | P2-01 筛选/排列已折叠、其余 N 项折叠（历史）；P2-02 Provider 失败已有可行动文案+重试+系统状态入口与测试；P2-03 表单失败现以 dialog-scoped error 可见，datetime AX 输入链仍 OPEN_MANUAL_GATE。 |
+| CUX-P3-01..02 | Block 动作发现性、Review 本地时间表达 | PARTIAL | P3-02 已实现（Review eyebrow 本地化时间，新增回归测试）；P3-01 命令面板高频入口已有（历史 P0-J），右键菜单发现性仍需 novice visual gate。 |
 
 ## 横切要求
 
