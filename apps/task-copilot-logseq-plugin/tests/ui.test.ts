@@ -856,6 +856,7 @@ test("Project Creation Grill keeps facts, inference, unknown, one question, zero
   assert.match(html, /这一轮只确认一件事/);
   assert.match(html, /data-field="v2ProjectCreationGrillAnswer"/);
   assert.match(html, /data-action="v2-project-creation-grill-answer"/);
+  assert.ok(html.indexOf('data-field="v2ProjectCreationGrillAnswer"') < html.indexOf('<details class="grill-context">'), "question and input must precede the collapsed understanding");
 
   const readyOutput: ServiceProjectCreationGrillResult["output"] = { ...grillResult.output };
   delete readyOutput.questionGroup;
@@ -925,6 +926,7 @@ test("Project Creation Grill keeps facts, inference, unknown, one question, zero
   assert.doesNotMatch(html, /CREATE_DEDICATED_PROJECT_PAGE_PRESERVE_SOURCE/);
   assert.match(html, /data-action="v2-project-creation-grill-proposal"/);
   assert.match(html, /进入待我确认/);
+  assert.ok(html.indexOf("阅读预览 · 尚未应用") < html.indexOf('<details class="grill-context">'), "preview must precede the collapsed discussion");
   assert.doesNotMatch(html, /Session only|HIGH Review|Project Creation Proposal|Provider|Local Service|正式变化 0/);
 
   value.v2ProjectCreationGrill["PAGE:page-1"] = {
@@ -1428,6 +1430,7 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
   assert.match(html, /哪些内容明确不属于本次交付/);
   assert.match(html, /data-field="v2MiniProjectGrillAnswer"/);
   assert.match(html, /返回原内容/);
+  assert.ok(html.indexOf('data-field="v2MiniProjectGrillAnswer"') < html.indexOf('<details class="grill-context">'), "question and input must precede the collapsed understanding");
   assert.doesNotMatch(html, /data-action="(?:submit-v2-proposal|v2-proposal-commit|submit-v2-review-accept)"/);
 
   value.v2MiniProjectGrill["mini-open"] = { status: "error", expectedVersion: 4, answers: [], previous: result, message: "这次梳理没有完成。正文和正式事项没有变化，你可以重试。" };
