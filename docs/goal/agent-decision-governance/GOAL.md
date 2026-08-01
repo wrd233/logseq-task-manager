@@ -51,7 +51,7 @@
 ### Extend minimally
 
 - 新增内部治理 Decision aggregate、重要 Event、Review Signal、Rule Authorization；Feedback 作为结构化重要 Event 保存，避免独立重型子系统。
-- schema v13 新增治理事实表，schema v14 只新增单例全局暂停设置；两者仍沿用显式快照、ledger、Graph identity、Doctor 和 backup 合同。
+- schema v13 新增治理事实表，schema v14 新增单例全局暂停设置，schema v15 在同一设置行加入 Agent 观察与扩展联想开关；三次迁移都沿用显式快照、ledger、Graph identity、Doctor 和 backup 合同。
 - 从既有 `DB.onChanged` 分叉一个独立、失败隔离、latest-value 的治理观察消费者；不得改变 Explicit Sync 的正式同步语义。
 - 扩展 Context builder，复用 Graph Snapshot/正式对象/Skill，而不是建立第二套全文检索或 Graph 缓存。
 - 新增内部 hash-addressed governance Skill；外部 `task-copilot-core` 的 review-only 权限不变。
@@ -73,15 +73,16 @@
 - 设计示例中的 `AUTO_APPLY` 不能直接映射为 LLM 写入；内部治理即使获权也只能调用现有 Application/Proposal/Semantic Commit 内核。
 - 设计建议多个逻辑实体；当前实现采用四张最小表和 JSON aggregate，Feedback 合入 Event payload，避免每个概念一表。
 - 设计允许 R1 显式 Task 最终自动化；真实 14 天/200 Decision 门槛尚未发生，因此首阶段只实现默认关闭的 Guarded 接线和可验证的 Shadow 零写入合同。
+- 设计建议完整来源快照默认保留 180 天；当前实现不建立完整正文副本，只保留 Decision/Review Signal 中已经受限的 captured evidence。Retention 合同明确报告 `sourceSnapshots=NOT_STORED`，并只允许把到期 Review Signal 退出活跃索引，既不删行也不删 Logseq 原文。
 
 ## Delivery phases
 
 0. Baseline Freeze 与 Goal 建档。
-1. schema v13/v14、Decision/Event/Review Signal/Authorization/global pause persistence、Application query/command、Service API。
+1. schema v13/v14/v15、Decision/Event/Review Signal/Authorization、三个显式治理开关、retention preview/job、Application query/command、Service API。
 2. Source Root、gate、LOCAL/EXPANDED、token/context metrics、latest-value/revision。
 3. governance Skill、Structured Output Validator、Risk Router、pause/downgrade/revalidation。
 4. EXPERIMENT Shadow runtime 与 failure isolation。
-5. 决策治理台及真实 Desktop 视觉/键盘 Gate。
+5. 决策治理台、Agent 观察/扩展联想/全局写入开关及真实 Desktop 视觉/键盘 Gate。
 6. 单条/批量反馈、Skill Feedback 与 Review Evidence 导出。
 7. 默认关闭的 Guarded explicit-task representative path；只有在长期 Shadow 门槛和显式授权后才可真实 Auto Apply。
 

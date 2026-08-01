@@ -3,12 +3,14 @@
 ```yaml
 goal_state: CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT
 base_commit: 7f23564131dbaf5bdcb04c21b80ddb7abd9d48e0
-current_commit: 9458670
+current_commit: 23a6619
 current_phase: CP_5_SHADOW_EVIDENCE_ACCUMULATION
 completed:
   - phases_0_through_6
   - guarded_explicit_task_foundation_default_off
   - automated_and_desktop_representative_gates
+  - explicit_observation_and_expanded_context_controls
+  - bounded_retention_preview_and_expiry_job
 remaining_automatable_work: []
 runtime_checks_pending:
   - natural_14_days
@@ -38,11 +40,13 @@ Agent Decision Governance 的首阶段实现、自动测试、代表性 Desktop 
 
 ## Completed implementation
 
-- schema v13 保存 Decision/Event/Review Signal/Rule Authorization；schema v14 只新增单例全局写入暂停设置，仍要求显式 preflight backup 与 migration ledger；
+- schema v13 保存 Decision/Event/Review Signal/Rule Authorization；schema v14 新增单例全局写入暂停设置；schema v15 在同一行加入 Agent 观察与扩展联想开关，仍要求显式 preflight backup 与 migration ledger；
 - 唯一 `DB.onChanged` 入口、3 秒 latest-value queue、Source Root、LOCAL/EXPANDED Context、真实 Provider、严格 Structured Output 与确定性 Risk Router；
 - Candidate defer/duplicate、ordinary、Worksite、explicit Task、weak signal、multi-target 和 Provider invented-target 拒绝路径；
 - EXPERIMENT 零正式写入；默认关闭的 Guarded explicit-Task 基础继续复用 Proposal/Semantic Commit/Undo；
 - 治理台的 24h/7d、异常优先、最小 filter/search、详情、打开来源、规则暂停/恢复、全局暂停/恢复、单条/批量反馈；
+- Agent 观察与扩展联想显式开关；观察关闭不读取 Graph/Provider，只保留 32-root 最新水位，重新开启用后台补偿避免设置界面等待；
+- Retention preview 返回 Decision/Event/Feedback/Signal/Rule 数量与实际 UTF-8 JSON 字节数；唯一 cleanup 只把到期 Review Signal 退出活跃索引，要求精确 USER 确认，永不删行或 Logseq 原文；
 - 30 天 Skill Feedback 与 60/180 天 Review Evidence UI，完整 manifest/hash/bytes 与凭据脱敏；
 - Provider/Service failure、Plugin reload、全局暂停下继续 Shadow、恢复后 Doctor/backup 验证。
 
@@ -50,18 +54,21 @@ Agent Decision Governance 的首阶段实现、自动测试、代表性 Desktop 
 
 | Evidence | Result |
 |---|---|
-| Runtime | Logseq 0.10.15；正式 Plugin build；Service `READY`；schema v14；Graph bridge connected |
-| Doctor | `PASS`；唯一 WARN 为既有 1 条 stale Proposal；最新 schema v14 backup PASS |
+| Runtime | Logseq 0.10.15；正式 Plugin build；Service `READY`；schema v15；Graph bridge connected |
+| Doctor | `PASS`；11 PASS / 1 WARN / 0 FAIL / 2 INFO；唯一 WARN 为既有 1 条 stale Proposal；最新 schema v15 backup PASS |
 | Formal authority | Objects 59；integrity `ok`；foreign-key violations 0；Pending/Recovery Commit 0 |
 | Governance | 4 Decisions、2 Review Signals；6 条规则全部 `SHADOW` 且最终未暂停；自动应用 0 |
 | Multi-target | exact Chinese target names drove EXPANDED Context; invalid Provider output failed closed with zero formal writes |
 | Revision | one Source Root moved from weak review r1 to explicit Task r2 without changing formal Objects |
 | Pause | global pause survived Plugin reload; explicit rule pause/resume worked; weak signal observation continued while paused |
-| Paused Shadow | Review Signal occurrence count 3→4, captured text/hash updated, Decision stayed `SHADOW / NOT_EXECUTED`, Objects stayed 59 |
+| Agent off | real Logseq edit remained available while observation was off; Decisions 4 / Objects 59 / Signal occurrence 5 stayed unchanged until re-enable |
+| Catch-up | final build returned an enabled governance UI in 739 ms with “后台补偿处理”; background catch-up then updated captured text and occurrence 5→6 without a new Decision or formal write |
+| Expanded context | Desktop off/on both persisted with explicit success copy; final state true; automated RUN_EXPANDED-off path stays LOCAL/NEEDS_HUMAN and makes no Provider call |
+| Retention | live preview: 4 Decisions / 10 Events / 3 Feedback Events / 2 Signals / 6 Rules / 10,917 UTF-8 bytes；eligible 0；`deletesRows=false` / `deletesSourceText=false` |
 | UI | filter/search empty result, source-open Block anchor, rule/global pause, 60/180 export controls verified live |
 | Failure/recovery | LaunchAgent/Service stop showed safe degraded UI while Logseq text remained readable/editable; reinstall + Plugin reload restored runtime |
 | Visual | Light, Dark, detail, bulk, 720×520 narrow empty-result and failure screenshots committed; independent human verdict remains pending |
-| Migration/backup | live v13→v14 prebackup retained 59 Objects/4 Decisions/2 Signals; current Service backup validated schema 14 |
+| Migration/backup | live v13→v14→v15 prebackups retained 59 Objects/4 Decisions/2 Signals; current Service backup validated schema 15 |
 
 完整证据见 `CP4_RUNTIME_REPORT.md`。
 

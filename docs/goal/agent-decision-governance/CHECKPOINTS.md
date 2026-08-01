@@ -94,4 +94,13 @@ Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with No
 - All six live rules finish unpaused at `SHADOW`; global pause finishes false; automatic applies remain 0.
 - Root Node 20 `./scripts/check.sh` passed after the implementation and schema changes.
 
-The honest terminal state is `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`: representative Desktop and all current automatable work are complete. CP-5 still requires 14 natural days and at least 200 real Decisions; CP-6 remains barred until that evidence exists and the user explicitly authorizes Guarded execution.
+## CP-4.2 — explicit controls and retention closeout
+
+- Commit `23a6619` added USER-only Observation and Expanded Context settings beside the existing global write pause. schema v15 preserved the v14 pause value and defaulted both new switches on through the same explicit backup/migration gate.
+- The formal database was backed up to `before-schema15-20260802T060300Z.sqlite`, migrated v14→v15 and reopened with integrity `ok`, zero foreign-key violations, 59 Objects, 4 Decisions and 2 Review Signals unchanged. A later Service backup `backup_20260801220554356_378ae71fc0774609a3954ff434cc2492` validated at schema v15.
+- Desktop Observation off allowed an ordinary Logseq source edit while the stored captured text, occurrence 5, Decisions 4 and Objects 59 stayed unchanged. Re-enable returned the active settings UI in 739 ms and announced background catch-up; within about five seconds the same Review Signal captured the new text and occurrence advanced 5→6, while Decisions and Objects stayed unchanged.
+- Desktop Expanded Context off/on persisted both transitions with explicit result copy. Automated coverage proves an otherwise `RUN_EXPANDED` judgment remains LOCAL, records `NEEDS_HUMAN` and does not call the Provider while the switch is off. Final settings are Observation on, Expanded Context on and global pause false.
+- Retention preview reported 4 Decisions, 10 Events, 3 Feedback Events, 2 Review Signals, 6 Rules and 10,917 actual UTF-8 JSON bytes. Zero Signals were eligible; the contract reports `deletesRows=false` and `deletesSourceText=false`, so no meaningless cleanup was executed.
+- Root Node 20 `./scripts/check.sh` passed twice after the final code changes, including the Chinese UTF-8 byte-count regression and non-blocking background catch-up coverage.
+
+The honest terminal state is `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`: representative Desktop, explicit control/retention evidence and all current automatable work are complete. CP-5 still requires 14 natural days and at least 200 real Decisions; CP-6 remains barred until that evidence exists and the user explicitly authorizes Guarded execution.

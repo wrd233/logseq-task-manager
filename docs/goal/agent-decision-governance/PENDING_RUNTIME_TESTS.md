@@ -20,9 +20,9 @@ The first bounded Desktop session ran on 2026-08-02. Preserve the results below 
 | 4 | Source revision | PASS: one Source Root weak review r1 → explicit Task r2; earlier Provider failure/recovery thread also retained | longer-run natural revisions only |
 | 5 | Visual matrix | PASS for implementation evidence: live Light, Dark, dense, detail, success, 720×520 narrow empty-result and failure states | independent human visual verdict only |
 | 6 | Feedback | PARTIAL: correct single; incompatible bulk split to 2 groups; Undo visibly and semantically independent | mostly/wrong and compatible-bulk live variants |
-| 7 | Pause/degrade | PASS: live rule pause/resume, global pause/reload persistence, Shadow observation while paused, resume without duplicate; final state unpaused | longer-run operations only |
+| 7 | Pause/degrade and explicit settings | PASS: live rule pause/resume, global pause/reload persistence, Shadow observation while paused; Observation off preserved only the waterline and zero governance/formal count changes, re-enable returned UI in 739 ms and background catch-up advanced the same Signal 5→6; Expanded Context off/on persisted; final settings restored | longer-run operations only |
 | 8 | Provider/Service failure | PASS representative: live Provider rejection/recovery plus Service stop safe-mode, Logseq readability, reinstall and Plugin reload recovery | timeout/cancel/auth remain automated fault-injection coverage |
-| 9 | Review export | PARTIAL: live weak Evidence, integrity and secret scan pass | source-missing/truncation live package variants |
+| 9 | Review export and retention | PARTIAL: live weak Evidence, integrity and secret scan pass; retention preview reported 4 Decisions / 10 Events / 2 Signals / 6 Rules / 10,917 UTF-8 bytes, eligible 0 and no row/source deletion | source-missing/truncation live package variants; no-effect cleanup correctly not run |
 | 10 | Guarded representative | BARRED | only after 14 days + 200 real Decisions and explicit user authorization: apply → reload → Undo → reload → restore Shadow |
 
 ## Evidence matrix
@@ -31,4 +31,4 @@ For every scenario record: exact build commit, Graph/page, runtime mode, before/
 
 ## Honest stop rule
 
-The current state is `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`: implementation, automation and representative Desktop scenarios 1–8 are complete; scenario 9 has representative live export plus automated edge variants, and scenario 10 remains deliberately barred. Never fabricate elapsed time, treat fixtures as production accuracy evidence, or activate scenario 10 to close a document row.
+The current state is `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`: implementation, automation and representative Desktop scenarios 1–8 are complete; scenario 9 has representative live export/retention evidence plus automated edge variants, and scenario 10 remains deliberately barred. Never fabricate elapsed time, treat fixtures as production accuracy evidence, run a zero-effect cleanup merely for a screenshot, or activate scenario 10 to close a document row.

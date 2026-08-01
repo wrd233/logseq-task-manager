@@ -1149,8 +1149,10 @@ fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Fi
 
 ## Additive Goal：Agent Decision Governance（2026-08-02）
 
-- 在不重开 MVP、外部 Agent 权限和唯一正式写入内核的前提下，Agent Decision Governance 的实现、全部自动化与代表性 Desktop matrix 已完成；代码收口于 `9458670`，详细状态见 `docs/goal/agent-decision-governance/STATUS.md`。
-- 正式 SQLite 已经依次显式 prebackup 后从 v12→v13→v14；最终 Service `READY`、Objects 59、Doctor 仅保留 1 个既有 stale Proposal WARN、Pending/Recovery Commit 0、integrity `ok`，最新 schema v14 backup PASS。
+- 在不重开 MVP、外部 Agent 权限和唯一正式写入内核的前提下，Agent Decision Governance 的实现、全部自动化与代表性 Desktop matrix 已完成；代码收口于 `23a6619`，详细状态见 `docs/goal/agent-decision-governance/STATUS.md`。
+- 正式 SQLite 已经依次显式 prebackup 后从 v12→v13→v14→v15；最终 Service `READY`、Objects 59、Doctor 仅保留 1 个既有 stale Proposal WARN、Pending/Recovery Commit 0、integrity `ok`，最新 schema v15 backup PASS。
 - 真实 Logseq Desktop + DeepSeek 已产生 4 条 Shadow Decision 和 2 条 Review Signal。代表性 explicit/weak/multi-target/revision/pause/failure-recovery 场景均保持 Objects 59、自动应用 0；导出 manifest 的 SHA-256/bytes 全匹配，credential scan 为 0。
-- 当前状态为 `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`，不是生产自动化完成。6 条规则最终全部未暂停 `SHADOW`、global pause false；14 天 / 200 条真实 Decision 尚未发生，Guarded apply/Undo 必须继续等待长期证据与用户显式授权。
+- Agent 观察关闭期间真实 Logseq 编辑不触发治理读取或计数变化；重新开启在 739 ms 内恢复可交互 UI，随后后台补偿只将同一 Review Signal occurrence 5→6。扩展联想 off/on 均持久化；最终 Observation/Expanded Context 为 true、6 条规则全部未暂停 `SHADOW`、global pause false。
+- Retention live preview 为 4 Decisions / 10 Events / 3 Feedback Events / 2 Signals / 6 Rules / 10,917 UTF-8 bytes，eligible 0，且明确不删除治理行或 Logseq 原文。
+- 当前状态为 `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`，不是生产自动化完成。14 天 / 200 条真实 Decision 尚未发生，Guarded apply/Undo 必须继续等待长期证据与用户显式授权。
 - Light/Dark、批量反馈、详情、720×520 空结果和 failure 截图已达到 `VISUAL_GATE_READY`；仍需独立人类视觉结论，不能由实现 Agent 自授 PASS。完整运行证据见 `docs/goal/agent-decision-governance/CP4_RUNTIME_REPORT.md`。

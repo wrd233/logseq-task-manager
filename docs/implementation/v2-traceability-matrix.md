@@ -82,4 +82,4 @@
 
 ## Additive governance traceability
 
-Agent Decision Governance 不改变 E2E-01～24 的既有 `DONE` 结论，也不新增平行 Candidate/Proposal/Commit/Undo/Recovery 权威。其独立需求、自动证据、Desktop 证据和时间门禁由 `docs/goal/agent-decision-governance/ACCEPTANCE_MATRIX.md` 追踪；2026-08-02 commit `9458670` 后的真实运行结果为 `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`：schema v14、4 Decisions、2 Review Signals、59 Objects、6 Rules 全部 SHADOW、global pause false、automatic apply 0。在自然达到 14 天 / 200 条真实 Decision 且取得用户显式授权前，Guarded representative path 不得运行。
+Agent Decision Governance 不改变 E2E-01～24 的既有 `DONE` 结论，也不新增平行 Candidate/Proposal/Commit/Undo/Recovery 权威。其独立需求、自动证据、Desktop 证据和时间门禁由 `docs/goal/agent-decision-governance/ACCEPTANCE_MATRIX.md` 追踪；2026-08-02 commit `23a6619` 后的真实运行结果为 `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`：schema v15、4 Decisions、2 Review Signals、59 Objects、6 Rules 全部 SHADOW、Observation/Expanded Context true、global pause false、automatic apply 0。Retention preview 为 10,917 UTF-8 bytes、eligible 0，并明确不删除治理行或 Logseq 原文。在自然达到 14 天 / 200 条真实 Decision 且取得用户显式授权前，Guarded representative path 不得运行。

@@ -19,9 +19,11 @@ schema v13 采用四张表：
 
 schema v14 只增加 `agent_governance_settings` 单例行，持久化用户控制的全局 Agent 写入暂停。它不复制逐规则授权、不改变运行模式，也不成为第二套写入权限状态机；缺行时运行时 fail closed。
 
-### ADG-D-003 — Schema v13/v14 use the existing explicit migration gate
+schema v15 在同一单例行加入 `observationEnabled` 与 `expandedContextEnabled`。两者与全局暂停都只能由 USER 显式修改；迁移默认开启新开关并保留 v14 全局暂停值，不复制逐规则状态。
 
-新建空库直接创建当前 schema；现有 v12→v13 和 v13→v14 都必须通过 preflight snapshot + validation + single transaction + ledger 才能升级。`initialize()` 只报告 migration required，不静默升级。
+### ADG-D-003 — Schema v13/v14/v15 use the existing explicit migration gate
+
+新建空库直接创建当前 schema；现有 v12→v13、v13→v14 和 v14→v15 都必须通过 preflight snapshot + validation + single transaction + ledger 才能升级。`initialize()` 只报告 migration required，不静默升级。
 
 ### ADG-D-004 — Shadow first
 
@@ -29,7 +31,7 @@ EXPERIMENT 是首阶段默认模式。它可以持久化 Decision/Event/Review S
 
 ### ADG-D-005 — Reuse Graph events without coupling failures
 
-治理观察订阅同一 `DB.onChanged` 原始事实，但拥有独立有界 latest-value queue、取消和失败隔离。它不得延迟或改变 Explicit Sync 与 Worksite invalidation；停用治理后现有消费者保持原样。
+治理观察订阅同一 `DB.onChanged` 原始事实，但拥有独立有界 latest-value queue、取消和失败隔离。它不得延迟或改变 Explicit Sync 与 Worksite invalidation；停用治理后现有消费者保持原样，最多保留 32 个 Source Root 的最新水位。重新开启只在后台请求补偿，不阻塞设置动作。
 
 ### ADG-D-006 — Reuse Context Package ingredients
 
@@ -38,3 +40,7 @@ LOCAL/EXPANDED 使用 Graph bridge normalized snapshots、SQLite formal projecti
 ### ADG-D-007 — Existing visual language wins
 
 治理台采用当前 Plugin 的信息密度、tokens、cards、progressive disclosure 与 focus restoration。它是“态势监督”而非 BI dashboard 或清队列页；机器 ID/枚举只在技术详情。
+
+### ADG-D-008 — Retention never silently deletes evidence or source text
+
+第一阶段不保存完整来源正文副本。Decision/Event 长期保留；Review Signal 到期仅从 ACTIVE 变为 EXPIRED，行、captured evidence、Decision、Event 和 Logseq 原文均不删除。Preview 报告实际 UTF-8 JSON 字节数与 eligible 数；执行要求 USER 的精确确认并写入幂等 receipt。

@@ -2,7 +2,7 @@
 
 Date: 2026-08-02 (Asia/Shanghai)
 
-Implementation commit: `9458670` (includes and supersedes the initial `2df6597` checkpoint)
+Implementation commit: `23a6619` (includes and supersedes the `9458670` and initial `2df6597` checkpoints)
 
 Terminal state: `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`
 
@@ -19,14 +19,14 @@ This checkpoint used the formal local runtime, not a fixture:
 - dedicated page `Task Copilot Lab/Agent Governance CP4 20260802`;
 - configured real DeepSeek Provider with the key resolved out of band.
 
-The runtime remained `EXPERIMENT`; every rule's local and effective authority remained `SHADOW`, and Agent formal writes remained disabled. One rule and the global write gate were temporarily paused only for the explicit Desktop exercise, then restored to unpaused. No credential value was read into this report, a screenshot, Git, Graph or an export.
+The runtime remained `EXPERIMENT`; every rule's local and effective authority remained `SHADOW`, and Agent formal writes remained disabled. One rule, the global write gate, Observation and Expanded Context were temporarily toggled only for explicit Desktop exercises, then restored to their safe defaults. No credential value was read into this report, a screenshot, Git, Graph or an export.
 
 ## Live database and service
 
 | Check | Final value |
 |---|---|
 | Service | `READY`; protocol 1; formal write, migration, Provider, backup and Graph bridge capabilities present |
-| Schema | 14 |
+| Schema | 15 |
 | SQLite | integrity `ok`; foreign-key violations 0 |
 | Doctor | PASS: 11 pass / 1 warn / 0 fail / 2 info |
 | Known warning | `STALE_PROPOSAL_PRESENT`, count 1; existed before this Goal |
@@ -37,7 +37,7 @@ The runtime remained `EXPERIMENT`; every rule's local and effective authority re
 | Pending or Recovery Required Commit | 0 |
 | Decisions | 4 |
 | Review Signals | 2 |
-| Agent write settings | global pause false; 6 Rules all unpaused SHADOW; automatic apply 0 |
+| Agent governance settings | Observation true; Expanded Context true; global pause false; 6 Rules all unpaused SHADOW; automatic apply 0 |
 
 Objects, Candidates, Proposals and Semantic Commits were unchanged across the representative Shadow observations and feedback actions. The only intended writes were governance Decisions, Review Signals and Feedback Events.
 
@@ -52,6 +52,8 @@ The two later bulk Feedback Events occurred after this backup. They are present 
 
 5. Commit `9458670` introduced schema v14 with only one singleton global Agent write-pause setting. After stopping the exact Launcher/Service processes, `migrate-schema` created `before-schema14-20260801T212408Z.sqlite` and explicitly migrated v13→v14. The prebackup retained schema 13, integrity `ok`, 59 Objects, 4 Decisions and 2 Review Signals; the active database reopened as schema 14 with the same counts, integrity `ok`, zero foreign-key violations and default global pause false.
 6. The live Service then created and validated `backup_20260801212512716_e6944a43beb147718ca109558dd97c60`: PASS, schema 14, integrity `ok`, foreign-key violations 0 and 59 Objects. Doctor returned to `BACKUP_LATEST_VALID`.
+7. Commit `23a6619` introduced schema v15 by extending the same settings row with explicit Observation and Expanded Context controls. `migrate-schema` first created `before-schema15-20260802T060300Z.sqlite`; the schema v14 prebackup retained integrity `ok`, 59 Objects, 4 Decisions and 2 Review Signals. The active database reopened at schema 15 with those counts unchanged, zero foreign-key violations, the prior global pause value preserved and both new switches enabled.
+8. The final live Service backup `backup_20260801220554356_378ae71fc0774609a3954ff434cc2492` validated PASS at schema 15.
 
 ## Real Desktop and Provider evidence
 
@@ -97,6 +99,17 @@ Thread/Decision: `agent-thread-8eebb3ca` / `agent-thread-8eebb3ca:r1`
 - SQLite confirmed two new Events with the same timestamp on the two different threads. Total feedback Events became 3.
 - The detail Event history showed source read, Agent revision and two user feedback events for the explicit-Task thread.
 
+### Explicit settings and background catch-up
+
+- Observation was switched off in the real Desktop UI. The base Logseq product remained editable and the governance surface stated the bounded 32-Source-Root waterline policy.
+- Editing the weak-signal source while Observation was off left its stored captured text and occurrence count 5 unchanged; Decisions remained 4 and Objects remained 59, demonstrating no Graph/Provider governance read or formal write.
+- Re-enabling Observation returned an active governance UI in 739 ms with the message that bounded catch-up had started in the background. About five seconds later the same Review Signal captured the edited text and occurrence advanced 5→6; Decisions remained 4 and Objects remained 59.
+- Expanded Context was switched off and on through the same UI, and both values persisted in SQLite with explicit result copy. The final settings are Observation true, Expanded Context true and global pause false.
+
+## Retention evidence
+
+The live preview returned 4 Decisions, 10 important Events, 3 Feedback Events, 2 Review Signals, 6 Rules and 10,917 actual UTF-8 JSON bytes. No Review Signal was eligible for 60/180-day expiry. The result explicitly reported `deletesRows=false`, `deletesSourceText=false` and full source snapshots `NOT_STORED`; consequently, no zero-effect cleanup command was run solely to manufacture runtime evidence.
+
 ## Export evidence
 
 ### Final 30-day Skill Feedback package
@@ -132,10 +145,10 @@ The Plugin's explicit appearance preference was temporarily changed to Dark only
 
 ## Automated and safety gates
 
-The Node 20.20.2 root gate passed again after commit `9458670`:
+The Node 20.20.2 root gate passed twice after the final `23a6619` code changes and again after documentation closeout:
 
 - typecheck and lint;
-- all unit/integration/service tests, including Plugin 499 and Local Service 180;
+- all unit/integration/service tests, including non-blocking re-enable and actual UTF-8 retention byte-count regressions;
 - all builds and package/bootstrap checks;
 - repository and architectural boundaries;
 - 145 governance rule-coverage assertions;
@@ -155,7 +168,7 @@ The known npm audit baseline remains 2 high / 1 critical under existing OD-008; 
 
 ## Scenario verdicts and stop condition
 
-Representative scenarios 1–8 passed live. Scenario 9 has live package integrity evidence and automated source-missing/truncation edge coverage. Scenario 10 is deliberately barred.
+Representative scenarios 1–8 passed live. Scenario 9 has live package integrity and retention-preview evidence plus automated source-missing/truncation/expiry edge coverage. Scenario 10 is deliberately barred.
 
 There are only 4 real Decisions and no natural 14-day observation period yet. Therefore:
 
