@@ -105,6 +105,20 @@ test("client preserves bounded Local Service conflict messages for reviewable UI
   });
 });
 
+test("Agent governance client rejects forged effective authority at the HTTP trust boundary", async (t) => {
+  const { server, url } = await listen((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ authorizations: [{
+      ruleId: "RULE_01", displayName: "测试规则", skillName: "agent-decision-governance", skillVersion: "1.0.0",
+      skillHash: "a".repeat(64), skillMaxAuthority: "AUTO_APPLY", localCurrentAuthority: "SHADOW",
+      effectiveAuthority: "AUTO_APPLY", changeLevel: "PATCH", paused: false,
+      createdAt: "2026-08-02T05:00:00.000Z", updatedAt: "2026-08-02T05:00:00.000Z",
+    }] }));
+  });
+  t.after(() => server.close());
+  await assert.rejects(() => new LocalServiceClient(descriptor(url)).listAgentRuleAuthorizations(), /effective authority/i);
+});
+
 test("materialization client sends no Graph, database path, or caller-selected object identity", async (t) => {
   const token = "client-materialize-token-24-characters";
   let received: unknown;

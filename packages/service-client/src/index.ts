@@ -1,4 +1,5 @@
-import type { LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { AgentDecision, AgentDecisionEvent, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import { validateAgentDecision, validateAgentDecisionEvent, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
 export const LOCAL_SERVICE_PROTOCOL_VERSION = 1;
@@ -965,6 +966,13 @@ function clientError(code: string, message: string, details?: Record<string, unk
   return new StructuredError({ code, message, ruleRefs: ["D-216"], ...(details ? { details } : {}) });
 }
 
+function validatedGovernanceArray<T>(value: unknown, key: string, validate: (item: unknown) => T): T[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw clientError("SERVICE_RESPONSE_INVALID", `Local Service ${key} response 不是 object。`);
+  const items = (value as Record<string, unknown>)[key];
+  if (!Array.isArray(items) || items.length > 100) throw clientError("SERVICE_RESPONSE_INVALID", `Local Service ${key} response 不是受控 array。`);
+  return items.map(validate);
+}
+
 export function validateServiceDescriptor(value: unknown): ServiceDescriptor {
   if (!value || typeof value !== "object") throw clientError("SERVICE_DESCRIPTOR_INVALID", "Local Service 描述符无效。");
   const candidate = value as Partial<ServiceDescriptor>;
@@ -1068,6 +1076,24 @@ export class LocalServiceClient {
 
   doctor(): Promise<ServiceDoctor> {
     return this.request<ServiceDoctor>("/doctor", { method: "POST" });
+  }
+
+  async listAgentDecisions(input: { limit: number; since?: string }): Promise<AgentDecision[]> {
+    const query = new URLSearchParams({ limit: String(input.limit), ...(input.since ? { since: input.since } : {}) });
+    return validatedGovernanceArray(await this.request<unknown>(`/agent/decisions?${query}`), "decisions", validateAgentDecision);
+  }
+
+  async listAgentDecisionEvents(threadId: string): Promise<AgentDecisionEvent[]> {
+    return validatedGovernanceArray(await this.request<unknown>(`/agent/decisions/${encodeURIComponent(threadId)}/events`), "events", validateAgentDecisionEvent);
+  }
+
+  async listAgentReviewSignals(input: { status?: AgentReviewSignalStatus; limit: number }): Promise<AgentReviewSignal[]> {
+    const query = new URLSearchParams({ limit: String(input.limit), ...(input.status ? { status: input.status } : {}) });
+    return validatedGovernanceArray(await this.request<unknown>(`/agent/review-signals?${query}`), "signals", validateAgentReviewSignal);
+  }
+
+  async listAgentRuleAuthorizations(): Promise<AgentRuleAuthorization[]> {
+    return validatedGovernanceArray(await this.request<unknown>("/agent/rules"), "authorizations", validateAgentRuleAuthorization);
   }
 
   createBackup(): Promise<ServiceBackupCreated> {

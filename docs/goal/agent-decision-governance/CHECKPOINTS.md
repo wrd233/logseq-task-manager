@@ -19,10 +19,13 @@
 
 Each checkpoint requires updated STATUS and matrix, `./scripts/check.sh` with Node 20, a buildable local commit, and continuation to the next independent work item.
 
-## CP-1 progress — data foundation
+## CP-1 — data and service foundation complete (automated)
 
 - schema v13 is an explicit backup-gated migration; v1 through v12 migration rehearsals remain green.
 - Decision Thread identity is stable per Graph + Source Root; source-only refreshes update snapshots without spurious Revision events.
 - Review Signal and Rule Authorization survive SQLite reopen with bounded list queries and idempotent optimistic writes.
 - Rule promotion requires a USER actor; automatic transitions only move down one authority level, and EXPANDING Skill changes fail closed to Shadow.
-- Remaining before CP-1 closes: Local Service/CLI contracts, structured validators at the trust boundary, migration diagnostics, and isolated backup/restore rehearsal with governance rows.
+- Runtime trust boundaries validate identities, enums, retention and effective authority on SQLite and HTTP reads.
+- Authenticated Local Service and CLI expose bounded read-only governance projections; no public promotion or apply command was added.
+- An isolated governance Decision snapshot passes backup, active reopen, offline restore and restored history verification.
+- Live formal v12 migration remains intentionally deferred to the consolidated runtime checkpoint.

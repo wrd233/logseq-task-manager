@@ -1,4 +1,4 @@
-import { V2_LIFECYCLES, V2_OBJECT_TYPES, type LegacyMigrationReviewDecision, type V2ManagedObject, type V2ObjectType } from "@task-copilot/domain";
+import { V2_LIFECYCLES, V2_OBJECT_TYPES, type AgentDecision, type AgentDecisionEvent, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type LegacyMigrationReviewDecision, type V2ManagedObject, type V2ObjectType } from "@task-copilot/domain";
 import type { ServiceBackupCreated, ServiceBackupRestored, ServiceBackupValidation, ServiceContextExportResult, ServiceDoctor, ServiceGraphReadQuery, ServiceGraphSnapshot, ServiceLegacyMigrationScanReport, ServiceMigrationBatch, ServiceMigrationRun, ServiceMigrationRunDetails, ServiceProposalValidationResult, ServiceSkillDocument, ServiceSkillSummary, ServiceStatus, ServiceStoredProposal } from "@task-copilot/service-client";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -13,6 +13,10 @@ export interface CliService {
   submitProposal(proposal: unknown): Promise<{ record: ServiceStoredProposal; replayed: boolean }>;
   listSkills(): Promise<ServiceSkillSummary[]>;
   getSkill(name: string): Promise<ServiceSkillDocument | undefined>;
+  listAgentDecisions(input: { limit: number; since?: string }): Promise<AgentDecision[]>;
+  listAgentDecisionEvents(threadId: string): Promise<AgentDecisionEvent[]>;
+  listAgentReviewSignals(input: { status?: AgentReviewSignalStatus; limit: number }): Promise<AgentReviewSignal[]>;
+  listAgentRuleAuthorizations(): Promise<AgentRuleAuthorization[]>;
   exportContext(scope: "block" | "page" | "object" | "project", id: string): Promise<ServiceContextExportResult>;
   readGraph(query: ServiceGraphReadQuery): Promise<ServiceGraphSnapshot>;
   scanLegacyMigration(bundle: unknown): Promise<ServiceLegacyMigrationScanReport>;
@@ -58,6 +62,10 @@ Usage:
   tc [--service-descriptor <path>] [--json] proposal submit <proposal.json>
   tc [--service-descriptor <path>] [--json] skill list
   tc [--service-descriptor <path>] [--json] skill show <name>
+  tc [--service-descriptor <path>] [--json] agent decisions
+  tc [--service-descriptor <path>] [--json] agent events <thread_id>
+  tc [--service-descriptor <path>] [--json] agent signals
+  tc [--service-descriptor <path>] [--json] agent rules
   tc [--service-descriptor <path>] [--json] context export --scope block --block <uuid> --out <directory>
   tc [--service-descriptor <path>] [--json] context export --scope page --page <name> --out <directory>
   tc [--service-descriptor <path>] [--json] context export --scope object --object <object_id> --out <directory>
@@ -332,6 +340,26 @@ export async function runCli(args: string[], dependencies: CliDependencies, io: 
         return 6;
       }
       emit(io, parsed.json, { skill }, skill.content);
+      return 0;
+    }
+    if (root === "agent" && action === "decisions" && !target) {
+      const decisions = await service.listAgentDecisions({ limit: 50 });
+      emit(io, parsed.json, { decisions }, decisions.map((decision) => `${decision.decisionId}\t${decision.outcome}\t${decision.riskRoute}\t${decision.rule.displayName}`).join("\n"));
+      return 0;
+    }
+    if (root === "agent" && action === "events" && target && parsed.command.length === 3) {
+      const events = await service.listAgentDecisionEvents(target);
+      emit(io, parsed.json, { events }, events.map((event) => `${event.occurredAt}\t${event.eventType}\t${event.actor}\t${event.decisionId}`).join("\n"));
+      return 0;
+    }
+    if (root === "agent" && action === "signals" && !target) {
+      const signals = await service.listAgentReviewSignals({ limit: 50 });
+      emit(io, parsed.json, { signals }, signals.map((signal) => `${signal.reviewSignalId}\t${signal.status}\t${signal.category}\t${signal.occurrenceCount}`).join("\n"));
+      return 0;
+    }
+    if (root === "agent" && action === "rules" && !target) {
+      const authorizations = await service.listAgentRuleAuthorizations();
+      emit(io, parsed.json, { authorizations }, authorizations.map((authorization) => `${authorization.ruleId}\t${authorization.displayName}\t${authorization.effectiveAuthority}\t${authorization.skillVersion}`).join("\n"));
       return 0;
     }
     if (root === "context" && action === "export" && !target) {

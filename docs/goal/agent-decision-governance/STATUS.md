@@ -3,8 +3,8 @@
 ```yaml
 goal_state: IN_PROGRESS
 base_commit: 7f23564131dbaf5bdcb04c21b80ddb7abd9d48e0
-current_commit: 8f5a91f
-current_phase: PHASE_1_DATA_FOUNDATION
+current_commit: ca5c027
+current_phase: PHASE_2_GATE_CONTEXT_SKILL_ROUTER
 completed:
   - Goal Objective and full user detailed design read
   - repository baseline and pre-existing dirty file recorded
@@ -16,9 +16,12 @@ completed:
   - Decision Thread/meaningful Revision/Event application and SQLite persistence
   - Review Signal 60/180-day retention, deduplication, source-missing lifecycle and reload persistence
   - Rule Authorization default Shadow, effective min authority, user-only promotion, automatic downgrade and expanding-Skill fail-closed semantics
+  - runtime trust-boundary validators for Decision, Event, Review Signal and Rule Authorization
+  - bounded authenticated Local Service projections and read-only CLI commands for decisions, events, signals and rules
+  - governance rows verified across SQLite reload, backup and offline restore
 remaining_automatable_work:
-  - expose the Phase 1 governance repository through Local Service and CLI contracts
-  - implement Phases 2 through 7 in dependency order
+  - implement Phase 2 gate/source/context/Skill/router and zero-write Shadow runtime
+  - implement Phases 3 through 7 in dependency order
 runtime_checks_pending:
   - consolidated Desktop scenarios A through J
   - real DeepSeek governance Structured Output gate

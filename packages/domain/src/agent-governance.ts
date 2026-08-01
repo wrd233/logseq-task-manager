@@ -138,9 +138,7 @@ export type AgentDecisionEventType =
   | "BLOCKED"
   | "FAILED"
   | "UNDONE"
-  | "USER_FEEDBACK_ADDED"
-  | "RULE_AUTHORITY_CHANGED"
-  | "RULE_AUTO_DOWNGRADED";
+  | "USER_FEEDBACK_ADDED";
 
 export interface AgentDecisionEvent {
   eventId: string;
@@ -492,5 +490,172 @@ export function reviseAgentDecision(
       createdAt: current.createdAt,
       updatedAt: timestamp,
     },
+  };
+}
+
+function recordValue(value: unknown, field: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw governanceError("AGENT_GOVERNANCE_SHAPE_INVALID", `${field} 必须是 object。`);
+  return value as Record<string, unknown>;
+}
+
+function enumValue<T extends string>(value: unknown, field: string, values: readonly T[]): T {
+  if (typeof value !== "string" || !values.includes(value as T)) throw governanceError("AGENT_GOVERNANCE_ENUM_INVALID", `${field} 不是受支持的枚举值。`);
+  return value as T;
+}
+
+function isoValue(value: unknown, field: string): string {
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString() !== value) {
+    throw governanceError("AGENT_GOVERNANCE_TIME_INVALID", `${field} 必须是 canonical ISO timestamp。`);
+  }
+  return value;
+}
+
+function booleanValue(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") throw governanceError("AGENT_GOVERNANCE_SHAPE_INVALID", `${field} 必须是 boolean。`);
+  return value;
+}
+
+function stringArrayValue(value: unknown, field: string, maximumItems: number, maximumLength = 512): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) throw governanceError("AGENT_GOVERNANCE_SHAPE_INVALID", `${field} 必须是 string array。`);
+  return boundedArray(value as string[], field, maximumItems, maximumLength);
+}
+
+function sourceRootValue(value: unknown): AgentSourceRoot {
+  const source = recordValue(value, "sourceRoot");
+  const durable = recordValue(source.durableOrigin, "sourceRoot.durableOrigin");
+  const pageName = typeof source.pageName === "string" && source.pageName.trim() ? bounded(source.pageName, "sourceRoot.pageName", 512) : undefined;
+  return {
+    kind: enumValue(source.kind, "sourceRoot.kind", ["BLOCK", "PAGE"]),
+    externalId: bounded(String(source.externalId ?? ""), "sourceRoot.externalId", 512),
+    ...(pageName ? { pageName } : {}),
+    durableOrigin: {
+      kind: enumValue(durable.kind, "sourceRoot.durableOrigin.kind", ["BLOCK_UUID", "PAGE_UUID", "PAGE_NAME"]),
+      value: bounded(String(durable.value ?? ""), "sourceRoot.durableOrigin.value", 1_024),
+    },
+  };
+}
+
+export function validateAgentDecision(value: unknown): AgentDecision {
+  const record = recordValue(value, "AgentDecision");
+  const rule = recordValue(record.rule, "rule");
+  const alternative = recordValue(record.closestAlternative, "closestAlternative");
+  const context = recordValue(record.context, "context");
+  const sourceRoot = sourceRootValue(record.sourceRoot);
+  const estimatedInputTokens = context.estimatedInputTokens;
+  const estimatedOutputTokens = context.estimatedOutputTokens;
+  if (!Number.isSafeInteger(estimatedInputTokens) || Number(estimatedInputTokens) < 0
+    || (estimatedOutputTokens !== undefined && (!Number.isSafeInteger(estimatedOutputTokens) || Number(estimatedOutputTokens) < 0))) {
+    throw governanceError("AGENT_DECISION_CONTEXT_INVALID", "Decision context token metrics 必须是非负整数。");
+  }
+  const input = normalizeInput({
+    graphId: bounded(String(record.graphId ?? ""), "graphId", 256),
+    sourceRoot,
+    sourceSnapshotHash: requireHash(String(record.sourceSnapshotHash ?? ""), "sourceSnapshotHash", [8, 64]),
+    outcome: enumValue(record.outcome, "outcome", ["CREATE_CANDIDATE", "KEEP_ORDINARY", "DEFER", "UPDATE_EXISTING", "CREATE_OBJECT", "REVIEW_SIGNAL", "NO_ACTION", "NEEDS_HUMAN", "NEEDS_MORE_CONTEXT"]),
+    ...(typeof record.targetObjectId === "string" && record.targetObjectId.trim() ? { targetObjectId: record.targetObjectId } : {}),
+    rule: {
+      id: bounded(String(rule.id ?? ""), "rule.id", 128),
+      displayName: bounded(String(rule.displayName ?? ""), "rule.displayName", 64),
+      skillName: bounded(String(rule.skillName ?? ""), "rule.skillName", 128),
+      skillVersion: bounded(String(rule.skillVersion ?? ""), "rule.skillVersion", 128),
+      skillHash: requireHash(String(rule.skillHash ?? ""), "rule.skillHash", [64]),
+    },
+    riskRoute: enumValue(record.riskRoute, "riskRoute", ["SHADOW", "BATCH_REVIEW", "DELAYED_APPLY", "AUTO_APPLY", "HUMAN_REVIEW"]),
+    executionStatus: enumValue(record.executionStatus, "executionStatus", ["NOT_EXECUTED", "SCHEDULED", "APPLIED", "BLOCKED", "FAILED", "UNDONE", "STALE"]),
+    evidenceSummary: bounded(String(record.evidenceSummary ?? ""), "evidenceSummary", 4_096),
+    evidenceRefs: stringArrayValue(record.evidenceRefs, "evidenceRefs", 32),
+    counterSignals: stringArrayValue(record.counterSignals, "counterSignals", 16),
+    closestAlternative: {
+      ...(alternative.outcome !== undefined ? { outcome: enumValue(alternative.outcome, "closestAlternative.outcome", ["CREATE_CANDIDATE", "KEEP_ORDINARY", "DEFER", "UPDATE_EXISTING", "CREATE_OBJECT", "REVIEW_SIGNAL", "NO_ACTION", "NEEDS_HUMAN", "NEEDS_MORE_CONTEXT"]) } : {}),
+      ...(typeof alternative.reason === "string" && alternative.reason.trim() ? { reason: alternative.reason } : {}),
+    },
+    context: {
+      tier: enumValue(context.tier, "context.tier", ["LOCAL", "EXPANDED", "REVIEW"]),
+      truncated: booleanValue(context.truncated, "context.truncated"),
+      omittedSections: stringArrayValue(context.omittedSections, "context.omittedSections", 32, 128),
+      estimatedInputTokens: Number(estimatedInputTokens),
+      ...(estimatedOutputTokens !== undefined ? { estimatedOutputTokens: Number(estimatedOutputTokens) } : {}),
+    },
+  });
+  const revision = Number(record.revision);
+  if (!Number.isSafeInteger(revision) || revision < 1) throw governanceError("AGENT_DECISION_REVISION_INVALID", "Decision revision 必须从 1 连续计数。");
+  const expectedThreadId = threadId(input);
+  if (record.threadId !== expectedThreadId || record.decisionId !== decisionId(expectedThreadId, revision)) {
+    throw governanceError("AGENT_DECISION_IDENTITY_INVALID", "Decision identity 与 Graph、Source Root 或 revision 不一致。");
+  }
+  const observedAt = isoValue(record.observedAt, "observedAt");
+  const createdAt = isoValue(record.createdAt, "createdAt");
+  const updatedAt = isoValue(record.updatedAt, "updatedAt");
+  if (createdAt > updatedAt) throw governanceError("AGENT_DECISION_TIME_INVALID", "Decision createdAt 不得晚于 updatedAt。");
+  return { ...input, threadId: expectedThreadId, decisionId: decisionId(expectedThreadId, revision), revision, observedAt, createdAt, updatedAt };
+}
+
+export function validateAgentDecisionEvent(value: unknown): AgentDecisionEvent {
+  const record = recordValue(value, "AgentDecisionEvent");
+  const occurredAt = isoValue(record.occurredAt, "occurredAt");
+  const input = {
+    threadId: bounded(String(record.threadId ?? ""), "threadId", 256),
+    decisionId: bounded(String(record.decisionId ?? ""), "decisionId", 256),
+    eventType: enumValue(record.eventType, "eventType", ["SOURCE_OBSERVED", "DECISION_REVISED", "ROUTE_CHANGED", "EXECUTION_SCHEDULED", "APPLIED", "BLOCKED", "FAILED", "UNDONE", "USER_FEEDBACK_ADDED"]),
+    actor: enumValue(record.actor, "actor", ["SYSTEM", "AGENT", "USER"]),
+    payload: recordValue(record.payload, "payload"),
+  } satisfies Omit<AgentDecisionEvent, "eventId" | "occurredAt">;
+  const expected = createAgentDecisionEvent(input, new Date(occurredAt));
+  if (record.eventId !== expected.eventId) throw governanceError("AGENT_DECISION_EVENT_IDENTITY_INVALID", "Decision Event identity 与内容不一致。");
+  return expected;
+}
+
+export function validateAgentRuleAuthorization(value: unknown): AgentRuleAuthorization {
+  const record = recordValue(value, "AgentRuleAuthorization");
+  const skillMaxAuthority = enumValue(record.skillMaxAuthority, "skillMaxAuthority", ["SHADOW", "BATCH_REVIEW", "DELAYED_APPLY", "AUTO_APPLY"]);
+  const localCurrentAuthority = enumValue(record.localCurrentAuthority, "localCurrentAuthority", ["SHADOW", "BATCH_REVIEW", "DELAYED_APPLY", "AUTO_APPLY"]);
+  const effectiveAuthority = effectiveAgentRuleAuthority(skillMaxAuthority, localCurrentAuthority);
+  if (record.effectiveAuthority !== effectiveAuthority) throw governanceError("AGENT_RULE_EFFECTIVE_AUTHORITY_INVALID", "Rule effective authority 必须是 Skill 与本地授权的较低值。");
+  return {
+    ruleId: bounded(String(record.ruleId ?? ""), "ruleId", 128),
+    displayName: bounded(String(record.displayName ?? ""), "displayName", 64),
+    skillName: bounded(String(record.skillName ?? ""), "skillName", 128),
+    skillVersion: bounded(String(record.skillVersion ?? ""), "skillVersion", 128),
+    skillHash: requireHash(String(record.skillHash ?? ""), "skillHash", [64]),
+    skillMaxAuthority,
+    localCurrentAuthority,
+    effectiveAuthority,
+    changeLevel: enumValue(record.changeLevel, "changeLevel", ["PATCH", "NARROWING", "EXPANDING"]),
+    paused: booleanValue(record.paused, "paused"),
+    createdAt: isoValue(record.createdAt, "createdAt"),
+    updatedAt: isoValue(record.updatedAt, "updatedAt"),
+  };
+}
+
+export function validateAgentReviewSignal(value: unknown): AgentReviewSignal {
+  const record = recordValue(value, "AgentReviewSignal");
+  const graphId = bounded(String(record.graphId ?? ""), "graphId", 256);
+  const sourceRoot = sourceRootValue(record.sourceRoot);
+  const expectedId = `review-signal-${sourceIdentity({ graphId, sourceRoot })}`;
+  if (record.reviewSignalId !== expectedId) throw governanceError("AGENT_REVIEW_SIGNAL_IDENTITY_INVALID", "Review Signal identity 与 Graph 或 Source Root 不一致。");
+  const retentionClass = enumValue(record.retentionClass, "retentionClass", ["NORMAL", "RELATED", "PINNED"]);
+  const activeUntilValue = record.activeUntil === undefined ? undefined : isoValue(record.activeUntil, "activeUntil");
+  if ((retentionClass === "PINNED") === (activeUntilValue !== undefined)) {
+    throw governanceError("AGENT_REVIEW_SIGNAL_RETENTION_INVALID", "Review Signal retention 要求 PINNED 无 activeUntil，其他类型必须有 activeUntil。");
+  }
+  const occurrenceCount = Number(record.occurrenceCount);
+  if (!Number.isSafeInteger(occurrenceCount) || occurrenceCount < 1) throw governanceError("AGENT_REVIEW_SIGNAL_COUNT_INVALID", "Review Signal occurrenceCount 必须是正整数。");
+  const relatedObjectIds = stringArrayValue(record.relatedObjectIds, "relatedObjectIds", 32, 256);
+  return {
+    reviewSignalId: expectedId,
+    graphId,
+    sourceRoot,
+    capturedSnapshotHash: requireHash(String(record.capturedSnapshotHash ?? ""), "capturedSnapshotHash", [8, 64]),
+    capturedText: bounded(String(record.capturedText ?? ""), "capturedText", 16_384),
+    category: bounded(String(record.category ?? ""), "category", 128),
+    relatedObjectIds,
+    revisitReason: bounded(String(record.revisitReason ?? ""), "revisitReason", 2_048),
+    firstSeenAt: isoValue(record.firstSeenAt, "firstSeenAt"),
+    lastSeenAt: isoValue(record.lastSeenAt, "lastSeenAt"),
+    occurrenceCount,
+    ...(activeUntilValue ? { activeUntil: activeUntilValue } : {}),
+    retentionClass,
+    status: enumValue(record.status, "status", ["ACTIVE", "EXPIRED", "SOURCE_MISSING"]),
+    createdByDecisionId: bounded(String(record.createdByDecisionId ?? ""), "createdByDecisionId", 256),
   };
 }

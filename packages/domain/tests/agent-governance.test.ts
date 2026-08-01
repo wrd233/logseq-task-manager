@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { authorizeAgentRule, autoDowngradeAgentRule, createAgentDecision, createAgentRuleAuthorization, createOrRefreshAgentReviewSignal, reconcileAgentReviewSignal, reviseAgentDecision, updateAgentRuleSkill } from "../src/agent-governance.ts";
+import { authorizeAgentRule, autoDowngradeAgentRule, createAgentDecision, createAgentRuleAuthorization, createOrRefreshAgentReviewSignal, reconcileAgentReviewSignal, reviseAgentDecision, updateAgentRuleSkill, validateAgentDecision, validateAgentReviewSignal, validateAgentRuleAuthorization } from "../src/agent-governance.ts";
 
 const observedAt = new Date("2026-08-02T02:00:00.000Z");
 
@@ -158,4 +158,24 @@ test("Review Signal uses a 60-day active index and extends repeated or object-re
   assert.equal(repeated.activeUntil, "2027-01-30T02:00:00.000Z");
   assert.equal(reconcileAgentReviewSignal(first, { sourceExists: true }, new Date("2026-10-02T02:00:00.000Z")).status, "EXPIRED");
   assert.equal(reconcileAgentReviewSignal(repeated, { sourceExists: false }, new Date("2026-08-04T02:00:00.000Z")).status, "SOURCE_MISSING");
+});
+
+test("governance trust-boundary validators reject forged identity, retention, and effective authority", () => {
+  const decision = createAgentDecision(input(), observedAt);
+  assert.deepEqual(validateAgentDecision(structuredClone(decision)), decision);
+  assert.throws(() => validateAgentDecision({ ...decision, threadId: "forged-thread" }), /identity/i);
+
+  const authorization = createAgentRuleAuthorization({
+    ruleId: "EXPLICIT_TASK_01", displayName: "明确任务标记", skillName: "agent-decision-governance",
+    skillVersion: "1.0.0", skillHash: "b".repeat(64), skillMaxAuthority: "AUTO_APPLY",
+  }, observedAt);
+  assert.deepEqual(validateAgentRuleAuthorization(structuredClone(authorization)), authorization);
+  assert.throws(() => validateAgentRuleAuthorization({ ...authorization, effectiveAuthority: "AUTO_APPLY" }), /effective/i);
+
+  const signal = createOrRefreshAgentReviewSignal(undefined, {
+    graphId: "graph-a", sourceRoot: input().sourceRoot, capturedSnapshotHash: "e".repeat(8), capturedText: "以后处理。",
+    category: "POSSIBLE_ACTION", relatedObjectIds: [], revisitReason: "弱信号", createdByDecisionId: decision.decisionId,
+  }, observedAt);
+  assert.deepEqual(validateAgentReviewSignal(structuredClone(signal)), signal);
+  assert.throws(() => validateAgentReviewSignal({ ...signal, activeUntil: undefined }), /retention/i);
 });

@@ -8,7 +8,7 @@ import test from "node:test";
 import { LocalServiceClient, type ServiceDescriptor } from "@task-copilot/service-client";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "@task-copilot/persistence/node";
 import { exportRecoveryBundle } from "@task-copilot/persistence";
-import { buildMiniProjectRestructureProposal, buildProjectCreationProposal, createEmptyState, InteractionEvidenceBuffer, planAcceptedV2ProjectClosure, V2Application, type GrillPreview, type ProjectCreationPreview } from "@task-copilot/application";
+import { AgentGovernanceApplication, buildMiniProjectRestructureProposal, buildProjectCreationProposal, createEmptyState, InteractionEvidenceBuffer, planAcceptedV2ProjectClosure, V2Application, type GrillPreview, type ProjectCreationPreview } from "@task-copilot/application";
 import { checksum, StructuredError } from "@task-copilot/shared";
 import {
   clearRestoreRecoveryInterlock,
@@ -246,6 +246,42 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   await service.close();
   closed = true;
   await assert.rejects(access(join(root, "runtime", "service.json")));
+});
+
+test("Local Service exposes bounded read-only Agent governance projections from the same SQLite authority", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-agent-governance-service-"));
+  const databasePath = join(root, "task-copilot.db");
+  const seeded = await V2SqliteStore.open(databasePath);
+  seeded.initialize("graph-agent-service");
+  const governance = new AgentGovernanceApplication(seeded);
+  const decision = await governance.recordDecision({
+    graphId: "graph-agent-service",
+    sourceRoot: { kind: "BLOCK", externalId: "agent-source-1", durableOrigin: { kind: "BLOCK_UUID", value: "agent-source-1" } },
+    sourceSnapshotHash: "a".repeat(8),
+    outcome: "KEEP_ORDINARY",
+    rule: { id: "ORDINARY_01", displayName: "明确普通内容", skillName: "agent-decision-governance", skillVersion: "1.0.0", skillHash: "b".repeat(64) },
+    riskRoute: "SHADOW",
+    executionStatus: "NOT_EXECUTED",
+    evidenceSummary: "来源是解释性记录。",
+    evidenceRefs: ["block:agent-source-1"],
+    counterSignals: [],
+    closestAlternative: { outcome: "CREATE_CANDIDATE", reason: "若出现明确承诺则重新判断" },
+    context: { tier: "LOCAL", truncated: false, omittedSections: [], estimatedInputTokens: 64 },
+  }, { actor: "agent", traceId: "trace-agent-service", idempotencyKey: "agent-service-decision" }, new Date("2026-08-02T05:00:00.000Z"));
+  await governance.registerRule({ ruleId: "ORDINARY_01", displayName: "明确普通内容", skillName: "agent-decision-governance", skillVersion: "1.0.0", skillHash: "b".repeat(64), skillMaxAuthority: "SHADOW" }, { actor: "system", traceId: "trace-agent-rule", idempotencyKey: "agent-service-rule" }, new Date("2026-08-02T05:00:00.000Z"));
+  await governance.recordReviewSignal({ graphId: "graph-agent-service", sourceRoot: { kind: "BLOCK", externalId: "weak-source-1", durableOrigin: { kind: "BLOCK_UUID", value: "weak-source-1" } }, capturedSnapshotHash: "c".repeat(8), capturedText: "以后可能处理。", category: "POSSIBLE_ACTION", relatedObjectIds: [], revisitReason: "弱信号", createdByDecisionId: decision.decision.decisionId }, { actor: "agent", traceId: "trace-agent-signal", idempotencyKey: "agent-service-signal" }, new Date("2026-08-02T05:01:00.000Z"));
+  seeded.close();
+
+  const service = await startLocalService({ databasePath, graphId: "graph-agent-service", token: "agent-governance-service-token-24" });
+  t.after(async () => {
+    await service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const client = clientFor(service);
+  assert.equal((await client.listAgentDecisions({ limit: 10 }))[0]?.threadId, decision.decision.threadId);
+  assert.equal((await client.listAgentDecisionEvents(decision.decision.threadId)).length, 1);
+  assert.equal((await client.listAgentReviewSignals({ status: "ACTIVE", limit: 10 })).length, 1);
+  assert.equal((await client.listAgentRuleAuthorizations())[0]?.effectiveAuthority, "SHADOW");
 });
 
 test("Area controlled routes create, replay, edit, and reject stale or cross-type writes", async (t) => {

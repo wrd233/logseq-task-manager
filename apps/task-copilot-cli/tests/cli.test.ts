@@ -39,6 +39,10 @@ function fixture(overrides: Partial<CliService> = {}): { service: CliService; io
       submitProposal: async () => ({ record: proposalRecord, replayed: false }),
       listSkills: async () => [],
       getSkill: async () => undefined,
+      listAgentDecisions: async () => [],
+      listAgentDecisionEvents: async () => [],
+      listAgentReviewSignals: async () => [],
+      listAgentRuleAuthorizations: async () => [],
       exportContext: async (scope, id) => ({
         fingerprint: "f".repeat(64),
         contextPackage: {
@@ -203,6 +207,29 @@ test("CLI lists and shows the shared Local Service Proposal review queue", async
   const shown = JSON.parse(listed.stdout.at(-1) ?? "") as { data: { record: ServiceStoredProposal } };
   assert.equal(shown.data.record.proposal.title, "整理当前块");
   assert.equal(await runCli(["proposal", "show", "missing"], dependencies, listed.io), 6);
+});
+
+test("CLI reads Agent governance decisions, events, signals, and rules without exposing a write command", async () => {
+  const decision = {
+    graphId: "graph-cli", sourceRoot: { kind: "BLOCK" as const, externalId: "block-cli", durableOrigin: { kind: "BLOCK_UUID" as const, value: "block-cli" } }, sourceSnapshotHash: "a".repeat(8), outcome: "KEEP_ORDINARY" as const,
+    rule: { id: "ORDINARY_01", displayName: "明确普通内容", skillName: "agent-decision-governance", skillVersion: "1.0.0", skillHash: "b".repeat(64) }, riskRoute: "SHADOW" as const, executionStatus: "NOT_EXECUTED" as const,
+    evidenceSummary: "解释性记录", evidenceRefs: ["block:block-cli"], counterSignals: [], closestAlternative: {}, context: { tier: "LOCAL" as const, truncated: false, omittedSections: [], estimatedInputTokens: 32 },
+    threadId: "agent-thread-cli", decisionId: "agent-thread-cli:r1", revision: 1, observedAt: "2026-08-02T05:00:00.000Z", createdAt: "2026-08-02T05:00:00.000Z", updatedAt: "2026-08-02T05:00:00.000Z",
+  };
+  const value = fixture({
+    listAgentDecisions: async () => [decision],
+    listAgentDecisionEvents: async () => [{ eventId: "event-cli", threadId: decision.threadId, decisionId: decision.decisionId, eventType: "SOURCE_OBSERVED", actor: "AGENT", payload: {}, occurredAt: decision.observedAt }],
+    listAgentReviewSignals: async () => [],
+    listAgentRuleAuthorizations: async () => [{ ruleId: "ORDINARY_01", displayName: "明确普通内容", skillName: "agent-decision-governance", skillVersion: "1.0.0", skillHash: "b".repeat(64), skillMaxAuthority: "SHADOW", localCurrentAuthority: "SHADOW", effectiveAuthority: "SHADOW", changeLevel: "PATCH", paused: false, createdAt: decision.createdAt, updatedAt: decision.updatedAt }],
+  });
+  const dependencies = { descriptorPath: "/runtime/service.json", loadService: async () => value.service };
+  assert.equal(await runCli(["agent", "decisions"], dependencies, value.io), 0);
+  assert.match(value.stdout.at(-1) ?? "", /明确普通内容/);
+  assert.equal(await runCli(["agent", "events", decision.threadId], dependencies, value.io), 0);
+  assert.match(value.stdout.at(-1) ?? "", /SOURCE_OBSERVED/);
+  assert.equal(await runCli(["--json", "agent", "rules"], dependencies, value.io), 0);
+  assert.equal((JSON.parse(value.stdout.at(-1) ?? "") as { data: { authorizations: Array<{ effectiveAuthority: string }> } }).data.authorizations[0]?.effectiveAuthority, "SHADOW");
+  assert.equal(await runCli(["agent", "promote", "ORDINARY_01"], dependencies, value.io), 2);
 });
 
 test("CLI validates and submits external Proposal files without exposing a commit/apply path", async () => {

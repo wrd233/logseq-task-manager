@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
+import { AgentGovernanceApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
 import { renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -1372,6 +1372,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   };
   store.initialize(options.graphId);
   const application = new V2Application(store);
+  const agentGovernanceApplication = new AgentGovernanceApplication(store);
   const candidateApplication = new V2CandidateApplication(store);
   const migrationApplication = new V2MigrationApplication(store);
   const proposalApplication = new V2ProposalApplication(store);
@@ -1905,6 +1906,37 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     }
     if (request.method === "GET" && url.pathname === "/candidates") {
       respond(response, 200, { candidates: await candidateApplication.list() });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/agent/decisions") {
+      if ([...url.searchParams.keys()].some((key) => key !== "limit" && key !== "since")) throw serviceError("AGENT_DECISION_QUERY_INVALID", "Agent Decision 查询只接受 limit 和 since。");
+      const limit = Number(url.searchParams.get("limit") ?? "50");
+      const since = url.searchParams.get("since") ?? undefined;
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || (since !== undefined && !Number.isFinite(Date.parse(since)))) {
+        throw serviceError("AGENT_DECISION_QUERY_INVALID", "Agent Decision 查询需要 limit 1..100 与可选的 ISO since。");
+      }
+      respond(response, 200, { decisions: await agentGovernanceApplication.listDecisions({ limit, ...(since ? { since } : {}) }) });
+      return;
+    }
+    const agentDecisionEventsMatch = request.method === "GET" ? url.pathname.match(/^\/agent\/decisions\/([^/]+)\/events$/) : null;
+    if (agentDecisionEventsMatch) {
+      const threadId = decodeURIComponent(agentDecisionEventsMatch[1]!);
+      if (!threadId.trim() || threadId.length > 256 || url.search) throw serviceError("AGENT_DECISION_EVENT_QUERY_INVALID", "Decision Event 查询需要唯一受控 thread ID。");
+      respond(response, 200, { events: await agentGovernanceApplication.listDecisionEvents(threadId) });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/agent/review-signals") {
+      if ([...url.searchParams.keys()].some((key) => key !== "limit" && key !== "status")) throw serviceError("AGENT_REVIEW_SIGNAL_QUERY_INVALID", "Review Signal 查询只接受 limit 和 status。");
+      const limit = Number(url.searchParams.get("limit") ?? "50");
+      const status = url.searchParams.get("status") ?? undefined;
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || (status !== undefined && !["ACTIVE", "EXPIRED", "SOURCE_MISSING"].includes(status))) {
+        throw serviceError("AGENT_REVIEW_SIGNAL_QUERY_INVALID", "Review Signal 查询需要 limit 1..100 与可选的合法 status。");
+      }
+      respond(response, 200, { signals: await agentGovernanceApplication.listReviewSignals({ limit, ...(status ? { status: status as "ACTIVE" | "EXPIRED" | "SOURCE_MISSING" } : {}) }) });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/agent/rules" && !url.search) {
+      respond(response, 200, { authorizations: await agentGovernanceApplication.listRuleAuthorizations() });
       return;
     }
     if (request.method === "POST" && url.pathname === "/candidates/discover") {

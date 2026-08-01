@@ -530,6 +530,7 @@ test("Agent governance persists one Decision Thread, meaningful Revision events,
   assert.equal(refreshed.revised, false);
   assert.equal(refreshed.decision.decisionId, first.decision.decisionId);
   assert.equal((await application.listDecisionEvents(first.decision.threadId)).length, 1, "source-only refresh does not create typo history");
+  const governanceBackup = await store.backup(join(root, "backups", "agent-governance-r1.db"));
 
   const changed = await application.recordDecision({ ...decisionInput, sourceSnapshotHash: "d".repeat(8), outcome: "NEEDS_HUMAN", riskRoute: "HUMAN_REVIEW", counterSignals: ["目标不唯一"] }, { actor: "agent", traceId: "trace-3", idempotencyKey: "agent-decision-3" }, new Date("2026-08-02T04:02:00.000Z"));
   assert.equal(changed.decision.revision, 2);
@@ -542,6 +543,14 @@ test("Agent governance persists one Decision Thread, meaningful Revision events,
   assert.equal(restored?.decisionId, changed.decision.decisionId);
   assert.equal(restored?.revision, 2);
   reopened.close();
+
+  await V2SqliteStore.restoreOffline(path, governanceBackup, join(root, "backups", "agent-governance-r2-recovery.db"), "graph-agent-decisions");
+  const restoredSnapshot = await V2SqliteStore.open(path);
+  restoredSnapshot.initialize("graph-agent-decisions");
+  const restoredSnapshotApplication = new AgentGovernanceApplication(restoredSnapshot);
+  assert.equal((await restoredSnapshotApplication.listDecisions({ limit: 10 }))[0]?.revision, 1);
+  assert.equal((await restoredSnapshotApplication.listDecisionEvents(first.decision.threadId)).length, 1);
+  restoredSnapshot.close();
 });
 
 test("Agent Rule authorization persists explicit user promotion and system-only downgrade semantics", async (t) => {

@@ -34,7 +34,7 @@ import type {
   V2OwnershipUndoResult,
   V2SynchronizationCommand,
 } from "@task-copilot/application";
-import { renderV2ProposalFiles, validateV2Proposal, type AgentDecision, type AgentDecisionEvent, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
+import { renderV2ProposalFiles, validateAgentDecision, validateAgentDecisionEvent, validateAgentReviewSignal, validateAgentRuleAuthorization, validateV2Proposal, type AgentDecision, type AgentDecisionEvent, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
 export const V2_DATABASE_SCHEMA_VERSION = 13;
@@ -93,7 +93,7 @@ const agentGovernanceSchemaSql = `
     event_id TEXT PRIMARY KEY,
     thread_id TEXT NOT NULL REFERENCES agent_decisions(thread_id) ON DELETE CASCADE,
     decision_id TEXT NOT NULL,
-    event_type TEXT NOT NULL CHECK (event_type IN ('SOURCE_OBSERVED','DECISION_REVISED','ROUTE_CHANGED','EXECUTION_SCHEDULED','APPLIED','BLOCKED','FAILED','UNDONE','USER_FEEDBACK_ADDED','RULE_AUTHORITY_CHANGED','RULE_AUTO_DOWNGRADED')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('SOURCE_OBSERVED','DECISION_REVISED','ROUTE_CHANGED','EXECUTION_SCHEDULED','APPLIED','BLOCKED','FAILED','UNDONE','USER_FEEDBACK_ADDED')),
     actor TEXT NOT NULL CHECK (actor IN ('SYSTEM','AGENT','USER')),
     payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
     occurred_at TEXT NOT NULL
@@ -950,7 +950,7 @@ export class V2SqliteStore {
       WHERE graph_id = ? AND source_kind = ? AND source_external_id = ?`).get(graphId, sourceKind, sourceExternalId) as
       | { decision_json: string }
       | undefined;
-    return row ? JSON.parse(row.decision_json) as AgentDecision : undefined;
+    return row ? validateAgentDecision(JSON.parse(row.decision_json) as unknown) : undefined;
   }
 
   saveAgentDecision(
@@ -958,6 +958,8 @@ export class V2SqliteStore {
     event: AgentDecisionEvent | undefined,
     idempotencyKey: string,
   ): { decision: AgentDecision; event?: AgentDecisionEvent; replayed: boolean } {
+    validateAgentDecision(decision);
+    if (event) validateAgentDecisionEvent(event);
     this.requireIdempotencyKey(idempotencyKey);
     const write = this.database.transaction(() => {
       const receipt = this.receipt(idempotencyKey);
@@ -965,15 +967,17 @@ export class V2SqliteStore {
         if (receipt.command_name !== "RecordAgentDecision") {
           throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
         }
-        const restored = JSON.parse(receipt.result_json) as { decision: AgentDecision; event?: AgentDecisionEvent };
-        return { ...restored, replayed: true };
+        const restored = JSON.parse(receipt.result_json) as Record<string, unknown>;
+        const restoredDecision = validateAgentDecision(restored.decision);
+        const restoredEvent = restored.event === undefined ? undefined : validateAgentDecisionEvent(restored.event);
+        return { decision: restoredDecision, ...(restoredEvent ? { event: restoredEvent } : {}), replayed: true };
       }
 
       const currentRow = this.database.prepare("SELECT decision_json FROM agent_decisions WHERE thread_id = ?").get(decision.threadId) as
         | { decision_json: string }
         | undefined;
       if (currentRow) {
-        const current = JSON.parse(currentRow.decision_json) as AgentDecision;
+        const current = validateAgentDecision(JSON.parse(currentRow.decision_json) as unknown);
         if (current.graphId !== decision.graphId
           || current.sourceRoot.kind !== decision.sourceRoot.kind
           || current.sourceRoot.externalId !== decision.sourceRoot.externalId) {
@@ -1040,7 +1044,7 @@ export class V2SqliteStore {
     const rows = input.since
       ? this.database.prepare("SELECT decision_json FROM agent_decisions WHERE updated_at > ? ORDER BY updated_at DESC, thread_id LIMIT ?").all(input.since, input.limit)
       : this.database.prepare("SELECT decision_json FROM agent_decisions ORDER BY updated_at DESC, thread_id LIMIT ?").all(input.limit);
-    return (rows as Array<{ decision_json: string }>).map((row) => JSON.parse(row.decision_json) as AgentDecision);
+    return (rows as Array<{ decision_json: string }>).map((row) => validateAgentDecision(JSON.parse(row.decision_json) as unknown));
   }
 
   listAgentDecisionEvents(threadId: string): AgentDecisionEvent[] {
@@ -1053,7 +1057,7 @@ export class V2SqliteStore {
         actor: AgentDecisionEvent["actor"];
         payload_json: string;
         occurred_at: string;
-      }>).map((row) => ({
+      }>).map((row) => validateAgentDecisionEvent({
         eventId: row.event_id,
         threadId: row.thread_id,
         decisionId: row.decision_id,
@@ -1068,7 +1072,7 @@ export class V2SqliteStore {
     const row = this.database.prepare("SELECT authorization_json FROM agent_rule_authorizations WHERE rule_id = ?").get(ruleId) as
       | { authorization_json: string }
       | undefined;
-    return row ? JSON.parse(row.authorization_json) as AgentRuleAuthorization : undefined;
+    return row ? validateAgentRuleAuthorization(JSON.parse(row.authorization_json) as unknown) : undefined;
   }
 
   saveAgentRuleAuthorization(
@@ -1076,6 +1080,7 @@ export class V2SqliteStore {
     expectedUpdatedAt: string | undefined,
     idempotencyKey: string,
   ): { authorization: AgentRuleAuthorization; replayed: boolean } {
+    validateAgentRuleAuthorization(authorization);
     this.requireIdempotencyKey(idempotencyKey);
     const write = this.database.transaction(() => {
       const receipt = this.receipt(idempotencyKey);
@@ -1083,7 +1088,7 @@ export class V2SqliteStore {
         if (receipt.command_name !== "SaveAgentRuleAuthorization") {
           throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
         }
-        return { authorization: JSON.parse(receipt.result_json) as AgentRuleAuthorization, replayed: true };
+        return { authorization: validateAgentRuleAuthorization(JSON.parse(receipt.result_json) as unknown), replayed: true };
       }
       const current = this.getAgentRuleAuthorization(authorization.ruleId);
       if (current) {
@@ -1123,20 +1128,20 @@ export class V2SqliteStore {
   listAgentRuleAuthorizations(): AgentRuleAuthorization[] {
     return (this.database.prepare("SELECT authorization_json FROM agent_rule_authorizations ORDER BY rule_id").all() as Array<{
       authorization_json: string;
-    }>).map((row) => JSON.parse(row.authorization_json) as AgentRuleAuthorization);
+    }>).map((row) => validateAgentRuleAuthorization(JSON.parse(row.authorization_json) as unknown));
   }
 
   getAgentReviewSignalBySource(graphId: string, sourceExternalId: string): AgentReviewSignal | undefined {
     const row = this.database.prepare(`SELECT signal_json FROM agent_review_signals
       WHERE graph_id = ? AND source_external_id = ?`).get(graphId, sourceExternalId) as { signal_json: string } | undefined;
-    return row ? JSON.parse(row.signal_json) as AgentReviewSignal : undefined;
+    return row ? validateAgentReviewSignal(JSON.parse(row.signal_json) as unknown) : undefined;
   }
 
   getAgentReviewSignal(reviewSignalId: string): AgentReviewSignal | undefined {
     const row = this.database.prepare("SELECT signal_json FROM agent_review_signals WHERE review_signal_id = ?").get(reviewSignalId) as
       | { signal_json: string }
       | undefined;
-    return row ? JSON.parse(row.signal_json) as AgentReviewSignal : undefined;
+    return row ? validateAgentReviewSignal(JSON.parse(row.signal_json) as unknown) : undefined;
   }
 
   saveAgentReviewSignal(
@@ -1144,6 +1149,7 @@ export class V2SqliteStore {
     expected: AgentReviewSignal | undefined,
     idempotencyKey: string,
   ): { signal: AgentReviewSignal; replayed: boolean } {
+    validateAgentReviewSignal(signal);
     this.requireIdempotencyKey(idempotencyKey);
     const write = this.database.transaction(() => {
       const receipt = this.receipt(idempotencyKey);
@@ -1151,7 +1157,7 @@ export class V2SqliteStore {
         if (receipt.command_name !== "SaveAgentReviewSignal") {
           throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
         }
-        return { signal: JSON.parse(receipt.result_json) as AgentReviewSignal, replayed: true };
+        return { signal: validateAgentReviewSignal(JSON.parse(receipt.result_json) as unknown), replayed: true };
       }
       const current = this.getAgentReviewSignal(signal.reviewSignalId);
       if (current) {
@@ -1194,7 +1200,7 @@ export class V2SqliteStore {
     const rows = input.status
       ? this.database.prepare("SELECT signal_json FROM agent_review_signals WHERE status = ? ORDER BY last_seen_at DESC, review_signal_id LIMIT ?").all(input.status, input.limit)
       : this.database.prepare("SELECT signal_json FROM agent_review_signals ORDER BY last_seen_at DESC, review_signal_id LIMIT ?").all(input.limit);
-    return (rows as Array<{ signal_json: string }>).map((row) => JSON.parse(row.signal_json) as AgentReviewSignal);
+    return (rows as Array<{ signal_json: string }>).map((row) => validateAgentReviewSignal(JSON.parse(row.signal_json) as unknown));
   }
 
   activeCandidateForSourceAnchor(sourceAnchorId: string): V2Candidate | undefined {

@@ -5,8 +5,8 @@
 | ID | Requirement | Code evidence | Automated evidence | Desktop/runtime evidence | Status |
 |---|---|---|---|---|---|
 | ADG-BASE-01 | 真实 Git/Node/Logseq/Plugin/SQLite/Provider/Skill 基线 | `GOAL.md` | command transcript | running Service + Doctor | DONE |
-| ADG-ARCH-01 | 复用唯一正式写入内核；外部 Agent 权限不扩张 | ADR 0009 + `packages/application/src/agent-governance.ts` | domain/application boundaries + existing No-Agent regression | No-Agent regression | AUTOMATED_FOUNDATION |
-| ADG-DATA-01 | Decision Thread/Revision/Event/Review Signal/Authorization schema v13 | `packages/domain/src/agent-governance.ts`; `packages/persistence/src/sqlite.ts` | domain + persistence + v1→v13/v12→v13 explicit migration + reload tests | live migration/reload/Graph switch | AUTOMATED_FOUNDATION |
+| ADG-ARCH-01 | 复用唯一正式写入内核；外部 Agent 权限不扩张 | ADR 0009 + `packages/application/src/agent-governance.ts` + read-only Service/CLI routes | domain/application boundaries + no CLI promote/apply + existing No-Agent regression | No-Agent regression | AUTOMATED_FOUNDATION |
+| ADG-DATA-01 | Decision Thread/Revision/Event/Review Signal/Authorization schema v13 | Domain validators; Application; SQLite; Local Service/client | v1→v13/v12→v13 migration + reload + backup/restore + forged-response rejection | live migration/reload/Graph switch | AUTOMATED_FOUNDATION |
 | ADG-DATA-02 | Feedback 与 Undo 分离；bulk compatibility grouping | pending | application tests | Desktop scenario F | NOT_STARTED |
 | ADG-GATE-01 | format-only suppression、强/弱信号、Source Root、latest wins | pending | gate/source tests | scenarios A–D | NOT_STARTED |
 | ADG-CTX-01 | LOCAL/EXPANDED/REVIEW、metrics、truncation fail-closed | pending | context budget tests | scenarios C/I | NOT_STARTED |
