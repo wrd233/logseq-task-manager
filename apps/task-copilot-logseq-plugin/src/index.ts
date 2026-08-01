@@ -265,6 +265,7 @@ const originRouteController = new OriginRouteController({
 let pageContext: PageContextSnapshot | undefined;
 let originRoute: OriginRouteToken | undefined;
 let durableOriginLoadedGraphKey: string | undefined;
+let durableOriginResolveAttemptedGraphKey: string | undefined;
 let v2ReentryTargetObjectId: string | undefined;
 const v2ProviderTarget = new SelectedBlockAnalysisTarget();
 let serviceDiscoveryGeneration = 0;
@@ -332,6 +333,42 @@ async function restoreBusinessOriginForCurrentGraph(): Promise<void> {
   durableOriginLoadedGraphKey = graphKey;
   const restored = await loadDurableOrigin(logseq.FileStorage, graphKey);
   if (restored) originRoute = restored;
+}
+
+async function resolveDurableOriginAfterReload(): Promise<void> {
+  const graphKey = currentGraphKey;
+  const token = originRoute;
+  if (!graphKey || !token || durableOriginResolveAttemptedGraphKey === graphKey || runtimeEndedByUser) return;
+  if (logseq.isMainUIVisible) {
+    durableOriginResolveAttemptedGraphKey = graphKey;
+    return;
+  }
+  durableOriginResolveAttemptedGraphKey = graphKey;
+  let result: Awaited<ReturnType<OriginRouteController["resolveAfterReload"]>> | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      if (logseq.isMainUIVisible) return;
+    }
+    result = await originRouteController.resolveAfterReload(token);
+    if (result.status !== "SOURCE_UNAVAILABLE") break;
+  }
+  if (!result) return;
+  operationalLogger.log(
+    result.status === "PARKED" || result.status === "RETURNED" || result.status === "RETURNED_PAGE_ONLY" ? "info" : "warn",
+    "source-resolution",
+    "durable_origin_reload_resolved",
+    { actionId: "resolve-durable-origin", result: result.status.toLowerCase() },
+  );
+  if (result.status === "SOURCE_UNAVAILABLE") {
+    actionDialog = {
+      kind: "v2-origin-fallback",
+      value: JSON.stringify({ pageName: token.pageName, label: result.label }),
+    };
+    message = undefined;
+    latestError = undefined;
+    await showTaskCopilot();
+  }
 }
 
 function abandonV2RebindCaptureWithoutResume(): void {
@@ -2318,6 +2355,20 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await returnToBusinessOrigin();
     return;
   }
+  if (action === "v2-origin-fallback-open" && value) {
+    try {
+      await logseq.App.pushState("page", { name: value });
+    } finally {
+      await clearBusinessOrigin();
+      await logseq.hideMainUI();
+    }
+    return;
+  }
+  if (action === "v2-origin-fallback-dismiss") {
+    await clearBusinessOrigin();
+    await logseq.hideMainUI();
+    return;
+  }
   if (action === "v2-page-context-back" && value) {
     const current = requirePageContext(value);
     pageContext = await pageContextController.open(current.pageUuid);
@@ -4039,7 +4090,6 @@ async function processBlockFromContext(blockUuid: string): Promise<void> {
 
 async function returnToBusinessOrigin(): Promise<void> {
   const token = originRoute;
-  await clearBusinessOrigin();
   if (!token) {
     logseq.hideMainUI();
     return;
@@ -4583,6 +4633,12 @@ async function initializeFeatures(): Promise<void> {
     void projectPageHeadActionController.refreshAll()
       .catch((error: unknown) => operationalLogger.log("warn", "source-resolution", "project_page_head_refresh_failed", {
         result: "hidden",
+        errorCode: explain(error),
+      }));
+    void recoverCurrentGraphIdentity()
+      .then(() => resolveDurableOriginAfterReload())
+      .catch((error: unknown) => operationalLogger.log("warn", "plugin-lifecycle", "durable_origin_resolve_failed", {
+        result: "parked",
         errorCode: explain(error),
       }));
     if (serviceConnection.status === "READY" && serviceRuntimeClient) return;

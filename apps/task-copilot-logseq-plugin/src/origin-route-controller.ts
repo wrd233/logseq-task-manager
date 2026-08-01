@@ -35,6 +35,12 @@ export interface OriginReturnResult {
   label: string;
 }
 
+export type DurableOriginResolveResult =
+  | { status: "RETURNED"; label: string }
+  | { status: "RETURNED_PAGE_ONLY"; label: string }
+  | { status: "PARKED"; label: string }
+  | { status: "SOURCE_UNAVAILABLE"; label: string };
+
 async function resolvePage(host: OriginRouteHost, value: unknown): Promise<{ pageUuid: string; pageName: string } | undefined> {
   const page = await resolveLogseqPageReference(value, (identity) => host.getPage(identity));
   const pageName = page.originalName ?? page.pageName ?? (page.displayName === "无法解析的 Logseq 页面" ? undefined : page.displayName.replace(" · Journal", ""));
@@ -131,6 +137,7 @@ export class OriginRouteController {
             };
           }
           await this.host.scrollToBlockInPage(currentBlockPage.pageName, token.blockUuid);
+          this.host.pushState("page", { name: currentBlockPage.pageName });
         }
         return { status: "RETURNED", label: "已回到原内容。" };
       }
@@ -155,5 +162,64 @@ export class OriginRouteController {
     } finally {
       this.host.hideMainUI();
     }
+  }
+
+  async resolveAfterReload(token: OriginRouteToken): Promise<DurableOriginResolveResult> {
+    const currentPage = await resolvePage(this.host, await this.host.getCurrentPage());
+    if (currentPage) {
+      return {
+        status: "PARKED",
+        label: "已保留返回现场；需要时仍可从 Task Copilot 返回原内容。",
+      };
+    }
+
+    if (token.kind === "BLOCK") {
+      const block = RuntimeShapeAdapter.block(await this.host.getBlock(token.blockUuid));
+      if (block && block.uuid === token.blockUuid && block.page !== undefined) {
+        const blockPage = await resolvePage(this.host, block.page);
+        if (blockPage && token.surface === "MAIN_PAGE") {
+          if (!this.host.scrollToBlockInPage) {
+            return {
+              status: "SOURCE_UNAVAILABLE",
+              label: "当前 Logseq 不能定位原内容；可以尝试手动打开来源页面。",
+            };
+          }
+          await this.host.pushState("page", { name: blockPage.pageName });
+          await this.host.scrollToBlockInPage(blockPage.pageName, token.blockUuid);
+          return { status: "RETURNED", label: "已回到来源内容。" };
+        }
+        if (blockPage) return { status: "RETURNED", label: "已回到来源内容。" };
+      }
+      const pageByName = await resolvePage(this.host, await this.host.getPage(token.pageName));
+      if (pageByName) {
+        await this.host.pushState("page", { name: pageByName.pageName });
+        return {
+          status: "RETURNED_PAGE_ONLY",
+          label: "原内容已不可用；已回到它所在的页面。",
+        };
+      }
+      return {
+        status: "SOURCE_UNAVAILABLE",
+        label: "原内容与所在页面都无法定位；可以尝试在知识库中搜索。",
+      };
+    }
+
+    const pageByUuid = await resolvePage(this.host, await this.host.getPage(token.pageUuid));
+    if (pageByUuid && pageByUuid.pageUuid === token.pageUuid) {
+      if (token.surface === "MAIN_PAGE") await this.host.pushState("page", { name: pageByUuid.pageName });
+      return { status: "RETURNED", label: "已回到原页面。" };
+    }
+    const pageByName = await resolvePage(this.host, await this.host.getPage(token.pageName));
+    if (pageByName) {
+      if (token.surface === "MAIN_PAGE") await this.host.pushState("page", { name: pageByName.pageName });
+      return {
+        status: "RETURNED_PAGE_ONLY",
+        label: "原页面已改名或路由变化；已按名称回到原页面。",
+      };
+    }
+    return {
+      status: "SOURCE_UNAVAILABLE",
+      label: "原页面无法定位；可以尝试在知识库中搜索。",
+    };
   }
 }

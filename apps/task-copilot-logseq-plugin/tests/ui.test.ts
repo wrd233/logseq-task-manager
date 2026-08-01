@@ -635,7 +635,7 @@ test("Project current interface is readable in reentry and editable only through
   value.v2PrimaryOwnerships = [];
   value.v2Associations = [];
   const html = renderApp(value);
-  assert.match(html, /Project 当前接口/);
+  assert.match(html, /项目当前信息/);
   assert.match(html, /稳定发布/);
   assert.match(html, /发布手册/);
   assert.match(html, /正在验证恢复路径/);
@@ -799,7 +799,7 @@ test("Project creation exposes one adaptive Grill entry across Blank, Page, and 
   assert.match(html, /data-action="v2-project-creation-grill-open" data-value="BLANK"/);
   assert.match(html, /开始梳理项目/);
   assert.match(html, /data-action="v2-project-creation-grill-open" data-value="MINI_PROJECT:mini:release:1:4"/);
-  assert.match(html, /演化为 Project/);
+  assert.match(html, /升级为项目/);
   assert.doesNotMatch(html, /data-action="create-v2-project"|data-field="v2ProjectName"|直接创建/);
 });
 
@@ -1299,7 +1299,7 @@ test("Project workspace requires adaptive Grill and exposes no direct-creation b
 
 test("Area workspace exposes controlled creation and versioned edit without inventing a Graph page", () => {
   const unavailable = renderApp(model());
-  assert.match(unavailable, /V2 · Area 受控入口/);
+  assert.match(unavailable, /新建领域/);
   assert.match(unavailable, /data-field="v2AreaText"[^>]*disabled/);
   assert.match(unavailable, /data-action="create-v2-area"[^>]*disabled/);
 
@@ -1347,15 +1347,15 @@ test("V2 Project workspace reads formal objects without mapping Lifecycle back t
   }];
   const html = renderApp(value);
   assert.match(html, /告警推送治理/);
-  assert.match(html, /PROJECT · OPEN · ACTIONABLE · v2/);
+  assert.match(html, /项目 · 进行中 · 可以行动/);
   assert.doesNotMatch(html, /还没有正式对象/);
-  assert.doesNotMatch(html, /PROJECT · ACTIVE · ACTIONABLE/);
-  assert.match(html, /只表达“相关”，不会改变 Primary Ownership/);
+  assert.doesNotMatch(html, /PROJECT · ACTIVE · ACTIONABLE|PROJECT · OPEN · ACTIONABLE · v2/);
+  assert.match(html, /只表达“这两项相关”，不会改变归属、位置或当前状态/);
   assert.match(html, /data-action="v2-association-add"/);
   assert.match(html, /data-field="v2AssociationConfirmed"/);
-  assert.match(html, /PROJECT · 告警推送治理 → OUTPUT · 验证记录/);
-  assert.match(html, /RELATED · ACTIVE/);
-  assert.match(html, /OUTPUT · 验证记录 → PROJECT · 告警推送治理/);
+  assert.match(html, /项目 · 告警推送治理 → 成果 · 验证记录/);
+  assert.match(html, /相关 · 有效/);
+  assert.match(html, /成果 · 验证记录 → 项目 · 告警推送治理/);
   assert.match(html, /唯一主归属/);
 });
 
@@ -1364,7 +1364,7 @@ test("OPEN MiniProject exposes one sidebar Closure Proposal entry and completed 
   value.v2Objects = [{ objectId: "mini-open", objectType: "MINI_PROJECT", version: 4, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "侧栏关闭验收", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" }];
   let html = renderApp(value);
   assert.match(html, /data-action="v2-mini-project-closure-propose" data-value="mini-open\|4"/);
-  assert.match(html, /完成 MiniProject/);
+  assert.match(html, /完成小项目/);
   value.v2ClosureProposalBusy = true;
   html = renderApp(value);
   assert.match(html, /正在发起…/);
@@ -1373,6 +1373,27 @@ test("OPEN MiniProject exposes one sidebar Closure Proposal entry and completed 
   value.v2ClosureProposalBusy = false;
   html = renderApp(value);
   assert.doesNotMatch(html, /data-action="v2-mini-project-closure-propose"/);
+});
+
+test("daily object workspace hides internal model terms behind user language", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.v2AssociationAvailable = true;
+  value.v2Associations = [{ associationId: "rel-1", sourceObjectId: "project-1", targetObjectId: "output-1", associationKind: "RELATED", status: "ACTIVE", createdAt: "now", updatedAt: "now" }];
+  value.v2PrimaryOwnerships = [{ childObjectId: "output-1", ownerObjectId: "project-1", assignedAt: "now" }];
+  value.v2Objects = [
+    { objectId: "project-1", objectType: "PROJECT", version: 2, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "告警推送治理", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test", projectStructure: { objectives: [], deliverables: [{ deliverableId: "deliverable-1", text: "发布手册", acceptance: "可执行", status: "AVAILABLE" }], workStages: [], currentSummary: "核心链路完成", currentFocuses: ["验收"], stageMappings: [] } },
+    { objectId: "output-1", objectType: "OUTPUT", version: 1, lifecycle: "OPEN", condition: { kind: "ACTIONABLE" }, text: "验证记录", createdAt: "now", updatedAt: "now", sourceOrCreationEvent: "test" },
+  ];
+  const html = renderApp(value);
+  const visible = html.replace(/<[^>]+>/g, " ");
+  for (const internal of ["SQLite", "Anchor", "Association", "Lifecycle", "Primary Ownership", "OUTPUT", "MINI_PROJECT", "PROJECT", "ACTIONABLE", "v2", "AVAILABLE"]) {
+    assert.doesNotMatch(visible, new RegExp(internal));
+  }
+  assert.match(html, /项目 · 进行中 · 可以行动/);
+  assert.match(html, /成果 · 验证记录/);
+  assert.match(html, /相关 · 有效/);
+  assert.match(html, /发布手册 · 可用 · 验收：可执行/);
 });
 
 test("MiniProject Grill renders a session-only multi-turn boundary with loading, error recovery, and no formal action", () => {
@@ -1401,7 +1422,7 @@ test("MiniProject Grill renders a session-only multi-turn boundary with loading,
   value.originReturnLabel = "返回原内容";
   value.v2MiniProjectGrill = { "mini-open": { status: "ready", expectedVersion: 4, answers: [], result } };
   html = renderApp(value);
-  assert.match(html, /只保留来源摘要、已确认事实和当前唯一问题/);
+  assert.match(html, /每次只回答一个与这个小项目有关的问题/);
   assert.match(html, /<details class="grill-reasoning"><summary>查看判断依据<\/summary>/);
   assert.match(html, /当前目标是交付一个可验证的发布结果/);
   assert.match(html, /哪些内容明确不属于本次交付/);
@@ -2667,7 +2688,7 @@ test("completed Project keeps its readable Closure in the formal object workspac
     originalGoal: "推送可控", actualResult: "新链路上线", majorDeliverables: ["推送服务"], incompleteObjectives: [{ objective: "历史回放", reason: "数据未齐", nextStep: "转入数据治理" }], legacyDisposition: "新 Project 承接", keyDecisions: ["保留回退"], futureSummary: "重入先查数据",
   } }];
   const html = renderApp(value);
-  for (const text of ["Project Closure", "推送可控", "新链路上线", "历史回放", "数据未齐", "转入数据治理", "新 Project 承接", "保留回退", "重入先查数据"]) assert.match(html, new RegExp(text));
+  for (const text of ["项目完成回顾", "推送可控", "新链路上线", "历史回放", "数据未齐", "转入数据治理", "新 Project 承接", "保留回退", "重入先查数据"]) assert.match(html, new RegExp(text));
 });
 
 test("completed MiniProject keeps the three-question Closure readable in the formal object workspace", () => {
@@ -2677,7 +2698,7 @@ test("completed MiniProject keeps the three-question Closure readable in the for
     originalGoal: "发布前完成全部核对", actualResult: "检查项全部通过", remainingWork: "监控首日指标",
   } }];
   const html = renderApp(value);
-  for (const text of ["MiniProject Closure", "发布前完成全部核对", "检查项全部通过", "监控首日指标"]) assert.match(html, new RegExp(text));
+  for (const text of ["小项目完成回顾", "发布前完成全部核对", "检查项全部通过", "监控首日指标"]) assert.match(html, new RegExp(text));
 });
 
 test("object and high-impact actions render in-plugin forms instead of browser modals", () => {
@@ -2825,9 +2846,13 @@ test("formal plugin entry does not regress to host browser prompts", async () =>
   assert.doesNotMatch(projectClosureSubmit, /"[^"\n]*(?:Project Closure|Objective|Proposal)[^"\n]*"/);
   assert.doesNotMatch(source, /action === "create-v2-project"/);
   assert.match(source, /const returnToOrigin = cancelActionDialogReturnsToOrigin\(actionDialog\?\.kind, originRoute !== undefined\);[\s\S]*if \(returnToOrigin\) \{[\s\S]*await returnToBusinessOrigin\(\);/);
-  assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*await clearBusinessOrigin\(\);[\s\S]*originRouteController\.returnTo\(token\)/);
+  assert.match(source, /async function returnToBusinessOrigin\(\)[\s\S]*const token = originRoute;[\s\S]*originRouteController\.returnTo\(token\)/);
   assert.match(source, /async function bindBusinessOrigin[\s\S]*saveDurableOrigin\(logseq\.FileStorage, graphKey, token\)/);
   assert.match(source, /async function environmentInfo[\s\S]*await restoreBusinessOriginForCurrentGraph\(\)/);
+  assert.match(source, /async function resolveDurableOriginAfterReload\(\)[\s\S]*originRouteController\.resolveAfterReload\(token\)/);
+  assert.match(source, /recoverCurrentGraphIdentity\(\)\s*\.then\(\(\) => resolveDurableOriginAfterReload\(\)\)/);
+  assert.match(source, /action === "v2-origin-fallback-open"/);
+  assert.match(source, /action === "v2-origin-fallback-dismiss"/);
   assert.match(source, /createDelegatedActionHandler\(async \(action, value\) => \{[\s\S]*beginUiAction\(action\);[\s\S]*handleAction\(action, value\)/);
   assert.match(source, /const outcome = createScopedOutcome\([\s\S]*activeOutcomeScope\(\{ workspace,[\s\S]*actionDialogKind: actionDialog\.kind/);
   assert.match(source, /function beginUiAction[\s\S]*v2CandidatePanel\.status === "success"[\s\S]*v2ProviderState\.status === "success"[\s\S]*v2ProjectClosureProposalMessage = undefined/);

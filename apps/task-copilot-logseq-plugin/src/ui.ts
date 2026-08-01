@@ -92,7 +92,8 @@ export type ActionDialogKind =
   | "v2-page-context"
   | "v2-page-formal-items"
   | "v2-backup-restore"
-  | "confirm-end-task-copilot";
+  | "confirm-end-task-copilot"
+  | "v2-origin-fallback";
 
 export function cancelActionDialogReturnsToOrigin(kind: ActionDialogKind | undefined, hasOrigin: boolean): boolean {
   if (!hasOrigin) return false;
@@ -416,49 +417,49 @@ function renderV2ObjectClosure(object: V2ManagedObject): string {
   if (!object.closure) return "";
   if (object.objectType === "MINI_PROJECT") {
     const closure = object.closure as V2MiniProjectClosure;
-    return `<details class="mini-project-closure" open><summary>MiniProject Closure</summary><p><strong>原目标：</strong>${escapeHtml(closure.originalGoal)}</p><p><strong>实际结果：</strong>${escapeHtml(closure.actualResult)}</p><p><strong>遗留或转移：</strong>${escapeHtml(closure.remainingWork)}</p></details>`;
+    return `<details class="mini-project-closure" open><summary>小项目完成回顾</summary><p><strong>原目标：</strong>${escapeHtml(closure.originalGoal)}</p><p><strong>实际结果：</strong>${escapeHtml(closure.actualResult)}</p><p><strong>遗留或转移：</strong>${escapeHtml(closure.remainingWork)}</p></details>`;
   }
   const closure = object.closure as V2ProjectClosure;
-  return `<details class="project-closure" open><summary>Project Closure</summary><p><strong>原始目标：</strong>${escapeHtml(closure.originalGoal)}</p><p><strong>实际结果：</strong>${escapeHtml(closure.actualResult)}</p><p><strong>主要交付：</strong>${escapeHtml(closure.majorDeliverables.join("；") || "无")}</p><p><strong>未完成 Objective：</strong>${closure.incompleteObjectives.length ? closure.incompleteObjectives.map((item) => `${escapeHtml(item.objective)}（${escapeHtml(item.reason)} → ${escapeHtml(item.nextStep)}）`).join("；") : "无"}</p><p><strong>遗留去向：</strong>${escapeHtml(closure.legacyDisposition)}</p><p><strong>关键 Decision：</strong>${escapeHtml(closure.keyDecisions.join("；") || "无")}</p><p><strong>未来重入：</strong>${escapeHtml(closure.futureSummary)}</p></details>`;
+  return `<details class="project-closure" open><summary>项目完成回顾</summary><p><strong>原始目标：</strong>${escapeHtml(closure.originalGoal)}</p><p><strong>实际结果：</strong>${escapeHtml(closure.actualResult)}</p><p><strong>主要交付：</strong>${escapeHtml(closure.majorDeliverables.join("；") || "无")}</p><p><strong>未完成目标：</strong>${closure.incompleteObjectives.length ? closure.incompleteObjectives.map((item) => `${escapeHtml(item.objective)}（${escapeHtml(item.reason)} → ${escapeHtml(item.nextStep)}）`).join("；") : "无"}</p><p><strong>遗留去向：</strong>${escapeHtml(closure.legacyDisposition)}</p><p><strong>关键决定：</strong>${escapeHtml(closure.keyDecisions.join("；") || "无")}</p><p><strong>未来重入：</strong>${escapeHtml(closure.futureSummary)}</p></details>`;
 }
 
 function renderV2ProjectStructure(object: V2ManagedObject): string {
   const structure = object.objectType === "PROJECT" ? object.projectStructure : undefined;
   if (!structure) return "";
-  const objectives = structure.objectives.length ? `<section><h4>Objectives</h4><ul>${structure.objectives.map((item) => `<li><strong>${escapeHtml(item.priority === "PRIMARY" ? "Primary" : "Secondary")}：</strong>${escapeHtml(item.text)}${item.successEvidence.length ? ` · 成功证据：${escapeHtml(item.successEvidence.join("；"))}` : ""}</li>`).join("")}</ul></section>` : "";
-  const deliverables = structure.deliverables.length ? `<section><h4>Deliverables</h4><ul>${structure.deliverables.map((item) => `<li>${escapeHtml(item.text)} · ${escapeHtml(item.status)} · 验收：${escapeHtml(item.acceptance)}</li>`).join("")}</ul></section>` : "";
-  const stages = structure.workStages.length ? `<section><h4>Work Stages</h4><ul>${structure.workStages.map((item) => `<li>${escapeHtml(item.name)}：${escapeHtml(item.statusDescription)}</li>`).join("")}</ul></section>` : "";
-  return `<details class="project-structure" open><summary>Project 当前接口</summary><p><strong>当前摘要：</strong>${escapeHtml(structure.currentSummary)}</p><p><strong>当前推进：</strong>${escapeHtml(structure.currentFocuses.join("；"))}</p>${objectives}${deliverables}${stages}${structure.stageMappings.length ? `<p class="muted">${structure.stageMappings.length} 个工作对象已映射主 Work Stage；阶段调整不会移动正文或改变归属。</p>` : ""}</details>`;
+  const objectives = structure.objectives.length ? `<section><h4>目标</h4><ul>${structure.objectives.map((item) => `<li><strong>${escapeHtml(item.priority === "PRIMARY" ? "主要" : "次要")}：</strong>${escapeHtml(item.text)}${item.successEvidence.length ? ` · 完成证据：${escapeHtml(item.successEvidence.join("；"))}` : ""}</li>`).join("")}</ul></section>` : "";
+  const deliverables = structure.deliverables.length ? `<section><h4>交付</h4><ul>${structure.deliverables.map((item) => `<li>${escapeHtml(item.text)} · ${escapeHtml(deliverableStatusLabel(item.status))} · 验收：${escapeHtml(item.acceptance)}</li>`).join("")}</ul></section>` : "";
+  const stages = structure.workStages.length ? `<section><h4>推进阶段</h4><ul>${structure.workStages.map((item) => `<li>${escapeHtml(item.name)}：${escapeHtml(item.statusDescription)}</li>`).join("")}</ul></section>` : "";
+  return `<details class="project-structure" open><summary>项目当前信息</summary><p><strong>当前摘要：</strong>${escapeHtml(structure.currentSummary)}</p><p><strong>当前推进：</strong>${escapeHtml(structure.currentFocuses.join("；"))}</p>${objectives}${deliverables}${stages}${structure.stageMappings.length ? `<p class="muted">${structure.stageMappings.length} 个工作对象已映射到主推进阶段；阶段调整不会移动正文或改变归属。</p>` : ""}</details>`;
 }
 
 function renderObjects(model: UiModel): string {
   const relationError = model.v2RelationLoadError ? `<section class="card error" role="alert"><strong>关系投影暂不可用</strong><p>${escapeHtml(model.v2RelationLoadError)}</p><p class="muted">正式对象与其他工作区仍可使用；没有执行关系写入。</p></section>` : "";
   const projectCreator = `<section class="card project-creator" aria-label="创建项目"><div class="eyebrow">项目梳理</div><h3>新建项目</h3><p class="muted">先说清想得到的结果、范围、完成证据和当前推进；确认最终阅读结果后再进入“待我确认”。</p>${button("开始梳理项目", "v2-project-creation-grill-open", "BLANK", "primary", model.v2ProjectCreationGrillAvailable !== true)}</section>`;
-  const areaCreator = `<section class="card area-creator" aria-label="创建 Area"><div class="eyebrow">V2 · Area 受控入口</div><h3>新建 Area</h3><p class="muted">记录长期责任边界并写入 SQLite；页面与 Anchor 为可选能力，此处不创建隐式 Graph 副本。</p><label>责任描述<input data-field="v2AreaText" placeholder="例如：维持稳定作息与健康检查"${model.v2AreaAvailable && !model.v2AreaBusy ? "" : " disabled"}></label>${button(model.v2AreaBusy ? "正在创建…" : "创建 Area", "create-v2-area", undefined, "primary", !model.v2AreaAvailable || model.v2AreaBusy === true)}</section>`;
-  const associationCreator = model.v2Objects && model.v2Objects.length >= 2 ? `<section class="card association-creator" aria-label="添加普通 Association"><div class="eyebrow">V2 · 普通关联</div><h3>关联两个正式对象</h3><p class="muted">只表达“相关”，不会改变 Primary Ownership、位置、Lifecycle 或 Focus。</p><label>来源对象<select data-field="v2AssociationSource"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}" data-version="${object.version}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)} · v${object.version}</option>`).join("")}</select></label><label>目标对象<select data-field="v2AssociationTarget"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(object.objectType)} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="v2AssociationConfirmed" value="yes">确认添加普通 Association，不改变归属</label>${button(model.v2AssociationBusy ? "正在添加…" : "添加 Association", "v2-association-add", undefined, "primary", !model.v2AssociationAvailable || model.v2AssociationBusy)}${model.v2Associations?.length ? `<p class="muted">当前已有 ${model.v2Associations.length} 条普通 Association。</p>` : ""}</section>` : "";
+  const areaCreator = `<section class="card area-creator" aria-label="创建领域"><div class="eyebrow">新建领域</div><h3>新建领域</h3><p class="muted">记录一块长期负责的范围，例如健康、家庭或某个工作方向。</p><label>责任描述<input data-field="v2AreaText" placeholder="例如：维持稳定作息与健康检查"${model.v2AreaAvailable && !model.v2AreaBusy ? "" : " disabled"}></label>${button(model.v2AreaBusy ? "正在创建…" : "创建领域", "create-v2-area", undefined, "primary", !model.v2AreaAvailable || model.v2AreaBusy === true)}<details><summary>技术说明</summary><p class="muted">领域是独立正式事项；此入口不会创建隐式页面或正文连接。</p></details></section>`;
+  const associationCreator = model.v2Objects && model.v2Objects.length >= 2 ? `<section class="card association-creator" aria-label="添加相关内容"><div class="eyebrow">相关内容</div><h3>关联两个事项</h3><p class="muted">只表达“这两项相关”，不会改变归属、位置或当前状态。</p><label>来源事项<select data-field="v2AssociationSource"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}" data-version="${object.version}">${escapeHtml(objectTypeLabel(object.objectType))} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label>相关事项<select data-field="v2AssociationTarget"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(objectTypeLabel(object.objectType))} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="v2AssociationConfirmed" value="yes">确认添加相关内容，不改变归属</label>${button(model.v2AssociationBusy ? "正在添加…" : "添加关联", "v2-association-add", undefined, "primary", !model.v2AssociationAvailable || model.v2AssociationBusy)}${model.v2Associations?.length ? `<p class="muted">当前已有 ${model.v2Associations.length} 条相关内容。</p>` : ""}<details><summary>技术说明</summary><p class="muted">“相关内容”是普通关联，不会改变主归属、位置、生命周期或当前关注。</p></details></section>` : "";
   if (model.v2Objects !== undefined) {
-    if (model.v2Objects.length === 0) return `${areaCreator}${projectCreator}${empty("还没有正式对象", "从 Review Center 正式化，或创建 V2 Area / Project。")}`;
-    const objectLabels = new Map(model.v2Objects.map((object) => [object.objectId, `${object.objectType} · ${object.text}`]));
-    const ownershipList = (model.v2PrimaryOwnerships ?? []).length ? `<section aria-label="Primary Ownership 列表"><h2>Primary Ownership</h2><div class="object-list">${(model.v2PrimaryOwnerships ?? []).slice(0, 100).map((ownership) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(ownership.childObjectId) ?? ownership.childObjectId)} → ${escapeHtml(objectLabels.get(ownership.ownerObjectId) ?? ownership.ownerObjectId)}</span><small>唯一主归属</small></article>`).join("")}</div>${(model.v2PrimaryOwnerships?.length ?? 0) > 100 ? `<p class="muted">仅显示前 100 条；完整投影仍由 Local Service 提供。</p>` : ""}</section>` : "";
+    if (model.v2Objects.length === 0) return `${areaCreator}${projectCreator}${empty("还没有正式事项", "从“待整理”或“待我确认”开始，或创建领域/项目。")}`;
+    const objectLabels = new Map(model.v2Objects.map((object) => [object.objectId, `${objectTypeLabel(object.objectType)} · ${object.text}`]));
+    const ownershipList = (model.v2PrimaryOwnerships ?? []).length ? `<section aria-label="所属关系"><h2>所属关系</h2><div class="object-list">${(model.v2PrimaryOwnerships ?? []).slice(0, 100).map((ownership) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(ownership.childObjectId) ?? ownership.childObjectId)} → ${escapeHtml(objectLabels.get(ownership.ownerObjectId) ?? ownership.ownerObjectId)}</span><small>唯一主归属</small></article>`).join("")}</div>${(model.v2PrimaryOwnerships?.length ?? 0) > 100 ? `<p class="muted">仅显示前 100 条；完整投影仍由本地服务提供。</p>` : ""}</section>` : "";
     const visibleAssociations = (model.v2Associations ?? []).slice(0, 100);
-    const associationList = visibleAssociations.length ? `<section aria-label="普通 Association 列表"><h2>普通 Association</h2><div class="object-list">${visibleAssociations.map((association) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(association.sourceObjectId) ?? association.sourceObjectId)} → ${escapeHtml(objectLabels.get(association.targetObjectId) ?? association.targetObjectId)}</span><small>${escapeHtml(association.associationKind)} · ${escapeHtml(association.status)}</small></article>`).join("")}</div>${(model.v2Associations?.length ?? 0) > visibleAssociations.length ? `<p class="muted">仅显示前 ${visibleAssociations.length} 条；完整投影仍由 Local Service 提供。</p>` : ""}</section>` : "";
-    const list = `<section aria-label="V2 正式对象"><h2>正式对象</h2><div class="object-list">${model.v2Objects.map((object) => {
+    const associationList = visibleAssociations.length ? `<section aria-label="相关内容列表"><h2>相关内容</h2><div class="object-list">${visibleAssociations.map((association) => `<article class="object-row"><span>${escapeHtml(objectLabels.get(association.sourceObjectId) ?? association.sourceObjectId)} → ${escapeHtml(objectLabels.get(association.targetObjectId) ?? association.targetObjectId)}</span><small>${escapeHtml(associationKindLabel(association.associationKind))} · ${escapeHtml(associationStatusLabel(association.status))}</small></article>`).join("")}</div>${(model.v2Associations?.length ?? 0) > visibleAssociations.length ? `<p class="muted">仅显示前 ${visibleAssociations.length} 条；完整投影仍由本地服务提供。</p>` : ""}</section>` : "";
+    const list = `<section aria-label="正式事项"><h2>正式事项</h2><div class="object-list">${model.v2Objects.map((object) => {
       const supportsReasonedLifecycle = ["TASK", "MINI_PROJECT", "PROJECT"].includes(object.objectType);
       const lifecycleActions = supportsReasonedLifecycle && object.lifecycle === "OPEN"
-        ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `取消 ${object.objectType}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|CANCEL`, "quiet", model.v2LifecycleProposalBusy === true)
+        ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `取消 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|CANCEL`, "quiet", model.v2LifecycleProposalBusy === true)
         : supportsReasonedLifecycle && (object.lifecycle === "COMPLETED" || object.lifecycle === "CANCELLED")
-          ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${object.objectType}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
+          ? button(model.v2LifecycleProposalBusy ? "正在发起…" : `重开 ${objectTypeLabel(object.objectType)}`, "v2-lifecycle-propose-open", `${object.objectId}|${object.version}|REOPEN`, "quiet", model.v2LifecycleProposalBusy === true)
           : "";
-      const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成 MiniProject", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
+      const closureAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ClosureProposalBusy ? "正在发起…" : "完成小项目", "v2-mini-project-closure-propose", `${object.objectId}|${object.version}`, "quiet", model.v2ClosureProposalBusy === true) : "";
       const grillAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2MiniProjectGrillAvailable ? "梳理小项目" : "梳理暂不可用", "v2-mini-project-grill-open", `${object.objectId}|${object.version}`, "quiet", model.v2MiniProjectGrillAvailable !== true) : "";
-      const evolveProjectAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ProjectCreationGrillAvailable ? "演化为 Project" : "演化暂不可用", "v2-project-creation-grill-open", `MINI_PROJECT:${object.objectId}:${object.version}`, "quiet", model.v2ProjectCreationGrillAvailable !== true) : "";
-      const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑 Area", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
+      const evolveProjectAction = object.objectType === "MINI_PROJECT" && object.lifecycle === "OPEN" ? button(model.v2ProjectCreationGrillAvailable ? "升级为项目" : "升级暂不可用", "v2-project-creation-grill-open", `MINI_PROJECT:${object.objectId}:${object.version}`, "quiet", model.v2ProjectCreationGrillAvailable !== true) : "";
+      const areaAction = object.objectType === "AREA" && object.lifecycle === "OPEN" ? button("编辑领域", "v2-area-edit-open", `${object.objectId}|${object.version}`, "quiet", model.v2AreaBusy === true) : "";
       const projectStructureAction = object.objectType === "PROJECT" && object.lifecycle === "OPEN" ? button("调整项目", "v2-project-operation-router-open", `${object.objectId}|${object.version}`, "quiet") : "";
-      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(object.objectType)} · ${escapeHtml(object.lifecycle)} · ${escapeHtml(object.condition.kind)} · v${escapeHtml(object.version)}</small>${lifecycleActions || closureAction || grillAction || evolveProjectAction || areaAction || projectStructureAction ? `<div class="actions">${areaAction}${grillAction}${evolveProjectAction}${closureAction}${projectStructureAction}${lifecycleActions}</div>` : ""}${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</article>`;
+      return `<article class="object-row"><span>${escapeHtml(object.text)}</span><small>${escapeHtml(objectTypeLabel(object.objectType))} · ${escapeHtml(objectLifecycleLabel(object.lifecycle))} · ${escapeHtml(conditionKindLabel(object.condition.kind))}</small>${lifecycleActions || closureAction || grillAction || evolveProjectAction || areaAction || projectStructureAction ? `<div class="actions">${areaAction}${grillAction}${evolveProjectAction}${closureAction}${projectStructureAction}${lifecycleActions}</div>` : ""}${renderV2ProjectStructure(object)}${renderV2ObjectClosure(object)}</article>`;
     }).join("")}</div></section>`;
     return `${areaCreator}${projectCreator}${relationError}${associationCreator}${ownershipList}${associationList}${list}`;
   }
-  if (model.objects.length === 0) return `${areaCreator}${projectCreator}${empty("还没有正式对象", "从 Proposal Review 整理当前页，或创建 V2 Area / Project。")}`;
+  if (model.objects.length === 0) return `${areaCreator}${projectCreator}${empty("还没有正式事项", "从“待整理”或“待我确认”开始，或创建领域/项目。")}`;
   const list = `<div class="object-list">${model.objects
     .map(
       (object) => `<button class="object-row" data-action="select-object" data-value="${escapeHtml(object.objectId)}">
@@ -1103,6 +1104,32 @@ function objectLifecycleLabel(value: string): string {
   } as Record<string, string>)[value] ?? "状态待确认";
 }
 
+function conditionKindLabel(value: string): string {
+  return ({
+    ACTIONABLE: "可以行动",
+    WAITING: "等待中",
+    BLOCKED: "受阻",
+    PAUSED: "已暂停",
+  } as Record<string, string>)[value] ?? "状态待确认";
+}
+
+function associationKindLabel(value: string): string {
+  return value === "RELATED" ? "相关" : value;
+}
+
+function associationStatusLabel(value: string): string {
+  return value === "ACTIVE" ? "有效" : value === "REPLACED" ? "已被替换" : value === "MISSING" ? "已失效" : value;
+}
+
+function deliverableStatusLabel(value: string): string {
+  return ({
+    PLANNED: "计划中",
+    AVAILABLE: "可用",
+    ACCEPTED: "已接受",
+    SUPERSEDED: "已替代",
+  } as Record<string, string>)[value] ?? value;
+}
+
 function migrationPhaseLabel(value: string): string {
   return ({
     IDEA: "想法",
@@ -1393,6 +1420,16 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-origin-fallback") {
+    let fallback: { pageName?: string; label?: string };
+    try {
+      fallback = JSON.parse(dialog.value) as { pageName?: string; label?: string };
+    } catch {
+      fallback = {};
+    }
+    const label = fallback.label ?? "来源页面暂时无法自动定位；没有修改任何正式事项。";
+    return `<section class="inbox-dialog action-dialog" aria-label="返回原工作现场"><div class="eyebrow">返回原工作现场</div><h3>来源页面暂时无法自动定位</h3><p>${escapeHtml(label)}</p>${fallback.pageName ? `<p class="muted">可以按页面名称打开：${escapeHtml(fallback.pageName)}</p>` : ""}<div class="actions">${fallback.pageName ? button("尝试打开原页面", "v2-origin-fallback-open", fallback.pageName, "primary") : ""}${button("留在当前页", "v2-origin-fallback-dismiss", undefined, "quiet")}</div></section>`;
+  }
   if (dialog.kind === "v2-backup-restore") {
     const state = model.v2BackupRestore;
     if (!state || state.status === "idle" || state.status === "loading") {
@@ -1481,7 +1518,11 @@ function renderActionDialog(model: UiModel): string {
       ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2ProjectCreationGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-project-creation-grill-answer", dialog.value, "primary")}</section>` : "";
     const retry = state.status === "error" && state.retryable ? button("重试本轮", "v2-project-creation-grill-retry", dialog.value, "quiet") : "";
     const recheck = state.status === "stale" ? button("基于最新内容重新检查", "v2-project-creation-grill-recheck", dialog.value, "primary") : "";
-    return `<section class="inbox-dialog action-dialog project-creation-grill" aria-label="梳理项目"><div class="eyebrow">项目梳理 · ${escapeHtml(sourceLabel)} · 本次讨论不会保存</div><h3>先把项目说清楚</h3><p class="muted">这里只保留来源摘要、已确认事实和当前唯一问题。智能分析只帮助梳理，不会创建正式事项。</p>${output ? `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${reasoning}` : ""}${loading}${error}${readyForPreview}${previewHtml}${question}<div class="actions">${retry}${recheck}${cancel}</div></section>`;
+    const contextDetails = output
+      ? `<details class="grill-context"><summary>查看系统理解与已确认事实</summary><blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${reasoning}</details>`
+      : "";
+    const mainContent = preview ? `${previewHtml}${contextDetails}` : `${question}${contextDetails}`;
+    return `<section class="inbox-dialog action-dialog project-creation-grill" aria-label="梳理项目"><div class="eyebrow">项目梳理 · ${escapeHtml(sourceLabel)} · 本次讨论不会保存</div><h3>先把项目说清楚</h3><p class="muted">每次只回答一个与当前项目有关的问题；完整理解可以展开查看。</p>${mainContent}${loading}${error}${readyForPreview}<div class="actions">${retry}${recheck}${cancel}</div></section>`;
   }
   if (dialog.kind === "v2-mini-project-grill") {
     const [objectId] = dialog.value.split("|");
@@ -1519,14 +1560,15 @@ function renderActionDialog(model: UiModel): string {
     const discussion = output
       ? preview
         ? `<details class="grill-preview-evidence"><summary>查看讨论依据</summary><div class="grill-preview-evidence-body"><blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${inferences}${unknowns}${recommendation}</div></details>`
-        : `<blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${discussionReasoning}`
+        : `<details class="grill-context"><summary>查看系统理解与已确认事实</summary><blockquote>${escapeHtml(output.understanding)}</blockquote>${facts}${discussionReasoning}</details>`
       : "";
     const question = state.status === "ready" && output?.readiness === "CONTINUE" && output.questionGroup
       ? `<section class="grill-question"><h4>这一轮只确认一件事</h4>${output.questionGroup.questions.map((item) => `<p>${escapeHtml(item.text)}</p>`).join("")}<label>你的回答<textarea data-field="v2MiniProjectGrillAnswer" maxlength="4000" placeholder="直接说明事实、边界或完成证据"></textarea></label>${button("继续讨论", "v2-mini-project-grill-answer", object.objectId, "primary")}</section>`
       : "";
     const retry = state.status === "error" ? button("重试本轮", "v2-mini-project-grill-retry", object.objectId, "quiet") : "";
     const closeLabel = model.originReturnLabel ?? "关闭讨论";
-    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理小项目"><div class="eyebrow">小项目梳理 · 本次讨论结束后清除</div><h3>${escapeHtml(object.text)}</h3><p class="muted">这里只保留来源摘要、已确认事实和当前唯一问题；确认应用前不会改变正文或正式事项。</p>${previewHtml}${discussion}${loading}${error}${readyForPreview}${question}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
+    const mainContent = preview ? `${previewHtml}${discussion}` : `${question}${discussion}`;
+    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理小项目"><div class="eyebrow">小项目梳理 · 本次讨论结束后清除</div><h3>${escapeHtml(object.text)}</h3><p class="muted">每次只回答一个与这个小项目有关的问题；完整理解可以展开查看。</p>${mainContent}${loading}${error}${readyForPreview}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
   }
   if (dialog.kind === "confirm-end-task-copilot") {
     return `<section class="inbox-dialog action-dialog" aria-label="结束本次 Task Copilot"><h3>结束本次 Task Copilot？</h3><p>系统会再次检查未完成修改与正文核对。安全时只结束当前知识库的 Task Copilot；Logseq 正文、历史记录和其他进程不受影响。</p><div class="actions">${button("确认安全结束", "submit-end-task-copilot", undefined, "danger")}${cancel}</div></section>`;
