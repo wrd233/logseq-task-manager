@@ -61,6 +61,11 @@
 - 追加（2026-08-01 第四轮）：anchor 可见滚动 Desktop PASS——宿主语义为“滚到块可见”；复位滚动后
   `scrollToBlockInPage` 使滚动容器 0→411.84、目标块 910→498 进入视口。CUX-P0-02 的 reload /
   quit/reopen / anchor 三项 Desktop 证据齐备；仅剩余 Graph switch、改名、移动等变体与视觉 Gate。
+- 追加（2026-08-01 第五轮）：Page 改名 + 重启 UUID 再生 Desktop 复验发现并修复两个缺口（name-fallback
+  同页匹配、restore 早读时序 + boot 3s/8s 固定尝试 + PARKED 2s/5s 重试）；**同路由 boot 恢复 Desktop
+  PASS**（来源页 hard reload 后无导航，boot 定时器完成恢复：目标块 top=498、inViewport=true、无空白/
+  fallback）。CUX-P0-02 现覆盖 reload、quit/reopen、跨页往返、anchor 可见滚动、改名+UUID 再生、
+  同路由 boot 六类 Desktop 证据；剩余 Graph switch 与 Block 移动/删除为单测覆盖 + 后续变体。
 - 修复：Condition/Candidate/阶段映射/主归属等下拉仍泄漏 `TASK/OUTPUT/...` 原始类型码 → 已改为用户语言
   （ui.ts），新增 select 术语合同测试；Desktop 复验 `hasRawCodes=false`。
 - 明细见 `evidence/DESKTOP_GATE_2026-08-01.md`；截图已就绪，独立视觉 Gate 仍 PENDING。
