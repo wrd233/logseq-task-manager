@@ -262,7 +262,7 @@ test("generic actionable and closed states never invent a next action", () => {
     object: object({ lifecycle: "COMPLETED" }),
   });
 
-  assert.equal(actionable.conclusion, "当前可以继续推进");
+  assert.equal(actionable.conclusion, "可继续");
   assert.deepEqual(actionable.keyEvidence, []);
   assert.deepEqual(actionable.facts.map((item) => item.text), ["正式状态允许继续推进"]);
   assert.deepEqual(actionable.unknowns, ["正式状态没有提供足够信息来判断具体下一步"]);

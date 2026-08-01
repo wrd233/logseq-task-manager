@@ -6,7 +6,7 @@ import { checksum } from "@task-copilot/shared";
 import type { ServiceProjectCreationGrillResult, ServiceProjectCreationPreviewResult } from "@task-copilot/service-client";
 
 import { MigrationScanController } from "../src/migration-scan-controller.ts";
-import { cancelActionDialogReturnsToOrigin, renderApp, type UiModel } from "../src/ui.ts";
+import { cancelActionDialogReturnsToOrigin, renderApp, userFacingRelativeDateTime, type UiModel } from "../src/ui.ts";
 import {
   projectPluginV2ProjectReentry,
   projectPluginV2TaskReentry,
@@ -2108,6 +2108,33 @@ test("Sprint E empty Objects page keeps creation reachable with the structure se
   assert.match(html, /<details class="objects-advanced" open><summary>整理结构（创建领域、项目与关联）<\/summary>/);
   assert.match(html, /data-action="create-v2-area"/);
   assert.match(html, /data-action="v2-project-creation-grill-open"/);
+});
+
+test("Sprint F relative times use today/yesterday/month-day user language", () => {
+  const now = new Date("2026-07-31T21:00:00+08:00");
+  assert.equal(userFacingRelativeDateTime("2026-07-31T20:35:00+08:00", now), "今天 20:35");
+  assert.equal(userFacingRelativeDateTime("2026-07-30T20:35:00+08:00", now), "昨天 20:35");
+  assert.equal(userFacingRelativeDateTime("2026-07-01T09:05:00+08:00", now), "7月1日 9:05");
+  assert.equal(userFacingRelativeDateTime("not-a-date", now), "时间待确认");
+});
+
+test("Sprint F active surface veils the host and postposes grill session microcopy", () => {
+  const value = model();
+  value.workspace = "objects";
+  value.actionDialog = { kind: "v2-condition", value: "task-1|1" };
+  const html = renderApp(value);
+  assert.match(html, /<div class="surface-veil" aria-hidden="true"><\/div><section class="app-shell active-surface-shell">/);
+  assert.doesNotMatch(html, /主要工作区/);
+});
+
+test("Sprint F microcopy moves session-scope language behind the grill hint", async () => {
+  const source = await readFile(new URL("../src/ui.ts", import.meta.url), "utf8");
+  assert.match(source, /<div class="eyebrow">小项目梳理<\/div>/);
+  assert.match(source, /本次讨论内容在结束后清除/);
+  assert.doesNotMatch(source, /本次讨论结束后清除/);
+  const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+  assert.match(css, /\.surface-veil \{ position: fixed; inset: 0; z-index: 0; background: color-mix\(in srgb, var\(--bg\) 58%, transparent\); \}/);
+  assert.match(css, /\.active-surface-shell \{ position: relative; z-index: 1; \}/);
 });
 
 test("V2 Now Work ignores Task reentry projected from another Object version", () => {

@@ -64,7 +64,9 @@
 #task-copilot-personal-mvp-root .section-nav button { flex: 0 0 auto; }
 #task-copilot-personal-mvp-root .workspace { max-height: calc(100vh - 220px); min-height: 360px; overflow: auto; padding: 20px; }
 #task-copilot-personal-mvp-root .active-surface-shell { width: min(760px, calc(100vw - 32px)); }
+#task-copilot-personal-mvp-root .surface-veil { position: fixed; inset: 0; z-index: 0; background: color-mix(in srgb, var(--bg) 58%, transparent); }
 #task-copilot-personal-mvp-root .active-surface { display: grid; align-content: center; max-height: calc(100vh - 124px); min-height: 360px; }
+#task-copilot-personal-mvp-root .active-surface-shell { position: relative; z-index: 1; }
 #task-copilot-personal-mvp-root .active-surface .action-dialog { margin: 0; padding: 20px; }
 #task-copilot-personal-mvp-root .confirmation-context { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 #task-copilot-personal-mvp-root .confirmation-context p { margin: 0; color: var(--muted); line-height: 1.5; }

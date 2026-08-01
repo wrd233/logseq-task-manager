@@ -225,6 +225,19 @@ function userFacingDateTime(value: string): string {
   return Number.isNaN(parsed.getTime()) ? "时间待确认" : parsed.toLocaleString("zh-CN");
 }
 
+export function userFacingRelativeDateTime(value: string, now = new Date()): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "时间待确认";
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  const dayDiff = Math.round((day.getTime() - today.getTime()) / 86_400_000);
+  const time = `${parsed.getHours()}:${String(parsed.getMinutes()).padStart(2, "0")}`;
+  if (dayDiff === 0) return `今天 ${time}`;
+  if (dayDiff === -1) return `昨天 ${time}`;
+  if (dayDiff === 1) return `明天 ${time}`;
+  return `${parsed.getMonth() + 1}月${parsed.getDate()}日 ${time}`;
+}
+
 function localTimeHint(id: string): string {
   return `<p class="muted field-hint" id="${id}">使用当前设备的本地时间。</p>`;
 }
@@ -418,7 +431,7 @@ function renderNow(model: UiModel): string {
         ? ""
         : `${focused ? " · 来自当前关注" : ""}${attentionHint ? " · Copilot 提醒 · 试用" : ""}`;
       const due = !taskRecovery && !taskSafetyUnavailable && item.dueAt
-        ? `<p class="muted">期限：${escapeHtml(new Date(item.dueAt).toLocaleString("zh-CN"))}</p>`
+        ? `<p class="muted">期限：${escapeHtml(userFacingRelativeDateTime(item.dueAt))}</p>`
         : "";
       return `<article class="card compact now-card${focused ? " current-focus" : ""}"${narration ? ` data-narration-rule="${escapeHtml(narration.source.ruleId)}"` : ""}><div class="now-card-content"><div class="eyebrow">${escapeHtml(typeLabels[item.objectType])}${sourceLabel}</div><h3>${escapeHtml(item.text)}</h3>${status}${renderWorksitePreview(item.objectId, item.primaryAnchorExternalId, item.version, model.v2WorksitePreviews?.[item.objectId], focused)}${taskContext}${due}${explanation}</div><div class="now-card-actions">${moreActions}<div class="actions">${primaryAction}</div></div></article>`;
     }).join("");
@@ -804,7 +817,7 @@ function renderReview(model: UiModel): string {
                     : "当前内容已经变化；这次没有应用。请重新检查后再发起。"
               : "审阅方案只记录你的选择，尚未修改正式内容。";
     return `<article class="card proposal v2-proposal" data-narration-rule="${escapeHtml(statusNarration.source.ruleId)}">
-      <div class="eyebrow">待我确认 · ${escapeHtml(new Date(record.updatedAt).toLocaleString("zh-CN"))}</div>
+      <div class="eyebrow">待我确认 · ${escapeHtml(userFacingRelativeDateTime(record.updatedAt))}</div>
       <h3>${escapeHtml(reviewStage)}</h3>
       <p class="lead"><strong>${escapeHtml(reviewTitle)}</strong></p>
       <section class="review-impact" data-impact-level="${highImpact ? "high" : "standard"}" aria-label="方案影响">
@@ -970,7 +983,7 @@ function renderTargetedProjectLanding(
     ? `<section><h4>推进阶段</h4><ul>${structure.workStages.map((item) => `<li>${escapeHtml(item.name)}：${escapeHtml(item.statusDescription)}</li>`).join("")}</ul></section>`
     : "";
   return `<article class="card reentry project-landing" data-project-landing="${escapeHtml(project.objectId)}">
-    <div class="eyebrow">项目已就绪 · ${escapeHtml(new Date(projection.lastFormalChangeAt).toLocaleString("zh-CN"))}</div>
+    <div class="eyebrow">项目已就绪 · ${escapeHtml(userFacingRelativeDateTime(projection.lastFormalChangeAt))}</div>
     <h2>${escapeHtml(project.text)}</h2>
     <section class="project-landing-status"><h3>当前状态</h3><p class="lead">${escapeHtml(structure.currentSummary || projection.summary)}</p></section>
     <div class="project-landing-grid">
@@ -1029,14 +1042,14 @@ function renderReentry(model: UiModel): string {
       const moreActions = `${card.entryPointRoutes.map((route) => button(route.label, route.action, route.value, "quiet")).join("")}${shortcuts}`;
       const recoveryDraft = renderProjectContextRecovery(model, card, recoveryState);
       return `<article class="card reentry" data-reentry-sufficiency="${projection.sufficiency}">
-        <div class="eyebrow">${projection.safetyState === "CLEAN" ? (projection.sufficiency === "SUFFICIENT" ? "当前停留点" : "需要恢复上下文") : "安全状态优先"} · ${escapeHtml(new Date(projection.lastFormalChangeAt).toLocaleString("zh-CN"))}</div>
+        <div class="eyebrow">${projection.safetyState === "CLEAN" ? (projection.sufficiency === "SUFFICIENT" ? "当前停留点" : "需要恢复上下文") : "安全状态优先"} · ${escapeHtml(userFacingRelativeDateTime(projection.lastFormalChangeAt))}</div>
         <h2>${escapeHtml(projection.headline)}</h2>
         <p class="lead">${escapeHtml(projection.summary)}</p>
         ${evidence}${unknown}
         <div class="actions">${primary}</div>
         ${recoveryDraft}
         ${moreActions ? `<details><summary>更多操作</summary><div class="actions">${moreActions}</div></details>` : ""}
-        <details><summary>查看依据</summary><ul>${projection.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>${projection.relatedContextCount ? `<p class="muted">${projection.relatedContextCount} 个普通关联仅作为背景，未升级为进入点。</p>` : ""}</details>
+        <details><summary>为什么现在显示它</summary><ul>${projection.facts.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>${projection.relatedContextCount ? `<p class="muted">${projection.relatedContextCount} 个普通关联仅作为背景，未升级为进入点。</p>` : ""}</details>
       </article>`;
     }).join("");
     return `<section><h2>继续项目</h2><p class="muted">先看当前状态和最值得继续的入口；需要时再展开其他操作和依据。</p>${model.v2ReentryTargetObjectId ? `<div class="actions">${button("查看全部项目", "v2-reentry-show-all", undefined, "quiet")}</div>` : ""}<div class="cards">${cards}</div></section>`;
@@ -1621,7 +1634,7 @@ function renderActionDialog(model: UiModel): string {
     const retry = state.status === "error" ? button("重试本轮", "v2-mini-project-grill-retry", object.objectId, "quiet") : "";
     const closeLabel = model.originReturnLabel ?? "关闭讨论";
     const mainContent = preview ? `${previewHtml}${discussion}` : `${question}${discussion}`;
-    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理小项目"><div class="eyebrow">小项目梳理 · 本次讨论结束后清除</div><h3>${escapeHtml(object.text)}</h3><p class="muted">每次只回答一个与这个小项目有关的问题；完整理解可以展开查看。</p>${mainContent}${loading}${error}${readyForPreview}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
+    return `<section class="inbox-dialog action-dialog mini-project-grill" aria-label="梳理小项目"><div class="eyebrow">小项目梳理</div><h3>${escapeHtml(object.text)}</h3><p class="muted">每次只回答一个与这个小项目有关的问题；完整理解可以展开查看。本次讨论内容在结束后清除。</p>${mainContent}${loading}${error}${readyForPreview}<div class="actions">${retry}${button(closeLabel, "cancel-action-dialog", undefined, "quiet")}</div></section>`;
   }
   if (dialog.kind === "confirm-end-task-copilot") {
     return `<section class="inbox-dialog action-dialog" aria-label="结束本次 Task Copilot"><h3>结束本次 Task Copilot？</h3><p>系统会再次检查未完成修改与正文核对。安全时只结束当前知识库的 Task Copilot；Logseq 正文、历史记录和其他进程不受影响。</p><div class="actions">${button("确认安全结束", "submit-end-task-copilot", undefined, "danger")}${cancel}</div></section>`;
@@ -2007,7 +2020,7 @@ export function renderApp(model: UiModel): string {
     const dialogError = dialogOutcome?.kind === "error"
       ? `<div class="notice error dialog-error" role="alert"><strong>未完成：</strong>${escapeHtml(dialogOutcome.message)}<span>系统不会静默覆盖或重复提交。</span></div>`
       : "";
-    return `<section class="app-shell active-surface-shell">
+    return `<div class="surface-veil" aria-hidden="true"></div><section class="app-shell active-surface-shell">
       <header class="topbar">
         <div><div class="eyebrow">个人事务运行系统</div><h1>Task Copilot</h1></div>
       </header>

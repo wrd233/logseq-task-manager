@@ -15,8 +15,8 @@
 | WRH-P2-01 | P2 | Focus | Focus 项和其他项过于同质 | Focus 短预览；其他折叠；不夸张装饰 | PARTIAL（Focus 短预览已实现；视觉待 reviewer） | sprint-b/01/05/06 |
 | WRH-P2-02 | P2 | Now Shell | Banner/Tab/筛选/卡片密度高 | 首屏突出重点项，系统结构降权 | DESKTOP_BEHAVIOR_PASS | sprint-d bundles + computed styles |
 | WRH-P2-03 | P2 | Objects | 默认页面仍像对象管理后台 | 默认推进层；高级结构层 | DESKTOP_BEHAVIOR_PASS | sprint-e bundles |
-| WRH-P2-04 | P2 | Active Surface | 宿主背景轻微语义竞争 | 背景 inert 且视觉降权 | OPEN（Sprint F） | 历史 07-confirmation-dark-760 |
-| WRH-P3-01 | P3 | Microcopy | 状态/依据/时间可更用户化 | 可继续、为什么现在显示它、本地时间 | PARTIAL：Review 时间已本地化；Now 状态/依据待改 | 45d8726 + visible-text |
+| WRH-P2-04 | P2 | Active Surface | 宿主背景轻微语义竞争 | 背景 inert 且视觉降权 | DESKTOP_BEHAVIOR_PASS | sprint-f/19 |
+| WRH-P3-01 | P3 | Microcopy | 状态/依据/时间可更用户化 | 可继续、为什么现在显示它、本地时间 | PARTIAL（核心文案已完成；其余随使用观察） | sprint-f bundles + 单测 |
 | WRH-P3-02 | P3 | Research | 陌生用户对工作记录入口的理解未验证 | 新手发现性研究 | DEFERRED_CANDIDATE | 同交接包 |
 
 ## 收口规则

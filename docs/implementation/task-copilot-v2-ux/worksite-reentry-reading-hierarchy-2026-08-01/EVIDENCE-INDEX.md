@@ -84,6 +84,16 @@ Proposal warning 1 为既有）。
 | Objects Light 1000 默认层 | `18-objects-light-1000/` | 同上 |
 | Objects 高级层展开 | `18b-objects-advanced-light-1000/` | 新建领域/项目/关联可见 |
 
+## Sprint F after 证据（2026-08-01）
+
+`tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-f/`
+
+| 场景 | 文件 | 内容 |
+|---|---|---|
+| Confirmation 宿主隔离 | `19-confirmation-host-isolation-dark-760/` | veil 58% 遮罩、active-surface-shell、无主导航 |
+
+Now 结论文案与相对时间由自动测试覆盖（`userFacingRelativeDateTime` 单测 + 文案断言）。
+
 ## Sprint D after 证据（2026-08-01）
 
 `tmp/runtime/worksite-reentry-reading-hierarchy/current/sprint-d/`

@@ -323,7 +323,7 @@ export function narrateV2ObjectStatus(input: V2ObjectStatusNarrationInput): Stat
   }
 
   return result({
-    conclusion: "当前可以继续推进",
+    conclusion: "可继续",
     keyEvidence: [],
     facts: [fact("正式状态允许继续推进", objectSource)],
     unknowns: ["正式状态没有提供足够信息来判断具体下一步"],
