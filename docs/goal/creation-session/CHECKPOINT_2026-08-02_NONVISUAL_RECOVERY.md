@@ -227,3 +227,16 @@ Logseq 主进程自 21:48 起未真正重启（quit 被忽略），插件 iframe
 Logseq 后插件心跳恢复正常（每 2 秒），Service 稳定。Launcher 新增
 `service_exited` 结构化日志（pid + exitCode）便于今后区分崩溃与租约回收；
 不再记录每次心跳，避免日志噪声。
+
+### 四条真实 Golden Path 的机器证据汇总（Anchor 来自命令回执账本）
+
+| 会话 | Proposal | Commit | Object | Anchor | 外部身份 | 结果 |
+|---|---|---|---|---|---|---|
+| MiniProject Page-end `…093016710` | `proposal-creation-8b4038f0` | `proposal-commit:fffce7…` | `creation-object-8b4038f0` | `anc_20260802124842036_…8541` | `fca3605a-…35de`（根 Block） | CREATED→UNDONE（`undoneAt 12:58:34`） |
+| Project `…130822957` | `proposal-creation-55597c18` | `proposal-commit:ceb61e21…` | `creation-object-55597c18` | `anc_20260802140149976_…1c04` | `6a6f4dcd-…7bcb`（Page） | CREATED→UNDONE（`undoneAt 14:04:34`） |
+| MiniProject 原位 `…141855243` | `proposal-creation-81dfdb21` | `proposal-commit:fa823745…` | `creation-object-81dfdb21` | `anc_20260802142306442_…9a6a` | `6a6f51bf-ab30-…9889`（源根 Block，UUID 保留） | CREATED→UNDONE（`undoneAt 14:24:34`） |
+| Project 用户编辑 Gate `…145145509` | `proposal-creation-89b861d4` | `proposal-commit:42a3a002…` | `creation-object-89b861d4` | `anc_20260802145406252_…089b` | `6a6f5a0d-…c9193`（Page） | CREATED→UNDONE（`undoneAt 14:57:54`；用户编辑后 Undo 先被拒绝且零删除） |
+
+环境事实：Logseq `0.10.15`；Graph key `graph-a00da3a2…`；schema 16；Service bundle
+`c18d2176…`；Plugin bundle `5bcc1b5c…`；Launcher bundle `bf3ef61f…`；最终
+Pending/Recovery 0、Doctor PASS。
