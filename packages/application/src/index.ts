@@ -27,3 +27,4 @@ export * from "./project-narration-proposal.ts";
 export * from "./project-closure-evidence.ts";
 export * from "./agent-governance.ts";
 export * from "./creation-session.ts";
+export * from "./creation-session-proposal.ts";
