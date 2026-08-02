@@ -18,7 +18,13 @@ class FakeMiniHost implements CreationSessionMiniGraphHost {
     const block = this.blocks.get(uuid)!;
     return { uuid: block.uuid, content: block.content, children: block.children.map((child) => this.tree(child)) };
   }
-  async getBlock(uuid: string): Promise<unknown> { return this.blocks.has(uuid) ? this.tree(uuid) : null; }
+  async getBlock(uuid: string, options?: { includeChildren?: boolean }): Promise<unknown> {
+    if (options?.includeChildren === false && this.blocks.has(uuid)) {
+      const block = this.blocks.get(uuid)!;
+      return { uuid: block.uuid, content: block.content, children: [] };
+    }
+    return this.blocks.has(uuid) ? this.tree(uuid) : null;
+  }
   async appendBlockInPage(_pageIdentity: string, content: string): Promise<unknown> {
     const uuid = `staging-${++this.staging}`;
     this.blocks.set(uuid, { uuid, content, children: [] });
@@ -145,6 +151,66 @@ test("Page-end MiniProject creation removes its exact staging block when root in
   assert.deepEqual(host.roots, [placement.uuid]);
   assert.equal([...host.blocks.keys()].some((uuid) => uuid.startsWith("staging-")), false);
   assert.equal(host.blocks.has(rootUuid), false);
+});
+
+test("Page-end MiniProject creation reports a persistent bounded structural mismatch and restores the new tree", async () => {
+  const host = new FakeMiniHost();
+  const placement = { uuid: "page-block", content: "已有内容", children: [] as string[] };
+  host.blocks.set(placement.uuid, placement);
+  host.roots = [placement.uuid];
+  const plan = graphPlan("NEW_TREE");
+  const originalGet = host.getBlock.bind(host);
+  host.getBlock = async (uuid, options) => {
+    const value = await originalGet(uuid, options);
+    if (uuid === rootUuid && value) return { ...(value as { uuid: string; content: string }), children: [] };
+    return value;
+  };
+  let failure: unknown;
+  try {
+    await commitCreationSessionMini({
+      async prepareCreationSessionMiniCommit() { return { status: "PREPARED", semanticCommitId: "proposal-commit:mini-mismatch", proposalId: "proposal-mini-mismatch", expectedUpdatedAt: "2026-08-02T12:00:00.000Z", objectId: "mini-object", graphPlan: plan, replayed: false }; },
+      async finalizeCreationSessionMiniCommit() { throw new Error("unused"); },
+      async compensateCreationSessionMiniCommit() { throw new Error("unused"); },
+    }, host, "proposal-mini-mismatch", "2026-08-02T12:00:00.000Z", "trace-mismatch");
+    assert.fail("expected a tree mismatch rejection");
+  } catch (error) {
+    failure = error;
+  }
+  assert.ok(failure instanceof Error && failure.message.includes("NODE_COUNT") && "details" in failure);
+  assert.equal((failure as { details: Record<string, unknown> }).details.mismatchRule, "NODE_COUNT");
+  assert.equal((failure as { details: Record<string, unknown> }).details.expectedNodeCount, plan.afterNodes.length);
+  assert.equal((failure as { details: Record<string, unknown> }).details.actualNodeCount, 1);
+  assert.match(String((failure as { details: Record<string, unknown> }).details.normalizationVersion), /^task-copilot-creation-tree-canonical-v1$/);
+  assert.ok(Number((failure as { details: Record<string, unknown> }).details.readAttempt) >= 1);
+  assert.ok(Number((failure as { details: Record<string, unknown> }).details.settleDurationMs) >= 0);
+  assert.equal(host.blocks.has(rootUuid), false);
+  assert.deepEqual(host.roots, [placement.uuid]);
+});
+
+test("Page-end MiniProject creation settles a transient delayed read-back before finalizing", async () => {
+  const host = new FakeMiniHost();
+  const placement = { uuid: "page-block", content: "已有内容", children: [] as string[] };
+  host.blocks.set(placement.uuid, placement);
+  host.roots = [placement.uuid];
+  const plan = graphPlan("NEW_TREE");
+  const originalGet = host.getBlock.bind(host);
+  let truncatedReads = 0;
+  host.getBlock = async (uuid, options) => {
+    const value = await originalGet(uuid, options);
+    if (uuid === rootUuid && value && truncatedReads < 1) {
+      truncatedReads += 1;
+      return { ...(value as { uuid: string; content: string }), children: [] };
+    }
+    return value;
+  };
+  const committed = await commitCreationSessionMini({
+    async prepareCreationSessionMiniCommit() { return { status: "PREPARED", semanticCommitId: "proposal-commit:mini-settle", proposalId: "proposal-mini-settle", expectedUpdatedAt: "2026-08-02T12:00:00.000Z", objectId: "mini-object", graphPlan: plan, replayed: false }; },
+    async finalizeCreationSessionMiniCommit() { return { status: "COMPLETED", semanticCommitId: "proposal-commit:mini-settle", session: { sessionId: "session" }, object: { objectId: "mini-object" }, anchor: { externalId: rootUuid }, record: {}, replayed: false } as never; },
+    async compensateCreationSessionMiniCommit() { throw new Error("unused"); },
+  }, host, "proposal-mini-settle", "2026-08-02T12:00:00.000Z", "trace-settle");
+  assert.equal(committed.status, "COMPLETED");
+  assert.equal(truncatedReads, 1);
+  assert.deepEqual(host.blocks.get(rootUuid)?.children, [createdUuid]);
 });
 
 test("in-place MiniProject Creation Session rewrites and reorders the exact source tree then restores it", async () => {

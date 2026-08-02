@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { reviewV2ProposalGroups, type CreationSession } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { buildCreationSessionProposal, creationSessionMiniTreeHash, planAcceptedCreationSession, planCreationSessionMiniGraph, verifyCreationSessionCommitPlan } from "../src/index.ts";
+import { buildCreationSessionProposal, canonicalCreationMiniSiblingOrder, creationSessionMiniTreeHash, creationSessionMiniTreeHashLegacyOrder, planAcceptedCreationSession, planCreationSessionMiniGraph, verifyCreationSessionCommitPlan } from "../src/index.ts";
 
 const at = "2026-08-02T09:00:00.000Z";
 const rootUuid = "11111111-1111-4111-8111-111111111111";
@@ -99,6 +99,29 @@ test("Creation Session proposal freezes a pre-commit MiniProject tree into one H
   const changed = miniSession();
   changed.draftRevisions[0]!.nodes[0]!.text = "用户在审阅后改了根标题";
   assert.throws(() => verifyCreationSessionCommitPlan(changed, plan), /Draft Tree/);
+});
+
+test("canonical sibling order makes provider one-based Draft orders match zero-based runtime read-back", () => {
+  const root = { blockUuid: rootUuid, text: "**[MiniProject]** 标题 #MiniProject", order: 0, contentHash: checksum("**[MiniProject]** 标题 #MiniProject"), operation: "CREATE" as const };
+  const oneBased = [
+    root,
+    { blockUuid: childUuid, text: "子一", parentBlockUuid: rootUuid, order: 1, contentHash: checksum("子一"), operation: "CREATE" as const },
+    { blockUuid: createdUuid, text: "子二", parentBlockUuid: rootUuid, order: 2, contentHash: checksum("子二"), operation: "CREATE" as const },
+  ];
+  const readBack = [
+    root,
+    { blockUuid: childUuid, text: "子一", parentBlockUuid: rootUuid, order: 0, contentHash: checksum("子一"), operation: "CREATE" as const },
+    { blockUuid: createdUuid, text: "子二", parentBlockUuid: rootUuid, order: 1, contentHash: checksum("子二"), operation: "CREATE" as const },
+  ];
+  assert.equal(canonicalCreationMiniSiblingOrder(oneBased).map(({ order }) => order).join(","), "0,0,1");
+  assert.equal(creationSessionMiniTreeHash(rootUuid, oneBased), creationSessionMiniTreeHash(rootUuid, readBack));
+  assert.notEqual(creationSessionMiniTreeHashLegacyOrder(rootUuid, oneBased), creationSessionMiniTreeHash(rootUuid, oneBased));
+  const swapped = [
+    root,
+    { blockUuid: createdUuid, text: "子二", parentBlockUuid: rootUuid, order: 1, contentHash: checksum("子二"), operation: "CREATE" as const },
+    { blockUuid: childUuid, text: "子一", parentBlockUuid: rootUuid, order: 2, contentHash: checksum("子一"), operation: "CREATE" as const },
+  ];
+  assert.notEqual(creationSessionMiniTreeHash(rootUuid, oneBased), creationSessionMiniTreeHash(rootUuid, swapped));
 });
 
 test("Creation Session proposal fails closed without a fresh PRE_COMMIT capture", () => {

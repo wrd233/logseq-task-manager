@@ -64,7 +64,7 @@ test("Creation Draft generator validates a new independent Project Page tree", a
 test("Creation Draft generator rejects weak markers and source-escaping operations", async () => {
   const invalid = { ...miniOutput, nodes: miniOutput.nodes.map((node) => node.semanticKey === "goal" ? { ...node, text: "[目标] 不加粗" } : node) };
   const current = fixture(invalid, "MINI_PROJECT");
-  await assert.rejects(() => new LocalLlmCreationDraftGenerator(current.provider).generate(current.request), (error: unknown) => error instanceof StructuredError && error.code === "CREATION_DRAFT_VALIDATION_FAILED");
+  await assert.rejects(() => new LocalLlmCreationDraftGenerator(current.provider).generate(current.request), (error: unknown) => error instanceof StructuredError && error.code === "CREATION_DRAFT_VALIDATION_FAILED" && error.details?.validationRule === "MARKER");
 });
 
 test("Creation Draft generator receives a bounded natural-language revision instruction without changing its authority", async () => {
@@ -73,7 +73,15 @@ test("Creation Draft generator receives a bounded natural-language revision inst
   const instruction = "保留目标，把下一步移到完成证据之后。";
   await new LocalLlmCreationDraftGenerator(current.provider).generate({ ...current.request, revisionInstruction: instruction });
   const user = (calls[0] as { user?: string }).user ?? "";
+  const system = (calls[0] as { system?: string }).system ?? "";
   assert.match(user, new RegExp(instruction));
   assert.match(user, /protectedSemanticKeys/);
+  assert.match(user, /requiredTopLevelKeys/);
+  assert.match(user, /maximumOutputTokens[^\n]*3600/);
+  assert.match(user, /requiredChildTextPrefix/);
+  assert.match(user, /unusedMaterials[^\n]*array of 0\.\.16 non-empty plain strings/);
+  assert.match(system, /below 3600 output tokens/);
+  assert.match(system, /never emit them as null/);
+  assert.match(system, /never objects/);
   await assert.rejects(() => new LocalLlmCreationDraftGenerator(current.provider).generate({ ...current.request, revisionInstruction: " " }), (error: unknown) => error instanceof StructuredError && error.code === "CREATION_DRAFT_INSTRUCTION_INVALID");
 });

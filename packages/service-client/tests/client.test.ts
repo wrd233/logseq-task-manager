@@ -105,6 +105,25 @@ test("client preserves bounded Local Service conflict messages for reviewable UI
   });
 });
 
+test("client preserves a bounded Provider validation category without exposing rejected output", async (t) => {
+  const { server, url } = await listen((_request, response) => {
+    response.writeHead(422, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: {
+      code: "CREATION_ROUND_VALIDATION_FAILED",
+      message: "Provider 输出未通过 Creation Session Validator。",
+      validationCategory: "SHAPE",
+    } }));
+  });
+  t.after(() => server.close());
+  const client = new LocalServiceClient(descriptor(url));
+  await assert.rejects(() => client.startCreationSessionRound("creation-session", { expectedVersion: 1, idempotencyKey: "creation-round" }), (error: unknown) => {
+    assert.ok(error instanceof Error && "details" in error);
+    assert.deepEqual(error.details, { status: 422, remoteCode: "CREATION_ROUND_VALIDATION_FAILED", validationCategory: "SHAPE" });
+    assert.doesNotMatch(JSON.stringify(error.details), /rejected output/i);
+    return true;
+  });
+});
+
 test("Agent governance client rejects forged effective authority at the HTTP trust boundary", async (t) => {
   const { server, url } = await listen((_request, response) => {
     response.writeHead(200, { "content-type": "application/json" });

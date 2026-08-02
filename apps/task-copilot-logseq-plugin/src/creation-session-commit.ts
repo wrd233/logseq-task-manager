@@ -138,8 +138,15 @@ function pageContentHash(input: { pageName: string; pageExternalId: string; obje
 }
 
 async function readExactTree(host: CreationSessionProjectHost, page: CreationSessionProjectPage, intent: { objectId: string; semanticCommitId: string; nodes: ServiceCreationSessionCommitNode[] }): Promise<boolean> {
-  const blocks = await host.getPageBlocksTree(page.uuid);
-  return Array.isArray(blocks) && treeMatches(blocks, intent.nodes, intent);
+  const maxAttempts = 5;
+  const backoffMs = [100, 200, 400, 800];
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const blocks = await host.getPageBlocksTree(page.uuid);
+    if (Array.isArray(blocks) && treeMatches(blocks, intent.nodes, intent)) return true;
+    const delayMs = backoffMs[attempt - 1];
+    if (delayMs !== undefined) await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return false;
 }
 
 async function insertTree(host: CreationSessionProjectHost, page: CreationSessionProjectPage, nodes: ServiceCreationSessionCommitNode[], semanticCommitId: string): Promise<void> {

@@ -1,4 +1,4 @@
-import type { CreationDraftGenerationInput, CreationDraftProvenance, CreationSession } from "@task-copilot/domain";
+import { currentCreationConsensus, type CreationDraftGenerationInput, type CreationDraftProvenance, type CreationSession } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
 import type { StructuredCompletionMetadata } from "./deepseek-provider.ts";
@@ -20,8 +20,36 @@ export interface GeneratedCreationDraft {
   promptBundleVersion: string;
 }
 
-function draftError(code: string, message: string, category?: string): StructuredError {
-  return new StructuredError({ code, message, ruleRefs: ["CREATION-SESSION-001", "D-127", "D-130", "D-139"], ...(category ? { details: { validationCategory: category } } : {}) });
+function draftError(code: string, message: string, category?: string, validationRule?: string): StructuredError {
+  return new StructuredError({
+    code,
+    message,
+    ruleRefs: ["CREATION-SESSION-001", "D-127", "D-130", "D-139"],
+    ...(category ? { details: { validationCategory: category, ...(validationRule ? { validationRule } : {}) } } : {}),
+  });
+}
+
+function draftValidationRule(cause: string): string {
+  if (/one JSON object/iu.test(cause)) return "OUTPUT_OBJECT";
+  if (/output has invalid fields/iu.test(cause)) return "TOP_LEVEL_KEYS";
+  if (/output shape/iu.test(cause)) return "OUTPUT_SHAPE";
+  if (/suggested title/iu.test(cause)) return "SUGGESTED_TITLE";
+  if (/page name|suggest a Project page/iu.test(cause)) return "PAGE_NAME";
+  if (/node count/iu.test(cause)) return "NODE_COUNT";
+  if (/node semantic key|node keys repeat/iu.test(cause)) return "SEMANTIC_KEY";
+  if (/user-edited node/iu.test(cause)) return "USER_EDIT_PROTECTION";
+  if (/node has invalid fields/iu.test(cause)) return "NODE_FIELDS";
+  if (/parent key/iu.test(cause)) return "PARENT_REFERENCE";
+  if (/node authority/iu.test(cause)) return "NODE_AUTHORITY";
+  if (/evidence|source fact|user-confirmed/iu.test(cause)) return "EVIDENCE_AUTHORITY";
+  if (/source block|reused draft operation/iu.test(cause)) return "SOURCE_OPERATION";
+  if (/draft node text/iu.test(cause)) return "NODE_TEXT";
+  if (/semantic marker|TODO node/iu.test(cause)) return "MARKER";
+  if (/one root/iu.test(cause)) return "ROOT_COUNT";
+  if (/root contract|concrete goal|Block MiniProject|non-Block MiniProject|Project draft/iu.test(cause)) return "ROOT_CONTRACT";
+  if (/maturity/iu.test(cause)) return "MATURITY";
+  if (/unused material|draft warning/iu.test(cause)) return "BOUNDED_LIST";
+  return "UNKNOWN";
 }
 
 function promptLayer(value: PromptLayer, label: string): PromptLayer {
@@ -158,7 +186,7 @@ export class LocalLlmCreationDraftGenerator {
       sources: sourceAuthority.sources,
       allowedEvidenceRefs: [...sourceAuthority.evidenceRefs, ...consensusRefs],
       allowedSourceBlockUuids: sourceAuthority.sourceBlockUuids,
-      consensus: request.session.consensus.slice(-96).map((item) => ({ evidenceRef: `consensus:${item.consensusId}`, uncertaintyId: item.uncertaintyId, text: item.text, provenance: item.provenance, evidenceRefs: item.evidenceRefs })),
+      consensus: currentCreationConsensus(request.session.consensus).slice(-96).map((item) => ({ evidenceRef: `consensus:${item.consensusId}`, uncertaintyId: item.uncertaintyId, text: item.text, provenance: item.provenance, evidenceRefs: item.evidenceRefs })),
       consensusOmitted: Math.max(0, request.session.consensus.length - 96),
       currentDraft: current ? { maturity: current.maturity, nodes: current.nodes.map((node) => ({
         semanticKey: node.semanticKey, text: node.text, parentSemanticKey: node.parentNodeId ? currentKeyById.get(node.parentNodeId) : undefined, order: node.order,
@@ -167,13 +195,39 @@ export class LocalLlmCreationDraftGenerator {
       })) } : null,
     };
     const outputContract = {
-      schemaVersion: "task-copilot-creation-draft-v1", targetType: request.session.targetType,
-      allowedProvenance: ["SOURCE_FACT", "USER_CONFIRMED", "AGENT_SYNTHESIS", "AGENT_SUGGESTION", "UNCONFIRMED"],
-      allowedOperations: ["KEEP", "MOVE", "REWRITE", "CREATE"], protectedSemanticKeys: current?.nodes.filter(({ userEdited }) => userEdited).map(({ semanticKey }) => semanticKey) ?? [],
+      schemaVersion: "task-copilot-creation-draft-v1",
+      targetType: request.session.targetType,
+      maximumOutputTokens: 3_600,
+      requiredTopLevelKeys: ["schemaVersion", "targetType", "suggestedTitle", "suggestedPageName", "nodes", "unusedMaterials", "warnings", "maturity"],
+      suggestedPageName: request.session.targetType === "PROJECT" ? "non-empty safe Logseq page name" : null,
+      nodeCount: { minimum: 2, maximum: 24 },
+      nodeShape: {
+        requiredKeys: ["semanticKey", "order", "nodeType", "text", "provenance", "evidenceRefs", "operation", "confirmed"],
+        optionalKeys: ["parentSemanticKey", "sourceBlockUuid"],
+        semanticKey: "lowercase kebab-case unique string",
+        parentSemanticKey: "omit for the one root; otherwise reference another semanticKey",
+        order: "integer 0..255 among siblings",
+        nodeType: ["BLOCK", "TODO", "PAGE_SECTION"],
+        provenance: ["SOURCE_FACT", "USER_CONFIRMED", "AGENT_SYNTHESIS", "AGENT_SUGGESTION", "UNCONFIRMED"],
+        evidenceRefs: "JSON array containing only allowedEvidenceRefs; use [] for synthesis or suggestion",
+        operation: ["KEEP", "MOVE", "REWRITE", "CREATE"],
+        confirmed: "JSON boolean",
+        sourceBlockUuid: "omit for CREATE; required for KEEP, MOVE or REWRITE and must be allowedSourceBlockUuids",
+      },
+      rootContract: request.session.targetType === "MINI_PROJECT"
+        ? { nodeType: "BLOCK", operation: "CREATE unless the primary source is a block subtree", text: "**[MiniProject]** <title> #MiniProject", requiredChildTextPrefix: "**[目标]** " }
+        : { nodeType: "PAGE_SECTION", operation: "CREATE", text: "exactly suggestedTitle", requiredChildTextPrefix: "**[项目目标]** " },
+      todoContract: "Every TODO node text starts with `TODO `.",
+      maturityShape: { requiredKeys: ["level", "missing"], level: ["EARLY", "WORKABLE", "READY"], missing: "JSON string array, maximum 32" },
+      unusedMaterials: "JSON array of 0..16 non-empty plain strings, each at most 1000 characters; use [] when none",
+      warnings: "JSON array of 0..16 non-empty plain strings, each at most 1000 characters; use [] when none",
+      protectedSemanticKeys: current?.nodes.filter(({ userEdited }) => userEdited).map(({ semanticKey }) => semanticKey) ?? [],
     };
     const promptBundleVersion = checksum(stableJson({ contract: "task-copilot-creation-draft-v1", core, skill, targetSkill }));
     const system = [
-      "Return exactly one task-copilot-creation-draft-v1 JSON object. Model a stable Logseq-style node tree, not Markdown blob or field table.",
+      "Return exactly one task-copilot-creation-draft-v1 JSON object below 3600 output tokens. Use every required top-level key exactly once and no additional top-level keys. Model a stable Logseq-style node tree, not a Markdown blob or field table.",
+      "Every node must use all required node keys, may use only the listed optional node keys, and must use JSON arrays, integers, booleans and null exactly as the machine output contract specifies. Omit optional node keys when they do not apply; never emit them as null.",
+      "unusedMaterials, warnings and maturity.missing must contain only non-empty plain JSON strings, never objects; use an empty array when there are no items.",
       "Preserve every protected semantic key. Never overwrite user-edited text or structure. Keep source facts, user confirmation, synthesis, suggestion and uncertainty visibly distinct.",
       "A revisionInstruction is the user's bounded natural-language request for this Draft revision. Follow it only within captured source, consensus, protected user edits, and the output contract; do not turn it into new facts.",
       "MiniProject uses one bold [MiniProject] root and native TODO children. Project always models a new independent Page tree. Do not invent empty template sections or unsupported facts.",
@@ -193,6 +247,11 @@ export class LocalLlmCreationDraftGenerator {
         cause = error instanceof Error ? error.message : "unknown";
       }
     }
-    throw draftError("CREATION_DRAFT_VALIDATION_FAILED", "Provider 输出未通过 Draft Tree Validator；最后稳定草稿保持不变。", /user-edited|protected/iu.test(cause ?? "") ? "USER_EDIT_PROTECTION" : /evidence|source/iu.test(cause ?? "") ? "EVIDENCE" : "SHAPE");
+    throw draftError(
+      "CREATION_DRAFT_VALIDATION_FAILED",
+      "Provider 输出未通过 Draft Tree Validator；最后稳定草稿保持不变。",
+      /user-edited|protected/iu.test(cause ?? "") ? "USER_EDIT_PROTECTION" : /evidence|source/iu.test(cause ?? "") ? "EVIDENCE" : "SHAPE",
+      draftValidationRule(cause ?? "unknown"),
+    );
   }
 }

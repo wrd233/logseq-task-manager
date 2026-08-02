@@ -51,6 +51,12 @@ test("Creation round generator validates one themed multi-question batch and mac
   assert.equal(generated.completion.consensus[0]?.provenance, "SOURCE_FACT");
   assert.match(generated.promptBundleVersion, /^[a-f0-9]{8}$/);
   assert.equal(calls.length, 1);
+  const providerRequest = calls[0] as { system?: string; user?: string };
+  assert.match(providerRequest.system ?? "", /complete JSON below 2400 output tokens/);
+  assert.match(providerRequest.user ?? "", /"maximumOutputTokens":2400/);
+  assert.match(providerRequest.user ?? "", /"conciseFieldBudget"/);
+  assert.match(providerRequest.user ?? "", /"requiredTopLevelKeys"/);
+  assert.match(providerRequest.user ?? "", /"evidenceRefs":"array containing only allowedEvidenceRefs; use \[\] when none are allowed"/);
 });
 
 test("Creation round generator rejects a one-question batch while several branches remain open", async () => {

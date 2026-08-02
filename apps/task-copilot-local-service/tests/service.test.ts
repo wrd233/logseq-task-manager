@@ -412,6 +412,10 @@ test("Creation Session prepares one replayable HIGH Proposal while formal stores
   assert.equal(replay.replayed, true);
   assert.equal(replay.record.proposal.proposalId, proposal.record.proposal.proposalId);
   assert.equal((await client.listProposals()).filter(({ proposal: item }) => item.proposalId === proposal.record.proposal.proposalId).length, 1);
+  const secondPrepare = await client.createCreationSessionProposal(created.session.sessionId, { expectedVersion: proposal.session.version, idempotencyKey: "creation-proposal-submit-other-key" });
+  assert.equal(secondPrepare.replayed, true);
+  assert.equal(secondPrepare.record.proposal.proposalId, proposal.record.proposal.proposalId);
+  assert.equal((await client.listProposals()).filter(({ proposal: item }) => item.proposalId === proposal.record.proposal.proposalId).length, 1, "重复准备不得产生第二个活跃 Proposal");
 
   const accepted = await client.reviewProposal(proposal.record.proposal.proposalId, { "create-from-session": { disposition: "ACCEPTED", highImpactConfirmed: true } }, proposal.record.updatedAt);
   const absenceBridge = (async () => {
@@ -658,7 +662,7 @@ test("Creation Session persists answers before Provider, retains stable consensu
     providerId: "deepseek", providerVersion: "chat-completions-v1",
     completeStructured: async () => {
       call += 1;
-      if (call === 3) throw new StructuredError({ code: "LLM_TIMEOUT", message: "timeout", ruleRefs: ["D-139"] });
+      if (call === 3) throw new StructuredError({ code: "CREATION_ROUND_VALIDATION_FAILED", message: "invalid", ruleRefs: ["D-139"], details: { validationCategory: "SHAPE", validationRule: "NODE_FIELDS" } });
       const value = call === 1 ? output("结果与完成方式", ["outcome", "completion-evidence"])
         : call === 2 ? output("当前推进与背景", ["current-progress", "necessary-context"])
           : output("材料与放置", ["retained-material", "placement"]);
@@ -693,6 +697,7 @@ test("Creation Session persists answers before Provider, retains stable consensu
   const narrativeAnswer = "当前先跑通一条真实告警，背景细节需要进一步验证。";
   const failed = await client.submitCreationSessionRound(created.session.sessionId, secondRound.roundId, { expectedVersion: advanced.session.version, idempotencyKey: "creation-round-submit-two", answers: secondRound.questions.map(({ questionId }) => ({ questionId, answerState: "UNANSWERED" as const })), narrativeAnswer });
   assert.equal(failed.providerStatus, "FAILED");
+  assert.deepEqual(failed.error, { code: "CREATION_ROUND_VALIDATION_FAILED", message: "暂时无法整理下一轮；本轮回答和稳定草稿已保存，可以安全重试。", validationCategory: "SHAPE", validationRule: "NODE_FIELDS" });
   assert.equal(failed.session.rounds[1]?.providerStatus, "FAILED");
   assert.equal(failed.session.rounds[1]?.userNarrativeAnswer, narrativeAnswer);
   assert.equal(failed.session.rounds[1]?.questions[0]?.answerState, "UNANSWERED");
@@ -726,7 +731,7 @@ test("Creation Session Draft persists stable nodes, protects user edits and repl
     providerId: "deepseek", providerVersion: "chat-completions-v1",
     completeStructured: async () => {
       calls += 1;
-      if (calls === 3) throw new StructuredError({ code: "LLM_TIMEOUT", message: "timeout", ruleRefs: ["D-139"] });
+      if (calls === 3) throw new StructuredError({ code: "CREATION_DRAFT_VALIDATION_FAILED", message: "invalid", ruleRefs: ["D-139"], details: { validationCategory: "SHAPE", validationRule: "NODE_FIELDS" } });
       return { value: output(calls === 1 ? "**[目标]** 建立可验证的设备告警接入" : "**[目标]** Agent 尝试覆盖用户版本"), metadata: { model: "deepseek-v4", durationMs: 10, attempts: 1 } };
     },
   };
@@ -752,6 +757,7 @@ test("Creation Session Draft persists stable nodes, protects user edits and repl
   assert.equal(latest.conflicts.some(({ kind }) => kind === "USER_TEXT_PROTECTED"), true);
   const failed = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: regenerated.session.version, idempotencyKey: "creation-draft-generate-fail" });
   assert.equal(failed.providerStatus, "FAILED");
+  assert.deepEqual(failed.error, { code: "CREATION_DRAFT_VALIDATION_FAILED", message: "暂时无法生成 Draft；来源快照、回答和最后稳定草稿均已保存，可以安全重试。", validationCategory: "SHAPE", validationRule: "NODE_FIELDS" });
   assert.equal(failed.session.currentDraftRevisionId, regenerated.session.currentDraftRevisionId);
   await service.close();
   service = await startLocalService({ databasePath, graphId: "graph-creation-draft", token: "creation-draft-restart-token-24", creationDraftGenerator: new LocalLlmCreationDraftGenerator(provider) });

@@ -98,6 +98,23 @@ export interface CreationConsensusItem {
   updatedAt: string;
 }
 
+/**
+ * Collapse the append-only consensus history into the current state: the
+ * latest entry per uncertainty wins, while entries without an uncertainty
+ * remain as-is. Older entries stay in the session history; this projection is
+ * used for Provider context and current-state summaries so resolved unknowns
+ * are not shown as still-open facts.
+ */
+export function currentCreationConsensus(consensus: readonly CreationConsensusItem[]): CreationConsensusItem[] {
+  const latest = new Map<string, CreationConsensusItem>();
+  const standalone: CreationConsensusItem[] = [];
+  for (const item of consensus) {
+    if (item.uncertaintyId) latest.set(item.uncertaintyId, item);
+    else standalone.push(item);
+  }
+  return [...standalone, ...latest.values()];
+}
+
 export interface CreationDraftNode {
   nodeId: string;
   semanticKey: string;

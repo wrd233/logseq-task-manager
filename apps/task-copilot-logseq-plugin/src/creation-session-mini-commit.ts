@@ -1,4 +1,4 @@
-import { creationSessionMiniTreeHash } from "@task-copilot/application";
+import { CREATION_TREE_CANONICAL_VERSION, canonicalCreationMiniSiblingOrder, creationSessionMiniTreeHash } from "@task-copilot/application";
 import { stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import type { LocalServiceClient, ServiceCreationSessionMiniGraphPlan, ServiceCreationSessionMiniTreeNode } from "@task-copilot/service-client";
 import { StructuredError, checksum } from "@task-copilot/shared";
@@ -58,6 +58,92 @@ async function currentTree(host: CreationSessionMiniGraphHost, rootBlockUuid: st
 async function currentHash(host: CreationSessionMiniGraphHost, plan: ServiceCreationSessionMiniGraphPlan): Promise<string> {
   const nodes = await currentTree(host, plan.rootBlockUuid);
   return nodes ? creationSessionMiniTreeHash(plan.rootBlockUuid, nodes) : checksum({ rootBlockUuid: plan.rootBlockUuid, exists: false });
+}
+
+function shortId(blockUuid: string): string {
+  return checksum({ id: blockUuid }).slice(0, 8);
+}
+
+function preorderIds(nodes: readonly ServiceCreationSessionMiniTreeNode[]): string[] {
+  const ids: string[] = [];
+  const visit = (parentBlockUuid: string | undefined): void => {
+    const children = nodes.filter((node) => node.parentBlockUuid === parentBlockUuid)
+      .sort((left, right) => left.order - right.order || left.blockUuid.localeCompare(right.blockUuid));
+    for (const child of children) {
+      ids.push(child.blockUuid);
+      visit(child.blockUuid);
+    }
+  };
+  visit(undefined);
+  return ids.length === nodes.length ? ids : nodes.map(({ blockUuid }) => blockUuid);
+}
+
+function treeMismatchReport(
+  expected: readonly ServiceCreationSessionMiniTreeNode[],
+  actual: readonly ServiceCreationSessionMiniTreeNode[],
+  placementKind: string,
+  readAttempt: number,
+  settleDurationMs: number,
+): { mismatchRule: string; report: Record<string, unknown> } {
+  const canonicalExpected = canonicalCreationMiniSiblingOrder(expected);
+  const canonicalActual = canonicalCreationMiniSiblingOrder(actual);
+  const expectedById = new Map(canonicalExpected.map((node) => [node.blockUuid, node]));
+  const actualById = new Map(canonicalActual.map((node) => [node.blockUuid, node]));
+  const missing = canonicalExpected.filter(({ blockUuid }) => !actualById.has(blockUuid)).map(({ blockUuid }) => shortId(blockUuid));
+  const unexpected = canonicalActual.filter(({ blockUuid }) => !expectedById.has(blockUuid)).map(({ blockUuid }) => shortId(blockUuid));
+  const contentMismatch = canonicalExpected.filter((node) => actualById.get(node.blockUuid)?.contentHash !== node.contentHash).map(({ blockUuid }) => shortId(blockUuid));
+  const parentMismatch = canonicalExpected.filter((node) => actualById.get(node.blockUuid)?.parentBlockUuid !== node.parentBlockUuid).map(({ blockUuid }) => shortId(blockUuid));
+  const orderMismatch = canonicalExpected.filter((node) => actualById.get(node.blockUuid)?.order !== node.order).map(({ blockUuid }) => shortId(blockUuid));
+  const root = canonicalExpected.find(({ parentBlockUuid }) => !parentBlockUuid) ?? canonicalExpected[0];
+  const rootUuidMatch = Boolean(root && actualById.has(root.blockUuid));
+  const mismatchRule = expected.length !== actual.length ? "NODE_COUNT"
+    : missing.length > 0 ? "NODE_IDENTITY"
+      : contentMismatch.length > 0 ? "CONTENT_HASH"
+        : parentMismatch.length > 0 ? "PARENT_RELATION"
+          : orderMismatch.length > 0 ? "SIBLING_ORDER"
+            : "TREE_HASH";
+  return {
+    mismatchRule,
+    report: {
+      mismatchRule,
+      expectedNodeCount: expected.length,
+      actualNodeCount: actual.length,
+      missingNodeIds: missing,
+      unexpectedNodeIds: unexpected,
+      rootUuidMatch,
+      rootParentKindExpected: placementKind,
+      rootParentKindActual: "PAGE_ROOT",
+      parentMismatchNodeIds: parentMismatch,
+      orderMismatchParentIds: orderMismatch,
+      uuidMismatchNodeIds: [...new Set([...missing, ...unexpected])],
+      contentHashMismatchNodeIds: contentMismatch,
+      expectedPreorderIds: preorderIds(canonicalExpected).map(shortId),
+      actualPreorderIds: preorderIds(canonicalActual).map(shortId),
+      normalizationVersion: CREATION_TREE_CANONICAL_VERSION,
+      readAttempt,
+      settleDurationMs,
+    },
+  };
+}
+
+async function readTreeUntilStable(
+  host: CreationSessionMiniGraphHost,
+  rootBlockUuid: string,
+  expectedHash: string,
+): Promise<{ nodes: ServiceCreationSessionMiniTreeNode[] | undefined; hash: string; readAttempt: number; settleDurationMs: number }> {
+  const maxAttempts = 5;
+  const backoffMs = [100, 200, 400, 800];
+  let last: { nodes: ServiceCreationSessionMiniTreeNode[] | undefined; hash: string; readAttempt: number; settleDurationMs: number } | undefined;
+  const startedAt = Date.now();
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const nodes = await currentTree(host, rootBlockUuid);
+    const hash = nodes ? creationSessionMiniTreeHash(rootBlockUuid, nodes) : checksum({ rootBlockUuid, exists: false });
+    last = { nodes, hash, readAttempt: attempt, settleDurationMs: Date.now() - startedAt };
+    if (hash === expectedHash) return last;
+    const delayMs = backoffMs[attempt - 1];
+    if (delayMs !== undefined) await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return last ?? { nodes: undefined, hash: checksum({ rootBlockUuid, exists: false }), readAttempt: maxAttempts, settleDurationMs: Date.now() - startedAt };
 }
 
 function children(nodes: ServiceCreationSessionMiniTreeNode[], parentBlockUuid?: string): ServiceCreationSessionMiniTreeNode[] {
@@ -174,9 +260,15 @@ async function applyGraph(host: CreationSessionMiniGraphHost, plan: ServiceCreat
     if (await currentHash(host, plan) !== plan.beforeHash) throw miniError("CREATION_SESSION_MINI_RECOVERY_VERIFY_FAILED", "MiniProject Tree 写入中断且自动恢复未通过；请保留现场。");
     throw error;
   }
-  if (await currentHash(host, plan) !== plan.afterHash) {
+  const settled = await readTreeUntilStable(host, plan.rootBlockUuid, plan.afterHash);
+  if (settled.hash !== plan.afterHash) {
+    const { mismatchRule, report } = treeMismatchReport(plan.afterNodes, settled.nodes ?? [], plan.placement.kind, settled.readAttempt, settled.settleDurationMs);
     await restoreBefore(host, plan);
-    throw miniError("CREATION_SESSION_MINI_TREE_VERIFY_FAILED", "MiniProject Tree 写入后无法精确核验，已恢复审阅前状态。");
+    throw miniError("CREATION_SESSION_MINI_TREE_VERIFY_FAILED", `MiniProject Tree 写入后无法精确核验，已恢复审阅前状态（${mismatchRule}）。`, {
+      ...report,
+      expectedTreeHash: plan.afterHash,
+      actualTreeHash: settled.hash,
+    });
   }
 }
 

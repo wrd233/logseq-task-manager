@@ -39,7 +39,7 @@ test("DeepSeek structured provider assembles configured request and returns boun
   assert.equal(observedInput, "https://provider.example/v1/chat/completions");
   assert.equal(new Headers(observedInit?.headers).get("authorization"), "Bearer secret-test-key");
   assert.deepEqual(JSON.parse(String(observedInit?.body)), {
-    model: "configured-model-id", temperature: 0, max_tokens: 2048, response_format: { type: "json_object" },
+    model: "configured-model-id", temperature: 0, max_tokens: 2048, thinking: { type: "disabled" }, response_format: { type: "json_object" },
     messages: [{ role: "system", content: "只返回 JSON。" }, { role: "user", content: "判断对象类型。" }],
   });
 });

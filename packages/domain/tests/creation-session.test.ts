@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { abandonCreationSession, adoptCreationDraftRevision, completeCreationRound, completeCreationSession, createCreationSession, editCreationDraftNode, failCreationRound, generateCreationDraftRevision, observeCreationSessionSource, refreshCreationSessionSource, retryCreationRound, startCreationSessionRound, submitCreationRoundAnswers, updateCreationSession, type CreationDraftGenerationInput, type CreationSessionSource } from "../src/index.ts";
+import { abandonCreationSession, adoptCreationDraftRevision, completeCreationRound, completeCreationSession, createCreationSession, currentCreationConsensus, editCreationDraftNode, failCreationRound, generateCreationDraftRevision, observeCreationSessionSource, refreshCreationSessionSource, retryCreationRound, startCreationSessionRound, submitCreationRoundAnswers, updateCreationSession, type CreationDraftGenerationInput, type CreationSessionSource } from "../src/index.ts";
 
 const at = new Date("2026-08-02T06:00:00.000Z");
 const blank = (): CreationSessionSource => ({ sourceId: "source-primary", role: "PRIMARY", kind: "BLANK", captures: [{ captureId: "capture-blank", reason: "SESSION_START", snapshotHash: "blank", content: "", hierarchy: [], capturedAt: at.toISOString() }], currentCaptureId: "capture-blank", latestKnownHash: "blank", availability: "AVAILABLE" });
@@ -167,4 +167,27 @@ test("Draft sibling move swaps one adjacent pair without drag or duplicate order
   assert.deepEqual(siblings.map(({ order }) => order), [0, 1]);
   assert.equal(siblings[0]?.userEdited, true);
   assert.throws(() => editCreationDraftNode(moved, moved.currentDraftRevisionId!, { nodeId: next.nodeId, move: "UP" }, 3, new Date("2026-08-02T06:10:00.000Z")), /边界/);
+});
+
+test("current consensus collapses history to the latest entry per uncertainty", () => {
+  const at = "2026-08-02T06:00:00.000Z";
+  const item = (id: string, uncertaintyId: string | undefined, provenance: "UNKNOWN" | "USER_CONFIRMED" | "AGENT_SYNTHESIS", text: string) => ({
+    consensusId: id,
+    ...(uncertaintyId ? { uncertaintyId } : {}),
+    text,
+    provenance,
+    evidenceRefs: [],
+    updatedAt: at,
+  });
+  const current = currentCreationConsensus([
+    item("old-unknown", "out-of-scope", "UNKNOWN", "范围外内容尚未明确"),
+    item("old-unknown-2", "dependencies", "UNKNOWN", "依赖约束尚未明确"),
+    item("new-confirmed", "out-of-scope", "USER_CONFIRMED", "范围外不接入第三方平台"),
+    item("standalone", undefined, "AGENT_SYNTHESIS", "无 uncertainty 的归纳"),
+  ]);
+  assert.deepEqual(current.map(({ uncertaintyId, provenance }) => [uncertaintyId, provenance]), [
+    [undefined, "AGENT_SYNTHESIS"],
+    ["out-of-scope", "USER_CONFIRMED"],
+    ["dependencies", "UNKNOWN"],
+  ]);
 });

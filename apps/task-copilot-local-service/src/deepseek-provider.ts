@@ -206,6 +206,7 @@ export class DeepSeekStructuredProvider {
       model: this.config.model,
       temperature: 0,
       max_tokens: this.config.maxOutputTokens,
+      thinking: { type: "disabled" },
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: request.system }, { role: "user", content: request.user }],
     });

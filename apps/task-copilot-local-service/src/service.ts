@@ -1541,11 +1541,11 @@ function respondError(response: ServerResponse, error: unknown): void {
     const providerStatus = error.code === "LLM_RATE_LIMITED" ? 429
       : error.code === "LLM_TIMEOUT" ? 504
       : error.code === "UX_OUTPUT_SESSION_SUPPRESSED" ? 409
-      : ["UX_OUTPUT_VALIDATION_FAILED", "GRILL_TURN_VALIDATION_FAILED", "GRILL_PREVIEW_VALIDATION_FAILED", "LLM_OUTPUT_TRUNCATED", "LLM_RESPONSE_EMPTY", "LLM_RESPONSE_INVALID_JSON", "LLM_RESPONSE_SHAPE_INVALID", "LLM_RESPONSE_TOO_LARGE"].includes(error.code) ? 422
+      : ["UX_OUTPUT_VALIDATION_FAILED", "GRILL_TURN_VALIDATION_FAILED", "GRILL_PREVIEW_VALIDATION_FAILED", "CREATION_ROUND_VALIDATION_FAILED", "CREATION_DRAFT_VALIDATION_FAILED", "LLM_OUTPUT_TRUNCATED", "LLM_RESPONSE_EMPTY", "LLM_RESPONSE_INVALID_JSON", "LLM_RESPONSE_SHAPE_INVALID", "LLM_RESPONSE_TOO_LARGE"].includes(error.code) ? 422
       : error.code.startsWith("LLM_") ? 502
       : undefined;
     if (providerStatus !== undefined) {
-      const validationCategory = ["GRILL_TURN_VALIDATION_FAILED", "UX_OUTPUT_VALIDATION_FAILED"].includes(error.code)
+      const validationCategory = ["GRILL_TURN_VALIDATION_FAILED", "UX_OUTPUT_VALIDATION_FAILED", "CREATION_ROUND_VALIDATION_FAILED", "CREATION_DRAFT_VALIDATION_FAILED"].includes(error.code)
         && typeof error.details?.validationCategory === "string"
         ? error.details.validationCategory
         : undefined;
@@ -2459,7 +2459,12 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
           } catch (error) {
             const status = controller.signal.aborted ? "CANCELLED" as const : "FAILED" as const;
             const failed = creationSessionApplication.failRound({ sessionId, roundId, expectedVersion: requesting.session.version, idempotencyKey: `creation-round-fail:${checksum({ sessionId, roundId, idempotencyKey, status })}`, status });
-            return { ...failed, providerStatus: "FAILED" as const, error: { code: status === "CANCELLED" ? "CREATION_ROUND_CANCELLED" : error instanceof StructuredError ? error.code : "CREATION_ROUND_PROVIDER_FAILED", message: status === "CANCELLED" ? "请求已取消；本轮回答已保存。" : "暂时无法整理下一轮；本轮回答和稳定草稿已保存，可以安全重试。" } };
+            return { ...failed, providerStatus: "FAILED" as const, error: {
+              code: status === "CANCELLED" ? "CREATION_ROUND_CANCELLED" : error instanceof StructuredError ? error.code : "CREATION_ROUND_PROVIDER_FAILED",
+              message: status === "CANCELLED" ? "请求已取消；本轮回答已保存。" : "暂时无法整理下一轮；本轮回答和稳定草稿已保存，可以安全重试。",
+              ...(error instanceof StructuredError && typeof error.details?.validationCategory === "string" ? { validationCategory: error.details.validationCategory } : {}),
+              ...(error instanceof StructuredError && typeof error.details?.validationRule === "string" ? { validationRule: error.details.validationRule } : {}),
+            } };
           }
         });
         if (!controller.signal.aborted) respond(response, 200, result);
@@ -2510,7 +2515,12 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
             const cancelled = controller.signal.aborted;
             return {
               session: prepared.session, replayed: Boolean(replay), providerStatus: "FAILED" as const,
-              error: { code: cancelled ? "CREATION_DRAFT_CANCELLED" : error instanceof StructuredError ? error.code : "CREATION_DRAFT_PROVIDER_FAILED", message: cancelled ? "请求已取消；最后稳定草稿保持不变。" : "暂时无法生成 Draft；来源快照、回答和最后稳定草稿均已保存，可以安全重试。" },
+              error: {
+                code: cancelled ? "CREATION_DRAFT_CANCELLED" : error instanceof StructuredError ? error.code : "CREATION_DRAFT_PROVIDER_FAILED",
+                message: cancelled ? "请求已取消；最后稳定草稿保持不变。" : "暂时无法生成 Draft；来源快照、回答和最后稳定草稿均已保存，可以安全重试。",
+                ...(error instanceof StructuredError && typeof error.details?.validationCategory === "string" ? { validationCategory: error.details.validationCategory } : {}),
+                ...(error instanceof StructuredError && typeof error.details?.validationRule === "string" ? { validationRule: error.details.validationRule } : {}),
+              },
             };
           }
         });
@@ -2559,6 +2569,14 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
       const result = await serializeByKey(`creation-session:${sessionId}`, async () => {
         const replay = creationSessionApplication.replay(idempotencyKey, "PrepareCreationCommit");
+        if (!replay) {
+          const currentSession = creationSessionApplication.get(sessionId);
+          const activeForSession = currentSession ? (await proposalApplication.list())
+            .filter(({ proposal }) => !["REJECTED", "STALE", "FAILED"].includes(proposal.status)
+              && proposal.groups.some((group) => group.semanticOperations.some((operation) => operation.kind === "CREATE_OBJECT" && operation.payload?.sessionId === sessionId)))
+            .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt)) : [];
+          if (activeForSession.length > 0) return { session: currentSession, record: activeForSession[0]!, replayed: true };
+        }
         let prepared = replay;
         if (!prepared) {
           const current = creationSessionApplication.get(sessionId);
@@ -2574,6 +2592,11 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         const proposalId = `proposal-creation-${checksum({ sessionId, idempotencyKey })}`;
         const existing = await proposalApplication.get(proposalId);
         if (existing) return { session: prepared.session, record: existing, replayed: true };
+        const activeForSession = (await proposalApplication.list())
+          .filter(({ proposal }) => !["REJECTED", "STALE", "FAILED"].includes(proposal.status)
+            && proposal.groups.some((group) => group.semanticOperations.some((operation) => operation.kind === "CREATE_OBJECT" && operation.payload?.sessionId === sessionId)))
+          .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
+        if (activeForSession.length > 0) return { session: prepared.session, record: activeForSession[0]!, replayed: true };
         const draft = prepared.session.draftRevisions.find(({ revisionId }) => revisionId === prepared!.session.currentDraftRevisionId);
         if (!draft) throw serviceError("CREATION_SESSION_DRAFT_NOT_FOUND", "当前 adopted Draft 不存在；没有生成 Proposal。");
         const createdBlockUuids = Object.fromEntries(draft.nodes.filter(({ operation }) => operation === "CREATE").map(({ nodeId }) => [nodeId, deterministicCreationUuid({ sessionId, idempotencyKey, nodeId })]));
@@ -5017,7 +5040,26 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const targetObservation: V2ProposalScopeObservation = pageResult.status === "FOUND"
         ? { kind: "PAGE", id: plan.placement.pageName, exists: true, ...(pageResult.snapshot.resolved.evidenceHash ? { hash: pageResult.snapshot.resolved.evidenceHash } : {}) }
         : { kind: "PAGE", id: plan.placement.pageName, exists: false };
-      const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, [targetObservation]), input.expectedUpdatedAt);
+      const sourceObservations: V2ProposalScopeObservation[] = [];
+      for (const target of requiredV2ProposalRevalidationScope(stored.proposal).targets) {
+        if (target.kind === "OBJECT" || target.id === plan.placement.pageName) continue;
+        const sourceResult = await graphReadBroker.read(target.kind === "PAGE"
+          ? { kind: "PAGE", target: target.id, depth: 5 }
+          : { kind: "BLOCK", target: target.id, includeChildren: true, parents: 0 });
+        if (sourceResult.status === "ERROR") throw new StructuredError({ code: sourceResult.errorCode, message: sourceResult.message, ruleRefs: ["D-132", "D-135", "CREATION-SESSION-001"] });
+        if (sourceResult.status === "NOT_FOUND") {
+          sourceObservations.push({ kind: target.kind, id: target.id, exists: false });
+          continue;
+        }
+        if (target.kind === "PAGE") sourceObservations.push({ kind: "PAGE", id: target.id, exists: true, hash: sourceResult.snapshot.scopeHash });
+        else {
+          const block = sourceResult.snapshot.blocks.find((candidate) => candidate.uuid === target.id);
+          sourceObservations.push(block
+            ? { kind: "BLOCK", id: target.id, exists: true, hash: block.contentHash }
+            : { kind: "BLOCK", id: target.id, exists: false });
+        }
+      }
+      const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, [targetObservation, ...sourceObservations]), input.expectedUpdatedAt);
       if (revalidation.result.status === "STALE") { respond(response, 200, { status: "STALE", ...revalidation }); return; }
       const now = new Date().toISOString();
       store.prepareSemanticCommit({ semanticCommitId, proposalId, status: "PENDING", beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, sessionId: plan.sessionId, sessionVersion: plan.expectedSessionVersion, draftRevisionId: plan.draftRevisionId }), createdAt: now, updatedAt: now }, [
@@ -5174,12 +5216,18 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         { semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId: graphPlan.rootBlockUuid, beforeHash: graphPlan.beforeHash, afterHash: graphPlan.afterHash },
         { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE" as const, status: "PREPARED" as const, operationId: plan.objectId },
       ];
+      const legacyPlan = planCreationSessionMiniGraph(current, plan, { canonicalSiblingOrder: false });
+      const legacySteps = [
+        { semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId: legacyPlan.rootBlockUuid, beforeHash: legacyPlan.beforeHash, afterHash: legacyPlan.afterHash },
+        { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE" as const, status: "PREPARED" as const, operationId: plan.objectId },
+      ];
       if (existing) {
         const steps = store.semanticCommitSteps(semanticCommitId);
-        if (existing.proposalId !== proposalId || steps.length !== 2 || steps.some((step, index) => {
-          const expected = expectedSteps[index]!;
-          return step.stepKind !== expected.stepKind || step.operationId !== expected.operationId || step.beforeHash !== expected.beforeHash || step.afterHash !== expected.afterHash;
-        })) throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 账本与已审阅树计划不一致。");
+        const matchesSteps = (expected: typeof expectedSteps): boolean => steps.length === 2 && !steps.some((step, index) => {
+          const expectedStep = expected[index]!;
+          return step.stepKind !== expectedStep.stepKind || step.operationId !== expectedStep.operationId || step.beforeHash !== expectedStep.beforeHash || step.afterHash !== expectedStep.afterHash;
+        });
+        if (existing.proposalId !== proposalId || (!matchesSteps(expectedSteps) && !matchesSteps(legacySteps))) throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 账本与已审阅树计划不一致。");
         if (existing.status === "COMPLETED") {
           const receipt = store.getCommandReceipt(receiptKey);
           if (receipt?.command !== "create_from_creation_session") throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 完成账本缺少原子回执。");
@@ -5218,10 +5266,13 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (!current) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
       const graphPlan = planCreationSessionMiniGraph(current, plan);
       if (plan.targetType !== "MINI_PROJECT" || input.rootBlockUuid !== graphPlan.rootBlockUuid || input.graphContentHash !== graphPlan.afterHash) throw serviceError("CREATION_SESSION_MINI_GRAPH_EVIDENCE_MISMATCH", "MiniProject Graph Tree 证据与已审阅计划不一致。");
+      const legacyGraphPlan = planCreationSessionMiniGraph(current, plan, { canonicalSiblingOrder: false });
       const commit = store.semanticCommit(input.semanticCommitId);
       const steps = store.semanticCommitSteps(input.semanticCommitId);
       const receiptKey = `creation-session:${input.semanticCommitId}`;
-      if (!commit || commit.proposalId !== proposalId || !["PENDING", "COMPLETED"].includes(commit.status) || steps.length !== 2 || steps[0]?.operationId !== graphPlan.rootBlockUuid || steps[0].afterHash !== graphPlan.afterHash || steps[1]?.operationId !== plan.objectId) throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session finalize 缺少匹配账本。");
+      const stepHashesMatch = steps[0]?.afterHash === graphPlan.afterHash || steps[0]?.afterHash === legacyGraphPlan.afterHash;
+      if (!commit || commit.proposalId !== proposalId || !["PENDING", "COMPLETED"].includes(commit.status) || steps.length !== 2
+        || steps[0]?.operationId !== graphPlan.rootBlockUuid || !stepHashesMatch || steps[1]?.operationId !== plan.objectId) throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session finalize 缺少匹配账本。");
       const receipt = store.getCommandReceipt(receiptKey);
       if (commit.status === "COMPLETED") {
         if (receipt?.command !== "create_from_creation_session") throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 完成账本缺少原子回执。");

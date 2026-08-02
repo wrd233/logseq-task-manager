@@ -298,7 +298,37 @@ export function verifyCreationSessionCommitPlan(sessionValue: CreationSession, p
   return structuredClone(session);
 }
 
-export function creationSessionMiniTreeHash(rootBlockUuid: string, nodes: CreationSessionMiniTreeNode[]): string {
+/**
+ * Versioned canonicalizer for Creation Session MiniProject trees.
+ *
+ * The Provider Draft may assign sibling `order` values with any base (the
+ * contract only requires unique bounded integers per parent), while the
+ * Logseq runtime read-back assigns array indexes starting at zero. Both
+ * representations carry the same relative sibling order, so the canonical
+ * form re-ranks siblings by `(order, blockUuid)` per parent. This absorbs the
+ * base difference without weakening any safety property: sibling order,
+ * parent relations, content hashes and deterministic Block identities are all
+ * still compared exactly.
+ */
+export const CREATION_TREE_CANONICAL_VERSION = "task-copilot-creation-tree-canonical-v1";
+
+export function canonicalCreationMiniSiblingOrder(nodes: readonly CreationSessionMiniTreeNode[]): CreationSessionMiniTreeNode[] {
+  const byParent = new Map<string, Array<{ order: number; blockUuid: string }>>();
+  for (const node of nodes) {
+    const parentKey = node.parentBlockUuid ?? "ROOT";
+    const siblings = byParent.get(parentKey) ?? [];
+    siblings.push({ order: node.order, blockUuid: node.blockUuid });
+    byParent.set(parentKey, siblings);
+  }
+  const canonicalOrder = new Map<string, number>();
+  for (const siblings of byParent.values()) {
+    siblings.sort((left, right) => left.order - right.order || left.blockUuid.localeCompare(right.blockUuid));
+    siblings.forEach((sibling, index) => canonicalOrder.set(sibling.blockUuid, index));
+  }
+  return nodes.map((node) => ({ ...node, order: canonicalOrder.get(node.blockUuid) ?? node.order }));
+}
+
+function hashCreationMiniNodes(rootBlockUuid: string, nodes: readonly CreationSessionMiniTreeNode[]): string {
   return checksum({
     rootBlockUuid,
     nodes: [...nodes]
@@ -307,7 +337,31 @@ export function creationSessionMiniTreeHash(rootBlockUuid: string, nodes: Creati
   });
 }
 
-export function planCreationSessionMiniGraph(sessionValue: CreationSession, plan: CreationSessionCommitPlan): CreationSessionMiniGraphPlan {
+export function creationSessionMiniTreeHash(rootBlockUuid: string, nodes: CreationSessionMiniTreeNode[]): string {
+  return hashCreationMiniNodes(rootBlockUuid, canonicalCreationMiniSiblingOrder(nodes));
+}
+
+/**
+ * Frozen pre-canonicalization hash (raw Draft sibling `order` values).
+ *
+ * Only used to recognize ledger rows prepared before the canonical v1
+ * normalizer existed, so their recovery can still be resumed and compensated
+ * through the same Proposal/Commit authority. New plans never use this.
+ */
+export function creationSessionMiniTreeHashLegacyOrder(rootBlockUuid: string, nodes: CreationSessionMiniTreeNode[]): string {
+  return checksum({
+    rootBlockUuid,
+    nodes: [...nodes]
+      .sort((left, right) => left.parentBlockUuid === right.parentBlockUuid ? left.order - right.order : left.blockUuid.localeCompare(right.blockUuid))
+      .map(({ blockUuid, text, parentBlockUuid, order, contentHash }) => ({ blockUuid, text, ...(parentBlockUuid ? { parentBlockUuid } : {}), order, contentHash })),
+  });
+}
+
+export function planCreationSessionMiniGraph(
+  sessionValue: CreationSession,
+  plan: CreationSessionCommitPlan,
+  options?: { canonicalSiblingOrder?: boolean },
+): CreationSessionMiniGraphPlan {
   const session = validateCreationSession(sessionValue);
   if (session.status === "PREVIEW_READY") verifyCreationSessionCommitPlan(session, plan);
   else if (session.status !== "CREATED" || session.sessionId !== plan.sessionId || session.currentDraftRevisionId !== plan.draftRevisionId
@@ -315,21 +369,22 @@ export function planCreationSessionMiniGraph(sessionValue: CreationSession, plan
     throw creationPlanError("CREATION_SESSION_COMMIT_SESSION_STALE", "Creation Session 结果不能重建已审阅的 MiniProject Graph 计划。");
   }
   if (plan.targetType !== "MINI_PROJECT" || plan.placement.kind === "NEW_PROJECT_PAGE") throw creationPlanError("CREATION_SESSION_MINI_GRAPH_PLAN_INVALID", "MiniProject Graph 计划的类型或 Placement 无效。");
+  const canonical = options?.canonicalSiblingOrder !== false;
   const root = plan.nodes.find(({ parentNodeId }) => !parentNodeId)!;
-  const afterNodes = plan.nodes.map((node) => ({
+  const afterNodes = (canonical ? canonicalCreationMiniSiblingOrder : (nodes: CreationSessionMiniTreeNode[]) => nodes)(plan.nodes.map((node) => ({
     blockUuid: node.blockUuid,
     text: node.text,
     ...(node.parentNodeId ? { parentBlockUuid: plan.nodes.find(({ nodeId }) => nodeId === node.parentNodeId)!.blockUuid } : {}),
     order: node.order,
     contentHash: node.contentHash,
     operation: node.operation,
-  }));
+  })));
   let beforeNodes: CreationSessionMiniTreeNode[] = [];
   if (plan.placement.kind === "SOURCE_BLOCK_IN_PLACE") {
     const primary = session.sources.find(({ role }) => role === "PRIMARY")!;
     const capture = currentCapture(primary);
     const siblingOrders = new Map<string, number>();
-    beforeNodes = capture.hierarchy.filter(({ relation }) => relation !== "PARENT").map((node) => {
+    beforeNodes = (canonical ? canonicalCreationMiniSiblingOrder : (nodes: CreationSessionMiniTreeNode[]) => nodes)(capture.hierarchy.filter(({ relation }) => relation !== "PARENT").map((node) => {
       const parentKey = node.parentNodeId ?? "ROOT";
       const order = siblingOrders.get(parentKey) ?? 0;
       siblingOrders.set(parentKey, order + 1);
@@ -341,15 +396,16 @@ export function planCreationSessionMiniGraph(sessionValue: CreationSession, plan
         contentHash: checksum(node.text),
         operation: "KEEP" as const,
       };
-    });
+    }));
   }
+  const treeHash = canonical ? creationSessionMiniTreeHash : creationSessionMiniTreeHashLegacyOrder;
   return {
     mode: plan.placement.kind === "SOURCE_BLOCK_IN_PLACE" ? "IN_PLACE" : "NEW_TREE",
     placement: structuredClone(plan.placement),
     rootBlockUuid: root.blockUuid,
     beforeNodes,
     afterNodes,
-    beforeHash: plan.placement.kind === "SOURCE_BLOCK_IN_PLACE" ? creationSessionMiniTreeHash(root.blockUuid, beforeNodes) : checksum({ rootBlockUuid: root.blockUuid, exists: false }),
-    afterHash: creationSessionMiniTreeHash(root.blockUuid, afterNodes),
+    beforeHash: plan.placement.kind === "SOURCE_BLOCK_IN_PLACE" ? treeHash(root.blockUuid, beforeNodes) : checksum({ rootBlockUuid: root.blockUuid, exists: false }),
+    afterHash: treeHash(root.blockUuid, afterNodes),
   };
 }

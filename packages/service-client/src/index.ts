@@ -70,12 +70,12 @@ export interface ServiceCreationRoundCommand {
 
 export interface ServiceCreationRoundResult extends ServiceCreationSessionResult {
   providerStatus: "COMPLETED" | "FAILED";
-  error?: { code: string; message: string };
+  error?: { code: string; message: string; validationCategory?: string; validationRule?: string };
 }
 
 export interface ServiceCreationDraftResult extends ServiceCreationSessionResult {
   providerStatus: "COMPLETED" | "FAILED";
-  error?: { code: string; message: string };
+  error?: { code: string; message: string; validationCategory?: string; validationRule?: string };
 }
 
 export interface ServiceCreationDraftEdit {
@@ -1248,9 +1248,13 @@ export class LocalServiceClient {
     }
     if (!response.ok) {
       const remoteError = body && typeof body === "object" && "error" in body
-        ? (body as { error?: { code?: unknown; message?: unknown } }).error
+        ? (body as { error?: { code?: unknown; message?: unknown; validationCategory?: unknown } }).error
         : undefined;
       const remoteCode = remoteError?.code;
+      const validationCategory = typeof remoteError?.validationCategory === "string"
+        && /^[A-Z][A-Z0-9_]{1,127}$/.test(remoteError.validationCategory)
+        ? remoteError.validationCategory
+        : undefined;
       const remoteMessage = typeof remoteError?.message === "string" && remoteError.message.trim() && remoteError.message.length <= 1_000
         ? remoteError.message.trim()
         : undefined;
@@ -1258,6 +1262,7 @@ export class LocalServiceClient {
       throw clientError(code, response.status === 401 ? "Local Service 会话认证失败。" : remoteMessage ?? "Local Service 请求失败。", {
         status: response.status,
         ...(typeof remoteCode === "string" ? { remoteCode } : {}),
+        ...(validationCategory ? { validationCategory } : {}),
       });
     }
     return body as T;
