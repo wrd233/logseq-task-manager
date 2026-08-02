@@ -411,7 +411,7 @@
 #task-copilot-personal-mvp-root .agent-governance-error { margin: 0; }
 
 @media (max-width: 760px) {
-  #task-copilot-personal-mvp-root .app-shell { width: 100vw; max-height: 100vh; margin: 0; border-radius: 0; }
+  #task-copilot-personal-mvp-root .app-shell { width: 100%; max-height: 100vh; margin: 0; border-radius: 0; }
   #task-copilot-personal-mvp-root .now-card { display: block; position: relative; }
   #task-copilot-personal-mvp-root .now-card-content { display: block; }
   #task-copilot-personal-mvp-root .now-card-actions { margin-top: 12px; width: 100%; }
