@@ -2148,7 +2148,7 @@ export function renderApp(model: UiModel): string {
               : model.workspace === "more"
                 ? renderMore(model)
               : model.workspace === "governance"
-                ? renderAgentGovernance(model.agentGovernance ?? { status: "loading", mode: "EXPERIMENT", automaticWritesPaused: true, observationEnabled: false, expandedContextEnabled: false, globalWritesPaused: false, decisionFilter: "ALL", decisionSearch: "", decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now: new Date().toISOString() })
+                ? renderAgentGovernance(model.agentGovernance ?? { status: "loading", mode: "EXPERIMENT", automaticWritesPaused: true, observationEnabled: false, expandedContextEnabled: false, globalWritesPaused: false, view: "decisions", range: "24h", decisionFilter: "ALL", decisionSearch: "", decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], batchMode: false, settingsOpen: false, exportMenuOpen: false, now: new Date().toISOString() })
               : model.workspace === "migration"
                 ? renderMigration(model)
                 : renderAudit(model);

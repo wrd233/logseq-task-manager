@@ -142,7 +142,7 @@ import {
 } from "./migration-execution-controller.ts";
 import { applyHostThemeMode, configuredThemeMode, detectSystemThemeMode, detectVisibleThemeMode, registerHostThemeModeSync } from "./theme-mode.ts";
 import { activeOutcomeScope, createScopedOutcome } from "./scoped-outcome.ts";
-import type { AgentGovernanceUiState } from "./agent-governance-ui.ts";
+import type { AgentGovernanceRange, AgentGovernanceUiState, AgentGovernanceView } from "./agent-governance-ui.ts";
 
 let appRoot: HTMLElement | undefined;
 const diagnostics = new RuntimeDiagnostics();
@@ -168,6 +168,13 @@ let agentSelectedDecisionIds = new Set<string>();
 let agentFeedbackBusy = false;
 let agentExportBusy: AgentGovernanceUiState["exportBusy"];
 let agentGovernanceMutationBusy = false;
+let agentGovernanceView: AgentGovernanceView = "decisions";
+let agentGovernanceRange: AgentGovernanceRange = "24h";
+let agentBatchFeedbackMode = false;
+let agentGovernanceSettingsOpen = false;
+let agentExportMenuOpen = false;
+let agentFeedbackExpandedDecisionId: string | undefined;
+let agentFeedbackExpandedRating: AgentFeedbackRating | undefined;
 let agentDecisionFilter: AgentGovernanceUiState["decisionFilter"] = "ALL";
 let agentDecisionSearch = "";
 let agentDecisionSearchTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
@@ -965,9 +972,15 @@ async function model(): Promise<UiModel> {
         observationEnabled: false,
         expandedContextEnabled: false,
         globalWritesPaused: false,
+        view: agentGovernanceView,
+        range: agentGovernanceRange,
         decisionFilter: agentDecisionFilter,
         decisionSearch: agentDecisionSearch,
-        decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [], now,
+        decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [],
+        batchMode: agentBatchFeedbackMode,
+        settingsOpen: agentGovernanceSettingsOpen,
+        exportMenuOpen: agentExportMenuOpen,
+        now,
       };
     } else {
       try {
@@ -989,6 +1002,8 @@ async function model(): Promise<UiModel> {
           observationEnabled: settings.observationEnabled,
           expandedContextEnabled: settings.expandedContextEnabled,
           globalWritesPaused: settings.globalWritesPaused,
+          view: agentGovernanceView,
+          range: agentGovernanceRange,
           decisionFilter: agentDecisionFilter,
           decisionSearch: agentDecisionSearch,
           decisions,
@@ -997,6 +1012,13 @@ async function model(): Promise<UiModel> {
           events,
           ...(agentSelectedDecisionId ? { selectedDecisionId: agentSelectedDecisionId } : {}),
           selectedDecisionIds: [...agentSelectedDecisionIds],
+          batchMode: agentBatchFeedbackMode,
+          settingsOpen: agentGovernanceSettingsOpen,
+          exportMenuOpen: agentExportMenuOpen,
+          ...(agentFeedbackExpandedDecisionId ? {
+            expandedFeedbackDecisionId: agentFeedbackExpandedDecisionId,
+            ...(agentFeedbackExpandedRating ? { expandedFeedbackRating: agentFeedbackExpandedRating } : {}),
+          } : {}),
           feedbackBusy: agentFeedbackBusy,
           mutationBusy: agentGovernanceMutationBusy,
           ...(agentExportBusy ? { exportBusy: agentExportBusy } : {}),
@@ -1011,9 +1033,15 @@ async function model(): Promise<UiModel> {
           observationEnabled: false,
           expandedContextEnabled: false,
           globalWritesPaused: false,
+          view: agentGovernanceView,
+          range: agentGovernanceRange,
           decisionFilter: agentDecisionFilter,
           decisionSearch: agentDecisionSearch,
-          decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [...agentSelectedDecisionIds], now,
+          decisions: [], rules: [], signals: [], events: [], selectedDecisionIds: [...agentSelectedDecisionIds],
+          batchMode: agentBatchFeedbackMode,
+          settingsOpen: agentGovernanceSettingsOpen,
+          exportMenuOpen: agentExportMenuOpen,
+          now,
         };
       }
     }
@@ -2380,6 +2408,31 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     return;
   }
+  if (action === "agent-governance-view" && value) {
+    if (value !== "decisions" && value !== "rules" && value !== "review") throw new Error("Agent 治理视图无效；没有改变当前页面。");
+    agentGovernanceView = value;
+    await refresh();
+    return;
+  }
+  if (action === "agent-governance-range" && value) {
+    if (value !== "24h" && value !== "7d") throw new Error("时间范围无效；没有改变摘要。");
+    agentGovernanceRange = value;
+    await refresh();
+    return;
+  }
+  if (action === "agent-governance-settings-toggle") {
+    if (value !== "toggle") throw new Error("设置入口操作无效。");
+    agentGovernanceSettingsOpen = !agentGovernanceSettingsOpen;
+    await refresh();
+    return;
+  }
+  if (action === "agent-governance-batch") {
+    if (value !== "toggle") throw new Error("批量模式操作无效。");
+    agentBatchFeedbackMode = !agentBatchFeedbackMode;
+    if (!agentBatchFeedbackMode) agentSelectedDecisionIds.clear();
+    await refresh();
+    return;
+  }
   if (action === "agent-governance-refresh") {
     await refresh();
     return;
@@ -2491,6 +2544,49 @@ async function handleAction(action: string, value?: string): Promise<void> {
     if (!latestError) await logseq.hideMainUI();
     return;
   }
+  if (action === "agent-feedback-quick" && value) {
+    const separator = value.lastIndexOf(":");
+    const decisionId = value.slice(0, separator);
+    const rating = value.slice(separator + 1);
+    if (!decisionId || rating !== "CORRECT") throw new Error("快速反馈选项无效；没有记录反馈。");
+    const client = serviceRuntimeClient;
+    if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有记录反馈。");
+    if (agentFeedbackBusy) throw new Error("这条反馈正在提交，不会重复发送。");
+    const feedback: AgentFeedbackInput = { rating: "CORRECT", action: "THIS_DECISION_ONLY" };
+    const traceId = `agent-feedback-ui-${Date.now()}-${globalThis.crypto.randomUUID()}`;
+    agentFeedbackBusy = true;
+    await refresh();
+    try {
+      const result = await client.recordAgentFeedback(decisionId, { feedback, traceId, idempotencyKey: traceId });
+      message = result.authorization?.paused
+        ? `已记录反馈，并暂停规则“${result.authorization.displayName}”的自动化。`
+        : `已记录这条 Agent 反馈${result.replayed ? "（已确认前次提交，未重复写入）" : ""}。`;
+    } catch (error) {
+      latestError = explain(error);
+    } finally {
+      agentFeedbackBusy = false;
+    }
+    await refresh();
+    return;
+  }
+  if (action === "agent-feedback-expand" && value) {
+    const separator = value.lastIndexOf(":");
+    const decisionId = value.slice(0, separator);
+    const rating = value.slice(separator + 1);
+    if (!decisionId || (rating !== "MOSTLY_CORRECT" && rating !== "WRONG")) throw new Error("反馈选项无效；没有记录反馈。");
+    agentFeedbackExpandedDecisionId = decisionId;
+    agentFeedbackExpandedRating = rating;
+    await refresh();
+    restoreUiFocus(requireAppRoot(), { field: "agent-feedback-correction-type" });
+    return;
+  }
+  if (action === "agent-feedback-collapse" && value) {
+    agentFeedbackExpandedDecisionId = undefined;
+    agentFeedbackExpandedRating = undefined;
+    await refresh();
+    restoreUiFocus(requireAppRoot(), { action: "agent-decision-detail", value });
+    return;
+  }
   if (action === "agent-feedback-submit" && value) {
     const client = serviceRuntimeClient;
     if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理服务尚未就绪；没有记录反馈。");
@@ -2534,22 +2630,33 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     return;
   }
-  if ((action === "agent-export-skill" || action === "agent-export-review") && value) {
+  if (action === "agent-export-menu-toggle") {
+    if (value !== "toggle") throw new Error("导出菜单操作无效。");
+    agentExportMenuOpen = !agentExportMenuOpen;
+    await refresh();
+    return;
+  }
+  if (action === "agent-export-go") {
     const client = serviceRuntimeClient;
     if (!isAgentGovernanceUiClient(client)) throw new Error("Agent 治理导出服务尚未就绪。");
     if (agentExportBusy) throw new Error("治理证据正在导出，不会重复启动。");
-    const days = Number(value);
-    if (action === "agent-export-skill" && days !== 30) throw new Error("Skill 反馈导出范围无效。");
-    if (action === "agent-export-review" && days !== 60 && days !== 180) throw new Error("复查证据导出范围无效。");
+    const type = dialogField("agentExportType");
+    const rawDays = dialogField("agentExportRange");
+    if (type !== "skill" && type !== "review") throw new Error("导出类型无效。");
+    const days = Number(rawDays);
+    if (!Number.isSafeInteger(days)) throw new Error("导出范围无效。");
+    if (type === "skill" && days !== 30) throw new Error("Skill 反馈导出范围无效。");
+    if (type === "review" && days !== 60 && days !== 180) throw new Error("复查证据导出范围无效。");
     const reviewDays: 60 | 180 = days === 180 ? 180 : 60;
-    agentExportBusy = action === "agent-export-skill" ? "skill" : "review";
+    agentExportBusy = type === "skill" ? "skill" : "review";
     await refresh();
     try {
-      const exported = action === "agent-export-skill"
+      const exported = type === "skill"
         ? await client.exportAgentSkillFeedback(30)
         : await client.exportAgentReviewEvidence(reviewDays);
       downloadAgentGovernancePackage(exported);
       message = `已生成 ${exported.manifest.includedCount} 条证据的可校验导出，共 ${exported.manifest.files.length} 个包内文件。`;
+      agentExportMenuOpen = false;
     } catch (error) {
       latestError = explain(error);
     } finally {
@@ -4751,11 +4858,40 @@ function bindUi(): void {
       if (token) restoreUiFocus(requireAppRoot(), token);
     });
   };
+  const onGovernanceTabsKeyDown = (event: KeyboardEvent): void => {
+    if (!(event.target instanceof HTMLElement)) return;
+    if (event.target.getAttribute("role") !== "tab") return;
+    if (!event.target.closest("[data-agent-governance-tabs]")) return;
+    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const tabs = event.target.closest<HTMLElement>("[data-agent-governance-tabs]");
+    if (!tabs) return;
+    const buttons = Array.from(tabs.querySelectorAll<HTMLElement>('[role="tab"]'));
+    const current = buttons.indexOf(event.target);
+    if (current < 0) return;
+    let next = current;
+    if (event.key === "ArrowLeft") next = (current - 1 + buttons.length) % buttons.length;
+    if (event.key === "ArrowRight") next = (current + 1) % buttons.length;
+    if (event.key === "Home") next = 0;
+    if (event.key === "End") next = buttons.length - 1;
+    const target = buttons[next];
+    const value = target?.dataset.value;
+    if (!target || !value) return;
+    if (value === agentGovernanceView) {
+      target.focus({ preventScroll: true });
+      return;
+    }
+    target.focus({ preventScroll: true });
+    agentGovernanceView = value as AgentGovernanceView;
+    void refresh();
+  };
   root.addEventListener("keydown", onNowMenuKeyDown);
   root.addEventListener("pointerdown", onNowMenuPointerDown);
   root.addEventListener("toggle", onNowMenuToggle, true);
   root.addEventListener("input", onDirectoryInput);
   root.addEventListener("change", onDirectoryChange);
+  root.addEventListener("keydown", onGovernanceTabsKeyDown);
   uiBound = true;
   cleanupHooks.push(() => {
     unbind();
@@ -4764,6 +4900,7 @@ function bindUi(): void {
     root.removeEventListener("toggle", onNowMenuToggle, true);
     root.removeEventListener("input", onDirectoryInput);
     root.removeEventListener("change", onDirectoryChange);
+    root.removeEventListener("keydown", onGovernanceTabsKeyDown);
     if (v2DirectorySearchTimer !== undefined) globalThis.clearTimeout(v2DirectorySearchTimer);
     v2DirectorySearchTimer = undefined;
     if (agentDecisionSearchTimer !== undefined) globalThis.clearTimeout(agentDecisionSearchTimer);
