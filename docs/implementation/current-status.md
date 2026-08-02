@@ -1170,3 +1170,10 @@ fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Fi
 - Retention live preview 为 4 Decisions / 10 Events / 3 Feedback Events / 2 Signals / 6 Rules / 10,917 UTF-8 bytes，eligible 0，且明确不删除治理行或 Logseq 原文。
 - 当前状态为 `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`，不是生产自动化完成。14 天 / 200 条真实 Decision 尚未发生，Guarded apply/Undo 必须继续等待长期证据与用户显式授权。
 - Light/Dark、批量反馈、详情、720×520 空结果和 failure 截图已达到 `VISUAL_GATE_READY`；仍需独立人类视觉结论，不能由实现 Agent 自授 PASS。完整运行证据见 `docs/goal/agent-decision-governance/CP4_RUNTIME_REPORT.md`。
+
+## Additive Goal：Persistent Creation Session（2026-08-02）
+
+- schema 16 的持久 Session、来源快照、answer-first 多题轮次、Draft Revision 和 Plugin 重入工作区已完成自动基础；旧 transient Grill 仅作为纵向迁移期兼容入口保留。
+- ADR 0011 已冻结正式桥接：所有 Graph 来源先保存 `PRE_COMMIT` 快照，当前 adopted READY Draft 与 Placement 进入唯一 HIGH `CREATION_SESSION_V1` Proposal；MiniProject 原位路径必须逐项保留完整来源子树，Project 第一纵向必须创建独立 Page 并保持来源只读。
+- SQLite 已增加复用现有正式对象表、Anchor、Audit 和 Receipt 的原子 final domain step：Object、Primary Anchor 与 Session `CREATED` 同事务；精确 Undo 只删除未变化投影并在保留的 Session 上记录 `undoneAt`。Anchor 冲突自动测试证明 Object 与 Session 一起回滚。
+- 当前为 `IN_PROGRESS / CS-CP04`：Graph step planning、Local Service/Plugin 执行、Pending Recovery、真实 Provider、Desktop 与独立视觉 Gate 尚未完成，不能宣称正式创建纵向完成。

@@ -21,6 +21,7 @@ import {
   updateV2ProjectStructure,
   validateV2ProjectStructure,
   type CreateV2ManagedObjectInput,
+  type CreationSession,
   type FocusSelection,
   type Lifecycle,
   type V2Anchor,
@@ -66,7 +67,7 @@ export interface V2ObjectRepository {
 export interface V2AuditRecord {
   traceId: string;
   actor: string;
-  command: "create_object" | "edit_area" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "synchronize_explicit_object" | "complete_mini_project" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_project" | "update_project_structure" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
+  command: "create_object" | "edit_area" | "create_project_with_page" | "materialize_explicit_object" | "undo_materialization" | "create_from_creation_session" | "undo_creation_session_materialization" | "synchronize_explicit_object" | "complete_mini_project" | "complete_mini_project_from_marker" | "observe_primary_anchor" | "rebind_primary_anchor" | "transition_lifecycle" | "cancel_lifecycle" | "reopen_lifecycle" | "undo_lifecycle" | "complete_project" | "update_project_structure" | "change_condition" | "change_due_at" | "bind_primary_anchor" | "assign_primary_owner" | "change_primary_owner" | "undo_primary_owner_change" | "add_association";
   objectId: string;
   beforeVersion: number;
   afterVersion: number;
@@ -202,7 +203,8 @@ export type V2CommandReceipt =
   | { command: "assign_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership }
   | { command: "change_primary_owner"; object: V2ManagedObject; ownership: V2PrimaryOwnership; previousOwnerId?: string }
   | { command: "undo_primary_owner_change"; object: V2ManagedObject; ownership?: V2PrimaryOwnership }
-  | { command: "add_association"; object: V2ManagedObject; association: V2Association };
+  | { command: "add_association"; object: V2ManagedObject; association: V2Association }
+  | { command: "create_from_creation_session" | "undo_creation_session_materialization"; session: CreationSession; object: V2ManagedObject; anchor: V2Anchor };
 
 export interface MaterializeExplicitObjectInput {
   objectId?: string;

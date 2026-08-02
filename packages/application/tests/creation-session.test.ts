@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CreationSessionApplication, type CreationSessionRepository, type CreationSessionWriteResult } from "../src/index.ts";
+import { CreationSessionApplication, type CreationSessionMaterializationResult, type CreationSessionRepository, type CreationSessionWriteResult } from "../src/index.ts";
 import type { CreationSession, CreationSessionStatus, CreationSessionSource } from "@task-copilot/domain";
 
 class MemoryCreationSessions implements CreationSessionRepository {
@@ -19,6 +19,9 @@ class MemoryCreationSessions implements CreationSessionRepository {
     this.receipts.set(key, result);
     return result;
   }
+  replayCreationSessionMaterialization(): CreationSessionMaterializationResult | undefined { return undefined; }
+  commitCreationSessionMaterialization(): CreationSessionMaterializationResult { throw new Error("not used"); }
+  commitCreationSessionMaterializationUndo(): CreationSessionMaterializationResult { throw new Error("not used"); }
 }
 
 const blank = (): CreationSessionSource => ({ sourceId: "primary", role: "PRIMARY", kind: "BLANK", captures: [{ captureId: "capture-blank", reason: "SESSION_START", snapshotHash: "blank", content: "", hierarchy: [], capturedAt: "2026-08-02T06:00:00.000Z" }], currentCaptureId: "capture-blank", latestKnownHash: "blank", availability: "AVAILABLE" });

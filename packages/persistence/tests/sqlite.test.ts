@@ -7,7 +7,7 @@ import test from "node:test";
 import Database from "better-sqlite3";
 
 import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication } from "@task-copilot/application";
-import { renderV2ProposalFiles, type CreationSessionSource, type V2Proposal } from "@task-copilot/domain";
+import { renderV2ProposalFiles, type CreationDraftRevision, type CreationSessionSource, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "../src/sqlite.ts";
@@ -59,6 +59,117 @@ test("Creation Sessions persist across restart without entering formal object or
   assert.equal(reopened.listObjects().length, 0);
   assert.equal(reopened.auditEventCount(), 0);
   reopened.close();
+});
+
+function readyCreationDraft(): CreationDraftRevision {
+  return {
+    revisionId: "creation-ready-draft",
+    generationIds: [],
+    reason: "ADOPTED",
+    nodes: [
+      { nodeId: "creation-root", semanticKey: "root", text: "**[MiniProject]** 发布版本 #MiniProject", order: 0, nodeType: "BLOCK", provenance: "USER_CONFIRMED", operation: "CREATE", userEdited: false, confirmed: true, evidenceRefs: [] },
+      { nodeId: "creation-goal", semanticKey: "goal", text: "**目标**：完成可恢复发布", parentNodeId: "creation-root", order: 0, nodeType: "BLOCK", provenance: "USER_CONFIRMED", operation: "CREATE", userEdited: false, confirmed: true, evidenceRefs: [] },
+    ],
+    conflicts: [],
+    unusedMaterials: [],
+    warnings: [],
+    maturity: { level: "READY", missing: [] },
+    adopted: true,
+    final: true,
+    createdAt: "2026-08-02T07:00:00.000Z",
+  };
+}
+
+async function readyBlankCreation(store: V2SqliteStore, sessionId: string): Promise<{ application: CreationSessionApplication; version: number }> {
+  const application = new CreationSessionApplication(store, "graph-creation-formal");
+  const primarySource: CreationSessionSource = {
+    sourceId: `blank-${sessionId}`,
+    role: "PRIMARY",
+    kind: "BLANK",
+    captures: [{ captureId: `capture-${sessionId}`, reason: "SESSION_START", snapshotHash: "blank", content: "", hierarchy: [], capturedAt: "2026-08-02T06:00:00.000Z" }],
+    currentCaptureId: `capture-${sessionId}`,
+    latestKnownHash: "blank",
+    availability: "AVAILABLE",
+  };
+  application.create({ targetType: "MINI_PROJECT", primarySource, sessionId, idempotencyKey: `create-${sessionId}` }, new Date("2026-08-02T06:00:00.000Z"));
+  const ready = application.update({
+    sessionId,
+    expectedVersion: 1,
+    idempotencyKey: `ready-${sessionId}`,
+    patch: {
+      draftRevisions: [readyCreationDraft()],
+      currentDraftRevisionId: "creation-ready-draft",
+      placementPlan: { kind: "PAGE_END", pageId: "page-target", pageName: "Target" },
+    },
+  }, new Date("2026-08-02T07:00:00.000Z"));
+  return { application, version: ready.session.version };
+}
+
+test("Creation Session formalization and Undo atomically couple Session, Object, Anchor, Audit and receipt", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-creation-formal");
+  const { application, version } = await readyBlankCreation(store, "creation-formal");
+  const formalized = application.formalize({
+    sessionId: "creation-formal",
+    expectedVersion: version,
+    idempotencyKey: "formalize-creation",
+    semanticCommitId: "semantic-creation",
+    objectId: "mini-created-from-session",
+    text: "**[MiniProject]** 发布版本 #MiniProject",
+    anchor: { anchorId: "anchor-created-from-session", graphId: "graph-creation-formal", externalId: "33333333-3333-4333-8333-333333333333", contentHash: checksum("**[MiniProject]** 发布版本 #MiniProject") },
+    actor: "proposal_commit",
+    traceId: "trace-creation-formal",
+  }, new Date("2026-08-02T08:00:00.000Z"));
+  assert.equal(formalized.session.status, "CREATED");
+  assert.equal(formalized.session.creationResult?.semanticCommitId, "semantic-creation");
+  assert.equal(store.getObject("mini-created-from-session")?.objectType, "MINI_PROJECT");
+  assert.equal(store.getPrimaryAnchorByExternal("graph-creation-formal", "33333333-3333-4333-8333-333333333333")?.objectId, "mini-created-from-session");
+  assert.equal(store.auditEventCount(), 1);
+  assert.equal(application.formalize({
+    sessionId: "creation-formal", expectedVersion: version, idempotencyKey: "formalize-creation", semanticCommitId: "ignored", objectId: "ignored", text: "ignored",
+    anchor: { graphId: "graph-creation-formal", externalId: "ignored", contentHash: "ignored" }, actor: "ignored", traceId: "ignored",
+  }).replayed, true);
+
+  const undone = application.undoFormalization({
+    sessionId: "creation-formal",
+    expectedVersion: formalized.session.version,
+    idempotencyKey: "undo-creation-formal",
+    semanticCommitId: "semantic-creation",
+    expectedObject: formalized.object,
+    expectedAnchor: formalized.anchor,
+    actor: "user",
+    traceId: "trace-creation-undo",
+  }, new Date("2026-08-02T09:00:00.000Z"));
+  assert.equal(undone.session.status, "CREATED");
+  assert.equal(undone.session.creationResult?.undoneAt, "2026-08-02T09:00:00.000Z");
+  assert.equal(store.getObject("mini-created-from-session"), undefined);
+  assert.equal(store.getPrimaryAnchorById("anchor-created-from-session"), undefined);
+  assert.equal(store.auditEventCount(), 2);
+  assert.equal(application.undoFormalization({
+    sessionId: "creation-formal", expectedVersion: formalized.session.version, idempotencyKey: "undo-creation-formal", semanticCommitId: "ignored",
+    expectedObject: formalized.object, expectedAnchor: formalized.anchor, actor: "ignored", traceId: "ignored",
+  }).replayed, true);
+});
+
+test("Creation Session formalization rolls back Object and Session together on an Anchor conflict", async (t) => {
+  const { root, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-creation-formal");
+  const existing = await new V2Application(store).materializeExplicitObject({
+    objectId: "existing-anchor-object",
+    objectType: "TASK",
+    text: "已存在",
+    anchor: { graphId: "graph-creation-formal", externalId: "44444444-4444-4444-8444-444444444444", contentHash: checksum("已存在") },
+  }, { actor: "test", expectedVersion: 0, idempotencyKey: "existing-anchor", traceId: "trace-existing" });
+  const { application, version } = await readyBlankCreation(store, "creation-conflict");
+  assert.throws(() => application.formalize({
+    sessionId: "creation-conflict", expectedVersion: version, idempotencyKey: "formalize-conflict", semanticCommitId: "semantic-conflict", objectId: "must-not-exist", text: "**[MiniProject]** 冲突 #MiniProject",
+    anchor: { graphId: "graph-creation-formal", externalId: existing.anchor.externalId, contentHash: checksum("**[MiniProject]** 冲突 #MiniProject") }, actor: "proposal_commit", traceId: "trace-conflict",
+  }), /已绑定正式对象/);
+  assert.equal(store.getObject("must-not-exist"), undefined);
+  assert.equal(application.get("creation-conflict")?.status, "PREVIEW_READY");
+  assert.equal(store.auditEventCount(), 1, "only the pre-existing materialization audit remains");
 });
 
 test("Condition command receipts retain a durable inverse without changing the object API", async (t) => {

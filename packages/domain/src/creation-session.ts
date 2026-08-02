@@ -319,6 +319,12 @@ export function validateCreationSession(session: CreationSession): CreationSessi
   if (new Set(generationIds).size !== generationIds.length) throw creationError("CREATION_SESSION_DRAFT_GENERATION_DUPLICATE", "草稿生成请求不能产生重复 Revision。");
   if (session.status === "CREATED" && !session.creationResult) throw creationError("CREATION_SESSION_RESULT_REQUIRED", "已创建会话必须关联正式对象和 Commit。");
   if (session.status !== "CREATED" && session.creationResult) throw creationError("CREATION_SESSION_RESULT_PREMATURE", "正式创建前不能写入创建结果。");
+  if (session.creationResult) {
+    boundedText(session.creationResult.objectId, "创建结果对象 ID", 128);
+    boundedText(session.creationResult.semanticCommitId, "创建结果 Semantic Commit ID", 128);
+    validTime(session.creationResult.createdAt, "创建结果时间");
+    if (session.creationResult.undoneAt) validTime(session.creationResult.undoneAt, "创建结果 Undo 时间");
+  }
   validTime(session.createdAt, "会话创建时间");
   validTime(session.updatedAt, "会话更新时间");
   return structuredClone(session);
@@ -660,4 +666,18 @@ export function completeCreationSession(session: CreationSession, result: Creati
   if (session.sources.some((source) => source.kind !== "BLANK" && (source.availability !== "AVAILABLE" || source.latestKnownHash !== sourceCurrentCapture(source).snapshotHash))) throw creationError("CREATION_SESSION_SOURCE_NOT_CURRENT", "来源已变化、删除或不可解析；正式创建前必须重新读取并明确处理。");
   const timestamp = at.toISOString();
   return validateCreationSession({ ...session, status: "CREATED", creationResult: result, version: session.version + 1, updatedAt: timestamp, events: [...session.events, { eventId: createId("creation_event", at), kind: "CREATED", occurredAt: timestamp, summary: "正式对象已通过 Semantic Commit 创建" }] });
+}
+
+export function undoCreationSessionResult(session: CreationSession, objectId: string, semanticCommitId: string, expectedVersion: number, at = new Date()): CreationSession {
+  if (session.version !== expectedVersion) throw creationError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session 已变化；Undo 没有覆盖较新结果。");
+  if (session.status !== "CREATED" || !session.creationResult || session.creationResult.objectId !== objectId || session.creationResult.semanticCommitId !== semanticCommitId) throw creationError("CREATION_SESSION_UNDO_RESULT_MISMATCH", "Undo 必须精确引用当前 Creation Session 创建结果。");
+  if (session.creationResult.undoneAt) return structuredClone(session);
+  const timestamp = at.toISOString();
+  return validateCreationSession({
+    ...session,
+    creationResult: { ...session.creationResult, undoneAt: timestamp },
+    version: session.version + 1,
+    updatedAt: timestamp,
+    events: [...session.events, { eventId: createId("creation_event", at), kind: "UNDONE", occurredAt: timestamp, summary: "正式创建已撤销；Creation Session 历史保留" }],
+  });
 }

@@ -33,6 +33,9 @@ import type {
   V2OwnershipUndoCommand,
   V2OwnershipUndoResult,
   V2SynchronizationCommand,
+  CreationSessionMaterializationCommand,
+  CreationSessionMaterializationResult,
+  CreationSessionMaterializationUndoCommand,
   CreationSessionWriteResult,
 } from "@task-copilot/application";
 import { createAgentGovernanceSettings, reconcileAgentReviewSignal, renderV2ProposalFiles, validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceRetentionPreview, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization, validateCreationSession, validateV2Proposal, type AgentDecision, type AgentDecisionEvent, type AgentGovernanceRetentionPreview, type AgentGovernanceRetentionResult, type AgentGovernanceSettings, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type CreationSession, type CreationSessionStatus, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
@@ -1811,6 +1814,9 @@ export class V2SqliteStore {
       const value = result as { object: V2ManagedObject; anchor: V2Anchor };
       return { command, ...value };
     }
+    if (command === "create_from_creation_session" || command === "undo_creation_session_materialization") {
+      return { command, ...(result as { session: CreationSession; object: V2ManagedObject; anchor: V2Anchor }) };
+    }
     if (command === "rebind_primary_anchor") {
       const value = result as { object: V2ManagedObject; previousAnchor: V2Anchor; anchor: V2Anchor };
       return { command, ...value };
@@ -2670,6 +2676,85 @@ export class V2SqliteStore {
     if (!receipt) return undefined;
     if (receipt.command_name !== commandName) throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
     return { session: validateCreationSession(JSON.parse(receipt.result_json) as CreationSession), replayed: true };
+  }
+
+  replayCreationSessionMaterialization(idempotencyKey: string, commandName: "create_from_creation_session" | "undo_creation_session_materialization"): CreationSessionMaterializationResult | undefined {
+    this.requireIdempotencyKey(idempotencyKey);
+    const receipt = this.receipt(idempotencyKey);
+    if (!receipt) return undefined;
+    if (receipt.command_name !== commandName) throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+    const result = JSON.parse(receipt.result_json) as { session: CreationSession; object: V2ManagedObject; anchor: V2Anchor };
+    return { session: validateCreationSession(result.session), object: result.object, anchor: result.anchor, replayed: true };
+  }
+
+  commitCreationSessionMaterialization(command: CreationSessionMaterializationCommand): CreationSessionMaterializationResult {
+    validateCreationSession(command.session);
+    this.requireIdempotencyKey(command.idempotencyKey);
+    if (command.session.version !== command.expectedSessionVersion + 1 || command.session.status !== "CREATED" || command.session.creationResult?.objectId !== command.object.objectId || command.anchor.objectId !== command.object.objectId || command.anchor.role !== "primary_text") {
+      throw persistenceError("CREATION_SESSION_MATERIALIZATION_INVALID", "Creation Session、Object 与 Primary Anchor 的原子创建结果不一致。");
+    }
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        if (receipt.command_name !== command.audit.command) throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+        const result = JSON.parse(receipt.result_json) as { session: CreationSession; object: V2ManagedObject; anchor: V2Anchor };
+        return { session: validateCreationSession(result.session), object: result.object, anchor: result.anchor, replayed: true };
+      }
+      const current = this.database.prepare("SELECT version, graph_id, status FROM creation_sessions WHERE session_id = ?").get(command.session.sessionId) as { version: number; graph_id: string; status: string } | undefined;
+      if (!current || current.version !== command.expectedSessionVersion || current.graph_id !== command.session.graphId || current.status !== "PREVIEW_READY") throw persistenceError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session 已变化或不再可创建；正式对象没有写入。");
+      this.requireVersion(command.object.objectId, 0);
+      const bound = this.database.prepare("SELECT anchor_id FROM anchors WHERE graph_id = ? AND external_id = ? AND role = 'primary_text'").get(command.anchor.graphId, command.anchor.externalId) as { anchor_id: string } | undefined;
+      if (bound) throw persistenceError("V2_EXTERNAL_PRIMARY_ANCHOR_EXISTS", "该 Logseq identity 已绑定正式对象；Creation Session 没有重复物化。", { anchorId: bound.anchor_id });
+      this.writeObject(command.object);
+      this.database.prepare(`INSERT INTO anchors(anchor_id, object_id, role, graph_id, external_id, status, content_hash, last_seen_at)
+        VALUES (@anchorId, @objectId, @role, @graphId, @externalId, @status, @contentHash, @lastSeenAt)`).run(command.anchor);
+      const sessionUpdated = this.database.prepare(`UPDATE creation_sessions SET target_type = ?, status = ?, version = ?, session_json = ?, updated_at = ?
+        WHERE session_id = ? AND version = ?`).run(command.session.targetType, command.session.status, command.session.version, stableJson(command.session), command.session.updatedAt, command.session.sessionId, command.expectedSessionVersion);
+      if (sessionUpdated.changes !== 1) throw persistenceError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session 在正式事务中变化；全部写入已回滚。");
+      this.writeAudit(command.audit);
+      const result = { session: command.session, object: command.object, anchor: command.anchor };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
+  }
+
+  commitCreationSessionMaterializationUndo(command: CreationSessionMaterializationUndoCommand): CreationSessionMaterializationResult {
+    validateCreationSession(command.session);
+    this.requireIdempotencyKey(command.idempotencyKey);
+    if (command.session.version !== command.expectedSessionVersion + 1 || !command.session.creationResult?.undoneAt || command.session.creationResult.objectId !== command.expectedObject.objectId || command.session.creationResult.semanticCommitId !== command.semanticCommitId || command.expectedAnchor.objectId !== command.expectedObject.objectId) {
+      throw persistenceError("CREATION_SESSION_UNDO_INVALID", "Creation Session Undo、Object 与 Primary Anchor 的期望不一致。");
+    }
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(command.idempotencyKey);
+      if (receipt) {
+        if (receipt.command_name !== command.audit.command) throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+        const result = JSON.parse(receipt.result_json) as { session: CreationSession; object: V2ManagedObject; anchor: V2Anchor };
+        return { session: validateCreationSession(result.session), object: result.object, anchor: result.anchor, replayed: true };
+      }
+      const currentSession = this.getCreationSession(command.session.sessionId);
+      if (!currentSession || currentSession.version !== command.expectedSessionVersion || currentSession.creationResult?.objectId !== command.expectedObject.objectId || currentSession.creationResult.semanticCommitId !== command.semanticCommitId || currentSession.creationResult.undoneAt) throw persistenceError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session 创建结果已变化；Undo 没有写入。");
+      const currentObject = this.getObject(command.expectedObject.objectId);
+      const currentAnchor = this.getPrimaryAnchorById(command.expectedAnchor.anchorId);
+      if (stableJson(currentObject) !== stableJson(command.expectedObject) || stableJson(currentAnchor) !== stableJson(command.expectedAnchor)) throw persistenceError("V2_UNDO_STATE_CHANGED", "对象或 Anchor 已变化；Creation Session Undo 没有写入。");
+      const dependent = this.database.prepare(`SELECT
+        EXISTS(SELECT 1 FROM primary_ownerships WHERE child_object_id = ? OR owner_object_id = ?) AS ownership_count,
+        EXISTS(SELECT 1 FROM focus_selections WHERE object_id = ?) AS focus_count,
+        EXISTS(SELECT 1 FROM associations WHERE source_object_id = ? OR target_object_id = ?) AS association_count,
+        (SELECT count(*) FROM anchors WHERE object_id = ?) AS anchor_count`).get(command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId, command.expectedObject.objectId) as { ownership_count: number; focus_count: number; association_count: number; anchor_count: number };
+      if (dependent.ownership_count || dependent.focus_count || dependent.association_count || dependent.anchor_count !== 1) throw persistenceError("V2_UNDO_DEPENDENT_STATE_EXISTS", "对象已有后续正式状态；Creation Session Undo 不会删除它。");
+      const anchorDeleted = this.database.prepare("DELETE FROM anchors WHERE anchor_id = ? AND object_id = ? AND content_hash = ?").run(command.expectedAnchor.anchorId, command.expectedObject.objectId, command.expectedAnchor.contentHash);
+      const objectDeleted = this.database.prepare("DELETE FROM objects WHERE object_id = ? AND version = ?").run(command.expectedObject.objectId, command.expectedObject.version);
+      if (anchorDeleted.changes !== 1 || objectDeleted.changes !== 1) throw persistenceError("V2_UNDO_STATE_CHANGED", "对象或 Anchor 在 Creation Session Undo 事务中变化；本批已回滚。");
+      const sessionUpdated = this.database.prepare("UPDATE creation_sessions SET status = ?, version = ?, session_json = ?, updated_at = ? WHERE session_id = ? AND version = ?")
+        .run(command.session.status, command.session.version, stableJson(command.session), command.session.updatedAt, command.session.sessionId, command.expectedSessionVersion);
+      if (sessionUpdated.changes !== 1) throw persistenceError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session 在 Undo 事务中变化；本批已回滚。");
+      this.writeAudit(command.audit);
+      const result = { session: command.session, object: command.expectedObject, anchor: command.expectedAnchor };
+      this.writeReceipt(command.idempotencyKey, command.audit, result);
+      return { ...result, replayed: false };
+    });
+    return this.executeWrite(write);
   }
 
   getObject(objectId: string): V2ManagedObject | undefined {

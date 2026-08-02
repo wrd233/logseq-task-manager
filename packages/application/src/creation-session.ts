@@ -15,6 +15,9 @@ import {
   startCreationSessionRound,
   submitCreationRoundAnswers,
   updateCreationSession,
+  undoCreationSessionResult,
+  bindV2PrimaryAnchor,
+  createV2ManagedObject,
   type CreationResult,
   type CreationDraftGenerationInput,
   type CreationDraftNodeEdit,
@@ -25,12 +28,39 @@ import {
   type CreationSessionSource,
   type CreationSessionStatus,
   type CreationSessionTargetType,
+  type V2Anchor,
+  type V2ManagedObject,
 } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
+import type { V2AuditRecord } from "./v2.ts";
 
 export interface CreationSessionWriteResult {
   session: CreationSession;
   replayed: boolean;
+}
+
+export interface CreationSessionMaterializationResult extends CreationSessionWriteResult {
+  object: V2ManagedObject;
+  anchor: V2Anchor;
+}
+
+export interface CreationSessionMaterializationCommand {
+  session: CreationSession;
+  expectedSessionVersion: number;
+  object: V2ManagedObject;
+  anchor: V2Anchor;
+  idempotencyKey: string;
+  audit: V2AuditRecord & { command: "create_from_creation_session" };
+}
+
+export interface CreationSessionMaterializationUndoCommand {
+  session: CreationSession;
+  expectedSessionVersion: number;
+  expectedObject: V2ManagedObject;
+  expectedAnchor: V2Anchor;
+  semanticCommitId: string;
+  idempotencyKey: string;
+  audit: V2AuditRecord & { command: "undo_creation_session_materialization" };
 }
 
 export interface CreationSessionRepository {
@@ -38,6 +68,9 @@ export interface CreationSessionRepository {
   listCreationSessions(statuses?: readonly CreationSessionStatus[]): CreationSession[];
   saveCreationSession(session: CreationSession, expectedVersion: number, idempotencyKey: string, commandName: string): CreationSessionWriteResult;
   replayCreationSessionWrite(idempotencyKey: string, commandName: string): CreationSessionWriteResult | undefined;
+  commitCreationSessionMaterialization(command: CreationSessionMaterializationCommand): CreationSessionMaterializationResult;
+  commitCreationSessionMaterializationUndo(command: CreationSessionMaterializationUndoCommand): CreationSessionMaterializationResult;
+  replayCreationSessionMaterialization(idempotencyKey: string, commandName: "create_from_creation_session" | "undo_creation_session_materialization"): CreationSessionMaterializationResult | undefined;
 }
 
 export class CreationSessionApplication {
@@ -180,6 +213,62 @@ export class CreationSessionApplication {
     const current = this.required(input.sessionId);
     const session = completeCreationSession(current, input.result, input.expectedVersion, at);
     return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "CompleteCreationSession");
+  }
+
+  formalize(input: {
+    sessionId: string;
+    expectedVersion: number;
+    idempotencyKey: string;
+    semanticCommitId: string;
+    objectId: string;
+    text: string;
+    anchor: { anchorId?: string; graphId: string; externalId: string; contentHash: string };
+    actor: string;
+    traceId: string;
+  }, at = new Date()): CreationSessionMaterializationResult {
+    const replay = this.repository.replayCreationSessionMaterialization(input.idempotencyKey, "create_from_creation_session");
+    if (replay) return replay;
+    const current = this.required(input.sessionId);
+    if (current.graphId !== input.anchor.graphId || current.targetType === "MINI_PROJECT" && current.placementPlan?.kind === "SOURCE_BLOCK_IN_PLACE" && current.placementPlan.sourceBlockUuid !== input.anchor.externalId) {
+      throw new StructuredError({ code: "CREATION_SESSION_FORMAL_ANCHOR_INVALID", message: "正式 Primary Anchor 与 Session Graph 或原位 Placement 不一致。", ruleRefs: ["CREATION-SESSION-001", "D-185"] });
+    }
+    const created = createV2ManagedObject({ objectId: input.objectId, objectType: current.targetType, text: input.text, sourceOrCreationEvent: `creation_session:${current.sessionId}` }, at);
+    const candidate = bindV2PrimaryAnchor(created, input.anchor, created.version, at);
+    const session = completeCreationSession(current, { objectId: candidate.object.objectId, semanticCommitId: input.semanticCommitId, createdAt: at.toISOString() }, input.expectedVersion, at);
+    return this.repository.commitCreationSessionMaterialization({
+      session,
+      expectedSessionVersion: input.expectedVersion,
+      object: candidate.object,
+      anchor: candidate.anchor,
+      idempotencyKey: input.idempotencyKey,
+      audit: { traceId: input.traceId, actor: input.actor, command: "create_from_creation_session", objectId: candidate.object.objectId, beforeVersion: 0, afterVersion: candidate.object.version, occurredAt: at.toISOString() },
+    });
+  }
+
+  undoFormalization(input: {
+    sessionId: string;
+    expectedVersion: number;
+    idempotencyKey: string;
+    semanticCommitId: string;
+    expectedObject: V2ManagedObject;
+    expectedAnchor: V2Anchor;
+    actor: string;
+    traceId: string;
+  }, at = new Date()): CreationSessionMaterializationResult {
+    const replay = this.repository.replayCreationSessionMaterialization(input.idempotencyKey, "undo_creation_session_materialization");
+    if (replay) return replay;
+    const current = this.required(input.sessionId);
+    if (input.expectedObject.objectId !== input.expectedAnchor.objectId || input.expectedAnchor.role !== "primary_text" || input.expectedObject.version < 1) throw new StructuredError({ code: "CREATION_SESSION_UNDO_EXPECTATION_INVALID", message: "Creation Session Undo 必须引用同一正式对象的精确 Primary Anchor。", ruleRefs: ["CREATION-SESSION-001", "D-188"] });
+    const session = undoCreationSessionResult(current, input.expectedObject.objectId, input.semanticCommitId, input.expectedVersion, at);
+    return this.repository.commitCreationSessionMaterializationUndo({
+      session,
+      expectedSessionVersion: input.expectedVersion,
+      expectedObject: input.expectedObject,
+      expectedAnchor: input.expectedAnchor,
+      semanticCommitId: input.semanticCommitId,
+      idempotencyKey: input.idempotencyKey,
+      audit: { traceId: input.traceId, actor: input.actor, command: "undo_creation_session_materialization", objectId: input.expectedObject.objectId, beforeVersion: input.expectedObject.version, afterVersion: 0, occurredAt: at.toISOString() },
+    });
   }
 
   private required(sessionId: string): CreationSession {
