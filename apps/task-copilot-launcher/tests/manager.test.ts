@@ -30,6 +30,7 @@ const descriptor: ServiceDescriptor = {
 
 class FakeChild implements ManagedChild {
   readonly pid = 4321;
+  readonly lastExitCode: number | null = null;
   stopped = false;
   private exitListener?: () => void;
 

@@ -85,15 +85,20 @@ async function waitForDescriptor(path: string, child: ChildProcessPort): Promise
 function managedChild(child: ChildProcessPort): ManagedChild {
   if (!Number.isSafeInteger(child.pid) || (child.pid ?? 0) <= 0) throw new Error("LAUNCHER_SERVICE_PID_INVALID");
   let exited = child.exitCode !== null;
+  let lastExitCode: number | null = child.exitCode;
   let stopping: Promise<void> | undefined;
   const exitListeners = new Set<() => void>();
   child.once("exit", () => {
     exited = true;
+    lastExitCode = child.exitCode;
     for (const listener of exitListeners) listener();
     exitListeners.clear();
   });
   return {
     pid: child.pid!,
+    get lastExitCode(): number | null {
+      return lastExitCode;
+    },
     onExit(listener): void {
       if (exited) listener();
       else exitListeners.add(listener);

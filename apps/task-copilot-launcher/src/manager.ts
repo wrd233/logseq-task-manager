@@ -15,6 +15,7 @@ import type { LauncherGraphConfig, LauncherProviderConfig } from "./contracts.ts
 
 export interface ManagedChild {
   readonly pid: number;
+  readonly lastExitCode: number | null;
   onExit(listener: () => void): void;
   stop(): Promise<void>;
 }
@@ -254,9 +255,11 @@ export class GraphServiceManager {
   }
 
   private forgetExitedRuntime(graphKey: string, runtime: Runtime): void {
+    console.log(JSON.stringify({ event: "service_exited", graphKey, pid: runtime.child.pid, exitCode: runtime.child.lastExitCode }));
     if (this.runtimes.get(graphKey) !== runtime) return;
     this.runtimes.delete(graphKey);
     for (const leaseId of runtime.leaseIds) this.leases.delete(leaseId);
+    console.log(JSON.stringify({ event: "service_exited", graphKey, pid: runtime.child.pid, exitCode: runtime.child.lastExitCode }));
   }
 
   private async serializeGraphLifecycle<T>(graphKey: string, task: () => Promise<T>): Promise<T> {
