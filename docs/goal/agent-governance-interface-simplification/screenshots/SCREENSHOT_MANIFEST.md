@@ -43,4 +43,10 @@
 | decisions-default-dark.png / decisions-default-dark-narrow.png | 决策默认态 Dark 与 720×520 窄宽 |
 | decisions-batch-dark.png / decisions-detail-tech-dark.png | Dark 批量与详情 |
 
+## 最终 HEAD 构建确认（Desktop）
+
+| 截图 | 说明 |
+|---|---|
+| decisions-default-final-head.jpg | 最终 HEAD 构建（`56857be`）经正式 Plugin 路径加载后的决策默认视图；bundle SHA-256 与 HEAD 构建一致，4 条真实 Decision，无横向溢出 |
+
 原始 PNG 全量保留于 `tmp/runtime/agent-governance-interface-simplification/`（git-ignored）。

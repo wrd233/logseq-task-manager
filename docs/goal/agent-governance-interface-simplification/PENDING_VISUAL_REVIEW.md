@@ -5,7 +5,9 @@
 ```yaml
 VISUAL_GATE_STATUS: READY_FOR_INDEPENDENT_REVIEW
 implementation_commit: 0b8981f
+final_head_commit: 56857be
 desktop_evidence: tmp/runtime/agent-governance-interface-simplification/desktop-evidence.json
+final_smoke: tmp/runtime/agent-governance-interface-simplification/desktop-final-smoke.json
 viewport_report: tmp/runtime/agent-governance-interface-simplification/viewport-report.json
 ```
 
