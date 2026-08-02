@@ -1,6 +1,7 @@
 import type { CreationAnswerState, CreationSession } from "@task-copilot/domain";
 import type {
   ServiceCreationDraftEdit,
+  ServiceCreationSessionProposalResult,
   ServiceCreationSessionResult,
   ServiceCreationSourceSelection,
 } from "@task-copilot/service-client";
@@ -12,7 +13,7 @@ export interface PluginCreationSessionState {
   sessions: CreationSession[];
   session?: CreationSession | undefined;
   view: CreationSessionView;
-  busy?: "CREATE" | "ROUND" | "DRAFT" | "EDIT" | "ADOPT" | "ABANDON" | "LOAD" | undefined;
+  busy?: "CREATE" | "ROUND" | "DRAFT" | "EDIT" | "ADOPT" | "PLACEMENT" | "PROPOSAL" | "ABANDON" | "LOAD" | undefined;
   editingNodeId?: string | undefined;
   notice?: string | undefined;
   error?: string | undefined;
@@ -28,6 +29,8 @@ export interface CreationSessionClient {
   generateCreationSessionDraft(sessionId: string, input: { expectedVersion: number; idempotencyKey: string }): Promise<ServiceCreationSessionResult>;
   editCreationSessionDraft(sessionId: string, revisionId: string, nodeId: string, input: { expectedVersion: number; idempotencyKey: string; edit: ServiceCreationDraftEdit }): Promise<ServiceCreationSessionResult>;
   adoptCreationSessionDraft(sessionId: string, revisionId: string, input: { expectedVersion: number; idempotencyKey: string }): Promise<ServiceCreationSessionResult>;
+  updateCreationSession(sessionId: string, input: { expectedVersion: number; idempotencyKey: string; patch: Pick<CreationSession, "placementPlan"> }): Promise<ServiceCreationSessionResult>;
+  createCreationSessionProposal(sessionId: string, input: { expectedVersion: number; idempotencyKey: string }): Promise<ServiceCreationSessionProposalResult>;
   abandonCreationSession(sessionId: string, expectedVersion: number, idempotencyKey: string): Promise<ServiceCreationSessionResult>;
 }
 
@@ -47,6 +50,7 @@ function userMessage(error: unknown): string {
     : undefined;
   if (code === "CREATION_SESSION_VERSION_CONFLICT") return "这个创建会话已在另一处更新。已保留新内容，请重新载入后继续。";
   if (code === "CREATION_SESSION_DRAFT_SOURCE_CHANGED") return "来源已变化。请先明确纳入最新内容，再重新生成草稿。";
+  if (code === "CREATION_SESSION_PRE_COMMIT_SOURCE_CHANGED") return "来源在创建检查前发生了变化。请先纳入最新内容并重新审阅草稿。";
   if (typeof code === "string" && (code.startsWith("LLM_") || code.includes("PROVIDER"))) return "智能整理暂时不可用。回答、来源快照和最后稳定草稿都已保存，可以安全重试。";
   return "这次操作没有完成。已保存内容没有被覆盖，请重试或重新载入会话。";
 }
@@ -168,6 +172,16 @@ export class CreationSessionController {
     await this.mutate("ADOPT", async (client) => client.adoptCreationSessionDraft(session.sessionId, revisionId, { expectedVersion: session.version, idempotencyKey: idempotencyKey("creation-session-draft-adopt") }), "DRAFT");
   }
 
+  async setPlacement(placementPlan: NonNullable<CreationSession["placementPlan"]>): Promise<void> {
+    const session = this.requiredSession();
+    await this.mutate("PLACEMENT", async (client) => client.updateCreationSession(session.sessionId, { expectedVersion: session.version, idempotencyKey: idempotencyKey("creation-session-placement"), patch: { placementPlan } }), "DRAFT");
+  }
+
+  async prepareProposal(): Promise<void> {
+    const session = this.requiredSession();
+    await this.mutate("PROPOSAL", async (client) => client.createCreationSessionProposal(session.sessionId, { expectedVersion: session.version, idempotencyKey: idempotencyKey("creation-session-proposal") }), "DRAFT");
+  }
+
   async abandon(): Promise<void> {
     const session = this.requiredSession();
     await this.mutate("ABANDON", async (client) => client.abandonCreationSession(session.sessionId, session.version, idempotencyKey("creation-session-abandon")), "SUMMARY");
@@ -183,7 +197,7 @@ export class CreationSessionController {
       if (!this.current(started, epoch)) return;
       const providerFailure = "providerStatus" in result && result.providerStatus === "FAILED";
       const remoteError = "error" in result && result.error && typeof result.error === "object" ? (result.error as { message?: string }).message : undefined;
-      this.state = { status: "ready", sessions: this.withSession(result.session), session: result.session, view, ...(providerFailure ? { error: remoteError ?? "智能整理没有完成；最后稳定内容已保留。" } : { notice: busy === "EDIT" ? "草稿编辑已保存。" : undefined }) };
+      this.state = { status: "ready", sessions: this.withSession(result.session), session: result.session, view, ...(providerFailure ? { error: remoteError ?? "智能整理没有完成；最后稳定内容已保留。" } : { notice: busy === "EDIT" ? "草稿编辑已保存。" : busy === "PLACEMENT" ? "放置位置已保存。" : busy === "PROPOSAL" ? "正式方案已进入审阅中心；接受方案仍不会自动写入。" : undefined }) };
     } catch (error) {
       if (!this.current(started, epoch)) return;
       this.state = { ...this.state, status: this.state.session ? "ready" : "error", busy: undefined, error: userMessage(error) };

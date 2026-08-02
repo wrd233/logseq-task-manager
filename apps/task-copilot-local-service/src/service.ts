@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
+import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildCreationSessionProposal, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
 import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationRoundAnswerInput, type CreationSessionSource, type CreationSessionStatus, type CreationSourceCapture, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -172,6 +172,12 @@ async function readCreationSessionJson(request: IncomingMessage): Promise<Record
 function safeCreationToken(value: unknown, label: string): string {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", `${label}必须是受控标识。`);
   return value;
+}
+
+function deterministicCreationUuid(value: unknown): string {
+  const digest = createHash("sha256").update(stableJson(value)).digest("hex");
+  const variant = ((Number.parseInt(digest[16]!, 16) & 0x3) | 0x8).toString(16);
+  return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-${variant}${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
 }
 
 function parseCreationSourceSelection(value: unknown): ServiceCreationSourceSelection {
@@ -2372,6 +2378,45 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "采用 Draft Revision 需要当前版本和幂等键。");
       const result = await serializeByKey(`creation-session:${sessionId}`, async () => creationSessionApplication.adoptDraft({ sessionId, revisionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key") }));
       respond(response, 200, result);
+      return;
+    }
+    const creationSessionProposalMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/proposals$/) : null;
+    if (creationSessionProposalMatch?.[1]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionProposalMatch[1]), "Session ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "生成正式 Proposal 需要当前 Session version 与幂等键。");
+      const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
+      const result = await serializeByKey(`creation-session:${sessionId}`, async () => {
+        const replay = creationSessionApplication.replay(idempotencyKey, "PrepareCreationCommit");
+        let prepared = replay;
+        if (!prepared) {
+          const current = creationSessionApplication.get(sessionId);
+          if (!current) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
+          const captures: Array<{ sourceId: string; capture: CreationSourceCapture }> = [];
+          for (const source of current.sources) {
+            if (source.kind === "BLANK" || !source.externalId) continue;
+            const captured = await captureCreationSource(source.kind === "BLOCK_SUBTREE" ? { kind: "BLOCK", target: source.externalId } : { kind: "PAGE", target: source.externalId }, source.role, "PRE_COMMIT", source.sourceId);
+            captures.push({ sourceId: source.sourceId, capture: captured.captures[0]! });
+          }
+          prepared = creationSessionApplication.prepareCommit({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey, captures });
+        }
+        const proposalId = `proposal-creation-${checksum({ sessionId, idempotencyKey })}`;
+        const existing = await proposalApplication.get(proposalId);
+        if (existing) return { session: prepared.session, record: existing, replayed: true };
+        const draft = prepared.session.draftRevisions.find(({ revisionId }) => revisionId === prepared!.session.currentDraftRevisionId);
+        if (!draft) throw serviceError("CREATION_SESSION_DRAFT_NOT_FOUND", "当前 adopted Draft 不存在；没有生成 Proposal。");
+        const createdBlockUuids = Object.fromEntries(draft.nodes.filter(({ operation }) => operation === "CREATE").map(({ nodeId }) => [nodeId, deterministicCreationUuid({ sessionId, idempotencyKey, nodeId })]));
+        const proposal = buildCreationSessionProposal({
+          proposalId,
+          session: prepared.session,
+          objectId: `creation-object-${checksum({ sessionId, idempotencyKey })}`,
+          createdBlockUuids,
+          createdAt: prepared.session.updatedAt,
+        });
+        const submitted = await proposalApplication.submit(proposal, new Date(prepared.session.updatedAt));
+        return { session: prepared.session, record: submitted.record, replayed: submitted.replayed || prepared.replayed };
+      });
+      respond(response, result.replayed ? 200 : 201, result);
       return;
     }
     const creationSessionAbandonMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/abandon$/) : null;

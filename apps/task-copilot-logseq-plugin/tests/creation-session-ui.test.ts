@@ -5,6 +5,7 @@ import {
   createCreationSession,
   generateCreationDraftRevision,
   startCreationSessionRound,
+  updateCreationSession,
   type CreationSessionSource,
 } from "@task-copilot/domain";
 
@@ -76,6 +77,24 @@ test("renders a Logseq-like Draft Tree and exposes edits without displaying stab
   assert.match(html, /data-action="creation-session-draft-edit-save"/);
   assert.match(html, /data-action="creation-session-draft-delete"/);
   assert.doesNotMatch(html, new RegExp(`>${nodeId}<`));
+});
+
+test("a READY Project draft exposes explicit independent-Page placement and Proposal review entry", () => {
+  const base = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: blank(), sessionId: "creation-project-ready" }, at);
+  const drafted = generateCreationDraftRevision(base, {
+    generationId: "generation-project-ready", reason: "INITIAL_DRAFT", suggestedObjectTitle: "统一告警治理",
+    nodes: [
+      { semanticKey: "root", text: "统一告警治理", order: 0, nodeType: "PAGE_SECTION", provenance: "AGENT_SYNTHESIS", operation: "CREATE", confirmed: true, evidenceRefs: [] },
+      { semanticKey: "goal", parentSemanticKey: "root", text: "**[项目目标]** 建立可维护的告警治理工作面", order: 0, nodeType: "BLOCK", provenance: "AGENT_SYNTHESIS", operation: "CREATE", confirmed: true, evidenceRefs: [] },
+    ],
+    unusedMaterials: [], warnings: [], maturity: { level: "READY", missing: [] },
+  }, base.version, at);
+  const session = updateCreationSession(drafted, { placementPlan: { kind: "NEW_PROJECT_PAGE", pageName: "Project/统一告警治理" } }, drafted.version, at);
+  const html = renderCreationSession({ status: "ready", sessions: [session], session, view: "DRAFT" });
+  assert.match(html, /独立 Project Page/);
+  assert.match(html, /data-action="creation-session-placement-project"/);
+  assert.match(html, /data-action="creation-session-proposal-prepare"/);
+  assert.match(html, /不会立即写入/);
 });
 
 test("shows only active sessions in a restrained resumable list", () => {

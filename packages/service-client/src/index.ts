@@ -95,6 +95,10 @@ export interface ServiceCreationSessionResult {
   replayed: boolean;
 }
 
+export interface ServiceCreationSessionProposalResult extends ServiceCreationSessionResult {
+  record: ServiceStoredProposal;
+}
+
 export interface ServiceDoctor {
   status: "PASS" | "FAIL";
   schemaVersion: number;
@@ -1447,6 +1451,10 @@ export class LocalServiceClient {
 
   adoptCreationSessionDraft(sessionId: string, revisionId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationSessionResult> {
     return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/drafts/${encodeURIComponent(revisionId)}/adopt`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 12_000);
+  }
+
+  createCreationSessionProposal(sessionId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationSessionProposalResult> {
+    return this.request<ServiceCreationSessionProposalResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/proposals`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
   }
 
   createArea(input: ServiceCreateAreaRequest): Promise<ServiceAreaCommandResult> {

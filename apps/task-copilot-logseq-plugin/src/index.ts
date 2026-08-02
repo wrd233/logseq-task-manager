@@ -617,6 +617,8 @@ function isCreationSessionClient(client: ServiceRuntimeClient | undefined): clie
     && typeof client.generateCreationSessionDraft === "function"
     && typeof client.editCreationSessionDraft === "function"
     && typeof client.adoptCreationSessionDraft === "function"
+    && typeof client.updateCreationSession === "function"
+    && typeof client.createCreationSessionProposal === "function"
     && typeof client.abandonCreationSession === "function");
 }
 const creationSessionController = new CreationSessionController(
@@ -2801,6 +2803,28 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "creation-session-draft-adopt" && value) {
     await creationSessionController.adoptDraft(value);
+    return;
+  }
+  if (action === "creation-session-placement-project") {
+    const pageName = dialogField("creation-project-page-name");
+    if (!pageName || pageName.includes("\n")) throw new Error("Project Page 名称不能为空或包含换行。");
+    await creationSessionController.setPlacement({ kind: "NEW_PROJECT_PAGE", pageName });
+    return;
+  }
+  if ((action === "creation-session-placement-mini-in-place" || action === "creation-session-placement-mini-child") && value) {
+    await creationSessionController.setPlacement(action === "creation-session-placement-mini-in-place" ? { kind: "SOURCE_BLOCK_IN_PLACE", sourceBlockUuid: value } : { kind: "SOURCE_BLOCK_CHILD", sourceBlockUuid: value });
+    return;
+  }
+  if (action === "creation-session-placement-page-end" && value) {
+    const separator = value.indexOf("|");
+    const pageId = separator >= 0 ? value.slice(0, separator) : value;
+    const pageName = separator >= 0 ? value.slice(separator + 1) : value;
+    if (!pageId || !pageName) throw new Error("Page 位置已经变化；请重新载入会话。");
+    await creationSessionController.setPlacement({ kind: "PAGE_END", pageId, pageName });
+    return;
+  }
+  if (action === "creation-session-proposal-prepare") {
+    await creationSessionController.prepareProposal();
     return;
   }
   if (action === "creation-session-abandon") {

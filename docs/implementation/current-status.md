@@ -1176,4 +1176,5 @@ fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Fi
 - schema 16 的持久 Session、来源快照、answer-first 多题轮次、Draft Revision 和 Plugin 重入工作区已完成自动基础；旧 transient Grill 仅作为纵向迁移期兼容入口保留。
 - ADR 0011 已冻结正式桥接：所有 Graph 来源先保存 `PRE_COMMIT` 快照，当前 adopted READY Draft 与 Placement 进入唯一 HIGH `CREATION_SESSION_V1` Proposal；MiniProject 原位路径必须逐项保留完整来源子树，Project 第一纵向必须创建独立 Page 并保持来源只读。
 - SQLite 已增加复用现有正式对象表、Anchor、Audit 和 Receipt 的原子 final domain step：Object、Primary Anchor 与 Session `CREATED` 同事务；精确 Undo 只删除未变化投影并在保留的 Session 上记录 `undoneAt`。Anchor 冲突自动测试证明 Object 与 Session 一起回滚。
-- 当前为 `IN_PROGRESS / CS-CP04`：Graph step planning、Local Service/Plugin 执行、Pending Recovery、真实 Provider、Desktop 与独立视觉 Gate 尚未完成，不能宣称正式创建纵向完成。
+- 正式审阅准备已接入同一个 Local Service / Proposal 权威：Plugin 只在 adopted READY Draft、零 missing/conflict 且显式 Placement 已保存时开放入口；Service 在串行化的幂等命令中重新读取每个 Graph 来源并保存 `PRE_COMMIT` 快照，来源漂移时零 Proposal 写入。通过后生成确定性的单 HIGH `CREATION_SESSION_V1` Proposal 并进入既有 Review queue；Project 仅允许独立新 Page，MiniProject 位置选择保持显式。接受仍不等于生效，当前入口不会立即写 Graph 或正式 Object。
+- 当前为 `IN_PROGRESS / CS-CP05`：专用 Graph step planning、SemanticCommit prepare/verify/finalize、Plugin Graph 执行、Pending Recovery、正式 Undo、真实 Provider、Desktop 与独立视觉 Gate 尚未完成，不能宣称正式创建纵向完成。

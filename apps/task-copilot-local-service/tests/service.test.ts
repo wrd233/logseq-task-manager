@@ -370,6 +370,41 @@ test("Creation Session captures Graph-owned sources, detects drift and preserves
   assert.equal((await client.listObjects()).length, 0);
 });
 
+test("Creation Session prepares one replayable HIGH Proposal while formal stores remain unchanged", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-proposal-"));
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek", providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({ value: {
+      schemaVersion: "task-copilot-creation-draft-v1", targetType: "PROJECT", suggestedTitle: "统一硬件告警治理", suggestedPageName: "Project/统一硬件告警治理",
+      nodes: [
+        { semanticKey: "project-root", order: 0, nodeType: "PAGE_SECTION", text: "统一硬件告警治理", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: true },
+        { semanticKey: "goal", parentSemanticKey: "project-root", order: 0, nodeType: "BLOCK", text: "**[项目目标]** 建立持续可维护的硬件告警治理工作面", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: true },
+        { semanticKey: "evidence", parentSemanticKey: "project-root", order: 1, nodeType: "BLOCK", text: "**[完成证据]** 首批设备告警可追踪并可恢复", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: true },
+        { semanticKey: "current", parentSemanticKey: "project-root", order: 2, nodeType: "BLOCK", text: "**[当前推进]** 明确首批设备接入边界", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: true },
+      ],
+      unusedMaterials: [], warnings: [], maturity: { level: "READY", missing: [] },
+    }, metadata: { model: "deepseek-v4", durationMs: 10, attempts: 1 } }),
+  };
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-creation-proposal", token: "creation-proposal-token-at-least-24", creationDraftGenerator: new LocalLlmCreationDraftGenerator(provider) });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const created = await client.createCreationSession({ targetType: "PROJECT", primarySource: { kind: "BLANK" }, sessionId: "creation-proposal-session", idempotencyKey: "creation-proposal-create" });
+  const drafted = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: 1, idempotencyKey: "creation-proposal-draft" });
+  assert.equal(drafted.providerStatus, "COMPLETED");
+  const placed = await client.updateCreationSession(created.session.sessionId, { expectedVersion: drafted.session.version, idempotencyKey: "creation-proposal-place", patch: { placementPlan: { kind: "NEW_PROJECT_PAGE", pageName: "Project/统一硬件告警治理" } } });
+  const proposal = await client.createCreationSessionProposal(created.session.sessionId, { expectedVersion: placed.session.version, idempotencyKey: "creation-proposal-submit" });
+  assert.equal(proposal.record.proposal.status, "READY");
+  assert.equal(proposal.record.proposal.groups.length, 1);
+  assert.equal(proposal.record.proposal.groups[0]?.risk, "HIGH");
+  assert.equal(proposal.record.proposal.groups[0]?.semanticOperations[0]?.payload.schema, "CREATION_SESSION_V1");
+  assert.equal(proposal.session.sources[0]?.kind, "BLANK");
+  assert.equal((await client.listObjects()).length, 0, "Proposal acceptance authority is separate from formal creation");
+  const replay = await client.createCreationSessionProposal(created.session.sessionId, { expectedVersion: placed.session.version, idempotencyKey: "creation-proposal-submit" });
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.record.proposal.proposalId, proposal.record.proposal.proposalId);
+  assert.equal((await client.listProposals()).filter(({ proposal: item }) => item.proposalId === proposal.record.proposal.proposalId).length, 1);
+});
+
 test("Creation Session persists answers before Provider, retains stable consensus on failure and retries safely", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-round-service-"));
   let call = 0;

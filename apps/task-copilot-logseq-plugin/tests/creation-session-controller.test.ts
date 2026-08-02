@@ -52,6 +52,8 @@ function client(overrides: Partial<CreationSessionClient> = {}): CreationSession
     generateCreationSessionDraft: unsupported,
     editCreationSessionDraft: unsupported,
     adoptCreationSessionDraft: unsupported,
+    updateCreationSession: unsupported,
+    createCreationSessionProposal: unsupported,
     abandonCreationSession: unsupported,
     ...overrides,
   } as CreationSessionClient;

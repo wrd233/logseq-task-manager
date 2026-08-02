@@ -415,6 +415,26 @@ export function captureCreationSessionSourcesForDraft(session: CreationSession, 
   return updateCreationSession(session, { sources }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "SOURCE_CAPTURED", occurredAt: timestamp, summary: "生成 Draft 前已保存并锁定重要来源快照" });
 }
 
+export function captureCreationSessionSourcesForCommit(session: CreationSession, captures: Array<{ sourceId: string; capture: CreationSourceCapture }>, expectedVersion: number, at = new Date()): CreationSession {
+  const captureBySource = new Map(captures.map((item) => [item.sourceId, item.capture]));
+  if (captureBySource.size !== captures.length) throw creationError("CREATION_SESSION_PRE_COMMIT_CAPTURE_INVALID", "正式创建快照不能重复引用来源。");
+  const graphSources = session.sources.filter(({ kind }) => kind !== "BLANK");
+  if (captures.length !== graphSources.length || captures.some(({ sourceId }) => !graphSources.some((source) => source.sourceId === sourceId))) throw creationError("CREATION_SESSION_PRE_COMMIT_CAPTURE_INCOMPLETE", "正式创建前必须重读全部 Graph 来源。");
+  const sources = session.sources.map((source) => {
+    if (source.kind === "BLANK") return source;
+    const capture = captureBySource.get(source.sourceId)!;
+    const current = sourceCurrentCapture(source);
+    if (capture.reason !== "PRE_COMMIT" || capture.snapshotHash !== current.snapshotHash || source.latestKnownHash !== current.snapshotHash || source.availability !== "AVAILABLE") throw creationError("CREATION_SESSION_PRE_COMMIT_SOURCE_CHANGED", "来源已变化或不可用；必须先显式纳入最新内容并重新审阅 Draft。");
+    const all = [...source.captures, capture];
+    const retainedIds = new Set<string>([all[0]!.captureId, capture.captureId]);
+    for (let index = all.length - 1; index >= 0 && retainedIds.size < 8; index -= 1) retainedIds.add(all[index]!.captureId);
+    const retained = all.filter(({ captureId }) => retainedIds.has(captureId));
+    return { ...source, captures: retained, currentCaptureId: capture.captureId, latestKnownHash: capture.snapshotHash, availability: "AVAILABLE" as const };
+  });
+  const timestamp = at.toISOString();
+  return updateCreationSession(session, { sources }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "CREATE_CONFIRMED", occurredAt: timestamp, summary: "正式 Proposal 前已重读并冻结全部来源" });
+}
+
 export interface CreationRoundAnswerInput {
   questionId: string;
   answerState: CreationAnswerState;

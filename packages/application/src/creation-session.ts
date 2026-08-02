@@ -3,6 +3,7 @@ import {
   addCreationSessionSource,
   adoptCreationDraftRevision,
   captureCreationSessionSourcesForDraft,
+  captureCreationSessionSourcesForCommit,
   completeCreationRound,
   completeCreationSession,
   createCreationSession,
@@ -76,7 +77,7 @@ export interface CreationSessionRepository {
 export class CreationSessionApplication {
   constructor(private readonly repository: CreationSessionRepository, private readonly graphId: string) {}
 
-  replay(idempotencyKey: string, commandName: "CreateCreationSession" | "AddCreationSessionSource" | "ObserveCreationSessionSource" | "RefreshCreationSessionSource" | "StartCreationSessionRound" | "PrepareCreationDraft" | "GenerateCreationDraft" | "EditCreationDraft" | "AdoptCreationDraft"): CreationSessionWriteResult | undefined {
+  replay(idempotencyKey: string, commandName: "CreateCreationSession" | "AddCreationSessionSource" | "ObserveCreationSessionSource" | "RefreshCreationSessionSource" | "StartCreationSessionRound" | "PrepareCreationDraft" | "PrepareCreationCommit" | "GenerateCreationDraft" | "EditCreationDraft" | "AdoptCreationDraft"): CreationSessionWriteResult | undefined {
     return this.repository.replayCreationSessionWrite(idempotencyKey, commandName);
   }
 
@@ -173,6 +174,14 @@ export class CreationSessionApplication {
     const current = this.required(input.sessionId);
     const session = captureCreationSessionSourcesForDraft(current, input.captures, input.expectedVersion, at);
     return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "PrepareCreationDraft");
+  }
+
+  prepareCommit(input: { sessionId: string; expectedVersion: number; idempotencyKey: string; captures: Array<{ sourceId: string; capture: CreationSourceCapture }> }, at = new Date()): CreationSessionWriteResult {
+    const replay = this.repository.replayCreationSessionWrite(input.idempotencyKey, "PrepareCreationCommit");
+    if (replay) return replay;
+    const current = this.required(input.sessionId);
+    const session = captureCreationSessionSourcesForCommit(current, input.captures, input.expectedVersion, at);
+    return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "PrepareCreationCommit");
   }
 
   generateDraft(input: { sessionId: string; expectedVersion: number; idempotencyKey: string; draft: CreationDraftGenerationInput }, at = new Date()): CreationSessionWriteResult {
