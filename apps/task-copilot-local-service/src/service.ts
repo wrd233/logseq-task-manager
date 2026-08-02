@@ -1660,6 +1660,27 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (result.status === "ERROR") throw new StructuredError({ code: result.errorCode, message: result.message, ruleRefs: ["D-132", "D-135", "CREATION-SESSION-001"] });
     return sourceFromSnapshot(result.snapshot, role, reason, sourceId, at);
   };
+  const sourceChangeSummary = (source: CreationSessionSource, snapshot?: ServiceGraphSnapshot): NonNullable<CreationSessionSource["changeSummary"]> => {
+    const before = source.captures.find(({ captureId }) => captureId === source.currentCaptureId)!.hierarchy;
+    if (!snapshot) return { added: 0, modified: 0, deleted: before.filter(({ relation }) => relation !== "PARENT").length };
+    const after = snapshot.blocks.map((block, order) => ({
+      nodeId: block.uuid,
+      text: stripLogseqBlockIdentityProperty(block.content, block.uuid),
+      ...(block.parentUuid ? { parentNodeId: block.parentUuid } : {}),
+      order,
+      depth: block.depth,
+      relation: block.relation,
+    }));
+    const beforeById = new Map(before.map((node) => [node.nodeId, node]));
+    const afterById = new Map(after.map((node) => [node.nodeId, node]));
+    const added = after.filter(({ nodeId, relation }) => relation !== "PARENT" && !beforeById.has(nodeId)).length;
+    const deleted = before.filter(({ nodeId, relation }) => relation !== "PARENT" && !afterById.has(nodeId)).length;
+    const modified = after.filter((node) => {
+      const prior = beforeById.get(node.nodeId);
+      return prior && node.relation !== "PARENT" && (prior.text !== node.text || prior.parentNodeId !== node.parentNodeId || prior.order !== node.order || prior.depth !== node.depth || prior.relation !== node.relation);
+    }).length;
+    return { added, modified, deleted };
+  };
   const generateCreationRound = async (session: NonNullable<ReturnType<CreationSessionApplication["get"]>>, signal?: AbortSignal) => {
     if (!options.creationRoundGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Creation Session Provider；已保存内容没有变化。");
     const [core, skill, targetSkill] = await Promise.all([
@@ -1676,7 +1697,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       ...(signal ? { signal } : {}),
     });
   };
-  const generateCreationDraft = async (session: NonNullable<ReturnType<CreationSessionApplication["get"]>>, generationId: string, signal?: AbortSignal) => {
+  const generateCreationDraft = async (session: NonNullable<ReturnType<CreationSessionApplication["get"]>>, generationId: string, signal?: AbortSignal, revisionInstruction?: string) => {
     if (!options.creationDraftGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Creation Session Draft Provider；最后稳定草稿保持不变。");
     const [core, skill, targetSkill] = await Promise.all([
       readTaskCopilotSkill("task-copilot-core"),
@@ -1690,6 +1711,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       skill: { version: skill.version, content: skill.content },
       targetSkill: targetSkill ? { version: targetSkill.version, content: targetSkill.content } : { version: "mini-project-draft-v1", content: "生成一个 Logseq 风格 MiniProject 根 Block、具体目标和按需的完成证据/当前推进；TODO 使用原生 TODO。Block 来源默认复用根 UUID 并原位 REWRITE。" },
       ...(signal ? { signal } : {}),
+      ...(revisionInstruction ? { revisionInstruction } : {}),
     });
   };
   const agentGovernanceSkill = await readAgentGovernanceSkill();
@@ -2372,7 +2394,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         const latestKnownHash = graphResult.status === "FOUND" ? graphResult.snapshot.scopeHash : undefined;
         const currentCapture = source.captures.find(({ captureId }) => captureId === source.currentCaptureId)!;
         const availability: CreationSessionSource["availability"] = graphResult.status === "NOT_FOUND" ? "DELETED" : latestKnownHash === currentCapture.snapshotHash ? "AVAILABLE" : "CHANGED";
-        return creationSessionApplication.observeSource({ sessionId, sourceId, expectedVersion: Number(input.expectedVersion), idempotencyKey, ...(latestKnownHash ? { latestKnownHash } : {}), availability });
+        const changeSummary = availability === "AVAILABLE" ? undefined : sourceChangeSummary(source, graphResult.status === "FOUND" ? graphResult.snapshot : undefined);
+        return creationSessionApplication.observeSource({ sessionId, sourceId, expectedVersion: Number(input.expectedVersion), idempotencyKey, ...(latestKnownHash ? { latestKnownHash } : {}), availability, ...(changeSummary ? { changeSummary } : {}) });
       });
       respond(response, 200, result);
       return;
@@ -2401,8 +2424,12 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const roundId = safeCreationToken(decodeURIComponent(creationSessionRoundActionMatch[2]), "Round ID");
       const action = creationSessionRoundActionMatch[3];
       const input = await readCreationSessionJson(request);
-      const expectedKeys = action === "submit" ? "answers,expectedVersion,idempotencyKey" : "expectedVersion,idempotencyKey";
-      if (Object.keys(input).sort().join(",") !== expectedKeys || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1 || (action === "submit" && (!Array.isArray(input.answers) || input.answers.length < 1 || input.answers.length > 5))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "轮次提交或重试参数无效。");
+      const actualKeys = Object.keys(input);
+      const allowedKeys = action === "submit" ? ["answers", "expectedVersion", "idempotencyKey", "narrativeAnswer"] : ["expectedVersion", "idempotencyKey"];
+      if (actualKeys.some((key) => !allowedKeys.includes(key)) || !actualKeys.includes("expectedVersion") || !actualKeys.includes("idempotencyKey") || (action === "submit" && !actualKeys.includes("answers"))
+        || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1
+        || (action === "submit" && (!Array.isArray(input.answers) || input.answers.length < 1 || input.answers.length > 5))
+        || (input.narrativeAnswer !== undefined && (typeof input.narrativeAnswer !== "string" || !input.narrativeAnswer.trim() || input.narrativeAnswer.length > 8_000))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "轮次提交或重试参数无效。");
       const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
       const answers: CreationRoundAnswerInput[] = action === "submit" ? (input.answers as unknown[]).map((raw) => {
         const answer = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
@@ -2415,7 +2442,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       try {
         const result = await serializeByKey(`creation-session:${sessionId}`, async () => {
           const requesting = action === "submit"
-            ? creationSessionApplication.submitRoundAnswers({ sessionId, roundId, expectedVersion: Number(input.expectedVersion), idempotencyKey, answers })
+            ? creationSessionApplication.submitRoundAnswers({ sessionId, roundId, expectedVersion: Number(input.expectedVersion), idempotencyKey, answers, ...(typeof input.narrativeAnswer === "string" ? { narrativeAnswer: input.narrativeAnswer } : {}) })
             : creationSessionApplication.retryRound({ sessionId, roundId, expectedVersion: Number(input.expectedVersion), idempotencyKey });
           const actual = requesting.replayed ? creationSessionApplication.get(sessionId) : undefined;
           const actualRound = actual?.rounds.find((candidate) => candidate.roundId === roundId);
@@ -2445,7 +2472,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (creationSessionGenerateDraftMatch?.[1]) {
       const sessionId = safeCreationToken(decodeURIComponent(creationSessionGenerateDraftMatch[1]), "Session ID");
       const input = await readCreationSessionJson(request);
-      if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "生成 Draft 需要当前版本和幂等键。");
+      const draftKeys = Object.keys(input);
+      if (draftKeys.some((key) => !["expectedVersion", "idempotencyKey", "revisionInstruction"].includes(key)) || !draftKeys.includes("expectedVersion") || !draftKeys.includes("idempotencyKey")
+        || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1
+        || (input.revisionInstruction !== undefined && (typeof input.revisionInstruction !== "string" || !input.revisionInstruction.trim() || input.revisionInstruction.length > 8_000))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "生成 Draft 需要当前版本、幂等键和可选的有界修订说明。");
       const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
       const generationId = `draft-${checksum({ sessionId, idempotencyKey })}`;
       const controller = new AbortController();
@@ -2469,7 +2499,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
             prepared = creationSessionApplication.prepareDraft({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey, captures });
           }
           try {
-            const generated = await generateCreationDraft(prepared.session, generationId, controller.signal);
+            const generated = await generateCreationDraft(prepared.session, generationId, controller.signal, typeof input.revisionInstruction === "string" ? input.revisionInstruction : undefined);
             const completed = creationSessionApplication.generateDraft({
               sessionId, expectedVersion: prepared.session.version,
               idempotencyKey: `creation-draft-complete:${checksum({ sessionId, generationId })}`,
@@ -2498,14 +2528,15 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const input = await readCreationSessionJson(request);
       if (Object.keys(input).sort().join(",") !== "edit,expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1 || !input.edit || typeof input.edit !== "object" || Array.isArray(input.edit)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Draft 编辑需要当前版本、幂等键和受控编辑。");
       const edit = input.edit as Record<string, unknown>;
-      if (Object.keys(edit).some((key) => !["text", "delete", "parentNodeId", "order"].includes(key))
+      if (Object.keys(edit).some((key) => !["text", "delete", "parentNodeId", "order", "move"].includes(key))
         || (edit.text !== undefined && (typeof edit.text !== "string" || edit.text.length > 8_000))
         || (edit.delete !== undefined && edit.delete !== true)
         || (edit.parentNodeId !== undefined && edit.parentNodeId !== null && typeof edit.parentNodeId !== "string")
-        || (edit.order !== undefined && (!Number.isSafeInteger(edit.order) || Number(edit.order) < 0 || Number(edit.order) > 255))) throw serviceError("CREATION_SESSION_DRAFT_EDIT_INVALID", "Draft 编辑字段无效或超界。");
+        || (edit.order !== undefined && (!Number.isSafeInteger(edit.order) || Number(edit.order) < 0 || Number(edit.order) > 255))
+        || (edit.move !== undefined && edit.move !== "UP" && edit.move !== "DOWN")) throw serviceError("CREATION_SESSION_DRAFT_EDIT_INVALID", "Draft 编辑字段无效或超界。");
       const result = await serializeByKey(`creation-session:${sessionId}`, async () => creationSessionApplication.editDraft({
         sessionId, revisionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key"),
-        edit: { nodeId, ...(typeof edit.text === "string" ? { text: edit.text } : {}), ...(edit.delete === true ? { delete: true } : {}), ...(edit.parentNodeId === null || typeof edit.parentNodeId === "string" ? { parentNodeId: edit.parentNodeId } : {}), ...(typeof edit.order === "number" ? { order: edit.order } : {}) },
+        edit: { nodeId, ...(typeof edit.text === "string" ? { text: edit.text } : {}), ...(edit.delete === true ? { delete: true } : {}), ...(edit.parentNodeId === null || typeof edit.parentNodeId === "string" ? { parentNodeId: edit.parentNodeId } : {}), ...(typeof edit.order === "number" ? { order: edit.order } : {}), ...(edit.move === "UP" || edit.move === "DOWN" ? { move: edit.move } : {}) },
       }));
       respond(response, 200, result);
       return;

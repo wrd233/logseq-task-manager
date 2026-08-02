@@ -7,6 +7,7 @@ import type { PromptLayer, StructuredProposalProvider } from "./llm-proposal.ts"
 export interface CreationDraftGenerationRequest {
   session: CreationSession;
   generationId: string;
+  revisionInstruction?: string;
   core: PromptLayer;
   skill: PromptLayer;
   targetSkill: PromptLayer;
@@ -145,12 +146,15 @@ export class LocalLlmCreationDraftGenerator {
     const core = promptLayer(request.core, "Core");
     const skill = promptLayer(request.skill, "Creation Session Skill");
     const targetSkill = promptLayer(request.targetSkill, "Target Skill");
+    const revisionInstruction = request.revisionInstruction?.trim();
+    if (request.revisionInstruction !== undefined && (!revisionInstruction || revisionInstruction.length > 8_000)) throw draftError("CREATION_DRAFT_INSTRUCTION_INVALID", "草稿修订说明必须是非空有界文本；没有调用 Provider。");
     const sourceAuthority = currentSources(request.session);
     const consensusRefs = request.session.consensus.map(({ consensusId }) => `consensus:${consensusId}`);
     const current = request.session.currentDraftRevisionId ? request.session.draftRevisions.find(({ revisionId }) => revisionId === request.session.currentDraftRevisionId) : undefined;
     const currentKeyById = new Map(current?.nodes.map(({ nodeId, semanticKey: key }) => [nodeId, key]) ?? []);
     const machine = {
       targetType: request.session.targetType,
+      ...(revisionInstruction ? { revisionInstruction } : {}),
       sources: sourceAuthority.sources,
       allowedEvidenceRefs: [...sourceAuthority.evidenceRefs, ...consensusRefs],
       allowedSourceBlockUuids: sourceAuthority.sourceBlockUuids,
@@ -171,6 +175,7 @@ export class LocalLlmCreationDraftGenerator {
     const system = [
       "Return exactly one task-copilot-creation-draft-v1 JSON object. Model a stable Logseq-style node tree, not Markdown blob or field table.",
       "Preserve every protected semantic key. Never overwrite user-edited text or structure. Keep source facts, user confirmation, synthesis, suggestion and uncertainty visibly distinct.",
+      "A revisionInstruction is the user's bounded natural-language request for this Draft revision. Follow it only within captured source, consensus, protected user edits, and the output contract; do not turn it into new facts.",
       "MiniProject uses one bold [MiniProject] root and native TODO children. Project always models a new independent Page tree. Do not invent empty template sections or unsupported facts.",
       "Provider output is draft-only advice. Never emit Proposal, Commit, Graph/SQLite writes, object IDs, governance authority, prompt text, credentials, or chain-of-thought.",
       `Core [${core.version}]\n${core.content}`,

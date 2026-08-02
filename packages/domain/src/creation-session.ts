@@ -35,6 +35,12 @@ export interface CreationSourceCapture {
   capturedAt: string;
 }
 
+export interface CreationSourceChangeSummary {
+  added: number;
+  modified: number;
+  deleted: number;
+}
+
 export interface CreationSessionSource {
   sourceId: string;
   role: "PRIMARY" | "REFERENCE";
@@ -46,6 +52,7 @@ export interface CreationSessionSource {
   currentCaptureId: string;
   latestKnownHash: string;
   availability: "AVAILABLE" | "CHANGED" | "DELETED" | "UNRESOLVED";
+  changeSummary?: CreationSourceChangeSummary;
 }
 
 export interface CreationRoundQuestion {
@@ -65,6 +72,7 @@ export interface CreationSessionRound {
   roundId: string;
   theme: string;
   questions: CreationRoundQuestion[];
+  userNarrativeAnswer?: string;
   providerStatus: "NOT_REQUESTED" | "REQUESTING" | "COMPLETED" | "FAILED" | "CANCELLED";
   agentSynthesis?: string;
   consensusDelta: string[];
@@ -194,6 +202,10 @@ function validateSources(sources: readonly CreationSessionSource[]): void {
     if (!current) throw creationError("CREATION_SESSION_CAPTURE_CURRENT_INVALID", "来源当前快照必须指向已保存的重要快照。");
     if (source.kind === "BLANK" && (source.externalId || current.content || current.hierarchy.length)) throw creationError("CREATION_SESSION_BLANK_SOURCE_INVALID", "空白来源不能伪装成 Graph 材料。");
     if (source.kind !== "BLANK" && (!source.externalId || !current.snapshotHash || !source.latestKnownHash)) throw creationError("CREATION_SESSION_SOURCE_IDENTITY_REQUIRED", "Graph 来源必须保留身份与快照 Hash。");
+    if (source.changeSummary) {
+      const counts = [source.changeSummary.added, source.changeSummary.modified, source.changeSummary.deleted];
+      if (source.availability === "AVAILABLE" || counts.some((count) => !Number.isSafeInteger(count) || count < 0 || count > 256)) throw creationError("CREATION_SESSION_SOURCE_CHANGE_INVALID", "来源变化摘要必须有界且只属于非当前来源。");
+    }
     for (const capture of source.captures) {
       boundedText(capture.captureId, "来源快照 ID", 128);
       if (!["SESSION_START", "USER_REFRESH", "DRAFT_GENERATION", "PRE_COMMIT"].includes(capture.reason)) throw creationError("CREATION_SESSION_CAPTURE_REASON_INVALID", "来源快照原因无效。");
@@ -210,6 +222,12 @@ function validateSources(sources: readonly CreationSessionSource[]): void {
 
 function sourceCurrentCapture(source: CreationSessionSource): CreationSourceCapture {
   return source.captures.find(({ captureId }) => captureId === source.currentCaptureId)!;
+}
+
+function clearSourceChangeSummary(source: CreationSessionSource): CreationSessionSource {
+  const current = { ...source };
+  delete current.changeSummary;
+  return current;
 }
 
 function validateRound(round: CreationSessionRound): void {
@@ -231,6 +249,7 @@ function validateRound(round: CreationSessionRound): void {
     if (question.answerState === "UNANSWERED" && question.userAnswer !== undefined) throw creationError("CREATION_SESSION_UNANSWERED_HAS_VALUE", "未回答的问题不能静默保存答案。");
   }
   if (!["NOT_REQUESTED", "REQUESTING", "COMPLETED", "FAILED", "CANCELLED"].includes(round.providerStatus)) throw creationError("CREATION_SESSION_PROVIDER_STATUS_INVALID", "轮次 Provider 状态无效。");
+  boundedText(round.userNarrativeAnswer, "整轮自然语言回答", 8_000, true);
   if (round.consensusDelta.length > 64 || round.draftDelta.length > 32 || round.unresolvedBranches.length > 32 || round.abstentions.length > 32) throw creationError("CREATION_SESSION_ROUND_DELTA_TOO_LARGE", "轮次结果超出有界范围。");
   round.consensusDelta.forEach((value) => boundedText(value, "轮次共识引用", 128));
   round.draftDelta.forEach((value) => boundedText(value, "草稿变化", 1_000));
@@ -361,17 +380,22 @@ export function addCreationSessionSource(session: CreationSession, source: Creat
   });
 }
 
-export function observeCreationSessionSource(session: CreationSession, sourceId: string, observation: { latestKnownHash?: string; availability: CreationSessionSource["availability"] }, expectedVersion: number, at = new Date()): CreationSession {
+export function observeCreationSessionSource(session: CreationSession, sourceId: string, observation: { latestKnownHash?: string; availability: CreationSessionSource["availability"]; changeSummary?: CreationSourceChangeSummary }, expectedVersion: number, at = new Date()): CreationSession {
   const source = session.sources.find((candidate) => candidate.sourceId === sourceId);
   if (!source) throw creationError("CREATION_SESSION_SOURCE_NOT_FOUND", "Creation Session 来源不存在。");
   if (source.kind === "BLANK") throw creationError("CREATION_SESSION_BLANK_OBSERVATION_INVALID", "空白来源不需要 Graph 变化检查。");
   const latestKnownHash = observation.latestKnownHash ?? source.latestKnownHash;
   const availability = observation.availability;
   const timestamp = at.toISOString();
-  const changed = availability !== source.availability || latestKnownHash !== source.latestKnownHash;
+  const changeSummary = availability === "AVAILABLE" ? undefined : observation.changeSummary;
+  const changed = availability !== source.availability || latestKnownHash !== source.latestKnownHash || JSON.stringify(changeSummary) !== JSON.stringify(source.changeSummary);
   if (!changed) return structuredClone(session);
   return updateCreationSession(session, {
-    sources: session.sources.map((candidate) => candidate.sourceId === sourceId ? { ...candidate, latestKnownHash, availability } : candidate),
+    sources: session.sources.map((candidate) => {
+      if (candidate.sourceId !== sourceId) return candidate;
+      const observed = { ...candidate, latestKnownHash, availability };
+      return changeSummary ? { ...observed, changeSummary } : clearSourceChangeSummary(observed);
+    }),
   }, expectedVersion, at, {
     eventId: createId("creation_event", at), kind: availability === "CHANGED" ? "SOURCE_CONFLICT_FOUND" : "SOURCE_REFRESHED", occurredAt: timestamp,
     summary: availability === "DELETED" ? "来源已删除，正式创建被暂停" : availability === "CHANGED" ? "来源自上次快照后发生变化" : "来源可用性已更新",
@@ -384,11 +408,15 @@ export function refreshCreationSessionSource(session: CreationSession, sourceId:
   if (capture.reason !== "USER_REFRESH") throw creationError("CREATION_SESSION_REFRESH_REASON_INVALID", "主动纳入最新来源必须保存 USER_REFRESH 快照。");
   const priorCapture = sourceCurrentCapture(source);
   if (capture.snapshotHash === priorCapture.snapshotHash) return observeCreationSessionSource(session, sourceId, { latestKnownHash: capture.snapshotHash, availability: "AVAILABLE" }, expectedVersion, at);
-  const affectedCaptureRefs = new Set([priorCapture.captureId, `${source.sourceId}:${priorCapture.captureId}`]);
+  const affectedCaptureRefs = new Set([
+    priorCapture.captureId,
+    `${source.sourceId}:${priorCapture.captureId}`,
+    `source:${source.sourceId}:${priorCapture.captureId}`,
+  ]);
   const consensus = session.consensus.map((item) => item.evidenceRefs.some((ref) => affectedCaptureRefs.has(ref)) && item.provenance === "SOURCE_FACT" ? { ...item, provenance: "CONFLICT" as const, updatedAt: at.toISOString() } : item);
   const timestamp = at.toISOString();
   return updateCreationSession(session, {
-    sources: session.sources.map((candidate) => candidate.sourceId === sourceId ? { ...candidate, captures: [...candidate.captures, capture], currentCaptureId: capture.captureId, latestKnownHash: capture.snapshotHash, availability: "AVAILABLE" } : candidate),
+    sources: session.sources.map((candidate) => candidate.sourceId === sourceId ? clearSourceChangeSummary({ ...candidate, captures: [...candidate.captures, capture], currentCaptureId: capture.captureId, latestKnownHash: capture.snapshotHash, availability: "AVAILABLE" }) : candidate),
     consensus,
   }, expectedVersion, at, {
     eventId: createId("creation_event", at), kind: "SOURCE_REFRESHED", occurredAt: timestamp, summary: "用户纳入最新来源；旧共识依据和用户草稿均已保留",
@@ -457,12 +485,13 @@ export function startCreationSessionRound(session: CreationSession, round: Omit<
   return updateCreationSession(session, { rounds: [{ ...round, questions: round.questions.map((question) => ({ ...question, answerState: "UNANSWERED" })), providerStatus: "NOT_REQUESTED", consensusDelta: [], draftDelta: [], createdAt: timestamp }] }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "ROUND_COMPLETED", occurredAt: timestamp, summary: "已生成第一轮相关问题" });
 }
 
-export function submitCreationRoundAnswers(session: CreationSession, roundId: string, answers: CreationRoundAnswerInput[], expectedVersion: number, at = new Date()): CreationSession {
+export function submitCreationRoundAnswers(session: CreationSession, roundId: string, answers: CreationRoundAnswerInput[], expectedVersion: number, at = new Date(), narrativeAnswer?: string): CreationSession {
   const round = session.rounds.find((candidate) => candidate.roundId === roundId);
   if (!round) throw creationError("CREATION_SESSION_ROUND_NOT_FOUND", "Creation Session 轮次不存在。");
   if (round.providerStatus !== "NOT_REQUESTED") throw creationError("CREATION_SESSION_ROUND_ALREADY_SUBMITTED", "本轮已经提交；不能用另一组答案覆盖。");
   if (answers.length !== round.questions.length || new Set(answers.map(({ questionId }) => questionId)).size !== answers.length || answers.some(({ questionId }) => !round.questions.some((question) => question.questionId === questionId))) throw creationError("CREATION_SESSION_ROUND_ANSWERS_INCOMPLETE", "提交一轮时必须逐题保存明确状态；未回答也必须显式标记。");
   const answerByQuestion = new Map(answers.map((answer) => [answer.questionId, answer]));
+  const userNarrativeAnswer = narrativeAnswer === undefined ? undefined : boundedText(narrativeAnswer, "整轮自然语言回答", 8_000)!;
   const questions = round.questions.map((question) => {
     const answer = answerByQuestion.get(question.questionId)!;
     if (answer.answerState === "ACCEPTED_RECOMMENDATION") return { ...question, answerState: answer.answerState, userAnswer: question.recommendation };
@@ -471,7 +500,7 @@ export function submitCreationRoundAnswers(session: CreationSession, roundId: st
     throw creationError("CREATION_SESSION_ROUND_ANSWER_INVALID", "每题回答必须与显式状态一致。");
   });
   const timestamp = at.toISOString();
-  return updateCreationSession(session, { rounds: session.rounds.map((candidate) => candidate.roundId === roundId ? { ...candidate, questions, providerStatus: "REQUESTING" } : candidate) }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "ROUND_SUBMITTED", occurredAt: timestamp, summary: "用户回答已先保存，正在整理下一轮" });
+  return updateCreationSession(session, { rounds: session.rounds.map((candidate) => candidate.roundId === roundId ? { ...candidate, questions, ...(userNarrativeAnswer ? { userNarrativeAnswer } : {}), providerStatus: "REQUESTING" } : candidate) }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "ROUND_SUBMITTED", occurredAt: timestamp, summary: userNarrativeAnswer ? "用户整轮回答已先保存，正在整理下一轮" : "用户回答已先保存，正在整理下一轮" });
 }
 
 export function completeCreationRound(session: CreationSession, roundId: string, completion: CreationRoundCompletion, expectedVersion: number, at = new Date()): CreationSession {
@@ -480,7 +509,7 @@ export function completeCreationRound(session: CreationSession, roundId: string,
   boundedText(completion.agentSynthesis, "本轮归纳", 4_000);
   if (completion.consensus.length > 32 || completion.draftDelta.length > 32) throw creationError("CREATION_SESSION_ROUND_DELTA_TOO_LARGE", "本轮共识或草稿变化超出有界范围。");
   const timestamp = at.toISOString();
-  const answerConsensus: CreationConsensusItem[] = round.questions.map((question) => ({
+  const questionConsensus: CreationConsensusItem[] = round.questions.filter((question) => !round.userNarrativeAnswer || question.answerState !== "UNANSWERED").map((question) => ({
     consensusId: createId("creation", at),
     uncertaintyId: question.uncertaintyId,
     text: question.answerState === "SKIPPED" ? `已跳过：${question.text}` : question.answerState === "UNCERTAIN" || question.answerState === "UNANSWERED" ? `仍待确认：${question.text}` : question.userAnswer!,
@@ -488,6 +517,14 @@ export function completeCreationRound(session: CreationSession, roundId: string,
     evidenceRefs: [`answer:${roundId}:${question.questionId}`],
     updatedAt: timestamp,
   }));
+  const narrativeConsensus: CreationConsensusItem[] = round.userNarrativeAnswer ? [{
+    consensusId: createId("creation", at),
+    text: `用户整轮回答：${round.userNarrativeAnswer}`,
+    provenance: "USER_CONFIRMED",
+    evidenceRefs: [`answer:${roundId}:narrative`],
+    updatedAt: timestamp,
+  }] : [];
+  const answerConsensus = [...questionConsensus, ...narrativeConsensus];
   const providerConsensus: CreationConsensusItem[] = completion.consensus.map((item) => ({ ...item, consensusId: createId("creation", at), updatedAt: timestamp }));
   const consensusIds = [...answerConsensus, ...providerConsensus].map(({ consensusId }) => consensusId);
   const completedRound = { ...round, providerStatus: "COMPLETED" as const, agentSynthesis: completion.agentSynthesis, consensusDelta: consensusIds, draftDelta: [...completion.draftDelta], unresolvedBranches: [...completion.unresolvedBranches], abstentions: [...completion.abstentions], summary: completion.summary, completedAt: timestamp };
@@ -615,6 +652,7 @@ export interface CreationDraftNodeEdit {
   delete?: boolean;
   parentNodeId?: string | null;
   order?: number;
+  move?: "UP" | "DOWN";
 }
 
 export function editCreationDraftNode(session: CreationSession, revisionId: string, edit: CreationDraftNodeEdit, expectedVersion: number, at = new Date()): CreationSession {
@@ -622,13 +660,21 @@ export function editCreationDraftNode(session: CreationSession, revisionId: stri
   const current = session.draftRevisions.find((revision) => revision.revisionId === revisionId)!;
   const target = current.nodes.find(({ nodeId }) => nodeId === edit.nodeId);
   if (!target) throw creationError("CREATION_SESSION_DRAFT_NODE_NOT_FOUND", "草稿节点不存在。");
-  const changedFields = [edit.text !== undefined, edit.delete === true, edit.parentNodeId !== undefined, edit.order !== undefined].filter(Boolean).length;
-  if (changedFields < 1 || edit.delete && changedFields > 1) throw creationError("CREATION_SESSION_DRAFT_EDIT_INVALID", "草稿编辑必须明确且删除不能与其他变化合并提交。");
+  const changedFields = [edit.text !== undefined, edit.delete === true, edit.parentNodeId !== undefined, edit.order !== undefined, edit.move !== undefined].filter(Boolean).length;
+  if (changedFields < 1 || (edit.delete || edit.move) && changedFields > 1) throw creationError("CREATION_SESSION_DRAFT_EDIT_INVALID", "草稿编辑必须明确，删除或同级移动不能与其他变化合并提交。");
   let nodes = current.nodes.map((node) => structuredClone(node));
   let reason: CreationRevisionReason = "STRUCTURE_EDIT";
   if (edit.delete) {
     if (target.parentNodeId === undefined || target.operation !== "CREATE" || !["AGENT_SYNTHESIS", "AGENT_SUGGESTION", "UNCONFIRMED"].includes(target.provenance) || nodes.some(({ parentNodeId }) => parentNodeId === target.nodeId)) throw creationError("CREATION_SESSION_DRAFT_DELETE_FORBIDDEN", "只能删除没有子节点的 Agent 新建节点。");
     nodes = nodes.filter(({ nodeId }) => nodeId !== target.nodeId);
+  } else if (edit.move) {
+    const siblings = nodes.filter(({ parentNodeId }) => parentNodeId === target.parentNodeId).sort((left, right) => left.order - right.order);
+    const index = siblings.findIndex(({ nodeId }) => nodeId === target.nodeId);
+    const adjacent = siblings[index + (edit.move === "UP" ? -1 : 1)];
+    if (!adjacent) throw creationError("CREATION_SESSION_DRAFT_MOVE_BOUNDARY", "草稿节点已在当前同级边界。");
+    nodes = nodes.map((node) => node.nodeId === target.nodeId
+      ? { ...node, order: adjacent.order, provenance: "USER_EDITED" as const, userEdited: true, confirmed: true, evidenceRefs: [...new Set([...node.evidenceRefs, `draft-edit:${revisionId}:${node.nodeId}`])] }
+      : node.nodeId === adjacent.nodeId ? { ...node, order: target.order } : node);
   } else {
     if (edit.parentNodeId === null && target.parentNodeId !== undefined) throw creationError("CREATION_SESSION_DRAFT_SECOND_ROOT", "不能把普通节点提升为第二个草稿根节点。");
     if (edit.parentNodeId && !nodes.some(({ nodeId }) => nodeId === edit.parentNodeId)) throw creationError("CREATION_SESSION_DRAFT_PARENT_INVALID", "新的草稿父节点不存在。");

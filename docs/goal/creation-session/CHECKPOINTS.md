@@ -20,9 +20,23 @@
 - idempotent replay does not call the Provider again or duplicate consensus;
 - Provider output remains proposal-only and produces zero formal Objects/Audit writes.
 
+## CS-CP08 — automated interaction closure
+
+- source scope is visibly confirmed before the first Provider call, Page material gets a
+  bounded recognition summary, and up to three references can be added manually;
+- resume/check displays added, modified and deleted counts; explicit refresh keeps the
+  prior capture and invalidates Provider-style source evidence refs;
+- users may answer each question or preserve one whole-round narrative without implicit
+  consent for omitted questions;
+- Draft supports text, safe deletion, simple parent choice, atomic sibling movement and
+  bounded natural-language revision without overwriting direct user edits;
+- formal preview states what will and will not happen;
+- terminal History is read-only and links to the created object, primary source and the
+  existing Review/Undo authority;
+- Plugin 528/528, Local Service 201/201 and Node 20 root checks pass.
+
 ## Next checkpoint
 
-CS-CP03 backend is automated: strict MiniProject/Project node trees, durable node
-identity, sparse important revisions, source revalidation snapshots, explicit text/delete/
-structure edits, adoption, failure/restart replay, and silent-overwrite conflict protection.
-The remaining CP03 work is the real Logseq-style Preview renderer and Plugin interaction.
+One consolidated real Provider and Logseq Desktop campaign from `RUNTIME_PLAN.md`, then
+the independent judgment required by `VISUAL_REVIEW.md`. Automation does not grant either
+runtime or visual PASS.

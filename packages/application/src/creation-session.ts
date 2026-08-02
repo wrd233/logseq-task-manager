@@ -112,11 +112,11 @@ export class CreationSessionApplication {
     return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "AddCreationSessionSource");
   }
 
-  observeSource(input: { sessionId: string; sourceId: string; expectedVersion: number; idempotencyKey: string; latestKnownHash?: string; availability: CreationSessionSource["availability"] }, at = new Date()): CreationSessionWriteResult {
+  observeSource(input: { sessionId: string; sourceId: string; expectedVersion: number; idempotencyKey: string; latestKnownHash?: string; availability: CreationSessionSource["availability"]; changeSummary?: CreationSessionSource["changeSummary"] }, at = new Date()): CreationSessionWriteResult {
     const replay = this.repository.replayCreationSessionWrite(input.idempotencyKey, "ObserveCreationSessionSource");
     if (replay) return replay;
     const current = this.required(input.sessionId);
-    const session = observeCreationSessionSource(current, input.sourceId, { ...(input.latestKnownHash ? { latestKnownHash: input.latestKnownHash } : {}), availability: input.availability }, input.expectedVersion, at);
+    const session = observeCreationSessionSource(current, input.sourceId, { ...(input.latestKnownHash ? { latestKnownHash: input.latestKnownHash } : {}), availability: input.availability, ...(input.changeSummary ? { changeSummary: input.changeSummary } : {}) }, input.expectedVersion, at);
     return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "ObserveCreationSessionSource");
   }
 
@@ -136,11 +136,11 @@ export class CreationSessionApplication {
     return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "StartCreationSessionRound");
   }
 
-  submitRoundAnswers(input: { sessionId: string; roundId: string; expectedVersion: number; idempotencyKey: string; answers: CreationRoundAnswerInput[] }, at = new Date()): CreationSessionWriteResult {
+  submitRoundAnswers(input: { sessionId: string; roundId: string; expectedVersion: number; idempotencyKey: string; answers: CreationRoundAnswerInput[]; narrativeAnswer?: string }, at = new Date()): CreationSessionWriteResult {
     const replay = this.repository.replayCreationSessionWrite(input.idempotencyKey, "SubmitCreationRoundAnswers");
     if (replay) return replay;
     const current = this.required(input.sessionId);
-    const session = submitCreationRoundAnswers(current, input.roundId, input.answers, input.expectedVersion, at);
+    const session = submitCreationRoundAnswers(current, input.roundId, input.answers, input.expectedVersion, at, input.narrativeAnswer);
     return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "SubmitCreationRoundAnswers");
   }
 

@@ -50,12 +50,14 @@ test("source observation and explicit refresh retain prior capture and mark depe
     captures: [{ captureId: "capture-old", reason: "SESSION_START", snapshotHash: "hash-old", content: "旧内容", hierarchy: [{ nodeId: "block-one", text: "旧内容", order: 0, depth: 0, relation: "ROOT" }], capturedAt: at.toISOString() }],
   };
   const started = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: source, sessionId: "creation-source" }, at);
-  const withFact = updateCreationSession(started, { consensus: [{ consensusId: "fact-one", text: "旧内容", provenance: "SOURCE_FACT", evidenceRefs: ["capture-old"], updatedAt: at.toISOString() }] }, 1, at);
-  const changed = observeCreationSessionSource(withFact, "source-block", { latestKnownHash: "hash-new", availability: "CHANGED" }, 2, new Date("2026-08-02T06:01:00.000Z"));
+  const withFact = updateCreationSession(started, { consensus: [{ consensusId: "fact-one", text: "旧内容", provenance: "SOURCE_FACT", evidenceRefs: ["source:source-block:capture-old"], updatedAt: at.toISOString() }] }, 1, at);
+  const changed = observeCreationSessionSource(withFact, "source-block", { latestKnownHash: "hash-new", availability: "CHANGED", changeSummary: { added: 1, modified: 1, deleted: 0 } }, 2, new Date("2026-08-02T06:01:00.000Z"));
   assert.equal(changed.sources[0]?.availability, "CHANGED");
+  assert.deepEqual(changed.sources[0]?.changeSummary, { added: 1, modified: 1, deleted: 0 });
   const refreshed = refreshCreationSessionSource(changed, "source-block", { captureId: "capture-new", reason: "USER_REFRESH", snapshotHash: "hash-new", content: "新内容", hierarchy: [{ nodeId: "block-one", text: "新内容", order: 0, depth: 0, relation: "ROOT" }], capturedAt: "2026-08-02T06:02:00.000Z" }, 3, new Date("2026-08-02T06:02:00.000Z"));
   assert.deepEqual(refreshed.sources[0]?.captures.map(({ captureId }) => captureId), ["capture-old", "capture-new"]);
   assert.equal(refreshed.sources[0]?.availability, "AVAILABLE");
+  assert.equal(refreshed.sources[0]?.changeSummary, undefined);
   assert.equal(refreshed.consensus[0]?.provenance, "CONFLICT");
 });
 
@@ -85,6 +87,27 @@ test("round answers persist before Provider and failure retry preserves explicit
   assert.equal(completed.rounds[0]?.providerStatus, "COMPLETED");
   assert.equal(completed.rounds[1]?.providerStatus, "NOT_REQUESTED");
   assert.deepEqual(completed.consensus.map(({ provenance }) => provenance), ["USER_CONFIRMED", "USER_CONFIRMED", "UNKNOWN"]);
+});
+
+test("one narrative answer is preserved without marking every question answered", () => {
+  const started = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: blank(), sessionId: "creation-round-narrative" }, at);
+  const withRound = startCreationSessionRound(started, { roundId: "round-narrative", theme: "结果与边界", questions: [
+    { questionId: "q-outcome", uncertaintyId: "outcome", text: "结果？", rationale: "需要结果。", recommendation: "先验收。", answerRequirement: "说明结果。", answerState: "UNANSWERED" },
+    { questionId: "q-scope", uncertaintyId: "in-scope", text: "范围？", rationale: "需要边界。", recommendation: "先封顶。", answerRequirement: "说明范围。", answerState: "UNANSWERED" },
+  ], unresolvedBranches: ["结果", "范围"], abstentions: [] }, 1, at);
+  const requesting = submitCreationRoundAnswers(withRound, "round-narrative", [
+    { questionId: "q-outcome", answerState: "UNANSWERED" },
+    { questionId: "q-scope", answerState: "UNANSWERED" },
+  ], 2, new Date("2026-08-02T06:01:00.000Z"), "先把一条真实告警跑通；长期运营先不纳入。");
+  assert.equal(requesting.rounds[0]?.userNarrativeAnswer, "先把一条真实告警跑通；长期运营先不纳入。");
+  assert.deepEqual(requesting.rounds[0]?.questions.map(({ answerState }) => answerState), ["UNANSWERED", "UNANSWERED"]);
+  const completed = completeCreationRound(requesting, "round-narrative", {
+    agentSynthesis: "用户说明了首个结果和一项范围外。", consensus: [], draftDelta: [], unresolvedBranches: ["其余范围"], abstentions: [],
+    summary: { confirmed: "原文已保留", unresolved: "其余范围待确认", draftChange: "暂无", nextSuggestion: "继续确认" },
+  }, 3, new Date("2026-08-02T06:02:00.000Z"));
+  assert.equal(completed.consensus.length, 1);
+  assert.equal(completed.consensus[0]?.provenance, "USER_CONFIRMED");
+  assert.match(completed.consensus[0]?.text ?? "", /用户整轮回答/);
 });
 
 const miniDraft = (generationId: string, goalText = "**[目标]** 建立可验证的设备告警接入"): CreationDraftGenerationInput => ({
@@ -131,4 +154,17 @@ test("Draft editing only deletes Agent-created leaves and adoption creates one i
   const adopted = adoptCreationDraftRevision(deleted, first.revisionId, 3, new Date("2026-08-02T06:08:00.000Z"));
   assert.equal(adopted.draftRevisions.at(-1)?.reason, "ADOPTED");
   assert.equal(adopted.draftRevisions.at(-1)?.nodes.some(({ nodeId }) => nodeId === next.nodeId), true);
+});
+
+test("Draft sibling move swaps one adjacent pair without drag or duplicate order", () => {
+  const started = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: blank(), sessionId: "creation-draft-reorder" }, at);
+  const generated = generateCreationDraftRevision(started, miniDraft("generation-reorder"), 1, at);
+  const first = generated.draftRevisions[0]!;
+  const next = first.nodes.find(({ semanticKey }) => semanticKey === "next")!;
+  const moved = editCreationDraftNode(generated, first.revisionId, { nodeId: next.nodeId, move: "UP" }, 2, new Date("2026-08-02T06:09:00.000Z"));
+  const siblings = moved.draftRevisions.at(-1)!.nodes.filter(({ parentNodeId }) => parentNodeId === next.parentNodeId).sort((left, right) => left.order - right.order);
+  assert.deepEqual(siblings.map(({ semanticKey }) => semanticKey), ["next", "goal"]);
+  assert.deepEqual(siblings.map(({ order }) => order), [0, 1]);
+  assert.equal(siblings[0]?.userEdited, true);
+  assert.throws(() => editCreationDraftNode(moved, moved.currentDraftRevisionId!, { nodeId: next.nodeId, move: "UP" }, 3, new Date("2026-08-02T06:10:00.000Z")), /边界/);
 });

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createCreationSession,
   generateCreationDraftRevision,
+  observeCreationSessionSource,
   startCreationSessionRound,
   updateCreationSession,
   type CreationSessionSource,
@@ -49,6 +50,9 @@ test("renders a coherent multi-question round with reason, recommendation, and e
   assert.match(html, /value="UNCERTAIN"/);
   assert.match(html, /value="ACCEPTED_RECOMMENDATION"/);
   assert.match(html, /data-action="creation-session-round-accept-all"/);
+  assert.match(html, /data-field="creation-round-narrative"/);
+  assert.match(html, /data-action="creation-session-round-submit-narrative"/);
+  assert.match(html, /不会把未明确的部分当作同意/);
 });
 
 test("renders a Logseq-like Draft Tree and exposes edits without displaying stable machine IDs", () => {
@@ -76,6 +80,9 @@ test("renders a Logseq-like Draft Tree and exposes edits without displaying stab
   assert.match(html, /TODO 验证一条真实告警/);
   assert.match(html, /data-action="creation-session-draft-edit-save"/);
   assert.match(html, /data-action="creation-session-draft-delete"/);
+  assert.match(html, /data-action="creation-session-draft-move"/);
+  assert.match(html, /data-field="creation-draft-revision-instruction"/);
+  assert.match(html, /data-action="creation-session-draft-revise"/);
   assert.doesNotMatch(html, new RegExp(`>${nodeId}<`));
 });
 
@@ -95,6 +102,8 @@ test("a READY Project draft exposes explicit independent-Page placement and Prop
   assert.match(html, /data-action="creation-session-placement-project"/);
   assert.match(html, /data-action="creation-session-proposal-prepare"/);
   assert.match(html, /不会立即写入/);
+  assert.match(html, /将发生/);
+  assert.match(html, /不会发生/);
 });
 
 test("a blank READY MiniProject exposes a current-Page placement action", () => {
@@ -121,4 +130,43 @@ test("shows only active sessions in a restrained resumable list", () => {
   assert.match(html, /新建 MiniProject/);
   assert.match(html, /新建 Project/);
   assert.doesNotMatch(html, /Agent 治理|待整理|Now Work/);
+});
+
+test("a Page source is summarized before the first round and exposes bounded reference management", () => {
+  const page: CreationSessionSource = {
+    sourceId: "source-page", role: "PRIMARY", kind: "PAGE", externalId: "page-one", pageName: "硬件告警材料", currentCaptureId: "capture-page", latestKnownHash: "hash-old", availability: "AVAILABLE",
+    captures: [{ captureId: "capture-page", reason: "SESSION_START", snapshotHash: "hash-old", content: "接入范围\n历史记录", hierarchy: [
+      { nodeId: "block-scope", text: "接入范围", order: 0, depth: 0, relation: "ROOT" },
+      { nodeId: "block-history", text: "历史记录", order: 1, depth: 0, relation: "ROOT" },
+    ], capturedAt: at.toISOString() }],
+  };
+  const base = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: page, sessionId: "creation-page-source" }, at);
+  const changed = observeCreationSessionSource(base, page.sourceId, { availability: "CHANGED", latestKnownHash: "hash-new", changeSummary: { added: 1, modified: 2, deleted: 0 } }, base.version, new Date("2026-08-02T06:01:00.000Z"));
+  const html = renderCreationSession({ status: "ready", sessions: [changed], session: changed, view: "DISCUSSION" });
+  assert.match(html, /Page 材料识别/);
+  assert.match(html, /可能属于本次对象/);
+  assert.match(html, /新增 1 · 修改 2 · 删除 0/);
+  assert.match(html, /data-action="creation-session-source-refresh"/);
+  assert.match(html, /data-action="creation-session-source-add-block"/);
+  assert.match(html, /data-action="creation-session-source-add-page"/);
+  assert.match(html, /确认来源范围并开始/);
+});
+
+test("created history preserves discussion and exposes object, source, review, and Undo affordances", () => {
+  const current = discussing();
+  const created: typeof current = {
+    ...current,
+    status: "CREATED",
+    sources: [{ sourceId: "source-page", role: "PRIMARY", kind: "PAGE", externalId: "page-one", pageName: "来源页", currentCaptureId: "capture-page", latestKnownHash: "hash-page", availability: "AVAILABLE", captures: [{ captureId: "capture-page", reason: "SESSION_START", snapshotHash: "hash-page", content: "来源材料", hierarchy: [], capturedAt: at.toISOString() }] }],
+    rounds: [{ ...current.rounds[0]!, userNarrativeAnswer: "先形成一条可验证链路，恢复演练作为完成证据。", providerStatus: "COMPLETED", summary: { confirmed: "先形成可验证链路", unresolved: "长期运营边界", draftChange: "补充完成证据", nextSuggestion: "检查草稿" } }],
+    creationResult: { objectId: "object-created", semanticCommitId: "proposal-commit:created", createdAt: "2026-08-02T07:00:00.000Z" },
+  };
+  const html = renderCreationSession({ status: "ready", sessions: [], session: created, view: "HISTORY" });
+  assert.match(html, /正式对象已创建/);
+  assert.match(html, /先形成一条可验证链路/);
+  assert.match(html, /data-action="creation-session-open-object"/);
+  assert.match(html, /data-action="creation-session-open-review"/);
+  assert.match(html, /data-action="creation-session-open-source"/);
+  assert.match(html, /查看审阅与 Undo/);
+  assert.doesNotMatch(html, /data-action="creation-session-abandon"/);
 });

@@ -7,11 +7,11 @@ Overall: `IN_PROGRESS`
 | Phase | State | Current evidence |
 |---|---|---|
 | 0 Baseline and ADR | DONE | Existing paths inspected; ADR 0010 records authority and ADR 0011 freezes the formal Proposal/commit/Undo bridge. |
-| 1 Session foundation | AUTOMATED_DONE | Domain, Application, schema 16, SQLite repository, Local Service CRUD, client, restart/idempotency/no-formal-write, Graph-owned source capture, drift/deletion check, explicit refresh, durable 2–5-question rounds, answer-first Provider transactions, retry/cancel/failure retention and replay are implemented. Desktop remains consolidated into Phase 5. |
-| 2 Draft Tree | AUTOMATED_DONE | Strict stable node/revision model, sparse important-history retention, source revalidation capture, MiniProject/Project Provider validator, Local Service/client generation, edit/adopt, idempotency, restart/failure retention and user-edit conflict protection are automated. Plugin now renders a responsive Logseq-style tree with Markdown/Page references, provenance, operation plan, conflicts, inline text/parent editing, safe Agent-leaf deletion and revision adoption. |
+| 1 Session foundation | AUTOMATED_DONE | Domain, Application, schema 16, SQLite repository, Local Service CRUD, client, restart/idempotency/no-formal-write, Graph-owned source capture, bounded add-reference, visible drift/deletion counts, explicit refresh, durable 2–5-question rounds, per-question or whole-round answer-first Provider transactions, retry/cancel/failure retention and replay are implemented. Desktop remains consolidated into Phase 5. |
+| 2 Draft Tree | AUTOMATED_DONE | Strict stable node/revision model, sparse important-history retention, source revalidation capture, MiniProject/Project Provider validator, Local Service/client generation, inline text/parent edits, atomic non-drag sibling movement, safe Agent-leaf deletion, natural-language revision, adoption, idempotency, restart/failure retention and user-edit conflict protection are automated. Plugin renders a responsive Logseq-style tree with Markdown/Page references, provenance, operation plan and conflicts. |
 | 3 MiniProject vertical | AUTOMATED_DONE | Fresh PRE_COMMIT evidence, full in-place source retention, deterministic Block identities, one HIGH Proposal/accepted plan, shared SemanticCommit prepare/finalize, and Plugin exact Graph execution are automated for blank Page-end and Block in-place placement. Atomic Object+Anchor+Audit+Session materialization, exact compensation/replay/Undo, changed-tree protection and staging/partial-write cleanup are covered. Desktop remains consolidated into Phase 5. |
 | 4 Project vertical | AUTOMATED_DONE | Independent NEW_PROJECT_PAGE Proposal, deterministic Page/Block identities, Service SemanticCommit, Plugin Graph execution, atomic Object/Anchor/Audit/Session finalization, exact compensation/replay/Undo, changed-page protection and interrupted-tree cleanup are automated. Desktop remains consolidated into Phase 5. |
-| 5 Unified entry/runtime | IN_PROGRESS | Plugin has one persistent Creation Session controller and action surface with active-session list, MiniProject/Project blank entry, Page-to-Project route, grouped 2–5 question forms, answer-first submission, stable reload/resume, Draft/Summary/History tabs, loading/success/error states and runtime-generation stale-response protection. Both formal verticals now dispatch through the same reviewed Creation Session action; legacy Grill paths remain reachable for compatibility. Real Provider, Desktop and independent visual gates remain. |
+| 5 Unified entry/runtime | AUTOMATED_DONE | Plugin has one persistent Creation Session controller and action surface with active-session list, MiniProject/Project blank entry, Page-to-Project route, pre-Grill Page material recognition, bounded source/reference management, grouped 2–5 question forms, whole-round natural answers, stable reload/resume, Draft/Summary/History tabs, explicit will/will-not impact, created-result object/source/Review+Undo affordances, loading/success/error states and runtime-generation stale-response protection. Terminal history is read-only and does not re-observe Graph sources. Both formal verticals dispatch through the same reviewed Creation Session action; legacy paths remain in one collapsed compatibility group. Real Provider, Desktop and independent visual gates remain. |
 
 Phase 1 preserves the key authority boundary: Provider output is a validated proposal
 for questions, consensus and draft hints. It cannot create a formal Object, write Audit,
@@ -46,3 +46,15 @@ UUIDs and order, verifies the exact after-tree before Domain finalization, resto
 exact before-tree on interruption or Domain conflict, and refuses Undo after later user
 changes. Page-end staging is removed only while it remains transaction-owned and exact.
 Plugin 523/523 and Local Service 200/200 pass before the root gate.
+
+Checkpoint `CS-CP08`: the remaining interaction contract is automated end to end. The
+first Provider call now waits for explicit source-scope confirmation; Page sources get
+a bounded recognition summary, up to three manual references and visible added/modified/
+deleted drift counts. Whole-round natural answers remain one preserved user statement
+without turning unanswered questions into consent. Draft edits support inline text,
+simple parent changes, atomic sibling movement, safe deletion and bounded natural-language
+revision while preserving user-edited nodes. Preview shows explicit will/will-not impact,
+and terminal History exposes the created object, primary source and the existing Review/
+Undo authority without mutating a terminal Session. Plugin 528/528, Local Service 201/201
+and the Node 20 root `./scripts/check.sh` pass; 145 stable rules and the export/restore
+rehearsal remain green. Only the consolidated real Provider/Desktop/visual campaign remains.

@@ -613,6 +613,9 @@ function isCreationSessionClient(client: ServiceRuntimeClient | undefined): clie
     && typeof client.createCreationSession === "function"
     && typeof client.getCreationSession === "function"
     && typeof client.listCreationSessions === "function"
+    && "addCreationSessionSource" in client && typeof client.addCreationSessionSource === "function"
+    && "checkCreationSessionSource" in client && typeof client.checkCreationSessionSource === "function"
+    && "refreshCreationSessionSource" in client && typeof client.refreshCreationSessionSource === "function"
     && typeof client.startCreationSessionRound === "function"
     && typeof client.submitCreationSessionRound === "function"
     && typeof client.retryCreationSessionRound === "function"
@@ -2733,6 +2736,28 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await creationSessionController.resume(value);
     return;
   }
+  if (action === "creation-session-source-add-block") {
+    const block = RuntimeShapeAdapter.block(await logseq.Editor.getCurrentBlock());
+    if (!block) throw new Error("请先选中一个可用 Block；没有添加参考来源。");
+    await creationSessionController.addReference({ kind: "BLOCK", target: block.uuid });
+    return;
+  }
+  if (action === "creation-session-source-add-page") {
+    const page = await logseq.Editor.getCurrentPage();
+    if (!page) throw new Error("当前没有可用 Page；没有添加参考来源。");
+    const pageRef = RuntimeShapeAdapter.pageRef(page);
+    if (pageRef === undefined || pageRef === null || String(pageRef).trim() === "") throw new Error("当前 Page 缺少稳定标识；没有添加参考来源。");
+    await creationSessionController.addReference({ kind: "PAGE", target: String(pageRef) });
+    return;
+  }
+  if (action === "creation-session-source-check" && value) {
+    await creationSessionController.checkSource(value);
+    return;
+  }
+  if (action === "creation-session-source-refresh" && value) {
+    await creationSessionController.refreshSource(value);
+    return;
+  }
   if (action === "creation-session-view" && value && ["DISCUSSION", "DRAFT", "SUMMARY", "HISTORY"].includes(value)) {
     creationSessionController.setView(value as "DISCUSSION" | "DRAFT" | "SUMMARY" | "HISTORY");
     await refresh();
@@ -2740,6 +2765,15 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "creation-session-round-start") {
     await creationSessionController.startRound();
+    return;
+  }
+  if (action === "creation-session-round-submit-narrative" && value) {
+    const session = creationSessionController.snapshot().session;
+    const round = session ? [...session.rounds].reverse().find(({ providerStatus }) => providerStatus === "NOT_REQUESTED") : undefined;
+    if (!round || round.roundId !== value) throw new Error("当前问题已经变化；请以重新载入后的会话为准。");
+    const narrativeAnswer = dialogField("creation-round-narrative");
+    if (!narrativeAnswer) throw new Error("请先填写整体回答；未回答问题不会被当作同意。");
+    await creationSessionController.submitNarrativeAnswer(narrativeAnswer);
     return;
   }
   if ((action === "creation-session-round-submit" || action === "creation-session-round-accept-all") && value) {
@@ -2765,6 +2799,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "creation-session-draft-generate") {
     await creationSessionController.generateDraft();
+    return;
+  }
+  if (action === "creation-session-draft-revise") {
+    const revisionInstruction = dialogField("creation-draft-revision-instruction");
+    if (!revisionInstruction) throw new Error("请先填写草稿修订说明；当前 Revision 没有变化。");
+    await creationSessionController.reviseDraft(revisionInstruction);
     return;
   }
   if (action === "creation-session-draft-edit-open" && value) {
@@ -2801,6 +2841,12 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const [revisionId, nodeId] = value.split("|");
     if (!revisionId || !nodeId || !globalThis.confirm("删除这个 Agent 新建的草稿 Block？来源材料和正式正文不会被删除。")) return;
     await creationSessionController.editDraft(revisionId, nodeId, { delete: true });
+    return;
+  }
+  if (action === "creation-session-draft-move" && value) {
+    const [revisionId, nodeId, move] = value.split("|");
+    if (!revisionId || !nodeId || (move !== "UP" && move !== "DOWN")) throw new Error("草稿排序操作已失效；请重新载入。");
+    await creationSessionController.editDraft(revisionId, nodeId, { move });
     return;
   }
   if (action === "creation-session-draft-adopt" && value) {
@@ -2845,6 +2891,45 @@ async function handleAction(action: string, value?: string): Promise<void> {
   }
   if (action === "creation-session-proposal-prepare") {
     await creationSessionController.prepareProposal();
+    return;
+  }
+  if (action === "creation-session-open-object" && value) {
+    const client = serviceRuntimeClient;
+    if (!client) throw new Error("Local Service 尚未就绪；没有打开其他对象。");
+    const object = (await client.listObjects()).find(({ objectId }) => objectId === value);
+    if (!object) throw new Error("创建结果中的对象已不可用；请从审阅记录检查恢复状态。");
+    v2ReentryTargetObjectId = object.objectId;
+    workspace = "reentry";
+    actionDialog = undefined;
+    latestError = undefined;
+    message = `已打开 Creation Session 创建的“${object.text}”。`;
+    await refresh();
+    return;
+  }
+  if (action === "creation-session-open-review" && value) {
+    const client = serviceRuntimeClient;
+    if (!client) throw new Error("Local Service 尚未就绪；没有切换审阅记录。");
+    const commit = (await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === value);
+    if (!commit) throw new Error("创建结果的审阅记录已不可用；会话历史仍保留。");
+    recentActionCommitId = commit.semanticCommitId;
+    workspace = "review";
+    actionDialog = undefined;
+    latestError = undefined;
+    message = "已回到本次创建的正式审阅记录；可在这里检查结果与 Undo 状态。";
+    await refresh();
+    return;
+  }
+  if (action === "creation-session-open-source" && value) {
+    const source = creationSessionController.snapshot().session?.sources.find(({ sourceId }) => sourceId === value);
+    if (!source || source.role !== "PRIMARY" || source.kind === "BLANK" || !source.externalId) throw new Error("主来源当前不可打开；会话快照仍保留。");
+    if (source.kind === "PAGE") {
+      const page = await resolveLogseqPageReference(source.externalId, logseq.Editor.getPage?.bind(logseq.Editor));
+      if (page.displayName === "无法解析的 Logseq 页面") throw new Error("主来源 Page 当前无法解析；会话快照仍保留。");
+      await logseq.App.pushState("page", { name: page.pageName ?? page.displayName.replace(" · Journal", "") });
+    } else {
+      await openV2PrimaryAnchor(source.externalId);
+    }
+    await logseq.hideMainUI();
     return;
   }
   if (action === "creation-session-abandon") {

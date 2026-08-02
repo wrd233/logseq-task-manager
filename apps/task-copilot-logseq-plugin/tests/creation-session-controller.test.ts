@@ -46,6 +46,9 @@ function client(overrides: Partial<CreationSessionClient> = {}): CreationSession
     createCreationSession: unsupported,
     getCreationSession: unsupported,
     listCreationSessions: unsupported,
+    addCreationSessionSource: unsupported,
+    checkCreationSessionSource: unsupported,
+    refreshCreationSessionSource: unsupported,
     startCreationSessionRound: unsupported,
     submitCreationSessionRound: unsupported,
     retryCreationSessionRound: unsupported,
@@ -59,18 +62,13 @@ function client(overrides: Partial<CreationSessionClient> = {}): CreationSession
   } as CreationSessionClient;
 }
 
-test("creates a durable session before requesting the first Provider round", async () => {
+test("creates a durable session before the user confirms source scope and starts Provider", async () => {
   const created = session();
-  const started = withRound(created);
   const calls: string[] = [];
   const runtimeClient = client({
     createCreationSession: async (input) => {
       calls.push(`create:${input.idempotencyKey.split(":")[0]}`);
       return { session: created, replayed: false };
-    },
-    startCreationSessionRound: async (_sessionId, input) => {
-      calls.push(`round:${input.expectedVersion}`);
-      return { session: started, replayed: false, providerStatus: "COMPLETED" };
     },
   });
   const controller = new CreationSessionController(
@@ -80,10 +78,53 @@ test("creates a durable session before requesting the first Provider round", asy
 
   await controller.create({ targetType: "MINI_PROJECT", primarySource: { kind: "BLANK" } });
 
-  assert.deepEqual(calls, ["create:creation-session-create", "round:1"]);
+  assert.deepEqual(calls, ["create:creation-session-create"]);
   assert.equal(controller.snapshot().status, "ready");
-  assert.equal(controller.snapshot().session?.rounds[0]?.providerStatus, "NOT_REQUESTED");
+  assert.equal(controller.snapshot().session?.rounds.length, 0);
+  assert.match(controller.snapshot().notice ?? "", /核对来源范围/);
   assert.equal(controller.snapshot().sessions[0]?.sessionId, created.sessionId);
+});
+
+test("resume rechecks Graph sources and preserves a visible bounded drift summary", async () => {
+  const source: CreationSessionSource = {
+    sourceId: "source-page", role: "PRIMARY", kind: "PAGE", externalId: "page-one", pageName: "来源页", currentCaptureId: "capture-page", latestKnownHash: "hash-old", availability: "AVAILABLE",
+    captures: [{ captureId: "capture-page", reason: "SESSION_START", snapshotHash: "hash-old", content: "原材料", hierarchy: [{ nodeId: "block-one", text: "原材料", order: 0, depth: 0, relation: "ROOT" }], capturedAt: at.toISOString() }],
+  };
+  const current = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: source, sessionId: "creation-source-resume" }, at);
+  const changed: CreationSession = { ...current, version: 2, updatedAt: "2026-08-02T06:01:00.000Z", sources: [{ ...source, latestKnownHash: "hash-new", availability: "CHANGED", changeSummary: { added: 1, modified: 0, deleted: 0 } }] };
+  const runtimeClient = client({
+    getCreationSession: async () => current,
+    checkCreationSessionSource: async (_sessionId, sourceId, input) => {
+      assert.equal(sourceId, source.sourceId);
+      assert.equal(input.expectedVersion, 1);
+      return { session: changed, replayed: false };
+    },
+  });
+  const controller = new CreationSessionController(() => ({ client: runtimeClient, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.resume(current.sessionId);
+  assert.equal(controller.snapshot().session?.sources[0]?.availability, "CHANGED");
+  assert.deepEqual(controller.snapshot().session?.sources[0]?.changeSummary, { added: 1, modified: 0, deleted: 0 });
+  assert.match(controller.snapshot().notice ?? "", /1 个来源需要处理/);
+});
+
+test("resume keeps terminal creation history read-only without observing Graph sources", async () => {
+  const source: CreationSessionSource = {
+    sourceId: "source-page", role: "PRIMARY", kind: "PAGE", externalId: "page-one", pageName: "来源页", currentCaptureId: "capture-page", latestKnownHash: "hash-old", availability: "AVAILABLE",
+    captures: [{ captureId: "capture-page", reason: "SESSION_START", snapshotHash: "hash-old", content: "原材料", hierarchy: [], capturedAt: at.toISOString() }],
+  };
+  const active = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: source, sessionId: "creation-terminal" }, at);
+  const created: CreationSession = { ...active, status: "CREATED", creationResult: { objectId: "object-created", semanticCommitId: "proposal-commit:created", createdAt: at.toISOString() } };
+  let checked = false;
+  const runtimeClient = client({
+    getCreationSession: async () => created,
+    checkCreationSessionSource: async () => { checked = true; throw new Error("terminal source must not be observed"); },
+  });
+  const controller = new CreationSessionController(() => ({ client: runtimeClient, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.resume(created.sessionId);
+  assert.equal(checked, false);
+  assert.equal(controller.snapshot().session?.status, "CREATED");
+  assert.equal(controller.snapshot().view, "HISTORY");
+  assert.match(controller.snapshot().notice ?? "", /只读会话历史/);
 });
 
 test("keeps persisted answers and the stable session when Provider completion fails", async () => {
@@ -112,6 +153,25 @@ test("keeps persisted answers and the stable session when Provider completion fa
   assert.match(state.error ?? "", /回答已保存/);
   assert.equal(state.session?.rounds[0]?.questions[0]?.userAnswer, "形成可验证的告警接入");
   assert.equal(state.session?.rounds[0]?.providerStatus, "FAILED");
+});
+
+test("submits one whole-round narrative while keeping per-question states unanswered", async () => {
+  const current = withRound();
+  let observedNarrative = "";
+  const runtimeClient = client({
+    getCreationSession: async () => current,
+    submitCreationSessionRound: async (_sessionId, _roundId, input) => {
+      observedNarrative = input.narrativeAnswer ?? "";
+      assert.deepEqual(input.answers.map(({ answerState }) => answerState), ["UNANSWERED", "UNANSWERED"]);
+      const requesting = submitCreationRoundAnswers(current, "round-one", input.answers, current.version, new Date("2026-08-02T06:01:00.000Z"), input.narrativeAnswer);
+      return { session: requesting, replayed: false, providerStatus: "FAILED" };
+    },
+  });
+  const controller = new CreationSessionController(() => ({ client: runtimeClient, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.resume(current.sessionId);
+  await controller.submitNarrativeAnswer("先跑通一条真实告警，完成证据用恢复演练。");
+  assert.equal(observedNarrative, "先跑通一条真实告警，完成证据用恢复演练。");
+  assert.equal(controller.snapshot().session?.rounds[0]?.userNarrativeAnswer, observedNarrative);
 });
 
 test("drops a response from an obsolete Local Service generation", async () => {

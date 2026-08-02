@@ -65,6 +65,7 @@ export interface ServiceCreationRoundCommand {
   expectedVersion: number;
   idempotencyKey: string;
   answers: ServiceCreationRoundAnswer[];
+  narrativeAnswer?: string;
 }
 
 export interface ServiceCreationRoundResult extends ServiceCreationSessionResult {
@@ -82,6 +83,7 @@ export interface ServiceCreationDraftEdit {
   delete?: true;
   parentNodeId?: string | null;
   order?: number;
+  move?: "UP" | "DOWN";
 }
 
 export interface ServiceUpdateCreationSessionRequest {
@@ -1518,7 +1520,7 @@ export class LocalServiceClient {
     return this.request<ServiceCreationRoundResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/rounds/${encodeURIComponent(roundId)}/retry`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 125_000);
   }
 
-  generateCreationSessionDraft(sessionId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationDraftResult> {
+  generateCreationSessionDraft(sessionId: string, input: ServiceCreationSessionSourceObservationCommand & { revisionInstruction?: string }): Promise<ServiceCreationDraftResult> {
     return this.request<ServiceCreationDraftResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/drafts/generate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 125_000);
   }
 

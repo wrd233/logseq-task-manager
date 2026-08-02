@@ -328,15 +328,23 @@ test("Creation Session captures Graph-owned sources, detects drift and preserves
   await answerFound(changedSnapshot);
   const changed = await checkPromise;
   assert.equal(changed.session.sources[0]?.availability, "CHANGED");
+  assert.deepEqual(changed.session.sources[0]?.changeSummary, { added: 0, modified: 1, deleted: 0 });
   assert.equal(changed.session.sources[0]?.captures.length, 1, "checking never overwrites the captured source");
 
   const refreshPromise = client.refreshCreationSessionSource(created.session.sessionId, sourceId, { expectedVersion: 2, idempotencyKey: "creation-source-refresh" });
   await answerFound(changedSnapshot);
   const refreshed = await refreshPromise;
   assert.equal(refreshed.session.sources[0]?.availability, "AVAILABLE");
+  assert.equal(refreshed.session.sources[0]?.changeSummary, undefined);
   assert.deepEqual(refreshed.session.sources[0]?.captures.map(({ reason }) => reason), ["SESSION_START", "USER_REFRESH"]);
   assert.equal(refreshed.session.sources[0]?.captures[0]?.content, "杂乱来源");
   assert.equal(refreshed.session.sources[0]?.captures[1]?.content, "杂乱来源（已修改）");
+
+  const unchangedPromise = client.checkCreationSessionSource(created.session.sessionId, sourceId, { expectedVersion: 3, idempotencyKey: "creation-source-check-unchanged" });
+  await answerFound(changedSnapshot);
+  const unchanged = await unchangedPromise;
+  assert.equal(unchanged.session.version, 3, "a resume-time equality check must not create a synthetic Session version");
+  assert.equal(unchanged.session.sources[0]?.availability, "AVAILABLE");
 
   const pageResolved = { kind: "PAGE" as const, id: "reference-page", name: "参考页", version: 1, evidenceHash: checksum("reference-page") };
   const pageBlocks = [{ uuid: "reference-block", content: "参考细节", contentHash: checksum("参考细节"), relation: "ROOT" as const, depth: 0, pageUuid: "reference-page", pageName: "参考页" }];
@@ -367,6 +375,7 @@ test("Creation Session captures Graph-owned sources, detects drift and preserves
   await client.completeGraphReadRequest({ requestId: pending.requestId, status: "NOT_FOUND" });
   const deleted = await deletedPromise;
   assert.equal(deleted.session.sources[0]?.availability, "DELETED");
+  assert.deepEqual(deleted.session.sources[0]?.changeSummary, { added: 0, modified: 0, deleted: 1 });
   assert.equal((await client.listObjects()).length, 0);
 });
 
@@ -681,17 +690,19 @@ test("Creation Session persists answers before Provider, retains stable consensu
   assert.equal(call, 2, "lost-response replay must not call Provider or append another round");
   const stableConsensus = advanced.session.consensus.map(({ text }) => text);
   const secondRound = advanced.session.rounds[1]!;
-  const failed = await client.submitCreationSessionRound(created.session.sessionId, secondRound.roundId, { expectedVersion: advanced.session.version, idempotencyKey: "creation-round-submit-two", answers: secondRound.questions.map(({ questionId }) => ({ questionId, answerState: "UNCERTAIN" as const, userAnswer: "需要进一步验证" })) });
+  const narrativeAnswer = "当前先跑通一条真实告警，背景细节需要进一步验证。";
+  const failed = await client.submitCreationSessionRound(created.session.sessionId, secondRound.roundId, { expectedVersion: advanced.session.version, idempotencyKey: "creation-round-submit-two", answers: secondRound.questions.map(({ questionId }) => ({ questionId, answerState: "UNANSWERED" as const })), narrativeAnswer });
   assert.equal(failed.providerStatus, "FAILED");
   assert.equal(failed.session.rounds[1]?.providerStatus, "FAILED");
-  assert.equal(failed.session.rounds[1]?.questions[0]?.userAnswer, "需要进一步验证");
+  assert.equal(failed.session.rounds[1]?.userNarrativeAnswer, narrativeAnswer);
+  assert.equal(failed.session.rounds[1]?.questions[0]?.answerState, "UNANSWERED");
   assert.deepEqual(failed.session.consensus.map(({ text }) => text), stableConsensus, "Provider failure cannot mutate stable consensus");
   await service.close();
   service = await startLocalService({ databasePath, graphId: "graph-creation-round", token: "creation-round-restart-token-24", creationRoundGenerator: new LocalLlmCreationRoundGenerator(provider) });
   client = clientFor(service);
   const resumed = await client.getCreationSession(created.session.sessionId);
   assert.equal(resumed?.rounds[1]?.providerStatus, "FAILED");
-  assert.equal(resumed?.rounds[1]?.questions[0]?.userAnswer, "需要进一步验证");
+  assert.equal(resumed?.rounds[1]?.userNarrativeAnswer, narrativeAnswer);
   const retried = await client.retryCreationSessionRound(created.session.sessionId, secondRound.roundId, { expectedVersion: failed.session.version, idempotencyKey: "creation-round-retry-two" });
   assert.equal(retried.providerStatus, "COMPLETED");
   assert.equal(retried.session.rounds[1]?.providerStatus, "COMPLETED");
@@ -734,7 +745,7 @@ test("Creation Session Draft persists stable nodes, protects user edits and repl
   assert.equal(replay.session.draftRevisions.length, 1);
   assert.equal(calls, 1);
   const edited = await client.editCreationSessionDraft(created.session.sessionId, first.revisionId, goal.nodeId, { expectedVersion: generated.session.version, idempotencyKey: "creation-draft-edit-goal", edit: { text: "**[目标]** 用户明确保留的设备告警接入" } });
-  const regenerated = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: edited.session.version, idempotencyKey: "creation-draft-generate-two" });
+  const regenerated = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: edited.session.version, idempotencyKey: "creation-draft-generate-two", revisionInstruction: "保留用户目标，并把下一步放在目标之后。" });
   const latest = regenerated.session.draftRevisions.at(-1)!;
   assert.equal(latest.nodes.find(({ semanticKey }) => semanticKey === "goal")?.nodeId, goal.nodeId);
   assert.equal(latest.nodes.find(({ semanticKey }) => semanticKey === "goal")?.text, "**[目标]** 用户明确保留的设备告警接入");

@@ -118,3 +118,9 @@ SemanticCommit prepare/finalize、原子 Domain materialization、精确补偿�
 before/after 计划、同一 SemanticCommit 账本、Plugin 确定性排序/改写/新建、Domain 冲突补偿
 与 inverse Domain/Graph Undo；中断 staging 只在仍受事务所有时清理，后续用户内容会使 Undo
 零删除拒绝。真实 Provider/Desktop/独立视觉 Gate 尚未完成，总体状态保持 `IN_PROGRESS`。
+CS-CP08 进一步关闭完整交互合同：首轮前显式确认来源范围与 Page 材料识别，手工参考来源
+上限为三，Graph 漂移展示新增/修改/删除并由显式 refresh 纳入；用户可以逐题或用一段原话
+回答整轮，未覆盖内容保持未知。Draft 提供文本/父级/安全删除/原子相邻排序和受保护的自然
+语言 Revision；正式准备展示“将发生/不会发生”，终态 History 可打开对象、主来源和既有
+Review/Undo。Plugin 528/528、Local Service 201/201 与根级完整检查通过；这不替代真实
+Provider、Desktop 或独立视觉结论。

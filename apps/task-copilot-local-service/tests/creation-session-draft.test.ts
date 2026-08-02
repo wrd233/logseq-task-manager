@@ -34,10 +34,10 @@ const projectOutput = {
   unusedMaterials: [], warnings: [], maturity: { level: "EARLY", missing: ["完成证据", "范围外"] },
 };
 
-function fixture(value: unknown, targetType: "MINI_PROJECT" | "PROJECT") {
+function fixture(value: unknown, targetType: "MINI_PROJECT" | "PROJECT", calls: unknown[] = []) {
   const provider: StructuredProposalProvider = {
     providerId: "deepseek", providerVersion: "chat-completions-v1",
-    completeStructured: async () => ({ value, metadata: { model: "deepseek-v4", durationMs: 14, attempts: 1 } }),
+    completeStructured: async (input) => { calls.push(input); return { value, metadata: { model: "deepseek-v4", durationMs: 14, attempts: 1 } }; },
   };
   return {
     provider,
@@ -65,4 +65,15 @@ test("Creation Draft generator rejects weak markers and source-escaping operatio
   const invalid = { ...miniOutput, nodes: miniOutput.nodes.map((node) => node.semanticKey === "goal" ? { ...node, text: "[目标] 不加粗" } : node) };
   const current = fixture(invalid, "MINI_PROJECT");
   await assert.rejects(() => new LocalLlmCreationDraftGenerator(current.provider).generate(current.request), (error: unknown) => error instanceof StructuredError && error.code === "CREATION_DRAFT_VALIDATION_FAILED");
+});
+
+test("Creation Draft generator receives a bounded natural-language revision instruction without changing its authority", async () => {
+  const calls: unknown[] = [];
+  const current = fixture(miniOutput, "MINI_PROJECT", calls);
+  const instruction = "保留目标，把下一步移到完成证据之后。";
+  await new LocalLlmCreationDraftGenerator(current.provider).generate({ ...current.request, revisionInstruction: instruction });
+  const user = (calls[0] as { user?: string }).user ?? "";
+  assert.match(user, new RegExp(instruction));
+  assert.match(user, /protectedSemanticKeys/);
+  await assert.rejects(() => new LocalLlmCreationDraftGenerator(current.provider).generate({ ...current.request, revisionInstruction: " " }), (error: unknown) => error instanceof StructuredError && error.code === "CREATION_DRAFT_INSTRUCTION_INVALID");
 });
