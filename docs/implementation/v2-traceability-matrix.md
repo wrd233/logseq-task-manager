@@ -103,6 +103,6 @@ Agent Decision Governance 不改变 E2E-01～24 的既有 `DONE` 结论，也不
 
 本增量为 MiniProject / Project 增加正式创建前的 SQLite 暂存权威，不改变 E2E-01～24
 既有正式写入合同，也不新增平行 Proposal / Commit / Undo / Recovery 内核。完整追踪见
-`docs/goal/creation-session/ACCEPTANCE_MATRIX.md`。当前 schema 16 与 CRUD 底座通过根级检查；
-来源刷新、Provider 轮次、Draft Tree、两条正式创建纵向与真实 Desktop/视觉 Gate 尚未完成，
-总体状态保持 `IN_PROGRESS`。
+`docs/goal/creation-session/ACCEPTANCE_MATRIX.md`。当前 schema 16、CRUD、来源刷新和
+answer-first Provider 轮次已有自动证据；Draft Tree、两条正式创建纵向与真实
+Provider/Desktop/视觉 Gate 尚未完成，总体状态保持 `IN_PROGRESS`。

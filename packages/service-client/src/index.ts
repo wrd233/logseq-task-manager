@@ -55,6 +55,23 @@ export interface ServiceCreationSessionSourceObservationCommand {
   idempotencyKey: string;
 }
 
+export interface ServiceCreationRoundAnswer {
+  questionId: string;
+  answerState: "ANSWERED" | "ACCEPTED_RECOMMENDATION" | "SKIPPED" | "UNCERTAIN" | "UNANSWERED";
+  userAnswer?: string;
+}
+
+export interface ServiceCreationRoundCommand {
+  expectedVersion: number;
+  idempotencyKey: string;
+  answers: ServiceCreationRoundAnswer[];
+}
+
+export interface ServiceCreationRoundResult extends ServiceCreationSessionResult {
+  providerStatus: "COMPLETED" | "FAILED";
+  error?: { code: string; message: string };
+}
+
 export interface ServiceUpdateCreationSessionRequest {
   expectedVersion: number;
   idempotencyKey: string;
@@ -117,7 +134,7 @@ export interface ServiceBackupRestored {
 }
 
 export interface ServiceSkillSummary {
-  name: "task-copilot-core" | "design-project" | "recover-context" | "mini-project-modeling" | "project-creation-modeling";
+  name: "task-copilot-core" | "design-project" | "recover-context" | "mini-project-modeling" | "project-creation-modeling" | "creation-session";
   version: string;
   description: string;
   sha256: string;
@@ -1394,6 +1411,18 @@ export class LocalServiceClient {
 
   refreshCreationSessionSource(sessionId: string, sourceId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationSessionResult> {
     return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/sources/${encodeURIComponent(sourceId)}/refresh`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 12_000);
+  }
+
+  startCreationSessionRound(sessionId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationRoundResult> {
+    return this.request<ServiceCreationRoundResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/rounds/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 125_000);
+  }
+
+  submitCreationSessionRound(sessionId: string, roundId: string, input: ServiceCreationRoundCommand): Promise<ServiceCreationRoundResult> {
+    return this.request<ServiceCreationRoundResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/rounds/${encodeURIComponent(roundId)}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 125_000);
+  }
+
+  retryCreationSessionRound(sessionId: string, roundId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationRoundResult> {
+    return this.request<ServiceCreationRoundResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/rounds/${encodeURIComponent(roundId)}/retry`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 125_000);
   }
 
   createArea(input: ServiceCreateAreaRequest): Promise<ServiceAreaCommandResult> {

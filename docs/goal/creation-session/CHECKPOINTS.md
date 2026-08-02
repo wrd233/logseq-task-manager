@@ -8,10 +8,19 @@
 - multiple active sessions and filtered list;
 - zero formal object/audit write before confirmation.
 
+## CS-CP02 — source and round transaction
+
+- source content is captured only through the bounded Desktop Graph bridge;
+- important source snapshots are retained and source change/deletion is explicit;
+- refresh retains the prior capture and turns dependent source facts into conflicts;
+- one coherent Provider round contains 2–5 questions while multiple dimensions remain;
+- every question carries rationale, recommendation and explicit answer state;
+- answers commit before the Provider request and survive failure, cancellation, restart
+  and retry;
+- idempotent replay does not call the Provider again or duplicate consensus;
+- Provider output remains proposal-only and produces zero formal Objects/Audit writes.
+
 ## Next checkpoint
 
-CS-CP02 source work is automated: source content is captured only through the bounded
-Desktop Graph bridge, important snapshots are retained, change/deletion is explicit,
-and refresh does not overwrite user edits. The remaining part is durable multi-question
-rounds with answer-first Provider transactions, retry, cancellation, and stable-state
-retention.
+CS-CP03 is the stable Logseq-style Draft Tree: strict generated structure, durable node
+identity and revisions, explicit user edits, adoption, and silent-overwrite prevention.

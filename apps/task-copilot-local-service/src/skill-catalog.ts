@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { validateAgentGovernanceSkillManifest, type AgentGovernanceSkillManifest } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
-const skillNames = ["task-copilot-core", "design-project", "recover-context", "mini-project-modeling", "project-creation-modeling"] as const;
+const skillNames = ["task-copilot-core", "design-project", "recover-context", "mini-project-modeling", "project-creation-modeling", "creation-session"] as const;
 export type TaskCopilotSkillName = (typeof skillNames)[number];
 
 export interface TaskCopilotSkillSummary {

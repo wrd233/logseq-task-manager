@@ -22,6 +22,7 @@ import { LocalLlmUxOutputGenerator } from "../src/llm-ux-output.ts";
 import { LocalLlmGrillTurnGenerator } from "../src/llm-grill-turn.ts";
 import { LocalLlmGrillPreviewGenerator } from "../src/llm-grill-preview.ts";
 import { LocalLlmProjectCreationPreviewGenerator } from "../src/llm-project-creation-preview.ts";
+import { LocalLlmCreationRoundGenerator } from "../src/creation-session-round.ts";
 
 function clientFor(service: { url: string; token: string }): LocalServiceClient {
   const descriptor: ServiceDescriptor = {
@@ -241,7 +242,7 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   assert.equal(doctorReport.checks?.find(({ component }) => component === "BACKUP")?.code, "BACKUP_NONE");
   assert.equal(doctorReport.checks?.find(({ component }) => component === "GRAPH")?.code, "GRAPH_READ_BRIDGE_NOT_CONNECTED");
   assert.equal(doctorReport.checks?.find(({ component }) => component === "SEMANTIC_COMMIT")?.status, "PASS");
-  assert.deepEqual(doctorReport.checks?.find(({ component }) => component === "SKILL_PROFILE"), { component: "SKILL_PROFILE", status: "PASS", code: "BUILTIN_AND_GOVERNANCE_SKILLS_VALID", count: 6 });
+  assert.deepEqual(doctorReport.checks?.find(({ component }) => component === "SKILL_PROFILE"), { component: "SKILL_PROFILE", status: "PASS", code: "BUILTIN_AND_GOVERNANCE_SKILLS_VALID", count: 7 });
   assert.deepEqual(doctorReport.summary, { pass: 10, warn: 1, fail: 0, info: 3 });
   assert.equal(doctorReport.limitations?.length, 3);
   await service.close();
@@ -347,6 +348,70 @@ test("Creation Session captures Graph-owned sources, detects drift and preserves
   assert.equal((await client.listObjects()).length, 0);
 });
 
+test("Creation Session persists answers before Provider, retains stable consensus on failure and retries safely", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-round-service-"));
+  let call = 0;
+  const output = (theme: string, ids: string[]) => ({
+    schemaVersion: "task-copilot-creation-round-v1", theme,
+    understanding: "当前材料已经形成部分共识，仍需继续确认相关分支。",
+    questions: ids.map((uncertaintyId) => ({ uncertaintyId, text: `请确认${uncertaintyId === "outcome" ? "具体结果" : uncertaintyId === "completion-evidence" ? "完成证据" : uncertaintyId === "current-progress" ? "当前推进" : uncertaintyId === "necessary-context" ? "必要背景" : uncertaintyId === "retained-material" ? "保留材料" : "放置关系"}？`, rationale: "这一点会直接影响下一版草稿。", recommendation: "建议采用最小且可验证的边界。", answerRequirement: "给出明确选择，或标记暂不确定。", evidenceRefs: [] })),
+    consensusDelta: [], unresolvedBranches: ids, draftReadiness: "NOT_READY", draftSuggestions: [], abstentions: [],
+    summary: { confirmed: "已保存本轮明确回答", unresolved: "仍有相关分支待确认", draftChange: "稳定草稿保持不变", nextSuggestion: "继续回答下一组相关问题" },
+  });
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek", providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      call += 1;
+      if (call === 3) throw new StructuredError({ code: "LLM_TIMEOUT", message: "timeout", ruleRefs: ["D-139"] });
+      const value = call === 1 ? output("结果与完成方式", ["outcome", "completion-evidence"])
+        : call === 2 ? output("当前推进与背景", ["current-progress", "necessary-context"])
+          : output("材料与放置", ["retained-material", "placement"]);
+      return { value, metadata: { model: "deepseek-v4", durationMs: 10, attempts: 1 } };
+    },
+  };
+  const databasePath = join(root, "task-copilot.db");
+  let service = await startLocalService({ databasePath, graphId: "graph-creation-round", token: "creation-round-service-token-24", creationRoundGenerator: new LocalLlmCreationRoundGenerator(provider) });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const created = await client.createCreationSession({ targetType: "MINI_PROJECT", primarySource: { kind: "BLANK" }, sessionId: "creation-round-session", idempotencyKey: "creation-round-create" });
+  const initial = await client.startCreationSessionRound(created.session.sessionId, { expectedVersion: 1, idempotencyKey: "creation-round-start" });
+  assert.equal(initial.session.rounds[0]?.questions.length, 2);
+  const initialReplay = await client.startCreationSessionRound(created.session.sessionId, { expectedVersion: 1, idempotencyKey: "creation-round-start" });
+  assert.equal(initialReplay.replayed, true);
+  assert.equal(call, 1, "initial round replay must not call Provider twice");
+  const firstRound = initial.session.rounds[0]!;
+  const firstAnswers = [
+    { questionId: firstRound.questions[0]!.questionId, answerState: "ANSWERED", userAnswer: "形成可验证的设备告警接入" },
+    { questionId: firstRound.questions[1]!.questionId, answerState: "ACCEPTED_RECOMMENDATION" },
+  ] as const;
+  const advanced = await client.submitCreationSessionRound(created.session.sessionId, firstRound.roundId, { expectedVersion: 2, idempotencyKey: "creation-round-submit-one", answers: [...firstAnswers] });
+  assert.equal(advanced.providerStatus, "COMPLETED");
+  assert.equal(advanced.session.rounds[0]?.providerStatus, "COMPLETED");
+  assert.equal(advanced.session.consensus.filter(({ provenance }) => provenance === "USER_CONFIRMED").length, 2);
+  const replay = await client.submitCreationSessionRound(created.session.sessionId, firstRound.roundId, { expectedVersion: 2, idempotencyKey: "creation-round-submit-one", answers: [...firstAnswers] });
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.session.version, advanced.session.version);
+  assert.equal(call, 2, "lost-response replay must not call Provider or append another round");
+  const stableConsensus = advanced.session.consensus.map(({ text }) => text);
+  const secondRound = advanced.session.rounds[1]!;
+  const failed = await client.submitCreationSessionRound(created.session.sessionId, secondRound.roundId, { expectedVersion: advanced.session.version, idempotencyKey: "creation-round-submit-two", answers: secondRound.questions.map(({ questionId }) => ({ questionId, answerState: "UNCERTAIN" as const, userAnswer: "需要进一步验证" })) });
+  assert.equal(failed.providerStatus, "FAILED");
+  assert.equal(failed.session.rounds[1]?.providerStatus, "FAILED");
+  assert.equal(failed.session.rounds[1]?.questions[0]?.userAnswer, "需要进一步验证");
+  assert.deepEqual(failed.session.consensus.map(({ text }) => text), stableConsensus, "Provider failure cannot mutate stable consensus");
+  await service.close();
+  service = await startLocalService({ databasePath, graphId: "graph-creation-round", token: "creation-round-restart-token-24", creationRoundGenerator: new LocalLlmCreationRoundGenerator(provider) });
+  client = clientFor(service);
+  const resumed = await client.getCreationSession(created.session.sessionId);
+  assert.equal(resumed?.rounds[1]?.providerStatus, "FAILED");
+  assert.equal(resumed?.rounds[1]?.questions[0]?.userAnswer, "需要进一步验证");
+  const retried = await client.retryCreationSessionRound(created.session.sessionId, secondRound.roundId, { expectedVersion: failed.session.version, idempotencyKey: "creation-round-retry-two" });
+  assert.equal(retried.providerStatus, "COMPLETED");
+  assert.equal(retried.session.rounds[1]?.providerStatus, "COMPLETED");
+  assert.equal(retried.session.rounds[2]?.questions.length, 2);
+  assert.equal((await client.listObjects()).length, 0);
+});
+
 test("Local Service exposes bounded read-only Agent governance projections from the same SQLite authority", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-agent-governance-service-"));
   const databasePath = join(root, "task-copilot.db");
@@ -445,6 +510,7 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
     { name: "recover-context", version: "1.3.0" },
     { name: "mini-project-modeling", version: "1.3.0" },
     { name: "project-creation-modeling", version: "1.6.0" },
+    { name: "creation-session", version: "1.0.0" },
   ]);
   const project = await client.getSkill("design-project");
   assert.match(project?.content ?? "", /Apply `task-copilot-core` first/);
@@ -460,6 +526,9 @@ test("Local Service exposes the same immutable versioned Skill catalog to every 
   const projectCreation = await client.getSkill("project-creation-modeling");
   assert.match(projectCreation?.content ?? "", /Do not ask a fixed/i);
   assert.equal(projectCreation?.sha256, skills.find(({ name }) => name === "project-creation-modeling")?.sha256);
+  const creationSession = await client.getSkill("creation-session");
+  assert.match(creationSession?.content ?? "", /2–5 strongly related questions/);
+  assert.equal(creationSession?.sha256, skills.find(({ name }) => name === "creation-session")?.sha256);
   assert.equal(await client.getSkill("missing"), undefined);
   assert.equal((await client.status()).objectCount, 0, "Skill reads do not create formal state");
 });

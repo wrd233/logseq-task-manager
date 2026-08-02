@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
-import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationSessionSource, type CreationSessionStatus, type CreationSourceCapture, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationRoundAnswerInput, type CreationSessionSource, type CreationSessionStatus, type CreationSourceCapture, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -35,6 +35,7 @@ import type { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import type { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
 import type { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import type { LocalLlmProjectCreationPreviewGenerator } from "./llm-project-creation-preview.ts";
+import type { LocalLlmCreationRoundGenerator } from "./creation-session-round.ts";
 import { listTaskCopilotSkills, readAgentGovernanceSkill, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope, type ServiceContextPackage } from "./context-package.ts";
 import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
@@ -68,6 +69,7 @@ export interface LocalServiceOptions {
   grillTurnGenerator?: LocalLlmGrillTurnGenerator;
   grillPreviewGenerator?: LocalLlmGrillPreviewGenerator;
   projectCreationPreviewGenerator?: LocalLlmProjectCreationPreviewGenerator;
+  creationRoundGenerator?: LocalLlmCreationRoundGenerator;
   agentGovernanceProvider?: AgentGovernanceRuntimeProvider;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
@@ -1555,6 +1557,22 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (result.status === "ERROR") throw new StructuredError({ code: result.errorCode, message: result.message, ruleRefs: ["D-132", "D-135", "CREATION-SESSION-001"] });
     return sourceFromSnapshot(result.snapshot, role, reason, sourceId, at);
   };
+  const generateCreationRound = async (session: NonNullable<ReturnType<CreationSessionApplication["get"]>>, signal?: AbortSignal) => {
+    if (!options.creationRoundGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Creation Session Provider；已保存内容没有变化。");
+    const [core, skill, targetSkill] = await Promise.all([
+      readTaskCopilotSkill("task-copilot-core"),
+      readTaskCopilotSkill("creation-session"),
+      session.targetType === "PROJECT" ? readTaskCopilotSkill("design-project") : Promise.resolve(undefined),
+    ]);
+    if (!core || !skill) throw serviceError("CREATION_SESSION_SKILL_MISSING", "Creation Session 所需 Skill 不完整；没有调用 Provider。");
+    return options.creationRoundGenerator.generate({
+      session,
+      core: { version: core.version, content: core.content },
+      skill: { version: skill.version, content: skill.content },
+      targetSkill: targetSkill ? { version: targetSkill.version, content: targetSkill.content } : { version: "mini-project-creation-v1", content: "MiniProject 只收敛具体结果、完成证据、当前推进、必要背景、保留材料与放置；保持轻量。" },
+      ...(signal ? { signal } : {}),
+    });
+  };
   const agentGovernanceSkill = await readAgentGovernanceSkill();
   const agentGovernanceRuntime = new AgentGovernanceRuntime({
     graphId: options.graphId,
@@ -1761,6 +1779,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     || options.grillTurnGenerator !== undefined
     || options.grillPreviewGenerator !== undefined
     || options.projectCreationPreviewGenerator !== undefined
+    || options.creationRoundGenerator !== undefined
     || options.agentGovernanceProvider !== undefined;
   const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: providerConfigured };
   const comprehensiveDoctor = async (): Promise<ServiceDoctor> => {
@@ -1802,7 +1821,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       { component: "BACKUP", status: backupStatus, code: backupCode, count: backupCount },
       { component: "KEY_REFERENCE", status: "PASS", code: providerConfigured ? "KEY_RESOLVED_OUT_OF_BAND" : "KEY_NOT_REQUIRED" },
       { component: "PROVIDER", status: "INFO", code: providerConfigured ? "PROVIDER_CONFIGURED_NOT_PROBED" : "PROVIDER_DISABLED" },
-      { component: "SKILL_PROFILE", status: skillCount === 6 ? "PASS" : "FAIL", code: skillCount === 6 ? "BUILTIN_AND_GOVERNANCE_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
+      { component: "SKILL_PROFILE", status: skillCount === 7 ? "PASS" : "FAIL", code: skillCount === 7 ? "BUILTIN_AND_GOVERNANCE_SKILLS_VALID" : "BUILTIN_SKILLS_INVALID", count: skillCount },
       { component: "LOGGING", status: "INFO", code: "SERVICE_LOG_COLLECTION_NOT_CONFIGURED" },
       { component: "PROTOCOL", status: "PASS", code: "CLI_SERVICE_PROTOCOL_CURRENT" },
     ];
@@ -2108,6 +2127,8 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       }
       const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
       const sessionId = input.sessionId === undefined ? undefined : safeCreationToken(input.sessionId, "Session ID");
+      const replay = creationSessionApplication.replay(idempotencyKey, "CreateCreationSession");
+      if (replay) { respond(response, 200, replay); return; }
       const primarySource = await captureCreationSource(parseCreationSourceSelection(input.primarySource), "PRIMARY", "SESSION_START");
       const result = creationSessionApplication.create({
         targetType: input.targetType,
@@ -2143,7 +2164,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         || !input.patch || typeof input.patch !== "object" || Array.isArray(input.patch)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 更新参数无效。");
       const patch = input.patch as Record<string, unknown>;
       if (Object.keys(patch).some((key) => !["userTitle", "placementPlan"].includes(key))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 通用更新只允许会话标题与放置选择；来源、讨论和草稿必须走专用命令。");
-      const result = creationSessionApplication.update({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key"), patch: patch as Parameters<CreationSessionApplication["update"]>[0]["patch"] });
+      const result = await serializeByKey(`creation-session:${sessionId}`, async () => creationSessionApplication.update({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key"), patch: patch as Parameters<CreationSessionApplication["update"]>[0]["patch"] }));
       respond(response, 200, result);
       return;
     }
@@ -2152,8 +2173,13 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const sessionId = safeCreationToken(decodeURIComponent(creationSessionAddSourceMatch[1]), "Session ID");
       const input = await readCreationSessionJson(request);
       if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey,source" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "添加参考来源需要当前版本、幂等键和受控来源选择。");
-      const source = await captureCreationSource(parseCreationSourceSelection(input.source), "REFERENCE", "SESSION_START");
-      const result = creationSessionApplication.addSource({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key"), source });
+      const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
+      const result = await serializeByKey(`creation-session:${sessionId}`, async () => {
+        const replay = creationSessionApplication.replay(idempotencyKey, "AddCreationSessionSource");
+        if (replay) return replay;
+        const source = await captureCreationSource(parseCreationSourceSelection(input.source), "REFERENCE", "SESSION_START");
+        return creationSessionApplication.addSource({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey, source });
+      });
       respond(response, result.replayed ? 200 : 201, result);
       return;
     }
@@ -2163,24 +2189,91 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const sourceId = safeCreationToken(decodeURIComponent(creationSessionSourceActionMatch[2]), "Source ID");
       const input = await readCreationSessionJson(request);
       if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "来源检查需要当前版本和幂等键。");
-      const current = creationSessionApplication.get(sessionId);
-      const source = current?.sources.find((candidate) => candidate.sourceId === sourceId);
-      if (!source || source.kind === "BLANK" || !source.externalId) throw serviceError("CREATION_SESSION_SOURCE_NOT_FOUND", "Creation Session 中没有这个 Graph 来源。");
       const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
-      if (creationSessionSourceActionMatch[3] === "refresh") {
-        const refreshed = await captureCreationSource(source.kind === "BLOCK_SUBTREE" ? { kind: "BLOCK", target: source.externalId } : { kind: "PAGE", target: source.externalId }, source.role, "USER_REFRESH", source.sourceId);
-        const capture = refreshed.captures[0]!;
-        const result = creationSessionApplication.refreshSource({ sessionId, sourceId, expectedVersion: Number(input.expectedVersion), idempotencyKey, capture });
-        respond(response, 200, result);
-        return;
-      }
-      const graphResult = await graphReadBroker.read(source.kind === "BLOCK_SUBTREE" ? { kind: "BLOCK", target: source.externalId, includeChildren: true, parents: 8 } : { kind: "PAGE", target: source.externalId, depth: 5 });
-      if (graphResult.status === "ERROR") throw new StructuredError({ code: graphResult.errorCode, message: graphResult.message, ruleRefs: ["D-132", "D-135", "CREATION-SESSION-001"] });
-      const latestKnownHash = graphResult.status === "FOUND" ? graphResult.snapshot.scopeHash : undefined;
-      const currentCapture = source.captures.find(({ captureId }) => captureId === source.currentCaptureId)!;
-      const availability: CreationSessionSource["availability"] = graphResult.status === "NOT_FOUND" ? "DELETED" : latestKnownHash === currentCapture.snapshotHash ? "AVAILABLE" : "CHANGED";
-      const result = creationSessionApplication.observeSource({ sessionId, sourceId, expectedVersion: Number(input.expectedVersion), idempotencyKey, ...(latestKnownHash ? { latestKnownHash } : {}), availability });
+      const sourceCommand = creationSessionSourceActionMatch[3] === "refresh" ? "RefreshCreationSessionSource" as const : "ObserveCreationSessionSource" as const;
+      const result = await serializeByKey(`creation-session:${sessionId}`, async () => {
+        const replay = creationSessionApplication.replay(idempotencyKey, sourceCommand);
+        if (replay) return replay;
+        const current = creationSessionApplication.get(sessionId);
+        const source = current?.sources.find((candidate) => candidate.sourceId === sourceId);
+        if (!source || source.kind === "BLANK" || !source.externalId) throw serviceError("CREATION_SESSION_SOURCE_NOT_FOUND", "Creation Session 中没有这个 Graph 来源。");
+        if (creationSessionSourceActionMatch[3] === "refresh") {
+          const refreshed = await captureCreationSource(source.kind === "BLOCK_SUBTREE" ? { kind: "BLOCK", target: source.externalId } : { kind: "PAGE", target: source.externalId }, source.role, "USER_REFRESH", source.sourceId);
+          const capture = refreshed.captures[0]!;
+          return creationSessionApplication.refreshSource({ sessionId, sourceId, expectedVersion: Number(input.expectedVersion), idempotencyKey, capture });
+        }
+        const graphResult = await graphReadBroker.read(source.kind === "BLOCK_SUBTREE" ? { kind: "BLOCK", target: source.externalId, includeChildren: true, parents: 8 } : { kind: "PAGE", target: source.externalId, depth: 5 });
+        if (graphResult.status === "ERROR") throw new StructuredError({ code: graphResult.errorCode, message: graphResult.message, ruleRefs: ["D-132", "D-135", "CREATION-SESSION-001"] });
+        const latestKnownHash = graphResult.status === "FOUND" ? graphResult.snapshot.scopeHash : undefined;
+        const currentCapture = source.captures.find(({ captureId }) => captureId === source.currentCaptureId)!;
+        const availability: CreationSessionSource["availability"] = graphResult.status === "NOT_FOUND" ? "DELETED" : latestKnownHash === currentCapture.snapshotHash ? "AVAILABLE" : "CHANGED";
+        return creationSessionApplication.observeSource({ sessionId, sourceId, expectedVersion: Number(input.expectedVersion), idempotencyKey, ...(latestKnownHash ? { latestKnownHash } : {}), availability });
+      });
       respond(response, 200, result);
+      return;
+    }
+    const creationSessionStartRoundMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/rounds\/start$/) : null;
+    if (creationSessionStartRoundMatch?.[1]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionStartRoundMatch[1]), "Session ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "生成首轮需要当前版本和幂等键。");
+      const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
+      const result = await serializeByKey(`creation-session:${sessionId}`, async () => {
+        const replay = creationSessionApplication.replay(idempotencyKey, "StartCreationSessionRound");
+        if (replay) return { ...replay, providerStatus: "COMPLETED" as const };
+        const current = creationSessionApplication.get(sessionId);
+        if (!current) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
+        const generated = await generateCreationRound(current);
+        const saved = creationSessionApplication.startRound({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey, round: generated.round });
+        return { ...saved, providerStatus: "COMPLETED" as const };
+      });
+      respond(response, 200, result);
+      return;
+    }
+    const creationSessionRoundActionMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/rounds\/([^/]+)\/(submit|retry)$/) : null;
+    if (creationSessionRoundActionMatch?.[1] && creationSessionRoundActionMatch[2] && creationSessionRoundActionMatch[3]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionRoundActionMatch[1]), "Session ID");
+      const roundId = safeCreationToken(decodeURIComponent(creationSessionRoundActionMatch[2]), "Round ID");
+      const action = creationSessionRoundActionMatch[3];
+      const input = await readCreationSessionJson(request);
+      const expectedKeys = action === "submit" ? "answers,expectedVersion,idempotencyKey" : "expectedVersion,idempotencyKey";
+      if (Object.keys(input).sort().join(",") !== expectedKeys || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1 || (action === "submit" && (!Array.isArray(input.answers) || input.answers.length < 1 || input.answers.length > 5))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "轮次提交或重试参数无效。");
+      const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
+      const answers: CreationRoundAnswerInput[] = action === "submit" ? (input.answers as unknown[]).map((raw) => {
+        const answer = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+        if (Object.keys(answer).some((key) => !["questionId", "answerState", "userAnswer"].includes(key)) || typeof answer.questionId !== "string" || !["ANSWERED", "ACCEPTED_RECOMMENDATION", "SKIPPED", "UNCERTAIN", "UNANSWERED"].includes(String(answer.answerState)) || (answer.userAnswer !== undefined && (typeof answer.userAnswer !== "string" || answer.userAnswer.length > 4_000))) throw serviceError("CREATION_SESSION_ROUND_ANSWER_INVALID", "每题回答需要受控问题 ID、显式状态和可选有界文本。");
+        return { questionId: safeCreationToken(answer.questionId, "Question ID"), answerState: answer.answerState as CreationRoundAnswerInput["answerState"], ...(typeof answer.userAnswer === "string" ? { userAnswer: answer.userAnswer } : {}) };
+      }) : [];
+      const controller = new AbortController();
+      const abort = () => { if (!response.writableEnded) controller.abort(); };
+      response.once("close", abort);
+      try {
+        const result = await serializeByKey(`creation-session:${sessionId}`, async () => {
+          const requesting = action === "submit"
+            ? creationSessionApplication.submitRoundAnswers({ sessionId, roundId, expectedVersion: Number(input.expectedVersion), idempotencyKey, answers })
+            : creationSessionApplication.retryRound({ sessionId, roundId, expectedVersion: Number(input.expectedVersion), idempotencyKey });
+          const actual = requesting.replayed ? creationSessionApplication.get(sessionId) : undefined;
+          const actualRound = actual?.rounds.find((candidate) => candidate.roundId === roundId);
+          if (actual && actual.version !== requesting.session.version && actualRound?.providerStatus === "COMPLETED") return { session: actual, replayed: true, providerStatus: "COMPLETED" as const };
+          if (actual && actual.version !== requesting.session.version && ["FAILED", "CANCELLED"].includes(actualRound?.providerStatus ?? "")) return { session: actual, replayed: true, providerStatus: "FAILED" as const, error: { code: actualRound?.providerStatus === "CANCELLED" ? "CREATION_ROUND_CANCELLED" : "CREATION_ROUND_PROVIDER_FAILED", message: "本轮回答已保存；请使用安全重试继续。" } };
+          try {
+            const generated = await generateCreationRound(requesting.session, controller.signal);
+            const completeKey = `creation-round-complete:${checksum({ sessionId, roundId, idempotencyKey })}`;
+            const completed = creationSessionApplication.completeRound({
+              sessionId, roundId, expectedVersion: requesting.session.version, idempotencyKey: completeKey,
+              completion: { ...generated.completion, ...(generated.round.questions.length ? { nextRound: generated.round } : {}) },
+            });
+            return { ...completed, providerStatus: "COMPLETED" as const };
+          } catch (error) {
+            const status = controller.signal.aborted ? "CANCELLED" as const : "FAILED" as const;
+            const failed = creationSessionApplication.failRound({ sessionId, roundId, expectedVersion: requesting.session.version, idempotencyKey: `creation-round-fail:${checksum({ sessionId, roundId, idempotencyKey, status })}`, status });
+            return { ...failed, providerStatus: "FAILED" as const, error: { code: status === "CANCELLED" ? "CREATION_ROUND_CANCELLED" : error instanceof StructuredError ? error.code : "CREATION_ROUND_PROVIDER_FAILED", message: status === "CANCELLED" ? "请求已取消；本轮回答已保存。" : "暂时无法整理下一轮；本轮回答和稳定草稿已保存，可以安全重试。" } };
+          }
+        });
+        if (!controller.signal.aborted) respond(response, 200, result);
+      } finally {
+        response.removeListener("close", abort);
+      }
       return;
     }
     const creationSessionAbandonMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/abandon$/) : null;
@@ -2188,7 +2281,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       const sessionId = safeCreationToken(decodeURIComponent(creationSessionAbandonMatch[1]), "Session ID");
       const input = await readCreationSessionJson(request);
       if (Object.keys(input).some((key) => !["expectedVersion", "idempotencyKey"].includes(key)) || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 放弃参数无效。");
-      const result = creationSessionApplication.abandon({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key") });
+      const result = await serializeByKey(`creation-session:${sessionId}`, async () => creationSessionApplication.abandon({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key") }));
       respond(response, 200, result);
       return;
     }

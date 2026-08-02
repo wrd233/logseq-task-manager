@@ -19,6 +19,7 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
     { name: "recover-context", version: "1.3.0" },
     { name: "mini-project-modeling", version: "1.3.0" },
     { name: "project-creation-modeling", version: "1.6.0" },
+    { name: "creation-session", version: "1.0.0" },
   ]);
   assert.equal(first.every(({ sha256 }) => /^[0-9a-f]{64}$/.test(sha256)), true);
 
@@ -55,6 +56,10 @@ test("built-in external Agent Skills are concise, versioned, hashed, and authori
   assert.match(projectCreation?.content ?? "", /internal-closure.*new Project's recurring operating.*never means closing.*source MiniProject/is);
   assert.match(projectCreation?.content ?? "", /current-interface.*one concrete business action.*not.*layout.*dashboard/is);
   assert.match(projectCreation?.content ?? "", /Never copy an Object ID.*Block\/Page UUID/is);
+  const creationSession = await readTaskCopilotSkill("creation-session");
+  assert.match(creationSession?.content ?? "", /2–5 strongly related questions/);
+  assert.match(creationSession?.content ?? "", /UNANSWERED.*never consent/is);
+  assert.match(creationSession?.content ?? "", /never creates or changes a\s+Logseq Block.*formal Object.*Commit/is);
   assert.equal(await readTaskCopilotSkill("../task-copilot-core"), undefined);
   assert.equal(await readTaskCopilotSkill("missing"), undefined);
 });

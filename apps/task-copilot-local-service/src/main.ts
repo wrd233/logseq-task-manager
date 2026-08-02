@@ -7,6 +7,7 @@ import { LocalLlmUxOutputGenerator } from "./llm-ux-output.ts";
 import { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
 import { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import { LocalLlmProjectCreationPreviewGenerator } from "./llm-project-creation-preview.ts";
+import { LocalLlmCreationRoundGenerator } from "./creation-session-round.ts";
 import { parseServiceRunnerArgs } from "./runner.ts";
 import { recoverRetainedRestoreState } from "./restore-recovery-maintenance.ts";
 import { startOwnerMonitor } from "./owner-monitor.ts";
@@ -40,6 +41,7 @@ try {
     grillTurnGenerator: new LocalLlmGrillTurnGenerator(provider),
     grillPreviewGenerator: new LocalLlmGrillPreviewGenerator(provider),
     projectCreationPreviewGenerator: new LocalLlmProjectCreationPreviewGenerator(provider),
+    creationRoundGenerator: new LocalLlmCreationRoundGenerator(provider),
     interactionEvidence,
   } : {};
   const service = await startLocalService({ ...serviceOptions, ...providerOptions });

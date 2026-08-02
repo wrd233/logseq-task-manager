@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { abandonCreationSession, completeCreationSession, createCreationSession, observeCreationSessionSource, refreshCreationSessionSource, updateCreationSession, type CreationSessionSource } from "../src/index.ts";
+import { abandonCreationSession, completeCreationRound, completeCreationSession, createCreationSession, failCreationRound, observeCreationSessionSource, refreshCreationSessionSource, retryCreationRound, startCreationSessionRound, submitCreationRoundAnswers, updateCreationSession, type CreationSessionSource } from "../src/index.ts";
 
 const at = new Date("2026-08-02T06:00:00.000Z");
 const blank = (): CreationSessionSource => ({ sourceId: "source-primary", role: "PRIMARY", kind: "BLANK", captures: [{ captureId: "capture-blank", reason: "SESSION_START", snapshotHash: "blank", content: "", hierarchy: [], capturedAt: at.toISOString() }], currentCaptureId: "capture-blank", latestKnownHash: "blank", availability: "AVAILABLE" });
@@ -23,7 +23,7 @@ test("creation session enforces one primary plus at most three references", () =
 
 test("round questions require rationale, recommendation, and explicit answer state", () => {
   const session = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: blank(), sessionId: "creation-three" }, at);
-  assert.throws(() => updateCreationSession(session, { rounds: [{ roundId: "round-1", theme: "结果与完成方式", questions: [{ questionId: "q1", uncertaintyId: "outcome", text: "最终结果是什么？", rationale: "现在需要明确结果。", recommendation: "先产出一份可审阅清单。", answerState: "ANSWERED" }], providerStatus: "COMPLETED", consensusDelta: [], draftDelta: [], createdAt: at.toISOString() }] }, 1, at), /必须保存明确答案/);
+  assert.throws(() => updateCreationSession(session, { rounds: [{ roundId: "round-1", theme: "结果与完成方式", questions: [{ questionId: "q1", uncertaintyId: "outcome", text: "最终结果是什么？", rationale: "现在需要明确结果。", recommendation: "先产出一份可审阅清单。", answerRequirement: "说明可交付结果。", answerState: "ANSWERED" }], providerStatus: "COMPLETED", consensusDelta: [], draftDelta: [], unresolvedBranches: [], abstentions: [], createdAt: at.toISOString() }] }, 1, at), /必须保存明确答案/);
 });
 
 test("adopted draft makes preview ready and completion requires placement", () => {
@@ -57,4 +57,32 @@ test("source observation and explicit refresh retain prior capture and mark depe
   assert.deepEqual(refreshed.sources[0]?.captures.map(({ captureId }) => captureId), ["capture-old", "capture-new"]);
   assert.equal(refreshed.sources[0]?.availability, "AVAILABLE");
   assert.equal(refreshed.consensus[0]?.provenance, "CONFLICT");
+});
+
+test("round answers persist before Provider and failure retry preserves explicit per-question state", () => {
+  const started = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: blank(), sessionId: "creation-round" }, at);
+  const withRound = startCreationSessionRound(started, { roundId: "round-one", theme: "结果与完成方式", questions: [
+    { questionId: "q-outcome", uncertaintyId: "outcome", text: "希望形成什么结果？", rationale: "先明确长期结果。", recommendation: "形成可持续运行的成果。", answerRequirement: "说明具体结果。", answerState: "UNANSWERED" },
+    { questionId: "q-deliverable", uncertaintyId: "deliverables", text: "要交付什么？", rationale: "成果需要落到交付物。", recommendation: "先确定一项可审阅交付物。", answerRequirement: "列出首项交付物。", answerState: "UNANSWERED" },
+    { questionId: "q-evidence", uncertaintyId: "completion-evidence", text: "怎样判断完成？", rationale: "避免没有完成判断。", recommendation: "使用可复核证据。", answerRequirement: "给出可复核证据。", answerState: "UNANSWERED" },
+  ], unresolvedBranches: ["完成证据"], abstentions: [] }, 1, at);
+  const requesting = submitCreationRoundAnswers(withRound, "round-one", [
+    { questionId: "q-outcome", answerState: "ANSWERED", userAnswer: "形成稳定告警接入" },
+    { questionId: "q-deliverable", answerState: "ACCEPTED_RECOMMENDATION" },
+    { questionId: "q-evidence", answerState: "UNCERTAIN", userAnswer: "还需要验证" },
+  ], 2, new Date("2026-08-02T06:01:00.000Z"));
+  assert.equal(requesting.rounds[0]?.providerStatus, "REQUESTING");
+  assert.equal(requesting.rounds[0]?.questions[1]?.userAnswer, "先确定一项可审阅交付物。");
+  const failed = failCreationRound(requesting, "round-one", "FAILED", 3, new Date("2026-08-02T06:02:00.000Z"));
+  assert.equal(failed.rounds[0]?.questions[0]?.userAnswer, "形成稳定告警接入");
+  const retried = retryCreationRound(failed, "round-one", 4, new Date("2026-08-02T06:03:00.000Z"));
+  const completed = completeCreationRound(retried, "round-one", {
+    agentSynthesis: "结果和首项交付物已明确，完成证据仍待确认。", consensus: [], draftDelta: ["补充结果与交付物"],
+    unresolvedBranches: ["完成证据", "范围"], abstentions: ["来源未说明范围"],
+    summary: { confirmed: "结果与交付物已明确", unresolved: "完成证据仍待确认", draftChange: "补充结果与交付物", nextSuggestion: "下一轮确认范围" },
+    nextRound: { roundId: "round-two", theme: "范围", questions: [{ questionId: "q-in", uncertaintyId: "in-scope", text: "哪些内容属于本项目？", rationale: "需要封顶边界。", recommendation: "先纳入接入与验收。", answerRequirement: "说明最小范围。", answerState: "UNANSWERED" }], unresolvedBranches: ["范围"], abstentions: ["来源未说明范围"] },
+  }, 5, new Date("2026-08-02T06:04:00.000Z"));
+  assert.equal(completed.rounds[0]?.providerStatus, "COMPLETED");
+  assert.equal(completed.rounds[1]?.providerStatus, "NOT_REQUESTED");
+  assert.deepEqual(completed.consensus.map(({ provenance }) => provenance), ["USER_CONFIRMED", "USER_CONFIRMED", "UNKNOWN"]);
 });

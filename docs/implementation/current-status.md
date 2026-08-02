@@ -4,9 +4,10 @@
 
 新 Goal 已进入 `IN_PROGRESS`。schema 16、CreationSession Domain/Application、SQLite
 authority、Local Service CRUD 与 Service Client 已完成首轮实现；自动证据覆盖版本冲突、
-幂等、并行会话、Service restart 和正式 Object/Audit 零写入。来源捕获/刷新、Answer-first
-Provider 轮次、Draft Tree、MiniProject/Project 正式纵向、Plugin UI 与真实 Desktop/视觉 Gate
-仍在继续，不能从底座测试推断 Goal 完成。权威状态见
+幂等、并行会话、Service restart 和正式 Object/Audit 零写入。来源捕获/刷新、2–5 问题
+Provider 轮次、Answer-first 持久化、失败/取消/重试、重启恢复与幂等 replay 已完成自动验证；
+Draft Tree、MiniProject/Project 正式纵向、Plugin UI 与真实 Provider/Desktop/视觉 Gate
+仍在继续，不能从 Phase 1 自动证据推断 Goal 完成。权威状态见
 `docs/goal/creation-session/STATUS.md`。
 
 ## WRH-P1-09 Worksite Preview Graph Refresh（2026-08-01）

@@ -54,6 +54,9 @@ export interface CreationRoundQuestion {
   text: string;
   rationale: string;
   recommendation: string;
+  answerRequirement: string;
+  evidenceRefs?: string[];
+  alternativeImpact?: string;
   answerState: CreationAnswerState;
   userAnswer?: string;
 }
@@ -66,12 +69,21 @@ export interface CreationSessionRound {
   agentSynthesis?: string;
   consensusDelta: string[];
   draftDelta: string[];
+  unresolvedBranches: string[];
+  abstentions: string[];
+  summary?: {
+    confirmed: string;
+    unresolved: string;
+    draftChange: string;
+    nextSuggestion: string;
+  };
   createdAt: string;
   completedAt?: string;
 }
 
 export interface CreationConsensusItem {
   consensusId: string;
+  uncertaintyId?: string;
   text: string;
   provenance: CreationConsensusProvenance;
   evidenceRefs: string[];
@@ -197,12 +209,27 @@ function validateRound(round: CreationSessionRound): void {
     boundedText(question.text, "问题", 800);
     boundedText(question.rationale, "问题原因", 800);
     boundedText(question.recommendation, "推荐答案", 1_200);
+    boundedText(question.answerRequirement, "回答要求", 800);
+    boundedText(question.alternativeImpact, "另一选择影响", 1_200, true);
+    if (question.evidenceRefs && (question.evidenceRefs.length > 16 || question.evidenceRefs.some((ref) => typeof ref !== "string" || !ref.trim() || ref.length > 256))) throw creationError("CREATION_SESSION_QUESTION_EVIDENCE_INVALID", "问题证据引用无效或超界。");
     if (!CREATION_ANSWER_STATES.includes(question.answerState)) throw creationError("CREATION_SESSION_ANSWER_STATE_INVALID", "问题回答状态无效。");
     if (["ANSWERED", "ACCEPTED_RECOMMENDATION"].includes(question.answerState) && !question.userAnswer?.trim()) throw creationError("CREATION_SESSION_ANSWER_REQUIRED", "已回答或已接受推荐的问题必须保存明确答案。");
     if (question.answerState === "UNANSWERED" && question.userAnswer !== undefined) throw creationError("CREATION_SESSION_UNANSWERED_HAS_VALUE", "未回答的问题不能静默保存答案。");
   }
+  if (!["NOT_REQUESTED", "REQUESTING", "COMPLETED", "FAILED", "CANCELLED"].includes(round.providerStatus)) throw creationError("CREATION_SESSION_PROVIDER_STATUS_INVALID", "轮次 Provider 状态无效。");
+  if (round.consensusDelta.length > 64 || round.draftDelta.length > 32 || round.unresolvedBranches.length > 32 || round.abstentions.length > 32) throw creationError("CREATION_SESSION_ROUND_DELTA_TOO_LARGE", "轮次结果超出有界范围。");
+  round.consensusDelta.forEach((value) => boundedText(value, "轮次共识引用", 128));
+  round.draftDelta.forEach((value) => boundedText(value, "草稿变化", 1_000));
+  round.unresolvedBranches.forEach((value) => boundedText(value, "未解决分支", 1_000));
+  round.abstentions.forEach((value) => boundedText(value, "信息不足说明", 1_000));
   validTime(round.createdAt, "轮次创建时间");
   if (round.completedAt) validTime(round.completedAt, "轮次完成时间");
+  if (round.summary) {
+    boundedText(round.summary.confirmed, "本轮确认摘要", 2_000);
+    boundedText(round.summary.unresolved, "待澄清摘要", 2_000);
+    boundedText(round.summary.draftChange, "草稿变化摘要", 2_000);
+    boundedText(round.summary.nextSuggestion, "下一轮建议", 1_000);
+  }
 }
 
 export function validateCreationSession(session: CreationSession): CreationSession {
@@ -216,6 +243,14 @@ export function validateCreationSession(session: CreationSession): CreationSessi
   if (session.rounds.length > 64 || session.consensus.length > 256 || session.draftRevisions.length > 32 || session.events.length > 512) throw creationError("CREATION_SESSION_BOUNDS_EXCEEDED", "Creation Session 历史超出有界范围。");
   session.rounds.forEach(validateRound);
   if (new Set(session.rounds.map(({ roundId }) => roundId)).size !== session.rounds.length) throw creationError("CREATION_SESSION_ROUND_DUPLICATE", "Creation Session 轮次不能重复。");
+  if (new Set(session.consensus.map(({ consensusId }) => consensusId)).size !== session.consensus.length) throw creationError("CREATION_SESSION_CONSENSUS_DUPLICATE", "Creation Session 共识身份不能重复。");
+  for (const item of session.consensus) {
+    boundedText(item.consensusId, "共识 ID", 128);
+    boundedText(item.uncertaintyId, "未知分支 ID", 128, true);
+    boundedText(item.text, "共识文本", 4_000);
+    if (!CREATION_CONSENSUS_PROVENANCE.includes(item.provenance) || item.evidenceRefs.length > 32 || item.evidenceRefs.some((ref) => typeof ref !== "string" || !ref.trim() || ref.length > 256)) throw creationError("CREATION_SESSION_CONSENSUS_INVALID", "Creation Session 共识来源或证据引用无效。");
+    validTime(item.updatedAt, "共识更新时间");
+  }
   const revisionIds = new Set(session.draftRevisions.map(({ revisionId }) => revisionId));
   if (session.currentDraftRevisionId && !revisionIds.has(session.currentDraftRevisionId)) throw creationError("CREATION_SESSION_DRAFT_CURRENT_INVALID", "当前草稿必须指向已保存的重要 Revision。");
   if (session.status === "CREATED" && !session.creationResult) throw creationError("CREATION_SESSION_RESULT_REQUIRED", "已创建会话必须关联正式对象和 Commit。");
@@ -288,6 +323,84 @@ export function refreshCreationSessionSource(session: CreationSession, sourceId:
   }, expectedVersion, at, {
     eventId: createId("creation_event", at), kind: "SOURCE_REFRESHED", occurredAt: timestamp, summary: "用户纳入最新来源；旧共识依据和用户草稿均已保留",
   });
+}
+
+export interface CreationRoundAnswerInput {
+  questionId: string;
+  answerState: CreationAnswerState;
+  userAnswer?: string;
+}
+
+export interface CreationRoundCompletion {
+  agentSynthesis: string;
+  consensus: Array<Omit<CreationConsensusItem, "consensusId" | "updatedAt">>;
+  draftDelta: string[];
+  unresolvedBranches: string[];
+  abstentions: string[];
+  summary: NonNullable<CreationSessionRound["summary"]>;
+  nextRound?: Omit<CreationSessionRound, "providerStatus" | "consensusDelta" | "draftDelta" | "createdAt">;
+}
+
+export function startCreationSessionRound(session: CreationSession, round: Omit<CreationSessionRound, "providerStatus" | "consensusDelta" | "draftDelta" | "createdAt">, expectedVersion: number, at = new Date()): CreationSession {
+  if (session.rounds.length > 0) throw creationError("CREATION_SESSION_INITIAL_ROUND_EXISTS", "首轮已经存在；后续轮次必须处理上一轮回答。");
+  const timestamp = at.toISOString();
+  return updateCreationSession(session, { rounds: [{ ...round, questions: round.questions.map((question) => ({ ...question, answerState: "UNANSWERED" })), providerStatus: "NOT_REQUESTED", consensusDelta: [], draftDelta: [], createdAt: timestamp }] }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "ROUND_COMPLETED", occurredAt: timestamp, summary: "已生成第一轮相关问题" });
+}
+
+export function submitCreationRoundAnswers(session: CreationSession, roundId: string, answers: CreationRoundAnswerInput[], expectedVersion: number, at = new Date()): CreationSession {
+  const round = session.rounds.find((candidate) => candidate.roundId === roundId);
+  if (!round) throw creationError("CREATION_SESSION_ROUND_NOT_FOUND", "Creation Session 轮次不存在。");
+  if (round.providerStatus !== "NOT_REQUESTED") throw creationError("CREATION_SESSION_ROUND_ALREADY_SUBMITTED", "本轮已经提交；不能用另一组答案覆盖。");
+  if (answers.length !== round.questions.length || new Set(answers.map(({ questionId }) => questionId)).size !== answers.length || answers.some(({ questionId }) => !round.questions.some((question) => question.questionId === questionId))) throw creationError("CREATION_SESSION_ROUND_ANSWERS_INCOMPLETE", "提交一轮时必须逐题保存明确状态；未回答也必须显式标记。");
+  const answerByQuestion = new Map(answers.map((answer) => [answer.questionId, answer]));
+  const questions = round.questions.map((question) => {
+    const answer = answerByQuestion.get(question.questionId)!;
+    if (answer.answerState === "ACCEPTED_RECOMMENDATION") return { ...question, answerState: answer.answerState, userAnswer: question.recommendation };
+    if (answer.answerState === "ANSWERED" && answer.userAnswer?.trim()) return { ...question, answerState: answer.answerState, userAnswer: answer.userAnswer.trim() };
+    if (["SKIPPED", "UNCERTAIN", "UNANSWERED"].includes(answer.answerState) && (!answer.userAnswer || answer.answerState === "UNCERTAIN")) return { ...question, answerState: answer.answerState, ...(answer.userAnswer?.trim() ? { userAnswer: answer.userAnswer.trim() } : {}) };
+    throw creationError("CREATION_SESSION_ROUND_ANSWER_INVALID", "每题回答必须与显式状态一致。");
+  });
+  const timestamp = at.toISOString();
+  return updateCreationSession(session, { rounds: session.rounds.map((candidate) => candidate.roundId === roundId ? { ...candidate, questions, providerStatus: "REQUESTING" } : candidate) }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "ROUND_SUBMITTED", occurredAt: timestamp, summary: "用户回答已先保存，正在整理下一轮" });
+}
+
+export function completeCreationRound(session: CreationSession, roundId: string, completion: CreationRoundCompletion, expectedVersion: number, at = new Date()): CreationSession {
+  const round = session.rounds.find((candidate) => candidate.roundId === roundId);
+  if (!round || round.providerStatus !== "REQUESTING") throw creationError("CREATION_SESSION_ROUND_NOT_REQUESTING", "本轮没有等待中的 Provider 请求。");
+  boundedText(completion.agentSynthesis, "本轮归纳", 4_000);
+  if (completion.consensus.length > 32 || completion.draftDelta.length > 32) throw creationError("CREATION_SESSION_ROUND_DELTA_TOO_LARGE", "本轮共识或草稿变化超出有界范围。");
+  const timestamp = at.toISOString();
+  const answerConsensus: CreationConsensusItem[] = round.questions.map((question) => ({
+    consensusId: createId("creation", at),
+    uncertaintyId: question.uncertaintyId,
+    text: question.answerState === "SKIPPED" ? `已跳过：${question.text}` : question.answerState === "UNCERTAIN" || question.answerState === "UNANSWERED" ? `仍待确认：${question.text}` : question.userAnswer!,
+    provenance: question.answerState === "SKIPPED" ? "SKIPPED" : question.answerState === "UNCERTAIN" || question.answerState === "UNANSWERED" ? "UNKNOWN" : "USER_CONFIRMED",
+    evidenceRefs: [`answer:${roundId}:${question.questionId}`],
+    updatedAt: timestamp,
+  }));
+  const providerConsensus: CreationConsensusItem[] = completion.consensus.map((item) => ({ ...item, consensusId: createId("creation", at), updatedAt: timestamp }));
+  const consensusIds = [...answerConsensus, ...providerConsensus].map(({ consensusId }) => consensusId);
+  const completedRound = { ...round, providerStatus: "COMPLETED" as const, agentSynthesis: completion.agentSynthesis, consensusDelta: consensusIds, draftDelta: [...completion.draftDelta], unresolvedBranches: [...completion.unresolvedBranches], abstentions: [...completion.abstentions], summary: completion.summary, completedAt: timestamp };
+  let rounds = session.rounds.map((candidate) => candidate.roundId === roundId ? completedRound : candidate);
+  if (completion.nextRound) {
+    const resolvedUncertainties = new Set(round.questions.filter(({ answerState }) => ["ANSWERED", "ACCEPTED_RECOMMENDATION"].includes(answerState)).map(({ uncertaintyId }) => uncertaintyId));
+    if (completion.nextRound.questions.some(({ uncertaintyId }) => resolvedUncertainties.has(uncertaintyId))) throw creationError("CREATION_SESSION_REPEATED_RESOLVED_QUESTION", "Provider 重复询问了本轮已经明确回答的问题。");
+    rounds = [...rounds, { ...completion.nextRound, questions: completion.nextRound.questions.map((question) => ({ ...question, answerState: "UNANSWERED" as const })), providerStatus: "NOT_REQUESTED", consensusDelta: [], draftDelta: [], createdAt: timestamp }];
+  }
+  return updateCreationSession(session, { rounds, consensus: [...session.consensus, ...answerConsensus, ...providerConsensus] }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "ROUND_COMPLETED", occurredAt: timestamp, summary: completion.nextRound ? "本轮已整理并生成下一轮" : "本轮已整理，可生成当前草稿" });
+}
+
+export function failCreationRound(session: CreationSession, roundId: string, status: "FAILED" | "CANCELLED", expectedVersion: number, at = new Date()): CreationSession {
+  const round = session.rounds.find((candidate) => candidate.roundId === roundId);
+  if (!round || round.providerStatus !== "REQUESTING") throw creationError("CREATION_SESSION_ROUND_NOT_REQUESTING", "本轮没有等待中的 Provider 请求。");
+  const timestamp = at.toISOString();
+  return updateCreationSession(session, { rounds: session.rounds.map((candidate) => candidate.roundId === roundId ? { ...candidate, providerStatus: status } : candidate) }, expectedVersion, at, { eventId: createId("creation_event", at), kind: status === "FAILED" ? "ROUND_FAILED" : "ROUND_FAILED", occurredAt: timestamp, summary: status === "FAILED" ? "Provider 失败；回答与稳定草稿已保留" : "用户离开或取消请求；回答已保留" });
+}
+
+export function retryCreationRound(session: CreationSession, roundId: string, expectedVersion: number, at = new Date()): CreationSession {
+  const round = session.rounds.find((candidate) => candidate.roundId === roundId);
+  if (!round || !["FAILED", "CANCELLED"].includes(round.providerStatus)) throw creationError("CREATION_SESSION_ROUND_RETRY_INVALID", "只有失败或取消的已回答轮次可以重试。");
+  return updateCreationSession(session, { rounds: session.rounds.map((candidate) => candidate.roundId === roundId ? { ...candidate, providerStatus: "REQUESTING" } : candidate) }, expectedVersion, at);
 }
 
 export function updateCreationSession(session: CreationSession, patch: Partial<Pick<CreationSession, "userTitle" | "suggestedObjectTitle" | "sources" | "rounds" | "consensus" | "draftRevisions" | "currentDraftRevisionId" | "placementPlan">>, expectedVersion: number, at = new Date(), event?: CreationSessionEvent): CreationSession {

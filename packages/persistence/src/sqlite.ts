@@ -2664,6 +2664,14 @@ export class V2SqliteStore {
     return this.executeWrite(write);
   }
 
+  replayCreationSessionWrite(idempotencyKey: string, commandName: string): CreationSessionWriteResult | undefined {
+    this.requireIdempotencyKey(idempotencyKey);
+    const receipt = this.receipt(idempotencyKey);
+    if (!receipt) return undefined;
+    if (receipt.command_name !== commandName) throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+    return { session: validateCreationSession(JSON.parse(receipt.result_json) as CreationSession), replayed: true };
+  }
+
   getObject(objectId: string): V2ManagedObject | undefined {
     const row = this.database.prepare("SELECT * FROM objects WHERE object_id = ?").get(objectId) as ObjectRow | undefined;
     if (!row) return undefined;

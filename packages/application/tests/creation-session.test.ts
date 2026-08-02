@@ -9,6 +9,7 @@ class MemoryCreationSessions implements CreationSessionRepository {
   receipts = new Map<string, CreationSessionWriteResult>();
   getCreationSession(id: string): CreationSession | undefined { return this.sessions.get(id); }
   listCreationSessions(statuses?: readonly CreationSessionStatus[]): CreationSession[] { return [...this.sessions.values()].filter((session) => !statuses || statuses.includes(session.status)); }
+  replayCreationSessionWrite(key: string): CreationSessionWriteResult | undefined { const replay = this.receipts.get(key); return replay ? { ...replay, replayed: true } : undefined; }
   saveCreationSession(session: CreationSession, expectedVersion: number, key: string): CreationSessionWriteResult {
     const replay = this.receipts.get(key);
     if (replay) return { ...replay, replayed: true };
