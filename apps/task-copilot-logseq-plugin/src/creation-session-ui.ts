@@ -1,4 +1,4 @@
-import type { CreationDraftNode, CreationDraftRevision, CreationSession, CreationSessionRound } from "@task-copilot/domain";
+import { currentCreationConsensus, type CreationDraftNode, type CreationDraftRevision, type CreationSession, type CreationSessionRound } from "@task-copilot/domain";
 
 import type { PluginCreationSessionState } from "./creation-session-controller.ts";
 
@@ -144,7 +144,7 @@ function renderDraft(session: CreationSession, state: PluginCreationSessionState
         ? `<p>在来源 Page 末尾创建新的 MiniProject Tree。</p>${button("使用 Page 末尾", "creation-session-placement-page-end", `${primary.externalId}|${primary.pageName ?? primary.externalId}`, session.placementPlan?.kind === "PAGE_END" ? "primary" : "quiet", busy)}`
         : `<p>空白 MiniProject 会在当前 Page 末尾创建一棵独立 Tree。</p>${button("使用当前 Page 末尾", "creation-session-placement-blank-page-end", session.sessionId, session.placementPlan?.kind === "PAGE_END" ? "primary" : "quiet", busy)}`;
   const sourcesCurrent = session.sources.every(({ availability }) => availability === "AVAILABLE");
-  const sourceAddedAfterDraft = session.sources.some((source) => source.captures.some(({ capturedAt }) => Date.parse(capturedAt) > Date.parse(revision.createdAt)));
+  const sourceAddedAfterDraft = session.sources.some((source) => source.captures.some(({ capturedAt, reason }) => reason !== "PRE_COMMIT" && Date.parse(capturedAt) > Date.parse(revision.createdAt)));
   const readyForProposal = revision.maturity.level === "READY" && revision.maturity.missing.length === 0 && revision.conflicts.length === 0 && Boolean(session.placementPlan) && sourcesCurrent && !sourceAddedAfterDraft;
   const will = session.targetType === "PROJECT"
     ? `创建独立 Page“${session.placementPlan?.kind === "NEW_PROJECT_PAGE" ? session.placementPlan.pageName : "待确认"}”，写入 ${revision.nodes.length} 个已审阅节点，并原子建立 Project、Primary Anchor、Audit 与会话结果。`
@@ -152,13 +152,23 @@ function renderDraft(session: CreationSession, state: PluginCreationSessionState
   const wont = session.targetType === "PROJECT" ? "不会改写或移动主来源与参考来源；不会自动创建下属 Task 或设置归属。" : "不会移动参考来源、自动正式化 TODO、设置归属或跨 Page 迁移原材料；Undo 也不会删除后续用户内容。";
   const blockedReason = !sourcesCurrent ? "来源需要先处理。" : sourceAddedAfterDraft ? "添加或刷新来源后需先更新草稿。" : "";
   const revisionRequest = `<section class="creation-draft-revision-request"><label for="creation-draft-revision-instruction">用自然语言修订当前草稿</label><textarea id="creation-draft-revision-instruction" data-field="creation-draft-revision-instruction" maxlength="8000" placeholder="例如：保留完成证据，把当前推进放到目标之后。用户直接编辑过的节点仍不会被静默覆盖。"></textarea>${button("按说明生成新 Revision", "creation-session-draft-revise", revision.revisionId, "quiet", busy)}</section>`;
-  const formal = `<section class="creation-formal-check"><h4>创建检查</h4>${placement}<div class="creation-impact-summary"><section><strong>将发生</strong><p>${escapeHtml(will)}</p></section><section><strong>不会发生</strong><p>${escapeHtml(wont)}</p></section></div><p>${blockedReason || (session.placementPlan ? "位置已保存。生成方案会先重读来源，再进入 HIGH 审阅；不会立即写入。" : "先保存明确位置，才能生成正式审阅方案。")}</p>${readyForProposal ? button("生成正式审阅方案", "creation-session-proposal-prepare", session.sessionId, "primary", busy) : ""}</section>`;
+  const proposal = state.proposal;
+  const proposalNote = proposal
+    ? `正式方案已生成（${escapeHtml(proposal.proposalId)}）。这是最终确认：系统会接受同一 HIGH 方案、重新验证来源与位置，再通过既有 Semantic Commit 创建正式对象；不需要再到审阅中心重复确认同一方案。`
+    : session.placementPlan
+      ? "位置已保存。生成方案会先重读来源并冻结唯一 HIGH 审阅方案；不会立即写入。"
+      : "先保存明确位置，才能生成正式审阅方案。";
+  const formalAction = proposal
+    ? button("确认正式创建", "creation-session-confirm-create", `${proposal.proposalId}|${proposal.updatedAt}|${proposal.groupId}`, "primary", busy)
+    : readyForProposal ? button("生成正式审阅方案", "creation-session-proposal-prepare", session.sessionId, "primary", busy) : "";
+  const formal = `<section class="creation-formal-check"><h4>创建检查</h4>${placement}<div class="creation-impact-summary"><section><strong>将发生</strong><p>${escapeHtml(will)}</p></section><section><strong>不会发生</strong><p>${escapeHtml(wont)}</p></section></div><p>${proposal ? (blockedReason ? `${escapeHtml(blockedReason)} ` : "") + proposalNote : blockedReason || proposalNote}</p>${formalAction}</section>`;
   return `<section class="creation-draft"><div class="creation-draft-head"><div><p class="creation-kicker">当前草稿</p><h3>${escapeHtml(session.suggestedObjectTitle ?? session.userTitle ?? `未命名 ${targetLabel(session)}`)}</h3></div><div class="creation-maturity"><span>${revision.maturity.level === "READY" ? "可进入创建检查" : revision.maturity.level === "WORKABLE" ? "已可阅读" : "仍在成形"}</span>${button("更新草稿", "creation-session-draft-generate", session.sessionId, "quiet", busy)}</div></div><div class="creation-change-strip"><span>保留 ${operations.KEEP ?? 0}</span><span>移动 ${operations.MOVE ?? 0}</span><span>改写 ${operations.REWRITE ?? 0}</span><span>新建 ${operations.CREATE ?? 0}</span></div>${revision.warnings.length ? `<div class="creation-warning"><strong>创建前仍需留意</strong><ul>${revision.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul></div>` : ""}<ol class="creation-draft-tree">${roots.map((root) => renderDraftNode(root, revision, children, state.editingNodeId)).join("")}</ol>${revision.unusedMaterials.length ? `<details class="creation-unused"><summary>未采用材料（${revision.unusedMaterials.length}）</summary><ul>${revision.unusedMaterials.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>` : ""}${revisionRequest}${formal}</section>`;
 }
 
 function renderSummary(session: CreationSession): string {
-  const confirmed = session.consensus.filter(({ provenance }) => ["SOURCE_FACT", "USER_CONFIRMED", "USER_EDITED"].includes(provenance)).slice(-8);
-  const unresolved = session.consensus.filter(({ provenance }) => ["UNKNOWN", "CONFLICT"].includes(provenance)).slice(-8);
+  const current = currentCreationConsensus(session.consensus);
+  const confirmed = current.filter(({ provenance }) => ["SOURCE_FACT", "USER_CONFIRMED", "USER_EDITED"].includes(provenance)).slice(-8);
+  const unresolved = current.filter(({ provenance }) => ["UNKNOWN", "CONFLICT"].includes(provenance)).slice(-8);
   return `<section class="creation-summary-main"><div><p class="creation-kicker">当前共识</p><h3>回来时先看这一页</h3></div><div class="creation-summary-columns"><section><h4>已确认</h4>${confirmed.length ? `<ul>${confirmed.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul>` : "<p>还没有明确确认项。</p>"}</section><section><h4>仍待确认</h4>${unresolved.length ? `<ul>${unresolved.map(({ text }) => `<li>${escapeHtml(text)}</li>`).join("")}</ul>` : "<p>暂无明确冲突。</p>"}</section></div></section>`;
 }
 

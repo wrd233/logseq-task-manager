@@ -106,6 +106,44 @@ test("a READY Project draft exposes explicit independent-Page placement and Prop
   assert.match(html, /不会发生/);
 });
 
+test("an already prepared Proposal keeps the final in-session confirm visible even after PRE_COMMIT capture", () => {
+  const base = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: blank(), sessionId: "creation-project-confirm" }, at);
+  const drafted = generateCreationDraftRevision(base, {
+    generationId: "generation-project-confirm", reason: "INITIAL_DRAFT", suggestedObjectTitle: "统一告警治理",
+    nodes: [
+      { semanticKey: "root", text: "统一告警治理", order: 0, nodeType: "PAGE_SECTION", provenance: "AGENT_SYNTHESIS", operation: "CREATE", confirmed: true, evidenceRefs: [] },
+      { semanticKey: "goal", parentSemanticKey: "root", text: "**[项目目标]** 建立可维护的告警治理工作面", order: 0, nodeType: "BLOCK", provenance: "AGENT_SYNTHESIS", operation: "CREATE", confirmed: true, evidenceRefs: [] },
+    ],
+    unusedMaterials: [], warnings: [], maturity: { level: "READY", missing: [] },
+  }, base.version, at);
+  const withPlacement = updateCreationSession(drafted, { placementPlan: { kind: "NEW_PROJECT_PAGE", pageName: "Project/统一告警治理" } }, drafted.version, at);
+  const source = withPlacement.sources[0]!;
+  const session = {
+    ...withPlacement,
+    sources: [{
+      ...source,
+      captures: [...source.captures, {
+        captureId: "capture-pre-commit",
+        reason: "PRE_COMMIT" as const,
+        snapshotHash: "after",
+        content: "",
+        hierarchy: [],
+        capturedAt: new Date("2026-08-02T06:30:00.000Z").toISOString(),
+      } as CreationSessionSource["captures"][number]],
+    }],
+  };
+  const html = renderCreationSession({
+    status: "ready",
+    sessions: [session],
+    session,
+    view: "DRAFT",
+    proposal: { proposalId: "proposal-creation-confirm", updatedAt: "2026-08-02T06:30:00.000Z", groupId: "create-from-session" },
+  });
+  assert.match(html, /data-action="creation-session-confirm-create"/);
+  assert.match(html, /不需要再到审阅中心重复确认/);
+  assert.doesNotMatch(html, /data-action="creation-session-proposal-prepare"/);
+});
+
 test("a blank READY MiniProject exposes a current-Page placement action", () => {
   const base = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: blank(), sessionId: "creation-mini-ready" }, at);
   const session = generateCreationDraftRevision(base, {

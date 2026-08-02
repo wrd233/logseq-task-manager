@@ -2417,14 +2417,14 @@ test("Sprint F active surface veils the host and postposes grill session microco
   assert.doesNotMatch(html, /主要工作区/);
 });
 
-test("Sprint F microcopy moves session-scope language behind the grill hint", async () => {
+test("Sprint F active surfaces stay in the viewport after a long workspace was scrolled", async () => {
   const source = await readFile(new URL("../src/ui.ts", import.meta.url), "utf8");
   assert.match(source, /<div class="eyebrow">小项目梳理<\/div>/);
   assert.match(source, /本次讨论内容在结束后清除/);
   assert.doesNotMatch(source, /本次讨论结束后清除/);
   const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
   assert.match(css, /\.surface-veil \{ position: fixed; inset: 0; z-index: 0; background: color-mix\(in srgb, var\(--bg\) 58%, transparent\); \}/);
-  assert.match(css, /\.active-surface-shell \{ position: relative; z-index: 1; \}/);
+  assert.match(css, /\.active-surface-shell \{ position: fixed; top: 20px; left: 50%; z-index: 1; max-height: calc\(100vh - 40px\); margin: 0; transform: translateX\(-50%\); \}/);
 });
 
 test("rendered workspaces never emit duplicate DOM ids", () => {

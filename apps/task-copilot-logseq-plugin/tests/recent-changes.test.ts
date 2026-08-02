@@ -144,6 +144,38 @@ test("pending, recovery, failure, and undone are translated without inventing a 
   assert.equal(changes[3]!.availability, "这次修改已经通过逆向修改撤销，历史证据仍保留。");
 });
 
+test("applied Creation Session commits route to the Creation Session undo authority", () => {
+  const creationSessionOperation = {
+    operationId: "create-session-object",
+    kind: "CREATE_OBJECT" as const,
+    target: { kind: "PAGE" as const, id: "page-uuid", hash: "page-hash" },
+    summary: "创建正式 MiniProject Tree",
+    payload: {
+      schema: "CREATION_SESSION_V1",
+      sessionId: "creation-session-1",
+      objectType: "MINI_PROJECT",
+      nodes: [],
+    },
+    preconditions: [],
+  };
+  const changes = projectRecentChanges({
+    proposals: [proposal("proposal-creation-session", creationSessionOperation)],
+    commits: [commit("proposal-commit:creation-session", "COMPLETED", { proposalId: "proposal-creation-session" })],
+  });
+  assert.equal(changes[0]?.primaryAction?.action, "v2-creation-session-undo");
+  assert.equal(changes[0]?.primaryAction?.value, "proposal-commit:creation-session");
+
+  const undone = projectRecentChanges({
+    proposals: [proposal("proposal-creation-session", creationSessionOperation)],
+    commits: [
+      commit("proposal-commit:creation-session", "UNDONE", { proposalId: "proposal-creation-session", updatedAt: "2026-07-24T06:33:00.000Z" }),
+      commit("creation-session-undo:proposal-commit:creation-session", "COMPLETED", { updatedAt: "2026-07-24T06:34:00.000Z" }),
+    ],
+  });
+  assert.equal(undone[0]?.primaryAction, undefined);
+  assert.equal(undone[0]?.statusLabel, "已撤销");
+});
+
 test("a compensated MiniProject structure failure says the original content is restored", () => {
   const record = proposal("proposal-1", rewrite);
   record.proposal.finalPreview = [

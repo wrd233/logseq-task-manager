@@ -4560,6 +4560,53 @@ async function handleAction(action: string, value?: string): Promise<void> {
     });
     return;
   }
+  async function commitCreationSessionFromProposal(client: ServiceRuntimeClient, proposalId: string, expectedUpdatedAt: string): Promise<{ openedPageName?: string }> {
+    const stored = (await client.listProposals()).find(({ proposal }) => proposal.proposalId === proposalId);
+    const targetType = stored?.proposal.groups[0]?.semanticOperations[0]?.payload.targetType;
+    if (targetType === "MINI_PROJECT") {
+      if (!client.prepareCreationSessionMiniCommit || !client.finalizeCreationSessionMiniCommit || !client.compensateCreationSessionMiniCommit) throw new Error("MiniProject Creation Session 正式创建能力不可用；没有写入。");
+      const result = await commitCreationSessionMini({
+        prepareCreationSessionMiniCommit: client.prepareCreationSessionMiniCommit.bind(client),
+        finalizeCreationSessionMiniCommit: client.finalizeCreationSessionMiniCommit.bind(client),
+        compensateCreationSessionMiniCommit: client.compensateCreationSessionMiniCommit.bind(client),
+      }, {
+        getBlock: (uuid, options) => logseq.Editor.getBlock(uuid, options),
+        appendBlockInPage: (identity, content) => logseq.Editor.appendBlockInPage(identity, content),
+        insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
+        updateBlock: (uuid, content) => logseq.Editor.updateBlock(uuid, content),
+        moveBlock: (source, target, options) => logseq.Editor.moveBlock(source, target, options),
+        removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
+      }, proposalId, expectedUpdatedAt, `v2-creation-session-mini-ui-${Date.now()}`);
+      actionDialog = undefined;
+      if (result.status === "STALE") { workspace = "review"; message = "Creation Session、来源或放置位置已变化；没有创建 MiniProject。"; return {}; }
+      recentActionCommitId = result.semanticCommitId;
+      workspace = "reentry";
+      v2ReentryTargetObjectId = result.object.objectId;
+      message = `${result.object.text} 已由 Creation Session 正式创建；Graph Tree、Primary Anchor 与会话结果已在同一恢复边界收口。`;
+      return {};
+    }
+    if (!client.prepareCreationSessionCommit || !client.finalizeCreationSessionCommit || !client.compensateCreationSessionCommit) throw new Error("Project Creation Session 正式创建能力不可用；没有写入。");
+    const result = await commitCreationSessionProject({
+      prepareCreationSessionCommit: client.prepareCreationSessionCommit.bind(client),
+      finalizeCreationSessionCommit: client.finalizeCreationSessionCommit.bind(client),
+      compensateCreationSessionCommit: client.compensateCreationSessionCommit.bind(client),
+    }, {
+      getPage: (identity) => logseq.Editor.getPage(identity),
+      createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
+      getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
+      appendBlockInPage: (identity, content, options) => logseq.Editor.appendBlockInPage(identity, content, options),
+      insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
+      removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
+      deletePage: async (identity) => { await logseq.Editor.deletePage(identity); },
+    }, proposalId, expectedUpdatedAt, `v2-creation-session-project-ui-${Date.now()}`);
+    actionDialog = undefined;
+    if (result.status === "STALE") { workspace = "review"; message = "Creation Session、来源或目标 Page 已变化；没有创建 Page 或正式对象。"; return {}; }
+    recentActionCommitId = result.semanticCommitId;
+    workspace = "reentry";
+    v2ReentryTargetObjectId = result.object.objectId;
+    message = `${result.object.text} 已由 Creation Session 正式创建；Draft Tree、Primary Anchor 与会话结果已在同一恢复边界收口。`;
+    return result.pageName ? { openedPageName: result.pageName } : {};
+  }
   if (action === "submit-v2-creation-session" && value) {
     if (v2ProjectCreationCommitBusy) return;
     if (!dialogChecked("actionConfirmed")) { latestError = "请确认已审阅的 Draft Tree、来源边界与独立 Project Page。"; await refresh(); return; }
@@ -4571,51 +4618,45 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await run(async () => {
         const client = serviceRuntimeClient;
         if (!proposalId || !expectedUpdatedAt || !client) throw new Error("Creation Session 正式创建上下文已失效；没有写入。");
+        openedPageName = (await commitCreationSessionFromProposal(client, proposalId, expectedUpdatedAt)).openedPageName;
+      });
+    } finally {
+      v2ProjectCreationCommitBusy = false;
+      await refresh();
+    }
+    if (openedPageName && !latestError) {
+      pageContext = undefined;
+      await clearBusinessOrigin();
+      await logseq.App.pushState("page", { name: openedPageName });
+    }
+    return;
+  }
+  if (action === "creation-session-confirm-create" && value) {
+    return openActionDialog("confirm-v2-creation-session-confirm", value);
+  }
+  if (action === "submit-v2-creation-session-confirm" && value) {
+    if (v2ProjectCreationCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认已审阅的 Draft Tree、来源边界与独立 Project Page。"; await refresh(); return; }
+    const [proposalId, preparedUpdatedAt, groupId] = value.split("|");
+    let expectedUpdatedAt = preparedUpdatedAt;
+    v2ProjectCreationCommitBusy = true;
+    let openedPageName: string | undefined;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!proposalId || !expectedUpdatedAt || !groupId || !client) throw new Error("Creation Session 正式创建上下文已失效；没有写入。");
         const stored = (await client.listProposals()).find(({ proposal }) => proposal.proposalId === proposalId);
-        const targetType = stored?.proposal.groups[0]?.semanticOperations[0]?.payload.targetType;
-        if (targetType === "MINI_PROJECT") {
-          if (!client.prepareCreationSessionMiniCommit || !client.finalizeCreationSessionMiniCommit || !client.compensateCreationSessionMiniCommit) throw new Error("MiniProject Creation Session 正式创建能力不可用；没有写入。");
-          const result = await commitCreationSessionMini({
-            prepareCreationSessionMiniCommit: client.prepareCreationSessionMiniCommit.bind(client),
-            finalizeCreationSessionMiniCommit: client.finalizeCreationSessionMiniCommit.bind(client),
-            compensateCreationSessionMiniCommit: client.compensateCreationSessionMiniCommit.bind(client),
-          }, {
-            getBlock: (uuid, options) => logseq.Editor.getBlock(uuid, options),
-            appendBlockInPage: (identity, content) => logseq.Editor.appendBlockInPage(identity, content),
-            insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
-            updateBlock: (uuid, content) => logseq.Editor.updateBlock(uuid, content),
-            moveBlock: (source, target, options) => logseq.Editor.moveBlock(source, target, options),
-            removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
-          }, proposalId, expectedUpdatedAt, `v2-creation-session-mini-ui-${Date.now()}`);
-          actionDialog = undefined;
-          if (result.status === "STALE") { workspace = "review"; message = "Creation Session、来源或放置位置已变化；没有创建 MiniProject。"; return; }
-          recentActionCommitId = result.semanticCommitId;
-          workspace = "reentry";
-          v2ReentryTargetObjectId = result.object.objectId;
-          message = `${result.object.text} 已由 Creation Session 正式创建；Graph Tree、Primary Anchor 与会话结果已在同一恢复边界收口。`;
-          return;
+        if (!stored) throw new Error("正式方案已不存在；请重新生成。");
+        if (["STALE", "FAILED", "REJECTED"].includes(stored.proposal.status)) throw new Error("正式方案已变化；请从会话重新生成后再确认。");
+        if (!["ACCEPTED", "APPLIED"].includes(stored.proposal.status)) {
+          const accepted = await client.reviewProposal(proposalId, { [groupId]: { disposition: "ACCEPTED", highImpactConfirmed: true } }, expectedUpdatedAt);
+          expectedUpdatedAt = accepted.updatedAt;
+        } else {
+          const current = await client.getProposal(proposalId);
+          expectedUpdatedAt = current?.updatedAt ?? stored.updatedAt;
         }
-        if (!client.prepareCreationSessionCommit || !client.finalizeCreationSessionCommit || !client.compensateCreationSessionCommit) throw new Error("Project Creation Session 正式创建能力不可用；没有写入。");
-        const result = await commitCreationSessionProject({
-          prepareCreationSessionCommit: client.prepareCreationSessionCommit.bind(client),
-          finalizeCreationSessionCommit: client.finalizeCreationSessionCommit.bind(client),
-          compensateCreationSessionCommit: client.compensateCreationSessionCommit.bind(client),
-        }, {
-          getPage: (identity) => logseq.Editor.getPage(identity),
-          createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
-          getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
-          appendBlockInPage: (identity, content, options) => logseq.Editor.appendBlockInPage(identity, content, options),
-          insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
-          removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
-          deletePage: async (identity) => { await logseq.Editor.deletePage(identity); },
-        }, proposalId, expectedUpdatedAt, `v2-creation-session-project-ui-${Date.now()}`);
-        actionDialog = undefined;
-        if (result.status === "STALE") { workspace = "review"; message = "Creation Session、来源或目标 Page 已变化；没有创建 Page 或正式对象。"; return; }
-        recentActionCommitId = result.semanticCommitId;
-        workspace = "reentry";
-        v2ReentryTargetObjectId = result.object.objectId;
-        openedPageName = result.pageName;
-        message = `${result.object.text} 已由 Creation Session 正式创建；Draft Tree、Primary Anchor 与会话结果已在同一恢复边界收口。`;
+        openedPageName = (await commitCreationSessionFromProposal(client, proposalId, expectedUpdatedAt)).openedPageName;
       });
     } finally {
       v2ProjectCreationCommitBusy = false;

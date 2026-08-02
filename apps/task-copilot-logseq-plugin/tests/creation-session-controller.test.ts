@@ -9,6 +9,7 @@ import {
   type CreationSession,
   type CreationSessionSource,
 } from "@task-copilot/domain";
+import { StructuredError } from "@task-copilot/shared";
 
 import { CreationSessionController, type CreationSessionClient, type CreationSessionRuntime } from "../src/creation-session-controller.ts";
 
@@ -153,6 +154,51 @@ test("keeps persisted answers and the stable session when Provider completion fa
   assert.match(state.error ?? "", /回答已保存/);
   assert.equal(state.session?.rounds[0]?.questions[0]?.userAnswer, "形成可验证的告警接入");
   assert.equal(state.session?.rounds[0]?.providerStatus, "FAILED");
+});
+
+test("renders Creation Session Validator failures as retryable Provider errors", async () => {
+  const current = session();
+  const runtimeClient = client({
+    getCreationSession: async () => current,
+    startCreationSessionRound: async () => {
+      throw new StructuredError({
+        code: "SERVICE_HTTP_ERROR",
+        message: "Provider 输出未通过 Creation Session Validator。",
+        ruleRefs: ["CREATION-SESSION-001"],
+        details: { status: 422, remoteCode: "CREATION_ROUND_VALIDATION_FAILED", validationCategory: "SHAPE" },
+      });
+    },
+  });
+  const controller = new CreationSessionController(() => ({ client: runtimeClient, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.resume(current.sessionId);
+  await controller.startRound();
+  assert.match(controller.snapshot().error ?? "", /智能整理暂时不可用/);
+  assert.equal(controller.snapshot().session?.version, current.version);
+});
+
+test("preparing a formal proposal keeps the same proposal in the in-session action surface", async () => {
+  const current = session();
+  const record = {
+    updatedAt: "2026-08-02T06:30:00.000Z",
+    files: { proposalMd: "# 正式方案", proposalJson: "{}" },
+    proposal: {
+      proposalId: "proposal-session-ui",
+      groups: [{ groupId: "create-from-session" }],
+    },
+  } as never;
+  const runtimeClient = client({
+    getCreationSession: async () => current,
+    createCreationSessionProposal: async () => ({ session: current, record, replayed: false }),
+  });
+  const controller = new CreationSessionController(() => ({ client: runtimeClient, providerAvailable: true, generation: 1 }), async () => undefined);
+  await controller.resume(current.sessionId);
+  await controller.prepareProposal();
+  assert.deepEqual(controller.snapshot().proposal, {
+    proposalId: "proposal-session-ui",
+    updatedAt: "2026-08-02T06:30:00.000Z",
+    groupId: "create-from-session",
+  });
+  assert.match(controller.snapshot().notice ?? "", /不需要再到审阅中心重复确认/);
 });
 
 test("submits one whole-round narrative while keeping per-question states unanswered", async () => {

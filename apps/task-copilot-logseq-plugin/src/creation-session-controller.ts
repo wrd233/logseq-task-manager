@@ -12,6 +12,7 @@ export interface PluginCreationSessionState {
   status: "idle" | "loading" | "ready" | "error";
   sessions: CreationSession[];
   session?: CreationSession | undefined;
+  proposal?: { proposalId: string; updatedAt: string; groupId: string } | undefined;
   view: CreationSessionView;
   busy?: "CREATE" | "SOURCE" | "ROUND" | "DRAFT" | "EDIT" | "ADOPT" | "PLACEMENT" | "PROPOSAL" | "ABANDON" | "LOAD" | undefined;
   editingNodeId?: string | undefined;
@@ -54,7 +55,7 @@ function userMessage(error: unknown): string {
   if (code === "CREATION_SESSION_VERSION_CONFLICT") return "这个创建会话已在另一处更新。已保留新内容，请重新载入后继续。";
   if (code === "CREATION_SESSION_DRAFT_SOURCE_CHANGED") return "来源已变化。请先明确纳入最新内容，再重新生成草稿。";
   if (code === "CREATION_SESSION_PRE_COMMIT_SOURCE_CHANGED") return "来源在创建检查前发生了变化。请先纳入最新内容并重新审阅草稿。";
-  if (typeof code === "string" && (code.startsWith("LLM_") || code.includes("PROVIDER"))) return "智能整理暂时不可用。回答、来源快照和最后稳定草稿都已保存，可以安全重试。";
+  if (typeof code === "string" && (code.startsWith("LLM_") || code.includes("PROVIDER") || code === "CREATION_ROUND_VALIDATION_FAILED" || code === "CREATION_DRAFT_VALIDATION_FAILED")) return "智能整理暂时不可用。回答、来源快照和最后稳定草稿都已保存，可以安全重试。";
   return "这次操作没有完成。已保存内容没有被覆盖，请重试或重新载入会话。";
 }
 
@@ -77,7 +78,7 @@ export class CreationSessionController {
 
   clear(): void {
     this.epoch += 1;
-    this.state = { status: "idle", sessions: [], view: "DISCUSSION" };
+    this.state = { status: "idle", sessions: [], proposal: undefined, view: "DISCUSSION" };
   }
 
   setView(view: CreationSessionView): void {
@@ -91,12 +92,12 @@ export class CreationSessionController {
   async loadActive(): Promise<void> {
     const started = this.requireRuntime(false);
     const epoch = ++this.epoch;
-    this.state = { status: "loading", sessions: this.state.sessions, view: "DISCUSSION", busy: "LOAD" };
+    this.state = { status: "loading", sessions: this.state.sessions, proposal: undefined, view: "DISCUSSION", busy: "LOAD" };
     await this.onStateChange();
     try {
       const sessions = await started.client.listCreationSessions(["DISCUSSING", "PREVIEW_READY"]);
       if (!this.current(started, epoch)) return;
-      this.state = { status: "ready", sessions, view: "DISCUSSION" };
+      this.state = { status: "ready", sessions, proposal: undefined, view: "DISCUSSION" };
     } catch (error) {
       if (!this.current(started, epoch)) return;
       this.state = { ...this.state, status: "error", busy: undefined, error: userMessage(error) };
@@ -107,15 +108,15 @@ export class CreationSessionController {
   async create(input: { targetType: "MINI_PROJECT" | "PROJECT"; primarySource: ServiceCreationSourceSelection; userTitle?: string }): Promise<void> {
     const started = this.requireRuntime(false);
     const epoch = ++this.epoch;
-    this.state = { status: "loading", sessions: this.state.sessions, view: "DISCUSSION", busy: "CREATE" };
+    this.state = { status: "loading", sessions: this.state.sessions, proposal: undefined, view: "DISCUSSION", busy: "CREATE" };
     await this.onStateChange();
     try {
       const result = await started.client.createCreationSession({ ...input, idempotencyKey: idempotencyKey("creation-session-create") });
       if (!this.current(started, epoch)) return;
-      this.state = { status: "ready", sessions: this.withSession(result.session), session: result.session, view: "DISCUSSION", notice: "会话已保存。请先核对来源范围，再开始第一轮整理。" };
+      this.state = { status: "ready", sessions: this.withSession(result.session), proposal: undefined, session: result.session, view: "DISCUSSION", notice: "会话已保存。请先核对来源范围，再开始第一轮整理。" };
     } catch (error) {
       if (!this.current(started, epoch)) return;
-      this.state = { status: "error", sessions: this.state.sessions, view: "DISCUSSION", error: userMessage(error) };
+      this.state = { status: "error", sessions: this.state.sessions, proposal: undefined, view: "DISCUSSION", error: userMessage(error) };
     }
     await this.onStateChange();
   }
@@ -137,7 +138,7 @@ export class CreationSessionController {
       if (!this.current(started, epoch)) return;
       const changed = session.sources.filter(({ availability }) => availability !== "AVAILABLE").length;
       const terminal = session.status === "CREATED" || session.status === "ABANDONED";
-      this.state = { status: "ready", sessions: this.withSession(session), session, view: terminal ? "HISTORY" : session.currentDraftRevisionId ? "DRAFT" : "DISCUSSION", ...(terminal ? { notice: "已恢复只读会话历史；没有重新观察或修改 Graph 来源。" } : changed ? { notice: `已恢复会话，并发现 ${changed} 个来源需要处理。` } : { notice: "会话与当前来源已恢复。" }) };
+      this.state = { status: "ready", sessions: this.withSession(session), proposal: undefined, session, view: terminal ? "HISTORY" : session.currentDraftRevisionId ? "DRAFT" : "DISCUSSION", ...(terminal ? { notice: "已恢复只读会话历史；没有重新观察或修改 Graph 来源。" } : changed ? { notice: `已恢复会话，并发现 ${changed} 个来源需要处理。` } : { notice: "会话与当前来源已恢复。" }) };
     } catch (error) {
       if (!this.current(started, epoch)) return;
       this.state = { ...this.state, status: "error", busy: undefined, error: userMessage(error) };
@@ -230,7 +231,13 @@ export class CreationSessionController {
       if (!this.current(started, epoch)) return;
       const providerFailure = "providerStatus" in result && result.providerStatus === "FAILED";
       const remoteError = "error" in result && result.error && typeof result.error === "object" ? (result.error as { message?: string }).message : undefined;
-      this.state = { status: "ready", sessions: this.withSession(result.session), session: result.session, view, ...(providerFailure ? { error: remoteError ?? "智能整理没有完成；最后稳定内容已保留。" } : { notice: busy === "EDIT" ? "草稿编辑已保存。" : busy === "SOURCE" ? "来源状态已更新；历史快照和用户草稿仍保留。" : busy === "PLACEMENT" ? "放置位置已保存。" : busy === "PROPOSAL" ? "正式方案已进入审阅中心；接受方案仍不会自动写入。" : undefined }) };
+      const proposalRecord = busy === "PROPOSAL"
+        ? (result as unknown as { record?: { updatedAt?: string; proposal?: { proposalId?: string; groups?: Array<{ groupId?: string }> } } }).record
+        : undefined;
+      const proposalResult = proposalRecord?.updatedAt && proposalRecord.proposal?.proposalId
+        ? { proposalId: proposalRecord.proposal.proposalId, updatedAt: proposalRecord.updatedAt, groupId: proposalRecord.proposal.groups?.[0]?.groupId ?? "" }
+        : undefined;
+      this.state = { status: "ready", sessions: this.withSession(result.session), session: result.session, ...(proposalResult ? { proposal: proposalResult } : {}), view, ...(providerFailure ? { error: remoteError ?? "智能整理没有完成；最后稳定内容已保留。" } : { notice: busy === "EDIT" ? "草稿编辑已保存。" : busy === "SOURCE" ? "来源状态已更新；历史快照和用户草稿仍保留。" : busy === "PLACEMENT" ? "放置位置已保存。" : busy === "PROPOSAL" ? "正式方案已生成；确认正式创建后才会重新验证并写入，不需要再到审阅中心重复确认同一方案。" : undefined }) };
     } catch (error) {
       if (!this.current(started, epoch)) return;
       this.state = { ...this.state, status: this.state.session ? "ready" : "error", busy: undefined, error: userMessage(error) };
