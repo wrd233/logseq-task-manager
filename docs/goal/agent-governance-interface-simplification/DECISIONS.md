@@ -39,3 +39,7 @@ Agent 观察、扩展联想、全部写入暂停三个开关从页头常驻卡�
 ## AGI-D-010 — 自动化视图合同
 
 渲染测试覆盖视图切换、默认折叠、批量模式、安全回退、单主状态、键盘语义；响应式与溢出通过 headless Chrome 静态 fixture 在 720×520 / 1024×720 / 1440×900 验证 `documentElement.scrollWidth <= clientWidth` 与治理根容器相同约束；Light/Dark 截图用同一 fixture 生成，作为独立视觉审阅证据。
+
+## AGI-D-011 — 窄宽 app-shell 宽度修正
+
+视口检查发现 `@media (max-width: 760px)` 下 `.app-shell { width: 100vw }` 在带经典滚动条环境中会产生横向溢出（100vw 包含滚动条宽度）。改为 `width: 100%`（配合 `margin: 0`），在 overlay 与经典滚动条环境中均不溢出；这是本 Goal 范围内为满足 720×520 无横向滚动硬合同的最小全局样式修正。

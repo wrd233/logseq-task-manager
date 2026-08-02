@@ -83,3 +83,18 @@
 ## Additive governance traceability
 
 Agent Decision Governance 不改变 E2E-01～24 的既有 `DONE` 结论，也不新增平行 Candidate/Proposal/Commit/Undo/Recovery 权威。其独立需求、自动证据、Desktop 证据和时间门禁由 `docs/goal/agent-decision-governance/ACCEPTANCE_MATRIX.md` 追踪；2026-08-02 commit `23a6619` 后的真实运行结果为 `CONSOLIDATED_SHADOW_RUNTIME_CHECKPOINT`：schema v15、4 Decisions、2 Review Signals、59 Objects、6 Rules 全部 SHADOW、Observation/Expanded Context true、global pause false、automatic apply 0。Retention preview 为 10,917 UTF-8 bytes、eligible 0，并明确不删除治理行或 Logseq 原文。在自然达到 14 天 / 200 条真实 Decision 且取得用户显式授权前，Guarded representative path 不得运行。
+
+## Additive governance interface simplification traceability（2026-08-02）
+
+本增量只重构 Agent Governance 前端的默认信息架构与交互层级，不改变领域语义、安全边界、写入权限或状态机；完整状态见 `docs/goal/agent-governance-interface-simplification/`。
+
+| ID | 合同 | 自动证据 | Desktop 证据 | 状态 |
+|---|---|---|---|---|
+| AGI-A/B | 决策/规则/复盘次级视图 + 默认决策；紧凑状态行 + 设置 Popover；一句摘要 + 24h/7d；零值弱化 | renderer tests（9 项） | 真实 Logseq 0.10.15 点击切换、设置开合、ArrowRight 键盘切换 | DONE |
+| AGI-C | 来源主标题、安全回退、单一主状态、显式批量模式、无固定侧栏 | renderer tests | 真实 4 条 Decision 行、批量进入/退出 | DONE |
+| AGI-D | 详情三段落、技术详情/事件历史默认折叠、快速三档反馈渐进展开 | renderer tests | 真实展开/收起与反馈表单 | DONE |
+| AGI-E | 规则与复盘独立视图、全局模式/版本摘要、Review Signal 用户化、导出合并 | renderer tests | 真实规则/复盘视图与导出菜单 | DONE |
+| AGI-F | 720×520 / 1024×720 / 1440×900 无横向溢出；键盘、ARIA、Focus；Light/Dark 截图 | headless Chrome 72/72 检查 PASS；36 张 fixture 截图 | 真实 Desktop 18 张截图；窄宽 705px 宽零溢出；`pluginCommit 0b8981f2fba9` | DONE |
+| AGI-SAFE | Objects/Decisions/Signals/Auto Apply 不变；无权限晋升；无新写入口 | before/after CLI 证据 | 59 Objects / 4 Decisions / 2 Signals / 6 SHADOW rules / auto apply 0；Doctor PASS | DONE |
+
+非视觉实现收口为 `NONVISUAL_FRONTEND_IMPLEMENTATION_COMPLETE`；`VISUAL_GATE_STATUS: READY_FOR_INDEPENDENT_REVIEW`（实现 Agent 不签署视觉 PASS）。

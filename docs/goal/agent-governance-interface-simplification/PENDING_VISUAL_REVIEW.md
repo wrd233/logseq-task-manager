@@ -3,10 +3,13 @@
 ## Status
 
 ```yaml
-VISUAL_GATE_STATUS: PENDING_INDEPENDENT_REVIEW
+VISUAL_GATE_STATUS: READY_FOR_INDEPENDENT_REVIEW
+implementation_commit: 0b8981f
+desktop_evidence: tmp/runtime/agent-governance-interface-simplification/desktop-evidence.json
+viewport_report: tmp/runtime/agent-governance-interface-simplification/viewport-report.json
 ```
 
-实现 Agent 只生成截图与代码合同，不评价视觉优劣。本文件在 Slice F 截图齐备后更新为 `READY_FOR_INDEPENDENT_REVIEW`，并列出独立审阅问题。
+实现 Agent 只生成截图与代码合同，不评价视觉优劣。截图清单见 `screenshots/SCREENSHOT_MANIFEST.md`；静态与 Desktop 截图均已生成。
 
 ## 独立视觉审阅问题（执行后填写）
 
