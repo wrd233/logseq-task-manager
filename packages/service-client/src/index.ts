@@ -1,4 +1,4 @@
-import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceRetentionPreview, AgentGovernanceRetentionResult, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceRetentionPreview, AgentGovernanceRetentionResult, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, CreationSession, CreationSessionSource, CreationSessionStatus, CreationSessionTargetType, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceExportPackage, validateAgentGovernanceRetentionPreview, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -29,6 +29,25 @@ export interface ServiceHealth {
 export interface ServiceStatus extends ServiceHealth {
   databaseSchemaVersion: number;
   objectCount: number;
+}
+
+export interface ServiceCreateCreationSessionRequest {
+  targetType: CreationSessionTargetType;
+  primarySource: CreationSessionSource;
+  userTitle?: string;
+  sessionId?: string;
+  idempotencyKey: string;
+}
+
+export interface ServiceUpdateCreationSessionRequest {
+  expectedVersion: number;
+  idempotencyKey: string;
+  patch: Partial<Pick<CreationSession, "userTitle" | "suggestedObjectTitle" | "sources" | "rounds" | "consensus" | "draftRevisions" | "currentDraftRevisionId" | "placementPlan">>;
+}
+
+export interface ServiceCreationSessionResult {
+  session: CreationSession;
+  replayed: boolean;
 }
 
 export interface ServiceDoctor {
@@ -1321,6 +1340,32 @@ export class LocalServiceClient {
 
   async listObjects(): Promise<V2ManagedObject[]> {
     return (await this.request<{ objects: V2ManagedObject[] }>("/objects")).objects;
+  }
+
+  createCreationSession(input: ServiceCreateCreationSessionRequest): Promise<ServiceCreationSessionResult> {
+    return this.request<ServiceCreationSessionResult>("/creation-sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  async listCreationSessions(statuses?: readonly CreationSessionStatus[]): Promise<CreationSession[]> {
+    const query = statuses?.length ? `?status=${encodeURIComponent(statuses.join(","))}` : "";
+    return (await this.request<{ sessions: CreationSession[] }>(`/creation-sessions${query}`)).sessions;
+  }
+
+  async getCreationSession(sessionId: string): Promise<CreationSession | undefined> {
+    try {
+      return (await this.request<{ session: CreationSession }>(`/creation-sessions/${encodeURIComponent(sessionId)}`)).session;
+    } catch (error) {
+      if (error instanceof StructuredError && error.details?.remoteCode === "CREATION_SESSION_NOT_FOUND") return undefined;
+      throw error;
+    }
+  }
+
+  updateCreationSession(sessionId: string, input: ServiceUpdateCreationSessionRequest): Promise<ServiceCreationSessionResult> {
+    return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/update`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  abandonCreationSession(sessionId: string, expectedVersion: number, idempotencyKey: string): Promise<ServiceCreationSessionResult> {
+    return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/abandon`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion, idempotencyKey }) });
   }
 
   createArea(input: ServiceCreateAreaRequest): Promise<ServiceAreaCommandResult> {

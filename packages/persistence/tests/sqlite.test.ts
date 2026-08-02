@@ -6,8 +6,8 @@ import test from "node:test";
 
 import Database from "better-sqlite3";
 
-import { AgentGovernanceApplication, V2Application, V2CandidateApplication } from "@task-copilot/application";
-import { renderV2ProposalFiles, type V2Proposal } from "@task-copilot/domain";
+import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication } from "@task-copilot/application";
+import { renderV2ProposalFiles, type CreationSessionSource, type V2Proposal } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore } from "../src/sqlite.ts";
@@ -28,6 +28,38 @@ test("SQLite initialization is Graph-bound and idempotent", async (t) => {
   store.close();
   const reopened = await V2SqliteStore.open(path);
   assert.deepEqual(reopened.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
+  reopened.close();
+});
+
+test("Creation Sessions persist across restart without entering formal object or audit tables", async (t) => {
+  const { root, path, store } = await fixture();
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  store.initialize("graph-creation-session");
+  const application = new CreationSessionApplication(store, "graph-creation-session");
+  const primarySource: CreationSessionSource = {
+    sourceId: "blank-primary",
+    role: "PRIMARY",
+    kind: "BLANK",
+    captureHash: "blank",
+    latestKnownHash: "blank",
+    content: "",
+    hierarchy: [],
+    availability: "AVAILABLE",
+    capturedAt: "2026-08-02T06:00:00.000Z",
+  };
+  const created = application.create({ targetType: "MINI_PROJECT", primarySource, sessionId: "creation-persisted", idempotencyKey: "creation-persisted-create" }, new Date("2026-08-02T06:00:00.000Z"));
+  assert.equal(created.session.status, "DISCUSSING");
+  assert.equal(store.listObjects().length, 0);
+  assert.equal(store.auditEventCount(), 0);
+  store.close();
+
+  const reopened = await V2SqliteStore.open(path);
+  reopened.initialize("graph-creation-session");
+  const resumed = new CreationSessionApplication(reopened, "graph-creation-session").get("creation-persisted");
+  assert.equal(resumed?.sessionId, "creation-persisted");
+  assert.equal(resumed?.version, 1);
+  assert.equal(reopened.listObjects().length, 0);
+  assert.equal(reopened.auditEventCount(), 0);
   reopened.close();
 });
 
@@ -61,6 +93,7 @@ test("Condition command receipts retain a durable inverse without changing the o
 
 async function downgradeFixtureToSchemaV1(path: string): Promise<void> {
   const database = new Database(path);
+  database.exec("DROP TABLE IF EXISTS creation_sessions");
   dropAgentGovernanceSchema(database);
   database.exec("DROP TABLE candidates");
   database.exec("DROP TABLE associations");
@@ -124,6 +157,7 @@ test("schema v1 requires an explicit preflight backup before one auditable migra
     { version: 13, name: "add_agent_decision_governance", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 14, name: "add_agent_governance_settings", appliedAt: "2026-07-20T08:00:00.000Z" },
     { version: 15, name: "add_agent_observation_and_expanded_context_settings", appliedAt: "2026-07-20T08:00:00.000Z" },
+    { version: 16, name: "add_creation_session_authority", appliedAt: "2026-07-20T08:00:00.000Z" },
   ]);
   assert.deepEqual(migrated.initialize("graph-a"), { initialized: false, schemaVersion: V2_DATABASE_SCHEMA_VERSION });
   assert.deepEqual(await migrated.migrateSchema("graph-a", backupPath), {
@@ -178,7 +212,7 @@ test("schema v2 explicitly migrates to the constrained SemanticCommit step ledge
   store.close();
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
-  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
+  legacy.exec("DROP TABLE creation_sessions; DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DROP TABLE semantic_commit_steps; DROP TABLE semantic_commits; DELETE FROM schema_migrations WHERE version >= 3");
   legacy.prepare("UPDATE schema_meta SET value = '2' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 2");
   legacy.close();
@@ -215,7 +249,7 @@ test("schema v3 explicitly migrates to proposal review tables after a validated 
   store.close();
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
-  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
+  legacy.exec("DROP TABLE creation_sessions; DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DROP TABLE proposal_groups; DROP TABLE proposals; DELETE FROM schema_migrations WHERE version >= 4");
   legacy.prepare("UPDATE schema_meta SET value = '3' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 3");
   legacy.close();
@@ -238,6 +272,7 @@ test("schema v4 explicitly decouples immutable Audit from the current object pro
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
   legacy.exec(`
+    DROP TABLE creation_sessions;
     DROP TABLE candidates;
     DROP TABLE associations;
     DROP TABLE legacy_evidence;
@@ -275,7 +310,7 @@ test("schema v5 explicitly adds nullable Task due_at after a validated backup", 
   store.close();
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
-  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
+  legacy.exec("DROP TABLE creation_sessions; DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; ALTER TABLE objects DROP COLUMN due_at; DELETE FROM schema_migrations WHERE version >= 6");
   legacy.prepare("UPDATE schema_meta SET value = '5' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 5");
   legacy.close();
@@ -296,7 +331,7 @@ test("schema v6 explicitly adds only the bounded V1 migration ledger after a val
   store.close();
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
-  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 7");
+  legacy.exec("DROP TABLE creation_sessions; DROP TABLE candidates; DROP TABLE associations; DROP TABLE legacy_evidence; DROP TABLE migration_batches; DROP TABLE migration_runs; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 7");
   legacy.prepare("UPDATE schema_meta SET value = '6' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 6");
   legacy.close();
@@ -317,7 +352,7 @@ test("schema v7 adds only nullable Project closure_summary after a validated bac
   store.close();
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
-  legacy.exec("DROP TABLE candidates; DROP TABLE associations; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 8");
+  legacy.exec("DROP TABLE creation_sessions; DROP TABLE candidates; DROP TABLE associations; ALTER TABLE objects DROP COLUMN closure_json; DELETE FROM schema_migrations WHERE version >= 8");
   legacy.prepare("UPDATE schema_meta SET value = '7' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 7");
   legacy.close();
@@ -337,7 +372,7 @@ test("schema v8 adds only plain associations after preserving an exact v8 backup
   store.close();
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
-  legacy.exec("DROP TABLE candidates; DROP TABLE associations; DELETE FROM schema_migrations WHERE version >= 9");
+  legacy.exec("DROP TABLE creation_sessions; DROP TABLE candidates; DROP TABLE associations; DELETE FROM schema_migrations WHERE version >= 9");
   legacy.prepare("UPDATE schema_meta SET value = '8' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 8");
   legacy.close();
@@ -362,7 +397,7 @@ test("schema v9 adds only Candidate review state after preserving an exact v9 ba
   store.close();
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
-  legacy.exec("DROP TABLE candidates; DELETE FROM schema_migrations WHERE version >= 10");
+  legacy.exec("DROP TABLE creation_sessions; DROP TABLE candidates; DELETE FROM schema_migrations WHERE version >= 10");
   legacy.prepare("UPDATE schema_meta SET value = '9' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 9");
   legacy.close();
@@ -391,7 +426,7 @@ test("schema v10 reuses closure_json for MiniProject three-question Closure with
   store.close();
   const legacy = new Database(path);
   dropAgentGovernanceSchema(legacy);
-  legacy.exec("DELETE FROM schema_migrations WHERE version >= 11");
+  legacy.exec("DROP TABLE creation_sessions; DELETE FROM schema_migrations WHERE version >= 11");
   legacy.prepare("UPDATE schema_meta SET value = '10' WHERE key = 'schema_version'").run();
   legacy.pragma("user_version = 10");
   legacy.close();
@@ -428,6 +463,7 @@ test("schema v11 adds one Project structure aggregate without adding a parallel 
   dropAgentGovernanceSchema(legacy);
   legacy.pragma("foreign_keys = OFF");
   legacy.exec(`
+    DROP TABLE creation_sessions;
     CREATE TABLE objects_v11 (
       object_id TEXT PRIMARY KEY,
       object_type TEXT NOT NULL CHECK (object_type IN ('AREA','PROJECT','MINI_PROJECT','TASK','DECISION','OUTPUT')),
@@ -473,6 +509,7 @@ test("schema v12 explicitly adds the minimal Agent governance tables after a val
   store.close();
   const legacy = new Database(path);
   legacy.exec(`
+    DROP TABLE IF EXISTS creation_sessions;
     DROP TABLE IF EXISTS agent_governance_settings;
     DROP TABLE IF EXISTS agent_decision_events;
     DROP TABLE IF EXISTS agent_review_signals;
@@ -514,6 +551,7 @@ test("schema v14 adds one durable global Agent write-pause setting after a valid
   store.close();
   const legacy = new Database(path);
   legacy.exec(`
+    DROP TABLE IF EXISTS creation_sessions;
     DROP TABLE agent_governance_settings;
     DELETE FROM schema_migrations WHERE version >= 14;
     UPDATE schema_meta SET value = '13' WHERE key = 'schema_version';
@@ -549,6 +587,7 @@ test("schema v15 preserves global pause while adding durable observation and exp
   store.close();
   const legacy = new Database(path);
   legacy.exec(`
+    DROP TABLE IF EXISTS creation_sessions;
     DROP TABLE agent_governance_settings;
     CREATE TABLE agent_governance_settings (
       settings_id INTEGER PRIMARY KEY CHECK (settings_id = 1),

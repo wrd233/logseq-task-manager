@@ -98,3 +98,11 @@ Agent Decision Governance 不改变 E2E-01～24 的既有 `DONE` 结论，也不
 | AGI-SAFE | Objects/Decisions/Signals/Auto Apply 不变；无权限晋升；无新写入口 | before/after CLI 证据 | 59 Objects / 4 Decisions / 2 Signals / 6 SHADOW rules / auto apply 0；Doctor PASS | DONE |
 
 非视觉实现收口为 `NONVISUAL_FRONTEND_IMPLEMENTATION_COMPLETE`；`VISUAL_GATE_STATUS: READY_FOR_INDEPENDENT_REVIEW`（实现 Agent 不签署视觉 PASS）。
+
+## Additive persistent Creation Session traceability（2026-08-02）
+
+本增量为 MiniProject / Project 增加正式创建前的 SQLite 暂存权威，不改变 E2E-01～24
+既有正式写入合同，也不新增平行 Proposal / Commit / Undo / Recovery 内核。完整追踪见
+`docs/goal/creation-session/ACCEPTANCE_MATRIX.md`。当前 schema 16 与 CRUD 底座通过根级检查；
+来源刷新、Provider 轮次、Draft Tree、两条正式创建纵向与真实 Desktop/视觉 Gate 尚未完成，
+总体状态保持 `IN_PROGRESS`。

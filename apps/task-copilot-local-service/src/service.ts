@@ -3,8 +3,8 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { AgentGovernanceApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
-import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
+import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationSessionSource, type CreationSessionStatus, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -153,6 +153,19 @@ async function readMigrationJson(request: IncomingMessage): Promise<Record<strin
   try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "迁移请求必须是合法 JSON。"); }
   if (!value || typeof value !== "object" || Array.isArray(value)) throw serviceError("MIGRATION_REQUEST_INVALID", "迁移请求必须是对象。");
   return value as Record<string, unknown>;
+}
+
+async function readCreationSessionJson(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const body = await readBody(request, 512 * 1024);
+  let value: unknown;
+  try { value = JSON.parse(body) as unknown; } catch { throw serviceError("REQUEST_JSON_INVALID", "Creation Session 请求必须是合法 JSON。"); }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 请求必须是对象。");
+  return value as Record<string, unknown>;
+}
+
+function safeCreationToken(value: unknown, label: string): string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", `${label}必须是受控标识。`);
+  return value;
 }
 
 function safeMigrationId(value: unknown): value is string {
@@ -1481,6 +1494,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   };
   store.initialize(options.graphId);
   const application = new V2Application(store);
+  const creationSessionApplication = new CreationSessionApplication(store, options.graphId);
   const agentGovernanceApplication = new AgentGovernanceApplication(store);
   const candidateApplication = new V2CandidateApplication(store);
   const migrationApplication = new V2MigrationApplication(store);
@@ -2027,6 +2041,63 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (request.method === "POST" && url.pathname === "/doctor") {
       const doctor = await comprehensiveDoctor();
       respond(response, 200, doctor);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/creation-sessions") {
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).some((key) => !["targetType", "primarySource", "userTitle", "sessionId", "idempotencyKey"].includes(key))
+        || (input.targetType !== "MINI_PROJECT" && input.targetType !== "PROJECT")
+        || !input.primarySource || typeof input.primarySource !== "object" || Array.isArray(input.primarySource)
+        || (input.userTitle !== undefined && (typeof input.userTitle !== "string" || !input.userTitle.trim() || input.userTitle.length > 240))) {
+        throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 创建参数无效。");
+      }
+      const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
+      const sessionId = input.sessionId === undefined ? undefined : safeCreationToken(input.sessionId, "Session ID");
+      const result = creationSessionApplication.create({
+        targetType: input.targetType,
+        primarySource: input.primarySource as CreationSessionSource,
+        ...(input.userTitle ? { userTitle: input.userTitle } : {}),
+        ...(sessionId ? { sessionId } : {}),
+        idempotencyKey,
+      });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/creation-sessions") {
+      if ([...url.searchParams.keys()].some((key) => key !== "status")) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 列表只接受 status 查询。");
+      const statusText = url.searchParams.get("status");
+      const statuses = statusText ? statusText.split(",") : undefined;
+      if (statuses?.some((status) => !["DISCUSSING", "PREVIEW_READY", "CREATED", "ABANDONED"].includes(status))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session status 查询无效。");
+      respond(response, 200, { sessions: creationSessionApplication.list(statuses as CreationSessionStatus[] | undefined) });
+      return;
+    }
+    const creationSessionReadMatch = request.method === "GET" ? url.pathname.match(/^\/creation-sessions\/([^/]+)$/) : null;
+    if (creationSessionReadMatch?.[1]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionReadMatch[1]), "Session ID");
+      const session = creationSessionApplication.get(sessionId);
+      respond(response, session ? 200 : 404, session ? { session } : { error: { code: "CREATION_SESSION_NOT_FOUND", message: "Creation Session 不存在。" } });
+      return;
+    }
+    const creationSessionUpdateMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/update$/) : null;
+    if (creationSessionUpdateMatch?.[1]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionUpdateMatch[1]), "Session ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).some((key) => !["expectedVersion", "idempotencyKey", "patch"].includes(key))
+        || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1
+        || !input.patch || typeof input.patch !== "object" || Array.isArray(input.patch)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 更新参数无效。");
+      const patch = input.patch as Record<string, unknown>;
+      if (Object.keys(patch).some((key) => !["userTitle", "suggestedObjectTitle", "sources", "rounds", "consensus", "draftRevisions", "currentDraftRevisionId", "placementPlan"].includes(key))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 更新包含未授权字段。");
+      const result = creationSessionApplication.update({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key"), patch: patch as Parameters<CreationSessionApplication["update"]>[0]["patch"] });
+      respond(response, 200, result);
+      return;
+    }
+    const creationSessionAbandonMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/abandon$/) : null;
+    if (creationSessionAbandonMatch?.[1]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionAbandonMatch[1]), "Session ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).some((key) => !["expectedVersion", "idempotencyKey"].includes(key)) || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 放弃参数无效。");
+      const result = creationSessionApplication.abandon({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key") });
+      respond(response, 200, result);
       return;
     }
     if (request.method === "GET" && url.pathname === "/associations") {

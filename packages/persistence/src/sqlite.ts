@@ -33,11 +33,12 @@ import type {
   V2OwnershipUndoCommand,
   V2OwnershipUndoResult,
   V2SynchronizationCommand,
+  CreationSessionWriteResult,
 } from "@task-copilot/application";
-import { createAgentGovernanceSettings, reconcileAgentReviewSignal, renderV2ProposalFiles, validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceRetentionPreview, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization, validateV2Proposal, type AgentDecision, type AgentDecisionEvent, type AgentGovernanceRetentionPreview, type AgentGovernanceRetentionResult, type AgentGovernanceSettings, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
+import { createAgentGovernanceSettings, reconcileAgentReviewSignal, renderV2ProposalFiles, validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceRetentionPreview, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization, validateCreationSession, validateV2Proposal, type AgentDecision, type AgentDecisionEvent, type AgentGovernanceRetentionPreview, type AgentGovernanceRetentionResult, type AgentGovernanceSettings, type AgentReviewSignal, type AgentReviewSignalStatus, type AgentRuleAuthorization, type CreationSession, type CreationSessionStatus, type FocusSelection, type V2Anchor, type V2Association, type V2Candidate, type V2Condition, type V2ManagedObject, type V2PrimaryOwnership, type V2Proposal, type V2ProposalFiles } from "@task-copilot/domain";
 import { StructuredError, checksum, stableJson } from "@task-copilot/shared";
 
-export const V2_DATABASE_SCHEMA_VERSION = 15;
+export const V2_DATABASE_SCHEMA_VERSION = 16;
 
 export interface SqliteInitializationResult {
   initialized: boolean;
@@ -73,7 +74,22 @@ const schemaMigrationNames = new Map<number, string>([
   [13, "add_agent_decision_governance"],
   [14, "add_agent_governance_settings"],
   [15, "add_agent_observation_and_expanded_context_settings"],
+  [16, "add_creation_session_authority"],
 ]);
+
+const creationSessionSchemaSql = `
+  CREATE TABLE creation_sessions (
+    session_id TEXT PRIMARY KEY,
+    graph_id TEXT NOT NULL,
+    target_type TEXT NOT NULL CHECK (target_type IN ('MINI_PROJECT','PROJECT')),
+    status TEXT NOT NULL CHECK (status IN ('DISCUSSING','PREVIEW_READY','CREATED','ABANDONED')),
+    version INTEGER NOT NULL CHECK (version >= 1),
+    session_json TEXT NOT NULL CHECK (json_valid(session_json)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  ) STRICT;
+  CREATE INDEX creation_sessions_active ON creation_sessions(status, updated_at DESC, session_id);
+`;
 
 const agentGovernanceSchemaSql = `
   CREATE TABLE agent_decisions (
@@ -527,6 +543,7 @@ export class V2SqliteStore {
           target_object_id TEXT REFERENCES objects(object_id) ON DELETE SET NULL,
           PRIMARY KEY (run_id, legacy_object_id)
         ) STRICT;
+        ${creationSessionSchemaSql}
         ${agentGovernanceSchemaSql}
         ${agentGovernanceSettingsSchemaSql}
         CREATE TABLE schema_migrations (
@@ -591,7 +608,7 @@ export class V2SqliteStore {
   }
 
   private applySchemaMigration(fromVersion: number, at: Date): void {
-    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 15) {
+    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(fromVersion) || V2_DATABASE_SCHEMA_VERSION !== 16) {
       throw persistenceError("V2_UNSUPPORTED_DATABASE_SCHEMA", "SQLite schema 没有可用的受控迁移路径。", { fromVersion });
     }
     const createdAt = this.database.prepare("SELECT value FROM schema_meta WHERE key = 'created_at'").pluck().get() as string | undefined;
@@ -866,6 +883,12 @@ export class V2SqliteStore {
         this.database.exec("DROP TABLE agent_governance_settings_v14");
         this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
           .run(15, schemaMigrationNames.get(15), at.toISOString());
+        workingVersion = 15;
+      }
+      if (workingVersion === 15) {
+        this.database.exec(creationSessionSchemaSql);
+        this.database.prepare("INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)")
+          .run(16, schemaMigrationNames.get(16), at.toISOString());
       }
       const foreignKeyViolations = (this.database.pragma("foreign_key_check") as unknown[]).length;
       if (foreignKeyViolations > 0) throw persistenceError("V2_SCHEMA_MIGRATION_FOREIGN_KEY_FAILED", "SQLite schema 迁移后出现外键错误；本批变化已回滚。", { foreignKeyViolations });
@@ -2600,6 +2623,45 @@ export class V2SqliteStore {
 
   auditEventCount(): number {
     return (this.database.prepare("SELECT count(*) AS count FROM audit_events").get() as { count: number }).count;
+  }
+
+  getCreationSession(sessionId: string): CreationSession | undefined {
+    const row = this.database.prepare("SELECT session_json FROM creation_sessions WHERE session_id = ?").get(sessionId) as { session_json: string } | undefined;
+    return row ? validateCreationSession(JSON.parse(row.session_json) as CreationSession) : undefined;
+  }
+
+  listCreationSessions(statuses?: readonly CreationSessionStatus[]): CreationSession[] {
+    if (statuses && statuses.some((status) => !["DISCUSSING", "PREVIEW_READY", "CREATED", "ABANDONED"].includes(status))) throw persistenceError("CREATION_SESSION_STATUS_INVALID", "Creation Session 查询状态无效。");
+    const rows = statuses?.length
+      ? this.database.prepare(`SELECT session_json FROM creation_sessions WHERE status IN (${statuses.map(() => "?").join(",")}) ORDER BY updated_at DESC, session_id`).all(...statuses) as Array<{ session_json: string }>
+      : this.database.prepare("SELECT session_json FROM creation_sessions ORDER BY updated_at DESC, session_id").all() as Array<{ session_json: string }>;
+    return rows.map(({ session_json }) => validateCreationSession(JSON.parse(session_json) as CreationSession));
+  }
+
+  saveCreationSession(session: CreationSession, expectedVersion: number, idempotencyKey: string, commandName: string): CreationSessionWriteResult {
+    validateCreationSession(session);
+    this.requireIdempotencyKey(idempotencyKey);
+    if (!commandName.trim() || commandName.length > 128) throw persistenceError("CREATION_SESSION_COMMAND_INVALID", "Creation Session command 名称无效。");
+    const write = this.database.transaction(() => {
+      const receipt = this.receipt(idempotencyKey);
+      if (receipt) {
+        if (receipt.command_name !== commandName) throw persistenceError("V2_IDEMPOTENCY_KEY_CONFLICT", "idempotency key 已用于另一种命令。");
+        return { session: validateCreationSession(JSON.parse(receipt.result_json) as CreationSession), replayed: true };
+      }
+      const current = this.database.prepare("SELECT version, graph_id FROM creation_sessions WHERE session_id = ?").get(session.sessionId) as { version: number; graph_id: string } | undefined;
+      const actualVersion = current?.version ?? 0;
+      if (actualVersion !== expectedVersion) throw persistenceError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session version 已变化；没有覆盖较新会话。", { expectedVersion, actualVersion });
+      if (current && current.graph_id !== session.graphId) throw persistenceError("CREATION_SESSION_GRAPH_MISMATCH", "Creation Session 不属于当前 Graph。");
+      this.database.prepare(`INSERT INTO creation_sessions(session_id, graph_id, target_type, status, version, session_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(session_id) DO UPDATE SET target_type = excluded.target_type, status = excluded.status,
+          version = excluded.version, session_json = excluded.session_json, updated_at = excluded.updated_at`)
+        .run(session.sessionId, session.graphId, session.targetType, session.status, session.version, stableJson(session), session.createdAt, session.updatedAt);
+      this.database.prepare("INSERT INTO command_receipts(idempotency_key, command_name, result_json, created_at) VALUES (?, ?, ?, ?)")
+        .run(idempotencyKey, commandName, stableJson(session), session.updatedAt);
+      return { session: structuredClone(session), replayed: false };
+    });
+    return this.executeWrite(write);
   }
 
   getObject(objectId: string): V2ManagedObject | undefined {

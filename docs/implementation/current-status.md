@@ -1,5 +1,14 @@
 # V2 当前实施状态
 
+## Persistent Creation Session（2026-08-02）
+
+新 Goal 已进入 `IN_PROGRESS`。schema 16、CreationSession Domain/Application、SQLite
+authority、Local Service CRUD 与 Service Client 已完成首轮实现；自动证据覆盖版本冲突、
+幂等、并行会话、Service restart 和正式 Object/Audit 零写入。来源捕获/刷新、Answer-first
+Provider 轮次、Draft Tree、MiniProject/Project 正式纵向、Plugin UI 与真实 Desktop/视觉 Gate
+仍在继续，不能从底座测试推断 Goal 完成。权威状态见
+`docs/goal/creation-session/STATUS.md`。
+
 ## WRH-P1-09 Worksite Preview Graph Refresh（2026-08-01）
 
 真实用户复现的缺陷已修复为原子 Sprint：Now 卡片的 Worksite Preview 先读为空后，

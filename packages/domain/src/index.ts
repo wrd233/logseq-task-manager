@@ -10,6 +10,7 @@ export * from "./agent-governance-context.ts";
 export * from "./agent-governance-router.ts";
 export * from "./agent-governance-revalidation.ts";
 export * from "./agent-governance-export.ts";
+export * from "./creation-session.ts";
 
 export type ObjectType =
   | "TASK"

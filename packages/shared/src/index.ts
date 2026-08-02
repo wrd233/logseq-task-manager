@@ -7,7 +7,9 @@ export type IdPrefix =
   | "op"
   | "commit"
   | "event"
-  | "backup";
+  | "backup"
+  | "creation"
+  | "creation_event";
 
 export function createId(prefix: IdPrefix, now = new Date(), entropy?: string): string {
   const time = now.toISOString().replace(/\D/g, "").slice(0, 17);

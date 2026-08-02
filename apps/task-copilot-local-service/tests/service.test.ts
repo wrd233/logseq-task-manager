@@ -249,6 +249,44 @@ test("Local Service is loopback-only, authenticated, and reports one SQLite auth
   await assert.rejects(access(join(root, "runtime", "service.json")));
 });
 
+test("Local Service persists multiple Creation Sessions without formal writes and resumes them after restart", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-service-"));
+  const databasePath = join(root, "task-copilot.db");
+  let service = await startLocalService({ databasePath, graphId: "graph-creation-service", token: "creation-service-token-at-least-24" });
+  t.after(async () => {
+    await service.close().catch(() => undefined);
+    await rm(root, { recursive: true, force: true });
+  });
+  const headers = { authorization: `Bearer ${service.token}`, "content-type": "application/json" };
+  const primarySource = { sourceId: "blank-primary", role: "PRIMARY", kind: "BLANK", captureHash: "blank", latestKnownHash: "blank", content: "", hierarchy: [], availability: "AVAILABLE", capturedAt: "2026-08-02T06:00:00.000Z" };
+  const create = async (sessionId: string, targetType: "MINI_PROJECT" | "PROJECT", idempotencyKey: string) => fetch(new URL("creation-sessions", service.url), { method: "POST", headers, body: JSON.stringify({ sessionId, targetType, primarySource, idempotencyKey }) });
+  const first = await create("creation-service-one", "MINI_PROJECT", "creation-service-create-one");
+  assert.equal(first.status, 201);
+  assert.equal((await first.json() as { session: { status: string } }).session.status, "DISCUSSING");
+  assert.equal((await create("creation-service-one", "MINI_PROJECT", "creation-service-create-one")).status, 200);
+  assert.equal((await create("creation-service-two", "PROJECT", "creation-service-create-two")).status, 201);
+
+  const active = await fetch(new URL("creation-sessions?status=DISCUSSING,PREVIEW_READY", service.url), { headers });
+  assert.equal((await active.json() as { sessions: unknown[] }).sessions.length, 2);
+  const update = await fetch(new URL("creation-sessions/creation-service-one/update", service.url), { method: "POST", headers, body: JSON.stringify({ expectedVersion: 1, idempotencyKey: "creation-service-title-one", patch: { userTitle: "整理设备材料" } }) });
+  assert.equal((await update.json() as { session: { userTitle: string; version: number } }).session.userTitle, "整理设备材料");
+  const objects = await fetch(new URL("objects", service.url), { headers });
+  assert.equal((await objects.json() as { objects: unknown[] }).objects.length, 0);
+
+  await service.close();
+  service = await startLocalService({ databasePath, graphId: "graph-creation-service", token: "creation-service-restart-token-24" });
+  const restartedHeaders = { authorization: `Bearer ${service.token}`, "content-type": "application/json" };
+  const resumed = await fetch(new URL("creation-sessions/creation-service-one", service.url), { headers: restartedHeaders });
+  const resumedBody = await resumed.json() as { session: { userTitle: string; version: number; status: string } };
+  assert.equal(resumedBody.session.userTitle, "整理设备材料");
+  assert.equal(resumedBody.session.version, 2);
+  assert.equal(resumedBody.session.status, "DISCUSSING");
+  const abandoned = await fetch(new URL("creation-sessions/creation-service-one/abandon", service.url), { method: "POST", headers: restartedHeaders, body: JSON.stringify({ expectedVersion: 2, idempotencyKey: "creation-service-abandon-one" }) });
+  assert.equal((await abandoned.json() as { session: { status: string } }).session.status, "ABANDONED");
+  const remaining = await fetch(new URL("creation-sessions?status=DISCUSSING,PREVIEW_READY", service.url), { headers: restartedHeaders });
+  assert.equal((await remaining.json() as { sessions: unknown[] }).sessions.length, 1);
+});
+
 test("Local Service exposes bounded read-only Agent governance projections from the same SQLite authority", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-agent-governance-service-"));
   const databasePath = join(root, "task-copilot.db");

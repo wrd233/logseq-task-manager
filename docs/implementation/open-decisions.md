@@ -2,6 +2,11 @@
 
 > 状态值：`ACCEPTED` 表示产品或迁移合同已经冻结；`ADR_REQUIRED` 表示产品语义已冻结、只需在实施前用 spike 选择最小技术方案。
 
+Creation Session 增量决定：`OD-010 ACCEPTED`。正式创建前以 schema 16 的
+`creation_sessions` 有界 aggregate 为唯一权威；Session 不是正式 Object，最终创建和
+撤销复用既有 Proposal / Semantic Commit / Recovery / Undo。依据见
+`docs/adr/0010-persistent-creation-session-authority.md`。
+
 | ID | 状态 | 冲突 / 问题 | 证据 | 方案 | 推荐 | 影响 |
 |---|---|---|---|---|---|---|
 | OD-001 | ACCEPTED | V2 取代 V1，禁止长期双语义 | 用户确认 2026-07-20；详细规范 D-055、D-067、D-208、D-220；V2 §5.3 | V1 只作为只读迁移来源、恢复证据和历史兼容入口 | `ADR-V2-SUPERSEDES-V1.md` | V2 是唯一长期写入模型；复用 V1 安全内核，不维护第二套生命周期、状态轴、持久化和 UI |
