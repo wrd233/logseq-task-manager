@@ -481,6 +481,160 @@ test("Creation Session prepares one replayable HIGH Proposal while formal stores
   assert.equal(compensated.record.proposal.status, "FAILED");
 });
 
+test("blank MiniProject Creation Session commits one reviewed tree and undoes through the shared ledger", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-mini-"));
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek", providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({ value: {
+      schemaVersion: "task-copilot-creation-draft-v1", targetType: "MINI_PROJECT", suggestedTitle: "验证告警接入", suggestedPageName: null,
+      nodes: [
+        { semanticKey: "mini-root", order: 0, nodeType: "BLOCK", text: "**[MiniProject]** 验证告警接入 #MiniProject", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: true },
+        { semanticKey: "goal", parentSemanticKey: "mini-root", order: 0, nodeType: "BLOCK", text: "**[目标]** 一条真实告警可追踪", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: true },
+        { semanticKey: "next", parentSemanticKey: "mini-root", order: 1, nodeType: "TODO", text: "TODO 执行一次恢复演练", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: true },
+      ],
+      unusedMaterials: [], warnings: [], maturity: { level: "READY", missing: [] },
+    }, metadata: { model: "deepseek-v4", durationMs: 10, attempts: 1 } }),
+  };
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-creation-mini", token: "creation-mini-token-at-least-24", creationDraftGenerator: new LocalLlmCreationDraftGenerator(provider) });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const created = await client.createCreationSession({ targetType: "MINI_PROJECT", primarySource: { kind: "BLANK" }, sessionId: "creation-mini-session", idempotencyKey: "creation-mini-create" });
+  const drafted = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: created.session.version, idempotencyKey: "creation-mini-draft" });
+  const pageResolved = { kind: "PAGE" as const, id: "page-mini-target", name: "Mini 目标页", version: 1, evidenceHash: checksum("page-mini-target") };
+  const pageSnapshot = { kind: "PAGE" as const, requestedTarget: "page-mini-target", resolved: pageResolved, blocks: [], truncated: false, readAt: "2026-08-02T11:00:00.000Z", scopeHash: checksum({ kind: "PAGE", resolved: pageResolved, blocks: [], truncated: false }) };
+  const placed = await client.updateCreationSession(created.session.sessionId, { expectedVersion: drafted.session.version, idempotencyKey: "creation-mini-place", patch: { placementPlan: { kind: "PAGE_END", pageId: "page-mini-target", pageName: "Mini 目标页", pageHash: pageSnapshot.scopeHash } } });
+  const proposed = await client.createCreationSessionProposal(created.session.sessionId, { expectedVersion: placed.session.version, idempotencyKey: "creation-mini-proposal" });
+  const reviewed = await client.reviewProposal(proposed.record.proposal.proposalId, { "create-from-session": { disposition: "ACCEPTED", highImpactConfirmed: true } }, proposed.record.updatedAt);
+  const rootBlockUuid = (reviewed.proposal.groups[0]!.semanticOperations[0]!.payload.nodes as Array<{ blockUuid: string; parentNodeId?: string }>).find(({ parentNodeId }) => !parentNodeId)!.blockUuid;
+  const bridge = (async () => {
+    const pageRead = await client.claimGraphReadRequest();
+    assert.equal(pageRead?.kind, "PAGE");
+    if (!pageRead) throw new Error("expected MiniProject placement Page read");
+    await client.completeGraphReadRequest({ requestId: pageRead.requestId, status: "FOUND", snapshot: { ...pageSnapshot, requestedTarget: pageRead.target } });
+    const rootRead = await client.claimGraphReadRequest();
+    assert.equal(rootRead?.kind, "BLOCK");
+    assert.equal(rootRead?.target, rootBlockUuid);
+    if (!rootRead) throw new Error("expected deterministic MiniProject root absence read");
+    await client.completeGraphReadRequest({ requestId: rootRead.requestId, status: "NOT_FOUND" });
+  })();
+  const prepare = client.prepareCreationSessionMiniCommit(proposed.record.proposal.proposalId, { confirmation: "CREATE_FROM_SESSION", expectedUpdatedAt: reviewed.updatedAt, traceId: "creation-mini-prepare" });
+  const [, prepared] = await Promise.all([bridge, prepare]);
+  assert.equal(prepared.status, "PREPARED");
+  if (prepared.status !== "PREPARED") throw new Error("expected MiniProject Creation Session prepare");
+  assert.equal(prepared.graphPlan.mode, "NEW_TREE");
+  assert.equal(prepared.graphPlan.rootBlockUuid, rootBlockUuid);
+  assert.equal((await client.status()).objectCount, 0);
+  const finalized = await client.finalizeCreationSessionMiniCommit(proposed.record.proposal.proposalId, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: reviewed.updatedAt, rootBlockUuid, graphContentHash: prepared.graphPlan.afterHash, traceId: "creation-mini-finalize" });
+  assert.equal(finalized.status, "COMPLETED");
+  if (finalized.status !== "COMPLETED") throw new Error("expected MiniProject Creation Session completion");
+  assert.equal(finalized.object.objectType, "MINI_PROJECT");
+  assert.equal(finalized.anchor.externalId, rootBlockUuid);
+  assert.equal(finalized.session.status, "CREATED");
+  const replay = await client.prepareCreationSessionMiniCommit(proposed.record.proposal.proposalId, { confirmation: "CREATE_FROM_SESSION", expectedUpdatedAt: reviewed.updatedAt, traceId: "creation-mini-replay" });
+  assert.equal(replay.status, "COMPLETED");
+  const preflight = await client.prepareCreationSessionMiniUndo(prepared.semanticCommitId, { traceId: "creation-mini-undo-preflight" });
+  assert.equal(preflight.status, "GRAPH_PREFLIGHT_REQUIRED");
+  const undoPrepared = await client.prepareCreationSessionMiniUndo(prepared.semanticCommitId, { traceId: "creation-mini-undo-prepare", confirmedGraphHash: prepared.graphPlan.afterHash });
+  assert.equal(undoPrepared.status, "GRAPH_RESTORE_REQUIRED");
+  if (undoPrepared.status !== "GRAPH_RESTORE_REQUIRED") throw new Error("expected MiniProject graph restore");
+  assert.equal((await client.status()).objectCount, 0);
+  const undone = await client.finalizeCreationSessionMiniUndo(prepared.semanticCommitId, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, graphContentHash: prepared.graphPlan.beforeHash, traceId: "creation-mini-undo-finalize" });
+  assert.equal(undone.status, "COMPLETED");
+  assert.ok(undone.session.creationResult?.undoneAt);
+
+  const conflictCreated = await client.createCreationSession({ targetType: "MINI_PROJECT", primarySource: { kind: "BLANK" }, sessionId: "creation-mini-conflict-session", idempotencyKey: "creation-mini-conflict-create" });
+  const conflictDrafted = await client.generateCreationSessionDraft(conflictCreated.session.sessionId, { expectedVersion: conflictCreated.session.version, idempotencyKey: "creation-mini-conflict-draft" });
+  const conflictPlaced = await client.updateCreationSession(conflictCreated.session.sessionId, { expectedVersion: conflictDrafted.session.version, idempotencyKey: "creation-mini-conflict-place", patch: { placementPlan: { kind: "PAGE_END", pageId: "page-mini-target", pageName: "Mini 目标页", pageHash: pageSnapshot.scopeHash } } });
+  const conflictProposed = await client.createCreationSessionProposal(conflictCreated.session.sessionId, { expectedVersion: conflictPlaced.session.version, idempotencyKey: "creation-mini-conflict-proposal" });
+  const conflictReviewed = await client.reviewProposal(conflictProposed.record.proposal.proposalId, { "create-from-session": { disposition: "ACCEPTED", highImpactConfirmed: true } }, conflictProposed.record.updatedAt);
+  const conflictRootBlockUuid = (conflictReviewed.proposal.groups[0]!.semanticOperations[0]!.payload.nodes as Array<{ blockUuid: string; parentNodeId?: string }>).find(({ parentNodeId }) => !parentNodeId)!.blockUuid;
+  const conflictBridge = (async () => {
+    const pageRead = await client.claimGraphReadRequest();
+    if (!pageRead || pageRead.kind !== "PAGE") throw new Error("expected conflicting MiniProject placement Page read");
+    await client.completeGraphReadRequest({ requestId: pageRead.requestId, status: "FOUND", snapshot: { ...pageSnapshot, requestedTarget: pageRead.target } });
+    const rootRead = await client.claimGraphReadRequest();
+    if (!rootRead || rootRead.kind !== "BLOCK" || rootRead.target !== conflictRootBlockUuid) throw new Error("expected conflicting MiniProject root absence read");
+    await client.completeGraphReadRequest({ requestId: rootRead.requestId, status: "NOT_FOUND" });
+  })();
+  const conflictPreparePromise = client.prepareCreationSessionMiniCommit(conflictProposed.record.proposal.proposalId, { confirmation: "CREATE_FROM_SESSION", expectedUpdatedAt: conflictReviewed.updatedAt, traceId: "creation-mini-conflict-prepare" });
+  const [, conflictPrepared] = await Promise.all([conflictBridge, conflictPreparePromise]);
+  if (conflictPrepared.status !== "PREPARED") throw new Error("expected prepared conflicting MiniProject commit");
+  await client.materializeExplicitObject({ objectType: "TASK", text: "预占 MiniProject Anchor", externalId: conflictRootBlockUuid, inputVersion: "1", contentHash: checksum("预占 MiniProject Anchor"), idempotencyKey: "creation-mini-conflict-anchor", traceId: "creation-mini-conflict-anchor" });
+  const conflictFinalized = await client.finalizeCreationSessionMiniCommit(conflictProposed.record.proposal.proposalId, { semanticCommitId: conflictPrepared.semanticCommitId, expectedUpdatedAt: conflictReviewed.updatedAt, rootBlockUuid: conflictRootBlockUuid, graphContentHash: conflictPrepared.graphPlan.afterHash, traceId: "creation-mini-conflict-finalize" });
+  assert.equal(conflictFinalized.status, "COMPENSATION_REQUIRED");
+  assert.equal((await client.getCreationSession(conflictCreated.session.sessionId))?.status, "PREVIEW_READY");
+  const conflictCompensated = await client.compensateCreationSessionMiniCommit(conflictProposed.record.proposal.proposalId, { semanticCommitId: conflictPrepared.semanticCommitId, expectedUpdatedAt: conflictReviewed.updatedAt, rootBlockUuid: conflictRootBlockUuid, graphContentHash: conflictPrepared.graphPlan.beforeHash, traceId: "creation-mini-conflict-compensate" });
+  assert.equal(conflictCompensated.status, "FAILED_COMPENSATED");
+  assert.equal(conflictCompensated.record.proposal.status, "FAILED");
+});
+
+test("Block MiniProject Creation Session freezes the full in-place tree for Commit and exact Undo", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-mini-in-place-"));
+  const sourceRootUuid = "11111111-1111-4111-8111-111111111111";
+  const sourceChildUuid = "22222222-2222-4222-8222-222222222222";
+  const rootText = "普通告警接入记录";
+  const childText = "**[目标]** 一条真实告警可追踪";
+  const resolved = { kind: "BLOCK" as const, id: sourceRootUuid };
+  const blocks = [
+    { uuid: sourceRootUuid, content: rootText, contentHash: checksum(rootText), relation: "ROOT" as const, depth: 0, pageUuid: "page-source", pageName: "来源页" },
+    { uuid: sourceChildUuid, content: childText, contentHash: checksum(childText), relation: "CHILD" as const, depth: 1, parentUuid: sourceRootUuid, pageUuid: "page-source", pageName: "来源页" },
+  ];
+  const sourceSnapshot = { kind: "BLOCK" as const, requestedTarget: sourceRootUuid, resolved, blocks, truncated: false, readAt: "2026-08-02T12:30:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved, blocks, truncated: false }) };
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek", providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({ value: {
+      schemaVersion: "task-copilot-creation-draft-v1", targetType: "MINI_PROJECT", suggestedTitle: "告警接入验证", suggestedPageName: null,
+      nodes: [
+        { semanticKey: "mini-root", order: 0, nodeType: "BLOCK", text: "**[MiniProject]** 告警接入验证 #MiniProject", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], sourceBlockUuid: sourceRootUuid, operation: "REWRITE", confirmed: true },
+        { semanticKey: "goal", parentSemanticKey: "mini-root", order: 0, nodeType: "BLOCK", text: childText, provenance: "AGENT_SYNTHESIS", evidenceRefs: [], sourceBlockUuid: sourceChildUuid, operation: "KEEP", confirmed: true },
+        { semanticKey: "next", parentSemanticKey: "mini-root", order: 1, nodeType: "TODO", text: "TODO 执行恢复演练", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: true },
+      ],
+      unusedMaterials: [], warnings: [], maturity: { level: "READY", missing: [] },
+    }, metadata: { model: "deepseek-v4", durationMs: 10, attempts: 1 } }),
+  };
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-creation-mini-in-place", token: "creation-mini-in-place-token-24", creationDraftGenerator: new LocalLlmCreationDraftGenerator(provider) });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const answerSource = async (): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    assert.equal(pending?.kind, "BLOCK");
+    assert.equal(pending?.target, sourceRootUuid);
+    if (!pending) throw new Error("expected in-place source read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: { ...sourceSnapshot, requestedTarget: pending.target } });
+  };
+  const createPromise = client.createCreationSession({ targetType: "MINI_PROJECT", primarySource: { kind: "BLOCK", target: sourceRootUuid }, sessionId: "creation-mini-in-place-session", idempotencyKey: "creation-mini-in-place-create" });
+  await answerSource();
+  const created = await createPromise;
+  const draftPromise = client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: created.session.version, idempotencyKey: "creation-mini-in-place-draft" });
+  await answerSource();
+  const drafted = await draftPromise;
+  const placed = await client.updateCreationSession(created.session.sessionId, { expectedVersion: drafted.session.version, idempotencyKey: "creation-mini-in-place-place", patch: { placementPlan: { kind: "SOURCE_BLOCK_IN_PLACE", sourceBlockUuid: sourceRootUuid } } });
+  const proposalPromise = client.createCreationSessionProposal(created.session.sessionId, { expectedVersion: placed.session.version, idempotencyKey: "creation-mini-in-place-proposal" });
+  await answerSource();
+  const proposed = await proposalPromise;
+  const reviewed = await client.reviewProposal(proposed.record.proposal.proposalId, { "create-from-session": { disposition: "ACCEPTED", highImpactConfirmed: true } }, proposed.record.updatedAt);
+  const preparePromise = client.prepareCreationSessionMiniCommit(proposed.record.proposal.proposalId, { confirmation: "CREATE_FROM_SESSION", expectedUpdatedAt: reviewed.updatedAt, traceId: "creation-mini-in-place-prepare" });
+  await answerSource();
+  const prepared = await preparePromise;
+  assert.equal(prepared.status, "PREPARED");
+  if (prepared.status !== "PREPARED") throw new Error("expected in-place MiniProject prepare");
+  assert.equal(prepared.graphPlan.mode, "IN_PLACE");
+  assert.equal(prepared.graphPlan.beforeNodes.length, 2);
+  assert.equal(prepared.graphPlan.afterNodes.length, 3);
+  const finalized = await client.finalizeCreationSessionMiniCommit(proposed.record.proposal.proposalId, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: reviewed.updatedAt, rootBlockUuid: sourceRootUuid, graphContentHash: prepared.graphPlan.afterHash, traceId: "creation-mini-in-place-finalize" });
+  assert.equal(finalized.status, "COMPLETED");
+  if (finalized.status !== "COMPLETED") throw new Error("expected in-place MiniProject completion");
+  assert.equal(finalized.anchor.externalId, sourceRootUuid);
+  const preflight = await client.prepareCreationSessionMiniUndo(prepared.semanticCommitId, { traceId: "creation-mini-in-place-undo-preflight" });
+  assert.equal(preflight.status, "GRAPH_PREFLIGHT_REQUIRED");
+  const undoPrepared = await client.prepareCreationSessionMiniUndo(prepared.semanticCommitId, { traceId: "creation-mini-in-place-undo-prepare", confirmedGraphHash: prepared.graphPlan.afterHash });
+  assert.equal(undoPrepared.status, "GRAPH_RESTORE_REQUIRED");
+  if (undoPrepared.status !== "GRAPH_RESTORE_REQUIRED") throw new Error("expected in-place graph restore");
+  const undone = await client.finalizeCreationSessionMiniUndo(prepared.semanticCommitId, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, graphContentHash: prepared.graphPlan.beforeHash, traceId: "creation-mini-in-place-undo-finalize" });
+  assert.equal(undone.status, "COMPLETED");
+  assert.ok(undone.session.creationResult?.undoneAt);
+});
+
 test("Creation Session persists answers before Provider, retains stable consensus on failure and retries safely", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-round-service-"));
   let call = 0;

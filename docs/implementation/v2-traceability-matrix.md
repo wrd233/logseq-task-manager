@@ -114,5 +114,7 @@ Local Service / Plugin / Review queue，重放不产生第二个 Proposal，审�
 Graph / Object 写入。CS-CP06 已完成 Project 独立 Page 的专用 Graph step、既有
 SemanticCommit prepare/finalize、原子 Domain materialization、精确补偿与 Undo；Plugin 只写入
 带三项所有权证据和确定性 UUID 的审阅 Draft Tree，半写入只在严格受控前缀时清理，未知或后续
-用户内容一律保留。MiniProject 纵向、真实 Provider/Desktop/独立视觉 Gate 尚未完成，总体状态保持
-`IN_PROGRESS`。
+用户内容一律保留。CS-CP07 已完成 MiniProject Page-end 新树和来源原位整树的
+before/after 计划、同一 SemanticCommit 账本、Plugin 确定性排序/改写/新建、Domain 冲突补偿
+与 inverse Domain/Graph Undo；中断 staging 只在仍受事务所有时清理，后续用户内容会使 Undo
+零删除拒绝。真实 Provider/Desktop/独立视觉 Gate 尚未完成，总体状态保持 `IN_PROGRESS`。

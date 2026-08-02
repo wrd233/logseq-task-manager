@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { reviewV2ProposalGroups, type CreationSession } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { buildCreationSessionProposal, planAcceptedCreationSession, verifyCreationSessionCommitPlan } from "../src/index.ts";
+import { buildCreationSessionProposal, creationSessionMiniTreeHash, planAcceptedCreationSession, planCreationSessionMiniGraph, verifyCreationSessionCommitPlan } from "../src/index.ts";
 
 const at = "2026-08-02T09:00:00.000Z";
 const rootUuid = "11111111-1111-4111-8111-111111111111";
@@ -90,6 +90,12 @@ test("Creation Session proposal freezes a pre-commit MiniProject tree into one H
   assert.equal(plan.nodes[2]?.blockUuid, createdUuid);
   assert.equal(plan.placement.kind, "SOURCE_BLOCK_IN_PLACE");
   assert.equal(verifyCreationSessionCommitPlan(miniSession(), plan).sessionId, plan.sessionId);
+  const graphPlan = planCreationSessionMiniGraph(miniSession(), plan);
+  assert.equal(graphPlan.mode, "IN_PLACE");
+  assert.equal(graphPlan.rootBlockUuid, rootUuid);
+  assert.deepEqual(graphPlan.beforeNodes.map(({ blockUuid, order }) => ({ blockUuid, order })), [{ blockUuid: rootUuid, order: 0 }, { blockUuid: childUuid, order: 0 }]);
+  assert.equal(graphPlan.afterNodes[2]?.parentBlockUuid, rootUuid);
+  assert.equal(graphPlan.afterHash, creationSessionMiniTreeHash(rootUuid, graphPlan.afterNodes));
   const changed = miniSession();
   changed.draftRevisions[0]!.nodes[0]!.text = "用户在审阅后改了根标题";
   assert.throws(() => verifyCreationSessionCommitPlan(changed, plan), /Draft Tree/);

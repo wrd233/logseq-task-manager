@@ -3,8 +3,8 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildCreationSessionProposal, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedCreationSession, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, verifyCreationSessionCommitPlan, type CreationSessionCommitPlan, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
-import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationRoundAnswerInput, type CreationSessionSource, type CreationSessionStatus, type CreationSourceCapture, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildCreationSessionProposal, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, creationSessionMiniTreeHash, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedCreationSession, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, planCreationSessionMiniGraph, projectV2NowWork, verifyCreationSessionCommitPlan, type CreationSessionCommitPlan, type CreationSessionMiniGraphPlan, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
+import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationRoundAnswerInput, type CreationSession, type CreationSessionSource, type CreationSessionStatus, type CreationSourceCapture, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -1357,6 +1357,35 @@ async function readCreationSessionUndoFinalizeRequest(request: IncomingMessage):
   return record as unknown as { undoSemanticCommitId: string; pageExternalId: string; pageExists: false; traceId: string };
 }
 
+async function readCreationSessionMiniFinalizeRequest(request: IncomingMessage): Promise<{ semanticCommitId: string; expectedUpdatedAt: string; rootBlockUuid: string; graphContentHash: string; traceId: string }> {
+  const record = await readCreationSessionJson(request);
+  if (Object.keys(record).sort().join(",") !== "expectedUpdatedAt,graphContentHash,rootBlockUuid,semanticCommitId,traceId"
+    || typeof record.semanticCommitId !== "string" || !record.semanticCommitId.startsWith("proposal-commit:") || record.semanticCommitId.length > 96
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || typeof record.rootBlockUuid !== "string" || !record.rootBlockUuid.trim() || record.rootBlockUuid.length > 128
+    || typeof record.graphContentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.graphContentHash)
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("CREATION_SESSION_MINI_COMMIT_REQUEST_INVALID", "MiniProject Creation Session finalize 缺少匹配的树或账本证据。");
+  return record as unknown as { semanticCommitId: string; expectedUpdatedAt: string; rootBlockUuid: string; graphContentHash: string; traceId: string };
+}
+
+async function readCreationSessionMiniUndoPrepareRequest(request: IncomingMessage): Promise<{ traceId: string; confirmedGraphHash?: string }> {
+  const record = await readCreationSessionJson(request);
+  const keys = Object.keys(record).sort().join(",");
+  if (!["traceId", "confirmedGraphHash,traceId"].includes(keys)
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+    || ("confirmedGraphHash" in record && (typeof record.confirmedGraphHash !== "string" || !/^[0-9a-f]{8}$/.test(record.confirmedGraphHash)))) throw serviceError("CREATION_SESSION_MINI_UNDO_REQUEST_INVALID", "MiniProject Creation Session Undo 缺少精确树预检证据。");
+  return record as unknown as { traceId: string; confirmedGraphHash?: string };
+}
+
+async function readCreationSessionMiniUndoFinalizeRequest(request: IncomingMessage): Promise<{ undoSemanticCommitId: string; graphContentHash: string; traceId: string }> {
+  const record = await readCreationSessionJson(request);
+  if (Object.keys(record).sort().join(",") !== "graphContentHash,traceId,undoSemanticCommitId"
+    || typeof record.undoSemanticCommitId !== "string" || !record.undoSemanticCommitId.startsWith("creation-session-undo:proposal-commit:") || record.undoSemanticCommitId.length > 160
+    || typeof record.graphContentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.graphContentHash)
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("CREATION_SESSION_MINI_UNDO_REQUEST_INVALID", "MiniProject Creation Session Undo finalize 缺少恢复后的树证据。");
+  return record as unknown as { undoSemanticCommitId: string; graphContentHash: string; traceId: string };
+}
+
 async function readMaterializeRequest(request: IncomingMessage): Promise<MaterializeRequest> {
   const body = await readBody(request);
   let value: unknown;
@@ -1933,6 +1962,51 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         : { kind: "OBJECT" as const, id: target.id, exists: false };
     }),
   ];
+  const creationSessionMiniGraphObservations = async (session: CreationSession, graphPlan: CreationSessionMiniGraphPlan): Promise<V2ProposalScopeObservation[]> => {
+    const observations = new Map<string, V2ProposalScopeObservation>();
+    for (const source of session.sources) {
+      if (source.kind === "BLANK") continue;
+      const current = source.captures.find(({ captureId }) => captureId === source.currentCaptureId)!;
+      const result = await graphReadBroker.read(source.kind === "BLOCK_SUBTREE"
+        ? { kind: "BLOCK", target: source.externalId!, includeChildren: true, parents: 8 }
+        : { kind: "PAGE", target: source.externalId!, depth: 5 });
+      if (result.status !== "FOUND" || result.snapshot.truncated || result.snapshot.scopeHash !== current.snapshotHash) throw serviceError("CREATION_SESSION_COMMIT_SOURCE_STALE", "Creation Session 来源在审阅后已变化；没有准备 MiniProject Commit。");
+      if (source.kind === "PAGE") observations.set(`PAGE:${source.externalId!}`, { kind: "PAGE", id: source.externalId!, exists: true, hash: result.snapshot.scopeHash });
+      for (const block of result.snapshot.blocks.filter(({ relation }) => relation !== "PARENT")) observations.set(`BLOCK:${block.uuid}`, { kind: "BLOCK", id: block.uuid, exists: true, hash: block.contentHash });
+      if (graphPlan.mode === "IN_PLACE" && source.role === "PRIMARY") {
+        const siblingOrders = new Map<string, number>();
+        const actual = result.snapshot.blocks.filter(({ relation }) => relation !== "PARENT").map((block) => {
+          const parentKey = block.relation === "CHILD" ? block.parentUuid ?? "ROOT" : "ROOT";
+          const order = siblingOrders.get(parentKey) ?? 0;
+          siblingOrders.set(parentKey, order + 1);
+          const text = stripLogseqBlockIdentityProperty(block.content, block.uuid);
+          return { blockUuid: block.uuid, text, ...(block.relation === "CHILD" && block.parentUuid ? { parentBlockUuid: block.parentUuid } : {}), order, contentHash: checksum(text), operation: "KEEP" as const };
+        });
+        if (creationSessionMiniTreeHash(graphPlan.rootBlockUuid, actual) !== graphPlan.beforeHash) throw serviceError("CREATION_SESSION_COMMIT_SOURCE_STALE", "MiniProject 来源树与正式审阅前快照不一致；没有准备 Commit。");
+      }
+    }
+    const observePlacementBlock = async (blockUuid: string): Promise<void> => {
+      if (observations.has(`BLOCK:${blockUuid}`)) return;
+      const result = await graphReadBroker.read({ kind: "BLOCK", target: blockUuid, includeChildren: false, parents: 0 });
+      if (result.status !== "FOUND" || result.snapshot.truncated) throw serviceError("CREATION_SESSION_PLACEMENT_STALE", "MiniProject Placement Block 不再可用；没有准备 Commit。");
+      const block = result.snapshot.blocks.find(({ uuid }) => uuid === blockUuid);
+      if (!block) throw serviceError("CREATION_SESSION_PLACEMENT_STALE", "MiniProject Placement Block 不再可用；没有准备 Commit。");
+      observations.set(`BLOCK:${blockUuid}`, { kind: "BLOCK", id: blockUuid, exists: true, hash: block.contentHash });
+    };
+    if (graphPlan.placement.kind === "SOURCE_BLOCK_IN_PLACE" || graphPlan.placement.kind === "SOURCE_BLOCK_CHILD") await observePlacementBlock(graphPlan.placement.sourceBlockUuid);
+    if (graphPlan.placement.kind === "AFTER_SELECTED_BLOCK") await observePlacementBlock(graphPlan.placement.selectedBlockUuid);
+    if (graphPlan.placement.kind === "PAGE_END" && !observations.has(`PAGE:${graphPlan.placement.pageId}`)) {
+      const result = await graphReadBroker.read({ kind: "PAGE", target: graphPlan.placement.pageId, depth: 0 });
+      if (result.status !== "FOUND") throw serviceError("CREATION_SESSION_PLACEMENT_STALE", "MiniProject Placement Page 不再可用；没有准备 Commit。");
+      observations.set(`PAGE:${graphPlan.placement.pageId}`, { kind: "PAGE", id: graphPlan.placement.pageId, exists: true, hash: result.snapshot.scopeHash });
+    }
+    if (graphPlan.mode === "NEW_TREE") {
+      const root = await graphReadBroker.read({ kind: "BLOCK", target: graphPlan.rootBlockUuid, includeChildren: true, parents: 0 });
+      if (root.status === "FOUND") throw serviceError("CREATION_SESSION_BLOCK_IDENTITY_CONFLICT", "MiniProject 确定性根 Block UUID 已存在；没有写入。");
+      if (root.status === "ERROR") throw serviceError("CREATION_SESSION_GRAPH_READ_FAILED", "无法确认 MiniProject 根 Block UUID 是否空闲；没有写入。");
+    }
+    return [...observations.values()];
+  };
   const projectCreationGraphObservations = async (
     plan: ReturnType<typeof planAcceptedV2ProjectCreation>,
   ): Promise<V2ProposalScopeObservation[]> => {
@@ -5047,6 +5121,186 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       if (steps[1]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "APPLIED", now.toISOString());
       if (store.semanticCommitSteps(undoSemanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "VERIFIED", now.toISOString());
       store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum({ session: undoReceipt.session, objectRemoved: receipt.object.objectId, anchorRemoved: receipt.anchor.anchorId, pageRemoved: receipt.anchor.externalId }));
+      store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
+      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, session: undoReceipt.session, replayed: false });
+      return;
+    }
+    const creationSessionMiniCommitPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/creation-session-mini\/commit\/prepare$/) : null;
+    if (creationSessionMiniCommitPrepareMatch?.[1]) {
+      const proposalId = decodeURIComponent(creationSessionMiniCommitPrepareMatch[1]);
+      const input = await readCreationSessionCommitPrepareRequest(request);
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "MiniProject Creation Session Proposal 不存在。");
+      const plan = planAcceptedCreationSession(stored.proposal);
+      if (plan.targetType !== "MINI_PROJECT") throw serviceError("CREATION_SESSION_MINI_COMMIT_TARGET_INVALID", "该 Proposal 不是 MiniProject Creation Session；没有写入。");
+      const current = creationSessionApplication.get(plan.sessionId);
+      if (!current) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
+      const graphPlan = planCreationSessionMiniGraph(current, plan);
+      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
+      const receiptKey = `creation-session:${semanticCommitId}`;
+      const existing = store.semanticCommit(semanticCommitId);
+      const expectedSteps = [
+        { semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId: graphPlan.rootBlockUuid, beforeHash: graphPlan.beforeHash, afterHash: graphPlan.afterHash },
+        { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE" as const, status: "PREPARED" as const, operationId: plan.objectId },
+      ];
+      if (existing) {
+        const steps = store.semanticCommitSteps(semanticCommitId);
+        if (existing.proposalId !== proposalId || steps.length !== 2 || steps.some((step, index) => {
+          const expected = expectedSteps[index]!;
+          return step.stepKind !== expected.stepKind || step.operationId !== expected.operationId || step.beforeHash !== expected.beforeHash || step.afterHash !== expected.afterHash;
+        })) throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 账本与已审阅树计划不一致。");
+        if (existing.status === "COMPLETED") {
+          const receipt = store.getCommandReceipt(receiptKey);
+          if (receipt?.command !== "create_from_creation_session") throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 完成账本缺少原子回执。");
+          const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+          respond(response, 200, { status: "COMPLETED", semanticCommitId, proposalId, session: receipt.session, object: receipt.object, anchor: receipt.anchor, record, replayed: true });
+          return;
+        }
+        if (existing.status === "FAILED") {
+          const record = stored.proposal.status === "FAILED" ? stored : await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt);
+          respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId, proposalId, record, replayed: true });
+          return;
+        }
+        if (!["PENDING", "RECOVERY_REQUIRED"].includes(existing.status)) throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 账本状态不受支持。");
+        respond(response, 200, { status: existing.status === "RECOVERY_REQUIRED" ? "RECOVERY_REQUIRED" : "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, objectId: plan.objectId, graphPlan, replayed: true });
+        return;
+      }
+      requireNoUnfinishedProposalCommit(proposalId);
+      verifyCreationSessionCommitPlan(current, plan);
+      const observations = await creationSessionMiniGraphObservations(current, graphPlan);
+      const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, observations), input.expectedUpdatedAt);
+      if (revalidation.result.status === "STALE") { respond(response, 200, { status: "STALE", ...revalidation }); return; }
+      const now = new Date().toISOString();
+      store.prepareSemanticCommit({ semanticCommitId, proposalId, status: "PENDING", beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, sessionId: plan.sessionId, graphBefore: graphPlan.beforeHash, graphAfter: graphPlan.afterHash }), createdAt: now, updatedAt: now }, expectedSteps.map((step) => ({ ...step, updatedAt: now })));
+      respond(response, 201, { status: "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, objectId: plan.objectId, graphPlan, replayed: false });
+      return;
+    }
+    const creationSessionMiniCommitFinalizeMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/creation-session-mini\/commit\/finalize$/) : null;
+    if (creationSessionMiniCommitFinalizeMatch?.[1]) {
+      const proposalId = decodeURIComponent(creationSessionMiniCommitFinalizeMatch[1]);
+      const input = await readCreationSessionMiniFinalizeRequest(request);
+      if (input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("CREATION_SESSION_MINI_COMMIT_INTENT_MISMATCH", "MiniProject Creation Session finalize 与 Proposal 不一致。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "MiniProject Creation Session Proposal 不存在。");
+      const plan = planAcceptedCreationSession(stored.proposal);
+      const current = creationSessionApplication.get(plan.sessionId);
+      if (!current) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
+      const graphPlan = planCreationSessionMiniGraph(current, plan);
+      if (plan.targetType !== "MINI_PROJECT" || input.rootBlockUuid !== graphPlan.rootBlockUuid || input.graphContentHash !== graphPlan.afterHash) throw serviceError("CREATION_SESSION_MINI_GRAPH_EVIDENCE_MISMATCH", "MiniProject Graph Tree 证据与已审阅计划不一致。");
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const steps = store.semanticCommitSteps(input.semanticCommitId);
+      const receiptKey = `creation-session:${input.semanticCommitId}`;
+      if (!commit || commit.proposalId !== proposalId || !["PENDING", "COMPLETED"].includes(commit.status) || steps.length !== 2 || steps[0]?.operationId !== graphPlan.rootBlockUuid || steps[0].afterHash !== graphPlan.afterHash || steps[1]?.operationId !== plan.objectId) throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session finalize 缺少匹配账本。");
+      const receipt = store.getCommandReceipt(receiptKey);
+      if (commit.status === "COMPLETED") {
+        if (receipt?.command !== "create_from_creation_session") throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 完成账本缺少原子回执。");
+        const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, session: receipt.session, object: receipt.object, anchor: receipt.anchor, record, replayed: true });
+        return;
+      }
+      const now = new Date();
+      if (steps[0]?.status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(input.semanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, 0, "VERIFIED", now.toISOString());
+      let result;
+      try {
+        result = creationSessionApplication.formalize({ sessionId: plan.sessionId, expectedVersion: plan.expectedSessionVersion, idempotencyKey: receiptKey, semanticCommitId: input.semanticCommitId, objectId: plan.objectId, text: graphPlan.afterNodes.find(({ blockUuid }) => blockUuid === graphPlan.rootBlockUuid)!.text, anchor: { graphId: options.graphId, externalId: graphPlan.rootBlockUuid, contentHash: graphPlan.afterNodes.find(({ blockUuid }) => blockUuid === graphPlan.rootBlockUuid)!.contentHash }, actor: "proposal_commit", traceId: input.traceId }, now);
+      } catch {
+        if (store.getCommandReceipt(receiptKey)?.command !== "create_from_creation_session") {
+          store.advanceSemanticCommitStep(input.semanticCommitId, 0, "RECOVERY_REQUIRED", now.toISOString(), "CREATION_SESSION_DOMAIN_WRITE_FAILED");
+          store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now.toISOString(), undefined, "CREATION_SESSION_DOMAIN_WRITE_FAILED");
+          respond(response, 200, { status: "COMPENSATION_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, objectId: plan.objectId, graphPlan });
+          return;
+        }
+        result = creationSessionApplication.formalize({ sessionId: plan.sessionId, expectedVersion: plan.expectedSessionVersion, idempotencyKey: receiptKey, semanticCommitId: input.semanticCommitId, objectId: plan.objectId, text: graphPlan.afterNodes.find(({ blockUuid }) => blockUuid === graphPlan.rootBlockUuid)!.text, anchor: { graphId: options.graphId, externalId: graphPlan.rootBlockUuid, contentHash: graphPlan.afterNodes.find(({ blockUuid }) => blockUuid === graphPlan.rootBlockUuid)!.contentHash }, actor: "proposal_commit", traceId: input.traceId }, now);
+      }
+      if (store.semanticCommitSteps(input.semanticCommitId)[1]?.status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, 1, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(input.semanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, 1, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(input.semanticCommitId, "COMPLETED", now.toISOString(), checksum({ session: result.session, object: result.object, anchor: result.anchor, graph: graphPlan.afterHash }));
+      const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 201, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, session: result.session, object: result.object, anchor: result.anchor, record, replayed: result.replayed });
+      return;
+    }
+    const creationSessionMiniCommitCompensateMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/creation-session-mini\/commit\/compensate$/) : null;
+    if (creationSessionMiniCommitCompensateMatch?.[1]) {
+      const proposalId = decodeURIComponent(creationSessionMiniCommitCompensateMatch[1]);
+      const input = await readCreationSessionMiniFinalizeRequest(request);
+      if (input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("CREATION_SESSION_MINI_COMMIT_INTENT_MISMATCH", "MiniProject Creation Session compensation 与 Proposal 不一致。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "MiniProject Creation Session Proposal 不存在。");
+      const plan = planAcceptedCreationSession(stored.proposal);
+      const current = creationSessionApplication.get(plan.sessionId);
+      if (!current) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
+      const graphPlan = planCreationSessionMiniGraph(current, plan);
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const steps = store.semanticCommitSteps(input.semanticCommitId);
+      if (input.rootBlockUuid !== graphPlan.rootBlockUuid || input.graphContentHash !== graphPlan.beforeHash || commit?.status !== "RECOVERY_REQUIRED" || commit.proposalId !== proposalId || steps[0]?.status !== "RECOVERY_REQUIRED" || store.getCommandReceipt(`creation-session:${input.semanticCommitId}`)) throw serviceError("CREATION_SESSION_MINI_COMPENSATION_EVIDENCE_MISMATCH", "MiniProject Creation Session 补偿账本或恢复树证据不匹配。");
+      const now = new Date();
+      store.advanceSemanticCommitStep(input.semanticCommitId, 0, "COMPENSATED", now.toISOString());
+      store.finalizeSemanticCommit(input.semanticCommitId, "FAILED", now.toISOString(), undefined, "CREATION_SESSION_DOMAIN_WRITE_FAILED");
+      const record = await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: false });
+      return;
+    }
+    const creationSessionMiniUndoPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/creation-session-mini\/undo\/prepare$/) : null;
+    if (creationSessionMiniUndoPrepareMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(creationSessionMiniUndoPrepareMatch[1]);
+      const input = await readCreationSessionMiniUndoPrepareRequest(request);
+      const original = store.semanticCommit(originalSemanticCommitId);
+      if (!original?.proposalId || !["COMPLETED", "UNDONE"].includes(original.status)) throw serviceError("CREATION_SESSION_MINI_UNDO_NOT_AVAILABLE", "只有已完成的 MiniProject Creation Session 可以 Undo。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 原 Proposal 不存在。");
+      const plan = planAcceptedCreationSession(stored.proposal);
+      const session = creationSessionApplication.get(plan.sessionId);
+      if (!session) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
+      const graphPlan = planCreationSessionMiniGraph(session, plan);
+      const receipt = store.getCommandReceipt(`creation-session:${originalSemanticCommitId}`);
+      if (plan.targetType !== "MINI_PROJECT" || receipt?.command !== "create_from_creation_session") throw serviceError("CREATION_SESSION_MINI_COMMIT_LEDGER_CORRUPT", "MiniProject Creation Session 原子回执不完整。");
+      const undoSemanticCommitId = creationSessionUndoSemanticCommitId(originalSemanticCommitId);
+      const undoReceiptKey = `creation-session-undo:${undoSemanticCommitId}`;
+      const undoReceipt = store.getCommandReceipt(undoReceiptKey);
+      const existing = store.semanticCommit(undoSemanticCommitId);
+      if (existing?.status === "COMPLETED") {
+        if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, session: undoReceipt?.command === "undo_creation_session_materialization" ? undoReceipt.session : receipt.session, replayed: true });
+        return;
+      }
+      if (existing && existing.status !== "PENDING") throw serviceError("CREATION_SESSION_MINI_UNDO_NOT_AVAILABLE", "MiniProject Creation Session Undo 已终止或需要人工恢复。");
+      if (!undoReceipt && input.confirmedGraphHash !== graphPlan.afterHash) {
+        respond(response, 200, { status: "GRAPH_PREFLIGHT_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, objectId: plan.objectId, graphPlan, replayed: Boolean(existing) });
+        return;
+      }
+      const now = new Date();
+      const expectedSteps = [
+        { semanticCommitId: undoSemanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE" as const, status: "PREPARED" as const, operationId: plan.objectId, updatedAt: now.toISOString() },
+        { semanticCommitId: undoSemanticCommitId, stepIndex: 1, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId: graphPlan.rootBlockUuid, beforeHash: graphPlan.afterHash, afterHash: graphPlan.beforeHash, updatedAt: now.toISOString() },
+      ];
+      store.prepareSemanticCommit({ semanticCommitId: undoSemanticCommitId, proposalId: original.proposalId, status: "PENDING", beforeStateChecksum: checksum({ session: receipt.session, object: receipt.object, anchor: receipt.anchor, graph: graphPlan.afterHash }), createdAt: existing?.createdAt ?? now.toISOString(), updatedAt: now.toISOString() }, expectedSteps);
+      const currentSteps = store.semanticCommitSteps(undoSemanticCommitId);
+      if (currentSteps.length !== 2 || currentSteps.some((step, index) => step.stepKind !== expectedSteps[index]!.stepKind || step.operationId !== expectedSteps[index]!.operationId || step.beforeHash !== expectedSteps[index]!.beforeHash || step.afterHash !== expectedSteps[index]!.afterHash)) throw serviceError("CREATION_SESSION_MINI_UNDO_LEDGER_CORRUPT", "MiniProject Creation Session Undo 账本与原创建结果不一致。");
+      const undone = undoReceipt?.command === "undo_creation_session_materialization" ? { ...undoReceipt, replayed: true } : creationSessionApplication.undoFormalization({ sessionId: plan.sessionId, expectedVersion: receipt.session.version, idempotencyKey: undoReceiptKey, semanticCommitId: originalSemanticCommitId, expectedObject: receipt.object, expectedAnchor: receipt.anchor, actor: "proposal_undo", traceId: input.traceId }, now);
+      if (currentSteps[0]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "VERIFIED", now.toISOString());
+      respond(response, existing ? 200 : 201, { status: "GRAPH_RESTORE_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, objectId: plan.objectId, graphPlan, session: undone.session, replayed: Boolean(existing) || undone.replayed });
+      return;
+    }
+    const creationSessionMiniUndoFinalizeMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/creation-session-mini\/undo\/finalize$/) : null;
+    if (creationSessionMiniUndoFinalizeMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(creationSessionMiniUndoFinalizeMatch[1]);
+      const input = await readCreationSessionMiniUndoFinalizeRequest(request);
+      const undoSemanticCommitId = creationSessionUndoSemanticCommitId(originalSemanticCommitId);
+      if (input.undoSemanticCommitId !== undoSemanticCommitId) throw serviceError("CREATION_SESSION_MINI_UNDO_INTENT_MISMATCH", "MiniProject Creation Session Undo finalize 与路径不一致。");
+      const original = store.semanticCommit(originalSemanticCommitId);
+      const inverse = store.semanticCommit(undoSemanticCommitId);
+      const steps = store.semanticCommitSteps(undoSemanticCommitId);
+      const receipt = store.getCommandReceipt(`creation-session:${originalSemanticCommitId}`);
+      const undoReceipt = store.getCommandReceipt(`creation-session-undo:${undoSemanticCommitId}`);
+      if (!original?.proposalId || !inverse || inverse.proposalId !== original.proposalId || receipt?.command !== "create_from_creation_session" || undoReceipt?.command !== "undo_creation_session_materialization" || steps.length !== 2) throw serviceError("CREATION_SESSION_MINI_UNDO_LEDGER_CORRUPT", "MiniProject Creation Session Undo 缺少匹配账本或回执。");
+      if (inverse.status === "COMPLETED" && original.status === "UNDONE") { respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, session: undoReceipt.session, replayed: true }); return; }
+      if (inverse.status !== "PENDING" || input.graphContentHash !== steps[1]?.afterHash || steps[0]?.status !== "VERIFIED") throw serviceError("CREATION_SESSION_MINI_UNDO_GRAPH_EVIDENCE_MISMATCH", "MiniProject Graph 尚未精确恢复；没有收口 Undo。");
+      const now = new Date();
+      if (steps[1]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum({ session: undoReceipt.session, graph: input.graphContentHash }));
       store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
       respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, session: undoReceipt.session, replayed: false });
       return;

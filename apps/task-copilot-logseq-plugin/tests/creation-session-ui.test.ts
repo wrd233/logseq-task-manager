@@ -97,6 +97,22 @@ test("a READY Project draft exposes explicit independent-Page placement and Prop
   assert.match(html, /不会立即写入/);
 });
 
+test("a blank READY MiniProject exposes a current-Page placement action", () => {
+  const base = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: blank(), sessionId: "creation-mini-ready" }, at);
+  const session = generateCreationDraftRevision(base, {
+    generationId: "generation-mini-ready", reason: "INITIAL_DRAFT", suggestedObjectTitle: "验证告警接入",
+    nodes: [
+      { semanticKey: "root", text: "**[MiniProject]** 验证告警接入 #MiniProject", order: 0, nodeType: "BLOCK", provenance: "AGENT_SYNTHESIS", operation: "CREATE", confirmed: true, evidenceRefs: [] },
+      { semanticKey: "goal", parentSemanticKey: "root", text: "**[目标]** 一条真实告警可追踪", order: 0, nodeType: "BLOCK", provenance: "AGENT_SYNTHESIS", operation: "CREATE", confirmed: true, evidenceRefs: [] },
+    ],
+    unusedMaterials: [], warnings: [], maturity: { level: "READY", missing: [] },
+  }, base.version, at);
+  const html = renderCreationSession({ status: "ready", sessions: [session], session, view: "DRAFT" });
+  assert.match(html, /当前 Page 末尾/);
+  assert.match(html, /data-action="creation-session-placement-blank-page-end"/);
+  assert.doesNotMatch(html, /data-action="creation-session-proposal-prepare"/);
+});
+
 test("shows only active sessions in a restrained resumable list", () => {
   const session = discussing();
   const html = renderCreationSession({ status: "ready", sessions: [session], view: "DISCUSSION" });

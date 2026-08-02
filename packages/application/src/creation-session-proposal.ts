@@ -46,6 +46,25 @@ export interface CreationSessionCommitPlan {
   nodes: CreationSessionCommitNode[];
 }
 
+export interface CreationSessionMiniTreeNode {
+  blockUuid: string;
+  text: string;
+  parentBlockUuid?: string;
+  order: number;
+  contentHash: string;
+  operation: CreationDraftNode["operation"];
+}
+
+export interface CreationSessionMiniGraphPlan {
+  mode: "IN_PLACE" | "NEW_TREE";
+  placement: Exclude<CreationPlacementPlan, { kind: "NEW_PROJECT_PAGE" }>;
+  rootBlockUuid: string;
+  beforeNodes: CreationSessionMiniTreeNode[];
+  afterNodes: CreationSessionMiniTreeNode[];
+  beforeHash: string;
+  afterHash: string;
+}
+
 function creationPlanError(code: string, message: string): StructuredError {
   return new StructuredError({ code, message, ruleRefs: ["CREATION-SESSION-001", "D-094", "D-185"] });
 }
@@ -102,7 +121,12 @@ function placementTarget(session: CreationSession, readTargets: V2ProposalScopeT
     case "SOURCE_BLOCK_IN_PLACE": return block(placement.sourceBlockUuid);
     case "SOURCE_BLOCK_CHILD": return block(placement.sourceBlockUuid);
     case "AFTER_SELECTED_BLOCK": return block(placement.selectedBlockUuid, placement.selectionHash);
-    case "PAGE_END": return { kind: "PAGE", id: placement.pageId, expectedExistence: "PRESENT", ...(placement.pageHash ? { hash: placement.pageHash } : {}) };
+    case "PAGE_END": {
+      const observed = readTargets.find((target) => target.kind === "PAGE" && target.id === placement.pageId);
+      const hash = placement.pageHash ?? observed?.hash;
+      if (!hash) throw creationPlanError("CREATION_SESSION_PLACEMENT_UNSCOPED", "Page 末尾 Placement 必须保存当前 Page hash。");
+      return { kind: "PAGE", id: placement.pageId, expectedExistence: "PRESENT", hash };
+    }
     case "NEW_PROJECT_PAGE": return { kind: "PAGE", id: placement.pageName, expectedExistence: "ABSENT" };
   }
 }
@@ -272,4 +296,60 @@ export function verifyCreationSessionCommitPlan(sessionValue: CreationSession, p
   }
   validatePlacement(session, draft);
   return structuredClone(session);
+}
+
+export function creationSessionMiniTreeHash(rootBlockUuid: string, nodes: CreationSessionMiniTreeNode[]): string {
+  return checksum({
+    rootBlockUuid,
+    nodes: [...nodes]
+      .sort((left, right) => left.parentBlockUuid === right.parentBlockUuid ? left.order - right.order : left.blockUuid.localeCompare(right.blockUuid))
+      .map(({ blockUuid, text, parentBlockUuid, order, contentHash }) => ({ blockUuid, text, ...(parentBlockUuid ? { parentBlockUuid } : {}), order, contentHash })),
+  });
+}
+
+export function planCreationSessionMiniGraph(sessionValue: CreationSession, plan: CreationSessionCommitPlan): CreationSessionMiniGraphPlan {
+  const session = validateCreationSession(sessionValue);
+  if (session.status === "PREVIEW_READY") verifyCreationSessionCommitPlan(session, plan);
+  else if (session.status !== "CREATED" || session.sessionId !== plan.sessionId || session.currentDraftRevisionId !== plan.draftRevisionId
+    || session.targetType !== plan.targetType || sourceFingerprint(session) !== plan.sourceFingerprint || checksum(session.placementPlan) !== checksum(plan.placement)) {
+    throw creationPlanError("CREATION_SESSION_COMMIT_SESSION_STALE", "Creation Session 结果不能重建已审阅的 MiniProject Graph 计划。");
+  }
+  if (plan.targetType !== "MINI_PROJECT" || plan.placement.kind === "NEW_PROJECT_PAGE") throw creationPlanError("CREATION_SESSION_MINI_GRAPH_PLAN_INVALID", "MiniProject Graph 计划的类型或 Placement 无效。");
+  const root = plan.nodes.find(({ parentNodeId }) => !parentNodeId)!;
+  const afterNodes = plan.nodes.map((node) => ({
+    blockUuid: node.blockUuid,
+    text: node.text,
+    ...(node.parentNodeId ? { parentBlockUuid: plan.nodes.find(({ nodeId }) => nodeId === node.parentNodeId)!.blockUuid } : {}),
+    order: node.order,
+    contentHash: node.contentHash,
+    operation: node.operation,
+  }));
+  let beforeNodes: CreationSessionMiniTreeNode[] = [];
+  if (plan.placement.kind === "SOURCE_BLOCK_IN_PLACE") {
+    const primary = session.sources.find(({ role }) => role === "PRIMARY")!;
+    const capture = currentCapture(primary);
+    const siblingOrders = new Map<string, number>();
+    beforeNodes = capture.hierarchy.filter(({ relation }) => relation !== "PARENT").map((node) => {
+      const parentKey = node.parentNodeId ?? "ROOT";
+      const order = siblingOrders.get(parentKey) ?? 0;
+      siblingOrders.set(parentKey, order + 1);
+      return {
+        blockUuid: node.nodeId,
+        text: node.text,
+        ...(node.relation === "CHILD" && node.parentNodeId ? { parentBlockUuid: node.parentNodeId } : {}),
+        order,
+        contentHash: checksum(node.text),
+        operation: "KEEP" as const,
+      };
+    });
+  }
+  return {
+    mode: plan.placement.kind === "SOURCE_BLOCK_IN_PLACE" ? "IN_PLACE" : "NEW_TREE",
+    placement: structuredClone(plan.placement),
+    rootBlockUuid: root.blockUuid,
+    beforeNodes,
+    afterNodes,
+    beforeHash: plan.placement.kind === "SOURCE_BLOCK_IN_PLACE" ? creationSessionMiniTreeHash(root.blockUuid, beforeNodes) : checksum({ rootBlockUuid: root.blockUuid, exists: false }),
+    afterHash: creationSessionMiniTreeHash(root.blockUuid, afterNodes),
+  };
 }

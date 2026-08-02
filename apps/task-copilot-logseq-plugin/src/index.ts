@@ -73,6 +73,7 @@ import { createReviewedProjectWithPage, ownedProjectPageObjectId, projectCreatio
 import { ProjectCreationGrillController, type ProjectCreationSource } from "./project-creation-grill-controller.ts";
 import { CreationSessionController, type CreationSessionClient } from "./creation-session-controller.ts";
 import { commitCreationSessionProject, undoCreationSessionProject } from "./creation-session-commit.ts";
+import { commitCreationSessionMini, undoCreationSessionMini } from "./creation-session-mini-commit.ts";
 import {
   buildSelectedBlockProposalPrompt,
   buildSelectedBlockProposalRevisionPrompt,
@@ -86,7 +87,7 @@ import { applyLowRiskV2Proposal } from "./v2-low-risk-apply.ts";
 import { commitMiniProjectRestructure, undoMiniProjectRestructure, type MiniProjectRestructureGraphHost } from "./v2-mini-project-restructure.ts";
 import { settleRuntimeBridgeCall } from "./runtime-bridge-guard.ts";
 import { GraphReadBridgeController } from "./graph-read-bridge-controller.ts";
-import type { GraphReadBridgeHost } from "./graph-read-bridge.ts";
+import { executeGraphReadRequest, type GraphReadBridgeHost } from "./graph-read-bridge.ts";
 import { BlockFocusController, resolveBlockObject } from "./block-focus-controller.ts";
 import { BlockConditionController, type BlockConditionDraft } from "./block-condition-controller.ts";
 import { PageContextController, type PageContextSnapshot } from "./page-context-controller.ts";
@@ -2824,6 +2825,24 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await creationSessionController.setPlacement({ kind: "PAGE_END", pageId, pageName });
     return;
   }
+  if (action === "creation-session-placement-blank-page-end") {
+    const currentPage = await logseq.Editor.getCurrentPage();
+    if (!currentPage) throw new Error("当前没有可用 Page；请先打开目标 Page。");
+    const pageId = RuntimeShapeAdapter.pageRef(currentPage);
+    const identity = await resolveLogseqPageReference(currentPage, logseq.Editor.getPage?.bind(logseq.Editor));
+    const requestedAt = new Date();
+    const result = await executeGraphReadRequest({
+      requestId: `creation-placement-${requestedAt.getTime()}`,
+      requestedAt: requestedAt.toISOString(),
+      expiresAt: new Date(requestedAt.getTime() + 30_000).toISOString(),
+      kind: "PAGE",
+      target: String(pageId),
+      depth: 5,
+    }, graphReadBridgeHost, requestedAt);
+    if (result.status !== "FOUND" || result.snapshot.truncated) throw new Error("当前 Page 无法形成完整的受控位置快照；没有保存 Placement。");
+    await creationSessionController.setPlacement({ kind: "PAGE_END", pageId: result.snapshot.resolved.id, pageName: identity.pageName ?? identity.displayName.replace(" · Journal", ""), pageHash: result.snapshot.scopeHash });
+    return;
+  }
   if (action === "creation-session-proposal-prepare") {
     await creationSessionController.prepareProposal();
     return;
@@ -4466,7 +4485,32 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await refresh();
       await run(async () => {
         const client = serviceRuntimeClient;
-        if (!proposalId || !expectedUpdatedAt || !client?.prepareCreationSessionCommit || !client.finalizeCreationSessionCommit || !client.compensateCreationSessionCommit) throw new Error("Creation Session 正式创建上下文已失效；没有写入。");
+        if (!proposalId || !expectedUpdatedAt || !client) throw new Error("Creation Session 正式创建上下文已失效；没有写入。");
+        const stored = (await client.listProposals()).find(({ proposal }) => proposal.proposalId === proposalId);
+        const targetType = stored?.proposal.groups[0]?.semanticOperations[0]?.payload.targetType;
+        if (targetType === "MINI_PROJECT") {
+          if (!client.prepareCreationSessionMiniCommit || !client.finalizeCreationSessionMiniCommit || !client.compensateCreationSessionMiniCommit) throw new Error("MiniProject Creation Session 正式创建能力不可用；没有写入。");
+          const result = await commitCreationSessionMini({
+            prepareCreationSessionMiniCommit: client.prepareCreationSessionMiniCommit.bind(client),
+            finalizeCreationSessionMiniCommit: client.finalizeCreationSessionMiniCommit.bind(client),
+            compensateCreationSessionMiniCommit: client.compensateCreationSessionMiniCommit.bind(client),
+          }, {
+            getBlock: (uuid, options) => logseq.Editor.getBlock(uuid, options),
+            appendBlockInPage: (identity, content) => logseq.Editor.appendBlockInPage(identity, content),
+            insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
+            updateBlock: (uuid, content) => logseq.Editor.updateBlock(uuid, content),
+            moveBlock: (source, target, options) => logseq.Editor.moveBlock(source, target, options),
+            removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
+          }, proposalId, expectedUpdatedAt, `v2-creation-session-mini-ui-${Date.now()}`);
+          actionDialog = undefined;
+          if (result.status === "STALE") { workspace = "review"; message = "Creation Session、来源或放置位置已变化；没有创建 MiniProject。"; return; }
+          recentActionCommitId = result.semanticCommitId;
+          workspace = "reentry";
+          v2ReentryTargetObjectId = result.object.objectId;
+          message = `${result.object.text} 已由 Creation Session 正式创建；Graph Tree、Primary Anchor 与会话结果已在同一恢复边界收口。`;
+          return;
+        }
+        if (!client.prepareCreationSessionCommit || !client.finalizeCreationSessionCommit || !client.compensateCreationSessionCommit) throw new Error("Project Creation Session 正式创建能力不可用；没有写入。");
         const result = await commitCreationSessionProject({
           prepareCreationSessionCommit: client.prepareCreationSessionCommit.bind(client),
           finalizeCreationSessionCommit: client.finalizeCreationSessionCommit.bind(client),
@@ -4507,7 +4551,30 @@ async function handleAction(action: string, value?: string): Promise<void> {
       await refresh();
       await run(async () => {
         const client = serviceRuntimeClient;
-        if (!client?.prepareCreationSessionUndo || !client.finalizeCreationSessionUndo) throw new Error("Creation Session Undo 上下文已失效；没有删除 Page。");
+        if (!client) throw new Error("Creation Session Undo 上下文已失效；没有写入。");
+        const original = (await client.listSemanticCommits()).find(({ semanticCommitId }) => semanticCommitId === value);
+        const stored = original?.proposalId ? await client.getProposal(original.proposalId) : undefined;
+        const targetType = stored?.proposal.groups[0]?.semanticOperations[0]?.payload.targetType;
+        if (targetType === "MINI_PROJECT") {
+          if (!client.prepareCreationSessionMiniUndo || !client.finalizeCreationSessionMiniUndo) throw new Error("MiniProject Creation Session Undo 能力不可用；没有写入。");
+          const result = await undoCreationSessionMini({
+            prepareCreationSessionMiniUndo: client.prepareCreationSessionMiniUndo.bind(client),
+            finalizeCreationSessionMiniUndo: client.finalizeCreationSessionMiniUndo.bind(client),
+          }, {
+            getBlock: (uuid, options) => logseq.Editor.getBlock(uuid, options),
+            appendBlockInPage: (identity, content) => logseq.Editor.appendBlockInPage(identity, content),
+            insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
+            updateBlock: (uuid, content) => logseq.Editor.updateBlock(uuid, content),
+            moveBlock: (source, target, options) => logseq.Editor.moveBlock(source, target, options),
+            removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
+          }, value, `v2-creation-session-mini-undo-ui-${Date.now()}`);
+          actionDialog = undefined;
+          workspace = "review";
+          message = "Creation Session MiniProject 创建已撤销；Graph 已精确恢复，会话和审计证据保留。";
+          recentActionCommitId = result.originalSemanticCommitId;
+          return;
+        }
+        if (!client.prepareCreationSessionUndo || !client.finalizeCreationSessionUndo) throw new Error("Project Creation Session Undo 能力不可用；没有删除 Page。");
         const result = await undoCreationSessionProject({
           prepareCreationSessionUndo: client.prepareCreationSessionUndo.bind(client),
           finalizeCreationSessionUndo: client.finalizeCreationSessionUndo.bind(client),

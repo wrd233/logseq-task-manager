@@ -9,9 +9,9 @@ Overall: `IN_PROGRESS`
 | 0 Baseline and ADR | DONE | Existing paths inspected; ADR 0010 records authority and ADR 0011 freezes the formal Proposal/commit/Undo bridge. |
 | 1 Session foundation | AUTOMATED_DONE | Domain, Application, schema 16, SQLite repository, Local Service CRUD, client, restart/idempotency/no-formal-write, Graph-owned source capture, drift/deletion check, explicit refresh, durable 2–5-question rounds, answer-first Provider transactions, retry/cancel/failure retention and replay are implemented. Desktop remains consolidated into Phase 5. |
 | 2 Draft Tree | AUTOMATED_DONE | Strict stable node/revision model, sparse important-history retention, source revalidation capture, MiniProject/Project Provider validator, Local Service/client generation, edit/adopt, idempotency, restart/failure retention and user-edit conflict protection are automated. Plugin now renders a responsive Logseq-style tree with Markdown/Page references, provenance, operation plan, conflicts, inline text/parent editing, safe Agent-leaf deletion and revision adoption. |
-| 3 MiniProject vertical | IN_PROGRESS | Fresh PRE_COMMIT evidence, full in-place source retention, deterministic Block identities, one HIGH Proposal/accepted plan, and atomic Object+Anchor+Audit+Session materialization/Undo are automated. Graph step planning, Service/Plugin execution, recovery and Desktop remain. |
+| 3 MiniProject vertical | AUTOMATED_DONE | Fresh PRE_COMMIT evidence, full in-place source retention, deterministic Block identities, one HIGH Proposal/accepted plan, shared SemanticCommit prepare/finalize, and Plugin exact Graph execution are automated for blank Page-end and Block in-place placement. Atomic Object+Anchor+Audit+Session materialization, exact compensation/replay/Undo, changed-tree protection and staging/partial-write cleanup are covered. Desktop remains consolidated into Phase 5. |
 | 4 Project vertical | AUTOMATED_DONE | Independent NEW_PROJECT_PAGE Proposal, deterministic Page/Block identities, Service SemanticCommit, Plugin Graph execution, atomic Object/Anchor/Audit/Session finalization, exact compensation/replay/Undo, changed-page protection and interrupted-tree cleanup are automated. Desktop remains consolidated into Phase 5. |
-| 5 Unified entry/runtime | IN_PROGRESS | Plugin has one persistent Creation Session controller and action surface with active-session list, MiniProject/Project blank entry, Page-to-Project route, grouped 2–5 question forms, answer-first submission, stable reload/resume, Draft/Summary/History tabs, loading/success/error states and runtime-generation stale-response protection. Legacy Grill paths remain reachable for compatibility. Real Provider, formal creation integration, Desktop and independent visual gates remain. |
+| 5 Unified entry/runtime | IN_PROGRESS | Plugin has one persistent Creation Session controller and action surface with active-session list, MiniProject/Project blank entry, Page-to-Project route, grouped 2–5 question forms, answer-first submission, stable reload/resume, Draft/Summary/History tabs, loading/success/error states and runtime-generation stale-response protection. Both formal verticals now dispatch through the same reviewed Creation Session action; legacy Grill paths remain reachable for compatibility. Real Provider, Desktop and independent visual gates remain. |
 
 Phase 1 preserves the key authority boundary: Provider output is a validated proposal
 for questions, consensus and draft hints. It cannot create a formal Object, write Audit,
@@ -38,3 +38,11 @@ compensates a Domain conflict, replays interrupted finalization, and performs in
 Domain removal plus exact Page deletion for Undo. A mid-tree failure removes the Page
 only when the remaining tree is a strict transaction-owned prefix; changed/unknown
 content is preserved. Plugin 517/517 and Local Service 198/198 pass before the root gate.
+
+Checkpoint `CS-CP07`: the MiniProject path now freezes one complete reviewed Block tree
+for both new-tree and source-in-place placement, and reuses the same Proposal,
+SemanticCommit, Domain and inverse-commit authorities. The Plugin applies deterministic
+UUIDs and order, verifies the exact after-tree before Domain finalization, restores the
+exact before-tree on interruption or Domain conflict, and refuses Undo after later user
+changes. Page-end staging is removed only while it remains transaction-owned and exact.
+Plugin 523/523 and Local Service 200/200 pass before the root gate.

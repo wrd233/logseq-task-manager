@@ -2071,7 +2071,7 @@ function renderActionDialog(model: UiModel): string {
     "confirm-v2-project-creation": ["确认创建项目", "我已检查最终阅读结果与页面关系；系统会重新检查来源，只创建或复用已审阅的主页面", "submit-v2-project-creation"],
     "confirm-v2-project-creation-undo": ["撤销项目创建", "我确认撤销正式项目；复用的来源页面会原样保留，专用页面只有仍属于本次操作且保持为空时才会删除", "submit-v2-project-creation-undo"],
     "confirm-v2-creation-session": ["确认正式创建", "我已检查完整 Draft Tree、来源与放置位置；系统会重新验证并通过同一 Semantic Commit 创建正式对象", "submit-v2-creation-session"],
-    "confirm-v2-creation-session-undo": ["撤销 Creation Session 创建", "我确认撤销正式对象；只有受控 Page 与完整 Draft Tree 都没有后续变化时才会删除，Session 与审计证据会保留", "submit-v2-creation-session-undo"],
+    "confirm-v2-creation-session-undo": ["撤销 Creation Session 创建", "我确认撤销正式对象；只有受控 Graph Tree 没有后续变化时才会删除或恢复，Session 与审计证据会保留", "submit-v2-creation-session-undo"],
     "confirm-v2-project-structure": ["确认更新项目", "我已检查目标、成果、推进阶段、项目摘要和当前推进；系统会重新检查版本，不改写 Logseq 正文", "submit-v2-project-structure-commit"],
     "confirm-v2-project-structure-undo": ["撤销项目更新", "我确认恢复审阅前的完整项目信息；只有项目没有后续正式变化时才会生效，归属和位置不会改变", "submit-v2-project-structure-undo"],
     "confirm-v2-mini-project-restructure": ["确认整理 MiniProject", "我已检查最终阅读结果、移动数量和零删除边界；系统会重新检查全部材料，保留已有内容身份，并在失败时恢复", "submit-v2-mini-project-restructure"],

@@ -1,4 +1,4 @@
-import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceRetentionPreview, AgentGovernanceRetentionResult, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, CreationSession, CreationSessionStatus, CreationSessionTargetType, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceRetentionPreview, AgentGovernanceRetentionResult, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, CreationPlacementPlan, CreationSession, CreationSessionStatus, CreationSessionTargetType, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceExportPackage, validateAgentGovernanceRetentionPreview, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -142,6 +142,39 @@ export interface ServiceCreationSessionUndoFinalization {
   session: CreationSession;
   replayed: boolean;
 }
+
+export interface ServiceCreationSessionMiniTreeNode {
+  blockUuid: string;
+  text: string;
+  parentBlockUuid?: string;
+  order: number;
+  contentHash: string;
+  operation: "KEEP" | "MOVE" | "REWRITE" | "CREATE";
+}
+
+export interface ServiceCreationSessionMiniGraphPlan {
+  mode: "IN_PLACE" | "NEW_TREE";
+  placement: Exclude<CreationPlacementPlan, { kind: "NEW_PROJECT_PAGE" }>;
+  rootBlockUuid: string;
+  beforeNodes: ServiceCreationSessionMiniTreeNode[];
+  afterNodes: ServiceCreationSessionMiniTreeNode[];
+  beforeHash: string;
+  afterHash: string;
+}
+
+export type ServiceCreationSessionMiniCommitPreparation =
+  | { status: "PREPARED" | "RECOVERY_REQUIRED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; objectId: string; graphPlan: ServiceCreationSessionMiniGraphPlan; replayed: boolean }
+  | ({ status: "STALE" } & ServiceProposalRevalidation)
+  | { status: "COMPLETED"; semanticCommitId: string; proposalId: string; session: CreationSession; object: V2ManagedObject; anchor: V2Anchor; record: ServiceStoredProposal; replayed: true }
+  | { status: "FAILED_COMPENSATED"; semanticCommitId: string; proposalId: string; record: ServiceStoredProposal; replayed: true };
+
+export type ServiceCreationSessionMiniCommitFinalization =
+  | { status: "COMPLETED"; semanticCommitId: string; session: CreationSession; object: V2ManagedObject; anchor: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
+  | { status: "COMPENSATION_REQUIRED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; objectId: string; graphPlan: ServiceCreationSessionMiniGraphPlan };
+
+export type ServiceCreationSessionMiniUndoPreparation =
+  | { status: "GRAPH_PREFLIGHT_REQUIRED" | "GRAPH_RESTORE_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; objectId: string; graphPlan: ServiceCreationSessionMiniGraphPlan; session?: CreationSession; replayed: boolean }
+  | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; session: CreationSession; replayed: true };
 
 export interface ServiceDoctor {
   status: "PASS" | "FAIL";
@@ -1519,6 +1552,26 @@ export class LocalServiceClient {
 
   finalizeCreationSessionUndo(originalSemanticCommitId: string, input: { undoSemanticCommitId: string; pageExternalId: string; pageExists: false; traceId: string }): Promise<ServiceCreationSessionUndoFinalization> {
     return this.request<ServiceCreationSessionUndoFinalization>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/creation-session/undo/finalize`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  prepareCreationSessionMiniCommit(proposalId: string, input: { confirmation: "CREATE_FROM_SESSION"; expectedUpdatedAt: string; traceId: string }): Promise<ServiceCreationSessionMiniCommitPreparation> {
+    return this.request<ServiceCreationSessionMiniCommitPreparation>(`/proposals/${encodeURIComponent(proposalId)}/creation-session-mini/commit/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  finalizeCreationSessionMiniCommit(proposalId: string, input: { semanticCommitId: string; expectedUpdatedAt: string; rootBlockUuid: string; graphContentHash: string; traceId: string }): Promise<ServiceCreationSessionMiniCommitFinalization> {
+    return this.request<ServiceCreationSessionMiniCommitFinalization>(`/proposals/${encodeURIComponent(proposalId)}/creation-session-mini/commit/finalize`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  compensateCreationSessionMiniCommit(proposalId: string, input: { semanticCommitId: string; expectedUpdatedAt: string; rootBlockUuid: string; graphContentHash: string; traceId: string }): Promise<ServiceCreationSessionCommitCompensation> {
+    return this.request<ServiceCreationSessionCommitCompensation>(`/proposals/${encodeURIComponent(proposalId)}/creation-session-mini/commit/compensate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  prepareCreationSessionMiniUndo(originalSemanticCommitId: string, input: { traceId: string; confirmedGraphHash?: string }): Promise<ServiceCreationSessionMiniUndoPreparation> {
+    return this.request<ServiceCreationSessionMiniUndoPreparation>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/creation-session-mini/undo/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  finalizeCreationSessionMiniUndo(originalSemanticCommitId: string, input: { undoSemanticCommitId: string; graphContentHash: string; traceId: string }): Promise<ServiceCreationSessionUndoFinalization> {
+    return this.request<ServiceCreationSessionUndoFinalization>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/creation-session-mini/undo/finalize`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
   }
 
   createArea(input: ServiceCreateAreaRequest): Promise<ServiceAreaCommandResult> {
