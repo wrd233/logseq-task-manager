@@ -410,6 +410,117 @@
 #task-copilot-personal-mvp-root .agent-compact-empty { min-height: 110px; }
 #task-copilot-personal-mvp-root .agent-governance-error { margin: 0; }
 
+/* Persistent Creation Session: calm, Logseq-like workspace rather than a card dashboard. */
+#task-copilot-personal-mvp-root .active-surface-shell:has(.creation-dialog) { width: min(1120px, calc(100vw - 32px)); }
+#task-copilot-personal-mvp-root .active-surface .creation-dialog { display: block; padding: 0; overflow: hidden; border-color: var(--border); background: var(--surface); }
+#task-copilot-personal-mvp-root .creation-shell { min-width: 0; font-size: 15px; }
+#task-copilot-personal-mvp-root .creation-shell h2,
+#task-copilot-personal-mvp-root .creation-shell h3,
+#task-copilot-personal-mvp-root .creation-shell h4,
+#task-copilot-personal-mvp-root .creation-shell p { margin-top: 0; }
+#task-copilot-personal-mvp-root .creation-shell button { min-height: 40px; }
+#task-copilot-personal-mvp-root .creation-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 22px 24px 18px; border-bottom: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .creation-header h2 { margin: 2px 0 4px; font-size: clamp(21px, 3vw, 28px); line-height: 1.25; letter-spacing: -.02em; overflow-wrap: anywhere; }
+#task-copilot-personal-mvp-root .creation-header p { margin: 0; color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-header-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+#task-copilot-personal-mvp-root .creation-kicker { margin-bottom: 3px; color: var(--muted); font-size: 12px; font-weight: 720; letter-spacing: .065em; text-transform: uppercase; }
+#task-copilot-personal-mvp-root .creation-tabs { padding: 0 18px; overflow-x: auto; }
+#task-copilot-personal-mvp-root .creation-tabs button { min-height: 46px; border-width: 0 0 2px; border-radius: 0; color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-tabs button[aria-current="page"] { border-color: var(--accent); color: var(--text); font-weight: 700; }
+#task-copilot-personal-mvp-root .creation-layout { display: grid; grid-template-columns: minmax(0, 1fr) 250px; min-height: 410px; }
+#task-copilot-personal-mvp-root .creation-workspace { position: relative; min-width: 0; padding: 24px; }
+#task-copilot-personal-mvp-root .creation-context { display: grid; align-content: start; gap: 0; border-left: 1px solid var(--border); background: var(--bg); }
+#task-copilot-personal-mvp-root .creation-context > section { padding: 18px; border-bottom: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .creation-context h4 { margin-bottom: 8px; font-size: 13px; }
+#task-copilot-personal-mvp-root .creation-context p,
+#task-copilot-personal-mvp-root .creation-context small { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+#task-copilot-personal-mvp-root .creation-context dl { display: grid; gap: 7px; margin: 0; }
+#task-copilot-personal-mvp-root .creation-context dl div { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; }
+#task-copilot-personal-mvp-root .creation-context dt { color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-context dd { margin: 0; overflow-wrap: anywhere; }
+#task-copilot-personal-mvp-root .creation-context-alert { color: var(--warning); background: var(--warning-soft); }
+#task-copilot-personal-mvp-root .creation-banner { margin: 12px 24px 0; padding: 10px 12px; border-radius: 9px; }
+#task-copilot-personal-mvp-root .creation-banner.error { display: block; color: var(--danger-text); background: var(--danger-soft); }
+#task-copilot-personal-mvp-root .creation-banner.success { color: var(--text); background: var(--accent-soft); }
+#task-copilot-personal-mvp-root .creation-busy { position: sticky; z-index: 2; top: -24px; display: flex; align-items: center; gap: 9px; margin: -24px -24px 18px; padding: 10px 24px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, transparent); color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-spinner { display: inline-block; width: 15px; height: 15px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: creation-spin .8s linear infinite; }
+@keyframes creation-spin { to { transform: rotate(360deg); } }
+#task-copilot-personal-mvp-root .creation-main-empty { display: grid; justify-items: start; align-content: center; min-height: 300px; max-width: 580px; }
+#task-copilot-personal-mvp-root .creation-main-empty h3 { margin-bottom: 6px; font-size: 21px; }
+#task-copilot-personal-mvp-root .creation-main-empty p { color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-round-head,
+#task-copilot-personal-mvp-root .creation-draft-head,
+#task-copilot-personal-mvp-root .creation-start-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+#task-copilot-personal-mvp-root .creation-round-head h3,
+#task-copilot-personal-mvp-root .creation-draft-head h3,
+#task-copilot-personal-mvp-root .creation-start-head h3 { margin: 0; font-size: 21px; line-height: 1.35; }
+#task-copilot-personal-mvp-root .creation-round-head > span { color: var(--muted); white-space: nowrap; }
+#task-copilot-personal-mvp-root .creation-questions { display: grid; gap: 0; margin-top: 18px; }
+#task-copilot-personal-mvp-root .creation-question { min-width: 0; margin: 0; padding: 20px 0; border: 0; border-top: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .creation-question legend { display: flex; gap: 10px; align-items: flex-start; padding: 0; font-size: 17px; font-weight: 680; line-height: 1.45; }
+#task-copilot-personal-mvp-root .creation-question legend span { display: grid; flex: 0 0 25px; place-items: center; height: 25px; border-radius: 50%; background: var(--surface-2); color: var(--muted); font-size: 12px; }
+#task-copilot-personal-mvp-root .creation-why { margin: 8px 0 12px 35px; color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-recommendation { margin: 0 0 14px 35px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); }
+#task-copilot-personal-mvp-root .creation-recommendation > span { display: block; color: var(--accent); font-size: 12px; font-weight: 750; }
+#task-copilot-personal-mvp-root .creation-recommendation p { margin: 2px 0; }
+#task-copilot-personal-mvp-root .creation-recommendation small { color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-answer-label,
+#task-copilot-personal-mvp-root .creation-state-label { display: grid; gap: 6px; margin: 0 0 10px 35px; color: var(--muted); font-size: 12px; font-weight: 700; }
+#task-copilot-personal-mvp-root .creation-question textarea,
+#task-copilot-personal-mvp-root .creation-question select,
+#task-copilot-personal-mvp-root .creation-node-editor textarea,
+#task-copilot-personal-mvp-root .creation-node-editor select { width: 100%; padding: 10px 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+#task-copilot-personal-mvp-root .creation-question textarea { min-height: 84px; resize: vertical; }
+#task-copilot-personal-mvp-root .creation-question textarea:focus-visible,
+#task-copilot-personal-mvp-root .creation-question select:focus-visible,
+#task-copilot-personal-mvp-root .creation-node-editor textarea:focus-visible,
+#task-copilot-personal-mvp-root .creation-node-editor select:focus-visible { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+#task-copilot-personal-mvp-root .creation-answer-requirement { margin: -3px 0 0 35px; color: var(--muted); font-size: 12px; }
+#task-copilot-personal-mvp-root .creation-round-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .creation-draft-tree,
+#task-copilot-personal-mvp-root .creation-draft-tree ul { margin: 0; padding: 0; list-style: none; }
+#task-copilot-personal-mvp-root .creation-draft-tree { margin-top: 18px; }
+#task-copilot-personal-mvp-root .creation-draft-tree ul { margin-left: 20px; border-left: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .creation-draft-item { min-width: 0; }
+#task-copilot-personal-mvp-root .creation-draft-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 7px; align-items: start; padding: 8px 0 8px 8px; }
+#task-copilot-personal-mvp-root .creation-draft-tree ul > .creation-draft-item > .creation-draft-row { padding-left: 12px; }
+#task-copilot-personal-mvp-root .creation-bullet { color: var(--muted); line-height: 1.55; }
+#task-copilot-personal-mvp-root .creation-draft-copy { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+#task-copilot-personal-mvp-root .creation-page-ref { color: var(--accent); }
+#task-copilot-personal-mvp-root .creation-node-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; color: var(--muted); font-size: 11px; }
+#task-copilot-personal-mvp-root .creation-conflict { color: var(--warning); font-weight: 700; }
+#task-copilot-personal-mvp-root .creation-conflict-detail { margin: 0 0 6px 35px; padding: 7px 9px; background: var(--warning-soft); color: var(--warning); }
+#task-copilot-personal-mvp-root .creation-node-actions { display: flex; gap: 4px; opacity: .72; }
+#task-copilot-personal-mvp-root .creation-node-actions button { min-height: 32px; padding: 5px 8px; font-size: 12px; }
+#task-copilot-personal-mvp-root .creation-draft-row:hover .creation-node-actions,
+#task-copilot-personal-mvp-root .creation-node-actions:focus-within { opacity: 1; }
+#task-copilot-personal-mvp-root .creation-node-editor { display: grid; gap: 10px; margin: 5px 0 14px 35px; padding: 13px; border: 1px solid var(--accent); border-radius: 10px; background: var(--surface-2); }
+#task-copilot-personal-mvp-root .creation-node-editor label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+#task-copilot-personal-mvp-root .creation-maturity { display: flex; align-items: center; gap: 8px; }
+#task-copilot-personal-mvp-root .creation-maturity > span { padding: 4px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; }
+#task-copilot-personal-mvp-root .creation-change-strip { display: flex; flex-wrap: wrap; gap: 7px 15px; margin-top: 15px; padding: 8px 0; border-block: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+#task-copilot-personal-mvp-root .creation-warning { margin-top: 14px; padding: 10px 12px; background: var(--warning-soft); color: var(--warning); }
+#task-copilot-personal-mvp-root .creation-unused { margin-top: 18px; color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-summary-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: 18px; border: 1px solid var(--border); background: var(--border); }
+#task-copilot-personal-mvp-root .creation-summary-columns section { padding: 16px; background: var(--surface); }
+#task-copilot-personal-mvp-root .creation-summary-columns h4 { margin-bottom: 8px; }
+#task-copilot-personal-mvp-root .creation-summary-columns ul { margin: 0; padding-left: 20px; }
+#task-copilot-personal-mvp-root .creation-history-list { margin-top: 18px; border-top: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .creation-history-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .creation-history-list span { display: grid; }
+#task-copilot-personal-mvp-root .creation-history-list small { color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-history-list em { color: var(--accent); font-style: normal; font-weight: 700; }
+#task-copilot-personal-mvp-root .creation-start { padding: 24px; }
+#task-copilot-personal-mvp-root .creation-start-head { padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+#task-copilot-personal-mvp-root .creation-session-list { display: grid; }
+#task-copilot-personal-mvp-root button.creation-session-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 64px; padding: 12px 4px; border-width: 0 0 1px; border-radius: 0; text-align: left; }
+#task-copilot-personal-mvp-root .creation-session-row > span { display: grid; min-width: 0; }
+#task-copilot-personal-mvp-root .creation-session-row strong { overflow-wrap: anywhere; }
+#task-copilot-personal-mvp-root .creation-session-row small,
+#task-copilot-personal-mvp-root .creation-session-row time { color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-empty { padding: 48px 0; text-align: center; color: var(--muted); }
+#task-copilot-personal-mvp-root .creation-dialog-footer { display: flex; justify-content: flex-end; padding: 12px 18px; border-top: 1px solid var(--border); background: var(--bg); }
+
 @media (max-width: 760px) {
   #task-copilot-personal-mvp-root .app-shell { width: 100%; max-height: 100vh; margin: 0; border-radius: 0; }
   #task-copilot-personal-mvp-root .now-card { display: block; position: relative; }
@@ -445,6 +556,29 @@
   #task-copilot-personal-mvp-root .agent-rule-row { grid-template-columns: 22px minmax(0, 1fr); }
   #task-copilot-personal-mvp-root .agent-rule-action { grid-column: 2; }
   #task-copilot-personal-mvp-root .agent-technical-body dl, #task-copilot-personal-mvp-root .agent-rule-tech dl, #task-copilot-personal-mvp-root .agent-signal-tech dl { grid-template-columns: 1fr; gap: 2px 0; }
+  #task-copilot-personal-mvp-root .creation-header,
+  #task-copilot-personal-mvp-root .creation-start-head,
+  #task-copilot-personal-mvp-root .creation-round-head,
+  #task-copilot-personal-mvp-root .creation-draft-head { display: grid; }
+  #task-copilot-personal-mvp-root .creation-header-actions,
+  #task-copilot-personal-mvp-root .creation-start-head .actions { flex-wrap: wrap; }
+  #task-copilot-personal-mvp-root .creation-layout { grid-template-columns: minmax(0, 1fr); }
+  #task-copilot-personal-mvp-root .creation-context { border-top: 1px solid var(--border); border-left: 0; }
+  #task-copilot-personal-mvp-root .creation-workspace { padding: 18px 16px; }
+  #task-copilot-personal-mvp-root .creation-busy { top: -18px; margin: -18px -16px 14px; padding-inline: 16px; }
+  #task-copilot-personal-mvp-root .creation-why,
+  #task-copilot-personal-mvp-root .creation-recommendation,
+  #task-copilot-personal-mvp-root .creation-answer-label,
+  #task-copilot-personal-mvp-root .creation-state-label,
+  #task-copilot-personal-mvp-root .creation-answer-requirement { margin-left: 0; }
+  #task-copilot-personal-mvp-root .creation-summary-columns { grid-template-columns: 1fr; }
+  #task-copilot-personal-mvp-root .creation-node-actions { opacity: 1; }
+  #task-copilot-personal-mvp-root .creation-draft-row { grid-template-columns: 18px minmax(0, 1fr); }
+  #task-copilot-personal-mvp-root .creation-node-actions { grid-column: 2; justify-content: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #task-copilot-personal-mvp-root .creation-spinner { animation: none; }
 }
 
 @media (max-width: 1280px) {

@@ -7,8 +7,11 @@ authority、Local Service CRUD 与 Service Client 已完成首轮实现；自动
 幂等、并行会话、Service restart 和正式 Object/Audit 零写入。来源捕获/刷新、2–5 问题
 Provider 轮次、Answer-first 持久化、失败/取消/重试、重启恢复与幂等 replay 已完成自动验证；
 Draft Tree 的稳定节点/稀疏 Revision/来源重验/用户编辑保护与 Provider Validator 已有自动证据。
-Draft Preview renderer、MiniProject/Project 正式纵向、Plugin UI 与真实 Provider/Desktop/视觉 Gate
-仍在继续，不能从 Phase 1 自动证据推断 Goal 完成。权威状态见
+Plugin 已接入持久会话列表、MiniProject/Project 空白入口、Page→Project 入口、多题分组表单、
+answer-first 提交、Draft/Summary/History 视图、Logseq 风格树、文本/父级编辑、Agent 叶节点删除、
+Revision 采用，以及 loading/success/error 和 runtime generation 竞态保护。旧 Grill 仍作为兼容入口。
+MiniProject/Project 正式纵向与真实 Provider/Desktop/独立视觉 Gate 仍在继续，不能从自动证据推断
+Goal 完成。权威状态见
 `docs/goal/creation-session/STATUS.md`。
 
 ## WRH-P1-09 Worksite Preview Graph Refresh（2026-08-01）

@@ -105,5 +105,7 @@ Agent Decision Governance 不改变 E2E-01～24 的既有 `DONE` 结论，也不
 既有正式写入合同，也不新增平行 Proposal / Commit / Undo / Recovery 内核。完整追踪见
 `docs/goal/creation-session/ACCEPTANCE_MATRIX.md`。当前 schema 16、CRUD、来源刷新、
 answer-first Provider 轮次及 Draft Tree 后端已有自动证据；Draft Preview renderer、
-两条正式创建纵向与真实 Provider/Desktop/视觉 Gate 尚未完成，总体状态保持
+Plugin 持久会话列表、统一空白/Page 入口、多题表单、重入、Logseq 风格 Draft Tree、
+inline 编辑/安全删除/Revision 采用和响应式状态已有自动证据；两条正式创建纵向与真实
+Provider/Desktop/独立视觉 Gate 尚未完成，总体状态保持
 `IN_PROGRESS`。

@@ -37,6 +37,8 @@ import {
 import { activeOutcomeScope, createScopedOutcome, outcomeForScope, type ScopedOutcome } from "./scoped-outcome.ts";
 import type { WorksitePreviewMode, WorksitePreviewState } from "./worksite-preview-controller.ts";
 import { renderAgentGovernance, type AgentGovernanceUiState } from "./agent-governance-ui.ts";
+import type { PluginCreationSessionState } from "./creation-session-controller.ts";
+import { renderCreationSession } from "./creation-session-ui.ts";
 
 export interface WorksitePreviewUiEntry {
   expanded: boolean;
@@ -98,6 +100,7 @@ export type ActionDialogKind =
   | "v2-project-closure-evidence"
   | "v2-mini-project-grill"
   | "v2-project-creation-grill"
+  | "v2-creation-session"
   | "v2-page-context"
   | "v2-page-formal-items"
   | "v2-backup-restore"
@@ -179,6 +182,8 @@ export interface UiModel {
   v2ProjectCreationGrillAvailable?: boolean;
   v2ProjectCreationPreviewAvailable?: boolean;
   v2ProjectCreationProposalAvailable?: boolean;
+  v2CreationSession?: PluginCreationSessionState;
+  v2CreationSessionAvailable?: boolean;
   v2ReentryTargetObjectId?: string;
   v2ReentryLoadError?: string;
   v2ObjectNarrations?: Record<string, PluginObjectNarration>;
@@ -608,7 +613,7 @@ function renderDirectoryEmpty(filter: DirectoryFilterState): string {
 
 function renderObjects(model: UiModel): string {
   const relationError = model.v2RelationLoadError ? `<section class="card error" role="alert"><strong>关系投影暂不可用</strong><p>${escapeHtml(model.v2RelationLoadError)}</p><p class="muted">正式对象与其他工作区仍可使用；没有执行关系写入。</p></section>` : "";
-  const projectCreator = `<section class="card project-creator" aria-label="创建项目"><div class="eyebrow">项目梳理</div><h3>新建项目</h3><p class="muted">先说清想得到的结果、范围、完成证据和当前推进；确认最终阅读结果后再进入“待我确认”。</p>${button("开始梳理项目", "v2-project-creation-grill-open", "BLANK", "primary", model.v2ProjectCreationGrillAvailable !== true)}</section>`;
+  const projectCreator = `<section class="card project-creator" aria-label="创建 MiniProject 或 Project"><div class="eyebrow">项目梳理 · 持久创建会话</div><h3>新建项目</h3><p class="muted">可以多轮讨论、随时查看草稿并离开后继续；确认创建前不会写入正式事项或正文。</p><div class="actions">${button("新建 MiniProject", "creation-session-open", "MINI_PROJECT:BLANK", "primary", model.v2CreationSessionAvailable !== true)}${button("新建 Project", "creation-session-open", "PROJECT:BLANK", "quiet", model.v2CreationSessionAvailable !== true)}${button("继续创建中的事项", "creation-session-open", "LIST", "quiet", model.v2CreationSessionAvailable !== true)}</div><details><summary>旧版兼容入口</summary><p class="muted">一次性项目梳理仍保留用于历史兼容。</p>${button("开始梳理项目（旧版）", "v2-project-creation-grill-open", "BLANK", "quiet", model.v2ProjectCreationGrillAvailable !== true)}</details></section>`;
   const areaCreator = `<section class="card area-creator" aria-label="创建领域"><div class="eyebrow">新建领域</div><h3>新建领域</h3><p class="muted">记录一块长期负责的范围，例如健康、家庭或某个工作方向。</p><label>责任描述<input data-field="v2AreaText" placeholder="例如：维持稳定作息与健康检查"${model.v2AreaAvailable && !model.v2AreaBusy ? "" : " disabled"}></label>${button(model.v2AreaBusy ? "正在创建…" : "创建领域", "create-v2-area", undefined, "primary", !model.v2AreaAvailable || model.v2AreaBusy === true)}<details><summary>技术说明</summary><p class="muted">领域是独立正式事项；此入口不会创建隐式页面或正文连接。</p></details></section>`;
   const associationCreator = model.v2Objects && model.v2Objects.length >= 2 ? `<section class="card association-creator" aria-label="添加相关内容"><div class="eyebrow">相关内容</div><h3>关联两个事项</h3><p class="muted">只表达“这两项相关”，不会改变归属、位置或当前状态。</p><label>来源事项<select data-field="v2AssociationSource"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}" data-version="${object.version}">${escapeHtml(objectTypeLabel(object.objectType))} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label>相关事项<select data-field="v2AssociationTarget"><option value="">请选择</option>${model.v2Objects.map((object) => `<option value="${escapeHtml(object.objectId)}">${escapeHtml(objectTypeLabel(object.objectType))} · ${escapeHtml(object.text)}</option>`).join("")}</select></label><label class="confirm-line"><input type="checkbox" data-field="v2AssociationConfirmed" value="yes">确认添加相关内容，不改变归属</label>${button(model.v2AssociationBusy ? "正在添加…" : "添加关联", "v2-association-add", undefined, "primary", !model.v2AssociationAvailable || model.v2AssociationBusy)}${model.v2Associations?.length ? `<p class="muted">当前已有 ${model.v2Associations.length} 条相关内容。</p>` : ""}<details><summary>技术说明</summary><p class="muted">“相关内容”是普通关联，不会改变主归属、位置、生命周期或当前关注。</p></details></section>` : "";
   if (model.v2Objects !== undefined) {
@@ -1594,6 +1599,10 @@ function renderActionDialog(model: UiModel): string {
   const dialog = model.actionDialog;
   if (!dialog) return "";
   const cancel = button("取消", "cancel-action-dialog", undefined, "quiet");
+  if (dialog.kind === "v2-creation-session") {
+    const state = model.v2CreationSession ?? { status: "idle", sessions: [], view: "DISCUSSION" };
+    return `<section class="inbox-dialog action-dialog creation-dialog" aria-label="创建会话">${renderCreationSession(state)}<footer class="creation-dialog-footer">${cancel}</footer></section>`;
+  }
   if (dialog.kind === "v2-origin-fallback") {
     let fallback: { pageName?: string; label?: string };
     try {

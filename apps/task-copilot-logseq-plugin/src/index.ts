@@ -1,6 +1,6 @@
 import "@logseq/libs";
 
-import type { AgentFeedbackAction, AgentFeedbackCorrectionType, AgentFeedbackInput, AgentFeedbackRating, AgentGovernanceExportPackage, Lifecycle, V2Anchor, V2Condition, V2MiniProjectClosure, V2ObjectType, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
+import type { AgentFeedbackAction, AgentFeedbackCorrectionType, AgentFeedbackInput, AgentFeedbackRating, AgentGovernanceExportPackage, CreationAnswerState, Lifecycle, V2Anchor, V2Condition, V2MiniProjectClosure, V2ObjectType, V2ProjectStructure, V2Proposal } from "@task-copilot/domain";
 import {
   RuntimeShapeAdapter,
   resolveLogseqPageReference,
@@ -71,6 +71,7 @@ import {
 } from "./v2-explicit-candidate-discovery.ts";
 import { createReviewedProjectWithPage, ownedProjectPageObjectId, projectCreationUndoMessage, undoReviewedProjectCreation } from "./v2-project-creation.ts";
 import { ProjectCreationGrillController, type ProjectCreationSource } from "./project-creation-grill-controller.ts";
+import { CreationSessionController, type CreationSessionClient } from "./creation-session-controller.ts";
 import {
   buildSelectedBlockProposalPrompt,
   buildSelectedBlockProposalRevisionPrompt,
@@ -601,6 +602,29 @@ const projectCreationGrillController = new ProjectCreationGrillController(
     providerAvailable: serviceConnection.status === "READY"
       && serviceConnection.capabilities.provider
       && Boolean(serviceRuntimeClient?.grillProjectCreation),
+    generation: serviceDiscoveryGeneration,
+  }),
+  refresh,
+);
+function isCreationSessionClient(client: ServiceRuntimeClient | undefined): client is ServiceRuntimeClient & CreationSessionClient {
+  return Boolean(client
+    && typeof client.createCreationSession === "function"
+    && typeof client.getCreationSession === "function"
+    && typeof client.listCreationSessions === "function"
+    && typeof client.startCreationSessionRound === "function"
+    && typeof client.submitCreationSessionRound === "function"
+    && typeof client.retryCreationSessionRound === "function"
+    && typeof client.generateCreationSessionDraft === "function"
+    && typeof client.editCreationSessionDraft === "function"
+    && typeof client.adoptCreationSessionDraft === "function"
+    && typeof client.abandonCreationSession === "function");
+}
+const creationSessionController = new CreationSessionController(
+  () => ({
+    ...(isCreationSessionClient(serviceRuntimeClient) ? { client: serviceRuntimeClient } : {}),
+    providerAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && isCreationSessionClient(serviceRuntimeClient),
     generation: serviceDiscoveryGeneration,
   }),
   refresh,
@@ -1218,6 +1242,10 @@ async function model(): Promise<UiModel> {
     v2ProjectCreationProposalAvailable: serviceConnection.status === "READY"
       && serviceConnection.formalWritesAvailable
       && Boolean(serviceRuntimeClient?.createProjectCreationProposal),
+    v2CreationSession: creationSessionController.snapshot(),
+    v2CreationSessionAvailable: serviceConnection.status === "READY"
+      && serviceConnection.capabilities.provider
+      && isCreationSessionClient(serviceRuntimeClient),
     ...(v2ReentryTargetObjectId ? { v2ReentryTargetObjectId } : {}),
     ...(v2ReentryLoadError ? { v2ReentryLoadError } : {}),
     ...(v2ObjectNarrations !== undefined ? { v2ObjectNarrations } : {}),
@@ -1398,6 +1426,7 @@ function enterRestrictedServiceMode(reasonCode: string, restrictedMessage: strin
   projectContextRecoveryController.clear();
   miniProjectGrillController.clear();
   projectCreationGrillController.clear();
+  creationSessionController.clear();
   backupRestoreController.clear();
   migrationScanController.clear();
   migrationExecutionController.clear();
@@ -1711,6 +1740,17 @@ function dialogField(name: string): string {
 
 function dialogChecked(name: string): boolean {
   return requireAppRoot().querySelector<HTMLInputElement>(`[data-field="${name}"]`)?.checked === true;
+}
+
+const creationAnswerStates = new Set<CreationAnswerState>(["ANSWERED", "ACCEPTED_RECOMMENDATION", "SKIPPED", "UNCERTAIN", "UNANSWERED"]);
+
+function parseCreationStart(value: string): { targetType: "MINI_PROJECT" | "PROJECT"; primarySource: { kind: "BLANK" } | { kind: "PAGE" | "BLOCK"; target: string } } {
+  const [targetType, sourceKind, ...targetParts] = value.split(":");
+  if (targetType !== "MINI_PROJECT" && targetType !== "PROJECT") throw new Error("创建目标已失效；没有建立会话。");
+  if (sourceKind === "BLANK") return { targetType, primarySource: { kind: "BLANK" } };
+  const target = targetParts.join(":").trim();
+  if ((sourceKind !== "PAGE" && sourceKind !== "BLOCK") || !target) throw new Error("创建来源已失效；没有建立会话。");
+  return { targetType, primarySource: { kind: sourceKind, target } };
 }
 
 const agentFeedbackRatings = new Set<AgentFeedbackRating>(["CORRECT", "MOSTLY_CORRECT", "WRONG"]);
@@ -2673,6 +2713,101 @@ async function handleAction(action: string, value?: string): Promise<void> {
     await refresh();
     return;
   }
+  if ((action === "creation-session-open" || action === "creation-session-create") && value) {
+    actionDialog = { kind: "v2-creation-session", value };
+    latestError = undefined;
+    message = undefined;
+    if (value === "LIST") await creationSessionController.loadActive();
+    else await creationSessionController.create(parseCreationStart(value));
+    return;
+  }
+  if (action === "creation-session-list") {
+    await creationSessionController.loadActive();
+    return;
+  }
+  if (action === "creation-session-resume" && value) {
+    await creationSessionController.resume(value);
+    return;
+  }
+  if (action === "creation-session-view" && value && ["DISCUSSION", "DRAFT", "SUMMARY", "HISTORY"].includes(value)) {
+    creationSessionController.setView(value as "DISCUSSION" | "DRAFT" | "SUMMARY" | "HISTORY");
+    await refresh();
+    return;
+  }
+  if (action === "creation-session-round-start") {
+    await creationSessionController.startRound();
+    return;
+  }
+  if ((action === "creation-session-round-submit" || action === "creation-session-round-accept-all") && value) {
+    const session = creationSessionController.snapshot().session;
+    const round = session ? [...session.rounds].reverse().find(({ providerStatus }) => providerStatus === "NOT_REQUESTED") : undefined;
+    if (!round || round.roundId !== value) throw new Error("当前问题已经变化；请以重新载入后的会话为准。");
+    const answers = round.questions.map((question) => {
+      const userAnswer = dialogField(`creation-answer:${question.questionId}`);
+      const selected = action === "creation-session-round-accept-all"
+        ? "ACCEPTED_RECOMMENDATION"
+        : dialogField(`creation-answer-state:${question.questionId}`) as CreationAnswerState;
+      const answerState = selected === "UNANSWERED" && userAnswer ? "ANSWERED" : selected;
+      if (!creationAnswerStates.has(answerState)) throw new Error("回答状态无效；本轮没有提交。");
+      if (answerState === "ANSWERED" && !userAnswer) throw new Error("标记为“已回答”的问题需要填写回答。");
+      return { questionId: question.questionId, answerState, ...(userAnswer ? { userAnswer } : {}) };
+    });
+    await creationSessionController.submitAnswers(answers);
+    return;
+  }
+  if (action === "creation-session-round-retry" && value) {
+    await creationSessionController.retryRound(value);
+    return;
+  }
+  if (action === "creation-session-draft-generate") {
+    await creationSessionController.generateDraft();
+    return;
+  }
+  if (action === "creation-session-draft-edit-open" && value) {
+    creationSessionController.beginNodeEdit(value);
+    await refresh();
+    return;
+  }
+  if (action === "creation-session-draft-edit-cancel") {
+    creationSessionController.beginNodeEdit();
+    await refresh();
+    return;
+  }
+  if (action === "creation-session-draft-edit-save" && value) {
+    const [revisionId, nodeId] = value.split("|");
+    const session = creationSessionController.snapshot().session;
+    const revision = session?.draftRevisions.find((candidate) => candidate.revisionId === revisionId);
+    const node = revision?.nodes.find((candidate) => candidate.nodeId === nodeId);
+    if (!revisionId || !nodeId || !node) throw new Error("当前草稿节点已经变化；请重新载入后编辑。");
+    const text = dialogField("creation-draft-text");
+    const parentNodeId = node.parentNodeId ? dialogField("creation-draft-parent") : undefined;
+    const edit = {
+      ...(text !== node.text ? { text } : {}),
+      ...(parentNodeId !== undefined && parentNodeId !== node.parentNodeId ? { parentNodeId } : {}),
+    };
+    if (!Object.keys(edit).length) {
+      creationSessionController.beginNodeEdit();
+      await refresh();
+      return;
+    }
+    await creationSessionController.editDraft(revisionId, nodeId, edit);
+    return;
+  }
+  if (action === "creation-session-draft-delete" && value) {
+    const [revisionId, nodeId] = value.split("|");
+    if (!revisionId || !nodeId || !globalThis.confirm("删除这个 Agent 新建的草稿 Block？来源材料和正式正文不会被删除。")) return;
+    await creationSessionController.editDraft(revisionId, nodeId, { delete: true });
+    return;
+  }
+  if (action === "creation-session-draft-adopt" && value) {
+    await creationSessionController.adoptDraft(value);
+    return;
+  }
+  if (action === "creation-session-abandon") {
+    if (!globalThis.confirm("放弃这个创建会话？已保存的会话记录会保留为已放弃状态，正式事项和正文不会变化。")) return;
+    await creationSessionController.abandon();
+    return;
+  }
   if (action === "v2-directory-filter-focus" && value) {
     if (value !== "all" && value !== "focus" && value !== "now") throw new Error("注意力筛选条件无效。");
     v2DirectoryFilter = { ...v2DirectoryFilter, focus: value };
@@ -3102,7 +3237,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-page-project-create-route" && value) {
     const current = requirePageContext(value);
     await pageContextController.revalidate(current);
-    await handleAction("v2-project-creation-grill-open", `PAGE:${current.pageUuid}`);
+    await handleAction("creation-session-open", `PROJECT:PAGE:${current.pageUuid}`);
     return;
   }
   if (action === "v2-page-project-update" && value) {
@@ -4728,6 +4863,7 @@ async function handleAction(action: string, value?: string): Promise<void> {
     const returnToOrigin = cancelActionDialogReturnsToOrigin(actionDialog?.kind, originRoute !== undefined);
     if (actionDialog?.kind === "v2-mini-project-grill") miniProjectGrillController.clear();
     if (actionDialog?.kind === "v2-project-creation-grill") projectCreationGrillController.clear();
+    if (actionDialog?.kind === "v2-creation-session") creationSessionController.clear();
     if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureEvidence = undefined;
     if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureProposalMessage = undefined;
     if (actionDialog?.kind === "v2-project-closure-evidence") v2ProjectClosureUserJudgments = undefined;
