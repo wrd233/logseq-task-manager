@@ -72,6 +72,18 @@ export interface ServiceCreationRoundResult extends ServiceCreationSessionResult
   error?: { code: string; message: string };
 }
 
+export interface ServiceCreationDraftResult extends ServiceCreationSessionResult {
+  providerStatus: "COMPLETED" | "FAILED";
+  error?: { code: string; message: string };
+}
+
+export interface ServiceCreationDraftEdit {
+  text?: string;
+  delete?: true;
+  parentNodeId?: string | null;
+  order?: number;
+}
+
 export interface ServiceUpdateCreationSessionRequest {
   expectedVersion: number;
   idempotencyKey: string;
@@ -1423,6 +1435,18 @@ export class LocalServiceClient {
 
   retryCreationSessionRound(sessionId: string, roundId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationRoundResult> {
     return this.request<ServiceCreationRoundResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/rounds/${encodeURIComponent(roundId)}/retry`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 125_000);
+  }
+
+  generateCreationSessionDraft(sessionId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationDraftResult> {
+    return this.request<ServiceCreationDraftResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/drafts/generate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 125_000);
+  }
+
+  editCreationSessionDraft(sessionId: string, revisionId: string, nodeId: string, input: ServiceCreationSessionSourceObservationCommand & { edit: ServiceCreationDraftEdit }): Promise<ServiceCreationSessionResult> {
+    return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/drafts/${encodeURIComponent(revisionId)}/nodes/${encodeURIComponent(nodeId)}/edit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 12_000);
+  }
+
+  adoptCreationSessionDraft(sessionId: string, revisionId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationSessionResult> {
+    return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/drafts/${encodeURIComponent(revisionId)}/adopt`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 12_000);
   }
 
   createArea(input: ServiceCreateAreaRequest): Promise<ServiceAreaCommandResult> {

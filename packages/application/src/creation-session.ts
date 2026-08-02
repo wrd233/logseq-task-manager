@@ -1,9 +1,13 @@
 import {
   abandonCreationSession,
   addCreationSessionSource,
+  adoptCreationDraftRevision,
+  captureCreationSessionSourcesForDraft,
   completeCreationRound,
   completeCreationSession,
   createCreationSession,
+  editCreationDraftNode,
+  generateCreationDraftRevision,
   observeCreationSessionSource,
   failCreationRound,
   refreshCreationSessionSource,
@@ -12,6 +16,8 @@ import {
   submitCreationRoundAnswers,
   updateCreationSession,
   type CreationResult,
+  type CreationDraftGenerationInput,
+  type CreationDraftNodeEdit,
   type CreationRoundAnswerInput,
   type CreationRoundCompletion,
   type CreationSession,
@@ -37,7 +43,7 @@ export interface CreationSessionRepository {
 export class CreationSessionApplication {
   constructor(private readonly repository: CreationSessionRepository, private readonly graphId: string) {}
 
-  replay(idempotencyKey: string, commandName: "CreateCreationSession" | "AddCreationSessionSource" | "ObserveCreationSessionSource" | "RefreshCreationSessionSource" | "StartCreationSessionRound"): CreationSessionWriteResult | undefined {
+  replay(idempotencyKey: string, commandName: "CreateCreationSession" | "AddCreationSessionSource" | "ObserveCreationSessionSource" | "RefreshCreationSessionSource" | "StartCreationSessionRound" | "PrepareCreationDraft" | "GenerateCreationDraft" | "EditCreationDraft" | "AdoptCreationDraft"): CreationSessionWriteResult | undefined {
     return this.repository.replayCreationSessionWrite(idempotencyKey, commandName);
   }
 
@@ -126,6 +132,38 @@ export class CreationSessionApplication {
     const current = this.required(input.sessionId);
     const session = retryCreationRound(current, input.roundId, input.expectedVersion, at);
     return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "RetryCreationRound");
+  }
+
+  prepareDraft(input: { sessionId: string; expectedVersion: number; idempotencyKey: string; captures: Array<{ sourceId: string; capture: CreationSourceCapture }> }, at = new Date()): CreationSessionWriteResult {
+    const replay = this.repository.replayCreationSessionWrite(input.idempotencyKey, "PrepareCreationDraft");
+    if (replay) return replay;
+    const current = this.required(input.sessionId);
+    const session = captureCreationSessionSourcesForDraft(current, input.captures, input.expectedVersion, at);
+    return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "PrepareCreationDraft");
+  }
+
+  generateDraft(input: { sessionId: string; expectedVersion: number; idempotencyKey: string; draft: CreationDraftGenerationInput }, at = new Date()): CreationSessionWriteResult {
+    const replay = this.repository.replayCreationSessionWrite(input.idempotencyKey, "GenerateCreationDraft");
+    if (replay) return replay;
+    const current = this.required(input.sessionId);
+    const session = generateCreationDraftRevision(current, input.draft, input.expectedVersion, at);
+    return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "GenerateCreationDraft");
+  }
+
+  editDraft(input: { sessionId: string; revisionId: string; expectedVersion: number; idempotencyKey: string; edit: CreationDraftNodeEdit }, at = new Date()): CreationSessionWriteResult {
+    const replay = this.repository.replayCreationSessionWrite(input.idempotencyKey, "EditCreationDraft");
+    if (replay) return replay;
+    const current = this.required(input.sessionId);
+    const session = editCreationDraftNode(current, input.revisionId, input.edit, input.expectedVersion, at);
+    return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "EditCreationDraft");
+  }
+
+  adoptDraft(input: { sessionId: string; revisionId: string; expectedVersion: number; idempotencyKey: string }, at = new Date()): CreationSessionWriteResult {
+    const replay = this.repository.replayCreationSessionWrite(input.idempotencyKey, "AdoptCreationDraft");
+    if (replay) return replay;
+    const current = this.required(input.sessionId);
+    const session = adoptCreationDraftRevision(current, input.revisionId, input.expectedVersion, at);
+    return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "AdoptCreationDraft");
   }
 
   abandon(input: { sessionId: string; expectedVersion: number; idempotencyKey: string }, at = new Date()): CreationSessionWriteResult {

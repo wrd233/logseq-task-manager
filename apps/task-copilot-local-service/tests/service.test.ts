@@ -23,6 +23,7 @@ import { LocalLlmGrillTurnGenerator } from "../src/llm-grill-turn.ts";
 import { LocalLlmGrillPreviewGenerator } from "../src/llm-grill-preview.ts";
 import { LocalLlmProjectCreationPreviewGenerator } from "../src/llm-project-creation-preview.ts";
 import { LocalLlmCreationRoundGenerator } from "../src/creation-session-round.ts";
+import { LocalLlmCreationDraftGenerator } from "../src/creation-session-draft.ts";
 
 function clientFor(service: { url: string; token: string }): LocalServiceClient {
   const descriptor: ServiceDescriptor = {
@@ -290,7 +291,17 @@ test("Local Service persists multiple Creation Sessions without formal writes an
 
 test("Creation Session captures Graph-owned sources, detects drift and preserves the prior snapshot on refresh", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-source-"));
-  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-creation-source", token: "creation-source-token-at-least-24" });
+  const draftProvider: StructuredProposalProvider = {
+    providerId: "deepseek", providerVersion: "chat-completions-v1",
+    completeStructured: async () => ({ value: {
+      schemaVersion: "task-copilot-creation-draft-v1", targetType: "MINI_PROJECT", suggestedTitle: "整理告警来源", suggestedPageName: null,
+      nodes: [
+        { semanticKey: "mini-root", order: 0, nodeType: "BLOCK", text: "**[MiniProject]** 整理告警来源 #MiniProject", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], sourceBlockUuid: "source-root", operation: "REWRITE", confirmed: false },
+        { semanticKey: "goal", parentSemanticKey: "mini-root", order: 0, nodeType: "BLOCK", text: "**[目标]** 将来源整理为可复核的告警材料", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: false },
+      ], unusedMaterials: [], warnings: [], maturity: { level: "WORKABLE", missing: ["完成证据"] },
+    }, metadata: { model: "deepseek-v4", durationMs: 10, attempts: 1 } }),
+  };
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-creation-source", token: "creation-source-token-at-least-24", creationDraftGenerator: new LocalLlmCreationDraftGenerator(draftProvider) });
   t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
   const client = clientFor(service);
   const blockSnapshot = (content: string) => {
@@ -339,7 +350,18 @@ test("Creation Session captures Graph-owned sources, detects drift and preserves
   assert.equal(withReference.session.sources[1]?.role, "REFERENCE");
   assert.equal(withReference.session.sources[1]?.captures[0]?.content, "参考细节");
 
-  const deletedPromise = client.checkCreationSessionSource(created.session.sessionId, sourceId, { expectedVersion: 4, idempotencyKey: "creation-source-delete-check" });
+  const draftPromise = client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: 4, idempotencyKey: "creation-source-draft" });
+  await answerFound(changedSnapshot);
+  const draftReferenceRead = await client.claimGraphReadRequest();
+  if (!draftReferenceRead) throw new Error("expected Creation Session Draft reference read");
+  await client.completeGraphReadRequest({ requestId: draftReferenceRead.requestId, status: "FOUND", snapshot: { ...pageSnapshot, requestedTarget: draftReferenceRead.target } });
+  const drafted = await draftPromise;
+  assert.equal(drafted.providerStatus, "COMPLETED");
+  assert.deepEqual(drafted.session.sources[0]?.captures.map(({ reason }) => reason), ["SESSION_START", "USER_REFRESH", "DRAFT_GENERATION"]);
+  assert.deepEqual(drafted.session.sources[1]?.captures.map(({ reason }) => reason), ["SESSION_START", "DRAFT_GENERATION"]);
+  assert.equal(drafted.session.draftRevisions[0]?.nodes[0]?.sourceBlockUuid, "source-root");
+
+  const deletedPromise = client.checkCreationSessionSource(created.session.sessionId, sourceId, { expectedVersion: drafted.session.version, idempotencyKey: "creation-source-delete-check" });
   const pending = await client.claimGraphReadRequest();
   if (!pending) throw new Error("expected Creation Session deletion read");
   await client.completeGraphReadRequest({ requestId: pending.requestId, status: "NOT_FOUND" });
@@ -409,6 +431,57 @@ test("Creation Session persists answers before Provider, retains stable consensu
   assert.equal(retried.providerStatus, "COMPLETED");
   assert.equal(retried.session.rounds[1]?.providerStatus, "COMPLETED");
   assert.equal(retried.session.rounds[2]?.questions.length, 2);
+  assert.equal((await client.listObjects()).length, 0);
+});
+
+test("Creation Session Draft persists stable nodes, protects user edits and replays without duplicate revisions", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-draft-service-"));
+  let calls = 0;
+  const output = (goal: string) => ({
+    schemaVersion: "task-copilot-creation-draft-v1", targetType: "MINI_PROJECT", suggestedTitle: "建立设备告警接入", suggestedPageName: null,
+    nodes: [
+      { semanticKey: "mini-root", order: 0, nodeType: "BLOCK", text: "**[MiniProject]** 建立设备告警接入 #MiniProject", provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: false },
+      { semanticKey: "goal", parentSemanticKey: "mini-root", order: 0, nodeType: "BLOCK", text: goal, provenance: "AGENT_SYNTHESIS", evidenceRefs: [], operation: "CREATE", confirmed: false },
+      { semanticKey: "next", parentSemanticKey: "mini-root", order: 1, nodeType: "TODO", text: "TODO 验证一条真实告警", provenance: "AGENT_SUGGESTION", evidenceRefs: [], operation: "CREATE", confirmed: false },
+    ],
+    unusedMaterials: [], warnings: [], maturity: { level: "WORKABLE", missing: ["完成证据"] },
+  });
+  const provider: StructuredProposalProvider = {
+    providerId: "deepseek", providerVersion: "chat-completions-v1",
+    completeStructured: async () => {
+      calls += 1;
+      if (calls === 3) throw new StructuredError({ code: "LLM_TIMEOUT", message: "timeout", ruleRefs: ["D-139"] });
+      return { value: output(calls === 1 ? "**[目标]** 建立可验证的设备告警接入" : "**[目标]** Agent 尝试覆盖用户版本"), metadata: { model: "deepseek-v4", durationMs: 10, attempts: 1 } };
+    },
+  };
+  const databasePath = join(root, "task-copilot.db");
+  let service = await startLocalService({ databasePath, graphId: "graph-creation-draft", token: "creation-draft-service-token-24", creationDraftGenerator: new LocalLlmCreationDraftGenerator(provider) });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  let client = clientFor(service);
+  const created = await client.createCreationSession({ targetType: "MINI_PROJECT", primarySource: { kind: "BLANK" }, sessionId: "creation-draft-session", idempotencyKey: "creation-draft-create" });
+  const generated = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: 1, idempotencyKey: "creation-draft-generate-one" });
+  assert.equal(generated.providerStatus, "COMPLETED");
+  assert.equal(generated.session.status, "PREVIEW_READY");
+  const first = generated.session.draftRevisions.at(-1)!;
+  const goal = first.nodes.find(({ semanticKey }) => semanticKey === "goal")!;
+  const replay = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: 1, idempotencyKey: "creation-draft-generate-one" });
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.session.draftRevisions.length, 1);
+  assert.equal(calls, 1);
+  const edited = await client.editCreationSessionDraft(created.session.sessionId, first.revisionId, goal.nodeId, { expectedVersion: generated.session.version, idempotencyKey: "creation-draft-edit-goal", edit: { text: "**[目标]** 用户明确保留的设备告警接入" } });
+  const regenerated = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: edited.session.version, idempotencyKey: "creation-draft-generate-two" });
+  const latest = regenerated.session.draftRevisions.at(-1)!;
+  assert.equal(latest.nodes.find(({ semanticKey }) => semanticKey === "goal")?.nodeId, goal.nodeId);
+  assert.equal(latest.nodes.find(({ semanticKey }) => semanticKey === "goal")?.text, "**[目标]** 用户明确保留的设备告警接入");
+  assert.equal(latest.conflicts.some(({ kind }) => kind === "USER_TEXT_PROTECTED"), true);
+  const failed = await client.generateCreationSessionDraft(created.session.sessionId, { expectedVersion: regenerated.session.version, idempotencyKey: "creation-draft-generate-fail" });
+  assert.equal(failed.providerStatus, "FAILED");
+  assert.equal(failed.session.currentDraftRevisionId, regenerated.session.currentDraftRevisionId);
+  await service.close();
+  service = await startLocalService({ databasePath, graphId: "graph-creation-draft", token: "creation-draft-restart-token-24", creationDraftGenerator: new LocalLlmCreationDraftGenerator(provider) });
+  client = clientFor(service);
+  const resumed = await client.getCreationSession(created.session.sessionId);
+  assert.equal(resumed?.draftRevisions.at(-1)?.nodes.find(({ semanticKey }) => semanticKey === "goal")?.text, "**[目标]** 用户明确保留的设备告警接入");
   assert.equal((await client.listObjects()).length, 0);
 });
 

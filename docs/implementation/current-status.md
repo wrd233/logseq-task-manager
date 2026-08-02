@@ -6,7 +6,8 @@
 authority、Local Service CRUD 与 Service Client 已完成首轮实现；自动证据覆盖版本冲突、
 幂等、并行会话、Service restart 和正式 Object/Audit 零写入。来源捕获/刷新、2–5 问题
 Provider 轮次、Answer-first 持久化、失败/取消/重试、重启恢复与幂等 replay 已完成自动验证；
-Draft Tree、MiniProject/Project 正式纵向、Plugin UI 与真实 Provider/Desktop/视觉 Gate
+Draft Tree 的稳定节点/稀疏 Revision/来源重验/用户编辑保护与 Provider Validator 已有自动证据。
+Draft Preview renderer、MiniProject/Project 正式纵向、Plugin UI 与真实 Provider/Desktop/视觉 Gate
 仍在继续，不能从 Phase 1 自动证据推断 Goal 完成。权威状态见
 `docs/goal/creation-session/STATUS.md`。
 

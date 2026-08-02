@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { abandonCreationSession, completeCreationRound, completeCreationSession, createCreationSession, failCreationRound, observeCreationSessionSource, refreshCreationSessionSource, retryCreationRound, startCreationSessionRound, submitCreationRoundAnswers, updateCreationSession, type CreationSessionSource } from "../src/index.ts";
+import { abandonCreationSession, adoptCreationDraftRevision, completeCreationRound, completeCreationSession, createCreationSession, editCreationDraftNode, failCreationRound, generateCreationDraftRevision, observeCreationSessionSource, refreshCreationSessionSource, retryCreationRound, startCreationSessionRound, submitCreationRoundAnswers, updateCreationSession, type CreationDraftGenerationInput, type CreationSessionSource } from "../src/index.ts";
 
 const at = new Date("2026-08-02T06:00:00.000Z");
 const blank = (): CreationSessionSource => ({ sourceId: "source-primary", role: "PRIMARY", kind: "BLANK", captures: [{ captureId: "capture-blank", reason: "SESSION_START", snapshotHash: "blank", content: "", hierarchy: [], capturedAt: at.toISOString() }], currentCaptureId: "capture-blank", latestKnownHash: "blank", availability: "AVAILABLE" });
@@ -28,7 +28,7 @@ test("round questions require rationale, recommendation, and explicit answer sta
 
 test("adopted draft makes preview ready and completion requires placement", () => {
   const session = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: blank(), sessionId: "creation-four" }, at);
-  const preview = updateCreationSession(session, { draftRevisions: [{ revisionId: "draft-1", reason: "INITIAL_DRAFT", nodes: [{ nodeId: "root", text: "**[MiniProject]** 整理材料 #MiniProject", order: 0, nodeType: "BLOCK", provenance: "USER_CONFIRMED", operation: "CREATE", userEdited: false, confirmed: true }], adopted: true, final: false, createdAt: at.toISOString() }], currentDraftRevisionId: "draft-1" }, 1, at);
+  const preview = updateCreationSession(session, { draftRevisions: [{ revisionId: "draft-1", generationIds: [], reason: "INITIAL_DRAFT", nodes: [{ nodeId: "root", semanticKey: "mini-root", text: "**[MiniProject]** 整理材料 #MiniProject", order: 0, nodeType: "BLOCK", provenance: "USER_CONFIRMED", operation: "CREATE", userEdited: false, confirmed: true, evidenceRefs: [] }], conflicts: [], unusedMaterials: [], warnings: [], maturity: { level: "WORKABLE", missing: [] }, adopted: true, final: false, createdAt: at.toISOString() }], currentDraftRevisionId: "draft-1" }, 1, at);
   assert.equal(preview.status, "PREVIEW_READY");
   assert.throws(() => completeCreationSession(preview, { objectId: "obj-1", semanticCommitId: "commit-1", createdAt: at.toISOString() }, 2, at), /Placement/);
   const placed = updateCreationSession(preview, { placementPlan: { kind: "PAGE_END", pageId: "journal", pageName: "2026-08-02" } }, 2, at);
@@ -85,4 +85,50 @@ test("round answers persist before Provider and failure retry preserves explicit
   assert.equal(completed.rounds[0]?.providerStatus, "COMPLETED");
   assert.equal(completed.rounds[1]?.providerStatus, "NOT_REQUESTED");
   assert.deepEqual(completed.consensus.map(({ provenance }) => provenance), ["USER_CONFIRMED", "USER_CONFIRMED", "UNKNOWN"]);
+});
+
+const miniDraft = (generationId: string, goalText = "**[目标]** 建立可验证的设备告警接入"): CreationDraftGenerationInput => ({
+  generationId, reason: "INITIAL_DRAFT", suggestedObjectTitle: "建立设备告警接入", unusedMaterials: [], warnings: [], maturity: { level: "WORKABLE", missing: ["完成证据"] },
+  nodes: [
+    { semanticKey: "mini-root", text: "**[MiniProject]** 建立设备告警接入 #MiniProject", order: 0, nodeType: "BLOCK", provenance: "AGENT_SYNTHESIS", operation: "CREATE", confirmed: false, evidenceRefs: [] },
+    { semanticKey: "goal", parentSemanticKey: "mini-root", text: goalText, order: 0, nodeType: "BLOCK", provenance: "AGENT_SYNTHESIS", operation: "CREATE", confirmed: false, evidenceRefs: [] },
+    { semanticKey: "next", parentSemanticKey: "mini-root", text: "TODO 验证一条真实告警", order: 1, nodeType: "TODO", provenance: "AGENT_SUGGESTION", operation: "CREATE", confirmed: false, evidenceRefs: [] },
+  ],
+});
+
+test("Draft revisions keep stable node identity and never overwrite a direct user edit", () => {
+  const started = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: blank(), sessionId: "creation-draft" }, at);
+  const generated = generateCreationDraftRevision(started, miniDraft("generation-one"), 1, at);
+  assert.equal(generated.status, "PREVIEW_READY");
+  const first = generated.draftRevisions[0]!;
+  const goal = first.nodes.find(({ semanticKey }) => semanticKey === "goal")!;
+  const edited = editCreationDraftNode(generated, first.revisionId, { nodeId: goal.nodeId, text: "**[目标]** 用户明确要求保留这一版本" }, 2, new Date("2026-08-02T06:05:00.000Z"));
+  const editedGoal = edited.draftRevisions.at(-1)!.nodes.find(({ semanticKey }) => semanticKey === "goal")!;
+  assert.equal(editedGoal.nodeId, goal.nodeId);
+  assert.equal(editedGoal.provenance, "USER_EDITED");
+  const regenerated = generateCreationDraftRevision(edited, { ...miniDraft("generation-two", "**[目标]** Agent 尝试覆盖用户文本"), reason: "SOURCE_REFRESH" }, 3, new Date("2026-08-02T06:06:00.000Z"));
+  const latest = regenerated.draftRevisions.at(-1)!;
+  assert.equal(latest.nodes.find(({ semanticKey }) => semanticKey === "goal")?.text, "**[目标]** 用户明确要求保留这一版本");
+  assert.equal(latest.nodes.find(({ semanticKey }) => semanticKey === "goal")?.nodeId, goal.nodeId);
+  assert.equal(latest.conflicts[0]?.kind, "USER_TEXT_PROTECTED");
+});
+
+test("ordinary model refresh consolidates into the current Draft instead of retaining every generation", () => {
+  const started = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: blank(), sessionId: "creation-draft-consolidate" }, at);
+  const first = generateCreationDraftRevision(started, miniDraft("generation-consolidate-one"), 1, at);
+  const second = generateCreationDraftRevision(first, { ...miniDraft("generation-consolidate-two"), reason: "STRUCTURE_EDIT" }, 2, new Date("2026-08-02T06:06:30.000Z"));
+  assert.equal(second.draftRevisions.length, 1);
+  assert.deepEqual(second.draftRevisions[0]?.generationIds, ["generation-consolidate-one", "generation-consolidate-two"]);
+});
+
+test("Draft editing only deletes Agent-created leaves and adoption creates one important revision", () => {
+  const started = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: blank(), sessionId: "creation-draft-edit" }, at);
+  const generated = generateCreationDraftRevision(started, miniDraft("generation-edit"), 1, at);
+  const first = generated.draftRevisions[0]!;
+  const next = first.nodes.find(({ semanticKey }) => semanticKey === "next")!;
+  const deleted = editCreationDraftNode(generated, first.revisionId, { nodeId: next.nodeId, delete: true }, 2, new Date("2026-08-02T06:07:00.000Z"));
+  assert.equal(deleted.draftRevisions.at(-1)?.nodes.some(({ nodeId }) => nodeId === next.nodeId), false);
+  const adopted = adoptCreationDraftRevision(deleted, first.revisionId, 3, new Date("2026-08-02T06:08:00.000Z"));
+  assert.equal(adopted.draftRevisions.at(-1)?.reason, "ADOPTED");
+  assert.equal(adopted.draftRevisions.at(-1)?.nodes.some(({ nodeId }) => nodeId === next.nodeId), true);
 });

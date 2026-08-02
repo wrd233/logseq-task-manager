@@ -22,5 +22,7 @@
 
 ## Next checkpoint
 
-CS-CP03 is the stable Logseq-style Draft Tree: strict generated structure, durable node
-identity and revisions, explicit user edits, adoption, and silent-overwrite prevention.
+CS-CP03 backend is automated: strict MiniProject/Project node trees, durable node
+identity, sparse important revisions, source revalidation snapshots, explicit text/delete/
+structure edits, adoption, failure/restart replay, and silent-overwrite conflict protection.
+The remaining CP03 work is the real Logseq-style Preview renderer and Plugin interaction.

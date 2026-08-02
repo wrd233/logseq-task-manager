@@ -36,6 +36,7 @@ import type { LocalLlmGrillTurnGenerator } from "./llm-grill-turn.ts";
 import type { LocalLlmGrillPreviewGenerator } from "./llm-grill-preview.ts";
 import type { LocalLlmProjectCreationPreviewGenerator } from "./llm-project-creation-preview.ts";
 import type { LocalLlmCreationRoundGenerator } from "./creation-session-round.ts";
+import type { LocalLlmCreationDraftGenerator } from "./creation-session-draft.ts";
 import { listTaskCopilotSkills, readAgentGovernanceSkill, readTaskCopilotSkill } from "./skill-catalog.ts";
 import { buildContextPackage, contextPackageFingerprint, type ContextExportScope, type ServiceContextPackage } from "./context-package.ts";
 import { buildProjectContextRecoveryGeneration } from "./project-context-recovery.ts";
@@ -70,6 +71,7 @@ export interface LocalServiceOptions {
   grillPreviewGenerator?: LocalLlmGrillPreviewGenerator;
   projectCreationPreviewGenerator?: LocalLlmProjectCreationPreviewGenerator;
   creationRoundGenerator?: LocalLlmCreationRoundGenerator;
+  creationDraftGenerator?: LocalLlmCreationDraftGenerator;
   agentGovernanceProvider?: AgentGovernanceRuntimeProvider;
   interactionEvidence?: InteractionEvidenceBuffer;
   /** Test-only fault boundary; production callers must omit it. */
@@ -1573,6 +1575,22 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       ...(signal ? { signal } : {}),
     });
   };
+  const generateCreationDraft = async (session: NonNullable<ReturnType<CreationSessionApplication["get"]>>, generationId: string, signal?: AbortSignal) => {
+    if (!options.creationDraftGenerator) throw serviceError("LLM_PROVIDER_DISABLED", "Local Service 未配置 Creation Session Draft Provider；最后稳定草稿保持不变。");
+    const [core, skill, targetSkill] = await Promise.all([
+      readTaskCopilotSkill("task-copilot-core"),
+      readTaskCopilotSkill("creation-session"),
+      session.targetType === "PROJECT" ? readTaskCopilotSkill("design-project") : Promise.resolve(undefined),
+    ]);
+    if (!core || !skill) throw serviceError("CREATION_SESSION_SKILL_MISSING", "Creation Session Draft 所需 Skill 不完整；没有调用 Provider。");
+    return options.creationDraftGenerator.generate({
+      session, generationId,
+      core: { version: core.version, content: core.content },
+      skill: { version: skill.version, content: skill.content },
+      targetSkill: targetSkill ? { version: targetSkill.version, content: targetSkill.content } : { version: "mini-project-draft-v1", content: "生成一个 Logseq 风格 MiniProject 根 Block、具体目标和按需的完成证据/当前推进；TODO 使用原生 TODO。Block 来源默认复用根 UUID 并原位 REWRITE。" },
+      ...(signal ? { signal } : {}),
+    });
+  };
   const agentGovernanceSkill = await readAgentGovernanceSkill();
   const agentGovernanceRuntime = new AgentGovernanceRuntime({
     graphId: options.graphId,
@@ -1780,6 +1798,7 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     || options.grillPreviewGenerator !== undefined
     || options.projectCreationPreviewGenerator !== undefined
     || options.creationRoundGenerator !== undefined
+    || options.creationDraftGenerator !== undefined
     || options.agentGovernanceProvider !== undefined;
   const capabilities = { ...LOCAL_SERVICE_CAPABILITIES, provider: providerConfigured };
   const comprehensiveDoctor = async (): Promise<ServiceDoctor> => {
@@ -2274,6 +2293,85 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       } finally {
         response.removeListener("close", abort);
       }
+      return;
+    }
+    const creationSessionGenerateDraftMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/drafts\/generate$/) : null;
+    if (creationSessionGenerateDraftMatch?.[1]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionGenerateDraftMatch[1]), "Session ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "生成 Draft 需要当前版本和幂等键。");
+      const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
+      const generationId = `draft-${checksum({ sessionId, idempotencyKey })}`;
+      const controller = new AbortController();
+      const abort = () => { if (!response.writableEnded) controller.abort(); };
+      response.once("close", abort);
+      try {
+        const result = await serializeByKey(`creation-session:${sessionId}`, async () => {
+          const replay = creationSessionApplication.replay(idempotencyKey, "PrepareCreationDraft");
+          const actual = replay ? creationSessionApplication.get(sessionId) : undefined;
+          if (actual?.draftRevisions.some((revision) => revision.generationIds.includes(generationId))) return { session: actual, replayed: true, providerStatus: "COMPLETED" as const };
+          let prepared = replay;
+          if (!prepared) {
+            const current = creationSessionApplication.get(sessionId);
+            if (!current) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
+            const captures: Array<{ sourceId: string; capture: CreationSourceCapture }> = [];
+            for (const source of current.sources) {
+              if (source.kind === "BLANK" || !source.externalId) continue;
+              const captured = await captureCreationSource(source.kind === "BLOCK_SUBTREE" ? { kind: "BLOCK", target: source.externalId } : { kind: "PAGE", target: source.externalId }, source.role, "DRAFT_GENERATION", source.sourceId);
+              captures.push({ sourceId: source.sourceId, capture: captured.captures[0]! });
+            }
+            prepared = creationSessionApplication.prepareDraft({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey, captures });
+          }
+          try {
+            const generated = await generateCreationDraft(prepared.session, generationId, controller.signal);
+            const completed = creationSessionApplication.generateDraft({
+              sessionId, expectedVersion: prepared.session.version,
+              idempotencyKey: `creation-draft-complete:${checksum({ sessionId, generationId })}`,
+              draft: generated.draft,
+            });
+            return { ...completed, providerStatus: "COMPLETED" as const };
+          } catch (error) {
+            const cancelled = controller.signal.aborted;
+            return {
+              session: prepared.session, replayed: Boolean(replay), providerStatus: "FAILED" as const,
+              error: { code: cancelled ? "CREATION_DRAFT_CANCELLED" : error instanceof StructuredError ? error.code : "CREATION_DRAFT_PROVIDER_FAILED", message: cancelled ? "请求已取消；最后稳定草稿保持不变。" : "暂时无法生成 Draft；来源快照、回答和最后稳定草稿均已保存，可以安全重试。" },
+            };
+          }
+        });
+        if (!controller.signal.aborted) respond(response, 200, result);
+      } finally {
+        response.removeListener("close", abort);
+      }
+      return;
+    }
+    const creationSessionDraftEditMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/drafts\/([^/]+)\/nodes\/([^/]+)\/edit$/) : null;
+    if (creationSessionDraftEditMatch?.[1] && creationSessionDraftEditMatch[2] && creationSessionDraftEditMatch[3]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionDraftEditMatch[1]), "Session ID");
+      const revisionId = safeCreationToken(decodeURIComponent(creationSessionDraftEditMatch[2]), "Draft Revision ID");
+      const nodeId = safeCreationToken(decodeURIComponent(creationSessionDraftEditMatch[3]), "Draft Node ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).sort().join(",") !== "edit,expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1 || !input.edit || typeof input.edit !== "object" || Array.isArray(input.edit)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Draft 编辑需要当前版本、幂等键和受控编辑。");
+      const edit = input.edit as Record<string, unknown>;
+      if (Object.keys(edit).some((key) => !["text", "delete", "parentNodeId", "order"].includes(key))
+        || (edit.text !== undefined && (typeof edit.text !== "string" || edit.text.length > 8_000))
+        || (edit.delete !== undefined && edit.delete !== true)
+        || (edit.parentNodeId !== undefined && edit.parentNodeId !== null && typeof edit.parentNodeId !== "string")
+        || (edit.order !== undefined && (!Number.isSafeInteger(edit.order) || Number(edit.order) < 0 || Number(edit.order) > 255))) throw serviceError("CREATION_SESSION_DRAFT_EDIT_INVALID", "Draft 编辑字段无效或超界。");
+      const result = await serializeByKey(`creation-session:${sessionId}`, async () => creationSessionApplication.editDraft({
+        sessionId, revisionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key"),
+        edit: { nodeId, ...(typeof edit.text === "string" ? { text: edit.text } : {}), ...(edit.delete === true ? { delete: true } : {}), ...(edit.parentNodeId === null || typeof edit.parentNodeId === "string" ? { parentNodeId: edit.parentNodeId } : {}), ...(typeof edit.order === "number" ? { order: edit.order } : {}) },
+      }));
+      respond(response, 200, result);
+      return;
+    }
+    const creationSessionDraftAdoptMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/drafts\/([^/]+)\/adopt$/) : null;
+    if (creationSessionDraftAdoptMatch?.[1] && creationSessionDraftAdoptMatch[2]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionDraftAdoptMatch[1]), "Session ID");
+      const revisionId = safeCreationToken(decodeURIComponent(creationSessionDraftAdoptMatch[2]), "Draft Revision ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "采用 Draft Revision 需要当前版本和幂等键。");
+      const result = await serializeByKey(`creation-session:${sessionId}`, async () => creationSessionApplication.adoptDraft({ sessionId, revisionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key") }));
+      respond(response, 200, result);
       return;
     }
     const creationSessionAbandonMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/abandon$/) : null;

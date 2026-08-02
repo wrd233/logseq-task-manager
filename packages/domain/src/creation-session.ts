@@ -92,6 +92,7 @@ export interface CreationConsensusItem {
 
 export interface CreationDraftNode {
   nodeId: string;
+  semanticKey: string;
   text: string;
   parentNodeId?: string;
   order: number;
@@ -101,12 +102,25 @@ export interface CreationDraftNode {
   operation: CreationDraftOperation;
   userEdited: boolean;
   confirmed: boolean;
+  evidenceRefs: string[];
+}
+
+export interface CreationDraftConflict {
+  nodeId: string;
+  kind: "USER_TEXT_PROTECTED" | "USER_STRUCTURE_PROTECTED" | "USER_NODE_RETAINED";
+  summary: string;
+  proposedText?: string;
 }
 
 export interface CreationDraftRevision {
   revisionId: string;
+  generationIds: string[];
   reason: CreationRevisionReason;
   nodes: CreationDraftNode[];
+  conflicts: CreationDraftConflict[];
+  unusedMaterials: string[];
+  warnings: string[];
+  maturity: { level: "EARLY" | "WORKABLE" | "READY"; missing: string[] };
   adopted: boolean;
   final: boolean;
   createdAt: string;
@@ -232,6 +246,51 @@ function validateRound(round: CreationSessionRound): void {
   }
 }
 
+function validateDraftRevision(revision: CreationDraftRevision): void {
+  boundedText(revision.revisionId, "草稿 Revision ID", 128);
+  if (revision.generationIds.length > 32 || new Set(revision.generationIds).size !== revision.generationIds.length) throw creationError("CREATION_SESSION_DRAFT_GENERATION_INVALID", "草稿生成 ID 必须不重复且有界。");
+  revision.generationIds.forEach((generationId) => boundedText(generationId, "草稿生成 ID", 128));
+  if (!CREATION_REVISION_REASONS.includes(revision.reason)) throw creationError("CREATION_SESSION_DRAFT_REASON_INVALID", "草稿 Revision 原因无效。");
+  if (revision.nodes.length < 1 || revision.nodes.length > 256) throw creationError("CREATION_SESSION_DRAFT_NODE_LIMIT", "草稿必须包含 1 至 256 个节点。");
+  if (new Set(revision.nodes.map(({ nodeId }) => nodeId)).size !== revision.nodes.length || new Set(revision.nodes.map(({ semanticKey }) => semanticKey)).size !== revision.nodes.length) throw creationError("CREATION_SESSION_DRAFT_NODE_DUPLICATE", "草稿节点身份或语义键不能重复。");
+  const nodeIds = new Set(revision.nodes.map(({ nodeId }) => nodeId));
+  const siblingOrders = new Set<string>();
+  for (const node of revision.nodes) {
+    boundedText(node.nodeId, "草稿节点 ID", 128);
+    boundedText(node.semanticKey, "草稿节点语义键", 128);
+    boundedText(node.text, "草稿节点文本", 8_000);
+    if (node.parentNodeId && (!nodeIds.has(node.parentNodeId) || node.parentNodeId === node.nodeId)) throw creationError("CREATION_SESSION_DRAFT_PARENT_INVALID", "草稿父节点不存在或形成自引用。");
+    if (!Number.isSafeInteger(node.order) || node.order < 0 || node.order > 255 || siblingOrders.has(`${node.parentNodeId ?? "ROOT"}:${node.order}`)) throw creationError("CREATION_SESSION_DRAFT_ORDER_INVALID", "同级草稿节点顺序必须唯一且有界。");
+    siblingOrders.add(`${node.parentNodeId ?? "ROOT"}:${node.order}`);
+    if (!["BLOCK", "TODO", "PAGE_SECTION"].includes(node.nodeType) || !CREATION_DRAFT_PROVENANCE.includes(node.provenance) || !CREATION_DRAFT_OPERATIONS.includes(node.operation)) throw creationError("CREATION_SESSION_DRAFT_NODE_INVALID", "草稿节点类型、来源或操作计划无效。");
+    if (node.nodeType === "TODO" && !/^TODO\s+/u.test(node.text)) throw creationError("CREATION_SESSION_DRAFT_TODO_INVALID", "TODO 草稿节点必须使用原生 TODO 前缀。");
+    boundedText(node.sourceBlockUuid, "来源 Block UUID", 256, true);
+    if (node.operation !== "CREATE" && !node.sourceBlockUuid) throw creationError("CREATION_SESSION_DRAFT_SOURCE_REQUIRED", "KEEP、MOVE 或 REWRITE 必须关联来源 Block UUID。");
+    if (node.userEdited && (node.provenance !== "USER_EDITED" || !node.confirmed)) throw creationError("CREATION_SESSION_DRAFT_EDIT_AUTHORITY_INVALID", "用户编辑节点必须保留 USER_EDITED 与已确认权威。");
+    if (node.evidenceRefs.length > 32 || node.evidenceRefs.some((ref) => typeof ref !== "string" || !ref.trim() || ref.length > 256)) throw creationError("CREATION_SESSION_DRAFT_EVIDENCE_INVALID", "草稿节点证据引用无效或超界。");
+  }
+  if (revision.nodes.filter(({ parentNodeId }) => !parentNodeId).length !== 1) throw creationError("CREATION_SESSION_DRAFT_ROOT_INVALID", "草稿必须且只能有一个稳定根节点。");
+  for (const node of revision.nodes) {
+    let cursor: CreationDraftNode | undefined = node;
+    const seen = new Set<string>();
+    while (cursor?.parentNodeId) {
+      if (seen.has(cursor.parentNodeId) || seen.size >= 16) throw creationError("CREATION_SESSION_DRAFT_CYCLE", "草稿树存在循环或超过 16 层。");
+      seen.add(cursor.parentNodeId);
+      cursor = revision.nodes.find(({ nodeId }) => nodeId === cursor!.parentNodeId);
+    }
+  }
+  if (revision.conflicts.length > 64 || revision.unusedMaterials.length > 64 || revision.warnings.length > 32 || revision.maturity.missing.length > 32 || !["EARLY", "WORKABLE", "READY"].includes(revision.maturity.level)) throw creationError("CREATION_SESSION_DRAFT_METADATA_INVALID", "草稿冲突、未采用材料、警告或成熟度超出有界范围。");
+  for (const conflict of revision.conflicts) {
+    if (!nodeIds.has(conflict.nodeId) || !["USER_TEXT_PROTECTED", "USER_STRUCTURE_PROTECTED", "USER_NODE_RETAINED"].includes(conflict.kind)) throw creationError("CREATION_SESSION_DRAFT_CONFLICT_INVALID", "草稿冲突必须指向保留的节点。");
+    boundedText(conflict.summary, "草稿冲突摘要", 1_000);
+    boundedText(conflict.proposedText, "被拒绝的建议文本", 8_000, true);
+  }
+  revision.unusedMaterials.forEach((value) => boundedText(value, "未采用材料", 1_000));
+  revision.warnings.forEach((value) => boundedText(value, "草稿警告", 1_000));
+  revision.maturity.missing.forEach((value) => boundedText(value, "草稿缺口", 1_000));
+  validTime(revision.createdAt, "草稿创建时间");
+}
+
 export function validateCreationSession(session: CreationSession): CreationSession {
   boundedText(session.sessionId, "会话 ID", 128);
   boundedText(session.graphId, "Graph identity", 256);
@@ -253,6 +312,11 @@ export function validateCreationSession(session: CreationSession): CreationSessi
   }
   const revisionIds = new Set(session.draftRevisions.map(({ revisionId }) => revisionId));
   if (session.currentDraftRevisionId && !revisionIds.has(session.currentDraftRevisionId)) throw creationError("CREATION_SESSION_DRAFT_CURRENT_INVALID", "当前草稿必须指向已保存的重要 Revision。");
+  session.draftRevisions.forEach(validateDraftRevision);
+  const currentRevision = session.currentDraftRevisionId ? session.draftRevisions.find(({ revisionId }) => revisionId === session.currentDraftRevisionId) : undefined;
+  if (currentRevision && !currentRevision.adopted) throw creationError("CREATION_SESSION_DRAFT_NOT_ADOPTED", "当前草稿必须是明确采用的 Revision。");
+  const generationIds = session.draftRevisions.flatMap((revision) => revision.generationIds);
+  if (new Set(generationIds).size !== generationIds.length) throw creationError("CREATION_SESSION_DRAFT_GENERATION_DUPLICATE", "草稿生成请求不能产生重复 Revision。");
   if (session.status === "CREATED" && !session.creationResult) throw creationError("CREATION_SESSION_RESULT_REQUIRED", "已创建会话必须关联正式对象和 Commit。");
   if (session.status !== "CREATED" && session.creationResult) throw creationError("CREATION_SESSION_RESULT_PREMATURE", "正式创建前不能写入创建结果。");
   validTime(session.createdAt, "会话创建时间");
@@ -323,6 +387,26 @@ export function refreshCreationSessionSource(session: CreationSession, sourceId:
   }, expectedVersion, at, {
     eventId: createId("creation_event", at), kind: "SOURCE_REFRESHED", occurredAt: timestamp, summary: "用户纳入最新来源；旧共识依据和用户草稿均已保留",
   });
+}
+
+export function captureCreationSessionSourcesForDraft(session: CreationSession, captures: Array<{ sourceId: string; capture: CreationSourceCapture }>, expectedVersion: number, at = new Date()): CreationSession {
+  const captureBySource = new Map(captures.map((item) => [item.sourceId, item.capture]));
+  if (captureBySource.size !== captures.length || captures.some(({ sourceId }) => !session.sources.some((source) => source.sourceId === sourceId && source.kind !== "BLANK"))) throw creationError("CREATION_SESSION_DRAFT_CAPTURE_INVALID", "Draft 生成快照必须逐一对应当前 Graph 来源。");
+  const graphSources = session.sources.filter(({ kind }) => kind !== "BLANK");
+  if (captures.length !== graphSources.length) throw creationError("CREATION_SESSION_DRAFT_CAPTURE_INCOMPLETE", "生成 Draft 前必须重验所有 Graph 来源。");
+  const sources = session.sources.map((source) => {
+    if (source.kind === "BLANK") return source;
+    const capture = captureBySource.get(source.sourceId)!;
+    const current = sourceCurrentCapture(source);
+    if (capture.reason !== "DRAFT_GENERATION" || capture.snapshotHash !== current.snapshotHash || source.latestKnownHash !== current.snapshotHash || source.availability !== "AVAILABLE") throw creationError("CREATION_SESSION_DRAFT_SOURCE_CHANGED", "来源已变化或不可用；必须先显式纳入最新内容。");
+    const all = [...source.captures, capture];
+    const retainedIds = new Set<string>([all[0]!.captureId, capture.captureId]);
+    for (let index = all.length - 1; index >= 0 && retainedIds.size < 8; index -= 1) retainedIds.add(all[index]!.captureId);
+    const retained = all.filter(({ captureId }) => retainedIds.has(captureId));
+    return { ...source, captures: retained, currentCaptureId: capture.captureId, latestKnownHash: capture.snapshotHash, availability: "AVAILABLE" as const };
+  });
+  const timestamp = at.toISOString();
+  return updateCreationSession(session, { sources }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "SOURCE_CAPTURED", occurredAt: timestamp, summary: "生成 Draft 前已保存并锁定重要来源快照" });
 }
 
 export interface CreationRoundAnswerInput {
@@ -401,6 +485,156 @@ export function retryCreationRound(session: CreationSession, roundId: string, ex
   const round = session.rounds.find((candidate) => candidate.roundId === roundId);
   if (!round || !["FAILED", "CANCELLED"].includes(round.providerStatus)) throw creationError("CREATION_SESSION_ROUND_RETRY_INVALID", "只有失败或取消的已回答轮次可以重试。");
   return updateCreationSession(session, { rounds: session.rounds.map((candidate) => candidate.roundId === roundId ? { ...candidate, providerStatus: "REQUESTING" } : candidate) }, expectedVersion, at);
+}
+
+export interface CreationGeneratedDraftNode {
+  semanticKey: string;
+  text: string;
+  parentSemanticKey?: string;
+  order: number;
+  nodeType: CreationDraftNode["nodeType"];
+  provenance: CreationDraftProvenance;
+  sourceBlockUuid?: string;
+  operation: CreationDraftOperation;
+  confirmed: boolean;
+  evidenceRefs: string[];
+}
+
+export interface CreationDraftGenerationInput {
+  generationId: string;
+  reason: Extract<CreationRevisionReason, "INITIAL_DRAFT" | "STRUCTURE_EDIT" | "SOURCE_REFRESH" | "TARGET_TYPE_CHANGE">;
+  suggestedObjectTitle?: string;
+  nodes: CreationGeneratedDraftNode[];
+  unusedMaterials: string[];
+  warnings: string[];
+  maturity: CreationDraftRevision["maturity"];
+}
+
+function normalizeDraftOrders(nodes: CreationDraftNode[]): CreationDraftNode[] {
+  const byParent = new Map<string, CreationDraftNode[]>();
+  for (const node of nodes) {
+    const key = node.parentNodeId ?? "ROOT";
+    byParent.set(key, [...(byParent.get(key) ?? []), node]);
+  }
+  const normalized = new Map<string, CreationDraftNode>();
+  for (const siblings of byParent.values()) {
+    const protectedOrders = new Set(siblings.filter(({ userEdited }) => userEdited).map(({ order }) => order));
+    const occupied = new Set<number>();
+    for (const node of siblings.filter(({ userEdited }) => userEdited)) {
+      occupied.add(node.order);
+      normalized.set(node.nodeId, node);
+    }
+    for (const node of siblings.filter(({ userEdited }) => !userEdited).sort((left, right) => left.order - right.order || left.semanticKey.localeCompare(right.semanticKey))) {
+      let order = node.order;
+      while (occupied.has(order) || protectedOrders.has(order)) order += 1;
+      if (order > 255) throw creationError("CREATION_SESSION_DRAFT_ORDER_EXHAUSTED", "草稿同级节点过多，无法保留用户顺序。");
+      occupied.add(order);
+      normalized.set(node.nodeId, { ...node, order });
+    }
+  }
+  return nodes.map((node) => normalized.get(node.nodeId)!);
+}
+
+export function generateCreationDraftRevision(session: CreationSession, input: CreationDraftGenerationInput, expectedVersion: number, at = new Date()): CreationSession {
+  boundedText(input.generationId, "草稿生成 ID", 128);
+  const replay = session.draftRevisions.find(({ generationIds: ids }) => ids.includes(input.generationId));
+  if (replay) return structuredClone(session);
+  if (session.version !== expectedVersion) throw creationError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session 已变化；草稿没有覆盖新内容。");
+  if (input.nodes.length < 1 || input.nodes.length > 256 || new Set(input.nodes.map(({ semanticKey }) => semanticKey)).size !== input.nodes.length) throw creationError("CREATION_SESSION_DRAFT_GENERATION_INVALID", "Provider 草稿节点为空、重复或超界。");
+  const current = session.currentDraftRevisionId ? session.draftRevisions.find(({ revisionId }) => revisionId === session.currentDraftRevisionId) : undefined;
+  const existingByKey = new Map((current?.nodes ?? []).map((node) => [node.semanticKey, node]));
+  const generatedKeys = new Set(input.nodes.map(({ semanticKey }) => semanticKey));
+  const omittedProtected = (current?.nodes ?? []).filter(({ userEdited, semanticKey }) => userEdited && !generatedKeys.has(semanticKey));
+  if (omittedProtected.length) throw creationError("CREATION_SESSION_DRAFT_USER_NODE_OMITTED", "Provider 草稿遗漏了用户编辑节点；最后稳定草稿保持不变。");
+  const idByKey = new Map(input.nodes.map((node) => [node.semanticKey, existingByKey.get(node.semanticKey)?.nodeId ?? createId("creation", at)]));
+  const conflicts: CreationDraftConflict[] = [];
+  const nodes = input.nodes.map((proposed): CreationDraftNode => {
+    boundedText(proposed.semanticKey, "草稿语义键", 128);
+    const parentNodeId = proposed.parentSemanticKey ? idByKey.get(proposed.parentSemanticKey) : undefined;
+    if (proposed.parentSemanticKey && !parentNodeId) throw creationError("CREATION_SESSION_DRAFT_PARENT_INVALID", "Provider 草稿父语义键不存在。");
+    const existing = existingByKey.get(proposed.semanticKey);
+    if (existing?.userEdited) {
+      if (existing.text !== proposed.text) conflicts.push({ nodeId: existing.nodeId, kind: "USER_TEXT_PROTECTED", summary: "Agent 建议改写此节点；已保留用户文本。", proposedText: proposed.text });
+      if (existing.parentNodeId !== parentNodeId || existing.order !== proposed.order || existing.nodeType !== proposed.nodeType || existing.operation !== proposed.operation || existing.sourceBlockUuid !== proposed.sourceBlockUuid) conflicts.push({ nodeId: existing.nodeId, kind: "USER_STRUCTURE_PROTECTED", summary: "Agent 建议调整此节点结构或操作计划；已保留用户选择。" });
+      return structuredClone(existing);
+    }
+    return {
+      nodeId: idByKey.get(proposed.semanticKey)!, semanticKey: proposed.semanticKey, text: proposed.text,
+      ...(parentNodeId ? { parentNodeId } : {}), order: proposed.order, nodeType: proposed.nodeType,
+      provenance: proposed.provenance, ...(proposed.sourceBlockUuid ? { sourceBlockUuid: proposed.sourceBlockUuid } : {}),
+      operation: proposed.operation, userEdited: false, confirmed: proposed.confirmed, evidenceRefs: [...proposed.evidenceRefs],
+    };
+  });
+  const timestamp = at.toISOString();
+  const sourceRefreshedAfterCurrent = Boolean(current && session.sources.some((source) => {
+    return source.captures.some((capture) => capture.reason === "USER_REFRESH" && Date.parse(capture.capturedAt) > Date.parse(current.createdAt));
+  }));
+  const consolidate = Boolean(current && current.generationIds.length && !current.nodes.some(({ userEdited }) => userEdited) && !sourceRefreshedAfterCurrent && !current.final);
+  const revision: CreationDraftRevision = {
+    revisionId: consolidate ? current!.revisionId : createId("creation", at),
+    generationIds: consolidate ? [...current!.generationIds, input.generationId] : [input.generationId],
+    reason: !current ? "INITIAL_DRAFT" : sourceRefreshedAfterCurrent ? "SOURCE_REFRESH" : input.reason,
+    nodes: normalizeDraftOrders(nodes), conflicts, unusedMaterials: [...input.unusedMaterials], warnings: [...input.warnings], maturity: structuredClone(input.maturity),
+    adopted: true, final: false, createdAt: timestamp,
+  };
+  return updateCreationSession(session, {
+    ...(input.suggestedObjectTitle?.trim() ? { suggestedObjectTitle: input.suggestedObjectTitle.trim() } : {}),
+    draftRevisions: consolidate ? session.draftRevisions.map((candidate) => candidate.revisionId === current!.revisionId ? revision : candidate) : [...session.draftRevisions, revision], currentDraftRevisionId: revision.revisionId,
+  }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "DRAFT_GENERATED", occurredAt: timestamp, summary: conflicts.length ? `已生成草稿并保留 ${conflicts.length} 项用户编辑` : "已生成当前 Draft Tree" });
+}
+
+export interface CreationDraftNodeEdit {
+  nodeId: string;
+  text?: string;
+  delete?: boolean;
+  parentNodeId?: string | null;
+  order?: number;
+}
+
+export function editCreationDraftNode(session: CreationSession, revisionId: string, edit: CreationDraftNodeEdit, expectedVersion: number, at = new Date()): CreationSession {
+  if (session.currentDraftRevisionId !== revisionId) throw creationError("CREATION_SESSION_DRAFT_STALE", "只能编辑当前采用的 Draft Revision。");
+  const current = session.draftRevisions.find((revision) => revision.revisionId === revisionId)!;
+  const target = current.nodes.find(({ nodeId }) => nodeId === edit.nodeId);
+  if (!target) throw creationError("CREATION_SESSION_DRAFT_NODE_NOT_FOUND", "草稿节点不存在。");
+  const changedFields = [edit.text !== undefined, edit.delete === true, edit.parentNodeId !== undefined, edit.order !== undefined].filter(Boolean).length;
+  if (changedFields < 1 || edit.delete && changedFields > 1) throw creationError("CREATION_SESSION_DRAFT_EDIT_INVALID", "草稿编辑必须明确且删除不能与其他变化合并提交。");
+  let nodes = current.nodes.map((node) => structuredClone(node));
+  let reason: CreationRevisionReason = "STRUCTURE_EDIT";
+  if (edit.delete) {
+    if (target.parentNodeId === undefined || target.operation !== "CREATE" || !["AGENT_SYNTHESIS", "AGENT_SUGGESTION", "UNCONFIRMED"].includes(target.provenance) || nodes.some(({ parentNodeId }) => parentNodeId === target.nodeId)) throw creationError("CREATION_SESSION_DRAFT_DELETE_FORBIDDEN", "只能删除没有子节点的 Agent 新建节点。");
+    nodes = nodes.filter(({ nodeId }) => nodeId !== target.nodeId);
+  } else {
+    if (edit.parentNodeId === null && target.parentNodeId !== undefined) throw creationError("CREATION_SESSION_DRAFT_SECOND_ROOT", "不能把普通节点提升为第二个草稿根节点。");
+    if (edit.parentNodeId && !nodes.some(({ nodeId }) => nodeId === edit.parentNodeId)) throw creationError("CREATION_SESSION_DRAFT_PARENT_INVALID", "新的草稿父节点不存在。");
+    nodes = nodes.map((node) => node.nodeId === target.nodeId ? {
+      ...node,
+      ...(edit.text !== undefined ? { text: boundedText(edit.text, "用户草稿文本", 8_000)! } : {}),
+      ...(edit.parentNodeId !== undefined ? (edit.parentNodeId ? { parentNodeId: edit.parentNodeId } : {}) : {}),
+      ...(edit.order !== undefined ? { order: edit.order } : {}),
+      provenance: "USER_EDITED" as const, userEdited: true, confirmed: true,
+      evidenceRefs: [...new Set([...node.evidenceRefs, `draft-edit:${revisionId}:${node.nodeId}`])],
+    } : node);
+    reason = edit.text !== undefined && edit.parentNodeId === undefined && edit.order === undefined ? "USER_EDIT" : "STRUCTURE_EDIT";
+  }
+  const timestamp = at.toISOString();
+  const revision: CreationDraftRevision = {
+    revisionId: createId("creation", at), generationIds: [], reason, nodes: normalizeDraftOrders(nodes),
+    conflicts: structuredClone(current.conflicts), unusedMaterials: [...current.unusedMaterials], warnings: [...current.warnings], maturity: structuredClone(current.maturity),
+    adopted: true, final: false, createdAt: timestamp,
+  };
+  return updateCreationSession(session, { draftRevisions: [...session.draftRevisions, revision], currentDraftRevisionId: revision.revisionId }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "DRAFT_EDITED", occurredAt: timestamp, summary: edit.delete ? "用户删除 Agent 新建草稿节点" : "用户直接编辑 Draft Tree" });
+}
+
+export function adoptCreationDraftRevision(session: CreationSession, revisionId: string, expectedVersion: number, at = new Date()): CreationSession {
+  const selected = session.draftRevisions.find((revision) => revision.revisionId === revisionId);
+  if (!selected) throw creationError("CREATION_SESSION_DRAFT_NOT_FOUND", "要采用的 Draft Revision 不存在。");
+  const timestamp = at.toISOString();
+  const adopted: CreationDraftRevision = {
+    revisionId: createId("creation", at), generationIds: [], reason: "ADOPTED", nodes: structuredClone(selected.nodes),
+    conflicts: structuredClone(selected.conflicts), unusedMaterials: [...selected.unusedMaterials], warnings: [...selected.warnings], maturity: structuredClone(selected.maturity),
+    adopted: true, final: false, createdAt: timestamp,
+  };
+  return updateCreationSession(session, { draftRevisions: [...session.draftRevisions, adopted], currentDraftRevisionId: adopted.revisionId }, expectedVersion, at, { eventId: createId("creation_event", at), kind: "DRAFT_EDITED", occurredAt: timestamp, summary: "用户采用一版重要 Draft Revision" });
 }
 
 export function updateCreationSession(session: CreationSession, patch: Partial<Pick<CreationSession, "userTitle" | "suggestedObjectTitle" | "sources" | "rounds" | "consensus" | "draftRevisions" | "currentDraftRevisionId" | "placementPlan">>, expectedVersion: number, at = new Date(), event?: CreationSessionEvent): CreationSession {
