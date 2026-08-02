@@ -111,6 +111,8 @@ inline 编辑/安全删除/Revision 采用和响应式状态已有自动证据�
 Session 结果的原子 final-domain-step/精确 Undo 已有自动证据；CS-CP05 已把显式
 Placement、提交前来源重读和确定性单 HIGH `CREATION_SESSION_V1` Proposal 接入既有
 Local Service / Plugin / Review queue，重放不产生第二个 Proposal，审阅入口仍保持零
-Graph / Object 写入。两条纵向的专用 Graph step、SemanticCommit Service/Plugin 执行、恢复、真实
-Provider/Desktop/独立视觉 Gate 尚未完成，总体状态保持
+Graph / Object 写入。CS-CP06 已完成 Project 独立 Page 的专用 Graph step、既有
+SemanticCommit prepare/finalize、原子 Domain materialization、精确补偿与 Undo；Plugin 只写入
+带三项所有权证据和确定性 UUID 的审阅 Draft Tree，半写入只在严格受控前缀时清理，未知或后续
+用户内容一律保留。MiniProject 纵向、真实 Provider/Desktop/独立视觉 Gate 尚未完成，总体状态保持
 `IN_PROGRESS`。

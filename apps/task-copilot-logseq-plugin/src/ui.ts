@@ -73,6 +73,8 @@ export type ActionDialogKind =
   | "confirm-v2-project-closure-undo"
   | "confirm-v2-project-creation"
   | "confirm-v2-project-creation-undo"
+  | "confirm-v2-creation-session"
+  | "confirm-v2-creation-session-undo"
   | "confirm-v2-project-structure"
   | "confirm-v2-project-structure-undo"
   | "confirm-v2-mini-project-restructure"
@@ -777,7 +779,16 @@ function renderReview(model: UiModel): string {
         || (acceptedGroups[0]!.risk === "MEDIUM" && acceptedGroups[0]!.semanticOperations[0]!.kind === "UPDATE_PROJECT_NARRATION")
       )
       && "projectStructure" in acceptedGroups[0]!.semanticOperations[0]!.payload;
-    const isProjectCreation = acceptedGroups.length === 1
+    const creationSessionOperation = acceptedGroups.length === 1
+      && acceptedGroups[0]!.risk === "HIGH"
+      && acceptedGroups[0]!.textPatches.length === 0
+      && acceptedGroups[0]!.semanticOperations.length === 1
+      && acceptedGroups[0]!.semanticOperations[0]!.kind === "CREATE_OBJECT"
+      && acceptedGroups[0]!.semanticOperations[0]!.payload.schema === "CREATION_SESSION_V1"
+      ? acceptedGroups[0]!.semanticOperations[0]
+      : undefined;
+    const isCreationSession = creationSessionOperation !== undefined;
+    const isProjectCreation = !isCreationSession && acceptedGroups.length === 1
       && acceptedGroups[0]!.risk === "HIGH"
       && acceptedGroups[0]!.textPatches.length === 0
       && acceptedGroups[0]!.semanticOperations.length === 1
@@ -812,15 +823,17 @@ function renderReview(model: UiModel): string {
     const projectClosureUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `project-closure-undo:${originalCommit.semanticCommitId}`) : undefined;
     const miniProjectRestructureUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `mini-project-restructure-undo:${originalCommit.semanticCommitId}`) : undefined;
     const projectCreationUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `project-creation-undo:${originalCommit.semanticCommitId}`) : undefined;
+    const creationSessionUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `creation-session-undo:${originalCommit.semanticCommitId}`) : undefined;
     const canCommit = hasAcceptedGroup && !miniProjectClosureBlockedByOtherGroups && (record.proposal.status === "ACCEPTED" || record.proposal.status === "PARTIALLY_ACCEPTED");
     const lifecycleUndoCommit = originalCommit ? model.v2SemanticCommits?.find((commit) => commit.semanticCommitId === `lifecycle-undo:${originalCommit.semanticCommitId}`) : undefined;
     const canOwnershipUndo = isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && ownershipUndoCommit?.status !== "FAILED";
     const canProjectCreationUndo = isProjectCreation && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && projectCreationUndoCommit?.status !== "FAILED";
+    const canCreationSessionUndo = isCreationSession && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && creationSessionUndoCommit?.status !== "FAILED" && creationSessionUndoCommit?.status !== "COMPLETED";
     const canProjectStructureUndo = isProjectStructure && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && projectStructureUndoCommit?.status !== "FAILED";
     const canProjectClosureUndo = isProjectClosure && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && projectClosureUndoCommit?.status !== "FAILED" && projectClosureUndoCommit?.status !== "COMPLETED";
     const canMiniProjectRestructureUndo = isMiniProjectRestructure && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && miniProjectRestructureUndoCommit?.status !== "FAILED" && miniProjectRestructureUndoCommit?.status !== "COMPLETED";
     const canLifecycleUndo = isReasonedLifecycle && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED" && lifecycleUndoCommit?.status !== "FAILED" && lifecycleUndoCommit?.status !== "COMPLETED";
-    const canUndo = !isProjectClosure && !isProjectStructure && !isProjectCreation && !isMiniProjectRestructure && !isMiniProjectClosure && !isReasonedLifecycle && !isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
+    const canUndo = !isProjectClosure && !isProjectStructure && !isProjectCreation && !isCreationSession && !isMiniProjectRestructure && !isMiniProjectClosure && !isReasonedLifecycle && !isOwnershipChange && record.proposal.status === "APPLIED" && originalCommit?.status === "COMPLETED";
     const canReviseWithProvider = model.v2ProviderAvailable === true && record.proposal.source.kind === "local_llm" && ["READY", "IN_REVIEW", "PARTIALLY_ACCEPTED", "ACCEPTED"].includes(record.proposal.status);
     const changes = v2ReviewChanges(record);
     const applied = record.proposal.status === "APPLIED";
@@ -855,7 +868,7 @@ function renderReview(model: UiModel): string {
       : record.proposal.title;
     const scopeBoundary = (isProjectClosure || (operationKinds.has("UPDATE_PROJECT_INTERFACE") && operationKinds.has("TRANSITION_LIFECYCLE")))
       ? "项目页面和正文不会被删除或改写。"
-      : (isProjectCreation || operationKinds.has("CREATE_OBJECT"))
+      : (isProjectCreation || isCreationSession || operationKinds.has("CREATE_OBJECT"))
         ? "来源页面和原始材料会保留；不会静默删除已有内容。"
         : (isMiniProjectRestructure || operationKinds.has("MOVE_BLOCK"))
           ? "不会删除原材料；已有内容会保留原来的身份。"
@@ -888,13 +901,14 @@ function renderReview(model: UiModel): string {
         : "";
       return `<section class="review-choice">${projectClosureChoice ? "" : `<p><strong>${escapeHtml(group.explanation)}</strong></p>`}${deferral}<div class="actions wrap">${lowRiskApply.eligible ? button(lowRiskApplyBusy ? "正在应用…" : "确认并应用", "v2-low-risk-apply", `${record.proposal.proposalId}|${record.updatedAt}`, "primary", lowRiskApplyBusy) : button("审阅方案", "v2-review-accept", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}|${group.risk}|${reviewKind}`, "primary", lowRiskApplyBusy)}${button("不采用", "v2-review-reject", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet", lowRiskApplyBusy)}${button("稍后处理", "v2-review-defer", `${record.proposal.proposalId}|${group.groupId}|${record.updatedAt}`, "quiet", lowRiskApplyBusy)}</div></section>`;
     }).join("");
-    const commitLabel = isProjectClosure ? "确认结束项目" : isProjectStructure ? "确认更新项目" : isProjectCreation ? "确认创建项目" : isMiniProjectRestructure ? "确认整理结构" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消事项" : "确认重新打开") : isOwnershipChange ? "确认调整主归属" : "确认应用";
-    const commitAction = isProjectClosure ? "v2-project-closure-commit" : isProjectStructure ? "v2-project-structure-commit" : isProjectCreation ? "v2-project-creation-commit" : isMiniProjectRestructure ? "v2-mini-project-restructure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit";
-    const commitBusy = (isProjectCreation && model.v2ProjectCreationCommitBusy === true) || (isMiniProjectRestructure && model.v2StructureCommitBusy === true) || (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true);
+    const commitLabel = isProjectClosure ? "确认结束项目" : isProjectStructure ? "确认更新项目" : isCreationSession ? "确认正式创建" : isProjectCreation ? "确认创建项目" : isMiniProjectRestructure ? "确认整理结构" : isMiniProjectClosure ? "确认完成 MiniProject" : isReasonedLifecycle ? (reasonedLifecycleOperation!.payload.action === "CANCEL" ? "确认取消事项" : "确认重新打开") : isOwnershipChange ? "确认调整主归属" : "确认应用";
+    const commitAction = isProjectClosure ? "v2-project-closure-commit" : isProjectStructure ? "v2-project-structure-commit" : isCreationSession ? "v2-creation-session-commit" : isProjectCreation ? "v2-project-creation-commit" : isMiniProjectRestructure ? "v2-mini-project-restructure-commit" : isMiniProjectClosure ? "v2-mini-project-closure-commit" : isReasonedLifecycle ? "v2-reasoned-lifecycle-commit" : isOwnershipChange ? "v2-ownership-commit" : "v2-proposal-commit";
+    const commitBusy = ((isProjectCreation || isCreationSession) && model.v2ProjectCreationCommitBusy === true) || (isMiniProjectRestructure && model.v2StructureCommitBusy === true) || (isOwnershipChange && model.v2OwnershipCommitBusy === true) || ((isMiniProjectClosure || isReasonedLifecycle) && model.v2LifecycleCommitBusy === true);
     const resolutionLabel = recoveryOriginalCommit ? "恢复到安全状态" : pendingOriginalCommit ? "继续原修改" : commitLabel;
     const primaryResolution = canCommit
       ? `<div class="actions review-primary-action">${button(resolutionLabel, commitAction, `${record.proposal.proposalId}|${record.updatedAt}${isReasonedLifecycle ? `|${reasonedLifecycleOperation!.payload.action}` : ""}`, recoveryOriginalCommit ? "danger" : "primary", commitBusy)}</div>`
       : canOwnershipUndo ? `<div class="actions">${button("撤销主归属变化", "v2-ownership-undo", originalCommit.semanticCommitId, "danger", model.v2OwnershipCommitBusy === true)}</div>`
+      : canCreationSessionUndo ? `<div class="actions">${button(model.v2ProjectCreationCommitBusy ? "正在安全撤销…" : "撤销 Creation Session 创建", "v2-creation-session-undo", originalCommit.semanticCommitId, "danger", model.v2ProjectCreationCommitBusy === true)}</div>`
       : canProjectCreationUndo ? `<div class="actions">${button(model.v2ProjectCreationCommitBusy ? "正在安全撤销…" : "撤销项目创建", "v2-project-creation-undo", originalCommit.semanticCommitId, "danger", model.v2ProjectCreationCommitBusy === true)}</div>`
       : canProjectClosureUndo ? `<div class="actions">${button("撤销结束项目", "v2-project-closure-undo", originalCommit.semanticCommitId, "danger")}</div>`
       : canProjectStructureUndo ? `<div class="actions">${button("撤销项目更新", "v2-project-structure-undo", originalCommit.semanticCommitId, "danger")}</div>`
@@ -906,7 +920,7 @@ function renderReview(model: UiModel): string {
       ? "还有其他修改没有决定；请先逐项选择审阅、不采用或稍后处理，再完成这个 MiniProject。"
       : projectCreationUndoCommit?.status === "RECOVERY_REQUIRED"
       ? "自动撤销没有完成；用户内容未被删除，请从恢复入口继续。"
-      : [ownershipUndoCommit, projectClosureUndoCommit, projectStructureUndoCommit, miniProjectRestructureUndoCommit, lifecycleUndoCommit].some((commit) => commit?.status === "FAILED")
+      : [ownershipUndoCommit, creationSessionUndoCommit, projectClosureUndoCommit, projectStructureUndoCommit, miniProjectRestructureUndoCommit, lifecycleUndoCommit].some((commit) => commit?.status === "FAILED")
         ? "撤销因后续变化已安全停止，没有覆盖当前内容。"
         : originalCommit?.status === "UNDONE"
           ? "本次修改已经撤销；历史记录仍然保留。"
@@ -2056,6 +2070,8 @@ function renderActionDialog(model: UiModel): string {
     "confirm-v2-project-closure-undo": ["撤销结束项目", "我确认恢复为进行中并移除本次完成回顾；只有项目结束后没有新变化时才会生效，页面与正文不会改变", "submit-v2-project-closure-undo"],
     "confirm-v2-project-creation": ["确认创建项目", "我已检查最终阅读结果与页面关系；系统会重新检查来源，只创建或复用已审阅的主页面", "submit-v2-project-creation"],
     "confirm-v2-project-creation-undo": ["撤销项目创建", "我确认撤销正式项目；复用的来源页面会原样保留，专用页面只有仍属于本次操作且保持为空时才会删除", "submit-v2-project-creation-undo"],
+    "confirm-v2-creation-session": ["确认正式创建", "我已检查完整 Draft Tree、来源与放置位置；系统会重新验证并通过同一 Semantic Commit 创建正式对象", "submit-v2-creation-session"],
+    "confirm-v2-creation-session-undo": ["撤销 Creation Session 创建", "我确认撤销正式对象；只有受控 Page 与完整 Draft Tree 都没有后续变化时才会删除，Session 与审计证据会保留", "submit-v2-creation-session-undo"],
     "confirm-v2-project-structure": ["确认更新项目", "我已检查目标、成果、推进阶段、项目摘要和当前推进；系统会重新检查版本，不改写 Logseq 正文", "submit-v2-project-structure-commit"],
     "confirm-v2-project-structure-undo": ["撤销项目更新", "我确认恢复审阅前的完整项目信息；只有项目没有后续正式变化时才会生效，归属和位置不会改变", "submit-v2-project-structure-undo"],
     "confirm-v2-mini-project-restructure": ["确认整理 MiniProject", "我已检查最终阅读结果、移动数量和零删除边界；系统会重新检查全部材料，保留已有内容身份，并在失败时恢复", "submit-v2-mini-project-restructure"],

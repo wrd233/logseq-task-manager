@@ -72,6 +72,7 @@ import {
 import { createReviewedProjectWithPage, ownedProjectPageObjectId, projectCreationUndoMessage, undoReviewedProjectCreation } from "./v2-project-creation.ts";
 import { ProjectCreationGrillController, type ProjectCreationSource } from "./project-creation-grill-controller.ts";
 import { CreationSessionController, type CreationSessionClient } from "./creation-session-controller.ts";
+import { commitCreationSessionProject, undoCreationSessionProject } from "./creation-session-commit.ts";
 import {
   buildSelectedBlockProposalPrompt,
   buildSelectedBlockProposalRevisionPrompt,
@@ -4337,6 +4338,8 @@ async function handleAction(action: string, value?: string): Promise<void> {
   if (action === "v2-project-closure-undo" && value) return openActionDialog("confirm-v2-project-closure-undo", value);
   if (action === "v2-project-creation-commit" && value) return openActionDialog("confirm-v2-project-creation", value);
   if (action === "v2-project-creation-undo" && value) return openActionDialog("confirm-v2-project-creation-undo", value);
+  if (action === "v2-creation-session-commit" && value) return openActionDialog("confirm-v2-creation-session", value);
+  if (action === "v2-creation-session-undo" && value) return openActionDialog("confirm-v2-creation-session-undo", value);
   if (action === "v2-project-structure-commit" && value) return openActionDialog("confirm-v2-project-structure", value);
   if (action === "v2-project-structure-undo" && value) return openActionDialog("confirm-v2-project-structure-undo", value);
   if (action === "v2-mini-project-restructure-commit" && value) return openActionDialog("confirm-v2-mini-project-restructure", value);
@@ -4451,6 +4454,81 @@ async function handleAction(action: string, value?: string): Promise<void> {
         message = "项目版本已变化；这次没有结束项目，请重新检查后再发起。";
       }
     });
+    return;
+  }
+  if (action === "submit-v2-creation-session" && value) {
+    if (v2ProjectCreationCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认已审阅的 Draft Tree、来源边界与独立 Project Page。"; await refresh(); return; }
+    const [proposalId, expectedUpdatedAt] = value.split("|");
+    v2ProjectCreationCommitBusy = true;
+    let openedPageName: string | undefined;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!proposalId || !expectedUpdatedAt || !client?.prepareCreationSessionCommit || !client.finalizeCreationSessionCommit || !client.compensateCreationSessionCommit) throw new Error("Creation Session 正式创建上下文已失效；没有写入。");
+        const result = await commitCreationSessionProject({
+          prepareCreationSessionCommit: client.prepareCreationSessionCommit.bind(client),
+          finalizeCreationSessionCommit: client.finalizeCreationSessionCommit.bind(client),
+          compensateCreationSessionCommit: client.compensateCreationSessionCommit.bind(client),
+        }, {
+          getPage: (identity) => logseq.Editor.getPage(identity),
+          createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
+          getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
+          appendBlockInPage: (identity, content, options) => logseq.Editor.appendBlockInPage(identity, content, options),
+          insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
+          removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
+          deletePage: async (identity) => { await logseq.Editor.deletePage(identity); },
+        }, proposalId, expectedUpdatedAt, `v2-creation-session-project-ui-${Date.now()}`);
+        actionDialog = undefined;
+        if (result.status === "STALE") { workspace = "review"; message = "Creation Session、来源或目标 Page 已变化；没有创建 Page 或正式对象。"; return; }
+        recentActionCommitId = result.semanticCommitId;
+        workspace = "reentry";
+        v2ReentryTargetObjectId = result.object.objectId;
+        openedPageName = result.pageName;
+        message = `${result.object.text} 已由 Creation Session 正式创建；Draft Tree、Primary Anchor 与会话结果已在同一恢复边界收口。`;
+      });
+    } finally {
+      v2ProjectCreationCommitBusy = false;
+      await refresh();
+    }
+    if (openedPageName && !latestError) {
+      pageContext = undefined;
+      await clearBusinessOrigin();
+      await logseq.App.pushState("page", { name: openedPageName });
+    }
+    return;
+  }
+  if (action === "submit-v2-creation-session-undo" && value) {
+    if (v2ProjectCreationCommitBusy) return;
+    if (!dialogChecked("actionConfirmed")) { latestError = "请确认只有 Page 与完整 Draft Tree 均未变化时才执行 Undo。"; await refresh(); return; }
+    v2ProjectCreationCommitBusy = true;
+    try {
+      await refresh();
+      await run(async () => {
+        const client = serviceRuntimeClient;
+        if (!client?.prepareCreationSessionUndo || !client.finalizeCreationSessionUndo) throw new Error("Creation Session Undo 上下文已失效；没有删除 Page。");
+        const result = await undoCreationSessionProject({
+          prepareCreationSessionUndo: client.prepareCreationSessionUndo.bind(client),
+          finalizeCreationSessionUndo: client.finalizeCreationSessionUndo.bind(client),
+        }, {
+          getPage: (identity) => logseq.Editor.getPage(identity),
+          createPage: (pageName, properties, options) => logseq.Editor.createPage(pageName, properties, options),
+          getPageBlocksTree: (identity) => logseq.Editor.getPageBlocksTree(identity),
+          appendBlockInPage: (identity, content, options) => logseq.Editor.appendBlockInPage(identity, content, options),
+          insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
+          removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
+          deletePage: async (identity) => { await logseq.Editor.deletePage(identity); },
+        }, value, `v2-creation-session-project-undo-ui-${Date.now()}`);
+        actionDialog = undefined;
+        workspace = "review";
+        message = `Creation Session Project 创建已撤销；受控 Page 与完整 Draft Tree 已移除，会话和审计证据保留。`;
+        recentActionCommitId = result.originalSemanticCommitId;
+      });
+    } finally {
+      v2ProjectCreationCommitBusy = false;
+      await refresh();
+    }
     return;
   }
   if (action === "submit-v2-project-creation" && value) {

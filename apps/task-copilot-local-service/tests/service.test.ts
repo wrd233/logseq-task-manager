@@ -403,6 +403,82 @@ test("Creation Session prepares one replayable HIGH Proposal while formal stores
   assert.equal(replay.replayed, true);
   assert.equal(replay.record.proposal.proposalId, proposal.record.proposal.proposalId);
   assert.equal((await client.listProposals()).filter(({ proposal: item }) => item.proposalId === proposal.record.proposal.proposalId).length, 1);
+
+  const accepted = await client.reviewProposal(proposal.record.proposal.proposalId, { "create-from-session": { disposition: "ACCEPTED", highImpactConfirmed: true } }, proposal.record.updatedAt);
+  const absenceBridge = (async () => {
+    const pending = await client.claimGraphReadRequest();
+    assert.equal(pending?.kind, "PAGE");
+    assert.equal(pending?.target, "Project/统一硬件告警治理");
+    if (!pending) throw new Error("expected Creation Session Project Page absence read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "NOT_FOUND" });
+  })();
+  const preparePromise = client.prepareCreationSessionCommit(proposal.record.proposal.proposalId, { confirmation: "CREATE_FROM_SESSION", expectedUpdatedAt: accepted.updatedAt, traceId: "creation-session-commit-prepare" });
+  const [, prepared] = await Promise.all([absenceBridge, preparePromise]);
+  assert.equal(prepared.status, "PREPARED");
+  if (prepared.status !== "PREPARED") throw new Error("expected prepared Creation Session Project commit");
+  assert.equal((await client.status()).objectCount, 0);
+  const pageExternalId = "page-creation-session-project";
+  const pageContentHash = checksum({
+    pageName: prepared.pageName,
+    pageExternalId,
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": prepared.objectId,
+      "task-copilot-semantic-commit-id": prepared.semanticCommitId,
+    },
+    nodes: prepared.nodes.map(({ nodeId, blockUuid, parentNodeId, order, text, contentHash }) => ({ nodeId, blockUuid, ...(parentNodeId ? { parentNodeId } : {}), order, text, contentHash })),
+  });
+  const committed = await client.finalizeCreationSessionCommit(proposal.record.proposal.proposalId, { semanticCommitId: prepared.semanticCommitId, expectedUpdatedAt: accepted.updatedAt, pageExternalId, pageContentHash, traceId: "creation-session-commit-finalize" });
+  assert.equal(committed.status, "COMPLETED");
+  if (committed.status !== "COMPLETED") throw new Error("expected completed Creation Session Project commit");
+  assert.equal(committed.session.status, "CREATED");
+  assert.equal(committed.object.objectType, "PROJECT");
+  assert.equal(committed.anchor.externalId, pageExternalId);
+  assert.equal(committed.record.proposal.status, "APPLIED");
+  assert.equal((await client.status()).objectCount, 1);
+  const completedReplay = await client.prepareCreationSessionCommit(proposal.record.proposal.proposalId, { confirmation: "CREATE_FROM_SESSION", expectedUpdatedAt: accepted.updatedAt, traceId: "creation-session-commit-replay" });
+  assert.equal(completedReplay.status, "COMPLETED");
+
+  const undoPreflight = await client.prepareCreationSessionUndo(prepared.semanticCommitId, { traceId: "creation-session-undo-preflight" });
+  assert.equal(undoPreflight.status, "PAGE_PREFLIGHT_REQUIRED");
+  assert.equal((await client.status()).objectCount, 1);
+  const undoPrepared = await client.prepareCreationSessionUndo(prepared.semanticCommitId, { traceId: "creation-session-undo-prepare", confirmedOwnedTree: true, pageExternalId });
+  assert.equal(undoPrepared.status, "PAGE_DELETION_REQUIRED");
+  if (undoPrepared.status !== "PAGE_DELETION_REQUIRED") throw new Error("expected Creation Session Page deletion");
+  assert.equal((await client.status()).objectCount, 0);
+  const undoFinalized = await client.finalizeCreationSessionUndo(prepared.semanticCommitId, { undoSemanticCommitId: undoPrepared.undoSemanticCommitId, pageExternalId, pageExists: false, traceId: "creation-session-undo-finalize" });
+  assert.equal(undoFinalized.status, "COMPLETED");
+  assert.ok(undoFinalized.session.creationResult?.undoneAt);
+  const undoReplay = await client.prepareCreationSessionUndo(prepared.semanticCommitId, { traceId: "creation-session-undo-replay" });
+  assert.equal(undoReplay.status, "COMPLETED");
+
+  const conflictSession = await client.createCreationSession({ targetType: "PROJECT", primarySource: { kind: "BLANK" }, sessionId: "creation-proposal-conflict-session", idempotencyKey: "creation-proposal-conflict-create" });
+  const conflictDraft = await client.generateCreationSessionDraft(conflictSession.session.sessionId, { expectedVersion: conflictSession.session.version, idempotencyKey: "creation-proposal-conflict-draft" });
+  const conflictPlaced = await client.updateCreationSession(conflictSession.session.sessionId, { expectedVersion: conflictDraft.session.version, idempotencyKey: "creation-proposal-conflict-place", patch: { placementPlan: { kind: "NEW_PROJECT_PAGE", pageName: "Project/统一硬件告警治理-冲突" } } });
+  const conflictProposal = await client.createCreationSessionProposal(conflictSession.session.sessionId, { expectedVersion: conflictPlaced.session.version, idempotencyKey: "creation-proposal-conflict-submit" });
+  const conflictAccepted = await client.reviewProposal(conflictProposal.record.proposal.proposalId, { "create-from-session": { disposition: "ACCEPTED", highImpactConfirmed: true } }, conflictProposal.record.updatedAt);
+  const conflictAbsenceBridge = (async () => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected conflicting Creation Session Page absence read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "NOT_FOUND" });
+  })();
+  const conflictPreparePromise = client.prepareCreationSessionCommit(conflictProposal.record.proposal.proposalId, { confirmation: "CREATE_FROM_SESSION", expectedUpdatedAt: conflictAccepted.updatedAt, traceId: "creation-session-conflict-prepare" });
+  const [, conflictPrepared] = await Promise.all([conflictAbsenceBridge, conflictPreparePromise]);
+  if (conflictPrepared.status !== "PREPARED") throw new Error("expected prepared conflicting Creation Session commit");
+  const conflictPageExternalId = "page-creation-session-conflict";
+  await client.materializeExplicitObject({ objectType: "TASK", text: "预占 Anchor", externalId: conflictPageExternalId, inputVersion: "1", contentHash: checksum("预占 Anchor"), idempotencyKey: "creation-session-conflict-anchor", traceId: "creation-session-conflict-anchor" });
+  const conflictPageContentHash = checksum({
+    pageName: conflictPrepared.pageName,
+    pageExternalId: conflictPageExternalId,
+    properties: { "task-copilot-owner": "task-copilot-personal-mvp", "task-copilot-object-id": conflictPrepared.objectId, "task-copilot-semantic-commit-id": conflictPrepared.semanticCommitId },
+    nodes: conflictPrepared.nodes.map(({ nodeId, blockUuid, parentNodeId, order, text, contentHash }) => ({ nodeId, blockUuid, ...(parentNodeId ? { parentNodeId } : {}), order, text, contentHash })),
+  });
+  const conflictFinalize = await client.finalizeCreationSessionCommit(conflictProposal.record.proposal.proposalId, { semanticCommitId: conflictPrepared.semanticCommitId, expectedUpdatedAt: conflictAccepted.updatedAt, pageExternalId: conflictPageExternalId, pageContentHash: conflictPageContentHash, traceId: "creation-session-conflict-finalize" });
+  assert.equal(conflictFinalize.status, "COMPENSATION_REQUIRED");
+  assert.equal((await client.getCreationSession(conflictSession.session.sessionId))?.status, "PREVIEW_READY", "failed Domain write rolls the Creation Session back with the Object");
+  const compensated = await client.compensateCreationSessionCommit(conflictProposal.record.proposal.proposalId, { semanticCommitId: conflictPrepared.semanticCommitId, expectedUpdatedAt: conflictAccepted.updatedAt, pageExternalId: conflictPageExternalId, pageContentHash: conflictPageContentHash, pageExists: false, traceId: "creation-session-conflict-compensate" });
+  assert.equal(compensated.status, "FAILED_COMPENSATED");
+  assert.equal(compensated.record.proposal.status, "FAILED");
 });
 
 test("Creation Session persists answers before Provider, retains stable consensus on failure and retries safely", async (t) => {

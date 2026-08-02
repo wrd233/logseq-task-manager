@@ -3239,6 +3239,28 @@ test("Project creation Review uses the proposal-bound Page creation confirmation
   assert.match(html, /data-action="submit-v2-project-creation-undo"/);
 });
 
+test("Creation Session Review uses its dedicated formal Commit and exact Undo controls", () => {
+  const value = model();
+  value.workspace = "review"; value.reviewMode = "proposals";
+  value.v2Proposals = [{ updatedAt: "2026-08-02T10:01:00.000Z", files: { proposalMd: "# Creation Session", proposalJson: "{}" }, proposal: {
+    proposalId: "proposal-creation-session", schemaVersion: "v2", title: "创建 Project：统一硬件告警治理", context: "当前 adopted Draft。", understanding: "边界已确认。", objective: "正式创建。", logic: "同一恢复边界。", finalPreview: "- 统一硬件告警治理", unresolvedQuestions: [], source: { kind: "user", skillVersion: "creation-session@v1" }, scope: { read: [], modify: [{ kind: "PAGE", id: "Project/统一硬件告警治理", expectedExistence: "ABSENT" }] }, preconditions: [], groups: [{ groupId: "create-from-session", explanation: "Graph Tree、Object、Anchor 与 Session 不可拆分。", risk: "HIGH", independentlyAcceptable: true, dependencies: [], textPatches: [], semanticOperations: [{ operationId: "create-session-object", kind: "CREATE_OBJECT", target: { kind: "PAGE", id: "Project/统一硬件告警治理", expectedExistence: "ABSENT" }, summary: "创建正式 Project", payload: { schema: "CREATION_SESSION_V1", sessionId: "session-1", expectedSessionVersion: 4, draftRevisionId: "draft-1", targetType: "PROJECT", objectType: "PROJECT", objectId: "creation-object", sourceFingerprint: "deadbeef", placement: { kind: "NEW_PROJECT_PAGE", pageName: "Project/统一硬件告警治理" }, nodes: [], text: "统一硬件告警治理" }, preconditions: [] }], disposition: "ACCEPTED" }], status: "ACCEPTED", createdAt: "2026-08-02T10:00:00.000Z",
+  } }];
+  let html = renderApp(value);
+  assert.match(html, /data-action="v2-creation-session-commit"/);
+  assert.doesNotMatch(html, /data-action="v2-project-creation-commit"/);
+  assert.doesNotMatch(html, /data-action="v2-proposal-commit"/);
+  value.actionDialog = { kind: "confirm-v2-creation-session", value: "proposal-creation-session|2026-08-02T10:01:00.000Z" };
+  assert.match(renderApp(value), /data-action="submit-v2-creation-session"/);
+  delete value.actionDialog;
+  value.v2Proposals[0]!.proposal.status = "APPLIED";
+  value.v2SemanticCommits = [{ semanticCommitId: "proposal-commit:creation-session", proposalId: "proposal-creation-session", status: "COMPLETED", beforeStateChecksum: "before", afterStateChecksum: "after", createdAt: "2026-08-02T10:00:00.000Z", updatedAt: "2026-08-02T10:01:00.000Z" }];
+  html = renderApp(value);
+  assert.match(html, /data-action="v2-creation-session-undo"/);
+  assert.doesNotMatch(html, /data-action="v2-project-creation-undo"/);
+  value.actionDialog = { kind: "confirm-v2-creation-session-undo", value: "proposal-commit:creation-session" };
+  assert.match(renderApp(value), /data-action="submit-v2-creation-session-undo"/);
+});
+
 test("HIGH Review stacks its impact summary before the Logseq narrow-window host gate", async () => {
   const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
   assert.match(

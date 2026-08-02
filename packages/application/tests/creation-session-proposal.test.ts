@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { reviewV2ProposalGroups, type CreationSession } from "@task-copilot/domain";
 import { checksum } from "@task-copilot/shared";
 
-import { buildCreationSessionProposal, planAcceptedCreationSession } from "../src/index.ts";
+import { buildCreationSessionProposal, planAcceptedCreationSession, verifyCreationSessionCommitPlan } from "../src/index.ts";
 
 const at = "2026-08-02T09:00:00.000Z";
 const rootUuid = "11111111-1111-4111-8111-111111111111";
@@ -89,6 +89,10 @@ test("Creation Session proposal freezes a pre-commit MiniProject tree into one H
   assert.equal(plan.expectedSessionVersion, 4);
   assert.equal(plan.nodes[2]?.blockUuid, createdUuid);
   assert.equal(plan.placement.kind, "SOURCE_BLOCK_IN_PLACE");
+  assert.equal(verifyCreationSessionCommitPlan(miniSession(), plan).sessionId, plan.sessionId);
+  const changed = miniSession();
+  changed.draftRevisions[0]!.nodes[0]!.text = "用户在审阅后改了根标题";
+  assert.throws(() => verifyCreationSessionCommitPlan(changed, plan), /Draft Tree/);
 });
 
 test("Creation Session proposal fails closed without a fresh PRE_COMMIT capture", () => {

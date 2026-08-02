@@ -10,8 +10,8 @@ Draft Tree 的稳定节点/稀疏 Revision/来源重验/用户编辑保护与 Pr
 Plugin 已接入持久会话列表、MiniProject/Project 空白入口、Page→Project 入口、多题分组表单、
 answer-first 提交、Draft/Summary/History 视图、Logseq 风格树、文本/父级编辑、Agent 叶节点删除、
 Revision 采用，以及 loading/success/error 和 runtime generation 竞态保护。旧 Grill 仍作为兼容入口。
-MiniProject/Project 正式纵向与真实 Provider/Desktop/独立视觉 Gate 仍在继续，不能从自动证据推断
-Goal 完成。权威状态见
+Project 独立 Page 正式纵向已完成自动 Commit/补偿/Undo；MiniProject 正式纵向与真实
+Provider/Desktop/独立视觉 Gate 仍在继续，不能从自动证据推断 Goal 完成。权威状态见
 `docs/goal/creation-session/STATUS.md`。
 
 ## WRH-P1-09 Worksite Preview Graph Refresh（2026-08-01）
@@ -1177,4 +1177,4 @@ fail closed。P0/P1/P2 剩余宿主、Attention、Block Marker、Recovery 与 Fi
 - ADR 0011 已冻结正式桥接：所有 Graph 来源先保存 `PRE_COMMIT` 快照，当前 adopted READY Draft 与 Placement 进入唯一 HIGH `CREATION_SESSION_V1` Proposal；MiniProject 原位路径必须逐项保留完整来源子树，Project 第一纵向必须创建独立 Page 并保持来源只读。
 - SQLite 已增加复用现有正式对象表、Anchor、Audit 和 Receipt 的原子 final domain step：Object、Primary Anchor 与 Session `CREATED` 同事务；精确 Undo 只删除未变化投影并在保留的 Session 上记录 `undoneAt`。Anchor 冲突自动测试证明 Object 与 Session 一起回滚。
 - 正式审阅准备已接入同一个 Local Service / Proposal 权威：Plugin 只在 adopted READY Draft、零 missing/conflict 且显式 Placement 已保存时开放入口；Service 在串行化的幂等命令中重新读取每个 Graph 来源并保存 `PRE_COMMIT` 快照，来源漂移时零 Proposal 写入。通过后生成确定性的单 HIGH `CREATION_SESSION_V1` Proposal 并进入既有 Review queue；Project 仅允许独立新 Page，MiniProject 位置选择保持显式。接受仍不等于生效，当前入口不会立即写 Graph 或正式 Object。
-- 当前为 `IN_PROGRESS / CS-CP05`：专用 Graph step planning、SemanticCommit prepare/verify/finalize、Plugin Graph 执行、Pending Recovery、正式 Undo、真实 Provider、Desktop 与独立视觉 Gate 尚未完成，不能宣称正式创建纵向完成。
+- 当前为 `IN_PROGRESS / CS-CP06`：Project 独立 Page 已自动完成 Proposal→Graph→Domain→补偿/恢复→Undo；MiniProject Graph 执行、真实 Provider、Desktop 与独立视觉 Gate 尚未完成，不能宣称整体正式创建完成。

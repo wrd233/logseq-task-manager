@@ -3,7 +3,7 @@ import { chmod, mkdir, readdir } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
 
-import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildCreationSessionProposal, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
+import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildCreationSessionProposal, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedCreationSession, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, verifyCreationSessionCommitPlan, type CreationSessionCommitPlan, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
 import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationRoundAnswerInput, type CreationSessionSource, type CreationSessionStatus, type CreationSourceCapture, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
@@ -1254,6 +1254,10 @@ function projectCreationUndoSemanticCommitId(originalSemanticCommitId: string): 
   return `project-creation-undo:${originalSemanticCommitId}`;
 }
 
+function creationSessionUndoSemanticCommitId(originalSemanticCommitId: string): string {
+  return `creation-session-undo:${originalSemanticCommitId}`;
+}
+
 function projectCreationSourceReturnTarget(
   store: V2SqliteStore,
   plan: ReturnType<typeof planAcceptedV2ProjectCreation>,
@@ -1289,6 +1293,68 @@ function controlledProjectPageContentHash(input: { pageName: string; pageExterna
     },
     emptyAtCreation: true,
   });
+}
+
+function controlledCreationProjectPageContentHash(plan: CreationSessionCommitPlan, semanticCommitId: string, pageExternalId: string): string {
+  if (plan.targetType !== "PROJECT" || plan.placement.kind !== "NEW_PROJECT_PAGE") throw serviceError("CREATION_SESSION_PROJECT_PLAN_INVALID", "Creation Session Project Commit 缺少独立 Page Placement。");
+  return checksum({
+    pageName: plan.placement.pageName,
+    pageExternalId,
+    properties: {
+      "task-copilot-owner": "task-copilot-personal-mvp",
+      "task-copilot-object-id": plan.objectId,
+      "task-copilot-semantic-commit-id": semanticCommitId,
+    },
+    nodes: plan.nodes.map(({ nodeId, blockUuid, parentNodeId, order, text, contentHash }) => ({ nodeId, blockUuid, ...(parentNodeId ? { parentNodeId } : {}), order, text, contentHash })),
+  });
+}
+
+async function readCreationSessionCommitPrepareRequest(request: IncomingMessage): Promise<{ confirmation: "CREATE_FROM_SESSION"; expectedUpdatedAt: string; traceId: string }> {
+  const record = await readCreationSessionJson(request);
+  if (Object.keys(record).sort().join(",") !== "confirmation,expectedUpdatedAt,traceId" || record.confirmation !== "CREATE_FROM_SESSION"
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("CREATION_SESSION_COMMIT_REQUEST_INVALID", "Creation Session Commit prepare 请求缺少固定确认、Proposal version 或 trace_id。");
+  return record as unknown as { confirmation: "CREATE_FROM_SESSION"; expectedUpdatedAt: string; traceId: string };
+}
+
+async function readCreationSessionCommitFinalizeRequest(request: IncomingMessage): Promise<{ semanticCommitId: string; expectedUpdatedAt: string; pageExternalId: string; pageContentHash: string; traceId: string }> {
+  const record = await readCreationSessionJson(request);
+  if (Object.keys(record).sort().join(",") !== "expectedUpdatedAt,pageContentHash,pageExternalId,semanticCommitId,traceId"
+    || typeof record.semanticCommitId !== "string" || !record.semanticCommitId.startsWith("proposal-commit:") || record.semanticCommitId.length > 96
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || typeof record.pageExternalId !== "string" || !record.pageExternalId.trim() || record.pageExternalId.length > 512
+    || typeof record.pageContentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.pageContentHash)
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("CREATION_SESSION_COMMIT_REQUEST_INVALID", "Creation Session Commit finalize 请求缺少匹配的 Page 或账本证据。");
+  return record as unknown as { semanticCommitId: string; expectedUpdatedAt: string; pageExternalId: string; pageContentHash: string; traceId: string };
+}
+
+async function readCreationSessionCommitCompensateRequest(request: IncomingMessage): Promise<{ semanticCommitId: string; expectedUpdatedAt: string; pageExternalId: string; pageContentHash: string; pageExists: false; traceId: string }> {
+  const record = await readCreationSessionJson(request);
+  if (Object.keys(record).sort().join(",") !== "expectedUpdatedAt,pageContentHash,pageExists,pageExternalId,semanticCommitId,traceId" || record.pageExists !== false
+    || typeof record.semanticCommitId !== "string" || !record.semanticCommitId.startsWith("proposal-commit:") || record.semanticCommitId.length > 96
+    || typeof record.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(record.expectedUpdatedAt))
+    || typeof record.pageExternalId !== "string" || !record.pageExternalId.trim() || record.pageExternalId.length > 512
+    || typeof record.pageContentHash !== "string" || !/^[0-9a-f]{8}$/.test(record.pageContentHash)
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("CREATION_SESSION_COMPENSATION_REQUEST_INVALID", "Creation Session 补偿请求必须证明受控 Page 已精确移除。");
+  return record as unknown as { semanticCommitId: string; expectedUpdatedAt: string; pageExternalId: string; pageContentHash: string; pageExists: false; traceId: string };
+}
+
+async function readCreationSessionUndoPrepareRequest(request: IncomingMessage): Promise<{ traceId: string; confirmedOwnedTree?: true; pageExternalId?: string }> {
+  const record = await readCreationSessionJson(request);
+  const keys = Object.keys(record).sort().join(",");
+  if (!(["traceId", "confirmedOwnedTree,pageExternalId,traceId"].includes(keys))
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256
+    || ("confirmedOwnedTree" in record && (record.confirmedOwnedTree !== true || typeof record.pageExternalId !== "string" || !record.pageExternalId.trim() || record.pageExternalId.length > 512))) throw serviceError("CREATION_SESSION_UNDO_REQUEST_INVALID", "Creation Session Undo 请求缺少精确 Page 预检证据。");
+  return record as unknown as { traceId: string; confirmedOwnedTree?: true; pageExternalId?: string };
+}
+
+async function readCreationSessionUndoFinalizeRequest(request: IncomingMessage): Promise<{ undoSemanticCommitId: string; pageExternalId: string; pageExists: false; traceId: string }> {
+  const record = await readCreationSessionJson(request);
+  if (Object.keys(record).sort().join(",") !== "pageExists,pageExternalId,traceId,undoSemanticCommitId" || record.pageExists !== false
+    || typeof record.undoSemanticCommitId !== "string" || !record.undoSemanticCommitId.startsWith("creation-session-undo:proposal-commit:") || record.undoSemanticCommitId.length > 160
+    || typeof record.pageExternalId !== "string" || !record.pageExternalId.trim() || record.pageExternalId.length > 512
+    || typeof record.traceId !== "string" || !record.traceId.trim() || record.traceId.length > 256) throw serviceError("CREATION_SESSION_UNDO_REQUEST_INVALID", "Creation Session Undo finalize 请求缺少 Page 删除证据。");
+  return record as unknown as { undoSemanticCommitId: string; pageExternalId: string; pageExists: false; traceId: string };
 }
 
 async function readMaterializeRequest(request: IncomingMessage): Promise<MaterializeRequest> {
@@ -4795,6 +4861,194 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
     if (proposalReadMatch?.[1]) {
       const record = await proposalApplication.get(decodeURIComponent(proposalReadMatch[1]));
       respond(response, record ? 200 : 404, record ? { record } : { error: { code: "V2_PROPOSAL_NOT_FOUND" } });
+      return;
+    }
+    const creationSessionCommitPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/creation-session\/commit\/prepare$/) : null;
+    if (creationSessionCommitPrepareMatch?.[1]) {
+      const proposalId = decodeURIComponent(creationSessionCommitPrepareMatch[1]);
+      const input = await readCreationSessionCommitPrepareRequest(request);
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Creation Session Proposal 不存在。");
+      const plan = planAcceptedCreationSession(stored.proposal);
+      if (plan.targetType !== "PROJECT" || plan.placement.kind !== "NEW_PROJECT_PAGE") throw serviceError("CREATION_SESSION_COMMIT_TARGET_UNSUPPORTED", "当前纵向只允许独立 Project Page Creation Session；没有写入。");
+      const semanticCommitId = proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt);
+      const receiptKey = `creation-session:${semanticCommitId}`;
+      const existing = store.semanticCommit(semanticCommitId);
+      const existingSteps = existing ? store.semanticCommitSteps(semanticCommitId) : [];
+      const receipt = store.getCommandReceipt(receiptKey);
+      if (existing) {
+        const graphStep = existingSteps[0];
+        const domainStep = existingSteps[1];
+        const graphMatches = graphStep?.stepKind === "GRAPH_WRITE" && Boolean(graphStep.operationId) && (graphStep.afterHash === undefined
+          ? graphStep.operationId === plan.placement.pageName
+          : graphStep.afterHash === controlledCreationProjectPageContentHash(plan, semanticCommitId, graphStep.operationId!));
+        if (existing.proposalId !== proposalId || existingSteps.length !== 2 || !graphMatches || domainStep?.stepKind !== "DOMAIN_WRITE" || domainStep.operationId !== plan.objectId) throw serviceError("CREATION_SESSION_COMMIT_LEDGER_CORRUPT", "Creation Session Commit 账本与已审阅计划不一致。");
+        if (existing.status === "COMPLETED") {
+          if (receipt?.command !== "create_from_creation_session") throw serviceError("CREATION_SESSION_COMMIT_LEDGER_CORRUPT", "Creation Session Commit 缺少原子正式回执。");
+          const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+          respond(response, 200, { status: "COMPLETED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, pageName: plan.placement.pageName, pageExternalId: receipt.anchor.externalId, session: receipt.session, object: receipt.object, anchor: receipt.anchor, record, replayed: true });
+          return;
+        }
+        if (existing.status === "FAILED") {
+          const record = stored.proposal.status === "FAILED" ? stored : await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt);
+          respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId, proposalId, record, replayed: true });
+          return;
+        }
+        if (existing.status === "RECOVERY_REQUIRED") {
+          if (!graphStep?.afterHash) throw serviceError("CREATION_SESSION_COMMIT_LEDGER_CORRUPT", "Creation Session 恢复账本缺少受控 Page 证据。");
+          respond(response, 200, { status: "RECOVERY_REQUIRED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, pageName: plan.placement.pageName, pageExternalId: graphStep.operationId, pageContentHash: graphStep.afterHash, objectId: plan.objectId, nodes: plan.nodes, replayed: true });
+          return;
+        }
+        if (existing.status !== "PENDING") throw serviceError("CREATION_SESSION_COMMIT_LEDGER_CORRUPT", "Creation Session Commit 账本状态不受支持。");
+        respond(response, 200, { status: "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, pageName: plan.placement.pageName, objectId: plan.objectId, nodes: plan.nodes, ...(graphStep?.afterHash ? { pageExternalId: graphStep.operationId, pageContentHash: graphStep.afterHash } : {}), replayed: true });
+        return;
+      }
+      requireNoUnfinishedProposalCommit(proposalId);
+      const current = creationSessionApplication.get(plan.sessionId);
+      if (!current) throw serviceError("CREATION_SESSION_NOT_FOUND", "Creation Session 不存在。");
+      verifyCreationSessionCommitPlan(current, plan);
+      const pageResult = await graphReadBroker.read({ kind: "PAGE", target: plan.placement.pageName, depth: 0 });
+      if (pageResult.status === "ERROR") throw new StructuredError({ code: pageResult.errorCode, message: pageResult.message, ruleRefs: ["D-132", "D-135", "CREATION-SESSION-001"] });
+      const targetObservation: V2ProposalScopeObservation = pageResult.status === "FOUND"
+        ? { kind: "PAGE", id: plan.placement.pageName, exists: true, ...(pageResult.snapshot.resolved.evidenceHash ? { hash: pageResult.snapshot.resolved.evidenceHash } : {}) }
+        : { kind: "PAGE", id: plan.placement.pageName, exists: false };
+      const revalidation = await proposalApplication.revalidate(proposalId, completeProposalObservations(stored.proposal, [targetObservation]), input.expectedUpdatedAt);
+      if (revalidation.result.status === "STALE") { respond(response, 200, { status: "STALE", ...revalidation }); return; }
+      const now = new Date().toISOString();
+      store.prepareSemanticCommit({ semanticCommitId, proposalId, status: "PENDING", beforeStateChecksum: checksum({ proposal: stored.files.proposalJson, sessionId: plan.sessionId, sessionVersion: plan.expectedSessionVersion, draftRevisionId: plan.draftRevisionId }), createdAt: now, updatedAt: now }, [
+        { semanticCommitId, stepIndex: 0, stepKind: "GRAPH_WRITE", status: "PREPARED", operationId: plan.placement.pageName, updatedAt: now },
+        { semanticCommitId, stepIndex: 1, stepKind: "DOMAIN_WRITE", status: "PREPARED", operationId: plan.objectId, updatedAt: now },
+      ]);
+      respond(response, 201, { status: "PREPARED", semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, pageName: plan.placement.pageName, objectId: plan.objectId, nodes: plan.nodes, replayed: false });
+      return;
+    }
+    const creationSessionCommitFinalizeMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/creation-session\/commit\/finalize$/) : null;
+    if (creationSessionCommitFinalizeMatch?.[1]) {
+      const proposalId = decodeURIComponent(creationSessionCommitFinalizeMatch[1]);
+      const input = await readCreationSessionCommitFinalizeRequest(request);
+      if (input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("CREATION_SESSION_COMMIT_INTENT_MISMATCH", "Creation Session finalize 意图与 Proposal 不一致。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Creation Session Proposal 不存在。");
+      const plan = planAcceptedCreationSession(stored.proposal);
+      if (plan.targetType !== "PROJECT" || plan.placement.kind !== "NEW_PROJECT_PAGE" || input.pageContentHash !== controlledCreationProjectPageContentHash(plan, input.semanticCommitId, input.pageExternalId)) throw serviceError("CREATION_SESSION_COMMIT_GRAPH_EVIDENCE_MISMATCH", "Project Page 或 Draft Tree 证据与已审阅计划不一致。");
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const steps = store.semanticCommitSteps(input.semanticCommitId);
+      const receiptKey = `creation-session:${input.semanticCommitId}`;
+      if (!commit || commit.proposalId !== proposalId || !["PENDING", "COMPLETED"].includes(commit.status) || steps.length !== 2 || steps[1]?.operationId !== plan.objectId) throw serviceError("CREATION_SESSION_COMMIT_LEDGER_CORRUPT", "Creation Session finalize 缺少匹配账本。");
+      const receipt = store.getCommandReceipt(receiptKey);
+      if (commit.status === "COMPLETED") {
+        if (receipt?.command !== "create_from_creation_session") throw serviceError("CREATION_SESSION_COMMIT_LEDGER_CORRUPT", "Creation Session 已完成账本缺少原子回执。");
+        const record = stored.proposal.status === "APPLIED" ? stored : await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt);
+        respond(response, 200, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, session: receipt.session, object: receipt.object, anchor: receipt.anchor, record, replayed: true });
+        return;
+      }
+      const now = new Date();
+      if (steps[0]?.status === "PREPARED") {
+        store.recordPreparedSemanticCommitStepEvidence(input.semanticCommitId, 0, { operationId: input.pageExternalId, afterHash: input.pageContentHash }, now.toISOString());
+        store.advanceSemanticCommitStep(input.semanticCommitId, 0, "APPLIED", now.toISOString());
+      }
+      if (store.semanticCommitSteps(input.semanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, 0, "VERIFIED", now.toISOString());
+      let result;
+      try {
+        result = creationSessionApplication.formalize({ sessionId: plan.sessionId, expectedVersion: plan.expectedSessionVersion, idempotencyKey: receiptKey, semanticCommitId: input.semanticCommitId, objectId: plan.objectId, text: plan.nodes.find(({ parentNodeId }) => !parentNodeId)!.text, anchor: { graphId: options.graphId, externalId: input.pageExternalId, contentHash: input.pageContentHash }, actor: "proposal_commit", traceId: input.traceId }, now);
+      } catch {
+        if (store.getCommandReceipt(receiptKey)?.command !== "create_from_creation_session") {
+          store.advanceSemanticCommitStep(input.semanticCommitId, 0, "RECOVERY_REQUIRED", now.toISOString(), "CREATION_SESSION_DOMAIN_WRITE_FAILED");
+          store.finalizeSemanticCommit(input.semanticCommitId, "RECOVERY_REQUIRED", now.toISOString(), undefined, "CREATION_SESSION_DOMAIN_WRITE_FAILED");
+          respond(response, 200, { status: "COMPENSATION_REQUIRED", semanticCommitId: input.semanticCommitId, proposalId, expectedUpdatedAt: input.expectedUpdatedAt, pageName: plan.placement.pageName, pageExternalId: input.pageExternalId, pageContentHash: input.pageContentHash, objectId: plan.objectId, nodes: plan.nodes });
+          return;
+        }
+        result = creationSessionApplication.formalize({ sessionId: plan.sessionId, expectedVersion: plan.expectedSessionVersion, idempotencyKey: receiptKey, semanticCommitId: input.semanticCommitId, objectId: plan.objectId, text: plan.nodes.find(({ parentNodeId }) => !parentNodeId)!.text, anchor: { graphId: options.graphId, externalId: input.pageExternalId, contentHash: input.pageContentHash }, actor: "proposal_commit", traceId: input.traceId }, now);
+      }
+      const domainStep = store.semanticCommitSteps(input.semanticCommitId)[1];
+      if (domainStep?.status === "PREPARED") store.advanceSemanticCommitStep(input.semanticCommitId, 1, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(input.semanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(input.semanticCommitId, 1, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(input.semanticCommitId, "COMPLETED", now.toISOString(), checksum({ session: result.session, object: result.object, anchor: result.anchor }));
+      const record = await proposalApplication.markApplied(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 201, { status: "COMPLETED", semanticCommitId: input.semanticCommitId, session: result.session, object: result.object, anchor: result.anchor, record, replayed: result.replayed });
+      return;
+    }
+    const creationSessionCommitCompensateMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/creation-session\/commit\/compensate$/) : null;
+    if (creationSessionCommitCompensateMatch?.[1]) {
+      const proposalId = decodeURIComponent(creationSessionCommitCompensateMatch[1]);
+      const input = await readCreationSessionCommitCompensateRequest(request);
+      if (input.semanticCommitId !== proposalSemanticCommitId(options.graphId, proposalId, input.expectedUpdatedAt)) throw serviceError("CREATION_SESSION_COMMIT_INTENT_MISMATCH", "Creation Session compensation 意图与 Proposal 不一致。");
+      const stored = await proposalApplication.get(proposalId);
+      if (!stored) throw serviceError("V2_PROPOSAL_NOT_FOUND", "Creation Session Proposal 不存在。");
+      const plan = planAcceptedCreationSession(stored.proposal);
+      const commit = store.semanticCommit(input.semanticCommitId);
+      const steps = store.semanticCommitSteps(input.semanticCommitId);
+      if (plan.targetType !== "PROJECT" || plan.placement.kind !== "NEW_PROJECT_PAGE" || input.pageContentHash !== controlledCreationProjectPageContentHash(plan, input.semanticCommitId, input.pageExternalId)
+        || commit?.status !== "RECOVERY_REQUIRED" || commit.proposalId !== proposalId || steps.length !== 2 || steps[0]?.status !== "RECOVERY_REQUIRED" || steps[0].operationId !== input.pageExternalId || steps[0].afterHash !== input.pageContentHash
+        || store.getCommandReceipt(`creation-session:${input.semanticCommitId}`)) throw serviceError("CREATION_SESSION_COMPENSATION_EVIDENCE_MISMATCH", "Creation Session 补偿账本或 Page 删除证据不匹配。");
+      const now = new Date();
+      store.advanceSemanticCommitStep(input.semanticCommitId, 0, "COMPENSATED", now.toISOString());
+      store.finalizeSemanticCommit(input.semanticCommitId, "FAILED", now.toISOString(), undefined, "CREATION_SESSION_DOMAIN_WRITE_FAILED");
+      const record = await proposalApplication.markFailed(proposalId, input.expectedUpdatedAt, now);
+      respond(response, 200, { status: "FAILED_COMPENSATED", semanticCommitId: input.semanticCommitId, proposalId, record, replayed: false });
+      return;
+    }
+    const creationSessionUndoPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/creation-session\/undo\/prepare$/) : null;
+    if (creationSessionUndoPrepareMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(creationSessionUndoPrepareMatch[1]);
+      const input = await readCreationSessionUndoPrepareRequest(request);
+      const original = store.semanticCommit(originalSemanticCommitId);
+      if (!original?.proposalId || !["COMPLETED", "UNDONE"].includes(original.status)) throw serviceError("CREATION_SESSION_UNDO_NOT_AVAILABLE", "只有已完成的 Creation Session Commit 可以 Undo。");
+      const stored = await proposalApplication.get(original.proposalId);
+      if (!stored) throw serviceError("CREATION_SESSION_COMMIT_LEDGER_CORRUPT", "Creation Session 原 Proposal 不存在。");
+      const plan = planAcceptedCreationSession(stored.proposal);
+      if (plan.targetType !== "PROJECT" || plan.placement.kind !== "NEW_PROJECT_PAGE") throw serviceError("CREATION_SESSION_UNDO_TARGET_UNSUPPORTED", "当前纵向只支持独立 Project Page Creation Session Undo。");
+      const receipt = store.getCommandReceipt(`creation-session:${originalSemanticCommitId}`);
+      const forwardSteps = store.semanticCommitSteps(originalSemanticCommitId);
+      if (receipt?.command !== "create_from_creation_session" || forwardSteps.length !== 2 || forwardSteps[0]?.operationId !== receipt.anchor.externalId || forwardSteps[0].afterHash !== receipt.anchor.contentHash || forwardSteps[1]?.operationId !== receipt.object.objectId) throw serviceError("CREATION_SESSION_COMMIT_LEDGER_CORRUPT", "Creation Session 原子创建回执与账本不一致。");
+      const undoSemanticCommitId = creationSessionUndoSemanticCommitId(originalSemanticCommitId);
+      const existing = store.semanticCommit(undoSemanticCommitId);
+      const undoReceiptKey = `creation-session-undo:${undoSemanticCommitId}`;
+      const undoReceipt = store.getCommandReceipt(undoReceiptKey);
+      if (existing?.status === "COMPLETED") {
+        if (original.status === "COMPLETED") store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, new Date().toISOString());
+        respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, pageName: plan.placement.pageName, pageExternalId: receipt.anchor.externalId, session: undoReceipt?.command === "undo_creation_session_materialization" ? undoReceipt.session : receipt.session, replayed: true });
+        return;
+      }
+      if (existing && existing.status !== "PENDING") throw serviceError("CREATION_SESSION_UNDO_NOT_AVAILABLE", "Creation Session Undo 已终止或需要人工恢复。");
+      if (!undoReceipt && !(input.confirmedOwnedTree === true && input.pageExternalId === receipt.anchor.externalId)) {
+        respond(response, 200, { status: "PAGE_PREFLIGHT_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, pageName: plan.placement.pageName, pageExternalId: receipt.anchor.externalId, pageContentHash: receipt.anchor.contentHash, objectId: receipt.object.objectId, nodes: plan.nodes, replayed: Boolean(existing) });
+        return;
+      }
+      const now = new Date();
+      const expectedSteps = [
+        { semanticCommitId: undoSemanticCommitId, stepIndex: 0, stepKind: "DOMAIN_WRITE" as const, status: "PREPARED" as const, operationId: receipt.object.objectId, updatedAt: now.toISOString() },
+        { semanticCommitId: undoSemanticCommitId, stepIndex: 1, stepKind: "GRAPH_WRITE" as const, status: "PREPARED" as const, operationId: receipt.anchor.externalId, beforeHash: receipt.anchor.contentHash, updatedAt: now.toISOString() },
+      ];
+      store.prepareSemanticCommit({ semanticCommitId: undoSemanticCommitId, proposalId: original.proposalId, status: "PENDING", beforeStateChecksum: checksum({ session: receipt.session, object: receipt.object, anchor: receipt.anchor }), createdAt: existing?.createdAt ?? now.toISOString(), updatedAt: now.toISOString() }, expectedSteps);
+      const currentSteps = store.semanticCommitSteps(undoSemanticCommitId);
+      if (currentSteps.length !== 2 || currentSteps.some((step, index) => step.stepKind !== expectedSteps[index]!.stepKind || step.operationId !== expectedSteps[index]!.operationId)) throw serviceError("CREATION_SESSION_UNDO_LEDGER_CORRUPT", "Creation Session Undo 账本与原创建结果不一致。");
+      const undone = undoReceipt?.command === "undo_creation_session_materialization" ? { ...undoReceipt, replayed: true } : creationSessionApplication.undoFormalization({ sessionId: plan.sessionId, expectedVersion: receipt.session.version, idempotencyKey: undoReceiptKey, semanticCommitId: originalSemanticCommitId, expectedObject: receipt.object, expectedAnchor: receipt.anchor, actor: "proposal_undo", traceId: input.traceId }, now);
+      if (currentSteps[0]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[0]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 0, "VERIFIED", now.toISOString());
+      respond(response, existing ? 200 : 201, { status: "PAGE_DELETION_REQUIRED", originalSemanticCommitId, undoSemanticCommitId, proposalId: original.proposalId, pageName: plan.placement.pageName, pageExternalId: receipt.anchor.externalId, pageContentHash: receipt.anchor.contentHash, objectId: receipt.object.objectId, nodes: plan.nodes, session: undone.session, replayed: Boolean(existing) || undone.replayed });
+      return;
+    }
+    const creationSessionUndoFinalizeMatch = request.method === "POST" ? url.pathname.match(/^\/semantic-commits\/([^/]+)\/creation-session\/undo\/finalize$/) : null;
+    if (creationSessionUndoFinalizeMatch?.[1]) {
+      const originalSemanticCommitId = decodeURIComponent(creationSessionUndoFinalizeMatch[1]);
+      const input = await readCreationSessionUndoFinalizeRequest(request);
+      const undoSemanticCommitId = creationSessionUndoSemanticCommitId(originalSemanticCommitId);
+      if (input.undoSemanticCommitId !== undoSemanticCommitId) throw serviceError("CREATION_SESSION_UNDO_INTENT_MISMATCH", "Creation Session Undo finalize 与路径不一致。");
+      const original = store.semanticCommit(originalSemanticCommitId);
+      const inverse = store.semanticCommit(undoSemanticCommitId);
+      const steps = store.semanticCommitSteps(undoSemanticCommitId);
+      const receipt = store.getCommandReceipt(`creation-session:${originalSemanticCommitId}`);
+      const undoReceipt = store.getCommandReceipt(`creation-session-undo:${undoSemanticCommitId}`);
+      if (!original?.proposalId || !inverse || inverse.proposalId !== original.proposalId || receipt?.command !== "create_from_creation_session" || undoReceipt?.command !== "undo_creation_session_materialization" || steps.length !== 2) throw serviceError("CREATION_SESSION_UNDO_LEDGER_CORRUPT", "Creation Session Undo 缺少匹配账本或原子回执。");
+      if (inverse.status === "COMPLETED" && original.status === "UNDONE") { respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, session: undoReceipt.session, replayed: true }); return; }
+      if (inverse.status !== "PENDING" || input.pageExternalId !== receipt.anchor.externalId || steps[0]?.status !== "VERIFIED" || steps[1]?.operationId !== receipt.anchor.externalId) throw serviceError("CREATION_SESSION_UNDO_GRAPH_EVIDENCE_MISMATCH", "受控 Project Page 尚未按精确身份移除；没有收口 Undo。");
+      const now = new Date();
+      if (steps[1]?.status === "PREPARED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "APPLIED", now.toISOString());
+      if (store.semanticCommitSteps(undoSemanticCommitId)[1]?.status === "APPLIED") store.advanceSemanticCommitStep(undoSemanticCommitId, 1, "VERIFIED", now.toISOString());
+      store.finalizeSemanticCommit(undoSemanticCommitId, "COMPLETED", now.toISOString(), checksum({ session: undoReceipt.session, objectRemoved: receipt.object.objectId, anchorRemoved: receipt.anchor.anchorId, pageRemoved: receipt.anchor.externalId }));
+      store.markSemanticCommitUndone(originalSemanticCommitId, undoSemanticCommitId, now.toISOString());
+      respond(response, 200, { status: "COMPLETED", originalSemanticCommitId, undoSemanticCommitId, session: undoReceipt.session, replayed: false });
       return;
     }
     const proposalProjectCreationPrepareMatch = request.method === "POST" ? url.pathname.match(/^\/proposals\/([^/]+)\/project-creation\/commit\/prepare$/) : null;

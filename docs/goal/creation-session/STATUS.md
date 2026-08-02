@@ -10,7 +10,7 @@ Overall: `IN_PROGRESS`
 | 1 Session foundation | AUTOMATED_DONE | Domain, Application, schema 16, SQLite repository, Local Service CRUD, client, restart/idempotency/no-formal-write, Graph-owned source capture, drift/deletion check, explicit refresh, durable 2–5-question rounds, answer-first Provider transactions, retry/cancel/failure retention and replay are implemented. Desktop remains consolidated into Phase 5. |
 | 2 Draft Tree | AUTOMATED_DONE | Strict stable node/revision model, sparse important-history retention, source revalidation capture, MiniProject/Project Provider validator, Local Service/client generation, edit/adopt, idempotency, restart/failure retention and user-edit conflict protection are automated. Plugin now renders a responsive Logseq-style tree with Markdown/Page references, provenance, operation plan, conflicts, inline text/parent editing, safe Agent-leaf deletion and revision adoption. |
 | 3 MiniProject vertical | IN_PROGRESS | Fresh PRE_COMMIT evidence, full in-place source retention, deterministic Block identities, one HIGH Proposal/accepted plan, and atomic Object+Anchor+Audit+Session materialization/Undo are automated. Graph step planning, Service/Plugin execution, recovery and Desktop remain. |
-| 4 Project vertical | IN_PROGRESS | Proposal boundary enforces independent NEW_PROJECT_PAGE, all-new Draft nodes, read-only source evidence, deterministic identities, and the shared atomic final domain step. Project Page Graph execution, source references, Service/Plugin integration, recovery and Desktop remain. |
+| 4 Project vertical | AUTOMATED_DONE | Independent NEW_PROJECT_PAGE Proposal, deterministic Page/Block identities, Service SemanticCommit, Plugin Graph execution, atomic Object/Anchor/Audit/Session finalization, exact compensation/replay/Undo, changed-page protection and interrupted-tree cleanup are automated. Desktop remains consolidated into Phase 5. |
 | 5 Unified entry/runtime | IN_PROGRESS | Plugin has one persistent Creation Session controller and action surface with active-session list, MiniProject/Project blank entry, Page-to-Project route, grouped 2–5 question forms, answer-first submission, stable reload/resume, Draft/Summary/History tabs, loading/success/error states and runtime-generation stale-response protection. Legacy Grill paths remain reachable for compatibility. Real Provider, formal creation integration, Desktop and independent visual gates remain. |
 
 Phase 1 preserves the key authority boundary: Provider output is a validated proposal
@@ -30,3 +30,11 @@ Object, Primary Anchor, Audit, Receipt, and Session `CREATED`; exact Undo delete
 an unchanged formal projection and retains the Session with `undoneAt`. Focused
 Proposal and persistence rollback/idempotency tests pass. Graph-step execution is not
 yet connected, so neither formal vertical is marked automated complete.
+
+Checkpoint `CS-CP06`: the Project path now reuses the existing Proposal review and
+SemanticCommit ledger end to end. The Plugin creates only an independently owned Page
+with deterministic Draft UUIDs, verifies the exact tree before Domain finalization,
+compensates a Domain conflict, replays interrupted finalization, and performs inverse
+Domain removal plus exact Page deletion for Undo. A mid-tree failure removes the Page
+only when the remaining tree is a strict transaction-owned prefix; changed/unknown
+content is preserved. Plugin 517/517 and Local Service 198/198 pass before the root gate.

@@ -257,3 +257,19 @@ export function planAcceptedCreationSession(proposal: V2Proposal): CreationSessi
     nodes: structuredClone(nodes),
   };
 }
+
+export function verifyCreationSessionCommitPlan(sessionValue: CreationSession, plan: CreationSessionCommitPlan): CreationSession {
+  const session = validateCreationSession(sessionValue);
+  if (session.status !== "PREVIEW_READY" || session.sessionId !== plan.sessionId || session.version !== plan.expectedSessionVersion
+    || session.currentDraftRevisionId !== plan.draftRevisionId || session.targetType !== plan.targetType
+    || sourceFingerprint(session) !== plan.sourceFingerprint || checksum(session.placementPlan) !== checksum(plan.placement)) {
+    throw creationPlanError("CREATION_SESSION_COMMIT_SESSION_STALE", "Creation Session、Draft、来源或 Placement 在审阅后已变化；没有准备正式 Commit。");
+  }
+  const draft = currentDraft(session);
+  const createdBlockUuids = Object.fromEntries(plan.nodes.filter(({ operation }) => operation === "CREATE").map(({ nodeId, blockUuid }) => [nodeId, blockUuid]));
+  if (checksum(commitNodes(draft, createdBlockUuids)) !== checksum(plan.nodes)) {
+    throw creationPlanError("CREATION_SESSION_COMMIT_DRAFT_STALE", "Creation Session Draft Tree 与已审阅正式计划不一致；没有准备正式 Commit。");
+  }
+  validatePlacement(session, draft);
+  return structuredClone(session);
+}

@@ -99,6 +99,50 @@ export interface ServiceCreationSessionProposalResult extends ServiceCreationSes
   record: ServiceStoredProposal;
 }
 
+export interface ServiceCreationSessionCommitNode {
+  nodeId: string;
+  semanticKey: string;
+  text: string;
+  parentNodeId?: string;
+  order: number;
+  nodeType: "BLOCK" | "TODO" | "PAGE_SECTION";
+  operation: "KEEP" | "MOVE" | "REWRITE" | "CREATE";
+  sourceBlockUuid?: string;
+  blockUuid: string;
+  contentHash: string;
+}
+
+export type ServiceCreationSessionCommitPreparation =
+  | { status: "PREPARED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; pageName: string; objectId: string; nodes: ServiceCreationSessionCommitNode[]; pageExternalId?: string; pageContentHash?: string; replayed: boolean }
+  | ({ status: "STALE" } & ServiceProposalRevalidation)
+  | { status: "COMPLETED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; pageName: string; pageExternalId: string; session: CreationSession; object: V2ManagedObject; anchor: V2Anchor; record: ServiceStoredProposal; replayed: true }
+  | { status: "RECOVERY_REQUIRED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; pageName: string; pageExternalId: string; pageContentHash: string; objectId: string; nodes: ServiceCreationSessionCommitNode[]; replayed: true }
+  | { status: "FAILED_COMPENSATED"; semanticCommitId: string; proposalId: string; record: ServiceStoredProposal; replayed: true };
+
+export type ServiceCreationSessionCommitFinalization =
+  | { status: "COMPLETED"; semanticCommitId: string; session: CreationSession; object: V2ManagedObject; anchor: V2Anchor; record: ServiceStoredProposal; replayed: boolean }
+  | { status: "COMPENSATION_REQUIRED"; semanticCommitId: string; proposalId: string; expectedUpdatedAt: string; pageName: string; pageExternalId: string; pageContentHash: string; objectId: string; nodes: ServiceCreationSessionCommitNode[] };
+
+export interface ServiceCreationSessionCommitCompensation {
+  status: "FAILED_COMPENSATED";
+  semanticCommitId: string;
+  proposalId: string;
+  record: ServiceStoredProposal;
+  replayed: boolean;
+}
+
+export type ServiceCreationSessionUndoPreparation =
+  | { status: "PAGE_PREFLIGHT_REQUIRED" | "PAGE_DELETION_REQUIRED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; pageName: string; pageExternalId: string; pageContentHash: string; objectId: string; nodes: ServiceCreationSessionCommitNode[]; session?: CreationSession; replayed: boolean }
+  | { status: "COMPLETED"; originalSemanticCommitId: string; undoSemanticCommitId: string; proposalId: string; pageName: string; pageExternalId: string; session: CreationSession; replayed: true };
+
+export interface ServiceCreationSessionUndoFinalization {
+  status: "COMPLETED";
+  originalSemanticCommitId: string;
+  undoSemanticCommitId: string;
+  session: CreationSession;
+  replayed: boolean;
+}
+
 export interface ServiceDoctor {
   status: "PASS" | "FAIL";
   schemaVersion: number;
@@ -1455,6 +1499,26 @@ export class LocalServiceClient {
 
   createCreationSessionProposal(sessionId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationSessionProposalResult> {
     return this.request<ServiceCreationSessionProposalResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/proposals`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  prepareCreationSessionCommit(proposalId: string, input: { confirmation: "CREATE_FROM_SESSION"; expectedUpdatedAt: string; traceId: string }): Promise<ServiceCreationSessionCommitPreparation> {
+    return this.request<ServiceCreationSessionCommitPreparation>(`/proposals/${encodeURIComponent(proposalId)}/creation-session/commit/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  finalizeCreationSessionCommit(proposalId: string, input: { semanticCommitId: string; expectedUpdatedAt: string; pageExternalId: string; pageContentHash: string; traceId: string }): Promise<ServiceCreationSessionCommitFinalization> {
+    return this.request<ServiceCreationSessionCommitFinalization>(`/proposals/${encodeURIComponent(proposalId)}/creation-session/commit/finalize`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  compensateCreationSessionCommit(proposalId: string, input: { semanticCommitId: string; expectedUpdatedAt: string; pageExternalId: string; pageContentHash: string; pageExists: false; traceId: string }): Promise<ServiceCreationSessionCommitCompensation> {
+    return this.request<ServiceCreationSessionCommitCompensation>(`/proposals/${encodeURIComponent(proposalId)}/creation-session/commit/compensate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  prepareCreationSessionUndo(originalSemanticCommitId: string, input: { traceId: string; confirmedOwnedTree?: true; pageExternalId?: string }): Promise<ServiceCreationSessionUndoPreparation> {
+    return this.request<ServiceCreationSessionUndoPreparation>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/creation-session/undo/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
+  }
+
+  finalizeCreationSessionUndo(originalSemanticCommitId: string, input: { undoSemanticCommitId: string; pageExternalId: string; pageExists: false; traceId: string }): Promise<ServiceCreationSessionUndoFinalization> {
+    return this.request<ServiceCreationSessionUndoFinalization>(`/semantic-commits/${encodeURIComponent(originalSemanticCommitId)}/creation-session/undo/finalize`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 30_000);
   }
 
   createArea(input: ServiceCreateAreaRequest): Promise<ServiceAreaCommandResult> {
