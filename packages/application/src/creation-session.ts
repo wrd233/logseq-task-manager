@@ -1,10 +1,14 @@
 import {
   abandonCreationSession,
+  addCreationSessionSource,
   completeCreationSession,
   createCreationSession,
+  observeCreationSessionSource,
+  refreshCreationSessionSource,
   updateCreationSession,
   type CreationResult,
   type CreationSession,
+  type CreationSourceCapture,
   type CreationSessionSource,
   type CreationSessionStatus,
   type CreationSessionTargetType,
@@ -42,6 +46,24 @@ export class CreationSessionApplication {
     const current = this.required(input.sessionId);
     const session = updateCreationSession(current, input.patch, input.expectedVersion, at);
     return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "UpdateCreationSession");
+  }
+
+  addSource(input: { sessionId: string; expectedVersion: number; idempotencyKey: string; source: CreationSessionSource }, at = new Date()): CreationSessionWriteResult {
+    const current = this.required(input.sessionId);
+    const session = addCreationSessionSource(current, input.source, input.expectedVersion, at);
+    return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "AddCreationSessionSource");
+  }
+
+  observeSource(input: { sessionId: string; sourceId: string; expectedVersion: number; idempotencyKey: string; latestKnownHash?: string; availability: CreationSessionSource["availability"] }, at = new Date()): CreationSessionWriteResult {
+    const current = this.required(input.sessionId);
+    const session = observeCreationSessionSource(current, input.sourceId, { ...(input.latestKnownHash ? { latestKnownHash: input.latestKnownHash } : {}), availability: input.availability }, input.expectedVersion, at);
+    return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "ObserveCreationSessionSource");
+  }
+
+  refreshSource(input: { sessionId: string; sourceId: string; expectedVersion: number; idempotencyKey: string; capture: CreationSourceCapture }, at = new Date()): CreationSessionWriteResult {
+    const current = this.required(input.sessionId);
+    const session = refreshCreationSessionSource(current, input.sourceId, input.capture, input.expectedVersion, at);
+    return this.repository.saveCreationSession(session, input.expectedVersion, input.idempotencyKey, "RefreshCreationSessionSource");
   }
 
   abandon(input: { sessionId: string; expectedVersion: number; idempotencyKey: string }, at = new Date()): CreationSessionWriteResult {

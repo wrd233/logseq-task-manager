@@ -258,7 +258,7 @@ test("Local Service persists multiple Creation Sessions without formal writes an
     await rm(root, { recursive: true, force: true });
   });
   const headers = { authorization: `Bearer ${service.token}`, "content-type": "application/json" };
-  const primarySource = { sourceId: "blank-primary", role: "PRIMARY", kind: "BLANK", captureHash: "blank", latestKnownHash: "blank", content: "", hierarchy: [], availability: "AVAILABLE", capturedAt: "2026-08-02T06:00:00.000Z" };
+  const primarySource = { kind: "BLANK" as const };
   const create = async (sessionId: string, targetType: "MINI_PROJECT" | "PROJECT", idempotencyKey: string) => fetch(new URL("creation-sessions", service.url), { method: "POST", headers, body: JSON.stringify({ sessionId, targetType, primarySource, idempotencyKey }) });
   const first = await create("creation-service-one", "MINI_PROJECT", "creation-service-create-one");
   assert.equal(first.status, 201);
@@ -285,6 +285,66 @@ test("Local Service persists multiple Creation Sessions without formal writes an
   assert.equal((await abandoned.json() as { session: { status: string } }).session.status, "ABANDONED");
   const remaining = await fetch(new URL("creation-sessions?status=DISCUSSING,PREVIEW_READY", service.url), { headers: restartedHeaders });
   assert.equal((await remaining.json() as { sessions: unknown[] }).sessions.length, 1);
+});
+
+test("Creation Session captures Graph-owned sources, detects drift and preserves the prior snapshot on refresh", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-copilot-creation-source-"));
+  const service = await startLocalService({ databasePath: join(root, "task-copilot.db"), graphId: "graph-creation-source", token: "creation-source-token-at-least-24" });
+  t.after(async () => { await service.close(); await rm(root, { recursive: true, force: true }); });
+  const client = clientFor(service);
+  const blockSnapshot = (content: string) => {
+    const resolved = { kind: "BLOCK" as const, id: "source-root" };
+    const blocks = [{ uuid: "source-root", content, contentHash: checksum(content), relation: "ROOT" as const, depth: 0, pageUuid: "source-page", pageName: "来源页" }];
+    return { kind: "BLOCK" as const, requestedTarget: "source-root", resolved, blocks, truncated: false, readAt: "2026-08-02T06:00:00.000Z", scopeHash: checksum({ kind: "BLOCK", resolved, blocks, truncated: false }) };
+  };
+  const answerFound = async (snapshot: ReturnType<typeof blockSnapshot>): Promise<void> => {
+    const pending = await client.claimGraphReadRequest();
+    if (!pending) throw new Error("expected Creation Session Graph read");
+    await client.completeGraphReadRequest({ requestId: pending.requestId, status: "FOUND", snapshot: { ...snapshot, requestedTarget: pending.target } });
+  };
+
+  const initialSnapshot = blockSnapshot("杂乱来源");
+  const createPromise = client.createCreationSession({ targetType: "MINI_PROJECT", primarySource: { kind: "BLOCK", target: "source-root" }, sessionId: "creation-source-session", idempotencyKey: "creation-source-create" });
+  await answerFound(initialSnapshot);
+  const created = await createPromise;
+  const sourceId = created.session.sources[0]!.sourceId;
+  assert.equal(created.session.sources[0]?.captures[0]?.content, "杂乱来源");
+  assert.equal(created.session.sources[0]?.captures.length, 1);
+
+  const changedSnapshot = blockSnapshot("杂乱来源（已修改）");
+  const checkPromise = client.checkCreationSessionSource(created.session.sessionId, sourceId, { expectedVersion: 1, idempotencyKey: "creation-source-check" });
+  await answerFound(changedSnapshot);
+  const changed = await checkPromise;
+  assert.equal(changed.session.sources[0]?.availability, "CHANGED");
+  assert.equal(changed.session.sources[0]?.captures.length, 1, "checking never overwrites the captured source");
+
+  const refreshPromise = client.refreshCreationSessionSource(created.session.sessionId, sourceId, { expectedVersion: 2, idempotencyKey: "creation-source-refresh" });
+  await answerFound(changedSnapshot);
+  const refreshed = await refreshPromise;
+  assert.equal(refreshed.session.sources[0]?.availability, "AVAILABLE");
+  assert.deepEqual(refreshed.session.sources[0]?.captures.map(({ reason }) => reason), ["SESSION_START", "USER_REFRESH"]);
+  assert.equal(refreshed.session.sources[0]?.captures[0]?.content, "杂乱来源");
+  assert.equal(refreshed.session.sources[0]?.captures[1]?.content, "杂乱来源（已修改）");
+
+  const pageResolved = { kind: "PAGE" as const, id: "reference-page", name: "参考页", version: 1, evidenceHash: checksum("reference-page") };
+  const pageBlocks = [{ uuid: "reference-block", content: "参考细节", contentHash: checksum("参考细节"), relation: "ROOT" as const, depth: 0, pageUuid: "reference-page", pageName: "参考页" }];
+  const pageSnapshot = { kind: "PAGE" as const, requestedTarget: "参考页", resolved: pageResolved, blocks: pageBlocks, truncated: false, readAt: "2026-08-02T06:03:00.000Z", scopeHash: checksum({ kind: "PAGE", resolved: pageResolved, blocks: pageBlocks, truncated: false }) };
+  const addPromise = client.addCreationSessionSource(created.session.sessionId, { expectedVersion: 3, idempotencyKey: "creation-source-add-reference", source: { kind: "PAGE", target: "参考页" } });
+  const addRead = await client.claimGraphReadRequest();
+  if (!addRead) throw new Error("expected Creation Session reference read");
+  await client.completeGraphReadRequest({ requestId: addRead.requestId, status: "FOUND", snapshot: { ...pageSnapshot, requestedTarget: addRead.target } });
+  const withReference = await addPromise;
+  assert.equal(withReference.session.sources.length, 2);
+  assert.equal(withReference.session.sources[1]?.role, "REFERENCE");
+  assert.equal(withReference.session.sources[1]?.captures[0]?.content, "参考细节");
+
+  const deletedPromise = client.checkCreationSessionSource(created.session.sessionId, sourceId, { expectedVersion: 4, idempotencyKey: "creation-source-delete-check" });
+  const pending = await client.claimGraphReadRequest();
+  if (!pending) throw new Error("expected Creation Session deletion read");
+  await client.completeGraphReadRequest({ requestId: pending.requestId, status: "NOT_FOUND" });
+  const deleted = await deletedPromise;
+  assert.equal(deleted.session.sources[0]?.availability, "DELETED");
+  assert.equal((await client.listObjects()).length, 0);
 });
 
 test("Local Service exposes bounded read-only Agent governance projections from the same SQLite authority", async (t) => {

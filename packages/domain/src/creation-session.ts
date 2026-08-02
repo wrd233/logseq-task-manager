@@ -22,6 +22,17 @@ export interface CreationSourceSnapshotNode {
   text: string;
   parentNodeId?: string;
   order: number;
+  depth: number;
+  relation: "PARENT" | "ROOT" | "CHILD";
+}
+
+export interface CreationSourceCapture {
+  captureId: string;
+  reason: "SESSION_START" | "USER_REFRESH" | "DRAFT_GENERATION" | "PRE_COMMIT";
+  snapshotHash: string;
+  content: string;
+  hierarchy: CreationSourceSnapshotNode[];
+  capturedAt: string;
 }
 
 export interface CreationSessionSource {
@@ -31,12 +42,10 @@ export interface CreationSessionSource {
   externalId?: string;
   pageName?: string;
   durableOrigin?: string;
-  captureHash: string;
+  captures: CreationSourceCapture[];
+  currentCaptureId: string;
   latestKnownHash: string;
-  content: string;
-  hierarchy: CreationSourceSnapshotNode[];
   availability: "AVAILABLE" | "CHANGED" | "DELETED" | "UNRESOLVED";
-  capturedAt: string;
 }
 
 export interface CreationRoundQuestion {
@@ -154,11 +163,27 @@ function validateSources(sources: readonly CreationSessionSource[]): void {
   for (const source of sources) {
     boundedText(source.sourceId, "来源 ID", 128);
     if (!CREATION_SOURCE_KINDS.includes(source.kind)) throw creationError("CREATION_SESSION_SOURCE_KIND_INVALID", "Creation Session 来源类型无效。");
-    if (source.kind === "BLANK" && (source.externalId || source.content || source.hierarchy.length)) throw creationError("CREATION_SESSION_BLANK_SOURCE_INVALID", "空白来源不能伪装成 Graph 材料。");
-    if (source.kind !== "BLANK" && (!source.externalId || !source.captureHash || !source.latestKnownHash)) throw creationError("CREATION_SESSION_SOURCE_IDENTITY_REQUIRED", "Graph 来源必须保留身份与快照 Hash。");
-    if (source.hierarchy.length > 512) throw creationError("CREATION_SESSION_SOURCE_TOO_LARGE", "Creation Session 来源快照超出有界范围。");
-    validTime(source.capturedAt, "来源捕获时间");
+    if (source.captures.length < 1 || source.captures.length > 8 || new Set(source.captures.map(({ captureId }) => captureId)).size !== source.captures.length) throw creationError("CREATION_SESSION_CAPTURE_LIMIT", "每个来源必须保留 1 至 8 个不重复的重要快照。");
+    const current = source.captures.find(({ captureId }) => captureId === source.currentCaptureId);
+    if (!current) throw creationError("CREATION_SESSION_CAPTURE_CURRENT_INVALID", "来源当前快照必须指向已保存的重要快照。");
+    if (source.kind === "BLANK" && (source.externalId || current.content || current.hierarchy.length)) throw creationError("CREATION_SESSION_BLANK_SOURCE_INVALID", "空白来源不能伪装成 Graph 材料。");
+    if (source.kind !== "BLANK" && (!source.externalId || !current.snapshotHash || !source.latestKnownHash)) throw creationError("CREATION_SESSION_SOURCE_IDENTITY_REQUIRED", "Graph 来源必须保留身份与快照 Hash。");
+    for (const capture of source.captures) {
+      boundedText(capture.captureId, "来源快照 ID", 128);
+      if (!["SESSION_START", "USER_REFRESH", "DRAFT_GENERATION", "PRE_COMMIT"].includes(capture.reason)) throw creationError("CREATION_SESSION_CAPTURE_REASON_INVALID", "来源快照原因无效。");
+      if (!capture.snapshotHash || capture.snapshotHash.length > 128 || capture.content.length > 256 * 1024 || capture.hierarchy.length > 256) throw creationError("CREATION_SESSION_SOURCE_TOO_LARGE", "Creation Session 来源快照超出有界范围。");
+      if (new Set(capture.hierarchy.map(({ nodeId }) => nodeId)).size !== capture.hierarchy.length) throw creationError("CREATION_SESSION_SOURCE_NODE_DUPLICATE", "来源快照节点身份不能重复。");
+      for (const node of capture.hierarchy) {
+        boundedText(node.nodeId, "来源节点 ID", 128);
+        if (node.text.length > 64 * 1024 || !Number.isSafeInteger(node.order) || node.order < 0 || !Number.isSafeInteger(node.depth) || node.depth < 0 || node.depth > 256 || !["PARENT", "ROOT", "CHILD"].includes(node.relation)) throw creationError("CREATION_SESSION_SOURCE_NODE_INVALID", "来源快照节点无效或超界。");
+      }
+      validTime(capture.capturedAt, "来源捕获时间");
+    }
   }
+}
+
+function sourceCurrentCapture(source: CreationSessionSource): CreationSourceCapture {
+  return source.captures.find(({ captureId }) => captureId === source.currentCaptureId)!;
 }
 
 function validateRound(round: CreationSessionRound): void {
@@ -220,13 +245,58 @@ export function createCreationSession(input: { graphId: string; targetType: Crea
   });
 }
 
-export function updateCreationSession(session: CreationSession, patch: Partial<Pick<CreationSession, "userTitle" | "suggestedObjectTitle" | "sources" | "rounds" | "consensus" | "draftRevisions" | "currentDraftRevisionId" | "placementPlan">>, expectedVersion: number, at = new Date()): CreationSession {
+export function addCreationSessionSource(session: CreationSession, source: CreationSessionSource, expectedVersion: number, at = new Date()): CreationSession {
+  if (source.role !== "REFERENCE") throw creationError("CREATION_SESSION_REFERENCE_REQUIRED", "新增来源必须是用户选择的参考来源。");
+  if (session.sources.some(({ sourceId, kind, externalId }) => sourceId === source.sourceId || (source.kind !== "BLANK" && kind === source.kind && externalId === source.externalId))) throw creationError("CREATION_SESSION_SOURCE_DUPLICATE", "这个来源已经在当前 Creation Session 中。");
+  const timestamp = at.toISOString();
+  return updateCreationSession(session, {
+    sources: [...session.sources, source],
+  }, expectedVersion, at, {
+    eventId: createId("creation_event", at), kind: "SOURCE_CAPTURED", occurredAt: timestamp, summary: "用户添加参考来源",
+  });
+}
+
+export function observeCreationSessionSource(session: CreationSession, sourceId: string, observation: { latestKnownHash?: string; availability: CreationSessionSource["availability"] }, expectedVersion: number, at = new Date()): CreationSession {
+  const source = session.sources.find((candidate) => candidate.sourceId === sourceId);
+  if (!source) throw creationError("CREATION_SESSION_SOURCE_NOT_FOUND", "Creation Session 来源不存在。");
+  if (source.kind === "BLANK") throw creationError("CREATION_SESSION_BLANK_OBSERVATION_INVALID", "空白来源不需要 Graph 变化检查。");
+  const latestKnownHash = observation.latestKnownHash ?? source.latestKnownHash;
+  const availability = observation.availability;
+  const timestamp = at.toISOString();
+  const changed = availability !== source.availability || latestKnownHash !== source.latestKnownHash;
+  if (!changed) return structuredClone(session);
+  return updateCreationSession(session, {
+    sources: session.sources.map((candidate) => candidate.sourceId === sourceId ? { ...candidate, latestKnownHash, availability } : candidate),
+  }, expectedVersion, at, {
+    eventId: createId("creation_event", at), kind: availability === "CHANGED" ? "SOURCE_CONFLICT_FOUND" : "SOURCE_REFRESHED", occurredAt: timestamp,
+    summary: availability === "DELETED" ? "来源已删除，正式创建被暂停" : availability === "CHANGED" ? "来源自上次快照后发生变化" : "来源可用性已更新",
+  });
+}
+
+export function refreshCreationSessionSource(session: CreationSession, sourceId: string, capture: CreationSourceCapture, expectedVersion: number, at = new Date()): CreationSession {
+  const source = session.sources.find((candidate) => candidate.sourceId === sourceId);
+  if (!source || source.kind === "BLANK") throw creationError("CREATION_SESSION_SOURCE_NOT_FOUND", "没有可纳入最新内容的 Graph 来源。");
+  if (capture.reason !== "USER_REFRESH") throw creationError("CREATION_SESSION_REFRESH_REASON_INVALID", "主动纳入最新来源必须保存 USER_REFRESH 快照。");
+  const priorCapture = sourceCurrentCapture(source);
+  if (capture.snapshotHash === priorCapture.snapshotHash) return observeCreationSessionSource(session, sourceId, { latestKnownHash: capture.snapshotHash, availability: "AVAILABLE" }, expectedVersion, at);
+  const affectedCaptureRefs = new Set([priorCapture.captureId, `${source.sourceId}:${priorCapture.captureId}`]);
+  const consensus = session.consensus.map((item) => item.evidenceRefs.some((ref) => affectedCaptureRefs.has(ref)) && item.provenance === "SOURCE_FACT" ? { ...item, provenance: "CONFLICT" as const, updatedAt: at.toISOString() } : item);
+  const timestamp = at.toISOString();
+  return updateCreationSession(session, {
+    sources: session.sources.map((candidate) => candidate.sourceId === sourceId ? { ...candidate, captures: [...candidate.captures, capture], currentCaptureId: capture.captureId, latestKnownHash: capture.snapshotHash, availability: "AVAILABLE" } : candidate),
+    consensus,
+  }, expectedVersion, at, {
+    eventId: createId("creation_event", at), kind: "SOURCE_REFRESHED", occurredAt: timestamp, summary: "用户纳入最新来源；旧共识依据和用户草稿均已保留",
+  });
+}
+
+export function updateCreationSession(session: CreationSession, patch: Partial<Pick<CreationSession, "userTitle" | "suggestedObjectTitle" | "sources" | "rounds" | "consensus" | "draftRevisions" | "currentDraftRevisionId" | "placementPlan">>, expectedVersion: number, at = new Date(), event?: CreationSessionEvent): CreationSession {
   if (session.version !== expectedVersion) throw creationError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session 已在其他入口变化；本次修改未覆盖新内容。");
   if (["CREATED", "ABANDONED"].includes(session.status)) throw creationError("CREATION_SESSION_READ_ONLY", "已创建或已放弃的 Creation Session 只读。");
   const draftRevisions = patch.draftRevisions ?? session.draftRevisions;
   const currentDraftRevisionId = patch.currentDraftRevisionId ?? session.currentDraftRevisionId;
   const status: CreationSessionStatus = currentDraftRevisionId ? "PREVIEW_READY" : "DISCUSSING";
-  return validateCreationSession({ ...session, ...patch, draftRevisions, ...(currentDraftRevisionId ? { currentDraftRevisionId } : {}), status, version: session.version + 1, updatedAt: at.toISOString() });
+  return validateCreationSession({ ...session, ...patch, draftRevisions, ...(currentDraftRevisionId ? { currentDraftRevisionId } : {}), status, version: session.version + 1, updatedAt: at.toISOString(), ...(event ? { events: [...session.events, event] } : {}) });
 }
 
 export function abandonCreationSession(session: CreationSession, expectedVersion: number, at = new Date()): CreationSession {
@@ -240,6 +310,7 @@ export function abandonCreationSession(session: CreationSession, expectedVersion
 export function completeCreationSession(session: CreationSession, result: CreationResult, expectedVersion: number, at = new Date()): CreationSession {
   if (session.version !== expectedVersion) throw creationError("CREATION_SESSION_VERSION_CONFLICT", "Creation Session 已变化；创建结果没有绑定到旧版本。");
   if (session.status !== "PREVIEW_READY" || !session.currentDraftRevisionId || !session.placementPlan) throw creationError("CREATION_SESSION_NOT_READY", "Creation Session 缺少已采用草稿或 Placement，不能标记已创建。");
+  if (session.sources.some((source) => source.kind !== "BLANK" && (source.availability !== "AVAILABLE" || source.latestKnownHash !== sourceCurrentCapture(source).snapshotHash))) throw creationError("CREATION_SESSION_SOURCE_NOT_CURRENT", "来源已变化、删除或不可解析；正式创建前必须重新读取并明确处理。");
   const timestamp = at.toISOString();
   return validateCreationSession({ ...session, status: "CREATED", creationResult: result, version: session.version + 1, updatedAt: timestamp, events: [...session.events, { eventId: createId("creation_event", at), kind: "CREATED", occurredAt: timestamp, summary: "正式对象已通过 Semantic Commit 创建" }] });
 }

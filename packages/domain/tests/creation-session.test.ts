@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { abandonCreationSession, completeCreationSession, createCreationSession, updateCreationSession, type CreationSessionSource } from "../src/index.ts";
+import { abandonCreationSession, completeCreationSession, createCreationSession, observeCreationSessionSource, refreshCreationSessionSource, updateCreationSession, type CreationSessionSource } from "../src/index.ts";
 
 const at = new Date("2026-08-02T06:00:00.000Z");
-const blank = (): CreationSessionSource => ({ sourceId: "source-primary", role: "PRIMARY", kind: "BLANK", captureHash: "blank", latestKnownHash: "blank", content: "", hierarchy: [], availability: "AVAILABLE", capturedAt: at.toISOString() });
+const blank = (): CreationSessionSource => ({ sourceId: "source-primary", role: "PRIMARY", kind: "BLANK", captures: [{ captureId: "capture-blank", reason: "SESSION_START", snapshotHash: "blank", content: "", hierarchy: [], capturedAt: at.toISOString() }], currentCaptureId: "capture-blank", latestKnownHash: "blank", availability: "AVAILABLE" });
 
 test("creation session starts as a graph-clean discussing aggregate", () => {
   const session = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: blank(), sessionId: "creation-one" }, at);
@@ -17,7 +17,7 @@ test("creation session starts as a graph-clean discussing aggregate", () => {
 
 test("creation session enforces one primary plus at most three references", () => {
   const session = createCreationSession({ graphId: "graph-one", targetType: "PROJECT", primarySource: blank(), sessionId: "creation-two" }, at);
-  const reference = (index: number): CreationSessionSource => ({ sourceId: `ref-${index}`, role: "REFERENCE", kind: "PAGE", externalId: `page-${index}`, captureHash: `hash-${index}`, latestKnownHash: `hash-${index}`, content: `page ${index}`, hierarchy: [], availability: "AVAILABLE", capturedAt: at.toISOString() });
+  const reference = (index: number): CreationSessionSource => ({ sourceId: `ref-${index}`, role: "REFERENCE", kind: "PAGE", externalId: `page-${index}`, captures: [{ captureId: `capture-${index}`, reason: "SESSION_START", snapshotHash: `hash-${index}`, content: `page ${index}`, hierarchy: [], capturedAt: at.toISOString() }], currentCaptureId: `capture-${index}`, latestKnownHash: `hash-${index}`, availability: "AVAILABLE" });
   assert.throws(() => updateCreationSession(session, { sources: [blank(), reference(1), reference(2), reference(3), reference(4)] }, 1, at), /参考来源最多三个/);
 });
 
@@ -42,4 +42,19 @@ test("created sessions are read-only and abandoned sessions cannot be created", 
   const abandoned = abandonCreationSession(session, 1, at);
   assert.equal(abandoned.status, "ABANDONED");
   assert.throws(() => updateCreationSession(abandoned, { userTitle: "late edit" }, 2, at), /只读/);
+});
+
+test("source observation and explicit refresh retain prior capture and mark dependent source facts conflicting", () => {
+  const source: CreationSessionSource = {
+    sourceId: "source-block", role: "PRIMARY", kind: "BLOCK_SUBTREE", externalId: "block-one", latestKnownHash: "hash-old", availability: "AVAILABLE", currentCaptureId: "capture-old",
+    captures: [{ captureId: "capture-old", reason: "SESSION_START", snapshotHash: "hash-old", content: "旧内容", hierarchy: [{ nodeId: "block-one", text: "旧内容", order: 0, depth: 0, relation: "ROOT" }], capturedAt: at.toISOString() }],
+  };
+  const started = createCreationSession({ graphId: "graph-one", targetType: "MINI_PROJECT", primarySource: source, sessionId: "creation-source" }, at);
+  const withFact = updateCreationSession(started, { consensus: [{ consensusId: "fact-one", text: "旧内容", provenance: "SOURCE_FACT", evidenceRefs: ["capture-old"], updatedAt: at.toISOString() }] }, 1, at);
+  const changed = observeCreationSessionSource(withFact, "source-block", { latestKnownHash: "hash-new", availability: "CHANGED" }, 2, new Date("2026-08-02T06:01:00.000Z"));
+  assert.equal(changed.sources[0]?.availability, "CHANGED");
+  const refreshed = refreshCreationSessionSource(changed, "source-block", { captureId: "capture-new", reason: "USER_REFRESH", snapshotHash: "hash-new", content: "新内容", hierarchy: [{ nodeId: "block-one", text: "新内容", order: 0, depth: 0, relation: "ROOT" }], capturedAt: "2026-08-02T06:02:00.000Z" }, 3, new Date("2026-08-02T06:02:00.000Z"));
+  assert.deepEqual(refreshed.sources[0]?.captures.map(({ captureId }) => captureId), ["capture-old", "capture-new"]);
+  assert.equal(refreshed.sources[0]?.availability, "AVAILABLE");
+  assert.equal(refreshed.consensus[0]?.provenance, "CONFLICT");
 });

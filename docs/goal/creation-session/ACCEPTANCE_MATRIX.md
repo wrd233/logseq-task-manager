@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | CS-01 | Four statuses, target types and bounded sources | Domain tests | pending | IN_PROGRESS |
 | CS-02 | SQLite authority, migration, restart and parallel sessions | Persistence/Service tests | pending | IN_PROGRESS |
-| CS-03 | Source capture, drift/deletion and explicit refresh | pending | pending | NOT_STARTED |
+| CS-03 | Source capture, drift/deletion and explicit refresh | Domain/Service tests; prior snapshot retained | pending | AUTOMATED_DONE |
 | CS-04 | 2–5 related questions, reasons, recommendations and explicit answers | Domain bounds only | pending | IN_PROGRESS |
 | CS-05 | Answer-first Provider transaction, retry/cancel/failure stability | pending | pending | NOT_STARTED |
 | CS-06 | Consensus, unknown/conflict and resumable summary | model vocabulary only | pending | IN_PROGRESS |

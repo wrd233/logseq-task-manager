@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join, resolve } from "node:path";
 
 import { AgentGovernanceApplication, CreationSessionApplication, V2Application, V2CandidateApplication, V2MigrationApplication, V2ProposalApplication, buildMiniProjectRestructureProposal, buildProjectClosureEvidenceDraft, buildProjectCreationProposal, buildProjectNarrationProposal, inspectReviewedV2ProjectClosure, miniProjectStructureHash, planAcceptedMiniProjectRestructure, planCompletedMiniProjectRestructureUndo, planAcceptedV2LifecycleTransition, planAcceptedV2ProjectCreation, planAcceptedV2ProposalCommit, planAcceptedV2OwnershipChange, planAcceptedV2ProjectClosure, planAcceptedV2ProjectStructure, projectV2NowWork, type GrillPreview, type InteractionEvidenceBuffer, type MaterializeExplicitObjectInput, type ProjectCreationPreview, type V2ReentryCommitFact } from "@task-copilot/application";
-import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationSessionSource, type CreationSessionStatus, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
+import { agentGovernanceSemanticText, buildAgentReviewEvidencePackage, renderV2ProposalFiles, requiredV2ProposalRevalidationScope, validateV2MiniProjectClosure, validateV2ProposalForSubmission, type AgentCurrentSourceEvidence, type AgentFeedbackInput, type CreationSessionSource, type CreationSessionStatus, type CreationSourceCapture, type LegacyMigrationReviewDecision, type V2Anchor, type V2CandidateDisposition, type V2CandidateKind, type V2Condition, type V2ManagedObject, type V2MiniProjectClosure, type V2Proposal, type V2ProposalGroupDecision, type V2ProposalScopeObservation } from "@task-copilot/domain";
 import { parseExplicitObjectSyntax, stripLogseqBlockIdentityProperty } from "@task-copilot/logseq-adapter";
 import { V2_DATABASE_SCHEMA_VERSION, V2SqliteStore, type V2CommitStepStatus } from "@task-copilot/persistence/node";
 import {
@@ -15,6 +15,8 @@ import {
   type ServiceDoctorCheck,
   type ServiceBackupCatalog,
   type ServiceGraphReadResult,
+  type ServiceGraphSnapshot,
+  type ServiceCreationSourceSelection,
   type ServiceProjectCreationSourceReturnTarget,
 } from "@task-copilot/service-client";
 import { removeServiceDescriptor, writeServiceDescriptor } from "@task-copilot/service-client/node";
@@ -166,6 +168,17 @@ async function readCreationSessionJson(request: IncomingMessage): Promise<Record
 function safeCreationToken(value: unknown, label: string): string {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", `${label}必须是受控标识。`);
   return value;
+}
+
+function parseCreationSourceSelection(value: unknown): ServiceCreationSourceSelection {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const keys = Object.keys(record).sort().join(",");
+  if (record.kind === "BLANK" && keys === "kind") return { kind: "BLANK" };
+  if ((record.kind === "BLOCK" || record.kind === "PAGE") && keys === "kind,target" && typeof record.target === "string" && record.target.trim() && record.target.length <= 512) {
+    if (record.kind === "BLOCK" && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(record.target)) throw serviceError("CREATION_SESSION_SOURCE_SELECTION_INVALID", "Block 来源必须使用受控 UUID。");
+    return { kind: record.kind, target: record.target.trim() };
+  }
+  throw serviceError("CREATION_SESSION_SOURCE_SELECTION_INVALID", "来源选择只接受空白、一个 Block UUID 或一个 Page identity。");
 }
 
 function safeMigrationId(value: unknown): value is string {
@@ -1500,6 +1513,48 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
   const migrationApplication = new V2MigrationApplication(store);
   const proposalApplication = new V2ProposalApplication(store);
   const graphReadBroker = new GraphReadBroker();
+  const sourceFromSnapshot = (snapshot: ServiceGraphSnapshot, role: CreationSessionSource["role"], reason: CreationSourceCapture["reason"], sourceId = createId("creation"), at = new Date()): CreationSessionSource => {
+    if (snapshot.truncated) throw serviceError("CREATION_SESSION_SOURCE_TRUNCATED", "来源超过 Creation Session 的受控读取范围；没有保存不完整快照。");
+    const hierarchy = snapshot.blocks.map((block, order) => ({
+      nodeId: block.uuid,
+      text: stripLogseqBlockIdentityProperty(block.content, block.uuid),
+      ...(block.parentUuid ? { parentNodeId: block.parentUuid } : {}),
+      order,
+      depth: block.depth,
+      relation: block.relation,
+    }));
+    const content = hierarchy.filter(({ relation }) => relation !== "PARENT").map(({ text, depth }) => `${"  ".repeat(Math.min(depth, 32))}${text}`).join("\n");
+    if (Buffer.byteLength(content) > 256 * 1024) throw serviceError("CREATION_SESSION_SOURCE_TOO_LARGE", "来源正文超过 Creation Session 快照上限；没有保存截断内容。");
+    const captureId = createId("creation", at);
+    return {
+      sourceId,
+      role,
+      kind: snapshot.kind === "BLOCK" ? "BLOCK_SUBTREE" : "PAGE",
+      externalId: snapshot.resolved.id,
+      ...(snapshot.resolved.name || snapshot.blocks[0]?.pageName ? { pageName: snapshot.resolved.name ?? snapshot.blocks[0]!.pageName } : {}),
+      durableOrigin: snapshot.kind === "BLOCK" ? `BLOCK_UUID:${snapshot.resolved.id}` : `PAGE_ID:${snapshot.resolved.id}`,
+      captures: [{ captureId, reason, snapshotHash: snapshot.scopeHash, content, hierarchy, capturedAt: snapshot.readAt }],
+      currentCaptureId: captureId,
+      latestKnownHash: snapshot.scopeHash,
+      availability: "AVAILABLE",
+    };
+  };
+  const captureCreationSource = async (selection: ServiceCreationSourceSelection, role: CreationSessionSource["role"], reason: CreationSourceCapture["reason"], sourceId?: string): Promise<CreationSessionSource> => {
+    const at = new Date();
+    if (selection.kind === "BLANK") {
+      if (role !== "PRIMARY") throw serviceError("CREATION_SESSION_REFERENCE_INVALID", "空白不能作为参考来源。");
+      const id = sourceId ?? createId("creation", at);
+      const captureId = createId("creation", at);
+      const snapshotHash = checksum({ kind: "BLANK" });
+      return { sourceId: id, role, kind: "BLANK", captures: [{ captureId, reason, snapshotHash, content: "", hierarchy: [], capturedAt: at.toISOString() }], currentCaptureId: captureId, latestKnownHash: snapshotHash, availability: "AVAILABLE" };
+    }
+    const result = await graphReadBroker.read(selection.kind === "BLOCK"
+      ? { kind: "BLOCK", target: selection.target, includeChildren: true, parents: 8 }
+      : { kind: "PAGE", target: selection.target, depth: 5 });
+    if (result.status === "NOT_FOUND") throw serviceError("CREATION_SESSION_SOURCE_NOT_FOUND", "Logseq Desktop 中未找到选择的来源；没有创建或修改会话。");
+    if (result.status === "ERROR") throw new StructuredError({ code: result.errorCode, message: result.message, ruleRefs: ["D-132", "D-135", "CREATION-SESSION-001"] });
+    return sourceFromSnapshot(result.snapshot, role, reason, sourceId, at);
+  };
   const agentGovernanceSkill = await readAgentGovernanceSkill();
   const agentGovernanceRuntime = new AgentGovernanceRuntime({
     graphId: options.graphId,
@@ -2053,9 +2108,10 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
       }
       const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
       const sessionId = input.sessionId === undefined ? undefined : safeCreationToken(input.sessionId, "Session ID");
+      const primarySource = await captureCreationSource(parseCreationSourceSelection(input.primarySource), "PRIMARY", "SESSION_START");
       const result = creationSessionApplication.create({
         targetType: input.targetType,
-        primarySource: input.primarySource as CreationSessionSource,
+        primarySource,
         ...(input.userTitle ? { userTitle: input.userTitle } : {}),
         ...(sessionId ? { sessionId } : {}),
         idempotencyKey,
@@ -2086,8 +2142,44 @@ export async function startLocalService(options: LocalServiceOptions): Promise<L
         || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1
         || !input.patch || typeof input.patch !== "object" || Array.isArray(input.patch)) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 更新参数无效。");
       const patch = input.patch as Record<string, unknown>;
-      if (Object.keys(patch).some((key) => !["userTitle", "suggestedObjectTitle", "sources", "rounds", "consensus", "draftRevisions", "currentDraftRevisionId", "placementPlan"].includes(key))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 更新包含未授权字段。");
+      if (Object.keys(patch).some((key) => !["userTitle", "placementPlan"].includes(key))) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "Creation Session 通用更新只允许会话标题与放置选择；来源、讨论和草稿必须走专用命令。");
       const result = creationSessionApplication.update({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key"), patch: patch as Parameters<CreationSessionApplication["update"]>[0]["patch"] });
+      respond(response, 200, result);
+      return;
+    }
+    const creationSessionAddSourceMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/sources$/) : null;
+    if (creationSessionAddSourceMatch?.[1]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionAddSourceMatch[1]), "Session ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey,source" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "添加参考来源需要当前版本、幂等键和受控来源选择。");
+      const source = await captureCreationSource(parseCreationSourceSelection(input.source), "REFERENCE", "SESSION_START");
+      const result = creationSessionApplication.addSource({ sessionId, expectedVersion: Number(input.expectedVersion), idempotencyKey: safeCreationToken(input.idempotencyKey, "idempotency key"), source });
+      respond(response, result.replayed ? 200 : 201, result);
+      return;
+    }
+    const creationSessionSourceActionMatch = request.method === "POST" ? url.pathname.match(/^\/creation-sessions\/([^/]+)\/sources\/([^/]+)\/(check|refresh)$/) : null;
+    if (creationSessionSourceActionMatch?.[1] && creationSessionSourceActionMatch[2] && creationSessionSourceActionMatch[3]) {
+      const sessionId = safeCreationToken(decodeURIComponent(creationSessionSourceActionMatch[1]), "Session ID");
+      const sourceId = safeCreationToken(decodeURIComponent(creationSessionSourceActionMatch[2]), "Source ID");
+      const input = await readCreationSessionJson(request);
+      if (Object.keys(input).sort().join(",") !== "expectedVersion,idempotencyKey" || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1) throw serviceError("CREATION_SESSION_REQUEST_INVALID", "来源检查需要当前版本和幂等键。");
+      const current = creationSessionApplication.get(sessionId);
+      const source = current?.sources.find((candidate) => candidate.sourceId === sourceId);
+      if (!source || source.kind === "BLANK" || !source.externalId) throw serviceError("CREATION_SESSION_SOURCE_NOT_FOUND", "Creation Session 中没有这个 Graph 来源。");
+      const idempotencyKey = safeCreationToken(input.idempotencyKey, "idempotency key");
+      if (creationSessionSourceActionMatch[3] === "refresh") {
+        const refreshed = await captureCreationSource(source.kind === "BLOCK_SUBTREE" ? { kind: "BLOCK", target: source.externalId } : { kind: "PAGE", target: source.externalId }, source.role, "USER_REFRESH", source.sourceId);
+        const capture = refreshed.captures[0]!;
+        const result = creationSessionApplication.refreshSource({ sessionId, sourceId, expectedVersion: Number(input.expectedVersion), idempotencyKey, capture });
+        respond(response, 200, result);
+        return;
+      }
+      const graphResult = await graphReadBroker.read(source.kind === "BLOCK_SUBTREE" ? { kind: "BLOCK", target: source.externalId, includeChildren: true, parents: 8 } : { kind: "PAGE", target: source.externalId, depth: 5 });
+      if (graphResult.status === "ERROR") throw new StructuredError({ code: graphResult.errorCode, message: graphResult.message, ruleRefs: ["D-132", "D-135", "CREATION-SESSION-001"] });
+      const latestKnownHash = graphResult.status === "FOUND" ? graphResult.snapshot.scopeHash : undefined;
+      const currentCapture = source.captures.find(({ captureId }) => captureId === source.currentCaptureId)!;
+      const availability: CreationSessionSource["availability"] = graphResult.status === "NOT_FOUND" ? "DELETED" : latestKnownHash === currentCapture.snapshotHash ? "AVAILABLE" : "CHANGED";
+      const result = creationSessionApplication.observeSource({ sessionId, sourceId, expectedVersion: Number(input.expectedVersion), idempotencyKey, ...(latestKnownHash ? { latestKnownHash } : {}), availability });
       respond(response, 200, result);
       return;
     }

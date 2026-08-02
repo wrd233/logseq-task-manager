@@ -40,12 +40,10 @@ test("Creation Sessions persist across restart without entering formal object or
     sourceId: "blank-primary",
     role: "PRIMARY",
     kind: "BLANK",
-    captureHash: "blank",
+    captures: [{ captureId: "capture-blank", reason: "SESSION_START", snapshotHash: "blank", content: "", hierarchy: [], capturedAt: "2026-08-02T06:00:00.000Z" }],
+    currentCaptureId: "capture-blank",
     latestKnownHash: "blank",
-    content: "",
-    hierarchy: [],
     availability: "AVAILABLE",
-    capturedAt: "2026-08-02T06:00:00.000Z",
   };
   const created = application.create({ targetType: "MINI_PROJECT", primarySource, sessionId: "creation-persisted", idempotencyKey: "creation-persisted-create" }, new Date("2026-08-02T06:00:00.000Z"));
   assert.equal(created.session.status, "DISCUSSING");

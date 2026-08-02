@@ -1,4 +1,4 @@
-import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceRetentionPreview, AgentGovernanceRetentionResult, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, CreationSession, CreationSessionSource, CreationSessionStatus, CreationSessionTargetType, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
+import type { AgentDecision, AgentDecisionEvent, AgentFeedbackCompatibilityGroup, AgentFeedbackInput, AgentGovernanceExportPackage, AgentGovernanceRetentionPreview, AgentGovernanceRetentionResult, AgentGovernanceSettings, AgentReviewSignal, AgentReviewSignalStatus, AgentRuleAuthorization, CreationSession, CreationSessionStatus, CreationSessionTargetType, LegacyMigrationPreview, LegacyMigrationReviewDecision, V2Anchor, V2Association, V2Candidate, V2CandidateDisposition, V2CandidateKind, V2Condition, V2ExecutionMarker, V2ManagedObject, V2MiniProjectClosure, V2ObjectType, V2PrimaryOwnership, V2Proposal, V2ProposalGroupDecision, V2ProposalRevalidationResult, V2ProposalScopeObservation } from "@task-copilot/domain";
 import { validateAgentDecision, validateAgentDecisionEvent, validateAgentGovernanceExportPackage, validateAgentGovernanceRetentionPreview, validateAgentGovernanceSettings, validateAgentReviewSignal, validateAgentRuleAuthorization } from "@task-copilot/domain";
 import { StructuredError } from "@task-copilot/shared";
 
@@ -33,9 +33,25 @@ export interface ServiceStatus extends ServiceHealth {
 
 export interface ServiceCreateCreationSessionRequest {
   targetType: CreationSessionTargetType;
-  primarySource: CreationSessionSource;
+  primarySource: ServiceCreationSourceSelection;
   userTitle?: string;
   sessionId?: string;
+  idempotencyKey: string;
+}
+
+export type ServiceCreationSourceSelection =
+  | { kind: "BLANK" }
+  | { kind: "BLOCK"; target: string }
+  | { kind: "PAGE"; target: string };
+
+export interface ServiceCreationSessionSourceCommand {
+  expectedVersion: number;
+  idempotencyKey: string;
+  source: ServiceCreationSourceSelection;
+}
+
+export interface ServiceCreationSessionSourceObservationCommand {
+  expectedVersion: number;
   idempotencyKey: string;
 }
 
@@ -1366,6 +1382,18 @@ export class LocalServiceClient {
 
   abandonCreationSession(sessionId: string, expectedVersion: number, idempotencyKey: string): Promise<ServiceCreationSessionResult> {
     return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/abandon`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion, idempotencyKey }) });
+  }
+
+  addCreationSessionSource(sessionId: string, input: ServiceCreationSessionSourceCommand): Promise<ServiceCreationSessionResult> {
+    return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/sources`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  }
+
+  checkCreationSessionSource(sessionId: string, sourceId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationSessionResult> {
+    return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/sources/${encodeURIComponent(sourceId)}/check`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 12_000);
+  }
+
+  refreshCreationSessionSource(sessionId: string, sourceId: string, input: ServiceCreationSessionSourceObservationCommand): Promise<ServiceCreationSessionResult> {
+    return this.request<ServiceCreationSessionResult>(`/creation-sessions/${encodeURIComponent(sessionId)}/sources/${encodeURIComponent(sourceId)}/refresh`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }, 12_000);
   }
 
   createArea(input: ServiceCreateAreaRequest): Promise<ServiceAreaCommandResult> {
