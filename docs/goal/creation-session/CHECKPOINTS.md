@@ -40,3 +40,24 @@
 One consolidated real Provider and Logseq Desktop campaign from `RUNTIME_PLAN.md`, then
 the independent judgment required by `VISUAL_REVIEW.md`. Automation does not grant either
 runtime or visual PASS.
+
+## CS-CP09 — 无视觉接力收口（2026-08-02）
+
+- 根因：Draft/Proposal 子节点 sibling `order` 为 1 基，Logseq 读回为 0 基数组下标；
+  旧 `creationSessionMiniTreeHash` 把原始 order 计入哈希，真实 after-tree 校验必然失败
+  （原事务期望 `8b6970e5`、读回 `9f2abdfa`，canonical rank 哈希 = `9f2abdfa`）。
+- 修复：ADR 0012 canonical 化（v1）+ 有界 settle + 冻结 legacy 哈希；MiniProject
+  prepare/finalize 接受 canonical/legacy 账本哈希，原 PENDING 事务同 Proposal 续跑完成。
+- 真实 MiniProject：Commit COMPLETED（step VERIFIED）→ reload → Undo（UNDONE +
+  inverse COMPLETED，原树/Journal 精确恢复）→ reload；Pending/Recovery 0。
+- 真实 Project：Page 来源 + 真实 DeepSeek 4 轮 → READY Draft → 独立 Page
+  `Project/统一监控告警治理` → 会话内最终确认 → Commit COMPLETED（17 节点树精确写入、
+  来源页零修改）→ reload → Undo（Page 删除、Object/Anchor 移除、Session 保留
+  undoneAt）→ reload；Pending/Recovery 0。
+- 额外修复：每会话一个活跃 Proposal（Service 幂等收口）；会话内最终确认（不再强迫
+  跳 Review Center 重复审阅）；Provider 共识上下文按 uncertainty 折叠；PRE_COMMIT
+  捕获不再使草稿失效；`recent-changes` 把 Creation Session 撤销正确路由到
+  `v2-creation-session-undo`。
+- 自动回归：Plugin 534/534、Local Service 201/201、Domain 87/87（根级 `check.sh`
+  最终复跑见收口提交）。
+- 独立视觉复验清单：`NON_VISUAL_HANDOFF_TO_VISUAL_REVIEWER.md`。

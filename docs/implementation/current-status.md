@@ -1,5 +1,47 @@
 # V2 当前实施状态
 
+## Persistent Creation Session — 无视觉接力收口（2026-08-02 晚）
+
+真实 Logseq Desktop 0.10.15 已完成两条 Creation Session 工程闭环：
+
+- **MiniProject**：上一轮真实失败事务（`proposal-creation-8b4038f0` /
+  `proposal-commit:fffce7…` PENDING）经同一 Proposal 续跑完成；Commit COMPLETED、
+  Graph step VERIFIED、Object/Anchor/Audit/Session CREATED；reload 保持；真实 Undo
+  （正向 UNDONE、逆向 COMPLETED、原树/Journal 精确恢复）；再次 reload 后
+  Pending/Recovery 0。
+- **Project**：Page 来源（`Task Copilot Lab/Creation Session Project Source
+  20260802`）→ 真实 DeepSeek 多轮 Grill → READY Draft（17 节点）→ 会话内最终确认
+  → 独立 Page `Project/统一监控告警治理` Commit COMPLETED → reload 保持 → 真实 Undo
+  （Page 删除、Object/Anchor 移除、Session 保留 `undoneAt`）→ 再次 reload 后
+  Pending/Recovery 0；来源页零修改。
+
+根因（结构化复算）：Draft/Proposal 子节点 sibling `order` 为 1 基，Logseq 读回为
+0 基数组下标；旧树哈希把原始 order 计入，真实 after-tree 校验必失败
+（期望 `8b6970e5`、读回 `9f2abdfa`，canonical rank 哈希 = `9f2abdfa`）。修复见
+ADR 0012：版本化 canonical sibling-order（v1）、有界 settle（≤5 次、<2s、fail-closed）、
+冻结 legacy 哈希仅用于旧账本识别、脱敏结构诊断。MiniProject prepare/finalize 同时
+接受 canonical 与 legacy 账本哈希，旧 PENDING 事务可同 Proposal 续跑/补偿。
+
+同步修复的工程缺陷：
+
+- `recent-changes` 曾把 Creation Session 提交的“撤销”错误路由到通用
+  `v2-proposal-undo`，现正确路由到 `v2-creation-session-undo`（含 Project 分支）；
+- 正常单对象创建新增会话内最终确认（同一 HIGH Proposal 接受 + Commit，Review Center
+  保留为历史/恢复入口，不再强迫二次跳转重复审阅）；
+- Service 对同一 Session 幂等收口为一个活跃 Proposal（重复“生成正式审阅方案”不产生
+  重复 Proposal）；
+- Provider 上下文按 uncertainty 折叠为最新状态，已确认内容不再被旧 UNKNOWN 镜像为
+  Draft maturity 缺口；
+- PRE_COMMIT 捕获（系统事务自有）不再使 Draft 失效，已生成的 Proposal 始终显示
+  会话内“确认正式创建”。
+
+自动回归：Plugin 534/534、Local Service 201/201、Domain 87/87（根级检查最终复跑
+后更新）。当前状态：`RUNTIME_STRUCTURAL_PASS`；独立视觉 Gate 仍待执行
+（`docs/goal/creation-session/NON_VISUAL_HANDOFF_TO_VISUAL_REVIEWER.md`），
+实现 Agent 不代签视觉通过。权威状态见
+`docs/goal/creation-session/STATUS.md` 与
+`docs/goal/creation-session/CHECKPOINT_2026-08-02_NONVISUAL_RECOVERY.md`。
+
 ## Persistent Creation Session（2026-08-02）
 
 新 Goal 已进入 `IN_PROGRESS`。schema 16、CreationSession Domain/Application、SQLite

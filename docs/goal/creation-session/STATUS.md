@@ -1,17 +1,22 @@
 # Creation Session status
 
-Updated: 2026-08-02
+Updated: 2026-08-02（无视觉接力收口后）
 
 Overall: `IN_PROGRESS`
+
+> 2026-08-02 晚：真实 Logseq Desktop 0.10.15 已完成 MiniProject 与 Project 两条
+> Creation Session 工程闭环（Commit → reload → Undo → reload）。树校验根因与修复见
+> `CHECKPOINT_2026-08-02_NONVISUAL_RECOVERY.md` 与 ADR 0012。剩余唯一 Gate 为独立
+> 视觉复验（`NON_VISUAL_HANDOFF_TO_VISUAL_REVIEWER.md`）；无视觉模型不代签视觉通过。
 
 | Phase | State | Current evidence |
 |---|---|---|
 | 0 Baseline and ADR | DONE | Existing paths inspected; ADR 0010 records authority and ADR 0011 freezes the formal Proposal/commit/Undo bridge. |
 | 1 Session foundation | AUTOMATED_DONE | Domain, Application, schema 16, SQLite repository, Local Service CRUD, client, restart/idempotency/no-formal-write, Graph-owned source capture, bounded add-reference, visible drift/deletion counts, explicit refresh, durable 2–5-question rounds, per-question or whole-round answer-first Provider transactions, retry/cancel/failure retention and replay are implemented. Desktop remains consolidated into Phase 5. |
 | 2 Draft Tree | AUTOMATED_DONE | Strict stable node/revision model, sparse important-history retention, source revalidation capture, MiniProject/Project Provider validator, Local Service/client generation, inline text/parent edits, atomic non-drag sibling movement, safe Agent-leaf deletion, natural-language revision, adoption, idempotency, restart/failure retention and user-edit conflict protection are automated. Plugin renders a responsive Logseq-style tree with Markdown/Page references, provenance, operation plan and conflicts. |
-| 3 MiniProject vertical | AUTOMATED_DONE | Fresh PRE_COMMIT evidence, full in-place source retention, deterministic Block identities, one HIGH Proposal/accepted plan, shared SemanticCommit prepare/finalize, and Plugin exact Graph execution are automated for blank Page-end and Block in-place placement. Atomic Object+Anchor+Audit+Session materialization, exact compensation/replay/Undo, changed-tree protection and staging/partial-write cleanup are covered. Desktop remains consolidated into Phase 5. |
-| 4 Project vertical | AUTOMATED_DONE | Independent NEW_PROJECT_PAGE Proposal, deterministic Page/Block identities, Service SemanticCommit, Plugin Graph execution, atomic Object/Anchor/Audit/Session finalization, exact compensation/replay/Undo, changed-page protection and interrupted-tree cleanup are automated. Desktop remains consolidated into Phase 5. |
-| 5 Unified entry/runtime | AUTOMATED_DONE | Plugin has one persistent Creation Session controller and action surface with active-session list, MiniProject/Project blank entry, Page-to-Project route, pre-Grill Page material recognition, bounded source/reference management, grouped 2–5 question forms, whole-round natural answers, stable reload/resume, Draft/Summary/History tabs, explicit will/will-not impact, created-result object/source/Review+Undo affordances, loading/success/error states and runtime-generation stale-response protection. Terminal history is read-only and does not re-observe Graph sources. Both formal verticals dispatch through the same reviewed Creation Session action; legacy paths remain in one collapsed compatibility group. Real Provider, Desktop and independent visual gates remain. |
+| 3 MiniProject vertical | RUNTIME_STRUCTURAL_PASS | 真实 Desktop：原 PENDING 事务经同一 Proposal 续跑完成（Commit COMPLETED、Graph step VERIFIED、Object/Anchor/Audit 一致、Session CREATED），reload 保持，真实 Undo（正向 UNDONE、逆向 COMPLETED、原树/Journal 精确恢复），再次 reload 后 Pending/Recovery 0。树校验根因（sibling order 基差异）已修复并复算证实（ADR 0012）。视觉仍待独立复验。 |
+| 4 Project vertical | RUNTIME_STRUCTURAL_PASS | 真实 Desktop：Page 来源 → 真实 DeepSeek 4 轮 Grill → READY Draft → 独立 Project Page → 会话内最终确认（同一 HIGH Proposal）→ Commit（Page 树 17 节点精确写入、来源页零修改）→ reload 保持 → 真实 Undo（Page 删除、Object/Anchor 移除、Session 保留 undoneAt）→ 再次 reload 后 Pending/Recovery 0。视觉仍待独立复验。 |
+| 5 Unified entry/runtime | RUNTIME_STRUCTURAL_PASS | 会话内最终确认已接入：正常单对象不再强迫跳 Review Center 重复审阅同一 HIGH 方案（接受/Commit 复用同一 Proposal、同一回执与同一 Commit/Undo 内核；Review Center 保留为历史与恢复入口）。Provider 上下文按 uncertainty 折叠为最新状态；重复“生成正式审阅方案”由 Service 幂等收口为每会话一个活跃 Proposal。真实 Provider/Desktop 主链已跑通；独立视觉复验仍待执行。 |
 
 Phase 1 preserves the key authority boundary: Provider output is a validated proposal
 for questions, consensus and draft hints. It cannot create a formal Object, write Audit,
@@ -58,3 +63,10 @@ and terminal History exposes the created object, primary source and the existing
 Undo authority without mutating a terminal Session. Plugin 528/528, Local Service 201/201
 and the Node 20 root `./scripts/check.sh` pass; 145 stable rules and the export/restore
 rehearsal remain green. Only the consolidated real Provider/Desktop/visual campaign remains.
+
+Checkpoint `CS-CP09`（无视觉接力收口）: 真实 Logseq Desktop 0.10.15 完成
+MiniProject 与 Project 两条 Commit → reload → Undo → reload 闭环；根因（Draft 1 基
+与读回 0 基 sibling order 的哈希差异）与修复（canonical 化 + 有界 settle + legacy
+账本兼容）记录在 ADR 0012；重复 Proposal、会话内最终确认、Provider 共识折叠等缺陷
+已修复并有自动回归。根级检查待最终复跑。独立视觉复验见
+`NON_VISUAL_HANDOFF_TO_VISUAL_REVIEWER.md`，不得由无视觉模型代签。
