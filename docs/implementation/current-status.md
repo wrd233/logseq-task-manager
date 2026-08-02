@@ -42,6 +42,21 @@ ADR 0012：版本化 canonical sibling-order（v1）、有界 settle（≤5 次�
 `docs/goal/creation-session/STATUS.md` 与
 `docs/goal/creation-session/CHECKPOINT_2026-08-02_NONVISUAL_RECOVERY.md`。
 
+### 追加真实 Gate（2026-08-02 深夜）
+
+- **MiniProject 来源 Block 原位闭环**：口语化根 + 3 原材料子 Block → 真实 DeepSeek
+  Grill → 13 节点 READY Draft（4 个来源节点逐项保留）→ `SOURCE_BLOCK_IN_PLACE`
+  会话内确认 Commit → reload → Undo → reload。源根 UUID 保留改写，3 个原材料子
+  Block 以原 UUID/原文保留；Undo 精确恢复根文本、父子、顺序与全部 UUID。
+- **Project 用户编辑保护**：正式 Page 创建后追加用户 Block，Undo 明确拒绝
+  （“Project Page 已有后续变化；系统不会删除用户内容或正式对象”），Page/用户内容/
+  Object/Commit 全部保留；恢复精确树后 Undo 成功（Page 删除、Object/Anchor 移除、
+  Session 保留 undoneAt），来源页零修改。
+- **环境不稳定根因**：测试环境 Logseq 主进程曾长期未真正重启，旧插件实例的租约
+  心跳与多次 Launcher 重启互相干扰，导致长 Provider 调用期间 Service 被租约回收；
+  强制重启 Logseq 后心跳恢复稳定。Launcher 新增 `service_exited` 结构化日志
+  （pid + exitCode）以区分崩溃与租约回收，不记录每次心跳。
+
 ## Persistent Creation Session（2026-08-02）
 
 新 Goal 已进入 `IN_PROGRESS`。schema 16、CreationSession Domain/Application、SQLite

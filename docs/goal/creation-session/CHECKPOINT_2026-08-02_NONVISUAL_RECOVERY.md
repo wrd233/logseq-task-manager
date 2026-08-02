@@ -186,3 +186,44 @@ canonical hash（按父级重排为 0 基 rank）                     = 9f2abdfa
   （`8a80baa5…`）与源码一致、schema 16、Doctor PASS、Pending/Recovery 0；
 - 测试会话 `creation_20260802130728459_…` 已 ABANDONED；
 - 状态：`RUNTIME_STRUCTURAL_PASS`；视觉 Gate 待独立 reviewer。
+
+## 追加：MiniProject 原位 + 用户编辑保护真实 Gate（2026-08-02 深夜）
+
+### MiniProject SOURCE_BLOCK_IN_PLACE 真实闭环
+
+- 来源：`Task Copilot Lab/Creation Session Block Source 20260802` 根 Block
+  `6a6f51bf-ab30-44fe-80cb-837e426e9889`（口语化根 + 3 个原材料子 Block）。
+- 会话 `creation_20260802141855243_…`：真实 DeepSeek 3 轮 Grill → Draft（首次
+  ROOT_CONTRACT 校验拒绝后，修订指令明确逐项保留来源）→ 13 节点 READY →
+  Placement `SOURCE_BLOCK_IN_PLACE` → Proposal `proposal-creation-81dfdb21`。
+- 会话内最终确认 Commit：`proposal-commit:fa823745…` COMPLETED；
+  源根 UUID 保留并改写为 `**[MiniProject]** 项目整理清单 #MiniProject`；
+  3 个原材料子 Block 以原 UUID/原文保留（KEEP），9 个结构节点新建；
+  Object `creation-object-81dfdb21` MINI_PROJECT v2 OPEN。
+- reload（完整 Logseq 重启）后原位树与对象保持；Undo 精确恢复：根文本、
+  根 UUID、3 个原材料子 Block 的文本/父子/顺序/UUID 全部还原，新建节点删除；
+  正向 UNDONE、inverse COMPLETED、Session 保留 `undoneAt=14:24:34`；
+  再次 reload 后 Pending/Recovery 0。
+
+### Project 用户后续编辑后 Undo 保护真实证据
+
+- 会话 `creation_20260802145145509_…`（Page 来源）→ Proposal
+  `proposal-creation-89b861d4` → 会话内确认 Commit
+  `proposal-commit:42a3a002…` COMPLETED，独立 Page `Project/统一监控告警治理`
+  创建，Object `creation-object-89b861d4` PROJECT v2 OPEN。
+- 在正式 Page 追加用户 Block“用户后续补充的内容：请保留我”后请求 Undo：
+  UI 明确拒绝并显示“Project Page 已有后续变化；系统不会删除用户内容或正式对象。”
+  —— Page、用户内容、Object、Commit 全部保留，零静默删除（changed-page 保护
+  的真实 Desktop 证据）。
+- 移除用户 Block 恢复精确树后重试 Undo：Page 删除、Object/Anchor 移除、
+  正向 UNDONE、inverse COMPLETED、Session 保留 `undoneAt=14:57:54`；
+  来源页零修改；最终 reload 后 Pending/Recovery 0、Doctor PASS。
+
+### 环境不稳定根因（已定位并修复）
+
+长 Provider 调用期间 Service 反复消失的根因不是代码缺陷，而是测试环境中
+Logseq 主进程自 21:48 起未真正重启（quit 被忽略），插件 iframe 一直是同一旧实例；
+其租约心跳与多次 Launcher 重启互相干扰，导致 Service 被租约回收。强制重启
+Logseq 后插件心跳恢复正常（每 2 秒），Service 稳定。Launcher 新增
+`service_exited` 结构化日志（pid + exitCode）便于今后区分崩溃与租约回收；
+不再记录每次心跳，避免日志噪声。

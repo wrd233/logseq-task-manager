@@ -50,10 +50,14 @@ runtime or visual PASS.
   prepare/finalize 接受 canonical/legacy 账本哈希，原 PENDING 事务同 Proposal 续跑完成。
 - 真实 MiniProject：Commit COMPLETED（step VERIFIED）→ reload → Undo（UNDONE +
   inverse COMPLETED，原树/Journal 精确恢复）→ reload；Pending/Recovery 0。
+  追加：来源 Block 原位（SOURCE_BLOCK_IN_PLACE）真实闭环，源根 UUID 保留改写、
+  原材料子 Block 原 UUID/原文逐项保留，Undo 精确恢复后 reload 干净。
 - 真实 Project：Page 来源 + 真实 DeepSeek 4 轮 → READY Draft → 独立 Page
   `Project/统一监控告警治理` → 会话内最终确认 → Commit COMPLETED（17 节点树精确写入、
   来源页零修改）→ reload → Undo（Page 删除、Object/Anchor 移除、Session 保留
   undoneAt）→ reload；Pending/Recovery 0。
+  追加：正式 Page 追加用户内容后 Undo 明确拒绝且不删除（changed-page 保护真实
+  Desktop 证据）；恢复精确树后 Undo 成功并 reload 干净。
 - 额外修复：每会话一个活跃 Proposal（Service 幂等收口）；会话内最终确认（不再强迫
   跳 Review Center 重复审阅）；Provider 共识上下文按 uncertainty 折叠；PRE_COMMIT
   捕获不再使草稿失效；`recent-changes` 把 Creation Session 撤销正确路由到
