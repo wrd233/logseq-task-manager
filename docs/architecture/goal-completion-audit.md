@@ -42,7 +42,7 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 43/43 tests, all builds including local SDK packaging, and dependency boundaries; production audit has zero findings | PROVED |
 | Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 + deterministic Fake Agent produced Evidence, AgentRun, Proposal, Commit, managed focus, compensation Undo, Feedback, and empty recovery; CLI audited every durable record | PROVED |
 | Independent standards and spec review | Initial findings were fixed; final independent standards and strict Goal-spec re-reviews both returned PASS with no blocking finding | PROVED |
-| Publish `vnext` to origin | Phase 2 remote matched local `24c5c54`; Phase 3 commit and exact remote parity remain required | PENDING |
+| Publish `vnext` to origin | Phase 3 implementation `aa0a65a` and evidence documentation `5627c1d` reached `origin/vnext`; this closure is documentation-only and final exact remote OID parity is the last publication check | PROVED |
 | Phase 3 current-focus domain and Graph field | Nullable/trimmed/max-200 `currentFocus`, monotonic versions, stable focus UUID, field add/update/remove, and source preservation tests | PROVED |
 | Strong frozen Evidence | Durable `LOGSEQ_BLOCK` record with canonical frozen content, locator, proof-bound trusted Graph read, Kernel-computed SHA-256, and canonical apply recheck; forged/stale tests prove zero mutation | PROVED |
 | Versioned Skill and deterministic Fake Agent | `skills/current-focus-maintenance/0.1.0`; exact release-approved content hash plus registered hash; positive/no-op/ambiguous/scope/waiting eval behavior | PROVED |
@@ -53,4 +53,4 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 
 ## Current conclusion
 
-The engineering, automated, real Desktop behavior, and independent review gates are proved. Commit, push, and exact remote OID comparison remain pending and must close before the Goal is declared complete.
+All Phase 3 engineering, automated, real Desktop behavior, independent review, and publication gates are proved. This audit stops before Phase 4.
