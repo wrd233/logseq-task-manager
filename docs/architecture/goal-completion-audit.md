@@ -1,6 +1,6 @@
 # vNext Goal Completion Audit
 
-Audited: 2026-08-12
+Audited: 2026-08-13
 
 Branch: `vnext`
 
@@ -20,8 +20,8 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Enforce dependency boundaries | `target-package-map.md`; `npm run check:boundaries`; independent standards re-review PASS | PROVED |
 | Minimal unified WorkObject model | `packages/domain`; Domain tests cover kind, lifecycle, engagement, ID/Anchor separation, and versioned rename | PROVED |
 | PrimaryAnchor, EvidenceReference, PrimaryOwnership | Domain contracts plus SQLite tables; Ownership tests cover endpoint existence, one owner, permitted shallow kinds, cycles, and depth | PROVED |
-| Strongly typed CREATE and RENAME only | Closed parser in `packages/contracts`; unknown fields/generic writes fail; contract tests | PROVED |
-| New SQLite Current State without V1 migration | Schema v1 has `work_objects`, `anchors`, `evidence_references`, `ownerships`, `schema_versions`, and `commits`; store tests | PROVED |
+| Strongly typed CREATE, RENAME, and SET_CURRENT_FOCUS only | Closed parser in `packages/contracts`; unknown fields/generic writes fail; contract tests | PROVED |
+| New SQLite Current State without V1 migration | Schema v2 adds only Phase 3 governance records and deterministically backfills Phase 2 anchor focus UUIDs; store migration test | PROVED |
 | Structured append-only Commit Ledger | Commit schema and typed `StoredCommit`; stage/inverse/effect/result/failure/compensation tests | PROVED |
 | All required Commit states | Kernel and SQLite cover `PREPARED`, `KERNEL_APPLIED`, `GRAPH_APPLIED`, `COMMITTED`, `RECOVERY_REQUIRED`, and `ABORTED` | PROVED |
 | Loopback-only authenticated Local Kernel Service | Ephemeral `127.0.0.1`, random token, atomic mode-`0600` descriptor; service test | PROVED |
@@ -37,13 +37,20 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Failure C: Undo after user edit | Compensation aborts and preserves current state/projection | PROVED |
 | Failure D: crash at three stages | Tests cover PREPARED, KERNEL_APPLIED, and GRAPH_APPLIED restart actions | PROVED |
 | Undo is a compensation Commit | Create and Rename compensation retain original Ledger rows and link `compensationFor`/`compensatedBy` | PROVED |
-| Do not prematurely add Agent/MCP/frameworks | No Agent, MCP, generic repository hierarchy, workflow DSL, or arbitrary mutation API exists | PROVED |
+| Keep Agent scope narrow | One deterministic Agent/Skill slice exists; no MCP, generic repository hierarchy, workflow DSL, provider platform, or arbitrary mutation API | PROVED |
 | Required architecture/ADR/golden-path documentation | All seven requested documents plus six narrow ADRs exist and match implemented behavior | PROVED |
-| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 21 tests, builds, dependency boundaries; production audit has zero findings | PROVED |
-| Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 run formalized a real natural block, audited it in CLI, performed compensation Undo, and ended with empty recovery; rebuilt plugin reload registered all four commands | PROVED |
-| Independent standards and spec review | Both focused re-reviews returned PASS after fixes | PROVED |
-| Publish `v1-final` and `vnext` to origin | After explicit approval, the narrow pre-push allowlist was extended without removing its remote, deletion, WIP, forbidden-path, or credential checks. Remote `vnext` matched local `24c5c54`; annotated tag object `4a76fc2` and peeled baseline `8c01eef` matched local values before this audit-close commit. | PROVED |
+| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 43/43 tests, all builds including local SDK packaging, and dependency boundaries; production audit has zero findings | PROVED |
+| Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 + deterministic Fake Agent produced Evidence, AgentRun, Proposal, Commit, managed focus, compensation Undo, Feedback, and empty recovery; CLI audited every durable record | PROVED |
+| Independent standards and spec review | Initial findings were fixed; final independent standards and strict Goal-spec re-reviews both returned PASS with no blocking finding | PROVED |
+| Publish `vnext` to origin | Phase 2 remote matched local `24c5c54`; Phase 3 commit and exact remote parity remain required | PENDING |
+| Phase 3 current-focus domain and Graph field | Nullable/trimmed/max-200 `currentFocus`, monotonic versions, stable focus UUID, field add/update/remove, and source preservation tests | PROVED |
+| Strong frozen Evidence | Durable `LOGSEQ_BLOCK` record with canonical frozen content, locator, proof-bound trusted Graph read, Kernel-computed SHA-256, and canonical apply recheck; forged/stale tests prove zero mutation | PROVED |
+| Versioned Skill and deterministic Fake Agent | `skills/current-focus-maintenance/0.1.0`; exact release-approved content hash plus registered hash; positive/no-op/ambiguous/scope/waiting eval behavior | PROVED |
+| Proposal, AgentRun, Feedback governance records | SQLite schema v2 and HTTP/CLI read APIs; full minimal receipt; Proposal revision carries contract/target/projection/Evidence/Skill/run/risk links; revision+Feedback is atomic | PROVED |
+| Narrow Agent authorization | Generic `AGENT` preparation rejects; governed path requires configured Agent, exact operation, `LOW`, fresh Proposal/Evidence/target/projection/Skill, and no recovery | PROVED |
+| Agent auto-apply and compensation | Integration proves Proposal to Commit, Graph verify, `ACCEPTED`, Undo restoration, and `UNDONE_AFTER_APPLY` | PROVED |
+| Phase 3 failure gates | Stale target/Evidence invalidation, resumable Graph throw, post-prepare race to `RECOVERY_REQUIRED`, and old Undo after later edit | PROVED |
 
 ## Current conclusion
 
-Every requested engineering, documentation, runtime, review, local Git, and remote publication requirement is proved. This conclusion relies on exact remote OID comparison in addition to local checks; no narrower gate is being represented as completion of the full Goal.
+The engineering, automated, real Desktop behavior, and independent review gates are proved. Commit, push, and exact remote OID comparison remain pending and must close before the Goal is declared complete.

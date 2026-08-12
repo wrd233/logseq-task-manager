@@ -2,7 +2,7 @@
 
 Task Copilot vNext is a local-first trusted work kernel. Logseq remains the natural work surface; the Local Kernel Service is the sole authority for formal state and Semantic Commits; the Plugin is a thin UI and Graph Adapter; the CLI is the reference HTTP client.
 
-The current slice supports explicit formalization of a natural Logseq block into a Task, deterministic managed projection, structured audit, crash recovery, and safe compensation Undo.
+The current slice also supports one governed Agent capability: a deterministic Fake Agent may propose a LOW-risk, Evidence-backed `SET_CURRENT_FOCUS` update through the versioned `current-focus-maintenance/0.1.0` Skill. The Graph Adapter signs each fresh Evidence read with a separate local snapshot capability; the Kernel verifies that proof, target, projection, canonical Evidence SHA-256, exact approved Skill hash, operation-contract version, and recovery state before automatically preparing the Commit. The Agent never writes SQLite or Logseq directly, and Undo remains a compensation Commit.
 
 Use Node 20.20.x:
 
