@@ -1,0 +1,10 @@
+[
+  { "name": "enter-waiting", "engagement": "ACTIONABLE", "evidence": "业务方尚未确认生产上线时间，确认之前不能进行生产发布。", "expected": { "outcome": "PROPOSAL", "to": "WAITING" } },
+  { "name": "leave-waiting", "engagement": "WAITING", "waitingDescription": "等待业务方确认生产上线时间", "evidence": "业务方已确认周六 22:00 上线。", "expected": { "outcome": "PROPOSAL", "to": "ACTIONABLE" } },
+  { "name": "no-op", "engagement": "ACTIONABLE", "evidence": "今天又看了一下配置。", "expected": { "outcome": "NO_PROPOSAL" } },
+  { "name": "not-waiting", "engagement": "ACTIONABLE", "evidence": "明天继续写实施方案。", "expected": { "outcome": "NO_PROPOSAL" } },
+  { "name": "user-side-blocker", "engagement": "ACTIONABLE", "evidence": "我还没来得及整理资料。", "expected": { "outcome": "NO_PROPOSAL" } },
+  { "name": "ambiguous", "engagement": "WAITING", "waitingDescription": "等待网络组分配 VLAN", "evidence": "对方应该快回复了。", "expected": { "outcome": "NO_PROPOSAL" } },
+  { "name": "parked-candidate", "engagement": "ACTIONABLE", "evidence": "这个项目先放到下季度再做。", "expected": { "outcome": "NO_PROPOSAL", "reasonCode": "PARKING_REQUIRES_USER_DECISION" } },
+  { "name": "scope-leakage", "engagement": "ACTIONABLE", "evidence": "另一个项目还在等待采购审批。", "expected": { "outcome": "NO_PROPOSAL", "reasonCode": "SCOPE_UNCLEAR" } }
+]

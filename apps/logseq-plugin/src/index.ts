@@ -5,6 +5,7 @@ import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.
 const descriptorKey = "task-copilot-vnext-kernel-descriptor";
 const recentCommitKey = "task-copilot-vnext-recent-commit";
 const currentWorkObjectKey = "task-copilot-vnext-current-work-object";
+const recentEvidenceIdKey = "task-copilot-vnext-recent-evidence-id";
 
 async function descriptor() {
   const stored = await logseq.FileStorage.getItem(descriptorKey);
@@ -83,6 +84,7 @@ async function letAgentUpdateCurrentFocus(): Promise<void> {
   }
   const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }));
   await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id);
+  await logseq.FileStorage.setItem(recentEvidenceIdKey, evidenceId);
   await logseq.UI.showMsg(`Fake Agent 已更新当前推进；Commit ${committed.commit.id}；Evidence ${evidenceId}；可用“撤销最近一次提交”恢复。`, "success");
 }
 
@@ -111,9 +113,17 @@ async function letAgentReconcileEngagement(): Promise<void> {
   catch (error) { await api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error)); throw error; }
   const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }));
   await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id);
+  await logseq.FileStorage.setItem(recentEvidenceIdKey, evidenceId);
   const transition = run.revision.transition;
   const waiting = transition.waiting?.description ? `\n等待：${transition.waiting.description}` : "\n原等待条件已满足并清除。";
-  await logseq.UI.showMsg(`Task Copilot：事项状态已变化\n${target.object.title}\n${transition.from} → ${transition.to}${waiting}\n依据：当前记录（Evidence ${evidenceId}）\n可用“撤销最近一次提交”恢复。`, "warning", { timeout: 12000 });
+  await logseq.UI.showMsg(`Task Copilot：事项状态已变化\n${target.object.title}\n${transition.from} → ${transition.to}${waiting}\n依据：当前记录（Evidence ${evidenceId}）\n查看依据：运行“Task Copilot vNext：查看最近一次 Agent 依据”\n撤销：Cmd+Shift+U`, "warning", { timeout: 12000 });
+}
+
+async function showRecentEvidence(): Promise<void> {
+  const evidenceId = await logseq.FileStorage.getItem(recentEvidenceIdKey);
+  if (typeof evidenceId !== "string" || !evidenceId) throw new Error("没有最近一次 Agent Evidence。请先运行 Agent 对账命令。");
+  const { evidence } = await (await client()).showEvidence(evidenceId);
+  await logseq.UI.showMsg(`Task Copilot Frozen Evidence\nID：${evidence.id}\n冻结内容：${evidence.frozenContent}\nSHA-256：${evidence.contentHash}\n冻结时间：${evidence.frozenAt}`, "warning", { timeout: 30000 });
 }
 
 async function undoRecent(): Promise<void> {
@@ -162,6 +172,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize", label: "Task Copilot vNext：正式化当前记录" }, () => void guarded("formalize", formalizeCurrentRecord));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-focus", label: "Task Copilot vNext：让 Agent 更新当前推进" }, () => void guarded("agent-current-focus", letAgentUpdateCurrentFocus));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-engagement", label: "Task Copilot vNext：让 Agent 对账可行动状态" }, () => void guarded("agent-engagement", letAgentReconcileEngagement));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-show-evidence", label: "Task Copilot vNext：查看最近一次 Agent 依据", keybinding: { binding: "mod+shift+e" } }, () => void guarded("show-evidence", showRecentEvidence));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-undo", label: "Task Copilot vNext：撤销最近一次提交", keybinding: { binding: "mod+shift+u" } }, () => void guarded("undo", undoRecent));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-recover", label: "Task Copilot vNext：恢复未完成提交" }, () => void guarded("recover", recoverIncomplete));
   await logseq.UI.showMsg("Task Copilot vNext 已就绪。", "success");

@@ -21,8 +21,8 @@ export const APPROVED_CURRENT_FOCUS_SKILL = {
 } as const;
 export const APPROVED_ENGAGEMENT_SKILL = {
   id: "engagement-reconciliation",
-  version: "0.1.0",
-  contentHash: "9d721c3c33c937d7ef8f125435278b37a3b42a50cdff4069b984975a1865771f",
+  version: "0.1.1",
+  contentHash: "11789087f843b9ee5708dac16779788ca207f3bce807a6f6c3d20d91538785e5",
 } as const;
 
 export interface AnchorInput {

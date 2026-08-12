@@ -39,10 +39,10 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Undo is a compensation Commit | Create and Rename compensation retain original Ledger rows and link `compensationFor`/`compensatedBy` | PROVED |
 | Keep Agent scope narrow | One deterministic Agent/Skill slice exists; no MCP, generic repository hierarchy, workflow DSL, provider platform, or arbitrary mutation API | PROVED |
 | Required architecture/ADR/golden-path documentation | All seven requested documents plus six narrow ADRs exist and match implemented behavior | PROVED |
-| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 58/58 tests, all builds including local SDK packaging, and dependency boundaries; production audit has zero findings | PROVED |
+| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 65/65 tests, all builds including local SDK packaging, and dependency boundaries; production audit has zero findings | PROVED |
 | Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 + deterministic Fake Agent produced Evidence, AgentRun, Proposal, Commit, managed focus, compensation Undo, Feedback, and empty recovery; CLI audited every durable record | PROVED |
 | Independent standards and spec review | Initial findings were fixed; final independent standards and strict Goal-spec re-reviews both returned PASS with no blocking finding | PROVED |
-| Publish `vnext` to origin | Phase 3 implementation `aa0a65a` and evidence documentation `5627c1d` reached `origin/vnext`; this closure is documentation-only and final exact remote OID parity is the last publication check | PROVED |
+| Publish `vnext` to origin | Publication is verified separately at release handoff by exact local/remote `vnext` OID parity | PENDING |
 | Phase 3 current-focus domain and Graph field | Nullable/trimmed/max-200 `currentFocus`, monotonic versions, stable focus UUID, field add/update/remove, and source preservation tests | PROVED |
 | Strong frozen Evidence | Durable `LOGSEQ_BLOCK` record with canonical frozen content, locator, proof-bound trusted Graph read, Kernel-computed SHA-256, and canonical apply recheck; forged/stale tests prove zero mutation | PROVED |
 | Versioned Skill and deterministic Fake Agent | `skills/current-focus-maintenance/0.1.0`; exact release-approved content hash plus registered hash; positive/no-op/ambiguous/scope/waiting eval behavior | PROVED |
@@ -51,11 +51,11 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Agent auto-apply and compensation | Integration proves Proposal to Commit, Graph verify, `ACCEPTED`, Undo restoration, and `UNDONE_AFTER_APPLY` | PROVED |
 | Phase 3 failure gates | Stale target/Evidence invalidation, resumable Graph throw, post-prepare race to `RECOVERY_REQUIRED`, and old Undo after later edit | PROVED |
 | Phase 4 Engagement domain | `WaitingCondition`, `ACTIONABLE ↔ WAITING`, current-only schema, monotonic versioning, exact restoration, and actionable SQL query | PROVED |
-| Phase 4 Skill and Agent boundary | Versioned `engagement-reconciliation/0.1.0`, exact approved hash, deterministic fixtures, bounded `NO_PROPOSAL`, and durable FAILED malformed-output receipts | PROVED |
+| Phase 4 Skill and Agent boundary | Immutable `engagement-reconciliation/0.1.1`, exact approved hash, executable Evals, deterministic fixtures, bounded `NO_PROPOSAL`, and durable FAILED malformed/wrong-operation receipts | PROVED |
 | Phase 4 governed mutation | Frozen Evidence, Evidence watermark, typed Proposal revision, operation-specific authorization, atomic state/Graph effect, and Feedback | PROVED |
 | Phase 4 real Desktop path | Isolated Logseq Desktop visibly entered WAITING, left WAITING, restored the exact condition with `Cmd+Shift+U`, and returned to ACTIONABLE; durable audit found zero Recovery rows | PROVED |
 | Phase 4 failure gates | Target/projection/Evidence/watermark staleness, Graph throw/resume, Graph conflict/recovery, wrong Skill, malformed output, and old Undo | PROVED |
 
 ## Current conclusion
 
-Phase 3 remains intact and the complete Phase 4 Engagement vertical slice is implemented and verified. Final independent review and exact remote publication parity are the remaining release checks before this audit is closed.
+Phase 3 remains intact and the complete Phase 4 Engagement vertical slice is implemented and verified. Both final independent re-reviews passed; exact remote publication parity is the remaining release check before this audit is closed.

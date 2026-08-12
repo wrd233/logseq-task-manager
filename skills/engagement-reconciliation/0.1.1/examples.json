@@ -1,0 +1,5 @@
+[
+  { "evidence": "网络组还没有分配 VLAN，需要等地址后才能继续。", "outcome": "PROPOSAL", "to": "WAITING", "description": "等待网络组分配 VLAN" },
+  { "waiting": "等待网络组分配 VLAN", "evidence": "VLAN 310 已经分配。", "outcome": "PROPOSAL", "to": "ACTIONABLE" },
+  { "evidence": "明天继续写实施方案。", "outcome": "NO_PROPOSAL" }
+]

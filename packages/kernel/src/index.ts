@@ -177,7 +177,7 @@ export class Kernel {
 
   async runEngagementAgent(input: { runId: string; workObjectId: string; evidenceIds: readonly string[]; snapshot: GraphSnapshot }): Promise<{ run: AgentRunReceipt; proposal: Proposal | null; revision: EngagementProposalRevision | null }> {
     if (!this.#engagementAgent || !this.#engagementSkill) throw new KernelError("AGENT_NOT_CONFIGURED", "Engagement Agent and Skill are not configured.");
-    if (!approvedEngagementSkill(this.#engagementSkill)) throw new KernelError("SKILL_NOT_APPROVED", "Only engagement-reconciliation@0.1.0 is approved for Engagement reconciliation.");
+    if (!approvedEngagementSkill(this.#engagementSkill)) throw new KernelError("SKILL_NOT_APPROVED", "Only engagement-reconciliation@0.1.1 is approved for Engagement reconciliation.");
     const object = this.#store.getWorkObject(input.workObjectId);
     const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
     if (!object || !anchor) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Agent target or primary anchor does not exist.");

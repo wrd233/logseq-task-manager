@@ -8,8 +8,9 @@ import { LogseqGraphAdapter, type LogseqGraphHost } from "../src/graph-adapter.t
 interface Node { uuid: string; content: string; parent: string | null; children: string[] }
 class Host implements LogseqGraphHost {
   nodes = new Map<string, Node>();
+  failAfterNextUpdate = false;
   constructor() { this.nodes.set("source-01", { uuid: "source-01", content: "自然记录", parent: null, children: [] }); }
-  tree(uuid: string): unknown { const value = this.nodes.get(uuid); return value ? { uuid: value.uuid, content: value.content, children: value.children.map((child) => this.tree(child)) } : null; }
+  tree(uuid: string): unknown { const value = this.nodes.get(uuid); return value ? { uuid: value.uuid, content: value.content, properties: {}, children: value.children.map((child) => this.tree(child)) } : null; }
   async getBlock(uuid: string, options?: { includeChildren: boolean }): Promise<unknown> { const value = this.nodes.get(uuid); return !value ? null : options?.includeChildren ? this.tree(uuid) : { uuid: value.uuid, content: value.content }; }
   async insertBlock(target: string, content: string, options: { sibling: boolean; before?: boolean; customUUID: string }): Promise<unknown> {
     const targetNode = this.nodes.get(target)!; const parent = options.sibling ? targetNode.parent : target;
@@ -18,7 +19,11 @@ class Host implements LogseqGraphHost {
     if (options.sibling) siblings.splice(siblings.indexOf(target) + (options.before ? 0 : 1), 0, node.uuid); else siblings.splice(options.before ? 0 : siblings.length, 0, node.uuid);
     return { uuid: node.uuid, content: node.content };
   }
-  async updateBlock(uuid: string, content: string): Promise<unknown> { this.nodes.get(uuid)!.content = content; return this.getBlock(uuid); }
+  async updateBlock(uuid: string, content: string): Promise<unknown> {
+    this.nodes.get(uuid)!.content = content;
+    if (this.failAfterNextUpdate) { this.failAfterNextUpdate = false; throw new Error("RESPONSE_LOST_AFTER_UPDATE"); }
+    return this.getBlock(uuid);
+  }
   async removeBlock(uuid: string): Promise<unknown> { const value = this.nodes.get(uuid)!; if (value.parent) this.nodes.get(value.parent)!.children = this.nodes.get(value.parent)!.children.filter((child) => child !== uuid); this.nodes.delete(uuid); return null; }
 }
 
@@ -96,12 +101,81 @@ test("Waiting projection is human-readable, stable, removable, and round-trips i
   const condition = { workObjectId: "work-01", description: "等待网络组分配 VLAN", since: "2026-08-13T08:00:00.000Z", reviewAt: "2026-08-15T00:00:00.000Z", evidenceIds: ["evidence-01"] };
   const waitingCore = { ...core, engagement: "WAITING" as const, waitingCondition: condition };
   await adapter.applyGraphEffect({ type: "CHANGE_ENGAGEMENT_FIELDS", commitId: "commit-wait", effectId: "effect-wait", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, waitingUuid: core.waitingUuid, engagement: "WAITING", waiting: condition, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash(waitingCore) });
-  assert.match(host.nodes.get(core.waitingUuid)!.content, /^等待：等待网络组分配 VLAN\n/u);
-  assert.match(host.nodes.get(core.waitingUuid)!.content, /复查：2026-08-15/u);
+  assert.match(host.nodes.get(core.stateUuid)!.content, /\n等待：等待网络组分配 VLAN\n/u);
+  assert.match(host.nodes.get(core.stateUuid)!.content, /复查：2026-08-15/u);
   assert.deepEqual((await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" })).projection?.waitingCondition, condition);
   await adapter.applyGraphEffect({ type: "CHANGE_ENGAGEMENT_FIELDS", commitId: "commit-actionable", effectId: "effect-actionable", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, waitingUuid: core.waitingUuid, engagement: "ACTIONABLE", waiting: null, expectedProjectionHash: stableHash(waitingCore), resultingProjectionHash: effect.projection.projectionHash });
-  assert.equal(host.nodes.has(core.waitingUuid), false);
+  assert.doesNotMatch(host.nodes.get(core.stateUuid)!.content, /等待：/u);
   assert.equal(host.nodes.get("source-01")?.content, "自然记录");
+});
+
+test("Waiting projection parsing is stable when Logseq normalizes property lines before human text", async () => {
+  const host = new Host(); const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  const condition = { workObjectId: "work-01", description: "等待网络组分配 VLAN", since: "2026-08-13T08:00:00.000Z", reviewAt: null, evidenceIds: ["evidence-01"] };
+  const waitingCore = { ...core, engagement: "WAITING" as const, waitingCondition: condition };
+  host.nodes.get(core.stateUuid)!.content = ["TASK-COPILOT-WAITING-SUBJECT:: work-01", "TASK-COPILOT-WAITING-SINCE:: 2026-08-13T08:00:00.000Z", "TASK-COPILOT-WAITING-EVIDENCE:: [\"evidence-01\"]", "状态：OPEN · WAITING", "等待：等待网络组分配 VLAN"].join("\n");
+  const snapshot = await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" });
+  assert.deepEqual(snapshot.projection?.waitingCondition, condition);
+  assert.equal(snapshot.projection?.projectionHash, stableHash(waitingCore));
+});
+
+test("Waiting projection parsing matches Logseq's persisted property layout", async () => {
+  const host = new Host(); const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  const condition = { workObjectId: "52ae1c4d-1e97-4622-852b-0b5137fc0ae9", description: "等待网络组分配 VLAN 和网关信息", since: "2026-08-12T19:15:46.124Z", reviewAt: null, evidenceIds: ["evidence-014a1606-a0e3-4a83-a04d-585c60c24f0f"] };
+  const waitingCore = { ...core, engagement: "WAITING" as const, waitingCondition: condition };
+  host.nodes.get(core.stateUuid)!.content = ["状态：OPEN · WAITING", "id:: 33333333-3333-4333-8333-333333333333", "task-copilot-waiting-subject:: 52ae1c4d-1e97-4622-852b-0b5137fc0ae9", "task-copilot-waiting-since:: 2026-08-12T19:15:46.124Z", "task-copilot-waiting-evidence:: [\"evidence-014a1606-a0e3-4a83-a04d-585c60c24f0f\"]", "等待：等待网络组分配 VLAN 和网关信息"].join("\n");
+  const snapshot = await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" });
+  assert.deepEqual(snapshot.projection?.waitingCondition, condition);
+  assert.equal(snapshot.projection?.projectionHash, stableHash(waitingCore));
+});
+
+test("Waiting projection reads properties when Logseq omits property lines from content", async () => {
+  const host = new Host(); const setupAdapter = new LogseqGraphAdapter(host, "graph-01"); await setupAdapter.applyGraphEffect(effect);
+  const adapter = new LogseqGraphAdapter({
+    insertBlock: host.insertBlock.bind(host), updateBlock: host.updateBlock.bind(host), removeBlock: host.removeBlock.bind(host),
+    getBlock: async (uuid, options) => {
+      const enrich = (value: unknown): unknown => {
+        if (!value || typeof value !== "object") return value;
+        const record = value as Record<string, unknown>;
+        const enriched: Record<string, unknown> = record.uuid === core.stateUuid ? { ...record, content: "状态：OPEN · WAITING\n等待：等待网络组分配 VLAN", properties: { id: core.stateUuid, "task-copilot-waiting-subject": "work-01", "task-copilot-waiting-since": "2026-08-13T08:00:00.000Z", "task-copilot-waiting-evidence": "[\"evidence-01\"]", "logseq.order-list-type": "number" } } : { ...record };
+        if (Array.isArray(record.children)) enriched.children = record.children.map(enrich);
+        return enriched;
+      };
+      return enrich(await host.getBlock(uuid, options));
+  } }, "graph-01");
+  host.nodes.get(core.stateUuid)!.content = "状态：OPEN · WAITING\n等待：等待网络组分配 VLAN";
+  const condition = { workObjectId: "work-01", description: "等待网络组分配 VLAN", since: "2026-08-13T08:00:00.000Z", reviewAt: null, evidenceIds: ["evidence-01"] };
+  const snapshot = await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" });
+  assert.deepEqual(snapshot.projection?.waitingCondition, condition);
+});
+
+test("Engagement effect is one atomic managed-field write and resumes after its response is lost", async () => {
+  const host = new Host(); const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  const condition = { workObjectId: "work-01", description: "等待网络组分配 VLAN", since: "2026-08-13T08:00:00.000Z", reviewAt: null, evidenceIds: ["evidence-01"] };
+  const waitingCore = { ...core, engagement: "WAITING" as const, waitingCondition: condition };
+  const enter = { type: "CHANGE_ENGAGEMENT_FIELDS", commitId: "commit-enter-resume", effectId: "effect-enter-resume", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, waitingUuid: core.waitingUuid, engagement: "WAITING", waiting: condition, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash(waitingCore) } satisfies GraphEffect;
+  host.failAfterNextUpdate = true;
+  await assert.rejects(adapter.applyGraphEffect(enter), /RESPONSE_LOST_AFTER_UPDATE/u);
+  assert.match(host.nodes.get(core.stateUuid)!.content, /^状态：OPEN · WAITING\n等待：等待网络组分配 VLAN/u);
+  assert.match(host.nodes.get(core.stateUuid)!.content, /等待：等待网络组分配 VLAN/u);
+  assert.equal((await adapter.applyGraphEffect(enter)).projectionHash, enter.resultingProjectionHash);
+  assert.equal((await adapter.applyGraphEffect(enter)).projectionHash, enter.resultingProjectionHash);
+
+  const leave = { type: "CHANGE_ENGAGEMENT_FIELDS", commitId: "commit-leave-resume", effectId: "effect-leave-resume", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, waitingUuid: core.waitingUuid, engagement: "ACTIONABLE", waiting: null, expectedProjectionHash: enter.resultingProjectionHash, resultingProjectionHash: effect.projection.projectionHash } satisfies GraphEffect;
+  host.failAfterNextUpdate = true;
+  await assert.rejects(adapter.applyGraphEffect(leave), /RESPONSE_LOST_AFTER_UPDATE/u);
+  assert.equal(host.nodes.get(core.stateUuid)?.content, "状态：OPEN · ACTIONABLE");
+  assert.doesNotMatch(host.nodes.get(core.stateUuid)!.content, /等待：/u);
+  assert.equal((await adapter.applyGraphEffect(leave)).projectionHash, leave.resultingProjectionHash);
+  assert.equal((await adapter.applyGraphEffect(leave)).projectionHash, leave.resultingProjectionHash);
+});
+
+test("Engagement update refuses to overwrite extra user content in the managed state block", async () => {
+  const host = new Host(); const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  host.nodes.get(core.stateUuid)!.content += "\n用户备注：不要覆盖";
+  const condition = { workObjectId: "work-01", description: "等待网络组分配 VLAN", since: "2026-08-13T08:00:00.000Z", reviewAt: null, evidenceIds: ["evidence-01"] };
+  await assert.rejects(adapter.applyGraphEffect({ type: "CHANGE_ENGAGEMENT_FIELDS", commitId: "commit-user-note", effectId: "effect-user-note", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, waitingUuid: core.waitingUuid, engagement: "WAITING", waiting: condition, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash({ ...core, engagement: "WAITING", waitingCondition: condition }) }), /GRAPH_ENGAGEMENT_PRECONDITION_FAILED/u);
+  assert.match(host.nodes.get(core.stateUuid)!.content, /用户备注：不要覆盖/u);
 });
 
 test("Phase 2 managed projections derive the Phase 3 focus UUID without rejecting existing objects", async () => {

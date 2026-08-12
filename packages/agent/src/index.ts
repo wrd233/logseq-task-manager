@@ -20,7 +20,23 @@ export async function loadCurrentFocusSkill(root = fileURLToPath(new URL("../../
 }
 
 export async function loadEngagementReconciliationSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
-  return loadSkill(join(root, "skills", "engagement-reconciliation", "0.1.0"));
+  return loadSkill(join(root, "skills", "engagement-reconciliation", "0.1.1"));
+}
+
+function evidenceClause(content: string, term: RegExp): string | null {
+  return content.split(/[。；;，,]|(?:但(?:是)?)/u).map((clause) => clause.trim()).find((clause) => term.test(clause)) ?? null;
+}
+
+function clauseConfirms(clause: string | null, positive: RegExp): boolean {
+  return Boolean(clause && positive.test(clause) && !/(?:尚未|还未|仍未|没有|未能|不能|无法|待)(?:\S{0,8})/u.test(clause));
+}
+
+function waitingConditionSatisfied(description: string, content: string): boolean {
+  const networkTerms = [/(?:VLAN)/iu, /网关/iu, /地址规划/iu].filter((term) => term.test(description));
+  if (networkTerms.length > 0) return networkTerms.every((term) => clauseConfirms(evidenceClause(content, term), /(?:已经|已|完成|确认|分配)/u));
+  if (/业务方|上线/iu.test(description)) return clauseConfirms(evidenceClause(content, /业务方|上线/iu), /(?:已经|已|确认|同意)/u);
+  if (/采购|审批/iu.test(description)) return clauseConfirms(evidenceClause(content, /采购|审批/iu), /(?:已经|已|通过|完成)/u);
+  return false;
 }
 
 export class DeterministicCurrentFocusAgent implements CurrentFocusAgent {
@@ -55,7 +71,7 @@ export class DeterministicEngagementAgent implements EngagementAgent {
       return { outcome: "NO_PROPOSAL", reasonCode: "NO_EXTERNAL_BLOCKER", rationaleSummary: "Evidence does not prove an external prerequisite prevents progress." };
     }
     if (input.target.engagement === "WAITING" && input.target.waitingCondition) {
-      if (/(?:VLAN|网关|地址规划).*(?:已经|已).*(?:分配|确认)|业务方.*已确认.*上线|采购.*审批.*(?:已通过|通过了)/iu.test(content)) return { outcome: "PROPOSAL", transition: { from: "WAITING", to: "ACTIONABLE", waiting: null }, reasonCode: "WAITING_CONDITION_SATISFIED", rationaleSummary: "Direct Evidence confirms the current WaitingCondition is satisfied." };
+      if (waitingConditionSatisfied(input.target.waitingCondition.description, content)) return { outcome: "PROPOSAL", transition: { from: "WAITING", to: "ACTIONABLE", waiting: null }, reasonCode: "WAITING_CONDITION_SATISFIED", rationaleSummary: "Direct Evidence confirms the current WaitingCondition is satisfied." };
       return { outcome: "NO_PROPOSAL", reasonCode: "WAITING_NOT_PROVEN_RESOLVED", rationaleSummary: "Evidence does not prove the current WaitingCondition has been satisfied." };
     }
     return { outcome: "NO_PROPOSAL", reasonCode: "ENGAGEMENT_OUT_OF_SCOPE", rationaleSummary: "Only ACTIONABLE and WAITING are governed by this Skill." };

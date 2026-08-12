@@ -10,9 +10,9 @@ An open WorkObject must distinguish work that can be acted on now from work bloc
 
 - Add the closed semantic operation `CHANGE_ENGAGEMENT`, limited to `ACTIONABLE ↔ WAITING`.
 - Store one current `WaitingCondition` on the WorkObject. It includes `workObjectId`, a bounded description, Kernel-issued `since`, optional `reviewAt`, and one or more frozen Evidence IDs.
-- Add the versioned `engagement-reconciliation/0.1.0` Skill and its exact approved content hash. The deterministic Fake Agent may emit only a LOW-risk Proposal for this operation or durable `NO_PROPOSAL`.
+- Approve the immutable versioned `engagement-reconciliation/0.1.1` Skill and its exact content hash. `0.1.0` remains historical; the deterministic Fake Agent may emit only a LOW-risk Proposal for this operation or durable `NO_PROPOSAL`.
 - Treat PARKED as a user investment decision. Agent output involving PARKED is invalid, not an Engagement proposal.
-- Apply state and the human-readable managed Waiting field atomically through one `CHANGE_ENGAGEMENT_FIELDS` Graph effect.
+- Apply Engagement and the human-readable WaitingCondition atomically as one update to the stable managed state block through one `CHANGE_ENGAGEMENT_FIELDS` Graph effect; exact resulting-hash detection makes replay idempotent after response loss.
 - Invalidate a proposal if target version, managed projection, Evidence digest, approved Skill, recovery state, or the target's Evidence watermark changed.
 - Undo restores the exact prior WaitingCondition while advancing WorkObject version; history is never rewound.
 

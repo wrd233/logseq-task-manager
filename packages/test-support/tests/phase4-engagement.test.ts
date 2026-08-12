@@ -203,3 +203,15 @@ test("wrong Engagement Skill is rejected and malformed output leaves FAILED rece
     assert.equal((await malformed.client.showAgentRun("malformed-run")).run.result.outcome, "FAILED");
   } finally { await malformed.service.close(); }
 });
+
+test("wrong-operation Agent output is rejected and durably recorded as FAILED", async () => {
+  const wrongOperationAgent: EngagementAgent = { id: "wrong-operation-engagement", propose: async () => ({ outcome: "PROPOSAL", operationType: "SET_CURRENT_FOCUS", transition: { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待网络组分配 VLAN", reviewAt: null } }, reasonCode: "WRONG_OPERATION", rationaleSummary: "wrong operation" } as never) };
+  const value = await setup("wrong-operation", { engagementAgent: wrongOperationAgent });
+  try {
+    value.graph.seedNaturalRecord(value.source.graphId, "wrong-operation-block", "网络组还没有分配 VLAN，需要等确认后才能继续。");
+    await value.client.freezeEvidence({ evidenceId: "wrong-operation-evidence", workObjectId: value.workObjectId, snapshot: await value.graph.readEvidenceMaterial({ graphId: value.source.graphId, blockUuid: "wrong-operation-block" }, value.service.graphSnapshotKey) });
+    await assert.rejects(value.client.runEngagementAgent({ runId: "wrong-operation-run", workObjectId: value.workObjectId, evidenceIds: ["wrong-operation-evidence"], snapshot: await value.graph.readGraphSnapshot({ graphId: value.source.graphId, sourceBlockUuid: value.source.sourceBlockUuid }) }), /AGENT_RESULT_INVALID/u);
+    assert.equal((await value.client.showAgentRun("wrong-operation-run")).run.result.outcome, "FAILED");
+    assert.equal(value.service.store.listCommits().length, 1);
+  } finally { await value.service.close(); }
+});

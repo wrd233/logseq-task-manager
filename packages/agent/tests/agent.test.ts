@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { FrozenEvidence, SkillPackage, WorkObject } from "@task-copilot/contracts";
-import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent } from "../src/index.ts";
+import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadEngagementReconciliationSkill } from "../src/index.ts";
 
 const target: WorkObject = { id: "work-01", kind: "TASK", title: "上架服务器", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" };
 const skill = { id: "current-focus-maintenance", version: "0.1.0", contentHash: "a".repeat(64) } as SkillPackage;
@@ -22,8 +22,28 @@ test("Fake Engagement Agent covers enter, leave, no-op, ambiguity, parking, and 
   assert.equal((await agent.propose({ target, skill, evidence: [evidence("网络组还没有分配 VLAN，需要等 VLAN 和网关信息确认后才能继续服务器网络配置。")] })).transition?.to, "WAITING");
   const waiting = { ...target, engagement: "WAITING" as const, waitingCondition: { workObjectId: target.id, description: "等待网络组分配 VLAN 和网关信息", since: "now", reviewAt: null, evidenceIds: ["evidence-01"] } };
   assert.equal((await agent.propose({ target: waiting, skill, evidence: [evidence("VLAN 310、网关和地址规划已经由网络组确认。")] })).transition?.to, "ACTIONABLE");
+  assert.equal((await agent.propose({ target: waiting, skill, evidence: [evidence("VLAN 已分配，但网关仍未确认，不能继续。")] })).reasonCode, "WAITING_NOT_PROVEN_RESOLVED");
+  const waitingForProcurement = { ...waiting, waitingCondition: { ...waiting.waitingCondition, description: "等待采购流程审批完成" } };
+  assert.equal((await agent.propose({ target: waitingForProcurement, skill, evidence: [evidence("VLAN 310、网关和地址规划已经由网络组确认。")] })).reasonCode, "WAITING_NOT_PROVEN_RESOLVED");
+  assert.equal((await agent.propose({ target: waitingForProcurement, skill, evidence: [evidence("采购流程审批已通过，可以下单。")] })).transition?.to, "ACTIONABLE");
   assert.equal((await agent.propose({ target, skill, evidence: [evidence("明天继续写实施方案。")] })).outcome, "NO_PROPOSAL");
   assert.equal((await agent.propose({ target: waiting, skill, evidence: [evidence("对方应该快回复了。")] })).outcome, "NO_PROPOSAL");
   assert.equal((await agent.propose({ target, skill, evidence: [evidence("这个项目先放到下季度再做。")] })).reasonCode, "PARKING_REQUIRES_USER_DECISION");
   assert.equal((await agent.propose({ target, skill, evidence: [evidence("另一个项目还在等待审批。")] })).reasonCode, "SCOPE_UNCLEAR");
+});
+
+test("versioned Engagement Skill eval cases execute every frozen semantic boundary", async () => {
+  const agent = new DeterministicEngagementAgent();
+  const packageSkill = await loadEngagementReconciliationSkill();
+  const cases = packageSkill.eval as Array<{ name: string; engagement: "ACTIONABLE" | "WAITING"; waitingDescription?: string; evidence: string; expected: { outcome: "PROPOSAL" | "NO_PROPOSAL"; to?: "ACTIONABLE" | "WAITING"; reasonCode?: string } }>;
+  assert.equal(cases.length, 8);
+  for (const item of cases) {
+    const caseTarget: WorkObject = item.engagement === "WAITING"
+      ? { ...target, engagement: "WAITING", waitingCondition: { workObjectId: target.id, description: item.waitingDescription!, since: "now", reviewAt: null, evidenceIds: ["evidence-01"] } }
+      : target;
+    const result = await agent.propose({ target: caseTarget, skill: packageSkill, evidence: [evidence(item.evidence)] });
+    assert.equal(result.outcome, item.expected.outcome, item.name);
+    assert.equal(result.transition?.to, item.expected.to, item.name);
+    if (item.expected.reasonCode) assert.equal(result.reasonCode, item.expected.reasonCode, item.name);
+  }
 });
