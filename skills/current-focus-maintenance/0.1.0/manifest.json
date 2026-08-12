@@ -1,0 +1,7 @@
+{
+  "id": "current-focus-maintenance",
+  "version": "0.1.0",
+  "operation": "SET_CURRENT_FOCUS",
+  "risk": "LOW",
+  "description": "Propose one evidence-backed current focus for an existing WorkObject."
+}

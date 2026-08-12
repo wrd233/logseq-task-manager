@@ -5,6 +5,7 @@ import {
   createPrimaryOwnership,
   createWorkObject,
   renameWorkObject,
+  setCurrentFocus,
   type WorkObject,
 } from "../src/index.ts";
 
@@ -22,11 +23,26 @@ test("CREATE_WORK_OBJECT starts one stable open work object without coupling ide
     title: "确认交换机管理口地址",
     lifecycle: "OPEN",
     engagement: "ACTIONABLE",
+    currentFocus: null,
     version: 1,
     createdAt: "2026-08-12T14:00:00.000Z",
     updatedAt: "2026-08-12T14:00:00.000Z",
   });
   assert.equal("anchor" in object, false);
+});
+
+test("SET_CURRENT_FOCUS is nullable, short, normalized, and versioned", () => {
+  const object = createWorkObject({ id: "work-focus", kind: "TASK", title: "配置服务器管理口", at: "2026-08-12T14:00:00.000Z" });
+  const focused = setCurrentFocus(object, {
+    currentFocus: "  准备服务器上架并完成管理口网络配置  ", expectedVersion: 1, at: "2026-08-12T14:05:00.000Z",
+  });
+  assert.equal(focused.currentFocus, "准备服务器上架并完成管理口网络配置");
+  assert.equal(focused.version, 2);
+  const cleared = setCurrentFocus(focused, { currentFocus: "   ", expectedVersion: 2, at: "2026-08-12T14:10:00.000Z" });
+  assert.equal(cleared.currentFocus, null);
+  assert.equal(cleared.version, 3);
+  assert.throws(() => setCurrentFocus(object, { currentFocus: "x".repeat(201), expectedVersion: 1, at: object.updatedAt }), /CURRENT_FOCUS_TOO_LONG/u);
+  assert.throws(() => setCurrentFocus(object, { currentFocus: "下一步", expectedVersion: 2, at: object.updatedAt }), /WORK_OBJECT_VERSION_MISMATCH/u);
 });
 
 test("PrimaryOwnership permits only one shallow Project -> MiniProject -> Task tree", () => {
@@ -76,6 +92,7 @@ test("RENAME_WORK_OBJECT requires the current version and preserves lifecycle id
     title: "确认地址",
     lifecycle: "OPEN",
     engagement: "ACTIONABLE",
+    currentFocus: null,
     version: 3,
     createdAt: "2026-08-12T14:00:00.000Z",
     updatedAt: "2026-08-12T14:00:00.000Z",

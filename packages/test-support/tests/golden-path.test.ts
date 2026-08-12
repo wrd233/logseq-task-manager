@@ -16,7 +16,7 @@ test("natural Logseq record -> explicit formalize -> audit -> safe compensation 
   const directory = await mkdtemp(join(tmpdir(), "task-copilot-golden-"));
   const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at });
   try {
-    const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
+    const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, graphSnapshotKey: service.graphSnapshotKey, pid: process.pid, startedAt: at });
     const graph = new FakeGraphAdapter(() => at);
     const naturalContent = "确认交换机管理口地址";
     const source = graph.seedNaturalRecord("graph-01", "source-01", naturalContent);
@@ -51,7 +51,7 @@ test("Graph adapter throw never becomes client-visible success and remains recov
   const graph = new FakeGraphAdapter(() => at);
   const source = graph.seedNaturalRecord("graph-02", "source-02", "故障演练");
   let service = await startKernelServer({ databasePath, descriptorPath, token: "token-1", now: () => at });
-  const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
+  const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, graphSnapshotKey: service.graphSnapshotKey, pid: process.pid, startedAt: at });
   const pending = await client.prepare(parseSemanticOperation({ operationId: "failure-01", type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "故障演练", anchor: { graphId: source.graphId, blockUuid: source.sourceBlockUuid, sourceContentHash: source.sourceContentHash } } }), source);
   graph.failNextApply();
   await assert.rejects(graph.applyGraphEffect(pending.graphEffect as never), /FAKE_GRAPH_APPLY_FAILURE/u);
@@ -60,7 +60,7 @@ test("Graph adapter throw never becomes client-visible success and remains recov
 
   service = await startKernelServer({ databasePath, descriptorPath, token: "token-2", now: () => at });
   try {
-    const restarted = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
+    const restarted = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, graphSnapshotKey: service.graphSnapshotKey, pid: process.pid, startedAt: at });
     assert.equal((await restarted.listRecovery()).recovery[0]?.action, "RESUME_GRAPH_APPLY");
   } finally { await service.close(); }
 });

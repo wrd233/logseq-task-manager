@@ -3,11 +3,12 @@ import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname } from "node:path";
 
-import { parseSemanticOperation } from "@task-copilot/contracts";
+import { DeterministicCurrentFocusAgent, loadCurrentFocusSkill } from "@task-copilot/agent";
+import { parseSemanticOperation, type CurrentFocusAgent, type SkillPackage } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; token?: string; now?: () => string }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; token?: string; graphSnapshotKey?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; workspaceRoot?: string }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -21,11 +22,13 @@ function send(response: ServerResponse, status: number, value: unknown): void {
   response.end(JSON.stringify(value));
 }
 
-export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; close: () => Promise<void>; store: SqliteStore }> {
+export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; close: () => Promise<void>; store: SqliteStore }> {
   const token = options.token ?? randomBytes(32).toString("hex");
+  const graphSnapshotKey = options.graphSnapshotKey ?? randomBytes(32).toString("hex");
   await mkdir(dirname(options.databasePath), { recursive: true });
   const store = new SqliteStore(options.databasePath);
-  const kernel = new Kernel(store, options.now ? { now: options.now } : {});
+  const currentFocusSkill = options.currentFocusSkill ?? await loadCurrentFocusSkill(options.workspaceRoot);
+  const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, graphSnapshotKey });
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     if (request.headers.authorization !== `Bearer ${token}`) { send(response, 401, { error: { code: "AUTH_REQUIRED", message: "A valid local capability token is required." } }); return; }
@@ -46,6 +49,48 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 200, { commit }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/recovery") { send(response, 200, { recovery: kernel.recoveryList() }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/feedback") { send(response, 200, { feedback: store.listFeedback() }); return; }
+      const evidenceMatch = /^\/v1\/evidence\/([^/]+)$/u.exec(url.pathname);
+      if (request.method === "GET" && evidenceMatch) {
+        const evidence = store.getEvidence(decodeURIComponent(evidenceMatch[1]!));
+        if (!evidence) { send(response, 404, { error: { code: "EVIDENCE_NOT_FOUND", message: "Evidence not found." } }); return; }
+        send(response, 200, { evidence }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/evidence/freeze") {
+        const value = await body(request) as Parameters<Kernel["freezeEvidence"]>[0];
+        send(response, 201, { evidence: kernel.freezeEvidence(value) }); return;
+      }
+      const runMatch = /^\/v1\/agent-runs\/([^/]+)$/u.exec(url.pathname);
+      if (request.method === "GET" && runMatch) {
+        const run = store.getAgentRun(decodeURIComponent(runMatch[1]!));
+        if (!run) { send(response, 404, { error: { code: "AGENT_RUN_NOT_FOUND", message: "Agent run not found." } }); return; }
+        send(response, 200, { run }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/agent-runs/current-focus") {
+        const value = await body(request) as Parameters<Kernel["runCurrentFocusAgent"]>[0];
+        send(response, 201, await kernel.runCurrentFocusAgent(value)); return;
+      }
+      const proposalMatch = /^\/v1\/proposals\/([^/]+)$/u.exec(url.pathname);
+      if (request.method === "GET" && proposalMatch) {
+        const proposal = store.getProposal(decodeURIComponent(proposalMatch[1]!));
+        if (!proposal) { send(response, 404, { error: { code: "PROPOSAL_NOT_FOUND", message: "Proposal not found." } }); return; }
+        send(response, 200, proposal); return;
+      }
+      const proposalApplyMatch = /^\/v1\/proposals\/([^/]+)\/apply$/u.exec(url.pathname);
+      if (request.method === "POST" && proposalApplyMatch) {
+        const value = await body(request) as Omit<Parameters<Kernel["applyProposal"]>[0], "proposalId">;
+        send(response, 202, kernel.applyProposal({ ...value, proposalId: decodeURIComponent(proposalApplyMatch[1]!) })); return;
+      }
+      const proposalRevisionMatch = /^\/v1\/proposals\/([^/]+)\/revisions$/u.exec(url.pathname);
+      if (request.method === "POST" && proposalRevisionMatch) {
+        const value = await body(request) as Omit<Parameters<Kernel["reviseProposal"]>[0], "proposalId">;
+        send(response, 201, kernel.reviseProposal({ ...value, proposalId: decodeURIComponent(proposalRevisionMatch[1]!) })); return;
+      }
+      const proposalDismissMatch = /^\/v1\/proposals\/([^/]+)\/dismiss$/u.exec(url.pathname);
+      if (request.method === "POST" && proposalDismissMatch) {
+        const value = await body(request) as { actor: Parameters<Kernel["dismissProposal"]>[0]["actor"] };
+        send(response, 200, { proposal: kernel.dismissProposal({ proposalId: decodeURIComponent(proposalDismissMatch[1]!), actor: value.actor }) }); return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/commits/prepare") {
         const value = await body(request) as { operation: unknown; snapshot: Parameters<Kernel["prepare"]>[1] };
         send(response, 202, kernel.prepare(parseSemanticOperation(value.operation), value.snapshot)); return;
@@ -54,6 +99,11 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && completeMatch) {
         const value = await body(request) as { result: Parameters<Kernel["complete"]>[1]; snapshot: Parameters<Kernel["complete"]>[2] };
         send(response, 200, { commit: kernel.complete(decodeURIComponent(completeMatch[1]!), value.result, value.snapshot) }); return;
+      }
+      const failMatch = /^\/v1\/commits\/([^/]+)\/graph-failed$/u.exec(url.pathname);
+      if (request.method === "POST" && failMatch) {
+        const value = await body(request) as { reason: string };
+        send(response, 200, { commit: kernel.graphApplyFailed(decodeURIComponent(failMatch[1]!), value.reason) }); return;
       }
       const undoMatch = /^\/v1\/commits\/([^/]+)\/undo\/prepare$/u.exec(url.pathname);
       if (request.method === "POST" && undoMatch) {
@@ -81,14 +131,14 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("KERNEL_ADDRESS_INVALID");
   const baseUrl = `http://127.0.0.1:${address.port}`;
-  const descriptor = { schemaVersion: 1, baseUrl, token, pid: process.pid, startedAt: (options.now ?? (() => new Date().toISOString()))() } as const;
+  const descriptor = { schemaVersion: 1, baseUrl, token, graphSnapshotKey, pid: process.pid, startedAt: (options.now ?? (() => new Date().toISOString()))() } as const;
   await mkdir(dirname(options.descriptorPath), { recursive: true });
   const temporary = `${options.descriptorPath}.tmp-${process.pid}`;
   await writeFile(temporary, `${JSON.stringify(descriptor, null, 2)}\n`, { mode: 0o600 });
   await chmod(temporary, 0o600);
   await rename(temporary, options.descriptorPath);
   return {
-    baseUrl, token, store,
+    baseUrl, token, graphSnapshotKey, store,
     close: async () => {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       store.close();

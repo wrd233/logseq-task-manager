@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import type { Actor, CommitStatus, OperationType, StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type CommitStatus, type FeedbackEvent, type FrozenEvidence, type OperationType, type Proposal, type ProposalRevision, type SkillIdentity, type StoredCommit } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { PrimaryAnchor, WorkObject } from "@task-copilot/domain";
 
@@ -16,6 +16,7 @@ const schema = `
     title TEXT NOT NULL,
     lifecycle TEXT NOT NULL CHECK (lifecycle IN ('OPEN', 'COMPLETED', 'CANCELLED')),
     engagement TEXT CHECK (engagement IN ('ACTIONABLE', 'WAITING', 'PARKED') OR engagement IS NULL),
+    current_focus TEXT,
     version INTEGER NOT NULL CHECK (version > 0),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -29,6 +30,7 @@ const schema = `
     projection_container_uuid TEXT NOT NULL,
     projection_title_uuid TEXT NOT NULL,
     projection_state_uuid TEXT NOT NULL,
+    projection_focus_uuid TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE(graph_id, external_id)
@@ -38,7 +40,10 @@ const schema = `
     work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
     graph_id TEXT NOT NULL,
     external_id TEXT NOT NULL,
+    source_type TEXT NOT NULL DEFAULT 'LOGSEQ_BLOCK',
+    frozen_content TEXT NOT NULL DEFAULT '',
     content_hash TEXT NOT NULL,
+    locator_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS ownerships (
@@ -64,10 +69,32 @@ const schema = `
     failure_reason TEXT,
     compensation_for TEXT REFERENCES commits(id),
     compensated_by TEXT REFERENCES commits(id),
+    governance_json TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS commits_status_idx ON commits(status, created_at);
+  CREATE TABLE IF NOT EXISTS skill_versions (
+    id TEXT NOT NULL, version TEXT NOT NULL, content_hash TEXT NOT NULL, package_json TEXT NOT NULL,
+    registered_at TEXT NOT NULL, PRIMARY KEY(id, version)
+  );
+  CREATE TABLE IF NOT EXISTS agent_run_receipts (
+    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, work_object_id TEXT NOT NULL REFERENCES work_objects(id),
+    evidence_ids_json TEXT NOT NULL, skill_json TEXT NOT NULL, outcome TEXT NOT NULL, reason_code TEXT NOT NULL,
+    rationale_summary TEXT NOT NULL, proposal_id TEXT, details_json TEXT, created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS proposals (
+    id TEXT PRIMARY KEY, work_object_id TEXT NOT NULL REFERENCES work_objects(id), status TEXT NOT NULL,
+    latest_revision INTEGER NOT NULL, applied_commit_id TEXT, invalidation_reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS proposal_revisions (
+    proposal_id TEXT NOT NULL REFERENCES proposals(id), revision INTEGER NOT NULL, revision_json TEXT NOT NULL,
+    PRIMARY KEY(proposal_id, revision)
+  );
+  CREATE TABLE IF NOT EXISTS feedback_events (
+    id TEXT PRIMARY KEY, type TEXT NOT NULL, proposal_id TEXT NOT NULL REFERENCES proposals(id),
+    agent_run_id TEXT NOT NULL REFERENCES agent_run_receipts(id), commit_id TEXT, details_json TEXT, created_at TEXT NOT NULL
+  );
 `;
 
 function encode(value: unknown): string | null {
@@ -83,6 +110,7 @@ interface CommitRow {
   target_id: string | null; operation_json: string; preconditions_json: string; before_json: string | null;
   after_json: string | null; inverse_json: string | null; graph_effect_json: string | null; graph_result_json: string | null;
   failure_reason: string | null; compensation_for: string | null; compensated_by: string | null; created_at: string; updated_at: string;
+  governance_json: string | null;
 }
 
 function mapCommit(row: CommitRow): StoredCommit {
@@ -91,7 +119,7 @@ function mapCommit(row: CommitRow): StoredCommit {
     targetId: row.target_id, operation: decode(row.operation_json), preconditions: decode(row.preconditions_json),
     before: decode(row.before_json), after: decode(row.after_json), inverse: decode(row.inverse_json),
     graphEffect: decode(row.graph_effect_json), graphResult: decode(row.graph_result_json), failureReason: row.failure_reason,
-    compensationFor: row.compensation_for, compensatedBy: row.compensated_by, createdAt: row.created_at, updatedAt: row.updated_at,
+    compensationFor: row.compensation_for, compensatedBy: row.compensated_by, governance: decode(row.governance_json) as StoredCommit["governance"], createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 
@@ -103,6 +131,29 @@ export class SqliteStore {
     this.#database.pragma("journal_mode = WAL");
     this.#database.exec(schema);
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (1, ?)").run(new Date().toISOString());
+    this.#migrateV2();
+  }
+
+  #hasColumn(table: string, column: string): boolean {
+    return (this.#database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some((item) => item.name === column);
+  }
+
+  #migrateV2(): void {
+    const additions = [
+      ["work_objects", "current_focus", "TEXT"],
+      ["anchors", "projection_focus_uuid", "TEXT NOT NULL DEFAULT ''"],
+      ["evidence_references", "source_type", "TEXT NOT NULL DEFAULT 'LOGSEQ_BLOCK'"],
+      ["evidence_references", "frozen_content", "TEXT NOT NULL DEFAULT ''"],
+      ["evidence_references", "locator_json", "TEXT NOT NULL DEFAULT '{}'"],
+      ["commits", "governance_json", "TEXT"],
+      ["feedback_events", "details_json", "TEXT"],
+      ["agent_run_receipts", "details_json", "TEXT"],
+    ] as const;
+    for (const [table, column, definition] of additions) if (!this.#hasColumn(table, column)) this.#database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    const anchors = this.#database.prepare("SELECT id, projection_container_uuid FROM anchors WHERE projection_focus_uuid = ''").all() as Array<{ id: string; projection_container_uuid: string }>;
+    const updateFocus = this.#database.prepare("UPDATE anchors SET projection_focus_uuid=? WHERE id=?");
+    for (const anchor of anchors) updateFocus.run(deterministicUuid(`focus:${anchor.projection_container_uuid}`), anchor.id);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (2, ?)").run(new Date().toISOString());
   }
 
   close(): void { this.#database.close(); }
@@ -111,15 +162,15 @@ export class SqliteStore {
   transaction<T>(work: () => T): T { return this.#database.transaction(work)(); }
 
   putWorkObject(object: WorkObject): void {
-    this.#database.prepare(`INSERT INTO work_objects(id, kind, title, lifecycle, engagement, version, created_at, updated_at)
-      VALUES (@id, @kind, @title, @lifecycle, @engagement, @version, @createdAt, @updatedAt)
+    this.#database.prepare(`INSERT INTO work_objects(id, kind, title, lifecycle, engagement, current_focus, version, created_at, updated_at)
+      VALUES (@id, @kind, @title, @lifecycle, @engagement, @currentFocus, @version, @createdAt, @updatedAt)
       ON CONFLICT(id) DO UPDATE SET kind=excluded.kind, title=excluded.title, lifecycle=excluded.lifecycle,
-      engagement=excluded.engagement, version=excluded.version, updated_at=excluded.updated_at`).run(object);
+      engagement=excluded.engagement, current_focus=excluded.current_focus, version=excluded.version, updated_at=excluded.updated_at`).run(object);
   }
 
   getWorkObject(id: string): WorkObject | null {
     const row = this.#database.prepare("SELECT * FROM work_objects WHERE id = ?").get(id) as Record<string, unknown> | undefined;
-    return row ? { id: String(row.id), kind: row.kind as WorkObject["kind"], title: String(row.title), lifecycle: row.lifecycle as WorkObject["lifecycle"], engagement: row.engagement as WorkObject["engagement"], version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at) } : null;
+    return row ? { id: String(row.id), kind: row.kind as WorkObject["kind"], title: String(row.title), lifecycle: row.lifecycle as WorkObject["lifecycle"], engagement: row.engagement as WorkObject["engagement"], currentFocus: row.current_focus === null ? null : String(row.current_focus), version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at) } : null;
   }
 
   listWorkObjects(): WorkObject[] {
@@ -130,27 +181,27 @@ export class SqliteStore {
 
   putAnchor(anchor: PrimaryAnchor): void {
     this.#database.prepare(`INSERT INTO anchors(id, work_object_id, graph_id, external_id, source_content_hash,
-      projection_container_uuid, projection_title_uuid, projection_state_uuid, created_at, updated_at)
+      projection_container_uuid, projection_title_uuid, projection_state_uuid, projection_focus_uuid, created_at, updated_at)
       VALUES (@id, @workObjectId, @graphId, @externalId, @sourceContentHash, @projectionContainerUuid,
-      @projectionTitleUuid, @projectionStateUuid, @createdAt, @updatedAt)
+      @projectionTitleUuid, @projectionStateUuid, @projectionFocusUuid, @createdAt, @updatedAt)
       ON CONFLICT(id) DO UPDATE SET source_content_hash=excluded.source_content_hash, updated_at=excluded.updated_at`).run(anchor);
   }
 
   getAnchorForWorkObject(workObjectId: string): PrimaryAnchor | null {
     const row = this.#database.prepare("SELECT * FROM anchors WHERE work_object_id = ?").get(workObjectId) as Record<string, unknown> | undefined;
-    return row ? { id: String(row.id), workObjectId: String(row.work_object_id), graphId: String(row.graph_id), externalId: String(row.external_id), sourceContentHash: String(row.source_content_hash), projectionContainerUuid: String(row.projection_container_uuid), projectionTitleUuid: String(row.projection_title_uuid), projectionStateUuid: String(row.projection_state_uuid), createdAt: String(row.created_at), updatedAt: String(row.updated_at) } : null;
+    return row ? { id: String(row.id), workObjectId: String(row.work_object_id), graphId: String(row.graph_id), externalId: String(row.external_id), sourceContentHash: String(row.source_content_hash), projectionContainerUuid: String(row.projection_container_uuid), projectionTitleUuid: String(row.projection_title_uuid), projectionStateUuid: String(row.projection_state_uuid), projectionFocusUuid: String(row.projection_focus_uuid), createdAt: String(row.created_at), updatedAt: String(row.updated_at) } : null;
   }
 
   insertCommit(commit: StoredCommit): void {
     try {
       this.#database.prepare(`INSERT INTO commits(id, status, actor_type, actor_id, operation_type, target_id,
         operation_json, preconditions_json, before_json, after_json, inverse_json, graph_effect_json, graph_result_json,
-        failure_reason, compensation_for, compensated_by, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        failure_reason, compensation_for, compensated_by, governance_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(commit.id, commit.status, commit.actor.type, commit.actor.id, commit.operationType, commit.targetId,
           encode(commit.operation), encode(commit.preconditions), encode(commit.before), encode(commit.after), encode(commit.inverse),
           encode(commit.graphEffect), encode(commit.graphResult), commit.failureReason, commit.compensationFor, commit.compensatedBy,
-          commit.createdAt, commit.updatedAt);
+          encode(commit.governance), commit.createdAt, commit.updatedAt);
     } catch (error) {
       if (error instanceof Error && error.message.includes("UNIQUE constraint failed: commits.id")) throw new Error("COMMIT_ALREADY_EXISTS", { cause: error });
       throw error;
@@ -181,6 +232,103 @@ export class SqliteStore {
     const changed = this.#database.prepare("UPDATE commits SET compensated_by = ?, updated_at = ? WHERE id = ?")
       .run(compensationCommitId, updatedAt, id);
     if (!changed.changes) throw new Error("COMMIT_NOT_FOUND");
+  }
+
+  hasPendingRecoveryForTarget(workObjectId: string): boolean {
+    return Boolean(this.#database.prepare("SELECT 1 FROM commits WHERE target_id=? AND status IN ('PREPARED','KERNEL_APPLIED','GRAPH_APPLIED','RECOVERY_REQUIRED') LIMIT 1").get(workObjectId));
+  }
+
+  putEvidence(evidence: FrozenEvidence): void {
+    this.#database.prepare(`INSERT INTO evidence_references(id, work_object_id, graph_id, external_id, source_type, frozen_content, content_hash, locator_json, created_at)
+      VALUES (@id, @workObjectId, @graphId, @externalId, @sourceType, @frozenContent, @contentHash, @locator, @frozenAt)`).run({ ...evidence, locator: JSON.stringify(evidence.locator) });
+  }
+
+  getEvidence(id: string): FrozenEvidence | null {
+    const row = this.#database.prepare("SELECT * FROM evidence_references WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    return row ? { id: String(row.id), workObjectId: String(row.work_object_id), sourceType: "LOGSEQ_BLOCK", graphId: String(row.graph_id), externalId: String(row.external_id), frozenContent: String(row.frozen_content), contentHash: String(row.content_hash), frozenAt: String(row.created_at), locator: JSON.parse(String(row.locator_json)) as FrozenEvidence["locator"] } : null;
+  }
+
+  registerSkill(skill: SkillIdentity, packageValue: unknown, at: string): void {
+    const existing = this.#database.prepare("SELECT content_hash FROM skill_versions WHERE id=? AND version=?").get(skill.id, skill.version) as { content_hash: string } | undefined;
+    if (existing && existing.content_hash !== skill.contentHash) throw new Error("SKILL_VERSION_HASH_MISMATCH");
+    this.#database.prepare("INSERT OR IGNORE INTO skill_versions(id, version, content_hash, package_json, registered_at) VALUES (?, ?, ?, ?, ?)").run(skill.id, skill.version, skill.contentHash, encode(packageValue), at);
+  }
+
+  skillRegistered(skill: SkillIdentity): boolean {
+    return Boolean(this.#database.prepare("SELECT 1 FROM skill_versions WHERE id=? AND version=? AND content_hash=?").get(skill.id, skill.version, skill.contentHash));
+  }
+
+  putAgentRun(run: AgentRunReceipt): void {
+    this.#database.prepare(`INSERT INTO agent_run_receipts(id, agent_id, work_object_id, evidence_ids_json, skill_json, outcome, reason_code, rationale_summary, proposal_id, details_json, created_at)
+      VALUES (@id, @agentId, @workObjectId, @evidenceIds, @skill, @outcome, @reasonCode, @rationaleSummary, @proposalId, @details, @createdAt)`).run({
+        id: run.id, agentId: run.executor.id, workObjectId: run.subject.workObjectId, evidenceIds: encode(run.context.evidenceIds), skill: encode(run.skill),
+        outcome: run.result.outcome, reasonCode: run.reasonCode, rationaleSummary: run.rationaleSummary, proposalId: run.result.proposalIds[0] ?? null,
+        details: encode(run), createdAt: run.finishedAt,
+      });
+  }
+
+  putAgentRunResult(run: AgentRunReceipt, proposal: Proposal | null, revision: ProposalRevision | null): void {
+    this.transaction(() => {
+      this.putAgentRun(run);
+      if (proposal && revision) this.putProposal(proposal, revision);
+    });
+  }
+
+  getAgentRun(id: string): AgentRunReceipt | null {
+    const row = this.#database.prepare("SELECT * FROM agent_run_receipts WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    if (row.details_json) return decode(String(row.details_json)) as AgentRunReceipt;
+    return {
+      id: String(row.id), purpose: "CURRENT_FOCUS_MAINTENANCE", executor: { type: "FAKE", id: String(row.agent_id) }, operationContractVersion: 1,
+      skill: decode(String(row.skill_json)) as SkillIdentity, subject: { workObjectId: String(row.work_object_id) },
+      context: { targetVersion: 1, evidenceIds: decode(String(row.evidence_ids_json)) as string[] }, result: { outcome: row.outcome as AgentRunReceipt["result"]["outcome"], proposalIds: row.proposal_id === null ? [] : [String(row.proposal_id)] },
+      reasonCode: String(row.reason_code), rationaleSummary: String(row.rationale_summary), startedAt: String(row.created_at), finishedAt: String(row.created_at),
+    };
+  }
+
+  putProposal(proposal: Proposal, revision: ProposalRevision): void {
+    this.transaction(() => {
+      this.#database.prepare(`INSERT INTO proposals(id, work_object_id, status, latest_revision, applied_commit_id, invalidation_reason, created_at, updated_at)
+        VALUES (@id,@workObjectId,@status,@latestRevision,@appliedCommitId,@invalidationReason,@createdAt,@updatedAt)`).run(proposal);
+      this.#database.prepare("INSERT INTO proposal_revisions(proposal_id, revision, revision_json) VALUES (?, ?, ?)").run(revision.proposalId, revision.revision, encode(revision));
+    });
+  }
+
+  getProposal(id: string): { proposal: Proposal; revision: ProposalRevision } | null {
+    const row = this.#database.prepare("SELECT * FROM proposals WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    const proposal: Proposal = { id: String(row.id), workObjectId: String(row.work_object_id), status: row.status as Proposal["status"], latestRevision: Number(row.latest_revision), appliedCommitId: row.applied_commit_id === null ? null : String(row.applied_commit_id), invalidationReason: row.invalidation_reason === null ? null : String(row.invalidation_reason), createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
+    const revisionRow = this.#database.prepare("SELECT revision_json FROM proposal_revisions WHERE proposal_id=? AND revision=?").get(id, proposal.latestRevision) as { revision_json: string };
+    return { proposal, revision: decode(revisionRow.revision_json) as ProposalRevision };
+  }
+
+  appendProposalRevision(revision: ProposalRevision, at: string): void {
+    this.transaction(() => {
+      this.#database.prepare("INSERT INTO proposal_revisions(proposal_id, revision, revision_json) VALUES (?, ?, ?)").run(revision.proposalId, revision.revision, encode(revision));
+      const changed = this.#database.prepare("UPDATE proposals SET latest_revision=?, updated_at=? WHERE id=? AND status='OPEN'").run(revision.revision, at, revision.proposalId);
+      if (!changed.changes) throw new Error("PROPOSAL_NOT_OPEN");
+    });
+  }
+
+  appendProposalRevisionWithFeedback(revision: ProposalRevision, feedback: FeedbackEvent, at: string): void {
+    this.transaction(() => { this.appendProposalRevision(revision, at); this.putFeedback(feedback); });
+  }
+
+  transitionProposal(id: string, status: Proposal["status"], at: string, update: { appliedCommitId?: string; invalidationReason?: string } = {}): void {
+    this.#database.prepare("UPDATE proposals SET status=?, updated_at=?, applied_commit_id=COALESCE(?,applied_commit_id), invalidation_reason=COALESCE(?,invalidation_reason) WHERE id=?").run(status, at, update.appliedCommitId ?? null, update.invalidationReason ?? null, id);
+  }
+
+  putFeedback(event: FeedbackEvent): void {
+    this.#database.prepare("INSERT OR IGNORE INTO feedback_events(id,type,proposal_id,agent_run_id,commit_id,details_json,created_at) VALUES (@id,@type,@proposalId,@agentRunId,@commitId,@details,@createdAt)").run({ ...event, details: encode(event) });
+  }
+
+  listFeedback(): FeedbackEvent[] {
+    return (this.#database.prepare("SELECT * FROM feedback_events ORDER BY created_at,id").all() as Array<Record<string, unknown>>).map((row) => {
+      if (row.details_json) return decode(String(row.details_json)) as FeedbackEvent;
+      const revision = this.getProposal(String(row.proposal_id))?.revision;
+      if (!revision) throw new Error("FEEDBACK_PROPOSAL_MISSING");
+      return { id: String(row.id), type: row.type as FeedbackEvent["type"], proposalId: String(row.proposal_id), agentRunId: String(row.agent_run_id), proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId: row.commit_id === null ? null : String(row.commit_id), before: null, after: null, createdAt: String(row.created_at) };
+    });
   }
 
   deleteCommit(id: string): never { throw new Error(`LEDGER_APPEND_ONLY:${id}`); }

@@ -1,0 +1,4 @@
+[
+  { "evidence": "下一步：准备服务器上架并完成管理口网络配置", "outcome": "PROPOSAL", "currentFocus": "准备服务器上架并完成管理口网络配置" },
+  { "evidence": "等待网络组确认", "outcome": "NO_PROPOSAL", "reasonCode": "OUT_OF_SCOPE_WAITING" }
+]

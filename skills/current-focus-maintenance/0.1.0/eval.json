@@ -1,0 +1,7 @@
+[
+  { "case": "positive", "must": "PROPOSAL" },
+  { "case": "already-accurate", "must": "NO_PROPOSAL" },
+  { "case": "ambiguous", "must": "NO_PROPOSAL" },
+  { "case": "scope-expansion", "must": "NO_PROPOSAL" },
+  { "case": "waiting-hint", "must": "NO_PROPOSAL" }
+]

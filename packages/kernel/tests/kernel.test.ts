@@ -148,7 +148,7 @@ test("RENAME_WORK_OBJECT and its Undo are executable compensation commits with m
 test("write authorization is bound to the configured local USER identity", () => {
   const store = new SqliteStore(":memory:");
   const kernel = new Kernel(store, { now: () => at, authorizedUserId: "owner-01" });
-  for (const actor of [{ type: "SYSTEM", id: "owner-01" }, { type: "USER", id: "someone-else" }] as const) {
+  for (const actor of [{ type: "SYSTEM", id: "owner-01" }, { type: "AGENT", id: "fake-current-focus-agent" }, { type: "USER", id: "someone-else" }] as const) {
     const candidate = parseSemanticOperation({
       operationId: `unauthorized-${actor.type}-${actor.id}`, type: "CREATE_WORK_OBJECT", actor,
       input: { kind: "TASK", title: "不得写入", anchor: { graphId: "graph-01", blockUuid: "source-01", sourceContentHash: "a1b2c3d4" } },
@@ -156,5 +156,16 @@ test("write authorization is bound to the configured local USER identity", () =>
     assert.throws(() => kernel.prepare(candidate, sourceSnapshot), (error) => error instanceof KernelError && error.code === "ACTOR_NOT_AUTHORIZED");
   }
   assert.equal(store.listWorkObjects().length, 0);
+  store.close();
+});
+
+test("generic preparation rejects every Agent operation, including rename and undo entry", () => {
+  const store = new SqliteStore(":memory:");
+  const kernel = new Kernel(store, { now: () => at });
+  const rename = parseSemanticOperation({ operationId: "agent-rename", type: "RENAME_WORK_OBJECT", actor: { type: "AGENT", id: "agent" }, target: { workObjectId: "work-01", expectedVersion: 1, expectedProjectionHash: "a1b2c3d4" }, input: { title: "不得改名" } });
+  const undo = parseSemanticOperation({ operationId: "agent-undo", type: "UNDO_COMMIT", actor: { type: "AGENT", id: "agent" }, target: { commitId: "commit-01", expectedProjectionHash: "a1b2c3d4" }, input: {} });
+  assert.throws(() => kernel.prepare(rename, sourceSnapshot), (error) => error instanceof KernelError && error.code === "ACTOR_NOT_AUTHORIZED");
+  assert.throws(() => kernel.prepare(undo, sourceSnapshot), (error) => error instanceof KernelError && error.code === "ACTOR_NOT_AUTHORIZED");
+  assert.equal(store.listCommits().length, 0);
   store.close();
 });

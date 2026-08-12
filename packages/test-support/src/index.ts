@@ -1,4 +1,6 @@
-import { stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection } from "@task-copilot/contracts";
+import { createHmac } from "node:crypto";
+
+import { graphEvidenceProofPayload, stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 
 interface RecordState { content: string; projection: ManagedProjection | null }
 
@@ -16,6 +18,7 @@ export class FakeGraphAdapter implements GraphAdapter {
   }
 
   naturalContent(graphId: string, sourceBlockUuid: string): string { return this.#record(graphId, sourceBlockUuid).content; }
+  editNaturalContent(graphId: string, sourceBlockUuid: string, content: string): void { this.#record(graphId, sourceBlockUuid).content = content; }
   failNextApply(): void { this.#failNext = true; }
   editManagedProjection(graphId: string, sourceBlockUuid: string, title: string): void {
     const record = this.#record(graphId, sourceBlockUuid);
@@ -36,6 +39,12 @@ export class FakeGraphAdapter implements GraphAdapter {
 
   async readGraphSnapshot(input: { graphId: string; sourceBlockUuid: string }): Promise<GraphSnapshot> { return this.snapshot(input.graphId, input.sourceBlockUuid); }
 
+  async readEvidenceMaterial(input: { graphId: string; blockUuid: string }, proofKey: string): Promise<TrustedGraphEvidenceMaterial> {
+    const content = this.#record(input.graphId, input.blockUuid).content;
+    const material = { graphId: input.graphId, blockUuid: input.blockUuid, content, sourceContentHash: stableHash(content) };
+    return { ...material, proof: createHmac("sha256", proofKey).update(graphEvidenceProofPayload(material)).digest("hex") };
+  }
+
   async applyGraphEffect(effect: GraphEffect): Promise<GraphApplyResult> {
     if (this.#failNext) { this.#failNext = false; throw new Error("FAKE_GRAPH_APPLY_FAILURE"); }
     const record = this.#record(effect.graphId, effect.sourceBlockUuid);
@@ -46,6 +55,10 @@ export class FakeGraphAdapter implements GraphAdapter {
       if (!record.projection || record.projection.titleUuid !== effect.fieldUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
       if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_UPDATE_PRECONDITION_FAILED");
       record.projection = { ...record.projection, title: effect.content.replace(/^标题：/u, ""), projectionHash: effect.resultingProjectionHash };
+    } else if (effect.type === "SET_CURRENT_FOCUS_FIELD") {
+      if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.focusUuid !== effect.fieldUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
+      if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_FOCUS_PRECONDITION_FAILED");
+      record.projection = { ...record.projection, currentFocus: effect.content, projectionHash: effect.resultingProjectionHash };
     } else {
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
       record.projection = null;

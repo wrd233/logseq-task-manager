@@ -1,4 +1,4 @@
-import { stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection } from "@task-copilot/contracts";
+import { canonicalizeGraphContent, deterministicUuid, graphEvidenceProofPayload, stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 
 export interface LogseqGraphHost {
   getBlock(uuid: string, options?: { includeChildren: boolean }): Promise<unknown>;
@@ -8,10 +8,10 @@ export interface LogseqGraphHost {
 }
 
 interface Block { uuid: string; content: string; children: Block[] }
-const containerContent = "> [Task Copilot]\ntask-copilot-managed:: true";
+const containerContent = (focusUuid: string) => `> [Task Copilot]\ntask-copilot-managed:: true\ntask-copilot-focus-uuid:: ${focusUuid}`;
 
 function semanticContent(content: string): string {
-  return content.split("\n").filter((line) => !/^\s*id::\s+[0-9a-f-]+\s*$/iu.test(line)).join("\n").trimEnd();
+  return canonicalizeGraphContent(content);
 }
 
 function object(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
@@ -31,11 +31,16 @@ function engagement(value: string): ManagedProjection["engagement"] {
 function projectionFromContainer(container: Block): ManagedProjection {
   const title = container.children.find((child) => child.content.startsWith("标题："));
   const state = container.children.find((child) => child.content.startsWith("状态："));
+  const focus = container.children.find((child) => child.content.startsWith("当前推进："));
   if (!title || !state) throw new Error("GRAPH_PROJECTION_INCOMPLETE");
+  const declaredFocusUuid = /^> \[Task Copilot\]\ntask-copilot-managed:: true\ntask-copilot-focus-uuid:: ([0-9a-f-]+)$/u.exec(container.content)?.[1];
+  const legacy = container.content === "> [Task Copilot]\ntask-copilot-managed:: true";
+  const focusUuid = declaredFocusUuid ?? (legacy ? deterministicUuid(`focus:${container.uuid}`) : null);
+  if (!focusUuid || (focus && focus.uuid !== focusUuid)) throw new Error("GRAPH_PROJECTION_FOCUS_IDENTITY_INVALID");
   const match = /^状态：(OPEN|COMPLETED|CANCELLED) · (ACTIONABLE|WAITING|PARKED|null)$/u.exec(state.content);
   if (!match) throw new Error("GRAPH_PROJECTION_STATE_INVALID");
-  const core = { containerUuid: container.uuid, titleUuid: title.uuid, stateUuid: state.uuid, title: title.content.slice(3), lifecycle: match[1] as ManagedProjection["lifecycle"], engagement: engagement(match[2]!) };
-  const ownedExactly = container.content === containerContent && container.children.length === 2;
+  const core = { containerUuid: container.uuid, titleUuid: title.uuid, stateUuid: state.uuid, focusUuid, title: title.content.slice(3), lifecycle: match[1] as ManagedProjection["lifecycle"], engagement: engagement(match[2]!), currentFocus: focus?.content.slice(5) || null };
+  const ownedExactly = (container.content === containerContent(focusUuid) || legacy) && container.children.length === (focus ? 3 : 2);
   return { ...core, projectionHash: ownedExactly ? stableHash(core) : stableHash({ core, actual: container }) };
 }
 
@@ -59,6 +64,15 @@ export class LogseqGraphAdapter implements GraphAdapter {
     return { graphId: this.#graphId, sourceBlockUuid: source.uuid, sourceContentHash: stableHash(source.content), projection: managed ? projectionFromContainer(managed) : null };
   }
 
+  async readEvidenceMaterial(input: { graphId: string; blockUuid: string }, proofKey: string): Promise<TrustedGraphEvidenceMaterial> {
+    if (input.graphId !== this.#graphId) throw new Error("GRAPH_ID_MISMATCH");
+    const source = await this.#required(input.blockUuid, false);
+    const material = { graphId: this.#graphId, blockUuid: source.uuid, content: source.content, sourceContentHash: stableHash(source.content) };
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(proofKey), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const proof = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(graphEvidenceProofPayload(material))))).map((value) => value.toString(16).padStart(2, "0")).join("");
+    return { ...material, proof };
+  }
+
   async #ensureBlock(target: string, uuid: string, content: string, options: { sibling: boolean; before?: boolean }): Promise<void> {
     const existing = block(await this.#host.getBlock(uuid, { includeChildren: false }));
     if (existing) {
@@ -73,22 +87,38 @@ export class LogseqGraphAdapter implements GraphAdapter {
     if (effect.graphId !== this.#graphId) throw new Error("GRAPH_ID_MISMATCH");
     if (effect.type === "UPSERT_MANAGED_PROJECTION") {
       const projection = effect.projection;
-      await this.#ensureBlock(effect.sourceBlockUuid, projection.containerUuid, containerContent, { sibling: false });
+      await this.#ensureBlock(effect.sourceBlockUuid, projection.containerUuid, containerContent(projection.focusUuid), { sibling: false });
       await this.#ensureBlock(projection.containerUuid, projection.titleUuid, `标题：${projection.title}`, { sibling: false, before: true });
       await this.#ensureBlock(projection.titleUuid, projection.stateUuid, `状态：${projection.lifecycle} · ${projection.engagement ?? "null"}`, { sibling: true });
+      if (projection.currentFocus) await this.#ensureBlock(projection.stateUuid, projection.focusUuid, `当前推进：${projection.currentFocus}`, { sibling: true });
     } else if (effect.type === "UPDATE_MANAGED_FIELD") {
       const before = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
       if (!before.projection || before.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_UPDATE_PRECONDITION_FAILED");
       const existing = await this.#required(effect.fieldUuid, false);
       if (!existing.content.startsWith("标题：")) throw new Error("GRAPH_MANAGED_FIELD_CHANGED");
       await this.#host.updateBlock(effect.fieldUuid, effect.content);
+    } else if (effect.type === "SET_CURRENT_FOCUS_FIELD") {
+      const before = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+      if (!before.projection || before.projection.containerUuid !== effect.containerUuid || before.projection.focusUuid !== effect.fieldUuid || before.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_FOCUS_PRECONDITION_FAILED");
+      const existing = block(await this.#host.getBlock(effect.fieldUuid, { includeChildren: false }));
+      if (effect.content === null) {
+        if (existing) {
+          if (!existing.content.startsWith("当前推进：")) throw new Error("GRAPH_MANAGED_FIELD_CHANGED");
+          await this.#host.removeBlock(effect.fieldUuid);
+        }
+      } else if (existing) {
+        if (!existing.content.startsWith("当前推进：")) throw new Error("GRAPH_MANAGED_FIELD_CHANGED");
+        await this.#host.updateBlock(effect.fieldUuid, `当前推进：${effect.content}`);
+      } else {
+        await this.#ensureBlock(before.projection.stateUuid, effect.fieldUuid, `当前推进：${effect.content}`, { sibling: true });
+      }
     } else {
       const before = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
       if (!before.projection || before.projection.containerUuid !== effect.containerUuid || before.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
       await this.#host.removeBlock(effect.containerUuid);
     }
     const actual = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
-    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" ? effect.resultingProjectionHash : null;
+    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" ? effect.resultingProjectionHash : null;
     if ((actual.projection?.projectionHash ?? null) !== expectedHash) throw new Error("GRAPH_EFFECT_VERIFY_FAILED");
     return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: expectedHash, appliedAt: this.#now() };
   }

@@ -6,6 +6,7 @@
   "exports": "./src/server.ts",
   "scripts": { "typecheck": "tsc --noEmit", "test": "tsx --test tests/*.test.ts", "start": "tsx src/main.ts" },
   "dependencies": {
+    "@task-copilot/agent": "0.2.0",
     "@task-copilot/contracts": "0.2.0",
     "@task-copilot/kernel": "0.2.0",
     "@task-copilot/sqlite": "0.2.0"

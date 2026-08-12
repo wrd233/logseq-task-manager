@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["outcome", "reasonCode", "rationaleSummary"],
+  "properties": {
+    "outcome": { "enum": ["PROPOSAL", "NO_PROPOSAL", "NEEDS_MORE_CONTEXT"] },
+    "currentFocus": { "type": ["string", "null"], "maxLength": 200 },
+    "reasonCode": { "type": "string" },
+    "rationaleSummary": { "type": "string" }
+  }
+}

@@ -8,6 +8,7 @@ export interface WorkObject {
   title: string;
   lifecycle: Lifecycle;
   engagement: Engagement;
+  currentFocus: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -22,6 +23,7 @@ export interface PrimaryAnchor {
   projectionContainerUuid: string;
   projectionTitleUuid: string;
   projectionStateUuid: string;
+  projectionFocusUuid: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,7 +33,10 @@ export interface EvidenceReference {
   workObjectId: string;
   graphId: string;
   externalId: string;
+  sourceType: "LOGSEQ_BLOCK";
+  frozenContent: string;
   contentHash: string;
+  locator: { graphId: string; blockUuid: string };
   createdAt: string;
 }
 
@@ -79,10 +84,23 @@ export function createWorkObject(input: {
     title: required(input.title, "WORK_OBJECT_TITLE_REQUIRED", "WorkObject title"),
     lifecycle: "OPEN",
     engagement: "ACTIONABLE",
+    currentFocus: null,
     version: 1,
     createdAt: at,
     updatedAt: at,
   };
+}
+
+export function setCurrentFocus(
+  object: WorkObject,
+  input: { currentFocus: string | null; expectedVersion: number; at: string },
+): WorkObject {
+  if (object.version !== input.expectedVersion) {
+    throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
+  }
+  const normalized = input.currentFocus?.trim() || null;
+  if (normalized && normalized.length > 200) throw new DomainError("CURRENT_FOCUS_TOO_LONG", "Current focus exceeds 200 characters.");
+  return { ...object, currentFocus: normalized, version: object.version + 1, updatedAt: timestamp(input.at) };
 }
 
 export function renameWorkObject(
