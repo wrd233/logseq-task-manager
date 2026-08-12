@@ -1,7 +1,7 @@
 # Task Copilot vNext Implementation Reconnaissance
 
-Status: evidence complete before structural changes  
-Baseline: `8c01eef5fc6c31d345c44bb3a1411c200109411e` (`v1-final`)  
+Status: evidence complete before structural changes
+Baseline: `8c01eef5fc6c31d345c44bb3a1411c200109411e` (`v1-final`)
 Runtime: Node `20.20.2`, npm `10.8.2`, Logseq Desktop evidence from `0.10.15`
 
 ## 1. Git and repository boundary
@@ -29,7 +29,7 @@ Runtime: Node `20.20.2`, npm `10.8.2`, Logseq Desktop evidence from `0.10.15`
 | Checks | `./scripts/check.sh` runs install, typecheck, lint, all tests/builds, plugin checks, architecture/rules, recovery rehearsal, repository boundary, diff check | REWRITE for the reduced vNext surface |
 | Package/release | Launcher packages Service/native SQLite payload; release zip includes plugin, launcher payload, and runbook | TEMPORARILY KEEP KNOWLEDGE; rebuild only after first slice |
 
-The baseline full check passed before refactor: typecheck, lint, all workspace tests, all builds, plugin metadata/bootstrap/dist checks, 145-rule accounting, recovery rehearsal (`differences: []`), and repository boundary. The known `@logseq/libs@0.0.17` audit result remains 2 high and 1 critical; it is not silently treated as resolved.
+The baseline full check passed before refactor: typecheck, lint, all workspace tests, all builds, plugin metadata/bootstrap/dist checks, 145-rule accounting, recovery rehearsal (`differences: []`), and repository boundary. The legacy `@logseq/libs@0.0.17` production audit result was 2 high and 1 critical; vNext updates the SDK to 0.3.4 and keeps it development-only, with zero findings from `npm audit --omit=dev`.
 
 ## 3. Current domain classification
 

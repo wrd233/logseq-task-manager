@@ -44,11 +44,12 @@ export class FakeGraphAdapter implements GraphAdapter {
       record.projection = { ...effect.projection };
     } else if (effect.type === "UPDATE_MANAGED_FIELD") {
       if (!record.projection || record.projection.titleUuid !== effect.fieldUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
-      record.projection = { ...record.projection, title: effect.content.replace(/^标题：/u, ""), projectionHash: effect.projectionHash };
+      if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_UPDATE_PRECONDITION_FAILED");
+      record.projection = { ...record.projection, title: effect.content.replace(/^标题：/u, ""), projectionHash: effect.resultingProjectionHash };
     } else {
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
       record.projection = null;
     }
-    return { effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: record.projection?.projectionHash ?? null, appliedAt: this.#now() };
+    return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: record.projection?.projectionHash ?? null, appliedAt: this.#now() };
   }
 }

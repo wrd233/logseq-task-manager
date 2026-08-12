@@ -23,6 +23,7 @@ test("CREATE_WORK_OBJECT reaches success only after exact Graph verification", (
 
   const projection = prepared.graphEffect.type === "UPSERT_MANAGED_PROJECTION" ? prepared.graphEffect.projection : null;
   const committed = kernel.complete(prepared.commit.id, {
+    commitId: prepared.graphEffect.commitId, effectId: prepared.graphEffect.effectId,
     effectType: prepared.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01",
     projectionHash: projection!.projectionHash, appliedAt: at,
   }, { ...sourceSnapshot, projection });
@@ -62,6 +63,7 @@ test("a crash after GRAPH_APPLIED is durable and restarts at verification", () =
   const projection = prepared.graphEffect.projection;
   crashAtGraph = true;
   assert.throws(() => kernel.complete(prepared.commit.id, {
+    commitId: prepared.graphEffect.commitId, effectId: prepared.graphEffect.effectId,
     effectType: "UPSERT_MANAGED_PROJECTION", graphId: "graph-01", sourceBlockUuid: "source-01",
     projectionHash: projection.projectionHash, appliedAt: at,
   }, { ...sourceSnapshot, projection }), /crash-GRAPH_APPLIED/u);
@@ -79,6 +81,7 @@ test("Undo is a compensation commit and refuses to delete a user-edited managed 
   if (prepared.graphEffect.type !== "UPSERT_MANAGED_PROJECTION") throw new Error("unexpected effect");
   const projection = prepared.graphEffect.projection;
   kernel.complete(prepared.commit.id, {
+    commitId: prepared.graphEffect.commitId, effectId: prepared.graphEffect.effectId,
     effectType: prepared.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01", projectionHash: projection.projectionHash, appliedAt: at,
   }, { ...sourceSnapshot, projection });
 
@@ -92,9 +95,66 @@ test("Undo is a compensation commit and refuses to delete a user-edited managed 
   assert.equal(undo.commit.compensationFor, prepared.commit.id);
   assert.equal(store.listWorkObjects().length, 0);
   const undone = kernel.complete(undo.commit.id, {
+    commitId: undo.graphEffect.commitId, effectId: undo.graphEffect.effectId,
     effectType: "REMOVE_MANAGED_PROJECTION", graphId: "graph-01", sourceBlockUuid: "source-01", projectionHash: null, appliedAt: at,
   }, sourceSnapshot);
   assert.equal(undone.status, "COMMITTED");
   assert.equal(store.getCommit(prepared.commit.id)?.compensatedBy, undo.commit.id);
+  store.close();
+});
+
+test("RENAME_WORK_OBJECT and its Undo are executable compensation commits with monotonic versions", () => {
+  const store = new SqliteStore(":memory:");
+  const kernel = new Kernel(store, { now: () => at });
+  const created = kernel.prepare(operation(), sourceSnapshot);
+  if (created.graphEffect.type !== "UPSERT_MANAGED_PROJECTION") throw new Error("unexpected effect");
+  const originalProjection = created.graphEffect.projection;
+  kernel.complete(created.commit.id, {
+    commitId: created.graphEffect.commitId, effectId: created.graphEffect.effectId,
+    effectType: created.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01",
+    projectionHash: originalProjection.projectionHash, appliedAt: at,
+  }, { ...sourceSnapshot, projection: originalProjection });
+
+  const object = store.listWorkObjects()[0]!;
+  const renamed = kernel.prepare(parseSemanticOperation({
+    operationId: "rename-01", type: "RENAME_WORK_OBJECT", actor: { type: "USER", id: "local-user" },
+    target: { workObjectId: object.id, expectedVersion: object.version, expectedProjectionHash: originalProjection.projectionHash },
+    input: { title: "确认核心交换机地址" },
+  }), { ...sourceSnapshot, projection: originalProjection });
+  if (renamed.graphEffect.type !== "UPDATE_MANAGED_FIELD") throw new Error("unexpected effect");
+  const renamedProjection = { ...originalProjection, title: "确认核心交换机地址", projectionHash: renamed.graphEffect.resultingProjectionHash };
+  kernel.complete(renamed.commit.id, {
+    commitId: renamed.graphEffect.commitId, effectId: renamed.graphEffect.effectId,
+    effectType: renamed.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01",
+    projectionHash: renamedProjection.projectionHash, appliedAt: at,
+  }, { ...sourceSnapshot, projection: renamedProjection });
+
+  const undo = kernel.prepareUndo({ operationId: "undo-rename-01", actor: { type: "USER", id: "local-user" }, commitId: renamed.commit.id }, { ...sourceSnapshot, projection: renamedProjection });
+  if (undo.graphEffect.type !== "UPDATE_MANAGED_FIELD") throw new Error("unexpected effect");
+  const restoredProjection = { ...renamedProjection, title: originalProjection.title, projectionHash: undo.graphEffect.resultingProjectionHash };
+  const compensated = kernel.complete(undo.commit.id, {
+    commitId: undo.graphEffect.commitId, effectId: undo.graphEffect.effectId,
+    effectType: undo.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01",
+    projectionHash: restoredProjection.projectionHash, appliedAt: at,
+  }, { ...sourceSnapshot, projection: restoredProjection });
+
+  assert.equal(compensated.status, "COMMITTED");
+  assert.equal(store.listWorkObjects()[0]?.title, originalProjection.title);
+  assert.equal(store.listWorkObjects()[0]?.version, 3);
+  assert.equal(store.getCommit(renamed.commit.id)?.compensatedBy, undo.commit.id);
+  store.close();
+});
+
+test("write authorization is bound to the configured local USER identity", () => {
+  const store = new SqliteStore(":memory:");
+  const kernel = new Kernel(store, { now: () => at, authorizedUserId: "owner-01" });
+  for (const actor of [{ type: "SYSTEM", id: "owner-01" }, { type: "USER", id: "someone-else" }] as const) {
+    const candidate = parseSemanticOperation({
+      operationId: `unauthorized-${actor.type}-${actor.id}`, type: "CREATE_WORK_OBJECT", actor,
+      input: { kind: "TASK", title: "不得写入", anchor: { graphId: "graph-01", blockUuid: "source-01", sourceContentHash: "a1b2c3d4" } },
+    });
+    assert.throws(() => kernel.prepare(candidate, sourceSnapshot), (error) => error instanceof KernelError && error.code === "ACTOR_NOT_AUTHORIZED");
+  }
+  assert.equal(store.listWorkObjects().length, 0);
   store.close();
 });

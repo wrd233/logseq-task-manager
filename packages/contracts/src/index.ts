@@ -1,4 +1,5 @@
 import type { WorkObject, WorkObjectKind } from "@task-copilot/domain";
+export type { WorkObject } from "@task-copilot/domain";
 
 export type ActorType = "USER" | "SYSTEM" | "AGENT";
 export interface Actor { type: ActorType; id: string }
@@ -70,12 +71,21 @@ export interface GraphSnapshot {
   projection: ManagedProjection | null;
 }
 
+interface GraphEffectIdentity {
+  commitId: string;
+  effectId: string;
+  graphId: string;
+  sourceBlockUuid: string;
+}
+
 export type GraphEffect =
-  | { type: "UPSERT_MANAGED_PROJECTION"; graphId: string; sourceBlockUuid: string; projection: ManagedProjection }
-  | { type: "UPDATE_MANAGED_FIELD"; graphId: string; sourceBlockUuid: string; fieldUuid: string; content: string; projectionHash: string }
-  | { type: "REMOVE_MANAGED_PROJECTION"; graphId: string; sourceBlockUuid: string; containerUuid: string; expectedProjectionHash: string };
+  | (GraphEffectIdentity & { type: "UPSERT_MANAGED_PROJECTION"; projection: ManagedProjection })
+  | (GraphEffectIdentity & { type: "UPDATE_MANAGED_FIELD"; fieldUuid: string; content: string; expectedProjectionHash: string; resultingProjectionHash: string })
+  | (GraphEffectIdentity & { type: "REMOVE_MANAGED_PROJECTION"; containerUuid: string; expectedProjectionHash: string });
 
 export interface GraphApplyResult {
+  commitId: string;
+  effectId: string;
   effectType: GraphEffect["type"];
   graphId: string;
   sourceBlockUuid: string;
@@ -86,6 +96,26 @@ export interface GraphApplyResult {
 export interface GraphAdapter {
   readGraphSnapshot(input: { graphId: string; sourceBlockUuid: string }): Promise<GraphSnapshot>;
   applyGraphEffect(effect: GraphEffect): Promise<GraphApplyResult>;
+}
+
+export interface StoredCommit {
+  id: string;
+  status: CommitStatus;
+  actor: Actor;
+  operationType: OperationType;
+  targetId: string | null;
+  operation: unknown;
+  preconditions: unknown;
+  before: unknown;
+  after: unknown;
+  inverse: unknown;
+  graphEffect: unknown;
+  graphResult: unknown;
+  failureReason: string | null;
+  compensationFor: string | null;
+  compensatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export class ContractError extends Error {

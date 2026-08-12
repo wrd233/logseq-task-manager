@@ -77,6 +77,8 @@ export class LogseqGraphAdapter implements GraphAdapter {
       await this.#ensureBlock(projection.containerUuid, projection.titleUuid, `标题：${projection.title}`, { sibling: false, before: true });
       await this.#ensureBlock(projection.titleUuid, projection.stateUuid, `状态：${projection.lifecycle} · ${projection.engagement ?? "null"}`, { sibling: true });
     } else if (effect.type === "UPDATE_MANAGED_FIELD") {
+      const before = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+      if (!before.projection || before.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_UPDATE_PRECONDITION_FAILED");
       const existing = await this.#required(effect.fieldUuid, false);
       if (!existing.content.startsWith("标题：")) throw new Error("GRAPH_MANAGED_FIELD_CHANGED");
       await this.#host.updateBlock(effect.fieldUuid, effect.content);
@@ -86,9 +88,9 @@ export class LogseqGraphAdapter implements GraphAdapter {
       await this.#host.removeBlock(effect.containerUuid);
     }
     const actual = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
-    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" ? effect.projectionHash : null;
+    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" ? effect.resultingProjectionHash : null;
     if ((actual.projection?.projectionHash ?? null) !== expectedHash) throw new Error("GRAPH_EFFECT_VERIFY_FAILED");
-    return { effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: expectedHash, appliedAt: this.#now() };
+    return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: expectedHash, appliedAt: this.#now() };
   }
 }
 

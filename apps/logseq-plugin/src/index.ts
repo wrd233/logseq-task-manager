@@ -1,5 +1,3 @@
-import "@logseq/libs";
-
 import { KernelClient, parseKernelDescriptor } from "@task-copilot/client/browser";
 import { parseSemanticOperation, type GraphEffect } from "@task-copilot/contracts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
@@ -32,7 +30,7 @@ async function formalizeCurrentRecord(): Promise<void> {
   if (!current) throw new Error("请先把光标放在一条自然记录上。");
   const api = await client(); const { adapter, graphId } = await adapterForCurrentGraph();
   const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: current.uuid });
-  const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "logseq-user" }, input: { kind: "TASK", title: current.content.split("\n")[0], anchor: { graphId, blockUuid: current.uuid, sourceContentHash: snapshot.sourceContentHash } } });
+  const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: current.content.split("\n")[0], anchor: { graphId, blockUuid: current.uuid, sourceContentHash: snapshot.sourceContentHash } } });
   const pending = await api.prepare(operation, snapshot);
   const result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect);
   const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: current.uuid }));
@@ -48,7 +46,7 @@ async function undoRecent(): Promise<void> {
   const anchor = (await api.showObject(original.targetId)).anchor as { graphId: string; externalId: string };
   const { adapter } = await adapterForCurrentGraph();
   const snapshot = await adapter.readGraphSnapshot({ graphId: anchor.graphId, sourceBlockUuid: anchor.externalId });
-  const pending = await api.prepareUndo(commitId, { operationId: `undo-${crypto.randomUUID()}`, actor: { type: "USER", id: "logseq-user" }, snapshot });
+  const pending = await api.prepareUndo(commitId, { operationId: `undo-${crypto.randomUUID()}`, actor: { type: "USER", id: "local-user" }, snapshot });
   const result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect);
   const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId: anchor.graphId, sourceBlockUuid: anchor.externalId }));
   await logseq.UI.showMsg(`已安全撤销；补偿 Commit ${committed.commit.id}`, "success");

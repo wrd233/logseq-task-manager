@@ -4,6 +4,7 @@
 | --- | --- | --- | --- |
 | Graph apply failure | Fake Adapter throws after Kernel apply | No completion response; commit remains `KERNEL_APPLIED`; restart returns `RESUME_GRAPH_APPLY` | `packages/test-support/tests/golden-path.test.ts` |
 | Expected source hash mismatch | Fresh snapshot differs from operation precondition | No WorkObject write; structured row becomes `RECOVERY_REQUIRED` | `packages/kernel/tests/kernel.test.ts` |
+| Rename apply race | Managed state changes after prepare but before Adapter apply | Adapter rechecks the complete projection hash and refuses the field update | Real Graph Adapter contract test |
 | Undo after user edit | Projection hash changed after original commit | Compensation becomes `ABORTED`; WorkObject and Graph are preserved | Kernel test plus real-adapter expanded-container test |
 | Crash after `PREPARED` | Stage hook throws | Restart returns `ABORT_PREPARED` | Kernel test |
 | Crash after `KERNEL_APPLIED` | Stage hook throws | Restart returns `RESUME_GRAPH_APPLY` | Kernel test |

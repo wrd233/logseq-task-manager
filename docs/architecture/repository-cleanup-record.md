@@ -1,7 +1,7 @@
 # Repository Cleanup Record
 
-Date: 2026-08-12  
-Baseline archive: annotated tag `v1-final` at `8c01eef5fc6c31d345c44bb3a1411c200109411e`  
+Date: 2026-08-12
+Baseline archive: annotated tag `v1-final` at `8c01eef5fc6c31d345c44bb3a1411c200109411e`
 Working branch: `vnext`
 
 ## Removed from the vNext current tree
@@ -16,6 +16,7 @@ Working branch: `vnext`
 - Agent governance, Health/attention, old Now/Focus, Provider, and special direct-write paths.
 - Old product UI, release evidence, migration documentation, runtime reports, skills, and Capability Lab evidence from the current tree.
 - Old root build, check, release, and repository narratives that described V1/V2 as current architecture.
+- Three stale post-cleanup root documents that still referred to deleted Capability Lab and V1 workflow paths; current architecture now lives only in this focused architecture set and `docs/vnext/`.
 
 ## Preserved outside the current tree
 

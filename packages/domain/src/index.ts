@@ -99,3 +99,35 @@ export function renameWorkObject(
     updatedAt: timestamp(input.at),
   };
 }
+
+export function createPrimaryOwnership(input: {
+  childId: string;
+  ownerId: string;
+  at: string;
+  objects: readonly WorkObject[];
+  existing: readonly PrimaryOwnership[];
+}): PrimaryOwnership {
+  const childId = required(input.childId, "OWNERSHIP_CHILD_ID_REQUIRED", "Ownership child id", 128);
+  const ownerId = required(input.ownerId, "OWNERSHIP_OWNER_ID_REQUIRED", "Ownership owner id", 128);
+  const objects = new Map(input.objects.map((object) => [object.id, object]));
+  const child = objects.get(childId);
+  const owner = objects.get(ownerId);
+  if (!child || !owner) throw new DomainError("OWNERSHIP_OBJECT_NOT_FOUND", "Ownership endpoints must be existing WorkObjects.");
+  if (childId === ownerId) throw new DomainError("OWNERSHIP_SELF_REFERENCE", "A WorkObject cannot own itself.");
+  if (input.existing.some((ownership) => ownership.childId === childId)) throw new DomainError("OWNERSHIP_ALREADY_ASSIGNED", "A WorkObject may have at most one Primary Owner.");
+  const kindAllowed = (owner.kind === "PROJECT" && child.kind !== "PROJECT") || (owner.kind === "MINI_PROJECT" && child.kind === "TASK");
+  if (!kindAllowed) throw new DomainError("OWNERSHIP_KIND_INVALID", "Only Project to MiniProject or Task, and MiniProject to Task ownership is allowed.");
+
+  const ownerByChild = new Map(input.existing.map((ownership) => [ownership.childId, ownership.ownerId]));
+  ownerByChild.set(childId, ownerId);
+  const seen = new Set<string>([childId]);
+  let cursor: string | undefined = childId;
+  let depth = 0;
+  while ((cursor = ownerByChild.get(cursor)) !== undefined) {
+    if (seen.has(cursor)) throw new DomainError("OWNERSHIP_CYCLE", "Primary Ownership must be acyclic.");
+    seen.add(cursor);
+    depth += 1;
+    if (depth > 2) throw new DomainError("OWNERSHIP_DEPTH_EXCEEDED", "Primary Ownership may be at most Project to MiniProject to Task deep.");
+  }
+  return { childId, ownerId, createdAt: timestamp(input.at) };
+}

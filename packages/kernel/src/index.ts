@@ -18,6 +18,7 @@ export class KernelError extends Error {
 export interface KernelOptions {
   now?: () => string;
   afterStage?: (stage: DurableStage, commitId: string) => void;
+  authorizedUserId?: string;
 }
 
 function deterministicUuid(seed: string): string {
@@ -38,13 +39,18 @@ export class Kernel {
   readonly #store: SqliteStore;
   readonly #now: () => string;
   readonly #afterStage: (stage: DurableStage, commitId: string) => void;
+  readonly #authorizedUserId: string;
 
   constructor(store: SqliteStore, options: KernelOptions = {}) {
-    this.#store = store; this.#now = options.now ?? (() => new Date().toISOString()); this.#afterStage = options.afterStage ?? (() => undefined);
+    this.#store = store; this.#now = options.now ?? (() => new Date().toISOString()); this.#afterStage = options.afterStage ?? (() => undefined); this.#authorizedUserId = options.authorizedUserId ?? "local-user";
+  }
+
+  #authorize(actor: Actor): void {
+    if (actor.type !== "USER" || actor.id !== this.#authorizedUserId) throw new KernelError("ACTOR_NOT_AUTHORIZED", "This slice permits only the configured local user; Agent and System writes require future governance policy.");
   }
 
   prepare(operation: SemanticOperation, snapshot: GraphSnapshot): { commit: StoredCommit; graphEffect: GraphEffect } {
-    if (operation.actor.type === "AGENT") throw new KernelError("ACTOR_NOT_AUTHORIZED", "Agent writes require a future governance policy.");
+    this.#authorize(operation.actor);
     if (operation.type === "UNDO_COMMIT") throw new KernelError("UNDO_ENTRYPOINT_REQUIRED", "Use prepareUndo for compensation commits.");
     const now = this.#now();
     const commitId = deterministicUuid(`commit:${operation.operationId}`);
@@ -62,14 +68,24 @@ export class Kernel {
         projectionContainerUuid: deterministicUuid(`projection:${operation.operationId}`), projectionTitleUuid: deterministicUuid(`title:${operation.operationId}`),
         projectionStateUuid: deterministicUuid(`state:${operation.operationId}`), createdAt: now, updatedAt: now,
       };
-      graphEffect = { type: "UPSERT_MANAGED_PROJECTION", graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, projection: projectionFor(object, anchor) };
+      graphEffect = {
+        type: "UPSERT_MANAGED_PROJECTION", commitId, effectId: deterministicUuid(`effect:${commitId}:0`),
+        graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, projection: projectionFor(object, anchor),
+      };
     } else {
       before = this.#store.getWorkObject(operation.target.workObjectId);
       if (!before) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Rename target does not exist.");
-      anchor = this.#store.getAnchorForWorkObject(before.id)!;
+      const storedAnchor = this.#store.getAnchorForWorkObject(before.id);
+      if (!storedAnchor) throw new KernelError("WORK_OBJECT_ANCHOR_MISSING", "Rename target has no primary Graph anchor.");
+      anchor = storedAnchor;
       object = renameWorkObject(before, { title: operation.input.title, expectedVersion: operation.target.expectedVersion, at: now });
       const projection = projectionFor(object, anchor);
-      graphEffect = { type: "UPDATE_MANAGED_FIELD", graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, fieldUuid: anchor.projectionTitleUuid, content: `标题：${object.title}`, projectionHash: projection.projectionHash };
+      graphEffect = {
+        type: "UPDATE_MANAGED_FIELD", commitId, effectId: deterministicUuid(`effect:${commitId}:0`),
+        graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, fieldUuid: anchor.projectionTitleUuid,
+        content: `标题：${object.title}`, expectedProjectionHash: operation.target.expectedProjectionHash,
+        resultingProjectionHash: projection.projectionHash,
+      };
     }
 
     const commit: StoredCommit = {
@@ -99,21 +115,42 @@ export class Kernel {
   }
 
   prepareUndo(input: { operationId: string; actor: Actor; commitId: string }, snapshot: GraphSnapshot): { commit: StoredCommit; graphEffect: GraphEffect } {
+    this.#authorize(input.actor);
     const original = this.#store.getCommit(input.commitId);
     if (!original || original.status !== "COMMITTED" || original.compensatedBy) throw new KernelError("UNDO_TARGET_INVALID", "Commit is not currently undoable.");
-    if (original.operationType !== "CREATE_WORK_OBJECT") throw new KernelError("UNDO_OPERATION_DEFERRED", "This slice supports undo of CREATE_WORK_OBJECT only.");
+    if (original.operationType !== "CREATE_WORK_OBJECT" && original.operationType !== "RENAME_WORK_OBJECT") throw new KernelError("UNDO_OPERATION_UNSUPPORTED", "Only create and rename commits are undoable.");
     const object = this.#store.getWorkObject(original.targetId!);
     const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
     if (!object || !anchor) throw new KernelError("UNDO_TARGET_MISSING", "Current state for the commit is missing.");
+    const originalAfter = original.after as WorkObject | null;
+    if (!originalAfter || object.id !== originalAfter.id || object.version !== originalAfter.version || object.title !== originalAfter.title) {
+      throw new KernelError("UNDO_TARGET_CHANGED", "The commit is no longer the latest semantic change for this WorkObject.");
+    }
     const expectedProjection = projectionFor(object, anchor);
     const now = this.#now();
     const commitId = deterministicUuid(`commit:${input.operationId}`);
-    const effect: GraphEffect = { type: "REMOVE_MANAGED_PROJECTION", graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, expectedProjectionHash: expectedProjection.projectionHash };
+    const effectId = deterministicUuid(`effect:${commitId}:0`);
+    const previous = original.before as WorkObject | null;
+    const restored = original.operationType === "RENAME_WORK_OBJECT" && previous
+      ? renameWorkObject(object, { title: previous.title, expectedVersion: object.version, at: now })
+      : null;
+    const effect: GraphEffect = restored
+      ? {
+        type: "UPDATE_MANAGED_FIELD", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId,
+        fieldUuid: anchor.projectionTitleUuid, content: `标题：${restored.title}`,
+        expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projectionFor(restored, anchor).projectionHash,
+      }
+      : {
+        type: "REMOVE_MANAGED_PROJECTION", commitId, effectId, graphId: anchor.graphId,
+        sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid,
+        expectedProjectionHash: expectedProjection.projectionHash,
+      };
     const compensation: StoredCommit = {
       id: commitId, status: "PREPARED", actor: input.actor, operationType: "UNDO_COMMIT", targetId: object.id,
       operation: { operationId: input.operationId, type: "UNDO_COMMIT", actor: input.actor, target: { commitId: input.commitId, expectedProjectionHash: expectedProjection.projectionHash }, input: {} },
-      preconditions: [{ kind: "MANAGED_PROJECTION_HASH", expected: expectedProjection.projectionHash }], before: object, after: null,
-      inverse: { type: "CREATE_WORK_OBJECT", object, anchor }, graphEffect: effect, graphResult: null, failureReason: null,
+      preconditions: [{ kind: "MANAGED_PROJECTION_HASH", expected: expectedProjection.projectionHash }], before: object, after: restored,
+      inverse: restored ? { type: "RENAME_WORK_OBJECT", title: object.title, version: restored.version } : { type: "CREATE_WORK_OBJECT", object, anchor },
+      graphEffect: effect, graphResult: null, failureReason: null,
       compensationFor: original.id, compensatedBy: null, createdAt: now, updatedAt: now,
     };
     this.#store.insertCommit(compensation);
@@ -123,7 +160,7 @@ export class Kernel {
       throw new KernelError("UNDO_GRAPH_CHANGED", "Managed projection changed after the original commit; no content was removed.", commitId);
     }
     this.#store.transaction(() => {
-      this.#store.deleteWorkObject(object.id);
+      if (restored) this.#store.putWorkObject(restored); else this.#store.deleteWorkObject(object.id);
       this.#store.transitionCommit(commitId, "KERNEL_APPLIED", { updatedAt: now });
     });
     this.#afterStage("KERNEL_APPLIED", commitId);
@@ -136,8 +173,11 @@ export class Kernel {
     const effect = commit.graphEffect as GraphEffect;
     this.#store.transitionCommit(commitId, "GRAPH_APPLIED", { updatedAt: result.appliedAt, graphResult: result });
     this.#afterStage("GRAPH_APPLIED", commitId);
-    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" ? effect.projectionHash : null;
-    const valid = actual.graphId === effect.graphId && actual.sourceBlockUuid === effect.sourceBlockUuid && (actual.projection?.projectionHash ?? null) === expectedHash && result.projectionHash === expectedHash;
+    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" ? effect.resultingProjectionHash : null;
+    const valid = result.commitId === effect.commitId && result.effectId === effect.effectId && result.effectType === effect.type &&
+      result.graphId === effect.graphId && result.sourceBlockUuid === effect.sourceBlockUuid &&
+      actual.graphId === effect.graphId && actual.sourceBlockUuid === effect.sourceBlockUuid &&
+      (actual.projection?.projectionHash ?? null) === expectedHash && result.projectionHash === expectedHash;
     if (!valid) {
       this.#store.transitionCommit(commitId, "RECOVERY_REQUIRED", { updatedAt: this.#now(), failureReason: "GRAPH_VERIFY_MISMATCH" });
       throw new KernelError("GRAPH_VERIFY_MISMATCH", "Graph result does not match the deterministic effect.", commitId);
@@ -156,8 +196,11 @@ export class Kernel {
     if (!commit || commit.status !== "GRAPH_APPLIED") throw new KernelError("COMMIT_STAGE_INVALID", "Only GRAPH_APPLIED commits can be recovered by verification.", commitId);
     const effect = commit.graphEffect as GraphEffect;
     const result = commit.graphResult as GraphApplyResult | null;
-    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" ? effect.projectionHash : null;
-    if (!result || actual.graphId !== effect.graphId || actual.sourceBlockUuid !== effect.sourceBlockUuid || (actual.projection?.projectionHash ?? null) !== expectedHash || result.projectionHash !== expectedHash) {
+    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" ? effect.resultingProjectionHash : null;
+    if (!result || result.commitId !== effect.commitId || result.effectId !== effect.effectId || result.effectType !== effect.type ||
+      result.graphId !== effect.graphId || result.sourceBlockUuid !== effect.sourceBlockUuid ||
+      actual.graphId !== effect.graphId || actual.sourceBlockUuid !== effect.sourceBlockUuid ||
+      (actual.projection?.projectionHash ?? null) !== expectedHash || result.projectionHash !== expectedHash) {
       this.#store.transitionCommit(commitId, "RECOVERY_REQUIRED", { updatedAt: this.#now(), failureReason: "RECOVERY_GRAPH_VERIFY_MISMATCH" });
       throw new KernelError("RECOVERY_GRAPH_VERIFY_MISMATCH", "Recovered Graph state does not match the durable Graph result.", commitId);
     }

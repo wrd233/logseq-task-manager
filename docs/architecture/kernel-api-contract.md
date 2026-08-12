@@ -1,6 +1,6 @@
 # Kernel API Contract
 
-The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-`0600` descriptor containing schema version, loopback base URL, random 256-bit bearer token, PID, and start time. Network authentication is separate from the actor carried by a semantic operation.
+The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-`0600` descriptor containing schema version, loopback base URL, random 256-bit bearer token, PID, and start time. Network authentication is separate from domain authorization: this first slice accepts only the configured `USER/local-user`; a token holder cannot claim `SYSTEM`, `AGENT`, or another user ID.
 
 ## Read API
 
@@ -24,4 +24,6 @@ The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-
 
 There is no generic update, JSON Patch, SQL, table, database-path, or raw Graph-write API. `CREATE_WORK_OBJECT`, `RENAME_WORK_OBJECT`, and the dedicated compensation entry point are the only registered first-slice write contracts. Caller-supplied preconditions are accepted only when they exactly equal the derived semantic preconditions.
 
-The prepare response is explicitly pending Graph work. `KERNEL_APPLIED` is never returned as business success.
+Every Graph effect and apply result carries the originating `commitId` and deterministic `effectId`. Update effects carry both the expected current projection hash and resulting projection hash, so a Graph edit between prepare and apply fails closed.
+
+The prepare response is explicitly pending Graph work. `KERNEL_APPLIED` is never returned as business success. Create and Rename both support Undo through a new compensation Commit; Rename compensation restores the prior title with a new, monotonic WorkObject version rather than rewinding history.

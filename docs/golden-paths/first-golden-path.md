@@ -20,7 +20,7 @@ natural record
 
 Material scope was the isolated Graph under ignored `e2e-runtime/`; the user's existing Graph and original V1 working tree were not modified.
 
-1. Logseq loaded the local `Task Copilot vNext 0.2.0` plugin and showed `Task Copilot vNext 已就绪。`.
+1. Logseq loaded the local `Task Copilot vNext 0.2.0` plugin and showed `Task Copilot vNext 已就绪。`. After moving `@logseq/libs` to development-only types, a fresh Desktop reload again registered all four vNext commands through the host SDK.
 2. The descriptor was configured through native Plugin Settings, validated, and copied to Plugin-private FileStorage. The token was not written to Graph or logs.
 3. Natural block `检查核心交换机配置备份` was selected and the explicit command `正式化当前记录` was invoked.
 4. Logseq displayed an owned child container, stable title block, and stable state block while leaving the source text unchanged.

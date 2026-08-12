@@ -1,27 +1,8 @@
 import Database from "better-sqlite3";
 
-import type { Actor, CommitStatus, OperationType } from "@task-copilot/contracts";
+import type { Actor, CommitStatus, OperationType, StoredCommit } from "@task-copilot/contracts";
+export type { StoredCommit } from "@task-copilot/contracts";
 import type { PrimaryAnchor, WorkObject } from "@task-copilot/domain";
-
-export interface StoredCommit {
-  id: string;
-  status: CommitStatus;
-  actor: Actor;
-  operationType: OperationType;
-  targetId: string | null;
-  operation: unknown;
-  preconditions: unknown;
-  before: unknown;
-  after: unknown;
-  inverse: unknown;
-  graphEffect: unknown;
-  graphResult: unknown;
-  failureReason: string | null;
-  compensationFor: string | null;
-  compensatedBy: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 const schema = `
   PRAGMA foreign_keys = ON;

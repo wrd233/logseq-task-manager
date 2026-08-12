@@ -8,5 +8,5 @@
     "./browser": "./src/browser.ts"
   },
   "scripts": { "typecheck": "tsc --noEmit", "test": "tsx --test tests/*.test.ts" },
-  "dependencies": { "@task-copilot/contracts": "0.2.0", "@task-copilot/domain": "0.2.0", "@task-copilot/sqlite": "0.2.0" }
+  "dependencies": { "@task-copilot/contracts": "0.2.0" }
 }

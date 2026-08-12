@@ -1,6 +1,4 @@
-import type { Actor, GraphApplyResult, GraphSnapshot, SemanticOperation } from "@task-copilot/contracts";
-import type { WorkObject } from "@task-copilot/domain";
-import type { StoredCommit } from "@task-copilot/sqlite";
+import type { Actor, GraphApplyResult, GraphSnapshot, SemanticOperation, StoredCommit, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; pid: number; startedAt: string }
 export interface PendingGraphCommit { commit: StoredCommit; graphEffect: unknown }
