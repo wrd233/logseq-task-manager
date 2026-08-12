@@ -42,8 +42,8 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 21 tests, builds, dependency boundaries; production audit has zero findings | PROVED |
 | Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 run formalized a real natural block, audited it in CLI, performed compensation Undo, and ended with empty recovery; rebuilt plugin reload registered all four commands | PROVED |
 | Independent standards and spec review | Both focused re-reviews returned PASS after fixes | PROVED |
-| Publish `v1-final` and `vnext` to origin | Remote has neither ref. Existing pre-push guard authorizes only `feature/task-copilot-mvp`; changing that protected workflow requires explicit approval. A separate push attempt also hit a transient GitHub TLS error. | PENDING |
+| Publish `v1-final` and `vnext` to origin | After explicit approval, the narrow pre-push allowlist was extended without removing its remote, deletion, WIP, forbidden-path, or credential checks. Remote `vnext` matched local `24c5c54`; annotated tag object `4a76fc2` and peeled baseline `8c01eef` matched local values before this audit-close commit. | PROVED |
 
 ## Current conclusion
 
-The vNext engineering and local Git acceptance state is proved. The full Goal remains incomplete solely because the requested remote refs are not published. No implementation, test, documentation, or real-Logseq gate is being represented as a substitute for that missing external state.
+Every requested engineering, documentation, runtime, review, local Git, and remote publication requirement is proved. This conclusion relies on exact remote OID comparison in addition to local checks; no narrower gate is being represented as completion of the full Goal.
