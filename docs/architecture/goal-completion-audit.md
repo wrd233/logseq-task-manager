@@ -42,7 +42,7 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 65/65 tests, all builds including local SDK packaging, and dependency boundaries; production audit has zero findings | PROVED |
 | Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 + deterministic Fake Agent produced Evidence, AgentRun, Proposal, Commit, managed focus, compensation Undo, Feedback, and empty recovery; CLI audited every durable record | PROVED |
 | Independent standards and spec review | Initial findings were fixed; final independent standards and strict Goal-spec re-reviews both returned PASS with no blocking finding | PROVED |
-| Publish `vnext` to origin | Publication is verified separately at release handoff by exact local/remote `vnext` OID parity | PENDING |
+| Publish `vnext` to origin | Phase 4 implementation and final trust-gap closure reached `origin/vnext` at `229ace4d3ce272cd10b30673c67bf4120f7085be`; the audit-closure commit is verified by the release handoff's final exact local/remote OID check | PROVED |
 | Phase 3 current-focus domain and Graph field | Nullable/trimmed/max-200 `currentFocus`, monotonic versions, stable focus UUID, field add/update/remove, and source preservation tests | PROVED |
 | Strong frozen Evidence | Durable `LOGSEQ_BLOCK` record with canonical frozen content, locator, proof-bound trusted Graph read, Kernel-computed SHA-256, and canonical apply recheck; forged/stale tests prove zero mutation | PROVED |
 | Versioned Skill and deterministic Fake Agent | `skills/current-focus-maintenance/0.1.0`; exact release-approved content hash plus registered hash; positive/no-op/ambiguous/scope/waiting eval behavior | PROVED |
@@ -58,4 +58,4 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 
 ## Current conclusion
 
-Phase 3 remains intact and the complete Phase 4 Engagement vertical slice is implemented and verified. Both final independent re-reviews passed; exact remote publication parity is the remaining release check before this audit is closed.
+Phase 3 remains intact and the complete Phase 4 Engagement vertical slice is implemented, independently re-reviewed, verified, and published. The release handoff performs the final exact local/remote OID check after publishing this audit record.
