@@ -8,6 +8,7 @@ The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-
 | --- | --- | --- |
 | GET | `/v1/status` | Kernel/schema/PID status |
 | GET | `/v1/objects` | Formal WorkObjects |
+| GET | `/v1/objects/actionable` | `OPEN + ACTIONABLE` WorkObjects only |
 | GET | `/v1/objects/:id` | WorkObject and separate PrimaryAnchor |
 | GET | `/v1/commits/:id` | Structured Ledger entry |
 | GET | `/v1/recovery` | Non-terminal commits and deterministic recovery action |
@@ -27,13 +28,14 @@ The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-
 | POST | `/v1/recovery/:id/verify` | Finish a recovered `GRAPH_APPLIED` commit from fresh Graph state |
 | POST | `/v1/evidence/freeze` | Verify a proof-bound fresh canonical block read from the Graph Adapter, freeze it, and compute SHA-256 in the Kernel |
 | POST | `/v1/agent-runs/current-focus` | Run the configured Fake Agent against one target and frozen Evidence |
-| POST | `/v1/proposals/:id/apply` | Revalidate and auto-prepare one LOW `SET_CURRENT_FOCUS` Proposal |
+| POST | `/v1/agent-runs/engagement` | Run the configured Engagement Fake Agent against one target and frozen Evidence |
+| POST | `/v1/proposals/:id/apply` | Dispatch by closed revision type and revalidate one LOW `SET_CURRENT_FOCUS` or `CHANGE_ENGAGEMENT` Proposal |
 | POST | `/v1/proposals/:id/revisions` | User replaces an open suggestion with a new immutable revision and `MODIFIED` feedback |
 | POST | `/v1/proposals/:id/dismiss` | User dismisses an open Proposal and records `REJECTED` feedback |
 | POST | `/v1/commits/:id/graph-failed` | Persist a reported Adapter failure; transient errors remain resumable, conflicts become `RECOVERY_REQUIRED` |
 
-There is no generic update, JSON Patch, SQL, table, database-path, or raw Graph-write API. `CREATE_WORK_OBJECT`, `RENAME_WORK_OBJECT`, `SET_CURRENT_FOCUS`, and the dedicated compensation entry point are the only registered write contracts. `SET_CURRENT_FOCUS` is accepted for an Agent only through the Proposal endpoint. Caller-supplied preconditions are accepted only when they exactly equal the derived semantic preconditions.
+There is no generic update, JSON Patch, SQL, table, database-path, or raw Graph-write API. `CREATE_WORK_OBJECT`, `RENAME_WORK_OBJECT`, `SET_CURRENT_FOCUS`, `CHANGE_ENGAGEMENT`, and the dedicated compensation entry point are the only registered write contracts. The two Agent operations are accepted only through the Proposal endpoint. Caller-supplied preconditions are accepted only when they exactly equal the derived semantic preconditions.
 
 Every Graph effect and apply result carries the originating `commitId` and deterministic `effectId`. Update effects carry both the expected current projection hash and resulting projection hash, so a Graph edit between prepare and apply fails closed.
 
-The prepare response is explicitly pending Graph work. `KERNEL_APPLIED` is never returned as business success. Create, Rename, and Current Focus support Undo through a new compensation Commit; field compensation restores the prior value with a new, monotonic WorkObject version rather than rewinding history.
+The prepare response is explicitly pending Graph work. `KERNEL_APPLIED` is never returned as business success. Create, Rename, Current Focus, and Engagement support Undo through a new compensation Commit; Engagement compensation restores the exact prior WaitingCondition with a new, monotonic WorkObject version rather than rewinding history.

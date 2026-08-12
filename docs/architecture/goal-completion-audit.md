@@ -20,8 +20,8 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Enforce dependency boundaries | `target-package-map.md`; `npm run check:boundaries`; independent standards re-review PASS | PROVED |
 | Minimal unified WorkObject model | `packages/domain`; Domain tests cover kind, lifecycle, engagement, ID/Anchor separation, and versioned rename | PROVED |
 | PrimaryAnchor, EvidenceReference, PrimaryOwnership | Domain contracts plus SQLite tables; Ownership tests cover endpoint existence, one owner, permitted shallow kinds, cycles, and depth | PROVED |
-| Strongly typed CREATE, RENAME, and SET_CURRENT_FOCUS only | Closed parser in `packages/contracts`; unknown fields/generic writes fail; contract tests | PROVED |
-| New SQLite Current State without V1 migration | Schema v2 adds only Phase 3 governance records and deterministically backfills Phase 2 anchor focus UUIDs; store migration test | PROVED |
+| Strongly typed CREATE, RENAME, SET_CURRENT_FOCUS, and CHANGE_ENGAGEMENT only | Closed parser in `packages/contracts`; unknown fields/generic writes/PARKED Agent output fail; contract tests | PROVED |
+| New SQLite Current State without V1 migration | Schema v3 adds current WaitingCondition and deterministically backfills vNext focus/Waiting projection UUIDs; store migration test | PROVED |
 | Structured append-only Commit Ledger | Commit schema and typed `StoredCommit`; stage/inverse/effect/result/failure/compensation tests | PROVED |
 | All required Commit states | Kernel and SQLite cover `PREPARED`, `KERNEL_APPLIED`, `GRAPH_APPLIED`, `COMMITTED`, `RECOVERY_REQUIRED`, and `ABORTED` | PROVED |
 | Loopback-only authenticated Local Kernel Service | Ephemeral `127.0.0.1`, random token, atomic mode-`0600` descriptor; service test | PROVED |
@@ -39,18 +39,23 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Undo is a compensation Commit | Create and Rename compensation retain original Ledger rows and link `compensationFor`/`compensatedBy` | PROVED |
 | Keep Agent scope narrow | One deterministic Agent/Skill slice exists; no MCP, generic repository hierarchy, workflow DSL, provider platform, or arbitrary mutation API | PROVED |
 | Required architecture/ADR/golden-path documentation | All seven requested documents plus six narrow ADRs exist and match implemented behavior | PROVED |
-| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 43/43 tests, all builds including local SDK packaging, and dependency boundaries; production audit has zero findings | PROVED |
+| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 58/58 tests, all builds including local SDK packaging, and dependency boundaries; production audit has zero findings | PROVED |
 | Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 + deterministic Fake Agent produced Evidence, AgentRun, Proposal, Commit, managed focus, compensation Undo, Feedback, and empty recovery; CLI audited every durable record | PROVED |
 | Independent standards and spec review | Initial findings were fixed; final independent standards and strict Goal-spec re-reviews both returned PASS with no blocking finding | PROVED |
 | Publish `vnext` to origin | Phase 3 implementation `aa0a65a` and evidence documentation `5627c1d` reached `origin/vnext`; this closure is documentation-only and final exact remote OID parity is the last publication check | PROVED |
 | Phase 3 current-focus domain and Graph field | Nullable/trimmed/max-200 `currentFocus`, monotonic versions, stable focus UUID, field add/update/remove, and source preservation tests | PROVED |
 | Strong frozen Evidence | Durable `LOGSEQ_BLOCK` record with canonical frozen content, locator, proof-bound trusted Graph read, Kernel-computed SHA-256, and canonical apply recheck; forged/stale tests prove zero mutation | PROVED |
 | Versioned Skill and deterministic Fake Agent | `skills/current-focus-maintenance/0.1.0`; exact release-approved content hash plus registered hash; positive/no-op/ambiguous/scope/waiting eval behavior | PROVED |
-| Proposal, AgentRun, Feedback governance records | SQLite schema v2 and HTTP/CLI read APIs; full minimal receipt; Proposal revision carries contract/target/projection/Evidence/Skill/run/risk links; revision+Feedback is atomic | PROVED |
+| Proposal, AgentRun, Feedback governance records | SQLite schema v3 and HTTP/CLI read APIs; full minimal receipt; Proposal revisions carry contract/target/projection/Evidence/Skill/run/risk links; revision+Feedback is atomic | PROVED |
 | Narrow Agent authorization | Generic `AGENT` preparation rejects; governed path requires configured Agent, exact operation, `LOW`, fresh Proposal/Evidence/target/projection/Skill, and no recovery | PROVED |
 | Agent auto-apply and compensation | Integration proves Proposal to Commit, Graph verify, `ACCEPTED`, Undo restoration, and `UNDONE_AFTER_APPLY` | PROVED |
 | Phase 3 failure gates | Stale target/Evidence invalidation, resumable Graph throw, post-prepare race to `RECOVERY_REQUIRED`, and old Undo after later edit | PROVED |
+| Phase 4 Engagement domain | `WaitingCondition`, `ACTIONABLE ↔ WAITING`, current-only schema, monotonic versioning, exact restoration, and actionable SQL query | PROVED |
+| Phase 4 Skill and Agent boundary | Versioned `engagement-reconciliation/0.1.0`, exact approved hash, deterministic fixtures, bounded `NO_PROPOSAL`, and durable FAILED malformed-output receipts | PROVED |
+| Phase 4 governed mutation | Frozen Evidence, Evidence watermark, typed Proposal revision, operation-specific authorization, atomic state/Graph effect, and Feedback | PROVED |
+| Phase 4 real Desktop path | Isolated Logseq Desktop visibly entered WAITING, left WAITING, restored the exact condition with `Cmd+Shift+U`, and returned to ACTIONABLE; durable audit found zero Recovery rows | PROVED |
+| Phase 4 failure gates | Target/projection/Evidence/watermark staleness, Graph throw/resume, Graph conflict/recovery, wrong Skill, malformed output, and old Undo | PROVED |
 
 ## Current conclusion
 
-All Phase 3 engineering, automated, real Desktop behavior, independent review, and publication gates are proved. This audit stops before Phase 4.
+Phase 3 remains intact and the complete Phase 4 Engagement vertical slice is implemented and verified. Final independent review and exact remote publication parity are the remaining release checks before this audit is closed.

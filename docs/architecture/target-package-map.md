@@ -7,7 +7,7 @@ The vNext repository deliberately has a small number of deep modules.
 | `packages/domain` | WorkObject, lifecycle/engagement, Anchor/Evidence/Ownership value contracts | Nothing infrastructural |
 | `packages/contracts` | Closed semantic operation registry, Graph/Agent contracts, stable portable hash | Domain types |
 | `packages/agent` | Versioned Skill loader and deterministic Fake Agent executor | Public contracts only |
-| `packages/sqlite` | Schema v2, normalized current state, append-only structured Ledger, minimal governance records | Domain and contracts |
+| `packages/sqlite` | Schema v3, normalized current state including current WaitingCondition, append-only structured Ledger, minimal governance records | Domain and contracts |
 | `packages/kernel` | Validate/prepare/apply/verify/commit, recovery, compensation Undo | Domain, contracts, SQLite |
 | `packages/client` | Authenticated HTTP transport; Node descriptor reader and browser-safe entry point | Public contracts only |
 | `packages/test-support` | Fake Graph Adapter and vertical integration evidence | Public clients/contracts and app entry points under test |
@@ -22,6 +22,6 @@ Enforced negative boundaries:
 - Plugin and CLI import no SQLite implementation.
 - Kernel imports no Logseq SDK.
 - Only Kernel Service constructs `SqliteStore` in production.
-- Generic writes authorize only the configured `USER/local-user`; the sole Agent write is composed at the Service boundary and must pass the Kernel's Proposal policy. Self-asserted Agent or System actors are rejected independently of bearer-token authentication.
+- Generic writes authorize only the configured `USER/local-user`; the two narrow Agent writes are composed at the Service boundary and must pass operation-specific Proposal policy. Self-asserted Agent or System actors are rejected independently of bearer-token authentication.
 
 `scripts/check-boundaries.mjs` checks these constraints on every full verification run.

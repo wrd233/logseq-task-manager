@@ -2,7 +2,9 @@
 
 Task Copilot vNext is a local-first trusted work kernel. Logseq remains the natural work surface; the Local Kernel Service is the sole authority for formal state and Semantic Commits; the Plugin is a thin UI and Graph Adapter; the CLI is the reference HTTP client.
 
-The current slice also supports one governed Agent capability: a deterministic Fake Agent may propose a LOW-risk, Evidence-backed `SET_CURRENT_FOCUS` update through the versioned `current-focus-maintenance/0.1.0` Skill. The Graph Adapter signs each fresh Evidence read with a separate local snapshot capability; the Kernel verifies that proof, target, projection, canonical Evidence SHA-256, exact approved Skill hash, operation-contract version, and recovery state before automatically preparing the Commit. The Agent never writes SQLite or Logseq directly, and Undo remains a compensation Commit.
+The current slice supports two governed Agent capabilities: deterministic Fake Agents may propose an Evidence-backed `SET_CURRENT_FOCUS` update or reconcile one explicit WorkObject between `ACTIONABLE` and `WAITING`. They are constrained by the versioned `current-focus-maintenance/0.1.0` and `engagement-reconciliation/0.1.0` Skills. The Graph Adapter signs each fresh Evidence read with a separate local snapshot capability; the Kernel verifies that proof, target, projection, canonical Evidence SHA-256, target Evidence watermark, exact approved Skill hash, operation-contract version, and recovery state before preparing the Commit. Agents never write SQLite or Logseq directly, PARKED remains user-controlled, and Undo remains a compensation Commit.
+
+In Logseq, select the relevant fact block and run `Task Copilot vNext：让 Agent 对账可行动状态`. Entering WAITING adds a readable managed Waiting field and removes the object from the actionable query; leaving WAITING removes that field and returns it. `Cmd+Shift+U` invokes the unambiguous recent-Commit Undo path.
 
 Use Node 20.20.x:
 
