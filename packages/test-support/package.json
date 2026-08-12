@@ -1,0 +1,14 @@
+{
+  "name": "@task-copilot/test-support",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": { "typecheck": "tsc --noEmit", "test": "tsx --test tests/*.test.ts" },
+  "dependencies": {
+    "@task-copilot/client": "0.2.0",
+    "@task-copilot/contracts": "0.2.0",
+    "@task-copilot/kernel-service": "0.2.0",
+    "@task-copilot/cli": "0.2.0"
+  }
+}

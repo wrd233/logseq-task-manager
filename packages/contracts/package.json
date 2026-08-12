@@ -1,0 +1,14 @@
+{
+  "name": "@task-copilot/contracts",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@task-copilot/domain": "0.2.0"
+  }
+}

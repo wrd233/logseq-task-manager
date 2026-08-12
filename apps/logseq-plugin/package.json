@@ -1,0 +1,16 @@
+{
+  "name": "@task-copilot/logseq-plugin",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Task Copilot vNext thin Logseq UI and Graph Adapter",
+  "license": "MIT",
+  "main": "dist/index.html",
+  "type": "module",
+  "logseq": { "id": "task-copilot-vnext", "title": "Task Copilot vNext", "main": "dist/index.html" },
+  "scripts": { "typecheck": "tsc --noEmit", "test": "tsx --test tests/*.test.ts", "build": "node scripts/build.mjs" },
+  "dependencies": {
+    "@logseq/libs": "0.0.17",
+    "@task-copilot/client": "0.2.0",
+    "@task-copilot/contracts": "0.2.0"
+  }
+}

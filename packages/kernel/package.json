@@ -1,0 +1,16 @@
+{
+  "name": "@task-copilot/kernel",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@task-copilot/contracts": "0.2.0",
+    "@task-copilot/domain": "0.2.0",
+    "@task-copilot/sqlite": "0.2.0"
+  }
+}
