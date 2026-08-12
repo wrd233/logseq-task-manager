@@ -2,12 +2,21 @@ export type WorkObjectKind = "TASK" | "MINI_PROJECT" | "PROJECT";
 export type Lifecycle = "OPEN" | "COMPLETED" | "CANCELLED";
 export type Engagement = "ACTIONABLE" | "WAITING" | "PARKED" | null;
 
+export interface WaitingCondition {
+  workObjectId: string;
+  description: string;
+  since: string;
+  reviewAt: string | null;
+  evidenceIds: readonly string[];
+}
+
 export interface WorkObject {
   id: string;
   kind: WorkObjectKind;
   title: string;
   lifecycle: Lifecycle;
   engagement: Engagement;
+  waitingCondition: WaitingCondition | null;
   currentFocus: string | null;
   version: number;
   createdAt: string;
@@ -24,6 +33,7 @@ export interface PrimaryAnchor {
   projectionTitleUuid: string;
   projectionStateUuid: string;
   projectionFocusUuid: string;
+  projectionWaitingUuid: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -84,11 +94,65 @@ export function createWorkObject(input: {
     title: required(input.title, "WORK_OBJECT_TITLE_REQUIRED", "WorkObject title"),
     lifecycle: "OPEN",
     engagement: "ACTIONABLE",
+    waitingCondition: null,
     currentFocus: null,
     version: 1,
     createdAt: at,
     updatedAt: at,
   };
+}
+
+export function changeEngagement(
+  object: WorkObject,
+  input: {
+    from: "ACTIONABLE" | "WAITING";
+    to: "ACTIONABLE" | "WAITING";
+    waiting: { description: string; reviewAt: string | null; evidenceIds: readonly string[] } | null;
+    expectedVersion: number;
+    at: string;
+  },
+): WorkObject {
+  if (object.version !== input.expectedVersion) {
+    throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
+  }
+  if (object.lifecycle !== "OPEN") throw new DomainError("ENGAGEMENT_LIFECYCLE_INVALID", "Only open WorkObjects may change engagement.");
+  if (object.engagement !== input.from) throw new DomainError("ENGAGEMENT_FROM_MISMATCH", `Expected ${input.from}, found ${object.engagement}.`);
+  if (!((input.from === "ACTIONABLE" && input.to === "WAITING") || (input.from === "WAITING" && input.to === "ACTIONABLE"))) {
+    throw new DomainError("ENGAGEMENT_TRANSITION_UNSUPPORTED", "Only ACTIONABLE to WAITING and WAITING to ACTIONABLE are supported.");
+  }
+  const at = timestamp(input.at);
+  if (input.to === "WAITING") {
+    if (!input.waiting) throw new DomainError("WAITING_CONDITION_REQUIRED", "WAITING requires a current WaitingCondition.");
+    const evidenceIds = [...new Set(input.waiting.evidenceIds.map((id) => required(id, "WAITING_EVIDENCE_ID_REQUIRED", "Waiting Evidence id", 128)))];
+    if (!evidenceIds.length) throw new DomainError("WAITING_EVIDENCE_REQUIRED", "WAITING requires supporting Evidence.");
+    const reviewAt = input.waiting.reviewAt === null ? null : timestamp(input.waiting.reviewAt);
+    return {
+      ...object,
+      engagement: "WAITING",
+      waitingCondition: {
+        workObjectId: object.id,
+        description: required(input.waiting.description, "WAITING_DESCRIPTION_REQUIRED", "Waiting description", 200),
+        since: at,
+        reviewAt,
+        evidenceIds,
+      },
+      version: object.version + 1,
+      updatedAt: at,
+    };
+  }
+  if (input.waiting !== null) throw new DomainError("WAITING_CONDITION_FORBIDDEN", "ACTIONABLE cannot carry a current WaitingCondition.");
+  if (!object.waitingCondition) throw new DomainError("WAITING_CONDITION_MISSING", "Current WAITING state has no WaitingCondition.");
+  return { ...object, engagement: "ACTIONABLE", waitingCondition: null, version: object.version + 1, updatedAt: at };
+}
+
+export function restoreEngagement(
+  object: WorkObject,
+  input: { engagement: "ACTIONABLE" | "WAITING"; waitingCondition: WaitingCondition | null; expectedVersion: number; at: string },
+): WorkObject {
+  if (object.version !== input.expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
+  if ((input.engagement === "WAITING") !== Boolean(input.waitingCondition)) throw new DomainError("WAITING_INVARIANT_INVALID", "WAITING and current WaitingCondition must exist together.");
+  if (input.waitingCondition?.workObjectId !== undefined && input.waitingCondition.workObjectId !== object.id) throw new DomainError("WAITING_SUBJECT_MISMATCH", "WaitingCondition belongs to another WorkObject.");
+  return { ...object, engagement: input.engagement, waitingCondition: input.waitingCondition ? { ...input.waitingCondition, evidenceIds: [...input.waitingCondition.evidenceIds] } : null, version: object.version + 1, updatedAt: timestamp(input.at) };
 }
 
 export function setCurrentFocus(

@@ -1,0 +1,3 @@
+# Engagement Reconciliation Policy
+
+Propose exactly one `ACTIONABLE -> WAITING` transition only when direct frozen Evidence states an external prerequisite that prevents progress. Propose `WAITING -> ACTIONABLE` only when direct frozen Evidence clearly proves the current WaitingCondition has been satisfied. Entering or leaving `PARKED`, lifecycle changes, current-focus changes, vague inactivity, user-side delay, guesses, and unrelated objects are forbidden. Parking language returns `NO_PROPOSAL` with `PARKING_REQUIRES_USER_DECISION`. Never invent `reviewAt`; omit it unless Evidence states an explicit date.

@@ -10,21 +10,21 @@ import { join } from "node:path";
 test("vNext schema stores normalized current state without embedding an anchor in WorkObject", () => {
   const store = new SqliteStore(":memory:");
   store.putWorkObject({
-    id: "work-01", kind: "TASK", title: "Task", lifecycle: "OPEN", engagement: "ACTIONABLE",
+    id: "work-01", kind: "TASK", title: "Task", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null,
     currentFocus: null, version: 1, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
   });
   store.putAnchor({
     id: "anchor-01", workObjectId: "work-01", graphId: "graph-01", externalId: "source-01",
     sourceContentHash: "a1b2c3d4", projectionContainerUuid: "container-01", projectionTitleUuid: "title-01",
-    projectionStateUuid: "state-01", projectionFocusUuid: "focus-01", createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
+    projectionStateUuid: "state-01", projectionFocusUuid: "focus-01", projectionWaitingUuid: "waiting-01", createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
   });
 
   assert.deepEqual(store.getWorkObject("work-01"), {
-    id: "work-01", kind: "TASK", title: "Task", lifecycle: "OPEN", engagement: "ACTIONABLE",
+    id: "work-01", kind: "TASK", title: "Task", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null,
     currentFocus: null, version: 1, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
   });
   assert.equal(store.getAnchorForWorkObject("work-01")?.externalId, "source-01");
-  assert.equal(store.schemaVersion(), 2);
+  assert.equal(store.schemaVersion(), 3);
   store.close();
 });
 
@@ -47,7 +47,7 @@ test("the structured ledger is append-only and exposes incomplete commits for re
   store.close();
 });
 
-test("schema v2 backfills a deterministic focus UUID for Phase 2 anchors", () => {
+test("schema v3 backfills deterministic Phase 3 focus and Phase 4 waiting UUIDs", () => {
   const path = join(mkdtempSync(join(tmpdir(), "task-copilot-v1-")), "kernel.sqlite");
   const legacy = new Database(path);
   legacy.exec(`CREATE TABLE schema_versions(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
@@ -63,5 +63,6 @@ test("schema v2 backfills a deterministic focus UUID for Phase 2 anchors", () =>
   const migrated = new SqliteStore(path);
   assert.match(migrated.getAnchorForWorkObject("work-legacy")!.projectionFocusUuid, /^[0-9a-f-]{36}$/u);
   assert.notEqual(migrated.getAnchorForWorkObject("work-legacy")!.projectionFocusUuid, "");
+  assert.match(migrated.getAnchorForWorkObject("work-legacy")!.projectionWaitingUuid, /^[0-9a-f-]{36}$/u);
   migrated.close();
 });

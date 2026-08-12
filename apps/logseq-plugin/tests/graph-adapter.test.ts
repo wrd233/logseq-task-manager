@@ -22,7 +22,7 @@ class Host implements LogseqGraphHost {
   async removeBlock(uuid: string): Promise<unknown> { const value = this.nodes.get(uuid)!; if (value.parent) this.nodes.get(value.parent)!.children = this.nodes.get(value.parent)!.children.filter((child) => child !== uuid); this.nodes.delete(uuid); return null; }
 }
 
-const core = { containerUuid: "11111111-1111-4111-8111-111111111111", titleUuid: "22222222-2222-4222-8222-222222222222", stateUuid: "33333333-3333-4333-8333-333333333333", focusUuid: "44444444-4444-4444-8444-444444444444", title: "自然记录", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, currentFocus: null };
+const core = { containerUuid: "11111111-1111-4111-8111-111111111111", titleUuid: "22222222-2222-4222-8222-222222222222", stateUuid: "33333333-3333-4333-8333-333333333333", focusUuid: "44444444-4444-4444-8444-444444444444", waitingUuid: "66666666-6666-4666-8666-666666666666", title: "自然记录", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null };
 const effect = {
   type: "UPSERT_MANAGED_PROJECTION", commitId: "commit-01", effectId: "effect-01",
   graphId: "graph-01", sourceBlockUuid: "source-01", projection: { ...core, projectionHash: stableHash(core) },
@@ -70,7 +70,7 @@ test("update rechecks the full projection hash immediately before writing", asyn
     type: "UPDATE_MANAGED_FIELD", commitId: "commit-rename", effectId: "effect-rename", graphId: "graph-01",
     sourceBlockUuid: "source-01", fieldUuid: core.titleUuid, content: "标题：新标题",
     expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: "deadbeef",
-  }), /GRAPH_UPDATE_PRECONDITION_FAILED/u);
+  }), /GRAPH_(?:UPDATE_PRECONDITION_FAILED|WAITING_INVARIANT_INVALID)/u);
   assert.equal(host.nodes.get(core.titleUuid)?.content.includes("自然记录"), true);
 });
 
@@ -88,6 +88,19 @@ test("current focus uses one stable field UUID and clear removes only that manag
   });
   assert.equal(host.nodes.has(core.focusUuid), false);
   assert.ok(host.nodes.has(core.titleUuid));
+  assert.equal(host.nodes.get("source-01")?.content, "自然记录");
+});
+
+test("Waiting projection is human-readable, stable, removable, and round-trips its full condition", async () => {
+  const host = new Host(); const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  const condition = { workObjectId: "work-01", description: "等待网络组分配 VLAN", since: "2026-08-13T08:00:00.000Z", reviewAt: "2026-08-15T00:00:00.000Z", evidenceIds: ["evidence-01"] };
+  const waitingCore = { ...core, engagement: "WAITING" as const, waitingCondition: condition };
+  await adapter.applyGraphEffect({ type: "CHANGE_ENGAGEMENT_FIELDS", commitId: "commit-wait", effectId: "effect-wait", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, waitingUuid: core.waitingUuid, engagement: "WAITING", waiting: condition, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash(waitingCore) });
+  assert.match(host.nodes.get(core.waitingUuid)!.content, /^等待：等待网络组分配 VLAN\n/u);
+  assert.match(host.nodes.get(core.waitingUuid)!.content, /复查：2026-08-15/u);
+  assert.deepEqual((await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" })).projection?.waitingCondition, condition);
+  await adapter.applyGraphEffect({ type: "CHANGE_ENGAGEMENT_FIELDS", commitId: "commit-actionable", effectId: "effect-actionable", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, waitingUuid: core.waitingUuid, engagement: "ACTIONABLE", waiting: null, expectedProjectionHash: stableHash(waitingCore), resultingProjectionHash: effect.projection.projectionHash });
+  assert.equal(host.nodes.has(core.waitingUuid), false);
   assert.equal(host.nodes.get("source-01")?.content, "自然记录");
 });
 

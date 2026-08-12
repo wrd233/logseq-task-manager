@@ -1,4 +1,4 @@
-import type { Actor, AgentRunReceipt, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, StoredCommit, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, EngagementProposalRevision, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, StoredCommit, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; graphSnapshotKey: string; pid: number; startedAt: string }
 export interface PendingGraphCommit { commit: StoredCommit; graphEffect: unknown }
@@ -27,12 +27,14 @@ export class KernelClient {
   }
   status(): Promise<{ status: "ok"; schemaVersion: number; pid: number }> { return this.#request("GET", "/v1/status"); }
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
+  listActionableObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects/actionable"); }
   showObject(id: string): Promise<{ object: WorkObject; anchor: unknown }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}`); }
   showCommit(id: string): Promise<{ commit: StoredCommit }> { return this.#request("GET", `/v1/commits/${encodeURIComponent(id)}`); }
   listRecovery(): Promise<{ recovery: RecoveryItem[] }> { return this.#request("GET", "/v1/recovery"); }
   freezeEvidence(input: { evidenceId: string; workObjectId: string; snapshot: TrustedGraphEvidenceMaterial }): Promise<{ evidence: FrozenEvidence }> { return this.#request("POST", "/v1/evidence/freeze", input); }
   showEvidence(id: string): Promise<{ evidence: FrozenEvidence }> { return this.#request("GET", `/v1/evidence/${encodeURIComponent(id)}`); }
   runCurrentFocusAgent(input: { runId: string; workObjectId: string; evidenceIds: readonly string[]; snapshot: GraphSnapshot }): Promise<{ run: AgentRunReceipt; proposal: Proposal | null; revision: ProposalRevision | null }> { return this.#request("POST", "/v1/agent-runs/current-focus", input); }
+  runEngagementAgent(input: { runId: string; workObjectId: string; evidenceIds: readonly string[]; snapshot: GraphSnapshot }): Promise<{ run: AgentRunReceipt; proposal: Proposal | null; revision: EngagementProposalRevision | null }> { return this.#request("POST", "/v1/agent-runs/engagement", input); }
   showAgentRun(id: string): Promise<{ run: AgentRunReceipt }> { return this.#request("GET", `/v1/agent-runs/${encodeURIComponent(id)}`); }
   showProposal(id: string): Promise<{ proposal: Proposal; revision: ProposalRevision }> { return this.#request("GET", `/v1/proposals/${encodeURIComponent(id)}`); }
   applyProposal(id: string, input: { operationId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): Promise<PendingGraphCommit> { return this.#request("POST", `/v1/proposals/${encodeURIComponent(id)}/apply`, input); }

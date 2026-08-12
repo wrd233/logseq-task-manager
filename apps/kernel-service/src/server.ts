@@ -3,12 +3,12 @@ import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname } from "node:path";
 
-import { DeterministicCurrentFocusAgent, loadCurrentFocusSkill } from "@task-copilot/agent";
-import { parseSemanticOperation, type CurrentFocusAgent, type SkillPackage } from "@task-copilot/contracts";
+import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadCurrentFocusSkill, loadEngagementReconciliationSkill } from "@task-copilot/agent";
+import { parseSemanticOperation, type CurrentFocusAgent, type EngagementAgent, type SkillPackage } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; token?: string; graphSnapshotKey?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; workspaceRoot?: string }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; token?: string; graphSnapshotKey?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; workspaceRoot?: string }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -28,7 +28,8 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   await mkdir(dirname(options.databasePath), { recursive: true });
   const store = new SqliteStore(options.databasePath);
   const currentFocusSkill = options.currentFocusSkill ?? await loadCurrentFocusSkill(options.workspaceRoot);
-  const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, graphSnapshotKey });
+  const engagementSkill = options.engagementSkill ?? await loadEngagementReconciliationSkill(options.workspaceRoot);
+  const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, graphSnapshotKey });
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     if (request.headers.authorization !== `Bearer ${token}`) { send(response, 401, { error: { code: "AUTH_REQUIRED", message: "A valid local capability token is required." } }); return; }
@@ -36,6 +37,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     try {
       if (request.method === "GET" && url.pathname === "/v1/status") { send(response, 200, { status: "ok", schemaVersion: store.schemaVersion(), pid: process.pid }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects") { send(response, 200, { objects: store.listWorkObjects() }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/objects/actionable") { send(response, 200, { objects: store.listActionableWorkObjects() }); return; }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && objectMatch) {
         const object = store.getWorkObject(decodeURIComponent(objectMatch[1]!));
@@ -70,6 +72,10 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const value = await body(request) as Parameters<Kernel["runCurrentFocusAgent"]>[0];
         send(response, 201, await kernel.runCurrentFocusAgent(value)); return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/agent-runs/engagement") {
+        const value = await body(request) as Parameters<Kernel["runEngagementAgent"]>[0];
+        send(response, 201, await kernel.runEngagementAgent(value)); return;
+      }
       const proposalMatch = /^\/v1\/proposals\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && proposalMatch) {
         const proposal = store.getProposal(decodeURIComponent(proposalMatch[1]!));
@@ -79,7 +85,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       const proposalApplyMatch = /^\/v1\/proposals\/([^/]+)\/apply$/u.exec(url.pathname);
       if (request.method === "POST" && proposalApplyMatch) {
         const value = await body(request) as Omit<Parameters<Kernel["applyProposal"]>[0], "proposalId">;
-        send(response, 202, kernel.applyProposal({ ...value, proposalId: decodeURIComponent(proposalApplyMatch[1]!) })); return;
+        const id = decodeURIComponent(proposalApplyMatch[1]!);
+        const proposal = store.getProposal(id);
+        send(response, 202, proposal?.revision.operationType === "CHANGE_ENGAGEMENT" ? kernel.applyEngagementProposal({ ...value, proposalId: id }) : kernel.applyProposal({ ...value, proposalId: id })); return;
       }
       const proposalRevisionMatch = /^\/v1\/proposals\/([^/]+)\/revisions$/u.exec(url.pathname);
       if (request.method === "POST" && proposalRevisionMatch) {

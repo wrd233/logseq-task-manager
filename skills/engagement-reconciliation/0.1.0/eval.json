@@ -1,0 +1,10 @@
+[
+  { "name": "enter-waiting", "expected": "PROPOSAL_WAITING" },
+  { "name": "leave-waiting", "expected": "PROPOSAL_ACTIONABLE" },
+  { "name": "no-op", "expected": "NO_PROPOSAL" },
+  { "name": "not-waiting", "expected": "NO_PROPOSAL" },
+  { "name": "user-side-blocker", "expected": "NO_PROPOSAL" },
+  { "name": "ambiguous", "expected": "NO_PROPOSAL" },
+  { "name": "parked-candidate", "expected": "PARKING_REQUIRES_USER_DECISION" },
+  { "name": "scope-leakage", "expected": "NO_PROPOSAL" }
+]

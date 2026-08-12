@@ -164,8 +164,10 @@ test("generic preparation rejects every Agent operation, including rename and un
   const kernel = new Kernel(store, { now: () => at });
   const rename = parseSemanticOperation({ operationId: "agent-rename", type: "RENAME_WORK_OBJECT", actor: { type: "AGENT", id: "agent" }, target: { workObjectId: "work-01", expectedVersion: 1, expectedProjectionHash: "a1b2c3d4" }, input: { title: "不得改名" } });
   const undo = parseSemanticOperation({ operationId: "agent-undo", type: "UNDO_COMMIT", actor: { type: "AGENT", id: "agent" }, target: { commitId: "commit-01", expectedProjectionHash: "a1b2c3d4" }, input: {} });
+  const engagement = parseSemanticOperation({ operationId: "agent-engagement", type: "CHANGE_ENGAGEMENT", actor: { type: "AGENT", id: "fake-engagement-agent" }, target: { workObjectId: "work-01", expectedVersion: 1, expectedProjectionHash: "a1b2c3d4" }, input: { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待 VLAN", reviewAt: null, evidenceIds: ["evidence-1"] } }, evidenceDependencies: [{ evidenceId: "evidence-1", contentHash: "a".repeat(64) }] });
   assert.throws(() => kernel.prepare(rename, sourceSnapshot), (error) => error instanceof KernelError && error.code === "ACTOR_NOT_AUTHORIZED");
   assert.throws(() => kernel.prepare(undo, sourceSnapshot), (error) => error instanceof KernelError && error.code === "ACTOR_NOT_AUTHORIZED");
+  assert.throws(() => kernel.prepare(engagement, sourceSnapshot), (error) => error instanceof KernelError && error.code === "ACTOR_NOT_AUTHORIZED");
   assert.equal(store.listCommits().length, 0);
   store.close();
 });

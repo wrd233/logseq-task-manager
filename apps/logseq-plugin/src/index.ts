@@ -86,6 +86,36 @@ async function letAgentUpdateCurrentFocus(): Promise<void> {
   await logseq.UI.showMsg(`Fake Agent 已更新当前推进；Commit ${committed.commit.id}；Evidence ${evidenceId}；可用“撤销最近一次提交”恢复。`, "success");
 }
 
+async function letAgentReconcileEngagement(): Promise<void> {
+  const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
+  if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
+  const selected = logseqBlock(await logseq.Editor.getCurrentBlock());
+  if (!selected) throw new Error("请把光标放在要冻结为 Evidence 的 Logseq block 上。");
+  const api = await client();
+  const target = await api.showObject(workObjectId);
+  const anchor = target.anchor as { graphId: string; externalId: string } | null;
+  if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
+  const { adapter, graphId } = await adapterForCurrentGraph();
+  if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 WorkObject 的 Primary Anchor Graph。");
+  const connection = await descriptor();
+  const evidenceId = `evidence-${crypto.randomUUID()}`;
+  const frozen = await api.freezeEvidence({ evidenceId, workObjectId, snapshot: await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey) });
+  const run = await api.runEngagementAgent({ runId: `agent-run-${crypto.randomUUID()}`, workObjectId, evidenceIds: [frozen.evidence.id], snapshot: await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }) });
+  if (!run.proposal || !run.revision) {
+    await logseq.UI.showMsg(`Engagement 未变化；${run.run.reasonCode}；AgentRun ${run.run.id}`, "warning");
+    return;
+  }
+  const pending = await api.applyProposal(run.proposal.id, { operationId: `apply-engagement-${crypto.randomUUID()}`, snapshot: await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }), evidence: [{ evidenceId, ...await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey) }] });
+  let result;
+  try { result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect); }
+  catch (error) { await api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error)); throw error; }
+  const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }));
+  await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id);
+  const transition = run.revision.transition;
+  const waiting = transition.waiting?.description ? `\n等待：${transition.waiting.description}` : "\n原等待条件已满足并清除。";
+  await logseq.UI.showMsg(`Task Copilot：事项状态已变化\n${target.object.title}\n${transition.from} → ${transition.to}${waiting}\n依据：当前记录（Evidence ${evidenceId}）\n可用“撤销最近一次提交”恢复。`, "warning", { timeout: 12000 });
+}
+
 async function undoRecent(): Promise<void> {
   const commitId = await logseq.FileStorage.getItem(recentCommitKey);
   if (typeof commitId !== "string" || !commitId) throw new Error("没有可撤销的最近 Commit。");
@@ -110,10 +140,10 @@ async function recoverIncomplete(): Promise<void> {
     else if (item.action === "RESUME_GRAPH_APPLY") {
       const result = await adapter.applyGraphEffect(effect);
       const completed = await api.complete(item.commit.id, result, await adapter.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid }));
-      if (completed.commit.operationType === "CREATE_WORK_OBJECT" || completed.commit.operationType === "SET_CURRENT_FOCUS") await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
+      if (completed.commit.operationType === "CREATE_WORK_OBJECT" || completed.commit.operationType === "SET_CURRENT_FOCUS" || completed.commit.operationType === "CHANGE_ENGAGEMENT") await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else if (item.action === "VERIFY_GRAPH") {
       const completed = await api.verifyRecoveredGraph(item.commit.id, await adapter.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid }));
-      if (completed.commit.operationType === "CREATE_WORK_OBJECT" || completed.commit.operationType === "SET_CURRENT_FOCUS") await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
+      if (completed.commit.operationType === "CREATE_WORK_OBJECT" || completed.commit.operationType === "SET_CURRENT_FOCUS" || completed.commit.operationType === "CHANGE_ENGAGEMENT") await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else throw new Error(`Commit ${item.commit.id} 需要人工协调，未自动覆盖 Graph。`);
   }
   await logseq.UI.showMsg(`已处理 ${recovery.length} 个恢复项。`, "success");
@@ -131,6 +161,7 @@ async function main(): Promise<void> {
   }));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize", label: "Task Copilot vNext：正式化当前记录" }, () => void guarded("formalize", formalizeCurrentRecord));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-focus", label: "Task Copilot vNext：让 Agent 更新当前推进" }, () => void guarded("agent-current-focus", letAgentUpdateCurrentFocus));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-engagement", label: "Task Copilot vNext：让 Agent 对账可行动状态" }, () => void guarded("agent-engagement", letAgentReconcileEngagement));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-undo", label: "Task Copilot vNext：撤销最近一次提交" }, () => void guarded("undo", undoRecent));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-recover", label: "Task Copilot vNext：恢复未完成提交" }, () => void guarded("recover", recoverIncomplete));
   await logseq.UI.showMsg("Task Copilot vNext 已就绪。", "success");

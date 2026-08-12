@@ -59,6 +59,10 @@ export class FakeGraphAdapter implements GraphAdapter {
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.focusUuid !== effect.fieldUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
       if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_FOCUS_PRECONDITION_FAILED");
       record.projection = { ...record.projection, currentFocus: effect.content, projectionHash: effect.resultingProjectionHash };
+    } else if (effect.type === "CHANGE_ENGAGEMENT_FIELDS") {
+      if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.stateUuid !== effect.stateUuid || record.projection.waitingUuid !== effect.waitingUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
+      if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_ENGAGEMENT_PRECONDITION_FAILED");
+      record.projection = { ...record.projection, engagement: effect.engagement, waitingCondition: effect.waiting, projectionHash: effect.resultingProjectionHash };
     } else {
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
       record.projection = null;

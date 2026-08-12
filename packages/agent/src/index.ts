@@ -3,19 +3,24 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { AgentCurrentFocusResult, CurrentFocusAgent, SkillPackage } from "@task-copilot/contracts";
+import type { AgentCurrentFocusResult, AgentEngagementResult, CurrentFocusAgent, EngagementAgent, SkillPackage } from "@task-copilot/contracts";
 
 const skillFiles = ["manifest.json", "policy.md", "schema.json", "examples.json", "eval.json"] as const;
 
-export async function loadCurrentFocusSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
-  const directory = join(root, "skills", "current-focus-maintenance", "0.1.0");
+async function loadSkill(directory: string): Promise<SkillPackage> {
   const contents = await Promise.all(skillFiles.map((name) => readFile(join(directory, name), "utf8")));
   const contentHash = createHash("sha256").update(skillFiles.map((name, index) => `${name}\n${contents[index]}`).join("\n")).digest("hex");
-  return {
-    id: "current-focus-maintenance", version: "0.1.0", contentHash,
-    manifest: JSON.parse(contents[0]!), policy: contents[1]!, schema: JSON.parse(contents[2]!),
-    examples: JSON.parse(contents[3]!), eval: JSON.parse(contents[4]!),
-  };
+  const manifest = JSON.parse(contents[0]!) as { id: string; version: string };
+  return { id: manifest.id, version: manifest.version, contentHash, manifest, policy: contents[1]!, schema: JSON.parse(contents[2]!), examples: JSON.parse(contents[3]!), eval: JSON.parse(contents[4]!) };
+}
+
+export async function loadCurrentFocusSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
+  const directory = join(root, "skills", "current-focus-maintenance", "0.1.0");
+  return loadSkill(directory);
+}
+
+export async function loadEngagementReconciliationSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
+  return loadSkill(join(root, "skills", "engagement-reconciliation", "0.1.0"));
 }
 
 export class DeterministicCurrentFocusAgent implements CurrentFocusAgent {
@@ -32,5 +37,27 @@ export class DeterministicCurrentFocusAgent implements CurrentFocusAgent {
     if (!proposed) return { outcome: "NO_PROPOSAL", reasonCode: "INSUFFICIENT_EVIDENCE", rationaleSummary: "Evidence contains no bounded next action." };
     if (input.target.currentFocus === proposed) return { outcome: "NO_PROPOSAL", reasonCode: "ALREADY_ACCURATE", rationaleSummary: "Current focus already matches the evidence." };
     return { outcome: "PROPOSAL", currentFocus: proposed, reasonCode: "BOUNDED_NEXT_ACTION", rationaleSummary: "One low-risk current-focus field update is supported by frozen evidence." };
+  }
+}
+
+export class DeterministicEngagementAgent implements EngagementAgent {
+  readonly id = "fake-engagement-agent";
+
+  async propose(input: Parameters<EngagementAgent["propose"]>[0]): Promise<AgentEngagementResult> {
+    const content = input.evidence.map((item) => item.frozenContent).join("\n").trim();
+    if (/先放|下季度|Q[1-4]|优先级.*低|暂时不做/iu.test(content)) return { outcome: "NO_PROPOSAL", reasonCode: "PARKING_REQUIRES_USER_DECISION", rationaleSummary: "Parking is an intentional user decision outside this Skill." };
+    if (/另一个项目|其他项目/iu.test(content) && !content.includes(input.target.title)) return { outcome: "NO_PROPOSAL", reasonCode: "SCOPE_UNCLEAR", rationaleSummary: "Evidence does not clearly bind the blocker to this WorkObject." };
+    if (input.target.engagement === "ACTIONABLE") {
+      if (/网络组.*(?:还没有|尚未).*(?:VLAN|网关).*(?:才能|无法|不能)|业务方.*(?:还没|尚未)确认.*(?:之前不能|才能)|采购.*(?:还没|尚未).*审批.*(?:不能|无法)/iu.test(content)) {
+        const description = /网络组/iu.test(content) ? "等待网络组分配 VLAN 和网关信息" : /业务方/iu.test(content) ? "等待业务方确认生产上线时间" : "等待采购流程审批完成";
+        return { outcome: "PROPOSAL", transition: { from: "ACTIONABLE", to: "WAITING", waiting: { description, reviewAt: null } }, reasonCode: "EXTERNAL_PREREQUISITE_UNMET", rationaleSummary: "Direct Evidence identifies an unmet external prerequisite for this WorkObject." };
+      }
+      return { outcome: "NO_PROPOSAL", reasonCode: "NO_EXTERNAL_BLOCKER", rationaleSummary: "Evidence does not prove an external prerequisite prevents progress." };
+    }
+    if (input.target.engagement === "WAITING" && input.target.waitingCondition) {
+      if (/(?:VLAN|网关|地址规划).*(?:已经|已).*(?:分配|确认)|业务方.*已确认.*上线|采购.*审批.*(?:已通过|通过了)/iu.test(content)) return { outcome: "PROPOSAL", transition: { from: "WAITING", to: "ACTIONABLE", waiting: null }, reasonCode: "WAITING_CONDITION_SATISFIED", rationaleSummary: "Direct Evidence confirms the current WaitingCondition is satisfied." };
+      return { outcome: "NO_PROPOSAL", reasonCode: "WAITING_NOT_PROVEN_RESOLVED", rationaleSummary: "Evidence does not prove the current WaitingCondition has been satisfied." };
+    }
+    return { outcome: "NO_PROPOSAL", reasonCode: "ENGAGEMENT_OUT_OF_SCOPE", rationaleSummary: "Only ACTIONABLE and WAITING are governed by this Skill." };
   }
 }

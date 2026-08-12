@@ -5,8 +5,8 @@ import { runCli } from "../src/cli.ts";
 
 const client = {
   status: async () => ({ status: "ok" as const, schemaVersion: 1, pid: 42 }),
-  listObjects: async () => ({ objects: [{ id: "work-01", kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }] }),
-  showObject: async (id: string) => ({ object: { id, kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }, anchor: null }),
+  listObjects: async () => ({ objects: [{ id: "work-01", kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }] }),
+  showObject: async (id: string) => ({ object: { id, kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }, anchor: null }),
   showCommit: async (id: string) => ({ commit: { id } as never }),
   listRecovery: async () => ({ recovery: [] }),
   showEvidence: async (id: string) => ({ evidence: { id } as never }),

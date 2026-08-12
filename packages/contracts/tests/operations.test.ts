@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ContractError, parseAgentCurrentFocusResult, parseSemanticOperation, stableHash } from "../src/index.ts";
+import { ContractError, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseSemanticOperation, stableHash } from "../src/index.ts";
 
 test("CREATE_WORK_OBJECT is a closed semantic command with an exact Graph precondition", () => {
   const operation = parseSemanticOperation({
@@ -85,4 +85,30 @@ test("Agent current-focus results are a closed runtime contract", () => {
   assert.throws(() => parseAgentCurrentFocusResult({ outcome: "NO_PROPOSAL", reasonCode: "X" }), /AGENT_RESULT_EXPLANATION_INVALID/u);
   assert.throws(() => parseAgentCurrentFocusResult({ outcome: "NO_PROPOSAL", reasonCode: "X", rationaleSummary: "X", confidence: 1 }), /AGENT_RESULT_UNKNOWN_FIELD/u);
   assert.throws(() => parseAgentCurrentFocusResult({ outcome: "PROPOSAL", reasonCode: "X", rationaleSummary: "X" }), /AGENT_RESULT_FOCUS_REQUIRED/u);
+});
+
+test("CHANGE_ENGAGEMENT is one closed atomic Waiting transition", () => {
+  const dependencies = [{ evidenceId: "evidence-vlan", contentHash: "a".repeat(64) }];
+  const operation = parseSemanticOperation({
+    operationId: "waiting-01", type: "CHANGE_ENGAGEMENT", actor: { type: "AGENT", id: "fake-engagement-agent" },
+    target: { workObjectId: "work-01", expectedVersion: 3, expectedProjectionHash: "1234abcd" },
+    input: { from: "ACTIONABLE", to: "WAITING", waiting: { description: " 等待网络组分配 VLAN ", reviewAt: null, evidenceIds: ["evidence-vlan"] } },
+    evidenceDependencies: dependencies,
+  });
+  assert.equal(operation.type, "CHANGE_ENGAGEMENT");
+  if (operation.type !== "CHANGE_ENGAGEMENT") assert.fail();
+  assert.equal(operation.input.waiting?.description, "等待网络组分配 VLAN");
+  assert.deepEqual(operation.preconditions[2].expected, dependencies);
+  assert.throws(() => parseSemanticOperation({ ...operation, input: { from: "ACTIONABLE", to: "PARKED", waiting: null } }), /ENGAGEMENT_TO_INVALID/u);
+  assert.throws(() => parseSemanticOperation({ ...operation, input: { from: "ACTIONABLE", to: "WAITING", waiting: null } }), /WAITING_CONDITION_REQUIRED/u);
+  assert.throws(() => parseSemanticOperation({ ...operation, input: { ...operation.input, waiting: { ...operation.input.waiting, evidenceIds: ["other"] } } }), /WAITING_EVIDENCE_MISMATCH/u);
+});
+
+test("Agent Engagement results reject PARKED and half transitions", () => {
+  assert.deepEqual(parseAgentEngagementResult({ outcome: "PROPOSAL", transition: { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待 VLAN", reviewAt: null } }, reasonCode: "EXTERNAL_BLOCKER", rationaleSummary: "Direct prerequisite." }), {
+    outcome: "PROPOSAL", transition: { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待 VLAN", reviewAt: null } }, reasonCode: "EXTERNAL_BLOCKER", rationaleSummary: "Direct prerequisite.",
+  });
+  assert.throws(() => parseAgentEngagementResult({ outcome: "PROPOSAL", transition: { from: "ACTIONABLE", to: "PARKED", waiting: null }, reasonCode: "X", rationaleSummary: "X" }), /ENGAGEMENT_TO_INVALID/u);
+  assert.throws(() => parseAgentEngagementResult({ outcome: "PROPOSAL", reasonCode: "X", rationaleSummary: "X" }), /AGENT_ENGAGEMENT_TRANSITION_REQUIRED/u);
+  assert.throws(() => parseAgentEngagementResult({ outcome: "NO_PROPOSAL", transition: { from: "WAITING", to: "ACTIONABLE", waiting: null }, reasonCode: "X", rationaleSummary: "X" }), /AGENT_ENGAGEMENT_TRANSITION_FORBIDDEN/u);
 });
