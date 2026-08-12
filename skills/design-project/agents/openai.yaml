@@ -1,4 +1,0 @@
-interface:
-  display_name: "Design Task Copilot Project"
-  short_description: "Design one scoped Task Copilot Project Proposal"
-  default_prompt: "Use $design-project to turn exported Project context into a reviewable Proposal."
