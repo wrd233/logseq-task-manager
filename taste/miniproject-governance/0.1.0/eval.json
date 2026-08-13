@@ -1,0 +1,6 @@
+{
+  "pairwiseCases": ["sparse-vs-template", "preserve-vs-rewrite", "one-question-vs-questionnaire"],
+  "humanSpotCheckRequired": true,
+  "autoDistill": false,
+  "autoActivate": false
+}

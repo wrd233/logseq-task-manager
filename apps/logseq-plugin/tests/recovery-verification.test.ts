@@ -5,7 +5,7 @@ import { stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjectio
 import { readRecoveryVerificationSnapshot } from "../src/recovery-verification.ts";
 
 const absent = { graphId: "graph", sourceBlockUuid: "source", sourceContentHash: "hash", projection: null } satisfies GraphSnapshot;
-const projectionCore = { containerUuid: "container", titleUuid: "title", stateUuid: "state", focusUuid: "focus", waitingUuid: "waiting", title: "task", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null } as const;
+const projectionCore = { containerUuid: "container", titleUuid: "title", stateUuid: "state", focusUuid: "focus", waitingUuid: "waiting", outcomeUuid: "outcome", completionUuid: "checks", title: "task", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [] } as const;
 const expectedProjection = { ...projectionCore, projectionHash: stableHash(projectionCore) } satisfies ManagedProjection;
 
 test("GRAPH_APPLIED create compensation verifies absence without loading the deleted WorkObject", async () => {

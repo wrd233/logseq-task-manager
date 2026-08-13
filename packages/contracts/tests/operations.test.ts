@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ContractError, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseSemanticOperation, stableHash } from "../src/index.ts";
+import { ContractError, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash } from "../src/index.ts";
 
 test("CREATE_WORK_OBJECT is a closed semantic command with an exact Graph precondition", () => {
   const operation = parseSemanticOperation({
@@ -75,6 +75,22 @@ test("SET_CURRENT_FOCUS is closed, atomic, and separates strong Evidence from pr
     target: { workObjectId: "work-01", expectedVersion: 2, expectedProjectionHash: evidenceHash },
     input: { currentFocus: "下一步" }, evidenceDependencies: [{ evidenceId: "evidence-01", contentHash: "a1b2c3d4" }],
   }), /PROJECTION_HASH_INVALID|EVIDENCE_CONTENT_HASH_INVALID/u);
+});
+
+test("UPDATE_WORK_INTENT is closed, sparse, and Evidence-bound", () => {
+  const evidenceDependencies = [{ evidenceId: "evidence-01", contentHash: "a".repeat(64) }];
+  const operation = parseSemanticOperation({ operationId: "intent-01", type: "UPDATE_WORK_INTENT", actor: { type: "AGENT", id: "codex" }, target: { workObjectId: "mini-01", expectedVersion: 1, expectedProjectionHash: "a1b2c3d4" }, input: { desiredOutcome: " 可评审规范 ", completionChecks: ["通过联合评审"] }, evidenceDependencies });
+  assert.equal(operation.type, "UPDATE_WORK_INTENT");
+  if (operation.type !== "UPDATE_WORK_INTENT") assert.fail();
+  assert.deepEqual(operation.input, { desiredOutcome: "可评审规范", completionChecks: ["通过联合评审"] });
+  assert.throws(() => parseSemanticOperation({ ...operation, input: { ...operation.input, ownerId: "x" } }), /OPERATION_INPUT_UNKNOWN_FIELD/u);
+});
+
+test("MiniProject governance result asks one question or emits one narrow change", () => {
+  assert.equal(parseMiniProjectAgentResult({ outcome: "NEEDS_MORE_CONTEXT", question: "什么结果能说明规范已经可用？", reasonCode: "OUTCOME_AMBIGUOUS", rationaleSummary: "完成边界不清。" }).outcome, "NEEDS_MORE_CONTEXT");
+  const proposed = parseMiniProjectAgentResult({ outcome: "PROPOSAL", change: { type: "UPDATE_WORK_INTENT", desiredOutcome: "可评审规范", completionChecks: ["通过评审"] }, reasonCode: "COMMITMENT", rationaleSummary: "信息足够。" });
+  assert.equal(proposed.outcome, "PROPOSAL");
+  assert.throws(() => parseMiniProjectAgentResult({ outcome: "PROPOSAL", change: { type: "PATCH", path: "owner" }, reasonCode: "X", rationaleSummary: "X" }), /AGENT_CHANGE_UNSUPPORTED/u);
 });
 
 test("Agent current-focus results are a closed runtime contract", () => {

@@ -1,0 +1,12 @@
+{
+  "id": "miniproject-governance-taste",
+  "version": "0.1.1",
+  "status": "CANDIDATE",
+  "basedOn": "0.1.0",
+  "preferences": [
+    { "id": "sparse-formal-core", "statement": "正式层保持稀疏，只承诺一个核心输出和必要完成标准。", "confidence": "HIGH" },
+    { "id": "preserve-source", "statement": "保留原始信息与历史语境，优先链接而不是复制或改写。", "confidence": "HIGH" },
+    { "id": "one-question", "statement": "对话一次只问一个最阻塞的问题，并在最低可承诺度达到后停止。", "confidence": "HIGH" },
+    { "id": "light-final-review", "statement": "最终审核只保留一小段自然说明，不默认展示审计元数据。", "confidence": "CANDIDATE" }
+  ]
+}

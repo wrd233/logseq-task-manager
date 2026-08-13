@@ -1,4 +1,4 @@
-import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AgentRunReceipt, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AddReferenceCuration, type AgentRunReceipt, type CurationReceipt, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit } from "@task-copilot/contracts";
 import { KernelError } from "@task-copilot/kernel";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
@@ -19,9 +19,9 @@ export class ExternalAgentCoordinator {
     return {
       kernel: { ready: true },
       graph: { ready: graph.available, graphId: graph.graphId, capabilities: graph.capabilities, ...(graph.available ? {} : { reason: graph.reason }) },
-      agent: { executorType: "EXTERNAL_CLI" as const, supportedPurposes: ["CURRENT_FOCUS_MAINTENANCE", "ENGAGEMENT_RECONCILIATION"] as const },
+      agent: { executorType: "EXTERNAL_CLI" as const, supportedPurposes: ["CURRENT_FOCUS_MAINTENANCE", "ENGAGEMENT_RECONCILIATION", "MINI_PROJECT_GOVERNANCE"] as const },
       skills: this.#kernel.approvedSkills().map(({ id, version, contentHash }) => ({ id, version, contentHash })),
-      forbidden: ["CREATE_WORK_OBJECT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE", "PARKED", "RAW_GRAPH_WRITE"] as const,
+      forbidden: ["CREATE_WORK_OBJECT", "SPLIT", "MERGE", "KIND_CHANGE", "PROJECT_OWNERSHIP", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE", "PARKED", "HISTORY_MOVE", "RAW_GRAPH_WRITE"] as const,
     };
   }
 
@@ -29,7 +29,7 @@ export class ExternalAgentCoordinator {
   skill(id: string) {
     const skill = this.#kernel.approvedSkills().find((item) => item.id === id);
     if (!skill) throw new KernelError("SKILL_NOT_FOUND", "Approved Skill does not exist.");
-    return { skill, resultContract: skill.id === "engagement-reconciliation" ? EXTERNAL_ENGAGEMENT_RESULT_CONTRACT : EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT };
+    return { skill, resultContract: skill.id === "engagement-reconciliation" ? EXTERNAL_ENGAGEMENT_RESULT_CONTRACT : skill.id === "miniproject-governance" || skill.id === "work-intent-maintenance" ? skill.schema : EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT };
   }
 
   async search(input: { query: string; limit: number; runId?: string }): Promise<{ matches: readonly GraphSearchMatch[]; receipt: GraphReadReceipt | null }> {
@@ -67,7 +67,7 @@ export class ExternalAgentCoordinator {
     return this.#kernel.freezeEvidence({ evidenceId: input.evidenceId, workObjectId: input.workObjectId, snapshot: value.material });
   }
 
-  async startRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string }) {
+  async startRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string; governanceCorrelationId?: string }) {
     const target = this.#kernel.targetSnapshotInput(input.workObjectId);
     const value = response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: target }), "READ_TARGET_SNAPSHOT");
     return this.#kernel.startExternalAgentRun({ ...input, snapshot: value.snapshot });
@@ -75,6 +75,20 @@ export class ExternalAgentCoordinator {
 
   finishRun(input: { runId: string; result: unknown }) { return this.#kernel.finishExternalAgentRun(input); }
   readReceipts(runId: string) { return this.#store.listGraphReadReceipts(runId); }
+
+  async addReference(input: { receiptId: string; runId: string; workObjectId: string; referenceBlockUuid: string; section: "资源" | "支撑交付物"; existingSectionUuid?: string | null }): Promise<CurationReceipt> {
+    const existing = this.#store.getCurationReceipt(input.receiptId); if (existing) return existing;
+    const run = this.#store.getAgentRun(input.runId);
+    if (!run || run.executor.type !== "EXTERNAL_CLI" || run.state !== "STARTED" || run.purpose !== "MINI_PROJECT_GOVERNANCE" || run.subject.workObjectId !== input.workObjectId || !run.context.governanceCorrelationId || !run.context.taste) throw new KernelError("CURATION_GOVERNANCE_REQUIRED", "ADD_REFERENCE requires an active MiniProject governance run.");
+    const object = this.#store.getWorkObject(input.workObjectId); const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
+    if (!object || object.kind !== "MINI_PROJECT" || object.lifecycle !== "OPEN" || !anchor || object.version !== run.context.targetVersion) throw new KernelError("CURATION_TARGET_STALE", "MiniProject changed before curation.");
+    const before = response(await this.#broker.request({ kind: "READ_CURATION_SNAPSHOT", graphId: anchor.graphId, rootBlockUuid: anchor.externalId }), "READ_CURATION_SNAPSHOT").snapshot;
+    const curation: AddReferenceCuration = { type: "ADD_REFERENCE", receiptId: input.receiptId, graphId: anchor.graphId, rootBlockUuid: anchor.externalId, expectedRootContentHash: before.rootContentHash, expectedRootTopologyHash: before.rootTopologyHash, section: input.section, existingSectionUuid: input.existingSectionUuid ?? null, newSectionUuid: deterministicUuid(`curation-section:${input.receiptId}`), newReferenceUuid: deterministicUuid(`curation-reference:${input.receiptId}`), referenceBlockUuid: input.referenceBlockUuid };
+    const applied = response(await this.#broker.request({ kind: "APPLY_CURATION", curation }), "APPLY_CURATION");
+    if (applied.snapshot.rootContentHash !== before.rootContentHash || !applied.createdBlockUuids.includes(curation.newReferenceUuid)) throw new KernelError("CURATION_VERIFY_MISMATCH", "Typed curation did not verify after Graph apply.");
+    const receipt: CurationReceipt = { id: input.receiptId, type: "ADD_REFERENCE", workObjectId: object.id, agentRunId: run.id, governanceCorrelationId: run.context.governanceCorrelationId, skill: run.skill, taste: run.context.taste, graphId: anchor.graphId, rootBlockUuid: anchor.externalId, referenceBlockUuid: input.referenceBlockUuid, beforeContentHash: before.rootContentHash, beforeTopologyHash: before.rootTopologyHash, afterContentHash: applied.snapshot.rootContentHash, afterTopologyHash: applied.snapshot.rootTopologyHash, createdBlockUuids: applied.createdBlockUuids, createdAt: this.#now() };
+    this.#store.putCurationReceipt(receipt); return receipt;
+  }
 
   async applyProposal(proposalId: string): Promise<{ commit: StoredCommit; recovered: boolean }> {
     const stored = this.#store.getProposal(proposalId);
@@ -90,7 +104,7 @@ export class ExternalAgentCoordinator {
       return { evidenceId: dependency.evidenceId, ...material };
     }));
     const operationId = `external-apply-${proposalId}`;
-    const pending = stored.revision.operationType === "CHANGE_ENGAGEMENT" ? this.#kernel.applyEngagementProposal({ operationId, proposalId, snapshot, evidence }) : this.#kernel.applyProposal({ operationId, proposalId, snapshot, evidence });
+    const pending = stored.revision.operationType === "CHANGE_ENGAGEMENT" ? this.#kernel.applyEngagementProposal({ operationId, proposalId, snapshot, evidence }) : stored.revision.operationType === "UPDATE_WORK_INTENT" ? this.#kernel.applyWorkIntentProposal({ operationId, proposalId, snapshot, evidence }) : this.#kernel.applyProposal({ operationId, proposalId, snapshot, evidence });
     return { commit: await this.#applyPending(pending.commit, pending.graphEffect), recovered: false };
   }
 

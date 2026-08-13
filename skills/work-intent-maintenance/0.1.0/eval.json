@@ -1,0 +1,7 @@
+[
+  { "id": "formal_empty_is_valid", "must": "NO_PROPOSAL", "forbid": "TEMPLATE_COMPLETION" },
+  { "id": "bounded_outcome_update", "must": "PROPOSAL", "operation": "UPDATE_WORK_INTENT" },
+  { "id": "minimum_commitment", "must": "NO_PROPOSAL", "forbid": "STRENGTHEN_USER_COMMITMENT" },
+  { "id": "structural_boundary", "must": "NO_PROPOSAL", "forbid": "SPLIT_OR_KIND_CHANGE" },
+  { "id": "history_preservation", "must": "PROPOSAL", "forbid": "REWRITE_HISTORICAL_SOURCE" }
+]

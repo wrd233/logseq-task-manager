@@ -32,6 +32,13 @@ async function descriptor() {
   return descriptor;
 }
 
+async function markRecentAgentChangeStrongPositive(): Promise<void> {
+  const commitId = await logseq.FileStorage.getItem(recentCommitKey);
+  if (typeof commitId !== "string" || !commitId) throw new Error("没有可反馈的最近 Commit。");
+  await (await client()).recordStrongPositive(commitId, { type: "USER", id: "local-user" });
+  await logseq.UI.showMsg("已记录明确正向反馈；不会自动修改或激活 Taste。", "success");
+}
+
 
 async function client(): Promise<KernelClient> { return new KernelClient(await descriptor()); }
 
@@ -43,6 +50,8 @@ interface AnchorView {
   projectionStateUuid: string;
   projectionFocusUuid: string;
   projectionWaitingUuid: string;
+  projectionOutcomeUuid: string;
+  projectionCompletionUuid: string;
 }
 
 interface TargetView { object: WorkObject; anchor: unknown }
@@ -60,11 +69,15 @@ async function expectedProjection(api: KernelClient, target: TargetView): Promis
     stateUuid: anchor.projectionStateUuid,
     focusUuid: anchor.projectionFocusUuid,
     waitingUuid: anchor.projectionWaitingUuid,
+    outcomeUuid: anchor.projectionOutcomeUuid,
+    completionUuid: anchor.projectionCompletionUuid,
     title: target.object.title,
     lifecycle: target.object.lifecycle,
     engagement: target.object.engagement,
     waitingCondition: target.object.waitingCondition,
     currentFocus: target.object.currentFocus,
+    desiredOutcome: target.object.desiredOutcome,
+    completionChecks: target.object.completionChecks,
   };
   const core = closure ? { ...base, closure } : base;
   return { ...core, projectionHash: stableHash(core) };
@@ -123,7 +136,7 @@ function graphGatewayReadHost(): GraphGatewayReadHost {
   };
 }
 
-async function formalizeCurrentRecord(): Promise<void> {
+async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK"): Promise<void> {
   const current = logseqBlock(await logseq.Editor.getCurrentBlock());
   if (!current) throw new Error("请先把光标放在一条自然记录上。");
   const stable = await ensurePersistentSourceIdentity({
@@ -133,7 +146,7 @@ async function formalizeCurrentRecord(): Promise<void> {
   const api = await client(); const { adapter, graphId } = await adapterForCurrentGraph();
   const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
   const title = stable.content.split("\n")[0]!.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
-  const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title, anchor: { graphId, blockUuid: stable.uuid, sourceContentHash: snapshot.sourceContentHash } } });
+  const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title, anchor: { graphId, blockUuid: stable.uuid, sourceContentHash: snapshot.sourceContentHash } } });
   const pending = await api.prepare(operation, snapshot);
   let result;
   try { result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect); }
@@ -309,14 +322,14 @@ async function recoverIncomplete(): Promise<void> {
     else if (item.action === "RESUME_GRAPH_APPLY") {
       const result = await applyGraphEffect(adapter, effect);
       const completed = await api.complete(item.commit.id, result, await adapter.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid }));
-      if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
+      if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "UPDATE_WORK_INTENT", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else if (item.action === "VERIFY_GRAPH") {
       const actual = await readRecoveryVerificationSnapshot(effect, item.commit.targetId, {
         readAbsentProjection: (remove) => adapter.readRemovedProjectionSnapshot({ graphId: remove.graphId, sourceBlockUuid: remove.sourceBlockUuid, expectedProjection: remove.expectedProjection }),
         readTargetProjection: async (targetId) => readTargetSnapshot(adapter, effect.graphId, api, await api.showObject(targetId)),
       });
       const completed = await api.verifyRecoveredGraph(item.commit.id, actual);
-      if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
+      if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "UPDATE_WORK_INTENT", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else throw new Error(`Commit ${item.commit.id} 需要人工协调，未自动覆盖 Graph。`);
   }
   await logseq.UI.showMsg(`已处理 ${recovery.length} 个恢复项。`, "success");
@@ -350,7 +363,8 @@ async function main(): Promise<void> {
     if (typeof value !== "string" || !value.trim()) throw new Error("请在插件设置中填写 Kernel descriptor JSON，然后再次运行连接命令。");
     parsePluginKernelDescriptor(JSON.parse(value)); await logseq.FileStorage.setItem(descriptorKey, value.trim()); await logseq.UI.showMsg("Kernel 已连接；Plugin Graph descriptor 已复制到私有 FileStorage。", "success");
   }));
-  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize", label: "Task Copilot vNext：正式化当前记录" }, () => void guarded("formalize", formalizeCurrentRecord));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize", label: "Task Copilot vNext：正式化当前记录为 Task" }, () => void guarded("formalize", () => formalizeCurrentRecord("TASK")));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize-mini-project", label: "Task Copilot vNext：正式化当前记录为 MiniProject" }, () => void guarded("formalize-mini-project", () => formalizeCurrentRecord("MINI_PROJECT")));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-focus", label: "Task Copilot vNext：让 Agent 更新当前推进" }, () => void guarded("agent-current-focus", letAgentUpdateCurrentFocus));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-engagement", label: "Task Copilot vNext：让 Agent 对账可行动状态" }, () => void guarded("agent-engagement", letAgentReconcileEngagement));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-complete-task", label: "Task Copilot vNext：完成当前 Task" }, () => void guarded("complete-task", completeCurrentTask));
@@ -359,6 +373,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-show-closure", label: "Task Copilot vNext：查看当前 Task Closure" }, () => void guarded("show-closure", showCurrentClosure));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-amend-closure", label: "Task Copilot vNext：修订当前 Task Closure" }, () => void guarded("amend-closure", amendCurrentClosure));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-show-evidence", label: "Task Copilot vNext：查看最近一次 Agent 依据", keybinding: { binding: "mod+shift+e" } }, () => void guarded("show-evidence", showRecentEvidence));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-positive-feedback", label: "Task Copilot vNext：认可最近一次 Agent 调整" }, () => void guarded("strong-positive-feedback", markRecentAgentChangeStrongPositive));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-undo", label: "Task Copilot vNext：撤销最近一次提交", keybinding: { binding: "mod+shift+u" } }, () => void guarded("undo", undoRecent));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-recover", label: "Task Copilot vNext：恢复未完成提交" }, () => void guarded("recover", recoverIncomplete));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-rerender", label: "Task Copilot vNext：重新渲染当前正式事项" }, () => void guarded("rerender", rerenderCurrentFormalItem));

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { FrozenEvidence, SkillPackage, WorkObject } from "@task-copilot/contracts";
-import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadEngagementReconciliationSkill } from "../src/index.ts";
+import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "../src/index.ts";
 
-const target: WorkObject = { id: "work-01", kind: "TASK", title: "上架服务器", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" };
+const target: WorkObject = { id: "work-01", kind: "TASK", title: "上架服务器", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" };
 const skill = { id: "current-focus-maintenance", version: "0.1.0", contentHash: "a".repeat(64) } as SkillPackage;
 const evidence = (content: string): FrozenEvidence => ({ id: "evidence-01", workObjectId: target.id, sourceType: "LOGSEQ_BLOCK", graphId: "graph", externalId: "block", frozenContent: content, contentHash: "b".repeat(64), frozenAt: "now", locator: { graphId: "graph", blockUuid: "block" } });
 
@@ -15,6 +15,15 @@ test("Fake Agent deterministically covers proposal, no-op, ambiguity, scope expa
   assert.equal((await agent.propose({ target, skill, evidence: [evidence("下一步可能配置网络或者等待确认")] })).reasonCode, "OUT_OF_SCOPE_WAITING");
   assert.equal((await agent.propose({ target, skill, evidence: [evidence("完成项目并关闭")] })).reasonCode, "SCOPE_EXPANSION");
   assert.equal((await agent.propose({ target, skill, evidence: [evidence("可能先做 A，也许先做 B")] })).reasonCode, "AMBIGUOUS");
+});
+
+test("MiniProject composite Skill and provisional Taste are immutable hashed packages with all restraint evals", async () => {
+  const governance = await loadMiniProjectGovernanceSkill(); const workIntent = await loadWorkIntentMaintenanceSkill(); const taste = await loadMiniProjectTaste();
+  assert.match(governance.contentHash, /^[0-9a-f]{64}$/u); assert.equal((governance.manifest as { authority: string }).authority, "READ_ONLY_COMPOSITE");
+  assert.equal((governance.manifest as { delegatedMutationSkills: string[] }).delegatedMutationSkills.includes("work-intent-maintenance@0.1.0"), true);
+  assert.equal((workIntent.manifest as { operation: string }).operation, "UPDATE_WORK_INTENT"); assert.match(workIntent.contentHash, /^[0-9a-f]{64}$/u);
+  assert.deepEqual((governance.eval as Array<{ id: string }>).map((item) => item.id), ["healthy_miniproject_no_change", "early_sparse_no_overgovernance", "outcome_ambiguity_grill", "completion_not_yet_needed", "two_outputs_split_candidate", "historical_vs_current_fact", "ambiguous_user_commitment", "rich_context_sparse_surface", "overstructured_miniproject", "taste_conflict_user_override"]);
+  assert.equal(taste.status, "PROVISIONAL"); assert.equal(taste.preferences.every((item) => item.confidence === "HIGH"), true); assert.match(taste.contentHash, /^[0-9a-f]{64}$/u);
 });
 
 test("Fake Engagement Agent covers enter, leave, no-op, ambiguity, parking, and scope", async () => {

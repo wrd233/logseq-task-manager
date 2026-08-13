@@ -98,11 +98,15 @@ export function readLegacyEngineeringProjection(container: LogseqBlock, expected
     stateUuid: state.uuid,
     focusUuid: expected.focusUuid,
     waitingUuid: expected.waitingUuid,
+    outcomeUuid: expected.outcomeUuid,
+    completionUuid: expected.completionUuid,
     title: semanticLine(title.content, "标题：")!.slice(3),
     lifecycle: stateMatch[1] as ManagedProjection["lifecycle"],
     engagement,
     waitingCondition,
     currentFocus: focus ? semanticLine(focus.content, "当前推进：")!.slice(5).trim() || null : null,
+    desiredOutcome: null,
+    completionChecks: [],
     ...(closure ? { closure } : {}),
   };
   const allowed = new Set([expected.titleUuid, expected.stateUuid, ...(focus ? [expected.focusUuid] : []), ...(waitingBlock ? [expected.waitingUuid] : [])]);
@@ -135,7 +139,7 @@ export function readProjectionByIdentity(source: LogseqBlock, registeredBlocks: 
 
   const intents = renderProjection(expected);
   const expectedByUuid = new Map(intents.map((intent) => [intent.uuid, intent]));
-  const managedUuids = new Set([expected.containerUuid, expected.titleUuid, expected.stateUuid, expected.focusUuid, expected.waitingUuid, reviewFieldUuid(expected.waitingUuid)]);
+  const managedUuids = new Set([expected.containerUuid, expected.titleUuid, expected.stateUuid, expected.focusUuid, expected.waitingUuid, expected.outcomeUuid, expected.completionUuid, reviewFieldUuid(expected.waitingUuid)]);
   const directUuids = new Set(source.children.map((child) => child.uuid));
   const observations = [...managedUuids].map((uuid) => {
     const block = registeredBlocks.get(uuid);

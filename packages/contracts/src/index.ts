@@ -12,7 +12,7 @@ export type CommitStatus =
   | "RECOVERY_REQUIRED"
   | "ABORTED";
 
-export type OperationType = "CREATE_WORK_OBJECT" | "RENAME_WORK_OBJECT" | "SET_CURRENT_FOCUS" | "CHANGE_ENGAGEMENT" | "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE" | "UNDO_COMMIT";
+export type OperationType = "CREATE_WORK_OBJECT" | "RENAME_WORK_OBJECT" | "SET_CURRENT_FOCUS" | "UPDATE_WORK_INTENT" | "CHANGE_ENGAGEMENT" | "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE" | "UNDO_COMMIT";
 export const OPERATION_CONTRACT_VERSION = 1 as const;
 export const APPROVED_CURRENT_FOCUS_SKILL = {
   id: "current-focus-maintenance",
@@ -23,6 +23,15 @@ export const APPROVED_ENGAGEMENT_SKILL = {
   id: "engagement-reconciliation",
   version: "0.1.1",
   contentHash: "11789087f843b9ee5708dac16779788ca207f3bce807a6f6c3d20d91538785e5",
+} as const;
+export const APPROVED_MINI_PROJECT_SKILL = {
+  id: "miniproject-governance", version: "0.1.0", contentHash: "111a688816c9e402880c7f859e5192d9ec401d4c97d617626c1d3d80e550059d",
+} as const;
+export const APPROVED_WORK_INTENT_SKILL = {
+  id: "work-intent-maintenance", version: "0.1.0", contentHash: "28839601f608237e2179d66e27f6cb0c24a605f8e53e1b2231dd9c4e06c39f04",
+} as const;
+export const APPROVED_MINI_PROJECT_TASTE = {
+  id: "miniproject-governance-taste", version: "0.1.0", contentHash: "9023451cc8093f1e04e4781e2055fe7d054b5feb61f7d7beb5af4be6736918dd",
 } as const;
 
 export const EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT = {
@@ -91,6 +100,20 @@ export interface SetCurrentFocusOperation {
   actor: Actor;
   target: { workObjectId: string; expectedVersion: number; expectedProjectionHash: string };
   input: { currentFocus: string | null };
+  evidenceDependencies: readonly EvidenceDependency[];
+  preconditions: readonly [
+    { kind: "WORK_OBJECT_VERSION"; expected: number },
+    { kind: "MANAGED_PROJECTION_HASH"; expected: string },
+    { kind: "EVIDENCE_DEPENDENCIES"; expected: readonly EvidenceDependency[] },
+  ];
+}
+
+export interface UpdateWorkIntentOperation {
+  operationId: string;
+  type: "UPDATE_WORK_INTENT";
+  actor: Actor;
+  target: { workObjectId: string; expectedVersion: number; expectedProjectionHash: string };
+  input: { desiredOutcome: string | null; completionChecks: readonly string[] };
   evidenceDependencies: readonly EvidenceDependency[];
   preconditions: readonly [
     { kind: "WORK_OBJECT_VERSION"; expected: number },
@@ -173,7 +196,7 @@ export interface UndoCommitOperation {
   preconditions: readonly [{ kind: "MANAGED_PROJECTION_HASH"; expected: string }];
 }
 
-export type SemanticOperation = CreateWorkObjectOperation | RenameWorkObjectOperation | SetCurrentFocusOperation | ChangeEngagementOperation | CompleteWorkObjectOperation | CancelWorkObjectOperation | ReopenWorkObjectOperation | AmendClosureOperation | UndoCommitOperation;
+export type SemanticOperation = CreateWorkObjectOperation | RenameWorkObjectOperation | SetCurrentFocusOperation | UpdateWorkIntentOperation | ChangeEngagementOperation | CompleteWorkObjectOperation | CancelWorkObjectOperation | ReopenWorkObjectOperation | AmendClosureOperation | UndoCommitOperation;
 
 export interface EffectiveCompletionClosure { type: "COMPLETED"; record: CompletionRecord; amendments: readonly ClosureAmendment[]; outcomeSummary: string; evidenceIds: readonly string[] }
 export interface EffectiveCancellationClosure { type: "CANCELLED"; record: CancellationRecord; amendments: readonly ClosureAmendment[]; reason: string; evidenceIds: readonly string[] }
@@ -187,16 +210,20 @@ export interface ManagedProjection {
   stateUuid: string;
   focusUuid: string;
   waitingUuid: string;
+  outcomeUuid: string;
+  completionUuid: string;
   title: string;
   lifecycle: WorkObject["lifecycle"];
   engagement: WorkObject["engagement"];
   waitingCondition: WaitingCondition | null;
   currentFocus: string | null;
+  desiredOutcome: string | null;
+  completionChecks: readonly string[];
   closure?: ManagedClosureProjection | null;
   projectionHash: string;
 }
 
-export type ManagedProjectionIdentity = Pick<ManagedProjection, "containerUuid" | "titleUuid" | "stateUuid" | "focusUuid" | "waitingUuid">;
+export type ManagedProjectionIdentity = Pick<ManagedProjection, "containerUuid" | "titleUuid" | "stateUuid" | "focusUuid" | "waitingUuid" | "outcomeUuid" | "completionUuid">;
 
 export interface GraphSnapshotInput {
   graphId: string;
@@ -228,6 +255,7 @@ export type GraphEffect =
   | (GraphEffectIdentity & { type: "UPSERT_MANAGED_PROJECTION"; projection: ManagedProjection })
   | (GraphEffectIdentity & { type: "UPDATE_MANAGED_FIELD"; fieldUuid: string; content: string; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
   | (GraphEffectIdentity & { type: "SET_CURRENT_FOCUS_FIELD"; containerUuid: string; fieldUuid: string; content: string | null; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
+  | (GraphEffectIdentity & { type: "UPDATE_WORK_INTENT_FIELDS"; containerUuid: string; outcomeUuid: string; completionUuid: string; desiredOutcome: string | null; completionChecks: readonly string[]; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
   | (GraphEffectIdentity & { type: "CHANGE_ENGAGEMENT_FIELDS"; containerUuid: string; stateUuid: string; waitingUuid: string; engagement: "ACTIONABLE" | "WAITING"; waiting: WaitingCondition | null; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
   | (GraphEffectIdentity & { type: "CHANGE_CLOSURE_FIELDS"; containerUuid: string; stateUuid: string; focusUuid: string; expectedSourceMarker: GraphSnapshot["sourceMarker"]; resultingSourceMarker: GraphSnapshot["sourceMarker"]; expectedProjection: ManagedProjection; lifecycle: WorkObject["lifecycle"]; engagement: WorkObject["engagement"]; waitingCondition: WaitingCondition | null; currentFocus: string | null; closure: ManagedClosureProjection | null; expectedProjectionHash: string; resultingProjectionHash: string; resultingProjection?: ManagedProjection })
   | (GraphEffectIdentity & { type: "REMOVE_MANAGED_PROJECTION"; containerUuid: string; expectedProjectionHash: string; expectedProjection?: ManagedProjection });
@@ -284,6 +312,8 @@ export type GraphGatewayRequest =
   | { kind: "READ_PAGE"; graphId: string; pageName: string; limit: number }
   | { kind: "READ_EVIDENCE"; graphId: string; blockUuid: string }
   | { kind: "READ_TARGET_SNAPSHOT"; input: GraphSnapshotInput }
+  | { kind: "READ_CURATION_SNAPSHOT"; graphId: string; rootBlockUuid: string }
+  | { kind: "APPLY_CURATION"; curation: AddReferenceCuration }
   | { kind: "APPLY_EFFECT"; effect: GraphEffect };
 
 export type GraphGatewayResponse =
@@ -292,6 +322,8 @@ export type GraphGatewayResponse =
   | { kind: "READ_PAGE"; page: GraphPageRead }
   | { kind: "READ_EVIDENCE"; material: TrustedGraphEvidenceMaterial }
   | { kind: "READ_TARGET_SNAPSHOT"; snapshot: GraphSnapshot }
+  | { kind: "READ_CURATION_SNAPSHOT"; snapshot: NaturalCurationSnapshot }
+  | { kind: "APPLY_CURATION"; snapshot: NaturalCurationSnapshot; createdBlockUuids: readonly string[] }
   | { kind: "APPLY_EFFECT"; result: GraphApplyResult; snapshot: GraphSnapshot };
 
 export interface GraphGatewayRequestEnvelope {
@@ -304,7 +336,7 @@ export interface GraphGatewayStatus {
   available: boolean;
   reason: "READY" | "GRAPH_ADAPTER_OFFLINE";
   graphId: string | null;
-  capabilities: readonly ("SEARCH" | "READ_BLOCK" | "READ_PAGE" | "FREEZE_EVIDENCE" | "APPLY_KERNEL_EFFECT")[];
+  capabilities: readonly ("SEARCH" | "READ_BLOCK" | "READ_PAGE" | "FREEZE_EVIDENCE" | "APPLY_KERNEL_EFFECT" | "APPLY_TYPED_CURATION")[];
   lastSeenAt: string | null;
 }
 
@@ -319,23 +351,76 @@ export interface GraphReadReceipt {
 
 export interface SkillIdentity { id: string; version: string; contentHash: string }
 export interface SkillPackage extends SkillIdentity { manifest: unknown; policy: unknown; schema: unknown; examples: unknown; eval: unknown }
+export interface TasteProfile extends SkillIdentity {
+  status: "PROVISIONAL" | "ACTIVE" | "CANDIDATE";
+  preferences: readonly { id: string; statement: string; confidence: "HIGH" | "MEDIUM" | "LOW" }[];
+  activatedAt: string | null;
+}
 
 export type AgentRunOutcome = "PROPOSAL" | "NO_PROPOSAL" | "NEEDS_MORE_CONTEXT" | "FAILED";
 export interface AgentRunReceipt {
   id: string;
-  purpose: "CURRENT_FOCUS_MAINTENANCE" | "ENGAGEMENT_RECONCILIATION";
+  purpose: "CURRENT_FOCUS_MAINTENANCE" | "ENGAGEMENT_RECONCILIATION" | "MINI_PROJECT_GOVERNANCE";
   executor: { type: "FAKE" | "BUILTIN" | "EXTERNAL_CLI"; id: string };
   state: "STARTED" | "FINISHED";
   operationContractVersion: typeof OPERATION_CONTRACT_VERSION;
   skill: SkillIdentity;
   subject: { workObjectId: string };
-  context: { targetVersion: number; targetProjectionHash?: string; evidenceIds: readonly string[]; currentEngagement?: WorkObject["engagement"]; waitingCondition?: WaitingCondition | null };
-  result: { outcome: AgentRunOutcome | "PENDING"; proposalIds: readonly string[] };
+  context: { targetVersion: number; targetProjectionHash?: string; evidenceIds: readonly string[]; currentEngagement?: WorkObject["engagement"]; waitingCondition?: WaitingCondition | null; governanceCorrelationId?: string; taste?: SkillIdentity };
+  result: { outcome: AgentRunOutcome | "BOUNDARY_REVIEW" | "PENDING"; proposalIds: readonly string[] };
   reasonCode: string;
   rationaleSummary: string;
   submissionHash?: string | null;
   startedAt: string;
   finishedAt: string | null;
+}
+
+export type MiniProjectBoundaryCandidate = "SPLIT" | "MERGE" | "KIND_CHANGE" | "PROJECT_OWNERSHIP" | "PARKED" | "CLOSURE" | "HISTORY_MOVE";
+export type MiniProjectAgentResult =
+  | { outcome: "PROPOSAL"; change: { type: "SET_CURRENT_FOCUS"; currentFocus: string | null } | { type: "UPDATE_WORK_INTENT"; desiredOutcome: string | null; completionChecks: readonly string[] }; reasonCode: string; rationaleSummary: string }
+  | { outcome: "NO_PROPOSAL"; reasonCode: string; rationaleSummary: string }
+  | { outcome: "NEEDS_MORE_CONTEXT"; question: string; reasonCode: string; rationaleSummary: string }
+  | { outcome: "BOUNDARY_REVIEW"; candidate: MiniProjectBoundaryCandidate; recommendation: string; question: string; reasonCode: string; rationaleSummary: string };
+
+export interface NaturalCurationSnapshot {
+  graphId: string;
+  rootBlockUuid: string;
+  rootContentHash: string;
+  rootTopologyHash: string;
+  directChildren: readonly { blockUuid: string; content: string; contentHash: string }[];
+}
+
+export interface AddReferenceCuration {
+  type: "ADD_REFERENCE";
+  receiptId: string;
+  graphId: string;
+  rootBlockUuid: string;
+  expectedRootContentHash: string;
+  expectedRootTopologyHash: string;
+  section: "资源" | "支撑交付物";
+  existingSectionUuid: string | null;
+  newSectionUuid: string;
+  newReferenceUuid: string;
+  referenceBlockUuid: string;
+}
+
+export interface CurationReceipt {
+  id: string;
+  type: "ADD_REFERENCE";
+  workObjectId: string;
+  agentRunId: string;
+  governanceCorrelationId: string;
+  skill: SkillIdentity;
+  taste: SkillIdentity;
+  graphId: string;
+  rootBlockUuid: string;
+  referenceBlockUuid: string;
+  beforeContentHash: string;
+  beforeTopologyHash: string;
+  afterContentHash: string;
+  afterTopologyHash: string;
+  createdBlockUuids: readonly string[];
+  createdAt: string;
 }
 
 export interface AgentCurrentFocusResult {
@@ -420,6 +505,40 @@ export function parseAgentCurrentFocusResult(value: unknown): AgentCurrentFocusR
   };
 }
 
+export function parseMiniProjectAgentResult(value: unknown): MiniProjectAgentResult {
+  const candidate = record(value, "AGENT_RESULT_INVALID", "MiniProject governance result");
+  exactKeys(candidate, ["outcome", "change", "candidate", "recommendation", "question", "reasonCode", "rationaleSummary"], "AGENT_RESULT_UNKNOWN_FIELD");
+  if (typeof candidate.reasonCode !== "string" || typeof candidate.rationaleSummary !== "string") throw new ContractError("AGENT_RESULT_EXPLANATION_INVALID", "MiniProject result requires reasonCode and rationaleSummary.");
+  if (candidate.outcome === "PROPOSAL") {
+    const change = record(candidate.change, "AGENT_CHANGE_REQUIRED", "MiniProject change");
+    if (change.type === "SET_CURRENT_FOCUS") {
+      exactKeys(change, ["type", "currentFocus"], "AGENT_RESULT_UNKNOWN_FIELD");
+      if (change.currentFocus !== null && typeof change.currentFocus !== "string") throw new ContractError("CURRENT_FOCUS_INVALID", "Current focus must be text or null.");
+      const currentFocus = typeof change.currentFocus === "string" ? change.currentFocus.trim() || null : null;
+      if (currentFocus && currentFocus.length > 200) throw new ContractError("CURRENT_FOCUS_TOO_LONG", "Current focus exceeds 200 characters.");
+      return { outcome: "PROPOSAL", change: { type: "SET_CURRENT_FOCUS", currentFocus }, reasonCode: candidate.reasonCode, rationaleSummary: candidate.rationaleSummary };
+    }
+    if (change.type === "UPDATE_WORK_INTENT") {
+      exactKeys(change, ["type", "desiredOutcome", "completionChecks"], "AGENT_RESULT_UNKNOWN_FIELD");
+      if (change.desiredOutcome !== null && typeof change.desiredOutcome !== "string") throw new ContractError("DESIRED_OUTCOME_INVALID", "Desired outcome must be text or null.");
+      const desiredOutcome = typeof change.desiredOutcome === "string" ? change.desiredOutcome.trim() || null : null;
+      if (desiredOutcome && desiredOutcome.length > 500) throw new ContractError("DESIRED_OUTCOME_TOO_LONG", "Desired outcome exceeds 500 characters.");
+      const completionChecks = stringArray(change.completionChecks, "COMPLETION_CHECKS_INVALID", "Completion checks");
+      if (completionChecks.length > 10 || completionChecks.some((item) => item.length > 300)) throw new ContractError("COMPLETION_CHECKS_INVALID", "Completion checks exceed the bounded contract.");
+      return { outcome: "PROPOSAL", change: { type: "UPDATE_WORK_INTENT", desiredOutcome, completionChecks }, reasonCode: candidate.reasonCode, rationaleSummary: candidate.rationaleSummary };
+    }
+    throw new ContractError("AGENT_CHANGE_UNSUPPORTED", "MiniProject governance supports only current focus or WorkIntent changes.");
+  }
+  if (candidate.outcome === "NO_PROPOSAL") return { outcome: "NO_PROPOSAL", reasonCode: candidate.reasonCode, rationaleSummary: candidate.rationaleSummary };
+  if (candidate.outcome === "NEEDS_MORE_CONTEXT") return { outcome: "NEEDS_MORE_CONTEXT", question: text(candidate.question, "AGENT_QUESTION_REQUIRED", "One bottleneck question"), reasonCode: candidate.reasonCode, rationaleSummary: candidate.rationaleSummary };
+  if (candidate.outcome === "BOUNDARY_REVIEW") {
+    const allowed = new Set<MiniProjectBoundaryCandidate>(["SPLIT", "MERGE", "KIND_CHANGE", "PROJECT_OWNERSHIP", "PARKED", "CLOSURE", "HISTORY_MOVE"]);
+    if (!allowed.has(candidate.candidate as MiniProjectBoundaryCandidate)) throw new ContractError("BOUNDARY_CANDIDATE_INVALID", "Boundary candidate is unsupported.");
+    return { outcome: "BOUNDARY_REVIEW", candidate: candidate.candidate as MiniProjectBoundaryCandidate, recommendation: text(candidate.recommendation, "BOUNDARY_RECOMMENDATION_REQUIRED", "Boundary recommendation"), question: text(candidate.question, "AGENT_QUESTION_REQUIRED", "One bottleneck question"), reasonCode: candidate.reasonCode, rationaleSummary: candidate.rationaleSummary };
+  }
+  throw new ContractError("AGENT_RESULT_OUTCOME_INVALID", "MiniProject result outcome is unsupported.");
+}
+
 export type ProposalStatus = "OPEN" | "APPLIED" | "DISMISSED" | "INVALIDATED";
 export interface CurrentFocusProposalRevision {
   proposalId: string;
@@ -432,6 +551,25 @@ export interface CurrentFocusProposalRevision {
   evidenceDependencies: readonly EvidenceDependency[];
   skill: SkillIdentity;
   agentRunId: string;
+  governanceCorrelationId?: string;
+  taste?: SkillIdentity;
+  risk: "LOW";
+  createdAt: string;
+}
+export interface WorkIntentProposalRevision {
+  proposalId: string;
+  revision: number;
+  operationType: "UPDATE_WORK_INTENT";
+  operationContractVersion: typeof OPERATION_CONTRACT_VERSION;
+  desiredOutcome: string | null;
+  completionChecks: readonly string[];
+  expectedVersion: number;
+  expectedProjectionHash: string;
+  evidenceDependencies: readonly EvidenceDependency[];
+  skill: SkillIdentity;
+  agentRunId: string;
+  governanceCorrelationId: string;
+  taste: SkillIdentity;
   risk: "LOW";
   createdAt: string;
 }
@@ -450,7 +588,7 @@ export interface EngagementProposalRevision {
   risk: "LOW";
   createdAt: string;
 }
-export type ProposalRevision = CurrentFocusProposalRevision | EngagementProposalRevision;
+export type ProposalRevision = CurrentFocusProposalRevision | WorkIntentProposalRevision | EngagementProposalRevision;
 export interface Proposal {
   id: string;
   workObjectId: string;
@@ -470,7 +608,10 @@ export interface FeedbackEvent {
   agentRunId: string;
   proposalRevision: number;
   skill: SkillIdentity;
-  operationType: "SET_CURRENT_FOCUS" | "CHANGE_ENGAGEMENT";
+  operationType: "SET_CURRENT_FOCUS" | "UPDATE_WORK_INTENT" | "CHANGE_ENGAGEMENT";
+  signalStrength?: "WEAK_ACCEPTANCE" | "STRONG_POSITIVE" | "CORRECTIVE";
+  governanceCorrelationId?: string | null;
+  userComment?: string | null;
   commitId: string | null;
   before: unknown;
   after: unknown;
@@ -596,12 +737,12 @@ function actor(value: unknown): Actor {
 export function parseSemanticOperation(value: unknown): SemanticOperation {
   const candidate = record(value, "OPERATION_INVALID", "Operation");
   const operationType = candidate.type;
-  if (operationType !== "CREATE_WORK_OBJECT" && operationType !== "RENAME_WORK_OBJECT" && operationType !== "SET_CURRENT_FOCUS" && operationType !== "CHANGE_ENGAGEMENT" && operationType !== "COMPLETE_WORK_OBJECT" && operationType !== "CANCEL_WORK_OBJECT" && operationType !== "REOPEN_WORK_OBJECT" && operationType !== "AMEND_CLOSURE" && operationType !== "UNDO_COMMIT") {
+  if (operationType !== "CREATE_WORK_OBJECT" && operationType !== "RENAME_WORK_OBJECT" && operationType !== "SET_CURRENT_FOCUS" && operationType !== "UPDATE_WORK_INTENT" && operationType !== "CHANGE_ENGAGEMENT" && operationType !== "COMPLETE_WORK_OBJECT" && operationType !== "CANCEL_WORK_OBJECT" && operationType !== "REOPEN_WORK_OBJECT" && operationType !== "AMEND_CLOSURE" && operationType !== "UNDO_COMMIT") {
     throw new ContractError("OPERATION_TYPE_UNSUPPORTED", "Only registered semantic operations are accepted.");
   }
   exactKeys(candidate, operationType === "CREATE_WORK_OBJECT"
     ? ["operationId", "type", "actor", "input", "preconditions"]
-    : operationType === "SET_CURRENT_FOCUS" || operationType === "CHANGE_ENGAGEMENT"
+    : operationType === "SET_CURRENT_FOCUS" || operationType === "UPDATE_WORK_INTENT" || operationType === "CHANGE_ENGAGEMENT"
       ? ["operationId", "type", "actor", "target", "input", "evidenceDependencies", "preconditions"]
       : ["operationId", "type", "actor", "target", "input", "preconditions"], "OPERATION_UNKNOWN_FIELD");
   const common = {
@@ -708,6 +849,33 @@ export function parseSemanticOperation(value: unknown): SemanticOperation {
       evidenceDependencies,
       preconditions,
     };
+  }
+
+  if (operationType === "UPDATE_WORK_INTENT") {
+    exactKeys(target, ["workObjectId", "expectedVersion", "expectedProjectionHash"], "OPERATION_TARGET_UNKNOWN_FIELD");
+    exactKeys(input, ["desiredOutcome", "completionChecks"], "OPERATION_INPUT_UNKNOWN_FIELD");
+    if (!Number.isSafeInteger(target.expectedVersion) || Number(target.expectedVersion) < 1) throw new ContractError("EXPECTED_VERSION_INVALID", "Expected version must be a positive integer.");
+    const expectedProjectionHash = hash(target.expectedProjectionHash, "PROJECTION_HASH_INVALID");
+    const dependencies = candidate.evidenceDependencies;
+    if (!Array.isArray(dependencies) || dependencies.length < 1) throw new ContractError("EVIDENCE_DEPENDENCIES_REQUIRED", "At least one frozen Evidence dependency is required.");
+    const evidenceDependencies = dependencies.map((dependency) => {
+      const item = record(dependency, "EVIDENCE_DEPENDENCY_INVALID", "Evidence dependency");
+      exactKeys(item, ["evidenceId", "contentHash"], "EVIDENCE_DEPENDENCY_UNKNOWN_FIELD");
+      return { evidenceId: text(item.evidenceId, "EVIDENCE_ID_REQUIRED", "Evidence id"), contentHash: strongHash(item.contentHash, "EVIDENCE_CONTENT_HASH_INVALID") };
+    });
+    if (input.desiredOutcome !== null && typeof input.desiredOutcome !== "string") throw new ContractError("DESIRED_OUTCOME_INVALID", "Desired outcome must be text or null.");
+    const desiredOutcome = typeof input.desiredOutcome === "string" ? input.desiredOutcome.trim() || null : null;
+    if (desiredOutcome && desiredOutcome.length > 500) throw new ContractError("DESIRED_OUTCOME_TOO_LONG", "Desired outcome exceeds 500 characters.");
+    const completionChecks = stringArray(input.completionChecks, "COMPLETION_CHECKS_INVALID", "Completion checks");
+    if (completionChecks.length > 10) throw new ContractError("COMPLETION_CHECKS_TOO_MANY", "Completion checks exceed 10 items.");
+    if (completionChecks.some((item) => item.length > 300)) throw new ContractError("COMPLETION_CHECK_TOO_LONG", "Completion check exceeds 300 characters.");
+    const preconditions = [
+      { kind: "WORK_OBJECT_VERSION" as const, expected: Number(target.expectedVersion) },
+      { kind: "MANAGED_PROJECTION_HASH" as const, expected: expectedProjectionHash },
+      { kind: "EVIDENCE_DEPENDENCIES" as const, expected: evidenceDependencies },
+    ] as const;
+    if (candidate.preconditions !== undefined && canonical(candidate.preconditions) !== canonical(preconditions)) throw new ContractError("OPERATION_PRECONDITIONS_INVALID", "Preconditions must match the semantic operation.");
+    return { ...common, type: operationType, target: { workObjectId: text(target.workObjectId, "WORK_OBJECT_ID_REQUIRED", "WorkObject id"), expectedVersion: Number(target.expectedVersion), expectedProjectionHash }, input: { desiredOutcome, completionChecks }, evidenceDependencies, preconditions };
   }
 
   if (operationType === "CHANGE_ENGAGEMENT") {

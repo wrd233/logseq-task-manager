@@ -31,7 +31,7 @@ state from presentation labels.
 The presentation model contains only non-empty human-visible fields:
 
 ```ts
-type ProjectionFieldKind = "CURRENT_FOCUS" | "WAITING" | "REVIEW" | "COMPLETION" | "CANCELLATION";
+type ProjectionFieldKind = "DESIRED_OUTCOME" | "COMPLETION_CHECKS" | "CURRENT_FOCUS" | "WAITING" | "REVIEW" | "COMPLETION" | "CANCELLATION";
 
 interface ProjectionField {
   kind: ProjectionFieldKind;
@@ -142,3 +142,5 @@ Formalization itself may persist Logseq's native `id::` property on a file-graph
 source before the Primary Anchor is created. Canonicalization removes that host
 identity line, so the natural title/body and its semantic source hash are
 unchanged. This is the sole machine-identity addition to the source.
+
+For a Formal MiniProject, two additional registered UUIDs represent optional WorkIntent. Non-empty `desiredOutcome` renders as `**[核心输出]**`; non-empty bounded checks render as `**[完成标准]**`. Null/empty values render no blocks. These labels are still presentation-only. Natural sections such as `[当前状态]`, `[背景]`, `[资源]`, `[支撑交付物]`, and `[结果]` are not inferred into Formal state and are never written through the WorkIntent effect.

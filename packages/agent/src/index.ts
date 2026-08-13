@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { AgentCurrentFocusResult, AgentEngagementResult, CurrentFocusAgent, EngagementAgent, SkillPackage } from "@task-copilot/contracts";
+import type { AgentCurrentFocusResult, AgentEngagementResult, CurrentFocusAgent, EngagementAgent, SkillPackage, TasteProfile } from "@task-copilot/contracts";
 
 const skillFiles = ["manifest.json", "policy.md", "schema.json", "examples.json", "eval.json"] as const;
 
@@ -21,6 +21,22 @@ export async function loadCurrentFocusSkill(root = fileURLToPath(new URL("../../
 
 export async function loadEngagementReconciliationSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
   return loadSkill(join(root, "skills", "engagement-reconciliation", "0.1.1"));
+}
+
+export async function loadMiniProjectGovernanceSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
+  return loadSkill(join(root, "skills", "miniproject-governance", "0.1.0"));
+}
+
+export async function loadWorkIntentMaintenanceSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
+  return loadSkill(join(root, "skills", "work-intent-maintenance", "0.1.0"));
+}
+
+export async function loadMiniProjectTaste(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<TasteProfile> {
+  const directory = join(root, "taste", "miniproject-governance", "0.1.0");
+  const [profileRaw, evalRaw] = await Promise.all([readFile(join(directory, "profile.json"), "utf8"), readFile(join(directory, "eval.json"), "utf8")]);
+  const profile = JSON.parse(profileRaw) as Omit<TasteProfile, "contentHash">;
+  const contentHash = createHash("sha256").update(`profile.json\n${profileRaw}\neval.json\n${evalRaw}`).digest("hex");
+  return { ...profile, contentHash };
 }
 
 function evidenceClause(content: string, term: RegExp): string | null {

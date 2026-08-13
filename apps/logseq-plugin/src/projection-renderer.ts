@@ -29,6 +29,10 @@ export function projectPresentation(projection: ManagedProjection): ProjectionFi
   const fields: ProjectionFieldModel[] = [];
   const focus = projection.currentFocus?.trim();
   if (focus) fields.push({ kind: "CURRENT_FOCUS", uuid: projection.focusUuid, value: focus });
+  const desiredOutcome = projection.desiredOutcome?.trim();
+  if (desiredOutcome) fields.push({ kind: "DESIRED_OUTCOME", uuid: projection.outcomeUuid, value: desiredOutcome });
+  const completionChecks = projection.completionChecks.map((item) => item.trim()).filter(Boolean);
+  if (completionChecks.length) fields.push({ kind: "COMPLETION_CHECKS", uuid: projection.completionUuid, value: completionChecks.join("；") });
   if (projection.engagement === "WAITING" && projection.waitingCondition) {
     const description = projection.waitingCondition.description.trim();
     if (description) fields.push({ kind: "WAITING", uuid: projection.waitingUuid, value: description });

@@ -11,20 +11,20 @@ test("vNext schema stores normalized current state without embedding an anchor i
   const store = new SqliteStore(":memory:");
   store.putWorkObject({
     id: "work-01", kind: "TASK", title: "Task", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null,
-    currentFocus: null, version: 1, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
+    currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
   });
   store.putAnchor({
     id: "anchor-01", workObjectId: "work-01", graphId: "graph-01", externalId: "source-01",
     sourceContentHash: "a1b2c3d4", projectionContainerUuid: "container-01", projectionTitleUuid: "title-01",
-    projectionStateUuid: "state-01", projectionFocusUuid: "focus-01", projectionWaitingUuid: "waiting-01", createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
+    projectionStateUuid: "state-01", projectionFocusUuid: "focus-01", projectionWaitingUuid: "waiting-01", projectionOutcomeUuid: "outcome-01", projectionCompletionUuid: "checks-01", createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
   });
 
   assert.deepEqual(store.getWorkObject("work-01"), {
     id: "work-01", kind: "TASK", title: "Task", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null,
-    currentFocus: null, version: 1, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
+    currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
   });
   assert.equal(store.getAnchorForWorkObject("work-01")?.externalId, "source-01");
-  assert.equal(store.schemaVersion(), 5);
+  assert.equal(store.schemaVersion(), 6);
   store.close();
 });
 
@@ -70,7 +70,7 @@ test("schema v3 backfills deterministic Phase 3 focus and Phase 4 waiting UUIDs"
 test("schema v4 keeps immutable Closure records and resolves only the current effective closure", () => {
   const store = new SqliteStore(":memory:");
   const actor = { type: "USER", id: "local-user" } as const;
-  const base = { id: "task-closure", kind: "TASK", title: "验证防火墙", lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, version: 2, createdAt: "2026-08-13T00:00:00.000Z", updatedAt: "2026-08-13T01:00:00.000Z" } as const;
+  const base = { id: "task-closure", kind: "TASK", title: "验证防火墙", lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 2, createdAt: "2026-08-13T00:00:00.000Z", updatedAt: "2026-08-13T01:00:00.000Z" } as const;
   store.putWorkObject(base);
   const putCommit = (id: string, operationType: "COMPLETE_WORK_OBJECT" | "AMEND_CLOSURE" | "REOPEN_WORK_OBJECT") => store.insertCommit({ id, status: "COMMITTED", actor, operationType, targetId: base.id, operation: { operationId: id }, preconditions: [], before: null, after: null, inverse: null, graphEffect: null, graphResult: null, failureReason: null, compensationFor: null, compensatedBy: null, governance: null, createdAt: base.updatedAt, updatedAt: base.updatedAt });
   putCommit("commit-complete", "COMPLETE_WORK_OBJECT");
@@ -91,6 +91,6 @@ test("schema v4 keeps immutable Closure records and resolves only the current ef
   assert.equal(history.completions.length, 1);
   assert.equal(history.amendments.length, 1);
   assert.equal(history.reopens.length, 1);
-  assert.equal(store.schemaVersion(), 5);
+  assert.equal(store.schemaVersion(), 6);
   store.close();
 });

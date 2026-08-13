@@ -1,0 +1,6 @@
+{
+  "active": { "miniproject-governance": "0.1.0" },
+  "candidates": [
+    { "profile": "miniproject-governance", "version": "0.1.1", "activation": "NOT_ACTIVATED" }
+  ]
+}

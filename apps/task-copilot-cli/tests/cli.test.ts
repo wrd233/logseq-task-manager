@@ -7,8 +7,9 @@ const client = {
   status: async () => ({ status: "ok" as const, schemaVersion: 1, pid: 42 }),
   agentBootstrap: async () => ({ kernel: { ready: true }, graph: { ready: false, graphId: null, capabilities: [], reason: "GRAPH_ADAPTER_OFFLINE" }, agent: { executorType: "EXTERNAL_CLI" as const, supportedPurposes: [] }, skills: [], forbidden: [] }),
   listSkills: async () => ({ skills: [] }), showSkill: async () => ({ skill: {} as never, resultContract: {} }),
-  listObjects: async () => ({ objects: [{ id: "work-01", kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }] }),
-  showObject: async (id: string) => ({ object: { id, kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }, anchor: null }),
+  listTasteProfiles: async () => ({ profiles: [] }), showTasteProfile: async () => ({ profile: {} as never }),
+  listObjects: async () => ({ objects: [{ id: "work-01", kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" }] }),
+  showObject: async (id: string) => ({ object: { id, kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" }, anchor: null }),
   showClosure: async () => ({ closure: { current: null, completions: [], cancellations: [], amendments: [], reopens: [] } }),
   showCommit: async (id: string) => ({ commit: { id } as never }),
   listRecovery: async () => ({ recovery: [] }),
@@ -19,6 +20,7 @@ const client = {
   showAgentRun: async (id: string) => ({ run: { id } as never }),
   showProposal: async (id: string) => ({ proposal: { id } as never, revision: { proposalId: id } as never }),
   listFeedback: async () => ({ feedback: [] }),
+  addReferenceCuration: async () => ({ receipt: {} as never }), listCurationReceipts: async () => ({ receipts: [] }),
 };
 
 test("all reference commands support machine-readable output", async () => {

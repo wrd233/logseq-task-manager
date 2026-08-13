@@ -1,0 +1,13 @@
+[
+  {
+    "evidence": "当前结果已经明确为形成一份可评审的模板规范，评审通过是明确结束边界。",
+    "outcome": "PROPOSAL",
+    "desiredOutcome": "形成一份可评审的模板规范",
+    "completionChecks": ["通过相关角色评审"]
+  },
+  {
+    "evidence": "最好后面验证一下。",
+    "outcome": "NO_PROPOSAL",
+    "reasonCode": "COMMITMENT_AMBIGUOUS"
+  }
+]

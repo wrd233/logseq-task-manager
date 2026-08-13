@@ -1,0 +1,9 @@
+{
+  "id": "miniproject-governance",
+  "version": "0.1.0",
+  "purpose": "MINI_PROJECT_GOVERNANCE",
+  "authority": "READ_ONLY_COMPOSITE",
+  "risk": "NONE",
+  "delegatedMutationSkills": ["current-focus-maintenance@0.1.0", "work-intent-maintenance@0.1.0"],
+  "delegatedCurationOperations": ["ADD_REFERENCE"]
+}

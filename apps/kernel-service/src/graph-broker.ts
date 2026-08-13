@@ -12,7 +12,7 @@ interface PendingRequest {
 }
 
 function requestGraphId(request: GraphGatewayRequest): string {
-  return request.kind === "READ_TARGET_SNAPSHOT" ? request.input.graphId : request.kind === "APPLY_EFFECT" ? request.effect.graphId : request.graphId;
+  return request.kind === "READ_TARGET_SNAPSHOT" ? request.input.graphId : request.kind === "APPLY_EFFECT" ? request.effect.graphId : request.kind === "APPLY_CURATION" ? request.curation.graphId : request.graphId;
 }
 
 function responseGraphIds(response: GraphGatewayResponse): readonly string[] {
@@ -21,6 +21,7 @@ function responseGraphIds(response: GraphGatewayResponse): readonly string[] {
   if (response.kind === "READ_PAGE") return [response.page.graphId, ...response.page.blocks.map((item) => item.graphId)];
   if (response.kind === "READ_EVIDENCE") return [response.material.graphId];
   if (response.kind === "READ_TARGET_SNAPSHOT") return [response.snapshot.graphId];
+  if (response.kind === "READ_CURATION_SNAPSHOT" || response.kind === "APPLY_CURATION") return [response.snapshot.graphId];
   return [response.result.graphId, response.snapshot.graphId];
 }
 
@@ -61,7 +62,7 @@ export class GraphRequestBroker {
       available,
       reason: available ? "READY" : "GRAPH_ADAPTER_OFFLINE",
       graphId: available ? this.#graphId : null,
-      capabilities: available ? ["SEARCH", "READ_BLOCK", "READ_PAGE", "FREEZE_EVIDENCE", "APPLY_KERNEL_EFFECT"] : [],
+      capabilities: available ? ["SEARCH", "READ_BLOCK", "READ_PAGE", "FREEZE_EVIDENCE", "APPLY_KERNEL_EFFECT", "APPLY_TYPED_CURATION"] : [],
       lastSeenAt: this.#lastSeenAt,
     };
   }

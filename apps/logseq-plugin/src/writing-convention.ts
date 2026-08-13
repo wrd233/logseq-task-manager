@@ -2,6 +2,8 @@ export const WRITING_LANGUAGE_VERSION = 1 as const;
 
 export const managedLabels = {
   CURRENT_FOCUS: "当前推进",
+  DESIRED_OUTCOME: "核心输出",
+  COMPLETION_CHECKS: "完成标准",
   WAITING: "等待",
   REVIEW: "复查",
   COMPLETION: "完成",

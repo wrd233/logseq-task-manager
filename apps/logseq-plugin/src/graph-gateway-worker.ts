@@ -16,7 +16,8 @@ function block(graphId: string, value: { uuid: string; content: string; pageName
 
 export async function handleGraphGatewayRequest(input: { envelope: GraphGatewayRequestEnvelope; graphId: string; adapter: LogseqGraphAdapter; readHost: GraphGatewayReadHost; graphSnapshotKey: string }): Promise<GraphGatewayResponse> {
   const { request } = input.envelope;
-  if (request.kind !== "READ_TARGET_SNAPSHOT" && request.kind !== "APPLY_EFFECT" && request.graphId !== input.graphId) throw new Error("GRAPH_ID_MISMATCH");
+  const requestedGraphId = request.kind === "READ_TARGET_SNAPSHOT" ? request.input.graphId : request.kind === "APPLY_EFFECT" ? request.effect.graphId : request.kind === "APPLY_CURATION" ? request.curation.graphId : request.graphId;
+  if (requestedGraphId !== input.graphId) throw new Error("GRAPH_ID_MISMATCH");
   if (request.kind === "SEARCH") {
     const values = await input.readHost.search(request.query, request.limit);
     return { kind: "SEARCH", matches: values.slice(0, request.limit).map((value) => { const item = block(input.graphId, value); return { graphId: item.graphId, blockUuid: item.blockUuid, pageName: item.pageName, snippet: item.content.slice(0, 240), contentHash: item.contentHash }; }) };
@@ -31,6 +32,11 @@ export async function handleGraphGatewayRequest(input: { envelope: GraphGatewayR
   }
   if (request.kind === "READ_EVIDENCE") return { kind: "READ_EVIDENCE", material: await input.adapter.readEvidenceMaterial({ graphId: request.graphId, blockUuid: request.blockUuid }, input.graphSnapshotKey) };
   if (request.kind === "READ_TARGET_SNAPSHOT") return { kind: "READ_TARGET_SNAPSHOT", snapshot: await input.adapter.readGraphSnapshot(request.input) };
+  if (request.kind === "READ_CURATION_SNAPSHOT") return { kind: "READ_CURATION_SNAPSHOT", snapshot: await input.adapter.readNaturalCurationSnapshot({ graphId: request.graphId, rootBlockUuid: request.rootBlockUuid }) };
+  if (request.kind === "APPLY_CURATION") {
+    const applied = await input.adapter.applyAddReferenceCuration(request.curation);
+    return { kind: "APPLY_CURATION", ...applied };
+  }
   const effect = request.effect;
   const result = await input.adapter.applyGraphEffect(effect);
   let snapshot;

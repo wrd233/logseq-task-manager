@@ -76,10 +76,12 @@ const identity = {
   stateUuid: "33333333-3333-4333-8333-333333333333",
   focusUuid: "44444444-4444-4444-8444-444444444444",
   waitingUuid: "66666666-6666-4666-8666-666666666666",
+  outcomeUuid: "77777777-7777-4777-8777-777777777777",
+  completionUuid: "88888888-8888-4888-8888-888888888888",
 };
 
 function projection(overrides: Partial<Omit<ManagedProjection, "projectionHash">> = {}): ManagedProjection {
-  const core = { ...identity, title: "自然记录", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, ...overrides };
+  const core = { ...identity, title: "自然记录", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], ...overrides };
   return { ...core, projectionHash: stableHash(core) };
 }
 
@@ -112,6 +114,19 @@ test("ordinary formalization is a verified zero-noise projection", async () => {
   assert.deepEqual(host.nodes.get("source-01")!.children, []);
   assert.equal(host.nodes.get("source-01")!.content, "TODO 自然记录");
   assert.equal((await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: initial })).projection?.projectionHash, initial.projectionHash);
+});
+
+test("typed ADD_REFERENCE preserves source text and fails closed on stale topology", async () => {
+  const host = new Host("[MiniProject] 虚拟机模板与镜像规范");
+  host.nodes.set("reference-source", { uuid: "reference-source", content: "历史镜像版本记录", parent: null, children: [] });
+  const adapter = new LogseqGraphAdapter(host, "graph-01");
+  const before = await adapter.readNaturalCurationSnapshot({ graphId: "graph-01", rootBlockUuid: "source-01" });
+  const sectionUuid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"; const referenceUuid = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const applied = await adapter.applyAddReferenceCuration({ type: "ADD_REFERENCE", receiptId: "receipt-01", graphId: "graph-01", rootBlockUuid: "source-01", expectedRootContentHash: before.rootContentHash, expectedRootTopologyHash: before.rootTopologyHash, section: "资源", existingSectionUuid: null, newSectionUuid: sectionUuid, newReferenceUuid: referenceUuid, referenceBlockUuid: "reference-source" });
+  assert.equal(host.nodes.get("source-01")?.content, "[MiniProject] 虚拟机模板与镜像规范");
+  assert.equal(host.nodes.get(referenceUuid)?.content.startsWith("((reference-source))"), true);
+  assert.deepEqual(applied.createdBlockUuids, [sectionUuid, referenceUuid]);
+  await assert.rejects(adapter.applyAddReferenceCuration({ type: "ADD_REFERENCE", receiptId: "receipt-02", graphId: "graph-01", rootBlockUuid: "source-01", expectedRootContentHash: before.rootContentHash, expectedRootTopologyHash: before.rootTopologyHash, section: "资源", existingSectionUuid: sectionUuid, newSectionUuid: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", newReferenceUuid: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", referenceBlockUuid: "reference-source" }), /GRAPH_CURATION_PRECONDITION_FAILED/u);
 });
 
 test("title-only DB block shapes pass through the formalization entry and Graph Adapter", async () => {

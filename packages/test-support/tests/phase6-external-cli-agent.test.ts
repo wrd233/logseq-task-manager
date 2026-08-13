@@ -17,6 +17,7 @@ async function postBridge(baseUrl: string, token: string, path: string, body: un
 
 function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey: string; graphId: string; graph: FakeGraphAdapter; records: Map<string, { content: string; pageName: string }> }) {
   let stopped = false; let timer: ReturnType<typeof setTimeout> | null = null;
+  const curationDirect: Array<{ blockUuid: string; content: string; contentHash: string }> = [];
   const handle = async (envelope: GraphGatewayRequestEnvelope): Promise<GraphGatewayResponse> => {
     const request = envelope.request;
     if (request.kind === "READ_TARGET_SNAPSHOT") return { kind: request.kind, snapshot: await input.graph.readGraphSnapshot(request.input) };
@@ -24,6 +25,9 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
     if (request.kind === "APPLY_EFFECT") { const result = await input.graph.applyGraphEffect(request.effect); return { kind: request.kind, result, snapshot: await input.graph.readGraphSnapshot({ graphId: request.effect.graphId, sourceBlockUuid: request.effect.sourceBlockUuid }) }; }
     if (request.kind === "SEARCH") return { kind: request.kind, matches: [...input.records].filter(([, value]) => value.content.includes(request.query)).slice(0, request.limit).map(([uuid, value]) => ({ graphId: request.graphId, blockUuid: uuid, pageName: value.pageName, snippet: value.content, contentHash: stableHash(value.content) })) };
     if (request.kind === "READ_BLOCK") { const value = input.records.get(request.blockUuid); if (!value) throw new Error("GRAPH_BLOCK_NOT_FOUND"); return { kind: request.kind, block: { graphId: request.graphId, blockUuid: request.blockUuid, pageName: value.pageName, content: value.content, contentHash: stableHash(value.content) } }; }
+    if (request.kind === "READ_CURATION_SNAPSHOT") { const content = input.graph.naturalContent(request.graphId, request.rootBlockUuid); return { kind: request.kind, snapshot: { graphId: request.graphId, rootBlockUuid: request.rootBlockUuid, rootContentHash: stableHash(content), rootTopologyHash: stableHash(curationDirect.map((item) => [item.blockUuid, item.contentHash])), directChildren: [...curationDirect] } }; }
+    if (request.kind === "APPLY_CURATION") { const item = request.curation; const content = input.graph.naturalContent(item.graphId, item.rootBlockUuid); const beforeTopology = stableHash(curationDirect.map((child) => [child.blockUuid, child.contentHash])); if (stableHash(content) !== item.expectedRootContentHash || beforeTopology !== item.expectedRootTopologyHash) throw new Error("GRAPH_CURATION_PRECONDITION_FAILED"); const heading = `**[${item.section}]**`; if (!item.existingSectionUuid) curationDirect.push({ blockUuid: item.newSectionUuid, content: heading, contentHash: stableHash(heading) }); const snapshot = { graphId: item.graphId, rootBlockUuid: item.rootBlockUuid, rootContentHash: stableHash(content), rootTopologyHash: stableHash(curationDirect.map((child) => [child.blockUuid, child.contentHash])), directChildren: [...curationDirect] }; return { kind: request.kind, snapshot, createdBlockUuids: [...(item.existingSectionUuid ? [] : [item.newSectionUuid]), item.newReferenceUuid] }; }
+    if (request.kind !== "READ_PAGE") throw new Error("GRAPH_CURATION_UNSUPPORTED_IN_PHASE6_FIXTURE");
     const blocks = [...input.records].filter(([, value]) => value.pageName === request.pageName).slice(0, request.limit).map(([uuid, value]) => ({ graphId: request.graphId, blockUuid: uuid, pageName: value.pageName, content: value.content, contentHash: stableHash(value.content) }));
     return { kind: request.kind, page: { graphId: request.graphId, pageName: request.pageName, blocks, truncated: false } };
   };
@@ -41,24 +45,65 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
   void tick(); return () => { stopped = true; if (timer) clearTimeout(timer); };
 }
 
-async function setup() {
+async function setup(kind: "TASK" | "MINI_PROJECT" = "TASK") {
   const directory = await mkdtemp(join(tmpdir(), "task-copilot-phase6-"));
   const databasePath = join(directory, "kernel.sqlite"); const descriptorPath = join(directory, "kernel.json");
   const service = await startKernelServer({ databasePath, descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at); const graphId = "graph-phase6"; const source = graph.seedNaturalRecord(graphId, "source", "TODO 验证外部 Agent 治理");
-  const prepared = await client.prepare(parseSemanticOperation({ operationId: "phase6-formalize", type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "验证外部 Agent 治理", anchor: { graphId, blockUuid: "source", sourceContentHash: source.sourceContentHash } } }), source);
+  const prepared = await client.prepare(parseSemanticOperation({ operationId: `phase6-formalize-${kind}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title: kind === "MINI_PROJECT" ? "虚拟机模板与镜像规范" : "验证外部 Agent 治理", anchor: { graphId, blockUuid: "source", sourceContentHash: source.sourceContentHash } } }), source);
   const result = await graph.applyGraphEffect(prepared.graphEffect as GraphEffect); await client.complete(prepared.commit.id, result, await graph.readGraphSnapshot({ graphId, sourceBlockUuid: "source" }));
   const records = new Map<string, { content: string; pageName: string }>(); const stop = startBridge({ baseUrl: service.baseUrl, bridgeToken: service.graphBridgeToken, snapshotKey: service.graphSnapshotKey, graphId, graph, records });
   for (let attempt = 0; attempt < 20 && !(await client.graphStatus()).available; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
   return { service, client, graph, graphId, workObjectId: prepared.commit.targetId!, records, stop, databasePath, descriptorPath };
 }
 
+test("MiniProject governance supports one-question Grill, continuous low-risk apply, no-change, and boundary stop", async () => {
+  const value = await setup("MINI_PROJECT");
+  try {
+    value.records.set("mini-evidence", { content: "目标是形成虚拟机模板与镜像规范；需要覆盖模板、镜像、版本和发布约束，并通过运维与安全联合评审。下一步：梳理现有模板差异。", pageName: "Phase 7 Governance Acceptance" });
+    value.graph.seedNaturalRecord(value.graphId, "mini-evidence", value.records.get("mini-evidence")!.content);
+    const frozen = await value.client.freezeExternalEvidence({ evidenceId: "evidence-mini", workObjectId: value.workObjectId, blockUuid: "mini-evidence" });
+    const correlation = "governance-phase7";
+    const ask = await value.client.startExternalAgentRun({ runId: "run-mini-ask", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
+    const asked = await value.client.finishExternalAgentRun(ask.run.id, { outcome: "NEEDS_MORE_CONTEXT", question: "我建议先以联合评审通过作为完成边界；还需要哪一项可观察结果？", reasonCode: "ONE_BOTTLENECK", rationaleSummary: "完成边界仍有一个缺口。" });
+    assert.equal(asked.run.result.outcome, "NEEDS_MORE_CONTEXT"); assert.equal(asked.proposal, null);
+
+    const intent = await value.client.startExternalAgentRun({ runId: "run-mini-intent", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
+    const proposed = await value.client.finishExternalAgentRun(intent.run.id, { outcome: "PROPOSAL", change: { type: "UPDATE_WORK_INTENT", desiredOutcome: "形成一份可评审的虚拟机模板与镜像规范", completionChecks: ["覆盖模板、镜像、版本和发布约束", "通过运维与安全联合评审"] }, reasonCode: "MINIMUM_COMMITMENT_REACHED", rationaleSummary: "一个核心输出与两项完成标准已足够。" });
+    assert.equal(proposed.revision?.operationType, "UPDATE_WORK_INTENT"); assert.equal(proposed.revision?.skill.id, "work-intent-maintenance"); const intentCommit = await value.client.applyExternalProposal(proposed.proposal!.id); assert.equal(intentCommit.commit.status, "COMMITTED");
+    const afterIntent = (await value.client.showObject(value.workObjectId)).object; assert.equal(afterIntent.desiredOutcome, "形成一份可评审的虚拟机模板与镜像规范"); assert.equal(afterIntent.version, 2);
+
+    const focus = await value.client.startExternalAgentRun({ runId: "run-mini-focus", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
+    const focusProposal = await value.client.finishExternalAgentRun(focus.run.id, { outcome: "PROPOSAL", change: { type: "SET_CURRENT_FOCUS", currentFocus: "梳理现有模板差异" }, reasonCode: "CURRENT_BOTTLENECK", rationaleSummary: "当前推进明确。" });
+    assert.equal(focusProposal.revision?.skill.id, "current-focus-maintenance"); const focusCommit = await value.client.applyExternalProposal(focusProposal.proposal!.id); assert.equal((await value.client.showObject(value.workObjectId)).object.currentFocus, "梳理现有模板差异");
+
+    const correction = await value.client.startExternalAgentRun({ runId: "run-mini-correction", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
+    const correctedProposal = await value.client.finishExternalAgentRun(correction.run.id, { outcome: "PROPOSAL", change: { type: "UPDATE_WORK_INTENT", desiredOutcome: "形成一份可评审的虚拟机模板与镜像规范", completionChecks: ["覆盖模板、镜像、版本和发布约束"] }, reasonCode: "LATE_UNDERSTANDING_CORRECTION", rationaleSummary: "后来确认联合评审不是硬完成门槛，只修正依赖该理解的完成标准。" });
+    const corrected = await value.client.applyExternalProposal(correctedProposal.proposal!.id); const afterCorrection = (await value.client.showObject(value.workObjectId)).object;
+    assert.equal(afterCorrection.currentFocus, "梳理现有模板差异"); assert.deepEqual(afterCorrection.completionChecks, ["覆盖模板、镜像、版本和发布约束"]); assert.notEqual(corrected.commit.id, intentCommit.commit.id); assert.notEqual(corrected.commit.id, focusCommit.commit.id);
+
+    value.records.set("resource-block", { content: "现有镜像版本清单", pageName: "Phase 7 Governance Acceptance" });
+    const curationRun = await value.client.startExternalAgentRun({ runId: "run-mini-curation", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
+    const curated = await value.client.addReferenceCuration({ receiptId: "curation-mini-resource", runId: curationRun.run.id, workObjectId: value.workObjectId, referenceBlockUuid: "resource-block", section: "资源" });
+    assert.equal(curated.receipt.governanceCorrelationId, correlation); assert.equal(curated.receipt.skill.id, "miniproject-governance"); assert.equal(curated.receipt.taste.id, "miniproject-governance-taste");
+    await value.client.finishExternalAgentRun(curationRun.run.id, { outcome: "NO_PROPOSAL", reasonCode: "CURATION_APPLIED", rationaleSummary: "已通过 typed curation 添加原始资料引用。" });
+    assert.equal((await value.client.listCurationReceipts(value.workObjectId)).receipts.length, 1);
+
+    const healthy = await value.client.startExternalAgentRun({ runId: "run-mini-healthy", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
+    const noChange = await value.client.finishExternalAgentRun(healthy.run.id, { outcome: "NO_PROPOSAL", reasonCode: "ALREADY_HEALTHY", rationaleSummary: "当前结构和推进一致。" }); assert.equal(noChange.proposal, null);
+    const boundary = await value.client.startExternalAgentRun({ runId: "run-mini-boundary", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
+    const stopped = await value.client.finishExternalAgentRun(boundary.run.id, { outcome: "BOUNDARY_REVIEW", candidate: "SPLIT", recommendation: "建议把自动化流水线拆为另一个 MiniProject。", question: "是否按这个边界拆分？", reasonCode: "MULTIPLE_CORE_OUTPUTS", rationaleSummary: "存在两个独立核心输出。" }); assert.equal(stopped.run.result.outcome, "BOUNDARY_REVIEW"); assert.equal(stopped.proposal, null);
+    assert.deepEqual((await value.client.listRecovery()).recovery, []);
+  } finally { value.stop(); await value.service.close(); }
+});
+
 test("External CLI executor reuses Skills, records reads separately, and commits focus plus bidirectional Engagement", async () => {
   const value = await setup();
   try {
     value.records.set("focus-evidence", { content: "已确认下一步需要补充交换机参数并完善规格说明。", pageName: "Synthetic Phase 6" }); value.graph.seedNaturalRecord(value.graphId, "focus-evidence", value.records.get("focus-evidence")!.content);
-    const bootstrap = await value.client.agentBootstrap(); assert.equal(bootstrap.agent.executorType, "EXTERNAL_CLI"); assert.equal(JSON.stringify(bootstrap).includes("token"), false); assert.equal(bootstrap.skills.length, 2);
+    const bootstrap = await value.client.agentBootstrap(); assert.equal(bootstrap.agent.executorType, "EXTERNAL_CLI"); assert.equal(JSON.stringify(bootstrap).includes("token"), false); assert.equal(bootstrap.skills.length, 4);
+    const workIntentSkill = await value.client.showSkill("work-intent-maintenance"); assert.equal((workIntentSkill.resultContract as { properties: { desiredOutcome: { maxLength: number } } }).properties.desiredOutcome.maxLength, 500);
     const frozen = await value.client.freezeExternalEvidence({ evidenceId: "evidence-focus", workObjectId: value.workObjectId, blockUuid: "focus-evidence" });
     const started = await value.client.startExternalAgentRun({ runId: "run-focus", purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "codex" });
     assert.equal(started.run.state, "STARTED"); assert.equal(started.run.executor.type, "EXTERNAL_CLI");

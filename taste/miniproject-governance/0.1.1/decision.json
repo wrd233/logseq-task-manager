@@ -1,0 +1,9 @@
+{
+  "evaluatedAt": "2026-08-13T00:00:00.000Z",
+  "automatedRegression": "PASS",
+  "pairwiseComparison": "PASS",
+  "humanSpotCheck": "PASS",
+  "activationDecision": "KEEP_0.1.0_ACTIVE",
+  "reason": "The candidate is coherent, but one synthetic preference is not enough repeated case feedback to promote a global Taste rule.",
+  "explicit": true
+}

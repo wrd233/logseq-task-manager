@@ -125,25 +125,31 @@ Language v1 does not render a metadata container or UUID properties. The Reader
 locates managed blocks by UUID and validates topology/value independently of
 the visible label string.
 
-## Future MiniProject and Project convention
+## MiniProject WorkIntent and future Project convention
 
-These are language guidance only; Phase 5.5 does not implement new domain
-semantics.
+Phase 7 adds only sparse Formal WorkIntent presentation for MiniProject:
 
 ```text
-**[MiniProject]** 完成测试环境验收 #MiniProject
-  **[背景]** 为什么这组工作值得聚合
-  **[目标]** 可验证的结束状态
-  **[当前阶段]** 当前阶段或推进重点
-  **[成果]** 可重入的结果摘要
+**[MiniProject]** 形成测试环境验收规范 #MiniProject
+  **[核心输出]** 一份可评审、可用于验收的环境规范
+  **[完成标准]** 覆盖部署与回退约束；通过相关角色评审
+  **[当前推进]** 梳理现有环境差异
 ```
 
-A future Project may use the same selective bold-label grammar for established
-sections such as background, goal, current stage, and result. Task Copilot must
-not impose empty sections or infer formal identity from labels/tags.
+`[核心输出]` maps only to nullable `WorkIntent.desiredOutcome`; `[完成标准]`
+maps only to the optional bounded checks list. Empty values produce no managed
+blocks. The completion list is rendered compactly in one registered field;
+this is presentation, not a template requirement. `[当前推进]` remains the
+existing `currentFocus` semantic field.
+
+`[背景]`, `[当前状态]`, `[资源]`, `[支撑交付物]`, and `[结果]` remain natural
+content. The typed curation surface may add one block reference under resources
+or supporting deliverables, but cannot raw-write WorkIntent labels. A future
+Project may use the same selective bold-label grammar; Task Copilot must not
+impose empty sections or infer formal identity from labels/tags.
 
 ## Non-goals
 
 No customizable labels, theme settings, template editor, formatting DSL,
-whole-Graph formatter, Project expansion, PARKED workflow, or legacy V1
-compatibility is part of Writing Language v1.
+whole-Graph formatter, Project expansion, structural MiniProject transform,
+PARKED workflow, or legacy V1 compatibility is part of Writing Language v1.

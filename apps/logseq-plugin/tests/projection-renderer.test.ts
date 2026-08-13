@@ -4,11 +4,18 @@ import test from "node:test";
 import { stableHash, type ManagedProjection } from "@task-copilot/contracts";
 import { projectPresentation, renderProjection, reviewFieldUuid } from "../src/projection-renderer.ts";
 
-const core = { containerUuid: "container", titleUuid: "title", stateUuid: "state", focusUuid: "focus", waitingUuid: "waiting", title: "完成测试服务器上架", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null };
+const core = { containerUuid: "container", titleUuid: "title", stateUuid: "state", focusUuid: "focus", waitingUuid: "waiting", outcomeUuid: "outcome", completionUuid: "checks", title: "完成测试服务器上架", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [] };
 const projection = (overrides: Partial<ManagedProjection> = {}): ManagedProjection => { const value = { ...core, ...overrides }; return { ...value, projectionHash: stableHash(value) }; };
 
 test("zero-noise default renders no managed fields", () => {
   assert.deepEqual(renderProjection(projection()), []);
+});
+
+test("MiniProject WorkIntent renders only sparse label-independent fields", () => {
+  assert.deepEqual(renderProjection(projection({ desiredOutcome: "形成可评审规范", completionChecks: ["覆盖模板约束", "通过联合评审"] })), [
+    { kind: "DESIRED_OUTCOME", uuid: "outcome", value: "形成可评审规范", order: 0, content: "**[核心输出]** 形成可评审规范" },
+    { kind: "COMPLETION_CHECKS", uuid: "checks", value: "覆盖模板约束；通过联合评审", order: 1, content: "**[完成标准]** 覆盖模板约束；通过联合评审" },
+  ]);
 });
 
 test("focus, waiting, and review use stable identities and deterministic order", () => {

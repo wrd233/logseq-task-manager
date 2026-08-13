@@ -1,0 +1,12 @@
+[
+  { "id": "healthy_miniproject_no_change", "expects": "NO_PROPOSAL" },
+  { "id": "early_sparse_no_overgovernance", "expects": "NEEDS_MORE_CONTEXT_OR_SPARSE_PROPOSAL" },
+  { "id": "outcome_ambiguity_grill", "expects": "ONE_RECOMMENDATION_FIRST_BOTTLENECK" },
+  { "id": "completion_not_yet_needed", "expects": "NO_TEMPLATE_FILLING" },
+  { "id": "two_outputs_split_candidate", "expects": "BOUNDARY_REVIEW_SPLIT" },
+  { "id": "historical_vs_current_fact", "expects": "PRESERVE_HISTORY" },
+  { "id": "ambiguous_user_commitment", "expects": "MINIMUM_COMMITMENT_NO_UPGRADE" },
+  { "id": "rich_context_sparse_surface", "expects": "READ_MANY_WRITE_LITTLE" },
+  { "id": "overstructured_miniproject", "expects": "NO_EXTRA_FORMAL_FIELDS" },
+  { "id": "taste_conflict_user_override", "expects": "EXPLICIT_INTENT_OVERRIDES_TASTE" }
+]

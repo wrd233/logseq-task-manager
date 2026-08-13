@@ -3,14 +3,14 @@ import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 
-import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadCurrentFocusSkill, loadEngagementReconciliationSkill } from "@task-copilot/agent";
-import { parseSemanticOperation, type CurrentFocusAgent, type EngagementAgent, type GraphGatewayResponse, type SkillPackage } from "@task-copilot/contracts";
+import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
+import { parseSemanticOperation, type CurrentFocusAgent, type EngagementAgent, type GraphGatewayResponse, type SkillPackage, type TasteProfile } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -43,7 +43,10 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const store = new SqliteStore(options.databasePath);
   const currentFocusSkill = options.currentFocusSkill ?? await loadCurrentFocusSkill(options.workspaceRoot);
   const engagementSkill = options.engagementSkill ?? await loadEngagementReconciliationSkill(options.workspaceRoot);
-  const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, graphSnapshotKey });
+  const miniProjectSkill = options.miniProjectSkill ?? await loadMiniProjectGovernanceSkill(options.workspaceRoot);
+  const workIntentSkill = options.workIntentSkill ?? await loadWorkIntentMaintenanceSkill(options.workspaceRoot);
+  const miniProjectTaste = options.miniProjectTaste ?? await loadMiniProjectTaste(options.workspaceRoot);
+  const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
   const external = new ExternalAgentCoordinator(kernel, store, broker, options.now);
   const server = createServer(async (request, response) => {
@@ -70,6 +73,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "GET" && url.pathname === "/v1/skills") { send(response, 200, { skills: external.skills() }); return; }
       const skillMatch = /^\/v1\/skills\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && skillMatch) { send(response, 200, external.skill(decodeURIComponent(skillMatch[1]!))); return; }
+      if (request.method === "GET" && url.pathname === "/v1/taste") { send(response, 200, { profiles: kernel.tasteProfiles() }); return; }
+      const tasteMatch = /^\/v1\/taste\/([^/]+)$/u.exec(url.pathname);
+      if (request.method === "GET" && tasteMatch) { const profile = kernel.tasteProfiles().find((item) => item.id === decodeURIComponent(tasteMatch[1]!)); if (!profile) throw new KernelError("TASTE_PROFILE_NOT_FOUND", "Taste profile does not exist."); send(response, 200, { profile }); return; }
       if (request.method === "GET" && url.pathname === "/v1/graph/status") { send(response, 200, broker.status()); return; }
       if (request.method === "POST" && url.pathname === "/v1/graph/search") { const value = await body(request) as { query: string; limit?: number; runId?: string }; send(response, 200, await external.search({ query: value.query, limit: value.limit ?? 20, ...(value.runId ? { runId: value.runId } : {}) })); return; }
       const graphBlock = /^\/v1\/graph\/blocks\/([^/]+)$/u.exec(url.pathname);
@@ -84,6 +90,8 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "GET" && receiptMatch) { send(response, 200, { receipts: external.readReceipts(decodeURIComponent(receiptMatch[1]!)) }); return; }
       const externalApply = /^\/v1\/external\/proposals\/([^/]+)\/apply$/u.exec(url.pathname);
       if (request.method === "POST" && externalApply) { send(response, 200, await external.applyProposal(decodeURIComponent(externalApply[1]!))); return; }
+      if (request.method === "POST" && url.pathname === "/v1/external/curation/add-reference") { send(response, 200, { receipt: await external.addReference(await body(request) as Parameters<ExternalAgentCoordinator["addReference"]>[0]) }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/curation-receipts") { send(response, 200, { receipts: store.listCurationReceipts(url.searchParams.get("object") ?? undefined) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects") { send(response, 200, { objects: store.listWorkObjects() }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects/actionable") { send(response, 200, { objects: store.listActionableWorkObjects() }); return; }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
@@ -106,6 +114,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       if (request.method === "GET" && url.pathname === "/v1/recovery") { send(response, 200, { recovery: kernel.recoveryList() }); return; }
       if (request.method === "GET" && url.pathname === "/v1/feedback") { send(response, 200, { feedback: store.listFeedback() }); return; }
+      if (request.method === "POST" && url.pathname === "/v1/feedback/strong-positive") { const value = await body(request) as { commitId: string; actor: { type: "USER"; id: string }; userComment?: string | null }; kernel.recordStrongPositive(value); send(response, 200, { recorded: true }); return; }
       const evidenceMatch = /^\/v1\/evidence\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && evidenceMatch) {
         const evidence = store.getEvidence(decodeURIComponent(evidenceMatch[1]!));
@@ -141,7 +150,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const value = await body(request) as Omit<Parameters<Kernel["applyProposal"]>[0], "proposalId">;
         const id = decodeURIComponent(proposalApplyMatch[1]!);
         const proposal = store.getProposal(id);
-        send(response, 202, proposal?.revision.operationType === "CHANGE_ENGAGEMENT" ? kernel.applyEngagementProposal({ ...value, proposalId: id }) : kernel.applyProposal({ ...value, proposalId: id })); return;
+        send(response, 202, proposal?.revision.operationType === "CHANGE_ENGAGEMENT" ? kernel.applyEngagementProposal({ ...value, proposalId: id }) : proposal?.revision.operationType === "UPDATE_WORK_INTENT" ? kernel.applyWorkIntentProposal({ ...value, proposalId: id }) : kernel.applyProposal({ ...value, proposalId: id })); return;
       }
       const proposalRevisionMatch = /^\/v1\/proposals\/([^/]+)\/revisions$/u.exec(url.pathname);
       if (request.method === "POST" && proposalRevisionMatch) {

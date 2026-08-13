@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["outcome", "reasonCode", "rationaleSummary"],
+  "properties": {
+    "outcome": { "enum": ["PROPOSAL", "NO_PROPOSAL", "NEEDS_MORE_CONTEXT"] },
+    "desiredOutcome": { "type": ["string", "null"], "maxLength": 500 },
+    "completionChecks": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 300 } },
+    "reasonCode": { "type": "string" },
+    "rationaleSummary": { "type": "string" }
+  }
+}

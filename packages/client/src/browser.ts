@@ -1,4 +1,4 @@
-import type { Actor, AgentRunReceipt, ClosureHistory, EngagementProposalRevision, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, SkillPackage, StoredCommit, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, ClosureHistory, CurationReceipt, EngagementProposalRevision, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, SkillPackage, StoredCommit, TasteProfile, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; pid: number; startedAt: string }
 export interface PluginKernelDescriptor extends KernelDescriptor { graphSnapshotKey: string; graphBridgeToken: string }
@@ -41,15 +41,19 @@ export class KernelClient {
   agentBootstrap(): Promise<{ kernel: { ready: boolean }; graph: { ready: boolean; graphId: string | null; capabilities: readonly string[]; reason?: string }; agent: { executorType: "EXTERNAL_CLI"; supportedPurposes: readonly AgentRunReceipt["purpose"][] }; skills: Array<{ id: string; version: string; contentHash: string }>; forbidden: readonly string[] }> { return this.#request("GET", "/v1/agent/bootstrap"); }
   listSkills(): Promise<{ skills: Array<{ id: string; version: string; contentHash: string }> }> { return this.#request("GET", "/v1/skills"); }
   showSkill(id: string): Promise<{ skill: SkillPackage; resultContract: unknown }> { return this.#request("GET", `/v1/skills/${encodeURIComponent(id)}`); }
+  listTasteProfiles(): Promise<{ profiles: TasteProfile[] }> { return this.#request("GET", "/v1/taste"); }
+  showTasteProfile(id: string): Promise<{ profile: TasteProfile }> { return this.#request("GET", `/v1/taste/${encodeURIComponent(id)}`); }
   graphStatus(): Promise<GraphGatewayStatus> { return this.#request("GET", "/v1/graph/status"); }
   graphSearch(input: { query: string; limit: number; runId?: string }): Promise<{ matches: readonly GraphSearchMatch[]; receipt: GraphReadReceipt | null }> { return this.#request("POST", "/v1/graph/search", input); }
   graphBlock(id: string, runId?: string): Promise<{ block: GraphBlockRead; receipt: GraphReadReceipt | null }> { return this.#request("GET", `/v1/graph/blocks/${encodeURIComponent(id)}${runId ? `?run=${encodeURIComponent(runId)}` : ""}`); }
   graphPage(name: string, input: { limit: number; runId?: string }): Promise<{ page: GraphPageRead; receipt: GraphReadReceipt | null }> { const query = new URLSearchParams({ limit: String(input.limit), ...(input.runId ? { run: input.runId } : {}) }); return this.#request("GET", `/v1/graph/pages/${encodeURIComponent(name)}?${query}`); }
   freezeExternalEvidence(input: { evidenceId: string; workObjectId: string; blockUuid: string }): Promise<{ evidence: FrozenEvidence }> { return this.#request("POST", "/v1/external/evidence/freeze", input); }
-  startExternalAgentRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string }): Promise<{ run: AgentRunReceipt }> { return this.#request("POST", "/v1/external/agent-runs/start", input); }
+  startExternalAgentRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string; governanceCorrelationId?: string }): Promise<{ run: AgentRunReceipt }> { return this.#request("POST", "/v1/external/agent-runs/start", input); }
   finishExternalAgentRun(id: string, result: unknown): Promise<{ run: AgentRunReceipt; proposal: Proposal | null; revision: ProposalRevision | null }> { return this.#request("POST", `/v1/external/agent-runs/${encodeURIComponent(id)}/finish`, { result }); }
   listAgentRunReads(id: string): Promise<{ receipts: GraphReadReceipt[] }> { return this.#request("GET", `/v1/agent-runs/${encodeURIComponent(id)}/reads`); }
   applyExternalProposal(id: string): Promise<{ commit: StoredCommit; recovered: boolean }> { return this.#request("POST", `/v1/external/proposals/${encodeURIComponent(id)}/apply`, {}); }
+  addReferenceCuration(input: { receiptId: string; runId: string; workObjectId: string; referenceBlockUuid: string; section: "资源" | "支撑交付物"; existingSectionUuid?: string | null }): Promise<{ receipt: CurationReceipt }> { return this.#request("POST", "/v1/external/curation/add-reference", input); }
+  listCurationReceipts(workObjectId?: string): Promise<{ receipts: CurationReceipt[] }> { return this.#request("GET", `/v1/curation-receipts${workObjectId ? `?object=${encodeURIComponent(workObjectId)}` : ""}`); }
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
   listActionableObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects/actionable"); }
   showObject(id: string): Promise<{ object: WorkObject; anchor: unknown }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}`); }
@@ -66,6 +70,7 @@ export class KernelClient {
   reviseProposal(id: string, input: { actor: Actor; currentFocus: string | null }): Promise<{ proposal: Proposal; revision: ProposalRevision }> { return this.#request("POST", `/v1/proposals/${encodeURIComponent(id)}/revisions`, input); }
   dismissProposal(id: string, actor: Actor): Promise<{ proposal: Proposal }> { return this.#request("POST", `/v1/proposals/${encodeURIComponent(id)}/dismiss`, { actor }); }
   listFeedback(): Promise<{ feedback: FeedbackEvent[] }> { return this.#request("GET", "/v1/feedback"); }
+  recordStrongPositive(commitId: string, actor: Actor, userComment?: string | null): Promise<{ recorded: true }> { return this.#request("POST", "/v1/feedback/strong-positive", { commitId, actor, ...(userComment === undefined ? {} : { userComment }) }); }
   prepare(operation: SemanticOperation, snapshot: GraphSnapshot): Promise<PendingGraphCommit> { return this.#request("POST", "/v1/commits/prepare", { operation, snapshot }); }
   complete(commitId: string, result: GraphApplyResult, snapshot: GraphSnapshot): Promise<{ commit: StoredCommit }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/complete`, { result, snapshot }); }
   failGraphApply(commitId: string, reason: string): Promise<{ commit: StoredCommit }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/graph-failed`, { reason }); }

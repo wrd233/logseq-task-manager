@@ -17,7 +17,8 @@
     "lint": "eslint .",
     "build": "node scripts/build-all.mjs && node scripts/check-built-binaries.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:boundaries"
+    "taste:eval": "node scripts/evaluate-taste-candidate.mjs --candidate 0.1.1",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:boundaries && npm run taste:eval"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

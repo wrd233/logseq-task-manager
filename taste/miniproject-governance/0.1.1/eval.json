@@ -1,0 +1,13 @@
+{
+  "pairwiseCases": [
+    { "id": "healthy-no-change", "preferred": "BOTH", "reason": "新增偏好不得诱发修改健康对象。" },
+    { "id": "sparse-vs-template", "preferred": "BOTH", "reason": "候选不得回归模板补齐。" },
+    { "id": "preserve-vs-rewrite", "preferred": "BOTH", "reason": "候选不得弱化历史保真。" },
+    { "id": "one-question-vs-questionnaire", "preferred": "BOTH", "reason": "候选不得扩大单轮问题数。" },
+    { "id": "light-final-review", "preferred": "CANDIDATE", "reason": "候选更明确约束最终表面。" },
+    { "id": "explicit-user-rejection", "preferred": "BOTH", "reason": "明确用户意图仍高于 Taste。" }
+  ],
+  "regressionMustPass": ["healthy_miniproject_no_change", "early_sparse_no_overgovernance", "ambiguous_user_commitment", "taste_conflict_user_override"],
+  "humanSpotCheckRequired": true,
+  "autoActivate": false
+}

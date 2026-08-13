@@ -19,6 +19,8 @@ export interface WorkObject {
   engagement: Engagement;
   waitingCondition: WaitingCondition | null;
   currentFocus: string | null;
+  desiredOutcome: string | null;
+  completionChecks: readonly string[];
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -35,6 +37,8 @@ export interface PrimaryAnchor {
   projectionStateUuid: string;
   projectionFocusUuid: string;
   projectionWaitingUuid: string;
+  projectionOutcomeUuid: string;
+  projectionCompletionUuid: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -194,7 +198,7 @@ export function advanceClosureAmendment(object: WorkObject, input: { expectedVer
 export function restoreWorkObject(object: WorkObject, input: { previous: WorkObject; expectedVersion: number; at: string }): WorkObject {
   if (object.version !== input.expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
   if (object.id !== input.previous.id) throw new DomainError("WORK_OBJECT_RESTORE_SUBJECT_MISMATCH", "Restore state belongs to another WorkObject.");
-  return { ...input.previous, waitingCondition: input.previous.waitingCondition ? { ...input.previous.waitingCondition, evidenceIds: [...input.previous.waitingCondition.evidenceIds] } : null, version: object.version + 1, updatedAt: timestamp(input.at) };
+  return { ...input.previous, waitingCondition: input.previous.waitingCondition ? { ...input.previous.waitingCondition, evidenceIds: [...input.previous.waitingCondition.evidenceIds] } : null, completionChecks: [...input.previous.completionChecks], version: object.version + 1, updatedAt: timestamp(input.at) };
 }
 
 export function createWorkObject(input: {
@@ -213,10 +217,27 @@ export function createWorkObject(input: {
     engagement: "ACTIONABLE",
     waitingCondition: null,
     currentFocus: null,
+    desiredOutcome: null,
+    completionChecks: [],
     version: 1,
     createdAt: at,
     updatedAt: at,
   };
+}
+
+export function updateWorkIntent(
+  object: WorkObject,
+  input: { desiredOutcome: string | null; completionChecks: readonly string[]; expectedVersion: number; at: string },
+): WorkObject {
+  if (object.version !== input.expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
+  if (object.kind !== "MINI_PROJECT") throw new DomainError("WORK_INTENT_KIND_UNSUPPORTED", "WorkIntent is formal only for MiniProject.");
+  if (object.lifecycle !== "OPEN") throw new DomainError("WORK_INTENT_LIFECYCLE_INVALID", "Only an open MiniProject may change WorkIntent.");
+  const desiredOutcome = input.desiredOutcome?.trim() || null;
+  if (desiredOutcome && desiredOutcome.length > 500) throw new DomainError("DESIRED_OUTCOME_TOO_LONG", "Desired outcome exceeds 500 characters.");
+  if (input.completionChecks.length > 10) throw new DomainError("COMPLETION_CHECKS_TOO_MANY", "Completion checks exceed 10 items.");
+  const completionChecks = [...new Set(input.completionChecks.map((value) => required(value, "COMPLETION_CHECK_REQUIRED", "Completion check", 300)))];
+  if (object.desiredOutcome === desiredOutcome && JSON.stringify(object.completionChecks) === JSON.stringify(completionChecks)) throw new DomainError("WORK_INTENT_UNCHANGED", "WorkIntent already matches the requested value.");
+  return { ...object, desiredOutcome, completionChecks, version: object.version + 1, updatedAt: timestamp(input.at) };
 }
 
 export function changeEngagement(

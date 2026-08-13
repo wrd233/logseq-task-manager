@@ -12,9 +12,20 @@ import {
   renameWorkObject,
   restoreEngagement,
   restoreWorkObject,
+  updateWorkIntent,
   setCurrentFocus,
   type WorkObject,
 } from "../src/index.ts";
+
+test("MiniProject WorkIntent stays sparse, bounded, and versioned", () => {
+  const mini = createWorkObject({ id: "mini-01", kind: "MINI_PROJECT", title: "虚拟机模板与镜像规范", at: "2026-08-13T00:00:00.000Z" });
+  const updated = updateWorkIntent(mini, { desiredOutcome: " 形成一份可评审规范 ", completionChecks: ["覆盖模板与镜像约束", "完成联合评审", "覆盖模板与镜像约束"], expectedVersion: 1, at: "2026-08-13T00:05:00.000Z" });
+  assert.equal(updated.desiredOutcome, "形成一份可评审规范");
+  assert.deepEqual(updated.completionChecks, ["覆盖模板与镜像约束", "完成联合评审"]);
+  assert.equal(updated.version, 2);
+  assert.throws(() => updateWorkIntent(createWorkObject({ id: "task", kind: "TASK", title: "Task", at: mini.createdAt }), { desiredOutcome: null, completionChecks: [], expectedVersion: 1, at: mini.createdAt }), /WORK_INTENT_KIND_UNSUPPORTED/u);
+  assert.throws(() => updateWorkIntent(updated, { desiredOutcome: updated.desiredOutcome, completionChecks: updated.completionChecks, expectedVersion: 2, at: mini.createdAt }), /WORK_INTENT_UNCHANGED/u);
+});
 
 test("CREATE_WORK_OBJECT starts one stable open work object without coupling identity to its anchor", () => {
   const object = createWorkObject({
@@ -32,6 +43,8 @@ test("CREATE_WORK_OBJECT starts one stable open work object without coupling ide
     engagement: "ACTIONABLE",
     waitingCondition: null,
     currentFocus: null,
+    desiredOutcome: null,
+    completionChecks: [],
     version: 1,
     createdAt: "2026-08-12T14:00:00.000Z",
     updatedAt: "2026-08-12T14:00:00.000Z",
@@ -134,6 +147,8 @@ test("RENAME_WORK_OBJECT requires the current version and preserves lifecycle id
     engagement: "ACTIONABLE",
     waitingCondition: null,
     currentFocus: null,
+    desiredOutcome: null,
+    completionChecks: [],
     version: 3,
     createdAt: "2026-08-12T14:00:00.000Z",
     updatedAt: "2026-08-12T14:00:00.000Z",

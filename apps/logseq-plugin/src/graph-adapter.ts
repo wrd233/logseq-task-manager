@@ -1,4 +1,4 @@
-import { canonicalizeGraphContent, graphEvidenceProofPayload, stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
+import { canonicalizeGraphContent, graphEvidenceProofPayload, stableHash, type AddReferenceCuration, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type NaturalCurationSnapshot, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 
 import { logseqBlock as normalizeLogseqBlock, readProjectionByIdentity, type LogseqBlock } from "./projection-reader.ts";
 import { matchesPresentedValue, renderProjection, reviewFieldUuid, type ProjectionBlockIntent } from "./projection-renderer.ts";
@@ -37,7 +37,7 @@ function withHash(core: Omit<ManagedProjection, "projectionHash">, requestedHash
 }
 
 function emptyPresentation(projection: ManagedProjection): ManagedProjection {
-  const core = { ...semanticCore(projection), lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null };
+  const core = { ...semanticCore(projection), lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [] };
   const withoutClosure: Partial<Omit<ManagedProjection, "projectionHash">> = { ...core };
   delete withoutClosure.closure;
   return withHash(withoutClosure as Omit<ManagedProjection, "projectionHash">);
@@ -48,7 +48,9 @@ function changedProjection(effect: Exclude<GraphEffect, { type: "UPSERT_MANAGED_
   const core = semanticCore(before);
   if (effect.type === "UPDATE_MANAGED_FIELD") return withHash({ ...core, title: effect.content.replace(/^标题：/u, "") }, effect.resultingProjectionHash);
   if (effect.type === "SET_CURRENT_FOCUS_FIELD") return withHash({ ...core, currentFocus: effect.content }, effect.resultingProjectionHash);
+  if (effect.type === "UPDATE_WORK_INTENT_FIELDS") return withHash({ ...core, desiredOutcome: effect.desiredOutcome, completionChecks: effect.completionChecks }, effect.resultingProjectionHash);
   if (effect.type === "CHANGE_ENGAGEMENT_FIELDS") return withHash({ ...core, lifecycle: "OPEN", engagement: effect.engagement, waitingCondition: effect.waiting }, effect.resultingProjectionHash);
+  if (effect.type !== "CHANGE_CLOSURE_FIELDS") throw new Error("GRAPH_EFFECT_TYPE_UNSUPPORTED");
   const closureCore = { ...core, lifecycle: effect.lifecycle, engagement: effect.engagement, waitingCondition: effect.waitingCondition, currentFocus: effect.currentFocus };
   if (effect.closure) return withHash({ ...closureCore, closure: effect.closure }, effect.resultingProjectionHash);
   const withoutClosure: Partial<Omit<ManagedProjection, "projectionHash">> = { ...closureCore };
@@ -65,6 +67,7 @@ function expectedProjection(effect: Exclude<GraphEffect, { type: "UPSERT_MANAGED
 function preconditionError(effect: GraphEffect): string {
   if (effect.type === "UPDATE_MANAGED_FIELD") return "GRAPH_UPDATE_PRECONDITION_FAILED";
   if (effect.type === "SET_CURRENT_FOCUS_FIELD") return "GRAPH_FOCUS_PRECONDITION_FAILED";
+  if (effect.type === "UPDATE_WORK_INTENT_FIELDS") return "GRAPH_WORK_INTENT_PRECONDITION_FAILED";
   if (effect.type === "CHANGE_ENGAGEMENT_FIELDS") return "GRAPH_ENGAGEMENT_PRECONDITION_FAILED";
   if (effect.type === "CHANGE_CLOSURE_FIELDS") return "GRAPH_CLOSURE_PRECONDITION_FAILED";
   if (effect.type === "REMOVE_MANAGED_PROJECTION") return "GRAPH_REMOVE_PRECONDITION_FAILED";
@@ -99,7 +102,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
 
   async #inspect(sourceBlockUuid: string, expected: ManagedProjection): Promise<ProjectionInspection> {
     const source = await this.#required(sourceBlockUuid, true);
-    const uuids = [expected.containerUuid, expected.titleUuid, expected.stateUuid, expected.focusUuid, expected.waitingUuid, reviewFieldUuid(expected.waitingUuid)];
+    const uuids = [expected.containerUuid, expected.titleUuid, expected.stateUuid, expected.focusUuid, expected.waitingUuid, expected.outcomeUuid, expected.completionUuid, reviewFieldUuid(expected.waitingUuid)];
     const entries = await Promise.all(uuids.map(async (uuid) => [uuid, await this.#optional(uuid, true)] as const));
     const blocks = new Map(entries.filter((entry): entry is readonly [string, LogseqBlock] => entry[1] !== null));
     const read = readProjectionByIdentity(source, blocks, expected);
@@ -144,6 +147,42 @@ export class LogseqGraphAdapter implements GraphAdapter {
     return { ...material, proof };
   }
 
+  async readNaturalCurationSnapshot(input: { graphId: string; rootBlockUuid: string }): Promise<NaturalCurationSnapshot> {
+    this.#assertGraph(input.graphId);
+    const root = await this.#required(input.rootBlockUuid, true);
+    const directChildren = root.children.map((child) => ({ blockUuid: child.uuid, content: child.content, contentHash: stableHash(child.content) }));
+    return { graphId: this.#graphId, rootBlockUuid: root.uuid, rootContentHash: stableHash(root.content), rootTopologyHash: stableHash(directChildren.map((child) => [child.blockUuid, child.contentHash])), directChildren };
+  }
+
+  async applyAddReferenceCuration(curation: AddReferenceCuration): Promise<{ snapshot: NaturalCurationSnapshot; createdBlockUuids: readonly string[] }> {
+    this.#assertGraph(curation.graphId);
+    const before = await this.readNaturalCurationSnapshot({ graphId: curation.graphId, rootBlockUuid: curation.rootBlockUuid });
+    if (before.rootContentHash !== curation.expectedRootContentHash || before.rootTopologyHash !== curation.expectedRootTopologyHash) throw new Error("GRAPH_CURATION_PRECONDITION_FAILED");
+    if (await this.#optional(curation.newReferenceUuid) || (curation.existingSectionUuid === null && await this.#optional(curation.newSectionUuid))) throw new Error("GRAPH_CURATION_UUID_CONFLICT");
+    await this.#required(curation.referenceBlockUuid, false);
+    const heading = `**[${curation.section}]**`;
+    let sectionUuid = curation.existingSectionUuid;
+    const created: string[] = [];
+    if (sectionUuid) {
+      const section = await this.#required(sectionUuid, true);
+      if (!before.directChildren.some((child) => child.blockUuid === sectionUuid) || canonicalizeGraphContent(section.content) !== heading) throw new Error("GRAPH_CURATION_SECTION_CONFLICT");
+      if (section.children.some((child) => canonicalizeGraphContent(child.content) === `((${curation.referenceBlockUuid}))`)) throw new Error("GRAPH_CURATION_REFERENCE_EXISTS");
+    } else {
+      if (before.directChildren.some((child) => canonicalizeGraphContent(child.content) === heading)) throw new Error("GRAPH_CURATION_SECTION_ID_REQUIRED");
+      const inserted = normalizeLogseqBlock(await this.#host.insertBlock(curation.rootBlockUuid, heading, { sibling: false, customUUID: curation.newSectionUuid }));
+      if (!inserted || inserted.uuid !== curation.newSectionUuid) throw new Error("GRAPH_CUSTOM_UUID_UNVERIFIED");
+      sectionUuid = inserted.uuid; created.push(inserted.uuid);
+    }
+    const reference = normalizeLogseqBlock(await this.#host.insertBlock(sectionUuid, `((${curation.referenceBlockUuid}))`, { sibling: false, customUUID: curation.newReferenceUuid }));
+    if (!reference || reference.uuid !== curation.newReferenceUuid) throw new Error("GRAPH_CUSTOM_UUID_UNVERIFIED");
+    created.push(reference.uuid);
+    const section = await this.#required(sectionUuid, true);
+    if (!section.children.some((child) => child.uuid === curation.newReferenceUuid && canonicalizeGraphContent(child.content) === `((${curation.referenceBlockUuid}))`)) throw new Error("GRAPH_CURATION_VERIFY_MISMATCH");
+    const after = await this.readNaturalCurationSnapshot({ graphId: curation.graphId, rootBlockUuid: curation.rootBlockUuid });
+    if (after.rootContentHash !== before.rootContentHash) throw new Error("GRAPH_CURATION_VERIFY_MISMATCH");
+    return { snapshot: after, createdBlockUuids: created };
+  }
+
   async #insertIntent(sourceUuid: string, intent: ProjectionBlockIntent, previousUuid: string | null): Promise<void> {
     const created = normalizeLogseqBlock(await this.#host.insertBlock(previousUuid ?? sourceUuid, intent.content, previousUuid
       ? { sibling: true, customUUID: intent.uuid }
@@ -163,7 +202,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
     const direct = new Set(inspection.source.children.map((child) => child.uuid));
     const beforeByUuid = new Map(renderProjection(before).map((intent) => [intent.uuid, intent]));
     const afterByUuid = new Map(renderProjection(after).map((intent) => [intent.uuid, intent]));
-    const uuids = new Set([...beforeByUuid.keys(), ...afterByUuid.keys(), before.stateUuid, before.focusUuid, before.waitingUuid, reviewFieldUuid(before.waitingUuid)]);
+    const uuids = new Set([...beforeByUuid.keys(), ...afterByUuid.keys(), before.stateUuid, before.focusUuid, before.waitingUuid, before.outcomeUuid, before.completionUuid, reviewFieldUuid(before.waitingUuid)]);
     return [...uuids].every((uuid) => {
       const block = inspection.blocks.get(uuid);
       if (!block) return !beforeByUuid.has(uuid) || !afterByUuid.has(uuid);
@@ -197,7 +236,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
     const desired = renderProjection(after);
     const desiredByUuid = new Map(desired.map((intent) => [intent.uuid, intent]));
     const current = inspection.blocks;
-    const possible = new Set([...renderProjection(before).map((item) => item.uuid), ...desiredByUuid.keys(), before.stateUuid, before.focusUuid, before.waitingUuid, reviewFieldUuid(before.waitingUuid)]);
+    const possible = new Set([...renderProjection(before).map((item) => item.uuid), ...desiredByUuid.keys(), before.stateUuid, before.focusUuid, before.waitingUuid, before.outcomeUuid, before.completionUuid, reviewFieldUuid(before.waitingUuid)]);
 
     for (const uuid of possible) {
       const block = current.get(uuid);
@@ -248,7 +287,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
   async #settledRemoved(sourceBlockUuid: string, before: ManagedProjection): Promise<GraphSnapshot> {
     const deadline = Date.now() + 500;
     const empty = emptyPresentation(before);
-    const managedUuids = new Set([before.containerUuid, before.titleUuid, before.stateUuid, before.focusUuid, before.waitingUuid, reviewFieldUuid(before.waitingUuid)]);
+    const managedUuids = new Set([before.containerUuid, before.titleUuid, before.stateUuid, before.focusUuid, before.waitingUuid, before.outcomeUuid, before.completionUuid, reviewFieldUuid(before.waitingUuid)]);
     while (true) {
       const inspection = await this.#inspect(sourceBlockUuid, before);
       const directManaged = inspection.source.children.some((child) => managedUuids.has(child.uuid));
@@ -273,7 +312,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
 
   async #applyUpsert(effect: Extract<GraphEffect, { type: "UPSERT_MANAGED_PROJECTION" }>): Promise<GraphApplyResult> {
     const source = await this.#required(effect.sourceBlockUuid, true);
-    const registered = [effect.projection.containerUuid, effect.projection.titleUuid, effect.projection.stateUuid, effect.projection.focusUuid, effect.projection.waitingUuid, reviewFieldUuid(effect.projection.waitingUuid)];
+    const registered = [effect.projection.containerUuid, effect.projection.titleUuid, effect.projection.stateUuid, effect.projection.focusUuid, effect.projection.waitingUuid, effect.projection.outcomeUuid, effect.projection.completionUuid, reviewFieldUuid(effect.projection.waitingUuid)];
     if ((await Promise.all(registered.map((uuid) => this.#optional(uuid)))).some(Boolean) || source.children.some((child) => child.content.includes("task-copilot-managed:: true"))) throw new Error("GRAPH_EXPECTED_ABSENT");
     this.#known.set(effect.sourceBlockUuid, effect.projection);
     this.#activeSourceUuid = effect.sourceBlockUuid;

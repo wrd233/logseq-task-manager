@@ -145,3 +145,22 @@ Implement only:
 - failure injection for Graph throw, expected-hash mismatch, user edit before Undo, and crashes after PREPARED/KERNEL_APPLIED/GRAPH_APPLIED.
 
 External Agent, MCP, Skill registry, current_focus, Waiting, Completion/Cancellation, Project KR UI, migration, and enterprise authorization are explicitly deferred.
+
+## 9. Phase 7 MiniProject governance reconnaissance
+
+This pass was repeated against `vnext` at `3568cd23bc3db9e18347ae7dbe2472d8c9ff5e3f` before Phase 7 implementation. The answers below describe the measured pre-Phase-7 surface and the smallest selected extension.
+
+| Question | Current evidence and decision |
+| --- | --- |
+| Does the Skill registry bind one Skill to one closed result contract? | Yes. Each approved Skill package has one manifest/schema and `skill show` exposes one Kernel-owned result contract. Phase 7 keeps this boundary: `miniproject-governance` is read-only composite cognition; `current-focus-maintenance` and `work-intent-maintenance` are the mutation Skills. No generic workflow/result engine was added. |
+| Which files enter a Skill hash? | In fixed order: `manifest.json`, `policy.md`, `schema.json`, `examples.json`, and `eval.json`, including file names and exact bytes. |
+| How does an External Agent read a Skill? | Authenticated CLI `skill list` / `skill show <id>` over the loopback API. No source-tree or descriptor read is required. |
+| Were AgentRun and Proposal mutation-bound? | Phase 6 purposes were closed and each proposal revision carried one operation Skill. Phase 7 adds a composite cognition run, but every produced Formal Proposal records the delegated narrow mutation Skill; the run separately records composite Skill/Taste provenance. |
+| How usable was `MINI_PROJECT` already? | Kind validation, identity, lifecycle/engagement, SQLite/API, anchors, and ownership already accepted it. It had no Formal WorkIntent and Task Closure correctly rejected it. Phase 7 adds only nullable outcome plus bounded completion checks. |
+| Did Plugin formalization create only Tasks? | Yes. The single command hard-coded `TASK`. Phase 7 adds two explicit, one-at-a-time commands for Task and MiniProject; there is no scan/import/bulk adoption. |
+| Does PrimaryAnchor restrict MiniProject structure? | No kind restriction existed. It identifies one source root and managed fields. Phase 7 deterministically adds outcome/completion UUIDs without changing natural descendants. |
+| Can Graph Adapter locate an arbitrary MiniProject root? | Yes, through the exact PrimaryAnchor block UUID and bounded block/subtree reads. It does not infer authority from `#MiniProject` labels. |
+| Can the broker carry bounded natural curation? | Yes. Its authenticated typed request/response, lease, timeout, and Graph binding can transport `READ_CURATION_SNAPSHOT` and `APPLY_CURATION`; it remains unsuitable for generic raw writes, which stay absent. |
+| Should natural curation enter the Commit Ledger? | No. The Ledger means Formal Semantic Commit. `ADD_REFERENCE` receives a separate compact `CurationReceipt`; no second event-sourcing system is introduced. |
+| Is FeedbackEvent sufficient? | Yes after adding signal strength, governance correlation, and optional user comment. Weak apply, explicit strong positive, and corrective revise/reject/Undo remain case feedback, not automatic Taste mutation. |
+| How can Writing Language add WorkIntent safely? | Two stable PrimaryAnchor field UUIDs and semantic projection values produce sparse `[核心输出]` / `[完成标准]` blocks. Empty values render nothing; labels remain presentation, not identity. Natural `[当前状态]`, `[背景]`, `[资源]`, `[支撑交付物]`, and `[结果]` remain outside Domain. |

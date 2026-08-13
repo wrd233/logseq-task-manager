@@ -1,7 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type CurrentFocusAgent, type CurrentFocusProposalRevision, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FrozenEvidence, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
-import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type CurrentFocusAgent, type CurrentFocusProposalRevision, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FrozenEvidence, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
 type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED";
@@ -23,6 +23,9 @@ export interface KernelOptions {
   currentFocusSkill?: SkillPackage;
   engagementAgent?: EngagementAgent;
   engagementSkill?: SkillPackage;
+  miniProjectSkill?: SkillPackage;
+  workIntentSkill?: SkillPackage;
+  miniProjectTaste?: TasteProfile;
   graphSnapshotKey?: string;
 }
 
@@ -33,18 +36,18 @@ function deterministicUuid(seed: string): string {
 }
 
 function canonicalWorkObject(object: WorkObject): string {
-  return JSON.stringify([object.id, object.kind, object.title, object.lifecycle, object.engagement, object.waitingCondition, object.currentFocus, object.version, object.createdAt, object.updatedAt]);
+  return JSON.stringify([object.id, object.kind, object.title, object.lifecycle, object.engagement, object.waitingCondition, object.currentFocus, object.desiredOutcome, object.completionChecks, object.version, object.createdAt, object.updatedAt]);
 }
 
 function resultingProjectionHash(effect: GraphEffect): string | null {
   return effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash
-    : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" || effect.type === "CHANGE_ENGAGEMENT_FIELDS" || effect.type === "CHANGE_CLOSURE_FIELDS" ? effect.resultingProjectionHash : null;
+    : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" || effect.type === "UPDATE_WORK_INTENT_FIELDS" || effect.type === "CHANGE_ENGAGEMENT_FIELDS" || effect.type === "CHANGE_CLOSURE_FIELDS" ? effect.resultingProjectionHash : null;
 }
 
-function projectionFor(object: WorkObject, anchor: Pick<PrimaryAnchor, "projectionContainerUuid" | "projectionTitleUuid" | "projectionStateUuid" | "projectionFocusUuid" | "projectionWaitingUuid">, closure: ManagedProjection["closure"] = null): ManagedProjection {
+function projectionFor(object: WorkObject, anchor: Pick<PrimaryAnchor, "projectionContainerUuid" | "projectionTitleUuid" | "projectionStateUuid" | "projectionFocusUuid" | "projectionWaitingUuid" | "projectionOutcomeUuid" | "projectionCompletionUuid">, closure: ManagedProjection["closure"] = null): ManagedProjection {
   const base = {
     containerUuid: anchor.projectionContainerUuid, titleUuid: anchor.projectionTitleUuid, stateUuid: anchor.projectionStateUuid,
-    focusUuid: anchor.projectionFocusUuid, waitingUuid: anchor.projectionWaitingUuid, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus,
+    focusUuid: anchor.projectionFocusUuid, waitingUuid: anchor.projectionWaitingUuid, outcomeUuid: anchor.projectionOutcomeUuid, completionUuid: anchor.projectionCompletionUuid, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks,
   };
   const core = closure ? { ...base, closure } : base;
   return { ...core, projectionHash: stableHash(core) };
@@ -53,6 +56,19 @@ function projectionFor(object: WorkObject, anchor: Pick<PrimaryAnchor, "projecti
 function closureProjection(closure: EffectiveClosure | null): ManagedProjection["closure"] {
   if (!closure) return null;
   return closure.type === "COMPLETED" ? { type: "COMPLETED", recordId: closure.record.id, outcomeSummary: closure.outcomeSummary } : { type: "CANCELLED", recordId: closure.record.id, reason: closure.reason };
+}
+
+function proposalValue(revision: ProposalRevision): unknown {
+  if (revision.operationType === "SET_CURRENT_FOCUS") return revision.currentFocus;
+  if (revision.operationType === "UPDATE_WORK_INTENT") return { desiredOutcome: revision.desiredOutcome, completionChecks: revision.completionChecks };
+  return revision.transition;
+}
+
+function objectValue(object: WorkObject | null, operationType: ProposalRevision["operationType"]): unknown {
+  if (!object) return null;
+  if (operationType === "SET_CURRENT_FOCUS") return object.currentFocus;
+  if (operationType === "UPDATE_WORK_INTENT") return { desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks };
+  return { engagement: object.engagement, waitingCondition: object.waitingCondition };
 }
 
 function approvedCurrentFocusSkill(skill: SkillPackage): boolean {
@@ -67,6 +83,21 @@ function approvedEngagementSkill(skill: SkillPackage): boolean {
     manifest.id === skill.id && manifest.version === skill.version && manifest.operation === "CHANGE_ENGAGEMENT" && manifest.risk === "LOW";
 }
 
+function approvedMiniProjectSkill(skill: SkillPackage): boolean {
+  const manifest = skill.manifest as { id?: unknown; version?: unknown; purpose?: unknown; authority?: unknown };
+  return skill.id === APPROVED_MINI_PROJECT_SKILL.id && skill.version === APPROVED_MINI_PROJECT_SKILL.version && skill.contentHash === APPROVED_MINI_PROJECT_SKILL.contentHash && manifest.id === skill.id && manifest.version === skill.version && manifest.purpose === "MINI_PROJECT_GOVERNANCE" && manifest.authority === "READ_ONLY_COMPOSITE";
+}
+
+function approvedWorkIntentSkill(skill: SkillPackage): boolean {
+  const manifest = skill.manifest as { id?: unknown; version?: unknown; operation?: unknown; risk?: unknown };
+  return skill.id === APPROVED_WORK_INTENT_SKILL.id && skill.version === APPROVED_WORK_INTENT_SKILL.version && skill.contentHash === APPROVED_WORK_INTENT_SKILL.contentHash &&
+    manifest.id === skill.id && manifest.version === skill.version && manifest.operation === "UPDATE_WORK_INTENT" && manifest.risk === "LOW";
+}
+
+function approvedMiniProjectTaste(taste: TasteProfile): boolean {
+  return taste.id === APPROVED_MINI_PROJECT_TASTE.id && taste.version === APPROVED_MINI_PROJECT_TASTE.version && taste.contentHash === APPROVED_MINI_PROJECT_TASTE.contentHash && (taste.status === "ACTIVE" || taste.status === "PROVISIONAL");
+}
+
 export class Kernel {
   readonly #store: SqliteStore;
   readonly #now: () => string;
@@ -76,18 +107,24 @@ export class Kernel {
   readonly #skill: SkillPackage | null;
   readonly #engagementAgent: EngagementAgent | null;
   readonly #engagementSkill: SkillPackage | null;
+  readonly #miniProjectSkill: SkillPackage | null;
+  readonly #workIntentSkill: SkillPackage | null;
+  readonly #miniProjectTaste: TasteProfile | null;
   readonly #graphSnapshotKey: string | null;
 
   constructor(store: SqliteStore, options: KernelOptions = {}) {
     this.#store = store; this.#now = options.now ?? (() => new Date().toISOString()); this.#afterStage = options.afterStage ?? (() => undefined); this.#authorizedUserId = options.authorizedUserId ?? "local-user";
     this.#agent = options.currentFocusAgent ?? null; this.#skill = options.currentFocusSkill ?? null;
     this.#engagementAgent = options.engagementAgent ?? null; this.#engagementSkill = options.engagementSkill ?? null;
+    this.#miniProjectSkill = options.miniProjectSkill ?? null; this.#workIntentSkill = options.workIntentSkill ?? null; this.#miniProjectTaste = options.miniProjectTaste ?? null;
     this.#graphSnapshotKey = options.graphSnapshotKey ?? null;
   }
 
   approvedSkills(): readonly SkillPackage[] {
-    return [this.#skill, this.#engagementSkill].filter((skill): skill is SkillPackage => skill !== null);
+    return [this.#skill, this.#engagementSkill, this.#miniProjectSkill, this.#workIntentSkill].filter((skill): skill is SkillPackage => skill !== null);
   }
+
+  tasteProfiles(): readonly TasteProfile[] { return this.#miniProjectTaste ? [this.#miniProjectTaste] : []; }
 
   targetSnapshotInput(workObjectId: string): GraphSnapshotInput {
     const object = this.#store.getWorkObject(workObjectId); const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
@@ -251,29 +288,32 @@ export class Kernel {
     return { id: input.runId, purpose: "ENGAGEMENT_RECONCILIATION", executor: { type: "FAKE", id: this.#engagementAgent!.id }, state: "FINISHED", operationContractVersion: OPERATION_CONTRACT_VERSION, skill: { id: this.#engagementSkill!.id, version: this.#engagementSkill!.version, contentHash: this.#engagementSkill!.contentHash }, subject: { workObjectId: object.id }, context: { targetVersion: object.version, evidenceIds: input.evidenceIds, currentEngagement: object.engagement, waitingCondition: object.waitingCondition }, result: { outcome: "FAILED", proposalIds: [] }, reasonCode, rationaleSummary: error instanceof Error ? error.message.slice(0, 200) : "Agent execution failed.", startedAt, finishedAt: this.#now() };
   }
 
-  startExternalAgentRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string; snapshot: GraphSnapshot }): AgentRunReceipt {
-    if (input.purpose !== "CURRENT_FOCUS_MAINTENANCE" && input.purpose !== "ENGAGEMENT_RECONCILIATION") throw new KernelError("AGENT_RUN_PURPOSE_INVALID", "External AgentRun purpose is unsupported.");
+  startExternalAgentRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string; governanceCorrelationId?: string; snapshot: GraphSnapshot }): AgentRunReceipt {
+    if (input.purpose !== "CURRENT_FOCUS_MAINTENANCE" && input.purpose !== "ENGAGEMENT_RECONCILIATION" && input.purpose !== "MINI_PROJECT_GOVERNANCE") throw new KernelError("AGENT_RUN_PURPOSE_INVALID", "External AgentRun purpose is unsupported.");
+    const requestedCorrelationId = input.purpose === "MINI_PROJECT_GOVERNANCE" ? input.governanceCorrelationId?.trim() || deterministicIdentityUuid(`governance:${input.workObjectId}:${input.runId}`) : undefined;
     const existing = this.#store.getAgentRun(input.runId);
     if (existing) {
-      if (existing.executor.type === "EXTERNAL_CLI" && existing.executor.id === input.executorId.trim() && existing.purpose === input.purpose && existing.subject.workObjectId === input.workObjectId && stableHash(existing.context.evidenceIds) === stableHash(input.evidenceIds)) return existing;
+      if (existing.executor.type === "EXTERNAL_CLI" && existing.executor.id === input.executorId.trim() && existing.purpose === input.purpose && existing.subject.workObjectId === input.workObjectId && stableHash(existing.context.evidenceIds) === stableHash(input.evidenceIds) && existing.context.governanceCorrelationId === requestedCorrelationId) return existing;
       throw new KernelError("AGENT_RUN_ALREADY_EXISTS", "AgentRun id is already bound to another cognition contract.");
     }
     if (!input.executorId.trim()) throw new KernelError("EXECUTOR_ID_REQUIRED", "External executor id is required.");
     const object = this.#store.getWorkObject(input.workObjectId); const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
     if (!object || !anchor) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Agent target or PrimaryAnchor does not exist.");
     if (object.lifecycle !== "OPEN") throw new KernelError("AGENT_TARGET_OUT_OF_SCOPE", "Only OPEN WorkObjects may be governed.");
+    if (input.purpose === "MINI_PROJECT_GOVERNANCE" && object.kind !== "MINI_PROJECT") throw new KernelError("MINI_PROJECT_REQUIRED", "MiniProject governance requires a formal MINI_PROJECT target.");
     if (this.#store.hasPendingRecoveryForTarget(object.id)) throw new KernelError("TARGET_RECOVERY_PENDING", "Target has incomplete recovery.");
     const projection = projectionFor(object, anchor, closureProjection(this.#store.getClosureHistory(object.id).current));
     if (input.snapshot.graphId !== anchor.graphId || input.snapshot.sourceBlockUuid !== anchor.externalId || input.snapshot.projection?.projectionHash !== projection.projectionHash) throw new KernelError("TARGET_PROJECTION_STALE", "Target projection is not current.");
     const evidence = input.evidenceIds.map((id) => this.#store.getEvidence(id));
     if (!evidence.length || evidence.some((item) => !item || item.workObjectId !== object.id)) throw new KernelError("EVIDENCE_INVALID", "External AgentRun requires frozen Evidence for the exact target.");
-    const skill = input.purpose === "CURRENT_FOCUS_MAINTENANCE" ? this.#skill : this.#engagementSkill;
-    if (!skill || (input.purpose === "CURRENT_FOCUS_MAINTENANCE" ? !approvedCurrentFocusSkill(skill) : !approvedEngagementSkill(skill))) throw new KernelError("SKILL_NOT_APPROVED", "AgentRun purpose has no approved Skill.");
+    const skill = input.purpose === "CURRENT_FOCUS_MAINTENANCE" ? this.#skill : input.purpose === "ENGAGEMENT_RECONCILIATION" ? this.#engagementSkill : this.#miniProjectSkill;
+    if (!skill || (input.purpose === "CURRENT_FOCUS_MAINTENANCE" ? !approvedCurrentFocusSkill(skill) : input.purpose === "ENGAGEMENT_RECONCILIATION" ? !approvedEngagementSkill(skill) : !approvedMiniProjectSkill(skill))) throw new KernelError("SKILL_NOT_APPROVED", "AgentRun purpose has no approved Skill.");
+    if (input.purpose === "MINI_PROJECT_GOVERNANCE" && (!this.#miniProjectTaste || !approvedMiniProjectTaste(this.#miniProjectTaste))) throw new KernelError("TASTE_PROFILE_UNTRUSTED", "MiniProject governance requires the explicitly active Taste profile.");
     const at = this.#now(); this.#store.registerSkill(skill, skill, at);
     const run: AgentRunReceipt = {
       id: input.runId, purpose: input.purpose, executor: { type: "EXTERNAL_CLI", id: input.executorId.trim() }, state: "STARTED",
       operationContractVersion: OPERATION_CONTRACT_VERSION, skill: { id: skill.id, version: skill.version, contentHash: skill.contentHash }, subject: { workObjectId: object.id },
-      context: { targetVersion: object.version, targetProjectionHash: projection.projectionHash, evidenceIds: input.evidenceIds, ...(input.purpose === "ENGAGEMENT_RECONCILIATION" ? { currentEngagement: object.engagement, waitingCondition: object.waitingCondition } : {}) },
+      context: { targetVersion: object.version, targetProjectionHash: projection.projectionHash, evidenceIds: input.evidenceIds, ...(input.purpose === "ENGAGEMENT_RECONCILIATION" ? { currentEngagement: object.engagement, waitingCondition: object.waitingCondition } : {}), ...(input.purpose === "MINI_PROJECT_GOVERNANCE" ? { governanceCorrelationId: requestedCorrelationId!, taste: { id: this.#miniProjectTaste!.id, version: this.#miniProjectTaste!.version, contentHash: this.#miniProjectTaste!.contentHash } } : {}) },
       result: { outcome: "PENDING", proposalIds: [] }, reasonCode: "PENDING_EXTERNAL_RESULT", rationaleSummary: "External cognition is in progress.", submissionHash: null, startedAt: at, finishedAt: null,
     };
     this.#store.putAgentRun(run); return run;
@@ -290,8 +330,8 @@ export class Kernel {
     }
     const object = this.#store.getWorkObject(started.subject.workObjectId);
     if (!object) throw new KernelError("WORK_OBJECT_NOT_FOUND", "AgentRun target no longer exists.");
-    let parsed: AgentCurrentFocusResult | AgentEngagementResult;
-    try { parsed = started.purpose === "CURRENT_FOCUS_MAINTENANCE" ? parseAgentCurrentFocusResult(input.result) : parseAgentEngagementResult(input.result); }
+    let parsed: AgentCurrentFocusResult | AgentEngagementResult | MiniProjectAgentResult;
+    try { parsed = started.purpose === "CURRENT_FOCUS_MAINTENANCE" ? parseAgentCurrentFocusResult(input.result) : started.purpose === "ENGAGEMENT_RECONCILIATION" ? parseAgentEngagementResult(input.result) : parseMiniProjectAgentResult(input.result); }
     catch (error) {
       const failed: AgentRunReceipt = { ...started, state: "FINISHED", result: { outcome: "FAILED", proposalIds: [] }, reasonCode: "AGENT_RESULT_INVALID", rationaleSummary: error instanceof Error ? error.message.slice(0, 200) : "Invalid result.", submissionHash, finishedAt: this.#now() };
       this.#store.finishAgentRunResult(failed, null, null); throw new KernelError("AGENT_RESULT_INVALID", "External Agent returned output outside the approved purpose contract.");
@@ -310,14 +350,28 @@ export class Kernel {
         const focus = parsed as AgentCurrentFocusResult;
         revision = { proposalId, revision: 1, operationType: "SET_CURRENT_FOCUS", operationContractVersion: OPERATION_CONTRACT_VERSION, currentFocus: focus.currentFocus?.trim() || null, expectedVersion: started.context.targetVersion, expectedProjectionHash: started.context.targetProjectionHash!, evidenceDependencies: dependencies, skill: started.skill, agentRunId: started.id, risk: "LOW", createdAt: now };
         parseSemanticOperation({ operationId: `validate-${started.id}`, type: "SET_CURRENT_FOCUS", actor: { type: "AGENT", id: started.executor.id }, target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash }, input: { currentFocus: revision.currentFocus }, evidenceDependencies: dependencies });
-      } else {
+      } else if (started.purpose === "ENGAGEMENT_RECONCILIATION") {
         const engagement = parsed as AgentEngagementResult; const transition = { ...engagement.transition!, waiting: engagement.transition!.waiting ? { ...engagement.transition!.waiting, evidenceIds: dependencies.map((item) => item.evidenceId) } : null };
         revision = { proposalId, revision: 1, operationType: "CHANGE_ENGAGEMENT", operationContractVersion: OPERATION_CONTRACT_VERSION, transition, expectedVersion: started.context.targetVersion, expectedProjectionHash: started.context.targetProjectionHash!, evidenceDependencies: dependencies, evidenceWatermark: this.#store.evidenceWatermark(object.id), skill: started.skill, agentRunId: started.id, risk: "LOW", createdAt: now };
         parseSemanticOperation({ operationId: `validate-${started.id}`, type: "CHANGE_ENGAGEMENT", actor: { type: "AGENT", id: started.executor.id }, target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash }, input: transition, evidenceDependencies: dependencies });
+      } else {
+        const governance = parsed as MiniProjectAgentResult;
+        if (governance.outcome !== "PROPOSAL") throw new KernelError("AGENT_RESULT_INVALID", "MiniProject proposal result is missing its typed change.");
+        if (governance.change.type === "SET_CURRENT_FOCUS") {
+          if (!this.#skill || !approvedCurrentFocusSkill(this.#skill)) throw new KernelError("DELEGATED_SKILL_NOT_APPROVED", "MiniProject current-focus proposal requires the approved narrow Skill.");
+          this.#store.registerSkill(this.#skill, this.#skill, now);
+          revision = { proposalId, revision: 1, operationType: "SET_CURRENT_FOCUS", operationContractVersion: OPERATION_CONTRACT_VERSION, currentFocus: governance.change.currentFocus, expectedVersion: started.context.targetVersion, expectedProjectionHash: started.context.targetProjectionHash!, evidenceDependencies: dependencies, skill: { id: this.#skill.id, version: this.#skill.version, contentHash: this.#skill.contentHash }, agentRunId: started.id, governanceCorrelationId: started.context.governanceCorrelationId!, taste: started.context.taste!, risk: "LOW", createdAt: now };
+          parseSemanticOperation({ operationId: `validate-${started.id}`, type: "SET_CURRENT_FOCUS", actor: { type: "AGENT", id: started.executor.id }, target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash }, input: { currentFocus: revision.currentFocus }, evidenceDependencies: dependencies });
+        } else {
+          if (!this.#workIntentSkill || !approvedWorkIntentSkill(this.#workIntentSkill)) throw new KernelError("DELEGATED_SKILL_NOT_APPROVED", "MiniProject WorkIntent proposal requires the approved narrow Skill.");
+          this.#store.registerSkill(this.#workIntentSkill, this.#workIntentSkill, now);
+          revision = { proposalId, revision: 1, operationType: "UPDATE_WORK_INTENT", operationContractVersion: OPERATION_CONTRACT_VERSION, desiredOutcome: governance.change.desiredOutcome, completionChecks: governance.change.completionChecks, expectedVersion: started.context.targetVersion, expectedProjectionHash: started.context.targetProjectionHash!, evidenceDependencies: dependencies, skill: { id: this.#workIntentSkill.id, version: this.#workIntentSkill.version, contentHash: this.#workIntentSkill.contentHash }, agentRunId: started.id, governanceCorrelationId: started.context.governanceCorrelationId!, taste: started.context.taste!, risk: "LOW", createdAt: now } satisfies WorkIntentProposalRevision;
+          parseSemanticOperation({ operationId: `validate-${started.id}`, type: "UPDATE_WORK_INTENT", actor: { type: "AGENT", id: started.executor.id }, target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash }, input: { desiredOutcome: revision.desiredOutcome, completionChecks: revision.completionChecks }, evidenceDependencies: dependencies });
+        }
       }
       proposal = { id: proposalId, workObjectId: object.id, status: "OPEN", latestRevision: 1, appliedCommitId: null, invalidationReason: null, createdAt: now, updatedAt: now };
     }
-    const finished: AgentRunReceipt = { ...started, state: "FINISHED", result: { outcome: parsed.outcome, proposalIds: proposal ? [proposal.id] : [] }, reasonCode: parsed.reasonCode, rationaleSummary: parsed.rationaleSummary.slice(0, 500), submissionHash, finishedAt: now };
+    const finished: AgentRunReceipt = { ...started, state: "FINISHED", result: { outcome: parsed.outcome === "BOUNDARY_REVIEW" ? "BOUNDARY_REVIEW" : parsed.outcome, proposalIds: proposal ? [proposal.id] : [] }, reasonCode: parsed.reasonCode, rationaleSummary: parsed.rationaleSummary.slice(0, 500), submissionHash, finishedAt: now };
     this.#store.finishAgentRunResult(finished, proposal, revision); return { run: finished, proposal, revision };
   }
 
@@ -330,7 +384,7 @@ export class Kernel {
     if (parsed.type !== "SET_CURRENT_FOCUS") throw new KernelError("PROPOSAL_OPERATION_INVALID", "Proposal revision operation is invalid.");
     const revision: ProposalRevision = { ...stored.revision, revision: stored.revision.revision + 1, currentFocus: parsed.input.currentFocus, createdAt: this.#now() };
     const at = this.#now();
-    this.#store.appendProposalRevisionWithFeedback(revision, { id: deterministicUuid(`feedback:modified:${revision.proposalId}:${revision.revision}`), type: "MODIFIED", proposalId: revision.proposalId, agentRunId: revision.agentRunId, proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId: null, before: stored.revision.currentFocus, after: revision.currentFocus, createdAt: at }, at);
+    this.#store.appendProposalRevisionWithFeedback(revision, { id: deterministicUuid(`feedback:modified:${revision.proposalId}:${revision.revision}`), type: "MODIFIED", proposalId: revision.proposalId, agentRunId: revision.agentRunId, proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId: null, before: stored.revision.currentFocus, after: revision.currentFocus, signalStrength: "CORRECTIVE", governanceCorrelationId: revision.governanceCorrelationId ?? null, createdAt: at }, at);
     return this.#store.getProposal(input.proposalId)!;
   }
 
@@ -341,9 +395,19 @@ export class Kernel {
     const at = this.#now();
     this.#store.transaction(() => {
       this.#store.transitionProposal(input.proposalId, "DISMISSED", at);
-      this.#store.putFeedback({ id: deterministicUuid(`feedback:rejected:${input.proposalId}`), type: "REJECTED", proposalId: input.proposalId, agentRunId: stored.revision.agentRunId, proposalRevision: stored.revision.revision, skill: stored.revision.skill, operationType: stored.revision.operationType, commitId: null, before: stored.revision.operationType === "SET_CURRENT_FOCUS" ? stored.revision.currentFocus : stored.revision.transition, after: null, createdAt: at });
+      this.#store.putFeedback({ id: deterministicUuid(`feedback:rejected:${input.proposalId}`), type: "REJECTED", proposalId: input.proposalId, agentRunId: stored.revision.agentRunId, proposalRevision: stored.revision.revision, skill: stored.revision.skill, operationType: stored.revision.operationType, commitId: null, before: proposalValue(stored.revision), after: null, signalStrength: "CORRECTIVE", governanceCorrelationId: "governanceCorrelationId" in stored.revision ? stored.revision.governanceCorrelationId ?? null : null, createdAt: at });
     });
     return this.#store.getProposal(input.proposalId)!.proposal;
+  }
+
+  recordStrongPositive(input: { commitId: string; actor: Actor; userComment?: string | null }): void {
+    this.#authorize(input.actor);
+    const commit = this.#store.getCommit(input.commitId);
+    if (!commit || commit.status !== "COMMITTED" || !commit.governance) throw new KernelError("GOVERNED_COMMIT_REQUIRED", "Strong positive feedback requires a committed governed change.");
+    const revision = this.#store.getProposal(commit.governance.proposalId)?.revision;
+    if (!revision) throw new KernelError("PROPOSAL_NOT_FOUND", "Governed Proposal is missing.");
+    const userComment = input.userComment?.trim() || null; if (userComment && userComment.length > 500) throw new KernelError("FEEDBACK_COMMENT_TOO_LONG", "Feedback comment exceeds 500 characters.");
+    this.#store.putFeedback({ id: deterministicUuid(`feedback:strong-positive:${commit.id}`), type: "ACCEPTED", proposalId: revision.proposalId, agentRunId: revision.agentRunId, proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId: commit.id, before: objectValue(commit.before as WorkObject | null, revision.operationType), after: objectValue(commit.after as WorkObject | null, revision.operationType), signalStrength: "STRONG_POSITIVE", governanceCorrelationId: "governanceCorrelationId" in revision ? revision.governanceCorrelationId ?? null : null, userComment, createdAt: this.#now() });
   }
 
   applyProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): { commit: StoredCommit; graphEffect: GraphEffect } {
@@ -362,7 +426,12 @@ export class Kernel {
     if (!agentRun || agentRun.result.outcome !== "PROPOSAL") return invalidate("PROPOSAL_AGENT_RUN_UNTRUSTED", "Proposal AgentRun is missing or not a proposal result.");
     if (revision.operationContractVersion !== OPERATION_CONTRACT_VERSION) return invalidate("PROPOSAL_CONTRACT_VERSION_UNTRUSTED", "Proposal uses a different semantic operation contract version.");
     if (this.#store.hasPendingRecoveryForTarget(object.id)) return invalidate("TARGET_RECOVERY_PENDING", "Target has an incomplete Commit requiring recovery.");
-    if (!this.#store.skillRegistered(revision.skill) || !this.#skill || !approvedCurrentFocusSkill(this.#skill) || revision.skill.id !== this.#skill.id || revision.skill.version !== this.#skill.version || revision.skill.contentHash !== this.#skill.contentHash) return invalidate("SKILL_VERSION_UNTRUSTED", "Proposal Skill identity is not the registered approved package.");
+    const focusSkillTrusted = agentRun.purpose === "CURRENT_FOCUS_MAINTENANCE"
+      ? Boolean(this.#skill && approvedCurrentFocusSkill(this.#skill) && revision.skill.contentHash === this.#skill.contentHash)
+      : agentRun.purpose === "MINI_PROJECT_GOVERNANCE"
+        ? Boolean(this.#miniProjectSkill && approvedMiniProjectSkill(this.#miniProjectSkill) && agentRun.skill.contentHash === this.#miniProjectSkill.contentHash && this.#skill && approvedCurrentFocusSkill(this.#skill) && revision.skill.contentHash === this.#skill.contentHash && revision.taste && this.#miniProjectTaste && approvedMiniProjectTaste(this.#miniProjectTaste) && revision.taste.contentHash === this.#miniProjectTaste.contentHash)
+        : false;
+    if (!this.#store.skillRegistered(revision.skill) || !focusSkillTrusted) return invalidate("SKILL_VERSION_UNTRUSTED", "Proposal Skill identity is not the registered approved package.");
     if (input.snapshot.graphId !== anchor.graphId || input.snapshot.sourceBlockUuid !== anchor.externalId || input.snapshot.projection?.projectionHash !== revision.expectedProjectionHash) return invalidate("PROPOSAL_PROJECTION_STALE", "Managed projection changed before apply.");
     for (const dependency of revision.evidenceDependencies) {
       const frozen = this.#store.getEvidence(dependency.evidenceId);
@@ -376,6 +445,28 @@ export class Kernel {
       target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash },
       input: { currentFocus: revision.currentFocus }, evidenceDependencies: revision.evidenceDependencies,
     });
+    return this.#prepare(operation, input.snapshot, { proposalId: proposal.id, revision: revision.revision, agentRunId: revision.agentRunId, skill: revision.skill });
+  }
+
+  applyWorkIntentProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): { commit: StoredCommit; graphEffect: GraphEffect } {
+    const stored = this.#store.getProposal(input.proposalId);
+    if (!stored || stored.proposal.status !== "OPEN") throw new KernelError("PROPOSAL_NOT_OPEN", "Proposal is not open for application.");
+    const { proposal, revision } = stored;
+    if (revision.operationType !== "UPDATE_WORK_INTENT") throw new KernelError("PROPOSAL_OPERATION_INVALID", "This apply path requires a WorkIntent Proposal.");
+    const invalidate = (code: string, message: string): never => { this.#store.transitionProposal(proposal.id, "INVALIDATED", this.#now(), { invalidationReason: code }); throw new KernelError(code, message); };
+    const object = this.#store.getWorkObject(proposal.workObjectId); const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
+    if (!object || !anchor || object.kind !== "MINI_PROJECT" || object.version !== revision.expectedVersion) return invalidate("PROPOSAL_TARGET_STALE", "MiniProject target changed before apply.");
+    const agentRun = this.#store.getAgentRun(revision.agentRunId);
+    if (!agentRun || agentRun.purpose !== "MINI_PROJECT_GOVERNANCE" || agentRun.result.outcome !== "PROPOSAL") return invalidate("PROPOSAL_AGENT_RUN_UNTRUSTED", "WorkIntent Proposal lacks a trusted governance run.");
+    if (revision.operationContractVersion !== OPERATION_CONTRACT_VERSION || this.#store.hasPendingRecoveryForTarget(object.id)) return invalidate("PROPOSAL_TARGET_STALE", "WorkIntent target contract or recovery state changed.");
+    if (!this.#store.skillRegistered(revision.skill) || !this.#miniProjectSkill || !approvedMiniProjectSkill(this.#miniProjectSkill) || agentRun.skill.contentHash !== this.#miniProjectSkill.contentHash || !this.#workIntentSkill || !approvedWorkIntentSkill(this.#workIntentSkill) || revision.skill.contentHash !== this.#workIntentSkill.contentHash || !this.#miniProjectTaste || !approvedMiniProjectTaste(this.#miniProjectTaste) || revision.taste.contentHash !== this.#miniProjectTaste.contentHash) return invalidate("GOVERNANCE_PROFILE_UNTRUSTED", "Composite governance, narrow mutation Skill, or Taste identity is not approved.");
+    if (input.snapshot.graphId !== anchor.graphId || input.snapshot.sourceBlockUuid !== anchor.externalId || input.snapshot.projection?.projectionHash !== revision.expectedProjectionHash) return invalidate("PROPOSAL_PROJECTION_STALE", "Managed projection changed before WorkIntent apply.");
+    for (const dependency of revision.evidenceDependencies) {
+      const frozen = this.#store.getEvidence(dependency.evidenceId); const fresh = input.evidence.find((item) => item.evidenceId === dependency.evidenceId); let freshHash: string | null = null;
+      try { if (fresh) freshHash = createHash("sha256").update(this.#verifyGraphEvidence(fresh)).digest("hex"); } catch { return invalidate("PROPOSAL_EVIDENCE_STALE", "Fresh Evidence verification failed."); }
+      if (!frozen || !fresh || fresh.graphId !== frozen.graphId || fresh.blockUuid !== frozen.externalId || dependency.contentHash !== frozen.contentHash || freshHash !== frozen.contentHash) return invalidate("PROPOSAL_EVIDENCE_STALE", "Frozen Evidence changed before WorkIntent apply.");
+    }
+    const operation = parseSemanticOperation({ operationId: input.operationId, type: "UPDATE_WORK_INTENT", actor: { type: "AGENT", id: agentRun.executor.id }, target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash }, input: { desiredOutcome: revision.desiredOutcome, completionChecks: revision.completionChecks }, evidenceDependencies: revision.evidenceDependencies });
     return this.#prepare(operation, input.snapshot, { proposalId: proposal.id, revision: revision.revision, agentRunId: revision.agentRunId, skill: revision.skill });
   }
 
@@ -429,9 +520,9 @@ export class Kernel {
         id: deterministicUuid(`anchor:${operation.operationId}`), workObjectId, graphId: operation.input.anchor.graphId,
         externalId: operation.input.anchor.blockUuid, sourceContentHash: operation.input.anchor.sourceContentHash,
         projectionContainerUuid: deterministicUuid(`projection:${operation.operationId}`), projectionTitleUuid: deterministicUuid(`title:${operation.operationId}`),
-        projectionStateUuid: deterministicUuid(`state:${operation.operationId}`), projectionFocusUuid: "", projectionWaitingUuid: "", createdAt: now, updatedAt: now,
+        projectionStateUuid: deterministicUuid(`state:${operation.operationId}`), projectionFocusUuid: "", projectionWaitingUuid: "", projectionOutcomeUuid: "", projectionCompletionUuid: "", createdAt: now, updatedAt: now,
       };
-      anchor = { ...anchor, projectionFocusUuid: deterministicIdentityUuid(`focus:${anchor.projectionContainerUuid}`), projectionWaitingUuid: deterministicIdentityUuid(`waiting:${anchor.projectionContainerUuid}`) };
+      anchor = { ...anchor, projectionFocusUuid: deterministicIdentityUuid(`focus:${anchor.projectionContainerUuid}`), projectionWaitingUuid: deterministicIdentityUuid(`waiting:${anchor.projectionContainerUuid}`), projectionOutcomeUuid: deterministicIdentityUuid(`outcome:${anchor.projectionContainerUuid}`), projectionCompletionUuid: deterministicIdentityUuid(`completion:${anchor.projectionContainerUuid}`) };
       graphEffect = {
         type: "UPSERT_MANAGED_PROJECTION", commitId, effectId: deterministicUuid(`effect:${commitId}:0`),
         graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, projection: projectionFor(object, anchor),
@@ -454,7 +545,7 @@ export class Kernel {
       };
     } else if (operation.type === "SET_CURRENT_FOCUS") {
       const governedRun = governance ? this.#store.getAgentRun(governance.agentRunId) : null;
-      if (!governance || operation.actor.type !== "AGENT" || !governedRun || governedRun.executor.id !== operation.actor.id || governedRun.purpose !== "CURRENT_FOCUS_MAINTENANCE") throw new KernelError("AGENT_GOVERNANCE_REQUIRED", "Agent writes require a verified low-risk Proposal path.");
+      if (!governance || operation.actor.type !== "AGENT" || !governedRun || governedRun.executor.id !== operation.actor.id || (governedRun.purpose !== "CURRENT_FOCUS_MAINTENANCE" && governedRun.purpose !== "MINI_PROJECT_GOVERNANCE")) throw new KernelError("AGENT_GOVERNANCE_REQUIRED", "Agent writes require a verified low-risk Proposal path.");
       before = this.#store.getWorkObject(operation.target.workObjectId);
       if (!before) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Current-focus target does not exist.");
       const storedAnchor = this.#store.getAnchorForWorkObject(before.id);
@@ -469,6 +560,22 @@ export class Kernel {
         content: object.currentFocus, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash,
         expectedProjection, resultingProjection: projection,
       };
+    } else if (operation.type === "UPDATE_WORK_INTENT") {
+      const governedRun = governance ? this.#store.getAgentRun(governance.agentRunId) : null;
+      if (!governance || operation.actor.type !== "AGENT" || !governedRun || governedRun.executor.id !== operation.actor.id || governedRun.purpose !== "MINI_PROJECT_GOVERNANCE") throw new KernelError("AGENT_GOVERNANCE_REQUIRED", "WorkIntent writes require a verified MiniProject governance Proposal.");
+      for (const dependency of operation.evidenceDependencies) {
+        const evidence = this.#store.getEvidence(dependency.evidenceId);
+        if (!evidence || evidence.workObjectId !== operation.target.workObjectId || evidence.contentHash !== dependency.contentHash) throw new KernelError("EVIDENCE_INVALID", "WorkIntent changes require matching frozen Evidence.");
+      }
+      before = this.#store.getWorkObject(operation.target.workObjectId);
+      if (!before) throw new KernelError("WORK_OBJECT_NOT_FOUND", "WorkIntent target does not exist.");
+      const storedAnchor = this.#store.getAnchorForWorkObject(before.id);
+      if (!storedAnchor) throw new KernelError("WORK_OBJECT_ANCHOR_MISSING", "WorkIntent target has no primary Graph anchor.");
+      anchor = storedAnchor;
+      object = updateWorkIntent(before, { ...operation.input, expectedVersion: operation.target.expectedVersion, at: now });
+      const projection = projectionFor(object, anchor);
+      const expectedProjection = projectionFor(before, anchor);
+      graphEffect = { type: "UPDATE_WORK_INTENT_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, outcomeUuid: anchor.projectionOutcomeUuid, completionUuid: anchor.projectionCompletionUuid, desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash, expectedProjection, resultingProjection: projection };
     } else if (operation.type === "CHANGE_ENGAGEMENT") {
       const governedRun = governance ? this.#store.getAgentRun(governance.agentRunId) : null;
       if (operation.actor.type === "AGENT" && (!governance || !governedRun || governedRun.executor.id !== operation.actor.id || governedRun.purpose !== "ENGAGEMENT_RECONCILIATION")) throw new KernelError("AGENT_GOVERNANCE_REQUIRED", "Agent Engagement writes require a verified low-risk Proposal path.");
@@ -537,7 +644,7 @@ export class Kernel {
     const commit: StoredCommit = {
       id: commitId, status: "PREPARED", actor: operation.actor, operationType: operation.type, targetId: object.id,
       operation, preconditions: operation.preconditions, before, after: object,
-      inverse: before ? operation.type === "SET_CURRENT_FOCUS" ? { type: "SET_CURRENT_FOCUS", currentFocus: before.currentFocus, version: before.version } : operation.type === "CHANGE_ENGAGEMENT" ? { type: "CHANGE_ENGAGEMENT", engagement: before.engagement, waitingCondition: before.waitingCondition, version: before.version } : operation.type === "RENAME_WORK_OBJECT" ? { type: "RENAME_WORK_OBJECT", title: before.title, version: before.version } : { type: "RESTORE_WORK_OBJECT", object: before, closure: beforeClosure, version: before.version } : { type: "UNDO_COMMIT", targetId: object.id },
+      inverse: before ? operation.type === "SET_CURRENT_FOCUS" ? { type: "SET_CURRENT_FOCUS", currentFocus: before.currentFocus, version: before.version } : operation.type === "UPDATE_WORK_INTENT" ? { type: "UPDATE_WORK_INTENT", desiredOutcome: before.desiredOutcome, completionChecks: before.completionChecks, version: before.version } : operation.type === "CHANGE_ENGAGEMENT" ? { type: "CHANGE_ENGAGEMENT", engagement: before.engagement, waitingCondition: before.waitingCondition, version: before.version } : operation.type === "RENAME_WORK_OBJECT" ? { type: "RENAME_WORK_OBJECT", title: before.title, version: before.version } : { type: "RESTORE_WORK_OBJECT", object: before, closure: beforeClosure, version: before.version } : { type: "UNDO_COMMIT", targetId: object.id },
       graphEffect, graphResult: null, failureReason: null, compensationFor: null, compensatedBy: null, createdAt: now, updatedAt: now,
       governance,
     };
@@ -569,7 +676,7 @@ export class Kernel {
     this.#authorize(input.actor);
     const original = this.#store.getCommit(input.commitId);
     if (!original || original.status !== "COMMITTED" || original.compensatedBy) throw new KernelError("UNDO_TARGET_INVALID", "Commit is not currently undoable.");
-    if (original.operationType !== "CREATE_WORK_OBJECT" && original.operationType !== "RENAME_WORK_OBJECT" && original.operationType !== "SET_CURRENT_FOCUS" && original.operationType !== "CHANGE_ENGAGEMENT" && original.operationType !== "COMPLETE_WORK_OBJECT" && original.operationType !== "CANCEL_WORK_OBJECT" && original.operationType !== "REOPEN_WORK_OBJECT" && original.operationType !== "AMEND_CLOSURE") throw new KernelError("UNDO_OPERATION_UNSUPPORTED", "Only supported semantic commits are undoable.");
+    if (original.operationType !== "CREATE_WORK_OBJECT" && original.operationType !== "RENAME_WORK_OBJECT" && original.operationType !== "SET_CURRENT_FOCUS" && original.operationType !== "UPDATE_WORK_INTENT" && original.operationType !== "CHANGE_ENGAGEMENT" && original.operationType !== "COMPLETE_WORK_OBJECT" && original.operationType !== "CANCEL_WORK_OBJECT" && original.operationType !== "REOPEN_WORK_OBJECT" && original.operationType !== "AMEND_CLOSURE") throw new KernelError("UNDO_OPERATION_UNSUPPORTED", "Only supported semantic commits are undoable.");
     const object = this.#store.getWorkObject(original.targetId!);
     const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
     if (!object || !anchor) throw new KernelError("UNDO_TARGET_MISSING", "Current state for the commit is missing.");
@@ -587,6 +694,8 @@ export class Kernel {
         ? renameWorkObject(object, { title: previous.title, expectedVersion: object.version, at: now })
         : original.operationType === "SET_CURRENT_FOCUS"
           ? setCurrentFocus(object, { currentFocus: previous.currentFocus, expectedVersion: object.version, at: now })
+          : original.operationType === "UPDATE_WORK_INTENT"
+            ? updateWorkIntent(object, { desiredOutcome: previous.desiredOutcome, completionChecks: previous.completionChecks, expectedVersion: object.version, at: now })
           : original.operationType === "CHANGE_ENGAGEMENT"
             ? restoreEngagement(object, { engagement: previous.engagement as "ACTIONABLE" | "WAITING", waitingCondition: previous.waitingCondition, expectedVersion: object.version, at: now })
             : restoreWorkObject(object, { previous, expectedVersion: object.version, at: now })
@@ -595,6 +704,12 @@ export class Kernel {
       ? original.operationType === "SET_CURRENT_FOCUS" ? {
         type: "SET_CURRENT_FOCUS_FIELD", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId,
         containerUuid: anchor.projectionContainerUuid, fieldUuid: anchor.projectionFocusUuid, content: restored.currentFocus,
+        expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projectionFor(restored, anchor).projectionHash,
+        expectedProjection, resultingProjection: projectionFor(restored, anchor),
+      } : original.operationType === "UPDATE_WORK_INTENT" ? {
+        type: "UPDATE_WORK_INTENT_FIELDS", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId,
+        containerUuid: anchor.projectionContainerUuid, outcomeUuid: anchor.projectionOutcomeUuid, completionUuid: anchor.projectionCompletionUuid,
+        desiredOutcome: restored.desiredOutcome, completionChecks: restored.completionChecks,
         expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projectionFor(restored, anchor).projectionHash,
         expectedProjection, resultingProjection: projectionFor(restored, anchor),
       } : original.operationType === "CHANGE_ENGAGEMENT" ? {
@@ -697,13 +812,13 @@ export class Kernel {
       if (commit.governance) {
         this.#store.transitionProposal(commit.governance.proposalId, "APPLIED", at, { appliedCommitId: commitId });
         const revision = this.#store.getProposal(commit.governance.proposalId)?.revision;
-        if (revision) this.#store.putFeedback({ id: deterministicUuid(`feedback:accepted:${commit.id}`), type: "ACCEPTED", proposalId: revision.proposalId, agentRunId: revision.agentRunId, proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId, before: revision.operationType === "SET_CURRENT_FOCUS" ? (commit.before as WorkObject | null)?.currentFocus ?? null : { engagement: (commit.before as WorkObject).engagement, waitingCondition: (commit.before as WorkObject).waitingCondition }, after: revision.operationType === "SET_CURRENT_FOCUS" ? (commit.after as WorkObject | null)?.currentFocus ?? null : { engagement: (commit.after as WorkObject).engagement, waitingCondition: (commit.after as WorkObject).waitingCondition }, createdAt: at });
+        if (revision) this.#store.putFeedback({ id: deterministicUuid(`feedback:accepted:${commit.id}`), type: "ACCEPTED", proposalId: revision.proposalId, agentRunId: revision.agentRunId, proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId, before: objectValue(commit.before as WorkObject | null, revision.operationType), after: objectValue(commit.after as WorkObject | null, revision.operationType), signalStrength: "WEAK_ACCEPTANCE", governanceCorrelationId: "governanceCorrelationId" in revision ? revision.governanceCorrelationId ?? null : null, createdAt: at });
       }
       if (commit.compensationFor) {
         this.#store.setCompensatedBy(commit.compensationFor, commitId, at);
         const original = this.#store.getCommit(commit.compensationFor);
         const revision = original?.governance ? this.#store.getProposal(original.governance.proposalId)?.revision : null;
-        if (original?.governance && revision) this.#store.putFeedback({ id: deterministicUuid(`feedback:undone:${original.id}`), type: "UNDONE_AFTER_APPLY", proposalId: revision.proposalId, agentRunId: revision.agentRunId, proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId, before: revision.operationType === "SET_CURRENT_FOCUS" ? (commit.before as WorkObject | null)?.currentFocus ?? null : { engagement: (commit.before as WorkObject).engagement, waitingCondition: (commit.before as WorkObject).waitingCondition }, after: revision.operationType === "SET_CURRENT_FOCUS" ? (commit.after as WorkObject | null)?.currentFocus ?? null : { engagement: (commit.after as WorkObject).engagement, waitingCondition: (commit.after as WorkObject).waitingCondition }, createdAt: at });
+        if (original?.governance && revision) this.#store.putFeedback({ id: deterministicUuid(`feedback:undone:${original.id}`), type: "UNDONE_AFTER_APPLY", proposalId: revision.proposalId, agentRunId: revision.agentRunId, proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId, before: objectValue(commit.before as WorkObject | null, revision.operationType), after: objectValue(commit.after as WorkObject | null, revision.operationType), signalStrength: "CORRECTIVE", governanceCorrelationId: "governanceCorrelationId" in revision ? revision.governanceCorrelationId ?? null : null, createdAt: at });
       }
     });
   }

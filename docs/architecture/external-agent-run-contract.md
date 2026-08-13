@@ -11,9 +11,10 @@ Finish accepts only the closed result shape for the run purpose:
 - `PROPOSAL`: the existing current-focus or engagement result;
 - `NO_PROPOSAL`: durable receipt, no Proposal or Commit;
 - `NEEDS_MORE_CONTEXT`: durable receipt, no Proposal or Commit.
+- MiniProject governance additionally supports one recommendation-first question, one narrow delegated Formal change, or `BOUNDARY_REVIEW` with no mutation.
 
 Invalid output is durably `FAILED`. A changed target invalidates finish. Exact retries return the same finished run and Proposal; a different submission for the same run is rejected.
 
-The Kernel converts a valid `PROPOSAL` result into the existing immutable ProposalRevision. Apply rechecks target, projection, Evidence content, Evidence watermark, Skill identity/hash, operation-contract version, autonomy, and recovery before preparing a Semantic Commit.
+The Kernel converts a valid `PROPOSAL` result into the existing immutable ProposalRevision. A MiniProject run keeps the read-only composite Skill/Taste in AgentRun provenance while its Proposal carries `current-focus-maintenance` or `work-intent-maintenance`. Apply rechecks both identities, target, projection, Evidence content, operation-contract version, autonomy, correlation, and recovery before preparing a Semantic Commit.
 
-Only a small receipt and structured result are stored. Prompts, transcripts, chain-of-thought, and arbitrary Graph dumps are not persisted.
+Only a small receipt and structured result are stored. `governanceCorrelationId` groups independently auditable changes without introducing a GovernanceSession lifecycle. Prompts, transcripts, Working Models, claims, question queues, chain-of-thought, and arbitrary Graph dumps are not persisted.

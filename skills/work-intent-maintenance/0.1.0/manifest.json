@@ -1,0 +1,7 @@
+{
+  "id": "work-intent-maintenance",
+  "version": "0.1.0",
+  "operation": "UPDATE_WORK_INTENT",
+  "risk": "LOW",
+  "description": "Propose one evidence-backed WorkIntent update for an existing Formal MiniProject."
+}

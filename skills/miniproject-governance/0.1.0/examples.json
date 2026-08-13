@@ -1,0 +1,6 @@
+[
+  { "case": "healthy", "result": { "outcome": "NO_PROPOSAL", "reasonCode": "ALREADY_HEALTHY", "rationaleSummary": "核心输出、完成标准和当前推进一致。" } },
+  { "case": "one bottleneck", "result": { "outcome": "NEEDS_MORE_CONTEXT", "question": "我建议先把核心输出收窄为一份可评审规范；你希望评审通过以哪些可观察结果为准？", "reasonCode": "COMPLETION_AMBIGUOUS", "rationaleSummary": "输出方向明确，但完成边界仍阻塞承诺。" } },
+  { "case": "work intent", "result": { "outcome": "PROPOSAL", "change": { "type": "UPDATE_WORK_INTENT", "desiredOutcome": "形成一份可评审的虚拟机模板与镜像规范", "completionChecks": ["覆盖模板、镜像、版本和发布约束", "完成一次运维与安全联合评审"] }, "reasonCode": "MINIMUM_COMMITMENT_REACHED", "rationaleSummary": "对话已形成一个核心输出和两项可观察完成标准。" } },
+  { "case": "split", "result": { "outcome": "BOUNDARY_REVIEW", "candidate": "SPLIT", "recommendation": "建议保留规范为当前 MiniProject，并把自动化流水线拆为另一个 MiniProject。", "question": "是否按这个边界拆分？", "reasonCode": "MULTIPLE_CORE_OUTPUTS", "rationaleSummary": "两个输出有独立完成标准。" } }
+]
