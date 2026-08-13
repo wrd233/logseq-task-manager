@@ -2,6 +2,7 @@ import { KernelClient, parseKernelDescriptor } from "@task-copilot/client/browse
 import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkObject } from "@task-copilot/contracts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
+import { ensurePersistentSourceIdentity } from "./source-identity.ts";
 import { requestTextPrompt } from "./text-prompt.ts";
 
 const descriptorKey = "task-copilot-vnext-kernel-descriptor";
@@ -86,10 +87,14 @@ async function adapterForCurrentGraph(): Promise<{ adapter: LogseqGraphAdapter; 
 async function formalizeCurrentRecord(): Promise<void> {
   const current = logseqBlock(await logseq.Editor.getCurrentBlock());
   if (!current) throw new Error("请先把光标放在一条自然记录上。");
+  const stable = await ensurePersistentSourceIdentity({
+    getBlock: (uuid) => logseq.Editor.getBlock(uuid),
+    upsertBlockProperty: (uuid, key, value) => logseq.Editor.upsertBlockProperty(uuid, key, value),
+  }, { uuid: current.uuid, content: current.content, isDbGraph: Boolean(await logseq.App.checkCurrentIsDbGraph()) });
   const api = await client(); const { adapter, graphId } = await adapterForCurrentGraph();
-  const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: current.uuid });
-  const title = current.content.split("\n")[0]!.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
-  const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title, anchor: { graphId, blockUuid: current.uuid, sourceContentHash: snapshot.sourceContentHash } } });
+  const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
+  const title = stable.content.split("\n")[0]!.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
+  const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title, anchor: { graphId, blockUuid: stable.uuid, sourceContentHash: snapshot.sourceContentHash } } });
   const pending = await api.prepare(operation, snapshot);
   let result;
   try { result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect); }
@@ -97,7 +102,7 @@ async function formalizeCurrentRecord(): Promise<void> {
     await api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error));
     throw error;
   }
-  const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: current.uuid }));
+  const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid }));
   await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id);
   if (committed.commit.targetId) await logseq.FileStorage.setItem(currentWorkObjectKey, committed.commit.targetId);
   await logseq.UI.showMsg(`已正式化；Commit ${committed.commit.id}`, "success");

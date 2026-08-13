@@ -50,6 +50,10 @@ Choose B, using the registry that already exists; do not create a general
 registry framework.
 
 - `PrimaryAnchor` remains the authoritative managed-identity registry.
+- Before a file-graph source becomes a Primary Anchor, formalization persists
+  Logseq's native `id:: <uuid>` property. Canonical source content/hash excludes
+  that host identity line. DB-graph UUIDs are already durable and need no text
+  property.
 - The natural source block remains the presentation root and is never captured
   by managed ownership.
 - `projectionFocusUuid` identifies the optional current-focus child.

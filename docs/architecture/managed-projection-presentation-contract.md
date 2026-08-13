@@ -137,3 +137,8 @@ The source block and all unknown descendants are user-owned. The only allowed
 source mutation remains an existing governed marker transition such as
 `TODO -> DONE` or `DONE -> TODO`. Presentation refresh never edits source text,
 bulk-formats pages, or promotes natural blocks into formal objects.
+
+Formalization itself may persist Logseq's native `id::` property on a file-graph
+source before the Primary Anchor is created. Canonicalization removes that host
+identity line, so the natural title/body and its semantic source hash are
+unchanged. This is the sole machine-identity addition to the source.
