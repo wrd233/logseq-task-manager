@@ -2,7 +2,8 @@ import { createHmac } from "node:crypto";
 
 import { graphEvidenceProofPayload, stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 
-interface RecordState { content: string; projection: ManagedProjection | null }
+type SourceMarker = Exclude<GraphSnapshot["sourceMarker"], undefined>;
+interface RecordState { content: string; projection: ManagedProjection | null; marker: SourceMarker }
 
 export class FakeGraphAdapter implements GraphAdapter {
   readonly #records = new Map<string, RecordState>();
@@ -13,12 +14,16 @@ export class FakeGraphAdapter implements GraphAdapter {
   #key(graphId: string, uuid: string): string { return `${graphId}:${uuid}`; }
 
   seedNaturalRecord(graphId: string, sourceBlockUuid: string, content: string): GraphSnapshot {
-    this.#records.set(this.#key(graphId, sourceBlockUuid), { content, projection: null });
+    const match = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(content);
+    this.#records.set(this.#key(graphId, sourceBlockUuid), { content, projection: null, marker: match ? match[1] as Exclude<SourceMarker, null> : null });
     return this.snapshot(graphId, sourceBlockUuid);
   }
 
   naturalContent(graphId: string, sourceBlockUuid: string): string { return this.#record(graphId, sourceBlockUuid).content; }
-  editNaturalContent(graphId: string, sourceBlockUuid: string, content: string): void { this.#record(graphId, sourceBlockUuid).content = content; }
+  editNaturalContent(graphId: string, sourceBlockUuid: string, content: string): void { const record = this.#record(graphId, sourceBlockUuid); record.content = content; const match = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(content); record.marker = match ? match[1] as Exclude<SourceMarker, null> : null; }
+  editMarker(graphId: string, sourceBlockUuid: string, marker: Exclude<SourceMarker, null>): void {
+    const record = this.#record(graphId, sourceBlockUuid); const rest = record.content.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, ""); record.marker = marker; record.content = `${marker} ${rest}`;
+  }
   failNextApply(): void { this.#failNext = true; }
   editManagedProjection(graphId: string, sourceBlockUuid: string, title: string): void {
     const record = this.#record(graphId, sourceBlockUuid);
@@ -34,7 +39,7 @@ export class FakeGraphAdapter implements GraphAdapter {
 
   snapshot(graphId: string, sourceBlockUuid: string): GraphSnapshot {
     const record = this.#record(graphId, sourceBlockUuid);
-    return { graphId, sourceBlockUuid, sourceContentHash: stableHash(record.content), projection: record.projection ? { ...record.projection } : null };
+    return { graphId, sourceBlockUuid, sourceContentHash: stableHash(record.content), sourceMarker: record.marker, projection: record.projection ? { ...record.projection } : null };
   }
 
   async readGraphSnapshot(input: { graphId: string; sourceBlockUuid: string }): Promise<GraphSnapshot> { return this.snapshot(input.graphId, input.sourceBlockUuid); }
@@ -64,6 +69,13 @@ export class FakeGraphAdapter implements GraphAdapter {
       if (record.projection.projectionHash === effect.resultingProjectionHash) return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: effect.resultingProjectionHash, appliedAt: this.#now() };
       if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_ENGAGEMENT_PRECONDITION_FAILED");
       record.projection = { ...record.projection, engagement: effect.engagement, waitingCondition: effect.waiting, projectionHash: effect.resultingProjectionHash };
+    } else if (effect.type === "CHANGE_CLOSURE_FIELDS") {
+      if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.stateUuid !== effect.stateUuid || record.projection.focusUuid !== effect.focusUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
+      if (record.projection.projectionHash === effect.resultingProjectionHash && record.marker === effect.resultingSourceMarker) return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: effect.resultingProjectionHash, appliedAt: this.#now() };
+      if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      if (record.marker !== effect.expectedSourceMarker) throw new Error("GRAPH_MARKER_PRECONDITION_FAILED");
+      if (effect.resultingSourceMarker !== null && effect.resultingSourceMarker !== undefined) this.editMarker(effect.graphId, effect.sourceBlockUuid, effect.resultingSourceMarker);
+      record.projection = { ...record.projection, lifecycle: effect.lifecycle, engagement: effect.engagement, waitingCondition: effect.waitingCondition, currentFocus: effect.currentFocus, closure: effect.closure, projectionHash: effect.resultingProjectionHash };
     } else {
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
       record.projection = null;

@@ -1,6 +1,7 @@
 export type WorkObjectKind = "TASK" | "MINI_PROJECT" | "PROJECT";
 export type Lifecycle = "OPEN" | "COMPLETED" | "CANCELLED";
 export type Engagement = "ACTIONABLE" | "WAITING" | "PARKED" | null;
+export interface DomainActor { type: "USER" | "SYSTEM" | "AGENT"; id: string }
 
 export interface WaitingCondition {
   workObjectId: string;
@@ -50,6 +51,50 @@ export interface EvidenceReference {
   createdAt: string;
 }
 
+export interface CompletionRecord {
+  id: string;
+  workObjectId: string;
+  completedAt: string;
+  outcomeSummary: string;
+  evidenceIds: readonly string[];
+  createdBy: DomainActor;
+}
+
+export interface CancellationRecord {
+  id: string;
+  workObjectId: string;
+  cancelledAt: string;
+  reason: string;
+  replacementWorkObjectId: string | null;
+  remainingWorkNote: string | null;
+  evidenceIds: readonly string[];
+  createdBy: DomainActor;
+}
+
+export type ClosureRecord = CompletionRecord | CancellationRecord;
+
+export interface ClosureAmendment {
+  id: string;
+  workObjectId: string;
+  targetClosureRecordId: string;
+  reason: string;
+  replacementOutcomeSummary: string | null;
+  replacementCancellationReason: string | null;
+  addEvidenceIds: readonly string[];
+  amendedAt: string;
+  createdBy: DomainActor;
+}
+
+export interface ReopenRecord {
+  id: string;
+  workObjectId: string;
+  previousClosureType: "COMPLETED" | "CANCELLED";
+  previousClosureRecordId: string;
+  reason: string;
+  reopenedAt: string;
+  createdBy: DomainActor;
+}
+
 export interface PrimaryOwnership {
   childId: string;
   ownerId: string;
@@ -78,6 +123,78 @@ function required(value: string, code: string, label: string, maximum = 500): st
 function timestamp(value: string): string {
   if (!Number.isFinite(Date.parse(value))) throw new DomainError("TIMESTAMP_INVALID", "Timestamp must be ISO-compatible.");
   return new Date(value).toISOString();
+}
+
+function actor(value: DomainActor): DomainActor {
+  if (value.type !== "USER" && value.type !== "SYSTEM" && value.type !== "AGENT") throw new DomainError("ACTOR_TYPE_INVALID", "Actor type is unsupported.");
+  return { type: value.type, id: required(value.id, "ACTOR_ID_REQUIRED", "Actor id", 128) };
+}
+
+function evidenceIds(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((id) => required(id, "CLOSURE_EVIDENCE_ID_REQUIRED", "Closure Evidence id", 128)))];
+}
+
+function assertTaskOpen(object: WorkObject, expectedVersion: number): void {
+  if (object.version !== expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${expectedVersion}, found ${object.version}.`);
+  if (object.kind !== "TASK") throw new DomainError("TASK_CLOSURE_KIND_UNSUPPORTED", "Phase 5 Closure supports Task only.");
+  if (object.lifecycle !== "OPEN") throw new DomainError("CLOSURE_LIFECYCLE_INVALID", "Only an open Task may be completed or cancelled.");
+}
+
+function terminalObject(object: WorkObject, lifecycle: "COMPLETED" | "CANCELLED", at: string): WorkObject {
+  return { ...object, lifecycle, engagement: null, waitingCondition: null, currentFocus: null, version: object.version + 1, updatedAt: at };
+}
+
+export function completeWorkObject(object: WorkObject, input: { recordId: string; actor: DomainActor; outcomeSummary: string; evidenceIds: readonly string[]; expectedVersion: number; at: string }): { object: WorkObject; record: CompletionRecord } {
+  assertTaskOpen(object, input.expectedVersion);
+  const at = timestamp(input.at);
+  const record: CompletionRecord = { id: required(input.recordId, "COMPLETION_RECORD_ID_REQUIRED", "Completion record id", 128), workObjectId: object.id, completedAt: at, outcomeSummary: required(input.outcomeSummary, "COMPLETION_OUTCOME_REQUIRED", "Completion outcome", 500), evidenceIds: evidenceIds(input.evidenceIds), createdBy: actor(input.actor) };
+  return { object: terminalObject(object, "COMPLETED", at), record };
+}
+
+export function cancelWorkObject(object: WorkObject, input: { recordId: string; actor: DomainActor; reason: string; replacementWorkObjectId: string | null; remainingWorkNote: string | null; evidenceIds: readonly string[]; expectedVersion: number; at: string }): { object: WorkObject; record: CancellationRecord } {
+  assertTaskOpen(object, input.expectedVersion);
+  const at = timestamp(input.at);
+  const record: CancellationRecord = {
+    id: required(input.recordId, "CANCELLATION_RECORD_ID_REQUIRED", "Cancellation record id", 128), workObjectId: object.id, cancelledAt: at,
+    reason: required(input.reason, "CANCELLATION_REASON_REQUIRED", "Cancellation reason", 500),
+    replacementWorkObjectId: input.replacementWorkObjectId === null ? null : required(input.replacementWorkObjectId, "REPLACEMENT_WORK_OBJECT_ID_REQUIRED", "Replacement WorkObject id", 128),
+    remainingWorkNote: input.remainingWorkNote?.trim() || null, evidenceIds: evidenceIds(input.evidenceIds), createdBy: actor(input.actor),
+  };
+  return { object: terminalObject(object, "CANCELLED", at), record };
+}
+
+export function reopenWorkObject(object: WorkObject, input: { recordId: string; previousClosureRecordId: string; actor: DomainActor; reason: string; expectedVersion: number; at: string }): { object: WorkObject; record: ReopenRecord } {
+  if (object.version !== input.expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
+  if (object.kind !== "TASK") throw new DomainError("TASK_CLOSURE_KIND_UNSUPPORTED", "Phase 5 Reopen supports Task only.");
+  if (object.lifecycle !== "COMPLETED" && object.lifecycle !== "CANCELLED") throw new DomainError("REOPEN_LIFECYCLE_INVALID", "Only a completed or cancelled Task may be reopened.");
+  const at = timestamp(input.at);
+  const record: ReopenRecord = { id: required(input.recordId, "REOPEN_RECORD_ID_REQUIRED", "Reopen record id", 128), workObjectId: object.id, previousClosureType: object.lifecycle, previousClosureRecordId: required(input.previousClosureRecordId, "PREVIOUS_CLOSURE_RECORD_ID_REQUIRED", "Previous closure record id", 128), reason: required(input.reason, "REOPEN_REASON_REQUIRED", "Reopen reason", 500), reopenedAt: at, createdBy: actor(input.actor) };
+  return { object: { ...object, lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, version: object.version + 1, updatedAt: at }, record };
+}
+
+export function amendClosure(target: ClosureRecord, input: { amendmentId: string; workObjectId: string; actor: DomainActor; reason: string; replacementOutcomeSummary?: string; replacementCancellationReason?: string; addEvidenceIds: readonly string[]; at: string }): ClosureAmendment {
+  if (target.workObjectId !== input.workObjectId) throw new DomainError("CLOSURE_SUBJECT_MISMATCH", "Closure record belongs to another WorkObject.");
+  const completion = "completedAt" in target;
+  if (completion && input.replacementCancellationReason !== undefined) throw new DomainError("CLOSURE_AMENDMENT_TYPE_INVALID", "Completion cannot receive a cancellation reason.");
+  if (!completion && input.replacementOutcomeSummary !== undefined) throw new DomainError("CLOSURE_AMENDMENT_TYPE_INVALID", "Cancellation cannot receive an outcome summary.");
+  const replacementOutcomeSummary = input.replacementOutcomeSummary === undefined ? null : required(input.replacementOutcomeSummary, "COMPLETION_OUTCOME_REQUIRED", "Completion outcome", 500);
+  const replacementCancellationReason = input.replacementCancellationReason === undefined ? null : required(input.replacementCancellationReason, "CANCELLATION_REASON_REQUIRED", "Cancellation reason", 500);
+  const additions = evidenceIds(input.addEvidenceIds);
+  if (!replacementOutcomeSummary && !replacementCancellationReason && !additions.length) throw new DomainError("CLOSURE_AMENDMENT_EMPTY", "Closure amendment must change narrative or add Evidence.");
+  return { id: required(input.amendmentId, "CLOSURE_AMENDMENT_ID_REQUIRED", "Closure amendment id", 128), workObjectId: target.workObjectId, targetClosureRecordId: target.id, reason: required(input.reason, "CLOSURE_AMENDMENT_REASON_REQUIRED", "Closure amendment reason", 500), replacementOutcomeSummary, replacementCancellationReason, addEvidenceIds: additions, amendedAt: timestamp(input.at), createdBy: actor(input.actor) };
+}
+
+export function advanceClosureAmendment(object: WorkObject, input: { expectedVersion: number; at: string }): WorkObject {
+  if (object.version !== input.expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
+  if (object.kind !== "TASK") throw new DomainError("TASK_CLOSURE_KIND_UNSUPPORTED", "Phase 5 Closure Amendment supports Task only.");
+  if (object.lifecycle !== "COMPLETED" && object.lifecycle !== "CANCELLED") throw new DomainError("CLOSURE_AMENDMENT_LIFECYCLE_INVALID", "Only a currently closed Task may receive a Closure Amendment.");
+  return { ...object, version: object.version + 1, updatedAt: timestamp(input.at) };
+}
+
+export function restoreWorkObject(object: WorkObject, input: { previous: WorkObject; expectedVersion: number; at: string }): WorkObject {
+  if (object.version !== input.expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
+  if (object.id !== input.previous.id) throw new DomainError("WORK_OBJECT_RESTORE_SUBJECT_MISMATCH", "Restore state belongs to another WorkObject.");
+  return { ...input.previous, waitingCondition: input.previous.waitingCondition ? { ...input.previous.waitingCondition, evidenceIds: [...input.previous.waitingCondition.evidenceIds] } : null, version: object.version + 1, updatedAt: timestamp(input.at) };
 }
 
 export function createWorkObject(input: {
@@ -162,6 +279,7 @@ export function setCurrentFocus(
   if (object.version !== input.expectedVersion) {
     throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
   }
+  if (object.lifecycle !== "OPEN") throw new DomainError("CURRENT_FOCUS_LIFECYCLE_INVALID", "Only open WorkObjects may have a current focus.");
   const normalized = input.currentFocus?.trim() || null;
   if (normalized && normalized.length > 200) throw new DomainError("CURRENT_FOCUS_TOO_LONG", "Current focus exceeds 200 characters.");
   return { ...object, currentFocus: normalized, version: object.version + 1, updatedAt: timestamp(input.at) };

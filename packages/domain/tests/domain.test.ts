@@ -2,11 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  amendClosure,
+  cancelWorkObject,
   changeEngagement,
+  completeWorkObject,
   createPrimaryOwnership,
   createWorkObject,
+  reopenWorkObject,
   renameWorkObject,
   restoreEngagement,
+  restoreWorkObject,
   setCurrentFocus,
   type WorkObject,
 } from "../src/index.ts";
@@ -161,4 +166,40 @@ test("work object validation rejects unsupported kinds, empty titles, and ended 
     () => createWorkObject({ id: "work-01", kind: "TASK", title: "  ", at: "2026-08-12T14:00:00.000Z" }),
     /WORK_OBJECT_TITLE_REQUIRED/,
   );
+});
+
+test("user completion closes one Task with a minimal immutable record and clears open-only state", () => {
+  const open = setCurrentFocus(createWorkObject({ id: "task-complete", kind: "TASK", title: "确认防火墙开放 443", at: "2026-08-13T01:00:00.000Z" }), { currentFocus: "执行生产验证", expectedVersion: 1, at: "2026-08-13T01:10:00.000Z" });
+  const completed = completeWorkObject(open, { recordId: "completion-01", actor: { type: "USER", id: "local-user" }, outcomeSummary: "  确认防火墙开放 443  ", evidenceIds: [], expectedVersion: 2, at: "2026-08-13T02:00:00.000Z" });
+  assert.deepEqual(completed.object, { ...open, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, version: 3, updatedAt: "2026-08-13T02:00:00.000Z" });
+  assert.deepEqual(completed.record, { id: "completion-01", workObjectId: open.id, completedAt: "2026-08-13T02:00:00.000Z", outcomeSummary: "确认防火墙开放 443", evidenceIds: [], createdBy: { type: "USER", id: "local-user" } });
+  assert.throws(() => completeWorkObject(completed.object, { recordId: "completion-02", actor: { type: "USER", id: "local-user" }, outcomeSummary: "重复", evidenceIds: [], expectedVersion: 3, at: "2026-08-13T03:00:00.000Z" }), /CLOSURE_LIFECYCLE_INVALID/u);
+  assert.throws(() => completeWorkObject(createWorkObject({ id: "mini-close", kind: "MINI_PROJECT", title: "不得关闭", at: open.createdAt }), { recordId: "completion-mini", actor: { type: "USER", id: "local-user" }, outcomeSummary: "完成", evidenceIds: [], expectedVersion: 1, at: open.updatedAt }), /TASK_CLOSURE_KIND_UNSUPPORTED/u);
+});
+
+test("cancellation, reopen, and amendment preserve closure history", () => {
+  const open = createWorkObject({ id: "task-cancel", kind: "TASK", title: "提交旧方案", at: "2026-08-13T01:00:00.000Z" });
+  const cancelled = cancelWorkObject(open, { recordId: "cancel-01", actor: { type: "USER", id: "local-user" }, reason: "  业务方取消需求  ", replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [], expectedVersion: 1, at: "2026-08-13T02:00:00.000Z" });
+  assert.equal(cancelled.object.lifecycle, "CANCELLED");
+  assert.equal(cancelled.record.reason, "业务方取消需求");
+  assert.throws(() => cancelWorkObject(createWorkObject({ id: "project-close", kind: "PROJECT", title: "不得关闭", at: open.createdAt }), { recordId: "cancel-project", actor: { type: "USER", id: "local-user" }, reason: "不得关闭", replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [], expectedVersion: 1, at: open.updatedAt }), /TASK_CLOSURE_KIND_UNSUPPORTED/u);
+  const amendment = amendClosure(cancelled.record, { amendmentId: "amend-01", workObjectId: open.id, actor: { type: "USER", id: "local-user" }, reason: "原原因不准确", replacementCancellationReason: "业务方向发生变化", addEvidenceIds: ["evidence-01"], at: "2026-08-13T03:00:00.000Z" });
+  assert.equal(cancelled.record.reason, "业务方取消需求");
+  assert.equal(amendment.replacementCancellationReason, "业务方向发生变化");
+  assert.throws(() => amendClosure(cancelled.record, { amendmentId: "bad-amend", workObjectId: "other", actor: { type: "USER", id: "local-user" }, reason: "错误对象", replacementCancellationReason: "错误", addEvidenceIds: [], at: "2026-08-13T03:00:00.000Z" }), /CLOSURE_SUBJECT_MISMATCH/u);
+  const reopened = reopenWorkObject(cancelled.object, { recordId: "reopen-01", previousClosureRecordId: cancelled.record.id, actor: { type: "USER", id: "local-user" }, reason: "业务需求恢复", expectedVersion: 2, at: "2026-08-13T04:00:00.000Z" });
+  assert.deepEqual(reopened.object, { ...cancelled.object, lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, version: 3, updatedAt: "2026-08-13T04:00:00.000Z" });
+  assert.equal(reopened.record.previousClosureType, "CANCELLED");
+  assert.throws(() => reopenWorkObject(reopened.object, { recordId: "reopen-02", previousClosureRecordId: cancelled.record.id, actor: { type: "USER", id: "local-user" }, reason: "重复", expectedVersion: 3, at: "2026-08-13T05:00:00.000Z" }), /REOPEN_LIFECYCLE_INVALID/u);
+});
+
+test("completion of a WAITING Task clears open state and compensation restores it exactly", () => {
+  const open = setCurrentFocus(createWorkObject({ id: "task-waiting-close", kind: "TASK", title: "等待验收", at: "2026-08-13T01:00:00.000Z" }), { currentFocus: "跟进验收", expectedVersion: 1, at: "2026-08-13T01:10:00.000Z" });
+  const waiting = changeEngagement(open, { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待业务验收", reviewAt: null, evidenceIds: ["evidence-wait"] }, expectedVersion: 2, at: "2026-08-13T01:20:00.000Z" });
+  const completed = completeWorkObject(waiting, { recordId: "completion-wait", actor: { type: "USER", id: "local-user" }, outcomeSummary: "验收完成", evidenceIds: [], expectedVersion: 3, at: "2026-08-13T02:00:00.000Z" });
+  const restored = restoreWorkObject(completed.object, { previous: waiting, expectedVersion: 4, at: "2026-08-13T03:00:00.000Z" });
+  assert.equal(restored.lifecycle, "OPEN");
+  assert.equal(restored.engagement, "WAITING");
+  assert.deepEqual(restored.waitingCondition, waiting.waitingCondition);
+  assert.equal(restored.currentFocus, "跟进验收");
 });

@@ -44,6 +44,12 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         if (!object) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
         send(response, 200, { object, anchor: store.getAnchorForWorkObject(object.id) }); return;
       }
+      const closureMatch = /^\/v1\/objects\/([^/]+)\/closure$/u.exec(url.pathname);
+      if (request.method === "GET" && closureMatch) {
+        const id = decodeURIComponent(closureMatch[1]!);
+        if (!store.getWorkObject(id)) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
+        send(response, 200, { closure: store.getClosureHistory(id) }); return;
+      }
       const commitMatch = /^\/v1\/commits\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && commitMatch) {
         const commit = store.getCommit(decodeURIComponent(commitMatch[1]!));

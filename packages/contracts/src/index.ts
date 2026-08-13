@@ -1,5 +1,5 @@
-import type { WaitingCondition, WorkObject, WorkObjectKind } from "@task-copilot/domain";
-export type { WorkObject } from "@task-copilot/domain";
+import type { CancellationRecord, ClosureAmendment, CompletionRecord, ReopenRecord, WaitingCondition, WorkObject, WorkObjectKind } from "@task-copilot/domain";
+export type { CancellationRecord, ClosureAmendment, CompletionRecord, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
 export type ActorType = "USER" | "SYSTEM" | "AGENT";
 export interface Actor { type: ActorType; id: string }
@@ -12,7 +12,7 @@ export type CommitStatus =
   | "RECOVERY_REQUIRED"
   | "ABORTED";
 
-export type OperationType = "CREATE_WORK_OBJECT" | "RENAME_WORK_OBJECT" | "SET_CURRENT_FOCUS" | "CHANGE_ENGAGEMENT" | "UNDO_COMMIT";
+export type OperationType = "CREATE_WORK_OBJECT" | "RENAME_WORK_OBJECT" | "SET_CURRENT_FOCUS" | "CHANGE_ENGAGEMENT" | "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE" | "UNDO_COMMIT";
 export const OPERATION_CONTRACT_VERSION = 1 as const;
 export const APPROVED_CURRENT_FOCUS_SKILL = {
   id: "current-focus-maintenance",
@@ -91,6 +91,53 @@ export interface ChangeEngagementOperation {
   ];
 }
 
+interface ClosureTarget {
+  workObjectId: string;
+  expectedVersion: number;
+  expectedProjectionHash: string;
+}
+
+interface ClosurePreconditions {
+  readonly 0: { kind: "WORK_OBJECT_VERSION"; expected: number };
+  readonly 1: { kind: "MANAGED_PROJECTION_HASH"; expected: string };
+}
+
+export interface CompleteWorkObjectOperation {
+  operationId: string;
+  type: "COMPLETE_WORK_OBJECT";
+  actor: Actor;
+  target: ClosureTarget;
+  input: { outcomeSummary: string; evidenceIds: readonly string[] };
+  preconditions: ClosurePreconditions;
+}
+
+export interface CancelWorkObjectOperation {
+  operationId: string;
+  type: "CANCEL_WORK_OBJECT";
+  actor: Actor;
+  target: ClosureTarget;
+  input: { reason: string; replacementWorkObjectId: string | null; remainingWorkNote: string | null; evidenceIds: readonly string[] };
+  preconditions: ClosurePreconditions;
+}
+
+export interface ReopenWorkObjectOperation {
+  operationId: string;
+  type: "REOPEN_WORK_OBJECT";
+  actor: Actor;
+  target: ClosureTarget;
+  input: { reason: string };
+  preconditions: ClosurePreconditions;
+}
+
+export interface AmendClosureOperation {
+  operationId: string;
+  type: "AMEND_CLOSURE";
+  actor: Actor;
+  target: ClosureTarget;
+  input: { targetClosureRecordId: string; reason: string; replacementOutcomeSummary: string | null; replacementCancellationReason: string | null; addEvidenceIds: readonly string[] };
+  preconditions: ClosurePreconditions;
+}
+
 export interface UndoCommitOperation {
   operationId: string;
   type: "UNDO_COMMIT";
@@ -100,7 +147,13 @@ export interface UndoCommitOperation {
   preconditions: readonly [{ kind: "MANAGED_PROJECTION_HASH"; expected: string }];
 }
 
-export type SemanticOperation = CreateWorkObjectOperation | RenameWorkObjectOperation | SetCurrentFocusOperation | ChangeEngagementOperation | UndoCommitOperation;
+export type SemanticOperation = CreateWorkObjectOperation | RenameWorkObjectOperation | SetCurrentFocusOperation | ChangeEngagementOperation | CompleteWorkObjectOperation | CancelWorkObjectOperation | ReopenWorkObjectOperation | AmendClosureOperation | UndoCommitOperation;
+
+export interface EffectiveCompletionClosure { type: "COMPLETED"; record: CompletionRecord; amendments: readonly ClosureAmendment[]; outcomeSummary: string; evidenceIds: readonly string[] }
+export interface EffectiveCancellationClosure { type: "CANCELLED"; record: CancellationRecord; amendments: readonly ClosureAmendment[]; reason: string; evidenceIds: readonly string[] }
+export type EffectiveClosure = EffectiveCompletionClosure | EffectiveCancellationClosure;
+export interface ClosureHistory { current: EffectiveClosure | null; completions: readonly CompletionRecord[]; cancellations: readonly CancellationRecord[]; amendments: readonly ClosureAmendment[]; reopens: readonly ReopenRecord[] }
+export type ManagedClosureProjection = { type: "COMPLETED"; recordId: string; outcomeSummary: string } | { type: "CANCELLED"; recordId: string; reason: string };
 
 export interface ManagedProjection {
   containerUuid: string;
@@ -113,6 +166,7 @@ export interface ManagedProjection {
   engagement: WorkObject["engagement"];
   waitingCondition: WaitingCondition | null;
   currentFocus: string | null;
+  closure?: ManagedClosureProjection | null;
   projectionHash: string;
 }
 
@@ -120,6 +174,7 @@ export interface GraphSnapshot {
   graphId: string;
   sourceBlockUuid: string;
   sourceContentHash: string;
+  sourceMarker?: "TODO" | "DONE" | "DOING" | "NOW" | "LATER" | "CANCELED" | "CANCELLED" | null;
   projection: ManagedProjection | null;
 }
 
@@ -135,6 +190,7 @@ export type GraphEffect =
   | (GraphEffectIdentity & { type: "UPDATE_MANAGED_FIELD"; fieldUuid: string; content: string; expectedProjectionHash: string; resultingProjectionHash: string })
   | (GraphEffectIdentity & { type: "SET_CURRENT_FOCUS_FIELD"; containerUuid: string; fieldUuid: string; content: string | null; expectedProjectionHash: string; resultingProjectionHash: string })
   | (GraphEffectIdentity & { type: "CHANGE_ENGAGEMENT_FIELDS"; containerUuid: string; stateUuid: string; waitingUuid: string; engagement: "ACTIONABLE" | "WAITING"; waiting: WaitingCondition | null; expectedProjectionHash: string; resultingProjectionHash: string })
+  | (GraphEffectIdentity & { type: "CHANGE_CLOSURE_FIELDS"; containerUuid: string; stateUuid: string; focusUuid: string; expectedSourceMarker: GraphSnapshot["sourceMarker"]; resultingSourceMarker: GraphSnapshot["sourceMarker"]; expectedProjection: ManagedProjection; lifecycle: WorkObject["lifecycle"]; engagement: WorkObject["engagement"]; waitingCondition: WaitingCondition | null; currentFocus: string | null; closure: ManagedClosureProjection | null; expectedProjectionHash: string; resultingProjectionHash: string })
   | (GraphEffectIdentity & { type: "REMOVE_MANAGED_PROJECTION"; containerUuid: string; expectedProjectionHash: string });
 
 export interface FrozenEvidence {
@@ -420,6 +476,11 @@ function strongHash(value: unknown, code: string): string {
   return normalized;
 }
 
+function stringArray(value: unknown, code: string, label: string): readonly string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) throw new ContractError(code, `${label} must be an array of non-empty strings.`);
+  return [...new Set(value.map((item) => item.trim()))];
+}
+
 function actor(value: unknown): Actor {
   const candidate = record(value, "ACTOR_INVALID", "Actor");
   exactKeys(candidate, ["type", "id"], "ACTOR_UNKNOWN_FIELD");
@@ -432,7 +493,7 @@ function actor(value: unknown): Actor {
 export function parseSemanticOperation(value: unknown): SemanticOperation {
   const candidate = record(value, "OPERATION_INVALID", "Operation");
   const operationType = candidate.type;
-  if (operationType !== "CREATE_WORK_OBJECT" && operationType !== "RENAME_WORK_OBJECT" && operationType !== "SET_CURRENT_FOCUS" && operationType !== "CHANGE_ENGAGEMENT" && operationType !== "UNDO_COMMIT") {
+  if (operationType !== "CREATE_WORK_OBJECT" && operationType !== "RENAME_WORK_OBJECT" && operationType !== "SET_CURRENT_FOCUS" && operationType !== "CHANGE_ENGAGEMENT" && operationType !== "COMPLETE_WORK_OBJECT" && operationType !== "CANCEL_WORK_OBJECT" && operationType !== "REOPEN_WORK_OBJECT" && operationType !== "AMEND_CLOSURE" && operationType !== "UNDO_COMMIT") {
     throw new ContractError("OPERATION_TYPE_UNSUPPORTED", "Only registered semantic operations are accepted.");
   }
   exactKeys(candidate, operationType === "CREATE_WORK_OBJECT"
@@ -578,6 +639,37 @@ export function parseSemanticOperation(value: unknown): SemanticOperation {
     ] as const;
     if (candidate.preconditions !== undefined && canonical(candidate.preconditions) !== canonical(preconditions)) throw new ContractError("OPERATION_PRECONDITIONS_INVALID", "Preconditions must match the semantic operation.");
     return { ...common, type: operationType, target: { workObjectId: text(target.workObjectId, "WORK_OBJECT_ID_REQUIRED", "WorkObject id"), expectedVersion: Number(target.expectedVersion), expectedProjectionHash }, input: { from: input.from, to: input.to, waiting }, evidenceDependencies, preconditions };
+  }
+
+  if (operationType === "COMPLETE_WORK_OBJECT" || operationType === "CANCEL_WORK_OBJECT" || operationType === "REOPEN_WORK_OBJECT" || operationType === "AMEND_CLOSURE") {
+    exactKeys(target, ["workObjectId", "expectedVersion", "expectedProjectionHash"], "OPERATION_TARGET_UNKNOWN_FIELD");
+    if (!Number.isSafeInteger(target.expectedVersion) || Number(target.expectedVersion) < 1) throw new ContractError("EXPECTED_VERSION_INVALID", "Expected version must be a positive integer.");
+    const expectedProjectionHash = hash(target.expectedProjectionHash, "PROJECTION_HASH_INVALID");
+    const parsedTarget = { workObjectId: text(target.workObjectId, "WORK_OBJECT_ID_REQUIRED", "WorkObject id"), expectedVersion: Number(target.expectedVersion), expectedProjectionHash };
+    const preconditions = [{ kind: "WORK_OBJECT_VERSION" as const, expected: parsedTarget.expectedVersion }, { kind: "MANAGED_PROJECTION_HASH" as const, expected: expectedProjectionHash }] as const;
+    if (candidate.preconditions !== undefined && canonical(candidate.preconditions) !== canonical(preconditions)) throw new ContractError("OPERATION_PRECONDITIONS_INVALID", "Preconditions must match the semantic operation.");
+    if (operationType === "COMPLETE_WORK_OBJECT") {
+      exactKeys(input, ["outcomeSummary", "evidenceIds"], "OPERATION_INPUT_UNKNOWN_FIELD");
+      return { ...common, type: operationType, target: parsedTarget, input: { outcomeSummary: text(input.outcomeSummary, "COMPLETION_OUTCOME_REQUIRED", "Completion outcome"), evidenceIds: stringArray(input.evidenceIds, "CLOSURE_EVIDENCE_IDS_INVALID", "Closure Evidence IDs") }, preconditions };
+    }
+    if (operationType === "CANCEL_WORK_OBJECT") {
+      exactKeys(input, ["reason", "replacementWorkObjectId", "remainingWorkNote", "evidenceIds"], "OPERATION_INPUT_UNKNOWN_FIELD");
+      if (input.replacementWorkObjectId !== null && typeof input.replacementWorkObjectId !== "string") throw new ContractError("REPLACEMENT_WORK_OBJECT_ID_INVALID", "Replacement WorkObject id must be text or null.");
+      if (input.remainingWorkNote !== null && typeof input.remainingWorkNote !== "string") throw new ContractError("REMAINING_WORK_NOTE_INVALID", "Remaining-work note must be text or null.");
+      return { ...common, type: operationType, target: parsedTarget, input: { reason: text(input.reason, "CANCELLATION_REASON_REQUIRED", "Cancellation reason"), replacementWorkObjectId: input.replacementWorkObjectId === null ? null : text(input.replacementWorkObjectId, "REPLACEMENT_WORK_OBJECT_ID_REQUIRED", "Replacement WorkObject id"), remainingWorkNote: typeof input.remainingWorkNote === "string" ? input.remainingWorkNote.trim() || null : null, evidenceIds: stringArray(input.evidenceIds, "CLOSURE_EVIDENCE_IDS_INVALID", "Closure Evidence IDs") }, preconditions };
+    }
+    if (operationType === "REOPEN_WORK_OBJECT") {
+      exactKeys(input, ["reason"], "OPERATION_INPUT_UNKNOWN_FIELD");
+      return { ...common, type: operationType, target: parsedTarget, input: { reason: text(input.reason, "REOPEN_REASON_REQUIRED", "Reopen reason") }, preconditions };
+    }
+    exactKeys(input, ["targetClosureRecordId", "reason", "replacementOutcomeSummary", "replacementCancellationReason", "addEvidenceIds"], "OPERATION_INPUT_UNKNOWN_FIELD");
+    if (input.replacementOutcomeSummary !== null && typeof input.replacementOutcomeSummary !== "string") throw new ContractError("COMPLETION_OUTCOME_INVALID", "Replacement outcome must be text or null.");
+    if (input.replacementCancellationReason !== null && typeof input.replacementCancellationReason !== "string") throw new ContractError("CANCELLATION_REASON_INVALID", "Replacement cancellation reason must be text or null.");
+    const replacementOutcomeSummary = typeof input.replacementOutcomeSummary === "string" ? text(input.replacementOutcomeSummary, "COMPLETION_OUTCOME_REQUIRED", "Replacement outcome") : null;
+    const replacementCancellationReason = typeof input.replacementCancellationReason === "string" ? text(input.replacementCancellationReason, "CANCELLATION_REASON_REQUIRED", "Replacement cancellation reason") : null;
+    const addEvidenceIds = stringArray(input.addEvidenceIds, "CLOSURE_EVIDENCE_IDS_INVALID", "Closure Evidence IDs");
+    if (!replacementOutcomeSummary && !replacementCancellationReason && !addEvidenceIds.length) throw new ContractError("CLOSURE_AMENDMENT_EMPTY", "Closure amendment must change narrative or add Evidence.");
+    return { ...common, type: operationType, target: parsedTarget, input: { targetClosureRecordId: text(input.targetClosureRecordId, "TARGET_CLOSURE_RECORD_ID_REQUIRED", "Target closure record id"), reason: text(input.reason, "CLOSURE_AMENDMENT_REASON_REQUIRED", "Closure amendment reason"), replacementOutcomeSummary, replacementCancellationReason, addEvidenceIds }, preconditions };
   }
 
   exactKeys(target, ["commitId", "expectedProjectionHash"], "OPERATION_TARGET_UNKNOWN_FIELD");

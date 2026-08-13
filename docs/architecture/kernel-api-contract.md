@@ -10,6 +10,7 @@ The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-
 | GET | `/v1/objects` | Formal WorkObjects |
 | GET | `/v1/objects/actionable` | `OPEN + ACTIONABLE` WorkObjects only |
 | GET | `/v1/objects/:id` | WorkObject and separate PrimaryAnchor |
+| GET | `/v1/objects/:id/closure` | Current effective Closure plus immutable completion, cancellation, amendment, and reopen history |
 | GET | `/v1/commits/:id` | Structured Ledger entry |
 | GET | `/v1/recovery` | Non-terminal commits and deterministic recovery action |
 | GET | `/v1/evidence/:id` | Frozen Evidence and strong digest |
@@ -34,8 +35,8 @@ The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-
 | POST | `/v1/proposals/:id/dismiss` | User dismisses an open Proposal and records `REJECTED` feedback |
 | POST | `/v1/commits/:id/graph-failed` | Persist a reported Adapter failure; transient errors remain resumable, conflicts become `RECOVERY_REQUIRED` |
 
-There is no generic update, JSON Patch, SQL, table, database-path, or raw Graph-write API. `CREATE_WORK_OBJECT`, `RENAME_WORK_OBJECT`, `SET_CURRENT_FOCUS`, `CHANGE_ENGAGEMENT`, and the dedicated compensation entry point are the only registered write contracts. The two Agent operations are accepted only through the Proposal endpoint. Caller-supplied preconditions are accepted only when they exactly equal the derived semantic preconditions.
+There is no generic update, lifecycle setter, JSON Patch, SQL, table, database-path, or raw Graph-write API. The registered writes are `CREATE_WORK_OBJECT`, `RENAME_WORK_OBJECT`, the two governed Agent operations `SET_CURRENT_FOCUS` and `CHANGE_ENGAGEMENT`, and the user-only Task operations `COMPLETE_WORK_OBJECT`, `CANCEL_WORK_OBJECT`, `REOPEN_WORK_OBJECT`, and `AMEND_CLOSURE`, plus the dedicated compensation entry point. The two Agent operations are accepted only through the Proposal endpoint. Closure operations reject every AGENT and SYSTEM actor before Ledger or Closure mutation. Caller-supplied preconditions are accepted only when they exactly equal the derived semantic preconditions.
 
 Every Graph effect and apply result carries the originating `commitId` and deterministic `effectId`. Update effects carry both the expected current projection hash and resulting projection hash, so a Graph edit between prepare and apply fails closed.
 
-The prepare response is explicitly pending Graph work. `KERNEL_APPLIED` is never returned as business success. Create, Rename, Current Focus, and Engagement support Undo through a new compensation Commit; Engagement compensation restores the exact prior WaitingCondition with a new, monotonic WorkObject version rather than rewinding history.
+The prepare response is explicitly pending Graph work. `KERNEL_APPLIED` is never returned as business success. Create, Rename, Current Focus, Engagement, and Task Closure support Undo through a new compensation Commit. Closure compensation restores the exact prior lifecycle, Engagement, WaitingCondition, current focus, source marker, and effective managed Closure while preserving the original immutable Closure record as compensated history.

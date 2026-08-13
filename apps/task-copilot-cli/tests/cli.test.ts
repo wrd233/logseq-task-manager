@@ -7,6 +7,7 @@ const client = {
   status: async () => ({ status: "ok" as const, schemaVersion: 1, pid: 42 }),
   listObjects: async () => ({ objects: [{ id: "work-01", kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }] }),
   showObject: async (id: string) => ({ object: { id, kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }, anchor: null }),
+  showClosure: async () => ({ closure: { current: null, completions: [], cancellations: [], amendments: [], reopens: [] } }),
   showCommit: async (id: string) => ({ commit: { id } as never }),
   listRecovery: async () => ({ recovery: [] }),
   showEvidence: async (id: string) => ({ evidence: { id } as never }),
@@ -16,7 +17,7 @@ const client = {
 };
 
 test("all reference commands support machine-readable output", async () => {
-  for (const args of [["status"], ["object", "list"], ["object", "show", "work-01"], ["commit", "show", "commit-01"], ["recovery", "list"], ["evidence", "show", "evidence-01"], ["agent-run", "show", "run-01"], ["proposal", "show", "proposal-01"], ["feedback", "list"]]) {
+  for (const args of [["status"], ["object", "list"], ["object", "show", "work-01"], ["closure", "show", "work-01"], ["commit", "show", "commit-01"], ["recovery", "list"], ["evidence", "show", "evidence-01"], ["agent-run", "show", "run-01"], ["proposal", "show", "proposal-01"], ["feedback", "list"]]) {
     const output: string[] = [];
     assert.equal(await runCli([...args, "--json"], client, { out: (line) => output.push(line), err: () => undefined }), 0);
     assert.doesNotThrow(() => JSON.parse(output[0]!));

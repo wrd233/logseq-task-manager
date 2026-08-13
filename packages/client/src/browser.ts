@@ -1,4 +1,4 @@
-import type { Actor, AgentRunReceipt, EngagementProposalRevision, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, StoredCommit, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, ClosureHistory, EngagementProposalRevision, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, StoredCommit, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; graphSnapshotKey: string; pid: number; startedAt: string }
 export interface PendingGraphCommit { commit: StoredCommit; graphEffect: unknown }
@@ -29,6 +29,7 @@ export class KernelClient {
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
   listActionableObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects/actionable"); }
   showObject(id: string): Promise<{ object: WorkObject; anchor: unknown }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}`); }
+  showClosure(id: string): Promise<{ closure: ClosureHistory }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/closure`); }
   showCommit(id: string): Promise<{ commit: StoredCommit }> { return this.#request("GET", `/v1/commits/${encodeURIComponent(id)}`); }
   listRecovery(): Promise<{ recovery: RecoveryItem[] }> { return this.#request("GET", "/v1/recovery"); }
   freezeEvidence(input: { evidenceId: string; workObjectId: string; snapshot: TrustedGraphEvidenceMaterial }): Promise<{ evidence: FrozenEvidence }> { return this.#request("POST", "/v1/evidence/freeze", input); }

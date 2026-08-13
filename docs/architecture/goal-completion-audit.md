@@ -55,7 +55,15 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Phase 4 governed mutation | Frozen Evidence, Evidence watermark, typed Proposal revision, operation-specific authorization, atomic state/Graph effect, and Feedback | PROVED |
 | Phase 4 real Desktop path | Isolated Logseq Desktop visibly entered WAITING, left WAITING, restored the exact condition with `Cmd+Shift+U`, and returned to ACTIONABLE; durable audit found zero Recovery rows | PROVED |
 | Phase 4 failure gates | Target/projection/Evidence/watermark staleness, Graph throw/resume, Graph conflict/recovery, wrong Skill, malformed output, and old Undo | PROVED |
+| Phase 5 closed Task operations | COMPLETE, CANCEL, REOPEN, and AMEND exist as closed contracts; no generic lifecycle setter | PROVED |
+| Phase 5 user authority and task-only scope | Kernel tests reject AGENT/SYSTEM for all four operations and reject MiniProject/Project Closure | PROVED |
+| Phase 5 immutable Closure history | SQLite schema v4, committed-only effective history, amendment/reopen/compensation semantics, API and CLI query | PROVED |
+| Phase 5 Graph and recovery | Marker/projection race, throw, response-loss replay, Logseq property normalization, no half-state COMMITTED | PROVED |
+| Online TODO to DONE ingestion | DB.onChanged coalescing, self-write suppression, and same Kernel completion transaction | PROVED automatically |
+| Phase 5 real Desktop explicit completion and Undo | Logseq 0.10.15 visibly completed and restored a real Task; CLI and Graph file confirmed durable state/history | PROVED |
+| Phase 5 real Desktop WAITING completion, cancellation, reopen, and direct marker | Automated real-adapter/integration evidence exists; final independent Desktop interaction pass not completed | PENDING |
+| Publish Phase 5 to origin | Awaiting final review, commit, push, and exact parity check | PENDING |
 
 ## Current conclusion
 
-Phase 3 remains intact and the complete Phase 4 Engagement vertical slice is implemented, independently re-reviewed, verified, and published. The release handoff performs the final exact local/remote OID check after publishing this audit record.
+Phase 3 and Phase 4 remain intact. The Phase 5 implementation, automated gates, explicit-completion Desktop path, and compensation Undo are present. The remaining Desktop interaction matrix and final publication parity must be resolved before Phase 5 may be called fully complete.

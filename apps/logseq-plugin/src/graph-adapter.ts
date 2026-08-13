@@ -7,7 +7,7 @@ export interface LogseqGraphHost {
   removeBlock(uuid: string): Promise<unknown>;
 }
 
-interface Block { uuid: string; content: string; properties: Record<string, unknown>; children: Block[] }
+interface Block { uuid: string; content: string; rawContent: string; properties: Record<string, unknown>; children: Block[] }
 const containerContent = (focusUuid: string, waitingUuid: string) => `> [Task Copilot]\ntask-copilot-managed:: true\ntask-copilot-focus-uuid:: ${focusUuid}\ntask-copilot-waiting-uuid:: ${waitingUuid}`;
 
 function semanticContent(content: string): string {
@@ -24,8 +24,13 @@ function waitingContent(condition: NonNullable<ManagedProjection["waitingConditi
   ].join("\n");
 }
 
-function stateContent(lifecycle: ManagedProjection["lifecycle"], engagementValue: ManagedProjection["engagement"], condition: ManagedProjection["waitingCondition"]): string {
-  return [`状态：${lifecycle} · ${engagementValue ?? "null"}`, ...(condition ? waitingContent(condition).split("\n") : [])].join("\n");
+function closureContent(closure: ManagedProjection["closure"]): string[] {
+  if (!closure) return [];
+  return [closure.type === "COMPLETED" ? `完成：${closure.outcomeSummary}` : `取消：${closure.reason}`, `task-copilot-closure:: ${JSON.stringify(closure)}`];
+}
+
+function stateContent(lifecycle: ManagedProjection["lifecycle"], engagementValue: ManagedProjection["engagement"], condition: ManagedProjection["waitingCondition"], closure: ManagedProjection["closure"] = null): string {
+  return [`状态：${lifecycle} · ${engagementValue ?? "null"}`, ...(condition ? waitingContent(condition).split("\n") : []), ...closureContent(closure)].join("\n");
 }
 
 function propertyValue(blockValue: Block, name: string): string | null {
@@ -55,7 +60,7 @@ function semanticLine(content: string, prefix: string): string | null {
   return content.split("\n").map((line) => line.trimStart()).find((line) => line.toLocaleLowerCase().startsWith(prefix.toLocaleLowerCase())) ?? null;
 }
 
-function stateOwnedExactly(blockValue: Block, waiting: ManagedProjection["waitingCondition"]): boolean {
+function stateOwnedExactly(blockValue: Block, waiting: ManagedProjection["waitingCondition"], closure: ManagedProjection["closure"]): boolean {
   const categories = blockValue.content.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
     const lower = line.toLocaleLowerCase();
     if (lower.startsWith("状态：")) return "state";
@@ -64,12 +69,17 @@ function stateOwnedExactly(blockValue: Block, waiting: ManagedProjection["waitin
     if (lower.startsWith("task-copilot-waiting-subject::")) return "subject";
     if (lower.startsWith("task-copilot-waiting-since::")) return "since";
     if (lower.startsWith("task-copilot-waiting-evidence::")) return "evidence";
+    if (lower.startsWith("完成：")) return "completion";
+    if (lower.startsWith("取消：")) return "cancellation";
+    if (lower.startsWith("task-copilot-closure::")) return "closure";
     return null;
   });
   if (categories.some((category) => category === null) || new Set(categories).size !== categories.length) return false;
-  const expectedRequired: Array<Exclude<(typeof categories)[number], null>> = waiting ? ["state", "description"] : ["state"];
+  // Logseq may omit property lines from `content` and expose them only through
+  // `properties`; the human-readable closure line remains part of owned text.
+  const expectedRequired: Array<Exclude<(typeof categories)[number], null>> = waiting ? ["state", "description"] : closure ? ["state", closure.type === "COMPLETED" ? "completion" : "cancellation"] : ["state"];
   if (!expectedRequired.every((category) => categories.includes(category))) return false;
-  return waiting ? true : categories.length === 1;
+  return waiting || closure ? true : categories.length === 1;
 }
 
 function object(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
@@ -77,7 +87,7 @@ function block(value: unknown): Block | null {
   let candidate = object(value);
   if (!candidate && Array.isArray(value)) candidate = object(value.find((item) => object(item)?.uuid));
   if (!candidate || typeof candidate.uuid !== "string" || typeof candidate.content !== "string") return null;
-  return { uuid: candidate.uuid, content: semanticContent(candidate.content), properties: object(candidate.properties) ?? {}, children: Array.isArray(candidate.children) ? candidate.children.map(block).filter((item): item is Block => item !== null) : [] };
+  return { uuid: candidate.uuid, content: semanticContent(candidate.content), rawContent: candidate.content, properties: object(candidate.properties) ?? {}, children: Array.isArray(candidate.children) ? candidate.children.map(block).filter((item): item is Block => item !== null) : [] };
 }
 
 function engagement(value: string): ManagedProjection["engagement"] {
@@ -105,9 +115,13 @@ function projectionFromContainer(container: Block): ManagedProjection {
   const engagementValue = engagement(match[2]!);
   const embeddedWaiting = state.content.includes("task-copilot-waiting-subject::") || state.content.split("\n").some((line) => line.trimStart().startsWith("等待："));
   const waitingConditionValue = embeddedWaiting || propertyValue(state, "task-copilot-waiting-subject") ? waitingCondition(state, "") : legacyWaiting ? waitingCondition(legacyWaiting, "") : null;
-  const core = { containerUuid: container.uuid, titleUuid: title.uuid, stateUuid: state.uuid, focusUuid, waitingUuid, title: semanticLine(title.content, "标题：")!.slice(3), lifecycle: match[1] as ManagedProjection["lifecycle"], engagement: engagementValue, waitingCondition: waitingConditionValue, currentFocus: focus ? semanticLine(focus.content, "当前推进：")!.slice(5) || null : null };
+  const closureRaw = semanticLine(state.content, "task-copilot-closure:: ")?.slice("task-copilot-closure:: ".length) || propertyValue(state, "task-copilot-closure");
+  const closure = closureRaw ? JSON.parse(closureRaw) as NonNullable<ManagedProjection["closure"]> : null;
+  const coreBase = { containerUuid: container.uuid, titleUuid: title.uuid, stateUuid: state.uuid, focusUuid, waitingUuid, title: semanticLine(title.content, "标题：")!.slice(3), lifecycle: match[1] as ManagedProjection["lifecycle"], engagement: engagementValue, waitingCondition: waitingConditionValue, currentFocus: focus ? semanticLine(focus.content, "当前推进：")!.slice(5) || null : null };
+  const core = closure ? { ...coreBase, closure } : coreBase;
   if ((engagementValue === "WAITING") !== Boolean(waitingConditionValue)) throw new Error("GRAPH_WAITING_INVARIANT_INVALID");
-  const ownedExactly = (container.content === containerContent(focusUuid, waitingUuid) || legacy || Boolean(declaredFocusUuid)) && stateOwnedExactly(state, waitingConditionValue) && container.children.length === 2 + (focus ? 1 : 0) + (legacyWaiting ? 1 : 0);
+  if ((match[1] === "OPEN") === Boolean(closure)) throw new Error("GRAPH_CLOSURE_INVARIANT_INVALID");
+  const ownedExactly = (container.content === containerContent(focusUuid, waitingUuid) || legacy || Boolean(declaredFocusUuid)) && stateOwnedExactly(state, waitingConditionValue, closure) && container.children.length === 2 + (focus ? 1 : 0) + (legacyWaiting ? 1 : 0);
   return { ...core, projectionHash: ownedExactly ? stableHash(core) : stableHash({ core, actual: container }) };
 }
 
@@ -128,7 +142,8 @@ export class LogseqGraphAdapter implements GraphAdapter {
     const source = await this.#required(input.sourceBlockUuid, true);
     const managedRef = source.children.find((child) => child.content.includes("task-copilot-managed:: true"));
     const managed = managedRef ? await this.#required(managedRef.uuid, true) : null;
-    return { graphId: this.#graphId, sourceBlockUuid: source.uuid, sourceContentHash: stableHash(source.content), projection: managed ? projectionFromContainer(managed) : null };
+    const marker = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(source.content)?.[1] as GraphSnapshot["sourceMarker"] | undefined;
+    return { graphId: this.#graphId, sourceBlockUuid: source.uuid, sourceContentHash: stableHash(source.content), sourceMarker: marker ?? null, projection: managed ? projectionFromContainer(managed) : null };
   }
 
   async readEvidenceMaterial(input: { graphId: string; blockUuid: string }, proofKey: string): Promise<TrustedGraphEvidenceMaterial> {
@@ -156,7 +171,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
       const projection = effect.projection;
       await this.#ensureBlock(effect.sourceBlockUuid, projection.containerUuid, containerContent(projection.focusUuid, projection.waitingUuid), { sibling: false });
       await this.#ensureBlock(projection.containerUuid, projection.titleUuid, `标题：${projection.title}`, { sibling: false, before: true });
-      await this.#ensureBlock(projection.titleUuid, projection.stateUuid, stateContent(projection.lifecycle, projection.engagement, projection.waitingCondition), { sibling: true });
+      await this.#ensureBlock(projection.titleUuid, projection.stateUuid, stateContent(projection.lifecycle, projection.engagement, projection.waitingCondition, projection.closure), { sibling: true });
       if (projection.currentFocus) await this.#ensureBlock(projection.stateUuid, projection.focusUuid, `当前推进：${projection.currentFocus}`, { sibling: true });
     } else if (effect.type === "UPDATE_MANAGED_FIELD") {
       const before = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
@@ -184,13 +199,51 @@ export class LogseqGraphAdapter implements GraphAdapter {
       if (before.projection?.projectionHash === effect.resultingProjectionHash) return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: effect.resultingProjectionHash, appliedAt: this.#now() };
       if (!before.projection || before.projection.containerUuid !== effect.containerUuid || before.projection.stateUuid !== effect.stateUuid || before.projection.waitingUuid !== effect.waitingUuid || before.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_ENGAGEMENT_PRECONDITION_FAILED");
       await this.#host.updateBlock(effect.stateUuid, stateContent("OPEN", effect.engagement, effect.waiting));
+    } else if (effect.type === "CHANGE_CLOSURE_FIELDS") {
+      const before = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+      if (before.projection?.projectionHash === effect.resultingProjectionHash && (before.sourceMarker ?? null) === (effect.resultingSourceMarker ?? null)) return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: effect.resultingProjectionHash, appliedAt: this.#now() };
+      if (!before.projection || before.projection.containerUuid !== effect.containerUuid || before.projection.stateUuid !== effect.stateUuid || before.projection.focusUuid !== effect.focusUuid) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      const projectionMatches = (value: ManagedProjection, expected: ManagedProjection) => value.title === expected.title && value.containerUuid === expected.containerUuid && value.titleUuid === expected.titleUuid && value.stateUuid === expected.stateUuid && value.focusUuid === expected.focusUuid && value.waitingUuid === expected.waitingUuid;
+      if (!projectionMatches(before.projection, effect.expectedProjection)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      const markerState = before.sourceMarker ?? null; if (markerState !== (effect.expectedSourceMarker ?? null) && markerState !== (effect.resultingSourceMarker ?? null)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      const projectionState = before.projection.projectionHash === effect.expectedProjectionHash ? "before" : before.projection.projectionHash === effect.resultingProjectionHash ? "after" : "partial";
+      if (projectionState === "partial") {
+        const allowedPartial = before.projection.lifecycle === effect.lifecycle && before.projection.engagement === effect.engagement && JSON.stringify(before.projection.waitingCondition) === JSON.stringify(effect.waitingCondition) && JSON.stringify(before.projection.closure ?? null) === JSON.stringify(effect.closure) && (before.projection.currentFocus === effect.expectedProjection.currentFocus || before.projection.currentFocus === effect.currentFocus);
+        if (!allowedPartial) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      }
+      const source = await this.#required(effect.sourceBlockUuid, false);
+      const freshMarker = (/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(source.content)?.[1] ?? null) as GraphSnapshot["sourceMarker"];
+      if (freshMarker !== (effect.expectedSourceMarker ?? null) && freshMarker !== (effect.resultingSourceMarker ?? null)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      if (freshMarker !== (effect.resultingSourceMarker ?? null) && effect.resultingSourceMarker !== effect.expectedSourceMarker) {
+        const natural = source.rawContent.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
+        if (!effect.resultingSourceMarker) throw new Error("GRAPH_MARKER_REMOVAL_UNSUPPORTED");
+        await this.#host.updateBlock(effect.sourceBlockUuid, `${effect.resultingSourceMarker} ${natural}`);
+      }
+      // Every physical write is preceded by a fresh semantic read. This cannot
+      // turn Logseq's non-CAS SDK into a database transaction, but it prevents a
+      // marker-side event or user edit from being overwritten by the next write.
+      const afterMarker = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+      if (!afterMarker.projection || !projectionMatches(afterMarker.projection, effect.expectedProjection)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      const stateStillBefore = afterMarker.projection.projectionHash === effect.expectedProjectionHash;
+      const stateAlreadyAfter = afterMarker.projection.lifecycle === effect.lifecycle && afterMarker.projection.engagement === effect.engagement && JSON.stringify(afterMarker.projection.waitingCondition) === JSON.stringify(effect.waitingCondition) && JSON.stringify(afterMarker.projection.closure ?? null) === JSON.stringify(effect.closure);
+      if (!stateStillBefore && !stateAlreadyAfter) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      if (!stateAlreadyAfter) await this.#host.updateBlock(effect.stateUuid, stateContent(effect.lifecycle, effect.engagement, effect.waitingCondition, effect.closure));
+      const beforeFocus = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+      if (!beforeFocus.projection || !projectionMatches(beforeFocus.projection, effect.expectedProjection) || beforeFocus.projection.lifecycle !== effect.lifecycle || beforeFocus.projection.engagement !== effect.engagement || JSON.stringify(beforeFocus.projection.waitingCondition) !== JSON.stringify(effect.waitingCondition) || JSON.stringify(beforeFocus.projection.closure ?? null) !== JSON.stringify(effect.closure) || (beforeFocus.projection.currentFocus !== effect.expectedProjection.currentFocus && beforeFocus.projection.currentFocus !== effect.currentFocus)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      const focus = block(await this.#host.getBlock(effect.focusUuid, { includeChildren: false }));
+      const expectedFocusContent = beforeFocus.projection.currentFocus === null ? null : `当前推进：${beforeFocus.projection.currentFocus}`;
+      if ((focus?.content ?? null) !== expectedFocusContent) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      if (effect.currentFocus === null && focus) {
+        await this.#host.removeBlock(effect.focusUuid);
+      } else if (effect.currentFocus !== null && focus) await this.#host.updateBlock(effect.focusUuid, `当前推进：${effect.currentFocus}`);
+      else if (effect.currentFocus !== null) await this.#ensureBlock(effect.stateUuid, effect.focusUuid, `当前推进：${effect.currentFocus}`, { sibling: true });
     } else {
       const before = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
       if (!before.projection || before.projection.containerUuid !== effect.containerUuid || before.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
       await this.#host.removeBlock(effect.containerUuid);
     }
     const actual = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
-    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" || effect.type === "CHANGE_ENGAGEMENT_FIELDS" ? effect.resultingProjectionHash : null;
+    const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" || effect.type === "CHANGE_ENGAGEMENT_FIELDS" || effect.type === "CHANGE_CLOSURE_FIELDS" ? effect.resultingProjectionHash : null;
     if ((actual.projection?.projectionHash ?? null) !== expectedHash) throw new Error("GRAPH_EFFECT_VERIFY_FAILED");
     return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: expectedHash, appliedAt: this.#now() };
   }

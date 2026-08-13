@@ -24,7 +24,7 @@ test("vNext schema stores normalized current state without embedding an anchor i
     currentFocus: null, version: 1, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
   });
   assert.equal(store.getAnchorForWorkObject("work-01")?.externalId, "source-01");
-  assert.equal(store.schemaVersion(), 3);
+  assert.equal(store.schemaVersion(), 4);
   store.close();
 });
 
@@ -65,4 +65,32 @@ test("schema v3 backfills deterministic Phase 3 focus and Phase 4 waiting UUIDs"
   assert.notEqual(migrated.getAnchorForWorkObject("work-legacy")!.projectionFocusUuid, "");
   assert.match(migrated.getAnchorForWorkObject("work-legacy")!.projectionWaitingUuid, /^[0-9a-f-]{36}$/u);
   migrated.close();
+});
+
+test("schema v4 keeps immutable Closure records and resolves only the current effective closure", () => {
+  const store = new SqliteStore(":memory:");
+  const actor = { type: "USER", id: "local-user" } as const;
+  const base = { id: "task-closure", kind: "TASK", title: "验证防火墙", lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, version: 2, createdAt: "2026-08-13T00:00:00.000Z", updatedAt: "2026-08-13T01:00:00.000Z" } as const;
+  store.putWorkObject(base);
+  const putCommit = (id: string, operationType: "COMPLETE_WORK_OBJECT" | "AMEND_CLOSURE" | "REOPEN_WORK_OBJECT") => store.insertCommit({ id, status: "COMMITTED", actor, operationType, targetId: base.id, operation: { operationId: id }, preconditions: [], before: null, after: null, inverse: null, graphEffect: null, graphResult: null, failureReason: null, compensationFor: null, compensatedBy: null, governance: null, createdAt: base.updatedAt, updatedAt: base.updatedAt });
+  putCommit("commit-complete", "COMPLETE_WORK_OBJECT");
+  store.putCompletionRecord({ id: "completion-01", workObjectId: base.id, completedAt: base.updatedAt, outcomeSummary: "完成生产验证", evidenceIds: [], createdBy: actor }, "commit-complete");
+  putCommit("commit-amend", "AMEND_CLOSURE");
+  store.putClosureAmendment({ id: "amend-01", workObjectId: base.id, targetClosureRecordId: "completion-01", reason: "表述范围过大", replacementOutcomeSummary: "完成测试环境验证", replacementCancellationReason: null, addEvidenceIds: ["evidence-01"], amendedAt: "2026-08-13T02:00:00.000Z", createdBy: actor }, "commit-amend");
+  assert.deepEqual(store.getClosureHistory(base.id).current, {
+    type: "COMPLETED", record: { id: "completion-01", workObjectId: base.id, completedAt: base.updatedAt, outcomeSummary: "完成生产验证", evidenceIds: [], createdBy: actor },
+    amendments: [{ id: "amend-01", workObjectId: base.id, targetClosureRecordId: "completion-01", reason: "表述范围过大", replacementOutcomeSummary: "完成测试环境验证", replacementCancellationReason: null, addEvidenceIds: ["evidence-01"], amendedAt: "2026-08-13T02:00:00.000Z", createdBy: actor }],
+    outcomeSummary: "完成测试环境验证", evidenceIds: ["evidence-01"],
+  });
+  assert.throws(() => store.putCompletionRecord({ id: "completion-01", workObjectId: base.id, completedAt: base.updatedAt, outcomeSummary: "覆盖", evidenceIds: [], createdBy: actor }, "other"), /CLOSURE_RECORD_IMMUTABLE/u);
+  store.putWorkObject({ ...base, lifecycle: "OPEN", engagement: "ACTIONABLE", version: 3, updatedAt: "2026-08-13T03:00:00.000Z" });
+  putCommit("commit-reopen", "REOPEN_WORK_OBJECT");
+  store.putReopenRecord({ id: "reopen-01", workObjectId: base.id, previousClosureType: "COMPLETED", previousClosureRecordId: "completion-01", reason: "生产仍有问题", reopenedAt: "2026-08-13T03:00:00.000Z", createdBy: actor }, "commit-reopen");
+  const history = store.getClosureHistory(base.id);
+  assert.equal(history.current, null);
+  assert.equal(history.completions.length, 1);
+  assert.equal(history.amendments.length, 1);
+  assert.equal(history.reopens.length, 1);
+  assert.equal(store.schemaVersion(), 4);
+  store.close();
 });

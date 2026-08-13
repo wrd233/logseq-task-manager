@@ -1,7 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type CurrentFocusAgent, type CurrentFocusProposalRevision, type EngagementAgent, type EngagementProposalRevision, type FrozenEvidence, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
-import { changeEngagement, createWorkObject, renameWorkObject, restoreEngagement, setCurrentFocus, type PrimaryAnchor, type WorkObject } from "@task-copilot/domain";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type CurrentFocusAgent, type CurrentFocusProposalRevision, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FrozenEvidence, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
+import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
 type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED";
@@ -38,15 +38,21 @@ function canonicalWorkObject(object: WorkObject): string {
 
 function resultingProjectionHash(effect: GraphEffect): string | null {
   return effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash
-    : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" || effect.type === "CHANGE_ENGAGEMENT_FIELDS" ? effect.resultingProjectionHash : null;
+    : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" || effect.type === "CHANGE_ENGAGEMENT_FIELDS" || effect.type === "CHANGE_CLOSURE_FIELDS" ? effect.resultingProjectionHash : null;
 }
 
-function projectionFor(object: WorkObject, anchor: Pick<PrimaryAnchor, "projectionContainerUuid" | "projectionTitleUuid" | "projectionStateUuid" | "projectionFocusUuid" | "projectionWaitingUuid">): ManagedProjection {
-  const core = {
+function projectionFor(object: WorkObject, anchor: Pick<PrimaryAnchor, "projectionContainerUuid" | "projectionTitleUuid" | "projectionStateUuid" | "projectionFocusUuid" | "projectionWaitingUuid">, closure: ManagedProjection["closure"] = null): ManagedProjection {
+  const base = {
     containerUuid: anchor.projectionContainerUuid, titleUuid: anchor.projectionTitleUuid, stateUuid: anchor.projectionStateUuid,
     focusUuid: anchor.projectionFocusUuid, waitingUuid: anchor.projectionWaitingUuid, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus,
   };
+  const core = closure ? { ...base, closure } : base;
   return { ...core, projectionHash: stableHash(core) };
+}
+
+function closureProjection(closure: EffectiveClosure | null): ManagedProjection["closure"] {
+  if (!closure) return null;
+  return closure.type === "COMPLETED" ? { type: "COMPLETED", recordId: closure.record.id, outcomeSummary: closure.outcomeSummary } : { type: "CANCELLED", recordId: closure.record.id, reason: closure.reason };
 }
 
 function approvedCurrentFocusSkill(skill: SkillPackage): boolean {
@@ -115,6 +121,7 @@ export class Kernel {
     const object = this.#store.getWorkObject(input.workObjectId);
     const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
     if (!object || !anchor) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Agent target or primary anchor does not exist.");
+    if (object.lifecycle !== "OPEN") throw new KernelError("CURRENT_FOCUS_OUT_OF_SCOPE", "Only an OPEN WorkObject may receive Agent current-focus governance.");
     if (this.#store.hasPendingRecoveryForTarget(object.id)) throw new KernelError("TARGET_RECOVERY_PENDING", "Target has an incomplete Commit requiring recovery.");
     const projection = projectionFor(object, anchor);
     if (input.snapshot.graphId !== anchor.graphId || input.snapshot.sourceBlockUuid !== anchor.externalId || input.snapshot.projection?.projectionHash !== projection.projectionHash) {
@@ -320,6 +327,8 @@ export class Kernel {
     let anchor: PrimaryAnchor;
     let graphEffect: GraphEffect;
     let before: WorkObject | null = null;
+    let closureRecord: ClosureRecord | ReopenRecord | ClosureAmendment | null = null;
+    let beforeClosure: ManagedProjection["closure"] = null;
 
     if (operation.type === "CREATE_WORK_OBJECT") {
       const workObjectId = deterministicUuid(`work:${operation.operationId}`);
@@ -341,6 +350,7 @@ export class Kernel {
       const storedAnchor = this.#store.getAnchorForWorkObject(before.id);
       if (!storedAnchor) throw new KernelError("WORK_OBJECT_ANCHOR_MISSING", "Rename target has no primary Graph anchor.");
       anchor = storedAnchor;
+      beforeClosure = closureProjection(this.#store.getClosureHistory(before.id).current);
       object = renameWorkObject(before, { title: operation.input.title, expectedVersion: operation.target.expectedVersion, at: now });
       const projection = projectionFor(object, anchor);
       graphEffect = {
@@ -363,7 +373,7 @@ export class Kernel {
         sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, fieldUuid: anchor.projectionFocusUuid,
         content: object.currentFocus, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash,
       };
-    } else {
+    } else if (operation.type === "CHANGE_ENGAGEMENT") {
       if (operation.actor.type === "AGENT" && (!governance || operation.actor.id !== this.#engagementAgent?.id)) throw new KernelError("AGENT_GOVERNANCE_REQUIRED", "Agent Engagement writes require a verified low-risk Proposal path.");
       for (const dependency of operation.evidenceDependencies) {
         const evidence = this.#store.getEvidence(dependency.evidenceId);
@@ -382,12 +392,53 @@ export class Kernel {
         waitingUuid: anchor.projectionWaitingUuid, engagement: object.engagement as "ACTIONABLE" | "WAITING", waiting: object.waitingCondition,
         expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash,
       };
+    } else {
+      if (governance || operation.actor.type !== "USER" || operation.actor.id !== this.#authorizedUserId) throw new KernelError("CLOSURE_USER_AUTHORITY_REQUIRED", "Task Closure operations require the configured local USER actor.");
+      before = this.#store.getWorkObject(operation.target.workObjectId);
+      if (!before) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Closure target does not exist.");
+      if (this.#store.hasPendingRecoveryForTarget(before.id)) throw new KernelError("TARGET_RECOVERY_PENDING", "Closure target has an incomplete Commit requiring recovery.");
+      const storedAnchor = this.#store.getAnchorForWorkObject(before.id);
+      if (!storedAnchor) throw new KernelError("WORK_OBJECT_ANCHOR_MISSING", "Closure target has no primary Graph anchor.");
+      anchor = storedAnchor;
+      beforeClosure = closureProjection(this.#store.getClosureHistory(before.id).current);
+      const authoritativeProjection = projectionFor(before, anchor, beforeClosure);
+      if (operation.target.expectedProjectionHash !== authoritativeProjection.projectionHash || snapshot.projection?.projectionHash !== authoritativeProjection.projectionHash) throw new KernelError("MANAGED_PROJECTION_HASH_MISMATCH", "Closure requires the exact Kernel-derived managed projection.");
+      if (operation.type === "COMPLETE_WORK_OBJECT") {
+        for (const id of operation.input.evidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Completion Evidence must belong to this Task."); }
+        const completed = completeWorkObject(before, { recordId: deterministicUuid(`completion:${commitId}`), actor: operation.actor, outcomeSummary: operation.input.outcomeSummary, evidenceIds: operation.input.evidenceIds, expectedVersion: operation.target.expectedVersion, at: now }); object = completed.object; closureRecord = completed.record;
+      } else if (operation.type === "CANCEL_WORK_OBJECT") {
+        for (const id of operation.input.evidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Cancellation Evidence must belong to this Task."); }
+        if (operation.input.replacementWorkObjectId) {
+          if (operation.input.replacementWorkObjectId === before.id) throw new KernelError("CANCELLATION_REPLACEMENT_INVALID", "A cancelled Task cannot replace itself.");
+          if (!this.#store.getWorkObject(operation.input.replacementWorkObjectId)) throw new KernelError("CANCELLATION_REPLACEMENT_NOT_FOUND", "Cancellation replacement WorkObject does not exist.");
+        }
+        const cancelled = cancelWorkObject(before, { recordId: deterministicUuid(`cancellation:${commitId}`), actor: operation.actor, ...operation.input, expectedVersion: operation.target.expectedVersion, at: now }); object = cancelled.object; closureRecord = cancelled.record;
+      } else if (operation.type === "REOPEN_WORK_OBJECT") {
+        const current = this.#store.getCurrentClosureRecord(before.id); if (!current) throw new KernelError("CURRENT_CLOSURE_NOT_FOUND", "Reopen requires the current effective Closure record.");
+        const reopened = reopenWorkObject(before, { recordId: deterministicUuid(`reopen:${commitId}`), previousClosureRecordId: current.id, actor: operation.actor, reason: operation.input.reason, expectedVersion: operation.target.expectedVersion, at: now }); object = reopened.object; closureRecord = reopened.record;
+      } else {
+        const target = this.#store.getClosureRecord(operation.input.targetClosureRecordId); const current = this.#store.getCurrentClosureRecord(before.id);
+        if (!target || !current || target.id !== current.id) throw new KernelError("CLOSURE_AMENDMENT_TARGET_INVALID", "Amendment must target the current effective Closure record.");
+        for (const id of operation.input.addEvidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Closure Amendment Evidence must belong to this Task."); }
+        closureRecord = amendClosure(target, { amendmentId: deterministicUuid(`amendment:${commitId}`), workObjectId: before.id, actor: operation.actor, reason: operation.input.reason, ...(operation.input.replacementOutcomeSummary ? { replacementOutcomeSummary: operation.input.replacementOutcomeSummary } : {}), ...(operation.input.replacementCancellationReason ? { replacementCancellationReason: operation.input.replacementCancellationReason } : {}), addEvidenceIds: operation.input.addEvidenceIds, at: now });
+        object = advanceClosureAmendment(before, { expectedVersion: operation.target.expectedVersion, at: now });
+      }
+      const effective = operation.type === "REOPEN_WORK_OBJECT" ? null : operation.type === "AMEND_CLOSURE"
+        ? (() => { const history = this.#store.getClosureHistory(before!.id); const record = history.current!.record; const amendments = [...history.current!.amendments, closureRecord as ClosureAmendment]; const ids = [...new Set([...record.evidenceIds, ...amendments.flatMap((item) => item.addEvidenceIds)])]; return "completedAt" in record ? { type: "COMPLETED" as const, record, amendments, outcomeSummary: amendments.reduce((value, item) => item.replacementOutcomeSummary ?? value, record.outcomeSummary), evidenceIds: ids } : { type: "CANCELLED" as const, record, amendments, reason: amendments.reduce((value, item) => item.replacementCancellationReason ?? value, record.reason), evidenceIds: ids }; })()
+        : operation.type === "COMPLETE_WORK_OBJECT" ? { type: "COMPLETED" as const, record: closureRecord as Extract<ClosureRecord, { completedAt: string }>, amendments: [], outcomeSummary: (closureRecord as Extract<ClosureRecord, { completedAt: string }>).outcomeSummary, evidenceIds: (closureRecord as Extract<ClosureRecord, { completedAt: string }>).evidenceIds }
+        : { type: "CANCELLED" as const, record: closureRecord as Extract<ClosureRecord, { cancelledAt: string }>, amendments: [], reason: (closureRecord as Extract<ClosureRecord, { cancelledAt: string }>).reason, evidenceIds: (closureRecord as Extract<ClosureRecord, { cancelledAt: string }>).evidenceIds };
+      const managedClosure = closureProjection(effective) ?? null;
+      const projection = projectionFor(object, anchor, managedClosure);
+      const explicitCompletion = operation.type === "COMPLETE_WORK_OBJECT";
+      const markerAlreadyDone = snapshot.sourceMarker === "DONE";
+      graphEffect = { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: snapshot.sourceMarker ?? null, resultingSourceMarker: explicitCompletion && (snapshot.sourceMarker === "TODO" || snapshot.sourceMarker === "DONE") ? "DONE" : operation.type === "REOPEN_WORK_OBJECT" && snapshot.sourceMarker === "DONE" ? "TODO" : snapshot.sourceMarker ?? null, expectedProjection: snapshot.projection!, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, closure: managedClosure, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash };
+      if (operation.type === "COMPLETE_WORK_OBJECT" && snapshot.sourceMarker !== "TODO" && !markerAlreadyDone && snapshot.sourceMarker !== null) throw new KernelError("COMPLETION_MARKER_UNSUPPORTED", "Completion supports TODO, already-observed DONE, or markerless Task anchors.");
     }
 
     const commit: StoredCommit = {
       id: commitId, status: "PREPARED", actor: operation.actor, operationType: operation.type, targetId: object.id,
       operation, preconditions: operation.preconditions, before, after: object,
-      inverse: before ? operation.type === "SET_CURRENT_FOCUS" ? { type: "SET_CURRENT_FOCUS", currentFocus: before.currentFocus, version: before.version } : operation.type === "CHANGE_ENGAGEMENT" ? { type: "CHANGE_ENGAGEMENT", engagement: before.engagement, waitingCondition: before.waitingCondition, version: before.version } : { type: "RENAME_WORK_OBJECT", title: before.title, version: before.version } : { type: "UNDO_COMMIT", targetId: object.id },
+      inverse: before ? operation.type === "SET_CURRENT_FOCUS" ? { type: "SET_CURRENT_FOCUS", currentFocus: before.currentFocus, version: before.version } : operation.type === "CHANGE_ENGAGEMENT" ? { type: "CHANGE_ENGAGEMENT", engagement: before.engagement, waitingCondition: before.waitingCondition, version: before.version } : operation.type === "RENAME_WORK_OBJECT" ? { type: "RENAME_WORK_OBJECT", title: before.title, version: before.version } : { type: "RESTORE_WORK_OBJECT", object: before, closure: beforeClosure, version: before.version } : { type: "UNDO_COMMIT", targetId: object.id },
       graphEffect, graphResult: null, failureReason: null, compensationFor: null, compensatedBy: null, createdAt: now, updatedAt: now,
       governance,
     };
@@ -405,6 +456,10 @@ export class Kernel {
     this.#store.transaction(() => {
       this.#store.putWorkObject(object);
       if (operation.type === "CREATE_WORK_OBJECT") this.#store.putAnchor(anchor);
+      if (operation.type === "COMPLETE_WORK_OBJECT") this.#store.putCompletionRecord(closureRecord as Extract<ClosureRecord, { completedAt: string }>, commitId);
+      if (operation.type === "CANCEL_WORK_OBJECT") this.#store.putCancellationRecord(closureRecord as Extract<ClosureRecord, { cancelledAt: string }>, commitId);
+      if (operation.type === "REOPEN_WORK_OBJECT") this.#store.putReopenRecord(closureRecord as ReopenRecord, commitId);
+      if (operation.type === "AMEND_CLOSURE") this.#store.putClosureAmendment(closureRecord as ClosureAmendment, commitId);
       this.#store.transitionCommit(commitId, "KERNEL_APPLIED", { updatedAt: now });
     });
     this.#afterStage("KERNEL_APPLIED", commitId);
@@ -415,7 +470,7 @@ export class Kernel {
     this.#authorize(input.actor);
     const original = this.#store.getCommit(input.commitId);
     if (!original || original.status !== "COMMITTED" || original.compensatedBy) throw new KernelError("UNDO_TARGET_INVALID", "Commit is not currently undoable.");
-    if (original.operationType !== "CREATE_WORK_OBJECT" && original.operationType !== "RENAME_WORK_OBJECT" && original.operationType !== "SET_CURRENT_FOCUS" && original.operationType !== "CHANGE_ENGAGEMENT") throw new KernelError("UNDO_OPERATION_UNSUPPORTED", "Only supported semantic commits are undoable.");
+    if (original.operationType !== "CREATE_WORK_OBJECT" && original.operationType !== "RENAME_WORK_OBJECT" && original.operationType !== "SET_CURRENT_FOCUS" && original.operationType !== "CHANGE_ENGAGEMENT" && original.operationType !== "COMPLETE_WORK_OBJECT" && original.operationType !== "CANCEL_WORK_OBJECT" && original.operationType !== "REOPEN_WORK_OBJECT" && original.operationType !== "AMEND_CLOSURE") throw new KernelError("UNDO_OPERATION_UNSUPPORTED", "Only supported semantic commits are undoable.");
     const object = this.#store.getWorkObject(original.targetId!);
     const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
     if (!object || !anchor) throw new KernelError("UNDO_TARGET_MISSING", "Current state for the commit is missing.");
@@ -423,7 +478,7 @@ export class Kernel {
     if (!originalAfter || canonicalWorkObject(object) !== canonicalWorkObject(originalAfter)) {
       throw new KernelError("UNDO_TARGET_CHANGED", "The commit is no longer the latest semantic change for this WorkObject.");
     }
-    const expectedProjection = projectionFor(object, anchor);
+    const expectedProjection = projectionFor(object, anchor, closureProjection(this.#store.getClosureHistory(object.id).current));
     const now = this.#now();
     const commitId = deterministicUuid(`commit:${input.operationId}`);
     const effectId = deterministicUuid(`effect:${commitId}:0`);
@@ -435,7 +490,7 @@ export class Kernel {
           ? setCurrentFocus(object, { currentFocus: previous.currentFocus, expectedVersion: object.version, at: now })
           : original.operationType === "CHANGE_ENGAGEMENT"
             ? restoreEngagement(object, { engagement: previous.engagement as "ACTIONABLE" | "WAITING", waitingCondition: previous.waitingCondition, expectedVersion: object.version, at: now })
-            : null
+            : restoreWorkObject(object, { previous, expectedVersion: object.version, at: now })
       : null;
     const effect: GraphEffect = restored
       ? original.operationType === "SET_CURRENT_FOCUS" ? {
@@ -447,11 +502,15 @@ export class Kernel {
         containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, waitingUuid: anchor.projectionWaitingUuid,
         engagement: restored.engagement as "ACTIONABLE" | "WAITING", waiting: restored.waitingCondition,
         expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projectionFor(restored, anchor).projectionHash,
-      } : {
+      } : original.operationType === "RENAME_WORK_OBJECT" ? {
         type: "UPDATE_MANAGED_FIELD", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId,
         fieldUuid: anchor.projectionTitleUuid, content: `标题：${restored.title}`,
         expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projectionFor(restored, anchor).projectionHash,
-      }
+      } : (() => {
+        const originalClosure = (original.inverse as { closure?: ManagedProjection["closure"] }).closure ?? null;
+        const projected = projectionFor(restored, anchor, originalClosure);
+        return { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: snapshot.sourceMarker ?? null, resultingSourceMarker: restored.lifecycle === "OPEN" && snapshot.sourceMarker === "DONE" ? "TODO" : restored.lifecycle === "COMPLETED" ? "DONE" : snapshot.sourceMarker ?? null, expectedProjection: snapshot.projection!, lifecycle: restored.lifecycle, engagement: restored.engagement, waitingCondition: restored.waitingCondition, currentFocus: restored.currentFocus, closure: originalClosure, expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projected.projectionHash };
+      })()
       : {
         type: "REMOVE_MANAGED_PROJECTION", commitId, effectId, graphId: anchor.graphId,
         sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid,
@@ -489,7 +548,8 @@ export class Kernel {
     const valid = result.commitId === effect.commitId && result.effectId === effect.effectId && result.effectType === effect.type &&
       result.graphId === effect.graphId && result.sourceBlockUuid === effect.sourceBlockUuid &&
       actual.graphId === effect.graphId && actual.sourceBlockUuid === effect.sourceBlockUuid &&
-      (actual.projection?.projectionHash ?? null) === expectedHash && result.projectionHash === expectedHash;
+      (actual.projection?.projectionHash ?? null) === expectedHash && result.projectionHash === expectedHash &&
+      (effect.type !== "CHANGE_CLOSURE_FIELDS" || (actual.sourceMarker ?? null) === (effect.resultingSourceMarker ?? null));
     if (!valid) {
       this.#store.transitionCommit(commitId, "RECOVERY_REQUIRED", { updatedAt: this.#now(), failureReason: "GRAPH_VERIFY_MISMATCH" });
       throw new KernelError("GRAPH_VERIFY_MISMATCH", "Graph result does not match the deterministic effect.", commitId);
@@ -519,7 +579,8 @@ export class Kernel {
     if (!result || result.commitId !== effect.commitId || result.effectId !== effect.effectId || result.effectType !== effect.type ||
       result.graphId !== effect.graphId || result.sourceBlockUuid !== effect.sourceBlockUuid ||
       actual.graphId !== effect.graphId || actual.sourceBlockUuid !== effect.sourceBlockUuid ||
-      (actual.projection?.projectionHash ?? null) !== expectedHash || result.projectionHash !== expectedHash) {
+      (actual.projection?.projectionHash ?? null) !== expectedHash || result.projectionHash !== expectedHash ||
+      (effect.type === "CHANGE_CLOSURE_FIELDS" && (actual.sourceMarker ?? null) !== (effect.resultingSourceMarker ?? null))) {
       this.#store.transitionCommit(commitId, "RECOVERY_REQUIRED", { updatedAt: this.#now(), failureReason: "RECOVERY_GRAPH_VERIFY_MISMATCH" });
       throw new KernelError("RECOVERY_GRAPH_VERIFY_MISMATCH", "Recovered Graph state does not match the durable Graph result.", commitId);
     }

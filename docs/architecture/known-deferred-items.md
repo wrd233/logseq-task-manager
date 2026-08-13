@@ -4,7 +4,10 @@ Deliberately deferred from this first slice:
 
 - External Agent, MCP adapter, built-in model/prompt runtime, proposal ranking, and broad skills. Phase 4 uses only deterministic Fake Agents for current focus and Engagement reconciliation.
 - General System/Agent write authorization. The only Agent exceptions are Proposal-bound LOW-risk `SET_CURRENT_FOCUS` and `ACTIONABLE ↔ WAITING`; generic Agent Commit preparation remains rejected.
-- PARKED transitions, full Project/MiniProject KR, closure, re-entry, Completion, cancellation, review UI, waiting reminders, and scheduling. Phase 4 stores optional `reviewAt` but does not invent it or schedule work.
+- PARKED transitions, Project/MiniProject Closure, Project KR settlement, child-disposition planning, review UI, waiting reminders, and scheduling. Phase 5 intentionally closes only Tasks.
+- Restart/offline reconciliation of marker changes. Online `DB.onChanged` ingestion of `TODO → DONE` is supported; changes made while the Plugin is stopped are not scanned on startup because there is no durable last-seen marker baseline yet.
+- A cancellation marker convention. The adapter can parse known marker strings, but Phase 5 does not assume that `CANCELED`/`CANCELLED` is a stable host workflow contract. Cancellation preserves natural source marker/text and projects `CANCELLED` in the managed block.
+- Agent-authored completion drafts and richer Closure UI. Completion needs no Skill or Proposal in Phase 5; user commands generate the minimal record directly.
 - Proposal inbox, ranking, batching, cross-object context gathering, conversational revision UI, and broader autonomy expansion.
 - Automatic manual reconciliation for `RECOVERY_REQUIRED`; the system fails closed and exposes the row.
 - Service launcher/auto-start and OS-level secret store. The current descriptor is private mode `0600`; Logseq receives it through native plugin settings then Plugin-private FileStorage.

@@ -9,9 +9,17 @@ interface Node { uuid: string; content: string; parent: string | null; children:
 class Host implements LogseqGraphHost {
   nodes = new Map<string, Node>();
   failAfterNextUpdate = false;
+  mutateStateAfterSourceUpdate: (() => void) | null = null;
+  mutateSourceBeforeShallowRead: (() => void) | null = null;
+  mutateFocusAfterStateUpdate: (() => void) | null = null;
+  mutateFocusBeforeShallowRead: (() => void) | null = null;
   constructor() { this.nodes.set("source-01", { uuid: "source-01", content: "自然记录", parent: null, children: [] }); }
   tree(uuid: string): unknown { const value = this.nodes.get(uuid); return value ? { uuid: value.uuid, content: value.content, properties: {}, children: value.children.map((child) => this.tree(child)) } : null; }
-  async getBlock(uuid: string, options?: { includeChildren: boolean }): Promise<unknown> { const value = this.nodes.get(uuid); return !value ? null : options?.includeChildren ? this.tree(uuid) : { uuid: value.uuid, content: value.content }; }
+  async getBlock(uuid: string, options?: { includeChildren: boolean }): Promise<unknown> {
+    if (uuid === "source-01" && !options?.includeChildren && this.mutateSourceBeforeShallowRead) { const mutate = this.mutateSourceBeforeShallowRead; this.mutateSourceBeforeShallowRead = null; mutate(); }
+    if (uuid === core.focusUuid && !options?.includeChildren && this.mutateFocusBeforeShallowRead) { const mutate = this.mutateFocusBeforeShallowRead; this.mutateFocusBeforeShallowRead = null; mutate(); }
+    const value = this.nodes.get(uuid); return !value ? null : options?.includeChildren ? this.tree(uuid) : { uuid: value.uuid, content: value.content };
+  }
   async insertBlock(target: string, content: string, options: { sibling: boolean; before?: boolean; customUUID: string }): Promise<unknown> {
     const targetNode = this.nodes.get(target)!; const parent = options.sibling ? targetNode.parent : target;
     const node = { uuid: options.customUUID, content: `${content}\nid:: ${options.customUUID}`, parent, children: [] }; this.nodes.set(node.uuid, node);
@@ -21,6 +29,8 @@ class Host implements LogseqGraphHost {
   }
   async updateBlock(uuid: string, content: string): Promise<unknown> {
     this.nodes.get(uuid)!.content = content;
+    if (uuid === "source-01" && this.mutateStateAfterSourceUpdate) { const mutate = this.mutateStateAfterSourceUpdate; this.mutateStateAfterSourceUpdate = null; mutate(); }
+    if (uuid === core.stateUuid && this.mutateFocusAfterStateUpdate) { const mutate = this.mutateFocusAfterStateUpdate; this.mutateFocusAfterStateUpdate = null; mutate(); }
     if (this.failAfterNextUpdate) { this.failAfterNextUpdate = false; throw new Error("RESPONSE_LOST_AFTER_UPDATE"); }
     return this.getBlock(uuid);
   }
@@ -187,4 +197,91 @@ test("Phase 2 managed projections derive the Phase 3 focus UUID without rejectin
   const snapshot = await new LogseqGraphAdapter(host, "graph-01").readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" });
   assert.equal(snapshot.projection?.focusUuid, deterministicUuid(`focus:${core.containerUuid}`));
   assert.equal(snapshot.projection?.currentFocus, null);
+});
+
+test("Closure effect converges marker, state, summary, Waiting removal, and focus removal as one verified result", async () => {
+  const host = new Host(); host.nodes.get("source-01")!.content = "TODO 自然记录";
+  const adapter = new LogseqGraphAdapter(host, "graph-01", () => "2026-08-13T10:00:00.000Z"); await adapter.applyGraphEffect(effect);
+  const record = { id: "completion-01", workObjectId: "work-01", completedAt: "2026-08-13T10:00:00.000Z", outcomeSummary: "完成生产验证", evidenceIds: [], createdBy: { type: "USER" as const, id: "local-user" } };
+  const closure = { type: "COMPLETED" as const, recordId: record.id, outcomeSummary: record.outcomeSummary };
+  const closedCore = { ...core, lifecycle: "COMPLETED" as const, engagement: null, closure };
+  const close = { type: "CHANGE_CLOSURE_FIELDS", commitId: "commit-close", effectId: "effect-close", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, focusUuid: core.focusUuid, expectedSourceMarker: "TODO", resultingSourceMarker: "DONE", expectedProjection: effect.projection, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, closure, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash(closedCore) } satisfies GraphEffect;
+  const applied = await adapter.applyGraphEffect(close);
+  assert.equal(applied.projectionHash, close.resultingProjectionHash);
+  assert.equal(host.nodes.get("source-01")?.content, "DONE 自然记录");
+  assert.match(host.nodes.get(core.stateUuid)!.content, /^状态：COMPLETED · null\n完成：完成生产验证/u);
+  assert.equal((await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" })).projection?.closure?.type, "COMPLETED");
+  assert.equal((await adapter.applyGraphEffect(close)).projectionHash, close.resultingProjectionHash);
+});
+
+test("Closure effect fails closed when marker or managed projection changed", async () => {
+  const host = new Host(); host.nodes.get("source-01")!.content = "TODO 自然记录"; const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  const record = { id: "completion-01", workObjectId: "work-01", completedAt: "2026-08-13T10:00:00.000Z", outcomeSummary: "完成", evidenceIds: [], createdBy: { type: "USER" as const, id: "local-user" } };
+  const closure = { type: "COMPLETED" as const, recordId: record.id, outcomeSummary: record.outcomeSummary };
+  host.nodes.get("source-01")!.content = "DOING 自然记录";
+  await assert.rejects(adapter.applyGraphEffect({ type: "CHANGE_CLOSURE_FIELDS", commitId: "commit-race", effectId: "effect-race", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, focusUuid: core.focusUuid, expectedSourceMarker: "TODO", resultingSourceMarker: "DONE", expectedProjection: effect.projection, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, closure, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash({ ...core, lifecycle: "COMPLETED", engagement: null, closure }) }), /GRAPH_CLOSURE_PRECONDITION_FAILED/u);
+  assert.equal(host.nodes.get("source-01")?.content, "DOING 自然记录"); assert.match(host.nodes.get(core.stateUuid)!.content, /^状态：OPEN · ACTIONABLE/u);
+});
+
+test("Closure effect resumes safely after the marker write response is lost", async () => {
+  const host = new Host(); host.nodes.get("source-01")!.content = "TODO 自然记录"; const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  const record = { id: "completion-resume", workObjectId: "work-01", completedAt: "2026-08-13T10:00:00.000Z", outcomeSummary: "完成", evidenceIds: [], createdBy: { type: "USER" as const, id: "local-user" } }; const closure = { type: "COMPLETED" as const, recordId: record.id, outcomeSummary: "完成" }; const resultCore = { ...core, lifecycle: "COMPLETED" as const, engagement: null, closure };
+  const close = { type: "CHANGE_CLOSURE_FIELDS", commitId: "commit-resume", effectId: "effect-resume", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, focusUuid: core.focusUuid, expectedSourceMarker: "TODO", resultingSourceMarker: "DONE", expectedProjection: effect.projection, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, closure, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash(resultCore) } satisfies GraphEffect;
+  host.failAfterNextUpdate = true; await assert.rejects(adapter.applyGraphEffect(close), /RESPONSE_LOST_AFTER_UPDATE/u); assert.equal(host.nodes.get("source-01")?.content, "DONE 自然记录"); assert.match(host.nodes.get(core.stateUuid)!.content, /^状态：OPEN/u);
+  assert.equal((await adapter.applyGraphEffect(close)).projectionHash, close.resultingProjectionHash);
+});
+
+test("Closure effect detects a managed edit triggered between marker and state writes", async () => {
+  const host = new Host(); host.nodes.get("source-01")!.content = "TODO 自然记录\nid:: source-property"; const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  const record = { id: "completion-mid-race", workObjectId: "work-01", completedAt: "2026-08-13T10:00:00.000Z", outcomeSummary: "完成", evidenceIds: [], createdBy: { type: "USER" as const, id: "local-user" } }; const closure = { type: "COMPLETED" as const, recordId: record.id, outcomeSummary: "完成" }; const resultCore = { ...core, lifecycle: "COMPLETED" as const, engagement: null, closure };
+  const close = { type: "CHANGE_CLOSURE_FIELDS", commitId: "commit-mid-race", effectId: "effect-mid-race", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, focusUuid: core.focusUuid, expectedSourceMarker: "TODO", resultingSourceMarker: "DONE", expectedProjection: effect.projection, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, closure, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash(resultCore) } satisfies GraphEffect;
+  host.mutateStateAfterSourceUpdate = () => { host.nodes.get(core.stateUuid)!.content += "\n用户并发备注：保留"; };
+  await assert.rejects(adapter.applyGraphEffect(close), /GRAPH_CLOSURE_PRECONDITION_FAILED/u);
+  assert.match(host.nodes.get(core.stateUuid)!.content, /用户并发备注：保留/u);
+  assert.match(host.nodes.get("source-01")!.content, /^DONE 自然记录\nid:: source-property$/u);
+});
+
+test("Closure effect preserves a marker edit made immediately before its marker write", async () => {
+  const host = new Host(); host.nodes.get("source-01")!.content = "TODO 自然记录"; const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
+  const closure = { type: "COMPLETED" as const, recordId: "completion-marker-race", outcomeSummary: "完成" }; const resultCore = { ...core, lifecycle: "COMPLETED" as const, engagement: null, closure };
+  const close = { type: "CHANGE_CLOSURE_FIELDS", commitId: "commit-marker-race", effectId: "effect-marker-race", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, focusUuid: core.focusUuid, expectedSourceMarker: "TODO", resultingSourceMarker: "DONE", expectedProjection: effect.projection, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, closure, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash(resultCore) } satisfies GraphEffect;
+  host.mutateSourceBeforeShallowRead = () => { host.nodes.get("source-01")!.content = "DOING 用户切换为处理中"; };
+  await assert.rejects(adapter.applyGraphEffect(close), /GRAPH_CLOSURE_PRECONDITION_FAILED/u);
+  assert.equal(host.nodes.get("source-01")!.content, "DOING 用户切换为处理中");
+  assert.match(host.nodes.get(core.stateUuid)!.content, /^状态：OPEN · ACTIONABLE(?:\n|$)/u);
+});
+
+test("Closure effect preserves a focus edit made immediately before focus removal", async () => {
+  const host = new Host(); host.nodes.get("source-01")!.content = "TODO 自然记录"; const focusCore = { ...core, currentFocus: "原推进" }; const setup = { ...effect, projection: { ...focusCore, projectionHash: stableHash(focusCore) } } satisfies GraphEffect; const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(setup);
+  const closure = { type: "COMPLETED" as const, recordId: "completion-focus-race", outcomeSummary: "完成" }; const resultCore = { ...focusCore, lifecycle: "COMPLETED" as const, engagement: null, currentFocus: null, closure };
+  const close = { type: "CHANGE_CLOSURE_FIELDS", commitId: "commit-focus-race", effectId: "effect-focus-race", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, focusUuid: core.focusUuid, expectedSourceMarker: "TODO", resultingSourceMarker: "DONE", expectedProjection: setup.projection, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, closure, expectedProjectionHash: setup.projection.projectionHash, resultingProjectionHash: stableHash(resultCore) } satisfies GraphEffect;
+  host.mutateFocusBeforeShallowRead = () => { host.nodes.get(core.focusUuid)!.content = "当前推进：用户刚改的推进"; };
+  await assert.rejects(adapter.applyGraphEffect(close), /GRAPH_CLOSURE_PRECONDITION_FAILED/u);
+  assert.equal(host.nodes.get(core.focusUuid)!.content, "当前推进：用户刚改的推进");
+});
+
+test("Closure projection reads its metadata when Logseq omits property lines from content", async () => {
+  const host = new Host(); host.nodes.get("source-01")!.content = "TODO 自然记录";
+  const setupAdapter = new LogseqGraphAdapter(host, "graph-01"); await setupAdapter.applyGraphEffect(effect);
+  const record = { id: "completion-properties", workObjectId: "work-01", completedAt: "2026-08-13T10:00:00.000Z", outcomeSummary: "完成验收", evidenceIds: [], createdBy: { type: "USER" as const, id: "local-user" } };
+  const closure = { type: "COMPLETED" as const, recordId: record.id, outcomeSummary: "完成验收" };
+  const closedCore = { ...core, lifecycle: "COMPLETED" as const, engagement: null, closure };
+  host.nodes.get("source-01")!.content = "DONE 自然记录";
+  host.nodes.get(core.stateUuid)!.content = "状态：COMPLETED · null\n完成：完成验收";
+  const adapter = new LogseqGraphAdapter({
+    insertBlock: host.insertBlock.bind(host), updateBlock: host.updateBlock.bind(host), removeBlock: host.removeBlock.bind(host),
+    getBlock: async (uuid, options) => {
+      const enrich = (value: unknown): unknown => {
+        if (!value || typeof value !== "object") return value;
+        const recordValue = value as Record<string, unknown>;
+        const enriched: Record<string, unknown> = recordValue.uuid === core.stateUuid ? { ...recordValue, properties: { "task-copilot-closure": JSON.stringify(closure) } } : { ...recordValue };
+        if (Array.isArray(recordValue.children)) enriched.children = recordValue.children.map(enrich);
+        return enriched;
+      };
+      return enrich(await host.getBlock(uuid, options));
+    },
+  }, "graph-01");
+  const snapshot = await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" });
+  assert.deepEqual(snapshot.projection?.closure, closure);
+  assert.equal(snapshot.projection?.projectionHash, stableHash(closedCore));
 });

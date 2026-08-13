@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type CommitStatus, type FeedbackEvent, type FrozenEvidence, type OperationType, type Proposal, type ProposalRevision, type SkillIdentity, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type ClosureHistory, type CommitStatus, type FeedbackEvent, type FrozenEvidence, type OperationType, type Proposal, type ProposalRevision, type SkillIdentity, type StoredCommit } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
-import type { PrimaryAnchor, WorkObject } from "@task-copilot/domain";
+import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
 const schema = `
   PRAGMA foreign_keys = ON;
@@ -97,6 +97,22 @@ const schema = `
     id TEXT PRIMARY KEY, type TEXT NOT NULL, proposal_id TEXT NOT NULL REFERENCES proposals(id),
     agent_run_id TEXT NOT NULL REFERENCES agent_run_receipts(id), commit_id TEXT, details_json TEXT, created_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS completion_records (
+    id TEXT PRIMARY KEY, work_object_id TEXT NOT NULL REFERENCES work_objects(id), record_json TEXT NOT NULL,
+    commit_id TEXT NOT NULL UNIQUE REFERENCES commits(id), created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS cancellation_records (
+    id TEXT PRIMARY KEY, work_object_id TEXT NOT NULL REFERENCES work_objects(id), record_json TEXT NOT NULL,
+    commit_id TEXT NOT NULL UNIQUE REFERENCES commits(id), created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS closure_amendments (
+    id TEXT PRIMARY KEY, work_object_id TEXT NOT NULL REFERENCES work_objects(id), target_closure_record_id TEXT NOT NULL,
+    record_json TEXT NOT NULL, commit_id TEXT NOT NULL UNIQUE REFERENCES commits(id), created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS reopen_records (
+    id TEXT PRIMARY KEY, work_object_id TEXT NOT NULL REFERENCES work_objects(id), previous_closure_record_id TEXT NOT NULL,
+    record_json TEXT NOT NULL, commit_id TEXT NOT NULL UNIQUE REFERENCES commits(id), created_at TEXT NOT NULL
+  );
 `;
 
 function encode(value: unknown): string | null {
@@ -135,6 +151,7 @@ export class SqliteStore {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (1, ?)").run(new Date().toISOString());
     this.#migrateV2();
     this.#migrateV3();
+    this.#migrateV4();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -169,6 +186,10 @@ export class SqliteStore {
     const updateWaiting = this.#database.prepare("UPDATE anchors SET projection_waiting_uuid=? WHERE id=?");
     for (const anchor of anchors) updateWaiting.run(deterministicUuid(`waiting:${anchor.projection_container_uuid}`), anchor.id);
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (3, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV4(): void {
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (4, ?)").run(new Date().toISOString());
   }
 
   close(): void { this.#database.close(); }
@@ -255,6 +276,61 @@ export class SqliteStore {
 
   hasPendingRecoveryForTarget(workObjectId: string): boolean {
     return Boolean(this.#database.prepare("SELECT 1 FROM commits WHERE target_id=? AND status IN ('PREPARED','KERNEL_APPLIED','GRAPH_APPLIED','RECOVERY_REQUIRED') LIMIT 1").get(workObjectId));
+  }
+
+  putCompletionRecord(record: CompletionRecord, commitId: string): void {
+    try { this.#database.prepare("INSERT INTO completion_records(id,work_object_id,record_json,commit_id,created_at) VALUES (?,?,?,?,?)").run(record.id, record.workObjectId, encode(record), commitId, record.completedAt); }
+    catch (error) { if (error instanceof Error && /UNIQUE constraint failed/u.test(error.message)) throw new Error("CLOSURE_RECORD_IMMUTABLE", { cause: error }); throw error; }
+  }
+
+  putCancellationRecord(record: CancellationRecord, commitId: string): void {
+    try { this.#database.prepare("INSERT INTO cancellation_records(id,work_object_id,record_json,commit_id,created_at) VALUES (?,?,?,?,?)").run(record.id, record.workObjectId, encode(record), commitId, record.cancelledAt); }
+    catch (error) { if (error instanceof Error && /UNIQUE constraint failed/u.test(error.message)) throw new Error("CLOSURE_RECORD_IMMUTABLE", { cause: error }); throw error; }
+  }
+
+  putClosureAmendment(record: ClosureAmendment, commitId: string): void {
+    try { this.#database.prepare("INSERT INTO closure_amendments(id,work_object_id,target_closure_record_id,record_json,commit_id,created_at) VALUES (?,?,?,?,?,?)").run(record.id, record.workObjectId, record.targetClosureRecordId, encode(record), commitId, record.amendedAt); }
+    catch (error) { if (error instanceof Error && /UNIQUE constraint failed/u.test(error.message)) throw new Error("CLOSURE_RECORD_IMMUTABLE", { cause: error }); throw error; }
+  }
+
+  putReopenRecord(record: ReopenRecord, commitId: string): void {
+    try { this.#database.prepare("INSERT INTO reopen_records(id,work_object_id,previous_closure_record_id,record_json,commit_id,created_at) VALUES (?,?,?,?,?,?)").run(record.id, record.workObjectId, record.previousClosureRecordId, encode(record), commitId, record.reopenedAt); }
+    catch (error) { if (error instanceof Error && /UNIQUE constraint failed/u.test(error.message)) throw new Error("CLOSURE_RECORD_IMMUTABLE", { cause: error }); throw error; }
+  }
+
+  getClosureRecord(id: string): CompletionRecord | CancellationRecord | null {
+    const row = this.#database.prepare("SELECT record_json FROM completion_records WHERE id=? UNION ALL SELECT record_json FROM cancellation_records WHERE id=? LIMIT 1").get(id, id) as { record_json: string } | undefined;
+    return row ? decode(row.record_json) as CompletionRecord | CancellationRecord : null;
+  }
+
+  getCurrentClosureRecord(workObjectId: string): CompletionRecord | CancellationRecord | null {
+    const object = this.getWorkObject(workObjectId);
+    if (!object || object.lifecycle === "OPEN") return null;
+    const table = object.lifecycle === "COMPLETED" ? "completion_records" : "cancellation_records";
+    const row = this.#database.prepare(`SELECT record_json FROM ${table} WHERE work_object_id=? AND commit_id IN (SELECT id FROM commits WHERE status='COMMITTED' AND compensated_by IS NULL) ORDER BY created_at DESC,rowid DESC LIMIT 1`).get(workObjectId) as { record_json: string } | undefined;
+    return row ? decode(row.record_json) as CompletionRecord | CancellationRecord : null;
+  }
+
+  getClosureHistory(workObjectId: string): ClosureHistory {
+    const records = <T>(table: string): T[] => (this.#database.prepare(`SELECT record_json FROM ${table} WHERE work_object_id=? AND commit_id IN (SELECT id FROM commits WHERE status='COMMITTED') ORDER BY created_at,rowid`).all(workObjectId) as Array<{ record_json: string }>).map((row) => decode(row.record_json) as T);
+    const completions = records<CompletionRecord>("completion_records"); const cancellations = records<CancellationRecord>("cancellation_records"); const amendments = records<ClosureAmendment>("closure_amendments"); const reopens = records<ReopenRecord>("reopen_records");
+    const record = this.getCurrentClosureRecord(workObjectId);
+    if (!record) return { current: null, completions, cancellations, amendments, reopens };
+    const activeAmendmentIds = new Set((this.#database.prepare("SELECT id FROM closure_amendments WHERE work_object_id=? AND commit_id IN (SELECT id FROM commits WHERE status='COMMITTED' AND compensated_by IS NULL)").all(workObjectId) as Array<{ id: string }>).map((item) => item.id));
+    const applied = amendments.filter((item) => item.targetClosureRecordId === record.id && activeAmendmentIds.has(item.id));
+    const evidenceIds = [...new Set([...record.evidenceIds, ...applied.flatMap((item) => item.addEvidenceIds)])];
+    const current = "completedAt" in record
+      ? { type: "COMPLETED" as const, record, amendments: applied, outcomeSummary: applied.reduce((value, item) => item.replacementOutcomeSummary ?? value, record.outcomeSummary), evidenceIds }
+      : { type: "CANCELLED" as const, record, amendments: applied, reason: applied.reduce((value, item) => item.replacementCancellationReason ?? value, record.reason), evidenceIds };
+    return { current, completions, cancellations, amendments, reopens };
+  }
+
+  resolveClosureRecord(id: string, excludedAmendmentId: string | null = null): ClosureHistory["current"] {
+    const record = this.getClosureRecord(id); if (!record) return null;
+    const rows = this.#database.prepare("SELECT record_json,commit_id FROM closure_amendments WHERE target_closure_record_id=? ORDER BY created_at,rowid").all(id) as Array<{ record_json: string; commit_id: string }>;
+    const amendments = rows.filter((row) => row.commit_id !== excludedAmendmentId && Boolean(this.#database.prepare("SELECT 1 FROM commits WHERE id=? AND status='COMMITTED' AND compensated_by IS NULL").get(row.commit_id))).map((row) => decode(row.record_json) as ClosureAmendment);
+    const evidenceIds = [...new Set([...record.evidenceIds, ...amendments.flatMap((item) => item.addEvidenceIds)])];
+    return "completedAt" in record ? { type: "COMPLETED", record, amendments, outcomeSummary: amendments.reduce((value, item) => item.replacementOutcomeSummary ?? value, record.outcomeSummary), evidenceIds } : { type: "CANCELLED", record, amendments, reason: amendments.reduce((value, item) => item.replacementCancellationReason ?? value, record.reason), evidenceIds };
   }
 
   putEvidence(evidence: FrozenEvidence): void {

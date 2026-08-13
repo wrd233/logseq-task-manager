@@ -112,3 +112,24 @@ test("Agent Engagement results reject PARKED and half transitions", () => {
   assert.throws(() => parseAgentEngagementResult({ outcome: "PROPOSAL", reasonCode: "X", rationaleSummary: "X" }), /AGENT_ENGAGEMENT_TRANSITION_REQUIRED/u);
   assert.throws(() => parseAgentEngagementResult({ outcome: "NO_PROPOSAL", transition: { from: "WAITING", to: "ACTIONABLE", waiting: null }, reasonCode: "X", rationaleSummary: "X" }), /AGENT_ENGAGEMENT_TRANSITION_FORBIDDEN/u);
 });
+
+test("Task Closure operations are closed semantic commands without generic lifecycle setters", () => {
+  const target = { workObjectId: "task-01", expectedVersion: 4, expectedProjectionHash: "1234abcd" };
+  const complete = parseSemanticOperation({ operationId: "complete-01", type: "COMPLETE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, target, input: { outcomeSummary: "完成防火墙验证", evidenceIds: [] } });
+  assert.equal(complete.type, "COMPLETE_WORK_OBJECT");
+  assert.deepEqual(complete.preconditions, [{ kind: "WORK_OBJECT_VERSION", expected: 4 }, { kind: "MANAGED_PROJECTION_HASH", expected: "1234abcd" }]);
+  assert.throws(() => parseSemanticOperation({ ...complete, input: { ...complete.input, lifecycle: "COMPLETED" } }), /OPERATION_INPUT_UNKNOWN_FIELD/u);
+  assert.throws(() => parseSemanticOperation({ operationId: "generic", type: "SET_LIFECYCLE", actor: { type: "USER", id: "local-user" }, target, input: { lifecycle: "COMPLETED" } }), /OPERATION_TYPE_UNSUPPORTED/u);
+
+  const cancel = parseSemanticOperation({ operationId: "cancel-01", type: "CANCEL_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, target, input: { reason: "业务方取消需求", replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [] } });
+  assert.equal(cancel.type, "CANCEL_WORK_OBJECT");
+  assert.throws(() => parseSemanticOperation({ ...cancel, input: { ...cancel.input, reason: " " } }), /CANCELLATION_REASON_REQUIRED/u);
+
+  const reopen = parseSemanticOperation({ operationId: "reopen-01", type: "REOPEN_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, target, input: { reason: "生产验证仍未完成" } });
+  assert.equal(reopen.type, "REOPEN_WORK_OBJECT");
+  assert.throws(() => parseSemanticOperation({ ...reopen, input: { reason: "" } }), /REOPEN_REASON_REQUIRED/u);
+
+  const amend = parseSemanticOperation({ operationId: "amend-01", type: "AMEND_CLOSURE", actor: { type: "USER", id: "local-user" }, target, input: { targetClosureRecordId: "completion-01", reason: "原表述范围过大", replacementOutcomeSummary: "已完成测试环境验证", replacementCancellationReason: null, addEvidenceIds: [] } });
+  assert.equal(amend.type, "AMEND_CLOSURE");
+  assert.throws(() => parseSemanticOperation({ ...amend, input: { ...amend.input, patch: [{ op: "replace", path: "/outcome" }] } }), /OPERATION_INPUT_UNKNOWN_FIELD/u);
+});
