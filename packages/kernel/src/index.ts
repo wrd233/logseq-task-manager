@@ -353,11 +353,12 @@ export class Kernel {
       beforeClosure = closureProjection(this.#store.getClosureHistory(before.id).current);
       object = renameWorkObject(before, { title: operation.input.title, expectedVersion: operation.target.expectedVersion, at: now });
       const projection = projectionFor(object, anchor);
+      const expectedProjection = projectionFor(before, anchor, beforeClosure);
       graphEffect = {
         type: "UPDATE_MANAGED_FIELD", commitId, effectId: deterministicUuid(`effect:${commitId}:0`),
         graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, fieldUuid: anchor.projectionTitleUuid,
-        content: `标题：${object.title}`, expectedProjectionHash: operation.target.expectedProjectionHash,
-        resultingProjectionHash: projection.projectionHash,
+        content: object.title, expectedProjectionHash: operation.target.expectedProjectionHash,
+        resultingProjectionHash: projection.projectionHash, expectedProjection, resultingProjection: projection,
       };
     } else if (operation.type === "SET_CURRENT_FOCUS") {
       if (!governance || operation.actor.type !== "AGENT" || operation.actor.id !== this.#agent?.id) throw new KernelError("AGENT_GOVERNANCE_REQUIRED", "Agent writes require a verified low-risk Proposal path.");
@@ -368,10 +369,12 @@ export class Kernel {
       anchor = storedAnchor;
       object = setCurrentFocus(before, { currentFocus: operation.input.currentFocus, expectedVersion: operation.target.expectedVersion, at: now });
       const projection = projectionFor(object, anchor);
+      const expectedProjection = projectionFor(before, anchor);
       graphEffect = {
         type: "SET_CURRENT_FOCUS_FIELD", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId,
         sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, fieldUuid: anchor.projectionFocusUuid,
         content: object.currentFocus, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash,
+        expectedProjection, resultingProjection: projection,
       };
     } else if (operation.type === "CHANGE_ENGAGEMENT") {
       if (operation.actor.type === "AGENT" && (!governance || operation.actor.id !== this.#engagementAgent?.id)) throw new KernelError("AGENT_GOVERNANCE_REQUIRED", "Agent Engagement writes require a verified low-risk Proposal path.");
@@ -386,11 +389,13 @@ export class Kernel {
       anchor = storedAnchor;
       object = changeEngagement(before, { ...operation.input, expectedVersion: operation.target.expectedVersion, at: now });
       const projection = projectionFor(object, anchor);
+      const expectedProjection = projectionFor(before, anchor);
       graphEffect = {
         type: "CHANGE_ENGAGEMENT_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId,
         sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid,
         waitingUuid: anchor.projectionWaitingUuid, engagement: object.engagement as "ACTIONABLE" | "WAITING", waiting: object.waitingCondition,
         expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash,
+        expectedProjection, resultingProjection: projection,
       };
     } else {
       if (governance || operation.actor.type !== "USER" || operation.actor.id !== this.#authorizedUserId) throw new KernelError("CLOSURE_USER_AUTHORITY_REQUIRED", "Task Closure operations require the configured local USER actor.");
@@ -431,7 +436,7 @@ export class Kernel {
       const projection = projectionFor(object, anchor, managedClosure);
       const explicitCompletion = operation.type === "COMPLETE_WORK_OBJECT";
       const markerAlreadyDone = snapshot.sourceMarker === "DONE";
-      graphEffect = { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: snapshot.sourceMarker ?? null, resultingSourceMarker: explicitCompletion && (snapshot.sourceMarker === "TODO" || snapshot.sourceMarker === "DONE") ? "DONE" : operation.type === "REOPEN_WORK_OBJECT" && snapshot.sourceMarker === "DONE" ? "TODO" : snapshot.sourceMarker ?? null, expectedProjection: snapshot.projection!, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, closure: managedClosure, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash };
+      graphEffect = { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: snapshot.sourceMarker ?? null, resultingSourceMarker: explicitCompletion && (snapshot.sourceMarker === "TODO" || snapshot.sourceMarker === "DONE") ? "DONE" : operation.type === "REOPEN_WORK_OBJECT" && snapshot.sourceMarker === "DONE" ? "TODO" : snapshot.sourceMarker ?? null, expectedProjection: snapshot.projection!, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, closure: managedClosure, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash, resultingProjection: projection };
       if (operation.type === "COMPLETE_WORK_OBJECT" && snapshot.sourceMarker !== "TODO" && !markerAlreadyDone && snapshot.sourceMarker !== null) throw new KernelError("COMPLETION_MARKER_UNSUPPORTED", "Completion supports TODO, already-observed DONE, or markerless Task anchors.");
     }
 
@@ -497,24 +502,27 @@ export class Kernel {
         type: "SET_CURRENT_FOCUS_FIELD", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId,
         containerUuid: anchor.projectionContainerUuid, fieldUuid: anchor.projectionFocusUuid, content: restored.currentFocus,
         expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projectionFor(restored, anchor).projectionHash,
+        expectedProjection, resultingProjection: projectionFor(restored, anchor),
       } : original.operationType === "CHANGE_ENGAGEMENT" ? {
         type: "CHANGE_ENGAGEMENT_FIELDS", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId,
         containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, waitingUuid: anchor.projectionWaitingUuid,
         engagement: restored.engagement as "ACTIONABLE" | "WAITING", waiting: restored.waitingCondition,
         expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projectionFor(restored, anchor).projectionHash,
+        expectedProjection, resultingProjection: projectionFor(restored, anchor),
       } : original.operationType === "RENAME_WORK_OBJECT" ? {
         type: "UPDATE_MANAGED_FIELD", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId,
-        fieldUuid: anchor.projectionTitleUuid, content: `标题：${restored.title}`,
+        fieldUuid: anchor.projectionTitleUuid, content: restored.title,
         expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projectionFor(restored, anchor).projectionHash,
+        expectedProjection, resultingProjection: projectionFor(restored, anchor),
       } : (() => {
         const originalClosure = (original.inverse as { closure?: ManagedProjection["closure"] }).closure ?? null;
         const projected = projectionFor(restored, anchor, originalClosure);
-        return { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: snapshot.sourceMarker ?? null, resultingSourceMarker: restored.lifecycle === "OPEN" && snapshot.sourceMarker === "DONE" ? "TODO" : restored.lifecycle === "COMPLETED" ? "DONE" : snapshot.sourceMarker ?? null, expectedProjection: snapshot.projection!, lifecycle: restored.lifecycle, engagement: restored.engagement, waitingCondition: restored.waitingCondition, currentFocus: restored.currentFocus, closure: originalClosure, expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projected.projectionHash };
+        return { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId, graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: snapshot.sourceMarker ?? null, resultingSourceMarker: restored.lifecycle === "OPEN" && snapshot.sourceMarker === "DONE" ? "TODO" : restored.lifecycle === "COMPLETED" ? "DONE" : snapshot.sourceMarker ?? null, expectedProjection: snapshot.projection!, lifecycle: restored.lifecycle, engagement: restored.engagement, waitingCondition: restored.waitingCondition, currentFocus: restored.currentFocus, closure: originalClosure, expectedProjectionHash: expectedProjection.projectionHash, resultingProjectionHash: projected.projectionHash, resultingProjection: projected };
       })()
       : {
         type: "REMOVE_MANAGED_PROJECTION", commitId, effectId, graphId: anchor.graphId,
         sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid,
-        expectedProjectionHash: expectedProjection.projectionHash,
+        expectedProjectionHash: expectedProjection.projectionHash, expectedProjection,
       };
     const compensation: StoredCommit = {
       id: commitId, status: "PREPARED", actor: input.actor, operationType: "UNDO_COMMIT", targetId: object.id,

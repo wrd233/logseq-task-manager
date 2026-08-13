@@ -1,5 +1,5 @@
 import { KernelClient, parseKernelDescriptor } from "@task-copilot/client/browser";
-import { parseSemanticOperation, type GraphEffect } from "@task-copilot/contracts";
+import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkObject } from "@task-copilot/contracts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
 import { requestTextPrompt } from "./text-prompt.ts";
@@ -31,6 +31,47 @@ async function descriptor() {
 
 
 async function client(): Promise<KernelClient> { return new KernelClient(await descriptor()); }
+
+interface AnchorView {
+  graphId: string;
+  externalId: string;
+  projectionContainerUuid: string;
+  projectionTitleUuid: string;
+  projectionStateUuid: string;
+  projectionFocusUuid: string;
+  projectionWaitingUuid: string;
+}
+
+interface TargetView { object: WorkObject; anchor: unknown }
+
+async function expectedProjection(api: KernelClient, target: TargetView): Promise<ManagedProjection> {
+  const anchor = target.anchor as AnchorView | null;
+  if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
+  const current = (await api.showClosure(target.object.id)).closure.current;
+  const closure = !current ? null : current.type === "COMPLETED"
+    ? { type: "COMPLETED" as const, recordId: current.record.id, outcomeSummary: current.outcomeSummary }
+    : { type: "CANCELLED" as const, recordId: current.record.id, reason: current.reason };
+  const base = {
+    containerUuid: anchor.projectionContainerUuid,
+    titleUuid: anchor.projectionTitleUuid,
+    stateUuid: anchor.projectionStateUuid,
+    focusUuid: anchor.projectionFocusUuid,
+    waitingUuid: anchor.projectionWaitingUuid,
+    title: target.object.title,
+    lifecycle: target.object.lifecycle,
+    engagement: target.object.engagement,
+    waitingCondition: target.object.waitingCondition,
+    currentFocus: target.object.currentFocus,
+  };
+  const core = closure ? { ...base, closure } : base;
+  return { ...core, projectionHash: stableHash(core) };
+}
+
+async function readTargetSnapshot(adapter: LogseqGraphAdapter, graphId: string, api: KernelClient, target: TargetView): Promise<GraphSnapshot> {
+  const anchor = target.anchor as AnchorView | null;
+  if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
+  return adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId, expectedProjection: await expectedProjection(api, target) });
+}
 
 async function adapterForCurrentGraph(): Promise<{ adapter: LogseqGraphAdapter; graphId: string }> {
   const graphId = graphIdentity(await logseq.App.getCurrentGraph());
@@ -69,7 +110,7 @@ async function letAgentUpdateCurrentFocus(): Promise<void> {
   if (!selected) throw new Error("请把光标放在要冻结为 Evidence 的 Logseq block 上。");
   const api = await client();
   const target = await api.showObject(workObjectId);
-  const anchor = target.anchor as { graphId: string; externalId: string } | null;
+  const anchor = target.anchor as AnchorView | null;
   if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
   const { adapter, graphId } = await adapterForCurrentGraph();
   if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 WorkObject 的 Primary Anchor Graph。");
@@ -77,7 +118,7 @@ async function letAgentUpdateCurrentFocus(): Promise<void> {
   const connection = await descriptor();
   const evidenceMaterial = await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey);
   const frozen = await api.freezeEvidence({ evidenceId, workObjectId, snapshot: evidenceMaterial });
-  const targetSnapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId });
+  const targetSnapshot = await readTargetSnapshot(adapter, graphId, api, target);
   const run = await api.runCurrentFocusAgent({ runId: `agent-run-${crypto.randomUUID()}`, workObjectId, evidenceIds: [frozen.evidence.id], snapshot: targetSnapshot });
   if (!run.proposal) {
     await logseq.UI.showMsg(`Fake Agent 未提出变更；${run.run.reasonCode}；AgentRun ${run.run.id}`, "success");
@@ -108,14 +149,14 @@ async function letAgentReconcileEngagement(): Promise<void> {
   if (!selected) throw new Error("请把光标放在要冻结为 Evidence 的 Logseq block 上。");
   const api = await client();
   const target = await api.showObject(workObjectId);
-  const anchor = target.anchor as { graphId: string; externalId: string } | null;
+  const anchor = target.anchor as AnchorView | null;
   if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
   const { adapter, graphId } = await adapterForCurrentGraph();
   if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 WorkObject 的 Primary Anchor Graph。");
   const connection = await descriptor();
   const evidenceId = `evidence-${crypto.randomUUID()}`;
   const frozen = await api.freezeEvidence({ evidenceId, workObjectId, snapshot: await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey) });
-  const run = await api.runEngagementAgent({ runId: `agent-run-${crypto.randomUUID()}`, workObjectId, evidenceIds: [frozen.evidence.id], snapshot: await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }) });
+  const run = await api.runEngagementAgent({ runId: `agent-run-${crypto.randomUUID()}`, workObjectId, evidenceIds: [frozen.evidence.id], snapshot: await readTargetSnapshot(adapter, graphId, api, target) });
   if (!run.proposal || !run.revision) {
     await logseq.UI.showMsg(`Engagement 未变化；${run.run.reasonCode}；AgentRun ${run.run.id}`, "warning");
     return;
@@ -137,13 +178,13 @@ async function currentTaskContext() {
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
   const api = await client(); const target = await api.showObject(workObjectId);
   if (target.object.kind !== "TASK") throw new Error("Phase 5 仅支持 Task Closure；MiniProject / Project 仍明确拒绝。");
-  const anchor = target.anchor as { graphId: string; externalId: string } | null; if (!anchor) throw new Error("当前 Task 没有 Primary Anchor。");
+  const anchor = target.anchor as AnchorView | null; if (!anchor) throw new Error("当前 Task 没有 Primary Anchor。");
   const { adapter, graphId } = await adapterForCurrentGraph(); if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 Task 的 Primary Anchor Graph。");
   return { api, target, anchor, adapter, graphId };
 }
 
 async function executeClosureOperation(type: "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE", input: Record<string, unknown>): Promise<{ commitId: string; title: string }> {
-  const value = await currentTaskContext(); const snapshot = await value.adapter.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: value.anchor.externalId });
+  const value = await currentTaskContext(); const snapshot = await readTargetSnapshot(value.adapter, value.graphId, value.api, value.target);
   if (!snapshot.projection) throw new Error("当前 Task 缺少 managed projection。");
   const operation = parseSemanticOperation({ operationId: `closure-${crypto.randomUUID()}`, type, actor: { type: "USER", id: "local-user" }, target: { workObjectId: value.target.object.id, expectedVersion: value.target.object.version, expectedProjectionHash: snapshot.projection.projectionHash }, input });
   const pending = await value.api.prepare(operation, snapshot);
@@ -205,9 +246,9 @@ async function undoRecent(): Promise<void> {
   if (typeof commitId !== "string" || !commitId) throw new Error("没有可撤销的最近 Commit。");
   const api = await client(); const original = (await api.showCommit(commitId)).commit;
   if (!original.targetId) throw new Error("Commit 没有 WorkObject target。");
-  const anchor = (await api.showObject(original.targetId)).anchor as { graphId: string; externalId: string };
+  const target = await api.showObject(original.targetId); const anchor = target.anchor as AnchorView;
   const { adapter } = await adapterForCurrentGraph();
-  const snapshot = await adapter.readGraphSnapshot({ graphId: anchor.graphId, sourceBlockUuid: anchor.externalId });
+  const snapshot = await readTargetSnapshot(adapter, anchor.graphId, api, target);
   const pending = await api.prepareUndo(commitId, { operationId: `undo-${crypto.randomUUID()}`, actor: { type: "USER", id: "local-user" }, snapshot });
   const result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect);
   const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId: anchor.graphId, sourceBlockUuid: anchor.externalId }));
@@ -226,11 +267,25 @@ async function recoverIncomplete(): Promise<void> {
       const completed = await api.complete(item.commit.id, result, await adapter.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid }));
       if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else if (item.action === "VERIFY_GRAPH") {
-      const completed = await api.verifyRecoveredGraph(item.commit.id, await adapter.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid }));
+      if (!item.commit.targetId) throw new Error(`Commit ${item.commit.id} 缺少 WorkObject target。`);
+      const target = await api.showObject(item.commit.targetId);
+      const completed = await api.verifyRecoveredGraph(item.commit.id, await readTargetSnapshot(adapter, effect.graphId, api, target));
       if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else throw new Error(`Commit ${item.commit.id} 需要人工协调，未自动覆盖 Graph。`);
   }
   await logseq.UI.showMsg(`已处理 ${recovery.length} 个恢复项。`, "success");
+}
+
+async function rerenderCurrentFormalItem(): Promise<void> {
+  const value = await currentTaskContext();
+  const recovery = (await value.api.listRecovery()).recovery;
+  if (recovery.length) throw new Error("存在未完成 Commit；请先运行“恢复未完成提交”。");
+  const version = value.target.object.version;
+  const projection = await expectedProjection(value.api, value.target);
+  await value.adapter.rerenderManagedProjection({ graphId: value.graphId, sourceBlockUuid: value.anchor.externalId, expectedProjection: projection });
+  const after = await value.api.showObject(value.target.object.id);
+  if (after.object.version !== version) throw new Error("RERENDER_DOMAIN_VERSION_CHANGED");
+  await logseq.UI.showMsg("已按 Writing Language v1 重新渲染当前正式事项；Formal State 与版本未改变。", "success");
 }
 
 async function guarded(label: string, action: () => Promise<void>): Promise<void> {
@@ -256,6 +311,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-show-evidence", label: "Task Copilot vNext：查看最近一次 Agent 依据", keybinding: { binding: "mod+shift+e" } }, () => void guarded("show-evidence", showRecentEvidence));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-undo", label: "Task Copilot vNext：撤销最近一次提交", keybinding: { binding: "mod+shift+u" } }, () => void guarded("undo", undoRecent));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-recover", label: "Task Copilot vNext：恢复未完成提交" }, () => void guarded("recover", recoverIncomplete));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-rerender", label: "Task Copilot vNext：重新渲染当前正式事项" }, () => void guarded("rerender", rerenderCurrentFormalItem));
   await logseq.UI.showMsg("Task Copilot vNext 已就绪。", "success");
 }
 

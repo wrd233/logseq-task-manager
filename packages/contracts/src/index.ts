@@ -170,6 +170,19 @@ export interface ManagedProjection {
   projectionHash: string;
 }
 
+export type ManagedProjectionIdentity = Pick<ManagedProjection, "containerUuid" | "titleUuid" | "stateUuid" | "focusUuid" | "waitingUuid">;
+
+export interface GraphSnapshotInput {
+  graphId: string;
+  sourceBlockUuid: string;
+  /**
+   * Kernel-authoritative semantics and UUID identity for an existing formal
+   * object. Writing Language v1 deliberately omits default fields, so the
+   * Graph alone is not a second formal-state store.
+   */
+  expectedProjection?: ManagedProjection;
+}
+
 export interface GraphSnapshot {
   graphId: string;
   sourceBlockUuid: string;
@@ -187,11 +200,11 @@ interface GraphEffectIdentity {
 
 export type GraphEffect =
   | (GraphEffectIdentity & { type: "UPSERT_MANAGED_PROJECTION"; projection: ManagedProjection })
-  | (GraphEffectIdentity & { type: "UPDATE_MANAGED_FIELD"; fieldUuid: string; content: string; expectedProjectionHash: string; resultingProjectionHash: string })
-  | (GraphEffectIdentity & { type: "SET_CURRENT_FOCUS_FIELD"; containerUuid: string; fieldUuid: string; content: string | null; expectedProjectionHash: string; resultingProjectionHash: string })
-  | (GraphEffectIdentity & { type: "CHANGE_ENGAGEMENT_FIELDS"; containerUuid: string; stateUuid: string; waitingUuid: string; engagement: "ACTIONABLE" | "WAITING"; waiting: WaitingCondition | null; expectedProjectionHash: string; resultingProjectionHash: string })
-  | (GraphEffectIdentity & { type: "CHANGE_CLOSURE_FIELDS"; containerUuid: string; stateUuid: string; focusUuid: string; expectedSourceMarker: GraphSnapshot["sourceMarker"]; resultingSourceMarker: GraphSnapshot["sourceMarker"]; expectedProjection: ManagedProjection; lifecycle: WorkObject["lifecycle"]; engagement: WorkObject["engagement"]; waitingCondition: WaitingCondition | null; currentFocus: string | null; closure: ManagedClosureProjection | null; expectedProjectionHash: string; resultingProjectionHash: string })
-  | (GraphEffectIdentity & { type: "REMOVE_MANAGED_PROJECTION"; containerUuid: string; expectedProjectionHash: string });
+  | (GraphEffectIdentity & { type: "UPDATE_MANAGED_FIELD"; fieldUuid: string; content: string; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
+  | (GraphEffectIdentity & { type: "SET_CURRENT_FOCUS_FIELD"; containerUuid: string; fieldUuid: string; content: string | null; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
+  | (GraphEffectIdentity & { type: "CHANGE_ENGAGEMENT_FIELDS"; containerUuid: string; stateUuid: string; waitingUuid: string; engagement: "ACTIONABLE" | "WAITING"; waiting: WaitingCondition | null; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
+  | (GraphEffectIdentity & { type: "CHANGE_CLOSURE_FIELDS"; containerUuid: string; stateUuid: string; focusUuid: string; expectedSourceMarker: GraphSnapshot["sourceMarker"]; resultingSourceMarker: GraphSnapshot["sourceMarker"]; expectedProjection: ManagedProjection; lifecycle: WorkObject["lifecycle"]; engagement: WorkObject["engagement"]; waitingCondition: WaitingCondition | null; currentFocus: string | null; closure: ManagedClosureProjection | null; expectedProjectionHash: string; resultingProjectionHash: string; resultingProjection?: ManagedProjection })
+  | (GraphEffectIdentity & { type: "REMOVE_MANAGED_PROJECTION"; containerUuid: string; expectedProjectionHash: string; expectedProjection?: ManagedProjection });
 
 export interface FrozenEvidence {
   id: string;
@@ -385,7 +398,7 @@ export interface GraphApplyResult {
 }
 
 export interface GraphAdapter {
-  readGraphSnapshot(input: { graphId: string; sourceBlockUuid: string }): Promise<GraphSnapshot>;
+  readGraphSnapshot(input: GraphSnapshotInput): Promise<GraphSnapshot>;
   readEvidenceMaterial(input: { graphId: string; blockUuid: string }, proofKey: string): Promise<TrustedGraphEvidenceMaterial>;
   applyGraphEffect(effect: GraphEffect): Promise<GraphApplyResult>;
 }
