@@ -39,7 +39,7 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Undo is a compensation Commit | Create and Rename compensation retain original Ledger rows and link `compensationFor`/`compensatedBy` | PROVED |
 | Keep Agent scope narrow | One deterministic Agent/Skill slice exists; no MCP, generic repository hierarchy, workflow DSL, provider platform, or arbitrary mutation API | PROVED |
 | Required architecture/ADR/golden-path documentation | All seven requested documents plus six narrow ADRs exist and match implemented behavior | PROVED |
-| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 65/65 tests, all builds including local SDK packaging, and dependency boundaries; production audit has zero findings | PROVED |
+| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 102/102 tests, all builds including local SDK packaging, and dependency boundaries | PROVED |
 | Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 + deterministic Fake Agent produced Evidence, AgentRun, Proposal, Commit, managed focus, compensation Undo, Feedback, and empty recovery; CLI audited every durable record | PROVED |
 | Independent standards and spec review | Initial findings were fixed; final independent standards and strict Goal-spec re-reviews both returned PASS with no blocking finding | PROVED |
 | Publish `vnext` to origin | Phase 4 implementation and final trust-gap closure reached `origin/vnext` at `229ace4d3ce272cd10b30673c67bf4120f7085be`; the audit-closure commit is verified by the release handoff's final exact local/remote OID check | PROVED |
@@ -63,7 +63,16 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Phase 5 real Desktop explicit completion and Undo | Logseq 0.10.15 visibly completed and restored a real Task; CLI and Graph file confirmed durable state/history | PROVED |
 | Phase 5 real Desktop WAITING completion, cancellation, reopen, and direct marker | Real user-Graph synthetic acceptance Tasks visibly proved exact WAITING/focus restoration, typed cancellation and reopen, direct marker completion, and an empty final Recovery queue | PROVED |
 | Publish Phase 5 partial checkpoint to origin | Implementation commit `e0c9f14b51005fb6a3ac1ab29195669906403241`; two independent reviews passed; final audit commit and remote parity are verified in the handoff | PROVED |
+| Phase 5.5 real-Graph writing study | Protected Graph reconnaissance covered pages, journals, Tasks, nested Tasks, MiniProject/Project shapes, labels, quotes, properties, and density; only aggregate counts, sanitized patterns, and synthetic examples are tracked | PROVED |
+| Phase 5.5 stable presentation identity | PrimaryAnchor UUID registry plus persisted native source `id::`; current Reader resolves registered UUIDs and does not use visible labels as field identity | PROVED |
+| Phase 5.5 reader/renderer/IO separation | Pure presentation model and renderer, UUID-addressed Reader, bounded legacy ownership reader, and Graph Adapter IO have distinct tested responsibilities | PROVED |
+| Phase 5.5 zero-noise and sparse states | Pure and adapter tests plus real Desktop show zero managed children for the ordinary state and only information-bearing focus/wait/review/closure children | PROVED |
+| Phase 5.5 presentation-only re-render | Full Desktop reload plus maintenance re-render preserved source file hash, WorkObject version, Commit count, formal state, and Proposal/Agent boundaries; conflicts fail closed | PROVED |
+| Phase 5.5 Phase 1/3/4/5 regression | Real Desktop reran Formalize/Undo, Agent focus/Feedback/Undo, bidirectional Engagement/Undo, all Task Closure paths, direct marker ingestion, and empty final Recovery; automated failure suites remain green | PROVED |
+| Phase 5.5 restart recovery identity | CREATE compensation recovery verifies every registered projection UUID from the durable effect after Adapter restart, proves bounded absence, and fails closed on missing identity or residual blocks | PROVED |
+| Phase 5.5 real visual matrix | Actual host screenshots were inspected for ordinary/focus/wait+review/completed/cancelled/Journal/nested/multi-Task views and a representative existing Project/MiniProject layout; raw screenshots remain local | PROVED by Codex host inspection; independent human review pending |
+| Phase 5.5 privacy boundary | Git audit contains no protected Graph path, Graph copy/symlink, real-data fixture, screenshot, raw scan, backup, Kernel state, or local database | PROVED |
 
 ## Current conclusion
 
-Phase 3 and Phase 4 remain intact. Phase 5 is fully proved: all Task Closure paths, exact compensation restoration, direct online marker ingestion, fail-closed recovery behavior, and the complete real Desktop interaction matrix have current evidence. Phase 5.5 may now change presentation without reopening semantic scope.
+Phase 3 and Phase 4 remain intact. Phase 5 is fully proved. Phase 5.5 now has a real-Graph-derived Writing Language, stable UUID identity independent of visible labels, zero-noise default rendering, safe presentation-only refresh, current Phase 1/3/4/5 Desktop evidence, and green recovery regressions. This is the product-language freeze point; External Agent, Project Domain, and presentation settings do not start automatically.

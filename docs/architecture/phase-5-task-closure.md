@@ -13,7 +13,7 @@ Only the configured `USER/local-user` may prepare any of them. Generic Agent pre
 
 ## Transaction boundary
 
-The Kernel remains the single formal writer. A user command is parsed, authorized, checked against WorkObject version and managed projection hash, and recorded as a durable Commit. In one SQLite transaction the Kernel writes the next current state, the immutable Closure record, and `KERNEL_APPLIED`. The Plugin then applies one `CHANGE_CLOSURE_FIELDS` effect that converges the source marker where applicable, lifecycle/engagement, Waiting removal, focus removal, and thin human-readable Closure summary. A matching Graph result and fresh snapshot are required before `COMMITTED`.
+The Kernel remains the single formal writer. A user command is parsed, authorized, checked against WorkObject version and managed projection hash, and recorded as a durable Commit. In one SQLite transaction the Kernel writes the next current state, the immutable Closure record, and `KERNEL_APPLIED`. The Plugin then applies one `CHANGE_CLOSURE_FIELDS` effect that converges the source marker where applicable, lifecycle/engagement, Waiting removal, focus removal, and the Writing Language v1 presentation. A matching Graph result and fresh snapshot are required before `COMMITTED`.
 
 `KERNEL_APPLIED` is pending recovery, never success. Marker or projection races fail closed. Replay recognizes before, safe partial, and final states so response loss can resume without duplicating records.
 
@@ -33,4 +33,4 @@ Reopen is a new user decision. It requires a reason, creates a ReopenRecord, and
 
 ## Graph policy
 
-Completion maps `TODO` to `DONE`; an already-observed online `DONE` is accepted as the command source. Reopen maps `DONE` back to `TODO`. Markerless Tasks remain markerless. Cancellation does not invent a host cancellation marker: it preserves the natural source marker/text and writes `CANCELLED` only to the managed projection. Full Closure detail stays in SQLite and the API/CLI; the visible state block shows only status plus completion summary or cancellation reason.
+Completion maps `TODO` to `DONE`; an already-observed online `DONE` is accepted as the command source. Reopen maps `DONE` back to `TODO`. Markerless Tasks remain markerless. Cancellation does not invent a host cancellation marker: it preserves the natural source marker/text and renders only a sparse `**[取消]**` reason child. Full Closure detail stays in SQLite and the API/CLI. A completed outcome equal to the Task title is omitted because `DONE + title` is sufficient; only an informative different outcome renders `**[完成]**`.
