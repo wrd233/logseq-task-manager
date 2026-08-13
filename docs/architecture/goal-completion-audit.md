@@ -39,7 +39,7 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Undo is a compensation Commit | Create and Rename compensation retain original Ledger rows and link `compensationFor`/`compensatedBy` | PROVED |
 | Keep Agent scope narrow | One deterministic Agent/Skill slice exists; no MCP, generic repository hierarchy, workflow DSL, provider platform, or arbitrary mutation API | PROVED |
 | Required architecture/ADR/golden-path documentation | All seven requested documents plus six narrow ADRs exist and match implemented behavior | PROVED |
-| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 102/102 tests, all builds including local SDK packaging, and dependency boundaries | PROVED |
+| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 115/115 tests, all builds including local SDK packaging, and dependency boundaries | PROVED |
 | Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 + deterministic Fake Agent produced Evidence, AgentRun, Proposal, Commit, managed focus, compensation Undo, Feedback, and empty recovery; CLI audited every durable record | PROVED |
 | Independent standards and spec review | Initial findings were fixed; final independent standards and strict Goal-spec re-reviews both returned PASS with no blocking finding | PROVED |
 | Publish `vnext` to origin | Phase 4 implementation and final trust-gap closure reached `origin/vnext` at `229ace4d3ce272cd10b30673c67bf4120f7085be`; the audit-closure commit is verified by the release handoff's final exact local/remote OID check | PROVED |
@@ -72,7 +72,14 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Phase 5.5 restart recovery identity | CREATE compensation recovery verifies every registered projection UUID from the durable effect after Adapter restart, proves bounded absence, and fails closed on missing identity or residual blocks | PROVED |
 | Phase 5.5 real visual matrix | Actual host screenshots were inspected for ordinary/focus/wait+review/completed/cancelled/Journal/nested/multi-Task views and a representative existing Project/MiniProject layout; raw screenshots remain local | PROVED by Codex host inspection; independent human review pending |
 | Phase 5.5 privacy boundary | Git audit contains no protected Graph path, Graph copy/symlink, real-data fixture, screenshot, raw scan, backup, Kernel state, or local database | PROVED |
+| Phase 6 External executor and Skill reuse | `EXTERNAL_CLI` receipts use the same approved current-focus and Engagement Skill identities/hashes; Fake Agents remain green | PROVED automatically |
+| Phase 6 Graph Gateway and trusted Evidence | Kernel broker, separate Plugin capability, typed worker, bounded reads, fresh proof-bound freeze, and no raw filesystem/write RPC | PROVED automatically |
+| Phase 6 CLI governance surface | Bootstrap, Skills, filtered objects, Graph reads, Evidence freeze, run start/finish/reads, and proposal apply are JSON-first and non-interactive | PROVED automatically |
+| Phase 6 authorization | Current focus and bidirectional Waiting commit; PARKED, missing Evidence, generic Agent writes, and Closure remain rejected | PROVED automatically |
+| Phase 6 failure and restart gates | Offline, stale Evidence/target, invalid result, apply failure/retry, response redelivery, Kernel restart, and worker reload tests | PROVED automatically |
+| Phase 6 real Desktop and fresh Agent acceptance | Real Graph current focus, both Waiting directions, NO_PROPOSAL, zero Plugin UI clicks, and fresh-session `整理今天` | PENDING local runtime evidence |
+| Phase 6 privacy and remote publish | No Graph/DB/descriptor/screenshot/backup in Git; final local/remote parity | PENDING final audit |
 
 ## Current conclusion
 
-Phase 3 and Phase 4 remain intact. Phase 5 is fully proved. Phase 5.5 now has a real-Graph-derived Writing Language, stable UUID identity independent of visible labels, zero-noise default rendering, safe presentation-only refresh, current Phase 1/3/4/5 Desktop evidence, and green recovery regressions. This is the product-language freeze point; External Agent, Project Domain, and presentation settings do not start automatically.
+Phase 3 through Phase 5.5 remain intact. Phase 6 automated implementation is green: an external CLI executor can explore through the trusted broker, freeze Evidence, reuse approved Skills, and commit only the two existing LOW-risk Agent operations. Real Desktop and fresh-session acceptance remain the completion gates; Project Domain, MCP, providers, and presentation settings do not start automatically.

@@ -2,7 +2,7 @@
 
 Deliberately deferred from this first slice:
 
-- External Agent, MCP adapter, built-in model/prompt runtime, proposal ranking, and broad skills. Phase 4 uses only deterministic Fake Agents for current focus and Engagement reconciliation.
+- MCP adapter, built-in model/prompt runtime, provider routing, proposal ranking, and broad skills. Phase 6 supports an `EXTERNAL_CLI` executor using only the two existing approved Skills.
 - General System/Agent write authorization. The only Agent exceptions are Proposal-bound LOW-risk `SET_CURRENT_FOCUS` and `ACTIONABLE ↔ WAITING`; generic Agent Commit preparation remains rejected.
 - PARKED transitions, Project/MiniProject Closure, Project KR settlement, child-disposition planning, review UI, waiting reminders, and scheduling. Phase 5 intentionally closes only Tasks.
 - Restart/offline reconciliation of marker changes. Online `DB.onChanged` ingestion of `TODO → DONE` is supported; changes made while the Plugin is stopped are not scanned on startup because there is no durable last-seen marker baseline yet.
@@ -15,6 +15,7 @@ Deliberately deferred from this first slice:
 - Automatic manual reconciliation for `RECOVERY_REQUIRED`; the system fails closed and exposes the row.
 - Service launcher/auto-start and OS-level secret store. The current descriptor is private mode `0600`; Logseq receives it through native plugin settings then Plugin-private FileStorage.
 - Remote sync, multi-user auth, arbitrary ports/hosts, and server capability expansion.
+- Conversational user confirmation/revision, external-agent Closure or create authority, natural-content curation, Project attribution, and batch workflow orchestration.
 - V1 SQLite or Graph migration. vNext has zero V1 compatibility obligation and no dual write. Internal vNext schema upgrades deterministically backfill the focus and Waiting projection UUIDs so already-formal vNext objects remain usable.
 - Whole-Graph presentation migration. The current-item maintenance command can safely converge the exactly owned Phase 1–5 engineering projection, but no background scanner or long-lived legacy-presentation framework exists.
 - `@logseq/libs 0.3.4` remains a development dependency and currently leaves one moderate and two high findings in a full development audit. The build copies its pinned browser SDK file into Plugin `dist` so Desktop startup has no CDN dependency; the reported vulnerable transitive development tools are not runtime imports. `npm audit --omit=dev` reports zero production-dependency findings, while the upstream development-tooling findings remain tracked rather than hidden.

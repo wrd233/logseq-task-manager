@@ -43,14 +43,15 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
 
 async function setup() {
   const directory = await mkdtemp(join(tmpdir(), "task-copilot-phase6-"));
-  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
+  const databasePath = join(directory, "kernel.sqlite"); const descriptorPath = join(directory, "kernel.json");
+  const service = await startKernelServer({ databasePath, descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at); const graphId = "graph-phase6"; const source = graph.seedNaturalRecord(graphId, "source", "TODO 验证外部 Agent 治理");
   const prepared = await client.prepare(parseSemanticOperation({ operationId: "phase6-formalize", type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "验证外部 Agent 治理", anchor: { graphId, blockUuid: "source", sourceContentHash: source.sourceContentHash } } }), source);
   const result = await graph.applyGraphEffect(prepared.graphEffect as GraphEffect); await client.complete(prepared.commit.id, result, await graph.readGraphSnapshot({ graphId, sourceBlockUuid: "source" }));
   const records = new Map<string, { content: string; pageName: string }>(); const stop = startBridge({ baseUrl: service.baseUrl, bridgeToken: service.graphBridgeToken, snapshotKey: service.graphSnapshotKey, graphId, graph, records });
   for (let attempt = 0; attempt < 20 && !(await client.graphStatus()).available; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
-  return { service, client, graph, graphId, workObjectId: prepared.commit.targetId!, records, stop };
+  return { service, client, graph, graphId, workObjectId: prepared.commit.targetId!, records, stop, databasePath, descriptorPath };
 }
 
 test("External CLI executor reuses Skills, records reads separately, and commits focus plus bidirectional Engagement", async () => {
@@ -151,4 +152,24 @@ test("External apply invalidates stale Evidence and safely retries a transient G
     assert.equal((await retry.client.listRecovery()).recovery[0]?.action, "RESUME_GRAPH_APPLY");
     const applied = await retry.client.applyExternalProposal(result.proposal!.id); assert.equal(applied.commit.status, "COMMITTED"); assert.equal(applied.recovered, true);
   } finally { retry.stop(); await retry.service.close(); }
+});
+
+test("a pending External proposal resumes after Kernel restart and Plugin worker reload", async () => {
+  const value = await setup(); let service = value.service; let stop = value.stop;
+  try {
+    value.records.set("restart", { content: "下一步是核对恢复路径。", pageName: "Synthetic Phase 6" }); value.graph.seedNaturalRecord(value.graphId, "restart", "下一步是核对恢复路径。");
+    await value.client.freezeExternalEvidence({ evidenceId: "evidence-restart", workObjectId: value.workObjectId, blockUuid: "restart" });
+    await value.client.startExternalAgentRun({ runId: "run-restart", purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId: value.workObjectId, evidenceIds: ["evidence-restart"], executorId: "codex" });
+    const result = await value.client.finishExternalAgentRun("run-restart", { outcome: "PROPOSAL", currentFocus: "核对恢复路径", reasonCode: "FOCUS", rationaleSummary: "记录给出明确下一步。" });
+    value.graph.failNextApply(); await assert.rejects(value.client.applyExternalProposal(result.proposal!.id), /GRAPH_APPLY_PENDING/u);
+    stop(); await service.close();
+
+    service = await startKernelServer({ databasePath: value.databasePath, descriptorPath: value.descriptorPath, token: "token-2", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "c".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
+    const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
+    stop = startBridge({ baseUrl: service.baseUrl, bridgeToken: service.graphBridgeToken, snapshotKey: service.graphSnapshotKey, graphId: value.graphId, graph: value.graph, records: value.records });
+    for (let attempt = 0; attempt < 20 && !(await client.graphStatus()).available; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+    const applied = await client.applyExternalProposal(result.proposal!.id);
+    assert.equal(applied.commit.status, "COMMITTED"); assert.equal(applied.recovered, true);
+    assert.equal((await client.showObject(value.workObjectId)).object.currentFocus, "核对恢复路径");
+  } finally { stop(); await service.close(); }
 });

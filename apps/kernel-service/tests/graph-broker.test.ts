@@ -24,3 +24,15 @@ test("broker rejects another Graph and mismatched response kinds", async () => {
   broker.fail("graph", envelope.id, "GRAPH_READ_FAILED", "read failed");
   await assert.rejects(waiting, /GRAPH_READ_FAILED/u); broker.close();
 });
+
+test("an unacknowledged delivery is leased and redelivered with the same request identity", async () => {
+  const broker = new GraphRequestBroker({ requestTimeoutMs: 100, deliveryLeaseMs: 1 }); broker.heartbeat("graph");
+  const waiting = broker.request({ kind: "READ_BLOCK", graphId: "graph", blockUuid: "block" });
+  const first = broker.poll("graph")!;
+  assert.equal(broker.poll("graph"), null);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const retry = broker.poll("graph")!;
+  assert.equal(retry.id, first.id);
+  broker.complete("graph", retry.id, { kind: "READ_BLOCK", block: { graphId: "graph", blockUuid: "block", pageName: "Page", content: "value", contentHash: "hash" } });
+  assert.equal((await waiting).kind, "READ_BLOCK"); broker.close();
+});

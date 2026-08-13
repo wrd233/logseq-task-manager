@@ -2,6 +2,8 @@
 
 Task Copilot vNext is a local-first trusted work kernel. Logseq remains the natural work surface; the Local Kernel Service is the sole authority for formal state and Semantic Commits; the Plugin is a thin UI and Graph Adapter; the CLI is the reference HTTP client.
 
+Phase 6 lets external shell-capable agents use that CLI as a governed cognition surface. They may read Formal WorkObjects, explore Logseq through the bounded Graph Gateway, freeze formal Evidence, use the same approved Skills as Fake Agents, submit Agent Results, and auto-apply eligible LOW-risk current-focus or `ACTIONABLE <-> WAITING` Proposals. They may not write SQLite or raw Formal Graph state, impersonate `USER`, create or park work, or complete, cancel, and reopen Tasks. The Kernel still creates every Proposal and Semantic Commit; the loaded Plugin remains the background GraphEffect executor.
+
 The current slice supports two governed Agent capabilities: deterministic Fake Agents may propose an Evidence-backed `SET_CURRENT_FOCUS` update or reconcile one explicit WorkObject between `ACTIONABLE` and `WAITING`. They are constrained by the versioned `current-focus-maintenance/0.1.0` and `engagement-reconciliation/0.1.1` Skills. The Graph Adapter signs each fresh Evidence read with a separate local snapshot capability; the Kernel verifies that proof, target, projection, canonical Evidence SHA-256, target Evidence watermark, exact approved Skill hash, operation-contract version, and recovery state before preparing the Commit. Agents never write SQLite or Logseq directly, PARKED remains user-controlled, and Undo remains a compensation Commit.
 
 Phase 5 adds user-only Task Closure. A user can explicitly complete or cancel a Task, reopen it with a reason, amend the current Closure without overwriting its original record, inspect durable Closure history, and safely undo the most recent Closure Commit. Online `TODO → DONE` is interpreted as another user command and enters the same Kernel transaction. Agents cannot complete, cancel, reopen, or amend Closure; MiniProject and Project Closure remain unsupported.
@@ -19,3 +21,5 @@ TASK_COPILOT_DESCRIPTOR=/path/to/private/state/kernel.json npm start --workspace
 ```
 
 Architecture and acceptance evidence live in [`docs/architecture`](docs/architecture), [`docs/adr`](docs/adr), and [`docs/golden-paths`](docs/golden-paths). The Phase 5.5 real-host acceptance is recorded in [`docs/golden-paths/logseq-writing-language-real-graph.md`](docs/golden-paths/logseq-writing-language-real-graph.md).
+
+An external Agent should start with [`docs/agent/external-cli-agent-guide.md`](docs/agent/external-cli-agent-guide.md) and `task-copilot agent bootstrap --json`.

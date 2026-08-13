@@ -1,6 +1,6 @@
 # Kernel API Contract
 
-The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-`0600` descriptor containing schema version, loopback base URL, a random 256-bit bearer token, a distinct random 256-bit Graph-snapshot capability, PID, and start time. Network authentication is separate from domain authorization: generic semantic preparation accepts only the configured `USER/local-user`; possession of the bearer token alone cannot claim `SYSTEM`, `AGENT`, another user ID, or fabricate trusted Evidence. The Logseq Graph Adapter uses the second capability only to authenticate its fresh block read; the Kernel verifies the proof before freezing or rechecking Evidence. The separate current-focus Proposal endpoint supplies persisted governance proof and does not trust an actor supplied by the caller.
+The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-`0600` CLI descriptor containing schema version, loopback base URL, a random 256-bit bearer token, PID, and start time. A separate mode-`0600` Plugin descriptor carries the distinct Graph-snapshot and Graph-bridge capabilities. Network authentication is separate from domain authorization: generic semantic preparation accepts only the configured `USER/local-user`; possession of the bearer token alone cannot claim `SYSTEM`, `AGENT`, another user ID, or fabricate trusted Evidence.
 
 ## Read API
 
@@ -17,6 +17,9 @@ The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-
 | GET | `/v1/agent-runs/:id` | Minimal AgentRun receipt without hidden reasoning |
 | GET | `/v1/proposals/:id` | Proposal plus immutable latest revision |
 | GET | `/v1/feedback` | Accepted/modified/rejected/undone feedback events |
+| GET | `/v1/agent/bootstrap` and `/v1/skills/:id` | Secret-free External Agent capabilities and approved Skill |
+| GET | `/v1/graph/status` | Background Graph Adapter availability |
+| GET | `/v1/agent-runs/:id/reads` | Exploratory ReadReceipts, separate from Evidence |
 
 ## Write API
 
@@ -34,6 +37,10 @@ The service binds an ephemeral port on `127.0.0.1`. It atomically writes a mode-
 | POST | `/v1/proposals/:id/revisions` | User replaces an open suggestion with a new immutable revision and `MODIFIED` feedback |
 | POST | `/v1/proposals/:id/dismiss` | User dismisses an open Proposal and records `REJECTED` feedback |
 | POST | `/v1/commits/:id/graph-failed` | Persist a reported Adapter failure; transient errors remain resumable, conflicts become `RECOVERY_REQUIRED` |
+| POST | `/v1/graph/search`, plus bounded block/page reads | Broker typed Graph reads through the Plugin |
+| POST | `/v1/external/evidence/freeze` | Fresh Plugin read, proof verification, and Kernel Evidence freeze |
+| POST | `/v1/external/agent-runs/start` and `/:id/finish` | Start/finish cognition performed by an `EXTERNAL_CLI` executor |
+| POST | `/v1/external/proposals/:id/apply` | Revalidate and synchronously wait for background Plugin apply/verify |
 
 There is no generic update, lifecycle setter, JSON Patch, SQL, table, database-path, or raw Graph-write API. The registered writes are `CREATE_WORK_OBJECT`, `RENAME_WORK_OBJECT`, the two governed Agent operations `SET_CURRENT_FOCUS` and `CHANGE_ENGAGEMENT`, and the user-only Task operations `COMPLETE_WORK_OBJECT`, `CANCEL_WORK_OBJECT`, `REOPEN_WORK_OBJECT`, and `AMEND_CLOSURE`, plus the dedicated compensation entry point. The two Agent operations are accepted only through the Proposal endpoint. Closure operations reject every AGENT and SYSTEM actor before Ledger or Closure mutation. Caller-supplied preconditions are accepted only when they exactly equal the derived semantic preconditions.
 
