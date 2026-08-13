@@ -18,11 +18,12 @@ function object(value: unknown): Record<string, unknown> | null {
 export function logseqBlock(value: unknown): LogseqBlock | null {
   let candidate = object(value);
   if (!candidate && Array.isArray(value)) candidate = object(value.find((item) => object(item)?.uuid));
-  if (!candidate || typeof candidate.uuid !== "string" || typeof candidate.content !== "string") return null;
+  const rawContent = typeof candidate?.title === "string" ? candidate.title : typeof candidate?.content === "string" ? candidate.content : null;
+  if (!candidate || typeof candidate.uuid !== "string" || rawContent === null) return null;
   return {
     uuid: candidate.uuid,
-    content: canonicalizeGraphContent(candidate.content),
-    rawContent: candidate.content,
+    content: canonicalizeGraphContent(rawContent),
+    rawContent,
     properties: object(candidate.properties) ?? {},
     children: Array.isArray(candidate.children) ? candidate.children.map(logseqBlock).filter((item): item is LogseqBlock => item !== null) : [],
   };
@@ -145,8 +146,13 @@ export function readProjectionByIdentity(source: LogseqBlock, registeredBlocks: 
     const valid = intent ? Boolean(block && direct && singleLine && block.children.length === 0 && matchesPresentedValue(intent, value)) : !block;
     return { uuid, present: Boolean(block), direct, value, expected: intent?.value ?? null, valid };
   });
-  const equivalent = observations.every((item) => item.valid);
+  const orderedManaged = source.children.filter((child) => expectedByUuid.has(child.uuid)).map((child) => child.uuid);
+  const expectedOrder = intents.map((intent) => intent.uuid);
+  const managedPositions = source.children.map((child, index) => expectedByUuid.has(child.uuid) ? index : -1).filter((index) => index >= 0);
+  const orderValid = orderedManaged.length === expectedOrder.length && orderedManaged.every((uuid, index) => uuid === expectedOrder[index]);
+  const contiguous = managedPositions.length < 2 || managedPositions.at(-1)! - managedPositions[0]! + 1 === managedPositions.length;
+  const equivalent = observations.every((item) => item.valid) && orderValid && contiguous;
   return equivalent
     ? { projection: expected, mode: "CURRENT" }
-    : { projection: { ...expected, projectionHash: stableHash({ conflict: "writing-language-v1", identity: canonicalSemantic(expected), observations }) }, mode: "CONFLICT" };
+    : { projection: { ...expected, projectionHash: stableHash({ conflict: "writing-language-v1", identity: canonicalSemantic(expected), observations, orderedManaged, expectedOrder, contiguous }) }, mode: "CONFLICT" };
 }

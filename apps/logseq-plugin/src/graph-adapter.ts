@@ -36,6 +36,13 @@ function withHash(core: Omit<ManagedProjection, "projectionHash">, requestedHash
   return value;
 }
 
+function emptyPresentation(projection: ManagedProjection): ManagedProjection {
+  const core = { ...semanticCore(projection), lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null };
+  const withoutClosure: Partial<Omit<ManagedProjection, "projectionHash">> = { ...core };
+  delete withoutClosure.closure;
+  return withHash(withoutClosure as Omit<ManagedProjection, "projectionHash">);
+}
+
 function changedProjection(effect: Exclude<GraphEffect, { type: "UPSERT_MANAGED_PROJECTION" | "REMOVE_MANAGED_PROJECTION" }>, before: ManagedProjection): ManagedProjection {
   if (effect.resultingProjection) return effect.resultingProjection;
   const core = semanticCore(before);
@@ -120,6 +127,12 @@ export class LogseqGraphAdapter implements GraphAdapter {
     const source = await this.#required(input.sourceBlockUuid, true);
     if (source.children.some((child) => child.content.includes("task-copilot-managed:: true"))) throw new Error("GRAPH_EXPECTED_PROJECTION_REQUIRED");
     return { graphId: this.#graphId, sourceBlockUuid: source.uuid, sourceContentHash: stableHash(source.content), sourceMarker: sourceMarker(source.content), projection: null };
+  }
+
+  /** Recovery-only readback: prove every registered projection UUID is absent. */
+  async readRemovedProjectionSnapshot(input: { graphId: string; sourceBlockUuid: string; expectedProjection: ManagedProjection }): Promise<GraphSnapshot> {
+    this.#assertGraph(input.graphId);
+    return this.#settledRemoved(input.sourceBlockUuid, input.expectedProjection);
   }
 
   async readEvidenceMaterial(input: { graphId: string; blockUuid: string }, proofKey: string): Promise<TrustedGraphEvidenceMaterial> {
@@ -232,6 +245,22 @@ export class LogseqGraphAdapter implements GraphAdapter {
     return snapshot;
   }
 
+  async #settledRemoved(sourceBlockUuid: string, before: ManagedProjection): Promise<GraphSnapshot> {
+    const deadline = Date.now() + 500;
+    const empty = emptyPresentation(before);
+    const managedUuids = new Set([before.containerUuid, before.titleUuid, before.stateUuid, before.focusUuid, before.waitingUuid, reviewFieldUuid(before.waitingUuid)]);
+    while (true) {
+      const inspection = await this.#inspect(sourceBlockUuid, before);
+      const directManaged = inspection.source.children.some((child) => managedUuids.has(child.uuid));
+      if (inspection.blocks.size === 0 && !directManaged) {
+        return { ...inspection.snapshot, projection: null };
+      }
+      if (!this.#transitionSafe(inspection, before, empty, true)) throw new Error("GRAPH_RESULT_MISMATCH");
+      if (Date.now() >= deadline) throw new Error("GRAPH_RESULT_MISMATCH");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+
   async #applyMarker(effect: Extract<GraphEffect, { type: "CHANGE_CLOSURE_FIELDS" }>): Promise<void> {
     const source = await this.#required(effect.sourceBlockUuid, false);
     const marker = sourceMarker(source.content);
@@ -248,10 +277,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
     if ((await Promise.all(registered.map((uuid) => this.#optional(uuid)))).some(Boolean) || source.children.some((child) => child.content.includes("task-copilot-managed:: true"))) throw new Error("GRAPH_EXPECTED_ABSENT");
     this.#known.set(effect.sourceBlockUuid, effect.projection);
     this.#activeSourceUuid = effect.sourceBlockUuid;
-    const emptyCore = { ...semanticCore(effect.projection), lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null };
-    const emptyWithoutClosure: Partial<Omit<ManagedProjection, "projectionHash">> = { ...emptyCore };
-    delete emptyWithoutClosure.closure;
-    const empty = withHash(emptyWithoutClosure as Omit<ManagedProjection, "projectionHash">);
+    const empty = emptyPresentation(effect.projection);
     await this.#converge(empty, effect.projection);
     await this.#settled(effect.sourceBlockUuid, effect.projection);
     return this.#result(effect, effect.projection.projectionHash);
@@ -271,8 +297,10 @@ export class LogseqGraphAdapter implements GraphAdapter {
       const beforeInspection = await this.#inspect(effect.sourceBlockUuid, before);
       if (effect.type === "REMOVE_MANAGED_PROJECTION") {
         if (beforeInspection.snapshot.projection?.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
-        await this.#converge(before, withHash({ ...semanticCore(before), lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, ...(before.closure ? { closure: undefined } : {}) } as Omit<ManagedProjection, "projectionHash">));
+        await this.#converge(before, emptyPresentation(before));
+        const settled = await this.#settledRemoved(effect.sourceBlockUuid, before);
         this.#known.delete(effect.sourceBlockUuid);
+        if (settled.projection !== null) throw new Error("GRAPH_RESULT_MISMATCH");
         return this.#result(effect, null);
       }
 

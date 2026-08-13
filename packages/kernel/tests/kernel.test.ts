@@ -103,6 +103,21 @@ test("Undo is a compensation commit and refuses to delete a user-edited managed 
   store.close();
 });
 
+test("a GRAPH_APPLIED create compensation recovers after its WorkObject is already deleted", () => {
+  const store = new SqliteStore(":memory:"); let crashUndo = false;
+  const kernel = new Kernel(store, { now: () => at, afterStage: (stage) => { if (stage === "GRAPH_APPLIED" && crashUndo) throw new Error("crash-undo-GRAPH_APPLIED"); } });
+  const created = kernel.prepare(operation(), sourceSnapshot);
+  if (created.graphEffect.type !== "UPSERT_MANAGED_PROJECTION") throw new Error("unexpected effect");
+  kernel.complete(created.commit.id, { commitId: created.graphEffect.commitId, effectId: created.graphEffect.effectId, effectType: created.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01", projectionHash: created.graphEffect.projection.projectionHash, appliedAt: at }, { ...sourceSnapshot, projection: created.graphEffect.projection });
+  const undo = kernel.prepareUndo({ operationId: "undo-recovery", actor: { type: "USER", id: "local-user" }, commitId: created.commit.id }, { ...sourceSnapshot, projection: created.graphEffect.projection });
+  assert.equal(store.listWorkObjects().length, 0); crashUndo = true;
+  assert.throws(() => kernel.complete(undo.commit.id, { commitId: undo.graphEffect.commitId, effectId: undo.graphEffect.effectId, effectType: undo.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01", projectionHash: null, appliedAt: at }, sourceSnapshot), /crash-undo-GRAPH_APPLIED/u);
+  const restarted = new Kernel(store, { now: () => at });
+  assert.equal(restarted.recoveryList()[0]?.action, "VERIFY_GRAPH");
+  assert.equal(restarted.verifyRecoveredGraph(undo.commit.id, sourceSnapshot).status, "COMMITTED");
+  assert.equal(store.listWorkObjects().length, 0); store.close();
+});
+
 test("RENAME_WORK_OBJECT and its Undo are executable compensation commits with monotonic versions", () => {
   const store = new SqliteStore(":memory:");
   const kernel = new Kernel(store, { now: () => at });

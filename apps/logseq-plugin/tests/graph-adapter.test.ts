@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import { graphEvidenceProofPayload, stableHash, type GraphEffect, type ManagedProjection } from "@task-copilot/contracts";
-import { LogseqGraphAdapter, type LogseqGraphHost } from "../src/graph-adapter.ts";
+import { LogseqGraphAdapter, logseqBlock, type LogseqGraphHost } from "../src/graph-adapter.ts";
 import { reviewFieldUuid } from "../src/projection-renderer.ts";
 
 interface Node { uuid: string; content: string; parent: string | null; children: string[] }
@@ -114,6 +114,21 @@ test("ordinary formalization is a verified zero-noise projection", async () => {
   assert.equal((await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: initial })).projection?.projectionHash, initial.projectionHash);
 });
 
+test("title-only DB block shapes pass through the formalization entry and Graph Adapter", async () => {
+  assert.deepEqual(logseqBlock({ uuid: "source-01", title: "TODO DB 自然记录" }), { uuid: "source-01", content: "TODO DB 自然记录" });
+  const host: LogseqGraphHost = {
+    getBlock: async (uuid) => uuid === "source-01" ? { uuid, title: "TODO DB 自然记录", properties: {}, children: [] } : null,
+    insertBlock: async () => { throw new Error("zero-noise create must not insert"); },
+    updateBlock: async () => { throw new Error("zero-noise create must not update"); },
+    removeBlock: async () => { throw new Error("zero-noise create must not remove"); },
+  };
+  const adapter = new LogseqGraphAdapter(host, "graph-01");
+  const dbProjection = projection({ title: "DB 自然记录" });
+  const effect = { ...upsert, projection: dbProjection };
+  assert.equal((await adapter.applyGraphEffect(effect)).projectionHash, dbProjection.projectionHash);
+  assert.equal((await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: dbProjection })).projection?.projectionHash, dbProjection.projectionHash);
+});
+
 test("focus is UUID-addressed, label-independent, and safely standardized by re-render", async () => {
   const host = new Host(); const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(upsert);
   const effect = focusEffect(initial, "验证管理网络"); const after = effect.resultingProjection!;
@@ -155,6 +170,19 @@ test("Waiting and review render as sparse ordered children while full semantics 
   assert.equal(host.nodes.get(reviewFieldUuid(identity.waitingUuid))!.content, "**[复查]** 2026-08-15");
   await adapter.applyGraphEffect(engagementEffect(waiting, initial, "actionable"));
   assert.deepEqual(host.nodes.get("source-01")!.children, ["natural-child"]);
+});
+
+test("managed field reorder or natural interleaving is a topology conflict", async () => {
+  const host = new Host(); host.addNaturalChild(); const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(upsert);
+  const condition = { workObjectId: "work-01", description: "等待测试资源", since: "2026-08-13T08:00:00.000Z", reviewAt: "2026-08-15T00:00:00.000Z", evidenceIds: [] };
+  const waiting = projection({ engagement: "WAITING", waitingCondition: condition }); await adapter.applyGraphEffect(engagementEffect(initial, waiting));
+  const reviewUuid = reviewFieldUuid(identity.waitingUuid);
+  host.nodes.get("source-01")!.children = [reviewUuid, identity.waitingUuid, "natural-child"];
+  await assert.rejects(adapter.rerenderManagedProjection({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: waiting }), /GRAPH_RERENDER_CONFLICT/u);
+  host.nodes.get("source-01")!.children = [identity.waitingUuid, "natural-child", reviewUuid];
+  await assert.rejects(adapter.rerenderManagedProjection({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: waiting }), /GRAPH_RERENDER_CONFLICT/u);
+  host.nodes.get("source-01")!.children = ["natural-child", identity.waitingUuid, reviewUuid];
+  assert.equal((await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: waiting })).projection?.projectionHash, waiting.projectionHash);
 });
 
 test("partial multi-block response loss resumes without overwriting a third value", async () => {
@@ -240,6 +268,34 @@ test("create compensation removes registered presentation only", async () => {
   assert.equal((await adapter.applyGraphEffect(remove)).projectionHash, null);
   assert.equal(host.nodes.has(identity.focusUuid), false);
   assert.equal(host.nodes.get("natural-child")!.content, "用户自然子块");
+});
+
+test("create compensation waits for stale removed blocks before reporting absence", async () => {
+  const host = new Host(); const setup = new LogseqGraphAdapter(host, "graph-01"); await setup.applyGraphEffect(upsert);
+  const focused = focusEffect(initial, "验证网络").resultingProjection!; await setup.applyGraphEffect(focusEffect(initial, "验证网络"));
+  const staleSource = host.tree("source-01"); const staleFocus = host.tree(identity.focusUuid); let staleCycles = 2; let staleCycle = false;
+  const lagged: LogseqGraphHost = {
+    insertBlock: host.insertBlock.bind(host), updateBlock: host.updateBlock.bind(host), removeBlock: host.removeBlock.bind(host),
+    getBlock: async (uuid, options) => {
+      if (uuid === "source-01" && options?.includeChildren && !host.nodes.has(identity.focusUuid) && staleCycles > 0) {
+        staleCycles -= 1; staleCycle = true; return staleSource;
+      }
+      if (uuid === identity.focusUuid && staleCycle) { staleCycle = false; return staleFocus; }
+      return host.getBlock(uuid, options);
+    },
+  };
+  const remove = { type: "REMOVE_MANAGED_PROJECTION", commitId: "commit-remove-lag", effectId: "effect-remove-lag", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: identity.containerUuid, expectedProjectionHash: focused.projectionHash, expectedProjection: focused } satisfies GraphEffect;
+  assert.equal((await new LogseqGraphAdapter(lagged, "graph-01").applyGraphEffect(remove)).projectionHash, null);
+  assert.equal(staleCycles, 0);
+});
+
+test("restart recovery verifies registered projection UUID absence instead of trusting an empty adapter cache", async () => {
+  const host = new Host(); const setup = new LogseqGraphAdapter(host, "graph-01"); await setup.applyGraphEffect(upsert);
+  const focused = focusEffect(initial, "验证网络").resultingProjection!; await setup.applyGraphEffect(focusEffect(initial, "验证网络"));
+  const restarted = new LogseqGraphAdapter(host, "graph-01");
+  await assert.rejects(restarted.readRemovedProjectionSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: focused }), /GRAPH_RESULT_MISMATCH/u);
+  host.nodes.delete(identity.focusUuid); host.nodes.get("source-01")!.children = [];
+  assert.equal((await restarted.readRemovedProjectionSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: focused })).projection, null);
 });
 
 test("fresh readback tolerates only the exact pre-write projection while Logseq catches up", async () => {

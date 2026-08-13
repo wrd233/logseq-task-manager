@@ -2,6 +2,7 @@ import { KernelClient, parseKernelDescriptor } from "@task-copilot/client/browse
 import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkObject } from "@task-copilot/contracts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
+import { readRecoveryVerificationSnapshot } from "./recovery-verification.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "./source-identity.ts";
 import { requestTextPrompt } from "./text-prompt.ts";
 
@@ -272,9 +273,11 @@ async function recoverIncomplete(): Promise<void> {
       const completed = await api.complete(item.commit.id, result, await adapter.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid }));
       if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else if (item.action === "VERIFY_GRAPH") {
-      if (!item.commit.targetId) throw new Error(`Commit ${item.commit.id} 缺少 WorkObject target。`);
-      const target = await api.showObject(item.commit.targetId);
-      const completed = await api.verifyRecoveredGraph(item.commit.id, await readTargetSnapshot(adapter, effect.graphId, api, target));
+      const actual = await readRecoveryVerificationSnapshot(effect, item.commit.targetId, {
+        readAbsentProjection: (remove) => adapter.readRemovedProjectionSnapshot({ graphId: remove.graphId, sourceBlockUuid: remove.sourceBlockUuid, expectedProjection: remove.expectedProjection }),
+        readTargetProjection: async (targetId) => readTargetSnapshot(adapter, effect.graphId, api, await api.showObject(targetId)),
+      });
+      const completed = await api.verifyRecoveredGraph(item.commit.id, actual);
       if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else throw new Error(`Commit ${item.commit.id} 需要人工协调，未自动覆盖 Graph。`);
   }
