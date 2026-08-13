@@ -62,8 +62,8 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Online TODO to DONE ingestion | DB.onChanged coalescing, self-write suppression, and same Kernel completion transaction | PROVED automatically |
 | Phase 5 real Desktop explicit completion and Undo | Logseq 0.10.15 visibly completed and restored a real Task; CLI and Graph file confirmed durable state/history | PROVED |
 | Phase 5 real Desktop WAITING completion, cancellation, reopen, and direct marker | Automated real-adapter/integration evidence exists; final independent Desktop interaction pass not completed | PENDING |
-| Publish Phase 5 to origin | Awaiting final review, commit, push, and exact parity check | PENDING |
+| Publish Phase 5 partial checkpoint to origin | Implementation commit `e0c9f14b51005fb6a3ac1ab29195669906403241`; two independent reviews passed; final audit commit and remote parity are verified in the handoff | PROVED |
 
 ## Current conclusion
 
-Phase 3 and Phase 4 remain intact. The Phase 5 implementation, automated gates, explicit-completion Desktop path, and compensation Undo are present. The remaining Desktop interaction matrix and final publication parity must be resolved before Phase 5 may be called fully complete.
+Phase 3 and Phase 4 remain intact. The Phase 5 implementation, automated gates, explicit-completion Desktop path, compensation Undo, and partial-checkpoint publication are present. The remaining Desktop interaction matrix must be resolved before Phase 5 may be called fully complete.
