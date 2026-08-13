@@ -1,6 +1,7 @@
-import { KernelClient, parseKernelDescriptor } from "@task-copilot/client/browser";
+import { KernelClient, parsePluginKernelDescriptor } from "@task-copilot/client/browser";
 import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkObject } from "@task-copilot/contracts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
+import { startGraphGatewayWorker, type GraphGatewayReadHost } from "./graph-gateway-worker.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
 import { readRecoveryVerificationSnapshot } from "./recovery-verification.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "./source-identity.ts";
@@ -26,7 +27,7 @@ async function descriptor() {
   const configured = logseq.settings?.kernelDescriptorJson;
   const raw = typeof stored === "string" && stored.trim() ? stored : typeof configured === "string" ? configured : "";
   if (typeof raw !== "string" || !raw.trim()) throw new Error("请先运行“Task Copilot vNext：连接 Kernel”并导入 descriptor。");
-  const descriptor = parseKernelDescriptor(JSON.parse(raw));
+  const descriptor = parsePluginKernelDescriptor(JSON.parse(raw));
   if (raw !== stored) await logseq.FileStorage.setItem(descriptorKey, raw.trim());
   return descriptor;
 }
@@ -83,6 +84,43 @@ async function adapterForCurrentGraph(): Promise<{ adapter: LogseqGraphAdapter; 
     updateBlock: (uuid, content) => logseq.Editor.updateBlock(uuid, content),
     removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
   }, graphId) };
+}
+
+function gatewayBlock(value: unknown, fallbackPage: string | null = null): { uuid: string; content: string; pageName: string | null } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>; const content = typeof item.title === "string" ? item.title : typeof item.content === "string" ? item.content : null;
+  if (typeof item.uuid !== "string" || content === null) return null;
+  const page = item.page && typeof item.page === "object" && !Array.isArray(item.page) ? item.page as Record<string, unknown> : null;
+  return { uuid: item.uuid, content, pageName: typeof page?.name === "string" ? page.name : fallbackPage };
+}
+
+function graphGatewayReadHost(): GraphGatewayReadHost {
+  return {
+    search: async (query, limit) => {
+      const rows = await logseq.DB.datascriptQuery(`[:find ?uuid ?content ?page-name :where [?b :block/uuid ?uuid] [?b :block/content ?content] [?b :block/page ?p] [?p :block/name ?page-name]]`) as unknown;
+      if (!Array.isArray(rows)) return [];
+      const needle = query.toLocaleLowerCase(); const matches: Array<{ uuid: string; content: string; pageName: string | null }> = [];
+      for (const row of rows) {
+        if (!Array.isArray(row) || typeof row[0] !== "string" || typeof row[1] !== "string") continue;
+        if (!row[1].toLocaleLowerCase().includes(needle)) continue;
+        matches.push({ uuid: row[0], content: row[1], pageName: typeof row[2] === "string" ? row[2] : null });
+        if (matches.length >= limit) break;
+      }
+      return matches;
+    },
+    readBlock: async (uuid) => gatewayBlock(await logseq.Editor.getBlock(uuid, { includeChildren: true })),
+    readPage: async (pageName) => {
+      const roots = await logseq.Editor.getPageBlocksTree(pageName); if (!roots) return null;
+      const values: Array<{ uuid: string; content: string; pageName: string | null }> = [];
+      const visit = (candidate: unknown) => {
+        const item = gatewayBlock(candidate, pageName); if (item) values.push(item);
+        if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+          const children = (candidate as Record<string, unknown>).children; if (Array.isArray(children)) for (const child of children) visit(child);
+        }
+      };
+      for (const root of roots) visit(root); return values;
+    },
+  };
 }
 
 async function formalizeCurrentRecord(): Promise<void> {
@@ -302,11 +340,15 @@ async function guarded(label: string, action: () => Promise<void>): Promise<void
 
 async function main(): Promise<void> {
   const unregisterOnlineDoneMarker = registerOnlineDoneMarkerCommand(logseq.DB, completeFromObservedDone, (error) => { console.error("online-done-marker", error); void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); });
-  logseq.beforeunload(async () => { unregisterOnlineDoneMarker(); await logseq.hideMainUI(); });
+  const stopGraphWorker = startGraphGatewayWorker({
+    connection: async () => { const connection = await descriptor(); const value = await adapterForCurrentGraph(); return { descriptor: connection, ...value, readHost: graphGatewayReadHost() }; },
+    onError: (error) => { if (error instanceof Error && !/请先运行|GRAPH_BRIDGE_TOKEN_MISSING/u.test(error.message)) console.warn("graph-gateway-worker", error); },
+  });
+  logseq.beforeunload(async () => { stopGraphWorker(); unregisterOnlineDoneMarker(); await logseq.hideMainUI(); });
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-connect", label: "Task Copilot vNext：连接 Kernel" }, () => void guarded("connect", async () => {
     const value = logseq.settings?.kernelDescriptorJson;
     if (typeof value !== "string" || !value.trim()) throw new Error("请在插件设置中填写 Kernel descriptor JSON，然后再次运行连接命令。");
-    parseKernelDescriptor(JSON.parse(value)); await logseq.FileStorage.setItem(descriptorKey, value.trim()); await logseq.UI.showMsg("Kernel 已连接；descriptor 已复制到 Plugin 私有 FileStorage。", "success");
+    parsePluginKernelDescriptor(JSON.parse(value)); await logseq.FileStorage.setItem(descriptorKey, value.trim()); await logseq.UI.showMsg("Kernel 已连接；Plugin Graph descriptor 已复制到私有 FileStorage。", "success");
   }));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize", label: "Task Copilot vNext：正式化当前记录" }, () => void guarded("formalize", formalizeCurrentRecord));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-focus", label: "Task Copilot vNext：让 Agent 更新当前推进" }, () => void guarded("agent-current-focus", letAgentUpdateCurrentFocus));
@@ -327,7 +369,7 @@ logseq.useSettingsSchema([{
   key: "kernelDescriptorJson",
   type: "string",
   default: "",
-  title: "Kernel descriptor JSON",
+  title: "Plugin Graph descriptor JSON",
   description: "从本机 kernel.json 复制；校验后写入 Plugin 私有 FileStorage，不进入 Graph 或日志。",
 }]);
 logseq.ready(main).catch((error) => console.error("Task Copilot vNext bootstrap failed", error));

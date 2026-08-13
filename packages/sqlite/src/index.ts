@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type ClosureHistory, type CommitStatus, type FeedbackEvent, type FrozenEvidence, type OperationType, type Proposal, type ProposalRevision, type SkillIdentity, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type ClosureHistory, type CommitStatus, type FeedbackEvent, type FrozenEvidence, type GraphReadReceipt, type OperationType, type Proposal, type ProposalRevision, type SkillIdentity, type StoredCommit } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -85,6 +85,10 @@ const schema = `
     evidence_ids_json TEXT NOT NULL, skill_json TEXT NOT NULL, outcome TEXT NOT NULL, reason_code TEXT NOT NULL,
     rationale_summary TEXT NOT NULL, proposal_id TEXT, details_json TEXT, created_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS graph_read_receipts (
+    id TEXT PRIMARY KEY, agent_run_id TEXT NOT NULL REFERENCES agent_run_receipts(id), kind TEXT NOT NULL,
+    locator TEXT NOT NULL, content_hash TEXT NOT NULL, read_at TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS proposals (
     id TEXT PRIMARY KEY, work_object_id TEXT NOT NULL REFERENCES work_objects(id), status TEXT NOT NULL,
     latest_revision INTEGER NOT NULL, applied_commit_id TEXT, invalidation_reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
@@ -152,6 +156,7 @@ export class SqliteStore {
     this.#migrateV2();
     this.#migrateV3();
     this.#migrateV4();
+    this.#migrateV5();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -190,6 +195,13 @@ export class SqliteStore {
 
   #migrateV4(): void {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (4, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV5(): void {
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS graph_read_receipts (
+      id TEXT PRIMARY KEY, agent_run_id TEXT NOT NULL REFERENCES agent_run_receipts(id), kind TEXT NOT NULL,
+      locator TEXT NOT NULL, content_hash TEXT NOT NULL, read_at TEXT NOT NULL)`);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (5, ?)").run(new Date().toISOString());
   }
 
   close(): void { this.#database.close(); }
@@ -363,8 +375,28 @@ export class SqliteStore {
       VALUES (@id, @agentId, @workObjectId, @evidenceIds, @skill, @outcome, @reasonCode, @rationaleSummary, @proposalId, @details, @createdAt)`).run({
         id: run.id, agentId: run.executor.id, workObjectId: run.subject.workObjectId, evidenceIds: encode(run.context.evidenceIds), skill: encode(run.skill),
         outcome: run.result.outcome, reasonCode: run.reasonCode, rationaleSummary: run.rationaleSummary, proposalId: run.result.proposalIds[0] ?? null,
-        details: encode(run), createdAt: run.finishedAt,
+        details: encode(run), createdAt: run.finishedAt ?? run.startedAt,
       });
+  }
+
+  finishAgentRunResult(run: AgentRunReceipt, proposal: Proposal | null, revision: ProposalRevision | null): void {
+    this.transaction(() => {
+      const changed = this.#database.prepare(`UPDATE agent_run_receipts SET outcome=?, reason_code=?, rationale_summary=?, proposal_id=?, details_json=?, created_at=? WHERE id=?`).run(
+        run.result.outcome, run.reasonCode, run.rationaleSummary, run.result.proposalIds[0] ?? null, encode(run), run.finishedAt ?? run.startedAt, run.id,
+      );
+      if (!changed.changes) throw new Error("AGENT_RUN_NOT_FOUND");
+      if (proposal && revision) this.putProposal(proposal, revision);
+    });
+  }
+
+  putGraphReadReceipt(receipt: GraphReadReceipt): void {
+    const run = this.getAgentRun(receipt.agentRunId);
+    if (!run || run.executor.type !== "EXTERNAL_CLI" || run.state !== "STARTED") throw new Error("GRAPH_READ_RUN_NOT_ACTIVE");
+    this.#database.prepare("INSERT OR IGNORE INTO graph_read_receipts(id,agent_run_id,kind,locator,content_hash,read_at) VALUES (@id,@agentRunId,@kind,@locator,@contentHash,@readAt)").run(receipt);
+  }
+
+  listGraphReadReceipts(agentRunId: string): GraphReadReceipt[] {
+    return (this.#database.prepare("SELECT * FROM graph_read_receipts WHERE agent_run_id=? ORDER BY read_at,rowid").all(agentRunId) as Array<Record<string, unknown>>).map((row) => ({ id: String(row.id), agentRunId: String(row.agent_run_id), kind: row.kind as GraphReadReceipt["kind"], locator: String(row.locator), contentHash: String(row.content_hash), readAt: String(row.read_at) }));
   }
 
   putAgentRunResult(run: AgentRunReceipt, proposal: Proposal | null, revision: ProposalRevision | null): void {
@@ -379,7 +411,7 @@ export class SqliteStore {
     if (!row) return null;
     if (row.details_json) return decode(String(row.details_json)) as AgentRunReceipt;
     return {
-      id: String(row.id), purpose: "CURRENT_FOCUS_MAINTENANCE", executor: { type: "FAKE", id: String(row.agent_id) }, operationContractVersion: 1,
+      id: String(row.id), purpose: "CURRENT_FOCUS_MAINTENANCE", executor: { type: "FAKE", id: String(row.agent_id) }, state: "FINISHED", operationContractVersion: 1,
       skill: decode(String(row.skill_json)) as SkillIdentity, subject: { workObjectId: String(row.work_object_id) },
       context: { targetVersion: 1, evidenceIds: decode(String(row.evidence_ids_json)) as string[] }, result: { outcome: row.outcome as AgentRunReceipt["result"]["outcome"], proposalIds: row.proposal_id === null ? [] : [String(row.proposal_id)] },
       reasonCode: String(row.reason_code), rationaleSummary: String(row.rationale_summary), startedAt: String(row.created_at), finishedAt: String(row.created_at),

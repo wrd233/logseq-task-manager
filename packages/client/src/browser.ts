@@ -1,6 +1,7 @@
-import type { Actor, AgentRunReceipt, ClosureHistory, EngagementProposalRevision, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, StoredCommit, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, ClosureHistory, EngagementProposalRevision, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, SkillPackage, StoredCommit, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
 
-export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; graphSnapshotKey: string; pid: number; startedAt: string }
+export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; pid: number; startedAt: string }
+export interface PluginKernelDescriptor extends KernelDescriptor { graphSnapshotKey: string; graphBridgeToken: string }
 export interface PendingGraphCommit { commit: StoredCommit; graphEffect: unknown }
 export interface RecoveryItem { commit: StoredCommit; action: string }
 
@@ -11,8 +12,14 @@ export class ClientError extends Error {
 
 export function parseKernelDescriptor(value: unknown): KernelDescriptor {
   const candidate = value as KernelDescriptor;
-  if (!candidate || candidate.schemaVersion !== 1 || !candidate.baseUrl?.startsWith("http://127.0.0.1:") || !candidate.token || !/^[0-9a-f]{64}$/u.test(candidate.graphSnapshotKey) || !Number.isSafeInteger(candidate.pid) || !candidate.startedAt) throw new ClientError("DESCRIPTOR_INVALID", "Kernel descriptor is invalid.", 0);
-  return candidate;
+  if (!candidate || candidate.schemaVersion !== 1 || !candidate.baseUrl?.startsWith("http://127.0.0.1:") || !candidate.token || !Number.isSafeInteger(candidate.pid) || !candidate.startedAt) throw new ClientError("DESCRIPTOR_INVALID", "Kernel descriptor is invalid.", 0);
+  return { schemaVersion: 1, baseUrl: candidate.baseUrl, token: candidate.token, pid: candidate.pid, startedAt: candidate.startedAt };
+}
+
+export function parsePluginKernelDescriptor(value: unknown): PluginKernelDescriptor {
+  const candidate = value as PluginKernelDescriptor; const base = parseKernelDescriptor(value);
+  if (!/^[0-9a-f]{64}$/u.test(candidate.graphSnapshotKey) || !/^[0-9a-f]{64}$/u.test(candidate.graphBridgeToken)) throw new ClientError("PLUGIN_DESCRIPTOR_INVALID", "Plugin Graph descriptor is invalid.", 0);
+  return { ...base, graphSnapshotKey: candidate.graphSnapshotKey, graphBridgeToken: candidate.graphBridgeToken };
 }
 
 export class KernelClient {
@@ -26,6 +33,18 @@ export class KernelClient {
     return value;
   }
   status(): Promise<{ status: "ok"; schemaVersion: number; pid: number }> { return this.#request("GET", "/v1/status"); }
+  agentBootstrap(): Promise<{ kernel: { ready: boolean }; graph: { ready: boolean; graphId: string | null; capabilities: readonly string[]; reason?: string }; agent: { executorType: "EXTERNAL_CLI"; supportedPurposes: readonly AgentRunReceipt["purpose"][] }; skills: Array<{ id: string; version: string; contentHash: string }>; forbidden: readonly string[] }> { return this.#request("GET", "/v1/agent/bootstrap"); }
+  listSkills(): Promise<{ skills: Array<{ id: string; version: string; contentHash: string }> }> { return this.#request("GET", "/v1/skills"); }
+  showSkill(id: string): Promise<{ skill: SkillPackage }> { return this.#request("GET", `/v1/skills/${encodeURIComponent(id)}`); }
+  graphStatus(): Promise<GraphGatewayStatus> { return this.#request("GET", "/v1/graph/status"); }
+  graphSearch(input: { query: string; limit: number; runId?: string }): Promise<{ matches: readonly GraphSearchMatch[]; receipt: GraphReadReceipt | null }> { return this.#request("POST", "/v1/graph/search", input); }
+  graphBlock(id: string, runId?: string): Promise<{ block: GraphBlockRead; receipt: GraphReadReceipt | null }> { return this.#request("GET", `/v1/graph/blocks/${encodeURIComponent(id)}${runId ? `?run=${encodeURIComponent(runId)}` : ""}`); }
+  graphPage(name: string, input: { limit: number; runId?: string }): Promise<{ page: GraphPageRead; receipt: GraphReadReceipt | null }> { const query = new URLSearchParams({ limit: String(input.limit), ...(input.runId ? { run: input.runId } : {}) }); return this.#request("GET", `/v1/graph/pages/${encodeURIComponent(name)}?${query}`); }
+  freezeExternalEvidence(input: { evidenceId: string; workObjectId: string; blockUuid: string }): Promise<{ evidence: FrozenEvidence }> { return this.#request("POST", "/v1/external/evidence/freeze", input); }
+  startExternalAgentRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string }): Promise<{ run: AgentRunReceipt }> { return this.#request("POST", "/v1/external/agent-runs/start", input); }
+  finishExternalAgentRun(id: string, result: unknown): Promise<{ run: AgentRunReceipt; proposal: Proposal | null; revision: ProposalRevision | null }> { return this.#request("POST", `/v1/external/agent-runs/${encodeURIComponent(id)}/finish`, { result }); }
+  listAgentRunReads(id: string): Promise<{ receipts: GraphReadReceipt[] }> { return this.#request("GET", `/v1/agent-runs/${encodeURIComponent(id)}/reads`); }
+  applyExternalProposal(id: string): Promise<{ commit: StoredCommit; recovered: boolean }> { return this.#request("POST", `/v1/external/proposals/${encodeURIComponent(id)}/apply`, {}); }
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
   listActionableObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects/actionable"); }
   showObject(id: string): Promise<{ object: WorkObject; anchor: unknown }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}`); }

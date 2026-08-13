@@ -5,11 +5,16 @@ import { runCli } from "../src/cli.ts";
 
 const client = {
   status: async () => ({ status: "ok" as const, schemaVersion: 1, pid: 42 }),
+  agentBootstrap: async () => ({ kernel: { ready: true }, graph: { ready: false, graphId: null, capabilities: [], reason: "GRAPH_ADAPTER_OFFLINE" }, agent: { executorType: "EXTERNAL_CLI" as const, supportedPurposes: [] }, skills: [], forbidden: [] }),
+  listSkills: async () => ({ skills: [] }), showSkill: async () => ({ skill: {} as never }),
   listObjects: async () => ({ objects: [{ id: "work-01", kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }] }),
   showObject: async (id: string) => ({ object: { id, kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }, anchor: null }),
   showClosure: async () => ({ closure: { current: null, completions: [], cancellations: [], amendments: [], reopens: [] } }),
   showCommit: async (id: string) => ({ commit: { id } as never }),
   listRecovery: async () => ({ recovery: [] }),
+  graphStatus: async () => ({ available: false, reason: "GRAPH_ADAPTER_OFFLINE" as const, graphId: null, capabilities: [], lastSeenAt: null }),
+  graphSearch: async () => ({ matches: [], receipt: null }), graphBlock: async () => ({ block: {} as never, receipt: null }), graphPage: async () => ({ page: {} as never, receipt: null }),
+  freezeExternalEvidence: async () => ({ evidence: {} as never }), startExternalAgentRun: async () => ({ run: {} as never }), finishExternalAgentRun: async () => ({ run: {} as never, proposal: null, revision: null }), listAgentRunReads: async () => ({ receipts: [] }), applyExternalProposal: async () => ({ commit: {} as never, recovered: false }),
   showEvidence: async (id: string) => ({ evidence: { id } as never }),
   showAgentRun: async (id: string) => ({ run: { id } as never }),
   showProposal: async (id: string) => ({ proposal: { id } as never, revision: { proposalId: id } as never }),
@@ -27,5 +32,27 @@ test("all reference commands support machine-readable output", async () => {
 test("unknown commands fail without touching a fallback database", async () => {
   const errors: string[] = [];
   assert.equal(await runCli(["db", "patch"], client, { out: () => undefined, err: (line) => errors.push(line) }), 2);
-  assert.match(errors[0]!, /Usage/u);
+  assert.match(errors[0]!, /CLI_USAGE/u);
+});
+
+test("External Agent commands are JSON-first, non-interactive, and filter objects without a query DSL", async () => {
+  for (const args of [
+    ["agent", "bootstrap"], ["skill", "list"], ["skill", "show", "current-focus-maintenance"],
+    ["graph", "status"], ["graph", "search", "--query", "network"], ["graph", "block", "show", "block"], ["graph", "page", "show", "Page"],
+    ["evidence", "freeze", "--object", "work-01", "--block", "block"],
+    ["agent-run", "start", "--purpose", "current-focus", "--object", "work-01", "--evidence", "evidence"],
+    ["agent-run", "finish", "run", "--result-file", "-"], ["agent-run", "reads", "run"], ["proposal", "apply", "proposal", "--wait"],
+  ]) {
+    const output: string[] = []; const errors: string[] = [];
+    assert.equal(await runCli([...args, "--json"], client, { out: (line) => output.push(line), err: (line) => errors.push(line), readInput: async () => JSON.stringify({ outcome: "NO_PROPOSAL", reasonCode: "NO_FORMAL_CHANGE", rationaleSummary: "none" }) }), 0, `${args.join(" ")}: ${errors.join(" ")}`);
+    assert.doesNotThrow(() => JSON.parse(output[0]!));
+  }
+  const output: string[] = []; await runCli(["object", "list", "--engagement", "WAITING", "--json"], client, { out: (line) => output.push(line), err: () => undefined });
+  assert.deepEqual(JSON.parse(output[0]!).objects, []);
+});
+
+test("CLI emits stable JSON errors and refuses non-waiting proposal apply", async () => {
+  const errors: string[] = [];
+  assert.equal(await runCli(["proposal", "apply", "proposal", "--json"], client, { out: () => undefined, err: (line) => errors.push(line) }), 2);
+  assert.equal(JSON.parse(errors[0]!).error.code, "CLI_USAGE");
 });

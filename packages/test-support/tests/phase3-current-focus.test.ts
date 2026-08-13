@@ -16,7 +16,7 @@ async function setup(label: string, content = "下一步：准备服务器上架
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-${label}-`));
   const databasePath = join(directory, "kernel.sqlite");
   const service = await startKernelServer({ databasePath, descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at, ...options });
-  const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, graphSnapshotKey: service.graphSnapshotKey, pid: process.pid, startedAt: at });
+  const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at);
   const source = graph.seedNaturalRecord("graph-phase3", `source-${label}`, content);
   const prepared = await client.prepare(parseSemanticOperation({ operationId: `formalize-${label}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "服务器上架", anchor: { graphId: source.graphId, blockUuid: source.sourceBlockUuid, sourceContentHash: source.sourceContentHash } } }), source);

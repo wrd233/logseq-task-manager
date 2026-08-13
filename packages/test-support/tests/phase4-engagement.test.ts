@@ -14,7 +14,7 @@ const at = "2026-08-13T08:00:00.000Z";
 async function setup(label: string, options: { engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage } = {}) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase4-${label}-`));
   const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at, ...options });
-  const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, graphSnapshotKey: service.graphSnapshotKey, pid: process.pid, startedAt: at });
+  const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at);
   const source = graph.seedNaturalRecord("graph-phase4", `source-${label}`, "配置生产服务器网络");
   const prepared = await client.prepare(parseSemanticOperation({ operationId: `formalize-${label}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "配置生产服务器网络", anchor: { graphId: source.graphId, blockUuid: source.sourceBlockUuid, sourceContentHash: source.sourceContentHash } } }), source);

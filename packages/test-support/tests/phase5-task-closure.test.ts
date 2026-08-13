@@ -14,7 +14,7 @@ const at = "2026-08-13T10:00:00.000Z";
 async function setup(label: string, content = "TODO 确认防火墙开放 443", kind: "TASK" | "MINI_PROJECT" | "PROJECT" = "TASK") {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase5-${label}-`));
   const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at });
-  const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, graphSnapshotKey: service.graphSnapshotKey, pid: process.pid, startedAt: at });
+  const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at);
   const source = graph.seedNaturalRecord("graph-phase5", `source-${label}`, content);
   const pending = await client.prepare(parseSemanticOperation({ operationId: `formalize-${label}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title: content.replace(/^TODO\s+/u, ""), anchor: { graphId: source.graphId, blockUuid: source.sourceBlockUuid, sourceContentHash: source.sourceContentHash } } }), source);

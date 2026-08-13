@@ -229,6 +229,68 @@ export interface TrustedGraphEvidenceMaterial extends GraphEvidenceMaterial {
   proof: string;
 }
 
+export interface GraphSearchMatch {
+  graphId: string;
+  blockUuid: string;
+  pageName: string | null;
+  snippet: string;
+  contentHash: string;
+}
+
+export interface GraphBlockRead {
+  graphId: string;
+  blockUuid: string;
+  pageName: string | null;
+  content: string;
+  contentHash: string;
+}
+
+export interface GraphPageRead {
+  graphId: string;
+  pageName: string;
+  blocks: readonly GraphBlockRead[];
+  truncated: boolean;
+}
+
+export type GraphGatewayRequest =
+  | { kind: "SEARCH"; graphId: string; query: string; limit: number }
+  | { kind: "READ_BLOCK"; graphId: string; blockUuid: string }
+  | { kind: "READ_PAGE"; graphId: string; pageName: string; limit: number }
+  | { kind: "READ_EVIDENCE"; graphId: string; blockUuid: string }
+  | { kind: "READ_TARGET_SNAPSHOT"; input: GraphSnapshotInput }
+  | { kind: "APPLY_EFFECT"; effect: GraphEffect };
+
+export type GraphGatewayResponse =
+  | { kind: "SEARCH"; matches: readonly GraphSearchMatch[] }
+  | { kind: "READ_BLOCK"; block: GraphBlockRead }
+  | { kind: "READ_PAGE"; page: GraphPageRead }
+  | { kind: "READ_EVIDENCE"; material: TrustedGraphEvidenceMaterial }
+  | { kind: "READ_TARGET_SNAPSHOT"; snapshot: GraphSnapshot }
+  | { kind: "APPLY_EFFECT"; result: GraphApplyResult; snapshot: GraphSnapshot };
+
+export interface GraphGatewayRequestEnvelope {
+  id: string;
+  request: GraphGatewayRequest;
+  createdAt: string;
+}
+
+export interface GraphGatewayStatus {
+  available: boolean;
+  reason: "READY" | "GRAPH_ADAPTER_OFFLINE";
+  graphId: string | null;
+  capabilities: readonly ("SEARCH" | "READ_BLOCK" | "READ_PAGE" | "FREEZE_EVIDENCE" | "APPLY_KERNEL_EFFECT")[];
+  lastSeenAt: string | null;
+}
+
+export interface GraphReadReceipt {
+  id: string;
+  agentRunId: string;
+  kind: "SEARCH" | "BLOCK" | "PAGE";
+  locator: string;
+  contentHash: string;
+  readAt: string;
+}
+
 export interface SkillIdentity { id: string; version: string; contentHash: string }
 export interface SkillPackage extends SkillIdentity { manifest: unknown; policy: unknown; schema: unknown; examples: unknown; eval: unknown }
 
@@ -236,16 +298,18 @@ export type AgentRunOutcome = "PROPOSAL" | "NO_PROPOSAL" | "NEEDS_MORE_CONTEXT" 
 export interface AgentRunReceipt {
   id: string;
   purpose: "CURRENT_FOCUS_MAINTENANCE" | "ENGAGEMENT_RECONCILIATION";
-  executor: { type: "FAKE" | "BUILTIN"; id: string };
+  executor: { type: "FAKE" | "BUILTIN" | "EXTERNAL_CLI"; id: string };
+  state: "STARTED" | "FINISHED";
   operationContractVersion: typeof OPERATION_CONTRACT_VERSION;
   skill: SkillIdentity;
   subject: { workObjectId: string };
-  context: { targetVersion: number; evidenceIds: readonly string[]; currentEngagement?: WorkObject["engagement"]; waitingCondition?: WaitingCondition | null };
-  result: { outcome: AgentRunOutcome; proposalIds: readonly string[] };
+  context: { targetVersion: number; targetProjectionHash?: string; evidenceIds: readonly string[]; currentEngagement?: WorkObject["engagement"]; waitingCondition?: WaitingCondition | null };
+  result: { outcome: AgentRunOutcome | "PENDING"; proposalIds: readonly string[] };
   reasonCode: string;
   rationaleSummary: string;
+  submissionHash?: string | null;
   startedAt: string;
-  finishedAt: string;
+  finishedAt: string | null;
 }
 
 export interface AgentCurrentFocusResult {
