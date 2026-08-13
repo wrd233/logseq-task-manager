@@ -44,7 +44,7 @@ export async function runCli(argv: string[], client: CliClient, io: CliIO): Prom
     else if (words.join(" ") === "agent bootstrap") value = await client.agentBootstrap();
     else if (words.join(" ") === "skill list") value = await client.listSkills();
     else if (words.length === 3 && words[0] === "skill" && words[1] === "show") value = await client.showSkill(words[2]!);
-    else if (words.join(" ") === "object list") { const listed = await client.listObjects(); const lifecycle = option(args, "--lifecycle"); const engagement = option(args, "--engagement"); value = { objects: listed.objects.filter((item) => (!lifecycle || item.lifecycle === lifecycle) && (!engagement || item.engagement === engagement)) }; }
+    else if (words.join(" ") === "object list") { const lifecycle = option(args, "--lifecycle"); const engagement = option(args, "--engagement"); if (lifecycle && !["OPEN", "COMPLETED", "CANCELLED"].includes(lifecycle)) usage("--lifecycle must be OPEN, COMPLETED, or CANCELLED."); if (engagement && !["ACTIONABLE", "WAITING", "PARKED"].includes(engagement)) usage("--engagement must be ACTIONABLE, WAITING, or PARKED."); const listed = await client.listObjects(); value = { objects: listed.objects.filter((item) => (!lifecycle || item.lifecycle === lifecycle) && (!engagement || item.engagement === engagement)) }; }
     else if (words.length === 3 && words[0] === "object" && words[1] === "show") value = await client.showObject(words[2]!);
     else if (words.length === 3 && words[0] === "closure" && words[1] === "show") value = await client.showClosure(words[2]!);
     else if (words.length === 3 && words[0] === "commit" && words[1] === "show") value = await client.showCommit(words[2]!);

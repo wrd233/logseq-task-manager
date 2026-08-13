@@ -15,7 +15,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint .",
-    "build": "node scripts/build-all.mjs",
+    "build": "node scripts/build-all.mjs && node scripts/check-built-binaries.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:boundaries"
   },

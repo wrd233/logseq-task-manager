@@ -25,6 +25,32 @@ export const APPROVED_ENGAGEMENT_SKILL = {
   contentHash: "11789087f843b9ee5708dac16779788ca207f3bce807a6f6c3d20d91538785e5",
 } as const;
 
+export const EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT = {
+  type: "object", additionalProperties: false, required: ["outcome", "reasonCode", "rationaleSummary"],
+  properties: {
+    outcome: { enum: ["PROPOSAL", "NO_PROPOSAL", "NEEDS_MORE_CONTEXT"] },
+    currentFocus: { type: ["string", "null"], maxLength: 200 },
+    reasonCode: { type: "string" }, rationaleSummary: { type: "string" },
+  },
+  constraints: ["PROPOSAL_REQUIRES_CURRENT_FOCUS", "NON_PROPOSAL_MAY_OMIT_CURRENT_FOCUS"],
+} as const;
+
+export const EXTERNAL_ENGAGEMENT_RESULT_CONTRACT = {
+  type: "object", additionalProperties: false, required: ["outcome", "reasonCode", "rationaleSummary"],
+  properties: {
+    outcome: { enum: ["PROPOSAL", "NO_PROPOSAL", "NEEDS_MORE_CONTEXT"] },
+    transition: {
+      type: "object", additionalProperties: false, required: ["from", "to", "waiting"],
+      properties: {
+        from: { enum: ["ACTIONABLE", "WAITING"] }, to: { enum: ["ACTIONABLE", "WAITING"] },
+        waiting: { oneOf: [{ type: "null" }, { type: "object", additionalProperties: false, required: ["description", "reviewAt"], properties: { description: { type: "string", maxLength: 200 }, reviewAt: { type: ["string", "null"] } } }] },
+      },
+    },
+    reasonCode: { type: "string" }, rationaleSummary: { type: "string" },
+  },
+  constraints: ["PROPOSAL_REQUIRES_TRANSITION", "NON_PROPOSAL_FORBIDS_TRANSITION", "ACTIONABLE_TO_WAITING_REQUIRES_WAITING_OBJECT", "WAITING_TO_ACTIONABLE_REQUIRES_WAITING_NULL"],
+} as const;
+
 export interface AnchorInput {
   graphId: string;
   blockUuid: string;

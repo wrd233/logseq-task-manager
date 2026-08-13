@@ -10,9 +10,14 @@ export class ClientError extends Error {
   constructor(code: string, message: string, status: number) { super(`${code}: ${message}`); this.name = "ClientError"; this.code = code; this.status = status; }
 }
 
+function isLocalKernelOrigin(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try { const url = new URL(value); return url.protocol === "http:" && url.hostname === "127.0.0.1" && Boolean(url.port) && !url.username && !url.password && url.origin === value; } catch { return false; }
+}
+
 export function parseKernelDescriptor(value: unknown): KernelDescriptor {
   const candidate = value as KernelDescriptor;
-  if (!candidate || candidate.schemaVersion !== 1 || !candidate.baseUrl?.startsWith("http://127.0.0.1:") || !candidate.token || !Number.isSafeInteger(candidate.pid) || !candidate.startedAt) throw new ClientError("DESCRIPTOR_INVALID", "Kernel descriptor is invalid.", 0);
+  if (!candidate || candidate.schemaVersion !== 1 || !isLocalKernelOrigin(candidate.baseUrl) || !candidate.token || !Number.isSafeInteger(candidate.pid) || !candidate.startedAt) throw new ClientError("DESCRIPTOR_INVALID", "Kernel descriptor is invalid.", 0);
   return { schemaVersion: 1, baseUrl: candidate.baseUrl, token: candidate.token, pid: candidate.pid, startedAt: candidate.startedAt };
 }
 
@@ -35,7 +40,7 @@ export class KernelClient {
   status(): Promise<{ status: "ok"; schemaVersion: number; pid: number }> { return this.#request("GET", "/v1/status"); }
   agentBootstrap(): Promise<{ kernel: { ready: boolean }; graph: { ready: boolean; graphId: string | null; capabilities: readonly string[]; reason?: string }; agent: { executorType: "EXTERNAL_CLI"; supportedPurposes: readonly AgentRunReceipt["purpose"][] }; skills: Array<{ id: string; version: string; contentHash: string }>; forbidden: readonly string[] }> { return this.#request("GET", "/v1/agent/bootstrap"); }
   listSkills(): Promise<{ skills: Array<{ id: string; version: string; contentHash: string }> }> { return this.#request("GET", "/v1/skills"); }
-  showSkill(id: string): Promise<{ skill: SkillPackage }> { return this.#request("GET", `/v1/skills/${encodeURIComponent(id)}`); }
+  showSkill(id: string): Promise<{ skill: SkillPackage; resultContract: unknown }> { return this.#request("GET", `/v1/skills/${encodeURIComponent(id)}`); }
   graphStatus(): Promise<GraphGatewayStatus> { return this.#request("GET", "/v1/graph/status"); }
   graphSearch(input: { query: string; limit: number; runId?: string }): Promise<{ matches: readonly GraphSearchMatch[]; receipt: GraphReadReceipt | null }> { return this.#request("POST", "/v1/graph/search", input); }
   graphBlock(id: string, runId?: string): Promise<{ block: GraphBlockRead; receipt: GraphReadReceipt | null }> { return this.#request("GET", `/v1/graph/blocks/${encodeURIComponent(id)}${runId ? `?run=${encodeURIComponent(runId)}` : ""}`); }

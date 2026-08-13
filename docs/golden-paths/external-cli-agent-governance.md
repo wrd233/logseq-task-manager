@@ -12,3 +12,5 @@ Automated acceptance uses a real loopback Kernel Service, the production broker/
 8. External result cannot select Skill, risk, actor, PARKED, Closure, generic create, or raw write.
 
 The real Desktop matrix separately records current focus, both Engagement directions, and `NO_PROPOSAL` with zero Task Copilot Plugin UI clicks during the CLI flow. Local Graph names, content, screenshots, descriptors, and database remain outside Git.
+
+A fresh-session synthetic acceptance used only this repository's short Agent Guide and the built `task-copilot` binary. The first run exposed an incomplete Engagement result description and a broken build artifact; both were fixed. A clean rerun required no source-code reading or field guessing, committed one focus and one Waiting proposal, produced one durable `NO_PROPOSAL`, and ended with no failed runs or recovery rows. Runtime IDs and temporary descriptors remain local.

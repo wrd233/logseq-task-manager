@@ -36,3 +36,12 @@ test("an unacknowledged delivery is leased and redelivered with the same request
   broker.complete("graph", retry.id, { kind: "READ_BLOCK", block: { graphId: "graph", blockUuid: "block", pageName: "Page", content: "value", contentHash: "hash" } });
   assert.equal((await waiting).kind, "READ_BLOCK"); broker.close();
 });
+
+test("the broker rejects Graph replacement and cross-Graph responses while a request is active", async () => {
+  const broker = new GraphRequestBroker({ requestTimeoutMs: 100 }); broker.heartbeat("graph-a");
+  assert.throws(() => broker.heartbeat("graph-b"), /GRAPH_ADAPTER_GRAPH_CONFLICT/u);
+  const waiting = broker.request({ kind: "READ_BLOCK", graphId: "graph-a", blockUuid: "block" }); const envelope = broker.poll("graph-a")!;
+  assert.throws(() => broker.complete("graph-b", envelope.id, { kind: "READ_BLOCK", block: { graphId: "graph-b", blockUuid: "block", pageName: "Page", content: "value", contentHash: "hash" } }), /GRAPH_ADAPTER_GRAPH_CONFLICT|GRAPH_RESPONSE_GRAPH_MISMATCH/u);
+  assert.throws(() => broker.complete("graph-a", envelope.id, { kind: "READ_BLOCK", block: { graphId: "graph-b", blockUuid: "block", pageName: "Page", content: "value", contentHash: "hash" } }), /GRAPH_RESPONSE_GRAPH_MISMATCH/u);
+  broker.fail("graph-a", envelope.id, "EXPECTED_TEST_FAILURE", "done"); await assert.rejects(waiting, /EXPECTED_TEST_FAILURE/u); broker.close();
+});

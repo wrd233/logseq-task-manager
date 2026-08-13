@@ -26,3 +26,9 @@ test("the CLI descriptor parser drops Graph capabilities while the Plugin parser
   assert.equal(parsePluginKernelDescriptor(raw).graphBridgeToken, "b".repeat(64));
   assert.throws(() => parsePluginKernelDescriptor(cli), /PLUGIN_DESCRIPTOR_INVALID/u);
 });
+
+test("descriptor parsing rejects deceptive non-loopback URLs before a bearer can be sent", () => {
+  const base = { schemaVersion: 1 as const, token: "secret", pid: 42, startedAt: "now" };
+  for (const baseUrl of ["http://127.0.0.1:1234@evil.example", "https://127.0.0.1:1234", "http://localhost:1234", "http://127.0.0.1", "http://127.0.0.1:1234/path"]) assert.throws(() => parseKernelDescriptor({ ...base, baseUrl }), /DESCRIPTOR_INVALID/u);
+  assert.equal(parseKernelDescriptor({ ...base, baseUrl: "http://127.0.0.1:1234" }).baseUrl, "http://127.0.0.1:1234");
+});

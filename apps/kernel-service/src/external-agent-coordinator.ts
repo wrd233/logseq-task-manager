@@ -1,4 +1,4 @@
-import { deterministicUuid, stableHash, type AgentRunReceipt, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AgentRunReceipt, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit } from "@task-copilot/contracts";
 import { KernelError } from "@task-copilot/kernel";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
@@ -29,7 +29,7 @@ export class ExternalAgentCoordinator {
   skill(id: string) {
     const skill = this.#kernel.approvedSkills().find((item) => item.id === id);
     if (!skill) throw new KernelError("SKILL_NOT_FOUND", "Approved Skill does not exist.");
-    return skill;
+    return { skill, resultContract: skill.id === "engagement-reconciliation" ? EXTERNAL_ENGAGEMENT_RESULT_CONTRACT : EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT };
   }
 
   async search(input: { query: string; limit: number; runId?: string }): Promise<{ matches: readonly GraphSearchMatch[]; receipt: GraphReadReceipt | null }> {

@@ -11,6 +11,19 @@ interface PendingRequest {
   timer: ReturnType<typeof setTimeout>;
 }
 
+function requestGraphId(request: GraphGatewayRequest): string {
+  return request.kind === "READ_TARGET_SNAPSHOT" ? request.input.graphId : request.kind === "APPLY_EFFECT" ? request.effect.graphId : request.graphId;
+}
+
+function responseGraphIds(response: GraphGatewayResponse): readonly string[] {
+  if (response.kind === "SEARCH") return response.matches.map((item) => item.graphId);
+  if (response.kind === "READ_BLOCK") return [response.block.graphId];
+  if (response.kind === "READ_PAGE") return [response.page.graphId, ...response.page.blocks.map((item) => item.graphId)];
+  if (response.kind === "READ_EVIDENCE") return [response.material.graphId];
+  if (response.kind === "READ_TARGET_SNAPSHOT") return [response.snapshot.graphId];
+  return [response.result.graphId, response.snapshot.graphId];
+}
+
 export class GraphBrokerError extends Error {
   readonly code: string;
   constructor(code: string, message: string) { super(`${code}: ${message}`); this.name = "GraphBrokerError"; this.code = code; }
@@ -35,6 +48,7 @@ export class GraphRequestBroker {
 
   heartbeat(graphId: string): GraphGatewayStatus {
     if (!graphId.trim()) throw new GraphBrokerError("GRAPH_ID_REQUIRED", "Graph Adapter heartbeat requires graphId.");
+    if (this.#graphId && this.#graphId !== graphId && (this.#pending.size > 0 || Date.now() - this.#lastSeenMs <= this.#offlineAfterMs)) throw new GraphBrokerError("GRAPH_ADAPTER_GRAPH_CONFLICT", "Another Graph Adapter is already bound to this broker.");
     this.#graphId = graphId;
     this.#lastSeenAt = this.#now();
     this.#lastSeenMs = Date.now();
@@ -55,8 +69,7 @@ export class GraphRequestBroker {
   async request(request: GraphGatewayRequest): Promise<GraphGatewayResponse> {
     const status = this.status();
     if (!status.available || !status.graphId) throw new GraphBrokerError("GRAPH_ADAPTER_OFFLINE", "The trusted Logseq Graph Adapter is not connected.");
-    const requestGraphId = request.kind === "READ_TARGET_SNAPSHOT" ? request.input.graphId : request.kind === "APPLY_EFFECT" ? request.effect.graphId : request.graphId;
-    if (requestGraphId !== status.graphId) throw new GraphBrokerError("GRAPH_ID_MISMATCH", "Requested Graph is not the connected Graph Adapter.");
+    if (requestGraphId(request) !== status.graphId) throw new GraphBrokerError("GRAPH_ID_MISMATCH", "Requested Graph is not the connected Graph Adapter.");
     const envelope = { id: randomUUID(), request, createdAt: this.#now() } satisfies GraphGatewayRequestEnvelope;
     return new Promise<GraphGatewayResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -81,13 +94,16 @@ export class GraphRequestBroker {
     if (!pending) throw new GraphBrokerError("GRAPH_REQUEST_NOT_FOUND", "Graph request is not pending.");
     const expectedKind = pending.envelope.request.kind;
     if (response.kind !== expectedKind) throw new GraphBrokerError("GRAPH_RESPONSE_KIND_MISMATCH", "Graph response kind does not match its request.");
+    const expectedGraphId = requestGraphId(pending.envelope.request);
+    if (graphId !== expectedGraphId || responseGraphIds(response).some((value) => value !== expectedGraphId)) throw new GraphBrokerError("GRAPH_RESPONSE_GRAPH_MISMATCH", "Graph response is not bound to the requested Graph.");
     clearTimeout(pending.timer); this.#pending.delete(requestId); pending.resolve(response);
   }
 
   fail(graphId: string, requestId: string, code: string, message: string): void {
-    this.heartbeat(graphId);
     const pending = this.#pending.get(requestId);
     if (!pending) throw new GraphBrokerError("GRAPH_REQUEST_NOT_FOUND", "Graph request is not pending.");
+    if (graphId !== requestGraphId(pending.envelope.request)) throw new GraphBrokerError("GRAPH_RESPONSE_GRAPH_MISMATCH", "Graph failure is not bound to the requested Graph.");
+    this.heartbeat(graphId);
     clearTimeout(pending.timer); this.#pending.delete(requestId); pending.reject(new GraphBrokerError(code, message));
   }
 

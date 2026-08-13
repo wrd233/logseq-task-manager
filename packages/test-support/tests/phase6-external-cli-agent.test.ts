@@ -94,12 +94,26 @@ test("External NO_PROPOSAL is durable with zero Proposal or Commit", async () =>
   } finally { value.stop(); await value.service.close(); }
 });
 
+test("External NEEDS_MORE_CONTEXT is durable and run idempotence is bound to the exact Evidence set", async () => {
+  const value = await setup();
+  try {
+    for (const [id, content] of [["context-one", "信息仍不完整。"], ["context-two", "另一个上下文。"]] as const) { value.records.set(id, { content, pageName: "Synthetic Phase 6" }); value.graph.seedNaturalRecord(value.graphId, id, content); await value.client.freezeExternalEvidence({ evidenceId: `evidence-${id}`, workObjectId: value.workObjectId, blockUuid: id }); }
+    const input = { runId: "run-context", purpose: "CURRENT_FOCUS_MAINTENANCE" as const, workObjectId: value.workObjectId, evidenceIds: ["evidence-context-one"], executorId: "codex" };
+    await value.client.startExternalAgentRun(input);
+    await assert.rejects(value.client.startExternalAgentRun({ ...input, evidenceIds: ["evidence-context-two"] }), /AGENT_RUN_ALREADY_EXISTS/u);
+    const before = value.service.store.listCommits().length;
+    const finished = await value.client.finishExternalAgentRun(input.runId, { outcome: "NEEDS_MORE_CONTEXT", reasonCode: "INSUFFICIENT_CONTEXT", rationaleSummary: "现有记录不足以形成正式变化。" });
+    assert.equal(finished.run.result.outcome, "NEEDS_MORE_CONTEXT"); assert.equal(finished.proposal, null); assert.equal(value.service.store.listCommits().length, before);
+  } finally { value.stop(); await value.service.close(); }
+});
+
 test("External contract rejects missing Evidence, PARKED result, stale target, and search-only proposal", async () => {
   const value = await setup();
   try {
     await assert.rejects(value.client.startExternalAgentRun({ runId: "run-no-evidence", purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId: value.workObjectId, evidenceIds: [], executorId: "codex" }), /EVIDENCE_INVALID/u);
     value.records.set("evidence", { content: "厂商尚未提供兼容版本。", pageName: "Synthetic Phase 6" }); value.graph.seedNaturalRecord(value.graphId, "evidence", value.records.get("evidence")!.content);
     await value.client.freezeExternalEvidence({ evidenceId: "evidence-one", workObjectId: value.workObjectId, blockUuid: "evidence" });
+    await assert.rejects(value.client.startExternalAgentRun({ runId: "run-wrong-purpose", purpose: "UNSUPPORTED" as never, workObjectId: value.workObjectId, evidenceIds: ["evidence-one"], executorId: "codex" }), /AGENT_RUN_PURPOSE_INVALID/u);
     await value.client.startExternalAgentRun({ runId: "run-parked", purpose: "ENGAGEMENT_RECONCILIATION", workObjectId: value.workObjectId, evidenceIds: ["evidence-one"], executorId: "codex" });
     await assert.rejects(value.client.finishExternalAgentRun("run-parked", { outcome: "PROPOSAL", transition: { from: "ACTIONABLE", to: "PARKED", waiting: null }, reasonCode: "PARK", rationaleSummary: "park" }), /AGENT_RESULT_INVALID/u);
     assert.equal((await value.client.showAgentRun("run-parked")).run.result.outcome, "FAILED");

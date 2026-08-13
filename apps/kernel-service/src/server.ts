@@ -69,7 +69,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "GET" && url.pathname === "/v1/agent/bootstrap") { send(response, 200, external.bootstrap()); return; }
       if (request.method === "GET" && url.pathname === "/v1/skills") { send(response, 200, { skills: external.skills() }); return; }
       const skillMatch = /^\/v1\/skills\/([^/]+)$/u.exec(url.pathname);
-      if (request.method === "GET" && skillMatch) { send(response, 200, { skill: external.skill(decodeURIComponent(skillMatch[1]!)) }); return; }
+      if (request.method === "GET" && skillMatch) { send(response, 200, external.skill(decodeURIComponent(skillMatch[1]!))); return; }
       if (request.method === "GET" && url.pathname === "/v1/graph/status") { send(response, 200, broker.status()); return; }
       if (request.method === "POST" && url.pathname === "/v1/graph/search") { const value = await body(request) as { query: string; limit?: number; runId?: string }; send(response, 200, await external.search({ query: value.query, limit: value.limit ?? 20, ...(value.runId ? { runId: value.runId } : {}) })); return; }
       const graphBlock = /^\/v1\/graph\/blocks\/([^/]+)$/u.exec(url.pathname);
@@ -185,7 +185,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       send(response, 404, { error: { code: "ROUTE_NOT_FOUND", message: "Route not found." } });
     } catch (error) {
       const code = error instanceof KernelError ? error.code : error instanceof Error && "code" in error ? String(error.code) : "INTERNAL_ERROR";
-      const message = error instanceof Error ? error.message : "Internal error.";
+      const message = code === "INTERNAL_ERROR" ? "Internal error." : error instanceof Error ? error.message : "Internal error.";
       send(response, code === "INTERNAL_ERROR" ? 500 : 409, { error: { code, message } });
     }
   });

@@ -252,9 +252,10 @@ export class Kernel {
   }
 
   startExternalAgentRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string; snapshot: GraphSnapshot }): AgentRunReceipt {
+    if (input.purpose !== "CURRENT_FOCUS_MAINTENANCE" && input.purpose !== "ENGAGEMENT_RECONCILIATION") throw new KernelError("AGENT_RUN_PURPOSE_INVALID", "External AgentRun purpose is unsupported.");
     const existing = this.#store.getAgentRun(input.runId);
     if (existing) {
-      if (existing.executor.type === "EXTERNAL_CLI" && existing.executor.id === input.executorId && existing.purpose === input.purpose && existing.subject.workObjectId === input.workObjectId) return existing;
+      if (existing.executor.type === "EXTERNAL_CLI" && existing.executor.id === input.executorId.trim() && existing.purpose === input.purpose && existing.subject.workObjectId === input.workObjectId && stableHash(existing.context.evidenceIds) === stableHash(input.evidenceIds)) return existing;
       throw new KernelError("AGENT_RUN_ALREADY_EXISTS", "AgentRun id is already bound to another cognition contract.");
     }
     if (!input.executorId.trim()) throw new KernelError("EXECUTOR_ID_REQUIRED", "External executor id is required.");

@@ -11,7 +11,7 @@ task-copilot graph status --json
 
 For one formal object:
 
-1. Read it with `object show` and read the approved Skill with `skill show`.
+1. Read it with `object show`. `skill show` returns both the immutable approved Skill and the Kernel-owned closed `resultContract`; use that exact shape instead of guessing fields.
 2. Explore narrowly with `graph search`, `graph block show`, or `graph page show`.
 3. Freeze only the finite blocks that justify a formal conclusion with `evidence freeze`.
 4. Start a run for `CURRENT_FOCUS_MAINTENANCE` or `ENGAGEMENT_RECONCILIATION`.

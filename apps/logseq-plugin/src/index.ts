@@ -370,6 +370,6 @@ logseq.useSettingsSchema([{
   type: "string",
   default: "",
   title: "Plugin Graph descriptor JSON",
-  description: "从本机 kernel.json 复制；校验后写入 Plugin 私有 FileStorage，不进入 Graph 或日志。",
+  description: "从本机 graph-adapter.json 复制；校验后写入 Plugin 私有 FileStorage，不进入 Graph 或日志。",
 }]);
 logseq.ready(main).catch((error) => console.error("Task Copilot vNext bootstrap failed", error));

@@ -6,7 +6,7 @@ import { runCli } from "../src/cli.ts";
 const client = {
   status: async () => ({ status: "ok" as const, schemaVersion: 1, pid: 42 }),
   agentBootstrap: async () => ({ kernel: { ready: true }, graph: { ready: false, graphId: null, capabilities: [], reason: "GRAPH_ADAPTER_OFFLINE" }, agent: { executorType: "EXTERNAL_CLI" as const, supportedPurposes: [] }, skills: [], forbidden: [] }),
-  listSkills: async () => ({ skills: [] }), showSkill: async () => ({ skill: {} as never }),
+  listSkills: async () => ({ skills: [] }), showSkill: async () => ({ skill: {} as never, resultContract: {} }),
   listObjects: async () => ({ objects: [{ id: "work-01", kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }] }),
   showObject: async (id: string) => ({ object: { id, kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, version: 1, createdAt: "now", updatedAt: "now" }, anchor: null }),
   showClosure: async () => ({ closure: { current: null, completions: [], cancellations: [], amendments: [], reopens: [] } }),
@@ -54,5 +54,11 @@ test("External Agent commands are JSON-first, non-interactive, and filter object
 test("CLI emits stable JSON errors and refuses non-waiting proposal apply", async () => {
   const errors: string[] = [];
   assert.equal(await runCli(["proposal", "apply", "proposal", "--json"], client, { out: () => undefined, err: (line) => errors.push(line) }), 2);
+  assert.equal(JSON.parse(errors[0]!).error.code, "CLI_USAGE");
+});
+
+test("object filters fail closed instead of silently returning an empty list", async () => {
+  const errors: string[] = [];
+  assert.equal(await runCli(["object", "list", "--lifecycle", "BOGUS", "--json"], client, { out: () => undefined, err: (line) => errors.push(line) }), 2);
   assert.equal(JSON.parse(errors[0]!).error.code, "CLI_USAGE");
 });

@@ -23,6 +23,8 @@ test("service binds to loopback, writes a private descriptor, and rejects missin
     assert.equal((await client.status()).status, "ok");
     const bootstrap = await client.agentBootstrap(); const publicJson = JSON.stringify(bootstrap);
     assert.equal(publicJson.includes("test-token"), false); assert.equal(publicJson.includes(server.graphSnapshotKey), false); assert.equal(publicJson.includes(server.graphBridgeToken), false); assert.equal(publicJson.includes("kernel.sqlite"), false);
+    const engagement = await client.showSkill("engagement-reconciliation") as { skill: { version: string }; resultContract: { properties: { transition: { properties: { waiting: unknown } } } } };
+    assert.equal(engagement.skill.version, "0.1.1"); assert.ok(engagement.resultContract.properties.transition.properties.waiting);
     assert.equal((await fetch(`${server.baseUrl}/v1/graph-adapter/poll`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ graphId: "graph" }) })).status, 401);
     assert.equal((await fetch(`${server.baseUrl}/v1/status`)).status, 401);
   } finally { await server.close(); }

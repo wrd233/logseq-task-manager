@@ -39,7 +39,7 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Undo is a compensation Commit | Create and Rename compensation retain original Ledger rows and link `compensationFor`/`compensatedBy` | PROVED |
 | Keep Agent scope narrow | One deterministic Agent/Skill slice exists; no MCP, generic repository hierarchy, workflow DSL, provider platform, or arbitrary mutation API | PROVED |
 | Required architecture/ADR/golden-path documentation | All seven requested documents plus six narrow ADRs exist and match implemented behavior | PROVED |
-| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 115/115 tests, all builds including local SDK packaging, and dependency boundaries | PROVED |
+| Full automated verification | Node 20.20.2 `npm run check`: typecheck, lint, 119/119 tests, post-build CLI smoke, all builds including local SDK packaging, and dependency boundaries | PROVED |
 | Real Logseq vertical slice before Goal completion | Isolated Logseq 0.10.15 + deterministic Fake Agent produced Evidence, AgentRun, Proposal, Commit, managed focus, compensation Undo, Feedback, and empty recovery; CLI audited every durable record | PROVED |
 | Independent standards and spec review | Initial findings were fixed; final independent standards and strict Goal-spec re-reviews both returned PASS with no blocking finding | PROVED |
 | Publish `vnext` to origin | Phase 4 implementation and final trust-gap closure reached `origin/vnext` at `229ace4d3ce272cd10b30673c67bf4120f7085be`; the audit-closure commit is verified by the release handoff's final exact local/remote OID check | PROVED |
@@ -77,6 +77,7 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Phase 6 CLI governance surface | Bootstrap, Skills, filtered objects, Graph reads, Evidence freeze, run start/finish/reads, and proposal apply are JSON-first and non-interactive | PROVED automatically |
 | Phase 6 authorization | Current focus and bidirectional Waiting commit; PARKED, missing Evidence, generic Agent writes, and Closure remain rejected | PROVED automatically |
 | Phase 6 failure and restart gates | Offline, stale Evidence/target, invalid result, apply failure/retry, response redelivery, Kernel restart, and worker reload tests | PROVED automatically |
+| Phase 6 fresh Agent usability | A context-free Agent used only the short Guide, direct built CLI, bootstrap, approved Skills, and Kernel result contract; it committed focus and Waiting once each, returned one NO_PROPOSAL, and ended with empty recovery | PROVED on synthetic runtime |
 | Phase 6 real Desktop and fresh Agent acceptance | Real Graph current focus, both Waiting directions, NO_PROPOSAL, zero Plugin UI clicks, and fresh-session `整理今天` | PENDING local runtime evidence |
 | Phase 6 privacy and remote publish | No Graph/DB/descriptor/screenshot/backup in Git; final local/remote parity | PENDING final audit |
 
