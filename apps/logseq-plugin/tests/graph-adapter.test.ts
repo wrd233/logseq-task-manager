@@ -143,13 +143,16 @@ test("value or topology conflicts fail closed and preserve natural children", as
 
 test("Waiting and review render as sparse ordered children while full semantics stay Kernel-owned", async () => {
   const host = new Host(); host.addNaturalChild(); const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(upsert);
-  const condition = { workObjectId: "work-01", description: "网络组确认测试 VLAN", since: "2026-08-13T08:00:00.000Z", reviewAt: "2026-08-15", evidenceIds: ["evidence-01"] };
+  const condition = { workObjectId: "work-01", description: "网络组确认测试 VLAN", since: "2026-08-13T08:00:00.000Z", reviewAt: "2026-08-15T00:00:00.000Z", evidenceIds: ["evidence-01"] };
   const waiting = projection({ engagement: "WAITING", waitingCondition: condition });
   await adapter.applyGraphEffect(engagementEffect(initial, waiting));
   assert.deepEqual(host.nodes.get("source-01")!.children, [identity.waitingUuid, reviewFieldUuid(identity.waitingUuid), "natural-child"]);
   assert.equal(host.nodes.get(identity.waitingUuid)!.content.split("\n")[0], "**[等待]** 网络组确认测试 VLAN");
   assert.equal(host.nodes.get(reviewFieldUuid(identity.waitingUuid))!.content.split("\n")[0], "**[复查]** 2026-08-15");
   assert.deepEqual((await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: waiting })).projection?.waitingCondition, condition);
+  host.nodes.get(reviewFieldUuid(identity.waitingUuid))!.content = "**[复查]** 2026-08-15T00:00:00.000Z";
+  await adapter.rerenderManagedProjection({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: waiting });
+  assert.equal(host.nodes.get(reviewFieldUuid(identity.waitingUuid))!.content, "**[复查]** 2026-08-15");
   await adapter.applyGraphEffect(engagementEffect(waiting, initial, "actionable"));
   assert.deepEqual(host.nodes.get("source-01")!.children, ["natural-child"]);
 });

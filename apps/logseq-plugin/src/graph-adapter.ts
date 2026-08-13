@@ -1,7 +1,7 @@
 import { canonicalizeGraphContent, graphEvidenceProofPayload, stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 
 import { logseqBlock as normalizeLogseqBlock, readProjectionByIdentity, type LogseqBlock } from "./projection-reader.ts";
-import { renderProjection, reviewFieldUuid, type ProjectionBlockIntent } from "./projection-renderer.ts";
+import { matchesPresentedValue, renderProjection, reviewFieldUuid, type ProjectionBlockIntent } from "./projection-renderer.ts";
 import { readManagedFieldValue } from "./writing-convention.ts";
 
 export interface LogseqGraphHost {
@@ -148,15 +148,16 @@ export class LogseqGraphAdapter implements GraphAdapter {
     if (inspection.mode === "LEGACY") return true;
     if (inspection.blocks.has(before.containerUuid) || inspection.blocks.has(before.titleUuid)) return false;
     const direct = new Set(inspection.source.children.map((child) => child.uuid));
-    const beforeByUuid = new Map(renderProjection(before).map((intent) => [intent.uuid, intent.value]));
-    const afterByUuid = new Map(renderProjection(after).map((intent) => [intent.uuid, intent.value]));
+    const beforeByUuid = new Map(renderProjection(before).map((intent) => [intent.uuid, intent]));
+    const afterByUuid = new Map(renderProjection(after).map((intent) => [intent.uuid, intent]));
     const uuids = new Set([...beforeByUuid.keys(), ...afterByUuid.keys(), before.stateUuid, before.focusUuid, before.waitingUuid, reviewFieldUuid(before.waitingUuid)]);
     return [...uuids].every((uuid) => {
       const block = inspection.blocks.get(uuid);
       if (!block) return !beforeByUuid.has(uuid) || !afterByUuid.has(uuid);
       if ((!direct.has(uuid) && !allowTopologyLag) || block.content.includes("\n") || block.children.length) return false;
       const actual = readManagedFieldValue(block.content);
-      return actual === beforeByUuid.get(uuid) || actual === afterByUuid.get(uuid);
+      const beforeIntent = beforeByUuid.get(uuid); const afterIntent = afterByUuid.get(uuid);
+      return Boolean((beforeIntent && matchesPresentedValue(beforeIntent, actual)) || (afterIntent && matchesPresentedValue(afterIntent, actual)));
     });
   }
 
@@ -200,8 +201,8 @@ export class LogseqGraphAdapter implements GraphAdapter {
         const direct = (await this.#required(this.#sourceFor(), true)).children.some((child) => child.uuid === intent.uuid);
         if (!direct || existing.content.includes("\n")) throw new Error(`GRAPH_MANAGED_BLOCK_CHANGED:${intent.uuid}`);
         const value = readManagedFieldValue(existing.content);
-        const allowed = new Set([renderProjection(before).find((item) => item.uuid === intent.uuid)?.value, intent.value]);
-        if (!allowed.has(value)) throw new Error(`GRAPH_MANAGED_BLOCK_CHANGED:${intent.uuid}`);
+        const beforeIntent = renderProjection(before).find((item) => item.uuid === intent.uuid);
+        if (!matchesPresentedValue(intent, value) && !(beforeIntent && matchesPresentedValue(beforeIntent, value))) throw new Error(`GRAPH_MANAGED_BLOCK_CHANGED:${intent.uuid}`);
         if (canonicalizeGraphContent(existing.content) !== intent.content) await this.#host.updateBlock(intent.uuid, intent.content);
       } else {
         await this.#insertIntent(this.#sourceFor(), intent, previousUuid);

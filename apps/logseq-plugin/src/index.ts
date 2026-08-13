@@ -2,7 +2,7 @@ import { KernelClient, parseKernelDescriptor } from "@task-copilot/client/browse
 import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkObject } from "@task-copilot/contracts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
-import { ensurePersistentSourceIdentity } from "./source-identity.ts";
+import { currentGraphIsDb, ensurePersistentSourceIdentity } from "./source-identity.ts";
 import { requestTextPrompt } from "./text-prompt.ts";
 
 const descriptorKey = "task-copilot-vnext-kernel-descriptor";
@@ -90,7 +90,7 @@ async function formalizeCurrentRecord(): Promise<void> {
   const stable = await ensurePersistentSourceIdentity({
     getBlock: (uuid) => logseq.Editor.getBlock(uuid),
     upsertBlockProperty: (uuid, key, value) => logseq.Editor.upsertBlockProperty(uuid, key, value),
-  }, { uuid: current.uuid, content: current.content, isDbGraph: Boolean(await logseq.App.checkCurrentIsDbGraph()) });
+  }, { uuid: current.uuid, content: current.content, isDbGraph: await currentGraphIsDb(logseq.App) });
   const api = await client(); const { adapter, graphId } = await adapterForCurrentGraph();
   const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
   const title = stable.content.split("\n")[0]!.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");

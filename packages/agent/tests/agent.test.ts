@@ -20,6 +20,8 @@ test("Fake Agent deterministically covers proposal, no-op, ambiguity, scope expa
 test("Fake Engagement Agent covers enter, leave, no-op, ambiguity, parking, and scope", async () => {
   const agent = new DeterministicEngagementAgent();
   assert.equal((await agent.propose({ target, skill, evidence: [evidence("网络组还没有分配 VLAN，需要等 VLAN 和网关信息确认后才能继续服务器网络配置。")] })).transition?.to, "WAITING");
+  assert.equal((await agent.propose({ target, skill, evidence: [evidence("网络组还没有分配 VLAN，需要等 VLAN 和网关信息确认后才能继续；复查：2026-08-15。")] })).transition?.waiting?.reviewAt, "2026-08-15");
+  assert.equal((await agent.propose({ target, skill, evidence: [evidence("网络组还没有分配 VLAN，需要等 VLAN 和网关信息确认后才能继续；复查：2026-02-30。")] })).transition?.waiting?.reviewAt, null);
   const waiting = { ...target, engagement: "WAITING" as const, waitingCondition: { workObjectId: target.id, description: "等待网络组分配 VLAN 和网关信息", since: "now", reviewAt: null, evidenceIds: ["evidence-01"] } };
   assert.equal((await agent.propose({ target: waiting, skill, evidence: [evidence("VLAN 310、网关和地址规划已经由网络组确认。")] })).transition?.to, "ACTIONABLE");
   assert.equal((await agent.propose({ target: waiting, skill, evidence: [evidence("VLAN 已分配，但网关仍未确认，不能继续。")] })).reasonCode, "WAITING_NOT_PROVEN_RESOLVED");

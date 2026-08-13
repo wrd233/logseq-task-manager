@@ -1,6 +1,6 @@
 import { canonicalizeGraphContent, stableHash, type ManagedProjection } from "@task-copilot/contracts";
 
-import { renderProjection, reviewFieldUuid } from "./projection-renderer.ts";
+import { matchesPresentedValue, renderProjection, reviewFieldUuid } from "./projection-renderer.ts";
 import { readManagedFieldValue } from "./writing-convention.ts";
 
 export interface LogseqBlock {
@@ -142,7 +142,7 @@ export function readProjectionByIdentity(source: LogseqBlock, registeredBlocks: 
     const intent = expectedByUuid.get(uuid);
     const singleLine = block ? !block.content.includes("\n") : true;
     const value = block ? readManagedFieldValue(block.content) : null;
-    const valid = intent ? Boolean(block && direct && singleLine && block.children.length === 0 && value === intent.value) : !block;
+    const valid = intent ? Boolean(block && direct && singleLine && block.children.length === 0 && matchesPresentedValue(intent, value)) : !block;
     return { uuid, present: Boolean(block), direct, value, expected: intent?.value ?? null, valid };
   });
   const equivalent = observations.every((item) => item.valid);

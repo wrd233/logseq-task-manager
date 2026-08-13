@@ -5,12 +5,40 @@ export interface SourceIdentityHost {
   upsertBlockProperty(uuid: string, key: string, value: unknown): Promise<void>;
 }
 
+export interface GraphModeHost {
+  checkCurrentIsDbGraph?: () => Promise<unknown>;
+  getCurrentGraph(): Promise<unknown>;
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
 function content(value: Record<string, unknown>): string | null {
   return typeof value.title === "string" ? value.title : typeof value.content === "string" ? value.content : null;
+}
+
+/**
+ * `checkCurrentIsDbGraph` was added to the SDK before every supported Desktop
+ * host shipped it.  File graphs still expose an absolute filesystem `path`, so
+ * older hosts can be identified without querying private application state.
+ * Unknown shapes fail closed instead of risking a textual id write in a DB
+ * graph.
+ */
+export async function currentGraphIsDb(host: GraphModeHost): Promise<boolean> {
+  if (typeof host.checkCurrentIsDbGraph === "function") {
+    try { return Boolean(await host.checkCurrentIsDbGraph()); }
+    catch (error) {
+      // Older Logseq RPC proxies synthesize a callable property even when the
+      // host method is absent. Only that explicit capability error may fall
+      // back; every real checker failure remains fail-closed.
+      if (!(error instanceof Error) || !/Not existed method #checkCurrentIsDbGraph/u.test(error.message)) throw error;
+    }
+  }
+  const graph = record(await host.getCurrentGraph());
+  const path = graph?.path;
+  if (typeof path === "string" && (/^\//u.test(path) || /^[A-Za-z]:[\\/]/u.test(path))) return false;
+  throw new Error("LOGSEQ_GRAPH_MODE_UNAVAILABLE");
 }
 
 /**

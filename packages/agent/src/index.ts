@@ -39,6 +39,12 @@ function waitingConditionSatisfied(description: string, content: string): boolea
   return false;
 }
 
+function explicitReviewDate(content: string): string | null {
+  const value = /(?:复查|review(?:\s+on)?)[：:\s]+(\d{4}-\d{2}-\d{2})\b/iu.exec(content)?.[1] ?? null;
+  if (!value || !Number.isFinite(Date.parse(`${value}T00:00:00.000Z`))) return null;
+  return new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) === value ? value : null;
+}
+
 export class DeterministicCurrentFocusAgent implements CurrentFocusAgent {
   readonly id = "fake-current-focus-agent";
 
@@ -66,7 +72,7 @@ export class DeterministicEngagementAgent implements EngagementAgent {
     if (input.target.engagement === "ACTIONABLE") {
       if (/网络组.*(?:还没有|尚未).*(?:VLAN|网关).*(?:才能|无法|不能)|业务方.*(?:还没|尚未)确认.*(?:之前不能|才能)|采购.*(?:还没|尚未).*审批.*(?:不能|无法)/iu.test(content)) {
         const description = /网络组/iu.test(content) ? "等待网络组分配 VLAN 和网关信息" : /业务方/iu.test(content) ? "等待业务方确认生产上线时间" : "等待采购流程审批完成";
-        return { outcome: "PROPOSAL", transition: { from: "ACTIONABLE", to: "WAITING", waiting: { description, reviewAt: null } }, reasonCode: "EXTERNAL_PREREQUISITE_UNMET", rationaleSummary: "Direct Evidence identifies an unmet external prerequisite for this WorkObject." };
+        return { outcome: "PROPOSAL", transition: { from: "ACTIONABLE", to: "WAITING", waiting: { description, reviewAt: explicitReviewDate(content) } }, reasonCode: "EXTERNAL_PREREQUISITE_UNMET", rationaleSummary: "Direct Evidence identifies an unmet external prerequisite for this WorkObject." };
       }
       return { outcome: "NO_PROPOSAL", reasonCode: "NO_EXTERNAL_BLOCKER", rationaleSummary: "Evidence does not prove an external prerequisite prevents progress." };
     }

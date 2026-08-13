@@ -20,6 +20,11 @@ test("focus, waiting, and review use stable identities and deterministic order",
   ]);
 });
 
+test("a domain-normalized midnight review date stays natural in Logseq", () => {
+  const waiting = { workObjectId: "work", description: "网络组确认测试 VLAN", since: "2026-08-13T00:00:00.000Z", reviewAt: "2026-08-15T00:00:00.000Z", evidenceIds: [] };
+  assert.equal(renderProjection(projection({ engagement: "WAITING", waitingCondition: waiting }))[1]?.content, "**[复查]** 2026-08-15");
+});
+
 test("completion is omitted when DONE and title already express the outcome", () => {
   assert.deepEqual(projectPresentation(projection({ lifecycle: "COMPLETED", engagement: null, closure: { type: "COMPLETED", recordId: "record", outcomeSummary: "完成测试服务器上架" } })), []);
   assert.deepEqual(renderProjection(projection({ lifecycle: "COMPLETED", engagement: null, closure: { type: "COMPLETED", recordId: "record", outcomeSummary: "管理口和业务口均已验证" } })), [

@@ -13,7 +13,17 @@ export interface ProjectionBlockIntent extends ProjectionFieldModel {
   order: number;
 }
 
+export function matchesPresentedValue(intent: ProjectionFieldModel, actual: string | null): boolean {
+  if (actual === intent.value) return true;
+  return intent.kind === "REVIEW" && actual === `${intent.value}T00:00:00.000Z`;
+}
+
 export const reviewFieldUuid = (waitingUuid: string): string => deterministicUuid(`review:${waitingUuid}`);
+
+function presentReviewAt(value: string): string {
+  const midnightUtc = /^(\d{4}-\d{2}-\d{2})T00:00:00\.000Z$/u.exec(value);
+  return midnightUtc?.[1] ?? value;
+}
 
 export function projectPresentation(projection: ManagedProjection): ProjectionFieldModel[] {
   const fields: ProjectionFieldModel[] = [];
@@ -23,7 +33,7 @@ export function projectPresentation(projection: ManagedProjection): ProjectionFi
     const description = projection.waitingCondition.description.trim();
     if (description) fields.push({ kind: "WAITING", uuid: projection.waitingUuid, value: description });
     const reviewAt = projection.waitingCondition.reviewAt?.trim();
-    if (reviewAt) fields.push({ kind: "REVIEW", uuid: reviewFieldUuid(projection.waitingUuid), value: reviewAt });
+    if (reviewAt) fields.push({ kind: "REVIEW", uuid: reviewFieldUuid(projection.waitingUuid), value: presentReviewAt(reviewAt) });
   }
   if (projection.lifecycle === "COMPLETED" && projection.closure?.type === "COMPLETED") {
     const outcome = projection.closure.outcomeSummary.trim();

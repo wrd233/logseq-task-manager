@@ -1,7 +1,34 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ensurePersistentSourceIdentity } from "../src/source-identity.ts";
+import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../src/source-identity.ts";
+
+test("graph mode uses the host capability when available", async () => {
+  assert.equal(await currentGraphIsDb({
+    checkCurrentIsDbGraph: async () => true,
+    getCurrentGraph: async () => { throw new Error("must not inspect fallback"); },
+  }), true);
+});
+
+test("older Desktop hosts identify a file graph by its absolute path", async () => {
+  assert.equal(await currentGraphIsDb({
+    checkCurrentIsDbGraph: async () => { throw new Error("Not existed method #checkCurrentIsDbGraph"); },
+    getCurrentGraph: async () => ({ name: "logseq", path: "/Users/example/logseq", url: "logseq://graph/logseq" }),
+  }), false);
+});
+
+test("graph-mode checker failures other than a missing host capability fail closed", async () => {
+  await assert.rejects(currentGraphIsDb({
+    checkCurrentIsDbGraph: async () => { throw new Error("rpc unavailable"); },
+    getCurrentGraph: async () => ({ path: "/Users/example/logseq" }),
+  }), /rpc unavailable/u);
+});
+
+test("older hosts fail closed when graph mode is ambiguous", async () => {
+  await assert.rejects(currentGraphIsDb({
+    getCurrentGraph: async () => ({ name: "unknown" }),
+  }), /LOGSEQ_GRAPH_MODE_UNAVAILABLE/u);
+});
 
 test("file-graph formalization persists the native id without changing canonical natural content", async () => {
   const uuid = "11111111-1111-4111-8111-111111111111";
