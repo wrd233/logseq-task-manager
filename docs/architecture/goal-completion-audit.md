@@ -59,11 +59,11 @@ This matrix checks the implementation against the complete Codex Goal rather tha
 | Phase 5 user authority and task-only scope | Kernel tests reject AGENT/SYSTEM for all four operations and reject MiniProject/Project Closure | PROVED |
 | Phase 5 immutable Closure history | SQLite schema v4, committed-only effective history, amendment/reopen/compensation semantics, API and CLI query | PROVED |
 | Phase 5 Graph and recovery | Marker/projection race, throw, response-loss replay, Logseq property normalization, no half-state COMMITTED | PROVED |
-| Online TODO to DONE ingestion | DB.onChanged coalescing, self-write suppression, and same Kernel completion transaction | PROVED automatically |
+| Online TODO to DONE ingestion | DB.onChanged coalescing, in-flight suppression, unload cleanup, bounded exact-hash read-after-write settle, and same Kernel completion transaction | PROVED automatically and on real Desktop |
 | Phase 5 real Desktop explicit completion and Undo | Logseq 0.10.15 visibly completed and restored a real Task; CLI and Graph file confirmed durable state/history | PROVED |
-| Phase 5 real Desktop WAITING completion, cancellation, reopen, and direct marker | Automated real-adapter/integration evidence exists; final independent Desktop interaction pass not completed | PENDING |
+| Phase 5 real Desktop WAITING completion, cancellation, reopen, and direct marker | Real user-Graph synthetic acceptance Tasks visibly proved exact WAITING/focus restoration, typed cancellation and reopen, direct marker completion, and an empty final Recovery queue | PROVED |
 | Publish Phase 5 partial checkpoint to origin | Implementation commit `e0c9f14b51005fb6a3ac1ab29195669906403241`; two independent reviews passed; final audit commit and remote parity are verified in the handoff | PROVED |
 
 ## Current conclusion
 
-Phase 3 and Phase 4 remain intact. The Phase 5 implementation, automated gates, explicit-completion Desktop path, compensation Undo, and partial-checkpoint publication are present. The remaining Desktop interaction matrix must be resolved before Phase 5 may be called fully complete.
+Phase 3 and Phase 4 remain intact. Phase 5 is fully proved: all Task Closure paths, exact compensation restoration, direct online marker ingestion, fail-closed recovery behavior, and the complete real Desktop interaction matrix have current evidence. Phase 5.5 may now change presentation without reopening semantic scope.

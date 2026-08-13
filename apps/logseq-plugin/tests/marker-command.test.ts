@@ -10,3 +10,19 @@ test("online marker observer coalesces DONE for one block and ignores every othe
   await new Promise((resolve) => setTimeout(resolve, 10)); off();
   assert.deepEqual(handled, ["task-01"]); assert.deepEqual(errors, []);
 });
+
+test("online marker observer ignores duplicate DONE events while the first completion is in flight", async () => {
+  let callback: ((event: { blocks?: readonly { uuid?: unknown; content?: unknown }[] }) => void) | null = null;
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const handled: string[] = [];
+  const off = registerOnlineDoneMarkerCommand({ onChanged: (value) => { callback = value; return () => undefined; } }, async (uuid) => { handled.push(uuid); await pending; }, () => undefined, 0);
+  callback!({ blocks: [{ uuid: "task-01", content: "DONE 已完成" }] });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  callback!({ blocks: [{ uuid: "task-01", content: "DONE 已完成" }] });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  off();
+  assert.deepEqual(handled, ["task-01"]);
+});

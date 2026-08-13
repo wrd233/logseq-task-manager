@@ -35,4 +35,15 @@ Logseq Desktop 0.10.15 loaded the rebuilt vNext plugin against the ignored isola
 - The first formalization attempt exposed a real host race: Logseq added its identity property between snapshot and prepare. Kernel failed closed with `SOURCE_CONTENT_HASH_MISMATCH` and left a recovery-visible row rather than claiming success. A fresh invocation succeeded. This failure evidence is retained in the isolated database.
 - Desktop also exposed that the plugin formerly copied the natural `TODO` label into the formal title. The final plugin strips workflow markers before `CREATE_WORK_OBJECT`; an automated regression covers the marker-free title.
 
-Cancellation, reopen, WAITING completion/Undo, and online marker command are fully covered through the real adapter plus cross-medium integration suite. Their final independent Desktop interaction pass remains a release-gate item; no visual acceptance is claimed from automated tests.
+## Real user-Graph Desktop closeout — 2026-08-13
+
+The remaining interaction matrix was rerun in Logseq Desktop 0.10.15 against the user's real Graph using synthetic, clearly named acceptance pages. A full APFS-clone backup was created first at `/tmp/task-copilot-vnext-real-graph-backup-20260813-133204`; no existing natural note content was copied into the repository or used as a write target.
+
+- A WAITING Task with a current focus was completed and then undone. The Graph visibly returned to `OPEN · WAITING`, and the exact waiting description, original `since`, Evidence ID, and current focus were restored.
+- A separate Task was cancelled with a typed reason and reopened with a second typed reason. The final state was `OPEN · ACTIONABLE`, while the immutable cancellation/reopen history remained in the Kernel.
+- The host did not support the earlier `window.prompt` flow. Cancellation/reopen/amendment now use a Plugin Main UI form with bounded, trimmed input; the real Desktop cancellation and reopen pass succeeded through that form.
+- A direct checkbox `TODO → DONE` reached the same committed completion transaction and showed the dedicated success receipt. Desktop diagnosis found that `updateBlock` may resolve before an immediate DB read exposes the new state; the Adapter now performs a bounded read-after-write settle only while the exact pre-write hash remains visible. Any other hash still fails closed.
+- Plugin reload diagnosis also found that the online marker listener needed explicit lifecycle cleanup. `beforeunload` now unregisters the listener, and a regression covers duplicate DONE events while one completion is in flight.
+- The final clean Kernel run reported `没有需要恢复的 Commit。`; the CLI recovery list was empty. Earlier deliberately retained `/tmp` diagnostic databases contain the fail-closed attempts that exposed the host timing issue.
+
+This closes the Phase 5 real Desktop interaction matrix. It is behavioral Desktop evidence, not independent pixel-level visual acceptance.

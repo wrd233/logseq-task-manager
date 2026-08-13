@@ -1,6 +1,6 @@
 # Phase 5 User-only Task Closure
 
-Status: Implemented
+Status: Implemented and fully proved on real Logseq Desktop
 
 Phase 5 adds four closed semantic operations and no generic lifecycle setter:
 
@@ -16,6 +16,8 @@ Only the configured `USER/local-user` may prepare any of them. Generic Agent pre
 The Kernel remains the single formal writer. A user command is parsed, authorized, checked against WorkObject version and managed projection hash, and recorded as a durable Commit. In one SQLite transaction the Kernel writes the next current state, the immutable Closure record, and `KERNEL_APPLIED`. The Plugin then applies one `CHANGE_CLOSURE_FIELDS` effect that converges the source marker where applicable, lifecycle/engagement, Waiting removal, focus removal, and thin human-readable Closure summary. A matching Graph result and fresh snapshot are required before `COMMITTED`.
 
 `KERNEL_APPLIED` is pending recovery, never success. Marker or projection races fail closed. Replay recognizes before, safe partial, and final states so response loss can resume without duplicating records.
+
+Logseq Desktop can acknowledge `updateBlock` before the changed block is visible through a fresh DB read. Post-write verification therefore retries for at most 500 ms only while it still sees the exact expected pre-write projection hash. A different hash is a concurrent edit and fails immediately; the settle loop never overwrites Graph content. Online marker listeners are also unregistered in `beforeunload`, and duplicate DONE notifications are suppressed while one completion transaction is in flight.
 
 ## State rules
 

@@ -228,11 +228,24 @@ export class LogseqGraphAdapter implements GraphAdapter {
       const stateAlreadyAfter = afterMarker.projection.lifecycle === effect.lifecycle && afterMarker.projection.engagement === effect.engagement && JSON.stringify(afterMarker.projection.waitingCondition) === JSON.stringify(effect.waitingCondition) && JSON.stringify(afterMarker.projection.closure ?? null) === JSON.stringify(effect.closure);
       if (!stateStillBefore && !stateAlreadyAfter) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
       if (!stateAlreadyAfter) await this.#host.updateBlock(effect.stateUuid, stateContent(effect.lifecycle, effect.engagement, effect.waitingCondition, effect.closure));
-      const beforeFocus = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
-      if (!beforeFocus.projection || !projectionMatches(beforeFocus.projection, effect.expectedProjection) || beforeFocus.projection.lifecycle !== effect.lifecycle || beforeFocus.projection.engagement !== effect.engagement || JSON.stringify(beforeFocus.projection.waitingCondition) !== JSON.stringify(effect.waitingCondition) || JSON.stringify(beforeFocus.projection.closure ?? null) !== JSON.stringify(effect.closure) || (beforeFocus.projection.currentFocus !== effect.expectedProjection.currentFocus && beforeFocus.projection.currentFocus !== effect.currentFocus)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      let beforeFocus = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+      // Logseq's updateBlock promise can resolve before DB reads expose the new
+      // value. Retry only while the exact pre-write semantic hash is visible;
+      // any different hash is treated as a real concurrent edit and fails closed.
+      for (let attempt = 0; attempt < 20 && beforeFocus.projection?.projectionHash === effect.expectedProjectionHash; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        beforeFocus = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+      }
+      if (!beforeFocus.projection) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED:BEFORE_FOCUS_MISSING");
+      if (!projectionMatches(beforeFocus.projection, effect.expectedProjection)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED:BEFORE_FOCUS_IDENTITY");
+      if (beforeFocus.projection.lifecycle !== effect.lifecycle) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED:BEFORE_FOCUS_LIFECYCLE");
+      if (beforeFocus.projection.engagement !== effect.engagement) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED:BEFORE_FOCUS_ENGAGEMENT");
+      if (JSON.stringify(beforeFocus.projection.waitingCondition) !== JSON.stringify(effect.waitingCondition)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED:BEFORE_FOCUS_WAITING");
+      if (JSON.stringify(beforeFocus.projection.closure ?? null) !== JSON.stringify(effect.closure)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED:BEFORE_FOCUS_CLOSURE");
+      if (beforeFocus.projection.currentFocus !== effect.expectedProjection.currentFocus && beforeFocus.projection.currentFocus !== effect.currentFocus) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED:BEFORE_FOCUS_VALUE");
       const focus = block(await this.#host.getBlock(effect.focusUuid, { includeChildren: false }));
       const expectedFocusContent = beforeFocus.projection.currentFocus === null ? null : `当前推进：${beforeFocus.projection.currentFocus}`;
-      if ((focus?.content ?? null) !== expectedFocusContent) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
+      if ((focus?.content ?? null) !== expectedFocusContent) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED:FOCUS_CONTENT");
       if (effect.currentFocus === null && focus) {
         await this.#host.removeBlock(effect.focusUuid);
       } else if (effect.currentFocus !== null && focus) await this.#host.updateBlock(effect.focusUuid, `当前推进：${effect.currentFocus}`);
@@ -242,8 +255,12 @@ export class LogseqGraphAdapter implements GraphAdapter {
       if (!before.projection || before.projection.containerUuid !== effect.containerUuid || before.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
       await this.#host.removeBlock(effect.containerUuid);
     }
-    const actual = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+    let actual = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
     const expectedHash = effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" || effect.type === "CHANGE_ENGAGEMENT_FIELDS" || effect.type === "CHANGE_CLOSURE_FIELDS" ? effect.resultingProjectionHash : null;
+    for (let attempt = 0; attempt < 20 && (actual.projection?.projectionHash ?? null) !== expectedHash; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      actual = await this.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid });
+    }
     if ((actual.projection?.projectionHash ?? null) !== expectedHash) throw new Error("GRAPH_EFFECT_VERIFY_FAILED");
     return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: expectedHash, appliedAt: this.#now() };
   }

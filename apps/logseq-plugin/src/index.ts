@@ -2,6 +2,7 @@ import { KernelClient, parseKernelDescriptor } from "@task-copilot/client/browse
 import { parseSemanticOperation, type GraphEffect } from "@task-copilot/contracts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
+import { requestTextPrompt } from "./text-prompt.ts";
 
 const descriptorKey = "task-copilot-vnext-kernel-descriptor";
 const recentCommitKey = "task-copilot-vnext-recent-commit";
@@ -167,13 +168,13 @@ async function completeFromObservedDone(blockUuid: string): Promise<void> {
 }
 
 async function cancelCurrentTask(): Promise<void> {
-  const reason = window.prompt("取消当前 Task 的原因：", "已不再需要")?.trim(); if (!reason) return;
+  const reason = await requestTextPrompt({ title: "取消当前 Task", label: "取消原因", initialValue: "已不再需要", confirmLabel: "确认取消" }); if (!reason) return;
   const cancelled = await executeClosureOperation("CANCEL_WORK_OBJECT", { reason, replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [] });
   await logseq.UI.showMsg(`已取消「${cancelled.title}」\n原因：${reason}\n撤销：Cmd+Shift+U`, "success", { timeout: 8000 });
 }
 
 async function reopenCurrentTask(): Promise<void> {
-  const reason = window.prompt("重新打开当前 Task 的原因：")?.trim(); if (!reason) return;
+  const reason = await requestTextPrompt({ title: "重新打开当前 Task", label: "重新打开原因", confirmLabel: "确认重新打开" }); if (!reason) return;
   const reopened = await executeClosureOperation("REOPEN_WORK_OBJECT", { reason });
   await logseq.UI.showMsg(`已重新打开「${reopened.title}」\n原因：${reason}`, "success", { timeout: 8000 });
 }
@@ -186,8 +187,8 @@ async function showCurrentClosure(): Promise<void> {
 async function amendCurrentClosure(): Promise<void> {
   const value = await currentTaskContext(); const history = (await value.api.showClosure(value.target.object.id)).closure;
   if (!history.current) throw new Error("当前 Task 没有可修订的有效 Closure。");
-  const reason = window.prompt("修订原因：")?.trim(); if (!reason) return;
-  const replacement = window.prompt(history.current.type === "COMPLETED" ? "新的完成结果：" : "新的取消原因：", history.current.type === "COMPLETED" ? history.current.outcomeSummary : history.current.reason)?.trim(); if (!replacement) return;
+  const reason = await requestTextPrompt({ title: "修订当前 Task Closure", label: "修订原因" }); if (!reason) return;
+  const replacement = await requestTextPrompt({ title: "修订当前 Task Closure", label: history.current.type === "COMPLETED" ? "新的完成结果" : "新的取消原因", initialValue: history.current.type === "COMPLETED" ? history.current.outcomeSummary : history.current.reason }); if (!replacement) return;
   const amended = await executeClosureOperation("AMEND_CLOSURE", { targetClosureRecordId: history.current.record.id, reason, replacementOutcomeSummary: history.current.type === "COMPLETED" ? replacement : null, replacementCancellationReason: history.current.type === "CANCELLED" ? replacement : null, addEvidenceIds: [] });
   await logseq.UI.showMsg(`已修订「${amended.title}」的结算说明；原记录保持不变。`, "success");
 }
@@ -237,7 +238,8 @@ async function guarded(label: string, action: () => Promise<void>): Promise<void
 }
 
 async function main(): Promise<void> {
-  registerOnlineDoneMarkerCommand(logseq.DB, completeFromObservedDone, (error) => { console.error("online-done-marker", error); void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); });
+  const unregisterOnlineDoneMarker = registerOnlineDoneMarkerCommand(logseq.DB, completeFromObservedDone, (error) => { console.error("online-done-marker", error); void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); });
+  logseq.beforeunload(async () => { unregisterOnlineDoneMarker(); await logseq.hideMainUI(); });
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-connect", label: "Task Copilot vNext：连接 Kernel" }, () => void guarded("connect", async () => {
     const value = logseq.settings?.kernelDescriptorJson;
     if (typeof value !== "string" || !value.trim()) throw new Error("请在插件设置中填写 Kernel descriptor JSON，然后再次运行连接命令。");

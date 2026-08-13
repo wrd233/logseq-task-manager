@@ -231,6 +231,33 @@ test("Closure effect resumes safely after the marker write response is lost", as
   assert.equal((await adapter.applyGraphEffect(close)).projectionHash, close.resultingProjectionHash);
 });
 
+test("Closure effect tolerates Logseq reads that briefly lag a completed state write", async () => {
+  const host = new Host(); host.nodes.get("source-01")!.content = "DONE 自然记录";
+  const setupAdapter = new LogseqGraphAdapter(host, "graph-01"); await setupAdapter.applyGraphEffect(effect);
+  const closure = { type: "COMPLETED" as const, recordId: "completion-lagged-read", outcomeSummary: "自然记录" };
+  const resultCore = { ...core, lifecycle: "COMPLETED" as const, engagement: null, closure };
+  const close = { type: "CHANGE_CLOSURE_FIELDS", commitId: "commit-lagged-read", effectId: "effect-lagged-read", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: core.containerUuid, stateUuid: core.stateUuid, focusUuid: core.focusUuid, expectedSourceMarker: "DONE", resultingSourceMarker: "DONE", expectedProjection: effect.projection, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, closure, expectedProjectionHash: effect.projection.projectionHash, resultingProjectionHash: stableHash(resultCore) } satisfies GraphEffect;
+  let staleStateContent: string | null = null; let staleTreeReads = 0;
+  const laggedHost: LogseqGraphHost = {
+    insertBlock: host.insertBlock.bind(host), removeBlock: host.removeBlock.bind(host),
+    updateBlock: async (uuid, content) => { if (uuid === core.stateUuid) { staleStateContent = host.nodes.get(uuid)!.content; staleTreeReads = 2; } return host.updateBlock(uuid, content); },
+    getBlock: async (uuid, options) => {
+      const value = await host.getBlock(uuid, options);
+      if (uuid !== "source-01" || !options?.includeChildren || !staleStateContent || staleTreeReads <= 0) return value;
+      staleTreeReads -= 1;
+      const replace = (candidate: unknown): unknown => {
+        if (!candidate || typeof candidate !== "object") return candidate;
+        const record = candidate as Record<string, unknown>;
+        return { ...record, ...(record.uuid === core.stateUuid ? { content: staleStateContent } : {}), ...(Array.isArray(record.children) ? { children: record.children.map(replace) } : {}) };
+      };
+      return replace(value);
+    },
+  };
+  const result = await new LogseqGraphAdapter(laggedHost, "graph-01").applyGraphEffect(close);
+  assert.equal(result.projectionHash, close.resultingProjectionHash);
+  assert.equal(staleTreeReads, 0);
+});
+
 test("Closure effect detects a managed edit triggered between marker and state writes", async () => {
   const host = new Host(); host.nodes.get("source-01")!.content = "TODO 自然记录\nid:: source-property"; const adapter = new LogseqGraphAdapter(host, "graph-01"); await adapter.applyGraphEffect(effect);
   const record = { id: "completion-mid-race", workObjectId: "work-01", completedAt: "2026-08-13T10:00:00.000Z", outcomeSummary: "完成", evidenceIds: [], createdBy: { type: "USER" as const, id: "local-user" } }; const closure = { type: "COMPLETED" as const, recordId: record.id, outcomeSummary: "完成" }; const resultCore = { ...core, lifecycle: "COMPLETED" as const, engagement: null, closure };
