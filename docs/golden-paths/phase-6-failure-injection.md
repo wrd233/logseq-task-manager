@@ -20,4 +20,4 @@ Automated gates:
 | missing descriptor | stable JSON error without stack or local path |
 | built CLI artifact | one shebang, bundled workspace code, offline help smoke |
 
-The service and CLI tests additionally prove mode-`0600` descriptor handling, Graph capability separation, loopback authentication, and secret-free public JSON. Real Desktop reload/offline checks are local evidence only.
+The service and CLI tests additionally prove mode-`0600` descriptor handling, Graph capability separation, loopback authentication, and secret-free public JSON. Before the real Plugin bridge was connected, the built CLI returned the typed `GRAPH_ADAPTER_OFFLINE` state rather than creating a Commit. After the one-time local bridge setup, the real Desktop golden paths completed and Recovery remained empty. Raw descriptors and host-specific runtime evidence stay local.
