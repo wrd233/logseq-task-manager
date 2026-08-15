@@ -1,5 +1,7 @@
 # Task Copilot vNext · Decision Register 1–67
 
+> **STATUS: HISTORICAL / SUPERSEDED by `05-Task-Copilot-vNext-产品与治理宪章.md` (2026-08-15). Keep for archaeology only; do not treat as current truth.**
+
 > 文档类型：已锁定设计决策登记册  
 > 目的：记录本轮 Grill 的全部关键结论，防止实现阶段重新回到模糊讨论  
 > 规则：实现若与本登记册冲突，应显式提出 ADR，而不是静默偏离

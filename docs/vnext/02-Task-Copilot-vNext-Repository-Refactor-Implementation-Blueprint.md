@@ -1,5 +1,7 @@
 # Task Copilot vNext · Repository Refactor & Implementation Blueprint
 
+> **STATUS: HISTORICAL / SUPERSEDED by `05-Task-Copilot-vNext-产品与治理宪章.md` (2026-08-15). Keep for archaeology only; do not treat as current truth.**
+
 > 文档类型：仓库重构与实施蓝图  
 > 目标：把已冻结的 vNext 架构转化为可执行工程结构  
 > 核心原则：高破坏性清仓、小而完整、纵向闭环优先、拒绝历史负担

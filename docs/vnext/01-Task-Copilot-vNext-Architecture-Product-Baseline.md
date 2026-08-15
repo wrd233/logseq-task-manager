@@ -1,5 +1,7 @@
 # Task Copilot vNext · Architecture & Product Baseline
 
+> **STATUS: HISTORICAL / SUPERSEDED by `05-Task-Copilot-vNext-产品与治理宪章.md` (2026-08-15). Keep for archaeology only; do not treat as current truth.**
+
 > 文档类型：架构与产品设计冻结基线  
 > 版本：vNext Design Freeze 2026-08-12  
 > 状态：可用于实施  

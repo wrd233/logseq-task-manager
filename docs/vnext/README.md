@@ -1,8 +1,7 @@
 # Task Copilot vNext 设计与实施文档集
 
-> 版本：Design Freeze / vNext Implementation Start  
-> 日期：2026-08-12  
-> 状态：高层架构与产品基线已完成 Grill，进入实施阶段  
+> 版本：2026-08-15 深度治理轮  
+> 状态：**当前权威文档为 05 / 06 / 07**；01–04 保留为 historical / superseded  
 > 适用仓库：`wrd233/logseq-task-manager`
 
 ---
@@ -28,6 +27,37 @@
 ---
 
 ## 1. 文档清单
+
+### 当前权威文档（2026-08-15 Grill 第 1～123 问之后）
+
+#### 05 — 产品与治理宪章
+
+文件：`05-Task-Copilot-vNext-产品与治理宪章.md`
+
+当前产品宪法：四个角色边界、Formal WorkObject 浅树、lifecycle/engagement 强语义、
+current_focus v2、Context/Evidence 分层、User Decision Compiler、后台有界最终一致、
+Graph Projection 最终一致、四入口（现在/待我确认/项目/更多）、故障原则
+“Natural Work Fail Open, Formal Governance Fail Closed”，以及 Grill 1～123 决策索引。
+
+#### 06 — 领域模型与 Agent 架构规范
+
+文件：`06-Task-Copilot-vNext-领域模型与Agent架构规范.md`
+
+可实现的语义规范：Formal Domain、WorkIntent / ProjectIntent、WaitingCondition[]、
+Context Association、Frozen Evidence、User Decision、Proposal、Governance Issue、
+Formalization Candidate、Reconcile Queue、Agent Executor Contract、Execution Profile、
+Semantic Operations actor/capability matrix、Formal/Projection 事务模型、Projection Obligation、
+Object Lens / Now Projection contract、Discovery 与“整理今天”编排。
+
+#### 07 — 实现路线图与阶段验收
+
+文件：`07-Task-Copilot-vNext-实现路线图与阶段验收.md`
+
+Phase 8～20 路线与每阶段 Golden Path / DoD。当前仓库已闭合 Phase 8 的核心事务修订
+（Formal Commit 与 Projection Obligation）和 Phase 9 的 queue/coverage 底座，
+继续推进时以本文件验收边界为准。
+
+### Historical / superseded（仅作实现考古）
 
 ### 01 — Architecture & Product Baseline
 
@@ -107,35 +137,28 @@
 如果是新 Session / 新 Agent 接手：
 
 ```text
-01 Architecture & Product Baseline
+05 产品与治理宪章
         ↓
-04 Decision Register
+06 领域模型与 Agent 架构规范
         ↓
-02 Repository Refactor & Implementation Blueprint
+07 实现路线图与阶段验收
         ↓
-03 Codex Implementation Goal
+docs/architecture、docs/adr、docs/golden-paths（实现事实）
 ```
 
-如果是开发者准备开工：
-
-```text
-02 Implementation Blueprint
-        ↓
-03 Codex Goal
-        ↓
-遇到语义分歧时回查 01 / 04
-```
+01–04 仅在需要理解早期实现来源时阅读，不再作为当前设计依据。
 
 ---
 
 ## 3. 文档优先级
 
-若四份文档出现理解差异，优先级如下：
+若文档出现理解差异，优先级如下：
 
-1. **01 Architecture & Product Baseline**：当前总体设计真相；
-2. **04 Decision Register**：具体问题的已锁定决策；
-3. **02 Implementation Blueprint**：工程落地建议；
-4. **03 Codex Implementation Goal**：某一阶段实施任务说明。
+1. **05 产品与治理宪章**：当前总体产品真相；
+2. **06 领域模型与 Agent 架构规范**：当前可实现的语义边界；
+3. **07 实现路线图与阶段验收**：当前实施顺序与验收标准；
+4. **docs/adr / docs/architecture / docs/golden-paths**：已经落地的实现事实；
+5. 01–04：historical / superseded，仅考古用途。
 
 代码当前状态不自动高于设计基线。vNext 明确允许高破坏性重构，因此“旧代码现在这么做”不能作为保留旧结构的充分理由。
 
@@ -174,15 +197,18 @@
 
 ## 5. 当前状态
 
-本轮 Grill 已结束。
+2026-08-15 深度治理轮已把 05/06/07 确立为当前权威基线，并落地了第一批纵向闭环：
 
-接下来不应继续无限扩展高层设计，而应正式切换到：
+- Formal Kernel Commit 与 Graph Projection 最终一致解耦（ADR-014，`ProjectionObligation`）；
+- Source Coverage + Persistent Reconcile Queue + Work Burst 观测（ADR-015）；
+- Plugin 机械区分 system-write / natural edit 并抑制自触发；
+- 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-> **Design Freeze → Repository Refactor → Kernel Skeleton → First Vertical Slice → Golden Paths**
+下一轮从 07 的 Phase 10（Context Association + Evidence v2）继续，不要从旧 01–04 反推架构。
 
 任何新想法先问：
 
-> 它是否是当前 6 条黄金链或 4 条故障链真正需要的？
+> 它是否是某条已冻结 Golden Path / Failure Path 真正需要的？
 
 若答案只是“未来也许有用”，则第一版不做。
 

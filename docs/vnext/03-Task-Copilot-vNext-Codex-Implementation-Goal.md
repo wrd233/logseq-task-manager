@@ -1,5 +1,7 @@
 # Goal：启动 Task Copilot vNext 高破坏性重构并打通第一条可信纵向链
 
+> **STATUS: HISTORICAL / SUPERSEDED by `05-Task-Copilot-vNext-产品与治理宪章.md` (2026-08-15). Keep for archaeology only; do not treat as current truth.**
+
 > 你正在接手 `wrd233/logseq-task-manager` 的 vNext 重构。  
 > 这不是一次常规增量开发，也不是要求在旧 V1 上继续补功能。  
 > 本 Goal 的目标是：**理解当前仓库 → 高破坏性清理历史负担 → 建立 vNext Kernel 骨架 → 打通第一条端到端可信链路。**
