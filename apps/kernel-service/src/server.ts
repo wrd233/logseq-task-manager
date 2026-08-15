@@ -4,11 +4,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join } from "node:path";
 
 import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
-import { parseSemanticOperation, type CurrentFocusAgent, type EngagementAgent, type GraphGatewayResponse, type SkillPackage, type TasteProfile } from "@task-copilot/contracts";
+import { parseSemanticOperation, type CurrentFocusAgent, type EngagementAgent, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
+import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 
 export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number }
 
@@ -49,6 +50,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
   const external = new ExternalAgentCoordinator(kernel, store, broker, options.now);
+  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now });
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -77,6 +79,25 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       const tasteMatch = /^\/v1\/taste\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && tasteMatch) { const profile = kernel.tasteProfiles().find((item) => item.id === decodeURIComponent(tasteMatch[1]!)); if (!profile) throw new KernelError("TASTE_PROFILE_NOT_FOUND", "Taste profile does not exist."); send(response, 200, { profile }); return; }
       if (request.method === "GET" && url.pathname === "/v1/graph/status") { send(response, 200, broker.status()); return; }
+      if (request.method === "POST" && url.pathname === "/v1/maintenance/source-change") {
+        const value = await body(request) as SourceChangeObservation;
+        send(response, 200, maintenance.recordSourceChange(value)); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/maintenance/reconcile") {
+        const value = await body(request) as { workObjectId: string; priorityClass?: "NORMAL" | "INTERACTIVE" | "SYSTEM_RECOVERY" };
+        send(response, 200, { job: maintenance.manualReconcile(value.workObjectId, value.priorityClass) }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/maintenance/pause") {
+        const value = await body(request) as { scope: "global" | "object"; workObjectId?: string | null; paused: boolean };
+        maintenance.setPause(value.scope, value.workObjectId ?? null, value.paused);
+        send(response, 200, { paused: maintenance.isPaused(value.scope, value.workObjectId ?? null) }); return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/maintenance/status") {
+        const status = url.searchParams.get("status");
+        const allowed = new Set<ReconcileJob["status"]>(["QUEUED", "RUNNING", "DONE", "FAILED", "STALE"]);
+        const jobs = status && allowed.has(status as ReconcileJob["status"]) ? maintenance.jobs(status as ReconcileJob["status"]) : maintenance.jobs();
+        send(response, 200, { globalPaused: maintenance.isPaused("global", null), jobs }); return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/graph/search") { const value = await body(request) as { query: string; limit?: number; runId?: string }; send(response, 200, await external.search({ query: value.query, limit: value.limit ?? 20, ...(value.runId ? { runId: value.runId } : {}) })); return; }
       const graphBlock = /^\/v1\/graph\/blocks\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && graphBlock) { send(response, 200, await external.readBlock({ blockUuid: decodeURIComponent(graphBlock[1]!), ...(url.searchParams.get("run") ? { runId: url.searchParams.get("run")! } : {}) })); return; }
@@ -93,6 +114,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && url.pathname === "/v1/external/curation/add-reference") { send(response, 200, { receipt: await external.addReference(await body(request) as Parameters<ExternalAgentCoordinator["addReference"]>[0]) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/curation-receipts") { send(response, 200, { receipts: store.listCurationReceipts(url.searchParams.get("object") ?? undefined) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects") { send(response, 200, { objects: store.listWorkObjects() }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/objects/anchors") {
+        send(response, 200, { objects: store.listWorkObjects().map((object) => ({ object, anchor: store.getAnchorForWorkObject(object.id) })) }); return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/objects/actionable") { send(response, 200, { objects: store.listActionableWorkObjects() }); return; }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && objectMatch) {
@@ -221,12 +245,14 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("KERNEL_ADDRESS_INVALID");
   const baseUrl = `http://127.0.0.1:${address.port}`;
+  maintenance.start();
   const startedAt = (options.now ?? (() => new Date().toISOString()))();
   await writePrivateJson(options.descriptorPath, { schemaVersion: 1, baseUrl, token, pid: process.pid, startedAt });
   await writePrivateJson(graphDescriptorPath, { schemaVersion: 1, baseUrl, token, graphSnapshotKey, graphBridgeToken, pid: process.pid, startedAt });
   return {
     baseUrl, token, graphSnapshotKey, graphBridgeToken, graphDescriptorPath, store,
     close: async () => {
+      maintenance.stop();
       broker.close();
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       store.close();

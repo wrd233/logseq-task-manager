@@ -1,4 +1,4 @@
-import type { Actor, AgentRunReceipt, ClosureHistory, CurationReceipt, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FrozenEvidence, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, ProjectionObligation, Proposal, ProposalRevision, SemanticOperation, SkillPackage, StoredCommit, TasteProfile, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, ClosureHistory, CurationReceipt, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FrozenEvidence, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, ProjectionObligation, Proposal, ProposalRevision, ReconcileJob, SemanticOperation, SkillPackage, SourceChangeObservation, StoredCommit, TasteProfile, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; pid: number; startedAt: string }
 export interface PluginKernelDescriptor extends KernelDescriptor { graphSnapshotKey: string; graphBridgeToken: string }
@@ -55,11 +55,16 @@ export class KernelClient {
   addReferenceCuration(input: { receiptId: string; runId: string; workObjectId: string; referenceBlockUuid: string; section: "资源" | "支撑交付物"; existingSectionUuid?: string | null }): Promise<{ receipt: CurationReceipt }> { return this.#request("POST", "/v1/external/curation/add-reference", input); }
   listCurationReceipts(workObjectId?: string): Promise<{ receipts: CurationReceipt[] }> { return this.#request("GET", `/v1/curation-receipts${workObjectId ? `?object=${encodeURIComponent(workObjectId)}` : ""}`); }
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
+  listObjectAnchorIndex(): Promise<{ objects: Array<{ object: WorkObject; anchor: unknown }> }> { return this.#request("GET", "/v1/objects/anchors"); }
   listActionableObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects/actionable"); }
   showObject(id: string): Promise<{ object: WorkObject; anchor: unknown }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}`); }
   showClosure(id: string): Promise<{ closure: ClosureHistory }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/closure`); }
   showCommit(id: string): Promise<{ commit: StoredCommit }> { return this.#request("GET", `/v1/commits/${encodeURIComponent(id)}`); }
   listRecovery(): Promise<{ recovery: RecoveryItem[] }> { return this.#request("GET", "/v1/recovery"); }
+  recordSourceChange(observation: SourceChangeObservation): Promise<{ coverage: unknown; job: ReconcileJob }> { return this.#request("POST", "/v1/maintenance/source-change", observation); }
+  reconcileMaintenance(workObjectId: string, priorityClass?: "NORMAL" | "INTERACTIVE" | "SYSTEM_RECOVERY"): Promise<{ job: ReconcileJob }> { return this.#request("POST", "/v1/maintenance/reconcile", { workObjectId, ...(priorityClass ? { priorityClass } : {}) }); }
+  setMaintenancePause(scope: "global" | "object", paused: boolean, workObjectId?: string | null): Promise<{ paused: boolean }> { return this.#request("POST", "/v1/maintenance/pause", { scope, paused, workObjectId: workObjectId ?? null }); }
+  maintenanceStatus(status?: ReconcileJob["status"]): Promise<{ globalPaused: boolean; jobs: ReconcileJob[] }> { return this.#request("GET", `/v1/maintenance/status${status ? `?status=${encodeURIComponent(status)}` : ""}`); }
   freezeEvidence(input: { evidenceId: string; workObjectId: string; snapshot: TrustedGraphEvidenceMaterial }): Promise<{ evidence: FrozenEvidence }> { return this.#request("POST", "/v1/evidence/freeze", input); }
   showEvidence(id: string): Promise<{ evidence: FrozenEvidence }> { return this.#request("GET", `/v1/evidence/${encodeURIComponent(id)}`); }
   runCurrentFocusAgent(input: { runId: string; workObjectId: string; evidenceIds: readonly string[]; snapshot: GraphSnapshot }): Promise<{ run: AgentRunReceipt; proposal: Proposal | null; revision: ProposalRevision | null }> { return this.#request("POST", "/v1/agent-runs/current-focus", input); }

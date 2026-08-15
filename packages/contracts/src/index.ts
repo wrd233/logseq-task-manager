@@ -650,6 +650,46 @@ export interface FormalCommitResult {
   projectionObligation: ProjectionObligation;
 }
 
+export type ReconcileTriggerType = "WORK_BURST_ENDED" | "FORMALIZATION_BASELINE" | "EVIDENCE_CHANGED" | "MANUAL_RECONCILE" | "SEMANTIC_IMPACT" | "POST_CLOSURE_ACTIVITY" | "RESUME_FROM_PAUSE";
+export type ReconcileJobStatus = "QUEUED" | "RUNNING" | "DONE" | "FAILED" | "STALE";
+export type ReconcilePriorityClass = "NORMAL" | "INTERACTIVE" | "SYSTEM_RECOVERY";
+
+export interface ReconcileJob {
+  id: string;
+  workObjectId: string;
+  triggerType: ReconcileTriggerType;
+  sourceSnapshotId: string;
+  formalVersion: number;
+  priorityClass: ReconcilePriorityClass;
+  attempt: number;
+  notBefore: string | null;
+  status: ReconcileJobStatus;
+  lastError: string | null;
+  lastOutcome: MaintenanceReconcileOutcome | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceCoverageState {
+  workObjectId: string;
+  lastObservedSourceSnapshotId: string;
+  lastReconciledSourceSnapshotId: string | null;
+  formalVersionAtLastReconcile: number | null;
+  hasUncoveredChanges: boolean;
+  updatedAt: string;
+}
+
+export interface SourceChangeObservation {
+  workObjectId: string;
+  graphId: string;
+  sourceBlockUuid: string;
+  sourceContentHash: string;
+  sourceMarker?: GraphSnapshot["sourceMarker"];
+  observedAt: string;
+}
+
+export type MaintenanceReconcileOutcome = "NO_CHANGE" | "CONFIRMED_CHANGE" | "UNKNOWN" | "CONFLICT" | "BOUNDARY_CANDIDATE" | "NEEDS_MORE_CONTEXT";
+
 export interface GraphAdapter {
   readGraphSnapshot(input: GraphSnapshotInput): Promise<GraphSnapshot>;
   readEvidenceMaterial(input: { graphId: string; blockUuid: string }, proofKey: string): Promise<TrustedGraphEvidenceMaterial>;

@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type ClosureHistory, type CommitStatus, type CurationReceipt, type FeedbackEvent, type FrozenEvidence, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type SkillIdentity, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type ClosureHistory, type CommitStatus, type CurationReceipt, type FeedbackEvent, type FrozenEvidence, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type SourceChangeObservation, type StoredCommit } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -94,6 +94,35 @@ const schema = `
     updated_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS projection_obligations_status_idx ON projection_obligations(status, created_at);
+  CREATE TABLE IF NOT EXISTS source_coverage (
+    work_object_id TEXT PRIMARY KEY REFERENCES work_objects(id) ON DELETE CASCADE,
+    last_observed_source_snapshot_id TEXT NOT NULL,
+    last_reconciled_source_snapshot_id TEXT,
+    formal_version_at_last_reconcile INTEGER,
+    has_uncovered_changes INTEGER NOT NULL DEFAULT 1 CHECK (has_uncovered_changes IN (0, 1)),
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS reconcile_jobs (
+    id TEXT PRIMARY KEY,
+    work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+    trigger_type TEXT NOT NULL,
+    source_snapshot_id TEXT NOT NULL,
+    formal_version INTEGER NOT NULL,
+    priority_class TEXT NOT NULL CHECK (priority_class IN ('NORMAL', 'INTERACTIVE', 'SYSTEM_RECOVERY')),
+    attempt INTEGER NOT NULL DEFAULT 0,
+    not_before TEXT,
+    status TEXT NOT NULL CHECK (status IN ('QUEUED', 'RUNNING', 'DONE', 'FAILED', 'STALE')),
+    last_error TEXT,
+    last_outcome TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS reconcile_jobs_status_idx ON reconcile_jobs(status, not_before, created_at);
+  CREATE TABLE IF NOT EXISTS maintenance_pause (
+    scope_key TEXT PRIMARY KEY,
+    paused INTEGER NOT NULL CHECK (paused IN (0, 1)),
+    updated_at TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS skill_versions (
     id TEXT NOT NULL, version TEXT NOT NULL, content_hash TEXT NOT NULL, package_json TEXT NOT NULL,
     registered_at TEXT NOT NULL, PRIMARY KEY(id, version)
@@ -181,6 +210,7 @@ export class SqliteStore {
     this.#migrateV5();
     this.#migrateV6();
     this.#migrateV7();
+    this.#migrateV8();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -259,6 +289,39 @@ export class SqliteStore {
     )`);
     this.#database.exec("CREATE INDEX IF NOT EXISTS projection_obligations_status_idx ON projection_obligations(status, created_at)");
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (7, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV8(): void {
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS source_coverage (
+      work_object_id TEXT PRIMARY KEY REFERENCES work_objects(id) ON DELETE CASCADE,
+      last_observed_source_snapshot_id TEXT NOT NULL,
+      last_reconciled_source_snapshot_id TEXT,
+      formal_version_at_last_reconcile INTEGER,
+      has_uncovered_changes INTEGER NOT NULL DEFAULT 1 CHECK (has_uncovered_changes IN (0, 1)),
+      updated_at TEXT NOT NULL
+    )`);
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS reconcile_jobs (
+      id TEXT PRIMARY KEY,
+      work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+      trigger_type TEXT NOT NULL,
+      source_snapshot_id TEXT NOT NULL,
+      formal_version INTEGER NOT NULL,
+      priority_class TEXT NOT NULL CHECK (priority_class IN ('NORMAL', 'INTERACTIVE', 'SYSTEM_RECOVERY')),
+      attempt INTEGER NOT NULL DEFAULT 0,
+      not_before TEXT,
+      status TEXT NOT NULL CHECK (status IN ('QUEUED', 'RUNNING', 'DONE', 'FAILED', 'STALE')),
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    this.#database.exec("CREATE INDEX IF NOT EXISTS reconcile_jobs_status_idx ON reconcile_jobs(status, not_before, created_at)");
+    if (!this.#hasColumn("reconcile_jobs", "last_outcome")) this.#database.exec("ALTER TABLE reconcile_jobs ADD COLUMN last_outcome TEXT");
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS maintenance_pause (
+      scope_key TEXT PRIMARY KEY,
+      paused INTEGER NOT NULL CHECK (paused IN (0, 1)),
+      updated_at TEXT NOT NULL
+    )`);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (8, ?)").run(new Date().toISOString());
   }
 
   close(): void { this.#database.close(); }
@@ -563,6 +626,114 @@ export class SqliteStore {
       ? this.#database.prepare("SELECT details_json FROM curation_receipts WHERE work_object_id=? ORDER BY created_at,rowid").all(workObjectId)
       : this.#database.prepare("SELECT details_json FROM curation_receipts ORDER BY created_at,rowid").all();
     return (rows as Array<{ details_json: string }>).map((row) => decode(row.details_json) as CurationReceipt);
+  }
+
+  upsertSourceCoverage(state: SourceCoverageState): void {
+    this.#database.prepare(`INSERT INTO source_coverage(work_object_id,last_observed_source_snapshot_id,last_reconciled_source_snapshot_id,formal_version_at_last_reconcile,has_uncovered_changes,updated_at)
+      VALUES (@workObjectId,@lastObservedSourceSnapshotId,@lastReconciledSourceSnapshotId,@formalVersionAtLastReconcile,@hasUncoveredChanges,@updatedAt)
+      ON CONFLICT(work_object_id) DO UPDATE SET last_observed_source_snapshot_id=excluded.last_observed_source_snapshot_id,
+      last_reconciled_source_snapshot_id=COALESCE(excluded.last_reconciled_source_snapshot_id, source_coverage.last_reconciled_source_snapshot_id),
+      formal_version_at_last_reconcile=COALESCE(excluded.formal_version_at_last_reconcile, source_coverage.formal_version_at_last_reconcile),
+      has_uncovered_changes=excluded.has_uncovered_changes, updated_at=excluded.updated_at`).run({ ...state, hasUncoveredChanges: state.hasUncoveredChanges ? 1 : 0 });
+  }
+
+  getSourceCoverage(workObjectId: string): SourceCoverageState | null {
+    const row = this.#database.prepare("SELECT * FROM source_coverage WHERE work_object_id=?").get(workObjectId) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return {
+      workObjectId: String(row.work_object_id), lastObservedSourceSnapshotId: String(row.last_observed_source_snapshot_id),
+      lastReconciledSourceSnapshotId: row.last_reconciled_source_snapshot_id === null ? null : String(row.last_reconciled_source_snapshot_id),
+      formalVersionAtLastReconcile: row.formal_version_at_last_reconcile === null ? null : Number(row.formal_version_at_last_reconcile),
+      hasUncoveredChanges: Number(row.has_uncovered_changes) === 1, updatedAt: String(row.updated_at),
+    };
+  }
+
+  markSourceCovered(workObjectId: string, snapshotId: string, formalVersion: number, at: string): void {
+    const changed = this.#database.prepare("UPDATE source_coverage SET last_reconciled_source_snapshot_id=?, formal_version_at_last_reconcile=?, has_uncovered_changes=0, updated_at=? WHERE work_object_id=?").run(snapshotId, formalVersion, at, workObjectId);
+    if (!changed.changes) throw new Error("SOURCE_COVERAGE_NOT_FOUND");
+  }
+
+  insertReconcileJob(job: ReconcileJob): void {
+    this.#database.prepare(`INSERT INTO reconcile_jobs(id,work_object_id,trigger_type,source_snapshot_id,formal_version,priority_class,attempt,not_before,status,last_error,last_outcome,created_at,updated_at)
+      VALUES (@id,@workObjectId,@triggerType,@sourceSnapshotId,@formalVersion,@priorityClass,@attempt,@notBefore,@status,@lastError,@lastOutcome,@createdAt,@updatedAt)`).run({ ...job, lastOutcome: null });
+  }
+
+  invalidateActiveReconcileJobs(workObjectId: string, at: string): void {
+    this.#database.prepare("UPDATE reconcile_jobs SET status='STALE', updated_at=? WHERE work_object_id=? AND status IN ('QUEUED','RUNNING')").run(at, workObjectId);
+  }
+
+  enqueueReconcileJob(job: ReconcileJob): void {
+    this.transaction(() => {
+      this.invalidateActiveReconcileJobs(job.workObjectId, job.updatedAt);
+      this.insertReconcileJob(job);
+    });
+  }
+
+  getReconcileJob(id: string): ReconcileJob | null {
+    const row = this.#database.prepare("SELECT * FROM reconcile_jobs WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return this.#mapReconcileJob(row);
+  }
+
+  listReconcileJobs(status?: ReconcileJob["status"]): ReconcileJob[] {
+    const rows = status
+      ? (this.#database.prepare("SELECT * FROM reconcile_jobs WHERE status=? ORDER BY created_at, id").all(status) as Array<Record<string, unknown>>)
+      : (this.#database.prepare("SELECT * FROM reconcile_jobs ORDER BY created_at, id").all() as Array<Record<string, unknown>>);
+    return rows.map((row) => this.#mapReconcileJob(row));
+  }
+
+  claimNextReconcileJob(at: string): ReconcileJob | null {
+    return this.transaction(() => {
+      const priorities: ReconcilePriorityClass[] = ["INTERACTIVE", "SYSTEM_RECOVERY", "NORMAL"];
+      for (const priority of priorities) {
+        const row = this.#database.prepare(`SELECT * FROM reconcile_jobs WHERE status='QUEUED' AND priority_class=? AND (not_before IS NULL OR not_before<=?) ORDER BY created_at, id LIMIT 1`).get(priority, at) as Record<string, unknown> | undefined;
+        if (!row) continue;
+        const job = this.#mapReconcileJob(row);
+        this.#database.prepare("UPDATE reconcile_jobs SET status='RUNNING', attempt=attempt+1, updated_at=? WHERE id=?").run(at, job.id);
+        return { ...job, status: "RUNNING" as const, attempt: job.attempt + 1, updatedAt: at };
+      }
+      return null;
+    });
+  }
+
+  completeReconcileJob(id: string, workObjectId: string, snapshotId: string, formalVersion: number, at: string, outcome: string): void {
+    this.transaction(() => {
+      const changed = this.#database.prepare("UPDATE reconcile_jobs SET status='DONE', last_error=NULL, last_outcome=?, updated_at=? WHERE id=? AND status='RUNNING'").run(outcome, at, id);
+      if (!changed.changes) throw new Error("RECONCILE_JOB_NOT_RUNNING");
+      this.markSourceCovered(workObjectId, snapshotId, formalVersion, at);
+    });
+  }
+
+  failReconcileJob(id: string, reason: string, nextNotBefore: string, at: string, maxAttempts: number): ReconcileJob {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM reconcile_jobs WHERE id=? AND status='RUNNING'").get(id) as Record<string, unknown> | undefined;
+      if (!row) throw new Error("RECONCILE_JOB_NOT_RUNNING");
+      const job = this.#mapReconcileJob(row);
+      const status = job.attempt >= maxAttempts ? "FAILED" as const : "QUEUED" as const;
+      this.#database.prepare("UPDATE reconcile_jobs SET status=?, last_error=?, not_before=?, updated_at=? WHERE id=?").run(status, reason, status === "QUEUED" ? nextNotBefore : null, at, id);
+      return { ...job, status, lastError: reason, notBefore: status === "QUEUED" ? nextNotBefore : null, updatedAt: at };
+    });
+  }
+
+  setMaintenancePause(scopeKey: string, paused: boolean, at: string): void {
+    this.#database.prepare("INSERT INTO maintenance_pause(scope_key,paused,updated_at) VALUES (?,?,?) ON CONFLICT(scope_key) DO UPDATE SET paused=excluded.paused, updated_at=excluded.updated_at").run(scopeKey, paused ? 1 : 0, at);
+  }
+
+  isMaintenancePaused(scopeKey: string): boolean {
+    const row = this.#database.prepare("SELECT paused FROM maintenance_pause WHERE scope_key=?").get(scopeKey) as { paused: number } | undefined;
+    return row?.paused === 1;
+  }
+
+  #mapReconcileJob(row: Record<string, unknown>): ReconcileJob {
+    return {
+      id: String(row.id), workObjectId: String(row.work_object_id), triggerType: row.trigger_type as ReconcileTriggerType,
+      sourceSnapshotId: String(row.source_snapshot_id), formalVersion: Number(row.formal_version),
+      priorityClass: row.priority_class as ReconcilePriorityClass, attempt: Number(row.attempt),
+      notBefore: row.not_before === null ? null : String(row.not_before), status: row.status as ReconcileJob["status"],
+      lastError: row.last_error === null ? null : String(row.last_error),
+      lastOutcome: row.last_outcome === null ? null : String(row.last_outcome) as ReconcileJob["lastOutcome"],
+      createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+    };
   }
 
   deleteCommit(id: string): never { throw new Error(`LEDGER_APPEND_ONLY:${id}`); }

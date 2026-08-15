@@ -5,6 +5,7 @@ import { startGraphGatewayWorker, type GraphGatewayReadHost } from "./graph-gate
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
 import { readRecoveryVerificationSnapshot } from "./recovery-verification.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "./source-identity.ts";
+import { startSourceChangeObserver } from "./source-change-observer.ts";
 import { requestTextPrompt } from "./text-prompt.ts";
 
 const descriptorKey = "task-copilot-vnext-kernel-descriptor";
@@ -12,13 +13,16 @@ const recentCommitKey = "task-copilot-vnext-recent-commit";
 const currentWorkObjectKey = "task-copilot-vnext-current-work-object";
 const recentEvidenceIdKey = "task-copilot-vnext-recent-evidence-id";
 const selfWrittenDoneMarkers = new Set<string>();
+const selfWrittenSourceUuids = new Set<string>();
 
 async function applyGraphEffect(adapter: LogseqGraphAdapter, effect: GraphEffect) {
   const writesDoneMarker = effect.type === "CHANGE_CLOSURE_FIELDS" && effect.expectedSourceMarker !== "DONE" && effect.resultingSourceMarker === "DONE";
   if (writesDoneMarker) selfWrittenDoneMarkers.add(effect.sourceBlockUuid);
+  selfWrittenSourceUuids.add(effect.sourceBlockUuid);
   try { return await adapter.applyGraphEffect(effect); }
   finally {
     if (writesDoneMarker) window.setTimeout(() => selfWrittenDoneMarkers.delete(effect.sourceBlockUuid), 1_000);
+    window.setTimeout(() => selfWrittenSourceUuids.delete(effect.sourceBlockUuid), 1_000);
   }
 }
 
@@ -357,7 +361,15 @@ async function main(): Promise<void> {
     connection: async () => { const connection = await descriptor(); const value = await adapterForCurrentGraph(); return { descriptor: connection, ...value, readHost: graphGatewayReadHost() }; },
     onError: (error) => { if (error instanceof Error && !/请先运行|GRAPH_BRIDGE_TOKEN_MISSING/u.test(error.message)) console.warn("graph-gateway-worker", error); },
   });
-  logseq.beforeunload(async () => { stopGraphWorker(); unregisterOnlineDoneMarker(); await logseq.hideMainUI(); });
+  const stopSourceObserver = startSourceChangeObserver({
+    onChanged: (callback) => logseq.DB.onChanged(callback),
+    getCurrentGraph: () => logseq.App.getCurrentGraph(),
+  }, {
+    client: () => client(),
+    isSelfWritten: (uuid) => selfWrittenSourceUuids.has(uuid),
+    onError: (error) => { if (error instanceof Error && !/请先运行|DESCRIPTOR_INVALID/u.test(error.message)) console.warn("source-change-observer", error); },
+  });
+  logseq.beforeunload(async () => { stopSourceObserver(); stopGraphWorker(); unregisterOnlineDoneMarker(); await logseq.hideMainUI(); });
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-connect", label: "Task Copilot vNext：连接 Kernel" }, () => void guarded("connect", async () => {
     const value = logseq.settings?.kernelDescriptorJson;
     if (typeof value !== "string" || !value.trim()) throw new Error("请在插件设置中填写 Kernel descriptor JSON，然后再次运行连接命令。");
