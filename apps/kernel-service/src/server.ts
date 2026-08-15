@@ -118,9 +118,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 200, await discovery.organizeToday(value)); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/discovery/run") {
-        const value = await body(request) as { scope: DiscoveryScope };
+        const value = await body(request) as { scope: DiscoveryScope; continuationToken?: string | null };
         if (!value.scope || typeof value.scope !== "object" || !("kind" in value.scope)) throw new KernelError("DISCOVERY_SCOPE_INVALID", "Discovery scope is required.");
-        send(response, 201, { run: await discovery.runDiscovery(value.scope) }); return;
+        send(response, 201, { run: await discovery.runDiscovery(value.scope, { continuationToken: value.continuationToken ?? null }) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/discovery/runs") { send(response, 200, { runs: discovery.listRuns() }); return; }
       const discoveryRunMatch = /^\/v1\/discovery\/runs\/([^/]+)$/u.exec(url.pathname);
@@ -134,6 +134,8 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const allowed = new Set<FormalizationCandidate["status"]>(["OPEN", "MATERIALIZED", "DISMISSED", "EXPIRED"]);
         send(response, 200, { candidates: discovery.listCandidates(status && allowed.has(status as FormalizationCandidate["status"]) ? status as FormalizationCandidate["status"] : undefined) }); return;
       }
+      const candidateEvidenceMatch = /^\/v1\/candidates\/([^/]+)\/evidence$/u.exec(url.pathname);
+      if (request.method === "GET" && candidateEvidenceMatch) { send(response, 200, { evidence: discovery.listCandidateEvidence(decodeURIComponent(candidateEvidenceMatch[1]!)) }); return; }
       const candidateMatch = /^\/v1\/candidates\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && candidateMatch) {
         const candidate = discovery.getCandidate(decodeURIComponent(candidateMatch[1]!));
@@ -141,7 +143,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 200, { candidate }); return;
       }
       const candidateMature = /^\/v1\/candidates\/([^/]+)\/mature$/u.exec(url.pathname);
-      if (request.method === "POST" && candidateMature) { send(response, 201, discovery.matureCandidate(decodeURIComponent(candidateMature[1]!))); return; }
+      if (request.method === "POST" && candidateMature) { send(response, 201, await discovery.matureCandidate(decodeURIComponent(candidateMature[1]!))); return; }
       const candidateDismiss = /^\/v1\/candidates\/([^/]+)\/dismiss$/u.exec(url.pathname);
       if (request.method === "POST" && candidateDismiss) { send(response, 200, { candidate: discovery.dismissCandidate(decodeURIComponent(candidateDismiss[1]!)) }); return; }
       const candidateAbsorb = /^\/v1\/candidates\/([^/]+)\/absorb$/u.exec(url.pathname);

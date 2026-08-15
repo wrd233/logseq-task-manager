@@ -28,6 +28,11 @@
 | Duplicate discovery | Same source set run twice | One candidate identity merges; no duplicate candidate or package | `phase12-discovery.test.ts` |
 | Discovery Graph offline | No Graph Adapter connected | Run `FAILED` with `GRAPH_ADAPTER_OFFLINE`; zero candidates/writes | `phase12-discovery.test.ts` |
 | Organize-today while paused | global maintenance pause active | Explicit one-off runs; `pauseRespected=true`; pause stays set afterwards | `phase12-discovery.test.ts` |
+| Discovery scope cap | 7 sources with maxContextItems=3 | `PARTIAL` with remaining=4, cursor continues twice, 7 sources covered without duplicates | `phase12-5-hardening.test.ts` |
+| Unchanged discovery rerun | Same source hash processed before | Prefilter marks `ALREADY_COVERED`; counting executor proves no second remote call | `phase12-5-hardening.test.ts` |
+| Wrong candidate attach | Model returns a nonexistent candidateId | Source stays `UNRESOLVED/CANDIDATE_ATTACH_INVALID`; no candidate invented | `phase12-5-hardening.test.ts` |
+| Maturity gate | Candidate has kind+title but only KEEP_OBSERVING | No DecisionPackage; organize output only shows READY candidates | `phase12-5-hardening.test.ts` |
+| DeepSeek malformed WorkIntent | `proposedWorkIntent` returned as prose string | Strict parser rejects batch (`DEEPSEEK_RESULT_NOT_OBJECT`), no semantic repair | `scripts/eval-discovery-restraint.ts` |
 | Materialized candidate rediscovered | Same source set re-observed after CREATE | Judgment suppressed as `ALREADY_COVERED`; no duplicate candidate | `phase12-discovery.test.ts` + real chain |
 
 No case silently overwrote user content or deleted Ledger history. The failure hooks exist only at the Kernel's system-boundary option and are not exposed through the public HTTP API.

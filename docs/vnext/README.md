@@ -211,13 +211,14 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 - Strict Structured Cognition：syntax-only 提取、no semantic repair、ExecutionProfile 全字段执行（ADR-022）；
 - Governance Issue identity 与 causal dimension-checked resolve（ADR-023）；
 - Bounded Existing-Object-First Discovery / Formalization Candidate（ADR-024）；
+- Discovery Coverage Honesty / Candidate Continuity / Maturity / Evidence / Restraint Evaluation（ADR-026/027/028，Phase 12.5）；
 - Organize Today as Governance Orchestration（ADR-025）；
 - 真实 Logseq Desktop 0.10.15 已验证 anchor → observer → queue → context-aware focus commit；
 - 真实 Logseq Desktop 已验证 Plugin 命令 → trusted user event → UserDecision → USER commit → projection converge 的完整可信授权链（Phase 11.5）；
 - 真实 Logseq Desktop 已验证 `整理今天 → Discovery → Candidate → DecisionPackage → “纳入” → CREATE → projection converge`（Phase 12）；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-下一轮从 07 的 Phase 12 收尾（真实 Graph 大规模 restraint 评估与 DeepSeek 实调）与 Phase 13 继续，不要从旧 01–04 反推架构。
+当前基线已完成 Phase 12 + 12.5；下一轮按 Route A/B 判断：Phase 16 semantic projections 或 Phase 13 unattended cognition，不要从旧 01–04 反推架构。
 
 任何新想法先问：
 

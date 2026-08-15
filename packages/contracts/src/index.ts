@@ -817,6 +817,7 @@ export interface DiscoveryExistingObject {
 export type DiscoveryNoCandidateReason = "EPHEMERAL" | "ONE_OFF" | "REFERENCE_ONLY" | "INSUFFICIENT_BOUNDARY" | "ALREADY_COVERED" | "UNCERTAIN";
 
 export type DiscoveryCandidateKind = WorkObjectKind | "UNRESOLVED";
+export type DiscoveryMaturity = "UNEVALUATED" | "KEEP_OBSERVING" | "READY_FOR_DECISION" | "INSUFFICIENT_BOUNDARY";
 
 export interface ProposedWorkIntent {
   desiredOutcome: string | null;
@@ -825,13 +826,27 @@ export interface ProposedWorkIntent {
 
 export type DiscoveryJudgment =
   | { kind: "ASSOCIATE_EXISTING"; sourceHandles: string[]; targetWorkObjectId: string; rationaleSummary: string }
+  | { kind: "ATTACH_TO_CANDIDATE"; candidateId: string; sourceHandles: string[]; rationaleSummary: string }
   | { kind: "NO_CANDIDATE"; sourceHandles: string[]; reason: DiscoveryNoCandidateReason; rationaleSummary: string }
-  | { kind: "FORMALIZATION_CANDIDATE"; sourceHandles: string[]; recommendedKind: DiscoveryCandidateKind; recommendedOwnerId: string | null; proposedTitle: string | null; proposedWorkIntent: ProposedWorkIntent | null; rationaleSummary: string };
+  | { kind: "FORMALIZATION_CANDIDATE"; sourceHandles: string[]; recommendedKind: DiscoveryCandidateKind; recommendedOwnerId: string | null; proposedTitle: string | null; proposedWorkIntent: ProposedWorkIntent | null; maturity?: DiscoveryMaturity; supportingHandles?: string[]; rationaleSummary: string };
+
+export interface DiscoveryOpenCandidateSummary {
+  candidateId: string;
+  recommendedKind: DiscoveryCandidateKind;
+  proposedTitle: string | null;
+  recommendedOwnerId: string | null;
+  rationaleSummary: string;
+  sourceRefs: readonly SourceRef[];
+  sourceContents: readonly string[];
+  lastObservedAt: string;
+  maturity: DiscoveryMaturity;
+}
 
 export interface DiscoveryJudgeInput {
   scope: DiscoveryScope;
   contextPack: DiscoveryPackItem[];
   existingObjects: DiscoveryExistingObject[];
+  openCandidates: DiscoveryOpenCandidateSummary[];
   profile: ExecutionProfile;
 }
 
@@ -849,11 +864,15 @@ export interface FormalizationCandidate {
   scope: DiscoveryScope;
   sourceRefs: readonly SourceRef[];
   sourceHashes: readonly string[];
+  sourceContents: readonly string[];
   recommendedKind: DiscoveryCandidateKind;
   recommendedOwnerId: string | null;
   proposedTitle: string | null;
   proposedWorkIntent: ProposedWorkIntent | null;
   rationaleSummary: string;
+  maturity: DiscoveryMaturity;
+  maturityEvaluatedAt: string | null;
+  supportingSourceRefs: readonly SourceRef[];
   createdAt: string;
   updatedAt: string;
   lastObservedAt: string;
@@ -862,6 +881,16 @@ export interface FormalizationCandidate {
   evidenceRefs: readonly string[];
   materializedWorkObjectId: string | null;
   decisionPackageId: string | null;
+}
+
+export interface FormalizationEvidence {
+  id: string;
+  candidateId: string;
+  sourceRef: SourceRef;
+  sourceHash: string;
+  frozenContent: string;
+  proof: string;
+  frozenAt: string;
 }
 
 export type DiscoveryRunStatus = "RUNNING" | "COMPLETED" | "PARTIAL" | "FAILED";
@@ -873,6 +902,12 @@ export interface DiscoveryRun {
   modelAlias: string | null;
   status: DiscoveryRunStatus;
   sourceCount: number;
+  scopeTotal: number;
+  selectedCount: number;
+  processedCount: number;
+  coveredCount: number;
+  remainingCount: number;
+  continuationToken: string | null;
   associationCount: number;
   noCandidateCount: number;
   candidateIds: readonly string[];
@@ -888,7 +923,7 @@ export interface DiscoveryRunSourceOutcome {
   runId: string;
   sourceRef: SourceRef;
   sourceHash: string;
-  outcome: "ASSOCIATED" | "NO_CANDIDATE" | "CANDIDATE" | "UNRESOLVED";
+  outcome: "ASSOCIATED" | "ATTACHED" | "NO_CANDIDATE" | "CANDIDATE" | "UNRESOLVED";
   candidateId?: string | null;
   targetWorkObjectId?: string | null;
   reason?: string | null;
@@ -896,9 +931,11 @@ export interface DiscoveryRunSourceOutcome {
 
 export interface OrganizeTodayResult {
   run: DiscoveryRun;
+  runs: readonly DiscoveryRun[];
   scope: DiscoveryScope;
   associations: readonly ContextAssociation[];
   candidates: readonly FormalizationCandidate[];
+  readyCandidates: readonly FormalizationCandidate[];
   maturePackages: readonly DecisionPackage[];
   reconcileJobs: readonly ReconcileJob[];
   graphAvailable: boolean;

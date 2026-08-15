@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { deterministicUuid, stableHash, type DecisionPackage, type DiscoveryExecutor, type DiscoveryExistingObject, type DiscoveryJudgment, type DiscoveryPackItem, type DiscoveryRun, type DiscoveryRunSourceOutcome, type DiscoveryScope, type ExecutionProfile, type FormalizationCandidate, type GraphGatewayResponse, type OrganizeTodayResult, type ReconcileJob } from "@task-copilot/contracts";
+import { deterministicUuid, stableHash, type ContextAssociation, type DecisionPackage, type DiscoveryExecutor, type DiscoveryExistingObject, type DiscoveryJudgment, type DiscoveryOpenCandidateSummary, type DiscoveryPackItem, type DiscoveryRun, type DiscoveryRunSourceOutcome, type DiscoveryScope, type ExecutionProfile, type FormalizationCandidate, type FormalizationEvidence, type GraphGatewayResponse, type OrganizeTodayResult, type ReconcileJob } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import type { GraphRequestBroker } from "./graph-broker.ts";
@@ -14,6 +14,7 @@ function response<T extends GraphGatewayResponse["kind"]>(value: GraphGatewayRes
 export interface DiscoveryCoordinatorOptions {
   now?: () => string;
   journalPageNames?: (date: string) => string[];
+  organizeBatchLimit?: number;
 }
 
 function isoDay(date: string): string { return date.slice(0, 10); }
@@ -26,6 +27,33 @@ function scopeKey(scope: DiscoveryScope): string {
   return stableHash(["EXPLICIT_SOURCE_SET", ...scope.sources.map((source) => `${source.graphId}:${source.blockUuid}`).sort()]);
 }
 
+interface ResolvedBlock {
+  sourceRef: ContextAssociation["sourceRef"];
+  content: string;
+  sourceHash: string;
+  observedAt: string;
+}
+
+interface ContinuationPayload {
+  refs: Array<{ graphId: string; blockUuid: string; sourceHash: string }>;
+}
+
+function encodeContinuation(refs: ResolvedBlock[]): string | null {
+  if (!refs.length) return null;
+  const payload: ContinuationPayload = { refs: refs.map((item) => ({ graphId: item.sourceRef.graphId, blockUuid: item.sourceRef.blockUuid, sourceHash: item.sourceHash })) };
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+}
+
+function decodeContinuation(token: string | null): ContinuationPayload | null {
+  if (!token) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(token, "base64url").toString("utf8")) as ContinuationPayload;
+    return Array.isArray(parsed.refs) ? parsed : null;
+  } catch { return null; }
+}
+
+const keyOf = (ref: { graphId: string; blockUuid: string }) => `${ref.graphId}:${ref.blockUuid}`;
+
 export class DiscoveryCoordinator {
   readonly #kernel: Kernel;
   readonly #store: SqliteStore;
@@ -35,6 +63,7 @@ export class DiscoveryCoordinator {
   readonly #profile: ExecutionProfile;
   readonly #now: () => string;
   readonly #journalPageNames: (date: string) => string[];
+  readonly #organizeBatchLimit: number;
 
   constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, maintenance: MaintenanceCoordinator, executor: DiscoveryExecutor, profile: ExecutionProfile, options: DiscoveryCoordinatorOptions = {}) {
     this.#kernel = kernel;
@@ -45,96 +74,120 @@ export class DiscoveryCoordinator {
     this.#profile = profile;
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#journalPageNames = options.journalPageNames ?? ((date) => [date, date.replaceAll("-", "_"), `journal/${date}`, `journal/${date.replaceAll("-", "_")}`]);
+    this.#organizeBatchLimit = options.organizeBatchLimit ?? 3;
   }
 
   listRuns(): DiscoveryRun[] { return this.#store.listDiscoveryRuns(); }
   getRun(id: string): DiscoveryRun | null { return this.#store.getDiscoveryRun(id); }
   listCandidates(status?: FormalizationCandidate["status"]): FormalizationCandidate[] { return this.#store.listFormalizationCandidates(status); }
   getCandidate(id: string): FormalizationCandidate | null { return this.#store.getFormalizationCandidate(id); }
+  listCandidateEvidence(candidateId: string): FormalizationEvidence[] { return this.#store.listCandidateEvidence(candidateId); }
 
-  async runDiscovery(scope: DiscoveryScope): Promise<DiscoveryRun> {
+  async runDiscovery(scope: DiscoveryScope, input: { continuationToken?: string | null } = {}): Promise<DiscoveryRun> {
     const at = this.#now();
     const runId = `discovery:${randomUUID()}`;
     const startedMs = Date.now();
     const run: DiscoveryRun = {
       id: runId, scope, executorId: this.#executor.id, modelAlias: this.#profile.modelAlias ?? null, status: "RUNNING",
-      sourceCount: 0, associationCount: 0, noCandidateCount: 0, candidateIds: [], summaryText: "", latencyMs: 0,
-      tokenUsage: null, error: null, startedAt: at, completedAt: null,
+      sourceCount: 0, scopeTotal: 0, selectedCount: 0, processedCount: 0, coveredCount: 0, remainingCount: 0,
+      continuationToken: input.continuationToken ?? null, associationCount: 0, noCandidateCount: 0, candidateIds: [],
+      summaryText: "", latencyMs: 0, tokenUsage: null, error: null, startedAt: at, completedAt: null,
     };
     try {
-      const sources = await this.#resolveSources(scope);
-      run.sourceCount = sources.length;
-      this.#store.putDiscoveryRun(run);
-      if (sources.length === 0) {
-        run.summaryText = "这个范围内没有新的自然记录需要整理。";
-        run.completedAt = this.#now(); run.latencyMs = Date.now() - startedMs;
-        this.#store.putDiscoveryRun(run);
-        return run;
+      const all = await this.#readScopeBlocks(scope);
+      run.scopeTotal = all.length;
+      const { kept, skipped } = this.#prefilter(all);
+      const continuation = decodeContinuation(input.continuationToken ?? null);
+      let batch = kept.slice(0, Math.max(0, this.#profile.maxContextItems));
+      if (continuation) {
+        const wanted = new Map(continuation.refs.map((ref) => [keyOf(ref), ref]));
+        batch = wanted.size ? [...wanted.values()].map((ref) => kept.find((item) => keyOf(item.sourceRef) === keyOf(ref))).filter((item): item is ResolvedBlock => Boolean(item)).slice(0, Math.max(0, this.#profile.maxContextItems)) : [];
       }
-      const existingObjects = this.#existingObjects(sources.length);
-      const judgments = await this.#executor.judge({ scope, contextPack: sources, existingObjects, profile: this.#profile });
-      run.tokenUsage = this.#executor.tokenUsage ?? null;
-      run.latencyMs = Date.now() - startedMs;
-      const candidates: FormalizationCandidate[] = [];
+      const built = this.#buildItems(batch);
+      run.sourceCount = built.items.length;
+      run.selectedCount = built.items.length;
+      run.remainingCount = Math.max(0, kept.length - built.items.length);
+      run.continuationToken = encodeContinuation(kept.slice(built.items.length).slice(0, 500));
+      this.#store.putDiscoveryRun(run);
+
+      const sourceOutcomes = new Map<string, DiscoveryRunSourceOutcome>();
       const handled = new Set<string>();
       let invalid = 0;
-      const sourceOutcomes = new Map<string, DiscoveryRunSourceOutcome>();
       const mark = (handles: string[], outcome: DiscoveryRunSourceOutcome["outcome"], reason: string | null, extra: Partial<DiscoveryRunSourceOutcome> = {}) => {
         for (const handle of handles) {
-          const item = sources.find((entry) => entry.handle === handle);
+          const item = built.items.find((entry) => entry.handle === handle);
           if (!item || handled.has(handle)) continue;
           handled.add(handle);
           sourceOutcomes.set(handle, { runId, sourceRef: item.sourceRef, sourceHash: item.sourceHash, outcome, reason, candidateId: extra.candidateId ?? null, targetWorkObjectId: extra.targetWorkObjectId ?? null, ...extra });
         }
       };
-      const packItem = (handle: string) => sources.find((item) => item.handle === handle);
-
-      for (const judgment of judgments) {
-        if (judgment.kind === "ASSOCIATE_EXISTING") {
-          const object = this.#store.getWorkObject(judgment.targetWorkObjectId);
-          if (!object) { mark(judgment.sourceHandles, "UNRESOLVED", "TARGET_WORK_OBJECT_NOT_FOUND"); invalid += 1; continue; }
-          for (const handle of judgment.sourceHandles) {
-            const item = packItem(handle);
-            if (!item) { invalid += 1; continue; }
-            try {
-              this.#kernel.associateContext({ workObjectId: object.id, sourceRef: item.sourceRef, sourceVersionHash: item.sourceHash, origin: "AGENT_INFERRED", basisRunId: runId, at: this.#now() });
-              mark([handle], "ASSOCIATED", null, { targetWorkObjectId: object.id });
-              run.associationCount += 1;
-            } catch (error) {
-              mark([handle], "UNRESOLVED", error instanceof Error ? error.message.slice(0, 200) : "ASSOCIATION_REJECTED");
-              invalid += 1;
-            }
-          }
-          continue;
-        }
-        if (judgment.kind === "NO_CANDIDATE") {
-          mark(judgment.sourceHandles, "NO_CANDIDATE", judgment.reason);
-          for (const handle of judgment.sourceHandles) if (packItem(handle) && !handled.has(handle)) { /* handled inside mark */ }
-          run.noCandidateCount += judgment.sourceHandles.filter((handle) => packItem(handle) && !handled.has(handle)).length;
-          continue;
-        }
-        const refs = judgment.sourceHandles.map((handle) => packItem(handle)).filter((item): item is DiscoveryPackItem => Boolean(item));
-        if (!refs.length || refs.length !== new Set(judgment.sourceHandles).size) { mark(judgment.sourceHandles, "UNRESOLVED", "DISCOVERY_HANDLE_INVALID"); invalid += 1; continue; }
-        if ((judgment.recommendedKind !== "UNRESOLVED" && (!judgment.proposedTitle || !judgment.proposedTitle.trim())) || (judgment.recommendedOwnerId && !this.#store.getWorkObject(judgment.recommendedOwnerId))) {
-          mark(judgment.sourceHandles, "UNRESOLVED", "CANDIDATE_RECOMMENDATION_INVALID");
-          invalid += 1;
-          continue;
-        }
-        const candidate = this.#upsertCandidate(scope, refs, judgment, runId, at);
-        if (candidate.status !== "OPEN") {
-          mark(judgment.sourceHandles, "NO_CANDIDATE", "ALREADY_COVERED");
-          continue;
-        }
-        candidates.push(candidate);
-        run.candidateIds = [...new Set([...run.candidateIds, candidate.id])];
-        mark(judgment.sourceHandles, "CANDIDATE", null, { candidateId: candidate.id });
+      for (const item of skipped) {
+        sourceOutcomes.set(`skip:${keyOf(item.sourceRef)}`, { runId, sourceRef: item.sourceRef, sourceHash: item.sourceHash, outcome: "NO_CANDIDATE", reason: "ALREADY_COVERED", candidateId: null, targetWorkObjectId: null });
       }
-      for (const source of sources) if (!handled.has(source.handle)) { mark([source.handle], "UNRESOLVED", "JUDGMENT_DID_NOT_COVER_SOURCE"); invalid += 1; }
+
+      if (built.items.length > 0) {
+        const existingObjects = this.#existingObjects(built.items.length);
+        const openCandidates = this.#openCandidateSummaries(built.items.length);
+        const judgments = await this.#executor.judge({ scope, contextPack: built.items, existingObjects, openCandidates, profile: this.#profile });
+        run.tokenUsage = this.#executor.tokenUsage ?? null;
+        run.latencyMs = Date.now() - startedMs;
+        const packItem = (handle: string) => built.items.find((item) => item.handle === handle);
+
+        for (const judgment of judgments) {
+          if (judgment.kind === "ASSOCIATE_EXISTING") {
+            const object = this.#store.getWorkObject(judgment.targetWorkObjectId);
+            if (!object) { mark(judgment.sourceHandles, "UNRESOLVED", "TARGET_WORK_OBJECT_NOT_FOUND"); invalid += 1; continue; }
+            for (const handle of judgment.sourceHandles) {
+              const item = packItem(handle);
+              if (!item) { invalid += 1; continue; }
+              try {
+                this.#kernel.associateContext({ workObjectId: object.id, sourceRef: item.sourceRef, sourceVersionHash: item.sourceHash, origin: "AGENT_INFERRED", basisRunId: runId, at: this.#now() });
+                mark([handle], "ASSOCIATED", null, { targetWorkObjectId: object.id });
+                run.associationCount += 1;
+              } catch (error) {
+                mark([handle], "UNRESOLVED", error instanceof Error ? error.message.slice(0, 200) : "ASSOCIATION_REJECTED");
+                invalid += 1;
+              }
+            }
+            continue;
+          }
+          if (judgment.kind === "ATTACH_TO_CANDIDATE") {
+            const candidate = this.#store.getFormalizationCandidate(judgment.candidateId);
+            const refs = judgment.sourceHandles.map((handle) => packItem(handle)).filter((item): item is DiscoveryPackItem => Boolean(item));
+            if (!candidate || candidate.status !== "OPEN" || !refs.length || refs.length !== judgment.sourceHandles.length) {
+              mark(judgment.sourceHandles, "UNRESOLVED", "CANDIDATE_ATTACH_INVALID"); invalid += 1; continue;
+            }
+            this.#store.addCandidateSources(candidate.id, refs.map((item) => item.sourceRef), refs.map((item) => item.sourceHash), refs.map((item) => item.content), at);
+            this.#store.addCandidateDiscoveryRun(candidate.id, runId);
+            this.#store.updateFormalizationCandidate(candidate.id, { lastObservedAt: at, updatedAt: at });
+            mark(judgment.sourceHandles, "ATTACHED", null, { candidateId: candidate.id });
+            run.candidateIds = [...new Set([...run.candidateIds, candidate.id])];
+            continue;
+          }
+          if (judgment.kind === "NO_CANDIDATE") {
+            mark(judgment.sourceHandles, "NO_CANDIDATE", judgment.reason);
+            continue;
+          }
+          const refs = judgment.sourceHandles.map((handle) => packItem(handle)).filter((item): item is DiscoveryPackItem => Boolean(item));
+          if (!refs.length || refs.length !== new Set(judgment.sourceHandles).size) { mark(judgment.sourceHandles, "UNRESOLVED", "DISCOVERY_HANDLE_INVALID"); invalid += 1; continue; }
+          if ((judgment.recommendedKind !== "UNRESOLVED" && (!judgment.proposedTitle || !judgment.proposedTitle.trim())) || (judgment.recommendedOwnerId && !this.#store.getWorkObject(judgment.recommendedOwnerId))) {
+            mark(judgment.sourceHandles, "UNRESOLVED", "CANDIDATE_RECOMMENDATION_INVALID"); invalid += 1; continue;
+          }
+          const supportingRefs = judgment.supportingHandles ? judgment.supportingHandles.map((handle) => packItem(handle)).filter((item): item is DiscoveryPackItem => Boolean(item)).map((item) => item.sourceRef) : [];
+          const candidate = this.#upsertCandidate(scope, refs, judgment, supportingRefs, runId, at);
+          if (candidate.status !== "OPEN") { mark(judgment.sourceHandles, "NO_CANDIDATE", "ALREADY_COVERED"); continue; }
+          run.candidateIds = [...new Set([...run.candidateIds, candidate.id])];
+          mark(judgment.sourceHandles, "CANDIDATE", null, { candidateId: candidate.id });
+        }
+        for (const source of built.items) if (!handled.has(source.handle)) { mark([source.handle], "UNRESOLVED", "JUDGMENT_DID_NOT_COVER_SOURCE"); invalid += 1; }
+      }
 
       for (const outcome of sourceOutcomes.values()) this.#store.putDiscoveryRunSource(outcome);
+      run.processedCount = handled.size + skipped.length;
+      run.coveredCount = handled.size;
       run.noCandidateCount = [...sourceOutcomes.values()].filter((item) => item.outcome === "NO_CANDIDATE").length;
-      run.status = invalid > 0 ? "PARTIAL" : "COMPLETED";
-      run.summaryText = this.#summary(sources.length, run.associationCount, candidates, run.noCandidateCount);
+      run.status = invalid > 0 || run.remainingCount > 0 ? "PARTIAL" : "COMPLETED";
+      run.summaryText = this.#summary(built.items.length, run.associationCount, run.remainingCount, run.status === "PARTIAL");
       run.completedAt = this.#now();
       run.latencyMs = Date.now() - startedMs;
       this.#store.putDiscoveryRun(run);
@@ -150,42 +203,56 @@ export class DiscoveryCoordinator {
     }
   }
 
-  matureCandidate(candidateId: string): { pkg: DecisionPackage; candidate: FormalizationCandidate } {
+  async matureCandidate(candidateId: string): Promise<{ pkg: DecisionPackage; candidate: FormalizationCandidate; evidence: FormalizationEvidence[] }> {
     const candidate = this.#store.getFormalizationCandidate(candidateId);
     if (!candidate) throw new Error("FORMALIZATION_CANDIDATE_NOT_FOUND");
     if (candidate.status !== "OPEN") throw new Error("FORMALIZATION_CANDIDATE_NOT_OPEN");
+    if (candidate.maturity !== "READY_FOR_DECISION") throw new Error("FORMALIZATION_CANDIDATE_NOT_READY");
     if (candidate.recommendedKind === "UNRESOLVED") throw new Error("FORMALIZATION_CANDIDATE_KIND_UNRESOLVED");
     if (!candidate.proposedTitle?.trim()) throw new Error("FORMALIZATION_CANDIDATE_TITLE_REQUIRED");
     if (!candidate.sourceRefs.length || !candidate.sourceHashes[0]) throw new Error("FORMALIZATION_CANDIDATE_SOURCE_REQUIRED");
     if (candidate.decisionPackageId) {
       const existing = this.#store.getDecisionPackage(candidate.decisionPackageId);
-      if (existing && existing.status === "OPEN") return { pkg: existing, candidate };
+      if (existing && existing.status === "OPEN") return { pkg: existing, candidate, evidence: this.#store.listCandidateEvidence(candidate.id) };
     }
-    const anchor = candidate.sourceRefs[0]!;
-    const sourceHash = candidate.sourceHashes[0]!;
-    const owner = candidate.recommendedOwnerId ? this.#store.getWorkObject(candidate.recommendedOwnerId) : null;
-    const intentText = candidate.proposedWorkIntent ? `；目标：${candidate.proposedWorkIntent.desiredOutcome ?? "未限定"}${candidate.proposedWorkIntent.completionChecks.length ? `（完成检查 ${candidate.proposedWorkIntent.completionChecks.length} 项）` : ""}` : "";
-    const summary = `建议创建${candidate.recommendedKind}「${candidate.proposedTitle}」${owner ? `，归属 ${owner.title}` : ""}${intentText}`;
-    const rationale = candidate.rationaleSummary || "该自然材料形成了独立、持续、值得重新进入的治理边界。";
+    const evidenceRefs = [...(candidate.supportingSourceRefs.length ? candidate.supportingSourceRefs : [candidate.sourceRefs[0]!])];
+    const frozen: FormalizationEvidence[] = [];
+    for (const [index, ref] of evidenceRefs.entries()) {
+      const material = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: ref.graphId, blockUuid: ref.blockUuid }), "READ_EVIDENCE").material;
+      const evidence: FormalizationEvidence = {
+        id: `formalization-evidence:${candidate.id}:${index}`, candidateId: candidate.id, sourceRef: ref,
+        sourceHash: material.sourceContentHash, frozenContent: material.content, proof: material.proof, frozenAt: this.#now(),
+      };
+      this.#store.putCandidateEvidence(evidence);
+      this.#store.addCandidateEvidenceRef(candidate.id, evidence.id);
+      frozen.push(evidence);
+    }
+    const refreshed = this.#store.getFormalizationCandidate(candidate.id)!;
+    const anchor = refreshed.sourceRefs[0]!;
+    const sourceHash = refreshed.sourceHashes[0]!;
+    const owner = refreshed.recommendedOwnerId ? this.#store.getWorkObject(refreshed.recommendedOwnerId) : null;
+    const intentText = refreshed.proposedWorkIntent ? `；目标：${refreshed.proposedWorkIntent.desiredOutcome ?? "未限定"}${refreshed.proposedWorkIntent.completionChecks.length ? `（完成检查 ${refreshed.proposedWorkIntent.completionChecks.length} 项）` : ""}` : "";
+    const summary = `建议创建${refreshed.recommendedKind}「${refreshed.proposedTitle}」${owner ? `，归属 ${owner.title}` : ""}${intentText}`;
+    const rationale = refreshed.rationaleSummary || "该自然材料形成了独立、持续、值得重新进入的治理边界。";
     const pkg = this.#kernel.createDecisionPackage({
-      id: `formalization-package:${candidate.id}`,
+      id: `formalization-package:${refreshed.id}`,
       workObjectId: null,
       summary,
       rationale,
       candidates: [{
-        id: `formalization-candidate:${candidate.id}`,
+        id: `formalization-candidate:${refreshed.id}`,
         operationType: "CREATE_WORK_OBJECT",
         parameters: {
           anchor: { graphId: anchor.graphId, blockUuid: anchor.blockUuid, sourceContentHash: sourceHash },
-          input: { kind: candidate.recommendedKind, title: candidate.proposedTitle },
-          ownerId: candidate.recommendedOwnerId,
-          proposedWorkIntent: candidate.proposedWorkIntent,
+          input: { kind: refreshed.recommendedKind, title: refreshed.proposedTitle },
+          ownerId: refreshed.recommendedOwnerId,
+          proposedWorkIntent: refreshed.proposedWorkIntent,
         },
-        evidenceIds: [],
+        evidenceIds: refreshed.evidenceRefs,
       }],
     });
-    this.#store.updateFormalizationCandidate(candidate.id, { decisionPackageId: pkg.pkg.id, updatedAt: this.#now() });
-    return { pkg: pkg.pkg, candidate: this.#store.getFormalizationCandidate(candidate.id)! };
+    this.#store.updateFormalizationCandidate(refreshed.id, { decisionPackageId: pkg.pkg.id, updatedAt: this.#now() });
+    return { pkg: pkg.pkg, candidate: this.#store.getFormalizationCandidate(refreshed.id)!, evidence: frozen };
   }
 
   markMaterializedByPackage(packageId: string, workObjectId: string): FormalizationCandidate | null {
@@ -224,9 +291,8 @@ export class DiscoveryCoordinator {
     const at = this.#now();
     for (let index = 0; index < candidate.sourceRefs.length; index += 1) {
       const ref = candidate.sourceRefs[index]!;
-      try {
-        this.#kernel.associateContext({ workObjectId: target.id, sourceRef: ref, sourceVersionHash: candidate.sourceHashes[index] ?? "", origin: "AGENT_INFERRED", basisRunId: `candidate-absorb:${candidate.id}`, at });
-      } catch { /* correction may block one source; the rest remain absorbable */ }
+      try { this.#kernel.associateContext({ workObjectId: target.id, sourceRef: ref, sourceVersionHash: candidate.sourceHashes[index] ?? "", origin: "AGENT_INFERRED", basisRunId: `candidate-absorb:${candidate.id}`, at }); }
+      catch { /* correction may block one source */ }
     }
     this.#store.updateFormalizationCandidate(candidate.id, { status: "MATERIALIZED", materializedWorkObjectId: target.id, updatedAt: at, lastObservedAt: at });
     return this.#store.getFormalizationCandidate(candidate.id)!;
@@ -253,10 +319,19 @@ export class DiscoveryCoordinator {
         }
       }
     }
-    const run = await this.runDiscovery(scope);
+    const runs: DiscoveryRun[] = [];
+    let token: string | null = null;
+    for (let batch = 0; batch < this.#organizeBatchLimit; batch += 1) {
+      const run = await this.runDiscovery(scope, { continuationToken: token });
+      runs.push(run);
+      token = run.continuationToken;
+      if (!token || run.status === "FAILED") break;
+    }
+    const lastRun = runs.at(-1)!;
     const packages: DecisionPackage[] = [];
-    for (const candidate of run.candidateIds.map((id) => this.#store.getFormalizationCandidate(id)).filter((candidate): candidate is FormalizationCandidate => Boolean(candidate))) {
-      if (candidate.recommendedKind !== "UNRESOLVED" && candidate.proposedTitle?.trim() && !candidate.decisionPackageId) packages.push(this.matureCandidate(candidate.id).pkg);
+    const candidateIds = [...new Set(runs.flatMap((run) => run.candidateIds))];
+    for (const candidate of candidateIds.map((id) => this.#store.getFormalizationCandidate(id)).filter((candidate): candidate is FormalizationCandidate => Boolean(candidate))) {
+      if (candidate.maturity === "READY_FOR_DECISION" && candidate.recommendedKind !== "UNRESOLVED" && candidate.proposedTitle?.trim() && !candidate.decisionPackageId) packages.push((await this.matureCandidate(candidate.id)).pkg);
     }
     for (const job of reconcileJobs) {
       for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -266,19 +341,26 @@ export class DiscoveryCoordinator {
       }
     }
     const candidates = this.#store.listFormalizationCandidates("OPEN");
-    const associations = this.#store.listDiscoveryRunSources(run.id).filter((item) => item.outcome === "ASSOCIATED");
-    const summaryText = run.status === "FAILED"
+    const readyCandidates = candidates.filter((candidate) => candidate.maturity === "READY_FOR_DECISION");
+    const associationRunIds = new Set(runs.map((run) => run.id));
+    const associations = associationRunIds.size
+      ? this.#store.listContextAssociations().filter((association) => association.basisRunId && associationRunIds.has(association.basisRunId))
+      : [];
+    const partial = lastRun.status === "PARTIAL" && lastRun.remainingCount > 0;
+    const readyLine = readyCandidates.length
+      ? `\n有 ${readyCandidates.length} 项边界建议等待你判断：${readyCandidates.map((candidate) => candidate.proposedTitle ?? candidate.id).join("、")}`
+      : "";
+    const summaryText = lastRun.status === "FAILED"
       ? "整理未能完成；现有正式事项和自然记录都保持原样。"
-      : run.summaryText;
+      : `${lastRun.summaryText}${partial ? "\n还有一部分新记录尚未完成语义整理，我已经保留进度，下次会继续。" : ""}${readyLine}`;
     return {
-      run, scope, associations: associations.map((item) => this.#store.listContextAssociations().find((association) => association.sourceRef.graphId === item.sourceRef.graphId && association.sourceRef.blockUuid === item.sourceRef.blockUuid)!).filter(Boolean),
-      candidates, maturePackages: packages, reconcileJobs: this.#maintenance.jobs().filter((job) => reconcileJobs.some((queued) => queued.id === job.id)),
-      graphAvailable, pauseRespected: this.#maintenance.isPaused("global", null),
-      summaryText,
+      run: lastRun, runs, scope, associations, candidates, readyCandidates, maturePackages: packages,
+      reconcileJobs: this.#maintenance.jobs().filter((job) => reconcileJobs.some((queued) => queued.id === job.id)),
+      graphAvailable, pauseRespected: this.#maintenance.isPaused("global", null), summaryText,
     };
   }
 
-  async #resolveSources(scope: DiscoveryScope): Promise<DiscoveryPackItem[]> {
+  async #readScopeBlocks(scope: DiscoveryScope): Promise<ResolvedBlock[]> {
     const status = this.#broker.status();
     if (!status.available || !status.graphId) throw new Error("GRAPH_ADAPTER_OFFLINE");
     const observedAt = this.#now();
@@ -288,7 +370,7 @@ export class DiscoveryCoordinator {
       if (scope.kind === "SUBTREE" && !page.blocks.some((block) => block.blockUuid === scope.blockUuid)) throw new Error("DISCOVERY_SUBTREE_ROOT_NOT_FOUND");
       blocks.push(...page.blocks.map((block) => ({ graphId: block.graphId, blockUuid: block.blockUuid, pageName: block.pageName, content: block.content, contentHash: block.contentHash })));
     } else if (scope.kind === "EXPLICIT_SOURCE_SET") {
-      for (const source of scope.sources.slice(0, this.#profile.maxContextItems)) {
+      for (const source of scope.sources) {
         const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId: source.graphId, blockUuid: source.blockUuid }), "READ_BLOCK").block;
         blocks.push({ graphId: block.graphId, blockUuid: block.blockUuid, pageName: block.pageName, content: block.content, contentHash: block.contentHash });
       }
@@ -300,28 +382,57 @@ export class DiscoveryCoordinator {
             const page = response(await this.#broker.request({ kind: "READ_PAGE", graphId: status.graphId, pageName, limit: 200 }), "READ_PAGE").page;
             blocks.push(...page.blocks.map((block) => ({ graphId: block.graphId, blockUuid: block.blockUuid, pageName: block.pageName, content: block.content, contentHash: block.contentHash })));
             break;
-          } catch { /* try next page-name convention */ }
+          } catch { /* next page-name convention */ }
         }
       }
     }
     const unique = [...new Map(blocks.map((block) => [`${block.graphId}:${block.blockUuid}`, block])).values()];
-    const capped = unique.slice(0, Math.max(0, this.#profile.maxContextItems));
+    return unique.map((block) => ({ sourceRef: { graphId: block.graphId, blockUuid: block.blockUuid, pageName: block.pageName }, content: block.content, sourceHash: block.contentHash, observedAt }));
+  }
+
+  #prefilter(all: ResolvedBlock[]): { kept: ResolvedBlock[]; skipped: ResolvedBlock[] } {
+    const activeAssociations = new Set(this.#store.listContextAssociations("ACTIVE").map((association) => keyOf(association.sourceRef)));
+    const kept: ResolvedBlock[] = [];
+    const skipped: ResolvedBlock[] = [];
+    for (const item of all) {
+      const content = item.content.trim();
+      if (!content || /^(?:[a-zA-Z0-9_-]+::.*(?:\n|$))+$/u.test(item.content)) { skipped.push(item); continue; }
+      const key = keyOf(item.sourceRef);
+      if (activeAssociations.has(key)) { skipped.push(item); continue; }
+      const latest = this.#store.latestDiscoverySourceOutcome(item.sourceRef.graphId, item.sourceRef.blockUuid);
+      if (latest && latest.sourceHash === item.sourceHash && latest.outcome !== "UNRESOLVED") { skipped.push(item); continue; }
+      if (this.#store.isMaterializedCandidateSource(item.sourceRef.graphId, item.sourceRef.blockUuid)) { skipped.push(item); continue; }
+      kept.push(item);
+    }
+    return { kept, skipped };
+  }
+
+  #buildItems(batch: ResolvedBlock[]): { items: DiscoveryPackItem[]; omitted: number } {
     const items: DiscoveryPackItem[] = [];
     let used = 0;
-    for (const [index, block] of capped.entries()) {
+    let omitted = 0;
+    for (const [index, block] of batch.entries()) {
       const remaining = Math.max(0, this.#profile.maxInputChars) - used;
-      if (remaining <= 0) break;
+      if (remaining <= 0) { omitted = batch.length - index; break; }
       const content = block.content.slice(0, remaining);
-      items.push({ handle: `D${index + 1}`, sourceRef: { graphId: block.graphId, blockUuid: block.blockUuid, pageName: block.pageName }, content, sourceHash: block.contentHash, observedAt });
+      items.push({ handle: `D${index + 1}`, sourceRef: block.sourceRef, content, sourceHash: block.sourceHash, observedAt: block.observedAt });
       used += content.length;
     }
-    return items;
+    return { items, omitted };
   }
 
   #existingObjects(sourceCount: number): DiscoveryExistingObject[] {
     return this.#store.listWorkObjects().filter((object) => object.lifecycle === "OPEN").slice(0, Math.max(1, this.#profile.maxContextItems - sourceCount)).map((object, index) => ({
       handle: `O${index + 1}`, workObjectId: object.id, kind: object.kind, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement,
       currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome,
+    }));
+  }
+
+  #openCandidateSummaries(sourceCount: number): DiscoveryOpenCandidateSummary[] {
+    return this.#store.listFormalizationCandidates("OPEN").slice(0, Math.max(0, this.#profile.maxContextItems - sourceCount)).map((candidate) => ({
+      candidateId: candidate.id, recommendedKind: candidate.recommendedKind, proposedTitle: candidate.proposedTitle,
+      recommendedOwnerId: candidate.recommendedOwnerId, rationaleSummary: candidate.rationaleSummary,
+      sourceRefs: candidate.sourceRefs, sourceContents: candidate.sourceContents, lastObservedAt: candidate.lastObservedAt, maturity: candidate.maturity,
     }));
   }
 
@@ -336,16 +447,27 @@ export class DiscoveryCoordinator {
     return dates.slice(0, 14);
   }
 
-  #upsertCandidate(scope: DiscoveryScope, sources: DiscoveryPackItem[], judgment: Extract<DiscoveryJudgment, { kind: "FORMALIZATION_CANDIDATE" }>, runId: string, at: string): FormalizationCandidate {
-    const sourceRefs = [...new Map(sources.map((item) => [`${item.sourceRef.graphId}:${item.sourceRef.blockUuid}`, item.sourceRef])).values()].sort((a, b) => `${a.graphId}:${a.blockUuid}`.localeCompare(`${b.graphId}:${b.blockUuid}`));
-    const identityId = deterministicUuid(`candidate:${scopeKey(scope)}:${stableHash(sourceRefs.map((ref) => `${ref.graphId}:${ref.blockUuid}`))}`);
+  #upsertCandidate(scope: DiscoveryScope, sources: DiscoveryPackItem[], judgment: Extract<DiscoveryJudgment, { kind: "FORMALIZATION_CANDIDATE" }>, supportingRefs: readonly ContextAssociation["sourceRef"][], runId: string, at: string): FormalizationCandidate {
+    const sourceRefs = [...new Map(sources.map((item) => [keyOf(item.sourceRef), item.sourceRef])).values()].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
+    const identityId = deterministicUuid(`candidate:${scopeKey(scope)}:${stableHash(sourceRefs.map(keyOf))}`);
     const byIdentity = this.#store.getFormalizationCandidate(identityId);
     if (byIdentity && byIdentity.status !== "OPEN") return byIdentity;
-    const existing = this.#store.findOpenCandidateContainingSources(sourceRefs);
+    const maturity = judgment.maturity && judgment.maturity !== "UNEVALUATED" ? judgment.maturity : judgment.recommendedKind === "UNRESOLVED" ? "INSUFFICIENT_BOUNDARY" : "KEEP_OBSERVING";
+    const resolvedSupporting = supportingRefs.length ? supportingRefs : maturity === "READY_FOR_DECISION" ? sourceRefs : [];
+    const existing = byIdentity ?? this.#store.findOpenCandidateContainingSources(sourceRefs);
     if (existing) {
-      this.#store.addCandidateSources(existing.id, sourceRefs, sources.map((item) => item.sourceHash), at);
+      this.#store.addCandidateSources(existing.id, sourceRefs, sources.map((item) => item.sourceHash), sources.map((item) => item.content), at);
       this.#store.addCandidateDiscoveryRun(existing.id, runId);
-      const patch: Parameters<SqliteStore["updateFormalizationCandidate"]>[1] = { updatedAt: at, lastObservedAt: at };
+      this.#store.putCandidateSupportingSources(existing.id, resolvedSupporting);
+      const patch: Parameters<SqliteStore["updateFormalizationCandidate"]>[1] = {
+        updatedAt: at, lastObservedAt: at,
+        maturity: judgment.maturity && judgment.maturity !== "UNEVALUATED" ? judgment.maturity : existing.maturity,
+        maturityEvaluatedAt: judgment.maturity && judgment.maturity !== "UNEVALUATED" ? at : existing.maturityEvaluatedAt,
+        supportingSourceRefs: [...new Set([...existing.supportingSourceRefs, ...resolvedSupporting].map(keyOf))].map((key) => {
+          const ref = [...existing.supportingSourceRefs, ...resolvedSupporting].find((item) => keyOf(item) === key);
+          return ref!;
+        }),
+      };
       if (existing.recommendedKind === "UNRESOLVED" && judgment.recommendedKind !== "UNRESOLVED") {
         patch.recommendedKind = judgment.recommendedKind;
         patch.proposedTitle = judgment.proposedTitle ?? existing.proposedTitle;
@@ -357,26 +479,26 @@ export class DiscoveryCoordinator {
     }
     const expiresAt = new Date(Date.parse(at) + 30 * 24 * 60 * 60 * 1000).toISOString();
     const candidate: FormalizationCandidate = {
-      id: identityId,
-      status: "OPEN", scope, sourceRefs, sourceHashes: sourceRefs.map((ref) => sources.find((item) => item.sourceRef.graphId === ref.graphId && item.sourceRef.blockUuid === ref.blockUuid)?.sourceHash ?? ""),
+      id: identityId, status: "OPEN", scope, sourceRefs,
+      sourceHashes: sourceRefs.map((ref) => sources.find((item) => keyOf(item.sourceRef) === keyOf(ref))?.sourceHash ?? ""),
+      sourceContents: sourceRefs.map((ref) => sources.find((item) => keyOf(item.sourceRef) === keyOf(ref))?.content ?? ""),
       recommendedKind: judgment.recommendedKind, recommendedOwnerId: judgment.recommendedOwnerId, proposedTitle: judgment.proposedTitle?.trim() || null,
       proposedWorkIntent: judgment.proposedWorkIntent, rationaleSummary: judgment.rationaleSummary,
+      maturity, maturityEvaluatedAt: at, supportingSourceRefs: resolvedSupporting,
       createdAt: at, updatedAt: at, lastObservedAt: at, expiresAt, discoveryRunIds: [runId], evidenceRefs: [],
       materializedWorkObjectId: null, decisionPackageId: null,
     };
     this.#store.putFormalizationCandidate(candidate);
+    this.#store.putCandidateSupportingSources(candidate.id, resolvedSupporting);
     return candidate;
   }
 
-  #summary(sourceCount: number, associationCount: number, candidates: FormalizationCandidate[], noCandidateCount: number): string {
+  #summary(sourceCount: number, associationCount: number, remainingCount: number, partial: boolean): string {
     const lines: string[] = [];
     if (associationCount > 0) lines.push(`${associationCount} 条新记录已经自动接回已有正式事项。`);
-    const named = candidates.filter((candidate) => candidate.proposedTitle);
-    if (named.length === 1) lines.push(`另有一组记录形成了比较明确的独立边界：${named[0]!.proposedTitle}（建议 ${named[0]!.recommendedKind}）。`);
-    else if (named.length > 1) lines.push(`另有 ${named.length} 组记录形成了比较明确的独立边界，等待你判断是否纳入。`);
-    if (associationCount === 0 && named.length === 0) lines.push("今天的记录已经和现有事项对齐；没有新的边界决定需要你处理。");
-    if (noCandidateCount > 0) lines.push(`${noCandidateCount} 条记录暂时不值得正式化，已留在自然 Workspace。`);
-    if (!lines.length) lines.push(`已检查 ${sourceCount} 条自然记录，未发现需要治理的变化。`);
+    if (sourceCount > 0) lines.push(`已完成 ${sourceCount} 条记录的语义整理。`);
+    if (partial && remainingCount > 0) lines.push(`还有 ${remainingCount} 条记录尚未完成语义整理，已保留进度。`);
+    if (associationCount === 0 && sourceCount === 0) lines.push("今天没有新的自然记录需要整理。");
     return lines.join("\n");
   }
 }
