@@ -31,19 +31,44 @@ function metrics(executorName: string, judgments: DiscoveryJudgment[]) {
   let associationTp = 0; let associationFp = 0; let associationFn = 0;
   let formalizationTp = 0; let formalizationFp = 0; let formalizationFn = 0;
   let unresolved = 0;
-  let readyCandidates = 0; let prematureReady = 0;
+  let readyCandidates = 0;
+  let boundaryTp = 0; let boundaryFp = 0; let boundaryFn = 0;
+  let kindTp = 0; let kindTotal = 0;
+  let maturityTp = 0; let maturityTotal = 0; let missedReady = 0; let prematureDecision = 0;
   for (const item of DISCOVERY_GOLD_SET) {
     const got = actual.get(item.id);
-    if (!got) { unresolved += 1; if (item.expected.kind !== "NO_CANDIDATE") { if (item.expected.kind === "ASSOCIATE_EXISTING") associationFn += 1; else formalizationFn += 1; } continue; }
+    if (!got) {
+      unresolved += 1;
+      if (item.expected.kind === "ASSOCIATE_EXISTING") associationFn += 1;
+      if (item.expected.kind === "FORMALIZATION_CANDIDATE") { formalizationFn += 1; boundaryFn += 1; if (item.expected.expectedMaturity === "READY_FOR_DECISION") missedReady += 1; }
+      continue;
+    }
     if (item.expected.kind === "ASSOCIATE_EXISTING") {
-      if (got.kind === "ASSOCIATE_EXISTING" && DISCOVERY_EXISTING_OBJECTS.some((object) => object.title === item.expected.targetTitle && object.workObjectId === got.targetWorkObjectId)) associationTp += 1;
-      else { associationFn += 1; if (got.kind === "FORMALIZATION_CANDIDATE") formalizationFp += 1; }
+      if (got.kind === "ASSOCIATE_EXISTING") {
+        const expectedId = DISCOVERY_EXISTING_OBJECTS.find((object) => object.title === item.expected.targetTitle)?.workObjectId;
+        if (expectedId && got.targetWorkObjectId === expectedId) associationTp += 1;
+        else { associationFn += 1; associationFp += 1; }
+      } else {
+        associationFn += 1;
+        if (got.kind === "FORMALIZATION_CANDIDATE") formalizationFp += 1;
+      }
     } else if (item.expected.kind === "FORMALIZATION_CANDIDATE") {
-      if (got.kind === "FORMALIZATION_CANDIDATE") formalizationTp += 1;
-      else formalizationFn += 1;
+      if (got.kind === "FORMALIZATION_CANDIDATE") {
+        boundaryTp += 1; formalizationTp += 1; kindTotal += 1;
+        if (item.expected.recommendedKind && got.recommendedKind === item.expected.recommendedKind) kindTp += 1;
+        if (item.expected.expectedMaturity) {
+          maturityTotal += 1;
+          if (got.maturity === item.expected.expectedMaturity) maturityTp += 1;
+          else if (item.expected.expectedMaturity === "READY_FOR_DECISION") missedReady += 1;
+          else if (got.maturity === "READY_FOR_DECISION") prematureDecision += 1;
+        }
+      } else { formalizationFn += 1; boundaryFn += 1; if (item.expected.expectedMaturity === "READY_FOR_DECISION") missedReady += 1; }
       if (got.kind === "ASSOCIATE_EXISTING") associationFp += 1;
     } else {
-      if (got.kind === "FORMALIZATION_CANDIDATE") { formalizationFp += 1; if (got.maturity === "READY_FOR_DECISION") prematureReady += 1; }
+      if (got.kind === "FORMALIZATION_CANDIDATE") {
+        boundaryFp += 1; formalizationFp += 1;
+        if (got.maturity === "READY_FOR_DECISION") prematureDecision += 1;
+      }
       if (got.kind === "ASSOCIATE_EXISTING") associationFp += 1;
     }
     if (got.kind === "FORMALIZATION_CANDIDATE" && got.maturity === "READY_FOR_DECISION") readyCandidates += 1;
@@ -59,7 +84,12 @@ function metrics(executorName: string, judgments: DiscoveryJudgment[]) {
     associationRecall: recall(associationTp, associationFn),
     formalizationPrecision: precision(formalizationTp, formalizationFp),
     formalizationRecall: recall(formalizationTp, formalizationFn),
-    prematurePackageRate: readyCandidates === 0 ? 0 : prematureReady / readyCandidates,
+    boundaryPrecision: precision(boundaryTp, boundaryFp),
+    boundaryRecall: recall(boundaryTp, boundaryFn),
+    kindAccuracy: kindTotal === 0 ? null : kindTp / kindTotal,
+    maturityAccuracy: maturityTotal === 0 ? null : maturityTp / maturityTotal,
+    prematureDecisionRate: readyCandidates === 0 ? 0 : prematureDecision / readyCandidates,
+    missedReadyRate: DISCOVERY_GOLD_SET.filter((item) => item.expected.kind === "FORMALIZATION_CANDIDATE" && item.expected.expectedMaturity === "READY_FOR_DECISION").length === 0 ? null : missedReady / DISCOVERY_GOLD_SET.filter((item) => item.expected.kind === "FORMALIZATION_CANDIDATE" && item.expected.expectedMaturity === "READY_FOR_DECISION").length,
   };
 }
 
@@ -67,6 +97,7 @@ async function run(executor: DiscoveryExecutor, name: string) {
   const started = Date.now();
   const judgments: DiscoveryJudgment[] = [];
   let batchErrors = 0;
+  let inputTokens = 0; let outputTokens = 0; let lastInput = 0; let lastOutput = 0; let remoteCalls = 0;
   for (let offset = 0; offset < DISCOVERY_GOLD_SET.length; offset += batchSize) {
     const cases = DISCOVERY_GOLD_SET.slice(offset, offset + batchSize);
     const contextPack = cases.map((item, index) => ({
@@ -76,12 +107,21 @@ async function run(executor: DiscoveryExecutor, name: string) {
       scope: { kind: "EXPLICIT_SOURCE_SET", sources: contextPack.map((item) => item.sourceRef) },
       contextPack, existingObjects: existingObjects(), openCandidates: [], profile: name === "fake" ? { ...profile, executor: "FAKE", remoteEnabled: false } : profile,
     };
-    try { judgments.push(...(await executor.judge(input))); }
+    try {
+      const batch = await executor.judge(input);
+      judgments.push(...batch);
+      const usage = executor.tokenUsage;
+      if (usage) {
+        remoteCalls += 1;
+        const inNow = usage.inputTokens ?? 0; const outNow = usage.outputTokens ?? 0;
+        inputTokens += Math.max(0, inNow - lastInput); outputTokens += Math.max(0, outNow - lastOutput);
+        lastInput = inNow; lastOutput = outNow;
+      }
+    }
     catch { batchErrors += 1; }
   }
   const latencyMs = Date.now() - started;
-  const executorUsage = executor.tokenUsage;
-  return { ...metrics(name, judgments), batchErrors, latencyMs, tokenUsage: executorUsage };
+  return { ...metrics(name, judgments), batchErrors, remoteCalls, inputTokens, outputTokens, latencyMs };
 }
 
 const fake = await run(new FakeDiscoveryExecutor(), "fake");

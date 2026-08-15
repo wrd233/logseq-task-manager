@@ -862,6 +862,7 @@ export type FormalizationCandidateStatus = "OPEN" | "MATERIALIZED" | "DISMISSED"
 export interface FormalizationCandidate {
   id: string;
   status: FormalizationCandidateStatus;
+  revision: number;
   scope: DiscoveryScope;
   sourceRefs: readonly SourceRef[];
   sourceHashes: readonly string[];
@@ -905,8 +906,9 @@ export interface DiscoveryRun {
   sourceCount: number;
   scopeTotal: number;
   selectedCount: number;
-  processedCount: number;
-  coveredCount: number;
+  newlyJudgedCount: number;
+  alreadyCoveredCount: number;
+  totalCoveredCount: number;
   remainingCount: number;
   continuationToken: string | null;
   associationCount: number;
@@ -962,6 +964,7 @@ export interface DecisionPackage {
   targetVersions: Record<string, number>;
   issueRefs: readonly string[];
   presentationRevision: string;
+  candidateRevision: number | null;
   presentedAt: string | null;
   createdAt: string;
   updatedAt: string;

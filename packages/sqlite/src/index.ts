@@ -179,6 +179,7 @@ const schema = `
     target_versions_json TEXT NOT NULL,
     issue_refs_json TEXT NOT NULL DEFAULT '[]',
     presentation_revision TEXT NOT NULL DEFAULT '1',
+    candidate_revision INTEGER,
     presented_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -233,8 +234,9 @@ const schema = `
     source_count INTEGER NOT NULL,
     scope_total INTEGER NOT NULL DEFAULT 0,
     selected_count INTEGER NOT NULL DEFAULT 0,
-    processed_count INTEGER NOT NULL DEFAULT 0,
-    covered_count INTEGER NOT NULL DEFAULT 0,
+    newly_judged_count INTEGER NOT NULL DEFAULT 0,
+    already_covered_count INTEGER NOT NULL DEFAULT 0,
+    total_covered_count INTEGER NOT NULL DEFAULT 0,
     remaining_count INTEGER NOT NULL DEFAULT 0,
     continuation_token TEXT,
     association_count INTEGER NOT NULL,
@@ -261,6 +263,7 @@ const schema = `
   CREATE TABLE IF NOT EXISTS formalization_candidates (
     id TEXT PRIMARY KEY,
     status TEXT NOT NULL CHECK (status IN ('OPEN', 'MATERIALIZED', 'DISMISSED', 'EXPIRED')),
+    revision INTEGER NOT NULL DEFAULT 1,
     scope_json TEXT NOT NULL,
     recommended_kind TEXT NOT NULL,
     recommended_owner_id TEXT,
@@ -741,12 +744,14 @@ export class SqliteStore {
 
   #migrateV15(): void {
     for (const [column, definition] of [
-      ["scope_total", "INTEGER NOT NULL DEFAULT 0"], ["selected_count", "INTEGER NOT NULL DEFAULT 0"], ["processed_count", "INTEGER NOT NULL DEFAULT 0"],
-      ["covered_count", "INTEGER NOT NULL DEFAULT 0"], ["remaining_count", "INTEGER NOT NULL DEFAULT 0"], ["continuation_token", "TEXT"],
+      ["scope_total", "INTEGER NOT NULL DEFAULT 0"], ["selected_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["newly_judged_count", "INTEGER NOT NULL DEFAULT 0"], ["already_covered_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["total_covered_count", "INTEGER NOT NULL DEFAULT 0"], ["remaining_count", "INTEGER NOT NULL DEFAULT 0"], ["continuation_token", "TEXT"],
     ] as const) if (!this.#hasColumn("discovery_runs", column)) this.#database.exec(`ALTER TABLE discovery_runs ADD COLUMN ${column} ${definition}`);
     for (const [column, definition] of [
-      ["maturity", "TEXT NOT NULL DEFAULT 'UNEVALUATED'"], ["maturity_evaluated_at", "TEXT"], ["supporting_source_refs_json", "TEXT NOT NULL DEFAULT '[]'"],
+      ["maturity", "TEXT NOT NULL DEFAULT 'UNEVALUATED'"], ["maturity_evaluated_at", "TEXT"], ["supporting_source_refs_json", "TEXT NOT NULL DEFAULT '[]'"], ["revision", "INTEGER NOT NULL DEFAULT 1"],
     ] as const) if (!this.#hasColumn("formalization_candidates", column)) this.#database.exec(`ALTER TABLE formalization_candidates ADD COLUMN ${column} ${definition}`);
+    if (!this.#hasColumn("decision_packages", "candidate_revision")) this.#database.exec("ALTER TABLE decision_packages ADD COLUMN candidate_revision INTEGER");
     if (!this.#hasColumn("candidate_sources", "source_content")) this.#database.exec("ALTER TABLE candidate_sources ADD COLUMN source_content TEXT NOT NULL DEFAULT ''");
     this.#database.exec(`
       CREATE TABLE IF NOT EXISTS discovery_run_sources_v15 (
@@ -782,7 +787,7 @@ export class SqliteStore {
       );
       CREATE INDEX IF NOT EXISTS candidate_evidence_candidate_idx ON candidate_evidence(candidate_id);
     `);
-    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (15, ?)").run(new Date().toISOString());
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (16, ?)").run(new Date().toISOString());
   }
 
   close(): void { this.#database.close(); }
@@ -1306,15 +1311,15 @@ export class SqliteStore {
   }
 
   putDecisionPackage(pkg: DecisionPackage): void {
-    this.#database.prepare(`INSERT INTO decision_packages(id, work_object_id, summary, rationale, status, target_versions_json, issue_refs_json, presentation_revision, presented_at, created_at, updated_at)
-      VALUES (@id, @workObjectId, @summary, @rationale, @status, @targetVersions, @issueRefs, @presentationRevision, @presentedAt, @createdAt, @updatedAt)`)
+    this.#database.prepare(`INSERT INTO decision_packages(id, work_object_id, summary, rationale, status, target_versions_json, issue_refs_json, presentation_revision, candidate_revision, presented_at, created_at, updated_at)
+      VALUES (@id, @workObjectId, @summary, @rationale, @status, @targetVersions, @issueRefs, @presentationRevision, @candidateRevision, @presentedAt, @createdAt, @updatedAt)`)
       .run({ ...pkg, targetVersions: encode(pkg.targetVersions), issueRefs: encode(pkg.issueRefs) });
   }
 
   getDecisionPackage(id: string): DecisionPackage | null {
     const row = this.#database.prepare("SELECT * FROM decision_packages WHERE id=?").get(id) as Record<string, unknown> | undefined;
     if (!row) return null;
-    return { id: String(row.id), workObjectId: row.work_object_id === null ? null : String(row.work_object_id), summary: String(row.summary), rationale: String(row.rationale), status: row.status as DecisionPackage["status"], targetVersions: decode(String(row.target_versions_json)) as Record<string, number>, issueRefs: decode(String(row.issue_refs_json)) as string[], presentationRevision: String(row.presentation_revision), presentedAt: row.presented_at === null ? null : String(row.presented_at), createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
+    return { id: String(row.id), workObjectId: row.work_object_id === null ? null : String(row.work_object_id), summary: String(row.summary), rationale: String(row.rationale), status: row.status as DecisionPackage["status"], targetVersions: decode(String(row.target_versions_json)) as Record<string, number>, issueRefs: decode(String(row.issue_refs_json)) as string[], presentationRevision: String(row.presentation_revision), candidateRevision: row.candidate_revision === null ? null : Number(row.candidate_revision), presentedAt: row.presented_at === null ? null : String(row.presented_at), createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
   }
 
   listDecisionPackages(status?: DecisionPackage["status"]): DecisionPackage[] {
@@ -1392,11 +1397,11 @@ export class SqliteStore {
   }
 
   putDiscoveryRun(run: DiscoveryRun): void {
-    this.#database.prepare(`INSERT INTO discovery_runs(id, scope_json, executor_id, model_alias, status, source_count, scope_total, selected_count, processed_count, covered_count, remaining_count, continuation_token, association_count, no_candidate_count, candidate_ids_json, summary_text, latency_ms, token_usage_json, error, started_at, completed_at)
-      VALUES (@id, @scopeJson, @executorId, @modelAlias, @status, @sourceCount, @scopeTotal, @selectedCount, @processedCount, @coveredCount, @remainingCount, @continuationToken, @associationCount, @noCandidateCount, @candidateIds, @summaryText, @latencyMs, @tokenUsage, @error, @startedAt, @completedAt)
+    this.#database.prepare(`INSERT INTO discovery_runs(id, scope_json, executor_id, model_alias, status, source_count, scope_total, selected_count, newly_judged_count, already_covered_count, total_covered_count, remaining_count, continuation_token, association_count, no_candidate_count, candidate_ids_json, summary_text, latency_ms, token_usage_json, error, started_at, completed_at)
+      VALUES (@id, @scopeJson, @executorId, @modelAlias, @status, @sourceCount, @scopeTotal, @selectedCount, @newlyJudgedCount, @alreadyCoveredCount, @totalCoveredCount, @remainingCount, @continuationToken, @associationCount, @noCandidateCount, @candidateIds, @summaryText, @latencyMs, @tokenUsage, @error, @startedAt, @completedAt)
       ON CONFLICT(id) DO UPDATE SET scope_json=excluded.scope_json, executor_id=excluded.executor_id, model_alias=excluded.model_alias, status=excluded.status,
-      source_count=excluded.source_count, scope_total=excluded.scope_total, selected_count=excluded.selected_count, processed_count=excluded.processed_count,
-      covered_count=excluded.covered_count, remaining_count=excluded.remaining_count, continuation_token=excluded.continuation_token,
+      source_count=excluded.source_count, scope_total=excluded.scope_total, selected_count=excluded.selected_count, newly_judged_count=excluded.newly_judged_count,
+      already_covered_count=excluded.already_covered_count, total_covered_count=excluded.total_covered_count, remaining_count=excluded.remaining_count, continuation_token=excluded.continuation_token,
       association_count=excluded.association_count, no_candidate_count=excluded.no_candidate_count, candidate_ids_json=excluded.candidate_ids_json,
       summary_text=excluded.summary_text, latency_ms=excluded.latency_ms, token_usage_json=excluded.token_usage_json, error=excluded.error, started_at=excluded.started_at, completed_at=excluded.completed_at`)
       .run({ ...run, scopeJson: encode(run.scope), candidateIds: encode(run.candidateIds), tokenUsage: run.tokenUsage === null ? null : encode(run.tokenUsage) });
@@ -1408,7 +1413,8 @@ export class SqliteStore {
     return {
       id: String(row.id), scope: decode(String(row.scope_json)) as DiscoveryRun["scope"], executorId: String(row.executor_id), modelAlias: row.model_alias === null ? null : String(row.model_alias),
       status: row.status as DiscoveryRun["status"], sourceCount: Number(row.source_count), scopeTotal: Number(row.scope_total),
-      selectedCount: Number(row.selected_count), processedCount: Number(row.processed_count), coveredCount: Number(row.covered_count),
+      selectedCount: Number(row.selected_count), newlyJudgedCount: Number(row.newly_judged_count),
+      alreadyCoveredCount: Number(row.already_covered_count), totalCoveredCount: Number(row.total_covered_count),
       remainingCount: Number(row.remaining_count), continuationToken: row.continuation_token === null ? null : String(row.continuation_token),
       associationCount: Number(row.association_count), noCandidateCount: Number(row.no_candidate_count),
       candidateIds: decode(String(row.candidate_ids_json)) as string[], summaryText: String(row.summary_text), latencyMs: Number(row.latency_ms),
@@ -1438,8 +1444,8 @@ export class SqliteStore {
 
   putFormalizationCandidate(candidate: FormalizationCandidate): void {
     this.transaction(() => {
-      this.#database.prepare(`INSERT INTO formalization_candidates(id, status, scope_json, recommended_kind, recommended_owner_id, proposed_title, proposed_work_intent_json, rationale_summary, maturity, maturity_evaluated_at, supporting_source_refs_json, created_at, updated_at, last_observed_at, expires_at, materialized_work_object_id, decision_package_id)
-        VALUES (@id, @status, @scopeJson, @recommendedKind, @recommendedOwnerId, @proposedTitle, @proposedWorkIntent, @rationaleSummary, @maturity, @maturityEvaluatedAt, @supportingSourceRefs, @createdAt, @updatedAt, @lastObservedAt, @expiresAt, @materializedWorkObjectId, @decisionPackageId)`)
+      this.#database.prepare(`INSERT INTO formalization_candidates(id, status, revision, scope_json, recommended_kind, recommended_owner_id, proposed_title, proposed_work_intent_json, rationale_summary, maturity, maturity_evaluated_at, supporting_source_refs_json, created_at, updated_at, last_observed_at, expires_at, materialized_work_object_id, decision_package_id)
+        VALUES (@id, @status, @revision, @scopeJson, @recommendedKind, @recommendedOwnerId, @proposedTitle, @proposedWorkIntent, @rationaleSummary, @maturity, @maturityEvaluatedAt, @supportingSourceRefs, @createdAt, @updatedAt, @lastObservedAt, @expiresAt, @materializedWorkObjectId, @decisionPackageId)`)
         .run({ ...candidate, scopeJson: encode(candidate.scope), proposedWorkIntent: candidate.proposedWorkIntent === null ? null : encode(candidate.proposedWorkIntent), supportingSourceRefs: encode(candidate.supportingSourceRefs) });
       for (const source of candidate.sourceRefs) {
         const index = candidate.sourceRefs.indexOf(source);
@@ -1450,10 +1456,11 @@ export class SqliteStore {
     });
   }
 
-  updateFormalizationCandidate(id: string, patch: Partial<Pick<FormalizationCandidate, "status" | "recommendedKind" | "recommendedOwnerId" | "proposedTitle" | "proposedWorkIntent" | "rationaleSummary" | "maturity" | "maturityEvaluatedAt" | "supportingSourceRefs" | "updatedAt" | "lastObservedAt" | "expiresAt" | "materializedWorkObjectId" | "decisionPackageId">>): void {
+  updateFormalizationCandidate(id: string, patch: Partial<Pick<FormalizationCandidate, "status" | "revision" | "recommendedKind" | "recommendedOwnerId" | "proposedTitle" | "proposedWorkIntent" | "rationaleSummary" | "maturity" | "maturityEvaluatedAt" | "supportingSourceRefs" | "updatedAt" | "lastObservedAt" | "expiresAt" | "materializedWorkObjectId" | "decisionPackageId">>): void {
     const fields: string[] = []; const values: unknown[] = [];
     const set = (column: string, value: unknown) => { fields.push(`${column}=?`); values.push(value); };
     if (patch.status !== undefined) set("status", patch.status);
+    if (patch.revision !== undefined) set("revision", patch.revision);
     if (patch.recommendedKind !== undefined) set("recommended_kind", patch.recommendedKind);
     if (patch.recommendedOwnerId !== undefined) set("recommended_owner_id", patch.recommendedOwnerId);
     if (patch.proposedTitle !== undefined) set("proposed_title", patch.proposedTitle);
@@ -1482,7 +1489,7 @@ export class SqliteStore {
     const legacyEvidenceRefs = (this.#database.prepare("SELECT evidence_id FROM candidate_evidence_refs WHERE candidate_id=? ORDER BY evidence_id").all(id) as Array<{ evidence_id: string }>).map((item) => item.evidence_id);
     const evidenceRefs = [...new Set([...legacyEvidenceRefs, ...(this.#database.prepare("SELECT id FROM candidate_evidence WHERE candidate_id=? ORDER BY id").all(id) as Array<{ id: string }>).map((item) => item.id)])];
     return {
-      id: String(row.id), status: row.status as FormalizationCandidate["status"], scope: decode(String(row.scope_json)) as FormalizationCandidate["scope"],
+      id: String(row.id), status: row.status as FormalizationCandidate["status"], revision: Number(row.revision), scope: decode(String(row.scope_json)) as FormalizationCandidate["scope"],
       sourceRefs: sources.map((item) => ({ graphId: String(item.graph_id), blockUuid: String(item.block_uuid) })),
       sourceHashes: sources.map((item) => String(item.source_hash)),
       sourceContents: sources.map((item) => String(item.source_content ?? "")),

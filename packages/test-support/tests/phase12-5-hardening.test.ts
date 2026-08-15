@@ -86,7 +86,9 @@ test("coverage is honest: capped scopes are PARTIAL with continuation and no sil
     const first = (await value.client.runDiscovery({ kind: "PAGE", graphId: value.graphId, pageName: "page-big" })).run;
     assert.equal(first.scopeTotal, 7);
     assert.equal(first.selectedCount, 3);
-    assert.equal(first.processedCount, 3);
+    assert.equal(first.newlyJudgedCount, 3);
+    assert.equal(first.alreadyCoveredCount, 0);
+    assert.equal(first.totalCoveredCount, 3);
     assert.equal(first.remainingCount, 4);
     assert.equal(first.status, "PARTIAL");
     assert.ok(first.continuationToken);
@@ -193,5 +195,51 @@ test("wrong ATTACH_TO_CANDIDATE id fails closed without inventing a candidate", 
     const sources = (await value.client.showDiscoveryRun(run.id)).sources;
     assert.equal(sources[0]?.reason, "CANDIDATE_ATTACH_INVALID");
     assert.equal((await value.client.listFormalizationCandidates()).candidates.length, 0);
+  } finally { stop(); await value.service.close(); }
+});
+
+test("candidate revision invalidates an old package after source absorption", async () => {
+  const value = await setup("revision");
+  const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
+  try {
+    await waitForGraphAvailable(value.client);
+    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-r1", "@candidate:TASK:发布检查清单:READY_FOR_DECISION\n明确要交付清单");
+    const organized = await value.client.organizeToday({ date: "2026-08-15" });
+    const candidate = organized.readyCandidates[0]!;
+    const pkg = organized.maturePackages[0]!;
+    assert.equal(candidate.revision, 1);
+    const event = await value.client.createTrustedUserEvent({ exactUserUtterance: "纳入", packageId: pkg.id, presentationRevision: pkg.presentationRevision });
+    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-r2", `@attach:${candidate.id}\n后来又补充了新的支持材料`);
+    await value.client.runDiscovery({ kind: "TODAY", date: "2026-08-15" });
+    const revised = (await value.client.showFormalizationCandidate(candidate.id)).candidate;
+    assert.equal(revised.revision, 2);
+    assert.equal(revised.decisionPackageId, null);
+    assert.equal((await value.client.listDecisionPackages("STALE")).packages.some((item) => item.id === pkg.id), true);
+    assert.equal((await value.client.compileUserDecision({ trustedUserEventId: event.event.id })).kind, "STALE");
+  } finally { stop(); await value.service.close(); }
+});
+
+test("READY without explicit supporting evidence is downgraded to KEEP_OBSERVING", async () => {
+  const executor: DiscoveryExecutor = {
+    id: "ready-without-evidence",
+    async judge(input) {
+      return input.contextPack.map((item) => ({
+        kind: "FORMALIZATION_CANDIDATE" as const, sourceHandles: [item.handle], recommendedKind: "TASK" as const,
+        recommendedOwnerId: null, proposedTitle: "无证据候选", proposedWorkIntent: null, maturity: "READY_FOR_DECISION" as const,
+        rationaleSummary: "ready without handles",
+      }));
+    },
+  };
+  const value = await setup("strict-ready", { discoveryExecutor: executor, discoveryProfile: fakeProfile });
+  const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
+  try {
+    await waitForGraphAvailable(value.client);
+    value.graph.seedPageRecord(value.graphId, "page-ready", "src-ready", "普通一条记录");
+    const run = (await value.client.runDiscovery({ kind: "PAGE", graphId: value.graphId, pageName: "page-ready" })).run;
+    assert.equal(run.status, "COMPLETED");
+    const candidates = (await value.client.listFormalizationCandidates("OPEN")).candidates;
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0]!.maturity, "KEEP_OBSERVING");
+    assert.equal((await value.client.listDecisionPackages()).packages.length, 0);
   } finally { stop(); await value.service.close(); }
 });

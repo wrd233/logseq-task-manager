@@ -89,7 +89,7 @@ export class DiscoveryCoordinator {
     const startedMs = Date.now();
     const run: DiscoveryRun = {
       id: runId, scope, executorId: this.#executor.id, modelAlias: this.#profile.modelAlias ?? null, status: "RUNNING",
-      sourceCount: 0, scopeTotal: 0, selectedCount: 0, processedCount: 0, coveredCount: 0, remainingCount: 0,
+      sourceCount: 0, scopeTotal: 0, selectedCount: 0, newlyJudgedCount: 0, alreadyCoveredCount: 0, totalCoveredCount: 0, remainingCount: 0,
       continuationToken: input.continuationToken ?? null, associationCount: 0, noCandidateCount: 0, candidateIds: [],
       summaryText: "", latencyMs: 0, tokenUsage: null, error: null, startedAt: at, completedAt: null,
     };
@@ -159,7 +159,8 @@ export class DiscoveryCoordinator {
             }
             this.#store.addCandidateSources(candidate.id, refs.map((item) => item.sourceRef), refs.map((item) => item.sourceHash), refs.map((item) => item.content), at);
             this.#store.addCandidateDiscoveryRun(candidate.id, runId);
-            this.#store.updateFormalizationCandidate(candidate.id, { lastObservedAt: at, updatedAt: at });
+            if (candidate.decisionPackageId) { this.#store.transitionDecisionPackage(candidate.decisionPackageId, "STALE", at); }
+            this.#store.updateFormalizationCandidate(candidate.id, { revision: candidate.revision + 1, decisionPackageId: null, lastObservedAt: at, updatedAt: at });
             mark(judgment.sourceHandles, "ATTACHED", null, { candidateId: candidate.id });
             run.candidateIds = [...new Set([...run.candidateIds, candidate.id])];
             continue;
@@ -183,8 +184,9 @@ export class DiscoveryCoordinator {
       }
 
       for (const outcome of sourceOutcomes.values()) this.#store.putDiscoveryRunSource(outcome);
-      run.processedCount = handled.size + skipped.length;
-      run.coveredCount = handled.size;
+      run.newlyJudgedCount = handled.size;
+      run.alreadyCoveredCount = skipped.length;
+      run.totalCoveredCount = handled.size + skipped.length;
       run.noCandidateCount = [...sourceOutcomes.values()].filter((item) => item.outcome === "NO_CANDIDATE").length;
       run.status = invalid > 0 || run.remainingCount > 0 ? "PARTIAL" : "COMPLETED";
       run.summaryText = this.#summary(built.items.length, run.associationCount, run.remainingCount, run.status === "PARTIAL");
@@ -211,6 +213,7 @@ export class DiscoveryCoordinator {
     if (candidate.recommendedKind === "UNRESOLVED") throw new Error("FORMALIZATION_CANDIDATE_KIND_UNRESOLVED");
     if (!candidate.proposedTitle?.trim()) throw new Error("FORMALIZATION_CANDIDATE_TITLE_REQUIRED");
     if (!candidate.sourceRefs.length || !candidate.sourceHashes[0]) throw new Error("FORMALIZATION_CANDIDATE_SOURCE_REQUIRED");
+    if (!candidate.supportingSourceRefs.length) throw new Error("FORMALIZATION_CANDIDATE_EVIDENCE_REQUIRED");
     if (candidate.decisionPackageId) {
       const existing = this.#store.getDecisionPackage(candidate.decisionPackageId);
       if (existing && existing.status === "OPEN") return { pkg: existing, candidate, evidence: this.#store.listCandidateEvidence(candidate.id) };
@@ -238,6 +241,7 @@ export class DiscoveryCoordinator {
       id: `formalization-package:${refreshed.id}`,
       workObjectId: null,
       summary,
+      candidateRevision: refreshed.revision,
       rationale,
       candidates: [{
         id: `formalization-candidate:${refreshed.id}`,
@@ -452,10 +456,16 @@ export class DiscoveryCoordinator {
     const identityId = deterministicUuid(`candidate:${scopeKey(scope)}:${stableHash(sourceRefs.map(keyOf))}`);
     const byIdentity = this.#store.getFormalizationCandidate(identityId);
     if (byIdentity && byIdentity.status !== "OPEN") return byIdentity;
-    const maturity = judgment.maturity && judgment.maturity !== "UNEVALUATED" ? judgment.maturity : judgment.recommendedKind === "UNRESOLVED" ? "INSUFFICIENT_BOUNDARY" : "KEEP_OBSERVING";
-    const resolvedSupporting = supportingRefs.length ? supportingRefs : maturity === "READY_FOR_DECISION" ? sourceRefs : [];
+    let maturity = judgment.maturity && judgment.maturity !== "UNEVALUATED" ? judgment.maturity : judgment.recommendedKind === "UNRESOLVED" ? "INSUFFICIENT_BOUNDARY" : "KEEP_OBSERVING";
+    const resolvedSupporting = supportingRefs.length ? supportingRefs : [];
+    if (maturity === "READY_FOR_DECISION" && resolvedSupporting.length === 0) maturity = "KEEP_OBSERVING";
     const existing = byIdentity ?? this.#store.findOpenCandidateContainingSources(sourceRefs);
     if (existing) {
+      const existingKeys = new Set(existing.sourceRefs.map(keyOf));
+      const addedSources = sourceRefs.some((ref) => !existingKeys.has(keyOf(ref)));
+      const recommendationChanged = existing.recommendedKind === "UNRESOLVED" && judgment.recommendedKind !== "UNRESOLVED";
+      const maturityChanged = judgment.maturity && judgment.maturity !== "UNEVALUATED" && judgment.maturity !== existing.maturity;
+      const supportingChanged = resolvedSupporting.some((ref) => !existing.supportingSourceRefs.some((item) => keyOf(item) === keyOf(ref)));
       this.#store.addCandidateSources(existing.id, sourceRefs, sources.map((item) => item.sourceHash), sources.map((item) => item.content), at);
       this.#store.addCandidateDiscoveryRun(existing.id, runId);
       this.#store.putCandidateSupportingSources(existing.id, resolvedSupporting);
@@ -468,18 +478,23 @@ export class DiscoveryCoordinator {
           return ref!;
         }),
       };
-      if (existing.recommendedKind === "UNRESOLVED" && judgment.recommendedKind !== "UNRESOLVED") {
+      if (recommendationChanged) {
         patch.recommendedKind = judgment.recommendedKind;
         patch.proposedTitle = judgment.proposedTitle ?? existing.proposedTitle;
         patch.recommendedOwnerId = judgment.recommendedOwnerId ?? existing.recommendedOwnerId;
         patch.proposedWorkIntent = judgment.proposedWorkIntent ?? existing.proposedWorkIntent;
+      }
+      if (addedSources || recommendationChanged || maturityChanged || supportingChanged) {
+        patch.revision = existing.revision + 1;
+        patch.decisionPackageId = null;
+        if (existing.decisionPackageId) this.#store.transitionDecisionPackage(existing.decisionPackageId, "STALE", at);
       }
       this.#store.updateFormalizationCandidate(existing.id, patch);
       return this.#store.getFormalizationCandidate(existing.id)!;
     }
     const expiresAt = new Date(Date.parse(at) + 30 * 24 * 60 * 60 * 1000).toISOString();
     const candidate: FormalizationCandidate = {
-      id: identityId, status: "OPEN", scope, sourceRefs,
+      id: identityId, status: "OPEN", revision: 1, scope, sourceRefs,
       sourceHashes: sourceRefs.map((ref) => sources.find((item) => keyOf(item.sourceRef) === keyOf(ref))?.sourceHash ?? ""),
       sourceContents: sourceRefs.map((ref) => sources.find((item) => keyOf(item.sourceRef) === keyOf(ref))?.content ?? ""),
       recommendedKind: judgment.recommendedKind, recommendedOwnerId: judgment.recommendedOwnerId, proposedTitle: judgment.proposedTitle?.trim() || null,

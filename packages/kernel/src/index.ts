@@ -973,13 +973,13 @@ export class Kernel {
     return this.#store.listGovernanceIssues(workObjectId, status);
   }
 
-  createDecisionPackage(input: { id?: string; workObjectId?: string | null; summary: string; rationale: string; issueRefs?: readonly string[]; candidates: Array<{ id?: string; operationType: DecisionCandidate["operationType"]; parameters: unknown; evidenceIds?: readonly string[] }> }): { pkg: DecisionPackage; candidates: DecisionCandidate[] } {
+  createDecisionPackage(input: { id?: string; workObjectId?: string | null; summary: string; rationale: string; candidateRevision?: number | null; issueRefs?: readonly string[]; candidates: Array<{ id?: string; operationType: DecisionCandidate["operationType"]; parameters: unknown; evidenceIds?: readonly string[] }> }): { pkg: DecisionPackage; candidates: DecisionCandidate[] } {
     const object = input.workObjectId ? this.#store.getWorkObject(input.workObjectId) : null;
     if (input.workObjectId && !object) throw new KernelError("DECISION_TARGET_NOT_FOUND", "Decision Package target does not exist.");
     const at = this.#now();
     const pkg: DecisionPackage = {
       id: input.id ?? `package:${object?.id ?? "formalization"}:${at}:${randomUUID()}`, workObjectId: object?.id ?? null, summary: input.summary, rationale: input.rationale,
-      status: "OPEN", targetVersions: object ? { [object.id]: object.version } : {}, issueRefs: input.issueRefs ?? [], presentationRevision: "1", presentedAt: at, createdAt: at, updatedAt: at,
+      status: "OPEN", targetVersions: object ? { [object.id]: object.version } : {}, issueRefs: input.issueRefs ?? [], presentationRevision: "1", candidateRevision: input.candidateRevision ?? null, presentedAt: at, createdAt: at, updatedAt: at,
     };
     this.#store.putDecisionPackage(pkg);
     const candidates = input.candidates.map((candidate) => ({ id: candidate.id ?? deterministicUuid(`candidate:${pkg.id}:${candidate.operationType}`), packageId: pkg.id, operationType: candidate.operationType, parameters: candidate.parameters, evidenceIds: candidate.evidenceIds ?? [], status: "OPEN" as const, createdAt: at }));
