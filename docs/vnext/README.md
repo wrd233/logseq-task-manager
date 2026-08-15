@@ -210,11 +210,13 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 - Trusted USER origin：Plugin User Channel Token、精确短确认白名单、replay / presentationRevision 保护（ADR-021）；
 - Strict Structured Cognition：syntax-only 提取、no semantic repair、ExecutionProfile 全字段执行（ADR-022）；
 - Governance Issue identity 与 causal dimension-checked resolve（ADR-023）；
+- Bounded Existing-Object-First Discovery / Formalization Candidate（ADR-024）；
+- Organize Today as Governance Orchestration（ADR-025）；
 - 真实 Logseq Desktop 0.10.15 已验证 anchor → observer → queue → context-aware focus commit；
 - 真实 Logseq Desktop 已验证 Plugin 命令 → trusted user event → UserDecision → USER commit → projection converge 的完整可信授权链（Phase 11.5）；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-下一轮从 07 的 Phase 12（Discovery / Formalization / 整理今天）继续，不要从旧 01–04 反推架构。
+下一轮从 07 的 Phase 12 收尾（真实 Graph 评估、真实 Desktop 整理今天链）与 Phase 13 继续，不要从旧 01–04 反推架构。
 
 任何新想法先问：
 
