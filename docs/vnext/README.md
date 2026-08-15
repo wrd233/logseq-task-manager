@@ -185,3 +185,14 @@
 > 它是否是当前 6 条黄金链或 4 条故障链真正需要的？
 
 若答案只是“未来也许有用”，则第一版不做。
+
+---
+
+## 6. 实验经验（non-authoritative reference）
+
+以下两份文档是 Object Lens / Logseq CDP 实验的**经验记录**，不是设计基线，也不是 UI 规范：
+
+- [`../experience/LOGSEQ_CDP_EXPERIENCE.md`](../experience/LOGSEQ_CDP_EXPERIENCE.md)：真实 Logseq Desktop / CDP 操作、验证与恢复经验；
+- [`../experience/OBJECT_LENS_UI_EXPERIENCE.md`](../experience/OBJECT_LENS_UI_EXPERIENCE.md)：Object Lens UI 原型实验经验，以及“不应机械继承”的清单。
+
+它们不冻结未来 UI 形态；若与权威设计文档冲突，以第 3 节的文档优先级为准。
