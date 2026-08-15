@@ -204,11 +204,13 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 - Source Coverage + Persistent Reconcile Queue + Work Burst 观测（ADR-015）；
 - Context Association / Association Correction / Context-Evidence 分层（ADR-016）；
 - Governance Issue / dimension-level fail closed（ADR-017）；
-- Plugin 机械区分 system-write / natural edit 并支持 anchor 子树 Context 观测；
-- 真实 Logseq Desktop 0.10.15 已验证 anchor → observer → queue → focus formal commit；
+- Context Pack / Typed Cognition / Evidence Selection（ADR-018）；
+- DeepSeek-V4-Flash executor + explicit remote execution profile（ADR-019）；
+- User Decision Compiler / Decision Package（ADR-020）；
+- 真实 Logseq Desktop 0.10.15 已验证 anchor → observer → queue → context-aware focus commit；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-下一轮从 07 的 Phase 11（User Decision Compiler + Decision Package）继续，不要从旧 01–04 反推架构。
+下一轮从 07 的 Phase 12（Discovery / Formalization / 整理今天）继续，不要从旧 01–04 反推架构。
 
 任何新想法先问：
 
