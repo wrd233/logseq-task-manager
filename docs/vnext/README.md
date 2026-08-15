@@ -197,14 +197,18 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 
 ## 5. 当前状态
 
-2026-08-15 深度治理轮已把 05/06/07 确立为当前权威基线，并落地了第一批纵向闭环：
+2026-08-15 深度治理轮已把 05/06/07 确立为当前权威基线，并落地前两轮纵向闭环：
 
-- Formal Kernel Commit 与 Graph Projection 最终一致解耦（ADR-014，`ProjectionObligation`）；
+- Formal Kernel Commit 与 Graph Projection 最终一致解耦（ADR-014）；
+  projection retry 已 bounded，system health 可查；
 - Source Coverage + Persistent Reconcile Queue + Work Burst 观测（ADR-015）；
-- Plugin 机械区分 system-write / natural edit 并抑制自触发；
+- Context Association / Association Correction / Context-Evidence 分层（ADR-016）；
+- Governance Issue / dimension-level fail closed（ADR-017）；
+- Plugin 机械区分 system-write / natural edit 并支持 anchor 子树 Context 观测；
+- 真实 Logseq Desktop 0.10.15 已验证 anchor → observer → queue → focus formal commit；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-下一轮从 07 的 Phase 10（Context Association + Evidence v2）继续，不要从旧 01–04 反推架构。
+下一轮从 07 的 Phase 11（User Decision Compiler + Decision Package）继续，不要从旧 01–04 反推架构。
 
 任何新想法先问：
 
