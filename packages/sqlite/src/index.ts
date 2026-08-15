@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type ClosureHistory, type CommitStatus, type CurationReceipt, type FeedbackEvent, type FrozenEvidence, type GraphReadReceipt, type OperationType, type Proposal, type ProposalRevision, type SkillIdentity, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type ClosureHistory, type CommitStatus, type CurationReceipt, type FeedbackEvent, type FrozenEvidence, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type SkillIdentity, type StoredCommit } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -80,6 +80,20 @@ const schema = `
     updated_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS commits_status_idx ON commits(status, created_at);
+  CREATE TABLE IF NOT EXISTS projection_obligations (
+    id TEXT PRIMARY KEY,
+    commit_id TEXT NOT NULL UNIQUE REFERENCES commits(id),
+    work_object_id TEXT NOT NULL REFERENCES work_objects(id),
+    formal_version INTEGER NOT NULL,
+    target_anchor_id TEXT NOT NULL,
+    desired_projection_hash TEXT,
+    status TEXT NOT NULL CHECK (status IN ('PENDING', 'APPLIED', 'VERIFIED', 'FAILED')),
+    attempt INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS projection_obligations_status_idx ON projection_obligations(status, created_at);
   CREATE TABLE IF NOT EXISTS skill_versions (
     id TEXT NOT NULL, version TEXT NOT NULL, content_hash TEXT NOT NULL, package_json TEXT NOT NULL,
     registered_at TEXT NOT NULL, PRIMARY KEY(id, version)
@@ -166,6 +180,7 @@ export class SqliteStore {
     this.#migrateV4();
     this.#migrateV5();
     this.#migrateV6();
+    this.#migrateV7();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -226,6 +241,24 @@ export class SqliteStore {
     for (const anchor of anchors) update.run(deterministicUuid(`outcome:${anchor.projection_container_uuid}`), deterministicUuid(`completion:${anchor.projection_container_uuid}`), anchor.id);
     this.#database.exec("CREATE TABLE IF NOT EXISTS curation_receipts (id TEXT PRIMARY KEY, work_object_id TEXT NOT NULL REFERENCES work_objects(id), agent_run_id TEXT NOT NULL REFERENCES agent_run_receipts(id), details_json TEXT NOT NULL, created_at TEXT NOT NULL)");
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (6, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV7(): void {
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS projection_obligations (
+      id TEXT PRIMARY KEY,
+      commit_id TEXT NOT NULL UNIQUE REFERENCES commits(id),
+      work_object_id TEXT NOT NULL REFERENCES work_objects(id),
+      formal_version INTEGER NOT NULL,
+      target_anchor_id TEXT NOT NULL,
+      desired_projection_hash TEXT,
+      status TEXT NOT NULL CHECK (status IN ('PENDING', 'APPLIED', 'VERIFIED', 'FAILED')),
+      attempt INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    this.#database.exec("CREATE INDEX IF NOT EXISTS projection_obligations_status_idx ON projection_obligations(status, created_at)");
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (7, ?)").run(new Date().toISOString());
   }
 
   close(): void { this.#database.close(); }
@@ -302,6 +335,35 @@ export class SqliteStore {
 
   listRecovery(): StoredCommit[] {
     return (this.#database.prepare("SELECT * FROM commits WHERE status IN ('PREPARED','KERNEL_APPLIED','GRAPH_APPLIED','RECOVERY_REQUIRED') ORDER BY created_at, id").all() as CommitRow[]).map(mapCommit);
+  }
+
+  putProjectionObligation(obligation: ProjectionObligation): void {
+    this.#database.prepare(`INSERT INTO projection_obligations(id, commit_id, work_object_id, formal_version, target_anchor_id, desired_projection_hash, status, attempt, last_error, created_at, updated_at)
+      VALUES (@id, @commitId, @workObjectId, @formalVersion, @targetAnchorId, @desiredProjectionHash, @status, @attempt, @lastError, @createdAt, @updatedAt)`).run(obligation);
+  }
+
+  getProjectionObligationForCommit(commitId: string): ProjectionObligation | null {
+    const row = this.#database.prepare("SELECT * FROM projection_obligations WHERE commit_id = ?").get(commitId) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return {
+      id: String(row.id), commitId: String(row.commit_id), workObjectId: String(row.work_object_id), formalVersion: Number(row.formal_version),
+      targetAnchorId: String(row.target_anchor_id), desiredProjectionHash: row.desired_projection_hash === null ? null : String(row.desired_projection_hash),
+      status: row.status as ProjectionObligation["status"], attempt: Number(row.attempt), lastError: row.last_error === null ? null : String(row.last_error),
+      createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+    };
+  }
+
+  listProjectionObligations(status?: ProjectionObligation["status"]): ProjectionObligation[] {
+    const rows = status
+      ? (this.#database.prepare("SELECT commit_id FROM projection_obligations WHERE status=? ORDER BY created_at, id").all(status) as Array<{ commit_id: string }>)
+      : (this.#database.prepare("SELECT commit_id FROM projection_obligations ORDER BY created_at, id").all() as Array<{ commit_id: string }>);
+    return rows.map((row) => this.getProjectionObligationForCommit(row.commit_id)!).filter(Boolean);
+  }
+
+  transitionProjectionObligation(commitId: string, status: ProjectionObligation["status"], update: { updatedAt: string; lastError?: string | null; attempt?: number }): void {
+    const changed = this.#database.prepare(`UPDATE projection_obligations SET status=?, updated_at=?, last_error=COALESCE(?, last_error), attempt=COALESCE(?, attempt) WHERE commit_id=?`)
+      .run(status, update.updatedAt, update.lastError ?? null, update.attempt ?? null, commitId);
+    if (!changed.changes) throw new Error("PROJECTION_OBLIGATION_NOT_FOUND");
   }
 
   setCompensatedBy(id: string, compensationCommitId: string, updatedAt: string): void {

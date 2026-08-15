@@ -628,6 +628,28 @@ export interface GraphApplyResult {
   appliedAt: string;
 }
 
+export type ProjectionObligationStatus = "PENDING" | "APPLIED" | "VERIFIED" | "FAILED";
+
+export interface ProjectionObligation {
+  id: string;
+  commitId: string;
+  workObjectId: string;
+  formalVersion: number;
+  targetAnchorId: string;
+  desiredProjectionHash: string | null;
+  status: ProjectionObligationStatus;
+  attempt: number;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FormalCommitResult {
+  commit: StoredCommit;
+  graphEffect: GraphEffect;
+  projectionObligation: ProjectionObligation;
+}
+
 export interface GraphAdapter {
   readGraphSnapshot(input: GraphSnapshotInput): Promise<GraphSnapshot>;
   readEvidenceMaterial(input: { graphId: string; blockUuid: string }, proofKey: string): Promise<TrustedGraphEvidenceMaterial>;

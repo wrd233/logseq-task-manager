@@ -166,6 +166,25 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const value = await body(request) as { operation: unknown; snapshot: Parameters<Kernel["prepare"]>[1] };
         send(response, 202, kernel.prepare(parseSemanticOperation(value.operation), value.snapshot)); return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/commits/commit") {
+        const value = await body(request) as { operation: unknown; snapshot?: Parameters<Kernel["commitFormal"]>[1] };
+        send(response, 200, kernel.commitFormal(parseSemanticOperation(value.operation), value.snapshot ?? null)); return;
+      }
+      const projectionVerifyMatch = /^\/v1\/commits\/([^/]+)\/projection\/verify$/u.exec(url.pathname);
+      if (request.method === "POST" && projectionVerifyMatch) {
+        const value = await body(request) as { result: Parameters<Kernel["verifyFormalProjection"]>[1]; snapshot: Parameters<Kernel["verifyFormalProjection"]>[2] };
+        send(response, 200, { obligation: kernel.verifyFormalProjection(decodeURIComponent(projectionVerifyMatch[1]!), value.result, value.snapshot) }); return;
+      }
+      const projectionFailedMatch = /^\/v1\/commits\/([^/]+)\/projection\/failed$/u.exec(url.pathname);
+      if (request.method === "POST" && projectionFailedMatch) {
+        const value = await body(request) as { reason: string };
+        send(response, 200, { obligation: kernel.graphProjectionFailed(decodeURIComponent(projectionFailedMatch[1]!), value.reason) }); return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/projection-obligations") {
+        const status = url.searchParams.get("status");
+        const allowed = new Set<NonNullable<Parameters<Kernel["listProjectionObligations"]>[0]>>(["PENDING", "APPLIED", "VERIFIED", "FAILED"]);
+        send(response, 200, { obligations: kernel.listProjectionObligations(status && allowed.has(status as never) ? status as never : undefined) }); return;
+      }
       const completeMatch = /^\/v1\/commits\/([^/]+)\/complete$/u.exec(url.pathname);
       if (request.method === "POST" && completeMatch) {
         const value = await body(request) as { result: Parameters<Kernel["complete"]>[1]; snapshot: Parameters<Kernel["complete"]>[2] };

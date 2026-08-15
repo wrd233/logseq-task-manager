@@ -1,4 +1,4 @@
-import type { Actor, AgentRunReceipt, ClosureHistory, CurationReceipt, EngagementProposalRevision, FeedbackEvent, FrozenEvidence, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, Proposal, ProposalRevision, SemanticOperation, SkillPackage, StoredCommit, TasteProfile, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, ClosureHistory, CurationReceipt, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FrozenEvidence, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, ProjectionObligation, Proposal, ProposalRevision, SemanticOperation, SkillPackage, StoredCommit, TasteProfile, TrustedGraphEvidenceMaterial, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; pid: number; startedAt: string }
 export interface PluginKernelDescriptor extends KernelDescriptor { graphSnapshotKey: string; graphBridgeToken: string }
@@ -71,6 +71,10 @@ export class KernelClient {
   dismissProposal(id: string, actor: Actor): Promise<{ proposal: Proposal }> { return this.#request("POST", `/v1/proposals/${encodeURIComponent(id)}/dismiss`, { actor }); }
   listFeedback(): Promise<{ feedback: FeedbackEvent[] }> { return this.#request("GET", "/v1/feedback"); }
   recordStrongPositive(commitId: string, actor: Actor, userComment?: string | null): Promise<{ recorded: true }> { return this.#request("POST", "/v1/feedback/strong-positive", { commitId, actor, ...(userComment === undefined ? {} : { userComment }) }); }
+  commitFormal(operation: SemanticOperation, snapshot?: GraphSnapshot | null): Promise<FormalCommitResult> { return this.#request("POST", "/v1/commits/commit", { operation, ...(snapshot ? { snapshot } : {}) }); }
+  verifyFormalProjection(commitId: string, result: GraphApplyResult, snapshot: GraphSnapshot): Promise<{ obligation: ProjectionObligation }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/projection/verify`, { result, snapshot }); }
+  graphProjectionFailed(commitId: string, reason: string): Promise<{ obligation: ProjectionObligation }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/projection/failed`, { reason }); }
+  listProjectionObligations(status?: ProjectionObligation["status"]): Promise<{ obligations: ProjectionObligation[] }> { return this.#request("GET", `/v1/projection-obligations${status ? `?status=${encodeURIComponent(status)}` : ""}`); }
   prepare(operation: SemanticOperation, snapshot: GraphSnapshot): Promise<PendingGraphCommit> { return this.#request("POST", "/v1/commits/prepare", { operation, snapshot }); }
   complete(commitId: string, result: GraphApplyResult, snapshot: GraphSnapshot): Promise<{ commit: StoredCommit }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/complete`, { result, snapshot }); }
   failGraphApply(commitId: string, reason: string): Promise<{ commit: StoredCommit }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/graph-failed`, { reason }); }

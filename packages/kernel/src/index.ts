@@ -1,10 +1,10 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type CurrentFocusAgent, type CurrentFocusProposalRevision, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FrozenEvidence, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type CurrentFocusAgent, type CurrentFocusProposalRevision, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
-type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED";
+type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED" | "COMMITTED";
 export type RecoveryAction = "ABORT_PREPARED" | "RESUME_GRAPH_APPLY" | "VERIFY_GRAPH" | "MANUAL_RECONCILIATION";
 
 export class KernelError extends Error {
@@ -499,10 +499,22 @@ export class Kernel {
 
   prepare(operation: SemanticOperation, snapshot: GraphSnapshot): { commit: StoredCommit; graphEffect: GraphEffect } {
     this.#authorize(operation.actor);
-    return this.#prepare(operation, snapshot, null);
+    return this.#prepare(operation, snapshot, null, "legacy");
   }
 
-  #prepare(operation: SemanticOperation, snapshot: GraphSnapshot, governance: StoredCommit["governance"]): { commit: StoredCommit; graphEffect: GraphEffect } {
+  /**
+   * Formal-commit path (new transaction model): a legal Formal Commit is no longer
+   * blocked by Graph Adapter availability. Existing-object operational semantics can
+   * commit with snapshot=null; CREATE still requires a fresh source snapshot because
+   * the primary anchor's source content hash is external reality. The returned
+   * ProjectionObligation is durable and must be converged asynchronously.
+   */
+  commitFormal(operation: SemanticOperation, snapshot: GraphSnapshot | null): FormalCommitResult {
+    this.#authorize(operation.actor);
+    return this.#prepare(operation, snapshot, null, "formal") as FormalCommitResult;
+  }
+
+  #prepare(operation: SemanticOperation, snapshot: GraphSnapshot | null, governance: StoredCommit["governance"], mode: "legacy" | "formal" = "legacy"): { commit: StoredCommit; graphEffect: GraphEffect } | FormalCommitResult {
     if (operation.type === "UNDO_COMMIT") throw new KernelError("UNDO_ENTRYPOINT_REQUIRED", "Use prepareUndo for compensation commits.");
     const now = this.#now();
     const commitId = deterministicUuid(`commit:${operation.operationId}`);
@@ -600,6 +612,8 @@ export class Kernel {
       };
     } else {
       if (governance || operation.actor.type !== "USER" || operation.actor.id !== this.#authorizedUserId) throw new KernelError("CLOSURE_USER_AUTHORITY_REQUIRED", "Task Closure operations require the configured local USER actor.");
+      if (mode === "formal" && !snapshot) throw new KernelError("GRAPH_SNAPSHOT_REQUIRED", "Closure commits still require a fresh Graph snapshot for marker-aware projection.", null);
+      const graphSnapshot = snapshot!;
       before = this.#store.getWorkObject(operation.target.workObjectId);
       if (!before) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Closure target does not exist.");
       if (this.#store.hasPendingRecoveryForTarget(before.id)) throw new KernelError("TARGET_RECOVERY_PENDING", "Closure target has an incomplete Commit requiring recovery.");
@@ -608,7 +622,7 @@ export class Kernel {
       anchor = storedAnchor;
       beforeClosure = closureProjection(this.#store.getClosureHistory(before.id).current);
       const authoritativeProjection = projectionFor(before, anchor, beforeClosure);
-      if (operation.target.expectedProjectionHash !== authoritativeProjection.projectionHash || snapshot.projection?.projectionHash !== authoritativeProjection.projectionHash) throw new KernelError("MANAGED_PROJECTION_HASH_MISMATCH", "Closure requires the exact Kernel-derived managed projection.");
+      if (operation.target.expectedProjectionHash !== authoritativeProjection.projectionHash || graphSnapshot.projection?.projectionHash !== authoritativeProjection.projectionHash) throw new KernelError("MANAGED_PROJECTION_HASH_MISMATCH", "Closure requires the exact Kernel-derived managed projection.");
       if (operation.type === "COMPLETE_WORK_OBJECT") {
         for (const id of operation.input.evidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Completion Evidence must belong to this Task."); }
         const completed = completeWorkObject(before, { recordId: deterministicUuid(`completion:${commitId}`), actor: operation.actor, outcomeSummary: operation.input.outcomeSummary, evidenceIds: operation.input.evidenceIds, expectedVersion: operation.target.expectedVersion, at: now }); object = completed.object; closureRecord = completed.record;
@@ -636,9 +650,9 @@ export class Kernel {
       const managedClosure = closureProjection(effective) ?? null;
       const projection = projectionFor(object, anchor, managedClosure);
       const explicitCompletion = operation.type === "COMPLETE_WORK_OBJECT";
-      const markerAlreadyDone = snapshot.sourceMarker === "DONE";
-      graphEffect = { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: snapshot.sourceMarker ?? null, resultingSourceMarker: explicitCompletion && (snapshot.sourceMarker === "TODO" || snapshot.sourceMarker === "DONE") ? "DONE" : operation.type === "REOPEN_WORK_OBJECT" && snapshot.sourceMarker === "DONE" ? "TODO" : snapshot.sourceMarker ?? null, expectedProjection: snapshot.projection!, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, closure: managedClosure, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash, resultingProjection: projection };
-      if (operation.type === "COMPLETE_WORK_OBJECT" && snapshot.sourceMarker !== "TODO" && !markerAlreadyDone && snapshot.sourceMarker !== null) throw new KernelError("COMPLETION_MARKER_UNSUPPORTED", "Completion supports TODO, already-observed DONE, or markerless Task anchors.");
+      const markerAlreadyDone = graphSnapshot.sourceMarker === "DONE";
+      graphEffect = { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: graphSnapshot.sourceMarker ?? null, resultingSourceMarker: explicitCompletion && (graphSnapshot.sourceMarker === "TODO" || graphSnapshot.sourceMarker === "DONE") ? "DONE" : operation.type === "REOPEN_WORK_OBJECT" && graphSnapshot.sourceMarker === "DONE" ? "TODO" : graphSnapshot.sourceMarker ?? null, expectedProjection: graphSnapshot.projection!, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, closure: managedClosure, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash, resultingProjection: projection };
+      if (operation.type === "COMPLETE_WORK_OBJECT" && graphSnapshot.sourceMarker !== "TODO" && !markerAlreadyDone && graphSnapshot.sourceMarker !== null) throw new KernelError("COMPLETION_MARKER_UNSUPPORTED", "Completion supports TODO, already-observed DONE, or markerless Task anchors.");
     }
 
     const commit: StoredCommit = {
@@ -651,8 +665,42 @@ export class Kernel {
     this.#store.insertCommit(commit);
     this.#afterStage("PREPARED", commitId);
 
-    const mismatch = snapshot.graphId !== anchor.graphId || snapshot.sourceBlockUuid !== anchor.externalId ||
-      (operation.type === "CREATE_WORK_OBJECT" ? snapshot.sourceContentHash !== anchor.sourceContentHash || snapshot.projection !== null : snapshot.projection?.projectionHash !== operation.target.expectedProjectionHash);
+    if (mode === "formal") {
+      if (operation.type === "CREATE_WORK_OBJECT") {
+        if (!snapshot) {
+          this.#store.transitionCommit(commitId, "ABORTED", { updatedAt: now, failureReason: "GRAPH_SNAPSHOT_REQUIRED" });
+          throw new KernelError("GRAPH_SNAPSHOT_REQUIRED", "Formal CREATE still requires a fresh source snapshot to bind the primary anchor.", commitId);
+        }
+        if (snapshot.graphId !== anchor.graphId || snapshot.sourceBlockUuid !== anchor.externalId || snapshot.sourceContentHash !== anchor.sourceContentHash || snapshot.projection !== null) {
+          this.#store.transitionCommit(commitId, "ABORTED", { updatedAt: now, failureReason: "SOURCE_CONTENT_HASH_MISMATCH" });
+          throw new KernelError("SOURCE_CONTENT_HASH_MISMATCH", "Graph precondition does not match the operation's expected source anchor.", commitId);
+        }
+      } else if (snapshot && (snapshot.graphId !== anchor.graphId || snapshot.sourceBlockUuid !== anchor.externalId || snapshot.projection?.projectionHash !== operation.target.expectedProjectionHash)) {
+        this.#store.transitionCommit(commitId, "ABORTED", { updatedAt: now, failureReason: "STALE_GRAPH_SNAPSHOT" });
+        throw new KernelError("STALE_GRAPH_SNAPSHOT", "A supplied Graph snapshot no longer matches the expected Kernel projection; resubmit with fresh or omitted snapshot.", commitId);
+      }
+
+      this.#store.transaction(() => {
+        this.#store.putWorkObject(object);
+        if (operation.type === "CREATE_WORK_OBJECT") this.#store.putAnchor(anchor);
+        if (operation.type === "COMPLETE_WORK_OBJECT") this.#store.putCompletionRecord(closureRecord as Extract<ClosureRecord, { completedAt: string }>, commitId);
+        if (operation.type === "CANCEL_WORK_OBJECT") this.#store.putCancellationRecord(closureRecord as Extract<ClosureRecord, { cancelledAt: string }>, commitId);
+        if (operation.type === "REOPEN_WORK_OBJECT") this.#store.putReopenRecord(closureRecord as ReopenRecord, commitId);
+        if (operation.type === "AMEND_CLOSURE") this.#store.putClosureAmendment(closureRecord as ClosureAmendment, commitId);
+        this.#store.transitionCommit(commitId, "COMMITTED", { updatedAt: now });
+        const obligation: ProjectionObligation = {
+          id: deterministicUuid(`projection:${commitId}`), commitId, workObjectId: object.id, formalVersion: object.version,
+          targetAnchorId: anchor.id, desiredProjectionHash: resultingProjectionHash(graphEffect), status: "PENDING", attempt: 0, lastError: null,
+          createdAt: now, updatedAt: now,
+        };
+        this.#store.putProjectionObligation(obligation);
+      });
+      this.#afterStage("COMMITTED", commitId);
+      return { commit: this.#store.getCommit(commitId)!, graphEffect, projectionObligation: this.#store.getProjectionObligationForCommit(commitId)! };
+    }
+
+    const mismatch = snapshot!.graphId !== anchor.graphId || snapshot!.sourceBlockUuid !== anchor.externalId ||
+      (operation.type === "CREATE_WORK_OBJECT" ? snapshot!.sourceContentHash !== anchor.sourceContentHash || snapshot!.projection !== null : snapshot!.projection?.projectionHash !== operation.target.expectedProjectionHash);
     if (mismatch) {
       const code = operation.type === "CREATE_WORK_OBJECT" ? "SOURCE_CONTENT_HASH_MISMATCH" : "MANAGED_PROJECTION_HASH_MISMATCH";
       this.#store.transitionCommit(commitId, "RECOVERY_REQUIRED", { updatedAt: now, failureReason: code });
@@ -773,6 +821,40 @@ export class Kernel {
     }
     this.#finalizeGovernance(commit, commitId);
     return this.#store.getCommit(commitId)!;
+  }
+
+  /** Verify a Graph write produced by a formal commit; formal truth was already COMMITTED. */
+  verifyFormalProjection(commitId: string, result: GraphApplyResult, actual: GraphSnapshot): ProjectionObligation {
+    const commit = this.#store.getCommit(commitId);
+    const obligation = this.#store.getProjectionObligationForCommit(commitId);
+    if (!commit || commit.status !== "COMMITTED" || !obligation) throw new KernelError("PROJECTION_OBLIGATION_MISSING", "Formal projection obligation does not exist for this commit.", commitId);
+    if (obligation.status === "VERIFIED") return obligation;
+    const effect = commit.graphEffect as GraphEffect;
+    const expectedHash = resultingProjectionHash(effect);
+    const at = this.#now();
+    const valid = result.commitId === effect.commitId && result.effectId === effect.effectId && result.effectType === effect.type &&
+      result.graphId === effect.graphId && result.sourceBlockUuid === effect.sourceBlockUuid &&
+      actual.graphId === effect.graphId && actual.sourceBlockUuid === effect.sourceBlockUuid &&
+      (actual.projection?.projectionHash ?? null) === expectedHash && result.projectionHash === expectedHash &&
+      (effect.type !== "CHANGE_CLOSURE_FIELDS" || (actual.sourceMarker ?? null) === (effect.resultingSourceMarker ?? null));
+    if (!valid) {
+      this.#store.transitionProjectionObligation(commitId, "FAILED", { updatedAt: at, attempt: obligation.attempt + 1, lastError: "PROJECTION_VERIFY_MISMATCH" });
+      throw new KernelError("PROJECTION_VERIFY_MISMATCH", "Graph result does not match the deterministic projection obligation.", commitId);
+    }
+    this.#store.transitionProjectionObligation(commitId, "VERIFIED", { updatedAt: at, attempt: obligation.attempt + 1, lastError: null });
+    return this.#store.getProjectionObligationForCommit(commitId)!;
+  }
+
+  graphProjectionFailed(commitId: string, reason: string): ProjectionObligation {
+    const obligation = this.#store.getProjectionObligationForCommit(commitId);
+    if (!obligation) throw new KernelError("PROJECTION_OBLIGATION_MISSING", "Formal projection obligation does not exist for this commit.", commitId);
+    const at = this.#now();
+    this.#store.transitionProjectionObligation(commitId, "FAILED", { updatedAt: at, attempt: obligation.attempt + 1, lastError: reason.slice(0, 200) });
+    return this.#store.getProjectionObligationForCommit(commitId)!;
+  }
+
+  listProjectionObligations(status?: ProjectionObligation["status"]): ProjectionObligation[] {
+    return this.#store.listProjectionObligations(status);
   }
 
   recoveryList(): Array<{ commit: StoredCommit; action: RecoveryAction }> {
