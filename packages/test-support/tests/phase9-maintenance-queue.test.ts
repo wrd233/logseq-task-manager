@@ -84,7 +84,7 @@ test("GP9-3: paused maintenance records changes without running; explicit one-sh
   const value = await setup("pause");
   try {
     await value.client.setMaintenancePause("global", true);
-    const observed = await observe(value, "下一步：暂停期间的第一次推进");
+    await observe(value, "下一步：暂停期间的第一次推进");
     await new Promise((resolve) => setTimeout(resolve, 250));
     assert.equal((await value.client.showObject(value.workObjectId)).object.currentFocus, null);
     assert.equal((await value.client.maintenanceStatus("QUEUED")).jobs.length, 1);

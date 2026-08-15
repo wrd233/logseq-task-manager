@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 
 const cli = fileURLToPath(new URL("../apps/task-copilot-cli/dist/main.js", import.meta.url));
 const source = await readFile(cli, "utf8");

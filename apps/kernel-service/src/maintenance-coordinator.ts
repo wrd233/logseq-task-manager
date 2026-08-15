@@ -1,4 +1,4 @@
-import { deterministicUuid, stableHash, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SourceChangeObservation, type SourceCoverageState, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
+import { deterministicUuid, stableHash, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SourceChangeObservation, type SourceCoverageState } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import type { GraphRequestBroker } from "./graph-broker.ts";
