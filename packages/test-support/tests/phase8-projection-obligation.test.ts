@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { KernelClient } from "@task-copilot/client";
-import { parseSemanticOperation, type GraphEffect } from "@task-copilot/contracts";
+import { parseSemanticOperation, type GraphEffect, type GraphGatewayRequestEnvelope, type GraphGatewayResponse } from "@task-copilot/contracts";
 import { startKernelServer } from "@task-copilot/kernel-service";
 import { FakeGraphAdapter } from "../src/index.ts";
 
@@ -34,6 +34,32 @@ function waitingOperation(workObjectId: string, expectedVersion: number, expecte
   return parseSemanticOperation({ operationId: `waiting-${suffix}`, type: "CHANGE_ENGAGEMENT", actor: { type: "USER", id: "local-user" }, target: { workObjectId, expectedVersion, expectedProjectionHash }, input: { from: "ACTIONABLE", to: "WAITING", waiting: { description: `等待外部条件-${suffix}`, reviewAt: null, evidenceIds: [evidenceDependency.evidenceId] } }, evidenceDependencies: [evidenceDependency] });
 }
 
+async function postBridge(baseUrl: string, token: string, path: string, body: unknown) {
+  return fetch(`${baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-task-copilot-graph-bridge": token }, body: JSON.stringify(body) });
+}
+
+function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey: string; graphId: string; graph: FakeGraphAdapter }) {
+  let stopped = false; let timer: ReturnType<typeof setTimeout> | null = null;
+  const handle = async (envelope: GraphGatewayRequestEnvelope): Promise<GraphGatewayResponse> => {
+    const request = envelope.request;
+    if (request.kind === "APPLY_EFFECT") { const result = await input.graph.applyGraphEffect(request.effect); return { kind: request.kind, result, snapshot: await input.graph.readGraphSnapshot({ graphId: request.effect.graphId, sourceBlockUuid: request.effect.sourceBlockUuid }) }; }
+    throw new Error("GRAPH_GATEWAY_UNSUPPORTED_REQUEST");
+  };
+  const tick = async () => {
+    try {
+      const polled = await postBridge(input.baseUrl, input.bridgeToken, "/v1/graph-adapter/poll", { graphId: input.graphId });
+      const envelope = (await polled.json() as { request: GraphGatewayRequestEnvelope | null }).request;
+      if (envelope) {
+        try { await postBridge(input.baseUrl, input.bridgeToken, `/v1/graph-adapter/requests/${envelope.id}/complete`, { graphId: input.graphId, response: await handle(envelope) }); }
+        catch (error) { if (!stopped) await postBridge(input.baseUrl, input.bridgeToken, `/v1/graph-adapter/requests/${envelope.id}/fail`, { graphId: input.graphId, error: { code: error instanceof Error ? error.message.split(":")[0]! : "GRAPH_FAILED", message: error instanceof Error ? error.message.slice(0, 300) : "failed" } }); }
+      }
+    } catch { /* teardown or transient */ }
+    if (!stopped) timer = setTimeout(() => void tick(), 2);
+  };
+  void tick();
+  return () => { stopped = true; if (timer) clearTimeout(timer); };
+}
+
 test("A1+A2: formal commit succeeds without Graph, creates durable projection obligation, then converges", async () => {
   const value = await setup("online-offline");
   try {
@@ -53,6 +79,21 @@ test("A1+A2: formal commit succeeds without Graph, creates durable projection ob
     assert.equal((await value.client.listProjectionObligations("PENDING")).obligations.length, 0);
     assert.equal((await value.client.showCommit(committed.commit.id)).commit.status, "COMMITTED");
   } finally { await value.service.close(); }
+});
+
+test("A2: projection worker drains a durable obligation automatically once the Graph Adapter returns", async () => {
+  const value = await setup("auto-drain");
+  const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.source.graphId, graph: value.graph });
+  try {
+    for (let attempt = 0; attempt < 20 && !(await value.client.graphStatus()).available; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+    const committed = await value.client.commitFormal(waitingOperation(value.workObjectId, 1, value.createProjectionHash, value.evidenceDependency, "auto"), null);
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const obligations = (await value.client.listProjectionObligations()).obligations;
+      if (obligations.find((item) => item.commitId === committed.commit.id)?.status === "VERIFIED") return;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.fail("projection obligation did not auto-converge");
+  } finally { stop(); await value.service.close(); }
 });
 
 test("A3: user-edited projection is never silently overwritten while an obligation is pending", async () => {

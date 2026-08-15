@@ -1,4 +1,4 @@
-import { deterministicUuid, stableHash, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SourceChangeObservation, type SourceCoverageState } from "@task-copilot/contracts";
+import { deterministicUuid, stableHash, type GraphEffect, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SourceChangeObservation, type SourceCoverageState } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import type { GraphRequestBroker } from "./graph-broker.ts";
@@ -100,6 +100,7 @@ export class MaintenanceCoordinator {
   jobs(status?: ReconcileJob["status"]): ReconcileJob[] { return this.#store.listReconcileJobs(status); }
 
   async tick(): Promise<ReconcileJob | null> {
+    await this.drainProjectionObligations().catch((error) => console.warn("[maintenance] projection drain failed", error));
     const at = this.#now();
     const job = this.#store.claimNextReconcileJob(at);
     if (!job) return null;
@@ -125,6 +126,27 @@ export class MaintenanceCoordinator {
     } catch (error) {
       return this.#requeue(job, error instanceof Error ? error.message.slice(0, 200) : "MAINTENANCE_FAILED");
     }
+  }
+
+  /** Drain durable projection obligations: formal truth already committed; Graph converges here. */
+  async drainProjectionObligations(): Promise<number> {
+    const status = this.#broker.status();
+    if (!status.available) return 0;
+    let drained = 0;
+    for (const obligation of this.#store.listProjectionObligations()) {
+      if (obligation.status !== "PENDING" && obligation.status !== "FAILED") continue;
+      const commit = this.#store.getCommit(obligation.commitId);
+      if (!commit || commit.status !== "COMMITTED") continue;
+      const effect = commit.graphEffect as GraphEffect;
+      try {
+        const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect }), "APPLY_EFFECT");
+        this.#kernel.verifyFormalProjection(commit.id, applied.result, applied.snapshot);
+        drained += 1;
+      } catch (error) {
+        this.#kernel.graphProjectionFailed(commit.id, error instanceof Error ? error.message.slice(0, 200) : "PROJECTION_APPLY_FAILED");
+      }
+    }
+    return drained;
   }
 
   #requeue(job: ReconcileJob, reason: string): ReconcileJob {
