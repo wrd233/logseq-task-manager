@@ -101,7 +101,7 @@ test("duplicate discovery runs merge candidates and maturing them creates one CR
   const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
   try {
     await waitForGraphAvailable(value.client);
-    value.graph.seedPageRecord(value.graphId, "page-candidate", "src-a", "@candidate:MINI_PROJECT:海丝采购规格书\n规格书需要跨多天整理，有明确完成边界");
+    value.graph.seedPageRecord(value.graphId, "page-candidate", "src-a", "@candidate:MINI_PROJECT:海丝采购规格书:READY_FOR_DECISION\n规格书需要跨多天整理，有明确完成边界");
     value.graph.seedPageRecord(value.graphId, "page-candidate", "src-b", "@no-candidate:ONE_OFF\n帮同事导出一份报表");
     const first = (await value.client.runDiscovery({ kind: "PAGE", graphId: value.graphId, pageName: "page-candidate" })).run;
     const second = (await value.client.runDiscovery({ kind: "PAGE", graphId: value.graphId, pageName: "page-candidate" })).run;
@@ -111,7 +111,7 @@ test("duplicate discovery runs merge candidates and maturing them creates one CR
     assert.equal(open.length, 1);
     assert.equal(open[0]!.proposedTitle, "海丝采购规格书");
     assert.equal(open[0]!.recommendedKind, "MINI_PROJECT");
-    assert.equal(open[0]!.discoveryRunIds.length, 2);
+    assert.equal(open[0]!.discoveryRunIds.length, 1); // unchanged sources are not re-sent to cognition
     const matured = await value.client.matureFormalizationCandidate(open[0]!.id);
     assert.equal(matured.pkg.workObjectId, null);
     assert.equal(matured.pkg.status, "OPEN");
@@ -126,7 +126,7 @@ test("organize today matures a candidate and trusted USER 纳入 executes CREATE
   const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
   try {
     await waitForGraphAvailable(value.client);
-    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-candidate", "@candidate:TASK:整理发布检查清单\n发布前需要逐项确认的检查清单，之后每次发布都要用");
+    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-candidate", "@candidate:TASK:整理发布检查清单:READY_FOR_DECISION\n发布前需要逐项确认的检查清单，之后每次发布都要用");
     value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-one-off", "@no-candidate:ONE_OFF\n今天帮同事重启测试服务器");
     const organized = await value.client.organizeToday({ date: "2026-08-15" });
     assert.equal(organized.graphAvailable, true);
@@ -184,13 +184,13 @@ test("stale candidate source rejects old 纳入 and creates nothing", async () =
   const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
   try {
     await waitForGraphAvailable(value.client);
-    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-stale", "@candidate:TASK:过期候选\n这个候选之后会过期");
+    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-stale", "@candidate:TASK:过期候选:READY_FOR_DECISION\n这个候选之后会过期");
     const organized = await value.client.organizeToday({ date: "2026-08-15" });
     const pkg = organized.maturePackages[0]!;
     const event = await value.client.createTrustedUserEvent({ exactUserUtterance: "纳入", packageId: pkg.id, presentationRevision: pkg.presentationRevision });
     const compiled = await value.client.compileUserDecision({ trustedUserEventId: event.event.id });
     assert.equal(compiled.kind, "AUTHORIZED_DECISION");
-    value.graph.editNaturalContent(value.graphId, "src-stale", "@candidate:TASK:过期候选\n这件事其实不用做了");
+    value.graph.editNaturalContent(value.graphId, "src-stale", "@candidate:TASK:过期候选:READY_FOR_DECISION\n这件事其实不用做了");
     if (compiled.kind !== "AUTHORIZED_DECISION") throw new Error("unreachable");
     await assert.rejects(value.client.executeUserDecision(compiled.decision.id), /USER_DECISION_STALE/u);
     assert.equal((await value.client.listObjects()).objects.length, 0);
@@ -229,7 +229,7 @@ test("presented owner boundary is applied by trusted CREATE and candidate absorp
   try {
     await waitForGraphAvailable(value.client);
     const project = await formalizeObject(value.client, value.graph, value.graphId, "project", "海丝项目", "anchor-project", "PROJECT");
-    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-owned", "@candidate:MINI_PROJECT:采购规格书整理\n跨多天整理规格书");
+    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-owned", "@candidate:MINI_PROJECT:采购规格书整理:READY_FOR_DECISION\n跨多天整理规格书");
     value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-owner", `@candidate-owner:${project.workObjectId}`);
     const organized = await value.client.organizeToday({ date: "2026-08-15" });
     assert.equal(organized.candidates.length, 1);
@@ -243,7 +243,7 @@ test("presented owner boundary is applied by trusted CREATE and candidate absorp
     assert.equal(ownerships.ownerships.some((item) => item.childId === executed.commit.targetId && item.ownerId === project.workObjectId), true);
 
     // A later candidate can be absorbed into an existing object instead of becoming another CREATE.
-    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-absorb", "@candidate:TASK:规格书格式核对\n其实属于采购规格书整理");
+    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-absorb", "@candidate:TASK:规格书格式核对:READY_FOR_DECISION\n其实属于采购规格书整理");
     const second = await value.client.organizeToday({ date: "2026-08-15" });
     const absorbCandidate = second.candidates.find((item) => item.proposedTitle === "规格书格式核对");
     assert.ok(absorbCandidate);

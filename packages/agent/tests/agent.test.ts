@@ -153,13 +153,25 @@ test("DeepSeek discovery executor enforces profile gates and parses typed arrays
       allowedDataScope: ["discovery_today"], maxContextItems: 4, maxInputChars: 10_000, reasoningEffort: "high",
       timeoutMs: 5_000, retryBudget: 0, credentialRef: "DEEPSEEK_API_KEY",
     };
-    const result = await executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [{ handle: "D1", sourceRef: { graphId: "graph", blockUuid: "block" }, content: "一次性动作", sourceHash: "h", observedAt: "now" }], existingObjects: [], profile });
+    const result = await executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [{ handle: "D1", sourceRef: { graphId: "graph", blockUuid: "block" }, content: "一次性动作", sourceHash: "h", observedAt: "now" }], existingObjects: [], openCandidates: [], profile });
     assert.equal(result[0]?.kind, "NO_CANDIDATE");
     assert.equal(calls, 1);
-    await assert.rejects(executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [], existingObjects: [], profile: { ...profile, executor: "FAKE" as const } }), /PROFILE_EXECUTOR_MISMATCH/u);
-    await assert.rejects(executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [], existingObjects: [], profile: { ...profile, remoteEnabled: false } }), /REMOTE_EXECUTOR_NOT_ENABLED/u);
+    await assert.rejects(executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [], existingObjects: [], openCandidates: [], profile: { ...profile, executor: "FAKE" as const } }), /PROFILE_EXECUTOR_MISMATCH/u);
+    await assert.rejects(executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [], existingObjects: [], openCandidates: [], profile: { ...profile, remoteEnabled: false } }), /REMOTE_EXECUTOR_NOT_ENABLED/u);
   } finally {
     server.close();
     await once(server, "close");
   }
+});
+
+test("Discovery parser validates ATTACH_TO_CANDIDATE and maturity gates", () => {
+  const parsed = parseDiscoveryJudgments(JSON.parse(`[
+    {"kind":"ATTACH_TO_CANDIDATE","candidateId":"candidate-1","sourceHandles":["D1"],"rationaleSummary":"同一边界"},
+    {"kind":"FORMALIZATION_CANDIDATE","sourceHandles":["D2"],"recommendedKind":"TASK","recommendedOwnerId":null,"proposedTitle":"发布清单","proposedWorkIntent":null,"maturity":"READY_FOR_DECISION","supportingHandles":["D2"],"rationaleSummary":"强承诺"}
+  ]`));
+  assert.equal(parsed[0]!.kind, "ATTACH_TO_CANDIDATE");
+  assert.equal(parsed[1]!.kind, "FORMALIZATION_CANDIDATE");
+  if (parsed[1]!.kind === "FORMALIZATION_CANDIDATE") assert.equal(parsed[1]!.maturity, "READY_FOR_DECISION");
+  assert.throws(() => parseDiscoveryJudgments([{ kind: "ATTACH_TO_CANDIDATE", sourceHandles: ["D1"], rationaleSummary: "x" }]), /DEEPSEEK_DISCOVERY_CANDIDATE_INVALID/u);
+  assert.throws(() => parseDiscoveryJudgments([{ kind: "FORMALIZATION_CANDIDATE", sourceHandles: ["D1"], recommendedKind: "TASK", recommendedOwnerId: null, proposedTitle: "x", proposedWorkIntent: null, maturity: "MAYBE", rationaleSummary: "x" }]), /DEEPSEEK_DISCOVERY_MATURITY_INVALID/u);
 });
