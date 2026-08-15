@@ -218,7 +218,7 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 - 真实 Logseq Desktop 已验证 `整理今天 → Discovery → Candidate → DecisionPackage → “纳入” → CREATE → projection converge`（Phase 12）；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-当前基线已完成 Phase 12 + 12.5；下一轮按 Route A/B 判断：Phase 16 semantic projections 或 Phase 13 unattended cognition，不要从旧 01–04 反推架构。
+当前基线已完成 Phase 12 + 12.5 + 16A（四入口 semantic projections / Thin Daily UI / Object Re-entry / External Agent conversation bootstrap）；下一轮按真实体验选择 Phase 13 unattended cognition 或 Phase 16B thin UX refinement，不要从旧 01–04 反推架构。
 
 任何新想法先问：
 
