@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import test from "node:test";
 
 import type { ExecutionProfile, FrozenEvidence, SkillPackage, WorkObject } from "@task-copilot/contracts";
-import { DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, extractStructuredJudgmentText, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill, parseDeepSeekJudgmentText, parseSemanticJudgment } from "../src/index.ts";
+import { DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, extractStructuredJudgmentText, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill, parseDeepSeekJudgmentText, parseDiscoveryJudgments, parseSemanticJudgment } from "../src/index.ts";
 
 const target: WorkObject = { id: "work-01", kind: "TASK", title: "上架服务器", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" };
 const skill = { id: "current-focus-maintenance", version: "0.1.0", contentHash: "a".repeat(64) } as SkillPackage;
@@ -76,6 +76,21 @@ test("DeepSeek parsing is syntax-only extraction with no semantic repair", () =>
   assert.throws(() => parseDeepSeekJudgmentText('{"kind":"NO_CHANGE","dimension":"future_scope","rationaleSummary":"未知维度"}'), /DEEPSEEK_RESULT_DIMENSION_INVALID/u);
   assert.throws(() => parseSemanticJudgment({ kind: "NO_CHANGE", rationaleSummary: "缺维度" }), /DEEPSEEK_RESULT_DIMENSION_INVALID/u);
   assert.equal(parseDeepSeekJudgmentText('{"kind":"BOUNDARY_CANDIDATE","dimension":"authority","relevantContextHandles":["S0"],"summary":"越权"}').kind, "BOUNDARY_CANDIDATE");
+});
+
+test("Discovery judgment parser is strict, typed, and never fabricates missing fields", () => {
+  const parsed = parseDiscoveryJudgments(JSON.parse(`[
+    {"kind":"ASSOCIATE_EXISTING","sourceHandles":["D1"],"targetWorkObjectId":"work-01","rationaleSummary":"属于现有对象"},
+    {"kind":"NO_CANDIDATE","sourceHandles":["D2"],"reason":"ONE_OFF","rationaleSummary":"一次性动作"},
+    {"kind":"FORMALIZATION_CANDIDATE","sourceHandles":["D3"],"recommendedKind":"MINI_PROJECT","recommendedOwnerId":null,"proposedTitle":"海丝规格书","proposedWorkIntent":{"desiredOutcome":"完成规格书","completionChecks":["发布"]},"rationaleSummary":"独立边界"}
+  ]`));
+  assert.equal(parsed.length, 3);
+  assert.equal(parsed[0]!.kind, "ASSOCIATE_EXISTING");
+  assert.equal(parsed[2]!.kind, "FORMALIZATION_CANDIDATE");
+  assert.throws(() => parseDiscoveryJudgments({}), /DEEPSEEK_DISCOVERY_RESULT_ARRAY_REQUIRED/u);
+  assert.throws(() => parseDiscoveryJudgments([{ kind: "ASSOCIATE_EXISTING", sourceHandles: ["D1"] }]), /DEEPSEEK_DISCOVERY_TARGET_INVALID/u);
+  assert.throws(() => parseDiscoveryJudgments([{ kind: "NO_CANDIDATE", sourceHandles: ["D1"], reason: "MAGIC" }]), /DEEPSEEK_DISCOVERY_REASON_INVALID/u);
+  assert.throws(() => parseDiscoveryJudgments([{ kind: "FORMALIZATION_CANDIDATE", sourceHandles: ["D1"], recommendedKind: "IDEA", recommendedOwnerId: null, proposedTitle: "x", proposedWorkIntent: null }]), /DEEPSEEK_DISCOVERY_KIND_INVALID/u);
 });
 
 test("DeepSeek executor enforces profile fields and bounded retries without silent fallback", async () => {

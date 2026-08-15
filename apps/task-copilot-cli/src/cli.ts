@@ -12,7 +12,8 @@ type CliClient = Pick<KernelClient,
   "listContextAssociations" | "associateContext" | "invalidateContextAssociation" | "recordAssociationCorrection" |
   "listGovernanceIssues" | "showGovernanceIssue" | "resolveGovernanceIssue" | "supersedeGovernanceIssue" |
   "projectionHealth" | "listProjectionObligations" | "maintenanceStatus" | "setMaintenancePause" | "reconcileMaintenance" |
-  "listDecisionPackages" | "listDecisionCandidates" | "compileUserDecision" | "executeUserDecision" | "listUserDecisions">;
+  "listDecisionPackages" | "listDecisionCandidates" | "compileUserDecision" | "executeUserDecision" | "listUserDecisions" |
+  "runDiscovery" | "listDiscoveryRuns" | "showDiscoveryRun" | "listFormalizationCandidates" | "showFormalizationCandidate" | "matureFormalizationCandidate" | "dismissFormalizationCandidate" | "organizeToday">;
 
 const rootHelp = `Task Copilot External Agent CLI
 
@@ -34,6 +35,10 @@ Commands:
   maintenance status | maintenance pause --scope global|object --paused true|false [--object <id>] | maintenance reconcile --object <id>
   decision-package list [--status OPEN|ACCEPTED|REJECTED|STALE] | decision-package show <id>
   decision execute <id> | user-decision list [--package <id>]   # compile only via trusted Plugin user channel
+  discovery run --today [--date <YYYY-MM-DD>] | discovery run --page <name> --graph <id>
+  discovery run list | discovery run show <id>
+  candidate list [--status OPEN|MATERIALIZED|DISMISSED|EXPIRED] | candidate show <id> | candidate mature <id> | candidate dismiss <id>
+  organize today [--date <YYYY-MM-DD>]
   agent-run start --purpose current-focus|engagement|miniproject --object <id> --evidence <id>... [--executor-id codex] [--correlation <id>]
   agent-run finish <runId> --result-file <path|-> | agent-run show <id> | agent-run reads <id>
   proposal show <id> | proposal apply <id> --wait
@@ -48,7 +53,7 @@ function options(args: string[], name: string): string[] { const values: string[
 function required(args: string[], name: string): string { const value = option(args, name); if (!value || value.startsWith("--")) throw new ClientError("CLI_USAGE", `${name} is required.`, 2); return value; }
 function integer(args: string[], name: string, fallback: number): number { const raw = option(args, name); if (raw === undefined) return fallback; const value = Number(raw); if (!Number.isSafeInteger(value) || value < 1) throw new ClientError("CLI_USAGE", `${name} must be a positive integer.`, 2); return value; }
 function positional(args: string[]): string[] {
-  const flagsWithValues = new Set(["--query", "--limit", "--run", "--object", "--block", "--id", "--purpose", "--evidence", "--executor-id", "--result-file", "--input-file", "--lifecycle", "--engagement", "--correlation", "--reference", "--section", "--existing-section", "--graph", "--origin", "--version-hash", "--scope", "--decision", "--affirmed", "--status", "--paused", "--utterance"]); const values: string[] = [];
+  const flagsWithValues = new Set(["--query", "--limit", "--run", "--object", "--block", "--id", "--purpose", "--evidence", "--executor-id", "--result-file", "--input-file", "--lifecycle", "--engagement", "--correlation", "--reference", "--section", "--existing-section", "--graph", "--origin", "--version-hash", "--scope", "--decision", "--affirmed", "--status", "--paused", "--utterance", "--date", "--page"]); const values: string[] = [];
   for (let index = 0; index < args.length; index += 1) { const item = args[index]!; if (flagsWithValues.has(item)) { index += 1; continue; } if (!item.startsWith("--")) values.push(item); } return values;
 }
 function usage(message: string): never { throw new ClientError("CLI_USAGE", message, 2); }
@@ -90,6 +95,18 @@ export async function runCli(argv: string[], client: CliClient, io: CliIO): Prom
     else if (words.join(" ") === "maintenance reconcile") value = await client.reconcileMaintenance(required(args, "--object"), "INTERACTIVE");
     else if (words.join(" ") === "decision-package list") { const status = option(args, "--status"); if (status && !["OPEN", "ACCEPTED", "REJECTED", "STALE"].includes(status)) usage("--status must be OPEN, ACCEPTED, REJECTED, or STALE."); value = await client.listDecisionPackages(status as "OPEN" | "ACCEPTED" | "REJECTED" | "STALE" | undefined); }
     else if (words.length === 3 && words[0] === "decision-package" && words[1] === "show") { const found = (await client.listDecisionPackages()).packages.find((item) => item.id === words[2]!); if (!found) usage("Decision Package not found."); value = { package: found, candidates: await client.listDecisionCandidates(found.id) }; }
+    else if (words.join(" ") === "discovery run list") value = await client.listDiscoveryRuns();
+    else if (words.length === 4 && words[0] === "discovery" && words[1] === "run" && words[2] === "show") value = await client.showDiscoveryRun(words[3]!);
+    else if (words.length >= 3 && words[0] === "discovery" && words[1] === "run") {
+      if (args.includes("--today")) value = await client.runDiscovery({ kind: "TODAY", date: option(args, "--date") ?? new Date().toISOString().slice(0, 10) });
+      else if (args.includes("--page")) value = await client.runDiscovery({ kind: "PAGE", graphId: required(args, "--graph"), pageName: required(args, "--page") });
+      else usage("discovery run requires --today or --page <name> --graph <id>.");
+    }
+    else if (words.join(" ") === "candidate list") { const status = option(args, "--status"); if (status && !["OPEN", "MATERIALIZED", "DISMISSED", "EXPIRED"].includes(status)) usage("--status must be OPEN, MATERIALIZED, DISMISSED, or EXPIRED."); value = await client.listFormalizationCandidates(status as "OPEN" | "MATERIALIZED" | "DISMISSED" | "EXPIRED" | undefined); }
+    else if (words.length === 3 && words[0] === "candidate" && words[1] === "show") value = await client.showFormalizationCandidate(words[2]!);
+    else if (words.length === 3 && words[0] === "candidate" && words[1] === "mature") value = await client.matureFormalizationCandidate(words[2]!);
+    else if (words.length === 3 && words[0] === "candidate" && words[1] === "dismiss") value = await client.dismissFormalizationCandidate(words[2]!);
+    else if (words.join(" ") === "organize today") value = await client.organizeToday(option(args, "--date") ? { date: option(args, "--date")! } : {});
     else if (words.join(" ") === "decision compile") usage("decision compile is available only through the trusted Plugin USER channel; External Agents cannot impersonate USER.");
     else if (words.length === 3 && words[0] === "decision" && words[1] === "execute") value = await client.executeUserDecision(words[2]!);
     else if (words.join(" ") === "user-decision list") value = await client.listUserDecisions(option(args, "--package"));

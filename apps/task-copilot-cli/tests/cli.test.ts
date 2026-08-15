@@ -35,6 +35,10 @@ const client = {
   compileUserDecision: async () => ({ kind: "NEEDS_CLARIFICATION" as const, reason: "none" }),
   executeUserDecision: async () => ({ decision: {} as never, commit: {} as never, projectionObligation: {} as never }),
   listUserDecisions: async () => ({ decisions: [] }),
+  runDiscovery: async () => ({ run: {} as never }), listDiscoveryRuns: async () => ({ runs: [] }), showDiscoveryRun: async () => ({ run: {} as never, sources: [] }),
+  listFormalizationCandidates: async () => ({ candidates: [] }), showFormalizationCandidate: async () => ({ candidate: {} as never }),
+  matureFormalizationCandidate: async () => ({ pkg: {} as never, candidate: {} as never }), dismissFormalizationCandidate: async () => ({ candidate: {} as never }),
+  organizeToday: async () => ({ run: {} as never, scope: { kind: "TODAY" as const, date: "2026-08-15" }, associations: [], candidates: [], maturePackages: [], reconcileJobs: [], graphAvailable: false, pauseRespected: false, summaryText: "no changes" }),
 };
 
 test("all reference commands support machine-readable output", async () => {

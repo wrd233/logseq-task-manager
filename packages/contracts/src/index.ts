@@ -788,6 +788,123 @@ export interface CognitionExecutor {
   judge(input: CognitionJudgeInput): Promise<SemanticJudgment>;
 }
 
+export type DiscoveryScope =
+  | { kind: "TODAY"; date: string; windowHours?: number }
+  | { kind: "RECENT_WINDOW"; from: string; to: string }
+  | { kind: "PAGE"; graphId: string; pageName: string }
+  | { kind: "SUBTREE"; graphId: string; pageName: string; blockUuid: string }
+  | { kind: "EXPLICIT_SOURCE_SET"; sources: readonly SourceRef[] };
+
+export interface DiscoveryPackItem {
+  handle: string;
+  sourceRef: SourceRef;
+  content: string;
+  sourceHash: string;
+  observedAt: string;
+}
+
+export interface DiscoveryExistingObject {
+  handle: string;
+  workObjectId: string;
+  kind: WorkObjectKind;
+  title: string;
+  lifecycle: WorkObject["lifecycle"];
+  engagement: WorkObject["engagement"];
+  currentFocus: string | null;
+  desiredOutcome: string | null;
+}
+
+export type DiscoveryNoCandidateReason = "EPHEMERAL" | "ONE_OFF" | "REFERENCE_ONLY" | "INSUFFICIENT_BOUNDARY" | "ALREADY_COVERED" | "UNCERTAIN";
+
+export type DiscoveryCandidateKind = WorkObjectKind | "UNRESOLVED";
+
+export interface ProposedWorkIntent {
+  desiredOutcome: string | null;
+  completionChecks: readonly string[];
+}
+
+export type DiscoveryJudgment =
+  | { kind: "ASSOCIATE_EXISTING"; sourceHandles: string[]; targetWorkObjectId: string; rationaleSummary: string }
+  | { kind: "NO_CANDIDATE"; sourceHandles: string[]; reason: DiscoveryNoCandidateReason; rationaleSummary: string }
+  | { kind: "FORMALIZATION_CANDIDATE"; sourceHandles: string[]; recommendedKind: DiscoveryCandidateKind; recommendedOwnerId: string | null; proposedTitle: string | null; proposedWorkIntent: ProposedWorkIntent | null; rationaleSummary: string };
+
+export interface DiscoveryJudgeInput {
+  scope: DiscoveryScope;
+  contextPack: DiscoveryPackItem[];
+  existingObjects: DiscoveryExistingObject[];
+  profile: ExecutionProfile;
+}
+
+export interface DiscoveryExecutor {
+  readonly id: string;
+  judge(input: DiscoveryJudgeInput): Promise<DiscoveryJudgment[]>;
+}
+
+export type FormalizationCandidateStatus = "OPEN" | "MATERIALIZED" | "DISMISSED" | "EXPIRED";
+
+export interface FormalizationCandidate {
+  id: string;
+  status: FormalizationCandidateStatus;
+  scope: DiscoveryScope;
+  sourceRefs: readonly SourceRef[];
+  sourceHashes: readonly string[];
+  recommendedKind: DiscoveryCandidateKind;
+  recommendedOwnerId: string | null;
+  proposedTitle: string | null;
+  proposedWorkIntent: ProposedWorkIntent | null;
+  rationaleSummary: string;
+  createdAt: string;
+  updatedAt: string;
+  lastObservedAt: string;
+  expiresAt: string | null;
+  discoveryRunIds: readonly string[];
+  evidenceRefs: readonly string[];
+  materializedWorkObjectId: string | null;
+  decisionPackageId: string | null;
+}
+
+export type DiscoveryRunStatus = "RUNNING" | "COMPLETED" | "PARTIAL" | "FAILED";
+
+export interface DiscoveryRun {
+  id: string;
+  scope: DiscoveryScope;
+  executorId: string;
+  modelAlias: string | null;
+  status: DiscoveryRunStatus;
+  sourceCount: number;
+  associationCount: number;
+  noCandidateCount: number;
+  candidateIds: readonly string[];
+  summaryText: string;
+  latencyMs: number;
+  tokenUsage: { inputTokens?: number | null; outputTokens?: number | null } | null;
+  error: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface DiscoveryRunSourceOutcome {
+  runId: string;
+  sourceRef: SourceRef;
+  sourceHash: string;
+  outcome: "ASSOCIATED" | "NO_CANDIDATE" | "CANDIDATE" | "UNRESOLVED";
+  candidateId?: string | null;
+  targetWorkObjectId?: string | null;
+  reason?: string | null;
+}
+
+export interface OrganizeTodayResult {
+  run: DiscoveryRun;
+  scope: DiscoveryScope;
+  associations: readonly ContextAssociation[];
+  candidates: readonly FormalizationCandidate[];
+  maturePackages: readonly DecisionPackage[];
+  reconcileJobs: readonly ReconcileJob[];
+  graphAvailable: boolean;
+  pauseRespected: boolean;
+  summaryText: string;
+}
+
 export interface DecisionCandidate {
   id: string;
   packageId: string;
@@ -799,7 +916,7 @@ export interface DecisionCandidate {
 
 export interface DecisionPackage {
   id: string;
-  workObjectId: string;
+  workObjectId: string | null;
   summary: string;
   rationale: string;
   status: "OPEN" | "ACCEPTED" | "REJECTED" | "STALE";

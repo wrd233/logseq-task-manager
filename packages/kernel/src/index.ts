@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type WorkIntentProposalRevision } from "@task-copilot/contracts";
-import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
+import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
 type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED" | "COMMITTED";
@@ -134,6 +134,15 @@ export class Kernel {
   }
 
   tasteProfiles(): readonly TasteProfile[] { return this.#miniProjectTaste ? [this.#miniProjectTaste] : []; }
+
+  assignPrimaryOwnership(input: { childId: string; ownerId: string; at?: string }): PrimaryOwnership {
+    const at = input.at ?? this.#now();
+    const ownership = createPrimaryOwnership({ childId: input.childId, ownerId: input.ownerId, at, objects: this.#store.listWorkObjects(), existing: this.#store.listOwnerships() });
+    this.#store.putOwnership(ownership);
+    return ownership;
+  }
+
+  listOwnerships(): PrimaryOwnership[] { return this.#store.listOwnerships(); }
 
   targetSnapshotInput(workObjectId: string): GraphSnapshotInput {
     const object = this.#store.getWorkObject(workObjectId); const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
@@ -964,13 +973,13 @@ export class Kernel {
     return this.#store.listGovernanceIssues(workObjectId, status);
   }
 
-  createDecisionPackage(input: { id?: string; workObjectId: string; summary: string; rationale: string; issueRefs?: readonly string[]; candidates: Array<{ id?: string; operationType: DecisionCandidate["operationType"]; parameters: unknown; evidenceIds?: readonly string[] }> }): { pkg: DecisionPackage; candidates: DecisionCandidate[] } {
-    const object = this.#store.getWorkObject(input.workObjectId);
-    if (!object) throw new KernelError("DECISION_TARGET_NOT_FOUND", "Decision Package target does not exist.");
+  createDecisionPackage(input: { id?: string; workObjectId?: string | null; summary: string; rationale: string; issueRefs?: readonly string[]; candidates: Array<{ id?: string; operationType: DecisionCandidate["operationType"]; parameters: unknown; evidenceIds?: readonly string[] }> }): { pkg: DecisionPackage; candidates: DecisionCandidate[] } {
+    const object = input.workObjectId ? this.#store.getWorkObject(input.workObjectId) : null;
+    if (input.workObjectId && !object) throw new KernelError("DECISION_TARGET_NOT_FOUND", "Decision Package target does not exist.");
     const at = this.#now();
     const pkg: DecisionPackage = {
-      id: input.id ?? `package:${object.id}:${at}:${randomUUID()}`, workObjectId: object.id, summary: input.summary, rationale: input.rationale,
-      status: "OPEN", targetVersions: { [object.id]: object.version }, issueRefs: input.issueRefs ?? [], presentationRevision: "1", presentedAt: at, createdAt: at, updatedAt: at,
+      id: input.id ?? `package:${object?.id ?? "formalization"}:${at}:${randomUUID()}`, workObjectId: object?.id ?? null, summary: input.summary, rationale: input.rationale,
+      status: "OPEN", targetVersions: object ? { [object.id]: object.version } : {}, issueRefs: input.issueRefs ?? [], presentationRevision: "1", presentedAt: at, createdAt: at, updatedAt: at,
     };
     this.#store.putDecisionPackage(pkg);
     const candidates = input.candidates.map((candidate) => ({ id: candidate.id ?? deterministicUuid(`candidate:${pkg.id}:${candidate.operationType}`), packageId: pkg.id, operationType: candidate.operationType, parameters: candidate.parameters, evidenceIds: candidate.evidenceIds ?? [], status: "OPEN" as const, createdAt: at }));
@@ -1008,17 +1017,22 @@ export class Kernel {
     if (!pkg) return { kind: "NEEDS_CLARIFICATION", reason: "Trusted USER event is not bound to a current Decision Package." };
     if (pkg.status !== "OPEN") return { kind: "STALE", reason: `Decision Package ${pkg.id} is not OPEN.` };
     if (event.presentationRevision !== pkg.presentationRevision) return { kind: "STALE", reason: "User saw another package presentation revision." };
-    const object = this.#store.getWorkObject(pkg.workObjectId);
-    if (!object || (pkg.targetVersions[object.id] ?? object.version) !== object.version) {
-      this.#store.transitionDecisionPackage(pkg.id, "STALE", this.#now());
-      return { kind: "STALE", reason: "Formal target version changed after the package was created." };
-    }
     const candidates = this.#store.listDecisionCandidates(pkg.id, "OPEN");
     if (candidates.length !== 1) return { kind: "AMBIGUOUS", reason: `Expected exactly one current candidate, found ${candidates.length}.` };
     const candidate = candidates[0]!;
+    let object: WorkObject | null = null;
+    if (pkg.workObjectId) {
+      object = this.#store.getWorkObject(pkg.workObjectId);
+      if (!object || (pkg.targetVersions[object.id] ?? object.version) !== object.version) {
+        this.#store.transitionDecisionPackage(pkg.id, "STALE", this.#now());
+        return { kind: "STALE", reason: "Formal target version changed after the package was created." };
+      }
+    } else if (candidate.operationType !== "CREATE_WORK_OBJECT") {
+      return { kind: "UNSUPPORTED", reason: "A Decision Package without an existing WorkObject may only authorize CREATE_WORK_OBJECT." } as UserDecisionCompileResult;
+    }
     const at = this.#now();
     const decision: UserDecision = {
-      id: deterministicUuid(`decision:${pkg.id}:${event.id}`), workObjectIds: [object.id], operationType: candidate.operationType, parameters: candidate.parameters,
+      id: deterministicUuid(`decision:${pkg.id}:${event.id}`), workObjectIds: object ? [object.id] : [], operationType: candidate.operationType, parameters: candidate.parameters,
       scope: pkg.summary, exactUserUtterance: event.exactUserUtterance, minimalDecisionContext: pkg.rationale, inputVersions: { ...pkg.targetVersions },
       status: "AUTHORIZED", packageId: pkg.id, authorizationRef: event.id, createdAt: at, executedAt: null, executionRefs: [],
     };
@@ -1032,6 +1046,33 @@ export class Kernel {
   executeUserDecision(id: string): { decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation } {
     const decision = this.#store.getUserDecision(id);
     if (!decision || decision.status !== "AUTHORIZED") throw new KernelError("USER_DECISION_NOT_AUTHORIZED", "User Decision is missing or not authorized for execution.");
+    if (decision.operationType === "CREATE_WORK_OBJECT") {
+      const params = decision.parameters as { anchor?: { graphId?: string; blockUuid?: string; sourceContentHash?: string }; input?: { kind?: WorkObject["kind"]; title?: string }; ownerId?: string | null; proposedWorkIntent?: { desiredOutcome?: string | null; completionChecks?: readonly string[] } | null };
+      const anchor = params.anchor;
+      const input = params.input;
+      if (!anchor || typeof anchor.graphId !== "string" || typeof anchor.blockUuid !== "string" || typeof anchor.sourceContentHash !== "string" || !input || typeof input.title !== "string" || (input.kind !== "TASK" && input.kind !== "MINI_PROJECT" && input.kind !== "PROJECT")) {
+        throw new KernelError("USER_DECISION_PARAMS_INVALID", "CREATE_WORK_OBJECT decision requires a complete kind, title, and source anchor.");
+      }
+      const owner = params.ownerId ? this.#store.getWorkObject(params.ownerId) : null;
+      if (params.ownerId && !owner) throw new KernelError("USER_DECISION_OWNER_NOT_FOUND", "Recommended owner WorkObject does not exist.");
+      if (params.ownerId && owner && !((owner.kind === "PROJECT" && input.kind !== "PROJECT") || (owner.kind === "MINI_PROJECT" && input.kind === "TASK"))) {
+        throw new KernelError("USER_DECISION_OWNER_INVALID", "Owner kind cannot own the recommended WorkObject kind.");
+      }
+      const operation = parseSemanticOperation({
+        operationId: `decision:${decision.id}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: this.#authorizedUserId },
+        input: { kind: input.kind, title: input.title, anchor: { graphId: anchor.graphId, blockUuid: anchor.blockUuid, sourceContentHash: anchor.sourceContentHash } },
+      });
+      const snapshot: GraphSnapshot = { graphId: anchor.graphId, sourceBlockUuid: anchor.blockUuid, sourceContentHash: anchor.sourceContentHash, projection: null };
+      const formal = this.commitFormal(operation, snapshot);
+      if (params.ownerId) this.assignPrimaryOwnership({ childId: formal.commit.targetId!, ownerId: params.ownerId, at: this.#now() });
+      this.#store.updateUserDecisionExecution(decision.id, "EXECUTED", this.#now(), [formal.commit.id]);
+      this.#store.updateUserDecisionWorkObjects(decision.id, [formal.commit.targetId!]);
+      if (decision.packageId) {
+        this.#store.transitionDecisionPackage(decision.packageId, "ACCEPTED", this.#now());
+        for (const candidate of this.#store.listDecisionCandidates(decision.packageId, "OPEN")) this.#store.transitionDecisionCandidate(candidate.id, "ACCEPTED");
+      }
+      return { decision: this.#store.getUserDecision(decision.id)!, commit: formal.commit, projectionObligation: formal.projectionObligation };
+    }
     const targetId = decision.workObjectIds[0];
     if (!targetId) throw new KernelError("USER_DECISION_TARGET_MISSING", "User Decision has no target.");
     const object = this.#store.getWorkObject(targetId);

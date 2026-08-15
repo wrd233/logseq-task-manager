@@ -7,6 +7,7 @@ interface RecordState { content: string; projection: ManagedProjection | null; m
 
 export class FakeGraphAdapter implements GraphAdapter {
   readonly #records = new Map<string, RecordState>();
+  readonly #pages = new Map<string, Map<string, string[]>>();
   #failNext = false;
   #now: () => string;
 
@@ -17,6 +18,20 @@ export class FakeGraphAdapter implements GraphAdapter {
     const match = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(content);
     this.#records.set(this.#key(graphId, sourceBlockUuid), { content, projection: null, marker: match ? match[1] as Exclude<SourceMarker, null> : null });
     return this.snapshot(graphId, sourceBlockUuid);
+  }
+
+  seedPageRecord(graphId: string, pageName: string, sourceBlockUuid: string, content: string): GraphSnapshot {
+    const snapshot = this.seedNaturalRecord(graphId, sourceBlockUuid, content);
+    const pages = this.#pages.get(graphId) ?? new Map<string, string[]>();
+    const blocks = pages.get(pageName) ?? [];
+    if (!blocks.includes(sourceBlockUuid)) blocks.push(sourceBlockUuid);
+    pages.set(pageName, blocks);
+    this.#pages.set(graphId, pages);
+    return snapshot;
+  }
+
+  pageBlockUuids(graphId: string, pageName: string): string[] {
+    return [...(this.#pages.get(graphId)?.get(pageName) ?? [])];
   }
 
   naturalContent(graphId: string, sourceBlockUuid: string): string { return this.#record(graphId, sourceBlockUuid).content; }

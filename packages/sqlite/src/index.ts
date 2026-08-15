@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type FeedbackEvent, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
-import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
+import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
 const schema = `
   PRAGMA foreign_keys = ON;
@@ -172,7 +172,7 @@ const schema = `
   CREATE UNIQUE INDEX IF NOT EXISTS governance_issues_open_dedupe_idx ON governance_issues(work_object_id, dimension, type, source_snapshot_id) WHERE status='OPEN';
   CREATE TABLE IF NOT EXISTS decision_packages (
     id TEXT PRIMARY KEY,
-    work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+    work_object_id TEXT REFERENCES work_objects(id) ON DELETE CASCADE,
     summary TEXT NOT NULL,
     rationale TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('OPEN', 'ACCEPTED', 'REJECTED', 'STALE')),
@@ -224,6 +224,70 @@ const schema = `
     created_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS trusted_user_events_package_idx ON trusted_user_events(package_id, status);
+  CREATE TABLE IF NOT EXISTS discovery_runs (
+    id TEXT PRIMARY KEY,
+    scope_json TEXT NOT NULL,
+    executor_id TEXT NOT NULL,
+    model_alias TEXT,
+    status TEXT NOT NULL CHECK (status IN ('RUNNING', 'COMPLETED', 'PARTIAL', 'FAILED')),
+    source_count INTEGER NOT NULL,
+    association_count INTEGER NOT NULL,
+    no_candidate_count INTEGER NOT NULL,
+    candidate_ids_json TEXT NOT NULL DEFAULT '[]',
+    summary_text TEXT NOT NULL,
+    latency_ms INTEGER NOT NULL,
+    token_usage_json TEXT,
+    error TEXT,
+    started_at TEXT NOT NULL,
+    completed_at TEXT
+  );
+  CREATE TABLE IF NOT EXISTS discovery_run_sources (
+    run_id TEXT NOT NULL REFERENCES discovery_runs(id) ON DELETE CASCADE,
+    graph_id TEXT NOT NULL,
+    block_uuid TEXT NOT NULL,
+    source_hash TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK (outcome IN ('ASSOCIATED', 'NO_CANDIDATE', 'CANDIDATE', 'UNRESOLVED')),
+    candidate_id TEXT,
+    target_work_object_id TEXT,
+    reason TEXT,
+    PRIMARY KEY (run_id, graph_id, block_uuid)
+  );
+  CREATE TABLE IF NOT EXISTS formalization_candidates (
+    id TEXT PRIMARY KEY,
+    status TEXT NOT NULL CHECK (status IN ('OPEN', 'MATERIALIZED', 'DISMISSED', 'EXPIRED')),
+    scope_json TEXT NOT NULL,
+    recommended_kind TEXT NOT NULL,
+    recommended_owner_id TEXT,
+    proposed_title TEXT,
+    proposed_work_intent_json TEXT,
+    rationale_summary TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_observed_at TEXT NOT NULL,
+    expires_at TEXT,
+    materialized_work_object_id TEXT,
+    decision_package_id TEXT
+  );
+  CREATE INDEX IF NOT EXISTS formalization_candidates_status_idx ON formalization_candidates(status, created_at);
+  CREATE TABLE IF NOT EXISTS candidate_sources (
+    candidate_id TEXT NOT NULL REFERENCES formalization_candidates(id) ON DELETE CASCADE,
+    graph_id TEXT NOT NULL,
+    block_uuid TEXT NOT NULL,
+    source_hash TEXT NOT NULL,
+    observed_at TEXT NOT NULL,
+    PRIMARY KEY (candidate_id, graph_id, block_uuid)
+  );
+  CREATE INDEX IF NOT EXISTS candidate_sources_ref_idx ON candidate_sources(graph_id, block_uuid);
+  CREATE TABLE IF NOT EXISTS candidate_discovery_runs (
+    candidate_id TEXT NOT NULL REFERENCES formalization_candidates(id) ON DELETE CASCADE,
+    run_id TEXT NOT NULL REFERENCES discovery_runs(id) ON DELETE CASCADE,
+    PRIMARY KEY (candidate_id, run_id)
+  );
+  CREATE TABLE IF NOT EXISTS candidate_evidence_refs (
+    candidate_id TEXT NOT NULL REFERENCES formalization_candidates(id) ON DELETE CASCADE,
+    evidence_id TEXT NOT NULL,
+    PRIMARY KEY (candidate_id, evidence_id)
+  );
   CREATE TABLE IF NOT EXISTS skill_versions (
     id TEXT NOT NULL, version TEXT NOT NULL, content_hash TEXT NOT NULL, package_json TEXT NOT NULL,
     registered_at TEXT NOT NULL, PRIMARY KEY(id, version)
@@ -317,6 +381,7 @@ export class SqliteStore {
     this.#migrateV11();
     this.#migrateV12();
     this.#migrateV13();
+    this.#migrateV14();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -554,6 +619,98 @@ export class SqliteStore {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (13, ?)").run(new Date().toISOString());
   }
 
+  #migrateV14(): void {
+    const column = (this.#database.prepare("PRAGMA table_info(decision_packages)").all() as Array<{ name: string; notnull: number }>).find((item) => item.name === "work_object_id");
+    if (column?.notnull) {
+      this.#database.exec(`
+        CREATE TABLE decision_packages_v14 (
+          id TEXT PRIMARY KEY,
+          work_object_id TEXT REFERENCES work_objects(id) ON DELETE CASCADE,
+          summary TEXT NOT NULL,
+          rationale TEXT NOT NULL,
+          status TEXT NOT NULL CHECK (status IN ('OPEN', 'ACCEPTED', 'REJECTED', 'STALE')),
+          target_versions_json TEXT NOT NULL,
+          issue_refs_json TEXT NOT NULL DEFAULT '[]',
+          presentation_revision TEXT NOT NULL DEFAULT '1',
+          presented_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        INSERT INTO decision_packages_v14(id, work_object_id, summary, rationale, status, target_versions_json, issue_refs_json, presentation_revision, presented_at, created_at, updated_at)
+          SELECT id, work_object_id, summary, rationale, status, target_versions_json, issue_refs_json, presentation_revision, presented_at, created_at, updated_at FROM decision_packages;
+        DROP TABLE decision_packages;
+        ALTER TABLE decision_packages_v14 RENAME TO decision_packages;
+      `);
+    }
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS discovery_runs (
+        id TEXT PRIMARY KEY,
+        scope_json TEXT NOT NULL,
+        executor_id TEXT NOT NULL,
+        model_alias TEXT,
+        status TEXT NOT NULL CHECK (status IN ('RUNNING', 'COMPLETED', 'PARTIAL', 'FAILED')),
+        source_count INTEGER NOT NULL,
+        association_count INTEGER NOT NULL,
+        no_candidate_count INTEGER NOT NULL,
+        candidate_ids_json TEXT NOT NULL DEFAULT '[]',
+        summary_text TEXT NOT NULL,
+        latency_ms INTEGER NOT NULL,
+        token_usage_json TEXT,
+        error TEXT,
+        started_at TEXT NOT NULL,
+        completed_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS discovery_run_sources (
+        run_id TEXT NOT NULL REFERENCES discovery_runs(id) ON DELETE CASCADE,
+        graph_id TEXT NOT NULL,
+        block_uuid TEXT NOT NULL,
+        source_hash TEXT NOT NULL,
+        outcome TEXT NOT NULL CHECK (outcome IN ('ASSOCIATED', 'NO_CANDIDATE', 'CANDIDATE', 'UNRESOLVED')),
+        candidate_id TEXT,
+        target_work_object_id TEXT,
+        reason TEXT,
+        PRIMARY KEY (run_id, graph_id, block_uuid)
+      );
+      CREATE TABLE IF NOT EXISTS formalization_candidates (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL CHECK (status IN ('OPEN', 'MATERIALIZED', 'DISMISSED', 'EXPIRED')),
+        scope_json TEXT NOT NULL,
+        recommended_kind TEXT NOT NULL,
+        recommended_owner_id TEXT,
+        proposed_title TEXT,
+        proposed_work_intent_json TEXT,
+        rationale_summary TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_observed_at TEXT NOT NULL,
+        expires_at TEXT,
+        materialized_work_object_id TEXT,
+        decision_package_id TEXT
+      );
+      CREATE INDEX IF NOT EXISTS formalization_candidates_status_idx ON formalization_candidates(status, created_at);
+      CREATE TABLE IF NOT EXISTS candidate_sources (
+        candidate_id TEXT NOT NULL REFERENCES formalization_candidates(id) ON DELETE CASCADE,
+        graph_id TEXT NOT NULL,
+        block_uuid TEXT NOT NULL,
+        source_hash TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        PRIMARY KEY (candidate_id, graph_id, block_uuid)
+      );
+      CREATE INDEX IF NOT EXISTS candidate_sources_ref_idx ON candidate_sources(graph_id, block_uuid);
+      CREATE TABLE IF NOT EXISTS candidate_discovery_runs (
+        candidate_id TEXT NOT NULL REFERENCES formalization_candidates(id) ON DELETE CASCADE,
+        run_id TEXT NOT NULL REFERENCES discovery_runs(id) ON DELETE CASCADE,
+        PRIMARY KEY (candidate_id, run_id)
+      );
+      CREATE TABLE IF NOT EXISTS candidate_evidence_refs (
+        candidate_id TEXT NOT NULL REFERENCES formalization_candidates(id) ON DELETE CASCADE,
+        evidence_id TEXT NOT NULL,
+        PRIMARY KEY (candidate_id, evidence_id)
+      );
+    `);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (14, ?)").run(new Date().toISOString());
+  }
+
   close(): void { this.#database.close(); }
   schemaVersion(): number { return Number((this.#database.prepare("SELECT MAX(version) AS version FROM schema_versions").get() as { version: number }).version); }
 
@@ -577,6 +734,19 @@ export class SqliteStore {
 
   listActionableWorkObjects(): WorkObject[] {
     return (this.#database.prepare("SELECT id FROM work_objects WHERE lifecycle='OPEN' AND engagement='ACTIONABLE' ORDER BY created_at,id").all() as Array<{ id: string }>).map(({ id }) => this.getWorkObject(id)!);
+  }
+
+  putOwnership(ownership: PrimaryOwnership): void {
+    this.#database.prepare("INSERT INTO ownerships(child_id, owner_id, created_at) VALUES (?,?,?)").run(ownership.childId, ownership.ownerId, ownership.createdAt);
+  }
+
+  listOwnerships(): PrimaryOwnership[] {
+    return (this.#database.prepare("SELECT child_id, owner_id, created_at FROM ownerships ORDER BY created_at, child_id").all() as Array<{ child_id: string; owner_id: string; created_at: string }>).map((row) => ({ childId: row.child_id, ownerId: row.owner_id, createdAt: row.created_at }));
+  }
+
+  getOwnershipByChild(childId: string): PrimaryOwnership | null {
+    const row = this.#database.prepare("SELECT child_id, owner_id, created_at FROM ownerships WHERE child_id=?").get(childId) as { child_id: string; owner_id: string; created_at: string } | undefined;
+    return row ? { childId: row.child_id, ownerId: row.owner_id, createdAt: row.created_at } : null;
   }
 
   deleteWorkObject(id: string): void { this.#database.prepare("DELETE FROM work_objects WHERE id = ?").run(id); }
@@ -1070,7 +1240,7 @@ export class SqliteStore {
   getDecisionPackage(id: string): DecisionPackage | null {
     const row = this.#database.prepare("SELECT * FROM decision_packages WHERE id=?").get(id) as Record<string, unknown> | undefined;
     if (!row) return null;
-    return { id: String(row.id), workObjectId: String(row.work_object_id), summary: String(row.summary), rationale: String(row.rationale), status: row.status as DecisionPackage["status"], targetVersions: decode(String(row.target_versions_json)) as Record<string, number>, issueRefs: decode(String(row.issue_refs_json)) as string[], presentationRevision: String(row.presentation_revision), presentedAt: row.presented_at === null ? null : String(row.presented_at), createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
+    return { id: String(row.id), workObjectId: row.work_object_id === null ? null : String(row.work_object_id), summary: String(row.summary), rationale: String(row.rationale), status: row.status as DecisionPackage["status"], targetVersions: decode(String(row.target_versions_json)) as Record<string, number>, issueRefs: decode(String(row.issue_refs_json)) as string[], presentationRevision: String(row.presentation_revision), presentedAt: row.presented_at === null ? null : String(row.presented_at), createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
   }
 
   listDecisionPackages(status?: DecisionPackage["status"]): DecisionPackage[] {
@@ -1121,6 +1291,11 @@ export class SqliteStore {
     if (!changed.changes) throw new Error("USER_DECISION_NOT_FOUND");
   }
 
+  updateUserDecisionWorkObjects(id: string, workObjectIds: readonly string[]): void {
+    const changed = this.#database.prepare("UPDATE user_decisions SET work_object_ids_json=? WHERE id=?").run(encode(workObjectIds), id);
+    if (!changed.changes) throw new Error("USER_DECISION_NOT_FOUND");
+  }
+
   putTrustedUserEvent(event: TrustedUserEvent): void {
     this.#database.prepare(`INSERT INTO trusted_user_events(id, source_channel, source_capability, exact_user_utterance, captured_at, package_id, presentation_revision, correlation_id, status, consumed_by_decision_id, created_at)
       VALUES (@id, @sourceChannel, @sourceCapability, @exactUserUtterance, @capturedAt, @packageId, @presentationRevision, @correlationId, @status, @consumedByDecisionId, @createdAt)`).run(event);
@@ -1140,6 +1315,142 @@ export class SqliteStore {
   listTrustedUserEvents(packageId?: string): TrustedUserEvent[] {
     const rows = packageId ? this.#database.prepare("SELECT id FROM trusted_user_events WHERE package_id=? ORDER BY created_at,id").all(packageId) as Array<{ id: string }> : this.#database.prepare("SELECT id FROM trusted_user_events ORDER BY created_at,id").all() as Array<{ id: string }>;
     return rows.map((row) => this.getTrustedUserEvent(row.id)!).filter(Boolean);
+  }
+
+  putDiscoveryRun(run: DiscoveryRun): void {
+    this.#database.prepare(`INSERT INTO discovery_runs(id, scope_json, executor_id, model_alias, status, source_count, association_count, no_candidate_count, candidate_ids_json, summary_text, latency_ms, token_usage_json, error, started_at, completed_at)
+      VALUES (@id, @scopeJson, @executorId, @modelAlias, @status, @sourceCount, @associationCount, @noCandidateCount, @candidateIds, @summaryText, @latencyMs, @tokenUsage, @error, @startedAt, @completedAt)
+      ON CONFLICT(id) DO UPDATE SET scope_json=excluded.scope_json, executor_id=excluded.executor_id, model_alias=excluded.model_alias, status=excluded.status,
+      source_count=excluded.source_count, association_count=excluded.association_count, no_candidate_count=excluded.no_candidate_count, candidate_ids_json=excluded.candidate_ids_json,
+      summary_text=excluded.summary_text, latency_ms=excluded.latency_ms, token_usage_json=excluded.token_usage_json, error=excluded.error, started_at=excluded.started_at, completed_at=excluded.completed_at`)
+      .run({ ...run, scopeJson: encode(run.scope), candidateIds: encode(run.candidateIds), tokenUsage: run.tokenUsage === null ? null : encode(run.tokenUsage) });
+  }
+
+  getDiscoveryRun(id: string): DiscoveryRun | null {
+    const row = this.#database.prepare("SELECT * FROM discovery_runs WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return {
+      id: String(row.id), scope: decode(String(row.scope_json)) as DiscoveryRun["scope"], executorId: String(row.executor_id), modelAlias: row.model_alias === null ? null : String(row.model_alias),
+      status: row.status as DiscoveryRun["status"], sourceCount: Number(row.source_count), associationCount: Number(row.association_count), noCandidateCount: Number(row.no_candidate_count),
+      candidateIds: decode(String(row.candidate_ids_json)) as string[], summaryText: String(row.summary_text), latencyMs: Number(row.latency_ms),
+      tokenUsage: row.token_usage_json === null ? null : decode(String(row.token_usage_json)) as DiscoveryRun["tokenUsage"], error: row.error === null ? null : String(row.error),
+      startedAt: String(row.started_at), completedAt: row.completed_at === null ? null : String(row.completed_at),
+    };
+  }
+
+  listDiscoveryRuns(): DiscoveryRun[] {
+    return (this.#database.prepare("SELECT id FROM discovery_runs ORDER BY started_at, id").all() as Array<{ id: string }>).map((row) => this.getDiscoveryRun(row.id)!).filter(Boolean);
+  }
+
+  putDiscoveryRunSource(outcome: DiscoveryRunSourceOutcome): void {
+    this.#database.prepare(`INSERT INTO discovery_run_sources(run_id, graph_id, block_uuid, source_hash, outcome, candidate_id, target_work_object_id, reason)
+      VALUES (@runId, @graphId, @blockUuid, @sourceHash, @outcome, @candidateId, @targetWorkObjectId, @reason)`)
+      .run({ ...outcome, graphId: outcome.sourceRef.graphId, blockUuid: outcome.sourceRef.blockUuid });
+  }
+
+  listDiscoveryRunSources(runId: string): DiscoveryRunSourceOutcome[] {
+    const rows = this.#database.prepare("SELECT * FROM discovery_run_sources WHERE run_id=? ORDER BY graph_id, block_uuid").all(runId) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      runId: String(row.run_id), sourceRef: { graphId: String(row.graph_id), blockUuid: String(row.block_uuid) }, sourceHash: String(row.source_hash),
+      outcome: row.outcome as DiscoveryRunSourceOutcome["outcome"], candidateId: row.candidate_id === null ? null : String(row.candidate_id),
+      targetWorkObjectId: row.target_work_object_id === null ? null : String(row.target_work_object_id), reason: row.reason === null ? null : String(row.reason),
+    }));
+  }
+
+  putFormalizationCandidate(candidate: FormalizationCandidate): void {
+    this.transaction(() => {
+      this.#database.prepare(`INSERT INTO formalization_candidates(id, status, scope_json, recommended_kind, recommended_owner_id, proposed_title, proposed_work_intent_json, rationale_summary, created_at, updated_at, last_observed_at, expires_at, materialized_work_object_id, decision_package_id)
+        VALUES (@id, @status, @scopeJson, @recommendedKind, @recommendedOwnerId, @proposedTitle, @proposedWorkIntent, @rationaleSummary, @createdAt, @updatedAt, @lastObservedAt, @expiresAt, @materializedWorkObjectId, @decisionPackageId)`)
+        .run({ ...candidate, scopeJson: encode(candidate.scope), proposedWorkIntent: candidate.proposedWorkIntent === null ? null : encode(candidate.proposedWorkIntent) });
+      for (const source of candidate.sourceRefs) {
+        const index = candidate.sourceRefs.indexOf(source);
+        this.#database.prepare("INSERT INTO candidate_sources(candidate_id, graph_id, block_uuid, source_hash, observed_at) VALUES (?,?,?,?,?)").run(candidate.id, source.graphId, source.blockUuid, candidate.sourceHashes[index] ?? "", candidate.lastObservedAt);
+      }
+      for (const runId of candidate.discoveryRunIds) this.#database.prepare("INSERT OR IGNORE INTO candidate_discovery_runs(candidate_id, run_id) VALUES (?,?)").run(candidate.id, runId);
+    });
+  }
+
+  updateFormalizationCandidate(id: string, patch: Partial<Pick<FormalizationCandidate, "status" | "recommendedKind" | "recommendedOwnerId" | "proposedTitle" | "proposedWorkIntent" | "rationaleSummary" | "updatedAt" | "lastObservedAt" | "expiresAt" | "materializedWorkObjectId" | "decisionPackageId">>): void {
+    const fields: string[] = []; const values: unknown[] = [];
+    const set = (column: string, value: unknown) => { fields.push(`${column}=?`); values.push(value); };
+    if (patch.status !== undefined) set("status", patch.status);
+    if (patch.recommendedKind !== undefined) set("recommended_kind", patch.recommendedKind);
+    if (patch.recommendedOwnerId !== undefined) set("recommended_owner_id", patch.recommendedOwnerId);
+    if (patch.proposedTitle !== undefined) set("proposed_title", patch.proposedTitle);
+    if (patch.proposedWorkIntent !== undefined) set("proposed_work_intent_json", patch.proposedWorkIntent === null ? null : encode(patch.proposedWorkIntent));
+    if (patch.rationaleSummary !== undefined) set("rationale_summary", patch.rationaleSummary);
+    if (patch.updatedAt !== undefined) set("updated_at", patch.updatedAt);
+    if (patch.lastObservedAt !== undefined) set("last_observed_at", patch.lastObservedAt);
+    if (patch.expiresAt !== undefined) set("expires_at", patch.expiresAt);
+    if (patch.materializedWorkObjectId !== undefined) set("materialized_work_object_id", patch.materializedWorkObjectId);
+    if (patch.decisionPackageId !== undefined) set("decision_package_id", patch.decisionPackageId);
+    if (!fields.length) return;
+    values.push(id);
+    const changed = this.#database.prepare(`UPDATE formalization_candidates SET ${fields.join(", ")} WHERE id=?`).run(...values);
+    if (!changed.changes) throw new Error("FORMALIZATION_CANDIDATE_NOT_FOUND");
+  }
+
+  getFormalizationCandidate(id: string): FormalizationCandidate | null {
+    const row = this.#database.prepare("SELECT * FROM formalization_candidates WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    const sources = this.#database.prepare("SELECT * FROM candidate_sources WHERE candidate_id=? ORDER BY graph_id, block_uuid").all(id) as Array<Record<string, unknown>>;
+    const runIds = (this.#database.prepare("SELECT run_id FROM candidate_discovery_runs WHERE candidate_id=? ORDER BY run_id").all(id) as Array<{ run_id: string }>).map((item) => item.run_id);
+    const evidenceRefs = (this.#database.prepare("SELECT evidence_id FROM candidate_evidence_refs WHERE candidate_id=? ORDER BY evidence_id").all(id) as Array<{ evidence_id: string }>).map((item) => item.evidence_id);
+    return {
+      id: String(row.id), status: row.status as FormalizationCandidate["status"], scope: decode(String(row.scope_json)) as FormalizationCandidate["scope"],
+      sourceRefs: sources.map((item) => ({ graphId: String(item.graph_id), blockUuid: String(item.block_uuid) })),
+      sourceHashes: sources.map((item) => String(item.source_hash)),
+      recommendedKind: row.recommended_kind as FormalizationCandidate["recommendedKind"], recommendedOwnerId: row.recommended_owner_id === null ? null : String(row.recommended_owner_id),
+      proposedTitle: row.proposed_title === null ? null : String(row.proposed_title),
+      proposedWorkIntent: row.proposed_work_intent_json === null ? null : decode(String(row.proposed_work_intent_json)) as FormalizationCandidate["proposedWorkIntent"],
+      rationaleSummary: String(row.rationale_summary), createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+      lastObservedAt: String(row.last_observed_at), expiresAt: row.expires_at === null ? null : String(row.expires_at),
+      discoveryRunIds: runIds, evidenceRefs,
+      materializedWorkObjectId: row.materialized_work_object_id === null ? null : String(row.materialized_work_object_id),
+      decisionPackageId: row.decision_package_id === null ? null : String(row.decision_package_id),
+    };
+  }
+
+  listFormalizationCandidates(status?: FormalizationCandidate["status"]): FormalizationCandidate[] {
+    const rows = status ? this.#database.prepare("SELECT id FROM formalization_candidates WHERE status=? ORDER BY created_at, id").all(status) as Array<{ id: string }> : this.#database.prepare("SELECT id FROM formalization_candidates ORDER BY created_at, id").all() as Array<{ id: string }>;
+    return rows.map((row) => this.getFormalizationCandidate(row.id)!).filter(Boolean);
+  }
+
+  findOpenCandidateContainingSources(sourceRefs: readonly { graphId: string; blockUuid: string }[]): FormalizationCandidate | null {
+    if (!sourceRefs.length) return null;
+    const keys = sourceRefs.map((ref) => `${ref.graphId}|${ref.blockUuid}`);
+    const rows = this.#database.prepare("SELECT id FROM formalization_candidates WHERE status='OPEN' ORDER BY created_at, id").all() as Array<{ id: string }>;
+    for (const row of rows) {
+      const candidate = this.getFormalizationCandidate(row.id)!;
+      const candidateKeys = candidate.sourceRefs.map((ref) => `${ref.graphId}|${ref.blockUuid}`);
+      if (keys.every((key) => candidateKeys.includes(key))) return candidate;
+    }
+    return null;
+  }
+
+  addCandidateSources(candidateId: string, sourceRefs: readonly { graphId: string; blockUuid: string }[], sourceHashes: readonly string[], observedAt: string): void {
+    for (let index = 0; index < sourceRefs.length; index += 1) {
+      const ref = sourceRefs[index]!;
+      this.#database.prepare("INSERT OR IGNORE INTO candidate_sources(candidate_id, graph_id, block_uuid, source_hash, observed_at) VALUES (?,?,?,?,?)").run(candidateId, ref.graphId, ref.blockUuid, sourceHashes[index] ?? "", observedAt);
+    }
+  }
+
+  addCandidateDiscoveryRun(candidateId: string, runId: string): void {
+    this.#database.prepare("INSERT OR IGNORE INTO candidate_discovery_runs(candidate_id, run_id) VALUES (?,?)").run(candidateId, runId);
+  }
+
+  addCandidateEvidenceRef(candidateId: string, evidenceId: string): void {
+    this.#database.prepare("INSERT OR IGNORE INTO candidate_evidence_refs(candidate_id, evidence_id) VALUES (?,?)").run(candidateId, evidenceId);
+  }
+
+  transitionFormalizationCandidate(id: string, status: FormalizationCandidate["status"], at: string): void {
+    const changed = this.#database.prepare("UPDATE formalization_candidates SET status=?, updated_at=? WHERE id=?").run(status, at, id);
+    if (!changed.changes) throw new Error("FORMALIZATION_CANDIDATE_NOT_FOUND");
+  }
+
+  getFormalizationCandidateByPackage(packageId: string): FormalizationCandidate | null {
+    const row = this.#database.prepare("SELECT id FROM formalization_candidates WHERE decision_package_id=?").get(packageId) as { id: string } | undefined;
+    return row ? this.getFormalizationCandidate(row.id) : null;
   }
 
   #mapReconcileJob(row: Record<string, unknown>): ReconcileJob {

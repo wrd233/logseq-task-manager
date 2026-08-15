@@ -3,15 +3,16 @@ import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 
-import { DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, FakeContextAwareExecutor, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
-import { parseSemanticOperation, type CognitionExecutor, type CurrentFocusAgent, type EngagementAgent, type ExecutionProfile, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
+import { DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, FakeContextAwareExecutor, FakeDiscoveryExecutor, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
+import { parseSemanticOperation, type CognitionExecutor, type CurrentFocusAgent, type DiscoveryExecutor, type DiscoveryScope, type EngagementAgent, type ExecutionProfile, type FormalizationCandidate, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
+import { DiscoveryCoordinator } from "./discovery-coordinator.ts";
 import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[] }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -58,6 +59,13 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     reasoningEffort: "high" as const, timeoutMs: 30_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
   } : { id: "builtin-fake", executor: "FAKE" as const, remoteEnabled: false, allowedDataScope: ["formal_state", "current_workobject_context"], maxContextItems: 12, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 2, credentialRef: null });
   const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now }, cognitionExecutor, executionProfile);
+  const discoveryExecutor = options.discoveryExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekDiscoveryExecutor() : new FakeDiscoveryExecutor());
+  const discoveryProfile = options.discoveryProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
+    id: "deepseek-discovery-default", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
+    allowedDataScope: ["discovery_today"], maxContextItems: 40, maxInputChars: 24_000,
+    reasoningEffort: "high" as const, timeoutMs: 30_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
+  } : { id: "builtin-fake-discovery", executor: "FAKE" as const, remoteEnabled: false, allowedDataScope: ["discovery_today"], maxContextItems: 40, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 1, credentialRef: null });
+  const discovery = new DiscoveryCoordinator(kernel, store, broker, maintenance, discoveryExecutor, discoveryProfile, { ...(options.now ? { now: options.now } : {}), ...(options.journalPageNames ? { journalPageNames: options.journalPageNames } : {}) });
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -104,6 +112,42 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const allowed = new Set<ReconcileJob["status"]>(["QUEUED", "RUNNING", "DONE", "FAILED", "STALE"]);
         const jobs = status && allowed.has(status as ReconcileJob["status"]) ? maintenance.jobs(status as ReconcileJob["status"]) : maintenance.jobs();
         send(response, 200, { globalPaused: maintenance.isPaused("global", null), jobs }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/organize/today") {
+        const value = await body(request) as { date?: string };
+        send(response, 200, await discovery.organizeToday(value)); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/discovery/run") {
+        const value = await body(request) as { scope: DiscoveryScope };
+        if (!value.scope || typeof value.scope !== "object" || !("kind" in value.scope)) throw new KernelError("DISCOVERY_SCOPE_INVALID", "Discovery scope is required.");
+        send(response, 201, { run: await discovery.runDiscovery(value.scope) }); return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/discovery/runs") { send(response, 200, { runs: discovery.listRuns() }); return; }
+      const discoveryRunMatch = /^\/v1\/discovery\/runs\/([^/]+)$/u.exec(url.pathname);
+      if (request.method === "GET" && discoveryRunMatch) {
+        const run = discovery.getRun(decodeURIComponent(discoveryRunMatch[1]!));
+        if (!run) { send(response, 404, { error: { code: "DISCOVERY_RUN_NOT_FOUND", message: "Discovery run not found." } }); return; }
+        send(response, 200, { run, sources: store.listDiscoveryRunSources(run.id) }); return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/candidates") {
+        const status = url.searchParams.get("status");
+        const allowed = new Set<FormalizationCandidate["status"]>(["OPEN", "MATERIALIZED", "DISMISSED", "EXPIRED"]);
+        send(response, 200, { candidates: discovery.listCandidates(status && allowed.has(status as FormalizationCandidate["status"]) ? status as FormalizationCandidate["status"] : undefined) }); return;
+      }
+      const candidateMatch = /^\/v1\/candidates\/([^/]+)$/u.exec(url.pathname);
+      if (request.method === "GET" && candidateMatch) {
+        const candidate = discovery.getCandidate(decodeURIComponent(candidateMatch[1]!));
+        if (!candidate) { send(response, 404, { error: { code: "CANDIDATE_NOT_FOUND", message: "Formalization Candidate not found." } }); return; }
+        send(response, 200, { candidate }); return;
+      }
+      const candidateMature = /^\/v1\/candidates\/([^/]+)\/mature$/u.exec(url.pathname);
+      if (request.method === "POST" && candidateMature) { send(response, 201, discovery.matureCandidate(decodeURIComponent(candidateMature[1]!))); return; }
+      const candidateDismiss = /^\/v1\/candidates\/([^/]+)\/dismiss$/u.exec(url.pathname);
+      if (request.method === "POST" && candidateDismiss) { send(response, 200, { candidate: discovery.dismissCandidate(decodeURIComponent(candidateDismiss[1]!)) }); return; }
+      const candidateAbsorb = /^\/v1\/candidates\/([^/]+)\/absorb$/u.exec(url.pathname);
+      if (request.method === "POST" && candidateAbsorb) {
+        const value = await body(request) as { targetWorkObjectId: string };
+        send(response, 200, { candidate: discovery.absorbCandidate(decodeURIComponent(candidateAbsorb[1]!), value.targetWorkObjectId) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/context") {
         send(response, 200, { associations: kernel.listContextAssociations(url.searchParams.get("object") ?? undefined) }); return;
@@ -164,7 +208,16 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       const decisionExecute = /^\/v1\/user-decisions\/([^/]+)\/execute$/u.exec(url.pathname);
       if (request.method === "POST" && decisionExecute) {
-        send(response, 200, kernel.executeUserDecision(decodeURIComponent(decisionExecute[1]!))); return;
+        const decisionId = decodeURIComponent(decisionExecute[1]!);
+        const decision = kernel.listUserDecisions().find((item) => item.id === decisionId);
+        if (decision?.operationType === "CREATE_WORK_OBJECT" && decision.packageId && !(await discovery.validateMaterializationPackage(decision.packageId))) {
+          store.transitionDecisionPackage(decision.packageId, "STALE", options.now?.() ?? new Date().toISOString());
+          store.updateUserDecisionExecution(decisionId, "STALE", options.now?.() ?? new Date().toISOString(), []);
+          send(response, 409, { error: { code: "USER_DECISION_STALE", message: "Candidate source material changed after the package was presented; no CREATE was executed." } }); return;
+        }
+        const result = kernel.executeUserDecision(decisionId);
+        if (result.decision.operationType === "CREATE_WORK_OBJECT" && result.decision.packageId) discovery.markMaterializedByPackage(result.decision.packageId, result.commit.targetId!);
+        send(response, 200, result); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/user-decisions") {
         send(response, 200, { decisions: kernel.listUserDecisions(url.searchParams.get("package") ?? undefined) }); return;
@@ -184,6 +237,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && externalApply) { send(response, 200, await external.applyProposal(decodeURIComponent(externalApply[1]!))); return; }
       if (request.method === "POST" && url.pathname === "/v1/external/curation/add-reference") { send(response, 200, { receipt: await external.addReference(await body(request) as Parameters<ExternalAgentCoordinator["addReference"]>[0]) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/curation-receipts") { send(response, 200, { receipts: store.listCurationReceipts(url.searchParams.get("object") ?? undefined) }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/ownerships") { send(response, 200, { ownerships: kernel.listOwnerships() }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects") { send(response, 200, { objects: store.listWorkObjects() }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects/anchors") {
         send(response, 200, { objects: store.listWorkObjects().map((object) => ({ object, anchor: store.getAnchorForWorkObject(object.id) })) }); return;

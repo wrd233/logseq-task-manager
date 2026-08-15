@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import type { AgentCurrentFocusResult, AgentEngagementResult, CurrentFocusAgent, EngagementAgent, SkillPackage, TasteProfile } from "@task-copilot/contracts";
 
 export { FakeContextAwareExecutor } from "./fake-context-cognition.ts";
-export { DeepSeekV4FlashExecutor, extractStructuredJudgmentText, parseDeepSeekJudgmentText, parseSemanticJudgment } from "./deepseek-executor.ts";
+export { FakeDiscoveryExecutor } from "./fake-discovery.ts";
+export { DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, extractStructuredJudgmentText, parseDeepSeekJudgmentText, parseDiscoveryJudgments, parseSemanticJudgment } from "./deepseek-executor.ts";
 
 const skillFiles = ["manifest.json", "policy.md", "schema.json", "examples.json", "eval.json"] as const;
 

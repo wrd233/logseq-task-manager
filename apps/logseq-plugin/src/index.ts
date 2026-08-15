@@ -234,6 +234,14 @@ async function letAgentReconcileEngagement(): Promise<void> {
   await logseq.UI.showMsg(`Task Copilot：事项状态已变化\n${target.object.title}\n${transition.from} → ${transition.to}${waiting}\n依据：当前记录（Evidence ${evidenceId}）\n查看依据：运行“Task Copilot vNext：查看最近一次 Agent 依据”\n撤销：Cmd+Shift+U`, "warning", { timeout: 12000 });
 }
 
+async function organizeTodayCommand(): Promise<void> {
+  const api = await client();
+  const result = await api.organizeToday();
+  const pending = result.maturePackages.length;
+  const suffix = pending > 0 ? `\n有 ${pending} 个成熟候选已生成决策包；运行“Task Copilot vNext：回应当前决策”处理。` : "";
+  await logseq.UI.showMsg(`Task Copilot：整理今天\n${result.summaryText}${suffix}`, pending > 0 ? "warning" : "success", { timeout: 12000 });
+}
+
 async function respondToDecisionPackage(): Promise<void> {
   const api = await client();
   const open = (await api.listDecisionPackages("OPEN")).packages;
@@ -423,6 +431,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-recover", label: "Task Copilot vNext：恢复未完成提交" }, () => void guarded("recover", recoverIncomplete));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-rerender", label: "Task Copilot vNext：重新渲染当前正式事项" }, () => void guarded("rerender", rerenderCurrentFormalItem));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-respond-decision", label: "Task Copilot vNext：回应当前决策" }, () => void guarded("respond-decision", respondToDecisionPackage));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-organize-today", label: "Task Copilot vNext：整理今天" }, () => void guarded("organize-today", organizeTodayCommand));
   await logseq.UI.showMsg("Task Copilot vNext 已就绪。", "success");
 }
 
