@@ -33,6 +33,9 @@
 | Wrong candidate attach | Model returns a nonexistent candidateId | Source stays `UNRESOLVED/CANDIDATE_ATTACH_INVALID`; no candidate invented | `phase12-5-hardening.test.ts` |
 | Maturity gate | Candidate has kind+title but only KEEP_OBSERVING | No DecisionPackage; organize output only shows READY candidates | `phase12-5-hardening.test.ts` |
 | DeepSeek malformed WorkIntent | `proposedWorkIntent` returned as prose string | Strict parser rejects batch (`DEEPSEEK_RESULT_NOT_OBJECT`), no semantic repair | `scripts/eval-discovery-restraint.ts` |
+| Candidate revision drift | New source attached after package presented | Candidate revision increments, old package becomes `STALE`, old trusted event compiles to `STALE` | `phase12-5-hardening.test.ts` |
+| READY without evidence | Model returns READY but no supporting handles | Host downgrades to `KEEP_OBSERVING`; no package and no fabricated evidence | `phase12-5-hardening.test.ts` |
+| Object context stale version | Conversation applies focus then boundary package uses old version | Package/execute rejects stale version unless refreshed from ObjectContext | `phase16a-projections.test.ts` |
 | Materialized candidate rediscovered | Same source set re-observed after CREATE | Judgment suppressed as `ALREADY_COVERED`; no duplicate candidate | `phase12-discovery.test.ts` + real chain |
 
 No case silently overwrote user content or deleted Ledger history. The failure hooks exist only at the Kernel's system-boundary option and are not exposed through the public HTTP API.

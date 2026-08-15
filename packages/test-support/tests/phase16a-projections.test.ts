@@ -35,12 +35,15 @@ async function setup(label: string) {
   return { directory, service, client, graph, graphId };
 }
 async function waitForGraph(client: KernelClient) { for (let i = 0; i < 40; i += 1) { if ((await client.graphStatus()).available) return; await new Promise((r) => setTimeout(r, 5)); } throw new Error("GRAPH_OFFLINE"); }
-async function formalize(client: KernelClient, graph: FakeGraphAdapter, graphId: string, label: string, kind: "TASK" | "MINI_PROJECT" | "PROJECT", title: string, blockUuid: string) {
+async function formalizeDetailed(client: KernelClient, graph: FakeGraphAdapter, graphId: string, label: string, kind: "TASK" | "MINI_PROJECT" | "PROJECT", title: string, blockUuid: string) {
   const source = graph.seedNaturalRecord(graphId, blockUuid, `TODO ${title}`);
   const prepared = await client.prepare(parseSemanticOperation({ operationId: `formalize-${label}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title, anchor: { graphId, blockUuid, sourceContentHash: source.sourceContentHash } } }), source);
   const result = await graph.applyGraphEffect(prepared.graphEffect as GraphEffect);
   await client.complete(prepared.commit.id, result, await graph.readGraphSnapshot({ graphId, sourceBlockUuid: blockUuid }));
-  return prepared.commit.targetId!;
+  return { workObjectId: prepared.commit.targetId!, projectionHash: result.projectionHash! };
+}
+async function formalize(client: KernelClient, graph: FakeGraphAdapter, graphId: string, label: string, kind: "TASK" | "MINI_PROJECT" | "PROJECT", title: string, blockUuid: string) {
+  return (await formalizeDetailed(client, graph, graphId, label, kind, title, blockUuid)).workObjectId;
 }
 
 test("Now projection is selective, Confirmation is sparse, WorkMap and System derive from Kernel", async () => {
@@ -51,7 +54,7 @@ test("Now projection is selective, Confirmation is sparse, WorkMap and System de
     const projectId = await formalize(value.client, value.graph, value.graphId, "project", "PROJECT", "海丝项目", "anchor-project");
     const miniId = await formalize(value.client, value.graph, value.graphId, "mini", "MINI_PROJECT", "采购规格书整理", "anchor-mini");
     await value.client.matureFormalizationCandidate;
-    const pkg = (await value.client.createDecisionPackage({ id: "pkg-now", workObjectId: miniId, summary: "把采购规格书整理改为等待采购确认", rationale: "等待采购确认", candidates: [{ operationType: "CHANGE_ENGAGEMENT", parameters: { target: { workObjectId: miniId, expectedVersion: 1, expectedProjectionHash: "0".repeat(64) }, input: { transition: { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待采购确认", reviewAt: null } } } } }] })).pkg;
+    const pkg = (await value.client.createDecisionPackage({ id: "pkg-now", workObjectId: miniId, summary: "把采购规格书整理改为等待采购确认", rationale: "等待采购确认", candidates: [{ operationType: "CHANGE_ENGAGEMENT", parameters: { target: { workObjectId: miniId, expectedVersion: 1, expectedProjectionHash: "abcd1234" }, input: { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待采购确认", reviewAt: null } } } }] })).pkg;
     const now = await value.client.nowProjection();
     assert.ok(now.items.length >= 1 && now.items.length <= 4);
     assert.equal(now.items.some((item) => item.workObjectId === projectId), true);
@@ -88,5 +91,36 @@ test("Object Context Pack gives bounded re-entry reality for an object", async (
     assert.equal(projectPack.kind, "PROJECT");
     assert.equal(projectPack.activeChildren.length, 1);
     assert.equal(projectPack.activeChildren[0]!.workObjectId, miniId);
+  } finally { stop(); await value.service.close(); }
+});
+
+test("Object conversation path: re-entry context, low-risk agent apply, USER boundary handoff", async () => {
+  const value = await setup("conversation");
+  const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
+  try {
+    await waitForGraph(value.client);
+    const miniFormal = await formalizeDetailed(value.client, value.graph, value.graphId, "mini", "MINI_PROJECT", "采购规格书整理", "anchor-mini");
+    const miniId = miniFormal.workObjectId;
+    const pack = (await value.client.objectContextPack(miniId)).pack;
+    assert.equal(pack.reentrySummary.includes("采购规格书整理"), true);
+    value.graph.seedNaturalRecord(value.graphId, "evidence-block", "下一步：整理供应商历史报价");
+    const frozen = await value.client.freezeExternalEvidence({ evidenceId: "conversation-evidence", workObjectId: miniId, blockUuid: "evidence-block" });
+    const run = await value.client.startExternalAgentRun({ runId: "conversation-run", purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId: miniId, evidenceIds: [frozen.evidence.id], executorId: "codex" });
+    const finished = await value.client.finishExternalAgentRun(run.run.id, { outcome: "PROPOSAL", currentFocus: "整理供应商历史报价", reasonCode: "CONTEXT_AWARE_FOCUS", rationaleSummary: "当前记录给出了唯一明确的下一步" });
+    assert.ok(finished.proposal);
+    const applied = await value.client.applyExternalProposal(finished.proposal.id);
+    assert.equal(applied.commit.status, "COMMITTED");
+    const refreshed = (await value.client.objectContextPack(miniId)).pack;
+    assert.equal(refreshed.currentFocus, "整理供应商历史报价");
+    const pkg = (await value.client.createDecisionPackage({ workObjectId: miniId, summary: "把采购规格书整理改为等待采购确认", rationale: "供应商报价尚未确认", candidates: [{ operationType: "CHANGE_ENGAGEMENT", parameters: { target: { workObjectId: miniId, expectedVersion: refreshed.formalVersion, expectedProjectionHash: miniFormal.projectionHash }, input: { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待采购确认", reviewAt: null, evidenceIds: [frozen.evidence.id] } }, evidenceDependencies: [{ evidenceId: frozen.evidence.id, contentHash: frozen.evidence.contentHash }] } }] })).pkg;
+    const event = await value.client.createTrustedUserEvent({ exactUserUtterance: "纳入", packageId: pkg.id, presentationRevision: pkg.presentationRevision });
+    const compiled = await value.client.compileUserDecision({ trustedUserEventId: event.event.id });
+    assert.equal(compiled.kind, "AUTHORIZED_DECISION");
+    if (compiled.kind === "AUTHORIZED_DECISION") {
+      const executed = await value.client.executeUserDecision(compiled.decision.id);
+      assert.equal(executed.commit.status, "COMMITTED");
+    }
+    const final = (await value.client.objectContextPack(miniId)).pack;
+    assert.equal(final.engagement, "WAITING");
   } finally { stop(); await value.service.close(); }
 });
