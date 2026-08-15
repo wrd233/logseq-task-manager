@@ -1,5 +1,5 @@
 import { KernelClient, parsePluginKernelDescriptor } from "@task-copilot/client/browser";
-import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkObject } from "@task-copilot/contracts";
+import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject } from "@task-copilot/contracts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { startGraphGatewayWorker, type GraphGatewayReadHost } from "./graph-gateway-worker.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
@@ -318,7 +318,7 @@ async function dailyPanel(): Promise<void> {
       view.replaceChildren();
       const h = document.createElement("h2"); h.textContent = "项目"; h.style.cssText = "margin:0 0 10px;font-size:22px;";
       view.append(h);
-      const renderNode = (node: import("@task-copilot/contracts").WorkMapNode, depth: number) => {
+      const renderNode = (node: WorkMapNode, depth: number) => {
         const row = document.createElement("div"); row.style.cssText = `margin-left:${depth * 14}px;padding:5px 0;font-size:14px;`;
         const label = document.createElement("span"); label.textContent = `${node.title}（${node.kind}）${node.engagement === "WAITING" ? " · 等待" : node.currentFocus ? ` · ${node.currentFocus}` : ""}`;
         const open = document.createElement("button"); open.textContent = "打开"; open.style.cssText = "margin-left:8px;border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;";
@@ -542,6 +542,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-respond-decision", label: "Task Copilot vNext：回应当前决策" }, () => void guarded("respond-decision", respondToDecisionPackage));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-organize-today", label: "Task Copilot vNext：整理今天" }, () => void guarded("organize-today", organizeTodayCommand));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-open-daily", label: "Task Copilot vNext：打开今天" }, () => void guarded("open-daily", dailyPanel));
+  (window as unknown as { taskCopilotOpenDailyPanel?: () => void }).taskCopilotOpenDailyPanel = () => void guarded("open-daily", dailyPanel);
   await logseq.UI.showMsg("Task Copilot vNext 已就绪。", "success");
 }
 

@@ -73,7 +73,8 @@ export class ProjectionCoordinator {
       });
     }
     items.sort((a, b) => (b.pendingDecisionCount - a.pendingDecisionCount) || (b.meaningfulChanges.length - a.meaningfulChanges.length));
-    return { items: items.slice(0, 4), generatedAt: at, graphAvailable: this.#broker.status().available };
+    const unique = [...new Map(items.map((item) => [item.id, item])).values()];
+    return { items: unique.slice(0, 4), generatedAt: at, graphAvailable: this.#broker.status().available };
   }
 
   objectContext(workObjectId: string): ObjectContextPack | null {
@@ -127,7 +128,6 @@ export class ProjectionCoordinator {
 
   workMap(): WorkMapProjection {
     const objects = this.#store.listWorkObjects();
-    const byId = new Map(objects.map((object) => [object.id, object]));
     const children = new Map<string, WorkMapNode[]>();
     for (const object of objects) {
       const node: WorkMapNode = {
