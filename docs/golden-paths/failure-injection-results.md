@@ -15,5 +15,12 @@
 | Agent Graph Adapter throws | Fake Adapter throws after governed Kernel apply; Plugin reports the failure | UI cannot claim success; non-conflict failure remains `KERNEL_APPLIED` and restart returns `RESUME_GRAPH_APPLY` | `phase3-current-focus.test.ts` |
 | Agent Graph race | Managed projection changes after Proposal prepare | Adapter refuses the effect; reported failure becomes `RECOVERY_REQUIRED` | `phase3-current-focus.test.ts` |
 | Old Agent Undo after later formal edit | A later Rename Commit advances the WorkObject | Old Undo fails `UNDO_TARGET_CHANGED` and cannot overwrite the later edit | `phase3-current-focus.test.ts` |
+| External Agent fabricates USER utterance | Client has Kernel bearer but no Plugin `userChannelToken` | `POST /v1/user-events` returns `TRUSTED_USER_CHANNEL_REQUIRED`; no `TrustedUserEvent` or `UserDecision` | `phase11-user-decision.test.ts` + real Desktop chain |
+| Trusted event replay | Same `TrustedUserEvent` compiled twice | Second compile returns `STALE`; exactly one `UserDecision` exists | `phase11-user-decision.test.ts` |
+| Stale package presentation | Event revision differs from package `presentationRevision` | Compile returns `STALE`; WorkObject version unchanged | `phase11-user-decision.test.ts` |
+| Prefix / quoted / conditional acknowledgment | “同意这个说法但先别执行”“他说同意” | `NEEDS_CLARIFICATION`; no Formal mutation | `phase11-user-decision.test.ts` |
+| Governance issue cross-dimension resolve | `current_focus` judgment lists an `engagement` issue id | Issue stays `OPEN`; only same-dimension judgment resolves it | `phase10-context-governance.test.ts` |
+| Execution profile scope overreach | Profile excludes a data scope or caps items/chars | Context Pack contains only scoped, capped, truncated items | `phase10-context-governance.test.ts` |
+| DeepSeek incomplete judgment | Missing handles / unbalanced JSON | Strict parser throws; no auto-fill, no semantic repair, no Formal mutation | `packages/agent/tests/agent.test.ts` |
 
 No case silently overwrote user content or deleted Ledger history. The failure hooks exist only at the Kernel's system-boundary option and are not exposed through the public HTTP API.

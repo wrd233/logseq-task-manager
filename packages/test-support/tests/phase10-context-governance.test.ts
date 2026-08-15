@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { KernelClient } from "@task-copilot/client";
-import { parseSemanticOperation, stableHash, type GraphEffect, type GraphGatewayRequestEnvelope, type GraphGatewayResponse } from "@task-copilot/contracts";
+import { parseSemanticOperation, stableHash, type CognitionExecutor, type ContextPackItem, type ExecutionProfile, type GraphEffect, type GraphGatewayRequestEnvelope, type GraphGatewayResponse, type ReconcileJob, type SemanticJudgment } from "@task-copilot/contracts";
 import { startKernelServer } from "@task-copilot/kernel-service";
 import { FakeGraphAdapter } from "../src/index.ts";
 
@@ -40,9 +40,12 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
   return () => { stopped = true; if (timer) clearTimeout(timer); };
 }
 
-async function setup(label: string) {
+async function setup(label: string, cognitionExecutor?: CognitionExecutor, executionProfile?: ExecutionProfile) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase10-${label}-`));
-  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
+  const service = await startKernelServer({
+    databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500,
+    ...(cognitionExecutor ? { cognitionExecutor } : {}), ...(executionProfile ? { executionProfile } : {}),
+  });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at); const graphId = `graph-phase10-${label}`;
   const source = graph.seedNaturalRecord(graphId, "source", "TODO Phase10 目标对象");
@@ -53,6 +56,30 @@ async function setup(label: string) {
 }
 
 function sourceRef(graphId: string, blockUuid: string) { return { graphId, blockUuid }; }
+
+async function waitForGraphAvailable(client: KernelClient): Promise<void> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if ((await client.graphStatus()).available) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error("GRAPH_ADAPTER_NEVER_AVAILABLE");
+}
+
+async function reconcileAndWait(client: KernelClient, workObjectId: string): Promise<ReconcileJob> {
+  const job = (await client.reconcileMaintenance(workObjectId, "INTERACTIVE")).job;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const found = (await client.maintenanceStatus()).jobs.find((item) => item.id === job.id);
+    if (found?.status === "DONE") return found;
+    if (found?.status === "FAILED") throw new Error(found.lastError ?? "RECONCILE_FAILED");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("RECONCILE_JOB_NEVER_DONE");
+}
+
+async function seedCoverageForInteractiveReconcile(client: KernelClient, workObjectId: string, graphId: string, sourceContentHash: string): Promise<void> {
+  await client.recordSourceChange({ workObjectId, graphId, sourceBlockUuid: "source", sourceContentHash, sourceMarker: null, observedAt: at });
+  await client.setMaintenancePause("global", true);
+}
 
 test("context associations are durable, dedupe, support correction memory, and never write Graph", async () => {
   const value = await setup("context");
@@ -118,4 +145,95 @@ test("reconcile conflict: coverage clears, one evidence is frozen, and a dimensi
     await value.client.resolveGovernanceIssue(issues[0]!.id);
     assert.equal((await value.client.listGovernanceIssues(value.workObjectId, "OPEN")).issues.length, 0);
   } finally { stop(); await value.service.close(); }
+});
+
+test("governance issue resolution is causal and dimension-checked", async () => {
+  const judgments: SemanticJudgment[] = [];
+  const seenPacks: ContextPackItem[][] = [];
+  const cognition: CognitionExecutor = {
+    id: "dimension-probe",
+    async judge(input): Promise<SemanticJudgment> {
+      const next = judgments.shift();
+      if (!next) throw new Error("TEST_JUDGMENT_EXHAUSTED");
+      seenPacks.push(input.contextPack);
+      return next;
+    },
+  };
+  const profile: ExecutionProfile = {
+    id: "dimension-profile", executor: "FAKE", remoteEnabled: false, allowedDataScope: ["formal_state"],
+    maxContextItems: 1, maxInputChars: 2_000, timeoutMs: 1_000, retryBudget: 0, credentialRef: null,
+  };
+  const value = await setup("dimension", cognition, profile);
+  const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
+  try {
+    await waitForGraphAvailable(value.client);
+    await seedCoverageForInteractiveReconcile(value.client, value.workObjectId, value.graphId, value.source.sourceContentHash);
+    const issue = (await value.client.upsertGovernanceIssue({
+      id: "dimension-issue-1", workObjectId: value.workObjectId, dimension: "engagement", type: "CONFLICT",
+      summary: "方向冲突", evidenceIds: [], sourceSnapshotId: "snap-dimension", formalVersion: 1,
+    })).issue;
+    // A current_focus judgment must never resolve an engagement issue.
+    judgments.push({ kind: "NO_CHANGE", dimension: "current_focus", rationaleSummary: "维度不匹配", resolvesIssueIds: [issue.id] });
+    await reconcileAndWait(value.client, value.workObjectId);
+    assert.equal((await value.client.listGovernanceIssues(value.workObjectId)).issues.find((item) => item.id === issue.id)?.status, "OPEN");
+    // The matching causal dimension resolves it.
+    judgments.push({ kind: "NO_CHANGE", dimension: "engagement", rationaleSummary: "方向已由用户确认", resolvesIssueIds: [issue.id] });
+    await reconcileAndWait(value.client, value.workObjectId);
+    assert.equal((await value.client.listGovernanceIssues(value.workObjectId)).issues.find((item) => item.id === issue.id)?.status, "RESOLVED");
+    assert.equal(seenPacks.every((pack) => pack.length === 1 && pack[0]?.role === "FORMAL_STATE"), true);
+  } finally { stop(); await value.service.close(); }
+});
+
+test("ExecutionProfile gates data scope, caps total context items, and truncates input characters", async () => {
+  // Scope + character budget: only SOURCE_DELTA is exposed and its content is truncated.
+  const firstPacks: ContextPackItem[][] = [];
+  const firstCognition: CognitionExecutor = {
+    id: "profile-scope-probe",
+    async judge(input): Promise<SemanticJudgment> {
+      firstPacks.push(input.contextPack);
+      return { kind: "NO_CHANGE", dimension: "engagement", rationaleSummary: "ok" };
+    },
+  };
+  const firstProfile: ExecutionProfile = {
+    id: "profile-scope", executor: "FAKE", remoteEnabled: false, allowedDataScope: ["SOURCE_DELTA"],
+    maxContextItems: 2, maxInputChars: 12, timeoutMs: 1_000, retryBudget: 0, credentialRef: null,
+  };
+  const first = await setup("profile-scope", firstCognition, firstProfile);
+  const stopFirst = startBridge({ baseUrl: first.service.baseUrl, bridgeToken: first.service.graphBridgeToken, snapshotKey: first.service.graphSnapshotKey, graphId: first.graphId, graph: first.graph });
+  try {
+    await waitForGraphAvailable(first.client);
+    await seedCoverageForInteractiveReconcile(first.client, first.workObjectId, first.graphId, first.source.sourceContentHash);
+    first.graph.seedNaturalRecord(first.graphId, "secret-context", "这段关联上下文不能出现在受限数据范围内");
+    await first.client.associateContext({ workObjectId: first.workObjectId, sourceRef: sourceRef(first.graphId, "secret-context"), sourceVersionHash: stableHash(first.graph.naturalContent(first.graphId, "secret-context")), origin: "AGENT_INFERRED" });
+    await reconcileAndWait(first.client, first.workObjectId);
+    assert.equal(firstPacks.length, 1);
+    assert.deepEqual(firstPacks[0]!.map((item) => item.role), ["SOURCE_DELTA"]);
+    assert.equal(firstPacks[0]![0]!.content.length <= 12, true);
+    assert.equal(firstPacks[0]!.some((item) => item.content.includes("secret-context")), false);
+  } finally { stopFirst(); await first.service.close(); }
+
+  // Item budget: one total item even when three scopes and an associated context are available.
+  const secondPacks: ContextPackItem[][] = [];
+  const secondCognition: CognitionExecutor = {
+    id: "profile-item-probe",
+    async judge(input): Promise<SemanticJudgment> {
+      secondPacks.push(input.contextPack);
+      return { kind: "NO_CHANGE", dimension: "engagement", rationaleSummary: "ok" };
+    },
+  };
+  const secondProfile: ExecutionProfile = {
+    id: "profile-items", executor: "FAKE", remoteEnabled: false, allowedDataScope: ["FORMAL_STATE", "SOURCE_DELTA", "CURRENT_WORKOBJECT_CONTEXT"],
+    maxContextItems: 1, maxInputChars: 100_000, timeoutMs: 1_000, retryBudget: 0, credentialRef: null,
+  };
+  const second = await setup("profile-items", secondCognition, secondProfile);
+  const stopSecond = startBridge({ baseUrl: second.service.baseUrl, bridgeToken: second.service.graphBridgeToken, snapshotKey: second.service.graphSnapshotKey, graphId: second.graphId, graph: second.graph });
+  try {
+    await waitForGraphAvailable(second.client);
+    await seedCoverageForInteractiveReconcile(second.client, second.workObjectId, second.graphId, second.source.sourceContentHash);
+    second.graph.seedNaturalRecord(second.graphId, "extra-context", "额外关联上下文");
+    await second.client.associateContext({ workObjectId: second.workObjectId, sourceRef: sourceRef(second.graphId, "extra-context"), sourceVersionHash: stableHash(second.graph.naturalContent(second.graphId, "extra-context")), origin: "AGENT_INFERRED" });
+    await reconcileAndWait(second.client, second.workObjectId);
+    assert.equal(secondPacks.length, 1);
+    assert.deepEqual(secondPacks[0]!.map((item) => item.role), ["FORMAL_STATE"]);
+  } finally { stopSecond(); await second.service.close(); }
 });

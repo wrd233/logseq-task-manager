@@ -11,7 +11,7 @@ import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -35,10 +35,11 @@ async function removeOwnedDescriptor(path: string, token: string): Promise<void>
   catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
 }
 
-export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; graphBridgeToken: string; graphDescriptorPath: string; close: () => Promise<void>; store: SqliteStore }> {
+export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; graphBridgeToken: string; userChannelToken: string; graphDescriptorPath: string; close: () => Promise<void>; store: SqliteStore }> {
   const token = options.token ?? randomBytes(32).toString("hex");
   const graphSnapshotKey = options.graphSnapshotKey ?? randomBytes(32).toString("hex");
   const graphBridgeToken = options.graphBridgeToken ?? randomBytes(32).toString("hex");
+  const userChannelToken = options.userChannelToken ?? randomBytes(32).toString("hex");
   const graphDescriptorPath = options.graphDescriptorPath ?? join(dirname(options.descriptorPath), "graph-adapter.json");
   await mkdir(dirname(options.databasePath), { recursive: true });
   const store = new SqliteStore(options.databasePath);
@@ -151,6 +152,11 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       const packageCandidates = /^\/v1\/decision-packages\/([^/]+)\/candidates$/u.exec(url.pathname);
       if (request.method === "GET" && packageCandidates) {
         send(response, 200, { candidates: kernel.listDecisionCandidates(decodeURIComponent(packageCandidates[1]!)) }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/user-events") {
+        if (request.headers["x-task-copilot-user-channel"] !== userChannelToken) { send(response, 401, { error: { code: "TRUSTED_USER_CHANNEL_REQUIRED", message: "A Plugin USER-channel capability is required." } }); return; }
+        const value = await body(request) as Omit<Parameters<Kernel["recordTrustedUserEvent"]>[0], "sourceChannel">;
+        send(response, 201, { event: kernel.recordTrustedUserEvent({ ...value, sourceChannel: "PLUGIN_USER_CHANNEL" }) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/user-decisions/compile") {
         const value = await body(request) as Parameters<Kernel["compileUserDecision"]>[0];
@@ -319,9 +325,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   maintenance.start();
   const startedAt = (options.now ?? (() => new Date().toISOString()))();
   await writePrivateJson(options.descriptorPath, { schemaVersion: 1, baseUrl, token, pid: process.pid, startedAt });
-  await writePrivateJson(graphDescriptorPath, { schemaVersion: 1, baseUrl, token, graphSnapshotKey, graphBridgeToken, pid: process.pid, startedAt });
+  await writePrivateJson(graphDescriptorPath, { schemaVersion: 1, baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, pid: process.pid, startedAt });
   return {
-    baseUrl, token, graphSnapshotKey, graphBridgeToken, graphDescriptorPath, store,
+    baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, graphDescriptorPath, store,
     close: async () => {
       maintenance.stop();
       broker.close();

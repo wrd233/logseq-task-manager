@@ -8,6 +8,8 @@ export class FakeContextAwareExecutor implements CognitionExecutor {
   readonly id = "fake-context-cognition";
 
   async judge(input: Parameters<CognitionExecutor["judge"]>[0]): Promise<SemanticJudgment> {
+    if (input.profile.executor !== "FAKE") throw new Error("PROFILE_EXECUTOR_MISMATCH");
+    if (input.profile.remoteEnabled) throw new Error("FAKE_EXECUTOR_PROFILE_REMOTE_MISMATCH");
     const byRole = (role: string) => input.contextPack.filter((item) => item.role === role);
     const source = byRole("SOURCE_DELTA").concat(byRole("ASSOCIATED_CONTEXT"));
     const text = source.map((item) => item.content).join("\n");

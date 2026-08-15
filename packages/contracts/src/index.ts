@@ -804,8 +804,26 @@ export interface DecisionPackage {
   status: "OPEN" | "ACCEPTED" | "REJECTED" | "STALE";
   targetVersions: Record<string, number>;
   issueRefs: readonly string[];
+  presentationRevision: string;
+  presentedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type TrustedUserEventStatus = "PENDING" | "CONSUMED" | "EXPIRED";
+
+export interface TrustedUserEvent {
+  id: string;
+  sourceChannel: "PLUGIN_USER_CHANNEL";
+  sourceCapability: string | null;
+  exactUserUtterance: string;
+  capturedAt: string;
+  packageId: string | null;
+  presentationRevision: string | null;
+  correlationId: string | null;
+  status: TrustedUserEventStatus;
+  consumedByDecisionId: string | null;
+  createdAt: string;
 }
 
 export interface UserDecision {

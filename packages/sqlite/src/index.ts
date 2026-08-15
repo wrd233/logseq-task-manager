@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type FeedbackEvent, type FrozenEvidence, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type UserDecision } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type FeedbackEvent, type FrozenEvidence, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -178,6 +178,8 @@ const schema = `
     status TEXT NOT NULL CHECK (status IN ('OPEN', 'ACCEPTED', 'REJECTED', 'STALE')),
     target_versions_json TEXT NOT NULL,
     issue_refs_json TEXT NOT NULL DEFAULT '[]',
+    presentation_revision TEXT NOT NULL DEFAULT '1',
+    presented_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -208,6 +210,20 @@ const schema = `
     execution_refs_json TEXT NOT NULL DEFAULT '[]'
   );
   CREATE INDEX IF NOT EXISTS user_decisions_package_idx ON user_decisions(package_id, status);
+  CREATE TABLE IF NOT EXISTS trusted_user_events (
+    id TEXT PRIMARY KEY,
+    source_channel TEXT NOT NULL CHECK (source_channel IN ('PLUGIN_USER_CHANNEL')),
+    source_capability TEXT,
+    exact_user_utterance TEXT NOT NULL,
+    captured_at TEXT NOT NULL,
+    package_id TEXT,
+    presentation_revision TEXT,
+    correlation_id TEXT,
+    status TEXT NOT NULL CHECK (status IN ('PENDING', 'CONSUMED', 'EXPIRED')),
+    consumed_by_decision_id TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS trusted_user_events_package_idx ON trusted_user_events(package_id, status);
   CREATE TABLE IF NOT EXISTS skill_versions (
     id TEXT NOT NULL, version TEXT NOT NULL, content_hash TEXT NOT NULL, package_json TEXT NOT NULL,
     registered_at TEXT NOT NULL, PRIMARY KEY(id, version)
@@ -300,6 +316,7 @@ export class SqliteStore {
     this.#migrateV10();
     this.#migrateV11();
     this.#migrateV12();
+    this.#migrateV13();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -515,6 +532,26 @@ export class SqliteStore {
     )`);
     this.#database.exec("CREATE INDEX IF NOT EXISTS user_decisions_package_idx ON user_decisions(package_id, status)");
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (12, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV13(): void {
+    if (!this.#hasColumn("decision_packages", "presentation_revision")) this.#database.exec("ALTER TABLE decision_packages ADD COLUMN presentation_revision TEXT NOT NULL DEFAULT '1'");
+    if (!this.#hasColumn("decision_packages", "presented_at")) this.#database.exec("ALTER TABLE decision_packages ADD COLUMN presented_at TEXT");
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS trusted_user_events (
+      id TEXT PRIMARY KEY,
+      source_channel TEXT NOT NULL CHECK (source_channel IN ('PLUGIN_USER_CHANNEL')),
+      source_capability TEXT,
+      exact_user_utterance TEXT NOT NULL,
+      captured_at TEXT NOT NULL,
+      package_id TEXT,
+      presentation_revision TEXT,
+      correlation_id TEXT,
+      status TEXT NOT NULL CHECK (status IN ('PENDING', 'CONSUMED', 'EXPIRED')),
+      consumed_by_decision_id TEXT,
+      created_at TEXT NOT NULL
+    )`);
+    this.#database.exec("CREATE INDEX IF NOT EXISTS trusted_user_events_package_idx ON trusted_user_events(package_id, status)");
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (13, ?)").run(new Date().toISOString());
   }
 
   close(): void { this.#database.close(); }
@@ -1025,15 +1062,15 @@ export class SqliteStore {
   }
 
   putDecisionPackage(pkg: DecisionPackage): void {
-    this.#database.prepare(`INSERT INTO decision_packages(id, work_object_id, summary, rationale, status, target_versions_json, issue_refs_json, created_at, updated_at)
-      VALUES (@id, @workObjectId, @summary, @rationale, @status, @targetVersions, @issueRefs, @createdAt, @updatedAt)`)
+    this.#database.prepare(`INSERT INTO decision_packages(id, work_object_id, summary, rationale, status, target_versions_json, issue_refs_json, presentation_revision, presented_at, created_at, updated_at)
+      VALUES (@id, @workObjectId, @summary, @rationale, @status, @targetVersions, @issueRefs, @presentationRevision, @presentedAt, @createdAt, @updatedAt)`)
       .run({ ...pkg, targetVersions: encode(pkg.targetVersions), issueRefs: encode(pkg.issueRefs) });
   }
 
   getDecisionPackage(id: string): DecisionPackage | null {
     const row = this.#database.prepare("SELECT * FROM decision_packages WHERE id=?").get(id) as Record<string, unknown> | undefined;
     if (!row) return null;
-    return { id: String(row.id), workObjectId: String(row.work_object_id), summary: String(row.summary), rationale: String(row.rationale), status: row.status as DecisionPackage["status"], targetVersions: decode(String(row.target_versions_json)) as Record<string, number>, issueRefs: decode(String(row.issue_refs_json)) as string[], createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
+    return { id: String(row.id), workObjectId: String(row.work_object_id), summary: String(row.summary), rationale: String(row.rationale), status: row.status as DecisionPackage["status"], targetVersions: decode(String(row.target_versions_json)) as Record<string, number>, issueRefs: decode(String(row.issue_refs_json)) as string[], presentationRevision: String(row.presentation_revision), presentedAt: row.presented_at === null ? null : String(row.presented_at), createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
   }
 
   listDecisionPackages(status?: DecisionPackage["status"]): DecisionPackage[] {
@@ -1082,6 +1119,27 @@ export class SqliteStore {
   updateUserDecisionExecution(id: string, status: UserDecision["status"], executedAt: string, executionRefs: readonly string[]): void {
     const changed = this.#database.prepare("UPDATE user_decisions SET status=?, executed_at=?, execution_refs_json=? WHERE id=?").run(status, executedAt, encode(executionRefs), id);
     if (!changed.changes) throw new Error("USER_DECISION_NOT_FOUND");
+  }
+
+  putTrustedUserEvent(event: TrustedUserEvent): void {
+    this.#database.prepare(`INSERT INTO trusted_user_events(id, source_channel, source_capability, exact_user_utterance, captured_at, package_id, presentation_revision, correlation_id, status, consumed_by_decision_id, created_at)
+      VALUES (@id, @sourceChannel, @sourceCapability, @exactUserUtterance, @capturedAt, @packageId, @presentationRevision, @correlationId, @status, @consumedByDecisionId, @createdAt)`).run(event);
+  }
+
+  getTrustedUserEvent(id: string): TrustedUserEvent | null {
+    const row = this.#database.prepare("SELECT * FROM trusted_user_events WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return { id: String(row.id), sourceChannel: "PLUGIN_USER_CHANNEL", sourceCapability: row.source_capability === null ? null : String(row.source_capability), exactUserUtterance: String(row.exact_user_utterance), capturedAt: String(row.captured_at), packageId: row.package_id === null ? null : String(row.package_id), presentationRevision: row.presentation_revision === null ? null : String(row.presentation_revision), correlationId: row.correlation_id === null ? null : String(row.correlation_id), status: row.status as TrustedUserEvent["status"], consumedByDecisionId: row.consumed_by_decision_id === null ? null : String(row.consumed_by_decision_id), createdAt: String(row.created_at) };
+  }
+
+  consumeTrustedUserEvent(id: string, decisionId: string): void {
+    const changed = this.#database.prepare("UPDATE trusted_user_events SET status='CONSUMED', consumed_by_decision_id=? WHERE id=? AND status='PENDING'").run(decisionId, id);
+    if (!changed.changes) throw new Error("TRUSTED_USER_EVENT_NOT_PENDING");
+  }
+
+  listTrustedUserEvents(packageId?: string): TrustedUserEvent[] {
+    const rows = packageId ? this.#database.prepare("SELECT id FROM trusted_user_events WHERE package_id=? ORDER BY created_at,id").all(packageId) as Array<{ id: string }> : this.#database.prepare("SELECT id FROM trusted_user_events ORDER BY created_at,id").all() as Array<{ id: string }>;
+    return rows.map((row) => this.getTrustedUserEvent(row.id)!).filter(Boolean);
   }
 
   #mapReconcileJob(row: Record<string, unknown>): ReconcileJob {

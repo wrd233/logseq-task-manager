@@ -1,7 +1,7 @@
-import type { Actor, AgentRunReceipt, AssociationCorrection, ClosureHistory, ContextAssociation, CurationReceipt, DecisionCandidate, DecisionPackage, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FrozenEvidence, GovernanceIssue, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, ProjectionObligation, Proposal, ProposalRevision, ReconcileJob, SemanticOperation, SkillPackage, SourceChangeObservation, StoredCommit, TasteProfile, TrustedGraphEvidenceMaterial, UserDecision, UserDecisionCompileResult, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, AssociationCorrection, ClosureHistory, ContextAssociation, CurationReceipt, DecisionCandidate, DecisionPackage, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FrozenEvidence, GovernanceIssue, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, ProjectionObligation, Proposal, ProposalRevision, ReconcileJob, SemanticOperation, SkillPackage, SourceChangeObservation, StoredCommit, TasteProfile, TrustedGraphEvidenceMaterial, TrustedUserEvent, UserDecision, UserDecisionCompileResult, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; pid: number; startedAt: string }
-export interface PluginKernelDescriptor extends KernelDescriptor { graphSnapshotKey: string; graphBridgeToken: string }
+export interface PluginKernelDescriptor extends KernelDescriptor { graphSnapshotKey: string; graphBridgeToken: string; userChannelToken?: string }
 export interface PendingGraphCommit { commit: StoredCommit; graphEffect: unknown }
 export interface RecoveryItem { commit: StoredCommit; action: string }
 
@@ -24,12 +24,13 @@ export function parseKernelDescriptor(value: unknown): KernelDescriptor {
 export function parsePluginKernelDescriptor(value: unknown): PluginKernelDescriptor {
   const candidate = value as PluginKernelDescriptor; const base = parseKernelDescriptor(value);
   if (!/^[0-9a-f]{64}$/u.test(candidate.graphSnapshotKey) || !/^[0-9a-f]{64}$/u.test(candidate.graphBridgeToken)) throw new ClientError("PLUGIN_DESCRIPTOR_INVALID", "Plugin Graph descriptor is invalid.", 0);
-  return { ...base, graphSnapshotKey: candidate.graphSnapshotKey, graphBridgeToken: candidate.graphBridgeToken };
+  return { ...base, graphSnapshotKey: candidate.graphSnapshotKey, graphBridgeToken: candidate.graphBridgeToken, ...(typeof candidate.userChannelToken === "string" && /^[0-9a-f]{64}$/u.test(candidate.userChannelToken) ? { userChannelToken: candidate.userChannelToken } : {}) };
 }
 
 export class KernelClient {
   readonly #descriptor: KernelDescriptor;
-  constructor(descriptor: KernelDescriptor) { this.#descriptor = descriptor; }
+  readonly #userChannelToken: string | null;
+  constructor(descriptor: KernelDescriptor) { this.#descriptor = descriptor; this.#userChannelToken = (descriptor as PluginKernelDescriptor).userChannelToken ?? null; }
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const init: RequestInit = { method, headers: { authorization: `Bearer ${this.#descriptor.token}`, ...(body === undefined ? {} : { "content-type": "application/json" }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) };
     const response = await fetch(`${this.#descriptor.baseUrl}${path}`, init);
@@ -77,7 +78,18 @@ export class KernelClient {
   listDecisionPackages(status?: DecisionPackage["status"]): Promise<{ packages: DecisionPackage[] }> { return this.#request("GET", `/v1/decision-packages${status ? `?status=${encodeURIComponent(status)}` : ""}`); }
   createDecisionPackage(input: { id?: string; workObjectId: string; summary: string; rationale: string; issueRefs?: readonly string[]; candidates: Array<{ id?: string; operationType: DecisionCandidate["operationType"]; parameters: unknown; evidenceIds?: readonly string[] }> }): Promise<{ pkg: DecisionPackage; candidates: DecisionCandidate[] }> { return this.#request("POST", "/v1/decision-packages", input); }
   listDecisionCandidates(packageId: string): Promise<{ candidates: DecisionCandidate[] }> { return this.#request("GET", `/v1/decision-packages/${encodeURIComponent(packageId)}/candidates`); }
-  compileUserDecision(input: { utterance: string; packageId?: string; authorizationRef?: string }): Promise<UserDecisionCompileResult> { return this.#request("POST", "/v1/user-decisions/compile", input); }
+  async createTrustedUserEvent(input: { id?: string; exactUserUtterance: string; packageId: string | null; presentationRevision?: string | null; correlationId?: string | null }): Promise<{ event: TrustedUserEvent }> {
+    if (!this.#userChannelToken) throw new ClientError("TRUSTED_USER_CHANNEL_REQUIRED", "This client has no Plugin USER-channel capability.", 0);
+    const response = await fetch(`${this.#descriptor.baseUrl}/v1/user-events`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${this.#descriptor.token}`, "content-type": "application/json", "x-task-copilot-user-channel": this.#userChannelToken },
+      body: JSON.stringify({ ...input, sourceCapability: this.#userChannelToken }),
+    });
+    const value = await response.json() as { error?: { code: string; message: string } } & { event: TrustedUserEvent };
+    if (!response.ok) throw new ClientError(value.error?.code ?? "HTTP_ERROR", value.error?.message ?? response.statusText, response.status);
+    return value;
+  }
+  compileUserDecision(input: { trustedUserEventId: string }): Promise<UserDecisionCompileResult> { return this.#request("POST", "/v1/user-decisions/compile", input); }
   executeUserDecision(id: string): Promise<{ decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation }> { return this.#request("POST", `/v1/user-decisions/${encodeURIComponent(id)}/execute`, {}); }
   listUserDecisions(packageId?: string): Promise<{ decisions: UserDecision[] }> { return this.#request("GET", `/v1/user-decisions${packageId ? `?package=${encodeURIComponent(packageId)}` : ""}`); }
   freezeEvidence(input: { evidenceId: string; workObjectId: string; snapshot: TrustedGraphEvidenceMaterial }): Promise<{ evidence: FrozenEvidence }> { return this.#request("POST", "/v1/evidence/freeze", input); }

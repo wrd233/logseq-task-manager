@@ -18,9 +18,10 @@ DeepSeek real results：
 
 ## 链 B：Decision Package → USER utterance → UserDecision → Formal Commit
 
-1. `createDecisionPackage` 呈现一个 precise candidate；
-2. 用户回复“同意”；
-3. `compileUserDecision` → `AUTHORIZED_DECISION`（唯一 package/candidate、版本 fresh、非引用/历史/条件语）；
-4. `executeUserDecision` → `actor=USER`、`commitFormal`、immutable `UserDecision`、Projection Obligation。
+1. `createDecisionPackage` 呈现一个 precise candidate（带 `presentationRevision`）；
+2. 用户在真实 Logseq Plugin 中回复精确白名单短确认；
+3. Plugin 用独立 `userChannelToken` 创建 `TrustedUserEvent`；
+4. `compileUserDecision({ trustedUserEventId })` → `AUTHORIZED_DECISION`（唯一 package/candidate、版本 fresh、revision 匹配、event PENDING）；
+5. `executeUserDecision` → `actor=USER`、`commitFormal`、immutable `UserDecision`、Projection Obligation。
 
-Fault policy：引用他人说法 / 历史语气 / 多 package / 版本 stale 全部无 mutation。
+Fault policy：引用他人说法 / 历史语气 / 多 package / 版本 stale / event 重放 / revision 不匹配全部无 mutation。详细 Phase 11.5 硬化证据见 [`phase11-5-user-authorization-hardening.md`](phase11-5-user-authorization-hardening.md)。

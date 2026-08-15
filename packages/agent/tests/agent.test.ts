@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
+import { createServer } from "node:http";
 import test from "node:test";
 
-import type { FrozenEvidence, SkillPackage, WorkObject } from "@task-copilot/contracts";
-import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "../src/index.ts";
+import type { ExecutionProfile, FrozenEvidence, SkillPackage, WorkObject } from "@task-copilot/contracts";
+import { DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, extractStructuredJudgmentText, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill, parseDeepSeekJudgmentText, parseSemanticJudgment } from "../src/index.ts";
 
 const target: WorkObject = { id: "work-01", kind: "TASK", title: "上架服务器", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" };
 const skill = { id: "current-focus-maintenance", version: "0.1.0", contentHash: "a".repeat(64) } as SkillPackage;
@@ -56,5 +58,56 @@ test("versioned Engagement Skill eval cases execute every frozen semantic bounda
     assert.equal(result.outcome, item.expected.outcome, item.name);
     assert.equal(result.transition?.to, item.expected.to, item.name);
     if (item.expected.reasonCode) assert.equal(result.reasonCode, item.expected.reasonCode, item.name);
+  }
+});
+
+test("DeepSeek parsing is syntax-only extraction with no semantic repair", () => {
+  const wrapped = '前置说明 {"kind":"NO_CHANGE","dimension":"engagement","rationaleSummary":"无变化"} 尾部说明';
+  const extracted = extractStructuredJudgmentText(wrapped);
+  assert.deepEqual(JSON.parse(extracted), { kind: "NO_CHANGE", dimension: "engagement", rationaleSummary: "无变化" });
+  assert.equal(parseDeepSeekJudgmentText(wrapped).kind, "NO_CHANGE");
+  // An unbalanced object is never auto-closed.
+  assert.throws(() => extractStructuredJudgmentText('{"kind":"NO_CHANGE","dimension":"engagement","rationaleSummary":"无变化"'), /DEEPSEEK_JSON_NOT_FOUND/u);
+  // A CONFIRMED_CHANGE without supporting handles is never semantically repaired.
+  const incomplete = '{"kind":"CONFIRMED_CHANGE","dimension":"engagement","proposedOperation":{"type":"CHANGE_ENGAGEMENT","transition":{"from":"ACTIONABLE","to":"WAITING","waiting":{"description":"等待","reviewAt":null}}},"rationaleSummary":"缺 handles"}';
+  assert.throws(() => parseDeepSeekJudgmentText(incomplete), /DEEPSEEK_RESULT_HANDLES_INVALID/u);
+  assert.throws(() => parseSemanticJudgment(JSON.parse(incomplete)), /DEEPSEEK_RESULT_HANDLES_INVALID/u);
+});
+
+test("DeepSeek executor enforces profile fields and bounded retries without silent fallback", async () => {
+  const requests: Array<{ model: string; reasoning?: { effort: string } }> = [];
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      requests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")) as { model: string; reasoning?: { effort: string } });
+      if (requests.length < 3) {
+        response.writeHead(500, { "content-type": "application/json" }); response.end('{"error":"temporary"}'); return;
+      }
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ output: [{ type: "message", content: [{ type: "output_text", text: '{"kind":"NO_CHANGE","dimension":"engagement","rationaleSummary":"稳定"}' }] }] }));
+    });
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("TEST_SERVER_ADDRESS_INVALID");
+  try {
+    const executor = new DeepSeekV4FlashExecutor({ apiKey: "test-key-not-a-secret", baseUrl: `http://127.0.0.1:${address.port}/v1/responses` });
+    const profile: ExecutionProfile = {
+      id: "deepseek-profile-test", executor: "DEEPSEEK", modelAlias: "deepseek-v4-flash-test", remoteEnabled: true,
+      allowedDataScope: ["formal_state"], maxContextItems: 4, maxInputChars: 10_000, reasoningEffort: "high",
+      timeoutMs: 5_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
+    };
+    const result = await executor.judge({ object: target, contextPack: [], openIssues: [], profile });
+    assert.equal(result.kind, "NO_CHANGE");
+    assert.equal(requests.length, 3);
+    assert.equal(requests.every((item) => item.model === "deepseek-v4-flash-test" && item.reasoning?.effort === "high"), true);
+    await assert.rejects(executor.judge({ object: target, contextPack: [], openIssues: [], profile: { ...profile, executor: "FAKE" as const } }), /PROFILE_EXECUTOR_MISMATCH/u);
+    await assert.rejects(executor.judge({ object: target, contextPack: [], openIssues: [], profile: { ...profile, remoteEnabled: false } }), /REMOTE_EXECUTOR_NOT_ENABLED/u);
+    await assert.rejects(executor.judge({ object: target, contextPack: [], openIssues: [], profile: { ...profile, credentialRef: null } }), /DEEPSEEK_CREDENTIAL_REF_REQUIRED/u);
+  } finally {
+    server.close();
+    await once(server, "close");
   }
 });

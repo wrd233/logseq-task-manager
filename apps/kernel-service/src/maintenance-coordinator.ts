@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { deterministicUuid, stableHash, type CognitionExecutor, type ContextPackItem, type ExecutionProfile, type GraphEffect, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SemanticJudgment, type SourceChangeObservation, type SourceCoverageState, type SourceRef } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
@@ -103,7 +104,7 @@ export class MaintenanceCoordinator {
     const snapshotId = coverage?.lastObservedSourceSnapshotId ?? stableHash([workObjectId, "no-source-observation"]);
     const at = this.#now();
     const job: ReconcileJob = {
-      id: deterministicUuid(`reconcile:manual:${workObjectId}:${at}`), workObjectId, triggerType: "MANUAL_RECONCILE",
+      id: `reconcile:manual:${workObjectId}:${randomUUID()}`, workObjectId, triggerType: "MANUAL_RECONCILE",
       sourceSnapshotId: snapshotId, sourceBlockUuid: null, formalVersion: object.version, priorityClass, attempt: 0, notBefore: null, status: "QUEUED",
       lastError: null, lastOutcome: null, createdAt: at, updatedAt: at,
     };
@@ -190,8 +191,10 @@ export class MaintenanceCoordinator {
     const judgment = await this.#cognition.judge({ object, contextPack: pack, openIssues: this.#store.listGovernanceIssues(workObjectId, "OPEN"), profile: this.#profile });
     const byHandle = new Map(pack.map((item) => [item.handle, item]));
     const handles = (value: string[]): ContextPackItem[] => value.map((handle) => byHandle.get(handle)).filter((item): item is ContextPackItem => Boolean(item));
-    const evidenceIds = await this.#freezeSelected(workObjectId, job.id, handles(this.#selectedHandles(judgment)));
-    const issueKey = stableHash([workObjectId, judgment.kind === "NO_CHANGE" ? "no-change" : "kind" in judgment ? judgment.kind : "", "dimension" in judgment ? judgment.dimension : "", "summary" in judgment ? (judgment as { summary?: string }).summary ?? "" : "rationaleSummary" in judgment ? (judgment as { rationaleSummary?: string }).rationaleSummary ?? "" : ""]);
+    const selectedItems = handles(this.#selectedHandles(judgment));
+    const evidenceIds = await this.#freezeSelected(workObjectId, job.id, selectedItems);
+    const dimension = "dimension" in judgment ? judgment.dimension : "engagement";
+    const issueKey = stableHash([workObjectId, judgment.kind, dimension, ...selectedItems.map((item) => item.handle).sort()]);
 
     if (judgment.kind === "CONFIRMED_CHANGE") {
       const evidence = await this.#freshEvidence(evidenceIds, handles(judgment.supportingContextHandles).map((item) => item.sourceRef!).filter(Boolean));
@@ -210,11 +213,11 @@ export class MaintenanceCoordinator {
         const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
         this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
       }
-      for (const id of judgment.resolvesIssueIds ?? []) this.#resolveIssueIfMatching(workObjectId, id);
+      for (const id of judgment.resolvesIssueIds ?? []) this.#resolveIssueIfMatching(workObjectId, id, judgment.dimension);
       return "CONFIRMED_CHANGE";
     }
     if (judgment.kind === "NO_CHANGE") {
-      for (const id of judgment.resolvesIssueIds ?? []) this.#resolveIssueIfMatching(workObjectId, id);
+      for (const id of judgment.resolvesIssueIds ?? []) this.#resolveIssueIfMatching(workObjectId, id, judgment.dimension);
       return "NO_CHANGE";
     }
     if (judgment.kind === "UNKNOWN") {
@@ -237,33 +240,47 @@ export class MaintenanceCoordinator {
     return [...new Set(raw)];
   }
 
-  #resolveIssueIfMatching(workObjectId: string, issueId: string): void {
+  #resolveIssueIfMatching(workObjectId: string, issueId: string, dimension: string): void {
     const issue = this.#store.getGovernanceIssue(issueId);
-    if (issue && issue.workObjectId === workObjectId && issue.status === "OPEN") this.#kernel.resolveGovernanceIssue(issue.id);
+    if (issue && issue.workObjectId === workObjectId && issue.status === "OPEN" && issue.dimension === dimension) this.#kernel.resolveGovernanceIssue(issue.id);
   }
 
   async #buildContextPack(object: { id: string; kind: string; title: string; lifecycle: string; engagement: string | null; waitingCondition: { description: string } | null; currentFocus: string | null; desiredOutcome: string | null; completionChecks: readonly string[]; version: number }, graphId: string, sourceBlockUuid: string): Promise<ContextPackItem[]> {
-    const pack: ContextPackItem[] = [{
-      handle: "F0", role: "FORMAL_STATE", sourceRef: null, sourceHash: null, workObjectId: object.id,
-      content: JSON.stringify({ id: object.id, kind: object.kind, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks, version: object.version }),
-    }];
+    const scope = new Set(this.#profile.allowedDataScope);
+    const pack: ContextPackItem[] = [];
+    if (scope.has("FORMAL_STATE") || scope.has("formal_state")) {
+      pack.push({ handle: "F0", role: "FORMAL_STATE", sourceRef: null, sourceHash: null, workObjectId: object.id, content: JSON.stringify({ id: object.id, kind: object.kind, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks, version: object.version }) });
+    }
     let handleIndex = 0;
     const add = (role: ContextPackItem["role"], sourceRef: SourceRef | null, content: string, sourceHash: string | null): string => {
       const handle = role === "SOURCE_DELTA" ? "S0" : `C${++handleIndex}`;
       pack.push({ handle, role, sourceRef, sourceHash, content, workObjectId: object.id });
       return handle;
     };
-    try {
-      const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId, blockUuid: sourceBlockUuid }), "READ_BLOCK").block;
-      add("SOURCE_DELTA", { graphId, blockUuid: sourceBlockUuid }, block.content, block.contentHash);
-    } catch { /* source delta can be absent */ }
-    for (const context of this.#store.listContextAssociations(object.id, "ACTIVE").slice(0, this.#profile.maxContextItems - 2)) {
+    if (scope.has("SOURCE_DELTA") || scope.has("current_workobject_context")) {
       try {
-        const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId: context.sourceRef.graphId, blockUuid: context.sourceRef.blockUuid }), "READ_BLOCK").block;
-        add("ASSOCIATED_CONTEXT", context.sourceRef, block.content, block.contentHash);
-      } catch { /* missing context must not block */ }
+        const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId, blockUuid: sourceBlockUuid }), "READ_BLOCK").block;
+        add("SOURCE_DELTA", { graphId, blockUuid: sourceBlockUuid }, block.content, block.contentHash);
+      } catch { /* source delta can be absent */ }
     }
-    return pack;
+    if (scope.has("CURRENT_WORKOBJECT_CONTEXT") || scope.has("current_workobject_context")) {
+      for (const context of this.#store.listContextAssociations(object.id, "ACTIVE").slice(0, this.#profile.maxContextItems)) {
+        try {
+          const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId: context.sourceRef.graphId, blockUuid: context.sourceRef.blockUuid }), "READ_BLOCK").block;
+          add("ASSOCIATED_CONTEXT", context.sourceRef, block.content, block.contentHash);
+        } catch { /* missing context must not block */ }
+      }
+    }
+    const capped = pack.slice(0, Math.max(0, this.#profile.maxContextItems));
+    const truncated: ContextPackItem[] = [];
+    let used = 0;
+    for (const item of capped) {
+      const remaining = Math.max(0, this.#profile.maxInputChars) - used;
+      if (remaining <= 0) break;
+      truncated.push({ ...item, content: item.content.slice(0, Math.max(0, remaining)) });
+      used += truncated[truncated.length - 1]!.content.length;
+    }
+    return truncated;
   }
 
   async #freezeSelected(workObjectId: string, jobId: string, items: ContextPackItem[]): Promise<string[]> {

@@ -33,7 +33,7 @@ Commands:
   projection health | projection list [--status PENDING|FAILED|VERIFIED|APPLIED]
   maintenance status | maintenance pause --scope global|object --paused true|false [--object <id>] | maintenance reconcile --object <id>
   decision-package list [--status OPEN|ACCEPTED|REJECTED|STALE] | decision-package show <id>
-  decision compile --package <id> --utterance <text> | decision execute <id> | user-decision list [--package <id>]
+  decision execute <id> | user-decision list [--package <id>]   # compile only via trusted Plugin user channel
   agent-run start --purpose current-focus|engagement|miniproject --object <id> --evidence <id>... [--executor-id codex] [--correlation <id>]
   agent-run finish <runId> --result-file <path|-> | agent-run show <id> | agent-run reads <id>
   proposal show <id> | proposal apply <id> --wait
@@ -90,7 +90,7 @@ export async function runCli(argv: string[], client: CliClient, io: CliIO): Prom
     else if (words.join(" ") === "maintenance reconcile") value = await client.reconcileMaintenance(required(args, "--object"), "INTERACTIVE");
     else if (words.join(" ") === "decision-package list") { const status = option(args, "--status"); if (status && !["OPEN", "ACCEPTED", "REJECTED", "STALE"].includes(status)) usage("--status must be OPEN, ACCEPTED, REJECTED, or STALE."); value = await client.listDecisionPackages(status as "OPEN" | "ACCEPTED" | "REJECTED" | "STALE" | undefined); }
     else if (words.length === 3 && words[0] === "decision-package" && words[1] === "show") { const found = (await client.listDecisionPackages()).packages.find((item) => item.id === words[2]!); if (!found) usage("Decision Package not found."); value = { package: found, candidates: await client.listDecisionCandidates(found.id) }; }
-    else if (words.join(" ") === "decision compile") value = await client.compileUserDecision({ utterance: required(args, "--utterance"), packageId: required(args, "--package") });
+    else if (words.join(" ") === "decision compile") usage("decision compile is available only through the trusted Plugin USER channel; External Agents cannot impersonate USER.");
     else if (words.length === 3 && words[0] === "decision" && words[1] === "execute") value = await client.executeUserDecision(words[2]!);
     else if (words.join(" ") === "user-decision list") value = await client.listUserDecisions(option(args, "--package"));
     else if (words.join(" ") === "agent-run start") {

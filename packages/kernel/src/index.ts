@@ -1,6 +1,6 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type UserDecision, type UserDecisionCompileResult, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
@@ -969,8 +969,8 @@ export class Kernel {
     if (!object) throw new KernelError("DECISION_TARGET_NOT_FOUND", "Decision Package target does not exist.");
     const at = this.#now();
     const pkg: DecisionPackage = {
-      id: input.id ?? deterministicUuid(`package:${object.id}:${at}`), workObjectId: object.id, summary: input.summary, rationale: input.rationale,
-      status: "OPEN", targetVersions: { [object.id]: object.version }, issueRefs: input.issueRefs ?? [], createdAt: at, updatedAt: at,
+      id: input.id ?? `package:${object.id}:${at}:${randomUUID()}`, workObjectId: object.id, summary: input.summary, rationale: input.rationale,
+      status: "OPEN", targetVersions: { [object.id]: object.version }, issueRefs: input.issueRefs ?? [], presentationRevision: "1", presentedAt: at, createdAt: at, updatedAt: at,
     };
     this.#store.putDecisionPackage(pkg);
     const candidates = input.candidates.map((candidate) => ({ id: candidate.id ?? deterministicUuid(`candidate:${pkg.id}:${candidate.operationType}`), packageId: pkg.id, operationType: candidate.operationType, parameters: candidate.parameters, evidenceIds: candidate.evidenceIds ?? [], status: "OPEN" as const, createdAt: at }));
@@ -981,14 +981,33 @@ export class Kernel {
   listDecisionPackages(status?: DecisionPackage["status"]): DecisionPackage[] { return this.#store.listDecisionPackages(status); }
   listDecisionCandidates(packageId: string, status?: DecisionCandidate["status"]): DecisionCandidate[] { return this.#store.listDecisionCandidates(packageId, status); }
 
-  compileUserDecision(input: { utterance: string; packageId?: string; authorizationRef?: string }): UserDecisionCompileResult {
-    const utterance = input.utterance.trim();
-    if (/^(?:某人|别人|领导|同事|王工|他说|据说|之前|当时|曾经|如果|也许|可能|以后)/u.test(utterance)) {
-      return { kind: "NOT_AUTHORIZATION", reason: "Utterance is quoted, historical, conditional, or not clearly USER-authored." };
-    }
-    const pkg = input.packageId ? this.#store.getDecisionPackage(input.packageId) : null;
-    if (!pkg) return { kind: "NEEDS_CLARIFICATION", reason: "No active Decision Package or current operation was supplied." };
+  recordTrustedUserEvent(input: { id?: string; sourceChannel: "PLUGIN_USER_CHANNEL"; sourceCapability: string | null; exactUserUtterance: string; packageId: string | null; presentationRevision?: string | null; correlationId?: string | null; at?: string }): TrustedUserEvent {
+    if (input.sourceChannel !== "PLUGIN_USER_CHANNEL") throw new KernelError("TRUSTED_USER_SOURCE_INVALID", "Only the Plugin user channel can create trusted USER events.");
+    const utterance = input.exactUserUtterance.trim();
+    if (!utterance) throw new KernelError("TRUSTED_USER_UTTERANCE_EMPTY", "Trusted USER utterance cannot be empty.");
+    const at = input.at ?? this.#now();
+    const event: TrustedUserEvent = {
+      id: input.id ?? `user-event-${randomUUID()}`, sourceChannel: "PLUGIN_USER_CHANNEL", sourceCapability: input.sourceCapability,
+      exactUserUtterance: utterance, capturedAt: at, packageId: input.packageId, presentationRevision: input.presentationRevision ?? null,
+      correlationId: input.correlationId ?? null, status: "PENDING", consumedByDecisionId: null, createdAt: at,
+    };
+    this.#store.putTrustedUserEvent(event);
+    return event;
+  }
+
+  listTrustedUserEvents(packageId?: string): TrustedUserEvent[] { return this.#store.listTrustedUserEvents(packageId); }
+
+  compileUserDecision(input: { trustedUserEventId: string }): UserDecisionCompileResult {
+    const event = this.#store.getTrustedUserEvent(input.trustedUserEventId);
+    if (!event || event.sourceChannel !== "PLUGIN_USER_CHANNEL") return { kind: "NOT_AUTHORIZATION", reason: "Authorization input is not a trusted Plugin USER event." };
+    if (event.status !== "PENDING") return { kind: "STALE", reason: "Trusted USER event was already consumed or expired." };
+    const normalized = event.exactUserUtterance.trim().replace(/[。！!？?\s]+$/u, "").replace(/\s+/gu, "");
+    const allowed = new Set(["好", "好的", "同意", "确认", "就这样", "可以", "行", "纳入"]);
+    if (!allowed.has(normalized)) return { kind: "NEEDS_CLARIFICATION", reason: "Short acknowledgement must exactly match the deterministic acceptance whitelist." };
+    const pkg = event.packageId ? this.#store.getDecisionPackage(event.packageId) : null;
+    if (!pkg) return { kind: "NEEDS_CLARIFICATION", reason: "Trusted USER event is not bound to a current Decision Package." };
     if (pkg.status !== "OPEN") return { kind: "STALE", reason: `Decision Package ${pkg.id} is not OPEN.` };
+    if (event.presentationRevision !== pkg.presentationRevision) return { kind: "STALE", reason: "User saw another package presentation revision." };
     const object = this.#store.getWorkObject(pkg.workObjectId);
     if (!object || (pkg.targetVersions[object.id] ?? object.version) !== object.version) {
       this.#store.transitionDecisionPackage(pkg.id, "STALE", this.#now());
@@ -996,15 +1015,17 @@ export class Kernel {
     }
     const candidates = this.#store.listDecisionCandidates(pkg.id, "OPEN");
     if (candidates.length !== 1) return { kind: "AMBIGUOUS", reason: `Expected exactly one current candidate, found ${candidates.length}.` };
-    if (!/^(好|好的|同意|可以|就这样|纳入|确认|行)/u.test(utterance)) return { kind: "NEEDS_CLARIFICATION", reason: "Utterance is not an unambiguous acceptance of the presented candidate." };
     const candidate = candidates[0]!;
     const at = this.#now();
     const decision: UserDecision = {
-      id: deterministicUuid(`decision:${pkg.id}:${at}`), workObjectIds: [object.id], operationType: candidate.operationType, parameters: candidate.parameters,
-      scope: pkg.summary, exactUserUtterance: utterance, minimalDecisionContext: pkg.rationale, inputVersions: { ...pkg.targetVersions },
-      status: "AUTHORIZED", packageId: pkg.id, authorizationRef: input.authorizationRef ?? null, createdAt: at, executedAt: null, executionRefs: [],
+      id: deterministicUuid(`decision:${pkg.id}:${event.id}`), workObjectIds: [object.id], operationType: candidate.operationType, parameters: candidate.parameters,
+      scope: pkg.summary, exactUserUtterance: event.exactUserUtterance, minimalDecisionContext: pkg.rationale, inputVersions: { ...pkg.targetVersions },
+      status: "AUTHORIZED", packageId: pkg.id, authorizationRef: event.id, createdAt: at, executedAt: null, executionRefs: [],
     };
-    this.#store.putUserDecision(decision);
+    this.#store.transaction(() => {
+      this.#store.consumeTrustedUserEvent(event.id, decision.id);
+      this.#store.putUserDecision(decision);
+    });
     return { kind: "AUTHORIZED_DECISION", decision };
   }
 

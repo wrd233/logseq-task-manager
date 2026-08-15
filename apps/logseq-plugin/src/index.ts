@@ -234,6 +234,29 @@ async function letAgentReconcileEngagement(): Promise<void> {
   await logseq.UI.showMsg(`Task Copilot：事项状态已变化\n${target.object.title}\n${transition.from} → ${transition.to}${waiting}\n依据：当前记录（Evidence ${evidenceId}）\n查看依据：运行“Task Copilot vNext：查看最近一次 Agent 依据”\n撤销：Cmd+Shift+U`, "warning", { timeout: 12000 });
 }
 
+async function respondToDecisionPackage(): Promise<void> {
+  const api = await client();
+  const open = (await api.listDecisionPackages("OPEN")).packages;
+  if (!open.length) throw new Error("当前没有待回应的决策。");
+  let pkg = open[0] ?? null;
+  if (open.length > 1) {
+    const selected = await requestTextPrompt({ title: "选择要回应的决策", label: "Package ID", confirmLabel: "选择" });
+    pkg = open.find((item) => item.id === selected?.trim()) ?? null;
+  }
+  if (!pkg) throw new Error("没有选中有效的 Decision Package。");
+  const utterance = await requestTextPrompt({ title: `回应当前决策：${pkg.summary}`, label: "你的回应（同意 / 好的 / 确认 …）", initialValue: "同意", confirmLabel: "提交回应" });
+  if (!utterance) return;
+  const event = await api.createTrustedUserEvent({ exactUserUtterance: utterance, packageId: pkg.id, presentationRevision: pkg.presentationRevision });
+  const compiled = await api.compileUserDecision({ trustedUserEventId: event.event.id });
+  if (compiled.kind !== "AUTHORIZED_DECISION") {
+    await logseq.UI.showMsg(`未执行：${compiled.kind === "NEEDS_CLARIFICATION" ? "回应不明确" : compiled.kind === "STALE" ? "决策已过期" : "未获得授权"}`, "warning");
+    return;
+  }
+  const executed = await api.executeUserDecision(compiled.decision.id);
+  await logseq.FileStorage.setItem(recentCommitKey, executed.commit.id);
+  await logseq.UI.showMsg(`已按你的授权执行；Commit ${executed.commit.id}`, "success");
+}
+
 async function currentTaskContext() {
   const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
@@ -399,6 +422,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-undo", label: "Task Copilot vNext：撤销最近一次提交", keybinding: { binding: "mod+shift+u" } }, () => void guarded("undo", undoRecent));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-recover", label: "Task Copilot vNext：恢复未完成提交" }, () => void guarded("recover", recoverIncomplete));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-rerender", label: "Task Copilot vNext：重新渲染当前正式事项" }, () => void guarded("rerender", rerenderCurrentFormalItem));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-respond-decision", label: "Task Copilot vNext：回应当前决策" }, () => void guarded("respond-decision", respondToDecisionPackage));
   await logseq.UI.showMsg("Task Copilot vNext 已就绪。", "success");
 }
 
