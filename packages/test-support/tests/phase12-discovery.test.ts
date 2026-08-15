@@ -253,3 +253,24 @@ test("presented owner boundary is applied by trusted CREATE and candidate absorp
     assert.equal((await value.client.listContextAssociations(executed.commit.targetId!)).associations.some((item) => item.sourceRef.blockUuid === "src-absorb"), true);
   } finally { stop(); await value.service.close(); }
 });
+
+test("discovery candidates and run receipts survive Kernel restart", async () => {
+  const value = await setup("restart");
+  const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
+  let candidateId: string;
+  let runId: string;
+  try {
+    await waitForGraphAvailable(value.client);
+    value.graph.seedPageRecord(value.graphId, "journal-2026-08-15", "src-restart", "@candidate:TASK:重启后仍存在\n持续治理价值");
+    const run = (await value.client.runDiscovery({ kind: "TODAY", date: "2026-08-15" })).run;
+    runId = run.id;
+    candidateId = (await value.client.listFormalizationCandidates("OPEN")).candidates[0]!.id;
+  } finally { stop(); await value.service.close(); }
+
+  const restarted = await startKernelServer({ databasePath: join(value.directory, "kernel.sqlite"), descriptorPath: join(value.directory, "kernel-restarted.json"), token: "token2", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), now: () => at });
+  const restartedClient = new KernelClient({ schemaVersion: 1, baseUrl: restarted.baseUrl, token: restarted.token, pid: process.pid, startedAt: at } as PluginKernelDescriptor);
+  try {
+    assert.equal((await restartedClient.showFormalizationCandidate(candidateId)).candidate.proposedTitle, "重启后仍存在");
+    assert.equal((await restartedClient.showDiscoveryRun(runId)).run.id, runId);
+  } finally { await restarted.close(); }
+});

@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import test from "node:test";
 
 import type { ExecutionProfile, FrozenEvidence, SkillPackage, WorkObject } from "@task-copilot/contracts";
-import { DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, extractStructuredJudgmentText, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill, parseDeepSeekJudgmentText, parseDiscoveryJudgments, parseSemanticJudgment } from "../src/index.ts";
+import { DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, extractStructuredJudgmentText, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill, parseDeepSeekJudgmentText, parseDiscoveryJudgments, parseSemanticJudgment } from "../src/index.ts";
 
 const target: WorkObject = { id: "work-01", kind: "TASK", title: "上架服务器", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" };
 const skill = { id: "current-focus-maintenance", version: "0.1.0", contentHash: "a".repeat(64) } as SkillPackage;
@@ -125,6 +125,39 @@ test("DeepSeek executor enforces profile fields and bounded retries without sile
     await assert.rejects(executor.judge({ object: target, contextPack: [], openIssues: [], profile: { ...profile, executor: "FAKE" as const } }), /PROFILE_EXECUTOR_MISMATCH/u);
     await assert.rejects(executor.judge({ object: target, contextPack: [], openIssues: [], profile: { ...profile, remoteEnabled: false } }), /REMOTE_EXECUTOR_NOT_ENABLED/u);
     await assert.rejects(executor.judge({ object: target, contextPack: [], openIssues: [], profile: { ...profile, credentialRef: null } }), /DEEPSEEK_CREDENTIAL_REF_REQUIRED/u);
+  } finally {
+    server.close();
+    await once(server, "close");
+  }
+});
+
+test("DeepSeek discovery executor enforces profile gates and parses typed arrays", async () => {
+  let calls = 0;
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      calls += 1;
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ output: [{ type: "message", content: [{ type: "output_text", text: '[{"kind":"NO_CANDIDATE","sourceHandles":["D1"],"reason":"ONE_OFF","rationaleSummary":"一次性"}]' }] }] }));
+    });
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("TEST_SERVER_ADDRESS_INVALID");
+  try {
+    const executor = new DeepSeekDiscoveryExecutor({ apiKey: "test-key-not-a-secret", baseUrl: `http://127.0.0.1:${address.port}/v1/responses` });
+    const profile: ExecutionProfile = {
+      id: "deepseek-discovery-test", executor: "DEEPSEEK", modelAlias: "deepseek-v4-flash-test", remoteEnabled: true,
+      allowedDataScope: ["discovery_today"], maxContextItems: 4, maxInputChars: 10_000, reasoningEffort: "high",
+      timeoutMs: 5_000, retryBudget: 0, credentialRef: "DEEPSEEK_API_KEY",
+    };
+    const result = await executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [{ handle: "D1", sourceRef: { graphId: "graph", blockUuid: "block" }, content: "一次性动作", sourceHash: "h", observedAt: "now" }], existingObjects: [], profile });
+    assert.equal(result[0]?.kind, "NO_CANDIDATE");
+    assert.equal(calls, 1);
+    await assert.rejects(executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [], existingObjects: [], profile: { ...profile, executor: "FAKE" as const } }), /PROFILE_EXECUTOR_MISMATCH/u);
+    await assert.rejects(executor.judge({ scope: { kind: "PAGE", graphId: "graph", pageName: "page" }, contextPack: [], existingObjects: [], profile: { ...profile, remoteEnabled: false } }), /REMOTE_EXECUTOR_NOT_ENABLED/u);
   } finally {
     server.close();
     await once(server, "close");

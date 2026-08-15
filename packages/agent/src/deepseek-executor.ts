@@ -103,12 +103,14 @@ function discoveryContextText(input: DiscoveryJudgeInput): string {
   return `Existing Formal Objects:\n${objects || "(none)"}\n\nDiscovery Sources:\n${sources}`;
 }
 
-/** Syntax-only extraction: first balanced JSON object, no truncation repair and no semantic field repair. */
+/** Syntax-only extraction: first balanced JSON object or array, no truncation repair and no semantic field repair. */
 export function extractStructuredJudgmentText(text: string): string {
   const cleaned = text.trim();
-  const start = cleaned.indexOf("{");
+  const firstObject = cleaned.indexOf("{");
+  const firstArray = cleaned.indexOf("[");
+  const start = firstObject < 0 ? firstArray : firstArray < 0 ? firstObject : Math.min(firstObject, firstArray);
   if (start < 0) throw new Error("DEEPSEEK_JSON_NOT_FOUND");
-  let depth = 0; let inString = false; let escaped = false; let end = -1;
+  const stack: string[] = []; let inString = false; let escaped = false; let end = -1;
   for (let index = start; index < cleaned.length; index += 1) {
     const char = cleaned[index]!;
     if (inString) {
@@ -118,8 +120,12 @@ export function extractStructuredJudgmentText(text: string): string {
       continue;
     }
     if (char === "\"") inString = true;
-    else if (char === "{") depth += 1;
-    else if (char === "}") { depth -= 1; if (depth === 0) { end = index; break; } }
+    else if (char === "{" || char === "[") stack.push(char);
+    else if (char === "}" || char === "]") {
+      const opener = stack.pop();
+      if ((char === "}" && opener !== "{") || (char === "]" && opener !== "[")) throw new Error("DEEPSEEK_JSON_NOT_FOUND");
+      if (stack.length === 0) { end = index; break; }
+    }
   }
   if (end < 0) throw new Error("DEEPSEEK_JSON_NOT_FOUND");
   return cleaned.slice(start, end + 1);
