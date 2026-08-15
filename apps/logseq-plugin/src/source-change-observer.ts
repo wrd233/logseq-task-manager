@@ -94,6 +94,7 @@ export function startSourceChangeObserver(host: SourceChangeObserverHost, option
         });
       }
     } catch (error) {
+      console.error("[source-change-observer] flush failed", error);
       options.onError?.(error);
     }
   };

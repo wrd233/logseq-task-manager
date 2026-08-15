@@ -422,7 +422,7 @@ export class Kernel {
     this.#store.putFeedback({ id: deterministicUuid(`feedback:strong-positive:${commit.id}`), type: "ACCEPTED", proposalId: revision.proposalId, agentRunId: revision.agentRunId, proposalRevision: revision.revision, skill: revision.skill, operationType: revision.operationType, commitId: commit.id, before: objectValue(commit.before as WorkObject | null, revision.operationType), after: objectValue(commit.after as WorkObject | null, revision.operationType), signalStrength: "STRONG_POSITIVE", governanceCorrelationId: "governanceCorrelationId" in revision ? revision.governanceCorrelationId ?? null : null, userComment, createdAt: this.#now() });
   }
 
-  applyProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): { commit: StoredCommit; graphEffect: GraphEffect } {
+  applyProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }, mode: "legacy" | "formal" = "legacy"): { commit: StoredCommit; graphEffect: GraphEffect } | FormalCommitResult {
     const stored = this.#store.getProposal(input.proposalId);
     if (!stored || stored.proposal.status !== "OPEN") throw new KernelError("PROPOSAL_NOT_OPEN", "Proposal is not open for application.");
     const { proposal, revision } = stored;
@@ -457,10 +457,14 @@ export class Kernel {
       target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash },
       input: { currentFocus: revision.currentFocus }, evidenceDependencies: revision.evidenceDependencies,
     });
-    return this.#prepare(operation, input.snapshot, { proposalId: proposal.id, revision: revision.revision, agentRunId: revision.agentRunId, skill: revision.skill });
+    return this.#prepare(operation, input.snapshot, { proposalId: proposal.id, revision: revision.revision, agentRunId: revision.agentRunId, skill: revision.skill }, mode);
   }
 
-  applyWorkIntentProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): { commit: StoredCommit; graphEffect: GraphEffect } {
+  applyProposalFormal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): FormalCommitResult {
+    return this.applyProposal(input, "formal") as FormalCommitResult;
+  }
+
+  applyWorkIntentProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }, mode: "legacy" | "formal" = "legacy"): { commit: StoredCommit; graphEffect: GraphEffect } | FormalCommitResult {
     const stored = this.#store.getProposal(input.proposalId);
     if (!stored || stored.proposal.status !== "OPEN") throw new KernelError("PROPOSAL_NOT_OPEN", "Proposal is not open for application.");
     const { proposal, revision } = stored;
@@ -479,10 +483,14 @@ export class Kernel {
       if (!frozen || !fresh || fresh.graphId !== frozen.graphId || fresh.blockUuid !== frozen.externalId || dependency.contentHash !== frozen.contentHash || freshHash !== frozen.contentHash) return invalidate("PROPOSAL_EVIDENCE_STALE", "Frozen Evidence changed before WorkIntent apply.");
     }
     const operation = parseSemanticOperation({ operationId: input.operationId, type: "UPDATE_WORK_INTENT", actor: { type: "AGENT", id: agentRun.executor.id }, target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash }, input: { desiredOutcome: revision.desiredOutcome, completionChecks: revision.completionChecks }, evidenceDependencies: revision.evidenceDependencies });
-    return this.#prepare(operation, input.snapshot, { proposalId: proposal.id, revision: revision.revision, agentRunId: revision.agentRunId, skill: revision.skill });
+    return this.#prepare(operation, input.snapshot, { proposalId: proposal.id, revision: revision.revision, agentRunId: revision.agentRunId, skill: revision.skill }, mode);
   }
 
-  applyEngagementProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): { commit: StoredCommit; graphEffect: GraphEffect } {
+  applyWorkIntentProposalFormal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): FormalCommitResult {
+    return this.applyWorkIntentProposal(input, "formal") as FormalCommitResult;
+  }
+
+  applyEngagementProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }, mode: "legacy" | "formal" = "legacy"): { commit: StoredCommit; graphEffect: GraphEffect } | FormalCommitResult {
     const stored = this.#store.getProposal(input.proposalId);
     if (!stored || stored.proposal.status !== "OPEN") throw new KernelError("PROPOSAL_NOT_OPEN", "Proposal is not open for application.");
     const { proposal, revision } = stored;
@@ -506,7 +514,11 @@ export class Kernel {
       if (!frozen || !fresh || fresh.graphId !== frozen.graphId || fresh.blockUuid !== frozen.externalId || dependency.contentHash !== frozen.contentHash || freshHash !== frozen.contentHash) return invalidate("PROPOSAL_EVIDENCE_STALE", "Frozen Evidence changed before apply.");
     }
     const operation = parseSemanticOperation({ operationId: input.operationId, type: "CHANGE_ENGAGEMENT", actor: { type: "AGENT", id: agentRun.executor.id }, target: { workObjectId: object.id, expectedVersion: revision.expectedVersion, expectedProjectionHash: revision.expectedProjectionHash }, input: revision.transition, evidenceDependencies: revision.evidenceDependencies });
-    return this.#prepare(operation, input.snapshot, { proposalId: proposal.id, revision: revision.revision, agentRunId: revision.agentRunId, skill: revision.skill });
+    return this.#prepare(operation, input.snapshot, { proposalId: proposal.id, revision: revision.revision, agentRunId: revision.agentRunId, skill: revision.skill }, mode);
+  }
+
+  applyEngagementProposalFormal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): FormalCommitResult {
+    return this.applyEngagementProposal(input, "formal") as FormalCommitResult;
   }
 
   prepare(operation: SemanticOperation, snapshot: GraphSnapshot): { commit: StoredCommit; graphEffect: GraphEffect } {

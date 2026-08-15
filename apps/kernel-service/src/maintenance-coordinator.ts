@@ -189,9 +189,9 @@ export class MaintenanceCoordinator {
     const engagementRun = await this.#kernel.runEngagementAgent({ runId: `maintenance-engagement:${job.id}`, workObjectId, evidenceIds: [evidenceId], snapshot });
     if (engagementRun.proposal && engagementRun.revision) {
       const freshEvidence = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: target.graphId, blockUuid: sourceBlockUuid }), "READ_EVIDENCE").material;
-      const pending = this.#kernel.applyEngagementProposal({ operationId: `maintenance-apply:${job.id}`, proposalId: engagementRun.proposal.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence: [{ evidenceId, ...freshEvidence }] });
-      const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: pending.graphEffect }), "APPLY_EFFECT");
-      this.#kernel.complete(pending.commit.id, applied.result, applied.snapshot);
+      const formal = this.#kernel.applyEngagementProposalFormal({ operationId: `maintenance-apply:${job.id}`, proposalId: engagementRun.proposal.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence: [{ evidenceId, ...freshEvidence }] });
+      const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
+      this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
       changed = true;
       for (const issue of this.#store.listGovernanceIssues(workObjectId, "OPEN").filter((item) => item.dimension === "engagement")) this.#kernel.resolveGovernanceIssue(issue.id);
     } else {
@@ -212,9 +212,9 @@ export class MaintenanceCoordinator {
     const focusRun = await this.#kernel.runCurrentFocusAgent({ runId: `maintenance-focus:${job.id}`, workObjectId, evidenceIds: [evidenceId], snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot });
     if (focusRun.proposal && focusRun.revision) {
       const freshEvidence = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: target.graphId, blockUuid: sourceBlockUuid }), "READ_EVIDENCE").material;
-      const pending = this.#kernel.applyProposal({ operationId: `maintenance-focus-apply:${job.id}`, proposalId: focusRun.proposal.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence: [{ evidenceId, ...freshEvidence }] });
-      const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: pending.graphEffect }), "APPLY_EFFECT");
-      this.#kernel.complete(pending.commit.id, applied.result, applied.snapshot);
+      const formal = this.#kernel.applyProposalFormal({ operationId: `maintenance-focus-apply:${job.id}`, proposalId: focusRun.proposal.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence: [{ evidenceId, ...freshEvidence }] });
+      const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
+      this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
       changed = true;
       for (const issue of this.#store.listGovernanceIssues(workObjectId, "OPEN").filter((item) => item.dimension === "current_focus")) this.#kernel.resolveGovernanceIssue(issue.id);
     } else if (!conflictDetected && terminalOutcome === "NO_CHANGE") {
