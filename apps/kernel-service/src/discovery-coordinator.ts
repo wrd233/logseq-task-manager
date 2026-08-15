@@ -415,7 +415,7 @@ export class DiscoveryCoordinator {
       const remaining = Math.max(0, this.#profile.maxInputChars) - used;
       if (remaining <= 0) { omitted = batch.length - index; break; }
       const content = block.content.slice(0, remaining);
-      items.push({ handle: `D${index + 1}`, sourceRef: block.sourceRef, content, sourceHash: block.sourceHash, observedAt: block.observedAt });
+      items.push({ handle: `D${index + 1}`, sourceRef: block.sourceRef, content, sourceHash: block.sourceHash, observedAt: block.observedAt, clusterHandle: `K${Math.floor(index / 3) + 1}` });
       used += content.length;
     }
     return { items, omitted };

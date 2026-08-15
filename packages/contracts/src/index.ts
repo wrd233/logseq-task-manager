@@ -801,6 +801,7 @@ export interface DiscoveryPackItem {
   content: string;
   sourceHash: string;
   observedAt: string;
+  clusterHandle?: string;
 }
 
 export interface DiscoveryExistingObject {

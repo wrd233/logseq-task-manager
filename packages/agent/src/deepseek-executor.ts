@@ -110,7 +110,13 @@ function contextText(input: Parameters<CognitionExecutor["judge"]>[0]): string {
 }
 
 function discoveryContextText(input: DiscoveryJudgeInput): string {
-  const sources = input.contextPack.map((item) => `[${item.handle}] hash=${item.sourceHash}\n${item.content}`).join("\n\n");
+  const byCluster = new Map<string, typeof input.contextPack>();
+  for (const item of input.contextPack) {
+    const key = item.clusterHandle ?? "unclustered";
+    const list = byCluster.get(key) ?? [];
+    list.push(item); byCluster.set(key, list);
+  }
+  const sources = [...byCluster.entries()].map(([cluster, items]) => `${items.length > 1 ? `Cluster ${cluster}\n` : ""}${items.map((item) => `[${item.handle}] hash=${item.sourceHash}\n${item.content}`).join("\n\n")}`).join("\n\n");
   const objects = input.existingObjects.map((item) => `[${item.handle}] workObjectId=${item.workObjectId} kind=${item.kind} title=${item.title} lifecycle=${item.lifecycle} engagement=${item.engagement ?? "-"} focus=${item.currentFocus ?? "-"}`).join("\n");
   const candidates = input.openCandidates.map((item) => `[candidate:${item.candidateId}] maturity=${item.maturity} kind=${item.recommendedKind} title=${item.proposedTitle ?? "(无标题)"} owner=${item.recommendedOwnerId ?? "-"} lastObserved=${item.lastObservedAt}\nsources: ${item.sourceRefs.map((ref, index) => `${ref.blockUuid}: ${item.sourceContents[index]?.slice(0, 160) ?? ""}`).join(" | ")}`).join("\n");
   return `Existing Formal Objects:\n${objects || "(none)"}\n\nOPEN Candidates:\n${candidates || "(none)"}\n\nDiscovery Sources:\n${sources}`;
