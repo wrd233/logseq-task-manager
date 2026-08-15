@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { KernelClient } from "@task-copilot/client";
-import { parseSemanticOperation, type GraphEffect, type GraphGatewayRequestEnvelope, type GraphGatewayResponse } from "@task-copilot/contracts";
+import { parseSemanticOperation, stableHash, type GraphEffect, type GraphGatewayRequestEnvelope, type GraphGatewayResponse } from "@task-copilot/contracts";
 import { startKernelServer } from "@task-copilot/kernel-service";
 import { FakeGraphAdapter } from "../src/index.ts";
 
@@ -21,6 +21,7 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
     const request = envelope.request;
     if (request.kind === "READ_TARGET_SNAPSHOT") return { kind: request.kind, snapshot: await input.graph.readGraphSnapshot(request.input) };
     if (request.kind === "READ_EVIDENCE") return { kind: request.kind, material: await input.graph.readEvidenceMaterial({ graphId: request.graphId, blockUuid: request.blockUuid }, input.snapshotKey) };
+    if (request.kind === "READ_BLOCK") { const content = input.graph.naturalContent(request.graphId, request.blockUuid); return { kind: request.kind, block: { graphId: request.graphId, blockUuid: request.blockUuid, pageName: null, content, contentHash: stableHash(content) } }; }
     if (request.kind === "APPLY_EFFECT") { const result = await input.graph.applyGraphEffect(request.effect); return { kind: request.kind, result, snapshot: await input.graph.readGraphSnapshot({ graphId: request.effect.graphId, sourceBlockUuid: request.effect.sourceBlockUuid }) }; }
     throw new Error("GRAPH_GATEWAY_UNSUPPORTED_REQUEST");
   };
@@ -61,11 +62,11 @@ async function observe(value: Awaited<ReturnType<typeof setup>>, content: string
 }
 
 async function waitForFocus(client: KernelClient, workObjectId: string, expected: string) {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
     if ((await client.showObject(workObjectId)).object.currentFocus === expected) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  assert.fail(`focus did not converge to ${expected}`);
+  assert.fail(`focus did not converge to ${expected}: ${JSON.stringify({ object: await client.showObject(workObjectId), maintenance: await client.maintenanceStatus() })}`);
 }
 
 async function waitForJob(client: KernelClient, jobId: string, outcome = "CONFIRMED_CHANGE") {

@@ -31,6 +31,10 @@ const client = {
   maintenanceStatus: async () => ({ globalPaused: false, jobs: [] }),
   setMaintenancePause: async () => ({ paused: true }),
   reconcileMaintenance: async () => ({ job: {} as never }),
+  listDecisionPackages: async () => ({ packages: [] }), listDecisionCandidates: async () => ({ candidates: [] }),
+  compileUserDecision: async () => ({ kind: "NEEDS_CLARIFICATION" as const, reason: "none" }),
+  executeUserDecision: async () => ({ decision: {} as never, commit: {} as never, projectionObligation: {} as never }),
+  listUserDecisions: async () => ({ decisions: [] }),
 };
 
 test("all reference commands support machine-readable output", async () => {

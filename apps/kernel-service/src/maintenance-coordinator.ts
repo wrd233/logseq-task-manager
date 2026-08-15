@@ -1,4 +1,4 @@
-import { deterministicUuid, stableHash, type GraphEffect, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SourceChangeObservation, type SourceCoverageState } from "@task-copilot/contracts";
+import { deterministicUuid, stableHash, type CognitionExecutor, type ContextPackItem, type ExecutionProfile, type GraphEffect, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SemanticJudgment, type SourceChangeObservation, type SourceCoverageState, type SourceRef } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import type { GraphRequestBroker } from "./graph-broker.ts";
@@ -8,11 +8,18 @@ function response<T extends GraphGatewayResponse["kind"]>(value: GraphGatewayRes
   return value as Extract<GraphGatewayResponse, { kind: T }>;
 }
 
+export const FAKE_COGNITION_PROFILE: ExecutionProfile = {
+  id: "builtin-fake", executor: "FAKE", remoteEnabled: false, allowedDataScope: ["formal_state", "current_workobject_context"],
+  maxContextItems: 12, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 2, credentialRef: null,
+};
+
 export interface MaintenanceCoordinatorOptions {
   now?: (() => string) | undefined;
   intervalMs?: number;
   maxAttempts?: number;
   retryBackoffMs?: number;
+  cognitionExecutor?: CognitionExecutor;
+  executionProfile?: ExecutionProfile;
 }
 
 export class MaintenanceCoordinator {
@@ -23,9 +30,11 @@ export class MaintenanceCoordinator {
   readonly #intervalMs: number;
   readonly #maxAttempts: number;
   readonly #retryBackoffMs: number;
+  readonly #cognition: CognitionExecutor;
+  readonly #profile: ExecutionProfile;
   #timer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, options: MaintenanceCoordinatorOptions = {}) {
+  constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, options: MaintenanceCoordinatorOptions = {}, cognition: CognitionExecutor, profile: ExecutionProfile) {
     this.#kernel = kernel;
     this.#store = store;
     this.#broker = broker;
@@ -33,6 +42,8 @@ export class MaintenanceCoordinator {
     this.#intervalMs = options.intervalMs ?? 1_000;
     this.#maxAttempts = options.maxAttempts ?? 5;
     this.#retryBackoffMs = options.retryBackoffMs ?? 30_000;
+    this.#cognition = cognition;
+    this.#profile = profile;
   }
 
   start(): void {
@@ -172,62 +183,108 @@ export class MaintenanceCoordinator {
   }
 
   async #reconcileOpenObject(workObjectId: string, sourceBlockUuid: string, job: ReconcileJob): Promise<MaintenanceReconcileOutcome> {
+    const object = this.#store.getWorkObject(workObjectId)!;
     const target = this.#kernel.targetSnapshotInput(workObjectId);
     const snapshot = response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: target }), "READ_TARGET_SNAPSHOT").snapshot;
-    const evidenceMaterial = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: target.graphId, blockUuid: sourceBlockUuid }), "READ_EVIDENCE").material;
-    const evidenceId = `maintenance-evidence:${job.id}`;
-    this.#kernel.freezeEvidence({ evidenceId, workObjectId, snapshot: evidenceMaterial });
-    const object = this.#store.getWorkObject(workObjectId)!;
-    // Context is read widely but never frozen here; only the Primary Anchor material is Evidence.
-    const contexts = this.#store.listContextAssociations(workObjectId, "ACTIVE");
-    for (const context of contexts.slice(0, 12)) {
-      try { response(await this.#broker.request({ kind: "READ_BLOCK", graphId: context.sourceRef.graphId, blockUuid: context.sourceRef.blockUuid }), "READ_BLOCK"); }
-      catch { /* missing context material must not block reconciliation */ }
-    }
-    let changed = false;
-    let terminalOutcome: MaintenanceReconcileOutcome = "NO_CHANGE";
-    const engagementRun = await this.#kernel.runEngagementAgent({ runId: `maintenance-engagement:${job.id}`, workObjectId, evidenceIds: [evidenceId], snapshot });
-    if (engagementRun.proposal && engagementRun.revision) {
-      const freshEvidence = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: target.graphId, blockUuid: sourceBlockUuid }), "READ_EVIDENCE").material;
-      const formal = this.#kernel.applyEngagementProposalFormal({ operationId: `maintenance-apply:${job.id}`, proposalId: engagementRun.proposal.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence: [{ evidenceId, ...freshEvidence }] });
-      const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
-      this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
-      changed = true;
-      for (const issue of this.#store.listGovernanceIssues(workObjectId, "OPEN").filter((item) => item.dimension === "engagement")) this.#kernel.resolveGovernanceIssue(issue.id);
-    } else {
-      const reason = engagementRun.run.reasonCode;
-      if (reason === "PARKING_REQUIRES_USER_DECISION") {
-        terminalOutcome = "BOUNDARY_CANDIDATE";
-        this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "engagement", type: "BOUNDARY_CANDIDATE", summary: "Engagement judgment requires a USER decision; automatic reconciliation stopped.", evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
-      } else if (reason === "SCOPE_UNCLEAR") {
-        terminalOutcome = "UNKNOWN";
-        this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "engagement", type: "UNKNOWN", summary: "Evidence does not clearly bind the observed blocker to this WorkObject.", evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
+    const pack = await this.#buildContextPack(object, target.graphId, sourceBlockUuid);
+    const judgment = await this.#cognition.judge({ object, contextPack: pack, openIssues: this.#store.listGovernanceIssues(workObjectId, "OPEN"), profile: this.#profile });
+    const byHandle = new Map(pack.map((item) => [item.handle, item]));
+    const handles = (value: string[]): ContextPackItem[] => value.map((handle) => byHandle.get(handle)).filter((item): item is ContextPackItem => Boolean(item));
+    const evidenceIds = await this.#freezeSelected(workObjectId, job.id, handles(this.#selectedHandles(judgment)));
+    const issueKey = stableHash([workObjectId, judgment.kind === "NO_CHANGE" ? "no-change" : "kind" in judgment ? judgment.kind : "", "dimension" in judgment ? judgment.dimension : "", "summary" in judgment ? (judgment as { summary?: string }).summary ?? "" : "rationaleSummary" in judgment ? (judgment as { rationaleSummary?: string }).rationaleSummary ?? "" : ""]);
+
+    if (judgment.kind === "CONFIRMED_CHANGE") {
+      const evidence = await this.#freshEvidence(evidenceIds, handles(judgment.supportingContextHandles).map((item) => item.sourceRef!).filter(Boolean));
+      if (judgment.proposedOperation.type === "SET_CURRENT_FOCUS") {
+        const runId = `cognition-focus:${job.id}`;
+        this.#kernel.startExternalAgentRun({ runId, purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId, evidenceIds, executorId: this.#cognition.id, snapshot });
+        const finished = this.#kernel.finishExternalAgentRun({ runId, result: { outcome: "PROPOSAL", currentFocus: judgment.proposedOperation.currentFocus, reasonCode: "CONTEXT_AWARE_FOCUS", rationaleSummary: judgment.rationaleSummary } });
+        const formal = this.#kernel.applyProposalFormal({ operationId: `cognition-focus-apply:${job.id}`, proposalId: finished.proposal!.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence });
+        const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
+        this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
+      } else {
+        const runId = `cognition-engagement:${job.id}`;
+        this.#kernel.startExternalAgentRun({ runId, purpose: "ENGAGEMENT_RECONCILIATION", workObjectId, evidenceIds, executorId: this.#cognition.id, snapshot });
+        const finished = this.#kernel.finishExternalAgentRun({ runId, result: { outcome: "PROPOSAL", transition: judgment.proposedOperation.transition, reasonCode: "CONTEXT_AWARE_ENGAGEMENT", rationaleSummary: judgment.rationaleSummary } });
+        const formal = this.#kernel.applyEngagementProposalFormal({ operationId: `cognition-engagement-apply:${job.id}`, proposalId: finished.proposal!.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence });
+        const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
+        this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
       }
+      for (const id of judgment.resolvesIssueIds ?? []) this.#resolveIssueIfMatching(workObjectId, id);
+      return "CONFIRMED_CHANGE";
     }
-    const conflictDetected = /没有其他可做|只能等/iu.test(evidenceMaterial.content) && /还可以继续|仍可继续/iu.test(evidenceMaterial.content);
-    if (conflictDetected) {
-      terminalOutcome = "CONFLICT";
-      this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "engagement", type: "CONFLICT", summary: "Source material contains contradictory engagement directions; no automatic choice was made.", evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
+    if (judgment.kind === "NO_CHANGE") {
+      for (const id of judgment.resolvesIssueIds ?? []) this.#resolveIssueIfMatching(workObjectId, id);
+      return "NO_CHANGE";
     }
-    const focusRun = await this.#kernel.runCurrentFocusAgent({ runId: `maintenance-focus:${job.id}`, workObjectId, evidenceIds: [evidenceId], snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot });
-    if (focusRun.proposal && focusRun.revision) {
-      const freshEvidence = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: target.graphId, blockUuid: sourceBlockUuid }), "READ_EVIDENCE").material;
-      const formal = this.#kernel.applyProposalFormal({ operationId: `maintenance-focus-apply:${job.id}`, proposalId: focusRun.proposal.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence: [{ evidenceId, ...freshEvidence }] });
-      const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
-      this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
-      changed = true;
-      for (const issue of this.#store.listGovernanceIssues(workObjectId, "OPEN").filter((item) => item.dimension === "current_focus")) this.#kernel.resolveGovernanceIssue(issue.id);
-    } else if (!conflictDetected && terminalOutcome === "NO_CHANGE") {
-      const reason = focusRun.run.reasonCode;
-      if (reason === "AMBIGUOUS" || reason === "INSUFFICIENT_EVIDENCE") {
-        terminalOutcome = "UNKNOWN";
-        this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "current_focus", type: "UNKNOWN", summary: `current_focus cannot be safely inferred: ${reason}.`, evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
-      } else if (reason === "SCOPE_EXPANSION") {
-        terminalOutcome = "BOUNDARY_CANDIDATE";
-        this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "current_focus", type: "BOUNDARY_CANDIDATE", summary: "Source implies a lifecycle, identity, or scope change that automatic maintenance must not apply.", evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
-      }
+    if (judgment.kind === "UNKNOWN") {
+      this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: judgment.dimension, type: "UNKNOWN", summary: judgment.summary, evidenceIds, sourceSnapshotId: issueKey, formalVersion: object.version, correlationId: job.id });
+      return "UNKNOWN";
     }
-    if (changed) return "CONFIRMED_CHANGE";
-    return terminalOutcome;
+    if (judgment.kind === "CONFLICT") {
+      this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: judgment.dimension, type: "CONFLICT", summary: judgment.summary, evidenceIds, sourceSnapshotId: issueKey, formalVersion: object.version, correlationId: job.id });
+      return "CONFLICT";
+    }
+    this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: judgment.dimension, type: "BOUNDARY_CANDIDATE", summary: judgment.summary, evidenceIds, sourceSnapshotId: issueKey, formalVersion: object.version, correlationId: job.id });
+    return "BOUNDARY_CANDIDATE";
+  }
+
+  #selectedHandles(judgment: SemanticJudgment): string[] {
+    const raw = judgment.kind === "CONFIRMED_CHANGE" ? judgment.supportingContextHandles
+      : judgment.kind === "CONFLICT" ? judgment.conflictingContextHandles
+      : judgment.kind === "UNKNOWN" || judgment.kind === "BOUNDARY_CANDIDATE" ? judgment.relevantContextHandles
+      : judgment.supportingContextHandles ?? [];
+    return [...new Set(raw)];
+  }
+
+  #resolveIssueIfMatching(workObjectId: string, issueId: string): void {
+    const issue = this.#store.getGovernanceIssue(issueId);
+    if (issue && issue.workObjectId === workObjectId && issue.status === "OPEN") this.#kernel.resolveGovernanceIssue(issue.id);
+  }
+
+  async #buildContextPack(object: { id: string; kind: string; title: string; lifecycle: string; engagement: string | null; waitingCondition: { description: string } | null; currentFocus: string | null; desiredOutcome: string | null; completionChecks: readonly string[]; version: number }, graphId: string, sourceBlockUuid: string): Promise<ContextPackItem[]> {
+    const pack: ContextPackItem[] = [{
+      handle: "F0", role: "FORMAL_STATE", sourceRef: null, sourceHash: null, workObjectId: object.id,
+      content: JSON.stringify({ id: object.id, kind: object.kind, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks, version: object.version }),
+    }];
+    let handleIndex = 0;
+    const add = (role: ContextPackItem["role"], sourceRef: SourceRef | null, content: string, sourceHash: string | null): string => {
+      const handle = role === "SOURCE_DELTA" ? "S0" : `C${++handleIndex}`;
+      pack.push({ handle, role, sourceRef, sourceHash, content, workObjectId: object.id });
+      return handle;
+    };
+    try {
+      const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId, blockUuid: sourceBlockUuid }), "READ_BLOCK").block;
+      add("SOURCE_DELTA", { graphId, blockUuid: sourceBlockUuid }, block.content, block.contentHash);
+    } catch { /* source delta can be absent */ }
+    for (const context of this.#store.listContextAssociations(object.id, "ACTIVE").slice(0, this.#profile.maxContextItems - 2)) {
+      try {
+        const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId: context.sourceRef.graphId, blockUuid: context.sourceRef.blockUuid }), "READ_BLOCK").block;
+        add("ASSOCIATED_CONTEXT", context.sourceRef, block.content, block.contentHash);
+      } catch { /* missing context must not block */ }
+    }
+    return pack;
+  }
+
+  async #freezeSelected(workObjectId: string, jobId: string, items: ContextPackItem[]): Promise<string[]> {
+    const ids: string[] = [];
+    for (const [index, item] of items.filter((entry) => entry.sourceRef).entries()) {
+      const id = `cognition-evidence:${jobId}:${index}`;
+      const material = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: item.sourceRef!.graphId, blockUuid: item.sourceRef!.blockUuid }), "READ_EVIDENCE").material;
+      this.#kernel.freezeEvidence({ evidenceId: id, workObjectId, snapshot: material });
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  async #freshEvidence(evidenceIds: string[], refs: Array<SourceRef>): Promise<Array<{ evidenceId: string } & { graphId: string; blockUuid: string; content: string; sourceContentHash: string; proof: string }>> {
+    const result: Array<{ evidenceId: string } & { graphId: string; blockUuid: string; content: string; sourceContentHash: string; proof: string }> = [];
+    for (const [index, id] of evidenceIds.entries()) {
+      const ref = refs[index];
+      if (!ref) continue;
+      const material = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: ref.graphId, blockUuid: ref.blockUuid }), "READ_EVIDENCE").material;
+      result.push({ evidenceId: id, ...material });
+    }
+    return result;
   }
 }

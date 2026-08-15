@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type FeedbackEvent, type FrozenEvidence, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type FeedbackEvent, type FrozenEvidence, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type UserDecision } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -170,6 +170,44 @@ const schema = `
   );
   CREATE INDEX IF NOT EXISTS governance_issues_open_idx ON governance_issues(work_object_id, dimension, status);
   CREATE UNIQUE INDEX IF NOT EXISTS governance_issues_open_dedupe_idx ON governance_issues(work_object_id, dimension, type, source_snapshot_id) WHERE status='OPEN';
+  CREATE TABLE IF NOT EXISTS decision_packages (
+    id TEXT PRIMARY KEY,
+    work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+    summary TEXT NOT NULL,
+    rationale TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('OPEN', 'ACCEPTED', 'REJECTED', 'STALE')),
+    target_versions_json TEXT NOT NULL,
+    issue_refs_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS decision_candidates (
+    id TEXT PRIMARY KEY,
+    package_id TEXT NOT NULL REFERENCES decision_packages(id) ON DELETE CASCADE,
+    operation_type TEXT NOT NULL,
+    parameters_json TEXT NOT NULL,
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL CHECK (status IN ('OPEN', 'ACCEPTED', 'REJECTED', 'DEFERRED')),
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS decision_candidates_package_idx ON decision_candidates(package_id, status);
+  CREATE TABLE IF NOT EXISTS user_decisions (
+    id TEXT PRIMARY KEY,
+    work_object_ids_json TEXT NOT NULL,
+    operation_type TEXT NOT NULL,
+    parameters_json TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    exact_user_utterance TEXT NOT NULL,
+    minimal_decision_context TEXT NOT NULL,
+    input_versions_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('EXECUTED', 'REJECTED', 'STALE', 'AUTHORIZED')),
+    package_id TEXT,
+    authorization_ref TEXT,
+    created_at TEXT NOT NULL,
+    executed_at TEXT,
+    execution_refs_json TEXT NOT NULL DEFAULT '[]'
+  );
+  CREATE INDEX IF NOT EXISTS user_decisions_package_idx ON user_decisions(package_id, status);
   CREATE TABLE IF NOT EXISTS skill_versions (
     id TEXT NOT NULL, version TEXT NOT NULL, content_hash TEXT NOT NULL, package_json TEXT NOT NULL,
     registered_at TEXT NOT NULL, PRIMARY KEY(id, version)
@@ -261,6 +299,7 @@ export class SqliteStore {
     this.#migrateV9();
     this.#migrateV10();
     this.#migrateV11();
+    this.#migrateV12();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -434,6 +473,48 @@ export class SqliteStore {
   #migrateV11(): void {
     if (!this.#hasColumn("reconcile_jobs", "source_block_uuid")) this.#database.exec("ALTER TABLE reconcile_jobs ADD COLUMN source_block_uuid TEXT");
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (11, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV12(): void {
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS decision_packages (
+      id TEXT PRIMARY KEY,
+      work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+      summary TEXT NOT NULL,
+      rationale TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('OPEN', 'ACCEPTED', 'REJECTED', 'STALE')),
+      target_versions_json TEXT NOT NULL,
+      issue_refs_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS decision_candidates (
+      id TEXT PRIMARY KEY,
+      package_id TEXT NOT NULL REFERENCES decision_packages(id) ON DELETE CASCADE,
+      operation_type TEXT NOT NULL,
+      parameters_json TEXT NOT NULL,
+      evidence_ids_json TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL CHECK (status IN ('OPEN', 'ACCEPTED', 'REJECTED', 'DEFERRED')),
+      created_at TEXT NOT NULL
+    )`);
+    this.#database.exec("CREATE INDEX IF NOT EXISTS decision_candidates_package_idx ON decision_candidates(package_id, status)");
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS user_decisions (
+      id TEXT PRIMARY KEY,
+      work_object_ids_json TEXT NOT NULL,
+      operation_type TEXT NOT NULL,
+      parameters_json TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      exact_user_utterance TEXT NOT NULL,
+      minimal_decision_context TEXT NOT NULL,
+      input_versions_json TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('EXECUTED', 'REJECTED', 'STALE', 'AUTHORIZED')),
+      package_id TEXT,
+      authorization_ref TEXT,
+      created_at TEXT NOT NULL,
+      executed_at TEXT,
+      execution_refs_json TEXT NOT NULL DEFAULT '[]'
+    )`);
+    this.#database.exec("CREATE INDEX IF NOT EXISTS user_decisions_package_idx ON user_decisions(package_id, status)");
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (12, ?)").run(new Date().toISOString());
   }
 
   close(): void { this.#database.close(); }
@@ -941,6 +1022,66 @@ export class SqliteStore {
       formalVersion: Number(row.formal_version), correlationId: row.correlation_id === null ? null : String(row.correlation_id),
       createdAt: String(row.created_at), updatedAt: String(row.updated_at), resolvedAt: row.resolved_at === null ? null : String(row.resolved_at),
     };
+  }
+
+  putDecisionPackage(pkg: DecisionPackage): void {
+    this.#database.prepare(`INSERT INTO decision_packages(id, work_object_id, summary, rationale, status, target_versions_json, issue_refs_json, created_at, updated_at)
+      VALUES (@id, @workObjectId, @summary, @rationale, @status, @targetVersions, @issueRefs, @createdAt, @updatedAt)`)
+      .run({ ...pkg, targetVersions: encode(pkg.targetVersions), issueRefs: encode(pkg.issueRefs) });
+  }
+
+  getDecisionPackage(id: string): DecisionPackage | null {
+    const row = this.#database.prepare("SELECT * FROM decision_packages WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return { id: String(row.id), workObjectId: String(row.work_object_id), summary: String(row.summary), rationale: String(row.rationale), status: row.status as DecisionPackage["status"], targetVersions: decode(String(row.target_versions_json)) as Record<string, number>, issueRefs: decode(String(row.issue_refs_json)) as string[], createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
+  }
+
+  listDecisionPackages(status?: DecisionPackage["status"]): DecisionPackage[] {
+    const rows = status ? this.#database.prepare("SELECT id FROM decision_packages WHERE status=? ORDER BY created_at,id").all(status) as Array<{ id: string }> : this.#database.prepare("SELECT id FROM decision_packages ORDER BY created_at,id").all() as Array<{ id: string }>;
+    return rows.map((row) => this.getDecisionPackage(row.id)!).filter(Boolean);
+  }
+
+  transitionDecisionPackage(id: string, status: DecisionPackage["status"], at: string): void {
+    const changed = this.#database.prepare("UPDATE decision_packages SET status=?, updated_at=? WHERE id=?").run(status, at, id);
+    if (!changed.changes) throw new Error("DECISION_PACKAGE_NOT_FOUND");
+  }
+
+  putDecisionCandidate(candidate: DecisionCandidate): void {
+    this.#database.prepare(`INSERT INTO decision_candidates(id, package_id, operation_type, parameters_json, evidence_ids_json, status, created_at)
+      VALUES (@id, @packageId, @operationType, @parameters, @evidenceIds, @status, @createdAt)`)
+      .run({ ...candidate, parameters: encode(candidate.parameters), evidenceIds: encode(candidate.evidenceIds) });
+  }
+
+  listDecisionCandidates(packageId: string, status?: DecisionCandidate["status"]): DecisionCandidate[] {
+    const rows = status ? this.#database.prepare("SELECT * FROM decision_candidates WHERE package_id=? AND status=? ORDER BY created_at,id").all(packageId, status) as Array<Record<string, unknown>> : this.#database.prepare("SELECT * FROM decision_candidates WHERE package_id=? ORDER BY created_at,id").all(packageId) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({ id: String(row.id), packageId: String(row.package_id), operationType: row.operation_type as OperationType, parameters: decode(String(row.parameters_json)), evidenceIds: decode(String(row.evidence_ids_json)) as string[], status: row.status as DecisionCandidate["status"], createdAt: String(row.created_at) }));
+  }
+
+  transitionDecisionCandidate(id: string, status: DecisionCandidate["status"]): void {
+    const changed = this.#database.prepare("UPDATE decision_candidates SET status=? WHERE id=?").run(status, id);
+    if (!changed.changes) throw new Error("DECISION_CANDIDATE_NOT_FOUND");
+  }
+
+  putUserDecision(decision: UserDecision): void {
+    this.#database.prepare(`INSERT INTO user_decisions(id, work_object_ids_json, operation_type, parameters_json, scope, exact_user_utterance, minimal_decision_context, input_versions_json, status, package_id, authorization_ref, created_at, executed_at, execution_refs_json)
+      VALUES (@id, @workObjectIds, @operationType, @parameters, @scope, @exactUserUtterance, @minimalDecisionContext, @inputVersions, @status, @packageId, @authorizationRef, @createdAt, @executedAt, @executionRefs)`)
+      .run({ ...decision, workObjectIds: encode(decision.workObjectIds), parameters: encode(decision.parameters), inputVersions: encode(decision.inputVersions), executionRefs: encode(decision.executionRefs) });
+  }
+
+  getUserDecision(id: string): UserDecision | null {
+    const row = this.#database.prepare("SELECT * FROM user_decisions WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return { id: String(row.id), workObjectIds: decode(String(row.work_object_ids_json)) as string[], operationType: row.operation_type as OperationType, parameters: decode(String(row.parameters_json)), scope: String(row.scope), exactUserUtterance: String(row.exact_user_utterance), minimalDecisionContext: String(row.minimal_decision_context), inputVersions: decode(String(row.input_versions_json)) as Record<string, number>, status: row.status as UserDecision["status"], packageId: row.package_id === null ? null : String(row.package_id), authorizationRef: row.authorization_ref === null ? null : String(row.authorization_ref), createdAt: String(row.created_at), executedAt: row.executed_at === null ? null : String(row.executed_at), executionRefs: decode(String(row.execution_refs_json)) as string[] };
+  }
+
+  listUserDecisions(packageId?: string): UserDecision[] {
+    const rows = packageId ? this.#database.prepare("SELECT id FROM user_decisions WHERE package_id=? ORDER BY created_at,id").all(packageId) as Array<{ id: string }> : this.#database.prepare("SELECT id FROM user_decisions ORDER BY created_at,id").all() as Array<{ id: string }>;
+    return rows.map((row) => this.getUserDecision(row.id)!).filter(Boolean);
+  }
+
+  updateUserDecisionExecution(id: string, status: UserDecision["status"], executedAt: string, executionRefs: readonly string[]): void {
+    const changed = this.#database.prepare("UPDATE user_decisions SET status=?, executed_at=?, execution_refs_json=? WHERE id=?").run(status, executedAt, encode(executionRefs), id);
+    if (!changed.changes) throw new Error("USER_DECISION_NOT_FOUND");
   }
 
   #mapReconcileJob(row: Record<string, unknown>): ReconcileJob {

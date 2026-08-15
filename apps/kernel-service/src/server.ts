@@ -3,15 +3,15 @@ import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 
-import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
-import { parseSemanticOperation, type CurrentFocusAgent, type EngagementAgent, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
+import { DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, FakeContextAwareExecutor, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
+import { parseSemanticOperation, type CognitionExecutor, type CurrentFocusAgent, type EngagementAgent, type ExecutionProfile, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -50,7 +50,13 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey, ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}), ...(options.projectionTemporaryBackoffMs ? { projectionTemporaryBackoffMs: options.projectionTemporaryBackoffMs } : {}) });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
   const external = new ExternalAgentCoordinator(kernel, store, broker, options.now);
-  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now });
+  const cognitionExecutor = options.cognitionExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekV4FlashExecutor() : new FakeContextAwareExecutor());
+  const executionProfile = options.executionProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
+    id: "deepseek-default", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
+    allowedDataScope: ["formal_state", "current_workobject_context"], maxContextItems: 8, maxInputChars: 24_000,
+    reasoningEffort: "high" as const, timeoutMs: 30_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
+  } : { id: "builtin-fake", executor: "FAKE" as const, remoteEnabled: false, allowedDataScope: ["formal_state", "current_workobject_context"], maxContextItems: 12, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 2, credentialRef: null });
+  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now }, cognitionExecutor, executionProfile);
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -132,6 +138,30 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && issueTransition) {
         const issue = issueTransition[2] === "resolve" ? kernel.resolveGovernanceIssue(decodeURIComponent(issueTransition[1]!)) : kernel.supersedeGovernanceIssue(decodeURIComponent(issueTransition[1]!));
         send(response, 200, { issue }); return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/decision-packages") {
+        const status = url.searchParams.get("status");
+        const allowed = new Set(["OPEN", "ACCEPTED", "REJECTED", "STALE"]);
+        send(response, 200, { packages: kernel.listDecisionPackages(status && allowed.has(status) ? status as "OPEN" | "ACCEPTED" | "REJECTED" | "STALE" : undefined) }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/decision-packages") {
+        const value = await body(request) as Parameters<Kernel["createDecisionPackage"]>[0];
+        send(response, 201, kernel.createDecisionPackage(value)); return;
+      }
+      const packageCandidates = /^\/v1\/decision-packages\/([^/]+)\/candidates$/u.exec(url.pathname);
+      if (request.method === "GET" && packageCandidates) {
+        send(response, 200, { candidates: kernel.listDecisionCandidates(decodeURIComponent(packageCandidates[1]!)) }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/user-decisions/compile") {
+        const value = await body(request) as Parameters<Kernel["compileUserDecision"]>[0];
+        send(response, 201, kernel.compileUserDecision(value)); return;
+      }
+      const decisionExecute = /^\/v1\/user-decisions\/([^/]+)\/execute$/u.exec(url.pathname);
+      if (request.method === "POST" && decisionExecute) {
+        send(response, 200, kernel.executeUserDecision(decodeURIComponent(decisionExecute[1]!))); return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/user-decisions") {
+        send(response, 200, { decisions: kernel.listUserDecisions(url.searchParams.get("package") ?? undefined) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/graph/search") { const value = await body(request) as { query: string; limit?: number; runId?: string }; send(response, 200, await external.search({ query: value.query, limit: value.limit ?? 20, ...(value.runId ? { runId: value.runId } : {}) })); return; }
       const graphBlock = /^\/v1\/graph\/blocks\/([^/]+)$/u.exec(url.pathname);

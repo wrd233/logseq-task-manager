@@ -726,8 +726,7 @@ export interface AssociationCorrection {
   createdAt: string;
 }
 
-export type GovernanceIssueType = "UNKNOWN" | "CONFLICT" | "BOUNDARY_CANDIDATE";
-export type GovernanceIssueStatus = "OPEN" | "RESOLVED" | "SUPERSEDED";
+export type GovernanceIssueType = "UNKNOWN" | "CONFLICT" | "BOUNDARY_CANDIDATE";export type GovernanceIssueStatus = "OPEN" | "RESOLVED" | "SUPERSEDED";
 
 export interface GovernanceIssue {
   id: string;
@@ -744,6 +743,95 @@ export interface GovernanceIssue {
   updatedAt: string;
   resolvedAt: string | null;
 }
+
+export type ContextPackRole = "FORMAL_STATE" | "SOURCE_DELTA" | "ASSOCIATED_CONTEXT" | "OPEN_ISSUE" | "HISTORICAL_EVIDENCE";
+export interface ContextPackItem {
+  handle: string;
+  role: ContextPackRole;
+  sourceRef: SourceRef | null;
+  sourceHash: string | null;
+  content: string;
+  workObjectId?: string | null;
+}
+
+export type SemanticJudgment =
+  | { kind: "CONFIRMED_CHANGE"; dimension: string; proposedOperation: { type: "SET_CURRENT_FOCUS"; currentFocus: string | null } | { type: "CHANGE_ENGAGEMENT"; transition: { from: "ACTIONABLE" | "WAITING"; to: "ACTIONABLE" | "WAITING"; waiting: { description: string; reviewAt: string | null } | null } }; supportingContextHandles: string[]; rationaleSummary: string; resolvesIssueIds?: string[] }
+  | { kind: "NO_CHANGE"; dimension: string; supportingContextHandles?: string[]; rationaleSummary: string; resolvesIssueIds?: string[] }
+  | { kind: "UNKNOWN"; dimension: string; relevantContextHandles: string[]; summary: string }
+  | { kind: "CONFLICT"; dimension: string; conflictingContextHandles: string[]; summary: string }
+  | { kind: "BOUNDARY_CANDIDATE"; dimension: string; relevantContextHandles: string[]; summary: string };
+
+export interface ExecutionProfile {
+  id: string;
+  executor: "FAKE" | "DEEPSEEK";
+  modelAlias?: string;
+  remoteEnabled: boolean;
+  allowedDataScope: readonly string[];
+  maxContextItems: number;
+  maxInputChars: number;
+  reasoningEffort?: "high" | "max";
+  timeoutMs: number;
+  retryBudget: number;
+  credentialRef: string | null;
+}
+
+export interface CognitionJudgeInput {
+  object: WorkObject;
+  contextPack: ContextPackItem[];
+  openIssues: GovernanceIssue[];
+  profile: ExecutionProfile;
+}
+
+export interface CognitionExecutor {
+  readonly id: string;
+  judge(input: CognitionJudgeInput): Promise<SemanticJudgment>;
+}
+
+export interface DecisionCandidate {
+  id: string;
+  packageId: string;
+  operationType: OperationType;
+  parameters: unknown;
+  evidenceIds: readonly string[];
+  status: "OPEN" | "ACCEPTED" | "REJECTED" | "DEFERRED";
+}
+
+export interface DecisionPackage {
+  id: string;
+  workObjectId: string;
+  summary: string;
+  rationale: string;
+  status: "OPEN" | "ACCEPTED" | "REJECTED" | "STALE";
+  targetVersions: Record<string, number>;
+  issueRefs: readonly string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserDecision {
+  id: string;
+  workObjectIds: readonly string[];
+  operationType: OperationType;
+  parameters: unknown;
+  scope: string;
+  exactUserUtterance: string;
+  minimalDecisionContext: string;
+  inputVersions: Record<string, number>;
+  status: "EXECUTED" | "REJECTED" | "STALE" | "AUTHORIZED";
+  packageId: string | null;
+  authorizationRef: string | null;
+  createdAt: string;
+  executedAt: string | null;
+  executionRefs: readonly string[];
+}
+
+export type UserDecisionCompileResult =
+  | { kind: "AUTHORIZED_DECISION"; decision: UserDecision }
+  | { kind: "NEEDS_CLARIFICATION"; reason: string }
+  | { kind: "NOT_AUTHORIZATION"; reason: string }
+  | { kind: "STALE"; reason: string }
+  | { kind: "AMBIGUOUS"; reason: string }
+  | { kind: "UNSUPPORTED"; reason: string };
 
 export interface GraphAdapter {
   readGraphSnapshot(input: GraphSnapshotInput): Promise<GraphSnapshot>;

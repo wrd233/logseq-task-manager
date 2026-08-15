@@ -11,7 +11,8 @@ type CliClient = Pick<KernelClient,
   "listTasteProfiles" | "showTasteProfile" | "addReferenceCuration" | "listCurationReceipts" |
   "listContextAssociations" | "associateContext" | "invalidateContextAssociation" | "recordAssociationCorrection" |
   "listGovernanceIssues" | "showGovernanceIssue" | "resolveGovernanceIssue" | "supersedeGovernanceIssue" |
-  "projectionHealth" | "listProjectionObligations" | "maintenanceStatus" | "setMaintenancePause" | "reconcileMaintenance">;
+  "projectionHealth" | "listProjectionObligations" | "maintenanceStatus" | "setMaintenancePause" | "reconcileMaintenance" |
+  "listDecisionPackages" | "listDecisionCandidates" | "compileUserDecision" | "executeUserDecision" | "listUserDecisions">;
 
 const rootHelp = `Task Copilot External Agent CLI
 
@@ -31,6 +32,8 @@ Commands:
   issue list [--object <id>] [--status OPEN|RESOLVED|SUPERSEDED] | issue show <id> | issue resolve <id> | issue supersede <id>
   projection health | projection list [--status PENDING|FAILED|VERIFIED|APPLIED]
   maintenance status | maintenance pause --scope global|object --paused true|false [--object <id>] | maintenance reconcile --object <id>
+  decision-package list [--status OPEN|ACCEPTED|REJECTED|STALE] | decision-package show <id>
+  decision compile --package <id> --utterance <text> | decision execute <id> | user-decision list [--package <id>]
   agent-run start --purpose current-focus|engagement|miniproject --object <id> --evidence <id>... [--executor-id codex] [--correlation <id>]
   agent-run finish <runId> --result-file <path|-> | agent-run show <id> | agent-run reads <id>
   proposal show <id> | proposal apply <id> --wait
@@ -45,7 +48,7 @@ function options(args: string[], name: string): string[] { const values: string[
 function required(args: string[], name: string): string { const value = option(args, name); if (!value || value.startsWith("--")) throw new ClientError("CLI_USAGE", `${name} is required.`, 2); return value; }
 function integer(args: string[], name: string, fallback: number): number { const raw = option(args, name); if (raw === undefined) return fallback; const value = Number(raw); if (!Number.isSafeInteger(value) || value < 1) throw new ClientError("CLI_USAGE", `${name} must be a positive integer.`, 2); return value; }
 function positional(args: string[]): string[] {
-  const flagsWithValues = new Set(["--query", "--limit", "--run", "--object", "--block", "--id", "--purpose", "--evidence", "--executor-id", "--result-file", "--input-file", "--lifecycle", "--engagement", "--correlation", "--reference", "--section", "--existing-section", "--graph", "--origin", "--version-hash", "--scope", "--decision", "--affirmed", "--status", "--paused"]); const values: string[] = [];
+  const flagsWithValues = new Set(["--query", "--limit", "--run", "--object", "--block", "--id", "--purpose", "--evidence", "--executor-id", "--result-file", "--input-file", "--lifecycle", "--engagement", "--correlation", "--reference", "--section", "--existing-section", "--graph", "--origin", "--version-hash", "--scope", "--decision", "--affirmed", "--status", "--paused", "--utterance"]); const values: string[] = [];
   for (let index = 0; index < args.length; index += 1) { const item = args[index]!; if (flagsWithValues.has(item)) { index += 1; continue; } if (!item.startsWith("--")) values.push(item); } return values;
 }
 function usage(message: string): never { throw new ClientError("CLI_USAGE", message, 2); }
@@ -85,6 +88,11 @@ export async function runCli(argv: string[], client: CliClient, io: CliIO): Prom
     else if (words.join(" ") === "maintenance status") value = await client.maintenanceStatus();
     else if (words.join(" ") === "maintenance pause") { const scope = required(args, "--scope"); if (scope !== "global" && scope !== "object") usage("--scope must be global or object."); const paused = required(args, "--paused"); if (paused !== "true" && paused !== "false") usage("--paused must be true or false."); value = await client.setMaintenancePause(scope, paused === "true", scope === "object" ? required(args, "--object") : null); }
     else if (words.join(" ") === "maintenance reconcile") value = await client.reconcileMaintenance(required(args, "--object"), "INTERACTIVE");
+    else if (words.join(" ") === "decision-package list") { const status = option(args, "--status"); if (status && !["OPEN", "ACCEPTED", "REJECTED", "STALE"].includes(status)) usage("--status must be OPEN, ACCEPTED, REJECTED, or STALE."); value = await client.listDecisionPackages(status as "OPEN" | "ACCEPTED" | "REJECTED" | "STALE" | undefined); }
+    else if (words.length === 3 && words[0] === "decision-package" && words[1] === "show") { const found = (await client.listDecisionPackages()).packages.find((item) => item.id === words[2]!); if (!found) usage("Decision Package not found."); value = { package: found, candidates: await client.listDecisionCandidates(found.id) }; }
+    else if (words.join(" ") === "decision compile") value = await client.compileUserDecision({ utterance: required(args, "--utterance"), packageId: required(args, "--package") });
+    else if (words.length === 3 && words[0] === "decision" && words[1] === "execute") value = await client.executeUserDecision(words[2]!);
+    else if (words.join(" ") === "user-decision list") value = await client.listUserDecisions(option(args, "--package"));
     else if (words.join(" ") === "agent-run start") {
       const purpose = required(args, "--purpose"); if (purpose !== "current-focus" && purpose !== "engagement" && purpose !== "miniproject") usage("--purpose must be current-focus, engagement, or miniproject."); const evidenceIds = options(args, "--evidence"); if (!evidenceIds.length) usage("At least one --evidence is required.");
       const correlation = option(args, "--correlation");
