@@ -64,3 +64,9 @@ journal/2026-08-15 自然页写入两条 synthetic 记录
 ## Real Graph restraint 口径
 
 测试 Graph `logseq/` 包含大量真实 Journal / 项目 / 学习材料，用于观察 False Positive，不把原文提交进 repo。
+
+DeepSeek 实调（`/tmp/tc-phase12-deepseek-eval/`，16 类 synthetic + 20 条真实 Journal 样本，`deepseek-v4-flash`）：
+
+- synthetic 16 类：3 `ASSOCIATE_EXISTING`、12 `NO_CANDIDATE`、1 `TASK` candidate；one-off/reference/history/quote/ambiguous 全部未 formalize，**False Positive Formalization = 0**；
+- 真实 Journal 样本 20 条：1 条明确接回已有对象，19 条 `NO_CANDIDATE`；
+- latency：synthetic 94s（16 条，reasoning 为主）、真实样本 78s；token usage 记录在 DiscoveryRun。
