@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { deterministicUuid, stableHash, type CognitionExecutor, type ContextPackItem, type ExecutionProfile, type GraphEffect, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SemanticJudgment, type SourceChangeObservation, type SourceCoverageState, type SourceRef } from "@task-copilot/contracts";
+import { deterministicUuid, stableHash, type CognitionExecutor, type ContextPackItem, type ExecutionProfile, type GovernanceDimension, type GraphEffect, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SemanticJudgment, type SourceChangeObservation, type SourceCoverageState, type SourceRef } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import type { GraphRequestBroker } from "./graph-broker.ts";
@@ -193,8 +193,12 @@ export class MaintenanceCoordinator {
     const handles = (value: string[]): ContextPackItem[] => value.map((handle) => byHandle.get(handle)).filter((item): item is ContextPackItem => Boolean(item));
     const selectedItems = handles(this.#selectedHandles(judgment));
     const evidenceIds = await this.#freezeSelected(workObjectId, job.id, selectedItems);
-    const dimension = "dimension" in judgment ? judgment.dimension : "engagement";
-    const issueKey = stableHash([workObjectId, judgment.kind, dimension, ...selectedItems.map((item) => item.handle).sort()]);
+    const dimension = judgment.dimension;
+    const issueKey = stableHash([workObjectId, judgment.kind, dimension, ...selectedItems.map((item) => {
+      if (item.sourceRef) return `source:${item.sourceRef.graphId}:${item.sourceRef.blockUuid}`;
+      if (item.role === "FORMAL_STATE") return `formal-state:${item.workObjectId ?? "unknown"}`;
+      throw new Error("CONTEXT_ITEM_SOURCE_IDENTITY_MISSING");
+    }).sort()]);
 
     if (judgment.kind === "CONFIRMED_CHANGE") {
       const evidence = await this.#freshEvidence(evidenceIds, handles(judgment.supportingContextHandles).map((item) => item.sourceRef!).filter(Boolean));
@@ -240,7 +244,7 @@ export class MaintenanceCoordinator {
     return [...new Set(raw)];
   }
 
-  #resolveIssueIfMatching(workObjectId: string, issueId: string, dimension: string): void {
+  #resolveIssueIfMatching(workObjectId: string, issueId: string, dimension: GovernanceDimension): void {
     const issue = this.#store.getGovernanceIssue(issueId);
     if (issue && issue.workObjectId === workObjectId && issue.status === "OPEN" && issue.dimension === dimension) this.#kernel.resolveGovernanceIssue(issue.id);
   }

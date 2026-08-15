@@ -72,6 +72,10 @@ test("DeepSeek parsing is syntax-only extraction with no semantic repair", () =>
   const incomplete = '{"kind":"CONFIRMED_CHANGE","dimension":"engagement","proposedOperation":{"type":"CHANGE_ENGAGEMENT","transition":{"from":"ACTIONABLE","to":"WAITING","waiting":{"description":"等待","reviewAt":null}}},"rationaleSummary":"缺 handles"}';
   assert.throws(() => parseDeepSeekJudgmentText(incomplete), /DEEPSEEK_RESULT_HANDLES_INVALID/u);
   assert.throws(() => parseSemanticJudgment(JSON.parse(incomplete)), /DEEPSEEK_RESULT_HANDLES_INVALID/u);
+  // Dimension is a strict enum: unknown or missing dimensions never degrade to a fallback.
+  assert.throws(() => parseDeepSeekJudgmentText('{"kind":"NO_CHANGE","dimension":"future_scope","rationaleSummary":"未知维度"}'), /DEEPSEEK_RESULT_DIMENSION_INVALID/u);
+  assert.throws(() => parseSemanticJudgment({ kind: "NO_CHANGE", rationaleSummary: "缺维度" }), /DEEPSEEK_RESULT_DIMENSION_INVALID/u);
+  assert.equal(parseDeepSeekJudgmentText('{"kind":"BOUNDARY_CANDIDATE","dimension":"authority","relevantContextHandles":["S0"],"summary":"越权"}').kind, "BOUNDARY_CANDIDATE");
 });
 
 test("DeepSeek executor enforces profile fields and bounded retries without silent fallback", async () => {

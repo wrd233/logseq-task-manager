@@ -101,7 +101,7 @@ test("context associations are durable, dedupe, support correction memory, and n
 test("governance issues dedupe per dimension/snapshot and retain resolved history", async () => {
   const value = await setup("issues");
   try {
-    const draft = { workObjectId: value.workObjectId, dimension: "engagement", type: "CONFLICT" as const, summary: "互相矛盾的方向", evidenceIds: [], sourceSnapshotId: "snap-1", formalVersion: 1 };
+    const draft = { workObjectId: value.workObjectId, dimension: "engagement" as const, type: "CONFLICT" as const, summary: "互相矛盾的方向", evidenceIds: [], sourceSnapshotId: "snap-1", formalVersion: 1 };
     const first = await value.client.associateContext({ workObjectId: value.workObjectId, sourceRef: sourceRef(value.graphId, "source"), sourceVersionHash: value.source.sourceContentHash, origin: "SYSTEM_STRUCTURAL" });
     assert.equal(first.association.status, "ACTIVE");
     await value.client.resolveGovernanceIssue((await value.client.upsertGovernanceIssue(draft)).issue.id);
@@ -236,4 +236,54 @@ test("ExecutionProfile gates data scope, caps total context items, and truncates
     assert.equal(secondPacks.length, 1);
     assert.deepEqual(secondPacks[0]!.map((item) => item.role), ["FORMAL_STATE"]);
   } finally { stopSecond(); await second.service.close(); }
+});
+
+test("governance issue identity uses stable source refs, not pack handles or wording", async () => {
+  const value = await setup("issue-identity");
+  const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
+  const waitForOutcome = async (jobId: string, outcome: string) => {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      const job = (await value.client.maintenanceStatus()).jobs.find((item) => item.id === jobId);
+      if (job?.status === "DONE" && job.lastOutcome === outcome) return job;
+      if (job?.status === "FAILED") throw new Error(job.lastError ?? "RECONCILE_FAILED");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error("RECONCILE_OUTCOME_NOT_REACHED");
+  };
+  try {
+    await waitForGraphAvailable(value.client);
+    value.graph.seedNaturalRecord(value.graphId, "context-a", "A: 等厂商回复，没有其他可做");
+    value.graph.seedNaturalRecord(value.graphId, "context-b", "B: 当前还可以继续本地兼容性测试");
+    await value.client.associateContext({ workObjectId: value.workObjectId, sourceRef: sourceRef(value.graphId, "context-a"), sourceVersionHash: stableHash(value.graph.naturalContent(value.graphId, "context-a")), origin: "AGENT_INFERRED" });
+    const associationB = await value.client.associateContext({ workObjectId: value.workObjectId, sourceRef: sourceRef(value.graphId, "context-b"), sourceVersionHash: stableHash(value.graph.naturalContent(value.graphId, "context-b")), origin: "AGENT_INFERRED" });
+
+    const burst1 = value.graph.seedNaturalRecord(value.graphId, "burst-1", "今天补充了 A/B 两条记录");
+    let observed = await value.client.recordSourceChange({ workObjectId: value.workObjectId, graphId: value.graphId, sourceBlockUuid: "burst-1", sourceContentHash: burst1.sourceContentHash, sourceMarker: null, observedAt: at });
+    await waitForOutcome(observed.job.id, "CONFLICT");
+    const firstIssues = (await value.client.listGovernanceIssues(value.workObjectId, "OPEN")).issues;
+    assert.equal(firstIssues.length, 1);
+    const stableId = firstIssues[0]!.id;
+
+    // Same two source refs with updated content: same Issue identity, no duplicate.
+    value.graph.editNaturalContent(value.graphId, "burst-1", "今天补充了 A/B 两条记录（内容已更新）");
+    observed = await value.client.recordSourceChange({ workObjectId: value.workObjectId, graphId: value.graphId, sourceBlockUuid: "burst-1", sourceContentHash: stableHash(value.graph.naturalContent(value.graphId, "burst-1")), sourceMarker: null, observedAt: at });
+    await waitForOutcome(observed.job.id, "CONFLICT");
+    const sameSourceIssues = (await value.client.listGovernanceIssues(value.workObjectId, "OPEN")).issues;
+    assert.equal(sameSourceIssues.length, 1);
+    assert.equal(sameSourceIssues[0]!.id, stableId);
+
+    // Different conflict source set: a new Issue identity is allowed.
+    await value.client.invalidateContextAssociation(associationB.association.id);
+    value.graph.seedNaturalRecord(value.graphId, "context-c", "C: 还可以继续整理本地兼容性矩阵");
+    await value.client.associateContext({ workObjectId: value.workObjectId, sourceRef: sourceRef(value.graphId, "context-c"), sourceVersionHash: stableHash(value.graph.naturalContent(value.graphId, "context-c")), origin: "AGENT_INFERRED" });
+    const burst2 = value.graph.seedNaturalRecord(value.graphId, "burst-2", "另一批补充材料");
+    observed = await value.client.recordSourceChange({ workObjectId: value.workObjectId, graphId: value.graphId, sourceBlockUuid: "burst-2", sourceContentHash: burst2.sourceContentHash, sourceMarker: null, observedAt: at });
+    await waitForOutcome(observed.job.id, "CONFLICT");
+    const changedSourceIssues = (await value.client.listGovernanceIssues(value.workObjectId, "OPEN")).issues;
+    assert.equal(changedSourceIssues.length, 2);
+    assert.equal(changedSourceIssues.filter((item) => item.id === stableId).length, 1);
+    const newIssue = changedSourceIssues.find((item) => item.id !== stableId);
+    assert.ok(newIssue);
+    assert.notEqual(newIssue!.sourceSnapshotId, firstIssues[0]!.sourceSnapshotId);
+  } finally { stop(); await value.service.close(); }
 });

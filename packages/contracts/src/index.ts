@@ -727,11 +727,12 @@ export interface AssociationCorrection {
 }
 
 export type GovernanceIssueType = "UNKNOWN" | "CONFLICT" | "BOUNDARY_CANDIDATE";export type GovernanceIssueStatus = "OPEN" | "RESOLVED" | "SUPERSEDED";
+export type GovernanceDimension = "current_focus" | "engagement" | "authority";
 
 export interface GovernanceIssue {
   id: string;
   workObjectId: string;
-  dimension: string;
+  dimension: GovernanceDimension;
   type: GovernanceIssueType;
   status: GovernanceIssueStatus;
   summary: string;
@@ -755,11 +756,11 @@ export interface ContextPackItem {
 }
 
 export type SemanticJudgment =
-  | { kind: "CONFIRMED_CHANGE"; dimension: string; proposedOperation: { type: "SET_CURRENT_FOCUS"; currentFocus: string | null } | { type: "CHANGE_ENGAGEMENT"; transition: { from: "ACTIONABLE" | "WAITING"; to: "ACTIONABLE" | "WAITING"; waiting: { description: string; reviewAt: string | null } | null } }; supportingContextHandles: string[]; rationaleSummary: string; resolvesIssueIds?: string[] }
-  | { kind: "NO_CHANGE"; dimension: string; supportingContextHandles?: string[]; rationaleSummary: string; resolvesIssueIds?: string[] }
-  | { kind: "UNKNOWN"; dimension: string; relevantContextHandles: string[]; summary: string }
-  | { kind: "CONFLICT"; dimension: string; conflictingContextHandles: string[]; summary: string }
-  | { kind: "BOUNDARY_CANDIDATE"; dimension: string; relevantContextHandles: string[]; summary: string };
+  | { kind: "CONFIRMED_CHANGE"; dimension: GovernanceDimension; proposedOperation: { type: "SET_CURRENT_FOCUS"; currentFocus: string | null } | { type: "CHANGE_ENGAGEMENT"; transition: { from: "ACTIONABLE" | "WAITING"; to: "ACTIONABLE" | "WAITING"; waiting: { description: string; reviewAt: string | null } | null } }; supportingContextHandles: string[]; rationaleSummary: string; resolvesIssueIds?: string[] }
+  | { kind: "NO_CHANGE"; dimension: GovernanceDimension; supportingContextHandles?: string[]; rationaleSummary: string; resolvesIssueIds?: string[] }
+  | { kind: "UNKNOWN"; dimension: GovernanceDimension; relevantContextHandles: string[]; summary: string }
+  | { kind: "CONFLICT"; dimension: GovernanceDimension; conflictingContextHandles: string[]; summary: string }
+  | { kind: "BOUNDARY_CANDIDATE"; dimension: GovernanceDimension; relevantContextHandles: string[]; summary: string };
 
 export interface ExecutionProfile {
   id: string;

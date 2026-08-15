@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type FeedbackEvent, type FrozenEvidence, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type FeedbackEvent, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -1010,7 +1010,7 @@ export class SqliteStore {
       .run({ ...issue, evidenceIds: encode(issue.evidenceIds) });
   }
 
-  findOpenGovernanceIssue(workObjectId: string, dimension: string, type: GovernanceIssue["type"], sourceSnapshotId: string): GovernanceIssue | null {
+  findOpenGovernanceIssue(workObjectId: string, dimension: GovernanceDimension, type: GovernanceIssue["type"], sourceSnapshotId: string): GovernanceIssue | null {
     const row = this.#database.prepare("SELECT * FROM governance_issues WHERE work_object_id=? AND dimension=? AND type=? AND source_snapshot_id=? AND status='OPEN'").get(workObjectId, dimension, type, sourceSnapshotId) as Record<string, unknown> | undefined;
     return row ? this.#mapGovernanceIssue(row) : null;
   }
@@ -1053,7 +1053,7 @@ export class SqliteStore {
 
   #mapGovernanceIssue(row: Record<string, unknown>): GovernanceIssue {
     return {
-      id: String(row.id), workObjectId: String(row.work_object_id), dimension: String(row.dimension),
+      id: String(row.id), workObjectId: String(row.work_object_id), dimension: row.dimension as GovernanceDimension,
       type: row.type as GovernanceIssue["type"], status: row.status as GovernanceIssue["status"], summary: String(row.summary),
       evidenceIds: decode(String(row.evidence_ids_json)) as string[], sourceSnapshotId: String(row.source_snapshot_id),
       formalVersion: Number(row.formal_version), correlationId: row.correlation_id === null ? null : String(row.correlation_id),

@@ -1,4 +1,4 @@
-import type { CognitionExecutor, SemanticJudgment } from "@task-copilot/contracts";
+import type { CognitionExecutor, GovernanceDimension, SemanticJudgment } from "@task-copilot/contracts";
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("DEEPSEEK_RESULT_NOT_OBJECT");
@@ -10,15 +10,20 @@ function strings(value: unknown): string[] {
   return value.map((item) => { if (typeof item !== "string") throw new Error("DEEPSEEK_RESULT_HANDLE_INVALID"); return item; });
 }
 
+function dimension(value: unknown): GovernanceDimension {
+  if (value !== "current_focus" && value !== "engagement" && value !== "authority") throw new Error("DEEPSEEK_RESULT_DIMENSION_INVALID");
+  return value;
+}
+
 export function parseSemanticJudgment(value: unknown): SemanticJudgment {
   const raw = record(value);
   const kind = raw.kind;
+  const scopeDimension = () => dimension(raw.dimension);
   if (kind === "CONFIRMED_CHANGE") {
-    const dimension = typeof raw.dimension === "string" ? raw.dimension : "";
     const operation = record(raw.proposedOperation);
     if (operation.type === "SET_CURRENT_FOCUS") {
       if (!("currentFocus" in operation) || (operation.currentFocus !== null && typeof operation.currentFocus !== "string")) throw new Error("DEEPSEEK_CURRENT_FOCUS_INVALID");
-      return { kind: "CONFIRMED_CHANGE", dimension, proposedOperation: { type: "SET_CURRENT_FOCUS", currentFocus: operation.currentFocus as string | null }, supportingContextHandles: strings(raw.supportingContextHandles), rationaleSummary: String(raw.rationaleSummary ?? ""), ...(Array.isArray(raw.resolvesIssueIds) ? { resolvesIssueIds: strings(raw.resolvesIssueIds) } : {}) };
+      return { kind: "CONFIRMED_CHANGE", dimension: scopeDimension(), proposedOperation: { type: "SET_CURRENT_FOCUS", currentFocus: operation.currentFocus as string | null }, supportingContextHandles: strings(raw.supportingContextHandles), rationaleSummary: String(raw.rationaleSummary ?? ""), ...(Array.isArray(raw.resolvesIssueIds) ? { resolvesIssueIds: strings(raw.resolvesIssueIds) } : {}) };
     }
     if (operation.type === "CHANGE_ENGAGEMENT") {
       const transition = record(operation.transition);
@@ -27,17 +32,17 @@ export function parseSemanticJudgment(value: unknown): SemanticJudgment {
       if (transition.to === "WAITING") {
         const waiting = record(transition.waiting);
         if (typeof waiting.description !== "string") throw new Error("DEEPSEEK_WAITING_DESCRIPTION_REQUIRED");
-        return { kind: "CONFIRMED_CHANGE", dimension, proposedOperation: { type: "CHANGE_ENGAGEMENT", transition: { from: transition.from, to: transition.to, waiting: { description: waiting.description, reviewAt: waiting.reviewAt === null ? null : String(waiting.reviewAt) } } }, supportingContextHandles: strings(raw.supportingContextHandles), rationaleSummary: String(raw.rationaleSummary ?? ""), ...(Array.isArray(raw.resolvesIssueIds) ? { resolvesIssueIds: strings(raw.resolvesIssueIds) } : {}) };
+        return { kind: "CONFIRMED_CHANGE", dimension: scopeDimension(), proposedOperation: { type: "CHANGE_ENGAGEMENT", transition: { from: transition.from, to: transition.to, waiting: { description: waiting.description, reviewAt: waiting.reviewAt === null ? null : String(waiting.reviewAt) } } }, supportingContextHandles: strings(raw.supportingContextHandles), rationaleSummary: String(raw.rationaleSummary ?? ""), ...(Array.isArray(raw.resolvesIssueIds) ? { resolvesIssueIds: strings(raw.resolvesIssueIds) } : {}) };
       }
       if (transition.waiting !== null && transition.waiting !== undefined) throw new Error("DEEPSEEK_WAITING_FORBIDDEN");
-      return { kind: "CONFIRMED_CHANGE", dimension, proposedOperation: { type: "CHANGE_ENGAGEMENT", transition: { from: transition.from, to: transition.to, waiting: null } }, supportingContextHandles: strings(raw.supportingContextHandles), rationaleSummary: String(raw.rationaleSummary ?? ""), ...(Array.isArray(raw.resolvesIssueIds) ? { resolvesIssueIds: strings(raw.resolvesIssueIds) } : {}) };
+      return { kind: "CONFIRMED_CHANGE", dimension: scopeDimension(), proposedOperation: { type: "CHANGE_ENGAGEMENT", transition: { from: transition.from, to: transition.to, waiting: null } }, supportingContextHandles: strings(raw.supportingContextHandles), rationaleSummary: String(raw.rationaleSummary ?? ""), ...(Array.isArray(raw.resolvesIssueIds) ? { resolvesIssueIds: strings(raw.resolvesIssueIds) } : {}) };
     }
     throw new Error("DEEPSEEK_OPERATION_UNSUPPORTED");
   }
-  if (kind === "NO_CHANGE") return { kind: "NO_CHANGE", dimension: String(raw.dimension ?? ""), ...(Array.isArray(raw.supportingContextHandles) ? { supportingContextHandles: strings(raw.supportingContextHandles) } : {}), rationaleSummary: String(raw.rationaleSummary ?? ""), ...(Array.isArray(raw.resolvesIssueIds) ? { resolvesIssueIds: strings(raw.resolvesIssueIds) } : {}) };
-  if (kind === "UNKNOWN") return { kind: "UNKNOWN", dimension: String(raw.dimension ?? ""), relevantContextHandles: strings(raw.relevantContextHandles), summary: String(raw.summary ?? "") };
-  if (kind === "CONFLICT") return { kind: "CONFLICT", dimension: String(raw.dimension ?? ""), conflictingContextHandles: strings(raw.conflictingContextHandles), summary: String(raw.summary ?? "") };
-  if (kind === "BOUNDARY_CANDIDATE") return { kind: "BOUNDARY_CANDIDATE", dimension: String(raw.dimension ?? ""), relevantContextHandles: strings(raw.relevantContextHandles), summary: String(raw.summary ?? "") };
+  if (kind === "NO_CHANGE") return { kind: "NO_CHANGE", dimension: scopeDimension(), ...(Array.isArray(raw.supportingContextHandles) ? { supportingContextHandles: strings(raw.supportingContextHandles) } : {}), rationaleSummary: String(raw.rationaleSummary ?? ""), ...(Array.isArray(raw.resolvesIssueIds) ? { resolvesIssueIds: strings(raw.resolvesIssueIds) } : {}) };
+  if (kind === "UNKNOWN") return { kind: "UNKNOWN", dimension: scopeDimension(), relevantContextHandles: strings(raw.relevantContextHandles), summary: String(raw.summary ?? "") };
+  if (kind === "CONFLICT") return { kind: "CONFLICT", dimension: scopeDimension(), conflictingContextHandles: strings(raw.conflictingContextHandles), summary: String(raw.summary ?? "") };
+  if (kind === "BOUNDARY_CANDIDATE") return { kind: "BOUNDARY_CANDIDATE", dimension: scopeDimension(), relevantContextHandles: strings(raw.relevantContextHandles), summary: String(raw.summary ?? "") };
   throw new Error("DEEPSEEK_KIND_UNSUPPORTED");
 }
 
@@ -117,12 +122,13 @@ Allowed output is exactly one JSON object:
 - {"kind":"CONFIRMED_CHANGE","dimension":"current_focus","proposedOperation":{"type":"SET_CURRENT_FOCUS","currentFocus":"..."},"supportingContextHandles":["C1"],"rationaleSummary":"..."}
 - {"kind":"CONFIRMED_CHANGE","dimension":"engagement","proposedOperation":{"type":"CHANGE_ENGAGEMENT","transition":{"from":"ACTIONABLE","to":"WAITING","waiting":{"description":"...","reviewAt":null}}},"supportingContextHandles":[...],"rationaleSummary":"..."}
 - or transition {"from":"WAITING","to":"ACTIONABLE","waiting":null}
-- {"kind":"NO_CHANGE","dimension":"...","rationaleSummary":"..."}
-- {"kind":"UNKNOWN","dimension":"...","relevantContextHandles":[...],"summary":"..."}
-- {"kind":"CONFLICT","dimension":"...","conflictingContextHandles":[...],"summary":"..."}
-- {"kind":"BOUNDARY_CANDIDATE","dimension":"...","relevantContextHandles":[...],"summary":"..."}
+- {"kind":"NO_CHANGE","dimension":"current_focus|engagement|authority","rationaleSummary":"..."}
+- {"kind":"UNKNOWN","dimension":"current_focus|engagement|authority","relevantContextHandles":[...],"summary":"..."}
+- {"kind":"CONFLICT","dimension":"current_focus|engagement|authority","conflictingContextHandles":[...],"summary":"..."}
+- {"kind":"BOUNDARY_CANDIDATE","dimension":"current_focus|engagement|authority","relevantContextHandles":[...],"summary":"..."}
 
 Rules:
+- dimension MUST be exactly one of: current_focus, engagement, authority.
 - Choose only handles that actually support the judgment.
 - current_focus must reflect current reality, not advice, and must be a single bounded focus.
 - Set WAITING only when the WHOLE object has no reasonable active path; a local blocker is not enough.
